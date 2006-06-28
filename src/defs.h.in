@@ -1,0 +1,110 @@
+#ifndef DEFINITIONS_H
+#define DEFINITIONS_H 
+/*  
+ *  @WARNING1@
+ *  @WARNING2@
+ */
+/*==============================================================================
+ * FILE: defs.h.in
+ *
+ * PURPOSE: Template file for defs.h.  When 'configure' is run, a new defs.h
+ *   file will be created (overwriting the last) from this template in which
+ *   various cpp macros are defined selected from the options available here.  
+ *
+ * TO BY-PASS CONFIGURE: copy this file into defs.h, and edit the cpp macros
+ *   by hand.
+ *============================================================================*/
+
+/*----------------------------------------------------------------------------*/
+/*  macros which define physics and algorithm
+ *  (user modified via configure) */
+
+/* Version identifier when configure was last run */
+#define CONFIGURE_DATE "@A_CONFIGURE_DATE@"
+
+/* Problem generator with which Athena is compiled */
+#define A_PROBLEM "@PROBLEM@"
+/* HYDRO or MHD */
+#define @GAS@
+/* ADIABATIC or ISOTHERMAL */
+#define @EOS@
+
+/* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER */
+#define @ACCURACY@
+/* flux_{roe, hlle, hllc, hlld, force} */
+#define GET_FLUXES flux_@FLUX_TYPE@
+#define FLUX_NAME "@FLUX_TYPE@"
+/* 3D integrator: CTU or VL */
+#define @THREE_DIM_INT@
+
+/* Real: DOUBLE_PREC or SINGLE_PREC */
+#define @PRECISION@
+/* debug mode: DEBUG */
+#define @DEBUG@
+/* Write ghost cells in the output data: WRITE_GHOST_CELLS */
+#define @WRITE_GHOST_MODE@
+/* MPI parallelism: MPI_PARALLEL */
+#define @MPI_MODE@
+
+/*----------------------------------------------------------------------------*/
+/* macros associated with numerical algorithm (rarely modified) */
+
+/* nghost = Number of Ghost Cells 
+ * num_digit = Number of digits in data dump file
+ */
+
+enum {
+  nghost = 5,
+  num_digit = 4
+};
+
+/*----------------------------------------------------------------------------*/
+/* general purpose macros (never modified) */
+#ifndef MIN
+#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
+#endif
+#ifndef MAX
+#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
+#endif
+#define SIGN(a) ( ((a) < 0.) ? -1. : 1. )
+#define SQR(x) ( (x)*(x) )
+#define STR(x) #x
+#define SQRT2 1.4142135623730951
+#define ONE_OVER_SQRT2 0.7071067811865475
+#define PI       3.14159265358979323846
+#define ONE_3RD  0.3333333333333333
+#define TWO_3RDS 0.6666666666666667
+#define TINY_NUMBER 1.0e-20
+#define HUGE_NUMBER 1.0e+20
+
+/*----------------------------------------------------------------------------*/
+/* computed macros based on above choices (never modified) */
+
+#ifdef ISOTHERMAL /* ISOTHERMAL EOS */
+#ifdef HYDRO
+ enum {NWAVE = 4, NVAR = 4};
+#endif
+#ifdef MHD
+ enum {NWAVE = 6, NVAR = 7};
+#endif
+#else /* ADIABATIC or other EOS */
+#ifdef HYDRO
+ enum {NWAVE = 5, NVAR = 5};
+#endif
+#ifdef MHD
+ enum {NWAVE = 7, NVAR = 8};
+#endif
+#endif /* ISOTHERMAL */
+
+/*----------------------------------------------------------------------------*/
+
+#ifdef MPI_PARALLEL
+enum {boundary_cells_tag,
+      sync_step_tag,
+      problem0_tag,
+      problem1_tag,
+      problem2_tag
+};
+#endif /* MPI_PARALLEL */
+
+#endif /* DEFINITIONS_H */
