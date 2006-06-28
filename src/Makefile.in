@@ -1,0 +1,108 @@
+#    @WARNING1@
+#    @WARNING2@
+#===============================================================================
+# FILE: Makefile.in
+#
+# PURPOSE: Template for src/Makefile.  When 'configure' is run, a new Makefile
+# will be created (overwriting the last) from this template.
+#
+# TO BY-PASS CONFIGURE: copy this file into Makefile, and edit by hand to set
+#   the appropriate object files, compiler options, and library paths.
+#
+#-------------------  object files  --------------------------------------------
+CORE_OBJ = ath_array.o \
+           ath_files.o \
+           ath_parallel.o \
+           ath_signal.o \
+           dump_binary.o \
+           dump_dx.o \
+           dump_history.o \
+           dump_table.o \
+           dump_vtk.o \
+           init_grid_block.o \
+           main.o \
+           output.o \
+           output_fits.o \
+           output_pdf.o \
+           output_pgm.o \
+           output_ppm.o \
+           output_tab.o \
+           par.o \
+           problem.o \
+           restart.o \
+           show_config.o \
+           utils.o
+#-------------------------------------------------------------------------------
+ifeq (@FLUX_TYPE@,roe)
+   OBJ = $(CORE_OBJ) flux_hlle.o
+else
+   OBJ = $(CORE_OBJ)
+endif
+#-------------------  macro definitions  ---------------------------------------
+EXEDIR = ../bin/
+SRC = $(OBJ:.o=.c)
+#
+CC  = @CC@
+LDR = @CC@
+#  optimization levels
+OPT = @DEBUG@
+#  need to fix this for non-gnu compilers
+#  eg. Intel compiler (icc) on P4 likes to see (w/ around 100% improvement!):
+#       -xW -tpp7 -ipo -i_dynamic
+#      Sun compiler (/opt/SUNWspro/bin/cc):
+#  some GNU optimization (on P4) can be done via 
+#	-march=pentium4  -mcpu=pentium4   -msse  -msse2  -mmmx
+#    and:     -pipe -fomit-frame-pointer
+#  on P3 one can typically find a 3% improvement via:
+#	-march=pentium3  -mcpu=pentium3   -msse  -mmmx
+#  on a (ultra)sparc this does pretty well: (native C compiler)
+#	-fast -xtarget=ultra2
+#  under Mac OS X (G4) you need to comment out -ldl
+# 	also flags like -mpowerpc -maltivec doesn't seem to help
+GNUFLAGS = 
+HDF4INC = @HDF4INC@
+HDF5INC = @HDF5INC@
+#MPIINC  = -I/tmp/opt/include
+MPIINC  = @MPIINC@
+HDF4LIB = @HDF4LIB@
+HDF5LIB = @HDF5LIB@
+CFLAGS = $(OPT) $(GNUFLAGS) $(HDF4INC) $(HDF5INC) $(MPIINC)
+#MPILIB = -L/tmp/opt/lib -lmpich
+MPILIB = @MPILIB@
+LIB = $(HDF4LIB) $(HDF5LIB) $(MPILIB) -ldl -lm -L/u/jstone/bin/FFTW/fftw-3.0.1/lib -lfftw3
+BIN = ${EXEDIR}athena
+all:	compile
+
+#--------------------  implicit rules  -----------------------------------------
+.c.o:
+	${CC} ${CFLAGS} -c $<
+#---------------------  targets  -----------------------------------------------
+.PHONY: compile
+compile: ${BIN}
+
+${BIN}: ${OBJ} 
+	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${LIB}
+#-------------------------------------------------------------------------------
+help:
+	@echo This is the Athena Makefile
+	@echo Type 'make compile' to generate Athena executable
+	@echo Type 'make clean'   to remove '*.o' files
+	@echo OBJ=$(OBJ)
+#-------------------------------------------------------------------------------
+.PHONY: clean
+clean:
+	rm -f *.o Makedepend $(BIN)
+
+#-------------------------------------------------------------------------------
+depend: Makedepend
+
+Makedepend:
+	${CC} -MM ${CFLAGS} ${SRC} > Makedepend
+
+# a few functionality tests of some modules of the code
+par:	par.c
+	$(CC) $(CFLAGS) -DTESTBED -o par par.c
+
+# this forces a rebuild of all objects, if code re-configure'd
+
+include Makedepend
