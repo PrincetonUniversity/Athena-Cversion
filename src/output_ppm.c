@@ -93,7 +93,6 @@ void output_ppm(Grid *pGrid, Output *pOut)
   for (j=nx2-1; j>=0; j--) {
     for (i=0; i<nx1; i++) {
       compute_rgb(data[j][i],dmin,dmax,&red,&green,&blue,pOut);
-#endif
       fputc(red,pfile);
       fputc(green,pfile);
       fputc(blue,pfile);
