@@ -45,7 +45,7 @@ SRC = $(OBJ:.o=.c)
 CC  = @CC@
 LDR = @CC@
 #  optimization levels
-OPT = @DEBUG@
+OPT = @COMPILER_OPTS@
 #  need to fix this for non-gnu compilers
 #  eg. Intel compiler (icc) on P4 likes to see (w/ around 100% improvement!):
 #       -xW -tpp7 -ipo -i_dynamic
@@ -60,16 +60,10 @@ OPT = @DEBUG@
 #  under Mac OS X (G4) you need to comment out -ldl
 # 	also flags like -mpowerpc -maltivec doesn't seem to help
 GNUFLAGS = 
-HDF4INC = @HDF4INC@
-HDF5INC = @HDF5INC@
-#MPIINC  = -I/tmp/opt/include
 MPIINC  = @MPIINC@
-HDF4LIB = @HDF4LIB@
-HDF5LIB = @HDF5LIB@
-CFLAGS = $(OPT) $(GNUFLAGS) $(HDF4INC) $(HDF5INC) $(MPIINC)
-#MPILIB = -L/tmp/opt/lib -lmpich
+CFLAGS = $(OPT) $(GNUFLAGS) $(MPIINC)
 MPILIB = @MPILIB@
-LIB = $(HDF4LIB) $(HDF5LIB) $(MPILIB) -ldl -lm -L/u/jstone/bin/FFTW/fftw-3.0.1/lib -lfftw3
+LIB = $(MPILIB) -ldl -lm
 BIN = ${EXEDIR}athena
 all:	compile
 
