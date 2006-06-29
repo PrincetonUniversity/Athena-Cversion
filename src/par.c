@@ -9,12 +9,13 @@
  * EXAMPLE of input file in 'par' format:
  *       <blockname1>      # block name; should be on a line by itself
  *       name1 = value1    # whitespace around the = is optional
+ *                         # blank lines between blocks are OK
  *       <blockname2>      # start new block
  *       name1 = value1    # note that name1 can appear in different blocks
  *       name2 = value2    #
+ *
  *       <blockname1>      # same blockname can re-appear, though is a bit odd
  *       name3 = value3    # this would be the 3rd name in this block
- * More documentation in the athena package (doc/programming.tex)
  *
  * LIMITATIONS:
  *   - MAXLEN means static strings; could make fancier dynamic string reader
@@ -35,15 +36,15 @@
  *   2-apr-2004   Added the get_par_def routines                    -- PJT
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   int par_open()        - open a parameter file for R/O access
+ *   int par_open()        - open and read a parameter file for R/O access
  *   void par_cmdline()    - parse a commandline, extract parameters
- *   int par_exist()       - returns 0 if blacl/name exists
+ *   int par_exist()       - returns 0 if block/name exists
  *   char *par_gets()      - returns a string from input field
  *   int par_geti()        - returns an integer from the input field
  *   double par_getd()     - returns a Real from the input field
- *   char *par_gets_def()  - 
- *   int par_geti_def()    -
- *   double par_getd_def() -
+ *   char *par_gets_def()  - set string to input value, or default
+ *   int par_geti_def()    - set int to input value, or default
+ *   double par_getd_def() - set double to input value, or default
  *   void par_sets()       - sets/adds a string
  *   void par_seti()       - sets/adds an integer
  *   void par_setd()       - sets/adds a Real
@@ -92,19 +93,19 @@ static int debug = 0;              /* debug level, set to 1 for debug output  */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
- *   allocate()
- *   my_strdup()
- *   skipwhite()
- *   str_term()
- *   line_block_name()
- *   add_par()
- *   add_par_line
- *   add_block
- *   find_block
- *   find_par
- *   free_all
- *   par_getsl
- *   par_debug
+ *   allocate()       - wrapper for calloc which terminates code on failure
+ *   my_strdup()      - wrapper for strdup which terminates code on failure
+ *   skipwhite()      - returns pointer to next non-whitespace
+ *   str_term()       - remove whitespace at end of string
+ *   line_block_name()- extract block name
+ *   add_par()        - add "name = value # comment" to Par list
+ *   add_par_line()   - parse line and add it to a block
+ *   add_block()      - find or add a new named block
+ *   find_block()     - check if a Block name already exists
+ *   find_par()       - check if a Block contains a Par with certain name
+ *   free_all         - free all Blocks/Pars
+ *   par_getsl        - return string, for use of local functions only
+ *   par_debug        - test program for par package
  *============================================================================*/
 
 static void *allocate(size_t size);
@@ -588,10 +589,10 @@ static void add_par(Block *bp, char *name, char *value, char *comment)
 
   for(pnext = &(bp->p); (pp = *pnext) != NULL; pnext = &(pp->next)){
     if(strcmp(pp->name,name) == 0){          /* if name already given earlier */
-      /* Replace the value with the new value */
+/* Replace the value with the new value */
       free(pp->value);
       pp->value = my_strdup(value);
-      /* Optionally replace the comment with the new comment */
+/* Optionally replace the comment with the new comment */
       if(comment != NULL){
 	if(pp->comment != NULL) free(pp->comment);
 	pp->comment = my_strdup(comment);
@@ -599,6 +600,7 @@ static void add_par(Block *bp, char *name, char *value, char *comment)
       return;
     }
   }
+
 /* Allocate a new Par and set pp to point to it */
   pp = *pnext = (Par *) allocate(sizeof(Par));
 
@@ -620,7 +622,7 @@ static void add_par_line(Block *bp, char *line)
   char *name, *equal=NULL, *value=NULL, *hash=NULL, *comment=NULL, *nul;
 
   if(bp == NULL)
-    ath_error("add_par_line: (no block name yet) while parsing line \n%s\n",line);
+    ath_error("[add_par_line]: (no block name) while parsing line \n%s\n",line);
 
   name = skipwhite(line);           /* name */
 
