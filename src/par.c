@@ -251,7 +251,8 @@ double par_getd(char *block, char *name)
 }
 
 /*----------------------------------------------------------------------------*/
-/* par_gets_def:  return a string */
+/* par_gets_def:  return string *name in *block if it exists, else use
+ *   the string *def as a default value */
 
 char  *par_gets_def(char *block, char *name, char *def)
 {
@@ -265,7 +266,8 @@ char  *par_gets_def(char *block, char *name, char *def)
 }
 
 /*----------------------------------------------------------------------------*/
-/* par_geti_def:  return an integer */
+/* par_geti_def:  return integer *name in *block if it exists, else use
+ *   the integer def as a default value */
 
 int  par_geti_def(char *block, char *name, int def)
 {
@@ -279,7 +281,8 @@ int  par_geti_def(char *block, char *name, int def)
 }
 
 /*----------------------------------------------------------------------------*/
-/* par_getd_def:  return a double */
+/* par_getd_def:  return double *name in *block if it exists, else use
+ *   the double def as a default value  */
 
 double par_getd_def(char *block, char *name, double def)
 {
