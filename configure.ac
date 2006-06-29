@@ -167,13 +167,16 @@ fi
 #   and uses compiler options: -g -Wall -W -ansi -pedantic
 #   --enable-debug (default is debugging off)
 
-AC_SUBST(DEBUG)
+AC_SUBST(DEBUG_MODE)
+AC_SUBST(COMPILER_OPTS)
 AC_ARG_ENABLE(debug, [  --enable-debug          debug (default is optimized)], 
 		      ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
-  DEBUG="-g -Wall -W -ansi -pedantic"
+  COMPILER_OPTS="-g -Wall -W -ansi -pedantic"
+  DEBUG_MODE="DEBUG"
 else
-  DEBUG="-O3"
+  COMPILER_OPTS="-O3"
+  DEBUG_MODE="OPTIMIZE"
 fi
 
 #-------------------------------------------------------------------------------
@@ -270,13 +273,12 @@ echo ""
 echo "Problem:                 $PROBLEM"
 echo "Gas properties:          $GAS"
 echo "Equation of State:       $EOS"
-echo ""
 echo "Spatial Order:           $ORDER ($ACCURACY)"
 echo "Flux:                    $FLUX_TYPE"
 echo "3D unsplit integrator:   $THREE_DIM_INT"
 echo "Precision:               $PRECISION"
 echo "Compilation:"
-echo "  OPT:                   $DEBUG"
+echo "  OPT:                   $COMPILER_OPTS"
 echo "Output modes:"
 echo "  Ghost Cells:           $WRITE_GHOST_MODE"
 echo "Parallel modes:"
