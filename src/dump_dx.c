@@ -24,9 +24,10 @@
 
 void dump_dx(Grid *pGrid, Output *pOut)
 {
-  int n; offset; 
+  int n, offset, dnum = pOut->num; 
   FILE *pfile;
   int nzones, nx1, nx2, nx3;
+  char *fname;
   char *array_name[] = 
     {"Mass Density",
      "1-Momentum",
