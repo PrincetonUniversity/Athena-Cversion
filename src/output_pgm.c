@@ -53,10 +53,8 @@ void output_pgm(Grid *pGrid, Output *pOut)
 /* Extract 2D data from 3D data,  Can either be slice or average along axis,
  * depending on range of ix1,ix2,ix3 in <ouput> block */
   data = subset2(pGrid,pOut);
-
-/* get dimensions and write to file  */
-  nx1 = pOut->Nx[pOut->dim[0]];
-  nx2 = pOut->Nx[pOut->dim[1]];
+  nx1 = pOut->Nx1; /* we know it's a 2dim image */
+  nx2 = pOut->Nx2;
   fprintf(pfile,"P5\n%d %d\n255\n",nx1,nx2);
 
 /* Store the global min / max, for output at end of run */
