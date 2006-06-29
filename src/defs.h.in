@@ -35,12 +35,12 @@
 #define GET_FLUXES flux_@FLUX_TYPE@
 #define FLUX_NAME "@FLUX_TYPE@"
 /* 3D integrator: CTU or VL */
-#define @THREE_DIM_INT@
+#define UNSPLIT_INTEGRATOR "@THREE_DIM_INT@"
 
 /* Real: DOUBLE_PREC or SINGLE_PREC */
 #define @PRECISION@
-/* debug mode: DEBUG */
-#define @DEBUG@
+/* debug mode: DEBUG or OPTIMIZE */
+#define @DEBUG_MODE@
 /* Write ghost cells in the output data: WRITE_GHOST_CELLS */
 #define @WRITE_GHOST_MODE@
 /* MPI parallelism: MPI_PARALLEL */
