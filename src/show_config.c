@@ -44,7 +44,7 @@ void show_config(void)
 #endif
 
   fprintf(stderr," Flux:                    %s\n",FLUX_NAME);
-  fprintf(stderr," Unsplit 3D integrator:   %s\n",THREE_DIM_INT);
+  fprintf(stderr," Unsplit 3D integrator:   %s\n",UNSPLIT_INTEGRATOR);
 
 #if defined(SINGLE_PREC)
   fprintf(stderr," Precision:               SINGLE_PREC\n");
@@ -98,7 +98,7 @@ void show_config_par(void)
 #endif
 
   par_sets("configure","flux",FLUX_NAME,"Flux function");
-  par_sets("configure","integrator",THREE_DIM_INT,"Unsplit 3D integrator");
+  par_sets("configure","integrator",UNSPLIT_INTEGRATOR,"Unsplit 3D integrator");
 
 #if defined(SINGLE_PREC)
   par_sets("configure","precision","single","Type of Real variables");
