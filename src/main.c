@@ -39,6 +39,13 @@ extern int cg_ixe, cg_jxe, cg_kxe;
 #endif /* MPI_PARALLEL */
 
 Real CourNo; /* The Courant, Friedrichs, & Lewy (CFL) Number */
+#ifdef ISOTHERMAL
+Real Iso_csound;  /* Isothermal sound speed */
+Real Iso_csound2; /* Iso_csound^2 */
+#else
+Real Gamma; /* Gamma = C_p/C_v */
+Real Gamma_1, Gamma_2; /* Gamma - 1, and Gamma - 2 */
+#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -211,7 +218,7 @@ int athena_main(int argc, char *argv[])
     }
   }
 
-  if(done){           /* Quit MPI_PARALLEL job if code was run with -n option. */
+  if(done){          /* Quit MPI_PARALLEL job if code was run with -n option. */
     par_dump(0,stdout);   
     par_close();
     MPI_Finalize();
@@ -228,7 +235,7 @@ int athena_main(int argc, char *argv[])
   par_cmdline(argc,argv);
   show_config_par();   /* Add the configure block to the parameter database */
 
-  if(done){       /* Quit non-MPI_PARALLEL job if code was run with -n option. */
+  if(done){      /* Quit non-MPI_PARALLEL job if code was run with -n option. */
     par_dump(0,stdout);
     par_close();
     return 0;
@@ -246,7 +253,14 @@ int athena_main(int argc, char *argv[])
 /* Set variables in <job> block.  */
 
   grid_level0.outfilename = par_gets("job","problem_id");
-  set_eos_param();
+#ifdef ISOTHERMAL
+  Iso_csound = par_getd("problem","iso_csound");
+  Iso_csound2 = Iso_csound*Iso_csound;
+#else
+  Gamma = par_getd("problem","gamma");
+  Gamma_1 = Gamma - 1.0;
+  Gamma_2 = Gamma - 2.0;
+#endif
 
 /* For both new and restart runs, the grid is initialized from parameters that
  * have already been read from the input file */
