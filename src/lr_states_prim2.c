@@ -255,9 +255,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 #endif /* CTU_INTEGRATOR */
 
-  }
-
-/*=============== END BIG LOOP OVER i ===============*/
+  } /*=============== END BIG LOOP OVER i ===============*/
 
 /*--- Step 12. -----------------------------------------------------------------
  * Convert back to conserved variables, and done.  */
