@@ -2,11 +2,11 @@
 /*==============================================================================
  * FILE: flux_hlle.c
  *
- * PURPOSE: Harten-Lax-van Leer (HLLE) 1D flux.  This flux is very diffusive,
- *   especially for contacts, and so it is not recommended for use in
- *   applications.  However, as shown by Einfeldt et al.(1991), it is positively
- *   conservative, so it is a useful option when other approximate solvers
- *   fail and/or when extra dissipation is needed.
+ * PURPOSE: Computes 1D fluxes using the Harten-Lax-van Leer (HLLE) Riemann
+ *   solver.  This flux is very diffusive, especially for contacts, and so it
+ *   is not recommended for use in applications.  However, as shown by Einfeldt
+ *   et al.(1991), it is positively conservative, so it is a useful option when
+ *   other approximate solvers fail and/or when extra dissipation is needed.
  *
  * REFERENCES:
  *   E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
