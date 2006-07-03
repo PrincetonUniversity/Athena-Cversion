@@ -2,9 +2,10 @@
 /*==============================================================================
  * FILE: flux_force.c
  *
- * PURPOSE: Similar, but not identical, to Toro's FORCE (First-ORder-CEntred)
- *   flux.  It uses the average of a Lax-Wendroff and HLLE flux for sub-sonic
- *   flow, and the appropriate upwind flux otherwise.
+ * PURPOSE: Computes 1D fluxes using a Riemann solver similar, but not
+ *   identical, to Toro's FORCE (First-ORder-CEntred) flux.  It uses the
+ *   average of a Lax-Wendroff and HLLE flux for sub-sonic flow, and the
+ *   appropriate upwind flux otherwise.
  *
  * HISTORY: -- TAG -- 3/4/2005
  *
