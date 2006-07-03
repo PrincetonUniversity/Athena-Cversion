@@ -2,9 +2,9 @@
 /*==============================================================================
  * FILE: flux_roe.c
  *
- * PURPOSE: Computes fluxes of conserved quantities at interface using Roe's
- * linearization.  When Roe's linearization fails because of negative density
- * or pressure in the intermediate states, then the HLLE solver is called.
+ * PURPOSE: Computes 1D fluxes using Roe's linearization.  When Roe's method
+ * fails because of negative density or pressure in the intermediate states,
+ * the fluxes are computed with the HLLE solver instead.
  *
  * REFERENCES:
  *   P. Roe, "Approximate Riemann solvers, parameter vectors, and difference
