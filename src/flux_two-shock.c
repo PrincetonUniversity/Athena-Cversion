@@ -48,7 +48,7 @@ void flux_two-shock(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Flux *pF)
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
 
 /*--- Step 2. ------------------------------------------------------------------
- * Compute the max and min wave speeds
+ * Compute the velocity and density of the contact
  */
 
   zl = sqrt((double)Wl.d);
@@ -62,12 +62,6 @@ void flux_two-shock(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Flux *pF)
 /* The L/R-going shock velocity */
   sl = Wl.Vx - Iso_csound*zc/zl;
   sr = Wr.Vx + Iso_csound*zc/zr;
-
-/* Min/Max signal velocity, the HLL velocity al */
-  al = zc > zl ? sl : Wl.Vx - Iso_csound;
-  ar = zc > zr ? sr : Wr.Vx + Iso_csound;
-
-  tmp       = fabs((double)ar);
 
 /*--- Step 3. ------------------------------------------------------------------
  * For supersonic flow, return the upwind flux.
