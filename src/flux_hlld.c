@@ -2,7 +2,8 @@
 /*==============================================================================
  * FILE: flux_hlld.c
  *
- * PURPOSE: Implementation of the HLLD fluxes.
+ * PURPOSE: Computes 1D fluxes using the HLLD Riemann solver, and extension of
+ *   the HLLE solver to MHD.  Only works for MHD problems.
  *
  * REFERENCES:
  *   T. Miyoshi & K. Kusano, "A multi-state HLL approximate Riemann solver
