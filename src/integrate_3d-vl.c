@@ -12,9 +12,13 @@
  * The variables in Grid which are updated are:
  *    U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
  *    B1i, B2i, B3i  -- interface magnetic field
- *    time,dt,nstep
+ *
+ * REFERENCE:
  *
  * CONTAINS PUBLIC FUNCTIONS: 
+ *   integrate_3d
+ *   integrate_destruct_3d()
+ *   integrate_init_3d()
  *============================================================================*/
 
 #include <math.h>
@@ -38,14 +42,20 @@ static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
 
-static ConsPotFun_t cons_pot_fun = NULL;
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES: 
+ *   integrate_emf1_corner() - 
+ *   integrate_emf2_corner() - 
+ *   integrate_emf3_corner() - 
+ *============================================================================*/
 
 static void integrate_emf1_corner(const Grid *pGrid);
 static void integrate_emf2_corner(const Grid *pGrid);
 static void integrate_emf3_corner(const Grid *pGrid);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* Function integrate_3d-vl
+/* integrate_3d: van Leer unsplit integrator. 
  */
 
 void integrate_3d(Grid *pGrid)
@@ -669,20 +679,143 @@ void integrate_3d(Grid *pGrid)
   }
 #endif /* MHD */
 
-  pGrid->time += pGrid->dt;
-  pGrid->nstep++;
+}
+
+/*----------------------------------------------------------------------------*/
+/* integrate_destruct_3d:  Free temporary integration arrays */
+
+void integrate_destruct_3d(void)
+{
+#ifdef MHD
+  if (emf1 != NULL) free_3d_array((void***)emf1);
+  if (emf2 != NULL) free_3d_array((void***)emf2);
+  if (emf3 != NULL) free_3d_array((void***)emf3);
+  if (emf1_cc != NULL) free_3d_array((void***)emf1_cc);
+  if (emf2_cc != NULL) free_3d_array((void***)emf2_cc);
+  if (emf3_cc != NULL) free_3d_array((void***)emf3_cc);
+#endif /* MHD */
+  if (Bxc != NULL) free(Bxc);
+  if (Bxi != NULL) free(Bxi);
+  if (B1_x1Face != NULL) free_3d_array((void***)B1_x1Face);
+  if (B2_x2Face != NULL) free_3d_array((void***)B2_x2Face);
+  if (B3_x3Face != NULL) free_3d_array((void***)B3_x3Face);
+
+  if (U1d      != NULL) free(U1d);
+  if (Ul       != NULL) free(Ul);
+  if (Ur       != NULL) free(Ur);
+
+  if (Ul_x1Face != NULL) free_3d_array((void***)Ul_x1Face);
+  if (Ur_x1Face != NULL) free_3d_array((void***)Ur_x1Face);
+  if (Ul_x2Face != NULL) free_3d_array((void***)Ul_x2Face);
+  if (Ur_x2Face != NULL) free_3d_array((void***)Ur_x2Face);
+  if (Ul_x3Face != NULL) free_3d_array((void***)Ul_x3Face);
+  if (Ur_x3Face != NULL) free_3d_array((void***)Ur_x3Face);
+  if (x1Flux    != NULL) free_3d_array((void***)x1Flux);
+  if (x2Flux    != NULL) free_3d_array((void***)x2Flux);
+  if (x3Flux    != NULL) free_3d_array((void***)x3Flux);
+
+  if (Uhalf    != NULL) free_3d_array((void***)Uhalf);
+
+  return;
 }
 
 
 /*----------------------------------------------------------------------------*/
-/*  Functions integrate_emf*_corner
- *    Integrates face centered B-fluxes to compute corner EMFs.  Note:
- * x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- * x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- * x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- * x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
- * x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
- * x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX    */
+/* integrate_init_3d: Allocate temporary integration arrays */
+
+void integrate_init_3d(int nx1, int nx2, int nx3)
+{
+  int nmax;
+  int Nx1 = nx1 + 2*nghost;
+  int Nx2 = nx2 + 2*nghost;
+  int Nx3 = nx3 + 2*nghost;
+  nmax = MAX(MAX(Nx1,Nx2),Nx3);
+
+#ifdef MHD
+  if ((emf1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((emf2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((emf3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((emf1_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((emf2_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((emf3_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif /* MHD */
+
+  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+
+  if ((B1_x1Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
+
+  if ((B2_x2Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
+
+  if ((B3_x3Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
+
+  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+
+  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
+    goto on_error;
+
+  if ((Uhalf    = (Gas***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Gas))) == NULL)
+    goto on_error;
+
+  return;
+
+  on_error:
+  integrate_destruct();
+  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
+}
+
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+/*----------------------------------------------------------------------------*/
+/* integrate_emf1_corner()
+ * integrate_emf2_corner()
+ * integrate_emf3_corner()
+ *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
+ *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
+ */ 
 
 #ifdef MHD
 static void integrate_emf1_corner(const Grid *pGrid)
@@ -861,130 +994,3 @@ static void integrate_emf3_corner(const Grid *pGrid)
   return;
 }
 #endif /* MHD */
-
-/* Enroll a conservative potential function for integrating the total
-   energy, including the potential energy. */
-void cons_pot_fun_enroll_3d(ConsPotFun_t pfun)
-{
-  cons_pot_fun = pfun;
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
-/*  Free temporary integration arrays */
-
-void integrate_destruct_3d(void)
-{
-#ifdef MHD
-  if (emf1 != NULL) free_3d_array((void***)emf1);
-  if (emf2 != NULL) free_3d_array((void***)emf2);
-  if (emf3 != NULL) free_3d_array((void***)emf3);
-  if (emf1_cc != NULL) free_3d_array((void***)emf1_cc);
-  if (emf2_cc != NULL) free_3d_array((void***)emf2_cc);
-  if (emf3_cc != NULL) free_3d_array((void***)emf3_cc);
-#endif /* MHD */
-  if (Bxc != NULL) free(Bxc);
-  if (Bxi != NULL) free(Bxi);
-  if (B1_x1Face != NULL) free_3d_array((void***)B1_x1Face);
-  if (B2_x2Face != NULL) free_3d_array((void***)B2_x2Face);
-  if (B3_x3Face != NULL) free_3d_array((void***)B3_x3Face);
-
-  if (U1d      != NULL) free(U1d);
-  if (Ul       != NULL) free(Ul);
-  if (Ur       != NULL) free(Ur);
-
-  if (Ul_x1Face != NULL) free_3d_array((void***)Ul_x1Face);
-  if (Ur_x1Face != NULL) free_3d_array((void***)Ur_x1Face);
-  if (Ul_x2Face != NULL) free_3d_array((void***)Ul_x2Face);
-  if (Ur_x2Face != NULL) free_3d_array((void***)Ur_x2Face);
-  if (Ul_x3Face != NULL) free_3d_array((void***)Ul_x3Face);
-  if (Ur_x3Face != NULL) free_3d_array((void***)Ur_x3Face);
-  if (x1Flux    != NULL) free_3d_array((void***)x1Flux);
-  if (x2Flux    != NULL) free_3d_array((void***)x2Flux);
-  if (x3Flux    != NULL) free_3d_array((void***)x3Flux);
-
-  if (Uhalf    != NULL) free_3d_array((void***)Uhalf);
-
-  return;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* Allocate temporary integration arrays */
-void integrate_init_3d(int nx1, int nx2, int nx3)
-{
-  int nmax;
-  int Nx1 = nx1 + 2*nghost;
-  int Nx2 = nx2 + 2*nghost;
-  int Nx3 = nx3 + 2*nghost;
-  nmax = MAX(MAX(Nx1,Nx2),Nx3);
-
-#ifdef MHD
-  if ((emf1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf1_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf2_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf3_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* MHD */
-
-  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-
-  if ((B1_x1Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-
-  if ((B2_x2Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-
-  if ((B3_x3Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-
-  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-
-  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Uhalf    = (Gas***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Gas))) == NULL)
-    goto on_error;
-
-  return;
-
-  on_error:
-  integrate_destruct();
-  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
-}
