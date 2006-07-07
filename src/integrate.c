@@ -7,8 +7,6 @@
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_init()        - set pointer to integrate function based on dim
  *   integrate_destruct()    - call destruct integrate function based on dim
- *   cons_pot_fun_enroll()   - enroll function that computes source term that
- *                             can be described by a conservative potential
  *============================================================================*/
 
 #include <stdio.h>
@@ -72,24 +70,4 @@ void integrate_destruct()
   }
 
   ath_error("[integrate_destruct]: Grid dimension = %d\n",dim);
-}
-
-/*----------------------------------------------------------------------------*/
-/* cons_pot_fun_enroll:  */
-
-void cons_pot_fun_enroll(ConsPotFun_t pfun)
-{
-  switch(dim){
-  case 1:
-    cons_pot_fun_enroll_1d(pfun);
-    return;
-  case 2:
-    cons_pot_fun_enroll_2d(pfun);
-    return;
-  case 3:
-    cons_pot_fun_enroll_3d(pfun);
-    return;
-  }
-
-  ath_error("[cons_pot_fun_enroll]: Grid dimension = %d\n",dim);
 }
