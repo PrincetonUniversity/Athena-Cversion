@@ -34,7 +34,8 @@
 /* flux_{roe, hlle, hllc, hlld, force} */
 #define GET_FLUXES flux_@FLUX_TYPE@
 #define FLUX_NAME "@FLUX_TYPE@"
-/* 3D integrator: CTU or VL */
+/* 3D integrator: THREED_INT_CTU or THREED_INT_VL */
+#define @THREE_DIM_INT@
 #define UNSPLIT_INTEGRATOR "@THREE_DIM_INT@"
 
 /* Real: DOUBLE_PREC or SINGLE_PREC */
