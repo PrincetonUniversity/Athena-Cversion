@@ -13,7 +13,7 @@
  *   Similarly for x2 and x3.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   cc_pos() -
+ *   cc_pos() - given i,j,k returns cell-centered x1,x2,x3
  *============================================================================*/
 
 #include "athena.h"
