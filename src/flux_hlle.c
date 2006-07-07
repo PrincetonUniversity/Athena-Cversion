@@ -44,7 +44,7 @@
  *     maxevroe = eigenvalue of Roe's linearization with largest absolute value
  */
 
-Real flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
@@ -217,11 +217,11 @@ Real flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 
   pFl = (Real *)&(Fl);
   pFr = (Real *)&(Fr);
-  pF  = (Real *)pFlux1d;
+  pF  = (Real *)pFlux;
   tmp = 0.5*(bp + bm)/(bp - bm);
   for (n=0; n<NWAVE; n++){
     pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
 
-  return(maxevroe);
+  return;
 }
