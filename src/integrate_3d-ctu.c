@@ -24,6 +24,8 @@
 #include "athena.h"
 #include "prototypes.h"
 
+#ifdef THREED_INT_CTU
+
 static Real *Bxc=NULL, *Bxi=NULL;
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
 static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
@@ -1451,3 +1453,4 @@ static void integrate_emf3_corner(const Grid *pGrid)
   return;
 }
 #endif /* MHD */
+#endif /* THREED_INT_CTU */
