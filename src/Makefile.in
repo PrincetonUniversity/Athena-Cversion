@@ -12,15 +12,29 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = ath_array.o \
            ath_files.o \
-           ath_parallel.o \
            ath_signal.o \
+           cc_pos.o \
+           convert_var.o \
            dump_binary.o \
            dump_dx.o \
            dump_history.o \
-           dump_table.o \
+           dump_tab.o \
            dump_vtk.o \
+           esystem_prim.o \
+           esystem_roe.o \
+           flux_@FLUX_TYPE@.o \
            init_grid_block.o \
+           init_mpi_grid.o \
+           integrate_1d.o \
+           integrate_2d.o \
+           integrate_3d-vl.o \
+           integrate_3d-ctu.o \
+           integrate.o \
+           lr_states_prim1.o \
+           lr_states_prim2.o \
+           lr_states_prim3.o \
            main.o \
+           new_dt.o \
            output.o \
            output_fits.o \
            output_pdf.o \
@@ -30,6 +44,7 @@ CORE_OBJ = ath_array.o \
            par.o \
            problem.o \
            restart.o \
+           set_bvals.o \
            show_config.o \
            utils.o
 #-------------------------------------------------------------------------------
