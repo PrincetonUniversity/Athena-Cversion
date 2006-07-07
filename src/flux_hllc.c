@@ -34,10 +34,10 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface 
  */
 
-void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D pFlux)
+void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,hroe,pbl=0.0,pbr=0.0;
-  Real ev[NWAVE],maxevroe=0.0;
+  Real ev[NWAVE];
   Prim1D Wl, Wr;
   Real *pFl, *pFr, *pF;
   Cons1D Fl,Fr;
