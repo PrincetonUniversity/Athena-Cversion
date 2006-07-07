@@ -327,9 +327,6 @@ int main(int argc, char *argv[])
       grid_level0.dt = (tlim-grid_level0.time);
     }
 
-    printf("cycle=%i time=%e dt=%e\n",grid_level0.nstep,grid_level0.time,
-	   grid_level0.dt);
-
     (*integrate)(&grid_level0);
 
     Userwork_in_loop(&grid_level0);
@@ -350,6 +347,9 @@ int main(int argc, char *argv[])
 #endif /* MPI_PARALLEL */
 
     if(ath_sig_act(&grid_level0) != 0) break;
+    printf("cycle=%i time=%e dt=%e\n",grid_level0.nstep,grid_level0.time,
+	   grid_level0.dt);
+
   }
 /* END OF MAIN INTEGRATION LOOP ===============================================*/
 /*------------------------------------------------------------------------------
