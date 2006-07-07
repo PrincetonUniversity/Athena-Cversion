@@ -31,11 +31,9 @@
  *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
- *   Returns:
- *     maxevroe = eigenvalue of Roe's linearization with largest absolute value
  */
 
-Real flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbc=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
@@ -45,7 +43,7 @@ Real flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 #ifdef MHD
   Real b2roe,b3roe,x,y;
 #endif
-  Real ev[NWAVE],maxevroe=0.0,al,ar;
+  Real ev[NWAVE],al,ar;
   Real *pFl, *pFc, *pFr, *pUc, *pF;
   Prim1D Wl, Wc, Wr;
   Cons1D Fl, Fc, Fr, Uc;
@@ -111,8 +109,6 @@ Real flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
  esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
-
-  maxevroe = MAX( fabs(ev[0]), fabs(ev[NWAVE-1]) );
 
 /*--- Step 4. ------------------------------------------------------------------
  * Compute the max and min wave speeds
@@ -210,12 +206,12 @@ Real flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 
   if(al >= 0.0){
     *pFlux = Fl;
-    return(maxevroe);
+    return;
   }
 
   if(ar <= 0.0){
     *pFlux = Fr;
-    return(maxevroe);
+    return;
   }
 
 /*--- Step 7. ------------------------------------------------------------------
@@ -273,5 +269,5 @@ Real flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pF[n] = 0.5*pFc[n] + 0.25*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
 
-  return(maxevroe);
+  return;
 }
