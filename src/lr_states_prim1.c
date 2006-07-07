@@ -42,38 +42,14 @@ static Prim1D *W=NULL;
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 	       const Real dt, const Real dtodx, const int is, const int ie,
-	       const Prim1D *Wsrc, Cons1D Ul[], Cons1D Ur[])
+	       Cons1D Ul[], Cons1D Ur[])
 {
   int i,n;
-  Real *pWsrc, *pW, pb;
-
-/*--- Step 1. ------------------------------------------------------------------
- * Transform to primitive variables, W=(d,Vx,Vy,Vz,[P],[By,Bz]).
- * Only necessary because source terms are added in primitive variables  */
-
-  for (i=is-1; i<=ie+1; i++) {
-    pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
-  }
-
-/*--- Step 2. ------------------------------------------------------------------
- * Add the source terms if necessary.  */
-
-  if(Wsrc != NULL){
-    for (i=is-1; i<=ie+1; i++) {
-      pW = (Real *) &(W[i]);
-      pWsrc = (Real *)&(Wsrc[i]);
-      for (n=0; n<NWAVE; n++) {
-	pW[n] += 0.5*dt*pWsrc[n];
-      }
-    }
-  }
-
-/*--- Step 3. ------------------------------------------------------------------
- * convert L/R states (appropriate cell-centers) back to conserved variables */
+  Real *pW, pb;
 
   for (i=is; i<=ie+1; i++) {
-    pb = Prim1D_to_Cons1D(&Ul[i],&W[i-1],&Bxi[i]);
-    pb = Prim1D_to_Cons1D(&Ur[i],&W[i  ],&Bxi[i]);
+    Ul[i] = U1d[i-1];
+    Ur[i] = U1d[i  ];
   }
 
   return;
