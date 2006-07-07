@@ -98,3 +98,15 @@ FILE *ath_fopen(const char *basename, const int dlen, const int idump,
   fp = fopen(filename,mode);
   return fp;
 }
+
+/*----------------------------------------------------------------------------*/
+/* ath_fwrite:  */
+
+size_t ath_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+  size_t  n = fwrite(ptr,size,nmemb,stream);
+
+  if (n != nmemb) fprintf(stderr,"ath_fwrite: could write enough data\n");
+  return n;
+}
+
