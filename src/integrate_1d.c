@@ -5,10 +5,6 @@
  * PURPOSE: Functions to integrate MHD equations in 1D.
  * The variables in Grid which are updated are:
  *    U.[d,M1,M2,M3,E,B2c,B3c] -- where U is of type Gas
- *    time,dt,nstep
- * source terms for momentum M1 can be added through a user-specified
- * time-independent conserved potential.  In this case, energy is conserved
- * exactly, and the algorithm exploits this fact.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_1d()
@@ -167,11 +163,10 @@ void integrate_1d(Grid *pGrid)
 
 void integrate_init_1d(int nx1)
 {
-  int Nx1 = nx1 + 2*nghost;
-#ifdef MHD
+  int Nx1;
+  Nx1 = nx1 + 2*nghost;
   if ((Bxc = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-#endif
   if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
