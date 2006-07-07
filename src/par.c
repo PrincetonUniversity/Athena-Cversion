@@ -105,7 +105,8 @@ static int debug = 0;              /* debug level, set to 1 for debug output  */
  *   find_par()       - check if a Block contains a Par with certain name
  *   free_all         - free all Blocks/Pars
  *   par_getsl        - return string, for use of local functions only
- *   par_debug        - test program for par package
+ *   par_debug()      - sets debug level in test program
+ *   main()           - test program for par package
  *============================================================================*/
 
 static void *allocate(size_t size);
@@ -765,7 +766,8 @@ static char *par_getsl(char *block, char *name)
 }
 
 /*----------------------------------------------------------------------------*/
-/* par_debug:  alas, not really for the outside world to use */
+/* par_debug: set debug flag to level.  Call with argument=1 to enable 
+ *   diagnositc output.    Alas, not really for the outside world to use */
 
 void par_debug(int level) {      /* un - advertised :-) */
   debug = level;
@@ -855,11 +857,6 @@ int main(int argc, char *argv[])
     free(cp);
   }
   par_dump(0,stdout);
-  par_setd("time","sim_time","%g",3.3,NULL);
-  par_sets("time","cfl","0.9","CFL Number");
-  par_sets("job","mu","1.0","Magnetic Permeability");
-  par_seti("job","restart_flag","%d",1,"New Restart flag");
-  par_sets("job","restart_file","RESTART_ME",NULL);
   par_close();
   return 0;
 }
