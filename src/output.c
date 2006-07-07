@@ -68,7 +68,7 @@
  *   add_rst_out()
  *   data_output_destruct()
  *   data_output_enroll()
- *   subset1,2()   -
+ *   subset1,2,3()   -
  *
  * VARIABLE TYPE AND STRUCTURE DEFINITIONS: none
  *============================================================================*/
@@ -495,6 +495,68 @@ void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
   if(add_output(&new_out) && fmt != NULL) free(&(new_out.out_fmt));
 
   return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* subset3:  there is only one way to copy a cube into a cube */
+
+float ***subset3(Grid *pgrid, Output *pout)
+{
+  float ***data;
+  int Nx1, Nx2, Nx3;
+  int i,j,k, il, jl, kl, iu, ju, ku;
+
+  if (pout->ndim != 3)
+    ath_error("[subset3] <output%d> %s has dimension %d, not 3\n",
+              pout->n,pout->out, pout->ndim);
+
+  Nx1 = pout->Nx1;
+  Nx2 = pout->Nx2;
+  Nx3 = pout->Nx3;
+
+#ifdef WRITE_GHOST_CELLS
+  if(pgrid->Nx1 > 1){
+    il = pgrid->is - nghost;
+    iu = pgrid->ie + nghost;
+  }
+  else{
+    il = pgrid->is;
+    iu = pgrid->ie;
+  }
+
+  if(pgrid->Nx2 > 1){
+    jl = pgrid->js - nghost;
+    ju = pgrid->je + nghost;
+  }
+ else{
+    jl = pgrid->js;
+    ju = pgrid->je;
+  }
+  if(pgrid->Nx3 > 1){
+    kl = pgrid->ks - nghost;
+    ku = pgrid->ke + nghost;
+  }
+  else{
+    kl = pgrid->ks;
+    ku = pgrid->ke;
+  }
+#else
+  il = pgrid->is;
+  iu = pgrid->ie;
+  jl = pgrid->js;
+  ju = pgrid->je;
+  kl = pgrid->ks;
+  ku = pgrid->ke;
+#endif
+  fprintf(stderr,"subset2: lu's:  %d %d    %d %d     %d %d\n",
+          il,  iu,  jl,  ju,  kl,  ku);
+
+  data = (float ***) calloc_3d_array(Nx3,Nx2,Nx1,sizeof(float));
+  for (k=0; k<Nx3; k++)
+    for (j=0; j<Nx2; j++)
+      for (i=0; i<Nx1; i++)
+        data[k][j][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+  return data;
 }
 
 /*----------------------------------------------------------------------------*/
