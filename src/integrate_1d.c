@@ -14,7 +14,6 @@
  *   integrate_1d()
  *   integrate_init_1d()
  *   integrate_destruct_1d()
- *   cons_pot_fun_enroll_1d()
  *============================================================================*/
 
 #include <math.h>
@@ -27,8 +26,6 @@
 
 static Real *Bxc=NULL, *Bxi=NULL;
 static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
-/* User defined time-independent conserved potential for source terms. */
-static ConsPotFun_t cons_pot_fun = NULL;
 
 /*----------------------------------------------------------------------------*/
 /* integrate_1d:   */
@@ -74,24 +71,32 @@ void integrate_1d(Grid *pGrid)
  * Add source terms from time-independent conservative potential to L/R states
  */
 
+/*
   if (cons_pot_fun != NULL){
     for (i=il; i<=iu+1; i++) {
+*/
 
 /* Calculate the cell-centered potential at i, i-1 */
+/*
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
       phic_i   = (*cons_pot_fun)( x1           ,x2,x3);
       phic_im1 = (*cons_pot_fun)((x1-pGrid->dx),x2,x3);
 
       Ul_x1Face[i].M1 += hdt*Ul_x1Face[i].d*(phic_i - phic_im1)/pGrid->dx1;
       Ur_x1Face[i].M1 += hdt*Ur_x1Face[i].d*(phic_i - phic_im1)/pGrid->dx1;
+*/
 
 /* THIS MUST BE WRONG */
 #ifndef ISOTHERMAL
+/*
       Ul_x1Face[i].E += hdt*Ul_x1Face[i].M1*(phic_i - phic_im1);
       Ur_x1Face[i].E += hdt*Ur_x1Face[i].M1*(phic_i - phic_im1);
+*/
 #endif
+/*
     }
   }
+*/
 
 /*--- Step 4 ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction
@@ -107,10 +112,13 @@ void integrate_1d(Grid *pGrid)
  * pGrid->U[ks][js][i].d
  */
 
+/*
   if (cons_pot_fun != NULL){
     for (i=is; i<=ie; i++) {
+*/
 
 /* Calculate the potential at cell center, left- and right-interfaces */
+/*
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
       phic_i = (*cons_pot_fun)(x1,x2,x3);
       phirx1 = (*cons_pot_fun)(x1 + 0.5*pGrid->dx1,x2,x3);
@@ -119,13 +127,18 @@ void integrate_1d(Grid *pGrid)
       d_nph = pGrid->U[ks][js][i].d - 0.5*dtodx1*(x1Flux[i+1].d - x1Flux[i].d);
       pGrid->U[ks][js][i].M1 += d_nph*(philx1 - phirx1)/pGrid->dx1;
 
+*/
 /* THIS MUST BE WRONG */
 #ifndef ISOTHERMAL
+/*
       pGrid->U[ks][js][i].E += (x1Flux[i  ].d*(philx1 - phic_i) +
                                 x1Flux[i+1].d*(phic_i - phirx1))/pGrid->dx1;
+*/
 #endif
+/*
     }
   }
+*/
 
 /*--- Step 6 ----------------------------------------------------------------
  * Update cell-centered variables in pGrid using 1D-fluxes
@@ -184,15 +197,5 @@ void integrate_destruct_1d(void)
   if (Ur_x1Face != NULL) free(Ur_x1Face);
   if (x1Flux != NULL) free(x1Flux);
 
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
-/* Enroll a conservative potential function for integrating the total
-   energy, including the potential energy. */
-
-void cons_pot_fun_enroll_1d(ConsPotFun_t pfun)
-{
-  cons_pot_fun = pfun;
   return;
 }
