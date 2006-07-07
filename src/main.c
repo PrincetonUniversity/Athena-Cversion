@@ -63,7 +63,8 @@ int athena_main(int argc, char *argv[])
 {
   VGFun_t integrate;               /* pointer to integrator, set at runtime */
   Grid grid_level0;                /* only level0 grids in this version */
-  int i,ires=0,nlim,done=0,zones;
+  int ires=0;          /* restart flag, is set to 1 if -r argument on cmdline */
+  int i,nlim,done=0,zones;
   Real tlim;
   double cpu_time, zcs;
   char *definput = "athinput", *rundir = NULL, *res_file = NULL;
@@ -136,11 +137,11 @@ int athena_main(int argc, char *argv[])
   }
 
 /*----------------------------------------------------------------------------*/
-/* For MPI_PARALLEL jobs, have parent read input file and distribute
- * information to children  */
+/* For MPI_PARALLEL jobs, have parent read input file, parse command line, and
+ * distribute information to children  */
 
 #ifdef MPI_PARALLEL
-/* Get my task id, or rank as it is called in MPI */
+/* Get my task id (rank in MPI) */
   if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD,&(grid_level0.my_id)))
     ath_error("Error on calling MPI_Comm_rank\n");
 
@@ -264,6 +265,8 @@ int athena_main(int argc, char *argv[])
 
 /* For both new and restart runs, the grid is initialized from parameters that
  * have already been read from the input file */
+/* For MPI parallel jobs, init_grid_block() calls domain_init() to initialize
+ * MPI blocks */
 
   init_grid_block(&grid_level0);
 
@@ -282,7 +285,7 @@ int athena_main(int argc, char *argv[])
 /* set boundary value function pointers using BC flags, read from <grid> blocks */
   set_bvals_init(&grid_level0);
   set_bvals(&grid_level0);                                 /* in input file */
-  if(ires == 0) init_dt(&grid_level0);
+  if(ires == 0) new_dt(&grid_level0);
 
 /* Set output modes (based on <ouput> blocks in input file).
  * Allocate temporary arrays needed by solver */
@@ -294,10 +297,10 @@ int athena_main(int argc, char *argv[])
 
   par_dump(0,stdout); /* Dump a copy of the parsed information to stdout */
   change_rundir(rundir);
+  if (ires==0) data_output(&grid_level0, 1);
 
   ath_sig_init(); /* Install a signal handler */
 
-  Userwork_before_loop(&grid_level0);
   gettimeofday(&tvs,NULL);
   if((have_times = times(&tbuf)) > 0)
     time0 = tbuf.tms_utime + tbuf.tms_stime;
@@ -319,6 +322,7 @@ int athena_main(int argc, char *argv[])
 
     data_output(&grid_level0, 0);
 
+/* modify timestep so loop finishes at t=tlim exactly */
     if ((tlim-grid_level0.time) < grid_level0.dt) {
       grid_level0.dt = (tlim-grid_level0.time);
     }
@@ -328,11 +332,12 @@ int athena_main(int argc, char *argv[])
 
     (*integrate)(&grid_level0);
 
-#ifdef MPI_PARALLEL
-    sync_dt(&grid_level0);
-#endif /* MPI_PARALLEL */
-
+    Userwork_in_loop(&grid_level0);
     set_bvals(&grid_level0);
+
+    grid_level0.nstep++;
+    grid_level0.time += grid_level0.dt;
+    new_dt(&grid_level0);
 
 #ifdef MPI_PARALLEL
     if(use_wtlim){
