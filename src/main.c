@@ -57,9 +57,9 @@ void change_rundir(char *name);
 void usage(char *prog);
 
 /*----------------------------------------------------------------------------*/
-/* athena_main: Athena main program  */
+/* main: Athena main program  */
 
-int athena_main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
   VGFun_t integrate;               /* pointer to integrator, set at runtime */
   Grid grid_level0;                /* only level0 grids in this version */
