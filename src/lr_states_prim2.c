@@ -47,7 +47,7 @@ static Real **pW=NULL;
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
   const Real dt, const Real dtodx, const int is, const int ie,
-  const Prim1D *Wsrc, Cons1D Ul[], Cons1D Ur[])
+  Cons1D Ul[], Cons1D Ur[])
 {
   int i,n,m;
   Real maxevlr=0.0, pb, qa, qb, qc, qx;
@@ -55,7 +55,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
   Real dWc[NWAVE],dWl[NWAVE],dWr[NWAVE],dWg[NWAVE];
   Real dac[NWAVE],dal[NWAVE],dar[NWAVE],dag[NWAVE],da[NWAVE];
   Real Wlv[NWAVE],Wrv[NWAVE],dW[NWAVE],dWm[NWAVE];
-  Real *pWl, *pWr, *pWsrc;
+  Real *pWl, *pWr;
 
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
@@ -242,22 +242,11 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
       }
     }
-
-/*--- Step 11. -----------------------------------------------------------------
- * Add the source terms to the appropriate interface states */
-
-    if(Wsrc != NULL){
-      pWsrc = (Real *)&(Wsrc[i]);
-      for (n=0; n<NWAVE; n++) {
-	pWl[n] += 0.5*dt*pWsrc[n];
-	pWr[n] += 0.5*dt*pWsrc[n];
-      }
-    }
 #endif /* CTU_INTEGRATOR */
 
   } /*=============== END BIG LOOP OVER i ===============*/
 
-/*--- Step 12. -----------------------------------------------------------------
+/*--- Step 11. -----------------------------------------------------------------
  * Convert back to conserved variables, and done.  */
 
   for (i=is; i<=ie+1; i++) {
