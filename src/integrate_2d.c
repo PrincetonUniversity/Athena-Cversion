@@ -14,7 +14,6 @@
  * The variables in Grid which are updated are:
  *    U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
  *    B1i, B2i -- interface magnetic field
- *    time,dt,nstep
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_2d()
@@ -37,7 +36,6 @@ static Cons1D **x1Flux=NULL, **x2Flux=NULL;
 #ifdef MHD
 static Real **emf3=NULL, **emf3_cc=NULL;
 #endif /* MHD */
-static ConsPotFun_t cons_pot_fun = NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
@@ -46,8 +44,9 @@ static ConsPotFun_t cons_pot_fun = NULL;
 
 static void integrate_emf3_corner(Grid *pGrid);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* Function integrate_2d */
+/* integrate_2d:  CTU integrator in 2D  */
 
 void integrate_2d(Grid *pGrid)
 {
@@ -506,19 +505,8 @@ void integrate_2d(Grid *pGrid)
   }
 #endif /* MHD */
 
-  pGrid->time += pGrid->dt;
-  pGrid->nstep++;
 }
 
-/*----------------------------------------------------------------------------*/
-/* cons_pot_fun_enroll:  Enroll a conservative potential function for
- *   integrating the total energy, including the potential energy. */
-
-void cons_pot_fun_enroll_2d(ConsPotFun_t pfun)
-{
-  cons_pot_fun = pfun;
-  return;
-}
 
 /*----------------------------------------------------------------------------*/
 /* integrate_destruct_2d:  Free temporary integration arrays */
@@ -604,6 +592,8 @@ void integrate_init_2d(int nx1, int nx2)
   ath_error("[integrate_init]: malloc returned a NULL pointer\n");
 }
 
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
 /* integrate_emf3_corner:  */
