@@ -1,8 +1,8 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: init_grid_block.c
+ * FILE: integrate_3d-ctu.c
  *
- * PURPOSE: A variety of useful utility functions.
+ * PURPOSE:
  * Updates the input Grid structure pointed to by *pGrid by one timestep using
  * directionally unsplit CTU method of Colella (1990).
  *
@@ -10,6 +10,8 @@
  *    U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
  *    B1i, B2i, B3i  -- interface magnetic field
  *    time,dt,nstep
+ *
+ * REFERENCES:
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *============================================================================*/
@@ -33,7 +35,6 @@ static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
-static ConsPotFun_t cons_pot_fun = NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
@@ -47,9 +48,9 @@ static void integrate_emf2_corner(const Grid *pGrid);
 static void integrate_emf3_corner(const Grid *pGrid);
 
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_3d
- */
+/* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
 
 void integrate_3d(Grid *pGrid)
 {
@@ -1138,18 +1139,6 @@ void integrate_3d(Grid *pGrid)
   }
 #endif /* MHD */
 
-  pGrid->time += pGrid->dt;
-  pGrid->nstep++;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* Enroll a conservative potential function for integrating the total
-   energy, including the potential energy. */
-void cons_pot_fun_enroll_3d(ConsPotFun_t pfun)
-{
-  cons_pot_fun = pfun;
-  return;
 }
 
 
@@ -1270,15 +1259,21 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
   ath_error("[integrate_init]: malloc returned a NULL pointer\n");
 }
 
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
 /*----------------------------------------------------------------------------*/
-/*  Functions integrate_emf*_corner
- *    Integrates face centered B-fluxes to compute corner EMFs.  Note:
- * x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- * x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- * x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- * x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
- * x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
- * x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX    */
+/* integrate_emf1_corner
+ * integrate_emf2_corner
+ * integrate_emf3_corner
+ *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
+ *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+ */
 
 #ifdef MHD
 static void integrate_emf1_corner(const Grid *pGrid)
@@ -1397,7 +1392,6 @@ static void integrate_emf2_corner(const Grid *pGrid)
 
   return;
 }
-
 
 static void integrate_emf3_corner(const Grid *pGrid)
 {
