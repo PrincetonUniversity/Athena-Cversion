@@ -102,9 +102,6 @@ else
   AC_MSG_ERROR([expected --with-order=1, 2 or 3])
 fi
 
-rm -f src/lr_states.c
-ln -s lr_states_prim$ORDER.c src/lr_states.c
-
 #-------------------------------------------------------------------------------
 # PACKAGE: flux function
 #   --with-flux=[roe,hlle,hllc,hlld,force]
@@ -139,15 +136,12 @@ AC_ARG_WITH(integrator, [  --with-integrator=INTEGRATOR      Which unsplit 3D in
 		with_integrator=$withval, with_integrator="ctu")
 INTEGRATOR=$with_integrator
 if test   "$with_integrator" = "ctu"; then
-  THREE_DIM_INT="CTU"
+  THREE_DIM_INT="THREED_INT_CTU"
 elif test "$with_integrator" = "vl"; then
-  THREE_DIM_INT="VL"
+  THREE_DIM_INT="THREED_INT_VL"
 else
   AC_MSG_ERROR([expected --with-integrator=ctu or vl])
 fi
-
-rm -f src/integrate_3d.c
-ln -s integrate_3d_$INTEGRATOR.c src/integrate_3d.c
 
 #-------------------------------------------------------------------------------
 # FEATURE: precision of floating point arithmetic
