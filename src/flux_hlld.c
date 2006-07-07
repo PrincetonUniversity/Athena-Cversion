@@ -32,11 +32,11 @@
  *   Flux = fluxes of CONSERVED variables at cell interface
  */
 
-Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 {
   Cons1D Ulst,Uldst,Urdst,Urst;       /* Conserved variable for all states */
   Prim1D Wl,Wlst,Wldst,Wrdst,Wrst,Wr; /* Primitive variables for all states */
-  Flux Fl,Fr;                         /* Fluxes for left & right states */
+  Cons1D Fl,Fr;                         /* Fluxes for left & right states */
   Real spd[5],maxspd;                 /* signal speeds, left to right */
   Real sdl,sdr,sdml,sdmr;             /* S_i-u_i, S_i-S_M (i=L or R) */
   Real pbl,pbr,pbstl,pbstr,pbdstl,pbdstr; /* Magnetic pressures */
@@ -80,8 +80,6 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   }
 
   maxspd = MAX(fabs(spd[0]),fabs(spd[4]));
-  pFlux->a_l = spd[0];
-  pFlux->a_r = spd[4];
 
   if(Ul.d  == Ur.d &&
      Ul.Mx == Ur.Mx &&
@@ -100,7 +98,7 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
     pFlux->By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
     pFlux->Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
-    return maxspd;
+    return;
   }
 
   if(spd[0] >= 0.0) {
@@ -113,7 +111,7 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
     pFlux->By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
     pFlux->Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
-    return maxspd;
+    return;
   }
 
   if(spd[4] <= 0.0) {
@@ -126,7 +124,7 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
     pFlux->By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
     pFlux->Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
-    return maxspd;
+    return;
   }
 
 /*--- Step 3. ------------------------------------------------------------------
@@ -158,7 +156,7 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 
   ptst = ptl + Ul.d*sdl*(sdl-sdml);
 
-// Ul*
+/* Ul* */
   Ulst.Mx = Ulst.d * spd[2];
   if(spd[2] == Wl.Vx) {
     Ulst.My = Ulst.d * Wl.Vy;
@@ -184,7 +182,7 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pbstl = Cons1D_to_Prim1D(&Ulst,&Wlst,&Bxi);
 
 
-// Ur*
+/* Ur* */
   Urst.Mx = Urst.d * spd[2];
   if(spd[2] == Wr.Vx) {
     Urst.My = Urst.d * Wr.Vy;
@@ -314,5 +312,5 @@ Real flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->Bz = Fr.Bz + spd[4]*(Urst.Bz - Ur.Bz);
   }
 
-  return maxspd;
+  return;
 }
