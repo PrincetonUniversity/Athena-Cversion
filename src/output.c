@@ -6,27 +6,28 @@
  *   1. dump_*(): ALL variables are written in * format over WHOLE grid
  *   2. output_*(): ONE variable is written in * format with various options
  *   3. restarts: special form of a dump, includes extra data
- *   The number and types of outputs are all controlled by <ouput> blocks in the
- *   input files, parsed by the functions in par.c.  
+ *   The number and types of outputs are all controlled by <ouputN> blocks in
+ *   the input files, parsed by the functions in par.c.  
  *
  * TOTAL NUMBER of outputs is controlled by 'maxout' in <job> block in input
- *   file.  Only the first 'maxout' <output> blocks are processed.
+ *   file.  Only the first 'maxout' <outputN> blocks are processed, where
+ *   N < maxout.  If N > maxout, that <outputN> block is ignored.
  *
- * OPTIONS available in an <output> block are:
- *   out_fmt
- *   dt
- *   out
- *   id
- *   dmin/dmax
- *   ix1,ix2,ix3
- *   palette
+ * OPTIONS available in an <outputN> block are:
+ *   out         = all,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2
+ *   out_fmt     = bin,dx,hst,tab,rst,vtk,fits,pdf,pgm,ppm
+ *   dt          = problem time between outputs
+ *   id          = any string
+ *   dmin/dmax   = max/min applied to all outputs
+ *   ix1,ix2,ix3 = range of indices to be dumped (see parse_slice())
+ *   palette     = rainbow,jh_colors,idl1,idl2,step8,step32,heat
  *   
- * EXAMPLE of an <output> block for a VTK dump:
+ * EXAMPLE of an <outputN> block for a VTK dump:
  *   <ouput1>
  *   out_fmt = vtk
  *   out_dt  = 0.1
  *
- * EXAMPLE of an <output> block for a ppm image of a XY-slice in ppm format:
+ * EXAMPLE of an <outputN> block for a ppm image of a XY-slice in ppm format:
  *   <output5>
  *   out_fmt = ppm
  *   dt      = 100.0
@@ -37,7 +38,7 @@
  *   dmax    = 2.9
  *   palette = rainbow
  *
- * EXAMPLE of an <output> block for restarts:
+ * EXAMPLE of an <outputN> block for restarts:
  *   <ouput3>
  *   out_fmt = rst
  *   out_dt  = 1.0
@@ -48,7 +49,7 @@
  *     "Output_s" structures, including a pointer to the appropriate output
  *     function.
  *  -data_output(): called in main loop, compares integration time with time 
- *     for ouput for each element in Output array, and calls output functions.
+ *     for output for each element in Output array, and calls output functions.
  *    
  *   To add permanently a new type of dump X, write a new function dump_X, then
  *   modify init_output() to set the output function pointer when out_fmt=X
@@ -93,12 +94,12 @@
 
 #define MAXOUT_DEFAULT     10
 
-static int out_count = 0; /* Number of Outputs initialized in the OutArray */
-static size_t out_size  = 0; /* Size of the array OutArray[] */
-static Output *OutArray = NULL; /* Array of Output modes */
-static Output rst_out; /* Restart Output */
-static int rst_flag = 0; /* (0,1) -> Restart Outputs are (off,on) */
-
+static int out_count = 0;    /* Number of Outputs initialized in the OutArray */
+static size_t out_size  = 0;       /* Size of the array OutArray[] */
+static Output *OutArray = NULL;    /* Array of Output modes */
+static Output rst_out;             /* Restart Output */
+static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
+static int debug = 0;              /* debug level, set to 1 for debug output  */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -118,14 +119,13 @@ Real expr_E  (const Grid *pG, const int i, const int j, const int k);
 Real expr_B1c(const Grid *pG, const int i, const int j, const int k);
 Real expr_B2c(const Grid *pG, const int i, const int j, const int k);
 Real expr_B3c(const Grid *pG, const int i, const int j, const int k);
-Real expr_EB (const Grid *pG, const int i, const int j, const int k);
+Real expr_ME (const Grid *pG, const int i, const int j, const int k);
 Real expr_V1 (const Grid *pG, const int i, const int j, const int k);
 Real expr_V2 (const Grid *pG, const int i, const int j, const int k);
 Real expr_V3 (const Grid *pG, const int i, const int j, const int k);
 Real expr_P  (const Grid *pG, const int i, const int j, const int k);
-Real expr_eth      (const Grid *pG, const int i, const int j, const int k);
-Real expr_eth_d    (const Grid *pG, const int i, const int j, const int k);
-Real expr_P_d_gamma(const Grid *pG, const int i, const int j, const int k);
+Real expr_cs2(const Grid *pG, const int i, const int j, const int k);
+Real expr_S  (const Grid *pG, const int i, const int j, const int k);
 static Gasfun_t *load_expr(char *efname, char *ename);
 static Gasfun_t getexpr(const int n, const char *expr);
 static void free_output(Output *pout);
@@ -263,10 +263,10 @@ void init_output(Grid *pGrid)
     if (new_out.Nx1 > 1) new_out.ndim++;
     if (new_out.Nx2 > 1) new_out.ndim++;
     if (new_out.Nx3 > 1) new_out.ndim++;
-    printf("DEBUG %d  ndim=%d  Nx=[%d %d %d]\n",
-	   new_out.n,
-	   new_out.ndim,
-	   new_out.Nx1,new_out.Nx2,new_out.Nx3);
+    if (debug) {
+      printf("DEBUG %d  ndim=%d  Nx=[%d %d %d]\n",
+             new_out.n, new_out.ndim, new_out.Nx1,new_out.Nx2,new_out.Nx3);
+    }
 
 /* dmin/dmax & sdmin/sdmax */
     if(par_exist(block,"dmin") != 0){ /* Use a fixed minimum scale? */
@@ -285,9 +285,8 @@ void init_output(Grid *pGrid)
 
       new_out.rgb = getRGB(new_out.palette);
       if ( (new_out.der = (float *) malloc(3*256*sizeof(float))) == NULL) {
-	fprintf(stderr,"[init_output]: malloc returned a NULL pointer\n");
 	free_output(&new_out);
-	continue;
+	ath_error("[init_output]: malloc returned a NULL pointer\n");
       }
       for(j=0; j<3; j++)    /* compute derivates to speed up interpolations */
 	for (i=0; i<255; i++)
@@ -316,17 +315,19 @@ void init_output(Grid *pGrid)
 	new_out.dat_fmt = par_gets(block,"dat_fmt");
     }
     else {
-      fprintf(stderr,"Unsupported %s/out_fmt=%s\n",block,fmt);
+/* unknown output format is fatal */
       free_output(&new_out);
-      exit(EXIT_FAILURE);    /* unknown output format is fatal */
+      ath_error("Unsupported %s/out_fmt=%s\n",block,fmt);
     }
 
   add_it:
 
 /* DEBUG */
-    printf("OUTPUT: %d %d %s %d [%g : %g]\n",
-	   new_out.n, new_out.ndim, new_out.out_fmt,
-	   new_out.out, new_out.dmin, new_out.dmax);
+    if (debug) {
+      printf("OUTPUT: %d %d %s %d [%g : %g]\n",
+             new_out.n, new_out.ndim, new_out.out_fmt,
+             new_out.out, new_out.dmin, new_out.dmax);
+    }
 
     if(add_output(&new_out)) free_output(&new_out);
     else{
@@ -437,8 +438,8 @@ void data_output_destruct(void)
   int i;
 
   for (i=0; i<out_count; i++) {
-/* first print the global min/max computed over the calculation */
-    printf("Data min/max in %s: %g %g\n",OutArray[i].out,
+/* print the global min/max computed over the calculation */
+    printf("Global min/max for %s: %g %g\n",OutArray[i].out,
 	   OutArray[i].gmin, OutArray[i].gmax);
     if (OutArray[i].out     != NULL) free(OutArray[i].out);
     if (OutArray[i].out_fmt != NULL) free(OutArray[i].out_fmt);
@@ -548,8 +549,10 @@ float ***subset3(Grid *pgrid, Output *pout)
   kl = pgrid->ks;
   ku = pgrid->ke;
 #endif
-  fprintf(stderr,"subset2: lu's:  %d %d    %d %d     %d %d\n",
-          il,  iu,  jl,  ju,  kl,  ku);
+  if (debug) {
+    fprintf(stderr,"subset2: lu's:  %d %d    %d %d     %d %d\n",
+            il,  iu,  jl,  ju,  kl,  ku);
+  }
 
   data = (float ***) calloc_3d_array(Nx3,Nx2,Nx1,sizeof(float));
   for (k=0; k<Nx3; k++)
@@ -788,7 +791,7 @@ Real expr_B3c(const Grid *pG, const int i, const int j, const int k) {
   return 0.0;
 #endif
 }
-Real expr_EB(const Grid *pG, const int i, const int j, const int k) {
+Real expr_ME(const Grid *pG, const int i, const int j, const int k) {
 #ifdef MHD
   return 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
 	      pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + 
@@ -825,40 +828,26 @@ Real expr_P(const Grid *pG, const int i, const int j, const int k) {
 }
 
 /*--------------------------------------------------------------------------- */
-/* expr_eth:  */
+/* expr_cs2: sound speed squared  */
 
 #ifndef ISOTHERMAL
-Real expr_eth(const Grid *pG, const int i, const int j, const int k)
+Real expr_cs2(const Grid *pG, const int i, const int j, const int k)
 {
   Gas *gp = &(pG->U[k][j][i]);
-  return (gp->E 
+  return (Gamma*Gamma_1*(gp->E 
 #ifdef MHD
 	  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
-	  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
-}
-
-/*--------------------------------------------------------------------------- */
-/* expr_eth: thermal energy  */
-
-
-Real expr_eth_d(const Grid *pG, const int i, const int j, const int k)
-{
-  Gas *gp = &(pG->U[k][j][i]);
-  return (gp->E 
-#ifdef MHD
-	  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
-#endif /* MHD */
-	  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d)/gp->d;
+	  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d)/gp->d);
 }
 #endif /* ISOTHERMAL */
 
 
 /*--------------------------------------------------------------------------- */
-/* expr_P_d_gamma: entropy = P/d^{Gamma}  */
+/* expr_S: entropy = P/d^{Gamma}  */
 
 #ifdef ADIABATIC
-Real expr_P_d_gamma(const Grid *pG, const int i, const int j, const int k)
+Real expr_S(const Grid *pG, const int i, const int j, const int k)
 {
   Gas *gp = &(pG->U[k][j][i]);
   Real P = Gamma_1*(gp->E 
@@ -926,8 +915,8 @@ static Gasfun_t getexpr(const int n, const char *expr)
     return expr_B2c;
   else if (strcmp(expr,"B3c")==0)
     return expr_B3c;
-  else if (strcmp(expr,"EB")==0)
-    return expr_EB;
+  else if (strcmp(expr,"ME")==0)
+    return expr_ME;
   else if (strcmp(expr,"V1")==0)
     return expr_V1;
   else if (strcmp(expr,"V2")==0)
@@ -937,14 +926,12 @@ static Gasfun_t getexpr(const int n, const char *expr)
   else if (strcmp(expr,"P")==0)
     return expr_P;
 #ifndef ISOTHERMAL
-  else if (strcmp(expr,"eth")==0)
-    return  expr_eth;
-  else if (strcmp(expr,"eth/d")==0)
-    return  expr_eth_d;
+  else if (strcmp(expr,"cs2")==0)
+    return  expr_cs2;
 #endif /* ISOTHERMAL */
 #ifdef ADIABATIC
-  else if (strcmp(expr,"P/d^gamma")==0)
-    return  expr_P_d_gamma;
+  else if (strcmp(expr,"S")==0)
+    return  expr_S;
 #endif /* ADIABATIC */
   else {
     FILE *fp = fopen("tmp.expr.c","w");
@@ -1030,9 +1017,14 @@ static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
 	        expr,*l,nx);
     }
     free(expr);
-    printf("DEBUG: parse_slice: %s/%s = %s =>  %d .. %d\n",block,axname,expr,*l,*u);
+    if (debug) {
+      printf("DEBUG: parse_slice: %s/%s = %s =>  %d .. %d\n",
+              block,axname,expr,*l,*u);
+    }
   } else {             /* no slicing in this axis */
-    printf("DEBUG: parse_slice: %s/%s => no slicing \n",block,axname);
+    if (debug) {
+      printf("DEBUG: parse_slice: %s/%s => no slicing \n",block,axname);
+    }
     *l = *u = -1;
   }
   if (*l == -1) {
