@@ -1,0 +1,56 @@
+<comment>
+
+problem = double Mach reflection
+authot  = P. Woodward & P. Colella
+journal = J.Comp.Phys. 54, 115 (1984)
+config  = --with-gas=hydro --with-problem=dmr
+
+<job>
+
+problem_id      = dmr        # problem ID: basename of output filenames
+maxout          = 3          # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = hst                # History data dump
+dt      = 0.01               # time increment between outputs
+
+<output2>
+out_fmt = bin                # Binary data dump
+dt      = 0.002              # time increment between outputs
+
+<output3>
+out_fmt = ppm                # PPM image
+dt      = 0.002              # time increment between outputs
+out     = d
+dmin    = 1.4
+dmax    = 20.0
+palette = idl1
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 0.2       # time limit
+
+<grid>
+
+Nx1             = 260       # Number of zones in X-direction
+x1min           = 0.0       # minimum value of X
+x1max           = 3.25      # maximum value of X
+ibc_x1          = 2         # inner-I (X) boundary flag
+obc_x1          = 2         # outer-I (X) boundary flag
+
+Nx2             = 80        # Number of zones in Y-direction
+x2min           = 0.0       # minimum value of Y
+x2max           = 1.0       # maximum value of Y
+ibc_x2          = 2         # inner-J (Y) boundary flag
+obc_x2          = 2         # outer-J (Y) boundary flag
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma           = 1.4       # gamma = C_p/C_v
+
