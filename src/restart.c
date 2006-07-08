@@ -26,10 +26,6 @@
 #include "athena.h"
 #include "prototypes.h"
 
-/* Assumed maximum line length of lines in parameter file. */
-/* Must be same as value in par.c */
-#define MAXLEN 256
-
 /*----------------------------------------------------------------------------*/
 /* restart_grid_block: Reads nstep,time,dt,arrays of Gas and face-centered B in 
  *   Grid structure from restart file.  The remaining data is initialized
