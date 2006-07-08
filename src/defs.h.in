@@ -52,12 +52,14 @@
 
 /* nghost = Number of Ghost Cells 
  * num_digit = Number of digits in data dump file
+ * MAXLEN = maximum line length in input parameter file
  */
 
 enum {
   nghost = 5,
   num_digit = 4
 };
+#define MAXLEN 256
 
 /*----------------------------------------------------------------------------*/
 /* general purpose macros (never modified) */
