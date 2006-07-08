@@ -22,6 +22,10 @@
 #include "athena.h"
 #include "prototypes.h"
 
+#ifndef MHD
+#error : The HLLD flux only works for mhd.
+#endif /* MHD */
+
 /*----------------------------------------------------------------------------*/
 /* flux_hlld:
  * Input Arguments:
