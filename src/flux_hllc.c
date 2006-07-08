@@ -25,6 +25,10 @@
 #include "athena.h"
 #include "prototypes.h"
 
+#ifdef MHD
+#error : The HLLC flux only works for hydro.
+#endif /* MHD */
+
 /*----------------------------------------------------------------------------*/
 /* flux_hllc
  *   Input Arguments:
@@ -81,13 +85,11 @@ void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
  * Compute eigenvalues using Roe-averaged values
  */
 
-#ifdef HYDRO
 #ifdef ISOTHERMAL
   esys_roe_iso_hyd(v1roe, v2roe, v3roe, ev, NULL, NULL);
 #else
   esys_roe_adb_hyd(v1roe, v2roe, v3roe, hroe, ev, NULL, NULL);
 #endif /* ISOTHERMAL */
-#endif /* HYDRO */
 
 /*--- Step 4. ------------------------------------------------------------------
  * Compute the max and min wave speeds
