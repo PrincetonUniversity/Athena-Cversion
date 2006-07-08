@@ -1,0 +1,65 @@
+<comment>
+
+problem = Orszag-Tang vortex
+author  = S. Orszag & W. Tang
+journal = J. Fluid Mech., 90, 129 (1998)
+config  = --with-problem=orszag-tang
+
+<job>
+
+problem_id      = OrszagTang # problem ID: basename of output filenames
+maxout          = 4          # Read output blocks numbered from 1 -> maxout
+
+<output1>
+out_fmt = hst               # History data dump
+dt      = 0.01              # time increment between outputs
+
+<output2>
+out_fmt = bin               # Binary data dump
+dt      = 0.01              # time increment between outputs
+
+<output3>
+out_fmt = ppm
+dt      = 0.004
+out     = P
+id      = P
+dmin    = 0.01
+dmax    = 0.70
+palette = rainbow
+
+<output4>
+out_fmt = ppm
+dt      = 0.004
+out     = d
+id      = d
+dmin    = 0.05
+dmax    = 0.60
+palette = rainbow
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 1.0       # time limit
+
+<grid>
+
+Nx1             = 128       # Number of zones in X-direction
+x1min           = 0.0       # minimum value of X
+x1max           = 1.0       # maximum value of X
+ibc_x1          = 4         # inner-I (X) boundary flag
+obc_x1          = 4         # outer-I (X) boundary flag
+
+Nx2             = 128       # Number of zones in Y-direction
+x2min           = 0.0       # minimum value of Y
+x2max           = 1.0       # maximum value of Y
+ibc_x2          = 4         # inner-J (Y) boundary flag
+obc_x2          = 4         # outer-J (Y) boundary flag
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma           = 1.666666667     # gamma = C_p/C_v
