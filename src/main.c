@@ -21,10 +21,6 @@ static char *athena_version = "version 3.0 - XX-XXX-2006";
 #include "athena.h"
 #include "prototypes.h"
 
-/* Maximum length for a basename, or path + restart file name in the
- * case of an MPI Parallel calculation. */
-#define MAXLEN 256
-
 /* If there is a wall-time limit for MPI calculations run under a batch queue
  * system like PBS, then Athena will stop itself if there is less than
  * WTIME_WINDOW wall-seconds remaining to allow for time to write out the last
