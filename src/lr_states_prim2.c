@@ -199,7 +199,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       dW[n] = Wrv[n] - Wlv[n];
     }
 
-#ifdef CTU_INTEGRATOR /* include steps 9-11 only if using CTU 3D integrator */
+#ifdef THREED_INT_CTU /* include steps 9-11 only if using CTU 3D integrator */
 /*--- Step 9. ------------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue
@@ -242,7 +242,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
       }
     }
-#endif /* CTU_INTEGRATOR */
+#endif /* THREED_INT_CTU */
 
   } /*=============== END BIG LOOP OVER i ===============*/
 
