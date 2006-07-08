@@ -2,11 +2,20 @@
 /*==============================================================================
  * FILE: shkset.c
  *
- * PURPOSE: Problem generator for 1-D Riemann problems.
+ * PURPOSE: Problem generator for 1-D Riemann problems.  Initial discontinuity
+ *   is located so there are equal numbers of cells to the left and right (in
+ *   center of grid based in integer index).
  *
  * CONTAINS PUBLIC FUNCTIONS:
  *   problem - 
- * PLUS problem specific user functions defined at end of file.
+ *
+ * PROBLEM USER FUNCTIONS: Must be included in every problem file, even if they
+ *   are NoOPs and never used.  They provide user-defined functionality.
+ * problem_write_restart() - writes problem-specific user data to restart files
+ * problem_read_restart()  - reads problem-specific user data from restart files
+ * get_usr_expr()          - sets pointer to expression for special output data
+ * Userwork_in_loop        - problem specific work IN     main loop
+ * Userwork_after_loop     - problem specific work AFTER  main loop
  *============================================================================*/
 
 #include <math.h>
@@ -92,7 +101,9 @@ void problem(Grid *pGrid)
     kl = pGrid->ks;
   }
 
-/* Initialize the grid including the ghost cells */
+/* Initialize the grid including the ghost cells.  Discontinuity is always
+ * located in middle of grid (at zone index half way between is,ie),
+ * regardless of value of x-coordinate */
 
   switch(shk_dir) {
   case 1:  /* shock in 1-direction  */
@@ -256,15 +267,13 @@ void problem(Grid *pGrid)
 }
 
 /*==============================================================================
- * PROBLEM USER FUNCTIONS: Must be included in every problem file, even if they
- *   are NoOPs and never used.  They provide user-defined functionality.
+ * PROBLEM USER FUNCTIONS:
  * problem_write_restart() - writes problem-specific user data to restart files
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
- * Userwork_before_loop()  - problem specific work BEFORE main loop
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
-/*----------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 
 void problem_write_restart(Grid *pG, FILE *fp){
   return;
@@ -276,10 +285,6 @@ void problem_read_restart(Grid *pG, FILE *fp){
 
 Gasfun_t get_usr_expr(const char *expr){
   return NULL;
-}
-
-void Userwork_before_loop(Grid *pGrid){
-  return;
 }
 
 void Userwork_in_loop(Grid *pGrid){
