@@ -22,6 +22,9 @@
 #include "athena.h"
 #include "prototypes.h"
 
+#ifdef ISOTHERMAL
+#error : The HLLD flux only works with adiabatic EOS.
+#endif /* ISOTHERMAL */
 #ifndef MHD
 #error : The HLLD flux only works for mhd.
 #endif /* MHD */
