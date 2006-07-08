@@ -65,8 +65,6 @@
 #include "defs.h"
 #include "prototypes.h"
 
-#define MAXLEN  256      /* maximum line length of lines in parameter files */
-
 static int  now_open = 0;         /* keep track of status of the par routines */
 static char *now_filename = NULL; /* keep pointer to last open filename */
 
