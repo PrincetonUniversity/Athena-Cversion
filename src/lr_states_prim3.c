@@ -11,8 +11,6 @@
  *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
  *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
  *
- * SOURCE TERMS: are added to the primitive variables
- *
  * REFERENCE:
  *   P. Colella & P. Woodward, "The piecewise parabolic method (PPM) for
  *   gas-dynamical simulations", JCP, 54, 174 (1984).
@@ -51,16 +49,16 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 	       const Real dt, const Real dtodx, const int is, const int ie,
-	       const Prim1D *Wsrc, Cons1D Ul[], Cons1D Ur[])
+	       Cons1D Ul[], Cons1D Ur[])
 {
   int i,n,m;
-  Real maxevlr=0.0, pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
+  Real pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
   Real ev    [NWAVE],rem    [NWAVE][NWAVE],lem    [NWAVE][NWAVE];
   Real ev_ip1[NWAVE],rem_ip1[NWAVE][NWAVE],lem_ip1[NWAVE][NWAVE];
   Real dWc[NWAVE],dWl[NWAVE],dWr[NWAVE],dWg[NWAVE];
   Real dac[NWAVE],dal[NWAVE],dar[NWAVE],dag[NWAVE],da[NWAVE];
   Real Wlv[NWAVE],Wrv[NWAVE],dW[NWAVE],W6[NWAVE];
-  Real *pWl, *pWr, *pWsrc;
+  Real *pWl, *pWr;
 
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
@@ -372,7 +370,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
     }
 
-#ifdef CTU_INTEGRATOR /* include steps 19-21 only if using CTU 3D integrator */
+#ifdef THREED_INT_CTU /* include steps 19-21 only if using CTU 3D integrator */
 /*--- Step 19. -----------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue (CW eqn 1.12)
@@ -420,17 +418,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       }
     }
 
-/*--- Step 21. -----------------------------------------------------------------
- * Add the source terms to the appropriate interface states */
-
-    if(Wsrc != NULL){
-      pWsrc = (Real *)&(Wsrc[i]);
-      for (n=0; n<NWAVE; n++) {
-	pWl[n] += 0.5*dt*pWsrc[n];
-	pWr[n] += 0.5*dt*pWsrc[n];
-      }
-    }
-#endif /* CTU_INTEGRATOR */
+#endif /* THREED_INT_CTU */
 
 /*--- Step 22. -----------------------------------------------------------------
  * Save eigenvalues and eigenmatrices at i+1 for use in next iteration */
