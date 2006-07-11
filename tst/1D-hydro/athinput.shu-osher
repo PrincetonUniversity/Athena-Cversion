@@ -1,0 +1,52 @@
+<comment>
+
+problem = Mach 3 shock interacting with a sine wave in the density (Example 6)
+author  = C.-W. Shu & S. Osher 
+journal =  J. Comp. Phys. 83, pp. 32-78 (1989)
+config  = --with-gas=hydro --with-problem=shu-osher
+
+<job>
+
+problem_id      = Shu_Osher  # problem ID: basename of output filenames
+maxout          = 3          # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = tab               # Tabular data dump
+dat_fmt = %12.5e            # Optional data format string
+dt      = 0.0235            # time increment between outputs
+
+<output2>
+out_fmt = hst               # History data dump
+dt      = 0.0235            # time increment between outputs
+
+<output3>
+out_fmt = bin               # Binary data dump
+dt      = 0.0235            # time increment between outputs
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 5000      # cycle limit
+tlim            = 0.47      # time limit
+
+<grid>
+
+Nx1             = 800       # Number of zones in X1-direction
+x1min           = -1.0      # minimum value of X1
+x1max           = 1.0       # maximum value of X1
+ibc_x1          = 2         # inner (X1) boundary flag
+obc_x1          = 2         # outer (X1) boundary flag
+
+Nx2             = 1         # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 0.0       # maximum value of X2
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma = 1.4                 # gamma = C_p/C_v
+
+shk_dir         = 1         # Shock Direction -- (1,2,3) = (x1,x2,x3)
