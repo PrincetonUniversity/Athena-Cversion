@@ -3,7 +3,7 @@
  * FILE: shu-osher.c
  *
  * PURPOSE: Problem generator for Shu-Osher shocktube test, involving
- *   interaction of a strong shock with a sine wave density distribution.  
+ *   interaction of a Mach 3 shock with a sine wave density distribution.  
  *
  * REFERENCE: C.W. Shu & S. Osher, "Efficient implementation of essentially
  *   non-oscillatory shock-capturing schemes, II", JCP, 83, 32 (1998)
