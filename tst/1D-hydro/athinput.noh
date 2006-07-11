@@ -1,0 +1,64 @@
+<comment>
+
+problem = Noh's colliding winds test
+author  = W.F. Noh 
+journal = J. Comp. Phys. 72, pp. 78-120 (1987)
+config  = -with-gas=hydro --with-problem=shkset1
+
+<job>
+
+problem_id      = Noh       # problem ID: basename of output filenames
+maxout          = 3         # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = tab               # Tabular data dump
+dat_fmt = %12.5e            # Optional data format string
+dt      = 0.05              # time increment between outputs
+
+<output2>
+out_fmt = hst               # History data dump
+dt      = 0.05              # time increment between outputs
+
+<output3>
+out_fmt = bin               # Binary data dump
+dt      = 0.05              # time increment between outputs
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 200       # cycle limit
+tlim            = 1.0       # time limit
+
+<grid>
+
+Nx1             = 100       # Number of zones in X1-direction
+x1min           = -0.5      # minimum value of X1
+x1max           = 0.5       # maximum value of X1
+ibc_x1          = 2         # inner (X1) boundary flag
+obc_x1          = 2         # outer (X1) boundary flag
+
+Nx2             = 1         # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 0.0       # maximum value of X2
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma = 1.6666666666666667  # gamma = C_p/C_v
+
+shk_dir         = 1         # Shock Direction -- (1,2,3) = (x1,x2,x3)
+
+dl              = 1.0       # density on left half of grid
+pl              = 1.0e-6    # pressure
+v1l             = 1.0       # X-velocity
+v2l             = 0.0       # Y-velocity
+v3l             = 0.0       # Z-velocity
+
+dr              = 1.0       # density on right half of grid
+pr              = 1.0e-6    # pressure
+v1r             = -1.0      # X-velocity
+v2r             = 0.0       # Y-velocity
+v3r             = 0.0       # Z-velocity
