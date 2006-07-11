@@ -3,8 +3,10 @@
 ; PURPOSE: contains IDL procedures to read and make plots from Athena dumps and
 ;   outputs.  Contains the following procedures:
 ;
-; PRO readbin,filename:  reads .bin file 'filename'
-; PRO sod_plot,filename: plots analytic Sod shocktube solution over numerical
+; PRO readbin,filename:        reads .bin file 'filename'
+; PRO sod_plot,filename:       plots analytic Sod solution over numerical
+; PRO four_plot,filename:      plots d,P,Vx,P/d
+; PRO nine_plot,filename,flag: use flag=0 for points, flag=1 for line
 ;
 COMMON SHARE1,nx,ny,nz,nvar
 COMMON SHARE2,x,y,z
@@ -105,6 +107,57 @@ plot,x,vx,YTITLE='Vx',psym=6,symsize=.4,YRANGE=[dmin,dmax],XSTYLE=1
 dmin=MIN(p/d)
 dmax=MAX(p/d)
 plot,x,p/d,YTITLE='P/D',psym=6,symsize=.4,YRANGE=[dmin,dmax],XSTYLE=1
+!P.MULTI=0
+END
+
+;-------------------------------------------------------------------------------
+; Procedure NINE_PLOT: plots d,P,E,Vx,Vy,Vz,By,Bz,Phi - same plot as in RJ
+;   Use flag=0 to plot points, flag=1 to plot line
+;
+PRO nine_plot,filename,flag
+COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE2,x,y,z
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+;
+readbin,filename
+!P.MULTI=[0,3,3,0,0]
+dmin=MIN(d)
+dmax=MAX(d)
+IF (flag EQ 0) THEN plot,x,d,psym=6,symsize=.4,YTITLE='D',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,d,YTITLE='D',YRANGE=[dmin,dmax]
+dmin=MIN(p)
+dmax=MAX(p)
+IF (flag EQ 0) THEN plot,x,p,psym=6,symsize=.4,YTITLE='P',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,p,YTITLE='P',YRANGE=[dmin,dmax]
+dmin=MIN(e)
+dmax=MAX(e)
+IF (flag EQ 0) THEN plot,x,e,psym=6,symsize=.4,YTITLE='E',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,e,YTITLE='E',YRANGE=[dmin,dmax]
+dmin=MIN(vx)
+dmax=MAX(vx)
+IF (flag EQ 0) THEN plot,x,vx,psym=6,symsize=.4,YTITLE='Vx',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,vx,YTITLE='Vx',YRANGE=[dmin,dmax]
+dmin=MIN(vy)
+dmax=MAX(vy)
+IF (flag EQ 0) THEN plot,x,vy,psym=6,symsize=.4,YTITLE='Vy',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,vy,YTITLE='Vy',YRANGE=[dmin,dmax]
+dmin=MIN(vz)
+dmax=MAX(vz)
+IF (flag EQ 0) THEN plot,x,vz,psym=6,symsize=.4,YTITLE='Vz',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,vz,YTITLE='Vz',YRANGE=[dmin,dmax]
+dmin=MIN(by)
+dmax=MAX(by)
+IF (flag EQ 0) THEN plot,x,by,psym=6,symsize=.4,YTITLE='By',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,by,YTITLE='By',YRANGE=[dmin,dmax]
+dmin=MIN(bz)
+dmax=MAX(bz)
+IF (flag EQ 0) THEN plot,x,bz,psym=6,symsize=.4,YTITLE='Bz',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,bz,YTITLE='Bz',YRANGE=[dmin,dmax]
+phi = 180*(atan(bz/(by+1.0e-10))/3.1415927)
+dmin=MIN(phi)
+dmax=MAX(phi)
+IF (flag EQ 0) THEN plot,x,phi,psym=6,symsize=.4,YTITLE='PHI',YRANGE=[dmin,dmax]
+IF (flag EQ 1) THEN plot,x,phi,YTITLE='PHI',YRANGE=[dmin,dmax]
 !P.MULTI=0
 END
 
