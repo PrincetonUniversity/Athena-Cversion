@@ -1,0 +1,51 @@
+<comment>
+
+problem = Circularly Polarized Alfven Waves
+author  = G. Toth
+journal = JCP, vol. 161, pp. 605-662 (2000). 
+config  = --with-problem=cpaw1d
+
+<job>
+
+problem_id   = cpaw         # problem ID: basename of output filenames
+maxout       = 2            # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = tab               # Tabular data dump
+dt      = 0.1               # time increment between outputs
+
+<output2>
+out_fmt = hst               # History data dump
+dt      = 0.1               # time increment between outputs
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 5.0       # time limit
+
+<grid>
+
+Nx1             = 64        # Number of zones in X1-direction
+x1min           = 0.0       # minimum value of X1
+x1max           = 1.0       # maximum value of X1
+ibc_x1          = 4         # inner (X1) boundary flag
+obc_x1          = 4         # outer (X) boundary flag
+
+Nx2             = 1         # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 0.0       # maximum value of X2
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma = 1.6666666666666667  # gamma = C_p/C_v
+
+b_par   = 1.0               # B parallel
+b_perp  = 0.1               # B perpendicular
+pres    = 0.1               # pressure
+v_par   = 0.0               # vpar = {0, 1} -> {traveling, standing} wave
+
