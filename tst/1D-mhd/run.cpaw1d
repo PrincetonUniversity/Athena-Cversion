@@ -11,7 +11,7 @@
 #
 # Script turns off all output from code except convergence data
 
-set rundir=tmpdir.linear_wave
+set rundir=tmpdir.cpaw1d
 
 if (-d $rundir) rm -rf $rundir
 mkdir $rundir
