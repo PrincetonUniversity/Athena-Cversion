@@ -37,9 +37,8 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 /* lr_states:
  * Input Arguments:
  *   U1d = CONSERVED variables at cell centers along 1-D slice
- *   Bxc = B in direction of slice at cell centers
- *   dt = timestep
- *   dtodx = dt/dx
+ *   Bx{c/i} = B in direction of slice at cell {center/interface}
+ *   dt = timestep;  dtodx = dt/dx
  *   is,ie = starting and ending indices of zone centers in slice
  * U1d and Bxc must be initialized over [is-nghost:ie+nghost]
  *
@@ -370,7 +369,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
     }
 
-#ifdef THREED_INT_CTU /* include steps 19-21 only if using CTU 3D integrator */
+#ifndef THREED_VL /* do not include steps 19-20 if using VL 3D integrator */
 /*--- Step 19. -----------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue (CW eqn 1.12)
@@ -391,10 +390,11 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 
 /*--- Step 20. -----------------------------------------------------------------
  * Then subtract amount of each wave m that does not reach the interface
- * during timestep (CW eqn 3.5ff)
+ * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
+ * move in both directions, but only to 2nd order.
  */
 
-    for (n=0; n<NWAVE-1; n++) {
+    for (n=0; n<NWAVE; n++) {
       if (ev[n] > 0.) {
 	qa  = 0.0;
         qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
@@ -403,10 +403,17 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 	  qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+#ifndef ROE_FLUX
+        qa = 0.0;
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
+        }
+        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
+#endif /* ROE_FLUX */
       }
     }
 
-    for (n=1; n<NWAVE; n++) {
+    for (n=0; n<NWAVE; n++) {
       if (ev[n] < 0.) {
         qa = 0.0;
         qb = 0.5*dtodx*(ev[0]-ev[n]);
@@ -415,12 +422,19 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+#ifndef ROE_FLUX
+        qa  = 0.0;
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
+        }
+        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
+#endif /* ROE_FLUX */
       }
     }
 
-#endif /* THREED_INT_CTU */
+#endif /* THREED_VL */
 
-/*--- Step 22. -----------------------------------------------------------------
+/*--- Step 21. -----------------------------------------------------------------
  * Save eigenvalues and eigenmatrices at i+1 for use in next iteration */
 
     for (m=0; m<NWAVE; m++) {
@@ -433,7 +447,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 
   } /*=============== END BIG LOOP OVER i ===============*/
 
-/*--- Step 23. -----------------------------------------------------------------
+/*--- Step 22. -----------------------------------------------------------------
  * Convert back to conserved variables, and done
  */
 
