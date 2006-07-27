@@ -11,8 +11,6 @@
  *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
  *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
  *
- * SOURCE TERMS: are added to the primitive variables
- *
  * CONTAINS PUBLIC FUNCTIONS:
  *   lr_states()          - computes L/R states
  *   lr_states_init()     - initializes memory for static global arrays
@@ -35,9 +33,8 @@ static Real **pW=NULL;
 /* lr_states:
  * Input Arguments:
  *   U1d = CONSERVED variables at cell centers along 1-D slice
- *   Bxc = B in direction of slice at cell centers
- *   dt = timestep
- *   dtodx = dt/dx
+ *   Bx{c/i} = B in direction of slice at cell {center/interface}
+ *   dt = timestep;   dtodx = dt/dx
  *   is,ie = starting and ending indices of zone centers in slice
  * U1d and Bxc must be initialized over [is-nghost:ie+nghost]
  *
@@ -50,7 +47,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
   Cons1D Ul[], Cons1D Ur[])
 {
   int i,n,m;
-  Real maxevlr=0.0, pb, qa, qb, qc, qx;
+  Real pb, qa, qb, qc, qx;
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dWc[NWAVE],dWl[NWAVE],dWr[NWAVE],dWg[NWAVE];
   Real dac[NWAVE],dal[NWAVE],dar[NWAVE],dag[NWAVE],da[NWAVE];
@@ -199,7 +196,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       dW[n] = Wrv[n] - Wlv[n];
     }
 
-#ifdef THREED_INT_CTU /* include steps 9-11 only if using CTU 3D integrator */
+#ifndef THREED_VL /* do not include steps 9-11 if using VL 3D integrator */
 /*--- Step 9. ------------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue
@@ -219,30 +216,46 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 10. -----------------------------------------------------------------
- * Then subtract amount of each wave m that does not reach the interface
- * during timestep (CW eqn 3.5ff)
+ * Then subtract amount of each wave n that does not reach the interface
+ * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
+ * move in both directions.
  */
 
-    for (n=0; n<NWAVE-1; n++) {
+    for (n=0; n<NWAVE; n++) {
       if (ev[n] > 0.) {
 	qa  = 0.0;
 	for (m=0; m<NWAVE; m++) {
 	  qa += lem[n][m]*0.5*dtodx*(ev[NWAVE-1]-ev[n])*dW[m];
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+#ifndef ROE_FLUX
+        qa = 0.0;
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
+        }
+        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
+#endif /* ROE_FLUX */
       }
     }
 
-    for (n=1; n<NWAVE; n++) {
+    for (n=0; n<NWAVE; n++) {
       if (ev[n] < 0.) {
         qa = 0.0;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*0.5*dtodx*(ev[0]-ev[n])*dW[m];
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+#ifndef ROE_FLUX
+	qa  = 0.0;
+	for (m=0; m<NWAVE; m++) {
+	  qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
+	}
+	for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
+#endif /* ROE_FLUX */
       }
     }
-#endif /* THREED_INT_CTU */
+
+#endif /* THREED_VL */
 
   } /*=============== END BIG LOOP OVER i ===============*/
 
@@ -253,6 +266,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
     pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
   }
+
   return;
 }
 
