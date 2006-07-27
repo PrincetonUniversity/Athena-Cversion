@@ -1,0 +1,55 @@
+<comment>
+
+problem = linear wave convergence
+author  =
+journal =
+config  = --with-problem=linear_wave1
+
+<job>
+
+problem_id      = LinWave    # problem ID: basename of output filenames
+maxout          = 3          # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = tab               # Tabular data dump
+dat_fmt = %12.5e            # Optional data format string
+dt      = 0.1               # time increment between outputs
+
+<output2>
+out_fmt = bin               # Binary data dump
+dt      = 0.1               # time increment between outputs
+
+<output3>
+out_fmt = hst               # History data dump
+dt      = 0.01              # time increment between outputs
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 5.0       # time limit
+
+<grid>
+
+Nx1             = 128       # Number of zones in X-direction
+x1min           = 0.0       # minimum value of X
+x1max           = 1.0       # maximum value of X
+ibc_x1          = 4         # inner-I (X) boundary flag
+obc_x1          = 4         # outer-I (X) boundary flag
+
+Nx2             = 1         # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 0.0       # maximum value of X2
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma = 1.6666666666666667  # gamma = C_p/C_v
+
+wave_flag       = 0         # Wave family number (0 - 4)
+wave_dir        = 1         # Wave direction (1 - 3)
+amp             = 1.0e-6    # Wave Amplitude
+vflow           = 0.0       # Average x1 velocity
