@@ -43,7 +43,7 @@ void show_config(void)
   fprintf(stderr," Order of Accuracy:       3 (THIRD_ORDER)\n");
 #endif
 
-  fprintf(stderr," Flux:                    %s\n",FLUX_NAME);
+  fprintf(stderr," Flux:                    %s\n",FLUX_TYPE);
   fprintf(stderr," Unsplit 3D integrator:   %s\n",UNSPLIT_INTEGRATOR);
 
 #if defined(SINGLE_PREC)
@@ -97,7 +97,7 @@ void show_config_par(void)
   par_seti("configure","order","%d",3,"Order of accuracy");
 #endif
 
-  par_sets("configure","flux",FLUX_NAME,"Flux function");
+  par_sets("configure","flux",FLUX_TYPE,"Flux function");
   par_sets("configure","integrator",UNSPLIT_INTEGRATOR,"Unsplit 3D integrator");
 
 #if defined(SINGLE_PREC)
