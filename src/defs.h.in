@@ -32,11 +32,12 @@
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER */
 #define @ACCURACY@
 /* flux_{roe, hlle, hllc, hlld, force} */
-#define GET_FLUXES flux_@FLUX_TYPE@
-#define FLUX_NAME "@FLUX_TYPE@"
+#define @FLUX_DEF@
+#define GET_FLUXES flux_@FLUX_NAME@
+#define FLUX_TYPE "@FLUX_NAME@"
 /* 3D integrator: THREED_INT_CTU or THREED_INT_VL */
-#define @THREE_DIM_INT@
-#define UNSPLIT_INTEGRATOR "@THREE_DIM_INT@"
+#define @THREED_INT_DEF@
+#define UNSPLIT_INTEGRATOR "@INTEGRATOR@"
 
 /* Real: DOUBLE_PREC or SINGLE_PREC */
 #define @PRECISION@
