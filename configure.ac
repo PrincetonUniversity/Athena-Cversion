@@ -34,11 +34,11 @@ AC_PROG_INSTALL
 
 #-------------------------------------------------------------------------------
 # PACKAGE: name of problem generator from src/prob/name.c 
-#   --with-problem=name (default is shkset)
+#   --with-problem=name (default is shkset1)
 
 AC_SUBST(PROBLEM)
 AC_ARG_WITH(problem, [  --with-problem=PROB     Problem generator from src/prob/name.c],
-		with_problem=$withval, with_problem="shkset")
+		with_problem=$withval, with_problem="shkset1")
 PROBLEM=$with_problem
 if test -e src/prob/$PROBLEM.c; then
    rm -f src/problem.c
@@ -107,20 +107,21 @@ fi
 #   --with-flux=[roe,hlle,hllc,hlld,force]
 #   (default is roe if gas=mhd, hllc if gas=hydro)
 
-AC_SUBST(FLUX_TYPE)
-AC_ARG_WITH(flux, [  --with-flux=FLUX_TYPE   Flux function (roe, hllc (hydro only), hlld, hlle, force)],
+AC_SUBST(FLUX_NAME)
+AC_SUBST(FLUX_DEF)
+AC_ARG_WITH(flux, [  --with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force)],
 		with_flux=$withval, with_flux=$flux_default)
-FLUX_TYPE=$with_flux
+FLUX_NAME=$with_flux
 if test   "$with_flux" = "roe"; then
-  FLUX_TYPE="roe"
+  FLUX_DEF="ROE_FLUX"
 elif test "$with_flux" = "hlle"; then
-  FLUX_TYPE="hlle"
+  FLUX_DEF="HLLE_FLUX"
 elif test "$with_flux" = "hllc"; then
-  FLUX_TYPE="hllc"
+  FLUX_DEF="HLLC_FLUX"
 elif test "$with_flux" = "hlld"; then
-  FLUX_TYPE="hlld"
+  FLUX_DEF="HLLD_FLUX"
 elif test "$with_flux" = "force"; then
-  FLUX_TYPE="force"
+  FLUX_DEF="FORCE_FLUX"
 else
   AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, or force])
 fi
@@ -130,15 +131,15 @@ fi
 #   --with-integrator=[ctu,vl] (default is ctu)
 
 AC_SUBST(INTEGRATOR)
-AC_SUBST(THREE_DIM_INT)
+AC_SUBST(THREED_INT_DEF)
 
 AC_ARG_WITH(integrator, [  --with-integrator=INTEGRATOR      Which unsplit 3D integrator (ctu, vl)],
 		with_integrator=$withval, with_integrator="ctu")
 INTEGRATOR=$with_integrator
 if test   "$with_integrator" = "ctu"; then
-  THREE_DIM_INT="THREED_INT_CTU"
+  THREED_INT_DEF="THREED_CTU"
 elif test "$with_integrator" = "vl"; then
-  THREE_DIM_INT="THREED_INT_VL"
+  THREED_INT_DEF="THREED_VL"
 else
   AC_MSG_ERROR([expected --with-integrator=ctu or vl])
 fi
@@ -268,8 +269,8 @@ echo "Problem:                 $PROBLEM"
 echo "Gas properties:          $GAS"
 echo "Equation of State:       $EOS"
 echo "Spatial Order:           $ORDER ($ACCURACY)"
-echo "Flux:                    $FLUX_TYPE"
-echo "3D unsplit integrator:   $THREE_DIM_INT"
+echo "Flux:                    $FLUX_NAME"
+echo "3D unsplit integrator:   $INTEGRATOR"
 echo "Precision:               $PRECISION"
 echo "Compilation:"
 echo "  OPT:                   $COMPILER_OPTS"
