@@ -40,8 +40,6 @@
  *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
- *   Returns:
- *     maxevroe = eigenvalue of Roe's linearization with largest absolute value
  */
 
 void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
@@ -54,7 +52,7 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 #ifdef MHD
   Real b2roe,b3roe,x,y;
 #endif
-  Real ev[NWAVE],maxevroe=0.0,al,ar;
+  Real ev[NWAVE],al,ar;
   Real *pFl, *pFr, *pF;
   Prim1D Wl, Wr;
   Cons1D Fl,Fr;
@@ -119,8 +117,6 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
-  maxevroe = MAX( fabs(ev[0]), fabs(ev[NWAVE-1]) );
-
 /*--- Step 4. ------------------------------------------------------------------
  * Compute the max and min wave speeds
  */
@@ -163,7 +159,7 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   bm = MIN(al, 0.0);
 
 /*--- Step 5. ------------------------------------------------------------------
- * Compute L/R fluxes along the line bm, bp
+ * Compute L/R fluxes along the lines bm/bp: F_{L}-S_{L}U_{L}; F_{R}-S_{R}U_{R}
  */
 
   Fl.d  = Ul.Mx - bm*Ul.d;
