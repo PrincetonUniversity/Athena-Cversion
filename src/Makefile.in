@@ -22,7 +22,7 @@ CORE_OBJ = ath_array.o \
            dump_vtk.o \
            esystem_prim.o \
            esystem_roe.o \
-           flux_@FLUX_TYPE@.o \
+           flux_@FLUX_NAME@.o \
            init_grid_block.o \
            init_mpi_grid.o \
            integrate_1d.o \
@@ -48,7 +48,7 @@ CORE_OBJ = ath_array.o \
            show_config.o \
            utils.o
 #-------------------------------------------------------------------------------
-ifeq (@FLUX_TYPE@,roe)
+ifeq (@FLUX_NAME@,roe)
    OBJ = $(CORE_OBJ) flux_hlle.o
 else
    OBJ = $(CORE_OBJ)
