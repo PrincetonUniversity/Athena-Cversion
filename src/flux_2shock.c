@@ -20,9 +20,13 @@
 #include "athena.h"
 #include "prototypes.h"
 
+#ifdef MHD
+#error : The two-shock flux only works for hydro.
+#endif /* MHD */
+
 #ifndef ISOTHERMAL
 #error : The two-shock flux only works for isothermal equation of state.
-#endif /* MHD */
+#endif /* ISOTHERMAL */
 
 /*----------------------------------------------------------------------------*/
 /* flux_two-shock:
