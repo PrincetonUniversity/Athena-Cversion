@@ -29,7 +29,7 @@
 #include "athena.h"
 #include "prototypes.h"
 
-#ifdef THREED_INT_VL
+#ifdef THREED_VL
 
 static Gas ***Uhalf=NULL;
 static Real *Bxc=NULL, *Bxi=NULL;
@@ -996,4 +996,4 @@ static void integrate_emf3_corner(const Grid *pGrid)
   return;
 }
 #endif /* MHD */
-#endif /* THREED_INT_VL */
+#endif /* THREED_VL */
