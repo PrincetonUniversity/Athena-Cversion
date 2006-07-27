@@ -2,7 +2,7 @@
 /*==============================================================================
  * FILE: flux_hlld.c
  *
- * PURPOSE: Computes 1D fluxes using the HLLD Riemann solver, and extension of
+ * PURPOSE: Computes 1D fluxes using the HLLD Riemann solver, an extension of
  *   the HLLE solver to MHD.  Only works for MHD problems.
  *
  * REFERENCES:
