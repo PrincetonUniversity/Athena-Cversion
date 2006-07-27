@@ -43,8 +43,8 @@ static Real **pW=NULL;
  */
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
-  const Real dt, const Real dtodx, const int is, const int ie,
-  Cons1D Ul[], Cons1D Ur[])
+               const Real dt, const Real dtodx, const int is, const int ie,
+               Cons1D Ul[], Cons1D Ur[])
 {
   int i,n,m;
   Real pb, qa, qb, qc, qx;
@@ -196,7 +196,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       dW[n] = Wrv[n] - Wlv[n];
     }
 
-#ifndef THREED_VL /* do not include steps 9-11 if using VL 3D integrator */
+#ifndef THREED_VL /* do not include steps 9-10 if using VL 3D integrator */
 /*--- Step 9. ------------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue
