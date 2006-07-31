@@ -2,7 +2,8 @@
 /*==============================================================================
  * FILE: dmr.c
  *
- * PURPOSE: Problem generator for double Mach reflection test.
+ * PURPOSE: Problem generator for double Mach reflection test.  Only works for
+ *   genuinly 2D problems in XY-plane.
  *
  * REFERENCE: P. Woodward & P. Colella, "The numerical simulation of 
  *   two-dimensional fluid flow with strong shocks", JCP, 54, 115, sect. IVc.
@@ -50,6 +51,15 @@ Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
   ks = pGrid->ks;
+  if (pGrid->Nx3 > 1) {
+    ath_error("[dmr]: this test only works for 2D problems, with Nx3=1\n");
+  }
+  if (pGrid->Nx1 == 1 || pGrid->Nx2 == 1) {
+    ath_error("[dmr]: this test only works with Nx1 & Nx2 > 1\n");
+  }
+  if (pGrid->Nx3 > 1) {
+    ath_error("[dmr]: this test only works for 2D problems, with Nx3=1\n");
+  }
 
 /* Initialize shock using parameters defined in Woodward & Colella */
 
