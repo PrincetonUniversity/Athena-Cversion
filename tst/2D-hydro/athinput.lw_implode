@@ -1,0 +1,72 @@
+# 
+<comment>
+
+problem = 2D implosion from Liska & Wendroff
+author  = R. Liska & B. Wendroff
+journal = SIAM J. Sci. Comput., 25, 995-1017 (2003)
+config  = --with-gas=hydro --with-problem=lw_implode 
+
+<job>
+problem_id   = Implode      # problem ID: basename of output filenames
+maxout       = 4            # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = hst               # History data dump
+dt      = 0.1               # time increment between outputs
+
+<output2>
+out_fmt = bin               # Binary data dump
+dt      = 0.1               # time increment between outputs
+
+<output3>
+out_fmt = ppm
+dt      = 0.0025
+out     = d
+id      = d
+dmin    = 0.2
+dmax    = 1.5
+palette = rainbow
+
+<output4>
+out_fmt = ppm        # ppm image
+dt      = 0.0025     # time step between outputs
+out     = diff_d
+id      = diff_d
+usr_expr_flag = 1
+palette = rainbow
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 15000     # cycle limit
+tlim            = 2.5       # time limit
+
+<grid>
+
+Nx1             = 400       # Number of zones in X1-direction
+x1min           = 0.0       # minimum value of X1
+x1max           = 0.3       # maximum value of X1
+ibc_x1          = 1         # inner-I (X1) boundary flag
+obc_x1          = 1         # outer-I (X1) boundary flag
+
+Nx2             = 400       # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 0.3       # maximum value of X2
+ibc_x2          = 1         # inner-II (X2) boundary flag
+obc_x2          = 1         # outer-II (X2) boundary flag
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma = 1.4                 # gamma = C_p/C_v
+
+# Interior Conditions
+d_in  = 0.125               # density
+p_in  = 0.14                # pressure
+
+# Exterior Conditions
+d_out  = 1.0                # density
+p_out  = 1.0                # pressure
