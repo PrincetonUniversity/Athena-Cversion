@@ -4,7 +4,7 @@
  *
  * PURPOSE: Problem generator for square implosion problem.
  *
- * REFERENCE: R. Liska & B. Wendroff SIAM J. Scientific Computing
+ * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)
  *
  * CONTAINS PUBLIC FUNCTIONS:
  *   problem - 
@@ -31,7 +31,7 @@
 #endif
 
 /* computes difference d{i,j}-d{j,i} to test if solution is symmetric */
-static Real expr_diff_d(const Grid *pG, const int i, const int j, const int k)
+static Real expr_diff_d(const Grid *pG, const int i, const int j, const int k);
 
 /*----------------------------------------------------------------------------*/
 /* problem:  */
