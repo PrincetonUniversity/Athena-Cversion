@@ -2,21 +2,24 @@
 /*==============================================================================
  * FILE: integrate_2d.c
  *
- * PURPOSE:
- * Updates the input Grid structure pointed to by *pGrid by one timestep using
- * directionally unsplit CTU method of Colella (1990).
+ * PURPOSE: Updates the input Grid structure pointed to by *pGrid by one 
+ *   timestep using directionally unsplit CTU method of Colella (1990).  The
+ *   variables updated are:
+ *      U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
+ *      B1i, B2i -- interface magnetic field
+ *   Also adds gravitational source terms.
  *
- * For each cell, the L and R states at every interface, and the 1D flux in the
- * x1-direction needed to correct the L/R states at x2-interfaces, are stored
- * over the whole grid.  This requires
- * [(2 states)*(2 interfaces) + (1 flux)]*(NWAVE variables) = 35 arrays
+ * REFERENCE:
+ *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
+ *   laws", JCP, 87, 171 (1990)
  *
- * The variables in Grid which are updated are:
- *    U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
- *    B1i, B2i -- interface magnetic field
+ *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ *   constrined transport", JCP, 205, 509 (2005)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_2d()
+ *   integrate_init_2d()
+ *   integrate_destruct_2d()
  *============================================================================*/
 
 #include <math.h>
@@ -39,7 +42,7 @@ static Real **emf3=NULL, **emf3_cc=NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
- *   integrate_emf3_corner() - 
+ *   integrate_emf3_corner() - the upwind CT method in Gardiner & Stone (2005) 
  *============================================================================*/
 
 static void integrate_emf3_corner(Grid *pGrid);
@@ -61,8 +64,7 @@ void integrate_2d(Grid *pGrid)
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
   Real d, M1, M2, B1c, B2c;
 #endif
-  Real x1, x2,x3;
-  Real philx1, philx2, phic, phirx1, phirx2;
+  Real g, x1, x2,x3;
 
   dtodx1 = pGrid->dt/pGrid->dx1;
   il = is - 2;
@@ -101,7 +103,7 @@ void integrate_2d(Grid *pGrid)
     lr_states(U1d,Bxc,Bxi,dt,dtodx1,il,iu,Ul_x1Face[j],Ur_x1Face[j]);
 
 /*--- Step 1c ------------------------------------------------------------------
- * Add "MHD source terms"
+ * Add "MHD source terms" for 0.5*dt
  */
 
 #ifdef MHD
@@ -115,6 +117,29 @@ void integrate_2d(Grid *pGrid)
   }
 
 /*--- Step 1d ------------------------------------------------------------------
+ * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ */
+
+  if (x1GravAcc != NULL){
+    for (j=jl; j<=ju; j++) {
+      for (i=is-nghost; i<ie+nghost; i++) {
+
+/* Calculate the face-centered acceleration */
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x1GravAcc)((x1-0.5*pGrid->dx1),x2,x3);
+
+/* Apply gravitational source terms to momentum and total energy */
+        Ul_x1Face[j][i].Mx += hdt*Ul_x1Face[j][i].d*g;
+        Ur_x1Face[j][i].Mx += hdt*Ur_x1Face[j][i].d*g;
+#ifndef ISOTHERMAL
+        Ul_x1Face[j][i].E += hdt*Ul_x1Face[j][i].Mx*g;
+        Ur_x1Face[j][i].E += hdt*Ur_x1Face[j][i].Mx*g;
+#endif
+      }
+    }
+  }
+
+/*--- Step 1e ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 2D array
  */
 
@@ -165,14 +190,35 @@ void integrate_2d(Grid *pGrid)
     }
 #endif
 
+/*--- Step 2d ------------------------------------------------------------------
+ * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ */
+
+    if (x2GravAcc != NULL){
+      for (j=js-nghost; j<je+nghost; j++) {
+
+/* Calculate the face-centered acceleration */
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x2GravAcc)(x1,(x2-0.5*pGrid->dx2),x3);
+
+/* Apply gravitational source terms to momentum and total energy */
+        Ul[j].Mx += hdt*Ul[j].d*g;
+        Ur[j].Mx += hdt*Ur[j].d*g;
+#ifndef ISOTHERMAL
+        Ul[j].E += hdt*Ul[j].Mx*g;
+        Ur[j].E += hdt*Ur[j].Mx*g;
+#endif
+      }
+    }
+
     for (j=jl; j<=ju+1; j++) {
       Ul_x2Face[j][i] = Ul[j];
       Ur_x2Face[j][i] = Ur[j];
     }
   }
 
-/*--- Step 2d ------------------------------------------------------------------
- * Compute 1D fluxes in x1-direction, storing into 2D array
+/*--- Step 2e ------------------------------------------------------------------
+ * Compute 1D fluxes in x2-direction, storing into 2D array
  */
 
   for (j=jl; j<=ju+1; j++) {
@@ -182,7 +228,7 @@ void integrate_2d(Grid *pGrid)
   }
 
 /*--- Step 3 ------------------------------------------------------------------
- * Calculate the cell centered value of emf_3
+ * Calculate the cell centered value of emf_3 at t^{n}
  */
 
 #ifdef MHD
@@ -213,15 +259,40 @@ void integrate_2d(Grid *pGrid)
   }
 #endif
 
+/*--- Step 5a ------------------------------------------------------------------
+ * Correct the L/R states at x1-interfaces using transverse flux-gradients in
+ * the x2-direction for 0.5*dt using x2-fluxes computed in Step 2e.
+ * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS */
 
-/* -------------------------------------------------------------
- * From Step 5 on to Step 7 we correct the x1 interface states
- * due to transverse flux gradients and source terms.
- * -------------------------------------------------------------
- */
+  qa = 0.5*dtodx2;
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      Ul_x1Face[j][i].d  -= qa*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
+      Ul_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
+      Ul_x1Face[j][i].My -= qa*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
+      Ul_x1Face[j][i].Mz -= qa*(x2Flux[j+1][i-1].My - x2Flux[j][i-1].My);
+#ifndef ISOTHERMAL
+      Ul_x1Face[j][i].E  -= qa*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
+#endif /* ISOTHERMAL */
+#ifdef MHD
+      Ul_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i-1].By - x2Flux[j][i-1].By);
+#endif
 
-/*--- Step 5 ------------------------------------------------------------------
- * Add the "MHD source terms" to the parallel (conservative) flux gradient.
+      Ur_x1Face[j][i].d  -= qa*(x2Flux[j+1][i  ].d  - x2Flux[j][i  ].d );
+      Ur_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i  ].Mz - x2Flux[j][i  ].Mz);
+      Ur_x1Face[j][i].My -= qa*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
+      Ur_x1Face[j][i].Mz -= qa*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
+#ifndef ISOTHERMAL
+      Ur_x1Face[j][i].E  -= qa*(x2Flux[j+1][i  ].E  - x2Flux[j][i  ].E );
+#endif /* ISOTHERMAL */
+#ifdef MHD
+      Ur_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
+#endif
+    }
+  }
+
+/*--- Step 5b ------------------------------------------------------------------
+ * Add the "MHD source terms" to the x2 (conservative) flux gradient.
  */
 
 #ifdef MHD
@@ -259,53 +330,64 @@ void integrate_2d(Grid *pGrid)
   }
 #endif /* MHD */
 
+/*--- Step 5c ------------------------------------------------------------------
+ * Add gravitational source terms in x2-direction to transverse flux-gradient
+ * used to correct L/R states on x1-faces.
+ */
 
-/*--- Step 6 -------------------------------------------------------------------
- * Correct the L/R states at x1-interfaces using x2-fluxes computed in Step 4.
- * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS */
-
-  qa = 0.5*dtodx2;
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=ie+1; i++) {
-      Ul_x1Face[j][i].d  -= qa*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
-      Ul_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
-      Ul_x1Face[j][i].My -= qa*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
-      Ul_x1Face[j][i].Mz -= qa*(x2Flux[j+1][i-1].My - x2Flux[j][i-1].My);
+  if (x2GravAcc != NULL){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu+1; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x2GravAcc)(x1,x2,x3);
+        Ur_x1Face[j][i].My += hdt*pGrid->U[ks][j][i].d*g;
 #ifndef ISOTHERMAL
-      Ul_x1Face[j][i].E  -= qa*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
-#endif /* ISOTHERMAL */
-#ifdef MHD
-      Ul_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i-1].By - x2Flux[j][i-1].By);
+        Ur_x1Face[j][i].E += 0.5*hdt*(x2Flux[j][i  ].d+x2Flux[j+1][i  ].d)*g;
 #endif
 
-      Ur_x1Face[j][i].d  -= qa*(x2Flux[j+1][i  ].d  - x2Flux[j][i  ].d );
-      Ur_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i  ].Mz - x2Flux[j][i  ].Mz);
-      Ur_x1Face[j][i].My -= qa*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
-      Ur_x1Face[j][i].Mz -= qa*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
+        g = (*x2GravAcc)((x1-pGrid->dx1),x2,x3);
+        Ul_x1Face[j][i].My += hdt*pGrid->U[ks][j][i-1].d*g;
 #ifndef ISOTHERMAL
-      Ur_x1Face[j][i].E  -= qa*(x2Flux[j+1][i  ].E  - x2Flux[j][i  ].E );
+        Ul_x1Face[j][i].E += 0.5*hdt*(x2Flux[j][i-1].d+x2Flux[j+1][i-1].d)*g;
+#endif
+      }
+    }
+  }
+
+/*--- Step 6a ------------------------------------------------------------------
+ * Correct the L/R states at x2-interfaces using transverse flux-gradients in
+ * the x1-direction for 0.5*dt using x1-fluxes computed in Step 1e.
+ * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS */
+
+  qa = 0.5*dtodx1;
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      Ul_x2Face[j][i].d  -= qa*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
+      Ul_x2Face[j][i].Mx -= qa*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
+      Ul_x2Face[j][i].My -= qa*(x1Flux[j-1][i+1].Mz - x1Flux[j-1][i].Mz);
+      Ul_x2Face[j][i].Mz -= qa*(x1Flux[j-1][i+1].Mx - x1Flux[j-1][i].Mx);
+#ifndef ISOTHERMAL
+      Ul_x2Face[j][i].E  -= qa*(x1Flux[j-1][i+1].E  - x1Flux[j-1][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      Ur_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
+      Ul_x2Face[j][i].By -= qa*(x1Flux[j-1][i+1].Bz - x1Flux[j-1][i].Bz);
+#endif
+
+      Ur_x2Face[j][i].d  -= qa*(x1Flux[j  ][i+1].d  - x1Flux[j  ][i].d );
+      Ur_x2Face[j][i].Mx -= qa*(x1Flux[j  ][i+1].My - x1Flux[j  ][i].My);
+      Ur_x2Face[j][i].My -= qa*(x1Flux[j  ][i+1].Mz - x1Flux[j  ][i].Mz);
+      Ur_x2Face[j][i].Mz -= qa*(x1Flux[j  ][i+1].Mx - x1Flux[j  ][i].Mx);
+#ifndef ISOTHERMAL
+      Ur_x2Face[j][i].E  -= qa*(x1Flux[j  ][i+1].E  - x1Flux[j  ][i].E );
+#endif /* ISOTHERMAL */
+#ifdef MHD
+      Ur_x2Face[j][i].By -= qa*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
 #endif
     }
   }
 
-
-/*--- Step 7 ------------------------------------------------------------------
- * Correct the L/R states at x1-interfaces using x2-conservative source
- * term and add it to the conservative source term array. */
-
-
-
-/* -------------------------------------------------------------
- * From Step 8 on to Step 10 we correct the x2 interface states
- * due to transverse flux gradients and source terms.
- * -------------------------------------------------------------
- */
-
-/*--- Step 8 -----------------------------------------------------------------
- * Add the source term to complete the parallel (conservative) flux gradient.
+/*--- Step 6b ------------------------------------------------------------------
+ * Add the "MHD source terms" to the x1 (conservative) flux gradient.
  */
 
 #ifdef MHD
@@ -343,46 +425,71 @@ void integrate_2d(Grid *pGrid)
   }
 #endif /* MHD */
 
+/*--- Step 6c ------------------------------------------------------------------
+ * Add gravitational source terms in x1-direction to transverse flux-gradient
+ * used to correct L/R states on x2-faces.
+ */
 
-/*--- Step 9 ------------------------------------------------------------------
- * Correct L/R states on x2-faces using x1-fluxes computed in Step 2.
- * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS */
-
-  qa = 0.5*dtodx1;
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=ie+1; i++) {
-      Ul_x2Face[j][i].d  -= qa*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
-      Ul_x2Face[j][i].Mx -= qa*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
-      Ul_x2Face[j][i].My -= qa*(x1Flux[j-1][i+1].Mz - x1Flux[j-1][i].Mz);
-      Ul_x2Face[j][i].Mz -= qa*(x1Flux[j-1][i+1].Mx - x1Flux[j-1][i].Mx);
+  if (x1GravAcc != NULL){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu+1; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x1GravAcc)(x1,x2,x3);
+        Ur_x2Face[j][i].Mz += hdt*pGrid->U[ks][j][i].d*g;
 #ifndef ISOTHERMAL
-      Ul_x2Face[j][i].E  -= qa*(x1Flux[j-1][i+1].E  - x1Flux[j-1][i].E );
-#endif /* ISOTHERMAL */
-#ifdef MHD
-      Ul_x2Face[j][i].By -= qa*(x1Flux[j-1][i+1].Bz - x1Flux[j-1][i].Bz);
+        Ur_x2Face[j][i].E += 0.5*hdt*(x1Flux[j][i].d+x1Flux[j][i+1].d)*g;
 #endif
 
-      Ur_x2Face[j][i].d  -= qa*(x1Flux[j  ][i+1].d  - x1Flux[j  ][i].d );
-      Ur_x2Face[j][i].Mx -= qa*(x1Flux[j  ][i+1].My - x1Flux[j  ][i].My);
-      Ur_x2Face[j][i].My -= qa*(x1Flux[j  ][i+1].Mz - x1Flux[j  ][i].Mz);
-      Ur_x2Face[j][i].Mz -= qa*(x1Flux[j  ][i+1].Mx - x1Flux[j  ][i].Mx);
+        g = (*x1GravAcc)(x1,(x2-pGrid->dx2),x3);
+        Ul_x2Face[j][i].Mz += hdt*pGrid->U[ks][j-1][i].d*g;
 #ifndef ISOTHERMAL
-      Ur_x2Face[j][i].E  -= qa*(x1Flux[j  ][i+1].E  - x1Flux[j  ][i].E );
-#endif /* ISOTHERMAL */
-#ifdef MHD
-      Ur_x2Face[j][i].By -= qa*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+        Ul_x2Face[j][i].E += 0.5*hdt*(x1Flux[j-1][i].d+x1Flux[j-1][i+1].d)*g;
 #endif
+      }
     }
   }
 
+/*--- Step 7 ------------------------------------------------------------------
+ * Calculate the cell centered value of emf_3 at t^{n+1/2}, needed by CT 
+ * algorithm to integrate emf to corner in step 10
+ */
 
-/*--- Step 10 -----------------------------------------------------------------
- * Correct L/R states on x2-interfaces using x1-conservative source
- * term and add it to the conservative source term array. */
+#ifdef MHD
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
 
+        d  = pGrid->U[ks][j][i].d
+          - 0.5*dtodx1*(x1Flux[j][i+1].d - x1Flux[j][i].d )
+          - 0.5*dtodx2*(x2Flux[j+1][i].d - x2Flux[j][i].d );
 
+        M1 = pGrid->U[ks][j][i].M1
+          - 0.5*dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+          - 0.5*dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+        if (x1GravAcc != NULL) {
+          g = (*x1GravAcc)(x1,x2,x3);
+          M1 += hdt*pGrid->U[ks][j][i].d*g;
+        }
 
-/*--- Step 12 -----------------------------------------------------------------
+        M2 = pGrid->U[ks][j][i].M2
+          - 0.5*dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
+          - 0.5*dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+        if (x2GravAcc != NULL) {
+          g = (*x2GravAcc)(x1,x2,x3);
+          M2 += hdt*pGrid->U[ks][j][i].d*g;
+        }
+
+        B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
+
+        B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
+
+        emf3_cc[j][i] = (B1c*M2 - B2c*M1)/d;
+      }
+    }
+  }
+#endif /* MHD */
+
+/*--- Step 8 -------------------------------------------------------------------
  * Compute x1-fluxes from corrected L/R states.
  */
 
@@ -392,8 +499,7 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-
-/*--- Step 13 ----------------------------------------------------------------
+/*--- Step 9 -------------------------------------------------------------------
  * Compute x2-fluxes from corrected L/R states.
  */
 
@@ -403,12 +509,12 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-#ifdef MHD
-/*--- Step 14 ----------------------------------------------------------------
- * Integrate emf3 to the grid cell corners and then update the 
+/*--- Step 10 ------------------------------------------------------------------
+ * Integrate emf3^{n+1/2} to the grid cell corners and then update the 
  * interface magnetic fields using CT for a full time step.
  */
 
+#ifdef MHD
   integrate_emf3_corner(pGrid);
 
   for (j=js; j<=je; j++) {
@@ -424,15 +530,38 @@ void integrate_2d(Grid *pGrid)
 #endif
 
 
-/*--- Step 15 ----------------------------------------------------------------
- * Add the contribution of the conservative potential to the
- * conservative source term.
+/*--- Step 11 ------------------------------------------------------------------
+ * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
+ * acceleration to the momentum equation now (using d^{n}), before the update
+ * of the cell-centered variables due to flux gradients.
  */
 
+  if (x1GravAcc != NULL){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x1GravAcc)(x1,x2,x3);
 
-/*--- Step 16 ----------------------------------------------------------------
+        pGrid->U[ks][j][i].M1 += hdt*pGrid->U[ks][j][i].d*g;
+      }
+    }
+  }
+
+  if (x2GravAcc != NULL){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x2GravAcc)(x1,x2,x3);
+
+        pGrid->U[ks][j][i].M2 += hdt*pGrid->U[ks][j][i].d*g;
+      }
+    }
+  }
+
+/*--- Step 12 ------------------------------------------------------------------
  * Update cell-centered variables in pGrid using x1-fluxes
  */
+
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
       pGrid->U[ks][j][i].d  -= dtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
@@ -449,9 +578,9 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-
-/*--- Step 17 -----------------------------------------------------------------
- * Update cell-centered variables in pGrid using x2-fluxes */
+/*--- Step 13 ------------------------------------------------------------------
+ * Update cell-centered variables in pGrid using x2-fluxes
+ */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
@@ -469,42 +598,57 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-
-/*--- Step 18 -----------------------------------------------------------------
- * Apply the source term.
+/*--- Step 14 -----------------------------------------------------------------
+ * Complete the gravitational source terms by adding 0.5 the acceleration at
+ * time level n+1, and the energy source term at time level {n+1/2}.
  */
 
+  if (x1GravAcc != NULL){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x1GravAcc)(x1,x2,x3);
 
-/*--- Step 19 -----------------------------------------------------------------
- * Update cell centered magnetic field using updated face centered fields.
- *
- * If the macro CT_CONSERVE_ENERGY is not defined (default), then internal
- * energy is conserved by subtracting off old magnetic energy, then adding
- * magnetic energy from updated face centered fields back in.  This makes the
- * scheme more robust at low beta, but violates conservation of total energy
+        pGrid->U[ks][j][i].M1 += hdt*pGrid->U[ks][j][i].d*g;
+#ifndef ISOTHERMAL
+        pGrid->U[ks][j][i].E += hdt*(x1Flux[j][i].d + x1Flux[j][i+1].d)*g;
+#endif
+      }
+    }
+  }
+
+  if (x2GravAcc != NULL){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        g = (*x2GravAcc)(x1,x2,x3);
+
+        pGrid->U[ks][j][i].M2 += hdt*pGrid->U[ks][j][i].d*g;
+#ifndef ISOTHERMAL
+        pGrid->U[ks][j][i].E += hdt*(x2Flux[j][i].d + x2Flux[j+1][i].d)*g;
+#endif
+      }
+    }
+  }
+
+/*--- Step 15 ------------------------------------------------------------------
+ * LAST STEP!
+ * Set cell centered magnetic fields to average of updated face centered fields.
  */
 
 #ifdef MHD
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
 
-#if !defined CT_CONSERVE_ENERGY && !defined ISOTHERMAL
-      pGrid->U[ks][j][i].E -= 0.5*(SQR(pGrid->U[ks][j][i].B1c)+SQR(pGrid->U[ks][j][i].B2c));
-#endif
-
-      pGrid->U[ks][j][i].B1c = 0.5*(pGrid->B1i[ks][j][i] + pGrid->B1i[ks][j][i+1]);
-      pGrid->U[ks][j][i].B2c = 0.5*(pGrid->B2i[ks][j][i] + pGrid->B2i[ks][j+1][i]);
-
-#if !defined CT_CONSERVE_ENERGY && !defined ISOTHERMAL
-      pGrid->U[ks][j][i].E += 0.5*(SQR(pGrid->U[ks][j][i].B1c)+SQR(pGrid->U[ks][j][i].B2c));
-#endif
-
+      pGrid->U[ks][j][i].B1c =0.5*(pGrid->B1i[ks][j][i]+pGrid->B1i[ks][j][i+1]);
+      pGrid->U[ks][j][i].B2c =0.5*(pGrid->B2i[ks][j][i]+pGrid->B2i[ks][j+1][i]);
 /* Set the 3-interface magnetic field equal to the cell center field. */
       pGrid->B3i[ks][j][i] = pGrid->U[ks][j][i].B3c;
     }
   }
 #endif /* MHD */
 
+  return;
 }
 
 
@@ -549,7 +693,6 @@ void integrate_init_2d(int nx1, int nx2)
 #ifdef MHD
   if ((emf3 = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-
   if ((emf3_cc = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
 #endif /* MHD */
@@ -559,7 +702,6 @@ void integrate_init_2d(int nx1, int nx2)
 
   if ((B1_x1Face = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-
   if ((B2_x2Face = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
 
@@ -569,19 +711,15 @@ void integrate_init_2d(int nx1, int nx2)
 
   if ((Ul_x1Face = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
-
   if ((Ur_x1Face = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
-
   if ((Ul_x2Face = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
-
   if ((Ur_x2Face = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
 
   if ((x1Flux    = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
-
   if ((x2Flux    = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
 
