@@ -7,14 +7,18 @@
  *   variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
  *      B1i, B2i -- interface magnetic field
- *   Also adds gravitational source terms.
+ *   Also adds gravitational source terms, and H-correction of Sanders et al.
  *
- * REFERENCE:
+ * REFERENCES:
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
  *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
  *   constrined transport", JCP, 205, 509 (2005)
+ *
+ *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
+ *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_2d()
@@ -38,7 +42,12 @@ static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static Cons1D **x1Flux=NULL, **x2Flux=NULL;
 #ifdef MHD
 static Real **emf3=NULL, **emf3_cc=NULL;
-#endif /* MHD */
+#endif
+/* variables needed for H-correction of Sanders et al (1998) */
+Real etah=0.0;
+#ifdef H_CORRECTION
+static Real **eta1=NULL, **eta2=NULL;
+#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
@@ -489,27 +498,62 @@ void integrate_2d(Grid *pGrid)
   }
 #endif /* MHD */
 
-/*--- Step 8 -------------------------------------------------------------------
+/*--- Step 8a ------------------------------------------------------------------
+ * Compute maximum wavespeeds in multidimensions (eta in eq. 10 from Sanders et
+ *  al. (1998)) for H-correction
+ */
+
+#ifdef H_CORRECTION
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        cfr = cfast(&(Ur_x1Face[j][i]), &(B1_x1Face[j][i]));
+        cfl = cfast(&(Ul_x1Face[j][i]), &(B1_x1Face[j][i]));
+        ur = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d;
+        ul = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d;
+        eta1[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+
+        cfr = cfast(&(Ur_x2Face[j][i]), &(B2_x2Face[j][i]));
+        cfl = cfast(&(Ul_x2Face[j][i]), &(B2_x2Face[j][i]));
+        ur = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d;
+        ul = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d;
+        eta2[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      }
+    }
+#endif /* H_CORRECTION */
+
+/*--- Step 8b ------------------------------------------------------------------
  * Compute x1-fluxes from corrected L/R states.
  */
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is; i<=ie+1; i++) {
+#ifdef H_CORRECTION
+      eta_h = MAX(eta2[j][i-1],eta2[j][i]);
+      eta_h = MAX(eta_h,eta2[j+1][i-1]);
+      eta_h = MAX(eta_h,eta2[j+1][i  ]);
+      eta_h = MAX(eta_h,eta1[j  ][i  ]);
+#endif /* H_CORRECTION */
       GET_FLUXES(B1_x1Face[j][i],Ul_x1Face[j][i],Ur_x1Face[j][i],&x1Flux[j][i]);
     }
   }
 
-/*--- Step 9 -------------------------------------------------------------------
+/*--- Step 8c ------------------------------------------------------------------
  * Compute x2-fluxes from corrected L/R states.
  */
 
   for (j=js; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
+#ifdef H_CORRECTION
+      eta_h = MAX(eta1[j-1][i],eta1[j][i]);
+      eta_h = MAX(eta_h,eta1[j-1][i+1]);
+      eta_h = MAX(eta_h,eta1[j  ][i+1]);
+      eta_h = MAX(eta_h,eta2[j  ][i  ]);
+#endif /* H_CORRECTION */
       GET_FLUXES(B2_x2Face[j][i],Ul_x2Face[j][i],Ur_x2Face[j][i],&x2Flux[j][i]);
     }
   }
 
-/*--- Step 10 ------------------------------------------------------------------
+/*--- Step 9 -------------------------------------------------------------------
  * Integrate emf3^{n+1/2} to the grid cell corners and then update the 
  * interface magnetic fields using CT for a full time step.
  */
@@ -530,7 +574,7 @@ void integrate_2d(Grid *pGrid)
 #endif
 
 
-/*--- Step 11 ------------------------------------------------------------------
+/*--- Step 10 ------------------------------------------------------------------
  * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
  * acceleration to the momentum equation now (using d^{n}), before the update
  * of the cell-centered variables due to flux gradients.
@@ -558,7 +602,7 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-/*--- Step 12 ------------------------------------------------------------------
+/*--- Step 11a -----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x1-fluxes
  */
 
@@ -578,7 +622,7 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-/*--- Step 13 ------------------------------------------------------------------
+/*--- Step 11b -----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x2-fluxes
  */
 
@@ -598,7 +642,7 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-/*--- Step 14 -----------------------------------------------------------------
+/*--- Step 12 -----------------------------------------------------------------
  * Complete the gravitational source terms by adding 0.5 the acceleration at
  * time level n+1, and the energy source term at time level {n+1/2}.
  */
@@ -631,7 +675,7 @@ void integrate_2d(Grid *pGrid)
     }
   }
 
-/*--- Step 15 ------------------------------------------------------------------
+/*--- Step 13 ------------------------------------------------------------------
  * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
  */
@@ -658,9 +702,13 @@ void integrate_2d(Grid *pGrid)
 void integrate_destruct_2d(void)
 {
 #ifdef MHD
-  if (emf3 != NULL) free_2d_array((void**)emf3);
+  if (emf3    != NULL) free_2d_array((void**)emf3);
   if (emf3_cc != NULL) free_2d_array((void**)emf3_cc);
 #endif /* MHD */
+#ifdef H_CORRECTION
+  if (eta1 != NULL) free_2d_array((void**)eta1);
+  if (eta2 != NULL) free_2d_array((void**)eta2);
+#endif /* H_CORRECTION */
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
   if (B1_x1Face != NULL) free_2d_array((void**)B1_x1Face);
@@ -696,6 +744,12 @@ void integrate_init_2d(int nx1, int nx2)
   if ((emf3_cc = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
 #endif /* MHD */
+#ifdef H_CORRECTION
+  if ((eta1 = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((eta2 = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif /* H_CORRECTION */
 
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
