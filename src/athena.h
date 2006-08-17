@@ -30,18 +30,6 @@ typedef double Real;
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* Some global variables
- */
-
-extern Real CourNo; /* The Courant, Friedrichs, & Lewy (CFL) Number */
-
-#ifdef ISOTHERMAL
-extern Real Iso_csound,Iso_csound2; /* Isothermal sound speed, and its square */
-#else
-extern Real Gamma, Gamma_1, Gamma_2; /* adiabatic index, and g-1, g-2 */
-#endif
-
-/*----------------------------------------------------------------------------*/
 /* structure Gas: 
  *  IMPORTANT!! The order of the elements in Gas CANNOT be changed.
  */
@@ -222,22 +210,27 @@ typedef struct Output_s{
 } Output;
 
 
-typedef void (*VGFun_t)(Grid *pG); /* VGFun_t -> void grid function type */
-
-/* Primitive Source Function Prototype */
-typedef void (*PrimSrcFun_t)(const Grid *pG, const Prim *pW,
-			     const int i, const int j, const int k, Prim *psrc);
-
-/* Conservative Source Function Prototype */
-typedef void (*ConsSrcFun_t)(const Grid *pG, const Gas *pU,
-			     const int i, const int j, const int k, Gas *psrc);
-
-/* Conservative Potential Function Prototype -- An example of this
-   type of potential is a time independent gravitational potential. */
-typedef Real (*ConsPotFun_t)(const Real x1, const Real x2, const Real x3);
+/* prototype for functions that compute gravitational acceleration in a static
+ * potential.  These functions are set in problem generator, and used by
+ * integrators */
+typedef Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3);
 
 /* Directions for the set_bvals_fun() function */
 enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
+typedef void (*VGFun_t)(Grid *pG); /* VGFun_t -> void grid function type */
+
+/*----------------------------------------------------------------------------*/
+/* Some global variables
+ */
+
+extern Real CourNo; /* The Courant, Friedrichs, & Lewy (CFL) Number */
+#ifdef ISOTHERMAL
+extern Real Iso_csound,Iso_csound2; /* Isothermal sound speed, and its square */
+#else
+extern Real Gamma, Gamma_1, Gamma_2; /* adiabatic index, and g-1, g-2 */
+#endif
+extern StaticGravAcc_t x1GravAcc, x2GravAcc, x3GravAcc;
+
 
 #include "prototypes.h"
 
