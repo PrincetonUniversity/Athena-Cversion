@@ -21,6 +21,7 @@
  *   dmin/dmax   = max/min applied to all outputs
  *   ix1,ix2,ix3 = range of indices to be dumped (see parse_slice())
  *   palette     = rainbow,jh_colors,idl1,idl2,step8,step32,heat
+ *   usr_expr_flag = 1 for user-defined expression (defined in problem.c)
  *   
  * EXAMPLE of an <outputN> block for a VTK dump:
  *   <ouput1>
