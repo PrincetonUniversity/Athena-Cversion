@@ -3,12 +3,14 @@
  * FILE: convert_var.c
  *
  * PURPOSE: Functions to convert conservative to primitive vars, and vice versa.
+ *   Also contains function to compute fast magnetosonic speed.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   Cons1D_to_Prim1D() - converts 1D vector (lacks Bx)
- *   Prim1D_to_Cons1D() - converts 1D vector (lacks Bx)
- *   Gas_to_Prim()      - converts Gas structure (includes B1c,B2c,B3c)
- *   Prim_to_Gas()      - converts Gas structure (includes B1c,B2c,B3c)
+ *   Cons1D_to_Prim1D() - converts 1D vector (Bx passed through arguments)
+ *   Prim1D_to_Cons1D() - converts 1D vector (Bx passed through arguments)
+ *   Gas_to_Prim()      - converts Gas structure (uses B1c,B2c,B3c)
+ *   Prim_to_Gas()      - converts Gas structure (uses B1c,B2c,B3c)
+ *   cfast()            - compute fast speed given input Cons1D, Bx
  *============================================================================*/
 
 #include <math.h>
@@ -137,4 +139,40 @@ Real Prim_to_Gas(Gas *U, const Prim *W)
 #endif /* ISOTHERMAL */
 
   return(pb);
+}
+/*----------------------------------------------------------------------------*/
+/* cfast: returns fast magnetosonic speed given input 1D vector of conserved
+ *   variables and Bx. 
+ */
+
+Real cfast(const Cons1D *U, const Real *Bx)
+{
+  Real asq;
+#ifndef ISOTHERMAL
+  Real p,pb=0.0;
+#endif
+#ifdef MHD
+  Real ctsq,casq,tmp,cfsq;
+#endif
+
+#ifdef MHD
+  pb = 0.5*(SQR(*Bx) + SQR(U->By) + SQR(U->Bz));
+#endif /* MHD */
+
+#ifdef ISOTHERMAL
+  asq = Iso_csound2;
+#else
+  p = Gamma_1*(U->E - pb - 0.5*(SQR(U->Mx)+SQR(U->My)+SQR(U->Mz))/U->d);
+  asq = Gamma*p/U->d;
+#endif
+
+#ifndef MHD
+  return sqrt(asq);
+#else
+  ctsq = (SQR(U->By) + SQR(U->Bz))/U->d;
+  casq = SQR(*Bx)/U->d;
+  tmp = casq + ctsq - asq;
+  cfsq = 0.5*((asq+ctsq+casq) + sqrt(tmp*tmp + 4.0*asq*ctsq));
+  return sqrt(cfsq);
+#endif
 }
