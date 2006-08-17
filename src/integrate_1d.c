@@ -2,9 +2,9 @@
 /*==============================================================================
  * FILE: integrate_1d.c
  *
- * PURPOSE: Functions to integrate MHD equations in 1D.
- * The variables in Grid which are updated are:
- *    U.[d,M1,M2,M3,E,B2c,B3c] -- where U is of type Gas
+ * PURPOSE: Integrate MHD equations in 1D.  Updates U.[d,M1,M2,M3,E,B2c,B3c]
+ *   in Grid structure, where U is of type Gas.  Adds gravitational source
+ *   terms.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_1d()
@@ -28,16 +28,14 @@ static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
 
 void integrate_1d(Grid *pGrid)
 {
-  Real dtodx1 = pGrid->dt/pGrid->dx1;
-  Real hdt = 0.5*pGrid->dt, dt = pGrid->dt;
+  Real dtodx1 = pGrid->dt/pGrid->dx1, hdt = 0.5*pGrid->dt, dt = pGrid->dt;
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks;
   int i,il = pGrid->is - 2,iu = pGrid->ie + 2;
-  Real x1, x2, x3;
-  Real phic_i, phic_im1, phirx1, philx1;
+  Real x1, x2, x3, g;
 
-/*--- Step 1 ------------------------------------------------------------------
+/*--- Step 1 -------------------------------------------------------------------
  * Load 1D vector of conserved variables;  U1d = (d, M1, M2, M3, E, B2c, B3c)
  */
 
@@ -57,44 +55,34 @@ void integrate_1d(Grid *pGrid)
 #endif /* MHD */
   }
 
-/*--- Step 2 ------------------------------------------------------------------
+/*--- Step 2 -------------------------------------------------------------------
  * Compute L and R states at X1-interfaces.
  */
 
   lr_states(U1d,Bxc,Bxi,dt,dtodx1,il,iu,Ul_x1Face,Ur_x1Face);
 
-/*--- Step 3 ------------------------------------------------------------------
- * Add source terms from time-independent conservative potential to L/R states
+/*--- Step 3 -------------------------------------------------------------------
+ * Add gravitational source terms for dt/2 from static potential to L/R states
  */
 
-/*
-  if (cons_pot_fun != NULL){
+  if (x1GravAcc != NULL){
     for (i=il; i<=iu+1; i++) {
-*/
 
-/* Calculate the cell-centered potential at i, i-1 */
-/*
+/* Calculate the face-centered acceleration */
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      phic_i   = (*cons_pot_fun)( x1           ,x2,x3);
-      phic_im1 = (*cons_pot_fun)((x1-pGrid->dx),x2,x3);
+      g = (*x1GravAcc)((x1-0.5*pGrid->dx1),x2,x3);
 
-      Ul_x1Face[i].M1 += hdt*Ul_x1Face[i].d*(phic_i - phic_im1)/pGrid->dx1;
-      Ur_x1Face[i].M1 += hdt*Ur_x1Face[i].d*(phic_i - phic_im1)/pGrid->dx1;
-*/
-
-/* THIS MUST BE WRONG */
+/* Apply gravitational source terms to momentum and total energy */
+      Ul_x1Face[i].Mx += hdt*Ul_x1Face[i].d*g;
+      Ur_x1Face[i].Mx += hdt*Ur_x1Face[i].d*g;
 #ifndef ISOTHERMAL
-/*
-      Ul_x1Face[i].E += hdt*Ul_x1Face[i].M1*(phic_i - phic_im1);
-      Ur_x1Face[i].E += hdt*Ur_x1Face[i].M1*(phic_i - phic_im1);
-*/
+      Ul_x1Face[i].E += hdt*Ul_x1Face[i].Mx*g;
+      Ur_x1Face[i].E += hdt*Ur_x1Face[i].Mx*g;
 #endif
-/*
     }
   }
-*/
 
-/*--- Step 4 ------------------------------------------------------------------
+/*--- Step 4 -------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction
  */
 
@@ -102,41 +90,22 @@ void integrate_1d(Grid *pGrid)
     GET_FLUXES(Bxi[i],Ul_x1Face[i],Ur_x1Face[i],&x1Flux[i]);
   }
 
-/*--- Step 5 ----------------------------------------------------------------
- * Update cell-centered variables using source terms from time-independent
- * conservative potential.  This step must be before the update of
- * pGrid->U[ks][js][i].d
+/*--- Step 5 -------------------------------------------------------------------
+ * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
+ * acceleration to the momentum equation now (using d^{n}), before the update
+ * of the cell-centered variables due to flux gradient.
  */
 
-/*
-  if (cons_pot_fun != NULL){
+  if (x1GravAcc != NULL){
     for (i=is; i<=ie; i++) {
-*/
-
-/* Calculate the potential at cell center, left- and right-interfaces */
-/*
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      phic_i = (*cons_pot_fun)(x1,x2,x3);
-      phirx1 = (*cons_pot_fun)(x1 + 0.5*pGrid->dx1,x2,x3);
-      philx1 = (*cons_pot_fun)(x1 - 0.5*pGrid->dx1,x2,x3);
+      g = (*x1GravAcc)(x1,x2,x3);
 
-      d_nph = pGrid->U[ks][js][i].d - 0.5*dtodx1*(x1Flux[i+1].d - x1Flux[i].d);
-      pGrid->U[ks][js][i].M1 += d_nph*(philx1 - phirx1)/pGrid->dx1;
-
-*/
-/* THIS MUST BE WRONG */
-#ifndef ISOTHERMAL
-/*
-      pGrid->U[ks][js][i].E += (x1Flux[i  ].d*(philx1 - phic_i) +
-                                x1Flux[i+1].d*(phic_i - phirx1))/pGrid->dx1;
-*/
-#endif
-/*
+      pGrid->U[ks][js][i].M1 += hdt*pGrid->U[ks][js][i].d*g;
     }
   }
-*/
 
-/*--- Step 6 ----------------------------------------------------------------
+/*--- Step 6 -------------------------------------------------------------------
  * Update cell-centered variables in pGrid using 1D-fluxes
  */
 
@@ -152,6 +121,23 @@ void integrate_1d(Grid *pGrid)
     pGrid->U[ks][js][i].B2c -= dtodx1*(x1Flux[i+1].By - x1Flux[i].By);
     pGrid->U[ks][js][i].B3c -= dtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
 #endif /* MHD */
+  }
+
+/*--- Step 7 -------------------------------------------------------------------
+ * Complete the gravitational source terms by adding 0.5 the acceleration at
+ * time level n+1, and the energy source term at time level {n+1/2}.
+ */
+
+  if (x1GravAcc != NULL){
+    for (i=is; i<=ie; i++) {
+      cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
+      g = (*x1GravAcc)(x1,x2,x3);
+
+      pGrid->U[ks][js][i].M1 += hdt*pGrid->U[ks][js][i].d*g;
+#ifndef ISOTHERMAL
+      pGrid->U[ks][js][i].E += hdt*(x1Flux[i].d + x1Flux[i+1].d)*g;
+#endif
+    }
   }
 
   return;
@@ -183,10 +169,8 @@ void integrate_init_1d(int nx1)
 
 void integrate_destruct_1d(void)
 {
-#ifdef MHD
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
-#endif
   if (U1d != NULL) free(U1d);
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);
