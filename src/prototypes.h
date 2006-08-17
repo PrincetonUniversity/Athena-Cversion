@@ -74,10 +74,11 @@ void cc_pos(const Grid *pG, const int i, const int j,const int k,
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
-Real Cons1D_to_Prim1D(const Cons1D *U, /*@out@*/ Prim1D *W, const Real *Bx);
-Real Prim1D_to_Cons1D(/*@out@*/ Cons1D *U, const Prim1D *W, const Real *Bx);
+Real Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx);
+Real Prim1D_to_Cons1D(Cons1D *U, const Prim1D *W, const Real *Bx);
 Real Gas_to_Prim(const Gas *U, Prim *W);
 Real Prim_to_Gas(Gas *U, const Prim *W);
+Real cfast(const Cons1D *U, const Real *Bx);
 
 /*----------------------------------------------------------------------------*/
 /* dump_*.c (multiple files) */
