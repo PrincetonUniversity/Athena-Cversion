@@ -1,0 +1,62 @@
+List of problem generator files in src/prob:
+
+
+================================================================================
+                              1-D problems
+================================================================================
+
+cpaw1d.c:
+=========
+Circularly Polarized Alfven Wave test of Toth.  This initializes only truly 1D
+tests, that is wave must be in x1-direction only.
+
+linear_wave1.c:
+===============
+Linear Wave convergence test.  Can run 1D, 2D, or 3D problems, but wave must be
+grid-aligned, i.e. along x1-, x2-, or x3-axis respectively.
+
+shkset1.c:
+==========
+Shock Set -- initializes 1D Riemann problems.  Can run 1D, 2D, or 3D
+problems, but shock must be grid-aligned, i.e. along x1-, x2-, or x3-axis
+respectively.
+
+shu-osher.c
+===========
+Initializes 1D Riemann problem of Shu & Osher.  Only works in 1D (along x1).
+
+twoibw.c:
+=========
+Two Interacting Blast Waves test of Woodward & Colella.  Can run 1D, 2D, or 3D
+problems, but shock must be grid-aligned, i.e. along x1-, x2-, or x3-axis
+respectively.
+
+
+================================================================================
+                              2-D problems
+================================================================================
+
+blast.c:
+========
+
+dmr.c:
+======
+Double Mach Reflection test of Woodward & Colella.  Only works for genuinely
+2D problems in x1-x2 plane.
+
+lw_implode.c:
+=============
+Liska & Wendroff implosion problem (Sod shocktube in a box).  Only works
+for genuinely 2D problems in x1-x2 plane.
+
+orszag-tang.c:
+==============
+Orszag & Tang MHD vortex problem.  Only works for genuinely 2D problems
+in x1-x2 plane.
+
+pgflow.c
+========
+"Planar Gravitational flow" test.  Sets up an analytic solution for a
+steady flow in a periodic potential.  Code should hold this steady flow.
+Good test of gravitational source terms, especially if flow is set at an
+angle to grid.
