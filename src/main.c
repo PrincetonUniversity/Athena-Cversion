@@ -42,6 +42,7 @@ Real Iso_csound2; /* Iso_csound^2 */
 Real Gamma; /* Gamma = C_p/C_v */
 Real Gamma_1, Gamma_2; /* Gamma - 1, and Gamma - 2 */
 #endif
+StaticGravAcc_t x1GravAcc = NULL, x2GravAcc = NULL, x3GravAcc = NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
