@@ -504,21 +504,21 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef H_CORRECTION
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        cfr = cfast(&(Ur_x1Face[j][i]), &(B1_x1Face[j][i]));
-        cfl = cfast(&(Ul_x1Face[j][i]), &(B1_x1Face[j][i]));
-        ur = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d;
-        ul = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d;
-        eta1[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      cfr = cfast(&(Ur_x1Face[j][i]), &(B1_x1Face[j][i]));
+      cfl = cfast(&(Ul_x1Face[j][i]), &(B1_x1Face[j][i]));
+      ur = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d;
+      ul = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d;
+      eta1[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
 
-        cfr = cfast(&(Ur_x2Face[j][i]), &(B2_x2Face[j][i]));
-        cfl = cfast(&(Ul_x2Face[j][i]), &(B2_x2Face[j][i]));
-        ur = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d;
-        ul = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d;
-        eta2[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
-      }
+      cfr = cfast(&(Ur_x2Face[j][i]), &(B2_x2Face[j][i]));
+      cfl = cfast(&(Ul_x2Face[j][i]), &(B2_x2Face[j][i]));
+      ur = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d;
+      ul = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d;
+      eta2[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
     }
+  }
 #endif /* H_CORRECTION */
 
 /*--- Step 8b ------------------------------------------------------------------
@@ -528,10 +528,10 @@ void integrate_2d(Grid *pGrid)
   for (j=js-1; j<=je+1; j++) {
     for (i=is; i<=ie+1; i++) {
 #ifdef H_CORRECTION
-      eta_h = MAX(eta2[j][i-1],eta2[j][i]);
-      eta_h = MAX(eta_h,eta2[j+1][i-1]);
-      eta_h = MAX(eta_h,eta2[j+1][i  ]);
-      eta_h = MAX(eta_h,eta1[j  ][i  ]);
+      etah = MAX(eta2[j][i-1],eta2[j][i]);
+      etah = MAX(etah,eta2[j+1][i-1]);
+      etah = MAX(etah,eta2[j+1][i  ]);
+      etah = MAX(etah,eta1[j  ][i  ]);
 #endif /* H_CORRECTION */
       GET_FLUXES(B1_x1Face[j][i],Ul_x1Face[j][i],Ur_x1Face[j][i],&x1Flux[j][i]);
     }
@@ -544,10 +544,10 @@ void integrate_2d(Grid *pGrid)
   for (j=js; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
 #ifdef H_CORRECTION
-      eta_h = MAX(eta1[j-1][i],eta1[j][i]);
-      eta_h = MAX(eta_h,eta1[j-1][i+1]);
-      eta_h = MAX(eta_h,eta1[j  ][i+1]);
-      eta_h = MAX(eta_h,eta2[j  ][i  ]);
+      etah = MAX(eta1[j-1][i],eta1[j][i]);
+      etah = MAX(etah,eta1[j-1][i+1]);
+      etah = MAX(etah,eta1[j  ][i+1]);
+      etah = MAX(etah,eta2[j  ][i  ]);
 #endif /* H_CORRECTION */
       GET_FLUXES(B2_x2Face[j][i],Ul_x2Face[j][i],Ur_x2Face[j][i],&x2Flux[j][i]);
     }
