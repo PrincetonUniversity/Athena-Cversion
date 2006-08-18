@@ -23,6 +23,7 @@
 #   --enable-debug                                       (compile in debug mode)
 #   --enable-ghost                      (write out ghost cells in outputs/dumps)
 #   --enable-mpi                                          (parallelize with MPI)
+#   --enable-h-correction              (turn on H-correction in multidimensions)
 
 #-------------------------------------------------------------------------------
 # generic things
@@ -239,6 +240,18 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# FEATURE: turn on H-correction in multidimensional integrators
+#   --enable-h-correction
+
+AC_SUBST(H_CORRECTION_MODE)
+AC_ARG_ENABLE(h-correction, [  --enable-h-correction          turn on H-correction], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  H_CORRECTION_MODE=H_CORRECTION
+else
+  H_CORRECTION_MODE=NO_H_CORRECTION
+fi
+
+#-------------------------------------------------------------------------------
 # check for various library functions
 
 AC_PROG_GCC_TRADITIONAL
@@ -278,3 +291,4 @@ echo "Output modes:"
 echo "  Ghost Cells:           $WRITE_GHOST_MODE"
 echo "Parallel modes:"
 echo "  MPI mode:              $MPI_MODE"
+echo "H-correction:            $H_CORRECTION_MODE"
