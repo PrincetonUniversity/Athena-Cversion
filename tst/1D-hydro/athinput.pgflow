@@ -8,7 +8,7 @@ config  = --with-gas=hydro --with-problem=pgflow
 <job>
 
 problem_id      = PGflow    # problem ID: basename of output filenames
-maxout          = 2         # Output blocks number from 1 -> maxout
+maxout          = 3         # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt = tab               # Tabular data dump
@@ -18,6 +18,14 @@ dt      = 0.1               # time increment between outputs
 <output2>
 out_fmt = bin               # Binary data dump
 dt      = 0.1               # time increment between outputs
+
+<output3>
+out_fmt = tab               # Tabular data dump
+dat_fmt = %12.5e            # Optional data format string
+dt      = 0.1               # time increment between outputs
+usr_expr_flag = 1           # output a user-defined expression
+out     = drho
+id      = drho
 
 <time>
 
