@@ -67,6 +67,11 @@ void show_config(void)
 #else
   fprintf(stderr,"   MPI:                   undefined\n");
 #endif
+#ifdef H_CORRECTION
+  fprintf(stderr," H-correction:            enabled\n");
+#else
+  fprintf(stderr," H-correction:            disabled\n");
+#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -116,6 +121,12 @@ void show_config_par(void)
   par_sets("configure","mpi","no","Is code serial or MPI parallel enabled?");
 #elif defined(MPI_PARALLEL)
   par_sets("configure","mpi","yes","Is code serial or MPI parallel enabled?");
+#endif
+
+#ifdef H_CORRECTION
+  par_sets("configure","H-correction","yes","H-correction enabled?");
+#else
+  par_sets("configure","H-correction","no","H-correction enabled?");
 #endif
 
   return;
