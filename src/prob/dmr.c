@@ -3,7 +3,7 @@
  * FILE: dmr.c
  *
  * PURPOSE: Problem generator for double Mach reflection test.  Only works for
- *   genuinly 2D problems in XY-plane.
+ *   genuinely 2D problems in X1-X2 plane.
  *
  * REFERENCE: P. Woodward & P. Colella, "The numerical simulation of 
  *   two-dimensional fluid flow with strong shocks", JCP, 54, 115, sect. IVc.
@@ -26,6 +26,13 @@
 #include "defs.h"
 #include "athena.h"
 #include "prototypes.h"
+
+#ifdef ISOTHERMAL
+#error : The dmr test only works for adiabatic EOS.
+#endif /* ISOTHERMAL */
+#ifndef HYDRO
+#error : The dmr test only works for hydro.
+#endif /* HYDRO */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -155,6 +162,7 @@ Real d0,e0,u0,v0;
     }
   }
 }
+
 /*-----------------------------------------------------------------------------
  * dmrbv_ijb: sets boundary condition on lower Y boundary (ijb) for dmr test
  * Note quantaties at this boundary are held fixed at the downstream state for
