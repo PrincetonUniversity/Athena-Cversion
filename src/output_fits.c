@@ -5,7 +5,7 @@
  * PURPOSE: Functions for writing FITS files.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   output_fits() - opend file and calls appropriate 2D/3D output function
+ *   output_fits() - opens file and calls appropriate 2D/3D output function
  *============================================================================*/
 
 #include <stdio.h>
@@ -52,10 +52,8 @@ void output_fits(Grid *pGrid, Output *pOut)
 /* call appropriate 2D or 3D output routine */
   if (pOut->ndim == 3) {
     output_fits_3d(pGrid,pOut,pFile);
-    return;
-  } else if (pOut->ndim != 2) {
+  } else if (pOut->ndim == 2) {
     output_fits_2d(pGrid,pOut,pFile);
-    return;
   } else {
     ath_error("output_fits: ouput data must be 2D or 3D\n");
     return;
@@ -63,8 +61,8 @@ void output_fits(Grid *pGrid, Output *pOut)
 
   fclose(pFile);
   free(fname);
+  return;
 }
-
 
 /*----------------------------------------------------------------------------*/
 /* output_fits_2d: writes 2D data  */
