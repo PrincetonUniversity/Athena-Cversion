@@ -26,7 +26,7 @@ dt      = 0.0019            # time increment between outputs
 <time>
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 5000      # cycle limit
+nlim            = 100000    # cycle limit
 tlim            = 0.038     # time limit
 
 <grid>
