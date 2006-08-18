@@ -43,10 +43,12 @@
 #define @PRECISION@
 /* debug mode: DEBUG or OPTIMIZE */
 #define @DEBUG_MODE@
-/* Write ghost cells in the output data: WRITE_GHOST_CELLS */
+/* Write ghost cells in outputs: WRITE_GHOST_CELLS or NO_WRITE_GHOST_CELLS */
 #define @WRITE_GHOST_MODE@
-/* MPI parallelism: MPI_PARALLEL */
+/* MPI parallelism: MPI_PARALLEL or MPI_SERIAL */
 #define @MPI_MODE@
+/* H-correction: H_CORRECTION or NO_H_CORRECTION */
+#define @H_CORRECTION_MODE@
 
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */
