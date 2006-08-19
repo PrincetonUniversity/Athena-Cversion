@@ -50,8 +50,9 @@ static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
+
 /* variables needed for H-correction of Sanders et al (1998) */
-Real etah=0.0;
+extern Real etah;
 #ifdef H_CORRECTION
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
@@ -83,6 +84,9 @@ void integrate_3d(Grid *pGrid)
   Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
   Real db1,db2,db3,l1,l2,l3,B1,B2,B3,V1,V2,V3;
   Real d, M1, M2, M3, B1c, B2c, B3c;
+#endif
+#ifdef H_CORRECTION
+  Real cfr,cfl,ur,ul;
 #endif
   Real g, x1, x2, x3;
   dtodx1 = pGrid->dt/pGrid->dx1;
