@@ -43,8 +43,9 @@ static Cons1D **x1Flux=NULL, **x2Flux=NULL;
 #ifdef MHD
 static Real **emf3=NULL, **emf3_cc=NULL;
 #endif
+
 /* variables needed for H-correction of Sanders et al (1998) */
-Real etah=0.0;
+extern Real etah;
 #ifdef H_CORRECTION
 static Real **eta1=NULL, **eta2=NULL;
 #endif
@@ -72,6 +73,9 @@ void integrate_2d(Grid *pGrid)
 #ifdef MHD
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
   Real d, M1, M2, B1c, B2c;
+#endif
+#ifdef H_CORRECTION
+  Real cfr,cfl,ur,ul;
 #endif
   Real g, x1, x2,x3;
 
@@ -464,36 +468,35 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef MHD
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
 
-        d  = pGrid->U[ks][j][i].d
-          - 0.5*dtodx1*(x1Flux[j][i+1].d - x1Flux[j][i].d )
-          - 0.5*dtodx2*(x2Flux[j+1][i].d - x2Flux[j][i].d );
+      d  = pGrid->U[ks][j][i].d
+        - 0.5*dtodx1*(x1Flux[j][i+1].d - x1Flux[j][i].d )
+        - 0.5*dtodx2*(x2Flux[j+1][i].d - x2Flux[j][i].d );
 
-        M1 = pGrid->U[ks][j][i].M1
-          - 0.5*dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
-          - 0.5*dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-        if (x1GravAcc != NULL) {
-          g = (*x1GravAcc)(x1,x2,x3);
-          M1 += hdt*pGrid->U[ks][j][i].d*g;
-        }
-
-        M2 = pGrid->U[ks][j][i].M2
-          - 0.5*dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
-          - 0.5*dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
-        if (x2GravAcc != NULL) {
-          g = (*x2GravAcc)(x1,x2,x3);
-          M2 += hdt*pGrid->U[ks][j][i].d*g;
-        }
-
-        B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
-
-        B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
-
-        emf3_cc[j][i] = (B1c*M2 - B2c*M1)/d;
+      M1 = pGrid->U[ks][j][i].M1
+        - 0.5*dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+        - 0.5*dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+      if (x1GravAcc != NULL) {
+        g = (*x1GravAcc)(x1,x2,x3);
+        M1 += hdt*pGrid->U[ks][j][i].d*g;
       }
+
+      M2 = pGrid->U[ks][j][i].M2
+        - 0.5*dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
+        - 0.5*dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+      if (x2GravAcc != NULL) {
+        g = (*x2GravAcc)(x1,x2,x3);
+        M2 += hdt*pGrid->U[ks][j][i].d*g;
+      }
+
+      B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
+
+      B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
+
+      emf3_cc[j][i] = (B1c*M2 - B2c*M1)/d;
     }
   }
 #endif /* MHD */
