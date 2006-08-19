@@ -21,6 +21,9 @@
 #include "athena.h"
 #include "prototypes.h"
 
+/* maximum wavespeed used by H-correction, value passed from integrator */
+Real etah=0.0;
+
 /* Test the intermediate states in the approximate Riemann solution. */
 #define TEST_INTERMEDIATE_STATES
 
@@ -244,7 +247,7 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pF  = (Real *)(pFlux); 
 
   for (m=0; m<NWAVE; m++) {
-    coeff[m] = 0.5*fabs(ev[m])*a[m];
+    coeff[m] = 0.5*MAX(fabs(ev[m]),etah)*a[m];
   }
   for (n=0; n<NWAVE; n++) {
     pF[n] = 0.5*(pFl[n] + pFr[n]);
