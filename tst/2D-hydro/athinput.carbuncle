@@ -26,6 +26,7 @@ dt      = 0.01
 palette = rainbow
 dmin    = 1.0
 dmax    = 6.0
+ix3     = 1
 
 <output4>
 out_fmt = ppm               # ppm images
@@ -35,6 +36,7 @@ dt      = 0.01
 palette = jh_colors
 dmin    = -1.0
 dmax    = 1.0
+ix3     = 1
 
 <time>
 
