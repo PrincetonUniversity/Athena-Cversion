@@ -39,11 +39,15 @@ obc_x1          = 1         # outer (X1) boundary flag
 
 Nx2             = 1         # Number of zones in X2-direction
 x2min           = 0.0       # minimum value of X2
-x2max           = 0.0       # maximum value of X2
+x2max           = 0.0125    # maximum value of X2
+ibc_x2          = 1         # inner (X2) boundary flag
+obc_x2          = 1         # outer (X2) boundary flag
 
 Nx3             = 1         # Number of zones in X3-direction
 x3min           = 0.0       # minimum value of X3
-x3max           = 0.0       # maximum value of X3
+x3max           = 0.0125    # maximum value of X3
+ibc_x3          = 1         # inner (X3) boundary flag
+obc_x3          = 1         # outer (X3) boundary flag
 
 <problem>
 
