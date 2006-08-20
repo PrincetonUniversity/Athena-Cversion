@@ -38,7 +38,6 @@
 void noh3d_oib(Grid *pGrid);
 void noh3d_ojb(Grid *pGrid);
 void noh3d_okb(Grid *pGrid);
-void scat_plot(Grid *pgrid, Output *pout);
 
 #ifdef MHD
 #error : This is not a MHD problem.
@@ -83,7 +82,6 @@ void problem(Grid *pGrid)
   set_bvals_fun(right_x2,noh3d_ojb);
   if (pGrid->Nx3 > 1) set_bvals_fun(right_x3,noh3d_okb);
 
-  data_output_enroll(pGrid->time,0.01,0,scat_plot,NULL,NULL,0,0.0,0.0,0,0);
 }
 
 /*==============================================================================
@@ -249,47 +247,4 @@ void noh3d_okb(Grid *pGrid)
       }
     }
   }
-}
-
-/*-----------------------------------------------------------------------------
- * Make a density scatter plot.
- */
-
-void scat_plot(Grid *pGrid, Output *pout)
-{
-  int dnum = pout->num;
-  FILE *fp;
-  int i, is = pGrid->is, ie = pGrid->ie;
-  int j, js = pGrid->js, je = pGrid->je;
-  int k, ks = pGrid->ks, ke = pGrid->ke;
-  Real r,x1,x2,x3;
-
-/* Open the output file */
-  if((fp = ath_fopen(pGrid->outfilename,num_digit,dnum,"scat","dat","w")) 
-     == NULL){
-    ath_error("[scat_plot]: File Open Error Occured");
-    return;
-  }
-
-  fprintf(fp,"#         r                 density\n#\n");
-
-  for (k=ks; k<=ke; k++) {
-    for(j=js; j<=je; j++){
-      for(i=is; i<=ie; i++){
-	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-
-        if (pGrid->Nx3 > 1) {
-          r = sqrt((double)(x1*x1 + x2*x2 + x3*x3));
-        } else {
-          r = sqrt((double)(x1*x1 + x2*x2));
-        }
-
-	fprintf(fp,"%20.10e %20.10e\n",r,pGrid->U[k][j][i].d);
-      }
-    }
-  }
-
-  fclose(fp);
-
-  return;
 }
