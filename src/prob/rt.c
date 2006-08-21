@@ -7,10 +7,9 @@
  *   in 3D.  This reproduces 2D results of Liska & Wendroff, 3D results of
  *   Dimonte et al.
  * 
- * FOR 2D:
- * Problem domain should be -1/4 < x < 1/4; -0.75 < y < 0.75
- * Use gamma=1.4 to match Liska & Wendroff
- * Interface is at y=0; perturbation added to Vy
+ * FOR 2D HYDRO:
+ * Problem domain should be -1/6 < x < 1/6; -0.5 < y < 0.5 with gamma=1.4 to
+ * match Liska & Wendroff. Interface is at y=0; perturbation added to Vy
  * Gravity acts in the y-direction.  Special reflecting boundary conditions
  *   added in x2 to improve hydrostatic eqm (prevents launching of weak waves)
  * Atwood number A = (d2-d1)/(d2+d1) = 1/3
