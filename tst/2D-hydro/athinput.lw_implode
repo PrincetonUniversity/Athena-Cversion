@@ -1,4 +1,3 @@
-# 
 <comment>
 
 problem = 2D implosion from Liska & Wendroff
@@ -16,7 +15,7 @@ dt      = 0.1               # time increment between outputs
 
 <output2>
 out_fmt = bin               # Binary data dump
-dt      = 0.1               # time increment between outputs
+dt      = 0.01               # time increment between outputs
 
 <output3>
 out_fmt = ppm
