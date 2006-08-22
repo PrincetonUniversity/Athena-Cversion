@@ -155,16 +155,15 @@ Real cfast(const Cons1D *U, const Real *Bx)
   Real ctsq,casq,tmp,cfsq;
 #endif
 
-#ifdef MHD
-  pb = 0.5*(SQR(*Bx) + SQR(U->By) + SQR(U->Bz));
-#endif /* MHD */
-
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
+#ifdef MHD
+  pb = 0.5*(SQR(*Bx) + SQR(U->By) + SQR(U->Bz));
+#endif /* MHD */
   p = Gamma_1*(U->E - pb - 0.5*(SQR(U->Mx)+SQR(U->My)+SQR(U->Mz))/U->d);
   asq = Gamma*p/U->d;
-#endif
+#endif /* ISOTHERMAL */
 
 #ifndef MHD
   return sqrt(asq);
