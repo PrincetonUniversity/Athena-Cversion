@@ -49,15 +49,15 @@ Real k_par;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pgrid)
+void problem(Grid *pGrid)
 {
-  int i, is = pgrid->is, ie = pgrid->ie;
-  int j, js = pgrid->js, je = pgrid->je;
-  int k, ks = pgrid->ks, ke = pgrid->ke;
+  int i, is = pGrid->is, ie = pGrid->ie;
+  int j, js = pGrid->js, je = pGrid->je;
+  int k, ks = pGrid->ks, ke = pGrid->ke;
   int nx1, nx2;
   Real angle;    /* Angle the wave direction makes with the x1-direction */
-  Real dx1 = pgrid->dx1;
-  Real dx2 = pgrid->dx2;
+  Real dx1 = pGrid->dx1;
+  Real dx2 = pGrid->dx2;
   Real x1,x2,x3,cs,sn;
   Real v_par, v_perp, den, pres;
   Real lambda; /* Wavelength */
@@ -65,7 +65,7 @@ void problem(Grid *pgrid)
   nx1 = (ie - is + 1) + 2*nghost;
   nx2 = (je - js + 1) + 2*nghost;
 
-  if (pgrid->Nx1 == 1) {
+  if (pGrid->Nx1 == 1) {
     ath_error("[cpaw2d] Grid must be 2D with Nx1>1");
   }
 
@@ -82,12 +82,12 @@ void problem(Grid *pgrid)
   if (angle == 0.0) {
     sin_a = 0.0;
     cos_a = 1.0;
-    lambda = pgrid->Nx1*pgrid->dx1; /* Put one wavelength in the grid */
+    lambda = pGrid->Nx1*pGrid->dx1; /* Put one wavelength in the grid */
   }
   else if (angle == 90.0) {
     sin_a = 1.0;
     cos_a = 0.0;
-    lambda = pgrid->Nx2*pgrid->dx2; /* Put one wavelength in the grid */
+    lambda = pGrid->Nx2*pGrid->dx2; /* Put one wavelength in the grid */
   }
   else {
 
@@ -96,19 +96,19 @@ void problem(Grid *pgrid)
  *     AND  lambda = pGrid->Nx2*pGrid->dx2*sin_a;
  *     are both satisfied. */
 
-    if((pgrid->Nx1*pgrid->dx1) == (pgrid->Nx2*pgrid->dx2)){
+    if((pGrid->Nx1*pGrid->dx1) == (pGrid->Nx2*pGrid->dx2)){
       cos_a = sin_a = sqrt(0.5);
     }
     else{
-      angle = atan((double)(pgrid->Nx1*pgrid->dx1)/(pgrid->Nx2*pgrid->dx2));
+      angle = atan((double)(pGrid->Nx1*pGrid->dx1)/(pGrid->Nx2*pGrid->dx2));
       sin_a = sin(angle);
       cos_a = cos(angle);
     }
 /* Use the larger angle to determine the wavelength */
     if (cos_a >= sin_a) {
-      lambda = pgrid->Nx1*pgrid->dx1*cos_a;
+      lambda = pGrid->Nx1*pGrid->dx1*cos_a;
     } else {
-      lambda = pgrid->Nx2*pgrid->dx2*sin_a;
+      lambda = pGrid->Nx2*pGrid->dx2*sin_a;
     }
   }
 
@@ -118,7 +118,7 @@ void problem(Grid *pgrid)
   b_par = par_getd("problem","b_par");
   den = 1.0;
 
-  printf("va_parallel = %g\n",b_par/sqrt(den));
+  printf("va_parallel = %g\nlambda = %g\n",b_par/sqrt(den),lambda);
 
   b_perp = par_getd("problem","b_perp");
   v_perp = b_perp/sqrt((double)den);
@@ -134,24 +134,24 @@ void problem(Grid *pgrid)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie+1; i++) {
-        cc_pos(pgrid,i,j,k,&x1,&x2,&x3);
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         cs = cos(k_par*(x1*cos_a + x2*sin_a));
 
-        x1 -= 0.5*pgrid->dx1;
-        x2 -= 0.5*pgrid->dx2;
+        x1 -= 0.5*pGrid->dx1;
+        x2 -= 0.5*pGrid->dx2;
 
-        pgrid->B1i[k][j][i] = -(A3(x1,x2+dx2) - A3(x1,x2))/dx2;
-        pgrid->B2i[k][j][i] =  (A3(x1+dx1,x2) - A3(x1,x2))/dx1;
-        pgrid->B3i[k][j][i] = b_perp*cs;
+        pGrid->B1i[k][j][i] = -(A3(x1,x2+dx2) - A3(x1,x2))/dx2;
+        pGrid->B2i[k][j][i] =  (A3(x1+dx1,x2) - A3(x1,x2))/dx1;
+        pGrid->B3i[k][j][i] = b_perp*cs;
       }
     }
   }
-  if (pgrid->Nx3 > 1) {
+  if (pGrid->Nx3 > 1) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie+1; i++) {
-        cc_pos(pgrid,i,j,k,&x1,&x2,&x3);
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         cs = cos(k_par*(x1*cos_a + x2*sin_a));
-        pgrid->B3i[ke+1][j][i] = b_perp*cs;
+        pGrid->B3i[ke+1][j][i] = b_perp*cs;
       }
     }
   }
@@ -161,7 +161,7 @@ void problem(Grid *pgrid)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        cc_pos(pgrid,i,j,k,&x1,&x2,&x3);
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
         sn = sin(k_par*(x1*cos_a + x2*sin_a));
         cs = cos(k_par*(x1*cos_a + x2*sin_a));
@@ -170,24 +170,24 @@ void problem(Grid *pgrid)
         Soln[j][i].M1 = den*(v_par*cos_a - v_perp*sn*sin_a);
         Soln[j][i].M2 = den*(v_par*sin_a + v_perp*sn*cos_a);
         Soln[j][i].M3 = den*v_perp*cs;
-        pgrid->U[k][j][i].d  = Soln[j][i].d;
-        pgrid->U[k][j][i].M1 = Soln[j][i].M1;
-        pgrid->U[k][j][i].M2 = Soln[j][i].M2;
-        pgrid->U[k][j][i].M3 = Soln[j][i].M3;
+        pGrid->U[k][j][i].d  = Soln[j][i].d;
+        pGrid->U[k][j][i].M1 = Soln[j][i].M1;
+        pGrid->U[k][j][i].M2 = Soln[j][i].M2;
+        pGrid->U[k][j][i].M3 = Soln[j][i].M3;
 
-        Soln[j][i].B1c = 0.5*(pgrid->B1i[k][j][i] + pgrid->B1i[k][j][i+1]);
-        Soln[j][i].B2c = 0.5*(pgrid->B2i[k][j][i] + pgrid->B2i[k][j+1][i]);
+        Soln[j][i].B1c = 0.5*(pGrid->B1i[k][j][i] + pGrid->B1i[k][j][i+1]);
+        Soln[j][i].B2c = 0.5*(pGrid->B2i[k][j][i] + pGrid->B2i[k][j+1][i]);
         Soln[j][i].B3c = b_perp*cs;
-        pgrid->U[k][j][i].B1c = Soln[j][i].B1c;
-        pgrid->U[k][j][i].B2c = Soln[j][i].B2c;
-        pgrid->U[k][j][i].B3c = Soln[j][i].B3c;
+        pGrid->U[k][j][i].B1c = Soln[j][i].B1c;
+        pGrid->U[k][j][i].B2c = Soln[j][i].B2c;
+        pGrid->U[k][j][i].B3c = Soln[j][i].B3c;
 
 #ifndef ISOTHERMAL
-        Soln[j][i].E = pres/Gamma_1 + 0.5*(SQR(pgrid->U[k][j][i].B1c) +
-                 SQR(pgrid->U[k][j][i].B2c) + SQR(pgrid->U[k][j][i].B3c) )
-          + 0.5*(SQR(pgrid->U[k][j][i].M1) + SQR(pgrid->U[k][j][i].M2) +
-                 SQR(pgrid->U[k][j][i].M3) )/den;
-        pgrid->U[k][j][i].E = Soln[j][i].E;
+        Soln[j][i].E = pres/Gamma_1 + 0.5*(SQR(pGrid->U[k][j][i].B1c) +
+                 SQR(pGrid->U[k][j][i].B2c) + SQR(pGrid->U[k][j][i].B3c) )
+          + 0.5*(SQR(pGrid->U[k][j][i].M1) + SQR(pGrid->U[k][j][i].M2) +
+                 SQR(pGrid->U[k][j][i].M3) )/den;
+        pGrid->U[k][j][i].E = Soln[j][i].E;
 #endif
       }
     }
