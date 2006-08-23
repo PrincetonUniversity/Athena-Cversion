@@ -34,11 +34,11 @@ static Gas *Soln=NULL;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pgrid)
+void problem(Grid *pGrid)
 {
-  int i, is = pgrid->is, ie = pgrid->ie;
-  int j, js = pgrid->js;
-  int k, ks = pgrid->ks;
+  int i, is = pGrid->is, ie = pGrid->ie;
+  int j, js = pGrid->js;
+  int k, ks = pGrid->ks;
   Real x1,x2,x3,cs,sn,b_par,b_perp,lambda,k_par,v_par,v_perp,den,pres;
   Soln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas));
   if (Soln == NULL) ath_error("[cpaw1d] Error initializing solution array");
@@ -49,7 +49,7 @@ void problem(Grid *pgrid)
 
 /* Put one wavelength on the grid, and initialize k_parallel */
 
-  lambda = pgrid->Nx1*pgrid->dx1; 
+  lambda = pGrid->Nx1*pGrid->dx1; 
   k_par = 2.0*PI/lambda;
 
   b_par = par_getd("problem","b_par");
@@ -64,7 +64,7 @@ void problem(Grid *pgrid)
 /* Setup circularily polarized AW solution  */
 
   for (i=is; i<=ie+1; i++) {
-    cc_pos(pgrid,i,js,ks,&x1,&x2,&x3);
+    cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
 
     sn = sin(k_par*x1);
     cs = cos(k_par*x1);
@@ -88,16 +88,16 @@ void problem(Grid *pgrid)
 /* set code variables to solution */
 
   for (i=is; i<=ie+1; i++) {
-    pgrid->U[ks][js][i].d  = Soln[i].d;
-    pgrid->U[ks][js][i].M1 = Soln[i].M1;
-    pgrid->U[ks][js][i].M2 = Soln[i].M2;
-    pgrid->U[ks][js][i].M3 = Soln[i].M3;
+    pGrid->U[ks][js][i].d  = Soln[i].d;
+    pGrid->U[ks][js][i].M1 = Soln[i].M1;
+    pGrid->U[ks][js][i].M2 = Soln[i].M2;
+    pGrid->U[ks][js][i].M3 = Soln[i].M3;
 
-    pgrid->U[ks][js][i].B1c = pgrid->B1i[ks][js][i] = Soln[i].B1c;
-    pgrid->U[ks][js][i].B2c = pgrid->B2i[ks][js][i] = Soln[i].B2c;
-    pgrid->U[ks][js][i].B3c = pgrid->B3i[ks][js][i] = Soln[i].B3c;
+    pGrid->U[ks][js][i].B1c = pGrid->B1i[ks][js][i] = Soln[i].B1c;
+    pGrid->U[ks][js][i].B2c = pGrid->B2i[ks][js][i] = Soln[i].B2c;
+    pGrid->U[ks][js][i].B3c = pGrid->B3i[ks][js][i] = Soln[i].B3c;
 #ifndef ISOTHERMAL
-    pgrid->U[ks][js][i].E = Soln[i].E;
+    pGrid->U[ks][js][i].E = Soln[i].E;
 #endif
   }
 
