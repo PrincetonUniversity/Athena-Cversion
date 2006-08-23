@@ -5,15 +5,7 @@
  * PURPOSE: Problem generator for Orszag-Tang vortex problem.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   problem - 
- *
- * PROBLEM USER FUNCTIONS: Must be included in every problem file, even if they
- *   are NoOPs and never used.  They provide user-defined functionality.
- * problem_write_restart() - writes problem-specific user data to restart files
- * problem_read_restart()  - reads problem-specific user data from restart files
- * get_usr_expr()          - sets pointer to expression for special output data
- * Userwork_in_loop        - problem specific work IN     main loop
- * Userwork_after_loop     - problem specific work AFTER  main loop
+ *   problem - problem generator
  *============================================================================*/
 
 #include <math.h>
@@ -40,7 +32,7 @@ void problem(Grid *pGrid){
   nx1 = (ie-is)+1 + 2*nghost;
   nx2 = (je-js)+1 + 2*nghost;
   if ((nx1 == 1) || (nx2 == 1)) {
-    ath_error("[orszag-tang]: This problem can only be run in 2D\n");
+    ath_error("[orszag-tang]: This problem can only be run with Nx1>1\n");
   }
   if ((az = (Real**)calloc_2d_array(nx2, nx1, sizeof(Real))) == NULL) {
     ath_error("[orszag-tang]: Error allocating memory for vector pot\n");
