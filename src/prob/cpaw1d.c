@@ -14,15 +14,7 @@
  *   wave periods for this to work.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   problem - 
- *
- * PROBLEM USER FUNCTIONS: Must be included in every problem file, even if they
- *   are NoOPs and never used.  They provide user-defined functionality.
- * problem_write_restart() - writes problem-specific user data to restart files
- * problem_read_restart()  - reads problem-specific user data from restart files
- * get_usr_expr()          - sets pointer to expression for special output data
- * Userwork_in_loop        - problem specific work IN     main loop
- * Userwork_after_loop     - problem specific work AFTER  main loop
+ *   problem - problem generator
  *============================================================================*/
 
 #include <math.h>
@@ -49,7 +41,11 @@ void problem(Grid *pgrid)
   int k, ks = pgrid->ks;
   Real x1,x2,x3,cs,sn,b_par,b_perp,lambda,k_par,v_par,v_perp,den,pres;
   Soln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas));
-  if (Soln == NULL) ath_error("[cpaw2d] Error initializing solution array");
+  if (Soln == NULL) ath_error("[cpaw1d] Error initializing solution array");
+
+  if (pGrid->Nx2 > 1 || pGrid->Nx3 > 1) {
+    ath_error("[cpaw1d] grid must be 1D");
+  }
 
 /* Put one wavelength on the grid, and initialize k_parallel */
 
@@ -154,6 +150,7 @@ void Userwork_after_loop(Grid *pGrid)
   error.M1 = 0.0;
   error.M2 = 0.0;
   error.M3 = 0.0;
+  error.B1c = 0.0;
   error.B2c = 0.0;
   error.B3c = 0.0;
 #ifndef ISOTHERMAL
