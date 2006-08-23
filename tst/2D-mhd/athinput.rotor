@@ -1,0 +1,52 @@
+<comment>
+
+problem = First rotor test
+author  = G. Toth
+journal = JCP, vol. 161, pp. 605-662 (2000).
+config  = --with-problem=rotor
+
+<job>
+
+problem_id   = Rotor        # problem ID: basename of output filenames
+maxout       = 2            # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = hst               # History data dump
+dt      = 0.1               # time increment between outputs
+
+<output2>
+out_fmt = bin               # Binary data dump
+dt      = 0.001             # time increment between outputs
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 15000     # cycle limit
+tlim            = 0.15      # time limit
+
+<grid>
+
+Nx1             = 400       # Number of zones in X1-direction
+x1min           = -0.5      # minimum value of X1
+x1max           = 0.5       # maximum value of X1
+ibc_x1          = 2         # inner-I (X1) boundary flag
+obc_x1          = 2         # outer-I (X1) boundary flag
+
+Nx2             = 400       # Number of zones in X2-direction
+x2min           = -0.5      # minimum value of X2
+x2max           = 0.5       # maximum value of X2
+ibc_x2          = 2         # inner-II (X2) boundary flag
+obc_x2          = 2         # outer-II (X2) boundary flag
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 0.0       # maximum value of X3
+
+<problem>
+
+gamma = 1.4        # gamma = C_p/C_v
+v0 = 2.0           # velocity of rotating region
+p0 = 1.0           # pressure
+bx0 = 1.410474     # Bx
+r0 = 0.1           # radius of rotating region
+r1 = -0.115        # smooth solution between r0 and r1.  No smoothing for r1<0
