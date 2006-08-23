@@ -7,8 +7,8 @@ config  = --with-problem=cpaw2d
 
 <job>
 
-problem_id   = Alfven       # problem ID: basename of output filenames
-maxout       = 3            # Output blocks number from 1 -> maxout
+problem_id   = cpaw         # problem ID: basename of output filenames
+maxout       = 4            # Output blocks number from 1 -> maxout
 
 <time>
 
@@ -30,6 +30,15 @@ out     = V3                # 3-component of velocity (shows wave well)
 id      = V3
 dmin    = -0.1
 dmax    = 0.1
+palette = jh_colors
+dt      = 0.01               # time increment between outputs
+
+<output4>
+out_fmt = ppm               # ppm data dump
+out     = d                # density (errors related to total P not constant)
+id      = d 
+dmin    = 1.0002
+dmax    = 0.9998
 palette = jh_colors
 dt      = 0.01               # time increment between outputs
 
