@@ -62,4 +62,5 @@ x3max           = 0.0       # maximum value of X3
 
 <problem>
 
+iso_csound      = 1.0             # isothermal sound speed
 gamma           = 1.666666667     # gamma = C_p/C_v
