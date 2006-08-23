@@ -7,6 +7,7 @@
 ; PRO sod_plot,filename:       plots analytic Sod solution over numerical
 ; PRO four_plot,filename:      plots d,P,Vx,P/d
 ; PRO nine_plot,filename,flag: use flag=0 for points, flag=1 for line
+; PRO flines,nlev              plot 2D field lines
 ;
 COMMON SHARE1,nx,ny,nz,nvar
 COMMON SHARE2,x,y,z
@@ -238,4 +239,20 @@ dmax=MAX(p/d)
 plot,x,p/d,YTITLE='P/D',XTITLE='X',psym=6,symsize=.4,YRANGE=[dmin,dmax],XSTYLE=1
 oplot,xsod,psod/dsod
 !P.MULTI=0
+END
+;------------------------------------------------------------------------------
+; Procedure FLINES:  2D plot of field lines
+;
+PRO flines,nlev
+COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE2,x,y,z
+COMMON SHARE3,time,dt,gamm1,isocs
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+vecpot=fltarr(nx,ny)
+dx = x/nx
+dy = y/ny
+vecpot[0,0] = 0.0
+FOR J=1,ny-1 DO vecpot[0,J] = vecpot[0,j-1] + dy*bx[0,j]
+FOR I=1,nx-1 DO vecpot[I,*] = vecpot[i-1,*] - dx*by[i,*]
+contour,vecpot,nlevels=nlev,/ISOTROPIC
 END
