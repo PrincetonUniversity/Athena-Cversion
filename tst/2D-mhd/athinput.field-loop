@@ -1,0 +1,76 @@
+<comment>
+
+problem = field loop advection test
+author  = T.A. Gardiner & J.M. Stone
+journal = JCP, (2005)
+config  = --with-problem=field_loop
+
+<job>
+
+problem_id      = Loop       # problem ID: basename of output filenames
+maxout          = 4          # Output blocks number from 1 -> maxout
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 2.0       # time limit
+
+<output1>
+
+out_fmt = hst               # History data dump
+dt      = 0.01              # time increment between outputs
+
+<output2>
+
+out_fmt = bin               # Binary data dump
+dt      = 0.01              # time increment between outputs
+
+<output3>
+
+out_fmt = ppm       # ppm image
+out     = J3
+id      = J3
+usr_expr_flag = 1
+palette = rainbow
+dt      = 0.004    # time step between images of J3
+dmin    = -0.04    # min value for imaging J3
+dmax    =  0.08    # max value for imaging J3
+
+<output4>
+
+out_fmt = ppm       # ppm image
+out     = Bp2
+id      = Bp
+usr_expr_flag = 1
+palette = rainbow
+dt      = 0.004     # time step between images of J3
+dmin    = 0.0       # min value for imaging J3
+dmax    = 1.0e-6    # max value for imaging J3
+
+<grid>
+
+Nx1             = 64        # Number of zones in X-direction
+x1min           = -1.0      # minimum value of X
+x1max           = 1.0       # maximum value of X
+ibc_x1          = 4         # inner-I (X) boundary flag
+obc_x1          = 4         # outer-I (X) boundary flag
+
+Nx2             = 32        # Number of zones in Y-direction
+x2min           = -0.5      # minimum value of Y
+x2max           =  0.5      # maximum value of Y
+ibc_x2          = 4         # inner-J (Y) boundary flag
+obc_x2          = 4         # outer-J (Y) boundary flag
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 1.0       # maximum value of X3
+
+<problem>
+iso_csound      = 1.732 
+gamma           = 1.66667   # gamma = C_p/C_v
+rad             = 0.3       # Radius of loop
+amp             = 1.0e-3    # Amplitude of B in loop
+vflow           = 2.236068  # background flow velocity
+angle           = 26.56505  # angle of flow wrt x1-axis in degrees
+iprob           = 1
