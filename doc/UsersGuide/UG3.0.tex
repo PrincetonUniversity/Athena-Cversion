@@ -1,0 +1,1376 @@
+\nonstopmode
+\documentstyle[11pt]{article}
+% \documentclass[11pt]{article}
+
+%\usepackage{palatino}
+
+\setlength{\textheight}{9.0in}
+\setlength{\textwidth}{6.5in}
+\hoffset=-1.3 truecm
+\voffset=-1.7 truecm
+
+% a box
+\newcommand{\SEP}[1]{\setlength{\fboxsep}{#1pt}}
+\newsavebox{\Qbox}
+\newenvironment{Ebox}{\hspace*{.1in}%
+\begin{lrbox}{\Qbox}%
+\begin{minipage}[t]{4.4in}\it\sffamily}%
+{\end{minipage}%
+\end{lrbox}\vspace{6pt}\SEP{6}%
+\fbox{\usebox{\Qbox}}\vspace{6pt}\SEP{3}}
+
+
+
+\newcommand{\ath}{{\tt athena3.0}}
+\newcommand{\Dx}[0]{\bigtriangleup x}
+
+\makeatletter                                            %KT
+\@ifundefined{epsfbox}{\@input{epsf.sty}}{\relax}        %KT
+\def\plotone#1{\centering \leavevmode                    %KT
+\epsfxsize=\columnwidth \epsfbox{#1}}                    %KT
+\def\plotone_reduction#1#2{\centering \leavevmode        %KT
+\epsfxsize=#2\columnwidth \epsfbox{#1}}                  %KT
+\def\plottwo#1#2{\centering \leavevmode                  %KT
+\epsfxsize=.45\columnwidth \epsfbox{#1} \hfil            %KT
+\epsfxsize=.45\columnwidth \epsfbox{#2}}                 %KT
+\def\plotfiddle#1#2#3#4#5#6#7{\centering \leavevmode     %KT
+\vbox to#2{\rule{0pt}{#2}}                               %KT
+\special{psfile=#1 voffset=#7 hoffset=#6 vscale=#5 hscale=#4 angle=#3}} %KT
+\makeatother
+
+
+\begin{document}
+
+\begin{center}
+{\huge {\it The \ath\ User's Guide }} \vspace{1in} \\
+{\Large James M. Stone, Thomas A. Gardiner} \\
+{\large Department of Astrophysical Sciences \\ Princeton University \\
+Princeton, NJ 08540} \vspace{0.5in} \\
+{\Large Peter J. Teuben} \\
+{\large Department of Astronomy \\ University of
+Maryland \\ College Park MD 20742-2421} \vspace{0.5in} \\
+and \vspace{0.5in} \\
+{\Large John F. Hawley} \\
+{\large Department of Astronomy \\ University of
+Virginia \\ PO Box 3818 University Station \\ Charlottesville, VA 22903} \vspace{1in} \\
+\end{center}
+\newpage
+
+\section{Introduction}
+
+{\it Athena} is a grid-based code for astrophysical gas dynamics being
+developed with support of the NSF Information Technology Research (ITR)
+program.  This {\it User's Guide} describes version 3.0 (hereafter
+referred to as \ath); the third publicly released version of the code.
+
+The primary goal of the {\it Athena} project is to develop a robust and
+flexible code with multiple-physics options in a variety of geometries,
+using flexible gridding methods, and optimized for modern shared or
+distributed memory parallel machines.  This code is necessary to enable
+increasingly sophisticated investigations of a wide variety of problems
+in astrophysical gas dynamics.  As part of the project, {\it Athena}
+will be made freely available to the astrophysics community, along with
+complete documentation and web-based training material.  Although the
+capabilities of \ath\ are still quite restricted compared to the ultimate
+goals of the project, it is being freely distributed consistent with
+this open source philosophy.
+
+The \ath\ code contains algorithms for
+the following:
+\begin{itemize}
+\item compressible hydrodynamics and ideal MHD in one- or two-spatial dimensions
+\item ideal gas equation of state with arbitrary $\gamma$ (including 
+$\gamma = 1$, an isothermal EOS)
+\item second- or third-order reconstruction using the characteristic variables
+(first-order interpolation is also available)
+\item numerical fluxes computed using Roe's, or the HLLE, approximate Riemann
+solver (the HLLC solver is also available but for hydrodynamics only)
+\item the ability to add arbitrary source terms to the equations of motion
+(except for the magnetic field)
+\end{itemize}
+Since later versions of the code will always be backwards compatible
+(in particular, they will run one-dimensional problems simply and
+efficiently), {\bf it is strongly advised to use the latest release of
+the code for research problems (even those in one-dimension) to take
+advantage of improvements and potential bug fixes.}
+
+There are four basic sources of documentation for {\it Athena}
+\begin{enumerate}
+\item {\it The Method Paper:} (in preparation)
+\item {\it The User's Guide:} (this document) gives an overview of how to
+install, configure, compile, and run \ath\ and visualize the resulting output.
+Necessary reading for all users.
+\item {\it The Programmers's Guide:} gives a basic introduction to the 
+data structures, variable names, grid definitions, and code structure.
+Necessary reading for users who want to modify or extend the code.
+\item {\it Web-based Tutorials:} contains step-by-step instructions
+for running problems from the \ath\ test suite, including examples of results.
+\end{enumerate}
+
+Users of \ath\ should have a basic, working knowledge of the Unix
+operating system, access to a C compiler, and a graphics package for
+plotting or animating one- and two-dimensional data.  Some familiarity
+with code management using Makefiles is helpful but not necessary.
+
+The code has been developed using the GNU development tools, and
+maintaining strict adherence to ANSI standards, thus it should be possible
+to configure, compile, and run the code on any platform that supports these
+standards.  It has been tested on Linux, MacOSX, and Solaris.
+
+\subsection{Changes from {\tt athena1.1}}
+
+The last publicly released version of the code was v1.1.  The current version
+differs primarily in that it implements an unsplit, 
+multi-dimensional algorithm, and that source terms can now be included.
+The technical details of this algorithm
+are described in the Method Paper.
+
+In addition, there are a number of structural changes to the code, including
+(1) some files in {\tt /src} are renamed, and many new files are added,
+(2) new options have been added to the configure script,
+(3) data output is unified into a single mechanism controlled by {\tt <output>}
+blocks in the input file (see \S 3). 
+
+\section{Getting Started}
+
+\subsection{Obtaining and Installing \ath}
+
+The source code for \ath\ can be downloaded as a gzipped tar file from the
+web.  Only the source code can be downloaded.  To install and run the code
+requires only a C compiler.
+
+After downloading the tar file, uncompressing and untarring it,
+the following directory structure should be created:
+
+\footnotesize
+\begin{verbatim}
+/athena3.0
+          /doc            documentation, manuals
+          /src            source code, and include files
+              /prob       problem files (see /src/problem.c for a symbolic link)
+          /tst            various input files for tests
+              /1D-hydro
+              /1D-mhd
+              /2D-hydro
+              /2D-mhd
+          /vis            visualization tools and scripts
+              /dx         OpenDX scripts
+              /idl        IDL (rsinc.com) scripts
+              /nemo       NEMO scripts
+\end{verbatim}
+\normalsize
+
+The {\tt /athena3.0} directory will also contain a shell script
+called {\tt configure} which has been generated by the GNU {\tt
+autoconf} toolkit, as well as several other files used by this
+toolkit.  As described in the next section, this script provides command-line
+control of all of the physics and algorithm options in the code.
+The contents of the directories in {\tt /athena3.0} are largely
+self-explanatory.
+
+In addition to the directories listed above (which are created when you
+untar the source code), another directory will be created by the Makefile
+when \ath\ is compiled for the first time, using {\tt make all}.
+
+\footnotesize
+\begin{verbatim}
+/athena3.0
+          /bin           contains executable, created by Makefile
+\end{verbatim}
+\normalsize
+
+Trying to compile the code with {\tt make compile} before
+{\tt make all} will result in an error since the {\tt bin} directory will
+not yet exist.)
+
+\subsection{Configuring \ath}
+
+After you have installed \ath\, the next step is to configure the code
+for a specific problem, a specific machine, and for a specific level of
+accuracy and optimization.  A shell script called {\tt configure} in the 
+{\tt /athena3.0} directory generated by the GNU
+{\tt autoconf} toolkit\footnote{autoconf: see {\tt http://www.gnu.org/software/autoconf/}} is used for this step.
+{\em More advanced users 
+may prefer to by-pass the configure script and work with the Makefiles 
+directly; see \S 2.4 below.}
+
+There are several basic functions served by the {\tt configure} script.
+The first is to enable or disable {\it features} in the code, and to
+choose between different {\it packages} implemented in \ath.  Configure 
+{\it features}
+are used when a particular option has only two choices: enabled (``on")
+or disabled (``off"): examples include choosing whether the executable
+uses single or double precision, or enabling or disabling various data
+output formats.  Configure {\it packages} are used when an option may have
+more than one choice.  Examples of {\it packages} include the basic
+physics options (such as hydrodynamics or MHD, adiabatic or isothermal
+equation of state, etc.), as well as the algorithm options (order of
+accuracy for the reconstruction step, choice of Riemann solver, etc.).
+These {\it package} options are controlled at the source code level using C
+precompiler macros.  The {\tt configure} script provides a powerful way
+of setting these macros through a command line interface that does not
+require the user to edit any special files.
+
+A second basic function served by {\tt configure} is to set compiler and linker 
+options and flags using environment variables.
+
+Finally, a third function of {\tt configure} is to query the system
+automatically to see that a C-compiler, linker, and any external
+libraries necessary for compilation are installed and accessible.
+If they are not, {\tt configure} can automatically disable features so as
+to allow installation to complete.  For example, if the HDF library is
+not installed on the target system, {\tt configure} can automatically disable
+HDF data output (even if the user requests this feature be enabled in
+the command line), allowing the code to be compiled and linked without
+errors due to unresolved references (although the resulting executable
+will not generate HDF files, of course).
+
+The basic syntax of the {\tt configure} command (which must be run
+in the {\tt /athena3.0} directory) is:
+\begin{center}
+{\tt configure [--enable-{\it feature}] [--disable-{\it feature}]
+[--with-{\it package}={\it choice}]},
+\end{center}
+where {\it feature} and {\it package}
+are valid options in \ath, and {\it choice} is the value to which
+{\it package} is to be set.  The valid optional features in \ath\ are given in
+Table 1, and the valid optional packages (including all possible choices and
+their default values) are given in Table 2\footnote{The file {\tt configure.ac}
+contains the information auto-conf needs to generate the configure script
+with these options.}.
+
+\begin{table}[ht]
+\caption{Optional features controlled by {\tt configure} in \ath}
+\begin{tabular}{|c|c|c|} \hline \hline
+FEATURE & DEFAULT & Comments \\ \hline
+single &  disabled & computations performed in single precision (default is double) \\
+dx  & enabled & writes header files for OpenDX scripts \\
+debug  & disabled & compiles code with flags needed for debugger \\
+ghost  & disabled & causes ghost zones to be written during output \\
+ct-conserve-energy  & enabled & CT update conserves total (rather than internal) energy \\
+fortran & disabled & makes binary dumps readable by fortran77 programs$^{a}$
+\\ \hline
+\end{tabular}
+\\$^{a}$Current implementation almost certainly not portable, but works
+with Solaris and Linux.
+\end{table}
+
+\begin{table}[ht]
+\caption{Optional packages controlled by configure in \ath}
+\begin{tabular}{|c|c|c|} \hline \hline
+PACKAGE & CHOICE$^{a}$ & Comments \\ \hline
+gas    & hydro  & create code for hydrodynamics \\
+       & {\bf mhd}    & create code for MHD \\ \hline
+eos    & {\bf adiabatic} & use adiabatic equation of state \\
+       & isothermal & use isothermal equation of state \\ \hline
+problem & {\it file-name} & use {\it file-name} in directory {\tt /src/prob} for initial conditions \\ \hline
+hdf & {\it library-name} & link {\it library-name} for HDF4 \\ \hline
+emf & {\bf ndup} & use an ``upwind'' no-dissipation scheme to get corner EMFs \\
+     & nodiss & use no-dissipation scheme to get corner EMFs \\
+     & lf & use Lax-Freidrichs scheme to get corner EMFs \\
+     & llf & use local Lax-Freidrichs scheme to get corner EMFs \\
+     & hll & use HLL scheme to get corner EMFs\\ \hline
+flux & {\bf roe} & use Roe's Riemann solver \\
+     & hlle & use the HLLE Riemann solver \\
+     & hllc & use the HLLC Riemann solver (hydrodynamics only) \\ \hline
+order & 1 & use first-order spatial reconstruction \\
+      & {\bf 2} & use second-order (piecewise-linear) spatial reconstruction \\
+      & 3 & use third-order (piecewise-parabolic) spatial reconstruction 
+\\ \hline
+\end{tabular}
+$^{a}$ Default choices shown in bold.
+\end{table}
+
+Only one choice can be made for each optional package given in Table 2
+(the choices are mutually exclusive).  The ``problem" package should
+be set to the file name in the directory {\tt athena3.0/src/prob} that
+is to be used by the code to initialize the problem of interest.  A
+variety of choices are included for the test problems that can be run
+by \ath\ (the default problem file is {\tt
+athena3.0/src/prob/shkset.c}, {\it i.e.} {\tt --with-problem=shkset}), these are
+described in more detail in \S 6.  Note that {\tt configure} creates a
+symbolic link between {\tt problem.c} in {\tt athena3.0/src} and the
+appropriate file in {\tt athena3.0/src/prob}.
+
+The {\tt configure} script
+should be run in the root directory {\tt /athena3.0}.  Running {\tt configure}
+with the help option ({\tt configure --help}) gives more information,
+including a list of all optional features and packages.
+
+For example, to configure \ath\ to run an isothermal hydrodynamical shocktube
+problem initialized with the function {\tt shkset.c} problem
+using Roe fluxes and third-order interpolation in single precision, use the
+following:
+\begin{center}
+{\tt configure --enable-single --with-eos=isothermal --with-gas=hydro --with-order=3}
+\end{center}
+
+To configure \ath\ to run the linear wave test problem in adiabatic MHD
+using HLLE fluxes and second-order interpolation in double precision,
+use the following:
+\begin{center}
+{\tt configure --with-flux=hlle --with-problem=linear\_wave}
+\end{center}
+
+When {\tt configure} runs, it creates a custom Makefile for the problem in
+the directory {\tt athena3.0/src} using the file {\tt athena3.0/src/Makefile.in} as a
+template.  After successful execution,
+{\tt configure} will echo the options that have been set (including all the
+default values).
+
+\subsection{Compiling \ath}
+
+After running {\tt configure}, all that is required to compile the code
+is to type {\tt make all} in the top level directory {\tt /athena3.0}
+(within which the configure script is run).  This automatically creates
+the directory {\tt athena3.0/bin}, which will contain the executable, and runs make
+in the {\tt athena3.0/src} directory to compile and link the code.  The top-level
+Makefile in the {\tt /athena3.0} directory also contains other targets
+which may be of use to users listed in Table 3.
+
+\begin{table}[ht]
+\caption{Some Makefile targets in \ath}
+\begin{tabular}{|c|c|} \hline \hline
+TARGET & Comments \\ \hline
+all & creates {\tt /athena3.0/bin} directory and compiles code \\
+compile & compiles code \\
+clean & removes .o files in {\tt /athena3.0/src} \\
+help & prints help message \\
+check & runs benchmark (see \S 8.1) \\
+\hline
+\end{tabular}
+\end{table}
+
+Normally the Makefiles should never need to be edited by hand.  However,
+it is possible to edit the Makefile in the {\tt /athena3.0/src} directory to
+change compiler flags (to improve optimization, for example) rather than using
+environment variables.
+
+\subsection{By-passing configure}
+
+Most of the physics options in \ath\ are controlled by precompiler macros.  The
+complete set of valid macros (some of which are mutually exclusive) are
+defined in the file {\tt /src/defs.h.in}.  
+The configure script creates a header file {\tt /src/defs.h} which contains
+the appropriate set of macro definitions required for the given problem.
+However, one can by-pass the configure script by creating and editing the
+{\tt defs.h} file by hand (be warned that running configure at some later time
+will overwrite this file).
+
+Similarly, the compilation step is controlled by a Makefile generated by
+the configure script from {\tt /src/Makefile.in}.  To bypass the configure
+script, a custom Makefile must be created by hand from this template.
+
+\subsection{Running \ath}
+
+After configuring and compiling \ath, there should be an executable
+called {\tt athena} in the directory {\tt athena3.0/bin}.  There
+are two steps to running the code: (1) editing parameters in the
+input file, and (2) running the executable.  Editing the input file is 
+described in more detail in the subsections below.
+
+The \ath\ executable can be run using the {\tt -i} option to specify the name of
+the input file.  For example, to run the Brio \& Wu shocktube use
+the command
+\footnotesize
+\begin{verbatim}
+  % athena -i ../tst/1D-mhd/athinput.brio+wu
+\end{verbatim}
+\normalsize
+The code will first echo the values of all input parameters to stdout.
+During the main integration loop
+it will print the cycle number and timestep, and
+when it concludes it will print final diagnostic information.
+
+A variety of command line options have been implemented in \ath.
+A list is given by the {\tt -h} switch:
+\footnotesize
+\begin{verbatim}
+  % athena -h
+
+Usage: athena [options] [block/par=value ...]
+
+Options:
+  -i <file>       Alternate input file [athinput]
+  -d <directory>  Alternate run dir [current dir]
+  -h              This Help, and configuration settings
+  -n              Parse input, but don't run program
+  -c              Show Configuration details and quit
+
+\end{verbatim}
+\normalsize
+The {\tt -d} option can be used to create a new directory in which
+\ath\ will run and write the output files.  The {\tt -n} option is
+useful for debugging any parsing errors, as it will dump the contents
+of all parsed block/parameters.
+
+A value for any of the valid parameter names can also be input from
+the command line, this overrides the values in the input file.
+This, in combination with the {\tt -d} option, is
+useful for parameter surveys.  For example, 
+suppose a problem has three parameters, {\tt a,b,c}, and \ath\
+is to be used for a survey looping over
+6, 5 and 7 different values of  {\tt a,b,c} respectively
+In C-shell notation, this could be accomplished quite easily as follows:
+\footnotesize
+\begin{verbatim}
+#! /bin/csh -f
+  foreach      a  (1.0  1.5  2.0  2.5  3.0  3.5)
+    foreach    b  (10   20   30   40   50)
+      foreach  c  (1    3    10   30   100  300  1000)
+        set dir=run_$a_$b_$c
+        mkdir -p $dir
+        athena -i your_athinput -d $dir problem/a=$a  problem/b=$b  problem/c=$c > $dir/athena.log
+      end
+    end
+  end
+\end{verbatim}   % $
+\normalsize
+Note that one winds up with 210 different run directories this way.
+An alternative
+would be to construct a hierarchy, with {\tt a} on the top level, and
+{\tt b} and {\tt c} below. This could be accomplished with, for example,
+{\tt set dir=run210/\$a/\$b/\$c}.
+
+\subsubsection{Editing the input file}
+
+Run time parameters are set in an input file, usually given the name
+{\tt athinput.}{\it problem-name}, where {\it problem-name} is a
+string identifier.  Often this string is the same as the name of the
+problem-generator, i.e. the function in {\tt athena3.0/src/prob} which is used to
+initialize the data.  In some cases, a name which is more specific to
+the problem at hand is used (since some problem-generators can be used
+to initialize more than one problem).
+
+As an example of an \ath\ input file, the file 
+{\tt /athena3.0/tst/1D-mhd/athinput.brio+wu} is reproduced below.
+Other examples can be found in the subdirectories in {\tt /athena3.0/tst/}.
+
+\footnotesize
+\begin{verbatim}
+# This is the Brio & Wu shock tube problem
+# M. Brio & C. C. Wu 
+# J. Comp. Phys. 75, 400-422 (1988)
+
+<job>
+
+problem_id      = Brio_Wu   # problem ID: basename of output filenames
+restart_flag    = 0         # 0 for new job, 1 for restart
+restart_file    = res000aa  # name of restart file
+maxout          = 4         # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = tab               # Tabular data dump
+dt      = 0.0025            # time increment between outputs
+
+<output2>
+out_fmt = hst               # History data dump
+dt      = 0.0025            # time increment between outputs
+
+<output3>
+out_fmt = bin               # Binary data dump
+dt      = 0.0025            # time increment between outputs
+
+<output4>
+out_fmt = hdf               # HDF-SDS data dump
+dt      = 0.1               # time increment between outputs
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 1000      # cycle limit
+tlim            = 1.0       # time limit
+
+<grid>
+
+Nx1             = 800       # Number of zones in X1-direction
+x1min           = 0.0       # minimum value of X1
+x1max           = 1.0       # maximum value of X1
+ibc_x1          = 2         # inner (X1) boundary flag
+obc_x1          = 2         # outer (X1) boundary flag
+
+Nx2             = 1         # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 0.0       # maximum value of X2
+ibc_x2          = 2         # inner (X2) boundary flag
+obc_x2          = 2         # outer (X2) boundary flag
+
+<problem>
+
+gamma           = 2.0       # gamma = C_p/C_v
+
+shk_dir         = 1         # Shock Direction -- (1,2,3) = (x1,x2,x3)
+
+dl              = 1.0       # density on left half of grid
+pl              = 1.0       # pressure
+v1l             = 0.0       # X-velocity
+v2l             = 0.0       # Y-velocity
+v3l             = 0.0       # Z-velocity
+b1l             = 0.75      # X-magnetic field
+b2l             = 1.0       # Y-magnetic field
+b3l             = 0.0       # Z-magnetic field
+
+dr              = 0.125     # density on right half of grid
+pr              = 0.1       # pressure
+v1r             = 0.0       # X-velocity
+v2r             = 0.0       # Y-velocity
+v3r             = 0.0       # Z-velocity
+b1r             = 0.75      # X-magnetic field
+b2r             = -1.0      # Y-magnetic field
+b3r             = 0.0       # Z-magnetic field
+
+\end{verbatim}
+\normalsize
+
+Note the syntax of the parameter specification used in this file.  Parameters
+are grouped into named
+{\it blocks}, with the name of each block appearing on a single line
+within angle brackets.  Block names must always appear in angle brackets on
+a separate line (although the blank lines above and below the block
+names are not 
+required)\footnote{A parameter can also be
+specified on the commandline by using ``{\it block/parameter=value}''}.
+
+Below each block name is a list of parameters, with syntax
+\begin{center}
+ {\it parameter-name} = value [\# comments]
+\end{center}
+White space after the parameter name, after the `=', and before the
+`\#' character is ignored.  Everything after (and including) the `\#'
+character is also ignored.  Only one parameter value can appear per
+line.  Comment lines (i.e. a line beginning with `\#') are allowed for
+documentation purposes.  A maximum number of 256 characters is permitted
+per line in the input file.  Both block names and parameter names are
+case sensitive.
+
+The input file is read by a very flexible parser written for \ath\
+({\tt /athena3.0/src/par.c}).  The entire input file is read at the
+very beginning of the main program, and the parameter names and their
+values stored in memory.  Thereafter, these values can be accessed as
+necessary by any function at any time during execution.  The parser
+allows the parameter names to appear in any order within a named
+block, extra (or misspelled) parameter names will be parsed and never
+used.  There are no default values for any of the run-time parameters
+in the input file; each parameter must be supplied a value through the
+input file.  If a value is requested from the parser but its name does
+not exist, the parser will print an error message and terminate the
+execution of the program.  In this way, both missing or misspelled
+parameter names will be detected at run time.  The parameters may be
+integers, floating point numbers, or strings.  The parser will do
+automatic type conversion, for example converting floating point
+numbers to double precision if necessary (though the user is expected
+to know the basic difference between real, integer, and string data
+types).  Parameter values can also be set at run time through the
+command line, which provides a very flexible way of testing the code
+and running parameter searches (see \S 5.2),
+using the syntax ``{\it block/parameter=value}''.
+
+Below we describe each of the parameter blocks in the input file,
+and the parameters they contain.
+
+\subsubsection{The {\tt <job>} block}
+
+Parameters in this block control properties of the jobs run by \ath.
+They are accessed by the function {\tt main.c}.
+\begin{itemize}
+\item {\bf problem\_id:}
+string added as basename of output filenames (see \S 3).  Usually same
+as {\it problem-name} used in input file.  There is no maximum length
+for this name\footnote{Although remember that the maximum length of a
+line in the input file is 256 characters.}.
+\item {\bf restart\_flag:} currently not used
+\item {\bf restart\_file:} currently not used. 
+\item {\bf maxout:} This is currently an optional field.  If it is not
+present, a default value (currently 10) is used in its place.  Output
+blocks {\tt<output1>} through {\tt<outputN>} where {\tt N} = maxout
+are scanned for valid output descriptions.  Missing output
+blocks are permitted.
+\end{itemize}
+
+\subsubsection{The {\tt <output\#>} block}
+
+Parameters in these blocks control the writing of ``outputs'',
+e.g. data dumps, images, etc.
+\begin{itemize}
+\item {\bf out\_fmt:} Output format, e.g. 
+{\tt bin, tab, hdf, hst, pgm, ppm, fits}
+\item {\bf dt:} Time increment between outputs
+\item {\bf dat\_fmt:} Optional field for controlling the format string used 
+to write tabular output files, e.g. {\tt \%12.5e}.  This value should
+not appear in quotes and no white space should be present.
+\item {\bf out:} Variable to image for {\tt pgm, ppm, fits} output formats.
+Currently accepted values are:
+{\tt d, M1, M2, M3, E, B1c, B2c, B3c, V1, V2, V3, P, T}.  Not required for
+{\tt bin, tab, hdf, hst} output types (which can only dump all rather than
+selected variables).
+\item {\bf ix1, ix2, ix3:} Range of indices in x1, x2, or x3 directions over
+which data is averaged.  For example ix1= : will average over whole x1 axis
+and dump a 2D array.  ix1=5: will average from 5 to end.  ix1=:10 will
+average from start to 10.  ix1=5:10 will average from 5 to 10.  ix1=5
+will extract the single plane at i index 5.
+\end{itemize}
+
+\subsubsection{The {\tt <time>} block}
+
+Parameters in this block control times in a job (such as ending time).
+They are accessed by the function {\tt main.c}.
+\begin{itemize}
+\item {\bf tlim:} time to stop integration, in units defined by problem
+\item {\bf nlim:} maximum number of cycles of the main loop before stopping.
+\item {\bf cour\_no:}  CFL number, must be less than 1.0
+\end{itemize}
+
+\subsubsection{The {\tt <grid>} block}
+
+Parameters in this block control the properties of the grid. 
+They are accessed by the function {\tt init\_grid\_block.c}.
+\begin{itemize}
+\item {\bf Nx1, Nx2:} number of grid cells in the x1-, x2-direction.
+\item {\bf x1min, x2min:} x1-, x2-coordinate of left-edge of first cell
+\item {\bf x1max, x2max:} x1-, x2-coordinate of right-edge of last cell.
+The computational domain in the x1-direction spans $x1_{max}-x1_{min}$, the grid
+spacing is $\Dx1=(x1_{max}-x1_{min})/Nx1$, and the center of the
+first cell is located at $x1=x1_{min} + \Dx1/2$. Also, $x1_{max} >
+x1_{min}$ is required.  Similarly for the computational domain in the 
+x2-direction.
+\item {\bf ibc\_x1, obc\_x1:} integer flags for boundary conditions applied
+at ``inner" (left) and ``outer" (right) edges of grid.  Currently three
+values are implemented: 1 = reflecting, 2 = inflow and outflow (projection), 
+and 4 = periodic.  See \S 5 for more information.
+\item {\bf ibc\_x2, obc\_x2:} Analogous parameters for the x2-direction.
+\end{itemize}
+
+\subsubsection{The {\tt <problem>} block}
+
+Parameters in this block are accessed by the problem-generator,
+and therefore depend on the problem being run.  For example, the 
+problem-generator {\tt athena3.0/src/prob/shkset.c}
+(which is used for the Brio \& Wu test problem)
+requires the following parameter values in the {\tt <problem>} block:
+\begin{itemize}
+\item {\bf gamma:} ratio of specific heats used in equation of state
+\item {\bf *l:} values of variable * in left-state
+\item {\bf *r:} values of variable * in right-state
+\end{itemize}
+The {\bf *l} and {\bf *r} parameter names are specific to the Brio \& Wu shocktube
+problem.  In general, the input file for other problems will have
+different variable names in the problem block.
+
+\section{Data output formats}
+
+As described above in \S 2.5.3, data output in the 
+\ath\ code is controlled by the {\tt <output>} blocks in the input file.
+There should be one block for each type of data output required.  There is
+no limit on the total number of outputs. 
+Output filenames
+use a naming convention {\it basename.dumpid.outid.type}, where
+the {\tt basename} is inherited from the {\tt <job>problem\_id}
+parameter, the {\it dumpid} is a zero filled unsigned integer with {\tt
+<job>numdigits}\footnote{currently fixed at four}, the {\it outid} denotes the
+block number in the input file which generated the output (necessary because
+in some cases more than one block can generate the same type of dump),
+and the {\it type} denotes
+the output format ({\tt bin,tab, hdf, hst, pgm, ppm, fits}).
+(note that history dump filenames do not include a {\it dumpid} or {\it outid}).
+
+The meaning of the parameters in the {\tt <output>} block has already been described in \S 2.5.3.
+Below we provide more information about each of the output types.
+\begin{enumerate}
+\item history dumps: contains a formatted table of a variety of volume integrated values, with one line in the table created 
+every {\tt dt} in time (where {\tt dt} is set in the corresponding {\tt <output>}
+block).  Thus, at the end of execution, the output file contains $tlim/dt$
+lines which form a time-history of these
+quantities.  The file is created by the function {\tt dump\_history.c}; more
+(or problem specific) quantities can be added by editing this file.
+The data is appended to the file each time the {\it dump\_history()}
+function is called.
+\item binary dumps: contains an unformatted write of all dependent variables
+over all active zones.  If the fortran option is enabled by configure,
+then the file will contain header (and footer) bytes which makes the file
+readable by fortran77
+programs (at least on SGI, Solaris and Linux systems).  If the 
+{\tt dx} option is enabled by configure, then an OpenDX header file
+with the same name as the corresponding binary file but with the extension
+{\tt .dx} will
+be created.  This header file allows binary dumps to be read by OpenDX
+networks (see \S7.2).  A new file is created with a time interval of {\tt dt}
+in the corresponding output block.  Created by the function
+{\tt dump\_binary.c}. 
+\item tabular dumps: contains a formatted table of all dependent variables 
+overall all zones.
+A new file is created with a time interval of {\tt dt} set in the output
+block.  Created by the function {\tt dump\_table.c}.
+Useful for making 1D plots.
+\item HDF dumps: contains an HDF4 Scientific Data Set dump of all
+dependent variables.  A new file is created with a time interval of {\tt dt}
+set in the output block.  Created by the function {\tt dump\_hdf4.c}.
+\item ppm images:  two dimensional images of the variable set in the output
+block using the {\tt out} variable name.  Global scaling can be set using the
+parameters {\tt dmin} and {\tt dmax} in the output block, otherwise each image
+is scaled independently.  A default color palette (``stern special") is used. 
+Created by the function {\tt output\_ppm.c}.
+\item pgm images: same as ppm images, but written in pgm format.
+Created by the function {\tt output\_pgm.c}.
+\item fits images: same as ppm images, but written in fits format.
+Created by the function {\tt output\_fits.c}.
+\end{enumerate}
+
+It is important to note that {\bf output files in \ath\ will always be
+silently overwritten!} 
+
+It is also fairly easy to add entirely new data output modes using
+function pointers. This can be accomplished in essentially two steps.
+The first step is to write a new output function in the file
+containing the problem generator.  Suppose for example that the new
+output function is called {\tt special\_output}, it must have the
+following prototype
+
+\footnotesize
+\begin{verbatim}
+void special_output(Grid *pgrid, Output *pout);
+\end{verbatim}
+\normalsize
+\noindent
+For details on the information contained in the {\tt Grid} or {\tt
+Output} structures, see the {\it Programmer's Guide}.  The second step
+is to enroll this function by adding a call to {\tt
+data\_output\_enroll} in the {\tt problem} routine.  The {\tt
+data\_output\_enroll} function has the following prototype.
+
+\footnotesize
+\begin{verbatim}
+void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
+                        const char *fmt, const Gasfun_t expr, int n,
+                        const Real dmin, const Real dmax, int sdmin, int sdmax);
+\end{verbatim}
+\normalsize
+
+\noindent
+The arguments to this function serve the following purpose.
+\begin{itemize}
+\item {\bf time:} The current simulation time.
+\item {\bf dt:} The time interval between outputs.
+\item {\bf num:} The initial data output number.
+\item {\bf fun:} The name of the output function (a function pointer).  In
+  the example above this is {\tt special\_output}, but it could also
+  be say {\tt output\_ppm} for making images of some quantity.
+\item {\bf fmt:} This is an optional format string used, for example,
+  by {\tt dump\_table}.
+\item {\bf expr:} The name of the function (a function pointer) of the
+  quantity to be imaged when using an image type output routine,
+  e.g. \{{\tt output\_ppm, output\_pgm, output\_fits}\}.
+\item {\bf n}: Currently, image type outputs contain the string ``out\#'' 
+in their file-name where the number ``\#'' is replaced with the argument 
+{\bf n}.
+\item {\bf dmin, dmax:} When making image type outputs, the data can 
+either be auto-scaled to the min/max of the each image, or scaled to
+the fixed values {\bf dmin / dmax}.
+\item {\bf sdmin, sdmax:} Logical flags which indicate whether to use
+auto-scaling ({\bf sdmin / sdmax} = 0) or to use the fixed scales
+({\bf sdmin / sdmax} != 0).
+\end{itemize}
+
+In the simplest case the call to {\tt data\_output\_enroll} could take 
+this form, where unused arguments are set to 0, or {\tt NULL}.
+\footnotesize
+\begin{verbatim}
+data_output_enroll(pGrid->time,0.1,0,special_output,NULL,NULL,0,0.0,0.0,0,0);
+\end{verbatim}
+\normalsize
+As a more complex example, the following generates a series of ``ppm''
+images of the result of the function {\tt expr\_dV3} scaled from
+``dmin'' to ``dmax'' on a time interval ``dt'' with the string
+``out-1'' in the file name.
+\footnotesize
+\begin{verbatim}
+data_output_enroll(pGrid->time,dt,0,output_ppm,NULL,expr_dV3,-1,dmin,dmax,1,1);
+\end{verbatim}
+\normalsize
+For more examples, users should look in the {\tt field\_loop.c}, {\tt
+hb3\_sheet.c}, and {\tt implode.c} problem generators; each contains
+special data output functions enrolled in this fashion.
+
+\section{Visualizing output}
+
+\ath\ does not come with a default graphics package.  Instead, the user must
+decide which visualization package is best suited to their needs, output the
+data in a format which can be read by this package, and then proceed.
+As a start, rudimentary
+scripts for several different graphics packages are supplied with the source
+code; future versions may incorporate more sophisticated visualization
+tools.  The following subsections describe useful visualization packages for
+\ath\ data files (the discussion assumes the code has already been run to
+produce output).
+
+\subsection{IDL procedures}
+
+The IDL (Interactive Data Language)\footnote{see also: {\tt http://www.rsinc.com}} package
+can read the binary dump files.  A simple procedure for reading \ath\ binary
+dumps is included in {\tt athena3.0/vis/idl}; to run this procedure you will need
+IDL installed on your system.  (Note that binary dumps must be created
+with the fortran option {\bf disabled} to be compatible with IDL.)
+From the {\tt athena3.0/bin} directory, use the following.
+\footnotesize
+\begin{verbatim}
+% idl
+IDL> .run ../vis/idl/pltath.pro 
+IDL> readbin,'Brio_Wu.040.bin'
+IDL> six_plot
+\end{verbatim}
+\normalsize
+A variety of procedures are included in the {\tt pltath.pro} file, including 
+a procedure to read binary files ({\tt readbin}), and make simple plots 
+and animations.
+
+\subsection{OpenDX networks}
+
+The OpenDX\footnote{see also: {\tt http://www.opendx.org}} package
+can read our binary dump files, provided the {\tt .dx} header files exist.
+This requires \ath\ be configured with
+the dx option enabled (the fortran option may be either enabled or disabled),
+and of course OpenDX must be installed on the system.
+
+An OpenDX session can be started from the {\tt athena3.0/bin} directory
+with the following:
+\footnotesize
+\begin{verbatim}
+% cp ../vis/dx/PlotLine.* .           # for convenience make a local copy
+% dx
+  <Run Visual Programs>
+  click on PlotLine.net in the ``Files''
+  click on OK
+\end{verbatim}
+\normalsize
+
+\subsection{NEMO}
+
+Although designed primarily for studying stellar dynamics, the 
+NEMO\footnote{see also: {\tt http://www.astro.umd.edu/nemo}} package
+contains graphics that can be used to 
+to display and animate the tabular files generated by \ath.
+Some examples are given
+below (it is assumed that
+NEMO has been compiled with PGPLOT as the graphics driver).
+From the {\tt athena3.0/bin} directory, use the 
+following\footnote{astroload is part of {\tt http://www.astro.umd.edu/nemo/linuxastro/astromake/}}:
+
+\footnotesize
+\begin{verbatim}
+
+% astroload nemo
+% ../vis/nemo/1d-animate xcol=2 ycol=3           
+        # this should show 28 time frames of density vs. position in rapid succession
+% tkrun ../vis/nemo/1d-animate
+        # this should show sliders for xcol and ycol (2=X-pos, 3=den, 4=M1, ... 11=B1i)
+% ../vis/nemo/1d-pt-map
+        # this will have produced a FITS file map-3.fits
+% astroload ds9
+% ds9 &
+% mirds9 map-3.fits
+        # the X axis (position) is 800 pixels, and the Y axis (time), so not very impressive
+
+\end{verbatim}
+\normalsize
+
+\subsection{2D animations}
+
+To make animations of 2D ppm images generated through an output block,
+two possible routes are ImageMagick:
+
+\footnotesize
+\begin{verbatim}
+ % animate *.pgm
+\end{verbatim}
+\normalsize
+
+or, alternatively, {\tt anim}:
+\footnotesize
+\begin{verbatim}
+ % ls Wind*pgm > list1
+ % ppm2fli -g80x80 list1 Wind.fli
+ % xanim Wind.fli
+
+\end{verbatim}
+\normalsize
+
+\section{Specifying Boundary Conditions}
+
+As described in \S 2.5.5, integer flags can be used to specify a limited set
+of boundary conditions automatically in \ath.  The actual implementation of
+the boundary conditions uses function pointers.  The
+flags are used to enroll the appropriate default 
+functions from the complete list in {\tt /src/set\_bvals.c}.  Each of these
+functions sets quantities in the ghost zones according to the 
+algorithm selected by the value of the flag.
+
+The use of function pointers makes adding new boundary conditions for specific
+problems quite easy.  For example, to add a new problem-specific boundary
+condition along the inner X1 boundary, the user would (1) write a new function
+which sets the values in the ghost zones in the same
+file as the problem generator, and (2) enroll this new function
+by adding the following line at the end of the problem generator
+
+\footnotesize
+\begin{verbatim}
+  set_bvals_fun(right_x1,special_bc);
+\end{verbatim}
+\normalsize
+
+\noindent
+where {\tt special\_bc} is the name of the special function written in
+step (1).  The first argument of {\tt set\_bvals\_fun} specifies the
+boundary on which the special function is enrolled; use {\tt left\_x1}
+or {\tt right\_x1} for the inner or outer x1-boundary, and similarly
+{\tt left\_x2} or {\tt right\_x2} specifies the inner or outer
+x2-boundary respectively.  As examples, users should look in the {\tt
+dmr.c}, {\tt hb3\_sheet.c}, {\tt noh2d.c}, and {\tt shkset2d.c}
+problem generators; each contains special boundary functions enrolled
+in this fashion.
+
+Users should also note the following:
+
+\begin{enumerate}
+\item Boundary condition flags in the input file are only required for 
+directions in which the grid is integrated.  That is, if {\tt Nx1>1}
+and {\tt Nx2=1}, then only ibc\_x1 and obc\_x1 are required in the
+input file.  The parameters ibc\_x2 and obc\_x2 may be present, but
+their value will not be checked.
+\item If the user enrolls a boundary condition routine for say the inner
+x1-boundary, the boundary condition flag ibc\_x1 in the parameter file
+is not required.  Again it may be in the parameter file, but its value
+will not be checked.
+\end{enumerate}
+
+\section{Problem Generators Included in \ath}
+
+A large number of problem generators are included in the {\tt /src/prob}
+directory.  The purpose of each is described below.
+
+\bigskip
+\noindent
+{\bf blast.c}
+Initializes a small, spherical, highly over-pressurized region in
+a uniform ambient medium to study the propagation of a spherical
+blast wave in 2D for both hydrodynamical and MHD problems.
+
+
+\bigskip
+\noindent
+{\bf cp\_alfven.c}
+Initializes a circularly polarized Alfven wave of arbitrary amplitude in
+both 1D and 2D, and in stationary and moving medium.
+
+\bigskip
+\noindent
+{\bf current\_sheet.c}
+Initializes two parallel current sheets in 2D which are perturbed with a
+sinusoidal transverse velocity.  A good test of the robustness of the
+algorithm for low $\beta$ or high Alfvenic Mach number.
+
+\bigskip
+\noindent
+{\bf dmr.c}
+The double Mach reflection test from Woodward \& Colella.
+
+\bigskip
+\noindent
+{\bf field\_loop.c}
+Advection of a loop of weak magnetic field at an arbitrary angle to the
+grid in 2D.
+
+\bigskip
+\noindent
+{\bf gflow.c}
+A gas is accelerated from a uniform initial state by a constant
+gravitational field.  The Bernoulli constant and specific entropy are
+plotted via an output routine in the problem file.
+
+\bigskip
+\noindent
+{\bf hb3\_sheet.c}
+Two-dimensional magnetorotational instability initial conditions, taken
+from Hawley \& Balbus, ApJ 400, 595 (1992).  This file also contains
+function pointers for the source terms for the shearing-sheet approximation,
+as well as 2D shearing-sheet boundary conditions.
+
+\bigskip
+\noindent
+{\bf implode.c}
+The diamond-shaped hydrodynamic implosion test from Liska \& Wendroff
+(described in \S 4.7 of their paper).
+
+\bigskip
+\noindent
+{\bf linear\_wave.c}
+Initialize linear amplitude waves of each family in 1D or 2D and in
+hydrodynamics or MHD.  Either a stationary or moving medium can be
+initialized.  These are
+useful to study the convergence rate of the algorithm for linear wave
+modes.
+
+\bigskip
+\noindent
+{\bf noh2d.c}
+The 2D hydrodynamic Noh shock test from Liska \& Wendroff (described in
+\S 4.5 of their paper).
+
+\bigskip
+\noindent
+{\bf orszag-tang.c}
+The 2D MHD Orszag-Tang vortex problem.
+
+\bigskip
+\noindent
+{\bf pgflow.c} A periodic gravitational force is applied and the grid
+is initialized with a steady state solution (either subsonic, or
+supersonic).  This is evolved forward in time as a test of the ability
+of the code to maintain an equilibrium with source terms.
+
+\bigskip
+\noindent
+{\bf rotor.c}
+The 2D MHD rotor test.
+
+\bigskip
+\noindent
+{\bf shk-stripe.c}
+Initializes a planar hydrodynamic shock in 2D to test for the
+carbuncle instability (described by Sutherland 2003).
+
+\bigskip
+\noindent
+{\bf shk\_clump.c}  Initializes a strong, planar shock propagating towards
+an arbitrary number of spherical, dense clumps to study shock-clump 
+interactions.
+
+\bigskip
+\noindent
+{\bf shkset.c}
+Initializes 1D Riemann problems.
+
+\bigskip
+\noindent
+{\bf shkset2d.c}
+Initializes planar Riemann problems inclined at an angle to the grid in 2D.
+
+\bigskip
+\noindent
+{\bf shkset\_4state.c}
+Initializes 2D Riemann problems consisting of 4 interacting states (used
+to initialize some of the tests in Liska \& Wendroff).
+
+\bigskip
+\noindent
+{\bf shu\_osher.c}
+Initializes the Shu \& Osher Riemann problem.
+
+\bigskip
+\noindent
+{\bf twoibw.c}
+The two interacting blast wave test from Woodward \& Colella.
+
+\bigskip
+\noindent
+{\bf wind-cloud.c}
+Initializes a spherical, dense cloud embedded in a supersonic wind.
+
+\section{Source Terms}
+
+Source terms are included in \ath\ using function pointers.  Source
+terms are not operator split from the integration routine, but are
+split dimensionally.  By avoiding the use of
+operator splitting, the source terms are included more accurately,
+and in a way that is better able to maintain equilibria resulting
+from the balance of source terms and flux gradients.
+However, the resulting algorithm is far more complex, and requires
+source terms be specified for {\em both} the primitive and
+conserved variables.
+
+Generally, to include a source term in the x1-direction one would
+write a function to calculate the source term in primitive variables
+and another to calculate them in conservative variables.
+Denote these as ``x1\_prim\_src'' and ``x1\_cons\_src'' respectively.
+Note that
+the argument list for these functions must match the prototypes as
+defined in ``athena.h'' (see \S 7.1 below).  These are then ``enrolled'' in the
+integration routine via the command
+\footnotesize
+\begin{verbatim}
+  x1_int_src_fun_enroll(x1_prim_src, x1_cons_src);
+\end{verbatim}
+\normalsize
+which must
+be added to the end of the problem generator.  The same
+procedure holds for the x2-direction.
+
+A time independent gravitational field is a special case.  It can be
+included using source terms as just described,  or it can be included
+is such a way that the total energy is conserved.  In the conservative
+approach, one still writes a function to calculate the source term in
+primitive variables, but this time it is enrolled with no conservative
+source term function via the statement
+\footnotesize
+\begin{verbatim}
+  x1_int_src_fun_enroll(x1_prim_src, NULL);
+\end{verbatim}
+\normalsize
+added to the end of the problem generator.   The user must also
+write and enroll a function to calculate the potential function, say
+``grav\_pot'', and enroll it with the command
+\footnotesize
+\begin{verbatim}
+  cons_pot_fun_enroll(grav_pot);
+\end{verbatim}
+\normalsize
+The rational behind requiring
+a primitive source function, rather than simply differencing the
+potential function, is to avoid potentially significant roundoff error
+in the differencing.
+
+The problem files ``pgflow.c'' and ``hb3\_sheet.c'' are good examples
+of how to include source terms in your own applications.  In the
+problem file ``pgflow.c'' one can find both the energy conserving and
+the energy non-conserving approach for a 2D flow problem.  The define
+\mbox{``CONSERVE\_TOTAL\_ENERGY''} is used to select which approach is used in
+the calculation.  The problem file ``hb3\_sheet.c'' also demonstrates
+both approaches including the tidal gravity term as either a
+conservative potential, or a source term.  Note that in the energy
+conserving approach used in the problem file ``hb3\_sheet.c'' a
+conservative source term is also required for the Coriolis term.
+
+Generally speaking, including time independent gravitational
+potentials in such a way as to conserve the total energy is the
+preferred approach.  Tests indicate better long term stability and
+maintenance of equilibrium flows.
+
+\subsection{Source Term Functions}
+
+An example prototype of a primitive source term function is:
+\footnotesize
+\begin{verbatim}
+void PrimSrcFun(const Grid *pG, const Prim *pW, const int i, const int j, Prim *psrc);
+\end{verbatim}
+\normalsize
+The arguments to this function are as follows:
+\begin{itemize}
+\item {\bf pG:} Pointer to the Grid.
+\item {\bf pW:} Pointer to a ``primitive'' data type (a structure containing
+the primitive variables) which should be used to calculate the source
+term if necessary.
+\item {\bf i, j:} The grid cell index (i,j).
+\item {\bf psrc:} Pointer to a ``primitive'' data type into which the
+source term in primitive variables should be stored.  (NOTE: The user
+must not assume that this variable is initialized to zero.  Failure to
+initialize every element will have unpredictable results.)
+\end{itemize}
+
+
+\noindent
+An example prototype of a conservative source term function is:
+\footnotesize
+\begin{verbatim}
+void ConsSrcFun(const Grid *pG, const Gas *pU, const int i, const int j, Gas *psrc);
+\end{verbatim}
+\normalsize
+The arguments to this function are as follows:
+\begin{itemize}
+\item {\bf pG:} Pointer to the Grid.
+\item {\bf pU:} Pointer to a ``conservative'' data type (a structure containing
+the conservative variables) which should be used to calculate the source
+term if necessary.
+\item {\bf i, j:} The grid cell index (i,j).
+\item {\bf psrc:} Pointer to a ``conservative'' data type into which the
+source term in conservative variables should be stored.  (NOTE: The user
+must not assume that this variable is initialized to zero.  Failure to
+initialize every element will have unpredictable results.)
+\end{itemize}
+
+
+
+\section{Examples of Running \ath}
+
+\subsection{The \ath\ Benchmark}
+
+To test the installation of \ath, a benchmark can be automatically
+run using the Makefile.  This benchmark consists of running the Brio
+\& Wu shocktube problem on a grid of 800 zones to a time of 0.1, and
+then computing the L1 error norm between the resulting solution and a
+precomputed result (stored in the file {\tt
+athena3.0/tst/1D-mhd/test.Brio\_Wu.040.tab}).  If the benchmark fails
+to run, or if the resulting error norm is large, then something has
+gone wrong in the installation or in the compilation of the code.
+
+To run the benchmark, \ath\ must be configured with the default settings.
+The steps required are given below, including the output when the code
+is run on a 2.2GHz Athlon processor.
+\footnotesize
+\begin{verbatim}
+% cd athena3.0
+% configure
+% make all check
+(cd tst/1D-mhd; ./run.brio+wu)
+zone-cycles/cpu-second = 1.366816e+05
+L1 norm for density: 0
+\end{verbatim}
+\normalsize
+The benchmark not only provides a test of the installation of \ath, but also
+is a convenient way to test how various compilers 
+and compiler options affect the performance and accuracy of the code on
+a variety of machines.
+
+\subsection{Running a 1D test problem with \ath: The Brio \& Wu shocktube}
+
+As an example of how to configure, compile, and run \ath\ and visualize
+the output for a one-dimensional test problem, we show the steps required 
+to run the Brio \& Wu shocktube.
+Assuming the code has already been installed (see \S2), the first step is
+to configure:
+\footnotesize
+\begin{verbatim}
+% cd athena3.0
+% configure
+\end{verbatim}
+\normalsize
+Note that {\tt configure} was run with no options in this example, because
+the default is to run the Brio \& Wu shocktube.
+The {\tt autoconf} utility will print a variety of diagnostic statements during
+this step.  Next, the code must be compiled:
+\footnotesize
+\begin{verbatim}
+% make all
+\end{verbatim}
+\normalsize
+The default compiler options will print diagnostic statements.  Then
+the code can be run in the {\tt athena3.0/bin} directory:
+\footnotesize
+\begin{verbatim}
+% cd bin
+% athena -i ../tst/1D-mhd/athinput.brio+wu
+\end{verbatim}
+\normalsize
+The code will print information about every timestep as it executes.  It
+should generate 40 binary dumps named {\tt Brio\_Wu.*.bin}, 40 tabular
+dumps named {\tt Brio\_Wu.*.tab},
+as well as a history file {\tt Brio\_Wu.hst}.  There
+are a variety of ways that the data in these files can be visualized; one
+way is to use the IDL scipts included in {\tt athena3.0/vis/idl}.
+\footnotesize
+\begin{verbatim}
+% idl
+IDL> .run ../vis/idl/pltath.pro
+IDL> readbin,'Brio_Wu.0040.bin'
+IDL> four_plot
+\end{verbatim}
+\normalsize
+
+The resulting plots which should now appear on the screen is shown in Figure 1. 
+
+\begin{figure}[htb!]
+\plotone_reduction{figure1.ps}{0.8}
+\caption{Results from Brio \& Wu shocktube test problem plotting using our
+IDL routine {\tt four\_plot}}
+\end{figure}
+
+\subsection{Running a 2D test problem with \ath: The Orszag-Tang vortex}
+
+As an example of how to configure, compile, and run \ath\ and visualize
+the output for a two-dimensional test problem, we show the steps required
+to run the Orszag-Tang vortex test using the third order algorithm.
+Again, assuming the code has already been
+installed (see \S2), the first step is to configure:
+\footnotesize
+\begin{verbatim}
+% cd athena3.0
+% configure --with-order=3 --with-problem=orszag-tang
+\end{verbatim}
+\normalsize
+The {\tt autoconf} utility will print a variety of diagnostic statements during
+this step.  Next, the code must be compiled:
+\footnotesize
+\begin{verbatim}
+% make all
+\end{verbatim}
+\normalsize
+The default compiler options will print diagnostic statements.  Then
+the code can be run in the {\tt athena3.0/bin} directory:
+\footnotesize
+\begin{verbatim}
+% cd bin
+% athena -i ../tst/2D-mhd/athinput.orszag-tang
+\end{verbatim}
+\normalsize
+The code will print information about every timestep as it executes.  It
+should generate 100 binary dumps named {\tt OrszagTang.*.bin}, 250 ppm 
+images of the gas pressure named {\tt OrszagTang.*.out5.ppm},
+as well as a history file {\tt OrszagTang.hst}.  There
+are a variety of ways that the data in these files can be visualized; one
+way is to use the IDL scipts included in {\tt athena3.0/vis/idl}.  To make a
+contour plot of the pressure at time $t=0.5$, use the following:
+\footnotesize
+\begin{verbatim}
+% idl
+IDL> .run ../vis/idl/pltath.pro
+IDL> readbin,'OrszagTang.0050.bin'
+IDL> contour,p,nlevels=30,/isotropic,xstyle=1,ystyle=1
+\end{verbatim}
+\normalsize
+
+The resulting plot which should now appear on the screen is shown in Figure 2. 
+
+\begin{figure}[htb!]
+\plotone_reduction{figure2.ps}{0.8}
+\caption{Contour plots of the gas pressure at time $t=0.5$ from
+the Orszag-Tang test problem plotted using IDL.}
+\end{figure}
+
+It is also interesting to watch an animation of the pressure in the problem.
+This can be done a variety of ways.  The {\tt .bin} files can be read and
+animated used the procedures in the {\tt vis/idl/pltath.pro} file.
+Alternatively, since \ath\ generates pm images directly as one of its
+output modes, the images can be animated with packages such as {\tt xanim}
+or {\tt animate} (part of ImageMagick).  For example, if ImageMagick is
+installed on the system, try
+\footnotesize
+\begin{verbatim}
+% animate *.out5.ppm
+\end{verbatim}
+\normalsize
+
+
+\subsection{The \ath\ Test Suite}
+
+Each of the problem generators in the {\tt /src/prob} subdirectory sets
+up another test problem for \ath.  Further descriptions of these tests, and
+examples of results from running \ath, can be found in the Athena code 
+web pages.
+  
+\section{Running New Problems}
+
+The \ath\ code can be used as a solver for new problems (i.e. problems that
+are not initialized by the set of problem generators included in the source
+code distribution).  The following steps are required.
+\begin{enumerate}
+\item Write a new function of type {\tt void} called {\tt problem} that initializes the problem.
+The function must be contained in a file in the {\tt /src/prob} directory.
+\item Write new functions called {\tt Userwork\_before\_loop} and 
+{\tt Userwork\_after\_loop} (which may be no-ops if not needed) and include
+them in the file containing {\tt problem}.  As the names suggest, these
+functions can be used to perform special problem-dependent work before or 
+after the main loop (see {\tt linear\_wave.c} for an example).
+\item If special purpose boundary conditions are needed, write special
+functions that implement them, and enroll them using the function
+{\tt set\_bvals\_fun} (see \S 5).
+\item If special purpose data output is needed, write special
+functions that implement them, and enroll them using the function
+{\tt data\_output\_enroll} (see \S 3).
+\item Once the above is complete, configure and compile the code
+using the appropriate physics options, and including the new problem
+generator using {\tt --with-problem=}{\em new-name}.
+\end{enumerate}
+
+It is likely the {\em Programmer's Guide} will be needed to write a 
+new problem generator to understand the data structures and names used
+in \ath.  As a start, the problem generators in {\tt /src/prob} can be used
+as examples.
+
+\end{document}
