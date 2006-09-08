@@ -181,7 +181,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 /* new_dt.c */
 void new_dt(Grid *pGrid);
 #ifdef MPI_PARALLEL
-void sync_dt(Grid *pG)
+void sync_dt(Grid *pG);
 #endif
 
 /*----------------------------------------------------------------------------*/
