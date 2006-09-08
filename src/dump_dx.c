@@ -48,7 +48,7 @@ void dump_dx(Grid *pGrid, Output *pOut)
 #else
   nx1 = pGrid->Nx1;
   nx2 = pGrid->Nx2;
-  nx2 = pGrid->Nx3;
+  nx3 = pGrid->Nx3;
 #endif
   nzones = nx1*nx2*nx3;
 
