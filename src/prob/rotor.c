@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 #ifndef MHD

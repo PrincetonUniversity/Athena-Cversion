@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */

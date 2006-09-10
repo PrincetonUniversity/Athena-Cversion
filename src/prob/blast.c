@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
@@ -41,7 +42,7 @@ void problem(Grid *pGrid)
   b0 = par_getd("problem","b0");
   theta = (PI/180.0)*par_getd("problem","angle");
 
-/* setup uniform ambinet medium with spherical over-pressured region */
+/* setup uniform ambient medium with spherical over-pressured region */
 
   da = 1.0;
   ua = 0.0;
