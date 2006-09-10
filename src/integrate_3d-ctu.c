@@ -35,6 +35,7 @@
 #include <string.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 #ifdef THREED_CTU  /**** This macro defined in defs.h by configure ****/

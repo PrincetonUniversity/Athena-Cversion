@@ -18,6 +18,7 @@
 #include <string.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 static Real *Bxc=NULL, *Bxi=NULL;

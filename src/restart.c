@@ -225,7 +225,7 @@ void restart_grid_block(char *res_file, Grid *pG)
 /* dump_restart: writes a restart file, including problem-specific data from
  *   a user defined function  */
 
-void dump_restart(Grid *pG, Output *pout)
+void dump_restart(Grid *pG, Domain *pD, Output *pout)
 {
   FILE *fp;
   int i, is = pG->is, ie = pG->ie;

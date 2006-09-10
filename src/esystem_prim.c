@@ -31,6 +31,7 @@
 #include <float.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 
 /*----------------------------------------------------------------------------*/
 /* esys_prim_iso_hyd: ISOTHERMAL HYDRO

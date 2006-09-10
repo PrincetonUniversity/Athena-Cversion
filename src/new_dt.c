@@ -14,6 +14,8 @@
 #include <math.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
+#include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* new_dt:  */
