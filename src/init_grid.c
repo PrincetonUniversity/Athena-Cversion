@@ -4,13 +4,15 @@
  *
  * PURPOSE: Initializes most variables in the Grid structure:
  *      time,nstep,[ijk]s,[ijk]e,dx[123],[ijk]disp,x[123]_0
- *   For MPI jobs, calls domain partitioning function.  Allocates memory for
- *   gas arrays and interface B
+ *   Allocates memory for gas arrays and interface B.
+ *
+ * The Grid may be just one block in the Domain (for MPI parallel jobs), or the
+ * entire Domain (for single-processor jobs).  The number of cells in, and
+ * location of this Grid in the Domain, is determined by init_domain(), which
+ * should be called before this routine (even for single processor jobs).
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   init_grid()
- *
- * VARIABLE TYPE AND STRUCTURE DEFINITIONS: none
  *============================================================================*/
 
 #include <math.h>
@@ -20,28 +22,32 @@
 #include "athena.h"
 #include "prototypes.h"
 
-void init_grid(Grid *pGrid)
+void init_grid(Grid *pG, Domain *pD)
 {
   int Nx1T,Nx2T,Nx3T;    /* Total Number of grid cells in x1,x2,x3 direction */
+  int ib,jb,kb;
   Real x1min,x1max,x2min,x2max,x3min,x3max;   /* read from input file */
 
-  pGrid->time = 0.0;
-  pGrid->nstep = 0;
+/* initialize time, nstep */
+
+  pG->time = 0.0;
+  pG->nstep = 0;
+
+/* get (i,j,k) coordinates of grid being updated on this processor */
+
+  get_myblock_ijk(pD, pG->my_id, &ib, &jb, &kb);
 
 /* ---------------------  Intialize grid in 1-direction --------------------- */
 /* Initialize is,ie */
 
-  pGrid->Nx1 = par_geti("grid","Nx1");
-  if(pGrid->Nx1 > 1) {
-    pGrid->is = nghost;
-    pGrid->ie = pGrid->Nx1 + nghost - 1;
+  pG->Nx1 = pD->grid_block[kb][jb][ib].ixe - pD->grid_block[kb][jb][ib].ixs + 1;
+
+  if(pG->Nx1 > 1) {
+    pG->is = nghost;
+    pG->ie = pG->Nx1 + nghost - 1;
   }
-  else if(pGrid->Nx1 == 1) {
-    pGrid->is = pGrid->ie = 0;
-  }
-  else {
-    ath_error("[init_grid]: Nx1 = %d must be >= 1\n",pGrid->Nx1);
-  }
+  else
+    pG->is = pG->ie = 0;
 
 /* Compute dx1 */
 
@@ -51,27 +57,24 @@ void init_grid(Grid *pGrid)
     ath_error("[init_grid]: x1max = %g < x1min = %g\n",x1max,x1min);
   }
 
-  pGrid->dx1 = (x1max - x1min)/(Real)pGrid->Nx1;
+  pG->dx1 = (x1max - x1min)/(Real)(pD->ixe - pD->ixs + 1);
 
 /* Initialize i-displacement, and the x1-position of coordinate ix = 0. */
 
-  pGrid->idisp = -pGrid->is;   /* Index i = is has Coordinate ix = 0 */
-  pGrid->x1_0 = x1min;         /* Coordinate ix = 0 is at position x1min */
+  pG->idisp = pD->grid_block[kb][jb][ib].ixs - pG->is;
+  pG->x1_0 = x1min; 
 
 /* ---------------------  Intialize grid in 2-direction --------------------- */
 /* Initialize js,je */
 
-  pGrid->Nx2 = par_geti("grid","Nx2");
-  if(pGrid->Nx2 > 1) {
-    pGrid->js = nghost;
-    pGrid->je = pGrid->Nx2 + nghost - 1;
+  pG->Nx2 = pD->grid_block[kb][jb][ib].jxe - pD->grid_block[kb][jb][ib].jxs + 1;
+
+  if(pG->Nx2 > 1) {
+    pG->js = nghost;
+    pG->je = pG->Nx2 + nghost - 1;
   }
-  else if(pGrid->Nx2 == 1) {
-    pGrid->js = pGrid->je = 0;
-  }
-  else {
-    ath_error("[init_grid]: Nx2 = %d must be >= 1\n",pGrid->Nx2);
-  }
+  else
+    pG->js = pG->je = 0;
 
 /* Compute dx2 */
 
@@ -80,27 +83,24 @@ void init_grid(Grid *pGrid)
   if(x2max < x2min) {
     ath_error("[init_grid]: x2max = %g < x2min = %g\n",x2max,x2min);
   }
-  pGrid->dx2 = (x2max - x2min)/(Real)pGrid->Nx2;
+  pG->dx2 = (x2max - x2min)/(Real)(pD->jxe - pD->jxs + 1);
 
 /* Initialize j-displacement, and the x2-position of coordinate jx = 0. */
 
-  pGrid->jdisp = -pGrid->js;   /* Index j = js has Coordinate jx = 0 */
-  pGrid->x2_0 = x2min;         /* Coordinate jx = 0 is at position x2min */
+  pG->jdisp = pD->grid_block[kb][jb][ib].jxs - pG->js;
+  pG->x2_0 = x2min;
 
 /* ---------------------  Intialize grid in 3-direction --------------------- */
 /* Initialize ks,ke */
 
-  pGrid->Nx3 = par_geti("grid","Nx3");
-  if(pGrid->Nx3 > 1) {
-    pGrid->ks = nghost;
-    pGrid->ke = pGrid->Nx3 + nghost - 1;
+  pG->Nx3 = pD->grid_block[kb][jb][ib].kxe - pD->grid_block[kb][jb][ib].kxs + 1;
+
+  if(pG->Nx3 > 1) {
+    pG->ks = nghost;
+    pG->ke = pG->Nx3 + nghost - 1;
   }
-  else if(pGrid->Nx3 == 1) {
-    pGrid->ks = pGrid->ke = 0;
-  }
-  else {
-    ath_error("[init_grid]: Nx3 = %d must be >= 1\n",pGrid->Nx3);
-  }
+  else
+    pG->ks = pG->ke = 0;
 
 /* Compute dx3 */
 
@@ -109,62 +109,56 @@ void init_grid(Grid *pGrid)
   if(x3max < x3min) {
     ath_error("[init_grid]: x3max = %g < x3min = %g\n",x3max,x3min);
   }
-  pGrid->dx3 = (x3max - x3min)/(Real)pGrid->Nx3;
+  pG->dx3 = (x3max - x3min)/(Real)(pD->kxe - pD->kxs + 1);
 
 /* Initialize k-displacement, and the x3-position of coordinate kx = 0. */
 
-  pGrid->kdisp = -pGrid->ks;   /* Index k = ks has Coordinate kx = 0 */
-  pGrid->x3_0 = x3min;         /* Coordinate kx = 0 is at position x3min */
-
-/* -------- For MPI Parallel Calculations Partition the Grid Domain -------- */
-
-#ifdef MPI_PARALLEL
-  domain_partition(pGrid);
-#endif /* MPI_PARALLEL */
+  pG->kdisp = pD->grid_block[kb][jb][ib].kxs - pG->ks;
+  pG->x3_0 = x3min;
 
 /* ---------  Allocate 3D arrays to hold Gas based on size of grid --------- */
 
-  if (pGrid->Nx1 > 1)
-    Nx1T = pGrid->Nx1 + 2*nghost;
+  if (pG->Nx1 > 1)
+    Nx1T = pG->Nx1 + 2*nghost;
   else
     Nx1T = 1;
 
-  if (pGrid->Nx2 > 1)
-    Nx2T = pGrid->Nx2 + 2*nghost;
+  if (pG->Nx2 > 1)
+    Nx2T = pG->Nx2 + 2*nghost;
   else
     Nx2T = 1;
 
-  if (pGrid->Nx3 > 1)
-    Nx3T = pGrid->Nx3 + 2*nghost;
+  if (pG->Nx3 > 1)
+    Nx3T = pG->Nx3 + 2*nghost;
   else
     Nx3T = 1;
 
 /* Build a 3D array of type Gas */
 
-  pGrid->U = (Gas***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Gas));
-  if (pGrid->U == NULL) goto on_error;
+  pG->U = (Gas***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Gas));
+  if (pG->U == NULL) goto on_error;
 
 /* Build 3D arrays to hold interface field */
 
 #ifdef MHD
-  pGrid->B1i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
-  if (pGrid->B1i == NULL) {
-    free_3d_array((void***)pGrid->U);
+  pG->B1i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->B1i == NULL) {
+    free_3d_array((void***)pG->U);
     goto on_error;
   }
 
-  pGrid->B2i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
-  if (pGrid->B2i == NULL) {
-    free_3d_array((void***)pGrid->U);
-    free_3d_array((void***)pGrid->B1i);
+  pG->B2i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->B2i == NULL) {
+    free_3d_array((void***)pG->U);
+    free_3d_array((void***)pG->B1i);
     goto on_error;
   }
 
-  pGrid->B3i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
-  if (pGrid->B3i == NULL) {
-    free_3d_array((void***)pGrid->U);
-    free_3d_array((void***)pGrid->B1i);
-    free_3d_array((void***)pGrid->B2i);
+  pG->B3i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->B3i == NULL) {
+    free_3d_array((void***)pG->U);
+    free_3d_array((void***)pG->B1i);
+    free_3d_array((void***)pG->B2i);
     goto on_error;
   }
 #endif /* MHD */
