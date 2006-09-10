@@ -23,8 +23,8 @@ CORE_OBJ = ath_array.o \
            esystem_prim.o \
            esystem_roe.o \
            flux_@FLUX_NAME@.o \
-           init_grid_block.o \
-           init_mpi_grid.o \
+           init_grid.o \
+           init_domain.o \
            integrate_1d.o \
            integrate_2d.o \
            integrate_3d-vl.o \
