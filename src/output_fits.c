@@ -29,7 +29,7 @@ void output_fits_3d(Grid *pGrid, Output *pOut, FILE *pFile);
 /*----------------------------------------------------------------------------*/
 /* output_fits:  open file, call 2D/3D writer; called by data_ouput  */
 
-void output_fits(Grid *pGrid, Output *pOut)
+void output_fits(Grid *pGrid, Domain *pD, Output *pOut)
 {
   FILE *pFile;
   char *fname;

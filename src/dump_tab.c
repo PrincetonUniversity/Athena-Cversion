@@ -12,7 +12,7 @@
  *   sub-volume, of 2D or 3D calculations.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   dump_table - writes conserved variables + P as formatted table
+ *   dump_tab - writes conserved variables + P as formatted table
  *============================================================================*/
 
 #include <stdio.h>
@@ -20,12 +20,13 @@
 #include <math.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* dump_table  */
+/* dump_tab  */
 
-void dump_table(Grid *pG, Output *pOut)
+void dump_tab(Grid *pG, Domain *pD, Output *pOut)
 {
   int dnum = pOut->num;
   FILE *pfile;
@@ -63,7 +64,7 @@ void dump_table(Grid *pG, Output *pOut)
 /* Open the output file */
   if((pfile = ath_fopen(pG->outfilename,num_digit,dnum,NULL,"tab","w")) 
      == NULL){
-    ath_error("[dump_table]: File Open Error Occured");
+    ath_error("[dump_tab]: File Open Error Occured");
     return;
   }
 

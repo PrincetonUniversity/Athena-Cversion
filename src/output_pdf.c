@@ -17,12 +17,6 @@
 #include "athena.h"
 #include "prototypes.h"
 
-#ifdef MPI_PARALLEL
-/* Min and Max bounding coordinates of the Complete Computational Grid. */
-extern int cg_ixs, cg_jxs, cg_kxs;
-extern int cg_ixe, cg_jxe, cg_kxe;
-#endif /* MPI_PARALLEL */
-
 static int size_dat=0; /* Number of elements in the data[] array */
 static double *data=NULL; /* Computed data array: data[size_dat] */
 
@@ -37,7 +31,7 @@ static char def_fmt[]="%21.15e"; /* A default tabular dump data format */
 /*----------------------------------------------------------------------------*/
 /* output_pdf:   */
 
-void output_pdf(Grid *pG, Output *pout)
+void output_pdf(Grid *pG, Domain *pD, Output *pout)
 {
   FILE *pfile;
   char fmt[80];
@@ -53,7 +47,7 @@ void output_pdf(Grid *pG, Output *pout)
   double r, s, ep=0.0; /* Temp. variables for calculating the variance, etc. */
 #ifdef MPI_PARALLEL
   int err, cg_data_cnt;
-  cg_data_cnt = (cg_ixe - cg_ixs +1)*(cg_jxe - cg_jxs +1)*(cg_kxe - cg_kxs +1);
+  cg_data_cnt = (pD->ixe - pD->ixs +1)*(pD->jxe - pD->jxs +1)*(pD->kxe - pD->kxs +1);
 #endif /* MPI_PARALLEL */
 
   data_cnt = (ie - is + 1)*(je - js + 1)*(ke - ks + 1);

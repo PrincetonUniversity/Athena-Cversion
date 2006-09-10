@@ -35,7 +35,7 @@ static void compute_rgb(double data, double min, double max, int *pR, int *pG,
 /*----------------------------------------------------------------------------*/
 /* output_ppm:  output PPM image */
 
-void output_ppm(Grid *pGrid, Output *pOut)
+void output_ppm(Grid *pGrid, Domain *pD, Output *pOut)
 {
   FILE *pfile;
   char *fname;

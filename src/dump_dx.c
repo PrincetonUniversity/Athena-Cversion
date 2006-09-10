@@ -22,7 +22,7 @@
 /*----------------------------------------------------------------------------*/
 /* dump_dx:    */
 
-void dump_dx(Grid *pGrid, Output *pOut)
+void dump_dx(Grid *pGrid, Domain *pD, Output *pOut)
 {
   int n, offset, dnum = pOut->num; 
   FILE *pfile;
@@ -53,7 +53,7 @@ void dump_dx(Grid *pGrid, Output *pOut)
   nzones = nx1*nx2*nx3;
 
 /* call dump_binary() to output data in corresponding .bin file */
-  dump_binary(pGrid, pOut);
+  dump_binary(pGrid, pD, pOut);
 
 /* reconstruct binary dump filename, and use to construct .dx filename */
   if((fname = fname_construct(pGrid->outfilename,num_digit,dnum,NULL,"bin")) 

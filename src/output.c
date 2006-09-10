@@ -90,6 +90,7 @@
 
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "palette.h"
 #include "prototypes.h"
 
@@ -202,7 +203,7 @@ void init_output(Grid *pGrid)
 	goto add_it;
       }
       else if (strcmp(fmt,"tab")==0){
-	new_out.fun = dump_table;
+	new_out.fun = dump_tab;
 	if (par_exist(block,"dat_fmt"))
 	  new_out.dat_fmt = par_gets(block,"dat_fmt");
 	goto add_it;
@@ -344,27 +345,37 @@ void init_output(Grid *pGrid)
 /* data_output:  Called by main(), tests whether time for output, and calls
  *   appropriate output functions    */
 
-void data_output(Grid *pGrid,const int flag)
+void data_output(Grid *pGrid, Domain *pD, const int flag)
 {
   int n;
   int dump_flag;
   char block[80];
 
+/* Loop over all elemensts in output array */
+
   for (n=0; n<out_count; n++) {
-    dump_flag = flag; /* Initialize dump_flag */
+
+/* set dump flag to input argument, check whether time for output */
+
+    dump_flag = flag;
     if (pGrid->time >= OutArray[n].t) {
       OutArray[n].t += OutArray[n].dt;
       dump_flag = 1;
     }
 
+/* If flag=1, make output */
+
     if(dump_flag != 0) {
-      (*OutArray[n].fun)(pGrid,&(OutArray[n]));
+      (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
       OutArray[n].num++;
     }
   }
 
+
+/* Now check for restart dump.  Steps are same as above */
+
   if(rst_flag){
-    dump_flag = flag; /* Initialize dump_flag */
+    dump_flag = flag;
     if(pGrid->time >= rst_out.t){
       rst_out.t += rst_out.dt;
       dump_flag = 1;
@@ -386,7 +397,7 @@ void data_output(Grid *pGrid,const int flag)
       par_setd(block,"time","%.15e",rst_out.t,"Next Output Time");
 
 /* Write the restart file */
-      (*(rst_out.fun))(pGrid,&(rst_out));
+      (*(rst_out.fun))(pGrid,pD,&(rst_out));
 
       rst_out.num++;
     }

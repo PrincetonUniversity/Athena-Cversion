@@ -32,7 +32,7 @@ void output_tab_3d(Grid *pGrid, Output *pOut, FILE *pFile);
 /*----------------------------------------------------------------------------*/
 /* output_tab:  open file, call 1D/2D/3D writer; called by data_ouput  */
 
-void output_tab(Grid *pGrid, Output *pOut)
+void output_tab(Grid *pGrid, Domain *pD, Output *pOut)
 {
   FILE *pFile;
   char *fname;

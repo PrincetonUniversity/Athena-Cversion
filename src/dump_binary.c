@@ -14,12 +14,13 @@
 #include <string.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* dump_binary:  */
 
-void dump_binary(Grid *pGrid, Output *pOut)
+void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
 {
   int dnum = pOut->num;
   FILE *p_binfile;

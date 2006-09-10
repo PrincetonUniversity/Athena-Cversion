@@ -49,7 +49,7 @@ static int usr_hst_cnt = 0; /* User History Counter <= MAX_USR_H_COUNT */
 /*----------------------------------------------------------------------------*/
 /* dump_history:  */
 
-void dump_history(Grid *pGrid, Output *pOut)
+void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 {
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;

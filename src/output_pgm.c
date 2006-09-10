@@ -21,7 +21,7 @@
 /*----------------------------------------------------------------------------*/
 /* output_pgm: output 2D PGM image   */
 
-void output_pgm(Grid *pGrid, Output *pOut)
+void output_pgm(Grid *pGrid, Domain *pD, Output *pOut)
 {
   FILE *pfile;
   char *fname;

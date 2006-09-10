@@ -18,7 +18,7 @@
 /*----------------------------------------------------------------------------*/
 /* dump_vtk:   */
 
-void dump_vtk(Grid *pGrid, Output *pOut)
+void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 {
   FILE *pfile;
 /* Upper and Lower bounds on i,j,k for data dump */
