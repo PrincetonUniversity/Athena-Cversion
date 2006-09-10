@@ -1,4 +1,5 @@
 #include "copyright.h"
+#define MAIN_C
 /*==============================================================================
  * //////////////////////////// ATHENA Main Program \\\\\\\\\\\\\\\\\\\\\\\\\\\
  *
@@ -19,6 +20,7 @@ static char *athena_version = "version 3.0 - XX-XXX-2006";
 #include <sys/types.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 /* If there is a wall-time limit for MPI calculations run under a batch queue
@@ -27,22 +29,6 @@ static char *athena_version = "version 3.0 - XX-XXX-2006";
  * data files.
  */
 #define WTIME_WINDOW 60.0
-
-#ifdef MPI_PARALLEL
-/* Min and Max bounding coordinates of the Complete Computational Grid. */
-extern int cg_ixs, cg_jxs, cg_kxs;
-extern int cg_ixe, cg_jxe, cg_kxe;
-#endif /* MPI_PARALLEL */
-
-Real CourNo; /* The Courant, Friedrichs, & Lewy (CFL) Number */
-#ifdef ISOTHERMAL
-Real Iso_csound;  /* Isothermal sound speed */
-Real Iso_csound2; /* Iso_csound^2 */
-#else
-Real Gamma; /* Gamma = C_p/C_v */
-Real Gamma_1, Gamma_2; /* Gamma - 1, and Gamma - 2 */
-#endif
-StaticGravAcc_t x1GravAcc = NULL, x2GravAcc = NULL, x3GravAcc = NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -59,7 +45,8 @@ void usage(char *prog);
 int main(int argc, char *argv[])
 {
   VGFun_t integrate;               /* pointer to integrator, set at runtime */
-  Grid grid_level0;                /* only level0 grids in this version */
+  Grid level0_Grid;                /* only level0 grids in this version */
+  Domain level0_Domain;
   int ires=0;          /* restart flag, is set to 1 if -r argument on cmdline */
   int i,nlim,done=0,zones;
   Real tlim;
@@ -139,27 +126,27 @@ int main(int argc, char *argv[])
 
 #ifdef MPI_PARALLEL
 /* Get my task id (rank in MPI) */
-  if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD,&(grid_level0.my_id)))
+  if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD,&(level0_Grid.my_id)))
     ath_error("Error on calling MPI_Comm_rank\n");
 
 /* Get the number of processes */
-  if(MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD,&(grid_level0.nproc)))
+  if(MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD,&(level0_Grid.nproc)))
     ath_error("Error on calling MPI_Comm_size\n");
 
 /* Only parent (my_id==0) reads input parameter file, parses command line */
-  if(grid_level0.my_id == 0){
+  if(level0_Grid.my_id == 0){
     par_open(athinput); 
     par_cmdline(argc,argv);
   }
 
 /* Distribute the contents of the (updated) parameter file to the children. */
-  par_dist_mpi(grid_level0.my_id,MPI_COMM_WORLD);
+  par_dist_mpi(level0_Grid.my_id,MPI_COMM_WORLD);
 
 /* Each child uses my_id in all output filenames to distinguish its output.
  * Output from the parent process does not have my_id in the filename */
-  if(grid_level0.my_id != 0){
+  if(level0_Grid.my_id != 0){
     name = par_gets("job","problem_id");
-    sprintf(new_name,"%s-id%d",name,grid_level0.my_id);
+    sprintf(new_name,"%s-id%d",name,level0_Grid.my_id);
     free(name);
     par_sets("job","problem_id",new_name,NULL);
   }
@@ -176,7 +163,7 @@ int main(int argc, char *argv[])
 
 /* Find length of restart filename */
   if(ires){ 
-    if(grid_level0.my_id == 0)
+    if(level0_Grid.my_id == 0)
       len = 1 + (int)strlen(res_file);
 
 /* Share this length with the children */
@@ -206,11 +193,11 @@ int main(int argc, char *argv[])
     }while(*pc != '.');
 
 /* Add my_id to the filename */
-    if(grid_level0.my_id == 0) {     /* I'm the parent */
+    if(level0_Grid.my_id == 0) {     /* I'm the parent */
       strcpy(new_name, res_file);
     } else {                         /* I'm a child */
       suffix = ath_strdup(pc);
-      sprintf(pc,"-id%d%s",grid_level0.my_id,suffix);
+      sprintf(pc,"-id%d%s",level0_Grid.my_id,suffix);
       free(suffix);
       res_file = new_name;
     }
@@ -229,6 +216,8 @@ int main(int argc, char *argv[])
 /* If this is *not* an MPI_PARALLEL job, there is only one process to open and
  * read input file  */
 
+  level0_Grid.my_id = 0;
+  level0_Grid.nproc = 1;
   par_open(athinput);   /* opens AND reads */
   par_cmdline(argc,argv);
   show_config_par();   /* Add the configure block to the parameter database */
@@ -248,9 +237,9 @@ int main(int argc, char *argv[])
   nlim = par_geti_def("time","nlim",-1);
   tlim = par_getd("time","tlim");
 
-/* Set variables in <job> block.  */
+/* Set variables in <job> block, EOS parameters from <problem> block.  */
 
-  grid_level0.outfilename = par_gets("job","problem_id");
+  level0_Grid.outfilename = par_gets("job","problem_id");
 #ifdef ISOTHERMAL
   Iso_csound = par_getd("problem","iso_csound");
   Iso_csound2 = Iso_csound*Iso_csound;
@@ -260,41 +249,42 @@ int main(int argc, char *argv[])
   Gamma_2 = Gamma - 2.0;
 #endif
 
-/* For both new and restart runs, the grid is initialized from parameters that
- * have already been read from the input file */
-/* For MPI parallel jobs, init_grid_block() calls domain_init() to initialize
- * MPI blocks */
+/* Initialize and partition the computational Domain across processors.  Then
+ * initialize each individual Grid block within Domain  */
 
-  init_grid_block(&grid_level0);
+  init_domain(&level0_Grid, &level0_Domain);
+  init_grid  (&level0_Grid, &level0_Domain);
 
 /* Set function pointers for integrate (based on dimensionality) */
 
-  integrate = integrate_init(grid_level0.Nx1,grid_level0.Nx2,grid_level0.Nx3);
+  integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 
 /* Set initial conditions, either by reading from restart or calling
  * problem generator */
 
   if(ires) 
-    restart_grid_block(res_file,&grid_level0);  /*  Restart */
+    restart_grid_block(res_file,&level0_Grid);  /*  Restart */
   else     
-    problem(&grid_level0);                      /* New problem */
+    problem(&level0_Grid);                      /* New problem */
 
-/* set boundary value function pointers using BC flags, read from <grid> blocks */
-  set_bvals_init(&grid_level0);
-  set_bvals(&grid_level0);                                 /* in input file */
-  if(ires == 0) new_dt(&grid_level0);
+/* set boundary value function pointers using BC flags in <grid> blocks, then
+ * set boundary conditions for initial conditions  */
+
+  set_bvals_init(&level0_Grid, &level0_Domain);
+  set_bvals(&level0_Grid);                            
+  if(ires == 0) new_dt(&level0_Grid);
 
 /* Set output modes (based on <ouput> blocks in input file).
  * Allocate temporary arrays needed by solver */
 
-  init_output(&grid_level0); 
-  lr_states_init(grid_level0.Nx1,grid_level0.Nx2,grid_level0.Nx3);
+  init_output(&level0_Grid); 
+  lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 
-/* Setup complete, dump initial conditions */
+/* Setup complete, force dump of initial conditions with flag=1 */
 
-  par_dump(0,stdout); /* Dump a copy of the parsed information to stdout */
+  par_dump(0,stdout);      /* Dump a copy of the parsed information to stdout */
   change_rundir(rundir);
-  if (ires==0) data_output(&grid_level0, 1);
+  if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
 
   ath_sig_init(); /* Install a signal handler */
 
@@ -305,37 +295,38 @@ int main(int argc, char *argv[])
     time0 = clock();
 
   printf("\nSetup complete, entering main loop...\n\n");
-  printf("cycle=%i time=%e dt=%e\n",grid_level0.nstep,grid_level0.time,
-	 grid_level0.dt);
+  printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+	 level0_Grid.dt);
 
 /*----------------------------------------------------------------------------*/
 /* START OF MAIN INTEGRATION LOOP ==============================================
  * Steps are: (1) Check for data ouput
  *            (2) Integrate level0 grid
  *            (3) Set boundary values
+ *            (4) Set new timestep
  */
 
-  while (grid_level0.time < tlim && (nlim < 0 || grid_level0.nstep < nlim)) {
+  while (level0_Grid.time < tlim && (nlim < 0 || level0_Grid.nstep < nlim)) {
 
-    data_output(&grid_level0, 0);
+    data_output(&level0_Grid, &level0_Domain, 0);
 
 /* modify timestep so loop finishes at t=tlim exactly */
-    if ((tlim-grid_level0.time) < grid_level0.dt) {
-      grid_level0.dt = (tlim-grid_level0.time);
+    if ((tlim-level0_Grid.time) < level0_Grid.dt) {
+      level0_Grid.dt = (tlim-level0_Grid.time);
     }
 
-    (*integrate)(&grid_level0);
+    (*integrate)(&level0_Grid);
 
-    Userwork_in_loop(&grid_level0);
-    set_bvals(&grid_level0);
+    Userwork_in_loop(&level0_Grid);
+    set_bvals(&level0_Grid);
 
-    grid_level0.nstep++;
-    grid_level0.time += grid_level0.dt;
-    new_dt(&grid_level0);
+    level0_Grid.nstep++;
+    level0_Grid.time += level0_Grid.dt;
+    new_dt(&level0_Grid);
 
 #ifdef MPI_PARALLEL
     if(use_wtlim){
-      if(grid_level0.my_id == 0) /* Calculate the time remaining */
+      if(level0_Grid.my_id == 0) /* Calculate the time remaining */
 	wtime = wtend - (MPI_Wtime() - wtstart + WTIME_WINDOW);
 
       err = MPI_Bcast(&wtime, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -343,16 +334,16 @@ int main(int argc, char *argv[])
     }
 #endif /* MPI_PARALLEL */
 
-    if(ath_sig_act(&grid_level0) != 0) break;
-    printf("cycle=%i time=%e dt=%e\n",grid_level0.nstep,grid_level0.time,
-	   grid_level0.dt);
+    if(ath_sig_act(&level0_Grid) != 0) break;
+    printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+	   level0_Grid.dt);
 
   }
-/* END OF MAIN INTEGRATION LOOP ===============================================*/
+/* END OF MAIN INTEGRATION LOOP ==============================================*/
 /*------------------------------------------------------------------------------
  * Finish up by computing zc/sec, dumping data, and deallocate memory */
 
-  if (grid_level0.nstep == nlim)
+  if (level0_Grid.nstep == nlim)
     printf("\nterminating on cycle limit\n");
 #ifdef MPI_PARALLEL
   else if(use_wtlim && (wtime < 0.0))
@@ -373,31 +364,33 @@ int main(int argc, char *argv[])
       (double)CLOCKS_PER_SEC;
   }
 
-  zones = grid_level0.Nx1*grid_level0.Nx2*grid_level0.Nx3;
-  zcs = (double)zones*(double)(grid_level0.nstep)/cpu_time;
+  zones = level0_Grid.Nx1*level0_Grid.Nx2*level0_Grid.Nx3;
+  zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
 
 /* Calculate and print the zone-cycles / cpu-second */
   printf("  tlim= %e   nlim= %i\n",tlim,nlim);
-  printf("  time= %e  cycle= %i\n",grid_level0.time,grid_level0.nstep);
+  printf("  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
   printf("\nzone-cycles/cpu-second = %e\n",zcs);
 
 /* Calculate and print the zone-cycles / wall-second */
   cpu_time = (double)(tve.tv_sec - tvs.tv_sec) +
     1.0e-6*(double)(tve.tv_usec - tvs.tv_usec);
   printf("\nelapsed wall time = %e sec.\n",cpu_time);
-  zcs = (double)zones*(double)(grid_level0.nstep)/cpu_time;
+  zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
   printf("\nzone-cycles/wall-second = %e\n",zcs);
 
 #ifdef MPI_PARALLEL
-  zones = (cg_ixe - cg_ixs + 1)*(cg_jxe - cg_jxs + 1)*(cg_kxe - cg_kxs + 1);
-  zcs = (double)zones*(double)(grid_level0.nstep)/cpu_time;
+  zones = (level0_Domain.ixe - level0_Domain.ixs + 1)
+         *(level0_Domain.jxe - level0_Domain.jxs + 1)
+         *(level0_Domain.kxe - level0_Domain.kxs + 1);
+  zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
   printf("\ntotal zone-cycles/wall-second = %e\n",zcs);
 #endif /* MPI_PARALLEL */
 
 /* complete any final User work, and make last dump */
 
-  Userwork_after_loop(&grid_level0);
-  data_output(&grid_level0, 1);   /* always write the last data */
+  Userwork_after_loop(&level0_Grid);
+  data_output(&level0_Grid, &level0_Domain, 1);     /* always write last data */
 
 /* Free all temporary arrays */
 
