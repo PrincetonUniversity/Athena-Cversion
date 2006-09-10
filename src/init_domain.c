@@ -9,35 +9,36 @@
  *   the Domain over multiple processors.  For a nested grid, each level is a
  *   Domain, each of which may contain multiple Grids (MPI blocks).
  *
+ * Should be called directly before init_grid(), which initializes data on an
+ * individual Grid block.  Needed even for single processor jobs to set
+ * indices in Domain structure, and IDs of neighboring grids in Grid structure
+ *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   init_domain()
- *   domain_destruct()
- *   domain_ijk()
+ *   get_myblock_ijk()
  *============================================================================*/
 
 #include <stdlib.h>
 #include "athena.h"
+#include "globals.h"
 #include "copyright.h"
 #include "defs.h"
 #include "prototypes.h"
 
-
-/* Number of grids in each direction, read from inputfile in domain_partition()*/
+/* Number of grids in each direction, read from inputfile in init_domain()*/
 int NGrid_x1, NGrid_x2, NGrid_x3; 
-
 
 /*----------------------------------------------------------------------------*/
 /* init_domain:  */
 
 void init_domain(Grid *pG, Domain *pD)
 {
-  int i,j,k,ib,jb,kb;
+  int i,j,k,ib,jb,kb,nx1,nx2,nx3,id;
   div_t x1div, x2div, x3div;        /* A divisor with quot and rem members */
-  int id;
 
 /* Initialize the min/max coordinates of this Domain, using parameters read
  * from <grid> block in input file.
- * Currently ixs,jxs,kxs hardwired to be zero; needs change for nested grids */
+ * Currently ixs,jxs,kxs hardwired to be zero */
 
   nx1 = par_geti("grid","Nx1");
   if (nx1 > 1) {
@@ -81,24 +82,28 @@ void init_domain(Grid *pG, Domain *pD)
   NGrid_x1 = par_geti("parallel","NGrid_x1");
   NGrid_x2 = par_geti("parallel","NGrid_x2");
   NGrid_x3 = par_geti("parallel","NGrid_x3");
+#else
+  NGrid_x1 = 1;
+  NGrid_x2 = 1;
+  NGrid_x3 = 1;
+#endif
 
   if(NGrid_x1*NGrid_x2*NGrid_x3 != pG->nproc)
-    ath_error("[domain_partition]: There are %d Grids and %d processes\n",
+    ath_error("[init_domain]: There are %d Grids and %d processes\n",
 	      NGrid_x1*NGrid_x2*NGrid_x3, pG->nproc);
-#endif
 
 /* test for dimensionality conflicts */
 
   if(NGrid_x1 > 1 && nx1 <= 1)
-    ath_error("[domain_partition]: NGrid_x = %d and Nx = %d\n",
+    ath_error("[init_domain]: NGrid_x = %d and Nx = %d\n",
 	      NGrid_x1,nx1);
 
   if(NGrid_x2 > 1 && nx2 <= 1)
-    ath_error("[domain_partition]: NGrid_y = %d and Ny = %d\n",
+    ath_error("[init_domain]: NGrid_y = %d and Ny = %d\n",
 	      NGrid_x2,nx2);
 
   if(NGrid_x3 > 1 && nx3 <= 1)
-    ath_error("[domain_partition]: NGrid_z = %d and Nz = %d\n",
+    ath_error("[init_domain]: NGrid_z = %d and Nz = %d\n",
 	      NGrid_x3,nx3);
 
 /* Build a 3D array of type Grid_Block */
@@ -106,7 +111,7 @@ void init_domain(Grid *pG, Domain *pD)
   pD->grid_block = (Grid_Block***)calloc_3d_array(NGrid_x3, NGrid_x2, NGrid_x1,
      sizeof(Grid_Block));
   if(pD->grid_block == NULL)
-    ath_error("[domain_partition]: malloc returned a NULL pointer\n");
+    ath_error("[init_domain]: malloc returned a NULL pointer\n");
 
 /* Divide the domain into blocks */
 
@@ -114,10 +119,10 @@ void init_domain(Grid *pG, Domain *pD)
   x2div = div(nx2, NGrid_x2);
   x3div = div(nx3, NGrid_x3);
 
-/* Assign processor IDs to each grid block in domain.  We use a regular grid,
- * with neighboring IDs in the x1-direction.  This could be changed if other
- * layouts are more efficient on certain machines
- */
+/* Assign each grid block in Domain to one of the processor IDs created during
+ * MPI_Init() in main.c.  We rely on the IDs being numbered sequentially from 0
+ * to nproc-1.  We use a regular grid, with neighboring IDs in the x1-direction.
+ * For single-processor jobs, the grid_block array has only one member.  */
 
   id = 0;
   for(k=0; k<NGrid_x3; k++){
@@ -224,10 +229,10 @@ void init_domain(Grid *pG, Domain *pD)
   }
 
 /* Now get the i,j,k coordinates (in the 3D array of grid blocks that tile the
- * compuational domain) of the grid block being updated on this processor
+ * computational domain) of the grid block being updated on this processor
  * (ib,jb,kb)  */
 
-  get_block_ijk(pG->my_id, &ib, &jb, &kb);
+  get_myblock_ijk(pD, pG->my_id, &ib, &jb, &kb);
 
 /* Get IDs of neighboring grid blocks.  If edge of a grid block is at a
  * physical boundary, ID is set to -1
@@ -261,30 +266,17 @@ void init_domain(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* domain_destruct:  Free the grid_domain[][][] array */
+/* get_myblock_ijk: searches grid_block[][][] array to find i,j,k components
+ *   of block being updated on this processor.  */
 
-void domain_destruct(void)
-{
-  if(pD->grid_block != NULL){
-    free_3d_array((void***)pD->grid_block);
-    pD->grid_block = NULL;
-  }
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
-/* domain_ijk:
- * This is not optimal by any stretch, but I also don't expect to use
- * it more than a few times at the start of a simulation.   */
-
-void domain_ijk(const int my_id, int *pi, int *pj, int *pk)
+void get_myblock_ijk(Domain *pD, const int my_id, int *pi, int *pj, int *pk)
 {
   int i, j, k;
 
-  for(k=0; k<NGrid_x3; k++){
-    for(j=0; j<NGrid_x2; j++){
-      for(i=0; i<NGrid_x1; i++){
-	if(pD->grid_block[k][j][i].my_id == my_id){
+  for (k=0; k<NGrid_x3; k++){
+    for (j=0; j<NGrid_x2; j++){
+      for (i=0; i<NGrid_x1; i++){
+	if (pD->grid_block[k][j][i].my_id == my_id) {
 	  *pi = i;  *pj = j;  *pk = k;
 	  return;
 	}
@@ -292,7 +284,6 @@ void domain_ijk(const int my_id, int *pi, int *pj, int *pk)
     }
   }
 
-  ath_error("[domain_ijk]: Can't find (i,j,k) in the grid_domain array");
+  ath_error("[get_myblock_ijk]: Can't find my_id=%i in the grid_block array\n",
+    my_id);
 }
-
-#endif
