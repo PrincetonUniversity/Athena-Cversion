@@ -106,7 +106,6 @@ static int debug = 0;              /* debug level, set to 1 for debug output  */
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   expr_*
- *   load_expr
  *   get_expr
  *   free_output
  *   parse_slice
@@ -128,7 +127,6 @@ Real expr_V3 (const Grid *pG, const int i, const int j, const int k);
 Real expr_P  (const Grid *pG, const int i, const int j, const int k);
 Real expr_cs2(const Grid *pG, const int i, const int j, const int k);
 Real expr_S  (const Grid *pG, const int i, const int j, const int k);
-static Gasfun_t *load_expr(char *efname, char *ename);
 static Gasfun_t getexpr(const int n, const char *expr);
 static void free_output(Output *pout);
 static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
@@ -142,7 +140,7 @@ float *getRGB(char *name);
 void init_output(Grid *pGrid)
 {
   int i,j,outn,nout=0,maxout;
-  char block[80], *fmt, *a, defid[10];
+  char block[80], *fmt, defid[10];
   Output new_out;
   int usr_expr_flag;
 
@@ -326,7 +324,7 @@ void init_output(Grid *pGrid)
 
 /* DEBUG */
     if (debug) {
-      printf("OUTPUT: %d %d %s %d [%g : %g]\n",
+      printf("OUTPUT: %d %d %s %s [%g : %g]\n",
              new_out.n, new_out.ndim, new_out.out_fmt,
              new_out.out, new_out.dmin, new_out.dmax);
     }
@@ -870,36 +868,6 @@ Real expr_S(const Grid *pG, const int i, const int j, const int k)
   return P/pow((double)gp->d, (double)Gamma);
 }
 #endif /* ADIABATIC */
-
-
-/*--------------------------------------------------------------------------- */
-/* load_expr: convert an expression containing gas variables into a function
- *   pointer that can be used by an output mode */
-
-static Gasfun_t *load_expr(char *efname, char *ename) 
-{
-  void *handle;
-  char *error;
-  Gasfun_t *g;
-
-#ifdef HAVE_DLFCN
-  handle = dlopen(efname, RTLD_LAZY);
-  if (!handle) {
-    fprintf(stderr,"File %s could not be opened\n",efname);
-    return NULL;
-  }
-  g = (Gasfun_t *) dlsym(handle,ename);
-  if ((error = dlerror()) != NULL) {
-    fprintf(stderr,"File %s symbol %s not found (%s)\n",efname,ename,error);
-    return NULL;
-  }
-  dlclose(handle);
-  return g;
-#else
-  fprintf(stderr,"Dynamic loading on darwin not implemented yet\n");
-  return NULL;
-#endif
-}
 
 /*--------------------------------------------------------------------------- */
 /* getexpr: return a function pointer for a simple expression - no parsing.

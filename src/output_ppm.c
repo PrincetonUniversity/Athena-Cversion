@@ -19,9 +19,7 @@
 #include "athena.h"
 #include "prototypes.h"
 
-/* Following athena's convention: data[data_Nx2][data_Nx1] */
 static float **data=NULL;
-static int data_Nx1=0, data_Nx2=0;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:

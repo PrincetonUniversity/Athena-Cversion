@@ -1112,8 +1112,7 @@ void integrate_3d(Grid *pGrid)
   }}
 
 /*--- Step 9 -------------------------------------------------------------------
- * Calculate the cell centered value of emf1 at the half-time-step and
- * integrate to corner.  Repeat for emf2 and emf3
+ * Calculate the cell centered value of emf1,2,3 at the half-time-step
  */
 
 #ifdef MHD

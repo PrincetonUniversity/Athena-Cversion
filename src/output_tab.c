@@ -71,9 +71,8 @@ void output_tab(Grid *pGrid, Domain *pD, Output *pOut)
 
 void output_tab_1d(Grid *pGrid, Output *pOut, FILE *pFile)
 {
-  int n, i,nx1;
+  int i,nx1;
   float *data, dmin, dmax, xworld;
-  int dnum = pOut->num;
 
   data = subset1(pGrid,pOut);
   nx1 = pOut->Nx1;     /* we know it's 1dim data */
@@ -101,9 +100,8 @@ void output_tab_1d(Grid *pGrid, Output *pOut, FILE *pFile)
 
 void output_tab_2d(Grid *pGrid, Output *pOut, FILE *pFile)
 {
-  int n, i,j,nx1, nx2;
+  int i,j,nx1,nx2;
   float **data, dmin, dmax, xworld, yworld;
-  int dnum = pOut->num;
 
   data = subset2(pGrid,pOut);
   nx1 = pOut->Nx1;     /* we know it's 2dim data */
@@ -135,9 +133,8 @@ void output_tab_2d(Grid *pGrid, Output *pOut, FILE *pFile)
 
 void output_tab_3d(Grid *pGrid, Output *pOut, FILE *pFile)
 {
-  int n, i,j,k,nx1, nx2, nx3;
+  int i,j,k,nx1,nx2,nx3;
   float ***data, dmin, dmax, xworld, yworld, zworld;
-  int dnum = pOut->num;
 
   data = subset3(pGrid,pOut);
   nx1 = pOut->Nx1;     /* we know it's 3dim data */

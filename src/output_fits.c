@@ -71,7 +71,6 @@ void output_fits_2d(Grid *pGrid, Output *pOut, FILE *pFile)
 {
   int n, nx1, nx2;
   float **data, dmin, dmax, zero = 0.0;
-  int dnum = pOut->num;
   int recsize, ncard = 0;
   char card[81];
 
@@ -139,7 +138,6 @@ void output_fits_3d(Grid *pGrid, Output *pOut, FILE *pFile)
 {
   int ndata[3],i,j,k,n;
   float ***data, dmin, dmax, zero = 0.0;
-  int dnum = pOut->num;
   int recsize, ncard = 0;
   char card[81];
 
