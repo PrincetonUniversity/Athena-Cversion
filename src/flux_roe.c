@@ -47,7 +47,7 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Real b2roe,b3roe,x,y;
 #endif
   Real coeff[NWAVE];
-  Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE],maxevroe;
+  Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dU[NWAVE],a[NWAVE];
 #ifdef TEST_INTERMEDIATE_STATES
   Real u_inter[NWAVE],p_inter=0.0;
