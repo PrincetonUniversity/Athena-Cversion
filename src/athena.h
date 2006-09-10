@@ -9,10 +9,9 @@
  *   Prim   - cell-centered primitive variables: d,V1,V2,V3,[P],[B1c,B2c,B3c]
  *   Cons1D - conserved variables in 1D: d,Mx,My,Mz,[E],[By,Bz]
  *   Prim1D - primitive variables in 1D: d,Vx,Vy,Vz,[E],[By,Bz]
- *   Grid   - arrays of Gas and face-centered B, coordinates, time, etc.
- *   Output
- * Also contains the following global variables:
- *   CourNo, Iso_csound, Iso_csound2, Gamma, Gamma_1, Gamma_2;
+ *   Grid   - everything needed by a Grid: arrays of Gas, B, indices, time, etc.
+ *   Domain - Indices and IDs of each Grid block across all processors
+ *   Output - everything associated with an individual output: time, type, etc.
  *============================================================================*/
 #include "defs.h"
 
@@ -30,11 +29,11 @@ typedef double Real;
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* structure Gas: 
+/* structure Gas: conserved variables 
  *  IMPORTANT!! The order of the elements in Gas CANNOT be changed.
  */
 
-typedef struct{
+typedef struct Gas_s{
   Real d;			/* density */
   Real M1;			/* Momenta in 1,2,3.  Use 1,2,3 to label */
   Real M2;                      /* directions in anticipation of         */
@@ -50,11 +49,11 @@ typedef struct{
 }Gas;
 
 /*----------------------------------------------------------------------------*/
-/* structure Prim:  
+/* structure Prim: primitive variables 
  *  IMPORTANT!! The order of the elements in Prim CANNOT be changed.
  */
 
-typedef struct{
+typedef struct Prim_s{
   Real d;			/* density  */
   Real V1;			/* Velocity in 1,2,3 */
   Real V2;
@@ -70,15 +69,15 @@ typedef struct{
 }Prim;
 
 /*----------------------------------------------------------------------------*/
-/* structure Cons1D:  Note 1D vectors do not contain Bx.
+/* structure Cons1D:  conserved variables in 1D (does not contain Bx)
  *  IMPORTANT!! The order of the elements in Cons1D CANNOT be changed.
  */
 
-typedef struct{
+typedef struct Cons1D_s{
   Real d;			/* density */
-  Real Mx;			/* Momenta in X,Y,Z.  Use X,Y,Z now instead */
-  Real My;                      /* 1,2,3 since this structure can contain a */
-  Real Mz;                      /* slice in any dimension, 1,2,or 3 */
+  Real Mx;			/* Momenta in X,Y,Z.  Use X,Y,Z now instead  */
+  Real My;                      /* of 1,2,3 since this structure can contain */
+  Real Mz;                      /* a slice in any dimension: 1,2,or 3        */
 #ifndef ISOTHERMAL
   Real E;			/* Total energy density */
 #endif /* ISOTHERMAL */
@@ -89,11 +88,11 @@ typedef struct{
 }Cons1D;
 
 /*----------------------------------------------------------------------------*/
-/* structure Prim1D:  Note 1D vectors do not contain Bx.
+/* structure Prim1D:  primitive variables in 1D (does not contain Bx)
  *  IMPORTANT!! The order of the elements in Prim1D CANNOT be changed.
  */
 
-typedef struct{
+typedef struct Prim1D_s{
   Real d;			/* density */
   Real Vx;			/* Velocity in X,Y,Z */
   Real Vy;
@@ -108,15 +107,12 @@ typedef struct{
 }Prim1D;
 
 /*----------------------------------------------------------------------------*/
-/* structure Grid:  
- *   contains array of Gas and face-centered B, coordinates, integration time
- *   and timestep, basename for outputs, and various other data associated
- *   with an individual grid block.  Initialized by init_grid_block().
- *   By using an array of Gas, rather than arrays of each variable, we
- *   guarantee all the variables for each cell are contiguous in memory.
+/* structure Grid: All data needed by a single processor to integrate equations
+ *   Initialized by init_grid().  By using an array of Gas, rather than arrays
+ *   of each variable, we guarantee data for each cell are contiguous in memory.
  */
 
-typedef struct{
+typedef struct Grid_s{
   Gas ***U;			/* pointer to a 3D array of Gas'es */
 #ifdef MHD
   Real ***B1i,***B2i,***B3i;    /* pointer to a 3D array of interface B's */
@@ -135,46 +131,43 @@ typedef struct{
   int jdisp;                    /* coordinate jx = index j + jdisp */
   int kdisp;                    /* coordinate kx = index k + kdisp */
   char *outfilename;		/* basename for output files */
-#ifdef MPI_PARALLEL
-  int my_id;                    /* In MPI this is also called the rank */
-  int nproc;                    /* Number of processes in the Calculation */
-/* The following are the id's (in MPI the rank) of tasks which are
- *  working on neighboring sections of the complete grid.  These are
- *  intended solely for use by the boundary condition routines. In
- *  particular, for periodic boundary conditions, these id's may look
- *  like a circular linked list.
- */
-  int rx1_id, lx1_id; /* Right- and Left-x1 neighbor grid's id */
-  int rx2_id, lx2_id; /* Right- and Left-x2 neighbor grid's id */
-  int rx3_id, lx3_id; /* Right- and Left-x3 neighbor grid's id */
-#endif
+  int my_id;                /* process ID (or rank in MPI) updating this Grid */
+  int nproc;                /* total number of processes in the calculation */
+  int rx1_id, lx1_id;       /* ID of grids to R/L in x1-dir (default = -1) */
+  int rx2_id, lx2_id;       /* ID of grids to R/L in x2-dir (default = -1) */
+  int rx3_id, lx3_id;       /* ID of grids to R/L in x3-dir (default = -1) */
 }Grid;
 
+/*----------------------------------------------------------------------------*/
+/* structures Grid_Block - 3D array of indices and IDs of each Grid in Domain
+ *        and Domain     - Grid_Block array, and indices of entire Domain
+ */
+
+typedef struct Grid_Block_s{
+  int ixs, jxs, kxs;             /* Minimum coordinate of cells in this block */
+  int ixe, jxe, kxe;             /* Maximum coordinate of cells in this block */
+  int my_id;                     /* process ID (rank in MPI) */
+}Grid_Block;
+
 typedef struct Domain_s{
-  int ixs, jxs, kxs; /* Minimum coordinate of computational grid cells */
-  int ixe, jxe, kxe; /* Maximum coordinate of computational grid cells */
-  int my_id; /* The task ID in PVM or the rank in MPI */
+  Grid_Block ***grid_block;     /* 3D array of grid blocks tiling this domain */
+  int ixs, jxs, kxs;        /* Minimum coordinate of cells over entire domain */
+  int ixe, jxe, kxe;        /* Maximum coordinate of cells over entire domain */
 }Domain;
 
-
+/*----------------------------------------------------------------------------*/
+/* structure Output: everything for outputs */
+  
 struct Output_s;
-
-typedef void (*VGFunout_t)(Grid *pGrid, struct Output_s *pout);
-
+typedef void (*VGFunout_t)(Grid *pGrid, Domain *pD, struct Output_s *pout);
 typedef Real (*Gasfun_t)(const Grid *pG, const int i, const int j, const int k);
 
-
-/*----------------------------------------------------------------------------*/
-/* structure Output: */
-  
 typedef struct Output_s{
-
-/* variables which describe output time/number/file */
-  int n;          /* which N (from outN) it is in the <output> block */
-  Real dt;        /* diag_dt: */
+  int n;          /* the N from the <outputN> block of this output */
+  Real dt;        /* time interval between outputs  */
   Real t;         /* next time to output */
   int num;        /* dump number (0=first) */
-  char *out;      /* out: "fun(var)[dmin:dmax]{x=,y=,z=,amode}" */
+  char *out;      /* variable (or user fun) to be output */
   char *id;       /* filename is of the form <basename>[.idump][.id].<ext> */
 
 /* variables which describe data min/max */
@@ -218,20 +211,5 @@ typedef Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3);
 /* Directions for the set_bvals_fun() function */
 enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
 typedef void (*VGFun_t)(Grid *pG); /* VGFun_t -> void grid function type */
-
-/*----------------------------------------------------------------------------*/
-/* Some global variables
- */
-
-extern Real CourNo; /* The Courant, Friedrichs, & Lewy (CFL) Number */
-#ifdef ISOTHERMAL
-extern Real Iso_csound,Iso_csound2; /* Isothermal sound speed, and its square */
-#else
-extern Real Gamma, Gamma_1, Gamma_2; /* adiabatic index, and g-1, g-2 */
-#endif
-extern StaticGravAcc_t x1GravAcc, x2GravAcc, x3GravAcc;
-
-
-#include "prototypes.h"
 
 #endif /* ATHENA_H */
