@@ -11,18 +11,18 @@
  *   ath_signal.c
  *   cc_pos.c
  *   convert_var.c
- *   dump_binary.c, dump_dx.c, dump_history.c, dump_table.c, dump_vtk.c
  *   esystem_prim.c, esystem_roe.c
  *   flux_force.c, flux_hllc.c, flux_hlld.c, flux_hlle.c, flux_roe.c, 
  *     flux_2shock.c
- *   init_grid_block.c
- *   init_mpi_grid.c
+ *   init_domain.c
+ *   init_grid.c
  *   integrate.c
  *   integrate_1d.c, integrate_2d.c, integrate_3d-vl., integrate_3d-ctu.c
  *   lr_states_prim1.c, lr_states_prim2.c, lr_states_prim3.c
  *   new_dt.c
  *   output.c
  *   output_fits.c, output_pdf.c output_pgm.c, output_ppm.c, output_tab.c
+ *   dump_binary.c, dump_dx.c, dump_history.c, dump_table.c, dump_vtk.c
  *   par.c
  *   restart.c
  *   set_bvals.c
@@ -81,15 +81,6 @@ Real Prim_to_Gas(Gas *U, const Prim *W);
 Real cfast(const Cons1D *U, const Real *Bx);
 
 /*----------------------------------------------------------------------------*/
-/* dump_*.c (multiple files) */
-void dump_binary(Grid *pGrid, Output *pOut);
-void dump_dx(Grid *pGrid, Output *pOut);
-void dump_history(Grid *pGrid, Output *pOut);
-void dump_history_enroll(const Gasfun_t pfun, const char *label);
-void dump_table(Grid *pGrid, Output *pOut);
-void dump_vtk(Grid *pGrid, Output *pOut);
-
-/*----------------------------------------------------------------------------*/
 /* esystem_*.c */
 void esys_prim_iso_hyd(const Real d, const Real v1,
   Real eigenvalues[],
@@ -135,16 +126,13 @@ void flux_roe   (const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
 void flux_2shock(const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
 
 /*----------------------------------------------------------------------------*/
-/* init_grid_block.c */
-void init_grid_block(Grid *pGrid);
+/* init_domain.c */
+void init_domain(Grid *pG, Domain *pD);
+void get_myblock_ijk(Domain *pD, const int my_id, int *pi, int *pj, int *pk);
 
 /*----------------------------------------------------------------------------*/
-/* init_mpi_grid.c */
-#ifdef MPI_PARALLEL
-void domain_partition(Grid *pG);
-void domain_destruct(void);
-void domain_ijk(const int my_id, int *pi, int *pj, int *pk);
-#endif
+/* init_grid.c */
+void init_grid(Grid *pGrid, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* integrate.c */
@@ -187,22 +175,29 @@ void sync_dt(Grid *pG);
 /*----------------------------------------------------------------------------*/
 /* output.c - and related files */
 void init_output(Grid *pGrid);
-void data_output(Grid *pgrid, const int flag);
+void data_output(Grid *pGrid, Domain *pD, const int flag);
 int  add_output(Output *new_out);
 void add_rst_out(Output *new_out);
 void data_output_destruct(void);
 void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
 	                const char *fmt,  const Gasfun_t expr, int n,
                         const Real dmin, const Real dmax, int sdmin, int sdmax);
-float ***subset3(Grid *pgrid, Output *pout);
-float  **subset2(Grid *pgrid, Output *pout);
-float   *subset1(Grid *pgrid, Output *pout);
+void dump_history_enroll(const Gasfun_t pfun, const char *label);
+float ***subset3(Grid *pGrid, Output *pout);
+float  **subset2(Grid *pGrid, Output *pout);
+float   *subset1(Grid *pGrid, Output *pout);
 
-void output_fits(Grid *pGrid, Output *pOut);
-void output_pdf(Grid *pGrid, Output *pOut);
-void output_pgm(Grid *pGrid, Output *pOut);
-void output_ppm(Grid *pGrid, Output *pOut);
-void output_tab(Grid *pGrid, Output *pOut);
+void output_fits (Grid *pGrid, Domain *pD, Output *pOut);
+void output_pdf  (Grid *pGrid, Domain *pD, Output *pOut);
+void output_pgm  (Grid *pGrid, Domain *pD, Output *pOut);
+void output_ppm  (Grid *pGrid, Domain *pD, Output *pOut);
+void output_tab  (Grid *pGrid, Domain *pD, Output *pOut);
+
+void dump_binary (Grid *pGrid, Domain *pD, Output *pOut);
+void dump_dx     (Grid *pGrid, Domain *pD, Output *pOut);
+void dump_history(Grid *pGrid, Domain *pD, Output *pOut);
+void dump_tab    (Grid *pGrid, Domain *pD, Output *pOut);
+void dump_vtk    (Grid *pGrid, Domain *pD, Output *pOut);
 
 /*----------------------------------------------------------------------------*/
 /* par.c */
@@ -240,12 +235,12 @@ Gasfun_t get_usr_expr(const char *expr);
 
 /*----------------------------------------------------------------------------*/
 /* restart.c  */
-void dump_restart(Grid *pG, Output *pout);
+void dump_restart(Grid *pG, Domain *pD, Output *pout);
 void restart_grid_block(char *res_file, Grid *pGrid);
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals.c  */
-void set_bvals_init(Grid *pG);
+void set_bvals_init(Grid *pG, Domain *pD);
 void set_bvals_start(VGFun_t start);
 void set_bvals_fun(enum Direction dir, VGFun_t prob_bc);
 void set_bvals(Grid *pGrid);
