@@ -1,6 +1,5 @@
 List of problem generator files in src/prob:
 
-
 ================================================================================
                               1-D problems
 ================================================================================
@@ -31,7 +30,6 @@ Two Interacting Blast Waves test of Woodward & Colella.  Can run 1D, 2D, or 3D
 problems, but shock must be grid-aligned, i.e. along x1-, x2-, or x3-axis
 respectively.
 
-
 ================================================================================
                               2-D problems
 ================================================================================
@@ -39,15 +37,32 @@ respectively.
 blast.c:
 ========
 
+carbuncle.c
+===========
+
+cpaw2d.c:
+=========
+Circularly Polarized Alfven Wave test of Toth.  Initializes wavevector at any
+arbitrary angle to grid in 2D.
+
 dmr.c:
 ======
 Double Mach Reflection test of Woodward & Colella.  Only works for genuinely
 2D problems in x1-x2 plane.
 
+field_loop.c
+============
+Advection of a passive field-loop in 2D, used to test CT algorithm in GS05.
+
 lw_implode.c:
 =============
 Liska & Wendroff implosion problem (Sod shocktube in a box).  Only works
 for genuinely 2D problems in x1-x2 plane.
+
+noh.c
+=====
+Strong shock test of Noh, implemented in 2D as described by Liska & Wendroff.
+Consists of convergent radial flow at very high Mach number.
 
 orszag-tang.c:
 ==============
@@ -60,3 +75,12 @@ pgflow.c
 steady flow in a periodic potential.  Code should hold this steady flow.
 Good test of gravitational source terms, especially if flow is set at an
 angle to grid.
+
+rotor.c
+=======
+MHD rotor test of Balsara & Spicer, as improved by Toth.
+
+rt.c
+====
+Rayleigh-Taylor instability problem.  Initializes both 2D and 3D problems,
+with and without a magnetic field.
