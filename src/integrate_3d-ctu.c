@@ -169,13 +169,14 @@ void integrate_3d(Grid *pGrid)
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
           g = (*x1GravAcc)((x1-0.5*pGrid->dx1),x2,x3);
 
-/* Apply gravitational source terms to momentum and total energy */
-          Ul_x1Face[k][j][i].Mx += hdt*Ul_x1Face[k][j][i].d*g;
-          Ur_x1Face[k][j][i].Mx += hdt*Ur_x1Face[k][j][i].d*g;
+/* Apply gravitational source terms to total energy and momentum.  Note E must
+ * be updated first before Mx  */
 #ifndef ISOTHERMAL
           Ul_x1Face[k][j][i].E += hdt*Ul_x1Face[k][j][i].Mx*g;
           Ur_x1Face[k][j][i].E += hdt*Ur_x1Face[k][j][i].Mx*g;
 #endif
+          Ul_x1Face[k][j][i].Mx += hdt*Ul_x1Face[k][j][i].d*g;
+          Ur_x1Face[k][j][i].Mx += hdt*Ur_x1Face[k][j][i].d*g;
         }
       }
     }
@@ -269,13 +270,14 @@ void integrate_3d(Grid *pGrid)
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
           g = (*x2GravAcc)(x1,(x2-0.5*pGrid->dx2),x3);
 
-/* Apply gravitational source terms to momentum and total energy */
-          Ul[j].Mx += hdt*Ul[j].d*g;
-          Ur[j].Mx += hdt*Ur[j].d*g;
+/* Apply gravitational source terms to total energy and momentum.  Note E must
+ * be updated first before Mx  */
 #ifndef ISOTHERMAL
           Ul[j].E += hdt*Ul[j].Mx*g;
           Ur[j].E += hdt*Ur[j].Mx*g;
 #endif
+          Ul[j].Mx += hdt*Ul[j].d*g;
+          Ur[j].Mx += hdt*Ur[j].d*g;
         }
       }
 
@@ -375,13 +377,14 @@ void integrate_3d(Grid *pGrid)
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
           g = (*x3GravAcc)(x1,x2,(x3-0.5*pGrid->dx3));
 
-/* Apply gravitational source terms to momentum and total energy */
-          Ul[k].Mx += hdt*Ul[k].d*g;
-          Ur[k].Mx += hdt*Ur[k].d*g;
+/* Apply gravitational source terms to total energy and momentum.  Note E must
+ * be updated first before Mx  */
 #ifndef ISOTHERMAL
           Ul[k].E += hdt*Ul[k].Mx*g;
           Ur[k].E += hdt*Ur[k].Mx*g;
 #endif
+          Ul[k].Mx += hdt*Ul[k].d*g;
+          Ur[k].Mx += hdt*Ur[k].d*g;
         }
       }
 

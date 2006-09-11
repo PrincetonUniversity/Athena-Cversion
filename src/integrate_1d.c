@@ -73,13 +73,14 @@ void integrate_1d(Grid *pGrid)
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
       g = (*x1GravAcc)((x1-0.5*pGrid->dx1),x2,x3);
 
-/* Apply gravitational source terms to momentum and total energy */
-      Ul_x1Face[i].Mx += hdt*Ul_x1Face[i].d*g;
-      Ur_x1Face[i].Mx += hdt*Ur_x1Face[i].d*g;
+/* Apply gravitational source terms to total energy and momentum.  Note E must
+ * be updated first before Mx  */
 #ifndef ISOTHERMAL
       Ul_x1Face[i].E += hdt*Ul_x1Face[i].Mx*g;
       Ur_x1Face[i].E += hdt*Ur_x1Face[i].Mx*g;
 #endif
+      Ul_x1Face[i].Mx += hdt*Ul_x1Face[i].d*g;
+      Ur_x1Face[i].Mx += hdt*Ur_x1Face[i].d*g;
     }
   }
 
