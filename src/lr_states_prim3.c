@@ -7,9 +7,17 @@
  *   (characteristic tracing) step is used to interpolate interface values to
  *   the half time level {n+1/2}, unless the unsplit integrator in 3D is VL.
  *
+ * NOTATION:
+ *   U_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
+ *   U_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
+ *
  *   The L- and R-states at the left-interface in each cell are indexed i.
  *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
  *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
+ *
+ *   Internally, in this routine, Wlv and Wrv are the reconstructed values on
+ *   the left-and right-side of cell center.  Thus (see Step 19),
+ *     U_{L,i-1/2} = Wrv(i-1);  U_{R,i-1/2} = Wlv(i)
  *
  * REFERENCE:
  *   P. Colella & P. Woodward, "The piecewise parabolic method (PPM) for
