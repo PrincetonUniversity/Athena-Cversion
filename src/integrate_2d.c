@@ -114,17 +114,20 @@ void integrate_2d(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-    lr_states(U1d,Bxc,Bxi,dt,dtodx1,il,iu,Ul_x1Face[j],Ur_x1Face[j]);
+    lr_states(U1d,Bxc,Bxi,dt,dtodx1,is-1,ie+1,Ul_x1Face[j],Ur_x1Face[j]);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add "MHD source terms" for 0.5*dt
  */
 
 #ifdef MHD
-    for (i=is-nghost; i<ie+nghost; i++) {
+    for (i=is-1; i<=iu; i++) {
+      MHD_src = (pGrid->U[ks][j][i-1].M2/pGrid->U[ks][j][i-1].d)*
+               (pGrid->B1i[ks][j][i] - pGrid->B1i[ks][j][i-1])/pGrid->dx1;
+      Ul_x1Face[j][i].By += hdt*MHD_src;
+
       MHD_src = (pGrid->U[ks][j][i].M2/pGrid->U[ks][j][i].d)*
                (pGrid->B1i[ks][j][i+1] - pGrid->B1i[ks][j][i])/pGrid->dx1;
-      Ul_x1Face[j][i].By += hdt*MHD_src;
       Ur_x1Face[j][i].By += hdt*MHD_src;
     }
 #endif
@@ -136,7 +139,7 @@ void integrate_2d(Grid *pGrid)
 
   if (x1GravAcc != NULL){
     for (j=jl; j<=ju; j++) {
-      for (i=is-nghost; i<ie+nghost; i++) {
+      for (i=is-1; i<=iu; i++) {
 
 /* Calculate the face-centered acceleration */
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
@@ -159,7 +162,7 @@ void integrate_2d(Grid *pGrid)
  */
 
   for (j=jl; j<=ju; j++) {
-    for (i=il; i<=iu+1; i++) {
+    for (i=is-1; i<=iu; i++) {
       GET_FLUXES(B1_x1Face[j][i],Ul_x1Face[j][i],Ur_x1Face[j][i],&x1Flux[j][i]);
     }
   }
@@ -190,17 +193,20 @@ void integrate_2d(Grid *pGrid)
  * Compute L and R states at X2-interfaces.
  */
 
-    lr_states(U1d,Bxc,Bxi,dt,dtodx2,jl,ju,Ul,Ur);
+    lr_states(U1d,Bxc,Bxi,dt,dtodx2,js-1,je+1,Ul,Ur);
 
 /*--- Step 2c ------------------------------------------------------------------
  * Add "MHD source terms"
  */
 
 #ifdef MHD
-    for (j=js-nghost; j<je+nghost; j++) {
-      MHD_src = (pGrid->U[ks][j][i].M1/pGrid->U[ks][j][i].d)*
-	  (pGrid->B2i[ks][j+1][i] - pGrid->B2i[ks][j][i])/pGrid->dx2;
+    for (j=js-1; j<=ju; j++) {
+      MHD_src = (pGrid->U[ks][j-1][i].M1/pGrid->U[ks][j-1][i].d)*
+        (pGrid->B2i[ks][j][i] - pGrid->B2i[ks][j-1][i])/pGrid->dx2;
       Ul[j].Bz += hdt*MHD_src;
+
+      MHD_src = (pGrid->U[ks][j][i].M1/pGrid->U[ks][j][i].d)*
+        (pGrid->B2i[ks][j+1][i] - pGrid->B2i[ks][j][i])/pGrid->dx2;
       Ur[j].Bz += hdt*MHD_src;
     }
 #endif
@@ -210,7 +216,7 @@ void integrate_2d(Grid *pGrid)
  */
 
     if (x2GravAcc != NULL){
-      for (j=js-nghost; j<je+nghost; j++) {
+      for (j=js-1; j<=ju; j++) {
 
 /* Calculate the face-centered acceleration */
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
@@ -227,7 +233,7 @@ void integrate_2d(Grid *pGrid)
       }
     }
 
-    for (j=jl; j<=ju+1; j++) {
+    for (j=js-1; j<=ju; j++) {
       Ul_x2Face[j][i] = Ul[j];
       Ur_x2Face[j][i] = Ur[j];
     }
@@ -237,7 +243,7 @@ void integrate_2d(Grid *pGrid)
  * Compute 1D fluxes in x2-direction, storing into 2D array
  */
 
-  for (j=jl; j<=ju+1; j++) {
+  for (j=js-1; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
       GET_FLUXES(B2_x2Face[j][i],Ul_x2Face[j][i],Ur_x2Face[j][i],&x2Flux[j][i]);
     }
@@ -248,8 +254,8 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef MHD
-  for (j=jl-1; j<=ju+1; j++) {
-    for (i=il-1; i<=iu+1; i++) {
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
       emf3_cc[j][i] =
 	(pGrid->U[ks][j][i].B1c*pGrid->U[ks][j][i].M2 -
 	 pGrid->U[ks][j][i].B2c*pGrid->U[ks][j][i].M1 )/pGrid->U[ks][j][i].d;
@@ -263,15 +269,15 @@ void integrate_2d(Grid *pGrid)
 
   integrate_emf3_corner(pGrid);
 
-  for (j=jl; j<=ju; j++) {
-    for (i=il; i<=iu; i++) {
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
       B1_x1Face[j][i] -= 0.5*dtodx2*(emf3[j+1][i  ] - emf3[j][i]);
       B2_x2Face[j][i] += 0.5*dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
-    B1_x1Face[j][iu+1] -= 0.5*dtodx2*(emf3[j+1][iu+1] - emf3[j][iu+1]);
+    B1_x1Face[j][iu] -= 0.5*dtodx2*(emf3[j+1][iu] - emf3[j][iu]);
   }
-  for (i=il; i<=iu; i++) {
-    B2_x2Face[ju+1][i] += 0.5*dtodx1*(emf3[ju+1][i+1] - emf3[ju+1][i]);
+  for (i=is-1; i<=ie+1; i++) {
+    B2_x2Face[ju][i] += 0.5*dtodx1*(emf3[ju][i+1] - emf3[ju][i]);
   }
 #endif
 
@@ -282,7 +288,7 @@ void integrate_2d(Grid *pGrid)
 
   qa = 0.5*dtodx2;
   for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+    for (i=is-1; i<=iu; i++) {
       Ul_x1Face[j][i].d  -= qa*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
       Ul_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
       Ul_x1Face[j][i].My -= qa*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
@@ -313,8 +319,8 @@ void integrate_2d(Grid *pGrid)
 
 #ifdef MHD
   qa = 0.5*dtodx1;
-  for (j=jl; j<=ju; j++) {
-    for (i=il; i<=iu+1; i++) {
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=iu; i++) {
       dbx = pGrid->B1i[ks][j][i] - pGrid->B1i[ks][j][i-1];
       B1 = pGrid->U[ks][j][i-1].B1c;
       B2 = pGrid->U[ks][j][i-1].B2c;
@@ -352,8 +358,8 @@ void integrate_2d(Grid *pGrid)
  */
 
   if (x2GravAcc != NULL){
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu+1; i++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=iu; i++) {
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
         g = (*x2GravAcc)(x1,x2,x3);
         Ur_x1Face[j][i].My += hdt*pGrid->U[ks][j][i].d*g;
@@ -376,7 +382,7 @@ void integrate_2d(Grid *pGrid)
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS */
 
   qa = 0.5*dtodx1;
-  for (j=js-1; j<=je+1; j++) {
+  for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
       Ul_x2Face[j][i].d  -= qa*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
       Ul_x2Face[j][i].Mx -= qa*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
@@ -408,8 +414,8 @@ void integrate_2d(Grid *pGrid)
 
 #ifdef MHD
   qa = 0.5*dtodx2;
-  for (j=jl; j<=ju+1; j++) {
-    for (i=il; i<=iu; i++) {
+  for (j=js-1; j<=ju; j++) {
+    for (i=is-1; i<=ie+1; i++) {
       dby = pGrid->B2i[ks][j][i] - pGrid->B2i[ks][j-1][i];
       B1 = pGrid->U[ks][j-1][i].B1c;
       B2 = pGrid->U[ks][j-1][i].B2c;
@@ -447,8 +453,8 @@ void integrate_2d(Grid *pGrid)
  */
 
   if (x1GravAcc != NULL){
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu+1; i++) {
+    for (j=js-1; j<=ju; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
         g = (*x1GravAcc)(x1,x2,x3);
         Ur_x2Face[j][i].Mz += hdt*pGrid->U[ks][j][i].d*g;
@@ -471,8 +477,8 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef MHD
-  for (j=jl; j<=ju; j++) {
-    for (i=il; i<=iu; i++) {
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
       cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
 
       d  = pGrid->U[ks][j][i].d
@@ -510,14 +516,18 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef H_CORRECTION
-  for (j=jl; j<=ju; j++) {
-    for (i=il; i<=iu; i++) {
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=iu; i++) {
       cfr = cfast(&(Ur_x1Face[j][i]), &(B1_x1Face[j][i]));
       cfl = cfast(&(Ul_x1Face[j][i]), &(B1_x1Face[j][i]));
       ur = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d;
       ul = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d;
       eta1[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+    }
+  }
 
+  for (j=js-1; j<=ju; j++) {
+    for (i=is-1; i<=ie+1; i++) {
       cfr = cfast(&(Ur_x2Face[j][i]), &(B2_x2Face[j][i]));
       cfl = cfast(&(Ul_x2Face[j][i]), &(B2_x2Face[j][i]));
       ur = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d;
@@ -806,8 +816,8 @@ static void integrate_emf3_corner(Grid *pGrid)
   js = pGrid->js;   je = pGrid->je;
 
 /* NOTE: The x1-Flux of B2 is -E3.  The x2-Flux of B1 is +E3. */
-  for (j=js-3; j<=je+3; j++) {
-    for (i=is-3; i<=ie+3; i++) {
+  for (j=js-1; j<=je+2; j++) {
+    for (i=is-1; i<=ie+2; i++) {
       if (x1Flux[j-1][i].d > 0.0) {
 	emf_l2 = -x1Flux[j-1][i].By
 	  + (x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1]);
