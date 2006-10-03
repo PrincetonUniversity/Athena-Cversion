@@ -19,7 +19,7 @@ if (-d $rundir) rm -rf $rundir
 mkdir $rundir
 cd $rundir
 
-foreach nx1 (16 32 64 128 256 512 1024)
+foreach nx1 (16 32 64 128 256 512 1024 2048)
   set nx2 = $nx1
   @ nx2 /= 2
   ../../../bin/athena -i ../athinput.cpaw2d grid/Nx1=$nx1 grid/Nx2=$nx2 job/maxout=0 time/tlim=1.0 > athena.{$nx1}.log
