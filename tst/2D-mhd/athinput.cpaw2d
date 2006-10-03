@@ -63,6 +63,7 @@ x3max           = 0.0       # maximum value of X3
 <problem>
 
 gamma = 1.6666666666666667  # gamma = C_p/C_v
+iso_csound = 0.1 
 
 angle   = 63.4              # Angle of the wave with respect to the x1-dir.
 pres    = 0.1               # pressure
