@@ -44,13 +44,13 @@ tlim            = 1.0       # time limit
 
 <grid>
 
-Nx1             = 128       # Number of zones in X-direction
+Nx1             = 192       # Number of zones in X-direction
 x1min           = 0.0       # minimum value of X
 x1max           = 1.0       # maximum value of X
 ibc_x1          = 4         # inner-I (X) boundary flag
 obc_x1          = 4         # outer-I (X) boundary flag
 
-Nx2             = 128       # Number of zones in Y-direction
+Nx2             = 192       # Number of zones in Y-direction
 x2min           = 0.0       # minimum value of Y
 x2max           = 1.0       # maximum value of Y
 ibc_x2          = 4         # inner-J (Y) boundary flag
