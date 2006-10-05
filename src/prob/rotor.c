@@ -8,9 +8,6 @@
  *
  * REFERENCE: G. Toth, "The div(B)=0 constraint in shock-capturing MHD codes",
  *   JCP, 161, 605 (2000)
- *
- * CONTAINS PUBLIC FUNCTIONS:
- *   problem - problem generator
  *============================================================================*/
 
 #include <math.h>

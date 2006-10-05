@@ -13,8 +13,8 @@
  *   to initial conditions.  Problem must be evolved for an integer number of
  *   wave periods for this to work.
  *
- * CONTAINS PUBLIC FUNCTIONS:
- *   problem - problem generator
+ * REFERENCE: G. Toth,  "The div(B)=0 constraint in shock capturing MHD codes",
+ *   JCP, 161, 605 (2000)
  *============================================================================*/
 
 #include <math.h>

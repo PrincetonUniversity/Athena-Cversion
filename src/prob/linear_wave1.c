@@ -14,17 +14,6 @@
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
  *   wave periods for this to work.
- *
- * CONTAINS PUBLIC FUNCTIONS:
- *   problem -
- *
- * PROBLEM USER FUNCTIONS: Must be included in every problem file, even if they
- *   are NoOPs and never used.  They provide user-defined functionality.
- * problem_write_restart() - writes problem-specific user data to restart files
- * problem_read_restart()  - reads problem-specific user data from restart files
- * get_usr_expr()          - sets pointer to expression for special output data
- * Userwork_in_loop        - problem specific work IN     main loop
- * Userwork_after_loop     - problem specific work AFTER  main loop
  *============================================================================*/
 
 #include <math.h>

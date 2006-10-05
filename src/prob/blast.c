@@ -4,16 +4,8 @@
  *
  * PURPOSE: Problem generator for spherical blast wave problem.
  *
- * CONTAINS PUBLIC FUNCTIONS:
- *   problem - 
- *
- * PROBLEM USER FUNCTIONS: Must be included in every problem file, even if they
- *   are NoOPs and never used.  They provide user-defined functionality.
- * problem_write_restart() - writes problem-specific user data to restart files
- * problem_read_restart()  - reads problem-specific user data from restart files
- * get_usr_expr()          - sets pointer to expression for special output data
- * Userwork_in_loop        - problem specific work IN     main loop
- * Userwork_after_loop     - problem specific work AFTER  main loop
+ * REFERENCE: P. Londrillo & L. Del Zanna, "High-order upwind schemes for
+ *   multidimensional MHD", ApJ, 530, 508 (2000), and references therein.
  *============================================================================*/
 
 #include <math.h>
@@ -73,6 +65,7 @@ void problem(Grid *pGrid)
 	rad = sqrt(x1*x1 + x2*x2 + x3*x3);
 	pressure = pa;
 	if (rad < rin) pressure = prat*pa;
+#ifndef ISOTHERMAL
 	pGrid->U[k][j][i].E = pressure/Gamma_1 
 #ifdef MHD
 	  + 0.5*(bxa*bxa + bya*bya + bza*bza)
@@ -81,6 +74,7 @@ void problem(Grid *pGrid)
 #else
 	if (rad < rin) {
 	  pGrid->U[k][j][i].d = prat*da;
+#endif /* ISOTHERMAL */
 	}
       }
     }

@@ -8,9 +8,6 @@
  *      problem/amp = amplitude of vector potential (and therefore B)
  *      problem/vflow = flow velocity
  *   The flow is automatically set to run along the diagonal. 
- *
- * CONTAINS PUBLIC FUNCTIONS:
- *   problem -  problem generator
  *============================================================================*/
 
 #include <math.h>

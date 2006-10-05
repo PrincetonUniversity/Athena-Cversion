@@ -21,6 +21,8 @@
  * Gravity acts in the z-direction.  Special reflecting boundary conditions
  *   added in x3 to improve hydrostatic eqm (prevents launching of weak waves)
  * Atwood number A = (d2-d1)/(d2+d1) = 1/2
+ *
+ * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)
  *============================================================================*/
 
 #include <float.h>

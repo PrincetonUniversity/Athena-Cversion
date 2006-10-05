@@ -4,8 +4,8 @@
  *
  * PURPOSE: Problem generator for Orszag-Tang vortex problem.
  *
- * CONTAINS PUBLIC FUNCTIONS:
- *   problem - problem generator
+ * REFERENCE: For example, see: G. Toth,  "The div(B)=0 constraint in shock
+ *   capturing MHD codes", JCP, 161, 605 (2000)
  *============================================================================*/
 
 #include <math.h>
