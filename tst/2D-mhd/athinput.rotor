@@ -8,15 +8,24 @@ config  = --with-problem=rotor
 <job>
 
 problem_id   = Rotor        # problem ID: basename of output filenames
-maxout       = 2            # Output blocks number from 1 -> maxout
+maxout       = 3            # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt = hst               # History data dump
-dt      = 0.1               # time increment between outputs
+dt      = 0.0015            # time increment between outputs
 
 <output2>
 out_fmt = bin               # Binary data dump
 dt      = 0.001             # time increment between outputs
+
+<output3>
+out_fmt = ppm              # ppm images
+dt      = 0.0015           # time increment between outputs
+out     = P
+id      = P
+dmin    = 0.03
+dmax    = 2.0
+palette = rainbow
 
 <time>
 
