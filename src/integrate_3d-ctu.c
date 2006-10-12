@@ -60,9 +60,9 @@ static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
- *   integrate_emf1_corner() - 
- *   integrate_emf2_corner() - 
- *   integrate_emf3_corner() - 
+ *   integrate_emf1_corner() - the upwind CT method in GS05, for emf1
+ *   integrate_emf2_corner() - the upwind CT method in GS05, for emf2
+ *   integrate_emf3_corner() - the upwind CT method in GS05, for emf3
  *============================================================================*/
 
 static void integrate_emf1_corner(const Grid *pGrid);
@@ -129,9 +129,11 @@ void integrate_3d(Grid *pGrid)
 
 #ifdef MHD
       for (i=is-nghost; i<ie+nghost; i++) {
-        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+
+/* Source terms for left states in zone i-1 */
+        db1 = (pGrid->B1i[k  ][j  ][i  ] - pGrid->B1i[k][j][i-1])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i-1] - pGrid->B2i[k][j][i-1])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i-1] - pGrid->B3i[k][j][i-1])/pGrid->dx3;
 
 	if(db1 >= 0.0){
 	  l3 = db1 < -db3 ? db1 : -db3;
@@ -148,12 +150,36 @@ void integrate_3d(Grid *pGrid)
 	  l2 = l2 < 0.0 ? l2 : 0.0;
 	}
 
+        MHD_src_By = (pGrid->U[k][j][i-1].M2/pGrid->U[k][j][i-1].d)*l2;
+        MHD_src_Bz = (pGrid->U[k][j][i-1].M3/pGrid->U[k][j][i-1].d)*l3;
+
+        Ul_x1Face[k][j][i].By += hdt*MHD_src_By;
+        Ul_x1Face[k][j][i].Bz += hdt*MHD_src_Bz;
+
+/* Source terms for right states in zone i */
+        db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i  ] - pGrid->B2i[k][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i  ] - pGrid->B3i[k][j][i])/pGrid->dx3;
+
+        if(db1 >= 0.0){
+          l3 = db1 < -db3 ? db1 : -db3;
+          l3 = l3 > 0.0 ? l3 : 0.0;
+
+          l2 = db1 < -db2 ? db1 : -db2;
+          l2 = l2 > 0.0 ? l2 : 0.0;
+        }
+        else{
+          l3 = db1 > -db3 ? db1 : -db3;
+          l3 = l3 < 0.0 ? l3 : 0.0;
+
+          l2 = db1 > -db2 ? db1 : -db2;
+          l2 = l2 < 0.0 ? l2 : 0.0;
+        }
+
         MHD_src_By = (pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d)*l2;
         MHD_src_Bz = (pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d)*l3;
 
-        Ul_x1Face[k][j][i].By += hdt*MHD_src_By;
         Ur_x1Face[k][j][i].By += hdt*MHD_src_By;
-        Ul_x1Face[k][j][i].Bz += hdt*MHD_src_Bz;
         Ur_x1Face[k][j][i].Bz += hdt*MHD_src_Bz;
       }
 #endif
@@ -230,9 +256,10 @@ void integrate_3d(Grid *pGrid)
 
 #ifdef MHD
       for (j=js-nghost; j<je+nghost; j++) {
-        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+/* Source terms for left states in zone j-1 */
+        db1 = (pGrid->B1i[k  ][j-1][i+1] - pGrid->B1i[k][j-1][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j  ][i  ] - pGrid->B2i[k][j-1][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j-1][i  ] - pGrid->B3i[k][j-1][i])/pGrid->dx3;
 
 	if(db2 >= 0.0){
 	  l1 = db2 < -db1 ? db2 : -db1;
@@ -249,12 +276,36 @@ void integrate_3d(Grid *pGrid)
 	  l3 = l3 < 0.0 ? l3 : 0.0;
 	}
 
-	MHD_src_By = (pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d)*l3;
-	MHD_src_Bz = (pGrid->U[k][j][i].M1/pGrid->U[k][j][i].d)*l1;
+	MHD_src_By = (pGrid->U[k][j-1][i].M3/pGrid->U[k][j-1][i].d)*l3;
+	MHD_src_Bz = (pGrid->U[k][j-1][i].M1/pGrid->U[k][j-1][i].d)*l1;
 
         Ul[j].By += hdt*MHD_src_By;
-        Ur[j].By += hdt*MHD_src_By;
         Ul[j].Bz += hdt*MHD_src_Bz;
+
+/* Source terms for right states in zone j */
+        db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i  ] - pGrid->B2i[k][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i  ] - pGrid->B3i[k][j][i])/pGrid->dx3;
+
+        if(db2 >= 0.0){
+          l1 = db2 < -db1 ? db2 : -db1;
+          l1 = l1 > 0.0 ? l1 : 0.0;
+
+          l3 = db2 < -db3 ? db2 : -db3;
+          l3 = l3 > 0.0 ? l3 : 0.0;
+        }
+        else{
+          l1 = db2 > -db1 ? db2 : -db1;
+          l1 = l1 < 0.0 ? l1 : 0.0;
+
+          l3 = db2 > -db3 ? db2 : -db3;
+          l3 = l3 < 0.0 ? l3 : 0.0;
+        }
+
+        MHD_src_By = (pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d)*l3;
+        MHD_src_Bz = (pGrid->U[k][j][i].M1/pGrid->U[k][j][i].d)*l1;
+
+        Ur[j].By += hdt*MHD_src_By;
         Ur[j].Bz += hdt*MHD_src_Bz;
       }
 #endif
@@ -337,9 +388,10 @@ void integrate_3d(Grid *pGrid)
 
 #ifdef MHD
       for (k=ks-nghost; k<ke+nghost; k++) {
-        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+/* Source terms for left states in zone k-1 */
+        db1 = (pGrid->B1i[k-1][j  ][i+1] - pGrid->B1i[k-1][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k-1][j+1][i  ] - pGrid->B2i[k-1][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k  ][j  ][i  ] - pGrid->B3i[k-1][j][i])/pGrid->dx3;
 
 	if(db3 >= 0.0){
 	  l1 = db3 < -db1 ? db3 : -db1;
@@ -356,12 +408,36 @@ void integrate_3d(Grid *pGrid)
 	  l2 = l2 < 0.0 ? l2 : 0.0;
 	}
 
-	MHD_src_By = (pGrid->U[k][j][i].M1/pGrid->U[k][j][i].d)*l1;
-	MHD_src_Bz = (pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d)*l2;
+	MHD_src_By = (pGrid->U[k-1][j][i].M1/pGrid->U[k-1][j][i].d)*l1;
+	MHD_src_Bz = (pGrid->U[k-1][j][i].M2/pGrid->U[k-1][j][i].d)*l2;
 
         Ul[k].By += hdt*MHD_src_By;
-        Ur[k].By += hdt*MHD_src_By;
         Ul[k].Bz += hdt*MHD_src_Bz;
+
+/* Source terms for right states in zone k */
+        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+
+        if(db3 >= 0.0){
+          l1 = db3 < -db1 ? db3 : -db1;
+          l1 = l1 > 0.0 ? l1 : 0.0;
+
+          l2 = db3 < -db2 ? db3 : -db2;
+          l2 = l2 > 0.0 ? l2 : 0.0;
+        }
+        else{
+          l1 = db3 > -db1 ? db3 : -db1;
+          l1 = l1 < 0.0 ? l1 : 0.0;
+
+          l2 = db3 > -db2 ? db3 : -db2;
+          l2 = l2 < 0.0 ? l2 : 0.0;
+        }
+
+        MHD_src_By = (pGrid->U[k][j][i].M1/pGrid->U[k][j][i].d)*l1;
+        MHD_src_Bz = (pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d)*l2;
+
+        Ur[k].By += hdt*MHD_src_By;
         Ur[k].Bz += hdt*MHD_src_Bz;
       }
 #endif
@@ -574,9 +650,9 @@ void integrate_3d(Grid *pGrid)
   for (k=ks-2; k<=ke+2; k++) {
     for (j=js-2; j<=je+2; j++) {
       for (i=is-2; i<=ie+3; i++) {
-        db1 = (pGrid->B1i[k ][j ][i  ] - pGrid->B1i[k][j][i-1])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i-1] - pGrid->B2i[k][j][i-1])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i-1] - pGrid->B3i[k][j][i-1])/pGrid->dx3;
+        db1 = (pGrid->B1i[k  ][j  ][i  ] - pGrid->B1i[k][j][i-1])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i-1] - pGrid->B2i[k][j][i-1])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i-1] - pGrid->B3i[k][j][i-1])/pGrid->dx3;
         B1 = pGrid->U[k][j][i-1].B1c;
         B2 = pGrid->U[k][j][i-1].B2c;
         B3 = pGrid->U[k][j][i-1].B3c;
@@ -610,9 +686,9 @@ void integrate_3d(Grid *pGrid)
         Ul_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
 #endif /* ISOTHERMAL */
 
-        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+        db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i  ] - pGrid->B2i[k][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i  ] - pGrid->B3i[k][j][i])/pGrid->dx3;
         B1 = pGrid->U[k][j][i].B1c;
         B2 = pGrid->U[k][j][i].B2c;
         B3 = pGrid->U[k][j][i].B3c;
@@ -782,9 +858,9 @@ void integrate_3d(Grid *pGrid)
   for (k=ks-2; k<=ke+2; k++) {
     for (j=js-2; j<=je+3; j++) {
       for (i=is-2; i<=ie+2; i++) {
-        db1 = (pGrid->B1i[k][j-1][i+1] - pGrid->B1i[k][j-1][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k ][j  ][i ] - pGrid->B2i[k][j-1][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j-1][i] - pGrid->B3i[k][j-1][i])/pGrid->dx3;
+        db1 = (pGrid->B1i[k  ][j-1][i+1] - pGrid->B1i[k][j-1][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j  ][i  ] - pGrid->B2i[k][j-1][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j-1][i  ] - pGrid->B3i[k][j-1][i])/pGrid->dx3;
         B1 = pGrid->U[k][j-1][i].B1c;
         B2 = pGrid->U[k][j-1][i].B2c;
         B3 = pGrid->U[k][j-1][i].B3c;
@@ -818,9 +894,9 @@ void integrate_3d(Grid *pGrid)
         Ul_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
 #endif /* ISOTHERMAL */
 
-        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+        db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i  ] - pGrid->B2i[k][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i  ] - pGrid->B3i[k][j][i])/pGrid->dx3;
         B1 = pGrid->U[k][j][i].B1c;
         B2 = pGrid->U[k][j][i].B2c;
         B3 = pGrid->U[k][j][i].B3c;
@@ -983,15 +1059,15 @@ void integrate_3d(Grid *pGrid)
 
 /*--- Step 8c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x1- and x2-flux-gradients to the
- * conservative variables on the x3Face.  Limiting is used as in GS (2007)
+ * conservative variables on the x3Face.  Limiting is used as in GS07.
  */
 #ifdef MHD
   for (k=ks-2; k<=ke+3; k++) {
     for (j=js-2; j<=je+2; j++) {
       for (i=is-2; i<=ie+2; i++) {
-        db1 = (pGrid->B1i[k-1][j][i+1] - pGrid->B1i[k-1][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k-1][j+1][i] - pGrid->B2i[k-1][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k  ][j ][i ] - pGrid->B3i[k-1][j][i])/pGrid->dx3;
+        db1 = (pGrid->B1i[k-1][j  ][i+1] - pGrid->B1i[k-1][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k-1][j+1][i  ] - pGrid->B2i[k-1][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k  ][j  ][i  ] - pGrid->B3i[k-1][j][i])/pGrid->dx3;
         B1 = pGrid->U[k-1][j][i].B1c;
         B2 = pGrid->U[k-1][j][i].B2c;
         B3 = pGrid->U[k-1][j][i].B3c;
@@ -1025,9 +1101,9 @@ void integrate_3d(Grid *pGrid)
 	Ul_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
 #endif /* ISOTHERMAL */
 
-        db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
-        db2 = (pGrid->B2i[k][j+1][i] - pGrid->B2i[k][j][i])/pGrid->dx2;
-        db3 = (pGrid->B3i[k+1][j][i] - pGrid->B3i[k][j][i])/pGrid->dx3;
+        db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
+        db2 = (pGrid->B2i[k  ][j+1][i  ] - pGrid->B2i[k][j][i])/pGrid->dx2;
+        db3 = (pGrid->B3i[k+1][j  ][i  ] - pGrid->B3i[k][j][i])/pGrid->dx3;
         B1 = pGrid->U[k][j][i].B1c;
         B2 = pGrid->U[k][j][i].B2c;
         B3 = pGrid->U[k][j][i].B3c;
