@@ -249,10 +249,10 @@ COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
 COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
 vecpot=fltarr(nx,ny)
-dx = x/nx
-dy = y/ny
+dx = x[1]-x[0]
+dy = y[1]-y[0]
 vecpot[0,0] = 0.0
 FOR J=1,ny-1 DO vecpot[0,J] = vecpot[0,j-1] + dy*bx[0,j]
 FOR I=1,nx-1 DO vecpot[I,*] = vecpot[i-1,*] - dx*by[i,*]
-contour,vecpot,nlevels=nlev,/ISOTROPIC
+contour,vecpot,x,y,nlevels=nlev,/ISOTROPIC,XSTYLE=1,YSTYLE=1
 END
