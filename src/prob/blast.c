@@ -24,14 +24,17 @@ void problem(Grid *pGrid)
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  Real pressure,prat,b0,rad,da,pa,ua,va,wa,bxa,bya,bza,x1,x2,x3;
+  Real pressure,prat,rad,da,pa,ua,va,wa,x1,x2,x3;
+  Real bxa,bya,bza,b0=0.0;
   Real rin;
   double theta;
 
   rin = par_getd("problem","radius");
   pa  = par_getd("problem","pamb");
   prat = par_getd("problem","prat");
+#ifdef MHD
   b0 = par_getd("problem","b0");
+#endif
   theta = (PI/180.0)*par_getd("problem","angle");
 
 /* setup uniform ambient medium with spherical over-pressured region */
@@ -66,16 +69,14 @@ void problem(Grid *pGrid)
 	pressure = pa;
 	if (rad < rin) pressure = prat*pa;
 #ifndef ISOTHERMAL
-	pGrid->U[k][j][i].E = pressure/Gamma_1 
+        pGrid->U[k][j][i].E = pressure/Gamma_1 
 #ifdef MHD
-	  + 0.5*(bxa*bxa + bya*bya + bza*bza)
+          + 0.5*(bxa*bxa + bya*bya + bza*bza)
 #endif
-	  + 0.5*da*(ua*ua + va*va + wa*wa);
+          + 0.5*da*(ua*ua + va*va + wa*wa);
 #else
-	if (rad < rin) {
-	  pGrid->U[k][j][i].d = prat*da;
+	if (rad < rin) pGrid->U[k][j][i].d = prat*da;
 #endif /* ISOTHERMAL */
-	}
       }
     }
   }
