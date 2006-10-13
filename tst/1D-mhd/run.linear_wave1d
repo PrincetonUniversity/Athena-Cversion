@@ -28,7 +28,7 @@ foreach nx1 (8 16 32 64 128 256 512 1024)
     if ($wave == 5) set time=1.0
     if ($wave == 6) set time=0.5
     if ($wave == 3) set vflow=1.0
-  ../../../bin/athena -i ../athinput.linear_wave1 problem/wave_flag=$wave time/tlim=$time problem/vflow=$vflow grid/Nx1=$nx1 job/maxout=0 > athena.{$nx1}.log
+  ../../../bin/athena -i ../athinput.linear_wave1d problem/wave_flag=$wave time/tlim=$time problem/vflow=$vflow grid/Nx1=$nx1 job/maxout=0 > athena.{$nx1}.log
     echo 'Finished '{$nx1}' zones'
   end
 end
