@@ -3,7 +3,7 @@
 problem = LeVeque's Sod shocktube in a moving frame, Vx=0.9 everywhere
 author  = R. J. LeVeque
 journal = "Computational Methods for Astrophysical Fluid Flow", p63ff
-config  = --with-gas=hydro --with-problem=shkset1 --with-flux=roe
+config  = --with-gas=hydro --with-problem=shkset1d --with-flux=roe
 
 <job>
 

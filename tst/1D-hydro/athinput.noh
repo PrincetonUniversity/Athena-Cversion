@@ -3,7 +3,7 @@
 problem = Noh's colliding winds test
 author  = W.F. Noh 
 journal = J. Comp. Phys. 72, pp. 78-120 (1987)
-config  = -with-gas=hydro --with-problem=shkset1
+config  = -with-gas=hydro --with-problem=shkset1d
 
 <job>
 

@@ -3,7 +3,7 @@
 problem = LeVeque's slowly moving shock
 author  = R. J. LeVeque
 journal = "Computational Methods for Astrophysical Fluid Flow", p115ff
-config  = --with-gas=hydro --with-problem=shkset1
+config  = --with-gas=hydro --with-problem=shkset1d
 
 
 <job>

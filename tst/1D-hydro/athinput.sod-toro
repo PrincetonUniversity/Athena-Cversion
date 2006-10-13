@@ -3,7 +3,7 @@
 problem = Toro's variant on Sod's shock tube, adds a sonic point in rarefaction
 author  = E.F. Toro
 journal = "Riemann Solvers and Numerical Methods for Fluid Dynamics", p280ff.
-config  = --with-gas=hydro --with-problem=shkset1
+config  = --with-gas=hydro --with-problem=shkset1d
 
 <job>
 

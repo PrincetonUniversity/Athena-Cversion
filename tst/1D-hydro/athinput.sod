@@ -3,7 +3,7 @@
 problem = Sod's shock tube
 author  = G. A. Sod
 journal = J. Comp. Phys. 27, pp. 1-31 (1978)
-config  = --with-gas=hydro --with-problem=shkset1
+config  = --with-gas=hydro --with-problem=shkset1d
 
 <job>
 

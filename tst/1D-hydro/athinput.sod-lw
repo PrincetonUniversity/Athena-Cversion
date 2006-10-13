@@ -3,7 +3,7 @@
 problem = LW variant on Sod's shock tube, adds a jump in transverse velocity
 author  = R. Liska & B. Wendroff
 journal = online
-config  = --with-gas=hydro --with-problem=shkset1
+config  = --with-gas=hydro --with-problem=shkset1d
 
 <job>
 

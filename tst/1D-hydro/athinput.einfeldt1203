@@ -3,7 +3,7 @@
 problem = Einfeldt's 1-2-0-3 test.
 author  = B. Einfeldt, C.D. Munz, P.L. Roe, & B. Sjorgreen
 journal = J. Comp. Phys. 92, 273-295 (1991)
-config  = --with-gas=hydro --with-problem=shkset1
+config  = --with-gas=hydro --with-problem=shkset1d
 
 <job>
 
