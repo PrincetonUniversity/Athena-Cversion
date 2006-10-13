@@ -3,7 +3,7 @@
 problem = linear wave convergence
 author  =
 journal =
-config  = --with-problem=linear_wave1
+config  = --with-problem=linear_wave1d
 
 <job>
 

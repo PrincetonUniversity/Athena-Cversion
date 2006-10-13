@@ -3,7 +3,7 @@
 problem = Riemann problem from Figure 2b of Ryu & Jones (1995)
 author  = D. Ryu & T.W. Jones
 journal = ApJ 442, 228-258 (1995)
-config  = --with-problem=shkset1
+config  = --with-problem=shkset1d
 
 <job>
 

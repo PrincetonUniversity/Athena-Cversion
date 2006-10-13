@@ -3,7 +3,7 @@
 problem = Brio & Wu shock tube
 author  = M. Brio & C. C. Wu 
 journal = J. Comp. Phys. 75, 400-422 (1988)
-config  = --with-problem=shkset1
+config  = --with-problem=shkset1d
 
 <job>
 
