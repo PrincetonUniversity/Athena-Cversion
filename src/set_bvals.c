@@ -33,9 +33,9 @@
  *     3) Pack and send data to the grid on left   [send_ix1()]
  *     4) Listen to the right, unpack and set data [receive_ox1()]
  *   If the grid is at the edge of the Domain, we set BCs as in case (1) or (3).
- *   Currently the code uses BLOCKING sends/receives (MPI_Send/MPI_Recv).  Some
- *   optimization could be achieved by interleaving non-blocking sends
- *   (MPI_Isend) and computations.
+ *   Currently the code uses NON-BLOCKING sends (MPI_Isend) and BLOCKING
+ *   receives (MPI_Recv).  Some optimization could be achieved by interleaving
+ *   non-blocking sends (MPI_Isend) and computations.
  *
  * For case (3) -- INTERNAL GRID LEVEL BOUNDARIES
  *
@@ -57,6 +57,7 @@
 #include "prototypes.h"
 
 #ifdef MPI_PARALLEL
+
 /* MPI send and receive buffer, size dynamically determined near end of
  * set_bvals_init() based on number of zones in each grid */
 static double *send_buf = NULL, *recv_buf = NULL;
@@ -106,12 +107,13 @@ static void periodic_ox2(Grid *pG);
 static void periodic_ix3(Grid *pG);
 static void periodic_ox3(Grid *pG);
 
-static void send_ix1(Grid *pG);
-static void send_ox1(Grid *pG);
-static void send_ix2(Grid *pG);
-static void send_ox2(Grid *pG);
-static void send_ix3(Grid *pG);
-static void send_ox3(Grid *pG);
+#ifdef MPI_PARALLEL
+static void send_ix1(Grid *pG, MPI_Request *prq);
+static void send_ox1(Grid *pG, MPI_Request *prq);
+static void send_ix2(Grid *pG, MPI_Request *prq);
+static void send_ox2(Grid *pG, MPI_Request *prq);
+static void send_ix3(Grid *pG, MPI_Request *prq);
+static void send_ox3(Grid *pG, MPI_Request *prq);
 
 static void receive_ix1(Grid *pG);
 static void receive_ox1(Grid *pG);
@@ -119,6 +121,7 @@ static void receive_ix2(Grid *pG);
 static void receive_ox2(Grid *pG);
 static void receive_ix3(Grid *pG);
 static void receive_ox3(Grid *pG);
+#endif /* MPI_PARALLEL */
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -134,38 +137,69 @@ static void receive_ox3(Grid *pG);
 
 void set_bvals(Grid *pGrid)
 {
+  int err;
+#ifdef MPI_PARALLEL
+  MPI_Status stat;
+  MPI_Request rq;
+#endif /* MPI_PARALLEL */
 
 /*--- Step 1. ------------------------------------------------------------------
  * Boundary Conditions in x1-direction */
 
   if (pGrid->Nx1 > 1){
 
+#ifdef MPI_PARALLEL
 /* MPI blocks to both left and right */
     if (pGrid->rx1_id >= 0 && pGrid->lx1_id >= 0) {
-      send_ox1(pGrid);     /* send R */
-      receive_ix1(pGrid);  /* listen L */
+      send_ox1(pGrid, &rq);  /* send R */
+      receive_ix1(pGrid);    /* listen L */
 
-      send_ix1(pGrid);     /* send L */
-      receive_ox1(pGrid);  /* listen R */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix1(pGrid, &rq);  /* send L */
+      receive_ox1(pGrid);    /* listen R */
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     } 
 
 /* Physical boundary on left, MPI block on right */
     if (pGrid->rx1_id >= 0 && pGrid->lx1_id < 0) {
-      send_ox1(pGrid);     /* send R */
+      send_ox1(pGrid, &rq);  /* send R */
       (*apply_ix1_bc)(pGrid);
 
-      send_ix1(pGrid);     /* send L */
-      receive_ox1(pGrid);  /* listen R */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix1(pGrid, &rq);  /* send L */
+      receive_ox1(pGrid);    /* listen R */
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     } 
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx1_id < 0 && pGrid->lx1_id >= 0) {
-      send_ox1(pGrid);     /* send R */
-      receive_ix1(pGrid);  /* listen L */
+      send_ox1(pGrid, &rq);  /* send R */
+      receive_ix1(pGrid);    /* listen L */
 
-      send_ix1(pGrid);     /* send L */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix1(pGrid, &rq);  /* send L */
       (*apply_ox1_bc)(pGrid);
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     } 
+#endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx1_id < 0 && pGrid->lx1_id < 0) {
@@ -180,32 +214,58 @@ void set_bvals(Grid *pGrid)
 
   if (pGrid->Nx2 > 1){
 
+#ifdef MPI_PARALLEL
 /* MPI blocks to both left and right */
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id >= 0) {
-      send_ox2(pGrid);     /* send R */
-      receive_ix2(pGrid);  /* listen L */
+      send_ox2(pGrid, &rq);  /* send R */
+      receive_ix2(pGrid);    /* listen L */
 
-      send_ix2(pGrid);     /* send L */
-      receive_ox2(pGrid);  /* listen R */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix2(pGrid, &rq);  /* send L */
+      receive_ox2(pGrid);    /* listen R */
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
 
 /* Physical boundary on left, MPI block on right */
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id < 0) {
-      send_ox2(pGrid);     /* send R */
+      send_ox2(pGrid, &rq);  /* send R */
       (*apply_ix2_bc)(pGrid);
 
-      send_ix2(pGrid);     /* send L */
-      receive_ox2(pGrid);  /* listen R */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix2(pGrid, &rq);  /* send L */
+      receive_ox2(pGrid);    /* listen R */
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx2_id < 0 && pGrid->lx2_id >= 0) {
-      send_ox2(pGrid);     /* send R */
-      receive_ix2(pGrid);  /* listen L */
+      send_ox2(pGrid, &rq);  /* send R */
+      receive_ix2(pGrid);    /* listen L */
 
-      send_ix2(pGrid);     /* send L */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix2(pGrid, &rq);  /* send L */
       (*apply_ox2_bc)(pGrid);
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
+#endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx2_id < 0 && pGrid->lx2_id < 0) {
@@ -220,32 +280,58 @@ void set_bvals(Grid *pGrid)
 
   if (pGrid->Nx3 > 1){
 
+#ifdef MPI_PARALLEL
 /* MPI blocks to both left and right */
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id >= 0) {
-      send_ox3(pGrid);     /* send R */
-      receive_ix3(pGrid);  /* listen L */
+      send_ox3(pGrid, &rq);  /* send R */
+      receive_ix3(pGrid);    /* listen L */
 
-      send_ix3(pGrid);     /* send L */
-      receive_ox3(pGrid);  /* listen R */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix3(pGrid, &rq);  /* send L */
+      receive_ox3(pGrid);    /* listen R */
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
 
 /* Physical boundary on left, MPI block on right */
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id < 0) {
-      send_ox3(pGrid);     /* send R */
+      send_ox3(pGrid, &rq);  /* send R */
       (*apply_ix3_bc)(pGrid);
 
-      send_ix3(pGrid);     /* send L */
-      receive_ox3(pGrid);  /* listen R */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix3(pGrid, &rq);  /* send L */
+      receive_ox3(pGrid);    /* listen R */
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx3_id < 0 && pGrid->lx3_id >= 0) {
-      send_ox3(pGrid);     /* send R */
-      receive_ix3(pGrid);  /* listen L */
+      send_ox3(pGrid, &rq);  /* send R */
+      receive_ix3(pGrid);    /* listen L */
 
-      send_ix3(pGrid);     /* send L */
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
+
+      send_ix3(pGrid, &rq);  /* send L */
       (*apply_ox3_bc)(pGrid);
+
+      /* Make sure send was successful */
+      err = MPI_Wait(&rq, &stat);
+      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
+#endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx3_id < 0 && pGrid->lx3_id < 0) {
@@ -474,7 +560,6 @@ void set_bvals_init(Grid *pG, Domain *pD)
 /* allcoate memory for send/receive buffers in MPI parallel calculations */
 
 #ifdef MPI_PARALLEL
-
   x1cnt = x2cnt = x3cnt = 0;
 
   for (k=0; k<NGrid_x3; k++){
@@ -1593,13 +1678,14 @@ static void periodic_ox3(Grid *pGrid)
   return;
 }
 
+#ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs; ~760 lines */
+
 /*----------------------------------------------------------------------------*/
 /* MPI_SEND of boundary conditions, Inner x1 boundary -- send left
  */
 
-static void send_ix1(Grid *pG)
+static void send_ix1(Grid *pG, MPI_Request *prq)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   double *pd = send_buf;
@@ -1648,11 +1734,10 @@ static void send_ix1(Grid *pG)
   }
 
 /* send message to the neighboring grid on L */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Isend(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+		  boundary_cells_tag, MPI_COMM_WORLD, prq);
   if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -1660,9 +1745,8 @@ static void send_ix1(Grid *pG)
 /* MPI_SEND of boundary conditions, Outer x1 boundary -- send right
  */
 
-static void send_ox1(Grid *pG)
+static void send_ox1(Grid *pG, MPI_Request *prq)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   double *pd = send_buf;
@@ -1711,11 +1795,10 @@ static void send_ox1(Grid *pG)
   }
 
 /* send message to the neighboring grid on R */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Isend(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+		  boundary_cells_tag, MPI_COMM_WORLD, prq);
   if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -1723,9 +1806,8 @@ static void send_ox1(Grid *pG)
 /* MPI_SEND of boundary conditions, Inner x2 boundary -- send left
  */
 
-static void send_ix2(Grid *pG)
+static void send_ix2(Grid *pG, MPI_Request *prq)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   double *pd = send_buf;
@@ -1774,11 +1856,10 @@ static void send_ix2(Grid *pG)
   }
 
 /* send message to the neighboring grid on L */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Isend(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+		  boundary_cells_tag, MPI_COMM_WORLD, prq);
   if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -1786,9 +1867,8 @@ static void send_ix2(Grid *pG)
 /* MPI_SEND of boundary conditions, Outer x2 boundary -- send right
  */
 
-static void send_ox2(Grid *pG)
+static void send_ox2(Grid *pG, MPI_Request *prq)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   double *pd = send_buf;
@@ -1837,11 +1917,10 @@ static void send_ox2(Grid *pG)
   }
 
 /* send message to the neighboring grid on R */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Isend(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+		  boundary_cells_tag, MPI_COMM_WORLD, prq);
   if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -1849,9 +1928,8 @@ static void send_ox2(Grid *pG)
 /* MPI_SEND of boundary conditions, Inner x3 boundary -- send left
  */
 
-static void send_ix3(Grid *pG)
+static void send_ix3(Grid *pG, MPI_Request *prq)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   double *pd = send_buf;
@@ -1900,11 +1978,10 @@ static void send_ix3(Grid *pG)
   }
 
 /* send message to the neighboring grid on L */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Isend(send_buf, cnt, MPI_DOUBLE, pG->lx3_id,
+		  boundary_cells_tag, MPI_COMM_WORLD, prq);
   if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -1912,9 +1989,8 @@ static void send_ix3(Grid *pG)
 /* MPI_SEND of boundary conditions, Outer x3 boundary -- send right
  */
 
-static void send_ox3(Grid *pG)
+static void send_ox3(Grid *pG, MPI_Request *prq)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   double *pd = send_buf;
@@ -1963,11 +2039,10 @@ static void send_ox3(Grid *pG)
   }
 
 /* send message to the neighboring grid on R */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx3_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Isend(send_buf, cnt, MPI_DOUBLE, pG->rx3_id,
+		  boundary_cells_tag, MPI_COMM_WORLD, prq);
   if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -1977,7 +2052,6 @@ static void send_ox3(Grid *pG)
 
 static void receive_ix1(Grid *pG)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   MPI_Status stat;
@@ -2031,7 +2105,6 @@ static void receive_ix1(Grid *pG)
     }
   }
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -2041,7 +2114,6 @@ static void receive_ix1(Grid *pG)
 
 static void receive_ox1(Grid *pG)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   MPI_Status stat;
@@ -2095,7 +2167,6 @@ static void receive_ox1(Grid *pG)
     }
   }
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -2105,7 +2176,6 @@ static void receive_ox1(Grid *pG)
 
 static void receive_ix2(Grid *pG)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   MPI_Status stat;
@@ -2159,7 +2229,6 @@ static void receive_ix2(Grid *pG)
     }
   }
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -2169,7 +2238,6 @@ static void receive_ix2(Grid *pG)
 
 static void receive_ox2(Grid *pG)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   MPI_Status stat;
@@ -2223,7 +2291,6 @@ static void receive_ox2(Grid *pG)
     }
   }
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -2233,7 +2300,6 @@ static void receive_ox2(Grid *pG)
 
 static void receive_ix3(Grid *pG)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   MPI_Status stat;
@@ -2287,7 +2353,6 @@ static void receive_ix3(Grid *pG)
     }
   }
 
-#endif /* MPI_PARALLEL */
   return;
 }
 
@@ -2297,7 +2362,6 @@ static void receive_ix3(Grid *pG)
 
 static void receive_ox3(Grid *pG)
 {
-#ifdef MPI_PARALLEL
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
   Gas *pq;
   MPI_Status stat;
@@ -2351,6 +2415,7 @@ static void receive_ox3(Grid *pG)
     }
   }
 
-#endif /* MPI_PARALLEL */
   return;
 }
+
+#endif /* MPI_PARALLEL */
