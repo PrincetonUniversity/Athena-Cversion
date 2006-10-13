@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: shkset1.c
+ * FILE: shkset1d.c
  *
  * PURPOSE: Problem generator for 1-D Riemann problems.  Initial discontinuity
  *   is located so there are equal numbers of cells to the left and right (at
@@ -251,7 +251,7 @@ void problem(Grid *pGrid)
     }
   break;
   default:
-    ath_error("[shkset]: invalid shk_dir = %i\n",shk_dir);
+    ath_error("[shkset1d]: invalid shk_dir = %i\n",shk_dir);
   }
 
   return;

@@ -1,12 +1,12 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: linear_wave1.c
+ * FILE: linear_wave1d.c
  *
  * PURPOSE: Problem generator for plane-parallel, grid-aligned linear wave
  *   tests.  If wavevector is in x2 (x3) direction, then the grid must be
  *   2D (3D). Only works for wavevector parallel to grid.  Tests in 2D and 3D
  *   with wavevector at an arbitrary angle are initialized with different
- *   functions.
+ *   functions (linear_wave2d/3d).
  *
  *   Can be used for either standing (problem/vflow=1.0) or travelling
  *   (problem/vflow=0.0) waves.
@@ -35,7 +35,7 @@ void problem(Grid *pGrid)
 {
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2,Nx3,wave_dir;
-  Real amp,vflow,angle;
+  Real amp,vflow;
   Real d0,p0,u0,v0,w0,h0;
   Real x1,x2,x3,r,ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real x1max,x2max,lambda;
@@ -59,7 +59,7 @@ void problem(Grid *pGrid)
 /* allocate memory for solution */
 
   if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-    ath_error("[linear_wave]: Error allocating memory\n");
+    ath_error("[linear_wave1d]: Error allocating memory\n");
 
 /* Get eigenmatrix, where the quantities u0 and bx0 are parallel to the
  * wavevector, and v0,w0,by0,bz0 are perpendicular.  Background state chosen
@@ -205,7 +205,7 @@ void problem(Grid *pGrid)
 #endif /* MHD */
       break;
     default:
-      ath_error("[linear_wave]: wave direction %d not allowed\n",wave_dir);
+      ath_error("[linear_wave1d]: wave direction %d not allowed\n",wave_dir);
     }
   }}}
 
