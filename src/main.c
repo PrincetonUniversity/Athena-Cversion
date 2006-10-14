@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     ath_error("[main]: Error on calling MPI_Init\n");
 #endif /* MPI_PARALLEL */
 
-/*----------------------------------------------------------------------------*/
+/*--- Step 1. ----------------------------------------------------------------*/
 /* Check for command line options and respond.  See comments in usage()
  * for description of options.  */
 
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     }
   }
 
-/*----------------------------------------------------------------------------*/
+/*--- Step 2. (MPI_PARALLEL) -------------------------------------------------*/
 /* For MPI_PARALLEL jobs, have parent read input file, parse command line, and
  * distribute information to children  */
 
@@ -210,12 +210,11 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-#else
-
-/*----------------------------------------------------------------------------*/
+/*--- Step 2. (MPI_SERIAL) ---------------------------------------------------*/
 /* If this is *not* an MPI_PARALLEL job, there is only one process to open and
  * read input file  */
 
+#else
   level0_Grid.my_id = 0;
   level0_Grid.nproc = 1;
   par_open(athinput);   /* opens AND reads */
@@ -230,7 +229,7 @@ int main(int argc, char *argv[])
 
 #endif /* MPI_PARALLEL */
 
-/*----------------------------------------------------------------------------*/
+/*--- Step 3. ----------------------------------------------------------------*/
 /* set variables in <time> block (these control execution time) */
 
   CourNo = par_getd("time","cour_no");
@@ -249,24 +248,28 @@ int main(int argc, char *argv[])
   Gamma_2 = Gamma - 2.0;
 #endif
 
+/*--- Step 4. ----------------------------------------------------------------*/
 /* Initialize and partition the computational Domain across processors.  Then
  * initialize each individual Grid block within Domain  */
 
   init_domain(&level0_Grid, &level0_Domain);
   init_grid  (&level0_Grid, &level0_Domain);
 
+/*--- Step 5. ----------------------------------------------------------------*/
 /* Set function pointers for integrate (based on dimensionality) */
 
   integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 
+/*--- Step 6. ----------------------------------------------------------------*/
 /* Set initial conditions, either by reading from restart or calling
  * problem generator */
 
   if(ires) 
     restart_grid_block(res_file,&level0_Grid);  /*  Restart */
   else     
-    problem(&level0_Grid);                      /* New problem */
+    problem(&level0_Grid, &level0_Domain);      /* New problem */
 
+/*--- Step 7. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
  * set boundary conditions for initial conditions  */
 
@@ -274,12 +277,14 @@ int main(int argc, char *argv[])
   set_bvals(&level0_Grid);                            
   if(ires == 0) new_dt(&level0_Grid);
 
+/*--- Step 8. ----------------------------------------------------------------*/
 /* Set output modes (based on <ouput> blocks in input file).
  * Allocate temporary arrays needed by solver */
 
   init_output(&level0_Grid); 
   lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 
+/*--- Step 9. ----------------------------------------------------------------*/
 /* Setup complete, force dump of initial conditions with flag=1 */
 
   par_dump(0,stdout);      /* Dump a copy of the parsed information to stdout */
@@ -298,7 +303,7 @@ int main(int argc, char *argv[])
   printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
 	 level0_Grid.dt);
 
-/*----------------------------------------------------------------------------*/
+/*--- Step 10. ---------------------------------------------------------------*/
 /* START OF MAIN INTEGRATION LOOP ==============================================
  * Steps are: (1) Check for data ouput
  *            (2) Integrate level0 grid
@@ -317,7 +322,7 @@ int main(int argc, char *argv[])
 
     (*integrate)(&level0_Grid);
 
-    Userwork_in_loop(&level0_Grid);
+    Userwork_in_loop(&level0_Grid, &level0_Domain);
     set_bvals(&level0_Grid);
 
     level0_Grid.nstep++;
@@ -340,8 +345,9 @@ int main(int argc, char *argv[])
 
   }
 /* END OF MAIN INTEGRATION LOOP ==============================================*/
-/*------------------------------------------------------------------------------
- * Finish up by computing zc/sec, dumping data, and deallocate memory */
+
+/*--- Step 11. ---------------------------------------------------------------*/
+/* Finish up by computing zc/sec, dumping data, and deallocate memory */
 
   if (level0_Grid.nstep == nlim)
     printf("\nterminating on cycle limit\n");
@@ -389,7 +395,7 @@ int main(int argc, char *argv[])
 
 /* complete any final User work, and make last dump */
 
-  Userwork_after_loop(&level0_Grid);
+  Userwork_after_loop(&level0_Grid, &level0_Domain);
   data_output(&level0_Grid, &level0_Domain, 1);     /* always write last data */
 
 /* Free all temporary arrays */

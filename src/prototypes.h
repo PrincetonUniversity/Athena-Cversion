@@ -226,9 +226,9 @@ void par_dist_mpi(const int mytid, MPI_Comm comm);
 
 /*----------------------------------------------------------------------------*/
 /* prob/PROBLEM.c ; linked to problem.c */
-void problem(Grid *pgrid);
-void Userwork_in_loop(Grid *pgrid);
-void Userwork_after_loop(Grid *pgrid);
+void problem(Grid *pgrid, Domain *pDomain);
+void Userwork_in_loop(Grid *pgrid, Domain *pDomain);
+void Userwork_after_loop(Grid *pgrid, Domain *pDomain);
 void problem_read_restart(Grid *pG, FILE *fp);
 void problem_write_restart(Grid *pG, FILE *fp);
 Gasfun_t get_usr_expr(const char *expr);
