@@ -42,6 +42,11 @@ Nx3             = 1         # Number of zones in X3-direction
 x3min           = 0.0       # minimum value of X3
 x3max           = 0.0       # maximum value of X3
 
+<parallel>
+NGrid_x1 = 1
+NGrid_x2 = 1
+NGrid_x3 = 1
+
 <problem>
 
 iso_csound      = 1.0
