@@ -26,7 +26,8 @@
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
 static Gas ***Soln=NULL;
-static int wave_flag;   /* */
+static int wave_flag;
+
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
@@ -34,7 +35,7 @@ static int wave_flag;   /* */
 void problem(Grid *pGrid)
 {
   int i=0,j=0,k=0;
-  int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2,Nx3,wave_dir;
+  int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,wave_dir;
   Real amp,vflow;
   Real d0,p0,u0,v0,w0,h0;
   Real x1,x2,x3,r,ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
@@ -297,10 +298,6 @@ void Userwork_after_loop(Grid *pGrid)
   FILE *fp;
   char *fname;
   int Nx1, Nx2, Nx3, count;
-#if defined MPI_PARALLEL
-  double err[8], tot_err[8];
-  int mpi_err;
-#endif
 
   total_error.d = 0.0;
   total_error.M1 = 0.0;
@@ -364,59 +361,11 @@ void Userwork_after_loop(Grid *pGrid)
 #endif /* ISOTHERMAL */
   }}
 
-#if defined MPI_PARALLEL
-  Nx1 = cg_ixe - cg_ixs + 1;
-  Nx2 = cg_jxe - cg_jxs + 1;
-  Nx3 = cg_kxe - cg_kxs + 1;
-#else
   Nx1 = ie - is + 1;
   Nx2 = je - js + 1;
   Nx3 = ke - ks + 1;
-#endif
 
   count = Nx1*Nx2*Nx3;
-
-#ifdef MPI_PARALLEL 
-
-/* Begin by copying the error into the err[] array */
-  err[0] = total_error.d;
-  err[1] = total_error.M1;
-  err[2] = total_error.M2;
-  err[3] = total_error.M3;
-#ifdef MHD
-  err[4] = total_error.B1c;
-  err[5] = total_error.B2c;
-  err[6] = total_error.B3c;
-#endif /* MHD */
-#ifndef ISOTHERMAL
-  err[7] = total_error.E;
-#endif /* ISOTHERMAL */
-
-/* Sum up the Computed Error */
-  mpi_err = MPI_Reduce(err, tot_err, 8,
-		       MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-  if(mpi_err)
-    ath_error("[Userwork_after_loop]: MPI_Reduce call returned error = %d\n",
-	      mpi_err);
-
-/* Finally, if I'm the parent, copy the sum back to the total_error variable */
-  if(pGrid->my_id == 0){ /* I'm the parent */
-    total_error.d   = tot_err[0];
-    total_error.M1  = tot_err[1];
-    total_error.M2  = tot_err[2];
-    total_error.M3  = tot_err[3];
-#ifdef MHD
-    total_error.B1c = tot_err[4];
-    total_error.B2c = tot_err[5];
-    total_error.B3c = tot_err[6];
-#endif /* MHD */
-#ifndef ISOTHERMAL
-    total_error.E   = tot_err[7];
-#endif /* ISOTHERMAL */
-  }
-  else return; /* The child grids do not do any of the following code */
-
-#endif /* MPI_PARALLEL */
 
 /* Compute RMS error over all variables, and print out */
 
