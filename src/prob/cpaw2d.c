@@ -50,7 +50,7 @@ Real k_par;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid)
+void problem(Grid *pGrid, Domain *pDomain)
 {
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
@@ -207,19 +207,22 @@ void problem(Grid *pGrid)
  * A3() - computes vector potential to initialize fields
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp){
+void problem_write_restart(Grid *pG, FILE *fp)
+{
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp){
+void problem_read_restart(Grid *pG, FILE *fp)
+{
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr){
+Gasfun_t get_usr_expr(const char *expr)
+{
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid)
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
@@ -229,7 +232,7 @@ void Userwork_in_loop(Grid *pGrid)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid)
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
   int i,j,is,ie,js,je,ks,Nx1,Nx2;
   Real rms_error=0.0;

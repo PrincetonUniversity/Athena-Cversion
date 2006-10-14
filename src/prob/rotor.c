@@ -29,7 +29,7 @@
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid)
+void problem(Grid *pGrid, Domain *pDomain)
 {
   int i,j,k,is,ie,js,je,ks,ke;
   Real v0,p0,bx0,x1,x2,x3,rad,frac,r0,r1;
@@ -122,10 +122,10 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid)
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid)
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
 }

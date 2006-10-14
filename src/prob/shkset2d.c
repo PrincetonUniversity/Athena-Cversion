@@ -47,7 +47,7 @@ static int r1,r2;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid)
+void problem(Grid *pGrid, Domain *pDomain)
 {
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
@@ -346,11 +346,11 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid)
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid)
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 

@@ -58,7 +58,7 @@ static Real expr_drho(const Grid *pG, const int i, const int j, const int k);
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid)
+void problem(Grid *pGrid, Domain *pDomain)
 {
   int i, is = pGrid->is, ie = pGrid->ie, nx1;
   int j, js = pGrid->js, je = pGrid->je, nx2;
@@ -198,24 +198,27 @@ void problem(Grid *pGrid)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp){
+void problem_write_restart(Grid *pG, FILE *fp)
+{
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp){
+void problem_read_restart(Grid *pG, FILE *fp)
+{
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr){
+Gasfun_t get_usr_expr(const char *expr)
+{
   if(strcmp(expr,"drho")==0) return expr_drho;
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid)
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid)
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 

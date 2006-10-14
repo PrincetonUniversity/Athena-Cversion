@@ -23,7 +23,8 @@
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid){
+void problem(Grid *pGrid, Domain *pDomain)
+{
   int i,is,ie,j,js,je,ks,nx1,nx2;
   Real d0,p0,B0,v0,x1,x2,x3,**az;
 
@@ -105,22 +106,25 @@ void problem(Grid *pGrid){
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp){
+void problem_write_restart(Grid *pG, FILE *fp)
+{
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp){
+void problem_read_restart(Grid *pG, FILE *fp)
+{
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr){
+Gasfun_t get_usr_expr(const char *expr)
+{
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid)
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid)
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
 }
