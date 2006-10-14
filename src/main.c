@@ -299,9 +299,11 @@ int main(int argc, char *argv[])
   else
     time0 = clock();
 
-  printf("\nSetup complete, entering main loop...\n\n");
-  printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+  if (level0_Grid.my_id == 0) {
+    printf("\nSetup complete, entering main loop...\n\n");
+    printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
 	 level0_Grid.dt);
+  }
 
 /*--- Step 10. ---------------------------------------------------------------*/
 /* START OF MAIN INTEGRATION LOOP ==============================================
@@ -340,8 +342,11 @@ int main(int argc, char *argv[])
 #endif /* MPI_PARALLEL */
 
     if(ath_sig_act(&level0_Grid) != 0) break;
-    printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
-	   level0_Grid.dt);
+
+    if (level0_Grid.my_id == 0) {
+      printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+              level0_Grid.dt);
+    }
 
   }
 /* END OF MAIN INTEGRATION LOOP ==============================================*/
@@ -374,23 +379,29 @@ int main(int argc, char *argv[])
   zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
 
 /* Calculate and print the zone-cycles / cpu-second */
-  printf("  tlim= %e   nlim= %i\n",tlim,nlim);
-  printf("  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
-  printf("\nzone-cycles/cpu-second = %e\n",zcs);
+  if (level0_Grid.my_id == 0) {
+    printf("  tlim= %e   nlim= %i\n",tlim,nlim);
+    printf("  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
+    printf("\nzone-cycles/cpu-second = %e\n",zcs);
+  }
 
 /* Calculate and print the zone-cycles / wall-second */
   cpu_time = (double)(tve.tv_sec - tvs.tv_sec) +
     1.0e-6*(double)(tve.tv_usec - tvs.tv_usec);
-  printf("\nelapsed wall time = %e sec.\n",cpu_time);
   zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
-  printf("\nzone-cycles/wall-second = %e\n",zcs);
+  if (level0_Grid.my_id == 0) {
+    printf("\nelapsed wall time = %e sec.\n",cpu_time);
+    printf("\nzone-cycles/wall-second = %e\n",zcs);
+  }
 
 #ifdef MPI_PARALLEL
   zones = (level0_Domain.ixe - level0_Domain.ixs + 1)
          *(level0_Domain.jxe - level0_Domain.jxs + 1)
          *(level0_Domain.kxe - level0_Domain.kxs + 1);
   zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
-  printf("\ntotal zone-cycles/wall-second = %e\n",zcs);
+  if (level0_Grid.my_id == 0) {
+    printf("\ntotal zone-cycles/wall-second = %e\n",zcs);
+  }
 #endif /* MPI_PARALLEL */
 
 /* complete any final User work, and make last dump */
