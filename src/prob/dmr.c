@@ -26,7 +26,7 @@
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- * dmrbv_iib() - sets BCs on L-x1 (right edge) of grid.  
+ * dmrbv_iib() - sets BCs on L-x1 (left edge) of grid.  
  * dmrbv_ijb() - sets BCs on L-x2 (bottom edge) of grid.  
  * dmrbv_ojb() - sets BCs on R-x2 (top edge) of grid.  
  *============================================================================*/
@@ -48,9 +48,6 @@ Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
   ks = pGrid->ks;
-  if (pGrid->Nx3 > 1) {
-    ath_error("[dmr]: this test only works for 2D problems, with Nx3=1\n");
-  }
   if (pGrid->Nx1 == 1 || pGrid->Nx2 == 1) {
     ath_error("[dmr]: this test only works with Nx1 & Nx2 > 1\n");
   }
