@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: integrate_3d-ctu.c
+ * FILE: integrate_3d_ctu.c
  *
  * PURPOSE: Updates the input Grid structure pointed to by *pGrid by one
  *   timestep using directionally unsplit CTU method of Colella (1990).  The
@@ -8,8 +8,8 @@
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, and H-correction of Sanders et al.
- *   For adb hydro, requires (9*Cons1D +  6*Real) = 51 3D arrays
- *   For adb mhd, requires   (9*Cons1D + 12*Real) = 75 3D arrays
+ *   For adb hydro, requires (9*Cons1D + 3*Real) = 48 3D arrays
+ *   For adb mhd, requires   (9*Cons1D + 9*Real) = 72 3D arrays
  *   The H-correction of Sanders et al. adds another 3 arrays.
  *
  * REFERENCES:
@@ -24,7 +24,7 @@
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d()
+ *   integrate_3d_ctu()
  *   integrate_init_3d()
  *   integrate_destruct_3d()
  *============================================================================*/
@@ -37,8 +37,6 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-
-#ifdef THREED_CTU  /**** This macro defined in defs.h by configure ****/
 
 static Real *Bxc=NULL, *Bxi=NULL;
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
@@ -73,7 +71,7 @@ static void integrate_emf3_corner(const Grid *pGrid);
 /*----------------------------------------------------------------------------*/
 /* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
 
-void integrate_3d(Grid *pGrid)
+void integrate_3d_ctu(Grid *pGrid)
 {
 
   Real dtodx1,dtodx2,dtodx3,q1,q2,q3;
@@ -121,14 +119,14 @@ void integrate_3d(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-     lr_states(U1d,Bxc,Bxi,dt,dtodx1,is-2,ie+2,Ul_x1Face[k][j],Ur_x1Face[k][j]);
+     lr_states(U1d,Bxc,Bxi,dt,dtodx1,is-1,ie+1,Ul_x1Face[k][j],Ur_x1Face[k][j]);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add "MHD source terms" for 0.5*dt
  */
 
 #ifdef MHD
-      for (i=is-nghost; i<ie+nghost; i++) {
+      for (i=is-1; i<=ie+2; i++) {
 
 /* Source terms for left states in zone i-1 */
         db1 = (pGrid->B1i[k  ][j  ][i  ] - pGrid->B1i[k][j][i-1])/pGrid->dx1;
@@ -189,7 +187,7 @@ void integrate_3d(Grid *pGrid)
  */
 
       if (x1GravAcc != NULL){
-        for (i=is-nghost; i<ie+nghost; i++) {
+        for (i=is-1; i<=ie+2; i++) {
 
 /* Calculate the face-centered acceleration */
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
@@ -214,7 +212,7 @@ void integrate_3d(Grid *pGrid)
 
   for (k=ks-2; k<=ke+2; k++) {
     for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+3; i++) {
+      for (i=is-1; i<=ie+2; i++) {
         GET_FLUXES(B1_x1Face[k][j][i],
           Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],&x1Flux[k][j][i]);
       }
@@ -248,14 +246,14 @@ void integrate_3d(Grid *pGrid)
  * Compute L and R states at X2-interfaces.
  */
 
-      lr_states(U1d,Bxc,Bxi,dt,dtodx2,js-2,je+2,Ul,Ur);
+      lr_states(U1d,Bxc,Bxi,dt,dtodx2,js-1,je+1,Ul,Ur);
 
 /*--- Step 2c ------------------------------------------------------------------
  * Add "MHD source terms"
  */
 
 #ifdef MHD
-      for (j=js-nghost; j<je+nghost; j++) {
+      for (j=js-1; j<=je+2; j++) {
 /* Source terms for left states in zone j-1 */
         db1 = (pGrid->B1i[k  ][j-1][i+1] - pGrid->B1i[k][j-1][i])/pGrid->dx1;
         db2 = (pGrid->B2i[k  ][j  ][i  ] - pGrid->B2i[k][j-1][i])/pGrid->dx2;
@@ -315,7 +313,7 @@ void integrate_3d(Grid *pGrid)
  */
 
       if (x2GravAcc != NULL){
-        for (j=js-nghost; j<je+nghost; j++) {
+        for (j=js-1; j<=je+2; j++) {
 
 /* Calculate the face-centered acceleration */
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
@@ -332,7 +330,7 @@ void integrate_3d(Grid *pGrid)
         }
       }
 
-      for (j=js-2; j<=je+3; j++) {
+      for (j=js-1; j<=je+2; j++) {
         Ul_x2Face[k][j][i] = Ul[j];
         Ur_x2Face[k][j][i] = Ur[j];
       }
@@ -344,7 +342,7 @@ void integrate_3d(Grid *pGrid)
  */
 
   for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+3; j++) {
+    for (j=js-1; j<=je+2; j++) {
       for (i=is-2; i<=ie+2; i++) {
         GET_FLUXES(B2_x2Face[k][j][i],
            Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],&x2Flux[k][j][i]);
@@ -380,14 +378,14 @@ void integrate_3d(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-      lr_states(U1d,Bxc,Bxi,dt,dtodx3,ks-2,ke+2,Ul,Ur);
+      lr_states(U1d,Bxc,Bxi,dt,dtodx3,ks-1,ke+1,Ul,Ur);
 
 /*--- Step 3c ------------------------------------------------------------------
  * Add "MHD source terms"
  */
 
 #ifdef MHD
-      for (k=ks-nghost; k<ke+nghost; k++) {
+      for (k=ks-1; k<=ke+2; k++) {
 /* Source terms for left states in zone k-1 */
         db1 = (pGrid->B1i[k-1][j  ][i+1] - pGrid->B1i[k-1][j][i])/pGrid->dx1;
         db2 = (pGrid->B2i[k-1][j+1][i  ] - pGrid->B2i[k-1][j][i])/pGrid->dx2;
@@ -447,7 +445,7 @@ void integrate_3d(Grid *pGrid)
  */
 
       if (x3GravAcc != NULL){
-        for (k=ks-nghost; k<ke+nghost; k++) {
+        for (k=ks-1; k<=ke+2; k++) {
 
 /* Calculate the face-centered acceleration */
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
@@ -464,7 +462,7 @@ void integrate_3d(Grid *pGrid)
         }
       }
 
-      for (k=ks-2; k<=ke+3; k++) {
+      for (k=ks-1; k<=ke+2; k++) {
         Ul_x3Face[k][j][i] = Ul[k];
         Ur_x3Face[k][j][i] = Ur[k];
       }
@@ -475,7 +473,7 @@ void integrate_3d(Grid *pGrid)
  * Compute 1D fluxes in x3-direction, storing into 3D array
  */
 
-  for (k=ks-2; k<=ke+3; k++) {
+  for (k=ks-1; k<=ke+2; k++) {
     for (j=js-2; j<=je+2; j++) {
       for (i=is-2; i<=ie+2; i++) {
         GET_FLUXES(B3_x3Face[k][j][i],
@@ -485,45 +483,29 @@ void integrate_3d(Grid *pGrid)
   }
 
 /*--- Step 4 -------------------------------------------------------------------
- * Calculate the cell centered value of emf1 at t^{n} and integrate to corner.
- * Repeat for emf2 and emf3
+ * Calculate the cell centered value of emf1,2,3 at t^{n} and integrate
+ * to corner.
  */
 
 #ifdef MHD
 /* emf1 */
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
+  for (k=ks-2; k<=ke+2; k++) {
+    for (j=js-2; j<=je+2; j++) {
+      for (i=is-2; i<=ie+2; i++) {
         emf1_cc[k][j][i] = (pGrid->U[k][j][i].B2c*pGrid->U[k][j][i].M3 -
 			    pGrid->U[k][j][i].B3c*pGrid->U[k][j][i].M2)
                               /pGrid->U[k][j][i].d;
-      }
-    }
-  }
-  integrate_emf1_corner(pGrid);
-
-/* emf2 */
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
         emf2_cc[k][j][i] = (pGrid->U[k][j][i].B3c*pGrid->U[k][j][i].M1 -
 			    pGrid->U[k][j][i].B1c*pGrid->U[k][j][i].M3)
                               /pGrid->U[k][j][i].d;
-      }
-    }
-  }
-  integrate_emf2_corner(pGrid);
-
-/* emf3 */
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
         emf3_cc[k][j][i] = (pGrid->U[k][j][i].B1c*pGrid->U[k][j][i].M2 -
 			    pGrid->U[k][j][i].B2c*pGrid->U[k][j][i].M1)
                               /pGrid->U[k][j][i].d;
       }
     }
   }
+  integrate_emf1_corner(pGrid);
+  integrate_emf2_corner(pGrid);
   integrate_emf3_corner(pGrid);
 #endif /* MHD */
 
@@ -536,9 +518,9 @@ void integrate_3d(Grid *pGrid)
   q1 = 0.5*dtodx1;
   q2 = 0.5*dtodx2;
   q3 = 0.5*dtodx3;
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         B1_x1Face[k][j][i] += q3*(emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
                               q2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
         B2_x2Face[k][j][i] += q1*(emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
@@ -546,24 +528,18 @@ void integrate_3d(Grid *pGrid)
         B3_x3Face[k][j][i] += q2*(emf1[k  ][j+1][i  ] - emf1[k][j][i]) -
                               q1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
       }
+      B1_x1Face[k][j][ie+2] += q3*(emf2[k+1][j  ][ie+2]-emf2[k][j][ie+2]) -
+                               q2*(emf3[k  ][j+1][ie+2]-emf3[k][j][ie+2]);
+    }
+    for (i=is-1; i<=ie+1; i++) {
+      B2_x2Face[k][je+2][i] += q1*(emf3[k  ][je+2][i+1]-emf3[k][je+2][i]) -
+                               q3*(emf1[k+1][je+2][i  ]-emf1[k][je+2][i]);
     }
   }
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      B1_x1Face[k][j][ie+3] += q3*(emf2[k+1][j  ][ie+3]-emf2[k][j][ie+3]) -
-                               q2*(emf3[k  ][j+1][ie+3]-emf3[k][j][ie+3]);
-    }
-  }
-  for (k=ks-2; k<=ke+2; k++) {
-    for (i=is-2; i<=ie+2; i++) {
-      B2_x2Face[k][je+3][i] += q1*(emf3[k  ][je+3][i+1]-emf3[k][je+3][i]) -
-                               q3*(emf1[k+1][je+3][i  ]-emf1[k][je+3][i]);
-    }
-  }
-  for (j=js-2; j<=je+2; j++) {
-    for (i=is-2; i<=ie+2; i++) {
-      B3_x3Face[ke+3][j][i] += q2*(emf1[ke+3][j+1][i  ]-emf1[ke+3][j][i]) -
-                               q1*(emf2[ke+3][j  ][i+1]-emf2[ke+3][j][i]);
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      B3_x3Face[ke+2][j][i] += q2*(emf1[ke+2][j+1][i  ]-emf1[ke+2][j][i]) -
+                               q1*(emf2[ke+2][j  ][i+1]-emf2[ke+2][j][i]);
     }
   }
 #endif
@@ -575,9 +551,9 @@ void integrate_3d(Grid *pGrid)
 
   q2 = 0.5*dtodx2;
   q3 = 0.5*dtodx3;
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+2; i++) {
         Ul_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i-1].d -x2Flux[k][j][i-1].d );
         Ul_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
         Ul_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i-1].Mx-x2Flux[k][j][i-1].Mx);
@@ -647,9 +623,9 @@ void integrate_3d(Grid *pGrid)
  * conservative variables on the x1Face.  Limiting is used as in GS (2007)
  */
 #ifdef MHD
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+2; i++) {
         db1 = (pGrid->B1i[k  ][j  ][i  ] - pGrid->B1i[k][j][i-1])/pGrid->dx1;
         db2 = (pGrid->B2i[k  ][j+1][i-1] - pGrid->B2i[k][j][i-1])/pGrid->dx2;
         db3 = (pGrid->B3i[k+1][j  ][i-1] - pGrid->B3i[k][j][i-1])/pGrid->dx3;
@@ -732,9 +708,9 @@ void integrate_3d(Grid *pGrid)
  */
 
   if (x2GravAcc != NULL){
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+2; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         g = (*x2GravAcc)(x1,x2,x3);
         Ur_x1Face[k][j][i].My += hdt*pGrid->U[k][j][i].d*g;
@@ -754,9 +730,9 @@ void integrate_3d(Grid *pGrid)
   }}
 
   if (x3GravAcc != NULL){
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+2; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         g = (*x3GravAcc)(x1,x2,x3);
         Ur_x1Face[k][j][i].Mz += hdt*pGrid->U[k][j][i].d*g;
@@ -783,9 +759,9 @@ void integrate_3d(Grid *pGrid)
 
   q1 = 0.5*dtodx1;
   q3 = 0.5*dtodx3;
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+3; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         Ul_x2Face[k][j][i].d -=q1*(x1Flux[k][j-1][i+1].d -x1Flux[k][j-1][i].d );
         Ul_x2Face[k][j][i].Mx-=q1*(x1Flux[k][j-1][i+1].My-x1Flux[k][j-1][i].My);
         Ul_x2Face[k][j][i].My-=q1*(x1Flux[k][j-1][i+1].Mz-x1Flux[k][j-1][i].Mz);
@@ -855,9 +831,9 @@ void integrate_3d(Grid *pGrid)
  * conservative variables on the x2Face.  Limiting is used as in GS (2007)
  */
 #ifdef MHD
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+3; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         db1 = (pGrid->B1i[k  ][j-1][i+1] - pGrid->B1i[k][j-1][i])/pGrid->dx1;
         db2 = (pGrid->B2i[k  ][j  ][i  ] - pGrid->B2i[k][j-1][i])/pGrid->dx2;
         db3 = (pGrid->B3i[k+1][j-1][i  ] - pGrid->B3i[k][j-1][i])/pGrid->dx3;
@@ -940,9 +916,9 @@ void integrate_3d(Grid *pGrid)
  */
 
   if (x1GravAcc != NULL){
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+3; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         g = (*x1GravAcc)(x1,x2,x3);
         Ur_x2Face[k][j][i].Mz += hdt*pGrid->U[k][j][i].d*g;
@@ -962,9 +938,9 @@ void integrate_3d(Grid *pGrid)
   }}
 
   if (x3GravAcc != NULL){
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+3; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         g = (*x3GravAcc)(x1,x2,x3);
         Ur_x2Face[k][j][i].My += hdt*pGrid->U[k][j][i].d*g;
@@ -990,9 +966,9 @@ void integrate_3d(Grid *pGrid)
 
   q1 = 0.5*dtodx1;
   q2 = 0.5*dtodx2;
-  for (k=ks-2; k<=ke+3; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         Ul_x3Face[k][j][i].d -=q1*(x1Flux[k-1][j][i+1].d -x1Flux[k-1][j][i].d );
         Ul_x3Face[k][j][i].Mx-=q1*(x1Flux[k-1][j][i+1].Mz-x1Flux[k-1][j][i].Mz);
         Ul_x3Face[k][j][i].My-=q1*(x1Flux[k-1][j][i+1].Mx-x1Flux[k-1][j][i].Mx);
@@ -1062,9 +1038,9 @@ void integrate_3d(Grid *pGrid)
  * conservative variables on the x3Face.  Limiting is used as in GS07.
  */
 #ifdef MHD
-  for (k=ks-2; k<=ke+3; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         db1 = (pGrid->B1i[k-1][j  ][i+1] - pGrid->B1i[k-1][j][i])/pGrid->dx1;
         db2 = (pGrid->B2i[k-1][j+1][i  ] - pGrid->B2i[k-1][j][i])/pGrid->dx2;
         db3 = (pGrid->B3i[k  ][j  ][i  ] - pGrid->B3i[k-1][j][i])/pGrid->dx3;
@@ -1147,9 +1123,9 @@ void integrate_3d(Grid *pGrid)
  */
 
   if (x1GravAcc != NULL){
-  for (k=ks-2; k<=ke+3; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         g = (*x1GravAcc)(x1,x2,x3);
         Ur_x3Face[k][j][i].My += hdt*pGrid->U[k][j][i].d*g;
@@ -1169,9 +1145,9 @@ void integrate_3d(Grid *pGrid)
   }}
 
   if (x2GravAcc != NULL){
-  for (k=ks-2; k<=ke+3; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
         g = (*x2GravAcc)(x1,x2,x3);
         Ur_x3Face[k][j][i].Mz += hdt*pGrid->U[k][j][i].d*g;
@@ -1199,9 +1175,9 @@ void integrate_3d(Grid *pGrid)
   q2 = 0.5*dtodx2;
   q3 = 0.5*dtodx3;
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
         d  = pGrid->U[k][j][i].d 
@@ -1256,21 +1232,33 @@ void integrate_3d(Grid *pGrid)
  */
 
 #ifdef H_CORRECTION
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+2; i++) {
         cfr = cfast(&(Ur_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
         cfl = cfast(&(Ul_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
         ur = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d;
         ul = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d;
         eta1[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      }
+    }
+  }
 
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cfr = cfast(&(Ur_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
         cfl = cfast(&(Ul_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
         ur = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d;
         ul = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d;
         eta2[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      }
+    }
+  }
 
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         cfr = cfast(&(Ur_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
         cfl = cfast(&(Ul_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
         ur = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d;
@@ -1285,9 +1273,9 @@ void integrate_3d(Grid *pGrid)
  * Compute x1-fluxes from corrected L/R states.
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is; i<=ie+1; i++) {
 #ifdef H_CORRECTION
         etah = MAX(eta2[k][j][i-1],eta2[k][j][i]);
         etah = MAX(etah,eta2[k][j+1][i-1]);
@@ -1310,9 +1298,9 @@ void integrate_3d(Grid *pGrid)
  * Compute x2-fluxes from corrected L/R states.
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+3; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
 #ifdef H_CORRECTION
         etah = MAX(eta1[k][j-1][i],eta1[k][j][i]);
         etah = MAX(etah,eta1[k][j-1][i+1]);
@@ -1335,9 +1323,9 @@ void integrate_3d(Grid *pGrid)
  * Compute x3-fluxes from corrected L/R states.
  */
 
-  for (k=ks-2; k<=ke+3; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
 #ifdef H_CORRECTION
         etah = MAX(eta1[k-1][j][i],eta1[k][j][i]);
         etah = MAX(etah,eta1[k-1][j][i+1]);
@@ -1376,16 +1364,10 @@ void integrate_3d(Grid *pGrid)
         pGrid->B3i[k][j][i] += dtodx2*(emf1[k  ][j+1][i  ] - emf1[k][j][i]) -
                                dtodx1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
       }
-    }
-  }
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
       pGrid->B1i[k][j][ie+1] +=
         dtodx3*(emf2[k+1][j  ][ie+1] - emf2[k][j][ie+1]) -
         dtodx2*(emf3[k  ][j+1][ie+1] - emf3[k][j][ie+1]);
     }
-  }
-  for (k=ks; k<=ke; k++) {
     for (i=is; i<=ie; i++) {
       pGrid->B2i[k][je+1][i] +=
         dtodx1*(emf3[k  ][je+1][i+1] - emf3[k][je+1][i]) -
@@ -1408,40 +1390,43 @@ void integrate_3d(Grid *pGrid)
  */
 
   if (x1GravAcc != NULL){
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-        g = (*x1GravAcc)(x1,x2,x3);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x1GravAcc)(x1,x2,x3);
 
-        pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+          pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+        }
       }
     }
-  }}
+  }
 
   if (x2GravAcc != NULL){
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-        g = (*x2GravAcc)(x1,x2,x3);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x2GravAcc)(x1,x2,x3);
 
-        pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+          pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+        }
       }
     }
-  }}
+  }
 
   if (x3GravAcc != NULL){
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-        g = (*x3GravAcc)(x1,x2,x3);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x3GravAcc)(x1,x2,x3);
 
-        pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+          pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+        }
       }
     }
-  }}
+  }
 
 /*--- Step 13a -----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x1-fluxes
@@ -1515,49 +1500,52 @@ void integrate_3d(Grid *pGrid)
  */
 
   if (x1GravAcc != NULL){
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-        g = (*x1GravAcc)(x1,x2,x3);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x1GravAcc)(x1,x2,x3);
 
-        pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+          pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
-        pGrid->U[k][j][i].E += hdt*(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d)*g;
+          pGrid->U[k][j][i].E += hdt*(x1Flux[k][j][i].d+x1Flux[k][j][i+1].d)*g;
 #endif
+        }
       }
     }
-  }}
+  }
 
   if (x2GravAcc != NULL){
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-        g = (*x2GravAcc)(x1,x2,x3);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x2GravAcc)(x1,x2,x3);
 
-        pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+          pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
-        pGrid->U[k][j][i].E += hdt*(x2Flux[k][j][i].d + x2Flux[k][j+1][i].d)*g;
+          pGrid->U[k][j][i].E += hdt*(x2Flux[k][j][i].d+x2Flux[k][j+1][i].d)*g;
 #endif
+        }
       }
     }
-  }}
+  }
 
   if (x3GravAcc != NULL){
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-        g = (*x3GravAcc)(x1,x2,x3);
-
-        pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x3GravAcc)(x1,x2,x3);
+  
+          pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
-        pGrid->U[k][j][i].E += hdt*(x3Flux[k][j][i].d + x3Flux[k+1][j][i].d)*g;
+          pGrid->U[k][j][i].E += hdt*(x3Flux[k][j][i].d+x3Flux[k+1][j][i].d)*g;
 #endif
+        }
       }
     }
-  }}
+  }
 
 /*--- Step 15 ------------------------------------------------------------------
  * LAST STEP!
@@ -1581,7 +1569,7 @@ void integrate_3d(Grid *pGrid)
 
 
 /*----------------------------------------------------------------------------*/
-/*  Free temporary integration arrays 
+/* integrate_destruct_3d:  Free temporary integration arrays 
  */
 
 void integrate_destruct_3d(void)
@@ -1625,7 +1613,7 @@ void integrate_destruct_3d(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Allocate temporary integration arrays 
+/* integrate_init_3d: Allocate temporary integration arrays 
 */
 
 void integrate_init_3d(int nx1, int nx2, int nx3)
@@ -1724,9 +1712,9 @@ static void integrate_emf1_corner(const Grid *pGrid)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   Real de1_l2, de1_r2, de1_l3, de1_r3;
 
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-2; i<=ie+2; i++) {
 /* NOTE: The x2-Flux of By is -E1. */
 /*       The x3-Flux of Bz is +E1. */
 	if (x2Flux[k-1][j][i].d > 0.0)
@@ -1783,9 +1771,9 @@ static void integrate_emf2_corner(const Grid *pGrid)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   Real de2_l1, de2_r1, de2_l3, de2_r3;
 
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-2; j<=je+2; j++) {
+      for (i=is-1; i<=ie+2; i++) {
 /* NOTE: The x1-Flux of Bz is +E2. */
 /*       The x3-Flux of By is -E2. */
 	if (x1Flux[k-1][j][i].d > 0.0)
@@ -1841,9 +1829,9 @@ static void integrate_emf3_corner(const Grid *pGrid)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   Real de3_l1, de3_r1, de3_l2, de3_r2;
 
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
+  for (k=ks-2; k<=ke+2; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+2; i++) {
 /* NOTE: The x1-Flux of By is -E3. */
 /*       The x2-Flux of Bx is +E3. */
 	if (x1Flux[k][j-1][i].d > 0.0)
@@ -1892,4 +1880,3 @@ static void integrate_emf3_corner(const Grid *pGrid)
   return;
 }
 #endif /* MHD */
-#endif /* THREED_CTU */
