@@ -39,7 +39,7 @@ out_fmt = ppm       # ppm image
 out     = Bp2
 id      = Bp
 usr_expr_flag = 1
-palette = rainbo
+palette = rainbow
 dt      = 0.004     # time step between images
 dmin    = 0.0       # min value for imaging Bp
 dmax    = 1.0e-6    # max value for imaging Bp
@@ -75,5 +75,4 @@ gamma           = 1.66667   # gamma = C_p/C_v
 rad             = 0.3       # Radius of loop
 amp             = 1.0e-3    # Amplitude of B in loop
 vflow           = 2.44949   # background flow velocity in 3D sqrt(x^2+y^2+z^2)
-angle           = 26.56505  # angle of flow wrt x1-axis in degrees
 iprob           = 1         # 1=loop in x1-x2 plane
