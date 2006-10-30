@@ -205,7 +205,6 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       dW[n] = Wrv[n] - Wlv[n];
     }
 
-#ifndef THREED_VL /* do not include steps 9-10 if using VL 3D integrator */
 /*--- Step 9. ------------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue
@@ -224,6 +223,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       pWr[n] = Wlv[n] + qx*dW[n];
     }
 
+#ifndef THREED_VL /* include step 10 only if not using VL 3D integrator */
 /*--- Step 10. -----------------------------------------------------------------
  * Then subtract amount of each wave n that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
