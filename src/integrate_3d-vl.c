@@ -1,22 +1,26 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: integrate_3d-vl.c
+ * FILE: integrate_3d_vl.c
  *
- * PURPOSE: 
- * Updates the input Grid structure pointed to by *pGrid by one timestep using
- * directionally unsplit van Leer scheme.
+ * PURPOSE: Updates the input Grid structure pointed to by *pGrid by one
+ *   timestep using directionally unsplit van Leer scheme.  The variables
+ *   updated are:
+ *      U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
+ *      B1i, B2i, B3i  -- interface magnetic field
+ *   Also adds gravitational source terms, and H-correction of Sanders et al.
+ *   For adb hydro, requires (9*Cons1D + 3*Real + 1*Gas) = 53 3D arrays
+ *   For adb mhd, requires   (9*Cons1D + 9*Real + 1*Gas) = 80 3D arrays
+ *   The H-correction of Sanders et al. adds another 3 arrays.
  *
- * For MHD,   uses (1 Gas + 9*Real + 9*Cons1D) 3D arrays = 80 3D arrays 
- * For hydro, uses (1 Gas + 3*Real + 9*Cons1D) 3D arrays = 53 3D arrays 
+ * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, second-order Godunov method
+ *   for MHD using constrained transport", ???
  *
- * The variables in Grid which are updated are:
- *    U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
- *    B1i, B2i, B3i  -- interface magnetic field
- *
- * REFERENCE:
+ *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
+ *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d
+ *   integrate_3d_vl
  *   integrate_destruct_3d()
  *   integrate_init_3d()
  *============================================================================*/
@@ -27,9 +31,8 @@
 #include <string.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
-
-#ifdef THREED_VL
 
 static Gas ***Uhalf=NULL;
 static Real *Bxc=NULL, *Bxi=NULL;
@@ -44,6 +47,12 @@ static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
 
+/* variables needed for H-correction of Sanders et al (1998) */
+extern Real etah;
+#ifdef H_CORRECTION
+static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
+#endif
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
  *   integrate_emf1_corner() - 
@@ -57,216 +66,188 @@ static void integrate_emf3_corner(const Grid *pGrid);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_3d: van Leer unsplit integrator. 
+/* integrate_3d_vl: 3D van Leer unsplit integrator for MHD. 
  */
 
-void integrate_3d(Grid *pGrid)
+void integrate_3d_vl(Grid *pGrid)
 {
   Real dtodx1,dtodx2,dtodx3,q1,q2,q3;
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks, ke = pGrid->ke;
-  int i,il,iu;
-  int j,jl,ju;
-  int k,kl,ku;
-  Real qa,cf2;
+  Real dt = pGrid->dt, hdt = 0.5*pGrid->dt;
+  int i, is = pGrid->is, ie = pGrid->ie;
+  int j, js = pGrid->js, je = pGrid->je;
+  int k, ks = pGrid->ks, ke = pGrid->ke;
 #ifdef MHD
   Real d, M1, M2, M3, B1c, B2c, B3c;
 #endif
-
+#ifdef H_CORRECTION
+  Real cfr,cfl,ur,ul;
+#endif
+  Real g, x1, x2, x3;
   dtodx1 = pGrid->dt/pGrid->dx1;
-  il = is - 2;
-  iu = ie + 2;
-
   dtodx2 = pGrid->dt/pGrid->dx2;
-  jl = js - 2;
-  ju = je + 2;
-
   dtodx3 = pGrid->dt/pGrid->dx3;
-  kl = ks - 2;
-  ku = ke + 2;
 
-/*--- Step 1 ------------------------------------------------------------------
- * Compute first order fluxes in x1 direction
+/*--- Step 1 -------------------------------------------------------------------
+ * Compute first-order flux in x1-direction
+ * Set L and R states at x1-interfaces to appropriate cell-centered values
  */
 
-  for (k=ks-nghost+1; k<=ke+nghost; k++) {
-    for (j=js-nghost+1; j<=je+nghost; j++) {
-      for (i=is-nghost+1; i<=ie+nghost; i++) {
-	Ul_x1Face[k][j][i].d = pGrid->U[k][j][i-1].d;
-	Ul_x1Face[k][j][i].Mx = pGrid->U[k][j][i-1].M1;
-	Ul_x1Face[k][j][i].My = pGrid->U[k][j][i-1].M2;
-	Ul_x1Face[k][j][i].Mz = pGrid->U[k][j][i-1].M3;
+  for (k=ks-3; k<=ke+nghost; k++) {
+    for (j=js-3; j<=je+nghost; j++) {
+      for (i=is-3; i<=ie+nghost; i++) {
+	Ul[i].d = pGrid->U[k][j][i-1].d;
+	Ul[i].Mx = pGrid->U[k][j][i-1].M1;
+	Ul[i].My = pGrid->U[k][j][i-1].M2;
+	Ul[i].Mz = pGrid->U[k][j][i-1].M3;
 #ifndef ISOTHERMAL
-	Ul_x1Face[k][j][i].E = pGrid->U[k][j][i-1].E;
+	Ul[i].E = pGrid->U[k][j][i-1].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
         B1_x1Face[k][j][i] = pGrid->B1i[k][j][i];
-	Ul_x1Face[k][j][i].By = pGrid->U[k][j][i-1].B2c;
-	Ul_x1Face[k][j][i].Bz = pGrid->U[k][j][i-1].B3c;
+	Ul[i].By = pGrid->U[k][j][i-1].B2c;
+	Ul[i].Bz = pGrid->U[k][j][i-1].B3c;
 #endif /* MHD */
 
-	Ur_x1Face[k][j][i].d = pGrid->U[k][j][i].d;
-	Ur_x1Face[k][j][i].Mx = pGrid->U[k][j][i].M1;
-	Ur_x1Face[k][j][i].My = pGrid->U[k][j][i].M2;
-	Ur_x1Face[k][j][i].Mz = pGrid->U[k][j][i].M3;
+	Ur[i].d = pGrid->U[k][j][i].d;
+	Ur[i].Mx = pGrid->U[k][j][i].M1;
+	Ur[i].My = pGrid->U[k][j][i].M2;
+	Ur[i].Mz = pGrid->U[k][j][i].M3;
 #ifndef ISOTHERMAL
-	Ur_x1Face[k][j][i].E = pGrid->U[k][j][i].E;
+	Ur[i].E = pGrid->U[k][j][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
-	Ur_x1Face[k][j][i].By = pGrid->U[k][j][i].B2c;
-	Ur_x1Face[k][j][i].Bz = pGrid->U[k][j][i].B3c;
+	Ur[i].By = pGrid->U[k][j][i].B2c;
+	Ur[i].Bz = pGrid->U[k][j][i].B3c;
 #endif /* MHD */
       }
-    }
-  }
 
-  for (k=ks-nghost+1; k<=ke+nghost; k++) {
-    for (j=js-nghost+1; j<=je+nghost; j++) {
-      for (i=is-nghost+1; i<=ie+nghost; i++) {
-        GET_FLUXES(B1_x1Face[k][j][i]
-          ,Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],&x1Flux[k][j][i]);
+/* Compute flux in x1-direction  */
+
+      for (i=is-3; i<=ie+nghost; i++) {
+        GET_FLUXES(B1_x1Face[k][j][i],Ul[i],Ur[i],&x1Flux[k][j][i]);
       }
     }
   }
 
-/*--- Step 2 ------------------------------------------------------------------
- * Compute first order fluxes in x2 direction
+/*--- Step 2 -------------------------------------------------------------------
+ * Compute first-order flux in x2-direction
+ * Set L and R states at x2-interfaces to appropriate cell-centered values
  */
 
-  for (k=ks-nghost+1; k<=ke+nghost; k++) {
-    for (j=js-nghost+1; j<=je+nghost; j++) {
-      for (i=is-nghost+1; i<=ie+nghost; i++) {
-	Ul_x2Face[k][j][i].d = pGrid->U[k][j-1][i].d;
-	Ul_x2Face[k][j][i].Mx = pGrid->U[k][j-1][i].M2;
-	Ul_x2Face[k][j][i].My = pGrid->U[k][j-1][i].M3;
-	Ul_x2Face[k][j][i].Mz = pGrid->U[k][j-1][i].M1;
+  for (k=ks-3; k<=ke+nghost; k++) {
+    for (i=is-3; i<=ie+nghost; i++) {
+      for (j=js-3; j<=je+nghost; j++) {
+	Ul[j].d = pGrid->U[k][j-1][i].d;
+	Ul[j].Mx = pGrid->U[k][j-1][i].M2;
+	Ul[j].My = pGrid->U[k][j-1][i].M3;
+	Ul[j].Mz = pGrid->U[k][j-1][i].M1;
 #ifndef ISOTHERMAL
-	Ul_x2Face[k][j][i].E = pGrid->U[k][j-1][i].E;
+	Ul[j].E = pGrid->U[k][j-1][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
         B2_x2Face[k][j][i] = pGrid->B2i[k][j][i];
-	Ul_x2Face[k][j][i].By = pGrid->U[k][j-1][i].B3c;
-	Ul_x2Face[k][j][i].Bz = pGrid->U[k][j-1][i].B1c;
+	Ul[j].By = pGrid->U[k][j-1][i].B3c;
+	Ul[j].Bz = pGrid->U[k][j-1][i].B1c;
 #endif /* MHD */
 
-	Ur_x2Face[k][j][i].d = pGrid->U[k][j][i].d;
-	Ur_x2Face[k][j][i].Mx = pGrid->U[k][j][i].M2;
-	Ur_x2Face[k][j][i].My = pGrid->U[k][j][i].M3;
-	Ur_x2Face[k][j][i].Mz = pGrid->U[k][j][i].M1;
+	Ur[j].d = pGrid->U[k][j][i].d;
+	Ur[j].Mx = pGrid->U[k][j][i].M2;
+	Ur[j].My = pGrid->U[k][j][i].M3;
+	Ur[j].Mz = pGrid->U[k][j][i].M1;
 #ifndef ISOTHERMAL
-	Ur_x2Face[k][j][i].E = pGrid->U[k][j][i].E;
+	Ur[j].E = pGrid->U[k][j][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
-	Ur_x2Face[k][j][i].By = pGrid->U[k][j][i].B3c;
-	Ur_x2Face[k][j][i].Bz = pGrid->U[k][j][i].B1c;
+	Ur[j].By = pGrid->U[k][j][i].B3c;
+	Ur[j].Bz = pGrid->U[k][j][i].B1c;
 #endif /* MHD */
       }
-    }
-  }
 
-  for (k=ks-nghost+1; k<=ke+nghost; k++) {
-    for (j=js-nghost+1; j<=je+nghost; j++) {
-      for (i=is-nghost+1; i<=ie+nghost; i++) {
-        GET_FLUXES(B2_x2Face[k][j][i]
-          ,Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],&x2Flux[k][j][i]);
+/* Compute flux in x2-direction */
+
+      for (j=js-3; j<=je+nghost; j++) {
+        GET_FLUXES(B2_x2Face[k][j][i],Ul[j],Ur[j],&x2Flux[k][j][i]);
       }
     }
   }
 
-/*--- Step 3 ------------------------------------------------------------------
- * Compute first order fluxes in x3 direction
+/*--- Step 3 -------------------------------------------------------------------
+ * Compute first-order flux in x3-direction
+ * Set L and R states at x3-interfaces to appropriate cell-centered values
  */
 
-  for (k=ks-nghost+1; k<=ke+nghost; k++) {
-    for (j=js-nghost+1; j<=je+nghost; j++) {
-      for (i=is-nghost+1; i<=ie+nghost; i++) {
-	Ul_x3Face[k][j][i].d = pGrid->U[k-1][j][i].d;
-	Ul_x3Face[k][j][i].Mx = pGrid->U[k-1][j][i].M3;
-	Ul_x3Face[k][j][i].My = pGrid->U[k-1][j][i].M1;
-	Ul_x3Face[k][j][i].Mz = pGrid->U[k-1][j][i].M2;
+  for (j=js-3; j<=je+nghost; j++) {
+    for (i=is-3; i<=ie+nghost; i++) {
+      for (k=ks-3; k<=ke+nghost; k++) {
+	Ul[k].d = pGrid->U[k-1][j][i].d;
+	Ul[k].Mx = pGrid->U[k-1][j][i].M3;
+	Ul[k].My = pGrid->U[k-1][j][i].M1;
+	Ul[k].Mz = pGrid->U[k-1][j][i].M2;
 #ifndef ISOTHERMAL
-	Ul_x3Face[k][j][i].E = pGrid->U[k-1][j][i].E;
+	Ul[k].E = pGrid->U[k-1][j][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
         B3_x3Face[k][j][i] = pGrid->B3i[k][j][i];
-	Ul_x3Face[k][j][i].By = pGrid->U[k-1][j][i].B1c;
-	Ul_x3Face[k][j][i].Bz = pGrid->U[k-1][j][i].B2c;
+	Ul[k].By = pGrid->U[k-1][j][i].B1c;
+	Ul[k].Bz = pGrid->U[k-1][j][i].B2c;
 #endif /* MHD */
 
-	Ur_x3Face[k][j][i].d = pGrid->U[k][j][i].d;
-	Ur_x3Face[k][j][i].Mx = pGrid->U[k][j][i].M3;
-	Ur_x3Face[k][j][i].My = pGrid->U[k][j][i].M1;
-	Ur_x3Face[k][j][i].Mz = pGrid->U[k][j][i].M2;
+	Ur[k].d = pGrid->U[k][j][i].d;
+	Ur[k].Mx = pGrid->U[k][j][i].M3;
+	Ur[k].My = pGrid->U[k][j][i].M1;
+	Ur[k].Mz = pGrid->U[k][j][i].M2;
 #ifndef ISOTHERMAL
-	Ur_x3Face[k][j][i].E = pGrid->U[k][j][i].E;
+	Ur[k].E = pGrid->U[k][j][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
-	Ur_x3Face[k][j][i].By = pGrid->U[k][j][i].B1c;
-	Ur_x3Face[k][j][i].Bz = pGrid->U[k][j][i].B2c;
+	Ur[k].By = pGrid->U[k][j][i].B1c;
+	Ur[k].Bz = pGrid->U[k][j][i].B2c;
 #endif /* MHD */
       }
-    }
-  }
 
-  for (k=ks-nghost+1; k<=ke+nghost; k++) {
-    for (j=js-nghost+1; j<=je+nghost; j++) {
-      for (i=is-nghost+1; i<=ie+nghost; i++) {
-        GET_FLUXES(B3_x3Face[k][j][i]
-          ,Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],&x3Flux[k][j][i]);
+/* Compute flux in x3-direction */
+
+      for (k=ks-3; k<=ke+nghost; k++) {
+        GET_FLUXES(B3_x3Face[k][j][i],Ul[k],Ur[k],&x3Flux[k][j][i]);
       }
     }
   }
 
 /*--- Step 4 ------------------------------------------------------------------
- * Calculate the cell centered value of emf1 and integrate to corner.  Repeat
- * for emf2 and emf3
+ * Calculate the cell centered value of emf1,2,3 at t^{n} and integrate
+ * to corner.
  */
 
 #ifdef MHD
-/* emf1 */
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
+  for (k=ks-2; k<=ke+2; k++) {
+    for (j=js-2; j<=je+2; j++) {
+      for (i=is-2; i<=ie+2; i++) {
         emf1_cc[k][j][i] = (pGrid->U[k][j][i].B2c*pGrid->U[k][j][i].M3 -
 			    pGrid->U[k][j][i].B3c*pGrid->U[k][j][i].M2)
                               /pGrid->U[k][j][i].d;
-      }
-    }
-  }
-  integrate_emf1_corner(pGrid);
-
-/* emf2 */
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
         emf2_cc[k][j][i] = (pGrid->U[k][j][i].B3c*pGrid->U[k][j][i].M1 -
 			    pGrid->U[k][j][i].B1c*pGrid->U[k][j][i].M3)
                               /pGrid->U[k][j][i].d;
-      }
-    }
-  }
-  integrate_emf2_corner(pGrid);
-
-/* emf3 */
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
         emf3_cc[k][j][i] = (pGrid->U[k][j][i].B1c*pGrid->U[k][j][i].M2 -
 			    pGrid->U[k][j][i].B2c*pGrid->U[k][j][i].M1)
                               /pGrid->U[k][j][i].d;
       }
     }
   }
+  integrate_emf1_corner(pGrid);
+  integrate_emf2_corner(pGrid);
   integrate_emf3_corner(pGrid);
 
-/* update face centered fields to dt/2 using CT */
+/*--- Step 5 -------------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a half time step.
+ */
+
   q1 = 0.5*dtodx1;
   q2 = 0.5*dtodx2;
   q3 = 0.5*dtodx3;
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         B1_x1Face[k][j][i] += q3*(emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
                               q2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
         B2_x2Face[k][j][i] += q1*(emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
@@ -274,114 +255,146 @@ void integrate_3d(Grid *pGrid)
         B3_x3Face[k][j][i] += q2*(emf1[k  ][j+1][i  ] - emf1[k][j][i]) -
                               q1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
       }
+      B1_x1Face[k][j][ie+2] += q3*(emf2[k+1][j  ][ie+2]-emf2[k][j][ie+2]) -
+                               q2*(emf3[k  ][j+1][ie+2]-emf3[k][j][ie+2]);
+    }
+    for (i=is-1; i<=ie+1; i++) {
+      B2_x2Face[k][je+2][i] += q1*(emf3[k  ][je+2][i+1]-emf3[k][je+2][i]) -
+                               q3*(emf1[k+1][je+2][i  ]-emf1[k][je+2][i]);
     }
   }
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      B1_x1Face[k][j][ie+3] += q3*(emf2[k+1][j  ][ie+3]-emf2[k][j][ie+3]) -
-                               q2*(emf3[k  ][j+1][ie+3]-emf3[k][j][ie+3]);
-    }
-  }
-  for (k=ks-2; k<=ke+2; k++) {
-    for (i=is-2; i<=ie+2; i++) {
-      B2_x2Face[k][je+3][i] += q1*(emf3[k  ][je+3][i+1]-emf3[k][je+3][i]) -
-                               q3*(emf1[k+1][je+3][i  ]-emf1[k][je+3][i]);
-    }
-  }
-  for (j=js-2; j<=je+2; j++) {
-    for (i=is-2; i<=ie+2; i++) {
-      B3_x3Face[ke+3][j][i] += q2*(emf1[ke+3][j+1][i  ]-emf1[ke+3][j][i]) -
-                               q1*(emf2[ke+3][j  ][i+1]-emf2[ke+3][j][i]);
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      B3_x3Face[ke+2][j][i] += q2*(emf1[ke+2][j+1][i  ]-emf1[ke+2][j][i]) -
+                               q1*(emf2[ke+2][j  ][i+1]-emf2[ke+2][j][i]);
     }
   }
 #endif /* MHD */
 
-/*--- Step 5 ----------------------------------------------------------------
+/*--- Step 6a ------------------------------------------------------------------
  * Update cell-centered variables to half-timestep using x1-fluxes
  */
 
   q1 = 0.5*dtodx1;
-  for (k=ks-nghost; k<=ke+nghost-1; k++) {
-    for (j=js-nghost; j<=je+nghost-1; j++) {
-      for (i=is-nghost; i<=ie+nghost-1; i++) {
-        Uhalf[k][j][i].d  = pGrid->U[k][j][i].d 
-          - q1*(x1Flux[k][j][i+1].d -x1Flux[k][j][i].d );
-        Uhalf[k][j][i].M1 = pGrid->U[k][j][i].M1
-          - q1*(x1Flux[k][j][i+1].Mx-x1Flux[k][j][i].Mx);
-        Uhalf[k][j][i].M2 = pGrid->U[k][j][i].M2
-          - q1*(x1Flux[k][j][i+1].My-x1Flux[k][j][i].My);
-        Uhalf[k][j][i].M3 = pGrid->U[k][j][i].M3
-          - q1*(x1Flux[k][j][i+1].Mz-x1Flux[k][j][i].Mz);
+  for (k=ks-3; k<=ke+3; k++) {
+    for (j=js-3; j<=je+3; j++) {
+      for (i=is-3; i<=ie+3; i++) {
+        Uhalf[k][j][i] = pGrid->U[k][j][i];
+        Uhalf[k][j][i].d   -= q1*(x1Flux[k][j][i+1].d -x1Flux[k][j][i].d );
+        Uhalf[k][j][i].M1  -= q1*(x1Flux[k][j][i+1].Mx-x1Flux[k][j][i].Mx);
+        Uhalf[k][j][i].M2  -= q1*(x1Flux[k][j][i+1].My-x1Flux[k][j][i].My);
+        Uhalf[k][j][i].M3  -= q1*(x1Flux[k][j][i+1].Mz-x1Flux[k][j][i].Mz);
 #ifndef ISOTHERMAL
-        Uhalf[k][j][i].E  = pGrid->U[k][j][i].E
-          - q1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
+        Uhalf[k][j][i].E   -= q1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-        Uhalf[k][j][i].B1c= pGrid->U[k][j][i].B1c;
-        Uhalf[k][j][i].B2c= pGrid->U[k][j][i].B2c
-          - q1*(x1Flux[k][j][i+1].By-x1Flux[k][j][i].By);
-        Uhalf[k][j][i].B3c= pGrid->U[k][j][i].B3c
-          - q1*(x1Flux[k][j][i+1].Bz-x1Flux[k][j][i].Bz);
+        Uhalf[k][j][i].B2c -= q1*(x1Flux[k][j][i+1].By-x1Flux[k][j][i].By);
+        Uhalf[k][j][i].B3c -= q1*(x1Flux[k][j][i+1].Bz-x1Flux[k][j][i].Bz);
 #endif /* MHD */
       }
     }
   }
 
-/*--- Step 6 ----------------------------------------------------------------
+/*--- Step 6b ------------------------------------------------------------------
  * Update cell-centered variables to half-timestep using x2-fluxes
  */
 
   q2 = 0.5*dtodx2;
-  for (k=ks-nghost; k<=ke+nghost-1; k++) {
-    for (j=js-nghost; j<=je+nghost-1; j++) {
-      for (i=is-nghost; i<=ie+nghost-1; i++) {
-        Uhalf[k][j][i].d -= q2*(x2Flux[k][j+1][i].d -x2Flux[k][j][i].d );
-        Uhalf[k][j][i].M1-= q2*(x2Flux[k][j+1][i].Mz-x2Flux[k][j][i].Mz);
-        Uhalf[k][j][i].M2-= q2*(x2Flux[k][j+1][i].Mx-x2Flux[k][j][i].Mx);
-        Uhalf[k][j][i].M3-= q2*(x2Flux[k][j+1][i].My-x2Flux[k][j][i].My);
+  for (k=ks-3; k<=ke+3; k++) {
+    for (j=js-3; j<=je+3; j++) {
+      for (i=is-3; i<=ie+3; i++) {
+        Uhalf[k][j][i].d   -= q2*(x2Flux[k][j+1][i].d -x2Flux[k][j][i].d );
+        Uhalf[k][j][i].M1  -= q2*(x2Flux[k][j+1][i].Mz-x2Flux[k][j][i].Mz);
+        Uhalf[k][j][i].M2  -= q2*(x2Flux[k][j+1][i].Mx-x2Flux[k][j][i].Mx);
+        Uhalf[k][j][i].M3  -= q2*(x2Flux[k][j+1][i].My-x2Flux[k][j][i].My);
 #ifndef ISOTHERMAL
-        Uhalf[k][j][i].E -= q2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
+        Uhalf[k][j][i].E   -= q2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-        Uhalf[k][j][i].B3c-= q2*(x2Flux[k][j+1][i].By-x2Flux[k][j][i].By);
-        Uhalf[k][j][i].B1c-= q2*(x2Flux[k][j+1][i].Bz-x2Flux[k][j][i].Bz);
+        Uhalf[k][j][i].B3c -= q2*(x2Flux[k][j+1][i].By-x2Flux[k][j][i].By);
+        Uhalf[k][j][i].B1c -= q2*(x2Flux[k][j+1][i].Bz-x2Flux[k][j][i].Bz);
 #endif /* MHD */
       }
     }
   }
 
-/*--- Step 7 ----------------------------------------------------------------
+/*--- Step 6c ------------------------------------------------------------------
  * Update cell-centered variables to half-timestep using x3-fluxes
  */
 
   q3 = 0.5*dtodx3;
-  for (k=ks-nghost; k<=ke+nghost-1; k++) {
-    for (j=js-nghost; j<=je+nghost-1; j++) {
-      for (i=is-nghost; i<=ie+nghost-1; i++) {
-        Uhalf[k][j][i].d -= q3*(x3Flux[k+1][j][i].d -x3Flux[k][j][i].d );
-        Uhalf[k][j][i].M1-= q3*(x3Flux[k+1][j][i].My-x3Flux[k][j][i].My);
-        Uhalf[k][j][i].M2-= q3*(x3Flux[k+1][j][i].Mz-x3Flux[k][j][i].Mz);
-        Uhalf[k][j][i].M3-= q3*(x3Flux[k+1][j][i].Mx-x3Flux[k][j][i].Mx);
+  for (k=ks-3; k<=ke+3; k++) {
+    for (j=js-3; j<=je+3; j++) {
+      for (i=is-3; i<=ie+3; i++) {
+        Uhalf[k][j][i].d   -= q3*(x3Flux[k+1][j][i].d -x3Flux[k][j][i].d );
+        Uhalf[k][j][i].M1  -= q3*(x3Flux[k+1][j][i].My-x3Flux[k][j][i].My);
+        Uhalf[k][j][i].M2  -= q3*(x3Flux[k+1][j][i].Mz-x3Flux[k][j][i].Mz);
+        Uhalf[k][j][i].M3  -= q3*(x3Flux[k+1][j][i].Mx-x3Flux[k][j][i].Mx);
 #ifndef ISOTHERMAL
-        Uhalf[k][j][i].E -= q3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
+        Uhalf[k][j][i].E   -= q3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-        Uhalf[k][j][i].B1c-= q3*(x3Flux[k+1][j][i].By-x3Flux[k][j][i].By);
-        Uhalf[k][j][i].B2c-= q3*(x3Flux[k+1][j][i].Bz-x3Flux[k][j][i].Bz);
+        Uhalf[k][j][i].B1c -= q3*(x3Flux[k+1][j][i].By-x3Flux[k][j][i].By);
+        Uhalf[k][j][i].B2c -= q3*(x3Flux[k+1][j][i].Bz-x3Flux[k][j][i].Bz);
 #endif /* MHD */
       }
     }
   }
 
+/*--- Step 6d ------------------------------------------------------------------
+ * Add gravitational source terms to half-updated cell-centered values
+ */
 
-/*--- Step  1 ------------------------------------------------- 
- * Compute L and R states at X1-interfaces, store into 3D arrays.
+  if (x1GravAcc != NULL){
+    for (k=ks-3; k<=ke+3; k++) {
+      for (j=js-3; j<=je+3; j++) {
+        for (i=is-3; i<=ie+3; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x1GravAcc)(x1,x2,x3);
+
+          Uhalf[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+          Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M1*g;
+        }
+      }
+    }
+  }
+
+  if (x2GravAcc != NULL){
+    for (k=ks-3; k<=ke+3; k++) {
+      for (j=js-3; j<=je+3; j++) {
+        for (i=is-3; i<=ie+3; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x2GravAcc)(x1,x2,x3);
+
+          Uhalf[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+          Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M2*g;
+        }
+      }
+    }
+  }
+
+  if (x3GravAcc != NULL){
+    for (k=ks-3; k<=ke+3; k++) {
+      for (j=js-3; j<=je+3; j++) {
+        for (i=is-3; i<=ie+3; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x3GravAcc)(x1,x2,x3);
+
+          Uhalf[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+          Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M3*g;
+        }
+      }
+    }
+  }
+
+/*--- Step 7a ------------------------------------------------------------------
+ * Compute L/R states at x1-interfaces using U^{n+1/2}, store into 3D arrays
  * U1d = (d, M1, M2, M3, E, B2c, B3c)
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-nghost; i<=ie+nghost; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-3; i<=ie+3; i++) {
         U1d[i].d  = Uhalf[k][j][i].d;
         U1d[i].Mx = Uhalf[k][j][i].M1;
         U1d[i].My = Uhalf[k][j][i].M2;
@@ -397,27 +410,18 @@ void integrate_3d(Grid *pGrid)
 #endif /* MHD */
       }
 
-      lr_states(U1d,Bxc,Bxi,0.0,0.0,is-2,ie+2,Ul_x1Face[k][j],Ur_x1Face[k][j]);
-
-    }
-  }
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        GET_FLUXES(B1_x1Face[k][j][i]
-          ,Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],&x1Flux[k][j][i]);
-      }
+      lr_states(U1d,Bxc,Bxi,0.0,0.0,is-1,ie+1,Ul_x1Face[k][j],Ur_x1Face[k][j]);
     }
   }
 
-/*--- Step  2 ------------------------------------------------- 
- * Compute L and R states at X2-interfaces, store into 3D arrays.
- * U1d = (d, M1, M2, M3, E, B2c, B3c)
+/*--- Step 7b ------------------------------------------------------------------
+ * Compute L/R states at x2-interfaces using U^{n+1/2}, store into 3D arrays
+ * U1d = (d, M2, M3, M1, E, B3c, B1c)
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (i=is-2; i<=ie+2; i++) {
-      for (j=js-nghost; j<=je+nghost; j++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (i=is-1; i<=ie+1; i++) {
+      for (j=js-3; j<=je+3; j++) {
         U1d[j].d  = Uhalf[k][j][i].d;
         U1d[j].Mx = Uhalf[k][j][i].M2;
         U1d[j].My = Uhalf[k][j][i].M3;
@@ -433,30 +437,24 @@ void integrate_3d(Grid *pGrid)
 #endif /* MHD */
       }
 
-      lr_states(U1d,Bxc,Bxi,0.0,0.0,js-2,je+2,Ul,Ur);
-     
-      for (j=js-2; j<=je+2; j++) {
+/* Compute L and R states at x2-interfaces.  */
+
+      lr_states(U1d,Bxc,Bxi,0.0,0.0,js-1,je+1,Ul,Ur);
+      for (j=js-1; j<=je+2; j++) {
         Ul_x2Face[k][j][i] = Ul[j];
         Ur_x2Face[k][j][i] = Ur[j];
       }
     }
   }
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        GET_FLUXES(B2_x2Face[k][j][i]
-          ,Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],&x2Flux[k][j][i]);
-      }
-    }
-  }
 
-/*--- Step x3_init_lr_states 1 ------------------------------------------------- * Compute L and R states at X3-interfaces, store into 3D arrays.
+/*--- Step 7c ------------------------------------------------------------------
+ * Compute L/R states at x3-interfaces using U^{n+1/2}, store into 3D arrays
  * U1d = (d, M3, M1, M2, E, B1c, B2c)
  */
 
-  for (j=js-2; j<=je+2; j++) {
-    for (i=is-2; i<=ie+2; i++) {
-      for (k=ks-nghost; k<=ke+nghost; k++) {
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      for (k=ks-3; k<=ke+3; k++) {
         U1d[k].d  = Uhalf[k][j][i].d;
         U1d[k].Mx = Uhalf[k][j][i].M3;
         U1d[k].My = Uhalf[k][j][i].M1;
@@ -472,85 +470,169 @@ void integrate_3d(Grid *pGrid)
 #endif /* MHD */
       }
 
-      lr_states(U1d,Bxc,Bxi,0.0,0.0,ks-2,ke+2,Ul,Ur);
+/* Compute L and R states at x3-interfaces.  */
 
-      for (k=ks-2; k<=ke+2; k++) {
+      lr_states(U1d,Bxc,Bxi,0.0,0.0,ks-1,ke+1,Ul,Ur);
+      for (k=ks-1; k<=ke+2; k++) {
         Ul_x3Face[k][j][i] = Ul[k];
         Ur_x3Face[k][j][i] = Ur[k];
       }
     }
   }
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        GET_FLUXES(B3_x3Face[k][j][i],
-           Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],&x3Flux[k][j][i]);
+/*--- Step 8 ------------------------------------------------------------------
+ * Compute maximum wavespeeds in multidimensions (eta in eq. 10 from Sanders et
+ *  al. (1998)) for H-correction
+ */
+
+#ifdef H_CORRECTION
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+2; i++) {
+        cfr = cfast(&(Ur_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
+        cfl = cfast(&(Ul_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
+        ur = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d;
+        ul = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d;
+        eta1[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
       }
     }
   }
 
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
+        cfr = cfast(&(Ur_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
+        cfl = cfast(&(Ul_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
+        ur = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d;
+        ul = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d;
+        eta2[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      }
+    }
+  }
 
-/*--- Step XX ----------------------------------------------------------------
- * Calculate the cell centered value of emfs at the third-time-step, by
- * updating the cell-centered quantaties using only one flux gradient.
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
+        cfr = cfast(&(Ur_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
+        cfl = cfast(&(Ul_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
+        ur = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d;
+        ul = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d;
+        eta3[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      }
+    }
+  }
+#endif /* H_CORRECTION */
+
+/*--- Step 9a ------------------------------------------------------------------
+ * Compute second-order fluxes in x1-direction, including H-correction
+ */
+
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is; i<=ie+1; i++) {
+#ifdef H_CORRECTION
+        etah = MAX(eta2[k][j][i-1],eta2[k][j][i]);
+        etah = MAX(etah,eta2[k][j+1][i-1]);
+        etah = MAX(etah,eta2[k][j+1][i  ]);
+
+        etah = MAX(etah,eta3[k  ][j][i-1]);
+        etah = MAX(etah,eta3[k  ][j][i  ]);
+        etah = MAX(etah,eta3[k+1][j][i-1]);
+        etah = MAX(etah,eta3[k+1][j][i  ]);
+
+        etah = MAX(etah,eta1[k  ][j][i  ]);
+#endif /* H_CORRECTION */
+        GET_FLUXES(B1_x1Face[k][j][i],Ul_x1Face[k][j][i],Ur_x1Face[k][j][i]
+          ,&x1Flux[k][j][i]);
+      }
+    }
+  }
+
+/*--- Step 9b ------------------------------------------------------------------
+ * Compute second-order fluxes in x2-direction, including H-correction
+ */
+
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
+#ifdef H_CORRECTION
+        etah = MAX(eta1[k][j-1][i],eta1[k][j][i]);
+        etah = MAX(etah,eta1[k][j-1][i+1]);
+        etah = MAX(etah,eta1[k][j  ][i+1]);
+
+        etah = MAX(etah,eta3[k  ][j-1][i]);
+        etah = MAX(etah,eta3[k  ][j  ][i]);
+        etah = MAX(etah,eta3[k+1][j-1][i]);
+        etah = MAX(etah,eta3[k+1][j  ][i]);
+
+        etah = MAX(etah,eta2[k  ][j  ][i]);
+#endif /* H_CORRECTION */
+        GET_FLUXES(B2_x2Face[k][j][i],Ul_x2Face[k][j][i],Ur_x2Face[k][j][i]
+          ,&x2Flux[k][j][i]);
+      }
+    }
+  }
+
+/*--- Step 9c ------------------------------------------------------------------
+ * Compute second-order fluxes in x3-direction, including H-correction
+ */
+
+  for (k=ks; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
+#ifdef H_CORRECTION
+        etah = MAX(eta1[k-1][j][i],eta1[k][j][i]);
+        etah = MAX(etah,eta1[k-1][j][i+1]);
+        etah = MAX(etah,eta1[k][j  ][i+1]);
+
+        etah = MAX(etah,eta2[k-1][j  ][i]);
+        etah = MAX(etah,eta2[k  ][j  ][i]);
+        etah = MAX(etah,eta2[k-1][j+1][i]);
+        etah = MAX(etah,eta2[k  ][j+1][i]);
+
+        etah = MAX(etah,eta3[k  ][j  ][i]);
+#endif /* H_CORRECTION */
+        GET_FLUXES(B3_x3Face[k][j][i],Ul_x3Face[k][j][i],Ur_x3Face[k][j][i]
+          ,&x3Flux[k][j][i]);
+      }
+    }
+  }
+
+/*--- Step 10 ------------------------------------------------------------------
+ * Calculate the cell centered value of emf1,2,3 at the half-time-step.
  */
 
 #ifdef MHD
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
         d  = Uhalf[k][j][i].d ;
+        M1 = Uhalf[k][j][i].M1;
         M2 = Uhalf[k][j][i].M2;
         M3 = Uhalf[k][j][i].M3;
 
+        B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j][i+1]);
         B2c = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k  ][j+1][i]);
         B3c = 0.5*(B3_x3Face[k][j][i] + B3_x3Face[k+1][j  ][i]);
 
         emf1_cc[k][j][i] = (B2c*M3 - B3c*M2)/d;
-      }
-    }
-  }
-  integrate_emf1_corner(pGrid);
-
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        d  = Uhalf[k][j][i].d ;
-        M1 = Uhalf[k][j][i].M1;
-        M3 = Uhalf[k][j][i].M3;
-
-        B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j][i+1]);
-        B3c = 0.5*(B3_x3Face[k][j][i] + B3_x3Face[k+1][j][i  ]);
-
         emf2_cc[k][j][i] = (B3c*M1 - B1c*M3)/d;
-      }
-    }
-  }
-  integrate_emf2_corner(pGrid);
-
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        d  = Uhalf[k][j][i].d ;
-        M1 = Uhalf[k][j][i].M1;
-        M2 = Uhalf[k][j][i].M2;
-
-        B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k][j  ][i+1]);
-        B2c = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k][j+1][i  ]);
-
         emf3_cc[k][j][i] = (B1c*M2 - B2c*M1)/d;
       }
     }
   }
-  integrate_emf3_corner(pGrid);
 #endif
 
-/*--- Step 14(a) ---------------------------------------------------------------
- * Update the interface magnetic fields using CT for a full time step.
+/*--- Step 11 ------------------------------------------------------------------
+ * Integrate emf*^{n+1/2} to the grid cell corners and then update the
+ * interface magnetic fields using CT for a full time step.
  */
 
 #ifdef MHD
+  integrate_emf1_corner(pGrid);
+  integrate_emf2_corner(pGrid);
+  integrate_emf3_corner(pGrid);
+
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -561,16 +643,10 @@ void integrate_3d(Grid *pGrid)
         pGrid->B3i[k][j][i] += dtodx2*(emf1[k  ][j+1][i  ] - emf1[k][j][i]) -
                                dtodx1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
       }
-    }
-  }
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
       pGrid->B1i[k][j][ie+1] +=
         dtodx3*(emf2[k+1][j  ][ie+1] - emf2[k][j][ie+1]) -
         dtodx2*(emf3[k  ][j+1][ie+1] - emf3[k][j][ie+1]);
     }
-  }
-  for (k=ks; k<=ke; k++) {
     for (i=is; i<=ie; i++) {
       pGrid->B2i[k][je+1][i] +=
         dtodx1*(emf3[k  ][je+1][i+1] - emf3[k][je+1][i]) -
@@ -586,10 +662,55 @@ void integrate_3d(Grid *pGrid)
   }
 #endif
 
+/*--- Step 12 ------------------------------------------------------------------
+ * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
+ * acceleration to the momentum equation now (using d^{n}), before the update
+ * of the cell-centered variables due to flux gradients.
+ */
 
-/*--- Step 16 ----------------------------------------------------------------
+  if (x1GravAcc != NULL){
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x1GravAcc)(x1,x2,x3);
+
+          pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+        }
+      }
+    }
+  }
+
+  if (x2GravAcc != NULL){
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x2GravAcc)(x1,x2,x3);
+
+          pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+        }
+      }
+    }
+  }
+
+  if (x3GravAcc != NULL){
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x3GravAcc)(x1,x2,x3);
+
+          pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+        }
+      }
+    }
+  }
+
+/*--- Step 13a -----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x1-fluxes
  */
+
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -608,9 +729,10 @@ void integrate_3d(Grid *pGrid)
     }
   }
 
-/*--- Step 17 -----------------------------------------------------------------
+/*--- Step 13b -----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x2-fluxes
  */
+
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -630,9 +752,10 @@ void integrate_3d(Grid *pGrid)
   }
 
 
-/*--- Step 18 ----------------------------------------------------------------
+/*--- Step 13c ----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x3-fluxes
  */
+
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -651,37 +774,79 @@ void integrate_3d(Grid *pGrid)
     }
   }
 
-/*--- Step 19 -----------------------------------------------------------------
- * Update cell centered magnetic field using updated face centered fields.
- *
- * If the macro CT_CONSERVE_ENERGY is not defined (default), then internal
- * energy is conserved by subtracting off old magnetic energy, then adding
- * magnetic energy from updated face centered fields back in.  This makes the
- * scheme more robust at low beta, but violates conservation of total energy
+/*--- Step 14 ------------------------------------------------------------------
+ * Complete the gravitational source terms by adding 0.5 the acceleration at
+ * time level n+1, and the energy source term at time level {n+1/2}.
+ */
+
+  if (x1GravAcc != NULL){
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x1GravAcc)(x1,x2,x3);
+
+          pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += hdt*(x1Flux[k][j][i].d+x1Flux[k][j][i+1].d)*g;
+#endif
+        }
+      }
+    }
+  }
+
+  if (x2GravAcc != NULL){
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x2GravAcc)(x1,x2,x3);
+
+          pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += hdt*(x2Flux[k][j][i].d+x2Flux[k][j+1][i].d)*g;
+#endif
+        }
+      }
+    }
+  }
+
+  if (x3GravAcc != NULL){
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          g = (*x3GravAcc)(x1,x2,x3);
+
+          pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += hdt*(x3Flux[k][j][i].d+x3Flux[k+1][j][i].d)*g;
+#endif
+        }
+      }
+    }
+  }
+
+/*--- Step 15 -----------------------------------------------------------------
+ * LAST STEP!
+ * Set cell centered magnetic fields to average of updated face centered fields.
  */
 
 #ifdef MHD
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-#if !defined CT_CONSERVE_ENERGY && !defined ISOTHERMAL
-        pGrid->U[k][j][i].E -= 0.5*( SQR(pGrid->U[k][j][i].B1c)
-          + SQR(pGrid->U[k][j][i].B2c) + SQR(pGrid->U[k][j][i].B3c) );
-#endif
         pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i]+pGrid->B1i[k][j][i+1]);
         pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j][i]+pGrid->B2i[k][j+1][i]);
         pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k][j][i]+pGrid->B3i[k+1][j][i]);
-
-#if !defined CT_CONSERVE_ENERGY && !defined ISOTHERMAL
-        pGrid->U[k][j][i].E += 0.5*( SQR(pGrid->U[k][j][i].B1c)
-          + SQR(pGrid->U[k][j][i].B2c) + SQR(pGrid->U[k][j][i].B3c) );
-#endif
       }
     }
   }
 #endif /* MHD */
 
+  return;
 }
+
 
 /*----------------------------------------------------------------------------*/
 /* integrate_destruct_3d:  Free temporary integration arrays */
@@ -696,6 +861,12 @@ void integrate_destruct_3d(void)
   if (emf2_cc != NULL) free_3d_array((void***)emf2_cc);
   if (emf3_cc != NULL) free_3d_array((void***)emf3_cc);
 #endif /* MHD */
+#ifdef H_CORRECTION
+  if (eta1 != NULL) free_3d_array((void***)eta1);
+  if (eta2 != NULL) free_3d_array((void***)eta2);
+  if (eta3 != NULL) free_3d_array((void***)eta3);
+#endif /* H_CORRECTION */
+
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
   if (B1_x1Face != NULL) free_3d_array((void***)B1_x1Face);
@@ -721,7 +892,6 @@ void integrate_destruct_3d(void)
   return;
 }
 
-
 /*----------------------------------------------------------------------------*/
 /* integrate_init_3d: Allocate temporary integration arrays */
 
@@ -736,64 +906,58 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
 #ifdef MHD
   if ((emf1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-
   if ((emf2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-
   if ((emf3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
 
   if ((emf1_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-
   if ((emf2_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-
   if ((emf3_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
 #endif /* MHD */
+#ifdef H_CORRECTION
+  if ((eta1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((eta2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((eta3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif /* H_CORRECTION */
 
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
 
   if ((B1_x1Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-
   if ((B2_x2Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-
   if ((B3_x3Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
 
   if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
 
-  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
+  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+  if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+  if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
 
-  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) == NULL)
-    goto on_error;
-
-  if ((Uhalf    = (Gas***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Gas))) == NULL)
+  if ((Uhalf = (Gas***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Gas))) == NULL)
     goto on_error;
 
   return;
@@ -827,11 +991,11 @@ static void integrate_emf1_corner(const Grid *pGrid)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   Real de1_l2, de1_r2, de1_l3, de1_r3;
 
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
-	/* NOTE: The x2-Flux of By is -E1. */
-	/*       The x3-Flux of Bz is +E1. */
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-2; i<=ie+2; i++) {
+/* NOTE: The x2-Flux of By is -E1. */
+/*       The x3-Flux of Bz is +E1. */
 	if (x2Flux[k-1][j][i].d > 0.0)
 	  de1_l3 = x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i];
 	else if (x2Flux[k-1][j][i].d < 0.0)
@@ -878,7 +1042,6 @@ static void integrate_emf1_corner(const Grid *pGrid)
   return;
 }
 
-
 static void integrate_emf2_corner(const Grid *pGrid)
 {
   int i, is = pGrid->is, ie = pGrid->ie;
@@ -886,11 +1049,11 @@ static void integrate_emf2_corner(const Grid *pGrid)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   Real de2_l1, de2_r1, de2_l3, de2_r3;
 
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
-	/* NOTE: The x1-Flux of Bz is +E2. */
-	/*       The x3-Flux of By is -E2. */
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-2; j<=je+2; j++) {
+      for (i=is-1; i<=ie+2; i++) {
+/* NOTE: The x1-Flux of Bz is +E2. */
+/*       The x3-Flux of By is -E2. */
 	if (x1Flux[k-1][j][i].d > 0.0)
 	  de2_l3 = -x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1];
 	else if (x1Flux[k-1][j][i].d < 0.0)
@@ -937,7 +1100,6 @@ static void integrate_emf2_corner(const Grid *pGrid)
   return;
 }
 
-
 static void integrate_emf3_corner(const Grid *pGrid)
 {
   int i, is = pGrid->is, ie = pGrid->ie;
@@ -945,11 +1107,11 @@ static void integrate_emf3_corner(const Grid *pGrid)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   Real de3_l1, de3_r1, de3_l2, de3_r2;
 
-  for (k=ks-3; k<=ke+3; k++) {
-    for (j=js-3; j<=je+3; j++) {
-      for (i=is-3; i<=ie+3; i++) {
-	/* NOTE: The x1-Flux of By is -E3. */
-	/*       The x2-Flux of Bx is +E3. */
+  for (k=ks-2; k<=ke+2; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+2; i++) {
+/* NOTE: The x1-Flux of By is -E3. */
+/*       The x2-Flux of Bx is +E3. */
 	if (x1Flux[k][j-1][i].d > 0.0)
 	  de3_l2 = x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1];
 	else if (x1Flux[k][j-1][i].d < 0.0)
@@ -996,4 +1158,3 @@ static void integrate_emf3_corner(const Grid *pGrid)
   return;
 }
 #endif /* MHD */
-#endif /* THREED_VL */
