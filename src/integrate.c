@@ -42,7 +42,7 @@ VGFun_t integrate_init(int Nx1, int Nx2, int Nx3)
     return integrate_2d;
   case 3:
     integrate_init_3d(Nx1,Nx2,Nx3);
-    return integrate_3d;
+    return THREE_D_INTEGRATOR;
   }
 
   ath_error("[integrate_init]: Unsupported dim. Nx1=%d, Nx2=%d, Nx3=%d\n",

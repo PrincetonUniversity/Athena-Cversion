@@ -24,29 +24,38 @@
 
 /* Problem generator with which Athena is compiled */
 #define A_PROBLEM "@PROBLEM@"
+
 /* HYDRO or MHD */
 #define @GAS@
+
 /* ADIABATIC or ISOTHERMAL */
 #define @EOS@
 
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER */
 #define @ACCURACY@
+
 /* flux_{roe, hlle, hllc, hlld, force} */
 #define @FLUX_DEF@
 #define GET_FLUXES flux_@FLUX_NAME@
 #define FLUX_TYPE "@FLUX_NAME@"
-/* 3D integrator: THREED_INT_CTU or THREED_INT_VL */
+
+/* integrate_3d_{vl, ctu} */
 #define @THREED_INT_DEF@
+#define THREE_D_INTEGRATOR integrate_3d_@INTEGRATOR@
 #define UNSPLIT_INTEGRATOR "@INTEGRATOR@"
 
 /* Real: DOUBLE_PREC or SINGLE_PREC */
 #define @PRECISION@
+
 /* debug mode: DEBUG or OPTIMIZE */
 #define @DEBUG_MODE@
+
 /* Write ghost cells in outputs: WRITE_GHOST_CELLS or NO_WRITE_GHOST_CELLS */
 #define @WRITE_GHOST_MODE@
+
 /* MPI parallelism: MPI_PARALLEL or MPI_SERIAL */
 #define @MPI_MODE@
+
 /* H-correction: H_CORRECTION or NO_H_CORRECTION */
 #define @H_CORRECTION_MODE@
 
@@ -59,7 +68,7 @@
  */
 
 enum {
-  nghost = 5,
+  nghost = 4,
   num_digit = 4
 };
 #define MAXLEN 256

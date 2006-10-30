@@ -155,7 +155,8 @@ void integrate_2d(Grid *pgrid);
 /* integrate_3d.c */
 void integrate_destruct_3d(void);
 void integrate_init_3d(int Nx1, int Nx2, int Nx3);
-void integrate_3d(Grid *pgrid);
+void integrate_3d_vl(Grid *pgrid);
+void integrate_3d_ctu(Grid *pgrid);
 
 /*----------------------------------------------------------------------------*/
 /* lr_states.c */

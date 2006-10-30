@@ -27,8 +27,7 @@ CORE_OBJ = ath_array.o \
            init_domain.o \
            integrate_1d.o \
            integrate_2d.o \
-           integrate_3d-vl.o \
-           integrate_3d-ctu.o \
+           integrate_3d_@INTEGRATOR@.o \
            integrate.o \
            lr_states_prim1.o \
            lr_states_prim2.o \
