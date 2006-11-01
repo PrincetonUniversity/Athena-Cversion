@@ -38,7 +38,7 @@ static int wave_flag;
 void problem(Grid *pGrid, Domain *pDomain)
 {
   int i=0,j=0,k=0;
-  int is,ie,iu,js,je,ju,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2;
+  int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2;
   Real amp,vflow,angle;
   Real d0,p0,u0,v0,w0,h0;
   Real x1,x2,x3,r,ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
