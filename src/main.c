@@ -233,10 +233,6 @@ int main(int argc, char *argv[])
 /* set variables in <time> block (these control execution time) */
 
   CourNo = par_getd("time","cour_no");
-#ifdef THREED_VL
-  if (CourNo >= 0.5)
-    ath_error("CourNo=%e , must be < 0.5 with VL integrator\n",CourNo);
-#endif
   nlim = par_geti_def("time","nlim",-1);
   tlim = par_getd("time","tlim");
 
@@ -258,6 +254,10 @@ int main(int argc, char *argv[])
 
   init_domain(&level0_Grid, &level0_Domain);
   init_grid  (&level0_Grid, &level0_Domain);
+
+  if (level0_Grid.Nx1 > 1 && level0_Grid.Nx2 > 1 && level0_Grid.Nx3 > 1
+    && CourNo >= 0.5) 
+    ath_error("CourNo=%e , must be < 0.5 with 3D integrator\n",CourNo);
 
 /*--- Step 5. ----------------------------------------------------------------*/
 /* Set function pointers for integrate (based on dimensionality) */
