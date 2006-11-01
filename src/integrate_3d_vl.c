@@ -353,7 +353,9 @@ void integrate_3d_vl(Grid *pGrid)
           g = (*x1GravAcc)(x1,x2,x3);
 
           Uhalf[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+#ifndef ISOTHERMAL
           Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M1*g;
+#endif
         }
       }
     }
@@ -367,7 +369,9 @@ void integrate_3d_vl(Grid *pGrid)
           g = (*x2GravAcc)(x1,x2,x3);
 
           Uhalf[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+#ifndef ISOTHERMAL
           Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M2*g;
+#endif
         }
       }
     }
@@ -381,7 +385,9 @@ void integrate_3d_vl(Grid *pGrid)
           g = (*x3GravAcc)(x1,x2,x3);
 
           Uhalf[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+#ifndef ISOTHERMAL
           Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M3*g;
+#endif
         }
       }
     }
