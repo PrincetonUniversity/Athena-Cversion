@@ -9,13 +9,13 @@ cpaw1d.c:
 Circularly Polarized Alfven Wave test of Toth.  This initializes only truly 1D
 tests, that is wave must be in x1-direction only.
 
-linear_wave1.c:
-===============
+linear_wave1d.c:
+================
 Linear Wave convergence test.  Can run 1D, 2D, or 3D problems, but wave must be
 grid-aligned, i.e. along x1-, x2-, or x3-axis respectively.
 
-shkset1.c:
-==========
+shkset1d.c:
+===========
 Shock Set -- initializes 1D Riemann problems.  Can run 1D, 2D, or 3D
 problems, but shock must be grid-aligned, i.e. along x1-, x2-, or x3-axis
 respectively.
@@ -36,9 +36,13 @@ respectively.
 
 blast.c:
 ========
+Generates a spherical blast wave in both hydro and MHD.  For MHD, field is
+in x-y plane.  Can be used for 2D and 3D (although B must be in x-y plane).
 
 carbuncle.c
 ===========
+Sets up propagating planar shock in 2D/3D to test for carbuncle instability.
+Shock is stable only when --enable-h-correction is used.
 
 cpaw2d.c:
 =========
@@ -52,7 +56,12 @@ Double Mach Reflection test of Woodward & Colella.  Only works for genuinely
 
 field_loop.c
 ============
-Advection of a passive field-loop in 2D, used to test CT algorithm in GS05.
+Advection of a passive field-loop in 2D/3D, used to test CT algorithm in GS05.
+
+linear_wave2d.c:
+================
+Linear Wave convergence test.  Can run 2D problems, with wavevector at any
+angle in the x1-x2 plane.
 
 lw_implode.c:
 =============
@@ -84,3 +93,32 @@ rt.c
 ====
 Rayleigh-Taylor instability problem.  Initializes both 2D and 3D problems,
 with and without a magnetic field.
+
+shkset2d.c:
+===========
+Shock Set -- initializes 2D Riemann problems.  Can run 2D problems, with
+wavevector at any angle in the x1-x2 plane.
+
+================================================================================
+                              3-D problems
+================================================================================
+
+cpaw3d.c:
+=========
+Circularly Polarized Alfven Wave test of Toth.  Initializes wavevector at any
+arbitrary angle to grid in 3D.
+
+field_loop.c
+============
+Advection of a passive field-loop in 2D/3D, used to test CT algorithm in GS07.
+For 3D, cylindrical flux-tube inclined at any angle to grid is allowed.
+
+linear_wave3d.c:
+================
+Linear Wave convergence test.  Can run 3D problems, with wavevector at any
+angle to the grid.
+
+shkset3d.c:
+===========
+Shock Set -- initializes 3D Riemann problems.  Can only run 3D problems, with
+wavevector at any angle.
