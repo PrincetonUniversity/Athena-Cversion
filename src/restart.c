@@ -33,7 +33,7 @@
  *   the command line, or from a new input file.
  */
 
-void restart_grid_block(char *res_file, Grid *pG)
+void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
 {
   FILE *fp;
   char line[MAXLEN];
@@ -214,7 +214,7 @@ void restart_grid_block(char *res_file, Grid *pG)
     ath_error("[restart_grid_block]: Expected USER_DATA, found %s",line);
 
 /* Call a user function to read his/her problem-specific data! */
-  problem_read_restart(pG, fp);
+  problem_read_restart(pG, pD, fp);
 
   fclose(fp);
 
@@ -356,7 +356,7 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   fprintf(fp,"\nUSER_DATA\n");
 
 /* call a user function to write his/her problem-specific data! */
-  problem_write_restart(pG, fp);
+  problem_write_restart(pG, pD, fp);
 
   fclose(fp);
 

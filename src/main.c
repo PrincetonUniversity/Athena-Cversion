@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
  * problem generator */
 
   if(ires) 
-    restart_grid_block(res_file,&level0_Grid);  /*  Restart */
+    restart_grid_block(res_file, &level0_Grid, &level0_Domain);  /*  Restart */
   else     
     problem(&level0_Grid, &level0_Domain);      /* New problem */
 

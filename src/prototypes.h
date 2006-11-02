@@ -230,14 +230,14 @@ void par_dist_mpi(const int mytid, MPI_Comm comm);
 void problem(Grid *pgrid, Domain *pDomain);
 void Userwork_in_loop(Grid *pgrid, Domain *pDomain);
 void Userwork_after_loop(Grid *pgrid, Domain *pDomain);
-void problem_read_restart(Grid *pG, FILE *fp);
-void problem_write_restart(Grid *pG, FILE *fp);
+void problem_read_restart(Grid *pG, Domain *pD, FILE *fp);
+void problem_write_restart(Grid *pG, Domain *pD, FILE *fp);
 Gasfun_t get_usr_expr(const char *expr);
 
 /*----------------------------------------------------------------------------*/
 /* restart.c  */
 void dump_restart(Grid *pG, Domain *pD, Output *pout);
-void restart_grid_block(char *res_file, Grid *pGrid);
+void restart_grid_block(char *res_file, Grid *pGrid, Domain *pDomain);
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals.c  */
