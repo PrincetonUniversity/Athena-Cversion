@@ -96,12 +96,12 @@ Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp)
+void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp)
+void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }

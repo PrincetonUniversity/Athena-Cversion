@@ -705,12 +705,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp)
+void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp)
+void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }

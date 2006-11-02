@@ -207,12 +207,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * A3() - computes vector potential to initialize fields
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp)
+void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp)
+void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }

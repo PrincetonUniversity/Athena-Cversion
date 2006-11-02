@@ -282,12 +282,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Bp2()     - computes magnetic pressure (Bx2 + By2)
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, FILE *fp)
+void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp)
+void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }

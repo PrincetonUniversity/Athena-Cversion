@@ -83,20 +83,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
-{
-}
-
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
-{
-}
-
-void problem_write_restart(Grid *pG, FILE *fp)
+void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, FILE *fp)
+void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   return;
 }
@@ -105,6 +97,14 @@ Gasfun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"diff_d")==0) return expr_diff_d;
   return NULL;
+}
+
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+{
+}
+
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+{
 }
 
 static Real expr_diff_d(const Grid *pG, const int i, const int j, const int k)
