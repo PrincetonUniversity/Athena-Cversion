@@ -506,6 +506,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* First, the interface magnetic fields */
 
+#ifdef MHD
   for(k=0; k<=rz; k++){
     for(j=0; j<=ry; j++){
       for(i=0; i<=(rx+rx); i++){
@@ -548,6 +549,7 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
     }
   }
+#endif /* MHD */
 
 /* Next, the volume averaged quantities */
   for(k=0; k<rz; k++){
@@ -688,9 +690,11 @@ void problem(Grid *pGrid, Domain *pDomain)
   set_bvals_fun(right_x3, rz_bc);
 
   free_3d_array((void***)sqa );  sqa  = NULL;
+#ifdef MHD
   free_3d_array((void***)sB1i);  sB1i = NULL;
   free_3d_array((void***)sB2i);  sB2i = NULL;
   free_3d_array((void***)sB3i);  sB3i = NULL;
+#endif /* MHD */
 
   return;
 }
@@ -976,6 +980,7 @@ static void rz_bc(Grid *pG)
  * Ax,Ay,Az: x,y,z-components of vector potential
  */
 
+#ifdef MHD
 static Real Ax(const Real x, const Real y, const Real z)
 {
   Real x1 = x*cos_a2*cos_a3 + y*cos_a2*sin_a3 + z*sin_a2;
@@ -1002,3 +1007,4 @@ static Real Az(const Real x, const Real y, const Real z)
 
   return A3*cos_a2;
 }
+#endif /* MHD */
