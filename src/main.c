@@ -172,8 +172,9 @@ int main(int argc, char *argv[])
 
     if(len + 10 > MAXLEN)
       ath_error("[main]: Restart filename length = %d is too large\n",len);
-
+    
 /* Share the restart filename with the children */
+    if(grid_level0.my_id == 0) strcpy(new_name, res_file);
     if(MPI_SUCCESS != MPI_Bcast(new_name, len, MPI_CHAR, 0, MPI_COMM_WORLD))
       ath_error("[main]: Error on calling MPI_Bcast\n");
 
