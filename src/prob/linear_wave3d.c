@@ -124,7 +124,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[linear_wave3d]: Error allocating memory for \"a3\"\n");
 #endif /* MHD */
 
-  if ((Soln = (Gas***)calloc_3d_array(nx3, nx2, nx1, sizeof(Real))) == NULL)
+  if ((Soln = (Gas***)calloc_3d_array(nx3, nx2, nx1, sizeof(Gas))) == NULL)
     ath_error("[linear_wave3d]: Error allocating memory for \"Soln\"\n");
 
 /* Read initial conditions */
@@ -192,13 +192,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   v0 = 0.0;
   w0 = 0.0;
 #ifdef MHD
+/* Note the field components are different than used in linear_wave1d and
+ * linear_wave2d, due to rotations needed in 3D  */
   bx0 = 1.0;
-/*
-  by0 = 1.0;
-  bz0 = sqrt(1.25);
-*/
-  /* by0 = sqrt(2.0);
-     bz0 = 0.5; */
   by0 = 1.5;
   bz0 = 0.0;
   xfact = 0.0;
@@ -262,11 +258,11 @@ void problem(Grid *pGrid, Domain *pDomain)
       for (i=is; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-	a1[k][j][i] = A1(x1, x2 - 0.5*pGrid->dx2, x3 - 0.5*pGrid->dx3);
+	a1[k][j][i] = A1(x1, x2-0.5*pGrid->dx2, x3-0.5*pGrid->dx3);
 
-	a2[k][j][i] = A2(x1 - 0.5*pGrid->dx1, x2, x3 - 0.5*pGrid->dx3);
+	a2[k][j][i] = A2(x1-0.5*pGrid->dx1, x2, x3-0.5*pGrid->dx3);
 
-	a3[k][j][i] = A3(x1 - 0.5*pGrid->dx1, x2 - 0.5*pGrid->dx2, x3);
+	a3[k][j][i] = A3(x1-0.5*pGrid->dx1, x2-0.5*pGrid->dx2, x3);
       }
     }
   }
