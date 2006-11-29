@@ -346,46 +346,40 @@ void init_output(Grid *pGrid)
 void data_output(Grid *pGrid, Domain *pD, const int flag)
 {
   int n;
-  int dump_flag;
+  int dump_flag[MAXOUT_DEFAULT+1];
   char block[80];
 
-/* Loop over all elemensts in output array */
-
+/* Loop over all elements in output array
+ * set dump flag to input argument, check whether time for output */
   for (n=0; n<out_count; n++) {
-
-/* set dump flag to input argument, check whether time for output */
-
-    dump_flag = flag;
+    dump_flag[n] = flag;
     if (pGrid->time >= OutArray[n].t) {
       OutArray[n].t += OutArray[n].dt;
-      dump_flag = 1;
-    }
-
-/* If flag=1, make output */
-
-    if(dump_flag != 0) {
-      (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
-      OutArray[n].num++;
+      dump_flag[n] = 1;
     }
   }
 
-
-/* Now check for restart dump.  Steps are same as above */
-
+/* Now check for restart dump, and make restart if dump_flag != 0 */
   if(rst_flag){
-    dump_flag = flag;
+    dump_flag[out_count] = flag;
     if(pGrid->time >= rst_out.t){
       rst_out.t += rst_out.dt;
-      dump_flag = 1;
+      dump_flag[out_count] = 1;
     }
 
-    if(dump_flag != 0){
+    if(dump_flag[out_count] != 0){
 /* Update the output numbers and times in the output blocks */
       for(n=0; n<out_count; n++){
 /* User enrolled outputs have outn < 0 */
 	if(OutArray[n].n > 0){
 	  sprintf(block,"output%d",OutArray[n].n);
-	  par_seti(block,"num","%d",OutArray[n].num,"Next Output Number");
+          if (dump_flag[n] != 0) {
+/* About to write this output, so increase the output
+ * number given in the restart file */
+	    par_seti(block,"num","%d",OutArray[n].num+1,"Next Output Number");
+          } else {
+	    par_seti(block,"num","%d",OutArray[n].num,"Next Output Number");
+          }
 	  par_setd(block,"time","%.15e",OutArray[n].t,"Next Output Time");
 	}
       }
@@ -398,6 +392,15 @@ void data_output(Grid *pGrid, Domain *pD, const int flag)
       (*(rst_out.fun))(pGrid,pD,&(rst_out));
 
       rst_out.num++;
+    }
+  }
+
+/* Loop over all elements in output array
+ * If dump_flag != 0, make output */
+  for (n=0; n<out_count; n++) {
+    if(dump_flag[n] != 0) {
+      (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
+      OutArray[n].num++;
     }
   }
 
