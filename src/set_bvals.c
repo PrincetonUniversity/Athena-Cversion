@@ -175,22 +175,12 @@ void set_bvals(Grid *pGrid)
       err = MPI_Wait(&rq, &stat);
       if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
 
-      send_ix1(pGrid, &rq);  /* send L */
       receive_ox1(pGrid);    /* listen R */
-
-      /* Make sure send was successful */
-      err = MPI_Wait(&rq, &stat);
-      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     } 
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx1_id < 0 && pGrid->lx1_id >= 0) {
-      send_ox1(pGrid, &rq);  /* send R */
       receive_ix1(pGrid);    /* listen L */
-
-      /* Make sure send was successful */
-      err = MPI_Wait(&rq, &stat);
-      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
 
       send_ix1(pGrid, &rq);  /* send L */
       (*apply_ox1_bc)(pGrid);
@@ -241,22 +231,12 @@ void set_bvals(Grid *pGrid)
       err = MPI_Wait(&rq, &stat);
       if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
 
-      send_ix2(pGrid, &rq);  /* send L */
       receive_ox2(pGrid);    /* listen R */
-
-      /* Make sure send was successful */
-      err = MPI_Wait(&rq, &stat);
-      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx2_id < 0 && pGrid->lx2_id >= 0) {
-      send_ox2(pGrid, &rq);  /* send R */
       receive_ix2(pGrid);    /* listen L */
-
-      /* Make sure send was successful */
-      err = MPI_Wait(&rq, &stat);
-      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
 
       send_ix2(pGrid, &rq);  /* send L */
       (*apply_ox2_bc)(pGrid);
@@ -307,22 +287,12 @@ void set_bvals(Grid *pGrid)
       err = MPI_Wait(&rq, &stat);
       if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
 
-      send_ix3(pGrid, &rq);  /* send L */
       receive_ox3(pGrid);    /* listen R */
-
-      /* Make sure send was successful */
-      err = MPI_Wait(&rq, &stat);
-      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx3_id < 0 && pGrid->lx3_id >= 0) {
-      send_ox3(pGrid, &rq);  /* send R */
       receive_ix3(pGrid);    /* listen L */
-
-      /* Make sure send was successful */
-      err = MPI_Wait(&rq, &stat);
-      if(err) ath_error("[set_bvals]: MPI_Wait error = %d\n",err);
 
       send_ix3(pGrid, &rq);  /* send L */
       (*apply_ox3_bc)(pGrid);
