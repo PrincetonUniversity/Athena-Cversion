@@ -30,10 +30,9 @@ static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
 void integrate_1d(Grid *pGrid)
 {
   Real dtodx1 = pGrid->dt/pGrid->dx1, hdt = 0.5*pGrid->dt, dt = pGrid->dt;
-  int is = pGrid->is, ie = pGrid->ie;
+  int i, is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks;
-  int i,il = pGrid->is - 2,iu = pGrid->ie + 2;
   Real x1, x2, x3, g;
 
 /*--- Step 1 -------------------------------------------------------------------
@@ -60,14 +59,14 @@ void integrate_1d(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-  lr_states(U1d,Bxc,Bxi,dt,dtodx1,il,iu,Ul_x1Face,Ur_x1Face);
+  lr_states(U1d,Bxc,Bxi,dt,dtodx1,is,ie,Ul_x1Face,Ur_x1Face);
 
 /*--- Step 3 -------------------------------------------------------------------
  * Add gravitational source terms for dt/2 from static potential to L/R states
  */
 
   if (x1GravAcc != NULL){
-    for (i=il; i<=iu+1; i++) {
+    for (i=is; i<=ie+1; i++) {
 
 /* Calculate the face-centered acceleration */
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
@@ -88,7 +87,7 @@ void integrate_1d(Grid *pGrid)
  * Compute 1D fluxes in x1-direction
  */
 
-  for (i=il; i<=iu+1; i++) {
+  for (i=is; i<=ie+1; i++) {
     GET_FLUXES(Bxi[i],Ul_x1Face[i],Ur_x1Face[i],&x1Flux[i]);
   }
 
