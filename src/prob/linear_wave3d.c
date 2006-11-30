@@ -192,11 +192,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   v0 = 0.0;
   w0 = 0.0;
 #ifdef MHD
-/* Note the field components are different than used in linear_wave1d and
- * linear_wave2d, due to rotations needed in 3D  */
   bx0 = 1.0;
-  by0 = 1.5;
-  bz0 = 0.0;
+  by0 = sqrt(2.0);
+  bz0 = 0.5;
   xfact = 0.0;
   yfact = 1.0;
 #endif
