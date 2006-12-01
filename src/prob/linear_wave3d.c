@@ -5,11 +5,8 @@
  * PURPOSE: Linear wave problem generator for 3D problems. The generalization
  *   of linear_wave.c to handle 1D, 2D, and 3D problems seemed more complex
  *   than neccessary, so this special routine has been written to handle only
- *   3D problems.
- *
- * The angles the wave propagates to the grid is automatically computed
- * to be alpha12 = tan^{-1} (Y/X) and alpha23 = tan^{-1} (Z/Y).  For
- * grid-aligned waves in 3D, use linear_wave[1,2]d.c
+ *   3D problems.  This routine automatically sets the wavevector along the
+ *   domain diagonal (cannot run grid-aligned waves).
  *
  * This code is most easily understood in terms of a one dimensional
  * problem in the coordinate system (x,y,z).  Two coordinate rotations are

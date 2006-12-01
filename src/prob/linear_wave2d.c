@@ -4,7 +4,7 @@
  *
  * PURPOSE: Problem generator for linear wave convergence tests in 2D.  In 2D,
  *   the angle the wave propagates to the grid is automatically computed
- *   to be tan^{-1} (Y/X), so that periodic boundary conditions can be used,
+ *   to be tan^{-1} (X/Y), so that periodic boundary conditions can be used,
  *   and the size of the box is automatically rescaled so that the fast wave
  *   crossing time (across a diagonal) is one-half, the Alfven wave crossing
  *   time is one, and the slow wave crossing time is two.
@@ -42,7 +42,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   Real amp,vflow,angle;
   Real d0,p0,u0,v0,w0,h0;
   Real x1,x2,x3,r,ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
-  Real x1max,x2max,lambda;
+  Real x1size,x2size,lambda;
 #ifdef MHD
   Real bx0,by0,bz0,xfact,yfact;
   Real **az;
@@ -80,13 +80,29 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Set angle, dynamically resize grid so length of diagonal is one */
 
-  angle = atan((Nx1*pGrid->dx1)/(Nx2*pGrid->dx2));
-  x1max = sin(angle);
-  x2max = cos(angle);
-  lambda = x2max*sin(angle);
+  x1size = Nx1*pGrid->dx1;
+  x2size = Nx2*pGrid->dx2;
+  angle = atan(x1size/x2size);
 
-  pGrid->dx1 = x1max/(Real)Nx1;
-  pGrid->dx2 = x2max/(Real)Nx2;
+  x1 = x1size*cos(angle);
+  x2 = x2size*sin(angle);
+
+/* For lambda choose the smaller of the 2 */
+  lambda = x1;
+  lambda = MIN(lambda,x2);
+
+  printf("lambda = %e\n",lambda);
+  printf("In order to make lambda = 1 the Grid is being rescaled to have\n");
+  printf("x1size = %e\n",x1size/lambda);
+  printf("x2size = %e\n",x2size/lambda);
+
+  x1size /= lambda;
+  x2size /= lambda;
+
+  pGrid->dx1 /= lambda;
+  pGrid->dx2 /= lambda;
+
+  lambda = 1.0;
 
 /* Get eigenmatrix, where the quantities u0 and bx0 are parallel to the
  * wavevector, and v0,w0,by0,bz0 are perpendicular. */
