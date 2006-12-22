@@ -46,62 +46,88 @@ CORE_OBJ = ath_array.o \
            set_bvals.o \
            show_config.o \
            utils.o
-#-------------------------------------------------------------------------------
+
 ifeq (@FLUX_NAME@,roe)
    OBJ = $(CORE_OBJ) flux_hlle.o
 else
    OBJ = $(CORE_OBJ)
 endif
+
 #-------------------  macro definitions  ---------------------------------------
+
+BIN = ${EXEDIR}athena
 EXEDIR = ../bin/
 SRC = $(OBJ:.o=.c)
-#
-CC  = @CC@
-LDR = @CC@
-#  optimization levels
-OPT = @COMPILER_OPTS@
-#  need to fix this for non-gnu compilers
-#  eg. Intel compiler (icc) on P4 likes to see (w/ around 100% improvement!):
-#       -xW -tpp7 -ipo -i_dynamic
-#      Sun compiler (/opt/SUNWspro/bin/cc):
-#  some GNU optimization (on P4) can be done via 
-#	-march=pentium4  -mcpu=pentium4   -msse  -msse2  -mmmx
-#    and:     -pipe -fomit-frame-pointer
-#  on P3 one can typically find a 3% improvement via:
-#	-march=pentium3  -mcpu=pentium3   -msse  -mmmx
-#  on a (ultra)sparc this does pretty well: (native C compiler)
-#	-fast -xtarget=ultra2
-#  under Mac OS X (G4) you need to comment out -ldl
-# 	also flags like -mpowerpc -maltivec doesn't seem to help
-GNUFLAGS = 
-MPIINC  = @MPIINC@
-CFLAGS = $(OPT) $(GNUFLAGS) $(MPIINC)
-MPILIB = @MPILIB@
-LIB = $(MPILIB) -ldl -lm
-BIN = ${EXEDIR}athena
-all:	compile
+MACHINE = generic
+
+#-------------------  compiler/library definitions  ----------------------------
+# select using MACHINE=<name> in command line.  For example
+#    ophir> make all MACHINE=ophir
+# New machines can be added to ifeq blocks below.
+
+ifeq ($(MACHINE),generic)
+  CC  = @CC@
+  LDR = @CC@
+  OPT = @COMPILER_OPTS@
+  CFLAGS = $(OPT)
+  LIB = -ldl -lm
+else
+ifeq ($(MACHINE),ophir)
+  CC = icc
+  LDR = icc
+  OPT = -O2 -xW -tpp7 -ipo -i_dynamic -gcc-name=gcc32
+  MPIINC  = -I/scr0/mpich-1.2.7p1/include
+  MPILIB = -L/scr0/mpich-1.2.7p1/lib -lmpich
+  CFLAGS = $(OPT) $(MPIINC)
+  LIB = $(MPILIB) -ldl -lm
+else
+ifeq ($(MACHINE),macosx)
+  CC = gcc
+  LDR = gcc
+  OPT = @COMPILER_OPTS@
+  CFLAGS = $(OPT)
+  LIB = -lm
+else
+ifeq ($(MACHINE),hydra)
+  CC = icc
+  LDR = icc
+  OPT = -O2 -xW -tpp7 -ipo -i-static
+  MPIINC  = -I/opt/mpich-1.2.6.gcc/include
+  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
+  CFLAGS = $(OPT) $(MPIINC)
+  LIB = $(MPILIB) -ldl -lm
+else
+  abort Unsupported MACHINE=$(MACHINE)
+endif
+endif
+endif
+endif
 
 #--------------------  implicit rules  -----------------------------------------
+
 .c.o:
 	${CC} ${CFLAGS} -c $<
+
 #---------------------  targets  -----------------------------------------------
+
+all:	compile
+
 .PHONY: compile
 compile: ${BIN}
 
 ${BIN}: ${OBJ} 
 	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${LIB}
-#-------------------------------------------------------------------------------
+
 help:
 	@echo This is the Athena Makefile
 	@echo Type 'make compile' to generate Athena executable
 	@echo Type 'make clean'   to remove '*.o' files
 	@echo OBJ=$(OBJ)
-#-------------------------------------------------------------------------------
+
 .PHONY: clean
 clean:
 	rm -f *.o Makedepend $(BIN)
 
-#-------------------------------------------------------------------------------
 depend: Makedepend
 
 Makedepend:
