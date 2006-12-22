@@ -1,15 +1,11 @@
 \nonstopmode
 \documentstyle[11pt]{article}
-% \documentclass[11pt]{article}
-
-%\usepackage{palatino}
 
 \setlength{\textheight}{9.0in}
 \setlength{\textwidth}{6.5in}
 \hoffset=-1.3 truecm
 \voffset=-1.7 truecm
 
-% a box
 \newcommand{\SEP}[1]{\setlength{\fboxsep}{#1pt}}
 \newsavebox{\Qbox}
 \newenvironment{Ebox}{\hspace*{.1in}%
@@ -58,7 +54,7 @@ Virginia \\ PO Box 3818 University Station \\ Charlottesville, VA 22903} \vspace
 
 \section{Introduction}
 
-{\it Athena} is a grid-based code for astrophysical gas dynamics being
+{\it Athena} is a grid-based code for astrophysical gas dynamics
 developed with support of the NSF Information Technology Research (ITR)
 program.  This {\it User's Guide} describes version 3.0 (hereafter
 referred to as \ath); the third publicly released version of the code.
@@ -66,50 +62,42 @@ referred to as \ath); the third publicly released version of the code.
 The primary goal of the {\it Athena} project is to develop a robust and
 flexible code with multiple-physics options in a variety of geometries,
 using flexible gridding methods, and optimized for modern shared or
-distributed memory parallel machines.  This code is necessary to enable
-increasingly sophisticated investigations of a wide variety of problems
-in astrophysical gas dynamics.  As part of the project, {\it Athena}
+distributed memory parallel machines.  As part of the project, {\it Athena}
 will be made freely available to the astrophysics community, along with
-complete documentation and web-based training material.  Although the
-capabilities of \ath\ are still quite restricted compared to the ultimate
-goals of the project, it is being freely distributed consistent with
-this open source philosophy.
+complete documentation and web-based training material consistent with
+an open source philosophy.
 
 The \ath\ code contains algorithms for
 the following:
 \begin{itemize}
-\item compressible hydrodynamics and ideal MHD in one- or two-spatial dimensions
+\item compressible hydrodynamics and ideal MHD in one-, two-, or three-spatial dimensions
 \item ideal gas equation of state with arbitrary $\gamma$ (including 
 $\gamma = 1$, an isothermal EOS)
 \item second- or third-order reconstruction using the characteristic variables
 (first-order interpolation is also available)
-\item numerical fluxes computed using Roe's, or the HLLE, approximate Riemann
-solver (the HLLC solver is also available but for hydrodynamics only)
-\item the ability to add arbitrary source terms to the equations of motion
-(except for the magnetic field)
+\item numerical fluxes computed using a variety of Riemann solvers (including
+various solvers based on HLL fluxes, and Roe's linearization).
+\item the ability to add source terms due to a static gravitational potential
+\item parallization based on MPI.
 \end{itemize}
-Since later versions of the code will always be backwards compatible
-(in particular, they will run one-dimensional problems simply and
-efficiently), {\bf it is strongly advised to use the latest release of
+It is strongly advised to use the latest release of
 the code for research problems (even those in one-dimension) to take
-advantage of improvements and potential bug fixes.}
+advantage of improvements and potential bug fixes.
 
 There are four basic sources of documentation for {\it Athena}
 \begin{enumerate}
-\item {\it The Method Paper:} (in preparation)
+\item {\it The Method Papers:} There are four in all
 \item {\it The User's Guide:} (this document) gives an overview of how to
 install, configure, compile, and run \ath\ and visualize the resulting output.
-Necessary reading for all users.
 \item {\it The Programmers's Guide:} gives a basic introduction to the 
 data structures, variable names, grid definitions, and code structure.
-Necessary reading for users who want to modify or extend the code.
-\item {\it Web-based Tutorials:} contains step-by-step instructions
+\item {\it Web-based Tutorials:} contains instructions
 for running problems from the \ath\ test suite, including examples of results.
 \end{enumerate}
 
 Users of \ath\ should have a basic, working knowledge of the Unix
 operating system, access to a C compiler, and a graphics package for
-plotting or animating one- and two-dimensional data.  Some familiarity
+plotting or animating one-, two-, and three-dimensional data.  Some familiarity
 with code management using Makefiles is helpful but not necessary.
 
 The code has been developed using the GNU development tools, and
@@ -117,19 +105,53 @@ maintaining strict adherence to ANSI standards, thus it should be possible
 to configure, compile, and run the code on any platform that supports these
 standards.  It has been tested on Linux, MacOSX, and Solaris.
 
-\subsection{Changes from {\tt athena1.1}}
+\subsection{Changes from {\tt athena2.0}}
 
-The last publicly released version of the code was v1.1.  The current version
-differs primarily in that it implements an unsplit, 
-multi-dimensional algorithm, and that source terms can now be included.
-The technical details of this algorithm
-are described in the Method Paper.
+The last publicly released version of the code was v2.0.  The current version
+differs primarily in that it implements two different unsplit, three-dimensional
+algorithms; one based on CTU, and one based on the algorithm due to 
+van Leer.  
+The technical details of these algorithms
+are described in Gardiner \& Stone (2007) and Stone \& Gardiner (2007)
+respectively. 
 
 In addition, there are a number of structural changes to the code, including
-(1) some files in {\tt /src} are renamed, and many new files are added,
-(2) new options have been added to the configure script,
-(3) data output is unified into a single mechanism controlled by {\tt <output>}
-blocks in the input file (see \S 3). 
+(1) some files in {\tt /src} and {\tt src/prob} are renamed, and many new files are added,
+(2) many new tests and scripts have been added in {\tt /tst}
+(3) many options have changed in the configure script,
+(4) new data output modes and options have been added.
+(5) parallelization using domain decompostion based on MPI and controlled
+by a new parameters in the input file.
+
+\subsection{Future versions}
+
+This is the last version of \ath released with support of the NSF
+ITR program, and there is no planned schedule for future releases.
+The current developmental version of \ath includes many more
+algorithmic extensions than included in \ath, such as static and
+adaptive mesh refinement, self-gravity, and radiation transfer.
+Some of these extensions may be included in future releases.
+
+\section{Quick Start}
+
+To install, configure, compile, and run the code do the following.
+\begin{enumerate}
+\item download, uncompress, and untar the source code distribution file.
+\item create the configure script by running {\tt autoconf} in the
+{\tt athena3.0} directory
+\item Test the install by running {\tt make test}.
+\item {\tt configure --help} lists optional packages and features in the
+script.  Run {\tt configure} with no arguments to create the default
+configuration (shock tube tests initialized by {\tt /src/prob/shkset1d.c}
+using adiabatic MHD with Roe fluxes).
+\item Run {\tt make all} to compile code.  {\tt make help} lists
+comman line options to the make script, including how to add new machines.
+This step should create a new directory {\tt /athena3.0/bin} which contains
+the executable.
+\item For the default configuration, {\tt athena -i ../tst/1D-mhd/athinput.brio-wu} will run the 1D Brio \& Wu shocktube test and create output files.
+\item If IDL is installed on the system, the IDL procedures in {\tt /vis/idl/pltath.pro} can be used to visualize the output data.
+\item
+\end{enumerate}
 
 \section{Getting Started}
 
@@ -153,6 +175,9 @@ the following directory structure should be created:
               /1D-mhd
               /2D-hydro
               /2D-mhd
+              /3D-hydro
+              /3D-mhd
+          /vis            visualization tools and scripts
           /vis            visualization tools and scripts
               /dx         OpenDX scripts
               /idl        IDL (rsinc.com) scripts
