@@ -189,54 +189,14 @@ fi
 
 #-------------------------------------------------------------------------------
 # FEATURE: parallelize with MPI, --enable-mpi (default is no MPI)
-# PACKAGE: set MPI library path, --with-mpi-prefix='path'
 
 AC_SUBST(MPI_MODE)
-AC_SUBST(MPIINC)
-AC_SUBST(MPILIB)
 
 AC_ARG_ENABLE(mpi, [  --enable-mpi           enable MPI parellelization], ok=$enableval, ok=no)
 if test "$ok" = "no"; then
   MPI_MODE="MPI_SERIAL"
-  MPIINC=""
-  MPILIB=""
 else
-  AC_MSG_CHECKING(whether we have MPI library)
-  AC_ARG_WITH(mpi-prefix,
-        [  --with-mpi-prefix=PFX   Prefix where MPI was installed (/usr/local)],
-        mpi_prefix="$withval",
-        mpi_prefix="/usr/local")
-
-  mpi=$mpi_prefix
-  for dir in $mpi/include 
-    do
-        if test -f $dir/mpi.h; then
-                MPIINC="-I$dir"
-                break;
-        fi
-    done
-  for dir in $mpi/lib
-    do
-        if test -f $dir/libmpich.a; then
-                MPILIB="-L$dir -lmpich"
-                break;
-        fi
-    done
-                                                                              
-# MPI library was found, enable MPI
-  if test "X$MPIINC" != "X"; then
-    AC_DEFINE(HAVE_MPI)
-    AC_MSG_RESULT([$MPIINC $MPILIB])
-    MPI_MODE="MPI_PARALLEL"
-
-# MPI library was not found, disable MPI
-  else
-    MPI_MODE="MPI_SERIAL"
-    MPIINC=""
-    MPILIB=""
-    AC_MSG_RESULT(no)
-    AC_MSG_WARN(disabling MPI support, or use --with-mpi-prefix=)
-  fi
+  MPI_MODE="MPI_PARALLEL"
 fi
 
 #-------------------------------------------------------------------------------
