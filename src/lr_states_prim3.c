@@ -48,15 +48,16 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
  *   U1d = CONSERVED variables at cell centers along 1-D slice
  *   Bx{c/i} = B in direction of slice at cell {center/interface}
  *   dt = timestep;  dtodx = dt/dx
- *   is,ie = starting and ending indices of zone centers in slice
- * U1d and Bxc must be initialized over [is-nghost:ie+nghost]
+ *   il,iu = lower and upper indices of zone centers in slice
+ * U1d and Bxc must be initialized over [il-3:iu+3]
+ * Bxi must be initialized over [il:iu+1]
  *
  * Output Arguments:
- *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [is:ie+1]
+ *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
-	       const Real dt, const Real dtodx, const int is, const int ie,
+	       const Real dt, const Real dtodx, const int il, const int iu,
 	       Cons1D Ul[], Cons1D Ur[])
 {
   int i,n,m;
@@ -81,16 +82,16 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
  */
 
-  for (i=is-3; i<=ie+3; i++) {
+  for (i=il-3; i<=iu+3; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
 
-/*=============== START LOOP OVER is-2:is-1 ===============*/
+/*=============== START LOOP OVER il-2:il-1 ===============*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
 
-  for (i=is-2; i<=is-1; i++) {
+  for (i=il-2; i<=il-1; i++) {
 
 #ifdef HYDRO
 #ifdef ISOTHERMAL
@@ -162,15 +163,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 7. ------------------------------------------------------------------
- * Limit velocity difference across cell to sound speed, limit velocity slope
- * so momentum is always TVD (using only minmod limiter) */
-
-#ifdef ISOTHERMAL
-    qa = Iso_csound;
-#else
-    qa = sqrt(Gamma*W[i].P/W[i].d);
-#endif
-    dWm[i][1] = SIGN(dWm[i][1])*MIN(fabs(dWm[i][1]),qa);
+ * Limit velocity so momentum is always TVD (using only minmod limiter) */
 
     qa = U1d[i  ].Mx - U1d[i-1].Mx;
     qb = U1d[i+1].Mx - U1d[i  ].Mx;
@@ -196,24 +189,24 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     dWm[i][1] = MAX(dWm[i][1],qa);
 
   }
-/*=============== END LOOP OVER is-2:is-1 ===============*/
+/*=============== END LOOP OVER il-2:il-1 ===============*/
 
 
 /*--- Step 8. ------------------------------------------------------------------
  * Construct parabolic interpolant in primitive variables at left-interface
- * of cell is-1 ("W[is-3/2]", CW eqn 1.6) using linear TVD slopes at is-2 and
- * is-1 computed in Steps 2-7.
+ * of cell il-1 ("W[il-3/2]", CW eqn 1.6) using linear TVD slopes at il-2 and
+ * il-1 computed in Steps 2-7.
  */
 
   for (n=0; n<NWAVE; n++) {
-    Wim1h[is-1][n] =.5*(pW[is-1][n]+pW[is-2][n])-(dWm[is-1][n]-dWm[is-2][n])/6.;
+    Wim1h[il-1][n] =.5*(pW[il-1][n]+pW[il-2][n])-(dWm[il-1][n]-dWm[il-2][n])/6.;
   }
 
-/* Loop over is-2:is-1 in Steps 2-7 was necessary to bootstrap method by
- * computing Wim1h[is-1].  Now repeat these steps for rest of grid.  Splitting
+/* Loop over il-2:il-1 in Steps 2-7 was necessary to bootstrap method by
+ * computing Wim1h[il-1].  Now repeat these steps for rest of grid.  Splitting
  * into two loops avoids calculating eigensystems twice per cell.
  *
- * At the start of the loop, rem and lem still store values at i=is-1 computed
+ * At the start of the loop, rem and lem still store values at i=il-1 computed
  * at the end of Step 2.  For each i, the eigensystem at i+1 is stored in
  * rem_ip1 and lem_ip1.  At the end of the loop rem[lem] is then set to
  * rem_ip1[lem_ip1] in preparation for the next iteration.
@@ -221,7 +214,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 
 /*=============== START BIG LOOP OVER i ===============*/
 /* Steps 9-15 below are identical to steps 2-8 above */
-  for (i=is-1; i<=ie+1; i++) {
+  for (i=il-1; i<=iu+1; i++) {
 
 /*--- Step 9. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
@@ -297,15 +290,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 14. -----------------------------------------------------------------
- * Limit velocity difference across cell to sound speed, limit velocity slope
- * so momentum is always TVD (using only minmod limiter) */
-
-#ifdef ISOTHERMAL
-    qa = Iso_csound;
-#else
-    qa = sqrt(Gamma*W[i+1].P/W[i+1].d);
-#endif
-    dWm[i+1][1] = SIGN(dWm[i+1][1])*MIN(fabs(dWm[i+1][1]),qa);
+ * Limit velocity so momentum is always TVD (using only minmod limiter) */
 
     qa = U1d[i+1].Mx - U1d[i  ].Mx;
     qb = U1d[i+2].Mx - U1d[i+1].Mx;
@@ -341,11 +326,29 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 16. -----------------------------------------------------------------
- * Compute L/R values, ensure they lie between neighboring cell-centered vals */
+ * Compute L/R values */
 
     for (n=0; n<NWAVE; n++) {
       Wlv[n] = Wim1h[i  ][n];
       Wrv[n] = Wim1h[i+1][n];
+    }
+
+/*--- Step 17. -----------------------------------------------------------------
+ * Monotonize again (CW eqn 1.10), ensure they lie between neighboring
+ * cell-centered vals */
+
+    for (n=0; n<NWAVE; n++) {
+      qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
+      qb = Wrv[n]-Wlv[n];
+      qc = 6.0*(pW[i][n] - 0.5*(Wlv[n]+Wrv[n]));
+      if (qa <= 0.0) {
+        Wlv[n] = pW[i][n];
+        Wrv[n] = pW[i][n];
+      } else if ((qb*qc) > (qb*qb)) {
+        Wlv[n] = 3.0*pW[i][n] - 2.0*Wrv[n];
+      } else if ((qb*qc) < -(qb*qb)) {
+        Wrv[n] = 3.0*pW[i][n] - 2.0*Wlv[n];
+      }
     }
 
     for (n=0; n<NWAVE; n++) {
@@ -355,25 +358,10 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       Wrv[n] = MIN(MAX(pW[i][n],pW[i+1][n]),Wrv[n]);
     }
 
-/*--- Step 17. -----------------------------------------------------------------
- * Monotonize again (CW eqn 1.10) */
-
-    for (n=0; n<NWAVE; n++) {
-      qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
-      qb = Wrv[n]-Wlv[n];
-      qc = 6.0*(pW[i][n] - 0.5*(Wlv[n]+Wrv[n]));
-      if (qa <= 0.0) {
-        Wlv[n] = pW[i][n];
-        Wrv[n] = pW[i][n];
-      } else if (qb*(qb - qc) < 0.0) {
-        Wlv[n] = 3.0*pW[i][n] - 2.0*Wrv[n];
-      } else if (qb*(qb + qc) < 0.0) {
-        Wrv[n] = 3.0*pW[i][n] - 2.0*Wlv[n];
-      }
-
 /*--- Step 18. -----------------------------------------------------------------
  * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
 
+    for (n=0; n<NWAVE; n++) {
       dW[n] = Wrv[n] - Wlv[n];
       W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
     }
@@ -460,7 +448,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * Convert back to conserved variables, and done
  */
 
-  for (i=is; i<=ie+1; i++) {
+  for (i=il; i<=iu+1; i++) {
     pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
     pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
   }

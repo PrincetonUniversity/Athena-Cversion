@@ -44,15 +44,16 @@ static Real **pW=NULL;
  *   U1d = CONSERVED variables at cell centers along 1-D slice
  *   Bx{c/i} = B in direction of slice at cell {center/interface}
  *   dt = timestep;   dtodx = dt/dx
- *   is,ie = starting and ending indices of zone centers in slice
- * U1d and Bxc must be initialized over [is-nghost:ie+nghost]
+ *   il,iu = lower and upper indices of zone centers in slice
+ * U1d and Bxc must be initialized over [il-2:iu+2]
+ * Bxi must be initialized over [il:iu+1]
  *
  * Output Arguments:
- *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [is:ie+1]
+ *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
-               const Real dt, const Real dtodx, const int is, const int ie,
+               const Real dt, const Real dtodx, const int il, const int iu,
                Cons1D Ul[], Cons1D Ur[])
 {
   int i,n,m;
@@ -74,12 +75,12 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
  */
 
-  for (i=is-2; i<=ie+2; i++) {
+  for (i=il-2; i<=iu+2; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
 
 /*=============== START BIG LOOP OVER i ===============*/
-  for (i=is-1; i<=ie+1; i++) {
+  for (i=il-1; i<=iu+1; i++) {
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
@@ -153,15 +154,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 7. ------------------------------------------------------------------
- * Limit velocity difference across cell to sound speed, limit velocity slope
- * so momentum is always TVD (using only minmod limiter) */
-
-#ifdef ISOTHERMAL
-    qa = Iso_csound;
-#else
-    qa = sqrt(Gamma*W[i].P/W[i].d);
-#endif
-    dWm[1] = SIGN(dWm[1])*MIN(fabs(dWm[1]),qa);
+ * Limit velocity so momentum is always TVD (using only minmod limiter) */
 
     qa = U1d[i  ].Mx - U1d[i-1].Mx;
     qb = U1d[i+1].Mx - U1d[i  ].Mx;
@@ -271,7 +264,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 /*--- Step 11. -----------------------------------------------------------------
  * Convert back to conserved variables, and done.  */
 
-  for (i=is; i<=ie+1; i++) {
+  for (i=il; i<=iu+1; i++) {
     pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
     pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
   }

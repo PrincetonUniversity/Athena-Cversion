@@ -29,20 +29,20 @@
  *   Bxc = B in direction of slice at cell centers
  *   dt = timestep
  *   dtodx = dt/dx
- *   is,ie = starting and ending indices of zone centers in slice
- * U1d and Bxc must be initialized over [is-nghost:ie+nghost]
+ *   il,iu = lower and upper indices of zone centers in slice
+ * U1d must be initialized over [il-1:iu+1]
  *
  * Output Arguments:
  *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [is:ie+1]
  */
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
-	       const Real dt, const Real dtodx, const int is, const int ie,
+	       const Real dt, const Real dtodx, const int il, const int iu,
 	       Cons1D Ul[], Cons1D Ur[])
 {
   int i;
 
-  for (i=is; i<=ie+1; i++) {
+  for (i=il; i<=iu+1; i++) {
     Ul[i] = U1d[i-1];
     Ur[i] = U1d[i  ];
   }
