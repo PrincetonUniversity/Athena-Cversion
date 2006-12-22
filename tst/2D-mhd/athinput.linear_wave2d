@@ -28,13 +28,13 @@ tlim            = 5.0       # time limit
 
 Nx1             = 64        # Number of zones in X-direction
 x1min           = 0.0       # minimum value of X
-x1max           = 2.0       # maximum value of X
+x1max           = 3.0       # maximum value of X
 ibc_x1          = 4         # inner-I (X) boundary flag
 obc_x1          = 4         # outer-I (X) boundary flag
 
 Nx2             = 32        # Number of zones in X2-direction
 x2min           = 0.0       # minimum value of X2
-x2max           = 1.0       # maximum value of X2
+x2max           = 1.5       # maximum value of X2
 ibc_x2          = 4         # inner-J (Y) boundary flag
 obc_x2          = 4         # outer-J (Y) boundary flag
 
@@ -43,7 +43,7 @@ x3min           = 0.0       # minimum value of X3
 x3max           = 0.0       # maximum value of X3
 
 <parallel>
-NGrid_x1 = 1
+NGrid_x1 = 2
 NGrid_x2 = 1
 NGrid_x3 = 1
 
