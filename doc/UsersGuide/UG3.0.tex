@@ -59,22 +59,21 @@ developed with support of the NSF Information Technology Research (ITR)
 program.  This {\it User's Guide} describes version 3.0 (hereafter
 referred to as \ath); the third publicly released version of the code.
 
-The \ath\ code contains algorithms for
-the following:
+The \ath\ code contains algorithms for the following:
 \begin{itemize}
 
-\item compressible hydrodynamics and ideal MHD in one-, two-, or three-spatial dimensions
+\item compressible hydrodynamics and ideal MHD in one, two, or three spatial dimensions,
 
 \item ideal gas equation of state with arbitrary $\gamma$ (including 
-$\gamma = 1$, an isothermal EOS)
+$\gamma = 1$, an isothermal EOS),
 
 \item second- or third-order reconstruction using the characteristic variables
-(first-order interpolation is also available)
+(first-order interpolation is also available),
 
 \item numerical fluxes computed using a variety of Riemann solvers (including
-various solvers based on HLL fluxes, and Roe's linearization).
+various solvers based on HLL fluxes, and Roe's linearization),
 
-\item the ability to add source terms due to a static gravitational potential
+\item the ability to add source terms due to a static gravitational potential,
 
 \item parallelization based on MPI.
 
@@ -83,11 +82,12 @@ It is strongly advised to use the latest release of
 the code for research problems (even those in one-dimension) to take
 advantage of improvements and potential bug fixes.
 
-There are four basic sources of documentation for \ath
+There are four basic sources of documentation for \ath:
 \begin{enumerate}
 
 \item {\it The Method Papers:} There are four in all: Gardiner \& Stone
-(2005; 2007), Stone \& Gardiner (2007), and Stone et al. (2007).
+(2005; 2007), Stone \& Gardiner (2007), and Stone et al. (2007).  Each of
+these are available either on ADS or astro-ph (by end of 2007).
 
 \item {\it The User's Guide:} (this document) gives an overview of how to
 install, configure, compile, and run \ath\ and visualize the resulting output.
@@ -97,6 +97,7 @@ data structures, variable names, grid definitions, and code structure.
 
 \item {\it Web-based Tutorials:} contains instructions
 for running problems from the \ath\ test suite, including examples of results.
+See {\tt http://www.astro.princeton.edu/~jstone/athena.html}.
 
 \end{enumerate}
 Users of \ath\ should have a basic, working knowledge of the Unix
@@ -104,7 +105,7 @@ operating system, access to a C compiler, and a graphics package for
 plotting or animating one-, two-, and three-dimensional data.  Some familiarity
 with code management using Makefiles is helpful but not necessary.
 
-The code has been developed using the GNU development tools, and
+The code has been developed using the GNU development tools,
 maintaining strict adherence to ANSI standards, thus it should be possible
 to configure, compile, and run the code on any platform that supports these
 standards.  It has been tested on Linux, MacOSX, and Solaris.
@@ -121,24 +122,25 @@ In addition, there are a number of structural changes to the code, including:
 (2) many new tests and scripts have been added in {\tt /tst}
 (3) many options have changed in the configure script,
 (4) new data output modes and options have been added.
-(5) parallelization using domain decompostion based on MPI and controlled
-by a new parameters in the input file has been added.
+(5) parallelization using domain decomposition based on MPI and controlled
+by new parameters in the input file has been added.
 
 \subsection{Future versions}
 
 This is the last version of \ath\ released with support of the NSF
 ITR program, and there is no schedule planned for future releases.
 The current developmental version of the code includes many more
-algorithmic extensions than included in this release, such as static and
+algorithmic extensions than in this release, such as static and
 adaptive mesh refinement, self-gravity, and radiation transfer.
-Some of these extensions may be included in future releases.
+It is likely that some of these extensions will be released in the future,
+albeit on an irregular schedule.
 
 \section{Quick Start}
 
 To install, configure, compile, and run the code do the following.
 \begin{enumerate}
 
-\item Download, uncompress, and untar the source code distribution file.
+\item Download\footnote{from {\tt http://www.astro.princeton.edu/~jstone/athena.html}}, uncompress, and untar the source code distribution file.
 
 \item Create the configure script by running {\tt autoconf} in the
 {\tt athena3.0} directory.
@@ -146,15 +148,8 @@ To install, configure, compile, and run the code do the following.
 \item Test the install by running {\tt configure}; {\tt make all};
 {\tt make test}.
 
-\item The default configuration created in step 3 runs convergence
-tests for linear waves with wavevectors aligned with the grid.
-The {\tt make all} command will have created the directory {\tt /bin} which
-contains the executable {\tt athena}.  From {\tt athena3.0/bin}, run the
-executable with 
-{\tt athena -i ../tst/2D-mhd/athinput.linear\_wave1d} to create output files.
-If IDL is installed on the system, the IDL procedures in {\tt /vis/idl/pltath.pro} can be used to visualize the output data.
-
-\item The code can now be re-configured, re-compiled, and used to run any
+\item If there are no errors in the previous step the install was
+successful.  The code can now be re-configured, re-compiled, and used to run any
 of the test problems in {\tt /src/prob}.
 
 \end{enumerate}
@@ -164,8 +159,7 @@ of the test problems in {\tt /src/prob}.
 \subsection{Obtaining and Installing \ath}
 
 The source code for \ath\ can be downloaded as a gzipped tar file from the
-web.  Only the source code can be downloaded.  To install and run the code
-requires only a C compiler.
+web.  To install and run the code requires only a C compiler.
 
 After downloading the tar file, uncompressing and untarring it,
 the following directory structure should be created:
@@ -196,10 +190,14 @@ when \ath\ is compiled for the first time, using {\tt make all}.
 /athena3.0
           /bin           contains executable, created by Makefile
 \end{verbatim}
-
-Trying to compile the code with {\tt make compile} before
+(Trying to compile the code with {\tt make compile} before
 {\tt make all} will result in an error since the {\tt bin} directory will
 not yet exist.)
+
+The {\tt athena3.0/doc} directory contains .pdf files of this document,
+the {\em Programmer's Guide}, and the Method papers.  These documents serve as
+the primary source of reference for the code, and should be consulted for
+complete information.
 
 \subsection{Configuring \ath}
 
@@ -208,20 +206,20 @@ code for a specific problem.  To generate the {\tt configure} shell
 script using the GNU {\tt autoconf} toolkit\footnote{autoconf: see {\tt
 http://www.gnu.org/software/autoconf/}}, type {\tt autoconf} in the {\tt
 athena3.0} directory.  If you wish to by-pass the configure script and work
-with the Makefiles directly, see \S 3.4 below.
+with the Makefiles directly, see \S 3.54 below.
 
 There are several basic functions served by the {\tt configure} script.
 The first is to enable or disable {\it features} in the code, and to
 choose between different {\it packages} implemented in \ath.  Configure
-{\it features} are used when a particular option has only two choices:
+features are used when a particular option has only two choices:
 enabled (``on") or disabled (``off"): examples include choosing whether
 the executable uses single or double precision, or enabling or disabling
-various data output formats.  Configure {\it packages} are used when an
-option may have more than one choice.  Examples of {\it packages} include
+various data output formats.  Configure packages are used when an
+option may have more than one choice.  Examples of packages include
 the basic physics options (such as hydrodynamics or MHD, adiabatic or
 isothermal equation of state, etc.), as well as the algorithm options
 (order of accuracy for the reconstruction step, choice of Riemann solver,
-etc.).  These {\it package} options are controlled at the source code
+etc.).  These package options are controlled at the source code
 level using C precompiler macros.  The {\tt configure} script provides
 a powerful way of setting these macros through a command line interface
 that does not require the user to edit any special files.
@@ -230,7 +228,7 @@ More advanced features of the {\tt configure} script are to set compiler
 and linker options and flags using environment variables, and to query the
 system automatically to see that a C-compiler, linker, and any external
 libraries necessary for compilation are installed and accessible.
-Currently, these features are only of limited use for \ath.
+Currently, only the latter of these features are utilized.
 
 Once the {\tt configure} script has been created, it can be used
 with the following
@@ -277,7 +275,7 @@ flux & {\bf roe} & Roe's Riemann solver \\
      & force & FORCE flux \\
      & hlle & HLLE Riemann solver \\
      & hllc & HLLC Riemann solver (hydrodynamics only) \\
-     & hllc & HLLD Riemann solver (MHD only) \\ \hline
+     & hlld & HLLD Riemann solver (MHD only) \\ \hline
 order & 1 & use first-order spatial reconstruction \\
       & {\bf 2} & use second-order (piecewise-linear) spatial reconstruction \\
       & 3 & use third-order (piecewise-parabolic) spatial reconstruction \\ \hline
@@ -306,11 +304,11 @@ The {\tt configure} script should be run in the root directory {\tt
 and packages.
 
 For example, to configure \ath\ to run an isothermal hydrodynamical shocktube
-problem initialized with the function {\tt shkset.c} problem
+problem initialized with the function {\tt shkset1d.c} problem
 using Roe fluxes and third-order interpolation in single precision, use the
 following:
 \begin{center}
-{\tt configure --enable-single --with-eos=isothermal --with-gas=hydro --with-order=3}
+{\tt configure --with-problem=shkset1d --enable-single --with-eos=isothermal --with-gas=hydro --with-order=3}
 \end{center}
 
 To configure \ath\ to run the linear wave test problem in 3D adiabatic
@@ -334,7 +332,7 @@ is to type {\tt make all} in the top level directory {\tt /athena3.0}
 the directory {\tt athena3.0/bin}, which will contain the executable,
 and runs make in the {\tt athena3.0/src} directory to compile and link
 the code.  The top-level Makefile in the {\tt /athena3.0} directory also
-contains other targets which may be of use to users listed in Table 3.
+contains other targets listed in Table 3.
 
 \begin{center}
 \begin{table}[ht]
@@ -346,13 +344,13 @@ all & creates {\tt /athena3.0/bin} directory and compiles code \\
 compile & compiles code \\
 clean & removes .o files in {\tt /athena3.0/src} \\
 help & prints help message \\
-test & runs install test (see \S 8.1) \\
+test & runs install test (see \S 10.1) \\
 \hline
 \end{tabular}
 \end{center}
 \end{table}
 
-Normally the Makefiles should never need to be edited by hand.  However,
+Normally the Makefiles should never be edited by hand.  However,
 it is possible to edit the Makefile in the {\tt /athena3.0/src} directory to
 change compiler flags (to improve optimization, for example)
 rather than using
@@ -361,19 +359,20 @@ overwritten every time {\tt configure} is run, so any custom changes may be
 lost.
 
 To make changes to the Makefile in the {\tt /athena3.0/src} that are permanent,
-it is better to edit the template file {\tt /athena3.0/src/Makefile.in}.
+edit the template file {\tt /athena3.0/src/Makefile.in}.
 For example, the best way to customize the compiler, options, flags,
 and the path of local libraries is through the {\tt MACHINE=} option
-on the command line.  Currently, the options for several target machines are
-included in {\tt Makefile.in}.  The default machine uses the {\tt gcc} compiler
+on the make command line.  Currently, the options for several target machines are
+included in {\tt Makefile.in}.  If no value for the {\tt MACHINE} option is
+provided, the default is to use the {\tt gcc} compiler
 with an optimzation level of {\tt -O3}.  By using
 \begin{verbatim}
 % make all MACHINE=ophir
 \end{verbatim}
-the Intel C compiler (icc) combined with the options
+the Intel C compiler (icc) with the options
 {\tt -O2 -xW -tpp7 -ipo -i\_dynamic -gcc-name=gcc32} will be used.  To add
 a new target machine, copy one of the machine targets in {\tt Makefile.in},
-rename it, amd edit as apropriate. 
+rename it, and edit as appropriate. 
 
 \subsection{By-passing configure}
 
@@ -452,7 +451,8 @@ of all parsed block/parameters.
 A value for any of the valid parameter names can also be input from
 the command line, this over-rides the values in the input file.
 This, in combination with the {\tt -d} option, is
-useful for parameter surveys.
+useful for parameter surveys.  The {\tt -c} option is useful for checking
+the configuration parameters with which the exucutable was compiled.
 
 \subsubsection{Editing the input file}
 
@@ -497,7 +497,7 @@ dt      = 0.0025            # time increment between outputs
 <time>
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 10000      # cycle limit
+nlim            = 10000     # cycle limit
 tlim            = 0.1       # time limit
 
 <grid>
@@ -556,9 +556,7 @@ Note the syntax of the parameter specification used in this file.
 Parameters are grouped into named {\it blocks}, with the name of each
 block appearing on a single line within angle brackets.  Block names
 must always appear in angle brackets on a separate line (although the
-blank lines above and below the block names are not required)\footnote{A
-parameter can also be specified on the commandline by using ``{\it
-block/parameter=value}''}.
+blank lines above and below the block names are not required).
 
 Below each block name is a list of parameters, with syntax
 \begin{center}
