@@ -7,7 +7,7 @@
  *  See the GNU General Public License for usage restrictions. 
  *
  *============================================================================*/
-static char *athena_version = "version 3.0 - XX-XXX-2006";
+static char *athena_version = "version 3.0 - 01-JAN-2007";
 
 #include <stdio.h>
 #include <stdlib.h>
