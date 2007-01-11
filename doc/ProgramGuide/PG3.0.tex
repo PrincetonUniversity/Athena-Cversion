@@ -119,7 +119,7 @@ The entire computational domain is divided into grid blocks.  Each block
 represents a patch of the domain updated by a separate processor (for
 calculations on parallel systems), or
 a region in which the grid is refined (for nested or adaptive grids), or
-both.  Data is organized in the following C structures (defined in 
+both.  Data on the grid is organized in the following C structures (defined in 
 the header file {\tt athena.h}).
 
 \subsection{The Domain Structure}
@@ -311,6 +311,61 @@ contiguously, it is more cache efficient.  However, {\em be warned!}.
 It also means the order of the variables is hardwired in the code,
 and cannot be changed, which has the potential to be the source of some
 nasty bugs.
+
+\subsection{The Output Structure}
+
+A final important data structure defined in {\tt src/athena.h} is used
+for outputs.  Each {\tt <output>} block in an \ath\ input file creats
+a new element in an array whose members are the following structure:
+
+\footnotesize
+\begin{verbatim}
+typedef struct Output_s{
+  int n;          /* the N from the <outputN> block of this output */
+  Real dt;        /* time interval between outputs  */
+  Real t;         /* next time to output */
+  int num;        /* dump number (0=first) */
+  char *out;      /* variable (or user fun) to be output */
+  char *id;       /* filename is of the form <basename>[.idump][.id].<ext> */
+
+/* variables which describe data min/max */
+  Real dmin;      /* user defined min for scaling data */
+  Real dmax;      /* user defined max for scaling data */
+  Real gmin;      /* computed global min (over all data output so far) */
+  Real gmax;      /* computed global max (over all data output so far) */
+  int sdmin;      /* 0 = auto scale, otherwise use dmin */
+  int sdmax;      /* 0 = auto scale, otherwise use dmax */
+
+/* variables which describe coordinates of output data volume */
+  int ndim;       /* 3=cube 2=slice 1=vector 0=scalar */
+  int ix1l, ix1u; /* lower/upper x1 indices for data slice  -1 = all data */
+  int ix2l, ix2u; /* lower/upper x2 indices for data slice  -1 = all data */
+  int ix3l, ix3u; /* lower/upper x3 indices for data slice  -1 = all data */
+  int Nx1;        /* number of grid points to be output in x1 */
+  int Nx2;        /* number of grid points to be output in x2 */
+  int Nx3;        /* number of grid points to be output in x3 */
+  Real x1_0, dx1; /* origin and grid spacing of output slice in x1 */
+  Real x2_0, dx2; /* origin and grid spacing of output slice in x2 */
+  Real x3_0, dx3; /* origin and grid spacing of output slice in x3 */
+
+/* variables which describe output format */
+  char *out_fmt;  /* output format = {bin, tab, hdf, hst, pgm, ppm, ...} */
+  char *dat_fmt;  /* format string for tabular type output, e.g. "%10.5e" */
+  char *palette;  /* name of palette for RGB conversions */
+  float *rgb;     /* array of RGB[256*3] values derived from palette */
+  float *der;     /* helper array of derivatives for interpolation into RGB */
+
+/* pointers to output functions; data expressions */
+  VGFunout_t fun; /* function pointer */
+  Gasfun_t expr;  /* expression for output */
+} Output;
+\end{verbatim}
+\normalsize
+
+As can be seen, all of the information associated with the ouput
+(variables to be written, format, frequency of output, etc.) are stored
+in this structure.  The functions in the file {\tt output.c} should be
+consulted for more details.
 
 \section{Memory Allocation and Management}
 
