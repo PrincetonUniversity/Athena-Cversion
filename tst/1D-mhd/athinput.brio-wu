@@ -25,7 +25,7 @@ dt      = 0.0025            # time increment between outputs
 <time>
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 10000      # cycle limit
+nlim            = 10000     # cycle limit
 tlim            = 0.1       # time limit
 
 <grid>
@@ -47,6 +47,12 @@ x3min           = 0.0       # minimum value of X3
 x3max           = 1.0       # maximum value of X3
 ibc_x3          = 2         # inner (X3) boundary flag
 obc_x3          = 2         # outer (X3) boundary flag
+
+<parallel>
+
+NGrid_x1 = 1
+NGrid_x2 = 1
+NGrid_x3 = 1
 
 <problem>
 
