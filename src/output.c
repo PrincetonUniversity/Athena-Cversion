@@ -16,6 +16,7 @@
  * OPTIONS available in an <outputN> block are:
  *   out         = all,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2
  *   out_fmt     = bin,dx,hst,tab,rst,vtk,fits,pdf,pgm,ppm
+ *   dat_fmt     = format string used to write tabular output (e.g. 12.5e)
  *   dt          = problem time between outputs
  *   id          = any string
  *   dmin/dmax   = max/min applied to all outputs
