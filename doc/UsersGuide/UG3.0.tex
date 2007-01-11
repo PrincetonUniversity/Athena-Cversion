@@ -62,7 +62,7 @@ referred to as \ath); the third publicly released version of the code.
 The \ath\ code contains algorithms for the following:
 \begin{itemize}
 
-\item compressible hydrodynamics and ideal MHD in one, two, or three spatial dimensions,
+\item compressible hydrodynamics and ideal MHD in one, two, or three spatial dimensions (Cartesian coordinates only),
 
 \item ideal gas equation of state with arbitrary $\gamma$ (including 
 $\gamma = 1$, an isothermal EOS),
@@ -86,18 +86,19 @@ There are four basic sources of documentation for \ath:
 \begin{enumerate}
 
 \item {\it The Method Papers:} There are four in all: Gardiner \& Stone
-(2005; 2007), Stone \& Gardiner (2007), and Stone et al. (2007).  Each of
-these are available either on ADS or astro-ph (by end of 2007).
+(2005; 2007), Stone \& Gardiner (2007), and Stone et al. (2007).  By the
+end of 2007, each of these are available on ADS, astro-ph, or with the
+code distribution.
 
 \item {\it The User's Guide:} (this document) gives an overview of how to
 install, configure, compile, and run \ath\ and visualize the resulting output.
 
-\item {\it The Programmers's Guide:} gives a basic introduction to the 
+\item {\it The Programmer's Guide:} gives a basic introduction to the 
 data structures, variable names, grid definitions, and code structure.
 
-\item {\it Web-based Tutorials:} contains instructions
+\item {\it Web-based Tutorials:} contains
+instructions\footnote{{\tt http://www.astro.princeton.edu/$\sim$jstone/athena.html}}
 for running problems from the \ath\ test suite, including examples of results.
-See {\tt http://www.astro.princeton.edu/~jstone/athena.html}.
 
 \end{enumerate}
 Users of \ath\ should have a basic, working knowledge of the Unix
@@ -140,7 +141,7 @@ albeit on an irregular schedule.
 To install, configure, compile, and run the code do the following.
 \begin{enumerate}
 
-\item Download\footnote{from {\tt http://www.astro.princeton.edu/~jstone/athena.html}}, uncompress, and untar the source code distribution file.
+\item Download\footnote{from {\tt http://www.astro.princeton.edu/$\sim$jstone/athena.html}}, uncompress, and untar the source code distribution file.
 
 \item Create the configure script by running {\tt autoconf} in the
 {\tt athena3.0} directory.
@@ -159,7 +160,7 @@ of the test problems in {\tt /src/prob}.
 \subsection{Obtaining and Installing \ath}
 
 The source code for \ath\ can be downloaded as a gzipped tar file from the
-web.  To install and run the code requires only a C compiler.
+web\footnotemark[2].  To install and run the code requires only a C compiler.
 
 After downloading the tar file, uncompressing and untarring it,
 the following directory structure should be created:
@@ -206,7 +207,7 @@ code for a specific problem.  To generate the {\tt configure} shell
 script using the GNU {\tt autoconf} toolkit\footnote{autoconf: see {\tt
 http://www.gnu.org/software/autoconf/}}, type {\tt autoconf} in the {\tt
 athena3.0} directory.  If you wish to by-pass the configure script and work
-with the Makefiles directly, see \S 3.54 below.
+with the Makefiles directly, see \S 3.4 below.
 
 There are several basic functions served by the {\tt configure} script.
 The first is to enable or disable {\it features} in the code, and to
@@ -228,7 +229,7 @@ More advanced features of the {\tt configure} script are to set compiler
 and linker options and flags using environment variables, and to query the
 system automatically to see that a C-compiler, linker, and any external
 libraries necessary for compilation are installed and accessible.
-Currently, only the latter of these features are utilized.
+Currently, only the former of these features are utilized.
 
 Once the {\tt configure} script has been created, it can be used
 with the following
@@ -365,7 +366,7 @@ and the path of local libraries is through the {\tt MACHINE=} option
 on the make command line.  Currently, the options for several target machines are
 included in {\tt Makefile.in}.  If no value for the {\tt MACHINE} option is
 provided, the default is to use the {\tt gcc} compiler
-with an optimzation level of {\tt -O3}.  By using
+with an optimization level of {\tt -O3}.  By using
 \begin{verbatim}
 % make all MACHINE=ophir
 \end{verbatim}
@@ -448,11 +449,11 @@ The {\tt -d} option can be used to create a new directory in which
 useful for debugging any parsing errors, as it will dump the contents
 of all parsed block/parameters.
 
-A value for any of the valid parameter names can also be input from
-the command line, this over-rides the values in the input file.
-This, in combination with the {\tt -d} option, is
-useful for parameter surveys.  The {\tt -c} option is useful for checking
-the configuration parameters with which the exucutable was compiled.
+A value for any of the valid parameter names in the input file can
+also be input from the command line, this over-rides the values in the
+input file.  This, in combination with the {\tt -d} option, is useful
+for parameter surveys.  The {\tt -c} option is useful for checking the
+configuration parameters with which the executable was compiled.
 
 \subsubsection{Editing the input file}
 
@@ -581,7 +582,7 @@ used.  There are no default values for any of the run-time parameters
 in the input file; each parameter must be supplied a value through the
 input file.  If a value is requested from the parser but its name does
 not exist, the parser will print an error message and terminate the
-execution of the program.  In this way, both missing or misspelled
+execution of the program.  In this way, missing
 parameter names will be detected at run time.  The parameters may be
 integers, floating point numbers, or strings.  The parser will do
 automatic type conversion, for example converting floating point
@@ -589,7 +590,7 @@ numbers to double precision if necessary (though the user is expected
 to know the basic difference between real, integer, and string data
 types).  Parameter values can also be set at run time through the
 command line, which provides a very flexible way of testing the code
-and running parameter searches (see \S 5.2),
+and running parameter searches,
 using the syntax ``{\it block/parameter=value}''.
 
 Below we describe each of the parameter blocks in the input file,
@@ -607,7 +608,7 @@ They are accessed by the function {\tt main.c}.
 \begin{itemize}
 
 \item {\bf problem\_id:}
-string added as basename of output filenames (see \S 3).  Usually same
+string added as basename of output filenames (see \S 4).  Usually same
 as {\it problem-name} used in input file.  There is no maximum length
 for this name\footnote{Although remember that the maximum length of a
 line in the input file is 256 characters.}.
@@ -626,20 +627,23 @@ Parameters in these blocks control the writing of ``outputs'',
 e.g. data dumps, images, etc.
 \begin{itemize}
 
-\item {\bf out:} Variable to image for {\tt pgm, ppm, fits} output formats.
-Currently accepted values are:
-{\tt all, d, M1, M2, M3, E, B1c, B2c, B3c, ME, V1, V2, V3, P, S, cs2}.
-Not required for {\tt bin, dx, hst, tab, rst, vtk} output types 
-(which can only dump all rather than selected variables).
+\item {\bf out:} Variable to image for {\tt pgm, ppm, fits} output
+formats.  Currently accepted values are: {\tt d, M1, M2, M3, E, B1c,
+B2c, B3c, ME, V1, V2, V3, P, S, cs2}.  If variable is set to {\tt all},
+then output will include {\tt d, M1, M2, M3} and may also include {\tt
+E, B1c, B2c, B3c} depending on the configuration, and the output format
+must be one of {\tt bin, dx, hst, tab, rst, vtk} (which can only dump
+all rather than selected variables).
 
 \item {\bf out\_fmt:} Output format, e.g.  
-{\tt bin, dx, hst, tab, rst, vtk, fits, pdf, pgm, ppm}
+{\tt bin, dx, hst, tab, rst, vtk, fits, pdf, pgm, ppm}.  See \S 4 for more
+description of these formats.
 
 \item {\bf dat\_fmt:} Optional field for controlling the format string used 
 to write tabular output files, e.g. {\tt \%12.5e}.  This value should
 not appear in quotes and no white space should be present.
 
-\item {\bf dt:} Time increment between outputs in problem time.
+\item {\bf dt:} Time increment between outputs (in problem time).
 
 \item {\bf id:} Any string, added to label output filenames.
 
@@ -654,8 +658,8 @@ and dump a 2D array.  {\tt ix1=5:} will average from 5 to end. {\tt ix1=:10}
 will average from start to 10. {\tt ix1=5:10} will average from 5 to 10.
 {\tt x1=5} will extract the single plane at i index 5.
 
-\item {\bf usr\_expr\_flag:} Set to 1 to use user defined expression to compute
-output quantity, see \S X.
+\item {\bf usr\_expr\_flag:} Set to 1 if a user-defined expression is to
+be used to compute output quantity, see \S 4.2.
 
 \end{itemize}
 
@@ -694,7 +698,7 @@ x2- and x3-direction.
 
 \item {\bf ibc\_x1, obc\_x1:} integer flags for boundary conditions applied
 at ``inner" (left) and ``outer" (right) edges of grid.  Currently three
-values are implemented: 1 = reflecting, 2 = inflow and outflow (projection), 
+values are implemented: 1 = reflecting, 2 = outflow (projection), 
 and 4 = periodic.  See \S 5 for more information.
 
 \item {\bf ibc\_x2, obc\_x2:} Analogous parameters for the x2-direction.
@@ -736,81 +740,92 @@ will have different variable names in the problem block.
 
 \section{Data output formats}
 
-As described above in \S 3.5.3, data output in the \ath\ code is
+As described above in \S 3.5.4, data output in the \ath\ code is
 controlled by the {\tt <output>} blocks in the input file.  There should
 be one block for each type of data output required.  There is no limit on
 the total number of outputs.  Output filenames use a naming convention
-{\it basename-id\#.dumpid.outid.type}, where the {\tt basename} is inherited
-from the {\tt <job>problem\_id} parameter, the {\it -id\#} labels the
-processor id for jobs run with MPI (the root process does not contian an
-id, nor is an id present for serial jobs), the {\it dumpid} is a zero
-filled unsigned integer with {\tt <job>numdigits}\footnote{currently
-fixed at four}, the {\it outid} denotes the block number in the input
-file which generated the output (necessary because in some cases more
-than one block can generate the same type of dump), and the {\it type}
+{\it basename-id\#.dumpid.outid.type}, where the {\it basename} is inherited
+from the {\tt <job>/problem\_id} parameter, the {\it -id\#} labels the
+processor id for jobs run with MPI with {\it \#} an integer equal to the rank
+of the MPI process (the root process does not contain an
+{\it id\#}, nor is it present for serial jobs), the {\it dumpid} is a zero
+filled unsigned integer with {\tt <job>/numdigits}\footnote{currently
+fixed at four}, the {\it outid} is the string specified in {\tt <output>/id}
+(if not specified, the string will be {\tt out-\#}, where {\tt \#}
+denotes the block number in the input
+file which generated the output), and the {\it type}
 denotes the output format ({\tt bin, tab, hst, vtk, rst, pdf, pgm, ppm, fits}).
-(note that history dump filenames do not include a {\it dumpid} or
-{\it outid}). 
+Note that history dump filenames do not include a {\it dumpid} or
+{\it outid}.  Also note that none of the ``dump" formats (which output
+all variables, that is any of {\tt bin, vtk, hst}) include the {\it outid}
+string. 
 
 The meaning of the parameters in the {\tt <output>} block has already been
-described in \S 2.5.3.  Below we provide more information about each of the
+described in \S 3.5.4.  Below we provide more information about each of the
 output types.
 \begin{enumerate}
 
-\item {\bf History dumps:} ({\em type} = {\tt hst} Contains a formatted
+\item {\bf History dumps:} ({\em type} = {\tt hst}) Formatted
 table of a variety of volume integrated values, with one line in the
-table created every {\tt dt} in time (where {\tt dt} is set in the
-corresponding {\tt <output>} block).  Thus, at the end of execution, the
+table created every {\tt <output>/dt}.  Thus, at the end of execution, the
 output file contains $tlim/dt$ lines which form a time-history of these
 quantities.  The file is created by the function {\tt dump\_history.c};
 more (or problem specific) quantities can be added by editing this file.
-The data is appended to the file each time the {\it dump\_history()}
+The data is appended to the file each time the {\tt dump\_history()}
 function is called.
 
-\item {\bf Binary dumps:} ({\em type} = {\tt bin} Contain an unformatted
+\item {\bf Binary dumps:} ({\em type} = {\tt bin}) Unformatted
 write of all dependent variables over all active zones.  If the {\tt dx}
 option is enabled by configure, then an OpenDX header file with the same
 name as the corresponding binary file but with the extension {\tt .dx}
 will be created.  This header file allows binary dumps to be read by
-OpenDX networks (see \S7.2).  A new file is created with a time interval
-of {\tt dt} in the corresponding output block.  Created by the function
-{\tt dump\_binary.c}.
+OpenDX networks (see \S9.3).  A new file is created with a time interval
+of {\tt <output>/dt}.  Created by the function {\tt dump\_binary.c}.
 
-\item {\bf Tabular dumps:} ({\em type} = {\tt tab} Contain a formatted
+\item {\bf Tabular dumps:} ({\em type} = {\tt tab}) Formatted
 table of all dependent variables overall all zones.  A new file is
-created with a time interval of {\tt dt} set in the output block.
+created with a time interval of {\tt <output>/dt}.
 Created by the function {\tt dump\_table.c}.  Useful for making 1D plots.
 
-\item {\bf  ppm images:} ({\em type} = {\tt ppm) Two dimensional images of
+\item {\bf  ppm output:} ({\em type} = {\tt ppm}) Two dimensional images of
 the variable set in the output block using the {\tt out} variable name.
 Global scaling can be set using the parameters {\tt dmin} and {\tt
 dmax} in the output block, otherwise each image is scaled independently.
-A default color palette ({\tt rainbow}) is used.  Created by the function
+A default color palette ({\tt rainbow}) is used.  The image could be a
+slice or an average over a range of grid cell indices whose orientation
+is determined by the
+values of {\tt <output>/ix1} (or {\tt <output>/ix2}, {\tt <output>/ix3}), 
+see \S 3.5.4.  Created by the function
 {\tt output\_ppm.c}.
 
-\item {\bf  pgm images:} ({\em type} = {\tt pgm) Grayscale images,
-written in pgm format.  Created by the function {\tt output\_pgm.c}.
+\item {\bf  pgm output:} ({\em type} = {\tt pgm}) Grayscale images,
+written in pgm format.  Scaling, orientation, and averaging used to
+create slice is controlled in the same way as ppm outputs.
+Created by the function {\tt output\_pgm.c}.
 
-\item {\bf Probability distribution functions:} ({\em type} = {\tt pdf)
+\item {\bf Probability distribution functions:} ({\em type} = {\tt pdf})
 Outputs PDF of selected variables in tabular form.  Created by the
 function {\tt output\_pdf.c}.
 
-\item {\bf  fits images:} ({\em type} = {\tt fits) Same as ppm images,
-but written in fits format.  Created by the function {\tt output\_fits.c}.
+\item {\bf Flexible image transport system output:} ({\em type} = {\tt fits}) Same as ppm images,
+but written in FITS\footnote{{\tt http://fits.gsfc.nasa.gov/}} format.
+Created by the function {\tt output\_fits.c}.
 
-\item {\bf vtk files:} ({\em type} = {\tt vtk) Similar to binary dumps,
-but output written in VTK legacy format.  Useful for 3D simulations.
-Created by the function {\tt dump\_vtk.c}.
+\item {\bf Visualization Toolkit dumps:} ({\em type} = {\tt vtk})
+Similar to binary dumps, but output written in VTK\footnote{\tt
+http://www.vtk.org} legacy format.  Useful for 3D simulations.  Created by
+the function {\tt dump\_vtk.c}.
 
-\item {\bf Restart dumps:} ({\em type} = {\tt rst) Creates a binary dump
+\item {\bf Restart dumps:} ({\em type} = {\tt rst}) Creates a binary dump
 of all variables (in double precision if necessary) that can be used to
 restart a simulation.  The start of the restart file contains the entire
 input file in ASCII.  For jobs run in parallel with MPI, there will be
-one restart file per process, and the restarted job must contain the
-same number of processors.  See the next subsection for further details.
+one restart file per process.
+See the next subsection for further details.
 
 \end{enumerate}
 
+\noindent
 It is important to note that {\bf output files in \ath\ will always be
 silently overwritten!} 
 
@@ -820,7 +835,7 @@ Restart dumps (sometimes called {\em checkpoints}) are useful when a
 calculation must be continued from a previous point.  The files contain
 enough information, and with the necessary accuracy, that a restart calculation
 generates {\em identical} data (to all significant digits) to a calculation run
-continuously.  \ath\ defines its
+continuously.  {\tt Athena3.0} defines its
 own format for restart files.  The file {\tt restart.c} contains all
 the functions needed to read and write these files.
 
@@ -828,16 +843,20 @@ To write a restart file, add the following {\tt <output>} block to the
 input file:
 \begin{verbatim}
 <output2>
-out_fmt = rst               # Restart dump
+out_fmt = rst            # Restart dump
 dt      = 1.0            # time increment between outputs
 \end{verbatim}
-Note that {\tt job/maxout} must be greater than or equal to two in this example.
-Of course, {\tt dt} is set to give the desired output frequency of files
+Note that {\tt <job>/maxout} must be greater than or equal to two in this
+example.  The time increment {\tt <output>/dt} is measured in problem time, 
+and should be set to give the desired output frequency of files
 (usually writing one restart dump every 6 hours of wall clock time is useful).
+For jobs run in parallel with MPI, there will be one restart file per process,
+and the restarted job must use the same number of processors as there are
+restart files.
 
-If the problem contains special, user-defined data, this must be added to the
-restart dumps.  \ath\ provides a mechanism for automatically adding such data.
-In the problem generator, two functions are provided:
+If the problem contains special, user-defined data, these must be added to the
+restart dumps.  {\tt Athena3.0} provides a mechanism for automatically adding
+such data.  In the problem generator, two functions are provided:
 \begin{verbatim}
 void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
@@ -849,9 +868,11 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 \end{verbatim}
-Generally these functions are empty, but if necessary they can be used to read
-and write extra parameters, or set problem-specific boundary conditions
-on restart, etc.  The problem generator {\tt rt.c} contains an example.
+Generally these functions are empty, but if necessary they can be used
+to read and write extra parameters, or set problem-specific boundary
+conditions on restart, etc.  The problem generator {\tt src/prob/rt.c}
+contains an example of usage.  See the {\em Programmer's Guide} for more
+information about the structures in the argument list to these functions.
 
 To read a restart file, the {\tt -r} command is used on the command line:
 \begin{verbatim}
@@ -862,34 +883,78 @@ restarts.  This is because the restart file contains the original input file,
 in ASCII format, at the beginning, from which all the necessary parameters
 are read by {\tt par.c} on restart.  This also makes restart files self-documenting: the values of input parameters used in the calculation that generated
 the restart file can be read with an editor.  If an input file is specified
-along with a restart
+along with a restart,
 \begin{verbatim}
 % athena -r myfile.rst -i myinput
 \end{verbatim}
-Then the values in {\tt myinput} overwrite the values stored in the restart file
+then the values in {\tt myinput} overwrite the values stored in the restart file
 itself.  Alternatively, values in the input file can be overwritten using the
-command line, as usual, for example:
+command line, for example:
 \begin{verbatim}
 % athena -r myfile.rst time/tlim=20.0
 \end{verbatim}
-One parameter that frequently needs to be changed in a restart is 
-{\tt time/tlim}.
+Usually the {\tt time/tlim} parameter needs to be modified on restart.
+For parallel jobs run with MPI, only the name of the restart file for the
+root (rank 0) process needs to be specified, all other processes will 
+create their own appropriate restart filename based on this name.
 
-\subsection{Adding user-defined outputs}
+\subsection{Adding user-defined output expressions}
 
-It is also fairly easy to add entirely new data output modes using
-function pointers. This can be accomplished in two steps.
+Often it is useful to output a variable other than one defined in the {\tt <output>/out} type
+(see \S3.5.4)  using one of the valid formats listed in \S4.  For example,
+one might like to create ppm images of the kinetic energy density.  This
+can be easily accomplished using the {\tt <output>/usr\_expr\_flag}.  The
+following steps are required.
+
+Firstly, write a function that computes the desired variable.  It must be of
+type {\tt Real}, and the argument list must contain the {\tt Gas}
+structure and the indices of the grid cell.
+(For details on the information contained in the {\tt Gas}
+structure, see the {\it Programmer's Guide}.)
+The following example, taken from {\tt src/prob/field\_loop.c}, computes the
+$z-$component of the current density at cell $i,j,k$.
+\begin{verbatim}
+static Real current(const Grid *pG, const int i, const int j, const int k)
+{
+  return ((pG->B2i[k][j][i]-pG->B2i[k][j][i-1])/pG->dx1 -
+          (pG->B1i[k][j][i]-pG->B1i[k][j-1][i])/pG->dx2);
+}
+\end{verbatim}
+
+Next, use the function {\tt get\_usr\_expr()}, included in every
+problem generator, to return the value computed by this function if the
+string in {\tt <output>/out} has the appropriate value.  As an example,
+the current density is computed using the function given above if the
+{\tt <output>/out} string is `J3', with the following code
+\begin{verbatim}
+Gasfun_t get_usr_expr(const char *expr)
+{
+  if(strcmp(expr,"J3")==0) return current;
+  return NULL;
+}
+\end{verbatim}
+
+To create a movie of the current density, use an output block in the input
+file in which {\tt <output>/out} is `J3', and {\tt <output>/usr\_expr\_flag=1},
+with the other valid parameters set as appropriate (to control, for
+example, the time interval between outputs, min/max scaling, etc.).
+ 
+\subsection{Adding user-defined output formats} 
+
+It is also fairly easy to add entirely new data output formats, beyond what
+is provided for in \ath\ and described in \S4.
+This can be accomplished in two steps.
 The first step is to write a new output function in the file
 containing the problem generator.  Suppose for example that the new
-output function is called {\tt special\_output}, it must have the
-following prototype
+output function is called {\tt special\_output}.  It must have the
+following prototype in the problem generator file
 \begin{verbatim}
 void special_output(Grid *pGrid, Domain *pDomain, Output *pOut);
 \end{verbatim}
-For details on the information contained in the {\tt Grid}, {\tt Domain},
-or {\tt Output} structures, see the {\it Programmer's Guide}.  The second step
+(For details on the information contained in the {\tt Grid}, {\tt Domain},
+or {\tt Output} structures, see the {\it Programmer's Guide}.)  The second step
 is to enroll this function by adding a call to {\tt
-data\_output\_enroll} in the {\tt problem} routine.  The {\tt
+data\_output\_enroll} anywhere in the {\tt problem} routine.  The {\tt
 data\_output\_enroll} function has the following prototype.
 \begin{verbatim}
 void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
@@ -935,17 +1000,10 @@ this form, where unused arguments are set to 0, or {\tt NULL}.
 \begin{verbatim}
 data_output_enroll(pGrid->time,0.1,0,special_output,NULL,NULL,0,0.0,0.0,0,0);
 \end{verbatim}
-As a more complex example, the following generates a series of ``ppm''
-images of the result of the function {\tt expr\_dV3} scaled from
-``dmin'' to ``dmax'' on a time interval ``dt'' with the string
-``out-1'' in the file name.
-\begin{verbatim}
-data_output_enroll(pGrid->time,dt,0,output_ppm,NULL,expr_dV3,-1,dmin,dmax,1,1);
-\end{verbatim}
 
 \section{Specifying Boundary Conditions}
 
-As described in \S 3.5.5, integer flags can be used to specify a limited set
+As described in \S 3.5.6, integer flags can be used to specify a limited set
 of boundary conditions automatically in \ath.  The actual implementation of
 the boundary conditions uses function pointers.  The
 flags are used to enroll the appropriate default 
@@ -956,7 +1014,8 @@ algorithm selected by the value of the flag.
 The use of function pointers makes adding new boundary conditions for
 specific problems quite easy.  For example, to add a new problem-specific
 boundary condition along the inner X1 boundary, the user would (1)
-write a new function which sets the values in the ghost zones in the
+write a new function which sets the values in the ghost zones and include
+it in the
 same file as the problem generator, and (2) enroll this new function by
 adding the following line at the end of the problem generator
 \begin{verbatim}
@@ -971,7 +1030,7 @@ specifies the boundary on which the special function is enrolled; use
 and similarly {\tt left\_x2} or {\tt right\_x2} specifies the inner or
 outer x2-boundary respectively, and {\tt left\_x3} or {\tt right\_x3}
 specifies the inner or outer x3-boundary respectively.  As examples,
-users should look in the {\tt dmr.c}, {\tt noh2d.c}, and {\tt shkset3d.c}
+users should look in the {\tt dmr.c}, {\tt noh.c}, and {\tt shkset3d.c}
 problem generators; each contains special boundary functions enrolled
 in this fashion.
 
@@ -981,9 +1040,9 @@ Users should also note the following:
 
 \item Boundary condition flags in the input file are only required for 
 directions in which the grid is integrated.  That is, if {\tt Nx1>1}
-and {\tt Nx2=1}, then only ibc\_x1 and obc\_x1 are required in the
-input file.  The parameters ibc\_x2 and obc\_x2 may be present, but
-their value will not be checked.
+and {\tt Nx2=Nx3=1}, then only ibc\_x1 and obc\_x1 are required in the
+input file.  The parameters ibc\_x2, obc\_x2, ibc\_x3, and obc\_x3
+may be present, but their value will not be checked.
 
 \item If the user enrolls a boundary condition routine for say the inner
 x1-boundary, the boundary condition flag ibc\_x1 in the parameter file
@@ -1013,22 +1072,28 @@ previous versions.  Now, only source terms due to a static gravitational
 potential are allowed.  Future versions will include self-gravity.
 
 To include a static gravitational potential in calculations,
-a user defined function should be specified in the problem generator file,
+separate user-defined functions which computes the gravitational acceleration
+in each coordinate direction must be specified in the problem generator file,
 for example
 \begin{verbatim}
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
+static Real grav_acc2(const Real x1, const Real x2, const Real x3);
+static Real grav_acc3(const Real x1, const Real x2, const Real x3);
 \end{verbatim}
-The argument to the function should be the $x-$, $y-$, and $z-$coordinates
-at which the gradient of the potential is to be evaluated.  The function is then enrolled
-into the integrator using pointers, called {\tt x1GracAcc}, {\tt x1GracAcc},
-and {\tt x1GracAcc} respectively for gradients of the potential in the
+The argument to each function should be the $x-$, $y-$, and $z-$coordinates
+at which the acceleration is to be evaluated.  These functions are then enrolled
+into the integrator using pointers, called {\tt x1GracAcc}, {\tt x2GracAcc},
+and {\tt x3GracAcc} respectively for gradients of the potential in the
 $x-$, $y-$, and $z-$directions.  These pointers are defined in
-{\tt src/globals.h}.  To enroll the user-defined function that computes
-the acceleration, add the line
+{\tt src/globals.h}.  To enroll the user-defined functions described in the
+example above, add the lines
 \begin{verbatim}
-  x3GravAcc = grav_acc;
+  x2GravAcc = grav_acc2;
+  x3GravAcc = grav_acc3;
 \end{verbatim}
-anywhere in the problem generator file.
+anywhere in the problem generator file.  If any of {\tt x1GracAcc},
+{\tt x2GracAcc}, or {\tt x3GracAcc} are not specified in the problem
+generator, then no gravitational acceleration will be included in the
+integrator for that corresponding coordinate direction.
 
 The problem files {\tt pgflow.c} and {\tt rt.c} are good examples
 of how to include source terms in your own applications.  In particular,
@@ -1045,49 +1110,65 @@ Firstly, during the configure step, the MPI option must be enabled via
 \begin{verbatim}
 % configure --enable-mpi
 \end{verbatim}
-This ensures all the apropriate precompiler macros are set to ensure the
-appropriate MPI code is included.
+This sets precompiler macros to include the appropriate MPI code.
 
-Nest, during the compile step, the appropriate MPI libraries must be
+Next, during the compile step, the appropriate MPI libraries must be
 linked.  Perhaps the easiest way to achieve this is to add an option
 to {\tt src/Makefile.in} specifying the compiler, compiler options, linker,
 and libraries specfic to the the target machine.  For example, using
 \begin{verbatim}
 % make all MACHINE=hydra
 \end{verbatim}
-uses the appropriate compiler and MPI libraries for a Beowulf cluster
-at Princeton Universty called 'hydra'.  By copying the options for hydra
-to a new target machine 'mymachine', editing them as appropriate, and
+includes the appropriate compiler and MPI libraries for a Beowulf cluster
+at Princeton University called `hydra'.  By copying the options for hydra
+to a new target machine `mymachine', editing them as appropriate, and
 then compiling with
 \begin{verbatim}
 % make all MACHINE=mymachine
 \end{verbatim}
-should produce the apppriate executable.
+the appropriate executable should be produced.
 
 Next, the input file for the problem of interest must be edited to add
 a {\tt <parallel>} block with that specifies the desired domain decomposition.
 For example, the following block in the input file
 \begin{verbatim}
 <parallel>
-
+NGrid_x1 = 1
+NGrid_x2 = 10
+NGrid_x3 = 1
+\end{verbatim}
+will result in a slab decomposition with 10 slabs in the $y-$direction
+(a total of 10 processors are needed); while
+\begin{verbatim}
+<parallel>
 NGrid_x1 = 1
 NGrid_x2 = 2
 NGrid_x3 = 3
 \end{verbatim}
-will result in slab decomposition with two blocks in the $y-$direction and
-three in the $z-$direction.  The total number of processors needed to run this
-job is six.  Any decomposition is allowed, although there can be no fewer than
-four active zones along any direction in any MPI block. 
+will result in a pencil decomposition with two pencils in the $y-$direction and
+three in the $z-$direction (a total of 6 processors are needed); while
+\begin{verbatim}
+<parallel>
+NGrid_x1 = 4
+NGrid_x2 = 4
+NGrid_x3 = 4
+\end{verbatim}
+will result in block decomposition with four blocks in each direction
+(a total of 64 processors are needed).  Any decomposition is allowed,
+although there can be no fewer than four active zones along any direction
+in any MPI block.
 
-Finally, the MPI job must be run, usually using the {\tt mpiexec} 
-or {\tt mpirun} command.  The number of processors used must be specified
-(e.g. through the command line using {\tt -np \#}, and this number must agree
-with the number of MPI blocks specified in the {\tt <parallel>} block in the
-input file, or \ath\ will print an error message and terminate.  A useful
-script for the Parallel Batch System (PBS) which is often used to schedule
-jobs on parallel clusters is included in the {\tt athena3.0/doc} directory.
+Finally, the MPI job must be run using the {\tt mpiexec} or {\tt mpirun}
+command.  The number of processors used must be specified e.g. through the
+command line using {\tt -np \#} (where {\tt \#} specifies the number of
+processors to be used).  The number of processors used at run time must
+agree with the number of MPI blocks specified in the {\tt <parallel>}
+block in the input file, or \ath\ will print an error message and
+terminate.  A useful script for the Parallel Batch System (PBS) which
+is often used to schedule jobs on parallel clusters is included in the
+{\tt athena3.0/doc} directory.
 
-Note that data generated by MPI parallel jobs will be written to seperate files
+Note that data generated by MPI parallel jobs will be written to separate files
 for each process (except for history or pdf files, which contain the
 appropriate MPI calls to do global sums).  A useful program for joining
 together multiple vtk files generated by a parallel job is
@@ -1095,50 +1176,50 @@ included in {\tt athena3.0/vis/vtk}.
 
 \section{Visualizing output}
 
-\ath\ does not come with a default graphics package.  Instead, the user must
-decide which visualization package is best suited to their needs, output the
-data in a format which can be read by this package, and then proceed.
-As a start, rudimentary
-scripts for several different graphics packages are supplied with the source
-code; future versions may incorporate more sophisticated visualization
-tools.  The following subsections describe useful visualization packages for
-\ath\ data files (the discussion assumes the code has already been run to
-produce output).
+{\tt Athena3.0} does not come with a default graphics package.  Instead,
+the user must decide which visualization package is best suited to their
+needs, output the data in a format which can be read by this package,
+and then proceed.  As a start, rudimentary scripts for several different
+graphics packages are supplied with the source code; future versions
+may incorporate more sophisticated visualization tools.  The following
+subsections describe useful visualization packages for \ath\ data files
+(the discussion assumes the code has already been run to produce output).
+
+\subsection{Supermongo}
+
+A popular package for making publication-quality one-dimensional plots
+is SM\footnote{{\tt http://www.astro.princeton.edu/$\sim$rhl/sm/}}.  A simple
+SM macro that can read tabular output from \ath\ is provided in {\tt
+athena3.0/vis/sm}.
 
 \subsection{IDL procedures}
 
-The IDL (Interactive Data Language)\footnote{see also: {\tt
-http://www.rsinc.com}} package can read the binary dump files.
-A simple procedure for reading \ath\ binary dumps is included in {\tt
-athena3.0/vis/idl}; to run this procedure you will need IDL installed on
-your system.  (Note that binary dumps must be created with the fortran
-option {\bf disabled} to be compatible with IDL.)  From the {\tt
-athena3.0/bin} directory, use the following.
+IDL (Interactive Data Language)\footnote{{\tt http://www.rsinc.com}}
+procedures that can read both the binary and VTK dump files and make plots
+are included in {\tt athena3.0/vis/idl}.  To run these procedures
+IDL must be installed on the system.  From the {\tt athena3.0/bin} directory, use
+the following to read a binary file and make some one-dimensional plots:
 \begin{verbatim}
 % idl
 IDL> .run ../vis/idl/pltath.pro 
-IDL> readbin,'Brio_Wu.0040.bin'
-IDL> six_plot
+IDL> nine_plot,'Brio-Wu.0040.bin',1
 \end{verbatim}
-A variety of procedures are included in the {\tt pltath.pro} file, including 
-a procedure to read binary files ({\tt readbin}), and make simple plots.
+A variety of potentially useful
+procedures are included in the {\tt pltath.pro} file.
 
 \subsection{OpenDX networks}
 
-The OpenDX\footnote{see also: {\tt http://www.opendx.org}} package can
-read our binary dump files, provided the {\tt .dx} header files exist.
+The OpenDX\footnote{{\tt http://www.opendx.org}} package can
+read \ath\ binary dump files, provided the {\tt .dx} header files exist.
 This requires \ath\ be configured with the dx option enabled and of
-course OpenDX must be installed on the system.
+course OpenDX must be installed on the system.  v2.0 of Athena included
+an example network to read binary files, currently this network
+has yet to be extended to \ath.
 
-\subsection{supermongo}
-
-A simple sm macro that can read tabular output from \ath\ is provided
-in {\tt athena3.0/vis/sm}.
-
-\subsection{vtk}
+\subsection{VTK}
 
 We have found the VisIt package\footnote{{\tt
-http://www.llnl.gov/visit}} useful for plotting 3D data sets.  The VTK leagacy
+http://www.llnl.gov/visit}} useful for plotting 3D data sets.  The VTK legacy
 format produced by \ath\ can be read by VisIt.  For data created with
 executables parallelized with MPI, a C code that joins multiple files into
 one is provided in {\tt athena3.0/vis/vtk}.  This is useful for jobs run
@@ -1146,34 +1227,32 @@ on massively parallel clusters.
 
 \subsection{2D animations}
 
-To make animations of 2D ppm images generated through an output block,
-two possible routes are ImageMagick:
-
+{\tt Athena3.0} can output 2D images that can be displayed directly, or easily
+turned into animations.  For example, if a series of ppm images of a single
+variable have been created, they can be displayed either using
+ImageMagick:
 \begin{verbatim}
- % animate *.pgm
+ % animate *.ppm
 \end{verbatim}
-
-or, alternatively, {\tt anim}:
+or, alternatively, {\tt xanim} (which requires converting the ppm images to FLI
+format):
 \begin{verbatim}
- % ls Wind*pgm > list1
+ % ls Wind*ppm > list1
  % ppm2fli -g80x80 list1 Wind.fli
  % xanim Wind.fli
-
 \end{verbatim}
 
 \section{Examples of Running \ath}
 
 \subsection{The \ath\ Benchmark}
 
-To test the installation of \ath, a benchmark can be automatically
-run using the Makefile.  This benchmark consists of running a linear
-wave cnvergence test
-on a grid of 512 zones, and
-then computing the L1 error norm in the results compared to the
-analytic solution.
-If the benchmark fails
-to run, or if the resulting error norm is large, then something has
-gone wrong in the installation or in the compilation of the code.
+To test the installation of \ath, a benchmark can be run automatically
+using the Makefile.  This benchmark consists of a linear wave convergence
+test on a grid of 512 zones; it computes and outputs the L1 error
+norm in the fast magnetosonic wave compared to the analytic solution.
+If the benchmark fails to run, or if the resulting error norm is large,
+then something has gone wrong in the installation or in the compilation
+of the code.
 
 To run the benchmark, use the following commands (in the \ath\
 root directory; these steps assume the configure script has already been generated with {\tt autoconf}).
@@ -1186,13 +1265,19 @@ zone-cycles/cpu-second = 3.067215e+05
 zone-cycles/wall-second = 3.055470e+05
 L1 norm for density: 6.333390e-11
 \end{verbatim}
+The {\tt zone-cycles/cpu-second} is a useful measure of the code performance,
+it corresponds to the number of grid cells updated per cpu second.  This of
+course depends on the physics included, the geometry of the problem, as well
+as the processor used for the calculation.  The values reported above are
+for a 3.08Ghz Intel Xeon processor.  The error norm is absolute, and should
+never be larger than $10^{-10}$.
 
 \subsection{Running a 1D test problem with \ath: The Brio \& Wu shocktube}
 
 As an example of how to configure, compile, and run \ath\ and visualize
 the output for a one-dimensional test problem, we show the steps required 
 to run the Brio \& Wu shocktube.
-Assuming the code has already been installed (see \S2), the first step is
+Assuming the code has already been installed (see \S2 or \S3), the first step is
 to configure:
 \begin{verbatim}
 % cd athena3.0
@@ -1210,24 +1295,23 @@ the code can be run in the {\tt athena3.0/bin} directory:
 % athena -i ../tst/1D-mhd/athinput.brio-wu
 \end{verbatim}
 The code will print information about every timestep as it executes.  It
-should generate 40 binary dumps named {\tt Brio\_Wu.*.bin}, 40 tabular
-dumps named {\tt Brio\_Wu.*.tab},
-as well as a history file {\tt Brio\_Wu.hst}.  There
+should generate 40 binary dumps named {\tt Brio-Wu.*.bin}, 40 tabular
+dumps named {\tt Brio-Wu.*.tab},
+as well as a history file {\tt Brio-Wu.hst}.  There
 are a variety of ways that the data in these files can be visualized; one
-way is to use the IDL scipts included in {\tt athena3.0/vis/idl}.
+way is to use the IDL scripts included in {\tt athena3.0/vis/idl}.
 \begin{verbatim}
 % idl
-IDL> .run ../vis/idl/pltath.pro
-IDL> readbin,'Brio_Wu.0040.bin'
-IDL> four_plot
+IDL> .r ../vis/idl/pltath.pro
+IDL> four_plot,'Brio-Wu.0040.bin'
 \end{verbatim}
 
 The resulting plots which should now appear on the screen is shown in Figure 1. 
 
 \begin{figure}[htb!]
 \plotone_reduction{figure1.ps}{0.8}
-\caption{Results from Brio \& Wu shocktube test problem plotting using our
-IDL routine {\tt four\_plot}}
+\caption{Results from Brio \& Wu shocktube test problem plotting the using
+IDL procedure {\tt four\_plot}}
 \end{figure}
 
 \subsection{Running a 2D test problem with \ath: The Orszag-Tang vortex}
@@ -1237,7 +1321,7 @@ the output for a two-dimensional test problem, we show the steps required
 to run the Orszag-Tang vortex test using the third order algorithm and the
 HLLD fluxes.
 Again, assuming the code has already been
-installed (see \S2), the first step is to configure:
+installed (see \S2 or \S3), the first step is to configure:
 \begin{verbatim}
 % cd athena3.0
 % configure --with-order=3 --with-problem=orszag-tang --with-flux=hlld
@@ -1253,16 +1337,18 @@ the code can be run in the {\tt athena3.0/bin} directory:
 % cd bin
 % athena -i ../tst/2D-mhd/athinput.orszag-tang
 \end{verbatim}
-The code will print information about every timestep as it executes.  It
+The code will print information about every timestep as it executes.  On a 
+3.08 GHz Xeon processor, the calculation takes about 4 minutes to complete.  It
 should generate 100 binary dumps named {\tt OrszagTang.*.bin}, 250 ppm 
-images of the gas pressure named {\tt OrszagTang.*.out5.ppm},
+images of the gas pressure named {\tt OrszagTang.*.P.ppm}, 250 ppm
+images of the density named {\tt OrszagTang.*.d.ppm},
 as well as a history file {\tt OrszagTang.hst}.  There
 are a variety of ways that the data in these files can be visualized; one
-way is to use the IDL scipts included in {\tt athena3.0/vis/idl}.  To make a
+way is to use the IDL scripts included in {\tt athena3.0/vis/idl}.  To make a
 contour plot of the pressure at time $t=0.5$, use the following:
 \begin{verbatim}
 % idl
-IDL> .run ../vis/idl/pltath.pro
+IDL> .r ../vis/idl/pltath.pro
 IDL> readbin,'OrszagTang.0050.bin'
 IDL> contour,p,nlevels=30,/isotropic,xstyle=1,ystyle=1
 \end{verbatim}
@@ -1271,29 +1357,28 @@ The resulting plot which should now appear on the screen is shown in Figure 2.
 
 \begin{figure}[htb!]
 \plotone_reduction{figure2.ps}{0.8}
-\caption{Contour plots of the gas pressure at time $t=0.5$ from
+\caption{Contour plot of the gas pressure at time $t=0.5$ from
 the Orszag-Tang test problem plotted using IDL.}
 \end{figure}
 
-It is also interesting to watch an animation of the pressure in the problem.
-This can be done a variety of ways.  The {\tt .bin} files can be read and
-animated used the procedures in the {\tt vis/idl/pltath.pro} file.
-Alternatively, since \ath\ generates pm images directly as one of its
-output modes, the images can be animated with packages such as {\tt xanim}
-or {\tt animate} (part of ImageMagick).  For example, if ImageMagick is
+It is also interesting to watch an animation of the density or
+pressure in the problem.
+This can be done a variety of ways.  The simplest is to use the ppm
+images generated directly by the code.
+For example, if ImageMagick is
 installed on the system, try
 \begin{verbatim}
-% animate *.out5.ppm
+% animate *.P.ppm
 \end{verbatim}
+The density can be animated in a similar fashion.
 
 \subsection{Running a 3D test problem with \ath: Advection of a field loop}
 
 As an example of how to configure, compile, and run \ath\ and visualize
-the output for a two-dimensional test problem, we show the steps required 
+the output for a three-dimensional test problem, we show the steps required 
 to run the advection of a field loop test.
-Assuming the code has already been installed (see \S2), the first step is
 Again, assuming the code has already been
-installed (see \S2), the first step is to configure:
+installed (see \S2 or \S3), the first step is to configure:
 \begin{verbatim}
 % cd athena3.0
 % configure --with-order=3 --with-problem=field_loop --with-flux=hlld
@@ -1317,10 +1402,13 @@ decomposition on 8 processors using MPI, the command line is used to overwrite
 the input parameters to use a $64^3$ grid and only one processor.
 
 It will take about 30 minutes for this calculation to complete on a 3.08 GHz
-Xeon processor.  The run should generate three vtk files, and 250 ppm
-images of the current density on a $x-y$ slice.  Using VisIt to make isosurface
-plot of the magnetic energy density results in Figure 3 (with the
-appropriate rotation).
+Xeon processor.  The run should generate three VTK files, 250 ppm
+images of the current density on a $x-y$ slice, and a history file.
+A plot of an isosurface
+ of the magnetic energy density made with the VisIt package is
+shown in Figure 3.  Alternatively, the IDL procedure {\tt readvtk}
+in {\tt vis/idl/pltath.pro} could be used to to read the data, and then one
+of the plotting routines in IDL could be used to display the data.
 
 \begin{figure}[htb!]
 \plotone_reduction{figure3.ps}{0.8}
@@ -1337,23 +1425,26 @@ web pages, and in the Method papers.
   
 \section{Running New Problems}
 
-The \ath\ code can be used as a solver for new problems (i.e. problems that
+The real utility of the \ath\ code is as a solver for new problems
+(i.e. problems that
 are not initialized by the set of problem generators included in the source
-code distribution).  The following steps are required.
+code distribution).  For new problems, the following steps are required.
 \begin{enumerate}
-\item Write a new function of type {\tt void} called {\tt problem} that initializes the problem.
+\item Write a new function that initializes the problem.  This function must
+be of type {\tt void}, have the name {\tt problem}, and have as arguments
+pointers to the {\tt Gas} and {\tt Domain} structures.
 The function must be contained in a file in the {\tt /src/prob} directory.
-\item Write new functions called {\tt Userwork\_before\_loop} and 
+\item Write new functions called {\tt Userwork\_in\_loop} and 
 {\tt Userwork\_after\_loop} (which may be no-ops if not needed) and include
 them in the file containing {\tt problem}.  As the names suggest, these
-functions can be used to perform special problem-dependent work before or 
+functions can be used to perform special problem-dependent work in or 
 after the main loop (see {\tt linear\_wave.c} for an example).
 \item If special purpose boundary conditions are needed, write special
 functions that implement them, and enroll them using the function
 {\tt set\_bvals\_fun} (see \S 5).
 \item If special purpose data output is needed, write special
 functions that implement them, and enroll them using the function
-{\tt data\_output\_enroll} (see \S 3).
+{\tt data\_output\_enroll} (see \S\S 4.2 and 4.3).
 \item Once the above is complete, configure and compile the code
 using the appropriate physics options, and including the new problem
 generator using {\tt --with-problem=}{\em new-name}.
@@ -1362,6 +1453,6 @@ generator using {\tt --with-problem=}{\em new-name}.
 It is likely the {\em Programmer's Guide} will be needed to write a 
 new problem generator to understand the data structures and names used
 in \ath.  As a start, the problem generators in {\tt /src/prob} can be used
-as examples.
+as templates.
 
 \end{document}
