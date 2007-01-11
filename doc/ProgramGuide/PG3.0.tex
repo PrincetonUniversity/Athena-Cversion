@@ -43,64 +43,44 @@ Virginia \\ PO Box 3818 University Station \\ Charlottesville, VA 22903} \vspace
 
 \section{Introduction}
 
-{\it Athena} is a grid-based code for astrophysical gas dynamics being
+{\it Athena} is a grid-based code for astrophysical gas dynamics
 developed with support of the NSF Information Technology Research (ITR)
 program.  This {\it Programmer's Guide} describes version 3.0 (hereafter
 referred to as \ath); the third publicly released version of the code.
 This guide is intended as a very basic introduction into the data structures
 and organization of \ath, it will be useful to any user interested in
 modifying or extending the code.  The {\it User's Guide} should be consulted
-for basic directions on how to install, configure, compile, and run \ath.
-
-The source code development of \ath\ is managed using CVS (Concurrent
-Versions System)\footnote{{\tt http://www.cvshome.org}, see also
-{\it Open Source Development with CVS} by Karl Frogel (Coriolis
-Press, 1999), and our own CVS project page {\tt
-http://www.astro.umd.edu/~teuben/miriad/cvs.html}}.  The genealogy
-of the code is kept clearly visible by the branching-mechanism in
-CVS (see also Figure~\ref{f:coderelease}).  Code development proceeds
-in the MAIN line of CVS.  Once the code was deemed stable in 1D,
-it was branched with tagname {\tt ONE\_DIM} and prepared for a 1.0
-release.  The 2D algorithm was developed in the main line, and
-once fully tested, it was branched with tagname {\tt TWO\_DIM} and
-prepared for a 2.0 release.  Development of the 3D version continues
-in the main line.  Since the full 3D version can be used in 2D or
-1D simply by setting the appropriate dimension(s) to 1, no more
-development will occur in {\tt ONE\_DIM} and {\tt TWO\_DIM} branches, other
-than important bug fixes, with the intent to keep these lower
-dimension releases simple and educational.
-
-%\begin{figure}[htb!]
-%\plotone_reduction{coderelease.eps}{0.4}
-%\caption{Structure of the CVS code development tree.  Ongoing development 
-%occurs in the MAIN line of CVS.  Released versions
-%are the branches {\tt ONE\_DIM} and {\tt TWO\_DIM}. }
-%\label{f:coderelease}
-%\end{figure}
+for directions on how to install, configure, compile, and run \ath.
 
 \section{The Computational Grid}
 
-The definition of the computational grid in \ath\ is fairly simple, since it
-uses a single uniform mesh.  Figure~\ref{f:grid} diagrams the transformation
-between the continuous spatial dimensions $x_{1}$ and $x_{2}$ and the discrete
-coordinates $i,j$.  The origin of the computational domain has the coordinates
-$(x1\_0, x2\_0)$ in the continuous coordinates.  These need not be the same
-as the origin $x_{1}=0$ and $x_{2}=0$.  The origin of the discrete
-coordinate system (located at $(x1\_0, x2\_0)$) is $(ix1, ix2) = (0,0)$.
-The computational domain can be further subdivided into patches; each patch
-is offset from $(ix1, ix2)$ by an integer number of grid cells $(idisp, jdisp)$.
-The grid coordinates within a given patch are referenced to the location
-of the point $(idisp, jdisp)$ (which is treated as the origin for {\em that}
-patch).  The first active cell in the grid has the coordinates $(is,js)$,
-which are both equal to the number of ghost cells used to specify the 
-boundary conditions, that is $is=js=nghost$. 
+Figure~\ref{f:grid} diagrams the transformation between the continuous
+spatial dimensions $x_{1}$, $x_{2}$, and $x_{3}$ and the discrete
+coordinates $i,j,k$.  The origin of the computational domain has the
+coordinates $(x1\_0, x2\_0, x3\_0)$ in the continuous coordinates.
+These need not be the same as the origin $(x_{1},x_{2},x_{3}) = (0,0,0)$.
+The discrete coordinate system is indexed by the integers $(ix1, ix2,
+ix3)$.  The origin of the discrete coordinates $(ix1,ix2,ix3) = (0,0,0)$
+is located at $(x1\_0,x2\_0,x3\_0)$).  The computational domain can be
+further subdivided into patches; each patch is offset from the origin
+of the discrete coordinate system by an integer number of grid cells
+$(idisp, jdisp, kdisp)$.  The grid coordinates within a given patch
+are referenced to the location of the point $(idisp, jdisp, kdisp)$
+(which is treated as the origin for {\em that} patch).  The first active
+cell in the grid has the coordinates $(is,js,ks)$, which are all equal
+to the number of ghost cells used to specify the boundary conditions,
+that is $is=js=ks=nghost$.  The last active cell in each dimension is
+labeled by $i=ie$, $j=je$, and $k=ke$.
 
-%\begin{figure}[htb!]
-%\plotone_reduction{grid2d.eps}{0.9}
-%\caption{Relation between the continuous spatial dimensions $x_{1}$ and $x_{2}$
-%and the discrete coordinates $i,j$ in \ath.  See the text for details.}
-%\label{f:grid}
-%\end{figure}
+\begin{figure}[htb!]
+\plotone_reduction{figure1.eps}{0.9}
+\caption{Relation between the continuous spatial dimensions $x_{1}$ and $x_{2}$
+and the discrete coordinates $i,j$ in a two-dimensional slice
+at a fixed value of $x_{3}$ ($k$) in \ath.  The relations in the 
+$x_{2}-x_{3}$ and $x_{1}-x_{3}$ planes are identical.
+See the text for details.}
+\label{f:grid}
+\end{figure}
 
 Mathematically, the spatial coordinate of the {\em center} of any grid point
 on the mesh is given by
@@ -110,65 +90,104 @@ on the mesh is given by
 \begin{displaymath}
   x2_{j} = x2\_0 + (j + jdisp - 0.5)*(\Delta x2)
 \end{displaymath}
-where $\Delta x1$ and $\Delta x2$ are the grid spacing on the patch.
-These formulae are implemented in the function {\tt cc\_pos.c}.
-
-The use of patches and the offsets $(idisp, jdisp)$ are useful for
-nested grids, or tiling a single grid on parallel processors.  However since
-neither capability has been implemented yet in \ath, the offsets are always
-set to zero.
+\begin{displaymath}
+  x3_{k} = x3\_0 + (k + kdisp - 0.5)*(\Delta x3)
+\end{displaymath}
+where $\Delta x1$, $\Delta x2$, and $\Delta x3$ are the grid spacing
+on the patch.  These formulae are implemented in the function {\tt
+cc\_pos.c}.  The use of patches and the offsets $(idisp, jdisp, kdisp)$ are
+useful for nested grids, or tiling a single grid on parallel processors.
 
 Figure~\ref{f:gridcell} shows the centering of variables within a cell
 on the computational grid.  The vector {\bf U} stores volume-averaged
 values of the conserved variables (density, momentum, total energy, and
 cell centered magnetic field).  The fundamental representation of the
 magnetic field are the {\em area-averaged} components stored at cell faces. 
+We label the {\em left} interface value with the same index as the cell-center.
 
-%\begin{figure}[htb!]
-%\plotone_reduction{gridcell.eps}{0.4}
-%\caption{Centering of the magnetic field components at cell faces, and
-%conserved variables at cell centers.}
-%\label{f:gridcell}
-%\end{figure}
+\begin{figure}[htb!]
+\plotone_reduction{figure2.eps}{0.8}
+\caption{Centering of the magnetic field components at cell faces, and
+conserved variables at cell centers.}
+\label{f:gridcell}
+\end{figure}
+
+
+\section{Data Structures}
+
+The entire computational domain is divided into grid blocks.  Each block
+represents a patch of the domain updated by a separate processor (for
+calculations on parallel systems), or
+a region in which the grid is refined (for nested or adaptive grids), or
+both.  Data is organized in the following C structures (defined in 
+the header file {\tt athena.h}).
+
+\subsection{The Domain Structure}
+
+Information about the entire computational domain is stored in the
+Domain structure, reproduced below.
+\footnotesize
+\begin{verbatim}
+typedef struct Grid_Block_s{
+  int ixs, jxs, kxs;             /* Minimum coordinate of cells in this block */
+  int ixe, jxe, kxe;             /* Maximum coordinate of cells in this block */
+  int my_id;                     /* process ID (rank in MPI) */
+}Grid_Block;
+
+
+typedef struct Domain_s{
+  Grid_Block ***grid_block;     /* 3D array of grid blocks tiling this domain */
+  int ixs, jxs, kxs;        /* Minimum coordinate of cells over entire domain */
+  int ixe, jxe, kxe;        /* Maximum coordinate of cells over entire domain */
+}Domain;
+\end{verbatim}
+\normalsize
+Note the Domain contains an array of Grid\_Blocks, which in turn contain
+information about the coordinates of that patch in the continuous space
+(see \S2.1).
 
 \subsection{The Grid Structure}
 
-We organize the information about a grid patch, as well as the dependent
+We organize the information about each grid patch in the Domain,
+as well as the dependent
 variables on that patch, into a C structure called a Grid.  The dependent
 variables {\em at cell center} are organized into another C structure we
 call Gas.  Thus, a Grid contains the Gas structure, the face centered
-magnetic field, plus information about coordinates.  These structures
-are defined in the header file {\tt athena.h}, the Grid structure from
-that file is reproduced below.
-
+magnetic field, plus information about coordinates.
+The Grid structure is reproduced below.
 \footnotesize
 \begin{verbatim}
-
 typedef struct Grid_s{
-  Gas **U;                      /* pointer to a 2D array of Gas'es */
+  Gas ***U;                     /* pointer to a 3D array of Gas'es */
 #ifdef MHD
-  Real **B1i,**B2i;             /* pointer to a 2D array of interface B's */
+  Real ***B1i,***B2i,***B3i;    /* pointer to a 3D array of interface B's */
 #endif /* MHD */
   Real x1_0;                    /* x1-position of coordinate ix = 0 */
   Real x2_0;                    /* x2-position of coordinate jx = 0 */
-  Real dx1,dx2;                 /* cell size */
+  Real x3_0;                    /* x3-position of coordinate kx = 0 */
+  Real dx1,dx2,dx3;             /* cell size */
   Real dt,time;                 /* time step, absolute time */
   int nstep;                    /* number of integration steps taken */
-  int Nx1,Nx2;                  /* number of zones in x1,x2 direction */
+  int Nx1,Nx2,Nx3;              /* number of zones in x1, x2, x3 direction */
   int is,ie;                    /* start/end cell index in x1 direction */
   int js,je;                    /* start/end cell index in x2 direction */
+  int ks,ke;                    /* start/end cell index in x3 direction */
   int idisp;                    /* coordinate ix = index i + idisp */
   int jdisp;                    /* coordinate jx = index j + jdisp */
+  int kdisp;                    /* coordinate kx = index k + kdisp */
   char *outfilename;            /* basename for output files */
+  int my_id;                /* process ID (or rank in MPI) updating this Grid */
+  int nproc;                /* total number of processes in the calculation */
+  int rx1_id, lx1_id;       /* ID of grids to R/L in x1-dir (default = -1) */
+  int rx2_id, lx2_id;       /* ID of grids to R/L in x2-dir (default = -1) */
+  int rx3_id, lx3_id;       /* ID of grids to R/L in x3-dir (default = -1) */
 }Grid;
-
 \end{verbatim}
 \normalsize
-
 Note that both the Gas structure and the face-centered fields are
-2D arrays.  The advantage of making the cell centered variables a 2D
+3D arrays.  The advantage of making the cell centered variables a 3D
 array of type Gas, rather than making the Gas structure itself contain
-2D arrays, is that we guarantee that different variables at the same
+3D arrays, is that we guarantee that different variables at the same
 grid cell will be stored contiguously in memory, which can improve cache
 performance.
 
@@ -183,9 +202,9 @@ reproduced below.
 
 typedef struct Gas_s{
   Real d;                       /* density */
-  Real M1;                      /* Momenta in 1,2,3 */
-  Real M2;
-  Real M3;
+  Real M1;                      /* Momenta in 1,2,3.  Use 1,2,3 to label */
+  Real M2;                      /* directions in anticipation of         */
+  Real M3;                      /* covariant coordinate in future        */
 #ifndef ISOTHERMAL
   Real E;                       /* Total energy density */
 #endif /* ISOTHERMAL */
@@ -202,7 +221,7 @@ typedef struct Gas_s{
 The vector {\bf M} denotes the linear momentum.
 Note the Gas structure contains all 3 components of the cell-centered
 magnetic field, that is it contains 8 variables in all.
-The longitudunal component of the field is dropped in the one-dimensional
+The longitudinal component of the field is dropped in the one-dimensional
 system of equations; we define new structures for the dependent variable
 in one-dimension, each of which only contains 7 variables.
 For the conserved variables, the structure is Cons1D
@@ -210,16 +229,16 @@ For the conserved variables, the structure is Cons1D
 \footnotesize
 \begin{verbatim}
 
-typedef struct{
-  Real d;                       /* density (cell averaged) */
-  Real Mx;                      /* Momenta in X,Y,Z */
-  Real My;
-  Real Mz;
+typedef struct Cons1D_s{
+  Real d;                       /* density */
+  Real Mx;                      /* Momenta in X,Y,Z.  Use X,Y,Z now instead  */
+  Real My;                      /* of 1,2,3 since this structure can contain */
+  Real Mz;                      /* a slice in any dimension: 1,2,or 3        */
 #ifndef ISOTHERMAL
   Real E;                       /* Total energy density */
 #endif /* ISOTHERMAL */
 #ifdef MHD
-  Real By;                      /* grid centered magnetic fields in Y,Z */
+  Real By;                      /* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
 }Cons1D;
@@ -232,8 +251,8 @@ while for the primitive variables the structure is Prim1D
 \footnotesize
 \begin{verbatim}
 
-typedef struct{
-  Real d;                       /* density (cell averaged) */
+typedef struct Prim1D_s{
+  Real d;                       /* density */
   Real Vx;                      /* Velocity in X,Y,Z */
   Real Vy;
   Real Vz;
@@ -241,7 +260,7 @@ typedef struct{
   Real P;                       /* pressure */
 #endif /* ISOTHERMAL */
 #ifdef MHD
-  Real By;                      /* grid centered magnetic fields in Y,Z */
+  Real By;                      /* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
 }Prim1D;
@@ -249,16 +268,16 @@ typedef struct{
 \end{verbatim}
 \normalsize
 
-Note that we have used the subscripts x,y,z to denote the components of 
-vectors in the one-dimensional variables contained in Cons1D and Prim1D,
-whereas we used the subsripts 1,2,3 to denote the components of vectors
-in the Gas structure.  The variables in the Gas structure are fixed
-with respect to the coordinates of the grid (e.g., M1 corresponds to the
-momentum in the 1-direction).  However, since the one-dimensional variables
-may represent a slice in any direction, the x,y,z components are not fixed
-with respect to the grid (that is, Mx corresponds to M1 along an a slice in
-the 1-direction, but Mx corresponds to M2 along an a slice in
-the 2-direction).
+Note that we have used the subscripts x,y, and z to denote the components
+of vectors in the one-dimensional variables contained in Cons1D and
+Prim1D, whereas we used the subscripts 1,2, and 3 to denote the components
+of vectors in the Gas structure.  The variables in the Gas structure
+are fixed with respect to the coordinates of the grid (e.g., {\tt M1}
+corresponds to the momentum in the 1-direction).  However, since the
+one-dimensional variables may represent a slice in any direction, the
+x,y, and z components are not fixed with respect to the grid (that is,
+{\tt Mx} corresponds to {\tt M1} along an a slice in the 1-direction,
+but {\tt Mx} corresponds to {\tt M2} along an a slice in the 2-direction).
 
 The order of the variables in the Gas, Prim1d, and Cons1D structures is
 extremely important and
@@ -283,173 +302,88 @@ following code fragment from the function {\tt lr\_states\_prim2.c}
 \end{verbatim}
 \normalsize
 Here, {\tt Wl}, {\tt Wrv}, and {\tt dW} are all structures of type Prim1D,
-and {\tt NWAVE} is the number of components of these structures (which depends
-on whether the problem is hydrodynamic or MHD, and adiabatic or isothermal).
-Using pointers in this way leads to more compact coding, is more efficient
-(since it allows vectorization of the loop), and by using structures to 
-ensure the components of the vectors are stored contiguously, it is more
-cache efficient.  However, {\em be warned!}.  It also means the order of
-the variables is hardwired
-in the code, and cannot be changed, which has the potential to be the source
-of some nasty bugs.
+and {\tt NWAVE} is the number of components of these structures (which
+depends on whether the problem is hydrodynamic or MHD, and adiabatic or
+isothermal).  Using pointers in this way leads to more compact coding,
+is more efficient (since it allows vectorization of the loop), and by
+using structures to ensure the components of the vectors are stored
+contiguously, it is more cache efficient.  However, {\em be warned!}.
+It also means the order of the variables is hardwired in the code,
+and cannot be changed, which has the potential to be the source of some
+nasty bugs.
 
 \section{Memory Allocation and Management}
 
-\ath\ uses dynamic memory allocation, meaning that all arrays must be created
-at run time using {\tt malloc} or {\tt calloc}.  This makes the coding
-slightly more complex, but has the great advantage that problems of different
-dimensions (1D or 2D), and problems of different sizes can be run without the
-need for recompiling.
+{\tt Athena3.0} uses dynamic memory allocation, meaning that all arrays must be
+created at run time using {\tt malloc} or {\tt calloc}.  This makes the
+coding slightly more complex, but has the great advantage that problems
+of different dimensions (1D, 2D, or 3D), and problems of different sizes
+can be run without the need for recompiling.
 
-The indexing convention used in \ath\ is that all multidimensional arrays
-must have the $x1$ index as the fastest incrementing index.  In this way, data
-in cell $i-1$ should be contiguous with data in cell $i$, whereas data in
-cell $j-1$ will be $Nx1 + 2*nghost$ data elements away from the data
-in cell $j$.  In order to achieve this in C, arrays must be referenced as
-{\tt A[j][i]}.  The file {\tt real\_array.c} contains functions for
-creating (allocating) and destroying (deallocating) 2D arrays.
+The indexing convention used in \ath\ is that all multidimensional
+arrays must have the $x1$ index as the fastest incrementing index.
+In this way, data in cell $i-1$ should be contiguous with data in cell
+$i$, whereas data in cell $j-1$ will be $Nx1 + 2*nghost$ data elements
+away from the data in cell $j$, and the data in cell $k-1$ will be
+$(Nx1 + 2*nghost)*(Nx2 + 2*nghost)$ data elements away from the data in
+cell $k$.  In order to achieve this in C, arrays must be referenced as
+{\tt A[k][j][i]}.  The file {\tt real\_array.c} contains functions for
+creating (allocating) and destroying (deallocating) 2D and 3D arrays.
 
-\section{Basic Code Structure}
-
-The basic organization of the \ath\ code is shown below (using psuedo-code
-to simply represent the actual algorithm implemented in {\tt main.c}).
-
+Recall (from \S2.1) that on each grid patch, the first active zone is
+labeled $is$ and the last is labeled $ie$ (similarly for $js$ and $je$, 
+and $ks$ and $ke$).  Thus, to stride across all active zones requires
+triply nested {\tt for} loops:
 \footnotesize
 \begin{verbatim}
 
-main{
-  show_config
-  par_open
-  par_cmdline
-  par_close
-  
-  if (ires) {              /* For restarts (not implemented) */
-    restart_grid_block
-    integrate_init
-    set_bvals
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        ....
+      }
+    }
   }
-  else {                   /* For new jobs */
-    set_eos_param
-    init_grid_block
-    integrate_init
-    problem
-    set_bvals_init
-    set_bvals
-    init_dt
-  }
-
-  init_output
-  lr_states_init
-  Userwork_before_loop
-
-  while(t<tlim && n<nlim) {
-    data_output
-    integrate
-    set_bvals
-  }
-
-  Userwork_after_loop
-  data_output
-  lr_states_destruct
-  integrate_destruct
-  data_output_destruct
-
-}
 
 \end{verbatim}
 \normalsize
+Note the inner loop should always be over the $i$-index.
 
-The first block of four functions opens, parses, and closes the input
-file, as well as reading and responding to any command line options.
+\section{Code Structure}
 
-The second block (contained in the {\tt if (ires) \{ ... \}} statement)
-initializes the simulation, including allocation of memory needed
-for the Gas and Grid structures, as well as any work arrays needed by the
-integration routines.  The function problem is actually a soft link
-to one of the problem generators in the
-directory {\tt /src} which is set during the configure step (before
-the code is compiled).
+The main integration loop is contained in {\tt main.c}, which all
+initializes the domain and grid patches, and orchestrates I/O.  Which
+integrator is actually used is determined by a function pointer
+set at runtime by {\tt integrate\_init()} in the file {\tt integrate.c}.
 
-The next block of three lines outputs the initial conditions, and does any
-final work before the main integration loop.
+The 1D, 2D, and 3D integrators are very different in structure.
+However, much effort has been put into keeping them as modular as
+possible.  Thus, they all share the same reconstruction functions (e.g., {\tt
+lr\_states\_prim2.c}, etc.) and flux functions (e.g., {\tt flux\_roe.c},
+etc.).  Eigensystems in the conserved and primitive variables, needed by
+some of the Riemann solvers and reconstruction algorithms respectively,
+are contained in the {\tt esystem\_roe.c} and {\tt esystem\_prim.c} files.
 
-The main loop is contained in the {\tt while} statement.
-The function {\tt integrate} calls the appropriate integration routine either
-{\tt integrate\_1d} or {\tt integrate\_2d} at run time based on the 
-dimensions of the grid specified in the input file.  Since the code uses
-dynamic memory allocation, the dimensions of the grid can be changed at run
-time without recompiling the code.
+The input file is parsed by the functions in {\tt par.c}, and I/O
+is coordinated by the functions in {\tt output.c}.
 
-Finally, the last 5 lines after the main loop deallocates memory, outputs
-the final data, and terminates execution.
-
-The {\tt data\_output} routine calls a variety of other functions:
-
-\footnotesize
-\begin{verbatim}
-
-data_ouput
-  dump_binary
-  dump_hdf4
-  dump_history
-  dump_table
-  output_fits
-  output_pgm
-  output_ppm
-  output_tab
-
-\end{verbatim}
-\normalsize
-
-Output functions named {\tt dump\_*} generally write out all the data in the
-grid in the given format, whereas output functions named {\tt output\_*}
-generally write out selected variables only.
-The {\em User's Guide}, section 3 has more information about data output
-formats.
-
-The integrator for one-dimensional problems has a very simple structure:
-
-\footnotesize
-\begin{verbatim}
-
-integrate_1d
-  lr_states
-    esystem_prim
-  GET_FLUXES
-    esystem_cons
-
-\end{verbatim}
-\normalsize
-
-The function {\tt lr\_states} is also a soft link set by configure to be one of
-{\tt lr\_states\_prim1}, {\tt lr\_states\_prim2}, or {\tt lr\_states\_prim3}
-depending on the order of reconstruction specified by the user (see the
-User's Guide, \S 2.3).
-The keyword {\tt GET\_FLUXES} is set by configure to be one of 
-{\tt flux\_hlle}, {\tt flux\_hllc}, or {\tt flux\_roe}
-depending on the Riemann solver to be used (see the
-User's Guide, \S 2.3).
-
-The integrator for
-two-dimensional problems is much more complex, because of the
-need to use an unsplit integration method (consisting of a predict and
-correct steps), and the need to add ``source terms" to balance the
-transverse flux gradients in the predict step.  Details of the
-algorithm in multidimensions are given in the Method Paper.
+Users who wish to make substantial modification or extension of
+the algorithms should start by understanding the 1D integrator ({\tt
+integrate\_1d.c}) and the functions it calls, before moving on to the 2D
+and 3D integrators.
 
 \section{Final Words about Code Development}
 
-We have used mostly the GNU development tools (gmake, gcc, autoconf) to
-develop the code. There is no reason, once the {\tt configure} script has been
-generated, for it to fail on other platforms (although it almost
-certainly {\em will} fail
-on some machines).   To date we have tested the code using Linux and MacOSX.
+We have used mostly the GNU development tools (gmake, gcc, autoconf)
+to develop the code.  It should work on any platform that supports
+these tools (although experience shows that undoubtedly there will be some
+machines for which it {\em will} fail).   To date we have tested the
+code on Linux, Solaris, and MacOSX.
 
-Coding style is very personal and can be a source of many fruitless
-discussions at Caf\'{e} Nero and/or Small World Cofee, so we adopt the
-following policy:  we recommend the default emacs style 
-(for example, indenting by 2 K\&R style). See {\tt doc/template.c} for
-guidelines.
+Coding style is very personal and has been the source of many animated
+discussions at Caf\'{e} Nero and Small World Coffee.  We have only agreed
+on the following: we recommend the default emacs style (for example,
+indenting by 2 as in K\&R style).
 
 
 \end{document}
