@@ -23,9 +23,6 @@
 #include "globals.h"
 #include "prototypes.h"
 
-#ifdef ISOTHERMAL
-#error : The HLLD flux only works with adiabatic EOS.
-#endif /* ISOTHERMAL */
 #ifndef MHD
 #error : The HLLD flux only works for mhd.
 #endif /* MHD */
@@ -69,8 +66,13 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
  * Compute left & right wave speeds according to Miyoshi & Kusano, eqn. (67)
  */
 
+#ifndef ISOTHERMAL
   gpl  = Gamma * Wl.P;
   gpr  = Gamma * Wr.P;
+#else /* ISOTHERMAL */
+  gpl  = Wl.d*Iso_csound2;
+  gpr  = Wr.d*Iso_csound2;
+#endif /* ISOTHERMAL */
   gpbl = gpl + 2.0*pbl;
   gpbr = gpr + 2.0*pbr;
 
@@ -93,17 +95,25 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
      Ul.Mx == Ur.Mx &&
      Ul.My == Ur.My &&
      Ul.Mz == Ur.Mz &&
+#ifndef ISOTHERMAL
      Ul.E  == Ur.E &&
+#endif /* ISOTHERMAL */
      Ul.By == Ur.By &&
      Ul.Bz == Ur.Bz) {
 /* return Fl (= Fr) */
     pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
+#ifndef ISOTHERMAL
     ptl = Wl.P + pbl;
+#else /* ISOTHERMAL */
+    ptl = gpl + pbl;
+#endif /* ISOTHERMAL */
     pFlux->d  = Ul.Mx;
     pFlux->Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
     pFlux->My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
     pFlux->Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
+#ifndef ISOTHERMAL
     pFlux->E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
+#endif /* ISOTHERMAL */
     pFlux->By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
     pFlux->Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
     return;
@@ -111,12 +121,18 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 
   if(spd[0] >= 0.0) {
 /* return Fl */
+#ifndef ISOTHERMAL
     ptl = Wl.P + pbl;
+#else /* ISOTHERMAL */
+    ptl = gpl + pbl;
+#endif /* ISOTHERMAL */
     pFlux->d  = Ul.Mx;
     pFlux->Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
     pFlux->My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
     pFlux->Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
+#ifndef ISOTHERMAL
     pFlux->E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
+#endif /* ISOTHERMAL */
     pFlux->By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
     pFlux->Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
     return;
@@ -124,12 +140,18 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 
   if(spd[4] <= 0.0) {
 /* return Fr */
+#ifndef ISOTHERMAL
     ptr = Wr.P + pbr;
+#else /* ISOTHERMAL */
+    ptr = gpr + pbr;
+#endif /* ISOTHERMAL */
     pFlux->d  = Ur.Mx;
     pFlux->Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
     pFlux->My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
     pFlux->Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
+#ifndef ISOTHERMAL
     pFlux->E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
+#endif /* ISOTHERMAL */
     pFlux->By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
     pFlux->Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
     return;
@@ -142,8 +164,13 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   sdl = spd[0] - Wl.Vx;
   sdr = spd[4] - Wr.Vx;
 
+#ifndef ISOTHERMAL
   ptl = Wl.P + pbl;
   ptr = Wr.P + pbr;
+#else /* ISOTHERMAL */
+  ptl = gpl + pbl;
+  ptr = gpr + pbr;
+#endif /* ISOTHERMAL */
 
   spd[2] = (sdr*Wr.d*Wr.Vx - sdl*Wl.d*Wl.Vx - ptr + ptl) /
            (sdr*Wr.d-sdl*Wl.d);
@@ -185,8 +212,10 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     Ulst.Bz = Ul.Bz * tmp;
   }
   vbstl = (Ulst.Mx*Bxi+Ulst.My*Ulst.By+Ulst.Mz*Ulst.Bz)/Ulst.d;
+#ifndef ISOTHERMAL
   Ulst.E = (sdl*Ul.E - ptl*Wl.Vx + ptst*spd[2] +
             Bxi*(Wl.Vx*Bxi+Wl.Vy*Ul.By+Wl.Vz*Ul.Bz - vbstl))/sdml;
+#endif /* ISOTHERMAL */
   pbstl = Cons1D_to_Prim1D(&Ulst,&Wlst,&Bxi);
 
 
@@ -211,8 +240,10 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     Urst.Bz = Ur.Bz * tmp;
   }
   vbstr = (Urst.Mx*Bxi+Urst.My*Urst.By+Urst.Mz*Urst.Bz)/Urst.d;
+#ifndef ISOTHERMAL
   Urst.E = (sdr*Ur.E - ptr*Wr.Vx + ptst*spd[2] +
             Bxi*(Wr.Vx*Bxi+Wr.Vy*Ur.By+Wr.Vz*Ur.Bz - vbstr))/sdmr;
+#endif /* ISOTHERMAL */
   pbstr = Cons1D_to_Prim1D(&Urst,&Wrst,&Bxi);
 
 
@@ -250,9 +281,11 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
                    Bxsig*sqrtdl*sqrtdr*(Wrst.Vz-Wlst.Vz));
     Uldst.Bz = Urdst.Bz = tmp;
 
+#ifndef ISOTHERMAL
     tmp = spd[2]*Bxi + (Uldst.My*Uldst.By + Uldst.Mz*Uldst.Bz)/Uldst.d;
     Uldst.E = Ulst.E - sqrtdl*Bxsig*(vbstl - tmp);
     Urdst.E = Urst.E + sqrtdr*Bxsig*(vbstr - tmp);
+#endif /* ISOTHERMAL */
   }
   pbdstl = Cons1D_to_Prim1D(&Uldst,&Wldst,&Bxi);
   pbdstr = Cons1D_to_Prim1D(&Urdst,&Wrdst,&Bxi);
@@ -265,7 +298,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fl.Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
   Fl.My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
   Fl.Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
+#ifndef ISOTHERMAL
   Fl.E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
+#endif /* ISOTHERMAL */
   Fl.By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
   Fl.Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
 
@@ -273,7 +308,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fr.Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
   Fr.My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
   Fr.Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
+#ifndef ISOTHERMAL
   Fr.E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
+#endif /* ISOTHERMAL */
   Fr.By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
   Fr.Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
 
@@ -283,7 +320,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->Mx = Fl.Mx + spd[0]*(Ulst.Mx - Ul.Mx);
     pFlux->My = Fl.My + spd[0]*(Ulst.My - Ul.My);
     pFlux->Mz = Fl.Mz + spd[0]*(Ulst.Mz - Ul.Mz);
+#ifndef ISOTHERMAL
     pFlux->E  = Fl.E  + spd[0]*(Ulst.E  - Ul.E);
+#endif /* ISOTHERMAL */
     pFlux->By = Fl.By + spd[0]*(Ulst.By - Ul.By);
     pFlux->Bz = Fl.Bz + spd[0]*(Ulst.Bz - Ul.Bz);
   }
@@ -294,7 +333,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->Mx = Fl.Mx - spd[0]*Ul.Mx - tmp*Ulst.Mx + spd[1]*Uldst.Mx;
     pFlux->My = Fl.My - spd[0]*Ul.My - tmp*Ulst.My + spd[1]*Uldst.My;
     pFlux->Mz = Fl.Mz - spd[0]*Ul.Mz - tmp*Ulst.Mz + spd[1]*Uldst.Mz;
+#ifndef ISOTHERMAL
     pFlux->E  = Fl.E  - spd[0]*Ul.E  - tmp*Ulst.E  + spd[1]*Uldst.E;
+#endif /* ISOTHERMAL */
     pFlux->By = Fl.By - spd[0]*Ul.By - tmp*Ulst.By + spd[1]*Uldst.By;
     pFlux->Bz = Fl.Bz - spd[0]*Ul.Bz - tmp*Ulst.Bz + spd[1]*Uldst.Bz;
   }
@@ -305,7 +346,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->Mx = Fr.Mx - spd[4]*Ur.Mx - tmp*Urst.Mx + spd[3]*Urdst.Mx;
     pFlux->My = Fr.My - spd[4]*Ur.My - tmp*Urst.My + spd[3]*Urdst.My;
     pFlux->Mz = Fr.Mz - spd[4]*Ur.Mz - tmp*Urst.Mz + spd[3]*Urdst.Mz;
+#ifndef ISOTHERMAL
     pFlux->E  = Fr.E  - spd[4]*Ur.E  - tmp*Urst.E  + spd[3]*Urdst.E;
+#endif /* ISOTHERMAL */
     pFlux->By = Fr.By - spd[4]*Ur.By - tmp*Urst.By + spd[3]*Urdst.By;
     pFlux->Bz = Fr.Bz - spd[4]*Ur.Bz - tmp*Urst.Bz + spd[3]*Urdst.Bz;
   }
@@ -315,7 +358,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->Mx = Fr.Mx + spd[4]*(Urst.Mx - Ur.Mx);
     pFlux->My = Fr.My + spd[4]*(Urst.My - Ur.My);
     pFlux->Mz = Fr.Mz + spd[4]*(Urst.Mz - Ur.Mz);
+#ifndef ISOTHERMAL
     pFlux->E  = Fr.E  + spd[4]*(Urst.E  - Ur.E);
+#endif /* ISOTHERMAL */
     pFlux->By = Fr.By + spd[4]*(Urst.By - Ur.By);
     pFlux->Bz = Fr.Bz + spd[4]*(Urst.Bz - Ur.Bz);
   }
