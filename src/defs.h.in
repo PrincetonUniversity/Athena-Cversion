@@ -116,9 +116,7 @@ enum {
 #ifdef MPI_PARALLEL
 enum {boundary_cells_tag,
       sync_step_tag,
-      problem0_tag,
-      problem1_tag,
-      problem2_tag
+      output_tag,           /* useful for controlling output with MPI */
 };
 #endif /* MPI_PARALLEL */
 
