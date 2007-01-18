@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <assert.h>
 
 /* This code is not bulletproof.  In a variety of places I assume a
    simplified version of the VTK file format.  It should work for our
@@ -29,6 +30,10 @@
    prototypes.h can lead to funny dependencies such as MPI,
    etc. depending on the athena configuration.
    --  T. A. Gardiner -- Nov. 17, 2004 */
+
+/* Added fseek() to write_joined_vtk() to prevent leading data bytes
+   that happen to correspond to "white space" from being consumed by
+   fscanf().  -- Nicole Lemaster -- Feb. 16, 2006 */
 
 
 static void join_error(const char *fmt, ...);
@@ -573,6 +578,12 @@ static void write_joined_vtk(const char *out_name){
 	    }
 	  }
 
+	  /* Prevent leading data bytes that correspond to "white space"
+	     from being consumed by the fscanf's above -- MNL 2/6/06 */
+          assert(fseek(domain_3d[k][j][i].fp, -1, SEEK_CUR) == 0);
+	  while (isspace(fgetc(domain_3d[k][j][i].fp)))
+            assert(fseek(domain_3d[k][j][i].fp, -2, SEEK_CUR) == 0);
+	  assert(fgetc(domain_3d[k][j][i].fp) == '\n');
 	}
       }
     }
