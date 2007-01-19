@@ -28,7 +28,7 @@ static char *athena_version = "version 3.0 - 01-JAN-2007";
  * WTIME_WINDOW wall-seconds remaining to allow for time to write out the last
  * data files.
  */
-#define WTIME_WINDOW 60.0
+#define WTIME_WINDOW 600.0
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -352,6 +352,8 @@ int main(int argc, char *argv[])
       printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
               level0_Grid.dt);
     }
+    fflush(stdout);
+    fflush(stderr);
 
   }
 /* END OF MAIN INTEGRATION LOOP ==============================================*/
