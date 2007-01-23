@@ -202,11 +202,17 @@ fi
 #-------------------------------------------------------------------------------
 # FEATURE: turn on H-correction in multidimensional integrators
 #   --enable-h-correction
+# Note that H-correction only works with Roe flux.  Prints error message if
+# H-correction is enabled with any other flux.
 
 AC_SUBST(H_CORRECTION_MODE)
 AC_ARG_ENABLE(h-correction, [  --enable-h-correction          turn on H-correction], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
+if test "$with_flux" = "roe"; then
   H_CORRECTION_MODE=H_CORRECTION
+else
+  AC_MSG_ERROR([H-correction only works with Roe flux])
+fi
 else
   H_CORRECTION_MODE=NO_H_CORRECTION
 fi
