@@ -97,7 +97,27 @@ ifeq ($(MACHINE),hydra)
   CFLAGS = $(OPT) $(MPIINC)
   LIB = $(MPILIB) -ldl -lm
 else
+ifeq ($(MACHINE),apus)
+  CC  = gcc
+  LDR = gcc
+  OPT = -O3
+  MPIINC = -I/opt/mpich-1.2.6.gcc/include
+  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
+  CFLAGS = $(OPT) $(MPIINC)
+  LIB = $(MPILIB) -ldl -lm
+else
+ifeq ($(MACHINE),della)
+  CC = /usr/local/openmpi-1.1-intel/bin/mpicc
+  LDR = /usr/local/openmpi-1.1-intel/bin/mpicc
+  OPT = -O3 -xW -tpp7 -ipo -i-static
+  MPIINC = -I/usr/local/openmpi-1.1-intel/include
+  MPILIB =
+  CFLAGS = $(OPT) $(MPIINC)
+  LIB = $(MPILIB) -ldl -lm
+else
   abort Unsupported MACHINE=$(MACHINE)
+endif
+endif
 endif
 endif
 endif
@@ -116,7 +136,7 @@ all:	compile
 compile: ${BIN}
 
 ${BIN}: ${OBJ} 
-	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${LIB}
+	${LDR} $(OPT) -o ${BIN} ${OBJ} ${LIB}
 
 help:
 	@echo This is the Athena Makefile
