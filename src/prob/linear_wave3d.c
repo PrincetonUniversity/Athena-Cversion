@@ -611,6 +611,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 static Real A1(const Real x1, const Real x2, const Real x3)
 {
+#ifdef MHD
   Real x, y;
   Real Ay, Az;
 
@@ -621,6 +622,7 @@ static Real A1(const Real x1, const Real x2, const Real x3)
   Az = -by0*x + (dby/k_par)*cos(k_par*x) + bx0*y;
 
   return -Ay*sin_a3 - Az*sin_a2*cos_a3;
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -629,6 +631,7 @@ static Real A1(const Real x1, const Real x2, const Real x3)
 
 static Real A2(const Real x1, const Real x2, const Real x3)
 {
+#ifdef MHD
   Real x, y;
   Real Ay, Az;
 
@@ -639,6 +642,7 @@ static Real A2(const Real x1, const Real x2, const Real x3)
   Az = -by0*x + (dby/k_par)*cos(k_par*x) + bx0*y;
 
   return Ay*cos_a3 - Az*sin_a2*sin_a3;
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -647,6 +651,7 @@ static Real A2(const Real x1, const Real x2, const Real x3)
 
 static Real A3(const Real x1, const Real x2, const Real x3)
 {
+#ifdef MHD
   Real x, y;
   Real Az;
 
@@ -656,4 +661,5 @@ static Real A3(const Real x1, const Real x2, const Real x3)
   Az = -by0*x + (dby/k_par)*cos(k_par*x) + bx0*y;
 
   return Az*cos_a2;
+#endif
 }
