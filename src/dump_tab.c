@@ -58,7 +58,7 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
     ku = pG->ke + nghost;
     kl = pG->ks - nghost;
   }
-  nmax += 2*nghost
+  nmax += 2*nghost;
 #endif
 
 /* Open the output file */
