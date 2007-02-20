@@ -645,6 +645,10 @@ not appear in quotes and no white space should be present.
 
 \item {\bf dt:} Time increment between outputs (in problem time).
 
+\item {\bf time:} Time of next output (in problem time).  If not set,
+the default will be the initial problem time (for new runs), or the
+current problem time (for restarts).
+
 \item {\bf id:} Any string, added to label output filenames.
 
 \item {\bf dmin/dmax:} max/min applied to output (useful for images).
@@ -791,7 +795,8 @@ Created by the function {\tt dump\_table.c}.  Useful for making 1D plots.
 the variable set in the output block using the {\tt out} variable name.
 Global scaling can be set using the parameters {\tt dmin} and {\tt
 dmax} in the output block, otherwise each image is scaled independently.
-A default color palette ({\tt rainbow}) is used.  The image could be a
+A default color palette ({\tt rainbow}) is used, but several others are
+available\footnote{see {\tt http://www.astro.princeton.edu/$\sim$jstone/athena\_color\_tables.html} for an index.}.  The image could be a
 slice or an average over a range of grid cell indices whose orientation
 is determined by the
 values of {\tt <output>/ix1} (or {\tt <output>/ix2}, {\tt <output>/ix3}), 
@@ -964,7 +969,7 @@ void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
 The arguments to this function serve the following purpose.
 \begin{itemize}
 
-\item {\bf time:} The current simulation time.
+\item {\bf time:} Time of next output, usually the current simulation time.
 
 \item {\bf dt:} The time interval between outputs.
 
