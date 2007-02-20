@@ -163,7 +163,20 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 7. ------------------------------------------------------------------
- * Limit velocity so momentum is always TVD (using only minmod limiter) */
+ * When H-correction defined, limit velocity difference to sound speed
+ * Limit velocity so momentum is always TVD (using only minmod limiter)
+ */ 
+
+#ifdef H_CORRECTION
+
+#ifdef ISOTHERMAL
+    qa = Iso_csound;
+#else
+    qa = sqrt(Gamma*W[i].P/W[i].d);
+#endif
+    dWm[i][1] = SIGN(dWm[i][1])*MIN(fabs(dWm[i][1]),qa);
+
+#endif /* H_CORRECTION */
 
     qa = U1d[i  ].Mx - U1d[i-1].Mx;
     qb = U1d[i+1].Mx - U1d[i  ].Mx;
@@ -290,7 +303,20 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     }
 
 /*--- Step 14. -----------------------------------------------------------------
- * Limit velocity so momentum is always TVD (using only minmod limiter) */
+ * When H-correction defined, limit velocity difference to sound speed
+ * Limit velocity so momentum is always TVD (using only minmod limiter)
+ */
+
+#ifdef H_CORRECTION
+
+#ifdef ISOTHERMAL
+    qa = Iso_csound;
+#else
+    qa = sqrt(Gamma*W[i+1].P/W[i+1].d);
+#endif
+    dWm[i+1][1] = SIGN(dWm[i+1][1])*MIN(fabs(dWm[i+1][1]),qa);
+
+#endif /* H_CORRECTION */
 
     qa = U1d[i+1].Mx - U1d[i  ].Mx;
     qb = U1d[i+2].Mx - U1d[i+1].Mx;

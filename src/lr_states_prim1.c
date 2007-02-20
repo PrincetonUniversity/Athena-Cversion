@@ -33,7 +33,7 @@
  * U1d must be initialized over [il-1:iu+1]
  *
  * Output Arguments:
- *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [is:ie+1]
+ *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
