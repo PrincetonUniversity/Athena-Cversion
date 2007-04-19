@@ -65,9 +65,25 @@ void output_ppm(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Extract 2D data from 3D data,  Can either be slice or average along axis,
  * depending on range of ix1,ix2,ix3 in <ouput> block */
+
   data = subset2(pGrid,pOut);
-  nx1 = pOut->Nx1;     /* we know it's a 2dim image */
-  nx2 = pOut->Nx2;
+
+/*Set the dimensions of the array corresponding to the sliced axis*/
+/*A slice perpendicular to the ix3-axis*/
+  if(pOut->Nx3 == 1){
+    nx1 = pOut->Nx1;
+    nx2 = pOut->Nx2;
+  }
+/*A slice perpendicular to the ix2-axis*/
+  if(pOut->Nx2 == 1){
+    nx1 = pOut->Nx1;
+    nx2 = pOut->Nx3;
+  }
+/*A slice perpendicular to the ix1-axis*/
+  if(pOut->Nx1 == 1){
+    nx1 = pOut->Nx2;
+    nx2 = pOut->Nx3;
+  }
 
 /* Store the global min / max, for output at end of run */
   minmax2(data,nx2,nx1,&dmin,&dmax);
