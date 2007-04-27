@@ -13,7 +13,7 @@
  *   convert_var.c
  *   esystem_prim.c, esystem_roe.c
  *   flux_force.c, flux_hllc.c, flux_hlld.c, flux_hlle.c, flux_roe.c, 
- *     flux_2shock.c
+ *     flux_2shock.c, flux_exact
  *   init_domain.c
  *   init_grid.c
  *   integrate.c
@@ -124,6 +124,7 @@ void flux_hlld  (const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
 void flux_hlle  (const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
 void flux_roe   (const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
 void flux_2shock(const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
+void flux_exact (const Real Bxi,const Cons1D Ul,const Cons1D Ur,Cons1D *pF);
 
 /*----------------------------------------------------------------------------*/
 /* init_domain.c */

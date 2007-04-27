@@ -34,7 +34,7 @@
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER */
 #define @ACCURACY@
 
-/* flux_{roe, hlle, hllc, hlld, force} */
+/* flux_{roe, hlle, hllc, hlld, force, exact} */
 #define @FLUX_DEF@
 #define GET_FLUXES flux_@FLUX_NAME@
 #define FLUX_TYPE "@FLUX_NAME@"
