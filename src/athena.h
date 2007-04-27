@@ -4,11 +4,11 @@
  * FILE: athena.h
  *
  * PURPOSE: Contains definitions of the following data types and structures:
- *   Real   - either float or double, depending on configure option
- *   Gas    - cell-centered conserved variables: d,M1,M2,M3,[E],[B1c,B2c,B3c] 
- *   Prim   - cell-centered primitive variables: d,V1,V2,V3,[P],[B1c,B2c,B3c]
- *   Cons1D - conserved variables in 1D: d,Mx,My,Mz,[E],[By,Bz]
- *   Prim1D - primitive variables in 1D: d,Vx,Vy,Vz,[E],[By,Bz]
+ *   Real  - either float or double, depending on configure option
+ *   Gas   - cell-centered conserved variables
+ *   Prim  - cell-centered primitive variables
+ *   Cons1D - conserved variables in 1D: same as Gas minus Bx
+ *   Prim1D - primitive variables in 1D: same as Prim minus Bx
  *   Grid   - everything needed by a Grid: arrays of Gas, B, indices, time, etc.
  *   Domain - Indices and IDs of each Grid block across all processors
  *   Output - everything associated with an individual output: time, type, etc.
@@ -37,7 +37,7 @@ typedef struct Gas_s{
   Real d;			/* density */
   Real M1;			/* Momenta in 1,2,3.  Use 1,2,3 to label */
   Real M2;                      /* directions in anticipation of         */
-  Real M3;                      /* covariant coordinate in future        */
+  Real M3;                      /* covariant coordinates in future       */
 #ifndef ISOTHERMAL
   Real E;			/* Total energy density */
 #endif /* ISOTHERMAL */
@@ -46,6 +46,9 @@ typedef struct Gas_s{
   Real B2c;
   Real B3c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+  Real s[NSCALARS];              /* passively advected scalars */
+#endif
 }Gas;
 
 /*----------------------------------------------------------------------------*/
@@ -66,6 +69,9 @@ typedef struct Prim_s{
   Real B2c;
   Real B3c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+  Real r[NSCALARS];              /* density-normalized advected scalars */
+#endif
 }Prim;
 
 /*----------------------------------------------------------------------------*/
@@ -85,6 +91,9 @@ typedef struct Cons1D_s{
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
+#if (NSCALARS > 0)
+  Real s[NSCALARS];              /* passively advected scalars */
+#endif
 }Cons1D;
 
 /*----------------------------------------------------------------------------*/
@@ -104,6 +113,9 @@ typedef struct Prim1D_s{
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
+#if (NSCALARS > 0)
+  Real r[NSCALARS];              /* density-normalized advected scalars */
+#endif
 }Prim1D;
 
 /*----------------------------------------------------------------------------*/

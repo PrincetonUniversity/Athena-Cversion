@@ -59,6 +59,9 @@
 /* H-correction: H_CORRECTION or NO_H_CORRECTION */
 #define @H_CORRECTION_MODE@
 
+/* Number of passively advected scalars */
+#define NSCALARS @NSCALARS@
+
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */
 
@@ -97,17 +100,17 @@ enum {
 
 #ifdef ISOTHERMAL /* ISOTHERMAL EOS */
 #ifdef HYDRO
- enum {NWAVE = 4, NVAR = 4};
+ enum {NWAVE = 4, NVAR = 4 + NSCALARS};
 #endif
 #ifdef MHD
- enum {NWAVE = 6, NVAR = 7};
+ enum {NWAVE = 6, NVAR = 7 + NSCALARS};
 #endif
 #else /* ADIABATIC or other EOS */
 #ifdef HYDRO
- enum {NWAVE = 5, NVAR = 5};
+ enum {NWAVE = 5, NVAR = 5 + NSCALARS};
 #endif
 #ifdef MHD
- enum {NWAVE = 7, NVAR = 8};
+ enum {NWAVE = 7, NVAR = 8 + NSCALARS};
 #endif
 #endif /* ISOTHERMAL */
 
