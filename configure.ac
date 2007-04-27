@@ -12,6 +12,7 @@
 #   --with-problem='name'                 (use prob/name.c as problem generator)
 #   --with-gas=[hydro,mhd]                              (hydro or mhd algorithm)
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
+#   --with-nscalars=n                               (number of advected scalars)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3]                       (order of spatial reconstruction)
@@ -81,6 +82,22 @@ elif test "$with_eos" = "isothermal"; then
   EOS="ISOTHERMAL"
 else
   AC_MSG_ERROR([expected --with-eos=adiabatic or isothermal])
+fi
+
+#-------------------------------------------------------------------------------
+# PACKAGE: nscalars
+#  --with-nscalars=n (n is any integer, default is 0)
+#   number of passively advected scalars
+
+AC_SUBST(NSCALARS)
+AC_ARG_WITH(nscalars, [  --with-nscalars=n (default is 0)],
+                nscalars=$withval, nscalars=0)
+if test   "$nscalars" = "0"; then
+  NSCALARS="0"
+elif test "$nscalars" != "0"; then
+  NSCALARS=$nscalars
+else
+  AC_MSG_ERROR([expected --with-nscalars=n])
 fi
 
 #-------------------------------------------------------------------------------
@@ -249,6 +266,7 @@ echo ""
 echo "Problem:                 $PROBLEM"
 echo "Gas properties:          $GAS"
 echo "Equation of State:       $EOS"
+echo "Advected scalar fields:  $NSCALARS"
 echo "Spatial Order:           $ORDER ($ACCURACY)"
 echo "Flux:                    $FLUX_NAME"
 echo "3D unsplit integrator:   $INTEGRATOR"
