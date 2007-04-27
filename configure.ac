@@ -15,7 +15,7 @@
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3]                       (order of spatial reconstruction)
-#   --with-flux=[roe,hlle,hllc,hlld,force]                       (flux function)
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact]                 (flux function)
 #   --with-integrator=[ctu,vl]                (3D unsplit integration algorithm)
 #
 # ALGORITHM "features":
@@ -105,12 +105,12 @@ fi
 
 #-------------------------------------------------------------------------------
 # PACKAGE: flux function
-#   --with-flux=[roe,hlle,hllc,hlld,force]
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact]
 #   (default is roe if gas=mhd, hllc if gas=hydro)
 
 AC_SUBST(FLUX_NAME)
 AC_SUBST(FLUX_DEF)
-AC_ARG_WITH(flux, [  --with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force)],
+AC_ARG_WITH(flux, [  --with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only))],
 		with_flux=$withval, with_flux=$flux_default)
 FLUX_NAME=$with_flux
 if test   "$with_flux" = "roe"; then
@@ -123,8 +123,10 @@ elif test "$with_flux" = "hlld"; then
   FLUX_DEF="HLLD_FLUX"
 elif test "$with_flux" = "force"; then
   FLUX_DEF="FORCE_FLUX"
+elif test "$with_flux" = "exact"; then
+  FLUX_DEF="EXACT_FLUX"
 else
-  AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, or force])
+  AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, force, exact])
 fi
 
 #-------------------------------------------------------------------------------
