@@ -54,6 +54,8 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Real Bxsig;                         /* sign(Bx) = 1 for Bx>0, -1 for Bx<0 */
   Real Bxsq = SQR(Bxi);               /* Bx^2 */
   Real tmp;                      /* Temp variable for repeated calculations */
+  int n;
+
 
 /*--- Step 1. ------------------------------------------------------------------
  * Convert left- and right- states in conserved to primitive variables.
@@ -91,78 +93,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 
   maxspd = MAX(fabs(spd[0]),fabs(spd[4]));
 
-  if(Ul.d  == Ur.d &&
-     Ul.Mx == Ur.Mx &&
-     Ul.My == Ur.My &&
-     Ul.Mz == Ur.Mz &&
-#ifndef ISOTHERMAL
-     Ul.E  == Ur.E &&
-#endif /* ISOTHERMAL */
-     Ul.By == Ur.By &&
-     Ul.Bz == Ur.Bz) {
-/* return Fl (= Fr) */
-    pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
-#ifndef ISOTHERMAL
-    ptl = Wl.P + pbl;
-#else /* ISOTHERMAL */
-    ptl = gpl + pbl;
-#endif /* ISOTHERMAL */
-    pFlux->d  = Ul.Mx;
-    pFlux->Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
-    pFlux->My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
-    pFlux->Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
-#ifndef ISOTHERMAL
-    pFlux->E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
-#endif /* ISOTHERMAL */
-    pFlux->By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
-    pFlux->Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
-    return;
-  }
-
-  if(spd[0] >= 0.0) {
-/* return Fl */
-#ifndef ISOTHERMAL
-    ptl = Wl.P + pbl;
-#else /* ISOTHERMAL */
-    ptl = gpl + pbl;
-#endif /* ISOTHERMAL */
-    pFlux->d  = Ul.Mx;
-    pFlux->Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
-    pFlux->My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
-    pFlux->Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
-#ifndef ISOTHERMAL
-    pFlux->E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
-#endif /* ISOTHERMAL */
-    pFlux->By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
-    pFlux->Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
-    return;
-  }
-
-  if(spd[4] <= 0.0) {
-/* return Fr */
-#ifndef ISOTHERMAL
-    ptr = Wr.P + pbr;
-#else /* ISOTHERMAL */
-    ptr = gpr + pbr;
-#endif /* ISOTHERMAL */
-    pFlux->d  = Ur.Mx;
-    pFlux->Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
-    pFlux->My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
-    pFlux->Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
-#ifndef ISOTHERMAL
-    pFlux->E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
-#endif /* ISOTHERMAL */
-    pFlux->By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
-    pFlux->Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
-    return;
-  }
-
 /*--- Step 3. ------------------------------------------------------------------
- * Compute middle and Alfven wave speeds
+ * Compute L/R fluxes
  */
-
-  sdl = spd[0] - Wl.Vx;
-  sdr = spd[4] - Wr.Vx;
 
 #ifndef ISOTHERMAL
   ptl = Wl.P + pbl;
@@ -171,6 +104,47 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   ptl = gpl + pbl;
   ptr = gpr + pbr;
 #endif /* ISOTHERMAL */
+
+  Fl.d  = Ul.Mx;
+  Fl.Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
+  Fl.My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
+  Fl.Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
+#ifndef ISOTHERMAL
+  Fl.E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
+#endif /* ISOTHERMAL */
+  Fl.By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
+  Fl.Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
+
+  Fr.d  = Ur.Mx;
+  Fr.Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
+  Fr.My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
+  Fr.Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
+#ifndef ISOTHERMAL
+  Fr.E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
+#endif /* ISOTHERMAL */
+  Fr.By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
+  Fr.Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
+
+/*--- Step 4. ------------------------------------------------------------------
+ * Return upwind flux if flow is supersonic
+ */
+
+  if(spd[0] >= 0.0){
+    *pFlux = Fl;
+    return;
+  }
+
+  if(spd[4] <= 0.0){
+    *pFlux = Fr;
+    return;
+  }
+
+/*--- Step 5. ------------------------------------------------------------------
+ * Compute middle and Alfven wave speeds
+ */
+
+  sdl = spd[0] - Wl.Vx;
+  sdr = spd[4] - Wr.Vx;
 
   spd[2] = (sdr*Wr.d*Wr.Vx - sdl*Wl.d*Wl.Vx - ptr + ptl) /
            (sdr*Wr.d-sdl*Wl.d);
@@ -185,7 +159,7 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   spd[1] = spd[2] - fabs(Bxi)/sqrtdl;
   spd[3] = spd[2] + fabs(Bxi)/sqrtdr;
 
-/*--- Step 4. ------------------------------------------------------------------
+/*--- Step 6. ------------------------------------------------------------------
  * Compute intermediate states
  */
 
@@ -290,29 +264,9 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pbdstl = Cons1D_to_Prim1D(&Uldst,&Wldst,&Bxi);
   pbdstr = Cons1D_to_Prim1D(&Urdst,&Wrdst,&Bxi);
 
-/*--- Step 5. ------------------------------------------------------------------
+/*--- Step 7. ------------------------------------------------------------------
  * Compute flux
  */
-
-  Fl.d  = Ul.Mx;
-  Fl.Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
-  Fl.My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
-  Fl.Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
-#ifndef ISOTHERMAL
-  Fl.E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
-#endif /* ISOTHERMAL */
-  Fl.By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
-  Fl.Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
-
-  Fr.d  = Ur.Mx;
-  Fr.Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
-  Fr.My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
-  Fr.Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
-#ifndef ISOTHERMAL
-  Fr.E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
-#endif /* ISOTHERMAL */
-  Fr.By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
-  Fr.Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
 
   if(spd[1] >= 0) {
 /* return Fl* */
