@@ -27,6 +27,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 #ifdef MHD
   Real bxl,byl,bzl,bxr,byr,bzr;
 #endif /* MHD */
+#if (NSCALARS > 0)
+  Real s0l,s0r;
+#endif
 
 /* Parse left state read from input file: dl,pl,ul,vl,wl,bxl,byl,bzl */
 
@@ -42,6 +45,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   byl = par_getd("problem","b2l");
   bzl = par_getd("problem","b3l");
 #endif
+#if (NSCALARS > 0)
+  s0l = par_getd("problem","s0l");
+#endif
 
 /* Parse right state read from input file: dr,pr,ur,vr,wr,bxr,byr,bzr */
 
@@ -56,6 +62,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   bxr = par_getd("problem","b1r");
   byr = par_getd("problem","b2r");
   bzr = par_getd("problem","b3r");
+#endif
+#if (NSCALARS > 0)
+  s0r = par_getd("problem","s0r");
 #endif
 
 /* Parse shock direction */
@@ -121,6 +130,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif
 	  + 0.5*dl*(ul*ul + vl*vl + wl*wl);
 #endif
+#if (NSCALARS > 0)
+          pGrid->U[k][j][i].s[0] = s0l;
+#endif
         }
         for (i=middle+1; i<=iu; i++) {
           pGrid->U[k][j][i].d  = dr;
@@ -141,6 +153,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 	  + 0.5*(bxr*bxr + byr*byr + bzr*bzr) 
 #endif
 	  + 0.5*dr*(ur*ur + vr*vr + wr*wr);
+#endif
+#if (NSCALARS > 0)
+          pGrid->U[k][j][i].s[0] = s0r;
 #endif
         }
       }
@@ -170,6 +185,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif
 	  + 0.5*dl*(ul*ul + vl*vl + wl*wl);
 #endif
+#if (NSCALARS > 0)
+          pGrid->U[k][j][i].s[0] = s0l;
+#endif
         }
       }
       for (j=middle+1; j<=ju; j++) {
@@ -192,6 +210,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 	  + 0.5*(bxr*bxr + byr*byr + bzr*bzr) 
 #endif
 	  + 0.5*dr*(ur*ur + vr*vr + wr*wr);
+#endif
+#if (NSCALARS > 0)
+          pGrid->U[k][j][i].s[0] = s0r;
 #endif
         }
       }
@@ -221,6 +242,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif
 	  + 0.5*dl*(ul*ul + vl*vl + wl*wl);
 #endif
+#if (NSCALARS > 0)
+          pGrid->U[k][j][i].s[0] = s0l;
+#endif
         }
       }
     }
@@ -245,6 +269,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 	  + 0.5*(bxr*bxr + byr*byr + bzr*bzr) 
 #endif
 	  + 0.5*dr*(ur*ur + vr*vr + wr*wr);
+#endif
+#if (NSCALARS > 0)
+          pGrid->U[k][j][i].s[0] = s0r;
 #endif
         }
       }
