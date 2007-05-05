@@ -64,9 +64,12 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
   Real pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
   Real ev    [NWAVE],rem    [NWAVE][NWAVE],lem    [NWAVE][NWAVE];
   Real ev_ip1[NWAVE],rem_ip1[NWAVE][NWAVE],lem_ip1[NWAVE][NWAVE];
-  Real dWc[NWAVE],dWl[NWAVE],dWr[NWAVE],dWg[NWAVE];
-  Real dac[NWAVE],dal[NWAVE],dar[NWAVE],dag[NWAVE],da[NWAVE];
-  Real Wlv[NWAVE],Wrv[NWAVE],dW[NWAVE],W6[NWAVE];
+  Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
+  Real dWr[NWAVE+NSCALARS],dWg[NWAVE+NSCALARS];
+  Real dac[NWAVE+NSCALARS],dal[NWAVE+NSCALARS];
+  Real dar[NWAVE+NSCALARS],dag[NWAVE+NSCALARS],da[NWAVE+NSCALARS];
+  Real Wlv[NWAVE+NSCALARS],Wrv[NWAVE+NSCALARS];
+  Real dW[NWAVE+NSCALARS],W6[NWAVE+NSCALARS];
   Real *pWl, *pWr;
 
   for (n=0; n<NWAVE; n++) {
@@ -113,7 +116,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * Compute centered, L/R, and van Leer differences of primitive variables
  * Note we access contiguous array elements by indexing pointers for speed */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dWc[n] = pW[i+1][n] - pW[i-1][n];
       dWl[n] = pW[i][n]   - pW[i-1][n];
       dWr[n] = pW[i+1][n] - pW[i][n];
@@ -140,10 +143,22 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       }
     }
 
+/* Advected variables are treated differently; for them the right and left
+ * eigenmatrices are simply the identitiy matrix.
+ */
+#if (NSCALARS > 0)
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
+      dac[n] = dWc[n];
+      dal[n] = dWl[n];
+      dar[n] = dWr[n];
+      dag[n] = dWg[n];
+    }
+#endif
+
 /*--- Step 5. ------------------------------------------------------------------
  * Apply monotonicity constraints to characteristic projections */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       da[n] = 0.0;
       if (dal[n]*dar[n] > 0.0) {
         lim_slope1 = MIN(    fabs(dal[n]),fabs(dar[n]));
@@ -161,6 +176,12 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
         dWm[i][n] += da[m]*rem[n][m];
       }
     }
+
+#if (NSCALARS > 0)
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
+      dWm[i][n] = da[n];
+    }
+#endif
 
 /*--- Step 7. ------------------------------------------------------------------
  * When H-correction defined, limit velocity difference to sound speed
@@ -211,7 +232,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * il-1 computed in Steps 2-7.
  */
 
-  for (n=0; n<NWAVE; n++) {
+  for (n=0; n<(NWAVE+NSCALARS); n++) {
     Wim1h[il-1][n] =.5*(pW[il-1][n]+pW[il-2][n])-(dWm[il-1][n]-dWm[il-2][n])/6.;
   }
 
@@ -253,7 +274,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 /*--- Step 10. -----------------------------------------------------------------
  * Compute centered, L/R, and van Leer differences of primitive variables */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dWc[n] = pW[i+2][n] - pW[i][n];
       dWl[n] = pW[i+1][n] - pW[i][n];
       dWr[n] = pW[i+2][n] - pW[i+1][n];
@@ -280,10 +301,22 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       }
     }
 
+/* Advected variables are treated differently; for them the right and left
+ * eigenmatrices are simply the identitiy matrix.
+ */
+#if (NSCALARS > 0)
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
+      dac[n] = dWc[n];
+      dal[n] = dWl[n];
+      dar[n] = dWr[n];
+      dag[n] = dWg[n];
+    }
+#endif
+
 /*--- Step 12. -----------------------------------------------------------------
  * Apply monotonicity constraints to characteristic projections */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       da[n] = 0.0;
       if (dal[n]*dar[n] > 0.0) {
         lim_slope1 = MIN(    fabs(dal[n]),fabs(dar[n]));
@@ -301,6 +334,12 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
         dWm[i+1][n] += da[m]*rem_ip1[n][m];
       }
     }
+
+#if (NSCALARS > 0)
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
+      dWm[i+1][n] = da[n];
+    }
+#endif
 
 /*--- Step 14. -----------------------------------------------------------------
  * When H-correction defined, limit velocity difference to sound speed
@@ -347,14 +386,14 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * i+1 computed in Steps 2-7.
  */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wim1h[i+1][n] = 0.5*(pW[i+1][n]+pW[i][n]) - (dWm[i+1][n]-dWm[i][n])/6.0;
     }
 
 /*--- Step 16. -----------------------------------------------------------------
  * Compute L/R values */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wlv[n] = Wim1h[i  ][n];
       Wrv[n] = Wim1h[i+1][n];
     }
@@ -363,7 +402,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * Monotonize again (CW eqn 1.10), ensure they lie between neighboring
  * cell-centered vals */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
       qb = Wrv[n]-Wlv[n];
       qc = 6.0*(pW[i][n] - 0.5*(Wlv[n]+Wrv[n]));
@@ -377,7 +416,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
       }
     }
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wlv[n] = MAX(MIN(pW[i][n],pW[i-1][n]),Wlv[n]);
       Wlv[n] = MIN(MAX(pW[i][n],pW[i-1][n]),Wlv[n]);
       Wrv[n] = MAX(MIN(pW[i][n],pW[i+1][n]),Wrv[n]);
@@ -387,7 +426,7 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 /*--- Step 18. -----------------------------------------------------------------
  * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
 
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dW[n] = Wrv[n] - Wlv[n];
       W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
     }
@@ -401,16 +440,18 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
     pWr = (Real *) &(Wr[i]);
 
     qx = TWO_3RDS*MAX(ev[NWAVE-1],0.0)*dtodx;
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n] - 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
     }
 
     qx = -TWO_3RDS*MIN(ev[0],0.0)*dtodx;
-    for (n=0; n<NWAVE; n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWr[n] = Wlv[n] + 0.75*qx*(dW[n] + (1.0 - qx)*W6[n]);
     }
 
 #ifndef THREED_VL /* include step 20 only if not using VL 3D integrator */
+/* NB: If THREED_VL is defined, cannot run 1D or 2D problems; see integrate.c */
+
 /*--- Step 20. -----------------------------------------------------------------
  * Then subtract amount of each wave m that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
@@ -452,6 +493,19 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
         }
         for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
 #endif /* ROE_FLUX */
+      }
+    }
+
+/* Wave subtraction for advected quantities */
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
+      if (W[i].Vx > 0.) {
+        qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
+        qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-1]) - SQR(W[i].Vx));
+        pWl[n] += qb*(dW[m]-W6[m]) + qc*W6[m];
+      } else if (W[i].Vx < 0.) {
+        qb = 0.5*dtodx*(ev[0]-W[i].Vx);
+        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - W[i].Vx*W[i].Vx);
+        pWr[n] += qb*(dW[m]+W6[m]) + qc*W6[m];
       }
     }
 
