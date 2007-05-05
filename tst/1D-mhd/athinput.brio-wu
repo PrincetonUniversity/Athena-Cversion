@@ -68,6 +68,7 @@ v3l             = 0.0       # Z-velocity
 b1l             = 0.75      # X-magnetic field
 b2l             = 1.0       # Y-magnetic field
 b3l             = 0.0       # Z-magnetic field
+s0l             = 1.0       # "color"
 
 dr              = 0.125     # density on right half of grid
 pr              = 0.1       # pressure
@@ -77,3 +78,4 @@ v3r             = 0.0       # Z-velocity
 b1r             = 0.75      # X-magnetic field
 b2r             = -1.0      # Y-magnetic field
 b3r             = 0.0       # Z-magnetic field
+s0r             = 0.0       # "color"
