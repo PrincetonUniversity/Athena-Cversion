@@ -22,12 +22,16 @@
 #include "prototypes.h"
 
 #ifdef MHD
-#error : The two-shock flux only works for hydro.
+#error : The 2-shock flux for MHD has not been implemented.
 #endif /* MHD */
 
 #ifndef ISOTHERMAL
-#error : The two-shock flux only works for isothermal equation of state.
+#error : The 2-shock flux for adiabatic EOS has not been implemented.
 #endif /* ISOTHERMAL */
+
+#if (NSCALARS > 0)
+#error : Passive scalars have not been implemented in the 2-shock flux.
+#endif /* NSCALARS */
 
 /*----------------------------------------------------------------------------*/
 /* flux_two-shock:

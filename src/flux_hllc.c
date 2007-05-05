@@ -159,6 +159,13 @@ void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fr.E  = Ur.E*(Wr.Vx - bp) + Wr.P*Wr.Vx;
 #endif /* ISOTHERMAL */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
+  }
+#endif
+
 /*--- Step 7. ------------------------------------------------------------------
  * Compute flux weights or scales
  */
@@ -180,7 +187,7 @@ void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pFl = (Real *)&(Fl);
   pFr = (Real *)&(Fr);
   pF  = (Real *)pFlux;
-  for (n=0; n<NWAVE; n++) pF[n] = sl*pFl[n] + sr*pFr[n];
+  for (n=0; n<(NWAVE+NSCALARS); n++) pF[n] = sl*pFl[n] + sr*pFr[n];
 
 /* Add the weighted contribution of the flux along the contact */
   pFlux->Mx += sm*cp;

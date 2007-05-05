@@ -201,6 +201,13 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fr.Bz = Wr.Bz*(Wr.Vx - bp) - Bxi*Wr.Vz;
 #endif /* MHD */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.x[n];
+    Fr.s[n] = Fr.d*Wr.x[n];
+  }
+#endif
+
 /*--- Step 6. ------------------------------------------------------------------
  * For supersonic flow, return the upwind flux.
  */
@@ -222,7 +229,7 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pFr = (Real *)&(Fr);
   pUc = (Real *)&(Uc);
   tmp = 1.0/(ar - al);
-  for (n=0; n<NWAVE; n++){
+  for (n=0; n<(NWAVE+NSCALARS); n++){
     pUc[n] = (pFl[n] - pFr[n])*tmp;
   }
 
@@ -257,6 +264,12 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fc.Bz = Wc.Bz*Wc.Vx - Bxi*Wc.Vz;
 #endif /* MHD */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fc.s[n] = Fc.d*Wc.x[n];
+  }
+#endif
+
 
 /*--- Step 8. ------------------------------------------------------------------
  * Compute the average of the Lax-Wendroff & HLLE flux
@@ -266,7 +279,7 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pFr = (Real *)&(Fr);
   pF  = (Real *)pFlux;
   tmp = 0.25*(bp + bm)/(bp - bm);
-  for (n=0; n<NWAVE; n++){
+  for (n=0; n<(NWAVE+NSCALARS); n++){
     pF[n] = 0.5*pFc[n] + 0.25*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
 

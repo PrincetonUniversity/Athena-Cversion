@@ -171,21 +171,24 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fr.Bz = Wr.Bz*Wr.Vx - Bxi*Wr.Vz;
 #endif /* MHD */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
+  }
+#endif
+
 /*--- Step 5. ------------------------------------------------------------------
  * Return upwind flux if flow is supersonic
  */
 
-  pFl = (Real *)&(Fl);
-  pFr = (Real *)&(Fr);
-  pF  = (Real *)(pFlux); 
-
   if(ev[0] >= 0.0){
-    for (n=0; n<NWAVE; n++) pF[n] = pFl[n];
+    *pFlux = Fl;
     return;
   }
 
   if(ev[NWAVE-1] <= 0.0){
-    for (n=0; n<NWAVE; n++) pF[n] = pFr[n];
+    *pFlux = Fr;
     return;
   }
 
@@ -256,6 +259,15 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
       pF[n] -= coeff[m]*rem[n][m];
     }
   }
+
+/* Fluxes of passively advected scalars, computed from density flux */
+#if (NSCALARS > 0)
+  if (pFlux->d >= 0.0) {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
+  } else {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
 
   return;
 }

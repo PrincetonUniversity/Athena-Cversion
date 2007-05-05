@@ -29,12 +29,16 @@
 #include "prototypes.h"
 
 #ifdef MHD
-#error : The exact flux only works for hydro.
+#error : The exact flux for MHD has not been implemented.
 #endif /* MHD */
 
 #ifndef ISOTHERMAL
-#error : The exact flux only works for isothermal equation of state.
+#error : The exact flux for adiabatic EOS has not been implemented.
 #endif /* ISOTHERMAL */
+
+#if (NSCALARS > 0)
+#error : Passive scalars have not been implemented in the exact flux.
+#endif /* NSCALARS */
 
 static void srder(double dm, double vl, double vr, double dmin, double dmax, 
 			double *y, double *dydx);

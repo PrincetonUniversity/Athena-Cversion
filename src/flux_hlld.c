@@ -125,6 +125,13 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fr.By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
   Fr.Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
+  }
+#endif
+
 /*--- Step 4. ------------------------------------------------------------------
  * Return upwind flux if flow is supersonic
  */
@@ -318,6 +325,15 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     pFlux->By = Fr.By + spd[4]*(Urst.By - Ur.By);
     pFlux->Bz = Fr.Bz + spd[4]*(Urst.Bz - Ur.Bz);
   }
+
+/* Fluxes of passively advected scalars, computed from density flux */
+#if (NSCALARS > 0)
+  if (pFlux->d >= 0.0) {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
+  } else {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
 
   return;
 }

@@ -208,6 +208,13 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Fr.Bz = Wr.Bz*(Wr.Vx - bp) - Bxi*Wr.Vz;
 #endif /* MHD */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
+  }
+#endif
+
 /*--- Step 6. ------------------------------------------------------------------
  * Compute the HLLE flux at interface.
  */
@@ -216,7 +223,7 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   pFr = (Real *)&(Fr);
   pF  = (Real *)pFlux;
   tmp = 0.5*(bp + bm)/(bp - bm);
-  for (n=0; n<NWAVE; n++){
+  for (n=0; n<(NWAVE+NSCALARS); n++){
     pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
 
