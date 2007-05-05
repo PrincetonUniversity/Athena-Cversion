@@ -8,7 +8,7 @@ config  = --with-problem=field_loop
 <job>
 
 problem_id      = Loop       # problem ID: basename of output filenames
-maxout          = 3          # Output blocks number from 1 -> maxout
+maxout          = 5          # Output blocks number from 1 -> maxout
 
 <time>
 
@@ -45,6 +45,17 @@ dt      = 0.004     # time step between images
 dmin    = 0.0       # min value for imaging Bp
 dmax    = 1.0e-6    # max value for imaging Bp
 ix3     = 1         # x3 slice of image
+
+<output5>
+out_fmt = ppm        # ppm image
+dt      = 0.004     # time step between outputs
+out     = color
+id      = color
+usr_expr_flag = 1
+palette = rainbow
+dmin    = 0.0    # min value for imaging color
+dmax    = 1.0    # max value for imaging color
+ix3     = 16         # x3 slice of image
 
 <grid>
 
