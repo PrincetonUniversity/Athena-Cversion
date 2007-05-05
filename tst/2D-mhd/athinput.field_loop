@@ -8,7 +8,7 @@ config  = --with-problem=field_loop
 <job>
 
 problem_id      = Loop       # problem ID: basename of output filenames
-maxout          = 5          # Output blocks number from 1 -> maxout
+maxout          = 6          # Output blocks number from 1 -> maxout
 
 <time>
 
@@ -45,6 +45,16 @@ dmin    = 0.0       # min value for imaging Bp
 dmax    = 1.0e-6    # max value for imaging Bp
 
 <output5>
+out_fmt = ppm        # ppm image
+dt      = 0.004     # time step between outputs
+out     = color
+id      = color
+usr_expr_flag = 1
+palette = rainbow
+dmin    = 0.0    # min value for imaging color
+dmax    = 1.0    # max value for imaging color
+
+<output6>
 out_fmt = tab       # table 
 out     = J3
 id      = J3
@@ -66,7 +76,7 @@ ibc_x2          = 4         # inner-J (Y) boundary flag
 obc_x2          = 4         # outer-J (Y) boundary flag
 
 Nx3             = 1         # Number of zones in X3-direction
-x3min           = 0.0       # minimum value of X3
+x3min           = -1.0       # minimum value of X3
 x3max           = 1.0       # maximum value of X3
 
 <problem>
@@ -74,5 +84,5 @@ iso_csound      = 1.732
 gamma           = 1.66667   # gamma = C_p/C_v
 rad             = 0.3       # Radius of loop
 amp             = 1.0e-3    # Amplitude of B in loop
-vflow           = 2.44949   # background flow velocity in 3D sqrt(x^2+y^2+z^2)
+vflow           = 3.0   # background flow velocity in 3D sqrt(x^2+y^2+z^2)
 iprob           = 1         # 1=loop in x1-x2 plane
