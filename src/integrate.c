@@ -30,6 +30,13 @@ VGFun_t integrate_init(int Nx1, int Nx2, int Nx3)
   if(Nx2 > 1) dim++;
   if(Nx3 > 1) dim++;
 
+/* Since algorithm in lr_states is modified when VL integrator is defined, then
+ * problem must be 3d */
+#ifdef THREED_VL
+  if(dim < 3) ath_error(
+    "[integrate_init]: Problem must be 3D when VL integrator is defined");
+#endif
+
 /* set function pointer to appropriate integrator based on dimensions */
   switch(dim){
   case 1:
