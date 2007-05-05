@@ -1,0 +1,69 @@
+<comment>
+
+problem = shock cloud interaction
+author  = M.-S. Shin, G. Snyder, & J.M. Stone
+journal =
+config  = --with-problem=shk_cloud --with-nscalars=1
+
+<job>
+
+problem_id      = Cloud      # problem ID: basename of output filenames
+maxout          = 4          # Output blocks number from 1 -> maxout
+
+<time>
+
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 2.0       # time limit
+
+<output1>
+out_fmt = hst               # History data dump
+dt      = 0.01              # time increment between outputs
+
+<output2>
+out_fmt = bin               # Binary data dump
+dt      = 0.01              # time increment between outputs
+
+<output3>
+out_fmt = ppm      # ppm image
+dt      = 0.01     # time step between outputs
+out     = d
+id      = d
+palette = rainbow
+dmin    = 1.0     # min value for imaging color
+dmax    = 20.0    # max value for imaging color
+
+<output4>
+out_fmt = ppm      # ppm image
+dt      = 0.01     # time step between outputs
+out     = color
+id      = color
+usr_expr_flag = 1
+palette = rainbow
+dmin    = 0.0    # min value for imaging color
+dmax    = 1.0    # max value for imaging color
+
+<grid>
+
+Nx1             = 128       # Number of zones in X-direction
+x1min           = -3.0      # minimum value of X
+x1max           = 7.0       # maximum value of X
+ibc_x1          = 1         # inner-I (X) boundary flag
+obc_x1          = 2         # outer-I (X) boundary flag
+
+Nx2             = 64        # Number of zones in Y-direction
+x2min           = -2.5      # minimum value of Y
+x2max           =  2.5      # maximum value of Y
+ibc_x2          = 2         # inner-J (Y) boundary flag
+obc_x2          = 2         # outer-J (Y) boundary flag
+
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = -2.5      # minimum value of X3
+x3max           = 2.5       # maximum value of X3
+
+<problem>
+iso_csound      = 1.0 
+gamma           = 1.66667   # gamma = C_p/C_v
+Mach            = 10.0      # Mach number of shock
+drat            = 10        # density ratio of cloud
+iprob           = 1         # selects problem type
