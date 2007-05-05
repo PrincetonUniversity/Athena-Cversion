@@ -41,7 +41,7 @@
 /* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
  * higher-order fluxes would cause cell-centered density to go negative.
  * See Step 13d for important details. */
-#define FIRST_ORDER_FLUX_CORRECTION
+/* #define FIRST_ORDER_FLUX_CORRECTION */
 
 #ifdef H_CORRECTION
 #error : Flux correction in the VL integrator does not work with H-corrrection.
@@ -110,6 +110,9 @@ void integrate_3d_vl(Grid *pGrid)
 #ifdef H_CORRECTION
   Real cfr,cfl,ur,ul;
 #endif
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real g, x1, x2, x3;
   dtodx1 = pGrid->dt/pGrid->dx1;
   dtodx2 = pGrid->dt/pGrid->dx2;
@@ -172,6 +175,12 @@ void integrate_3d_vl(Grid *pGrid)
 	Ur[i].By = pGrid->U[k][j][i].B2c;
 	Ur[i].Bz = pGrid->U[k][j][i].B3c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul[i].s[n] = pGrid->U[k][j][i-1].s[n];
+          Ur[i].s[n] = pGrid->U[k][j][i  ].s[n];
+        }
+#endif
       }
 
 /* Compute flux in x1-direction  */
@@ -214,6 +223,12 @@ void integrate_3d_vl(Grid *pGrid)
 	Ur[j].By = pGrid->U[k][j][i].B3c;
 	Ur[j].Bz = pGrid->U[k][j][i].B1c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul[j].s[n] = pGrid->U[k][j-1][i].s[n];
+          Ur[j].s[n] = pGrid->U[k][j  ][i].s[n];
+        }
+#endif
       }
 
 /* Compute flux in x2-direction */
@@ -256,6 +271,12 @@ void integrate_3d_vl(Grid *pGrid)
 	Ur[k].By = pGrid->U[k][j][i].B1c;
 	Ur[k].Bz = pGrid->U[k][j][i].B2c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul[k].s[n] = pGrid->U[k-1][j][i].s[n];
+          Ur[k].s[n] = pGrid->U[k  ][j][i].s[n];
+        }
+#endif
       }
 
 /* Compute flux in x3-direction */
@@ -350,6 +371,11 @@ void integrate_3d_vl(Grid *pGrid)
 #ifndef ISOTHERMAL
         Uhalf[k][j][i].E   -= q1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          Uhalf[k][j][i].s[n] -= q1*(x1Flux[k][j][i+1].s[n]
+                                   - x1Flux[k][j][i  ].s[n]);
+#endif
       }
     }
   }
@@ -369,6 +395,11 @@ void integrate_3d_vl(Grid *pGrid)
 #ifndef ISOTHERMAL
         Uhalf[k][j][i].E   -= q2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          Uhalf[k][j][i].s[n] -= q2*(x2Flux[k][j+1][i].s[n]
+                                   - x2Flux[k][j  ][i].s[n]);
+#endif
       }
     }
   }
@@ -388,6 +419,11 @@ void integrate_3d_vl(Grid *pGrid)
 #ifndef ISOTHERMAL
         Uhalf[k][j][i].E   -= q3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          Uhalf[k][j][i].s[n] -= q3*(x3Flux[k+1][j][i].s[n]
+                                   - x3Flux[k  ][j][i].s[n]);
+#endif
       }
     }
   }
@@ -465,6 +501,9 @@ void integrate_3d_vl(Grid *pGrid)
         Bxc[i] = Uhalf[k][j][i].B1c;
         Bxi[i] = B1_x1Face[k][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) U1d[i].s[n] = Uhalf[k][j][i].s[n];
+#endif
       }
 
       lr_states(U1d,Bxc,Bxi,0.0,0.0,ib+1,it-1,Ul_x1Face[k][j],Ur_x1Face[k][j]);
@@ -492,6 +531,9 @@ void integrate_3d_vl(Grid *pGrid)
         Bxc[j] = Uhalf[k][j][i].B2c;
         Bxi[j] = B2_x2Face[k][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) U1d[j].s[n] = Uhalf[k][j][i].s[n];
+#endif
       }
 
 /* Compute L and R states at x2-interfaces.  */
@@ -525,6 +567,9 @@ void integrate_3d_vl(Grid *pGrid)
         Bxc[k] = Uhalf[k][j][i].B3c;
         Bxi[k] = B3_x3Face[k][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) U1d[k].s[n] = Uhalf[k][j][i].s[n];
+#endif
       }
 
 /* Compute L and R states at x3-interfaces.  */
@@ -777,6 +822,11 @@ void integrate_3d_vl(Grid *pGrid)
 #ifndef ISOTHERMAL
         pGrid->U[k][j][i].E -=dtodx1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] -= dtodx1*(x1Flux[k][j][i+1].s[n]
+                                          - x1Flux[k][j][i  ].s[n]);
+#endif
       }
     }
   }
@@ -795,6 +845,11 @@ void integrate_3d_vl(Grid *pGrid)
 #ifndef ISOTHERMAL
         pGrid->U[k][j][i].E -=dtodx2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
+                                          - x2Flux[k][j  ][i].s[n]);
+#endif
       }
     }
   }
@@ -814,6 +869,11 @@ void integrate_3d_vl(Grid *pGrid)
 #ifndef ISOTHERMAL
         pGrid->U[k][j][i].E -=dtodx3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
+                                          - x3Flux[k  ][j][i].s[n]);
+#endif
 
 #ifndef FIRST_ORDER_FLUX_CORRECTION
         if (!(pGrid->U[k][j][i].d > 0.0))

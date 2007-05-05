@@ -87,6 +87,9 @@ void integrate_3d_ctu(Grid *pGrid)
 #ifdef H_CORRECTION
   Real cfr,cfl,ur,ul;
 #endif
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real g, x1, x2, x3;
   dtodx1 = pGrid->dt/pGrid->dx1;
   dtodx2 = pGrid->dt/pGrid->dx2;
@@ -113,6 +116,9 @@ void integrate_3d_ctu(Grid *pGrid)
         Bxi[i] = pGrid->B1i[k][j][i];
         B1_x1Face[k][j][i] = pGrid->B1i[k][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pGrid->U[k][j][i].s[n];
+#endif
       }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -240,6 +246,9 @@ void integrate_3d_ctu(Grid *pGrid)
         Bxi[j] = pGrid->B2i[k][j][i];
         B2_x2Face[k][j][i] = pGrid->B2i[k][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pGrid->U[k][j][i].s[n];
+#endif
       }
 
 /*--- Step 2b ------------------------------------------------------------------
@@ -372,6 +381,9 @@ void integrate_3d_ctu(Grid *pGrid)
         Bxi[k] = pGrid->B3i[k][j][i];
         B3_x3Face[k][j][i] = pGrid->B3i[k][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) U1d[k].s[n] = pGrid->U[k][j][i].s[n];
+#endif
       }
 
 /*--- Step 3b ------------------------------------------------------------------
@@ -581,6 +593,15 @@ void integrate_3d_ctu(Grid *pGrid)
 	  ((emf1[k  ][j+1][i] - emf1[k  ][j][i]) +
 	   (emf1[k+1][j+1][i] - emf1[k+1][j][i]));
 #endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x1Face[k][j][i].s[n] -=
+             q2*(x2Flux[k][j+1][i-1].s[n] - x2Flux[k][j][i-1].s[n]);
+          Ur_x1Face[k][j][i].s[n] -=
+             q2*(x2Flux[k][j+1][i  ].s[n] - x2Flux[k][j][i  ].s[n]);
+        }
+#endif
+
 
 
 /*--- Step 6b ------------------------------------------------------------------
@@ -613,6 +634,14 @@ void integrate_3d_ctu(Grid *pGrid)
 	Ur_x1Face[k][j][i].By-=q3*0.5*
 	  ((emf1[k+1][j  ][i] - emf1[k][j  ][i]) +
 	   (emf1[k+1][j+1][i] - emf1[k][j+1][i]));
+#endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x1Face[k][j][i].s[n] -=
+             q3*(x3Flux[k+1][j][i-1].s[n] - x3Flux[k][j][i-1].s[n]);
+          Ur_x1Face[k][j][i].s[n] -=
+             q3*(x3Flux[k+1][j][i  ].s[n] - x3Flux[k][j][i  ].s[n]);
+        }
 #endif
       }
     }
@@ -789,6 +818,14 @@ void integrate_3d_ctu(Grid *pGrid)
 	  ((emf2[k  ][j][i+1] - emf2[k  ][j][i]) + 
 	   (emf2[k+1][j][i+1] - emf2[k+1][j][i]));
 #endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x2Face[k][j][i].s[n] -=
+             q1*(x1Flux[k][j-1][i+1].s[n] - x1Flux[k][j-1][i].s[n]);
+          Ur_x2Face[k][j][i].s[n] -=
+             q1*(x1Flux[k][j  ][i+1].s[n] - x1Flux[k][j  ][i].s[n]);
+        }
+#endif
 
 /*--- Step 7b ------------------------------------------------------------------
  * Correct the L/R states at x2-interfaces using x3-fluxes computed in Step 3e.
@@ -821,6 +858,14 @@ void integrate_3d_ctu(Grid *pGrid)
 	Ur_x2Face[k][j][i].Bz+=q3*0.5*
 	  ((emf2[k+1][j][i  ] - emf2[k][j][i  ]) +
 	   (emf2[k+1][j][i+1] - emf2[k][j][i+1]));
+#endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x2Face[k][j][i].s[n] -=
+             q3*(x3Flux[k+1][j-1][i].s[n] - x3Flux[k][j-1][i].s[n]);
+          Ur_x2Face[k][j][i].s[n] -=
+             q3*(x3Flux[k+1][j  ][i].s[n] - x3Flux[k][j  ][i].s[n]);
+        }
 #endif
       }
     }
@@ -996,6 +1041,14 @@ void integrate_3d_ctu(Grid *pGrid)
 	  ((emf3[k][j  ][i+1] - emf3[k][j  ][i]) +
 	   (emf3[k][j+1][i+1] - emf3[k][j+1][i]));
 #endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x3Face[k][j][i].s[n] -=
+             q1*(x1Flux[k-1][j][i+1].s[n] - x1Flux[k-1][j][i].s[n]);
+          Ur_x3Face[k][j][i].s[n] -=
+             q1*(x1Flux[k  ][j][i+1].s[n] - x1Flux[k  ][j][i].s[n]);
+        }
+#endif
 
 /*--- Step 8b ------------------------------------------------------------------
  * Correct the L/R states at x3-interfaces using x2-fluxes computed in Step 2e.
@@ -1028,6 +1081,14 @@ void integrate_3d_ctu(Grid *pGrid)
 	Ur_x3Face[k][j][i].By-=q2*0.5*
 	  ((emf3[k][j+1][i  ] - emf3[k][j][i  ]) +
 	   (emf3[k][j+1][i+1] - emf3[k][j][i+1]));
+#endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x3Face[k][j][i].s[n] -=
+             q2*(x2Flux[k-1][j+1][i].s[n] - x2Flux[k-1][j][i].s[n]);
+          Ur_x3Face[k][j][i].s[n] -=
+             q2*(x2Flux[k  ][j+1][i].s[n] - x2Flux[k  ][j][i].s[n]);
+        }
 #endif
       }
     }
@@ -1446,6 +1507,11 @@ void integrate_3d_ctu(Grid *pGrid)
         pGrid->U[k][j][i].B2c-=dtodx1*(x1Flux[k][j][i+1].By-x1Flux[k][j][i].By);
         pGrid->U[k][j][i].B3c-=dtodx1*(x1Flux[k][j][i+1].Bz-x1Flux[k][j][i].Bz);
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] -= dtodx1*(x1Flux[k][j][i+1].s[n]
+                                          - x1Flux[k][j][i  ].s[n]);
+#endif
       }
     }
   }
@@ -1468,6 +1534,11 @@ void integrate_3d_ctu(Grid *pGrid)
         pGrid->U[k][j][i].B3c-=dtodx2*(x2Flux[k][j+1][i].By-x2Flux[k][j][i].By);
         pGrid->U[k][j][i].B1c-=dtodx2*(x2Flux[k][j+1][i].Bz-x2Flux[k][j][i].Bz);
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
+                                          - x2Flux[k][j  ][i].s[n]);
+#endif
       }
     }
   }
@@ -1490,6 +1561,11 @@ void integrate_3d_ctu(Grid *pGrid)
         pGrid->U[k][j][i].B1c-=dtodx3*(x3Flux[k+1][j][i].By-x3Flux[k][j][i].By);
         pGrid->U[k][j][i].B2c-=dtodx3*(x3Flux[k+1][j][i].Bz-x3Flux[k][j][i].Bz);
 #endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
+                                          - x3Flux[k  ][j][i].s[n]);
+#endif
       }
     }
   }

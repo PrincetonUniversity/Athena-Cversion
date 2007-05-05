@@ -78,6 +78,9 @@ void integrate_2d(Grid *pGrid)
 #ifdef H_CORRECTION
   Real cfr,cfl,ur,ul;
 #endif
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real g, x1, x2,x3;
 
   dtodx1 = pGrid->dt/pGrid->dx1;
@@ -108,6 +111,9 @@ void integrate_2d(Grid *pGrid)
       Bxi[i] = pGrid->B1i[ks][j][i];
       B1_x1Face[j][i] = pGrid->B1i[ks][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pGrid->U[ks][j][i].s[n];
+#endif
     }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -187,6 +193,9 @@ void integrate_2d(Grid *pGrid)
       Bxi[j] = pGrid->B2i[ks][j][i];
       B2_x2Face[j][i] = pGrid->B2i[ks][j][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pGrid->U[ks][j][i].s[n];
+#endif
     }
 
 /*--- Step 2b ------------------------------------------------------------------
@@ -310,6 +319,12 @@ void integrate_2d(Grid *pGrid)
 #ifdef MHD
       Ur_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
 #endif
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) {
+        Ul_x1Face[j][i].s[n] -=qa*(x2Flux[j+1][i-1].s[n] - x2Flux[j][i-1].s[n]);
+        Ur_x1Face[j][i].s[n] -=qa*(x2Flux[j+1][i  ].s[n] - x2Flux[j][i  ].s[n]);
+      }
+#endif
     }
   }
 
@@ -404,6 +419,12 @@ void integrate_2d(Grid *pGrid)
 #endif /* ISOTHERMAL */
 #ifdef MHD
       Ur_x2Face[j][i].By -= qa*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+#endif
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) {
+        Ul_x2Face[j][i].s[n] -=qa*(x1Flux[j-1][i+1].s[n] - x1Flux[j-1][i].s[n]);
+        Ur_x2Face[j][i].s[n] -=qa*(x1Flux[j  ][i+1].s[n] - x1Flux[j  ][i].s[n]);
+      }
 #endif
     }
   }
@@ -635,6 +656,12 @@ void integrate_2d(Grid *pGrid)
       pGrid->U[ks][j][i].B2c -= dtodx1*(x1Flux[j][i+1].By - x1Flux[j][i].By);
       pGrid->U[ks][j][i].B3c -= dtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[ks][j][i].s[n] -= dtodx1*(x1Flux[j][i+1].s[n] 
+                                         - x1Flux[j][i  ].s[n]);
+#endif
+
     }
   }
 
@@ -655,6 +682,11 @@ void integrate_2d(Grid *pGrid)
       pGrid->U[ks][j][i].B3c -= dtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
       pGrid->U[ks][j][i].B1c -= dtodx2*(x2Flux[j+1][i].Bz - x2Flux[j][i].Bz);
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[ks][j][i].s[n] -= dtodx2*(x2Flux[j+1][i].s[n] 
+                                         - x2Flux[j  ][i].s[n]);
+#endif
     }
   }
 

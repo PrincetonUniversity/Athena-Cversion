@@ -33,10 +33,14 @@ void integrate_1d(Grid *pGrid)
   int i, is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real x1, x2, x3, g;
 
 /*--- Step 1 -------------------------------------------------------------------
- * Load 1D vector of conserved variables;  U1d = (d, M1, M2, M3, E, B2c, B3c)
+ * Load 1D vector of conserved variables;  
+ * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
@@ -53,6 +57,9 @@ void integrate_1d(Grid *pGrid)
     Bxc[i] = pGrid->U[ks][js][i].B1c;
     Bxi[i] = pGrid->B1i[ks][js][i];
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pGrid->U[ks][js][i].s[n];
+#endif
   }
 
 /*--- Step 2 -------------------------------------------------------------------
@@ -122,6 +129,10 @@ void integrate_1d(Grid *pGrid)
     pGrid->U[ks][js][i].B2c -= dtodx1*(x1Flux[i+1].By - x1Flux[i].By);
     pGrid->U[ks][js][i].B3c -= dtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++)
+      pGrid->U[ks][js][i].s[n] -= dtodx1*(x1Flux[i+1].s[n] - x1Flux[i].s[n]);
+#endif
   }
 
 /*--- Step 7 -------------------------------------------------------------------
