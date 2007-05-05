@@ -41,6 +41,12 @@ void dump_dx(Grid *pGrid, Domain *pD, Output *pOut)
 #endif
     };
 
+/* output of multi-materials is not supported for OpenDX */
+#if (NSCALARS > 0)
+  ath_error("[dump_dx]: Ouput of passive scalars not implemented in dump_dx");
+#endif
+
+
 #ifdef WRITE_GHOST_CELLS
   nx1 = pGrid->Nx1 > 1 ? pGrid->Nx1 + 2*nghost : pGrid->Nx1;
   nx2 = pGrid->Nx2 > 1 ? pGrid->Nx2 + 2*nghost : pGrid->Nx2;

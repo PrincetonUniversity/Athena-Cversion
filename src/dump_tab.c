@@ -31,10 +31,12 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
   int dnum = pOut->num;
   FILE *pfile;
   Gas *pq;
-  Real KE,ME=0.0;
-  Real x1,x2,x3;
+  Real x1,x2,x3,KE,ME=0.0;
   char zone_fmt[20], fmt[80];
   int col_cnt=1, nmax;
+#if (NSCALARS > 0)
+  int n;
+#endif
 /* Upper and Lower bounds on i,j,k for data dump */
   int i, il = pG->is; int iu = pG->ie;
   int j, jl = pG->js; int ju = pG->je;
@@ -154,6 +156,15 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
   fprintf(pfile," [%d]=B1i",col_cnt);
   col_cnt++;
 #endif /* MHD */
+
+/* write out column headers for passive scalars */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    fprintf(pfile," [%d]=s%d",col_cnt,n);
+    col_cnt++;
+  }
+#endif
+
   fprintf(pfile,"\n#\n");
 
 /* Write out data */
@@ -171,6 +182,8 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
 	if (pG->Nx1 > 1) fprintf(pfile,fmt,x1);
 	if (pG->Nx2 > 1) fprintf(pfile,fmt,x2);
 	if (pG->Nx3 > 1) fprintf(pfile,fmt,x3);
+
+/* Dump all variables */
 	fprintf(pfile,fmt,pq->d);
 	fprintf(pfile,fmt,pq->M1);
 	fprintf(pfile,fmt,pq->M2);
@@ -193,6 +206,11 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
 	fprintf(pfile,fmt,pG->B2i[k][j][i]);
 	fprintf(pfile,fmt,pG->B3i[k][j][i]);
 #endif
+
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,pq->s[n]);
+#endif
+
 	fprintf(pfile,"\n");
       }
     }

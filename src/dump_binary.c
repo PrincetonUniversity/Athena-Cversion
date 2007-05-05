@@ -25,7 +25,7 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   int dnum = pOut->num;
   FILE *p_binfile;
   char *fname;
-  int n,ndata[4];
+  int n,ndata[5];
 /* Upper and Lower bounds on i,j,k for data dump */
   int i, il = pGrid->is, iu = pGrid->ie;
   int j, jl = pGrid->js, ju = pGrid->je;
@@ -66,7 +66,8 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   ndata[1] = ju-jl+1;
   ndata[2] = ku-kl+1;
   ndata[3] = NVAR;
-  fwrite(ndata,sizeof(int),4,p_binfile);
+  ndata[4] = NSCALARS;
+  fwrite(ndata,sizeof(int),5,p_binfile);
 
 /* Write (gamma-1) and isothermal sound speed */
 

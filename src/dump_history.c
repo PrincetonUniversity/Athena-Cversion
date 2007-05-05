@@ -16,6 +16,7 @@
  *     scal[7] = 0.5*b1**2
  *     scal[8] = 0.5*b2**2
  *     scal[9] = 0.5*b3**2
+ *     scal[9+NSCALARS] = passively advected scalars
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
@@ -54,13 +55,13 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  double dvol, scal[NSCAL + MAX_USR_H_COUNT];
+  double dvol, scal[NSCAL + NSCALARS + MAX_USR_H_COUNT];
   FILE *p_hstfile;
   char fmt[80];
   int vol_rat; /* (Grid Volume)/(dx1*dx2*dx3) */
-  int n, total_hst_cnt = NSCAL + usr_hst_cnt;
+  int n, total_hst_cnt = NSCAL + NSCALARS + usr_hst_cnt;
 #ifdef MPI_PARALLEL
-  double my_scal[NSCAL + MAX_USR_H_COUNT]; /* My Volume averaged quantities */
+  double my_scal[NSCAL + NSCALARS + MAX_USR_H_COUNT]; /* My Volume averages */
   int my_vol_rat; /* My (Grid Volume)/(dx1*dx2*dx3) */
   int err;
 #endif
@@ -96,10 +97,15 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 	scal[8] += 0.5*SQR(pGrid->U[k][j][i].B2c);
 	scal[9] += 0.5*SQR(pGrid->U[k][j][i].B3c);
 #endif
+#if (NSCALARS > 0)
+	for(n=0; n<NSCALARS; n++){
+	  scal[NSCAL + n] += pGrid->U[k][j][i].s[n];
+	}
+#endif
 
 /* Calculate the user defined history columns */
 	for(n=0; n<usr_hst_cnt; n++){
-	  scal[NSCAL + n] += (*phst_fun[n])(pGrid, i, j, k);
+	  scal[NSCAL + NSCALARS + n] += (*phst_fun[n])(pGrid, i, j, k);
 	}
       }
     }
@@ -152,11 +158,18 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 /* Write out some header information */
     fprintf(p_hstfile,"# time dt density E-tot.");
     fprintf(p_hstfile," x1-K.E. x2-K.E. x3-K.E. x1-M.E. x2-M.E. x3-M.E.");
+#if (NSCALARS > 0)
+    for(n=0; n<NSCALARS; n++){
+      fprintf(p_hstfile," scalar %i",n);
+    }
+#endif
     for(n=0; n<usr_hst_cnt; n++){
       fprintf(p_hstfile," %s",usr_label[n]);
     }
     fprintf(p_hstfile,"\n#\n");
   }
+
+/* Write out data */
 
   for (i=0; i<total_hst_cnt; i++) {
     fprintf(p_hstfile,fmt,scal[i]);
