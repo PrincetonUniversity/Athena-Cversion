@@ -1657,6 +1657,9 @@ static void periodic_ox3(Grid *pGrid)
 static void send_ix1(Grid *pG, MPI_Request *prq)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   double *pd = send_buf;
 
@@ -1699,6 +1702,9 @@ static void send_ix1(Grid *pG, MPI_Request *prq)
 #ifndef ISOTHERMAL
 	*(pd++) = pq->E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+#endif
       }
     }
   }
@@ -1718,6 +1724,9 @@ static void send_ix1(Grid *pG, MPI_Request *prq)
 static void send_ox1(Grid *pG, MPI_Request *prq)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   double *pd = send_buf;
 
@@ -1760,6 +1769,9 @@ static void send_ox1(Grid *pG, MPI_Request *prq)
 #ifndef ISOTHERMAL
 	*(pd++) = pq->E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+#endif
       }
     }
   }
@@ -1779,6 +1791,9 @@ static void send_ox1(Grid *pG, MPI_Request *prq)
 static void send_ix2(Grid *pG, MPI_Request *prq)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   double *pd = send_buf;
 
@@ -1821,6 +1836,9 @@ static void send_ix2(Grid *pG, MPI_Request *prq)
 #ifndef ISOTHERMAL
 	*(pd++) = pq->E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+#endif
       }
     }
   }
@@ -1840,6 +1858,9 @@ static void send_ix2(Grid *pG, MPI_Request *prq)
 static void send_ox2(Grid *pG, MPI_Request *prq)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   double *pd = send_buf;
 
@@ -1882,6 +1903,9 @@ static void send_ox2(Grid *pG, MPI_Request *prq)
 #ifndef ISOTHERMAL
 	*(pd++) = pq->E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+#endif
       }
     }
   }
@@ -1901,6 +1925,9 @@ static void send_ox2(Grid *pG, MPI_Request *prq)
 static void send_ix3(Grid *pG, MPI_Request *prq)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   double *pd = send_buf;
 
@@ -1943,6 +1970,9 @@ static void send_ix3(Grid *pG, MPI_Request *prq)
 #ifndef ISOTHERMAL
 	*(pd++) = pq->E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+#endif
       }
     }
   }
@@ -1962,6 +1992,9 @@ static void send_ix3(Grid *pG, MPI_Request *prq)
 static void send_ox3(Grid *pG, MPI_Request *prq)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   double *pd = send_buf;
 
@@ -2004,6 +2037,9 @@ static void send_ox3(Grid *pG, MPI_Request *prq)
 #ifndef ISOTHERMAL
 	*(pd++) = pq->E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+#endif
       }
     }
   }
@@ -2023,6 +2059,9 @@ static void send_ox3(Grid *pG, MPI_Request *prq)
 static void receive_ix1(Grid *pG)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   MPI_Status stat;
   double *pd = recv_buf;
@@ -2071,6 +2110,9 @@ static void receive_ix1(Grid *pG)
 #ifndef ISOTHERMAL
         pq->E = *(pd++);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+#endif
       }
     }
   }
@@ -2085,6 +2127,9 @@ static void receive_ix1(Grid *pG)
 static void receive_ox1(Grid *pG)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   MPI_Status stat;
   double *pd = recv_buf;
@@ -2133,6 +2178,9 @@ static void receive_ox1(Grid *pG)
 #ifndef ISOTHERMAL
         pq->E = *(pd++);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+#endif
       }
     }
   }
@@ -2147,6 +2195,9 @@ static void receive_ox1(Grid *pG)
 static void receive_ix2(Grid *pG)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   MPI_Status stat;
   double *pd = recv_buf;
@@ -2195,6 +2246,9 @@ static void receive_ix2(Grid *pG)
 #ifndef ISOTHERMAL
         pq->E = *(pd++);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+#endif
       }
     }
   }
@@ -2209,6 +2263,9 @@ static void receive_ix2(Grid *pG)
 static void receive_ox2(Grid *pG)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   MPI_Status stat;
   double *pd = recv_buf;
@@ -2257,6 +2314,9 @@ static void receive_ox2(Grid *pG)
 #ifndef ISOTHERMAL
         pq->E = *(pd++);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+#endif
       }
     }
   }
@@ -2271,6 +2331,9 @@ static void receive_ox2(Grid *pG)
 static void receive_ix3(Grid *pG)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   MPI_Status stat;
   double *pd = recv_buf;
@@ -2319,6 +2382,9 @@ static void receive_ix3(Grid *pG)
 #ifndef ISOTHERMAL
         pq->E = *(pd++);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+#endif
       }
     }
   }
@@ -2333,6 +2399,9 @@ static void receive_ix3(Grid *pG)
 static void receive_ox3(Grid *pG)
 {
   int i, il, iu, j, jl, ju, k, kl, ku, cnt, err;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Gas *pq;
   MPI_Status stat;
   double *pd = recv_buf;
@@ -2381,6 +2450,9 @@ static void receive_ox3(Grid *pG)
 #ifndef ISOTHERMAL
         pq->E = *(pd++);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+#endif
       }
     }
   }
