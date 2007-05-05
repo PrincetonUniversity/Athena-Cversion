@@ -20,6 +20,7 @@
 
 void show_config(void)
 {
+  int nscal;
   fprintf(stderr,"\nConfiguration details:\n\n");
   fprintf(stderr," Problem:                 %s\n",A_PROBLEM);
 
@@ -34,6 +35,9 @@ void show_config(void)
 #elif defined(ISOTHERMAL)
   fprintf(stderr," Equation of State:       ISOTHERMAL\n");
 #endif
+
+  nscal = NSCALARS;
+  fprintf(stderr," Passive scalars:         %d\n",nscal);
 
 #if defined(FIRST_ORDER)
   fprintf(stderr," Order of Accuracy:       1 (FIRST_ORDER)\n");
@@ -93,6 +97,8 @@ void show_config_par(void)
 #elif defined(ISOTHERMAL)
   par_sets("configure","eq_state","isothermal","Equation of state");
 #endif
+
+  par_seti("configure","nscalars","%d",NSCALARS,"Number of passive scalars");
 
 #if defined(FIRST_ORDER)
   par_seti("configure","order","%d",1,"Order of accuracy");

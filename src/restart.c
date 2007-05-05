@@ -43,6 +43,10 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
 #ifdef MHD
   int ib, jb, kb;
 #endif
+#if (NSCALARS > 0)
+  int n;
+  char scalarstr[16];
+#endif
 
 /* Open the restart file */
   if((fp = fopen(res_file,"r")) == NULL)
@@ -208,6 +212,25 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   }
 #endif
 
+/* Read any passively advected scalars */
+/* Following code only works if NSCALARS < 10 */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    fgets(line,MAXLEN,fp);/* Read the '\n' preceeding the next string */
+    fgets(line,MAXLEN,fp);
+    sprintf(scalarstr, "SCALAR %d", n);
+    if(strncmp(line,scalarstr,8) != 0)
+      ath_error("[restart_grid_block]: Expected %s, found %s",scalarstr,line);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          fread(&(pG->U[k][j][i].s[n]),sizeof(Real),1,fp);
+        }
+      }
+    }
+  }
+#endif
+
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"USER_DATA",9) != 0)
@@ -233,6 +256,9 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   int k, ks = pG->ks, ke = pG->ke;
 #ifdef MHD
   int ib, jb, kb;
+#endif
+#if (NSCALARS > 0)
+  int n;
 #endif
 
 /* Open the output file */
@@ -348,6 +374,20 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
 	fwrite(&(pG->B3i[k][j][i]),sizeof(Real),1,fp);
+      }
+    }
+  }
+#endif
+
+/* Write out passively advected scalars */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    fprintf(fp,"\nSCALAR %d\n", n);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          fwrite(&(pG->U[k][j][i].s[n]),sizeof(Real),1,fp);
+        }
       }
     }
   }

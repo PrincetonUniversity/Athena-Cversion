@@ -28,6 +28,9 @@
 
 Real Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
 {
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real pb=0.0,di;
   di = 1.0/U->d;
 
@@ -47,6 +50,10 @@ Real Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
   W->P = MAX(W->P,TINY_NUMBER);
 #endif /* ISOTHERMAL */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) W->r[n] = U->s[n]*di;
+#endif
+
   return(pb);
 }
 
@@ -59,6 +66,9 @@ Real Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
 
 Real Prim1D_to_Cons1D(Cons1D *U, const Prim1D *W, const Real *Bx)
 {
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real pb=0.0;
 
   U->d = W->d;
@@ -76,19 +86,26 @@ Real Prim1D_to_Cons1D(Cons1D *U, const Prim1D *W, const Real *Bx)
   U->E = W->P/Gamma_1 + pb + 0.5*W->d*(SQR(W->Vx) + SQR(W->Vy) + SQR(W->Vz));
 #endif /* ISOTHERMAL */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) U->s[n] = W->r[n]*W->d;
+#endif
+
   return(pb);
 }
 
 /*----------------------------------------------------------------------------*/
 /* Gas_to_Prim: 
- *   conserved (Gas) variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c])
- *   primitive       variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c])
+ *   conserved (Gas) variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s])
+ *   primitive       variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r])
  * Returns the magnetic pressure.
  */
 
 
 Real Gas_to_Prim(const Gas *U, Prim *W)
 {
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real pb=0.0,di;
   di = 1.0/U->d;
 
@@ -109,18 +126,25 @@ Real Gas_to_Prim(const Gas *U, Prim *W)
   W->P = MAX(W->P,TINY_NUMBER);
 #endif /* ISOTHERMAL */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) W->r[n] = U->s[n]*di;
+#endif
+
   return(pb);
 }
 
 /*----------------------------------------------------------------------------*/
 /* Prim_to_Gas: 
- *   primitive       variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c])
- *   conserved (Gas) variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c])
+ *   primitive       variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r])
+ *   conserved (Gas) variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s])
  * Returns the magnetic pressure.
  */
 
 Real Prim_to_Gas(Gas *U, const Prim *W)
 {
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real pb=0.0;
 
   U->d = W->d;
@@ -138,6 +162,10 @@ Real Prim_to_Gas(Gas *U, const Prim *W)
 #ifndef ISOTHERMAL
   U->E = W->P/Gamma_1 + pb + 0.5*W->d*(SQR(W->V1) + SQR(W->V2) + SQR(W->V3));
 #endif /* ISOTHERMAL */
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) U->s[n] = W->r[n]*W->d;
+#endif
 
   return(pb);
 }
