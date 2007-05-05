@@ -10,29 +10,30 @@
 ; PRO flines,nlev              plot 2D field lines
 ; PRO readvtk,filename:        reads .vtk file 'filename'
 ;
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 
 ;-------------------------------------------------------------------------------
 ; Procedure READBIN: Reads ATHENA binary dumps
 ;
 PRO readbin,filename
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 ;
 ; Read number of zones and variables
 ;
-ndata=LONARR(4)
+ndata=LONARR(5)
 openr,1,filename
 readu,1,ndata
 nx=ndata[0]
 ny=ndata[1]
 nz=ndata[2]
 nvar=ndata[3]
+nscalars=ndata[4]
 ;
 ; Read (gamma-1) and isothermal sound speed
 ;
@@ -68,16 +69,20 @@ vz=fltarr(nx,ny,nz)
 bx=fltarr(nx,ny,nz)
 by=fltarr(nx,ny,nz)
 bz=fltarr(nx,ny,nz)
+nscal = 1
+IF nscalars gt 1 THEN nscal = nscalars
+s = fltarr(nx,ny,nz,nscal)
 readu,1,d
 readu,1,vx
 readu,1,vy
 readu,1,vz
-IF nvar eq 5 OR nvar eq 8 THEN readu,1,e
-IF nvar eq 7 OR nvar eq 8 THEN BEGIN
+IF (nvar-nscalars) eq 5 OR (nvar-nscalars) eq 8 THEN readu,1,e
+IF (nvar-nscalars) eq 7 OR (nvar-nscalars) eq 8 THEN BEGIN
   readu,1,bx
   readu,1,by
   readu,1,bz
 ENDIF
+IF (nscalars) gt 0 THEN readu,1,s
 vx=vx/d
 vy=vy/d
 vz=vz/d
@@ -91,9 +96,9 @@ END
 ; Procedure FOUR_PLOT: plots d,P,Vx,P/d
 ;
 PRO four_plot,filename
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 ;
 readbin,filename
 !P.MULTI=[0,2,2,0,0]
@@ -117,9 +122,9 @@ END
 ;   Use flag=0 to plot points, flag=1 to plot line
 ;
 PRO nine_plot,filename,flag
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 ;
 readbin,filename
 !P.MULTI=[0,3,3,0,0]
@@ -167,10 +172,10 @@ END
 ; Procedure SOD_PLOT: plots analytic solution for Sod shocktube over numerical
 ;
 PRO sod_plot,filename
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 ;
 readbin,filename
 vs = 1.7522
@@ -245,10 +250,10 @@ END
 ; Procedure FLINES:  2D plot of field lines
 ;
 PRO flines,nlev
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 vecpot=fltarr(nx,ny)
 dx = x[1]-x[0]
 dy = y[1]-y[0]
@@ -262,10 +267,10 @@ END
 ; Procedure READVTK: Reads ATHENA VTK files
 ;
 PRO readvtk,filename,pfact
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
 ; -----------------------------------------
 ; pfact = gamm1 for adiabatic
 ; pfact = isocs for isothermal
@@ -451,7 +456,7 @@ end
 END
 ;------------------------------------------------------------------------------
 PRO readvectblock,fp,vectx,vecty,vectz
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 ; VECTORS block
 
 var=fltarr(3,nx,ny,nz)
@@ -465,7 +470,7 @@ vectz=temporary(reform(var[2,*,*,*]))
 END
 ;------------------------------------------------------------------------------
 PRO readscalarblock,fp,var
-COMMON SHARE1,nx,ny,nz,nvar
+COMMON SHARE1,nx,ny,nz,nvar,nscalars
 ; SCALARS block
 
 string = ' '
