@@ -8,6 +8,7 @@
  *   main.c
  *   ath_array.c
  *   ath_files.c
+ *   ath_log.c
  *   ath_signal.c
  *   cc_pos.c
  *   convert_var.c
@@ -53,6 +54,18 @@ void*** calloc_3d_array(size_t nt, size_t nr, size_t nc, size_t size);
 void free_1d_array(void *array);
 void free_2d_array(void *array);
 void free_3d_array(void *array);
+
+/*----------------------------------------------------------------------------*/
+/* ath_log.c */
+void ath_log_set_level(const int out, const int err);
+void ath_log_open(const char *basename, const int lazy);
+void ath_log_close(void);
+FILE *athout_fp(void);
+FILE *atherr_fp(void);
+void ath_flush_out(void);
+void ath_flush_err(void);
+int ath_perr(const int level, const char *fmt, ...);
+int ath_pout(const int level, const char *fmt, ...);
 
 /*----------------------------------------------------------------------------*/
 /* ath_files.c */
