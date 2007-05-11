@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
   double wtstart, wtime, wtend;
 #endif /* MPI_PARALLEL */
   int out_level, err_level, lazy; /* output & error log levels, lazy param. */
+  FILE *fp;
 
 /* MPICH modifies argc and argv when calling MPI_Init() so that
  * after calling MPI_Init() only athena's command line arguments are
@@ -321,7 +322,11 @@ int main(int argc, char *argv[])
 /*--- Step 9. ----------------------------------------------------------------*/
 /* Setup complete, force dump of initial conditions with flag=1 */
 
-  par_dump(0,stdout);      /* Dump a copy of the parsed information to stdout */
+  if(out_level >= 0){
+    fp = athout_fp();
+    par_dump(0,fp); /* Dump a copy of the parsed information to athout */
+  }
+
   change_rundir(rundir);
   if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
 
