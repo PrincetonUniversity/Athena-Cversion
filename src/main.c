@@ -251,11 +251,8 @@ int main(int argc, char *argv[])
   err_level = par_geti_def("log","err_level",0);
 #ifdef MPI_PARALLEL
   if(level0_Grid.my_id > 0){ /* Children may use different log levels */
-    if(par_exist("log","child_out_level"))
-      out_level = par_geti("log","child_out_level");
-
-    if(par_exist("log","child_err_level"))
-      err_level = par_geti("log","child_err_level");
+    out_level = par_geti_def("log","child_out_level",-1);
+    err_level = par_geti_def("log","child_err_level",-1);
   }
 #endif /* MPI_PARALLEL */
   ath_log_set_level(out_level, err_level);
