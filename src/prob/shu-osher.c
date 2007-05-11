@@ -39,7 +39,6 @@ void problem(Grid *pGrid, Domain *pDomain)
   ks = pGrid->ks;
 
   if (pGrid->Nx2 > 1 || pGrid->Nx3 > 1) {
-    printf("Nx1=%i Nx2=%i Nx3=%i \n",pGrid->Nx1,pGrid->Nx2,pGrid->Nx3);
     ath_error("Shu Osher test only works for 1D problem in x1-direction\n");
   }
 
