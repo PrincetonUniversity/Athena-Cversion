@@ -1386,7 +1386,7 @@ static void first_order_correction(const Grid *pGrid)
           Ineg[k][j+1][i] |= correct_hydro_x2 | correct_mhd_x2;
           Ineg[k+1][j][i] |= correct_hydro_x3 | correct_mhd_x3;
 
-          /* printf("RANK %d Warning: negative density in [%d][%d][%d]\n",
+          /* ath_perr(1,"RANK %d Warning: negative density in [%d][%d][%d]\n",
                           pGrid->my_id,pGrid->kdisp+k,pGrid->jdisp+j,
                           pGrid->idisp+i); */
           negcount++;
@@ -1396,7 +1396,7 @@ static void first_order_correction(const Grid *pGrid)
   }
 
   if (negcount > 0) {
-    printf("RANK %d Warning: %d negative densities being corrected\n",
+    ath_perr(-1,"RANK %d Warning: %d negative densities being corrected\n",
         pGrid->my_id, negcount);
 
     /* Modifying these fluxes will impact the hydro variables only for
@@ -1901,7 +1901,7 @@ static void first_order_correction(const Grid *pGrid)
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
           if (pGrid->U[k][j][i].d <= 0.0) {
-            ath_err(-1,"13d: pGrid->U[%d][%d][%d].d = %5.4e\n",
+            ath_perr(-1,"13d: pGrid->U[%d][%d][%d].d = %5.4e\n",
                           pGrid->kdisp+k,pGrid->jdisp+j,pGrid->idisp+i,
                           pGrid->U[k][j][i].d);
             negcount++;
