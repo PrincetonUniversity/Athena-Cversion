@@ -23,12 +23,6 @@ static char *athena_version = "version 3.0 - 01-JAN-2007";
 #include "globals.h"
 #include "prototypes.h"
 
-/* If there is a wall-time limit for MPI calculations run under a batch queue
- * system like PBS, then Athena will stop itself if there is less than
- * WTIME_WINDOW wall-seconds remaining to allow for time to write out the last
- * data files.
- */
-#define WTIME_WINDOW 600.0
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -48,7 +42,7 @@ int main(int argc, char *argv[])
   Grid level0_Grid;                /* only level0 grids in this version */
   Domain level0_Domain;
   int ires=0;          /* restart flag, is set to 1 if -r argument on cmdline */
-  int i,nlim,done=0,zones,iflush=1;
+  int i,nlim,done=0,zones,iquit=0,iflush=1;
   Real tlim;
   double cpu_time, zcs;
   char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name;
@@ -60,7 +54,7 @@ int main(int argc, char *argv[])
 #ifdef MPI_PARALLEL
   char *pc, *suffix, new_name[MAXLEN];
   int len, h, m, s, err, use_wtlim=0;
-  double wtstart, wtime, wtend;
+  double wtend;
 #endif /* MPI_PARALLEL */
   int out_level, err_level, lazy; /* output & error log levels, lazy param. */
   FILE *fp;
@@ -108,9 +102,8 @@ int main(int argc, char *argv[])
       case 't':                                /* -t hh:mm:ss */
 	use_wtlim = 1; /* Logical to use a wall time limit */
 	sscanf(argv[++i],"%d:%d:%d",&h,&m,&s);
-	wtend = s + 60*(m + 60*h);
+	wtend = MPI_Wtime() + s + 60*(m + 60*h);
 	printf("Wall time limit: %d hrs, %d min, %d sec\n",h,m,s);
-	wtstart = MPI_Wtime();
 	break;
 #endif /* MPI_PARALLEL */
 #ifndef MPI_PARALLEL
@@ -366,16 +359,12 @@ int main(int argc, char *argv[])
     new_dt(&level0_Grid);
 
 #ifdef MPI_PARALLEL
-    if(use_wtlim){
-      if(level0_Grid.my_id == 0) /* Calculate the time remaining */
-	wtime = wtend - (MPI_Wtime() - wtstart + WTIME_WINDOW);
-
-      err = MPI_Bcast(&wtime, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-      if(wtime < 0.0 || err != MPI_SUCCESS) break;
-    }
+    if(use_wtlim && (MPI_Wtime() > wtend))
+      iquit = 103;
 #endif /* MPI_PARALLEL */
 
-    if(ath_sig_act(&level0_Grid) != 0) break;
+/* Update iquit for signals, MPI synchronize and return its value */
+    if(ath_sig_act(&iquit) != 0) break;
 
     ath_pout(0,"cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
 	     level0_Grid.dt);
