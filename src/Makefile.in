@@ -12,6 +12,7 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = ath_array.o \
            ath_files.o \
+           ath_log.o \
            ath_signal.o \
            cc_pos.o \
            convert_var.o \
