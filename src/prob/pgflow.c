@@ -141,15 +141,11 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* Calculate the gravitational potential */
       psi = -grav*sin((double)k_par*(x1*cos_a + x2*sin_a))/k_par;
 
-      if(H <= psi){
-	fprintf(stderr,"[problem]: H < Psi -- No solution exists\n");
-	exit(1);
-      }
+      if(H <= psi)
+	ath_error("[problem]: H < Psi -- No solution exists\n");
 
-      if(Bfunc((double)rho_e) < 0.0){
-	fprintf(stderr,"[problem]: Bfunc(rho_e) < 0.0 -- No solution exists\n");
-	exit(1);
-      }
+      if(Bfunc((double)rho_e) < 0.0)
+	ath_error("[problem]: Bfunc(rho_e) < 0.0 -- No solution exists\n");
 
       if(root){ /* Choose the heavy (subsonic) root */
 /* The root is bounded: rho_e <= rho < rho_s */
@@ -257,9 +253,9 @@ int rtbis(double (*pfun)(double), const double x1, const double x2,
   else if(fn == 0.0){ *prt = x1;  return 0; }
   else if(fp == 0.0){ *prt = x2;  return 0; }
   else{
-    fprintf(stderr,"[rtbis]: Root must be bracketed for bisection\n");
-    fprintf(stderr,"[rtbis]: x1=%g, x2=%g, F(x1)=%g, F(x2)=%g\n",
-	    x1,x2,fn,fp);
+    ath_perr(-1,"[rtbis]: Root must be bracketed for bisection\n");
+    ath_perr(-1,"[rtbis]: x1=%g, x2=%g, F(x1)=%g, F(x2)=%g\n",
+	     x1,x2,fn,fp);
     return 1; /* Error */
   }
 
@@ -279,7 +275,7 @@ int rtbis(double (*pfun)(double), const double x1, const double x2,
     }
   }
 
-  fprintf(stderr,"[rtbis]: Too many bisections\n");
+  ath_perr(-1,"[rtbis]: Too many bisections\n");
 
   *prt = fp < -fn ? xp : xn; /* Return our best value for the root */
 
