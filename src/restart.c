@@ -264,7 +264,7 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 /* Open the output file */
   fp = ath_fopen(pG->outfilename,num_digit,pout->num,NULL,"rst","wb");
   if(fp == NULL){
-    fprintf(stderr,"[dump_restart]: Error opening the restart file\n");
+    ath_perr(-1,"[dump_restart]: Error opening the restart file\n");
     return;
   }
 
