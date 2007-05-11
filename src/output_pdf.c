@@ -211,7 +211,7 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 /* Open the output file */
   pfile = ath_fopen(pG->outfilename,num_digit,pout->num,pout->id,"prb","w");
   if(pfile == NULL){
-    fprintf(stderr,"[output_pdf]: File Open Error Occured");
+    ath_perr(-1,"[output_pdf]: File Open Error Occured");
     return;
   }
 
@@ -263,7 +263,7 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
   sprintf(fid,"prb_stat.%s",pout->id);
   pfile = ath_fopen(pG->outfilename,0,0,fid,"tab","a");
   if(pfile == NULL){
-    fprintf(stderr,"[output_pdf]: File Open Error Occured");
+    ath_perr(-1,"[output_pdf]: File Open Error Occured");
     return;
   }
 
