@@ -91,10 +91,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   lambda = x1;
   lambda = MIN(lambda,x2);
 
-  printf("lambda = %e\n",lambda);
-  printf("In order to make lambda = 1 the Grid is being rescaled to have\n");
-  printf("x1size = %e\n",x1size/lambda);
-  printf("x2size = %e\n",x2size/lambda);
+  ath_pout(0,"lambda = %e\n",lambda);
+  ath_pout(0,"In order to make lambda = 1 Grid is being rescaled to have\n");
+  ath_pout(0,"x1size = %e\n",x1size/lambda);
+  ath_pout(0,"x2size = %e\n",x2size/lambda);
 
   x1size /= lambda;
   x2size /= lambda;
@@ -137,32 +137,32 @@ void problem(Grid *pGrid, Domain *pDomain)
 #else
   h0 = ((p0/Gamma_1 + 0.5*d0*(u0*u0+v0*v0+w0*w0)) + p0)/d0;
   esys_roe_adb_hyd(u0,v0,w0,h0,ev,rem,lem);
-  printf("Ux - Cs = %e, %e\n",ev[0],rem[0][wave_flag]);
-  printf("Ux      = %e, %e\n",ev[1],rem[1][wave_flag]);
-  printf("Ux + Cs = %e, %e\n",ev[4],rem[4][wave_flag]);
+  ath_pout(0,"Ux - Cs = %e, %e\n",ev[0],rem[0][wave_flag]);
+  ath_pout(0,"Ux      = %e, %e\n",ev[1],rem[1][wave_flag]);
+  ath_pout(0,"Ux + Cs = %e, %e\n",ev[4],rem[4][wave_flag]);
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
 
 #ifdef MHD
 #if defined(ISOTHERMAL)
   esys_roe_iso_mhd(d0,u0,v0,w0,bx0,by0,bz0,xfact,yfact,ev,rem,lem);
-  printf("Ux - Cf = %e, %e\n",ev[0],rem[0][wave_flag]);
-  printf("Ux - Ca = %e, %e\n",ev[1],rem[1][wave_flag]);
-  printf("Ux - Cs = %e, %e\n",ev[2],rem[2][wave_flag]);
-  printf("Ux + Cs = %e, %e\n",ev[3],rem[3][wave_flag]);
-  printf("Ux + Ca = %e, %e\n",ev[4],rem[4][wave_flag]);
-  printf("Ux + Cf = %e, %e\n",ev[5],rem[5][wave_flag]);
+  ath_pout(0,"Ux - Cf = %e, %e\n",ev[0],rem[0][wave_flag]);
+  ath_pout(0,"Ux - Ca = %e, %e\n",ev[1],rem[1][wave_flag]);
+  ath_pout(0,"Ux - Cs = %e, %e\n",ev[2],rem[2][wave_flag]);
+  ath_pout(0,"Ux + Cs = %e, %e\n",ev[3],rem[3][wave_flag]);
+  ath_pout(0,"Ux + Ca = %e, %e\n",ev[4],rem[4][wave_flag]);
+  ath_pout(0,"Ux + Cf = %e, %e\n",ev[5],rem[5][wave_flag]);
 #else
   h0 = ((p0/Gamma_1+0.5*(bx0*bx0+by0*by0+bz0*bz0)+0.5*d0*(u0*u0+v0*v0+w0*w0))
                + (p0+0.5*(bx0*bx0+by0*by0+bz0*bz0)))/d0;
   esys_roe_adb_mhd(d0,u0,v0,w0,h0,bx0,by0,bz0,xfact,yfact,ev,rem,lem);
-  printf("Ux - Cf = %e, %e\n",ev[0],rem[0][wave_flag]);
-  printf("Ux - Ca = %e, %e\n",ev[1],rem[1][wave_flag]);
-  printf("Ux - Cs = %e, %e\n",ev[2],rem[2][wave_flag]);
-  printf("Ux      = %e, %e\n",ev[3],rem[3][wave_flag]);
-  printf("Ux + Cs = %e, %e\n",ev[4],rem[4][wave_flag]);
-  printf("Ux + Ca = %e, %e\n",ev[5],rem[5][wave_flag]);
-  printf("Ux + Cf = %e, %e\n",ev[6],rem[6][wave_flag]);
+  ath_pout(0,"Ux - Cf = %e, %e\n",ev[0],rem[0][wave_flag]);
+  ath_pout(0,"Ux - Ca = %e, %e\n",ev[1],rem[1][wave_flag]);
+  ath_pout(0,"Ux - Cs = %e, %e\n",ev[2],rem[2][wave_flag]);
+  ath_pout(0,"Ux      = %e, %e\n",ev[3],rem[3][wave_flag]);
+  ath_pout(0,"Ux + Cs = %e, %e\n",ev[4],rem[4][wave_flag]);
+  ath_pout(0,"Ux + Ca = %e, %e\n",ev[5],rem[5][wave_flag]);
+  ath_pout(0,"Ux + Cf = %e, %e\n",ev[6],rem[6][wave_flag]);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
