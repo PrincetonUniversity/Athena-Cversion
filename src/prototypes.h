@@ -78,7 +78,7 @@ size_t ath_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 /*----------------------------------------------------------------------------*/
 /* ath_signal.c */
 void ath_sig_init(void);
-int  ath_sig_act(Grid *pG);
+int  ath_sig_act(int *piquit);
 
 /*----------------------------------------------------------------------------*/
 /* cc_pos.c */
