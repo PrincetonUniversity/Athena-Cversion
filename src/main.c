@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
   if (level0_Grid.nstep == nlim)
     ath_pout(0,"\nterminating on cycle limit\n");
 #ifdef MPI_PARALLEL
-  else if(use_wtlim && (wtime < 0.0))
+  else if(use_wtlim && iquit == 103)
     ath_pout(0,"\nterminating on wall-time limit\n");
 #endif /* MPI_PARALLEL */
   else
