@@ -50,7 +50,7 @@ int ath_sig_act(int *piquit)
   int err, sig = sig_caught > *piquit ? sig_caught : *piquit;
 
   err = MPI_Allreduce(&sig, piquit, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-  if(err) sim_error("[sim_sig_act]: MPI_Allreduce returned error = %d\n",err);
+  if(err) ath_error("[sim_sig_act]: MPI_Allreduce returned error = %d\n",err);
 
 #else /* SERIAL */
 
