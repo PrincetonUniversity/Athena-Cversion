@@ -56,7 +56,9 @@ static Real **eta1=NULL, **eta2=NULL;
  *   integrate_emf3_corner() - the upwind CT method in Gardiner & Stone (2005) 
  *============================================================================*/
 
+#ifdef MHD
 static void integrate_emf3_corner(Grid *pGrid);
+#endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
