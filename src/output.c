@@ -448,9 +448,13 @@ void data_output_destruct(void)
 
   for (i=0; i<out_count; i++) {
 /* print the global min/max computed over the calculation */
-    printf("Global min/max for %s: %g %g\n",OutArray[i].out,
-	   OutArray[i].gmin, OutArray[i].gmax);
-    if (OutArray[i].out     != NULL) free(OutArray[i].out);
+    if (OutArray[i].out != NULL){
+      if(strcmp(OutArray[i].out,"all") != 0)
+	ath_pout(0,"Global min/max for %s: %g %g\n",OutArray[i].out,
+		 OutArray[i].gmin, OutArray[i].gmax);
+
+      free(OutArray[i].out);
+    }
     if (OutArray[i].out_fmt != NULL) free(OutArray[i].out_fmt);
     if (OutArray[i].dat_fmt != NULL) free(OutArray[i].dat_fmt);
     if (OutArray[i].id      != NULL) free(OutArray[i].id);
