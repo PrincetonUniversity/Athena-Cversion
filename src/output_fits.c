@@ -127,7 +127,7 @@ void output_fits_2d(Grid *pGrid, Output *pOut, FILE *pFile)
     pOut->gmax = MAX(dmax,pOut->gmax);
   }
 
-  free_2d_array((void **)data); /* Free the memory we malloc'd */
+  free_2d_array(data); /* Free the memory we malloc'd */
 }
 
 

@@ -750,28 +750,28 @@ void integrate_2d(Grid *pGrid)
 void integrate_destruct_2d(void)
 {
 #ifdef MHD
-  if (emf3    != NULL) free_2d_array((void**)emf3);
-  if (emf3_cc != NULL) free_2d_array((void**)emf3_cc);
+  if (emf3    != NULL) free_2d_array(emf3);
+  if (emf3_cc != NULL) free_2d_array(emf3_cc);
 #endif /* MHD */
 #ifdef H_CORRECTION
-  if (eta1 != NULL) free_2d_array((void**)eta1);
-  if (eta2 != NULL) free_2d_array((void**)eta2);
+  if (eta1 != NULL) free_2d_array(eta1);
+  if (eta2 != NULL) free_2d_array(eta2);
 #endif /* H_CORRECTION */
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
-  if (B1_x1Face != NULL) free_2d_array((void**)B1_x1Face);
-  if (B2_x2Face != NULL) free_2d_array((void**)B2_x2Face);
+  if (B1_x1Face != NULL) free_2d_array(B1_x1Face);
+  if (B2_x2Face != NULL) free_2d_array(B2_x2Face);
 
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);
   if (Ur       != NULL) free(Ur);
 
-  if (Ul_x1Face != NULL) free_2d_array((void**)Ul_x1Face);
-  if (Ur_x1Face != NULL) free_2d_array((void**)Ur_x1Face);
-  if (Ul_x2Face != NULL) free_2d_array((void**)Ul_x2Face);
-  if (Ur_x2Face != NULL) free_2d_array((void**)Ur_x2Face);
-  if (x1Flux    != NULL) free_2d_array((void**)x1Flux);
-  if (x2Flux    != NULL) free_2d_array((void**)x2Flux);
+  if (Ul_x1Face != NULL) free_2d_array(Ul_x1Face);
+  if (Ur_x1Face != NULL) free_2d_array(Ur_x1Face);
+  if (Ul_x2Face != NULL) free_2d_array(Ul_x2Face);
+  if (Ur_x2Face != NULL) free_2d_array(Ur_x2Face);
+  if (x1Flux    != NULL) free_2d_array(x1Flux);
+  if (x2Flux    != NULL) free_2d_array(x2Flux);
 
   return;
 }

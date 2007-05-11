@@ -573,8 +573,8 @@ void lr_states_destruct(void)
   if (Wl != NULL) free(Wl);
   if (Wr != NULL) free(Wr);
   if (pW != NULL) free(pW);
-  if (dWm != NULL) free_2d_array((void**)dWm);
-  if (Wim1h != NULL) free_2d_array((void**)Wim1h);
+  if (dWm != NULL) free_2d_array(dWm);
+  if (Wim1h != NULL) free_2d_array(Wim1h);
   return;
 }
 

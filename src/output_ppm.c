@@ -115,7 +115,7 @@ void output_ppm(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Close the file, free memory */
   fclose(pfile);
-  free_2d_array((void **)data);
+  free_2d_array(data);
   free(fname);
 }
 
