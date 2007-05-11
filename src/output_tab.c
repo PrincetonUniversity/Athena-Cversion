@@ -162,5 +162,5 @@ void output_tab_3d(Grid *pGrid, Output *pOut, FILE *pFile)
     pOut->gmax = MAX(dmax,pOut->gmax);
   }
 
-  free_3d_array((void ***)data); /* Free the memory we malloc'd */
+  free_3d_array(data); /* Free the memory we malloc'd */
 }

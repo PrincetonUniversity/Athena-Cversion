@@ -143,22 +143,22 @@ void init_grid(Grid *pG, Domain *pD)
 #ifdef MHD
   pG->B1i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
   if (pG->B1i == NULL) {
-    free_3d_array((void***)pG->U);
+    free_3d_array(pG->U);
     goto on_error;
   }
 
   pG->B2i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
   if (pG->B2i == NULL) {
-    free_3d_array((void***)pG->U);
-    free_3d_array((void***)pG->B1i);
+    free_3d_array(pG->U);
+    free_3d_array(pG->B1i);
     goto on_error;
   }
 
   pG->B3i = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
   if (pG->B3i == NULL) {
-    free_3d_array((void***)pG->U);
-    free_3d_array((void***)pG->B1i);
-    free_3d_array((void***)pG->B2i);
+    free_3d_array(pG->U);
+    free_3d_array(pG->B1i);
+    free_3d_array(pG->B2i);
     goto on_error;
   }
 #endif /* MHD */
