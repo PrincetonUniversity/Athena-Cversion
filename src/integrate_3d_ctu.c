@@ -63,9 +63,11 @@ static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
  *   integrate_emf3_corner() - the upwind CT method in GS05, for emf3
  *============================================================================*/
 
+#ifdef MHD
 static void integrate_emf1_corner(const Grid *pGrid);
 static void integrate_emf2_corner(const Grid *pGrid);
 static void integrate_emf3_corner(const Grid *pGrid);
+#endif /* MHD */
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
