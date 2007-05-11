@@ -150,7 +150,7 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Write history file */
   if((p_hstfile = ath_fopen(pGrid->outfilename,0,0,NULL,"hst","a")) == NULL){
-    fprintf(stderr,"[dump_history]: Unable to open the history file\n");
+    ath_perr(-1,"[dump_history]: Unable to open the history file\n");
     return;
   }
 
