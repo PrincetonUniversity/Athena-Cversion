@@ -48,20 +48,21 @@ int main(int argc, char *argv[])
   Grid level0_Grid;                /* only level0 grids in this version */
   Domain level0_Domain;
   int ires=0;          /* restart flag, is set to 1 if -r argument on cmdline */
-  int i,nlim,done=0,zones;
+  int i,nlim,done=0,zones,iflush=1;
   Real tlim;
   double cpu_time, zcs;
-  char *definput = "athinput", *rundir = NULL, *res_file = NULL;
+  char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name;
   char *athinput = definput;
   long clk_tck = sysconf(_SC_CLK_TCK);
   struct tms tbuf;
   clock_t time0,time1, have_times;
   struct timeval tvs, tve;
 #ifdef MPI_PARALLEL
-  char *pc, *suffix, *name, new_name[MAXLEN];
+  char *pc, *suffix, new_name[MAXLEN];
   int len, h, m, s, err, use_wtlim=0;
   double wtstart, wtime, wtend;
 #endif /* MPI_PARALLEL */
+  int out_level, err_level, lazy; /* output & error log levels, lazy param. */
 
 /* MPICH modifies argc and argv when calling MPI_Init() so that
  * after calling MPI_Init() only athena's command line arguments are
@@ -231,6 +232,34 @@ int main(int argc, char *argv[])
 #endif /* MPI_PARALLEL */
 
 /*--- Step 3. ----------------------------------------------------------------*/
+/* set up the simulation log files */
+
+  /* Open the simulation <problem_id>.out and <problem_id>.err files? */
+  /* If not, output will go to stdout and stderr streams */
+  if(par_geti_def("log","file_open",0)){
+    iflush = 0;
+    name = par_gets("job","problem_id");
+    lazy = par_geti_def("log","lazy",1);
+    ath_log_open(name, lazy);
+    free(name);
+    name = NULL;
+  }
+
+  /* Set the ath_log output and error logging levels */
+  out_level = par_geti_def("log","out_level",0);
+  err_level = par_geti_def("log","err_level",0);
+#ifdef MPI_PARALLEL
+  if(level0_Grid.my_id > 0){ /* Children may use different log levels */
+    if(par_exist("log","child_out_level"))
+      out_level = par_geti("log","child_out_level");
+
+    if(par_exist("log","child_err_level"))
+      err_level = par_geti("log","child_err_level");
+  }
+#endif /* MPI_PARALLEL */
+  ath_log_set_level(out_level, err_level);
+
+/*--- Step 3. ----------------------------------------------------------------*/
 /* set variables in <time> block (these control execution time) */
 
   CourNo = par_getd("time","cour_no");
@@ -304,11 +333,9 @@ int main(int argc, char *argv[])
   else
     time0 = clock();
 
-  if (level0_Grid.my_id == 0) {
-    printf("\nSetup complete, entering main loop...\n\n");
-    printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
-	 level0_Grid.dt);
-  }
+  ath_pout(0,"\nSetup complete, entering main loop...\n\n");
+  ath_pout(0,"cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+	   level0_Grid.dt);
 
 /*--- Step 10. ---------------------------------------------------------------*/
 /* START OF MAIN INTEGRATION LOOP ==============================================
@@ -348,13 +375,13 @@ int main(int argc, char *argv[])
 
     if(ath_sig_act(&level0_Grid) != 0) break;
 
-    if (level0_Grid.my_id == 0) {
-      printf("cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
-              level0_Grid.dt);
-    }
-    fflush(stdout);
-    fflush(stderr);
+    ath_pout(0,"cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+	     level0_Grid.dt);
 
+    if(iflush){
+      ath_flush_out();
+      ath_flush_err();
+    }
   }
 /* END OF MAIN INTEGRATION LOOP ==============================================*/
 
@@ -362,13 +389,13 @@ int main(int argc, char *argv[])
 /* Finish up by computing zc/sec, dumping data, and deallocate memory */
 
   if (level0_Grid.nstep == nlim)
-    printf("\nterminating on cycle limit\n");
+    ath_pout(0,"\nterminating on cycle limit\n");
 #ifdef MPI_PARALLEL
   else if(use_wtlim && (wtime < 0.0))
-    printf("\nterminating on wall-time limit\n");
+    ath_pout(0,"\nterminating on wall-time limit\n");
 #endif /* MPI_PARALLEL */
   else
-    printf("\nterminating on time limit\n");
+    ath_pout(0,"\nterminating on time limit\n");
 
   gettimeofday(&tve,NULL);
   if(have_times > 0) {
@@ -386,29 +413,23 @@ int main(int argc, char *argv[])
   zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
 
 /* Calculate and print the zone-cycles / cpu-second */
-  if (level0_Grid.my_id == 0) {
-    printf("  tlim= %e   nlim= %i\n",tlim,nlim);
-    printf("  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
-    printf("\nzone-cycles/cpu-second = %e\n",zcs);
-  }
+  ath_pout(0,"  tlim= %e   nlim= %i\n",tlim,nlim);
+  ath_pout(0,"  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
+  ath_pout(0,"\nzone-cycles/cpu-second = %e\n",zcs);
 
 /* Calculate and print the zone-cycles / wall-second */
   cpu_time = (double)(tve.tv_sec - tvs.tv_sec) +
     1.0e-6*(double)(tve.tv_usec - tvs.tv_usec);
   zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
-  if (level0_Grid.my_id == 0) {
-    printf("\nelapsed wall time = %e sec.\n",cpu_time);
-    printf("\nzone-cycles/wall-second = %e\n",zcs);
-  }
+  ath_pout(0,"\nelapsed wall time = %e sec.\n",cpu_time);
+  ath_pout(0,"\nzone-cycles/wall-second = %e\n",zcs);
 
 #ifdef MPI_PARALLEL
   zones = (level0_Domain.ixe - level0_Domain.ixs + 1)
          *(level0_Domain.jxe - level0_Domain.jxs + 1)
          *(level0_Domain.kxe - level0_Domain.kxs + 1);
   zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
-  if (level0_Grid.my_id == 0) {
-    printf("\ntotal zone-cycles/wall-second = %e\n",zcs);
-  }
+  ath_pout(0,"\ntotal zone-cycles/wall-second = %e\n",zcs);
 #endif /* MPI_PARALLEL */
 
 /* complete any final User work, and make last dump */
@@ -442,15 +463,15 @@ void change_rundir(char *name)
 #endif /* MPI_PARALLEL */
 
   if (name == NULL || *name == 0) return;
-  fprintf(stderr,"Changing run directory to \"%s\"\n",name);
+  ath_perr(-1,"Changing run directory to \"%s\"\n",name);
 
   if (chdir(name)) {
     if (mkdir(name,0775)) {
-      fprintf(stderr,"Failed to create run directory %s\n",name);
+      ath_perr(-1,"Failed to create run directory %s\n",name);
       err = 1;
     }
     else if (chdir(name)) {
-      fprintf(stderr,"Cannot change directory to %s\n",name);
+      ath_perr(-1,"Cannot change directory to %s\n",name);
       err = 1;
     }
   }
@@ -458,7 +479,7 @@ void change_rundir(char *name)
 #ifdef MPI_PARALLEL
 
   rerr = MPI_Allreduce(&err, &gerr, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-  if(rerr) fprintf(stderr,"[change_rundir]: MPI_Allreduce error = %d\n",rerr);
+  if(rerr) ath_perr(-1,"[change_rundir]: MPI_Allreduce error = %d\n",rerr);
 
   if(rerr || gerr){
     MPI_Finalize();
@@ -481,16 +502,16 @@ void change_rundir(char *name)
 
 void usage(char *prog)
 {
-  fprintf(stderr,"Athena %s\n",athena_version);
-  fprintf(stderr,"  Last configure: %s\n",CONFIGURE_DATE);
-  fprintf(stderr,"\nUsage: %s [options] [block/par=value ...]\n",prog);
-  fprintf(stderr,"\nOptions:\n");
-  fprintf(stderr,"  -i <file>       Alternate input file [athinput]\n");
-  fprintf(stderr,"  -d <directory>  Alternate run dir [current dir]\n");
-  fprintf(stderr,"  -h              This Help, and configuration settings\n");
-  fprintf(stderr,"  -n              Parse input, but don't run program\n"); 
-  fprintf(stderr,"  -c              Show Configuration details and quit\n"); 
-  fprintf(stderr,"  -r <file>       Restart a simulation with this file\n");
+  ath_perr(-1,"Athena %s\n",athena_version);
+  ath_perr(-1,"  Last configure: %s\n",CONFIGURE_DATE);
+  ath_perr(-1,"\nUsage: %s [options] [block/par=value ...]\n",prog);
+  ath_perr(-1,"\nOptions:\n");
+  ath_perr(-1,"  -i <file>       Alternate input file [athinput]\n");
+  ath_perr(-1,"  -d <directory>  Alternate run dir [current dir]\n");
+  ath_perr(-1,"  -h              This Help, and configuration settings\n");
+  ath_perr(-1,"  -n              Parse input, but don't run program\n"); 
+  ath_perr(-1,"  -c              Show Configuration details and quit\n"); 
+  ath_perr(-1,"  -r <file>       Restart a simulation with this file\n");
   show_config();
   exit(0);
 }
