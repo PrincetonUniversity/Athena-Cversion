@@ -41,7 +41,7 @@ char *fname_construct(const char *basename, const int dlen, const int idump,
   if(id != NULL) size += 1 + strlen(id); /* additional 1 for the "." */
 
   if((fname = (char*)malloc(size*sizeof(char))) == NULL){
-    fprintf(stderr,"[fname_construct]: malloc returned a NULL pointer\n");
+    ath_perr(-1,"[fname_construct]: malloc returned a NULL pointer\n");
     return NULL;
   }
 
@@ -106,7 +106,7 @@ size_t ath_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
   size_t  n = fwrite(ptr,size,nmemb,stream);
 
-  if (n != nmemb) fprintf(stderr,"ath_fwrite: could write enough data\n");
+  if (n != nmemb) ath_perr(-1,"ath_fwrite: could write enough data\n");
   return n;
 }
 
