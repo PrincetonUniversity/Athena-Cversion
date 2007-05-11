@@ -129,7 +129,7 @@ void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   am = (tl - tr)*tmp;
 /* ...and the pressure at the contact surface */
   cp = (dl*tr + dr*tl)*tmp;
-  if(cp < 0.0) fprintf(stderr,"[flux_hllc]: Contact Pressure = %g\n",cp);
+  if(cp < 0.0) ath_perr(1,"[flux_hllc]: Contact Pressure = %g\n",cp);
   cp = cp > 0.0 ? cp : 0.0;
 
 /*--- Step 6. ------------------------------------------------------------------
