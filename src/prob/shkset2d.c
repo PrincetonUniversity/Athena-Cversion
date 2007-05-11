@@ -78,36 +78,28 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   nx1 = (ie-is)+1;
   nx2 = (je-js)+1;
-  if ((nx1 == 1) || (nx2 == 1)) {
-    fprintf(stderr,"[shkset2d]: This problem can only be run in 2D\n");
-    exit(EXIT_FAILURE);
-  }
+  if ((nx1 == 1) || (nx2 == 1))
+    ath_error("[shkset2d]: This problem can only be run in 2D\n");
 
 /* Compute greatest common divisor of nx1,nx2.  The size of the "unit cell"
  * is nx1/gcd by nx2/gcd */
 
-  if((gcd = ath_gcd(nx1,nx2)) < 10){
-    fprintf(stderr,"[shkset2d]: Greatest Common Divisor (nx1,nx2) = %d\n",gcd);
-    exit(EXIT_FAILURE);
-  }
+  if((gcd = ath_gcd(nx1,nx2)) < 10)
+    ath_error("[shkset2d]: Greatest Common Divisor (nx1,nx2) = %d\n",gcd);
 
   id = div(nx1,gcd);
   r1 = id.quot;
   if(id.rem != 0){
-    fprintf(stderr,"[shkset2d]: GCD failed, Remainder of %d / %d is %d\n",
+    ath_error("[shkset2d]: GCD failed, Remainder of %d / %d is %d\n",
 	      nx1,gcd,id.rem);
-    exit(EXIT_FAILURE);
-  }
 
   id = div(nx2,gcd);
   r2 = id.quot;
-  if(id.rem != 0){
-    fprintf(stderr,"[shkset2d]: GCD failed, Remainder of %d / %d is %d\n",
+  if(id.rem != 0)
+    ath_error("[shkset2d]: GCD failed, Remainder of %d / %d is %d\n",
 	      nx2,gcd,id.rem);
-    exit(EXIT_FAILURE);
-  }
 
-  printf("The unit cell is (%d,1,%d) grid cells in size\n",r1,r2);
+  ath_pout(1,"The unit cell is (%d,1,%d) grid cells in size\n",r1,r2);
 
 /* Compute angle initial interface makes to the grid */
 
