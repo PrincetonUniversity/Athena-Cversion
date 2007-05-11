@@ -102,7 +102,6 @@ static size_t out_size  = 0;       /* Size of the array OutArray[] */
 static Output *OutArray = NULL;    /* Array of Output modes */
 static Output rst_out;             /* Restart Output */
 static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
-static int debug = 0;              /* debug level, set to 1 for debug output  */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -153,7 +152,7 @@ void init_output(Grid *pGrid)
     sprintf(block,"output%d",outn);
 /* An output format is required, if not, we move on. */
     if(par_exist(block,"out_fmt") == 0){
-      fprintf(stderr,"[init_output]: %s/out_fmt does not exist\n",block);
+      ath_perr(-1,"[init_output]: %s/out_fmt does not exist\n",block);
       continue;
     }
 
@@ -242,7 +241,7 @@ void init_output(Grid *pGrid)
       new_out.expr = getexpr(nout, new_out.out);
 
     if (new_out.expr == NULL) {
-      fprintf(stderr,"Could not parse expression %s, skipping it\n",
+      ath_perr(-1,"Could not parse expression %s, skipping it\n",
 	      new_out.out);
       free_output(&new_out);
       continue;
@@ -264,10 +263,8 @@ void init_output(Grid *pGrid)
     if (new_out.Nx1 > 1) new_out.ndim++;
     if (new_out.Nx2 > 1) new_out.ndim++;
     if (new_out.Nx3 > 1) new_out.ndim++;
-    if (debug) {
-      printf("DEBUG %d  ndim=%d  Nx=[%d %d %d]\n",
-             new_out.n, new_out.ndim, new_out.Nx1,new_out.Nx2,new_out.Nx3);
-    }
+    ath_pout(1,"DEBUG %d  ndim=%d  Nx=[%d %d %d]\n",
+            new_out.n, new_out.ndim, new_out.Nx1,new_out.Nx2,new_out.Nx3);
 
 /* dmin/dmax & sdmin/sdmax */
     if(par_exist(block,"dmin") != 0){ /* Use a fixed minimum scale? */
@@ -324,16 +321,14 @@ void init_output(Grid *pGrid)
   add_it:
 
 /* DEBUG */
-    if (debug) {
-      printf("OUTPUT: %d %d %s %s [%g : %g]\n",
+    ath_pout(1,"OUTPUT: %d %d %s %s [%g : %g]\n",
              new_out.n, new_out.ndim, new_out.out_fmt,
              new_out.out, new_out.dmin, new_out.dmax);
-    }
 
     if(add_output(&new_out)) free_output(&new_out);
     else{
       nout++;
-      fprintf(stderr,"Added out%d\n",nout);
+      ath_pout(0,"Added out%d\n",nout);
     }
   }
 /*------------------------- end loop over output numbers ---------------------*/
@@ -504,7 +499,7 @@ void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
 
   if(fmt != NULL){
     if((new_out.out_fmt = ath_strdup(fmt)) == NULL)
-      fprintf(stderr,"[dump_user_enroll]: Warning out_fmt strdup failed\n");
+      ath_perr(-1,"[dump_user_enroll]: Warning out_fmt strdup failed\n");
   }
 
   if(add_output(&new_out) && fmt != NULL) free(&(new_out.out_fmt));
@@ -563,10 +558,8 @@ float ***subset3(Grid *pgrid, Output *pout)
   kl = pgrid->ks;
   ku = pgrid->ke;
 #endif
-  if (debug) {
-    fprintf(stderr,"subset2: lu's:  %d %d    %d %d     %d %d\n",
-            il,  iu,  jl,  ju,  kl,  ku);
-  }
+  ath_pout(1,"subset2: lu's:  %d %d    %d %d     %d %d\n",
+          il,  iu,  jl,  ju,  kl,  ku);
 
   data = (float ***) calloc_3d_array(Nx3,Nx2,Nx1,sizeof(float));
   for (k=0; k<Nx3; k++)
@@ -670,7 +663,7 @@ float **subset2(Grid *pgrid, Output *pout)
       }
     }
   } else
-    fprintf(stderr,"Should not reach here\n");
+    ath_perr(-1,"Should not reach here\n");
   return data;
 }
 
@@ -751,7 +744,7 @@ float *subset1(Grid *pgrid, Output *pout)
       data[i] *= factor;
     }
   } else {
-    fprintf(stderr,"Should not reach here\n");
+    ath_perr(-1,"Should not reach here\n");
   }
 
   return data;
@@ -928,7 +921,7 @@ static Gasfun_t getexpr(const int n, const char *expr)
     fclose(fp);
 /* compile and link it to a shared object */
 /* but for now just return NULL */
-    fprintf(stderr,"Warning: dynamics expressions not supported yet\n");
+    ath_perr(-1,"Warning: dynamics expressions not supported yet\n");
     return NULL;
   }
 }
@@ -1001,14 +994,10 @@ static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
 	        expr,*l,nx);
     }
     free(expr);
-    if (debug) {
-      printf("DEBUG: parse_slice: %s/%s = %s =>  %d .. %d\n",
+    ath_pout(1,"DEBUG: parse_slice: %s/%s = %s =>  %d .. %d\n",
               block,axname,expr,*l,*u);
-    }
   } else {             /* no slicing in this axis */
-    if (debug) {
-      printf("DEBUG: parse_slice: %s/%s => no slicing \n",block,axname);
-    }
+    ath_pout(1,"DEBUG: parse_slice: %s/%s => no slicing \n",block,axname);
     *l = *u = -1;
   }
   if (*l == -1) {
@@ -1043,11 +1032,11 @@ float *getRGB(char *name)
 
 /* failed to find a matching palette: print them all and exit...  */
 
-  fprintf(stderr,"Fatal error: could not find palette=%s, valid names are:\n",
+  ath_perr(-1,"Fatal error: could not find palette=%s, valid names are:\n",
     name);
   for (i=0; rgb[i].name && rgb[i].rgb; i++)
-    fprintf(stderr,"%s ",rgb[i].name);
-  fprintf(stderr,"\n");
+    ath_perr(-1,"%s ",rgb[i].name);
+  ath_perr(-1,"\n");
   exit(EXIT_FAILURE);
 
   return NULL; /* Never reached, avoids compiler warnings */
