@@ -1901,7 +1901,7 @@ static void first_order_correction(const Grid *pGrid)
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
           if (pGrid->U[k][j][i].d <= 0.0) {
-            fprintf(stderr,"13d: pGrid->U[%d][%d][%d].d = %5.4e\n",
+            ath_err(-1,"13d: pGrid->U[%d][%d][%d].d = %5.4e\n",
                           pGrid->kdisp+k,pGrid->jdisp+j,pGrid->idisp+i,
                           pGrid->U[k][j][i].d);
             negcount++;
