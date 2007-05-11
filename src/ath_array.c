@@ -11,7 +11,7 @@
  *
  * EXAMPLE usage of 3D construct/destruct functions for arrays of type Real:
  *   array = (Real ***)calloc_3d_array(nt,nr,nc,sizeof(Real));
- *   free_3d_array((void ***)array);
+ *   free_3d_array(array);
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   calloc_1d_array() - creates 1D array
@@ -125,18 +125,22 @@ void free_1d_array(void *array)
 /*----------------------------------------------------------------------------*/
 /* free_2d_array: free memory used by 2D array  */
 
-void free_2d_array(void **array)
+void free_2d_array(void *array)
 {
-  free(array[0]);
+  void **ta = (void **)array;
+
+  free(ta[0]);
   free(array);
 }
 
 /*----------------------------------------------------------------------------*/
 /* free_3d_array: free memory used by 3D array  */
 
-void free_3d_array(void ***array)
+void free_3d_array(void *array)
 {
-  free(array[0][0]);
-  free(array[0]);
+  void ***ta = (void ***)array;
+
+  free(ta[0][0]);
+  free(ta[0]);
   free(array);
 }
