@@ -141,7 +141,7 @@ void par_open(char *filename)
   if (fp == NULL) 
     ath_error("Parameter file %s could not be opened, try -i PARFILE\n"
       ,filename);
-  fprintf(stdout,"Opening \"%s\" for parameter access\n",filename);
+  if (debug) fprintf(stdout,"Opening \"%s\" for parameter access\n",filename);
   now_open = 1;
   now_filename = my_strdup(filename);
 
