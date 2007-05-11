@@ -33,7 +33,7 @@ char *ath_strdup(const char *in)
 {
   char *out = (char *)malloc((1+strlen(in))*sizeof(char));
   if(out == NULL) {
-    fprintf(stderr,"ath_strdup: failed to alloc %d\n",(int)(1+strlen(in)));
+    ath_perr(-1,"ath_strdup: failed to alloc %d\n",(int)(1+strlen(in)));
     return NULL; /* malloc failed */
   }
   return strcpy(out,in);
