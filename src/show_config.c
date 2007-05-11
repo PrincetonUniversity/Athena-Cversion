@@ -21,60 +21,60 @@
 void show_config(void)
 {
   int nscal;
-  fprintf(stderr,"\nConfiguration details:\n\n");
-  fprintf(stderr," Problem:                 %s\n",A_PROBLEM);
+  ath_pout(0,"\nConfiguration details:\n\n");
+  ath_pout(0," Problem:                 %s\n",A_PROBLEM);
 
 #if defined(HYDRO)
-  fprintf(stderr," Gas properties:          HYDRO\n");
+  ath_pout(0," Gas properties:          HYDRO\n");
 #elif defined(MHD)
-  fprintf(stderr," Gas properties:          MHD\n");
+  ath_pout(0," Gas properties:          MHD\n");
 #endif
 
 #if defined(ADIABATIC)
-  fprintf(stderr," Equation of State:       ADIABATIC\n");
+  ath_pout(0," Equation of State:       ADIABATIC\n");
 #elif defined(ISOTHERMAL)
-  fprintf(stderr," Equation of State:       ISOTHERMAL\n");
+  ath_pout(0," Equation of State:       ISOTHERMAL\n");
 #endif
 
   nscal = NSCALARS;
-  fprintf(stderr," Passive scalars:         %d\n",nscal);
+  ath_pout(0," Passive scalars:         %d\n",nscal);
 
 #if defined(FIRST_ORDER)
-  fprintf(stderr," Order of Accuracy:       1 (FIRST_ORDER)\n");
+  ath_pout(0," Order of Accuracy:       1 (FIRST_ORDER)\n");
 #elif defined(SECOND_ORDER)
-  fprintf(stderr," Order of Accuracy:       2 (SECOND_ORDER)\n");
+  ath_pout(0," Order of Accuracy:       2 (SECOND_ORDER)\n");
 #elif defined(THIRD_ORDER)
-  fprintf(stderr," Order of Accuracy:       3 (THIRD_ORDER)\n");
+  ath_pout(0," Order of Accuracy:       3 (THIRD_ORDER)\n");
 #endif
 
-  fprintf(stderr," Flux:                    %s\n",FLUX_TYPE);
-  fprintf(stderr," Unsplit 3D integrator:   %s\n",UNSPLIT_INTEGRATOR);
+  ath_pout(0," Flux:                    %s\n",FLUX_TYPE);
+  ath_pout(0," Unsplit 3D integrator:   %s\n",UNSPLIT_INTEGRATOR);
 
 #if defined(SINGLE_PREC)
-  fprintf(stderr," Precision:               SINGLE_PREC\n");
+  ath_pout(0," Precision:               SINGLE_PREC\n");
 #elif defined(DOUBLE_PREC)
-  fprintf(stderr," Precision:               DOUBLE_PREC\n");
+  ath_pout(0," Precision:               DOUBLE_PREC\n");
 #endif
 
-  fprintf(stderr," Output Modes:\n");
+  ath_pout(0," Output Modes:\n");
 #ifdef WRITE_GHOST_CELLS
-  fprintf(stderr,"   Ghost Cells:           enabled\n");
+  ath_pout(0,"   Ghost Cells:           enabled\n");
 #else
-  fprintf(stderr,"   Ghost Cells:           disabled\n");
+  ath_pout(0,"   Ghost Cells:           disabled\n");
 #endif
 
-  fprintf(stderr," Parallel Modes:\n");
+  ath_pout(0," Parallel Modes:\n");
 #if defined(MPI_SERIAL)
-  fprintf(stderr,"   MPI:                   MPI_SERIAL\n");
+  ath_pout(0,"   MPI:                   MPI_SERIAL\n");
 #elif defined(MPI_PARALLEL)
-  fprintf(stderr,"   MPI:                   MPI_PARALLEL\n");
+  ath_pout(0,"   MPI:                   MPI_PARALLEL\n");
 #else
-  fprintf(stderr,"   MPI:                   undefined\n");
+  ath_pout(0,"   MPI:                   undefined\n");
 #endif
 #ifdef H_CORRECTION
-  fprintf(stderr," H-correction:            enabled\n");
+  ath_pout(0," H-correction:            enabled\n");
 #else
-  fprintf(stderr," H-correction:            disabled\n");
+  ath_pout(0," H-correction:            disabled\n");
 #endif
 }
 
