@@ -301,7 +301,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * T. A. Gardiner  --  7/21/2006  */
 
   if(qa_max_ix - d_ix > 1.0e-12){
-    fprintf(stderr,"[shkset3d]: qa_max_ix - d_ix = %g\n",
+    ath_perr(-1,"[shkset3d]: qa_max_ix - d_ix = %g\n",
 	    qa_max_ix - d_ix);
     ath_error("[shkset3d]: Try setting the x2min and x3min = 0.0\n");
   }
