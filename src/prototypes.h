@@ -50,9 +50,9 @@ int athena_main(int argc, char *argv[]);
 void*   calloc_1d_array(                      size_t nc, size_t size);
 void**  calloc_2d_array(           size_t nr, size_t nc, size_t size);
 void*** calloc_3d_array(size_t nt, size_t nr, size_t nc, size_t size);
-void free_1d_array(void   *array);
-void free_2d_array(void  **array);
-void free_3d_array(void ***array);
+void free_1d_array(void *array);
+void free_2d_array(void *array);
+void free_3d_array(void *array);
 
 /*----------------------------------------------------------------------------*/
 /* ath_files.c */
