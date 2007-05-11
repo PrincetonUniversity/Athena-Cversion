@@ -43,65 +43,28 @@ void ath_sig_init(void)
 /* ath_sig_act: Handles response to any received signals.  At the moment,
  *   only response to SIGTERM is implemented.   */
 
-#ifdef MPI_PARALLEL
-int ath_sig_act(Grid *pG)
+int ath_sig_act(int *piquit)
 {
-  MPI_Status stat;
-  int i, err, chsig, gsig;
+
+#ifdef MPI_PARALLEL
+  int err, sig = sig_caught > *piquit ? sig_caught : *piquit;
+
+  err = MPI_Allreduce(&sig, piquit, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  if(err) sim_error("[sim_sig_act]: MPI_Allreduce returned error = %d\n",err);
+
+#else /* SERIAL */
+
+  *piquit = sig_caught > *piquit ? sig_caught : *piquit;
+
+#endif /* MPI_PARALLEL */
 
   if(sig_caught == SIGTERM)
-    fprintf(stderr,"[ath_sig_act]: Caught SIGTERM (my_id = %d)\n",pG->my_id);
-
-  if(pG->my_id == 0){   /* I'm the parent */
-    gsig = sig_caught;   /* Initialize global signal */
-
-    for(i=1; i<pG->nproc; i++){   /* Collect the children's signal */
-/* Receive a message from any child process */
-      err = MPI_Recv(&chsig, 1, MPI_INT, MPI_ANY_SOURCE,
-		     sync_step_tag, MPI_COMM_WORLD, &stat);
-      if(err != MPI_SUCCESS)
-	ath_error("[ath_sig_act]: MPI_Recv error = %d\n",err);
-
-/* This logic can be extended in the future for different signals */
-      gsig = (chsig == SIGTERM ? SIGTERM : gsig);
-    }
-  }
-  else{   /* I'm a child */
-    chsig = sig_caught;
-
-/* Send the sig_caught value to the parent */
-    err = MPI_Send(&chsig, 1, MPI_INT, 0, sync_step_tag, MPI_COMM_WORLD);
-    if(err != MPI_SUCCESS)
-      ath_error("[ath_sig_act]: MPI_Send error = %d\n",err);
-  }
-
-/* Now share the signal, chosen by the parent, with all of the children */
-  err = MPI_Bcast(&gsig, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  if(err != MPI_SUCCESS)
-    ath_error("[ath_sig_act]: Error on calling MPI_Bcast\n");
+    ath_pout(0,"Caught SIGTERM: Terminating program execution\n");
 
   sig_caught = 0; /* Reset the signal */
 
-  if(gsig == SIGTERM){
-    puts("Caught SIGTERM: Terminating program execution");
-    return 1;
-  }
-
-  return 0;
+  return *piquit;
 }
-
-#else
-
-int ath_sig_act(Grid *pG)
-{
-  if(sig_caught == SIGTERM){
-    puts("Caught SIGTERM: Terminating program execution");
-    return 1;
-  }
-  return 0;
-}
-
-#endif /* MPI_PARALLEL */
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
