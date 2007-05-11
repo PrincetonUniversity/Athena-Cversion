@@ -362,7 +362,7 @@ void set_bvals_init(Grid *pG, Domain *pD)
 	break;
 
       default:
-	fprintf(stderr,"[set_bvals_init]: ibc_x1 = %d unknown\n",ibc_x1);
+	ath_perr(-1,"[set_bvals_init]: ibc_x1 = %d unknown\n",ibc_x1);
 	exit(EXIT_FAILURE);
       }
 
@@ -392,7 +392,7 @@ void set_bvals_init(Grid *pG, Domain *pD)
 	break;
 
       default:
-	fprintf(stderr,"[set_bvals_init]: obc_x1 = %d unknown\n",obc_x1);
+	ath_perr(-1,"[set_bvals_init]: obc_x1 = %d unknown\n",obc_x1);
 	exit(EXIT_FAILURE);
       }
 
@@ -426,7 +426,7 @@ void set_bvals_init(Grid *pG, Domain *pD)
 	break;
 
       default:
-	fprintf(stderr,"[set_bvals_init]: ibc_x2 = %d unknown\n",ibc_x2);
+	ath_perr(-1,"[set_bvals_init]: ibc_x2 = %d unknown\n",ibc_x2);
 	exit(EXIT_FAILURE);
       }
 
@@ -456,7 +456,7 @@ void set_bvals_init(Grid *pG, Domain *pD)
 	break;
 
       default:
-	fprintf(stderr,"[set_bvals_init]: obc_x2 = %d unknown\n",obc_x2);
+	ath_perr(-1,"[set_bvals_init]: obc_x2 = %d unknown\n",obc_x2);
 	exit(EXIT_FAILURE);
       }
 
@@ -490,7 +490,7 @@ void set_bvals_init(Grid *pG, Domain *pD)
 	break;
 
       default:
-	fprintf(stderr,"[set_bvals_init]: ibc_x3 = %d unknown\n",ibc_x3);
+	ath_perr(-1,"[set_bvals_init]: ibc_x3 = %d unknown\n",ibc_x3);
 	exit(EXIT_FAILURE);
       }
 
@@ -520,7 +520,7 @@ void set_bvals_init(Grid *pG, Domain *pD)
 	break;
 
       default:
-	fprintf(stderr,"[set_bvals_init]: obc_x3 = %d unknown\n",obc_x3);
+	ath_perr(-1,"[set_bvals_init]: obc_x3 = %d unknown\n",obc_x3);
 	exit(EXIT_FAILURE);
       }
 
@@ -612,7 +612,7 @@ void set_bvals_fun(enum Direction dir, VGFun_t prob_bc)
     apply_ox3_bc = prob_bc;
     break;
   default:
-    fprintf(stderr,"[set_bvals_fun]: Unknown direction = %d\n",dir);
+    ath_perr(-1,"[set_bvals_fun]: Unknown direction = %d\n",dir);
     exit(EXIT_FAILURE);
   }
   return;
