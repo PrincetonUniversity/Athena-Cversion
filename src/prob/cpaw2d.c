@@ -119,7 +119,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   b_par = par_getd("problem","b_par");
   den = 1.0;
 
-  printf("va_parallel = %g\nlambda = %g\n",b_par/sqrt(den),lambda);
+  ath_pout(0,"va_parallel = %g\nlambda = %g\n",b_par/sqrt(den),lambda);
 
   b_perp = par_getd("problem","b_perp");
   v_perp = b_perp/sqrt((double)den);

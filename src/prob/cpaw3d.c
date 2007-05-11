@@ -131,7 +131,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   ang_2 *= 180.0/PI;
   ang_3 *= 180.0/PI;
 
-  printf("angle_2 = %e  angle_3 = %e\n",ang_2,ang_3);
+  ath_pout(0,"angle_2 = %e  angle_3 = %e\n",ang_2,ang_3);
 
 /* Use x1, x2, x3 as temp. var. */
 
@@ -151,7 +151,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   b_par = par_getd("problem","b_par");
   den = 1.0;
 
-  printf("va_parallel = %g\n",b_par/sqrt(den));
+  ath_pout(0,"va_parallel = %g\n",b_par/sqrt(den));
 
   b_perp = par_getd("problem","b_perp");
   v_perp = b_perp/sqrt((double)den);
@@ -409,7 +409,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 /* The file does not exist -- open the file in write mode */
   else{
     if((fp = fopen(fname,"w")) == NULL){
-      fprintf(stderr,"[Userwork_after_loop]: Unable to open file.\n");
+      ath_err("[Userwork_after_loop]: Unable to open file.\n");
       free(fname);
       return;
     }
