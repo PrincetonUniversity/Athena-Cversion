@@ -111,11 +111,12 @@ void ath_bswap(void *vdat, int len, int cnt)
 void ath_error(char *fmt, ...)
 {
   va_list ap;
- 
-  fprintf(stderr,"### Fatal error: ");   /* prefix */
+   FILE *atherr = atherr_fp();
+
+  fprintf(atherr,"### Fatal error: ");   /* prefix */
   va_start(ap, fmt);              /* ap starts with string 'fmt' */
-  vfprintf(stderr, fmt, ap);      /* print out on stderr */
-  fflush(stderr);                 /* flush it NOW */
+  vfprintf(atherr, fmt, ap);      /* print out on atherr */
+  fflush(atherr);                 /* flush it NOW */
   va_end(ap);                     /* end varargs */
 
 #ifdef MPI_PARALLEL
