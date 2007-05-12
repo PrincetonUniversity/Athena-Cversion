@@ -1002,8 +1002,8 @@ static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
  */ 
 
   } else {
-    *new_nx = (*u - *l + 1);
-    *new_dx = dx;
+    *new_nx = 1;
+    *new_dx = (*u - *l + 1) * dx;
     *new_x  = x + (*l+1)*dx ;
   }
 }
