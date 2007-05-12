@@ -39,6 +39,7 @@
 #include "prototypes.h"
 
 static Real *Bxc=NULL, *Bxi=NULL;
+static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
 static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
 static Cons1D ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
@@ -92,7 +93,7 @@ void integrate_3d_ctu(Grid *pGrid)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real g, x1, x2, x3;
+  Real pb, g, x1, x2, x3;
   dtodx1 = pGrid->dt/pGrid->dx1;
   dtodx2 = pGrid->dt/pGrid->dx2;
   dtodx3 = pGrid->dt/pGrid->dx3;
@@ -127,7 +128,11 @@ void integrate_3d_ctu(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-     lr_states(U1d,Bxc,Bxi,dt,dtodx1,is-1,ie+1,Ul_x1Face[k][j],Ur_x1Face[k][j]);
+     for (i=is-nghost; i<=ie+nghost; i++) {
+       pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+     }
+
+     lr_states(W,Bxc,dt,dtodx1,is-1,ie+1,Wl,Wr);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add "MHD source terms" for 0.5*dt
@@ -159,8 +164,8 @@ void integrate_3d_ctu(Grid *pGrid)
         MHD_src_By = (pGrid->U[k][j][i-1].M2/pGrid->U[k][j][i-1].d)*l2;
         MHD_src_Bz = (pGrid->U[k][j][i-1].M3/pGrid->U[k][j][i-1].d)*l3;
 
-        Ul_x1Face[k][j][i].By += hdt*MHD_src_By;
-        Ul_x1Face[k][j][i].Bz += hdt*MHD_src_Bz;
+        Wl[i].By += hdt*MHD_src_By;
+        Wl[i].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone i */
         db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
@@ -185,8 +190,8 @@ void integrate_3d_ctu(Grid *pGrid)
         MHD_src_By = (pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d)*l2;
         MHD_src_Bz = (pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d)*l3;
 
-        Ur_x1Face[k][j][i].By += hdt*MHD_src_By;
-        Ur_x1Face[k][j][i].Bz += hdt*MHD_src_Bz;
+        Wr[i].By += hdt*MHD_src_By;
+        Wr[i].Bz += hdt*MHD_src_Bz;
       }
 #endif
 
@@ -203,23 +208,20 @@ void integrate_3d_ctu(Grid *pGrid)
 
 /* Apply gravitational source terms to total energy and momentum.  Note E must
  * be updated first before Mx  */
-#ifndef ISOTHERMAL
-          Ul_x1Face[k][j][i].E += hdt*Ul_x1Face[k][j][i].Mx*g;
-          Ur_x1Face[k][j][i].E += hdt*Ur_x1Face[k][j][i].Mx*g;
-#endif
-          Ul_x1Face[k][j][i].Mx += hdt*Ul_x1Face[k][j][i].d*g;
-          Ur_x1Face[k][j][i].Mx += hdt*Ur_x1Face[k][j][i].d*g;
+          Wl[i].Vx += hdt*g;
+          Wr[i].Vx += hdt*g;
         }
       }
-    }
-  }
 
 /*--- Step 1e ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 3D array
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
+      for (i=is-1; i<=ie+2; i++) {
+        pb = Prim1D_to_Cons1D(&Ul_x1Face[k][j][i],&Wl[i],&Bxi[i]);
+        pb = Prim1D_to_Cons1D(&Ur_x1Face[k][j][i],&Wr[i],&Bxi[i]);
+      }
+
       for (i=is-1; i<=ie+2; i++) {
         GET_FLUXES(B1_x1Face[k][j][i],
           Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],&x1Flux[k][j][i]);
@@ -257,7 +259,11 @@ void integrate_3d_ctu(Grid *pGrid)
  * Compute L and R states at X2-interfaces.
  */
 
-      lr_states(U1d,Bxc,Bxi,dt,dtodx2,js-1,je+1,Ul,Ur);
+      for (j=js-nghost; j<=je+nghost; j++) {
+        pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+      }
+
+      lr_states(W,Bxc,dt,dtodx2,js-1,je+1,Wl,Wr);
 
 /*--- Step 2c ------------------------------------------------------------------
  * Add "MHD source terms"
@@ -288,8 +294,8 @@ void integrate_3d_ctu(Grid *pGrid)
 	MHD_src_By = (pGrid->U[k][j-1][i].M3/pGrid->U[k][j-1][i].d)*l3;
 	MHD_src_Bz = (pGrid->U[k][j-1][i].M1/pGrid->U[k][j-1][i].d)*l1;
 
-        Ul[j].By += hdt*MHD_src_By;
-        Ul[j].Bz += hdt*MHD_src_Bz;
+        Wl[j].By += hdt*MHD_src_By;
+        Wl[j].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone j */
         db1 = (pGrid->B1i[k  ][j  ][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
@@ -314,8 +320,8 @@ void integrate_3d_ctu(Grid *pGrid)
         MHD_src_By = (pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d)*l3;
         MHD_src_Bz = (pGrid->U[k][j][i].M1/pGrid->U[k][j][i].d)*l1;
 
-        Ur[j].By += hdt*MHD_src_By;
-        Ur[j].Bz += hdt*MHD_src_Bz;
+        Wr[j].By += hdt*MHD_src_By;
+        Wr[j].Bz += hdt*MHD_src_Bz;
       }
 #endif
 
@@ -332,18 +338,14 @@ void integrate_3d_ctu(Grid *pGrid)
 
 /* Apply gravitational source terms to total energy and momentum.  Note E must
  * be updated first before Mx  */
-#ifndef ISOTHERMAL
-          Ul[j].E += hdt*Ul[j].Mx*g;
-          Ur[j].E += hdt*Ur[j].Mx*g;
-#endif
-          Ul[j].Mx += hdt*Ul[j].d*g;
-          Ur[j].Mx += hdt*Ur[j].d*g;
+          Wl[j].Vx += hdt*g;
+          Wr[j].Vx += hdt*g;
         }
       }
 
       for (j=js-1; j<=je+2; j++) {
-        Ul_x2Face[k][j][i] = Ul[j];
-        Ur_x2Face[k][j][i] = Ur[j];
+        pb = Prim1D_to_Cons1D(&Ul_x2Face[k][j][i],&Wl[j],&Bxi[j]);
+        pb = Prim1D_to_Cons1D(&Ur_x2Face[k][j][i],&Wr[j],&Bxi[j]);
       }
     }
   }
@@ -392,7 +394,11 @@ void integrate_3d_ctu(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-      lr_states(U1d,Bxc,Bxi,dt,dtodx3,ks-1,ke+1,Ul,Ur);
+      for (k=ks-nghost; k<=ke+nghost; k++) {
+        pb = Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
+      }
+
+      lr_states(W,Bxc,dt,dtodx3,ks-1,ke+1,Wl,Wr);
 
 /*--- Step 3c ------------------------------------------------------------------
  * Add "MHD source terms"
@@ -423,8 +429,8 @@ void integrate_3d_ctu(Grid *pGrid)
 	MHD_src_By = (pGrid->U[k-1][j][i].M1/pGrid->U[k-1][j][i].d)*l1;
 	MHD_src_Bz = (pGrid->U[k-1][j][i].M2/pGrid->U[k-1][j][i].d)*l2;
 
-        Ul[k].By += hdt*MHD_src_By;
-        Ul[k].Bz += hdt*MHD_src_Bz;
+        Wl[k].By += hdt*MHD_src_By;
+        Wl[k].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone k */
         db1 = (pGrid->B1i[k][j][i+1] - pGrid->B1i[k][j][i])/pGrid->dx1;
@@ -449,8 +455,8 @@ void integrate_3d_ctu(Grid *pGrid)
         MHD_src_By = (pGrid->U[k][j][i].M1/pGrid->U[k][j][i].d)*l1;
         MHD_src_Bz = (pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d)*l2;
 
-        Ur[k].By += hdt*MHD_src_By;
-        Ur[k].Bz += hdt*MHD_src_Bz;
+        Wr[k].By += hdt*MHD_src_By;
+        Wr[k].Bz += hdt*MHD_src_Bz;
       }
 #endif
 
@@ -467,18 +473,14 @@ void integrate_3d_ctu(Grid *pGrid)
 
 /* Apply gravitational source terms to total energy and momentum.  Note E must
  * be updated first before Mx  */
-#ifndef ISOTHERMAL
-          Ul[k].E += hdt*Ul[k].Mx*g;
-          Ur[k].E += hdt*Ur[k].Mx*g;
-#endif
-          Ul[k].Mx += hdt*Ul[k].d*g;
-          Ur[k].Mx += hdt*Ur[k].d*g;
+          Wl[k].Vx += hdt*g;
+          Wr[k].Vx += hdt*g;
         }
       }
 
       for (k=ks-1; k<=ke+2; k++) {
-        Ul_x3Face[k][j][i] = Ul[k];
-        Ur_x3Face[k][j][i] = Ur[k];
+        pb = Prim1D_to_Cons1D(&Ul_x3Face[k][j][i],&Wl[k],&Bxi[k]);
+        pb = Prim1D_to_Cons1D(&Ur_x3Face[k][j][i],&Wr[k],&Bxi[k]);
       }
     }
   }
@@ -1676,6 +1678,9 @@ void integrate_destruct_3d(void)
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);
   if (Ur       != NULL) free(Ur);
+  if (W        != NULL) free(W);
+  if (Wl       != NULL) free(Wl);
+  if (Wr       != NULL) free(Wr);
 
   if (Ul_x1Face != NULL) free_3d_array(Ul_x1Face);
   if (Ur_x1Face != NULL) free_3d_array(Ur_x1Face);
@@ -1739,6 +1744,9 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
   if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
 
   if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
     == NULL) goto on_error;

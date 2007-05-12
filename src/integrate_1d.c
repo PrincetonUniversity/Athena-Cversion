@@ -23,6 +23,7 @@
 
 static Real *Bxc=NULL, *Bxi=NULL;
 static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
+static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 
 /*----------------------------------------------------------------------------*/
 /* integrate_1d:   */
@@ -36,7 +37,7 @@ void integrate_1d(Grid *pGrid)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real x1, x2, x3, g;
+  Real pb, x1, x2, x3, g;
 
 /*--- Step 1 -------------------------------------------------------------------
  * Load 1D vector of conserved variables;  
@@ -63,10 +64,13 @@ void integrate_1d(Grid *pGrid)
   }
 
 /*--- Step 2 -------------------------------------------------------------------
- * Compute L and R states at X1-interfaces.
+ * Convert to primitive variables, compute L and R states at X1-interfaces.
  */
 
-  lr_states(U1d,Bxc,Bxi,dt,dtodx1,is,ie,Ul_x1Face,Ur_x1Face);
+  for (i=is-2; i<=ie+2; i++) {
+    pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+  }
+  lr_states(W,Bxc,dt,dtodx1,is,ie,Wl,Wr);
 
 /*--- Step 3 -------------------------------------------------------------------
  * Add gravitational source terms for dt/2 from static potential to L/R states
@@ -79,20 +83,21 @@ void integrate_1d(Grid *pGrid)
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
       g = (*x1GravAcc)((x1-0.5*pGrid->dx1),x2,x3);
 
-/* Apply gravitational source terms to total energy and momentum.  Note E must
- * be updated first before Mx  */
-#ifndef ISOTHERMAL
-      Ul_x1Face[i].E += hdt*Ul_x1Face[i].Mx*g;
-      Ur_x1Face[i].E += hdt*Ur_x1Face[i].Mx*g;
-#endif
-      Ul_x1Face[i].Mx += hdt*Ul_x1Face[i].d*g;
-      Ur_x1Face[i].Mx += hdt*Ur_x1Face[i].d*g;
+/* Apply gravitational source terms to velocity. */
+      Wl[i].Vx += hdt*g;
+      Wr[i].Vx += hdt*g;
     }
   }
 
 /*--- Step 4 -------------------------------------------------------------------
- * Compute 1D fluxes in x1-direction
+ * Convert back to conserved variables, and compute 1D fluxes in x1-direction
  */
+
+  for (i=is; i<=ie+1; i++) {
+    pb = Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i],&Bxi[i]);
+    pb = Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i],&Bxi[i]);
+    
+  }
 
   for (i=is; i<=ie+1; i++) {
     GET_FLUXES(Bxi[i],Ul_x1Face[i],Ur_x1Face[i],&x1Flux[i]);
@@ -168,6 +173,9 @@ void integrate_init_1d(int nx1)
   if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W  = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr = (Prim1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
 
   return;
@@ -186,6 +194,9 @@ void integrate_destruct_1d(void)
   if (U1d != NULL) free(U1d);
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);
+  if (W  != NULL) free(W);
+  if (Wl != NULL) free(Wl);
+  if (Wr != NULL) free(Wr);
   if (x1Flux != NULL) free(x1Flux);
 
   return;

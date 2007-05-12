@@ -54,6 +54,7 @@ static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
 static Cons1D ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
 static Cons1D ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
 static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
+static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 #ifdef MHD
 static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
@@ -113,7 +114,7 @@ void integrate_3d_vl(Grid *pGrid)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real g, x1, x2, x3;
+  Real pb, g, x1, x2, x3;
   dtodx1 = pGrid->dt/pGrid->dx1;
   dtodx2 = pGrid->dt/pGrid->dx2;
   dtodx3 = pGrid->dt/pGrid->dx3;
@@ -506,7 +507,20 @@ void integrate_3d_vl(Grid *pGrid)
 #endif
       }
 
-      lr_states(U1d,Bxc,Bxi,0.0,0.0,ib+1,it-1,Ul_x1Face[k][j],Ur_x1Face[k][j]);
+      for (i=il; i<=iu; i++) {
+        pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+      }
+
+      lr_states(W,Bxc,0.0,0.0,ib+1,it-1,Wl,Wr);
+
+      for (i=ib+1; i<=it; i++) {
+        pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxc[i]);
+        pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxc[i]);
+      }
+      for (i=ib+1; i<=it; i++) {
+        Ul_x1Face[k][j][i] = Ul[i];
+        Ur_x1Face[k][j][i] = Ur[i];
+      }
     }
   }
 
@@ -538,7 +552,16 @@ void integrate_3d_vl(Grid *pGrid)
 
 /* Compute L and R states at x2-interfaces.  */
 
-      lr_states(U1d,Bxc,Bxi,0.0,0.0,jb+1,jt-1,Ul,Ur);
+      for (j=jl; j<=ju; j++) {
+        pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+      }
+
+      lr_states(W,Bxc,0.0,0.0,jb+1,jt-1,Wl,Wr);
+
+      for (j=jb+1; j<=jt; j++) {
+        pb = Prim1D_to_Cons1D(&Ul[j],&Wl[j],&Bxc[j]);
+        pb = Prim1D_to_Cons1D(&Ur[j],&Wr[j],&Bxc[j]);
+      }
       for (j=jb+1; j<=jt; j++) {
         Ul_x2Face[k][j][i] = Ul[j];
         Ur_x2Face[k][j][i] = Ur[j];
@@ -574,7 +597,16 @@ void integrate_3d_vl(Grid *pGrid)
 
 /* Compute L and R states at x3-interfaces.  */
 
-      lr_states(U1d,Bxc,Bxi,0.0,0.0,kb+1,kt-1,Ul,Ur);
+      for (k=kl; k<=ku; k++) {
+        pb = Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
+      }
+
+      lr_states(W,Bxc,0.0,0.0,kb+1,kt-1,Wl,Wr);
+
+      for (k=kb+1; k<=kt; k++) {
+        pb = Prim1D_to_Cons1D(&Ul[k],&Wl[k],&Bxc[k]);
+        pb = Prim1D_to_Cons1D(&Ur[k],&Wr[k],&Bxc[k]);
+      }
       for (k=kb+1; k<=kt; k++) {
         Ul_x3Face[k][j][i] = Ul[k];
         Ur_x3Face[k][j][i] = Ur[k];
@@ -996,6 +1028,9 @@ void integrate_destruct_3d(void)
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);
   if (Ur       != NULL) free(Ur);
+  if (W        != NULL) free(W);
+  if (Wl       != NULL) free(Wl);
+  if (Wr       != NULL) free(Wr);
 
   if (Ul_x1Face != NULL) free_3d_array(Ul_x1Face);
   if (Ur_x1Face != NULL) free_3d_array(Ur_x1Face);
@@ -1081,6 +1116,9 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
   if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
 
   if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
     == NULL) goto on_error;

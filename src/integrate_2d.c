@@ -37,6 +37,7 @@
 
 static Real *Bxc=NULL, *Bxi=NULL;
 static Real **B1_x1Face=NULL, **B2_x2Face=NULL;
+static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1D **Ul_x1Face=NULL, **Ur_x1Face=NULL;
 static Cons1D **Ul_x2Face=NULL, **Ur_x2Face=NULL;
 static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
@@ -83,7 +84,7 @@ void integrate_2d(Grid *pGrid)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real g, x1, x2,x3;
+  Real pb, g, x1, x2,x3;
 
   dtodx1 = pGrid->dt/pGrid->dx1;
   il = is - 2;
@@ -122,7 +123,10 @@ void integrate_2d(Grid *pGrid)
  * Compute L and R states at X1-interfaces.
  */
 
-    lr_states(U1d,Bxc,Bxi,dt,dtodx1,is-1,ie+1,Ul_x1Face[j],Ur_x1Face[j]);
+    for (i=is-nghost; i<=ie+nghost; i++) {
+      pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+    }
+    lr_states(W,Bxc,dt,dtodx1,is-1,ie+1,Wl,Wr);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add "MHD source terms" for 0.5*dt
@@ -132,21 +136,19 @@ void integrate_2d(Grid *pGrid)
     for (i=is-1; i<=iu; i++) {
       MHD_src = (pGrid->U[ks][j][i-1].M2/pGrid->U[ks][j][i-1].d)*
                (pGrid->B1i[ks][j][i] - pGrid->B1i[ks][j][i-1])/pGrid->dx1;
-      Ul_x1Face[j][i].By += hdt*MHD_src;
+      Wl[i].By += hdt*MHD_src;
 
       MHD_src = (pGrid->U[ks][j][i].M2/pGrid->U[ks][j][i].d)*
                (pGrid->B1i[ks][j][i+1] - pGrid->B1i[ks][j][i])/pGrid->dx1;
-      Ur_x1Face[j][i].By += hdt*MHD_src;
+      Wr[i].By += hdt*MHD_src;
     }
 #endif
-  }
 
 /*--- Step 1d ------------------------------------------------------------------
  * Add gravitational source terms from static potential for 0.5*dt to L/R states
  */
 
-  if (x1GravAcc != NULL){
-    for (j=jl; j<=ju; j++) {
+    if (x1GravAcc != NULL){
       for (i=is-1; i<=iu; i++) {
 
 /* Calculate the face-centered acceleration */
@@ -155,21 +157,20 @@ void integrate_2d(Grid *pGrid)
 
 /* Apply gravitational source terms to total energy and momentum.  Note E must
  * be updated first before Mx  */
-#ifndef ISOTHERMAL
-        Ul_x1Face[j][i].E += hdt*Ul_x1Face[j][i].Mx*g;
-        Ur_x1Face[j][i].E += hdt*Ur_x1Face[j][i].Mx*g;
-#endif
-        Ul_x1Face[j][i].Mx += hdt*Ul_x1Face[j][i].d*g;
-        Ur_x1Face[j][i].Mx += hdt*Ur_x1Face[j][i].d*g;
+        Wl[i].Vx += hdt*g;
+        Wr[i].Vx += hdt*g;
       }
     }
-  }
 
 /*--- Step 1e ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 2D array
  */
 
-  for (j=jl; j<=ju; j++) {
+    for (i=is-1; i<=iu; i++) {
+      pb = Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i],&Bxi[i]);
+      pb = Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i],&Bxi[i]);
+    }
+
     for (i=is-1; i<=iu; i++) {
       GET_FLUXES(B1_x1Face[j][i],Ul_x1Face[j][i],Ur_x1Face[j][i],&x1Flux[j][i]);
     }
@@ -204,7 +205,10 @@ void integrate_2d(Grid *pGrid)
  * Compute L and R states at X2-interfaces.
  */
 
-    lr_states(U1d,Bxc,Bxi,dt,dtodx2,js-1,je+1,Ul,Ur);
+    for (j=js-nghost; j<=je+nghost; j++) {
+      pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+    }
+    lr_states(W,Bxc,dt,dtodx2,js-1,je+1,Wl,Wr);
 
 /*--- Step 2c ------------------------------------------------------------------
  * Add "MHD source terms"
@@ -214,11 +218,11 @@ void integrate_2d(Grid *pGrid)
     for (j=js-1; j<=ju; j++) {
       MHD_src = (pGrid->U[ks][j-1][i].M1/pGrid->U[ks][j-1][i].d)*
         (pGrid->B2i[ks][j][i] - pGrid->B2i[ks][j-1][i])/pGrid->dx2;
-      Ul[j].Bz += hdt*MHD_src;
+      Wl[j].Bz += hdt*MHD_src;
 
       MHD_src = (pGrid->U[ks][j][i].M1/pGrid->U[ks][j][i].d)*
         (pGrid->B2i[ks][j+1][i] - pGrid->B2i[ks][j][i])/pGrid->dx2;
-      Ur[j].Bz += hdt*MHD_src;
+      Wr[j].Bz += hdt*MHD_src;
     }
 #endif
 
@@ -235,18 +239,14 @@ void integrate_2d(Grid *pGrid)
 
 /* Apply gravitational source terms to total energy and momentum.  Note E must
  * be updated first before Mx  */
-#ifndef ISOTHERMAL
-        Ul[j].E += hdt*Ul[j].Mx*g;
-        Ur[j].E += hdt*Ur[j].Mx*g;
-#endif
-        Ul[j].Mx += hdt*Ul[j].d*g;
-        Ur[j].Mx += hdt*Ur[j].d*g;
+        Wl[j].Vx += hdt*g;
+        Wr[j].Vx += hdt*g;
       }
     }
 
     for (j=js-1; j<=ju; j++) {
-      Ul_x2Face[j][i] = Ul[j];
-      Ur_x2Face[j][i] = Ur[j];
+      pb = Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j],&Bxi[j]);
+      pb = Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j],&Bxi[j]);
     }
   }
 
@@ -767,6 +767,9 @@ void integrate_destruct_2d(void)
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);
   if (Ur       != NULL) free(Ur);
+  if (W        != NULL) free(W);
+  if (Wl       != NULL) free(Wl);
+  if (Wr       != NULL) free(Wr);
 
   if (Ul_x1Face != NULL) free_2d_array(Ul_x1Face);
   if (Ur_x1Face != NULL) free_2d_array(Ur_x1Face);
@@ -812,6 +815,9 @@ void integrate_init_2d(int nx1, int nx2)
   if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
 
   if ((Ul_x1Face = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
