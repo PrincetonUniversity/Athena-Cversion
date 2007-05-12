@@ -409,7 +409,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 /* The file does not exist -- open the file in write mode */
   else{
     if((fp = fopen(fname,"w")) == NULL){
-      ath_err("[Userwork_after_loop]: Unable to open file.\n");
+      ath_perr(-1,"[Userwork_after_loop]: Unable to open file.\n");
       free(fname);
       return;
     }
