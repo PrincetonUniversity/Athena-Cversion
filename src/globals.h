@@ -23,7 +23,7 @@ Real Iso_csound2;
 Real Gamma;
 Real Gamma_1, Gamma_2;
 #endif
-StaticGravAcc_t x1GravAcc = NULL, x2GravAcc = NULL, x3GravAcc = NULL;
+GravPot_t FixedGravPot = NULL;
 
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
@@ -38,7 +38,7 @@ extern Real Iso_csound2;
 extern Real Gamma;
 extern Real Gamma_1, Gamma_2;
 #endif
-extern StaticGravAcc_t x1GravAcc, x2GravAcc, x3GravAcc;
+extern GravPot_t FixedGravPot;
 
 #endif /* MAIN_C */
 #endif /* GLOBALS_H */
