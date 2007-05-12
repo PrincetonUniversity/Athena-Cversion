@@ -47,7 +47,6 @@ void flux_hllc(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Real *pFl, *pFr, *pF;
   Cons1D Fl,Fr;
   int n;
-  Real asq,vaxsq=0.0,qsq,cfsq,ct2=0.0;
   Real cfl,cfr,bp,bm,tmp;
   Real al,ar; /* Min and Max wave speeds */
   Real am,cp; /* Contact wave speed and pressure */
