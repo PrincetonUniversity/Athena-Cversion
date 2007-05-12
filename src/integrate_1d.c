@@ -30,14 +30,14 @@ static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 
 void integrate_1d(Grid *pGrid)
 {
-  Real dtodx1 = pGrid->dt/pGrid->dx1, hdt = 0.5*pGrid->dt, dt = pGrid->dt;
+  Real dtodx1 = pGrid->dt/pGrid->dx1, dt = pGrid->dt;
   int i, is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks;
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb, x1, x2, x3, g;
+  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 
 /*--- Step 1 -------------------------------------------------------------------
  * Load 1D vector of conserved variables;  
@@ -76,16 +76,19 @@ void integrate_1d(Grid *pGrid)
  * Add gravitational source terms for dt/2 from static potential to L/R states
  */
 
-  if (x1GravAcc != NULL){
+  if (FixedGravPot != NULL){
     for (i=is; i<=ie+1; i++) {
 
-/* Calculate the face-centered acceleration */
+/* Calculate the potential at i [phi-center-right],i-1 [phi-center-left],
+ * and i-1/2 [phi-face] */
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      g = (*x1GravAcc)((x1-0.5*pGrid->dx1),x2,x3);
+      phicr = (*FixedGravPot)( x1                ,x2,x3);
+      phicl = (*FixedGravPot)((x1-    pGrid->dx1),x2,x3);
+      phifc = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-/* Apply gravitational source terms to velocity. */
-      Wl[i].Vx += hdt*g;
-      Wr[i].Vx += hdt*g;
+/* Apply gravitational source terms to velocity using gradient of potential. */
+      Wl[i].Vx -= dtodx1*(phifc - phicl);
+      Wr[i].Vx -= dtodx1*(phicr - phifc);
     }
   }
 
@@ -109,12 +112,13 @@ void integrate_1d(Grid *pGrid)
  * of the cell-centered variables due to flux gradient.
  */
 
-  if (x1GravAcc != NULL){
+  if (FixedGravPot != NULL){
     for (i=is; i<=ie; i++) {
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      g = (*x1GravAcc)(x1,x2,x3);
+      phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+      phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-      pGrid->U[ks][js][i].M1 += hdt*pGrid->U[ks][js][i].d*g;
+      pGrid->U[ks][js][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][js][i].d;
     }
   }
 
@@ -141,18 +145,22 @@ void integrate_1d(Grid *pGrid)
   }
 
 /*--- Step 7 -------------------------------------------------------------------
- * Complete the gravitational source terms by adding 0.5 the acceleration at
- * time level n+1, and the energy source term at time level {n+1/2}.
+ * Complete the gravitational source terms by adding 0.5 the gravitational
+ * acceleration to the momentum equation (using d^{n+1}), and the energy source
+ * terms constructed so total energy (E + \rho\Phi)  is strictly conserved
  */
 
-  if (x1GravAcc != NULL){
+  if (FixedGravPot != NULL){
     for (i=is; i<=ie; i++) {
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      g = (*x1GravAcc)(x1,x2,x3);
+      phic = (*FixedGravPot)((x1               ),x2,x3);
+      phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+      phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-      pGrid->U[ks][js][i].M1 += hdt*pGrid->U[ks][js][i].d*g;
+      pGrid->U[ks][js][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][js][i].d;
 #ifndef ISOTHERMAL
-      pGrid->U[ks][js][i].E += hdt*(x1Flux[i].d + x1Flux[i+1].d)*g;
+      pGrid->U[ks][js][i].E += dtodx1*(x1Flux[i  ].d*(phil - phic) +
+                                       x1Flux[i+1].d*(phic - phir));
 #endif
     }
   }
