@@ -770,47 +770,31 @@ Real expr_M2(const Grid *pG, const int i, const int j, const int k) {
 Real expr_M3(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3;
 }
-Real expr_E(const Grid *pG, const int i, const int j, const int k) {
 #ifndef ISOTHERMAL
+Real expr_E(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].E;
-#else 
-  return 0.0;
-#endif
 }
+#endif
 
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are magnetic field variables: B1c, B2c, B3c, B^2 */
 
-Real expr_B1c(const Grid *pG, const int i, const int j, const int k) {
 #ifdef MHD
+Real expr_B1c(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B1c;
-#else
-  return 0.0;
-#endif
 }
 Real expr_B2c(const Grid *pG, const int i, const int j, const int k) {
-#ifdef MHD
   return pG->U[k][j][i].B2c;
-#else
-  return 0.0;
-#endif
 }
 Real expr_B3c(const Grid *pG, const int i, const int j, const int k) {
-#ifdef MHD
   return pG->U[k][j][i].B3c;
-#else
-  return 0.0;
-#endif
 }
 Real expr_ME(const Grid *pG, const int i, const int j, const int k) {
-#ifdef MHD
   return 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
 	      pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + 
 	      pG->U[k][j][i].B3c*pG->U[k][j][i].B3c);
-#else
-  return 0.0;
-#endif
 }
+#endif
 
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the primitive variables */
@@ -888,8 +872,11 @@ static Gasfun_t getexpr(const int n, const char *expr)
     return expr_M2;
   else if (strcmp(expr,"M3")==0)
     return expr_M3;
+#ifndef ISOTHERMAL
   else if (strcmp(expr,"E")==0)
     return expr_E;
+#endif /* ISOTHERMAL */
+#ifdef MHD
   else if (strcmp(expr,"B1c")==0)
     return expr_B1c;
   else if (strcmp(expr,"B2c")==0)
@@ -898,6 +885,7 @@ static Gasfun_t getexpr(const int n, const char *expr)
     return expr_B3c;
   else if (strcmp(expr,"ME")==0)
     return expr_ME;
+#endif
   else if (strcmp(expr,"V1")==0)
     return expr_V1;
   else if (strcmp(expr,"V2")==0)
