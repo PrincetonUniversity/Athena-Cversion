@@ -35,8 +35,8 @@
 
 #ifdef SECOND_ORDER
 
-static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Real **pW=NULL;
+
 
 /*----------------------------------------------------------------------------*/
 /* lr_states:
@@ -52,9 +52,9 @@ static Real **pW=NULL;
  *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
+void lr_states(const Prim1D W[], const Real Bxc[],
                const Real dt, const Real dtodx, const int il, const int iu,
-               Cons1D Ul[], Cons1D Ur[])
+               Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;
   Real pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
@@ -78,10 +78,13 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
  * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
  */
 
+/*
   for (i=il-2; i<=iu+2; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
+*/
 
+  for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);
 /*=============== START BIG LOOP OVER i ===============*/
   for (i=il-1; i<=iu+1; i++) {
 
@@ -191,9 +194,9 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 
 #endif /* H_CORRECTION */
 
-    qa = U1d[i  ].Mx - U1d[i-1].Mx;
-    qb = U1d[i+1].Mx - U1d[i  ].Mx;
-    qc = U1d[i+1].Mx - U1d[i-1].Mx;
+    qa = W[i  ].Vx*W[i  ].d - W[i-1].Vx*W[i-1].d;
+    qb = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
+    qc = W[i+1].Vx*W[i+1].d - W[i-1].Vx*W[i-1].d;
     qx = SIGN(qc)*MIN(2.0*MIN(fabs(qa),fabs(qb)), 0.5*fabs(qc));
 
     if ((-W[i].Vx*dWm[0]) > 0.0) {
@@ -310,10 +313,12 @@ void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
 /*--- Step 11. -----------------------------------------------------------------
  * Convert back to conserved variables, and done.  */
 
+/*
   for (i=il; i<=iu+1; i++) {
     pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
     pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
   }
+*/
 
   return;
 }
@@ -327,12 +332,7 @@ void lr_states_init(int nx1, int nx2, int nx3)
   nmax =  nx1 > nx2  ? nx1 : nx2;
   nmax = (nx3 > nmax ? nx3 : nmax) + 2*nghost;
 
-  if ((W  = (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl = (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr = (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
-  for (i=0; i<nmax; i++) pW[i] = (Real*)&(W[i]);
 
   return;
   on_error:
@@ -345,9 +345,6 @@ void lr_states_init(int nx1, int nx2, int nx3)
 
 void lr_states_destruct(void)
 {
-  if (W != NULL) free(W);
-  if (Wl != NULL) free(Wl);
-  if (Wr != NULL) free(Wr);
   if (pW != NULL) free(pW);
   return;
 }

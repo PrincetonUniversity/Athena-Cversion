@@ -36,15 +36,15 @@
  *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
+void lr_states(const Prim1D W[], const Real Bxc[],
 	       const Real dt, const Real dtodx, const int il, const int iu,
-	       Cons1D Ul[], Cons1D Ur[])
+	       Prim1D Wl[], Prim1D Wr[])
 {
   int i;
 
   for (i=il; i<=iu+1; i++) {
-    Ul[i] = U1d[i-1];
-    Ur[i] = U1d[i  ];
+    Wl[i] = W1d[i-1];
+    Wr[i] = W1d[i  ];
   }
 
   return;
