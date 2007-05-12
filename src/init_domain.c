@@ -18,12 +18,18 @@
  *   get_myblock_ijk()
  *============================================================================*/
 
+#include <math.h>
 #include <stdlib.h>
 #include "athena.h"
 #include "globals.h"
 #include "copyright.h"
 #include "defs.h"
 #include "prototypes.h"
+
+#ifdef MPI_PARALLEL
+static int dom_decomp(const int Nx, const int Ny, const int Nz,
+		      const int Np, int *pNGx, int *pNGy, int *pNGz);
+#endif
 
 /* Number of grids in each direction, read from inputfile in init_domain()*/
 int NGrid_x1, NGrid_x2, NGrid_x3; 
@@ -79,9 +85,21 @@ void init_domain(Grid *pG, Domain *pD)
 /* Get the number of grids in each direction */
 
 #ifdef MPI_PARALLEL
-  NGrid_x1 = par_geti("parallel","NGrid_x1");
-  NGrid_x2 = par_geti("parallel","NGrid_x2");
-  NGrid_x3 = par_geti("parallel","NGrid_x3");
+  if(par_geti_def("parallel","auto",0)){
+    if(dom_decomp(nx1, nx2, nx3, pG->nproc,
+		  &NGrid_x1, &NGrid_x2, &NGrid_x3))
+      ath_error("[init_domain]: Auto. Domain Decomposition Error\n");
+
+    /* Store the domain decomposition in the par database */
+    par_seti("parallel","NGrid_x1","%d",NGrid_x1,"x1-dir. domain decomposition");
+    par_seti("parallel","NGrid_x2","%d",NGrid_x2,"x2-dir. domain decomposition");
+    par_seti("parallel","NGrid_x3","%d",NGrid_x3,"x3-dir. domain decomposition");
+  }
+  else{
+    NGrid_x1 = par_geti("parallel","NGrid_x1");
+    NGrid_x2 = par_geti("parallel","NGrid_x2");
+    NGrid_x3 = par_geti("parallel","NGrid_x3");
+  }
 #else
   NGrid_x1 = 1;
   NGrid_x2 = 1;
@@ -287,3 +305,173 @@ void get_myblock_ijk(Domain *pD, const int my_id, int *pi, int *pj, int *pk)
   ath_error("[get_myblock_ijk]: Can't find my_id=%i in the grid_block array\n",
     my_id);
 }
+
+
+/* ========================================================================== */
+
+
+/* Note, the TOTAL amount of data communicated (summed over all
+   processes and all INTERNAL boundaries) divided by 2*nghost where
+   the 2 is for two messages per internal interface is computed and
+   stored in the variable I, the minimum of which is I0. */
+/* The assumption here is that in the x-direction we communicate only
+   computational cells, while in the y-direction we comunicate the
+   computational cells and x-direction ghost cells. */
+/* Total x-communication is (rx - 1)*Ny*(2*nghost) */
+/* Total y-communication is (ry - 1)*(Nx + rx*(2*nghost))*(2*nghost) */
+
+static int dom_decomp_2d(const int Nx, const int Ny,
+			 const int Np, int *pNGx, int *pNGy){
+
+  int rx, ry, I, rxs, rx_min, rx_max;
+  int rx0=1, ry0=1, I0=0, init=1;
+  div_t dv;
+
+  /* Compute the ideal decomposition, truncated to an integer, which
+     minimizes the amount of communication. */
+  rxs = (int)sqrt((double)(Nx*Np)/(double)(Ny > 2*nghost ? Ny - 2*nghost : 1));
+
+  /* Constrain the decomposition */
+  rx_max = Nx < Np ? Nx : Np; /* Require ry >= 1 and rx <= Nx */
+  if(Ny < Np){ /* Require rx >= 1 and ry <= Ny */
+    dv = div(Np, Ny);
+    /* rx_min = the smallest integer >= Np/Ny */
+    rx_min = dv.quot + (dv.rem > 0 ? 1 : 0);
+  }
+  else rx_min = 1;
+
+  /* printf("rx_min = %d, rx_max = %d\n",rx_min, rx_max); */
+
+  /* Constrain rxs to fall in this domain */
+  rxs = rxs > rx_min ? rxs : rx_min;
+  rxs = rxs < rx_max ? rxs : rx_max;
+
+  /* Search down for a factor of Np */
+  for(rx=rxs; rx>=rx_min; rx--){
+    dv = div(Np,rx);
+    if(dv.rem == 0){
+      rx0 = rx;
+      ry0 = dv.quot;
+      I0 = (rx0 - 1)*Ny + (ry0 - 1)*(Nx + 2*nghost*rx0);
+      init = 0;
+      break;
+    }
+  }
+
+  /* Search up for a factor of Np */
+  for(rx=rxs+1; rx<=rx_max; rx++){
+    dv = div(Np,rx);
+    if(dv.rem == 0){
+      ry = dv.quot;
+      I = (rx - 1)*Ny + (ry - 1)*(Nx + 2*nghost*rx);
+
+      if(init || I < I0){
+	rx0 = rx;
+	ry0 = ry;
+	I0  = I;
+	init = 0;
+      }
+      break;
+    }
+  }
+
+  if(init) return 1; /* Error locating a solution */
+
+  /* printf("Minimum messaging decomposition has: rx = %d, ry = %d, I = %d\n",
+     rx0, ry0, I0); */
+
+  *pNGx = rx0;
+  *pNGy = ry0;
+
+  return 0;
+}
+
+
+/* ========================================================================== */
+
+
+static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
+			 const int Np, int *pNGx, int *pNGy, int *pNGz){
+
+  div_t dv;
+  int rx_min, rx_max, rx, ry, rz, I;
+  int rx0=1, ry0=1, rz0=1, I0=0, init=1;
+  int err, t, Npt;
+
+  /* Constrain the decomposition */
+  rx_max = Nx < Np ? Nx : Np; /* Require ry >= 1, rz >= 1 and rx <= Nx */
+  /* Compute a global minimum constraint on rx. */
+  t = (Ny < Np ? Ny : Np)*(Nz < Np ? Nz : Np); /* t = Max(ry)*Max(rz) */
+  if(t < Np){ /* Require rx >= 1, ry <= Ny and rz <= Nz */
+    dv = div(Np, t);
+    /* rx_min = the smallest integer >= Np/t */
+    rx_min = dv.quot + (dv.rem > 0 ? 1 : 0);
+  }
+  else rx_min = 1;
+
+  /* printf("rx_min = %d, rx_max = %d\n",rx_min, rx_max); */
+
+  for(rx = rx_min; rx <= rx_max; rx++){
+    dv = div(Np, rx);
+    if(dv.rem == 0){
+      Npt = dv.quot; /* Np for transverse (y,z) decomposition */
+
+      err = dom_decomp_2d(Ny, Nz, Npt, &ry, &rz);
+      if(err == 0){
+	/* Now compute the amount of messaging */
+	I = (rx - 1)*Ny*Nz + (ry - 1)*(Nx + 2*nghost*rx)*Nz
+	  + (rz - 1)*(Nx + 2*nghost*rx)*(Ny + 2*nghost*ry);
+
+	if(I < 0){ /* Integer Overflow */
+	  /* printf("[3d new] I = %d\n",I); */
+	  continue;
+	}
+
+	if(init || I < I0){
+	  rx0 = rx;
+	  ry0 = ry;
+	  rz0 = rz;
+	  I0  = I;
+	  init = 0;
+	  /* printf("I(rx = %d, ry = %d, rz = %d) = %d\n",rx,ry,rz,I); */
+	}
+      }
+    }
+  }
+
+  if(init) return 1; /* Error locating a solution */
+
+  *pNGx = rx0;
+  *pNGy = ry0;
+  *pNGz = rz0;
+
+  return 0;
+}
+
+
+/* ========================================================================== */
+
+
+static int dom_decomp(const int Nx, const int Ny, const int Nz,
+		      const int Np, int *pNGx, int *pNGy, int *pNGz){
+
+  if(Nx > 1 && Ny == 1 && Nz == 1){ /* 1-D */
+    if(Np > Nx) return 1; /* Too many procs. */
+    *pNGx = Np;
+    *pNGy = 1;
+    *pNGz = 1;
+    return 0;
+  }
+  else if(Nx > 1 && Ny > 1 && Nz == 1){ /* 2-D */
+    *pNGy = 1;
+    return dom_decomp_2d(Nx, Nz, Np, pNGx, pNGz);
+  }
+  else if(Nx > 1 && Ny > 1 && Nz > 1){ /* 3-D */
+    return dom_decomp_3d(Nx, Ny, Nz, Np, pNGx, pNGy, pNGz);
+  }
+
+  return 1; /* Error - particular case not expected */
+}
+
+
+/* ========================================================================== */
