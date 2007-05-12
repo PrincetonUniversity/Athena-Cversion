@@ -137,9 +137,8 @@ static void receive_ox3(Grid *pG, MPI_Request *prq);
 
 void set_bvals(Grid *pGrid)
 {
-  int err;
 #ifdef MPI_PARALLEL
-  int cnt1, cnt2, cnt3, cnt;
+  int cnt1, cnt2, cnt3, cnt, err;
   MPI_Status stat;
   MPI_Request rq;
 #endif /* MPI_PARALLEL */
@@ -662,7 +661,10 @@ static void reflect_ix1(Grid *pGrid)
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ju,ku;
+  int i,j,k;
+#ifdef MHD
+  int ju, ku; /* j-upper, k-upper */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -713,8 +715,10 @@ static void reflect_ox1(Grid *pGrid)
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ju,ku;
-
+  int i,j,k;
+#ifdef MHD
+  int ju, ku; /* j-upper, k-upper */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -765,7 +769,10 @@ static void reflect_ix2(Grid *pGrid)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+  int i,j,k,il,iu; /* i-lower/upper */
+#ifdef MHD
+  int ku; /* k-upper */
+#endif
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -822,7 +829,10 @@ static void reflect_ox2(Grid *pGrid)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+  int i,j,k,il,iu; /* i-lower/upper */
+#ifdef MHD
+  int ku; /* k-upper */
+#endif
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -1006,7 +1016,10 @@ static void outflow_ix1(Grid *pGrid)
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ju,ku;
+  int i,j,k;
+#ifdef MHD
+  int ju, ku; /* j-upper, k-upper */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1056,7 +1069,10 @@ static void outflow_ox1(Grid *pGrid)
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ju,ku;
+  int i,j,k;
+#ifdef MHD
+  int ju, ku; /* j-upper, k-upper */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1106,7 +1122,10 @@ static void outflow_ix2(Grid *pGrid)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+  int i,j,k,il,iu; /* i-lower/upper */
+#ifdef MHD
+  int ku; /* k-upper */
+#endif
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -1162,7 +1181,10 @@ static void outflow_ox2(Grid *pGrid)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+  int i,j,k,il,iu; /* i-lower/upper */
+#ifdef MHD
+  int ku; /* k-upper */
+#endif
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -1345,7 +1367,10 @@ static void periodic_ix1(Grid *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ju,ku;
+  int i,j,k;
+#ifdef MHD
+  int ju, ku; /* j-upper, k-upper */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1395,7 +1420,10 @@ static void periodic_ox1(Grid *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ju,ku;
+  int i,j,k;
+#ifdef MHD
+  int ju, ku; /* j-upper, k-upper */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1445,7 +1473,10 @@ static void periodic_ix2(Grid *pGrid)
 {
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+  int i,j,k,il,iu; /* i-lower/upper */
+#ifdef MHD
+  int ku; /* k-upper */
+#endif
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -1501,7 +1532,10 @@ static void periodic_ox2(Grid *pGrid)
 {
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+  int i,j,k,il,iu; /* i-lower/upper */
+#ifdef MHD
+  int ku; /* k-upper */
+#endif
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
