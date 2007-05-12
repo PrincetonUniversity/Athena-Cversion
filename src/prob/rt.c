@@ -2,8 +2,8 @@
 /*==============================================================================
  * FILE: rt.c
  *
- * PURPOSE: Problem generator for RT instabilty.  Gravitational accn is
- *   hardwired to be -0.1.  Density difference is hardwired to be 2.0 in 2D, 3.0
+ * PURPOSE: Problem generator for RT instabilty.  Gravitational pot. is
+ *   hardwired to be -0.1z. Density difference is hardwired to be 2.0 in 2D, 3.0
  *   in 3D.  This reproduces 2D results of Liska & Wendroff, 3D results of
  *   Dimonte et al.
  * 
@@ -40,7 +40,8 @@
  * reflect_ox2() - sets BCs on R-x2 (right edge) of grid used in 2D
  * reflect_ix3() - sets BCs on L-x3 (left edge) of grid used in 3D
  * reflect_ox3() - sets BCs on R-x3 (right edge) of grid used in 3D
- * grav_acc() - gravitational accn
+ * grav_pot2() - gravitational potential for 2D problem (accn in Y)
+ * grav_pot3() - gravitational potential for 3D problem (accn in Z)
  *============================================================================*/
 
 static double ran2(long int *idum);
@@ -48,7 +49,8 @@ static void reflect_ix2(Grid *pGrid);
 static void reflect_ox2(Grid *pGrid);
 static void reflect_ix3(Grid *pGrid);
 static void reflect_ox3(Grid *pGrid);
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
+static Real grav_pot2(const Real x1, const Real x2, const Real x3);
+static Real grav_pot3(const Real x1, const Real x2, const Real x3);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -137,12 +139,12 @@ void problem(Grid *pGrid, Domain *pDomain)
     }
   }
 
-/* Enroll gravitational acceleration in y-direction for 2D
+/* Enroll gravitational potential to give acceleration in y-direction for 2D
  * Use special boundary condition routines.  In 2D, gravity is in the
  * y-direction, so special boundary conditions needed for x2
 */
 
-  x2GravAcc = grav_acc;
+  FixedGravPot = grav_pot2;
   set_bvals_fun(left_x2,  reflect_ix2);
   set_bvals_fun(right_x2, reflect_ox2);
 
@@ -218,12 +220,12 @@ void problem(Grid *pGrid, Domain *pDomain)
     }
   }
 
-/* Enroll gravitational acceleration in z-direction for 3D
+/* Enroll gravitational potential to give accn in z-direction for 3D
  * Use special boundary condition routines.  In 3D, gravity is in the
  * z-direction, so special boundary conditions needed for x3
  */
 
-  x3GravAcc = grav_acc;
+  FixedGravPot = grav_pot3;
 
   set_bvals_fun(left_x3,  reflect_ix3);
   set_bvals_fun(right_x3, reflect_ox3);
@@ -255,13 +257,13 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   if (pG->Nx3 == 1) {
-    x2GravAcc = grav_acc;
+    FixedGravPot = grav_pot2;
     set_bvals_fun(left_x2,  reflect_ix2);
     set_bvals_fun(right_x2, reflect_ox2);
   }
  
   if (pG->Nx3 > 1) {
-    x3GravAcc = grav_acc;
+    FixedGravPot = grav_pot3;
     set_bvals_fun(left_x3,  reflect_ix3);
     set_bvals_fun(right_x3, reflect_ox3);
   }
@@ -608,10 +610,14 @@ static void reflect_ox3(Grid *pGrid)
 }
 
 /*------------------------------------------------------------------------------
- * grav_acc: Gravitational accn  g = 0.1
+ * grav_pot: Gravitational potentials  g = 0.1
  */
 
-static Real grav_acc(const Real x1, const Real x2, const Real x3)
+static Real grav_pot2(const Real x1, const Real x2, const Real x3)
 {
-  return -0.1;
+  return 0.1*x2;
+}
+static Real grav_pot3(const Real x1, const Real x2, const Real x3)
+{
+  return 0.1*x3;
 }

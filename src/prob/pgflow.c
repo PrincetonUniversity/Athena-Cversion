@@ -9,7 +9,7 @@
  *      x =  x1*cos(alpha) + x2*sin(alpha)
  *      y = -x1*sin(alpha) + x2*cos(alpha)
  *      z = x3
- *   This problem is a good test of the source terms for a static grav acc.
+ *   This problem is a good test of the source terms in a static grav potential.
  *============================================================================*/
 
 #include <math.h>
@@ -41,16 +41,14 @@ static Real ***d0=NULL;  /* initial density, used by expr_drho */
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * rtbis()          - finds roots via bisection
- * grav_acc_x1()    - gravitational accn in x1-direction
- * grav_acc_x1()    - gravitational accn in x2-direction
+ * grav_pot()       - gravitational potential
  * Bfunc()          - computes Bernoilli function
  * expr_drho()      - computes difference d-d0
  *============================================================================*/
 
 static int rtbis(double (*pfun)(double), const double x1, const double x2,
 		 const double xacc, const int imax, double *prt);
-static Real grav_acc_x1(const Real x1, const Real x2, const Real x3);
-static Real grav_acc_x2(const Real x1, const Real x2, const Real x3);
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
 static double Bfunc(double rho);
 static Real expr_drho(const Grid *pG, const int i, const int j, const int k);
 
@@ -178,9 +176,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* Average over the domain */
   E0 /= (Real)((ie - is + 1)*(je - js + 1)*(ke - ks + 1));
 
-/* Enroll the gravitational source functions */
-  if(pGrid->Nx1 > 1) x1GravAcc = grav_acc_x1;
-  if(pGrid->Nx2 > 1) x2GravAcc = grav_acc_x2;
+/* Enroll the gravitational potential function */
+  FixedGravPot = grav_pot;
 
   return;
 }
@@ -283,23 +280,12 @@ int rtbis(double (*pfun)(double), const double x1, const double x2,
 }
 
 /*------------------------------------------------------------------------------
- * grav_acc_x1: Gravitational accn in x1 direction 
- *     g = grav*cos(alpha)*cos(k_par*x) 
+ * grav_pot: Gravitational potential
  */
 
-static Real grav_acc_x1(const Real x1, const Real x2, const Real x3)
+static Real grav_pot(const Real x1, const Real x2, const Real x3)
 {
-  return grav*cos_a*cos((double)k_par*(x1*cos_a + x2*sin_a));
-}
-
-/*------------------------------------------------------------------------------
- * grav_acc_x2: Gravitational accn in x2 direction 
- *     g = grav*sin(alpha)*cos(k_par*x) 
- */
-
-static Real grav_acc_x2(const Real x1, const Real x2, const Real x3)
-{
-  return grav*sin_a*cos((double)k_par*(x1*cos_a + x2*sin_a));
+  return -grav*sin((double)k_par*(x1*cos_a + x2*sin_a))/k_par;
 }
 
 /*------------------------------------------------------------------------------
