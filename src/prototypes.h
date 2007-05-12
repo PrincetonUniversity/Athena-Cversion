@@ -176,9 +176,9 @@ void integrate_3d_ctu(Grid *pgrid);
 /* lr_states.c */
 void lr_states_destruct(void);
 void lr_states_init(int nx1, int nx2, int nx3);
-void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
+void lr_states(const Prim1D W[], const Real Bxc[],
                const Real dt, const Real dtodx, const int is, const int ie,
-               Cons1D Ul[], Cons1D Ur[]);
+               Prim1D Wl[], Prim1D Wr[]);
 
 /*----------------------------------------------------------------------------*/
 /* new_dt.c */
