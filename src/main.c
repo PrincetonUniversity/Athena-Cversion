@@ -281,11 +281,6 @@ int main(int argc, char *argv[])
     ath_error("CourNo=%e , must be < 0.5 with 3D integrator\n",CourNo);
 
 /*--- Step 5. ----------------------------------------------------------------*/
-/* Set function pointers for integrate (based on dimensionality) */
-
-  integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-
-/*--- Step 6. ----------------------------------------------------------------*/
 /* Set initial conditions, either by reading from restart or calling
  * problem generator */
 
@@ -293,6 +288,11 @@ int main(int argc, char *argv[])
     restart_grid_block(res_file, &level0_Grid, &level0_Domain);  /*  Restart */
   else     
     problem(&level0_Grid, &level0_Domain);      /* New problem */
+
+/*--- Step 6. ----------------------------------------------------------------*/
+/* Set function pointers for integrate (based on dimensionality) */
+
+  integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 
 /*--- Step 7. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
