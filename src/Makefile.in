@@ -11,8 +11,9 @@
 #
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = ath_array.o \
+           ath_fft.o \
            ath_files.o \
-           ath_log.o \
+	   ath_log.o \
            ath_signal.o \
            cc_pos.o \
            convert_var.o \
@@ -54,75 +55,26 @@ else
    OBJ = $(CORE_OBJ)
 endif
 
+FFT_OBJ =
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+ifeq (@FFT_MODE@,USE_FFT)
+   FFT_OBJ = ../fftsrc/factor.o \
+             ../fftsrc/fft_2d.o \
+             ../fftsrc/fft_3d.o \
+             ../fftsrc/pack_2d.o \
+             ../fftsrc/pack_3d.o \
+             ../fftsrc/remap_2d.o \
+             ../fftsrc/remap_3d.o
+endif
+endif
+
 #-------------------  macro definitions  ---------------------------------------
 
 BIN = ${EXEDIR}athena
 EXEDIR = ../bin/
 SRC = $(OBJ:.o=.c)
-MACHINE = generic
 
-#-------------------  compiler/library definitions  ----------------------------
-# select using MACHINE=<name> in command line.  For example
-#    ophir> make all MACHINE=ophir
-# New machines can be added to ifeq blocks below.
-
-ifeq ($(MACHINE),generic)
-  CC  = @CC@
-  LDR = @CC@
-  OPT = @COMPILER_OPTS@
-  CFLAGS = $(OPT)
-  LIB = -ldl -lm
-else
-ifeq ($(MACHINE),ophir)
-  CC = icc
-  LDR = icc
-  OPT = -O2 -xW -tpp7 -ipo -i_dynamic -gcc-name=gcc32
-  MPIINC  = -I/scr0/mpich-1.2.7p1/include
-  MPILIB = -L/scr0/mpich-1.2.7p1/lib -lmpich
-  CFLAGS = $(OPT) $(MPIINC)
-  LIB = $(MPILIB) -ldl -lm
-else
-ifeq ($(MACHINE),macosx)
-  CC = gcc
-  LDR = gcc
-  OPT = @COMPILER_OPTS@
-  CFLAGS = $(OPT)
-  LIB = -lm
-else
-ifeq ($(MACHINE),hydra)
-  CC = icc
-  LDR = icc
-  OPT = -O2 -xW -tpp7 -ipo -i-static
-  MPIINC  = -I/opt/mpich-1.2.6.gcc/include
-  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
-  CFLAGS = $(OPT) $(MPIINC)
-  LIB = $(MPILIB) -ldl -lm
-else
-ifeq ($(MACHINE),apus)
-  CC  = gcc
-  LDR = gcc
-  OPT = -O3
-  MPIINC = -I/opt/mpich-1.2.6.gcc/include
-  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
-  CFLAGS = $(OPT) $(MPIINC)
-  LIB = $(MPILIB) -ldl -lm
-else
-ifeq ($(MACHINE),della)
-  CC = /usr/local/openmpi-1.1-intel/bin/mpicc
-  LDR = /usr/local/openmpi-1.1-intel/bin/mpicc
-  OPT = -O3 -xW -tpp7 -ipo -i-static
-  MPIINC = -I/usr/local/openmpi-1.1-intel/include
-  MPILIB =
-  CFLAGS = $(OPT) $(MPIINC)
-  LIB = $(MPILIB) -ldl -lm
-else
-  abort Unsupported MACHINE=$(MACHINE)
-endif
-endif
-endif
-endif
-endif
-endif
+include ../Makeoptions
 
 #--------------------  implicit rules  -----------------------------------------
 
@@ -136,8 +88,8 @@ all:	compile
 .PHONY: compile
 compile: ${BIN}
 
-${BIN}: ${OBJ} 
-	${LDR} $(OPT) -o ${BIN} ${OBJ} ${LIB}
+${BIN}: ${OBJ} ${FFT_OBJ}
+	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${FFT_OBJ} ${LIB}
 
 help:
 	@echo This is the Athena Makefile
@@ -152,7 +104,11 @@ clean:
 depend: Makedepend
 
 Makedepend:
+ifeq ($(MACHINE),orangena)
+	makedepend ${CFLAGS} ${SRC} > Makedepend
+else
 	${CC} -MM ${CFLAGS} ${SRC} > Makedepend
+endif
 
 # a few functionality tests of some modules of the code
 par:	par.c
