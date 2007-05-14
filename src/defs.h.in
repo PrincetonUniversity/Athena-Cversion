@@ -59,6 +59,9 @@
 /* H-correction: H_CORRECTION or NO_H_CORRECTION */
 #define @H_CORRECTION_MODE@
 
+/* FFT mode: FFT_ENABLED or NO_FFT */
+#define @FFT_MODE@
+
 /* Number of passively advected scalars */
 #define NSCALARS @NSCALARS@
 
