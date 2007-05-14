@@ -25,6 +25,10 @@ Real Gamma_1, Gamma_2;
 #endif
 GravPot_t FixedGravPot = NULL;
 
+#ifdef SHEARING_BOX_EVOLUTION
+Real Omega;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -39,6 +43,10 @@ extern Real Gamma;
 extern Real Gamma_1, Gamma_2;
 #endif
 extern GravPot_t FixedGravPot;
+
+#ifdef SHEARING_BOX_EVOLUTION
+extern Real Omega;
+#endif
 
 #endif /* MAIN_C */
 #endif /* GLOBALS_H */
