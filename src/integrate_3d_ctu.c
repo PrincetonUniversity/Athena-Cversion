@@ -50,6 +50,7 @@ static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
+static Real ***dhalf = NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
 extern Real etah;
@@ -79,6 +80,7 @@ void integrate_3d_ctu(Grid *pGrid)
 
   Real dtodx1,dtodx2,dtodx3,q1,q2,q3;
   Real dt = pGrid->dt, hdt = 0.5*pGrid->dt;
+  Real hdtdx1, hdtdx2, hdtdx3;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
@@ -94,9 +96,21 @@ void integrate_3d_ctu(Grid *pGrid)
   int n;
 #endif
   Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+#ifdef SHEARING_BOX_EVOLUTION
+  Real M1n, dM2n; /* M1, My + d*1.5*Omega*x at time n */
+  Real M1e, dM2e; /* M1, dMy evolved by dt/2 with Forward Euler */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
+  Real om_dt = Omega*pGrid->dt;
+  Real fact = om_dt/(1.0 + 0.25*om_dt*om_dt);
+#endif /* SHEARING_BOX_EVOLUTION */
+
   dtodx1 = pGrid->dt/pGrid->dx1;
   dtodx2 = pGrid->dt/pGrid->dx2;
   dtodx3 = pGrid->dt/pGrid->dx3;
+
+  hdtdx1 = 0.5*dtodx1;
+  hdtdx2 = 0.5*dtodx2;
+  hdtdx3 = 0.5*dtodx3;
 
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;  U1d = (d, M1, M2, M3, E, B2c, B3c)
@@ -216,6 +230,22 @@ void integrate_3d_ctu(Grid *pGrid)
       }
 
 /*--- Step 1e ------------------------------------------------------------------
+ *  I'm assuming that the only source terms are the Coriolis and tidal
+ *  potential term and that the problem routine has enrolled a
+ *  conservative potential function and acceleration function for the
+ *  tidal potential terms.  Here we add the Coriolis terms.
+ */
+#ifdef SHEARING_BOX_EVOLUTION
+      for (i=is-1; i<=ie+2; i++) {
+	Wl[i].Vx += pGrid->dt*Omega*W[i-1].Vy; /* (dt/2)*( 2 Omega Vy) */
+	Wl[i].Vy -= pGrid->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
+
+	Wr[i].Vx += pGrid->dt*Omega*W[i].Vy; /* (dt/2)*( 2 Omega Vy) */
+	Wr[i].Vy -= pGrid->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
+    }
+#endif /* SHEARING_BOX_EVOLUTION */
+
+/*--- Step 1f ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 3D array
  */
 
@@ -1021,6 +1051,23 @@ void integrate_3d_ctu(Grid *pGrid)
     }
   }}
 
+/*--- Step 7e ------------------------------------------------------------------
+ * Add the tidal potential and Coriolis terms.
+ */
+#ifdef SHEARING_BOX_EVOLUTION
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+2; j++) {
+      for (i=is-1; i<=ie+1; i++) {
+        Ur_x2Face[k][j][i].Mz += pGrid->dt*Omega*pGrid->U[k][j][i].M2;
+        Ur_x2Face[k][j][i].Mx -= pGrid->dt*Omega*pGrid->U[k][j][i].M1;
+
+        Ul_x2Face[k][j][i].Mz += pGrid->dt*Omega*pGrid->U[k][j-1][i].M2;
+        Ul_x2Face[k][j][i].Mx -= pGrid->dt*Omega*pGrid->U[k][j-1][i].M1;
+      }
+    }
+  }
+#endif /* SHEARING_BOX_EVOLUTION */
+
 /*--- Step 8a ------------------------------------------------------------------
  * Correct the L/R states at x3-interfaces using x1-fluxes computed in Step 1e.
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
@@ -1249,24 +1296,51 @@ void integrate_3d_ctu(Grid *pGrid)
     }
   }}
 
+/*--- Step 7e ------------------------------------------------------------------
+ * Add the tidal potential and Coriolis terms.
+ */
+#ifdef SHEARING_BOX_EVOLUTION
+  for (k=ks-1; k<=ke+2; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
+        Ur_x3Face[k][j][i].My += pGrid->dt*Omega*pGrid->U[k][j][i].M2;
+        Ur_x3Face[k][j][i].Mz -= pGrid->dt*Omega*pGrid->U[k][j][i].M1;
+
+        Ul_x3Face[k][j][i].My += pGrid->dt*Omega*pGrid->U[k][j-1][i].M2;
+        Ul_x3Face[k][j][i].Mz -= pGrid->dt*Omega*pGrid->U[k][j-1][i].M1;
+      }
+    }
+  }
+#endif /* SHEARING_BOX_EVOLUTION */
+
 /*--- Step 9 -------------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at the half-time-step
  */
 
-#ifdef MHD
   q1 = 0.5*dtodx1;
   q2 = 0.5*dtodx2;
   q3 = 0.5*dtodx3;
 
+  if(dhalf != NULL){
+    for (k=ks-1; k<=ke+1; k++) {
+      for (j=js-1; j<=je+1; j++) {
+	for (i=is-1; i<=ie+1; i++) {
+	  dhalf[k][j][i] = pGrid->U[k][j][i].d 
+	    - q1*(x1Flux[k  ][j  ][i+1].d - x1Flux[k][j][i].d)
+	    - q2*(x2Flux[k  ][j+1][i  ].d - x2Flux[k][j][i].d)
+	    - q3*(x3Flux[k+1][j  ][i  ].d - x3Flux[k][j][i].d);
+	}
+      }
+    }
+  }
+
+#ifdef MHD
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-        d  = pGrid->U[k][j][i].d 
-           - q1*(x1Flux[k  ][j  ][i+1].d - x1Flux[k][j][i].d)
-           - q2*(x2Flux[k  ][j+1][i  ].d - x2Flux[k][j][i].d)
-           - q3*(x3Flux[k+1][j  ][i  ].d - x3Flux[k][j][i].d);
+        d  = dhalf[k][j][i];
 
         M1 = pGrid->U[k][j][i].M1
            - q1*(x1Flux[k  ][j  ][i+1].Mx - x1Flux[k][j][i].Mx)
@@ -1297,6 +1371,11 @@ void integrate_3d_ctu(Grid *pGrid)
           phil = (*FixedGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
           M3 -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
         }
+
+#ifdef SHEARING_BOX_EVOLUTION
+        M1 += pGrid->dt*Omega*pGrid->U[k][j][i].M2;
+        M2 -= pGrid->dt*Omega*pGrid->U[k][j][i].M1;
+#endif /* SHEARING_BOX_EVOLUTION */
 
         B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j  ][i+1]);
         B2c = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k  ][j+1][i  ]);
@@ -1475,26 +1554,114 @@ void integrate_3d_ctu(Grid *pGrid)
  * of the cell-centered variables due to flux gradients.
  */
 
+#ifdef SHEARING_BOX_EVOLUTION
+
+  /* Calculate the Coriolis and tidal potential momentum source terms
+     and update the momentum and energy for these terms.  I'm assuming
+     that the problem routine has enrolled a conservative potential
+     function for evolving the total energy e + rho Phi in a
+     conservative fashion. */
+
+  for(k=ks; k<=ke; ++k) {
+    for(j=js; j<=je; ++j) {
+      for(i=is; i<=ie; ++i) {
+	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+
+	/* Store the current state */
+	M1n  = pGrid->U[k][j][i].M1;
+	dM2n = pGrid->U[k][j][i].M2 + pGrid->U[k][j][i].d*1.5*Omega*x1;
+
+	/* Calculate the flux for the y-momentum fluctuation */
+	flx1_dM2 = x1Flux[k][j][i-1].My 
+	  + 1.5*Omega*(x1-0.5*pGrid->dx1)*x1Flux[k][j][i-1].d;
+	frx1_dM2 = x1Flux[k][j][i  ].My 
+	  + 1.5*Omega*(x1+0.5*pGrid->dx1)*x1Flux[k][j][i  ].d;
+	flx2_dM2 = x2Flux[k][j-1][i].Mx + 1.5*Omega*(x1)*x2Flux[k][j-1][i].d;
+	frx2_dM2 = x2Flux[k][j  ][i].Mx + 1.5*Omega*(x1)*x2Flux[k][j  ][i].d;
+	flx3_dM2 = x3Flux[k-1][j][i].Mz + 1.5*Omega*(x1)*x3Flux[k-1][j][i].d;
+	frx3_dM2 = x3Flux[k  ][j][i].Mz + 1.5*Omega*(x1)*x3Flux[k  ][j][i].d;
+
+	/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
+	M1e = M1n  + hdtdx1*(x1Flux[k][j][i-1].Mx - x1Flux[k][j][i].Mx)
+	           + hdtdx2*(x2Flux[k][j-1][i].Mz - x2Flux[k][j][i].Mz)
+	           + hdtdx3*(x3Flux[k-1][j][i].My - x3Flux[k][j][i].My);
+
+	dM2e = dM2n + hdtdx1*(flx1_dM2 - frx1_dM2)
+	  + hdtdx2*(flx2_dM2 - frx2_dM2) + hdtdx3*(flx3_dM2 - frx3_dM2);
+
+	/* Update the x- and y-momentum for the Coriolis and tidal
+	   potential momentum source terms using a Crank-Nicholson
+	   discretization for the momentum fluctuation equation. */
+	pGrid->U[k][j][i].M1 += (2.0*dM2e - 0.5*om_dt*M1e)*fact;
+	pGrid->U[k][j][i].M2 += -0.5*(M1e + om_dt*dM2e)*fact
+	                - 0.75*Omega*(x1Flux[k][j][i-1].d + x1Flux[k][j][i].d);
+
+	/* Now add the z-momentum gravitational force and update the
+	   energy equation for a fixed gravitational potential. */
+	phic = (*FixedGravPot)(x1,x2,x3);
+
+	phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+	phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+#ifndef ISOTHERMAL
+	pGrid->U[k][j][i].E += dtodx1*(x1Flux[k][j][i  ].d*(phil - phic) +
+				       x1Flux[k][j][i+1].d*(phic - phir));
+#endif
+
+	phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+	phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+#ifndef ISOTHERMAL
+	pGrid->U[k][j][i].E += dtodx2*(x2Flux[k][j  ][i].d*(phil - phic) +
+				       x2Flux[k][j+1][i].d*(phic - phir));
+#endif
+
+	phir = (*FixedGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
+	phil = (*FixedGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
+	pGrid->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];
+#ifndef ISOTHERMAL
+	pGrid->U[k][j][i].E += dtodx3*(x3Flux[k  ][j][i].d*(phil - phic) +
+				       x3Flux[k+1][j][i].d*(phic - phir));
+#endif
+      }
+    }
+  }
+
+#else /* ! SHEARING_BOX_EVOLUTION */
+
   if (FixedGravPot != NULL){
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          phic = (*FixedGravPot)(x1,x2,x3);
+
           phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
           phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
-          pGrid->U[k][j][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[k][j][i].d;
+          pGrid->U[k][j][i].M1 -= dtodx1*(phir-phil)*dhalf[k][j][i];
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += dtodx1*(x1Flux[k][j][i  ].d*(phil - phic) +
+                                         x1Flux[k][j][i+1].d*(phic - phir));
+#endif
 
           phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
           phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
-          pGrid->U[k][j][i].M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[k][j][i].d;
+          pGrid->U[k][j][i].M2 -= dtodx2*(phir-phil)*dhalf[k][j][i];
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += dtodx2*(x2Flux[k][j  ][i].d*(phil - phic) +
+                                         x2Flux[k][j+1][i].d*(phic - phir));
+#endif
 
           phir = (*FixedGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
           phil = (*FixedGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
-          pGrid->U[k][j][i].M3 -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
+          pGrid->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += dtodx3*(x3Flux[k  ][j][i].d*(phil - phic) +
+                                         x3Flux[k+1][j][i].d*(phic - phir));
+#endif
         }
       }
     }
   }
+#endif
 
 /*--- Step 13a -----------------------------------------------------------------
  * Update cell-centered variables in pGrid using x1-fluxes
@@ -1578,49 +1745,6 @@ void integrate_3d_ctu(Grid *pGrid)
   }
 
 /*--- Step 14 ------------------------------------------------------------------
- * Complete the gravitational source terms by adding 0.5 the acceleration at
- * time level n+1, and the energy source term at time level {n+1/2}.
- */
-
-  if (FixedGravPot != NULL){
-    for (k=ks; k<=ke; k++) {
-      for (j=js; j<=je; j++) {
-        for (i=is; i<=ie; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          phic = (*FixedGravPot)((x1               ),x2,x3);
-          phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-          phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
-
-          pGrid->U[k][j][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[k][j][i].d;
-
-#ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += dtodx1*(x1Flux[k][j][i  ].d*(phil - phic) +
-                                         x1Flux[k][j][i+1].d*(phic - phir));
-#endif
-          phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-          phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
-
-          pGrid->U[k][j][i].M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[k][j][i].d;
-
-#ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += dtodx2*(x2Flux[k][j  ][i].d*(phil - phic) +
-                                         x2Flux[k][j+1][i].d*(phic - phir));
-#endif
-          phir = (*FixedGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
-          phil = (*FixedGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
-
-          pGrid->U[k][j][i].M3 -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
-
-#ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += dtodx3*(x3Flux[k  ][j][i].d*(phil - phic) +
-                                         x3Flux[k+1][j][i].d*(phic - phir));
-#endif
-        }
-      }
-    }
-  }
-
-/*--- Step 15 ------------------------------------------------------------------
  * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
  */
@@ -1759,6 +1883,17 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     == NULL) goto on_error;
   if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
     == NULL) goto on_error;
+
+
+#if defined MHD || defined SHEARING_BOX_EVOLUTION
+  if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
+#else
+  if(FixedGravPot != NULL){
+    if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+  }
+#endif
 
   return;
 
