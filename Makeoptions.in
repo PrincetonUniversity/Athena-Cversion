@@ -1,0 +1,108 @@
+#    @WARNING1@
+#    @WARNING2@
+#===============================================================================
+# FILE: Makeoptions.in
+#
+# PURPOSE: Template for src/Makeoptions.  When 'configure' is run, a new
+# Makeoptions will be created (overwriting the last) from this template.
+#
+# TO BY-PASS CONFIGURE: copy this file into Makeoptions, and edit by hand to
+#   set the appropriate object files, compiler options, and library paths.
+#
+#-------------------  macro definitions  ---------------------------------------
+
+MACHINE = generic
+
+#-------------------  default definitions  -------------------------------------
+
+CC  = @CC@
+LDR = @CC@
+OPT = @COMPILER_OPTS@
+CUSTLIBS =
+MPIINC =
+MPILIB =
+FFTWLIB =
+FFTWINC =
+BLOCKINC = 
+BLOCKLIB = 
+CUSTLIBS = -ldl -lm
+
+ifeq (@FFT_MODE@,FFT_ENABLED)
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+   BLOCKINC = -I../fftsrc
+endif
+endif
+
+#-------------------  compiler/library definitions  ----------------------------
+# select using MACHINE=<name> in command line.  For example
+#    ophir> make all MACHINE=ophir
+# New machines can be added to ifeq blocks below.
+
+ifeq ($(MACHINE),ophir)
+  CC = icc
+  LDR = icc
+  OPT = -O2 -xW -tpp7 -ipo -i-static -gcc-name=gcc32
+  MPIINC  = -I/scr0/mpich-1.2.7p1/include
+  MPILIB = -L/scr0/mpich-1.2.7p1/lib -lmpich
+  FFTWLIB = -L/u/jstone/bin/FFTW/fftw-3.0.1/lib -lfftw3
+  FFTWINC = -I/u/jstone/bin/FFTW/fftw-3.0.1/include
+else
+ifeq ($(MACHINE),macosx)
+  CC = gcc
+  LDR = gcc
+  OPT = @COMPILER_OPTS@
+else
+ifeq ($(MACHINE),hydra)
+  CC = icc
+  LDR = icc
+  OPT = -O2 -xW -tpp7 -ipo -i-static
+  MPIINC  = -I/opt/mpich-1.2.6.gcc/include
+  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
+else
+ifeq ($(MACHINE),apus)
+  CC  = gcc
+  LDR = gcc
+  OPT = -O3 -g
+  MPIINC = -I/opt/mpich-1.2.6.gcc/include
+  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
+  FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
+  FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
+else
+ifeq ($(MACHINE),della)
+  CC = /usr/local/openmpi-1.1-intel/bin/mpicc
+  LDR = /usr/local/openmpi-1.1-intel/bin/mpicc
+  OPT = -O3 -xW -tpp7 -ipo -i-static
+  MPIINC = -I/usr/local/openmpi-1.1-intel/include
+  MPILIB = 
+  FFTWLIB = -L/home0/lemaster/bin/fftw-3.1.2/lib -lfftw3
+  FFTWINC = -I/home0/lemaster/bin/fftw-3.1.2/include
+else
+ifeq ($(MACHINE),orangena)
+  CC  = mpxlc
+  LDR = mpxlc
+  OPT = -O2 -qarch=440
+  MPIINC  = -I/bgl/BlueLight/ppcfloor/bglsys/include
+  MPILIB =
+  FFTWINC = -I/bgl/local/fftw-3.1.2/include
+  FFTWLIB = -L/bgl/local/fftw-3.1.2/lib -lfftw3
+  CUSTLIBS = -lmass -lmassv -lm -L/bgl/BlueLight/ppcfloor/bglsys/lib -L/bgl/local/lib/mass/4.2/bgl/lib
+else
+  abort Unsupported MACHINE=$(MACHINE)
+endif
+endif
+endif
+endif
+endif
+endif
+
+ifeq (@MPI_MODE@,MPI_SERIAL)
+  MPIINC = 
+  MPILIB = 
+endif
+ifeq (@FFT_MODE@,NO_FFT)
+  FFTWINC = 
+  FFTWLIB = 
+endif
+
+CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC)
+LIB = $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS)
