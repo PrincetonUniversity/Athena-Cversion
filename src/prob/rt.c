@@ -144,7 +144,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * y-direction, so special boundary conditions needed for x2
 */
 
-  FixedGravPot = grav_pot2;
+  StaticGravPot = grav_pot2;
   set_bvals_fun(left_x2,  reflect_ix2);
   set_bvals_fun(right_x2, reflect_ox2);
 
@@ -225,7 +225,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * z-direction, so special boundary conditions needed for x3
  */
 
-  FixedGravPot = grav_pot3;
+  StaticGravPot = grav_pot3;
 
   set_bvals_fun(left_x3,  reflect_ix3);
   set_bvals_fun(right_x3, reflect_ox3);
@@ -257,13 +257,13 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   if (pG->Nx3 == 1) {
-    FixedGravPot = grav_pot2;
+    StaticGravPot = grav_pot2;
     set_bvals_fun(left_x2,  reflect_ix2);
     set_bvals_fun(right_x2, reflect_ox2);
   }
  
   if (pG->Nx3 > 1) {
-    FixedGravPot = grav_pot3;
+    StaticGravPot = grav_pot3;
     set_bvals_fun(left_x3,  reflect_ix3);
     set_bvals_fun(right_x3, reflect_ox3);
   }

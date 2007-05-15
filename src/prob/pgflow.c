@@ -177,7 +177,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   E0 /= (Real)((ie - is + 1)*(je - js + 1)*(ke - ks + 1));
 
 /* Enroll the gravitational potential function */
-  FixedGravPot = grav_pot;
+  StaticGravPot = grav_pot;
 
   return;
 }
