@@ -79,6 +79,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       lem_ip1[n][m] = 0.0;
     }
   }
+  for (i=il-3; i<=iu+3; i++) pW[i] = (Real*)&(W[i]);
 
 /*--- Step 1. ------------------------------------------------------------------
  * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
@@ -549,7 +550,6 @@ void lr_states_init(int nx1, int nx2, int nx3)
   nmax = (nx3 > nmax ? nx3 : nmax) + 2*nghost;
 
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
-  for (i=0; i<nmax; i++) pW[i] = (Real*)&(W[i]);
 
   if ((dWm = (Real**)calloc_2d_array(nmax, NWAVE, sizeof(Real))) == NULL)
     goto on_error;
