@@ -114,7 +114,7 @@ void integrate_3d_vl(Grid *pGrid)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb, g, x1, x2, x3;
+  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
   dtodx1 = pGrid->dt/pGrid->dx1;
   dtodx2 = pGrid->dt/pGrid->dx2;
   dtodx3 = pGrid->dt/pGrid->dx3;
@@ -438,43 +438,30 @@ void integrate_3d_vl(Grid *pGrid)
       for (j=jl+1; j<=ju-1; j++) {
         for (i=il+1; i<=iu-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
+          phic = (*StaticGravPot)((x1               ),x2,x3);
+          phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-          Uhalf[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
+          Uhalf[k][j][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-          Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M1*g;
+          Uhalf[k][j][i].E +=0.5*dtodx1*(x1Flux[k][j][i  ].d*(phil - phic)
+                                       + x1Flux[k][j][i+1].d*(phic - phir));
 #endif
-        }
-      }
-    }
-  }
 
-  if (StaticGravPot != NULL){
-    for (k=kl+1; k<=ku-1; k++) {
-      for (j=jl+1; j<=ju-1; j++) {
-        for (i=il+1; i<=iu-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
-
-          Uhalf[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
+          phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+          Uhalf[k][j][i].M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-          Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M2*g;
+          Uhalf[k][j][i].E +=0.5*dtodx2*(x2Flux[k][j  ][i].d*(phil - phic)
+                                       + x2Flux[k][j+1][i].d*(phic - phir));
 #endif
-        }
-      }
-    }
-  }
 
-  if (StaticGravPot != NULL){
-    for (k=kl+1; k<=ku-1; k++) {
-      for (j=jl+1; j<=ju-1; j++) {
-        for (i=il+1; i<=iu-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
-
-          Uhalf[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+          phir = (*StaticGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
+          phil = (*StaticGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
+          Uhalf[k][j][i].M3 -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-          Uhalf[k][j][i].E  += hdt*pGrid->U[k][j][i].M3*g;
+          Uhalf[k][j][i].E +=0.5*dtodx3*(x3Flux[k  ][j][i].d*(phil - phic)
+                                       + x3Flux[k+1][j][i].d*(phic - phir));
 #endif
         }
       }
@@ -796,45 +783,40 @@ void integrate_3d_vl(Grid *pGrid)
 #endif
 
 /*--- Step 12 ------------------------------------------------------------------
- * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
- * acceleration to the momentum equation now (using d^{n}), before the update
- * of the cell-centered variables due to flux gradients.
+ * Add the gravitational source terms at 2nd order
  */
 
-  if (StaticGravPot != NULL){
-    for (k=kb+1; k<=kt-1; k++) {
-      for (j=jb+1; j<=jt-1; j++) {
-        for (i=ib+1; i<=it-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
-
-          pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
-        }
-      }
-    }
-  }
 
   if (StaticGravPot != NULL){
-    for (k=kb+1; k<=kt-1; k++) {
-      for (j=jb+1; j<=jt-1; j++) {
-        for (i=ib+1; i<=it-1; i++) {
+    for (k=kl+1; k<=ku-1; k++) {
+      for (j=jl+1; j<=ju-1; j++) {
+        for (i=il+1; i<=iu-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
+          phic = (*StaticGravPot)((x1               ),x2,x3);
+          phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-          pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
-        }
-      }
-    }
-  }
+          pGrid->U[k][j][i].M1 -= dtodx1*(phir-phil)*Uhalf[k][j][i].d;
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += dtodx1*(x1Flux[k][j][i  ].d*(phil - phic)
+                                       + x1Flux[k][j][i+1].d*(phic - phir));
+#endif
 
-  if (StaticGravPot != NULL){
-    for (k=kb+1; k<=kt-1; k++) {
-      for (j=jb+1; j<=jt-1; j++) {
-        for (i=ib+1; i<=it-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
+          phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+          pGrid->U[k][j][i].M2 -= dtodx2*(phir-phil)*Uhalf[k][j][i].d;
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += dtodx2*(x2Flux[k][j  ][i].d*(phil - phic)
+                                       + x2Flux[k][j+1][i].d*(phic - phir));
+#endif
 
-          pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
+          phir = (*StaticGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
+          phil = (*StaticGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
+          pGrid->U[k][j][i].M3 -= dtodx3*(phir-phil)*Uhalf[k][j][i].d;
+#ifndef ISOTHERMAL
+          pGrid->U[k][j][i].E += dtodx3*(x3Flux[k  ][j][i].d*(phil - phic)
+                                       + x3Flux[k+1][j][i].d*(phic - phir));
+#endif
         }
       }
     }
@@ -925,59 +907,6 @@ void integrate_3d_vl(Grid *pGrid)
 #ifdef FIRST_ORDER_FLUX_CORRECTION
   first_order_correction(pGrid);
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
-
-/*--- Step 14 ------------------------------------------------------------------
- * Complete the gravitational source terms by adding 0.5 the acceleration at
- * time level n+1, and the energy source term at time level {n+1/2}.
- */
-
-  if (StaticGravPot != NULL){
-    for (k=kb+1; k<=kt-1; k++) {
-      for (j=jb+1; j<=jt-1; j++) {
-        for (i=ib+1; i<=it-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
-
-          pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
-#ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += hdt*(x1Flux[k][j][i].d+x1Flux[k][j][i+1].d)*g;
-#endif
-        }
-      }
-    }
-  }
-
-  if (StaticGravPot != NULL){
-    for (k=kb+1; k<=kt-1; k++) {
-      for (j=jb+1; j<=jt-1; j++) {
-        for (i=ib+1; i<=it-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
-
-          pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
-#ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += hdt*(x2Flux[k][j][i].d+x2Flux[k][j+1][i].d)*g;
-#endif
-        }
-      }
-    }
-  }
-
-  if (StaticGravPot != NULL){
-    for (k=kb+1; k<=kt-1; k++) {
-      for (j=jb+1; j<=jt-1; j++) {
-        for (i=ib+1; i<=it-1; i++) {
-          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*StaticGravPot)(x1,x2,x3);
-
-          pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
-#ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += hdt*(x3Flux[k][j][i].d+x3Flux[k+1][j][i].d)*g;
-#endif
-        }
-      }
-    }
-  }
 
 /*--- Step 15 -----------------------------------------------------------------
  * LAST STEP!
