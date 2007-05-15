@@ -148,15 +148,15 @@ void integrate_2d(Grid *pGrid)
  * Add gravitational source terms from static potential for 0.5*dt to L/R states
  */
 
-    if (FixedGravPot != NULL){
+    if (StaticGravPot != NULL){
       for (i=is-1; i<=iu; i++) {
 
 /* Calculate the potential at i [phi-center-right],i-1 [phi-center-left],
  * and i-1/2 [phi-face] */
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
-        phicr = (*FixedGravPot)( x1                ,x2,x3);
-        phicl = (*FixedGravPot)((x1-    pGrid->dx1),x2,x3);
-        phifc = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phicr = (*StaticGravPot)( x1                ,x2,x3);
+        phicl = (*StaticGravPot)((x1-    pGrid->dx1),x2,x3);
+        phifc = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
 /* Apply gravitational source terms to velocity using gradient of potential. */
         Wl[i].Vx -= dtodx1*(phifc - phicl);
@@ -232,15 +232,15 @@ void integrate_2d(Grid *pGrid)
  * Add gravitational source terms from static potential for 0.5*dt to L/R states
  */
   
-    if (FixedGravPot != NULL){
+    if (StaticGravPot != NULL){
       for (j=js-1; j<=ju; j++) {
 
 /* Calculate the potential at j [phi-center-right],j-1 [phi-center-left],
  * and j-1/2 [phi-face] */
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
-        phicr = (*FixedGravPot)(x1, x2                ,x3);
-        phicl = (*FixedGravPot)(x1,(x2-    pGrid->dx2),x3);
-        phifc = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phicr = (*StaticGravPot)(x1, x2                ,x3);
+        phicl = (*StaticGravPot)(x1,(x2-    pGrid->dx2),x3);
+        phifc = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
 
 /* Apply gravitational source terms to velocity using gradient of potential. */
         Wl[j].Vx -= dtodx2*(phifc - phicl);
@@ -378,13 +378,13 @@ void integrate_2d(Grid *pGrid)
  * used to correct L/R states on x1-faces.
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=iu; i++) {
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
-        phic = (*FixedGravPot)(x1, x2                ,x3);
-        phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phic = (*StaticGravPot)(x1, x2                ,x3);
+        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
 
         Ur_x1Face[j][i].My -= 0.5*dtodx2*(phir-phil)*pGrid->U[ks][j][i].d;
 #ifndef ISOTHERMAL
@@ -392,9 +392,9 @@ void integrate_2d(Grid *pGrid)
                                          x2Flux[j+1][i  ].d*(phic - phir));
 #endif
 
-        phic = (*FixedGravPot)((x1-pGrid->dx1), x2                ,x3);
-        phir = (*FixedGravPot)((x1-pGrid->dx1),(x2+0.5*pGrid->dx2),x3);
-        phil = (*FixedGravPot)((x1-pGrid->dx1),(x2-0.5*pGrid->dx2),x3);
+        phic = (*StaticGravPot)((x1-pGrid->dx1), x2                ,x3);
+        phir = (*StaticGravPot)((x1-pGrid->dx1),(x2+0.5*pGrid->dx2),x3);
+        phil = (*StaticGravPot)((x1-pGrid->dx1),(x2-0.5*pGrid->dx2),x3);
         
         Ul_x1Face[j][i].My -= 0.5*dtodx2*(phir-phil)*pGrid->U[ks][j][i-1].d;
 #ifndef ISOTHERMAL
@@ -487,13 +487,13 @@ void integrate_2d(Grid *pGrid)
  * used to correct L/R states on x2-faces.
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (j=js-1; j<=ju; j++) {
       for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
-        phic = (*FixedGravPot)((x1               ),x2,x3);
-        phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phic = (*StaticGravPot)((x1               ),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
         Ur_x2Face[j][i].Mz -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j][i].d;
 #ifndef ISOTHERMAL
@@ -501,9 +501,9 @@ void integrate_2d(Grid *pGrid)
                                          x1Flux[j  ][i+1].d*(phic - phir));
 #endif
 
-        phic = (*FixedGravPot)((x1               ),(x2-pGrid->dx2),x3);
-        phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
-        phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
+        phic = (*StaticGravPot)((x1               ),(x2-pGrid->dx2),x3);
+        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
+        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
 
         Ul_x2Face[j][i].Mz -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j-1][i].d;
 #ifndef ISOTHERMAL
@@ -531,18 +531,18 @@ void integrate_2d(Grid *pGrid)
       M1 = pGrid->U[ks][j][i].M1
         - 0.5*dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
         - 0.5*dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-      if (FixedGravPot != NULL){
-        phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+      if (StaticGravPot != NULL){
+        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
         M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j][i].d;
       }
 
       M2 = pGrid->U[ks][j][i].M2
         - 0.5*dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
         - 0.5*dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
-      if (FixedGravPot != NULL){
-        phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+      if (StaticGravPot != NULL){
+        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
         M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[ks][j][i].d;
       }
 
@@ -641,16 +641,16 @@ void integrate_2d(Grid *pGrid)
  * of the cell-centered variables due to flux gradients.
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
-        phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
         pGrid->U[ks][j][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j][i].d;
 
-        phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
         pGrid->U[ks][j][i].M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[ks][j][i].d;
       }
     }
@@ -712,13 +712,13 @@ void integrate_2d(Grid *pGrid)
  * time level n+1, and the energy source term at time level {n+1/2}.
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
         cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
-        phic = (*FixedGravPot)((x1               ),x2,x3);
-        phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phic = (*StaticGravPot)((x1               ),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
         pGrid->U[ks][j][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j][i].d;
 
@@ -726,8 +726,8 @@ void integrate_2d(Grid *pGrid)
         pGrid->U[ks][j][i].E += dtodx1*(x1Flux[j][i  ].d*(phil - phic) +
                                         x1Flux[j][i+1].d*(phic - phir));
 #endif
-        phir = (*FixedGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*FixedGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
 
         pGrid->U[ks][j][i].M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[ks][j][i].d;
 

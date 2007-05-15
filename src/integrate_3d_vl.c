@@ -41,7 +41,7 @@
 /* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
  * higher-order fluxes would cause cell-centered density to go negative.
  * See Step 13d for important details. */
-/* #define FIRST_ORDER_FLUX_CORRECTION */
+#define FIRST_ORDER_FLUX_CORRECTION
 
 #ifdef H_CORRECTION
 #error : Flux correction in the VL integrator does not work with H-corrrection.
@@ -433,12 +433,12 @@ void integrate_3d_vl(Grid *pGrid)
  * Add gravitational source terms to half-updated cell-centered values
  */
 
-  if (x1GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kl+1; k<=ku-1; k++) {
       for (j=jl+1; j<=ju-1; j++) {
         for (i=il+1; i<=iu-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x1GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           Uhalf[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
@@ -449,12 +449,12 @@ void integrate_3d_vl(Grid *pGrid)
     }
   }
 
-  if (x2GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kl+1; k<=ku-1; k++) {
       for (j=jl+1; j<=ju-1; j++) {
         for (i=il+1; i<=iu-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x2GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           Uhalf[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
@@ -465,12 +465,12 @@ void integrate_3d_vl(Grid *pGrid)
     }
   }
 
-  if (x3GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kl+1; k<=ku-1; k++) {
       for (j=jl+1; j<=ju-1; j++) {
         for (i=il+1; i<=iu-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x3GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           Uhalf[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
@@ -801,12 +801,12 @@ void integrate_3d_vl(Grid *pGrid)
  * of the cell-centered variables due to flux gradients.
  */
 
-  if (x1GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kb+1; k<=kt-1; k++) {
       for (j=jb+1; j<=jt-1; j++) {
         for (i=ib+1; i<=it-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x1GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
         }
@@ -814,12 +814,12 @@ void integrate_3d_vl(Grid *pGrid)
     }
   }
 
-  if (x2GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kb+1; k<=kt-1; k++) {
       for (j=jb+1; j<=jt-1; j++) {
         for (i=ib+1; i<=it-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x2GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
         }
@@ -827,12 +827,12 @@ void integrate_3d_vl(Grid *pGrid)
     }
   }
 
-  if (x3GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kb+1; k<=kt-1; k++) {
       for (j=jb+1; j<=jt-1; j++) {
         for (i=ib+1; i<=it-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x3GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
         }
@@ -931,12 +931,12 @@ void integrate_3d_vl(Grid *pGrid)
  * time level n+1, and the energy source term at time level {n+1/2}.
  */
 
-  if (x1GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kb+1; k<=kt-1; k++) {
       for (j=jb+1; j<=jt-1; j++) {
         for (i=ib+1; i<=it-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x1GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           pGrid->U[k][j][i].M1 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
@@ -947,12 +947,12 @@ void integrate_3d_vl(Grid *pGrid)
     }
   }
 
-  if (x2GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kb+1; k<=kt-1; k++) {
       for (j=jb+1; j<=jt-1; j++) {
         for (i=ib+1; i<=it-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x2GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           pGrid->U[k][j][i].M2 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL
@@ -963,12 +963,12 @@ void integrate_3d_vl(Grid *pGrid)
     }
   }
 
-  if (x3GravAcc != NULL){
+  if (StaticGravPot != NULL){
     for (k=kb+1; k<=kt-1; k++) {
       for (j=jb+1; j<=jt-1; j++) {
         for (i=ib+1; i<=it-1; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-          g = (*x3GravAcc)(x1,x2,x3);
+          g = (*StaticGravPot)(x1,x2,x3);
 
           pGrid->U[k][j][i].M3 += hdt*pGrid->U[k][j][i].d*g;
 #ifndef ISOTHERMAL

@@ -76,15 +76,15 @@ void integrate_1d(Grid *pGrid)
  * Add gravitational source terms for dt/2 from static potential to L/R states
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (i=is; i<=ie+1; i++) {
 
 /* Calculate the potential at i [phi-center-right],i-1 [phi-center-left],
  * and i-1/2 [phi-face] */
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      phicr = (*FixedGravPot)( x1                ,x2,x3);
-      phicl = (*FixedGravPot)((x1-    pGrid->dx1),x2,x3);
-      phifc = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+      phicr = (*StaticGravPot)( x1                ,x2,x3);
+      phicl = (*StaticGravPot)((x1-    pGrid->dx1),x2,x3);
+      phifc = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
 /* Apply gravitational source terms to velocity using gradient of potential. */
       Wl[i].Vx -= dtodx1*(phifc - phicl);
@@ -112,11 +112,11 @@ void integrate_1d(Grid *pGrid)
  * of the cell-centered variables due to flux gradient.
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (i=is; i<=ie; i++) {
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-      phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+      phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+      phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
       pGrid->U[ks][js][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][js][i].d;
     }
@@ -150,12 +150,12 @@ void integrate_1d(Grid *pGrid)
  * terms constructed so total energy (E + \rho\Phi)  is strictly conserved
  */
 
-  if (FixedGravPot != NULL){
+  if (StaticGravPot != NULL){
     for (i=is; i<=ie; i++) {
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      phic = (*FixedGravPot)((x1               ),x2,x3);
-      phir = (*FixedGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-      phil = (*FixedGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+      phic = (*StaticGravPot)((x1               ),x2,x3);
+      phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
+      phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
       pGrid->U[ks][js][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][js][i].d;
 #ifndef ISOTHERMAL
