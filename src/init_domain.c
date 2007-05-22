@@ -26,13 +26,23 @@
 #include "defs.h"
 #include "prototypes.h"
 
+/* Number of grids in each direction, read from inputfile in init_domain()*/
+int NGrid_x1, NGrid_x2, NGrid_x3; 
+
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ *   dom_decomp()    - calls auto domain decomposition functions 
+ *   dom_decomp_2d() - finds optimum domain decomposition in 2D 
+ *   dom_decomp_3d() - finds optimum domain decomposition in 3D 
+ *============================================================================*/
 #ifdef MPI_PARALLEL
 static int dom_decomp(const int Nx, const int Ny, const int Nz,
 		      const int Np, int *pNGx, int *pNGy, int *pNGz);
+static int dom_decomp_2d(const int Nx, const int Ny,
+                         const int Np, int *pNGx, int *pNGy);
+static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
+                         const int Np, int *pNGx, int *pNGy, int *pNGz);
 #endif
-
-/* Number of grids in each direction, read from inputfile in init_domain()*/
-int NGrid_x1, NGrid_x2, NGrid_x3; 
 
 /*----------------------------------------------------------------------------*/
 /* init_domain:  */
@@ -104,7 +114,7 @@ void init_domain(Grid *pG, Domain *pD)
   NGrid_x1 = 1;
   NGrid_x2 = 1;
   NGrid_x3 = 1;
-#endif
+#endif /* MPI_PARALLEL */
 
   if(NGrid_x1*NGrid_x2*NGrid_x3 != pG->nproc)
     ath_error("[init_domain]: There are %d Grids and %d processes\n",
@@ -306,19 +316,46 @@ void get_myblock_ijk(Domain *pD, const int my_id, int *pi, int *pj, int *pk)
     my_id);
 }
 
+#ifdef MPI_PARALLEL
+/*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/* ========================================================================== */
+/*----------------------------------------------------------------------------*/
+/* dom_decomp: calls apropriate 2D or 3D auto decomposition routines
+ *   Functions written by T.A.G., added May 2007
+ */
 
+static int dom_decomp(const int Nx, const int Ny, const int Nz,
+                      const int Np, int *pNGx, int *pNGy, int *pNGz)
+{
+  if(Nx > 1 && Ny == 1 && Nz == 1){ /* 1-D */
+    if(Np > Nx) return 1; /* Too many procs. */
+    *pNGx = Np;
+    *pNGy = 1;
+    *pNGz = 1;
+    return 0;
+  }
+  else if(Nx > 1 && Ny > 1 && Nz == 1){ /* 2-D */
+    *pNGy = 1;
+    return dom_decomp_2d(Nx, Nz, Np, pNGx, pNGz);
+  }
+  else if(Nx > 1 && Ny > 1 && Nz > 1){ /* 3-D */
+    return dom_decomp_3d(Nx, Ny, Nz, Np, pNGx, pNGy, pNGz);
+  }
 
-/* Note, the TOTAL amount of data communicated (summed over all
-   processes and all INTERNAL boundaries) divided by 2*nghost where
-   the 2 is for two messages per internal interface is computed and
-   stored in the variable I, the minimum of which is I0. */
-/* The assumption here is that in the x-direction we communicate only
-   computational cells, while in the y-direction we comunicate the
-   computational cells and x-direction ghost cells. */
-/* Total x-communication is (rx - 1)*Ny*(2*nghost) */
-/* Total y-communication is (ry - 1)*(Nx + rx*(2*nghost))*(2*nghost) */
+  return 1; /* Error - particular case not expected */
+}
+
+/*----------------------------------------------------------------------------*/
+/* dom_decomp_2d: optimizes domain decomposition in 2D.  The TOTAL amount of
+ *   data communicated (summed over all processes and all INTERNAL boundaries)
+ *   divided by 2*nghost (where the 2 is for two messages per internal
+ *   interface) is computed and stored in the variable I, the minimum of which
+ *   is I0.  This assumes that in the x-direction we communicate only
+ *   computational cells, while in the y-direction we comunicate the
+ *   computational cells and x-direction ghost cells.  Then
+ *     Total x-communication is (rx - 1)*Ny*(2*nghost) 
+ *     Total y-communication is (ry - 1)*(Nx + rx*(2*nghost))*(2*nghost)
+ */
 
 static int dom_decomp_2d(const int Nx, const int Ny,
 			 const int Np, int *pNGx, int *pNGy){
@@ -386,9 +423,10 @@ static int dom_decomp_2d(const int Nx, const int Ny,
   return 0;
 }
 
-
-/* ========================================================================== */
-
+/*----------------------------------------------------------------------------*/
+/* dom_decomp_3d: optimizes domain decomposition in 3D.  See the comments for
+ *   dom_decomp_2d() for more about the algorithm
+ */
 
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 			 const int Np, int *pNGx, int *pNGy, int *pNGz){
@@ -448,30 +486,4 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
   return 0;
 }
 
-
-/* ========================================================================== */
-
-
-static int dom_decomp(const int Nx, const int Ny, const int Nz,
-		      const int Np, int *pNGx, int *pNGy, int *pNGz){
-
-  if(Nx > 1 && Ny == 1 && Nz == 1){ /* 1-D */
-    if(Np > Nx) return 1; /* Too many procs. */
-    *pNGx = Np;
-    *pNGy = 1;
-    *pNGz = 1;
-    return 0;
-  }
-  else if(Nx > 1 && Ny > 1 && Nz == 1){ /* 2-D */
-    *pNGy = 1;
-    return dom_decomp_2d(Nx, Nz, Np, pNGx, pNGz);
-  }
-  else if(Nx > 1 && Ny > 1 && Nz > 1){ /* 3-D */
-    return dom_decomp_3d(Nx, Ny, Nz, Np, pNGx, pNGy, pNGz);
-  }
-
-  return 1; /* Error - particular case not expected */
-}
-
-
-/* ========================================================================== */
+#endif /* MPI_PARALLEL */
