@@ -164,6 +164,10 @@ void problem(Grid *pGrid, Domain *pDomain)
       Soln[k][j][i].B2c = by0 + amp*sin(2.0*PI*x1)*rem[NWAVE-2][wave_flag];
       Soln[k][j][i].B3c = bz0 + amp*sin(2.0*PI*x1)*rem[NWAVE-1][wave_flag];
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        Soln[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*x1));
+#endif
       break;
 
 /* Wave in x2-direction */
@@ -184,6 +188,10 @@ void problem(Grid *pGrid, Domain *pDomain)
       Soln[k][j][i].B2c = bx0;
       Soln[k][j][i].B3c = by0 + amp*sin(2.0*PI*x2)*rem[NWAVE-2][wave_flag];
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        Soln[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*x2));
+#endif
       break;
 
 /* Wave in x3-direction */
@@ -204,6 +212,10 @@ void problem(Grid *pGrid, Domain *pDomain)
       Soln[k][j][i].B2c = bz0 + amp*sin(2.0*PI*x3)*rem[NWAVE-1][wave_flag];
       Soln[k][j][i].B3c = bx0;
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        Soln[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*x3));
+#endif
       break;
     default:
       ath_error("[linear_wave1d]: wave direction %d not allowed\n",wave_dir);
@@ -230,6 +242,10 @@ void problem(Grid *pGrid, Domain *pDomain)
     pGrid->B2i[k][j][i] = Soln[k][j][i].B2c;
     pGrid->B3i[k][j][i] = Soln[k][j][i].B3c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[k][j][i].s[n] = Soln[k][j][i].s[n]; 
+#endif
   }}}
 #ifdef MHD
   if (pGrid->Nx1 > 1) {
@@ -296,6 +312,10 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke;
+#if (NSCALARS > 0)
+   int n;
+#endif
+
   Real rms_error=0.0;
   Gas error,total_error;
   FILE *fp;
@@ -314,6 +334,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
   total_error.E = 0.0;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) total_error.s[n] = 0.0;
+#endif
 
 /* compute L1 error in each variable, and rms total error */
 
@@ -334,6 +357,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
     error.E = 0.0;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) error.s[n] = 0.0;
+#endif
 
     for (i=is; i<=ie; i++) {
       error.d   += fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d );
@@ -346,8 +372,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
       error.B3c += fabs(pGrid->U[k][j][i].B3c - Soln[k][j][i].B3c);
 #endif /* MHD */
 #ifndef ISOTHERMAL
-      error.E   += fabs(pGrid->U[k][j][i].E   -  Soln[k][j][i].E );
+      error.E   += fabs(pGrid->U[k][j][i].E   - Soln[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) 
+        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - Soln[k][j][i].s[n]);;
+#endif
     }
 
     total_error.d += error.d;
@@ -362,6 +392,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
     total_error.E += error.E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) total_error.s[n] += error.s[n];
+#endif
   }}
 
   Nx1 = ie - is + 1;
@@ -407,6 +440,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifdef MHD
     fprintf(fp,"  B1c  B2c  B3c");
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) {
+      fprintf(fp,"  S[ %d ]",n);
+    }
+#endif
+
     fprintf(fp,"\n#\n");
   }
  
@@ -426,6 +465,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 	  (total_error.B2c/(double)count),
 	  (total_error.B3c/(double)count));
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) {
+      fprintf(fp,"  %e",total_error.s[n]/(double)count);
+    }
+#endif
   fprintf(fp,"\n");
 
   fclose(fp);

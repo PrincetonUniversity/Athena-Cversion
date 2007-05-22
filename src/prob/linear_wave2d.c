@@ -224,7 +224,15 @@ void problem(Grid *pGrid, Domain *pDomain)
     Soln[k][j][i].B3c = bz0 + amp*sin(2.0*PI*r)*rem[NWAVE-1][wave_flag];
 #endif /* MHD */
 
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++)
+      Soln[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*r));
+#endif
+
   }}}
+
+#ifdef MHD
+/* Set face-centered fields at boundary */
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -235,9 +243,8 @@ void problem(Grid *pGrid, Domain *pDomain)
     }
   }
 
-/* compute cell-centered fields for 2D problems */
+/* compute cell-centered fields */
 
-#ifdef MHD
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
   for (i=is; i<=ie; i++) {
@@ -263,6 +270,10 @@ void problem(Grid *pGrid, Domain *pDomain)
     pGrid->U[k][j][i].B2c = Soln[k][j][i].B2c;
     pGrid->U[k][j][i].B3c = Soln[k][j][i].B3c;
 #endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[k][j][i].s[n] = Soln[k][j][i].s[n];
+#endif
   }}}
 #ifdef MHD
   if (pGrid->Nx3 > 1) {
@@ -288,6 +299,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * get_usr_expr()          - sets pointer to expression for special output data
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * color()   - returns first passively advected scalar s[0]
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
@@ -300,8 +312,18 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
+#if (NSCALARS > 0)
+static Real color(const Grid *pG, const int i, const int j, const int k)
+{
+  return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
+}
+#endif
+
 Gasfun_t get_usr_expr(const char *expr)
 {
+#if (NSCALARS > 0)
+  if(strcmp(expr,"color")==0) return color;
+#endif
   return NULL;
 }
 
@@ -318,6 +340,9 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
   int i=0,j=0,k=0;
+#if (NSCALARS > 0)
+   int n;
+#endif
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
   Gas error,total_error;
@@ -325,7 +350,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   char *fname;
   int Nx1, Nx2, Nx3, count;
 #if defined MPI_PARALLEL
-  double err[8], tot_err[8];
+  double err[8+NSCALARS], tot_err[8+NSCALARS];
   int mpi_err;
 #endif
 
@@ -341,6 +366,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
   total_error.E = 0.0;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) total_error.s[n] = 0.0;
+#endif
 
 /* compute L1 error in each variable, and rms total error */
 
@@ -361,6 +389,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
     error.E = 0.0;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) error.s[n] = 0.0;
+#endif
 
     for (i=is; i<=ie; i++) {
       error.d   += fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d );
@@ -375,6 +406,10 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
       error.E   += fabs(pGrid->U[k][j][i].E   - Soln[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - Soln[k][j][i].s[n]);;
+#endif
     }
 
     total_error.d += error.d;
@@ -389,6 +424,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
     total_error.E += error.E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) total_error.s[n] += error.s[n];
+#endif
   }}
 
 #if defined MPI_PARALLEL
@@ -420,9 +458,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
   err[7] = total_error.E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) err[8+n] = total_error.s[n];
+#endif
 
 /* Sum up the Computed Error */
-  mpi_err = MPI_Reduce(err, tot_err, 8,
+  mpi_err = MPI_Reduce(err, tot_err, (8+NSCALARS),
 		       MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
   if(mpi_err)
     ath_error("[Userwork_after_loop]: MPI_Reduce call returned error = %d\n",
@@ -442,6 +483,10 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifndef ISOTHERMAL
     total_error.E   = tot_err[7];
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) total_error.s[n] = err[8+n];
+#endif
+
   }
   else return; /* The child grids do not do any of the following code */
 
@@ -488,6 +533,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #ifdef MHD
     fprintf(fp,"  B1c  B2c  B3c");
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) {
+      fprintf(fp,"  S[ %d ]",n);
+    }
+#endif
     fprintf(fp,"\n#\n");
   }
 
@@ -509,6 +559,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 	  (total_error.B2c/(double)count),
 	  (total_error.B3c/(double)count));
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) {
+      fprintf(fp,"  %e",total_error.s[n]/(double)count);
+    }
+#endif
 
   fprintf(fp,"\n");
 
