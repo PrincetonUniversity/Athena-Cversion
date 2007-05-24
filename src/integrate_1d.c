@@ -2,9 +2,9 @@
 /*==============================================================================
  * FILE: integrate_1d.c
  *
- * PURPOSE: Integrate MHD equations in 1D.  Updates U.[d,M1,M2,M3,E,B2c,B3c]
+ * PURPOSE: Integrate MHD equations in 1D.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s]
  *   in Grid structure, where U is of type Gas.  Adds gravitational source
- *   terms.
+ *   terms, and self-gravity.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_1d()
@@ -30,14 +30,17 @@ static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 
 void integrate_1d(Grid *pGrid)
 {
-  Real dtodx1 = pGrid->dt/pGrid->dx1, dt = pGrid->dt;
+  Real dtodx1 = pGrid->dt/pGrid->dx1, hdtodx1 = 0.5*pGrid->dt/pGrid->dx1;
   int i, is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks;
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,dhalf;
+#ifdef SELF_GRAVITY
+  Real gxl,gxr,flm1,frm1;
+#endif
 
 /*--- Step 1 -------------------------------------------------------------------
  * Load 1D vector of conserved variables;  
@@ -70,10 +73,10 @@ void integrate_1d(Grid *pGrid)
   for (i=is-2; i<=ie+2; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
-  lr_states(W,Bxc,dt,dtodx1,is,ie,Wl,Wr);
+  lr_states(W,Bxc,pGrid->dt,dtodx1,is,ie,Wl,Wr);
 
-/*--- Step 3 -------------------------------------------------------------------
- * Add gravitational source terms for dt/2 from static potential to L/R states
+/*--- Step 3a ------------------------------------------------------------------
+ * Add gravitational source terms for a static potential for dt/2 to L/R states
  */
 
   if (StaticGravPot != NULL){
@@ -86,11 +89,24 @@ void integrate_1d(Grid *pGrid)
       phicl = (*StaticGravPot)((x1-    pGrid->dx1),x2,x3);
       phifc = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential. */
+/* Apply gravitational source terms to velocity using gradient of potential
+ * for (dt/2).   S_{V} = -Grad(Phi) */
       Wl[i].Vx -= dtodx1*(phifc - phicl);
       Wr[i].Vx -= dtodx1*(phicr - phifc);
     }
   }
+
+/*--- Step 3b ------------------------------------------------------------------
+ * Add gravitational source terms for self-gravity for dt/2 to L/R states
+ */
+
+#ifdef SELF_GRAVITY
+  for (i=is; i<=ie+1; i++) {
+    Wl[i].Vx -= hdtodx1*(pGrid->Phi[ks][js][i] - pGrid->Phi[ks][js][i-1]);
+    Wr[i].Vx -= hdtodx1*(pGrid->Phi[ks][js][i] - pGrid->Phi[ks][js][i-1]);
+  }
+#endif
+
 
 /*--- Step 4 -------------------------------------------------------------------
  * Convert back to conserved variables, and compute 1D fluxes in x1-direction
@@ -107,18 +123,24 @@ void integrate_1d(Grid *pGrid)
   }
 
 /*--- Step 5 -------------------------------------------------------------------
- * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
- * acceleration to the momentum equation now (using d^{n}), before the update
- * of the cell-centered variables due to flux gradient.
+ * Add the gravitational source terms at second order.  To improve conservation
+ * of total energy, we average the energy source term computed at cell faces. 
+ *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
 
   if (StaticGravPot != NULL){
     for (i=is; i<=ie; i++) {
       cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
+      phic = (*StaticGravPot)((x1               ),x2,x3);
       phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
       phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-      pGrid->U[ks][js][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][js][i].d;
+      dhalf = pGrid->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
+      pGrid->U[ks][js][i].M1 -= dtodx1*dhalf*(phir-phil);
+#ifndef ISOTHERMAL
+      pGrid->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
+                                       x1Flux[i+1].d*(phir - phic));
+#endif
     }
   }
 
@@ -145,29 +167,43 @@ void integrate_1d(Grid *pGrid)
   }
 
 /*--- Step 7 -------------------------------------------------------------------
- * Complete the gravitational source terms by adding 0.5 the gravitational
- * acceleration to the momentum equation (using d^{n+1}), and the energy source
- * terms constructed so total energy (E + \rho\Phi)  is strictly conserved
+ * Add source terms due to self-gravity
  */
+#ifdef SELF_GRAVITY
+  for (i=is; i<=ie; i++) {
 
-  if (StaticGravPot != NULL){
-    for (i=is; i<=ie; i++) {
-      cc_pos(pGrid,i,js,ks,&x1,&x2,&x3);
-      phic = (*StaticGravPot)((x1               ),x2,x3);
-      phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-      phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+/*  Add the source term using the current potential for a full timestep */
 
-      pGrid->U[ks][js][i].M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][js][i].d;
+      phic = pGrid->Phi[ks][js][i];
+      phil = 0.5*(pGrid->Phi[ks][js][i-1] + pGrid->Phi[ks][js][i  ]);
+      phir = 0.5*(pGrid->Phi[ks][js][i  ] + pGrid->Phi[ks][js][i+1]);
+
+      gxl = (pGrid->Phi[ks][js][i-1] - pGrid->Phi[ks][js][i  ])/(pGrid->dx1);
+      gxr = (pGrid->Phi[ks][js][i  ] - pGrid->Phi[ks][js][i+1])/(pGrid->dx1);
+
+/* 1-momentum flux */
+/*
+      flm1 = 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil;
+      frm1 = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
+*/
+      flm1 = 0.5*(gxl*gxl)/four_pi_G;
+      frm1 = 0.5*(gxr*gxr)/four_pi_G;
+
+      pGrid->U[ks][js][i].M1 += dtodx1*(frm1-flm1);
 #ifndef ISOTHERMAL
       pGrid->U[ks][js][i].E += dtodx1*(x1Flux[i  ].d*(phil - phic) +
                                        x1Flux[i+1].d*(phic - phir));
 #endif
-    }
   }
+
+/* Save mass fluxes in Grid structure for source term correction in main loop */
+  for (i=is; i<=ie+1; i++) {
+    pGrid->x1MassFlux[ks][js][i] = x1Flux[i].d;
+  }
+#endif
 
   return;
 }
-
 
 /*----------------------------------------------------------------------------*/
 /* integrate_init_1d: Allocate temporary integration arrays */

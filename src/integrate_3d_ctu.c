@@ -5,19 +5,23 @@
  * PURPOSE: Updates the input Grid structure pointed to by *pGrid by one
  *   timestep using directionally unsplit CTU method of Colella (1990).  The
  *   variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c] -- where U is of type Gas
+ *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
- *   Also adds gravitational source terms, and H-correction of Sanders et al.
- *   For adb hydro, requires (9*Cons1D + 3*Real) = 48 3D arrays
- *   For adb mhd, requires   (9*Cons1D + 9*Real) = 72 3D arrays
- *   The H-correction of Sanders et al. adds another 3 arrays.
+ *   Also adds gravitational source terms, self-gravity, and the H-correction
+ *   of Sanders et al.
+ *     For adb hydro, requires (9*Cons1D +  3*Real) = 48 3D arrays
+ *     For adb mhd, requires   (9*Cons1D + 10*Real) = 73 3D arrays
+ *   The H-correction of Sanders et al. adds another 3 arrays.  
  *
  * REFERENCES:
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
  *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
- *   constrined transport", JCP, ***, *** (2007)
+ *   constrained transport", JCP, 205, 509 (2005)
+ *
+ *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ *   constrained transport in Three Dimensions", JCP, ***, *** (2007)
  *
  *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
@@ -38,18 +42,25 @@
 #include "globals.h"
 #include "prototypes.h"
 
-static Real *Bxc=NULL, *Bxi=NULL;
-static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
-static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
+/* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
 static Cons1D ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
 static Cons1D ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
-static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
+
+/* The interface magnetic fields and emfs */
+static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
 #ifdef MHD
 static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
+
+/* 1D scratch vectors used by lr_states and flux functions */
+static Real *Bxc=NULL, *Bxi=NULL;
+static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
+static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
+
+/* density at t^{n+1/2} needed by both MHD and to make gravity 2nd order */
 static Real ***dhalf = NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
@@ -77,9 +88,8 @@ static void integrate_emf3_corner(const Grid *pGrid);
 
 void integrate_3d_ctu(Grid *pGrid)
 {
-
   Real dtodx1,dtodx2,dtodx3,q1,q2,q3;
-  Real dt = pGrid->dt, hdt = 0.5*pGrid->dt;
+  Real hdt = 0.5*pGrid->dt;
   Real hdtdx1, hdtdx2, hdtdx3;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
@@ -146,7 +156,7 @@ void integrate_3d_ctu(Grid *pGrid)
        pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
      }
 
-     lr_states(W,Bxc,dt,dtodx1,is-1,ie+1,Wl,Wr);
+     lr_states(W,Bxc,pGrid->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add "MHD source terms" for 0.5*dt
@@ -223,7 +233,8 @@ void integrate_3d_ctu(Grid *pGrid)
           phicl = (*StaticGravPot)((x1-    pGrid->dx1),x2,x3);
           phifc = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential. */
+/* Apply gravitational source terms to velocity using gradient of potential
+ * for (dt/2).   S_{V} = -Grad(Phi) */
           Wl[i].Vx -= dtodx1*(phifc - phicl);
           Wr[i].Vx -= dtodx1*(phicr - phifc);
         }
@@ -295,7 +306,7 @@ void integrate_3d_ctu(Grid *pGrid)
         pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
       }
 
-      lr_states(W,Bxc,dt,dtodx2,js-1,je+1,Wl,Wr);
+      lr_states(W,Bxc,pGrid->dt,dtodx2,js-1,je+1,Wl,Wr);
 
 /*--- Step 2c ------------------------------------------------------------------
  * Add "MHD source terms"
@@ -371,7 +382,8 @@ void integrate_3d_ctu(Grid *pGrid)
           phicl = (*StaticGravPot)(x1,(x2-    pGrid->dx2),x3);
           phifc = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential. */
+/* Apply gravitational source terms to velocity using gradient of potential.
+ * for (dt/2).   S_{V} = -Grad(Phi) */
           Wl[j].Vx -= dtodx2*(phifc - phicl);
           Wr[j].Vx -= dtodx2*(phicr - phifc);
         }
@@ -432,7 +444,7 @@ void integrate_3d_ctu(Grid *pGrid)
         pb = Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
       }
 
-      lr_states(W,Bxc,dt,dtodx3,ks-1,ke+1,Wl,Wr);
+      lr_states(W,Bxc,pGrid->dt,dtodx3,ks-1,ke+1,Wl,Wr);
 
 /*--- Step 3c ------------------------------------------------------------------
  * Add "MHD source terms"
@@ -508,7 +520,8 @@ void integrate_3d_ctu(Grid *pGrid)
           phicl = (*StaticGravPot)(x1,x2,(x3-    pGrid->dx3));
           phifc = (*StaticGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
 
-/* Apply gravitational source terms to velocity using gradient of potential. */
+/* Apply gravitational source terms to velocity using gradient of potential.
+ * for (dt/2).   S_{V} = -Grad(Phi) */
           Wl[k].Vx -= dtodx3*(phifc - phicl);
           Wr[k].Vx -= dtodx3*(phicr - phifc);
         }
@@ -773,7 +786,9 @@ void integrate_3d_ctu(Grid *pGrid)
 
 /*--- Step 6d ------------------------------------------------------------------
  * Add gravitational source terms in x2-direction and x3-direction to
- * corrected L/R states on x1-faces.
+ * corrected L/R states on x1-faces.  To improve conservation of total energy,
+ * we average the energy source term computed at cell faces.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
   if (StaticGravPot != NULL){
@@ -785,19 +800,19 @@ void integrate_3d_ctu(Grid *pGrid)
         phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
 
 /* correct right states */
-        Ur_x1Face[k][j][i].My -= 0.5*dtodx2*(phir-phil)*pGrid->U[k][j][i].d;
+        Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x1Face[k][j][i].E +=0.5*dtodx2*(x2Flux[k][j  ][i  ].d*(phil - phic)
-                                         + x2Flux[k][j+1][i  ].d*(phic - phir));
+        Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
+                                  + x2Flux[k][j+1][i  ].d*(phir - phic));
 #endif
 
         phir = (*StaticGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
         phil = (*StaticGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
         
-        Ur_x1Face[k][j][i].Mz -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
+        Ur_x1Face[k][j][i].Mz -= q3*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x1Face[k][j][i].E +=0.5*dtodx3*(x3Flux[k  ][j][i  ].d*(phil - phic)
-                                         + x3Flux[k+1][j][i  ].d*(phic - phir));
+        Ur_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i  ].d*(phic - phil)
+                                  + x3Flux[k+1][j][i  ].d*(phir - phic));
 #endif
 
 /* correct left states */
@@ -805,19 +820,19 @@ void integrate_3d_ctu(Grid *pGrid)
         phir = (*StaticGravPot)((x1-pGrid->dx1),(x2+0.5*pGrid->dx2),x3);
         phil = (*StaticGravPot)((x1-pGrid->dx1),(x2-0.5*pGrid->dx2),x3);
 
-        Ul_x1Face[k][j][i].My -= 0.5*dtodx2*(phir-phil)*pGrid->U[k][j][i-1].d;
+        Ul_x1Face[k][j][i].My -= q2*(phir-phil)*pGrid->U[k][j][i-1].d;
 #ifndef ISOTHERMAL
-        Ul_x1Face[k][j][i].E +=0.5*dtodx2*(x2Flux[k][j  ][i-1].d*(phil - phic)
-                                         + x2Flux[k][j+1][i-1].d*(phic - phir));
+        Ul_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i-1].d*(phic - phil)
+                                  + x2Flux[k][j+1][i-1].d*(phir - phic));
 #endif
 
         phir = (*StaticGravPot)((x1-pGrid->dx1),x2,(x3+0.5*pGrid->dx3));
         phil = (*StaticGravPot)((x1-pGrid->dx1),x2,(x3-0.5*pGrid->dx3));
         
-        Ul_x1Face[k][j][i].Mz -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i-1].d;
+        Ul_x1Face[k][j][i].Mz -= q3*(phir-phil)*pGrid->U[k][j][i-1].d;
 #ifndef ISOTHERMAL
-        Ul_x1Face[k][j][i].E +=0.5*dtodx3*(x3Flux[k  ][j][i-1].d*(phil - phic)
-                                         + x3Flux[k+1][j][i-1].d*(phic - phir));
+        Ul_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i-1].d*(phic - phil)
+                                  + x3Flux[k+1][j][i-1].d*(phir - phic));
 #endif
       }
     }
@@ -1000,7 +1015,9 @@ void integrate_3d_ctu(Grid *pGrid)
 
 /*--- Step 7d ------------------------------------------------------------------
  * Add gravitational source terms in x1-direction and x3-direction to
- * corrected L/R states on x2-faces.
+ * corrected L/R states on x2-faces. To improve conservation of total energy,
+ * we average the energy source term computed at cell faces.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
   if (StaticGravPot != NULL){
@@ -1009,24 +1026,24 @@ void integrate_3d_ctu(Grid *pGrid)
       for (i=is-1; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-/* coorect right states */
+/* correct right states */
         phic = (*StaticGravPot)((x1               ),x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-        Ur_x2Face[k][j][i].Mz -= 0.5*dtodx1*(phir-phil)*pGrid->U[k][j][i].d;
+        Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x2Face[k][j][i].E +=0.5*dtodx1*(x1Flux[k][j  ][i  ].d*(phil - phic)
-                                         + x1Flux[k][j  ][i+1].d*(phic - phir));
+        Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j  ][i  ].d*(phic - phil)
+                                  + x1Flux[k][j  ][i+1].d*(phir - phic));
 #endif
 
         phir = (*StaticGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
         phil = (*StaticGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
 
-        Ur_x2Face[k][j][i].My -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
+        Ur_x2Face[k][j][i].My -= q3*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x2Face[k][j][i].E +=0.5*dtodx3*(x3Flux[k  ][j  ][i].d*(phil - phic)
-                                         + x3Flux[k+1][j  ][i].d*(phic - phir));
+        Ur_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j  ][i].d*(phic - phil)
+                                  + x3Flux[k+1][j  ][i].d*(phir - phic));
 #endif
 
 /* correct left states */
@@ -1034,18 +1051,18 @@ void integrate_3d_ctu(Grid *pGrid)
         phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
         phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
 
-        Ul_x2Face[k][j][i].Mz -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j-1][i].d;
+        Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pGrid->U[ks][j-1][i].d;
 #ifndef ISOTHERMAL
-        Ul_x2Face[k][j][i].E +=0.5*dtodx1*(x1Flux[k][j-1][i  ].d*(phil - phic)
-                                         + x1Flux[k][j-1][i+1].d*(phic - phir));
+        Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
+                                  + x1Flux[k][j-1][i+1].d*(phir - phic));
 #endif
         phir = (*StaticGravPot)(x1,(x2-pGrid->dx2),(x3+0.5*pGrid->dx3));
         phil = (*StaticGravPot)(x1,(x2-pGrid->dx2),(x3-0.5*pGrid->dx3));
 
-        Ul_x2Face[k][j][i].My -= 0.5*dtodx3*(phir-phil)*pGrid->U[k][j][i].d;
+        Ul_x2Face[k][j][i].My -= q3*(phir-phil)*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ul_x2Face[k][j][i].E +=0.5*dtodx3*(x3Flux[k  ][j-1][i].d*(phil - phic)
-                                         + x3Flux[k+1][j-1][i].d*(phic - phir));
+        Ul_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j-1][i].d*(phic - phil)
+                                  + x3Flux[k+1][j-1][i].d*(phir - phic));
 #endif
       }
     }
@@ -1244,7 +1261,9 @@ void integrate_3d_ctu(Grid *pGrid)
 
 /*--- Step 8d ------------------------------------------------------------------
  * Add gravitational source terms in x1-direction and x2-direction to
- * corrected L/R states on x3-faces.
+ * corrected L/R states on x3-faces.  To improve conservation of total energy,
+ * we average the energy source term computed at cell faces.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
   if (StaticGravPot != NULL){
@@ -1258,19 +1277,19 @@ void integrate_3d_ctu(Grid *pGrid)
         phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
 
-        Ur_x3Face[k][j][i].My -= 0.5*dtodx1*pGrid->U[k][j][i].d;
+        Ur_x3Face[k][j][i].My -= q1*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x3Face[k][j][i].E +=0.5*dtodx1*(x1Flux[k  ][j][i  ].d*(phil - phic)
-                                         + x1Flux[k  ][j][i+1].d*(phic - phir));
+        Ur_x3Face[k][j][i].E -= q1*(x1Flux[k  ][j][i  ].d*(phic - phil)
+                                  + x1Flux[k  ][j][i+1].d*(phir - phic));
 #endif
 
         phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
 
-        Ur_x3Face[k][j][i].Mz -= 0.5*dtodx2*pGrid->U[k][j][i].d;
+        Ur_x3Face[k][j][i].Mz -= q2*pGrid->U[k][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x3Face[k][j][i].E +=0.5*dtodx2*(x2Flux[k  ][j  ][i].d*(phil - phic)
-                                         + x2Flux[k  ][j+1][i].d*(phic - phir));
+        Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
+                                  + x2Flux[k  ][j+1][i].d*(phir - phic));
 #endif
 
 /* correct left states */
@@ -1278,25 +1297,25 @@ void integrate_3d_ctu(Grid *pGrid)
         phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,(x3-pGrid->dx3));
         phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,(x3-pGrid->dx3));
 
-        Ul_x3Face[k][j][i].My -= 0.5*dtodx1*pGrid->U[k-1][j][i].d;
+        Ul_x3Face[k][j][i].My -= q1*pGrid->U[k-1][j][i].d;
 #ifndef ISOTHERMAL
-        Ul_x3Face[k][j][i].E +=0.5*dtodx1*(x1Flux[k-1][j][i  ].d*(phil - phic)
-                                         + x1Flux[k-1][j][i+1].d*(phic - phir));
+        Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
+                                  + x1Flux[k-1][j][i+1].d*(phir - phic));
 #endif
 
         phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),(x3-pGrid->dx3));
         phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),(x3-pGrid->dx3));
 
-        Ul_x3Face[k][j][i].Mz -= 0.5*dtodx2*pGrid->U[k-1][j][i].d;
+        Ul_x3Face[k][j][i].Mz -= q2*pGrid->U[k-1][j][i].d;
 #ifndef ISOTHERMAL
-        Ul_x3Face[k][j][i].E +=0.5*dtodx2*(x2Flux[k-1][j  ][i].d*(phil - phic)
-                                         + x2Flux[k-1][j+1][i].d*(phic - phir));
+        Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
+                                  + x2Flux[k-1][j+1][i].d*(phir - phic));
 #endif
       }
     }
   }}
 
-/*--- Step 7e ------------------------------------------------------------------
+/*--- Step 8e ------------------------------------------------------------------
  * Add the tidal potential and Coriolis terms.
  */
 #ifdef SHEARING_BOX_EVOLUTION
@@ -1321,7 +1340,7 @@ void integrate_3d_ctu(Grid *pGrid)
   q2 = 0.5*dtodx2;
   q3 = 0.5*dtodx3;
 
-  if(dhalf != NULL){
+  if (dhalf != NULL){
     for (k=ks-1; k<=ke+1; k++) {
       for (j=js-1; j<=je+1; j++) {
 	for (i=is-1; i<=ie+1; i++) {
@@ -1549,9 +1568,9 @@ void integrate_3d_ctu(Grid *pGrid)
 #endif
 
 /*--- Step 12 ------------------------------------------------------------------
- * To keep the gravitational source terms 2nd order, add 0.5 the gravitational
- * acceleration to the momentum equation now (using d^{n}), before the update
- * of the cell-centered variables due to flux gradients.
+ * Add the gravitational source terms at second order.  To improve conservation
+ * of total energy, we average the energy source term computed at cell faces.
+ *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
 
 #ifdef SHEARING_BOX_EVOLUTION
@@ -1638,24 +1657,24 @@ void integrate_3d_ctu(Grid *pGrid)
           phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
           pGrid->U[k][j][i].M1 -= dtodx1*(phir-phil)*dhalf[k][j][i];
 #ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += dtodx1*(x1Flux[k][j][i  ].d*(phil - phic) +
-                                         x1Flux[k][j][i+1].d*(phic - phir));
+          pGrid->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
+                                         x1Flux[k][j][i+1].d*(phir - phic));
 #endif
 
           phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
           pGrid->U[k][j][i].M2 -= dtodx2*(phir-phil)*dhalf[k][j][i];
 #ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += dtodx2*(x2Flux[k][j  ][i].d*(phil - phic) +
-                                         x2Flux[k][j+1][i].d*(phic - phir));
+          pGrid->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
+                                         x2Flux[k][j+1][i].d*(phir - phic));
 #endif
 
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pGrid->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pGrid->dx3));
           pGrid->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];
 #ifndef ISOTHERMAL
-          pGrid->U[k][j][i].E += dtodx3*(x3Flux[k  ][j][i].d*(phil - phic) +
-                                         x3Flux[k+1][j][i].d*(phic - phir));
+          pGrid->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
+                                         x3Flux[k+1][j][i].d*(phir - phic));
 #endif
         }
       }
@@ -1808,6 +1827,7 @@ void integrate_destruct_3d(void)
   if (x1Flux    != NULL) free_3d_array(x1Flux);
   if (x2Flux    != NULL) free_3d_array(x2Flux);
   if (x3Flux    != NULL) free_3d_array(x3Flux);
+  if (dhalf     != NULL) free_3d_array(dhalf);
 
   return;
 }
