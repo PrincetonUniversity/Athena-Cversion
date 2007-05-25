@@ -13,6 +13,7 @@
 #   --with-gas=[hydro,mhd]                              (hydro or mhd algorithm)
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
+#   --with-gravity=[fft,multigrid]                                (self-gravity)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3]                       (order of spatial reconstruction)
@@ -36,7 +37,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 #-------------------------------------------------------------------------------
-# PACKAGE: name of problem generator from src/prob/name.c 
+# PHYSICS PACKAGE: name of problem generator from src/prob/name.c 
 #   --with-problem=name (default is linear_wave1d)
 
 AC_SUBST(PROBLEM)
@@ -52,7 +53,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PACKAGE: gas mode (hydro or mhd)
+# PHYSICS PACKAGE: gas mode (hydro or mhd)
 #  --with-gas=hydro (default is mhd)
 #   mode also sets the default flux handling, since that depends on whether the
 #   problem is hydro or mhd (see option --with-flux= below)
@@ -71,7 +72,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PACKAGE: equation of state
+# PHYSICS PACKAGE: equation of state
 #   --with-eos=[adiabatic,isothermal] (default is adiabatic)
 
 AC_SUBST(EOS)
@@ -86,7 +87,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PACKAGE: nscalars
+# PHYSICS PACKAGE: nscalars
 #  --with-nscalars=n (n is any integer, default is 0)
 #   number of passively advected scalars
 
@@ -102,7 +103,29 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PACKAGE: set the order of the spatial reconstruction
+# PHYSICS PACKAGE: self-gravity
+#  --with-gravity= [fft,multigrid]
+
+AC_SUBST(SELF_GRAVITY_DEFINE)
+AC_SUBST(SELF_GRAVITY_ALGORITHM)
+AC_ARG_WITH(gravity, [  --with-gravity=SELF_GRAVITY_ALGORITHM   Algorithm for self gravity (fft, multigrid)],
+                gravity_algorithm=$withval, gravity_algorithm=none)
+
+if test   "$gravity_algorithm" = "fft"; then
+  SELF_GRAVITY_DEFINE="SELF_GRAVITY"
+  SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_USING_FFT"
+elif test "$gravity_algorithm" = "multigrid"; then
+  SELF_GRAVITY_DEFINE="SELF_GRAVITY"
+  SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_USING_MULTIGRID"
+elif test "$gravity_algorithm" = "none"; then
+  SELF_GRAVITY_DEFINE="NO_SELF_GRAVITY"
+  SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_NONE"
+else
+  AC_MSG_ERROR([expected --with-gravity=fft or multigrid])
+fi
+
+#-------------------------------------------------------------------------------
+# ALGORITHM PACKAGE: set the order of the spatial reconstruction
 #   --with-order=[1,2,3] (default is 2)
 
 AC_SUBST(ORDER)
@@ -122,7 +145,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PACKAGE: flux function
+# ALGORITHM PACKAGE: flux function
 #   --with-flux=[roe,hlle,hllc,hlld,force,exact]
 #   (default is roe if gas=mhd, hllc if gas=hydro)
 
@@ -148,7 +171,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PACKAGE: set the 3D unsplit integration algorithm
+# ALGORITHM PACKAGE: set the 3D unsplit integration algorithm
 #   --with-integrator=[ctu,vl] (default is ctu)
 
 AC_SUBST(INTEGRATOR)
@@ -166,7 +189,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# FEATURE: precision of floating point arithmetic
+# ALGORITHM FEATURE: precision of floating point arithmetic
 #   --enable-single (default is double)
 
 AC_SUBST(PRECISION)
@@ -179,7 +202,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# FEATURE: compile in debugging mode; turns out diagnostic outputs in code,
+# ALGORITHM FEATURE: compile with debugging; turns on diagnostic output in code,
 #   and uses compiler options: -g -Wall -W -ansi -pedantic
 #   --enable-debug (default is debugging off)
 
@@ -196,7 +219,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# FEATURE: write ghost cells in outputs/dumps
+# ALGORITHM FEATURE: write ghost cells in outputs/dumps
 #   --enable-ghost
 
 AC_SUBST(WRITE_GHOST_MODE)
@@ -208,7 +231,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# FEATURE: parallelize with MPI, --enable-mpi (default is no MPI)
+# ALGORITHM FEATURE: parallelize with MPI, --enable-mpi (default is no MPI)
 
 AC_SUBST(MPI_MODE)
 
@@ -220,7 +243,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# FEATURE: turn on H-correction in multidimensional integrators
+# ALGORITHM FEATURE: turn on H-correction in multidimensional integrators
 #   --enable-h-correction
 # Note that H-correction only works with Roe flux.  Prints error message if
 # H-correction is enabled with any other flux.
@@ -238,7 +261,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# FEATURE: turn on FFT libraries
+# ALGORITHM FEATURE: turn on FFT libraries
 #   --enable-fft
 
 AC_SUBST(FFT_MODE)
@@ -281,6 +304,11 @@ echo "Problem:                 $PROBLEM"
 echo "Gas properties:          $GAS"
 echo "Equation of State:       $EOS"
 echo "Advected scalar fields:  $NSCALARS"
+if test "$gravity_algorithm" = "none"; then
+  echo "Self-gravity:            $SELF_GRAVITY_DEFINE"
+else
+  echo "Self-gravity:            $SELF_GRAVITY_ALGORITHM"
+fi
 echo "Spatial Order:           $ORDER ($ACCURACY)"
 echo "Flux:                    $FLUX_NAME"
 echo "3D unsplit integrator:   $INTEGRATOR"
