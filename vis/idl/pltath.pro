@@ -13,7 +13,7 @@
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 
 ;-------------------------------------------------------------------------------
 ; Procedure READBIN: Reads ATHENA binary dumps
@@ -22,11 +22,11 @@ PRO readbin,filename
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 ;
 ; Read number of zones and variables
 ;
-ndata=LONARR(5)
+ndata=LONARR(6)
 openr,1,filename
 readu,1,ndata
 nx=ndata[0]
@@ -34,6 +34,7 @@ ny=ndata[1]
 nz=ndata[2]
 nvar=ndata[3]
 nscalars=ndata[4]
+ngrav=ndata[5]
 ;
 ; Read (gamma-1) and isothermal sound speed
 ;
@@ -57,9 +58,7 @@ readu,1,y
 z=fltarr(nz)
 readu,1,z
 ;
-; Read data.
-; nvar=4 means isothermal hydro.  nvar=5 means adiabatic hydro
-; nvar=7 means isothermal MHD.    nvar=8 means adiabatic mhd
+;  Allocate arrays.  Note arrays allocated even if not used.
 ;
 d =fltarr(nx,ny,nz)
 e =fltarr(nx,ny,nz)
@@ -69,9 +68,15 @@ vz=fltarr(nx,ny,nz)
 bx=fltarr(nx,ny,nz)
 by=fltarr(nx,ny,nz)
 bz=fltarr(nx,ny,nz)
+phi=fltarr(nx,ny,nz)
 nscal = 1
 IF nscalars gt 1 THEN nscal = nscalars
 s = fltarr(nx,ny,nz,nscal)
+;
+; Read data.
+; nvar=4 means isothermal hydro.  nvar=5 means adiabatic hydro
+; nvar=7 means isothermal MHD.    nvar=8 means adiabatic mhd
+;
 readu,1,d
 readu,1,vx
 readu,1,vy
@@ -83,6 +88,10 @@ IF (nvar-nscalars) eq 7 OR (nvar-nscalars) eq 8 THEN BEGIN
   readu,1,bz
 ENDIF
 IF (nscalars) gt 0 THEN readu,1,s
+IF (ngrav) gt 0 THEN readu,1,phi
+;
+; compute velocities and pressure
+;
 vx=vx/d
 vy=vy/d
 vz=vz/d
@@ -98,7 +107,7 @@ END
 PRO four_plot,filename
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 ;
 readbin,filename
 !P.MULTI=[0,2,2,0,0]
@@ -124,7 +133,7 @@ END
 PRO nine_plot,filename,flag
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 ;
 readbin,filename
 !P.MULTI=[0,3,3,0,0]
@@ -175,7 +184,7 @@ PRO sod_plot,filename
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 ;
 readbin,filename
 vs = 1.7522
@@ -253,7 +262,7 @@ PRO flines,nlev
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 vecpot=fltarr(nx,ny)
 dx = x[1]-x[0]
 dy = y[1]-y[0]
@@ -270,7 +279,7 @@ PRO readvtk,filename,pfact
 COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
-COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s
+COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
 ; -----------------------------------------
 ; pfact = gamm1 for adiabatic
 ; pfact = isocs for isothermal
