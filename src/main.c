@@ -38,9 +38,14 @@ void usage(char *prog);
 
 int main(int argc, char *argv[])
 {
-  VGFun_t integrate;               /* pointer to integrator, set at runtime */
+  VGFun_t Integrate;      /* function pointer to integrator, set at runtime */
+#ifdef SELF_GRAVITY
+  VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
+#endif
+
   Grid level0_Grid;                /* only level0 grids in this version */
   Domain level0_Domain;
+
   int ires=0;          /* restart flag, is set to 1 if -r argument on cmdline */
   int i,nlim,done=0,zones,iquit=0,iflush=1;
   Real tlim;
@@ -228,8 +233,9 @@ int main(int argc, char *argv[])
 /*--- Step 3. ----------------------------------------------------------------*/
 /* set up the simulation log files */
 
-  /* Open the simulation <problem_id>.out and <problem_id>.err files? */
-  /* If not, output will go to stdout and stderr streams */
+/* Open the simulation <problem_id>.out and <problem_id>.err files? */
+/* If not, output will go to stdout and stderr streams.  Files will only be
+ * opened if file_open=1 in the <log> block in the athinput file */
   if(par_geti_def("log","file_open",0)){
     iflush = 0;
     name = par_gets("job","problem_id");
@@ -290,11 +296,6 @@ int main(int argc, char *argv[])
     problem(&level0_Grid, &level0_Domain);      /* New problem */
 
 /*--- Step 6. ----------------------------------------------------------------*/
-/* Set function pointers for integrate (based on dimensionality) */
-
-  integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-
-/*--- Step 7. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
  * set boundary conditions for initial conditions  */
 
@@ -302,12 +303,22 @@ int main(int argc, char *argv[])
   set_bvals(&level0_Grid);                            
   if(ires == 0) new_dt(&level0_Grid);
 
-/*--- Step 8. ----------------------------------------------------------------*/
+/*--- Step 7. ----------------------------------------------------------------*/
 /* Set output modes (based on <ouput> blocks in input file).
  * Allocate temporary arrays needed by solver */
 
   init_output(&level0_Grid); 
   lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+
+/*--- Step 8. ----------------------------------------------------------------*/
+/* Set function pointers for integrator; self-gravity (based on dimensions)
+ * Initialize gravitational potential for new runs */
+
+  Integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+#ifdef SELF_GRAVITY
+  SelfGrav = self_gravity_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+  if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
+#endif
 
 /*--- Step 9. ----------------------------------------------------------------*/
 /* Setup complete, force dump of initial conditions with flag=1 */
@@ -349,9 +360,15 @@ int main(int argc, char *argv[])
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
 
-    (*integrate)(&level0_Grid);
+    (*Integrate)(&level0_Grid);
+
+#ifdef SELF_GRAVITY
+    (*SelfGrav)(&level0_Grid, &level0_Domain);
+    selfg_flux_correction(&level0_Grid);
+#endif
 
     Userwork_in_loop(&level0_Grid, &level0_Domain);
+
     set_bvals(&level0_Grid);
 
     level0_Grid.nstep++;
@@ -360,7 +377,7 @@ int main(int argc, char *argv[])
 
 #ifdef MPI_PARALLEL
     if(use_wtlim && (MPI_Wtime() > wtend))
-      iquit = 103;
+      iquit = 103; /* an arbitrary, unused signal number */
 #endif /* MPI_PARALLEL */
 
 /* Update iquit for signals, MPI synchronize and return its value */
