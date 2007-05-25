@@ -163,6 +163,76 @@ void init_grid(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
+/* Build 3D arrays to gravitational potential and mass fluxes */
+
+#ifdef SELF_GRAVITY
+  pG->Phi = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->Phi == NULL) {
+    free_3d_array(pG->U);
+#ifdef MHD
+    free_3d_array(pG->B1i);
+    free_3d_array(pG->B2i);
+    free_3d_array(pG->B3i);
+#endif /* MHD */
+    goto on_error;
+  }
+
+  pG->Phi_old = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->Phi_old == NULL) {
+    free_3d_array(pG->U);
+#ifdef MHD
+    free_3d_array(pG->B1i);
+    free_3d_array(pG->B2i);
+    free_3d_array(pG->B3i);
+#endif /* MHD */
+    free_3d_array(pG->Phi);
+    goto on_error;
+  }
+
+  pG->x1MassFlux = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->x1MassFlux == NULL) {
+    free_3d_array(pG->U);
+#ifdef MHD
+    free_3d_array(pG->B1i);
+    free_3d_array(pG->B2i);
+    free_3d_array(pG->B3i);
+#endif /* MHD */
+    free_3d_array(pG->Phi);
+    free_3d_array(pG->Phi_old);
+    goto on_error;
+  }
+
+  pG->x2MassFlux = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->x2MassFlux == NULL) {
+    free_3d_array(pG->U);
+#ifdef MHD
+    free_3d_array(pG->B1i);
+    free_3d_array(pG->B2i);
+    free_3d_array(pG->B3i);
+#endif /* MHD */
+    free_3d_array(pG->Phi);
+    free_3d_array(pG->Phi_old);
+    free_3d_array(pG->x1MassFlux);
+    goto on_error;
+  }
+
+  pG->x3MassFlux = (Real***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Real));
+  if (pG->x3MassFlux == NULL) {
+    free_3d_array(pG->U);
+#ifdef MHD
+    free_3d_array(pG->B1i);
+    free_3d_array(pG->B2i);
+    free_3d_array(pG->B3i);
+#endif /* MHD */
+    free_3d_array(pG->Phi);
+    free_3d_array(pG->Phi_old);
+    free_3d_array(pG->x1MassFlux);
+    free_3d_array(pG->x2MassFlux);
+    goto on_error;
+  }
+
+#endif /* SELF_GRAVITY */
+
   return;
 
   on_error:
