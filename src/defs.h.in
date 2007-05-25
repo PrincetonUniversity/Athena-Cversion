@@ -31,6 +31,13 @@
 /* ADIABATIC or ISOTHERMAL */
 #define @EOS@
 
+/* Number of passively advected scalars */
+#define NSCALARS @NSCALARS@
+
+/* Self-gravity */
+#define @SELF_GRAVITY_DEFINE@
+#define @SELF_GRAVITY_ALGORITHM@
+
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER */
 #define @ACCURACY@
 
@@ -61,9 +68,6 @@
 
 /* FFT mode: FFT_ENABLED or NO_FFT */
 #define @FFT_MODE@
-
-/* Number of passively advected scalars */
-#define NSCALARS @NSCALARS@
 
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */

@@ -129,6 +129,12 @@ typedef struct Grid_s{
 #ifdef MHD
   Real ***B1i,***B2i,***B3i;    /* pointer to a 3D array of interface B's */
 #endif /* MHD */
+#ifdef SELF_GRAVITY
+  Real ***Phi, ***Phi_old;      /* pointer to 3D array of gravitational pot */
+  Real ***x1MassFlux;           /* x1 mass flux for source term correction */
+  Real ***x2MassFlux;           /* x2 mass flux for source term correction */
+  Real ***x3MassFlux;           /* x3 mass flux for source term correction */
+#endif
   Real x1_0;		        /* x1-position of coordinate ix = 0 */
   Real x2_0;		        /* x2-position of coordinate jx = 0 */
   Real x3_0;		        /* x3-position of coordinate kx = 0 */
@@ -222,6 +228,7 @@ typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
 
 /* Directions for the set_bvals_fun() function */
 enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
-typedef void (*VGFun_t)(Grid *pG); /* VGFun_t -> void grid function type */
+typedef void (*VGFun_t)(Grid *pG);                /* void grid function type  */
+typedef void (*VGDFun_t)(Grid *pG, Domain *pD); /*void grid + domain func typ */
 
 #endif /* ATHENA_H */

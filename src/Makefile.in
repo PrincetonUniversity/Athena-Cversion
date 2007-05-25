@@ -45,6 +45,7 @@ CORE_OBJ = ath_array.o \
            par.o \
            problem.o \
            restart.o \
+	   self_gravity.o \
            set_bvals.o \
            show_config.o \
            utils.o
