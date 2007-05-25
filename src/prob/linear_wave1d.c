@@ -271,6 +271,21 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 #endif /* MHD */
 
+/* For self-gravitating problems, read 4\piG and compute mean density */
+
+#ifdef SELF_GRAVITY
+  four_pi_G = par_getd("problem","four_pi_G");
+
+  grav_mean_rho = 0.0;
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    grav_mean_rho += pGrid->U[k][j][i].d;
+  }}}
+  grav_mean_rho /=
+   ((float)(pGrid->Nx1))*((float)(pGrid->Nx2))*((float)(pGrid->Nx3));
+#endif /* SELF_GRAVITY */
+
   return;
 }
 
