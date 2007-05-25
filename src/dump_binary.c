@@ -25,7 +25,7 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   int dnum = pOut->num;
   FILE *p_binfile;
   char *fname;
-  int n,ndata[5];
+  int n,ndata[6];
 /* Upper and Lower bounds on i,j,k for data dump */
   int i, il = pGrid->is, iu = pGrid->ie;
   int j, jl = pGrid->js, ju = pGrid->je;
@@ -67,7 +67,12 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   ndata[2] = ku-kl+1;
   ndata[3] = NVAR;
   ndata[4] = NSCALARS;
-  fwrite(ndata,sizeof(int),5,p_binfile);
+#ifdef SELF_GRAVITY
+  ndata[5] = 1;
+#else
+  ndata[5] = 0;
+#endif
+  fwrite(ndata,sizeof(int),6,p_binfile);
 
 /* Write (gamma-1) and isothermal sound speed */
 
@@ -136,6 +141,17 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}
   }
+
+#ifdef SELF_GRAVITY
+  for (k=0; k<ndata[2]; k++) {
+  for (j=0; j<ndata[1]; j++) {
+    for (i=0; i<ndata[0]; i++) {
+      pq = ((Real *) &(pGrid->Phi[k+kl][j+jl][i+il]));
+      datax[i] = (float)(*pq);
+    }
+    fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+  }}
+#endif
 
 /* close file and free memory */
   fclose(p_binfile); 
