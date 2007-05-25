@@ -145,6 +145,43 @@ void integrate_1d(Grid *pGrid)
   }
 
 /*--- Step 6 -------------------------------------------------------------------
+ * Add divergence of gravitational stress tensor and energy source terms for
+ * self-gravity, using Phi^{n}, the current value of the potential at t^{n}.
+ * This is going to require a flux correction later using Phi^{n+1} to make
+ * update 2nd order.
+ *    dM/dt = -Div(G);  S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
+ */
+#ifdef SELF_GRAVITY
+  for (i=is; i<=ie; i++) {
+
+/*  Add the source term using Phi^{n} for a full timestep */
+
+      phic = pGrid->Phi[ks][js][i];
+      phil = 0.5*(pGrid->Phi[ks][js][i-1] + pGrid->Phi[ks][js][i  ]);
+      phir = 0.5*(pGrid->Phi[ks][js][i  ] + pGrid->Phi[ks][js][i+1]);
+
+      gxl = (pGrid->Phi[ks][js][i-1] - pGrid->Phi[ks][js][i  ])/(pGrid->dx1);
+      gxr = (pGrid->Phi[ks][js][i  ] - pGrid->Phi[ks][js][i+1])/(pGrid->dx1);
+
+/* 1-momentum flux at cell faces.  grav_mean_rho is non-zero if Jeans swindle
+   was used (potential computed using (\rho - grav_mean_rho))   */
+      flm1 = 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil;
+      frm1 = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
+
+      pGrid->U[ks][js][i].M1 -= dtodx1*(frm1-flm1);
+#ifndef ISOTHERMAL
+      pGrid->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
+                                       x1Flux[i+1].d*(phir - phic));
+#endif
+  }
+
+/* Save mass fluxes in Grid structure for source term correction in main loop */
+  for (i=is; i<=ie+1; i++) {
+    pGrid->x1MassFlux[ks][js][i] = x1Flux[i].d;
+  }
+#endif
+
+/*--- Step 7 -------------------------------------------------------------------
  * Update cell-centered variables in pGrid using 1D-fluxes
  */
 
@@ -165,42 +202,6 @@ void integrate_1d(Grid *pGrid)
       pGrid->U[ks][js][i].s[n] -= dtodx1*(x1Flux[i+1].s[n] - x1Flux[i].s[n]);
 #endif
   }
-
-/*--- Step 7 -------------------------------------------------------------------
- * Add source terms due to self-gravity
- */
-#ifdef SELF_GRAVITY
-  for (i=is; i<=ie; i++) {
-
-/*  Add the source term using the current potential for a full timestep */
-
-      phic = pGrid->Phi[ks][js][i];
-      phil = 0.5*(pGrid->Phi[ks][js][i-1] + pGrid->Phi[ks][js][i  ]);
-      phir = 0.5*(pGrid->Phi[ks][js][i  ] + pGrid->Phi[ks][js][i+1]);
-
-      gxl = (pGrid->Phi[ks][js][i-1] - pGrid->Phi[ks][js][i  ])/(pGrid->dx1);
-      gxr = (pGrid->Phi[ks][js][i  ] - pGrid->Phi[ks][js][i+1])/(pGrid->dx1);
-
-/* 1-momentum flux */
-/*
-      flm1 = 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil;
-      frm1 = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
-*/
-      flm1 = 0.5*(gxl*gxl)/four_pi_G;
-      frm1 = 0.5*(gxr*gxr)/four_pi_G;
-
-      pGrid->U[ks][js][i].M1 += dtodx1*(frm1-flm1);
-#ifndef ISOTHERMAL
-      pGrid->U[ks][js][i].E += dtodx1*(x1Flux[i  ].d*(phil - phic) +
-                                       x1Flux[i+1].d*(phic - phir));
-#endif
-  }
-
-/* Save mass fluxes in Grid structure for source term correction in main loop */
-  for (i=is; i<=ie+1; i++) {
-    pGrid->x1MassFlux[ks][js][i] = x1Flux[i].d;
-  }
-#endif
 
   return;
 }
