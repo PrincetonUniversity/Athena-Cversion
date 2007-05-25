@@ -254,6 +254,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout);
 void restart_grid_block(char *res_file, Grid *pGrid, Domain *pDomain);
 
 /*----------------------------------------------------------------------------*/
+/* self_gravity.c  */
+VGDFun_t self_gravity_init(int Nx1, int Nx2, int Nx3);
+void selfg_flux_correction(Grid *pG);
+void selfg_by_FEBS_1d(Grid *pG, Domain *pD);
+void selfg_by_multig_2d(Grid *pG, Domain *pD);
+void selfg_by_multig_3d(Grid *pG, Domain *pD);
+void selfg_by_fft_1d(Grid *pG, Domain *pD);
+void selfg_by_fft_2d(Grid *pG, Domain *pD);
+void selfg_by_fft_3d(Grid *pG, Domain *pD);
+
+/*----------------------------------------------------------------------------*/
 /* set_bvals.c  */
 void set_bvals_init(Grid *pG, Domain *pD);
 void set_bvals_start(VGFun_t start);
