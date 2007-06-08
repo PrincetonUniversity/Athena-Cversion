@@ -70,7 +70,7 @@ void integrate_1d(Grid *pGrid)
  * Convert to primitive variables, compute L and R states at X1-interfaces.
  */
 
-  for (i=is-2; i<=ie+2; i++) {
+  for (i=is-nghost; i<=ie+nghost; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
   lr_states(W,Bxc,pGrid->dt,dtodx1,is,ie,Wl,Wr);
