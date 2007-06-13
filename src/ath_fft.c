@@ -223,7 +223,7 @@ struct ath_2d_fft_plan *ath_2d_fft_quick_plan(Grid *pGrid, Domain *pD,
 				ath_fft_data *data, ath_fft_direction dir)
 {
   if (pGrid->Nx3 != 1) {
-    ath_error("ath_2d_fft_quick_plan only works for Nx3=0.\n");
+    ath_error("ath_2d_fft_quick_plan only works for Nx3=1.\n");
   }
 
   /* Get size of global FFT grid */
@@ -299,7 +299,7 @@ struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
   }
 #endif /* FFT_BLOCK_DECOMP */
 
-  if (tmp) ath_3d_fft_free(data);
+  if (tmp) ath_2d_fft_free(data);
 
   return ath_plan;
 }
