@@ -154,6 +154,41 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
   }
 #endif
 
+/* Write gravitational potential */
+
+#ifndef SELF_GRAVITY
+  fprintf(pfile,"\nSCALARS gravitational potential float\n");
+  fprintf(pfile,"LOOKUP_TABLE default\n");
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        data[i-il] = (float)pGrid->Phi[k][j][i];
+      }
+      if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+      fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+    }
+  }
+#endif
+
+/* Write passive scalars */
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++){
+    fprintf(pfile,"\nSCALARS scalar[%d] float\n",n);
+    fprintf(pfile,"LOOKUP_TABLE default\n");
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+        for (i=il; i<=iu; i++) {
+          data[i-il] = (float)pGrid->U[k][j][i].s[n];
+        }
+        if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+        fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+      }
+    }
+  }
+#endif
+
+
 /* close file and free memory */
 
   fclose(pfile);
