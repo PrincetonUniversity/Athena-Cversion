@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
 
   Integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 #ifdef SELF_GRAVITY
-  SelfGrav = self_gravity_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+  SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
 #endif
 
