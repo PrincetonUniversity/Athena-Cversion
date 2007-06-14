@@ -52,8 +52,10 @@ VGFun_t integrate_init(int Nx1, int Nx2, int Nx3)
     return THREE_D_INTEGRATOR;
   }
 
-  ath_error("[integrate_init]: Unsupported dim. Nx1=%d, Nx2=%d, Nx3=%d\n",
-	    Nx1,Nx2,Nx3);
+  if (dim == 1)
+    ath_error("[integrate_init]: 1D problem must have Nx1 > 1: Nx1=%d, Nx2=%d, Nx3=%d\n",Nx1,Nx2,Nx3);
+  if (dim == 2)
+     ath_error("[integrate_init]: 2D problem must have Nx1 and Nx2 > 1: Nx1=%d, Nx2=%d, Nx3=%d\n",Nx1,Nx2,Nx3);
 
 /* This is never executed, but generates a warning on some compilers. */
   return NULL;
