@@ -10,13 +10,16 @@
  *     scal[1] = dt
  *     scal[2] = mass
  *     scal[3] = total energy
- *     scal[4] = 0.5*d*v1**2
- *     scal[5] = 0.5*d*v2**2
- *     scal[6] = 0.5*d*v3**2
- *     scal[7] = 0.5*b1**2
- *     scal[8] = 0.5*b2**2
- *     scal[9] = 0.5*b3**2
- *     scal[9+NSCALARS] = passively advected scalars
+ *     scal[4] = d*v1
+ *     scal[5] = d*v2
+ *     scal[6] = d*v3
+ *     scal[7] = 0.5*d*v1**2
+ *     scal[8] = 0.5*d*v2**2
+ *     scal[9] = 0.5*d*v3**2
+ *     scal[10] = 0.5*b1**2
+ *     scal[11] = 0.5*b2**2
+ *     scal[12] = 0.5*b3**2
+ *     scal[12+NSCALARS] = passively advected scalars
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
@@ -34,7 +37,7 @@
 #include "prototypes.h"
 
 /* Number of default history dump columns. */
-#define NSCAL 10
+#define NSCAL 14
 
 /* Maximum number of history dump columns that the user routine can add. */
 #define MAX_USR_H_COUNT 10
@@ -89,13 +92,19 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 #ifdef ADIABATIC
 	scal[3] += pGrid->U[k][j][i].E;
 #endif
-	scal[4] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-	scal[5] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
-	scal[6] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
+	scal[4] += pGrid->U[k][j][i].M1;
+	scal[5] += pGrid->U[k][j][i].M2;
+	scal[6] += pGrid->U[k][j][i].M3;
+	scal[7] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
+	scal[8] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
+	scal[9] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
 #ifdef MHD
-	scal[7] += 0.5*SQR(pGrid->U[k][j][i].B1c);
-	scal[8] += 0.5*SQR(pGrid->U[k][j][i].B2c);
-	scal[9] += 0.5*SQR(pGrid->U[k][j][i].B3c);
+	scal[10] += 0.5*SQR(pGrid->U[k][j][i].B1c);
+	scal[11] += 0.5*SQR(pGrid->U[k][j][i].B2c);
+	scal[12] += 0.5*SQR(pGrid->U[k][j][i].B3c);
+#endif
+#ifdef SELF_GRAVITY
+        scal[13] += pGrid->U[k][j][i].d*pGrid->Phi[k][j][i];
 #endif
 #if (NSCALARS > 0)
 	for(n=0; n<NSCALARS; n++){

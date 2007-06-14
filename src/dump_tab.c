@@ -157,6 +157,12 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
   col_cnt++;
 #endif /* MHD */
 
+/* write out column header for gravitational potential (self-gravity) */
+#ifdef SELF_GRAVITY
+  fprintf(pfile," [%d]=Phi",col_cnt);
+  col_cnt++;
+#endif
+
 /* write out column headers for passive scalars */
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) {
@@ -205,6 +211,10 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
 	fprintf(pfile,fmt,pG->B1i[k][j][i]);
 	fprintf(pfile,fmt,pG->B2i[k][j][i]);
 	fprintf(pfile,fmt,pG->B3i[k][j][i]);
+#endif
+
+#ifdef SELF_GRAVITY
+        fprintf(pfile,fmt,pG->Phi[k][j][i]);
 #endif
 
 #if (NSCALARS > 0)
