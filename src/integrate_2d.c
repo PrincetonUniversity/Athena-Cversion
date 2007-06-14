@@ -2,7 +2,7 @@
 /*==============================================================================
  * FILE: integrate_2d.c
  *
- * PURPOSE: Updates the input Grid structure pointed to by *pGrid by one 
+ * PURPOSE: Updates the input Grid structure pointed to by *pG by one 
  *   timestep using directionally unsplit CTU method of Colella (1990).  The
  *   variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
@@ -67,25 +67,26 @@ static Real **eta1=NULL, **eta2=NULL;
  *============================================================================*/
 
 #ifdef MHD
-static void integrate_emf3_corner(Grid *pGrid);
+static void integrate_emf3_corner(Grid *pG);
 #endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* integrate_2d:  CTU integrator in 2D  */
 
-void integrate_2d(Grid *pGrid)
+void integrate_2d(Grid *pG)
 {
-  Real dtodx1 = pGrid->dt/pGrid->dx1, dtodx2 = pGrid->dt/pGrid->dx2;
-  Real hdt = 0.5*pGrid->dt;
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks;
+  Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2;
+  Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
+  int is = pG->is, ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks;
   int i,il,iu;
   int j,jl,ju;
 #ifdef MHD
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
   Real d, M1, M2, B1c, B2c;
+  Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
   Real cfr,cfl,ur,ul;
@@ -93,7 +94,10 @@ void integrate_2d(Grid *pGrid)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real qa,pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+#ifdef SELF_GRAVITY
+  Real gxl,gxr,gyl,gyr,flux_m1l,flux_m1r,flux_m2l,flux_m2r;
+#endif
 
   il = is - 2;
   iu = ie + 2;
@@ -102,27 +106,28 @@ void integrate_2d(Grid *pGrid)
   ju = je + 2;
 
 /*--- Step 1a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;  U1d = (d, M1, M2, M3, E, B2c, B3c)
+ * Load 1D vector of conserved variables;
+ * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
 
   for (j=jl; j<=ju; j++) {
     for (i=is-nghost; i<=ie+nghost; i++) {
-      U1d[i].d  = pGrid->U[ks][j][i].d;
-      U1d[i].Mx = pGrid->U[ks][j][i].M1;
-      U1d[i].My = pGrid->U[ks][j][i].M2;
-      U1d[i].Mz = pGrid->U[ks][j][i].M3;
+      U1d[i].d  = pG->U[ks][j][i].d;
+      U1d[i].Mx = pG->U[ks][j][i].M1;
+      U1d[i].My = pG->U[ks][j][i].M2;
+      U1d[i].Mz = pG->U[ks][j][i].M3;
 #ifndef ISOTHERMAL
-      U1d[i].E  = pGrid->U[ks][j][i].E;
+      U1d[i].E  = pG->U[ks][j][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      U1d[i].By = pGrid->U[ks][j][i].B2c;
-      U1d[i].Bz = pGrid->U[ks][j][i].B3c;
-      Bxc[i] = pGrid->U[ks][j][i].B1c;
-      Bxi[i] = pGrid->B1i[ks][j][i];
-      B1_x1Face[j][i] = pGrid->B1i[ks][j][i];
+      U1d[i].By = pG->U[ks][j][i].B2c;
+      U1d[i].Bz = pG->U[ks][j][i].B3c;
+      Bxc[i] = pG->U[ks][j][i].B1c;
+      Bxi[i] = pG->B1i[ks][j][i];
+      B1_x1Face[j][i] = pG->B1i[ks][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pGrid->U[ks][j][i].s[n];
+      for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][j][i].s[n];
 #endif
     }
 
@@ -133,37 +138,32 @@ void integrate_2d(Grid *pGrid)
     for (i=is-nghost; i<=ie+nghost; i++) {
       pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
     }
-    lr_states(W,Bxc,pGrid->dt,dtodx1,is-1,ie+1,Wl,Wr);
+    lr_states(W,Bxc,pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
-/*--- Step 1c ------------------------------------------------------------------
- * Add "MHD source terms" for 0.5*dt
- */
+/* Add "MHD source terms" for 0.5*dt */
 
 #ifdef MHD
     for (i=is-1; i<=iu; i++) {
-      MHD_src = (pGrid->U[ks][j][i-1].M2/pGrid->U[ks][j][i-1].d)*
-               (pGrid->B1i[ks][j][i] - pGrid->B1i[ks][j][i-1])/pGrid->dx1;
+      MHD_src = (pG->U[ks][j][i-1].M2/pG->U[ks][j][i-1].d)*
+               (pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1])/pG->dx1;
       Wl[i].By += hdt*MHD_src;
 
-      MHD_src = (pGrid->U[ks][j][i].M2/pGrid->U[ks][j][i].d)*
-               (pGrid->B1i[ks][j][i+1] - pGrid->B1i[ks][j][i])/pGrid->dx1;
+      MHD_src = (pG->U[ks][j][i].M2/pG->U[ks][j][i].d)*
+               (pG->B1i[ks][j][i+1] - pG->B1i[ks][j][i])/pG->dx1;
       Wr[i].By += hdt*MHD_src;
     }
 #endif
 
-/*--- Step 1d ------------------------------------------------------------------
+/*--- Step 1c ------------------------------------------------------------------
  * Add gravitational source terms from static potential for 0.5*dt to L/R states
  */
 
     if (StaticGravPot != NULL){
       for (i=is-1; i<=iu; i++) {
-
-/* Calculate the potential at i [phi-center-right],i-1 [phi-center-left],
- * and i-1/2 [phi-face] */
-        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phicr = (*StaticGravPot)( x1                ,x2,x3);
-        phicl = (*StaticGravPot)((x1-    pGrid->dx1),x2,x3);
-        phifc = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
+        phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
 /* Apply gravitational source terms to velocity using gradient of potential.
  * for (dt/2).   S_{V} = -Grad(Phi) */
@@ -171,6 +171,17 @@ void integrate_2d(Grid *pGrid)
         Wr[i].Vx -= dtodx1*(phicr - phifc);
       }
     }
+
+/*--- Step 1d ------------------------------------------------------------------
+ * Add gravitational source terms for self-gravity for dt/2 to L/R states
+ */
+
+#ifdef SELF_GRAVITY
+    for (i=is-1; i<=iu; i++) {
+      Wl[i].Vx -= hdtodx1*(pG->Phi[ks][j][i] - pG->Phi[ks][j][i-1]);
+      Wr[i].Vx -= hdtodx1*(pG->Phi[ks][j][i] - pG->Phi[ks][j][i-1]);
+    }
+#endif
 
 /*--- Step 1e ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 2D array
@@ -187,27 +198,28 @@ void integrate_2d(Grid *pGrid)
   }
 
 /*--- Step 2a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;  U1d = (d, M2, M3, M1, E, B3c, B1c)
+ * Load 1D vector of conserved variables;
+ * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  */
 
   for (i=il; i<=iu; i++) {
     for (j=js-nghost; j<=je+nghost; j++) {
-      U1d[j].d  = pGrid->U[ks][j][i].d;
-      U1d[j].Mx = pGrid->U[ks][j][i].M2;
-      U1d[j].My = pGrid->U[ks][j][i].M3;
-      U1d[j].Mz = pGrid->U[ks][j][i].M1;
+      U1d[j].d  = pG->U[ks][j][i].d;
+      U1d[j].Mx = pG->U[ks][j][i].M2;
+      U1d[j].My = pG->U[ks][j][i].M3;
+      U1d[j].Mz = pG->U[ks][j][i].M1;
 #ifndef ISOTHERMAL
-      U1d[j].E  = pGrid->U[ks][j][i].E;
+      U1d[j].E  = pG->U[ks][j][i].E;
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      U1d[j].By = pGrid->U[ks][j][i].B3c;
-      U1d[j].Bz = pGrid->U[ks][j][i].B1c;
-      Bxc[j] = pGrid->U[ks][j][i].B2c;
-      Bxi[j] = pGrid->B2i[ks][j][i];
-      B2_x2Face[j][i] = pGrid->B2i[ks][j][i];
+      U1d[j].By = pG->U[ks][j][i].B3c;
+      U1d[j].Bz = pG->U[ks][j][i].B1c;
+      Bxc[j] = pG->U[ks][j][i].B2c;
+      Bxi[j] = pG->B2i[ks][j][i];
+      B2_x2Face[j][i] = pG->B2i[ks][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pGrid->U[ks][j][i].s[n];
+      for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pG->U[ks][j][i].s[n];
 #endif
     }
 
@@ -218,37 +230,32 @@ void integrate_2d(Grid *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
     }
-    lr_states(W,Bxc,pGrid->dt,dtodx2,js-1,je+1,Wl,Wr);
+    lr_states(W,Bxc,pG->dt,dtodx2,js-1,je+1,Wl,Wr);
 
-/*--- Step 2c ------------------------------------------------------------------
- * Add "MHD source terms"
- */
+/* Add "MHD source terms" for 0.5*dt */
 
 #ifdef MHD
     for (j=js-1; j<=ju; j++) {
-      MHD_src = (pGrid->U[ks][j-1][i].M1/pGrid->U[ks][j-1][i].d)*
-        (pGrid->B2i[ks][j][i] - pGrid->B2i[ks][j-1][i])/pGrid->dx2;
+      MHD_src = (pG->U[ks][j-1][i].M1/pG->U[ks][j-1][i].d)*
+        (pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i])/pG->dx2;
       Wl[j].Bz += hdt*MHD_src;
 
-      MHD_src = (pGrid->U[ks][j][i].M1/pGrid->U[ks][j][i].d)*
-        (pGrid->B2i[ks][j+1][i] - pGrid->B2i[ks][j][i])/pGrid->dx2;
+      MHD_src = (pG->U[ks][j][i].M1/pG->U[ks][j][i].d)*
+        (pG->B2i[ks][j+1][i] - pG->B2i[ks][j][i])/pG->dx2;
       Wr[j].Bz += hdt*MHD_src;
     }
 #endif
 
-/*--- Step 2d ------------------------------------------------------------------
+/*--- Step 2c ------------------------------------------------------------------
  * Add gravitational source terms from static potential for 0.5*dt to L/R states
  */
   
     if (StaticGravPot != NULL){
       for (j=js-1; j<=ju; j++) {
-
-/* Calculate the potential at j [phi-center-right],j-1 [phi-center-left],
- * and j-1/2 [phi-face] */
-        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phicr = (*StaticGravPot)(x1, x2                ,x3);
-        phicl = (*StaticGravPot)(x1,(x2-    pGrid->dx2),x3);
-        phifc = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
+        phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
 /* Apply gravitational source terms to velocity using gradient of potential.
  * for (dt/2).   S_{V} = -Grad(Phi) */
@@ -257,15 +264,26 @@ void integrate_2d(Grid *pGrid)
       }
     }
 
+/*--- Step 2d ------------------------------------------------------------------
+ * Add gravitational source terms for self-gravity for dt/2 to L/R states
+ */
+
+#ifdef SELF_GRAVITY
+      for (j=js-1; j<=ju; j++) {
+        Wl[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
+        Wr[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
+      }
+#endif
+
+/*--- Step 2e ------------------------------------------------------------------
+ * Compute 1D fluxes in x2-direction, storing into 2D array
+ */
+
     for (j=js-1; j<=ju; j++) {
       pb = Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j],&Bxi[j]);
       pb = Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j],&Bxi[j]);
     }
   }
-
-/*--- Step 2e ------------------------------------------------------------------
- * Compute 1D fluxes in x2-direction, storing into 2D array
- */
 
   for (j=js-1; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
@@ -281,8 +299,8 @@ void integrate_2d(Grid *pGrid)
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
       emf3_cc[j][i] =
-	(pGrid->U[ks][j][i].B1c*pGrid->U[ks][j][i].M2 -
-	 pGrid->U[ks][j][i].B2c*pGrid->U[ks][j][i].M1 )/pGrid->U[ks][j][i].d;
+	(pG->U[ks][j][i].B1c*pG->U[ks][j][i].M2 -
+	 pG->U[ks][j][i].B2c*pG->U[ks][j][i].M1 )/pG->U[ks][j][i].d;
     }
   }
 
@@ -291,17 +309,17 @@ void integrate_2d(Grid *pGrid)
  * interface magnetic fields using CT for a half time step.
  */
 
-  integrate_emf3_corner(pGrid);
+  integrate_emf3_corner(pG);
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      B1_x1Face[j][i] -= 0.5*dtodx2*(emf3[j+1][i  ] - emf3[j][i]);
-      B2_x2Face[j][i] += 0.5*dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
+      B1_x1Face[j][i] -= hdtodx2*(emf3[j+1][i  ] - emf3[j][i]);
+      B2_x2Face[j][i] += hdtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
-    B1_x1Face[j][iu] -= 0.5*dtodx2*(emf3[j+1][iu] - emf3[j][iu]);
+    B1_x1Face[j][iu] -= hdtodx2*(emf3[j+1][iu] - emf3[j][iu]);
   }
   for (i=is-1; i<=ie+1; i++) {
-    B2_x2Face[ju][i] += 0.5*dtodx1*(emf3[ju][i+1] - emf3[ju][i]);
+    B2_x2Face[ju][i] += hdtodx1*(emf3[ju][i+1] - emf3[ju][i]);
   }
 #endif
 
@@ -310,34 +328,33 @@ void integrate_2d(Grid *pGrid)
  * the x2-direction for 0.5*dt using x2-fluxes computed in Step 2e.
  * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS */
 
-  qa = 0.5*dtodx2;
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=iu; i++) {
-      Ul_x1Face[j][i].d  -= qa*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
-      Ul_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
-      Ul_x1Face[j][i].My -= qa*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
-      Ul_x1Face[j][i].Mz -= qa*(x2Flux[j+1][i-1].My - x2Flux[j][i-1].My);
+      Ul_x1Face[j][i].d  -= hdtodx2*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
+      Ul_x1Face[j][i].Mx -= hdtodx2*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
+      Ul_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
+      Ul_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i-1].My - x2Flux[j][i-1].My);
 #ifndef ISOTHERMAL
-      Ul_x1Face[j][i].E  -= qa*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
+      Ul_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      Ul_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i-1].By - x2Flux[j][i-1].By);
+      Ul_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i-1].By - x2Flux[j][i-1].By);
 #endif
 
-      Ur_x1Face[j][i].d  -= qa*(x2Flux[j+1][i  ].d  - x2Flux[j][i  ].d );
-      Ur_x1Face[j][i].Mx -= qa*(x2Flux[j+1][i  ].Mz - x2Flux[j][i  ].Mz);
-      Ur_x1Face[j][i].My -= qa*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
-      Ur_x1Face[j][i].Mz -= qa*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
+      Ur_x1Face[j][i].d  -= hdtodx2*(x2Flux[j+1][i  ].d  - x2Flux[j][i  ].d );
+      Ur_x1Face[j][i].Mx -= hdtodx2*(x2Flux[j+1][i  ].Mz - x2Flux[j][i  ].Mz);
+      Ur_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
+      Ur_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
 #ifndef ISOTHERMAL
-      Ur_x1Face[j][i].E  -= qa*(x2Flux[j+1][i  ].E  - x2Flux[j][i  ].E );
+      Ur_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i  ].E  - x2Flux[j][i  ].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      Ur_x1Face[j][i].Bz -= qa*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
+      Ur_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
 #endif
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++) {
-        Ul_x1Face[j][i].s[n] -=qa*(x2Flux[j+1][i-1].s[n] - x2Flux[j][i-1].s[n]);
-        Ur_x1Face[j][i].s[n] -=qa*(x2Flux[j+1][i  ].s[n] - x2Flux[j][i  ].s[n]);
+      Ul_x1Face[j][i].s[n]-=hdtodx2*(x2Flux[j+1][i-1].s[n]-x2Flux[j][i-1].s[n]);
+      Ur_x1Face[j][i].s[n]-=hdtodx2*(x2Flux[j+1][i  ].s[n]-x2Flux[j][i  ].s[n]);
       }
 #endif
     }
@@ -348,107 +365,135 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef MHD
-  qa = 0.5*dtodx1;
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=iu; i++) {
-      dbx = pGrid->B1i[ks][j][i] - pGrid->B1i[ks][j][i-1];
-      B1 = pGrid->U[ks][j][i-1].B1c;
-      B2 = pGrid->U[ks][j][i-1].B2c;
-      B3 = pGrid->U[ks][j][i-1].B3c;
-      V3 = pGrid->U[ks][j][i-1].M3/pGrid->U[ks][j][i-1].d;
+      dbx = pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1];
+      B1 = pG->U[ks][j][i-1].B1c;
+      B2 = pG->U[ks][j][i-1].B2c;
+      B3 = pG->U[ks][j][i-1].B3c;
+      V3 = pG->U[ks][j][i-1].M3/pG->U[ks][j][i-1].d;
 
-      Ul_x1Face[j][i].Mx += qa*B1*dbx;
-      Ul_x1Face[j][i].My += qa*B2*dbx;
-      Ul_x1Face[j][i].Mz += qa*B3*dbx;
-      Ul_x1Face[j][i].Bz += qa*V3*dbx;
+      Ul_x1Face[j][i].Mx += hdtodx1*B1*dbx;
+      Ul_x1Face[j][i].My += hdtodx1*B2*dbx;
+      Ul_x1Face[j][i].Mz += hdtodx1*B3*dbx;
+      Ul_x1Face[j][i].Bz += hdtodx1*V3*dbx;
 #ifndef ISOTHERMAL
-      Ul_x1Face[j][i].E  += qa*B3*V3*dbx;
+      Ul_x1Face[j][i].E  += hdtodx1*B3*V3*dbx;
 #endif /* ISOTHERMAL */
 
-      dbx = pGrid->B1i[ks][j][i+1] - pGrid->B1i[ks][j][i];
-      B1 = pGrid->U[ks][j][i].B1c;
-      B2 = pGrid->U[ks][j][i].B2c;
-      B3 = pGrid->U[ks][j][i].B3c;
-      V3 = pGrid->U[ks][j][i].M3/pGrid->U[ks][j][i].d;
+      dbx = pG->B1i[ks][j][i+1] - pG->B1i[ks][j][i];
+      B1 = pG->U[ks][j][i].B1c;
+      B2 = pG->U[ks][j][i].B2c;
+      B3 = pG->U[ks][j][i].B3c;
+      V3 = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
 
-      Ur_x1Face[j][i].Mx += qa*B1*dbx;
-      Ur_x1Face[j][i].My += qa*B2*dbx;
-      Ur_x1Face[j][i].Mz += qa*B3*dbx;
-      Ur_x1Face[j][i].Bz += qa*V3*dbx;
+      Ur_x1Face[j][i].Mx += hdtodx1*B1*dbx;
+      Ur_x1Face[j][i].My += hdtodx1*B2*dbx;
+      Ur_x1Face[j][i].Mz += hdtodx1*B3*dbx;
+      Ur_x1Face[j][i].Bz += hdtodx1*V3*dbx;
 #ifndef ISOTHERMAL
-      Ur_x1Face[j][i].E  += qa*B3*V3*dbx;
+      Ur_x1Face[j][i].E  += hdtodx1*B3*V3*dbx;
 #endif /* ISOTHERMAL */
     }
   }
 #endif /* MHD */
 
 /*--- Step 5c ------------------------------------------------------------------
- * Add gravitational source terms in x2-direction to transverse flux-gradient
- * used to correct L/R states on x1-faces.
+ * Add source terms for a Static Gravitational Potential to L/R states.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
   if (StaticGravPot != NULL){
-    qa = 0.5*dtodx2;
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=iu; i++) {
-        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phic = (*StaticGravPot)(x1, x2                ,x3);
-        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-        Ur_x1Face[j][i].My -= qa*(phir-phil)*pGrid->U[ks][j][i].d;
+        Ur_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x1Face[j][i].E -= qa*(x2Flux[j  ][i  ].d*(phic - phil) +
-                                 x2Flux[j+1][i  ].d*(phir - phic));
+        Ur_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i  ].d*(phic - phil) +
+                                      x2Flux[j+1][i  ].d*(phir - phic));
 #endif
 
-        phic = (*StaticGravPot)((x1-pGrid->dx1), x2                ,x3);
-        phir = (*StaticGravPot)((x1-pGrid->dx1),(x2+0.5*pGrid->dx2),x3);
-        phil = (*StaticGravPot)((x1-pGrid->dx1),(x2-0.5*pGrid->dx2),x3);
+        phic = (*StaticGravPot)((x1-pG->dx1), x2                ,x3);
+        phir = (*StaticGravPot)((x1-pG->dx1),(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)((x1-pG->dx1),(x2-0.5*pG->dx2),x3);
         
-        Ul_x1Face[j][i].My -= qa*(phir-phil)*pGrid->U[ks][j][i-1].d;
+        Ul_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i-1].d;
 #ifndef ISOTHERMAL
-        Ul_x1Face[j][i].E -= qa*(x2Flux[j  ][i-1].d*(phic - phil) +
-                                 x2Flux[j+1][i-1].d*(phir - phic));
+        Ul_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i-1].d*(phic - phil) +
+                                      x2Flux[j+1][i-1].d*(phir - phic));
 #endif
       }
     }
   }
+
+/*--- Step 5d ------------------------------------------------------------------
+ * Add source terms for a self gravity to L/R states.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
+ */
+
+#ifdef SELF_GRAVITY
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=iu; i++) {
+      phic = pG->Phi[ks][j][i];
+      phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j+1][i]);
+      phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j-1][i]);
+
+      Ur_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef ISOTHERMAL
+      Ur_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i  ].d*(phic - phil) +
+                                    x2Flux[j+1][i  ].d*(phir - phic));
+#endif
+
+      phic = pG->Phi[ks][j][i-1];
+      phir = 0.5*(pG->Phi[ks][j][i-1] + pG->Phi[ks][j+1][i-1]);
+      phil = 0.5*(pG->Phi[ks][j][i-1] + pG->Phi[ks][j-1][i-1]);
+
+      Ul_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i-1].d;
+#ifndef ISOTHERMAL
+      Ul_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i-1].d*(phic - phil) +
+                                    x2Flux[j+1][i-1].d*(phir - phic));
+#endif
+    }
+  }
+
+#endif /* SELF_GRAVITY */
 
 /*--- Step 6a ------------------------------------------------------------------
  * Correct the L/R states at x2-interfaces using transverse flux-gradients in
  * the x1-direction for 0.5*dt using x1-fluxes computed in Step 1e.
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS */
 
-  qa = 0.5*dtodx1;
   for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      Ul_x2Face[j][i].d  -= qa*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
-      Ul_x2Face[j][i].Mx -= qa*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
-      Ul_x2Face[j][i].My -= qa*(x1Flux[j-1][i+1].Mz - x1Flux[j-1][i].Mz);
-      Ul_x2Face[j][i].Mz -= qa*(x1Flux[j-1][i+1].Mx - x1Flux[j-1][i].Mx);
+      Ul_x2Face[j][i].d  -= hdtodx1*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
+      Ul_x2Face[j][i].Mx -= hdtodx1*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
+      Ul_x2Face[j][i].My -= hdtodx1*(x1Flux[j-1][i+1].Mz - x1Flux[j-1][i].Mz);
+      Ul_x2Face[j][i].Mz -= hdtodx1*(x1Flux[j-1][i+1].Mx - x1Flux[j-1][i].Mx);
 #ifndef ISOTHERMAL
-      Ul_x2Face[j][i].E  -= qa*(x1Flux[j-1][i+1].E  - x1Flux[j-1][i].E );
+      Ul_x2Face[j][i].E  -= hdtodx1*(x1Flux[j-1][i+1].E  - x1Flux[j-1][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      Ul_x2Face[j][i].By -= qa*(x1Flux[j-1][i+1].Bz - x1Flux[j-1][i].Bz);
+      Ul_x2Face[j][i].By -= hdtodx1*(x1Flux[j-1][i+1].Bz - x1Flux[j-1][i].Bz);
 #endif
 
-      Ur_x2Face[j][i].d  -= qa*(x1Flux[j  ][i+1].d  - x1Flux[j  ][i].d );
-      Ur_x2Face[j][i].Mx -= qa*(x1Flux[j  ][i+1].My - x1Flux[j  ][i].My);
-      Ur_x2Face[j][i].My -= qa*(x1Flux[j  ][i+1].Mz - x1Flux[j  ][i].Mz);
-      Ur_x2Face[j][i].Mz -= qa*(x1Flux[j  ][i+1].Mx - x1Flux[j  ][i].Mx);
+      Ur_x2Face[j][i].d  -= hdtodx1*(x1Flux[j  ][i+1].d  - x1Flux[j  ][i].d );
+      Ur_x2Face[j][i].Mx -= hdtodx1*(x1Flux[j  ][i+1].My - x1Flux[j  ][i].My);
+      Ur_x2Face[j][i].My -= hdtodx1*(x1Flux[j  ][i+1].Mz - x1Flux[j  ][i].Mz);
+      Ur_x2Face[j][i].Mz -= hdtodx1*(x1Flux[j  ][i+1].Mx - x1Flux[j  ][i].Mx);
 #ifndef ISOTHERMAL
-      Ur_x2Face[j][i].E  -= qa*(x1Flux[j  ][i+1].E  - x1Flux[j  ][i].E );
+      Ur_x2Face[j][i].E  -= hdtodx1*(x1Flux[j  ][i+1].E  - x1Flux[j  ][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      Ur_x2Face[j][i].By -= qa*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+      Ur_x2Face[j][i].By -= hdtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
 #endif
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++) {
-        Ul_x2Face[j][i].s[n] -=qa*(x1Flux[j-1][i+1].s[n] - x1Flux[j-1][i].s[n]);
-        Ur_x2Face[j][i].s[n] -=qa*(x1Flux[j  ][i+1].s[n] - x1Flux[j  ][i].s[n]);
+      Ul_x2Face[j][i].s[n]-=hdtodx1*(x1Flux[j-1][i+1].s[n]-x1Flux[j-1][i].s[n]);
+      Ur_x2Face[j][i].s[n]-=hdtodx1*(x1Flux[j  ][i+1].s[n]-x1Flux[j  ][i].s[n]);
       }
 #endif
     }
@@ -459,72 +504,102 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef MHD
-  qa = 0.5*dtodx2;
   for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      dby = pGrid->B2i[ks][j][i] - pGrid->B2i[ks][j-1][i];
-      B1 = pGrid->U[ks][j-1][i].B1c;
-      B2 = pGrid->U[ks][j-1][i].B2c;
-      B3 = pGrid->U[ks][j-1][i].B3c;
-      V3 = pGrid->U[ks][j-1][i].M3/pGrid->U[ks][j-1][i].d;
+      dby = pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i];
+      B1 = pG->U[ks][j-1][i].B1c;
+      B2 = pG->U[ks][j-1][i].B2c;
+      B3 = pG->U[ks][j-1][i].B3c;
+      V3 = pG->U[ks][j-1][i].M3/pG->U[ks][j-1][i].d;
 
-      Ul_x2Face[j][i].Mz += qa*B1*dby;
-      Ul_x2Face[j][i].Mx += qa*B2*dby;
-      Ul_x2Face[j][i].My += qa*B3*dby;
-      Ul_x2Face[j][i].By += qa*V3*dby;
+      Ul_x2Face[j][i].Mz += hdtodx2*B1*dby;
+      Ul_x2Face[j][i].Mx += hdtodx2*B2*dby;
+      Ul_x2Face[j][i].My += hdtodx2*B3*dby;
+      Ul_x2Face[j][i].By += hdtodx2*V3*dby;
 #ifndef ISOTHERMAL
-      Ul_x2Face[j][i].E  += qa*B3*V3*dby;
+      Ul_x2Face[j][i].E  += hdtodx2*B3*V3*dby;
 #endif /* ISOTHERMAL */
 
-      dby = pGrid->B2i[ks][j+1][i] - pGrid->B2i[ks][j][i];
-      B1 = pGrid->U[ks][j][i].B1c;
-      B2 = pGrid->U[ks][j][i].B2c;
-      B3 = pGrid->U[ks][j][i].B3c;
-      V3 = pGrid->U[ks][j][i].M3/pGrid->U[ks][j][i].d;
+      dby = pG->B2i[ks][j+1][i] - pG->B2i[ks][j][i];
+      B1 = pG->U[ks][j][i].B1c;
+      B2 = pG->U[ks][j][i].B2c;
+      B3 = pG->U[ks][j][i].B3c;
+      V3 = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
 
-      Ur_x2Face[j][i].Mz += qa*B1*dby;
-      Ur_x2Face[j][i].Mx += qa*B2*dby;
-      Ur_x2Face[j][i].My += qa*B3*dby;
-      Ur_x2Face[j][i].By += qa*V3*dby;
+      Ur_x2Face[j][i].Mz += hdtodx2*B1*dby;
+      Ur_x2Face[j][i].Mx += hdtodx2*B2*dby;
+      Ur_x2Face[j][i].My += hdtodx2*B3*dby;
+      Ur_x2Face[j][i].By += hdtodx2*V3*dby;
 #ifndef ISOTHERMAL
-      Ur_x2Face[j][i].E  += qa*B3*V3*dby;
+      Ur_x2Face[j][i].E  += hdtodx2*B3*V3*dby;
 #endif /* ISOTHERMAL */
     }
   }
 #endif /* MHD */
 
 /*--- Step 6c ------------------------------------------------------------------
- * Add gravitational source terms in x1-direction to transverse flux-gradient
- * used to correct L/R states on x2-faces.
+ * Add source terms for a Static Gravitational Potential to L/R states.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
   if (StaticGravPot != NULL){
-    qa = 0.5*dtodx1;
     for (j=js-1; j<=ju; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phic = (*StaticGravPot)((x1               ),x2,x3);
-        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-        Ur_x2Face[j][i].Mz -= qa*(phir-phil)*pGrid->U[ks][j][i].d;
+        Ur_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
 #ifndef ISOTHERMAL
-        Ur_x2Face[j][i].E -= qa*(x1Flux[j  ][i  ].d*(phic - phil) +
-                                 x1Flux[j  ][i+1].d*(phir - phic));
+        Ur_x2Face[j][i].E -= hdtodx1*(x1Flux[j  ][i  ].d*(phic - phil) +
+                                      x1Flux[j  ][i+1].d*(phir - phic));
 #endif
 
-        phic = (*StaticGravPot)((x1               ),(x2-pGrid->dx2),x3);
-        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
-        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),(x2-pGrid->dx2),x3);
+        phic = (*StaticGravPot)((x1               ),(x2-pG->dx2),x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 
-        Ul_x2Face[j][i].Mz -= qa*(phir-phil)*pGrid->U[ks][j-1][i].d;
+        Ul_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j-1][i].d;
 #ifndef ISOTHERMAL
-        Ul_x2Face[j][i].E -= qa*(x1Flux[j-1][i  ].d*(phic - phil) +
-                                 x1Flux[j-1][i+1].d*(phir - phic));
+        Ul_x2Face[j][i].E -= hdtodx1*(x1Flux[j-1][i  ].d*(phic - phil) +
+                                      x1Flux[j-1][i+1].d*(phir - phic));
 #endif
       }
     }
   }
+
+/*--- Step 6d ------------------------------------------------------------------
+ * Add source terms for a self gravity to L/R states.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
+ */
+
+#ifdef SELF_GRAVITY
+  for (j=js-1; j<=ju; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      phic = pG->Phi[ks][j][i];
+      phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
+      phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
+
+      Ur_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef ISOTHERMAL
+      Ur_x2Face[j][i].E -= hdtodx1*(x1Flux[j  ][i  ].d*(phic - phil) +
+                                    x1Flux[j  ][i+1].d*(phir - phic));
+#endif
+
+      phic = pG->Phi[ks][j-1][i];
+      phir = 0.5*(pG->Phi[ks][j-1][i] + pG->Phi[ks][j-1][i+1]);
+      phil = 0.5*(pG->Phi[ks][j-1][i] + pG->Phi[ks][j-1][i-1]);
+
+      Ul_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j-1][i].d;
+#ifndef ISOTHERMAL
+      Ul_x2Face[j][i].E -= hdtodx1*(x1Flux[j-1][i  ].d*(phic - phil) +
+                                    x1Flux[j-1][i+1].d*(phir - phic));
+#endif
+    }
+  }
+
+#endif /* SELF_GRAVITY */
 
 /*--- Step 7 ------------------------------------------------------------------
  * Calculate the cell centered value of emf_3 at t^{n+1/2}, needed by CT 
@@ -534,9 +609,9 @@ void integrate_2d(Grid *pGrid)
   if (dhalf != NULL){
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        dhalf[j][i] = pGrid->U[ks][j][i].d
-          - 0.5*dtodx1*(x1Flux[j  ][i+1].d - x1Flux[j][i].d)
-          - 0.5*dtodx2*(x2Flux[j+1][i  ].d - x2Flux[j][i].d);
+        dhalf[j][i] = pG->U[ks][j][i].d
+          - hdtodx1*(x1Flux[j  ][i+1].d - x1Flux[j][i].d)
+          - hdtodx2*(x2Flux[j+1][i  ].d - x2Flux[j][i].d);
       }
     }
   }
@@ -544,26 +619,26 @@ void integrate_2d(Grid *pGrid)
 #ifdef MHD
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+      cc_pos(pG,i,j,ks,&x1,&x2,&x3);
 
       d  = dhalf[j][i];
 
-      M1 = pGrid->U[ks][j][i].M1
-        - 0.5*dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
-        - 0.5*dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+      M1 = pG->U[ks][j][i].M1
+        - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+        - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
       if (StaticGravPot != NULL){
-        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
-        M1 -= 0.5*dtodx1*(phir-phil)*pGrid->U[ks][j][i].d;
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
       }
 
-      M2 = pGrid->U[ks][j][i].M2
-        - 0.5*dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
-        - 0.5*dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+      M2 = pG->U[ks][j][i].M2
+        - hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
+        - hdtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
       if (StaticGravPot != NULL){
-        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
-        M2 -= 0.5*dtodx2*(phir-phil)*pGrid->U[ks][j][i].d;
+        phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+        M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
       }
 
       B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
@@ -640,22 +715,22 @@ void integrate_2d(Grid *pGrid)
  */
 
 #ifdef MHD
-  integrate_emf3_corner(pGrid);
+  integrate_emf3_corner(pG);
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pGrid->B1i[ks][j][i] -= dtodx2*(emf3[j+1][i  ] - emf3[j][i]);
-      pGrid->B2i[ks][j][i] += dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
+      pG->B1i[ks][j][i] -= dtodx2*(emf3[j+1][i  ] - emf3[j][i]);
+      pG->B2i[ks][j][i] += dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
-    pGrid->B1i[ks][j][ie+1] -= dtodx2*(emf3[j+1][ie+1] - emf3[j][ie+1]);
+    pG->B1i[ks][j][ie+1] -= dtodx2*(emf3[j+1][ie+1] - emf3[j][ie+1]);
   }
   for (i=is; i<=ie; i++) {
-    pGrid->B2i[ks][je+1][i] += dtodx1*(emf3[je+1][i+1] - emf3[je+1][i]);
+    pG->B2i[ks][je+1][i] += dtodx1*(emf3[je+1][i+1] - emf3[je+1][i]);
   }
 #endif
 
 
-/*--- Step 10 ------------------------------------------------------------------
+/*--- Step 10a -----------------------------------------------------------------
  * Add the gravitational source terms at second order.  To improve conservation
  * of total energy, we average the energy source term computed at cell faces.
  *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
@@ -664,50 +739,133 @@ void integrate_2d(Grid *pGrid)
   if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phic = (*StaticGravPot)((x1               ),x2,x3);
-        phir = (*StaticGravPot)((x1+0.5*pGrid->dx1),x2,x3);
-        phil = (*StaticGravPot)((x1-0.5*pGrid->dx1),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-        pGrid->U[ks][j][i].M1 -= dtodx1*dhalf[j][i]*(phir-phil);
+        pG->U[ks][j][i].M1 -= dtodx1*dhalf[j][i]*(phir-phil);
 
 #ifndef ISOTHERMAL
-        pGrid->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
+        pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
                                         x1Flux[j][i+1].d*(phir - phic));
 #endif
-        phir = (*StaticGravPot)(x1,(x2+0.5*pGrid->dx2),x3);
-        phil = (*StaticGravPot)(x1,(x2-0.5*pGrid->dx2),x3);
+        phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-        pGrid->U[ks][j][i].M2 -= dtodx2*dhalf[j][i]*(phir-phil);
+        pG->U[ks][j][i].M2 -= dtodx2*dhalf[j][i]*(phir-phil);
 
 #ifndef ISOTHERMAL
-        pGrid->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
+        pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
                                         x2Flux[j+1][i].d*(phir - phic));
 #endif
       }
     }
   }
 
+/*--- Step 10b -----------------------------------------------------------------
+ * Add gravitational source terms for self-gravity.
+ * A flux correction using Phi^{n+1} in the main loop is required to make
+ * the source terms 2nd order: see selfg_flux_correction().
+ */
+#ifdef SELF_GRAVITY
+/* Add fluxes and source terms due to (d/dx1) terms  */
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+      phic = pG->Phi[ks][j][i];
+      phil = 0.5*(pG->Phi[ks][j][i-1] + pG->Phi[ks][j][i  ]);
+      phir = 0.5*(pG->Phi[ks][j][i  ] + pG->Phi[ks][j][i+1]);
+
+/* gx and gy centered at L and R x1-faces */
+      gxl = (pG->Phi[ks][j][i-1] - pG->Phi[ks][j][i  ])/(pG->dx1);
+      gxr = (pG->Phi[ks][j][i  ] - pG->Phi[ks][j][i+1])/(pG->dx1);
+
+      gyl = 0.25*((pG->Phi[ks][j-1][i-1] - pG->Phi[ks][j+1][i-1]) +
+                  (pG->Phi[ks][j-1][i  ] - pG->Phi[ks][j+1][i  ]) )/(pG->dx2);
+      gyr = 0.25*((pG->Phi[ks][j-1][i  ] - pG->Phi[ks][j+1][i  ]) +
+                  (pG->Phi[ks][j-1][i+1] - pG->Phi[ks][j+1][i+1]) )/(pG->dx2);
+
+/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
+      flux_m1l = 0.5*(gxl*gxl-gyl*gyl)/four_pi_G + grav_mean_rho*phil;
+      flux_m1r = 0.5*(gxr*gxr-gyr*gyr)/four_pi_G + grav_mean_rho*phir;
+
+      flux_m2l = gxl*gyl/four_pi_G;
+      flux_m2r = gxr*gyr/four_pi_G;
+
+/* Update momenta and energy with d/dx1 terms  */
+      pG->U[ks][j][i].M1 -= dtodx1*(flux_m1r - flux_m1l);
+      pG->U[ks][j][i].M2 -= dtodx1*(flux_m2r - flux_m2l);
+#ifndef ISOTHERMAL
+      pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
+                                   x1Flux[j][i+1].d*(phir - phic));
+#endif
+    }
+  }
+
+/* Add fluxes and source terms due to (d/dx2) terms  */
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+      phic = pG->Phi[ks][j][i];
+      phil = 0.5*(pG->Phi[ks][j-1][i] + pG->Phi[ks][j  ][i]);
+      phir = 0.5*(pG->Phi[ks][j  ][i] + pG->Phi[ks][j+1][i]);
+
+/* gx and gy centered at L and R x2-faces */
+      gxl = 0.25*((pG->Phi[ks][j-1][i-1] - pG->Phi[ks][j-1][i+1]) +
+                  (pG->Phi[ks][j  ][i-1] - pG->Phi[ks][j  ][i+1]) )/(pG->dx1);
+      gxr = 0.25*((pG->Phi[ks][j  ][i-1] - pG->Phi[ks][j  ][i+1]) +
+                  (pG->Phi[ks][j+1][i-1] - pG->Phi[ks][j+1][i+1]) )/(pG->dx1);
+
+      gyl = (pG->Phi[ks][j-1][i] - pG->Phi[ks][j  ][i])/(pG->dx2);
+      gyr = (pG->Phi[ks][j  ][i] - pG->Phi[ks][j+1][i])/(pG->dx2);
+
+/* momentum fluxes in x2.  2nd term is needed only if Jean's swindle used */
+      flux_m1l = gyl*gxl/four_pi_G;
+      flux_m1r = gyr*gxr/four_pi_G;
+
+      flux_m2l = 0.5*(gyl*gyl-gxl*gxl)/four_pi_G + grav_mean_rho*phil;
+      flux_m2r = 0.5*(gyr*gyr-gxr*gxr)/four_pi_G + grav_mean_rho*phir;
+
+/* Update momenta and energy with d/dx2 terms  */
+      pG->U[ks][j][i].M1 -= dtodx2*(flux_m1r - flux_m1l);
+      pG->U[ks][j][i].M2 -= dtodx2*(flux_m2r - flux_m2l);
+#ifndef ISOTHERMAL
+      pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
+                                   x2Flux[j+1][i].d*(phir - phic));
+#endif
+    }
+  }
+
+/* Save mass fluxes in Grid structure for source term correction in main loop */
+  for (j=js; j<=je+1; j++) {
+    for (i=is; i<=ie+1; i++) {
+      pG->x1MassFlux[ks][j][i] = x1Flux[j][i].d;
+      pG->x2MassFlux[ks][j][i] = x2Flux[j][i].d;
+    }
+  }
+#endif /* SELF_GRAVITY */
+
 /*--- Step 11a -----------------------------------------------------------------
- * Update cell-centered variables in pGrid using x1-fluxes
+ * Update cell-centered variables in pG using x1-fluxes
  */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pGrid->U[ks][j][i].d  -= dtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
-      pGrid->U[ks][j][i].M1 -= dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
-      pGrid->U[ks][j][i].M2 -= dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
-      pGrid->U[ks][j][i].M3 -= dtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
+      pG->U[ks][j][i].d  -= dtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
+      pG->U[ks][j][i].M1 -= dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
+      pG->U[ks][j][i].M2 -= dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
+      pG->U[ks][j][i].M3 -= dtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
 #ifndef ISOTHERMAL
-      pGrid->U[ks][j][i].E  -= dtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
+      pG->U[ks][j][i].E  -= dtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      pGrid->U[ks][j][i].B2c -= dtodx1*(x1Flux[j][i+1].By - x1Flux[j][i].By);
-      pGrid->U[ks][j][i].B3c -= dtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+      pG->U[ks][j][i].B2c -= dtodx1*(x1Flux[j][i+1].By - x1Flux[j][i].By);
+      pG->U[ks][j][i].B3c -= dtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
 #endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        pGrid->U[ks][j][i].s[n] -= dtodx1*(x1Flux[j][i+1].s[n] 
+        pG->U[ks][j][i].s[n] -= dtodx1*(x1Flux[j][i+1].s[n] 
                                          - x1Flux[j][i  ].s[n]);
 #endif
 
@@ -715,25 +873,25 @@ void integrate_2d(Grid *pGrid)
   }
 
 /*--- Step 11b -----------------------------------------------------------------
- * Update cell-centered variables in pGrid using x2-fluxes
+ * Update cell-centered variables in pG using x2-fluxes
  */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pGrid->U[ks][j][i].d  -= dtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
-      pGrid->U[ks][j][i].M1 -= dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-      pGrid->U[ks][j][i].M2 -= dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
-      pGrid->U[ks][j][i].M3 -= dtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
+      pG->U[ks][j][i].d  -= dtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
+      pG->U[ks][j][i].M1 -= dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+      pG->U[ks][j][i].M2 -= dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+      pG->U[ks][j][i].M3 -= dtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
 #ifndef ISOTHERMAL
-      pGrid->U[ks][j][i].E  -= dtodx2*(x2Flux[j+1][i].E  - x2Flux[j][i].E );
+      pG->U[ks][j][i].E  -= dtodx2*(x2Flux[j+1][i].E  - x2Flux[j][i].E );
 #endif /* ISOTHERMAL */
 #ifdef MHD
-      pGrid->U[ks][j][i].B3c -= dtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
-      pGrid->U[ks][j][i].B1c -= dtodx2*(x2Flux[j+1][i].Bz - x2Flux[j][i].Bz);
+      pG->U[ks][j][i].B3c -= dtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
+      pG->U[ks][j][i].B1c -= dtodx2*(x2Flux[j+1][i].Bz - x2Flux[j][i].Bz);
 #endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        pGrid->U[ks][j][i].s[n] -= dtodx2*(x2Flux[j+1][i].s[n] 
+        pG->U[ks][j][i].s[n] -= dtodx2*(x2Flux[j+1][i].s[n] 
                                          - x2Flux[j  ][i].s[n]);
 #endif
     }
@@ -748,10 +906,10 @@ void integrate_2d(Grid *pGrid)
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
 
-      pGrid->U[ks][j][i].B1c =0.5*(pGrid->B1i[ks][j][i]+pGrid->B1i[ks][j][i+1]);
-      pGrid->U[ks][j][i].B2c =0.5*(pGrid->B2i[ks][j][i]+pGrid->B2i[ks][j+1][i]);
+      pG->U[ks][j][i].B1c =0.5*(pG->B1i[ks][j][i]+pG->B1i[ks][j][i+1]);
+      pG->U[ks][j][i].B2c =0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
 /* Set the 3-interface magnetic field equal to the cell center field. */
-      pGrid->B3i[ks][j][i] = pGrid->U[ks][j][i].B3c;
+      pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
     }
   }
 #endif /* MHD */
@@ -872,13 +1030,13 @@ void integrate_init_2d(int nx1, int nx2)
 /* integrate_emf3_corner:  */
 
 #ifdef MHD
-static void integrate_emf3_corner(Grid *pGrid)
+static void integrate_emf3_corner(Grid *pG)
 {
   int i,is,ie,j,js,je;
   Real emf_l1, emf_r1, emf_l2, emf_r2;
 
-  is = pGrid->is;   ie = pGrid->ie;
-  js = pGrid->js;   je = pGrid->je;
+  is = pG->is;   ie = pG->ie;
+  js = pG->js;   je = pG->je;
 
 /* NOTE: The x1-Flux of B2 is -E3.  The x2-Flux of B1 is +E3. */
   for (j=js-1; j<=je+2; j++) {
