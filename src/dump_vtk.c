@@ -156,7 +156,7 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Write gravitational potential */
 
-#ifndef SELF_GRAVITY
+#ifdef SELF_GRAVITY
   fprintf(pfile,"\nSCALARS gravitational potential float\n");
   fprintf(pfile,"LOOKUP_TABLE default\n");
   for (k=kl; k<=ku; k++) {
