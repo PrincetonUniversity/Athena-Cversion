@@ -255,14 +255,18 @@ void restart_grid_block(char *res_file, Grid *pGrid, Domain *pDomain);
 
 /*----------------------------------------------------------------------------*/
 /* self_gravity.c  */
-VGDFun_t self_gravity_init(int Nx1, int Nx2, int Nx3);
+VGDFun_t selfg_init(Grid *pG, Domain *pD);
 void selfg_flux_correction(Grid *pG);
-void selfg_by_FEBS_1d(Grid *pG, Domain *pD);
+void selfg_by_multig_1d(Grid *pG, Domain *pD);
 void selfg_by_multig_2d(Grid *pG, Domain *pD);
 void selfg_by_multig_3d(Grid *pG, Domain *pD);
+#ifdef FFT_ENABLED && SELF_GRAVITY_USING_FFT
 void selfg_by_fft_1d(Grid *pG, Domain *pD);
 void selfg_by_fft_2d(Grid *pG, Domain *pD);
 void selfg_by_fft_3d(Grid *pG, Domain *pD);
+void selfg_by_fft_2d_init(Grid *pG, Domain *pD);
+void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
+#endif /* FFT_ENABLED */
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals.c  */
