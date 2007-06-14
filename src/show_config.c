@@ -39,6 +39,14 @@ void show_config(void)
   nscal = NSCALARS;
   ath_pout(0," Passive scalars:         %d\n",nscal);
 
+#if defined(SELF_GRAVITY_USING_MULTIGRID)
+  ath_pout(0," Self-gravity:            using multigrid\n");
+#elif defined(SELF_GRAVITY_USING_FFT)
+  ath_pout(0," Self-gravity:            using FFTs\n");
+#else
+  ath_pout(0," Self-gravity:            none\n");
+#endif
+
 #if defined(FIRST_ORDER)
   ath_pout(0," Order of Accuracy:       1 (FIRST_ORDER)\n");
 #elif defined(SECOND_ORDER)
@@ -71,10 +79,17 @@ void show_config(void)
 #else
   ath_pout(0,"   MPI:                   undefined\n");
 #endif
+
 #ifdef H_CORRECTION
   ath_pout(0," H-correction:            enabled\n");
 #else
   ath_pout(0," H-correction:            disabled\n");
+#endif
+
+#ifdef FFT_ENABLED
+  ath_pout(0," FFT:                     enabled\n");
+#else
+  ath_pout(0," FFT:                     disabled\n");
 #endif
 }
 
@@ -99,6 +114,14 @@ void show_config_par(void)
 #endif
 
   par_seti("configure","nscalars","%d",NSCALARS,"Number of passive scalars");
+
+#if defined(SELF_GRAVITY_USING_MULTIGRID)
+  par_sets("configure","self-gravity","multigrid","Self-gravity algorithm");
+#elif defined(SELF_GRAVITY_USING_FFT)
+  par_sets("configure","self-gravity","FFT","Self-gravity algorithm");
+#else
+  par_sets("configure","self-gravity","none","Self-gravity algorithm");
+#endif
 
 #if defined(FIRST_ORDER)
   par_seti("configure","order","%d",1,"Order of accuracy");
@@ -133,6 +156,12 @@ void show_config_par(void)
   par_sets("configure","H-correction","yes","H-correction enabled?");
 #else
   par_sets("configure","H-correction","no","H-correction enabled?");
+#endif
+
+#ifdef FFT_ENABLED
+  par_sets("configure","FFT","yes","FFT enabled?");
+#else
+  par_sets("configure","FFT","no","FFT enabled?");
 #endif
 
   return;
