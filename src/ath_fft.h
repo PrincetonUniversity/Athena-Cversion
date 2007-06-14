@@ -16,7 +16,7 @@
  *
  *  Written by Nicole Lemaster on February 25, 2007
  *
- *  Last updated March 1, 2007
+ *  Last updated June 14, 2007
  *
  **************************************************************************/
 
@@ -45,13 +45,13 @@
 
 /* Indexing convention of FFT data
  * FFT Nfast=k, Nmid=j, Nslow=i (opposite to Athena) */
-#define F3DI(i, j, k, nx1, nx2, nx3) ((k) + nx3*((j) + nx2*(i)))
-#define F2DI(i, j, nx1, nx2) ((j) + nx2*(i))
+#define F3DI(i, j, k, nx1, nx2, nx3) ((k) + (nx3)*((j) + (nx2)*(i)))
+#define F2DI(i, j, nx1, nx2) ((j) + (nx2)*(i))
 
 /* Any component of wavenumber k
  * e.g. KCOMP(i-is, is+idisp, nx1)
  * where nx1 is the size of the global grid */
-#define KCOMP(a, gas, gnxa) ((double)((a+gas)-(int)(2*(a+gas)/gnxa)*gnxa))
+#define KCOMP(a, gas, gnxa) ((double)(((a)+(gas))-(int)(2*((a)+(gas))/(gnxa))*(gnxa)))
 
 typedef enum {
   ATH_FFT_FORWARD=1, ATH_FFT_BACKWARD=-1
