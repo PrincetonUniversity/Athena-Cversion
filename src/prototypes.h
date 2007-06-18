@@ -260,7 +260,7 @@ void selfg_flux_correction(Grid *pG);
 void selfg_by_multig_1d(Grid *pG, Domain *pD);
 void selfg_by_multig_2d(Grid *pG, Domain *pD);
 void selfg_by_multig_3d(Grid *pG, Domain *pD);
-#ifdef FFT_ENABLED && SELF_GRAVITY_USING_FFT
+#if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT)
 void selfg_by_fft_1d(Grid *pG, Domain *pD);
 void selfg_by_fft_2d(Grid *pG, Domain *pD);
 void selfg_by_fft_3d(Grid *pG, Domain *pD);
