@@ -19,7 +19,8 @@
  *     scal[10] = 0.5*b1**2
  *     scal[11] = 0.5*b2**2
  *     scal[12] = 0.5*b3**2
- *     scal[12+NSCALARS] = passively advected scalars
+ *     scal[13] = d*Phi
+ *     scal[13+NSCALARS] = passively advected scalars
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
@@ -112,7 +113,7 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 	}
 #endif
 
-/* Calculate the user defined history columns */
+/* Calculate the user defined history variables */
 	for(n=0; n<usr_hst_cnt; n++){
 	  scal[NSCAL + NSCALARS + n] += (*phst_fun[n])(pGrid, i, j, k);
 	}
@@ -121,20 +122,13 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
 /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
-  vol_rat = (ie-is+1)*(je-js+1)*(ke-ks+1);
+  vol_rat = (pD->ixe - pD->ixs + 1)*(pD->jxe - pD->jxs + 1)*
+            (pD->kxe - pD->kxs + 1);
 
-/* The parent sums the scal[] arrays and the vol_rat over the
- * children processes.  Note that this assumes (dx1,dx2,dx3) = const. */
+/* The parent sums the scal[] array.
+ * Note that this assumes (dx1,dx2,dx3) = const. */
 
 #ifdef MPI_PARALLEL 
-
-  my_vol_rat = vol_rat;
-  err = MPI_Reduce(&my_vol_rat, &vol_rat, 1,
-		   MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-  if(err)
-    ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
-
-/* Copy the scal[] array to my_scal[] so that scal[] can store the sum */
   for(i=2; i<total_hst_cnt; i++){
     my_scal[i] = scal[i];
   }
@@ -142,7 +136,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 		   MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
   if(err)
     ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
-
 #endif
 
 /* For parallel calculations, only the parent computes the average
@@ -164,9 +157,14 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
   if(pOut->num == 0){
-/* Write out some header information */
-    fprintf(p_hstfile,"# time dt density E-tot.");
-    fprintf(p_hstfile," x1-K.E. x2-K.E. x3-K.E. x1-M.E. x2-M.E. x3-M.E.");
+
+/* Write out column headers */
+
+    fprintf(p_hstfile,"#  [1]=time       [2]=dt         [3]=mass       ");
+    fprintf(p_hstfile,"[4]=total E    [5]=x1 Mom.    [6]=x2 Mom.    ");
+    fprintf(p_hstfile,"[7]=x3 Mom.    [8]=x1-KE      [9]=x2-KE      ");
+    fprintf(p_hstfile,"[10]=x3-KE     [11]=x1-KE     [12]=x2-KE     ");
+    fprintf(p_hstfile,"[13]=x3-KE     [14]=grav PE");
 #if (NSCALARS > 0)
     for(n=0; n<NSCALARS; n++){
       fprintf(p_hstfile," scalar %i",n);
