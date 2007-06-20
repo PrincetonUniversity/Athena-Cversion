@@ -192,14 +192,14 @@ void selfg_flux_correction(Grid *pG)
         gxr = (dPhi[k][j][i  ] - dPhi[k][j][i+1])/(pG->dx1);
 
         gyl = 0.25*((dPhi[k][j-1][i-1] - dPhi[k][j+1][i-1]) +
-                    (dPhi[k][j-1][i  ] - dPhi[k][j+1][i  ]) )/(pG->dx2);
+                    (dPhi[k][j-1][i  ] - dPhi[k][j+1][i  ]))/(pG->dx2);
         gyr = 0.25*((dPhi[k][j-1][i  ] - dPhi[k][j+1][i  ]) +
-                    (dPhi[k][j-1][i+1] - dPhi[k][j+1][i+1]) )/(pG->dx2);
+                    (dPhi[k][j-1][i+1] - dPhi[k][j+1][i+1]))/(pG->dx2);
 
         gzl = 0.25*((dPhi[k-1][j][i-1] - dPhi[k+1][j][i-1]) +
-                    (dPhi[k-1][j][i  ] - dPhi[k+1][j][i  ]) )/(pG->dx3);
+                    (dPhi[k-1][j][i  ] - dPhi[k+1][j][i  ]))/(pG->dx3);
         gzr = 0.25*((dPhi[k-1][j][i  ] - dPhi[k+1][j][i  ]) +
-                    (dPhi[k-1][j][i+1] - dPhi[k+1][j][i+1]) )/(pG->dx3);
+                    (dPhi[k-1][j][i+1] - dPhi[k+1][j][i+1]))/(pG->dx3);
 
 /* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
         flx_m1l = 0.5*(gxl*gxl-gyl*gyl-gzl*gzl)/four_pi_G + grav_mean_rho*dphil;
@@ -217,8 +217,8 @@ void selfg_flux_correction(Grid *pG)
         pG->U[k][j][i].M3 -= 0.5*dtodx1*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
         pG->U[k][j][i].E -= 0.5*dtodx1*
-          (pG->x1MassFlux[k][j][i-1]*(dphic - dphil) +
-           pG->x1MassFlux[k][j][i  ]*(dphir - dphic));
+          (pG->x1MassFlux[k][j][i  ]*(dphic - dphil) +
+           pG->x1MassFlux[k][j][i+1]*(dphir - dphic));
 #endif /* ADIABATIC */
       }
     }}
@@ -234,19 +234,19 @@ void selfg_flux_correction(Grid *pG)
 
 /* gx, gy and gz centered at L and R x2-faces */
         gxl = 0.25*((dPhi[k][j-1][i-1] - dPhi[k][j-1][i+1]) +
-                    (dPhi[k][j  ][i-1] - dPhi[k][j  ][i+1]) )/(pG->dx1);
+                    (dPhi[k][j  ][i-1] - dPhi[k][j  ][i+1]))/(pG->dx1);
         gxr = 0.25*((dPhi[k][j  ][i-1] - dPhi[k][j  ][i+1]) +
-                    (dPhi[k][j+1][i-1] - dPhi[k][j+1][i+1]) )/(pG->dx1);
+                    (dPhi[k][j+1][i-1] - dPhi[k][j+1][i+1]))/(pG->dx1);
 
         gyl = (dPhi[k][j-1][i] - dPhi[k][j  ][i])/(pG->dx2);
         gyr = (dPhi[k][j  ][i] - dPhi[k][j+1][i])/(pG->dx2);
 
         gzl = 0.25*((dPhi[k-1][j-1][i] - dPhi[k+1][j-1][i]) +
-                    (dPhi[k-1][j  ][i] - dPhi[k+1][j  ][i]) )/(pG->dx3);
+                    (dPhi[k-1][j  ][i] - dPhi[k+1][j  ][i]))/(pG->dx3);
         gzr = 0.25*((dPhi[k-1][j  ][i] - dPhi[k+1][j  ][i]) +
-                    (dPhi[k-1][j+1][i] - dPhi[k+1][j+1][i]) )/(pG->dx3);
+                    (dPhi[k-1][j+1][i] - dPhi[k+1][j+1][i]))/(pG->dx3);
 
-/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
+/* momentum fluxes in x2.  2nd term is needed only if Jean's swindle used */
         flx_m1l = gyl*gxl/four_pi_G;
         flx_m1r = gyr*gxr/four_pi_G;
 
@@ -256,28 +256,28 @@ void selfg_flux_correction(Grid *pG)
         flx_m3l = gyl*gzl/four_pi_G;
         flx_m3r = gyr*gzr/four_pi_G;
 
-/* Update momenta and energy with d/dx1 terms  */
+/* Update momenta and energy with d/dx2 terms  */
         pG->U[k][j][i].M1 -= 0.5*dtodx2*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= 0.5*dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx2*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
         pG->U[k][j][i].E -= 0.5*dtodx2*
-          (pG->x2MassFlux[k][j-1][i]*(dphic - dphil) +
-           pG->x2MassFlux[k][j  ][i]*(dphir - dphic));
+          (pG->x2MassFlux[k][j  ][i]*(dphic - dphil) +
+           pG->x2MassFlux[k][j+1][i]*(dphir - dphic));
 #endif /* ADIABATIC */
       }
     }}
 
-/* Step 2 for 3D.  Add fluxes and source terms due to (d/dx2) terms  */
+/* Step 3 for 3D.  Add fluxes and source terms due to (d/dx3) terms  */
 
     for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
         dphic = dPhi[k][j][i];
-        dphil = 0.5*(dPhi[k-1][j][i] + dPhi[k+1][j][i]);
-        dphir = 0.5*(dPhi[k  ][j][i] + dPhi[k  ][j][i]);
+        dphil = 0.5*(dPhi[k-1][j][i] + dPhi[k  ][j][i]);
+        dphir = 0.5*(dPhi[k  ][j][i] + dPhi[k+1][j][i]);
 
-/* gx, gy and gz centered at L and R x2-faces */
+/* gx, gy and gz centered at L and R x3-faces */
         gxl = 0.25*((dPhi[k-1][j][i-1] - dPhi[k-1][j][i+1]) +
                     (dPhi[k  ][j][i-1] - dPhi[k  ][j][i+1]) )/(pG->dx1);
         gxr = 0.25*((dPhi[k  ][j][i-1] - dPhi[k  ][j][i+1]) +
@@ -286,12 +286,12 @@ void selfg_flux_correction(Grid *pG)
         gyl = 0.25*((dPhi[k-1][j-1][i] - dPhi[k-1][j+1][i]) +
                     (dPhi[k  ][j-1][i] - dPhi[k  ][j+1][i]) )/(pG->dx2);
         gyr = 0.25*((dPhi[k  ][j-1][i] - dPhi[k  ][j+1][i]) +
-                    (dPhi[k-1][j-1][i] - dPhi[k+1][j+1][i]) )/(pG->dx2);
+                    (dPhi[k+1][j-1][i] - dPhi[k+1][j+1][i]) )/(pG->dx2);
 
         gzl = (dPhi[k-1][j][i] - dPhi[k  ][j][i])/(pG->dx3);
         gzr = (dPhi[k  ][j][i] - dPhi[k+1][j][i])/(pG->dx3);
 
-/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
+/* momentum fluxes in x3.  2nd term is needed only if Jean's swindle used */
         flx_m1l = gzl*gxl/four_pi_G;
         flx_m1r = gzr*gxr/four_pi_G;
 
@@ -301,14 +301,14 @@ void selfg_flux_correction(Grid *pG)
         flx_m3l = 0.5*(gzl*gzl-gxl*gxl-gyl*gyl)/four_pi_G + grav_mean_rho*dphil;
         flx_m3r = 0.5*(gzr*gzr-gxr*gxr-gyr*gyr)/four_pi_G + grav_mean_rho*dphir;
 
-/* Update momenta and energy with d/dx1 terms  */
+/* Update momenta and energy with d/dx3 terms  */
         pG->U[k][j][i].M1 -= 0.5*dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= 0.5*dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx3*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
         pG->U[k][j][i].E -= 0.5*dtodx3*
-          (pG->x3MassFlux[k-1][j][i]*(dphic - dphil) +
-           pG->x3MassFlux[k  ][j][i]*(dphir - dphic));
+          (pG->x3MassFlux[k  ][j][i]*(dphic - dphil) +
+           pG->x3MassFlux[k+1][j][i]*(dphir - dphic));
 #endif /* ADIABATIC */
       }
     }}
