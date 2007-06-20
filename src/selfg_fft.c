@@ -50,7 +50,7 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
-  Real drho,dx_sq = (pG->dx1*pG->dx1);
+  Real total_Phi=0.0,drho,dx_sq = (pG->dx1*pG->dx1);
 
 /* Copy current potential into old */
 
@@ -63,7 +63,7 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
   pG->Phi[ks][js][is] = 0.0;
   for (i=is; i<=ie; i++) {
     drho = (pG->U[ks][js][i].d - grav_mean_rho);
-    pG->Phi[ks][js][is] += (float)(i-is+1)*four_pi_G*dx_sq*drho;
+    pG->Phi[ks][js][is] += ((float)(i-is+1))*four_pi_G*dx_sq*drho;
   }
   pG->Phi[ks][js][is] /= (float)(pG->Nx1);
 
@@ -74,6 +74,18 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
     pG->Phi[ks][js][i] = four_pi_G*dx_sq*drho 
       + 2.0*pG->Phi[ks][js][i-1] - pG->Phi[ks][js][i-2];
   }
+
+/* Normalize so mean Phi is zero */
+
+  for (i=is; i<=ie; i++) {
+    total_Phi += pG->Phi[ks][js][i];
+  }
+  total_Phi /= (float)(pG->Nx1);
+
+  for (i=is; i<=ie; i++) {
+    pG->Phi[ks][js][i] -= total_Phi;
+  }
+
 
 /* Apply periodic boundary conditions */
 
