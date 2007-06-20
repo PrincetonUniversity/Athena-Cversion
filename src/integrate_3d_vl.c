@@ -890,14 +890,14 @@ void integrate_3d_vl(Grid *pG)
         gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])/(pG->dx1);
 
         gyl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j+1][i-1]) +
-                    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) )/(pG->dx2);
+                    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]))/(pG->dx2);
         gyr = 0.25*((pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) +
-                    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]) )/(pG->dx2);
+                    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]))/(pG->dx2);
 
         gzl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k+1][j][i-1]) +
-                    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) )/(pG->dx3);
+                    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]))/(pG->dx3);
         gzr = 0.25*((pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) +
-                    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]) )/(pG->dx3);
+                    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]))/(pG->dx3);
 
 /* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
         flx_m1l = 0.5*(gxl*gxl-gyl*gyl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
@@ -914,8 +914,8 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M2 -= dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx1*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
-        pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i-1].d*(phic - phil) +
-                                    x1Flux[k][j][i  ].d*(phir - phic));
+        pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
+                                    x1Flux[k][j][i+1].d*(phir - phic));
 #endif /* ADIABATIC */
       }
     }
@@ -932,9 +932,9 @@ void integrate_3d_vl(Grid *pG)
 
 /* gx, gy and gz centered at L and R x2-faces */
         gxl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j-1][i+1]) +
-                    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) )/(pG->dx1);
+                    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]))/(pG->dx1);
         gxr = 0.25*((pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) +
-                    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]) )/(pG->dx1);
+                    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]))/(pG->dx1);
 
         gyl = (pG->Phi[k][j-1][i] - pG->Phi[k][j  ][i])/(pG->dx2);
         gyr = (pG->Phi[k][j  ][i] - pG->Phi[k][j+1][i])/(pG->dx2);
@@ -944,7 +944,7 @@ void integrate_3d_vl(Grid *pG)
         gzr = 0.25*((pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) +
                     (pG->Phi[k-1][j+1][i] - pG->Phi[k+1][j+1][i]) )/(pG->dx3);
 
-/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
+/* momentum fluxes in x2.  2nd term is needed only if Jean's swindle used */
         flx_m1l = gyl*gxl/four_pi_G;
         flx_m1r = gyr*gxr/four_pi_G;
 
@@ -954,13 +954,13 @@ void integrate_3d_vl(Grid *pG)
         flx_m3l = gyl*gzl/four_pi_G;
         flx_m3r = gyr*gzr/four_pi_G;
 
-/* Update momenta and energy with d/dx1 terms  */
+/* Update momenta and energy with d/dx2 terms  */
         pG->U[k][j][i].M1 -= dtodx2*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx2*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
-        pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j-1][i].d*(phic - phil) +
-                                    x2Flux[k][j  ][i].d*(phir - phic));
+        pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
+                                    x2Flux[k][j+1][i].d*(phir - phic));
 #endif /* ADIABATIC */
       }
     }
@@ -972,24 +972,24 @@ void integrate_3d_vl(Grid *pG)
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
         phic = pG->Phi[k][j][i];
-        phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k+1][j][i]);
-        phir = 0.5*(pG->Phi[k  ][j][i] + pG->Phi[k  ][j][i]);
+        phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k  ][j][i]);
+        phir = 0.5*(pG->Phi[k  ][j][i] + pG->Phi[k+1][j][i]);
 
-/* gx, gy and gz centered at L and R x2-faces */
+/* gx, gy and gz centered at L and R x3-faces */
         gxl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k-1][j][i+1]) +
-                    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) )/(pG->dx1);
+                    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]))/(pG->dx1);
         gxr = 0.25*((pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) +
-                    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]) )/(pG->dx1);
+                    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]))/(pG->dx1);
 
         gyl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k-1][j+1][i]) +
-                    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) )/(pG->dx2);
+                    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]))/(pG->dx2);
         gyr = 0.25*((pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) +
-                    (pG->Phi[k-1][j-1][i] - pG->Phi[k+1][j+1][i]) )/(pG->dx2);
+                    (pG->Phi[k+1][j-1][i] - pG->Phi[k+1][j+1][i]))/(pG->dx2);
 
         gzl = (pG->Phi[k-1][j][i] - pG->Phi[k  ][j][i])/(pG->dx3);
         gzr = (pG->Phi[k  ][j][i] - pG->Phi[k+1][j][i])/(pG->dx3);
 
-/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
+/* momentum fluxes in x3.  2nd term is needed only if Jean's swindle used */
         flx_m1l = gzl*gxl/four_pi_G;
         flx_m1r = gzr*gxr/four_pi_G;
 
@@ -999,13 +999,13 @@ void integrate_3d_vl(Grid *pG)
         flx_m3l = 0.5*(gzl*gzl-gxl*gxl-gyl*gyl)/four_pi_G + grav_mean_rho*phil;
         flx_m3r = 0.5*(gzr*gzr-gxr*gxr-gyr*gyr)/four_pi_G + grav_mean_rho*phir;
 
-/* Update momenta and energy with d/dx1 terms  */
+/* Update momenta and energy with d/dx3 terms  */
         pG->U[k][j][i].M1 -= dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx3*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
-        pG->U[k][j][i].E -= dtodx3*(x3Flux[k-1][j][i].d*(phic - phil) +
-                                    x3Flux[k  ][j][i].d*(phir - phic));
+        pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
+                                    x3Flux[k+1][j][i].d*(phir - phic));
 #endif /* ADIABATIC */
       }
     }
