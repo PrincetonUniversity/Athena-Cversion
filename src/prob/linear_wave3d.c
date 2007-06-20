@@ -8,6 +8,12 @@
  *   3D problems.  This routine automatically sets the wavevector along the
  *   domain diagonal (cannot run grid-aligned waves).
  *
+ *   Can be used for either standing (problem/vflow=1.0) or travelling
+ *   (problem/vflow=0.0) waves.
+ *
+ *   With SELF_GRAVITY defined, can be used to check Jeans stability of plane
+ *   waves propagating at an angle to the grid.
+ *
  * This code is most easily understood in terms of a one dimensional
  * problem in the coordinate system (x,y,z).  Two coordinate rotations are
  * applied to obtain a new wave vector in a 3D space in the (x1,x2,x3)
@@ -33,8 +39,6 @@
  *     B_y = b_perp*cos(k*x)
  *     B_z = b_perp*sin(k*x)
  *   where k = 2.0*PI/lambda
- * Can be used for either standing (problem/vflow=1.0) or travelling
- * (problem/vflow=0.0) waves.
  *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
@@ -62,16 +66,18 @@ static Real ang_2, ang_3; /* Rotation angles about the y and z' axis */
 static Real sin_a2, cos_a2, sin_a3, cos_a3;
 static Real lambda, k_par; /* Wavelength, 2*PI/wavelength */
 
-/*==============================================================================
+/*=============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * A1() - 1-component of vector potential for initial conditions
  * A2() - 2-component of vector potential for initial conditions
  * A3() - 3-component of vector potential for initial conditions
  *============================================================================*/
 
+#ifdef MHD
 static Real A1(const Real x1, const Real x2, const Real x3);
 static Real A2(const Real x1, const Real x2, const Real x3);
 static Real A3(const Real x1, const Real x2, const Real x3);
+#endif /* MHD */
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -363,6 +369,21 @@ void problem(Grid *pGrid, Domain *pDomain)
   free_3d_array((void***)a3);
 #endif /* MHD */
 
+/* For self-gravitating problems, read 4\piG and compute mean density */
+
+#ifdef SELF_GRAVITY
+  four_pi_G = par_getd("problem","four_pi_G");
+
+  grav_mean_rho = 0.0;
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    grav_mean_rho += pGrid->U[k][j][i].d;
+  }}}
+  grav_mean_rho /=
+   ((float)(pGrid->Nx1))*((float)(pGrid->Nx2))*((float)(pGrid->Nx3));
+#endif /* SELF_GRAVITY */
+
   return;
 }
 
@@ -609,9 +630,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * and Ay, Az are functions of x and y alone.
  */
 
+#ifdef MHD
 static Real A1(const Real x1, const Real x2, const Real x3)
 {
-#ifdef MHD
   Real x, y;
   Real Ay, Az;
 
@@ -622,7 +643,6 @@ static Real A1(const Real x1, const Real x2, const Real x3)
   Az = -by0*x + (dby/k_par)*cos(k_par*x) + bx0*y;
 
   return -Ay*sin_a3 - Az*sin_a2*cos_a3;
-#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -631,7 +651,6 @@ static Real A1(const Real x1, const Real x2, const Real x3)
 
 static Real A2(const Real x1, const Real x2, const Real x3)
 {
-#ifdef MHD
   Real x, y;
   Real Ay, Az;
 
@@ -642,7 +661,6 @@ static Real A2(const Real x1, const Real x2, const Real x3)
   Az = -by0*x + (dby/k_par)*cos(k_par*x) + bx0*y;
 
   return Ay*cos_a3 - Az*sin_a2*sin_a3;
-#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -651,7 +669,6 @@ static Real A2(const Real x1, const Real x2, const Real x3)
 
 static Real A3(const Real x1, const Real x2, const Real x3)
 {
-#ifdef MHD
   Real x, y;
   Real Az;
 
@@ -661,5 +678,5 @@ static Real A3(const Real x1, const Real x2, const Real x3)
   Az = -by0*x + (dby/k_par)*cos(k_par*x) + bx0*y;
 
   return Az*cos_a2;
-#endif
 }
+#endif /* MHD */

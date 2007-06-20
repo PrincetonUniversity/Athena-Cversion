@@ -11,6 +11,9 @@
  *   Can be used for either standing (problem/vflow=1.0) or travelling
  *   (problem/vflow=0.0) waves.
  *
+ *   With SELF_GRAVITY defined, can be used to check Jeans stability of plane
+ *   waves propagating parallel to grid.
+ *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
  *   wave periods for this to work.

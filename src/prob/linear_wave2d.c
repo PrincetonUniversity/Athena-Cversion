@@ -14,6 +14,9 @@
  *
  *   Can be used for either standing (problem/vflow=1.0) or travelling
  *   (problem/vflow=0.0) waves.
+*
+ *   With SELF_GRAVITY defined, can be used to check Jeans stability of plane
+ *   waves propagating at an angle to the grid.
  *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
@@ -288,6 +291,21 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   free_2d_array((void**)az);
 #endif /* MHD */
+
+/* For self-gravitating problems, read 4\piG and compute mean density */
+
+#ifdef SELF_GRAVITY
+  four_pi_G = par_getd("problem","four_pi_G");
+
+  grav_mean_rho = 0.0;
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    grav_mean_rho += pGrid->U[k][j][i].d;
+  }}}
+  grav_mean_rho /=
+   ((float)(pGrid->Nx1))*((float)(pGrid->Nx2))*((float)(pGrid->Nx3));
+#endif /* SELF_GRAVITY */
 
   return;
 }
