@@ -431,7 +431,7 @@ void integrate_2d(Grid *pG)
   }
 
 /*--- Step 5d ------------------------------------------------------------------
- * Add source terms for a self gravity to L/R states.
+ * Add source terms for self gravity to L/R states.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -459,7 +459,6 @@ void integrate_2d(Grid *pG)
 #endif
     }
   }
-
 #endif /* SELF_GRAVITY */
 
 /*--- Step 6a ------------------------------------------------------------------
@@ -570,7 +569,7 @@ void integrate_2d(Grid *pG)
   }
 
 /*--- Step 6d ------------------------------------------------------------------
- * Add source terms for a self gravity to L/R states.
+ * Add source terms for self gravity to L/R states.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
