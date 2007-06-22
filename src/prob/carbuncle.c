@@ -61,8 +61,12 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* "Right" state is pre-shock conditions, hardwired here */
   dr = 1.0;
+#ifdef ADIABATIC
   pr = 1.0/Gamma;
   ur = Mach*sqrt(Gamma*pr/dr);
+#else
+  ur = Mach*Iso_csound;
+#endif
 
 /* Initialize shock jumps for standing shock */
   if (shk_flag == 0) {
@@ -86,7 +90,9 @@ void problem(Grid *pGrid, Domain *pDomain)
       pGrid->U[k][j][i].M1 = dr*ur;
       pGrid->U[k][j][i].M2 = 0.0;
       pGrid->U[k][j][i].M3 = 0.0;
+#ifdef ADIABATIC
       pGrid->U[k][j][i].E = pr/Gamma_1 + 0.5*dr*ur*ur;
+#endif
     }
 /*  Postshock flow */
     for (i=ishock; i<=ie+nghost; i++) {
@@ -94,7 +100,9 @@ void problem(Grid *pGrid, Domain *pDomain)
       pGrid->U[k][j][i].M1 = dl*ul;
       pGrid->U[k][j][i].M2 = 0.0;
       pGrid->U[k][j][i].M3 = 0.0;
+#ifdef ADIABATIC
       pGrid->U[k][j][i].E = pl/Gamma_1 + 0.5*dl*ul*ul;
+#endif
     }
 
 /* Add zone-to-zone pertubations upstream of shock.  We only add perturbations
@@ -155,6 +163,7 @@ static void initialize_states(void)
 {
   Real jump1, jump2, jump3;
 
+#ifdef ADIABATIC
   jump1 = (Gamma + 1.0)/(Gamma_1 + 2.0/(Mach*Mach));
   jump2 = (2.0*Gamma*Mach*Mach - Gamma_1)/(Gamma + 1.0);
   jump3 = 2.0*(1.0 - 1.0/(Mach*Mach))/(Gamma + 1.0);
@@ -166,6 +175,7 @@ static void initialize_states(void)
 /* Make the shock stationary */
   ur = Mach*sqrt(Gamma*pr/dr);
   ul = ur/jump1;
+#endif
 
   return;
 }
