@@ -27,7 +27,7 @@ out_fmt = ppm
 dt      = 0.005
 out     = d
 id      = d
-dmin    = 9.9
+dmin    = 0.9
 dmax    = 10.1
 ix2     = 16
 palette = rainbow
@@ -68,6 +68,7 @@ NGrid_x3 = 1
 gamma = 1.666666667         # gamma = C_p/C_v
 amp   = 0.01
 b0    = 0.05
-iprob = 2           # iprob=4 rotated B
-angle = 0.0         # only needed for MHD sims
+iprob = 2           # iprob=4 or 5: rotated B
+angle = 90.0        # only needed for MHD sims
 rhoh  = 10.0        # density of heavy material
+L_rot = 0.02        # width of rotation region (iprob=5)
