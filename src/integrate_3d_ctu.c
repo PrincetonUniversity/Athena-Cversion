@@ -1388,7 +1388,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
 /* correct right states */
-        Ur_x3Face[k][j][i].My -= q1*pG->U[k][j][i].d;
+        Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef ISOTHERMAL
         Ur_x3Face[k][j][i].E -= q1*(x1Flux[k  ][j][i  ].d*(phic - phil)
                                   + x1Flux[k  ][j][i+1].d*(phir - phic));
@@ -1397,7 +1397,7 @@ void integrate_3d_ctu(Grid *pG)
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-        Ur_x3Face[k][j][i].Mz -= q2*pG->U[k][j][i].d;
+        Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
 #ifndef ISOTHERMAL
         Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
                                   + x2Flux[k  ][j+1][i].d*(phir - phic));
@@ -1408,7 +1408,7 @@ void integrate_3d_ctu(Grid *pG)
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
 
-        Ul_x3Face[k][j][i].My -= q1*pG->U[k-1][j][i].d;
+        Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
 #ifndef ISOTHERMAL
         Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
                                   + x1Flux[k-1][j][i+1].d*(phir - phic));
@@ -1417,7 +1417,7 @@ void integrate_3d_ctu(Grid *pG)
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
 
-        Ul_x3Face[k][j][i].Mz -= q2*pG->U[k-1][j][i].d;
+        Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
 #ifndef ISOTHERMAL
         Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
                                   + x2Flux[k-1][j+1][i].d*(phir - phic));
