@@ -3,8 +3,9 @@
  * FILE: rt.c
  *
  * PURPOSE: Problem generator for RT instabilty.  Gravitational pot. is
- *   hardwired to be -0.1z. Density difference is hardwired to be 2.0 in 2D, 3.0
- *   in 3D.  This reproduces 2D results of Liska & Wendroff, 3D results of
+ *   hardwired to be 0.1z. Density difference is hardwired to be 2.0 in 2D, and
+ *   is set by the input parameter <problem>/rhoh in 3D (default value is 3.0).
+ *   This reproduces 2D results of Liska & Wendroff, 3D results of
  *   Dimonte et al.
  * 
  * FOR 2D HYDRO:
@@ -61,7 +62,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,iprob;
   long int iseed = -1;
-  Real amp,x1,x2,x3,lx,ly,lz;
+  Real amp,x1,x2,x3,lx,ly,lz,rhoh;
 #ifdef MHD
   Real b0,angle;
 #endif
@@ -86,9 +87,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   kxs = pGrid->ks + pGrid->kdisp;
   iseed = -1 - (ixs + Nx1*(jxs + Nx2*kxs));
 
-/* Read perturbation amplitude, problem switch */
+/* Read perturbation amplitude, problem switch, background density */
   amp = par_getd("problem","amp");
   iprob = par_geti("problem","iprob");
+  rhoh  = par_getd_def("problem","rhoh",3.0);
 
 /* Read magnetic field strength, angle [should be in degrees, 0 is along +ve
  * X-axis (no rotation)] */
@@ -178,9 +180,9 @@ void problem(Grid *pGrid, Domain *pDomain)
             (1.0+cos(2.0*PI*x3/lz));
 	}
         if (x3 > 0.0) {
-	  pGrid->U[k][j][i].d = 3.0;
-          pGrid->U[k][j][i].M3 *= 3.0;
-          pGrid->U[k][j][i].E = (1.0/Gamma - 0.3*x3)/Gamma_1;
+	  pGrid->U[k][j][i].d = rhoh;
+          pGrid->U[k][j][i].M3 *= rhoh;
+          pGrid->U[k][j][i].E = (1.0/Gamma - 0.1*rhoh*x3)/Gamma_1;
 	}
 	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
 #ifdef MHD
