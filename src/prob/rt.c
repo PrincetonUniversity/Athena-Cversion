@@ -62,7 +62,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,iprob;
   long int iseed = -1;
-  Real amp,x1,x2,x3,lx,ly,lz,rhoh;
+  Real amp,x1,x2,x3,lx,ly,lz,rhoh,L_rot,fact;
 #ifdef MHD
   Real b0,angle;
 #endif
@@ -91,6 +91,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   amp = par_getd("problem","amp");
   iprob = par_geti("problem","iprob");
   rhoh  = par_getd_def("problem","rhoh",3.0);
+/* Distance over which field is rotated */
+  L_rot  = par_getd_def("problem","L_rot",0.0);
 
 /* Read magnetic field strength, angle [should be in degrees, 0 is along +ve
  * X-axis (no rotation)] */
@@ -194,7 +196,7 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->U[k][j][i].B1c = b0;
           }
           break;
-        case 4: /* rotate B by angle at interface */
+        case 4: /* discontinuous rotation of B by angle at interface */
           if (x3 <= 0.0) {
             pGrid->B1i[k][j][i] = b0;
             if (i == ie) pGrid->B1i[k][j][ie+1] = b0;
@@ -210,6 +212,34 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->U[k][j][i].B2c = b0*sin(angle);
             pGrid->U[k][j][i].E += 0.5*b0*b0;
           }
+          break;
+        case 5: /* rotation of B by angle over distance L_rot at interface */
+          if (x3 <= (-L_rot/2.0)) {
+            pGrid->B1i[k][j][i] = b0;
+            if (i == ie) pGrid->B1i[k][j][ie+1] = b0;
+            pGrid->U[k][j][i].B1c = b0;
+            pGrid->U[k][j][i].E += 0.5*b0*b0;
+          }
+          else if (x3 >= (L_rot/2.0)) {
+            pGrid->B1i[k][j][i] = b0*cos(angle);
+            pGrid->B2i[k][j][i] = b0*sin(angle);
+            if (i == ie) pGrid->B1i[k][j][ie+1] = b0*cos(angle);
+            if (j == je) pGrid->B2i[k][je+1][i] = b0*sin(angle);
+            pGrid->U[k][j][i].B1c = b0*cos(angle);
+            pGrid->U[k][j][i].B2c = b0*sin(angle);
+            pGrid->U[k][j][i].E += 0.5*b0*b0;
+          }
+          else {
+            fact = ((L_rot/2.0)+x3)/L_rot;
+            pGrid->B1i[k][j][i] = b0*cos(fact*angle);
+            pGrid->B2i[k][j][i] = b0*sin(fact*angle);
+            if (i == ie) pGrid->B1i[k][j][ie+1] = b0*cos(fact*angle);
+            if (j == je) pGrid->B2i[k][je+1][i] = b0*sin(fact*angle);
+            pGrid->U[k][j][i].B1c = b0*cos(fact*angle);
+            pGrid->U[k][j][i].B2c = b0*sin(fact*angle);
+            pGrid->U[k][j][i].E += 0.5*b0*b0;
+          }
+
           break;
         default:
           pGrid->B1i[k][j][i] = b0;
