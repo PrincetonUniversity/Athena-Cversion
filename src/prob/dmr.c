@@ -31,9 +31,9 @@
  * dmrbv_ojb() - sets BCs on R-x2 (top edge) of grid.  
  *============================================================================*/
 
-void dmrbv_iib(Grid *pGrid);
-void dmrbv_ijb(Grid *pGrid);
-void dmrbv_ojb(Grid *pGrid);
+void dmrbv_iib(Grid *pGrid, int var_flag);
+void dmrbv_ijb(Grid *pGrid, int var_flag);
+void dmrbv_ojb(Grid *pGrid, int var_flag);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -126,11 +126,13 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * Note quantities at this boundary are held fixed at the downstream state
  */
 
-void dmrbv_iib(Grid *pGrid)
+void dmrbv_iib(Grid *pGrid, int var_flag)
 {
 int i=0,j=0;
 int is,ie,js,je,ks,jl,ju;
 Real d0,e0,u0,v0;
+
+  if (var_flag == 1) return;
 
   d0 = 8.0;
   e0 = 291.25;
@@ -159,11 +161,13 @@ Real d0,e0,u0,v0;
  * x1 < 0.16666666, and are reflected for x1 > 0.16666666
  */
 
-void dmrbv_ijb(Grid *pGrid)
+void dmrbv_ijb(Grid *pGrid, int var_flag)
 {
 int i=0,j=0;
 int is,ie,js,je,ks,il,iu;
 Real d0,e0,u0,v0,x1,x2,x3;
+
+  if (var_flag == 1) return;
 
   d0 = 8.0;
   e0 = 291.25;
@@ -203,11 +207,13 @@ Real d0,e0,u0,v0,x1,x2,x3;
  * x1 > 0.16666666+v1_shock*time
  */
 
-void dmrbv_ojb(Grid *pGrid)
+void dmrbv_ojb(Grid *pGrid, int var_flag)
 {
 int i=0,j=0;
 int is,ie,js,je,ks,il,iu;
 Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
+
+  if (var_flag == 1) return;
 
   d0 = 8.0;
   e0 = 291.25;

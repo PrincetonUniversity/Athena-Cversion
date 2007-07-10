@@ -25,9 +25,9 @@
  * void scat_plot() - makes scatter plot of density
  *============================================================================*/
 
-void noh3d_oib(Grid *pGrid);
-void noh3d_ojb(Grid *pGrid);
-void noh3d_okb(Grid *pGrid);
+void noh3d_oib(Grid *pGrid, int var_flag);
+void noh3d_ojb(Grid *pGrid, int var_flag);
+void noh3d_okb(Grid *pGrid, int var_flag);
 
 #ifdef MHD
 #error : This is not a MHD problem.
@@ -115,12 +115,14 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * upstream state
  */
 
-void noh3d_oib(Grid *pGrid)
+void noh3d_oib(Grid *pGrid, int var_flag)
 {
   int i, ie = pGrid->ie;
   int j, jl = pGrid->js - nghost, ju = pGrid->je + nghost;
   int k, kl, ku;
   Real x1,x2,x3,r,d0,f_t;
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx3 > 1) {
     kl = pGrid->ks - nghost;
@@ -166,12 +168,14 @@ void noh3d_oib(Grid *pGrid)
  * upstream state
  */
 
-void noh3d_ojb(Grid *pGrid)
+void noh3d_ojb(Grid *pGrid, int var_flag)
 {
   int j, je = pGrid->je;
   int i, il = pGrid->is - nghost, iu = pGrid->ie + nghost;
   int k, kl, ku;
   Real x1,x2,x3,r,d0,f_t;
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx3 > 1) {
     kl = pGrid->ks - nghost;
@@ -217,12 +221,14 @@ void noh3d_ojb(Grid *pGrid)
  * upstream state
  */
 
-void noh3d_okb(Grid *pGrid)
+void noh3d_okb(Grid *pGrid, int var_flag)
 {
   int i, il = pGrid->is - nghost, iu = pGrid->ie + nghost;
   int j, jl = pGrid->js - nghost, ju = pGrid->je + nghost;
   int k, ke = pGrid->ke;
   Real x1,x2,x3,r,d0,f_t;
+
+  if (var_flag == 1) return;
 
   for (k=ke+1; k<=ke+nghost; k++) {
     for (j=jl; j<=ju; j++) {

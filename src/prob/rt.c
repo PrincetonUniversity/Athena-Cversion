@@ -46,10 +46,10 @@
  *============================================================================*/
 
 static double ran2(long int *idum);
-static void reflect_ix2(Grid *pGrid);
-static void reflect_ox2(Grid *pGrid);
-static void reflect_ix3(Grid *pGrid);
-static void reflect_ox3(Grid *pGrid);
+static void reflect_ix2(Grid *pGrid, int var_flag);
+static void reflect_ox2(Grid *pGrid, int var_flag);
+static void reflect_ix3(Grid *pGrid, int var_flag);
+static void reflect_ox3(Grid *pGrid, int var_flag);
 static Real grav_pot2(const Real x1, const Real x2, const Real x3);
 static Real grav_pot3(const Real x1, const Real x2, const Real x3);
 
@@ -399,11 +399,13 @@ double ran2(long int *idum)
  * reflect_ix2: special reflecting boundary functions in x2 for 2D sims
  */
 
-static void reflect_ix2(Grid *pGrid)
+static void reflect_ix2(Grid *pGrid, int var_flag)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -458,11 +460,13 @@ static void reflect_ix2(Grid *pGrid)
  * reflect_ox2: special reflecting boundary functions in x2 for 2D sims
  */
 
-static void reflect_ox2(Grid *pGrid)
+static void reflect_ox2(Grid *pGrid, int var_flag)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -518,10 +522,12 @@ static void reflect_ox2(Grid *pGrid)
  * reflect_ix3: special reflecting boundary functions in x3 for 2D sims
  */
 
-static void reflect_ix3(Grid *pGrid)
+static void reflect_ix3(Grid *pGrid, int var_flag)
 {
   int ks = pGrid->ks;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -581,10 +587,12 @@ static void reflect_ix3(Grid *pGrid)
  * reflect_ox3: special reflecting boundary functions in x3 for 3D sims
  */
 
-static void reflect_ox3(Grid *pGrid)
+static void reflect_ox3(Grid *pGrid, int var_flag)
 {
   int ke = pGrid->ke;
   int i,j,k ,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;

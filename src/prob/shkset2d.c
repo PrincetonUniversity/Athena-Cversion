@@ -34,10 +34,10 @@
  * shkset2d_ojb() - sets BCs on R-x2 (top edge) of grid.
  *============================================================================*/
 
-void shkset2d_iib(Grid *pGrid);
-void shkset2d_oib(Grid *pGrid);
-void shkset2d_ijb(Grid *pGrid);
-void shkset2d_ojb(Grid *pGrid);
+void shkset2d_iib(Grid *pGrid, int var_flag);
+void shkset2d_oib(Grid *pGrid, int var_flag);
+void shkset2d_ijb(Grid *pGrid, int var_flag);
+void shkset2d_ojb(Grid *pGrid, int var_flag);
 
 /* Make size of box and dimension of unit cell (r1 x r2) static globals so they
  * can be accessed by boundary value functions */
@@ -89,7 +89,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   id = div(nx1,gcd);
   r1 = id.quot;
-  if(id.rem != 0){
+  if(id.rem != 0)
     ath_error("[shkset2d]: GCD failed, Remainder of %d / %d is %d\n",
 	      nx1,gcd,id.rem);
 
@@ -353,10 +353,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * cells implied by the size of the unit cell (r1xr2).
  */
 
-void shkset2d_iib(Grid *pGrid)
+void shkset2d_iib(Grid *pGrid, int var_flag)
 {
   const int is = pGrid->is;
   int i, j, k, ju, jl, kl, ku; /* j-upper, j-lower */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx2 > 1){
     ju = pGrid->je + nghost;
@@ -393,10 +395,12 @@ void shkset2d_iib(Grid *pGrid)
  * Function shkset2d_oib: same for oib
  */
 
-void shkset2d_oib(Grid *pGrid)
+void shkset2d_oib(Grid *pGrid, int var_flag)
 {
   const int ie = pGrid->ie;
   int i, j, k, ju, jl, kl, ku; /* j-upper, j-lower */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx2 > 1){
     ju = pGrid->je + nghost - r2;
@@ -435,10 +439,12 @@ void shkset2d_oib(Grid *pGrid)
  * Function shkset2d_ijb: same for ijb
  */
 
-void shkset2d_ijb(Grid *pGrid)
+void shkset2d_ijb(Grid *pGrid, int var_flag)
 {
   const int js = pGrid->js;
   int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -475,10 +481,12 @@ void shkset2d_ijb(Grid *pGrid)
  * Function shkset2d_ojb: same for ojb
  */
 
-void shkset2d_ojb(Grid *pGrid)
+void shkset2d_ojb(Grid *pGrid, int var_flag)
 {
   const int je = pGrid->je;
   int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
+
+  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost - r1;

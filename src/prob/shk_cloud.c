@@ -38,7 +38,7 @@ static Real bxl,byl,bzl;
  * shk_cloud_iib() - fixes BCs on L-x1 (left edge) of grid to postshock flow.
  *============================================================================*/
 
-void shk_cloud_iib(Grid *pGrid);
+void shk_cloud_iib(Grid *pGrid, int var_flag);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -269,13 +269,15 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * Note quantities at this boundary are held fixed at the downstream state
  */
 
-void shk_cloud_iib(Grid *pGrid)
+void shk_cloud_iib(Grid *pGrid, int var_flag)
 {
   int i=0,j=0,k=0;
   int js,je,ks,ke;
 
   js = pGrid->js; je = pGrid->je;
   ks = pGrid->ks; ke = pGrid->ke;
+
+  if (var_flag == 1) return;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
