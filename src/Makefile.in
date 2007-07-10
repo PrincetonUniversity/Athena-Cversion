@@ -59,7 +59,7 @@ endif
 
 FFT_OBJ =
 ifeq (@MPI_MODE@,MPI_PARALLEL)
-ifeq (@FFT_MODE@,USE_FFT)
+ifeq (@FFT_MODE@,FFT_ENABLED)
    FFT_OBJ = ../fftsrc/factor.o \
              ../fftsrc/fft_2d.o \
              ../fftsrc/fft_3d.o \

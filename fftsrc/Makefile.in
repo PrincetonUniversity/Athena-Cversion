@@ -63,7 +63,7 @@ endif
 
 # this forces a rebuild of all objects, if code re-configure'd
 
-ifeq (@FFT_MODE@,USE_FFT)
+ifeq (@FFT_MODE@,FFT_ENABLED)
 ifeq (@MPI_MODE@,MPI_PARALLEL)
 include Makedepend
 endif
