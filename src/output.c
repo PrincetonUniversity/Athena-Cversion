@@ -337,7 +337,9 @@ void init_output(Grid *pGrid)
 
 /*----------------------------------------------------------------------------*/
 /* data_output:  Called by main(), tests whether time for output, and calls
- *   appropriate output functions    */
+ *   appropriate output functions.  Setting the input argument flag=1 forces a
+ *   write of all output's.  If the input argument flag=0, then only those
+ *   output's whose next output time has passed will be written.        */
 
 void data_output(Grid *pGrid, Domain *pD, const int flag)
 {
