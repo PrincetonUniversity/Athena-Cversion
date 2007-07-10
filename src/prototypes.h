@@ -272,8 +272,8 @@ void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
 /* set_bvals.c  */
 void set_bvals_init(Grid *pG, Domain *pD);
 void set_bvals_start(VGFun_t start);
-void set_bvals_fun(enum Direction dir, VGFun_t prob_bc);
-void set_bvals(Grid *pGrid);
+void set_bvals_fun(enum Direction dir, VBCFun_t prob_bc);
+void set_bvals(Grid *pGrid, int var_flag);
 
 /*----------------------------------------------------------------------------*/
 /* show_config.c */

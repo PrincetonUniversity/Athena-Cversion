@@ -300,7 +300,8 @@ int main(int argc, char *argv[])
  * set boundary conditions for initial conditions  */
 
   set_bvals_init(&level0_Grid, &level0_Domain);
-  set_bvals(&level0_Grid);                            
+/* Only bvals for Gas structure set when last argument of set_bvals = 0  */
+  set_bvals(&level0_Grid, 0);                            
   if(ires == 0) new_dt(&level0_Grid);
 
 /*--- Step 7. ----------------------------------------------------------------*/
@@ -318,16 +319,19 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
+/* Only bvals for Phi set when last argument of set_bvals = 1  */
+  set_bvals(&level0_Grid, 1);
 #endif
 
 /*--- Step 9. ----------------------------------------------------------------*/
-/* Setup complete, force dump of initial conditions with flag=1 */
+/* Setup complete, output initial conditions */
 
   if(out_level >= 0){
     fp = athout_fp();
     par_dump(0,fp); /* Dump a copy of the parsed information to athout */
   }
 
+/* Write of all output's forced when last argument of data_output = 1 */
   change_rundir(rundir);
   if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
 
@@ -353,6 +357,7 @@ int main(int argc, char *argv[])
 
   while (level0_Grid.time < tlim && (nlim < 0 || level0_Grid.nstep < nlim)) {
 
+/* Only write output's with t_out>t when last argument of data_output = 0 */
     data_output(&level0_Grid, &level0_Domain, 0);
 
 /* modify timestep so loop finishes at t=tlim exactly */
@@ -361,15 +366,17 @@ int main(int argc, char *argv[])
     }
 
     (*Integrate)(&level0_Grid);
+    Userwork_in_loop(&level0_Grid, &level0_Domain);
 
 #ifdef SELF_GRAVITY
     (*SelfGrav)(&level0_Grid, &level0_Domain);
+/* Only bvals for Phi set when last argument of set_bvals = 1  */
+    set_bvals(&level0_Grid, 1);
     selfg_flux_correction(&level0_Grid);
 #endif
 
-    Userwork_in_loop(&level0_Grid, &level0_Domain);
-
-    set_bvals(&level0_Grid);
+/* Only bvals for Gas structure set when last argument of set_bvals = 0  */
+    set_bvals(&level0_Grid, 0);
 
     level0_Grid.nstep++;
     level0_Grid.time += level0_Grid.dt;
@@ -443,7 +450,8 @@ int main(int argc, char *argv[])
 /* complete any final User work, and make last dump */
 
   Userwork_after_loop(&level0_Grid, &level0_Domain);
-  data_output(&level0_Grid, &level0_Domain, 1);     /* always write last data */
+/* Write of all output's forced when last argument of data_output = 1 */
+  data_output(&level0_Grid, &level0_Domain, 1);
 
 /* Free all temporary arrays */
 

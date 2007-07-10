@@ -228,7 +228,10 @@ typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
 
 /* Directions for the set_bvals_fun() function */
 enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
-typedef void (*VGFun_t)(Grid *pG);                /* void grid function type  */
-typedef void (*VGDFun_t)(Grid *pG, Domain *pD); /*void grid + domain func typ */
+
+/* Definitions of various functions */
+typedef void (*VBCFun_t)(Grid *pG, int var_flag);    /* void boundary cond fn */
+typedef void (*VGFun_t) (Grid *pG);                     /* void grid function */
+typedef void (*VGDFun_t)(Grid *pG, Domain *pD);     /*void grid + domain func */
 
 #endif /* ATHENA_H */
