@@ -225,7 +225,11 @@ void set_bvals(Grid *pGrid, int var_flag)
 #ifdef MPI_PARALLEL
     cnt1 = pGrid->Nx1 > 1 ? pGrid->Nx1 + 2*nghost : 1;
     cnt3 = pGrid->Nx3 > 1 ? pGrid->Nx3 + 1 : 1;
-    cnt = cnt1*nghost*cnt3*NVAR_SHARE;
+    if (var_flag == 0) {
+      cnt = nghost*cnt1*cnt3*NVAR_SHARE;
+    } else {
+      cnt = nghost*cnt1*cnt3;
+    }
 
 /* MPI blocks to both left and right */
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id >= 0) {
@@ -287,7 +291,11 @@ void set_bvals(Grid *pGrid, int var_flag)
 #ifdef MPI_PARALLEL
     cnt1 = pGrid->Nx1 > 1 ? pGrid->Nx1 + 2*nghost : 1;
     cnt2 = pGrid->Nx2 > 1 ? pGrid->Nx2 + 2*nghost : 1;
-    cnt = cnt1*cnt2*nghost*NVAR_SHARE;
+    if (var_flag == 0) {
+      cnt = nghost*cnt1*cnt2*NVAR_SHARE;
+    } else {
+      cnt = nghost*cnt1*cnt2;
+    }
 
 /* MPI blocks to both left and right */
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id >= 0) {
@@ -1911,7 +1919,7 @@ static void send_ix1(Grid *pG, int var_flag)
 
   err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
 		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
+  if(err) ath_error("[send_ix1]: MPI_Send error = %d\n",err);
 
   return;
 }
@@ -1998,7 +2006,7 @@ static void send_ox1(Grid *pG, int var_flag)
 
   err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
 		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
+  if(err) ath_error("[send_ox1]: MPI_Send error = %d\n",err);
 
   return;
 }
@@ -2086,7 +2094,7 @@ static void send_ix2(Grid *pG, int var_flag)
 
   err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
 		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
+  if(err) ath_error("[send_ix2]: MPI_Send error = %d\n",err);
 
   return;
 }
@@ -2174,7 +2182,7 @@ static void send_ox2(Grid *pG, int var_flag)
 
   err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
 		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
+  if(err) ath_error("[send_ox2]: MPI_Send error = %d\n",err);
 
   return;
 }
@@ -2262,7 +2270,7 @@ static void send_ix3(Grid *pG, int var_flag)
 
   err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id,
 		  boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
+  if(err) ath_error("[send_ix3]: MPI_Send error = %d\n",err);
 
   return;
 }
@@ -2350,7 +2358,7 @@ static void send_ox3(Grid *pG, int var_flag)
 
   err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx3_id,
 		  boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[set_bvals/pack_send]: MPI_Send error = %d\n",err);
+  if(err) ath_error("[send_ox3]: MPI_Send error = %d\n",err);
 
   return;
 }
