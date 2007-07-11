@@ -47,6 +47,7 @@ CORE_OBJ = ath_array.o \
            restart.o \
 	   selfg.o \
 	   selfg_fft.o \
+	   selfg_multigrid.o \
            set_bvals.o \
            show_config.o \
            utils.o
