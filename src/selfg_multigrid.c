@@ -233,14 +233,19 @@ void Prolongation_2d(Grid *pG, Real ***fine_grid)
 
 #endif
 
+/*----------------------------------------------------------------------------*/
+/* selfg_by_multig_3d: Do not use with periodic BCs, uses multipole expansion
+ *   to compute potential at boundary
+ */
 
 void selfg_by_multig_3d(Grid *pG, Domain *pD)
 {
-#ifdef SELF_GRAVITY
+#ifdef SELF_GRAVITY_USING_MULTIGRID
   int i, is = pG->is, ie = pG->ie, im = (ie+is)/2;
   int j, js = pG->js, je = pG->je, jm = (je+js)/2;
   int k, ks = pG->ks, ke = pG->ke, km = (ke+ks)/2;
-  float mass = 0, r, error, solution[pG->Nx3+2*nghost][pG->Nx2+2*nghost][pG->Nx1+2*nghost];
+  float mass = 0.0, dVol, r, error;
+  Real Grav_const = four_pi_G/(4.0*PI);
 
 /* Copy current potential into old */
 
@@ -252,78 +257,68 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
     }
   }
 
-/* Apply boundary conditions : first order */
+/* Compute solution at boundaries using monopole expansion */
 
+  dvol = pG->dx1*pG->dx2*pG->dx3;
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
-        mass = mass + pG->U[k][j][i].d*pG->dx1*pG->dx2*pG->dx3;
+        mass += pG->U[k][j][i].d*dVol;
       }
     }
   }
 
-//   printf("mass is %f\n", mass);
+/*  Inner and outer x1 boundaries */
 
-  for (k=ks-nghost; k<=ke+nghost; k++)
-    for (j=js-nghost; j<=je+nghost; j++)
-      for (i=is-nghost; i<=ie+nghost; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        if(r<=.9)
-          solution[k][j][i] = 2*G*PI*(pow(r,2)-pow(.9,2))/3 + G*mass/.9;
-        else
-          solution[k][j][i] = G*mass/r;
-//         printf("%d\t%d\t%d\t%f\t%f\n", i, j, k, r, solution[k][j][i]);
-      }
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=1; i<=nghost; i++){
+        cc_pos(pG,is-i,j,k,&x1,&x2,&x3);
+        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+        pG->Phi[k][j][is-i]= Grav_const*mass/rad;
 
-  for (k=ks-nghost; k<ks; k++)
-    for (j=js-nghost; j<=je+nghost; j++)
-      for (i=is-nghost; i<=ie+nghost; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        pG->Phi[k][j][i]= G*mass/r;
+        cc_pos(pG,ie+i,j,k,&x1,&x2,&x3);
+        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+        pG->Phi[k][j][ie+i]= Grav_const*mass/rad;
       }
+    }
+  }
+
+/*  Inner and outer x2 boundaries */
 
   for (k=ks; k<=ke; k++){
-    for (j=js-nghost; j<js; j++)
+    for (j=1; j<=nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        pG->Phi[k][j][i]= G*mass/r;
-      }
-    for (j=js; j<=je; j++){
-      for (i=is-nghost; i<is; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        pG->Phi[k][j][i]= G*mass/r;
-      }
-      for (i=ie+1; i<=ie+nghost; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        pG->Phi[k][j][i]= G*mass/r;
+        cc_pos(pG,i,js-j,k,&x1,&x2,&x3);
+        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+        pG->Phi[k][js-j][i]= Grav_const*mass/rad;
+
+        cc_pos(pG,i,je+j,k,&x1,&x2,&x3);
+        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+        pG->Phi[k][je+j][i]= Grav_const*mass/rad;
       }
     }
-    for (j=je+1; j<=je+nghost; j++)
-      for (i=is-nghost; i<=ie+nghost; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        pG->Phi[k][j][i]= G*mass/r;
-      }
   }
 
-  for (k=ke+1; k<=ke+nghost; k++)
-    for (j=js-nghost; j<=je+nghost; j++)
-      for (i=is-nghost; i<=ie+nghost; i++){
-        r = pow(pow((i-im)*pG->dx1, 2) + pow((j-jm)*pG->dx2, 2) + pow((k-km)*pG->dx3, 2), .5);
-        pG->Phi[k][j][i]= G*mass/r;
-      }
+/*  Inner and outer x3 boundaries */
 
-/* Compute new potential */
+  for (k=1; k<=nghost; k++){
+    for (j=js-nghost; j<=je+nghost; j++){
+      for (i=is-nghost; i<=ie+nghost; i++){
+        cc_pos(pG,i,j,ks-k,&x1,&x2,&x3);
+        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+        pG->Phi[ks-k][j][i]= Grav_const*mass/rad;
+
+        cc_pos(pG,i,j,ke+k,&x1,&x2,&x3);
+        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+        pG->Phi[ke+k][j][i]= Grav_const*mass/rad;
+      }
+    }
+  }
+
+/* Compute new potential.  Note multi_3d calls itself recursively. */
 
   multi_3d(pG);
-
-  for (k=ke-nghost; k<=ke+nghost; k++)
-    for (j=js-nghost; j<=je+nghost; j++)
-      for (i=is-nghost; i<=ie+nghost; i++){
-//         printf("%f\t%f\t%f\n", pG->Phi[k][j][i], solution[k][j][i], pG->Phi[k][j][i]-solution[k][j][i]);
-        error = error + fabs(pG->Phi[k][j][i]-solution[k][j][i])/pow(64,3);
-      }
-
-  printf("error is %f\n", error);
 
 #endif
   return;
@@ -437,7 +432,10 @@ void Jacobi_3d(Grid *pG)
     for (k=ks; k<=ke; k++)
       for (j=js; j<=je; j++)
         for (i=is; i<=ie; i++){
-          temp[k][j][i] = 4*PI*G*pG->U[k][j][i].d - (pG->Phi[k][j][i-1] + pG->Phi[k][j][i+1]) /pow(pG->dx1,2) - (pG->Phi[k][j+1][i] + pG->Phi[k][j-1][i]) /pow(pG->dx2,2) - (pG->Phi[k+1][j][i] + pG->Phi[k-1][j][i]) /pow(pG->dx3,2) ;
+          temp[k][j][i] = four_pi_G*pG->U[k][j][i].d;
+          temp -= (pG->Phi[k][j][i-1] + pG->Phi[k][j][i+1]) /pow(pG->dx1,2)
+          temp -= (pG->Phi[k][j+1][i] + pG->Phi[k][j-1][i]) /pow(pG->dx2,2)
+          temp -= (pG->Phi[k+1][j][i] + pG->Phi[k-1][j][i]) /pow(pG->dx3,2) ;
           pG->Phi[k][j][i] = -temp[k][j][i]/(2*(pow(pG->dx1,-2) + pow(pG->dx2,-2) + pow(pG->dx3,-2)));
           }
     }
