@@ -49,7 +49,7 @@ void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse);
 void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine);
 
 #ifdef MPI_PARALLEL
-void set_iterate_bvals(MGrid *pMG)
+void set_iterate_bvals(MGrid *pMG);
 void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
 void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
 void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
@@ -454,6 +454,7 @@ void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
  * fill the corner cells properly
  */
 
+#ifdef SELF_GRAVITY_USING_MULTIGRID
 #ifdef MPI_PARALLEL
 void set_iterate_bvals(MGrid *pMG)
 {
@@ -969,4 +970,4 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   return;
 }
 #endif /* MPI_PARALLEL */
-
+#endif /* SELF_GRAVITY_USING_MULTIGRID */
