@@ -112,6 +112,7 @@ struct ath_3d_fft_plan *ath_3d_fft_create_plan(int gnx3, int gnx2,
   ath_plan->dir = dir;
   /* Set element count (for easy malloc and memset) */
   ath_plan->cnt = (gke-gks+1)*(gje-gjs+1)*(gie-gis+1);
+  ath_plan->gcnt = gnx3*gnx2*gnx1;
 
   tmp = (al==0 ? 1 : 0);
   if (data != NULL) tmp = 0;
@@ -273,6 +274,7 @@ struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
   ath_plan->dir = dir;
   /* Set element count (for easy malloc and memset) */
   ath_plan->cnt = (gje-gjs+1)*(gie-gis+1);
+  ath_plan->gcnt = gnx2*gnx1;
 
   tmp = (al==0 ? 1 : 0);
   if (data != NULL) tmp = 0;

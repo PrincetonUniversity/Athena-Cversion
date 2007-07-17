@@ -65,6 +65,7 @@ struct ath_3d_fft_plan {
 #endif /* FFT_BLOCK_DECOMP */
   ath_fft_direction dir;
   long int cnt;
+  long int gcnt;
 };
 
 struct ath_2d_fft_plan {
@@ -75,6 +76,7 @@ struct ath_2d_fft_plan {
 #endif /* FFT_BLOCK_DECOMP */
   ath_fft_direction dir;
   long int cnt;
+  long int gcnt;
 };
 
 /**************************************************************************
