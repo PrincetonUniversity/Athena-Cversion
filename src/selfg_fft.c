@@ -14,6 +14,8 @@
  *      (1) configured with --enable-fft
  *      (2) compiled with links to FFTW libraries
  *
+ *   For NON-PERIODIC BCs, use selfg_multig() functions.
+ *
  * CONTAINS PUBLIC FUNCTIONS:
  *   selfg_by_fft_1d() - actually uses FEBS
  *   selfg_by_fft_2d() - 2D Poisson solver using FFTs
@@ -84,14 +86,6 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
 
   for (i=is; i<=ie; i++) {
     pG->Phi[ks][js][i] -= total_Phi;
-  }
-
-
-/* Apply periodic boundary conditions */
-
-  for (i=1; i<=nghost; i++) {
-    pG->Phi[ks][js][is-i] =  pG->Phi[ks][js][ie-(i-1)];
-    pG->Phi[ks][js][ie+i] =  pG->Phi[ks][js][is+(i-1)];
   }
 
 #endif /* SELF_GRAVITY_USING_FFT */
@@ -167,22 +161,6 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
     }
   }
 
-/* Set periodic boundary conditions */
-
-  for (j=js; j<=je; j++){
-    for (i=1; i<=nghost; i++) {
-      pG->Phi[ks][j][is-i] = pG->Phi[ks][j][ie-(i-1)];
-      pG->Phi[ks][j][ie+i] = pG->Phi[ks][j][is+(i-1)];
-    }
-  }
-
-  for (j=1; j<=nghost; j++) {
-    for (i=is-nghost; i<=ie+nghost; i++) {
-      pG->Phi[ks][js-j][i] = pG->Phi[ks][je-(j-1)][i];
-      pG->Phi[ks][je+j][i] = pG->Phi[ks][js+(j-1)][i];
-    }
-  }
-
 #endif /* SELF_GRAVITY_USING_FFT */
   return;
 }
@@ -232,19 +210,21 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] = 0.0;
   work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][1] = 0.0;
 
+/* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
+
   for (k=ks+1; k<=ke; k++){
     work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= SQR(pG->dx1)/
-     (2.0*cos((k-ks)*dkz) - 2.0);
+      (2.0*cos((k+pG->kdisp)*dkz) - 2.0);
     work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= SQR(pG->dx1)/
-     (2.0*cos((k-ks)*dkz) - 2.0);
+      (2.0*cos((k+pG->kdisp)*dkz) - 2.0);
   }
 
   for (j=js+1; j<=je; j++){
     for (k=ks; k<=ke; k++){
       work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= SQR(pG->dx1)/
-       (2.0*cos((j-js)*dky) + 2.0*cos((k-ks)*dkz) - 4.0);
+        (2.0*cos((j+pG->jdisp)*dky) + 2.0*cos((k+pG->kdisp)*dkz) - 4.0);
       work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= SQR(pG->dx1)/
-       (2.0*cos((j-js)*dky) + 2.0*cos((k-ks)*dkz) - 4.0);
+        (2.0*cos((j+pG->jdisp)*dky) + 2.0*cos((k+pG->kdisp)*dkz) - 4.0);
     }
   }
 
@@ -252,13 +232,16 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   for (j=js; j<=je; j++){
     for (k=ks; k<=ke; k++){
       work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= SQR(pG->dx1)/
-       (2.0*cos((i-is)*dkx) + 2.0*cos((j-js)*dky) + 2.0*cos((k-ks)*dkz) - 6.0);
+        (2.0*cos((i+pG->idisp)*dkx) + 2.0*cos((j+pG->jdisp)*dky) +
+         2.0*cos((k+pG->kdisp)*dkz) - 6.0);
       work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= SQR(pG->dx1)/
-       (2.0*cos((i-is)*dkx) + 2.0*cos((j-js)*dky) + 2.0*cos((k-ks)*dkz) - 6.0);
+        (2.0*cos((i+pG->idisp)*dkx) + 2.0*cos((j+pG->jdisp)*dky) +
+         2.0*cos((k+pG->kdisp)*dkz) - 6.0);
     }
   }}
 
-/* Backward FFT and set potential in real space */
+/* Backward FFT and set potential in real space.  Normalization of Phi is over
+ * total number of cells in Domain */
 
   ath_3d_fft(bplan3d, work);
 
@@ -266,38 +249,9 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
       pG->Phi[k][j][i] = work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0]/
-        bplan3d->cnt;
+        bplan3d->gcnt;
     }
   }}
-
-/* Set periodic boundary conditions */
-
-  for (k=ks; k<=ke; k++){
-    for (j=js; j<=je; j++){
-      for (i=1; i<=nghost; i++) {
-        pG->Phi[k][j][is-i] = pG->Phi[k][j][ie-(i-1)];
-        pG->Phi[k][j][ie+i] = pG->Phi[k][j][is+(i-1)];
-      }
-    }
-  }
-
-  for (k=ks; k<=ke; k++){
-    for (j=1; j<=nghost; j++) {
-      for (i=is-nghost; i<=ie+nghost; i++) {
-        pG->Phi[k][js-j][i] = pG->Phi[k][je-(j-1)][i];
-        pG->Phi[k][je+j][i] = pG->Phi[k][js+(j-1)][i];
-      }
-    }
-  }
-
-  for (k=1; k<=nghost; k++) {
-    for (j=js-nghost; j<=je+nghost; j++) {
-      for (i=is-nghost; i<=ie+nghost; i++) {
-        pG->Phi[ks-k][j][i] = pG->Phi[ke-(k-1)][j][i];
-        pG->Phi[ke+k][j][i] = pG->Phi[ks+(k-1)][j][i];
-      }
-    }
-  }
 
 #endif /* SELF_GRAVITY_USING_FFT */
   return;
