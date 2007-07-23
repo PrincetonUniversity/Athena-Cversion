@@ -125,59 +125,89 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
     }
   }
 
+#ifdef MPI_PARALLEL
+  mpi_err = MPI_Reduce(mass, tmass, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  if (mpi_err) ath_error("[selfg_multigrid]: MPI_Reduce returned err = %d\n",
+    mpi_err);
+#else
+  tmass = mass;
+#endif /* MPI_PARALLEL */
+
 /*  Inner and outer x1 boundaries */
 
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=1; i<=nghost; i++){
-        cc_pos(pG,is-i,j,k,&x1,&x2,&x3);
-        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-        pG->Phi[k][j][is-i] = -Grav_const*mass/rad;
+  if (pGrid->lx1_id < 0) {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=1; i<=nghost; i++){
+          cc_pos(pG,is-i,j,k,&x1,&x2,&x3);
+          rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+          pG->Phi[k][j][is-i] = -Grav_const*tmass/rad;
 
-        cc_pos(pG,ie+i,j,k,&x1,&x2,&x3);
-        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-        pG->Phi[k][j][ie+i] = -Grav_const*mass/rad;
+        }
       }
     }
   }
+
+  if (pGrid->rx1_id < 0) {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=1; i<=nghost; i++){
+          cc_pos(pG,ie+i,j,k,&x1,&x2,&x3);
+          rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+          pG->Phi[k][j][ie+i] = -Grav_const*tmass/rad;
+        }
+      }
+    }
 
 /*  Inner and outer x2 boundaries */
 
-  for (k=ks; k<=ke; k++){
-    for (j=1; j<=nghost; j++){
-      for (i=is-nghost; i<=ie+nghost; i++){
-        cc_pos(pG,i,js-j,k,&x1,&x2,&x3);
-        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-        pG->Phi[k][js-j][i] = -Grav_const*mass/rad;
-
-        cc_pos(pG,i,je+j,k,&x1,&x2,&x3);
-        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-        pG->Phi[k][je+j][i] = -Grav_const*mass/rad;
+  if (pGrid->lx2_id < 0) {
+    for (k=ks; k<=ke; k++){
+      for (j=1; j<=nghost; j++){
+        for (i=is-nghost; i<=ie+nghost; i++){
+          cc_pos(pG,i,js-j,k,&x1,&x2,&x3);
+          rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+          pG->Phi[k][js-j][i] = -Grav_const*tmass/rad;
+        }
       }
     }
-  }
+
+  if (pGrid->rx2_id < 0) {
+    for (k=ks; k<=ke; k++){
+      for (j=1; j<=nghost; j++){
+        for (i=is-nghost; i<=ie+nghost; i++){
+          cc_pos(pG,i,je+j,k,&x1,&x2,&x3);
+          rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+          pG->Phi[k][je+j][i] = -Grav_const*tmass/rad;
+        }
+      }
+    }
 
 /*  Inner and outer x3 boundaries */
 
-  for (k=1; k<=nghost; k++){
-    for (j=js-nghost; j<=je+nghost; j++){
-      for (i=is-nghost; i<=ie+nghost; i++){
-        cc_pos(pG,i,j,ks-k,&x1,&x2,&x3);
-        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-        pG->Phi[ks-k][j][i] = -Grav_const*mass/rad;
-
-        cc_pos(pG,i,j,ke+k,&x1,&x2,&x3);
-        rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-        pG->Phi[ke+k][j][i] = -Grav_const*mass/rad;
+  if (pGrid->lx3_id < 0) {
+    for (k=1; k<=nghost; k++){
+      for (j=js-nghost; j<=je+nghost; j++){
+        for (i=is-nghost; i<=ie+nghost; i++){
+          cc_pos(pG,i,j,ks-k,&x1,&x2,&x3);
+          rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+          pG->Phi[ks-k][j][i] = -Grav_const*tmass/rad;
+        }
       }
     }
-  }
+
+  if (pGrid->rx3_id < 0) {
+    for (k=1; k<=nghost; k++){
+      for (j=js-nghost; j<=je+nghost; j++){
+        for (i=is-nghost; i<=ie+nghost; i++){
+          cc_pos(pG,i,j,ke+k,&x1,&x2,&x3);
+          rad = sqrt(x1*x1 + x2*x2 + x3*x3);
+          pG->Phi[ke+k][j][i] = -Grav_const*tmass/rad;
+        }
+      }
+    }
 
 /* Initialize MGrid structure for top level (the root, or finest, level) */
-
-  Nx1z = pG->Nx1 + 2;
-  Nx2z = pG->Nx2 + 2;
-  Nx3z = pG->Nx3 + 2;
 
   Root_grid.Nx1 = pG->Nx1;
   Root_grid.Nx2 = pG->Nx2;
@@ -189,6 +219,10 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   Root_grid.dx2 = pG->dx2;
   Root_grid.dx3 = pG->dx3;
 
+/* There is only one ghost zone needed at each level, not nghost */
+  Nx1z = pG->Nx1 + 2;
+  Nx2z = pG->Nx2 + 2;
+  Nx3z = pG->Nx3 + 2;
   Root_grid.rhs = (Real ***) calloc_3d_array(Nx3z,Nx2z,Nx1z,sizeof(Real));
   Root_grid.Phi = (Real ***) calloc_3d_array(Nx3z,Nx2z,Nx1z,sizeof(Real));
   if (Root_grid.rhs == NULL) {
@@ -198,6 +232,7 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
     ath_error("[selfg_by_multig_3d]: Error allocating memory\n");
   }
 
+/* Initialize solution on root grid, including single ghost zone */
   for (k=ks-1; k<=ke+1; k++){
     for (j=js-1; j<=je+1; j++){
       for (i=is-1; i<=ie+1; i++){
@@ -211,7 +246,8 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
 
   multig_3d(&Root_grid);
 
-/* copy solution for potential from MGrid into Grid structure */
+/* copy solution for potential from MGrid into Grid structure.  Boundary
+ * conditions for nghost ghost cells are set by set_bvals() call in main() */
 
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
@@ -251,10 +287,6 @@ void multig_3d(MGrid *pMG)
 
 /* Allocate and initialize MGrid at next coarsest level */
 
-    Nx1z = (pMG->Nx1)/2 + 2;
-    Nx2z = (pMG->Nx2)/2 + 2;
-    Nx3z = (pMG->Nx3)/2 + 2;
-
     Coarse_grid.Nx1 = pMG->Nx1/2;
     Coarse_grid.Nx2 = pMG->Nx2/2;
     Coarse_grid.Nx3 = pMG->Nx3/2;
@@ -265,6 +297,10 @@ void multig_3d(MGrid *pMG)
     Coarse_grid.dx2 = 2.0*pMG->dx2;
     Coarse_grid.dx3 = 2.0*pMG->dx3;
 
+/* Again, only one ghost zone on each level */
+    Nx1z = (pMG->Nx1)/2 + 2;
+    Nx2z = (pMG->Nx2)/2 + 2;
+    Nx3z = (pMG->Nx3)/2 + 2;
     Coarse_grid.rhs = (Real ***) calloc_3d_array(Nx3z,Nx2z,Nx1z,sizeof(Real));
     Coarse_grid.Phi = (Real ***) calloc_3d_array(Nx3z,Nx2z,Nx1z,sizeof(Real));
     if (Coarse_grid.rhs == NULL) {
@@ -358,15 +394,14 @@ void Jacobi(MGrid *pMG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_3d:  Do not use with periodic BCs, uses multipole expansion
- *   to compute potential at boundary
+/* Restriction_3d: Averages fine grid solution onto coarse
  */
 
 void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse)
 {
-  int i, is = 1, ie = pMG_fine->ie;
-  int j, js = 1, je = pMG_fine->je;
-  int k, ks = 1, ke = pMG_fine->ke;
+  int i, is = pMG_fine->is, ie = pMG_fine->ie;
+  int j, js = pMG_fine->js, je = pMG_fine->je;
+  int k, ks = pMG_fine->ks, ke = pMG_fine->ke;
   Real dx1sq = (pMG_fine->dx1*pMG_fine->dx1);
   Real dx2sq = (pMG_fine->dx2*pMG_fine->dx2);
   Real dx3sq = (pMG_fine->dx3*pMG_fine->dx3);
@@ -401,14 +436,13 @@ void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_3d:  Do not use with periodic BCs, uses multipole expansion
- *   to compute potential at boundary
+/* Prolongation_3d: linear interpolation of coarse grid onto fine  
  */
 void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
 {
-  int i, is = 1, ie = pMG_coarse->ie;
-  int j, js = 1, je = pMG_coarse->je;
-  int k, ks = 1, ke = pMG_coarse->ke;
+  int i, is = pMG_coarse->is, ie = pMG_coarse->ie;
+  int j, js = pMG_coarse->js, je = pMG_coarse->je;
+  int k, ks = pMG_coarse->ks, ke = pMG_coarse->ke;
 
   for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
@@ -465,8 +499,9 @@ void set_iterate_bvals(MGrid *pMG)
 /*--- Step 1. ------------------------------------------------------------------
  * Boundary Conditions in x1-direction */
 
-  cnt3 = pMG->Nx3 > 1 ? pMG->Nx3 + 1 : 1;
-  cnt = nghost*(pMG->Nx2 + 1)*cnt3;
+  cnt3 = 1;
+  if (pMG->Nx3 > 1) cnt3 = pMG->Nx3;
+  cnt = pMG->Nx2*cnt3;
 
 /* MPI blocks to both left and right */
   if (pMG->rx1_id >= 0 && pMG->lx1_id >= 0) {
@@ -512,8 +547,9 @@ void set_iterate_bvals(MGrid *pMG)
 /*--- Step 2. ------------------------------------------------------------------
  * Boundary Conditions in x2-direction */
 
-  cnt3 = pMG->Nx3 > 1 ? pMG->Nx3 + 1 : 1;
-  cnt = nghost*(pMG->Nx1 + 2*nghost)*cnt3;
+  cnt3 = 1;
+  if (pMG->Nx3 > 1) cnt3 = pMG->Nx3;
+  cnt = (pMG->Nx1 + 2)*cnt3;
 
 /* MPI blocks to both left and right */
   if (pMG->rx2_id >= 0 && pMG->lx2_id >= 0) {
@@ -561,7 +597,7 @@ void set_iterate_bvals(MGrid *pMG)
 
   if (pMG->Nx3 > 1){
 
-    cnt = nghost*(pMG->Nx1 + 2*nghost)*(pMG->Nx2 + 2*nghost);
+    cnt = (pMG->Nx1 + 2)*(pMG->Nx2 + 2);
 
 /* MPI blocks to both left and right */
     if (pMG->rx3_id >= 0 && pMG->lx3_id >= 0) {
@@ -616,31 +652,28 @@ void set_iterate_bvals(MGrid *pMG)
 
 void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int j,jl,ju,k,kl,ku,err;
   double *pd = send_buf;
 
   jl = pMG->js;
-  ju = pMG->je + 1;
+  ju = pMG->je;
 
   if(pMG->Nx3 > 1){
     kl = pMG->ks;
-    ku = pMG->ke + 1;
+    ku = pMG->ke;
   } else {
     kl = ku = pMG->ks;
   }
 
-/* Pack iterate into send buffer */
+/* Pack single row i=is of iterates into send buffer */
 
   if (swap_flag == 0) {
-    il = pMG->is;
-    iu = pMG->is + nghost - 1;
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          *(pd++) = pMG->Phi[k][j][i];
-        }
+        *(pd++) = pMG->Phi[k][j][is];
       }
     }
+  }
 
     /* send contents of buffer to the neighboring grid on L-x1 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->lx1_id,
@@ -648,11 +681,9 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     if(err) ath_error("[swap_iterate_ix1]: MPI_Send error = %d\n",err);
   }
 
-/* Receive message and unpack iterate */
+/* Receive message and unpack single row i=is-1 of iteratas into ghost zonee */
 
   if (swap_flag == 1) {
-    il = pMG->is - nghost;
-    iu = pMG->is - 1;
 
     /* Wait to receive the input data from the left grid */
     err = MPI_Wait(prq, &stat);
@@ -660,9 +691,7 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          pMG->Phi[k][j][i] = *(pd++);
-        }
+        pMG->Phi[k][j][is-1] = *(pd++);
       }
     }
   }
@@ -678,29 +707,25 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
 void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int j,jl,ju,k,kl,ku,err;
   double *pd = send_buf;
 
   jl = pMG->js;
-  ju = pMG->je + 1;
+  ju = pMG->je;
 
   if(pMG->Nx3 > 1){
     kl = pMG->ks;
-    ku = pMG->ke + 1;
+    ku = pMG->ke;
   } else {
     kl = ku = pMG->ks;
   }
 
-/* Pack iterate into send buffer */
+/* Pack single row i=ie of iterates into send buffer */
 
   if (swap_flag == 0) {
-    il = pMG->ie - nghost + 1;
-    iu = pMG->ie;
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          *(pd++) = pMG->Phi[k][j][i];
-        }
+        *(pd++) = pMG->Phi[k][j][ie];
       }
     }
 
@@ -710,11 +735,9 @@ void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     if(err) ath_error("[swap_iterate_ox1]: MPI_Send error = %d\n",err);
   }
 
-/* Receive message and unpack iterate */
+/* Receive message and unpack single row i=ie+1 of iterates into ghost zone */
 
   if (swap_flag == 1) {
-    il = pMG->ie + 1;
-    iu = pMG->ie + nghost;
 
     /* Wait to receive the input data from the right grid */
     err = MPI_Wait(prq, &stat);
@@ -722,9 +745,7 @@ void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          pMG->Phi[k][j][i] = *(pd++);
-        }
+        pMG->Phi[k][j][ie+1] = *(pd++);
       }
     }
   }
@@ -740,29 +761,25 @@ void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
 void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,k,kl,ku,err;
   double *pd = send_buf;
 
-  il = pMG->is - nghost;
-  iu = pMG->ie + nghost;
+  il = pMG->is - 1;
+  iu = pMG->ie + 1;
 
   if(pMG->Nx3 > 1){
     kl = pMG->ks;
-    ku = pMG->ke + 1;
+    ku = pMG->ke;
   } else {
     kl = ku = pMG->ks;
   }
 
-/* Pack iterate into send buffer */
+/* Pack single row j=js of iterates into send buffer */
 
   if (swap_flag == 0) {
-    jl = pMG->js;
-    ju = pMG->js + nghost - 1;
     for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          *(pd++) = pMG->Phi[k][j][i];
-        }
+      for (i=il; i<=iu; i++){
+        *(pd++) = pMG->Phi[k][js][i];
       }
     }
 
@@ -772,21 +789,17 @@ void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
     if(err) ath_error("[swap_iterate_ix2]: MPI_Send error = %d\n",err);
   }
 
-/* Receive message and unpack iterate */
+/* Receive message and unpack single row j=js-1 of iterates into ghost zone */
 
   if (swap_flag == 1) {
-    jl = pMG->js - nghost;
-    ju = pMG->js - 1;
 
     /* Wait to receive the input data from the left grid */
     err = MPI_Wait(prq, &stat);
     if(err) ath_error("[swap_iterate_ix2]: MPI_Wait error = %d\n",err);
 
     for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          pMG->Phi[k][j][i] = *(pd++);
-        }
+      for (i=il; i<=iu; i++){
+        pMG->Phi[k][js-1][i] = *(pd++);
       }
     }
   }
@@ -802,29 +815,25 @@ void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
 
 void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,k,kl,ku,err;
   double *pd = send_buf;
 
-  il = pMG->is - nghost;
-  iu = pMG->ie + nghost;
+  il = pMG->is - 1;
+  iu = pMG->ie + 1;
 
   if(pMG->Nx3 > 1){
     kl = pMG->ks;
-    ku = pMG->ke + 1;
+    ku = pMG->ke;
   } else {
     kl = ku = pMG->ks;
   }
 
-/* Pack iterate into send buffer */
+/* Pack single row j=je of iterates into send buffer */
 
   if (swap_flag == 0) {
-    jl = pMG->je - nghost + 1;
-    ju = pMG->je;
     for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          *(pd++) = pMG->Phi[k][j][i];
-        }
+      for (i=il; i<=iu; i++){
+        *(pd++) = pMG->Phi[k][je][i];
       }
     }
 
@@ -834,21 +843,17 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     if(err) ath_error("[swap_iterate_ox2]: MPI_Send error = %d\n",err);
   }
 
-/* Receive message and unpack iterate */
+/* Receive message and unpack single row j=je+1 of iterates into ghost zone */
 
   if (swap_flag == 1) {
-    jl = pMG->je + 1;
-    ju = pMG->je + nghost;
 
     /* Wait to receive the input data from the right grid */
     err = MPI_Wait(prq, &stat);
     if(err) ath_error("[swap_iterate_ox2]: MPI_Wait error = %d\n",err);
 
     for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          pMG->Phi[k][j][i] = *(pd++);
-        }
+      for (i=il; i<=iu; i++){
+        pMG->Phi[k][je+1][i] = *(pd++);
       }
     }
   }
@@ -864,24 +869,20 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
 void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,err;
   double *pd = send_buf;
 
-  il = pMG->is - nghost;
-  iu = pMG->ie + nghost;
-  jl = pMG->js - nghost;
-  ju = pMG->je + nghost;
+  il = pMG->is - 1;
+  iu = pMG->ie + 1;
+  jl = pMG->js - 1;
+  ju = pMG->je + 1;
 
-/* Pack iterate into send buffer */
+/* Pack single row k=ks of iterates into send buffer */
 
   if (swap_flag == 0) {
-    kl = pMG->ks;
-    ku = pMG->ks + nghost - 1;
-    for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          *(pd++) = pMG->Phi[k][j][i];
-        }
+    for (j=jl; j<=ju; j++){
+      for (i=il; i<=iu; i++){
+        *(pd++) = pMG->Phi[ks][j][i];
       }
     }
 
@@ -891,21 +892,17 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     if(err) ath_error("[swap_iterate_ix3]: MPI_Send error = %d\n",err);
   }
 
-/* Receive message and unpack iterate */
+/* Receive message and unpack single row k=ks-1 of iterates into ghost zone */
 
   if (swap_flag == 1) {
-    kl = pMG->ks - nghost;
-    ku = pMG->ks - 1;
 
     /* Wait to receive the input data from the left grid */
     err = MPI_Wait(prq, &stat);
     if(err) ath_error("[swap_iterate_ix3]: MPI_Wait error = %d\n",err);
 
-    for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          pMG->Phi[k][j][i] = *(pd++);
-        }
+    for (j=jl; j<=ju; j++){
+      for (i=il; i<=iu; i++){
+        pMG->Phi[ks-1][j][i] = *(pd++);
       }
     }
   }
@@ -921,24 +918,20 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
 void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,err;
   double *pd = send_buf;
 
-  il = pMG->is - nghost;
-  iu = pMG->ie + nghost;
-  jl = pMG->js - nghost;
-  ju = pMG->je + nghost;
+  il = pMG->is - 1;
+  iu = pMG->ie + 1;
+  jl = pMG->js - 1;
+  ju = pMG->je + 1;
 
-/* Pack data in Gas structure into send buffer */
+/* Pack single row k=ke of interates into send buffer */
 
   if (swap_flag == 0) {
-    kl = pMG->ke - nghost + 1;
-    ku = pMG->ke;
-    for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          *(pd++) = pMG->Phi[k][j][i];
-        }
+    for (j=jl; j<=ju; j++){
+      for (i=il; i<=iu; i++){
+        *(pd++) = pMG->Phi[ke][j][i];
       }
     }
 
@@ -948,21 +941,17 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     if(err) ath_error("[swap_iterate_ox3]: MPI_Send error = %d\n",err);
   }
 
-/* Receive message and unpack iterate */
+/* Receive message and unpack single row k=ke+1 of iterates into ghost zone */
 
   if (swap_flag == 1) {
-    kl = pMG->ke + 1;
-    ku = pMG->ke + nghost;
 
     /* Wait to receive the input data from the right grid */
     err = MPI_Wait(prq, &stat);
     if(err) ath_error("[swap_iterate_ox3]: MPI_Wait error = %d\n",err);
 
-    for (k=kl; k<=ku; k++){
-      for (j=jl; j<=ju; j++){
-        for (i=il; i<=iu; i++){
-          pMG->Phi[k][j][i] = *(pd++);
-        }
+    for (j=jl; j<=ju; j++){
+      for (i=il; i<=iu; i++){
+        pMG->Phi[ke+1][j][i] = *(pd++);
       }
     }
   }
