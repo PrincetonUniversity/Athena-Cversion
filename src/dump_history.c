@@ -163,8 +163,8 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
     fprintf(p_hstfile,"#  [1]=time       [2]=dt         [3]=mass       ");
     fprintf(p_hstfile,"[4]=total E    [5]=x1 Mom.    [6]=x2 Mom.    ");
     fprintf(p_hstfile,"[7]=x3 Mom.    [8]=x1-KE      [9]=x2-KE      ");
-    fprintf(p_hstfile,"[10]=x3-KE     [11]=x1-KE     [12]=x2-KE     ");
-    fprintf(p_hstfile,"[13]=x3-KE     [14]=grav PE");
+    fprintf(p_hstfile,"[10]=x3-KE     [11]=x1-ME     [12]=x2-ME     ");
+    fprintf(p_hstfile,"[13]=x3-ME     [14]=grav PE");
 #if (NSCALARS > 0)
     for(n=0; n<NSCALARS; n++){
       fprintf(p_hstfile," scalar %i",n);
