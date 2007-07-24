@@ -20,6 +20,8 @@
  *   selfg_by_fft_1d() - actually uses FEBS
  *   selfg_by_fft_2d() - 2D Poisson solver using FFTs
  *   selfg_by_fft_3d() - 3D Poisson solver using FFTs
+ *   selfg_by_fft_2d_init() - initializes FFT plans for 2D
+ *   selfg_by_fft_3d_init() - initializes FFT plans for 3D
  *============================================================================*/
 
 #include <math.h>

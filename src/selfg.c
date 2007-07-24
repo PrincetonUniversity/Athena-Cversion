@@ -353,6 +353,7 @@ VGDFun_t selfg_init(Grid *pG, Domain *pD)
   case 2:
     return selfg_by_multig_2d;
   case 3:
+    selfg_by_multig_3d_init(pG, pD);
     return selfg_by_multig_3d;
 #endif
 

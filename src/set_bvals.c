@@ -147,7 +147,6 @@ void set_bvals(Grid *pGrid, int var_flag)
 {
 #ifdef MPI_PARALLEL
   int cnt1, cnt2, cnt3, cnt, err;
-  MPI_Status stat;
   MPI_Request rq;
 #endif /* MPI_PARALLEL */
 

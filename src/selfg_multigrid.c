@@ -15,6 +15,7 @@
  * CONTAINS PUBLIC FUNCTIONS:
  *   selfg_by_multig_2d() - 2D Poisson solver using multigrid
  *   selfg_by_multig_3d() - 3D Poisson solver using multigrid
+ *   selfg_by_multig_3d_init() - Initializes send/receive buffers for MPI
  *============================================================================*/
 
 #include <math.h>
@@ -23,6 +24,10 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+
+#ifdef MPI_PARALLEL
+static double *send_buf=NULL, *recv_buf=NULL;
+#endif
 
 /* MGrid structure; holds RHS, potential, and information about grid
  * size for a given level in the multi-grid hierarchy  */
@@ -33,6 +38,9 @@ typedef struct MGrid_s{
   int is,ie;
   int js,je;
   int ks,ke; 
+  int rx1_id, lx1_id;
+  int rx2_id, lx2_id;
+  int rx3_id, lx3_id;
 }MGrid;
 
 /* 3D temporary array needed for restriction of errors  */
@@ -91,8 +99,11 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   int k, ks = pG->ks, ke = pG->ke;
   int Nx1z, Nx2z, Nx3z;
   MGrid Root_grid;
-  Real mass = 0.0, dVol, rad, x1, x2, x3;
+  Real mass = 0.0, tmass, dVol, rad, x1, x2, x3;
   Real Grav_const = four_pi_G/(4.0*PI);
+#ifdef MPI_PARALLEL
+  Real mpi_err;
+#endif
 
 /* Copy current potential into old */
 
@@ -102,16 +113,6 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
         pG->Phi_old[k][j][i] = pG->Phi[k][j][i];
       }
     }
-  }
-
-/* Allocate memory for error array used during restriction */
-
-  Nx1z = pG->Nx1 + 2*nghost;
-  Nx2z = pG->Nx2 + 2*nghost;
-  Nx3z = pG->Nx3 + 2*nghost;
-  error = (Real ***) calloc_3d_array(Nx3z, Nx2z, Nx1z, sizeof(Real));
-  if (error == NULL) {
-    ath_error("[multig_3d]: Error allocating memory for error array\n");
   }
 
 /* Compute solution at boundaries using monopole expansion */
@@ -126,7 +127,7 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   }
 
 #ifdef MPI_PARALLEL
-  mpi_err = MPI_Reduce(mass, tmass, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  mpi_err = MPI_Reduce(&mass, &tmass,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
   if (mpi_err) ath_error("[selfg_multigrid]: MPI_Reduce returned err = %d\n",
     mpi_err);
 #else
@@ -135,20 +136,19 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
 
 /*  Inner and outer x1 boundaries */
 
-  if (pGrid->lx1_id < 0) {
+  if (pG->lx1_id < 0) {
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=1; i<=nghost; i++){
           cc_pos(pG,is-i,j,k,&x1,&x2,&x3);
           rad = sqrt(x1*x1 + x2*x2 + x3*x3);
           pG->Phi[k][j][is-i] = -Grav_const*tmass/rad;
-
         }
       }
     }
   }
 
-  if (pGrid->rx1_id < 0) {
+  if (pG->rx1_id < 0) {
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=1; i<=nghost; i++){
@@ -158,10 +158,11 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
         }
       }
     }
+  }
 
 /*  Inner and outer x2 boundaries */
 
-  if (pGrid->lx2_id < 0) {
+  if (pG->lx2_id < 0) {
     for (k=ks; k<=ke; k++){
       for (j=1; j<=nghost; j++){
         for (i=is-nghost; i<=ie+nghost; i++){
@@ -171,8 +172,9 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
         }
       }
     }
+  }
 
-  if (pGrid->rx2_id < 0) {
+  if (pG->rx2_id < 0) {
     for (k=ks; k<=ke; k++){
       for (j=1; j<=nghost; j++){
         for (i=is-nghost; i<=ie+nghost; i++){
@@ -182,10 +184,11 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
         }
       }
     }
+  }
 
 /*  Inner and outer x3 boundaries */
 
-  if (pGrid->lx3_id < 0) {
+  if (pG->lx3_id < 0) {
     for (k=1; k<=nghost; k++){
       for (j=js-nghost; j<=je+nghost; j++){
         for (i=is-nghost; i<=ie+nghost; i++){
@@ -195,8 +198,9 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
         }
       }
     }
+  }
 
-  if (pGrid->rx3_id < 0) {
+  if (pG->rx3_id < 0) {
     for (k=1; k<=nghost; k++){
       for (j=js-nghost; j<=je+nghost; j++){
         for (i=is-nghost; i<=ie+nghost; i++){
@@ -206,6 +210,7 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
         }
       }
     }
+  }
 
 /* Initialize MGrid structure for top level (the root, or finest, level) */
 
@@ -218,6 +223,9 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   Root_grid.dx1 = pG->dx1;
   Root_grid.dx2 = pG->dx2;
   Root_grid.dx3 = pG->dx3;
+  Root_grid.rx1_id = pG->rx1_id; Root_grid.lx1_id = pG->lx1_id;
+  Root_grid.rx2_id = pG->rx2_id; Root_grid.lx2_id = pG->lx2_id;
+  Root_grid.rx3_id = pG->rx3_id; Root_grid.lx3_id = pG->lx3_id;
 
 /* There is only one ghost zone needed at each level, not nghost */
   Nx1z = pG->Nx1 + 2;
@@ -296,6 +304,9 @@ void multig_3d(MGrid *pMG)
     Coarse_grid.dx1 = 2.0*pMG->dx1;
     Coarse_grid.dx2 = 2.0*pMG->dx2;
     Coarse_grid.dx3 = 2.0*pMG->dx3;
+    Coarse_grid.rx1_id = pMG->rx1_id; Coarse_grid.lx1_id = pMG->lx1_id;
+    Coarse_grid.rx2_id = pMG->rx2_id; Coarse_grid.lx2_id = pMG->lx2_id;
+    Coarse_grid.rx3_id = pMG->rx3_id; Coarse_grid.lx3_id = pMG->lx3_id;
 
 /* Again, only one ghost zone on each level */
     Nx1z = (pMG->Nx1)/2 + 2;
@@ -653,6 +664,7 @@ void set_iterate_bvals(MGrid *pMG)
 void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int j,jl,ju,k,kl,ku,err;
+  MPI_Status stat;
   double *pd = send_buf;
 
   jl = pMG->js;
@@ -670,10 +682,9 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        *(pd++) = pMG->Phi[k][j][is];
+        *(pd++) = pMG->Phi[k][j][pMG->is];
       }
     }
-  }
 
     /* send contents of buffer to the neighboring grid on L-x1 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->lx1_id,
@@ -691,7 +702,7 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        pMG->Phi[k][j][is-1] = *(pd++);
+        pMG->Phi[k][j][pMG->is-1] = *(pd++);
       }
     }
   }
@@ -705,9 +716,10 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ox1 and set_bvals/receive_ox1
  */
 
-void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int j,jl,ju,k,kl,ku,err;
+  MPI_Status stat;
   double *pd = send_buf;
 
   jl = pMG->js;
@@ -725,7 +737,7 @@ void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        *(pd++) = pMG->Phi[k][j][ie];
+        *(pd++) = pMG->Phi[k][j][pMG->ie];
       }
     }
 
@@ -745,7 +757,7 @@ void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        pMG->Phi[k][j][ie+1] = *(pd++);
+        pMG->Phi[k][j][pMG->ie+1] = *(pd++);
       }
     }
   }
@@ -759,9 +771,10 @@ void swap_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ix2 and set_bvals/receive_ix2
  */
 
-void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,k,kl,ku,err;
+  MPI_Status stat;
   double *pd = send_buf;
 
   il = pMG->is - 1;
@@ -779,7 +792,7 @@ void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (k=kl; k<=ku; k++){
       for (i=il; i<=iu; i++){
-        *(pd++) = pMG->Phi[k][js][i];
+        *(pd++) = pMG->Phi[k][pMG->js][i];
       }
     }
 
@@ -799,7 +812,7 @@ void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (k=kl; k<=ku; k++){
       for (i=il; i<=iu; i++){
-        pMG->Phi[k][js-1][i] = *(pd++);
+        pMG->Phi[k][pMG->js-1][i] = *(pd++);
       }
     }
   }
@@ -816,6 +829,7 @@ void swap_iterate_ix2(MGrid *pG, int cnt, int swap_flag, MPI_Request *prq)
 void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,k,kl,ku,err;
+  MPI_Status stat;
   double *pd = send_buf;
 
   il = pMG->is - 1;
@@ -833,7 +847,7 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (k=kl; k<=ku; k++){
       for (i=il; i<=iu; i++){
-        *(pd++) = pMG->Phi[k][je][i];
+        *(pd++) = pMG->Phi[k][pMG->je][i];
       }
     }
 
@@ -853,7 +867,7 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (k=kl; k<=ku; k++){
       for (i=il; i<=iu; i++){
-        pMG->Phi[k][je+1][i] = *(pd++);
+        pMG->Phi[k][pMG->je+1][i] = *(pd++);
       }
     }
   }
@@ -870,6 +884,7 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,j,jl,ju,err;
+  MPI_Status stat;
   double *pd = send_buf;
 
   il = pMG->is - 1;
@@ -882,7 +897,7 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        *(pd++) = pMG->Phi[ks][j][i];
+        *(pd++) = pMG->Phi[pMG->ks][j][i];
       }
     }
 
@@ -902,7 +917,7 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        pMG->Phi[ks-1][j][i] = *(pd++);
+        pMG->Phi[pMG->ks-1][j][i] = *(pd++);
       }
     }
   }
@@ -919,6 +934,7 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,j,jl,ju,err;
+  MPI_Status stat;
   double *pd = send_buf;
 
   il = pMG->is - 1;
@@ -931,7 +947,7 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        *(pd++) = pMG->Phi[ke][j][i];
+        *(pd++) = pMG->Phi[pMG->ke][j][i];
       }
     }
 
@@ -951,7 +967,7 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        pMG->Phi[ke+1][j][i] = *(pd++);
+        pMG->Phi[pMG->ke+1][j][i] = *(pd++);
       }
     }
   }
@@ -959,4 +975,81 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   return;
 }
 #endif /* MPI_PARALLEL */
+
+/*----------------------------------------------------------------------------*/
+/* selfg_by_multig_3d_init: initialize send/receive buffers needed to swap
+ *   iterates during Jacobi iterations.
+ */
+
+void selfg_by_multig_3d_init(Grid *pG, Domain *pD)
+{
+#ifdef MPI_PARALLEL
+  int i,j,k,x1cnt,x2cnt,x3cnt;
+  int nx1t,nx2t,nx3t, size;
+  int NGrid_x1, NGrid_x2, NGrid_x3;
+#endif
+  int Nx1z, Nx2z, Nx3z;
+
+/* Allocate memory for error array used during restriction */
+
+  Nx1z = pG->Nx1 + 2;
+  Nx2z = pG->Nx2 + 2;
+  Nx3z = pG->Nx3 + 2;
+  error = (Real ***) calloc_3d_array(Nx3z, Nx2z, Nx1z, sizeof(Real));
+  if (error == NULL) {
+    ath_error("[multig_3d]: Error allocating memory for error array\n");
+  }
+
+#ifdef MPI_PARALLEL
+  NGrid_x1 = par_geti("parallel","NGrid_x1");
+  NGrid_x2 = par_geti("parallel","NGrid_x2");
+  NGrid_x3 = par_geti("parallel","NGrid_x3");
+
+  x1cnt = x2cnt = x3cnt = 0;
+        
+  for (k=0; k<NGrid_x3; k++){
+    for (j=0; j<NGrid_x2; j++){
+      for (i=0; i<NGrid_x1; i++){
+        if(NGrid_x1 > 1){
+          nx2t = pD->grid_block[k][j][i].jxe - pD->grid_block[k][j][i].jxs + 1;
+          nx3t = pD->grid_block[k][j][i].kxe - pD->grid_block[k][j][i].kxs + 1;
+        
+          x1cnt = nx2t*nx3t > x1cnt ? nx2t*nx3t : x1cnt;
+        }
+        
+        if(NGrid_x2 > 1){
+          nx1t = pD->grid_block[k][j][i].ixe - pD->grid_block[k][j][i].ixs + 1;
+          if(nx1t > 1) nx1t += 2;
+          nx3t = pD->grid_block[k][j][i].kxe - pD->grid_block[k][j][i].kxs + 1;
+
+          x2cnt = nx1t*nx3t > x2cnt ? nx1t*nx3t : x2cnt;
+        }
+
+
+        if(NGrid_x3 > 1){
+          nx1t = pD->grid_block[k][j][i].ixe - pD->grid_block[k][j][i].ixs + 1;
+          if(nx1t > 1) nx1t += 2;
+          nx2t = pD->grid_block[k][j][i].jxe - pD->grid_block[k][j][i].jxs + 1;
+          if(nx2t > 1) nx2t += 2;
+
+          x3cnt = nx1t*nx2t > x3cnt ? nx1t*nx2t : x3cnt;
+        }
+      }
+    }
+  }
+
+  size = x1cnt > x2cnt ? x1cnt : x2cnt;
+  size = x3cnt >  size ? x3cnt : size;
+
+  if (size > 0) {
+    if((send_buf = (double*)malloc(size*sizeof(double))) == NULL)
+      ath_error("[selfg_by_multig_3d_init]: Failed to allocate send buffer\n");
+
+    if((recv_buf = (double*)malloc(size*sizeof(double))) == NULL)
+      ath_error("[selfg_by_multig_3d_init]: Failed to allocate recv buffer\n");
+  }
+#endif /* MPI_PARALLEL */
+  return;
+}
+
 #endif /* SELF_GRAVITY_USING_MULTIGRID */
