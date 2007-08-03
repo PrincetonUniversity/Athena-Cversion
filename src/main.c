@@ -38,16 +38,16 @@ void usage(char *prog);
 
 int main(int argc, char *argv[])
 {
-  VGFun_t Integrate;      /* function pointer to integrator, set at runtime */
+  VGFun_t Integrate;     /* function pointer to integrator, set at runtime */
 #ifdef SELF_GRAVITY
   VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
 #endif
 
-  Grid level0_Grid;                /* only level0 grids in this version */
+  Grid level0_Grid;      /* only level0 Grid and Domain in this version */
   Domain level0_Domain;
 
-  int ires=0;          /* restart flag, is set to 1 if -r argument on cmdline */
-  int i,nlim,done=0,zones,iquit=0,iflush=1;
+  int ires=0;            /* restart flag, set to 1 if -r argument on cmdline */
+  int i,nlim,done=0,zones,iquit=0,iflush=1,nstep_start=0;
   Real tlim;
   double cpu_time, zcs;
   char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name;
@@ -290,10 +290,12 @@ int main(int argc, char *argv[])
 /* Set initial conditions, either by reading from restart or calling
  * problem generator */
 
-  if(ires) 
+  if(ires) {
     restart_grid_block(res_file, &level0_Grid, &level0_Domain);  /*  Restart */
-  else     
+    nstep_start = level0_Grid.nstep;
+  } else {     
     problem(&level0_Grid, &level0_Domain);      /* New problem */
+  }
 
 /*--- Step 6. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
@@ -403,6 +405,7 @@ int main(int argc, char *argv[])
 /*--- Step 11. ---------------------------------------------------------------*/
 /* Finish up by computing zc/sec, dumping data, and deallocate memory */
 
+/* Print diagnostic message as to why run terminated */
   if (level0_Grid.nstep == nlim)
     ath_pout(0,"\nterminating on cycle limit\n");
 #ifdef MPI_PARALLEL
@@ -412,6 +415,7 @@ int main(int argc, char *argv[])
   else
     ath_pout(0,"\nterminating on time limit\n");
 
+/* Get time used */
   gettimeofday(&tve,NULL);
   if(have_times > 0) {
     times(&tbuf);
@@ -424,10 +428,10 @@ int main(int argc, char *argv[])
       (double)CLOCKS_PER_SEC;
   }
 
-  zones = level0_Grid.Nx1*level0_Grid.Nx2*level0_Grid.Nx3;
-  zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
-
 /* Calculate and print the zone-cycles / cpu-second */
+  zones = level0_Grid.Nx1*level0_Grid.Nx2*level0_Grid.Nx3;
+  zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
+
   ath_pout(0,"  tlim= %e   nlim= %i\n",tlim,nlim);
   ath_pout(0,"  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
   ath_pout(0,"\nzone-cycles/cpu-second = %e\n",zcs);
@@ -435,7 +439,7 @@ int main(int argc, char *argv[])
 /* Calculate and print the zone-cycles / wall-second */
   cpu_time = (double)(tve.tv_sec - tvs.tv_sec) +
     1.0e-6*(double)(tve.tv_usec - tvs.tv_usec);
-  zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
+  zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
   ath_pout(0,"\nelapsed wall time = %e sec.\n",cpu_time);
   ath_pout(0,"\nzone-cycles/wall-second = %e\n",zcs);
 
@@ -443,7 +447,7 @@ int main(int argc, char *argv[])
   zones = (level0_Domain.ixe - level0_Domain.ixs + 1)
          *(level0_Domain.jxe - level0_Domain.jxs + 1)
          *(level0_Domain.kxe - level0_Domain.kxs + 1);
-  zcs = (double)zones*(double)(level0_Grid.nstep)/cpu_time;
+  zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
   ath_pout(0,"\ntotal zone-cycles/wall-second = %e\n",zcs);
 #endif /* MPI_PARALLEL */
 
