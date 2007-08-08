@@ -255,11 +255,11 @@ single &  disabled & computations performed in single precision (default is doub
 debug  & disabled & compiles code with flags needed for debugger \\
 ghost  & disabled & causes ghost zones to be written during output \\
 mpi    & disabled & parallelization using MPI library \\
-h-correction & disabled & H-correction to fix carbuncle problem 
-\\ \hline
+h-correction & disabled & H-correction to fix carbuncle problem \\ 
+\hline
 \end{tabular}
 \end{center}
-\\
+%\\
 \end{table}
 
 \begin{table}[ht]
@@ -338,7 +338,7 @@ contains other targets listed in Table 3.
 \begin{center}
 \begin{table}[ht]
 \caption{Some Makefile targets in \ath}
-\end{center}
+%\end{center}
 \begin{tabular}{|c|c|} \hline \hline
 TARGET & Comments \\ \hline
 all & creates {\tt /athena3.0/bin} directory and compiles code \\
@@ -348,8 +348,8 @@ help & prints help message \\
 test & runs install test (see \S 10.1) \\
 \hline
 \end{tabular}
-\end{center}
 \end{table}
+\end{center}
 
 Normally the Makefiles should never be edited by hand.  However,
 it is possible to edit the Makefile in the {\tt /athena3.0/src} directory to
