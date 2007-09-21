@@ -41,7 +41,8 @@
 
 /* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
  * higher-order fluxes would cause cell-centered density to go negative.
- * See Step 14 for important details. */
+ * Called in Step 15, see private function first_order_correction()
+ * for important details. */
 #define FIRST_ORDER_FLUX_CORRECTION
 
 #if defined (FIRST_ORDER_FLUX_CORRECTION) && defined(H_CORRECTION)
@@ -1093,7 +1094,7 @@ void integrate_3d_vl(Grid *pG)
 
 #ifndef FIRST_ORDER_FLUX_CORRECTION
         if (!(pG->U[k][j][i].d > 0.0))
-          ath_error("Step 13c: pG->U[%d][%d][%d].d = %3.2e\n",
+          ath_error("Step 14c: pG->U[%d][%d][%d].d = %3.2e\n",
                         pG->kdisp+k, pG->jdisp+j, pG->idisp+i,
                         pG->U[k][j][i].d);
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
@@ -1298,6 +1299,7 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
  *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
  *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
  *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
+ * first_order_correction() - Added by N. Lemaster to run supersonic turbulence
  */ 
 
 #ifdef MHD
@@ -1362,6 +1364,8 @@ static void integrate_emf1_corner(const Grid *pG)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+
 static void integrate_emf2_corner(const Grid *pG)
 {
   int i, is = pG->is, ie = pG->ie;
@@ -1422,6 +1426,8 @@ static void integrate_emf2_corner(const Grid *pG)
 
   return;
 }
+
+/*----------------------------------------------------------------------------*/
 
 static void integrate_emf3_corner(const Grid *pG)
 {
@@ -2070,7 +2076,7 @@ static void first_order_correction(const Grid *pG)
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
           if (pG->U[k][j][i].d <= 0.0) {
-            ath_perr(-1,"13d: pG->U[%d][%d][%d].d = %5.4e\n",
+            ath_perr(-1,"15: pG->U[%d][%d][%d].d = %5.4e\n",
                           pG->kdisp+k,pG->jdisp+j,pG->idisp+i,
                           pG->U[k][j][i].d);
             negcount++;
