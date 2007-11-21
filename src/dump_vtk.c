@@ -29,6 +29,9 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
   int ndata0;
   float *data;   /* points to 3*ndata0 allocated floats */
   double x1, x2, x3;
+#if (NSCALARS > 0)
+  int n;
+#endif
 
 #ifdef WRITE_GHOST_CELLS
   if(pGrid->Nx1 > 1) {
