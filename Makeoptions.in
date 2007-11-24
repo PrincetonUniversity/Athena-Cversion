@@ -39,11 +39,11 @@ endif
 # New machines can be added to ifeq blocks below.
 
 ifeq ($(MACHINE),ophir)
-  CC = icc
-  LDR = icc
-  OPT = -O2 -xW -tpp7 -ipo -i-static -gcc-name=gcc32
-  MPIINC  = -I/scr0/mpich-1.2.7p1/include
-  MPILIB = -L/scr0/mpich-1.2.7p1/lib -lmpich
+  CC = /usr/peyton/intel/10.0/cce/bin/icc
+  LDR = /usr/peyton/intel/10.0/cce/bin/icc
+  OPT = -O3 -xW -ipo -i-static
+  MPIINC  = -I/opt/mpich-1.2.7p1/include
+  MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
   FFTWLIB = -L/u/jstone/bin/FFTW/fftw-3.0.1/lib -lfftw3
   FFTWINC = -I/u/jstone/bin/FFTW/fftw-3.0.1/include
 else
