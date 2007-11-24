@@ -473,13 +473,17 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 	  qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
-#ifndef ROE_FLUX
-        qa = 0.0;
+/* For HLL fluxes, subtract wave moving away from interface as well. */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+        qa  = 0.0;
+        qb = 0.5*dtodx*(ev[0]-ev[n]);
+        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - ev[n]*ev[n]);
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
+          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
-        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
-#endif /* ROE_FLUX */
+
+        for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+#endif /* HLL_FLUX */
       }
     }
 
@@ -492,13 +496,17 @@ void lr_states(const Prim1D W[], const Real Bxc[],
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
-#ifndef ROE_FLUX
-        qa  = 0.0;
+/* For HLL fluxes, subtract wave moving away from interface as well. */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+        qa = 0.0;
+        qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
+        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
+          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
         }
-        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
-#endif /* ROE_FLUX */
+
+        for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+#endif /* HLL_FLUX */
       }
     }
 
