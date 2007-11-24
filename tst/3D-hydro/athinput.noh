@@ -1,0 +1,62 @@
+<comment>
+
+problem = Noh's strong shock test in 3D
+author  = W.F. Noh
+journal = JCP, 72, 78 (1987), sect. 8
+config  = --with-gas=hydro --with-problem=noh --enable-h-correction
+
+<job>
+
+problem_id   = Noh          # problem ID: basename of output filenames
+maxout       = 4            # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = hst               # History data dump
+dt      = 0.01              # time increment between outputs
+
+<output2>
+out_fmt = bin               # Binary data dump
+dt      = 0.1              # time increment between outputs
+
+<output3>
+out_fmt = vtk               # vtk data dump
+dt      = 0.1              # time increment between outputs
+
+<output4>
+out_fmt = ppm
+out     = d
+id      = d
+dt      = 0.01
+dmin    = 1.0
+dmax    = 64.0
+ix3     = 1
+
+<time>
+
+cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 15000     # cycle limit
+tlim            = 2.0       # time limit
+
+<grid>
+
+Nx1             = 100       # Number of zones in X1-direction
+x1min           = 0.0       # minimum value of X1
+x1max           = 1.0       # maximum value of X1
+ibc_x1          = 1         # inner-I (X1) boundary flag
+obc_x1          = 1         # outer-I (X1) boundary flag
+
+Nx2             = 100       # Number of zones in X2-direction
+x2min           = 0.0       # minimum value of X2
+x2max           = 1.0       # maximum value of X2
+ibc_x2          = 1         # inner-J (X2) boundary flag
+obc_x2          = 1         # outer-J (X2) boundary flag
+
+Nx3             = 100         # Number of zones in X3-direction
+x3min           = 0.0       # minimum value of X3
+x3max           = 1.0       # maximum value of X3
+ibc_x3          = 1         # inner-K (X3) boundary flag
+obc_x3          = 1         # outer-K (X3) boundary flag
+
+<problem>
+
+gamma = 1.666666667         # gamma = C_p/C_v
