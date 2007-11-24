@@ -100,7 +100,7 @@ void integrate_3d_ctu(Grid *pG)
   Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
-  Real cfr,cfl,ur,ul;
+  Real cfr,cfl,lambdar,lambdal;
 #endif
 #if (NSCALARS > 0)
   int n;
@@ -1581,9 +1581,9 @@ void integrate_3d_ctu(Grid *pG)
       for (i=is-1; i<=ie+2; i++) {
         cfr = cfast(&(Ur_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
         cfl = cfast(&(Ul_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
-        ur = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d;
-        ul = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d;
-        eta1[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+        lambdar = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d + cfr;
+        lambdal = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d - cfl;
+        eta1[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
   }
@@ -1593,9 +1593,9 @@ void integrate_3d_ctu(Grid *pG)
       for (i=is-1; i<=ie+1; i++) {
         cfr = cfast(&(Ur_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
         cfl = cfast(&(Ul_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
-        ur = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d;
-        ul = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d;
-        eta2[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+        lambdar = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d + cfr;
+        lambdal = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d - cfl;
+        eta2[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
   }
@@ -1605,9 +1605,9 @@ void integrate_3d_ctu(Grid *pG)
       for (i=is-1; i<=ie+1; i++) {
         cfr = cfast(&(Ur_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
         cfl = cfast(&(Ul_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
-        ur = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d;
-        ul = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d;
-        eta3[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+        lambdar = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d + cfr;
+        lambdal = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d - cfl;
+        eta3[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
   }

@@ -42,8 +42,12 @@
 /* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
  * higher-order fluxes would cause cell-centered density to go negative.
  * Called in Step 15, see private function first_order_correction()
- * for important details. */
-#define FIRST_ORDER_FLUX_CORRECTION
+ * for important details.  Primarily added (MNL) to increase robustness of code
+ * for drive/decaying supersonic turbulence.  Uncomment define below to turn
+ * correction ON.
+ */
+
+/* #define FIRST_ORDER_FLUX_CORRECTION */
 
 #if defined (FIRST_ORDER_FLUX_CORRECTION) && defined(H_CORRECTION)
 #error : Flux correction in the VL integrator does not work with H-corrrection.
@@ -119,7 +123,7 @@ void integrate_3d_vl(Grid *pG)
   Real d, M1, M2, M3, B1c, B2c, B3c;
 #endif
 #ifdef H_CORRECTION
-  Real cfr,cfl,ur,ul;
+  Real cfr,cfl,lambdar,lambdal;
 #endif
 #if (NSCALARS > 0)
   int n;
@@ -656,9 +660,9 @@ void integrate_3d_vl(Grid *pG)
       for (i=ib+1; i<=it; i++) {
         cfr = cfast(&(Ur_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
         cfl = cfast(&(Ul_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
-        ur = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d;
-        ul = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d;
-        eta1[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+        lambdar = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d + cfr;
+        lambdal = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d - cfl;
+        eta1[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
   }
@@ -668,9 +672,9 @@ void integrate_3d_vl(Grid *pG)
       for (i=ib; i<=it; i++) {
         cfr = cfast(&(Ur_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
         cfl = cfast(&(Ul_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
-        ur = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d;
-        ul = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d;
-        eta2[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+        lambdar = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d + cfr;
+        lambdal = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d - cfl;
+        eta2[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
   }
@@ -680,9 +684,9 @@ void integrate_3d_vl(Grid *pG)
       for (i=ib; i<=it; i++) {
         cfr = cfast(&(Ur_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
         cfl = cfast(&(Ul_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
-        ur = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d;
-        ul = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d;
-        eta3[k][j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+        lambdar = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d + cfr;
+        lambdal = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d - cfl;
+        eta3[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
   }

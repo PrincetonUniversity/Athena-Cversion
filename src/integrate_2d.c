@@ -89,7 +89,7 @@ void integrate_2d(Grid *pG)
   Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
-  Real cfr,cfl,ur,ul;
+  Real cfr,cfl,lambdar,lambdal;
 #endif
 #if (NSCALARS > 0)
   int n;
@@ -659,9 +659,9 @@ void integrate_2d(Grid *pG)
     for (i=is-1; i<=iu; i++) {
       cfr = cfast(&(Ur_x1Face[j][i]), &(B1_x1Face[j][i]));
       cfl = cfast(&(Ul_x1Face[j][i]), &(B1_x1Face[j][i]));
-      ur = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d;
-      ul = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d;
-      eta1[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      lambdar = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d + cfr;
+      lambdal = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d - cfl;
+      eta1[j][i] = 0.5*fabs(lambdar - lambdal);
     }
   }
 
@@ -669,9 +669,9 @@ void integrate_2d(Grid *pG)
     for (i=is-1; i<=ie+1; i++) {
       cfr = cfast(&(Ur_x2Face[j][i]), &(B2_x2Face[j][i]));
       cfl = cfast(&(Ul_x2Face[j][i]), &(B2_x2Face[j][i]));
-      ur = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d;
-      ul = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d;
-      eta2[j][i] = 0.5*(fabs(ur - ul) + fabs(cfr - cfl));
+      lambdar = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d + cfr;
+      lambdal = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d - cfl;
+      eta2[j][i] = 0.5*fabs(lambdar - lambdal);
     }
   }
 #endif /* H_CORRECTION */
