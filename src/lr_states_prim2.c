@@ -179,21 +179,23 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 #endif
 
 /*--- Step 7. ------------------------------------------------------------------
- * When H-correction defined, limit velocity difference to sound speed
+ * Limit velocity difference to sound speed
  * Limit velocity so momentum is always TVD (using only minmod limiter)
+ * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
+ * simulations, but found it added noise to Noh shocktube.
  */
 
 #ifdef H_CORRECTION
-
+/*
 #ifdef ISOTHERMAL
     qa = Iso_csound;
 #else
     qa = sqrt(Gamma*W[i].P/W[i].d);
 #endif
     dWm[1] = SIGN(dWm[1])*MIN(fabs(dWm[1]),qa);
-
+*/
 #endif /* H_CORRECTION */
-
+/*
     qa = W[i  ].Vx*W[i  ].d - W[i-1].Vx*W[i-1].d;
     qb = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
     qc = W[i+1].Vx*W[i+1].d - W[i-1].Vx*W[i-1].d;
@@ -216,6 +218,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
     dWm[1] = MIN(dWm[1],qb);
     dWm[1] = MAX(dWm[1],qa);
+*/
 
 /*--- Step 8. ------------------------------------------------------------------
  * Compute L/R values, ensure they lie between neighboring cell-centered vals */

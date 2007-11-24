@@ -186,21 +186,23 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 #endif
 
 /*--- Step 7. ------------------------------------------------------------------
- * When H-correction defined, limit velocity difference to sound speed
+ * Limit velocity difference to sound speed
  * Limit velocity so momentum is always TVD (using only minmod limiter)
+ * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
+ * simulations, but found it added noise to Noh shocktube.
  */ 
 
 #ifdef H_CORRECTION
-
+/* 
 #ifdef ISOTHERMAL
     qa = Iso_csound;
 #else
     qa = sqrt(Gamma*W[i].P/W[i].d);
 #endif
     dWm[i][1] = SIGN(dWm[i][1])*MIN(fabs(dWm[i][1]),qa);
-
+*/
 #endif /* H_CORRECTION */
-
+/* 
     qa = W[i  ].Vx*W[i  ].d - W[i-1].Vx*W[i-1].d;
     qb = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
     qc = W[i+1].Vx*W[i+1].d - W[i-1].Vx*W[i-1].d;
@@ -223,7 +225,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
     dWm[i][1] = MIN(dWm[i][1],qb);
     dWm[i][1] = MAX(dWm[i][1],qa);
-
+*/
   }
 /*=============== END LOOP OVER il-2:il-1 ===============*/
 
@@ -346,19 +348,21 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 /*--- Step 14. -----------------------------------------------------------------
  * When H-correction defined, limit velocity difference to sound speed
  * Limit velocity so momentum is always TVD (using only minmod limiter)
+ * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
+ * simulations, but found it added noise to Noh shocktube.
  */
 
 #ifdef H_CORRECTION
-
+/* 
 #ifdef ISOTHERMAL
     qa = Iso_csound;
 #else
     qa = sqrt(Gamma*W[i+1].P/W[i+1].d);
 #endif
     dWm[i+1][1] = SIGN(dWm[i+1][1])*MIN(fabs(dWm[i+1][1]),qa);
-
+*/
 #endif /* H_CORRECTION */
-
+/* 
     qa = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
     qb = W[i+2].Vx*W[i+2].d - W[i+1].Vx*W[i+1].d;
     qc = W[i+2].Vx*W[i+2].d - W[i  ].Vx*W[i  ].d;
@@ -381,7 +385,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
     dWm[i+1][1] = MIN(dWm[i+1][1],qb);
     dWm[i+1][1] = MAX(dWm[i+1][1],qa);
-
+*/
 /*--- Step 15. -----------------------------------------------------------------
  * Construct parabolic interpolant in primitive variables at left-interface
  * of cell i+1 ("W[i+1/2]", CW eqn 1.6) using linear TVD slopes at i and
