@@ -1,0 +1,78 @@
+<comment>
+
+problem = MHD KH instability
+author  = Ryu & Jones
+journal = ApJ
+config  = --with-problem=kh --with-order=3 --with-flux=hlld --with-nscalars=1
+
+<job>
+
+problem_id   = kh          # problem ID: basename of output filenames
+maxout       = 4            # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt = hst               # History data dump
+dt      = 0.01             # time increment between outputs
+
+<output2>
+out_fmt = bin              # Binary data dump
+dt      = 1.0              # time increment between outputs
+
+<output3>
+out_fmt = ppm
+dt      = 0.01
+out     = V2
+id      = V2
+dmin    = -0.5
+dmax    = 0.5
+palette = rainbow
+
+<output4>
+out_fmt = ppm
+dt      = 0.01
+out     = color
+id      = C
+dmin    = 0.0
+dmax    = 1.0
+palette = rainbow
+usr_expr_flag = 1          # use user expression
+
+<time>
+
+cour_no         = 0.8      # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000    # cycle limit
+tlim            = 15.5      # time limit
+
+<grid>
+
+Nx1             = 128       # Number of zones in X1-direction
+x1min           = 0.0      # minimum value of X1
+x1max           = 1.0      # maximum value of X1
+ibc_x1          = 4        # inner-I (X1) boundary flag
+obc_x1          = 4        # outer-I (X1) boundary flag
+
+Nx2             = 256      # Number of zones in X3-direction
+x2min           = -1.0     # minimum value of X3
+x2max           = 1.0      # maximum value of X3
+ibc_x2          = 2        # inner-III (X3) boundary flag
+obc_x2          = 2        # outer-III (X3) boundary flag
+
+Nx3             = 1        # Number of zones in X3-direction
+x3min           = -1.0     # minimum value of X3
+x3max           = 1.0      # maximum value of X3
+ibc_x3          = 1        # inner-II (X3) boundary flag
+obc_x3          = 1        # outer-II (X3) boundary flag
+
+<parallel>
+NGrid_x1 = 1
+NGrid_x2 = 1
+NGrid_x3 = 1
+
+<problem>
+
+gamma = 1.666666667         # gamma = C_p/C_v
+iprob = 2                   # iprob=1: random perts; iprob=2: single mode
+vflow = 0.645               # flow speed
+drat  = 1.0                 # ratio of densities (iprob=1)
+amp   = 0.001               # perturbation amplitude
+b0    = 0.129               # B-field strength
