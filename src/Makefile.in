@@ -31,9 +31,9 @@ CORE_OBJ = ath_array.o \
            integrate_2d.o \
            integrate_3d_@INTEGRATOR@.o \
            integrate.o \
-           lr_states_prim1.o \
-           lr_states_prim2.o \
-           lr_states_prim3.o \
+           lr_states_dc.o \
+           lr_states_plm.o \
+           lr_states_ppm.o \
            main.o \
            new_dt.o \
            output.o \
