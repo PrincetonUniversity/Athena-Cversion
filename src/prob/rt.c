@@ -37,6 +37,7 @@
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
+ * ran2() - random number generator from NR
  * reflect_ix2() - sets BCs on L-x2 (left edge) of grid used in 2D
  * reflect_ox2() - sets BCs on R-x2 (right edge) of grid used in 2D
  * reflect_ix3() - sets BCs on L-x3 (left edge) of grid used in 3D
