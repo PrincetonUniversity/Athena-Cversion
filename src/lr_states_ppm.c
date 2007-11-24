@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: lr_states_prim3.c
+ * FILE: lr_states_ppm.c
  *
  * PURPOSE: Third order (piecewise parabolic) spatial reconstruction using
  *   characteristic interpolation in the primitive variables.  A time-evolution

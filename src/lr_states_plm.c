@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: lr_states_prim2.c
+ * FILE: lr_states_plm.c
  *
  * PURPOSE: Second order (piecewise linear) spatial reconstruction using
  *   characteristic interpolation in the primitive variables.  A time-evolution

@@ -1,9 +1,9 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: lr_states_prim1.c
+ * FILE: lr_states_dc.c
  *
- * PURPOSE: First order (piecewise constant) spatial reconstruction.  The left-
- *   and right-states at the left-interface in each cell are indexed i.
+ * PURPOSE: First order (donor cell, piecewise constant) spatial reconstruction.
+ *   The L/R-states at the left-interface in each cell are indexed i.
  *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
  *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
  *
