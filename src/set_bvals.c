@@ -753,7 +753,7 @@ static void reflect_ox1(Grid *pGrid, int var_flag)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=2; i<=nghost; i++) {
-        pGrid->B1i[k][j][ie+i] = pGrid->B1i[k][j][ie-(i-1)];
+        pGrid->B1i[k][j][ie+i] = pGrid->B1i[k][j][ie-(i-2)];
       }
     }
   }
@@ -889,7 +889,7 @@ static void reflect_ox2(Grid *pGrid, int var_flag)
   for (k=ks; k<=ke; k++) {
     for (j=2; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
-        pGrid->B2i[k][je+j][i] = pGrid->B2i[k][je-(j-1)][i];
+        pGrid->B2i[k][je+j][i] = pGrid->B2i[k][je-(j-2)][i];
       }
     }
   }
@@ -1029,7 +1029,7 @@ static void reflect_ox3(Grid *pGrid, int var_flag)
   for (k=2; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pGrid->B3i[ke+k][j][i] = pGrid->B3i[ke-(k-1)][j][i];
+        pGrid->B3i[ke+k][j][i] = pGrid->B3i[ke-(k-2)][j][i];
       }
     }
   }
