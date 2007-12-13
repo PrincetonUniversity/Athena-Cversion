@@ -131,7 +131,7 @@ fi
 AC_SUBST(ORDER)
 AC_SUBST(ACCURACY)
 
-AC_ARG_WITH(order, [  --with-order=ORDER      Order of Accuracy (1,2,3)],
+AC_ARG_WITH(order, [  --with-order=ORDER      Order of Accuracy (1,2,3,3e)],
 		with_order=$withval, with_order="2")
 ORDER=$with_order
 if test   "$with_order" = "1"; then
@@ -140,8 +140,10 @@ elif test "$with_order" = "2"; then
   ACCURACY="SECOND_ORDER"
 elif test "$with_order" = "3"; then
   ACCURACY="THIRD_ORDER"
+elif test "$with_order" = "3e"; then
+  ACCURACY="THIRD_ORDER_EXTREMA_PRESERVING"
 else
-  AC_MSG_ERROR([expected --with-order=1, 2 or 3])
+  AC_MSG_ERROR([expected --with-order=1, 2, 3, or 3e])
 fi
 
 #-------------------------------------------------------------------------------
