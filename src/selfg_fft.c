@@ -11,8 +11,8 @@
  *   The 2D and 3D f'ns use FFTW3.x, and for MPI parallel use Steve Plimpton's
  *   block decomposition routines added by N. Lemaster to /athena/fftsrc.
  *   This means to use these fns the code must be
- *      (1) configured with --enable-fft
- *      (2) compiled with links to FFTW libraries
+ *     (1) configured with --with-gravity=fft --enable-fft
+ *     (2) compiled with links to FFTW libraries (may need to edit Makeoptions)
  *
  *   For NON-PERIODIC BCs, use selfg_multig() functions.
  *
@@ -96,7 +96,7 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
 #ifdef FFT_ENABLED
 /*----------------------------------------------------------------------------*/
 /* selfg_by_fft_2d:
- *   Only works for uniform grid, periodic boundary conditions, and dx1=dx2
+ *   Only works for uniform grid, periodic boundary conditions
  */
 
 void selfg_by_fft_2d(Grid *pG, Domain *pD)
@@ -105,7 +105,8 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
-  Real dkx,dky;
+  Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2);
+  Real dkx,dky,pcoeff;
 
 /* Copy current potential into old */
 
@@ -128,27 +129,35 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
   ath_2d_fft(fplan2d, work);
 
 /* Compute potential in Fourier space.  Multiple loops are used to avoid divide
- * by zero at i=is,j=js   */
+ * by zero at i=is,j=js, and to avoid if statement in loop   */
+/* To compute kx,ky note that indices relative to whole Domain are needed */
 
   dkx = 2.0*PI/(double)(pD->ixe - pD->ixs + 1);
   dky = 2.0*PI/(double)(pD->jxe - pD->jxs + 1);
 
-  work[F2DI(0,0,pG->Nx1,pG->Nx2)][0] = 0.0;
-  work[F2DI(0,0,pG->Nx1,pG->Nx2)][1] = 0.0;
+  if ((js+pG->jdisp)==0 && (is+pG->idisp)==0) {
+    work[F2DI(0,0,pG->Nx1,pG->Nx2)][0] = 0.0;
+    work[F2DI(0,0,pG->Nx1,pG->Nx2)][1] = 0.0;
+  } else {
+    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((js+pG->jdisp)*dky)-2.0)/dx2sq));
+    work[F2DI(0,0,pG->Nx1,pG->Nx2)][0] *= pcoeff;
+    work[F2DI(0,0,pG->Nx1,pG->Nx2)][1] *= pcoeff;
+  }
 
   for (j=js+1; j<=je; j++){
-    work[F2DI(0,j-js,pG->Nx1,pG->Nx2)][0] *= SQR(pG->dx1)/
-     (2.0*cos((j-js)*dky) - 2.0);
-    work[F2DI(0,j-js,pG->Nx1,pG->Nx2)][1] *= SQR(pG->dx1)/
-     (2.0*cos((j-js)*dky) - 2.0);
+    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((j +pG->jdisp)*dky)-2.0)/dx2sq));
+    work[F2DI(0,j-js,pG->Nx1,pG->Nx2)][0] *= pcoeff;
+    work[F2DI(0,j-js,pG->Nx1,pG->Nx2)][1] *= pcoeff;
   }
 
   for (i=is+1; i<=ie; i++){
     for (j=js; j<=je; j++){
-      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][0] *= SQR(pG->dx1)/
-       (2.0*cos((i-is)*dkx) + 2.0*cos((j-js)*dky) - 4.0);
-      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][1] *= SQR(pG->dx1)/
-       (2.0*cos((i-is)*dkx) + 2.0*cos((j-js)*dky) - 4.0);
+      pcoeff = 1.0/(((2.0*cos((i+pG->idisp)*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos((j+pG->jdisp)*dky)-2.0)/dx2sq));
+      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][0] *= pcoeff;
+      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][1] *= pcoeff;
     }
   }
 
@@ -169,7 +178,7 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
 
 /*----------------------------------------------------------------------------*/
 /* selfg_by_fft_3d:
- *   Only works for uniform grid, periodic boundary conditions, and dx1=dx2=dx3
+ *   Only works for uniform grid, periodic boundary conditions
  */
 
 void selfg_by_fft_3d(Grid *pG, Domain *pD)
@@ -178,7 +187,8 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
-  Real dkx,dky,dkz;
+  Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2),dx3sq=(pG->dx3*pG->dx3);
+  Real dkx,dky,dkz,pcoeff;
 
 /* Copy current potential into old */
 
@@ -203,42 +213,51 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   ath_3d_fft(fplan3d, work);
 
 /* Compute potential in Fourier space.  Multiple loops are used to avoid divide
- * by zero at i=is,j=js   */
+ * by zero at i=is,j=js,k=ks, and to avoid if statement in loop   */
+/* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
 
   dkx = 2.0*PI/(double)(pD->ixe - pD->ixs + 1);
   dky = 2.0*PI/(double)(pD->jxe - pD->jxs + 1);
   dkz = 2.0*PI/(double)(pD->kxe - pD->kxs + 1);
 
-  work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] = 0.0;
-  work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][1] = 0.0;
+  if ((ks+pG->kdisp)==0 && (js+pG->jdisp)==0 && (is+pG->idisp)==0) {
+    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] = 0.0;
+    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][1] = 0.0;
+  } else {
+    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((js+pG->jdisp)*dky)-2.0)/dx2sq) +
+                  ((2.0*cos((ks+pG->kdisp)*dkz)-2.0)/dx3sq));
+    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
+    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
+  }
 
-/* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
 
   for (k=ks+1; k<=ke; k++){
-    work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= SQR(pG->dx1)/
-      (2.0*cos((k+pG->kdisp)*dkz) - 2.0);
-    work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= SQR(pG->dx1)/
-      (2.0*cos((k+pG->kdisp)*dkz) - 2.0);
+    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((js+pG->jdisp)*dky)-2.0)/dx2sq) +
+                  ((2.0*cos((k +pG->kdisp)*dkz)-2.0)/dx3sq));
+    work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
+    work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
   }
 
   for (j=js+1; j<=je; j++){
     for (k=ks; k<=ke; k++){
-      work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= SQR(pG->dx1)/
-        (2.0*cos((j+pG->jdisp)*dky) + 2.0*cos((k+pG->kdisp)*dkz) - 4.0);
-      work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= SQR(pG->dx1)/
-        (2.0*cos((j+pG->jdisp)*dky) + 2.0*cos((k+pG->kdisp)*dkz) - 4.0);
+      pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos((j +pG->jdisp)*dky)-2.0)/dx2sq) +
+                    ((2.0*cos((k +pG->kdisp)*dkz)-2.0)/dx3sq));
+      work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
+      work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
     }
   }
 
   for (i=is+1; i<=ie; i++){
   for (j=js; j<=je; j++){
     for (k=ks; k<=ke; k++){
-      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= SQR(pG->dx1)/
-        (2.0*cos((i+pG->idisp)*dkx) + 2.0*cos((j+pG->jdisp)*dky) +
-         2.0*cos((k+pG->kdisp)*dkz) - 6.0);
-      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= SQR(pG->dx1)/
-        (2.0*cos((i+pG->idisp)*dkx) + 2.0*cos((j+pG->jdisp)*dky) +
-         2.0*cos((k+pG->kdisp)*dkz) - 6.0);
+      pcoeff = 1.0/(((2.0*cos((i+pG->idisp)*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos((j+pG->jdisp)*dky)-2.0)/dx2sq) +
+                    ((2.0*cos((k+pG->kdisp)*dkz)-2.0)/dx3sq));
+      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
+      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
     }
   }}
 
