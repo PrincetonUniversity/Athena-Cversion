@@ -34,6 +34,7 @@ CORE_OBJ = ath_array.o \
            lr_states_dc.o \
            lr_states_plm.o \
            lr_states_ppm.o \
+           lr_states_ppme.o \
            main.o \
            new_dt.o \
            output.o \

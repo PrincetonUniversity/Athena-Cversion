@@ -53,6 +53,8 @@ void show_config(void)
   ath_pout(0," Order of Accuracy:       2 (SECOND_ORDER)\n");
 #elif defined(THIRD_ORDER)
   ath_pout(0," Order of Accuracy:       3 (THIRD_ORDER)\n");
+#elif defined(THIRD_ORDER_EXTREMA_PRESERVING)
+  ath_pout(0," Order of Accuracy:       3e (THIRD_ORDER_EXTREMA_PRESERVING)\n");
 #endif
 
   ath_pout(0," Flux:                    %s\n",FLUX_TYPE);

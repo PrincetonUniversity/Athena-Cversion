@@ -38,7 +38,8 @@
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
 
-/* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER */
+/* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER
+ * THIRD_ORDER_EXTREMA_PRESERVING */
 #define @ACCURACY@
 
 /* flux_{roe, hlle, hllc, hlld, force, exact} */

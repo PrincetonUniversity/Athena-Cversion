@@ -144,7 +144,7 @@ void integrate_3d_vl(Grid *pG)
   int jb = jl+2, jt = ju-2;
   int kb = kl+2, kt = ku-2;
 #endif /* SECOND_ORDER */
-#ifdef THIRD_ORDER
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
   int ib = il+3, it = iu-3;
   int jb = jl+3, jt = ju-3;
   int kb = kl+3, kt = ku-3;
