@@ -2,8 +2,8 @@
 /*==============================================================================
  * FILE: lr_states_tag.c
  *
- * PURPOSE: Third order (piecewise parabolic) spatial reconstruction using
- *   characteristic interpolation in the primitive variables.  A time-evolution
+ * PURPOSE:  Quadratic reconstruction in the primitive variables with a 
+ *   first-order limiter, developed by Tom Gardiner.  A time-evolution
  *   (characteristic tracing) step is used to interpolate interface values to
  *   the half time level {n+1/2}, unless the unsplit integrator in 3D is VL.
  *
@@ -20,7 +20,7 @@
  *     U_{L,i-1/2} = Wrv(i-1);  U_{R,i-1/2} = Wlv(i)
  *
  * REFERENCE:
- *   Ask T. A. Gardiner
+ *   Ask T. A. Gardiner.
  *
  * CONTAINS PUBLIC FUNCTIONS:
  *   lr_states()          - computes L/R states
@@ -36,7 +36,7 @@
 #include "globals.h"
 #include "prototypes.h"
 
-#if defined(THIRD_ORDER) && defined(TAG_ORDER)
+#ifdef THIRD_ORDER
 
 #define NSCALARS 0
 #define num_total (NWAVE + NSCALARS)
@@ -57,14 +57,10 @@ static Real dac[num_total], da2c[num_total], dal[num_total], dar[num_total];
 
 #undef num_total
 
-void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
-               const Real dt, const Real dtodx, const int il, const int iu,
-               Cons1D Ul[], Cons1D Ur[]){
-/*
 void lr_states(const Prim1D W[], const Real Bxc[],
                const Real dt, const Real dtodx, const int il, const int iu,
-               Prim1D Wl[], Prim1D Wr[]){
-*/
+               Prim1D Wl[], Prim1D Wr[])
+{
   const int num_total = NWAVE + NSCALARS;
   Real *pWl=NULL, *pWc=NULL, *pWr=NULL;
   Real a, s, t, tt, abs_b, eps, pb;
@@ -82,9 +78,11 @@ void lr_states(const Prim1D W[], const Real Bxc[],
  * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
  */
 
+/*
   for (i=il-2; i<=iu+2; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
+*/
 
 /*=============== START BIG LOOP OVER i ===============*/
 
@@ -448,25 +446,22 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 /*--- Step 12. -----------------------------------------------------------------
  * Convert back to conserved variables, and done */
 
+/*
   for (i=il; i<=iu+1; i++) {
     pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
     pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
   }
+*/
 
   return;
 }
 
 #else /* THREED_VL */
 
-void lr_states(const Cons1D U1d[], const Real Bxc[], const Real Bxi[],
-               const Real dt, const Real dtodx, const int il, const int iu,
-               Cons1D Ul[], Cons1D Ur[]){
-/*
 void lr_states(const Prim1D W[], const Real Bxc[],
                const Real dt, const Real dtodx, const int il, const int iu,
-               Prim1D Wl[], Prim1D Wr[]){
-*/
-
+               Prim1D Wl[], Prim1D Wr[])
+{
   const int num_total = NWAVE + NSCALARS;
   Real *pWl=NULL, *pWc=NULL, *pWr=NULL;
   Real a, s, t, tt, abs_b, eps, pb;
@@ -477,9 +472,11 @@ void lr_states(const Prim1D W[], const Real Bxc[],
  * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
  */
 
+/*
   for (i=il-2; i<=iu+2; i++) {
     pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
+*/
 
 /*=============== START BIG LOOP OVER i ===============*/
 
@@ -731,10 +728,12 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 /*--- Step 12. -----------------------------------------------------------------
  * Convert back to conserved variables, and done */
 
+/*
   for (i=il; i<=iu+1; i++) {
     pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
     pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
   }
+*/
 
   return;
 }
