@@ -25,8 +25,8 @@
  *   construction of Roe matrices for systems of conservation laws",
  *   JCP, 136, 446 (1997)
  *
- *   J. Stone, T. Gardiner, P. Teuben, & J. Hawley, "Athena: A new code
- *   for astrophysical MHD", ApJS, XXX, XXX, (2007), Appendix B
+ *   J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new
+ *   code for astrophysical MHD", ApJS, (2008), Appendix B
  *   Equation numbers refer to this paper.
  *
  * CONTAINS PUBLIC FUNCTIONS:
@@ -56,7 +56,7 @@ void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
   Real right_eigenmatrix[][4], Real left_eigenmatrix[][4])
 {
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. B6) */
 
   eigenvalues[0] = v1 - Iso_csound;
   eigenvalues[1] = v1;
@@ -64,7 +64,7 @@ void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
   eigenvalues[3] = v1 + Iso_csound;
   if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. B3) */
 
   right_eigenmatrix[0][0] = 1.0;
   right_eigenmatrix[1][0] = v1 - Iso_csound;
@@ -86,7 +86,7 @@ void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
   right_eigenmatrix[2][3] = v2;
   right_eigenmatrix[3][3] = v3;
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. B7) */
 
   left_eigenmatrix[0][0] = 0.5*(1.0 + v1/Iso_csound);
   left_eigenmatrix[0][1] = -0.5/Iso_csound;
@@ -126,7 +126,7 @@ void esys_roe_adb_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   asq = Gamma_1*MAX((h-0.5*vsq), TINY_NUMBER);
   a = sqrt(asq);
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. B2) */
 
   eigenvalues[0] = v1 - a;
   eigenvalues[1] = v1;
@@ -135,7 +135,7 @@ void esys_roe_adb_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   eigenvalues[4] = v1 + a;
   if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. B3) */
 
   right_eigenmatrix[0][0] = 1.0;
   right_eigenmatrix[1][0] = v1 - a;
@@ -167,7 +167,7 @@ void esys_roe_adb_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   right_eigenmatrix[3][4] = v3;
   right_eigenmatrix[4][4] = h + v1*a;
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. B4) */
 
   na = 0.5/asq;
   left_eigenmatrix[0][0] = na*(0.5*Gamma_1*vsq + v1*a);
@@ -227,7 +227,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   vaxsq = b1*b1*di;
   twid_csq = Iso_csound2 + x;
 
-/* Compute fast- and slow-magnetosonic speeds (eq. ) */
+/* Compute fast- and slow-magnetosonic speeds (eq. B39) */
 
   ct2 = bt_starsq*di;
   tsum = vaxsq + ct2 + twid_csq;
@@ -240,7 +240,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   cssq = twid_csq*vaxsq/cfsq;
   cs = sqrt((double)cssq);
 
-/* Compute beta's (eqs. ) */
+/* Compute beta's (eqs. A17, B28, B40) */
 
   bt = sqrt(btsq);
   bt_star = sqrt(bt_starsq);
@@ -256,7 +256,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   bet3_star = bet3/sqrt(y);
   bet_starsq = bet2_star*bet2_star + bet3_star*bet3_star;
 
-/* Compute alpha's (eq. ) */
+/* Compute alpha's (eq. A16) */
 
   if ((cfsq-cssq) == 0.0) {
     alpha_f = 1.0;
@@ -272,7 +272,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
     alpha_s = sqrt((cfsq - twid_csq)/(cfsq - cssq));
   }
 
-/* Compute Q's (eq. ), etc. */
+/* Compute Q's (eq. A14-15), etc. */
 
   sqrtd = sqrt(d);
   s = SIGN(b1);
@@ -282,7 +282,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   af_prime = twid_c*alpha_f/sqrtd;
   as_prime = twid_c*alpha_s/sqrtd;
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. B38) */
 
   vax  = sqrt(vaxsq);
   eigenvalues[0] = v1 - cf;
@@ -293,7 +293,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   eigenvalues[5] = v1 + cf;
   if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. B21) */
 
   right_eigenmatrix[0][0] = alpha_f;
   right_eigenmatrix[1][0] = alpha_f*(v1 - cf);
@@ -337,7 +337,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   right_eigenmatrix[4][5] = right_eigenmatrix[4][0];
   right_eigenmatrix[5][5] = right_eigenmatrix[5][0];
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. B41) */
 /* Normalize by 1/2a^{2}: quantities denoted by \hat{f} */
 
   norm = 0.5/twid_csq;
@@ -426,7 +426,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   hp = h - (vaxsq + btsq*di);
   twid_asq = MAX((Gamma_1*(hp-0.5*vsq)-Gamma_2*x), TINY_NUMBER);
 
-/* Compute fast- and slow-magnetosonic speeds (eq. ) */
+/* Compute fast- and slow-magnetosonic speeds (eq. B18) */
 
   ct2 = bt_starsq*di;
   tsum = vaxsq + ct2 + twid_asq;
@@ -439,7 +439,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   cssq = twid_asq*vaxsq/cfsq;
   cs = sqrt((double)cssq);
 
-/* Compute beta(s) (eqs. ) */
+/* Compute beta(s) (eqs. A17, B20, B28) */
 
   bt = sqrt(btsq);
   bt_star = sqrt(bt_starsq);
@@ -455,7 +455,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   bet_starsq = bet2_star*bet2_star + bet3_star*bet3_star;
   vbet = v2*bet2_star + v3*bet3_star;
 
-/* Compute alpha(s) (eq. ) */
+/* Compute alpha(s) (eq. A16) */
 
   if ((cfsq-cssq) == 0.0) {
     alpha_f = 1.0;
@@ -471,7 +471,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
     alpha_s = sqrt((cfsq - twid_asq)/(cfsq - cssq));
   }
 
-/* Compute Q(s) and A(s) (eq. ), etc. */
+/* Compute Q(s) and A(s) (eq. A14-15), etc. */
 
   sqrtd = sqrt(d);
   isqrtd = 1.0/sqrtd;
@@ -484,7 +484,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   afpbb = af_prime*bt_star*bet_starsq;
   aspbb = as_prime*bt_star*bet_starsq;
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. B17) */
 
   vax = sqrt(vaxsq);
   eigenvalues[0] = v1 - cf;
@@ -496,7 +496,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   eigenvalues[6] = v1 + cf;
   if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. B21) */
 /* Note statements are grouped in ROWS for optimization, even though rem[*][n]
  * is the nth right eigenvector */
 
@@ -564,7 +564,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   right_eigenmatrix[6][5] = right_eigenmatrix[6][1];
   right_eigenmatrix[6][6] = right_eigenmatrix[6][0];
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. B29) */
 
 /* Normalize by 1/2a^{2}: quantities denoted by \hat{f} */
   norm = 0.5/twid_asq;

@@ -6,9 +6,9 @@
  * right-eigenvectors for the linearized system in the 
  * PRIMITIVE variables, i.e. W,t = AW,x, where W=(d,vx,vy,vz,[P],[By,Bz]).
  * The eigenvalues are returned through the argument list as a vector of length
- * NVAR.  The eigenvectors are returned as matrices of size (NVAR)x(NVAR), with
- * right-eigenvectors stored as COLUMNS (so R_i[*] = right_eigenmatrix[*][i]),
- * and left-eigenvectors stored as ROWS (so L_i[*] = left_eigenmatrix[i][*]).
+ * NWAVE.  The eigenvectors are returned as matrices of size (NWAVE)x(NWAVE),
+ * with right-eigenvectors stored as COLUMNS (R_i[*] = right_eigenmatrix[*][i]),
+ * and left-eigenvectors stored as ROWS (L_i[*] = left_eigenmatrix[i][*]).
  *
  * To improve performance components of the eigenvectors which are zero
  * are not set here (eigenmatrices must be initialized to zero in calling
@@ -16,8 +16,8 @@
  * are included, but are commented out.
  *
  * REFERENCES:
- *   J. Stone, T. Gardiner, P. Teuben, & J. Hawley, "Athena: A new code
- *   for astrophysical MHD", ApJS, XXX, XXX, (2007), Appendix A
+ *   J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new
+ *   code for astrophysical MHD", ApJS, (2008), Appendix A
  *   Equation numbers refer to this paper.
  *
  * CONTAINS PUBLIC FUNCTIONS:
@@ -45,14 +45,14 @@ void esys_prim_iso_hyd(const Real d, const Real v1,
   Real right_eigenmatrix[][4], Real left_eigenmatrix[][4])
 {
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. A6) */
 
   eigenvalues[0] = v1 - Iso_csound;
   eigenvalues[1] = v1;
   eigenvalues[2] = v1;
   eigenvalues[3] = v1 + Iso_csound;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. A3) */
 
   right_eigenmatrix[0][0] = 1.0;
   right_eigenmatrix[1][0] = -Iso_csound/d;
@@ -74,7 +74,7 @@ void esys_prim_iso_hyd(const Real d, const Real v1,
 /*right_eigenmatrix[2][3] = 0.0; */
 /*right_eigenmatrix[3][3] = 0.0; */
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. A7) */
 
   left_eigenmatrix[0][0] = 0.5;
   left_eigenmatrix[0][1] = -0.5*d/Iso_csound;
@@ -114,7 +114,7 @@ void esys_prim_adb_hyd(const Real d, const Real v1, const Real p,
   asq = Gamma*p/d;
   a = sqrt(asq);
 
-/* Compute eigenvalues (eq.) */
+/* Compute eigenvalues (eq. A2) */
 
   eigenvalues[0] = v1 - a;
   eigenvalues[1] = v1;
@@ -122,7 +122,7 @@ void esys_prim_adb_hyd(const Real d, const Real v1, const Real p,
   eigenvalues[3] = v1;
   eigenvalues[4] = v1 + a;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. A3) */
 
   right_eigenmatrix[0][0] = 1.0;
   right_eigenmatrix[1][0] = -a/d;
@@ -154,7 +154,7 @@ void esys_prim_adb_hyd(const Real d, const Real v1, const Real p,
 /*right_eigenmatrix[3][4] = 0.0; */
   right_eigenmatrix[4][4] = asq;
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. A4) */
 
 /*left_eigenmatrix[0][0] = 0.0; */
   left_eigenmatrix[0][1] = -0.5*d/a;
@@ -207,7 +207,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
   btsq  = b2*b2 + b3*b3;
   vaxsq = b1*b1*di;
 
-/* Compute fast- and slow-magnetosonic speeds (eq. ) */
+/* Compute fast- and slow-magnetosonic speeds (eq. A10) */
 
   ct2 = btsq*di;
   tsum = vaxsq + ct2 + (Iso_csound2);
@@ -220,7 +220,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
   cssq = (Iso_csound2)*vaxsq/cfsq;
   cs = sqrt((double)cssq);
 
-/* Compute beta(s) (eq ) */
+/* Compute beta(s) (eq A17) */
 
   bt  = sqrt(btsq);
   if (bt == 0.0) {
@@ -231,7 +231,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
     bet3 = b3/bt;
   }
 
-/* Compute alpha(s) (eq ) */
+/* Compute alpha(s) (eq A16) */
 
   if ((cfsq-cssq) == 0.0) {
     alpha_f = 1.0;
@@ -247,7 +247,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
     alpha_s = sqrt((cfsq - Iso_csound2)/(cfsq - cssq));
   }
 
-/* Compute Q(s) and A(s) (eq. ), etc. */
+/* Compute Q(s) and A(s) (eq. A14-15), etc. */
 
   sqrtd = sqrt(d);
   s = SIGN(b1);
@@ -256,7 +256,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
   af = Iso_csound*alpha_f*sqrtd;
   as = Iso_csound*alpha_s*sqrtd;
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. A21) */
 
   vax = sqrt(vaxsq);
   eigenvalues[0] = v1 - cf;
@@ -266,7 +266,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
   eigenvalues[4] = v1 + vax;
   eigenvalues[5] = v1 + cf;
 
-/* Right-eigenvectors, stored as COLUMNS (eq ) */
+/* Right-eigenvectors, stored as COLUMNS (eq A12) */
 
   right_eigenmatrix[0][0] = d*alpha_f;
   right_eigenmatrix[1][0] = -cf*alpha_f;
@@ -310,7 +310,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
   right_eigenmatrix[4][5] = right_eigenmatrix[4][0];
   right_eigenmatrix[5][5] = right_eigenmatrix[5][0];
 
-/* Left-eigenvectors, stored as ROWS (eq ) */
+/* Left-eigenvectors, stored as ROWS (eq A22) */
 
   norm = 0.5/Iso_csound2;
   qf = norm*qf;
@@ -383,7 +383,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
   vaxsq = b1*b1*di;
   asq   = Gamma*p*di;
 
-/* Compute fast- and slow-magnetosonic speeds (eq. ) */
+/* Compute fast- and slow-magnetosonic speeds (eq. A10) */
 
   ct2 = btsq*di;
   tsum = vaxsq + ct2 + asq;
@@ -396,7 +396,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
   cssq = asq*vaxsq/cfsq;
   cs = sqrt((double)cssq);
 
-/* Compute beta(s) (eq ) */
+/* Compute beta(s) (eq A17) */
 
   bt  = sqrt(btsq);
   if (bt == 0.0) {
@@ -407,7 +407,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
     bet3 = b3/bt;
   }
 
-/* Compute alpha(s) (eq ) */
+/* Compute alpha(s) (eq A16) */
 
   if (cf2_cs2 == 0.0) {
     alpha_f = 1.0;
@@ -423,7 +423,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
     alpha_s = sqrt((cfsq - asq)/cf2_cs2);
   }
 
-/* Compute Q(s) and A(s) (eq. ), etc. */
+/* Compute Q(s) and A(s) (eq. A14-15), etc. */
 
   sqrtd = sqrt(d);
   s = SIGN(b1);
@@ -433,7 +433,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
   af = a*alpha_f*sqrtd;
   as = a*alpha_s*sqrtd;
 
-/* Compute eigenvalues (eq. ) */
+/* Compute eigenvalues (eq. A9) */
 
   vax = sqrt(vaxsq);
   eigenvalues[0] = v1 - cf;
@@ -444,7 +444,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
   eigenvalues[5] = v1 + vax;
   eigenvalues[6] = v1 + cf;
 
-/* Right-eigenvectors, stored as COLUMNS (eq. ) */
+/* Right-eigenvectors, stored as COLUMNS (eq. A12) */
 /* Note statements are grouped in ROWS for optimization, even though rem[*][n]
  * is the nth right eigenvector */
 
@@ -505,7 +505,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
   right_eigenmatrix[6][5] = right_eigenmatrix[6][1];
   right_eigenmatrix[6][6] = right_eigenmatrix[6][0];
 
-/* Left-eigenvectors, stored as ROWS (eq. ) */
+/* Left-eigenvectors, stored as ROWS (eq. A18) */
 
   na = 0.5/asq;
   qf = na*qf;
