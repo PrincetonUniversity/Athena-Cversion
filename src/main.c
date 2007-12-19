@@ -377,12 +377,13 @@ int main(int argc, char *argv[])
     selfg_flux_correction(&level0_Grid);
 #endif
 
-/* Only bvals for Gas structure set when last argument of set_bvals = 0  */
-    set_bvals(&level0_Grid, 0);
-
     level0_Grid.nstep++;
     level0_Grid.time += level0_Grid.dt;
     new_dt(&level0_Grid);
+
+/* Boundary values must be set after time is updated for t-dependent BCs 
+ * Only bvals for Gas structure set when last argument of set_bvals = 0  */
+    set_bvals(&level0_Grid, 0);
 
 #ifdef MPI_PARALLEL
     if(use_wtlim && (MPI_Wtime() > wtend))
