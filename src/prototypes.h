@@ -206,6 +206,7 @@ void output_fits (Grid *pGrid, Domain *pD, Output *pOut);
 void output_pdf  (Grid *pGrid, Domain *pD, Output *pOut);
 void output_pgm  (Grid *pGrid, Domain *pD, Output *pOut);
 void output_ppm  (Grid *pGrid, Domain *pD, Output *pOut);
+void output_vtk  (Grid *pGrid, Domain *pD, Output *pOut);
 void output_tab  (Grid *pGrid, Domain *pD, Output *pOut);
 
 void dump_binary (Grid *pGrid, Domain *pD, Output *pOut);

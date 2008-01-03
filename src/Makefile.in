@@ -43,6 +43,7 @@ CORE_OBJ = ath_array.o \
            output_pgm.o \
            output_ppm.o \
            output_tab.o \
+           output_vtk.o \
            par.o \
            problem.o \
            restart.o \

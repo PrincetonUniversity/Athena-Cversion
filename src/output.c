@@ -292,8 +292,8 @@ void init_output(Grid *pGrid)
     }
 
 /* check for valid data output option (output of single variables)
- *  output format = {fits, pdf, pgm, ppm, tab}.  Note for pdf and tab outputs
- *  we also get the format for the print statements.
+ *  output format = {fits, pdf, pgm, ppm, tab, vtk}.  Note for pdf and tab
+ *  outputs we also get the format for the print statements.
  */
 
     if (strcmp(fmt,"fits")==0)
@@ -307,6 +307,8 @@ void init_output(Grid *pGrid)
       new_out.fun = output_pgm;
     else if (strcmp(fmt,"ppm")==0)
       new_out.fun = output_ppm;
+    else if (strcmp(fmt,"vtk")==0)
+      new_out.fun = output_vtk;
     else if (strcmp(fmt,"tab")==0){
       new_out.fun = output_tab;
       if (par_exist(block,"dat_fmt"))
@@ -564,7 +566,7 @@ float ***subset3(Grid *pgrid, Output *pout)
   kl = pgrid->ks;
   ku = pgrid->ke;
 #endif
-  ath_pout(1,"subset2: lu's:  %d %d    %d %d     %d %d\n",
+  ath_pout(1,"subset3: lu's:  %d %d    %d %d     %d %d\n",
           il,  iu,  jl,  ju,  kl,  ku);
 
   data = (float ***) calloc_3d_array(Nx3,Nx2,Nx1,sizeof(float));
