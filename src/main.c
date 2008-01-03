@@ -30,7 +30,7 @@ static char *athena_version = "version 3.0 - 01-JAN-2007";
  *   usage         - outputs help message and terminates execution
  *============================================================================*/
 
-void change_rundir(char *name);
+void change_rundir(char *name, char *localname);
 void usage(char *prog);
 
 /*----------------------------------------------------------------------------*/
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
   Real tlim;
   double cpu_time, zcs;
   char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name;
-  char *athinput = definput;
+  char *athinput = definput, local_rundir[MAXLEN];
   long clk_tck = sysconf(_SC_CLK_TCK);
   struct tms tbuf;
   clock_t time0,time1, have_times;
@@ -334,7 +334,13 @@ int main(int argc, char *argv[])
   }
 
 /* Write of all output's forced when last argument of data_output = 1 */
-  change_rundir(rundir);
+  if (level0_Grid.my_id == 0) {
+    /* Put rank 0 outputs (including global outputs) in main rundir */
+    sprintf(local_rundir, "%s", rundir);
+  } else {
+    sprintf(local_rundir, "%s/id%d", rundir, level0_Grid.my_id);
+  }
+  change_rundir(rundir, local_rundir);
   if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
 
   ath_sig_init(); /* Install a signal handler */
@@ -476,7 +482,7 @@ int main(int argc, char *argv[])
 /*  change_rundir: change run directory;  create it if it does not exist yet
  */
 
-void change_rundir(char *name)
+void change_rundir(char *name, char *localname)
 {
   int err=0;
 #ifdef MPI_PARALLEL
@@ -484,17 +490,13 @@ void change_rundir(char *name)
 #endif /* MPI_PARALLEL */
 
   if (name == NULL || *name == 0) return;
-  ath_perr(-1,"Changing run directory to \"%s\"\n",name);
+  ath_perr(-1,"Changing run directory to \"%s\"\n",localname);
 
-  if (chdir(name)) {
-    if (mkdir(name,0775)) {
-      ath_perr(-1,"Failed to create run directory %s\n",name);
-      err = 1;
-    }
-    else if (chdir(name)) {
-      ath_perr(-1,"Cannot change directory to %s\n",name);
-      err = 1;
-    }
+  mkdir(name,0775);
+  mkdir(localname,0775);
+  if (chdir(localname)) {
+    ath_perr(-1,"Cannot change directory to %s\n",name);
+    err = 1;
   }
 
 #ifdef MPI_PARALLEL
