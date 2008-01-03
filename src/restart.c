@@ -50,7 +50,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
 
 /* Open the restart file */
   if((fp = fopen(res_file,"r")) == NULL)
-    ath_error("[restart_grid_block]: Error opening the restart file\n");
+    ath_error("[restart_grid_block]: Error opening the restart file\nIf this is a MPI job, make sure each file from each processor is in the same directory.\n");
 
 /* Skip over the parameter file at the start of the restart file */
   do{
@@ -260,11 +260,20 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 #if (NSCALARS > 0)
   int n;
 #endif
+  int bufsize, nbuf = 0;
+  Real *buf = NULL;
+
+/* Allocate memory for buffer */
+  bufsize = 262144 / sizeof(Real);  /* 256 KB worth of Reals */
+  if ((buf = (Real*)calloc_1d_array(bufsize, sizeof(Real))) == NULL) {
+    fprintf(stderr,"[dump_restart]: Error allocating memory for buffer\n");
+    return;  /* Right now, we just don't write instead of aborting completely */
+  }
 
 /* Open the output file */
   fp = ath_fopen(pG->outfilename,num_digit,pout->num,NULL,"rst","wb");
   if(fp == NULL){
-    ath_perr(-1,"[dump_restart]: Error opening the restart file\n");
+    fprintf(stderr,"[dump_restart]: Error opening the restart file\n");
     return;
   }
 
@@ -295,9 +304,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->U[k][j][i].d),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->U[k][j][i].d;
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 
 /* Write the x1-momentum */
@@ -305,9 +322,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->U[k][j][i].M1),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->U[k][j][i].M1;
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 
 /* Write the x2-momentum */
@@ -315,9 +340,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->U[k][j][i].M2),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->U[k][j][i].M2;
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 
 /* Write the x3-momentum */
@@ -325,9 +358,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->U[k][j][i].M3),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->U[k][j][i].M3;
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 
 #ifndef ISOTHERMAL
@@ -336,9 +377,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->U[k][j][i].E),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->U[k][j][i].E;
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 #endif
 
@@ -353,9 +402,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie+ib; i++) {
-	fwrite(&(pG->B1i[k][j][i]),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->B1i[k][j][i];
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 
 /* Write the x2-field */
@@ -363,9 +420,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+jb; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->B2i[k][j][i]),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->B2i[k][j][i];
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 
 /* Write the x3-field */
@@ -373,9 +438,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   for (k=ks; k<=ke+kb; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	fwrite(&(pG->B3i[k][j][i]),sizeof(Real),1,fp);
+        buf[nbuf++] = pG->B3i[k][j][i];
+        if ((nbuf+1) > bufsize) {
+          fwrite(buf,sizeof(Real),nbuf,fp);
+          nbuf = 0;
+        }
       }
     }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
   }
 #endif
 
