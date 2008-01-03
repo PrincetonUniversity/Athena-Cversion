@@ -11,16 +11,16 @@
  *   is NOT needed.
  *
  * NOTATION:
- *   U_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
- *   U_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
+ *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
+ *   W_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
  *
  *   The L- and R-states at the left-interface in each cell are indexed i.
- *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
- *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
+ *   W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
+ *   W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
  *
  *   Internally, in this routine, Wlv and Wrv are the reconstructed values on
  *   the left-and right-side of cell center.  Thus (see Step 19),
- *     U_{L,i-1/2} = Wrv(i-1);  U_{R,i-1/2} = Wlv(i)
+ *     W_{L,i-1/2} = Wrv(i-1);  W_{R,i-1/2} = Wlv(i)
  *
  * REFERENCE:
  *   P. Colella & P. Woodward, "The piecewise parabolic method (PPM) for
@@ -49,15 +49,14 @@ static Real **pW=NULL, **Whalf=NULL;
 /*----------------------------------------------------------------------------*/
 /* lr_states:
  * Input Arguments:
- *   U1d = CONSERVED variables at cell centers along 1-D slice
- *   Bx{c/i} = B in direction of slice at cell {center/interface}
+ *   W = PRIMITIVE variables at cell centers along 1-D slice
+ *   Bxc = B in direction of slice at cell center
  *   dt = timestep;  dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
- * U1d and Bxc must be initialized over [il-3:iu+3]
- * Bxi must be initialized over [il:iu+1]
+ * W and Bxc must be initialized over [il-3:iu+3]
  *
  * Output Arguments:
- *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
+ *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const Prim1D W[], const Real Bxc[], 
@@ -76,7 +75,6 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
 /* Set pointer to primitive variables */
   for (i=il-3; i<=iu+3; i++) pW[i] = (Real*)&(W[i]);
-
 
 #ifndef THREED_VL /* zero eigenmatrices if NOT using VL 3D integrator */
   for (n=0; n<NWAVE; n++) {

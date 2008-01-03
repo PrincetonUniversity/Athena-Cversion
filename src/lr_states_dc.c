@@ -4,8 +4,8 @@
  *
  * PURPOSE: First order (donor cell, piecewise constant) spatial reconstruction.
  *   The L/R-states at the left-interface in each cell are indexed i.
- *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
- *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
+ *   W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
+ *   W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   lr_states()          - computes L/R states
@@ -25,15 +25,14 @@
 /*----------------------------------------------------------------------------*/
 /* lr_states:
  * Input Arguments:
- *   U1d = CONSERVED variables at cell centers along 1-D slice
+ *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell centers
- *   dt = timestep
- *   dtodx = dt/dx
+ *   dt = timestep;   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
- * U1d must be initialized over [il-1:iu+1]
+ * W must be initialized over [il-1:iu+1]
  *
  * Output Arguments:
- *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
+ *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const Prim1D W[], const Real Bxc[],
@@ -43,8 +42,8 @@ void lr_states(const Prim1D W[], const Real Bxc[],
   int i;
 
   for (i=il; i<=iu+1; i++) {
-    Wl[i] = W1d[i-1];
-    Wr[i] = W1d[i  ];
+    Wl[i] = W[i-1];
+    Wr[i] = W[i  ];
   }
 
   return;

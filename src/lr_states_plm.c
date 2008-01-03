@@ -8,16 +8,16 @@
  *   the half time level {n+1/2}, unless the unsplit integrator in 3D is VL. 
  *
  * NOTATION: 
- *   U_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
- *   U_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
+ *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
+ *   W_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
  *
  *   The L- and R-states at the left-interface in each cell are indexed i.
- *   U_{L,i-1/2} is denoted by Ul[i  ];   U_{R,i-1/2} is denoted by Ur[i  ]
- *   U_{L,i+1/2} is denoted by Ul[i+1];   U_{R,i+1/2} is denoted by Ur[i+1]
+ *   W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
+ *   W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
  *
  *   Internally, in this routine, Wlv and Wrv are the reconstructed values on
- *   the left-and right-side of cell center.  Thus (see Step 9),
- *     U_{L,i-1/2} = Wrv(i-1);  U_{R,i-1/2} = Wlv(i)
+ *   the left-and right-side of cell center.  Thus (see Step 8),
+ *     W_{L,i-1/2} = Wrv(i-1);  W_{R,i-1/2} = Wlv(i)
  *
  * CONTAINS PUBLIC FUNCTIONS:
  *   lr_states()          - computes L/R states
@@ -41,15 +41,14 @@ static Real **pW=NULL;
 /*----------------------------------------------------------------------------*/
 /* lr_states:
  * Input Arguments:
- *   U1d = CONSERVED variables at cell centers along 1-D slice
- *   Bx{c/i} = B in direction of slice at cell {center/interface}
+ *   W = PRIMITIVE variables at cell centers along 1-D slice
+ *   Bxc = B in direction of slice at cell center
  *   dt = timestep;   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
- * U1d and Bxc must be initialized over [il-2:iu+2]
- * Bxi must be initialized over [il:iu+1]
+ * W and Bxc must be initialized over [il-2:iu+2]
  *
  * Output Arguments:
- *   Ul,Ur = L/R-states of CONSERVED variables at interfaces over [il:iu+1]
+ *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const Prim1D W[], const Real Bxc[],
@@ -67,28 +66,19 @@ void lr_states(const Prim1D W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
 
+/* Zero eigenmatrices, set pointer to primitive variables */
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
       rem[n][m] = 0.0;
       lem[n][m] = 0.0;
     }
   }
-
-/*--- Step 1. ------------------------------------------------------------------
- * Transform to primitive variables over 1D slice, W=(d,Vx,Vy,Vz,[P],[By,Bz])
- */
-
-/*
-  for (i=il-2; i<=iu+2; i++) {
-    pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
-  }
-*/
-
   for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);
-/*=============== START BIG LOOP OVER i ===============*/
+
+/*========================== START BIG LOOP OVER i =======================*/
   for (i=il-1; i<=iu+1; i++) {
 
-/*--- Step 2. ------------------------------------------------------------------
+/*--- Step 1. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
 
 #ifdef HYDRO
@@ -107,7 +97,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
-/*--- Step 3. ------------------------------------------------------------------
+/*--- Step 2. ------------------------------------------------------------------
  * Compute centered, L/R, and van Leer differences of primitive variables
  * Note we access contiguous array elements by indexing pointers for speed */
 
@@ -122,7 +112,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       }
     }
 
-/*--- Step 4. ------------------------------------------------------------------
+/*--- Step 3. ------------------------------------------------------------------
  * Project differences in primitive variables along characteristics */
 
     for (n=0; n<NWAVE; n++) {
@@ -150,7 +140,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
     }
 #endif
 
-/*--- Step 5. ------------------------------------------------------------------
+/*--- Step 4. ------------------------------------------------------------------
  * Apply monotonicity constraints to characteristic projections */
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
@@ -162,7 +152,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       }
     }
 
-/*--- Step 6. ------------------------------------------------------------------
+/*--- Step 5. ------------------------------------------------------------------
  * Project monotonic slopes in characteristic back to primitive variables  */
 
     for (n=0; n<NWAVE; n++) {
@@ -178,7 +168,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
     }
 #endif
 
-/*--- Step 7. ------------------------------------------------------------------
+/*--- Step 6. ------------------------------------------------------------------
  * Limit velocity difference to sound speed
  * Limit velocity so momentum is always TVD (using only minmod limiter)
  * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
@@ -220,7 +210,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
     dWm[1] = MAX(dWm[1],qa);
 */
 
-/*--- Step 8. ------------------------------------------------------------------
+/*--- Step 7. ------------------------------------------------------------------
  * Compute L/R values, ensure they lie between neighboring cell-centered vals */
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
@@ -239,7 +229,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       dW[n] = Wrv[n] - Wlv[n];
     }
 
-/*--- Step 9. ------------------------------------------------------------------
+/*--- Step 8. ------------------------------------------------------------------
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue
  */
@@ -258,9 +248,8 @@ void lr_states(const Prim1D W[], const Real Bxc[],
     }
 
 #ifndef THREED_VL /* include step 10 only if not using VL 3D integrator */
-/* NB: If THREED_VL is defined, cannot run 1D or 2D problems; see integrate.c */
 
-/*--- Step 10. -----------------------------------------------------------------
+/*--- Step 9. ------------------------------------------------------------------
  * Then subtract amount of each wave n that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
  * move in both directions.
@@ -313,17 +302,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
 #endif /* THREED_VL */
 
-  } /*=============== END BIG LOOP OVER i ===============*/
-
-/*--- Step 11. -----------------------------------------------------------------
- * Convert back to conserved variables, and done.  */
-
-/*
-  for (i=il; i<=iu+1; i++) {
-    pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
-    pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
-  }
-*/
+  } /*===================== END BIG LOOP OVER i ===========================*/
 
   return;
 }
