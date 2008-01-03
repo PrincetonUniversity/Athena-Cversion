@@ -6,6 +6,10 @@
  *   primitive variables using the extremum-preserving limiters of
  *   Colella & Sekora.
  *
+ *   Limiting is performed in the primitive (rather than characteristic)
+ *   variables.  When used with the VL integrator, an eigenvalue decomposition
+ *   is NOT needed.
+ *
  * NOTATION:
  *   U_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
  *   U_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
@@ -70,17 +74,23 @@ void lr_states(const Prim1D W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],W6[NWAVE+NSCALARS];
   Real *pWl, *pWr;
 
+/* Set pointer to primitive variables */
+  for (i=il-3; i<=iu+3; i++) pW[i] = (Real*)&(W[i]);
+
+
+#ifndef THREED_VL /* zero eigenmatrices if NOT using VL 3D integrator */
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
       rem[n][m] = 0.0;
       lem[n][m] = 0.0;
     }
   }
-  for (i=il-3; i<=iu+3; i++) pW[i] = (Real*)&(W[i]);
+#endif /* THREED_VL */
 
-/* Compute interface states (CS eqns 12-15).  Using usual Athena notation that
- * index i for face-centered quantities denotes L-edge (interface i-1/2), then
- * Whalf[i] = W[i-1/2]. */
+/*--- Step 1. ------------------------------------------------------------------
+ * Compute interface states (CS eqns 12-15) over entire 1D pencil.  Using usual
+ * Athena notation that index i for face-centered quantities denotes L-edge
+ * (interface i-1/2), then Whalf[i] = W[i-1/2]. */
 
   for (i=il-1; i<=iu+2; i++) {
     for (n=0; n<(NWAVE+NSCALARS); n++) {
@@ -104,10 +114,11 @@ void lr_states(const Prim1D W[], const Real Bxc[],
     }
   }
 
-/*=============== START BIG LOOP OVER i ===============*/
+/*====================== START BIG LOOP OVER i ============================*/
   for (i=il-1; i<=iu+1; i++) {
 
-/* Compute L/R values
+/*--- Step 2. ------------------------------------------------------------------
+ * Compute L/R values
  * Wlv = W at left  side of cell-center = W[i-1/2] = a_{j,-} in CS
  * Wrv = W at right side of cell-center = W[i+1/2] = a_{j,+} in CS
  */
@@ -117,7 +128,8 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       Wrv[n] = Whalf[i+1][n];
     }
 
-/* Construct parabolic interpolant (CS eqn 16-19) */
+/*--- Step 3. ------------------------------------------------------------------
+ * Construct parabolic interpolant (CS eqn 16-19) */
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
@@ -147,9 +159,10 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       }
     }
 
-/* Monotonize again (CS eqn 21-22) */
+/*--- Step 4. ------------------------------------------------------------------
+ * Monotonize again (CS eqn 21-22) */
 
-/*
+/*  First tests showed following does not work.  Not sure why, so leave out.
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       s = SIGN(pW[i+1][n] - pW[i-1][n]);
       alphal = Wlv[n] - pW[i][n];
@@ -197,14 +210,20 @@ void lr_states(const Prim1D W[], const Real Bxc[],
       Wrv[n] = MIN(MAX(pW[i][n],pW[i+1][n]),Wrv[n]);
     }
 
-/* Compute coefficients of interpolation parabolae (CW eqn 1.5) */
+/*--- Step 5. ------------------------------------------------------------------
+ * Set L/R values */
+
+    pWl = (Real *) &(Wl[i+1]);
+    pWr = (Real *) &(Wr[i]);
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      dW[n] = Wrv[n] - Wlv[n];
-      W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
+      pWl[n] = Wrv[n];
+      pWr[n] = Wlv[n];
     }
 
-/* Compute eigensystem in primitive variables.  */
+#ifndef THREED_VL /* only include steps below if NOT using VL 3D integrator */
+/*--- Step 6. ------------------------------------------------------------------
+ * Compute eigensystem in primitive variables.  */
 
 #ifdef HYDRO
 #ifdef ISOTHERMAL
@@ -222,27 +241,30 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
-/* Integrate linear interpolation function over domain of dependence defined by
+/*--- Step 7. ------------------------------------------------------------------
+ * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      dW[n] = Wrv[n] - Wlv[n];
+      W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
+    }
+
+/*--- Step 8. ------------------------------------------------------------------
+ * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue (CW eqn 1.12)
  */
 
-    pWl = (Real *) &(Wl[i+1]);
-    pWr = (Real *) &(Wr[i]);
-
     qx = TWO_3RDS*MAX(ev[NWAVE-1],0.0)*dtodx;
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      pWl[n] = Wrv[n] - 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
+      pWl[n] -= 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
     }
 
     qx = -TWO_3RDS*MIN(ev[0],0.0)*dtodx;
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      pWr[n] = Wlv[n] + 0.75*qx*(dW[n] + (1.0 - qx)*W6[n]);
+      pWr[n] += 0.75*qx*(dW[n] + (1.0 - qx)*W6[n]);
     }
 
-#ifndef THREED_VL /* include step 20 only if not using VL 3D integrator */
-/* NB: If THREED_VL is defined, cannot run 1D or 2D problems; see integrate.c */
-
-/*--- Step 20. -----------------------------------------------------------------
+/*--- Step 9. ------------------------------------------------------------------
  * Then subtract amount of each wave m that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
  * move in both directions, but only to 2nd order.
@@ -309,7 +331,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
 #endif /* THREED_VL */
 
-  } /*=============== END BIG LOOP OVER i ===============*/
+  } /*======================= END BIG LOOP OVER i ========================*/
 
   return;
 }
