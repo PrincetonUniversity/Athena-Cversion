@@ -266,14 +266,14 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 /* Allocate memory for buffer */
   bufsize = 262144 / sizeof(Real);  /* 256 KB worth of Reals */
   if ((buf = (Real*)calloc_1d_array(bufsize, sizeof(Real))) == NULL) {
-    fprintf(stderr,"[dump_restart]: Error allocating memory for buffer\n");
+    ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
     return;  /* Right now, we just don't write instead of aborting completely */
   }
 
 /* Open the output file */
   fp = ath_fopen(pG->outfilename,num_digit,pout->num,NULL,"rst","wb");
   if(fp == NULL){
-    fprintf(stderr,"[dump_restart]: Error opening the restart file\n");
+    ath_perr(-1,"[dump_restart]: Error opening the restart file\n");
     return;
   }
 
@@ -459,9 +459,17 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
-          fwrite(&(pG->U[k][j][i].s[n]),sizeof(Real),1,fp);
+          buf[nbuf++] = pG->U[k][j][i].s[n];
+          if ((nbuf+1) > bufsize) {
+            fwrite(buf,sizeof(Real),nbuf,fp);
+            nbuf = 0;
+          }
         }
       }
+    }
+    if (nbuf > 0) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
     }
   }
 #endif
