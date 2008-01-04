@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
   int i,nlim,done=0,zones,iquit=0,iflush=1,nstep_start=0;
   Real tlim;
   double cpu_time, zcs;
-  char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name;
+  char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name = NULL;
   char *athinput = definput, local_rundir[MAXLEN];
   long clk_tck = sysconf(_SC_CLK_TCK);
   struct tms tbuf;
@@ -334,13 +334,15 @@ int main(int argc, char *argv[])
   }
 
 /* Write of all output's forced when last argument of data_output = 1 */
-  if (level0_Grid.my_id == 0) {
-    /* Put rank 0 outputs (including global outputs) in main rundir */
-    sprintf(local_rundir, "%s", rundir);
-  } else {
-    sprintf(local_rundir, "%s/id%d", rundir, level0_Grid.my_id);
+  if (rundir != NULL) {
+    if (level0_Grid.my_id == 0) {
+      /* Put rank 0 outputs (including global outputs) in main rundir */
+      sprintf(local_rundir, "%s", rundir);
+    } else {
+      sprintf(local_rundir, "%s/id%d", rundir, level0_Grid.my_id);
+    }
+    change_rundir(rundir, local_rundir);
   }
-  change_rundir(rundir, local_rundir);
   if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
 
   ath_sig_init(); /* Install a signal handler */
@@ -460,6 +462,12 @@ int main(int argc, char *argv[])
 
 /* complete any final User work, and make last dump */
 
+/*  printf("to barrier\n");
+  fflush(stdout);
+  ath_error("quitting");
+  MPI_Barrier(MPI_COMM_WORLD);
+  printf("passed barrier\n");
+  fflush(stdout); */
   Userwork_after_loop(&level0_Grid, &level0_Domain);
 /* Write of all output's forced when last argument of data_output = 1 */
   data_output(&level0_Grid, &level0_Domain, 1);
