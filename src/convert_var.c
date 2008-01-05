@@ -8,8 +8,6 @@
  * CONTAINS PUBLIC FUNCTIONS: 
  *   Cons1D_to_Prim1D() - converts 1D vector (Bx passed through arguments)
  *   Prim1D_to_Cons1D() - converts 1D vector (Bx passed through arguments)
- *   Gas_to_Prim()      - converts Gas structure (uses B1c,B2c,B3c)
- *   Prim_to_Gas()      - converts Gas structure (uses B1c,B2c,B3c)
  *   cfast()            - compute fast speed given input Cons1D, Bx
  *============================================================================*/
 
@@ -21,154 +19,81 @@
 
 /*----------------------------------------------------------------------------*/
 /* Cons1D_to_Prim1D: 
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- * Bx is passed in through the argument list.  Returns the magnetic pressure.
+ *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
+ *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz],[r(n)])
+ * Bx is passed in through the argument list.
  */
 
-Real Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
+void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW, const Real *pBx)
 {
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb=0.0,di;
-  di = 1.0/U->d;
+  Real di = 1.0/pU->d;
 
-  W->d  = U->d;
-  W->Vx = U->Mx*di;
-  W->Vy = U->My*di;
-  W->Vz = U->Mz*di;
-
-#ifdef MHD
-  W->By = U->By;
-  W->Bz = U->Bz;
-  pb = 0.5*(SQR(*Bx) + SQR(U->By) + SQR(U->Bz));
-#endif /* MHD */
+  pW->d  = pU->d;
+  pW->Vx = pU->Mx*di;
+  pW->Vy = pU->My*di;
+  pW->Vz = pU->Mz*di;
 
 #ifndef ISOTHERMAL
-  W->P = Gamma_1*(U->E - pb - 0.5*(SQR(U->Mx)+SQR(U->My)+SQR(U->Mz))*di);
-  W->P = MAX(W->P,TINY_NUMBER);
+  pW->P = pU->E - 0.5*(SQR(pU->Mx)+SQR(pU->My)+SQR(pU->Mz))*di;
+#ifdef MHD
+  pW->P -= 0.5*(SQR(*pBx) + SQR(pU->By) + SQR(pU->Bz));
+#endif /* MHD */
+  pW->P *= Gamma_1;
+  pW->P = MAX(pW->P,TINY_NUMBER);
 #endif /* ISOTHERMAL */
 
+#ifdef MHD
+  pW->By = pU->By;
+  pW->Bz = pU->Bz;
+#endif /* MHD */
+
 #if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) W->r[n] = U->s[n]*di;
+  for (n=0; n<NSCALARS; n++) pW->r[n] = pU->s[n]*di;
 #endif
 
-  return(pb);
+  return;
 }
 
 /*----------------------------------------------------------------------------*/
 /* Prim1D_to_Cons1D: 
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- * Bx is passed in through the argument list.  Returns the magnetic pressure.
+ *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz],[r(n)])
+ *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
+ * Bx is passed in through the argument list.
  */
 
-Real Prim1D_to_Cons1D(Cons1D *U, const Prim1D *W, const Real *Bx)
+void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW, const Real *pBx)
 {
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb=0.0;
 
-  U->d = W->d;
-  U->Mx = W->Vx*W->d;
-  U->My = W->Vy*W->d;
-  U->Mz = W->Vz*W->d;
-
-#ifdef MHD
-  pb = 0.5*(SQR(*Bx) + SQR(W->By) + SQR(W->Bz));
-  U->By = W->By;
-  U->Bz = W->Bz;
-#endif /* MHD */
+  pU->d  = pW->d;
+  pU->Mx = pW->d*pW->Vx;
+  pU->My = pW->d*pW->Vy;
+  pU->Mz = pW->d*pW->Vz;
 
 #ifndef ISOTHERMAL
-  U->E = W->P/Gamma_1 + pb + 0.5*W->d*(SQR(W->Vx) + SQR(W->Vy) + SQR(W->Vz));
+  pU->E = pW->P/Gamma_1 + 0.5*pW->d*(SQR(pW->Vx) + SQR(pW->Vy) + SQR(pW->Vz));
+#ifdef MHD
+  pU->E += 0.5*(SQR(*pBx) + SQR(pW->By) + SQR(pW->Bz));
+#endif /* MHD */
 #endif /* ISOTHERMAL */
-
-#if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) U->s[n] = W->r[n]*W->d;
-#endif
-
-  return(pb);
-}
-
-/*----------------------------------------------------------------------------*/
-/* Gas_to_Prim: 
- *   conserved (Gas) variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s])
- *   primitive       variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r])
- * Returns the magnetic pressure.
- */
-
-
-Real Gas_to_Prim(const Gas *U, Prim *W)
-{
-#if (NSCALARS > 0)
-  int n;
-#endif
-  Real pb=0.0,di;
-  di = 1.0/U->d;
-
-  W->d  = U->d;
-  W->V1 = U->M1*di;
-  W->V2 = U->M2*di;
-  W->V3 = U->M3*di;
 
 #ifdef MHD
-  W->B1c = U->B1c;
-  W->B2c = U->B2c;
-  W->B3c = U->B3c;
-  pb = 0.5*(SQR(U->B1c) + SQR(U->B2c) + SQR(U->B3c));
+  pU->By = pW->By;
+  pU->Bz = pW->Bz;
 #endif /* MHD */
 
-#ifndef ISOTHERMAL
-  W->P = Gamma_1*(U->E - pb - 0.5*(SQR(U->M1)+SQR(U->M2)+SQR(U->M3))*di);
-  W->P = MAX(W->P,TINY_NUMBER);
-#endif /* ISOTHERMAL */
-
 #if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) W->r[n] = U->s[n]*di;
+  for (n=0; n<NSCALARS; n++) pU->s[n] = pW.r[n]*pW->d;
 #endif
 
-  return(pb);
+  return;
 }
 
-/*----------------------------------------------------------------------------*/
-/* Prim_to_Gas: 
- *   primitive       variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r])
- *   conserved (Gas) variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s])
- * Returns the magnetic pressure.
- */
-
-Real Prim_to_Gas(Gas *U, const Prim *W)
-{
-#if (NSCALARS > 0)
-  int n;
-#endif
-  Real pb=0.0;
-
-  U->d = W->d;
-  U->M1 = W->V1*W->d;
-  U->M2 = W->V2*W->d;
-  U->M3 = W->V3*W->d;
-
-#ifdef MHD
-  pb = 0.5*(SQR(W->B1c) + SQR(W->B2c) + SQR(W->B3c));
-  U->B1c = W->B1c;
-  U->B2c = W->B2c;
-  U->B3c = W->B3c;
-#endif /* MHD */
-
-#ifndef ISOTHERMAL
-  U->E = W->P/Gamma_1 + pb + 0.5*W->d*(SQR(W->V1) + SQR(W->V2) + SQR(W->V3));
-#endif /* ISOTHERMAL */
-
-#if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) U->s[n] = W->r[n]*W->d;
-#endif
-
-  return(pb);
-}
 /*----------------------------------------------------------------------------*/
 /* cfast: returns fast magnetosonic speed given input 1D vector of conserved
  *   variables and Bx. 
