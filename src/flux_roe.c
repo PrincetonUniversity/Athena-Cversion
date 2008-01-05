@@ -37,7 +37,8 @@ Real etah=0.0;
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_roe(const Cons1D Ul, const Cons1D Ur,
+              const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
 #ifndef ISOTHERMAL
@@ -52,7 +53,7 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 #ifdef TEST_INTERMEDIATE_STATES
   Real u_inter[NWAVE],p_inter=0.0;
 #endif /* TEST_INTERMEDIATE_STATES */
-  Prim1D Wl, Wr;
+/*  Prim1D Wl, Wr; */
   Real *pUl, *pUr, *pFl, *pFr, *pF;
   Cons1D Fl,Fr;
   int n,m,hlle_flag;
@@ -68,8 +69,10 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
  * Convert left- and right- states in conserved to primitive variables.
  */
 
+/*
   pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute Roe-averaged data from left- and right-states
@@ -91,6 +94,8 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
   x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))/(SQR(sqrtdl + sqrtdr));
   y = 0.5*(Wl.d + Wr.d)/droe;
+  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
 #endif
 
 /*
@@ -237,7 +242,7 @@ void flux_roe(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   }
 
   if (hlle_flag != 0) {
-    flux_hlle(Bxi,Ul,Ur,pFlux);
+    flux_hlle(Ul,Ur,Wl,Wr,Bxi,pFlux);
     return;
   }
 

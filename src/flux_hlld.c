@@ -37,14 +37,15 @@
  *   Flux = fluxes of CONSERVED variables at cell interface
  */
 
-void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_hlld(const Cons1D Ul, const Cons1D Ur,
+               const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
 {
   Cons1D Ulst,Uldst,Urdst,Urst;       /* Conserved variable for all states */
-  Prim1D Wl,Wlst,Wldst,Wrdst,Wrst,Wr; /* Primitive variables for all states */
-  Cons1D Fl,Fr;                         /* Fluxes for left & right states */
+  Prim1D Wlst,Wrst;                   /* Primitive variables for all states */
+  Cons1D Fl,Fr;                       /* Fluxes for left & right states */
   Real spd[5],maxspd;                 /* signal speeds, left to right */
   Real sdl,sdr,sdml,sdmr;             /* S_i-u_i, S_i-S_M (i=L or R) */
-  Real pbl,pbr,pbstl,pbstr,pbdstl,pbdstr; /* Magnetic pressures */
+  Real pbl,pbr;                       /* Magnetic pressures */
   Real cfl,cfr,cfmax;                 /* Cf (left & right), max(cfl,cfr) */
   Real gpl,gpr,gpbl,gpbr;             /* gamma*P, gamma*P + B */
   Real sqrtdl,sqrtdr;                 /* sqrt of the L* & R* densities */
@@ -61,13 +62,17 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
  * Convert left- and right- states in conserved to primitive variables.
  */
 
+/*
   pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute left & right wave speeds according to Miyoshi & Kusano, eqn. (67)
  */
 
+  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
 #ifndef ISOTHERMAL
   gpl  = Gamma * Wl.P;
   gpr  = Gamma * Wr.P;
@@ -197,7 +202,7 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Ulst.E = (sdl*Ul.E - ptl*Wl.Vx + ptst*spd[2] +
             Bxi*(Wl.Vx*Bxi+Wl.Vy*Ul.By+Wl.Vz*Ul.Bz - vbstl))/sdml;
 #endif /* ISOTHERMAL */
-  pbstl = Cons1D_to_Prim1D(&Ulst,&Wlst,&Bxi);
+  Cons1D_to_Prim1D(&Ulst,&Wlst,&Bxi);
 
 
 /* Ur* */
@@ -225,15 +230,13 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   Urst.E = (sdr*Ur.E - ptr*Wr.Vx + ptst*spd[2] +
             Bxi*(Wr.Vx*Bxi+Wr.Vy*Ur.By+Wr.Vz*Ur.Bz - vbstr))/sdmr;
 #endif /* ISOTHERMAL */
-  pbstr = Cons1D_to_Prim1D(&Urst,&Wrst,&Bxi);
+  Cons1D_to_Prim1D(&Urst,&Wrst,&Bxi);
 
 
 /* Ul** and Ur** - if Bx is zero, same as *-states */
   if(Bxi == 0.0) {
     Uldst = Ulst;
     Urdst = Urst;
-    Wldst = Wlst;
-    Wrdst = Wrst;
   }
   else {
     invsumd = 1.0/(sqrtdl + sqrtdr);
@@ -268,8 +271,6 @@ void flux_hlld(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
     Urdst.E = Urst.E + sqrtdr*Bxsig*(vbstr - tmp);
 #endif /* ISOTHERMAL */
   }
-  pbdstl = Cons1D_to_Prim1D(&Uldst,&Wldst,&Bxi);
-  pbdstr = Cons1D_to_Prim1D(&Urdst,&Wrdst,&Bxi);
 
 /*--- Step 7. ------------------------------------------------------------------
  * Compute flux

@@ -43,7 +43,8 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_hlle(const Cons1D Ul, const Cons1D Ur,
+               const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
@@ -55,7 +56,7 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 #endif
   Real ev[NWAVE],al,ar;
   Real *pFl, *pFr, *pF;
-  Prim1D Wl, Wr;
+/*  Prim1D Wl, Wr; */
   Cons1D Fl,Fr;
   int n;
 
@@ -64,8 +65,10 @@ void flux_hlle(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
  * Convert left- and right- states in conserved to primitive variables.
  */
 
+/*
   pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute Roe-averaged data from left- and right-states
