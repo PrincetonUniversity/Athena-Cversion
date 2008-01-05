@@ -37,7 +37,7 @@ void integrate_1d(Grid *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,dhalf;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,dhalf;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
 #endif
@@ -71,7 +71,7 @@ void integrate_1d(Grid *pG)
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
-    pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+    Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
   }
   lr_states(W,Bxc,pG->dt,dtodx1,is,ie,Wl,Wr);
 
@@ -110,13 +110,10 @@ void integrate_1d(Grid *pG)
  */
 
   for (i=is; i<=ie+1; i++) {
-    pb = Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i],&Bxi[i]);
-    pb = Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i],&Bxi[i]);
-    
-  }
+    Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i],&Bxi[i]);
+    Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i],&Bxi[i]);
 
-  for (i=is; i<=ie+1; i++) {
-    GET_FLUXES(Bxi[i],Ul_x1Face[i],Ur_x1Face[i],&x1Flux[i]);
+    GET_FLUXES(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
   }
 
 /*--- Step 2a ------------------------------------------------------------------

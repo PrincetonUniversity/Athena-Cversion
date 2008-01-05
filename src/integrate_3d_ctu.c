@@ -58,7 +58,7 @@ static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
-static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
+static Cons1D *U1d=NULL;
 
 /* density at t^{n+1/2} needed by both MHD and to make gravity 2nd order */
 static Real ***dhalf = NULL;
@@ -105,7 +105,7 @@ void integrate_3d_ctu(Grid *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #endif
@@ -149,7 +149,7 @@ void integrate_3d_ctu(Grid *pG)
  */
 
      for (i=is-nghost; i<=ie+nghost; i++) {
-       pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+       Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
      }
 
      lr_states(W,Bxc,pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
@@ -262,13 +262,11 @@ void integrate_3d_ctu(Grid *pG)
  */
 
       for (i=is-1; i<=ie+2; i++) {
-        pb = Prim1D_to_Cons1D(&Ul_x1Face[k][j][i],&Wl[i],&Bxi[i]);
-        pb = Prim1D_to_Cons1D(&Ur_x1Face[k][j][i],&Wr[i],&Bxi[i]);
-      }
+        Prim1D_to_Cons1D(&Ul_x1Face[k][j][i],&Wl[i],&Bxi[i]);
+        Prim1D_to_Cons1D(&Ur_x1Face[k][j][i],&Wr[i],&Bxi[i]);
 
-      for (i=is-1; i<=ie+2; i++) {
-        GET_FLUXES(B1_x1Face[k][j][i],
-          Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],&x1Flux[k][j][i]);
+        GET_FLUXES(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
+                   B1_x1Face[k][j][i],&x1Flux[k][j][i]);
       }
     }
   }
@@ -305,7 +303,7 @@ void integrate_3d_ctu(Grid *pG)
  */
 
       for (j=js-nghost; j<=je+nghost; j++) {
-        pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+        Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
       }
 
       lr_states(W,Bxc,pG->dt,dtodx2,js-1,je+1,Wl,Wr);
@@ -403,17 +401,11 @@ void integrate_3d_ctu(Grid *pG)
  */
 
       for (j=js-1; j<=je+2; j++) {
-        pb = Prim1D_to_Cons1D(&Ul_x2Face[k][j][i],&Wl[j],&Bxi[j]);
-        pb = Prim1D_to_Cons1D(&Ur_x2Face[k][j][i],&Wr[j],&Bxi[j]);
-      }
-    }
-  }
+        Prim1D_to_Cons1D(&Ul_x2Face[k][j][i],&Wl[j],&Bxi[j]);
+        Prim1D_to_Cons1D(&Ur_x2Face[k][j][i],&Wr[j],&Bxi[j]);
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        GET_FLUXES(B2_x2Face[k][j][i],
-           Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],&x2Flux[k][j][i]);
+        GET_FLUXES(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],
+                   B2_x2Face[k][j][i],&x2Flux[k][j][i]);
       }
     }
   }
@@ -451,7 +443,7 @@ void integrate_3d_ctu(Grid *pG)
  */
 
       for (k=ks-nghost; k<=ke+nghost; k++) {
-        pb = Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
+        Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
       }
 
       lr_states(W,Bxc,pG->dt,dtodx3,ks-1,ke+1,Wl,Wr);
@@ -549,17 +541,11 @@ void integrate_3d_ctu(Grid *pG)
  */
 
       for (k=ks-1; k<=ke+2; k++) {
-        pb = Prim1D_to_Cons1D(&Ul_x3Face[k][j][i],&Wl[k],&Bxi[k]);
-        pb = Prim1D_to_Cons1D(&Ur_x3Face[k][j][i],&Wr[k],&Bxi[k]);
-      }
-    }
-  }
+        Prim1D_to_Cons1D(&Ul_x3Face[k][j][i],&Wl[k],&Bxi[k]);
+        Prim1D_to_Cons1D(&Ur_x3Face[k][j][i],&Wr[k],&Bxi[k]);
 
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
-        GET_FLUXES(B3_x3Face[k][j][i],
-           Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],&x3Flux[k][j][i]);
+        GET_FLUXES(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],
+                   B3_x3Face[k][j][i],&x3Flux[k][j][i]);
       }
     }
   }
@@ -1632,8 +1618,11 @@ void integrate_3d_ctu(Grid *pG)
 
         etah = MAX(etah,eta1[k  ][j][i  ]);
 #endif /* H_CORRECTION */
-        GET_FLUXES(B1_x1Face[k][j][i],
-          Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],&x1Flux[k][j][i]);
+        Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Wl[i],&B1_x1Face[k][j][i]);
+        Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Wr[i],&B1_x1Face[k][j][i]);
+
+        GET_FLUXES(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
+                   B1_x1Face[k][j][i],&x1Flux[k][j][i]);
       }
     }
   }
@@ -1657,8 +1646,11 @@ void integrate_3d_ctu(Grid *pG)
 
         etah = MAX(etah,eta2[k  ][j  ][i]);
 #endif /* H_CORRECTION */
-        GET_FLUXES(B2_x2Face[k][j][i],
-          Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],&x2Flux[k][j][i]);
+        Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Wl[i],&B2_x2Face[k][j][i]);
+        Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Wr[i],&B2_x2Face[k][j][i]);
+
+        GET_FLUXES(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],
+                   B2_x2Face[k][j][i],&x2Flux[k][j][i]);
       }
     }
   }
@@ -1682,8 +1674,11 @@ void integrate_3d_ctu(Grid *pG)
 
         etah = MAX(etah,eta3[k  ][j  ][i]);
 #endif /* H_CORRECTION */
-        GET_FLUXES(B3_x3Face[k][j][i],
-          Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],&x3Flux[k][j][i]);
+        Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Wl[i],&B3_x3Face[k][j][i]);
+        Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Wr[i],&B3_x3Face[k][j][i]);
+
+        GET_FLUXES(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],
+                   B3_x3Face[k][j][i],&x3Flux[k][j][i]);
       }
     }
   }
@@ -2127,8 +2122,6 @@ void integrate_destruct_3d(void)
   if (B3_x3Face != NULL) free_3d_array(B3_x3Face);
 
   if (U1d      != NULL) free(U1d);
-  if (Ul       != NULL) free(Ul);
-  if (Ur       != NULL) free(Ur);
   if (W        != NULL) free(W);
   if (Wl       != NULL) free(Wl);
   if (Wr       != NULL) free(Wr);
@@ -2194,8 +2187,6 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     goto on_error;
 
   if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
   if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;

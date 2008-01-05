@@ -94,7 +94,7 @@ void integrate_2d(Grid *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,flux_m1l,flux_m1r,flux_m2l,flux_m2r;
 #endif
@@ -136,7 +136,7 @@ void integrate_2d(Grid *pG)
  */
 
     for (i=is-nghost; i<=ie+nghost; i++) {
-      pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+      Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
     }
     lr_states(W,Bxc,pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
@@ -188,12 +188,11 @@ void integrate_2d(Grid *pG)
  */
 
     for (i=is-1; i<=iu; i++) {
-      pb = Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i],&Bxi[i]);
-      pb = Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i],&Bxi[i]);
-    }
+      Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i],&Bxi[i]);
+      Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i],&Bxi[i]);
 
-    for (i=is-1; i<=iu; i++) {
-      GET_FLUXES(B1_x1Face[j][i],Ul_x1Face[j][i],Ur_x1Face[j][i],&x1Flux[j][i]);
+      GET_FLUXES(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
+                 B1_x1Face[j][i],&x1Flux[j][i]);
     }
   }
 
@@ -228,7 +227,7 @@ void integrate_2d(Grid *pG)
  */
 
     for (j=js-nghost; j<=je+nghost; j++) {
-      pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+      Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
     }
     lr_states(W,Bxc,pG->dt,dtodx2,js-1,je+1,Wl,Wr);
 
@@ -280,14 +279,11 @@ void integrate_2d(Grid *pG)
  */
 
     for (j=js-1; j<=ju; j++) {
-      pb = Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j],&Bxi[j]);
-      pb = Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j],&Bxi[j]);
-    }
-  }
+      Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j],&Bxi[j]);
+      Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j],&Bxi[j]);
 
-  for (j=js-1; j<=ju; j++) {
-    for (i=il; i<=iu; i++) {
-      GET_FLUXES(B2_x2Face[j][i],Ul_x2Face[j][i],Ur_x2Face[j][i],&x2Flux[j][i]);
+      GET_FLUXES(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],
+                 B2_x2Face[j][i],&x2Flux[j][i]);
     }
   }
 
@@ -688,7 +684,11 @@ void integrate_2d(Grid *pG)
       etah = MAX(etah,eta2[j+1][i  ]);
       etah = MAX(etah,eta1[j  ][i  ]);
 #endif /* H_CORRECTION */
-      GET_FLUXES(B1_x1Face[j][i],Ul_x1Face[j][i],Ur_x1Face[j][i],&x1Flux[j][i]);
+      Cons1D_to_Prim1D(&Ul_x1Face[j][i],&Wl[i],&B1_x1Face[j][i]);
+      Cons1D_to_Prim1D(&Ur_x1Face[j][i],&Wr[i],&B1_x1Face[j][i]);
+
+      GET_FLUXES(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
+                 B1_x1Face[j][i],&x1Flux[j][i]);
     }
   }
 
@@ -704,7 +704,11 @@ void integrate_2d(Grid *pG)
       etah = MAX(etah,eta1[j  ][i+1]);
       etah = MAX(etah,eta2[j  ][i  ]);
 #endif /* H_CORRECTION */
-      GET_FLUXES(B2_x2Face[j][i],Ul_x2Face[j][i],Ur_x2Face[j][i],&x2Flux[j][i]);
+      Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Wl[i],&B2_x2Face[j][i]);
+      Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Wr[i],&B2_x2Face[j][i]);
+
+      GET_FLUXES(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],
+                 B2_x2Face[j][i],&x2Flux[j][i]);
     }
   }
 
