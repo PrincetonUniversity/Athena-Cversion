@@ -53,10 +53,10 @@
 #error : Flux correction in the VL integrator does not work with H-corrrection.
 #endif 
 
-/* The L/R states of conserved variables and fluxes at each cell face */
-static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
-static Cons1D ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
-static Cons1D ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
+/* The L/R states of primitive variables and fluxes at each cell face */
+static Prim1D ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
+static Prim1D ***Wl_x2Face=NULL, ***Wr_x2Face=NULL;
+static Prim1D ***Wl_x3Face=NULL, ***Wr_x3Face=NULL;
 static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
 /* The interface magnetic fields and emfs */
@@ -128,7 +128,7 @@ void integrate_3d_vl(Grid *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real pb,x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #endif
@@ -201,7 +201,9 @@ void integrate_3d_vl(Grid *pG)
 /* Compute flux in x1-direction  */
 
       for (i=il+1; i<=iu; i++) {
-        GET_FLUXES(B1_x1Face[k][j][i],Ul[i],Ur[i],&x1Flux[k][j][i]);
+        Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B1_x1Face[k][j][i]);
+        Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B1_x1Face[k][j][i]);
+        GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],B1_x1Face[k][j][i],&x1Flux[k][j][i]);
       }
     }
   }
@@ -249,7 +251,9 @@ void integrate_3d_vl(Grid *pG)
 /* Compute flux in x2-direction */
 
       for (j=jl+1; j<=ju; j++) {
-        GET_FLUXES(B2_x2Face[k][j][i],Ul[j],Ur[j],&x2Flux[k][j][i]);
+        Cons1D_to_Prim1D(&Ul[j],&Wl[j],&B2_x2Face[k][j][i]);
+        Cons1D_to_Prim1D(&Ur[j],&Wr[j],&B2_x2Face[k][j][i]);
+        GET_FLUXES(Ul[j],Ur[j],Wl[j],Wr[j],B2_x2Face[k][j][i],&x2Flux[k][j][i]);
       }
     }
   }
@@ -297,7 +301,9 @@ void integrate_3d_vl(Grid *pG)
 /* Compute flux in x3-direction */
 
       for (k=kl+1; k<=ku; k++) {
-        GET_FLUXES(B3_x3Face[k][j][i],Ul[k],Ur[k],&x3Flux[k][j][i]);
+        Cons1D_to_Prim1D(&Ul[k],&Wl[k],&B3_x3Face[k][j][i]);
+        Cons1D_to_Prim1D(&Ur[k],&Wr[k],&B3_x3Face[k][j][i]);
+        GET_FLUXES(Ul[k],Ur[k],Wl[k],Wr[k],B3_x3Face[k][j][i],&x3Flux[k][j][i]);
       }
     }
   }
@@ -547,18 +553,14 @@ void integrate_3d_vl(Grid *pG)
       }
 
       for (i=il; i<=iu; i++) {
-        pb = Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+        Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
       }
 
       lr_states(W,Bxc,0.0,0.0,ib+1,it-1,Wl,Wr);
 
       for (i=ib+1; i<=it; i++) {
-        pb = Prim1D_to_Cons1D(&Ul[i],&Wl[i],&Bxi[i]);
-        pb = Prim1D_to_Cons1D(&Ur[i],&Wr[i],&Bxi[i]);
-      }
-      for (i=ib+1; i<=it; i++) {
-        Ul_x1Face[k][j][i] = Ul[i];
-        Ur_x1Face[k][j][i] = Ur[i];
+        Wl_x1Face[k][j][i] = Wl[i];
+        Wr_x1Face[k][j][i] = Wr[i];
       }
     }
   }
@@ -590,18 +592,14 @@ void integrate_3d_vl(Grid *pG)
       }
 
       for (j=jl; j<=ju; j++) {
-        pb = Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+        Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
       }
 
       lr_states(W,Bxc,0.0,0.0,jb+1,jt-1,Wl,Wr);
 
       for (j=jb+1; j<=jt; j++) {
-        pb = Prim1D_to_Cons1D(&Ul[j],&Wl[j],&Bxi[j]);
-        pb = Prim1D_to_Cons1D(&Ur[j],&Wr[j],&Bxi[j]);
-      }
-      for (j=jb+1; j<=jt; j++) {
-        Ul_x2Face[k][j][i] = Ul[j];
-        Ur_x2Face[k][j][i] = Ur[j];
+        Wl_x2Face[k][j][i] = Wl[j];
+        Wr_x2Face[k][j][i] = Wr[j];
       }
     }
   }
@@ -633,18 +631,14 @@ void integrate_3d_vl(Grid *pG)
       }
 
       for (k=kl; k<=ku; k++) {
-        pb = Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
+        Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
       }
 
       lr_states(W,Bxc,0.0,0.0,kb+1,kt-1,Wl,Wr);
 
       for (k=kb+1; k<=kt; k++) {
-        pb = Prim1D_to_Cons1D(&Ul[k],&Wl[k],&Bxi[k]);
-        pb = Prim1D_to_Cons1D(&Ur[k],&Wr[k],&Bxi[k]);
-      }
-      for (k=kb+1; k<=kt; k++) {
-        Ul_x3Face[k][j][i] = Ul[k];
-        Ur_x3Face[k][j][i] = Ur[k];
+        Wl_x3Face[k][j][i] = Wl[k];
+        Wr_x3Face[k][j][i] = Wr[k];
       }
     }
   }
@@ -711,8 +705,10 @@ void integrate_3d_vl(Grid *pG)
 
         etah = MAX(etah,eta1[k  ][j][i  ]);
 #endif /* H_CORRECTION */
-        GET_FLUXES(B1_x1Face[k][j][i],Ul_x1Face[k][j][i],Ur_x1Face[k][j][i]
-          ,&x1Flux[k][j][i]);
+        Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[k][j][i],&B1_x1Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i],&B1_x1Face[k][j][i]);
+        GET_FLUXES(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i]
+          ,B1_x1Face[k][j][i],&x1Flux[k][j][i]);
       }
     }
   }
@@ -736,8 +732,10 @@ void integrate_3d_vl(Grid *pG)
 
         etah = MAX(etah,eta2[k  ][j  ][i]);
 #endif /* H_CORRECTION */
-        GET_FLUXES(B2_x2Face[k][j][i],Ul_x2Face[k][j][i],Ur_x2Face[k][j][i]
-          ,&x2Flux[k][j][i]);
+        Prim1D_to_Cons1D(&Ul[i],&Wl_x2Face[k][j][i],&B2_x2Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i],&B2_x2Face[k][j][i]);
+        GET_FLUXES(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i]
+          ,B2_x2Face[k][j][i],&x2Flux[k][j][i]);
       }
     }
   }
@@ -761,8 +759,10 @@ void integrate_3d_vl(Grid *pG)
 
         etah = MAX(etah,eta3[k  ][j  ][i]);
 #endif /* H_CORRECTION */
-        GET_FLUXES(B3_x3Face[k][j][i],Ul_x3Face[k][j][i],Ur_x3Face[k][j][i]
-          ,&x3Flux[k][j][i]);
+        Prim1D_to_Cons1D(&Ul[i],&Wl_x3Face[k][j][i],&B3_x3Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i],&B3_x3Face[k][j][i]);
+        GET_FLUXES(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i]
+          ,B3_x3Face[k][j][i],&x3Flux[k][j][i]);
       }
     }
   }
@@ -1168,12 +1168,12 @@ void integrate_destruct_3d(void)
   if (Wl       != NULL) free(Wl);
   if (Wr       != NULL) free(Wr);
 
-  if (Ul_x1Face != NULL) free_3d_array(Ul_x1Face);
-  if (Ur_x1Face != NULL) free_3d_array(Ur_x1Face);
-  if (Ul_x2Face != NULL) free_3d_array(Ul_x2Face);
-  if (Ur_x2Face != NULL) free_3d_array(Ur_x2Face);
-  if (Ul_x3Face != NULL) free_3d_array(Ul_x3Face);
-  if (Ur_x3Face != NULL) free_3d_array(Ur_x3Face);
+  if (Wl_x1Face != NULL) free_3d_array(Wl_x1Face);
+  if (Wr_x1Face != NULL) free_3d_array(Wr_x1Face);
+  if (Wl_x2Face != NULL) free_3d_array(Wl_x2Face);
+  if (Wr_x2Face != NULL) free_3d_array(Wr_x2Face);
+  if (Wl_x3Face != NULL) free_3d_array(Wl_x3Face);
+  if (Wr_x3Face != NULL) free_3d_array(Wr_x3Face);
   if (x1Flux    != NULL) free_3d_array(x1Flux);
   if (x2Flux    != NULL) free_3d_array(x2Flux);
   if (x3Flux    != NULL) free_3d_array(x3Flux);
@@ -1206,7 +1206,7 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
 #ifdef SECOND_ORDER
   int minghost = 3;
 #endif /* SECOND_ORDER */
-#ifdef THIRD_ORDER
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
   int minghost = 4;
 #endif /* THIRD_ORDER */
 #if defined(MHD) && defined(H_CORRECTION)
@@ -1256,17 +1256,17 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
   if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
 
-  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+  if ((Wl_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
-  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+  if ((Wr_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
-  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+  if ((Wl_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
-  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+  if ((Wr_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
-  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+  if ((Wl_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
-  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
+  if ((Wr_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
   if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
     == NULL) goto on_error;
@@ -1536,7 +1536,7 @@ static void first_order_correction(const Grid *pG)
   int jb = jl+2, jt = ju-2;
   int kb = kl+2, kt = ku-2;
 #endif /* SECOND_ORDER */
-#ifdef THIRD_ORDER
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
   int ib = il+3, it = iu-3;
   int jb = jl+3, jt = ju-3;
   int kb = kl+3, kt = ku-3;
@@ -1752,66 +1752,72 @@ static void first_order_correction(const Grid *pG)
       for (j=jb+2; j<=jt-1; j++) {
         for (i=ib+2; i<=it-1; i++) {
           if (Ineg[k][j][i] & correct_hydro_x1) {
-            Ul_x1Face[k][j][i].d = Uhalf[k][j][i-1].d;
-            Ul_x1Face[k][j][i].Mx = Uhalf[k][j][i-1].M1;
-            Ul_x1Face[k][j][i].My = Uhalf[k][j][i-1].M2;
-            Ul_x1Face[k][j][i].Mz = Uhalf[k][j][i-1].M3;
+            Ul[i].d = Uhalf[k][j][i-1].d;
+            Ul[i].Mx = Uhalf[k][j][i-1].M1;
+            Ul[i].My = Uhalf[k][j][i-1].M2;
+            Ul[i].Mz = Uhalf[k][j][i-1].M3;
 #ifndef ISOTHERMAL
-            Ul_x1Face[k][j][i].E = Uhalf[k][j][i-1].E;
+            Ul[i].E = Uhalf[k][j][i-1].E;
 #endif /* ISOTHERMAL */
 
-            Ur_x1Face[k][j][i].d = Uhalf[k][j][i].d;
-            Ur_x1Face[k][j][i].Mx = Uhalf[k][j][i].M1;
-            Ur_x1Face[k][j][i].My = Uhalf[k][j][i].M2;
-            Ur_x1Face[k][j][i].Mz = Uhalf[k][j][i].M3;
+            Ur[i].d = Uhalf[k][j][i].d;
+            Ur[i].Mx = Uhalf[k][j][i].M1;
+            Ur[i].My = Uhalf[k][j][i].M2;
+            Ur[i].Mz = Uhalf[k][j][i].M3;
 #ifndef ISOTHERMAL
-            Ur_x1Face[k][j][i].E = Uhalf[k][j][i].E;
+            Ur[i].E = Uhalf[k][j][i].E;
 #endif /* ISOTHERMAL */
+            Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B1_x1Face[k][j][i]);
+            Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B1_x1Face[k][j][i]);
 
-            GET_FLUXES(B1_x1Face[k][j][i],Ul_x1Face[k][j][i],Ur_x1Face[k][j][i]
-              ,&x1Flux[k][j][i]);
+            GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i]
+              ,B1_x1Face[k][j][i],&x1Flux[k][j][i]);
           }
 
           if (Ineg[k][j][i] & correct_hydro_x2) {
-            Ul_x2Face[k][j][i].d = Uhalf[k][j-1][i].d;
-            Ul_x2Face[k][j][i].Mx = Uhalf[k][j-1][i].M2;
-            Ul_x2Face[k][j][i].My = Uhalf[k][j-1][i].M3;
-            Ul_x2Face[k][j][i].Mz = Uhalf[k][j-1][i].M1;
+            Ul[i].d = Uhalf[k][j-1][i].d;
+            Ul[i].Mx = Uhalf[k][j-1][i].M2;
+            Ul[i].My = Uhalf[k][j-1][i].M3;
+            Ul[i].Mz = Uhalf[k][j-1][i].M1;
 #ifndef ISOTHERMAL
-            Ul_x2Face[k][j][i].E = Uhalf[k][j-1][i].E;
+            Ul[i].E = Uhalf[k][j-1][i].E;
 #endif /* ISOTHERMAL */
 
-            Ur_x2Face[k][j][i].d = Uhalf[k][j][i].d;
-            Ur_x2Face[k][j][i].Mx = Uhalf[k][j][i].M2;
-            Ur_x2Face[k][j][i].My = Uhalf[k][j][i].M3;
-            Ur_x2Face[k][j][i].Mz = Uhalf[k][j][i].M1;
+            Ur[i].d = Uhalf[k][j][i].d;
+            Ur[i].Mx = Uhalf[k][j][i].M2;
+            Ur[i].My = Uhalf[k][j][i].M3;
+            Ur[i].Mz = Uhalf[k][j][i].M1;
 #ifndef ISOTHERMAL
-            Ur_x2Face[k][j][i].E = Uhalf[k][j][i].E;
+            Ur[i].E = Uhalf[k][j][i].E;
 #endif /* ISOTHERMAL */
+            Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B2_x2Face[k][j][i]);
+            Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B2_x2Face[k][j][i]);
 
-            GET_FLUXES(B2_x2Face[k][j][i],Ul_x2Face[k][j][i],Ur_x2Face[k][j][i]
-              ,&x2Flux[k][j][i]);
+            GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i]
+              ,B2_x2Face[k][j][i],&x2Flux[k][j][i]);
         }
 
           if (Ineg[k][j][i] & correct_hydro_x3) {
-            Ul_x3Face[k][j][i].d = Uhalf[k-1][j][i].d;
-            Ul_x3Face[k][j][i].Mx = Uhalf[k-1][j][i].M3;
-            Ul_x3Face[k][j][i].My = Uhalf[k-1][j][i].M1;
-            Ul_x3Face[k][j][i].Mz = Uhalf[k-1][j][i].M2;
+            Ul[i].d = Uhalf[k-1][j][i].d;
+            Ul[i].Mx = Uhalf[k-1][j][i].M3;
+            Ul[i].My = Uhalf[k-1][j][i].M1;
+            Ul[i].Mz = Uhalf[k-1][j][i].M2;
 #ifndef ISOTHERMAL
-            Ul_x3Face[k][j][i].E = Uhalf[k-1][j][i].E;
+            Ul[i].E = Uhalf[k-1][j][i].E;
 #endif /* ISOTHERMAL */
 
-            Ur_x3Face[k][j][i].d = Uhalf[k][j][i].d;
-            Ur_x3Face[k][j][i].Mx = Uhalf[k][j][i].M3;
-            Ur_x3Face[k][j][i].My = Uhalf[k][j][i].M1;
-            Ur_x3Face[k][j][i].Mz = Uhalf[k][j][i].M2;
+            Ur[i].d = Uhalf[k][j][i].d;
+            Ur[i].Mx = Uhalf[k][j][i].M3;
+            Ur[i].My = Uhalf[k][j][i].M1;
+            Ur[i].Mz = Uhalf[k][j][i].M2;
 #ifndef ISOTHERMAL
-            Ur_x3Face[k][j][i].E = Uhalf[k][j][i].E;
+            Ur[i].E = Uhalf[k][j][i].E;
 #endif /* ISOTHERMAL */
+            Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B3_x3Face[k][j][i]);
+            Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B3_x3Face[k][j][i]);
 
-            GET_FLUXES(B3_x3Face[k][j][i],Ul_x3Face[k][j][i],Ur_x3Face[k][j][i]
-              ,&x3Flux[k][j][i]);
+            GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i]
+              ,B3_x3Face[k][j][i],&x3Flux[k][j][i]);
           }
         }
       }
