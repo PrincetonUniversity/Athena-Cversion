@@ -55,10 +55,10 @@ static double rtsafe(void (*funcd)(double, double, double, double, double,
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void flux_exact(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pF)
+void flux_exact(const Cons1D Ul, const Cons1D Ur,
+                const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pF)
 {
-  Prim1D Wl, Wr;
-  Real zl, zr, zm, dm, Vxm, Mxm, tmp, pbl, pbr, dmin, dmax;
+  Real zl, zr, zm, dm, Vxm, Mxm, tmp, dmin, dmax;
   Real sl, sr;    /* Left and right going shock velocity */
   Real hdl, hdr;  /* Left and right going rarefaction head velocity */
   Real tll, tlr;  /* Left and right going rarefaction tail velocity */
@@ -72,8 +72,10 @@ void flux_exact(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pF)
  * Convert left- and right- states in conserved to primitive variables.
  */
 
+/*
   pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute the density and momentum of the intermediate state

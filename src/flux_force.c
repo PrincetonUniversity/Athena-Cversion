@@ -34,9 +34,10 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
+void flux_force(const Cons1D Ul, const Cons1D Ur, 
+                const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
 {
-  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbc=0.0,pbr=0.0;
+  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
 #ifndef ISOTHERMAL
   Real hroe;
@@ -46,7 +47,7 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 #endif
   Real ev[NWAVE],al,ar;
   Real *pFl, *pFc, *pFr, *pUc, *pF;
-  Prim1D Wl, Wc, Wr;
+  Prim1D Wc;
   Cons1D Fl, Fc, Fr, Uc;
   int n;
 
@@ -54,9 +55,10 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
 /*--- Step 1. ------------------------------------------------------------------
  * Convert left- and right- states in conserved to primitive variables.
  */
-
+/*
   pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute Roe-averaged data from left- and right-states
@@ -80,6 +82,8 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
   x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))/(SQR(sqrtdl + sqrtdr));
   y = 0.5*(Wl.d + Wr.d)/droe;
+  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
 #endif
 
 /*
@@ -234,7 +238,7 @@ void flux_force(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pFlux)
   }
 
 /* Convert the HLL mean state to primitive variables */
-  pbc = Cons1D_to_Prim1D(&Uc,&Wc,&Bxi);
+  Cons1D_to_Prim1D(&Uc,&Wc,&Bxi);
 
 /* Compute the LW flux along the line dx/dt = 0 */
 

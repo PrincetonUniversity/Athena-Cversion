@@ -90,6 +90,8 @@ void flux_hlle(const Cons1D Ul, const Cons1D Ur,
   b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
   x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))/(SQR(sqrtdl + sqrtdr));
   y = 0.5*(Wl.d + Wr.d)/droe;
+  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
 #endif
 
 /*

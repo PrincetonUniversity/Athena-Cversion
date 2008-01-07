@@ -42,10 +42,10 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void flux_2shock(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pF)
+void flux_2shock(const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pF)
 {
-  Prim1D Wl, Wr;
-  Real zl, zc, zr, dc, Vxc, tmp, pbl, pbr;
+  Real zl, zc, zr, dc, Vxc, tmp;
   Real sl, sr;  /* Left and right going shock velocity */
   Real al, ar;  /* HLL a_l, a_r -> min and max signal velocity */
 
@@ -57,8 +57,10 @@ void flux_2shock(const Real Bxi, const Cons1D Ul, const Cons1D Ur, Cons1D *pF)
  * Convert left- and right- states in conserved to primitive variables.
  */
 
+/*
   pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
   pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute the velocity and density of the contact
