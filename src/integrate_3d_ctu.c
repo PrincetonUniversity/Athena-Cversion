@@ -89,6 +89,7 @@ static void integrate_emf3_corner(const Grid *pG);
 void integrate_3d_ctu(Grid *pG)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
+  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
@@ -160,9 +161,9 @@ void integrate_3d_ctu(Grid *pG)
       for (i=is-1; i<=ie+2; i++) {
 
 /* Source terms for left states in zone i-1 */
-        db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i-1] - pG->B3i[k][j][i-1])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i-1] - pG->B3i[k][j][i-1])*dx3i;
 
 	if(db1 >= 0.0){
 	  l3 = db1 < -db3 ? db1 : -db3;
@@ -186,9 +187,9 @@ void integrate_3d_ctu(Grid *pG)
         Wl[i].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone i */
-        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])*dx3i;
 
         if(db1 >= 0.0){
           l3 = db1 < -db3 ? db1 : -db3;
@@ -313,9 +314,9 @@ void integrate_3d_ctu(Grid *pG)
 #ifdef MHD
       for (j=js-1; j<=je+2; j++) {
 /* Source terms for left states in zone j-1 */
-        db1 = (pG->B1i[k  ][j-1][i+1] - pG->B1i[k][j-1][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j  ][i  ] - pG->B2i[k][j-1][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j-1][i  ] - pG->B3i[k][j-1][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j-1][i+1] - pG->B1i[k][j-1][i])*dx1i;
+        db2 = (pG->B2i[k  ][j  ][i  ] - pG->B2i[k][j-1][i])*dx2i;
+        db3 = (pG->B3i[k+1][j-1][i  ] - pG->B3i[k][j-1][i])*dx3i;
 
 	if(db2 >= 0.0){
 	  l1 = db2 < -db1 ? db2 : -db1;
@@ -339,9 +340,9 @@ void integrate_3d_ctu(Grid *pG)
         Wl[j].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone j */
-        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])*dx3i;
 
         if(db2 >= 0.0){
           l1 = db2 < -db1 ? db2 : -db1;
@@ -453,9 +454,9 @@ void integrate_3d_ctu(Grid *pG)
 #ifdef MHD
       for (k=ks-1; k<=ke+2; k++) {
 /* Source terms for left states in zone k-1 */
-        db1 = (pG->B1i[k-1][j  ][i+1] - pG->B1i[k-1][j][i])/pG->dx1;
-        db2 = (pG->B2i[k-1][j+1][i  ] - pG->B2i[k-1][j][i])/pG->dx2;
-        db3 = (pG->B3i[k  ][j  ][i  ] - pG->B3i[k-1][j][i])/pG->dx3;
+        db1 = (pG->B1i[k-1][j  ][i+1] - pG->B1i[k-1][j][i])*dx1i;
+        db2 = (pG->B2i[k-1][j+1][i  ] - pG->B2i[k-1][j][i])*dx2i;
+        db3 = (pG->B3i[k  ][j  ][i  ] - pG->B3i[k-1][j][i])*dx3i;
 
 	if(db3 >= 0.0){
 	  l1 = db3 < -db1 ? db3 : -db1;
@@ -479,9 +480,9 @@ void integrate_3d_ctu(Grid *pG)
         Wl[k].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone k */
-        db1 = (pG->B1i[k][j][i+1] - pG->B1i[k][j][i])/pG->dx1;
-        db2 = (pG->B2i[k][j+1][i] - pG->B2i[k][j][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j][i] - pG->B3i[k][j][i])/pG->dx3;
+        db1 = (pG->B1i[k][j][i+1] - pG->B1i[k][j][i])*dx1i;
+        db2 = (pG->B2i[k][j+1][i] - pG->B2i[k][j][i])*dx2i;
+        db3 = (pG->B3i[k+1][j][i] - pG->B3i[k][j][i])*dx3i;
 
         if(db3 >= 0.0){
           l1 = db3 < -db1 ? db3 : -db1;
@@ -706,9 +707,9 @@ void integrate_3d_ctu(Grid *pG)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+2; i++) {
-        db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i-1] - pG->B3i[k][j][i-1])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i-1] - pG->B3i[k][j][i-1])*dx3i;
         B1 = pG->U[k][j][i-1].B1c;
         B2 = pG->U[k][j][i-1].B2c;
         B3 = pG->U[k][j][i-1].B3c;
@@ -742,9 +743,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
 #endif /* ISOTHERMAL */
 
-        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])*dx3i;
         B1 = pG->U[k][j][i].B1c;
         B2 = pG->U[k][j][i].B2c;
         B3 = pG->U[k][j][i].B3c;
@@ -986,9 +987,9 @@ void integrate_3d_ctu(Grid *pG)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+2; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        db1 = (pG->B1i[k  ][j-1][i+1] - pG->B1i[k][j-1][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j  ][i  ] - pG->B2i[k][j-1][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j-1][i  ] - pG->B3i[k][j-1][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j-1][i+1] - pG->B1i[k][j-1][i])*dx1i;
+        db2 = (pG->B2i[k  ][j  ][i  ] - pG->B2i[k][j-1][i])*dx2i;
+        db3 = (pG->B3i[k+1][j-1][i  ] - pG->B3i[k][j-1][i])*dx3i;
         B1 = pG->U[k][j-1][i].B1c;
         B2 = pG->U[k][j-1][i].B2c;
         B3 = pG->U[k][j-1][i].B3c;
@@ -1022,9 +1023,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
 #endif /* ISOTHERMAL */
 
-        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])*dx3i;
         B1 = pG->U[k][j][i].B1c;
         B2 = pG->U[k][j][i].B2c;
         B3 = pG->U[k][j][i].B3c;
@@ -1281,9 +1282,9 @@ void integrate_3d_ctu(Grid *pG)
   for (k=ks-1; k<=ke+2; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        db1 = (pG->B1i[k-1][j  ][i+1] - pG->B1i[k-1][j][i])/pG->dx1;
-        db2 = (pG->B2i[k-1][j+1][i  ] - pG->B2i[k-1][j][i])/pG->dx2;
-        db3 = (pG->B3i[k  ][j  ][i  ] - pG->B3i[k-1][j][i])/pG->dx3;
+        db1 = (pG->B1i[k-1][j  ][i+1] - pG->B1i[k-1][j][i])*dx1i;
+        db2 = (pG->B2i[k-1][j+1][i  ] - pG->B2i[k-1][j][i])*dx2i;
+        db3 = (pG->B3i[k  ][j  ][i  ] - pG->B3i[k-1][j][i])*dx3i;
         B1 = pG->U[k-1][j][i].B1c;
         B2 = pG->U[k-1][j][i].B2c;
         B3 = pG->U[k-1][j][i].B3c;
@@ -1317,9 +1318,9 @@ void integrate_3d_ctu(Grid *pG)
 	Ul_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
 #endif /* ISOTHERMAL */
 
-        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])/pG->dx1;
-        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])/pG->dx2;
-        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])/pG->dx3;
+        db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
+        db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
+        db3 = (pG->B3i[k+1][j  ][i  ] - pG->B3i[k][j][i])*dx3i;
         B1 = pG->U[k][j][i].B1c;
         B2 = pG->U[k][j][i].B2c;
         B3 = pG->U[k][j][i].B3c;
@@ -1855,18 +1856,18 @@ void integrate_3d_ctu(Grid *pG)
         phir = 0.5*(pG->Phi[k][j][i  ] + pG->Phi[k][j][i+1]);
 
 /* gx, gy and gz centered at L and R x1-faces */
-        gxl = (pG->Phi[k][j][i-1] - pG->Phi[k][j][i  ])/(pG->dx1);
-        gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])/(pG->dx1);
+        gxl = (pG->Phi[k][j][i-1] - pG->Phi[k][j][i  ])*(dx1i);
+        gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])*(dx1i);
 
         gyl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j+1][i-1]) +
-                    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) )/(pG->dx2);
+                    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) )*(dx2i);
         gyr = 0.25*((pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) +
-                    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]) )/(pG->dx2);
+                    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]) )*(dx2i);
 
         gzl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k+1][j][i-1]) +
-                    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) )/(pG->dx3);
+                    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) )*(dx3i);
         gzr = 0.25*((pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) +
-                    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]) )/(pG->dx3);
+                    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]) )*(dx3i);
 
 /* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
         flx_m1l = 0.5*(gxl*gxl-gyl*gyl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
@@ -1901,17 +1902,17 @@ void integrate_3d_ctu(Grid *pG)
 
 /* gx, gy and gz centered at L and R x2-faces */
         gxl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j-1][i+1]) +
-                    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) )/(pG->dx1);
+                    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) )*(dx1i);
         gxr = 0.25*((pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) +
-                    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]) )/(pG->dx1);
+                    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]) )*(dx1i);
 
-        gyl = (pG->Phi[k][j-1][i] - pG->Phi[k][j  ][i])/(pG->dx2);
-        gyr = (pG->Phi[k][j  ][i] - pG->Phi[k][j+1][i])/(pG->dx2);
+        gyl = (pG->Phi[k][j-1][i] - pG->Phi[k][j  ][i])*(dx2i);
+        gyr = (pG->Phi[k][j  ][i] - pG->Phi[k][j+1][i])*(dx2i);
 
         gzl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k+1][j-1][i]) +
-                    (pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) )/(pG->dx3);
+                    (pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) )*(dx3i);
         gzr = 0.25*((pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) +
-                    (pG->Phi[k-1][j+1][i] - pG->Phi[k+1][j+1][i]) )/(pG->dx3);
+                    (pG->Phi[k-1][j+1][i] - pG->Phi[k+1][j+1][i]) )*(dx3i);
 
 /* momentum fluxes in x2.  2nd term is needed only if Jean's swindle used */
         flx_m1l = gyl*gxl/four_pi_G;
@@ -1946,17 +1947,17 @@ void integrate_3d_ctu(Grid *pG)
 
 /* gx, gy and gz centered at L and R x3-faces */
         gxl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k-1][j][i+1]) +
-                    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) )/(pG->dx1);
+                    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) )*(dx1i);
         gxr = 0.25*((pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) +
-                    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]) )/(pG->dx1);
+                    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]) )*(dx1i);
 
         gyl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k-1][j+1][i]) +
-                    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) )/(pG->dx2);
+                    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) )*(dx2i);
         gyr = 0.25*((pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) +
-                    (pG->Phi[k+1][j-1][i] - pG->Phi[k+1][j+1][i]) )/(pG->dx2);
+                    (pG->Phi[k+1][j-1][i] - pG->Phi[k+1][j+1][i]) )*(dx2i);
 
-        gzl = (pG->Phi[k-1][j][i] - pG->Phi[k  ][j][i])/(pG->dx3);
-        gzr = (pG->Phi[k  ][j][i] - pG->Phi[k+1][j][i])/(pG->dx3);
+        gzl = (pG->Phi[k-1][j][i] - pG->Phi[k  ][j][i])*(dx3i);
+        gzr = (pG->Phi[k  ][j][i] - pG->Phi[k+1][j][i])*(dx3i);
 
 /* momentum fluxes in x3.  2nd term is needed only if Jean's swindle used */
         flx_m1l = gzl*gxl/four_pi_G;
