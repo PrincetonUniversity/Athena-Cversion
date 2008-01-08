@@ -3,8 +3,8 @@
  * FILE: integrate_3d_vl.c
  *
  * PURPOSE: Updates the input Grid structure pointed to by *pG by one
- *   timestep using directionally unsplit van Leer scheme.  The variables
- *   updated are:
+ *   timestep using directionally unsplit van Leer - Hancock scheme.  The
+ *   variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, and the H-correction
@@ -53,10 +53,7 @@
 #error : Flux correction in the VL integrator does not work with H-corrrection.
 #endif 
 
-/* The L/R states of primitive variables and fluxes at each cell face */
-static Prim1D ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
-static Prim1D ***Wl_x2Face=NULL, ***Wr_x2Face=NULL;
-static Prim1D ***Wl_x3Face=NULL, ***Wr_x3Face=NULL;
+/* fluxes at each cell face */
 static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
 /* The interface magnetic fields and emfs */
@@ -75,8 +72,13 @@ static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static Gas ***Uhalf=NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
+/* Arrays for the L/R states of primitive variables at each cell face are only
+ * needed for the H-correction */
 extern Real etah;
 #ifdef H_CORRECTION
+static Prim1D ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
+static Prim1D ***Wl_x2Face=NULL, ***Wr_x2Face=NULL;
+static Prim1D ***Wl_x3Face=NULL, ***Wr_x3Face=NULL;
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
 
@@ -527,7 +529,9 @@ void integrate_3d_vl(Grid *pG)
 #endif /* SELF_GRAVITY */
 
 /*--- Step 8a ------------------------------------------------------------------
- * Compute L/R states at x1-interfaces using U^{n+1/2}, store into 3D arrays
+ * Compute L/R states at x1-interfaces using U^{n+1/2}, compute fluxes, and
+ * store into 3D arrays.  With H_CORRECTION defined, have to store L/R states in
+ * 3D arrays and compute fluxes later.
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
 
@@ -558,15 +562,24 @@ void integrate_3d_vl(Grid *pG)
 
       lr_states(W,Bxc,0.0,0.0,ib+1,it-1,Wl,Wr);
 
+/* Compute L/R states, and either store into array, or use to compute fluxes */
       for (i=ib+1; i<=it; i++) {
+#ifdef H_CORRECTION
         Wl_x1Face[k][j][i] = Wl[i];
         Wr_x1Face[k][j][i] = Wr[i];
+#else
+        Prim1D_to_Cons1D(&Ul[i],&Wl[i],&B1_x1Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ur[i],&Wr[i],&B1_x1Face[k][j][i]);
+        GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],B1_x1Face[k][j][i],&x1Flux[k][j][i]);
+#endif /* H_CORRECTION */
       }
     }
   }
 
 /*--- Step 8b ------------------------------------------------------------------
- * Compute L/R states at x2-interfaces using U^{n+1/2}, store into 3D arrays
+ * Compute L/R states at x1-interfaces using U^{n+1/2}, compute fluxes, and
+ * store into 3D arrays.  With H_CORRECTION defined, have to store L/R states in
+ * 3D arrays and compute fluxes later.
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  */
 
@@ -597,15 +610,24 @@ void integrate_3d_vl(Grid *pG)
 
       lr_states(W,Bxc,0.0,0.0,jb+1,jt-1,Wl,Wr);
 
+/* Compute L/R states, and either store into array, or use to compute fluxes */
       for (j=jb+1; j<=jt; j++) {
+#ifdef H_CORRECTION
         Wl_x2Face[k][j][i] = Wl[j];
         Wr_x2Face[k][j][i] = Wr[j];
+#else
+        Prim1D_to_Cons1D(&Ul[j],&Wl[j],&B2_x2Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ur[j],&Wr[j],&B2_x2Face[k][j][i]);
+        GET_FLUXES(Ul[j],Ur[j],Wl[j],Wr[j],B2_x2Face[k][j][i],&x2Flux[k][j][i]);
+#endif /* H_CORRECTION */
       }
     }
   }
 
 /*--- Step 8c ------------------------------------------------------------------
- * Compute L/R states at x3-interfaces using U^{n+1/2}, store into 3D arrays
+ * Compute L/R states at x1-interfaces using U^{n+1/2}, compute fluxes, and
+ * store into 3D arrays.  With H_CORRECTION defined, have to store L/R states in
+ * 3D arrays and compute fluxes later.
  * U1d = (d, M3, M1, M2, E, B1c, B2c, s[n])
  */
 
@@ -636,9 +658,16 @@ void integrate_3d_vl(Grid *pG)
 
       lr_states(W,Bxc,0.0,0.0,kb+1,kt-1,Wl,Wr);
 
+/* Compute L/R states, and either store into array, or use to compute fluxes */
       for (k=kb+1; k<=kt; k++) {
+#ifdef H_CORRECTION
         Wl_x3Face[k][j][i] = Wl[k];
         Wr_x3Face[k][j][i] = Wr[k];
+#else
+        Prim1D_to_Cons1D(&Ul[k],&Wl[k],&B3_x3Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ur[k],&Wr[k],&B3_x3Face[k][j][i]);
+        GET_FLUXES(Ul[k],Ur[k],Wl[k],Wr[k],B3_x3Face[k][j][i],&x3Flux[k][j][i]);
+#endif /* H_CORRECTION */
       }
     }
   }
@@ -690,10 +719,10 @@ void integrate_3d_vl(Grid *pG)
  * Compute second-order fluxes in x1-direction, including H-correction
  */
 
+#ifdef H_CORRECTION
   for (k=kb; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
       for (i=ib+1; i<=it; i++) {
-#ifdef H_CORRECTION
         etah = MAX(eta2[k][j][i-1],eta2[k][j][i]);
         etah = MAX(etah,eta2[k][j+1][i-1]);
         etah = MAX(etah,eta2[k][j+1][i  ]);
@@ -704,7 +733,6 @@ void integrate_3d_vl(Grid *pG)
         etah = MAX(etah,eta3[k+1][j][i  ]);
 
         etah = MAX(etah,eta1[k  ][j][i  ]);
-#endif /* H_CORRECTION */
         Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[k][j][i],&B1_x1Face[k][j][i]);
         Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i],&B1_x1Face[k][j][i]);
         GET_FLUXES(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i]
@@ -720,7 +748,6 @@ void integrate_3d_vl(Grid *pG)
   for (k=kb; k<=kt; k++) {
     for (j=jb+1; j<=jt; j++) {
       for (i=ib; i<=it; i++) {
-#ifdef H_CORRECTION
         etah = MAX(eta1[k][j-1][i],eta1[k][j][i]);
         etah = MAX(etah,eta1[k][j-1][i+1]);
         etah = MAX(etah,eta1[k][j  ][i+1]);
@@ -731,7 +758,6 @@ void integrate_3d_vl(Grid *pG)
         etah = MAX(etah,eta3[k+1][j  ][i]);
 
         etah = MAX(etah,eta2[k  ][j  ][i]);
-#endif /* H_CORRECTION */
         Prim1D_to_Cons1D(&Ul[i],&Wl_x2Face[k][j][i],&B2_x2Face[k][j][i]);
         Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i],&B2_x2Face[k][j][i]);
         GET_FLUXES(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i]
@@ -747,7 +773,6 @@ void integrate_3d_vl(Grid *pG)
   for (k=kb+1; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
       for (i=ib; i<=it; i++) {
-#ifdef H_CORRECTION
         etah = MAX(eta1[k-1][j][i],eta1[k][j][i]);
         etah = MAX(etah,eta1[k-1][j][i+1]);
         etah = MAX(etah,eta1[k][j  ][i+1]);
@@ -758,7 +783,6 @@ void integrate_3d_vl(Grid *pG)
         etah = MAX(etah,eta2[k  ][j+1][i]);
 
         etah = MAX(etah,eta3[k  ][j  ][i]);
-#endif /* H_CORRECTION */
         Prim1D_to_Cons1D(&Ul[i],&Wl_x3Face[k][j][i],&B3_x3Face[k][j][i]);
         Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i],&B3_x3Face[k][j][i]);
         GET_FLUXES(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i]
@@ -766,6 +790,7 @@ void integrate_3d_vl(Grid *pG)
       }
     }
   }
+#endif /* H_CORRECTION */
 
 /*--- Step 11 ------------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at the half-time-step.
@@ -1153,6 +1178,12 @@ void integrate_destruct_3d(void)
   if (eta1 != NULL) free_3d_array(eta1);
   if (eta2 != NULL) free_3d_array(eta2);
   if (eta3 != NULL) free_3d_array(eta3);
+  if (Wl_x1Face != NULL) free_3d_array(Wl_x1Face);
+  if (Wr_x1Face != NULL) free_3d_array(Wr_x1Face);
+  if (Wl_x2Face != NULL) free_3d_array(Wl_x2Face);
+  if (Wr_x2Face != NULL) free_3d_array(Wr_x2Face);
+  if (Wl_x3Face != NULL) free_3d_array(Wl_x3Face);
+  if (Wr_x3Face != NULL) free_3d_array(Wr_x3Face);
 #endif /* H_CORRECTION */
 
   if (Bxc != NULL) free(Bxc);
@@ -1168,12 +1199,6 @@ void integrate_destruct_3d(void)
   if (Wl       != NULL) free(Wl);
   if (Wr       != NULL) free(Wr);
 
-  if (Wl_x1Face != NULL) free_3d_array(Wl_x1Face);
-  if (Wr_x1Face != NULL) free_3d_array(Wr_x1Face);
-  if (Wl_x2Face != NULL) free_3d_array(Wl_x2Face);
-  if (Wr_x2Face != NULL) free_3d_array(Wr_x2Face);
-  if (Wl_x3Face != NULL) free_3d_array(Wl_x3Face);
-  if (Wr_x3Face != NULL) free_3d_array(Wr_x3Face);
   if (x1Flux    != NULL) free_3d_array(x1Flux);
   if (x2Flux    != NULL) free_3d_array(x2Flux);
   if (x3Flux    != NULL) free_3d_array(x3Flux);
@@ -1240,6 +1265,18 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     goto on_error;
   if ((eta3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
+  if ((Wl_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wl_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wl_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
+    == NULL) goto on_error;
 #endif /* H_CORRECTION */
 
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
@@ -1256,18 +1293,6 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
   if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
 
-  if ((Wl_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wl_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wl_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
   if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
     == NULL) goto on_error;
   if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
