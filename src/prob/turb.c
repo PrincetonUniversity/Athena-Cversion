@@ -55,11 +55,6 @@
 /* FFT indexing Nfast=k, Nmid=j, Nslow=i (opposite to Athena)
  * For OFST, i,j,k,nx2,nx3 reference the local grid */
 #define OFST(i, j, k) ((k) + nx3*((j) + nx2*(i)))
-/* KCOMP: any component of wavenumber k in units of dkx, i.e.
- *    k_x = KCOMP(i, gis, gnx1) * 2 pi/L
- *    k_y = KCOMP(j, gjs, gnx2) * 2 pi/L
- *    k_z = KCOMP(k, gks, gnx3) * 2 pi/L */
-#define KCOMP(a, gas, gnxa) ((double)((a+gas)-(int)(2*(a+gas)/gnxa)*gnxa))
 /* KWVM: magnitude of wavenumber k in units of dkx */
 #define KWVM(i, j, k) (sqrt(SQR(KCOMP(i,gis,gnx1))+ \
                             SQR(KCOMP(j,gjs,gnx2))+SQR(KCOMP(k,gks,gnx3))))
