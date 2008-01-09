@@ -57,13 +57,13 @@ void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse);
 void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine);
 
 #ifdef MPI_PARALLEL
-void set_iterate_bvals(MGrid *pMG);
-void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
-void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
-void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
-void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
-void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
-void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
+void set_mg_bvals(MGrid *pMG);
+void swap_mg_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
+void swap_mg_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
+void swap_mg_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
+void swap_mg_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
+void swap_mg_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
+void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
 #endif
 
 
@@ -127,7 +127,7 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   }
 
 #ifdef MPI_PARALLEL
-  mpi_err = MPI_Reduce(&mass, &tmass,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+  mpi_err = MPI_Allreduce(&mass, &tmass,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   if (mpi_err) ath_error("[selfg_multigrid]: MPI_Reduce returned err = %d\n",
     mpi_err);
 #else
@@ -249,6 +249,9 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
       }
     }
   }
+#ifdef MPI_PARALLEL
+  set_mg_bvals(&Root_grid);
+#endif
 
 /* Compute new potential.  Note multig_3d calls itself recursively. */
 
@@ -264,6 +267,9 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
       }
     }
   }
+
+  free_3d_array(Root_grid.rhs);
+  free_3d_array(Root_grid.Phi);
 
 #endif /* SELF_GRAVITY_USING_MULTIGRID */
   return;
@@ -323,7 +329,7 @@ void multig_3d(MGrid *pMG)
 
     Restriction_3d(pMG, &Coarse_grid);
 #ifdef MPI_PARALLEL
-    set_iterate_bvals(pMG);
+    set_mg_bvals(&Coarse_grid);
 #endif
 
     multig_3d(&Coarse_grid);
@@ -335,8 +341,10 @@ void multig_3d(MGrid *pMG)
  */
 
     Prolongation_3d(&Coarse_grid, pMG);
+    free_3d_array(Coarse_grid.rhs);
+    free_3d_array(Coarse_grid.Phi);
 #ifdef MPI_PARALLEL
-    set_iterate_bvals(pMG);
+    set_mg_bvals(pMG);
 #endif
 
 /* End with 10 iterations at the finest level */
@@ -357,7 +365,6 @@ void Jacobi(MGrid *pMG)
   int j, js = pMG->js, je = pMG->je;
   int k, ks = pMG->ks, ke = pMG->ke;
   int n;
-  Real trhs;
   Real dx1sq = (pMG->dx1*pMG->dx1);
   Real dx2sq = (pMG->dx2*pMG->dx2);
   Real dx3sq = (pMG->dx3*pMG->dx3);
@@ -369,16 +376,23 @@ void Jacobi(MGrid *pMG)
       for (k=ks; k<=ke; k++){
         for (j=js; j<=je; j++){
           for (i=is; i<=ie; i++){
-            trhs = -pMG->rhs[k][j][i];
-            trhs += (pMG->Phi[k][j][i-1] + pMG->Phi[k][j][i+1])/dx1sq;
-            trhs += (pMG->Phi[k][j+1][i] + pMG->Phi[k][j-1][i])/dx2sq;
-            trhs += (pMG->Phi[k+1][j][i] + pMG->Phi[k-1][j][i])/dx3sq;
-            pMG->Phi[k][j][i] = trhs/(2.0/dx1sq + 2.0/dx2sq + 2.0/dx3sq);
+            error[k][j][i] = -pMG->rhs[k][j][i];
+            error[k][j][i] += (pMG->Phi[k][j][i+1] + pMG->Phi[k][j][i-1])/dx1sq;
+            error[k][j][i] += (pMG->Phi[k][j+1][i] + pMG->Phi[k][j-1][i])/dx2sq;
+            error[k][j][i] += (pMG->Phi[k+1][j][i] + pMG->Phi[k-1][j][i])/dx3sq;
+          }
+        }
+      }
+
+      for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+          for (i=is; i<=ie; i++){
+            pMG->Phi[k][j][i] = error[k][j][i]/(2.0/dx1sq + 2.0/dx2sq + 2.0/dx3sq);
           }
         }
       }
 #ifdef MPI_PARALLEL
-      set_iterate_bvals(pMG);
+      set_mg_bvals(pMG);
 #endif
     }
   }
@@ -389,14 +403,19 @@ void Jacobi(MGrid *pMG)
     for (n=0; n<=10; n++){  /* hardwired to do 10 iterations */
       for (j=js; j<=je; j++){
         for (i=is; i<=ie; i++){
-          trhs = -pMG->rhs[ks][j][i];
-          trhs += (pMG->Phi[ks][j][i-1] + pMG->Phi[ks][j][i+1])/dx1sq;
-          trhs += (pMG->Phi[ks][j+1][i] + pMG->Phi[ks][j-1][i])/dx2sq;
-          pMG->Phi[ks][j][i] = trhs/(2.0/dx1sq + 2.0/dx2sq);
+          error[ks][j][i] = -pMG->rhs[ks][j][i];
+          error[ks][j][i] += (pMG->Phi[ks][j][i+1] + pMG->Phi[ks][j][i-1])/dx1sq;
+          error[ks][j][i] += (pMG->Phi[ks][j+1][i] + pMG->Phi[ks][j-1][i])/dx2sq;
+        }
+      }
+
+      for (j=js; j<=je; j++){
+        for (i=is; i<=ie; i++){
+          pMG->Phi[ks][j][i] = error[ks][j][i]/(2.0/dx1sq + 2.0/dx2sq);
         }
       }
 #ifdef MPI_PARALLEL
-      set_iterate_bvals(pMG);
+      set_mg_bvals(pMG);
 #endif
     }
   }
@@ -434,6 +453,11 @@ void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse)
   for(k=ks; k<=pMG_coarse->ke; k++){
     for (j=js; j<=pMG_coarse->je; j++){
       for (i=is; i<=pMG_coarse->ie; i++){
+        pMG_coarse->Phi[k][j][i] =
+          (pMG_fine->Phi[2*k  ][2*j  ][2*i] + pMG_fine->Phi[2*k  ][2*j  ][2*i-1]
+         + pMG_fine->Phi[2*k  ][2*j-1][2*i] + pMG_fine->Phi[2*k  ][2*j-1][2*i-1]
+         + pMG_fine->Phi[2*k-1][2*j  ][2*i] + pMG_fine->Phi[2*k-1][2*j  ][2*i-1]
+         + pMG_fine->Phi[2*k-1][2*j-1][2*i] + pMG_fine->Phi[2*k-1][2*j-1][2*i-1])/8.0 ;
         pMG_coarse->rhs[k][j][i] =
            (error[2*k  ][2*j  ][2*i] + error[2*k  ][2*j  ][2*i-1]
           + error[2*k  ][2*j-1][2*i] + error[2*k  ][2*j-1][2*i-1]
@@ -489,7 +513,7 @@ void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
 #endif /* SELF_GRAVITY_USING_MULTIGRID */
 
 /*----------------------------------------------------------------------------*/
-/* set_iterate_bvals:  sets BC for Jacobi iterates for MPI parallel jobs.
+/* set_mg_bvals:  sets BC for Jacobi iterates for MPI parallel jobs.
  *   With self-gravity using multigrid, the boundary conditions at the edge of
  *   the Domain are held fixed.  So only ghostzones associated with internal
  *   boundaries between MPI grids need to be passed.
@@ -501,7 +525,7 @@ void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
 
 #ifdef SELF_GRAVITY_USING_MULTIGRID
 #ifdef MPI_PARALLEL
-void set_iterate_bvals(MGrid *pMG)
+void set_mg_bvals(MGrid *pMG)
 {
   int cnt3, cnt, err;
   MPI_Status stat;
@@ -519,18 +543,18 @@ void set_iterate_bvals(MGrid *pMG)
     /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->lx1_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ox1(pMG,cnt,0,&rq);  /* send R */
-    swap_iterate_ix1(pMG,cnt,1,&rq);  /* listen L */
+    swap_mg_ox1(pMG,cnt,0,&rq);  /* send R */
+    swap_mg_ix1(pMG,cnt,1,&rq);  /* listen L */
 
     /* Post a non-blocking receive for the input data from the right grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->rx1_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ix1(pMG,cnt,0,&rq);  /* send L */
-    swap_iterate_ox1(pMG,cnt,1,&rq);  /* listen R */
+    swap_mg_ix1(pMG,cnt,0,&rq);  /* send L */
+    swap_mg_ox1(pMG,cnt,1,&rq);  /* listen R */
   }
 
 /* Physical boundary on left, MPI block on right */
@@ -538,10 +562,10 @@ void set_iterate_bvals(MGrid *pMG)
     /* Post a non-blocking receive for the input data from the right grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->rx1_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ox1(pMG,cnt,0,&rq);  /* send R */
-    swap_iterate_ox1(pMG,cnt,1,&rq);  /* listen R */
+    swap_mg_ox1(pMG,cnt,0,&rq);  /* send R */
+    swap_mg_ox1(pMG,cnt,1,&rq);  /* listen R */
   }
 
 /* MPI block on left, Physical boundary on right */
@@ -549,10 +573,10 @@ void set_iterate_bvals(MGrid *pMG)
     /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->lx1_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ix1(pMG,cnt,0,&rq);  /* send L */
-    swap_iterate_ix1(pMG,cnt,1,&rq);  /* listen L */
+    swap_mg_ix1(pMG,cnt,0,&rq);  /* send L */
+    swap_mg_ix1(pMG,cnt,1,&rq);  /* listen L */
   }
 
 /*--- Step 2. ------------------------------------------------------------------
@@ -567,18 +591,18 @@ void set_iterate_bvals(MGrid *pMG)
     /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->lx2_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ox2(pMG,cnt,0,&rq);  /* send R */
-    swap_iterate_ix2(pMG,cnt,1,&rq);  /* listen L */
+    swap_mg_ox2(pMG,cnt,0,&rq);  /* send R */
+    swap_mg_ix2(pMG,cnt,1,&rq);  /* listen L */
 
     /* Post a non-blocking receive for the input data from the right grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->rx2_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ix2(pMG,cnt,0,&rq);  /* send L */
-    swap_iterate_ox2(pMG,cnt,1,&rq);  /* listen R */
+    swap_mg_ix2(pMG,cnt,0,&rq);  /* send L */
+    swap_mg_ox2(pMG,cnt,1,&rq);  /* listen R */
   }
 
 /* Physical boundary on left, MPI block on right */
@@ -586,10 +610,10 @@ void set_iterate_bvals(MGrid *pMG)
     /* Post a non-blocking receive for the input data from the right grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->rx2_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ox2(pMG,cnt,0,&rq);  /* send R */
-    swap_iterate_ox2(pMG,cnt,1,&rq);  /* listen R */
+    swap_mg_ox2(pMG,cnt,0,&rq);  /* send R */
+    swap_mg_ox2(pMG,cnt,1,&rq);  /* listen R */
   }
 
 /* MPI block on left, Physical boundary on right */
@@ -597,10 +621,10 @@ void set_iterate_bvals(MGrid *pMG)
     /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->lx2_id,
       boundary_cells_tag, MPI_COMM_WORLD, &rq);
-    if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+    if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-    swap_iterate_ix2(pMG,cnt,0,&rq);  /* send L */
-    swap_iterate_ix2(pMG,cnt,1,&rq);  /* listen L */
+    swap_mg_ix2(pMG,cnt,0,&rq);  /* send L */
+    swap_mg_ix2(pMG,cnt,1,&rq);  /* listen L */
   }
 
 /*--- Step 3. ------------------------------------------------------------------
@@ -615,18 +639,18 @@ void set_iterate_bvals(MGrid *pMG)
       /* Post a non-blocking receive for the input data from the left grid */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->lx3_id,
 		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-      swap_iterate_ox3(pMG,cnt,0,&rq);  /* send R */
-      swap_iterate_ix3(pMG,cnt,1,&rq);  /* listen L */
+      swap_mg_ox3(pMG,cnt,0,&rq);  /* send R */
+      swap_mg_ix3(pMG,cnt,1,&rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->rx3_id,
 		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-      swap_iterate_ix3(pMG,cnt,0,&rq);  /* send L */
-      swap_iterate_ox3(pMG,cnt,1,&rq);  /* listen R */
+      swap_mg_ix3(pMG,cnt,0,&rq);  /* send L */
+      swap_mg_ox3(pMG,cnt,1,&rq);  /* listen R */
     }
 
 /* Physical boundary on left, MPI block on right */
@@ -634,10 +658,10 @@ void set_iterate_bvals(MGrid *pMG)
       /* Post a non-blocking receive for the input data from the right grid */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->rx3_id,
 		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-      swap_iterate_ox3(pMG,cnt,0,&rq);  /* send R */
-      swap_iterate_ox3(pMG,cnt,1,&rq);  /* listen R */
+      swap_mg_ox3(pMG,cnt,0,&rq);  /* send R */
+      swap_mg_ox3(pMG,cnt,1,&rq);  /* listen R */
     }
 
 /* MPI block on left, Physical boundary on right */
@@ -645,10 +669,10 @@ void set_iterate_bvals(MGrid *pMG)
       /* Post a non-blocking receive for the input data from the left grid */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMG->lx3_id,
 		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      if(err) ath_error("[set_mg_bvals]: MPI_Irecv error = %d\n",err);
 
-      swap_iterate_ix3(pMG,cnt,0,&rq);  /* send L */
-      swap_iterate_ix3(pMG,cnt,1,&rq);  /* listen L */
+      swap_mg_ix3(pMG,cnt,0,&rq);  /* send L */
+      swap_mg_ix3(pMG,cnt,1,&rq);  /* listen L */
     }
   }
 
@@ -661,11 +685,12 @@ void set_iterate_bvals(MGrid *pMG)
  *   Largely copied from set_bvals/send_ix1 and set_bvals/receive_ix1
  */
 
-void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_mg_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int j,jl,ju,k,kl,ku,err;
   MPI_Status stat;
-  double *pd = send_buf;
+  double *psb = send_buf;
+  double *prb = recv_buf;
 
   jl = pMG->js;
   ju = pMG->je;
@@ -682,14 +707,14 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        *(pd++) = pMG->Phi[k][j][pMG->is];
+        *(psb++) = pMG->Phi[k][j][pMG->is];
       }
     }
 
     /* send contents of buffer to the neighboring grid on L-x1 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->lx1_id,
                    boundary_cells_tag, MPI_COMM_WORLD);
-    if(err) ath_error("[swap_iterate_ix1]: MPI_Send error = %d\n",err);
+    if(err) ath_error("[swap_mg_ix1]: MPI_Send error = %d\n",err);
   }
 
 /* Receive message and unpack single row i=is-1 of iteratas into ghost zonee */
@@ -698,11 +723,11 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     /* Wait to receive the input data from the left grid */
     err = MPI_Wait(prq, &stat);
-    if(err) ath_error("[swap_iterate_ix1]: MPI_Wait error = %d\n",err);
+    if(err) ath_error("[swap_mg_ix1]: MPI_Wait error = %d\n",err);
 
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        pMG->Phi[k][j][pMG->is-1] = *(pd++);
+        pMG->Phi[k][j][pMG->is-1] = *(prb++);
       }
     }
   }
@@ -716,11 +741,12 @@ void swap_iterate_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ox1 and set_bvals/receive_ox1
  */
 
-void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_mg_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int j,jl,ju,k,kl,ku,err;
   MPI_Status stat;
-  double *pd = send_buf;
+  double *psb = send_buf;
+  double *prb = recv_buf;
 
   jl = pMG->js;
   ju = pMG->je;
@@ -737,14 +763,14 @@ void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
   if (swap_flag == 0) {
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        *(pd++) = pMG->Phi[k][j][pMG->ie];
+        *(psb++) = pMG->Phi[k][j][pMG->ie];
       }
     }
 
     /* send contents of buffer to the neighboring grid on R-x1 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->rx1_id,
       boundary_cells_tag, MPI_COMM_WORLD);
-    if(err) ath_error("[swap_iterate_ox1]: MPI_Send error = %d\n",err);
+    if(err) ath_error("[swap_mg_ox1]: MPI_Send error = %d\n",err);
   }
 
 /* Receive message and unpack single row i=ie+1 of iterates into ghost zone */
@@ -753,11 +779,11 @@ void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     /* Wait to receive the input data from the right grid */
     err = MPI_Wait(prq, &stat);
-    if(err) ath_error("[swap_iterate_ox1]: MPI_Wait error = %d\n",err);
+    if(err) ath_error("[swap_mg_ox1]: MPI_Wait error = %d\n",err);
 
     for (k=kl; k<=ku; k++){
       for (j=jl; j<=ju; j++){
-        pMG->Phi[k][j][pMG->ie+1] = *(pd++);
+        pMG->Phi[k][j][pMG->ie+1] = *(prb++);
       }
     }
   }
@@ -771,7 +797,7 @@ void swap_iterate_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ix2 and set_bvals/receive_ix2
  */
 
-void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_mg_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,k,kl,ku,err;
   MPI_Status stat;
@@ -799,7 +825,7 @@ void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     /* send contents of buffer to the neighboring grid on L-x2 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->lx2_id,
        boundary_cells_tag, MPI_COMM_WORLD);
-    if(err) ath_error("[swap_iterate_ix2]: MPI_Send error = %d\n",err);
+    if(err) ath_error("[swap_mg_ix2]: MPI_Send error = %d\n",err);
   }
 
 /* Receive message and unpack single row j=js-1 of iterates into ghost zone */
@@ -808,7 +834,7 @@ void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     /* Wait to receive the input data from the left grid */
     err = MPI_Wait(prq, &stat);
-    if(err) ath_error("[swap_iterate_ix2]: MPI_Wait error = %d\n",err);
+    if(err) ath_error("[swap_mg_ix2]: MPI_Wait error = %d\n",err);
 
     for (k=kl; k<=ku; k++){
       for (i=il; i<=iu; i++){
@@ -826,7 +852,7 @@ void swap_iterate_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ix2 and set_bvals/receive_ix2
  */
 
-void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_mg_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,k,kl,ku,err;
   MPI_Status stat;
@@ -854,7 +880,7 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     /* send contents of buffer to the neighboring grid on R-x2 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->rx2_id,
                    boundary_cells_tag, MPI_COMM_WORLD);
-    if(err) ath_error("[swap_iterate_ox2]: MPI_Send error = %d\n",err);
+    if(err) ath_error("[swap_mg_ox2]: MPI_Send error = %d\n",err);
   }
 
 /* Receive message and unpack single row j=je+1 of iterates into ghost zone */
@@ -863,7 +889,7 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     /* Wait to receive the input data from the right grid */
     err = MPI_Wait(prq, &stat);
-    if(err) ath_error("[swap_iterate_ox2]: MPI_Wait error = %d\n",err);
+    if(err) ath_error("[swap_mg_ox2]: MPI_Wait error = %d\n",err);
 
     for (k=kl; k<=ku; k++){
       for (i=il; i<=iu; i++){
@@ -881,7 +907,7 @@ void swap_iterate_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ix3 and set_bvals/receive_ix3
  */
 
-void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_mg_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,j,jl,ju,err;
   MPI_Status stat;
@@ -904,7 +930,7 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     /* send contents of buffer to the neighboring grid on L-x3 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->lx3_id,
                    boundary_cells_tag, MPI_COMM_WORLD);
-    if(err) ath_error("[swap_iterate_ix3]: MPI_Send error = %d\n",err);
+    if(err) ath_error("[swap_mg_ix3]: MPI_Send error = %d\n",err);
   }
 
 /* Receive message and unpack single row k=ks-1 of iterates into ghost zone */
@@ -913,7 +939,7 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     /* Wait to receive the input data from the left grid */
     err = MPI_Wait(prq, &stat);
-    if(err) ath_error("[swap_iterate_ix3]: MPI_Wait error = %d\n",err);
+    if(err) ath_error("[swap_mg_ix3]: MPI_Wait error = %d\n",err);
 
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
@@ -931,7 +957,7 @@ void swap_iterate_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   Largely copied from set_bvals/send_ix1 and set_bvals/receive_ix1
  */
 
-void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 {
   int i,il,iu,j,jl,ju,err;
   MPI_Status stat;
@@ -954,7 +980,7 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
     /* send contents of buffer to the neighboring grid on R-x3 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMG->rx3_id,
                    boundary_cells_tag, MPI_COMM_WORLD);
-    if(err) ath_error("[swap_iterate_ox3]: MPI_Send error = %d\n",err);
+    if(err) ath_error("[swap_mg_ox3]: MPI_Send error = %d\n",err);
   }
 
 /* Receive message and unpack single row k=ke+1 of iterates into ghost zone */
@@ -963,7 +989,7 @@ void swap_iterate_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 
     /* Wait to receive the input data from the right grid */
     err = MPI_Wait(prq, &stat);
-    if(err) ath_error("[swap_iterate_ox3]: MPI_Wait error = %d\n",err);
+    if(err) ath_error("[swap_mg_ox3]: MPI_Wait error = %d\n",err);
 
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
@@ -1000,6 +1026,9 @@ void selfg_by_multig_3d_init(Grid *pG, Domain *pD)
     ath_error("[multig_3d]: Error allocating memory for error array\n");
   }
 
+/* Allocate memory for send and receive buffers for Phi in MultiGrid
+ * structure for MPI parallel.
+ */
 #ifdef MPI_PARALLEL
   NGrid_x1 = par_geti("parallel","NGrid_x1");
   NGrid_x2 = par_geti("parallel","NGrid_x2");
