@@ -110,13 +110,6 @@ void integrate_3d_ctu(Grid *pG)
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #endif
-#ifdef SHEARING_BOX_EVOLUTION
-  Real M1n, dM2n; /* M1, My + d*1.5*Omega*x at time n */
-  Real M1e, dM2e; /* M1, dMy evolved by dt/2 with Forward Euler */
-  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
-  Real om_dt = Omega*pG->dt;
-  Real fact = om_dt/(1.0 + 0.25*om_dt*om_dt);
-#endif /* SHEARING_BOX_EVOLUTION */
 
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
@@ -243,20 +236,6 @@ void integrate_3d_ctu(Grid *pG)
       }
 #endif
 
-
-/*--- Step 1d (cont) -----------------------------------------------------------
- * Shearing box source terms (Coriolis forces).
- */
-
-#ifdef SHEARING_BOX_EVOLUTION
-      for (i=is-1; i<=ie+2; i++) {
-	Wl[i].Vx += pG->dt*Omega*W[i-1].Vy; /* (dt/2)*( 2 Omega Vy) */
-	Wl[i].Vy -= pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
-
-	Wr[i].Vx += pG->dt*Omega*W[i].Vy; /* (dt/2)*( 2 Omega Vy) */
-	Wr[i].Vy -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
-    }
-#endif /* SHEARING_BOX_EVOLUTION */
 
 /*--- Step 1e ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 3D array
@@ -1169,22 +1148,6 @@ void integrate_3d_ctu(Grid *pG)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 7f ------------------------------------------------------------------
- * Add the tidal potential and Coriolis terms.
- */
-#ifdef SHEARING_BOX_EVOLUTION
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-1; i<=ie+1; i++) {
-        Ur_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j][i].M2;
-        Ur_x2Face[k][j][i].Mx -= pG->dt*Omega*pG->U[k][j][i].M1;
-
-        Ul_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j-1][i].M2;
-        Ul_x2Face[k][j][i].Mx -= pG->dt*Omega*pG->U[k][j-1][i].M1;
-      }
-    }
-  }
-#endif /* SHEARING_BOX_EVOLUTION */
 
 /*--- Step 8a ------------------------------------------------------------------
  * Correct the L/R states at x3-interfaces using x1-fluxes computed in Step 1e.
@@ -1466,23 +1429,6 @@ void integrate_3d_ctu(Grid *pG)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 8f ------------------------------------------------------------------
- * Add the tidal potential and Coriolis terms.
- */
-#ifdef SHEARING_BOX_EVOLUTION
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
-        Ur_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j][i].M2;
-        Ur_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j][i].M1;
-
-        Ul_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j-1][i].M2;
-        Ul_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j-1][i].M1;
-      }
-    }
-  }
-#endif /* SHEARING_BOX_EVOLUTION */
-
 /*--- Step 9 -------------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at the half-time-step
  */
@@ -1537,11 +1483,6 @@ void integrate_3d_ctu(Grid *pG)
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
           M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
         }
-
-#ifdef SHEARING_BOX_EVOLUTION
-        M1 += pG->dt*Omega*pG->U[k][j][i].M2;
-        M2 -= pG->dt*Omega*pG->U[k][j][i].M1;
-#endif /* SHEARING_BOX_EVOLUTION */
 
         B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j  ][i+1]);
         B2c = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k  ][j+1][i  ]);
@@ -1729,79 +1670,6 @@ void integrate_3d_ctu(Grid *pG)
  *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
 
-#ifdef SHEARING_BOX_EVOLUTION
-
-  /* Calculate the Coriolis and tidal potential momentum source terms
-     and update the momentum and energy for these terms.  I'm assuming
-     that the problem routine has enrolled a conservative potential
-     function for evolving the total energy e + rho Phi in a
-     conservative fashion. */
-
-  for(k=ks; k<=ke; ++k) {
-    for(j=js; j<=je; ++j) {
-      for(i=is; i<=ie; ++i) {
-	cc_pos(pG,i,j,k,&x1,&x2,&x3);
-
-	/* Store the current state */
-	M1n  = pG->U[k][j][i].M1;
-	dM2n = pG->U[k][j][i].M2 + pG->U[k][j][i].d*1.5*Omega*x1;
-
-	/* Calculate the flux for the y-momentum fluctuation */
-	flx1_dM2 = x1Flux[k][j][i-1].My 
-	  + 1.5*Omega*(x1-0.5*pG->dx1)*x1Flux[k][j][i-1].d;
-	frx1_dM2 = x1Flux[k][j][i  ].My 
-	  + 1.5*Omega*(x1+0.5*pG->dx1)*x1Flux[k][j][i  ].d;
-	flx2_dM2 = x2Flux[k][j-1][i].Mx + 1.5*Omega*(x1)*x2Flux[k][j-1][i].d;
-	frx2_dM2 = x2Flux[k][j  ][i].Mx + 1.5*Omega*(x1)*x2Flux[k][j  ][i].d;
-	flx3_dM2 = x3Flux[k-1][j][i].Mz + 1.5*Omega*(x1)*x3Flux[k-1][j][i].d;
-	frx3_dM2 = x3Flux[k  ][j][i].Mz + 1.5*Omega*(x1)*x3Flux[k  ][j][i].d;
-
-	/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
-	M1e = M1n  + hdtdx1*(x1Flux[k][j][i-1].Mx - x1Flux[k][j][i].Mx)
-	           + hdtdx2*(x2Flux[k][j-1][i].Mz - x2Flux[k][j][i].Mz)
-	           + hdtdx3*(x3Flux[k-1][j][i].My - x3Flux[k][j][i].My);
-
-	dM2e = dM2n + hdtdx1*(flx1_dM2 - frx1_dM2)
-	  + hdtdx2*(flx2_dM2 - frx2_dM2) + hdtdx3*(flx3_dM2 - frx3_dM2);
-
-	/* Update the x- and y-momentum for the Coriolis and tidal
-	   potential momentum source terms using a Crank-Nicholson
-	   discretization for the momentum fluctuation equation. */
-	pG->U[k][j][i].M1 += (2.0*dM2e - 0.5*om_dt*M1e)*fact;
-	pG->U[k][j][i].M2 += -0.5*(M1e + om_dt*dM2e)*fact
-	                - 0.75*Omega*(x1Flux[k][j][i-1].d + x1Flux[k][j][i].d);
-
-	/* Now add the z-momentum gravitational force and update the
-	   energy equation for a fixed gravitational potential. */
-	phic = (*StaticGravPot)(x1,x2,x3);
-
-	phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-	phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-#ifndef ISOTHERMAL
-	pG->U[k][j][i].E += dtodx1*(x1Flux[k][j][i  ].d*(phil - phic) +
-                                    x1Flux[k][j][i+1].d*(phic - phir));
-#endif
-
-	phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-	phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-#ifndef ISOTHERMAL
-	pG->U[k][j][i].E += dtodx2*(x2Flux[k][j  ][i].d*(phil - phic) +
-                                    x2Flux[k][j+1][i].d*(phic - phir));
-#endif
-
-	phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-	phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
-	pG->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];
-#ifndef ISOTHERMAL
-	pG->U[k][j][i].E += dtodx3*(x3Flux[k  ][j][i].d*(phil - phic) +
-                                    x3Flux[k+1][j][i].d*(phic - phir));
-#endif
-      }
-    }
-  }
-
-#else /* ! SHEARING_BOX_EVOLUTION */
-
   if (StaticGravPot != NULL){
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
@@ -1838,7 +1706,6 @@ void integrate_3d_ctu(Grid *pG)
       }
     }
   }
-#endif
 
 /*--- Step 12b -----------------------------------------------------------------
  * Add gravitational source terms for self-gravity.
@@ -2212,7 +2079,7 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     == NULL) goto on_error;
 
 
-#if defined MHD || defined SHEARING_BOX_EVOLUTION
+#if defined MHD
   if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
 #else

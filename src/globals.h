@@ -29,10 +29,6 @@ GravPotFun_t StaticGravPot = NULL;
 Real four_pi_G, grav_mean_rho;
 #endif
 
-#ifdef SHEARING_BOX_EVOLUTION
-Real Omega;
-#endif
-
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -50,10 +46,6 @@ extern Real Gamma_1, Gamma_2;
 extern GravPotFun_t StaticGravPot;
 #ifdef SELF_GRAVITY
 extern Real four_pi_G, grav_mean_rho;
-#endif
-
-#ifdef SHEARING_BOX_EVOLUTION
-extern Real Omega;
 #endif
 
 #endif /* MAIN_C */
