@@ -44,8 +44,8 @@ ifeq ($(MACHINE),ophir)
   OPT = -O3 -xW -ipo -i-static
   MPIINC  = -I/opt/mpich-1.2.7p1/include
   MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
-  FFTWLIB = -L/u/jstone/bin/FFTW/fftw-3.0.1/lib -lfftw3
-  FFTWINC = -I/u/jstone/bin/FFTW/fftw-3.0.1/include
+  FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
+  FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
 else
 ifeq ($(MACHINE),macosx)
   CC = gcc
@@ -59,12 +59,12 @@ ifeq ($(MACHINE),hydra)
   MPIINC  = -I/opt/mpich-1.2.6.gcc/include
   MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
 else
-ifeq ($(MACHINE),apus)
+ifeq ($(MACHINE),aldrin)
   CC  = gcc
   LDR = gcc
   OPT = -O3 -g
-  MPIINC = -I/opt/mpich-1.2.6.gcc/include
-  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
+  MPIINC = -I/opt/mpich-1.2.7p1/include
+  MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
   FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
 else
@@ -87,7 +87,18 @@ ifeq ($(MACHINE),orangena)
   FFTWLIB = -L/bgl/local/fftw-3.1.2/lib -lfftw3
   CUSTLIBS = -lmass -lmassv -lm -L/bgl/BlueLight/ppcfloor/bglsys/lib -L/bgl/local/lib/mass/4.2/bgl/lib
 else
+ifeq ($(MACHINE),woodhen)
+  CC = /usr/local/openmpi/1.2.3/intel-ib/x86_64/bin/mpicc
+  LDR = /usr/local/openmpi/1.2.3/intel-ib/x86_64/bin/mpicc
+  OPT = -O3 -xW -tpp7 -ipo -i-static
+  MPIINC = /usr/local/openmpi/1.2.3/intel-ib/x86_64/
+  MPILIB =
+  FFTWLIB = -L/home/lemaster/bin/fftw-3.1.2/lib -lfftw3
+  FFTWINC = -I/home/lemaster/bin/fftw-3.1.2/include
+else
+
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif
