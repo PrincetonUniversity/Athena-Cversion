@@ -58,6 +58,10 @@ field_loop.c
 ============
 Advection of a passive field-loop in 2D/3D, used to test CT algorithm in GS05.
 
+kh.c
+====
+Initializes two versions of a Kelvin-Helmholtz instability test.
+
 linear_wave2d.c:
 ================
 Linear Wave convergence test.  Can run 2D problems, with wavevector at any
@@ -93,6 +97,10 @@ rt.c
 ====
 Rayleigh-Taylor instability problem.  Initializes both 2D and 3D problems,
 with and without a magnetic field.
+
+shk_cloud.c
+===========
+Strong shock incident on a spherical cloud, with and without a magnetic field.
 
 shkset2d.c:
 ===========
@@ -132,6 +140,10 @@ rt.c
 ====
 Rayleigh-Taylor instability problem.  Initializes 3D problems,
 with and without a magnetic field.
+
+shk_cloud.c
+===========
+Strong shock incident on a spherical cloud, with and without a magnetic field.
 
 shkset3d.c:
 ===========
