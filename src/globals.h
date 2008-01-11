@@ -29,7 +29,7 @@ GravPotFun_t StaticGravPot = NULL;
 Real four_pi_G, grav_mean_rho;
 #endif
 
-#ifdef SHEARING_BOX_EVOLUTION
+#ifdef SHEARING_BOX
 Real Omega;
 #endif
 
@@ -52,7 +52,7 @@ extern GravPotFun_t StaticGravPot;
 extern Real four_pi_G, grav_mean_rho;
 #endif
 
-#ifdef SHEARING_BOX_EVOLUTION
+#ifdef SHEARING_BOX
 extern Real Omega;
 #endif
 

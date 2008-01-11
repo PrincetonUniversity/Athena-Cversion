@@ -70,6 +70,9 @@
 /* FFT mode: FFT_ENABLED or NO_FFT */
 #define @FFT_MODE@
 
+/* shearing-box: SHEARING_BOX or NOT_SHEARING_BOX */
+#define @SHEARING_BOX_MODE@
+
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */
 

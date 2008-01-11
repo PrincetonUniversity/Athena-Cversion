@@ -93,6 +93,12 @@ void show_config(void)
 #else
   ath_pout(0," FFT:                     disabled\n");
 #endif
+
+#ifdef SHEARING_BOX
+  ath_pout(0," Shearing Box:            enabled\n");
+#else
+  ath_pout(0," Shearing Box:            disabled\n");
+#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -164,6 +170,12 @@ void show_config_par(void)
   par_sets("configure","FFT","yes","FFT enabled?");
 #else
   par_sets("configure","FFT","no","FFT enabled?");
+#endif
+
+#ifdef SHEARING_BOX
+  par_sets("configure","ShearingBox","yes","Shearing box enabled?");
+#else
+  par_sets("configure","ShearingBox","no","Shearing box enabled?");
 #endif
 
   return;
