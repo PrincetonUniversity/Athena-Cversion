@@ -27,6 +27,7 @@
 #   --enable-mpi                                          (parallelize with MPI)
 #   --enable-h-correction              (turn on H-correction in multidimensions)
 #   --enable-fft                (compile and link with FFTW block decomposition)
+#   --enable-shearing box                    (include shearing box source terms)
 
 #-------------------------------------------------------------------------------
 # generic things
@@ -276,6 +277,24 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on shearing box evolution
+#   --enable-shearing-box
+# Note shearing box only works with CTU+CT integrator.  Prints error message if
+# shearing box is enabled with VL+CT integrator.
+
+AC_SUBST(SHEARING_BOX_MODE)
+AC_ARG_ENABLE(shearing-box, [  --enable-shearing-box      turn on shearing-box], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+if test "$with_integrator" = "ctu"; then
+  SHEARING_BOX_MODE=SHEARING_BOX
+else
+  AC_MSG_ERROR([shearing-box only works with CTU+CT integrator])
+fi
+else
+  SHEARING_BOX_MODE=NOT_SHEARING_BOX
+fi
+
+#-------------------------------------------------------------------------------
 # check for various library functions
 
 AC_PROG_GCC_TRADITIONAL
@@ -323,3 +342,4 @@ echo "Parallel modes:"
 echo "  MPI mode:              $MPI_MODE"
 echo "H-correction:            $H_CORRECTION_MODE"
 echo "FFT:                     $FFT_MODE"
+echo "Shearing-box:            $SHEARING_BOX_MODE"
