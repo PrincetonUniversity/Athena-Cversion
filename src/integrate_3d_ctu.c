@@ -1458,31 +1458,46 @@ void integrate_3d_ctu(Grid *pG)
            - q1*(x1Flux[k  ][j  ][i+1].Mx - x1Flux[k][j][i].Mx)
            - q2*(x2Flux[k  ][j+1][i  ].Mz - x2Flux[k][j][i].Mz)
            - q3*(x3Flux[k+1][j  ][i  ].My - x3Flux[k][j][i].My);
-        if (StaticGravPot != NULL){
-          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-          M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
-        }
 
         M2 = pG->U[k][j][i].M2
            - q1*(x1Flux[k  ][j  ][i+1].My - x1Flux[k][j][i].My)
            - q2*(x2Flux[k  ][j+1][i  ].Mx - x2Flux[k][j][i].Mx)
            - q3*(x3Flux[k+1][j  ][i  ].Mz - x3Flux[k][j][i].Mz);
-        if (StaticGravPot != NULL){
-          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-          M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
-        }
 
         M3 = pG->U[k][j][i].M3
            - q1*(x1Flux[k  ][j  ][i+1].Mz - x1Flux[k][j][i].Mz)
            - q2*(x2Flux[k  ][j+1][i  ].My - x2Flux[k][j][i].My)
            - q3*(x3Flux[k+1][j  ][i  ].Mx - x3Flux[k][j][i].Mx);
+
+/* Add source terms for fixed gravitational potential */
         if (StaticGravPot != NULL){
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+          M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
+
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+          M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
+
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
           M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
         }
+
+/* Add source terms due to self-gravity  */
+#ifdef SELF_GRAVITY
+        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
+        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
+        M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
+
+        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
+        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
+        M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
+
+        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
+        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
+        M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
+#endif /* SELF_GRAVITY */
 
         B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j  ][i+1]);
         B2c = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k  ][j+1][i  ]);

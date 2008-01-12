@@ -621,23 +621,34 @@ void integrate_2d(Grid *pG)
       M1 = pG->U[ks][j][i].M1
         - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
         - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-      if (StaticGravPot != NULL){
-        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-        M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
-      }
 
       M2 = pG->U[ks][j][i].M2
         - hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
         - hdtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+
+/* Add source terms for fixed gravitational potential */
       if (StaticGravPot != NULL){
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
         M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
       }
 
-      B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
+/* Add source terms due to self-gravity  */
+#ifdef SELF_GRAVITY
+      phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
+      phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
+      M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
 
+      phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j+1][i]);
+      phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j-1][i]);
+      M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+#endif /* SELF_GRAVITY */
+
+      B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
       B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
 
       emf3_cc[j][i] = (B1c*M2 - B2c*M1)/d;
