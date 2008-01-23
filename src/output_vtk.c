@@ -169,8 +169,8 @@ static void output_vtk_3d(Grid *pGrid, Domain *pD, Output *pOut)
   fprintf(pfile,"SCALARS %s float\n", pOut->id);
   fprintf(pfile,"LOOKUP_TABLE default\n");
   for (k=0; k<pOut->Nx3; k++) {
-    if(!big_end) ath_bswap(data3d[0][0],sizeof(float),ndata0);
-    fwrite(data3d[0][0],sizeof(float),(size_t)ndata0,pfile);
+    if(!big_end) ath_bswap(data3d[k][0],sizeof(float),ndata0);
+    fwrite(data3d[k][0],sizeof(float),(size_t)ndata0,pfile);
   }
 
 /* close file and free memory */
