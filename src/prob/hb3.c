@@ -12,6 +12,9 @@
  *  ipert = 1 - random perturbations to P [default, used by HB]
  *  ipert = 2 - uniform Vx=amp
  *
+ * This file also contains shear_ix1_ox1(), a public function called by
+ * set_bvals() which implements the 2D shearing sheet boundary conditions.
+ *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
  *============================================================================*/
 
@@ -25,20 +28,41 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifndef SHEARING_BOX
+#error : The HB3 problem requires shearing-box to be enabled.
+#endif /* HYDRO */
+
+/* prototype for shearing sheet BC function (called by set_bvals) */
+void shear_ix1_ox1(Grid *pG, int var_flag);
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * ran2() - random number generator from NR
- * shear_ix1() - shearing sheet boundary conditions at ix1 boundary
- * shear_ox1() - shearing sheet boundary conditions at ox1 boundary
+ * no_op_VGfun() - no operation void grid function, replaces ix1/ox1 bval fns
  * ShearingBoxPot() - tidal potential in 2D shearing box
  * expr_dV3() - computes delta(Vy)
+ * hst_rho_Vx_dVy () - new history variable
+ * hst_E_total() - new history variable
+ * hst_dEk() - new history variable
+ * hst_Bx()  - new history variable
+ * hst_By()  - new history variable
+ * hst_Bz()  - new history variable
+ * hst_BxBy() - new history variable
  *============================================================================*/
 
 static double ran2(long int *idum);
-static void shear_ix1(Grid *pGrid, int var_flag);
-static void shear_ox1(Grid *pGrid, int var_flag);
+static void no_op_VGfun(Grid *pGrid, int swap_phi);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real expr_dV3(const Grid *pG, const int i, const int j, const int k);
+static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
+static Real hst_dEk(const Grid *pG, const int i, const int j, const int k);
+static Real hst_E_total(const Grid *pG, const int i, const int j, const int k);
+#ifdef MHD
+static Real hst_Bx(const Grid *pG, const int i, const int j, const int k);
+static Real hst_By(const Grid *pG, const int i, const int j, const int k);
+static Real hst_Bz(const Grid *pG, const int i, const int j, const int k);
+static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k);
+#endif
 
 /* boxsize, made a global variable so can be accessed by bval, etc. routines */
 static Real Lx;
@@ -86,10 +110,26 @@ void problem(Grid *pGrid, Domain *pDomain)
       cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
 
 /* Initialize perturbations
- *  ipert = 1 - random perturbations to P [default, used by HB]
- *  ipert = 2 - uniform Vx=amp
+ *  ipert = 1 - isentropic perturbations to P & d [default]
+ *  ipert = 2 - uniform Vx=amp, sinusoidal density
+ *  ipert = 3 - random perturbations to P [used by HB]
  */
       if (ipert == 1) {
+        rval = 1.0 + amp*(ran2(&iseed) - 0.5);
+#ifdef ADIABATIC
+        rp = rval*pres;
+        rd = pow(rval,1.0/Gamma)*den;
+#else
+        rd = rval*den;
+#endif
+        rvx = 0.0;
+      }
+      if (ipert == 2) {
+        rp = pres;
+        rd = den*(1.0 + 0.1*sin((double)kx*x1));
+        rvx = amp*sqrt(Gamma*pres/den);
+      }
+      if (ipert == 3) {
         rval = 1.0 + amp*(ran2(&iseed) - 0.5);
 #ifdef ADIABATIC
         rp = rval*pres;
@@ -98,11 +138,6 @@ void problem(Grid *pGrid, Domain *pDomain)
         rd = rval*den;
 #endif
         rvx = 0.0;
-      }
-      if (ipert == 2) {
-        rp = pres;
-        rd = den;
-        rvx = amp;
       }
 
 /* Initialize d, M, and P.  For 2D shearing box M1=Vx, M2=Vz, M3=Vy */ 
@@ -152,8 +187,104 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* enroll gravitational potential function, shearing sheet BC functions */
 
   StaticGravPot = ShearingBoxPot;
-  set_bvals_fun(left_x1,  shear_ix1);
-  set_bvals_fun(right_x1, shear_ox1);
+  set_bvals_fun(left_x1,  no_op_VGfun);
+  set_bvals_fun(right_x1, no_op_VGfun);
+
+/* enroll new history variables */
+
+  dump_history_enroll(hst_dEk, "<0.5rho(Vx^2+4dVy^2)>");
+  dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
+  dump_history_enroll(hst_E_total, "<E + rho Phi>");
+#ifdef MHD
+  dump_history_enroll(hst_Bx, "<Bx>");
+  dump_history_enroll(hst_By, "<By>");
+  dump_history_enroll(hst_Bz, "<Bz>");
+  dump_history_enroll(hst_BxBy, "<-Bx By>");
+#endif /* MHD */
+
+
+  return;
+}
+
+/*------------------------------------------------------------------------------
+ * shear_ix1_ox1() - shearing-sheet BCs in x1 for 2D sims, does the ix1/ox1
+ *   boundaries simultaneously which is necessary in MPI parallel jobs since
+ *   ix1 must receive data sent by ox1, and vice versa
+ * This is a public function which is called by set_bvals() (inside a
+ * SHEARING_BOX macro).  The hb3 problem generator enrolls NoOp functions for
+ * the x1 bval routines, so that set_bvals() uses MPI to handle the internal
+ * boundaries between grids properly, and this routine to handle the shearing
+ * sheet BCs.
+ *----------------------------------------------------------------------------*/
+
+void shear_ix1_ox1(Grid *pGrid, int var_flag)
+{
+  int is = pGrid->is, ie = pGrid->ie;
+  int js = pGrid->js, je = pGrid->je;
+  int ks = pGrid->ks;
+  int i,j;
+
+  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
+
+/* Set ghost zones in ix1 */
+
+  for (j=js; j<=je; j++) {
+    for (i=1; i<=nghost; i++) {
+      pGrid->U[ks][j][is-i] = pGrid->U[ks][j][ie-(i-1)];
+
+      pGrid->U[ks][j][is-i].M3 += 1.5*Omega*Lx*pGrid->U[ks][j][is-i].d;
+#ifdef ADIABATIC
+/* No change in the internal energy */
+      pGrid->U[ks][j][is-i].E += (0.5/pGrid->U[ks][j][is-i].d)*
+       (SQR(pGrid->U[ks][j][is-i].M3) - SQR(pGrid->U[ks][j][ie-(i-1)].M3));
+#endif
+    }
+  }
+
+#ifdef MHD
+  for (j=js; j<=je; j++) {
+    for (i=1; i<=nghost; i++) {
+      pGrid->B1i[ks][j][is-i] = pGrid->B1i[ks][j][ie-(i-1)];
+    }
+  }
+
+  for (j=js; j<=je+1; j++) {
+    for (i=1; i<=nghost; i++) {
+      pGrid->B2i[ks][j][is-i] = pGrid->B2i[ks][j][ie-(i-1)];
+    }
+  }
+#endif
+
+/* Set ghost zones in ox1 */
+/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
+
+  for (j=js; j<=je; j++) {
+    for (i=1; i<=nghost; i++) {
+      pGrid->U[ks][j][ie+i] = pGrid->U[ks][j][is+(i-1)];
+
+      pGrid->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pGrid->U[ks][j][ie+i].d;
+#ifdef ADIABATIC
+/* No change in the internal energy */
+      pGrid->U[ks][j][ie+i].E += (0.5/pGrid->U[ks][j][ie+i].d)*
+        (SQR(pGrid->U[ks][j][ie+i].M3) - SQR(pGrid->U[ks][j][is+(i-1)].M3));
+#endif
+    }
+  }
+
+#ifdef MHD
+/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
+  for (j=js; j<=je; j++) {
+    for (i=2; i<=nghost; i++) {
+      pGrid->B1i[ks][j][ie+i] = pGrid->B1i[ks][j][is+(i-1)];
+    }
+  }
+
+  for (j=js; j<=je+1; j++) {
+    for (i=1; i<=nghost; i++) {
+      pGrid->B2i[ks][j][ie+i] = pGrid->B2i[ks][j][is+(i-1)];
+    }
+  }
+#endif
 
   return;
 }
@@ -189,8 +320,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   Lx = x1max - x1min;
 
   StaticGravPot = ShearingBoxPot;
-  set_bvals_fun(left_x1,  shear_ix1);
-  set_bvals_fun(right_x1, shear_ox1);
+  set_bvals_fun(left_x1,  no_op_VGfun);
+  set_bvals_fun(right_x1, no_op_VGfun);
 
   return;
 }
@@ -290,91 +421,11 @@ double ran2(long int *idum)
 #undef RNMX
 
 /*------------------------------------------------------------------------------
- * shear_ix1: shearing-sheet BCs in x1 for 2D sims
+ * no_op_VGfun: replaces x1-bval routines
  */
 
-static void shear_ix1(Grid *pGrid, int var_flag)
+static void no_op_VGfun(Grid *pGrid, int phi_flag)
 {
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks;
-  int i,j;
-
-  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
-
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->U[ks][j][is-i] = pGrid->U[ks][j][ie-(i-1)];
-
-      pGrid->U[ks][j][is-i].M3 += 1.5*Omega*Lx*pGrid->U[ks][j][is-i].d;
-#ifdef ADIABATIC
-/* No change in the internal energy */
-      pGrid->U[ks][j][is-i].E += (0.5/pGrid->U[ks][j][is-i].d)*
-       (SQR(pGrid->U[ks][j][is-i].M3) - SQR(pGrid->U[ks][j][ie-(i-1)].M3));
-#endif
-    }
-  }
-
-#ifdef MHD
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->B1i[ks][j][is-i] = pGrid->B1i[ks][j][ie-(i-1)];
-    }
-  }
-
-  for (j=js; j<=je+1; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->B2i[ks][j][is-i] = pGrid->B2i[ks][j][ie-(i-1)];
-    }
-  }
-#endif
-
-  return;
-}
-
-/*------------------------------------------------------------------------------
- * shear_ox1: shearing-sheet BCs in x1 for 2D sims
- */
-
-static void shear_ox1(Grid *pGrid, int var_flag)
-{
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks;
-  int i,j;
-
-  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
-
-/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
-
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->U[ks][j][ie+i] = pGrid->U[ks][j][is+(i-1)];
-
-      pGrid->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pGrid->U[ks][j][ie+i].d;
-#ifdef ADIABATIC
-/* No change in the internal energy */
-      pGrid->U[ks][j][ie+i].E += (0.5/pGrid->U[ks][j][ie+i].d)*
-        (SQR(pGrid->U[ks][j][ie+i].M3) - SQR(pGrid->U[ks][j][is+(i-1)].M3));
-#endif
-    }
-  }
-
-#ifdef MHD
-/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
-  for (j=js; j<=je; j++) {
-    for (i=2; i<=nghost; i++) {
-      pGrid->B1i[ks][j][ie+i] = pGrid->B1i[ks][j][is+(i-1)];
-    }
-  }
-
-  for (j=js; j<=je+1; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->B2i[ks][j][ie+i] = pGrid->B2i[ks][j][is+(i-1)];
-    }
-  }
-#endif
-
   return;
 }
 
@@ -396,3 +447,72 @@ static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   return (pG->U[k][j][i].M3/pG->U[k][j][i].d + 1.5*Omega*x1);
 }
+
+/*------------------------------------------------------------------------------
+ * hst_rho_Vx_dVy: Reynolds stress, added as history variable.
+ */
+
+static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k)
+{
+  Real x1,x2,x3;
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+}
+
+/*------------------------------------------------------------------------------
+ * hst_dEk: computes 0.5*(Vx^2 + 4(\delta Vy)^2), which for epicyclic motion
+ *   is a constant, added as history variable 
+ */
+
+static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
+{
+  Real x1,x2,x3;
+  Real dMy, dE;
+
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+  dMy = (pG->U[k][j][i].M2 + 1.5*Omega*x1*pG->U[k][j][i].d);
+  dE = 0.5*(pG->U[k][j][i].M1*pG->U[k][j][i].M1 + 4.0*dMy*dMy)/pG->U[k][j][i].d;
+
+  return dE;
+}
+
+/*------------------------------------------------------------------------------
+ * hst_E_total: total energy (including tidal potential).
+ */
+
+static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
+{
+  Real x1,x2,x3,phi;
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  phi = ShearingBoxPot(x1, x2, x3);
+
+  return pG->U[k][j][i].E + pG->U[k][j][i].d*phi;
+}
+
+/*------------------------------------------------------------------------------
+ * hst_Bx, etc.: Net flux, and Maxwell stress, added as history variables
+ */
+
+#ifdef MHD
+static Real hst_Bx(const Grid *pG, const int i, const int j, const int k)
+{
+  return pG->U[k][j][pG->is].B1c;
+}
+
+static Real hst_By(const Grid *pG, const int i, const int j, const int k)
+{
+  return pG->U[k][pG->js][i].B2c;
+}
+
+static Real hst_Bz(const Grid *pG, const int i, const int j, const int k)
+{
+  return pG->U[pG->ks][j][i].B3c;
+}
+
+static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k)
+{
+  return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;
+}
+
+#endif /* MHD */

@@ -14,6 +14,9 @@
  * To run simulations of stratified disks (include vertical gravity),
  * un-comment the macro STRATIFIED_DISK below.  NOT YET IMPLEMENTED.
  *
+ * This file also contains shear_ix1_ox1(), a public function called by
+ * set_bvals() which implements the 3D shearing sheet boundary conditions.
+ *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
  *============================================================================*/
 
@@ -29,25 +32,39 @@
 
 /* #define STRATIFIED_DISK */
 
+/* prototype for shearing sheet BC function (called by set_bvals) */
+void shear_ix1_ox1(Grid *pG, int var_flag);
+
+/* Remapped conserved quantities in ghost zones, and their fluxes */
+static Gas **RemapGas=NULL, *Flx=NULL;
+Real **pU=NULL;
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- * ran2() - random number generator from NR
- * shear_ix1() - shearing sheet boundary conditions at ix1 boundary
- * shear_ox1() - shearing sheet boundary conditions at ox1 boundary
+ * CompRemapFlux() - 2nd order reconstruction for remap in ghost zones
+ * ran2()          - random number generator from NR
  * ShearingBoxPot() - tidal potential in 3D shearing box
- * expr_dV2() - computes delta(Vy)
+ * expr_dV2()       - computes delta(Vy)
+ * no_op_VGfun() - no operation void grid function, replaces ix1/ox1 bval fns
  *============================================================================*/
 
+void CompRemapFlux(const Gas U[], const Real eps,
+                   const int il, const int iu, Gas Flux[]);
 static double ran2(long int *idum);
-static void shear_ix1(Grid *pGrid, int var_flag);
-static void shear_ox1(Grid *pGrid, int var_flag);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const Grid *pG, const int i, const int j, const int k);
+static void no_op_VGfun(Grid *pGrid, int swap_phi);
 
 /* boxsize, made a global variable so can be accessed by bval, etc. routines */
-static Real Lx;
+static Real Lx,Ly;
 
-/*=========================== PUBLIC FUNCTIONS ===============================*/
+/*=========================== PUBLIC FUNCTIONS =================================
+ * Contains the usual, plus:
+ * shear_ix1_ox1() - shearing sheet BCs in 3D, called by set_bval().  Ensures
+ *   ix1/ox1 bval routines are executaed simultanesouly in MPI parallel jobs
+ * EvolveEy() - sets Ey at [is] and [ie+1] to keep <Bz>=const.  Called by
+ *   integrator.
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
@@ -56,9 +73,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ipert,ifield;
+  int i,j,k,ipert,ifield,Nx2;
   long int iseed = -1; /* Initialize on the first call to ran2 */
-  Real x1, x2, x3, x1min, x1max;
+  Real x1, x2, x3, x1min, x1max, x2min, x2max;
   Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz;
   Real beta,B0,kx,amp;
   double rval;
@@ -72,6 +89,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   x1max = par_getd("grid","x1max");
   Lx = x1max - x1min;
   kx = 2.0*PI/Lx;
+
+  x2min = par_getd("grid","x2min");
+  x2max = par_getd("grid","x2max");
+  Ly = x2max - x2min;
 
 /* Read problem parameters.  Note Omega set to 10^{-3} by default */
   Omega = par_getd_def("problem","omega",1.0e-3);
@@ -110,8 +131,8 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
       if (ipert == 2) {
         rp = pres;
-        rd = den;
-        rvx = amp;
+        rd = den*(1.0 + 0.1*sin((double)kx*x1));
+        rvx = amp*sqrt(Gamma*pres/den);
         rvy = 0.0;
         rvz = 0.0;
       }
@@ -163,17 +184,29 @@ void problem(Grid *pGrid, Domain *pDomain)
     }
   }}
 
-/* enroll gravitational potential function, shearing sheet BC functions */
+/* enroll gravitational potential function, set x1-bval functions to NoOp
+ * function, since public function shear_ix1_ox1() below is called by
+ * set_bvals() instead */
 
   StaticGravPot = ShearingBoxPot;
-  set_bvals_fun(left_x1,  shear_ix1);
-  set_bvals_fun(right_x1, shear_ox1);
+  set_bvals_fun(left_x1,  no_op_VGfun);
+  set_bvals_fun(right_x1, no_op_VGfun);
+
+/* Allocate memory for remapped variables in ghost zones */
+
+  Nx2 = pGrid->Nx2 + 2*nghost;
+  if ((Flx = (Gas*)malloc(Nx2*sizeof(Gas))) == NULL)
+    ath_error("[hgb]: malloc returned a NULL pointer\n");
+  if ((RemapGas=(Gas**)calloc_2d_array(nghost, Nx2, sizeof(Gas))) == NULL)
+    ath_error("[hgb]: malloc returned a NULL pointer\n");
+  if ((pU=(Real**)malloc(Nx2*sizeof(Real*))) == NULL)
+    ath_error("[hgb]: malloc returned a NULL pointer\n");
 
   return;
 }
 
 /*==============================================================================
- * PROBLEM USER FUNCTIONS:
+ * PUBLIC PROBLEM USER FUNCTIONS:
  * problem_write_restart() - writes problem-specific user data to restart files
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
@@ -193,7 +226,8 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
-  Real x1min, x1max;
+  int Nx2;
+  Real x1min, x1max, x2min, x2max;
 
   Omega = par_getd_def("problem","omega",1.0e-3);
 
@@ -202,9 +236,23 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   x1max = par_getd("grid","x1max");
   Lx = x1max - x1min;
 
+  x2min = par_getd("grid","x2min");
+  x2max = par_getd("grid","x2max");
+  Ly = x2max - x2min;
+
   StaticGravPot = ShearingBoxPot;
-  set_bvals_fun(left_x1,  shear_ix1);
-  set_bvals_fun(right_x1, shear_ox1);
+  set_bvals_fun(left_x1,  no_op_VGfun);
+  set_bvals_fun(right_x1, no_op_VGfun);
+
+/* Allocate memory for remapped variables in ghost zones */
+
+  Nx2 = pG->Nx2 + 2*nghost;
+  if ((Flx = (Gas*)malloc(Nx2*sizeof(Gas))) == NULL)
+    ath_error("[read_restart]: malloc returned a NULL pointer\n");
+  if ((RemapGas=(Gas**)calloc_2d_array(nghost, Nx2, sizeof(Gas))) == NULL)
+    ath_error("[read_restart]: malloc returned a NULL pointer\n");
+  if ((pU=(Real**)malloc(Nx2*sizeof(Real*))) == NULL)
+    ath_error("[read_restart]: malloc returned a NULL pointer\n");
 
   return;
 }
@@ -224,7 +272,226 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
+/*------------------------------------------------------------------------------
+ * shear_ix1_ox1() - shearing-sheet BCs in x1 for 3D sims, does the ix1/ox1
+ *   boundaries simultaneously which is necessary in MPI parallel jobs since
+ *   ix1 must receive data sent by ox1, and vice versa
+ * This is a public function which is called by set_bvals() (inside a
+ * SHEARING_BOX macro).  The hgb problem generator enrolls NoOp functions for
+ * the x1 bval routines, so that set_bvals() uses MPI to handle the internal
+ * boundaries between grids properly, and this routine to handle the shearing
+ * sheet BCs.
+ *
+ * RemapGas and Flx are defined as global arrays, memory allocated in hgb
+ *----------------------------------------------------------------------------*/
+
+void shear_ix1_ox1(Grid *pG, int var_flag)
+{
+  int is = pG->is, ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int i,j,k,j_offset,j_remap;
+  Real yshear, deltay, epsi, epso;
+
+  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
+
+/* Compute the distance the computational domain has sheared in y */
+  yshear = 1.5*Omega*Lx*pG->time;
+
+/* Split this into integer and fractional peices of the domain in y.  Ignore
+ * the integer piece because the Grid is periodic in y */
+  deltay = fmod(yshear, Ly);
+
+/* further decompose the fractional peice into integer and fractional pieces of
+ * a grid cell.  Note 0.0 <= epsi < 1.0   */
+  j_offset = (int)(deltay/pG->dx2);
+  epsi = (fmod(deltay,pG->dx2))/pG->dx2;
+  epso = -epsi;
+
+/*================ START REMAP FOR IX1 BOUNDARY =================*/
+/*------- START BIG LOOP OVER k in ix1 remap (remap on ij-slices) ---------*/
+  for (k=ks; k<=ke; k++) {
+
+/* Copy data from ox1 side of grid into RemapGas array, using integer offset
+ * to address appropriate elements at ox1 */
+
+    for(j=js; j<=je; j++){
+      j_remap = j - j_offset;
+      if(j_remap < (int)js) j_remap += pG->Nx2;
+
+/* Note RemapGas array has j as fastest index, for use as 1D pencils below */
+      for(i=0; i<nghost; i++){
+        RemapGas[i][j].d  = pG->U[k][j_remap][ie-nghost+1+i].d;
+        RemapGas[i][j].M1 = pG->U[k][j_remap][ie-nghost+1+i].M1;
+        RemapGas[i][j].M2 = pG->U[k][j_remap][ie-nghost+1+i].M2;
+        RemapGas[i][j].M2 += 1.5*Omega*Lx*RemapGas[i][j].d;
+        RemapGas[i][j].M3 = pG->U[k][j_remap][ie-nghost+1+i].M3;
+#ifdef ADIABATIC
+/* No change in the internal energy */
+        RemapGas[i][j].E  = pG->U[k][j_remap][ie-nghost+1+i].E;
+        RemapGas[i][j].E += (0.5/RemapGas[i][j].d)*
+          (SQR(RemapGas[i][j].M2) - SQR(pG->U[k][j_remap][ie-nghost+1+i].M2));
+#endif /* ADIABATIC */
+      }
+    }
+
+/* Apply y-periodicity to RemapGas array */
+    for(i=0; i<nghost; i++){
+      for(j=1; j<=nghost; j++){
+        RemapGas[i][js-j] = RemapGas[i][je+1-j];
+        RemapGas[i][je+j] = RemapGas[i][js+j-1];
+      }
+    }
+
+/* Compute "fluxes" of conserved quantities associated with fractional offset
+ * of a cell (epsi), and perform conservative remap for ix1 ghost zones */
+
+/* RemapGas is passed as 1D pencil in y-direction; Flx is returned as 1D arr */
+    for(i=0; i<nghost; i++){
+      CompRemapFlux(RemapGas[i],epsi,js,je+1,Flx);
+
+      for(j=js; j<=je; j++){
+        pG->U[k][j][is-nghost+i].d  = RemapGas[i][j].d -(Flx[j+1].d -Flx[j].d );
+        pG->U[k][j][is-nghost+i].M1 = RemapGas[i][j].M1-(Flx[j+1].M1-Flx[j].M1);
+        pG->U[k][j][is-nghost+i].M2 = RemapGas[i][j].M2-(Flx[j+1].M2-Flx[j].M2);
+        pG->U[k][j][is-nghost+i].M3 = RemapGas[i][j].M3-(Flx[j+1].M3-Flx[j].M3);
+#ifdef ADIABATIC
+        pG->U[k][j][is-nghost+i].E  = RemapGas[i][j].E -(Flx[j+1].E -Flx[j].E );
+#endif /* ADIABATIC */
+      }
+    }
+
+  } /*----------- END BIG LOOP OVER k in ix1 remap ---------------*/
+
+/*================ START REMAP FOR OX1 BOUNDARY =================*/
+/*------- START BIG LOOP OVER k in ox1 remap (remap on ij-slices) ---------*/
+  for (k=ks; k<=ke; k++) {
+
+/* Copy data from ix1 side of grid into RemapGas array, using integer offset
+ * to address appropriate elements at ix1 */
+
+    for(j=js; j<=je; j++){
+      j_remap = j + j_offset;
+      if(j_remap > (int)je) j_remap -= pG->Nx2;
+
+/* Note RemapGas array has j as fastest index, for use as 1D pencils below */
+      for(i=0; i<nghost; i++){
+        RemapGas[i][j].d  = pG->U[k][j_remap][is+i].d;
+        RemapGas[i][j].M1 = pG->U[k][j_remap][is+i].M1;
+        RemapGas[i][j].M2 = pG->U[k][j_remap][is+i].M2;
+        RemapGas[i][j].M2 -= 1.5*Omega*Lx*RemapGas[i][j].d;
+        RemapGas[i][j].M3 = pG->U[k][j_remap][is+i].M3;
+#ifdef ADIABATIC
+/* No change in the internal energy */
+        RemapGas[i][j].E  = pG->U[k][j_remap][is+i].E;
+        RemapGas[i][j].E += (0.5/RemapGas[i][j].d)*
+          (SQR(RemapGas[i][j].M2) - SQR(pG->U[k][j_remap][is+i].M2));
+#endif /* ADIABATIC */
+      }
+    }
+
+/* Apply y-periodicity to RemapGas array */
+    for(i=0; i<nghost; i++){
+      for(j=1; j<=nghost; j++){
+        RemapGas[i][js-j] = RemapGas[i][je+1-j];
+        RemapGas[i][je+j] = RemapGas[i][js+j-1];
+      }
+    }
+
+/* Compute "fluxes" of conserved quantities associated with fractional offset
+ * of a cell (epso), and perform conservative remap */
+
+/* RemapGas is passed as 1D pencil in y-direction; Flx is returned as 1D arr */
+    for(i=0; i<nghost; i++){
+      CompRemapFlux(RemapGas[i],epso,js,je+1,Flx);
+
+      for(j=js; j<=je; j++){
+        pG->U[k][j][ie+1+i].d  = RemapGas[i][j].d  - (Flx[j+1].d  - Flx[j].d );
+        pG->U[k][j][ie+1+i].M1 = RemapGas[i][j].M1 - (Flx[j+1].M1 - Flx[j].M1);
+        pG->U[k][j][ie+1+i].M2 = RemapGas[i][j].M2 - (Flx[j+1].M2 - Flx[j].M2);
+        pG->U[k][j][ie+1+i].M3 = RemapGas[i][j].M3 - (Flx[j+1].M3 - Flx[j].M3);
+#ifdef ADIABATIC
+        pG->U[k][j][ie+1+i].E  = RemapGas[i][j].E  - (Flx[j+1].E  - Flx[j].E );
+#endif /* ADIABATIC */
+      }
+    }
+
+  } /*----------- END BIG LOOP OVER k in ox1 remap ---------------*/
+
+  return;
+}
+
 /*=========================== PRIVATE FUNCTIONS ==============================*/
+
+/*------------------------------------------------------------------------------
+ * CompRemapFlux: computes "fluxes" of conserved variables through y-interfaces
+ * in remapped ghost zones for 3D shearing sheet BCs needed in shear_ix1_ox1().
+ * Uses second-order reconstruction in conserved variables.
+ * Input Arguments:
+ *   U = Conserved variables at cell centers along 1-D slice
+ *   eps = fraction of a cell to be remapped
+ *   il,iu = lower and upper indices of zone centers in slice
+ * U must be initialized over [il-2:iu+2]
+ *
+ * Output Arguments:
+ *   Flux = fluxes of conserved variables at interfaces over [il:iu+1]
+ */
+
+void CompRemapFlux(const Gas U[], const Real eps,
+                   const int il, const int iu, Gas Flux[])
+{
+  int i,n;
+  Real dUc[NVAR],dUl[NVAR],dUr[NVAR],dUm[NVAR];
+  Real lim_slope;
+  Real *pFlux;
+
+/*--- Step 1.
+ * Set pointer to array elements of input conserved variables */
+
+  for (i=il-2; i<=iu+2; i++) pU[i] = (Real*)&(U[i]);
+
+/*--- Step 2.
+ * Compute centered, L/R, and van Leer differences of conserved variables
+ * Note we access contiguous array elements by indexing pointers for speed */
+
+  for (i=il-1; i<=iu+1; i++) {
+    for (n=0; n<(NVAR); n++) {
+      dUc[n] = pU[i+1][n] - pU[i-1][n];
+      dUl[n] = pU[i  ][n] - pU[i-1][n];
+      dUr[n] = pU[i+1][n] - pU[i  ][n];
+    }
+
+/*--- Step 3.
+ * Apply monotonicity constraints to characteristic projections */
+
+    for (n=0; n<(NVAR); n++) {
+      dUm[n] = 0.0;
+      if (dUl[n]*dUr[n] > 0.0) {
+        lim_slope = MIN(fabs(dUl[n]),fabs(dUr[n]));
+        dUm[n] = SIGN(dUc[n])*MIN(0.5*fabs(dUc[n]),2.0*lim_slope);
+      }
+    }
+
+/*--- Step 4.
+ * Integrate linear interpolation function over eps */
+ 
+    if (eps > 0.0) { /* eps always > 0 for inner i boundary */
+      pFlux = (Real *) &(Flux[i+1]);
+      for (n=0; n<(NVAR); n++) {
+        pFlux[n] = eps*(pU[i][n] + 0.5*(1.0 - eps)*dUm[n]);
+      }
+
+    } else {         /* eps always < 0 for outer i boundary */
+      pFlux = (Real *) &(Flux[i]);
+      for (n=0; n<(NVAR); n++) {
+        pFlux[n] = eps*(pU[i][n] - 0.5*(1.0 + eps)*dUm[n]);
+      }
+    }
+
+  }  /* end loop over [il-1,iu+1] */
+
+  return;
+}
 
 /*------------------------------------------------------------------------------
  * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
@@ -328,34 +595,10 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 }
 
 /*------------------------------------------------------------------------------
- * shear_ix1: shearing-sheet BCs in x1 for 3D sims
+ * no_op_VGfun: replaces x1-bval routines
  */
 
-static void shear_ix1(Grid *pGrid, int var_flag)
+static void no_op_VGfun(Grid *pGrid, int phi_flag)
 {
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks;
-  int i,j;
-
-  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
-
-  return;
-}
-
-/*------------------------------------------------------------------------------
- * shear_ox1: shearing-sheet BCs in x1 for 3D sims
- */
-
-static void shear_ox1(Grid *pGrid, int var_flag)
-{
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks;
-  int i,j;
-
-  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
-
-
   return;
 }
