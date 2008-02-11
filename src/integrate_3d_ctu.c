@@ -2022,10 +2022,6 @@ void integrate_3d_ctu(Grid *pG)
 #ifndef ISOTHERMAL
         pG->U[k][j][i].E  -= dtodx1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
-#ifdef MHD
-        pG->U[k][j][i].B2c -= dtodx1*(x1Flux[k][j][i+1].By-x1Flux[k][j][i].By);
-        pG->U[k][j][i].B3c -= dtodx1*(x1Flux[k][j][i+1].Bz-x1Flux[k][j][i].Bz);
-#endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx1*(x1Flux[k][j][i+1].s[n]
@@ -2049,10 +2045,6 @@ void integrate_3d_ctu(Grid *pG)
 #ifndef ISOTHERMAL
         pG->U[k][j][i].E -=dtodx2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
-#ifdef MHD
-        pG->U[k][j][i].B3c -= dtodx2*(x2Flux[k][j+1][i].By-x2Flux[k][j][i].By);
-        pG->U[k][j][i].B1c -= dtodx2*(x2Flux[k][j+1][i].Bz-x2Flux[k][j][i].Bz);
-#endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
@@ -2076,10 +2068,6 @@ void integrate_3d_ctu(Grid *pG)
 #ifndef ISOTHERMAL
         pG->U[k][j][i].E  -= dtodx3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
 #endif /* ISOTHERMAL */
-#ifdef MHD
-        pG->U[k][j][i].B1c -= dtodx3*(x3Flux[k+1][j][i].By-x3Flux[k][j][i].By);
-        pG->U[k][j][i].B2c -= dtodx3*(x3Flux[k+1][j][i].Bz-x3Flux[k][j][i].Bz);
-#endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
@@ -2364,7 +2352,7 @@ static void integrate_emf2_corner(const Grid *pG)
 	  de2_r1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i];
 	else {
 	  de2_r1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
-			x1Flux[k  ][j][i].Bz - emf2_cc[k-1][j][i] );
+			x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
 	}
 
 	emf2[k][j][i] = 0.25*(  x1Flux[k][j][i].Bz + x1Flux[k-1][j][i  ].Bz
