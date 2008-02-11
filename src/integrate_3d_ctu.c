@@ -2232,7 +2232,7 @@ static void integrate_emf2_corner(const Grid *pG)
 	  de2_r1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i];
 	else {
 	  de2_r1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
-			x1Flux[k  ][j][i].Bz - emf2_cc[k-1][j][i] );
+			x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
 	}
 
 	emf2[k][j][i] = 0.25*(  x1Flux[k][j][i].Bz + x1Flux[k-1][j][i  ].Bz
