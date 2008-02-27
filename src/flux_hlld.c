@@ -102,6 +102,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
  * Compute L/R fluxes
  */
 
+  /* total pressure */
 #ifndef ISOTHERMAL
   ptl = Wl.P + pbl;
   ptr = Wr.P + pbr;
@@ -158,16 +159,19 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
   sdl = spd[0] - Wl.Vx;
   sdr = spd[4] - Wr.Vx;
 
+  /* S_M: eqn (38) of Miyoshi & Kusano */
   spd[2] = (sdr*Wr.d*Wr.Vx - sdl*Wl.d*Wl.Vx - ptr + ptl) /
            (sdr*Wr.d-sdl*Wl.d);
 
   sdml   = spd[0] - spd[2];
   sdmr   = spd[4] - spd[2];
+  /* eqn (43) of Miyoshi & Kusano */
   Ulst.d = Ul.d * sdl/sdml;
   Urst.d = Ur.d * sdr/sdmr;
   sqrtdl = sqrt(Ulst.d);
   sqrtdr = sqrt(Urst.d);
 
+  /* eqn (51) of Miyoshi & Kusano */
   spd[1] = spd[2] - fabs(Bxi)/sqrtdl;
   spd[3] = spd[2] + fabs(Bxi)/sqrtdr;
 
@@ -178,27 +182,35 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
   ptst = ptl + Ul.d*sdl*(sdl-sdml);
 
 /* Ul* */
+  /* eqn (39) of M&K */
   Ulst.Mx = Ulst.d * spd[2];
-  if(spd[2] == Wl.Vx) {
+  if(spd[2]-Wl.Vx<1.0e-10) {
     Ulst.My = Ulst.d * Wl.Vy;
     Ulst.Mz = Ulst.d * Wl.Vz;
+
+    Ulst.By = Ul.By;
+    Ulst.Bz = Ul.Bz;
   }
   else {
+    /* eqns (44) and (46) of M&K */
     tmp = Bxi*(sdl-sdml)/(Ul.d*sdl*sdml-Bxsq);
     Ulst.My = Ulst.d * (Wl.Vy - Ul.By*tmp);
     Ulst.Mz = Ulst.d * (Wl.Vz - Ul.Bz*tmp);
-  }
-  if(Ul.By == 0.0 && Ul.Bz == 0.0) {
-    Ulst.By = 0.0;
-    Ulst.Bz = 0.0;
-  }
-  else {
-    tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
-    Ulst.By = Ul.By * tmp;
-    Ulst.Bz = Ul.Bz * tmp;
+
+    if(Ul.By == 0.0 && Ul.Bz == 0.0) {
+      Ulst.By = 0.0;
+      Ulst.Bz = 0.0;
+    }
+    else {
+      /* eqns (45) and (47) of M&K */
+      tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
+      Ulst.By = Ul.By * tmp;
+      Ulst.Bz = Ul.Bz * tmp;
+    }
   }
   vbstl = (Ulst.Mx*Bxi+Ulst.My*Ulst.By+Ulst.Mz*Ulst.Bz)/Ulst.d;
 #ifndef ISOTHERMAL
+  /* eqn (48) of M&K */
   Ulst.E = (sdl*Ul.E - ptl*Wl.Vx + ptst*spd[2] +
             Bxi*(Wl.Vx*Bxi+Wl.Vy*Ul.By+Wl.Vz*Ul.Bz - vbstl))/sdml;
 #endif /* ISOTHERMAL */
@@ -206,27 +218,35 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
 
 
 /* Ur* */
+  /* eqn (39) of M&K */
   Urst.Mx = Urst.d * spd[2];
-  if(spd[2] == Wr.Vx) {
+  if(spd[2]-Wr.Vx<1.0e-10) {
     Urst.My = Urst.d * Wr.Vy;
     Urst.Mz = Urst.d * Wr.Vz;
+
+    Urst.By = Ur.By;
+    Urst.Bz = Ur.Bz;
   }
   else {
+    /* eqns (44) and (46) of M&K */
     tmp = Bxi*(sdr-sdmr)/(Ur.d*sdr*sdmr-Bxsq);
     Urst.My = Urst.d * (Wr.Vy - Ur.By*tmp);
     Urst.Mz = Urst.d * (Wr.Vz - Ur.Bz*tmp);
-  }
-  if(Ur.By == 0.0 && Ur.Bz == 0.0) {
-    Urst.By = 0.0;
-    Urst.Bz = 0.0;
-  }
-  else {
-    tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
-    Urst.By = Ur.By * tmp;
-    Urst.Bz = Ur.Bz * tmp;
+
+    if(Ur.By == 0.0 && Ur.Bz == 0.0) {
+      Urst.By = 0.0;
+      Urst.Bz = 0.0;
+    }
+    else {
+      /* eqns (45) and (47) of M&K */
+      tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
+      Urst.By = Ur.By * tmp;
+      Urst.Bz = Ur.Bz * tmp;
+    }
   }
   vbstr = (Urst.Mx*Bxi+Urst.My*Urst.By+Urst.Mz*Urst.Bz)/Urst.d;
 #ifndef ISOTHERMAL
+  /* eqn (48) of M&K */
   Urst.E = (sdr*Ur.E - ptr*Wr.Vx + ptst*spd[2] +
             Bxi*(Wr.Vx*Bxi+Wr.Vy*Ur.By+Wr.Vz*Ur.Bz - vbstr))/sdmr;
 #endif /* ISOTHERMAL */
@@ -249,23 +269,28 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     Uldst.Mx = Ulst.Mx;
     Urdst.Mx = Urst.Mx;
 
+    /* eqn (59) of M&K */
     tmp = invsumd*(sqrtdl*Wlst.Vy + sqrtdr*Wrst.Vy + Bxsig*(Urst.By-Ulst.By));
     Uldst.My = Uldst.d * tmp;
     Urdst.My = Urdst.d * tmp;
 
+    /* eqn (60) of M&K */
     tmp = invsumd*(sqrtdl*Wlst.Vz + sqrtdr*Wrst.Vz + Bxsig*(Urst.Bz-Ulst.Bz));
     Uldst.Mz = Uldst.d * tmp;
     Urdst.Mz = Urdst.d * tmp;
 
+    /* eqn (61) of M&K */
     tmp = invsumd*(sqrtdl*Urst.By + sqrtdr*Ulst.By +
                    Bxsig*sqrtdl*sqrtdr*(Wrst.Vy-Wlst.Vy));
     Uldst.By = Urdst.By = tmp;
 
+    /* eqn (62) of M&K */
     tmp = invsumd*(sqrtdl*Urst.Bz + sqrtdr*Ulst.Bz +
                    Bxsig*sqrtdl*sqrtdr*(Wrst.Vz-Wlst.Vz));
     Uldst.Bz = Urdst.Bz = tmp;
 
 #ifndef ISOTHERMAL
+    /* eqn (63) of M&K */
     tmp = spd[2]*Bxi + (Uldst.My*Uldst.By + Uldst.Mz*Uldst.Bz)/Uldst.d;
     Uldst.E = Ulst.E - sqrtdl*Bxsig*(vbstl - tmp);
     Urdst.E = Urst.E + sqrtdr*Bxsig*(vbstr - tmp);
