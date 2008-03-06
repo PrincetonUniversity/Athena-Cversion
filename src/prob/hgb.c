@@ -2,17 +2,21 @@
 /*==============================================================================
  * FILE: hgb.c
  *
- * PURPOSE: Problem generator for 3D MRI simulations using the shearing sheet
- *   based on "Local Three-dimensional Magnetohydrodynamic Simulations of
- *   Accretion Disks" by Hawley, Gammie & Balbus, or HGB.
+ * PURPOSE:  Problem generator for 3D shearing sheet.  Based on the initial
+ *   conditions described in "Local Three-dimensional Magnetohydrodynamic
+ *   Simulations of Accretion Disks" by Hawley, Gammie & Balbus, or HGB.
+ *
  * Several different field configurations and perturbations are possible:
+ *
  *  ifield = 1 - Bz=B0sin(x1) field with zero-net-flux [default]
  *  ifield = 2 - uniform Bz
- *  ipert = 1 - random perturbations to P and V [default, used by HGB]
- *  ipert = 2 - uniform Vx=amp
  *
- * To run simulations of stratified disks (include vertical gravity),
- * un-comment the macro STRATIFIED_DISK below.  NOT YET IMPLEMENTED.
+ *  ipert = 1 - random perturbations to P and V [default, used by HGB]
+ *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
+ *  ipert = 3 - vortical shwave (hydro test)
+ *
+ * To run simulations of stratified disks (including vertical gravity),
+ * un-comment the macro VERTICAL_GRAVITY below.
  *
  * This file also contains shear_ix1_ox1(), a public function called by
  * set_bvals() which implements the 3D shearing sheet boundary conditions.
@@ -30,22 +34,25 @@
 #include "globals.h"
 #include "prototypes.h"
 
-/* #define STRATIFIED_DISK */
+/* #define VERTICAL_GRAVITY */
 
 /* prototype for shearing sheet BC function (called by set_bvals) */
 void shear_ix1_ox1(Grid *pG, int var_flag);
 
 /* Remapped conserved quantities in ghost zones, and their fluxes */
 static Gas **RemapGas=NULL, *Flx=NULL;
-Real **pU=NULL;
+static Real **pU=NULL;
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+static Real **Uhalf=NULL;
+#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- * CompRemapFlux() - 2nd order reconstruction for remap in ghost zones
+ * CompRemapFlux() - 2nd or 3rd order reconstruction for remap in ghost zones
  * ran2()          - random number generator from NR
  * ShearingBoxPot() - tidal potential in 3D shearing box
  * expr_dV2()       - computes delta(Vy)
- * no_op_VGfun() - no operation void grid function, replaces ix1/ox1 bval fns
+ * no_op_VGfun()    - no op void grid function, replaces ix1/ox1 bval fns
  *============================================================================*/
 
 void CompRemapFlux(const Gas U[], const Real eps,
@@ -73,11 +80,13 @@ void problem(Grid *pGrid, Domain *pDomain)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,ipert,ifield,Nx2;
+  int i,j,k,ipert,ifield,nmax;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1, x2, x3, x1min, x1max, x2min, x2max;
   Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz;
-  Real beta,B0,kx,amp;
+  Real beta,B0,kx,ky,amp;
+  Real fkx,fky; /* wavenumber; only used for shwave tests */
+  int nwx,nwy;  /* input number of waves per Lx, Ly -- only used for shwave */
   double rval;
 
   if (pGrid->Nx2 == 1){
@@ -93,6 +102,13 @@ void problem(Grid *pGrid, Domain *pDomain)
   x2min = par_getd("grid","x2min");
   x2max = par_getd("grid","x2max");
   Ly = x2max - x2min;
+  ky = 2.0*PI/Ly;
+
+/* For shwave test, initialize wavenumber */
+  nwx = par_geti_def("problem","nwx",1);
+  nwy = par_geti_def("problem","nwy",1);
+  fkx = kx*((double)nwx);  /* nxw should be input as -ve for leading wave */
+  fky = ky*((double)nwy);
 
 /* Read problem parameters.  Note Omega set to 10^{-3} by default */
   Omega = par_getd_def("problem","omega",1.0e-3);
@@ -102,6 +118,13 @@ void problem(Grid *pGrid, Domain *pDomain)
   ifield = par_geti_def("problem","ifield", 1);
   ipert = par_geti_def("problem","ipert", 1);
 
+/* Rescale amp to sound speed for ipert 2,3 */
+#ifdef ADIABATIC
+  if (ipert == 2 || ipert == 3) amp *= sqrt(Gamma*pres/den);
+#else
+  if (ipert == 2 || ipert == 3) amp *= Iso_csound;
+#endif
+
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
@@ -109,7 +132,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Initialize perturbations
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
- *  ipert = 2 - uniform Vx=amp
+ *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
+ *  ipert = 3 - vortical shwave (hydro test)
  */
       if (ipert == 1) {
         rval = amp*(ran2(&iseed) - 0.5);
@@ -132,8 +156,15 @@ void problem(Grid *pGrid, Domain *pDomain)
       if (ipert == 2) {
         rp = pres;
         rd = den*(1.0 + 0.1*sin((double)kx*x1));
-        rvx = amp*sqrt(Gamma*pres/den);
+        rvx = amp;
         rvy = 0.0;
+        rvz = 0.0;
+      }
+      if (ipert == 3) {
+        rp = pres;
+        rd = den;
+        rvx = amp*sin((double)(fkx*x1 + fky*x2));
+        rvy = -amp*(fkx/fky)*sin((double)(fkx*x1 + fky*x2));
         rvz = 0.0;
       }
 
@@ -194,14 +225,17 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Allocate memory for remapped variables in ghost zones */
 
-  Nx2 = pGrid->Nx2 + 2*nghost;
-  if ((Flx = (Gas*)malloc(Nx2*sizeof(Gas))) == NULL)
+  nmax = pGrid->Nx2 + 2*nghost;
+  if ((Flx = (Gas*)malloc(nmax*sizeof(Gas))) == NULL)
     ath_error("[hgb]: malloc returned a NULL pointer\n");
-  if ((RemapGas=(Gas**)calloc_2d_array(nghost, Nx2, sizeof(Gas))) == NULL)
+  if ((RemapGas=(Gas**)calloc_2d_array(nghost, nmax, sizeof(Gas))) == NULL)
     ath_error("[hgb]: malloc returned a NULL pointer\n");
-  if ((pU=(Real**)malloc(Nx2*sizeof(Real*))) == NULL)
+  if ((pU=(Real**)malloc(nmax*sizeof(Real*))) == NULL)
     ath_error("[hgb]: malloc returned a NULL pointer\n");
-
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+  if ((Uhalf = (Real**)calloc_2d_array(nmax, NVAR, sizeof(Real))) == NULL)
+    ath_error("[hgb]: malloc returned a NULL pointer\n");
+#endif
   return;
 }
 
@@ -226,7 +260,7 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
-  int Nx2;
+  int nmax;
   Real x1min, x1max, x2min, x2max;
 
   Omega = par_getd_def("problem","omega",1.0e-3);
@@ -246,13 +280,17 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 
 /* Allocate memory for remapped variables in ghost zones */
 
-  Nx2 = pG->Nx2 + 2*nghost;
-  if ((Flx = (Gas*)malloc(Nx2*sizeof(Gas))) == NULL)
+  nmax = pG->Nx2 + 2*nghost;
+  if ((Flx = (Gas*)malloc(nmax*sizeof(Gas))) == NULL)
     ath_error("[read_restart]: malloc returned a NULL pointer\n");
-  if ((RemapGas=(Gas**)calloc_2d_array(nghost, Nx2, sizeof(Gas))) == NULL)
+  if ((RemapGas=(Gas**)calloc_2d_array(nghost, nmax, sizeof(Gas))) == NULL)
     ath_error("[read_restart]: malloc returned a NULL pointer\n");
-  if ((pU=(Real**)malloc(Nx2*sizeof(Real*))) == NULL)
+  if ((pU=(Real**)malloc(nmax*sizeof(Real*))) == NULL)
     ath_error("[read_restart]: malloc returned a NULL pointer\n");
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+  if ((Uhalf = (Real**)calloc_2d_array(nmax, NVAR, sizeof(Real))) == NULL)
+    ath_error("[read_restart]: malloc returned a NULL pointer\n");
+#endif
 
   return;
 }
@@ -276,13 +314,14 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * shear_ix1_ox1() - shearing-sheet BCs in x1 for 3D sims, does the ix1/ox1
  *   boundaries simultaneously which is necessary in MPI parallel jobs since
  *   ix1 must receive data sent by ox1, and vice versa
+ *
  * This is a public function which is called by set_bvals() (inside a
  * SHEARING_BOX macro).  The hgb problem generator enrolls NoOp functions for
  * the x1 bval routines, so that set_bvals() uses MPI to handle the internal
  * boundaries between grids properly, and this routine to handle the shearing
  * sheet BCs.
  *
- * RemapGas and Flx are defined as global arrays, memory allocated in hgb
+ * RemapGas and Flx are defined as global arrays, memory allocated in problem
  *----------------------------------------------------------------------------*/
 
 void shear_ix1_ox1(Grid *pG, int var_flag)
@@ -291,6 +330,9 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k,j_offset,j_remap;
+#if (NSCALARS > 0)
+  int n;
+#endif
   Real yshear, deltay, epsi, epso;
 
   if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
@@ -308,8 +350,7 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
   epsi = (fmod(deltay,pG->dx2))/pG->dx2;
   epso = -epsi;
 
-/*================ START REMAP FOR IX1 BOUNDARY =================*/
-/*------- START BIG LOOP OVER k in ix1 remap (remap on ij-slices) ---------*/
+/*=============== START REMAP FOR IX1 BOUNDARY (on ij-slices) ================*/
   for (k=ks; k<=ke; k++) {
 
 /* Copy data from ox1 side of grid into RemapGas array, using integer offset
@@ -332,6 +373,10 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
         RemapGas[i][j].E += (0.5/RemapGas[i][j].d)*
           (SQR(RemapGas[i][j].M2) - SQR(pG->U[k][j_remap][ie-nghost+1+i].M2));
 #endif /* ADIABATIC */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          RemapGas[i][j].s[n] = pG->U[k][j_remap][ie-nghost+1+i].s[n];}
+#endif
       }
     }
 
@@ -358,13 +403,16 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
 #ifdef ADIABATIC
         pG->U[k][j][is-nghost+i].E  = RemapGas[i][j].E -(Flx[j+1].E -Flx[j].E );
 #endif /* ADIABATIC */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {pG->U[k][j][is-nghost+i].s[n] =
+          RemapGas[i][j].s[n]-(Flx[j+1].s[n]-Flx[j].[n]);
+#endif
+
       }
     }
+  }
 
-  } /*----------- END BIG LOOP OVER k in ix1 remap ---------------*/
-
-/*================ START REMAP FOR OX1 BOUNDARY =================*/
-/*------- START BIG LOOP OVER k in ox1 remap (remap on ij-slices) ---------*/
+/*=============== START REMAP FOR OX1 BOUNDARY (on ij slices) ================*/
   for (k=ks; k<=ke; k++) {
 
 /* Copy data from ix1 side of grid into RemapGas array, using integer offset
@@ -387,6 +435,10 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
         RemapGas[i][j].E += (0.5/RemapGas[i][j].d)*
           (SQR(RemapGas[i][j].M2) - SQR(pG->U[k][j_remap][is+i].M2));
 #endif /* ADIABATIC */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          RemapGas[i][j].s[n]  = pG->U[k][j_remap][is+i].s[n];}
+#endif
       }
     }
 
@@ -413,10 +465,13 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
 #ifdef ADIABATIC
         pG->U[k][j][ie+1+i].E  = RemapGas[i][j].E  - (Flx[j+1].E  - Flx[j].E );
 #endif /* ADIABATIC */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {pG->U[k][j][ie+1+i].s[n] =
+          RemapGas[i][j].s[n]  - (Flx[j+1].s[n]  - Flx[j].s[n]);}
+#endif
       }
     }
-
-  } /*----------- END BIG LOOP OVER k in ox1 remap ---------------*/
+  }
 
   return;
 }
@@ -426,17 +481,20 @@ void shear_ix1_ox1(Grid *pG, int var_flag)
 /*------------------------------------------------------------------------------
  * CompRemapFlux: computes "fluxes" of conserved variables through y-interfaces
  * in remapped ghost zones for 3D shearing sheet BCs needed in shear_ix1_ox1().
- * Uses second-order reconstruction in conserved variables.
+ *
  * Input Arguments:
  *   U = Conserved variables at cell centers along 1-D slice
  *   eps = fraction of a cell to be remapped
  *   il,iu = lower and upper indices of zone centers in slice
- * U must be initialized over [il-2:iu+2]
- *
  * Output Arguments:
  *   Flux = fluxes of conserved variables at interfaces over [il:iu+1]
  */
 
+
+/* SECOND ORDER REMAP: piecewise linear reconstruction and min/mod limiters
+ * U must be initialized over [il-2:iu+2] */
+
+#ifdef SECOND_ORDER
 void CompRemapFlux(const Gas U[], const Real eps,
                    const int il, const int iu, Gas Flux[])
 {
@@ -462,7 +520,7 @@ void CompRemapFlux(const Gas U[], const Real eps,
     }
 
 /*--- Step 3.
- * Apply monotonicity constraints to characteristic projections */
+ * Apply monotonicity constraints */
 
     for (n=0; n<(NVAR); n++) {
       dUm[n] = 0.0;
@@ -492,6 +550,154 @@ void CompRemapFlux(const Gas U[], const Real eps,
 
   return;
 }
+#endif /* SECOND_ORDER */
+
+
+/* THIRD ORDER REMAP: Colella & Sekora extremum preserving algorithm (PPME)
+ * U must be initialized over [il-3:iu+3] */
+
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+void CompRemapFlux(const Gas U[], const Real eps,
+                   const int il, const int iu, Gas Flux[])
+{
+  int i,n;
+  Real lim_slope,qa,qb,qc,qx;
+  Real d2Uc[NVAR],d2Ul[NVAR],d2Ur[NVAR],d2U [NVAR],d2Ulim[NVAR];
+  Real Ulv[NVAR],Urv[NVAR],dU[NVAR],U6[NVAR];
+  Real *pFlux;
+
+/*--- Step 1.
+ * Set pointer to array elements of input conserved variables */
+
+  for (i=il-3; i<=iu+3; i++) pU[i] = (Real*)&(U[i]);
+
+/*--- Step 2. 
+ * Compute interface states (CS eqns 12-15) over entire 1D pencil.  Using usual
+ * Athena notation that index i for face-centered quantities denotes L-edge
+ * (interface i-1/2), then Uhalf[i] = U[i-1/2]. */
+
+  for (i=il-1; i<=iu+2; i++) {
+    for (n=0; n<(NVAR); n++) {
+      Uhalf[i][n]=(7.0*(pU[i-1][n]+pU[i][n]) - (pU[i-2][n]+pU[i+1][n]))/12.0;
+    }
+    for (n=0; n<(NVAR); n++) {
+      d2Uc[n] = 3.0*(pU[i-1][n] - 2.0*Uhalf[i][n] + pU[i][n]);
+      d2Ul[n] = (pU[i-2][n] - 2.0*pU[i-1][n] + pU[i  ][n]);
+      d2Ur[n] = (pU[i-1][n] - 2.0*pU[i  ][n] + pU[i+1][n]);
+      d2Ulim[n] = 0.0;
+      lim_slope = MIN(fabs(d2Ul[n]),fabs(d2Ur[n]));
+      if (d2Uc[n] > 0.0 && d2Ul[n] > 0.0 && d2Ur[n] > 0.0) {
+        d2Ulim[n] = SIGN(d2Uc[n])*MIN(1.25*lim_slope,fabs(d2Uc[n]));
+      }
+      if (d2Uc[n] < 0.0 && d2Ul[n] < 0.0 && d2Ur[n] < 0.0) {
+        d2Ulim[n] = SIGN(d2Uc[n])*MIN(1.25*lim_slope,fabs(d2Uc[n]));
+      }
+    }
+    for (n=0; n<(NVAR); n++) {
+      Uhalf[i][n] = 0.5*((pU[i-1][n]+pU[i][n]) - d2Ulim[n]/3.0);
+    }
+  }
+
+/*--- Step 3.
+ * Compute L/R values
+ * Ulv = U at left  side of cell-center = U[i-1/2] = a_{j,-} in CS
+ * Urv = U at right side of cell-center = U[i+1/2] = a_{j,+} in CS
+ */
+
+  for (i=il-1; i<=iu+1; i++) {
+    for (n=0; n<(NVAR); n++) {
+      Ulv[n] = Uhalf[i  ][n];
+      Urv[n] = Uhalf[i+1][n];
+    }
+
+/*--- Step 4.
+ * Construct parabolic interpolant (CS eqn 16-19) */
+
+    for (n=0; n<(NVAR); n++) {
+      qa = (Urv[n]-pU[i][n])*(pU[i][n]-Ulv[n]);
+      qb = (pU[i-1][n]-pU[i][n])*(pU[i][n]-pU[i+1][n]);
+      if (qa <= 0.0 && qb <= 0.0) {
+        qc = 6.0*(pU[i][n] - 0.5*(Ulv[n]+Urv[n]));
+        d2U [n] = -2.0*qc;
+        d2Uc[n] = (pU[i-1][n] - 2.0*pU[i  ][n] + pU[i+1][n]);
+        d2Ul[n] = (pU[i-2][n] - 2.0*pU[i-1][n] + pU[i  ][n]);
+        d2Ur[n] = (pU[i  ][n] - 2.0*pU[i+1][n] + pU[i+2][n]);
+        d2Ulim[n] = 0.0;
+        lim_slope = MIN(fabs(d2Ul[n]),fabs(d2Ur[n]));
+        lim_slope = MIN(fabs(d2Uc[n]),lim_slope);
+        if (d2Uc[n] > 0.0 && d2Ul[n] > 0.0 && d2Ur[n] > 0.0 && d2U[n] > 0.0) {
+          d2Ulim[n] = SIGN(d2U[n])*MIN(1.25*lim_slope,fabs(d2U[n]));
+        }
+        if (d2Uc[n] < 0.0 && d2Ul[n] < 0.0 && d2Ur[n] < 0.0 && d2U[n] < 0.0) {
+          d2Ulim[n] = SIGN(d2U[n])*MIN(1.25*lim_slope,fabs(d2U[n]));
+        }
+        if (d2U[n] == 0.0) {
+          Ulv[n] = pU[i][n];
+          Urv[n] = pU[i][n];
+        } else {
+          Ulv[n] = pU[i][n] + (Ulv[n] - pU[i][n])*d2Ulim[n]/d2U[n];
+          Urv[n] = pU[i][n] + (Urv[n] - pU[i][n])*d2Ulim[n]/d2U[n];
+        }
+      }
+    }
+
+/*--- Step 5.
+ * Monotonize again (CW eqn 1.10), ensure they lie between neighboring
+ * cell-centered vals */
+
+    for (n=0; n<(NVAR); n++) {
+      qa = (Urv[n]-pU[i][n])*(pU[i][n]-Ulv[n]);
+      qb = Urv[n]-Ulv[n];
+      qc = 6.0*(pU[i][n] - 0.5*(Ulv[n]+Urv[n]));
+      if (qa <= 0.0) {
+        Ulv[n] = pU[i][n];
+        Urv[n] = pU[i][n];
+      } else if ((qb*qc) > (qb*qb)) {
+        Ulv[n] = 3.0*pU[i][n] - 2.0*Urv[n];
+      } else if ((qb*qc) < -(qb*qb)) {
+        Urv[n] = 3.0*pU[i][n] - 2.0*Ulv[n];
+      }
+    }
+
+/*
+    for (n=0; n<(NVAR); n++) {
+      Ulv[n] = MAX(MIN(pU[i][n],pU[i-1][n]),Ulv[n]);
+      Ulv[n] = MIN(MAX(pU[i][n],pU[i-1][n]),Ulv[n]);
+      Urv[n] = MAX(MIN(pU[i][n],pU[i+1][n]),Urv[n]);
+      Urv[n] = MIN(MAX(pU[i][n],pU[i+1][n]),Urv[n]);
+    }
+*/
+
+/*--- Step 6.
+ * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
+
+    for (n=0; n<(NVAR); n++) {
+      dU[n] = Urv[n] - Ulv[n];
+      U6[n] = 6.0*(pU[i][n] - 0.5*(Ulv[n] + Urv[n]));
+    }
+
+/*--- Step 7.
+ * Integrate parabolic interpolation function over eps */
+
+    if (eps > 0.0) { /* eps always > 0 for inner i boundary */
+      pFlux = (Real *) &(Flux[i+1]);
+      qx = TWO_3RDS*eps;
+      for (n=0; n<(NVAR); n++) {
+        pFlux[n] = eps*(Urv[n] - 0.75*qx*(dU[n] - (1.0 - qx)*U6[n]));
+      }
+
+    } else {         /* eps always < 0 for outer i boundary */
+      pFlux = (Real *) &(Flux[i]);
+      qx = -TWO_3RDS*eps;
+      for (n=0; n<(NVAR); n++) {
+        pFlux[n] = eps*(Ulv[n] + 0.75*qx*(dU[n] + (1.0 - qx)*U6[n]));
+      }
+    }
+  }
+
+  return;
+}
+#endif /* THIRD_ORDER_EXTREMA_PRESERVING */
 
 /*------------------------------------------------------------------------------
  * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
@@ -571,12 +777,12 @@ double ran2(long int *idum)
 #undef RNMX
 
 /*------------------------------------------------------------------------------
- * ShearingBoxPot: includes vertical gravity if macro STRATIFIED_DISK is
+ * ShearingBoxPot: includes vertical gravity if macro VERTICAL_GRAVITY is
  *   defined above.
  */
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3){
-#ifdef STRATIFIED_DISK
+#ifdef VERTICAL_GRAVITY
   return 0.5*Omega*Omega*(x3*x3 - 3.0*x1*x1);
 #else
   return -1.5*Omega*Omega*x1*x1;  
