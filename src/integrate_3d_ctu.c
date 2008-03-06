@@ -1556,7 +1556,8 @@ void integrate_3d_ctu(Grid *pG)
         M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
 #endif /* SELF_GRAVITY */
 
-/* Add the tidal potential and Coriolis terms for shearing box. */
+/* Add the Coriolis terms for shearing box.  Tidal potential already added by
+ * StaticGravPot above.  */
 #ifdef SHEARING_BOX
         M1 += pG->dt*Omega*pG->U[k][j][i].M2;
         M2 -= pG->dt*Omega*pG->U[k][j][i].M1;
@@ -1753,6 +1754,7 @@ void integrate_3d_ctu(Grid *pG)
 
 #ifdef SHEARING_BOX
   fact = om_dt/(1.0 + 0.25*om_dt*om_dt);
+  TH_om = 1.5*Omega; /* Three-Halves Omega */
   for(k=ks; k<=ke; ++k) {
     for(j=js; j<=je; ++j) {
       for(i=is; i<=ie; ++i) {
