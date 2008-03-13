@@ -92,7 +92,7 @@ void output_tab_1d(Grid *pGrid, Output *pOut, FILE *pFile)
     pOut->gmax = MAX(dmax,pOut->gmax);
   }
 
-  free_1d_array((void *)data); /* Free the memory we malloc'd */
+  free_1d_array(data); /* Free the memory we malloc'd */
 }
 
 /*----------------------------------------------------------------------------*/
