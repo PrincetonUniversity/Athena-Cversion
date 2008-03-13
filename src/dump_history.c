@@ -90,7 +90,7 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
 	scal[2] += pGrid->U[k][j][i].d;
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
 	scal[3] += pGrid->U[k][j][i].E;
 #endif
 	scal[4] += pGrid->U[k][j][i].M1;
