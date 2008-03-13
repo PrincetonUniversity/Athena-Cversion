@@ -28,8 +28,15 @@
 /* HYDRO or MHD */
 #define @GAS@
 
-/* ADIABATIC or ISOTHERMAL */
+/* ADIABATIC or ISOTHERMAL or ... */
 #define @EOS@
+#define EOS_STR "@EOS@"
+
+#if defined ISOTHERMAL /* || defined PIECEWISE_POLYTROPE ... */
+#define BAROTROPIC        /* P = P(rho) */
+#elif !defined ADIABATIC  /* P = P(eth) = (gamma - 1)*eth */
+#define GENERAL_EOS       /* P = P(rho,eth) */
+#endif
 
 /* Number of passively advected scalars */
 #define NSCALARS @NSCALARS@
@@ -109,7 +116,7 @@ enum {
 /*----------------------------------------------------------------------------*/
 /* computed macros based on above choices (never modified) */
 
-#ifdef ISOTHERMAL /* ISOTHERMAL EOS */
+#ifdef BAROTROPIC /* BAROTROPIC EOS */
 #ifdef HYDRO
  enum {NWAVE = 4, NVAR = 4 + NSCALARS};
 #endif
@@ -123,7 +130,7 @@ enum {
 #ifdef MHD
  enum {NWAVE = 7, NVAR = 8 + NSCALARS};
 #endif
-#endif /* ISOTHERMAL */
+#endif /* EOS */
 
 /*----------------------------------------------------------------------------*/
 
