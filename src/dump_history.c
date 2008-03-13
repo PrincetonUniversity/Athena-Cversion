@@ -37,7 +37,7 @@
 #include "athena.h"
 #include "prototypes.h"
 
-/* Number of default history dump columns. */
+/* Maximum Number of default history dump columns. */
 #define NSCAL 14
 
 /* Maximum number of history dump columns that the user routine can add. */
@@ -63,11 +63,22 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   FILE *p_hstfile;
   char fmt[80];
   int vol_rat; /* (Grid Volume)/(dx1*dx2*dx3) */
-  int n, total_hst_cnt = NSCAL + NSCALARS + usr_hst_cnt;
+  int n, total_hst_cnt, mhst;
 #ifdef MPI_PARALLEL
   double my_scal[NSCAL + NSCALARS + MAX_USR_H_COUNT]; /* My Volume averages */
   int my_vol_rat; /* My (Grid Volume)/(dx1*dx2*dx3) */
   int err;
+#endif
+
+  total_hst_cnt = 9 + NSCALARS + usr_hst_cnt;
+#ifdef ADIABATIC
+  total_hst_cnt++;
+#endif
+#ifdef MHD
+  total_hst_cnt += 3;
+#endif
+#ifdef SELF_GRAVITY
+  total_hst_cnt += 1;
 #endif
 
 /* Add a white space to the format */
@@ -89,33 +100,47 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	scal[2] += pGrid->U[k][j][i].d;
+        mhst = 2;
+	scal[mhst] += pGrid->U[k][j][i].d;
 #ifndef BAROTROPIC
-	scal[3] += pGrid->U[k][j][i].E;
+        mhst++;
+	scal[mhst] += pGrid->U[k][j][i].E;
 #endif
-	scal[4] += pGrid->U[k][j][i].M1;
-	scal[5] += pGrid->U[k][j][i].M2;
-	scal[6] += pGrid->U[k][j][i].M3;
-	scal[7] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-	scal[8] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
-	scal[9] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
+        mhst++;
+	scal[mhst] += pGrid->U[k][j][i].M1;
+        mhst++;
+	scal[mhst] += pGrid->U[k][j][i].M2;
+        mhst++;
+	scal[mhst] += pGrid->U[k][j][i].M3;
+        mhst++;
+	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
+        mhst++;
+	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
+        mhst++;
+	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
 #ifdef MHD
-	scal[10] += 0.5*SQR(pGrid->U[k][j][i].B1c);
-	scal[11] += 0.5*SQR(pGrid->U[k][j][i].B2c);
-	scal[12] += 0.5*SQR(pGrid->U[k][j][i].B3c);
+        mhst++;
+	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].B1c);
+        mhst++;
+	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].B2c);
+        mhst++;
+	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].B3c);
 #endif
 #ifdef SELF_GRAVITY
-        scal[13] += pGrid->U[k][j][i].d*pGrid->Phi[k][j][i];
+        mhst++;
+        scal[mhst] += pGrid->U[k][j][i].d*pGrid->Phi[k][j][i];
 #endif
 #if (NSCALARS > 0)
 	for(n=0; n<NSCALARS; n++){
-	  scal[NSCAL + n] += pGrid->U[k][j][i].s[n];
+          mhst++;
+	  scal[mhst] += pGrid->U[k][j][i].s[n];
 	}
 #endif
 
 /* Calculate the user defined history variables */
 	for(n=0; n<usr_hst_cnt; n++){
-	  scal[NSCAL + NSCALARS + n] += (*phst_fun[n])(pGrid, i, j, k);
+          mhst++;
+	  scal[mhst] += (*phst_fun[n])(pGrid, i, j, k);
 	}
       }
     }
@@ -156,22 +181,53 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
     return;
   }
 
-  if(pOut->num == 0){
-
 /* Write out column headers */
 
-    fprintf(p_hstfile,"#  [1]=time       [2]=dt         [3]=mass       ");
-    fprintf(p_hstfile,"[4]=total E    [5]=x1 Mom.    [6]=x2 Mom.    ");
-    fprintf(p_hstfile,"[7]=x3 Mom.    [8]=x1-KE      [9]=x2-KE      ");
-    fprintf(p_hstfile,"[10]=x3-KE     [11]=x1-ME     [12]=x2-ME     ");
-    fprintf(p_hstfile,"[13]=x3-ME     [14]=grav PE");
+  mhst = 0;
+  if(pOut->num == 0){
+    mhst++;
+    fprintf(p_hstfile,"#   [%i]=time   ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=dt      ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=mass    ",mhst);
+#ifdef ADIABATIC
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=total E ",mhst);
+#endif
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x1 Mom. ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x2 Mom. ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x3 Mom. ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x1-KE   ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x2-KE   ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x3-KE   ",mhst);
+#ifdef MHD
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x1-ME   ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x2-ME   ",mhst);
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=x3-ME   ",mhst);
+#endif
+#ifdef SELF_GRAVITY
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=grav PE ",mhst);
+#endif
 #if (NSCALARS > 0)
     for(n=0; n<NSCALARS; n++){
-      fprintf(p_hstfile," scalar %i",n);
+      mhst++;
+      fprintf(p_hstfile,"  [%i]=scalar %i",mhst,n);
     }
 #endif
     for(n=0; n<usr_hst_cnt; n++){
-      fprintf(p_hstfile," %s",usr_label[n]);
+      mhst++;
+      fprintf(p_hstfile,"  [%i]=%s",mhst,usr_label[n]);
     }
     fprintf(p_hstfile,"\n#\n");
   }
