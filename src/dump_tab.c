@@ -133,13 +133,13 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
   fprintf(pfile," [%d]=M3",col_cnt);
   col_cnt++;
 
-/* write out P,E column headers, if adiabatic */
-#ifndef ISOTHERMAL
+/* write out P,E column headers, if not barotropic */
+#ifndef BAROTROPIC
   fprintf(pfile," [%d]=P",col_cnt);
   col_cnt++;
   fprintf(pfile," [%d]=E",col_cnt);
   col_cnt++;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
 /* write out magnetic field component column headers, if mhd */
 #ifdef MHD
@@ -195,14 +195,14 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
 	fprintf(pfile,fmt,pq->M2);
 	fprintf(pfile,fmt,pq->M3);
 
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	KE = 0.5*(pq->M1*pq->M1 + pq->M2*pq->M2 + pq->M3*pq->M3)/pq->d;
 #ifdef MHD
 	ME = 0.5*(pq->B1c*pq->B1c + pq->B2c*pq->B2c + pq->B3c*pq->B3c); 
 #endif /* MHD */
 	fprintf(pfile,fmt,(pq->E - KE - ME)*Gamma_1);
 	fprintf(pfile,fmt,pq->E);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
 #ifdef MHD
 	fprintf(pfile,fmt,pq->B1c);
