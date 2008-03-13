@@ -34,6 +34,8 @@ void show_config(void)
   ath_pout(0," Equation of State:       ADIABATIC\n");
 #elif defined(ISOTHERMAL)
   ath_pout(0," Equation of State:       ISOTHERMAL\n");
+#else
+  ath_pout(0," Equation of State:       " EOS_STR "\n");
 #endif
 
   nscal = NSCALARS;
@@ -119,6 +121,8 @@ void show_config_par(void)
   par_sets("configure","eq_state","adiabatic","Equation of state");
 #elif defined(ISOTHERMAL)
   par_sets("configure","eq_state","isothermal","Equation of state");
+#else
+  par_sets("configure","eq_state",EOS_STR,"Equation of state");
 #endif
 
   par_seti("configure","nscalars","%d",NSCALARS,"Number of passive scalars");
