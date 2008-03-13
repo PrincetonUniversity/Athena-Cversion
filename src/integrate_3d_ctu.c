@@ -69,6 +69,10 @@ extern Real etah;
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
 
+#ifdef SHEARING_BOX
+void RemapEy(Grid *pG, Real ***emfy);
+#endif
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
  *   integrate_emf1_corner() - the upwind CT method in GS05, for emf1
@@ -116,6 +120,8 @@ void integrate_3d_ctu(Grid *pG)
   Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
   Real fact, TH_om, om_dt = Omega*pG->dt;
 #endif /* SHEARING_BOX */
+
+   Real sum;
 
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
@@ -1713,6 +1719,11 @@ void integrate_3d_ctu(Grid *pG)
   integrate_emf1_corner(pG);
   integrate_emf2_corner(pG);
   integrate_emf3_corner(pG);
+
+/* Remap Ey at is and ie+1 to conserve Bz in shearing box */
+#ifdef SHEARING_BOX
+  RemapEy(pG, emf2);
+#endif /* SHEARING_BOX */
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
