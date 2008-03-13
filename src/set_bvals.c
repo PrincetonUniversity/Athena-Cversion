@@ -85,6 +85,10 @@ static VBCFun_t apply_ix1 = NULL, apply_ox1 = NULL;
 static VBCFun_t apply_ix2 = NULL, apply_ox2 = NULL;
 static VBCFun_t apply_ix3 = NULL, apply_ox3 = NULL;
 
+#ifdef SHEARING_BOX
+void ShearingSheetBC(Grid *pGrid);
+#endif
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   reflect_???()  - apply reflecting BCs at boundary ???
@@ -131,10 +135,6 @@ static void receive_ix3(Grid *pG, int var_flag, MPI_Request *prq);
 static void receive_ox3(Grid *pG, int var_flag, MPI_Request *prq);
 #endif /* MPI_PARALLEL */
 
-#ifdef SHEARING_BOX
-void shear_ix1_ox1(Grid *pGrid, int var_flag);
-#endif
-
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* set_bvals:  calls appropriate functions to set ghost zones.  The function
@@ -158,12 +158,6 @@ void set_bvals(Grid *pGrid, int var_flag)
  * Boundary Conditions in x1-direction */
 
   if (pGrid->Nx1 > 1){
-
-/* For shearing box, ix1 and ox1 boundaries have to be executed simultaneously.
- * This is implemented in following routine, defined in problem generator */
-#ifdef SHEARING_BOX
-    shear_ix1_ox1(pGrid, var_flag);
-#endif
 
 #ifdef MPI_PARALLEL
     cnt2 = pGrid->Nx2 > 1 ? pGrid->Nx2 + 1 : 1;
@@ -289,6 +283,11 @@ void set_bvals(Grid *pGrid, int var_flag)
       (*apply_ix2)(pGrid, var_flag);
       (*apply_ox2)(pGrid, var_flag);
     }
+
+/* shearing sheet BCs; function defined in problem generator */
+#ifdef SHEARING_BOX
+    ShearingSheetBC(pGrid);
+#endif
 
   }
 
