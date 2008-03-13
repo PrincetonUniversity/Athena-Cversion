@@ -38,9 +38,9 @@ typedef struct Gas_s{
   Real M1;			/* Momenta in 1,2,3.  Use 1,2,3 to label */
   Real M2;                      /* directions in anticipation of         */
   Real M3;                      /* covariant coordinates in future       */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
   Real E;			/* Total energy density */
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
   Real B1c;			/* cell centered magnetic fields in 1,2,3 */
   Real B2c;
@@ -61,9 +61,9 @@ typedef struct Prim_s{
   Real V1;			/* Velocity in 1,2,3 */
   Real V2;
   Real V3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
   Real P;			/* pressure */
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
   Real B1c;                     /* cell centered magnetic fields in 1,2,3 */
   Real B2c;
@@ -84,9 +84,9 @@ typedef struct Cons1D_s{
   Real Mx;			/* Momenta in X,Y,Z.  Use X,Y,Z now instead  */
   Real My;                      /* of 1,2,3 since this structure can contain */
   Real Mz;                      /* a slice in any dimension: 1,2,or 3        */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
   Real E;			/* Total energy density */
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
@@ -106,9 +106,9 @@ typedef struct Prim1D_s{
   Real Vx;			/* Velocity in X,Y,Z */
   Real Vy;
   Real Vz;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
   Real P;			/* pressure */
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
