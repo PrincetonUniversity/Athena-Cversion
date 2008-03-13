@@ -1899,9 +1899,9 @@ static void send_ix1(Grid *pG, int var_flag)
           *(pd++) = pG->B2i[k][j][i];
           *(pd++) = pG->B3i[k][j][i];
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           *(pd++) = pq->E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
 #endif
@@ -1986,9 +1986,9 @@ static void send_ox1(Grid *pG, int var_flag)
           *(pd++) = pG->B2i[k][j][i];
           *(pd++) = pG->B3i[k][j][i];
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           *(pd++) = pq->E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
 #endif
@@ -2073,9 +2073,9 @@ static void send_ix2(Grid *pG, int var_flag)
           *(pd++) = pG->B2i[k][j][i];
           *(pd++) = pG->B3i[k][j][i];
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           *(pd++) = pq->E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
 #endif
@@ -2161,9 +2161,9 @@ static void send_ox2(Grid *pG, int var_flag)
           *(pd++) = pG->B2i[k][j][i];
           *(pd++) = pG->B3i[k][j][i];
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           *(pd++) = pq->E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
 #endif
@@ -2249,9 +2249,9 @@ static void send_ix3(Grid *pG, int var_flag)
           *(pd++) = pG->B2i[k][j][i];
           *(pd++) = pG->B3i[k][j][i];
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           *(pd++) = pq->E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
 #endif
@@ -2337,9 +2337,9 @@ static void send_ox3(Grid *pG, int var_flag)
           *(pd++) = pG->B2i[k][j][i];
           *(pd++) = pG->B3i[k][j][i];
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           *(pd++) = pq->E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
 #endif
@@ -2429,9 +2429,9 @@ static void receive_ix1(Grid *pG, int var_flag, MPI_Request *prq)
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pq->E = *(pd++);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
 #endif
@@ -2512,9 +2512,9 @@ static void receive_ox1(Grid *pG, int var_flag, MPI_Request *prq)
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pq->E = *(pd++);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
 #endif
@@ -2595,9 +2595,9 @@ static void receive_ix2(Grid *pG, int var_flag, MPI_Request *prq)
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pq->E = *(pd++);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
 #endif
@@ -2678,9 +2678,9 @@ static void receive_ox2(Grid *pG, int var_flag, MPI_Request *prq)
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pq->E = *(pd++);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
 #endif
@@ -2761,9 +2761,9 @@ static void receive_ix3(Grid *pG, int var_flag, MPI_Request *prq)
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pq->E = *(pd++);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
 #endif
@@ -2844,9 +2844,9 @@ static void receive_ox3(Grid *pG, int var_flag, MPI_Request *prq)
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pq->E = *(pd++);
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
 #endif
