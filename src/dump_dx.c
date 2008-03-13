@@ -33,7 +33,7 @@ void dump_dx(Grid *pGrid, Domain *pD, Output *pOut)
      "1-Momentum",
      "2-Momentum",
      "3-Momentum"
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
      ,"Energy Density"
 #endif
 #ifdef MHD
