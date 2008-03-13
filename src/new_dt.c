@@ -52,9 +52,9 @@ void new_dt(Grid *pGrid)
       p = MAX(Gamma_1*(pGrid->U[k][j][i].E - 0.5*pGrid->U[k][j][i].d*qsq
               - 0.5*bsq), TINY_NUMBER);
       asq = Gamma*p*di;
-#else
+#elif defined ISOTHERMAL
       asq = Iso_csound2;
-#endif /* ADIABATIC */
+#endif /* EOS */
 /* compute fast magnetosonic speed squared in each direction */
       tsum = bsq*di + asq;
       tdif = bsq*di - asq;
@@ -69,9 +69,9 @@ void new_dt(Grid *pGrid)
       p = MAX(Gamma_1*(pGrid->U[k][j][i].E - 0.5*pGrid->U[k][j][i].d*qsq),
               TINY_NUMBER);
       asq = Gamma*p*di;
-#else
+#elif defined ISOTHERMAL
       asq = Iso_csound2;
-#endif /* ADIABATIC */
+#endif /* EOS */
 /* compute fast magnetosonic speed squared in each direction */
       cf1sq = asq;
       cf2sq = asq;
