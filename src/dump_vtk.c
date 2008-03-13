@@ -126,7 +126,7 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Write total energy */
 
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
   fprintf(pfile,"\nSCALARS total_energy float\n");
   fprintf(pfile,"LOOKUP_TABLE default\n");
   for (k=kl; k<=ku; k++) {
