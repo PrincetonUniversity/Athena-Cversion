@@ -774,7 +774,7 @@ Real expr_M2(const Grid *pG, const int i, const int j, const int k) {
 Real expr_M3(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3;
 }
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 Real expr_E(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].E;
 }
@@ -816,20 +816,20 @@ Real expr_V3(const Grid *pG, const int i, const int j, const int k) {
 Real expr_P(const Grid *pG, const int i, const int j, const int k) {
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
-#else
+#elif defined ADIABATIC
   Gas *gp = &(pG->U[k][j][i]);
   return Gamma_1*(gp->E 
 #ifdef MHD
 		  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
 		  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
-#endif /* ISOTHERMAL */
+#endif
 }
 
 /*--------------------------------------------------------------------------- */
 /* expr_cs2: sound speed squared  */
 
-#ifndef ISOTHERMAL
+#ifdef ADIABATIC
 Real expr_cs2(const Grid *pG, const int i, const int j, const int k)
 {
   Gas *gp = &(pG->U[k][j][i]);
@@ -839,7 +839,7 @@ Real expr_cs2(const Grid *pG, const int i, const int j, const int k)
 #endif /* MHD */
 	  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d)/gp->d);
 }
-#endif /* ISOTHERMAL */
+#endif /* ADIABATIC */
 
 
 /*--------------------------------------------------------------------------- */
@@ -876,10 +876,10 @@ static Gasfun_t getexpr(const int n, const char *expr)
     return expr_M2;
   else if (strcmp(expr,"M3")==0)
     return expr_M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
   else if (strcmp(expr,"E")==0)
     return expr_E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
   else if (strcmp(expr,"B1c")==0)
     return expr_B1c;
@@ -898,10 +898,10 @@ static Gasfun_t getexpr(const int n, const char *expr)
     return expr_V3;
   else if (strcmp(expr,"P")==0)
     return expr_P;
-#ifndef ISOTHERMAL
+#ifdef ADIABATIC
   else if (strcmp(expr,"cs2")==0)
     return  expr_cs2;
-#endif /* ISOTHERMAL */
+#endif /* ADIABATIC */
 #ifdef ADIABATIC
   else if (strcmp(expr,"S")==0)
     return  expr_S;
