@@ -107,7 +107,7 @@ static void output_vtk_2d(Grid *pGrid, Domain *pD, Output *pOut)
 /* close file and free memory */
 
   fclose(pfile);
-  free_2d_array((void **)data2d);
+  free_2d_array(data2d);
   return;
 }
 
@@ -176,6 +176,6 @@ static void output_vtk_3d(Grid *pGrid, Domain *pD, Output *pOut)
 /* close file and free memory */
 
   fclose(pfile);
-  free_3d_array((void ***)data3d);
+  free_3d_array(data3d);
   return;
 }
