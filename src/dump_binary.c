@@ -79,9 +79,11 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
 #ifdef ISOTHERMAL
   dat[0] = (float)0.0;
   dat[1] = (float)Iso_csound;
-#else
+#elif defined ADIABATIC
   dat[0] = (float)Gamma_1 ;
   dat[1] = (float)0.0;
+#else
+  dat[0] = dat[1] = 0.0; /* Anything better to put here? */
 #endif
   fwrite(dat,sizeof(float),2,p_binfile);
 
