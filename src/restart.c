@@ -129,7 +129,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
     }
   }
 
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 /* Read energy density */
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
@@ -371,7 +371,7 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     nbuf = 0;
   }
 
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 /* Write energy density */
   fprintf(fp,"\nENERGY\n");
   for (k=ks; k<=ke; k++) {
@@ -480,6 +480,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   problem_write_restart(pG, pD, fp);
 
   fclose(fp);
+
+  free_1d_array(buf);
 
   return;
 }
