@@ -172,9 +172,9 @@ void integrate_3d_vl(Grid *pG)
 	Ul[i].Mx = pG->U[k][j][i-1].M1;
 	Ul[i].My = pG->U[k][j][i-1].M2;
 	Ul[i].Mz = pG->U[k][j][i-1].M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ul[i].E = pG->U[k][j][i-1].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         B1_x1Face[k][j][i] = pG->B1i[k][j][i];
 	Ul[i].By = pG->U[k][j][i-1].B2c;
@@ -185,9 +185,9 @@ void integrate_3d_vl(Grid *pG)
 	Ur[i].Mx = pG->U[k][j][i].M1;
 	Ur[i].My = pG->U[k][j][i].M2;
 	Ur[i].Mz = pG->U[k][j][i].M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ur[i].E = pG->U[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 	Ur[i].By = pG->U[k][j][i].B2c;
 	Ur[i].Bz = pG->U[k][j][i].B3c;
@@ -222,9 +222,9 @@ void integrate_3d_vl(Grid *pG)
 	Ul[j].Mx = pG->U[k][j-1][i].M2;
 	Ul[j].My = pG->U[k][j-1][i].M3;
 	Ul[j].Mz = pG->U[k][j-1][i].M1;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ul[j].E = pG->U[k][j-1][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         B2_x2Face[k][j][i] = pG->B2i[k][j][i];
 	Ul[j].By = pG->U[k][j-1][i].B3c;
@@ -235,9 +235,9 @@ void integrate_3d_vl(Grid *pG)
 	Ur[j].Mx = pG->U[k][j][i].M2;
 	Ur[j].My = pG->U[k][j][i].M3;
 	Ur[j].Mz = pG->U[k][j][i].M1;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ur[j].E = pG->U[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 	Ur[j].By = pG->U[k][j][i].B3c;
 	Ur[j].Bz = pG->U[k][j][i].B1c;
@@ -272,9 +272,9 @@ void integrate_3d_vl(Grid *pG)
 	Ul[k].Mx = pG->U[k-1][j][i].M3;
 	Ul[k].My = pG->U[k-1][j][i].M1;
 	Ul[k].Mz = pG->U[k-1][j][i].M2;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ul[k].E = pG->U[k-1][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         B3_x3Face[k][j][i] = pG->B3i[k][j][i];
 	Ul[k].By = pG->U[k-1][j][i].B1c;
@@ -285,9 +285,9 @@ void integrate_3d_vl(Grid *pG)
 	Ur[k].Mx = pG->U[k][j][i].M3;
 	Ur[k].My = pG->U[k][j][i].M1;
 	Ur[k].Mz = pG->U[k][j][i].M2;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ur[k].E = pG->U[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 	Ur[k].By = pG->U[k][j][i].B1c;
 	Ur[k].Bz = pG->U[k][j][i].B2c;
@@ -387,9 +387,9 @@ void integrate_3d_vl(Grid *pG)
         Uhalf[k][j][i].M1  -= q1*(x1Flux[k][j][i+1].Mx-x1Flux[k][j][i].Mx);
         Uhalf[k][j][i].M2  -= q1*(x1Flux[k][j][i+1].My-x1Flux[k][j][i].My);
         Uhalf[k][j][i].M3  -= q1*(x1Flux[k][j][i+1].Mz-x1Flux[k][j][i].Mz);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Uhalf[k][j][i].E   -= q1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           Uhalf[k][j][i].s[n] -= q1*(x1Flux[k][j][i+1].s[n]
@@ -410,9 +410,9 @@ void integrate_3d_vl(Grid *pG)
         Uhalf[k][j][i].M1  -= q2*(x2Flux[k][j+1][i].Mz-x2Flux[k][j][i].Mz);
         Uhalf[k][j][i].M2  -= q2*(x2Flux[k][j+1][i].Mx-x2Flux[k][j][i].Mx);
         Uhalf[k][j][i].M3  -= q2*(x2Flux[k][j+1][i].My-x2Flux[k][j][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Uhalf[k][j][i].E   -= q2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           Uhalf[k][j][i].s[n] -= q2*(x2Flux[k][j+1][i].s[n]
@@ -433,9 +433,9 @@ void integrate_3d_vl(Grid *pG)
         Uhalf[k][j][i].M1  -= q3*(x3Flux[k+1][j][i].My-x3Flux[k][j][i].My);
         Uhalf[k][j][i].M2  -= q3*(x3Flux[k+1][j][i].Mz-x3Flux[k][j][i].Mz);
         Uhalf[k][j][i].M3  -= q3*(x3Flux[k+1][j][i].Mx-x3Flux[k][j][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Uhalf[k][j][i].E   -= q3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           Uhalf[k][j][i].s[n] -= q3*(x3Flux[k+1][j][i].s[n]
@@ -462,7 +462,7 @@ void integrate_3d_vl(Grid *pG)
           phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
           Uhalf[k][j][i].M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           Uhalf[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
                                 + x1Flux[k][j][i+1].d*(phir - phic));
 #endif
@@ -470,7 +470,7 @@ void integrate_3d_vl(Grid *pG)
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
           Uhalf[k][j][i].M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           Uhalf[k][j][i].E -= q2*(x2Flux[k][j  ][i].d*(phic - phil)
                                 + x2Flux[k][j+1][i].d*(phir - phic));
 #endif
@@ -478,7 +478,7 @@ void integrate_3d_vl(Grid *pG)
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
           Uhalf[k][j][i].M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           Uhalf[k][j][i].E -= q3*(x3Flux[k  ][j][i].d*(phic - phil)
                                 + x3Flux[k+1][j][i].d*(phir - phic));
 #endif
@@ -501,7 +501,7 @@ void integrate_3d_vl(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
 
         Uhalf[k][j][i].M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Uhalf[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
                               + x1Flux[k][j][i+1].d*(phir - phic));
 #endif
@@ -510,7 +510,7 @@ void integrate_3d_vl(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
 
         Uhalf[k][j][i].M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Uhalf[k][j][i].E -= q2*(x2Flux[k][j  ][i].d*(phic - phil)
                               + x2Flux[k][j+1][i].d*(phir - phic));
 #endif
@@ -519,7 +519,7 @@ void integrate_3d_vl(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
 
         Uhalf[k][j][i].M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Uhalf[k][j][i].E -= q3*(x3Flux[k  ][j][i].d*(phic - phil)
                               + x3Flux[k+1][j][i].d*(phir - phic));
 #endif
@@ -542,9 +542,9 @@ void integrate_3d_vl(Grid *pG)
         U1d[i].Mx = Uhalf[k][j][i].M1;
         U1d[i].My = Uhalf[k][j][i].M2;
         U1d[i].Mz = Uhalf[k][j][i].M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         U1d[i].E  = Uhalf[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         U1d[i].By = Uhalf[k][j][i].B2c;
         U1d[i].Bz = Uhalf[k][j][i].B3c;
@@ -590,9 +590,9 @@ void integrate_3d_vl(Grid *pG)
         U1d[j].Mx = Uhalf[k][j][i].M2;
         U1d[j].My = Uhalf[k][j][i].M3;
         U1d[j].Mz = Uhalf[k][j][i].M1;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         U1d[j].E  = Uhalf[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         U1d[j].By = Uhalf[k][j][i].B3c;
         U1d[j].Bz = Uhalf[k][j][i].B1c;
@@ -638,9 +638,9 @@ void integrate_3d_vl(Grid *pG)
         U1d[k].Mx = Uhalf[k][j][i].M3;
         U1d[k].My = Uhalf[k][j][i].M1;
         U1d[k].Mz = Uhalf[k][j][i].M2;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         U1d[k].E  = Uhalf[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         U1d[k].By = Uhalf[k][j][i].B1c;
         U1d[k].Bz = Uhalf[k][j][i].B2c;
@@ -872,7 +872,7 @@ void integrate_3d_vl(Grid *pG)
           phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
           pG->U[k][j][i].M1 -= dtodx1*(phir-phil)*Uhalf[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil)
                                     + x1Flux[k][j][i+1].d*(phir - phic));
 #endif
@@ -881,7 +881,7 @@ void integrate_3d_vl(Grid *pG)
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
           pG->U[k][j][i].M2 -= dtodx2*(phir-phil)*Uhalf[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil)
                                     + x2Flux[k][j+1][i].d*(phir - phic));
 #endif
@@ -890,7 +890,7 @@ void integrate_3d_vl(Grid *pG)
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
           pG->U[k][j][i].M3 -= dtodx3*(phir-phil)*Uhalf[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil)
                                     + x3Flux[k+1][j][i].d*(phir - phic));
 #endif
@@ -943,10 +943,10 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx1*(flx_m3r - flx_m3l);
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
                                     x1Flux[k][j][i+1].d*(phir - phic));
-#endif /* ADIABATIC */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -988,10 +988,10 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx2*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx2*(flx_m3r - flx_m3l);
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                     x2Flux[k][j+1][i].d*(phir - phic));
-#endif /* ADIABATIC */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -1033,10 +1033,10 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx3*(flx_m3r - flx_m3l);
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                     x3Flux[k+1][j][i].d*(phir - phic));
-#endif /* ADIABATIC */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -1065,9 +1065,9 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M1-=dtodx1*(x1Flux[k][j][i+1].Mx-x1Flux[k][j][i].Mx);
         pG->U[k][j][i].M2-=dtodx1*(x1Flux[k][j][i+1].My-x1Flux[k][j][i].My);
         pG->U[k][j][i].M3-=dtodx1*(x1Flux[k][j][i+1].Mz-x1Flux[k][j][i].Mz);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -=dtodx1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx1*(x1Flux[k][j][i+1].s[n]
@@ -1088,9 +1088,9 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M1-=dtodx2*(x2Flux[k][j+1][i].Mz-x2Flux[k][j][i].Mz);
         pG->U[k][j][i].M2-=dtodx2*(x2Flux[k][j+1][i].Mx-x2Flux[k][j][i].Mx);
         pG->U[k][j][i].M3-=dtodx2*(x2Flux[k][j+1][i].My-x2Flux[k][j][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -=dtodx2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
@@ -1112,9 +1112,9 @@ void integrate_3d_vl(Grid *pG)
         pG->U[k][j][i].M1-=dtodx3*(x3Flux[k+1][j][i].My-x3Flux[k][j][i].My);
         pG->U[k][j][i].M2-=dtodx3*(x3Flux[k+1][j][i].Mz-x3Flux[k][j][i].Mz);
         pG->U[k][j][i].M3-=dtodx3*(x3Flux[k+1][j][i].Mx-x3Flux[k][j][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -=dtodx3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
@@ -1682,9 +1682,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1-=dtodx1*x1Flux[k][j][i].Mx;
             pG->U[k][j][i].M2-=dtodx1*x1Flux[k][j][i].My;
             pG->U[k][j][i].M3-=dtodx1*x1Flux[k][j][i].Mz;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E -=dtodx1*x1Flux[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j][i+1] & correct_hydro_x1) {
@@ -1693,9 +1693,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1+=dtodx1*x1Flux[k][j][i+1].Mx;
             pG->U[k][j][i].M2+=dtodx1*x1Flux[k][j][i+1].My;
             pG->U[k][j][i].M3+=dtodx1*x1Flux[k][j][i+1].Mz;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E +=dtodx1*x1Flux[k][j][i+1].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j][i] & correct_hydro_x2) {
@@ -1704,9 +1704,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1-=dtodx2*x2Flux[k][j][i].Mz;
             pG->U[k][j][i].M2-=dtodx2*x2Flux[k][j][i].Mx;
             pG->U[k][j][i].M3-=dtodx2*x2Flux[k][j][i].My;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E -=dtodx2*x2Flux[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j+1][i] & correct_hydro_x2) {
@@ -1715,9 +1715,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1+=dtodx2*x2Flux[k][j+1][i].Mz;
             pG->U[k][j][i].M2+=dtodx2*x2Flux[k][j+1][i].Mx;
             pG->U[k][j][i].M3+=dtodx2*x2Flux[k][j+1][i].My;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E +=dtodx2*x2Flux[k][j+1][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j][i] & correct_hydro_x3) {
@@ -1726,9 +1726,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1-=dtodx3*x3Flux[k][j][i].My;
             pG->U[k][j][i].M2-=dtodx3*x3Flux[k][j][i].Mz;
             pG->U[k][j][i].M3-=dtodx3*x3Flux[k][j][i].Mx;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E -=dtodx3*x3Flux[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k+1][j][i] & correct_hydro_x3) {
@@ -1737,9 +1737,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1+=dtodx3*x3Flux[k+1][j][i].My;
             pG->U[k][j][i].M2+=dtodx3*x3Flux[k+1][j][i].Mz;
             pG->U[k][j][i].M3+=dtodx3*x3Flux[k+1][j][i].Mx;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E +=dtodx3*x3Flux[k+1][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
         }
       }
@@ -1781,17 +1781,17 @@ static void first_order_correction(const Grid *pG)
             Ul[i].Mx = Uhalf[k][j][i-1].M1;
             Ul[i].My = Uhalf[k][j][i-1].M2;
             Ul[i].Mz = Uhalf[k][j][i-1].M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             Ul[i].E = Uhalf[k][j][i-1].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
             Ur[i].d = Uhalf[k][j][i].d;
             Ur[i].Mx = Uhalf[k][j][i].M1;
             Ur[i].My = Uhalf[k][j][i].M2;
             Ur[i].Mz = Uhalf[k][j][i].M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             Ur[i].E = Uhalf[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
             Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B1_x1Face[k][j][i]);
             Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B1_x1Face[k][j][i]);
 
@@ -1804,17 +1804,17 @@ static void first_order_correction(const Grid *pG)
             Ul[i].Mx = Uhalf[k][j-1][i].M2;
             Ul[i].My = Uhalf[k][j-1][i].M3;
             Ul[i].Mz = Uhalf[k][j-1][i].M1;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             Ul[i].E = Uhalf[k][j-1][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
             Ur[i].d = Uhalf[k][j][i].d;
             Ur[i].Mx = Uhalf[k][j][i].M2;
             Ur[i].My = Uhalf[k][j][i].M3;
             Ur[i].Mz = Uhalf[k][j][i].M1;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             Ur[i].E = Uhalf[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
             Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B2_x2Face[k][j][i]);
             Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B2_x2Face[k][j][i]);
 
@@ -1827,17 +1827,17 @@ static void first_order_correction(const Grid *pG)
             Ul[i].Mx = Uhalf[k-1][j][i].M3;
             Ul[i].My = Uhalf[k-1][j][i].M1;
             Ul[i].Mz = Uhalf[k-1][j][i].M2;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             Ul[i].E = Uhalf[k-1][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
             Ur[i].d = Uhalf[k][j][i].d;
             Ur[i].Mx = Uhalf[k][j][i].M3;
             Ur[i].My = Uhalf[k][j][i].M1;
             Ur[i].Mz = Uhalf[k][j][i].M2;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             Ur[i].E = Uhalf[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
             Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B3_x3Face[k][j][i]);
             Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B3_x3Face[k][j][i]);
 
@@ -2042,9 +2042,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1+=dtodx1*x1Flux[k][j][i].Mx;
             pG->U[k][j][i].M2+=dtodx1*x1Flux[k][j][i].My;
             pG->U[k][j][i].M3+=dtodx1*x1Flux[k][j][i].Mz;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E +=dtodx1*x1Flux[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j][i+1] & correct_hydro_x1) {
@@ -2053,9 +2053,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1-=dtodx1*x1Flux[k][j][i+1].Mx;
             pG->U[k][j][i].M2-=dtodx1*x1Flux[k][j][i+1].My;
             pG->U[k][j][i].M3-=dtodx1*x1Flux[k][j][i+1].Mz;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E -=dtodx1*x1Flux[k][j][i+1].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j][i] & correct_hydro_x2) {
@@ -2064,9 +2064,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1+=dtodx2*x2Flux[k][j][i].Mz;
             pG->U[k][j][i].M2+=dtodx2*x2Flux[k][j][i].Mx;
             pG->U[k][j][i].M3+=dtodx2*x2Flux[k][j][i].My;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E +=dtodx2*x2Flux[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j+1][i] & correct_hydro_x2) {
@@ -2075,9 +2075,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1-=dtodx2*x2Flux[k][j+1][i].Mz;
             pG->U[k][j][i].M2-=dtodx2*x2Flux[k][j+1][i].Mx;
             pG->U[k][j][i].M3-=dtodx2*x2Flux[k][j+1][i].My;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E -=dtodx2*x2Flux[k][j+1][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k][j][i] & correct_hydro_x3) {
@@ -2086,9 +2086,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1+=dtodx3*x3Flux[k][j][i].My;
             pG->U[k][j][i].M2+=dtodx3*x3Flux[k][j][i].Mz;
             pG->U[k][j][i].M3+=dtodx3*x3Flux[k][j][i].Mx;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E +=dtodx3*x3Flux[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
 
           if (Ineg[k+1][j][i] & correct_hydro_x3) {
@@ -2097,9 +2097,9 @@ static void first_order_correction(const Grid *pG)
             pG->U[k][j][i].M1-=dtodx3*x3Flux[k+1][j][i].My;
             pG->U[k][j][i].M2-=dtodx3*x3Flux[k+1][j][i].Mz;
             pG->U[k][j][i].M3-=dtodx3*x3Flux[k+1][j][i].Mx;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
             pG->U[k][j][i].E -=dtodx3*x3Flux[k+1][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
           }
         }
       }
