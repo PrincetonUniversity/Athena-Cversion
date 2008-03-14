@@ -71,7 +71,7 @@ static Real **pU=NULL;
 static Real **tEyiib=NULL, **tEyoib=NULL, *FlxEy=NULL;
 #endif
 #if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
-static Real **Uhalf=NULL;
+static Real **Uhalf=NULL, *Ehalf=NULL;
 #endif
 
 /*==============================================================================
@@ -84,7 +84,7 @@ static Real **Uhalf=NULL;
  *============================================================================*/
 
 void CompRemapFlux(const RVars U[], const Real eps,
-     const int jl, const int ju, RVars Flux[]);
+                   const int jinner, const int jouter, RVars Flux[]);
 static double ran2(long int *idum);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const Grid *pG, const int i, const int j, const int k);
@@ -294,7 +294,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif /* MHD */
 
 #if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
-  if ((Uhalf = (Real**)calloc_2d_array(nmax, NREMAP, sizeof(Real))) == NULL)
+  if ((Uhalf = (Real**)calloc_2d_array(Nx2m, NREMAP, sizeof(Real))) == NULL)
+    ath_error("[hgb]: malloc returned a NULL pointer\n");
+
+  if ((Ehalf = (Real*)malloc(Nx2m*sizeof(Real))) == NULL)
     ath_error("[hgb]: malloc returned a NULL pointer\n");
 #endif
 
@@ -366,6 +369,9 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 #if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
   if((Uhalf = (Real**)calloc_2d_array(Nx2m, NREMAP, sizeof(Real))) == NULL)
     ath_error("[read_restart]: malloc returned a NULL pointer\n");
+
+  if ((Ehalf = (Real*)malloc(Nx2m*sizeof(Real))) == NULL)
+    ath_error("[hgb]: malloc returned a NULL pointer\n");
 #endif
 
   return;
@@ -885,23 +891,34 @@ void RemapEy(Grid *pG, Real ***emfy)
 
 #ifdef SECOND_ORDER
 void CompRemapFlux(const RVars U[], const Real eps,
-                   const int jl, const int ju, RVars Flux[])
+                   const int jinner, const int jouter, RVars Flux[])
 {
-  int j,n;
+  int j,jl,ju,n;
   Real dUc[NREMAP],dUl[NREMAP],dUr[NREMAP],dUm[NREMAP];
   Real lim_slope;
   Real *pFlux;
 
+/* jinner,jouter are index range over which flux must be returned.  Set loop
+ * limits depending on direction of upwind differences  */
+
+  if (eps > 0.0) { /* eps always > 0 for inner i boundary */
+    jl = jinner-1;
+    ju = jouter-1;
+  } else {         /* eps always < 0 for outer i boundary */
+    jl = jinner;
+    ju = jouter;
+  }
+
 /*--- Step 1.
  * Set pointer to array elements of input conserved variables */
 
-  for (j=jl-2; j<=ju+2; j++) pU[j] = (Real*)&(U[j]);
+  for (j=jl-1; j<=ju+1; j++) pU[j] = (Real*)&(U[j]);
 
 /*--- Step 2.
  * Compute centered, L/R, and van Leer differences of conserved variables
  * Note we access contiguous array elements by indexing pointers for speed */
 
-  for (j=jl-1; j<=ju+1; j++) {
+  for (j=jl; j<=ju; j++) {
     for (n=0; n<(NREMAP); n++) {
       dUc[n] = pU[j+1][n] - pU[j-1][n];
       dUl[n] = pU[j  ][n] - pU[j-1][n];
@@ -935,7 +952,7 @@ void CompRemapFlux(const RVars U[], const Real eps,
       }
     }
 
-  }  /* end loop over [jl-1,ju+1] */
+  }  /* end loop over [jl,ju] */
 
   return;
 }
@@ -991,33 +1008,44 @@ void CompEyFlux(const Real *E, const Real eps,
  * U must be initialized over [il-3:iu+3] */
 
 #if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
-void CompRemapFlux(const Gas U[], const Real eps,
-                   const int jl, const int ju, Gas Flux[])
+void CompRemapFlux(const RVars U[], const Real eps,
+                   const int jinner, const int jouter, RVars Flux[])
 {
-  int j,n;
+  int j,jl,ju,n;
   Real lim_slope,qa,qb,qc,qx;
   Real d2Uc[NREMAP],d2Ul[NREMAP],d2Ur[NREMAP],d2U [NREMAP],d2Ulim[NREMAP];
   Real Ulv[NREMAP],Urv[NREMAP],dU[NREMAP],U6[NREMAP];
   Real *pFlux;
 
+/* jinner,jouter are index range over which flux must be returned.  Set loop
+ * limits depending on direction of upwind differences  */
+
+  if (eps > 0.0) { /* eps always > 0 for inner i boundary */
+    jl = jinner-1;
+    ju = jouter-1;
+  } else {         /* eps always < 0 for outer i boundary */
+    jl = jinner;
+    ju = jouter;
+  }
+
 /*--- Step 1.
  * Set pointer to array elements of input conserved variables */
 
-  for (i=il-3; i<=iu+3; i++) pU[i] = (Real*)&(U[i]);
+  for (j=jl-2; j<=ju+2; j++) pU[j] = (Real*)&(U[j]);
 
 /*--- Step 2. 
  * Compute interface states (CS eqns 12-15) over entire 1D pencil.  Using usual
- * Athena notation that index i for face-centered quantities denotes L-edge
- * (interface i-1/2), then Uhalf[i] = U[i-1/2]. */
+ * Athena notation that index j for face-centered quantities denotes L-edge
+ * (interface j-1/2), then Uhalf[j] = U[j-1/2]. */
 
-  for (i=il-1; i<=iu+2; i++) {
+  for (j=jl; j<=ju+1; j++) {
     for (n=0; n<(NREMAP); n++) {
-      Uhalf[i][n]=(7.0*(pU[i-1][n]+pU[i][n]) - (pU[i-2][n]+pU[i+1][n]))/12.0;
+      Uhalf[j][n]=(7.0*(pU[j-1][n]+pU[j][n]) - (pU[j-2][n]+pU[j+1][n]))/12.0;
     }
     for (n=0; n<(NREMAP); n++) {
-      d2Uc[n] = 3.0*(pU[i-1][n] - 2.0*Uhalf[i][n] + pU[i][n]);
-      d2Ul[n] = (pU[i-2][n] - 2.0*pU[i-1][n] + pU[i  ][n]);
-      d2Ur[n] = (pU[i-1][n] - 2.0*pU[i  ][n] + pU[i+1][n]);
+      d2Uc[n] = 3.0*(pU[j-1][n] - 2.0*Uhalf[j][n] + pU[j][n]);
+      d2Ul[n] = (pU[j-2][n] - 2.0*pU[j-1][n] + pU[j  ][n]);
+      d2Ur[n] = (pU[j-1][n] - 2.0*pU[j  ][n] + pU[j+1][n]);
       d2Ulim[n] = 0.0;
       lim_slope = MIN(fabs(d2Ul[n]),fabs(d2Ur[n]));
       if (d2Uc[n] > 0.0 && d2Ul[n] > 0.0 && d2Ur[n] > 0.0) {
@@ -1028,34 +1056,34 @@ void CompRemapFlux(const Gas U[], const Real eps,
       }
     }
     for (n=0; n<(NREMAP); n++) {
-      Uhalf[i][n] = 0.5*((pU[i-1][n]+pU[i][n]) - d2Ulim[n]/3.0);
+      Uhalf[j][n] = 0.5*((pU[j-1][n]+pU[j][n]) - d2Ulim[n]/3.0);
     }
   }
 
 /*--- Step 3.
  * Compute L/R values
- * Ulv = U at left  side of cell-center = U[i-1/2] = a_{j,-} in CS
- * Urv = U at right side of cell-center = U[i+1/2] = a_{j,+} in CS
+ * Ulv = U at left  side of cell-center = U[j-1/2] = a_{j,-} in CS
+ * Urv = U at right side of cell-center = U[j+1/2] = a_{j,+} in CS
  */
 
-  for (i=il-1; i<=iu+1; i++) {
+  for (j=jl; j<=ju; j++) {
     for (n=0; n<(NREMAP); n++) {
-      Ulv[n] = Uhalf[i  ][n];
-      Urv[n] = Uhalf[i+1][n];
+      Ulv[n] = Uhalf[j  ][n];
+      Urv[n] = Uhalf[j+1][n];
     }
 
 /*--- Step 4.
  * Construct parabolic interpolant (CS eqn 16-19) */
 
     for (n=0; n<(NREMAP); n++) {
-      qa = (Urv[n]-pU[i][n])*(pU[i][n]-Ulv[n]);
-      qb = (pU[i-1][n]-pU[i][n])*(pU[i][n]-pU[i+1][n]);
+      qa = (Urv[n]-pU[j][n])*(pU[j][n]-Ulv[n]);
+      qb = (pU[j-1][n]-pU[j][n])*(pU[j][n]-pU[j+1][n]);
       if (qa <= 0.0 && qb <= 0.0) {
-        qc = 6.0*(pU[i][n] - 0.5*(Ulv[n]+Urv[n]));
+        qc = 6.0*(pU[j][n] - 0.5*(Ulv[n]+Urv[n]));
         d2U [n] = -2.0*qc;
-        d2Uc[n] = (pU[i-1][n] - 2.0*pU[i  ][n] + pU[i+1][n]);
-        d2Ul[n] = (pU[i-2][n] - 2.0*pU[i-1][n] + pU[i  ][n]);
-        d2Ur[n] = (pU[i  ][n] - 2.0*pU[i+1][n] + pU[i+2][n]);
+        d2Uc[n] = (pU[j-1][n] - 2.0*pU[j  ][n] + pU[j+1][n]);
+        d2Ul[n] = (pU[j-2][n] - 2.0*pU[j-1][n] + pU[j  ][n]);
+        d2Ur[n] = (pU[j  ][n] - 2.0*pU[j+1][n] + pU[j+2][n]);
         d2Ulim[n] = 0.0;
         lim_slope = MIN(fabs(d2Ul[n]),fabs(d2Ur[n]));
         lim_slope = MIN(fabs(d2Uc[n]),lim_slope);
@@ -1066,11 +1094,11 @@ void CompRemapFlux(const Gas U[], const Real eps,
           d2Ulim[n] = SIGN(d2U[n])*MIN(1.25*lim_slope,fabs(d2U[n]));
         }
         if (d2U[n] == 0.0) {
-          Ulv[n] = pU[i][n];
-          Urv[n] = pU[i][n];
+          Ulv[n] = pU[j][n];
+          Urv[n] = pU[j][n];
         } else {
-          Ulv[n] = pU[i][n] + (Ulv[n] - pU[i][n])*d2Ulim[n]/d2U[n];
-          Urv[n] = pU[i][n] + (Urv[n] - pU[i][n])*d2Ulim[n]/d2U[n];
+          Ulv[n] = pU[j][n] + (Ulv[n] - pU[j][n])*d2Ulim[n]/d2U[n];
+          Urv[n] = pU[j][n] + (Urv[n] - pU[j][n])*d2Ulim[n]/d2U[n];
         }
       }
     }
@@ -1080,48 +1108,39 @@ void CompRemapFlux(const Gas U[], const Real eps,
  * cell-centered vals */
 
     for (n=0; n<(NREMAP); n++) {
-      qa = (Urv[n]-pU[i][n])*(pU[i][n]-Ulv[n]);
+      qa = (Urv[n]-pU[j][n])*(pU[j][n]-Ulv[n]);
       qb = Urv[n]-Ulv[n];
-      qc = 6.0*(pU[i][n] - 0.5*(Ulv[n]+Urv[n]));
+      qc = 6.0*(pU[j][n] - 0.5*(Ulv[n]+Urv[n]));
       if (qa <= 0.0) {
-        Ulv[n] = pU[i][n];
-        Urv[n] = pU[i][n];
+        Ulv[n] = pU[j][n];
+        Urv[n] = pU[j][n];
       } else if ((qb*qc) > (qb*qb)) {
-        Ulv[n] = 3.0*pU[i][n] - 2.0*Urv[n];
+        Ulv[n] = 3.0*pU[j][n] - 2.0*Urv[n];
       } else if ((qb*qc) < -(qb*qb)) {
-        Urv[n] = 3.0*pU[i][n] - 2.0*Ulv[n];
+        Urv[n] = 3.0*pU[j][n] - 2.0*Ulv[n];
       }
     }
-
-/*
-    for (n=0; n<(NREMAP); n++) {
-      Ulv[n] = MAX(MIN(pU[i][n],pU[i-1][n]),Ulv[n]);
-      Ulv[n] = MIN(MAX(pU[i][n],pU[i-1][n]),Ulv[n]);
-      Urv[n] = MAX(MIN(pU[i][n],pU[i+1][n]),Urv[n]);
-      Urv[n] = MIN(MAX(pU[i][n],pU[i+1][n]),Urv[n]);
-    }
-*/
 
 /*--- Step 6.
  * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
 
     for (n=0; n<(NREMAP); n++) {
       dU[n] = Urv[n] - Ulv[n];
-      U6[n] = 6.0*(pU[i][n] - 0.5*(Ulv[n] + Urv[n]));
+      U6[n] = 6.0*(pU[j][n] - 0.5*(Ulv[n] + Urv[n]));
     }
 
 /*--- Step 7.
  * Integrate parabolic interpolation function over eps */
 
     if (eps > 0.0) { /* eps always > 0 for inner i boundary */
-      pFlux = (Real *) &(Flux[i+1]);
+      pFlux = (Real *) &(Flux[j+1]);
       qx = TWO_3RDS*eps;
       for (n=0; n<(NREMAP); n++) {
         pFlux[n] = eps*(Urv[n] - 0.75*qx*(dU[n] - (1.0 - qx)*U6[n]));
       }
 
     } else {         /* eps always < 0 for outer i boundary */
-      pFlux = (Real *) &(Flux[i]);
+      pFlux = (Real *) &(Flux[j]);
       qx = -TWO_3RDS*eps;
       for (n=0; n<(NREMAP); n++) {
         pFlux[n] = eps*(Ulv[n] + 0.75*qx*(dU[n] + (1.0 - qx)*U6[n]));
@@ -1131,6 +1150,105 @@ void CompRemapFlux(const Gas U[], const Real eps,
 
   return;
 }
+
+/*------------------------------------------------------------------------------
+ * CompEyFlux(): second order reconstruction for Ey, nearly identical to
+ *  CompeRemapFlux() above.  jinner/jouter are range of indices over which flux
+ *  is needed in calling function */
+
+#ifdef MHD
+void CompEyFlux(const Real *E, const Real eps,
+                const int jinner, const int jouter, Real *FluxE)
+{
+  int j,jl,ju;
+  Real d2Ec,d2El,d2Er,d2E,d2Elim,lim_slope,Elv,Erv,dE,E6,qa,qb,qc,qx;
+
+/* jinner,jouter are index range over which flux must be returned.  Set loop
+ * limits depending on direction of upwind differences  */
+
+  if (eps > 0.0) { /* eps always > 0 for inner i boundary */
+    jl = jinner-1;
+    ju = jouter-1;
+  } else {         /* eps always < 0 for outer i boundary */
+    jl = jinner;
+    ju = jouter;
+  }
+
+  for (j=jl; j<=ju+1; j++) {
+    Ehalf[j]=(7.0*(E[j-1]+E[j]) - (E[j-2]+E[j+1]))/12.0;
+    d2Ec = 3.0*(E[j-1] - 2.0*Ehalf[j] + E[j]);
+    d2El = (E[j-2] - 2.0*E[j-1] + E[j  ]);
+    d2Er = (E[j-1] - 2.0*E[j  ] + E[j+1]);
+    d2Elim = 0.0;
+    lim_slope = MIN(fabs(d2El),fabs(d2Er));
+    if (d2Ec > 0.0 && d2El > 0.0 && d2Er > 0.0) {
+      d2Elim = SIGN(d2Ec)*MIN(1.25*lim_slope,fabs(d2Ec));
+    }
+    if (d2Ec < 0.0 && d2El < 0.0 && d2Er < 0.0) {
+      d2Elim = SIGN(d2Ec)*MIN(1.25*lim_slope,fabs(d2Ec));
+    }
+    Ehalf[j] = 0.5*((E[j-1]+E[j]) - d2Elim/3.0);
+  }
+
+  for (j=jl; j<=ju; j++) {
+    Elv = Ehalf[j  ];
+    Erv = Ehalf[j+1];
+
+    qa = (Erv-E[j])*(E[j]-Elv);
+    qb = (E[j-1]-E[j])*(E[j]-E[j+1]);
+    if (qa <= 0.0 && qb <= 0.0) {
+      qc = 6.0*(E[j] - 0.5*(Elv+Erv));
+      d2E  = -2.0*qc;
+      d2Ec = (E[j-1] - 2.0*E[j  ] + E[j+1]);
+      d2El = (E[j-2] - 2.0*E[j-1] + E[j  ]);
+      d2Er = (E[j  ] - 2.0*E[j+1] + E[j+2]);
+      d2Elim = 0.0;
+      lim_slope = MIN(fabs(d2El),fabs(d2Er));
+      lim_slope = MIN(fabs(d2Ec),lim_slope);
+      if (d2Ec > 0.0 && d2El > 0.0 && d2Er > 0.0 && d2E > 0.0) {
+        d2Elim = SIGN(d2E)*MIN(1.25*lim_slope,fabs(d2E));
+      }
+      if (d2Ec < 0.0 && d2El < 0.0 && d2Er < 0.0 && d2E < 0.0) {
+        d2Elim = SIGN(d2E)*MIN(1.25*lim_slope,fabs(d2E));
+      }
+      if (d2E == 0.0) {
+        Elv = E[j];
+        Erv = E[j];
+      } else {
+        Elv = E[j] + (Elv - E[j])*d2Elim/d2E;
+        Erv = E[j] + (Erv - E[j])*d2Elim/d2E;
+      }
+    }
+
+    qa = (Erv-E[j])*(E[j]-Elv);
+    qb = Erv-Elv;
+    qc = 6.0*(E[j] - 0.5*(Elv+Erv));
+    if (qa <= 0.0) {
+      Elv = E[j];
+      Erv = E[j];
+    } else if ((qb*qc) > (qb*qb)) {
+      Elv = 3.0*E[j] - 2.0*Erv;
+    } else if ((qb*qc) < -(qb*qb)) {
+      Erv = 3.0*E[j] - 2.0*Elv;
+    }
+
+    dE = Erv - Elv;
+    E6 = 6.0*(E[j] - 0.5*(Elv + Erv));
+
+    if (eps > 0.0) { /* eps always > 0 for inner i boundary */
+      qx = TWO_3RDS*eps;
+      FluxE[j+1] = eps*(Erv - 0.75*qx*(dE - (1.0 - qx)*E6));
+
+    } else {         /* eps always < 0 for outer i boundary */
+      qx = -TWO_3RDS*eps;
+      FluxE[j  ] = eps*(Elv + 0.75*qx*(dE + (1.0 - qx)*E6));
+    }
+  }
+
+  return;
+}
+#endif /* MHD */
+
 #endif /* THIRD_ORDER_EXTREMA_PRESERVING */
 
 /*------------------------------------------------------------------------------
