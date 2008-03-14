@@ -19,7 +19,7 @@ Real CourNo;
 #ifdef ISOTHERMAL
 Real Iso_csound;
 Real Iso_csound2;
-#else
+#elif defined ADIABATIC
 Real Gamma;
 Real Gamma_1, Gamma_2;
 #endif
@@ -42,7 +42,7 @@ extern Real CourNo;
 #ifdef ISOTHERMAL
 extern Real Iso_csound;
 extern Real Iso_csound2;
-#else
+#elif defined ADIABATIC
 extern Real Gamma;
 extern Real Gamma_1, Gamma_2;
 #endif
