@@ -135,9 +135,9 @@ void integrate_3d_ctu(Grid *pG)
         U1d[i].Mx = pG->U[k][j][i].M1;
         U1d[i].My = pG->U[k][j][i].M2;
         U1d[i].Mz = pG->U[k][j][i].M3;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         U1d[i].E  = pG->U[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         U1d[i].By = pG->U[k][j][i].B2c;
         U1d[i].Bz = pG->U[k][j][i].B3c;
@@ -289,9 +289,9 @@ void integrate_3d_ctu(Grid *pG)
         U1d[j].Mx = pG->U[k][j][i].M2;
         U1d[j].My = pG->U[k][j][i].M3;
         U1d[j].Mz = pG->U[k][j][i].M1;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         U1d[j].E  = pG->U[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         U1d[j].By = pG->U[k][j][i].B3c;
         U1d[j].Bz = pG->U[k][j][i].B1c;
@@ -429,9 +429,9 @@ void integrate_3d_ctu(Grid *pG)
         U1d[k].Mx = pG->U[k][j][i].M3;
         U1d[k].My = pG->U[k][j][i].M1;
         U1d[k].Mz = pG->U[k][j][i].M2;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         U1d[k].E  = pG->U[k][j][i].E;
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
         U1d[k].By = pG->U[k][j][i].B1c;
         U1d[k].Bz = pG->U[k][j][i].B2c;
@@ -627,9 +627,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
         Ul_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i-1].Mx-x2Flux[k][j][i-1].Mx);
         Ul_x1Face[k][j][i].Mz-=q2*(x2Flux[k][j+1][i-1].My-x2Flux[k][j][i-1].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -=q2*(x2Flux[k][j+1][i-1].E -x2Flux[k][j][i-1].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B3 */
 	Ul_x1Face[k][j][i].Bz+=q2*0.5*
@@ -641,9 +641,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i  ].Mz-x2Flux[k][j][i  ].Mz);
         Ur_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i  ].Mx-x2Flux[k][j][i  ].Mx);
         Ur_x1Face[k][j][i].Mz-=q2*(x2Flux[k][j+1][i  ].My-x2Flux[k][j][i  ].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -=q2*(x2Flux[k][j+1][i  ].E -x2Flux[k][j][i  ].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B3 */
 	Ur_x1Face[k][j][i].Bz+=q2*0.5*
@@ -669,9 +669,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x1Face[k][j][i].Mx-=q3*(x3Flux[k+1][j][i-1].My-x3Flux[k][j][i-1].My);
         Ul_x1Face[k][j][i].My-=q3*(x3Flux[k+1][j][i-1].Mz-x3Flux[k][j][i-1].Mz);
         Ul_x1Face[k][j][i].Mz-=q3*(x3Flux[k+1][j][i-1].Mx-x3Flux[k][j][i-1].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -=q3*(x3Flux[k+1][j][i-1].E -x3Flux[k][j][i-1].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B2 */
 	Ul_x1Face[k][j][i].By-=q3*0.5*
@@ -683,9 +683,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x1Face[k][j][i].Mx-=q3*(x3Flux[k+1][j][i  ].My-x3Flux[k][j][i  ].My);
         Ur_x1Face[k][j][i].My-=q3*(x3Flux[k+1][j][i  ].Mz-x3Flux[k][j][i  ].Mz);
         Ur_x1Face[k][j][i].Mz-=q3*(x3Flux[k+1][j][i  ].Mx-x3Flux[k][j][i  ].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -=q3*(x3Flux[k+1][j][i  ].E -x3Flux[k][j][i  ].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B2 */
 	Ur_x1Face[k][j][i].By-=q3*0.5*
@@ -744,9 +744,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x1Face[k][j][i].Mz += hdt*B3*db1;
         Ul_x1Face[k][j][i].By += hdt*V2*(-mdb3);
         Ul_x1Face[k][j][i].Bz += hdt*V3*(-mdb2);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
         db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
         db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
@@ -780,9 +780,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x1Face[k][j][i].Mz += hdt*B3*db1;
         Ur_x1Face[k][j][i].By += hdt*V2*(-mdb3);
         Ur_x1Face[k][j][i].Bz += hdt*V3*(-mdb2);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -806,7 +806,7 @@ void integrate_3d_ctu(Grid *pG)
 
 /* correct right states */
         Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
                                   + x2Flux[k][j+1][i  ].d*(phir - phic));
 #endif
@@ -815,7 +815,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
         
         Ur_x1Face[k][j][i].Mz -= q3*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i  ].d*(phic - phil)
                                   + x3Flux[k+1][j][i  ].d*(phir - phic));
 #endif
@@ -826,7 +826,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)((x1-pG->dx1),(x2-0.5*pG->dx2),x3);
 
         Ul_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i-1].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i-1].d*(phic - phil)
                                   + x2Flux[k][j+1][i-1].d*(phir - phic));
 #endif
@@ -835,7 +835,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)((x1-pG->dx1),x2,(x3-0.5*pG->dx3));
         
         Ul_x1Face[k][j][i].Mz -= q3*(phir-phil)*pG->U[k][j][i-1].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i-1].d*(phic - phil)
                                   + x3Flux[k+1][j][i-1].d*(phir - phic));
 #endif
@@ -858,7 +858,7 @@ void integrate_3d_ctu(Grid *pG)
 
 /* correct right states */
         Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
                                   + x2Flux[k][j+1][i  ].d*(phir - phic));
 #endif
@@ -867,7 +867,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
 
         Ur_x1Face[k][j][i].Mz -= q3*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i  ].d*(phic - phil)
                                   + x3Flux[k+1][j][i  ].d*(phir - phic));
 #endif
@@ -878,7 +878,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k][j-1][i-1]);
 
         Ul_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i-1].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i-1].d*(phic - phil)
                                   + x2Flux[k][j+1][i-1].d*(phir - phic));
 #endif
@@ -887,7 +887,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k-1][j][i-1]);
 
         Ul_x1Face[k][j][i].Mz -= q3*(phir-phil)*pG->U[k][j][i-1].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i-1].d*(phic - phil)
                                   + x3Flux[k+1][j][i-1].d*(phir - phic));
 #endif
@@ -908,9 +908,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x2Face[k][j][i].Mx-=q1*(x1Flux[k][j-1][i+1].My-x1Flux[k][j-1][i].My);
         Ul_x2Face[k][j][i].My-=q1*(x1Flux[k][j-1][i+1].Mz-x1Flux[k][j-1][i].Mz);
         Ul_x2Face[k][j][i].Mz-=q1*(x1Flux[k][j-1][i+1].Mx-x1Flux[k][j-1][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E -=q1*(x1Flux[k][j-1][i+1].E -x1Flux[k][j-1][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B3 */
 	Ul_x2Face[k][j][i].By-=q1*0.5*
@@ -922,9 +922,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x2Face[k][j][i].Mx-=q1*(x1Flux[k][j  ][i+1].My-x1Flux[k][j  ][i].My);
         Ur_x2Face[k][j][i].My-=q1*(x1Flux[k][j  ][i+1].Mz-x1Flux[k][j  ][i].Mz);
         Ur_x2Face[k][j][i].Mz-=q1*(x1Flux[k][j  ][i+1].Mx-x1Flux[k][j  ][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -=q1*(x1Flux[k][j  ][i+1].E -x1Flux[k][j  ][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B3 */
 	Ur_x2Face[k][j][i].By-=q1*0.5*
@@ -949,9 +949,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x2Face[k][j][i].Mx-=q3*(x3Flux[k+1][j-1][i].Mz-x3Flux[k][j-1][i].Mz);
         Ul_x2Face[k][j][i].My-=q3*(x3Flux[k+1][j-1][i].Mx-x3Flux[k][j-1][i].Mx);
         Ul_x2Face[k][j][i].Mz-=q3*(x3Flux[k+1][j-1][i].My-x3Flux[k][j-1][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E -=q3*(x3Flux[k+1][j-1][i].E -x3Flux[k][j-1][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B1 */
 	Ul_x2Face[k][j][i].Bz+=q3*0.5*
@@ -963,9 +963,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x2Face[k][j][i].Mx-=q3*(x3Flux[k+1][j  ][i].Mz-x3Flux[k][j  ][i].Mz);
         Ur_x2Face[k][j][i].My-=q3*(x3Flux[k+1][j  ][i].Mx-x3Flux[k][j  ][i].Mx);
         Ur_x2Face[k][j][i].Mz-=q3*(x3Flux[k+1][j  ][i].My-x3Flux[k][j  ][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -=q3*(x3Flux[k+1][j  ][i].E -x3Flux[k][j  ][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B1 */
 	Ur_x2Face[k][j][i].Bz+=q3*0.5*
@@ -1024,9 +1024,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x2Face[k][j][i].My += hdt*B3*db2;
         Ul_x2Face[k][j][i].By += hdt*V3*(-mdb1);
         Ul_x2Face[k][j][i].Bz += hdt*V1*(-mdb3);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
         db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
         db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
@@ -1060,9 +1060,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x2Face[k][j][i].My += hdt*B3*db2;
         Ur_x2Face[k][j][i].By += hdt*V3*(-mdb1);
         Ur_x2Face[k][j][i].Bz += hdt*V1*(-mdb3);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -1086,7 +1086,7 @@ void integrate_3d_ctu(Grid *pG)
 
 /* correct right states */
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j  ][i  ].d*(phic - phil)
                                   + x1Flux[k][j  ][i+1].d*(phir - phic));
 #endif
@@ -1095,7 +1095,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
         Ur_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j  ][i].d*(phic - phil)
                                   + x3Flux[k+1][j  ][i].d*(phir - phic));
 #endif
@@ -1106,7 +1106,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 
         Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
                                   + x1Flux[k][j-1][i+1].d*(phir - phic));
 #endif
@@ -1114,7 +1114,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
 
         Ul_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j-1][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j-1][i].d*(phic - phil)
                                   + x3Flux[k+1][j-1][i].d*(phir - phic));
 #endif
@@ -1137,7 +1137,7 @@ void integrate_3d_ctu(Grid *pG)
 
 /* correct right states */
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
                                   + x1Flux[k][j][i+1].d*(phir - phic));
 #endif
@@ -1146,7 +1146,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
 
         Ur_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j][i].d*(phic - phil)
                                   + x3Flux[k+1][j][i].d*(phir - phic));
 #endif
@@ -1157,7 +1157,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k][j-1][i-1]);
 
         Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
                                   + x1Flux[k][j-1][i+1].d*(phir - phic));
 #endif
@@ -1165,7 +1165,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k-1][j-1][i]);
 
         Ul_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j-1][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j-1][i].d*(phic - phil)
                                   + x3Flux[k+1][j-1][i].d*(phir - phic));
 #endif
@@ -1205,9 +1205,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x3Face[k][j][i].Mx-=q1*(x1Flux[k-1][j][i+1].Mz-x1Flux[k-1][j][i].Mz);
         Ul_x3Face[k][j][i].My-=q1*(x1Flux[k-1][j][i+1].Mx-x1Flux[k-1][j][i].Mx);
         Ul_x3Face[k][j][i].Mz-=q1*(x1Flux[k-1][j][i+1].My-x1Flux[k-1][j][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -=q1*(x1Flux[k-1][j][i+1].E -x1Flux[k-1][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B2 */
 	Ul_x3Face[k][j][i].Bz+=q1*0.5*
@@ -1219,9 +1219,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x3Face[k][j][i].Mx-=q1*(x1Flux[k  ][j][i+1].Mz-x1Flux[k  ][j][i].Mz);
         Ur_x3Face[k][j][i].My-=q1*(x1Flux[k  ][j][i+1].Mx-x1Flux[k  ][j][i].Mx);
         Ur_x3Face[k][j][i].Mz-=q1*(x1Flux[k  ][j][i+1].My-x1Flux[k  ][j][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -=q1*(x1Flux[k  ][j][i+1].E -x1Flux[k  ][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B2 */
 	Ur_x3Face[k][j][i].Bz+=q1*0.5*
@@ -1246,9 +1246,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x3Face[k][j][i].Mx-=q2*(x2Flux[k-1][j+1][i].My-x2Flux[k-1][j][i].My);
         Ul_x3Face[k][j][i].My-=q2*(x2Flux[k-1][j+1][i].Mz-x2Flux[k-1][j][i].Mz);
         Ul_x3Face[k][j][i].Mz-=q2*(x2Flux[k-1][j+1][i].Mx-x2Flux[k-1][j][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -=q2*(x2Flux[k-1][j+1][i].E -x2Flux[k-1][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B1 */
 	Ul_x3Face[k][j][i].By-=q2*0.5*
@@ -1260,9 +1260,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x3Face[k][j][i].Mx-=q2*(x2Flux[k  ][j+1][i].My-x2Flux[k  ][j][i].My);
         Ur_x3Face[k][j][i].My-=q2*(x2Flux[k  ][j+1][i].Mz-x2Flux[k  ][j][i].Mz);
         Ur_x3Face[k][j][i].Mz-=q2*(x2Flux[k  ][j+1][i].Mx-x2Flux[k  ][j][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -=q2*(x2Flux[k  ][j+1][i].E -x2Flux[k  ][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #ifdef MHD
 /* Update B1 */
 	Ur_x3Face[k][j][i].By-=q2*0.5*
@@ -1321,9 +1321,9 @@ void integrate_3d_ctu(Grid *pG)
         Ul_x3Face[k][j][i].Mx += hdt*B3*db3;
 	Ul_x3Face[k][j][i].By += hdt*V1*(-mdb2);
 	Ul_x3Face[k][j][i].Bz += hdt*V2*(-mdb1);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ul_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 
         db1 = (pG->B1i[k  ][j  ][i+1] - pG->B1i[k][j][i])*dx1i;
         db2 = (pG->B2i[k  ][j+1][i  ] - pG->B2i[k][j][i])*dx2i;
@@ -1357,9 +1357,9 @@ void integrate_3d_ctu(Grid *pG)
         Ur_x3Face[k][j][i].Mx += hdt*B3*db3;
 	Ur_x3Face[k][j][i].By += hdt*V1*(-mdb2);
 	Ur_x3Face[k][j][i].Bz += hdt*V2*(-mdb1);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	Ur_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -1383,7 +1383,7 @@ void integrate_3d_ctu(Grid *pG)
 
 /* correct right states */
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -= q1*(x1Flux[k  ][j][i  ].d*(phic - phil)
                                   + x1Flux[k  ][j][i+1].d*(phir - phic));
 #endif
@@ -1392,7 +1392,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
         Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
                                   + x2Flux[k  ][j+1][i].d*(phir - phic));
 #endif
@@ -1403,7 +1403,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
 
         Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
                                   + x1Flux[k-1][j][i+1].d*(phir - phic));
 #endif
@@ -1412,7 +1412,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
 
         Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
                                   + x2Flux[k-1][j+1][i].d*(phir - phic));
 #endif
@@ -1435,7 +1435,7 @@ void integrate_3d_ctu(Grid *pG)
 
 /* correct right states */
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
                                   + x1Flux[k][j][i+1].d*(phir - phic));
 #endif
@@ -1444,7 +1444,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
 
         Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -= q2*(x2Flux[k][j  ][i].d*(phic - phil)
                                   + x2Flux[k][j+1][i].d*(phir - phic));
 #endif
@@ -1455,7 +1455,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k-1][j][i-1]);
 
         Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
                                   + x1Flux[k-1][j][i+1].d*(phir - phic));
 #endif
@@ -1464,7 +1464,7 @@ void integrate_3d_ctu(Grid *pG)
         phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k-1][j-1][i]);
 
         Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
                                   + x2Flux[k-1][j+1][i].d*(phir - phic));
 #endif
@@ -1809,14 +1809,14 @@ void integrate_3d_ctu(Grid *pG)
 	phic = (*StaticGravPot)((x1            ),x2,x3);
 	phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
 	phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
                                     x1Flux[k][j][i+1].d*(phir - phic));
 #endif
 
 	phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
 	phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                     x2Flux[k][j+1][i].d*(phir - phic));
 #endif
@@ -1824,7 +1824,7 @@ void integrate_3d_ctu(Grid *pG)
 	phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
 	phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 	pG->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
 	pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                     x3Flux[k+1][j][i].d*(phir - phic));
 #endif
@@ -1843,21 +1843,21 @@ void integrate_3d_ctu(Grid *pG)
           phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
           phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
           pG->U[k][j][i].M1 -= dtodx1*(phir-phil)*dhalf[k][j][i];
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
                                       x1Flux[k][j][i+1].d*(phir - phic));
 #endif
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
           pG->U[k][j][i].M2 -= dtodx2*(phir-phil)*dhalf[k][j][i];
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                       x2Flux[k][j+1][i].d*(phir - phic));
 #endif
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
           pG->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                       x3Flux[k+1][j][i].d*(phir - phic));
 #endif
@@ -1910,10 +1910,10 @@ void integrate_3d_ctu(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx1*(flx_m3r - flx_m3l);
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
                                     x1Flux[k][j][i+1].d*(phir - phic));
-#endif /* ADIABATIC */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -1955,10 +1955,10 @@ void integrate_3d_ctu(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx2*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx2*(flx_m3r - flx_m3l);
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                     x2Flux[k][j+1][i].d*(phir - phic));
-#endif /* ADIABATIC */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -2000,10 +2000,10 @@ void integrate_3d_ctu(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx3*(flx_m3r - flx_m3l);
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                     x3Flux[k+1][j][i].d*(phir - phic));
-#endif /* ADIABATIC */
+#endif /* BAROTROPIC */
       }
     }
   }
@@ -2032,9 +2032,9 @@ void integrate_3d_ctu(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx1*(x1Flux[k][j][i+1].Mx-x1Flux[k][j][i].Mx);
         pG->U[k][j][i].M2 -= dtodx1*(x1Flux[k][j][i+1].My-x1Flux[k][j][i].My);
         pG->U[k][j][i].M3 -= dtodx1*(x1Flux[k][j][i+1].Mz-x1Flux[k][j][i].Mz);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         pG->U[k][j][i].E  -= dtodx1*(x1Flux[k][j][i+1].E -x1Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx1*(x1Flux[k][j][i+1].s[n]
@@ -2055,9 +2055,9 @@ void integrate_3d_ctu(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx2*(x2Flux[k][j+1][i].Mz-x2Flux[k][j][i].Mz);
         pG->U[k][j][i].M2 -= dtodx2*(x2Flux[k][j+1][i].Mx-x2Flux[k][j][i].Mx);
         pG->U[k][j][i].M3 -= dtodx2*(x2Flux[k][j+1][i].My-x2Flux[k][j][i].My);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         pG->U[k][j][i].E -=dtodx2*(x2Flux[k][j+1][i].E -x2Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
@@ -2078,9 +2078,9 @@ void integrate_3d_ctu(Grid *pG)
         pG->U[k][j][i].M1 -= dtodx3*(x3Flux[k+1][j][i].My-x3Flux[k][j][i].My);
         pG->U[k][j][i].M2 -= dtodx3*(x3Flux[k+1][j][i].Mz-x3Flux[k][j][i].Mz);
         pG->U[k][j][i].M3 -= dtodx3*(x3Flux[k+1][j][i].Mx-x3Flux[k][j][i].Mx);
-#ifndef ISOTHERMAL
+#ifndef BAROTROPIC
         pG->U[k][j][i].E  -= dtodx3*(x3Flux[k+1][j][i].E -x3Flux[k][j][i].E );
-#endif /* ISOTHERMAL */
+#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
