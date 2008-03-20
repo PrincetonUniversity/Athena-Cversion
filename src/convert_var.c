@@ -88,7 +88,7 @@ void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW, const Real *pBx)
 #endif /* MHD */
 
 #if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) pU->s[n] = pW.r[n]*pW->d;
+  for (n=0; n<NSCALARS; n++) pU->s[n] = pW->r[n]*pW->d;
 #endif
 
   return;
