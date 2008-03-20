@@ -90,7 +90,9 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const Grid *pG, const int i, const int j, const int k);
 static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
 static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k);
+#ifdef ADIABATIC
 static Real hst_E_total(const Grid *pG, const int i, const int j, const int k);
+#endif
 #ifdef MHD
 void CompEyFlux(const Real *E, const Real eps,
                 const int jinner, const int jouter, Real *FluxE);
@@ -260,7 +262,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
   dump_history_enroll(hst_rho_dVy2, "<rho dVy^2>");
+#ifdef ADIABATIC
   dump_history_enroll(hst_E_total, "<E + rho Phi>");
+#endif
 #ifdef MHD
   dump_history_enroll(hst_Bx, "<Bx>");
   dump_history_enroll(hst_By, "<By>");
@@ -271,7 +275,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* Allocate memory for remapped variables in ghost zones */
 
   Nx2m = pGrid->Nx2 + 2*nghost;
-  Nx3m = pGrid->Nx2 + 2*nghost;
+  Nx3m = pGrid->Nx3 + 2*nghost;
 
   if ((Flx = (RVars*)malloc(Nx2m*sizeof(RVars))) == NULL)
     ath_error("[hgb]: malloc returned a NULL pointer\n");
@@ -339,12 +343,28 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   x2max = par_getd("grid","x2max");
   Ly = x2max - x2min;
 
+/* enroll gravitational potential function */
+
   StaticGravPot = ShearingBoxPot;
+
+/* enroll new history variables */
+
+  dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
+  dump_history_enroll(hst_rho_dVy2, "<rho dVy^2>");
+#ifdef ADIABATIC
+  dump_history_enroll(hst_E_total, "<E + rho Phi>");
+#endif
+#ifdef MHD
+  dump_history_enroll(hst_Bx, "<Bx>");
+  dump_history_enroll(hst_By, "<By>");
+  dump_history_enroll(hst_Bz, "<Bz>");
+  dump_history_enroll(hst_BxBy, "<-Bx By>");
+#endif /* MHD */
 
 /* Allocate memory for remapped variables in ghost zones */
 
   Nx2m = pG->Nx2 + 2*nghost;
-  Nx3m = pG->Nx2 + 2*nghost;
+  Nx3m = pG->Nx3 + 2*nghost;
 
   if((Flx = (RVars*)malloc(Nx2m*sizeof(RVars))) == NULL)
     ath_error("[read_restart]: malloc returned a NULL pointer\n");
@@ -1374,6 +1394,7 @@ static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k)
   return pG->U[k][j][i].d*dVy*dVy;
 }
 
+#ifdef ADIABATIC
 static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
@@ -1382,6 +1403,7 @@ static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
 
   return pG->U[k][j][i].E + pG->U[k][j][i].d*phi;
 }
+#endif /* ADIABATIC */
 
 /*------------------------------------------------------------------------------
  * MHD history variables
