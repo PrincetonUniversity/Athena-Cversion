@@ -10,6 +10,7 @@
  *   ath_files.c
  *   ath_log.c
  *   ath_signal.c
+ *   baton.c
  *   cc_pos.c
  *   convert_var.c
  *   esystem_prim.c, esystem_roe.c
@@ -79,6 +80,11 @@ size_t ath_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 /* ath_signal.c */
 void ath_sig_init(void);
 int  ath_sig_act(int *piquit);
+
+/*----------------------------------------------------------------------------*/
+/* baton.c */
+void baton_start(const int Nb, const int tag);
+void baton_stop(const int Nb, const int tag);
 
 /*----------------------------------------------------------------------------*/
 /* cc_pos.c */
