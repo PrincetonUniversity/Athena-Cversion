@@ -30,8 +30,14 @@ static char *athena_version = "version 3.1 - 01-JAN-2008";
  *   usage         - outputs help message and terminates execution
  *============================================================================*/
 
-void change_rundir(char *name, char *localname);
-void usage(char *prog);
+/* This define controls the maximum number of mkdir() and chdir() file
+   operations will be executed at a given time in the change_rundir()
+   function when running in parallel.  This is the value passed to
+   baton_start() and baton_end(). */ 
+#define MAX_FILE_OP 256
+
+static void change_rundir(const char *name);
+static void usage(const char *prog);
 
 /*----------------------------------------------------------------------------*/
 /* main: Athena main program  */
@@ -51,7 +57,7 @@ int main(int argc, char *argv[])
   Real tlim;
   double cpu_time, zcs;
   char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name = NULL;
-  char *athinput = definput, local_rundir[MAXLEN];
+  char *athinput = definput;
   long clk_tck = sysconf(_SC_CLK_TCK);
   struct tms tbuf;
   clock_t time0,time1, have_times;
@@ -333,16 +339,9 @@ int main(int argc, char *argv[])
     par_dump(0,fp); /* Dump a copy of the parsed information to athout */
   }
 
+  change_rundir(rundir); /* Change to the requested run directory */
+
 /* Write of all output's forced when last argument of data_output = 1 */
-  if (rundir != NULL) {
-    if (level0_Grid.my_id == 0) {
-      /* Put rank 0 outputs (including global outputs) in main rundir */
-      sprintf(local_rundir, "%s", rundir);
-    } else {
-      sprintf(local_rundir, "%s/id%d", rundir, level0_Grid.my_id);
-    }
-    change_rundir(rundir, local_rundir);
-  }
   if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
 
   ath_sig_init(); /* Install a signal handler */
@@ -484,36 +483,78 @@ int main(int argc, char *argv[])
 /*  change_rundir: change run directory;  create it if it does not exist yet
  */
 
-void change_rundir(char *name, char *localname)
+void change_rundir(const char *name)
 {
-  int err=0;
 #ifdef MPI_PARALLEL
-  int rerr, gerr;
-#endif /* MPI_PARALLEL */
 
-  if (name == NULL || *name == 0) return;
-  ath_perr(-1,"Changing run directory to \"%s\"\n",localname);
+  int err=0;
+  int rerr, gerr, my_id, status;
+  char mydir[80];
 
-  mkdir(name,0775);
-  mkdir(localname,0775);
-  if (chdir(localname)) {
-    ath_perr(-1,"Cannot change directory to %s\n",name);
+  status = MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+  if(status != MPI_SUCCESS)
+    ath_error("[change_rundir]: MPI_Comm_rank error = %d\n",status);
+
+  if(name != NULL && *name != '\0'){
+   /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",name); */
+
+    if(my_id == 0)
+      mkdir(name, 0775); /* May return an error, e.g. the directory exists */
+
+    MPI_Barrier(MPI_COMM_WORLD); /* Wait for rank 0 to mkdir() */
+
+    baton_start(MAX_FILE_OP, ch_rundir0_tag);
+
+    if(chdir(name)){
+      ath_perr(-1,"[change_rundir]: Cannot change directory to \"%s\"\n",name);
+      err = 1;
+    }
+
+    baton_stop(MAX_FILE_OP, ch_rundir0_tag);
+
+    /* Did anyone fail to make and change to the run directory? */
+    rerr = MPI_Allreduce(&err, &gerr, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    if(rerr) ath_perr(-1,"[change_rundir]: MPI_Allreduce error = %d\n",rerr);
+
+    if(rerr || gerr){
+      MPI_Abort(MPI_COMM_WORLD, 1);
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  /* ======================================================================== */
+
+  /* Next, change to the local run directory */
+  sprintf(mydir, "id%d", my_id);
+  /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",mydir); */
+
+  baton_start(MAX_FILE_OP, ch_rundir1_tag);
+
+  mkdir(mydir, 0775); /* May return an error, e.g. the directory exists */
+  if(chdir(mydir)){
+    ath_perr(-1,"[change_rundir]: Cannot change directory to \"%s\"\n",mydir);
     err = 1;
   }
 
-#ifdef MPI_PARALLEL
+  baton_stop(MAX_FILE_OP, ch_rundir1_tag);
 
+  /* Did anyone fail to make and change to the local run directory? */
   rerr = MPI_Allreduce(&err, &gerr, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
   if(rerr) ath_perr(-1,"[change_rundir]: MPI_Allreduce error = %d\n",rerr);
 
   if(rerr || gerr){
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD, 1);
     exit(EXIT_FAILURE);
   }
 
-#else
+#else /* SERIAL */
 
-  if(err) exit(EXIT_FAILURE);
+  if(name == NULL || *name == '\0') return;
+  /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",name); */
+
+  mkdir(name, 0775); /* May return an error, e.g. the directory exists */
+  if(chdir(name))
+    ath_error("[change_rundir]: Cannot change directory to \"%s\"\n",name);
 
 #endif /* MPI_PARALLEL */
 
@@ -525,7 +566,7 @@ void change_rundir(char *name, char *localname)
  *    athena_version is hardwired at beginning of this file
  *    CONFIGURE_DATE is macro set when configure script runs */
 
-void usage(char *prog)
+static void usage(const char *prog)
 {
   ath_perr(-1,"Athena %s\n",athena_version);
   ath_perr(-1,"  Last configure: %s\n",CONFIGURE_DATE);
