@@ -39,7 +39,7 @@
  *   Output: eigenvalues[4], right_eigenmatrix[4,4], left_eigenmatrix[4,4];
  */
 
-#if defined(ISOTHERMAL) && defined(HYDRO)
+#if defined(BAROTROPIC) && defined(HYDRO)
 void esys_prim_iso_hyd(const Real d, const Real v1, 
   Real eigenvalues[],
   Real right_eigenmatrix[][4], Real left_eigenmatrix[][4])
@@ -105,13 +105,13 @@ void esys_prim_iso_hyd(const Real d, const Real v1,
  *   Output: eigenvalues[5], right_eigenmatrix[5,5], left_eigenmatrix[5,5];
  */
 
-#if defined(ADIABATIC) && defined(HYDRO)
-void esys_prim_adb_hyd(const Real d, const Real v1, const Real p,
+#if !defined(BAROTROPIC) && defined(HYDRO)
+void esys_prim_adb_hyd(const Real d, const Real v1, const Real rho_a2,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
 {
   Real asq,a;
-  asq = Gamma*p/d;
+  asq = rho_a2/d;
   a = sqrt(asq);
 
 /* Compute eigenvalues (eq. A2) */
@@ -194,7 +194,7 @@ void esys_prim_adb_hyd(const Real d, const Real v1, const Real p,
  *   Output: eigenvalues[6], right_eigenmatrix[6,6], left_eigenmatrix[6,6];
  */
 
-#if defined(ISOTHERMAL) && defined(MHD)
+#if defined(BAROTROPIC) && defined(MHD)
 void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
   const Real b2, const Real b3, 
   Real eigenvalues[],
@@ -368,8 +368,8 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
  *   Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
  */
 
-#if defined(ADIABATIC) && defined(MHD)
-void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
+#if !defined(BAROTROPIC) && defined(MHD)
+void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   const Real b1, const Real b2, const Real b3,
   Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
@@ -381,7 +381,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
   di = 1.0/d;
   btsq  = b2*b2 + b3*b3;
   vaxsq = b1*b1*di;
-  asq   = Gamma*p*di;
+  asq   = rho_a2*di;
 
 /* Compute fast- and slow-magnetosonic speeds (eq. A10) */
 
