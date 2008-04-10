@@ -490,9 +490,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   }}
 
 #ifdef MPI_PARALLEL
-  Nx1 = pDomain->ixe - pDomain->ixs + 1;
-  Nx2 = pDomain->jxe - pDomain->jxs + 1;
-  Nx3 = pDomain->kxe - pDomain->kxs + 1;
+  Nx1 = pDomain->ide - pDomain->ids + 1;
+  Nx2 = pDomain->jde - pDomain->jds + 1;
+  Nx3 = pDomain->kde - pDomain->kds + 1;
 #else
   Nx1 = ie - is + 1;
   Nx2 = je - js + 1;

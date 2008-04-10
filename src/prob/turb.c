@@ -445,9 +445,9 @@ static void initialize(Grid *pGrid, Domain *pD)
   nx3 = (ke-ks+1);
 
   /* Get global grid size */
-  gnx1 = pD->ixe - pD->ixs + 1;
-  gnx2 = pD->jxe - pD->jxs + 1;
-  gnx3 = pD->kxe - pD->kxs + 1;
+  gnx1 = pD->ide - pD->ids + 1;
+  gnx2 = pD->jde - pD->jds + 1;
+  gnx3 = pD->kde - pD->kds + 1;
 
   /* Get extents of local FFT grid in global coordinates */
   gis=is+pGrid->idisp;  gie=ie+pGrid->idisp;
