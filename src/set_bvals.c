@@ -66,7 +66,7 @@
  * set_bvals_init() based on number of zones in each grid */
 static double *send_buf = NULL, *recv_buf = NULL;
 
-/* Maximim number of variables passed in any one MPI messaga = variables in the
+/* Maximim number of variables passed in any one MPI message = variables in the
  * Gas structure, plus 3 extra for the interface magnetic fields.
  *
  * With self-gravity, BCs for Phi have to be set before the source term
@@ -84,10 +84,6 @@ static double *send_buf = NULL, *recv_buf = NULL;
 static VBCFun_t apply_ix1 = NULL, apply_ox1 = NULL;
 static VBCFun_t apply_ix2 = NULL, apply_ox2 = NULL;
 static VBCFun_t apply_ix3 = NULL, apply_ox3 = NULL;
-
-#ifdef SHEARING_BOX
-void ShearingSheetBC(Grid *pGrid);
-#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -147,12 +143,15 @@ static void receive_ox3(Grid *pG, int var_flag, MPI_Request *prq);
  * fill the corner cells properly
  */
 
-void set_bvals(Grid *pGrid, int var_flag)
+void set_bvals(Grid *pGrid, Domain *pDomain, int var_flag)
 {
 #ifdef MPI_PARALLEL
   int cnt1, cnt2, cnt3, cnt, err;
   MPI_Request rq;
 #endif /* MPI_PARALLEL */
+#ifdef SHEARING_BOX
+  int my_iproc,my_jproc,my_kproc;
+#endif
 
 /*--- Step 1. ------------------------------------------------------------------
  * Boundary Conditions in x1-direction */
@@ -286,7 +285,13 @@ void set_bvals(Grid *pGrid, int var_flag)
 
 /* shearing sheet BCs; function defined in problem generator */
 #ifdef SHEARING_BOX
-    ShearingSheetBC(pGrid);
+    get_myGridIndex(pDomain, pGrid->my_id, &my_iproc, &my_jproc, &my_kproc);
+    if (my_iproc == 0) {
+      ShearingSheet_ix1(pGrid, pDomain);
+    }
+    if (my_iproc == (pDomain->NGrid_x1-1)) {
+      ShearingSheet_ox1(pGrid, pDomain);
+    }
 #endif
 
   }
@@ -375,10 +380,6 @@ void set_bvals_init(Grid *pG, Domain *pD)
   int my_id = pG->my_id;
   int x1cnt, x2cnt, x3cnt; /* Number of Gas passed in x1-, x2-, x3-dir. */
   int nx1t, nx2t, nx3t, size;
-  int NGrid_x1, NGrid_x2, NGrid_x3;
-  NGrid_x1 = par_geti("parallel","NGrid_x1");
-  NGrid_x2 = par_geti("parallel","NGrid_x2");
-  NGrid_x3 = par_geti("parallel","NGrid_x3");
 #endif /* MPI_PARALLEL */
 
 /* Set function pointers for physical boundaries in x1-direction */
@@ -400,9 +401,9 @@ void set_bvals_init(Grid *pG, Domain *pD)
       case 4: /* Periodic */
 	apply_ix1 = periodic_ix1;
 #ifdef MPI_PARALLEL
-	if(pG->lx1_id < 0 && NGrid_x1 > 1){
-	  get_myblock_ijk(pD, my_id, &ib, &jb, &kb);
-	  pG->lx1_id = pD->grid_block[kb][jb][NGrid_x1-1].my_id;
+	if(pG->lx1_id < 0 && pD->NGrid_x1 > 1){
+	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
+	  pG->lx1_id = pD->GridArray[kb][jb][pD->NGrid_x1-1].id;
 	}
 #endif /* MPI_PARALLEL */
 	break;
@@ -430,9 +431,9 @@ void set_bvals_init(Grid *pG, Domain *pD)
       case 4: /* Periodic */
 	apply_ox1 = periodic_ox1;
 #ifdef MPI_PARALLEL
-	if(pG->rx1_id < 0 && NGrid_x1 > 1){
-	  get_myblock_ijk(pD, my_id, &ib, &jb, &kb);
-	  pG->rx1_id = pD->grid_block[kb][jb][0].my_id;
+	if(pG->rx1_id < 0 && pD->NGrid_x1 > 1){
+	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
+	  pG->rx1_id = pD->GridArray[kb][jb][0].id;
 	}
 #endif /* MPI_PARALLEL */
 	break;
@@ -464,9 +465,9 @@ void set_bvals_init(Grid *pG, Domain *pD)
       case 4: /* Periodic */
 	apply_ix2 = periodic_ix2;
 #ifdef MPI_PARALLEL
-	if(pG->lx2_id < 0 && NGrid_x2 > 1){
-	  get_myblock_ijk(pD, my_id, &ib, &jb, &kb);
-	  pG->lx2_id = pD->grid_block[kb][NGrid_x2-1][ib].my_id;
+	if(pG->lx2_id < 0 && pD->NGrid_x2 > 1){
+	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
+	  pG->lx2_id = pD->GridArray[kb][pD->NGrid_x2-1][ib].id;
 	}
 #endif /* MPI_PARALLEL */
 	break;
@@ -494,9 +495,9 @@ void set_bvals_init(Grid *pG, Domain *pD)
       case 4: /* Periodic */
 	apply_ox2 = periodic_ox2;
 #ifdef MPI_PARALLEL
-	if(pG->rx2_id < 0 && NGrid_x2 > 1){
-	  get_myblock_ijk(pD, my_id, &ib, &jb, &kb);
-	  pG->rx2_id = pD->grid_block[kb][0][ib].my_id;
+	if(pG->rx2_id < 0 && pD->NGrid_x2 > 1){
+	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
+	  pG->rx2_id = pD->GridArray[kb][0][ib].id;
 	}
 #endif /* MPI_PARALLEL */
 	break;
@@ -528,9 +529,9 @@ void set_bvals_init(Grid *pG, Domain *pD)
       case 4: /* Periodic */
 	apply_ix3 = periodic_ix3;
 #ifdef MPI_PARALLEL
-	if(pG->lx3_id < 0 && NGrid_x3 > 1){
-	  get_myblock_ijk(pD, my_id, &ib, &jb, &kb);
-	  pG->lx3_id = pD->grid_block[NGrid_x3-1][jb][ib].my_id;
+	if(pG->lx3_id < 0 && pD->NGrid_x3 > 1){
+	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
+	  pG->lx3_id = pD->GridArray[pD->NGrid_x3-1][jb][ib].id;
 	}
 #endif /* MPI_PARALLEL */
 	break;
@@ -558,9 +559,9 @@ void set_bvals_init(Grid *pG, Domain *pD)
       case 4: /* Periodic */
 	apply_ox3 = periodic_ox3;
 #ifdef MPI_PARALLEL
-	if(pG->rx3_id < 0 && NGrid_x3 > 1){
-	  get_myblock_ijk(pD, my_id, &ib, &jb, &kb);
-	  pG->rx3_id = pD->grid_block[0][jb][ib].my_id;
+	if(pG->rx3_id < 0 && pD->NGrid_x3 > 1){
+	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
+	  pG->rx3_id = pD->GridArray[0][jb][ib].id;
 	}
 #endif /* MPI_PARALLEL */
 	break;
@@ -578,35 +579,35 @@ void set_bvals_init(Grid *pG, Domain *pD)
 #ifdef MPI_PARALLEL
   x1cnt = x2cnt = x3cnt = 0;
 
-  for (k=0; k<NGrid_x3; k++){
-    for (j=0; j<NGrid_x2; j++){
-      for (i=0; i<NGrid_x1; i++){
-	if(NGrid_x1 > 1){
-	  nx2t = pD->grid_block[k][j][i].jxe - pD->grid_block[k][j][i].jxs + 1;
+  for (k=0; k<(pD->NGrid_x3); k++){
+    for (j=0; j<(pD->NGrid_x2); j++){
+      for (i=0; i<(pD->NGrid_x1); i++){
+	if(pD->NGrid_x1 > 1){
+	  nx2t = pD->GridArray[k][j][i].jge - pD->GridArray[k][j][i].jgs + 1;
 	  if(nx2t > 1) nx2t += 1;
 
-	  nx3t = pD->grid_block[k][j][i].kxe - pD->grid_block[k][j][i].kxs + 1;
+	  nx3t = pD->GridArray[k][j][i].kge - pD->GridArray[k][j][i].kgs + 1;
 	  if(nx3t > 1) nx3t += 1;
 
 	  x1cnt = nx2t*nx3t > x1cnt ? nx2t*nx3t : x1cnt;
 	}
 
-	if(NGrid_x2 > 1){
-	  nx1t = pD->grid_block[k][j][i].ixe - pD->grid_block[k][j][i].ixs + 1;
+	if(pD->NGrid_x2 > 1){
+	  nx1t = pD->GridArray[k][j][i].ige - pD->GridArray[k][j][i].igs + 1;
 	  if(nx1t > 1) nx1t += 2*nghost;
 
-	  nx3t = pD->grid_block[k][j][i].kxe - pD->grid_block[k][j][i].kxs + 1;
+	  nx3t = pD->GridArray[k][j][i].kge - pD->GridArray[k][j][i].kgs + 1;
 	  if(nx3t > 1) nx3t += 1;
 
 	  x2cnt = nx1t*nx3t > x2cnt ? nx1t*nx3t : x2cnt;
 	}
 
 
-	if(NGrid_x3 > 1){
-	  nx1t = pD->grid_block[k][j][i].ixe - pD->grid_block[k][j][i].ixs + 1;
+	if(pD->NGrid_x3 > 1){
+	  nx1t = pD->GridArray[k][j][i].ige - pD->GridArray[k][j][i].igs + 1;
 	  if(nx1t > 1) nx1t += 2*nghost;
 
-	  nx2t = pD->grid_block[k][j][i].jxe - pD->grid_block[k][j][i].jxs + 1;
+	  nx2t = pD->GridArray[k][j][i].jge - pD->GridArray[k][j][i].jgs + 1;
 	  if(nx2t > 1) nx2t += 2*nghost;
 
 	  x3cnt = nx1t*nx2t > x3cnt ? nx1t*nx2t : x3cnt;
