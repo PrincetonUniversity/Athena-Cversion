@@ -44,7 +44,7 @@ static void usage(const char *prog);
 
 int main(int argc, char *argv[])
 {
-  VGFun_t Integrate;     /* function pointer to integrator, set at runtime */
+  VGDFun_t Integrate;     /* function pointer to integrator, set at runtime */
 #ifdef SELF_GRAVITY
   VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
 #endif
@@ -135,10 +135,6 @@ int main(int argc, char *argv[])
   if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD,&(level0_Grid.my_id)))
     ath_error("Error on calling MPI_Comm_rank\n");
 
-/* Get the number of processes */
-  if(MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD,&(level0_Grid.nproc)))
-    ath_error("Error on calling MPI_Comm_size\n");
-
 /* Only parent (my_id==0) reads input parameter file, parses command line */
   if(level0_Grid.my_id == 0){
     par_open(athinput); 
@@ -223,7 +219,6 @@ int main(int argc, char *argv[])
 
 #else
   level0_Grid.my_id = 0;
-  level0_Grid.nproc = 1;
   par_open(athinput);   /* opens AND reads */
   par_cmdline(argc,argv);
   show_config_par();   /* Add the configure block to the parameter database */
@@ -308,8 +303,11 @@ int main(int argc, char *argv[])
  * set boundary conditions for initial conditions  */
 
   set_bvals_init(&level0_Grid, &level0_Domain);
+#ifdef SHEARING_BOX
+  set_bvals_shear_init(&level0_Grid, &level0_Domain);
+#endif
 /* Only bvals for Gas structure set when last argument of set_bvals = 0  */
-  set_bvals(&level0_Grid, 0);                            
+  set_bvals(&level0_Grid, &level0_Domain, 0);                            
   if(ires == 0) new_dt(&level0_Grid);
 
 /*--- Step 7. ----------------------------------------------------------------*/
@@ -328,7 +326,7 @@ int main(int argc, char *argv[])
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
 /* Only bvals for Phi set when last argument of set_bvals = 1  */
-  set_bvals(&level0_Grid, 1);
+  set_bvals(&level0_Grid, &level0_Domain, 1);
 #endif
 
 /*--- Step 9. ----------------------------------------------------------------*/
@@ -374,13 +372,13 @@ int main(int argc, char *argv[])
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
 
-    (*Integrate)(&level0_Grid);
+    (*Integrate)(&level0_Grid, &level0_Domain);
     Userwork_in_loop(&level0_Grid, &level0_Domain);
 
 #ifdef SELF_GRAVITY
     (*SelfGrav)(&level0_Grid, &level0_Domain);
 /* Only bvals for Phi set when last argument of set_bvals = 1  */
-    set_bvals(&level0_Grid, 1);
+    set_bvals(&level0_Grid, &level0_Domain, 1);
     selfg_flux_correction(&level0_Grid);
 #endif
 
@@ -390,7 +388,7 @@ int main(int argc, char *argv[])
 
 /* Boundary values must be set after time is updated for t-dependent BCs 
  * Only bvals for Gas structure set when last argument of set_bvals = 0  */
-    set_bvals(&level0_Grid, 0);
+    set_bvals(&level0_Grid, &level0_Domain, 0);
 
 #ifdef MPI_PARALLEL
     if(use_wtlim && (MPI_Wtime() > wtend))
@@ -452,9 +450,9 @@ int main(int argc, char *argv[])
   ath_pout(0,"\nzone-cycles/wall-second = %e\n",zcs);
 
 #ifdef MPI_PARALLEL
-  zones = (level0_Domain.ixe - level0_Domain.ixs + 1)
-         *(level0_Domain.jxe - level0_Domain.jxs + 1)
-         *(level0_Domain.kxe - level0_Domain.kxs + 1);
+  zones = (level0_Domain.ide - level0_Domain.ids + 1)
+         *(level0_Domain.jde - level0_Domain.jds + 1)
+         *(level0_Domain.kde - level0_Domain.kds + 1);
   zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
   ath_pout(0,"\ntotal zone-cycles/wall-second = %e\n",zcs);
 #endif /* MPI_PARALLEL */
@@ -470,6 +468,9 @@ int main(int argc, char *argv[])
   lr_states_destruct();
   integrate_destruct();
   data_output_destruct();
+#ifdef SHEARING_BOX
+  set_bvals_shear_destruct();
+#endif
   par_close();       
 
 #ifdef MPI_PARALLEL
