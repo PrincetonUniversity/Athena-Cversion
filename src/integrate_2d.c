@@ -74,7 +74,7 @@ static void integrate_emf3_corner(Grid *pG);
 /*----------------------------------------------------------------------------*/
 /* integrate_2d:  CTU integrator in 2D  */
 
-void integrate_2d(Grid *pG)
+void integrate_2d(Grid *pG, Domain *pD)
 {
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;

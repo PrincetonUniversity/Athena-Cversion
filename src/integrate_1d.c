@@ -28,7 +28,7 @@ static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 /*----------------------------------------------------------------------------*/
 /* integrate_1d:   */
 
-void integrate_1d(Grid *pG)
+void integrate_1d(Grid *pG, Domain *pD)
 {
   Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;
   int i, is = pG->is, ie = pG->ie;

@@ -110,7 +110,7 @@ static void first_order_correction(const Grid *pG);
 /* integrate_3d_vl: 3D van Leer unsplit integrator for MHD. 
  */
 
-void integrate_3d_vl(Grid *pG)
+void integrate_3d_vl(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;

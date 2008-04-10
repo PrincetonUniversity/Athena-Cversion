@@ -19,9 +19,9 @@
 static int dim=0;
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init: initialize integrator; VGFun_t defined in athena.h   */
+/* integrate_init: initialize integrator; VGDFun_t defined in athena.h   */
 
-VGFun_t integrate_init(int Nx1, int Nx2, int Nx3)
+VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3)
 {
 
 /* Calculate the dimensions  */
