@@ -135,42 +135,47 @@ typedef struct Grid_s{
   Real ***x2MassFlux;           /* x2 mass flux for source term correction */
   Real ***x3MassFlux;           /* x3 mass flux for source term correction */
 #endif
-  Real x1_0;		        /* x1-position of coordinate ix = 0 */
-  Real x2_0;		        /* x2-position of coordinate jx = 0 */
-  Real x3_0;		        /* x3-position of coordinate kx = 0 */
-  Real dx1,dx2,dx3;	       	/* cell size */
-  Real dt,time;			/* time step, absolute time */
-  int nstep;			/* number of integration steps taken */
-  int Nx1,Nx2,Nx3;		/* number of zones in x1, x2, x3 direction */
-  int is,ie;			/* start/end cell index in x1 direction */
-  int js,je;			/* start/end cell index in x2 direction */
-  int ks,ke;			/* start/end cell index in x3 direction */
-  int idisp;                    /* coordinate ix = index i + idisp */
-  int jdisp;                    /* coordinate jx = index j + jdisp */
-  int kdisp;                    /* coordinate kx = index k + kdisp */
-  char *outfilename;		/* basename for output files */
+  Real x1_0;	            /* x1-position of coordinate ix = 0 */
+  Real x2_0;	            /* x2-position of coordinate jx = 0 */
+  Real x3_0;	            /* x3-position of coordinate kx = 0 */
+  Real dx1,dx2,dx3;         /* cell size */
+  Real dt,time;		    /* time step, absolute time */
+  int nstep;		    /* number of integration steps taken */
+  int Nx1,Nx2,Nx3;          /* number of zones in each direction in this Grid */
+  int is,ie;		    /* start/end cell index in x1 direction */
+  int js,je;		    /* start/end cell index in x2 direction */
+  int ks,ke;		    /* start/end cell index in x3 direction */
+  int idisp;                /* coordinate ix = index i + idisp */
+  int jdisp;                /* coordinate jx = index j + jdisp */
+  int kdisp;                /* coordinate kx = index k + kdisp */
+  char *outfilename;        /* basename for output files */
   int my_id;                /* process ID (or rank in MPI) updating this Grid */
-  int nproc;                /* total number of processes in the calculation */
   int rx1_id, lx1_id;       /* ID of grids to R/L in x1-dir (default = -1) */
   int rx2_id, lx2_id;       /* ID of grids to R/L in x2-dir (default = -1) */
   int rx3_id, lx3_id;       /* ID of grids to R/L in x3-dir (default = -1) */
 }Grid;
 
 /*----------------------------------------------------------------------------*/
-/* structures Grid_Block - 3D array of indices and IDs of each Grid in Domain
- *        and Domain     - Grid_Block array, and indices of entire Domain
+/* structure GridIndices: indices and IDs of each Grid in Domain
+ * structure Domain: 3D array of GridIndices, and all other information about
+ *   this Domain that might be needed by an individual processor updating an
+ *   individual Grid
  */
 
-typedef struct Grid_Block_s{
-  int ixs, jxs, kxs;             /* Minimum coordinate of cells in this block */
-  int ixe, jxe, kxe;             /* Maximum coordinate of cells in this block */
-  int my_id;                     /* process ID (rank in MPI) */
-}Grid_Block;
+typedef struct Grid_Indices_s{
+  int igs, jgs, kgs;             /* Minimum coordinate of cells in this Grid */
+  int ige, jge, kge;             /* Maximum coordinate of cells in this Grid */
+  int id;                        /* process ID (rank in MPI) */
+}Grid_Indices;
 
 typedef struct Domain_s{
-  Grid_Block ***grid_block;     /* 3D array of grid blocks tiling this domain */
-  int ixs, jxs, kxs;        /* Minimum coordinate of cells over entire domain */
-  int ixe, jxe, kxe;        /* Maximum coordinate of cells over entire domain */
+  Grid_Indices ***GridArray;     /* 3D array of Grids tiling this Domain */
+  int ids, jds, kds;        /* Minimum coordinate of cells over entire Domain */
+  int ide, jde, kde;        /* Maximum coordinate of cells over entire Domain */
+  int NGrid_x1;            /* Number of Grids in x1 direction for this Domain */
+  int NGrid_x2;            /* Number of Grids in x2 direction for this Domain */
+  int NGrid_x3;            /* Number of Grids in x3 direction for this Domain */
+  int Nx1,Nx2,Nx3;  /* total number of zones in each direction over all Grids */
 }Domain;
 
 /*----------------------------------------------------------------------------*/
