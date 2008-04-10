@@ -33,14 +33,14 @@ void init_grid(Grid *pG, Domain *pD)
   pG->time = 0.0;
   pG->nstep = 0;
 
-/* get (i,j,k) coordinates of grid being updated on this processor */
+/* get (i,j,k) coordinates of Grid being updated on this processor */
 
-  get_myblock_ijk(pD, pG->my_id, &ib, &jb, &kb);
+  get_myGridIndex(pD, pG->my_id, &ib, &jb, &kb);
 
 /* ---------------------  Intialize grid in 1-direction --------------------- */
 /* Initialize is,ie */
 
-  pG->Nx1 = pD->grid_block[kb][jb][ib].ixe - pD->grid_block[kb][jb][ib].ixs + 1;
+  pG->Nx1 = pD->GridArray[kb][jb][ib].ige - pD->GridArray[kb][jb][ib].igs + 1;
 
   if(pG->Nx1 > 1) {
     pG->is = nghost;
@@ -57,17 +57,17 @@ void init_grid(Grid *pG, Domain *pD)
     ath_error("[init_grid]: x1max = %g < x1min = %g\n",x1max,x1min);
   }
 
-  pG->dx1 = (x1max - x1min)/(Real)(pD->ixe - pD->ixs + 1);
+  pG->dx1 = (x1max - x1min)/(Real)(pD->ide - pD->ids + 1);
 
 /* Initialize i-displacement, and the x1-position of coordinate ix = 0. */
 
-  pG->idisp = pD->grid_block[kb][jb][ib].ixs - pG->is;
+  pG->idisp = pD->GridArray[kb][jb][ib].igs - pG->is;
   pG->x1_0 = x1min; 
 
 /* ---------------------  Intialize grid in 2-direction --------------------- */
 /* Initialize js,je */
 
-  pG->Nx2 = pD->grid_block[kb][jb][ib].jxe - pD->grid_block[kb][jb][ib].jxs + 1;
+  pG->Nx2 = pD->GridArray[kb][jb][ib].jge - pD->GridArray[kb][jb][ib].jgs + 1;
 
   if(pG->Nx2 > 1) {
     pG->js = nghost;
@@ -83,17 +83,17 @@ void init_grid(Grid *pG, Domain *pD)
   if(x2max < x2min) {
     ath_error("[init_grid]: x2max = %g < x2min = %g\n",x2max,x2min);
   }
-  pG->dx2 = (x2max - x2min)/(Real)(pD->jxe - pD->jxs + 1);
+  pG->dx2 = (x2max - x2min)/(Real)(pD->jde - pD->jds + 1);
 
 /* Initialize j-displacement, and the x2-position of coordinate jx = 0. */
 
-  pG->jdisp = pD->grid_block[kb][jb][ib].jxs - pG->js;
+  pG->jdisp = pD->GridArray[kb][jb][ib].jgs - pG->js;
   pG->x2_0 = x2min;
 
 /* ---------------------  Intialize grid in 3-direction --------------------- */
 /* Initialize ks,ke */
 
-  pG->Nx3 = pD->grid_block[kb][jb][ib].kxe - pD->grid_block[kb][jb][ib].kxs + 1;
+  pG->Nx3 = pD->GridArray[kb][jb][ib].kge - pD->GridArray[kb][jb][ib].kgs + 1;
 
   if(pG->Nx3 > 1) {
     pG->ks = nghost;
@@ -109,11 +109,11 @@ void init_grid(Grid *pG, Domain *pD)
   if(x3max < x3min) {
     ath_error("[init_grid]: x3max = %g < x3min = %g\n",x3max,x3min);
   }
-  pG->dx3 = (x3max - x3min)/(Real)(pD->kxe - pD->kxs + 1);
+  pG->dx3 = (x3max - x3min)/(Real)(pD->kde - pD->kds + 1);
 
 /* Initialize k-displacement, and the x3-position of coordinate kx = 0. */
 
-  pG->kdisp = pD->grid_block[kb][jb][ib].kxs - pG->ks;
+  pG->kdisp = pD->GridArray[kb][jb][ib].kgs - pG->ks;
   pG->x3_0 = x3min;
 
 /* ---------  Allocate 3D arrays to hold Gas based on size of grid --------- */
