@@ -70,7 +70,7 @@ static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
 
 #ifdef SHEARING_BOX
-void RemapEy(Grid *pG, Real ***emfy);
+static Real **remapEyiib=NULL, **remapEyoib=NULL;
 #endif
 
 /*==============================================================================
@@ -90,7 +90,7 @@ static void integrate_emf3_corner(const Grid *pG);
 /*----------------------------------------------------------------------------*/
 /* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
 
-void integrate_3d_ctu(Grid *pG)
+void integrate_3d_ctu(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
@@ -115,6 +115,7 @@ void integrate_3d_ctu(Grid *pG)
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #endif
 #ifdef SHEARING_BOX
+  int my_iproc,my_jproc,my_kproc;
   Real M1n, dM2n; /* M1, dM2=(My+d*1.5*Omega*x) at time n */
   Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
   Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
@@ -1722,7 +1723,34 @@ void integrate_3d_ctu(Grid *pG)
 
 /* Remap Ey at is and ie+1 to conserve Bz in shearing box */
 #ifdef SHEARING_BOX
-  RemapEy(pG, emf2);
+    get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
+
+/* compute remapped Ey from opposite side of grid */
+
+    if (my_iproc == 0) {
+      RemapEy_ix1(pG, pD, emf2, remapEyiib);
+    }
+    if (my_iproc == (pD->NGrid_x1-1)) {
+      RemapEy_ox1(pG, pD, emf2, remapEyoib);
+    }
+
+/* Now average Ey and remapped Ey */
+
+    if (my_iproc == 0) {
+      for(k=ks; k<=ke+1; k++) {
+        for(j=js; j<=je; j++){
+          emf2[k][j][is]  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+        }
+      }
+    }
+
+    if (my_iproc == (pD->NGrid_x1-1)) {
+      for(k=ks; k<=ke+1; k++) {
+        for(j=js; j<=je; j++){
+          emf2[k][j][ie+1]  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+        }
+      }
+    }
 #endif /* SHEARING_BOX */
 
   for (k=ks; k<=ke; k++) {
@@ -2152,6 +2180,8 @@ void integrate_destruct_3d(void)
   if (x2Flux    != NULL) free_3d_array(x2Flux);
   if (x3Flux    != NULL) free_3d_array(x3Flux);
   if (dhalf     != NULL) free_3d_array(dhalf);
+  if (remapEyiib != NULL) free_2d_array(remapEyiib);
+  if (remapEyoib != NULL) free_2d_array(remapEyoib);
 
   return;
 }
@@ -2235,6 +2265,13 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
       goto on_error;
   }
+#endif
+
+#ifdef SHEARING_BOX
+  if ((remapEyiib = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEyoib = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
+    goto on_error;
 #endif
 
   return;
