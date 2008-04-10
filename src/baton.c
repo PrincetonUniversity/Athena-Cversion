@@ -56,7 +56,7 @@ void baton_start(const int Nb, const int tag){
     status = MPI_Recv(&isig, 0, MPI_INT, fr_id, tag, MPI_COMM_WORLD, &stat);
 
     if(status != MPI_SUCCESS)
-      error("[baton_start]: MPI_Recv error = %d\n",status);
+      ath_error("[baton_start]: MPI_Recv error = %d\n",status);
   }
 
   return;
