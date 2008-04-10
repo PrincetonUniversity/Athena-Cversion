@@ -28,6 +28,7 @@
  *   par.c
  *   restart.c
  *   set_bvals.c
+ *   set_bvals_shear.c
  *   show_config.c
  *   utils.c
  *============================================================================*/
@@ -153,7 +154,7 @@ void flux_exact (const Cons1D Ul,const Cons1D Ur,
 /*----------------------------------------------------------------------------*/
 /* init_domain.c */
 void init_domain(Grid *pG, Domain *pD);
-void get_myblock_ijk(Domain *pD, const int my_id, int *pi, int *pj, int *pk);
+void get_myGridIndex(Domain *pD, const int my_id, int *pi, int *pj, int *pk);
 
 /*----------------------------------------------------------------------------*/
 /* init_grid.c */
@@ -161,27 +162,27 @@ void init_grid(Grid *pGrid, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* integrate.c */
-VGFun_t integrate_init(int Nx1, int Nx2, int Nx3);
+VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3);
 void integrate_destruct(void);
 
 /*----------------------------------------------------------------------------*/
 /* integrate_1d.c */
 void integrate_destruct_1d(void);
 void integrate_init_1d(int Nx1);
-void integrate_1d(Grid *pgrid);
+void integrate_1d(Grid *pG, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* integrate_2d.c */
 void integrate_destruct_2d(void);
 void integrate_init_2d(int Nx1, int Nx2);
-void integrate_2d(Grid *pgrid);
+void integrate_2d(Grid *pG, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* integrate_3d.c */
 void integrate_destruct_3d(void);
 void integrate_init_3d(int Nx1, int Nx2, int Nx3);
-void integrate_3d_vl(Grid *pgrid);
-void integrate_3d_ctu(Grid *pgrid);
+void integrate_3d_vl(Grid *pG, Domain *pD);
+void integrate_3d_ctu(Grid *pG, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* lr_states.c */
@@ -286,7 +287,18 @@ void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
 void set_bvals_init(Grid *pG, Domain *pD);
 void set_bvals_start(VGFun_t start);
 void set_bvals_fun(enum Direction dir, VBCFun_t prob_bc);
-void set_bvals(Grid *pGrid, int var_flag);
+void set_bvals(Grid *pGrid, Domain *pDomain, int var_flag);
+
+/*----------------------------------------------------------------------------*/
+/* set_bvals_shear.c  */
+#ifdef SHEARING_BOX
+void ShearingSheet_ix1(Grid *pG, Domain *pD);
+void ShearingSheet_ox1(Grid *pG, Domain *pD);
+void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **remapEyiib);
+void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **remapEyoib);
+void set_bvals_shear_init(Grid *pG, Domain *pD);
+void set_bvals_shear_destruct(void);
+#endif /* SHEARING_BOX */
 
 /*----------------------------------------------------------------------------*/
 /* show_config.c */
