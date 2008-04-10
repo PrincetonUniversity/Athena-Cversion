@@ -147,8 +147,8 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
 /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
-  vol_rat = (pD->ixe - pD->ixs + 1)*(pD->jxe - pD->jxs + 1)*
-            (pD->kxe - pD->kxs + 1);
+  vol_rat = (pD->ide - pD->ids + 1)*(pD->jde - pD->jds + 1)*
+            (pD->kde - pD->kds + 1);
 
 /* The parent sums the scal[] array.
  * Note that this assumes (dx1,dx2,dx3) = const. */

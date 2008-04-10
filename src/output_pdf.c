@@ -47,7 +47,7 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
   double r, s, ep=0.0; /* Temp. variables for calculating the variance, etc. */
 #ifdef MPI_PARALLEL
   int err, cg_data_cnt;
-  cg_data_cnt = (pD->ixe - pD->ixs +1)*(pD->jxe - pD->jxs +1)*(pD->kxe - pD->kxs +1);
+  cg_data_cnt = (pD->ide-pD->ids +1)*(pD->jde-pD->jds +1)*(pD->kde-pD->kds +1);
 #endif /* MPI_PARALLEL */
 
   data_cnt = (ie - is + 1)*(je - js + 1)*(ke - ks + 1);
