@@ -2180,8 +2180,10 @@ void integrate_destruct_3d(void)
   if (x2Flux    != NULL) free_3d_array(x2Flux);
   if (x3Flux    != NULL) free_3d_array(x3Flux);
   if (dhalf     != NULL) free_3d_array(dhalf);
+#ifdef SHEARING_BOX
   if (remapEyiib != NULL) free_2d_array(remapEyiib);
   if (remapEyoib != NULL) free_2d_array(remapEyoib);
+#endif
 
   return;
 }
