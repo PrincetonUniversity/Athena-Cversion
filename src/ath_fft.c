@@ -59,9 +59,9 @@ struct ath_3d_fft_plan *ath_3d_fft_quick_plan(Grid *pGrid, Domain *pD,
 				ath_fft_data *data, ath_fft_direction dir)
 {
   /* Get size of global FFT grid */
-  int gnx1 = pD->ixe - pD->ixs + 1;
-  int gnx2 = pD->jxe - pD->jxs + 1;
-  int gnx3 = pD->kxe - pD->kxs + 1;
+  int gnx1 = pD->ide - pD->ids + 1;
+  int gnx2 = pD->jde - pD->jds + 1;
+  int gnx3 = pD->kde - pD->kds + 1;
 
   /* Get extents of local FFT grid in global coordinates */
   int gis = pGrid->is + pGrid->idisp;
@@ -228,8 +228,8 @@ struct ath_2d_fft_plan *ath_2d_fft_quick_plan(Grid *pGrid, Domain *pD,
   }
 
   /* Get size of global FFT grid */
-  int gnx1 = pD->ixe - pD->ixs + 1;
-  int gnx2 = pD->jxe - pD->jxs + 1;
+  int gnx1 = pD->ide - pD->ids + 1;
+  int gnx2 = pD->jde - pD->jds + 1;
 
   /* Get extents of local FFT grid in global coordinates */
   int gis = pGrid->is + pGrid->idisp;

@@ -1040,25 +1040,25 @@ void selfg_by_multig_3d_init(Grid *pG, Domain *pD)
     for (j=0; j<NGrid_x2; j++){
       for (i=0; i<NGrid_x1; i++){
         if(NGrid_x1 > 1){
-          nx2t = pD->grid_block[k][j][i].jxe - pD->grid_block[k][j][i].jxs + 1;
-          nx3t = pD->grid_block[k][j][i].kxe - pD->grid_block[k][j][i].kxs + 1;
+          nx2t = pD->grid_block[k][j][i].jde - pD->grid_block[k][j][i].jds + 1;
+          nx3t = pD->grid_block[k][j][i].kde - pD->grid_block[k][j][i].kds + 1;
         
           x1cnt = nx2t*nx3t > x1cnt ? nx2t*nx3t : x1cnt;
         }
         
         if(NGrid_x2 > 1){
-          nx1t = pD->grid_block[k][j][i].ixe - pD->grid_block[k][j][i].ixs + 1;
+          nx1t = pD->grid_block[k][j][i].ide - pD->grid_block[k][j][i].ids + 1;
           if(nx1t > 1) nx1t += 2;
-          nx3t = pD->grid_block[k][j][i].kxe - pD->grid_block[k][j][i].kxs + 1;
+          nx3t = pD->grid_block[k][j][i].kde - pD->grid_block[k][j][i].kds + 1;
 
           x2cnt = nx1t*nx3t > x2cnt ? nx1t*nx3t : x2cnt;
         }
 
 
         if(NGrid_x3 > 1){
-          nx1t = pD->grid_block[k][j][i].ixe - pD->grid_block[k][j][i].ixs + 1;
+          nx1t = pD->grid_block[k][j][i].ide - pD->grid_block[k][j][i].ids + 1;
           if(nx1t > 1) nx1t += 2;
-          nx2t = pD->grid_block[k][j][i].jxe - pD->grid_block[k][j][i].jxs + 1;
+          nx2t = pD->grid_block[k][j][i].jde - pD->grid_block[k][j][i].jds + 1;
           if(nx2t > 1) nx2t += 2;
 
           x3cnt = nx1t*nx2t > x3cnt ? nx1t*nx2t : x3cnt;

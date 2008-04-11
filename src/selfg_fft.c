@@ -132,8 +132,8 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
  * by zero at i=is,j=js, and to avoid if statement in loop   */
 /* To compute kx,ky note that indices relative to whole Domain are needed */
 
-  dkx = 2.0*PI/(double)(pD->ixe - pD->ixs + 1);
-  dky = 2.0*PI/(double)(pD->jxe - pD->jxs + 1);
+  dkx = 2.0*PI/(double)(pD->ide - pD->ids + 1);
+  dky = 2.0*PI/(double)(pD->jde - pD->jds + 1);
 
   if ((js+pG->jdisp)==0 && (is+pG->idisp)==0) {
     work[F2DI(0,0,pG->Nx1,pG->Nx2)][0] = 0.0;
@@ -216,9 +216,9 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
  * by zero at i=is,j=js,k=ks, and to avoid if statement in loop   */
 /* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
 
-  dkx = 2.0*PI/(double)(pD->ixe - pD->ixs + 1);
-  dky = 2.0*PI/(double)(pD->jxe - pD->jxs + 1);
-  dkz = 2.0*PI/(double)(pD->kxe - pD->kxs + 1);
+  dkx = 2.0*PI/(double)(pD->ide - pD->ids + 1);
+  dky = 2.0*PI/(double)(pD->jde - pD->jds + 1);
+  dkz = 2.0*PI/(double)(pD->kde - pD->kds + 1);
 
   if ((ks+pG->kdisp)==0 && (js+pG->jdisp)==0 && (is+pG->idisp)==0) {
     work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] = 0.0;
