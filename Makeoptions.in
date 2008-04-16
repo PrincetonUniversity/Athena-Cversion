@@ -96,8 +96,17 @@ ifeq ($(MACHINE),woodhen)
   FFTWLIB = -L/home/lemaster/bin/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/home/lemaster/bin/fftw-3.1.2/include
 else
-
+ifeq ($(MACHINE),artemis)
+  CC  = mpicc
+  LDR = mpicc
+  OPT = -O3 -xW -ipo -i-static
+  MPIINC = -I/usr/local/openmpi/1.2.5/intel101/x86_64/include
+  MPILIB = -L/usr/local/openmpi/1.2.5/intel101/x86_64/lib -lmpi
+  FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
+  FFTWINC = -I/opt/fftw3/include
+else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif
