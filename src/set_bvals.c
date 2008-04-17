@@ -2508,7 +2508,13 @@ static void receive_ox1(Grid *pG, int var_flag, MPI_Request *prq)
           pq->B1c = *(pd++);
           pq->B2c = *(pd++);
           pq->B3c = *(pd++);
+/* Do not set B1i[ie+1] for shearing sheet boundary conditions */
+#ifdef SHEARING_BOX
+          if (i>il) {pG->B1i[k][j][i] = *(pd++);}
+          else {pd++;}
+#else
           pG->B1i[k][j][i] = *(pd++);
+#endif /* SHEARING_BOX */
           pG->B2i[k][j][i] = *(pd++);
           pG->B3i[k][j][i] = *(pd++);
 #endif /* MHD */
