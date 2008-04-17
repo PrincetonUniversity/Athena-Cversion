@@ -14,6 +14,7 @@
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
  *  ipert = 3 - vortical shwave (hydro test)
+ *  ipert = 4 - nonlinear density wave test of Fromang & Paploizou
  *
  * To run simulations of stratified disks (including vertical gravity),
  * un-comment the macro VERTICAL_GRAVITY below.
@@ -68,6 +69,8 @@ static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k);
 
 void problem(Grid *pGrid, Domain *pDomain)
 {
+  FILE *fp;
+  Real xFP[160],dFP[160],vxFP[160],vyFP[160];
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
@@ -83,6 +86,14 @@ void problem(Grid *pGrid, Domain *pDomain)
   if (pGrid->Nx2 == 1){
     ath_error("[problem]: HGB only works on a 2D or 3D grid\n");
   }
+
+/* Read problem parameters.  Note Omega set to 10^{-3} by default */
+  Omega = par_getd_def("problem","omega",1.0e-3);
+  amp = par_getd("problem","amp");
+  beta = par_getd("problem","beta");
+  B0 = sqrt((double)(2.0*pres/beta));
+  ifield = par_geti_def("problem","ifield", 1);
+  ipert = par_geti_def("problem","ipert", 1);
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->is + pGrid->idisp;
@@ -107,13 +118,30 @@ void problem(Grid *pGrid, Domain *pDomain)
   fkx = kx*((double)nwx);  /* nxw should be input as -ve for leading wave */
   fky = ky*((double)nwy);
 
-/* Read problem parameters.  Note Omega set to 10^{-3} by default */
-  Omega = par_getd_def("problem","omega",1.0e-3);
-  amp = par_getd("problem","amp");
-  beta = par_getd("problem","beta");
-  B0 = sqrt((double)(2.0*pres/beta));
-  ifield = par_geti_def("problem","ifield", 1);
-  ipert = par_geti_def("problem","ipert", 1);
+/* For PF density wave test, read data from file */
+
+  if (ipert == 4) {
+    if (pGrid->Nx1 == 160) {
+      if((fp = fopen("Data-160-FPwave.dat","r")) == NULL)
+         ath_error("Error opening Data-160-FPwave.dat\n");
+      for (i=0; i<160; i++) {
+        fscanf(fp,"%lf %lf %lf %lf",&xFP[i],&dFP[i],&vxFP[i],&vyFP[i]);
+      }
+    }
+
+    if (pGrid->Nx1 == 40) {
+      if((fp = fopen("Data-40-FPwave.dat","r")) == NULL)
+         ath_error("Error opening Data-40-FPwave.dat\n");
+      for (i=0; i<40; i++) {
+        fscanf(fp,"%lf %lf %lf %lf",&xFP[i],&dFP[i],&vxFP[i],&vyFP[i]);
+      }
+    }
+
+    xmin = par_getd("grid","x1min");
+    if (xmin != -4.7965) ath_error("[hgb]: iprob=4 requires xmin=-4.7965\n");
+    xmax = par_getd("grid","x1max");
+    if (xmax != 4.7965) ath_error("[hgb]: iprob=4 requires xmax=4.7965\n");
+  }
 
 /* Rescale amp to sound speed for ipert 2,3 */
 #ifdef ADIABATIC
@@ -131,6 +159,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
  *  ipert = 3 - vortical shwave (hydro test)
+ *  ipert = 4 - Fromang & Paploizou nonlinear density wave (hydro test)
  */
       if (ipert == 1) {
         rval = amp*(ran2(&iseed) - 0.5);
@@ -162,6 +191,12 @@ void problem(Grid *pGrid, Domain *pDomain)
         rd = den;
         rvx = amp*sin((double)(fkx*x1 + fky*x2));
         rvy = -amp*(fkx/fky)*sin((double)(fkx*x1 + fky*x2));
+        rvz = 0.0;
+      }
+      if (ipert == 4) {
+        rd = dFP[i+pGrid->idisp];
+        rvx = vxFP[i+pGrid->idisp];
+        rvy = vyFP[i+pGrid->idisp] + 1.5*Omega*x1;  /* subtract mean flow */
         rvz = 0.0;
       }
 
