@@ -33,17 +33,19 @@ ix2     = 1          # slice in X-Z plane
 
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000    # cycle limit
-tlim            = 37699.112 # time limit (6 orbits)
+tlim            = 6.2832e4  # time limit (10 orbits)
 
 <grid>
 
 Nx1             = 32         # Number of zones in X-direction
 x1min           = -0.5       # minimum value of X
 x1max           = 0.5        # maximum value of X
+ibc_x1          = 4          # inner-I (X) boundary flag
+obc_x1          = 4          # outer-I (X) boundary flag
 
-Nx2             = 128        # Number of zones in Y-direction
-x2min           = -2.0       # minimum value of Y
-x2max           = 2.0        # maximum value of Y
+Nx2             = 64        # Number of zones in Y-direction
+x2min           = -3.1415       # minimum value of Y
+x2max           = 3.1415        # maximum value of Y
 ibc_x2          = 4          # inner-J (Y) boundary flag
 obc_x2          = 4          # outer-J (Y) boundary flag
 
