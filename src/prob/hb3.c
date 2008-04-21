@@ -187,8 +187,6 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* enroll gravitational potential function, shearing sheet BC functions */
 
   StaticGravPot = ShearingBoxPot;
-  set_bvals_fun(left_x1,  no_op_VGfun);
-  set_bvals_fun(right_x1, no_op_VGfun);
 
 /* enroll new history variables */
 
@@ -202,89 +200,6 @@ void problem(Grid *pGrid, Domain *pDomain)
   dump_history_enroll(hst_BxBy, "<-Bx By>");
 #endif /* MHD */
 
-
-  return;
-}
-
-/*------------------------------------------------------------------------------
- * shear_ix1_ox1() - shearing-sheet BCs in x1 for 2D sims, does the ix1/ox1
- *   boundaries simultaneously which is necessary in MPI parallel jobs since
- *   ix1 must receive data sent by ox1, and vice versa
- * This is a public function which is called by set_bvals() (inside a
- * SHEARING_BOX macro).  The hb3 problem generator enrolls NoOp functions for
- * the x1 bval routines, so that set_bvals() uses MPI to handle the internal
- * boundaries between grids properly, and this routine to handle the shearing
- * sheet BCs.
- *----------------------------------------------------------------------------*/
-
-void shear_ix1_ox1(Grid *pGrid, int var_flag)
-{
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks;
-  int i,j;
-
-  if (var_flag == 1) return;  /* BC for Phi with self-gravity not set here */
-
-/* Set ghost zones in ix1 */
-
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->U[ks][j][is-i] = pGrid->U[ks][j][ie-(i-1)];
-
-      pGrid->U[ks][j][is-i].M3 += 1.5*Omega*Lx*pGrid->U[ks][j][is-i].d;
-#ifdef ADIABATIC
-/* No change in the internal energy */
-      pGrid->U[ks][j][is-i].E += (0.5/pGrid->U[ks][j][is-i].d)*
-       (SQR(pGrid->U[ks][j][is-i].M3) - SQR(pGrid->U[ks][j][ie-(i-1)].M3));
-#endif
-    }
-  }
-
-#ifdef MHD
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->B1i[ks][j][is-i] = pGrid->B1i[ks][j][ie-(i-1)];
-    }
-  }
-
-  for (j=js; j<=je+1; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->B2i[ks][j][is-i] = pGrid->B2i[ks][j][ie-(i-1)];
-    }
-  }
-#endif
-
-/* Set ghost zones in ox1 */
-/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
-
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->U[ks][j][ie+i] = pGrid->U[ks][j][is+(i-1)];
-
-      pGrid->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pGrid->U[ks][j][ie+i].d;
-#ifdef ADIABATIC
-/* No change in the internal energy */
-      pGrid->U[ks][j][ie+i].E += (0.5/pGrid->U[ks][j][ie+i].d)*
-        (SQR(pGrid->U[ks][j][ie+i].M3) - SQR(pGrid->U[ks][j][is+(i-1)].M3));
-#endif
-    }
-  }
-
-#ifdef MHD
-/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
-  for (j=js; j<=je; j++) {
-    for (i=2; i<=nghost; i++) {
-      pGrid->B1i[ks][j][ie+i] = pGrid->B1i[ks][j][is+(i-1)];
-    }
-  }
-
-  for (j=js; j<=je+1; j++) {
-    for (i=1; i<=nghost; i++) {
-      pGrid->B2i[ks][j][ie+i] = pGrid->B2i[ks][j][is+(i-1)];
-    }
-  }
-#endif
 
   return;
 }

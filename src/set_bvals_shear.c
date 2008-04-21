@@ -140,7 +140,10 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   epsi = (fmod(deltay,pG->dx2))/pG->dx2;
 
 /*--- Step 2. ------------------------------------------------------------------
- * Copy data into GhstZns array.  Note i and j indices are switched. */
+ * Copy data into GhstZns array.  Note i and j indices are switched.
+ * Steps 2-10 are for 3D runs.  Step 11 handles 2D separately */
+
+  if (pG->Nx3 > 1) {  /* this if ends at end of step 10 */
 
   for(k=ks; k<=ke+1; k++) {
     for(j=js-nghost; j<=je+nghost; j++){
@@ -649,6 +652,42 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
+  } /* end of if */
+
+/*--- Step 11 ------------------------------------------------------------------
+ * Shearing sheet BC in 2D  */
+
+  if (pG->Nx3 == 1) {
+
+  for (j=js; j<=je; j++) {
+    for (i=1; i<=nghost; i++) {
+      pG->U[ks][j][is-i] = pG->U[ks][j][ie-(i-1)];
+
+      pG->U[ks][j][is-i].M3 += 1.5*Omega*Lx*pG->U[ks][j][is-i].d;
+#ifdef ADIABATIC
+/* No change in the internal energy */
+      pG->U[ks][j][is-i].E += (0.5/pG->U[ks][j][is-i].d)*
+       (SQR(pG->U[ks][j][is-i].M3) - SQR(pG->U[ks][j][ie-(i-1)].M3));
+#endif
+    }
+  }
+
+#ifdef MHD
+  for (j=js; j<=je; j++) {
+    for (i=1; i<=nghost; i++) {
+      pG->B1i[ks][j][is-i] = pG->B1i[ks][j][ie-(i-1)];
+    }
+  }
+
+  for (j=js; j<=je+1; j++) {
+    for (i=1; i<=nghost; i++) {
+      pG->B2i[ks][j][is-i] = pG->B2i[ks][j][ie-(i-1)];
+    }
+  }
+#endif
+
+ }
+
   return;
 }
 
@@ -706,7 +745,10 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
   epso = -(fmod(deltay,pG->dx2))/pG->dx2;
 
 /*--- Step 2. ------------------------------------------------------------------
- * Copy data into GhstZns array.  Note i and j indices are switched. */
+ * Copy data into GhstZns array.  Note i and j indices are switched.
+ * Steps 2-10 are for 3D runs.  Step 11 handles 2D separately */
+
+  if (pG->Nx3 > 1) {  /* this if ends at end of step 10 */
 
   for(k=ks; k<=ke+1; k++) {
     for(j=js-nghost; j<=je+nghost; j++){
@@ -1216,6 +1258,42 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
     }
   }
 #endif /* MHD */
+
+  } /* end of if */
+
+/*--- Step 11 ------------------------------------------------------------------
+ * Shearing sheet BC in 2D  */
+
+  if (pG->Nx3 == 1) {
+
+  for (j=js; j<=je; j++) {
+    for (i=1; i<=nghost; i++) {
+      pG->U[ks][j][ie+i] = pG->U[ks][j][is+(i-1)];
+      pG->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pG->U[ks][j][ie+i].d;
+#ifdef ADIABATIC
+/* No change in the internal energy */
+      pG->U[ks][j][ie+i].E += (0.5/pG->U[ks][j][ie+i].d)*
+        (SQR(pG->U[ks][j][ie+i].M3) - SQR(pG->U[ks][j][is+(i-1)].M3));
+#endif
+    }
+  }
+
+#ifdef MHD
+/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
+  for (j=js; j<=je; j++) {
+    for (i=2; i<=nghost; i++) {
+      pG->B1i[ks][j][ie+i] = pG->B1i[ks][j][is+(i-1)];
+    }
+  }
+
+  for (j=js; j<=je+1; j++) {
+    for (i=1; i<=nghost; i++) {
+      pG->B2i[ks][j][ie+i] = pG->B2i[ks][j][is+(i-1)];
+    }
+  }
+#endif
+
+  }
 
   return;
 }

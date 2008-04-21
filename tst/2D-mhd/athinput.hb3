@@ -39,6 +39,8 @@ tlim            = 50265.482 # time limit (8 orbits)
 Nx1             = 64         # Number of zones in X-direction
 x1min           = -0.5       # minimum value of X
 x1max           = 0.5        # maximum value of X
+ibc_x1          = 4          # inner-I (X) boundary flag
+obc_x1          = 4          # outer-I (X) boundary flag
 
 Nx2             = 64         # Number of zones in Y-direction
 x2min           = -0.5       # minimum value of Y
