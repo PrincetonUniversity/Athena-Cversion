@@ -191,7 +191,12 @@ FILE *atherr_fp(void)
 
 void ath_flush_out(void)
 {
-  FILE *fp= (ath_fp_out == NULL ? stdout : ath_fp_out);
+  FILE *fp;
+
+  /* If the output log file needs to be opened then there's no data on
+     the stream to flush.  Return with a successful completion. */
+  if(open_out_flag) return;
+  fp = (ath_fp_out == NULL ? stdout : ath_fp_out);
   fflush(fp);
 }
 
@@ -201,7 +206,12 @@ void ath_flush_out(void)
 
 void ath_flush_err(void)
 {
-  FILE *fp= (ath_fp_err == NULL ? stderr : ath_fp_err);
+  FILE *fp;
+
+  /* If the error log file needs to be opened then there's no data on
+     the stream to flush.  Return with a successful completion. */
+  if(open_err_flag) return;
+  fp = (ath_fp_err == NULL ? stderr : ath_fp_err);
   fflush(fp);
 }
 
