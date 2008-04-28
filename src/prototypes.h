@@ -27,7 +27,8 @@
  *   dump_binary.c, dump_dx.c, dump_history.c, dump_table.c, dump_vtk.c
  *   par.c
  *   restart.c
- *   set_bvals.c
+ *   set_bvals_mhd.c
+ *   set_bvals_grav.c
  *   set_bvals_shear.c
  *   show_config.c
  *   utils.c
@@ -283,11 +284,18 @@ void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
 #endif /* FFT_ENABLED */
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals.c  */
-void set_bvals_init(Grid *pG, Domain *pD);
-void set_bvals_start(VGFun_t start);
-void set_bvals_fun(enum Direction dir, VBCFun_t prob_bc);
-void set_bvals(Grid *pGrid, Domain *pDomain, int var_flag);
+/* set_bvals_mhd.c  */
+void set_bvals_mhd_init(Grid *pG, Domain *pD);
+void set_bvals_mhd_fun(enum Direction dir, VBCFun_t prob_bc);
+void set_bvals_mhd(Grid *pGrid, Domain *pDomain);
+
+/*----------------------------------------------------------------------------*/
+/* set_bvals_grav.c  */
+#ifdef SELF_GRAVITY
+void set_bvals_grav_init(Grid *pG, Domain *pD);
+void set_bvals_grav_fun(enum Direction dir, VBCFun_t prob_bc);
+void set_bvals_grav(Grid *pGrid, Domain *pDomain);
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals_shear.c  */
@@ -298,6 +306,9 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **remapEyiib);
 void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **remapEyoib);
 void set_bvals_shear_init(Grid *pG, Domain *pD);
 void set_bvals_shear_destruct(void);
+#ifdef FARGO
+void Fargo(Grid *pG, Domain *pD);
+#endif
 #endif /* SHEARING_BOX */
 
 /*----------------------------------------------------------------------------*/
