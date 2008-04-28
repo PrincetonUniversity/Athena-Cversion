@@ -8,11 +8,15 @@
  *   boundary conditions to the y-component of the EMF to keep <Bz>=const) is
  *   called directly by the 3D integrator.
  *
+ * FARGO algorithm is implemented in the Fargo() function which is called in the
+ *   main loop directly after the integrator and before set_bvals_mhd.
+ *
  * CONTAINS PUBLIC FUNCTIONS:
  * ShearingSheet_ix1() - shearing sheet BCs on ix1, called by set_bval().
  * ShearingSheet_ox1() - shearing sheet BCs on ox1, called by set_bval().
  * RemapEy_ix1()      - sets Ey at ix1 in integrator to keep <Bz>=const. 
  * RemapEy_ox1()      - sets Ey at ox1 in integrator to keep <Bz>=const. 
+ * Fargo()            - implements FARGO algorithm for background flow
  * set_bvals_shear_init() - allocates memory for arrays used here
  * set_bvals_shear_destruct() - frees memory for arrays used here
  *============================================================================*/
@@ -33,17 +37,17 @@
 /* Define number of variables to be remapped */
 #ifdef BAROTROPIC /* BAROTROPIC EOS */
 #ifdef HYDRO
- enum {NREMAP = 4};
+ enum {NREMAP = 4, NFARGO = 4};
 #endif
 #ifdef MHD
- enum {NREMAP = 8};
+ enum {NREMAP = 8, NFARGO = 6};
 #endif
 #else /* ADIABATIC or other EOS */
 #ifdef HYDRO
- enum {NREMAP = 5};
+ enum {NREMAP = 5, NFARGO = 5};
 #endif
 #ifdef MHD
- enum {NREMAP = 9};
+ enum {NREMAP = 9, NFARGO = 7};
 #endif
 #endif /* EOS */
 
@@ -61,6 +65,14 @@ typedef struct Remap_s{
 #endif
 }Remap;
 
+/* Define structure for variables used in FARGO algorithm */
+typedef struct FGas_s{
+  Real U[NFARGO];
+#if (NSCALARS > 0)
+  Real s[NSCALARS];
+#endif
+}FGas;
+
 /* The memory for all the arrays below is allocated in set_bvals_shear_init */
 /* Arrays of ghost zones containing remapped conserved quantities */
 static Remap ***GhstZns=NULL, ***GhstZnsBuf=NULL;
@@ -77,6 +89,10 @@ static Real *Uhalf=NULL;
 /* MPI send and receive buffers */
 #ifdef MPI_PARALLEL
 static double *send_buf = NULL, *recv_buf = NULL;
+#endif
+#ifdef FARGO
+int nfghost;
+static FGas ***FargoVars=NULL, ***FargoFlx=NULL;
 #endif
 
 /*==============================================================================
@@ -148,26 +164,21 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   for(k=ks; k<=ke+1; k++) {
     for(j=js-nghost; j<=je+nghost; j++){
       for(i=0; i<nghost; i++){
-        ii = is-nghost+i; n=3;
+        ii = is-nghost+i;
         GhstZns[k][i][j].U[0] = pG->U[k][j][ii].d;
         GhstZns[k][i][j].U[1] = pG->U[k][j][ii].M1;
         GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2 + TH_omL*pG->U[k][j][ii].d;
         GhstZns[k][i][j].U[3] = pG->U[k][j][ii].M3;
 #ifdef ADIABATIC
 /* No change in the internal energy */
-        n++;
-        GhstZns[k][i][j].U[n] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
+        GhstZns[k][i][j].U[4] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
           (SQR(GhstZns[k][i][j].U[2]) - SQR(pG->U[k][j][ii].M2));
 #endif /* ADIABATIC */
 #ifdef MHD
-        n++;
-        GhstZns[k][i][j].U[n] = pG->U[k][j][ii].B1c;
-        n++;
-        GhstZns[k][i][j].U[n] = pG->B1i[k][j][ii];
-        n++;
-        GhstZns[k][i][j].U[n] = pG->B2i[k][j][ii];
-        n++;
-        GhstZns[k][i][j].U[n] = pG->B3i[k][j][ii];
+        GhstZns[k][i][j].U[NREMAP-4] = pG->U[k][j][ii].B1c;
+        GhstZns[k][i][j].U[NREMAP-3] = pG->B1i[k][j][ii];
+        GhstZns[k][i][j].U[NREMAP-2] = pG->B2i[k][j][ii];
+        GhstZns[k][i][j].U[NREMAP-1] = pG->B3i[k][j][ii];
 #endif /* MHD */
 #if (NSCALARS > 0)
         for(n=0; n<NSCALARS; n++) GhstZns[k][i][j].s[n] = pG->U[k][j][ii].s[n];
@@ -229,13 +240,14 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
       }
     }
 
+#ifdef MPI_PARALLEL
+  } else {
+
 /*--- Step 5. ------------------------------------------------------------------
  * If Domain contains MPI decomposition in Y, then MPI calls are required for
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into GhstZns.  */
 
-  } else {
-#ifdef MPI_PARALLEL
     get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
@@ -400,24 +412,18 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   for(k=ks; k<=ke; k++) {
     for(j=js; j<=je; j++){
       for(i=0; i<nghost; i++){
-        n=3;
         pG->U[k][j][is-nghost+i].d  = GhstZns[k][i][j].U[0];
         pG->U[k][j][is-nghost+i].M1 = GhstZns[k][i][j].U[1];
         pG->U[k][j][is-nghost+i].M2 = GhstZns[k][i][j].U[2];
         pG->U[k][j][is-nghost+i].M3 = GhstZns[k][i][j].U[3];
 #ifdef ADIABATIC
-        n++;
-        pG->U[k][j][is-nghost+i].E  = GhstZns[k][i][j].U[n];
+        pG->U[k][j][is-nghost+i].E  = GhstZns[k][i][j].U[4];
 #endif /* ADIABATIC */
 #ifdef MHD
-        n++;
-        pG->U[k][j][is-nghost+i].B1c = GhstZns[k][i][j].U[n];
-        n++;
-        pG->B1i[k][j][is-nghost+i] = GhstZns[k][i][j].U[n];
-        n++;
-        pG->B2i[k][j][is-nghost+i] = GhstZns[k][i][j].U[n];
-        n++;
-        pG->B3i[k][j][is-nghost+i] = GhstZns[k][i][j].U[n];
+        pG->U[k][j][is-nghost+i].B1c = GhstZns[k][i][j].U[NREMAP-4];
+        pG->B1i[k][j][is-nghost+i] = GhstZns[k][i][j].U[NREMAP-3];
+        pG->B2i[k][j][is-nghost+i] = GhstZns[k][i][j].U[NREMAP-2];
+        pG->B3i[k][j][is-nghost+i] = GhstZns[k][i][j].U[NREMAP-1];
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) {
@@ -485,12 +491,13 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
     }
 #endif /* MHD */
 
+#ifdef MPI_PARALLEL
+  } else {
+
 /*--- Step 9. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
  * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
 
-  } else {
-#ifdef MPI_PARALLEL
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = nghost*nghost*(pG->Nx3 + 1)*NVAR_SHARE;
@@ -659,34 +666,51 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
 
   if (pG->Nx3 == 1) {
 
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pG->U[ks][j][is-i] = pG->U[ks][j][ie-(i-1)];
+    for (j=js; j<=je; j++) {
+      for (i=1; i<=nghost; i++) {
+        pG->U[ks][j][is-i] = pG->U[ks][j][ie-(i-1)];
 
-      pG->U[ks][j][is-i].M3 += 1.5*Omega*Lx*pG->U[ks][j][is-i].d;
+        pG->U[ks][j][is-i].M3 += TH_omL*pG->U[ks][j][is-i].d;
 #ifdef ADIABATIC
 /* No change in the internal energy */
-      pG->U[ks][j][is-i].E += (0.5/pG->U[ks][j][is-i].d)*
-       (SQR(pG->U[ks][j][is-i].M3) - SQR(pG->U[ks][j][ie-(i-1)].M3));
+        pG->U[ks][j][is-i].E += (0.5/pG->U[ks][j][is-i].d)*
+         (SQR(pG->U[ks][j][is-i].M3) - SQR(pG->U[ks][j][ie-(i-1)].M3));
 #endif
+      }
     }
-  }
 
 #ifdef MHD
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pG->B1i[ks][j][is-i] = pG->B1i[ks][j][ie-(i-1)];
+    for (j=js; j<=je; j++) {
+      for (i=1; i<=nghost; i++) {
+        pG->B1i[ks][j][is-i] = pG->B1i[ks][j][ie-(i-1)];
+      }
     }
-  }
 
-  for (j=js; j<=je+1; j++) {
-    for (i=1; i<=nghost; i++) {
-      pG->B2i[ks][j][is-i] = pG->B2i[ks][j][ie-(i-1)];
+    for (j=js; j<=je+1; j++) {
+      for (i=1; i<=nghost; i++) {
+        pG->B2i[ks][j][is-i] = pG->B2i[ks][j][ie-(i-1)];
+      }
     }
-  }
 #endif
 
- }
+/* periodic BC in Y for 2D.  Note will not work with MPI decomposition in Y */
+    for(j=1; j<=nghost; j++){
+      for(i=is-nghost; i<is; i++){
+        pG->U[ks][js-j][i] = pG->U[ks][je-(j-1)][i];
+        pG->U[ks][je+j][i] = pG->U[ks][js+(j-1)][i];
+#ifdef MHD
+        pG->B1i[ks][js-j][i] = pG->B1i[ks][je-(j-1)][i];
+        pG->B2i[ks][js-j][i] = pG->B2i[ks][je-(j-1)][i];
+        pG->B3i[ks][js-j][i] = pG->B3i[ks][je-(j-1)][i];
+          
+        pG->B1i[ks][je+j][i] = pG->B1i[ks][js+(j-1)][i];
+        pG->B2i[ks][je+j][i] = pG->B2i[ks][js+(j-1)][i];
+        pG->B3i[ks][je+j][i] = pG->B3i[ks][js+(j-1)][i];
+#endif /* MHD */
+      }
+    }
+
+  }
 
   return;
 }
@@ -753,26 +777,21 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
   for(k=ks; k<=ke+1; k++) {
     for(j=js-nghost; j<=je+nghost; j++){
       for(i=0; i<nghost; i++){
-        ii = ie+1+i; n=3;
+        ii = ie+1+i;
         GhstZns[k][i][j].U[0] = pG->U[k][j][ii].d;
         GhstZns[k][i][j].U[1] = pG->U[k][j][ii].M1;
         GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2 - TH_omL*pG->U[k][j][ii].d;
         GhstZns[k][i][j].U[3] = pG->U[k][j][ii].M3;
 #ifdef ADIABATIC
 /* No change in the internal energy */
-        n++;
-        GhstZns[k][i][j].U[n] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
+        GhstZns[k][i][j].U[4] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
           (SQR(GhstZns[k][i][j].U[2]) - SQR(pG->U[k][j][ii].M2));
 #endif /* ADIABATIC */
 #ifdef MHD
-        n++;
-        GhstZns[k][i][j].U[n] = pG->U[k][j][ii].B1c;
-        n++;
-        GhstZns[k][i][j].U[n] = pG->B1i[k][j][ii];
-        n++;
-        GhstZns[k][i][j].U[n] = pG->B2i[k][j][ii];
-        n++;
-        GhstZns[k][i][j].U[n] = pG->B3i[k][j][ii];
+        GhstZns[k][i][j].U[NREMAP-4] = pG->U[k][j][ii].B1c;
+        GhstZns[k][i][j].U[NREMAP-3] = pG->B1i[k][j][ii];
+        GhstZns[k][i][j].U[NREMAP-2] = pG->B2i[k][j][ii];
+        GhstZns[k][i][j].U[NREMAP-1] = pG->B3i[k][j][ii];
 #endif /* MHD */
 #if (NSCALARS > 0)
         for(n=0; n<NSCALARS; n++) GhstZns[k][i][j].s[n] = pG->U[k][j][ii].s[n];
@@ -834,13 +853,14 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
       }
     }
 
+#ifdef MPI_PARALLEL
+  } else {
+
 /*--- Step 5. ------------------------------------------------------------------
  * If Domain contains MPI decomposition in Y, then MPI calls are required for
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into GhstZns.  */
 
-  } else {
-#ifdef MPI_PARALLEL
     get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
@@ -1007,24 +1027,18 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
   for(k=ks; k<=ke; k++) {
     for(j=js; j<=je; j++){
       for(i=0; i<nghost; i++){
-        n=3;
         pG->U[k][j][ie+1+i].d  = GhstZns[k][i][j].U[0];
         pG->U[k][j][ie+1+i].M1 = GhstZns[k][i][j].U[1];
         pG->U[k][j][ie+1+i].M2 = GhstZns[k][i][j].U[2];
         pG->U[k][j][ie+1+i].M3 = GhstZns[k][i][j].U[3];
 #ifdef ADIABATIC
-        n++;
-        pG->U[k][j][ie+1+i].E  = GhstZns[k][i][j].U[n];
+        pG->U[k][j][ie+1+i].E  = GhstZns[k][i][j].U[4];
 #endif /* ADIABATIC */
 #ifdef MHD
-        n++;
-        pG->U[k][j][ie+1+i].B1c = GhstZns[k][i][j].U[n];
-        n++;
-        if(i>0) pG->B1i[k][j][ie+1+i] = GhstZns[k][i][j].U[n];
-        n++;
-        pG->B2i[k][j][ie+1+i] = GhstZns[k][i][j].U[n];
-        n++;
-        pG->B3i[k][j][ie+1+i] = GhstZns[k][i][j].U[n];
+        pG->U[k][j][ie+1+i].B1c = GhstZns[k][i][j].U[NREMAP-4];
+        if(i>0) pG->B1i[k][j][ie+1+i] = GhstZns[k][i][j].U[NREMAP-3];
+        pG->B2i[k][j][ie+1+i] = GhstZns[k][i][j].U[NREMAP-2];
+        pG->B3i[k][j][ie+1+i] = GhstZns[k][i][j].U[NREMAP-1];
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) {
@@ -1092,12 +1106,13 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
     }
 #endif /* MHD */
 
+#ifdef MPI_PARALLEL
+  } else {
+
 /*--- Step 9. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
  * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
 
-  } else {
-#ifdef MPI_PARALLEL
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = nghost*nghost*(pG->Nx3 + 1)*NVAR_SHARE;
@@ -1266,32 +1281,49 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
 
   if (pG->Nx3 == 1) {
 
-  for (j=js; j<=je; j++) {
-    for (i=1; i<=nghost; i++) {
-      pG->U[ks][j][ie+i] = pG->U[ks][j][is+(i-1)];
-      pG->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pG->U[ks][j][ie+i].d;
+    for (j=js; j<=je; j++) {
+      for (i=1; i<=nghost; i++) {
+        pG->U[ks][j][ie+i] = pG->U[ks][j][is+(i-1)];
+        pG->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pG->U[ks][j][ie+i].d;
 #ifdef ADIABATIC
 /* No change in the internal energy */
-      pG->U[ks][j][ie+i].E += (0.5/pG->U[ks][j][ie+i].d)*
-        (SQR(pG->U[ks][j][ie+i].M3) - SQR(pG->U[ks][j][is+(i-1)].M3));
+        pG->U[ks][j][ie+i].E += (0.5/pG->U[ks][j][ie+i].d)*
+          (SQR(pG->U[ks][j][ie+i].M3) - SQR(pG->U[ks][j][is+(i-1)].M3));
 #endif
+      }
     }
-  }
 
 #ifdef MHD
 /* Note that i=ie+1 is not a boundary condition for the interface field B1i */
-  for (j=js; j<=je; j++) {
-    for (i=2; i<=nghost; i++) {
-      pG->B1i[ks][j][ie+i] = pG->B1i[ks][j][is+(i-1)];
+    for (j=js; j<=je; j++) {
+      for (i=2; i<=nghost; i++) {
+        pG->B1i[ks][j][ie+i] = pG->B1i[ks][j][is+(i-1)];
+      }
     }
-  }
 
-  for (j=js; j<=je+1; j++) {
-    for (i=1; i<=nghost; i++) {
-      pG->B2i[ks][j][ie+i] = pG->B2i[ks][j][is+(i-1)];
+    for (j=js; j<=je+1; j++) {
+      for (i=1; i<=nghost; i++) {
+        pG->B2i[ks][j][ie+i] = pG->B2i[ks][j][is+(i-1)];
+      }
     }
-  }
 #endif
+
+/* periodic BC in Y for 2D.  Note will not work with MPI decomposition in Y */
+    for(j=1; j<=nghost; j++){
+      for(i=ie+1; i<=ie+nghost; i++){
+        pG->U[ks][js-j][i] = pG->U[ks][je-(j-1)][i];
+        pG->U[ks][je+j][i] = pG->U[ks][js+(j-1)][i];
+#ifdef MHD
+        pG->B1i[ks][js-j][i] = pG->B1i[ks][je-(j-1)][i];
+        pG->B2i[ks][js-j][i] = pG->B2i[ks][je-(j-1)][i];
+        pG->B3i[ks][js-j][i] = pG->B3i[ks][je-(j-1)][i];
+
+        pG->B1i[ks][je+j][i] = pG->B1i[ks][js+(j-1)][i];
+        pG->B2i[ks][je+j][i] = pG->B2i[ks][js+(j-1)][i];
+        pG->B3i[ks][je+j][i] = pG->B3i[ks][js+(j-1)][i];
+#endif /* MHD */
+      }
+    }
 
   }
 
@@ -1353,11 +1385,12 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
         tEy[k][j] = emfy[k][j][ie+1];
       }
     }
+
+#ifdef MPI_PARALLEL
   } else {
 
 /* MPI calls to swap data */
 
-#ifdef MPI_PARALLEL
     cnt = pG->Nx2*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
@@ -1405,11 +1438,11 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       }
     }
 
+#ifdef MPI_PARALLEL
   } else {
 
 /* MPI calls to swap data */
 
-#ifdef MPI_PARALLEL
     cnt = nghost*(pG->Nx3 + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
@@ -1498,13 +1531,14 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       }
     }
 
+#ifdef MPI_PARALLEL
+  } else {
+
 /*--- Step 5. ------------------------------------------------------------------
  * If Domain contains MPI decomposition in Y, then MPI calls are required for
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into tEy.  */
 
-  } else {
-#ifdef MPI_PARALLEL
     get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
@@ -1692,11 +1726,12 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
         tEy[k][j] = emfy[k][j][is];
       }
     }
+
+#ifdef MPI_PARALLEL
   } else {
 
 /* MPI calls to swap data */
 
-#ifdef MPI_PARALLEL
     cnt = pG->Nx2*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data from remapEy_ix1 (listen R) */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
@@ -1744,11 +1779,11 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       }
     }
 
+#ifdef MPI_PARALLEL
   } else {
 
 /* MPI calls to swap data */
 
-#ifdef MPI_PARALLEL
     cnt = nghost*(pG->Nx3 + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
@@ -1837,13 +1872,14 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       }
     }
 
+#ifdef MPI_PARALLEL
+  } else {
+
 /*--- Step 5. ------------------------------------------------------------------
  * If Domain contains MPI decomposition in Y, then MPI calls are required for
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into tEy.  */
 
-  } else {
-#ifdef MPI_PARALLEL
     get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
@@ -1977,12 +2013,334 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 
 /*----------------------------------------------------------------------------*/
+/* Fargo: implements FARGO algorithm.  Only works in 3D.  This function is
+ * called in the main loop after the integrator (and before set_bvals_mhd).
+ *  Written in Munich 24-27.4.2008
+ *----------------------------------------------------------------------------*/
+
+#ifdef FARGO
+void Fargo(Grid *pG, Domain *pD)
+{
+  int is = pG->is, ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int jfs = nfghost, jfe = pG->Nx2 + nfghost - 1;
+  int i,j,k,jj,n,joffset;
+  Real x1,x2,x3,yshear,eps;
+#ifdef MPI_PARALLEL
+  int err;
+  double *pd;
+  FGas *pFGas;
+  MPI_Request rq;
+  MPI_Status stat;
+#endif
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Copy data into FargoVars array.  Note i and j indices are switched.
+ * Since the FargoVars array has extra ghost zones in y, it must be indexed
+ * over [jfs:jfe] instead of [js:je]  */
+
+  for(k=ks; k<=ke+1; k++) {
+    for(j=jfs; j<=jfe+1; j++){
+      for(i=is; i<=ie+1; i++){
+        jj = j-(jfs-js);
+        FargoVars[k][i][j].U[0] = pG->U[k][jj][i].d;
+        FargoVars[k][i][j].U[1] = pG->U[k][jj][i].M1;
+        FargoVars[k][i][j].U[2] = pG->U[k][jj][i].M2;
+        FargoVars[k][i][j].U[3] = pG->U[k][jj][i].M3;
+#ifdef ADIABATIC
+        FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;
+#endif /* ADIABATIC */
+/* Only store Bz and Bx in that order.  This is to match order in FargoFlx:
+ *  FargoFlx.U[NFARGO-2] = emfx = -Vy*Bz
+ *  FargoFlx.U[NFARGO-1] = emfy = Vy*Bx  */
+#ifdef MHD
+        FargoVars[k][i][j].U[NFARGO-2] = pG->B3i[k][jj][i];
+        FargoVars[k][i][j].U[NFARGO-1] = pG->B1i[k][jj][i];
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for(n=0;n<NSCALARS;n++) FargoVars[k][i][j].s[n] = pG->U[k][jj][i].s[n];
+#endif
+      }
+    }
+  }
+
+/*--- Step 2. ------------------------------------------------------------------
+ * With no MPI decomposition in Y, apply periodic BCs in Y to FargoVars array
+ * (method is similar to periodic_ix2() and periodic_ox2() in set_bvals_mhd).
+ * Note there are extra ghost zones in Y in the FargoVars array  */
+
+  if (pD->NGrid_x2 == 1) {
+
+    for(k=ks; k<=ke+1; k++) {
+      for(i=is; i<=ie+1; i++){
+        for(j=1; j<=nfghost; j++){
+          FargoVars[k][i][jfs-j] = FargoVars[k][i][jfe-(j-1)];
+          FargoVars[k][i][jfe+j] = FargoVars[k][i][jfs+(j-1)];
+        }
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 3. ------------------------------------------------------------------
+ * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
+
+/* Post a non-blocking receive for the input data from the left grid */
+    cnt = (pG->Nx1+1)*nfghost*(pG->Nx3 + 1)*(NFARGO + NSCALARS);
+    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    boundary_cells_tag, MPI_COMM_WORLD, &rq);
+    if(err) ath_error("[Fargo]: MPI_Irecv error at 1 = %d\n",err);
+
+    pd = send_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=jfe-nfghost+1; j<=jfe; j++){
+          /* Get a pointer to the FargoVars cell */
+          pFGas = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) *(pd++) = pFGas->U[n];
+#if (NSCALARS > 0)
+          for (n=0; n<NSCALARS; n++) *(pd++) = pFGas->s[n];
+#endif
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   boundary_cells_tag, MPI_COMM_WORLD);
+    if(err) ath_error("[Fargo]: MPI_Send error at 1 = %d\n",err);
+
+/* Wait to receive the input data from the left grid */
+    err = MPI_Wait(&rq, &stat);
+    if(err) ath_error("[Fargo]: MPI_Wait error at 1 = %d\n",err);
+
+    pd = recv_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=jfs-nfghost; j<=jfs-1; j++){
+          /* Get a pointer to the FargoVars cell */
+          pFGas = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) pFGas->U[n] = *(pd++);
+#if (NSCALARS > 0)
+          for (n=0; n<NSCALARS; n++) pFGas->s[n] = *(pd++);
+#endif
+        }
+      }
+    }
+
+/* Post a non-blocking receive for the input data from the right grid */
+    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    boundary_cells_tag, MPI_COMM_WORLD, &rq);
+    if(err) ath_error("[Fargo]: MPI_Irecv error at 2 = %d\n",err);
+
+    pd = send_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=jfs; j<=jfs+nfghost-1; j++){
+          /* Get a pointer to the FargoVars cell */
+          pFGas = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) *(pd++) = pFGas->U[n];
+#if (NSCALARS > 0)
+          for (n=0; n<NSCALARS; n++) *(pd++) = pFGas->s[n];
+#endif
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   boundary_cells_tag, MPI_COMM_WORLD);
+    if(err) ath_error("[Fargo]: MPI_Send error at 2 = %d\n",err);
+
+/* Wait to receive the input data from the left grid */
+    err = MPI_Wait(&rq, &stat);
+    if(err) ath_error("[Fargo]: MPI_Wait error at 2 = %d\n",err);
+
+    pd = recv_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=jfe+1; j<=jfe+nfghost; j++){
+          /* Get a pointer to the FargoVars cell */
+          pFGas = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) pFGas->U[n] = *(pd++);
+#if (NSCALARS > 0)
+          for (n=0; n<NSCALARS; n++) pFGas->s[n] = *(pd++);
+#endif
+        }
+      }
+    }
+#endif /* MPI_PARALLEL */
+  }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * Compute fluxes, including both (1) the fractional part of grid cell, and
+ * (2) the sum over integer number of cells  */
+
+  for(k=ks; k<=ke+1; k++) {
+    for(i=is; i<=ie+1; i++){
+
+/* Compute integer and fractional peices of a cell covered by shear */
+      cc_pos(pG, i, js, ks, &x1,&x2,&x3);
+      yshear = -1.5*Omega*x1*pG->dt;
+      joffset = (int)(yshear/pG->dx2);
+      eps = (fmod(yshear,pG->dx2))/pG->dx2;
+      if (k==ks) printf("joffset=%i eps=%e\n",joffset,eps);
+
+/* Compute fluxes of variables at cell-center in x1-direction  */
+      for (n=0; n<(NFARGO-1); n++) {
+        for (j=jfs-nfghost; j<=jfe+nfghost; j++) U[j] = FargoVars[k][i][j].U[n];
+        RemapFlux(U,eps,(jfs+joffset),(jfe+1+joffset),Flx);
+
+        for(j=jfs; j<=jfe+1; j++){
+          FargoFlx[k][i][j].U[n] = Flx[j-joffset];
+          for (jj=1; jj<=joffset; jj++) {
+            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j+jj].U[n];
+          }
+          for (jj=joffset; jj<=-1; jj++) {
+            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j+jj].U[n];
+          }
+        }
+      }
+
+#ifdef MHD
+/* Compute fluxes of B1i, which is at cell-face in x1-direction  */
+      yshear = -1.5*Omega*(x1 - 0.5*pG->dx1)*pG->dt;
+      joffset = (int)(yshear/pG->dx2);
+      eps = (fmod(yshear,pG->dx2))/pG->dx2;
+
+      for (j=jfs-nfghost; j<=jfe+nfghost; j++) {
+        U[j] = FargoVars[k][i][j].U[NFARGO-1];
+      }
+      RemapFlux(U,eps,(jfs+joffset),(jfe+1+joffset),Flx);
+
+      for(j=jfs; j<=jfe+1; j++){
+        FargoFlx[k][i][j].U[NFARGO-1] = Flx[j-joffset];
+        for (jj=1; jj<=joffset; jj++) {
+          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j+jj].U[NFARGO-1];
+        }
+        for (jj=joffset; jj<=-1; jj++) {
+          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j+jj].U[NFARGO-1];
+        }
+      }          
+#endif
+
+/* Compute fluxes of passive scalars */
+#if (NSCALARS > 0)
+      for (n=0; n<(NFARGO); n++) {
+
+        for (j=jfs-nfghost; j<=jfe+nfghost; j++) U[j] = FargoVars[k][i][j].s[n];
+        RemapFlux(U,eps,(jfs+joffset),(jfe+1+joffset),Flx);
+
+        for(j=jfs; j<=jfe; j++){
+          FargoFlx[k][i][j].s[n] = Flx[j-joffset];
+          for (jj=1; jj<=joffset; jj++) {
+            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j+jj].s[n];
+          }
+          for (jj=joffset; jj<=-1; jj++) {
+            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j+jj].s[n];
+          }
+        }
+      }
+#endif
+
+    }
+  }
+
+/*--- Step 5. ------------------------------------------------------------------
+ * Update cell centered variables with flux gradient.  Note i/j are swapped */
+
+  for(k=ks; k<=ke; k++) {
+    for(j=js; j<=je; j++){
+      jj = j-js+jfs;
+      for(i=is; i<=ie; i++){
+        pG->U[k][j][i].d  -= FargoFlx[k][i][jj+1].U[0]- FargoFlx[k][i][jj].U[0];
+        pG->U[k][j][i].M1 -= FargoFlx[k][i][jj+1].U[1]-FargoFlx[k][i][jj].U[1];
+        pG->U[k][j][i].M2 -= FargoFlx[k][i][jj+1].U[2]- FargoFlx[k][i][jj].U[2];
+        pG->U[k][j][i].M3 -= FargoFlx[k][i][jj+1].U[3]-FargoFlx[k][i][jj].U[3];
+#ifdef ADIABATIC
+        pG->U[k][j][i].E  -= FargoFlx[k][i][jj+1].U[4]-FargoFlx[k][i][jj].U[4];
+#endif /* ADIABATIC */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+         pG->U[k][j][i].s[n]-=FargoFlx[k][i][jj+1].s[n]-FargoFlx[k][i][jj].s[n];
+        }
+#endif
+      }
+    }
+  }
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Update face centered field using CT.  Note i/j are swapped.
+ *  FargoFlx.U[NFARGO-2] = emfx
+ *  FargoFlx.U[NFARGO-1] = emfz  */
+
+#ifdef MHD
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      jj = j-js+jfs;
+      for (i=is; i<=ie; i++) {
+        pG->B1i[k][j][i] -= 
+          (FargoFlx[k][i][jj+1].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+        pG->B2i[k][j][i] += (pG->dx2/pG->dx1)* 
+          (FargoFlx[k][i+1][jj].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+        pG->B2i[k][j][i] -= (pG->dx2/pG->dx3)* 
+          (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+        pG->B3i[k][j][i] += 
+          (FargoFlx[k][i][jj+1].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+      }
+      pG->B1i[k][j][ie+1] -= 
+        (FargoFlx[k][ie+1][jj+1].U[NFARGO-1]-FargoFlx[k][ie+1][jj].U[NFARGO-1]);
+    }
+    for (i=is; i<=ie; i++) {
+      pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)* 
+        (FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-FargoFlx[k][i][jfe+1].U[NFARGO-1]);
+      pG->B2i[k][je+1][i] -= (pG->dx2/pG->dx3)* 
+        (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
+    }
+  }
+  for (j=js; j<=je; j++) {
+    jj = j-js+jfs;
+    for (i=is; i<=ie; i++) {
+      pG->B3i[ke+1][j][i] += 
+        (FargoFlx[ke+1][i][jj+1].U[NFARGO-2]-FargoFlx[ke+1][i][jj].U[NFARGO-2]);
+    }
+  }
+#endif
+
+/*--- Step 7. ------------------------------------------------------------------
+ * compute cell-centered B  */
+
+#ifdef MHD
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for(i=is; i<=ie; i++){
+        pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i]+pG->B1i[k][j][i+1]);
+        pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i]+pG->B2i[k][j+1][i]);
+        pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+      }
+    }
+  }
+#endif /* MHD */
+
+  return;
+}
+#endif /* FARGO */
+
+
+/*----------------------------------------------------------------------------*/
 /* set_bvals_shear_init: allocates memory for temporary arrays/buffers
  */
 
 void set_bvals_shear_init(Grid *pG, Domain *pD)
 {
-  int nx2,nx3,size;
+  int nx1,nx2,nx3,size1=0,size2=0,size;
+#ifdef FARGO
+  Real xmin,xmax,x2,x3;
+#endif
+  nx1 = pG->Nx1 + 2*nghost;
   nx2 = pG->Nx2 + 2*nghost;
   nx3 = pG->Nx3 + 2*nghost;
 
@@ -1992,12 +2350,6 @@ void set_bvals_shear_init(Grid *pG, Domain *pD)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 
   if((GhstZnsBuf=(Remap***)calloc_3d_array(nx3,nghost,nx2,sizeof(Remap)))==NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
-
-  if((U = (Real*)malloc(nx2*sizeof(Real))) == NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
-
-  if((Flx = (Real*)malloc(nx2*sizeof(Real))) == NULL)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 
 #ifdef MHD
@@ -2010,10 +2362,34 @@ void set_bvals_shear_init(Grid *pG, Domain *pD)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif
 
+/* estimate extra ghost cells needed by FARGO, allocate arrays accordingly */
+#ifdef FARGO
+  cc_pos(pG,pG->is,pG->js,pG->ks,&xmin,&x2,&x3);
+  cc_pos(pG,pG->ie,pG->js,pG->ks,&xmax,&x2,&x3);
+  nfghost = nghost + (int)(1.5*MAX(fabs(xmin),fabs(xmax)));
+  if (nfghost > nghost) nx2 = pG->Nx2 + 2*nfghost;
+
+  if((FargoVars=(FGas***)calloc_3d_array(nx3,nx1,nx2,sizeof(FGas)))==NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+
+  if((FargoFlx=(FGas***)calloc_3d_array(nx3,nx1,nx2,sizeof(FGas)))==NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+#endif
+
+  if((U = (Real*)malloc(nx2*sizeof(Real))) == NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+
+  if((Flx = (Real*)malloc(nx2*sizeof(Real))) == NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+
 /* allocate memory for send/receive buffers in MPI parallel calculations */
 
 #ifdef MPI_PARALLEL
-  size = nghost*pG->Nx2*(pG->Nx3+1)*(NREMAP+NSCALARS);
+  size1 = nghost*pG->Nx2*(pG->Nx3+1)*(NREMAP+NSCALARS);
+#ifdef FARGO
+  size2 = nfghost*(pG->Nx1+1)*(pG->Nx3+1)*(NFARGO+NSCALARS);
+#endif
+  size = MAX(size1,size2);
 
   if((send_buf = (double*)malloc(size*sizeof(double))) == NULL)
     ath_error("[set_bvals_shear_init]: Failed to allocate send buffer\n");
@@ -2033,13 +2409,18 @@ void set_bvals_shear_destruct(void)
 {
   if (GhstZns    != NULL) free_3d_array(GhstZns);
   if (GhstZnsBuf != NULL) free_3d_array(GhstZnsBuf);
-  if (U   != NULL) free(U);
-  if (Flx != NULL) free(Flx);
-
 #ifdef MHD
   if (tEyBuf != NULL) free_2d_array(tEyBuf);
 #endif
-
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+  if (Uhalf != NULL) free(Uhalf);
+#endif
+#ifdef FARGO
+  if (FargoVars != NULL) free_3d_array(FargoVars);
+  if (FargoFlx  != NULL) free_3d_array(FargoFlx);
+#endif
+  if (U   != NULL) free(U);
+  if (Flx != NULL) free(Flx);
 #ifdef MPI_PARALLEL
   if (send_buf != NULL) free(send_buf);
   if (recv_buf != NULL) free(recv_buf);
