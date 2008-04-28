@@ -96,12 +96,12 @@ static  Real Pl, Pr;
  * Az() - z-component of vector potential for initial conditions
  *============================================================================*/
 
-static void lx_bc(Grid *pG, int var_flag);
-static void rx_bc(Grid *pG, int var_flag);
-static void ly_bc(Grid *pG, int var_flag);
-static void ry_bc(Grid *pG, int var_flag);
-static void lz_bc(Grid *pG, int var_flag);
-static void rz_bc(Grid *pG, int var_flag);
+static void lx_bc(Grid *pG);
+static void rx_bc(Grid *pG);
+static void ly_bc(Grid *pG);
+static void ry_bc(Grid *pG);
+static void lz_bc(Grid *pG);
+static void rz_bc(Grid *pG);
 static Real Ax(const Real x1, const Real x2, const Real x3);
 static Real Ay(const Real x1, const Real x2, const Real x3);
 static Real Az(const Real x1, const Real x2, const Real x3);
@@ -682,12 +682,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * set function pointers for BCs, and conclude
  */
 
-  set_bvals_fun(left_x1, lx_bc);
-  set_bvals_fun(right_x1, rx_bc);
-  set_bvals_fun(left_x2, ly_bc);
-  set_bvals_fun(right_x2, ry_bc);
-  set_bvals_fun(left_x3, lz_bc);
-  set_bvals_fun(right_x3, rz_bc);
+  set_bvals_mhd_fun(left_x1, lx_bc);
+  set_bvals_mhd_fun(right_x1, rx_bc);
+  set_bvals_mhd_fun(left_x2, ly_bc);
+  set_bvals_mhd_fun(right_x2, ry_bc);
+  set_bvals_mhd_fun(left_x3, lz_bc);
+  set_bvals_mhd_fun(right_x3, rz_bc);
 
   free_3d_array((void***)sqa );  sqa  = NULL;
 #ifdef MHD
@@ -740,14 +740,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * lx_bc: apply boundary condition in left-x direction
  */
 
-static void lx_bc(Grid *pG, int var_flag)
+static void lx_bc(Grid *pG)
 {
   int i, j, k, mi, mj, mk, is, js, je, ks, ke;
   is = pG->is;
   js = pG->js; je = pG->je;
   ks = pG->ks; ke = pG->ke;
-
-  if (var_flag == 1) return;
 
   for(i=is-1; i>=0; i--){ /* Do NOT Change this loop ordering! */
     for(k = 0; k <= ke+nghost; k++){
@@ -782,14 +780,12 @@ static void lx_bc(Grid *pG, int var_flag)
  * rx_bc: apply boundary condition in right-x direction
  */
 
-static void rx_bc(Grid *pG, int var_flag)
+static void rx_bc(Grid *pG)
 {
   int i, j, k, mi, mj, mk, ie, js, je, ks, ke;
   ie = pG->ie;
   js = pG->js; je = pG->je;
   ks = pG->ks; ke = pG->ke;
-
-  if (var_flag == 1) return;
 
   for(i=ie+1; i<=ie+nghost; i++){ /* Do NOT Change this loop ordering! */
     for(k = 0; k <= ke+nghost; k++){
@@ -824,14 +820,12 @@ static void rx_bc(Grid *pG, int var_flag)
  * ly_bc: apply boundary condition in left-y direction
  */
 
-static void ly_bc(Grid *pG, int var_flag)
+static void ly_bc(Grid *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, js, ks, ke;
   is = pG->is; ie = pG->ie;
   js = pG->js;
   ks = pG->ks; ke = pG->ke;
-
-  if (var_flag == 1) return;
 
   for(j=js-1; j>=0; j--){
     for(k = 0; k <= ke+nghost; k++){
@@ -866,14 +860,12 @@ static void ly_bc(Grid *pG, int var_flag)
  * ry_bc: apply boundary condition in right-y direction
  */
 
-static void ry_bc(Grid *pG, int var_flag)
+static void ry_bc(Grid *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, je, ks, ke;
   is = pG->is; ie = pG->ie;
   je = pG->je;
   ks = pG->ks; ke = pG->ke;
-
-  if (var_flag == 1) return;
 
   for(j=je+1; j<=je+nghost; j++){
     for(k = 0; k <= ke+nghost; k++){
@@ -908,14 +900,12 @@ static void ry_bc(Grid *pG, int var_flag)
  * lz_bc: apply boundary condition in left-z direction
  */
 
-static void lz_bc(Grid *pG, int var_flag)
+static void lz_bc(Grid *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, js, je, ks;
   is = pG->is; ie = pG->ie;
   js = pG->js; je = pG->je;
   ks = pG->ks;
-
-  if (var_flag == 1) return;
 
   for(k=ks-1; k>=0; k--){
     for(j = 0; j <= je+nghost; j++){
@@ -950,14 +940,12 @@ static void lz_bc(Grid *pG, int var_flag)
  * rz_bc: apply boundary condition in right-z direction
  */
 
-static void rz_bc(Grid *pG, int var_flag)
+static void rz_bc(Grid *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, js, je, ke;
   is = pG->is; ie = pG->ie;
   js = pG->js; je = pG->je;
   ke = pG->ke;
-
-  if (var_flag == 1) return;
 
   for(k=ke+1; k<=ke+nghost; k++){
     for(j = 0; j <= je+nghost; j++){

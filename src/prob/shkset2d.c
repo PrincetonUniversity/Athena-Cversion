@@ -34,10 +34,10 @@
  * shkset2d_ojb() - sets BCs on R-x2 (top edge) of grid.
  *============================================================================*/
 
-void shkset2d_iib(Grid *pGrid, int var_flag);
-void shkset2d_oib(Grid *pGrid, int var_flag);
-void shkset2d_ijb(Grid *pGrid, int var_flag);
-void shkset2d_ojb(Grid *pGrid, int var_flag);
+void shkset2d_iib(Grid *pGrid);
+void shkset2d_oib(Grid *pGrid);
+void shkset2d_ijb(Grid *pGrid);
+void shkset2d_ojb(Grid *pGrid);
 
 /* Make size of box and dimension of unit cell (r1 x r2) static globals so they
  * can be accessed by boundary value functions */
@@ -306,10 +306,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Set boundary value function pointers */
 
-  set_bvals_fun(left_x1,shkset2d_iib);
-  set_bvals_fun(left_x2,shkset2d_ijb);
-  set_bvals_fun(right_x1,shkset2d_oib);
-  set_bvals_fun(right_x2,shkset2d_ojb);
+  set_bvals_mhd_fun(left_x1,shkset2d_iib);
+  set_bvals_mhd_fun(left_x2,shkset2d_ijb);
+  set_bvals_mhd_fun(right_x1,shkset2d_oib);
+  set_bvals_mhd_fun(right_x2,shkset2d_ojb);
 
   return;
 }
@@ -353,12 +353,10 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * cells implied by the size of the unit cell (r1xr2).
  */
 
-void shkset2d_iib(Grid *pGrid, int var_flag)
+void shkset2d_iib(Grid *pGrid)
 {
   const int is = pGrid->is;
   int i, j, k, ju, jl, kl, ku; /* j-upper, j-lower */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx2 > 1){
     ju = pGrid->je + nghost;
@@ -395,12 +393,10 @@ void shkset2d_iib(Grid *pGrid, int var_flag)
  * Function shkset2d_oib: same for oib
  */
 
-void shkset2d_oib(Grid *pGrid, int var_flag)
+void shkset2d_oib(Grid *pGrid)
 {
   const int ie = pGrid->ie;
   int i, j, k, ju, jl, kl, ku; /* j-upper, j-lower */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx2 > 1){
     ju = pGrid->je + nghost - r2;
@@ -439,12 +435,10 @@ void shkset2d_oib(Grid *pGrid, int var_flag)
  * Function shkset2d_ijb: same for ijb
  */
 
-void shkset2d_ijb(Grid *pGrid, int var_flag)
+void shkset2d_ijb(Grid *pGrid)
 {
   const int js = pGrid->js;
   int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -481,12 +475,10 @@ void shkset2d_ijb(Grid *pGrid, int var_flag)
  * Function shkset2d_ojb: same for ojb
  */
 
-void shkset2d_ojb(Grid *pGrid, int var_flag)
+void shkset2d_ojb(Grid *pGrid)
 {
   const int je = pGrid->je;
   int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost - r1;

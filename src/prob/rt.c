@@ -47,10 +47,10 @@
  *============================================================================*/
 
 static double ran2(long int *idum);
-static void reflect_ix2(Grid *pGrid, int var_flag);
-static void reflect_ox2(Grid *pGrid, int var_flag);
-static void reflect_ix3(Grid *pGrid, int var_flag);
-static void reflect_ox3(Grid *pGrid, int var_flag);
+static void reflect_ix2(Grid *pGrid);
+static void reflect_ox2(Grid *pGrid);
+static void reflect_ix3(Grid *pGrid);
+static void reflect_ox3(Grid *pGrid);
 static Real grav_pot2(const Real x1, const Real x2, const Real x3);
 static Real grav_pot3(const Real x1, const Real x2, const Real x3);
 
@@ -150,8 +150,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 */
 
   StaticGravPot = grav_pot2;
-  set_bvals_fun(left_x2,  reflect_ix2);
-  set_bvals_fun(right_x2, reflect_ox2);
+  set_bvals_mhd_fun(left_x2,  reflect_ix2);
+  set_bvals_mhd_fun(right_x2, reflect_ox2);
 
   } /* end of 2D initialization  */
 
@@ -260,8 +260,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   StaticGravPot = grav_pot3;
 
-  set_bvals_fun(left_x3,  reflect_ix3);
-  set_bvals_fun(right_x3, reflect_ox3);
+  set_bvals_mhd_fun(left_x3,  reflect_ix3);
+  set_bvals_mhd_fun(right_x3, reflect_ox3);
 
   } /* end of 3D initialization */
 
@@ -291,14 +291,14 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   if (pG->Nx3 == 1) {
     StaticGravPot = grav_pot2;
-    set_bvals_fun(left_x2,  reflect_ix2);
-    set_bvals_fun(right_x2, reflect_ox2);
+    set_bvals_mhd_fun(left_x2,  reflect_ix2);
+    set_bvals_mhd_fun(right_x2, reflect_ox2);
   }
  
   if (pG->Nx3 > 1) {
     StaticGravPot = grav_pot3;
-    set_bvals_fun(left_x3,  reflect_ix3);
-    set_bvals_fun(right_x3, reflect_ox3);
+    set_bvals_mhd_fun(left_x3,  reflect_ix3);
+    set_bvals_mhd_fun(right_x3, reflect_ox3);
   }
 
   return;
@@ -400,13 +400,11 @@ double ran2(long int *idum)
  * reflect_ix2: special reflecting boundary functions in x2 for 2D sims
  */
 
-static void reflect_ix2(Grid *pGrid, int var_flag)
+static void reflect_ix2(Grid *pGrid)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -461,74 +459,11 @@ static void reflect_ix2(Grid *pGrid, int var_flag)
  * reflect_ox2: special reflecting boundary functions in x2 for 2D sims
  */
 
-static void reflect_ox2(Grid *pGrid, int var_flag)
+static void reflect_ox2(Grid *pGrid)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
-
-  if (var_flag == 1) return;
-
-  if (pGrid->Nx1 > 1){
-    iu = pGrid->ie + nghost;
-    il = pGrid->is - nghost;
-  } else {
-    iu = pGrid->ie;
-    il = pGrid->is;
-  }
-
-  for (k=ks; k<=ke; k++) {
-    for (j=1; j<=nghost; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
-        pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
-        pGrid->U[k][je+j][i].E -=  
-	  pGrid->U[k][je-(j-1)][i].d*0.1*(2*j-1)*pGrid->dx2/Gamma_1;
-      }
-    }
-  }
-
-#ifdef MHD
-  for (k=ks; k<=ke; k++) {
-    for (j=1; j<=nghost; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B1i[k][je+j][i] = pGrid->B1i[k][je-(j-1)][i];
-      }
-    }
-  }
-
-/* Note that j=je+1 is not a boundary condition for the interface field B2i */
-  for (k=ks; k<=ke; k++) {
-    for (j=2; j<=nghost; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B2i[k][je+j][i] = pGrid->B2i[k][je-(j-1)][i];
-      }
-    }
-  }
-
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
-  for (k=ks; k<=ku; k++) {
-    for (j=1; j<=nghost; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B3i[k][je+j][i] = pGrid->B3i[k][je-(j-1)][i];
-      }
-    }
-  }
-#endif
-
-  return;
-}
-
-/*------------------------------------------------------------------------------
- * reflect_ix3: special reflecting boundary functions in x3 for 2D sims
- */
-
-static void reflect_ix3(Grid *pGrid, int var_flag)
-{
-  int ks = pGrid->ks;
-  int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
@@ -588,12 +523,10 @@ static void reflect_ix3(Grid *pGrid, int var_flag)
  * reflect_ox3: special reflecting boundary functions in x3 for 3D sims
  */
 
-static void reflect_ox3(Grid *pGrid, int var_flag)
+static void reflect_ox3(Grid *pGrid)
 {
   int ke = pGrid->ke;
   int i,j,k ,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
-
-  if (var_flag == 1) return;
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost;
