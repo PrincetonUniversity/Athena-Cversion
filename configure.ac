@@ -28,6 +28,7 @@
 #   --enable-h-correction              (turn on H-correction in multidimensions)
 #   --enable-fft                (compile and link with FFTW block decomposition)
 #   --enable-shearing box                    (include shearing box source terms)
+#   --enable-fargo                                      (enable FARGO algorithm)
 
 #-------------------------------------------------------------------------------
 # generic things
@@ -291,7 +292,19 @@ else
   AC_MSG_ERROR([shearing-box only works with CTU+CT integrator])
 fi
 else
-  SHEARING_BOX_MODE=NOT_SHEARING_BOX
+  SHEARING_BOX_MODE=NO_SHEARING_BOX
+fi
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on FARGO algorithm
+#   --enable-fargo
+
+AC_SUBST(FARGO_MODE)
+AC_ARG_ENABLE(fargo, [  --enable-fargo      turn on fargo], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  FARGO_MODE=FARGO
+else
+  FARGO_MODE=NO_FARGO
 fi
 
 #-------------------------------------------------------------------------------
@@ -343,3 +356,4 @@ echo "  MPI mode:              $MPI_MODE"
 echo "H-correction:            $H_CORRECTION_MODE"
 echo "FFT:                     $FFT_MODE"
 echo "Shearing-box:            $SHEARING_BOX_MODE"
+echo "FARGO:                   $FARGO_MODE"
