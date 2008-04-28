@@ -12,9 +12,6 @@
  *  ipert = 1 - random perturbations to P [default, used by HB]
  *  ipert = 2 - uniform Vx=amp
  *
- * This file also contains shear_ix1_ox1(), a public function called by
- * set_bvals() which implements the 2D shearing sheet boundary conditions.
- *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
  *============================================================================*/
 
@@ -32,13 +29,9 @@
 #error : The HB3 problem requires shearing-box to be enabled.
 #endif /* HYDRO */
 
-/* prototype for shearing sheet BC function (called by set_bvals) */
-void shear_ix1_ox1(Grid *pG, int var_flag);
-
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * ran2() - random number generator from NR
- * no_op_VGfun() - no operation void grid function, replaces ix1/ox1 bval fns
  * ShearingBoxPot() - tidal potential in 2D shearing box
  * expr_dV3() - computes delta(Vy)
  * hst_rho_Vx_dVy () - new history variable
@@ -51,7 +44,6 @@ void shear_ix1_ox1(Grid *pG, int var_flag);
  *============================================================================*/
 
 static double ran2(long int *idum);
-static void no_op_VGfun(Grid *pGrid, int swap_phi);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real expr_dV3(const Grid *pG, const int i, const int j, const int k);
 static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
@@ -235,8 +227,6 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   Lx = x1max - x1min;
 
   StaticGravPot = ShearingBoxPot;
-  set_bvals_fun(left_x1,  no_op_VGfun);
-  set_bvals_fun(right_x1, no_op_VGfun);
 
   return;
 }
@@ -334,15 +324,6 @@ double ran2(long int *idum)
 #undef NTAB
 #undef NDIV
 #undef RNMX
-
-/*------------------------------------------------------------------------------
- * no_op_VGfun: replaces x1-bval routines
- */
-
-static void no_op_VGfun(Grid *pGrid, int phi_flag)
-{
-  return;
-}
 
 /*------------------------------------------------------------------------------
  * ShearingBoxPot: 
