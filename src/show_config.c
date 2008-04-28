@@ -101,6 +101,12 @@ void show_config(void)
 #else
   ath_pout(0," Shearing Box:            disabled\n");
 #endif
+
+#ifdef FARGO
+  ath_pout(0," FARGO:                   enabled\n");
+#else
+  ath_pout(0," FARGO:                   disabled\n");
+#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -180,6 +186,12 @@ void show_config_par(void)
   par_sets("configure","ShearingBox","yes","Shearing box enabled?");
 #else
   par_sets("configure","ShearingBox","no","Shearing box enabled?");
+#endif
+
+#ifdef FARGO
+  par_sets("configure","FARGO","yes","FARGO enabled?");
+#else
+  par_sets("configure","FARGO","no","FARGO enabled?");
 #endif
 
   return;

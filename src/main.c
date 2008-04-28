@@ -302,12 +302,15 @@ int main(int argc, char *argv[])
 /* set boundary value function pointers using BC flags in <grid> blocks, then
  * set boundary conditions for initial conditions  */
 
-  set_bvals_init(&level0_Grid, &level0_Domain);
+  set_bvals_mhd_init(&level0_Grid, &level0_Domain);
+#ifdef SELF_GRAVITY
+  set_bvals_grav_init(&level0_Grid, &level0_Domain);
+#endif
 #ifdef SHEARING_BOX
   set_bvals_shear_init(&level0_Grid, &level0_Domain);
 #endif
-/* Only bvals for Gas structure set when last argument of set_bvals = 0  */
-  set_bvals(&level0_Grid, &level0_Domain, 0);                            
+  set_bvals_mhd(&level0_Grid, &level0_Domain);                            
+
   if(ires == 0) new_dt(&level0_Grid);
 
 /*--- Step 7. ----------------------------------------------------------------*/
@@ -325,8 +328,7 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
-/* Only bvals for Phi set when last argument of set_bvals = 1  */
-  set_bvals(&level0_Grid, &level0_Domain, 1);
+  set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
 
 /*--- Step 9. ----------------------------------------------------------------*/
@@ -373,12 +375,14 @@ int main(int argc, char *argv[])
     }
 
     (*Integrate)(&level0_Grid, &level0_Domain);
+#ifdef FARGO
+    Fargo(&level0_Grid, &level0_Domain);
+#endif
     Userwork_in_loop(&level0_Grid, &level0_Domain);
 
 #ifdef SELF_GRAVITY
     (*SelfGrav)(&level0_Grid, &level0_Domain);
-/* Only bvals for Phi set when last argument of set_bvals = 1  */
-    set_bvals(&level0_Grid, &level0_Domain, 1);
+    set_bvals_grav(&level0_Grid, &level0_Domain);
     selfg_flux_correction(&level0_Grid);
 #endif
 
@@ -386,9 +390,8 @@ int main(int argc, char *argv[])
     level0_Grid.time += level0_Grid.dt;
     new_dt(&level0_Grid);
 
-/* Boundary values must be set after time is updated for t-dependent BCs 
- * Only bvals for Gas structure set when last argument of set_bvals = 0  */
-    set_bvals(&level0_Grid, &level0_Domain, 0);
+/* Boundary values must be set after time is updated for t-dependent BCs */
+    set_bvals_mhd(&level0_Grid, &level0_Domain);
 
 #ifdef MPI_PARALLEL
     if(use_wtlim && (MPI_Wtime() > wtend))
