@@ -54,7 +54,7 @@
 #define KCOMP(a, gas, gnxa) ((double)(((a)+(gas))-(int)(2*((a)+(gas))/(gnxa))*(gnxa)))
 
 typedef enum {
-  ATH_FFT_FORWARD=1, ATH_FFT_BACKWARD=-1
+  ATH_FFT_FORWARD=-1, ATH_FFT_BACKWARD=1
 } ath_fft_direction;
 
 struct ath_3d_fft_plan {
