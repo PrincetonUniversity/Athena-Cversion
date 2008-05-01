@@ -3,13 +3,18 @@
  * FILE: flux_hlld.c
  *
  * PURPOSE: Computes 1D fluxes using the HLLD Riemann solver, an extension of
- *   the HLLE solver to MHD.  Only works for MHD problems.
+ *   the HLLE solver to MHD.  Only works for MHD problems.  SEPARATE code
+ *   blocks for adiabatic and isothermal equations of state.
  *
  * REFERENCES:
  *   T. Miyoshi & K. Kusano, "A multi-state HLL approximate Riemann solver
  *   for ideal MHD", JCP, 208, 315 (2005)
+ *   A. Mignone, "A simple and accurate Riemann solver for isothermal MHD",
+ *   JPC, 225, 1427 (2007)
  *
- * HISTORY: written by Brian Biskeborn, May 8, 2006, COS sophmore project.
+ * HISTORY: Adiabatic version written by Brian Biskeborn, May 8, 2006,
+ *             COS sophmore project.
+ *          Isothermal version written by Nicole Lemaster, May 1, 2008.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   flux_hlld()
@@ -23,9 +28,13 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#define SMALL_NUMBER 1e-8
+
 #ifndef MHD
 #error : The HLLD flux only works for mhd.
 #endif /* MHD */
+
+#ifndef ISOTHERMAL
 
 /*----------------------------------------------------------------------------*/
 /* flux_hlld:
@@ -73,13 +82,8 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
 
   pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
   pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
-#ifndef ISOTHERMAL
   gpl  = Gamma * Wl.P;
   gpr  = Gamma * Wr.P;
-#else /* ISOTHERMAL */
-  gpl  = Wl.d*Iso_csound2;
-  gpr  = Wr.d*Iso_csound2;
-#endif /* ISOTHERMAL */
   gpbl = gpl + 2.0*pbl;
   gpbr = gpr + 2.0*pbr;
 
@@ -103,21 +107,14 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
  */
 
   /* total pressure */
-#ifndef ISOTHERMAL
   ptl = Wl.P + pbl;
   ptr = Wr.P + pbr;
-#else /* ISOTHERMAL */
-  ptl = gpl + pbl;
-  ptr = gpr + pbr;
-#endif /* ISOTHERMAL */
 
   Fl.d  = Ul.Mx;
   Fl.Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
   Fl.My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
   Fl.Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
-#ifndef ISOTHERMAL
   Fl.E  = Wl.Vx*(Ul.E + ptl - Bxsq) - Bxi*(Wl.Vy*Ul.By + Wl.Vz*Ul.Bz);
-#endif /* ISOTHERMAL */
   Fl.By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
   Fl.Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
 
@@ -125,9 +122,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
   Fr.Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
   Fr.My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
   Fr.Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
-#ifndef ISOTHERMAL
   Fr.E  = Wr.Vx*(Ur.E + ptr - Bxsq) - Bxi*(Wr.Vy*Ur.By + Wr.Vz*Ur.Bz);
-#endif /* ISOTHERMAL */
   Fr.By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
   Fr.Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
 
@@ -184,7 +179,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
 /* Ul* */
   /* eqn (39) of M&K */
   Ulst.Mx = Ulst.d * spd[2];
-  if(spd[2]-Wl.Vx<1.0e-10) {
+  if(fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) {
     Ulst.My = Ulst.d * Wl.Vy;
     Ulst.Mz = Ulst.d * Wl.Vz;
 
@@ -209,18 +204,16 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     }
   }
   vbstl = (Ulst.Mx*Bxi+Ulst.My*Ulst.By+Ulst.Mz*Ulst.Bz)/Ulst.d;
-#ifndef ISOTHERMAL
   /* eqn (48) of M&K */
   Ulst.E = (sdl*Ul.E - ptl*Wl.Vx + ptst*spd[2] +
             Bxi*(Wl.Vx*Bxi+Wl.Vy*Ul.By+Wl.Vz*Ul.Bz - vbstl))/sdml;
-#endif /* ISOTHERMAL */
   Cons1D_to_Prim1D(&Ulst,&Wlst,&Bxi);
 
 
 /* Ur* */
   /* eqn (39) of M&K */
   Urst.Mx = Urst.d * spd[2];
-  if(spd[2]-Wr.Vx<1.0e-10) {
+  if(fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) {
     Urst.My = Urst.d * Wr.Vy;
     Urst.Mz = Urst.d * Wr.Vz;
 
@@ -245,11 +238,9 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     }
   }
   vbstr = (Urst.Mx*Bxi+Urst.My*Urst.By+Urst.Mz*Urst.Bz)/Urst.d;
-#ifndef ISOTHERMAL
   /* eqn (48) of M&K */
   Urst.E = (sdr*Ur.E - ptr*Wr.Vx + ptst*spd[2] +
             Bxi*(Wr.Vx*Bxi+Wr.Vy*Ur.By+Wr.Vz*Ur.Bz - vbstr))/sdmr;
-#endif /* ISOTHERMAL */
   Cons1D_to_Prim1D(&Urst,&Wrst,&Bxi);
 
 
@@ -289,12 +280,10 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
                    Bxsig*sqrtdl*sqrtdr*(Wrst.Vz-Wlst.Vz));
     Uldst.Bz = Urdst.Bz = tmp;
 
-#ifndef ISOTHERMAL
     /* eqn (63) of M&K */
     tmp = spd[2]*Bxi + (Uldst.My*Uldst.By + Uldst.Mz*Uldst.Bz)/Uldst.d;
     Uldst.E = Ulst.E - sqrtdl*Bxsig*(vbstl - tmp);
     Urdst.E = Urst.E + sqrtdr*Bxsig*(vbstr - tmp);
-#endif /* ISOTHERMAL */
   }
 
 /*--- Step 7. ------------------------------------------------------------------
@@ -307,9 +296,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     pFlux->Mx = Fl.Mx + spd[0]*(Ulst.Mx - Ul.Mx);
     pFlux->My = Fl.My + spd[0]*(Ulst.My - Ul.My);
     pFlux->Mz = Fl.Mz + spd[0]*(Ulst.Mz - Ul.Mz);
-#ifndef ISOTHERMAL
     pFlux->E  = Fl.E  + spd[0]*(Ulst.E  - Ul.E);
-#endif /* ISOTHERMAL */
     pFlux->By = Fl.By + spd[0]*(Ulst.By - Ul.By);
     pFlux->Bz = Fl.Bz + spd[0]*(Ulst.Bz - Ul.Bz);
   }
@@ -320,9 +307,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     pFlux->Mx = Fl.Mx - spd[0]*Ul.Mx - tmp*Ulst.Mx + spd[1]*Uldst.Mx;
     pFlux->My = Fl.My - spd[0]*Ul.My - tmp*Ulst.My + spd[1]*Uldst.My;
     pFlux->Mz = Fl.Mz - spd[0]*Ul.Mz - tmp*Ulst.Mz + spd[1]*Uldst.Mz;
-#ifndef ISOTHERMAL
     pFlux->E  = Fl.E  - spd[0]*Ul.E  - tmp*Ulst.E  + spd[1]*Uldst.E;
-#endif /* ISOTHERMAL */
     pFlux->By = Fl.By - spd[0]*Ul.By - tmp*Ulst.By + spd[1]*Uldst.By;
     pFlux->Bz = Fl.Bz - spd[0]*Ul.Bz - tmp*Ulst.Bz + spd[1]*Uldst.Bz;
   }
@@ -333,9 +318,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     pFlux->Mx = Fr.Mx - spd[4]*Ur.Mx - tmp*Urst.Mx + spd[3]*Urdst.Mx;
     pFlux->My = Fr.My - spd[4]*Ur.My - tmp*Urst.My + spd[3]*Urdst.My;
     pFlux->Mz = Fr.Mz - spd[4]*Ur.Mz - tmp*Urst.Mz + spd[3]*Urdst.Mz;
-#ifndef ISOTHERMAL
     pFlux->E  = Fr.E  - spd[4]*Ur.E  - tmp*Urst.E  + spd[3]*Urdst.E;
-#endif /* ISOTHERMAL */
     pFlux->By = Fr.By - spd[4]*Ur.By - tmp*Urst.By + spd[3]*Urdst.By;
     pFlux->Bz = Fr.Bz - spd[4]*Ur.Bz - tmp*Urst.Bz + spd[3]*Urdst.Bz;
   }
@@ -345,9 +328,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     pFlux->Mx = Fr.Mx + spd[4]*(Urst.Mx - Ur.Mx);
     pFlux->My = Fr.My + spd[4]*(Urst.My - Ur.My);
     pFlux->Mz = Fr.Mz + spd[4]*(Urst.Mz - Ur.Mz);
-#ifndef ISOTHERMAL
     pFlux->E  = Fr.E  + spd[4]*(Urst.E  - Ur.E);
-#endif /* ISOTHERMAL */
     pFlux->By = Fr.By + spd[4]*(Urst.By - Ur.By);
     pFlux->Bz = Fr.Bz + spd[4]*(Urst.Bz - Ur.Bz);
   }
@@ -363,3 +344,251 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
 
   return;
 }
+
+#else /* ISOTHERMAL */
+
+/*----------------------------------------------------------------------------*/
+/* flux_hlld:
+ * Input Arguments:
+ *   Bxi = B in direction of slice at cell interface
+ *   Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *
+ * Output Arguments:
+ *   Flux = fluxes of CONSERVED variables at cell interface
+ */
+
+void flux_hlld(const Cons1D Ul, const Cons1D Ur,
+               const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+{
+  Cons1D Ulst,Ucst,Urst;              /* Conserved variable for all states */
+  Cons1D Fl,Fr;                       /* Fluxes for left & right states */
+  Real spd[5],idspd;                  /* signal speeds, left to right */
+  Real pbl,pbr;                       /* Magnetic pressures */
+  Real cfl,cfr;                       /* Cf (left & right) */
+  Real gpl,gpr,gpbl,gpbr;             /* gamma*P, gamma*P + B */
+  Real mxhll,ustar,dhll,sqrtdhll;     /* Mx, vel, and density in star states */
+  Real fdhll,fmxhll;                  /* HLL fluxes (for star states) */
+  Real ptl,ptr;                       /* total pressures */
+  Real Bxsq = SQR(Bxi);               /* Bx^2 */
+  Real tmp,mfact,bfact,X;             /* temporary variables */
+  int n;
+
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Convert left- and right- states in conserved to primitive variables.
+ */
+
+/*
+  pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
+  pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Compute left & right wave speeds according to Mignone, eqns. (39), (8a),
+ * and (9)
+ */
+
+  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
+  gpl  = Wl.d*Iso_csound2;
+  gpr  = Wr.d*Iso_csound2;
+  gpbl = gpl + 2.0*pbl;
+  gpbr = gpr + 2.0*pbr;
+
+  cfl = sqrt((gpbl + sqrt(SQR(gpbl)-4*gpl*Bxsq))/(2.0*Wl.d));
+  cfr = sqrt((gpbr + sqrt(SQR(gpbr)-4*gpr*Bxsq))/(2.0*Wr.d));
+
+  spd[0] = MIN(Wl.Vx-cfl,Wr.Vx-cfr);
+  spd[4] = MAX(Wl.Vx+cfl,Wr.Vx+cfr);
+ 
+/*--- Step 3. ------------------------------------------------------------------
+ * Compute L/R fluxes
+ */
+
+  /* total pressure */
+  ptl = gpl + pbl;
+  ptr = gpr + pbr;
+
+  Fl.d  = Ul.Mx;
+  Fl.Mx = Ul.Mx*Wl.Vx + ptl - Bxsq;
+  Fl.My = Ul.d*Wl.Vx*Wl.Vy - Bxi*Ul.By;
+  Fl.Mz = Ul.d*Wl.Vx*Wl.Vz - Bxi*Ul.Bz;
+  Fl.By = Ul.By*Wl.Vx - Bxi*Wl.Vy;
+  Fl.Bz = Ul.Bz*Wl.Vx - Bxi*Wl.Vz;
+
+  Fr.d  = Ur.Mx;
+  Fr.Mx = Ur.Mx*Wr.Vx + ptr - Bxsq;
+  Fr.My = Ur.d*Wr.Vx*Wr.Vy - Bxi*Ur.By;
+  Fr.Mz = Ur.d*Wr.Vx*Wr.Vz - Bxi*Ur.Bz;
+  Fr.By = Ur.By*Wr.Vx - Bxi*Wr.Vy;
+  Fr.Bz = Ur.Bz*Wr.Vx - Bxi*Wr.Vz;
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
+  }
+#endif
+
+/*--- Step 4. ------------------------------------------------------------------
+ * Return upwind flux if flow is supersonic
+ */
+
+  /* eqn. (38a) of Mignone */
+  if(spd[0] >= 0.0){
+    *pFlux = Fl;
+    return;
+  }
+
+  /* eqn. (38e) of Mignone */
+  if(spd[4] <= 0.0){
+    *pFlux = Fr;
+    return;
+  }
+
+/*--- Step 5. ------------------------------------------------------------------
+ * Compute hll averages and Alfven wave speed
+ */
+
+  /* inverse of difference between right and left signal speeds */
+  idspd = 1.0/(spd[4]-spd[0]);
+
+  /* rho component of U^{hll} from Mignone eqn. (15);
+   * uses F_L and F_R from eqn. (6) */
+  dhll = (spd[4]*Ur.d-spd[0]*Ul.d-Fr.d+Fl.d)*idspd;
+  sqrtdhll = sqrt(dhll);
+
+  /* rho and mx components of F^{hll} from Mignone eqn. (17) */
+  fdhll = (spd[4]*Fl.d-spd[0]*Fr.d+spd[4]*spd[0]*(Ur.d-Ul.d))*idspd;
+  fmxhll = (spd[4]*Fl.Mx-spd[0]*Fr.Mx+spd[4]*spd[0]*(Ur.Mx-Ul.Mx))*idspd;
+
+  /* ustar from paragraph between eqns. (23) and (24) */
+  ustar = fdhll/dhll;
+
+  /* mx component of U^{hll} from Mignone eqn. (15); paragraph referenced
+   * above states that mxhll should NOT be used to compute ustar */
+  mxhll = (spd[4]*Ur.Mx-spd[0]*Ul.Mx-Fr.Mx+Fl.Mx)*idspd;
+
+  /* S*_L and S*_R from Mignone eqn. (29) */
+  spd[1] = ustar - fabs(Bxi)/sqrtdhll;
+  spd[3] = ustar + fabs(Bxi)/sqrtdhll;
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Compute intermediate states
+ */
+
+/* Ul* */
+  /* eqn. (20) of Mignone */
+  Ulst.d = dhll;
+  /* eqn. (24) of Mignone */
+  Ulst.Mx = mxhll;
+
+  tmp = (spd[0]-spd[1])*(spd[0]-spd[3]);
+  if (tmp == 0) {
+    /* degenerate case described below eqn. (39) */
+    Ulst.My = Ul.My;
+    Ulst.Mz = Ul.Mz;
+    Ulst.By = Ul.By;
+    Ulst.Bz = Ul.Bz;
+  } else {
+    mfact = Bxi*(ustar-Wl.Vx)/tmp;
+    bfact = (Ul.d*SQR(spd[0]-Wl.Vx)-Bxsq)/(dhll*tmp);
+
+    /* eqn. (30) of Mignone */
+    Ulst.My = dhll*Wl.Vy-Ul.By*mfact;
+    /* eqn. (31) of Mignone */
+    Ulst.Mz = dhll*Wl.Vz-Ul.Bz*mfact;
+    /* eqn. (32) of Mignone */
+    Ulst.By = Ul.By*bfact;
+    /* eqn. (33) of Mignone */
+    Ulst.Bz = Ul.Bz*bfact;
+  }
+
+/* Ur* */
+  /* eqn. (20) of Mignone */
+  Urst.d = dhll;
+  /* eqn. (24) of Mignone */
+  Urst.Mx = mxhll;
+
+  tmp = (spd[4]-spd[1])*(spd[4]-spd[3]);
+  if (tmp == 0) {
+    /* degenerate case described below eqn. (39) */
+    Ulst.My = Ul.My;
+    Ulst.Mz = Ul.Mz;
+    Ulst.By = Ul.By;
+    Ulst.Bz = Ul.Bz;
+  } else {
+    mfact = Bxi*(ustar-Wr.Vx)/tmp;
+    bfact = (Ur.d*SQR(spd[4]-Wr.Vx)-Bxsq)/(dhll*tmp);
+
+    /* eqn. (30) of Mignone */
+    Urst.My = dhll*Wr.Vy-Ur.By*mfact;
+    /* eqn. (31) of Mignone */
+    Urst.Mz = dhll*Wr.Vz-Ur.Bz*mfact;
+    /* eqn. (32) of Mignone */
+    Urst.By = Ur.By*bfact;
+    /* eqn. (33) of Mignone */
+    Urst.Bz = Ur.Bz*bfact;
+  }
+
+/* Uc* */
+  /* from below eqn. (37) of Mignone */
+  X = sqrtdhll*SIGN(Bxi);
+  /* eqn. (20) of Mignone */
+  Ucst.d = dhll;
+  /* eqn. (24) of Mignone */
+  Ucst.Mx = mxhll;
+  /* eqn. (34) of Mignone */
+  Ucst.My = 0.5*(Ulst.My+Urst.My+X*(Urst.By-Ulst.By));
+  /* eqn. (35) of Mignone */
+  Ucst.Mz = 0.5*(Ulst.Mz+Urst.Mz+X*(Urst.Bz-Ulst.Bz));
+  /* eqn. (36) of Mignone */
+  Ucst.By = 0.5*(Ulst.By+Urst.By+(Urst.My-Ulst.My)/X);
+  /* eqn. (37) of Mignone */
+  Ucst.Bz = 0.5*(Ulst.Bz+Urst.Bz+(Urst.Mz-Ulst.Mz)/X);
+
+/*--- Step 7. ------------------------------------------------------------------
+ * Compute flux
+ */
+
+  if(spd[1] >= 0) {
+/* return (Fl+Sl*(Ulst-Ul)), eqn. (38b) of Mignone */
+    pFlux->d  = Fl.d  + spd[0]*(Ulst.d  - Ul.d);
+    pFlux->Mx = Fl.Mx + spd[0]*(Ulst.Mx - Ul.Mx);
+    pFlux->My = Fl.My + spd[0]*(Ulst.My - Ul.My);
+    pFlux->Mz = Fl.Mz + spd[0]*(Ulst.Mz - Ul.Mz);
+    pFlux->By = Fl.By + spd[0]*(Ulst.By - Ul.By);
+    pFlux->Bz = Fl.Bz + spd[0]*(Ulst.Bz - Ul.Bz);
+  }
+  else if (spd[3] <= 0) {
+/* return (Fr+Sr*(Urst-Ur)), eqn. (38d) of Mignone */
+    pFlux->d  = Fr.d  + spd[4]*(Urst.d  - Ur.d);
+    pFlux->Mx = Fr.Mx + spd[4]*(Urst.Mx - Ur.Mx);
+    pFlux->My = Fr.My + spd[4]*(Urst.My - Ur.My);
+    pFlux->Mz = Fr.Mz + spd[4]*(Urst.Mz - Ur.Mz);
+    pFlux->By = Fr.By + spd[4]*(Urst.By - Ur.By);
+    pFlux->Bz = Fr.Bz + spd[4]*(Urst.Bz - Ur.Bz);
+  }
+  else {
+/* return Fcst, eqn. (38c) of Mignone, using eqn. (24) */
+    pFlux->d = dhll*ustar;
+    pFlux->Mx = fmxhll;
+    pFlux->My = Ucst.My*ustar - Bxi*Ucst.By;
+    pFlux->Mz = Ucst.Mz*ustar - Bxi*Ucst.Bz;
+    pFlux->By = Ucst.By*ustar - Bxi*Ucst.My/Ucst.d;
+    pFlux->Bz = Ucst.Bz*ustar - Bxi*Ucst.Mz/Ucst.d;
+  }
+
+/* Fluxes of passively advected scalars, computed from density flux */
+#if (NSCALARS > 0)
+  if (pFlux->d >= 0.0) {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
+  } else {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
+
+  return;
+}
+
+#endif /* ISOTHERMAL */
