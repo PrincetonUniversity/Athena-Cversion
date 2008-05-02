@@ -77,7 +77,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   int ixs,jxs,kxs,i,j,k,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1, x2, x3, xmin,xmax,Lx,Ly;
-  Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz;
+  Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
   Real beta,B0,kx,ky,amp;
   Real fkx,fky; /* wavenumber; only used for shwave tests */
   int nwx,nwy;  /* input number of waves per Lx, Ly -- only used for shwave */
@@ -181,7 +181,8 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
       if (ipert == 2) {
         rp = pres;
-        rd = den*(1.0 + 0.1*sin((double)kx*x1));
+/*        rd = den*(1.0 + 0.1*sin((double)kx*x1)); */
+        rd = den;
         rvx = amp;
         rvy = 0.0;
         rvz = 0.0;
@@ -192,6 +193,9 @@ void problem(Grid *pGrid, Domain *pDomain)
         rvx = amp*sin((double)(fkx*x1 + fky*x2));
         rvy = -amp*(fkx/fky)*sin((double)(fkx*x1 + fky*x2));
         rvz = 0.0;
+        rbx = B0*sin((double)(fkx*(x1-0.5*pGrid->dx1) + fky*x2));
+        rby = -B0*(fkx/fky)*sin((double)(fkx*x1 + fky*(x2-0.5*pGrid->dx2)));
+        rbz = 0.0;
       }
       if (ipert == 4) {
         rd = dFP[i+pGrid->idisp];
@@ -200,11 +204,15 @@ void problem(Grid *pGrid, Domain *pDomain)
         rvz = 0.0;
       }
 
-/* Initialize d, M, and P.  For 3D shearing box M1=Vx, M2=Vy, M3=Vz */ 
+/* Initialize d, M, and P.  For 3D shearing box M1=Vx, M2=Vy, M3=Vz
+ * With FARGO do not initialize the background shear */ 
 
       pGrid->U[k][j][i].d  = rd;
       pGrid->U[k][j][i].M1 = rd*rvx;
-      pGrid->U[k][j][i].M2 = rd*(rvy - 1.5*Omega*x1);
+      pGrid->U[k][j][i].M2 = rd*rvy;
+#ifndef FARGO
+      pGrid->U[k][j][i].M2 -= rd*(1.5*Omega*x1);
+#endif
       pGrid->U[k][j][i].M3 = rd*rvz;
 #ifdef ADIABATIC
       pGrid->U[k][j][i].E = rp/Gamma_1
@@ -217,10 +225,15 @@ void problem(Grid *pGrid, Domain *pDomain)
  *  ifield = 2 - uniform Bz
  */
 #ifdef MHD
+      if (ifield == 0) {
+        pGrid->B1i[k][j][i] = rbx;
+        pGrid->B2i[k][j][i] = rby;
+        pGrid->B3i[k][j][i] = rbz;
+        if (i==ie) pGrid->B1i[k][j][ie+1] =  pGrid->B1i[k][j][is];
+        if (j==je) pGrid->B2i[k][je+1][i] =  pGrid->B2i[k][js][i];
+        if (k==ke) pGrid->B3i[ke+1][j][i] =  pGrid->B3i[ks][j][i];
+      }
       if (ifield == 1) {
-        pGrid->U[k][j][i].B1c = 0.0;
-        pGrid->U[k][j][i].B2c = 0.0;
-        pGrid->U[k][j][i].B3c = B0*(sin((double)kx*x1));
         pGrid->B1i[k][j][i] = 0.0;
         pGrid->B2i[k][j][i] = 0.0;
         pGrid->B3i[k][j][i] = B0*(sin((double)kx*x1));
@@ -229,9 +242,6 @@ void problem(Grid *pGrid, Domain *pDomain)
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0*(sin((double)kx*x1));
       }
       if (ifield == 2) {
-        pGrid->U[k][j][i].B1c = 0.0;
-        pGrid->U[k][j][i].B2c = 0.0;
-        pGrid->U[k][j][i].B3c = B0;
         pGrid->B1i[k][j][i] = 0.0;
         pGrid->B2i[k][j][i] = 0.0;
         pGrid->B3i[k][j][i] = B0;
@@ -246,6 +256,17 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif /* MHD */
     }
   }}
+#ifdef MHD
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i]+pGrid->B1i[k][j][i+1]);
+        pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j][i]+pGrid->B2i[k][j+1][i]);
+        pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k][j][i]+pGrid->B3i[k+1][j][i]);
+      }
+    }
+  }
+#endif /* MHD */
 
 /* enroll gravitational potential function */
 
@@ -408,12 +429,16 @@ double ran2(long int *idum)
  *   defined above.
  */
 
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3){
-#ifdef VERTICAL_GRAVITY
-  return 0.5*Omega*Omega*(x3*x3 - 3.0*x1*x1);
-#else
-  return -1.5*Omega*Omega*x1*x1;  
+static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+{
+  Real phi=0.0;
+#ifndef FARGO
+  phi += 1.5*Omega*Omega*x1*x1;
 #endif
+#ifdef VERTICAL_GRAVITY
+  phi += 0.5*Omega*Omega*x3*x3;
+#endif /* VERTICAL_GRAVITY */
+  return phi;
 }
 
 /*------------------------------------------------------------------------------
@@ -424,7 +449,11 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
+#ifdef FARGO
+  return (pG->U[k][j][i].M2/pG->U[k][j][i].d);
+#else
   return (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+#endif
 }
 
 /*------------------------------------------------------------------------------
@@ -438,14 +467,22 @@ static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
+#ifdef FARGO
+  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d);
+#else
   return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+#endif
 }
 
 static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
+#ifdef FARGO
+  dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d);
+#else
   dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+#endif
   return pG->U[k][j][i].d*dVy*dVy;
 }
 
