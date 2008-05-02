@@ -61,7 +61,7 @@ void free_3d_array(void *array);
 /*----------------------------------------------------------------------------*/
 /* ath_log.c */
 void ath_log_set_level(const int out, const int err);
-void ath_log_open(const char *basename, const int lazy);
+void ath_log_open(const char *basename, const int lazy, const char *mode);
 void ath_log_close(void);
 FILE *athout_fp(void);
 FILE *atherr_fp(void);
