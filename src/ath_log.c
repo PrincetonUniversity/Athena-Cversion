@@ -27,6 +27,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "prototypes.h"
 
 /* output and error log levels */
@@ -41,28 +44,9 @@ static char *out_fname = NULL, *err_fname = NULL;
 /* Logical flags indicating that the files need to be opened */
 static int open_out_flag = 0, open_err_flag = 0;
 
-/*----------------------------------------------------------------------------*/
-/* ath_log_name_init: creates log file name
- */
+/* Mode for which the log files are opened, e.g. "a" or "w" */
+static char log_mode[2] = "w";
 
-static void ath_log_name_init(const char *basename)
-{
-/* ath_fp_out filename */
-  if((out_fname = fname_construct(basename, 0, 0, NULL, "out")) == NULL){
-    fprintf(stderr,"[ath_log_open]: Error constructing filename \"%s.out\"\n",
-	    basename);
-    exit(EXIT_FAILURE);
-  }
-
-/* ath_fp_err filename */
-  if((err_fname = fname_construct(basename, 0, 0, NULL, "err")) == NULL){
-    fprintf(stderr,"[ath_log_open]: Error constructing filename \"%s.err\"\n",
-	    basename);
-    exit(EXIT_FAILURE);
-  }
-
-  return;
-}
 
 /*----------------------------------------------------------------------------*/
 /* ath_log_out_open: opens output log file (containing output to stdout)
@@ -70,14 +54,24 @@ static void ath_log_name_init(const char *basename)
 
 static int ath_log_out_open(void)
 {
+  int iExist=1;
+  struct stat statinfo;
+
   open_out_flag = 0; /* zero the flag to open the file, only 1 try if we fail */
 
+  if(log_mode[0] == 'a')
+    iExist = stat(out_fname, &statinfo);
+
 /* open the ath_fp_out file pointer */
-  if((ath_fp_out = fopen(out_fname, "w")) == NULL){
-    fprintf(stderr,"[ath_log_open]: Failed to open ath_fp_out as \"%s\"\n",
+  if((ath_fp_out = fopen(out_fname, log_mode)) == NULL){
+    fprintf(stderr,"[ath_log_out_open]: Failed to open ath_fp_out as \"%s\"\n",
 	    out_fname);
     return 1;
   }
+
+  if(iExist == 0) /* Write a separator */
+    fprintf(ath_fp_out, "\n***************************** Appending "
+	                "Output Log *****************************\n\n");
 
   return 0;
 }
@@ -88,14 +82,24 @@ static int ath_log_out_open(void)
 
 static int ath_log_err_open(void)
 {
+  int iExist=1;
+  struct stat statinfo;
+
   open_err_flag = 0; /* zero the flag to open the file, only 1 try if we fail */
 
+  if(log_mode[0] == 'a')
+    iExist = stat(err_fname, &statinfo);
+
 /* open the ath_fp_err file pointer */
-  if((ath_fp_err = fopen(err_fname, "w")) == NULL){
-    fprintf(stderr,"[ath_log_open]: Failed to open ath_fp_err as \"%s\"\n",
+  if((ath_fp_err = fopen(err_fname, log_mode)) == NULL){
+    fprintf(stderr,"[ath_log_err_open]: Failed to open ath_fp_err as \"%s\"\n",
 	    err_fname);
     return 1;
   }
+
+  if(iExist == 0) /* Write a separator */
+    fprintf(ath_fp_err, "\n***************************** Appending "
+	                "Error Log ******************************\n\n");
 
   return 0;
 }
@@ -123,9 +127,28 @@ void ath_log_set_level(const int out, const int err)
  *   otherwise generate a large number of empty files. -- T. A. Gardiner -- 
  */
 
-void ath_log_open(const char *basename, const int lazy)
+void ath_log_open(const char *basename, const int lazy, const char *mode)
 {
-  ath_log_name_init(basename); /* Initialize the log file names */
+  size_t size = strlen(basename) + 5; /* 5 = '.' + 'out' or 'err' + '\0' */
+
+/* ath_fp_out filename */
+  if((out_fname = (char*)malloc(size*sizeof(char))) == NULL){
+    fprintf(stderr,"[ath_log_open]: Error constructing filename \"%s.out\"\n",
+	    basename);
+    exit(EXIT_FAILURE);
+  }
+  sprintf(out_fname,"%s.out",basename);
+
+/* ath_fp_err filename */
+  if((err_fname = (char*)malloc(size*sizeof(char))) == NULL){
+    fprintf(stderr,"[ath_log_open]: Error constructing filename \"%s.err\"\n",
+	    basename);
+    exit(EXIT_FAILURE);
+  }
+  sprintf(err_fname,"%s.err",basename);
+
+  /* Copy the mode string - Only "a" and "w" are allowed */
+  log_mode[0] = (mode[0] == 'a') ? 'a' : 'w';
 
 /* Indicate that these files should be opened before any action is done. */
   open_out_flag = open_err_flag = 1;
