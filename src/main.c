@@ -44,6 +44,8 @@ static void usage(const char *prog);
 
 int main(int argc, char *argv[])
 {
+  time_t start, stop;
+  int have_time = time(&start); /* Is current calendar time (UTC) available? */
   VGDFun_t Integrate;     /* function pointer to integrator, set at runtime */
 #ifdef SELF_GRAVITY
   VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
@@ -241,9 +243,9 @@ int main(int argc, char *argv[])
     iflush = 0;
     name = par_gets("job","problem_id");
     lazy = par_geti_def("log","lazy",1);
-    ath_log_open(name, lazy);
-    free(name);
-    name = NULL;
+    /* On restart we use mode "a", otherwise we use mode "w". */
+    ath_log_open(name, lazy, (ires ? "a" : "w"));
+    free(name);  name = NULL;
   }
 
   /* Set the ath_log output and error logging levels */
@@ -256,6 +258,9 @@ int main(int argc, char *argv[])
   }
 #endif /* MPI_PARALLEL */
   ath_log_set_level(out_level, err_level);
+
+  if(have_time > 0) /* current calendar time (UTC) is available */
+    ath_pout(0,"Simulation started on %s\n",ctime(&start));
 
 /*--- Step 3. ----------------------------------------------------------------*/
 /* set variables in <time> block (these control execution time) */
@@ -479,6 +484,11 @@ int main(int argc, char *argv[])
 #ifdef MPI_PARALLEL
   MPI_Finalize();
 #endif /* MPI_PARALLEL */
+
+  if(time(&stop)>0) /* current calendar time (UTC) is available */
+    ath_pout(0,"\nSimulation terminated on %s",ctime(&stop));
+
+  ath_log_close(); /* close the simulation log files */
 
   return EXIT_SUCCESS;
 }
