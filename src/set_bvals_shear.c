@@ -6,10 +6,13 @@
  *   set_bvals_mhd.  Decomposition of the Domain into MPI grids in X,Y and/or Z
  *   is allowed.  The RemapEy() function (which applies the shearing sheet
  *   boundary conditions to the y-component of the EMF to keep <Bz>=const) is
- *   called directly by the 3D integrator.
+ *   called directly by the 3D integrator.  Configure code with
+ *   --enable-shearing-box to use.
  *
- * FARGO algorithm is implemented in the Fargo() function which is called in the
- *   main loop directly after the integrator and before set_bvals_mhd.
+ * FARGO algorithm is implemented in the Fargo() function called in the
+ *   main loop directly after the integrator and before set_bvals_mhd.  Code
+ *   must be configured with --enable-shearing-box --enable-fargo to use this
+ *   option.
  *
  * CONTAINS PUBLIC FUNCTIONS:
  * ShearingSheet_ix1() - shearing sheet BCs on ix1, called by set_bval().
@@ -167,7 +170,10 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
         ii = is-nghost+i;
         GhstZns[k][i][j].U[0] = pG->U[k][j][ii].d;
         GhstZns[k][i][j].U[1] = pG->U[k][j][ii].M1;
-        GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2 + TH_omL*pG->U[k][j][ii].d;
+        GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2;
+#ifndef FARGO
+        GhstZns[k][i][j].U[2] += TH_omL*pG->U[k][j][ii].d;
+#endif
         GhstZns[k][i][j].U[3] = pG->U[k][j][ii].M3;
 #ifdef ADIABATIC
 /* No change in the internal energy */
@@ -780,7 +786,10 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
         ii = ie+1+i;
         GhstZns[k][i][j].U[0] = pG->U[k][j][ii].d;
         GhstZns[k][i][j].U[1] = pG->U[k][j][ii].M1;
-        GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2 - TH_omL*pG->U[k][j][ii].d;
+        GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2;
+#ifndef FARGO
+        GhstZns[k][i][j].U[2] -= TH_omL*pG->U[k][j][ii].d;
+#endif
         GhstZns[k][i][j].U[3] = pG->U[k][j][ii].M3;
 #ifdef ADIABATIC
 /* No change in the internal energy */
@@ -2028,7 +2037,7 @@ void Fargo(Grid *pG, Domain *pD)
   int i,j,k,jj,n,joffset;
   Real x1,x2,x3,yshear,eps;
 #ifdef MPI_PARALLEL
-  int err;
+  int err,cnt;
   double *pd;
   FGas *pFGas;
   MPI_Request rq;
@@ -2186,62 +2195,88 @@ void Fargo(Grid *pG, Domain *pD)
       cc_pos(pG, i, js, ks, &x1,&x2,&x3);
       yshear = -1.5*Omega*x1*pG->dt;
       joffset = (int)(yshear/pG->dx2);
+      if (abs(joffset) > (jfs-js))
+        ath_error("[set_bvals_shear]: FARGO offset exceeded # of gh zns\n");
       eps = (fmod(yshear,pG->dx2))/pG->dx2;
-      if (k==ks) printf("joffset=%i eps=%e\n",joffset,eps);
 
-/* Compute fluxes of variables at cell-center in x1-direction  */
-      for (n=0; n<(NFARGO-1); n++) {
+/* Compute fluxes of hydro variables  */
+#ifdef MHD
+      for (n=0; n<(NFARGO-2); n++) {
+#else
+      for (n=0; n<(NFARGO); n++) {
+#endif
         for (j=jfs-nfghost; j<=jfe+nfghost; j++) U[j] = FargoVars[k][i][j].U[n];
-        RemapFlux(U,eps,(jfs+joffset),(jfe+1+joffset),Flx);
+        RemapFlux(U,eps,(jfs-joffset),(jfe+1-joffset),Flx);
 
         for(j=jfs; j<=jfe+1; j++){
           FargoFlx[k][i][j].U[n] = Flx[j-joffset];
           for (jj=1; jj<=joffset; jj++) {
-            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j+jj].U[n];
+            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j-jj].U[n];
           }
-          for (jj=joffset; jj<=-1; jj++) {
-            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j+jj].U[n];
+          for (jj=(joffset+1); jj<=0; jj++) {
+            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j-jj].U[n];
           }
         }
       }
 
+/* Compute fluxes of passive scalars */
+#if (NSCALARS > 0)
+      for (n=0; n<(NSCALARS); n++) {
+
+        for (j=jfs-nfghost; j<=jfe+nfghost; j++) U[j] = FargoVars[k][i][j].s[n];
+        RemapFlux(U,eps,(jfs-joffset),(jfe+1-joffset),Flx);
+
+        for(j=jfs; j<=jfe+1; j++){
+          FargoFlx[k][i][j].s[n] = Flx[j-joffset];
+          for (jj=1; jj<=joffset; jj++) {
+            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j-jj].s[n];
+          }
+          for (jj=(joffset+1); jj<=0; jj++) {
+            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j-jj].s[n];
+          }
+        }
+
+      }
+#endif
+
 #ifdef MHD
-/* Compute fluxes of B1i, which is at cell-face in x1-direction  */
+/* Compute emfx = -VyBz, which is at cell-center in x1-direction */
+
+      for (j=jfs-nfghost; j<=jfe+nfghost; j++) {
+        U[j] = FargoVars[k][i][j].U[NFARGO-2];
+      }
+      RemapFlux(U,eps,(jfs-joffset),(jfe+1-joffset),Flx);
+
+      for(j=jfs; j<=jfe+1; j++){
+        FargoFlx[k][i][j].U[NFARGO-2] = -Flx[j-joffset];
+        for (jj=1; jj<=joffset; jj++) {
+          FargoFlx[k][i][j].U[NFARGO-2] -= FargoVars[k][i][j-jj].U[NFARGO-2];
+        }
+        for (jj=(joffset+1); jj<=0; jj++) {
+          FargoFlx[k][i][j].U[NFARGO-2] -= FargoVars[k][i][j-jj].U[NFARGO-2];
+        }
+      }
+
+/* Compute emfz =  VyBx, which is at cell-face in x1-direction  */
+
       yshear = -1.5*Omega*(x1 - 0.5*pG->dx1)*pG->dt;
       joffset = (int)(yshear/pG->dx2);
+      if (abs(joffset) > (jfs-js))
+        ath_error("[set_bvals_shear]: FARGO offset exceeded # of gh zns\n");
       eps = (fmod(yshear,pG->dx2))/pG->dx2;
 
       for (j=jfs-nfghost; j<=jfe+nfghost; j++) {
         U[j] = FargoVars[k][i][j].U[NFARGO-1];
       }
-      RemapFlux(U,eps,(jfs+joffset),(jfe+1+joffset),Flx);
+      RemapFlux(U,eps,(jfs-joffset),(jfe+1-joffset),Flx);
 
       for(j=jfs; j<=jfe+1; j++){
         FargoFlx[k][i][j].U[NFARGO-1] = Flx[j-joffset];
         for (jj=1; jj<=joffset; jj++) {
-          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j+jj].U[NFARGO-1];
+          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j-jj].U[NFARGO-1];
         }
-        for (jj=joffset; jj<=-1; jj++) {
-          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j+jj].U[NFARGO-1];
-        }
-      }          
-#endif
-
-/* Compute fluxes of passive scalars */
-#if (NSCALARS > 0)
-      for (n=0; n<(NFARGO); n++) {
-
-        for (j=jfs-nfghost; j<=jfe+nfghost; j++) U[j] = FargoVars[k][i][j].s[n];
-        RemapFlux(U,eps,(jfs+joffset),(jfe+1+joffset),Flx);
-
-        for(j=jfs; j<=jfe; j++){
-          FargoFlx[k][i][j].s[n] = Flx[j-joffset];
-          for (jj=1; jj<=joffset; jj++) {
-            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j+jj].s[n];
-          }
-          for (jj=joffset; jj<=-1; jj++) {
-            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j+jj].s[n];
-          }
+        for (jj=(joffset+1); jj<=0; jj++) {
+          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j-jj].U[NFARGO-1];
         }
       }
 #endif
@@ -2256,12 +2291,12 @@ void Fargo(Grid *pG, Domain *pD)
     for(j=js; j<=je; j++){
       jj = j-js+jfs;
       for(i=is; i<=ie; i++){
-        pG->U[k][j][i].d  -= FargoFlx[k][i][jj+1].U[0]- FargoFlx[k][i][jj].U[0];
-        pG->U[k][j][i].M1 -= FargoFlx[k][i][jj+1].U[1]-FargoFlx[k][i][jj].U[1];
-        pG->U[k][j][i].M2 -= FargoFlx[k][i][jj+1].U[2]- FargoFlx[k][i][jj].U[2];
-        pG->U[k][j][i].M3 -= FargoFlx[k][i][jj+1].U[3]-FargoFlx[k][i][jj].U[3];
+        pG->U[k][j][i].d  -=(FargoFlx[k][i][jj+1].U[0]-FargoFlx[k][i][jj].U[0]);
+        pG->U[k][j][i].M1 -=(FargoFlx[k][i][jj+1].U[1]-FargoFlx[k][i][jj].U[1]);
+        pG->U[k][j][i].M2 -=(FargoFlx[k][i][jj+1].U[2]-FargoFlx[k][i][jj].U[2]);
+        pG->U[k][j][i].M3 -=(FargoFlx[k][i][jj+1].U[3]-FargoFlx[k][i][jj].U[3]);
 #ifdef ADIABATIC
-        pG->U[k][j][i].E  -= FargoFlx[k][i][jj+1].U[4]-FargoFlx[k][i][jj].U[4];
+        pG->U[k][j][i].E  -=(FargoFlx[k][i][jj+1].U[4]-FargoFlx[k][i][jj].U[4]);
 #endif /* ADIABATIC */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) {
@@ -2366,7 +2401,7 @@ void set_bvals_shear_init(Grid *pG, Domain *pD)
 #ifdef FARGO
   cc_pos(pG,pG->is,pG->js,pG->ks,&xmin,&x2,&x3);
   cc_pos(pG,pG->ie,pG->js,pG->ks,&xmax,&x2,&x3);
-  nfghost = nghost + (int)(1.5*MAX(fabs(xmin),fabs(xmax)));
+  nfghost = nghost + (int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax)));
   if (nfghost > nghost) nx2 = pG->Nx2 + 2*nfghost;
 
   if((FargoVars=(FGas***)calloc_3d_array(nx3,nx1,nx2,sizeof(FGas)))==NULL)
