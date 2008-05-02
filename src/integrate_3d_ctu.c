@@ -257,10 +257,18 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #ifdef SHEARING_BOX
       for (i=is-1; i<=ie+2; i++) {
 	Wl[i].Vx += pG->dt*Omega*W[i-1].Vy; /* (dt/2)*( 2 Omega Vy) */
+#ifdef FARGO
+	Wl[i].Vy -= 0.25*pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-1/2 Omega Vx) */
+#else
 	Wl[i].Vy -= pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
+#endif
 
 	Wr[i].Vx += pG->dt*Omega*W[i].Vy; /* (dt/2)*( 2 Omega Vy) */
+#ifdef FARGO
+	Wr[i].Vy -= 0.25*pG->dt*Omega*W[i].Vx; /* (dt/2)*(-1/2 Omega Vx) */
+#else
 	Wr[i].Vy -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
+#endif
     }
 #endif /* SHEARING_BOX */
 
@@ -1179,16 +1187,25 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
  * Add the tidal potential and Coriolis terms.
  *    Vx source term is (dt/2)( 2 Omega V y); Vx on x2Face is z-comp.
  *    Vy source term is (dt/2)(-2 Omega V x); Vy on x2Face is x-comp.
+ *    With FARGO Vy source term is (dt/2)(-1/2 Omega V x)
  */
 #ifdef SHEARING_BOX
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+2; j++) {
       for (i=is-1; i<=ie+1; i++) {
         Ur_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j][i].M2;
+#ifdef FARGO
+        Ur_x2Face[k][j][i].Mx -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+#else
         Ur_x2Face[k][j][i].Mx -= pG->dt*Omega*pG->U[k][j][i].M1;
+#endif
 
         Ul_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j-1][i].M2;
+#ifdef FARGO
+        Ul_x2Face[k][j][i].Mx -= 0.25*pG->dt*Omega*pG->U[k][j-1][i].M1;
+#else
         Ul_x2Face[k][j][i].Mx -= pG->dt*Omega*pG->U[k][j-1][i].M1;
+#endif
       }
     }
   }
@@ -1478,16 +1495,25 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
  * Add the tidal potential and Coriolis terms.
  *    Vx source term is (dt/2)( 2 Omega V y); Vx on x3Face is y-comp.
  *    Vy source term is (dt/2)(-2 Omega V x); Vy on x3Face is z-comp.
+ *    With FARGO Vy source term is (dt/2)(-1/2 Omega V x)
  */
 #ifdef SHEARING_BOX
   for (k=ks-1; k<=ke+2; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
         Ur_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j][i].M2;
+#ifdef FARGO
+        Ur_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+#else
         Ur_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j][i].M1;
+#endif
 
         Ul_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j-1][i].M2;
+#ifdef FARGO
+        Ul_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k][j-1][i].M1;
+#else
         Ul_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j-1][i].M1;
+#endif
       }
     }
   }
@@ -1567,7 +1593,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
  * StaticGravPot above.  */
 #ifdef SHEARING_BOX
         M1 += pG->dt*Omega*pG->U[k][j][i].M2;
+#ifdef FARGO
+        M2 -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+#else
         M2 -= pG->dt*Omega*pG->U[k][j][i].M1;
+#endif
 #endif /* SHEARING_BOX */
 
         B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j  ][i+1]);
@@ -1801,17 +1831,27 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 
 /* Store the current state */
 	M1n  = pG->U[k][j][i].M1;
+#ifdef FARGO
+	dM2n = pG->U[k][j][i].M2;
+#else
 	dM2n = pG->U[k][j][i].M2 + pG->U[k][j][i].d*TH_om*x1;
+#endif
 
 /* Calculate the flux for the y-momentum fluctuation */
-	frx1_dM2 = x1Flux[k][j][i+1].My 
-          + TH_om*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
-	flx1_dM2 = x1Flux[k][j][i  ].My 
-	  + TH_om*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
-	frx2_dM2 = x2Flux[k][j+1][i].Mx + TH_om*(x1)*x2Flux[k][j+1][i].d;
-	flx2_dM2 = x2Flux[k][j  ][i].Mx + TH_om*(x1)*x2Flux[k][j  ][i].d;
-	frx3_dM2 = x3Flux[k+1][j][i].Mz + TH_om*(x1)*x3Flux[k+1][j][i].d;
-	flx3_dM2 = x3Flux[k  ][j][i].Mz + TH_om*(x1)*x3Flux[k  ][j][i].d;
+	frx1_dM2 = x1Flux[k][j][i+1].My;
+	flx1_dM2 = x1Flux[k][j][i  ].My;
+	frx2_dM2 = x2Flux[k][j+1][i].Mx;
+	flx2_dM2 = x2Flux[k][j  ][i].Mx;
+	frx3_dM2 = x3Flux[k+1][j][i].Mz;
+	flx3_dM2 = x3Flux[k  ][j][i].Mz;
+#ifndef FARGO
+	frx1_dM2 += TH_om*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
+	flx1_dM2 += TH_om*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
+	frx2_dM2 += TH_om*(x1)*x2Flux[k][j+1][i].d;
+	flx2_dM2 += TH_om*(x1)*x2Flux[k][j  ][i].d;
+	frx3_dM2 += TH_om*(x1)*x3Flux[k+1][j][i].d;
+	flx3_dM2 += TH_om*(x1)*x3Flux[k  ][j][i].d;
+#endif
 
 /* Now evolve M1n and dM2n by dt/2 using Forward Euler */
 	M1e = M1n - q1*(x1Flux[k][j][i+1].Mx - x1Flux[k][j][i].Mx)
@@ -1827,8 +1867,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
  * discretization for the momentum fluctuation equation. */
 
 	pG->U[k][j][i].M1 += (2.0*dM2e - 0.5*om_dt*M1e)*fact;
-	pG->U[k][j][i].M2 -= (0.5*(M1e + om_dt*dM2e)*fact +
-             0.75*om_dt*(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d));
+	pG->U[k][j][i].M2 -= 0.5*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+	pG->U[k][j][i].M2 -= 0.75*om_dt*(x1Flux[k][j][i].d+x1Flux[k][j][i+1].d);
+#endif
 
 /* Update the energy for a fixed potential, and add the Z-component (M3)
  * of the gravitational acceleration.
