@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
   Domain level0_Domain;
 
   int ires=0;            /* restart flag, set to 1 if -r argument on cmdline */
-  int i,nlim,done=0,zones,iquit=0,iflush=1,nstep_start=0;
+  int i,nlim,done=0,zones,iquit=0,iflush,nflush,nstep_start=0;
   Real tlim;
   double cpu_time, zcs;
   char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name = NULL;
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 
     if(len + 10 > MAXLEN)
       ath_error("[main]: Restart filename length = %d is too large\n",len);
-    
+
 /* Share the restart filename with the children */
     if(level0_Grid.my_id == 0) strcpy(new_name, res_file);
     if(MPI_SUCCESS != MPI_Bcast(new_name, len, MPI_CHAR, 0, MPI_COMM_WORLD))
@@ -240,13 +240,17 @@ int main(int argc, char *argv[])
 /* If not, output will go to stdout and stderr streams.  Files will only be
  * opened if file_open=1 in the <log> block in the athinput file */
   if(par_geti_def("log","file_open",0)){
-    iflush = 0;
+    par_geti_def("log","iflush",0);
     name = par_gets("job","problem_id");
     lazy = par_geti_def("log","lazy",1);
     /* On restart we use mode "a", otherwise we use mode "w". */
     ath_log_open(name, lazy, (ires ? "a" : "w"));
     free(name);  name = NULL;
   }
+  else{
+    par_geti_def("log","iflush",1);
+  }
+  iflush = iflush > 0 ? iflush : 0; /* make iflush non-negative */
 
   /* Set the ath_log output and error logging levels */
   out_level = par_geti_def("log","out_level",0);
@@ -302,6 +306,9 @@ int main(int argc, char *argv[])
   } else {     
     problem(&level0_Grid, &level0_Domain);      /* New problem */
   }
+
+  /* Initialize the first nstep value to flush the output and error logs. */
+  nflush = nstep_start + iflush;
 
 /*--- Step 6. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
@@ -409,9 +416,10 @@ int main(int argc, char *argv[])
     ath_pout(0,"cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
 	     level0_Grid.dt);
 
-    if(iflush){
+    if(nflush == level0_Grid.nstep){
       ath_flush_out();
       ath_flush_err();
+      nflush += iflush;
     }
   }
 /* END OF MAIN INTEGRATION LOOP ==============================================*/
