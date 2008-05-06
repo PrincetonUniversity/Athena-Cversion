@@ -2210,11 +2210,13 @@ void Fargo(Grid *pG, Domain *pD)
 
         for(j=jfs; j<=jfe+1; j++){
           FargoFlx[k][i][j].U[n] = Flx[j-joffset];
+
+/* Sum the flux from integer offset: +/- for +/- joffset */
           for (jj=1; jj<=joffset; jj++) {
             FargoFlx[k][i][j].U[n] += FargoVars[k][i][j-jj].U[n];
           }
           for (jj=(joffset+1); jj<=0; jj++) {
-            FargoFlx[k][i][j].U[n] += FargoVars[k][i][j-jj].U[n];
+            FargoFlx[k][i][j].U[n] -= FargoVars[k][i][j-jj].U[n];
           }
         }
       }
@@ -2232,7 +2234,7 @@ void Fargo(Grid *pG, Domain *pD)
             FargoFlx[k][i][j].s[n] += FargoVars[k][i][j-jj].s[n];
           }
           for (jj=(joffset+1); jj<=0; jj++) {
-            FargoFlx[k][i][j].s[n] += FargoVars[k][i][j-jj].s[n];
+            FargoFlx[k][i][j].s[n] -= FargoVars[k][i][j-jj].s[n];
           }
         }
 
@@ -2253,7 +2255,7 @@ void Fargo(Grid *pG, Domain *pD)
           FargoFlx[k][i][j].U[NFARGO-2] -= FargoVars[k][i][j-jj].U[NFARGO-2];
         }
         for (jj=(joffset+1); jj<=0; jj++) {
-          FargoFlx[k][i][j].U[NFARGO-2] -= FargoVars[k][i][j-jj].U[NFARGO-2];
+          FargoFlx[k][i][j].U[NFARGO-2] += FargoVars[k][i][j-jj].U[NFARGO-2];
         }
       }
 
@@ -2276,7 +2278,7 @@ void Fargo(Grid *pG, Domain *pD)
           FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j-jj].U[NFARGO-1];
         }
         for (jj=(joffset+1); jj<=0; jj++) {
-          FargoFlx[k][i][j].U[NFARGO-1] += FargoVars[k][i][j-jj].U[NFARGO-1];
+          FargoFlx[k][i][j].U[NFARGO-1] -= FargoVars[k][i][j-jj].U[NFARGO-1];
         }
       }
 #endif
@@ -2392,17 +2394,12 @@ void set_bvals_shear_init(Grid *pG, Domain *pD)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif /* MHD */
 
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
-  if ((Uhalf = (Real*)malloc(nx2*sizeof(Real))) == NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
-#endif
-
 /* estimate extra ghost cells needed by FARGO, allocate arrays accordingly */
 #ifdef FARGO
   cc_pos(pG,pG->is,pG->js,pG->ks,&xmin,&x2,&x3);
   cc_pos(pG,pG->ie,pG->js,pG->ks,&xmax,&x2,&x3);
-  nfghost = nghost + (int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax)));
-  if (nfghost > nghost) nx2 = pG->Nx2 + 2*nfghost;
+  nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 1);
+  nx2 = pG->Nx2 + 2*nfghost;
 
   if((FargoVars=(FGas***)calloc_3d_array(nx3,nx1,nx2,sizeof(FGas)))==NULL)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
@@ -2416,6 +2413,11 @@ void set_bvals_shear_init(Grid *pG, Domain *pD)
 
   if((Flx = (Real*)malloc(nx2*sizeof(Real))) == NULL)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+
+#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+  if ((Uhalf = (Real*)malloc(nx2*sizeof(Real))) == NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+#endif
 
 /* allocate memory for send/receive buffers in MPI parallel calculations */
 
