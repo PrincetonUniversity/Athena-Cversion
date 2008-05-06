@@ -8,7 +8,7 @@
  *
  * Several different field configurations and perturbations are possible:
  *
- *  ifield = 1 - Bz=B0sin(x1) field with zero-net-flux [default]
+ *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
  *  ifield = 2 - uniform Bz
  *
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
@@ -79,8 +79,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   Real x1, x2, x3, xmin,xmax,Lx,Ly;
   Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
   Real beta,B0,kx,ky,amp;
-  Real fkx,fky; /* wavenumber; only used for shwave tests */
-  int nwx,nwy;  /* input number of waves per Lx, Ly -- only used for shwave */
+  int nwx,nwy;  /* input number of waves per Lx, Ly [default=1] */
   double rval;
 
   if (pGrid->Nx2 == 1){
@@ -105,18 +104,16 @@ void problem(Grid *pGrid, Domain *pDomain)
   xmin = par_getd("grid","x1min");
   xmax = par_getd("grid","x1max");
   Lx = xmax - xmin;
-  kx = 2.0*PI/Lx;
 
   xmin = par_getd("grid","x2min");
   xmax = par_getd("grid","x2max");
   Ly = xmax - xmin;
-  ky = 2.0*PI/Ly;
 
-/* For shwave test, initialize wavenumber */
+/* initialize wavenumbers, given input number of waves per L */
   nwx = par_geti_def("problem","nwx",1);
   nwy = par_geti_def("problem","nwy",1);
-  fkx = kx*((double)nwx);  /* nxw should be input as -ve for leading wave */
-  fky = ky*((double)nwy);
+  kx = (2.0*PI/Lx)*((double)nwx);  /* nxw should be -ve for leading wave */
+  ky = (2.0*PI/Ly)*((double)nwy);
 
 /* For PF density wave test, read data from file */
 
@@ -190,11 +187,11 @@ void problem(Grid *pGrid, Domain *pDomain)
       if (ipert == 3) {
         rp = pres;
         rd = den;
-        rvx = amp*sin((double)(fkx*x1 + fky*x2));
-        rvy = -amp*(fkx/fky)*sin((double)(fkx*x1 + fky*x2));
+        rvx = amp*sin((double)(kx*x1 + ky*x2));
+        rvy = -amp*(kx/ky)*sin((double)(kx*x1 + ky*x2));
         rvz = 0.0;
-        rbx = B0*sin((double)(fkx*(x1-0.5*pGrid->dx1) + fky*x2));
-        rby = -B0*(fkx/fky)*sin((double)(fkx*x1 + fky*(x2-0.5*pGrid->dx2)));
+        rbx = B0*sin((double)(kx*(x1-0.5*pGrid->dx1) + ky*x2));
+        rby = -B0*(kx/ky)*sin((double)(kx*x1 + ky*(x2-0.5*pGrid->dx2)));
         rbz = 0.0;
       }
       if (ipert == 4) {
@@ -433,7 +430,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
 #ifndef FARGO
-  phi += 1.5*Omega*Omega*x1*x1;
+  phi -= 1.5*Omega*Omega*x1*x1;
 #endif
 #ifdef VERTICAL_GRAVITY
   phi += 0.5*Omega*Omega*x3*x3;
