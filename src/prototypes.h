@@ -207,9 +207,6 @@ void data_output(Grid *pGrid, Domain *pD, const int flag);
 int  add_output(Output *new_out);
 void add_rst_out(Output *new_out);
 void data_output_destruct(void);
-void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
-	                const char *fmt,  const Gasfun_t expr, int n,
-                        const Real dmin, const Real dmax, int sdmin, int sdmax);
 void dump_history_enroll(const Gasfun_t pfun, const char *label);
 float ***subset3(Grid *pGrid, Output *pout);
 float  **subset2(Grid *pGrid, Output *pout);
@@ -261,6 +258,7 @@ void Userwork_after_loop(Grid *pgrid, Domain *pDomain);
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp);
 void problem_write_restart(Grid *pG, Domain *pD, FILE *fp);
 Gasfun_t get_usr_expr(const char *expr);
+VGFunout_t get_usr_out_fun(const char *name);
 
 /*----------------------------------------------------------------------------*/
 /* restart.c  */
