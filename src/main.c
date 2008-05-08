@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
     free(name);  name = NULL;
   }
   else{
-    par_geti_def("log","iflush",1);
+    iflush = par_geti_def("log","iflush",1);
   }
   iflush = iflush > 0 ? iflush : 0; /* make iflush non-negative */
 
