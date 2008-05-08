@@ -287,6 +287,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * problem_write_restart() - writes problem-specific user data to restart files
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
+ * get_usr_out_fun()       - returns a user defined output function pointer
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  * current() - computes x3-component of current
@@ -334,6 +335,10 @@ Gasfun_t get_usr_expr(const char *expr)
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
 #endif
+  return NULL;
+}
+
+VGFunout_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
