@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
 /* If not, output will go to stdout and stderr streams.  Files will only be
  * opened if file_open=1 in the <log> block in the athinput file */
   if(par_geti_def("log","file_open",0)){
-    par_geti_def("log","iflush",0);
+    iflush = par_geti_def("log","iflush",0);
     name = par_gets("job","problem_id");
     lazy = par_geti_def("log","lazy",1);
     /* On restart we use mode "a", otherwise we use mode "w". */
