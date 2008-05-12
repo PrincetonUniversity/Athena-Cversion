@@ -208,6 +208,9 @@ int  add_output(Output *new_out);
 void add_rst_out(Output *new_out);
 void data_output_destruct(void);
 void dump_history_enroll(const Gasfun_t pfun, const char *label);
+void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
+			const char *fmt, const Gasfun_t expr, int n,
+			const Real dmin, const Real dmax, int sdmin, int sdmax);
 float ***subset3(Grid *pGrid, Output *pout);
 float  **subset2(Grid *pGrid, Output *pout);
 float   *subset1(Grid *pGrid, Output *pout);

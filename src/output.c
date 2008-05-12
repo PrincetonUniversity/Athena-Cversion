@@ -505,6 +505,40 @@ void data_output_destruct(void)
 }
 
 /*----------------------------------------------------------------------------*/
+/* data_output_enroll: Enroll a user-defined data output function */
+
+void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
+			const char *fmt, const Gasfun_t expr, int n,
+			const Real dmin, const Real dmax, int sdmin, int sdmax)
+{
+  Output new_out;
+
+/* Zero (NULL) all members of the Output */
+  memset(&new_out,0,sizeof(Output));
+
+/* Set the input values and strdup the fmt string */
+  new_out.n     = n;
+  new_out.t     = time;
+  new_out.dt    = dt;
+  new_out.num   = num;
+  new_out.dmin  = dmin;
+  new_out.dmax  = dmax;
+  new_out.sdmin = sdmin;
+  new_out.sdmax = sdmax;
+  new_out.fun   = fun;
+  new_out.expr  = expr;
+
+  if(fmt != NULL){
+    if((new_out.out_fmt = ath_strdup(fmt)) == NULL)
+      ath_perr(-1,"[dump_user_enroll]: Warning out_fmt strdup failed\n");
+  }
+
+  if(add_output(&new_out) && fmt != NULL) free(&(new_out.out_fmt));
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
 /* subset3:  there is only one way to copy a cube into a cube */
 
 float ***subset3(Grid *pgrid, Output *pout)
