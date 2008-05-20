@@ -59,7 +59,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 	       Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;
-  Real pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
+  Real lim_slope1,lim_slope2,qa,qb,qc,qx;
   Real ev    [NWAVE],rem    [NWAVE][NWAVE],lem    [NWAVE][NWAVE];
   Real ev_ip1[NWAVE],rem_ip1[NWAVE][NWAVE],lem_ip1[NWAVE][NWAVE];
   Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
@@ -536,7 +536,7 @@ void lr_states(const Prim1D W[], const Real Bxc[],
 
 void lr_states_init(int nx1, int nx2, int nx3)
 {
-  int i, nmax;
+  int nmax;
   nmax =  nx1 > nx2  ? nx1 : nx2;
   nmax = (nx3 > nmax ? nx3 : nmax) + 2*nghost;
 
