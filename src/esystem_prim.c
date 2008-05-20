@@ -32,6 +32,7 @@
 #include "defs.h"
 #include "athena.h"
 #include "globals.h"
+#include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* esys_prim_iso_hyd: ISOTHERMAL HYDRO
