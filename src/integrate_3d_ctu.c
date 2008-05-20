@@ -122,8 +122,6 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   Real fact, TH_om, om_dt = Omega*pG->dt;
 #endif /* SHEARING_BOX */
 
-   Real sum;
-
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
