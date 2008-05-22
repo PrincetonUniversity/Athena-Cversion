@@ -52,8 +52,8 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Open output file, constructing filename in-line */
 
-  if((pfile = ath_fopen(pGrid->outfilename,num_digit,pOut->num,NULL,"vtk","w"))
-     == NULL){
+  pfile = ath_fopen(NULL,pGrid->outfilename,num_digit,pOut->num,NULL,"vtk","w");
+  if(pfile == NULL){
     ath_error("[dump_vtk]: File Open Error Occured");
     return;
   }
