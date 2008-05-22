@@ -38,7 +38,7 @@ void output_pgm(Grid *pGrid, Domain *pD, Output *pOut)
 /* construct output filename.  pOut->id will either be name of variable,
  * if 'id=...' was included in <ouput> block, or 'outN' where N is number of
  * <output> block.  */
-  if((fname = fname_construct(pGrid->outfilename,num_digit,dnum,pOut->id,"pgm"))
+  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"pgm"))
      == NULL){
     ath_error("[output_pgm]: Error constructing filename\n");
     return;
