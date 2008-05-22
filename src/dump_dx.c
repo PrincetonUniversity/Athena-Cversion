@@ -62,12 +62,12 @@ void dump_dx(Grid *pGrid, Domain *pD, Output *pOut)
   dump_binary(pGrid, pD, pOut);
 
 /* reconstruct binary dump filename, and use to construct .dx filename */
-  if((fname = fname_construct(pGrid->outfilename,num_digit,dnum,NULL,"bin")) 
+  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,NULL,"bin")) 
      == NULL){
     ath_error("[dump_binary]: No filename -- no binary dump\n");
     return;
   }
-  if ((pfile = ath_fopen(fname,0,0,NULL,"dx","w")) == NULL) {
+  if ((pfile = ath_fopen(NULL,fname,0,0,NULL,"dx","w")) == NULL) {
     ath_error("[write_dx_header]: Unable to open dx header file\n");
     return; 
   }
