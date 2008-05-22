@@ -209,7 +209,11 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 #endif /* MPI_PARALLEL */
 
 /* Open the output file */
-  pfile = ath_fopen(pG->outfilename,num_digit,pout->num,pout->id,"prb","w");
+#ifdef MPI_PARALLEL
+  pfile = ath_fopen("../",pG->outfilename,num_digit,pout->num,pout->id,"prb","w");
+#else
+  pfile = ath_fopen(NULL,pG->outfilename,num_digit,pout->num,pout->id,"prb","w");
+#endif
   if(pfile == NULL){
     ath_perr(-1,"[output_pdf]: File Open Error Occured");
     return;
@@ -261,7 +265,11 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 
 /* Also write a history type file on the statistics */
   sprintf(fid,"prb_stat.%s",pout->id);
-  pfile = ath_fopen(pG->outfilename,0,0,fid,"tab","a");
+#ifdef MPI_PARALLEL
+  pfile = ath_fopen("../",pG->outfilename,0,0,fid,"tab","a");
+#else
+  pfile = ath_fopen(NULL,pG->outfilename,0,0,fid,"tab","a");
+#endif
   if(pfile == NULL){
     ath_perr(-1,"[output_pdf]: File Open Error Occured");
     return;

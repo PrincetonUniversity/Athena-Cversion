@@ -176,7 +176,12 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
 /* Write history file */
-  if((p_hstfile = ath_fopen(pGrid->outfilename,0,0,NULL,"hst","a")) == NULL){
+#ifdef MPI_PARALLEL
+  p_hstfile = ath_fopen("../",pGrid->outfilename,0,0,NULL,"hst","a");
+#else
+  p_hstfile = ath_fopen(NULL,pGrid->outfilename,0,0,NULL,"hst","a");
+#endif
+  if(p_hstfile == NULL){
     ath_perr(-1,"[dump_history]: Unable to open the history file\n");
     return;
   }
