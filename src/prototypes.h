@@ -72,10 +72,12 @@ int ath_pout(const int level, const char *fmt, ...);
 
 /*----------------------------------------------------------------------------*/
 /* ath_files.c */
-char *fname_construct(const char *basename, const int dlen, const int idump, 
-		      const char *type, const char *ext);
-FILE *ath_fopen(const char *basename, const int dlen, const int idump, 
-		const char *type, const char *ext, const char *mode);
+char *ath_fname(const char *path, const char *basename,
+                const int dlen, const int idump, 
+                const char *id, const char *ext);
+FILE *ath_fopen(const char *path, const char *basename,
+                const int dlen, const int idump, 
+                const char *id, const char *ext, const char *mode);
 size_t ath_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 /*----------------------------------------------------------------------------*/
