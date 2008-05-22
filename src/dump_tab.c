@@ -64,7 +64,7 @@ void dump_tab(Grid *pG, Domain *pD, Output *pOut)
 #endif
 
 /* Open the output file */
-  if((pfile = ath_fopen(pG->outfilename,num_digit,dnum,NULL,"tab","w")) 
+  if((pfile = ath_fopen(NULL,pG->outfilename,num_digit,dnum,NULL,"tab","w")) 
      == NULL){
     ath_error("[dump_tab]: File Open Error Occured");
     return;
