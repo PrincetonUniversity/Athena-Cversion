@@ -565,7 +565,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /* Print error to file "LinWave-errors.#.dat", where #=wave_flag  */
 
-  fname = fname_construct("LinWave-errors",1,wave_flag,NULL,"dat");
+  fname = ath_fname(NULL,"LinWave-errors",1,wave_flag,NULL,"dat");
 
 /* The file exists -- reopen the file in append mode */
   if((fp=fopen(fname,"r")) != NULL){
