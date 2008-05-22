@@ -36,7 +36,7 @@ void output_fits(Grid *pGrid, Domain *pD, Output *pOut)
   int dnum = pOut->num;
 
 /* construct output filename */
-  fname = fname_construct(pGrid->outfilename,num_digit,dnum,pOut->id,"fits");
+  fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"fits");
   if (fname == NULL) {
     ath_error("[output_fits]: Error constructing output filename\n");
     return;
