@@ -39,7 +39,7 @@ void output_tab(Grid *pGrid, Domain *pD, Output *pOut)
   int dnum = pOut->num;
 
 /* construct output filename */
-  fname = fname_construct(pGrid->outfilename,num_digit,dnum,pOut->id,"tab");
+  fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"tab");
   if (fname == NULL) {
     ath_error("[output_tab]: Error constructing output filename\n");
     return;
