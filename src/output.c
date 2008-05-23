@@ -16,7 +16,7 @@
  * OPTIONS available in an <outputN> block are:
  *   out         = all,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2
  *   out_fmt     = bin,dx,hst,tab,rst,vtk,fits,pdf,pgm,ppm
- *   dat_fmt     = format string used to write tabular output (e.g. 12.5e)
+ *   dat_fmt     = format string used to write tabular output (e.g. %12.5e)
  *   dt          = problem time between outputs
  *   id          = any string
  *   dmin/dmax   = max/min applied to all outputs
@@ -25,7 +25,7 @@
  *   usr_expr_flag = 1 for user-defined expression (defined in problem.c)
  *   
  * EXAMPLE of an <outputN> block for a VTK dump:
- *   <ouput1>
+ *   <output1>
  *   out_fmt = vtk
  *   out_dt  = 0.1
  *
@@ -149,9 +149,11 @@ void init_output(Grid *pGrid)
   for (outn=1; outn<=maxout; outn++) {       /* check all outN up to 'maxout' */
 
     sprintf(block,"output%d",outn);
-/* An output format is required, if not, we move on. */
-    if(par_exist(block,"out_fmt") == 0){
-      ath_perr(-1,"[init_output]: %s/out_fmt does not exist\n",block);
+/* An output format or output name is required.
+ * If neither is present we write an error message and move on. */
+    if((par_exist(block,"out_fmt") == 0) && (par_exist(block,"name") == 0)){
+      ath_perr(-1,"[init_output]: neither %s/out_fmt, nor %s/name exist\n",
+	       block, block);
       continue;
     }
 
@@ -165,12 +167,16 @@ void init_output(Grid *pGrid)
     new_out.dt  = par_getd(block,"dt");
     new_out.n   = outn;
 
+    if (par_exist(block,"dat_fmt"))
+      new_out.dat_fmt = par_gets(block,"dat_fmt");
+
 /* set id in output filename to input string if present, otherwise use "outN"
  * as default, where N is output number */
     sprintf(defid,"out%d",outn);
     new_out.id = par_gets_def(block,"id",defid);
 
-    fmt = new_out.out_fmt = par_gets(block,"out_fmt");
+    if(par_exist(block,"out_fmt"))
+      fmt = new_out.out_fmt = par_gets(block,"out_fmt");
 
 /* out:     controls what variable can be output (all, or any of expr_*)
  * out_fmt: controls format of output (single variable) or dump (all variables)
@@ -188,10 +194,11 @@ void init_output(Grid *pGrid)
 	char *name = par_gets(block,"name");
 	/* Get a pointer to the output function via its name */
 	new_out.fun = get_usr_out_fun(name);
-	if(new_out.fun == NULL)
+	if(new_out.fun == NULL){
+	  free_output(&new_out);
 	  ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
 		    name,block,fmt);
-
+	}
 	free(name);  name = NULL;
 	goto add_it;
       }
@@ -201,20 +208,14 @@ void init_output(Grid *pGrid)
       }
       else if (strcmp(fmt,"dx")==0){
 	new_out.fun = dump_dx;
-	if (par_exist(block,"dat_fmt"))
-	  new_out.dat_fmt = par_gets(block,"dat_fmt");
 	goto add_it;
       }
       else if (strcmp(fmt,"hst")==0){
 	new_out.fun = dump_history;
-	if (par_exist(block,"dat_fmt"))
-	  new_out.dat_fmt = par_gets(block,"dat_fmt");
 	goto add_it;
       }
       else if (strcmp(fmt,"tab")==0){
 	new_out.fun = dump_tab;
-	if (par_exist(block,"dat_fmt"))
-	  new_out.dat_fmt = par_gets(block,"dat_fmt");
 	goto add_it;
       }
       else if (strcmp(fmt,"rst")==0){
@@ -321,22 +322,16 @@ void init_output(Grid *pGrid)
     }
     else if (strcmp(fmt,"fits")==0)
       new_out.fun = output_fits;
-    else if (strcmp(fmt,"pdf")==0){
+    else if (strcmp(fmt,"pdf")==0)
       new_out.fun = output_pdf;
-      if (par_exist(block,"dat_fmt"))
-	new_out.dat_fmt = par_gets(block,"dat_fmt");
-    }
     else if (strcmp(fmt,"pgm")==0)
       new_out.fun = output_pgm;
     else if (strcmp(fmt,"ppm")==0)
       new_out.fun = output_ppm;
     else if (strcmp(fmt,"vtk")==0)
       new_out.fun = output_vtk;
-    else if (strcmp(fmt,"tab")==0){
+    else if (strcmp(fmt,"tab")==0)
       new_out.fun = output_tab;
-      if (par_exist(block,"dat_fmt"))
-	new_out.dat_fmt = par_gets(block,"dat_fmt");
-    }
     else {
 /* unknown output format is fatal */
       free_output(&new_out);
