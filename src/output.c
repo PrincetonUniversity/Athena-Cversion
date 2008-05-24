@@ -138,7 +138,7 @@ float *getRGB(char *name);
 
 void init_output(Grid *pGrid)
 {
-  int i,j,outn,nout=0,maxout;
+  int i,j,outn,maxout;
   char block[80], *fmt, defid[10];
   Output new_out;
   int usr_expr_flag;
@@ -221,6 +221,7 @@ void init_output(Grid *pGrid)
       else if (strcmp(fmt,"rst")==0){
 	new_out.fun = dump_restart;
 	add_rst_out(&new_out);
+	ath_pout(0,"Added out%d\n",outn);
 	continue;
       }
       else if (strcmp(fmt,"vtk")==0){
@@ -250,7 +251,7 @@ void init_output(Grid *pGrid)
     if(usr_expr_flag)
       new_out.expr = get_usr_expr(new_out.out);
     else
-      new_out.expr = getexpr(nout, new_out.out);
+      new_out.expr = getexpr(outn, new_out.out);
 
     if (new_out.expr == NULL) {
       ath_perr(-1,"Could not parse expression %s, skipping it\n",
@@ -347,8 +348,7 @@ void init_output(Grid *pGrid)
 
     if(add_output(&new_out)) free_output(&new_out);
     else{
-      nout++;
-      ath_pout(0,"Added out%d\n",nout);
+      ath_pout(0,"Added out%d\n",outn);
     }
   }
 /*------------------------- end loop over output numbers ---------------------*/
