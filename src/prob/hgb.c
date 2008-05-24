@@ -8,13 +8,17 @@
  *
  * Several different field configurations and perturbations are possible:
  *
+ *  ifield = 0 - uses field set by choice of ipert flag
  *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
  *  ifield = 2 - uniform Bz
+ *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
  *
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
- *  ipert = 3 - vortical shwave (hydro test)
+ *  ipert = 3 - J&G vortical shwave (hydro test)
  *  ipert = 4 - nonlinear density wave test of Fromang & Paploizou
+ *  ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
+ *  ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
  *
  * To run simulations of stratified disks (including vertical gravity),
  * un-comment the macro VERTICAL_GRAVITY below.
@@ -22,6 +26,7 @@
  * Code must be configured using --enable-shearing-box
  *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
+ *            Johnson, Guan, & Gammie, ApJSupp, (2008)
  *============================================================================*/
 
 #include <float.h>
@@ -57,6 +62,8 @@ static Real hst_Bx(const Grid *pG, const int i, const int j, const int k);
 static Real hst_By(const Grid *pG, const int i, const int j, const int k);
 static Real hst_Bz(const Grid *pG, const int i, const int j, const int k);
 static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k);
+static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k);
+static Real hst_dBy(const Grid *pG, const int i, const int j, const int k);
 #endif /* MHD */
 
 /*=========================== PUBLIC FUNCTIONS =================================
@@ -76,10 +83,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   int ks = pGrid->ks, ke = pGrid->ke;
   int ixs,jxs,kxs,i,j,k,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
-  Real x1, x2, x3, xmin,xmax,Lx,Ly;
+  Real x1,x2,x3,xmin,xmax,Lx,Ly,Lz;
   Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
-  Real beta,B0,kx,ky,amp;
-  int nwx,nwy;  /* input number of waves per Lx, Ly [default=1] */
+  Real beta,B0,kx,ky,kz,amp;
+  int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
 
   if (pGrid->Nx2 == 1){
@@ -109,11 +116,17 @@ void problem(Grid *pGrid, Domain *pDomain)
   xmax = par_getd("grid","x2max");
   Ly = xmax - xmin;
 
+  xmin = par_getd("grid","x3min");
+  xmax = par_getd("grid","x3max");
+  Lz = xmax - xmin;
+
 /* initialize wavenumbers, given input number of waves per L */
   nwx = par_geti_def("problem","nwx",1);
   nwy = par_geti_def("problem","nwy",1);
+  nwz = par_geti_def("problem","nwz",1);
   kx = (2.0*PI/Lx)*((double)nwx);  /* nxw should be -ve for leading wave */
   ky = (2.0*PI/Ly)*((double)nwy);
+  kz = (2.0*PI/Lz)*((double)nwz);
 
 /* For PF density wave test, read data from file */
 
@@ -157,6 +170,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
  *  ipert = 3 - vortical shwave (hydro test)
  *  ipert = 4 - Fromang & Paploizou nonlinear density wave (hydro test)
+ *  ipert = 5 & 6 - JGG MHD shwave tests
  */
       if (ipert == 1) {
         rval = amp*(ran2(&iseed) - 0.5);
@@ -178,7 +192,6 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
       if (ipert == 2) {
         rp = pres;
-/*        rd = den*(1.0 + 0.1*sin((double)kx*x1)); */
         rd = den;
         rvx = amp;
         rvy = 0.0;
@@ -190,15 +203,43 @@ void problem(Grid *pGrid, Domain *pDomain)
         rvx = amp*sin((double)(kx*x1 + ky*x2));
         rvy = -amp*(kx/ky)*sin((double)(kx*x1 + ky*x2));
         rvz = 0.0;
-        rbx = B0*sin((double)(kx*(x1-0.5*pGrid->dx1) + ky*x2));
-        rby = -B0*(kx/ky)*sin((double)(kx*x1 + ky*(x2-0.5*pGrid->dx2)));
-        rbz = 0.0;
       }
       if (ipert == 4) {
         rd = dFP[i+pGrid->idisp];
         rvx = vxFP[i+pGrid->idisp];
         rvy = vyFP[i+pGrid->idisp] + 1.5*Omega*x1;  /* subtract mean flow */
         rvz = 0.0;
+      }
+/* Note the initial conditions in JGG for this test are incorrect.  B. Johnson
+ * [private communication] is not certain what are the correct values used to
+ * make the plot in the paper.  Thus, this test does not work */
+      if (ipert == 5) {
+        ifield = 0;
+        rd = den + 8.9525e-10*cos((double)(kx*x1 + ky*x2 + kz*x3 - PI/4.));
+        rvx = 8.16589e-8*cos((double)(kx*x1 + ky*x2 + kz*x3 + PI/4.));
+        rvy = 8.70641e-8*cos((double)(kx*x1 + ky*x2 + kz*x3 + PI/4.));
+        rvz = 0.762537e-8*cos((double)(kx*x1 + ky*x2 + kz*x3 + PI/4.));
+        rbx = -1.08076e-7;
+        rbx *= cos((double)(kx*(x1-0.5*pGrid->dx1) + ky*x2 + kz*x3 - PI/4.));
+        rby = 1.04172e-7;
+        rby *= cos((double)(kx*x1 + ky*(x2-0.5*pGrid->dx2) + kz*x3 - PI/4.));
+        rbz = -0.320324e-7;
+        rbz *= cos((double)(kx*x1 + ky*x2 + kz*(x3-0.5*pGrid->dx3) - PI/4.));;
+        rbz += (sqrt(15.0)/16.0)*(Omega/kz);
+      } 
+      if (ipert == 6) {
+        ifield = 0;
+        rd = den + 5.48082e-6*cos((double)(kx*x1 + ky*x2 + kz*x3));
+        rvx = -4.5856e-6*cos((double)(kx*x1 + ky*x2 + kz*x3));
+        rvy = 2.29279e-6*cos((double)(kx*x1 + ky*x2 + kz*x3));
+        rvz = 2.29279e-6*cos((double)(kx*x1 + ky*x2 + kz*x3));
+        rbx = 5.48082e-7;
+        rbx *= cos((double)(kx*(x1-0.5*pGrid->dx1) + ky*x2 + kz*x3));
+        rbx += (0.1);
+        rby = 1.0962e-6;
+        rby *= cos((double)(kx*x1 + ky*(x2-0.5*pGrid->dx2) + kz*x3));
+        rby += (0.2);
+        rbz = 0.0;
       }
 
 /* Initialize d, M, and P.  For 3D shearing box M1=Vx, M2=Vy, M3=Vz
@@ -218,8 +259,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif
 
 /* Initialize magnetic field.  For 3D shearing box B1=Bx, B2=By, B3=Bz
+ *  ifield = 0 - 
  *  ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
  *  ifield = 2 - uniform Bz
+ *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
  */
 #ifdef MHD
       if (ifield == 0) {
@@ -246,6 +289,15 @@ void problem(Grid *pGrid, Domain *pDomain)
         if (j==je) pGrid->B2i[k][je+1][i] = 0.0;
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0;
       }
+      if (ifield == 3) {
+        pGrid->B1i[k][j][i] = 0.0;
+        pGrid->B2i[k][j][i] = B0*(cos((double)kx*x1));
+        pGrid->B3i[k][j][i] = B0*(sin((double)kx*x1));
+        if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
+        if (j==je) pGrid->B2i[k][je+1][i] = B0*(cos((double)kx*x1));
+        if (k==ke) pGrid->B3i[ke+1][j][i] = B0*(sin((double)kx*x1));
+      }
+
 #ifdef ADIABATIC
       pGrid->U[k][j][i].E += 0.5*(SQR(pGrid->U[k][j][i].B1c)
          + SQR(pGrid->U[k][j][i].B2c) + SQR(pGrid->U[k][j][i].B3c));
@@ -281,6 +333,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   dump_history_enroll(hst_By, "<By>");
   dump_history_enroll(hst_Bz, "<Bz>");
   dump_history_enroll(hst_BxBy, "<-Bx By>");
+  if (ipert == 5) dump_history_enroll(hst_dEw2, "<dEw2>");
+  if (ipert == 6) dump_history_enroll(hst_dBy, "<dBy>");
 #endif /* MHD */
 
   return;
@@ -523,6 +577,51 @@ static Real hst_Bz(const Grid *pG, const int i, const int j, const int k)
 static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;
+}
+
+static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k)
+{
+  Real x1,x2,x3,dVx,dVy,dVz,dBz;
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  dBz = pG->U[k][j][i].B3c-(sqrt(15.0/16.0))/(2.0*PI)/sqrt(4.*PI);
+  dVx = pG->U[k][j][i].M1/pG->U[k][j][i].d;
+  dVy = pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1;
+  dVz = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+  
+/*  return (dVx*dVx + dVy*dVy + dVz*dVz + pG->U[k][j][i].B1c*pG->U[k][j][i].B1c
+    + pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + dBz*dBz); */
+  return (pG->U[k][j][i].B1c*pG->U[k][j][i].B1c
+    + pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + dBz*dBz); 
+}
+
+static Real hst_dBy(const Grid *pG, const int i, const int j, const int k)
+{
+  double fkx, fky, fkz; /* Fourier kx, ky */
+  double dBy;
+  Real xmin,xmax,Lx,Ly,Lz,x1,x2,x3;
+
+  xmin = par_getd("grid","x1min");
+  xmax = par_getd("grid","x1max");
+  Lx = xmax - xmin;
+
+  xmin = par_getd("grid","x2min");
+  xmax = par_getd("grid","x2max");
+  Ly = xmax - xmin;
+
+  xmin = par_getd("grid","x3min");
+  xmax = par_getd("grid","x3max");
+  Lz = xmax - xmin;
+
+  fky = 2.0*PI/Ly;
+  fkx = -4.0*PI/Lx + 1.5*Omega*fky*pG->time;
+  fkz = 2.0*PI/Lz;
+
+/* compute real part of Fourier mode, for comparison to JGG fig 11 */
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  dBy = 2.0*(pG->U[k][j][i].B2c - (0.2-0.15*Omega*pG->time));
+  dBy *= cos(fkx*x1 + fky*x2 + fkz*x3);
+
+  return dBy;
 }
 
 #endif /* MHD */
