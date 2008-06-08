@@ -52,7 +52,8 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
   Cons1D Ulst,Uldst,Urdst,Urst;       /* Conserved variable for all states */
   Prim1D Wlst,Wrst;                   /* Primitive variables for all states */
   Cons1D Fl,Fr;                       /* Fluxes for left & right states */
-  Real spd[5],maxspd;                 /* signal speeds, left to right */
+  Real spd[5];                        /* signal speeds, left to right */
+/*  Real maxspd; */
   Real sdl,sdr,sdml,sdmr;             /* S_i-u_i, S_i-S_M (i=L or R) */
   Real pbl,pbr;                       /* Magnetic pressures */
   Real cfl,cfr,cfmax;                 /* Cf (left & right), max(cfl,cfr) */
@@ -65,6 +66,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
   Real Bxsq = SQR(Bxi);               /* Bx^2 */
   Real tmp;                      /* Temp variable for repeated calculations */
   int n;
+
 
 
 /*--- Step 1. ------------------------------------------------------------------
@@ -100,7 +102,7 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
     spd[4] = Wl.Vx + cfmax;
   }
 
-  maxspd = MAX(fabs(spd[0]),fabs(spd[4]));
+/*  maxspd = MAX(fabs(spd[0]),fabs(spd[4])); */
 
 /*--- Step 3. ------------------------------------------------------------------
  * Compute L/R fluxes
@@ -513,10 +515,10 @@ void flux_hlld(const Cons1D Ul, const Cons1D Ur,
   tmp = (spd[4]-spd[1])*(spd[4]-spd[3]);
   if (tmp == 0) {
     /* degenerate case described below eqn. (39) */
-    Ulst.My = Ul.My;
-    Ulst.Mz = Ul.Mz;
-    Ulst.By = Ul.By;
-    Ulst.Bz = Ul.Bz;
+    Urst.My = Ur.My;
+    Urst.Mz = Ur.Mz;
+    Urst.By = Ur.By;
+    Urst.Bz = Ur.Bz;
   } else {
     mfact = Bxi*(ustar-Wr.Vx)/tmp;
     bfact = (Ur.d*SQR(spd[4]-Wr.Vx)-Bxsq)/(dhll*tmp);
