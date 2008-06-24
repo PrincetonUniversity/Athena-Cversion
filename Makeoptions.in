@@ -32,6 +32,9 @@ ifeq (@MPI_MODE@,MPI_PARALLEL)
    BLOCKINC = -I../fftsrc
 endif
 endif
+ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
+   IONRADINC = -I ionradiation -I .. -I .
+endif
 
 #-------------------  compiler/library definitions  ----------------------------
 # select using MACHINE=<name> in command line.  For example
@@ -46,6 +49,8 @@ ifeq ($(MACHINE),ophir)
   MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
   FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
+  HEALPIXINC = -I/u/krumholz/lib/Healpix_2.00/include
+  HEALPIXLIB = -L/u/krumholz/lib/Healpix_2.00/lib -lchealpix
 else
 ifeq ($(MACHINE),macosx)
   CC = gcc
@@ -67,6 +72,17 @@ ifeq ($(MACHINE),aldrin)
   MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
   FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
+else
+ifeq ($(MACHINE), gmc)
+  CC  = gcc
+  LDR = gcc 
+  OPT = @COMPILER_OPTS@
+  MPIINC = -I/u/krumholz/lib/mpich-1.2.7/include
+  MPILIB = -L/u/krumholz/lib/mpich-1.2.7/lib -lmpich
+  FFTWINC = -I/u/krumholz/lib/fftw-3.1.2-i64/include
+  FFTWLIB = -L/u/krumholz/lib/fftw-3.1.2-i64/lib -lfftw3
+  HEALPIXINC = -I/u/krumholz/lib/Healpix_2.00/include
+  HEALPIXLIB = -L/u/krumholz/lib/Healpix_2.00/lib -lchealpix.i64
 else
 ifeq ($(MACHINE),della)
   CC = /usr/local/openmpi-1.1-intel/bin/mpicc
@@ -95,6 +111,8 @@ ifeq ($(MACHINE),woodhen)
   MPILIB =
   FFTWLIB = -L/home/lemaster/bin/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/home/lemaster/bin/fftw-3.1.2/include
+  HEALPIXINC = -I/home/krumholz/lib/Healpix_2.01/include
+  HEALPIXLIB = -L/home/krumholz/lib/Healpix_2.01/lib -lchealpix
 else
 ifeq ($(MACHINE),artemis)
   CC  = mpicc
@@ -114,6 +132,7 @@ endif
 endif
 endif
 endif
+endif
 
 ifeq (@MPI_MODE@,MPI_SERIAL)
   MPIINC = 
@@ -124,5 +143,5 @@ ifeq (@FFT_MODE@,NO_FFT)
   FFTWLIB = 
 endif
 
-CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC)
-LIB = $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS)
+CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(IONRADINC) $(HEALPIXINC)
+LIB = $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) $(HEALPIXLIB)

@@ -44,12 +44,16 @@ ifeq (@MPI_MODE@,MPI_PARALLEL)
 	(cd fftsrc; $(MAKE) compile)
 endif
 endif
+ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
+	(cd src/ionradiation; $(MAKE) compile)
+endif
 	(cd src; $(MAKE) compile)
 
 #-------------------------------------------------------------------------------
 #  target clean:
 clean:
 	(cd fftsrc; $(MAKE) clean)
+	(cd src/ionradiation; $(MAKE) clean)
 	(cd src; $(MAKE) clean)
 
 #-------------------------------------------------------------------------------
