@@ -1,0 +1,51 @@
+ionrad.o: ionrad.c ../copyright.h ../defs.h ../athena.h ../defs.h \
+  ../prototypes.h ../copyright.h ../athena.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpidefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_fortdefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpio.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_errno.h ionrad_prototypes.h \
+  ../copyright.h ../athena.h ../defs.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h ionrad.h ../globals.h
+ionrad_3d.o: ionrad_3d.c ../copyright.h ionrad.h ../defs.h ../athena.h \
+  ../defs.h ../prototypes.h ../copyright.h ../athena.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpidefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_fortdefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpio.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_errno.h ionrad_prototypes.h \
+  ../copyright.h ../athena.h ../defs.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h ../globals.h
+ionrad_chemistry.o: ionrad_chemistry.c ../copyright.h ../prototypes.h \
+  ../copyright.h ../athena.h ../defs.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpidefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_fortdefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpio.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_errno.h ionrad_prototypes.h \
+  ../copyright.h ../athena.h ../defs.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h
+ionradplane_3d.o: ionradplane_3d.c ../copyright.h ../defs.h ../athena.h \
+  ../defs.h ../prototypes.h ../copyright.h ../athena.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpidefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_fortdefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpio.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_errno.h ionrad_prototypes.h \
+  ../copyright.h ../athena.h ../defs.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h ../globals.h ionrad.h
+ionradpoint_3d.o: ionradpoint_3d.c ../copyright.h ../defs.h ../athena.h \
+  ../defs.h ../prototypes.h ../copyright.h ../athena.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpidefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_fortdefs.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpio.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi_errno.h ionrad_prototypes.h \
+  ../copyright.h ../athena.h ../defs.h ../config.h \
+  /u/krumholz/lib/mpich-1.2.7/include/mpi.h ../globals.h \
+  /u/krumholz/lib/Healpix_2.00/include/chealpix.h ionrad.h
