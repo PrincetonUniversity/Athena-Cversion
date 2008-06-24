@@ -76,6 +76,15 @@ ifeq (@FFT_MODE@,FFT_ENABLED)
 endif
 endif
 
+IONRAD_OBJ =
+ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
+   IONRAD_OBJ = ionradiation/ionrad.o \
+		ionradiation/ionrad_3d.o \
+		ionradiation/ionrad_chemistry.o \
+		ionradiation/ionradplane_3d.o \
+		ionradiation/ionradpoint_3d.o
+endif
+
 #-------------------  macro definitions  ---------------------------------------
 
 BIN = ${EXEDIR}athena
@@ -96,8 +105,8 @@ all:	compile
 .PHONY: compile
 compile: ${BIN}
 
-${BIN}: ${OBJ} ${FFT_OBJ}
-	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${FFT_OBJ} ${LIB}
+${BIN}: ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ}
+	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${LIB}
 
 help:
 	@echo This is the Athena Makefile

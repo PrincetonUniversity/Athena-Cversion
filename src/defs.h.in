@@ -45,6 +45,15 @@
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
 
+/* Ionizing radiative transfer */
+#define @ION_RADIATION_MODE@
+
+/* Ionizing radiative transfer from point sources */
+#define @ION_POINT_MODE@
+
+/* Ionizing radiative transfer from plane parallel fronts */
+#define @ION_PLANE_MODE@
+
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER
  * THIRD_ORDER_EXTREMA_PRESERVING */
 #define @ACCURACY@

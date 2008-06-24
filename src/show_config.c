@@ -49,6 +49,24 @@ void show_config(void)
   ath_pout(0," Self-gravity:            none\n");
 #endif
 
+#ifdef ION_RADIATION
+  ath_pout(0," Ionizing radiation:      enabled\n");
+#else
+  ath_pout(0," Ionizing radiation:      disabled\n");
+#endif
+
+#ifdef ION_RADPOINT
+  ath_pout(0," Ionizing point sources:   enabled\n");
+#else
+  ath_pout(0," Ionizing point sources:   disabled\n");
+#endif
+
+#ifdef ION_RADPLANE
+  ath_pout(0," Ionizing plane sources:   enabled\n");
+#else
+  ath_pout(0," Ionizing plane sources:   disabled\n");
+#endif
+
 #if defined(FIRST_ORDER)
   ath_pout(0," Order of Accuracy:       1 (FIRST_ORDER)\n");
 #elif defined(SECOND_ORDER)

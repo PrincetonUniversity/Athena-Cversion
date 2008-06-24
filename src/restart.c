@@ -47,6 +47,16 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   int n;
   char scalarstr[16];
 #endif
+#ifdef ION_RADPOINT
+  Real x1rad, x2rad, x3rad, srad;
+  int nradpoint, rebuildctr;
+  Rad_Ran2_State ranstate;
+  float rotation[3][3];
+#endif
+#ifdef ION_RADPLANE
+  int dir, nradplane;
+  Real flux;
+#endif
 
 /* Open the restart file */
   if((fp = fopen(res_file,"r")) == NULL)
@@ -212,6 +222,46 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   }
 #endif
 
+#ifdef ION_RADPOINT
+  /* Read list of radiators and call routine to add them */
+  fgets(line,MAXLEN,fp);/* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"RADIATOR LIST",13) != 0)
+    ath_error("[restart_grid_block]: Expected RADIATOR LIST, found %s",line);
+  fread(&nradpoint,sizeof(int),1,fp);
+  for (n=0; n<nradpoint; n++) {
+    fread(&x1rad,sizeof(Real),1,fp);
+    fread(&x2rad,sizeof(Real),1,fp);
+    fread(&x3rad,sizeof(Real),1,fp);
+    fread(&srad,sizeof(Real),1,fp);
+    fread(&rebuildctr,sizeof(int),1,fp);
+    fread(rotation,sizeof(float),9,fp);
+    restore_radpoint_3d(pG, x1rad, x2rad, x3rad, srad, rebuildctr, rotation);
+  }
+
+  /* Read the current random number generator state and set it */
+  fgets(line,MAXLEN,fp);/* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"RAN2 STATE",10) != 0)
+    ath_error("[restart_grid_block]: Expected RAN2 STATE, found %s",line);
+  fread(&ranstate,sizeof(Rad_Ran2_State),1,fp);
+  ion_radpoint_set_ranstate(ranstate);
+#endif /* ION_RADPOINT */
+
+#ifdef ION_RADPLANE
+  /* Read list of radiator planes */
+  fgets(line,MAXLEN,fp);/* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"RADIATOR PLANE LIST",19) != 0)
+    ath_error("[restart_grid_block]: Expected RADIATOR PLANE LIST, found %s",line);
+  fread(&nradplane,sizeof(int),1,fp);
+  for (n=0; n<nradplane; n++) {
+    fread(&dir,sizeof(int),1,fp);
+    fread(&flux,sizeof(Real),1,fp);
+    add_radplane_3d(pG, dir, flux);
+  }
+#endif /* ION_RADPLANE */
+
 /* Read any passively advected scalars */
 /* Following code only works if NSCALARS < 10 */
 #if (NSCALARS > 0)
@@ -259,6 +309,9 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 #endif
 #if (NSCALARS > 0)
   int n;
+#endif
+#ifdef ION_RADPOINT
+  Rad_Ran2_State ranstate;
 #endif
   int bufsize, nbuf = 0;
   Real *buf = NULL;
@@ -451,6 +504,36 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     nbuf = 0;
   }
 #endif
+
+#ifdef ION_RADPOINT
+  /* Write out properties of radiators */
+  fprintf(fp,"\nRADIATOR LIST\n");
+  fwrite(&(pG->nradpoint),sizeof(int),1,fp);
+  for (n=0; n<pG->nradpoint; n++) {
+    fwrite(&(pG->radpointlist[n].x1),sizeof(Real),1,fp);
+    fwrite(&(pG->radpointlist[n].x2),sizeof(Real),1,fp);
+    fwrite(&(pG->radpointlist[n].x3),sizeof(Real),1,fp);
+    fwrite(&(pG->radpointlist[n].s),sizeof(Real),1,fp);
+    fwrite(&(pG->radpointlist[n].tree.rebuild_ctr),sizeof(int),1,fp);
+    fwrite(&(pG->radpointlist[n].tree.rotation),sizeof(float),9,fp);
+  }
+
+  /* Write out the state of the random number generator */
+  fprintf(fp,"\nRAN2 STATE\n");
+  ranstate=ion_radpoint_get_ranstate();
+  fwrite(&ranstate, sizeof(Rad_Ran2_State), 1, fp);
+
+#endif /* ION_RADPOINT */
+
+#ifdef ION_RADPLANE
+  /* Write out properties of radiator planes */
+  fprintf(fp,"\nRADIATOR PLANE LIST\n");
+  fwrite(&(pG->nradplane),sizeof(int),1,fp);
+  for (n=0; n<pG->nradplane; n++) {
+    fwrite(&(pG->radplanelist[n].dir),sizeof(int),1,fp);
+    fwrite(&(pG->radplanelist[n].flux),sizeof(Real),1,fp);
+  }
+#endif /* ION_RADPLANE */
 
 /* Write out passively advected scalars */
 #if (NSCALARS > 0)

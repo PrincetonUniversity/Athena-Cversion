@@ -45,6 +45,11 @@
 #include "mpi.h"
 #endif
 
+/* Include prototypes for ionization files if ionization is turned on */
+#ifdef ION_RADIATION
+#include "ionrad_prototypes.h"
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* main.c */
 int athena_main(int argc, char *argv[]);

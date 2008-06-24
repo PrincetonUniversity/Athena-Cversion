@@ -50,6 +50,10 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
 #endif
+#ifdef ION_RADIATION
+  VGFun_t IonRadTransfer; /* function pointer to ionization, set at runtime */
+#endif
+  Real dt_done;
 
   Grid level0_Grid;      /* only level0 Grid and Domain in this version */
   Domain level0_Domain;
@@ -291,6 +295,9 @@ int main(int argc, char *argv[])
 
   init_domain(&level0_Grid, &level0_Domain);
   init_grid  (&level0_Grid, &level0_Domain);
+#ifdef ION_RADIATION
+  ion_radtransfer_init_domain(&level0_Grid, &level0_Domain);
+#endif
 
   if (level0_Grid.Nx1 > 1 && level0_Grid.Nx2 > 1 && level0_Grid.Nx3 > 1
     && CourNo >= 0.5) 
@@ -342,6 +349,9 @@ int main(int argc, char *argv[])
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
   set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
+#ifdef ION_RADIATION
+  IonRadTransfer = ion_radtransfer_init(&level0_Grid, &level0_Domain, ires);
+#endif
 
 /*--- Step 9. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
@@ -365,7 +375,8 @@ int main(int argc, char *argv[])
     time0 = clock();
 
   ath_pout(0,"\nSetup complete, entering main loop...\n\n");
-  ath_pout(0,"cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
+  ath_pout(0,"cycle=%i time=%e next dt=%e\n",level0_Grid.nstep,
+	   level0_Grid.time,
 	   level0_Grid.dt);
 
 /*--- Step 10. ---------------------------------------------------------------*/
@@ -386,6 +397,13 @@ int main(int argc, char *argv[])
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
 
+#ifdef ION_RADIATION
+    /* Note that we do the ionizing radiative transfer step first
+       because it is capable of decreasing the time step relative to
+       the value computed by Courant. */
+    (*IonRadTransfer)(&level0_Grid);
+    set_bvals_mhd(&level0_Grid, &level0_Domain); /* Re-apply hydro bc's */
+#endif
     (*Integrate)(&level0_Grid, &level0_Domain);
 #ifdef FARGO
     Fargo(&level0_Grid, &level0_Domain);
@@ -398,6 +416,7 @@ int main(int argc, char *argv[])
     selfg_flux_correction(&level0_Grid);
 #endif
 
+    dt_done = level0_Grid.dt;
     level0_Grid.nstep++;
     level0_Grid.time += level0_Grid.dt;
     new_dt(&level0_Grid);
@@ -413,8 +432,9 @@ int main(int argc, char *argv[])
 /* Update iquit for signals, MPI synchronize and return its value */
     if(ath_sig_act(&iquit) != 0) break;
 
-    ath_pout(0,"cycle=%i time=%e dt=%e\n",level0_Grid.nstep,level0_Grid.time,
-	     level0_Grid.dt);
+    ath_pout(0,"cycle=%i time=%e next dt=%e last dt=%e\n",
+	     level0_Grid.nstep,level0_Grid.time,
+	     level0_Grid.dt,dt_done);
 
     if(nflush == level0_Grid.nstep){
       ath_flush_out();
