@@ -24,7 +24,7 @@
  * Bx is passed in through the argument list.
  */
 
-void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW, const Real *pBx)
+void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW MHDARG( , const Real *pBx))
 {
 #if (NSCALARS > 0)
   int n;
@@ -64,7 +64,7 @@ void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW, const Real *pBx)
  * Bx is passed in through the argument list.
  */
 
-void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW, const Real *pBx)
+void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx))
 {
 #if (NSCALARS > 0)
   int n;
@@ -99,7 +99,7 @@ void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW, const Real *pBx)
  *   variables and Bx. 
  */
 
-Real cfast(const Cons1D *U, const Real *Bx)
+Real cfast(const Cons1D *U MHDARG( , const Real *Bx))
 {
   Real asq;
 #ifndef ISOTHERMAL

@@ -126,6 +126,15 @@ enum {
 #define HUGE_NUMBER 1.0e+20
 
 /*----------------------------------------------------------------------------*/
+/* This macro is used to strip out MHD-specific arguments from function calls */
+
+#ifdef MHD
+#define MHDARG(x, y) x , y
+#else
+#define MHDARG(x, y)
+#endif
+
+/*----------------------------------------------------------------------------*/
 /* computed macros based on above choices (never modified) */
 
 #ifdef BAROTROPIC /* BAROTROPIC EOS */

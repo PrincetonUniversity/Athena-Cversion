@@ -61,6 +61,6 @@ endif
 
 # this forces a rebuild of all objects, if code re-configure'd
 
-ifeq (ION_RADIATION,ION_RADIATION)
+ifeq (NO_RADIATION,ION_RADIATION)
 include Makedepend
 endif

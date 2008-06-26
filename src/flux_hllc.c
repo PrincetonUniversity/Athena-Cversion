@@ -33,14 +33,13 @@
 /*----------------------------------------------------------------------------*/
 /* flux_hllc
  *   Input Arguments:
- *     Bxi = B in direction of slice at cell interface
  *     Ul,Ur = L/R-states of CONSERVED variables at cell interface 
  *   Output Arguments:
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface 
  */
 
 void flux_hllc(const Cons1D Ul, const Cons1D Ur,
-               const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+               const Prim1D Wl, const Prim1D Wr, Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,hroe;
   Real ev[NWAVE];

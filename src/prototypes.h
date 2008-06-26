@@ -102,9 +102,9 @@ void cc_pos(const Grid *pG, const int i, const int j,const int k,
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
-void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW, const Real *pBx);
-void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW, const Real *pBx);
-Real cfast(const Cons1D *U, const Real *Bx);
+void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW MHDARG( , const Real *pBx));
+void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx));
+Real cfast(const Cons1D *U MHDARG( , const Real *Bx));
 
 /*----------------------------------------------------------------------------*/
 /* esystem_*.c */
@@ -144,20 +144,25 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
 
 /*----------------------------------------------------------------------------*/
 /* flux_*.c */
-void flux_force (const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
-void flux_hllc  (const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
-void flux_hlld  (const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
-void flux_hlle  (const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
-void flux_roe   (const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
-void flux_2shock(const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
-void flux_exact (const Cons1D Ul,const Cons1D Ur,
-                 const Prim1D Wl,const Prim1D Wr,const Real Bxi, Cons1D *pF);
+void flux_force (const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr,
+                 MHDARG(const Real Bxi,) Cons1D *pF);
+void flux_hllc  (const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr, Cons1D *pF);
+void flux_hlld  (const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pF);
+void flux_hlle  (const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr,
+                 MHDARG(const Real Bxi,) Cons1D *pF);
+void flux_roe   (const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr,
+                 MHDARG(const Real Bxi,) Cons1D *pF);
+void flux_2shock(const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr,
+                 MHDARG(const Real Bxi,) Cons1D *pF);
+void flux_exact (const Cons1D Ul, const Cons1D Ur,
+                 const Prim1D Wl, const Prim1D Wr,
+                 MHDARG(const Real Bxi,) Cons1D *pF);
 
 /*----------------------------------------------------------------------------*/
 /* init_domain.c */
@@ -196,7 +201,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD);
 /* lr_states.c */
 void lr_states_destruct(void);
 void lr_states_init(int nx1, int nx2, int nx3);
-void lr_states(const Prim1D W[], const Real Bxc[],
+void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
                const Real dt, const Real dtodx, const int is, const int ie,
                Prim1D Wl[], Prim1D Wr[]);
 

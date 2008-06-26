@@ -35,7 +35,8 @@
  */
 
 void flux_force(const Cons1D Ul, const Cons1D Ur, 
-                const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+                const Prim1D Wl, const Prim1D Wr,
+                MHDARG(const Real Bxi,) Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
@@ -238,7 +239,7 @@ void flux_force(const Cons1D Ul, const Cons1D Ur,
   }
 
 /* Convert the HLL mean state to primitive variables */
-  Cons1D_to_Prim1D(&Uc,&Wc,&Bxi);
+  Cons1D_to_Prim1D(&Uc,&Wc MHDARG( , &Bxi));
 
 /* Compute the LW flux along the line dx/dt = 0 */
 

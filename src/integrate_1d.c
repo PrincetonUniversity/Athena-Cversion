@@ -21,7 +21,9 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef MHD
 static Real *Bxc=NULL, *Bxi=NULL;
+#endif /* MHD */
 static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 
@@ -71,9 +73,9 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
-    Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+    Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
   }
-  lr_states(W,Bxc,pG->dt,dtodx1,is,ie,Wl,Wr);
+  lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is,ie,Wl,Wr);
 
 /*--- Step 1c -----------------------------------------------------------------
  * Add gravitational source terms for a static potential for dt/2 to L/R states
@@ -110,10 +112,10 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is; i<=ie+1; i++) {
-    Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i],&Bxi[i]);
-    Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i],&Bxi[i]);
+    Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i] MHDARG( , &Bxi[i]));
+    Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i] MHDARG( , &Bxi[i]));
 
-    GET_FLUXES(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
+    GET_FLUXES(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i], MHDARG( Bxi[i] , ) &x1Flux[i]);
   }
 
 /*--- Step 2a ------------------------------------------------------------------
@@ -201,8 +203,10 @@ void integrate_init_1d(int nx1)
 {
   int Nx1;
   Nx1 = nx1 + 2*nghost;
+#ifdef MHD
   if ((Bxc = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+#endif /* MHD */
   if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
@@ -222,8 +226,10 @@ void integrate_init_1d(int nx1)
 
 void integrate_destruct_1d(void)
 {
+#ifdef MHD
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
+#endif /* MHD */
   if (U1d != NULL) free(U1d);
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);

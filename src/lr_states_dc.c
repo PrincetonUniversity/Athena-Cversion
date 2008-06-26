@@ -35,7 +35,7 @@
  *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const Prim1D W[], const Real Bxc[],
+void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 	       const Real dt, const Real dtodx, const int il, const int iu,
 	       Prim1D Wl[], Prim1D Wr[])
 {
