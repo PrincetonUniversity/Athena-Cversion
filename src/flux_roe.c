@@ -38,7 +38,8 @@ Real etah=0.0;
  */
 
 void flux_roe(const Cons1D Ul, const Cons1D Ur,
-              const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+              const Prim1D Wl, const Prim1D Wr,
+              MHDARG(const Real Bxi,) Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
 #ifndef ISOTHERMAL
@@ -242,7 +243,7 @@ void flux_roe(const Cons1D Ul, const Cons1D Ur,
   }
 
   if (hlle_flag != 0) {
-    flux_hlle(Ul,Ur,Wl,Wr,Bxi,pFlux);
+    flux_hlle(Ul,Ur,Wl,Wr, MHDARG(Bxi,) pFlux);
     return;
   }
 

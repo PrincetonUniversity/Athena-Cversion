@@ -43,7 +43,8 @@
  */
 
 void flux_2shock(const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pF)
+                 const Prim1D Wl, const Prim1D Wr,
+                 MHDARG(const Real Bxi,) Cons1D *pFlux)
 {
   Real zl, zc, zr, dc, Vxc, tmp;
   Real sl, sr;  /* Left and right going shock velocity */

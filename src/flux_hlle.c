@@ -44,7 +44,8 @@
  */
 
 void flux_hlle(const Cons1D Ul, const Cons1D Ur,
-               const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+               const Prim1D Wl, const Prim1D Wr,
+               MHDARG(const Real Bxi,) Cons1D *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
