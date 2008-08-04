@@ -205,10 +205,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
 /* Compute flux in x1-direction  */
 
       for (i=il+1; i<=iu; i++) {
-        Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG2( , &B1_x1Face[k][j][i]));
-        Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG2( , &B1_x1Face[k][j][i]));
+        Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
+        Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
         GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
-                   MHDARG2( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
+                   MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
     }
   }
@@ -256,10 +256,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
 /* Compute flux in x2-direction */
 
       for (j=jl+1; j<=ju; j++) {
-        Cons1D_to_Prim1D(&Ul[j],&Wl[j] MHDARG2( , &B2_x2Face[k][j][i]));
-        Cons1D_to_Prim1D(&Ur[j],&Wr[j] MHDARG2( , &B2_x2Face[k][j][i]));
+        Cons1D_to_Prim1D(&Ul[j],&Wl[j] MHDARG( , &B2_x2Face[k][j][i]));
+        Cons1D_to_Prim1D(&Ur[j],&Wr[j] MHDARG( , &B2_x2Face[k][j][i]));
         GET_FLUXES(Ul[j],Ur[j],Wl[j],Wr[j],
-                   MHDARG2( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
+                   MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
     }
   }
@@ -307,10 +307,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
 /* Compute flux in x3-direction */
 
       for (k=kl+1; k<=ku; k++) {
-        Cons1D_to_Prim1D(&Ul[k],&Wl[k] MHDARG2( , &B3_x3Face[k][j][i]));
-        Cons1D_to_Prim1D(&Ur[k],&Wr[k] MHDARG2( , &B3_x3Face[k][j][i]));
+        Cons1D_to_Prim1D(&Ul[k],&Wl[k] MHDARG( , &B3_x3Face[k][j][i]));
+        Cons1D_to_Prim1D(&Ur[k],&Wr[k] MHDARG( , &B3_x3Face[k][j][i]));
         GET_FLUXES(Ul[k],Ur[k],Wl[k],Wr[k],
-                   MHDARG2( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
+                   MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
     }
   }
@@ -562,10 +562,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       }
 
       for (i=il; i<=iu; i++) {
-        Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG2( , &Bxc[i]));
+        Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
       }
 
-      lr_states(W, MHDARG2( Bxc , ) 0.0,0.0,ib+1,it-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) 0.0,0.0,ib+1,it-1,Wl,Wr);
 
 /* Compute L/R states, and either store into array, or use to compute fluxes */
       for (i=ib+1; i<=it; i++) {
@@ -573,10 +573,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         Wl_x1Face[k][j][i] = Wl[i];
         Wr_x1Face[k][j][i] = Wr[i];
 #else
-        Prim1D_to_Cons1D(&Ul[i],&Wl[i] MHDARG2( , &B1_x1Face[k][j][i]));
-        Prim1D_to_Cons1D(&Ur[i],&Wr[i] MHDARG2( , &B1_x1Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
         GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
-                   MHDARG2( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
+                   MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
 #endif /* H_CORRECTION */
       }
     }
@@ -611,10 +611,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       }
 
       for (j=jl; j<=ju; j++) {
-        Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG2( , &Bxc[j]));
+        Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
       }
 
-      lr_states(W, MHDARG2( Bxc , ) 0.0,0.0,jb+1,jt-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) 0.0,0.0,jb+1,jt-1,Wl,Wr);
 
 /* Compute L/R states, and either store into array, or use to compute fluxes */
       for (j=jb+1; j<=jt; j++) {
@@ -622,10 +622,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         Wl_x2Face[k][j][i] = Wl[j];
         Wr_x2Face[k][j][i] = Wr[j];
 #else
-        Prim1D_to_Cons1D(&Ul[j],&Wl[j] MHDARG2( , &B2_x2Face[k][j][i]));
-        Prim1D_to_Cons1D(&Ur[j],&Wr[j] MHDARG2( , &B2_x2Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ul[j],&Wl[j] MHDARG( , &B2_x2Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ur[j],&Wr[j] MHDARG( , &B2_x2Face[k][j][i]));
         GET_FLUXES(Ul[j],Ur[j],Wl[j],Wr[j],
-                   MHDARG2( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
+                   MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
 #endif /* H_CORRECTION */
       }
     }
@@ -660,10 +660,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       }
 
       for (k=kl; k<=ku; k++) {
-        Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG2( , &Bxc[k]));
+        Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG( , &Bxc[k]));
       }
 
-      lr_states(W, MHDARG2( Bxc , ) 0.0,0.0,kb+1,kt-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) 0.0,0.0,kb+1,kt-1,Wl,Wr);
 
 /* Compute L/R states, and either store into array, or use to compute fluxes */
       for (k=kb+1; k<=kt; k++) {
@@ -671,10 +671,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         Wl_x3Face[k][j][i] = Wl[k];
         Wr_x3Face[k][j][i] = Wr[k];
 #else
-        Prim1D_to_Cons1D(&Ul[k],&Wl[k] MHDARG2( , &B3_x3Face[k][j][i]));
-        Prim1D_to_Cons1D(&Ur[k],&Wr[k] MHDARG2( , &B3_x3Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ul[k],&Wl[k] MHDARG( , &B3_x3Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ur[k],&Wr[k] MHDARG( , &B3_x3Face[k][j][i]));
         GET_FLUXES(Ul[k],Ur[k],Wl[k],Wr[k],
-                   MHDARG2( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
+                   MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
 #endif /* H_CORRECTION */
       }
     }
@@ -744,7 +744,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[k][j][i],&B1_x1Face[k][j][i]);
         Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i],&B1_x1Face[k][j][i]);
         GET_FLUXES(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i],
-                   MHDARG2( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
+                   MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
     }
   }
@@ -769,7 +769,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         Prim1D_to_Cons1D(&Ul[i],&Wl_x2Face[k][j][i],&B2_x2Face[k][j][i]);
         Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i],&B2_x2Face[k][j][i]);
         GET_FLUXES(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i],
-                   MHDARG2( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
+                   MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
     }
   }
@@ -794,7 +794,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         Prim1D_to_Cons1D(&Ul[i],&Wl_x3Face[k][j][i],&B3_x3Face[k][j][i]);
         Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i],&B3_x3Face[k][j][i]);
         GET_FLUXES(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i],
-                   MHDARG2( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
+                   MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
     }
   }
@@ -1808,7 +1808,7 @@ static void first_order_correction(const Grid *pG)
             Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B1_x1Face[k][j][i]);
 
             GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
-                       MHDARG2( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
+                       MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
           }
 
           if (Ineg[k][j][i] & correct_hydro_x2) {
@@ -1831,7 +1831,7 @@ static void first_order_correction(const Grid *pG)
             Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B2_x2Face[k][j][i]);
 
             GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
-                       MHDARG2( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
+                       MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
         }
 
           if (Ineg[k][j][i] & correct_hydro_x3) {
@@ -1854,7 +1854,7 @@ static void first_order_correction(const Grid *pG)
             Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B3_x3Face[k][j][i]);
 
             GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
-                       MHDARG2( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
+                       MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
           }
         }
       }
