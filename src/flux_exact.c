@@ -56,7 +56,7 @@ static double rtsafe(void (*funcd)(double, double, double, double, double,
  */
 
 void flux_exact(const Cons1D Ul, const Cons1D Ur,
-                const Prim1D Wl, const Prim1D Wr, Cons1D *pFlux)
+                const Prim1D Wl, const Prim1D Wr, Cons1D *pF)
 {
   Real zl, zr, zm, dm, Vxm, Mxm, tmp, dmin, dmax;
   Real sl, sr;    /* Left and right going shock velocity */
