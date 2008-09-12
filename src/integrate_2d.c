@@ -710,8 +710,8 @@ void integrate_2d(Grid *pG, Domain *pD)
 #ifdef H_CORRECTION
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=iu; i++) {
-      cfr = cfast(&(Ur_x1Face[j][i]), &(B1_x1Face[j][i]));
-      cfl = cfast(&(Ul_x1Face[j][i]), &(B1_x1Face[j][i]));
+      cfr = cfast(&(Ur_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
+      cfl = cfast(&(Ul_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
       lambdar = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d + cfr;
       lambdal = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d - cfl;
       eta1[j][i] = 0.5*fabs(lambdar - lambdal);
@@ -720,8 +720,8 @@ void integrate_2d(Grid *pG, Domain *pD)
 
   for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      cfr = cfast(&(Ur_x2Face[j][i]), &(B2_x2Face[j][i]));
-      cfl = cfast(&(Ul_x2Face[j][i]), &(B2_x2Face[j][i]));
+      cfr = cfast(&(Ur_x2Face[j][i]) MHDARG( , &(B2_x2Face[j][i])));
+      cfl = cfast(&(Ul_x2Face[j][i]) MHDARG( , &(B2_x2Face[j][i])));
       lambdar = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d + cfr;
       lambdal = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d - cfl;
       eta2[j][i] = 0.5*fabs(lambdar - lambdal);

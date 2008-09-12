@@ -689,8 +689,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   for (k=kb; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
       for (i=ib+1; i<=it; i++) {
-        cfr = cfast(&(Ur_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
-        cfl = cfast(&(Ul_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
+        cfr = cfast(&(Ur_x1Face[k][j][i]) MHDARG( , &(B1_x1Face[k][j][i])));
+        cfl = cfast(&(Ul_x1Face[k][j][i]) MHDARG( , &(B1_x1Face[k][j][i])));
         lambdar = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d + cfr;
         lambdal = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d - cfl;
         eta1[k][j][i] = 0.5*fabs(lambdar - lambdal);
@@ -701,8 +701,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   for (k=kb; k<=kt; k++) {
     for (j=jb+1; j<=jt; j++) {
       for (i=ib; i<=it; i++) {
-        cfr = cfast(&(Ur_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
-        cfl = cfast(&(Ul_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
+        cfr = cfast(&(Ur_x2Face[k][j][i]) MHDARG( , &(B2_x2Face[k][j][i])));
+        cfl = cfast(&(Ul_x2Face[k][j][i]) MHDARG( , &(B2_x2Face[k][j][i])));
         lambdar = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d + cfr;
         lambdal = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d - cfl;
         eta2[k][j][i] = 0.5*fabs(lambdar - lambdal);
@@ -713,8 +713,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   for (k=kb+1; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
       for (i=ib; i<=it; i++) {
-        cfr = cfast(&(Ur_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
-        cfl = cfast(&(Ul_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
+        cfr = cfast(&(Ur_x3Face[k][j][i]) MHDARG( , &(B3_x3Face[k][j][i])));
+        cfl = cfast(&(Ul_x3Face[k][j][i]) MHDARG( , &(B3_x3Face[k][j][i])));
         lambdar = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d + cfr;
         lambdal = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d - cfl;
         eta3[k][j][i] = 0.5*fabs(lambdar - lambdal);
@@ -741,8 +741,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         etah = MAX(etah,eta3[k+1][j][i  ]);
 
         etah = MAX(etah,eta1[k  ][j][i  ]);
-        Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[k][j][i],&B1_x1Face[k][j][i]);
-        Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i],&B1_x1Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[k][j][i]
+                         MHDARG( , &B1_x1Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i]
+                         MHDARG( , &B1_x1Face[k][j][i]));
         GET_FLUXES(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
@@ -766,8 +768,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         etah = MAX(etah,eta3[k+1][j  ][i]);
 
         etah = MAX(etah,eta2[k  ][j  ][i]);
-        Prim1D_to_Cons1D(&Ul[i],&Wl_x2Face[k][j][i],&B2_x2Face[k][j][i]);
-        Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i],&B2_x2Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ul[i],&Wl_x2Face[k][j][i]
+                         MHDARG( , &B2_x2Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i]
+                         MHDARG( , &B2_x2Face[k][j][i]));
         GET_FLUXES(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i],
                    MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
@@ -791,8 +795,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         etah = MAX(etah,eta2[k  ][j+1][i]);
 
         etah = MAX(etah,eta3[k  ][j  ][i]);
-        Prim1D_to_Cons1D(&Ul[i],&Wl_x3Face[k][j][i],&B3_x3Face[k][j][i]);
-        Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i],&B3_x3Face[k][j][i]);
+        Prim1D_to_Cons1D(&Ul[i],&Wl_x3Face[k][j][i]
+                         MHDARG( , &B3_x3Face[k][j][i]));
+        Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i]
+                         MHDARG( , &B3_x3Face[k][j][i]));
         GET_FLUXES(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i],
                    MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
@@ -1804,8 +1810,8 @@ static void first_order_correction(const Grid *pG)
 #ifndef BAROTROPIC
             Ur[i].E = Uhalf[k][j][i].E;
 #endif /* BAROTROPIC */
-            Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B1_x1Face[k][j][i]);
-            Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B1_x1Face[k][j][i]);
+            Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
+            Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
 
             GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
                        MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
@@ -1827,8 +1833,8 @@ static void first_order_correction(const Grid *pG)
 #ifndef BAROTROPIC
             Ur[i].E = Uhalf[k][j][i].E;
 #endif /* BAROTROPIC */
-            Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B2_x2Face[k][j][i]);
-            Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B2_x2Face[k][j][i]);
+            Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B2_x2Face[k][j][i]));
+            Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B2_x2Face[k][j][i]));
 
             GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
                        MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
@@ -1850,8 +1856,8 @@ static void first_order_correction(const Grid *pG)
 #ifndef BAROTROPIC
             Ur[i].E = Uhalf[k][j][i].E;
 #endif /* BAROTROPIC */
-            Cons1D_to_Prim1D(&Ul[i],&Wl[i],&B3_x3Face[k][j][i]);
-            Cons1D_to_Prim1D(&Ur[i],&Wr[i],&B3_x3Face[k][j][i]);
+            Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B3_x3Face[k][j][i]));
+            Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B3_x3Face[k][j][i]));
 
             GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
                        MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);

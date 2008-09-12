@@ -1623,8 +1623,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+2; i++) {
-        cfr = cfast(&(Ur_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
-        cfl = cfast(&(Ul_x1Face[k][j][i]), &(B1_x1Face[k][j][i]));
+        cfr = cfast(&(Ur_x1Face[k][j][i]) MHDARG( , &(B1_x1Face[k][j][i])));
+        cfl = cfast(&(Ul_x1Face[k][j][i]) MHDARG( , &(B1_x1Face[k][j][i])));
         lambdar = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d + cfr;
         lambdal = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d - cfl;
         eta1[k][j][i] = 0.5*fabs(lambdar - lambdal);
@@ -1635,8 +1635,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+2; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        cfr = cfast(&(Ur_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
-        cfl = cfast(&(Ul_x2Face[k][j][i]), &(B2_x2Face[k][j][i]));
+        cfr = cfast(&(Ur_x2Face[k][j][i]) MHDARG( , &(B2_x2Face[k][j][i])));
+        cfl = cfast(&(Ul_x2Face[k][j][i]) MHDARG( , &(B2_x2Face[k][j][i])));
         lambdar = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d + cfr;
         lambdal = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d - cfl;
         eta2[k][j][i] = 0.5*fabs(lambdar - lambdal);
@@ -1647,8 +1647,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   for (k=ks-1; k<=ke+2; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        cfr = cfast(&(Ur_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
-        cfl = cfast(&(Ul_x3Face[k][j][i]), &(B3_x3Face[k][j][i]));
+        cfr = cfast(&(Ur_x3Face[k][j][i]) MHDARG( , &(B3_x3Face[k][j][i])));
+        cfl = cfast(&(Ul_x3Face[k][j][i]) MHDARG( , &(B3_x3Face[k][j][i])));
         lambdar = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d + cfr;
         lambdal = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d - cfl;
         eta3[k][j][i] = 0.5*fabs(lambdar - lambdal);
