@@ -85,6 +85,10 @@ ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
 		ionradiation/ionradpoint_3d.o
 endif
 
+MICROPHYS_OBJ = microphysics/braginskii.o \
+		microphysics/resistivity.o \
+		microphysics/viscosity.o
+
 #-------------------  macro definitions  ---------------------------------------
 
 BIN = ${EXEDIR}athena
@@ -105,8 +109,8 @@ all:	compile
 .PHONY: compile
 compile: ${BIN}
 
-${BIN}: ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ}
-	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${LIB}
+${BIN}: ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ}
+	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${LIB}
 
 help:
 	@echo This is the Athena Makefile
@@ -132,5 +136,4 @@ par:	par.c
 	$(CC) $(CFLAGS) -DTESTBED -o par par.c
 
 # this forces a rebuild of all objects, if code re-configure'd
-
 include Makedepend
