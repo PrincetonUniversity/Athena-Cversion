@@ -2,6 +2,10 @@
 # configure.ac: Athena configuration script template file.  Run 'autoconf'
 # to generate a new 'configure' script from this file.
 #
+# When configure is run, it uses the command line options and default settings
+# to create custom versions of the following files:
+#    Makefile, Makeoption, src/Makefile, src/defs.h, fftsrc/Makefile
+#
 # If new configure options are added to this file, they should also be
 # added in show_config() in src/show_config.c, and to the diagnostic message
 # output at the end of this file.
@@ -18,6 +22,11 @@
 #   --enable-ion-point                           (ionization from point sources)
 #   --enable-ion-plane             (ionizing radiation from simulation boundary)
 #
+# PHYSICS "features":
+#   --enable-resistivity                            (explicit Ohmic resistivity)
+#   --enable-viscosity                        (explicit Navier-Stokes viscosity)
+#   --enable-braginskii                          (explicit Braginskii viscosity)
+#
 # ALGORITHM "packages":
 #   --with-order=[1,2,3]                       (order of spatial reconstruction)
 #   --with-flux=[roe,hlle,hllc,hlld,force,exact]                 (flux function)
@@ -32,7 +41,7 @@
 #   --enable-fft                (compile and link with FFTW block decomposition)
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-fargo                                      (enable FARGO algorithm)
-
+#
 #-------------------------------------------------------------------------------
 # generic things
 
@@ -118,12 +127,15 @@ AC_ARG_WITH(gravity, [  --with-gravity=SELF_GRAVITY_ALGORITHM   Algorithm for se
 
 if test   "$gravity_algorithm" = "fft"; then
   SELF_GRAVITY_DEFINE="SELF_GRAVITY"
+  SELF_GRAVITY_USER="ON"
   SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_USING_FFT"
 elif test "$gravity_algorithm" = "multigrid"; then
   SELF_GRAVITY_DEFINE="SELF_GRAVITY"
+  SELF_GRAVITY_USER="ON"
   SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_USING_MULTIGRID"
 elif test "$gravity_algorithm" = "none"; then
   SELF_GRAVITY_DEFINE="NO_SELF_GRAVITY"
+  SELF_GRAVITY_USER="OFF"
   SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_NONE"
 else
   AC_MSG_ERROR([expected --with-gravity=fft or multigrid])
@@ -138,11 +150,13 @@ AC_ARG_ENABLE(ion-radiation, [  --enable-ion-radiation  do ionizing radiative tr
                                 ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   ION_RADIATION_MODE="ION_RADIATION"
+  ION_RADIATION_MODE_USER="ON"
   echo "Ionizing radiation enabled... increasing number of passive scalars by 1"
   nscalars=$@<:@nscalars+1@:>@
   NSCALARS=$nscalars
 else
-  ION_RADIATION_MODE="NO_RADIATION"
+  ION_RADIATION_MODE="NO_ION_RADIATION"
+  ION_RADIATION_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -154,8 +168,10 @@ AC_ARG_ENABLE(ion-point, [  --enable-ion-point  enable point sources of ionizati
                                 ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   ION_POINT_MODE="ION_RADPOINT"
+  ION_POINT_MODE_USER="ON"
 else
-  ION_POINT_MODE="NO_RADPOINT"
+  ION_POINT_MODE="NO_ION_RADPOINT"
+  ION_POINT_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -167,8 +183,52 @@ AC_ARG_ENABLE(ion-plane, [  --enable-ion-plane  enable plane-parallel sources of
                                 ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   ION_PLANE_MODE="ION_RADPLANE"
+  ION_PLANE_MODE_USER="ON"
 else
-  ION_PLANE_MODE="NO_RADPLANE"
+  ION_PLANE_MODE="NO_ION_RADPLANE"
+  ION_PLANE_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: Ohmic resistivity
+#   --enable-resistivity
+
+AC_SUBST(RESISTIVITY_MODE)
+AC_ARG_ENABLE(resistivity, [  --enable-resistivity      turn on resistivity], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RESISTIVITY_MODE="RESISTIVITY"
+  RESISTIVITY_MODE_USER="ON"
+else
+  RESISTIVITY_MODE="NO_RESISTIVITY"
+  RESISTIVITY_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: Navier-Stokes viscosity
+#   --enable-viscosity
+
+AC_SUBST(VISCOSITY_MODE)
+AC_ARG_ENABLE(viscosity, [  --enable-viscosity      turn on N-S viscosity], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  VISCOSITY_MODE="VISCOSITY"
+  VISCOSITY_MODE_USER="ON"
+else
+  VISCOSITY_MODE="NO_VISCOSITY"
+  VISCOSITY_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: Braginskii viscosity
+#   --enable-braginskii
+
+AC_SUBST(BRAGINSKII_MODE)
+AC_ARG_ENABLE(braginskii, [  --enable-braginskii      turn on Braginskii viscosity], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  BRAGINSKII_MODE="BRAGINSKII"
+  BRAGINSKII_MODE_USER="ON"
+else
+  BRAGINSKII_MODE="NO_BRAGINSKII"
+  BRAGINSKII_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -274,9 +334,11 @@ fi
 AC_SUBST(WRITE_GHOST_MODE)
 AC_ARG_ENABLE(ghost, [  --enable-ghost          write ghost zones], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
-  WRITE_GHOST_MODE=WRITE_GHOST_CELLS 
+  WRITE_GHOST_MODE="WRITE_GHOST_CELLS" 
+  WRITE_GHOST_MODE_USER="ON" 
 else
-  WRITE_GHOST_MODE=NO_WRITE_GHOST_CELLS
+  WRITE_GHOST_MODE="NO_WRITE_GHOST_CELLS"
+  WRITE_GHOST_MODE_USER="OFF" 
 fi
 
 #-------------------------------------------------------------------------------
@@ -285,10 +347,12 @@ fi
 AC_SUBST(MPI_MODE)
 
 AC_ARG_ENABLE(mpi, [  --enable-mpi           enable MPI parellelization], ok=$enableval, ok=no)
-if test "$ok" = "no"; then
-  MPI_MODE="MPI_SERIAL"
-else
+if test "$ok" = "yes"; then
   MPI_MODE="MPI_PARALLEL"
+  MPI_MODE_USER="ON"
+else
+  MPI_MODE="NO_MPI_PARALLEL"
+  MPI_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -301,12 +365,14 @@ AC_SUBST(H_CORRECTION_MODE)
 AC_ARG_ENABLE(h-correction, [  --enable-h-correction          turn on H-correction], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
 if test "$with_flux" = "roe"; then
-  H_CORRECTION_MODE=H_CORRECTION
+  H_CORRECTION_MODE="H_CORRECTION"
+  H_CORRECTION_MODE_USER="ON"
 else
   AC_MSG_ERROR([H-correction only works with Roe flux])
 fi
 else
-  H_CORRECTION_MODE=NO_H_CORRECTION
+  H_CORRECTION_MODE="NO_H_CORRECTION"
+  H_CORRECTION_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -318,8 +384,10 @@ AC_ARG_ENABLE(fft, [  --enable-fft      compile and link FFT interface code (req
 uires FFTW)], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   FFT_MODE="FFT_ENABLED"
+  FFT_MODE_USER="ON"
 else
   FFT_MODE="NO_FFT"
+  FFT_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -332,12 +400,14 @@ AC_SUBST(SHEARING_BOX_MODE)
 AC_ARG_ENABLE(shearing-box, [  --enable-shearing-box      turn on shearing-box], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
 if test "$with_integrator" = "ctu"; then
-  SHEARING_BOX_MODE=SHEARING_BOX
+  SHEARING_BOX_MODE="SHEARING_BOX"
+  SHEARING_BOX_MODE_USER="ON"
 else
   AC_MSG_ERROR([shearing-box only works with CTU+CT integrator])
 fi
 else
-  SHEARING_BOX_MODE=NO_SHEARING_BOX
+  SHEARING_BOX_MODE="NO_SHEARING_BOX"
+  SHEARING_BOX_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -347,9 +417,11 @@ fi
 AC_SUBST(FARGO_MODE)
 AC_ARG_ENABLE(fargo, [  --enable-fargo      turn on fargo], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
-  FARGO_MODE=FARGO
+  FARGO_MODE="FARGO"
+  FARGO_MODE_USER="ON"
 else
-  FARGO_MODE=NO_FARGO
+  FARGO_MODE="NO_FARGO"
+  FARGO_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -373,37 +445,42 @@ AC_SUBST(WARNING2)
 WARNING1="WARNING! This file has been automatically generated by configure."
 WARNING2="Any changes to it will be overwritten the next time configure is run."
 
-AC_CONFIG_FILES(Makefile Makeoptions src/Makefile src/defs.h fftsrc/Makefile src/ionradiation/Makefile)
+AC_CONFIG_FILES(Makefile Makeoptions src/Makefile src/defs.h fftsrc/Makefile src/ionradiation/Makefile src/microphysics/Makefile)
 AC_OUTPUT
 
 echo ""
-echo "Your athena distribution has now been configured:"
+echo "Your Athena distribution has now been configured:"
+echo ""
+echo "--- Physics Options ---"
 echo ""
 echo "Problem:                 $PROBLEM"
 echo "Gas properties:          $GAS"
 echo "Equation of State:       $EOS"
 echo "Advected scalar fields:  $NSCALARS"
 if test "$gravity_algorithm" = "none"; then
-  echo "Self-gravity:            $SELF_GRAVITY_DEFINE"
+  echo "Self-gravity:            $SELF_GRAVITY_USER"
 else
   echo "Self-gravity:            $SELF_GRAVITY_ALGORITHM"
 fi
-echo "Ionizing radiation:      $ION_RADIATION_MODE"
+echo "Ionizing radiation:      $ION_RADIATION_MODE_USER"
 if test "$ION_RADIATION_MODE" = "ION_RADIATION"; then
-  echo "Internal point sources:  $ION_POINT_MODE"
-  echo "External plane sources:  $ION_PLANE_MODE"
+  echo "Internal point sources:  $ION_POINT_MODE_USER"
+  echo "External plane sources:  $ION_PLANE_MODE_USER"
 fi
+echo "Ohmic resistivity:       $RESISTIVITY_MODE_USER"
+echo "Navier-Stokes viscosity: $VISCOSITY_MODE_USER"
+echo "Braginskii viscosity:    $BRAGINSKII_MODE_USER"
+echo ""
+echo "--- Algorithm Options ----"
+echo ""
 echo "Spatial Order:           $ORDER ($ACCURACY)"
 echo "Flux:                    $FLUX_NAME"
 echo "3D unsplit integrator:   $INTEGRATOR"
 echo "Precision:               $PRECISION"
-echo "Compilation:"
-echo "  OPT:                   $COMPILER_OPTS"
-echo "Output modes:"
-echo "  Ghost Cells:           $WRITE_GHOST_MODE"
-echo "Parallel modes:"
-echo "  MPI mode:              $MPI_MODE"
-echo "H-correction:            $H_CORRECTION_MODE"
-echo "FFT:                     $FFT_MODE"
-echo "Shearing-box:            $SHEARING_BOX_MODE"
-echo "FARGO:                   $FARGO_MODE"
+echo "Compiler options:        $COMPILER_OPTS"
+echo "Ghost cell output:       $WRITE_GHOST_MODE_USER"
+echo "Parallel modes: MPI      $MPI_MODE_USER"
+echo "H-correction:            $H_CORRECTION_MODE_USER"
+echo "FFT:                     $FFT_MODE_USER"
+echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
+echo "FARGO:                   $FARGO_MODE_USER"
