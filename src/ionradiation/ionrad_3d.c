@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: ionrad_3d.c
  *
@@ -23,6 +23,7 @@
 #include <float.h>
 #include "ionrad.h"
 #include "prototypes.h"
+#include "../prototypes.h"
 
 #ifdef ION_RADIATION
 

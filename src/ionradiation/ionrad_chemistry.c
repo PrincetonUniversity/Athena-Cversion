@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: ionrad_chemistry.c
  *
@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../prototypes.h"
 #include "prototypes.h"
 
 /* Units and constants */

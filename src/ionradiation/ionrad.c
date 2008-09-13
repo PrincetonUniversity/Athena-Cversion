@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 #define IONRAD_C
 /*==============================================================================
  * FILE: ionrad.c
@@ -14,8 +14,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "defs.h"
-#include "athena.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../prototypes.h"
 #include "prototypes.h"
 #include "ionrad.h"
 

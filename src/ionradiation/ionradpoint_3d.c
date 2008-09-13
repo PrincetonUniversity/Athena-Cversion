@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: ionrad_3d.c
  *
@@ -27,10 +27,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
-#include "defs.h"
-#include "athena.h"
+#include "../defs.h"
+#include "../athena.h"
 #include "prototypes.h"
-#include "globals.h"
+#include "../prototypes.h"
+#include "../globals.h"
 #include "chealpix.h"
 #include "ionrad.h"
 

@@ -1,13 +1,14 @@
 #ifndef IONRAD_H
 #define IONRAD_H  
 
-#include "defs.h"
-#include "athena.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../prototypes.h"
 #include "prototypes.h"
-#include "globals.h"
+#include "../globals.h"
 
 #ifdef ION_RADIATION
-/* This hearder includes only things used for both point or planar
+/* This header includes only things used for both point or planar
    radiation */
 
 #ifdef DOUBLE_PREC
