@@ -27,6 +27,7 @@ void new_dt(Grid *pGrid)
 #ifdef MHD
   Real b1,b2,b3,bsq,tsum,tdif;
 #endif /* MHD */
+  Real nu, eta, min_dx;
 
   for (k=pGrid->ks; k<=pGrid->ke; k++) {
   for (j=pGrid->js; j<=pGrid->je; j++) {
@@ -89,6 +90,18 @@ void new_dt(Grid *pGrid)
 
     }
   }}
+
+#ifdef RESISTIVITY
+  eta = par_getd("problem","eta");
+  min_dx = MIN(pGrid->dx1,(MIN(pGrid->dx2,pGrid->dx3)));
+  max_dti = MAX(max_dti,(4.0*eta/(min_dx*min_dx)));
+#endif
+
+#if defined(VISCOSITY) || defined(BRAGINSKII)
+  nu = par_getd("problem","nu");
+  min_dx = MIN(pGrid->dx1,(MIN(pGrid->dx2,pGrid->dx3)));
+  max_dti = MAX(max_dti,(4.0*nu/(min_dx*min_dx)));
+#endif
 
 /* new timestep.  Limit increase to 2x old value */
   if (pGrid->nstep == 0) {

@@ -32,9 +32,9 @@
 #define @EOS@
 #define EOS_STR "@EOS@"
 
-#if defined ISOTHERMAL /* || defined PIECEWISE_POLYTROPE ... */
+#if defined(ISOTHERMAL) /* || defined PIECEWISE_POLYTROPE ... */
 #define BAROTROPIC        /* P = P(rho) */
-#elif !defined ADIABATIC  /* P = P(eth) = (gamma - 1)*eth */
+#elif !defined(ADIABATIC)  /* P = P(eth) = (gamma - 1)*eth */
 #define GENERAL_EOS       /* P = P(rho,eth) */
 #endif
 
@@ -45,14 +45,25 @@
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
 
-/* Ionizing radiative transfer */
+/* Ionizing radiative transfer: ION_RADIATION or NO_ION_RADIATION */
 #define @ION_RADIATION_MODE@
 
-/* Ionizing radiative transfer from point sources */
+/* Ionizing radiative transfer from point sources:
+ * ION_RADPOINT or NO_ION_RADPOINT */
 #define @ION_POINT_MODE@
 
-/* Ionizing radiative transfer from plane parallel fronts */
+/* Ionizing radiative transfer from plane parallel fronts:
+ * ION_RADPLANE or NO_ION_RADPLANE */
 #define @ION_PLANE_MODE@
+
+/* Ohmic resistivity: RESISTIVITY or NO_RESISTIVITY */
+#define @RESISTIVITY_MODE@
+
+/* Navier-Stokes viscosity: VISCOSITY or NO_VISCOSITY */
+#define @VISCOSITY_MODE@
+
+/* Braginskii viscosity: BRAGINSKII or NO_BRAGINSKII */
+#define @BRAGINSKII_MODE@
 
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER
  * THIRD_ORDER_EXTREMA_PRESERVING */
@@ -77,7 +88,7 @@
 /* Write ghost cells in outputs: WRITE_GHOST_CELLS or NO_WRITE_GHOST_CELLS */
 #define @WRITE_GHOST_MODE@
 
-/* MPI parallelism: MPI_PARALLEL or MPI_SERIAL */
+/* MPI parallelism: MPI_PARALLEL or NO_MPI_PARALLEL */
 #define @MPI_MODE@
 
 /* H-correction: H_CORRECTION or NO_H_CORRECTION */

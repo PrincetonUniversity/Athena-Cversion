@@ -23,7 +23,6 @@ static char *athena_version = "version 3.1 - 01-JAN-2008";
 #include "globals.h"
 #include "prototypes.h"
 
-
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   change_rundir - creates and outputs data to new directory
@@ -219,7 +218,7 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-/*--- Step 2. (MPI_SERIAL) ---------------------------------------------------*/
+/*--- Step 2. (Serial job) ---------------------------------------------------*/
 /* If this is *not* an MPI_PARALLEL job, there is only one process to open and
  * read input file  */
 
@@ -338,6 +337,12 @@ int main(int argc, char *argv[])
 
   init_output(&level0_Grid); 
   lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+#ifdef BRAGINSKII
+  braginskii_init_3d(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+#endif
+#ifdef VISCOSITY
+  viscosity_init_3d(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+#endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Set function pointers for integrator; self-gravity (based on dimensions)
@@ -397,6 +402,20 @@ int main(int argc, char *argv[])
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
 
+/* operator-split microphysics, such as resistivity and viscosity */
+#ifdef RESISTIVITY
+    resistivity_3d(&level0_Grid, &level0_Domain);
+#endif
+#ifdef VISCOSITY
+    viscosity_3d(&level0_Grid, &level0_Domain);
+#endif
+#ifdef BRAGINSKII
+    braginskii_3d(&level0_Grid, &level0_Domain);
+#endif
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(BRAGINSKII)
+    set_bvals_mhd(&level0_Grid, &level0_Domain);
+#endif
+
 #ifdef ION_RADIATION
     /* Note that we do the ionizing radiative transfer step first
        because it is capable of decreasing the time step relative to
@@ -404,10 +423,13 @@ int main(int argc, char *argv[])
     (*IonRadTransfer)(&level0_Grid);
     set_bvals_mhd(&level0_Grid, &level0_Domain); /* Re-apply hydro bc's */
 #endif
+
     (*Integrate)(&level0_Grid, &level0_Domain);
+
 #ifdef FARGO
     Fargo(&level0_Grid, &level0_Domain);
 #endif
+
     Userwork_in_loop(&level0_Grid, &level0_Domain);
 
 #ifdef SELF_GRAVITY
@@ -589,7 +611,7 @@ void change_rundir(const char *name)
     exit(EXIT_FAILURE);
   }
 
-#else /* SERIAL */
+#else /* Serial job */
 
   if(name == NULL || *name == '\0') return;
   /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",name); */

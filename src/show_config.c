@@ -46,25 +46,43 @@ void show_config(void)
 #elif defined(SELF_GRAVITY_USING_FFT)
   ath_pout(0," Self-gravity:            using FFTs\n");
 #else
-  ath_pout(0," Self-gravity:            none\n");
+  ath_pout(0," Self-gravity:            OFF\n");
 #endif
 
 #ifdef ION_RADIATION
-  ath_pout(0," Ionizing radiation:      enabled\n");
+  ath_pout(0," Ionizing radiation:      ON\n");
 #else
-  ath_pout(0," Ionizing radiation:      disabled\n");
+  ath_pout(0," Ionizing radiation:      OFF\n");
 #endif
 
 #ifdef ION_RADPOINT
-  ath_pout(0," Ionizing point sources:   enabled\n");
+  ath_pout(0,"   Ionizing point sources:  ON\n");
 #else
-  ath_pout(0," Ionizing point sources:   disabled\n");
+  ath_pout(0,"   Ionizing point sources:  OFF\n");
 #endif
 
 #ifdef ION_RADPLANE
-  ath_pout(0," Ionizing plane sources:   enabled\n");
+  ath_pout(0,"   Ionizing plane sources:  ON\n");
 #else
-  ath_pout(0," Ionizing plane sources:   disabled\n");
+  ath_pout(0,"   Ionizing plane sources:  OFF\n");
+#endif
+
+#if defined(RESISTIVITY)
+  ath_pout(0," Ohmic resistivity:       ON\n");
+#else
+  ath_pout(0," Ohmic resistivity:       OFF\n");
+#endif
+
+#if defined(VISCOSITY)
+  ath_pout(0," Navier-Stokes viscosity: ON\n");
+#else
+  ath_pout(0," Navier-Stokes viscosity: OFF\n");
+#endif
+
+#if defined(BRAGINSKII)
+  ath_pout(0," Braginskii viscosity:    ON\n");
+#else
+  ath_pout(0," Braginskii viscosity:    OFF\n");
 #endif
 
 #if defined(FIRST_ORDER)
@@ -86,44 +104,40 @@ void show_config(void)
   ath_pout(0," Precision:               DOUBLE_PREC\n");
 #endif
 
-  ath_pout(0," Output Modes:\n");
 #ifdef WRITE_GHOST_CELLS
-  ath_pout(0,"   Ghost Cells:           enabled\n");
+  ath_pout(0," Ghost cell Output:       ON\n");
 #else
-  ath_pout(0,"   Ghost Cells:           disabled\n");
+  ath_pout(0," Ghost cell Output:       OFF\n");
 #endif
 
-  ath_pout(0," Parallel Modes:\n");
-#if defined(MPI_SERIAL)
-  ath_pout(0,"   MPI:                   MPI_SERIAL\n");
-#elif defined(MPI_PARALLEL)
-  ath_pout(0,"   MPI:                   MPI_PARALLEL\n");
+#if defined(MPI_PARALLEL)
+  ath_pout(0," Parallel Modes: MPI:     ON\n");
 #else
-  ath_pout(0,"   MPI:                   undefined\n");
+  ath_pout(0," Parallel Modes: MPI:     OFF\n");
 #endif
 
 #ifdef H_CORRECTION
-  ath_pout(0," H-correction:            enabled\n");
+  ath_pout(0," H-correction:            ON\n");
 #else
-  ath_pout(0," H-correction:            disabled\n");
+  ath_pout(0," H-correction:            OFF\n");
 #endif
 
 #ifdef FFT_ENABLED
-  ath_pout(0," FFT:                     enabled\n");
+  ath_pout(0," FFT:                     ON\n");
 #else
-  ath_pout(0," FFT:                     disabled\n");
+  ath_pout(0," FFT:                     OFF\n");
 #endif
 
 #ifdef SHEARING_BOX
-  ath_pout(0," Shearing Box:            enabled\n");
+  ath_pout(0," Shearing Box:            ON\n");
 #else
-  ath_pout(0," Shearing Box:            disabled\n");
+  ath_pout(0," Shearing Box:            OFF\n");
 #endif
 
 #ifdef FARGO
-  ath_pout(0," FARGO:                   enabled\n");
+  ath_pout(0," FARGO:                   ON\n");
 #else
-  ath_pout(0," FARGO:                   disabled\n");
+  ath_pout(0," FARGO:                   OFF\n");
 #endif
 }
 
@@ -156,7 +170,43 @@ void show_config_par(void)
 #elif defined(SELF_GRAVITY_USING_FFT)
   par_sets("configure","self-gravity","FFT","Self-gravity algorithm");
 #else
-  par_sets("configure","self-gravity","none","Self-gravity algorithm");
+  par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
+#endif
+
+#if defined(ION_RADIATION)
+  par_sets("configure","ionizing radiation","yes","Ionizing rad transfer?");
+#else
+  par_sets("configure","ionizing radiation","no","Ionizing rad transfer?");
+#endif
+
+#if defined(ION_RADPOINT)
+  par_sets("configure","point source","yes","Point source of radiation?");
+#else
+  par_sets("configure","point source","no","Point source of radiation?");
+#endif
+
+#if defined(ION_RADPLANE)
+  par_sets("configure","plane source","yes","Plane source of radiation?");
+#else
+  par_sets("configure","plane source","no","Plane source of radiation?");
+#endif
+
+#if defined(RESISTIVITY)
+  par_sets("configure","resistivity","yes","Ohmic resistivity?");
+#else
+  par_sets("configure","resistivity","no","Ohmic resistivity?");
+#endif
+
+#if defined(VISCOSITY)
+  par_sets("configure","viscosity","yes","Navier-Stokes viscosity?");
+#else
+  par_sets("configure","viscosity","no","Navier-Stokes viscosity?");
+#endif
+
+#if defined(BRAGINSKII)
+  par_sets("configure","braginskii","yes","Braginskii viscosity?");
+#else
+  par_sets("configure","braginskii","no","Braginskii viscosity?");
 #endif
 
 #if defined(FIRST_ORDER)
@@ -182,10 +232,10 @@ void show_config_par(void)
   par_sets("configure","write_ghost","no","Ghost cells included in output?");
 #endif
 
-#if defined(MPI_SERIAL)
-  par_sets("configure","mpi","no","Is code serial or MPI parallel enabled?");
-#elif defined(MPI_PARALLEL)
-  par_sets("configure","mpi","yes","Is code serial or MPI parallel enabled?");
+#if defined(MPI_PARALLEL)
+  par_sets("configure","mpi","yes","Is code MPI parallel enabled?");
+#else
+  par_sets("configure","mpi","no","Is code MPI parallel enabled?");
 #endif
 
 #ifdef H_CORRECTION
