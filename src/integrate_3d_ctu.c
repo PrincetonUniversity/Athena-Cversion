@@ -46,12 +46,12 @@
 static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
 static Cons1D ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
 static Cons1D ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
-static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
+Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
-static Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
+Real ***emf1=NULL, ***emf2=NULL, ***emf3=NULL;
 static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 #endif /* MHD */
 
@@ -1508,11 +1508,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Ur_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j][i].M1;
 #endif
 
-        Ul_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j-1][i].M2;
+        Ul_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k-1][j][i].M2;
 #ifdef FARGO
-        Ul_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k][j-1][i].M1;
+        Ul_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k-1][j][i].M1;
 #else
-        Ul_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j-1][i].M1;
+        Ul_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k-1][j][i].M1;
 #endif
       }
     }
