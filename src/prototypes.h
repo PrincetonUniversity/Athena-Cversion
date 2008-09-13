@@ -45,10 +45,13 @@
 #include "mpi.h"
 #endif
 
-/* Include prototypes for ionization files if ionization is turned on */
+/* Include prototypes in src sub-directories */
+
 #ifdef ION_RADIATION
-#include "ionrad_prototypes.h"
+#include "ionradiation/prototypes.h"
 #endif
+
+#include "microphysics/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */
