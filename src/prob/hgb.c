@@ -12,6 +12,7 @@
  *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
  *  ifield = 2 - uniform Bz
  *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ *  ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
  *
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
@@ -263,6 +264,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  *  ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
  *  ifield = 2 - uniform Bz
  *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ *  ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
  */
 #ifdef MHD
       if (ifield == 0) {
@@ -297,11 +299,14 @@ void problem(Grid *pGrid, Domain *pDomain)
         if (j==je) pGrid->B2i[k][je+1][i] = B0*(cos((double)kx*x1));
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0*(sin((double)kx*x1));
       }
-
-#ifdef ADIABATIC
-      pGrid->U[k][j][i].E += 0.5*(SQR(pGrid->U[k][j][i].B1c)
-         + SQR(pGrid->U[k][j][i].B2c) + SQR(pGrid->U[k][j][i].B3c));
-#endif
+      if (ifield == 4) {
+        pGrid->B1i[k][j][i] = 0.0;
+        pGrid->B2i[k][j][i] = B0/sqrt(2);
+        pGrid->B3i[k][j][i] = B0/sqrt(2);
+        if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
+        if (j==je) pGrid->B2i[k][je+1][i] = B0/sqrt(2);
+        if (k==ke) pGrid->B3i[ke+1][j][i] = B0/sqrt(2);
+      }
 #endif /* MHD */
     }
   }}
@@ -312,6 +317,10 @@ void problem(Grid *pGrid, Domain *pDomain)
         pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i]+pGrid->B1i[k][j][i+1]);
         pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j][i]+pGrid->B2i[k][j+1][i]);
         pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k][j][i]+pGrid->B3i[k+1][j][i]);
+#ifdef ADIABATIC
+      pGrid->U[k][j][i].E += 0.5*(SQR(pGrid->U[k][j][i].B1c)
+         + SQR(pGrid->U[k][j][i].B2c) + SQR(pGrid->U[k][j][i].B3c));
+#endif
       }
     }
   }
