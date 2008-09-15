@@ -31,8 +31,9 @@
 
 #ifdef ION_RADPLANE
 
-/* Dummy initialization routine */
+/* Initialized number of radiation planes to zero */
 void ion_radplane_init_domain_3d(Grid *pGrid, Domain *pDomain) {
+  pGrid->nradplane = 0;
   return;
 }
 

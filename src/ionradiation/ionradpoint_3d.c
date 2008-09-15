@@ -2556,6 +2556,9 @@ void ion_radpoint_init_domain_3d(Grid *pGrid, Domain *pDomain) {
   ray_number = par_getd("ionradiation", "ray_number");
   min_tree_level = par_getd("ionradiation", "min_tree_level");
   rebuild_interval = par_getd("ionradiation", "rebuild_interval");
+
+  /* Initialize number of radiators to 0 */
+  pGrid->nradpoint = 0;
 }
 
 Rad_Ran2_State ion_radpoint_get_ranstate() { return(ranstate); }
