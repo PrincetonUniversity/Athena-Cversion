@@ -11,7 +11,6 @@
 #
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = ath_array.o \
-           ath_fft.o \
            ath_files.o \
 	   ath_log.o \
            ath_signal.o \
@@ -64,15 +63,18 @@ else
 endif
 
 FFT_OBJ =
-ifeq (@MPI_MODE@,MPI_PARALLEL)
 ifeq (@FFT_MODE@,FFT_ENABLED)
-   FFT_OBJ = ../fftsrc/factor.o \
-             ../fftsrc/fft_2d.o \
-             ../fftsrc/fft_3d.o \
-             ../fftsrc/pack_2d.o \
-             ../fftsrc/pack_3d.o \
-             ../fftsrc/remap_2d.o \
-             ../fftsrc/remap_3d.o
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+   FFT_OBJ = fftsrc/factor.o \
+             fftsrc/fft_2d.o \
+             fftsrc/fft_3d.o \
+             fftsrc/pack_2d.o \
+             fftsrc/pack_3d.o \
+             fftsrc/remap_2d.o \
+             fftsrc/remap_3d.o \
+             fftsrc/ath_fft.o
+else
+   FFT_OBJ = fftsrc/ath_fft.o
 endif
 endif
 

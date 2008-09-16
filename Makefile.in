@@ -40,9 +40,7 @@ dirs:
 #  target compile: runs Make in /src and all subdirectories in /src
 compile:
 ifeq (@FFT_MODE@,FFT_ENABLED)
-ifeq (@MPI_MODE@,MPI_PARALLEL)
-	(cd fftsrc; $(MAKE) compile)
-endif
+	(cd src/fftsrc; $(MAKE) compile)
 endif
 ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
 	(cd src/ionradiation; $(MAKE) compile)
@@ -53,7 +51,7 @@ endif
 #-------------------------------------------------------------------------------
 #  target clean:
 clean:
-	(cd fftsrc; $(MAKE) clean)
+	(cd src/fftsrc; $(MAKE) clean)
 	(cd src/ionradiation; $(MAKE) clean)
 	(cd src/microphysics; $(MAKE) clean)
 	(cd src; $(MAKE) clean)

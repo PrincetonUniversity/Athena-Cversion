@@ -24,10 +24,10 @@
  *============================================================================*/
 
 #include <stdlib.h>
-#include "defs.h"
-#include "athena.h"
-#include "prototypes.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../prototypes.h"
+#include "../globals.h"
 
 #ifdef FFT_ENABLED
 

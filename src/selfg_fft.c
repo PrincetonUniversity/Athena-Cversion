@@ -33,8 +33,6 @@
 
 #ifdef FFT_ENABLED
 
-#include "ath_fft.h"
-
 /* plans for forward and backward FFTs; work space for FFTW */
 static struct ath_2d_fft_plan *fplan2d, *bplan2d;
 static struct ath_3d_fft_plan *fplan3d, *bplan3d;

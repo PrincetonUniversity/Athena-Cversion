@@ -32,7 +32,6 @@
 #include "athena.h"
 #include "prototypes.h"
 #include "globals.h"
-#include "ath_fft.h"
 
 #ifndef ISOTHERMAL
 #error Problem generator only works for isothermal turbulence

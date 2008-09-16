@@ -51,6 +51,10 @@
 #include "ionradiation/prototypes.h"
 #endif
 
+#ifdef FFT_ENABLED
+#include "fftsrc/prototypes.h"
+#endif
+
 #include "microphysics/prototypes.h"
 
 /*----------------------------------------------------------------------------*/

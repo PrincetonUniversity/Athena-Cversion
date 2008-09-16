@@ -20,8 +20,8 @@
  *
  **************************************************************************/
 
-#include "athena.h"
-#include "defs.h"
+#include "../athena.h"
+#include "../defs.h"
 
 #ifdef FFT_ENABLED
 
