@@ -31,8 +31,6 @@
 
 #ifdef FFT_ENABLED
 
-#include "ath_fft.h"
-
 #ifdef FFT_BLOCK_DECOMP
 /* Include Steve Plimpton's FFTW interface code */
 #include "fft_3d.h"
