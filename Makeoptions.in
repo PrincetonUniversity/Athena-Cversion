@@ -132,7 +132,7 @@ endif
 endif
 endif
 
-ifeq (@MPI_MODE@,MPI_SERIAL)
+ifeq (@MPI_MODE@,NO_MPI_PARALLEL)
   MPIINC = 
   MPILIB = 
 endif
