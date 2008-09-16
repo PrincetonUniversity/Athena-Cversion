@@ -37,7 +37,7 @@ dirs:
 	fi); done
 
 #-------------------------------------------------------------------------------
-#  target compile:
+#  target compile: runs Make in /src and all subdirectories in /src
 compile:
 ifeq (@FFT_MODE@,FFT_ENABLED)
 ifeq (@MPI_MODE@,MPI_PARALLEL)
@@ -47,6 +47,7 @@ endif
 ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
 	(cd src/ionradiation; $(MAKE) compile)
 endif
+	(cd src/microphysics; $(MAKE) compile)
 	(cd src; $(MAKE) compile)
 
 #-------------------------------------------------------------------------------
@@ -54,6 +55,7 @@ endif
 clean:
 	(cd fftsrc; $(MAKE) clean)
 	(cd src/ionradiation; $(MAKE) clean)
+	(cd src/microphysics; $(MAKE) clean)
 	(cd src; $(MAKE) clean)
 
 #-------------------------------------------------------------------------------
