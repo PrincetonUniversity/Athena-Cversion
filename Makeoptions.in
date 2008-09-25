@@ -113,15 +113,36 @@ ifeq ($(MACHINE),woodhen)
   HEALPIXLIB = -L/home/krumholz/lib/Healpix_2.01/lib -lchealpix
 else
 ifeq ($(MACHINE),artemis)
+#ifeq ($(MACHINE),artemisopenmpi)
   CC  = mpicc
   LDR = mpicc
   OPT = -O3 -xW -ipo -i-static
-  MPIINC = -I/usr/local/openmpi/1.2.5/intel101/x86_64/include
-  MPILIB = -L/usr/local/openmpi/1.2.5/intel101/x86_64/lib -lmpi
+  MPIINC =
+  MPILIB = -lmpi
+  FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
+  FFTWINC = -I/opt/fftw3/include
+else
+ifeq ($(MACHINE),artemismpt)
+  CC  = icc
+  LDR = icc
+  OPT = -O3 -xW -ipo -i-static
+  MPIINC =
+  MPILIB = -lmpi
+  FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
+  FFTWINC = -I/opt/fftw3/include
+else
+ifeq ($(MACHINE),artemismvapich)
+  CC  = mpicc
+  LDR = mpicc
+  OPT = -O3 -xW -ipo -i-static
+  MPIINC =
+  MPILIB =
   FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
   FFTWINC = -I/opt/fftw3/include
 else
   abort Unsupported MACHINE=$(MACHINE)
+endif
+endif
 endif
 endif
 endif
