@@ -27,8 +27,12 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_1d:   */
+/* integrate_1d:
+ *   The numbering of steps follows the numbering in the 3D version.
+ *   NOT ALL STEPS ARE NEEDED IN 1D.
+ */
 
 void integrate_1d(Grid *pG, Domain *pD)
 {
@@ -43,6 +47,8 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
 #endif
+
+/*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;  
@@ -75,10 +81,11 @@ void integrate_1d(Grid *pG, Domain *pD)
   for (i=is-nghost; i<=ie+nghost; i++) {
     Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
   }
+
   lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is,ie,Wl,Wr);
 
-/*--- Step 1c -----------------------------------------------------------------
- * Add gravitational source terms for a static potential for dt/2 to L/R states
+/*--- Step 1c ------------------------------------------------------------------
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
 
   if (StaticGravPot != NULL){
@@ -88,15 +95,13 @@ void integrate_1d(Grid *pG, Domain *pD)
       phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
       phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential
- * for (dt/2).   S_{V} = -Grad(Phi) */
       Wl[i].Vx -= dtodx1*(phifc - phicl);
       Wr[i].Vx -= dtodx1*(phicr - phifc);
     }
   }
 
-/*--- Step 1d ------------------------------------------------------------------
- * Add gravitational source terms for self-gravity for dt/2 to L/R states
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for self-gravity for 0.5*dt to L/R states
  */
 
 #ifdef SELF_GRAVITY
@@ -107,7 +112,7 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif
 
 
-/*--- Step 1e ------------------------------------------------------------------
+/*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction
  */
 
@@ -115,12 +120,26 @@ void integrate_1d(Grid *pG, Domain *pD)
     Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i] MHDARG( , &Bxi[i]));
     Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i] MHDARG( , &Bxi[i]));
 
-    GET_FLUXES(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i], MHDARG( Bxi[i] , ) &x1Flux[i]);
+    GET_FLUXES(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],
+               MHDARG( Bxi[i] , ) &x1Flux[i]);
   }
 
-/*--- Step 2a ------------------------------------------------------------------
- * Source term update (static gravitational potential).  To improve
- * conservation of E, average the energy source term computed at cell faces. 
+/*=== STEPS 2-7: Not needed in 1D ===*/
+
+/*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
+
+/*--- Step 8a ------------------------------------------------------------------
+ * Calculate d^{n+1/2}
+ */
+
+/*=== STEPS 9-10: Not needed in 1D ===*/
+
+/*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
+
+/*--- Step 11a -----------------------------------------------------------------
+ * Add gravitational source terms as a Static Potential.
+ *   The energy source terms computed at cell faces are averaged to improve
+ * conservation of total energy.
  *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
 
@@ -140,11 +159,12 @@ void integrate_1d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 2b ------------------------------------------------------------------
- * Source term update (self-gravity).
+/*--- Step 11b -----------------------------------------------------------------
+ * Add source terms for self-gravity.
  * A flux correction using Phi^{n+1} in the main loop is required to make
  * the source terms 2nd order: see selfg_flux_correction().
  */
+
 #ifdef SELF_GRAVITY
   for (i=is; i<=ie; i++) {
       phic = pG->Phi[ks][js][i];
@@ -171,8 +191,10 @@ void integrate_1d(Grid *pG, Domain *pD)
   }
 #endif
 
-/*--- Step 3 -------------------------------------------------------------------
- * Update with flux differences.
+/*=== STEP 12: Update cell-centered values for a full timestep ===============*/
+
+/*--- Step 12a -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 1D x1-fluxes
  */
 
   for (i=is; i<=ie; i++) {

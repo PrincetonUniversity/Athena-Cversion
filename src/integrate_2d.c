@@ -14,12 +14,12 @@
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
- *   constrained transport", JCP, 205, 509 (2005)
- *
  *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
+ *
+ *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ *   constrained transport", JCP, 205, 509 (2005)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_2d()
@@ -74,7 +74,10 @@ static void integrate_emf3_corner(Grid *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_2d:  CTU integrator in 2D  */
+/* integrate_2d:  CTU integrator in 2D.
+ *   The numbering of steps follows the numbering in the 3D version.
+ *   NOT ALL STEPS ARE NEEDED IN 2D.
+ */
 
 void integrate_2d(Grid *pG, Domain *pD)
 {
@@ -113,6 +116,8 @@ void integrate_2d(Grid *pG, Domain *pD)
   jl = js - 2;
   ju = je + 2;
 
+/*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
+
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
@@ -140,15 +145,14 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
 
 /*--- Step 1b ------------------------------------------------------------------
- * Compute L and R states at X1-interfaces.
+ * Compute L and R states at X1-interfaces, add "MHD source terms" for 0.5*dt
  */
 
     for (i=is-nghost; i<=ie+nghost; i++) {
       Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
     }
-    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
-/* Add "MHD source terms" for 0.5*dt */
+    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
 #ifdef MHD
     for (i=is-1; i<=iu; i++) {
@@ -163,7 +167,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 1c ------------------------------------------------------------------
- * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
 
     if (StaticGravPot != NULL){
@@ -173,15 +177,13 @@ void integrate_2d(Grid *pG, Domain *pD)
         phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
         phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential.
- * for (dt/2).   S_{V} = -Grad(Phi) */
         Wl[i].Vx -= dtodx1*(phifc - phicl);
         Wr[i].Vx -= dtodx1*(phicr - phifc);
       }
     }
 
-/*--- Step 1d ------------------------------------------------------------------
- * Add gravitational source terms for self-gravity for dt/2 to L/R states
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for self-gravity for 0.5*dt to L/R states
  */
 
 #ifdef SELF_GRAVITY
@@ -191,9 +193,9 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
 #endif
 
-/*--- Step 1d (cont) -----------------------------------------------------------
- * Shearing box source terms (Coriolis forces) in 2D X-Z plane.
- *  (x1,x2,x3) in code = (X,Z,Y) in shearing sheet
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
+ *  (x1,x2,x3) in code = (X,Z,Y) in 2D shearing sheet
  */
 
 #ifdef SHEARING_BOX
@@ -206,7 +208,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
 #endif /* SHEARING_BOX */
 
-/*--- Step 1e ------------------------------------------------------------------
+/*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 2D array
  */
 
@@ -218,6 +220,8 @@ void integrate_2d(Grid *pG, Domain *pD)
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
     }
   }
+
+/*=== STEP 2: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
 
 /*--- Step 2a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
@@ -246,15 +250,14 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
 
 /*--- Step 2b ------------------------------------------------------------------
- * Compute L and R states at X2-interfaces.
+ * Compute L and R states at X2-interfaces, add "MHD source terms" for 0.5*dt
  */
 
     for (j=js-nghost; j<=je+nghost; j++) {
       Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
     }
-    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,js-1,je+1,Wl,Wr);
 
-/* Add "MHD source terms" for 0.5*dt */
+    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,js-1,je+1,Wl,Wr);
 
 #ifdef MHD
     for (j=js-1; j<=ju; j++) {
@@ -269,7 +272,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 2c ------------------------------------------------------------------
- * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
   
     if (StaticGravPot != NULL){
@@ -279,15 +282,13 @@ void integrate_2d(Grid *pG, Domain *pD)
         phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
         phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential.
- * for (dt/2).   S_{V} = -Grad(Phi) */
         Wl[j].Vx -= dtodx2*(phifc - phicl);
         Wr[j].Vx -= dtodx2*(phicr - phifc);
       }
     }
 
-/*--- Step 2d ------------------------------------------------------------------
- * Add gravitational source terms for self-gravity for dt/2 to L/R states
+/*--- Step 2c (cont) -----------------------------------------------------------
+ * Add source terms for self-gravity for 0.5*dt to L/R states
  */
 
 #ifdef SELF_GRAVITY
@@ -297,7 +298,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       }
 #endif
 
-/*--- Step 2e ------------------------------------------------------------------
+/*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x2-direction, storing into 2D array
  */
 
@@ -310,8 +311,13 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 3 ------------------------------------------------------------------
- * Calculate the cell centered value of emf_3 at t^{n}
+/*=== STEP 3: Not needed in 2D ===*/
+
+/*=== STEP 4:  Update face-centered B for 0.5*dt =============================*/
+
+/*--- Step 4a ------------------------------------------------------------------
+ * Calculate the cell centered value of emf_3 at t^{n} and integrate
+ * to corner.
  */
 
 #ifdef MHD
@@ -322,13 +328,11 @@ void integrate_2d(Grid *pG, Domain *pD)
 	 pG->U[ks][j][i].B2c*pG->U[ks][j][i].M1 )/pG->U[ks][j][i].d;
     }
   }
-
-/*--- Step 4 ------------------------------------------------------------------
- * Integrate emf3 to the grid cell corners and then update the 
- * interface magnetic fields using CT for a half time step.
- */
-
   integrate_emf3_corner(pG);
+
+/*--- Step 4b ------------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a half time step.
+ */
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
@@ -342,10 +346,12 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif
 
+/*=== STEP 5: Correct x1-interface states with transverse flux gradients =====*/
+
 /*--- Step 5a ------------------------------------------------------------------
- * Correct the L/R states at x1-interfaces using transverse flux-gradients in
- * the x2-direction for 0.5*dt using x2-fluxes computed in Step 2e.
- * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS */
+ * Correct x1-interface states using x2-fluxes computed in Step 2d.
+ * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS
+ */
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=iu; i++) {
@@ -379,8 +385,10 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 5b ------------------------------------------------------------------
- * Add the "MHD source terms" to the x2 (conservative) flux gradient.
+/*--- Step 5b: Not needed in 2D ---
+/*--- Step 5c ------------------------------------------------------------------
+ * Add the "MHD source terms" from the x2-flux gradient to the conservative
+ * variables on the x1Face..
  */
 
 #ifdef MHD
@@ -417,8 +425,10 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 5c ------------------------------------------------------------------
- * Add source terms for a Static Gravitational Potential to L/R states.
+/*--- Step 5d ------------------------------------------------------------------
+ * Add source terms for a static gravitational potential arising from x2-Flux
+ * gradients.  To improve conservation of total energy, average
+ * the energy source term computed at cell faces.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -449,8 +459,8 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 5d ------------------------------------------------------------------
- * Add source terms for self gravity to L/R states.
+/*--- Step 5d (cont) -----------------------------------------------------------
+ * Add source terms for self gravity arising from x2-Flux gradient
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -480,10 +490,12 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
+/*=== STEP 6: Correct x2-interface states with transverse flux gradients =====*/
+
 /*--- Step 6a ------------------------------------------------------------------
- * Correct the L/R states at x2-interfaces using transverse flux-gradients in
- * the x1-direction for 0.5*dt using x1-fluxes computed in Step 1e.
- * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS */
+ * Correct x2-interface states using x1-fluxes computed in Step 1d.
+ * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
+ */
 
   for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
@@ -517,8 +529,10 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6b ------------------------------------------------------------------
- * Add the "MHD source terms" to the x1 (conservative) flux gradient.
+/*--- Step 6b: Not needed in 2D ---
+/*--- Step 6c ------------------------------------------------------------------
+ * Add the "MHD source terms" from the x1-flux-gradients to the
+ * conservative variables on the x2Face.
  */
 
 #ifdef MHD
@@ -555,8 +569,10 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 6c ------------------------------------------------------------------
- * Add source terms for a Static Gravitational Potential to L/R states.
+/*--- Step 6d ------------------------------------------------------------------
+ * Add source terms for a static gravitational potential arising from x1-Flux
+ * gradients. To improve conservation of total energy, average the energy
+ * source term computed at cell faces.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -587,8 +603,8 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6d ------------------------------------------------------------------
- * Add source terms for self gravity to L/R states.
+/*--- Step 6d (cont) -----------------------------------------------------------
+ * Add source terms for self gravity arising from x1-Flux gradients
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -619,12 +635,13 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 #endif /* SELF_GRAVITY */
 
-/*--- Step 6e ------------------------------------------------------------------
- * Add the tidal potential and Coriolis terms in 2D X-Z plane.
+/*--- Step 6d (cont) -----------------------------------------------------------
+ * Add source terms for shearing box arising from x1-Flux gradient
  *  (x1,x2,x3) in code = (X,Z,Y) in shearing sheet
  *    Vx source term is (dt/2)( 2 Omega V y); Mx on x2Face is Mz 
  *    Vy source term is (dt/2)(-2 Omega V x); My on x2Face is Mx
  */
+
 #ifdef SHEARING_BOX
   for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
@@ -637,9 +654,12 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* SHEARING_BOX */
 
-/*--- Step 7 ------------------------------------------------------------------
- * Calculate the cell centered value of emf_3 at t^{n+1/2}, needed by CT 
- * algorithm to integrate emf to corner in step 10
+/*=== STEP 7: Not needed in 2D ===*/
+
+/*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
+
+/*--- Step 8a ------------------------------------------------------------------
+ * Calculate d^{n+1/2}
  */
 
   if (dhalf != NULL){
@@ -651,6 +671,10 @@ void integrate_2d(Grid *pG, Domain *pD)
       }
     }
   }
+
+/*--- Step 8b ------------------------------------------------------------------
+ * Calculate cell centered value of emf3 at the half-time-step
+ */
 
 #ifdef MHD
   for (j=js-1; j<=je+1; j++) {
@@ -702,7 +726,9 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 8a ------------------------------------------------------------------
+/*=== STEP 9: Compute 2D x1-Flux, x2-Flux ====================================*/
+
+/*--- Step 9a ------------------------------------------------------------------
  * Compute maximum wavespeeds in multidimensions (eta in eq. 10 from Sanders et
  *  al. (1998)) for H-correction
  */
@@ -729,8 +755,8 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* H_CORRECTION */
 
-/*--- Step 8b ------------------------------------------------------------------
- * Compute x1-fluxes from corrected L/R states.
+/*--- Step 9b ------------------------------------------------------------------
+ * Compute 2D x1-fluxes from corrected L/R states.
  */
 
   for (j=js-1; j<=je+1; j++) {
@@ -749,8 +775,8 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 8c ------------------------------------------------------------------
- * Compute x2-fluxes from corrected L/R states.
+/*--- Step 9c ------------------------------------------------------------------
+ * Compute 2D x2-fluxes from corrected L/R states.
  */
 
   for (j=js; j<=je+1; j++) {
@@ -769,13 +795,18 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 9 -------------------------------------------------------------------
- * Integrate emf3^{n+1/2} to the grid cell corners and then update the 
- * interface magnetic fields using CT for a full time step.
+/*=== STEP 10: Update face-centered B for a full timestep ====================*/
+
+/*--- Step 10a -----------------------------------------------------------------
+ * Integrate emf*^{n+1/2} to the grid cell corners
  */
 
 #ifdef MHD
   integrate_emf3_corner(pG);
+
+/*--- Step 10b -----------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a full time step.
+ */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
@@ -789,10 +820,11 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif
 
+/*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
 
-/*--- Step 10a -----------------------------------------------------------------
- * Add the gravitational (or shearing box) source terms expressed as a Static
- * Potential.  Remember with the 2D shearing box (1,2,3) = (x,z,y)
+/*--- Step 11a -----------------------------------------------------------------
+ * Add gravitational (or shearing box) source terms as a Static Potential.
+ * Remember with the 2D shearing box (1,2,3) = (x,z,y)
  *   A Crank-Nicholson update is used for shearing box terms.
  *   The energy source terms computed at cell faces are averaged to improve
  * conservation of total energy.
@@ -886,11 +918,12 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 #endif /* SHEARING_BOX */
 
-/*--- Step 10b -----------------------------------------------------------------
- * Add gravitational source terms for self-gravity.
+/*--- Step 11b -----------------------------------------------------------------
+ * Add source terms for self-gravity.
  * A flux correction using Phi^{n+1} in the main loop is required to make
  * the source terms 2nd order: see selfg_flux_correction().
  */
+
 #ifdef SELF_GRAVITY
 /* Add fluxes and source terms due to (d/dx1) terms  */
 
@@ -969,8 +1002,10 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 11a -----------------------------------------------------------------
- * Update cell-centered variables in pG using x1-fluxes
+/*=== STEP 12: Update cell-centered values for a full timestep ===============*/
+
+/*--- Step 12a -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 2D x1-fluxes
  */
 
   for (j=js; j<=je; j++) {
@@ -995,8 +1030,8 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 11b -----------------------------------------------------------------
- * Update cell-centered variables in pG using x2-fluxes
+/*--- Step 12b -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 2D x2-fluxes
  */
 
   for (j=js; j<=je; j++) {
@@ -1020,7 +1055,8 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 13 ------------------------------------------------------------------
+/*--- Step 12c: Not needed in 2D ---
+/*--- Step 12d -----------------------------------------------------------------
  * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
  */

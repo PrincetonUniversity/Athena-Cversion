@@ -17,15 +17,15 @@
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
- *   constrained transport", JCP, 205, 509 (2005)
- *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
- *   constrained transport in Three Dimensions", JCP, ***, *** (2007)
- *
  *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
+ *
+ *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ *   constrained transport in three dimensions", JCP, 227, 4123 (2008)
+ *
+ *   J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
+ *   178, 137 (2008)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_3d_ctu()
@@ -124,6 +124,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   Real fact, TH_om, om_dt = Omega*pG->dt;
 #endif /* SHEARING_BOX */
 
+/*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
+
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
@@ -152,7 +154,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 
 /*--- Step 1b ------------------------------------------------------------------
- * Compute L and R states at X1-interfaces.
+ * Compute L and R states at X1-interfaces, add "MHD source terms" for 0.5*dt
  */
 
      for (i=is-nghost; i<=ie+nghost; i++) {
@@ -161,11 +163,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 
      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
-/* Add "MHD source terms" for 0.5*dt */
-
 #ifdef MHD
       for (i=is-1; i<=ie+2; i++) {
-
 /* Source terms for left states in zone i-1 */
         db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])*dx1i;
         db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])*dx2i;
@@ -221,7 +220,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 1c ------------------------------------------------------------------
- * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
 
       if (StaticGravPot != NULL){
@@ -231,15 +230,13 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
           phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
           phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential
- * for (dt/2).   S_{V} = -Grad(Phi) */
           Wl[i].Vx -= dtodx1*(phifc - phicl);
           Wr[i].Vx -= dtodx1*(phicr - phifc);
         }
       }
 
-/*--- Step 1d ------------------------------------------------------------------
- * Add gravitational source terms for self-gravity for dt/2 to L/R states
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for self-gravity for 0.5*dt to L/R states
  */
 
 #ifdef SELF_GRAVITY
@@ -249,9 +246,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 #endif
 
-
-/*--- Step 1d (cont) -----------------------------------------------------------
- * Shearing box source terms (Coriolis forces).
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
  */
 
 #ifdef SHEARING_BOX
@@ -272,7 +268,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
 #endif /* SHEARING_BOX */
 
-/*--- Step 1e ------------------------------------------------------------------
+/*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 3D array
  */
 
@@ -285,6 +281,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
     }
   }
+
+/*=== STEP 2: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
 
 /*--- Step 2a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
@@ -314,7 +312,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 
 /*--- Step 2b ------------------------------------------------------------------
- * Compute L and R states at X2-interfaces.
+ * Compute L and R states at X2-interfaces, add "MHD source terms" for 0.5*dt
  */
 
       for (j=js-nghost; j<=je+nghost; j++) {
@@ -322,8 +320,6 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 
       lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,js-1,je+1,Wl,Wr);
-
-/* Add "MHD source terms" for 0.5*dt */
 
 #ifdef MHD
       for (j=js-1; j<=je+2; j++) {
@@ -382,7 +378,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 2c ------------------------------------------------------------------
- * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
 
       if (StaticGravPot != NULL){
@@ -392,15 +388,13 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
           phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
           phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-/* Apply gravitational source terms to velocity using gradient of potential.
- * for (dt/2).   S_{V} = -Grad(Phi) */
           Wl[j].Vx -= dtodx2*(phifc - phicl);
           Wr[j].Vx -= dtodx2*(phicr - phifc);
         }
       }
 
-/*--- Step 2d ------------------------------------------------------------------
- * Add gravitational source terms for self-gravity for dt/2 to L/R states
+/*--- Step 2c (cont) -----------------------------------------------------------
+ * Add source terms for self-gravity for 0.5*dt to L/R states
  */
 
 #ifdef SELF_GRAVITY
@@ -410,8 +404,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 #endif
 
-
-/*--- Step 2e ------------------------------------------------------------------
+/*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x2-direction, storing into 3D array
  */
 
@@ -425,6 +418,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
+/*=== STEP 3: Compute L/R x3-interface states and 1D x3-Fluxes ===============*/
 
 /*--- Step 3a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
@@ -454,7 +448,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 
 /*--- Step 3b ------------------------------------------------------------------
- * Compute L and R states at X3-interfaces.
+ * Compute L and R states at X3-interfaces, add "MHD source terms" for 0.5*dt
  */
 
       for (k=ks-nghost; k<=ke+nghost; k++) {
@@ -462,8 +456,6 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 
       lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx3,ks-1,ke+1,Wl,Wr);
-
-/* Add "MHD source terms" for 0.5*dt */
 
 #ifdef MHD
       for (k=ks-1; k<=ke+2; k++) {
@@ -522,7 +514,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 3c ------------------------------------------------------------------
- * Add gravitational source terms from static potential for 0.5*dt to L/R states
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
 
       if (StaticGravPot != NULL){
@@ -532,15 +524,13 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
           phicl = (*StaticGravPot)(x1,x2,(x3-    pG->dx3));
           phifc = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
-/* Apply gravitational source terms to velocity using gradient of potential.
- * for (dt/2).   S_{V} = -Grad(Phi) */
           Wl[k].Vx -= dtodx3*(phifc - phicl);
           Wr[k].Vx -= dtodx3*(phicr - phifc);
         }
       }
 
-/*--- Step 3d ------------------------------------------------------------------
- * Add gravitational source terms for self-gravity for dt/2 to L/R states
+/*--- Step 3c (cont) -----------------------------------------------------------
+ * Add source terms for self-gravity for 0.5*dt to L/R states
  */
 
 #ifdef SELF_GRAVITY
@@ -550,8 +540,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 #endif
 
-
-/*--- Step 3e ------------------------------------------------------------------
+/*--- Step 3d ------------------------------------------------------------------
  * Compute 1D fluxes in x3-direction, storing into 3D array
  */
 
@@ -565,7 +554,9 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 4 -------------------------------------------------------------------
+/*=== STEP 4:  Update face-centered B for 0.5*dt =============================*/
+
+/*--- Step 4a ------------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at t^{n} and integrate
  * to corner.
  */
@@ -590,14 +581,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   integrate_emf1_corner(pG);
   integrate_emf2_corner(pG);
   integrate_emf3_corner(pG);
-#endif /* MHD */
 
-
-/*--- Step 5 ------------------------------------------------------------------
+/*--- Step 4b ------------------------------------------------------------------
  * Update the interface magnetic fields using CT for a half time step.
  */
 
-#ifdef MHD
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
@@ -622,10 +610,12 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                q1*(emf2[ke+2][j  ][i+1]-emf2[ke+2][j][i]);
     }
   }
-#endif
+#endif /* MHD */
 
-/*--- Step 6a ------------------------------------------------------------------
- * Correct the L/R states at x1-interfaces using x2-fluxes computed in Step 2e.
+/*=== STEP 5: Correct x1-interface states with transverse flux gradients =====*/
+
+/*--- Step 5a ------------------------------------------------------------------
+ * Correct x1-interface states using x2-fluxes computed in Step 2d.
  * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
  */
 
@@ -668,11 +658,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         }
 #endif
 
-
-
-/*--- Step 6b ------------------------------------------------------------------
- * Correct the L/R states at x1-interfaces using x3-fluxes computed in Step 3e.
- * Since the fluxes come from an x3-sweep, (x,y,z) on RHS -> (y,z,x) on LHS */
+/*--- Step 5b ------------------------------------------------------------------
+ * Correct x1-interface states using x3-fluxes computed in Step 3d.
+ * Since the fluxes come from an x3-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
+ */
 
         Ul_x1Face[k][j][i].d -=q3*(x3Flux[k+1][j][i-1].d -x3Flux[k][j][i-1].d );
         Ul_x1Face[k][j][i].Mx-=q3*(x3Flux[k+1][j][i-1].My-x3Flux[k][j][i-1].My);
@@ -713,10 +702,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6c ------------------------------------------------------------------
+/*--- Step 5c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x2- and x3-flux-gradients to the
  * conservative variables on the x1Face.  Limiting is used as in GS (2007)
  */
+
 #ifdef MHD
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
@@ -797,10 +787,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 6d ------------------------------------------------------------------
- * Add gravitational source terms in x2-direction and x3-direction to
- * corrected L/R states on x1-faces.  To improve conservation of total energy,
- * we average the energy source term computed at cell faces.
+/*--- Step 5d ------------------------------------------------------------------
+ * Add source terms for a static gravitational potential arising from x2-Flux
+ * and x3-Flux gradients.  To improve conservation of total energy, average
+ * the energy source term computed at cell faces.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -809,11 +799,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+2; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        phic = (*StaticGravPot)(x1, x2                ,x3);
+        phic = (*StaticGravPot)(x1, x2             ,x3);
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-/* correct right states */
+/* correct right states; x2 and x3 gradients */
         Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
@@ -829,8 +819,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                   + x3Flux[k+1][j][i  ].d*(phir - phic));
 #endif
 
-/* correct left states */
-        phic = (*StaticGravPot)((x1-pG->dx1), x2                ,x3);
+/* correct left states; x2 and x3 gradients */
+        phic = (*StaticGravPot)((x1-pG->dx1), x2             ,x3);
         phir = (*StaticGravPot)((x1-pG->dx1),(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)((x1-pG->dx1),(x2-0.5*pG->dx2),x3);
 
@@ -852,8 +842,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }}
 
-/*--- Step 6e ------------------------------------------------------------------
- * Add source terms for self gravity to L/R states.
+/*--- Step 5d (cont) -----------------------------------------------------------
+ * Add source terms for self gravity arising from x2-Flux and x3-Flux gradients
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -865,7 +855,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
 
-/* correct right states */
+/* correct right states; x2 and x3 gradients */
         Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
@@ -881,7 +871,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                   + x3Flux[k+1][j][i  ].d*(phir - phic));
 #endif
 
-/* correct left states */
+/* correct left states; x2 and x3 gradients */
         phic = pG->Phi[k][j][i-1];
         phir = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k][j+1][i-1]);
         phil = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k][j-1][i-1]);
@@ -905,8 +895,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 7a ------------------------------------------------------------------
- * Correct the L/R states at x2-interfaces using x1-fluxes computed in Step 1e.
+
+/*=== STEP 6: Correct x2-interface states with transverse flux gradients =====*/
+
+/*--- Step 6a ------------------------------------------------------------------
+ * Correct x2-interface states using x1-fluxes computed in Step 1d.
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
  */
 
@@ -949,8 +942,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         }
 #endif
 
-/*--- Step 7b ------------------------------------------------------------------
- * Correct the L/R states at x2-interfaces using x3-fluxes computed in Step 3e.
+/*--- Step 6b ------------------------------------------------------------------
+ * Correct x2-interface states using x3-fluxes computed in Step 3d.
  * Since the fluxes come from an x3-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
  */
 
@@ -993,10 +986,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 7c ------------------------------------------------------------------
+/*--- Step 6c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x1- and x3-flux-gradients to the
  * conservative variables on the x2Face.  Limiting is used as in GS (2007)
  */
+
 #ifdef MHD
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+2; j++) {
@@ -1077,10 +1071,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 7d ------------------------------------------------------------------
- * Add gravitational source terms in x1-direction and x3-direction to
- * corrected L/R states on x2-faces. To improve conservation of total energy,
- * we average the energy source term computed at cell faces.
+/*--- Step 6d ------------------------------------------------------------------
+ * Add source terms for a static gravitational potential arising from x1-Flux
+ * and x3-Flux gradients. To improve conservation of total energy,
+ * average the energy source term computed at cell faces.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -1089,11 +1083,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     for (j=js-1; j<=je+2; j++) {
       for (i=is-1; i<=ie+1; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        phic = (*StaticGravPot)((x1               ),x2,x3);
+        phic = (*StaticGravPot)((x1            ),x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-/* correct right states */
+/* correct right states; x1 and x3 gradients */
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j  ][i  ].d*(phic - phil)
@@ -1109,8 +1103,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                   + x3Flux[k+1][j  ][i].d*(phir - phic));
 #endif
 
-/* correct left states */
-        phic = (*StaticGravPot)((x1               ),(x2-pG->dx2),x3);
+/* correct left states; x1 and x3 gradients */
+        phic = (*StaticGravPot)((x1            ),(x2-pG->dx2),x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 
@@ -1131,8 +1125,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }}
 
-/*--- Step 7e ------------------------------------------------------------------
- * Add source terms for self gravity to L/R states.
+/*--- Step 6d (cont) -----------------------------------------------------------
+ * Add source terms for self gravity arising from x1-Flux and x3-Flux gradients
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -1144,7 +1138,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
 
-/* correct right states */
+/* correct right states; x1 and x3 gradients */
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
         Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
@@ -1160,7 +1154,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                   + x3Flux[k+1][j][i].d*(phir - phic));
 #endif
 
-/* correct left states */
+/* correct left states; x1 and x3 gradients */
         phic = pG->Phi[k][j-1][i];
         phir = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k][j-1][i+1]);
         phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k][j-1][i-1]);
@@ -1183,12 +1177,13 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 7f ------------------------------------------------------------------
- * Add the tidal potential and Coriolis terms.
+/*--- Step 6d (cont) -----------------------------------------------------------
+ * Add source terms for shearing box arising from x1-Flux gradient
  *    Vx source term is (dt/2)( 2 Omega V y); Vx on x2Face is z-comp.
  *    Vy source term is (dt/2)(-2 Omega V x); Vy on x2Face is x-comp.
  *    With FARGO Vy source term is (dt/2)(-1/2 Omega V x)
  */
+
 #ifdef SHEARING_BOX
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+2; j++) {
@@ -1211,8 +1206,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SHEARING_BOX */
 
-/*--- Step 8a ------------------------------------------------------------------
- * Correct the L/R states at x3-interfaces using x1-fluxes computed in Step 1e.
+/*=== STEP 7: Correct x3-interface states with transverse flux gradients =====*/
+
+/*--- Step 7a ------------------------------------------------------------------
+ * Correct x3-interface states using x1-fluxes computed in Step 1d.
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
  */
 
@@ -1255,8 +1252,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         }
 #endif
 
-/*--- Step 8b ------------------------------------------------------------------
- * Correct the L/R states at x3-interfaces using x2-fluxes computed in Step 2e.
+/*--- Step 7b ------------------------------------------------------------------
+ * Correct x3-interface states using x2-fluxes computed in Step 2d.
  * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (y,z,x) on LHS 
  */
 
@@ -1299,10 +1296,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 8c ------------------------------------------------------------------
+/*--- Step 7c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x1- and x2-flux-gradients to the
  * conservative variables on the x3Face.  Limiting is used as in GS07.
  */
+
 #ifdef MHD
   for (k=ks-1; k<=ke+2; k++) {
     for (j=js-1; j<=je+1; j++) {
@@ -1383,10 +1381,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 8d ------------------------------------------------------------------
- * Add gravitational source terms in x1-direction and x2-direction to
- * corrected L/R states on x3-faces.  To improve conservation of total energy,
- * we average the energy source term computed at cell faces.
+/*--- Step 7d ------------------------------------------------------------------
+ * Add source terms for a static gravitational potential arising from x1-Flux
+ * and x2-Flux gradients. To improve conservation of total energy,
+ * average the energy source term computed at cell faces.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -1395,11 +1393,11 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        phic = (*StaticGravPot)((x1               ),x2,x3);
+        phic = (*StaticGravPot)((x1            ),x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-/* correct right states */
+/* correct right states; x1 and x2 gradients */
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -= q1*(x1Flux[k  ][j][i  ].d*(phic - phil)
@@ -1415,8 +1413,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                   + x2Flux[k  ][j+1][i].d*(phir - phic));
 #endif
 
-/* correct left states */
-        phic = (*StaticGravPot)((x1               ),x2,(x3-pG->dx3));
+/* correct left states; x1 and x2 gradients */
+        phic = (*StaticGravPot)((x1            ),x2,(x3-pG->dx3));
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
 
@@ -1438,8 +1436,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }}
 
-/*--- Step 8e ------------------------------------------------------------------
- * Add source terms for self gravity to L/R states.
+/*--- Step 7d (cont) -----------------------------------------------------------
+ * Add source terms for self gravity arising from x1-Flux and x2-Flux gradients
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
@@ -1451,7 +1449,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
 
-/* correct right states */
+/* correct right states; x1 and x2 gradients */
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
         Ur_x3Face[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
@@ -1467,7 +1465,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
                                   + x2Flux[k][j+1][i].d*(phir - phic));
 #endif
 
-/* correct left states */
+/* correct left states; x1 and x2 gradients */
         phic = pG->Phi[k-1][j][i];
         phir = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k-1][j][i+1]);
         phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k-1][j][i-1]);
@@ -1491,12 +1489,13 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 8f ------------------------------------------------------------------
- * Add the tidal potential and Coriolis terms.
+/*--- Step 7d (cont) -----------------------------------------------------------
+ * Add source terms for shearing box arising from x1-Flux gradient
  *    Vx source term is (dt/2)( 2 Omega V y); Vx on x3Face is y-comp.
  *    Vy source term is (dt/2)(-2 Omega V x); Vy on x3Face is z-comp.
  *    With FARGO Vy source term is (dt/2)(-1/2 Omega V x)
  */
+
 #ifdef SHEARING_BOX
   for (k=ks-1; k<=ke+2; k++) {
     for (j=js-1; j<=je+1; j++) {
@@ -1519,8 +1518,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SHEARING_BOX */
 
-/*--- Step 9 -------------------------------------------------------------------
- * Calculate the cell centered value of emf1,2,3 at the half-time-step
+/*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
+
+/*--- Step 8a ------------------------------------------------------------------
+ * Calculate d^{n+1/2}
  */
 
   if (dhalf != NULL){
@@ -1535,6 +1536,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
     }
   }
+
+/*--- Step 8b ------------------------------------------------------------------
+ * Calculate cell centered value of emf1,2,3 at the half-time-step
+ */
 
 #ifdef MHD
   for (k=ks-1; k<=ke+1; k++) {
@@ -1614,7 +1619,9 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif
 
-/*--- Step 10a -----------------------------------------------------------------
+/*=== STEP 9: Compute 3D x1-Flux, x2-Flux, x3-Flux ===========================*/
+
+/*--- Step 9a ------------------------------------------------------------------
  * Compute maximum wavespeeds in multidimensions (eta in eq. 10 from Sanders et
  *  al. (1998)) for H-correction
  */
@@ -1657,8 +1664,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* H_CORRECTION */
 
-/*--- Step 10b -----------------------------------------------------------------
- * Compute x1-fluxes from corrected L/R states.
+/*--- Step 9b ------------------------------------------------------------------
+ * Compute 3D x1-fluxes from corrected L/R states.
  */
 
   for (k=ks-1; k<=ke+1; k++) {
@@ -1687,8 +1694,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 10c -----------------------------------------------------------------
- * Compute x2-fluxes from corrected L/R states.
+/*--- Step 9c ------------------------------------------------------------------
+ * Compute 3D x2-fluxes from corrected L/R states.
  */
 
   for (k=ks-1; k<=ke+1; k++) {
@@ -1717,8 +1724,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 10d -----------------------------------------------------------------
- * Compute x3-fluxes from corrected L/R states.
+/*--- Step 9d ------------------------------------------------------------------
+ * Compute 3D x3-fluxes from corrected L/R states.
  */
 
   for (k=ks; k<=ke+1; k++) {
@@ -1747,9 +1754,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 11 ------------------------------------------------------------------
- * Integrate emf*^{n+1/2} to the grid cell corners and then update the
- * interface magnetic fields using CT for a full time step.
+/*=== STEP 10: Update face-centered B for a full timestep ====================*/
+
+/*--- Step 10a -----------------------------------------------------------------
+ * Integrate emf*^{n+1/2} to the grid cell corners
  */
 
 #ifdef MHD
@@ -1789,6 +1797,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
 #endif /* SHEARING_BOX */
 
+/*--- Step 10b -----------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a full time step.
+ */
+
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -1818,9 +1830,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif
 
-/*--- Step 12a -----------------------------------------------------------------
- * Add the gravitational (or shearing box) source terms expressed as a Static
- * Potential.
+/*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
+
+/*--- Step 11a -----------------------------------------------------------------
+ * Add gravitational (or shearing box) source terms as a Static Potential.
  *   A Crank-Nicholson update is used for shearing box terms.
  *   The energy source terms computed at cell faces are averaged to improve
  * conservation of total energy.
@@ -1943,11 +1956,12 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SHEARING_BOX */
 
-/*--- Step 12b -----------------------------------------------------------------
- * Add gravitational source terms for self-gravity.
+/*--- Step 11b -----------------------------------------------------------------
+ * Add source terms for self-gravity.
  * A flux correction using Phi^{n+1} in the main loop is required to make
  * the source terms 2nd order: see selfg_flux_correction().
  */
+
 #ifdef SELF_GRAVITY
 /* Add fluxes and source terms due to (d/dx1) terms  */
 
@@ -2097,8 +2111,10 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 13a -----------------------------------------------------------------
- * Update cell-centered variables in pG using x1-fluxes
+/*=== STEP 12: Update cell-centered values for a full timestep ===============*/
+
+/*--- Step 12a -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 3D x1-Fluxes
  */
 
   for (k=ks; k<=ke; k++) {
@@ -2120,8 +2136,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 13b -----------------------------------------------------------------
- * Update cell-centered variables in pG using x2-fluxes
+/*--- Step 12b -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 3D x2-Fluxes
  */
 
   for (k=ks; k<=ke; k++) {
@@ -2143,8 +2159,8 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 13c -----------------------------------------------------------------
- * Update cell-centered variables in pG using x3-fluxes
+/*--- Step 12c -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 3D x3-Fluxes
  */
 
   for (k=ks; k<=ke; k++) {
@@ -2166,7 +2182,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 14 ------------------------------------------------------------------
+/*--- Step 12d -----------------------------------------------------------------
  * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
  */
