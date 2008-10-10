@@ -328,8 +328,8 @@ static int dom_decomp(const int Nx, const int Ny, const int Nz,
     return 0;
   }
   else if(Nx > 1 && Ny > 1 && Nz == 1){ /* 2-D */
-    *pNGy = 1;
-    return dom_decomp_2d(Nx, Nz, Np, pNGx, pNGz);
+    *pNGz = 1;
+    return dom_decomp_2d(Nx, Ny, Np, pNGx, pNGy);
   }
   else if(Nx > 1 && Ny > 1 && Nz > 1){ /* 3-D */
     return dom_decomp_3d(Nx, Ny, Nz, Np, pNGx, pNGy, pNGz);
