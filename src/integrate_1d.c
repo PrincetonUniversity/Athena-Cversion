@@ -21,11 +21,18 @@
 #include "globals.h"
 #include "prototypes.h"
 
+/* The L/R states of conserved variables and fluxes at each cell face */
+static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
+
+/* 1D scratch vectors used by lr_states and flux functions */
 #ifdef MHD
 static Real *Bxc=NULL, *Bxi=NULL;
 #endif /* MHD */
-static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *U1d=NULL, *x1Flux=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
+static Cons1D *U1d=NULL;
+
+/* Variables at t^{n+1/2} used for source terms */
+static Real *dhalf = NULL, *phalf = NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -40,10 +47,14 @@ void integrate_1d(Grid *pG, Domain *pD)
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
+#ifdef MHD
+  Real B1ch,B2ch,B3ch;
+#endif
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,dhalf;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
 #endif
@@ -111,6 +122,19 @@ void integrate_1d(Grid *pG, Domain *pD)
   }
 #endif
 
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms from optically-thin cooling for 0.5*dt to L/R states
+ */
+
+  if (CoolingFunc != NULL){
+    for (i=is; i<=ie+1; i++) {
+      coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,pG->dt);
+      coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,pG->dt);
+
+      Wl[i].P -= pG->dt*Gamma_1*coolfl;
+      Wr[i].P -= pG->dt*Gamma_1*coolfr;
+    }
+  }
 
 /*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction
@@ -129,8 +153,56 @@ void integrate_1d(Grid *pG, Domain *pD)
 /*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
 
 /*--- Step 8a ------------------------------------------------------------------
- * Calculate d^{n+1/2}
+ * Calculate d^{n+1/2} (needed with static potential, or cooling)
  */
+
+  if ((StaticGravPot != NULL) || (CoolingFunc != NULL)) {
+    for (i=is; i<=ie; i++) {
+      dhalf[i] = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
+    }
+  }
+
+/*--- Step 8b ------------------------------------------------------------------
+ * Calculate P^{n+1/2} (needed with cooling)
+ */
+
+  if (CoolingFunc != NULL) {
+    for (i=is; i<=ie; i++) {
+      M1h = pG->U[ks][js][i].M1 - hdtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
+      M2h = pG->U[ks][js][i].M2 - hdtodx1*(x1Flux[i+1].My - x1Flux[i].My);
+      M3h = pG->U[ks][js][i].M3 - hdtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
+#ifndef BAROTROPIC
+      Eh  = pG->U[ks][js][i].E  - hdtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
+#endif
+
+/* Add source terms for fixed gravitational potential */
+      if (StaticGravPot != NULL){
+        cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        M1h -= hdtodx1*(phir-phil)*pG->U[ks][js][i].d;
+      }
+
+/* Add source terms due to self-gravity  */
+#ifdef SELF_GRAVITY
+      phir = 0.5*(pG->Phi[ks][js][i] + pG->Phi[ks][js][i+1]);
+      phil = 0.5*(pG->Phi[ks][js][i] + pG->Phi[ks][js][i-1]);
+      M1h -= hdtodx1*(phir-phil)*pG->U[ks][js][i].d;
+#endif /* SELF_GRAVITY */
+
+      phalf[i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[i];
+
+#ifdef MHD
+      B1ch = pG->U[ks][js][i].B1c;
+      B2ch = pG->U[ks][js][i].B2c - hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
+      B3ch = pG->U[ks][js][i].B3c - hdtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
+      phalf[i] -= 0.5*(B1ch*B1ch + B2ch*B2ch + B3ch*B3ch);
+#endif
+
+      phalf[i] *= Gamma_1;
+
+    }
+  }
 
 /*=== STEPS 9-10: Not needed in 1D ===*/
 
@@ -146,15 +218,14 @@ void integrate_1d(Grid *pG, Domain *pD)
   if (StaticGravPot != NULL){
     for (i=is; i<=ie; i++) {
       cc_pos(pG,i,js,ks,&x1,&x2,&x3);
-      phic = (*StaticGravPot)((x1               ),x2,x3);
+      phic = (*StaticGravPot)((x1            ),x2,x3);
       phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
       phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-      dhalf = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
-      pG->U[ks][js][i].M1 -= dtodx1*dhalf*(phir-phil);
+      pG->U[ks][js][i].M1 -= dtodx1*dhalf[i]*(phir-phil);
 #ifndef BAROTROPIC
       pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                       x1Flux[i+1].d*(phir - phic));
+                                    x1Flux[i+1].d*(phir - phic));
 #endif
     }
   }
@@ -181,7 +252,7 @@ void integrate_1d(Grid *pG, Domain *pD)
       pG->U[ks][js][i].M1 -= dtodx1*(flux_m1r - flux_m1l);
 #ifndef BAROTROPIC
       pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                       x1Flux[i+1].d*(phir - phic));
+                                    x1Flux[i+1].d*(phir - phic));
 #endif
   }
 
@@ -190,6 +261,19 @@ void integrate_1d(Grid *pG, Domain *pD)
     pG->x1MassFlux[ks][js][i] = x1Flux[i].d;
   }
 #endif
+
+/*--- Step 11c -----------------------------------------------------------------
+ * Add source terms for optically thin cooling
+ */
+
+  if (CoolingFunc != NULL){
+    for (i=is; i<=ie; i++) {
+      coolf = (*CoolingFunc)(dhalf[i],phalf[i],pG->dt);
+#ifndef BAROTROPIC
+      pG->U[ks][js][i].E -= pG->dt*coolf;
+#endif
+    }
+  }
 
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 
@@ -225,17 +309,28 @@ void integrate_init_1d(int nx1)
 {
   int Nx1;
   Nx1 = nx1 + 2*nghost;
+
 #ifdef MHD
   if ((Bxc = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
 #endif /* MHD */
+
   if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+
   if ((W  = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wl = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wr = (Prim1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+
   if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+
+  if((StaticGravPot != NULL) || (CoolingFunc != NULL)){
+    if ((dhalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+  }
+  if(CoolingFunc != NULL){
+    if ((phalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+  }
 
   return;
 
@@ -252,13 +347,19 @@ void integrate_destruct_1d(void)
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
 #endif /* MHD */
+
   if (U1d != NULL) free(U1d);
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);
+
   if (W  != NULL) free(W);
   if (Wl != NULL) free(Wl);
   if (Wr != NULL) free(Wr);
+
   if (x1Flux != NULL) free(x1Flux);
+
+  if (dhalf != NULL) free(dhalf);
+  if (phalf != NULL) free(phalf);
 
   return;
 }
