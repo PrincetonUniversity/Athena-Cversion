@@ -88,6 +88,7 @@ ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
 endif
 
 MICROPHYS_OBJ = microphysics/braginskii.o \
+		microphysics/cool.o \
 		microphysics/resistivity.o \
 		microphysics/viscosity.o
 

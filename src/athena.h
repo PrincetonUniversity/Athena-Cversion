@@ -337,10 +337,10 @@ typedef struct Output_s{
 } Output;
 
 
-/* prototype for functions that compute static gravitational
- * potential.  These functions are set in problem generator, and used by
- * integrators */
+/* typedefs for functions that compute static gravitational potential and
+ * cooling, set in problem generator, and used by integrators */
 typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
+typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
 
 /* Directions for the set_bvals_fun() function */
 enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};

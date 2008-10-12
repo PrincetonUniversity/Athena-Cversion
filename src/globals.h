@@ -25,6 +25,7 @@ Real Gamma_1, Gamma_2;
 #endif
 
 GravPotFun_t StaticGravPot = NULL;
+CoolingFun_t CoolingFunc = NULL;
 #ifdef SELF_GRAVITY
 Real four_pi_G, grav_mean_rho;
 #endif
@@ -48,6 +49,7 @@ extern Real Gamma_1, Gamma_2;
 #endif
 
 extern GravPotFun_t StaticGravPot;
+extern CoolingFun_t CoolingFunc;
 #ifdef SELF_GRAVITY
 extern Real four_pi_G, grav_mean_rho;
 #endif
