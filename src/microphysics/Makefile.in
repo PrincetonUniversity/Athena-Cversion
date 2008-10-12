@@ -11,6 +11,7 @@
 #
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = braginskii.o \
+	   cool.o \
            resistivity.o \
            viscosity.o
 
