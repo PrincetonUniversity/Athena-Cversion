@@ -45,6 +45,12 @@
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
 
+/* resistivity, viscosity, and thermal conduction */
+#define @DIFFUSIVITIES_DEFINE@
+#define @RESISTIVITY_ALGORITHM@
+#define @VISCOSITY_ALGORITHM@
+#define @CONDUCTION_ALGORITHM@
+
 /* Ionizing radiative transfer: ION_RADIATION or NO_ION_RADIATION */
 #define @ION_RADIATION_MODE@
 
@@ -55,15 +61,6 @@
 /* Ionizing radiative transfer from plane parallel fronts:
  * ION_RADPLANE or NO_ION_RADPLANE */
 #define @ION_PLANE_MODE@
-
-/* Ohmic resistivity: RESISTIVITY or NO_RESISTIVITY */
-#define @RESISTIVITY_MODE@
-
-/* Navier-Stokes viscosity: VISCOSITY or NO_VISCOSITY */
-#define @VISCOSITY_MODE@
-
-/* Braginskii viscosity: BRAGINSKII or NO_BRAGINSKII */
-#define @BRAGINSKII_MODE@
 
 /* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER
  * THIRD_ORDER_EXTREMA_PRESERVING */

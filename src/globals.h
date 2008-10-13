@@ -34,6 +34,10 @@ Real four_pi_G, grav_mean_rho;
 Real Omega;
 #endif
 
+#ifdef EXPLICIT_DIFFUSION
+Real eta_R=0.0, nu_V=0.0, kappa_T=0.0;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -56,6 +60,10 @@ extern Real four_pi_G, grav_mean_rho;
 
 #ifdef SHEARING_BOX
 extern Real Omega;
+#endif
+
+#ifdef EXPLICIT_DIFFUSION
+extern Real eta_R, nu_V, kappa_T;
 #endif
 
 #endif /* MAIN_C */

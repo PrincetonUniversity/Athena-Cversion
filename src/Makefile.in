@@ -89,6 +89,8 @@ endif
 
 MICROPHYS_OBJ = microphysics/braginskii.o \
 		microphysics/cool.o \
+		microphysics/integrate_diffusion.o \
+		microphysics/isotropic_conduction.o \
 		microphysics/resistivity.o \
 		microphysics/viscosity.o
 

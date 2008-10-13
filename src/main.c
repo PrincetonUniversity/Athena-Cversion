@@ -332,33 +332,26 @@ int main(int argc, char *argv[])
   if(ires == 0) new_dt(&level0_Grid);
 
 /*--- Step 7. ----------------------------------------------------------------*/
-/* Set output modes (based on <ouput> blocks in input file).
- * Allocate temporary arrays needed by solver */
+/* Set function pointers for integrator; self-gravity (based on dimensions)
+ * Initialize gravitational potential for new runs
+ * Allocate temporary arrays */
 
   init_output(&level0_Grid); 
   lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-#ifdef BRAGINSKII
-  braginskii_init_3d(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-#endif
-#ifdef VISCOSITY
-  viscosity_init_3d(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-#endif
-
-/*--- Step 8. ----------------------------------------------------------------*/
-/* Set function pointers for integrator; self-gravity (based on dimensions)
- * Initialize gravitational potential for new runs */
-
   Integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
   set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
+#ifdef EXPLICIT_DIFFUSION
+  integrate_explicit_diff_init(&level0_Grid,&level0_Domain);
+#endif
 #ifdef ION_RADIATION
   IonRadTransfer = ion_radtransfer_init(&level0_Grid, &level0_Domain, ires);
 #endif
 
-/*--- Step 9. ----------------------------------------------------------------*/
+/*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
 
   if(out_level >= 0){
@@ -384,7 +377,7 @@ int main(int argc, char *argv[])
 	   level0_Grid.time,
 	   level0_Grid.dt);
 
-/*--- Step 10. ---------------------------------------------------------------*/
+/*--- Step 9. ----------------------------------------------------------------*/
 /* START OF MAIN INTEGRATION LOOP ==============================================
  * Steps are: (1) Check for data ouput
  *            (2) Integrate level0 grid
@@ -402,17 +395,10 @@ int main(int argc, char *argv[])
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
 
-/* operator-split microphysics, such as resistivity and viscosity */
-#ifdef RESISTIVITY
-    resistivity_3d(&level0_Grid, &level0_Domain);
-#endif
-#ifdef VISCOSITY
-    viscosity_3d(&level0_Grid, &level0_Domain);
-#endif
-#ifdef BRAGINSKII
-    braginskii_3d(&level0_Grid, &level0_Domain);
-#endif
-#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(BRAGINSKII)
+/* operator-split explicit diffusion: resistivity, viscosity, conduction
+ * Done first since CFL constraint is applied which may change dt  */
+#ifdef EXPLICIT_DIFFUSION
+    integrate_explicit_diff(&level0_Grid, &level0_Domain);
     set_bvals_mhd(&level0_Grid, &level0_Domain);
 #endif
 
@@ -466,7 +452,7 @@ int main(int argc, char *argv[])
   }
 /* END OF MAIN INTEGRATION LOOP ==============================================*/
 
-/*--- Step 11. ---------------------------------------------------------------*/
+/*--- Step 10. ---------------------------------------------------------------*/
 /* Finish up by computing zc/sec, dumping data, and deallocate memory */
 
 /* Print diagnostic message as to why run terminated */
@@ -528,6 +514,9 @@ int main(int argc, char *argv[])
   data_output_destruct();
 #ifdef SHEARING_BOX
   set_bvals_shear_destruct();
+#endif
+#ifdef EXPLICIT_DIFFUSION
+  integrate_explicit_diff_destruct();
 #endif
   par_close();       
 
