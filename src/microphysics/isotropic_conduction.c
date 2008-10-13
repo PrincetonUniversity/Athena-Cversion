@@ -1,23 +1,19 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: conduction.c
+ * FILE: isotropic_conduction.c
  *
- * PURPOSE: Implements explicit thermal conduction using operator splitting,
+ * PURPOSE: Implements explicit isotropic thermal conduction, that is
  *      dE/dt = Div(kappa_T Grad(T))    where T=(P/d)*(mbar/k)=temperature
- *
- *   Functions for both isotropic and anisotropic conduction are included.
- *   These are selected in configure using 
- *      --with-conduction=[isotropic,anisotropic]
- *
- *   Isotropic conduction works in 1D, 2D and 3D.
- *   Anisotropic conduction works in 2D and 3D.
+ *   Functions are called by integrate_diffusion() in the main loop, which
+ *   coordinates adding all diffusion operators (viscosity, resistivity, thermal
+ *   conduction) using operator splitting.
  *
  *   An explicit timestep limit must be applied if these routines are used.
  *
  * CONTAINS PUBLIC FUNCTIONS:
  *   isoconduct() - isotropic conduction in 1D/2D/3D
- *   anisoconduct_2d() - anisotropic conduction in 2D
- *   anisoconduct_3d() - anisotropic conduction in 3D
+ *   isoconduct_init() - allocates memory needed
+ *   isoconduct_destruct() - frees memory used
  *============================================================================*/
 
 #include <math.h>
@@ -28,7 +24,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-#ifdef CONDUCTION
+#ifdef ISOTROPIC_CONDUCTION
 #ifdef BAROTROPIC
 #error : Thermal conduction requires an adiabatic EOS
 #endif
@@ -37,14 +33,17 @@
 /* Arrays for the temperature and heat fluxes */
 static Real ***Temp=NULL, ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
+/* dimension of calculation (determined at runtime) */
+static int dim=0;
+
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* viscous_3d:
+/* isoconduct: isotropic conduction in 1d/2d/3d.
  */
 
 void isoconduct(Grid *pG, Domain *pD)
 {
-#ifndef BAROTROPIC
+#ifdef ISOTROPIC_CONDUCTION
   int i, is = pG->is, ie = pG->ie;
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
@@ -163,34 +162,72 @@ void isoconduct(Grid *pG, Domain *pD)
       }
     }}
   }
-#endif /* BAROTROPIC */
+#endif /* ISOTROPIC_CONDUCTION */
 
   return;
 }
 
-
 /*----------------------------------------------------------------------------*/
-/* isoconduct_init_3d: Allocate temporary integration arrays
+/* isoconduct_init: Allocate temporary arrays
 */
 
 void isoconduct_init(int nx1, int nx2, int nx3)
 {
+#ifdef ISOTROPIC_CONDUCTION
   int Nx1 = nx1 + 2;
   int Nx2 = nx2 + 2;
   int Nx3 = nx3 + 2;
+/* Calculate the dimensions  */
+  dim=0;
+  if(Nx1 > 1) dim++;
+  if(Nx2 > 1) dim++;
+  if(Nx3 > 1) dim++;
 
-  if ((Temp = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((x1Flux = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((x2Flux = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((x3Flux = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
+  switch(dim){
+  case 1:
+    break;
+  case 2:
+    break;
+  case 3:
+    if ((Temp = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+    if ((x1Flux = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+    if ((x2Flux = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+    if ((x3Flux = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+    break;
+  }
   return;
 
   on_error:
-  integrate_destruct();
+  isoconduct_destruct();
   ath_error("[isoconduct_init]: malloc returned a NULL pointer\n");
+#endif /* ISOTROPIC_CONDUCTION */
+}
+
+/*----------------------------------------------------------------------------*/
+/* isoconduct_destruct: Free temporary arrays
+ */
+
+void isoconduct_destruct(void)
+{
+#ifdef ISOTROPIC_CONDUCTION
+/* dim set in isoconduct_init() at begnning of run */
+  switch(dim){
+  case 1:
+    break;
+  case 2:
+    break;
+  case 3:
+    if (Temp != NULL) free_3d_array(Temp);
+    if (x1Flux != NULL) free_3d_array(x1Flux);
+    if (x2Flux != NULL) free_3d_array(x2Flux);
+    if (x3Flux != NULL) free_3d_array(x3Flux);
+    break;
+  }
+#endif /* ISOTROPIC_CONDUCTION */
+
+  return;
 }
