@@ -126,6 +126,7 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Add source terms from optically-thin cooling for 0.5*dt to L/R states
  */
 
+#ifndef BAROTROPIC
   if (CoolingFunc != NULL){
     for (i=is; i<=ie+1; i++) {
       coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,pG->dt);
@@ -135,6 +136,7 @@ void integrate_1d(Grid *pG, Domain *pD)
       Wr[i].P -= pG->dt*Gamma_1*coolfr;
     }
   }
+#endif /* BAROTROPIC */
 
 /*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction
@@ -166,14 +168,13 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Calculate P^{n+1/2} (needed with cooling)
  */
 
+#ifndef BAROTROPIC
   if (CoolingFunc != NULL) {
     for (i=is; i<=ie; i++) {
       M1h = pG->U[ks][js][i].M1 - hdtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
       M2h = pG->U[ks][js][i].M2 - hdtodx1*(x1Flux[i+1].My - x1Flux[i].My);
       M3h = pG->U[ks][js][i].M3 - hdtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
-#ifndef BAROTROPIC
       Eh  = pG->U[ks][js][i].E  - hdtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
-#endif
 
 /* Add source terms for fixed gravitational potential */
       if (StaticGravPot != NULL){
@@ -203,6 +204,7 @@ void integrate_1d(Grid *pG, Domain *pD)
 
     }
   }
+#endif /* BAROTROPIC */
 
 /*=== STEPS 9-10: Not needed in 1D ===*/
 
@@ -266,14 +268,14 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Add source terms for optically thin cooling
  */
 
+#ifndef BAROTROPIC
   if (CoolingFunc != NULL){
     for (i=is; i<=ie; i++) {
       coolf = (*CoolingFunc)(dhalf[i],phalf[i],pG->dt);
-#ifndef BAROTROPIC
       pG->U[ks][js][i].E -= pG->dt*coolf;
-#endif
     }
   }
+#endif /* BAROTROPIC */
 
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 
