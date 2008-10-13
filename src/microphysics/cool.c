@@ -44,7 +44,9 @@ static const Real Tmin = 10;
 
 Real KoyInut(const Real dens, const Real Press, const Real dt)
 {
-  Real n,T,coolratepp,MaxdT,coolrate;
+  Real n,coolrate=0.0;
+#ifndef BAROTROPIC
+  Real T,coolratepp,MaxdT;
 
 /* Compute number density and Temperature */
   n = dens/mbar;
@@ -58,5 +60,6 @@ Real KoyInut(const Real dens, const Real Press, const Real dt)
  * rate to this value */
   MaxdT = kb*(T-Tmin)/(dt*Gamma_1);
   coolrate = MIN(coolratepp,MaxdT);
+#endif /* BAROTROPIC */
   return n*coolrate;
 }
