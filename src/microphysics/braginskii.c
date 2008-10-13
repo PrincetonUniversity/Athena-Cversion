@@ -2,12 +2,19 @@
 /*==============================================================================
  * FILE: braginskii.c
  *
- * PURPOSE: Implements anisotropic (Braginskii) viscosity using operator
- *   splitting, that is
+ * PURPOSE: Implements anisotropic (Braginskii) viscosity, that is
  *      dM/dt = Div(T)    where T=Braginski stress tensor.
- *   This function should be called after the integrate step in the main loop.
+ *   Functions are called by integrate_diffusion() in the main loop, which
+ *   coordinates adding all diffusion operators (viscosity, resistivity, thermal
+ *   conduction) using operator splitting.
+ *
+ *   An explicit timestep limit must be applied if these routines are used.
  *
  * CONTAINS PUBLIC FUNCTIONS:
+ *  brag_viscosity_2d()
+ *  brag_viscosity_3d()
+ *  brag_viscosity_init() - allocates memory needed
+ *  brag_viscosity_destruct() - frees memory used
  *============================================================================*/
 
 #include <math.h>
@@ -19,93 +26,105 @@
 #include "../prototypes.h"
 
 #ifdef BRAGINSKII
-
 #ifdef ADIABATIC
 #error : Braginskii viscosity only works for isothermal EOS.
 #endif /* ADIABATIC */
-
 #ifdef HYDRO
 #error : Braginskii viscosity only works for MHD.
 #endif /* HYDRO */
-
-#ifdef VISCOSITY
-#error : Braginskii viscosity cannot be used with Navier-Stokes viscosity
-#endif /* VISCOSITY */
-
 #endif /* BRAGINSKII */
 
-/* The viscous fluxes, uses arrays allocated in integrator to save memory */
-#ifdef BRAGINSKII
-extern Cons1D ***x1Flux, ***x2Flux, ***x3Flux;
-Real ***Vx=NULL, ***Vy=NULL, ***Vz=NULL, ***divv=NULL, ***BBdV=NULL;
-#endif
+/* The viscous fluxes, contained in special structures */
+typedef struct ViscFlux_t{
+  Real Mx;
+  Real My;
+  Real Mz;
+}ViscFlux;
+typedef struct ThreeDVect_t{
+  Real x;
+  Real y;
+  Real z;
+}ThreeDVect;
+
+static ViscFlux ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
+static ThreeDVect ***Vel=NULL;
+static Real ***divv=NULL, ***BBdV=NULL;
+
+/* dimension of calculation (determined at runtime) */
+static int dim=0;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* viscous_3d:
+/* brag_viscosity_2d: Braginskii viscosity in 2d
  */
 
-void braginskii_3d(Grid *pG, Domain *pD)
+void brag_viscosity_2d(Grid *pG, Domain *pD)
 {
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* brag_viscosity_3d: Braginskii viscosity in 3d
+ */
+
+void brag_viscosity_3d(Grid *pG, Domain *pD)
+{
+#ifdef BRAGINSKII
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
   Real dtodx1 = pG->dt/pG->dx1;
   Real dtodx2 = pG->dt/pG->dx2;
   Real dtodx3 = pG->dt/pG->dx3;
-  Real B02,Bx,By,Bz,qa,nu,nud;
+  Real B02,Bx,By,Bz,qa,nud;
 #ifdef FARGO
   Real x1,x2,x3;
 #endif
 
-  nu = par_getd("problem","nu");
-
-
-#ifdef BRAGINSKII
-#ifdef MHD
 /*--- Step 1 -------------------------------------------------------------------
  * Compute velocity, div(V), and BBdV=B_{m}B_{k}d_{k}B_{m} at cell centers
+ * Unike Navier-Stokes viscosity, in shearing box Vy must include background
+ * shear
  */
 
   for (k=ks-2; k<=ke+2; k++) {
     for (j=js-2; j<=je+2; j++) {
       for (i=is-2; i<=ie+2; i++) {
-        Vx[k][j][i] = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-        Vy[k][j][i] = pG->U[k][j][i].M2/pG->U[k][j][i].d;
+        Vel[k][j][i].x = pG->U[k][j][i].M1/pG->U[k][j][i].d;
+        Vel[k][j][i].y = pG->U[k][j][i].M2/pG->U[k][j][i].d;
 #ifdef FARGO
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        Vy[k][j][i] -= 1.5*Omega*x1;
+        Vel[k][j][i].y -= 1.5*Omega*x1;
 #endif
-        Vz[k][j][i] = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+        Vel[k][j][i].z = pG->U[k][j][i].M3/pG->U[k][j][i].d;
       }
     }
   }
 
   for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
-        divv[k][j][i] = ((Vx[k][j][i+1] - Vx[k][j][i-1])/(2.0*pG->dx1) +
-                         (Vy[k][j+1][i] - Vy[k][j-1][i])/(2.0*pG->dx2) +
-                         (Vz[k+1][j][i] - Vz[k-1][j][i])/(2.0*pG->dx3));
-        B02 = pG->U[k][j][i].B1c*pG->U[k][j][i].B1c +
-              pG->U[k][j][i].B2c*pG->U[k][j][i].B2c +
-              pG->U[k][j][i].B3c*pG->U[k][j][i].B3c;
-        B02 = MAX(B02,TINY_NUMBER);
-        BBdV[k][j][i] = (pG->U[k][j][i].B1c/B02)*
-           (pG->U[k][j][i].B1c*(Vx[k][j][i+1]-Vx[k][j][i-1])/(2.0*pG->dx1)
-          + pG->U[k][j][i].B2c*(Vx[k][j+1][i]-Vx[k][j-1][i])/(2.0*pG->dx2)
-          + pG->U[k][j][i].B3c*(Vx[k+1][j][i]-Vx[k-1][j][i])/(2.0*pG->dx3))
-                      + (pG->U[k][j][i].B2c/B02)*
-           (pG->U[k][j][i].B1c*(Vy[k][j][i+1]-Vy[k][j][i-1])/(2.0*pG->dx1)
-          + pG->U[k][j][i].B2c*(Vy[k][j+1][i]-Vy[k][j-1][i])/(2.0*pG->dx2)
-          + pG->U[k][j][i].B3c*(Vy[k+1][j][i]-Vy[k-1][j][i])/(2.0*pG->dx3))
-                      + (pG->U[k][j][i].B3c/B02)*
-           (pG->U[k][j][i].B1c*(Vz[k][j][i+1]-Vz[k][j][i-1])/(2.0*pG->dx1)
-          + pG->U[k][j][i].B2c*(Vz[k][j+1][i]-Vz[k][j-1][i])/(2.0*pG->dx2)
-          + pG->U[k][j][i].B3c*(Vz[k+1][j][i]-Vz[k-1][j][i])/(2.0*pG->dx3));
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      divv[k][j][i] = ((Vel[k][j][i+1].x - Vel[k][j][i-1].x)/(2.0*pG->dx1) +
+                       (Vel[k][j+1][i].y - Vel[k][j-1][i].y)/(2.0*pG->dx2) +
+                       (Vel[k+1][j][i].z - Vel[k-1][j][i].z)/(2.0*pG->dx3));
+      B02 = pG->U[k][j][i].B1c*pG->U[k][j][i].B1c +
+            pG->U[k][j][i].B2c*pG->U[k][j][i].B2c +
+            pG->U[k][j][i].B3c*pG->U[k][j][i].B3c;
+      B02 = MAX(B02,TINY_NUMBER);
+      BBdV[k][j][i] = (pG->U[k][j][i].B1c/B02)*
+         (pG->U[k][j][i].B1c*(Vel[k][j][i+1].x-Vel[k][j][i-1].x)/(2.0*pG->dx1)
+        + pG->U[k][j][i].B2c*(Vel[k][j+1][i].x-Vel[k][j-1][i].x)/(2.0*pG->dx2)
+        + pG->U[k][j][i].B3c*(Vel[k+1][j][i].x-Vel[k-1][j][i].x)/(2.0*pG->dx3))
+                    + (pG->U[k][j][i].B2c/B02)*
+         (pG->U[k][j][i].B1c*(Vel[k][j][i+1].y-Vel[k][j][i-1].y)/(2.0*pG->dx1)
+        + pG->U[k][j][i].B2c*(Vel[k][j+1][i].y-Vel[k][j-1][i].y)/(2.0*pG->dx2)
+        + pG->U[k][j][i].B3c*(Vel[k+1][j][i].y-Vel[k-1][j][i].y)/(2.0*pG->dx3))
+                    + (pG->U[k][j][i].B3c/B02)*
+         (pG->U[k][j][i].B1c*(Vel[k][j][i+1].z-Vel[k][j][i-1].z)/(2.0*pG->dx1)
+        + pG->U[k][j][i].B2c*(Vel[k][j+1][i].z-Vel[k][j-1][i].z)/(2.0*pG->dx2)
+        + pG->U[k][j][i].B3c*(Vel[k+1][j][i].z-Vel[k-1][j][i].z)/(2.0*pG->dx3));
       }
-    }
-  }
+  }}
 
 /*--- Step 2a ------------------------------------------------------------------
  * Compute viscous fluxes in 1-direction
@@ -121,6 +140,7 @@ void braginskii_3d(Grid *pG, Domain *pD)
         Bz = 0.5*(pG->U[k][j][i].B3c + pG->U[k][j][i-1].B3c);
         B02 = Bx*Bx + By*By + Bz*Bz;
         B02 = MAX(B02,TINY_NUMBER);
+
         x1Flux[k][j][i].Mx = qa*(3.0*Bx*Bx/B02 - 1.0);
         x1Flux[k][j][i].My = qa*(3.0*By*Bx/B02);
         x1Flux[k][j][i].Mz = qa*(3.0*Bz*Bx/B02);
@@ -128,7 +148,7 @@ void braginskii_3d(Grid *pG, Domain *pD)
         x1Flux[k][j][i].E  =
 #endif /* BAROTROPIC */
 
-        nud = nu*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+        nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
         x1Flux[k][j][i].Mx *= nud;
         x1Flux[k][j][i].My *= nud;
         x1Flux[k][j][i].Mz *= nud;
@@ -150,6 +170,7 @@ void braginskii_3d(Grid *pG, Domain *pD)
         Bz = 0.5*(pG->U[k][j][i].B3c + pG->U[k][j-1][i].B3c);
         B02 = Bx*Bx + By*By + Bz*Bz;
         B02 = MAX(B02,TINY_NUMBER);
+
         x2Flux[k][j][i].Mx = qa*(3.0*Bx*By/B02);
         x2Flux[k][j][i].My = qa*(3.0*By*By/B02 - 1.0);
         x2Flux[k][j][i].Mz = qa*(3.0*Bz*By/B02);
@@ -157,7 +178,7 @@ void braginskii_3d(Grid *pG, Domain *pD)
         x2Flux[k][j][i].E  =
 #endif /* BAROTROPIC */
 
-        nud = nu*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
+        nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
         x2Flux[k][j][i].Mx *= nud;
         x2Flux[k][j][i].My *= nud;
         x2Flux[k][j][i].Mz *= nud;
@@ -179,6 +200,7 @@ void braginskii_3d(Grid *pG, Domain *pD)
         Bz = pG->B3i[k][j][i];
         B02 = Bx*Bx + By*By + Bz*Bz;
         B02 = MAX(B02,TINY_NUMBER);
+
         x3Flux[k][j][i].Mx = qa*(3.0*Bx*Bz/B02);
         x3Flux[k][j][i].My = qa*(3.0*By*Bz/B02);
         x3Flux[k][j][i].Mz = qa*(3.0*Bz*Bz/B02 - 1.0);
@@ -186,7 +208,7 @@ void braginskii_3d(Grid *pG, Domain *pD)
         x3Flux[k][j][i].E  =
 #endif /* BAROTROPIC */
 
-        nud = nu*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
+        nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
         x3Flux[k][j][i].Mx *= nud;
         x3Flux[k][j][i].My *= nud;
         x3Flux[k][j][i].Mz *= nud;
@@ -244,40 +266,79 @@ void braginskii_3d(Grid *pG, Domain *pD)
       }
     }
   }
+#endif /* BRAGINSKII */
 
-#endif /* MHD */
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* brag_viscosity_init: Allocate temporary arrays
+ */
+
+void brag_viscosity_init(int nx1, int nx2, int nx3)
+{
+#ifdef BRAGINSKII
+  int Nx1 = nx1 + 2;
+  int Nx2 = nx2 + 2;
+  int Nx3 = nx3 + 2;
+/* Calculate the dimensions  */
+  dim=0;
+  if(Nx1 > 1) dim++;
+  if(Nx2 > 1) dim++;
+  if(Nx3 > 1) dim++;
+  
+  switch(dim){
+  case 1:
+    break;
+  case 2:
+    break;
+  case 3:
+    if ((x1Flux = (ViscFlux***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ViscFlux)))
+      == NULL) goto on_error;
+    if ((x2Flux = (ViscFlux***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ViscFlux)))
+      == NULL) goto on_error;
+    if ((x3Flux = (ViscFlux***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ViscFlux)))
+      == NULL) goto on_error;
+    if ((Vel = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+      == NULL) goto on_error;
+    if ((divv = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+    if ((BBdV = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
+      goto on_error;
+    break;
+  }
+  return;
+
+  on_error:
+  brag_viscosity_destruct();
+  ath_error("[brag_viscosity_init]: malloc returned a NULL pointer\n");
 #endif /* BRAGINSKII */
   return;
 }
 
 /*----------------------------------------------------------------------------*/
-/* viscous_init_3d: Allocate temporary integration arrays
-*/
+/* brag_viscosity_destruct: Free temporary arrays
+ */
 
-void braginskii_init_3d(int nx1, int nx2, int nx3)
+void brag_viscosity_destruct(void)
 {
-  int Nx1 = nx1 + 2*nghost;
-  int Nx2 = nx2 + 2*nghost;
-  int Nx3 = nx3 + 2*nghost;
-
 #ifdef BRAGINSKII
-  if ((Vx = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((Vy = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((Vz = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((divv = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((BBdV = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
+/* dim set in brag_viscosity_init() at begnning of run */
+  switch(dim){
+  case 1:
+    break;
+  case 2:
+    break;
+  case 3:
+    if (x1Flux != NULL) free_3d_array(x1Flux);
+    if (x2Flux != NULL) free_3d_array(x2Flux);
+    if (x3Flux != NULL) free_3d_array(x3Flux);
+    if (Vel != NULL) free_3d_array(Vel);
+    if (divv != NULL) free_3d_array(divv);
+    if (BBdV != NULL) free_3d_array(BBdV);
+    break;
+  }
 #endif /* BRAGINSKII */
 
   return;
-
-#ifdef BRAGINSKII
-  on_error:
-  integrate_destruct();
-  ath_error("[braginskii_init]: malloc returned a NULL pointer\n");
-#endif /* BRAGINSKII */
 }
