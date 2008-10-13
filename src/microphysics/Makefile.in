@@ -12,6 +12,8 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = braginskii.o \
 	   cool.o \
+	   integrate_diffusion.o \
+	   isotropic_conduction.o \
            resistivity.o \
            viscosity.o
 
