@@ -19,14 +19,14 @@
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,multigrid]                                (self-gravity)
+#   --with-resistivity=[ohmic]                            (explicit resistivity)
+#   --with-viscosity=[ns,braginskii]                        (explicit viscosity)
+#   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
+#
+# PHYSICS "features":
 #   --enable-ion-radiation                         (ionizing radiative transfer)
 #   --enable-ion-point                           (ionization from point sources)
 #   --enable-ion-plane             (ionizing radiation from simulation boundary)
-#
-# PHYSICS "features":
-#   --enable-resistivity                            (explicit Ohmic resistivity)
-#   --enable-viscosity                        (explicit Navier-Stokes viscosity)
-#   --enable-braginskii                          (explicit Braginskii viscosity)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3]                       (order of spatial reconstruction)
@@ -143,7 +143,77 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: ionizing radiative transfer
+# PHYSICS PACKAGE: resistivity
+#   --with-resistivity=[ohmic]
+
+# default for difusivities macro is none.  If any of resistivity, viscosity, or
+# thermal conduction is enabled below, diffusivities will be defined
+AC_SUBST(DIFFUSIVITIES_DEFINE)
+DIFFUSIVITIES_DEFINE="NO_EXPLICIT_DIFFUSION"
+
+AC_SUBST(RESISTIVITY_ALGORITHM)
+AC_ARG_WITH(resistivity, [  --with-resistivity=RESISTIVITY_ALGORITHM  Type of resistivity (ohmic)], 
+		resistivity_algorithm=$withval, resistivity_algorithm=none)
+
+if test "$resistivity_algorithm" = "ohmic"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  RESISTIVITY_USER="Ohmic"
+  RESISTIVITY_ALGORITHM="OHMIC"
+elif test "$resistivity_algorithm" = "none"; then
+  RESISTIVITY_USER="OFF"
+  RESISTIVITY_ALGORITHM="NO_RESISTIVITY"
+else
+  AC_MSG_ERROR([expected --with-resistivity=ohmic])
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS PACKAGE: viscosity
+#   --with-viscosity=[ns,braginskii]
+
+AC_SUBST(VISCOSITY_ALGORITHM)
+AC_ARG_WITH(viscosity, [  --with-viscosity=VISCOSITY_ALGORITHM  Type of viscosity (ns,braginskii)], 
+		viscosity_algorithm=$withval, viscosity_algorithm=none)
+
+if test "$viscosity_algorithm" = "ns"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  VISCOSITY_USER="Navier-Stokes"
+  VISCOSITY_ALGORITHM="NAVIER_STOKES"
+elif test "$viscosity_algorithm" = "braginskii"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  VISCOSITY_USER="Braginskii"
+  VISCOSITY_ALGORITHM="BRAGINSKII"
+elif test "$viscosity_algorithm" = "none"; then
+  VISCOSITY_USER="OFF"
+  VISCOSITY_ALGORITHM="NO_VISCOSITY"
+else
+  AC_MSG_ERROR([expected --with-viscosity=ns or braginskii])
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS PACKAGE: thermal conduction
+#   --with-conduction=[isotropic,anisotropic]
+
+AC_SUBST(CONDUCTION_ALGORITHM)
+AC_ARG_WITH(conduction, [  --with-conduction=CONDUCTION_ALGORITHM  Type of conduction (isotropic,anisotropic)], 
+		conduction_algorithm=$withval, conduction_algorithm=none)
+
+if test "$conduction_algorithm" = "isotropic"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  CONDUCTION_USER="isotropic"
+  CONDUCTION_ALGORITHM="ISOTROPIC_CONDUCTION"
+elif test "$conduction_algorithm" = "anisotropic"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  CONDUCTION_USER="anisotropic"
+  CONDUCTION_ALGORITHM="ANISOTROPIC_CONDUCTION"
+elif test "$conduction_algorithm" = "none"; then
+  CONDUCTION_USER="OFF"
+  CONDUCTION_ALGORITHM="NO_CONDUCTION"
+else
+  AC_MSG_ERROR([expected --with-conduction=isotropic or anisotropic])
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: ionizing radiative transfer
 #  --enable-ion-radiation
 
 AC_SUBST(ION_RADIATION_MODE)
@@ -161,7 +231,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: point sources of ionization
+# PHYSICS FEATURE: point sources of ionization
 #  --enable-ion-point
 
 AC_SUBST(ION_POINT_MODE)
@@ -176,7 +246,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: plane-parallel sources of ionization
+# PHYSICS FEATURE: plane-parallel sources of ionization
 #  --enable-ion-plane
 
 AC_SUBST(ION_PLANE_MODE)
@@ -188,48 +258,6 @@ if test "$ok" = "yes"; then
 else
   ION_PLANE_MODE="NO_ION_RADPLANE"
   ION_PLANE_MODE_USER="OFF"
-fi
-
-#-------------------------------------------------------------------------------
-# PHYSICS FEATURE: Ohmic resistivity
-#   --enable-resistivity
-
-AC_SUBST(RESISTIVITY_MODE)
-AC_ARG_ENABLE(resistivity, [  --enable-resistivity      turn on resistivity], ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-  RESISTIVITY_MODE="RESISTIVITY"
-  RESISTIVITY_MODE_USER="ON"
-else
-  RESISTIVITY_MODE="NO_RESISTIVITY"
-  RESISTIVITY_MODE_USER="OFF"
-fi
-
-#-------------------------------------------------------------------------------
-# PHYSICS FEATURE: Navier-Stokes viscosity
-#   --enable-viscosity
-
-AC_SUBST(VISCOSITY_MODE)
-AC_ARG_ENABLE(viscosity, [  --enable-viscosity      turn on N-S viscosity], ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-  VISCOSITY_MODE="VISCOSITY"
-  VISCOSITY_MODE_USER="ON"
-else
-  VISCOSITY_MODE="NO_VISCOSITY"
-  VISCOSITY_MODE_USER="OFF"
-fi
-
-#-------------------------------------------------------------------------------
-# PHYSICS FEATURE: Braginskii viscosity
-#   --enable-braginskii
-
-AC_SUBST(BRAGINSKII_MODE)
-AC_ARG_ENABLE(braginskii, [  --enable-braginskii      turn on Braginskii viscosity], ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-  BRAGINSKII_MODE="BRAGINSKII"
-  BRAGINSKII_MODE_USER="ON"
-else
-  BRAGINSKII_MODE="NO_BRAGINSKII"
-  BRAGINSKII_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -468,9 +496,9 @@ if test "$ION_RADIATION_MODE" = "ION_RADIATION"; then
   echo "Internal point sources:  $ION_POINT_MODE_USER"
   echo "External plane sources:  $ION_PLANE_MODE_USER"
 fi
-echo "Ohmic resistivity:       $RESISTIVITY_MODE_USER"
-echo "Navier-Stokes viscosity: $VISCOSITY_MODE_USER"
-echo "Braginskii viscosity:    $BRAGINSKII_MODE_USER"
+echo "Resistivity:             $RESISTIVITY_USER"
+echo "Viscosity:               $VISCOSITY_USER"
+echo "Thermal conduction:      $CONDUCTION_USER"
 echo ""
 echo "--- Algorithm Options ----"
 echo ""
