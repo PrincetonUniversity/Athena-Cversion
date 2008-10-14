@@ -294,6 +294,9 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef MHD
     pG->U[ks][js][i].B2c -= dtodx1*(x1Flux[i+1].By - x1Flux[i].By);
     pG->U[ks][js][i].B3c -= dtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
+/* For consistency, set B2i and B3i to cell-centered values.  */
+    pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
+    pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
