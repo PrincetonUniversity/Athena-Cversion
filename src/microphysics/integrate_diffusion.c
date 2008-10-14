@@ -38,7 +38,9 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
 
 /* Calculate explicit diffusion timestep */
 
-  min_dx = MIN(pGrid->dx1,(MIN(pGrid->dx2,pGrid->dx3)));
+  min_dx = pGrid->dx1;
+  if (pGrid->Nx2 > 1) min_dx = MIN(min_dx,pGrid->dx2);
+  if (pGrid->Nx3 > 1) min_dx = MIN(min_dx,pGrid->dx3);
 #ifdef OHMIC
   pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*eta_R)));
 #endif        
