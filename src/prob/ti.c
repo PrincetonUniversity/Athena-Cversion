@@ -34,7 +34,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 {
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke;
-  Real n0,T0;
+  Real n0,T0,kappa;
   long int iseed = -1;
 
   is = pGrid->is; ie = pGrid->ie;
@@ -45,6 +45,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   T0    = par_getd("problem","T0");
   n0    = par_getd("problem","n0");
+#ifdef ISOTROPIC_CONDUCTION
+  kappa = par_getd("problem","kappa");
+  kappa_T = (mbar/kb)*kappa;
+#endif
 
 /* Constant density and temperature initially */
 
