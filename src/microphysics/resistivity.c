@@ -43,9 +43,6 @@ typedef struct ThreeDVect_t{
 }ThreeDVect;
 static ThreeDVect ***emf=NULL;
 
-/* dimension of calculation (determined at runtime) */
-static int dim=0;
-
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* ohmic_resistivity_1d:
@@ -53,6 +50,48 @@ static int dim=0;
 
 void ohmic_resistivity_1d(Grid *pG, Domain *pD)
 {
+#ifdef OHMIC
+  int i, is = pG->is, ie = pG->ie;
+  int js = pG->js;
+  int ks = pG->ks;
+  Real dtodx1 = pG->dt/pG->dx1;
+
+/*--- Step 1 -------------------------------------------------------------------
+ * Compute resistive EMF.  Note:
+ *   emf.x = eta*J1 = 0
+ *   emf.y = eta*J2 = eta_R*(-dB3/dx1)
+ *   emf.z = eta*J3 = eta_R*(dB2/dx1)
+ * Note emf.y and emf.z use B3c and B2c respectively
+ */
+
+  for (i=is; i<=ie+1; i++) {
+    emf[ks][js][i].x = 0.0;
+    emf[ks][js][i].y = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
+    emf[ks][js][i].z =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
+/* Multiple components by constant \eta_R */
+    emf[ks][js][i].y *= eta_R;
+    emf[ks][js][i].z *= eta_R;
+  }
+
+/*--- Step 2 -------------------------------------------------------------------
+ * CT update of magnetic field using resistive EMF.  In 1D, this reduces to
+ * centered differences for the resistive fluxes of B2c and B3c
+ */
+
+  for (i=is; i<=ie; i++) {
+    pG->U[ks][js][i].B2c += dtodx1*(emf[ks][js][i+1].z - emf[ks][js][i].z);
+    pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].y - emf[ks][js][i].y);
+  }
+
+/*--- Step 3 -------------------------------------------------------------------
+ * For consistency, set B2i and B3i to cell-centered values. */
+
+  for (i=is; i<=ie; i++) {
+    pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
+    pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
+  }
+#endif /* OHMIC */
+
   return;
 }
 
@@ -62,6 +101,69 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
 
 void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 {
+#ifdef OHMIC
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int ks = pG->ks;
+  Real dtodx1 = pG->dt/pG->dx1;
+  Real dtodx2 = pG->dt/pG->dx2;
+
+/*--- Step 1 -------------------------------------------------------------------
+ * Compute resistive EMF.  Note:
+ *   emf.x = eta*J1 = eta_R*(dB3/dx2)
+ *   emf.y = eta*J2 = eta_R*(-dB3/dx1)
+ *   emf.z = eta*J3 = eta_R*(dB2/dx1 - dB1/dx2)
+ * Note emf.x and emf.y use B3c
+ */
+
+  for (j=js; j<=je+1; j++) {
+    for (i=is; i<=ie+1; i++) {
+      emf[ks][j][i].x =  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i].B3c)/pG->dx2;
+      emf[ks][j][i].y = -(pG->U[ks][j][i].B3c - pG->U[ks][j][i-1].B3c)/pG->dx1;
+
+      emf[ks][j][i].z = (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
+                        (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
+/* Multiple components by constant \eta_R */
+      emf[ks][j][i].x *= eta_R;
+      emf[ks][j][i].y *= eta_R;
+      emf[ks][j][i].z *= eta_R;
+    }
+  }
+
+/*--- Step 2 -------------------------------------------------------------------
+ * CT update of magnetic field using resistive EMF.  This is identical to the
+ * CT update in the 2D integrators: dB/dt = -Curl(E).  For B3, the CT formula
+ * reduces to centered differences for the diffusive (resistive) fluxes of B3c.
+ */
+
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].z - emf[ks][j][i].z);
+      pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].z - emf[ks][j][i].z);
+
+      pG->U[ks][j][i].B3c += dtodx2*(emf[ks][j+1][i  ].x - emf[ks][j][i].x) -
+                             dtodx1*(emf[ks][j  ][i+1].y - emf[ks][j][i].y);
+    }
+    pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].z - emf[ks][j][ie+1].z);
+  }
+  for (i=is; i<=ie; i++) {
+    pG->B2i[ks][je+1][i] += dtodx1*(emf[ks][je+1][i+1].z - emf[ks][je+1][i].z);
+  }
+
+/*--- Step 3 -------------------------------------------------------------------
+ * Set cell centered magnetic fields to average of updated face centered fields.
+ */
+
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j][i+1]);
+      pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j+1][i]);
+/* Set the 3-interface magnetic field equal to the cell center field. */
+      pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
+    }
+  }
+#endif /* OHMIC */
+
   return;
 }
 
@@ -137,7 +239,8 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
   }
 
 /*--- Step 3 -------------------------------------------------------------------
- * Set cell centered magnetic fields to average of updated face centered fields. */
+ * Set cell centered magnetic fields to average of updated face centered fields.
+ */
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -161,24 +264,13 @@ void ohmic_resistivity_init(int nx1, int nx2, int nx3)
 {
 #ifdef OHMIC
   int Nx1 = nx1 + 2;
-  int Nx2 = nx2 + 2;
-  int Nx3 = nx3 + 2;
-/* Calculate the dimensions  */
-  dim=0;
-  if(Nx1 > 1) dim++;
-  if(Nx2 > 1) dim++;
-  if(Nx3 > 1) dim++;
+  int Nx2, Nx3;
+
+  if (nx2 > 1) Nx2 = nx2 + 2;
+  if (nx3 > 1) Nx3 = nx3 + 2;
   
-  switch(dim){
-  case 1:
-    break;
-  case 2:
-    break;
-  case 3:
-    if ((emf = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
-      == NULL) goto on_error;
-    break;
-  }
+  if ((emf = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+    == NULL) goto on_error;
   return;
 
   on_error:
@@ -195,17 +287,7 @@ void ohmic_resistivity_init(int nx1, int nx2, int nx3)
 void ohmic_resistivity_destruct(void)
 {
 #ifdef OHMIC
-/* dim set in ohmic_resistivity_init() at begnning of run */
-  switch(dim){
-  case 1:
-    break;
-  case 2:
-    break;
-  case 3:
-    if (emf != NULL) free_3d_array(emf);
-    break;
-  }
+  if (emf != NULL) free_3d_array(emf);
 #endif /* OHMIC */
-
   return;
 }
