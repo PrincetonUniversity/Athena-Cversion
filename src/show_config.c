@@ -49,6 +49,28 @@ void show_config(void)
   ath_pout(0," Self-gravity:            OFF\n");
 #endif
 
+#if defined(OHMIC)
+  ath_pout(0," Resistivity:             Ohmic\n");
+#else
+  ath_pout(0," Ohmic resistivity:       OFF\n");
+#endif
+
+#if defined(NAVIER_STOKES)
+  ath_pout(0," Viscosity:               Navier-Stokes\n");
+#elif defined(BRAGINSKII)
+  ath_pout(0," Viscosity:               Braginskii\n");
+#else
+  ath_pout(0," Viscosity:               OFF\n");
+#endif
+
+#if defined(ISOTROPIC_CONDUCTION)
+  ath_pout(0," Thermal conduction:      isotropic\n");
+#elif defined(ANISOTROPIC_CONDUCTION)
+  ath_pout(0," Thermal conduction:      anisotropic\n");
+#else
+  ath_pout(0," Thermal conduction:      OFF\n");
+#endif
+
 #ifdef ION_RADIATION
   ath_pout(0," Ionizing radiation:      ON\n");
 #else
@@ -65,24 +87,6 @@ void show_config(void)
   ath_pout(0,"   Ionizing plane sources:  ON\n");
 #else
   ath_pout(0,"   Ionizing plane sources:  OFF\n");
-#endif
-
-#if defined(RESISTIVITY)
-  ath_pout(0," Ohmic resistivity:       ON\n");
-#else
-  ath_pout(0," Ohmic resistivity:       OFF\n");
-#endif
-
-#if defined(VISCOSITY)
-  ath_pout(0," Navier-Stokes viscosity: ON\n");
-#else
-  ath_pout(0," Navier-Stokes viscosity: OFF\n");
-#endif
-
-#if defined(BRAGINSKII)
-  ath_pout(0," Braginskii viscosity:    ON\n");
-#else
-  ath_pout(0," Braginskii viscosity:    OFF\n");
 #endif
 
 #if defined(FIRST_ORDER)
@@ -173,6 +177,28 @@ void show_config_par(void)
   par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
 #endif
 
+#if defined(OHMIC)
+  par_sets("configure","resistivity","Ohmic","resistivity algorithm");
+#else
+  par_sets("configure","resistivity","OFF","resistivity algorithm");
+#endif
+
+#if defined(NAVIER_STOKES)
+  par_sets("configure","viscosity","Navier-Stokes","viscosity algorithm");
+#elif defined(BRAGINSKII)
+  par_sets("configure","viscosity","Braginskii","viscosity algorithm");
+#else
+  par_sets("configure","viscosity","none","viscosity algorithm");
+#endif
+
+#if defined(ISOTROPIC_CONDUCTION)
+  par_sets("configure","thermal conduction","isotropic","conduction algorithm");
+#elif defined(ANISOTROPIC_CONDUCTION)
+  par_sets("configure","thermal conduction","anisotropic","conduction algorithm");
+#else
+  par_sets("configure","thermal conduction","none","conduction algorithm");
+#endif
+
 #if defined(ION_RADIATION)
   par_sets("configure","ionizing radiation","yes","Ionizing rad transfer?");
 #else
@@ -189,24 +215,6 @@ void show_config_par(void)
   par_sets("configure","plane source","yes","Plane source of radiation?");
 #else
   par_sets("configure","plane source","no","Plane source of radiation?");
-#endif
-
-#if defined(RESISTIVITY)
-  par_sets("configure","resistivity","yes","Ohmic resistivity?");
-#else
-  par_sets("configure","resistivity","no","Ohmic resistivity?");
-#endif
-
-#if defined(VISCOSITY)
-  par_sets("configure","viscosity","yes","Navier-Stokes viscosity?");
-#else
-  par_sets("configure","viscosity","no","Navier-Stokes viscosity?");
-#endif
-
-#if defined(BRAGINSKII)
-  par_sets("configure","braginskii","yes","Braginskii viscosity?");
-#else
-  par_sets("configure","braginskii","no","Braginskii viscosity?");
 #endif
 
 #if defined(FIRST_ORDER)
