@@ -4,6 +4,7 @@
  *
  * PURPOSE: Implements explicit Ohmic resistivity, that is
  *      dB/dt = -Curl(\eta J)    where J=Curl(B).
+ *      dE/dt = Div(B X \eta J)
  *   Functions are called by integrate_diffusion() in the main loop, which
  *   coordinates adding all diffusion operators (viscosity, resistivity, thermal
  *   conduction) using operator splitting.
@@ -27,9 +28,6 @@
 #include "../prototypes.h"
 
 #ifdef OHMIC
-#ifdef ADIABATIC
-#error : resistivity only works for isothermal EOS.
-#endif /* ADIABATIC */
 #ifdef HYDRO
 #error : Ohmic resistivity only works for MHD.
 #endif /* HYDRO */
@@ -41,7 +39,7 @@ typedef struct ThreeDVect_t{
   Real y;
   Real z;
 }ThreeDVect;
-static ThreeDVect ***emf=NULL;
+static ThreeDVect ***emf=NULL, ***EFlux=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -61,7 +59,7 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
  *   emf.x = eta*J1 = 0
  *   emf.y = eta*J2 = eta_R*(-dB3/dx1)
  *   emf.z = eta*J3 = eta_R*(dB2/dx1)
- * Note emf.y and emf.z use B3c and B2c respectively
+ * emf.y and emf.z use B3c and B2c respectively, and are centered at x1-faces
  */
 
   for (i=is; i<=ie+1; i++) {
@@ -73,7 +71,20 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
     emf[ks][js][i].z *= eta_R;
   }
 
+#ifndef BAROTROPIC
 /*--- Step 2 -------------------------------------------------------------------
+ * Compute flux of total energy due to resistive diffusion = B X emf
+ *  EFlux.x =  By*emf.z - Bz*emf.y
+ */   
+      
+  for (i=is; i<=ie+1; i++) {
+    EFlux[ks][js][i].x =
+       0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c)*emf[ks][js][i].z
+     - 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c)*emf[ks][js][i].y;
+  }
+#endif
+
+/*--- Step 3 -------------------------------------------------------------------
  * CT update of magnetic field using resistive EMF.  In 1D, this reduces to
  * centered differences for the resistive fluxes of B2c and B3c
  */
@@ -83,13 +94,23 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
     pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].y - emf[ks][js][i].y);
   }
 
-/*--- Step 3 -------------------------------------------------------------------
- * For consistency, set B2i and B3i to cell-centered values. */
+/* For consistency, set B2i and B3i to cell-centered values. */
 
   for (i=is; i<=ie; i++) {
     pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
     pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
   }
+
+#ifndef BAROTROPIC
+/*--- Step 4 -------------------------------------------------------------------
+ * Update energy using resistive fluxes (dE/dt = Div(F))
+ */
+
+  for (i=is; i<=ie; i++) {
+    pG->U[ks][js][i].E  += dtodx1*(EFlux[ks][js][i+1].x - EFlux[ks][js][i].x);
+  }                       
+#endif /* BAROTROPIC */
+
 #endif /* OHMIC */
 
   return;
@@ -113,7 +134,7 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
  *   emf.x = eta*J1 = eta_R*(dB3/dx2)
  *   emf.y = eta*J2 = eta_R*(-dB3/dx1)
  *   emf.z = eta*J3 = eta_R*(dB2/dx1 - dB1/dx2)
- * Note emf.x and emf.y use B3c
+ * emf.x and emf.y use B3c, and in 2D are centered at x2- and x1-interfaces
  */
 
   for (j=js; j<=je+1; j++) {
@@ -130,7 +151,33 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
     }
   }
 
+#ifndef BAROTROPIC
 /*--- Step 2 -------------------------------------------------------------------
+ * Compute flux of total energy due to resistive diffusion = B X emf
+ *  EFlux.x =  By*emf.z - Bz*emf.y
+ *  EFlux.y =  Bz*emf.x - Bx*emf.z
+ */
+
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie+1; i++) {
+      EFlux[ks][j][i].x =
+         0.25*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c)*
+                (emf[ks][j][i].z + emf[ks][j+1][i].z)
+       - 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c)*emf[ks][j][i].y;
+    }
+  }
+  
+  for (j=js; j<=je+1; j++) {
+    for (i=is; i<=ie; i++) {
+      EFlux[ks][j][i].y =   
+         0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x
+       - 0.25*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c)*
+                (emf[ks][j][i].z + emf[ks][j][i+1].z);
+    }
+  }
+#endif
+
+/*--- Step 3 -------------------------------------------------------------------
  * CT update of magnetic field using resistive EMF.  This is identical to the
  * CT update in the 2D integrators: dB/dt = -Curl(E).  For B3, the CT formula
  * reduces to centered differences for the diffusive (resistive) fluxes of B3c.
@@ -150,8 +197,7 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
     pG->B2i[ks][je+1][i] += dtodx1*(emf[ks][je+1][i+1].z - emf[ks][je+1][i].z);
   }
 
-/*--- Step 3 -------------------------------------------------------------------
- * Set cell centered magnetic fields to average of updated face centered fields.
+/* Set cell centered magnetic fields to average of updated face centered fields.
  */
 
   for (j=js; j<=je; j++) {
@@ -162,6 +208,19 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
       pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
     }
   }
+
+#ifndef BAROTROPIC
+/*--- Step 4 -------------------------------------------------------------------
+ * Update energy using resistive fluxes in each dimension (dE/dt = Div(F))
+ */
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pG->U[ks][j][i].E  += dtodx1*(EFlux[ks][j][i+1].x - EFlux[ks][j][i].x);
+      pG->U[ks][j][i].E  += dtodx2*(EFlux[ks][j+1][i].y - EFlux[ks][j][i].y);
+    } 
+  }                       
+#endif /* BAROTROPIC */
+
 #endif /* OHMIC */
 
   return;
@@ -205,7 +264,50 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
     }
   }
 
+#ifndef BAROTROPIC
 /*--- Step 2 -------------------------------------------------------------------
+ * THIS WILL USE OLD B
+ * Compute flux of total energy due to resistive diffusion = B X emf
+ *  EFlux.x =  By*emf.z - Bz*emf.y
+ *  EFlux.y =  Bz*emf.x - Bx*emf.z
+ *  EFlux.x =  Bx*emf.y - By*emf.x
+ */
+
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie+1; i++) {
+      EFlux[k][j][i].x = 
+         0.25*(pG->U[k][j][i].B2c + pG->U[k][j][i-1].B2c)*
+                (emf[k][j][i].z + emf[k][j+1][i].z)
+       - 0.25*(pG->U[k][j][i].B3c + pG->U[k][j][i-1].B3c)*
+                (emf[k][j][i].y + emf[k+1][j][i].y);
+    }
+  }}
+
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je+1; j++) {
+    for (i=is; i<=ie; i++) {
+      EFlux[k][j][i].y =   
+         0.25*(pG->U[k][j][i].B3c + pG->U[k][j-1][i].B3c)*
+                (emf[k][j][i].x + emf[k+1][j][i].x)
+       - 0.25*(pG->U[k][j][i].B1c + pG->U[k][j-1][i].B1c)*
+                (emf[k][j][i].z + emf[k][j][i+1].z);
+    }
+  }}
+
+  for (k=ks; k<=ke+1; k++) {
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      EFlux[k][j][i].z =   
+         0.25*(pG->U[k][j][i].B1c + pG->U[k-1][j][i].B1c)*
+                (emf[k][j][i].y + emf[k][j][i+1].y)
+       - 0.25*(pG->U[k][j][i].B2c + pG->U[k-1][j][i].B2c)*
+                (emf[k][j][i].x + emf[k][j+1][i].x);
+    }
+  }}
+#endif
+
+/*--- Step 3 -------------------------------------------------------------------
  * CT update of magnetic field using resistive EMFs.  This is identical to the
  * CT update in the integrators: dB/dt = -Curl(E)
  */
@@ -238,8 +340,7 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 3 -------------------------------------------------------------------
- * Set cell centered magnetic fields to average of updated face centered fields.
+/* Set cell centered magnetic fields to average of updated face centered fields.
  */
 
   for (k=ks; k<=ke; k++) {
@@ -251,6 +352,22 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
       }
     }
   }
+
+#ifndef BAROTROPIC
+/*--- Step 4 -------------------------------------------------------------------
+ * Update energy using resistive fluxes in each dimension (dE/dt = Div(F))
+ */
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        pG->U[k][j][i].E  += dtodx1*(EFlux[k][j][i+1].x - EFlux[k][j][i].x);
+        pG->U[k][j][i].E  += dtodx2*(EFlux[k][j+1][i].y - EFlux[k][j][i].y);
+        pG->U[k][j][i].E  += dtodx3*(EFlux[k+1][j][i].z - EFlux[k][j][i].z);
+      }
+    }
+  }
+#endif /* BAROTROPIC */
+
 #endif /* OHMIC */
 
   return;
@@ -263,14 +380,24 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
 void ohmic_resistivity_init(int nx1, int nx2, int nx3)
 {
 #ifdef OHMIC
-  int Nx1 = nx1 + 2;
-  int Nx2, Nx3;
-
-  if (nx2 > 1) Nx2 = nx2 + 2;
-  if (nx3 > 1) Nx3 = nx3 + 2;
+  int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
+  if (nx2 > 1){
+    Nx2 = nx2 + 2*nghost;
+  } else {
+    Nx2 = nx2;
+  }
+  if (nx3 > 1){
+    Nx3 = nx3 + 2*nghost;
+  } else {
+    Nx3 = nx3;
+  }
   
   if ((emf = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
     == NULL) goto on_error;
+#ifndef BAROTROPIC
+  if ((EFlux = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+    == NULL) goto on_error;
+#endif 
   return;
 
   on_error:
@@ -288,6 +415,9 @@ void ohmic_resistivity_destruct(void)
 {
 #ifdef OHMIC
   if (emf != NULL) free_3d_array(emf);
+#ifndef BAROTROPIC
+  if (EFlux != NULL) free_3d_array(EFlux);
+#endif
 #endif /* OHMIC */
   return;
 }
