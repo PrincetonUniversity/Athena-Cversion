@@ -437,14 +437,14 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 void brag_viscosity_init(int nx1, int nx2, int nx3)
 {
 #ifdef BRAGINSKII
-  int Nx1 = nx1 + 2, Nx2, Nx3;
+  int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
   if (nx2 > 1){
-    Nx2 = nx2 + 2;
+    Nx2 = nx2 + 2*nghost;
   } else {
-    Nx2 = nx2;
+    ath_error("[brag_viscosity_init]:Braginskii viscosity requires 2D or 3D\n");
   }
   if (nx3 > 1){
-    Nx3 = nx3 + 2;
+    Nx3 = nx3 + 2*nghost;
   } else {
     Nx3 = nx3;
   }
