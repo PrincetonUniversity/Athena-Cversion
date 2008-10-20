@@ -63,14 +63,18 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->U[k][j][i].M2 = drat*amp*(ran2(&iseed) - 0.5);
           }
 /* Pressure scaled to give a sound speed of 1 with gamma=1.4 */
+#ifndef BAROTROPIC
           pGrid->U[k][j][i].E = 2.5/Gamma_1
              + 0.5*(SQR(pGrid->U[k][j][i].M1) + SQR(pGrid->U[k][j][i].M2)
              + SQR(pGrid->U[k][j][i].M3))/pGrid->U[k][j][i].d;
+#endif /* BAROTROPIC */
 #ifdef MHD
           pGrid->B1i[k][j][i] = b0;
           pGrid->U[k][j][i].B1c = b0;
+#ifndef BAROTROPIC
           pGrid->U[k][j][i].E += 0.5*b0*b0;
-#endif
+#endif /* BAROTROPIC */
+#endif /* MHD */
         }
 #ifdef MHD
       pGrid->B1i[k][j][ie+1] = b0;
@@ -94,14 +98,18 @@ void problem(Grid *pGrid, Domain *pDomain)
           pGrid->U[k][j][i].M1 = vflow*tanh(x2/a);
           pGrid->U[k][j][i].M2 = amp*sin(2.0*PI*x1)*exp(-(x2*x2)/(sigma*sigma));
           pGrid->U[k][j][i].M3 = 0.0;
+#ifndef BAROTROPIC
           pGrid->U[k][j][i].E = 1.0/Gamma_1
              + 0.5*(SQR(pGrid->U[k][j][i].M1) + SQR(pGrid->U[k][j][i].M2)
              + SQR(pGrid->U[k][j][i].M3))/pGrid->U[k][j][i].d;
+#endif /* BAROTROPIC */
 #ifdef MHD
           pGrid->B1i[k][j][i] = b0;
           pGrid->U[k][j][i].B1c = b0;
+#ifndef BAROTROPIC
           pGrid->U[k][j][i].E += 0.5*b0*b0;
-#endif
+#endif /* BAROTROPIC */
+#endif /* MHD */
 /* Use passive scalar to keep track of the fluids, since densities are same */
 #if (NSCALARS > 0)
           pGrid->U[k][j][i].s[0] = 0.0;
@@ -114,6 +122,18 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
     }
   }
+
+/* With viscosity and/or resistivity, read eta_R and nu_V */
+
+#ifdef OHMIC
+  eta_R = par_getd("problem","eta");
+#endif
+#ifdef NAVIER_STOKES
+  nu_V = par_getd("problem","nu");
+#endif
+#ifdef BRAGINSKII
+  nu_V = par_getd("problem","nu");
+#endif
 
 }
 
