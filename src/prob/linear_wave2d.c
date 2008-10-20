@@ -14,13 +14,16 @@
  *
  *   Can be used for either standing (problem/vflow=1.0) or travelling
  *   (problem/vflow=0.0) waves.
-*
- *   With SELF_GRAVITY defined, can be used to check Jeans stability of plane
+ *
+ *   Configure --with-gravity=fft to check Jeans stability of plane
  *   waves propagating at an angle to the grid.
+ *
+ *   Configure --with-resistivity=ohmic and/or --with-viscosity=ns to check
+ *   damping of linear waves by resistivity and/or viscosity
  *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
- *   wave periods for this to work.
+ *   wave periods for this to work (only works for ideal MHD).
  *============================================================================*/
 
 #include <math.h>
@@ -298,6 +301,15 @@ void problem(Grid *pGrid, Domain *pDomain)
   four_pi_G = par_getd("problem","four_pi_G");
   grav_mean_rho = d0;
 #endif /* SELF_GRAVITY */
+
+/* With viscosity and/or resistivity, read eta_R and nu_V */
+
+#ifdef OHMIC
+  eta_R = par_getd("problem","eta");
+#endif
+#ifdef NAVIER_STOKES
+  nu_V = par_getd("problem","nu");
+#endif
 
   return;
 }
