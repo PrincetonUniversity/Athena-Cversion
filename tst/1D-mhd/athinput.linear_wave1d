@@ -17,7 +17,7 @@ dt      = 0.1               # time increment between outputs
 
 <output2>
 out_fmt = bin               # Binary data dump
-dt      = 0.1               # time increment between outputs
+dt      = 0.05               # time increment between outputs
 
 <output3>
 out_fmt = hst               # History data dump
@@ -48,8 +48,11 @@ x3max           = 0.0       # maximum value of X3
 <problem>
 
 gamma = 1.6666666666666667  # gamma = C_p/C_v
+iso_csound      = 1.0
 
 wave_flag       = 0         # Wave family number (0 - 6)
 wave_dir        = 1         # Wave direction (1 - 3)
-amp             = 1.0e-6    # Wave Amplitude
+amp             = 1.0e-4    # Wave Amplitude
 vflow           = 0.0       # Average x1 velocity
+nu              = 0.02
+eta             = 0.01
