@@ -7,14 +7,20 @@
  *      problem/rad   = radius of field loop
  *      problem/amp   = amplitude of vector potential (and therefore B)
  *      problem/vflow = flow velocity
+ *      problem/drat  = density ratio in loop.  Enables density advection and
+ *                      thermal conduction tests.
  *   The flow is automatically set to run along the diagonal. 
+ *
  *   Various test cases are possible:
  *     (iprob=1): field loop in x1-x2 plane (cylinder in 3D)
  *     (iprob=2): field loop in x2-x3 plane (cylinder in 3D)
  *     (iprob=3): field loop in x3-x1 plane (cylinder in 3D) 
  *     (iprob=4): rotated cylindrical field loop in 3D.
  *     (iprob=5): spherical field loop in rotated plane
+ *
  *   A sphere of passive scalar can be added to test advection of scalars.
+ *
+ *   The temperature in the loop can be changed using drat to test conduction.
  *
  * REFERENCE: T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD
  *   via constrined transport", JCP, 205, 509 (2005)
@@ -38,7 +44,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   int is,ie,js,je,ks,ke,nx1,nx2,nx3,iprob;
   Real x1c,x2c,x3c,x1f,x2f,x3f;       /* cell- and face-centered coordinates */
   Real x1size,x2size,x3size,lambda=0.0,ang_2=0.0,sin_a2=0.0,cos_a2=1.0,x,y;
-  Real rad,amp,vflow,diag;
+  Real rad,amp,vflow,drat,diag;
   Real ***az,***ay,***ax;
 #if (NSCALARS > 0)
   int n;
@@ -65,12 +71,22 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[field_loop]: Error allocating memory for vector pot\n");
   }
 
-/* Read initial conditions */
+/* Read initial conditions, diffusion coefficients (if needed) */
 
   rad = par_getd("problem","rad");
   amp = par_getd("problem","amp");
   vflow = par_getd("problem","vflow");
+  drat = par_getd_def("problem","drat",1.0);
   iprob = par_getd("problem","iprob");
+#ifdef OHMIC
+  eta_R = par_getd("problem","eta");
+#endif
+#ifdef ISOTROPIC_CONDUCTION
+  kappa_T = par_getd("problem","kappa");
+#endif
+#ifdef ANISOTROPIC_CONDUCTION
+  chi_C = par_getd("problem","chi");
+#endif
 
 /* For (iprob=4) -- rotated cylinder in 3D -- set up rotation angle and
  * wavelength of cylinder */
@@ -189,6 +205,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   }}}
 
+/* Initialize density and momenta.  If drat != 1, then density and temperature
+ * will be different inside loop than background values
+ */
+
   x1size = pGrid->dx1*(Real)par_geti("grid","Nx1");
   x2size = pGrid->dx2*(Real)par_geti("grid","Nx2");
   x3size = pGrid->dx3*(Real)par_geti("grid","Nx3");
@@ -208,8 +228,14 @@ void problem(Grid *pGrid, Domain *pDomain)
      pGrid->B3i[k][j][i] = (ay[k][j][i+1] - ay[k][j][i])/pGrid->dx1 -
                            (ax[k][j+1][i] - ax[k][j][i])/pGrid->dx2;
 #endif
-#if (NSCALARS > 0)
      cc_pos(pGrid,i,j,k,&x1c,&x2c,&x3c);
+     if ((x1c*x1c + x2c*x2c + x3c*x3c) < rad*rad) {
+       pGrid->U[k][j][i].d = drat;
+       pGrid->U[k][j][i].M1 = pGrid->U[k][j][i].d*vflow*x1size/diag;
+       pGrid->U[k][j][i].M2 = pGrid->U[k][j][i].d*vflow*x2size/diag;
+       pGrid->U[k][j][i].M3 = pGrid->U[k][j][i].d*vflow*x3size/diag;
+     }
+#if (NSCALARS > 0)
      for (n=0; n<NSCALARS; n++) pGrid->U[k][j][i].s[n] = 0.0;
      if ((x1c*x1c + x2c*x2c + x3c*x3c) < rad*rad) {
        for (n=0; n<NSCALARS; n++)  pGrid->U[k][j][i].s[n] = 1.0;
@@ -293,6 +319,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * current() - computes x3-component of current
  * Bp2()     - computes magnetic pressure (Bx2 + By2)
  * color()   - returns first passively advected scalar s[0]
+ * Temperature() - returns temperature for conduction tests
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
@@ -326,6 +353,21 @@ static Real color(const Grid *pG, const int i, const int j, const int k)
 }
 #endif
 
+#ifndef BAROTROPIC
+static Real Temperature(const Grid *pG, const int i, const int j, const int k)
+{
+  Real Temp;
+  Temp = pG->U[k][j][i].E - (0.5/pG->U[k][j][i].d)*(
+    SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3));
+#ifdef MHD
+  Temp -= 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) 
+            + SQR(pG->U[k][j][i].B3c));
+#endif
+  Temp *= Gamma_1/pG->U[k][j][i].d;
+  return Temp;
+}
+#endif
+
 Gasfun_t get_usr_expr(const char *expr)
 {
 #ifdef MHD
@@ -335,6 +377,7 @@ Gasfun_t get_usr_expr(const char *expr)
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
 #endif
+  if(strcmp(expr,"Temperature")==0) return Temperature;
   return NULL;
 }
 
