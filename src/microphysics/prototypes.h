@@ -5,6 +5,7 @@
  * FILE: prototypes.h
  *
  * PURPOSE: Prototypes for all public functions from the following files:
+ *   anisotropic_conduction.c
  *   braginskii.c
  *   cool.c
  *   integrate_diffusion.c
@@ -19,6 +20,12 @@
 #include "../defs.h"
 
 #include "../config.h"
+
+/* anisotropic_conduction.c */
+void anisoconduct_2d(Grid *pG, Domain *pD);
+void anisoconduct_3d(Grid *pG, Domain *pD);
+void anisoconduct_init(int nx1, int nx2, int nx3);
+void anisoconduct_destruct(void);
 
 /* braginskii.c */
 void brag_viscosity_2d(Grid *pG, Domain *pD);

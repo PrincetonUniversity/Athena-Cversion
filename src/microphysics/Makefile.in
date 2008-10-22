@@ -10,7 +10,8 @@
 #   the appropriate object files, compiler options, and library paths.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = braginskii.o \
+CORE_OBJ = anisotropic_conduction.o \
+	   braginskii.o \
 	   cool.o \
 	   integrate_diffusion.o \
 	   isotropic_conduction.o \

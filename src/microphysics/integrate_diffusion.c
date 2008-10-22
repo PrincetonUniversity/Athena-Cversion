@@ -47,8 +47,11 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
 #if defined(NAVIER_STOKES) || defined(BRAGINSKII)
   pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*nu_V)));
 #endif
-#if defined(ISOTROPIC_CONDUCTION) || defined(ANISOTROPIC_CONDUCTION)
+#if defined(ISOTROPIC_CONDUCTION)
   pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*kappa_T)));
+#endif
+#if defined(ANISOTROPIC_CONDUCTION)
+  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*chi_C)));
 #endif
 
 /* Call diffusion operators.  Function pointers set in 

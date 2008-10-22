@@ -87,7 +87,8 @@ ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
 		ionradiation/ionradpoint_3d.o
 endif
 
-MICROPHYS_OBJ = microphysics/braginskii.o \
+MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
+		microphysics/braginskii.o \
 		microphysics/cool.o \
 		microphysics/integrate_diffusion.o \
 		microphysics/isotropic_conduction.o \
