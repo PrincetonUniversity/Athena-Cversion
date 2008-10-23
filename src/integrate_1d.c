@@ -4,7 +4,7 @@
  *
  * PURPOSE: Integrate MHD equations in 1D.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s]
  *   in Grid structure, where U is of type Gas.  Adds gravitational source
- *   terms, and self-gravity.
+ *   terms, self-gravity, and optically-thin cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_1d()
@@ -129,11 +129,11 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
   if (CoolingFunc != NULL){
     for (i=is; i<=ie+1; i++) {
-      coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,pG->dt);
-      coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,pG->dt);
+      coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
+      coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
 
-      Wl[i].P -= pG->dt*Gamma_1*coolfl;
-      Wr[i].P -= pG->dt*Gamma_1*coolfr;
+      Wl[i].P -= 0.5*pG->dt*Gamma_1*coolfl;
+      Wr[i].P -= 0.5*pG->dt*Gamma_1*coolfr;
     }
   }
 #endif /* BAROTROPIC */
@@ -262,7 +262,7 @@ void integrate_1d(Grid *pG, Domain *pD)
   for (i=is; i<=ie+1; i++) {
     pG->x1MassFlux[ks][js][i] = x1Flux[i].d;
   }
-#endif
+#endif /* SELF_GRAVITY */
 
 /*--- Step 11c -----------------------------------------------------------------
  * Add source terms for optically thin cooling
