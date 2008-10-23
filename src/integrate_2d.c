@@ -2,24 +2,23 @@
 /*==============================================================================
  * FILE: integrate_2d.c
  *
- * PURPOSE: Updates the input Grid structure pointed to by *pG by one 
- *   timestep using directionally unsplit CTU method of Colella (1990).  The
- *   variables updated are:
+ * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
+ *   method of Colella (1990).  The variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i -- interface magnetic field
- *   Also adds gravitational source terms, self-gravity, and H-correction
- *   of Sanders et al.
+ *   Also adds gravitational source terms, self-gravity, optically-thin cooling,
+ *   and H-correction of Sanders et al.
  *
  * REFERENCES:
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
+ *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ *   constrained transport", JCP, 205, 509 (2005)
+ *
  *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
- *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
- *   constrained transport", JCP, 205, 509 (2005)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_2d()
@@ -54,8 +53,8 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
-/* density at t^{n+1/2} needed by both MHD and to make gravity 2nd order */
-static Real **dhalf = NULL;
+/* density and Pressure at t^{n+1/2} needed by MHD, cooling, and gravity */
+static Real **dhalf = NULL,**phalf = NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
 extern Real etah;
@@ -83,14 +82,14 @@ void integrate_2d(Grid *pG, Domain *pD)
 {
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
-  int is = pG->is, ie = pG->ie;
-  int js = pG->js, je = pG->je;
-  int ks = pG->ks;
-  int i,il,iu;
-  int j,jl,ju;
+  int i,il,iu,is=pG->is, ie=pG->ie;
+  int j,jl,ju,js=pG->js, je=pG->je;
+  int ks=pG->ks;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
 #ifdef MHD
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
-  Real d, M1, M2, B1c, B2c;
+  Real B1ch, B2ch, B3ch;
   Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
@@ -99,7 +98,6 @@ void integrate_2d(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,flux_m1l,flux_m1r,flux_m2l,flux_m2r;
 #endif
@@ -194,17 +192,33 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms from optically-thin cooling for 0.5*dt to L/R states
+ */
+
+#ifndef BAROTROPIC
+    if (CoolingFunc != NULL){
+      for (i=is-1; i<=iu; i++) {
+        coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
+        coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
+
+        Wl[i].P -= 0.5*pG->dt*Gamma_1*coolfl;
+        Wr[i].P -= 0.5*pG->dt*Gamma_1*coolfr;
+      }
+    }
+#endif /* BAROTROPIC */
+
+/*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
  *  (x1,x2,x3) in code = (X,Z,Y) in 2D shearing sheet
  */
 
 #ifdef SHEARING_BOX
-      for (i=is-1; i<=iu; i++) {
-        Wl[i].Vx += pG->dt*Omega*W[i-1].Vz; /* (dt/2)*( 2 Omega Vy) */
-        Wl[i].Vz -= pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
+    for (i=is-1; i<=iu; i++) {
+      Wl[i].Vx += pG->dt*Omega*W[i-1].Vz; /* (dt/2)*( 2 Omega Vy) */
+      Wl[i].Vz -= pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
 
-        Wr[i].Vx += pG->dt*Omega*W[i].Vz; /* (dt/2)*( 2 Omega Vy) */
-        Wr[i].Vz -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
+      Wr[i].Vx += pG->dt*Omega*W[i].Vz; /* (dt/2)*( 2 Omega Vy) */
+      Wr[i].Vz -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
     }
 #endif /* SHEARING_BOX */
 
@@ -292,11 +306,27 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-      for (j=js-1; j<=ju; j++) {
-        Wl[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
-        Wr[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
-      }
+    for (j=js-1; j<=ju; j++) {
+      Wl[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
+      Wr[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
+    }
 #endif
+
+/*--- Step 2c (cont) -----------------------------------------------------------
+ * Add source terms from optically-thin cooling for 0.5*dt to L/R states
+ */
+
+#ifndef BAROTROPIC
+    if (CoolingFunc != NULL){
+      for (j=js-1; j<=ju; j++) {
+        coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt));
+        coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt));
+
+        Wl[j].P -= 0.5*pG->dt*Gamma_1*coolfl;
+        Wr[j].P -= 0.5*pG->dt*Gamma_1*coolfr;
+      }
+    }
+#endif /* BAROTROPIC */
 
 /*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x2-direction, storing into 2D array
@@ -659,10 +689,13 @@ void integrate_2d(Grid *pG, Domain *pD)
 /*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
 
 /*--- Step 8a ------------------------------------------------------------------
- * Calculate d^{n+1/2}
+ * Calculate d^{n+1/2} (needed with static potential, cooling, or MHD)
  */
 
-  if (dhalf != NULL){
+#ifndef MHD
+  if ((StaticGravPot != NULL) || (CoolingFunc != NULL)) 
+#endif 
+  {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
         dhalf[j][i] = pG->U[ks][j][i].d
@@ -673,44 +706,54 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 
 /*--- Step 8b ------------------------------------------------------------------
- * Calculate cell centered value of emf3 at the half-time-step
+ * Calculate P^{n+1/2} (needed with cooling), and cell centered emf3_cc^{n+1/2}
  */
 
-#ifdef MHD
+#ifndef MHD
+  if (CoolingFunc != NULL) 
+#endif /* MHD */
+  {
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-
-      d  = dhalf[j][i];
-
-      M1 = pG->U[ks][j][i].M1
+      M1h = pG->U[ks][j][i].M1
         - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
         - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
 
-      M2 = pG->U[ks][j][i].M2
+      M2h = pG->U[ks][j][i].M2
         - hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
         - hdtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
 
+      M3h = pG->U[ks][j][i].M3
+        - hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz)
+        - hdtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
+
+#ifndef BAROTROPIC
+      Eh = pG->U[ks][j][i].E
+        - hdtodx1*(x1Flux[j][i+1].E - x1Flux[j][i].E)
+        - hdtodx2*(x2Flux[j+1][i].E - x2Flux[j][i].E);
+#endif
+
 /* Add source terms for fixed gravitational potential */
       if (StaticGravPot != NULL){
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-        M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+        M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
 
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-        M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+        M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
       }
 
 /* Add source terms due to self-gravity  */
 #ifdef SELF_GRAVITY
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
-      M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+      M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
 
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j+1][i]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j-1][i]);
-      M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+      M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
 #endif /* SELF_GRAVITY */
 
 /* Add the tidal potential and Coriolis terms for shearing box. */
@@ -718,13 +761,29 @@ void integrate_2d(Grid *pG, Domain *pD)
       M1 += pG->dt*Omega*pG->U[ks][j][i].M3;
 #endif /* SHEARING_BOX */
 
-      B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
-      B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
+#ifndef BAROTROPIC
+      phalf[j][i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[j][i];
+#endif
 
-      emf3_cc[j][i] = (B1c*M2 - B2c*M1)/d;
+#ifdef MHD
+      B1ch = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
+      B2ch = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
+      B3ch = pG->U[ks][j][i].B3c 
+        - hdtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz)
+        - hdtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
+      emf3_cc[j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[j][i];
+#ifndef BAROTROPIC
+      phalf[j][i] -= 0.5*(B1ch*B1ch + B2ch*B2ch + B3ch*B3ch);
+#endif
+#endif /* MHD */
+
+#ifndef BAROTROPIC
+      phalf[j][i] *= Gamma_1;
+#endif
+
     }
   }
-#endif /* MHD */
+  }
 
 /*=== STEP 9: Compute 2D x1-Flux, x2-Flux ====================================*/
 
@@ -1002,6 +1061,21 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
+/*--- Step 11c -----------------------------------------------------------------
+ * Add source terms for optically thin cooling
+ */
+
+#ifndef BAROTROPIC
+  if (CoolingFunc != NULL){
+    for (j=js; j<=je; j++){
+      for (i=is; i<=ie; i++){
+        coolf = (*CoolingFunc)(dhalf[j][i],phalf[j][i],pG->dt);
+        pG->U[ks][j][i].E -= pG->dt*coolf;
+      }
+    }
+  }
+#endif /* BAROTROPIC */
+
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 
 /*--- Step 12a -----------------------------------------------------------------
@@ -1111,6 +1185,7 @@ void integrate_destruct_2d(void)
   if (x1Flux    != NULL) free_2d_array(x1Flux);
   if (x2Flux    != NULL) free_2d_array(x2Flux);
   if (dhalf     != NULL) free_2d_array(dhalf);
+  if (phalf     != NULL) free_2d_array(phalf);
 
   return;
 }
@@ -1169,15 +1244,15 @@ void integrate_init_2d(int nx1, int nx2)
   if ((x2Flux    = (Cons1D**)calloc_2d_array(Nx2, Nx1, sizeof(Cons1D))) == NULL)
     goto on_error;
 
-#if defined MHD || defined SHEARING_BOX
+#ifndef MHD
+  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
+  {
   if ((dhalf = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-#else
-  if(StaticGravPot != NULL){
-    if ((dhalf = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
-      goto on_error;
+  if ((phalf = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
   }
-#endif
 
   return;
 

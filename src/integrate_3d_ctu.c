@@ -2,13 +2,12 @@
 /*==============================================================================
  * FILE: integrate_3d_ctu.c
  *
- * PURPOSE: Updates the input Grid structure pointed to by *pG by one
- *   timestep using directionally unsplit CTU method of Colella (1990).  The
- *   variables updated are:
+ * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
+ *   method of Colella (1990).  The variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
- *   Also adds gravitational source terms, self-gravity, and the H-correction
- *   of Sanders et al.
+ *   Also adds gravitational source terms, self-gravity, optically thin cooling,
+ *   and the H-correction of Sanders et al.
  *     For adb hydro, requires (9*Cons1D +  3*Real) = 48 3D arrays
  *     For adb mhd, requires   (9*Cons1D + 10*Real) = 73 3D arrays
  *   The H-correction of Sanders et al. adds another 3 arrays.  
@@ -17,12 +16,12 @@
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
+ *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ *   constrained transport in three dimensions", JCP, 227, 4123 (2008)
+ *
  *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
- *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
- *   constrained transport in three dimensions", JCP, 227, 4123 (2008)
  *
  *   J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
  *   178, 137 (2008)
@@ -62,8 +61,8 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1D *U1d=NULL;
 
-/* density at t^{n+1/2} needed by both MHD and to make gravity 2nd order */
-static Real ***dhalf = NULL;
+/* density and Pressure at t^{n+1/2} needed by MHD, cooling, and gravity */
+static Real ***dhalf = NULL, ***phalf=NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
 extern Real etah;
@@ -71,6 +70,7 @@ extern Real etah;
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
 
+/* variables needed to conserve net Bz in shearing box */
 #ifdef SHEARING_BOX
 static Real **remapEyiib=NULL, **remapEyoib=NULL;
 #endif
@@ -100,10 +100,12 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
 #ifdef MHD
   Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
   Real db1,db2,db3,l1,l2,l3,B1,B2,B3,V1,V2,V3;
-  Real d, M1, M2, M3, B1c, B2c, B3c;
+  Real B1ch,B2ch,B3ch;
   Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
@@ -112,7 +114,6 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #endif
@@ -247,6 +248,22 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #endif
 
 /*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms from optically-thin cooling for 0.5*dt to L/R states
+ */
+
+#ifndef BAROTROPIC
+      if (CoolingFunc != NULL){
+        for (i=is-1; i<=ie+2; i++) {
+          coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
+          coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
+
+          Wl[i].P -= 0.5*pG->dt*Gamma_1*coolfl;
+          Wr[i].P -= 0.5*pG->dt*Gamma_1*coolfr;
+        }
+      }
+#endif /* BAROTROPIC */
+
+/*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
  */
 
@@ -265,7 +282,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 #else
 	Wr[i].Vy -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
 #endif
-    }
+      }
 #endif /* SHEARING_BOX */
 
 /*--- Step 1d ------------------------------------------------------------------
@@ -404,6 +421,22 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       }
 #endif
 
+/*--- Step 2c (cont) -----------------------------------------------------------
+ * Add source terms from optically-thin cooling for 0.5*dt to L/R states
+ */
+
+#ifndef BAROTROPIC
+      if (CoolingFunc != NULL){
+        for (j=js-1; j<=je+2; j++) {
+          coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt));
+          coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt));
+
+          Wl[j].P -= 0.5*pG->dt*Gamma_1*coolfl;
+          Wr[j].P -= 0.5*pG->dt*Gamma_1*coolfr;
+        }
+      }
+#endif /* BAROTROPIC */
+
 /*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x2-direction, storing into 3D array
  */
@@ -539,6 +572,22 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Wr[k].Vx -= q3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
       }
 #endif
+
+/*--- Step 3c (cont) -----------------------------------------------------------
+ * Add source terms from optically-thin cooling for 0.5*dt to L/R states
+ */
+
+#ifndef BAROTROPIC
+      if (CoolingFunc != NULL){
+        for (k=ks-1; k<=ke+2; k++) {
+          coolfl = (*CoolingFunc)(Wl[k].d,Wl[k].P,(0.5*pG->dt));
+          coolfr = (*CoolingFunc)(Wr[k].d,Wr[k].P,(0.5*pG->dt));
+  
+          Wl[k].P -= 0.5*pG->dt*Gamma_1*coolfl;
+          Wr[k].P -= 0.5*pG->dt*Gamma_1*coolfr;
+        }
+      }
+#endif /* BAROTROPIC */
 
 /*--- Step 3d ------------------------------------------------------------------
  * Compute 1D fluxes in x3-direction, storing into 3D array
@@ -1521,10 +1570,13 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
 /*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
 
 /*--- Step 8a ------------------------------------------------------------------
- * Calculate d^{n+1/2}
+ * Calculate d^{n+1/2} (needed with static potential, cooling, or MHD)
  */
 
-  if (dhalf != NULL){
+#ifndef MHD
+  if ((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
+  {
     for (k=ks-1; k<=ke+1; k++) {
       for (j=js-1; j<=je+1; j++) {
 	for (i=is-1; i<=ie+1; i++) {
@@ -1538,86 +1590,104 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 
 /*--- Step 8b ------------------------------------------------------------------
- * Calculate cell centered value of emf1,2,3 at the half-time-step
+ * Calculate P^{n+1/2} (needed with cooling), and cell centered emf_cc^{n+1/2}
  */
 
-#ifdef MHD
+#ifndef MHD
+  if (CoolingFunc != NULL)
+#endif /* MHD */
+  {
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        cc_pos(pG,i,j,k,&x1,&x2,&x3);
-
-        d  = dhalf[k][j][i];
-
-        M1 = pG->U[k][j][i].M1
+        M1h = pG->U[k][j][i].M1
            - q1*(x1Flux[k  ][j  ][i+1].Mx - x1Flux[k][j][i].Mx)
            - q2*(x2Flux[k  ][j+1][i  ].Mz - x2Flux[k][j][i].Mz)
            - q3*(x3Flux[k+1][j  ][i  ].My - x3Flux[k][j][i].My);
 
-        M2 = pG->U[k][j][i].M2
+        M2h = pG->U[k][j][i].M2
            - q1*(x1Flux[k  ][j  ][i+1].My - x1Flux[k][j][i].My)
            - q2*(x2Flux[k  ][j+1][i  ].Mx - x2Flux[k][j][i].Mx)
            - q3*(x3Flux[k+1][j  ][i  ].Mz - x3Flux[k][j][i].Mz);
 
-        M3 = pG->U[k][j][i].M3
+        M3h = pG->U[k][j][i].M3
            - q1*(x1Flux[k  ][j  ][i+1].Mz - x1Flux[k][j][i].Mz)
            - q2*(x2Flux[k  ][j+1][i  ].My - x2Flux[k][j][i].My)
            - q3*(x3Flux[k+1][j  ][i  ].Mx - x3Flux[k][j][i].Mx);
 
+#ifndef BAROTROPIC
+        Eh = pG->U[k][j][i].E
+           - q1*(x1Flux[k  ][j  ][i+1].E - x1Flux[k][j][i].E)
+           - q2*(x2Flux[k  ][j+1][i  ].E - x2Flux[k][j][i].E)
+           - q3*(x3Flux[k+1][j  ][i  ].E - x3Flux[k][j][i].E);
+#endif
+
 /* Add source terms for fixed gravitational potential */
         if (StaticGravPot != NULL){
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
           phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-          M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
+          M1h -= q1*(phir-phil)*pG->U[k][j][i].d;
 
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-          M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
+          M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
 
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
-          M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
+          M3h -= q3*(phir-phil)*pG->U[k][j][i].d;
         }
 
 /* Add source terms due to self-gravity  */
 #ifdef SELF_GRAVITY
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
-        M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
+        M1h -= q1*(phir-phil)*pG->U[k][j][i].d;
 
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
-        M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
+        M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
 
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
-        M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
+        M3h -= q3*(phir-phil)*pG->U[k][j][i].d;
 #endif /* SELF_GRAVITY */
 
 /* Add the Coriolis terms for shearing box.  Tidal potential already added by
  * StaticGravPot above.  */
 #ifdef SHEARING_BOX
-        M1 += pG->dt*Omega*pG->U[k][j][i].M2;
+        M1h += pG->dt*Omega*pG->U[k][j][i].M2;
 #ifdef FARGO
-        M2 -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+        M2h -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
 #else
-        M2 -= pG->dt*Omega*pG->U[k][j][i].M1;
+        M2h -= pG->dt*Omega*pG->U[k][j][i].M1;
 #endif
 #endif /* SHEARING_BOX */
 
-        B1c = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j  ][i+1]);
-        B2c = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k  ][j+1][i  ]);
-        B3c = 0.5*(B3_x3Face[k][j][i] + B3_x3Face[k+1][j  ][i  ]);
+#ifndef BAROTROPIC
+        phalf[k][j][i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[k][j][i];
+#endif
 
-        emf1_cc[k][j][i] = (B2c*M3 - B3c*M2)/d;
+#ifdef MHD
+        B1ch = 0.5*(B1_x1Face[k][j][i] + B1_x1Face[k  ][j  ][i+1]);
+        B2ch = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k  ][j+1][i  ]);
+        B3ch = 0.5*(B3_x3Face[k][j][i] + B3_x3Face[k+1][j  ][i  ]);
+        emf1_cc[k][j][i] = (B2ch*M3h - B3ch*M2h)/dhalf[k][j][i];
+        emf2_cc[k][j][i] = (B3ch*M1h - B1ch*M3h)/dhalf[k][j][i];
+        emf3_cc[k][j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[k][j][i];
+#ifndef BAROTROPIC
+        phalf[k][j][i] -= 0.5*(B1ch*B1ch + B2ch*B2ch + B3ch*B3ch);
+#endif
+#endif /* MHD */
 
-        emf2_cc[k][j][i] = (B3c*M1 - B1c*M3)/d;
+#ifndef BAROTROPIC
+        phalf[k][j][i] *= Gamma_1;
+#endif
 
-        emf3_cc[k][j][i] = (B1c*M2 - B2c*M1)/d;
       }
     }
   }
-#endif
+  }
 
 /*=== STEP 9: Compute 3D x1-Flux, x2-Flux, x3-Flux ===========================*/
 
@@ -2111,6 +2181,23 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
+/*--- Step 11c -----------------------------------------------------------------
+ * Add source terms for optically thin cooling
+ */
+
+#ifndef BAROTROPIC
+  if (CoolingFunc != NULL){
+    for (k=ks; k<=ke; k++){
+      for (j=js; j<=je; j++){
+        for (i=is; i<=ie; i++){
+          coolf = (*CoolingFunc)(dhalf[k][j][i],phalf[k][j][i],pG->dt);
+          pG->U[k][j][i].E -= pG->dt*coolf;
+        }
+      }
+    }
+  }
+#endif /* BAROTROPIC */
+
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 
 /*--- Step 12a -----------------------------------------------------------------
@@ -2246,6 +2333,7 @@ void integrate_destruct_3d(void)
   if (x2Flux    != NULL) free_3d_array(x2Flux);
   if (x3Flux    != NULL) free_3d_array(x3Flux);
   if (dhalf     != NULL) free_3d_array(dhalf);
+  if (phalf     != NULL) free_3d_array(phalf);
 #ifdef SHEARING_BOX
   if (remapEyiib != NULL) free_2d_array(remapEyiib);
   if (remapEyoib != NULL) free_2d_array(remapEyoib);
@@ -2327,15 +2415,15 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     == NULL) goto on_error;
 
 
-#if defined MHD || defined SHEARING_BOX
+#ifndef MHD
+  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
+  {
   if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
-#else
-  if(StaticGravPot != NULL){
-    if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-      goto on_error;
+  if ((phalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
+    goto on_error;
   }
-#endif
 
 #ifdef SHEARING_BOX
   if ((remapEyiib = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
