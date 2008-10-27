@@ -42,7 +42,11 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
   if (pGrid->Nx2 > 1) min_dx = MIN(min_dx,pGrid->dx2);
   if (pGrid->Nx3 > 1) min_dx = MIN(min_dx,pGrid->dx3);
 #ifdef OHMIC
-  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*eta_R)));
+  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*eta_Ohm)));
+#endif        
+/* I think the Hall timestep limit needs density */
+#ifdef HALL_MHD
+  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*(eta_Ohm + eta_Hall))));
 #endif        
 #if defined(NAVIER_STOKES) || defined(BRAGINSKII)
   pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*nu_V)));
@@ -96,6 +100,10 @@ void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
     ApplyResistivity = ohmic_resistivity_1d;
     ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
 #endif
+#ifdef HALL_MHD
+    ApplyResistivity = hall_resistivity_1d;
+    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+#endif
     break;
 
 /* 2D */
@@ -111,6 +119,10 @@ void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
 #ifdef OHMIC
     ApplyResistivity = ohmic_resistivity_2d;
     ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+#endif
+#ifdef HALL_MHD
+    ApplyResistivity = hall_resistivity_2d;
+    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
 #endif
 #ifdef ANISOTROPIC_CONDUCTION
     ApplyThermalConduct = anisoconduct_2d;
@@ -131,6 +143,10 @@ void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
 #ifdef OHMIC
     ApplyResistivity = ohmic_resistivity_3d;
     ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+#endif
+#ifdef HALL_MHD
+    ApplyResistivity = hall_resistivity_3d;
+    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
 #endif
 #ifdef ANISOTROPIC_CONDUCTION
     ApplyThermalConduct = anisoconduct_3d;
@@ -166,6 +182,9 @@ void integrate_explicit_diff_destruct()
 #endif
 #ifdef OHMIC
   ohmic_resistivity_destruct();
+#endif
+#ifdef HALL_MHD
+  hall_resistivity_destruct();
 #endif
 #ifdef ISOTROPIC_CONDUCTION
   isoconduct_destruct();

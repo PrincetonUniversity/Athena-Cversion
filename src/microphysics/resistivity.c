@@ -57,8 +57,8 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
 /*--- Step 1 -------------------------------------------------------------------
  * Compute resistive EMF.  Note:
  *   emf.x = eta*J1 = 0
- *   emf.y = eta*J2 = eta_R*(-dB3/dx1)
- *   emf.z = eta*J3 = eta_R*(dB2/dx1)
+ *   emf.y = eta*J2 = eta_Ohm*(-dB3/dx1)
+ *   emf.z = eta*J3 = eta_Ohm*(dB2/dx1)
  * emf.y and emf.z use B3c and B2c respectively, and are centered at x1-faces
  */
 
@@ -66,9 +66,9 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
     emf[ks][js][i].x = 0.0;
     emf[ks][js][i].y = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
     emf[ks][js][i].z =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
-/* Multiple components by constant \eta_R */
-    emf[ks][js][i].y *= eta_R;
-    emf[ks][js][i].z *= eta_R;
+/* Multiple components by constant \eta_Ohm */
+    emf[ks][js][i].y *= eta_Ohm;
+    emf[ks][js][i].z *= eta_Ohm;
   }
 
 #ifndef BAROTROPIC
@@ -131,9 +131,9 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 
 /*--- Step 1 -------------------------------------------------------------------
  * Compute resistive EMF.  Note:
- *   emf.x = eta*J1 = eta_R*(dB3/dx2)
- *   emf.y = eta*J2 = eta_R*(-dB3/dx1)
- *   emf.z = eta*J3 = eta_R*(dB2/dx1 - dB1/dx2)
+ *   emf.x = eta*J1 = eta_Ohm*(dB3/dx2)
+ *   emf.y = eta*J2 = eta_Ohm*(-dB3/dx1)
+ *   emf.z = eta*J3 = eta_Ohm*(dB2/dx1 - dB1/dx2)
  * emf.x and emf.y use B3c, and in 2D are centered at x2- and x1-interfaces
  */
 
@@ -144,10 +144,10 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 
       emf[ks][j][i].z = (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
                         (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
-/* Multiple components by constant \eta_R */
-      emf[ks][j][i].x *= eta_R;
-      emf[ks][j][i].y *= eta_R;
-      emf[ks][j][i].z *= eta_R;
+/* Multiple components by constant \eta_Ohm */
+      emf[ks][j][i].x *= eta_Ohm;
+      emf[ks][j][i].y *= eta_Ohm;
+      emf[ks][j][i].z *= eta_Ohm;
     }
   }
 
@@ -242,9 +242,9 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
 
 /*--- Step 1 -------------------------------------------------------------------
  * Compute resistive EMFs.  Note:
- *   emf.x = eta*J1 = eta_R*(dB3/dx2 - dB2/dx3)
- *   emf.y = eta*J2 = eta_R*(dB1/dx3 - dB3/dx1)
- *   emf.z = eta*J3 = eta_R*(dB2/dx1 - dB1/dx2)
+ *   emf.x = eta*J1 = eta_Ohm*(dB3/dx2 - dB2/dx3)
+ *   emf.y = eta*J2 = eta_Ohm*(dB1/dx3 - dB3/dx1)
+ *   emf.z = eta*J3 = eta_Ohm*(dB2/dx1 - dB1/dx2)
  */
 
   for (k=ks; k<=ke+1; k++) {
@@ -256,10 +256,10 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
                          (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
         emf[k][j][i].z = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
                          (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
-/* Multiple components by constant \eta_R */
-        emf[k][j][i].x *= eta_R;
-        emf[k][j][i].y *= eta_R;
-        emf[k][j][i].z *= eta_R;
+/* Multiple components by constant \eta_Ohm */
+        emf[k][j][i].x *= eta_Ohm;
+        emf[k][j][i].y *= eta_Ohm;
+        emf[k][j][i].z *= eta_Ohm;
       }
     }
   }

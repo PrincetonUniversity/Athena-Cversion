@@ -13,6 +13,7 @@
 CORE_OBJ = anisotropic_conduction.o \
 	   braginskii.o \
 	   cool.o \
+	   hall.o \
 	   integrate_diffusion.o \
 	   isotropic_conduction.o \
            resistivity.o \

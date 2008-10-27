@@ -36,6 +36,13 @@ void brag_viscosity_destruct(void);
 /* cool.c */
 Real KoyInut(const Real dens, const Real Press, const Real dt);
 
+/* hall.c */
+void hall_resistivity_1d(Grid *pG, Domain *pD);
+void hall_resistivity_2d(Grid *pG, Domain *pD);
+void hall_resistivity_3d(Grid *pG, Domain *pD);
+void hall_resistivity_init(int nx1, int nx2, int nx3);
+void hall_resistivity_destruct(void);
+
 /* integrate_diffusion.c */
 void integrate_explicit_diff(Grid *pGrid, Domain *pDomain);
 void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain);
