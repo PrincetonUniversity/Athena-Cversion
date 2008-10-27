@@ -15,7 +15,7 @@ if (-d $rundir) rm -rf $rundir
 mkdir $rundir
 cd $rundir
 
-../../../bin/athena -i ../athinput.linear_wave1d problem/wave_flag=0 time/tlim=0.5 grid/Nx1=512 job/maxout=0 >& athena.log
+../../../bin/athena -i ../athinput.linear_wave1d problem/wave_flag=0 time/tlim=0.5 grid/Nx1=512 job/maxout=0 problem/amp=1.0e-6 >& athena.log
 
 grep zone-cycles athena.log
 
