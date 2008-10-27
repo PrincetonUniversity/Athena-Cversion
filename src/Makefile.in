@@ -90,6 +90,7 @@ endif
 MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
 		microphysics/braginskii.o \
 		microphysics/cool.o \
+		microphysics/hall.o \
 		microphysics/integrate_diffusion.o \
 		microphysics/isotropic_conduction.o \
 		microphysics/resistivity.o \

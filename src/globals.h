@@ -35,7 +35,7 @@ Real Omega;
 #endif
 
 #ifdef EXPLICIT_DIFFUSION
-Real eta_R=0.0, nu_V=0.0, kappa_T=0.0, chi_C=0.0;
+Real eta_Ohm=0.0, eta_Hall=0.0, nu_V=0.0, kappa_T=0.0, chi_C=0.0;
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -63,7 +63,7 @@ extern Real Omega;
 #endif
 
 #ifdef EXPLICIT_DIFFUSION
-extern Real eta_R, nu_V, kappa_T, chi_C;
+extern Real eta_Ohm, eta_Hall, nu_V, kappa_T, chi_C;
 #endif
 
 #endif /* MAIN_C */

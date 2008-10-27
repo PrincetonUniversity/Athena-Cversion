@@ -51,6 +51,8 @@ void show_config(void)
 
 #if defined(OHMIC)
   ath_pout(0," Resistivity:             Ohmic\n");
+#elif defined(HALL_MHD)
+  ath_pout(0," Resistivity:             Hall\n");
 #else
   ath_pout(0," Ohmic resistivity:       OFF\n");
 #endif
@@ -179,6 +181,8 @@ void show_config_par(void)
 
 #if defined(OHMIC)
   par_sets("configure","resistivity","Ohmic","resistivity algorithm");
+#elif defined(HALL_MHD)
+  par_sets("configure","resistivity","Hall","resistivity algorithm");
 #else
   par_sets("configure","resistivity","OFF","resistivity algorithm");
 #endif
