@@ -19,7 +19,7 @@
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,multigrid]                                (self-gravity)
-#   --with-resistivity=[ohmic]                            (explicit resistivity)
+#   --with-resistivity=[ohmic,hall]                       (explicit resistivity)
 #   --with-viscosity=[ns,braginskii]                        (explicit viscosity)
 #   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #
@@ -144,7 +144,7 @@ fi
 
 #-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: resistivity
-#   --with-resistivity=[ohmic]
+#   --with-resistivity=[ohmic,hall]
 
 # default for difusivities macro is none.  If any of resistivity, viscosity, or
 # thermal conduction is enabled below, diffusivities will be defined
@@ -152,18 +152,22 @@ AC_SUBST(DIFFUSIVITIES_DEFINE)
 DIFFUSIVITIES_DEFINE="NO_EXPLICIT_DIFFUSION"
 
 AC_SUBST(RESISTIVITY_ALGORITHM)
-AC_ARG_WITH(resistivity, [  --with-resistivity=RESISTIVITY_ALGORITHM  Type of resistivity (ohmic)], 
+AC_ARG_WITH(resistivity, [  --with-resistivity=RESISTIVITY_ALGORITHM  Type of resistivity (ohmic,hall)], 
 		resistivity_algorithm=$withval, resistivity_algorithm=none)
 
 if test "$resistivity_algorithm" = "ohmic"; then
   DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
   RESISTIVITY_USER="Ohmic"
   RESISTIVITY_ALGORITHM="OHMIC"
+elif test "$resistivity_algorithm" = "hall"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  RESISTIVITY_USER="Hall"
+  RESISTIVITY_ALGORITHM="HALL_MHD"
 elif test "$resistivity_algorithm" = "none"; then
   RESISTIVITY_USER="OFF"
   RESISTIVITY_ALGORITHM="NO_RESISTIVITY"
 else
-  AC_MSG_ERROR([expected --with-resistivity=ohmic])
+  AC_MSG_ERROR([expected --with-resistivity=ohmic or hall])
 fi
 
 #-------------------------------------------------------------------------------
