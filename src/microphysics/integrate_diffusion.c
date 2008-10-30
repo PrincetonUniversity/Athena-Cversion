@@ -42,20 +42,20 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
   if (pGrid->Nx2 > 1) min_dx = MIN(min_dx,pGrid->dx2);
   if (pGrid->Nx3 > 1) min_dx = MIN(min_dx,pGrid->dx3);
 #ifdef OHMIC
-  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*eta_Ohm)));
+  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*eta_Ohm)));
 #endif        
 /* I think the Hall timestep limit needs density */
 #ifdef HALL_MHD
-  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*(eta_Ohm + eta_Hall))));
+  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*(eta_Ohm + eta_Hall))));
 #endif        
 #if defined(NAVIER_STOKES) || defined(BRAGINSKII)
-  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*nu_V)));
+  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*nu_V)));
 #endif
 #if defined(ISOTROPIC_CONDUCTION)
-  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*kappa_T)));
+  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*kappa_T)));
 #endif
 #if defined(ANISOTROPIC_CONDUCTION)
-  pGrid->dt = MIN(pGrid->dt,((min_dx*min_dx)/(4.0*chi_C)));
+  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*chi_C)));
 #endif
 
 /* Call diffusion operators.  Function pointers set in 
