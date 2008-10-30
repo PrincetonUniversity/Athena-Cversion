@@ -758,7 +758,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 /* Add the tidal potential and Coriolis terms for shearing box. */
 #ifdef SHEARING_BOX
-      M1 += pG->dt*Omega*pG->U[ks][j][i].M3;
+      M1h += pG->dt*Omega*pG->U[ks][j][i].M3;
 #endif /* SHEARING_BOX */
 
 #ifndef BAROTROPIC
