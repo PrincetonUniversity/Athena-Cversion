@@ -126,7 +126,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* With viscosity and/or resistivity, read eta_R and nu_V */
 
 #ifdef OHMIC
-  eta_R = par_getd("problem","eta");
+  eta_Ohm = par_getd("problem","eta");
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
