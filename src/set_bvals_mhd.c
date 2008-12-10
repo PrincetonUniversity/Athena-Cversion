@@ -708,18 +708,18 @@ static void reflect_ix1(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa is set according to whether B_normal=0 */
+/* The multiplier qa=-1 if B_normal=0 (ibc_x1=1) */
   ibc_x1 = par_geti("grid","ibc_x1");
   if (ibc_x1 == 1) qa = -1.0;
   if (ibc_x1 == 5) qa =  1.0;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
+      if (ibc_x1 == 1) pGrid->B1i[k][j][is] = 0.0;
       for (i=1; i<=nghost; i++) {
-        pGrid->B1i[k][j][is-i]   = qa*pGrid->B1i[k][j][is+(i-1)];
+        pGrid->B1i[k][j][is-i]   = qa*pGrid->B1i[k][j][is+i];
         pGrid->U[k][j][is-i].B1c = qa*pGrid->U[k][j][is+(i-1)].B1c;
       }
-      if (ibc_x1 == 1) pGrid->B1i[k][j][is] = 0.0;
     }
   }
 
@@ -772,7 +772,7 @@ static void reflect_ox1(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa is set according to whether B_normal=0 */
+/* The multiplier qa=-1 if B_normal=0 (obc_x1=1) */
   obc_x1 = par_geti("grid","obc_x1");
   if (obc_x1 == 1) qa = -1.0;
   if (obc_x1 == 5) qa =  1.0;
@@ -781,9 +781,10 @@ static void reflect_ox1(Grid *pGrid)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       if (obc_x1 == 1 ) pGrid->B1i[k][j][ie+1] = 0.0;
+      pGrid->U[k][j][ie+1].B1c = qa*pGrid->U[k][j][ie].B1c;
       for (i=2; i<=nghost; i++) {
         pGrid->B1i[k][j][ie+i]   = qa*pGrid->B1i[k][j][ie-(i-2)];
-        pGrid->U[k][j][ie+i].B1c = qa*pGrid->U[k][j][ie-(i-2)].B1c;
+        pGrid->U[k][j][ie+i].B1c = qa*pGrid->U[k][j][ie-(i-1)].B1c;
       }
     }
   }
@@ -844,7 +845,7 @@ static void reflect_ix2(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa is set according to whether B_normal=0 */
+/* The multiplier qa=-1 if B_normal=0 (ibc_x2=1) */
   ibc_x2 = par_geti("grid","ibc_x2");
   if (ibc_x2 == 1) qa = -1.0;
   if (ibc_x2 == 5) qa =  1.0;
@@ -859,15 +860,15 @@ static void reflect_ix2(Grid *pGrid)
   }
 
   for (k=ks; k<=ke; k++) {
-    for (j=1; j<=nghost; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B2i[k][js-j][i]   = qa*pGrid->B2i[k][js+(j-1)][i];
-        pGrid->U[k][js-j][i].B2c = qa*pGrid->U[k][js+(j-1)][i].B2c;
-      }
-    }
     if (ibc_x2 == 1) {
       for (i=il; i<=iu; i++) {
         pGrid->B2i[k][js][i] = 0.0;
+      }
+    }
+    for (j=1; j<=nghost; j++) {
+      for (i=il; i<=iu; i++) {
+        pGrid->B2i[k][js-j][i]   = qa*pGrid->B2i[k][js+j][i];
+        pGrid->U[k][js-j][i].B2c = qa*pGrid->U[k][js+(j-1)][i].B2c;
       }
     }
   }
@@ -918,7 +919,7 @@ static void reflect_ox2(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa is set according to whether B_normal=0 */
+/* The multiplier qa=-1 if B_normal=0 (obc_x2=1) */
   obc_x2 = par_geti("grid","obc_x2");
   if (obc_x2 == 1) qa = -1.0;
   if (obc_x2 == 5) qa =  1.0;
@@ -934,15 +935,14 @@ static void reflect_ox2(Grid *pGrid)
 
 /* j=je+1 is not set for the interface field B2i, except obc_x2=1 */
   for (k=ks; k<=ke; k++) {
-    if (obc_x2 == 1) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B2i[k][je+1][i] = 0.0;
-      }
+    for (i=il; i<=iu; i++) {
+      if (obc_x2 == 1) pGrid->B2i[k][je+1][i] = 0.0;
+      pGrid->U[k][je+1][i].B2c = qa*pGrid->U[k][je][i].B2c;
     }
     for (j=2; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->B2i[k][je+j][i]   = qa*pGrid->B2i[k][je-(j-2)][i];
-        pGrid->U[k][je+j][i].B2c = qa*pGrid->U[k][je-(j-2)][i].B2c;
+        pGrid->U[k][je+j][i].B2c = qa*pGrid->U[k][je-(j-1)][i].B2c;
       }
     }
   }
@@ -999,7 +999,7 @@ static void reflect_ix3(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa is set according to whether B_normal=0 */
+/* The multiplier qa=-1 if B_normal=0 (ibc_x3=1) */
   ibc_x3 = par_geti("grid","ibc_x3");
   if (ibc_x3 == 1) qa = -1.0;
   if (ibc_x3 == 5) qa =  1.0;
@@ -1023,16 +1023,15 @@ static void reflect_ix3(Grid *pGrid)
   }
 
   if (ibc_x3 == 1) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B3i[ks][j][i] = 0.0;
-      }
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      pGrid->B3i[ks][j][i] = 0.0;
     }
-  }
+  }}
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pGrid->B3i[ks-k][j][i]   = qa*pGrid->B3i[ks+(k-1)][j][i];
+        pGrid->B3i[ks-k][j][i]   = qa*pGrid->B3i[ks+k][j][i];
         pGrid->U[ks-k][j][i].B3c = qa*pGrid->U[ks+(k-1)][j][i].B3c;
       }
     }
@@ -1080,7 +1079,7 @@ static void reflect_ox3(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa is set according to whether B_normal=0 */
+/* The multiplier qa=-1 if B_normal=0 (obc_x3=1) */
   obc_x3 = par_geti("grid","obc_x3");
   if (obc_x3 == 1) qa = -1.0;
   if (obc_x3 == 5) qa =  1.0;
@@ -1104,18 +1103,17 @@ static void reflect_ox3(Grid *pGrid)
   }
 
 /* k=ke+1 is not set for the interface field B3i, except obc_x3=1 */
-  if (obc_x3 == 1) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B3i[ke+1][j][i] = 0.0;
-      }
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      if (obc_x3 == 1) pGrid->B3i[ke+1][j][i] = 0.0;
+      pGrid->U[ke+1][j][i].B3c = qa*pGrid->U[ke][j][i].B3c;
     }
   }
   for (k=2; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->B3i[ke+k][j][i]   = qa*pGrid->B3i[ke-(k-2)][j][i];
-        pGrid->U[ke+k][j][i].B3c = qa*pGrid->U[ke-(k-2)][j][i].B3c;
+        pGrid->U[ke+k][j][i].B3c = qa*pGrid->U[ke-(k-1)][j][i].B3c;
       }
     }
   }
