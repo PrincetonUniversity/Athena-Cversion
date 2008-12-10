@@ -183,7 +183,7 @@ void isoconduct_init(int nx1, int nx2, int nx3)
   } else {
     Nx2 = nx2;
   }
-  if (Nx3 > 1){
+  if (nx3 > 1){
     Nx3 = nx3 + 2*nghost;
   } else {
     Nx3 = nx3;
