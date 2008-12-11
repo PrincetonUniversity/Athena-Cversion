@@ -227,7 +227,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       if (StaticGravPot != NULL){
         for (i=is-1; i<=ie+2; i++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
-          phicr = (*StaticGravPot)( x1                ,x2,x3);
+          phicr = (*StaticGravPot)( x1             ,x2,x3);
           phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
           phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
@@ -401,7 +401,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       if (StaticGravPot != NULL){
         for (j=js-1; j<=je+2; j++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
-          phicr = (*StaticGravPot)(x1, x2                ,x3);
+          phicr = (*StaticGravPot)(x1, x2             ,x3);
           phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
           phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
@@ -553,7 +553,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
       if (StaticGravPot != NULL){
         for (k=ks-1; k<=ke+2; k++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
-          phicr = (*StaticGravPot)(x1,x2, x3                );
+          phicr = (*StaticGravPot)(x1,x2, x3             );
           phicl = (*StaticGravPot)(x1,x2,(x3-    pG->dx3));
           phifc = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
