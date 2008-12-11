@@ -23,6 +23,8 @@ MPIINC =
 MPILIB =
 FFTWLIB =
 FFTWINC =
+HEALPIXINC =
+HEALPIXLIB =
 BLOCKINC = 
 BLOCKLIB = 
 CUSTLIBS = -ldl -lm
@@ -43,33 +45,22 @@ ifeq ($(MACHINE),ophir)
   CC = /usr/peyton/intel/10.0/cce/bin/icc
   LDR = /usr/peyton/intel/10.0/cce/bin/icc
   OPT = -O3 -xW -ipo -i-static
-  MPIINC  = -I/opt/mpich-1.2.7p1/include
-  MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
   FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
-  HEALPIXINC = -I/u/krumholz/lib/Healpix_2.00/include
-  HEALPIXLIB = -L/u/krumholz/lib/Healpix_2.00/lib -lchealpix
+else
+ifeq ($(MACHINE),peyton-mpi)
+  CC  = /usr/peyton/openmpi/bin/mpicc
+  LDR = /usr/peyton/openmpi/bin/mpicc
+  OPT = -O3 -g
+  MPIINC = -I/usr/peyton/openmpi/include
+  MPILIB = -L/usr/peyton/openmpi/lib -lmpi
+  FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
+  FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
 else
 ifeq ($(MACHINE),macosx)
   CC = gcc
   LDR = gcc
   OPT = @COMPILER_OPTS@
-else
-ifeq ($(MACHINE),hydra)
-  CC = icc
-  LDR = icc
-  OPT = -O2 -xW -tpp7 -ipo -i-static
-  MPIINC  = -I/opt/mpich-1.2.6.gcc/include
-  MPILIB = -L/opt/mpich-1.2.6.gcc/lib -lmpich
-else
-ifeq ($(MACHINE),aldrin)
-  CC  = gcc
-  LDR = gcc
-  OPT = -O3 -g
-  MPIINC = -I/opt/mpich-1.2.7p1/include
-  MPILIB = -L/opt/mpich-1.2.7p1/lib -lmpich
-  FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
-  FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
 else
 ifeq ($(MACHINE), gmc)
   CC  = gcc
@@ -141,7 +132,6 @@ ifeq ($(MACHINE),artemismvapich)
   FFTWINC = -I/opt/fftw3/include
 else
   abort Unsupported MACHINE=$(MACHINE)
-endif
 endif
 endif
 endif
