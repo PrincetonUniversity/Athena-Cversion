@@ -154,6 +154,15 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
+#ifdef OHMIC
+  eta_Ohm = par_getd("problem","eta");
+#endif
+#ifdef NAVIER_STOKES
+  nu_V = par_getd("problem","nu");
+#endif
+#ifdef BRAGINSKII
+  nu_V = par_getd("problem","nu");
+#endif
   return;
 }
 

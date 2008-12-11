@@ -287,7 +287,11 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* With viscosity and/or resistivity, read eta_R and nu_V */
 
 #ifdef OHMIC
-  eta_R = par_getd("problem","eta");
+  eta_Ohm = par_getd("problem","eta");
+#endif
+#ifdef HALL_MHD
+  eta_Ohm = par_getd("problem","eta_O");
+  eta_Hall = par_getd("problem","eta_H");
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
@@ -313,6 +317,20 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
+#ifdef SELF_GRAVITY
+  four_pi_G = par_getd("problem","four_pi_G");
+  grav_mean_rho = d0;
+#endif /* SELF_GRAVITY */
+#ifdef OHMIC
+  eta_Ohm = par_getd("problem","eta");
+#endif
+#ifdef HALL_MHD
+  eta_Ohm = par_getd("problem","eta_O");
+  eta_Hall = par_getd("problem","eta_H");
+#endif
+#ifdef NAVIER_STOKES
+  nu_V = par_getd("problem","nu");
+#endif
   return;
 }
 
