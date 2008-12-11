@@ -164,10 +164,13 @@ enum {
 /*----------------------------------------------------------------------------*/
 
 #ifdef MPI_PARALLEL
+/* Integer constants to identify MPI messages sent in various parts of code */
 enum {boundary_cells_tag,
-      remap0_tag,
-      sync_step_tag,
-      output_tag,           /* useful for controlling output with MPI */
+      shearing_sheet_ix1_tag,
+      shearing_sheet_ox1_tag,
+      remapEy_ix1_tag,
+      remapEy_ox1_tag,
+      fargo_tag,
       ch_rundir0_tag,
       ch_rundir1_tag
 };
