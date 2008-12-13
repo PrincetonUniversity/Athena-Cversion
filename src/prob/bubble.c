@@ -296,11 +296,11 @@ static void outflow_ox1(Grid *pGrid)
   }
 
 #ifdef MHD
-/* i=ie+1 is not set for the interface field B1i, except obc_x1=1 */
+/* i=ie+1 is not set for the interface field B1i */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
-        if (i>1) pGrid->B1i[k][j][ie+i]   = pGrid->B1i[k][j][ie];
+        if (i>1) pGrid->B1i[k][j][ie+i]   = pGrid->B1i[k][j][ie+1];
         pGrid->U[k][j][ie+i].B1c = pGrid->U[k][j][ie].B1c;
       }
     }
@@ -385,11 +385,11 @@ static void outflow_ox2(Grid *pGrid)
     }
   }
 
-/* j=je+1 is not set for the interface field B2i, except obc_x2=1 */
+/* j=je+1 is not set for the interface field B2i */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
-         if (j>1) pGrid->B2i[k][je+j][i]   = pGrid->B2i[k][je][i];
+         if (j>1) pGrid->B2i[k][je+j][i]   = pGrid->B2i[k][je+1][i];
         pGrid->U[k][je+j][i].B2c = pGrid->U[k][je][i].B2c;
       }
     }
@@ -557,11 +557,11 @@ static void outflow_ox3(Grid *pGrid)
     }
   }
 
-/* k=ke+1 is not set for the interface field B3i, except obc_x3=1 */
+/* k=ke+1 is not set for the interface field B3i */
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        if (k>1) pGrid->B3i[ke+k][j][i]   = pGrid->B3i[ke][j][i];
+        if (k>1) pGrid->B3i[ke+k][j][i]   = pGrid->B3i[ke+1][j][i];
         pGrid->U[ke+k][j][i].B3c = pGrid->U[ke][j][i].B3c;
       }
     }

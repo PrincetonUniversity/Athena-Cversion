@@ -678,10 +678,6 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
         x3Flux[k][j][i].My = qa*(3.0*By*Bz/B02);
         x3Flux[k][j][i].Mz = qa*(3.0*Bz*Bz/B02 - 1.0);
 
-        nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
-        x3Flux[k][j][i].Mx *= nud;
-        x3Flux[k][j][i].My *= nud;
-        x3Flux[k][j][i].Mz *= nud;
 #ifndef BAROTROPIC
         x3Flux[k][j][i].E  =
            0.5*(Vel[k-1][j][i].x + Vel[k][j][i].x)*x3Flux[k][j][i].Mx +
