@@ -168,8 +168,7 @@ enum {
 enum {boundary_cells_tag,
       shearing_sheet_ix1_tag,
       shearing_sheet_ox1_tag,
-      remapEy_ix1_tag,
-      remapEy_ox1_tag,
+      remapEy_tag,
       fargo_tag,
       ch_rundir0_tag,
       ch_rundir1_tag

@@ -1407,7 +1407,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
     cnt = pG->Nx2*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
-                    remapEy_ix1_tag, MPI_COMM_WORLD, &rq);
+                    remapEy_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 1 = %d\n",err);
 
 /* send Ey at [is] to ox1 (send L) -- this data is needed by remapEy_ox1 */
@@ -1420,7 +1420,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       }
     }
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
-                   remapEy_ix1_tag, MPI_COMM_WORLD);
+                   remapEy_tag, MPI_COMM_WORLD);
     if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 1 = %d\n",err);
 
 /* Listen for data from ox1 (listen L), unpack and set temporary array */
@@ -1459,7 +1459,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
     cnt = nghost*(pG->Nx3 + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                    remapEy_ix1_tag, MPI_COMM_WORLD, &rq);
+                    remapEy_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 2a = %d\n",err);
 
     pd = send_buf;
@@ -1472,7 +1472,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                   remapEy_ix1_tag, MPI_COMM_WORLD);
+                   remapEy_tag, MPI_COMM_WORLD);
     if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 2a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
@@ -1489,7 +1489,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 /* Post a non-blocking receive for the input data from the right grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                    remapEy_ix1_tag, MPI_COMM_WORLD, &rq);
+                    remapEy_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 2b = %d\n",err);
 
     pd = send_buf;
@@ -1502,7 +1502,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                   remapEy_ix1_tag, MPI_COMM_WORLD);
+                   remapEy_tag, MPI_COMM_WORLD);
     if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 2b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
@@ -1581,7 +1581,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       cnt = joverlap*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_ix1_tag, MPI_COMM_WORLD, &rq);
+                      remapEy_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 5b = %d\n",err);
 
       pd = send_buf;
@@ -1592,7 +1592,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
         }
       }
       err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_ix1_tag, MPI_COMM_WORLD);
+                     remapEy_tag, MPI_COMM_WORLD);
       if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 5b = %d\n",err);
 
 
@@ -1647,7 +1647,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       cnt = (pG->Nx2-joverlap)*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data from the left grid */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_ix1_tag, MPI_COMM_WORLD, &rq);
+                      remapEy_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 5e = %d\n",err);
 
       pd = send_buf;
@@ -1658,7 +1658,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
         }
       }
       err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_ix1_tag, MPI_COMM_WORLD);
+                     remapEy_tag, MPI_COMM_WORLD);
       if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 5e = %d\n",err);
 
 /* unpack data sent from [js:je-overlap], and remap into cells in
@@ -1750,7 +1750,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
     cnt = pG->Nx2*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data from remapEy_ix1 (listen R) */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
-                    remapEy_ox1_tag, MPI_COMM_WORLD, &rq);
+                    remapEy_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 1 = %d\n",err);
 
 /* send Ey at [ie+1] to ix1 (send R) -- this data is needed by remapEy_ix1 */
@@ -1763,7 +1763,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       }
     }
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
-                   remapEy_ox1_tag, MPI_COMM_WORLD);
+                   remapEy_tag, MPI_COMM_WORLD);
     if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 1 = %d\n",err);
 
 /* Listen for data from ix1 (listen R), unpack and set temporary array */
@@ -1802,7 +1802,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
     cnt = nghost*(pG->Nx3 + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                    remapEy_ox1_tag, MPI_COMM_WORLD, &rq);
+                    remapEy_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 2a = %d\n",err);
 
     pd = send_buf;
@@ -1815,7 +1815,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                   remapEy_ox1_tag, MPI_COMM_WORLD);
+                   remapEy_tag, MPI_COMM_WORLD);
     if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 2a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
@@ -1832,7 +1832,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 /* Post a non-blocking receive for the input data from the right grid */
     err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                    remapEy_ox1_tag, MPI_COMM_WORLD, &rq);
+                    remapEy_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 2b = %d\n",err);
 
     pd = send_buf;
@@ -1845,7 +1845,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                   remapEy_ox1_tag, MPI_COMM_WORLD);
+                   remapEy_tag, MPI_COMM_WORLD);
     if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 2b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
@@ -1924,7 +1924,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       cnt = joverlap*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_ox1_tag, MPI_COMM_WORLD, &rq);
+                      remapEy_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 5b = %d\n",err);
 
       pd = send_buf;
@@ -1935,7 +1935,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
         }
       }
       err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_ox1_tag, MPI_COMM_WORLD);
+                     remapEy_tag, MPI_COMM_WORLD);
       if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 5b = %d\n",err);
 
 /*--- Step 5c. -----------------------------------------------------------------
@@ -1989,7 +1989,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
       cnt = (pG->Nx2-joverlap)*(pG->Nx3+1);
 /* Post a non-blocking receive for the input data from the left grid */
       err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_ox1_tag, MPI_COMM_WORLD, &rq);
+                      remapEy_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 5e = %d\n",err);
 
       pd = send_buf;
@@ -2000,7 +2000,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
         }
       }
       err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_ox1_tag, MPI_COMM_WORLD);
+                     remapEy_tag, MPI_COMM_WORLD);
       if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 5e = %d\n",err);
 
 /* unpack data sent from [js+overlap:je], and remap into cells in
