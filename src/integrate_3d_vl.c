@@ -11,7 +11,6 @@
  *   of Sanders et al.
  *     For adb hydro, requires (9*Cons1D + 3*Real + 1*Gas) = 53 3D arrays
  *     For adb mhd, requires   (9*Cons1D + 9*Real + 1*Gas) = 80 3D arrays
- *   The H-correction of Sanders et al. adds another 3 arrays.
  *
  *   If FIRST_ORDER_FLUX_CORRECTION is defined, uses first-order fluxes when
  *   predict state is negative.  Added by Nicole Lemaster to run supersonic
@@ -39,21 +38,10 @@
 #include "globals.h"
 #include "prototypes.h"
 
-/* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
- * higher-order fluxes would cause cell-centered density to go negative.
- * Called in Step 15, see private function first_order_correction()
- * for important details.  Primarily added (MNL) to increase robustness of code
- * for drive/decaying supersonic turbulence.  Uncomment define below to turn
- * correction ON.
- */
-
-/* #define FIRST_ORDER_FLUX_CORRECTION */
-
-#if defined (FIRST_ORDER_FLUX_CORRECTION) && defined(H_CORRECTION)
-#error : Flux correction in the VL integrator does not work with H-corrrection.
-#endif 
-
-/* fluxes at each cell face */
+/* The L/R states of primitive variables and fluxes at each cell face */
+static Prim1D ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
+static Prim1D ***Wl_x2Face=NULL, ***Wr_x2Face=NULL;
+static Prim1D ***Wl_x3Face=NULL, ***Wr_x3Face=NULL;
 static Cons1D ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
 /* The interface magnetic fields and emfs */
@@ -74,15 +62,24 @@ static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static Gas ***Uhalf=NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
-/* Arrays for the L/R states of primitive variables at each cell face are only
- * needed for the H-correction */
 extern Real etah;
 #ifdef H_CORRECTION
-static Prim1D ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
-static Prim1D ***Wl_x2Face=NULL, ***Wr_x2Face=NULL;
-static Prim1D ***Wl_x3Face=NULL, ***Wr_x3Face=NULL;
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
+
+/* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
+ * higher-order fluxes would cause cell-centered density to go negative.
+ * Called in Step 13d, see private function first_order_correction()
+ * for important details.  Primarily added (MNL) to increase robustness of code
+ * for drive/decaying supersonic turbulence.  Uncomment define below to turn
+ * correction ON.
+ */
+
+/* #define FIRST_ORDER_FLUX_CORRECTION */
+
+#if defined (FIRST_ORDER_FLUX_CORRECTION) && defined(H_CORRECTION)
+#error : Flux correction in the VL integrator does not work with H-corrrection.
+#endif 
 
 /* variables needed to drop to first-order fluxes */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
@@ -162,10 +159,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 1 -------------------------------------------------------------------
- * Compute first-order flux in x1-direction
- * Set L and R states at x1-interfaces to appropriate cell-centered values
- */
+/*=== STEP 1: Compute first-order fluxes at t^{n} in x1-direction ============*/
+/* No source terms are needed since there is no temporal evolution */
 
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
@@ -213,10 +208,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 2 -------------------------------------------------------------------
- * Compute first-order flux in x2-direction
- * Set L and R states at x2-interfaces to appropriate cell-centered values
- */
+/*=== STEP 2: Compute first-order fluxes at t^{n} in x2-direction ============*/
+/* No source terms are needed since there is no temporal evolution */
 
   for (k=kl; k<=ku; k++) {
     for (i=il; i<=iu; i++) {
@@ -264,10 +257,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 3 -------------------------------------------------------------------
- * Compute first-order flux in x3-direction
- * Set L and R states at x3-interfaces to appropriate cell-centered values
- */
+/*=== STEP 3: Compute first-order fluxes at t^{n} in x3-direction ============*/
+/* No source terms are needed since there is no temporal evolution */
 
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
@@ -315,7 +306,9 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 4 ------------------------------------------------------------------
+/*=== STEP 4:  Update face-centered B for 0.5*dt =============================*/
+
+/*--- Step 4a ------------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at t^{n} and integrate
  * to corner.
  */
@@ -340,9 +333,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   integrate_emf2_corner(pG);
   integrate_emf3_corner(pG);
 
-/*--- Step 5 -------------------------------------------------------------------
- * Update the interface magnetic fields using CT for a half time step.  Compute
- * cell-centered B at half timestep from face-centered fields.
+/*--- Step 4b ------------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a half time step.
  */
 
   for (k=kl+1; k<=ku-1; k++) {
@@ -370,6 +362,11 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
+/*--- Step 4c ------------------------------------------------------------------
+ * Compute cell-centered magnetic fields at half-timestep from average of
+ * face-centered fields.
+ */
+
   for (k=kl+1; k<=ku-1; k++) {
     for (j=jl+1; j<=ju-1; j++) {
       for (i=il+1; i<=iu-1; i++) {
@@ -381,8 +378,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
-/*--- Step 6a ------------------------------------------------------------------
- * Update HYDRO cell-centered variables to half-timestep using x1-fluxes
+/*=== STEP 5: Update cell-centered variables to half-timestep ================*/
+
+/*--- Step 5a ------------------------------------------------------------------
+ * Update cell-centered variables to half-timestep using x1-fluxes
  */
 
   for (k=kl+1; k<=ku-1; k++) {
@@ -404,8 +403,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6b ------------------------------------------------------------------
- * Update HYDRO cell-centered variables to half-timestep using x2-fluxes
+/*--- Step 5b ------------------------------------------------------------------
+ * Update cell-centered variables to half-timestep using x2-fluxes
  */
 
   for (k=kl+1; k<=ku-1; k++) {
@@ -427,8 +426,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6c ------------------------------------------------------------------
- * Update HYDRO cell-centered variables to half-timestep using x3-fluxes
+/*--- Step 5c ------------------------------------------------------------------
+ * Update cell-centered variables to half-timestep using x3-fluxes
  */
 
   for (k=kl+1; k<=ku-1; k++) {
@@ -450,7 +449,9 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 7a ------------------------------------------------------------------
+/*=== STEP 6: Add source terms to predict values at half-timestep ============*/
+
+/*--- Step 6a ------------------------------------------------------------------
  * Add source terms from a static gravitational potential for 0.5*dt to predict
  * step.  To improve conservation of total energy, we average the energy
  * source term computed at cell faces.
@@ -492,7 +493,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6e ------------------------------------------------------------------
+/*--- Step 6b ------------------------------------------------------------------
  * Add source terms for self gravity for 0.5*dt to predict step.
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
@@ -523,20 +524,20 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
 
-        Uhalf[k][j][i].M3 -= q3*(phir-phil)*pG->U[k][j][i].d;
+        Uhalf[k][j][i].M3 -= q3*(phir-phil)*pG->U[k][j][i].d; 
 #ifndef BAROTROPIC
         Uhalf[k][j][i].E -= q3*(x3Flux[k  ][j][i].d*(phic - phil)
-                              + x3Flux[k+1][j][i].d*(phir - phic));
+                             + x3Flux[k+1][j][i].d*(phir - phic));
 #endif
       }
     }
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 8a ------------------------------------------------------------------
- * Compute L/R states at x1-interfaces using U^{n+1/2}, compute fluxes, and
- * store into 3D arrays.  With H_CORRECTION defined, have to store L/R states in
- * 3D arrays and compute fluxes later.
+/*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
+
+/*--- Step 7a ------------------------------------------------------------------
+ * Load 1D vector of conserved variables;
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
 
@@ -561,31 +562,27 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
 #endif
       }
 
+/*--- Step 7b ------------------------------------------------------------------
+ * Compute L and R states at x1-interfaces, store in 3D array
+ */
+
       for (i=il; i<=iu; i++) {
         Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
       }
 
       lr_states(W, MHDARG( Bxc , ) 0.0,0.0,ib+1,it-1,Wl,Wr);
 
-/* Compute L/R states, and either store into array, or use to compute fluxes */
       for (i=ib+1; i<=it; i++) {
-#ifdef H_CORRECTION
         Wl_x1Face[k][j][i] = Wl[i];
         Wr_x1Face[k][j][i] = Wr[i];
-#else
-        Prim1D_to_Cons1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
-        Prim1D_to_Cons1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
-        GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
-                   MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
-#endif /* H_CORRECTION */
       }
     }
   }
 
-/*--- Step 8b ------------------------------------------------------------------
- * Compute L/R states at x1-interfaces using U^{n+1/2}, compute fluxes, and
- * store into 3D arrays.  With H_CORRECTION defined, have to store L/R states in
- * 3D arrays and compute fluxes later.
+/*=== STEP 8: Compute second-order L/R x2-interface states ===================*/
+
+/*--- Step 8a ------------------------------------------------------------------
+ * Load 1D vector of conserved variables;
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  */
 
@@ -610,31 +607,27 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
 #endif
       }
 
+/*--- Step 8b ------------------------------------------------------------------
+ * Compute L and R states at x2-interfaces, store in 3D array
+ */
+
       for (j=jl; j<=ju; j++) {
         Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
       }
 
       lr_states(W, MHDARG( Bxc , ) 0.0,0.0,jb+1,jt-1,Wl,Wr);
 
-/* Compute L/R states, and either store into array, or use to compute fluxes */
       for (j=jb+1; j<=jt; j++) {
-#ifdef H_CORRECTION
         Wl_x2Face[k][j][i] = Wl[j];
         Wr_x2Face[k][j][i] = Wr[j];
-#else
-        Prim1D_to_Cons1D(&Ul[j],&Wl[j] MHDARG( , &B2_x2Face[k][j][i]));
-        Prim1D_to_Cons1D(&Ur[j],&Wr[j] MHDARG( , &B2_x2Face[k][j][i]));
-        GET_FLUXES(Ul[j],Ur[j],Wl[j],Wr[j],
-                   MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
-#endif /* H_CORRECTION */
       }
     }
   }
 
-/*--- Step 8c ------------------------------------------------------------------
- * Compute L/R states at x1-interfaces using U^{n+1/2}, compute fluxes, and
- * store into 3D arrays.  With H_CORRECTION defined, have to store L/R states in
- * 3D arrays and compute fluxes later.
+/*=== STEP 9: Compute second-order L/R x3-interface states ===================*/
+
+/*--- Step 9a ------------------------------------------------------------------
+ * Load 1D vector of conserved variables;
  * U1d = (d, M3, M1, M2, E, B1c, B2c, s[n])
  */
 
@@ -659,30 +652,28 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
 #endif
       }
 
+/*--- Step 9b ------------------------------------------------------------------
+ * Compute L and R states at x3-interfaces, store in 3D array
+ */
+
       for (k=kl; k<=ku; k++) {
         Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG( , &Bxc[k]));
       }
 
       lr_states(W, MHDARG( Bxc , ) 0.0,0.0,kb+1,kt-1,Wl,Wr);
 
-/* Compute L/R states, and either store into array, or use to compute fluxes */
       for (k=kb+1; k<=kt; k++) {
-#ifdef H_CORRECTION
         Wl_x3Face[k][j][i] = Wl[k];
         Wr_x3Face[k][j][i] = Wr[k];
-#else
-        Prim1D_to_Cons1D(&Ul[k],&Wl[k] MHDARG( , &B3_x3Face[k][j][i]));
-        Prim1D_to_Cons1D(&Ur[k],&Wr[k] MHDARG( , &B3_x3Face[k][j][i]));
-        GET_FLUXES(Ul[k],Ur[k],Wl[k],Wr[k],
-                   MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
-#endif /* H_CORRECTION */
       }
     }
   }
 
-/*--- Step 9 ------------------------------------------------------------------
+/*=== STEP 10: Compute 3D x1-Flux, x2-Flux, x3-Flux ==========================*/
+
+/*--- Step 10a -----------------------------------------------------------------
  * Compute maximum wavespeeds in multidimensions (eta in eq. 10 from Sanders et
- *  al. (1998)) for H-correction
+ *  al. (1998)) for H-correction, if needed.
  */
 
 #ifdef H_CORRECTION
@@ -723,14 +714,14 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   }
 #endif /* H_CORRECTION */
 
-/*--- Step 10a -----------------------------------------------------------------
- * Compute second-order fluxes in x1-direction, including H-correction
+/*--- Step 10b -----------------------------------------------------------------
+ * Compute second-order fluxes in x1-direction
  */
 
-#ifdef H_CORRECTION
   for (k=kb; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
       for (i=ib+1; i<=it; i++) {
+#ifdef H_CORRECTION
         etah = MAX(eta2[k][j][i-1],eta2[k][j][i]);
         etah = MAX(etah,eta2[k][j+1][i-1]);
         etah = MAX(etah,eta2[k][j+1][i  ]);
@@ -741,6 +732,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         etah = MAX(etah,eta3[k+1][j][i  ]);
 
         etah = MAX(etah,eta1[k  ][j][i  ]);
+#endif /* H_CORRECTION */
+
         Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[k][j][i]
                          MHDARG( , &B1_x1Face[k][j][i]));
         Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i]
@@ -751,13 +744,14 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 10b -----------------------------------------------------------------
- * Compute second-order fluxes in x2-direction, including H-correction
+/*--- Step 10c -----------------------------------------------------------------
+ * Compute second-order fluxes in x2-direction
  */
 
   for (k=kb; k<=kt; k++) {
     for (j=jb+1; j<=jt; j++) {
       for (i=ib; i<=it; i++) {
+#ifdef H_CORRECTION
         etah = MAX(eta1[k][j-1][i],eta1[k][j][i]);
         etah = MAX(etah,eta1[k][j-1][i+1]);
         etah = MAX(etah,eta1[k][j  ][i+1]);
@@ -768,6 +762,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         etah = MAX(etah,eta3[k+1][j  ][i]);
 
         etah = MAX(etah,eta2[k  ][j  ][i]);
+#endif /* H_CORRECTION */
         Prim1D_to_Cons1D(&Ul[i],&Wl_x2Face[k][j][i]
                          MHDARG( , &B2_x2Face[k][j][i]));
         Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i]
@@ -778,13 +773,14 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 10c -----------------------------------------------------------------
- * Compute second-order fluxes in x3-direction, including H-correction
+/*--- Step 10d -----------------------------------------------------------------
+ * Compute second-order fluxes in x3-direction
  */
 
   for (k=kb+1; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
       for (i=ib; i<=it; i++) {
+#ifdef H_CORRECTION
         etah = MAX(eta1[k-1][j][i],eta1[k][j][i]);
         etah = MAX(etah,eta1[k-1][j][i+1]);
         etah = MAX(etah,eta1[k][j  ][i+1]);
@@ -795,6 +791,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
         etah = MAX(etah,eta2[k  ][j+1][i]);
 
         etah = MAX(etah,eta3[k  ][j  ][i]);
+#endif /* H_CORRECTION */
         Prim1D_to_Cons1D(&Ul[i],&Wl_x3Face[k][j][i]
                          MHDARG( , &B3_x3Face[k][j][i]));
         Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i]
@@ -804,9 +801,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       }
     }
   }
-#endif /* H_CORRECTION */
 
-/*--- Step 11 ------------------------------------------------------------------
+/*=== STEP 11: Update face-centered B for a full timestep ====================*/
+        
+/*--- Step 11a -----------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at the half-time-step.
  */
 
@@ -830,15 +828,18 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   }
 #endif
 
-/*--- Step 12 ------------------------------------------------------------------
- * Integrate emf*^{n+1/2} to the grid cell corners and then update the
- * interface magnetic fields using CT for a full time step.
+/*--- Step 11b -----------------------------------------------------------------
+ * Integrate emf*^{n+1/2} to the grid cell corners
  */
 
 #ifdef MHD
   integrate_emf1_corner(pG);
   integrate_emf2_corner(pG);
   integrate_emf3_corner(pG);
+
+/*--- Step 11c -----------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a full time step.
+ */
 
   for (k=kb+1; k<=kt-1; k++) {
     for (j=jb+1; j<=jt-1; j++) {
@@ -869,7 +870,9 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   }
 #endif
 
-/*--- Step 13a -----------------------------------------------------------------
+/*=== STEP 12: Add source terms for a full timestep using n+1/2 states =======*/
+       
+/*--- Step 12a -----------------------------------------------------------------
  * Add gravitational source terms due to a Static Potential
  * To improve conservation of total energy, we average the energy
  * source term computed at cell faces.
@@ -913,7 +916,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 13b -----------------------------------------------------------------
+/*--- Step 12b -----------------------------------------------------------------
  * Add gravitational source terms for self-gravity.
  * A flux correction using Phi^{n+1} in the main loop is required to make
  * the source terms 2nd order: see selfg_flux_correction().
@@ -1068,8 +1071,10 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*--- Step 14a -----------------------------------------------------------------
- * Update HYDRO cell-centered variables in pG using x1-fluxes
+/*=== STEP 13: Update cell-centered values for a full timestep ===============*/
+
+/*--- Step 13a -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 3D x1-Fluxes
  */
 
   for (k=kb+1; k<=kt-1; k++) {
@@ -1091,8 +1096,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 14b -----------------------------------------------------------------
- * Update HYDRO cell-centered variables in pG using x2-fluxes
+/*--- Step 13b -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 3D x2-Fluxes
  */
 
   for (k=kb+1; k<=kt-1; k++) {
@@ -1114,9 +1119,8 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-
-/*--- Step 14c ----------------------------------------------------------------
- * Update HYDRO cell-centered variables in pG using x3-fluxes
+/*--- Step 13c -----------------------------------------------------------------
+ * Update cell-centered variables in pG using 3D x3-Fluxes
  */
 
   for (k=kb+1; k<=kt-1; k++) {
@@ -1145,7 +1149,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 15 ----------------------------------------------------------------
+/*--- Step 13d -----------------------------------------------------------------
  * If cell-centered densities have gone negative, correct cell-centered
  * variables by using 1st order fluxes instead of higher order
  */
@@ -1154,7 +1158,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
   first_order_correction(pG);
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
-/*--- Step 16 -----------------------------------------------------------------
+/*--- Step 13e -----------------------------------------------------------------
  * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
  */
@@ -1192,13 +1196,13 @@ void integrate_destruct_3d(void)
   if (eta1 != NULL) free_3d_array(eta1);
   if (eta2 != NULL) free_3d_array(eta2);
   if (eta3 != NULL) free_3d_array(eta3);
+#endif /* H_CORRECTION */
   if (Wl_x1Face != NULL) free_3d_array(Wl_x1Face);
   if (Wr_x1Face != NULL) free_3d_array(Wr_x1Face);
   if (Wl_x2Face != NULL) free_3d_array(Wl_x2Face);
   if (Wr_x2Face != NULL) free_3d_array(Wr_x2Face);
   if (Wl_x3Face != NULL) free_3d_array(Wl_x3Face);
   if (Wr_x3Face != NULL) free_3d_array(Wr_x3Face);
-#endif /* H_CORRECTION */
 
 #ifdef MHD
   if (Bxc != NULL) free(Bxc);
@@ -1281,6 +1285,7 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     goto on_error;
   if ((eta3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
     goto on_error;
+#endif /* H_CORRECTION */
   if ((Wl_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
   if ((Wr_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
@@ -1293,7 +1298,6 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
     == NULL) goto on_error;
   if ((Wr_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
     == NULL) goto on_error;
-#endif /* H_CORRECTION */
 
 #ifdef MHD
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
