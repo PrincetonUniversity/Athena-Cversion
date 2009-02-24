@@ -46,6 +46,9 @@ ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
 	(cd src/ionradiation; $(MAKE) compile)
 endif
 	(cd src/microphysics; $(MAKE) compile)
+	(cd src/integrators; $(MAKE) compile)
+	(cd src/reconstruction; $(MAKE) compile)
+	(cd src/rsolvers; $(MAKE) compile)
 	(cd src; $(MAKE) compile)
 
 #-------------------------------------------------------------------------------
@@ -54,6 +57,9 @@ clean:
 	(cd src/fftsrc; $(MAKE) clean)
 	(cd src/ionradiation; $(MAKE) clean)
 	(cd src/microphysics; $(MAKE) clean)
+	(cd src/integrators; $(MAKE) clean)
+	(cd src/reconstruction; $(MAKE) clean)
+	(cd src/rsolvers; $(MAKE) clean)
 	(cd src; $(MAKE) clean)
 
 #-------------------------------------------------------------------------------
