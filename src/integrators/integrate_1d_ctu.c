@@ -1,10 +1,11 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
- * FILE: integrate_1d.c
+ * FILE: integrate_1d_ctu.c
  *
- * PURPOSE: Integrate MHD equations in 1D.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s]
- *   in Grid structure, where U is of type Gas.  Adds gravitational source
- *   terms, self-gravity, and optically-thin cooling.
+ * PURPOSE: Integrate MHD equations using 1D version of the CTU integrator.
+ *   Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure, where U is of type
+ *   Gas.  Adds gravitational source terms, self-gravity, and optically-thin
+ *   cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_1d()
@@ -16,10 +17,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
+
+#ifdef CTU_INTEGRATOR
 
 /* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
@@ -36,7 +40,7 @@ static Real *dhalf = NULL, *phalf = NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_1d:
+/* integrate_1d: 1D version of CTU unsplit integrator for MHD
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
@@ -146,7 +150,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i] MHDARG( , &Bxi[i]));
     Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i] MHDARG( , &Bxi[i]));
 
-    GET_FLUXES(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],
+    fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],
                MHDARG( Bxi[i] , ) &x1Flux[i]);
   }
 
@@ -368,3 +372,4 @@ void integrate_destruct_1d(void)
 
   return;
 }
+#endif /* CTU_INTEGRATOR */

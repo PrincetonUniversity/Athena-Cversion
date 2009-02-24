@@ -1,10 +1,9 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: integrate_3d_vl.c
  *
- * PURPOSE: Updates the input Grid structure pointed to by *pG by one
- *   timestep using directionally unsplit van Leer - Hancock scheme.  The
- *   variables updated are:
+ * PURPOSE: Integrate MHD equations using 3D version of the directionally
+ *   unsplit MUSCL-Hancock (VL) integrator.  The variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, and the H-correction
@@ -16,15 +15,15 @@
  *   predict state is negative.  Added by Nicole Lemaster to run supersonic
  *   turbulence
  *
- * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, second-order Godunov method
- *   for MHD using constrained transport", ???
+ * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
+ *   for multidimensional MHD", NewA 14, 139 (2009)
  *
  *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d_vl
+ *   integrate_3d
  *   integrate_destruct_3d()
  *   integrate_init_3d()
  *============================================================================*/
@@ -33,10 +32,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
+
+#ifdef VL_INTEGRATOR
 
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1D ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
@@ -106,10 +108,10 @@ static void first_order_correction(const Grid *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_3d_vl: 3D van Leer unsplit integrator for MHD. 
+/* integrate_3d: 3D van Leer unsplit integrator for MHD. 
  */
 
-void integrate_3d_vl(Grid *pG, Domain *pD)
+void integrate_3d(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
@@ -202,7 +204,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       for (i=il+1; i<=iu; i++) {
         Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
         Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
-        GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
+        fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
     }
@@ -251,7 +253,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       for (j=jl+1; j<=ju; j++) {
         Cons1D_to_Prim1D(&Ul[j],&Wl[j] MHDARG( , &B2_x2Face[k][j][i]));
         Cons1D_to_Prim1D(&Ur[j],&Wr[j] MHDARG( , &B2_x2Face[k][j][i]));
-        GET_FLUXES(Ul[j],Ur[j],Wl[j],Wr[j],
+        fluxes(Ul[j],Ur[j],Wl[j],Wr[j],
                    MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
     }
@@ -300,7 +302,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
       for (k=kl+1; k<=ku; k++) {
         Cons1D_to_Prim1D(&Ul[k],&Wl[k] MHDARG( , &B3_x3Face[k][j][i]));
         Cons1D_to_Prim1D(&Ur[k],&Wr[k] MHDARG( , &B3_x3Face[k][j][i]));
-        GET_FLUXES(Ul[k],Ur[k],Wl[k],Wr[k],
+        fluxes(Ul[k],Ur[k],Wl[k],Wr[k],
                    MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
     }
@@ -738,7 +740,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
                          MHDARG( , &B1_x1Face[k][j][i]));
         Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[k][j][i]
                          MHDARG( , &B1_x1Face[k][j][i]));
-        GET_FLUXES(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i],
+        fluxes(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
     }
@@ -767,7 +769,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
                          MHDARG( , &B2_x2Face[k][j][i]));
         Prim1D_to_Cons1D(&Ur[i],&Wr_x2Face[k][j][i]
                          MHDARG( , &B2_x2Face[k][j][i]));
-        GET_FLUXES(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i],
+        fluxes(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i],
                    MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
     }
@@ -796,7 +798,7 @@ void integrate_3d_vl(Grid *pG, Domain *pD)
                          MHDARG( , &B3_x3Face[k][j][i]));
         Prim1D_to_Cons1D(&Ur[i],&Wr_x3Face[k][j][i]
                          MHDARG( , &B3_x3Face[k][j][i]));
-        GET_FLUXES(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i],
+        fluxes(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i],
                    MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
     }
@@ -1817,7 +1819,7 @@ static void first_order_correction(const Grid *pG)
             Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
             Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
 
-            GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
+            fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
                        MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
           }
 
@@ -1840,7 +1842,7 @@ static void first_order_correction(const Grid *pG)
             Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B2_x2Face[k][j][i]));
             Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B2_x2Face[k][j][i]));
 
-            GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
+            fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
                        MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
         }
 
@@ -1863,7 +1865,7 @@ static void first_order_correction(const Grid *pG)
             Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B3_x3Face[k][j][i]));
             Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B3_x3Face[k][j][i]));
 
-            GET_FLUXES(Ul[i],Ur[i],Wl[i],Wr[i],
+            fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
                        MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
           }
         }
@@ -2148,3 +2150,5 @@ static void first_order_correction(const Grid *pG)
   return;
 }
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
+
+#endif /* VL_INTEGRATOR */

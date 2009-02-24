@@ -1,13 +1,13 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: integrate_3d_ctu.c
  *
- * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
- *   method of Colella (1990).  The variables updated are:
+ * PURPOSE: Integrate MHD equations using 3D version of the directionally
+ *   unsplit CTU integrator of Colella (1990).  The variables updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically thin cooling,
- *   and the H-correction of Sanders et al.
+ *   shearing box source terms, and the H-correction of Sanders et al.
  *     For adb hydro, requires (9*Cons1D +  3*Real) = 48 3D arrays
  *     For adb mhd, requires   (9*Cons1D + 10*Real) = 73 3D arrays
  *   The H-correction of Sanders et al. adds another 3 arrays.  
@@ -27,7 +27,7 @@
  *   178, 137 (2008)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d_ctu()
+ *   integrate_3d()
  *   integrate_init_3d()
  *   integrate_destruct_3d()
  *============================================================================*/
@@ -36,10 +36,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
+
+#ifdef CTU_INTEGRATOR
 
 /* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
@@ -92,7 +95,7 @@ static void integrate_emf3_corner(const Grid *pG);
 /*----------------------------------------------------------------------------*/
 /* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
 
-void integrate_3d_ctu(Grid *pG, Domain *pD)
+void integrate_3d(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
@@ -293,7 +296,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Prim1D_to_Cons1D(&Ul_x1Face[k][j][i],&Wl[i] MHDARG( , &Bxi[i]));
         Prim1D_to_Cons1D(&Ur_x1Face[k][j][i],&Wr[i] MHDARG( , &Bxi[i]));
 
-        GET_FLUXES(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
+        fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
     }
@@ -445,7 +448,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Prim1D_to_Cons1D(&Ul_x2Face[k][j][i],&Wl[j] MHDARG( , &Bxi[j]));
         Prim1D_to_Cons1D(&Ur_x2Face[k][j][i],&Wr[j] MHDARG( , &Bxi[j]));
 
-        GET_FLUXES(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],
+        fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],
                    MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
     }
@@ -597,7 +600,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Prim1D_to_Cons1D(&Ul_x3Face[k][j][i],&Wl[k] MHDARG( , &Bxi[k]));
         Prim1D_to_Cons1D(&Ur_x3Face[k][j][i],&Wr[k] MHDARG( , &Bxi[k]));
 
-        GET_FLUXES(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],
+        fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],
                    MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
     }
@@ -1758,7 +1761,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Wr[i]
                          MHDARG( , &B1_x1Face[k][j][i]));
 
-        GET_FLUXES(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
+        fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
       }
     }
@@ -1788,7 +1791,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Wr[i]
                          MHDARG( , &B2_x2Face[k][j][i]));
 
-        GET_FLUXES(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],
+        fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
       }
     }
@@ -1818,7 +1821,7 @@ void integrate_3d_ctu(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Wr[i]
                          MHDARG( , &B3_x3Face[k][j][i]));
 
-        GET_FLUXES(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],
+        fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
       }
     }
@@ -2631,3 +2634,5 @@ static void integrate_emf3_corner(const Grid *pG)
   return;
 }
 #endif /* MHD */
+
+#endif /* CTU_INTEGRATOR */

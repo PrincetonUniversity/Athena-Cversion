@@ -1,8 +1,8 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: integrate.c
  *
- * PURPOSE: Contains public functions to set integrator and source terms.
+ * PURPOSE: Contains public functions to set integrator.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_init()        - set pointer to integrate function based on dim
@@ -11,9 +11,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "defs.h"
-#include "athena.h"
+#include "../defs.h"
+#include "../athena.h"
 #include "prototypes.h"
+#include "../prototypes.h"
 
 /* dimension of calculation (determined at runtime) */
 static int dim=0;
@@ -30,26 +31,35 @@ VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3)
   if(Nx2 > 1) dim++;
   if(Nx3 > 1) dim++;
 
-/* Since algorithm in lr_states is modified when VL integrator is defined, then
- * problem must be 3d */
-#ifdef THREED_VL
-  if(dim < 3) ath_error(
-    "[integrate_init]: Problem must be 3D when VL integrator is defined");
-#endif
-
 /* set function pointer to appropriate integrator based on dimensions */
   switch(dim){
+
   case 1:
     if(Nx1 <= 1) break;
     integrate_init_1d(Nx1);
+#if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
     return integrate_1d;
+#else
+    ath_err("[integrate_init]: Invalid integrator defined for 1D problem");
+#endif
+
   case 2:
     if(Nx3 > 1) break;
     integrate_init_2d(Nx1,Nx2);
+#if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
     return integrate_2d;
+#else
+    ath_err("[integrate_init]: Invalid integrator defined for 2D problem");
+#endif
+
   case 3:
     integrate_init_3d(Nx1,Nx2,Nx3);
-    return THREE_D_INTEGRATOR;
+#if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
+    return integrate_3d;
+#else
+    ath_err("[integrate_init]: Invalid integrator defined for 3D problem");
+#endif
+
   }
 
   if (dim == 1)

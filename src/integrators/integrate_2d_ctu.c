@@ -1,6 +1,6 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
- * FILE: integrate_2d.c
+ * FILE: integrate_2d_ctu.c
  *
  * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
  *   method of Colella (1990).  The variables updated are:
@@ -30,10 +30,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
+
+#ifdef CTU_INTEGRATOR
 
 /* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1D **Ul_x1Face=NULL, **Ur_x1Face=NULL;
@@ -230,7 +233,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i] MHDARG( , &Bxi[i]));
       Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i] MHDARG( , &Bxi[i]));
 
-      GET_FLUXES(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
+      fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
     }
   }
@@ -336,7 +339,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j] MHDARG( , &Bxi[j]));
       Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j] MHDARG( , &Bxi[j]));
 
-      GET_FLUXES(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],
+      fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],
                  MHDARG( B2_x2Face[j][i] , ) &x2Flux[j][i]);
     }
   }
@@ -829,7 +832,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       Cons1D_to_Prim1D(&Ul_x1Face[j][i],&Wl[i] MHDARG( , &B1_x1Face[j][i]));
       Cons1D_to_Prim1D(&Ur_x1Face[j][i],&Wr[i] MHDARG( , &B1_x1Face[j][i]));
 
-      GET_FLUXES(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
+      fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
     }
   }
@@ -849,7 +852,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Wl[i] MHDARG( , &B2_x2Face[j][i]));
       Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Wr[i] MHDARG( , &B2_x2Face[j][i]));
 
-      GET_FLUXES(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],
+      fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],
                  MHDARG( B2_x2Face[j][i] , )&x2Flux[j][i]);
     }
   }
@@ -1129,7 +1132,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 12c: Not needed in 2D ---
+/*--- Step 12c: Not needed in 2D ---*/
 /*--- Step 12d -----------------------------------------------------------------
  * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
@@ -1340,3 +1343,5 @@ static void integrate_emf3_corner(Grid *pG)
   return;
 }
 #endif /* MHD */
+
+#endif /* CTU_INTEGRATOR */
