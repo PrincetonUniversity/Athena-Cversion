@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: lr_states_ppm.c
  *
@@ -32,10 +32,11 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
 
 #ifdef THIRD_ORDER
 
