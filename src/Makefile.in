@@ -22,19 +22,8 @@ CORE_OBJ = ath_array.o \
            dump_history.o \
            dump_tab.o \
            dump_vtk.o \
-           esystem_prim.o \
-           esystem_roe.o \
-           flux_@FLUX_NAME@.o \
            init_grid.o \
            init_domain.o \
-           integrate_1d.o \
-           integrate_2d.o \
-           integrate_3d_@INTEGRATOR@.o \
-           integrate.o \
-           lr_states_dc.o \
-           lr_states_plm.o \
-           lr_states_ppm.o \
-           lr_states_ppme.o \
            main.o \
            new_dt.o \
            output.o \
@@ -55,12 +44,6 @@ CORE_OBJ = ath_array.o \
            set_bvals_shear.o \
            show_config.o \
            utils.o
-
-ifeq (@FLUX_NAME@,roe)
-   OBJ = $(CORE_OBJ) flux_hlle.o
-else
-   OBJ = $(CORE_OBJ)
-endif
 
 FFT_OBJ =
 ifeq (@FFT_MODE@,FFT_ENABLED)
@@ -96,11 +79,35 @@ MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
 		microphysics/resistivity.o \
 		microphysics/viscosity.o
 
+INTEGRATORS_OBJ = integrators/integrate.o \
+		  integrators/integrate_1d_ctu.o \
+		  integrators/integrate_2d_ctu.o \
+		  integrators/integrate_3d_ctu.o \
+		  integrators/integrate_1d_vl.o \
+		  integrators/integrate_2d_vl.o \
+		  integrators/integrate_3d_vl.o
+
+RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
+		     reconstruction/lr_states_dc.o \
+		     reconstruction/lr_states_plm.o \
+		     reconstruction/lr_states_ppm.o \
+		     reconstruction/lr_states_ppme.o
+
+RSOLVERS_OBJ = rsolvers/esystem_roe.o \
+	       rsolvers/exact.o \
+	       rsolvers/hllc.o \
+	       rsolvers/hlld.o \
+	       rsolvers/hlle.o \
+	       rsolvers/roe.o \
+	       rsolvers/two_shock.o
+
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
+
 #-------------------  macro definitions  ---------------------------------------
 
 BIN = ${EXEDIR}athena
 EXEDIR = ../bin/
-SRC = $(OBJ:.o=.c)
+SRC = $(ALL_OBJ:.o=.c)
 
 include ../Makeoptions
 
@@ -116,8 +123,8 @@ all:	compile
 .PHONY: compile
 compile: ${BIN}
 
-${BIN}: ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ}
-	${LDR} $(OPT) -o ${EXEDIR}athena ${OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${LIB}
+${BIN}: ${ALL_OBJ}
+	${LDR} $(OPT) -o ${EXEDIR}athena ${ALL_OBJ} ${LIB}
 
 help:
 	@echo This is the Athena Makefile

@@ -4,48 +4,21 @@
 /*==============================================================================
  * FILE: prototypes.h
  *
- * PURPOSE: Prototypes for all public functions from the following files:
- *   main.c
- *   ath_array.c
- *   ath_files.c
- *   ath_log.c
- *   ath_signal.c
- *   baton.c
- *   cc_pos.c
- *   convert_var.c
- *   esystem_prim.c, esystem_roe.c
- *   flux_force.c, flux_hllc.c, flux_hlld.c, flux_hlle.c, flux_roe.c, 
- *     flux_2shock.c, flux_exact
- *   init_domain.c
- *   init_grid.c
- *   integrate.c
- *   integrate_1d.c, integrate_2d.c, integrate_3d-vl., integrate_3d-ctu.c
- *   lr_states_prim1.c, lr_states_prim2.c, lr_states_prim3.c
- *   new_dt.c
- *   output.c
- *   output_fits.c, output_pdf.c output_pgm.c, output_ppm.c, output_tab.c
- *   dump_binary.c, dump_dx.c, dump_history.c, dump_table.c, dump_vtk.c
- *   par.c
- *   restart.c
- *   set_bvals_mhd.c
- *   set_bvals_grav.c
- *   set_bvals_shear.c
- *   show_config.c
- *   utils.c
+ * PURPOSE: Prototypes for all public functions from the /src directory,
+ *   and all subdirectories in /src
  *============================================================================*/
 
 #include <stdio.h>
 #include <stdarg.h>
 #include "athena.h"
 #include "defs.h"
-
 #include "config.h"
 
 #ifdef MPI_PARALLEL
 #include "mpi.h"
 #endif
 
-/* Include prototypes in src sub-directories */
+/* Include prototypes in /src sub-directories */
 
 #ifdef ION_RADIATION
 #include "ionradiation/prototypes.h"
@@ -56,6 +29,9 @@
 #endif
 
 #include "microphysics/prototypes.h"
+#include "integrators/prototypes.h"
+#include "reconstruction/prototypes.h"
+#include "rsolvers/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */
@@ -114,64 +90,6 @@ void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx));
 Real cfast(const Cons1D *U MHDARG( , const Real *Bx));
 
 /*----------------------------------------------------------------------------*/
-/* esystem_*.c */
-void esys_prim_iso_hyd(const Real d, const Real v1,
-  Real eigenvalues[],
-  Real right_eigenmatrix[][4], Real left_eigenmatrix[][4]);
-
-void esys_prim_adb_hyd(const Real d, const Real v1, const Real p,
-  Real eigenvalues[],
-  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5]);
-
-void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
-  const Real b2, const Real b3, Real eigenvalues[],
-  Real right_eigenmatrix[][6], Real left_eigenmatrix[][6]);
-
-void esys_prim_adb_mhd(const Real d, const Real v1, const Real p,
-  const Real b1, const Real b2, const Real b3, Real eigenvalues[],
-  Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
-
-void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
-  Real eigenvalues[],
-  Real right_eigenmatrix[][4], Real left_eigenmatrix[][4]);
-
-void esys_roe_adb_hyd(const Real v1, const Real v2, const Real v3,
-  const Real h, Real eigenvalues[],
-  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5]);
-
-void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2,
-  const Real v3, const Real b1, const Real b2, const Real b3,
-  const Real x, const Real y, Real eigenvalues[],
-  Real right_eigenmatrix[][6], Real left_eigenmatrix[][6]);
-
-void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
-  const Real v3, const Real h, const Real b1, const Real b2, const Real b3,
-  const Real x, const Real y, Real eigenvalues[],
-  Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
-
-/*----------------------------------------------------------------------------*/
-/* flux_*.c */
-void flux_force (const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr,
-                 MHDARG(const Real Bxi,) Cons1D *pF);
-void flux_hllc  (const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr, Cons1D *pF);
-void flux_hlld  (const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pF);
-void flux_hlle  (const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr,
-                 MHDARG(const Real Bxi,) Cons1D *pF);
-void flux_roe   (const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr,
-                 MHDARG(const Real Bxi,) Cons1D *pF);
-void flux_2shock(const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr,
-                 MHDARG(const Real Bxi,) Cons1D *pF);
-void flux_exact (const Cons1D Ul, const Cons1D Ur,
-                 const Prim1D Wl, const Prim1D Wr,
-                 MHDARG(const Real Bxi,) Cons1D *pF);
-
-/*----------------------------------------------------------------------------*/
 /* init_domain.c */
 void init_domain(Grid *pG, Domain *pD);
 void get_myGridIndex(Domain *pD, const int my_id, int *pi, int *pj, int *pk);
@@ -179,38 +97,6 @@ void get_myGridIndex(Domain *pD, const int my_id, int *pi, int *pj, int *pk);
 /*----------------------------------------------------------------------------*/
 /* init_grid.c */
 void init_grid(Grid *pGrid, Domain *pD);
-
-/*----------------------------------------------------------------------------*/
-/* integrate.c */
-VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3);
-void integrate_destruct(void);
-
-/*----------------------------------------------------------------------------*/
-/* integrate_1d.c */
-void integrate_destruct_1d(void);
-void integrate_init_1d(int Nx1);
-void integrate_1d(Grid *pG, Domain *pD);
-
-/*----------------------------------------------------------------------------*/
-/* integrate_2d.c */
-void integrate_destruct_2d(void);
-void integrate_init_2d(int Nx1, int Nx2);
-void integrate_2d(Grid *pG, Domain *pD);
-
-/*----------------------------------------------------------------------------*/
-/* integrate_3d.c */
-void integrate_destruct_3d(void);
-void integrate_init_3d(int Nx1, int Nx2, int Nx3);
-void integrate_3d_vl(Grid *pG, Domain *pD);
-void integrate_3d_ctu(Grid *pG, Domain *pD);
-
-/*----------------------------------------------------------------------------*/
-/* lr_states.c */
-void lr_states_destruct(void);
-void lr_states_init(int nx1, int nx2, int nx3);
-void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
-               const Real dt, const Real dtodx, const int is, const int ie,
-               Prim1D Wl[], Prim1D Wr[]);
 
 /*----------------------------------------------------------------------------*/
 /* new_dt.c */

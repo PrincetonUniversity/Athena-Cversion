@@ -101,8 +101,27 @@ void show_config(void)
   ath_pout(0," Order of Accuracy:       3e (THIRD_ORDER_EXTREMA_PRESERVING)\n");
 #endif
 
-  ath_pout(0," Flux:                    %s\n",FLUX_TYPE);
-  ath_pout(0," Unsplit 3D integrator:   %s\n",UNSPLIT_INTEGRATOR);
+#if defined(ROE_FLUX)
+  ath_pout(0," Flux:                    roe\n");
+#elif defined(HLLE_FLUX)
+  ath_pout(0," Flux:                    hlle\n");
+#elif defined(HLLD_FLUX)
+  ath_pout(0," Flux:                    hlld\n");
+#elif defined(HLLC_FLUX)
+  ath_pout(0," Flux:                    hllc\n");
+#elif defined(FORCE_FLUX)
+  ath_pout(0," Flux:                    force\n");
+#elif defined(EXACT_FLUX)
+  ath_pout(0," Flux:                    exact\n");
+#elif defined(TWO_SHOCK_FLUX)
+  ath_pout(0," Flux:                    two-shock\n");
+#endif
+
+#if defined(CTU_INTEGRATOR)
+  ath_pout(0," Unsplit integrator:      ctu\n");
+#elif defined(VL_INTEGRATOR)
+  ath_pout(0," Unsplit integrator:      vl\n");
+#endif
 
 #if defined(SINGLE_PREC)
   ath_pout(0," Precision:               SINGLE_PREC\n");
@@ -229,8 +248,27 @@ void show_config_par(void)
   par_seti("configure","order","%d",3,"Order of accuracy");
 #endif
 
-  par_sets("configure","flux",FLUX_TYPE,"Flux function");
-  par_sets("configure","integrator",UNSPLIT_INTEGRATOR,"Unsplit 3D integrator");
+#if defined(ROE_FLUX)
+  par_sets("configure","flux","roe","Flux function");
+#elif defined(HLLE_FLUX)
+  par_sets("configure","flux","hlle","Flux function");
+#elif defined(HLLD_FLUX)
+  par_sets("configure","flux","hlld","Flux function");
+#elif defined(HLLC_FLUX)
+  par_sets("configure","flux","hllc","Flux function");
+#elif defined(FORCE_FLUX)
+  par_sets("configure","flux","force","Flux function");
+#elif defined(EXACT_FLUX)
+  par_sets("configure","flux","exact","Flux function");
+#elif defined(TWO_SHOCK_FLUX)
+  par_sets("configure","flux","two-shock","Flux function");
+#endif
+
+#if defined(CTU_INTEGRATOR)
+  par_sets("configure","integrator","ctu","Unsplit integrator");
+#elif defined(VL_INTEGRATOR)
+  par_sets("configure","integrator","vl","Unsplit integrator");
+#endif
 
 #if defined(SINGLE_PREC)
   par_sets("configure","precision","single","Type of Real variables");

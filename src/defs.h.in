@@ -66,15 +66,14 @@
  * THIRD_ORDER_EXTREMA_PRESERVING */
 #define @ACCURACY@
 
-/* flux_{roe, hlle, hllc, hlld, force, exact} */
+/* flux type
+ * ROE_FLUX, HLLE_FLUX, HLLC_FLUX, HLLD_FLUX, FORCE_FLUX, EXACT_FLUX,
+ * TWO_SHOCK_FLUX */
 #define @FLUX_DEF@
-#define GET_FLUXES flux_@FLUX_NAME@
-#define FLUX_TYPE "@FLUX_NAME@"
 
-/* integrate_3d_{vl, ctu} */
-#define @THREED_INT_DEF@
-#define THREE_D_INTEGRATOR integrate_3d_@INTEGRATOR@
-#define UNSPLIT_INTEGRATOR "@INTEGRATOR@"
+/* unsplit integrator:
+ * CTU_INTEGRATOR or VL_INTEGRATOR */
+#define @INTEGRATOR_DEF@
 
 /* Real: DOUBLE_PREC or SINGLE_PREC */
 #define @PRECISION@
