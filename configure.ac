@@ -27,6 +27,7 @@
 #   --enable-ion-radiation                         (ionizing radiative transfer)
 #   --enable-ion-point                           (ionization from point sources)
 #   --enable-ion-plane             (ionizing radiation from simulation boundary)
+#   --enable-special-relativity              (special relativistic hydro or MHD)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3]                       (order of spatial reconstruction)
@@ -265,6 +266,21 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# PHYSICS FEATURE: special relativistic hydro or MHD
+#  --enable-special-relativity
+
+AC_SUBST(SPECIAL_RELATIVITY_MODE)
+AC_ARG_ENABLE(special-relativity, [  --enable-special-relativity  enable special relativistic hydro or MHD (default is no)],
+                                ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  SPECIAL_RELATIVITY_MODE="SPECIAL_RELATIVITY"
+  SPECIAL_RELATIVITY_MODE_USER="ON"
+else
+  SPECIAL_RELATIVITY_MODE="NEWTONIAN"
+  SPECIAL_RELATIVITY_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
 # ALGORITHM PACKAGE: set the order of the spatial reconstruction
 #   --with-order=[1,2,3] (default is 2)
 
@@ -497,14 +513,15 @@ if test "$gravity_algorithm" = "none"; then
 else
   echo "Self-gravity:            $SELF_GRAVITY_ALGORITHM"
 fi
+echo "Resistivity:             $RESISTIVITY_USER"
+echo "Viscosity:               $VISCOSITY_USER"
+echo "Thermal conduction:      $CONDUCTION_USER"
+echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo "Ionizing radiation:      $ION_RADIATION_MODE_USER"
 if test "$ION_RADIATION_MODE" = "ION_RADIATION"; then
   echo "Internal point sources:  $ION_POINT_MODE_USER"
   echo "External plane sources:  $ION_PLANE_MODE_USER"
 fi
-echo "Resistivity:             $RESISTIVITY_USER"
-echo "Viscosity:               $VISCOSITY_USER"
-echo "Thermal conduction:      $CONDUCTION_USER"
 echo ""
 echo "--- Algorithm Options ----"
 echo ""
