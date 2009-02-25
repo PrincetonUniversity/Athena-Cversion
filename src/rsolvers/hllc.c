@@ -29,6 +29,7 @@
 #include "../prototypes.h"
 
 #ifdef HLLC_FLUX
+#ifndef SPECIAL_RELATIVITY
 
 #ifdef MHD
 #error : The HLLC flux only works for hydro.
@@ -200,4 +201,5 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
   return;
 }
+#endif /* SPECIAL_RELATIVITY */
 #endif /* HLLC_FLUX */

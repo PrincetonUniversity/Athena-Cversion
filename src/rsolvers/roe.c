@@ -30,6 +30,11 @@
 
 #ifdef ROE_FLUX
 
+/* Function prototype for HLLE fluxes */
+void flux_hlle(const Cons1D Ul, const Cons1D Ur,
+               const Prim1D Wl, const Prim1D Wr,
+               MHDARG(const Real Bxi,) Cons1D *pFlux);
+
 /* maximum wavespeed used by H-correction, value passed from integrator */
 Real etah=0.0;
 

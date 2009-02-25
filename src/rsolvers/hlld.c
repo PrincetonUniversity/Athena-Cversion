@@ -31,6 +31,7 @@
 #include "../prototypes.h"
 
 #ifdef HLLD_FLUX
+#ifdef SPECIAL_RELATIVITY
 
 #define SMALL_NUMBER 1e-8
 
@@ -598,4 +599,5 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 }
 
 #endif /* ISOTHERMAL */
+#endif /* SPECIAL_RELATIVITY */
 #endif /* HLLD_FLUX */
