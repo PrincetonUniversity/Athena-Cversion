@@ -28,6 +28,11 @@ typedef double Real;
 # error "Not a valid precision flag"
 #endif
 
+/* general 3-vector */
+typedef struct Vector_s{
+  Real f1, f2, f3;		
+}Vector;
+
 /*----------------------------------------------------------------------------*/
 /* structure Gas: conserved variables 
  *  IMPORTANT!! The order of the elements in Gas CANNOT be changed.
@@ -118,11 +123,42 @@ typedef struct Prim1D_s{
 #endif
 }Prim1D;
 
-#ifdef ION_RADPOINT
+/*--------------------------------------------------------------------------*/
+/* Grain structure: Basic quantities for one particle.
+ * Note: One particle here represents a collection of billions of real particles.
+ * Created: Emmanuel Jacquet, May 2008;  Modified: Xuening Bai, Dec. 2008
+ */
+
+#ifdef PARTICLES
+
+/* Physical quantities of a grain particle */
+typedef struct Grain_s{
+  Real x1,x2,x3;		/* coordinate in X,Y,Z */
+  Real v1,v2,v3;		/* velocity in X,Y,Z */
+  int property;			/* index of grain properties */
+#ifdef FARGO
+  Real shift;			/* amount of shift in x2 direction */
+#endif
+}Grain;
+
+/* List of physical grain properties */
+typedef struct Grain_Property_s{
+#ifdef FEEDBACK
+  Real m;			/* mass of this type of particle (g) */
+#endif
+  Real rad;			/* radius of this type of particle (cm) */
+  Real rho;			/* solid density of this type of particle (g/cm^3) */
+  long num;			/* number of particles with this property */
+}Grain_Property;
+
+#endif /* PARTICLES */
+
 /*----------------------------------------------------------------------------*/
 /* structure Ray: a structure for storing information about a ray
  * passing through the grid, which we use to do radaitive transfer.
  */
+#ifdef ION_RADPOINT
+
 typedef struct Ray_s {
   Real n1, n2, n3;         /* Unit vector specifying ray direction */
   Real x1_0, x2_0, x3_0;   /* Physical position of ray origin */
@@ -252,6 +288,18 @@ typedef struct Grid_s{
   int jdisp;                /* coordinate jx = index j + jdisp */
   int kdisp;                /* coordinate kx = index k + kdisp */
   char *outfilename;        /* basename for output files */
+
+#ifdef PARTICLES
+  Grain *particle; 		/* linked list of all particles */
+  long arrsize;			/* size of the particle array */
+  long nparticle;		/* number of particles */
+  Grain_Property *grproperty;	/* array of particle properties of all types */
+  int partypes;			/* number of particle types types (size, density, mass) */
+#ifdef FEEDBACK
+  Vector ***feedback;		/* array of feedback force to grid */
+#endif /* FEEDBACK */
+#endif /* PARTICLES */
+
 #ifdef ION_RADPOINT
   int nradpoint;            /* number of point radiatiors */
   Radpoint *radpointlist;   /* list of radiators */
@@ -283,7 +331,7 @@ typedef struct Domain_s{
   Grid_Indices ***GridArray;     /* 3D array of Grids tiling this Domain */
   int ids, jds, kds;        /* Minimum coordinate of cells over entire Domain */
   int ide, jde, kde;        /* Maximum coordinate of cells over entire Domain */
-  int NGrid_x1;            /* Number of Grids in x1 direction for this Domain */
+  int NGrid_x1;             /* Number of Grids in x1 direction for this Domain */
   int NGrid_x2;            /* Number of Grids in x2 direction for this Domain */
   int NGrid_x3;            /* Number of Grids in x3 direction for this Domain */
   int Nx1,Nx2,Nx3;  /* total number of zones in each direction over all Grids */
@@ -349,5 +397,9 @@ enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
 typedef void (*VBCFun_t)(Grid *pG);    /* void boundary cond fn */
 typedef void (*VGFun_t) (Grid *pG);    /* void grid function */
 typedef void (*VGDFun_t)(Grid *pG, Domain *pD);     /*void grid + domain func */
+#ifdef PARTICLES
+/* describe the gas velocity difference due to the pressure gradient */
+typedef void (*GVDFun_t)(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
+#endif /* PARTICLES */
 
 #endif /* ATHENA_H */

@@ -294,6 +294,9 @@ int main(int argc, char *argv[])
 
   init_domain(&level0_Grid, &level0_Domain);
   init_grid  (&level0_Grid, &level0_Domain);
+#ifdef PARTICLES
+  init_particle(&level0_Grid, &level0_Domain);
+#endif
 #ifdef ION_RADIATION
   ion_radtransfer_init_domain(&level0_Grid, &level0_Domain);
 #endif
@@ -327,7 +330,14 @@ int main(int argc, char *argv[])
 #ifdef SHEARING_BOX
   set_bvals_shear_init(&level0_Grid, &level0_Domain);
 #endif
-  set_bvals_mhd(&level0_Grid, &level0_Domain);                            
+#ifdef PARTICLES
+  set_bvals_particle_init(&level0_Grid, &level0_Domain);
+#endif
+
+  set_bvals_mhd(&level0_Grid, &level0_Domain);
+#ifdef PARTICLES
+  set_bvals_particle(&level0_Grid, &level0_Domain);
+#endif
 
   if(ires == 0) new_dt(&level0_Grid);
 
@@ -384,7 +394,7 @@ int main(int argc, char *argv[])
  *            (3) Set boundary values
  *            (4) Set new timestep
  */
-
+long p;
   while (level0_Grid.time < tlim && (nlim < 0 || level0_Grid.nstep < nlim)) {
 
 /* Only write output's with t_out>t when last argument of data_output = 0 */
@@ -411,9 +421,18 @@ int main(int argc, char *argv[])
 #endif
 
     (*Integrate)(&level0_Grid, &level0_Domain);
+#ifdef PARTICLES
+    integrate_particle(&level0_Grid);
+#ifdef MPI_PARALLEL
+MPI_Barrier(MPI_COMM_WORLD);
+#endif
+#endif
 
 #ifdef FARGO
     Fargo(&level0_Grid, &level0_Domain);
+#ifdef PARTICLES
+    advect_particles(&level0_Grid, &level0_Domain);
+#endif
 #endif
 
     Userwork_in_loop(&level0_Grid, &level0_Domain);
@@ -431,6 +450,9 @@ int main(int argc, char *argv[])
 
 /* Boundary values must be set after time is updated for t-dependent BCs */
     set_bvals_mhd(&level0_Grid, &level0_Domain);
+#ifdef PARTICLES
+    set_bvals_particle(&level0_Grid, &level0_Domain);
+#endif
 
 #ifdef MPI_PARALLEL
     if(use_wtlim && (MPI_Wtime() > wtend))
@@ -512,13 +534,17 @@ int main(int argc, char *argv[])
   lr_states_destruct();
   integrate_destruct();
   data_output_destruct();
+#ifdef PARTICLES
+  particle_destruct(&level0_Grid);
+  set_bvals_particle_destruct(&level0_Grid);
+#endif
 #ifdef SHEARING_BOX
   set_bvals_shear_destruct();
 #endif
 #ifdef EXPLICIT_DIFFUSION
   integrate_explicit_diff_destruct();
 #endif
-  par_close();       
+  par_close();
 
 #ifdef MPI_PARALLEL
   MPI_Finalize();

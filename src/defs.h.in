@@ -45,6 +45,10 @@
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
 
+/* Particles */
+#define @PARTICLES_ALGORITHM@
+#define @FEEDBACK_DEFINE@
+
 /* resistivity, viscosity, and thermal conduction */
 #define @DIFFUSIVITIES_DEFINE@
 #define @RESISTIVITY_ALGORITHM@
@@ -168,6 +172,7 @@ enum {
 #ifdef MPI_PARALLEL
 /* Integer constants to identify MPI messages sent in various parts of code */
 enum {boundary_cells_tag,
+      boundary_particle_tag,
       shearing_sheet_ix1_tag,
       shearing_sheet_ox1_tag,
       remapEy_tag,

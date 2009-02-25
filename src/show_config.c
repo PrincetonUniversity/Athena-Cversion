@@ -73,6 +73,16 @@ void show_config(void)
   ath_pout(0," Thermal conduction:      OFF\n");
 #endif
 
+#if defined(PARTICLES)
+  #if defined(FEEDBACK)
+    ath_pout(0," Particles:               feedback\n");
+  #else
+    ath_pout(0," Particles:               passive\n");
+  #endif
+#else
+  ath_pout(0," Particles:               OFF\n");
+#endif
+
 #ifdef SPECIAL_RELATIVITY
   ath_pout(0," Special relativity:      ON\n");
 #else
@@ -226,6 +236,16 @@ void show_config_par(void)
   par_sets("configure","thermal conduction","anisotropic","conduction algorithm");
 #else
   par_sets("configure","thermal conduction","none","conduction algorithm");
+#endif
+
+#if defined(PARTICLES)
+  #if defined(FEEDBACK)
+    par_sets("configure","particles","feedback","feedback algorithm");
+  #else
+    par_sets("configure","particles","passive","no feedback");
+  #endif
+#else
+    par_sets("configure","particles","none","no particles");
 #endif
 
 #if defined(SPECIAL_RELATIVITY)

@@ -23,11 +23,18 @@
 void new_dt(Grid *pGrid)
 {
   int i,j,k;
-  Real di,v1,v2,v3,qsq,p,asq,cf1sq,cf2sq,cf3sq,max_dti=0.0;
+  Real di,v1,v2,v3,qsq,p,asq,cf1sq,cf2sq,cf3sq;
+  Real max_v1, max_v2, max_v3, max_dti;
 #ifdef MHD
   Real b1,b2,b3,bsq,tsum,tdif;
 #endif /* MHD */
+#ifdef PARTICLES
+  long q;
+#endif /* PARTICLES */
   Real nu, eta, min_dx;
+
+  max_v1=0.0;	max_v2=0.0;	max_v3=0.0;
+  max_dti = 0.0;
 
   for (k=pGrid->ks; k<=pGrid->ke; k++) {
   for (j=pGrid->js; j<=pGrid->je; j++) {
@@ -80,16 +87,36 @@ void new_dt(Grid *pGrid)
 
 #endif /* MHD */
 
-/* compute maximum inverse of dt (corresponding to minimum dt) */
+/* compute maximum cfl velocity (corresponding to minimum dt) */
       if (pGrid->Nx1 > 1)
-        max_dti = MAX(max_dti,(fabs(v1)+sqrt((double)cf1sq))/pGrid->dx1);
+        max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
       if (pGrid->Nx2 > 1)
-        max_dti = MAX(max_dti,(fabs(v2)+sqrt((double)cf2sq))/pGrid->dx2);
+        max_v2 = MAX(max_v2,fabs(v2)+sqrt((double)cf2sq));
       if (pGrid->Nx3 > 1)
-        max_dti = MAX(max_dti,(fabs(v3)+sqrt((double)cf3sq))/pGrid->dx3);
+        max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
 
     }
   }}
+
+/* compute maximum cfl velocity with particles */
+#ifdef PARTICLES
+  for (q=0; q<pGrid->nparticle; q++) {
+    if (pGrid->Nx1 > 1)
+      max_v1 = MAX(max_v1, pGrid->particle[q].v1);
+    if (pGrid->Nx2 > 1)
+      max_v2 = MAX(max_v2, pGrid->particle[q].v2);
+    if (pGrid->Nx3 > 1)
+      max_v3 = MAX(max_v3, pGrid->particle[q].v3);
+  }
+#endif /* PARTICLES */
+
+/* compute maximum inverse of dt (corresponding to minimum dt) */
+  if (pGrid->Nx1 > 1)
+    max_dti = MAX(max_dti, max_v1/pGrid->dx1);
+  if (pGrid->Nx2 > 1)
+    max_dti = MAX(max_dti, max_v2/pGrid->dx2);
+  if (pGrid->Nx3 > 1)
+    max_dti = MAX(max_dti, max_v3/pGrid->dx3);
 
 /* new timestep.  Limit increase to 2x old value */
   if (pGrid->nstep == 0) {
@@ -97,6 +124,7 @@ void new_dt(Grid *pGrid)
   } else {
     pGrid->dt = MIN(2.0*pGrid->dt, CourNo/max_dti);
   }
+
 #ifdef MPI_PARALLEL
   sync_dt(pGrid);
 #endif /* MPI_PARALLEL */

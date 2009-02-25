@@ -32,6 +32,7 @@
 #include "integrators/prototypes.h"
 #include "reconstruction/prototypes.h"
 #include "rsolvers/prototypes.h"
+#include "particles/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */

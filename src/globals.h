@@ -34,6 +34,16 @@ Real four_pi_G, grav_mean_rho;
 Real Omega;
 #endif
 
+#ifdef PARTICLES
+Real alamcoeff;	/* coefficient for the calculation of a/lambda */
+Real *grrhoa;	/* an array of particle solid density times particle size in normalized unit */
+int NShuffle;	/* number of time steps for resorting particles */
+#endif
+
+#ifdef CONST_GRAVITY
+Real g;
+#endif
+
 #ifdef EXPLICIT_DIFFUSION
 Real eta_Ohm=0.0, eta_Hall=0.0, nu_V=0.0, kappa_T=0.0, chi_C=0.0;
 #endif
@@ -60,6 +70,16 @@ extern Real four_pi_G, grav_mean_rho;
 
 #ifdef SHEARING_BOX
 extern Real Omega;
+#endif
+
+#ifdef PARTICLES
+extern Real alamcoeff;
+extern Real *grrhoa;
+extern int NShuffle;
+#endif
+
+#ifdef CONST_GRAVITY
+extern Real g;
 #endif
 
 #ifdef EXPLICIT_DIFFUSION

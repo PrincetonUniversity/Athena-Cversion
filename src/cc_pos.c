@@ -14,6 +14,8 @@
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   cc_pos() - given i,j,k returns cell-centered x1,x2,x3
+ *   x1cc - given i, returns cell-centered x1. Same for x2cc and x3cc
+ *   celli - given x, returns containing cell first index. Same holds for cellj  *and cellk
  *============================================================================*/
 
 #include "athena.h"
@@ -30,3 +32,60 @@ void cc_pos(const Grid *pG, const int i, const int j,const int k,
   *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
   return;
 }
+
+
+/*============================================================================
+
+cell-location functions 
+Created: Emmanuel Jacquet, Mar. 2008
+Modified: Xuening Bai, Dec. 2008
+
+============================================================================*/
+
+#ifdef PARTICLES
+/* Input: pGrid: grid; x: global x coordinate; dx1_1: 1/dx1 (to improve performance)
+   Output: i: i-index containing x; a: grid index coordinate of x;
+   Return: 0: x is on the left of the ith cell;
+           1: x is on the right of the ith cell;
+*/
+
+int celli(const Grid* pGrid, const Real x, const Real dx1_1, int *i, Real *a)
+{
+  *a = (x - pGrid->x1_0) * dx1_1 - pGrid->idisp;
+  *i = (int)(*a);
+  if (((*a)-(*i)) < 0.5) return 0;	/* on the left half of the cell*/
+  else return 1;		/* on the right half of the cell*/
+}
+
+Real x1cc(const Grid* pGrid, const int i)
+{
+  return (pGrid->x1_0 + (i + pGrid->idisp + 0.5) * pGrid->dx1);
+}
+
+int cellj(const Grid* pGrid, const Real y, const Real dx2_1, int *j, Real *b)
+{
+  *b = (y - pGrid->x2_0) * dx2_1 - pGrid->jdisp;
+  *j = (int)(*b);
+  if (((*b)-(*j)) < 0.5) return 0;	/* in the left half of the cell*/
+  else return 1;		/* in the right half of the cell*/
+}
+
+Real x2cc(const Grid* pGrid, const int j)
+{
+  return (pGrid->x2_0 + (j + pGrid->jdisp + 0.5) * pGrid->dx2);
+}
+
+int cellk(const Grid* pGrid, const Real z, const Real dx3_1, int *k, Real *c)
+{
+  *c = (z - pGrid->x3_0) * dx3_1 - pGrid->kdisp;
+  *k = (int)(*c);
+  if (((*c)-(*k)) < 0.5) return 0;	/* in the left half of the cell*/
+  else return 1;		/* in the right half of the cell*/
+}
+
+Real x3cc(const Grid* pGrid, const int k)
+{
+  return (pGrid->x3_0 + (k + pGrid->kdisp + 0.5) * pGrid->dx3);
+}
+
+#endif /* PARTICLES */

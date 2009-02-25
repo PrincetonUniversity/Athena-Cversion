@@ -104,7 +104,10 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/roe.o \
 	       rsolvers/two_shock.o
 
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
+PARTICLES_OBJ = particles/particle.o \
+	        particles/set_bvals_particle.o
+
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${PARTICLES_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 
