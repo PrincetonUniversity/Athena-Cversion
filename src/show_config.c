@@ -73,6 +73,12 @@ void show_config(void)
   ath_pout(0," Thermal conduction:      OFF\n");
 #endif
 
+#ifdef SPECIAL_RELATIVITY
+  ath_pout(0," Special relativity:      ON\n");
+#else
+  ath_pout(0," Special Relativity:      OFF\n");
+#endif
+
 #ifdef ION_RADIATION
   ath_pout(0," Ionizing radiation:      ON\n");
 #else
@@ -220,6 +226,12 @@ void show_config_par(void)
   par_sets("configure","thermal conduction","anisotropic","conduction algorithm");
 #else
   par_sets("configure","thermal conduction","none","conduction algorithm");
+#endif
+
+#if defined(SPECIAL_RELATIVITY)
+  par_sets("configure","special relativity","yes","Special relativistic?");
+#else
+  par_sets("configure","special relativity","no","Special relativistic?");
 #endif
 
 #if defined(ION_RADIATION)

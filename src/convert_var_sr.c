@@ -23,6 +23,8 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef SPECIAL_RELATIVITY /* This version for special relativity only */
+
 #ifdef MHD
 /* The ratio (Gamma - 1) / Gamma where Gamma is the adiabatic constant */
 Real Gamma_1overGamma;
@@ -468,3 +470,4 @@ static int solve2D(Real Bsq, Real Msq, Real MdotB, Real MdotBsq, Real E, Real d,
 #undef ERROR_VSQ
 
 #endif /* MHD */
+#endif /* SPECIAL_RELATIVITY */

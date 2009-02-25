@@ -51,6 +51,9 @@
 #define @VISCOSITY_ALGORITHM@
 #define @CONDUCTION_ALGORITHM@
 
+/* special relativity */
+#define @SPECIAL_RELATIVITY_MODE@
+
 /* Ionizing radiative transfer: ION_RADIATION or NO_ION_RADIATION */
 #define @ION_RADIATION_MODE@
 

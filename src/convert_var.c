@@ -17,6 +17,8 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifndef SPECIAL_RELATIVITY /* This version for Newtonian dynamics */
+
 /*----------------------------------------------------------------------------*/
 /* Cons1D_to_Prim1D: 
  *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
@@ -129,3 +131,5 @@ Real cfast(const Cons1D *U MHDARG( , const Real *Bx))
   return sqrt(cfsq);
 #endif
 }
+
+#endif /* SPECIAL_RELATIVITY */
