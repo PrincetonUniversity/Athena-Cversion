@@ -1,3 +1,4 @@
+#include "../copyright.h"
 /*=============================================================================
 FILE: set_bvals_particles.c
 PURPOSE: Sets boundary conditions for particles. The basic algorithm is similar to
@@ -23,10 +24,11 @@ History:
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "defs.h"
-#include "athena.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../prototypes.h"
 #include "prototypes.h"
-#include "globals.h"
+#include "../globals.h"
 
 
 #ifdef PARTICLES         /* endif at the end of the file */

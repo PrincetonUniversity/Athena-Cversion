@@ -1,3 +1,4 @@
+#include "../copyright.h"
 /*=============================================================================
 FILE: particle.c
 PURPOSE: This file contains the main particle integrator. The integrator is 2nd
@@ -26,10 +27,11 @@ History:
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "defs.h"
-#include "athena.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../prototypes.h"
 #include "prototypes.h"
-#include "globals.h"
+#include "../globals.h"
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
