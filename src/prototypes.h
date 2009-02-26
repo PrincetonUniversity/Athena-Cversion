@@ -131,7 +131,8 @@ void output_tab  (Grid *pGrid, Domain *pD, Output *pOut);
 void dump_binary (Grid *pGrid, Domain *pD, Output *pOut);
 void dump_dx     (Grid *pGrid, Domain *pD, Output *pOut);
 void dump_history(Grid *pGrid, Domain *pD, Output *pOut);
-void dump_tab    (Grid *pGrid, Domain *pD, Output *pOut);
+void dump_tab_cons(Grid *pGrid, Domain *pD, Output *pOut);
+void dump_tab_prim(Grid *pGrid, Domain *pD, Output *pOut);
 void dump_vtk    (Grid *pGrid, Domain *pD, Output *pOut);
 
 /*----------------------------------------------------------------------------*/

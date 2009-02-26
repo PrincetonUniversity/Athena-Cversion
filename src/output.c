@@ -185,7 +185,7 @@ void init_output(Grid *pGrid)
 
     new_out.out = par_gets_def(block,"out","all");
 
-/* First handle data dumps (ouput of ALL variables) */
+/* First handle data dumps of all CONSERVED variables (out=all) */
 
     if(strcmp(new_out.out,"all") == 0){
 /* check for valid data dump: dump format = {bin, dx, hst, tab, rst, vtk} */
@@ -215,7 +215,7 @@ void init_output(Grid *pGrid)
 	goto add_it;
       }
       else if (strcmp(fmt,"tab")==0){
-	new_out.fun = dump_tab;
+	new_out.fun = dump_tab_cons;
 	goto add_it;
       }
       else if (strcmp(fmt,"rst")==0){
@@ -230,6 +230,49 @@ void init_output(Grid *pGrid)
       }
       else{    /* Unknown data dump (fatal error) */
 	ath_error("Unsupported dump mode for %s/out_fmt=%s for out=all\n",
+          block,fmt);
+      }
+    }
+
+/* Next handle data dumps of all PRIMITIVE variables (out=prim) */
+
+    if(strcmp(new_out.out,"prim") == 0){
+/* check for valid data dump: dump format = {bin, dx, tab, vtk} */
+      if(par_exist(block,"name")){
+        /* The output function is user defined - get its name */
+        char *name = par_gets(block,"name");
+        /* Get a pointer to the output function via its name */
+        new_out.fun = get_usr_out_fun(name);
+        if(new_out.fun == NULL){
+          free_output(&new_out);
+          ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
+                    name,block,fmt);
+        }
+        free(name);  name = NULL;
+        goto add_it;
+      }
+/*
+      else if (strcmp(fmt,"bin")==0){
+        new_out.fun = dump_binary_prim;
+        goto add_it;
+      }
+      else if (strcmp(fmt,"dx")==0){
+        new_out.fun = dump_dx_prim;
+        goto add_it;
+      }
+*/
+      else if (strcmp(fmt,"tab")==0){
+        new_out.fun = dump_tab_prim;
+        goto add_it;
+      }
+/*
+      else if (strcmp(fmt,"vtk")==0){
+        new_out.fun = dump_vtk_prim;
+        goto add_it;
+      }
+*/
+      else{    /* Unknown data dump (fatal error) */
+        ath_error("Unsupported dump mode for %s/out_fmt=%s for out=prim\n",
           block,fmt);
       }
     }
