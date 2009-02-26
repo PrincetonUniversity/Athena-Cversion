@@ -35,8 +35,11 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
-/* conserved variables at t^{n+1/2} computed in predict step */
+/* conserved and primitive variables at t^{n+1/2} computed in predict step */
 static Gas *Uhalf=NULL;
+#ifdef SPECIAL_RELATIVITY
+static Prim1D *Whalf=NULL;  /* only need to store 1D vector of Prims */
+#endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -52,9 +55,6 @@ void integrate_1d(Grid *pG, Domain *pD)
   int js = pG->js;
   int ks = pG->ks;
   Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
-#ifdef MHD
-  Real d, M1, M2, M3, B1c, B2c, B3c;
-#endif
 #if (NSCALARS > 0)
   int n;
 #endif
@@ -69,45 +69,67 @@ void integrate_1d(Grid *pG, Domain *pD)
 /*=== STEP 1: Compute first-order fluxes at t^{n} in x1-direction ============*/
 /* No source terms are needed since there is no temporal evolution */
 
-  for (i=is-(nghost-1); i<=ie+nghost; i++) {
-    Ul[i].d  = pG->U[ks][js][i-1].d;
-    Ul[i].Mx = pG->U[ks][js][i-1].M1;
-    Ul[i].My = pG->U[ks][js][i-1].M2;
-    Ul[i].Mz = pG->U[ks][js][i-1].M3;
+/*--- Step 1a ------------------------------------------------------------------
+ * Load 1D vector of conserved variables;  
+ * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ */
+
+  for (i=is-nghost; i<=ie+nghost; i++) {
+    U1d[i].d  = pG->U[ks][js][i].d;
+    U1d[i].Mx = pG->U[ks][js][i].M1;
+    U1d[i].My = pG->U[ks][js][i].M2;
+    U1d[i].Mz = pG->U[ks][js][i].M3;
 #ifndef BAROTROPIC
-    Ul[i].E  = pG->U[ks][js][i-1].E;
+    U1d[i].E  = pG->U[ks][js][i].E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-    Ul[i].By = pG->U[ks][js][i-1].B2c;
-    Ul[i].Bz = pG->U[ks][js][i-1].B3c;
-    Bxc[i] = pG->U[ks][js][i-1].B1c;
-#endif /* MHD */
-#if (NSCALARS > 0)
-    for (n=0; n<NSCALARS; n++) Ul[i].s[n] = pG->U[ks][js][i-1].s[n];
-#endif
-
-    Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &Bxc[i]));
-
-    Ur[i].d  = pG->U[ks][js][i].d;
-    Ur[i].Mx = pG->U[ks][js][i].M1;
-    Ur[i].My = pG->U[ks][js][i].M2;
-    Ur[i].Mz = pG->U[ks][js][i].M3;
-#ifndef BAROTROPIC
-    Ur[i].E = pG->U[ks][js][i].E;
-#endif /* BAROTROPIC */
-#ifdef MHD
-    Ur[i].By = pG->U[ks][js][i].B2c;
-    Ur[i].Bz = pG->U[ks][js][i].B3c;
+    U1d[i].By = pG->U[ks][js][i].B2c;
+    U1d[i].Bz = pG->U[ks][js][i].B3c;
     Bxc[i] = pG->U[ks][js][i].B1c;
-    Bxi[i] = pG->B1i[ks][js][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-    for (n=0; n<NSCALARS; n++) Ur[i].s[n] = pG->U[ks][js][i].s[n];
+    for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][js][i].s[n];
 #endif
 
-    Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &Bxc[i]));
+/* Convert to primitive variables -- for SR use primitive variables stored
+ * in Grid structure */
 
-/* Compute flux in x1-direction  */
+#ifndef SPECIAL_RELATIVITY
+    Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+#else
+    W[i].d  = pG->W[ks][js][i].d;
+    W[i].Vx = pG->W[ks][js][i].V1;
+    W[i].Vy = pG->W[ks][js][i].V2;
+    W[i].Vz = pG->W[ks][js][i].V3;
+#ifndef BAROTROPIC
+    W[i].P  = pG->W[ks][js][i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+    W[i].By = pG->W[ks][js][i].B2c;
+    W[i].Bz = pG->W[ks][js][i].B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) W[i].r[n] = pG->W[ks][js][i].r[n];
+#endif /* NSCALARS */
+#endif /* SPECIAL_RELATIVITY */
+
+  }
+
+/*--- Step 1b ------------------------------------------------------------------
+ * Compute first-order L/R states in U and W */
+
+  for (i=is-(nghost-1); i<=ie+nghost; i++) {
+    Wl[i] = W[i-1];
+    Wr[i] = W[i  ];
+
+    Ul[i] = U1d[i-1];
+    Ur[i] = U1d[i  ];
+  }
+
+/*--- Step 1c ------------------------------------------------------------------
+ * Compute flux in x1-direction */
+
+  for (i=is-(nghost-1); i<=ie+nghost; i++) {
     fluxes(Ul[i],Ur[i],Wl[i],Wr[i], MHDARG( Bxi[i] , ) &x1Flux[i]);
   }
 
@@ -204,21 +226,46 @@ void integrate_1d(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++) U1d[i].s[n] = Uhalf[i].s[n];
 #endif
-  }
 
 /*--- Step 7b ------------------------------------------------------------------
  * Compute L and R states at x1-interfaces, store in array
  */
 
-  for (i=is-(nghost-1); i<=ie+(nghost-1); i++) {
+/* With special relativity, load primitive variables at last timestep into W
+ * as first guess in iterative conversion method */
+
+#ifdef SPECIAL_RELATIVITY
+    W[i].d  = pG->W[ks][js][i].d;
+    W[i].Vx = pG->W[ks][js][i].V1;
+    W[i].Vy = pG->W[ks][js][i].V2;
+    W[i].Vz = pG->W[ks][js][i].V3;
+#ifndef BAROTROPIC
+    W[i].P  = pG->W[ks][js][i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+    W[i].By = pG->W[ks][js][i].B2c;
+    W[i].Bz = pG->W[ks][js][i].B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) W[i].r[n] = pG->W[ks][js][i].r[n];
+#endif /* NSCALARS */
+#endif /* SPECIAL_RELATIVITY */
+
     Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
   }
 
   lr_states(W, MHDARG( Bxc , ) 0.0,0.0,is,ie+1,Wl,Wr);
 
+/* Store L/R states in primitive variables.  With SR, also store Whalf for
+ * initial guess for variable convesion in step 13 below
+ */
+
   for (i=is; i<=ie+1; i++) {
     Wl_x1Face[i] = Wl[i];
     Wr_x1Face[i] = Wr[i];
+#ifdef SPECIAL_RELATIVITY
+    Whalf[i] = W[i];
+#endif
   }
 
 /*=== STEPS 8-9: Not needed in 1D ===*/
@@ -325,6 +372,55 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif
   }
 
+/*--- Step 13b -----------------------------------------------------------------
+ * With special relativity, compute primitive variables at new timestep and
+ * store in Grid structure
+ */
+
+#ifdef SPECIAL_RELATIVITY
+
+/* Load 1D vector of conserved variables */
+
+  for (i=is; i<=ie; i++) {
+    U1d[i].d  = pG->U[ks][js][i].d;
+    U1d[i].Mx = pG->U[ks][js][i].M1;
+    U1d[i].My = pG->U[ks][js][i].M2;
+    U1d[i].Mz = pG->U[ks][js][i].M3;
+#ifndef BAROTROPIC
+    U1d[i].E  = pG->U[ks][js][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+    U1d[i].By = pG->U[ks][js][i].B2c;
+    U1d[i].Bz = pG->U[ks][js][i].B3c;
+    Bxc[i] = pG->U[ks][js][i].B1c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][js][i].s[n];
+#endif
+
+/* Convert variables, using Whalf as guess, and store result into Grid */
+
+    Cons1D_to_Prim1D(&U1d[i],&Whalf[i] MHDARG( , &Bxc[i]));
+
+    pG->W[ks][js][i].d  = Whalf[i].d;
+    pG->W[ks][js][i].V1 = Whalf[i].Vx;
+    pG->W[ks][js][i].V2 = Whalf[i].Vy;
+    pG->W[ks][js][i].V3 = Whalf[i].Vz;
+#ifndef BAROTROPIC
+    pG->W[ks][js][i].P = Whalf[i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+    pG->W[ks][js][i].B1c = Bxc[i];
+    pG->W[ks][js][i].B2c = Whalf[i].By;
+    pG->W[ks][js][i].B3c = Whalf[i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pG->W[ks][js][i].r[n] = Whalf[i].r[n];
+#endif /* NSCALARS */
+  }
+
+#endif /* SPECIAL_RELATIVITY */
+
   return;
 }
 
@@ -351,6 +447,9 @@ void integrate_destruct_1d(void)
   if (Wr       != NULL) free(Wr);
 
   if (Uhalf    != NULL) free(Uhalf);
+#ifdef SPECIAL_RELATIVITY
+  if (Whalf    != NULL) free(Whalf);
+#endif
 
   return;
 }
@@ -379,6 +478,9 @@ void integrate_init_1d(int nx1)
   if ((Wr  =      (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
 
   if ((Uhalf = (Gas*)malloc(Nx1*sizeof(Gas))) == NULL) goto on_error;
+#ifdef SPECIAL_RELATIVITY
+  if ((Whalf = (Prim1D*)malloc(Nx1*sizeof(Prim))) == NULL) goto on_error;
+#endif
 
   return;
 
