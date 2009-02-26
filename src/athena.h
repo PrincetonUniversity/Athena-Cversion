@@ -9,8 +9,11 @@
  *   Prim  - cell-centered primitive variables
  *   Cons1D - conserved variables in 1D: same as Gas minus Bx
  *   Prim1D - primitive variables in 1D: same as Prim minus Bx
+ *   Grain  - basic properties of particles
+ *   Ray,Rad_Ran2_State,Ray_Tree,Radpoint,Radplane - for ionizing rad transport
  *   Grid   - everything needed by a Grid: arrays of Gas, B, indices, time, etc.
- *   Domain - Indices and IDs of each Grid block across all processors
+ *   Grid_Indices - indices and ID of one Grid in a Domain
+ *   Domain - info on array of Grids covering computational domain 
  *   Output - everything associated with an individual output: time, type, etc.
  *============================================================================*/
 #include "defs.h"
@@ -57,7 +60,7 @@ typedef struct Gas_s{
 }Gas;
 
 /*----------------------------------------------------------------------------*/
-/* structure Prim: primitive variables 
+/* structure Prim: primitive variables, used with special relativity 
  *  IMPORTANT!! The order of the elements in Prim CANNOT be changed.
  */
 
@@ -125,7 +128,7 @@ typedef struct Prim1D_s{
 
 /*--------------------------------------------------------------------------*/
 /* Grain structure: Basic quantities for one particle.
- * Note: One particle here represents a collection of billions of real particles.
+ * Note: One particle here represents a collection of billions of real particles
  * Created: Emmanuel Jacquet, May 2008;  Modified: Xuening Bai, Dec. 2008
  */
 
@@ -144,11 +147,11 @@ typedef struct Grain_s{
 /* List of physical grain properties */
 typedef struct Grain_Property_s{
 #ifdef FEEDBACK
-  Real m;			/* mass of this type of particle (g) */
+  Real m;		/* mass of this type of particle (g) */
 #endif
-  Real rad;			/* radius of this type of particle (cm) */
-  Real rho;			/* solid density of this type of particle (g/cm^3) */
-  long num;			/* number of particles with this property */
+  Real rad;		/* radius of this type of particle (cm) */
+  Real rho;		/* solid density of this type of particle (g/cm^3) */
+  long num;		/* number of particles with this property */
 }Grain_Property;
 
 #endif /* PARTICLES */
@@ -264,16 +267,19 @@ typedef struct Radplane_s {
  */
 
 typedef struct Grid_s{
-  Gas ***U;			/* pointer to a 3D array of Gas'es */
+  Gas ***U;			/* conserved variables */
 #ifdef MHD
-  Real ***B1i,***B2i,***B3i;    /* pointer to a 3D array of interface B's */
+  Real ***B1i,***B2i,***B3i;    /* interface magnetic fields */
 #endif /* MHD */
+#ifdef SPECIAL_RELATIVITY
+  Prim ***W;                    /* primitive variables, needed with SR */
+#endif /* SPECIAL_RELATIVITY */
 #ifdef SELF_GRAVITY
-  Real ***Phi, ***Phi_old;      /* pointer to 3D array of gravitational pot */
+  Real ***Phi, ***Phi_old;      /* gravitational potential */
   Real ***x1MassFlux;           /* x1 mass flux for source term correction */
   Real ***x2MassFlux;           /* x2 mass flux for source term correction */
   Real ***x3MassFlux;           /* x3 mass flux for source term correction */
-#endif
+#endif /* GRAVITY */
   Real x1_0;	            /* x1-position of coordinate ix = 0 */
   Real x2_0;	            /* x2-position of coordinate jx = 0 */
   Real x3_0;	            /* x3-position of coordinate kx = 0 */

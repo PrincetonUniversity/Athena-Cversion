@@ -46,7 +46,7 @@ static int solve2D(Real Bsq, Real Msq, Real MdotB, Real MdotBsq, Real E, Real d,
  * Bx is passed in through the argument list.
  */
 
-void Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
+void Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W MHDARG( , const Real *Bx))
 {
   Real Msq, M, ME, Dsq, Gamma_1sq, denom;
   Real a3, a2, a1, a0;
@@ -135,7 +135,7 @@ void Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
  * Bx is passed in through the argument list. 
  */
 
-void Prim1D_to_Cons1D(Cons1D *U, const Prim1D *W, const Real *Bx)
+void Prim1D_to_Cons1D(Cons1D *U, const Prim1D *W MHDARG( , const Real *Bx))
 {
   Real vsq = SQR(W->Vx) + SQR(W->Vy) + SQR(W->Vz);
   Real V0 = 1.0 / (1.0 - vsq);

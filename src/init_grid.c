@@ -163,6 +163,13 @@ void init_grid(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
+/* Build 3D array for primitive variables with SR */
+
+#ifdef SPECIAL_RELATIVITY
+  pG->W = (Prim***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(Prim));
+  if (pG->W == NULL) goto on_error;
+#endif /* SPECIAL_RELATIVITY */
+
 /* Build 3D arrays to gravitational potential and mass fluxes */
 
 #ifdef SELF_GRAVITY
