@@ -31,7 +31,7 @@
 #include "../prototypes.h"
 
 #ifdef HLLD_FLUX
-#ifdef SPECIAL_RELATIVITY
+#ifndef SPECIAL_RELATIVITY
 
 #define SMALL_NUMBER 1e-8
 
