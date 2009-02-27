@@ -86,8 +86,8 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   ssl = cslsq / ( gammasql * (1.0 - cslsq) ); /* Mignone Eq 22.5 */
   ssr = csrsq / ( gammasqr * (1.0 - csrsq) );
 
-  radl = sqrt( ssl*(1 - SQR(Wl.Vx) + ssl) ); /* Mignone Eq 23 (radical part) */
-  radr = sqrt( ssr*(1 - SQR(Wr.Vx) + ssr) );
+  radl = sqrt( ssl*(1.0-SQR(Wl.Vx)+ssl) ); /* Mignone Eq 23 (radical part) */
+  radr = sqrt( ssr*(1.0-SQR(Wr.Vx)+ssr) );
 
   lmdapl = (Wl.Vx + radl) / (1.0 + ssl); /* Mignone Eq 23 */
   lmdapr = (Wr.Vx + radr) / (1.0 + ssr);
@@ -151,7 +151,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
   /* quadratic formula calculation */
 
-  if(Fhll.E > TINY_NUMBER){
+  if(fabs(Fhll.E) > (TINY_NUMBER)){
      b   = -(Uhll.E + Fhll.Mx);
      bsq = b * b;
      rad = sqrt(bsq - 4.0 * Fhll.E * Uhll.Mx);
@@ -236,7 +236,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
      return;
   }
-  else if( lmdar >= 0){ /* Frs */
+  else if( lmdar >= 0.0){ /* Frs */
      /* first calculate ps using Mignone Eq 17 */
      /*A  = lmdar * Ur.E - Ur.Mx;
      B  = Ur.Mx * (lmdar - Wr.Vx) - Wr.P;
