@@ -24,6 +24,7 @@
 #include <string.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
@@ -56,6 +57,9 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
 #ifdef ION_RADPLANE
   int dir, nradplane;
   Real flux;
+#endif
+#ifdef PARTICLES
+  long p;
 #endif
 
 /* Open the restart file */
@@ -281,6 +285,95 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   }
 #endif
 
+/* Read particle properties and the complete particle list */
+#ifdef PARTICLES
+  fgets(line,MAXLEN,fp);/* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE LIST",13) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE LIST, found %s",line);
+  fread(&(pG->nparticle),sizeof(long),1,fp);
+  fread(&(pG->partypes),sizeof(int),1,fp);
+  for (i=0; i<pG->partypes; i++) {          /* particle property list */
+#ifdef FEEDBACK
+    fread(&(pG->grproperty[i].m),sizeof(Real),1,fp);
+#endif
+    fread(&(pG->grproperty[i].rad),sizeof(Real),1,fp);
+    fread(&(pG->grproperty[i].rho),sizeof(Real),1,fp);
+    fread(&(grrhoa[i]),sizeof(Real),1,fp);
+  }
+  fread(&(alamcoeff),sizeof(Real),1,fp);   /* coefficient to calculate the Reynolds number */
+
+/* Read the x1-coordinate */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE X1",11) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE X1, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].x1),sizeof(Real),1,fp);
+  }
+
+/* Read the x2-coordinate */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE X2",11) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE X2, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].x2),sizeof(Real),1,fp);
+  }
+
+/* Read the x3-coordinate */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE X3",11) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE X3, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].x3),sizeof(Real),1,fp);
+  }
+
+/* Read the v1-coordinate */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE V1",11) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE V1, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].v1),sizeof(Real),1,fp);
+  }
+
+/* Read the v2-coordinate */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE V2",11) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE V2, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].v2),sizeof(Real),1,fp);
+  }
+
+/* Read the v3-coordinate */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE V3",11) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE V3, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].v3),sizeof(Real),1,fp);
+  }
+
+/* Read particle properties */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE PROPERTY",17) != 0)
+    ath_error("[restart_grid_block]: Expected PARTICLE PROPERTY, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].property),sizeof(int),1,fp);
+  }
+
+/* count the number of particles with different types */
+  for (i=0; i<pG->partypes; i++)
+    pG->grproperty[i].num = 0;
+  for (p=0; p<pG->nparticle; p++)
+    pG->grproperty[pG->particle[p].property].num += 1;
+
+#endif /* PARTICLES */
+
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"USER_DATA",9) != 0)
@@ -313,6 +406,10 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 #ifdef ION_RADPOINT
   Rad_Ran2_State ranstate;
 #endif
+#ifdef PARTICLES
+  long p;
+  int nprop, *ibuf = NULL, ibufsize, nibuf = 0;
+#endif
   int bufsize, nbuf = 0;
   Real *buf = NULL;
 
@@ -322,6 +419,13 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
     return;  /* Right now, we just don't write instead of aborting completely */
   }
+#ifdef PARTICLES
+  ibufsize = 262144 / sizeof(int);  /* 256 KB worth of Reals */
+  if ((ibuf = (int*)calloc_1d_array(ibufsize, sizeof(int))) == NULL) {
+    ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
+    return;  /* Right now, we just don't write instead of aborting completely */
+  }
+#endif
 
 /* Open the output file */
   fp = ath_fopen(NULL,pG->outfilename,num_digit,pout->num,NULL,"rst","wb");
@@ -556,6 +660,136 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     }
   }
 #endif
+
+#ifdef PARTICLES
+  /* Write out the number of particles*/
+  fprintf(fp,"\nPARTICLE LIST\n");
+  fwrite(&(pG->nparticle),sizeof(long),1,fp);
+
+  /* Write out the particle properties */
+#ifdef FEEDBACK
+  nprop = 4;
+#else
+  nprop = 3;
+#endif
+  fwrite(&(pG->partypes),sizeof(int),1,fp); /* number of particle types */
+  for (i=0; i<pG->partypes; i++) {          /* particle property list */
+#ifdef FEEDBACK
+    buf[nbuf++] = pG->grproperty[i].m;
+#endif
+    buf[nbuf++] = pG->grproperty[i].rad;
+    buf[nbuf++] = pG->grproperty[i].rho;
+    buf[nbuf++] = grrhoa[i];
+    if ((nbuf+nprop) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+  fwrite(&(alamcoeff),sizeof(Real),1,fp);  /* coefficient to calculate the Reynolds number */
+
+  /* Write x1 */
+  fprintf(fp,"\nPARTICLE X1\n");
+  for (p=0;p<pG->nparticle;p++){
+    buf[nbuf++] = pG->particle[p].x1;
+    if ((nbuf+1) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+
+  /* Write x2 */
+  fprintf(fp,"\nPARTICLE X2\n");
+  for (p=0;p<pG->nparticle;p++){
+    buf[nbuf++] = pG->particle[p].x2;
+    if ((nbuf+1) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+
+  /* Write x3 */
+  fprintf(fp,"\nPARTICLE X3\n");
+  for (p=0;p<pG->nparticle;p++){
+    buf[nbuf++] = pG->particle[p].x3;
+    if ((nbuf+1) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+
+  /* Write v1 */
+  fprintf(fp,"\nPARTICLE V1\n");
+  for (p=0;p<pG->nparticle;p++){
+    buf[nbuf++] = pG->particle[p].v1;
+    if ((nbuf+1) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+
+  /* Write v2 */
+  fprintf(fp,"\nPARTICLE V2\n");
+  for (p=0;p<pG->nparticle;p++){
+    buf[nbuf++] = pG->particle[p].v2;
+    if ((nbuf+1) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+
+  /* Write v3 */
+  fprintf(fp,"\nPARTICLE V3\n");
+  for (p=0;p<pG->nparticle;p++){
+    buf[nbuf++] = pG->particle[p].v3;
+    if ((nbuf+1) > bufsize) {
+      fwrite(buf,sizeof(Real),nbuf,fp);
+      nbuf = 0;
+    }
+  }
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+
+  /* Write properties */
+  fprintf(fp,"\nPARTICLE PROPERTY\n");
+  for (p=0;p<pG->nparticle;p++){
+    ibuf[nibuf++] = pG->particle[p].property;
+    if ((nibuf+1) > ibufsize) {
+      fwrite(ibuf,sizeof(int),nibuf,fp);
+      nibuf = 0;
+    }
+  }
+  if (nibuf > 0) {
+    fwrite(ibuf,sizeof(int),nibuf,fp);
+    nibuf = 0;
+  }
+
+#endif /*PARTICLES*/
 
   fprintf(fp,"\nUSER_DATA\n");
 

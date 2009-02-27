@@ -423,9 +423,6 @@ long p;
     (*Integrate)(&level0_Grid, &level0_Domain);
 #ifdef PARTICLES
     integrate_particle(&level0_Grid);
-#ifdef MPI_PARALLEL
-MPI_Barrier(MPI_COMM_WORLD);
-#endif
 #endif
 
 #ifdef FARGO

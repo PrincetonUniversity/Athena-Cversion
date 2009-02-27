@@ -2078,6 +2078,7 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
         *(pd++) = (double)(cur->property)+0.01;
         /* delete the particle */
         pG->nparticle -= 1;
+        pG->grproperty[cur->property] -= 1;
         p -= 1;
         pG->particle[p] = pG->particle[pG->nparticle];
       }
@@ -2140,6 +2141,7 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
         *(pd++) = (double)(cur->property)+0.01;
         /* delete the particle */
         pG->nparticle -= 1;
+        pG->grproperty[cur->property] -= 1;
         p -= 1;
         pG->particle[p] = pG->particle[pG->nparticle];
       }
@@ -2186,6 +2188,7 @@ static long packing_particle_fargo(Grid *pG, Real yl, Real yu)
       *(pd++) = (double)(cur->property)+0.01;
       /* delete the particle */
       pG->nparticle -= 1;
+      pG->grproperty[cur->property] -= 1;
       p -= 1;
       pG->particle[p] = pG->particle[pG->nparticle];
     }
@@ -2206,7 +2209,6 @@ static int gridshift(Real shift)
 
 #endif /* SHEARING_BOX */
 
-#undef NBUF
 #undef NVAR_P
 
 #endif /*PARTICLES*/
