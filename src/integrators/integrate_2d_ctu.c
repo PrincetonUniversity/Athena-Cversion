@@ -672,17 +672,17 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Add source terms for shearing box arising from x1-Flux gradient
  *  (x1,x2,x3) in code = (X,Z,Y) in shearing sheet
  *    Vx source term is (dt/2)( 2 Omega V y); Mx on x2Face is Mz 
- *    Vy source term is (dt/2)(-2 Omega V x); My on x2Face is Mx
+ *    Vy source term is (dt/2)(-2 Omega V x); My on x2Face is My
  */
 
 #ifdef SHEARING_BOX
   for (j=js-1; j<=ju; j++) {
     for (i=is-1; i<=ie+1; i++) {
       Ur_x2Face[j][i].Mz += pG->dt*Omega*pG->U[ks][j][i].M3;
-      Ur_x2Face[j][i].Mx -= pG->dt*Omega*pG->U[ks][j][i].M1;
+      Ur_x2Face[j][i].My -= pG->dt*Omega*pG->U[ks][j][i].M1;
 
       Ul_x2Face[j][i].Mz += pG->dt*Omega*pG->U[ks][j-1][i].M3;
-      Ul_x2Face[j][i].Mx -= pG->dt*Omega*pG->U[ks][j-1][i].M1;
+      Ul_x2Face[j][i].My -= pG->dt*Omega*pG->U[ks][j-1][i].M1;
     }
   }
 #endif /* SHEARING_BOX */
