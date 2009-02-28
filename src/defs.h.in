@@ -69,8 +69,8 @@
  * ION_RADPLANE or NO_ION_RADPLANE */
 #define @ION_PLANE_MODE@
 
-/* order of spatial reconstruction: FIRST_ORDER, SECOND_ORDER, THIRD_ORDER
- * THIRD_ORDER_EXTREMA_PRESERVING */
+/* order of spatial reconstruction: FIRST_ORDER,
+ * SECOND_ORDER_CHAR, SECOND_ORDER_PRIM, THIRD_ORDER_CHAR, THIRD_ORDER_PRIM */
 #define @ACCURACY@
 
 /* flux type

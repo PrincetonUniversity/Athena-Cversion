@@ -92,7 +92,8 @@ RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \
 		     reconstruction/lr_states_plm.o \
 		     reconstruction/lr_states_ppm.o \
-		     reconstruction/lr_states_ppme.o
+		     reconstruction/lr_states_prim2.o \
+		     reconstruction/lr_states_prim3.o
 
 RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/exact.o \

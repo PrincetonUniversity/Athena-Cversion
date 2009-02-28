@@ -109,12 +109,14 @@ void show_config(void)
 
 #if defined(FIRST_ORDER)
   ath_pout(0," Order of Accuracy:       1 (FIRST_ORDER)\n");
-#elif defined(SECOND_ORDER)
-  ath_pout(0," Order of Accuracy:       2 (SECOND_ORDER)\n");
-#elif defined(THIRD_ORDER)
-  ath_pout(0," Order of Accuracy:       3 (THIRD_ORDER)\n");
-#elif defined(THIRD_ORDER_EXTREMA_PRESERVING)
-  ath_pout(0," Order of Accuracy:       3e (THIRD_ORDER_EXTREMA_PRESERVING)\n");
+#elif defined(SECOND_ORDER_CHAR)
+  ath_pout(0," Order of Accuracy:       2 (SECOND_ORDER_CHAR)\n");
+#elif defined(SECOND_ORDER_PRIM)
+  ath_pout(0," Order of Accuracy:       2p (SECOND_ORDER_PRIM)\n");
+#elif defined(THIRD_ORDER_CHAR)
+  ath_pout(0," Order of Accuracy:       3 (THIRD_ORDER_CHAR)\n");
+#elif defined(THIRD_ORDER_PRIM)
+  ath_pout(0," Order of Accuracy:       3p (THIRD_ORDER_PRIM)\n");
 #endif
 
 #if defined(ROE_FLUX)
@@ -274,10 +276,14 @@ void show_config_par(void)
 
 #if defined(FIRST_ORDER)
   par_seti("configure","order","%d",1,"Order of accuracy");
-#elif defined(SECOND_ORDER)
+#elif defined(SECOND_ORDER_CHAR)
   par_seti("configure","order","%d",2,"Order of accuracy");
-#elif defined(THIRD_ORDER)
+#elif defined(SECOND_ORDER_PRIM)
+  par_sets("configure","order","2p","Order of accuracy");
+#elif defined(THIRD_ORDER_CHAR)
   par_seti("configure","order","%d",3,"Order of accuracy");
+#elif defined(THIRD_ORDER_PRIM)
+  par_sets("configure","order","3p","Order of accuracy");
 #endif
 
 #if defined(ROE_FLUX)
