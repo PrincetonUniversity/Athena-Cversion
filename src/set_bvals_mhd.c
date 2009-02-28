@@ -703,6 +703,10 @@ static void reflect_ix1(Grid *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
         pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][j][is-i]    =  pGrid->W[k][j][is+(i-1)];
+        pGrid->W[k][j][is-i].V1 = -pGrid->W[k][j][is-i].V1; /* reflect 1-vel. */
+#endif
       }
     }
   }
@@ -765,8 +769,12 @@ static void reflect_ox1(Grid *pGrid)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
-        pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie-(i-1)];
+        pGrid->U[k][j][ie+i]    =  pGrid->U[k][j][ie-(i-1)];
         pGrid->U[k][j][ie+i].M1 = -pGrid->U[k][j][ie+i].M1; /* reflect 1-mom. */
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][j][ie+i]    =  pGrid->W[k][j][ie-(i-1)];
+        pGrid->W[k][j][ie+i].V1 = -pGrid->W[k][j][ie+i].V1; /* reflect 1-vel. */
+#endif
       }
     }
   }
@@ -840,6 +848,10 @@ static void reflect_ix2(Grid *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[k][js-j][i]    =  pGrid->U[k][js+(j-1)][i];
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][js-j][i]    =  pGrid->W[k][js+(j-1)][i];
+        pGrid->W[k][js-j][i].V2 = -pGrid->W[k][js-j][i].V2; /* reflect 2-vel. */
+#endif
       }
     }
   }
@@ -914,6 +926,10 @@ static void reflect_ox2(Grid *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
         pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][je+j][i]    =  pGrid->W[k][je-(j-1)][i];
+        pGrid->W[k][je+j][i].V2 = -pGrid->W[k][je+j][i].V2; /* reflect 2-vel. */
+#endif
       }
     }
   }
@@ -994,6 +1010,10 @@ static void reflect_ix3(Grid *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
         pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[ks-k][j][i]    =  pGrid->W[ks+(k-1)][j][i];
+        pGrid->W[ks-k][j][i].V3 = -pGrid->W[ks-k][j][i].V3; /* reflect 3-vel. */
+#endif
       }
     }
   }
@@ -1074,6 +1094,10 @@ static void reflect_ox3(Grid *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
         pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[ke+k][j][i]    =  pGrid->W[ke-(k-1)][j][i];
+        pGrid->W[ke+k][j][i].V3 = -pGrid->W[ke+k][j][i].V3; /* reflect 3-vel. */
+#endif
       }
     }
   }
@@ -1140,6 +1164,9 @@ static void outflow_ix1(Grid *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i] = pGrid->U[k][j][is];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][j][is-i] = pGrid->W[k][j][is];
+#endif
       }
     }
   }
@@ -1193,6 +1220,9 @@ static void outflow_ox1(Grid *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][j][ie+i] = pGrid->W[k][j][ie];
+#endif
       }
     }
   }
@@ -1254,6 +1284,9 @@ static void outflow_ix2(Grid *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][js][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][js-j][i] = pGrid->W[k][js][i];
+#endif
       }
     }
   }
@@ -1315,6 +1348,9 @@ static void outflow_ox2(Grid *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][je][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][je+j][i] = pGrid->W[k][je][i];
+#endif
       }
     }
   }
@@ -1377,7 +1413,10 @@ static void outflow_ix3(Grid *pGrid)
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pGrid->U  [ks-k][j][i] = pGrid->U  [ks][j][i];
+        pGrid->U[ks-k][j][i] = pGrid->U[ks][j][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[ks-k][j][i] = pGrid->W[ks][j][i];
+#endif
       }
     }
   }
@@ -1439,6 +1478,9 @@ static void outflow_ox3(Grid *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ke][j][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[ke+k][j][i] = pGrid->W[ke][j][i];
+#endif
       }
     }
   }
@@ -1491,6 +1533,9 @@ static void periodic_ix1(Grid *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i] = pGrid->U[k][j][ie-(i-1)];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][j][is-i] = pGrid->W[k][j][ie-(i-1)];
+#endif
       }
     }
   }
@@ -1544,6 +1589,9 @@ static void periodic_ox1(Grid *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][is+(i-1)];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][j][ie+i] = pGrid->W[k][j][is+(i-1)];
+#endif
       }
     }
   }
@@ -1605,6 +1653,9 @@ static void periodic_ix2(Grid *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][je-(j-1)][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][js-j][i] = pGrid->W[k][je-(j-1)][i];
+#endif
       }
     }
   }
@@ -1664,6 +1715,9 @@ static void periodic_ox2(Grid *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][js+(j-1)][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[k][je+j][i] = pGrid->W[k][js+(j-1)][i];
+#endif
       }
     }
   }
@@ -1727,6 +1781,9 @@ static void periodic_ix3(Grid *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ks-k][j][i] = pGrid->U[ke-(k-1)][j][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[ks-k][j][i] = pGrid->W[ke-(k-1)][j][i];
+#endif
       }
     }
   }
@@ -1788,6 +1845,9 @@ static void periodic_ox3(Grid *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ks+(k-1)][j][i];
+#ifdef SPECIAL_RELATIVITY
+        pGrid->W[ke+k][j][i] = pGrid->W[ks+(k-1)][j][i];
+#endif
       }
     }
   }
