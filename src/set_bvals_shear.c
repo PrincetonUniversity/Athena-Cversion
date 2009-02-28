@@ -86,7 +86,7 @@ static Real *U=NULL, *Flx=NULL;
 static Real **tEyBuf=NULL;
 #endif
 /* temporary vector needed for 3rd order reconstruction in ghost zones */
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
 static Real *Uhalf=NULL;
 #endif
 /* MPI send and receive buffers */
@@ -2422,7 +2422,7 @@ void set_bvals_shear_init(Grid *pG, Domain *pD)
   if((Flx = (Real*)malloc(nx2*sizeof(Real))) == NULL)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   if ((Uhalf = (Real*)malloc(nx2*sizeof(Real))) == NULL)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif
@@ -2457,7 +2457,7 @@ void set_bvals_shear_destruct(void)
 #ifdef MHD
   if (tEyBuf != NULL) free_2d_array(tEyBuf);
 #endif
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   if (Uhalf != NULL) free(Uhalf);
 #endif
 #ifdef FARGO
@@ -2486,10 +2486,10 @@ void set_bvals_shear_destruct(void)
  *   Flux = fluxes of conserved variable at interfaces over [jinner:jouter]
  */
 
-#ifdef SECOND_ORDER
+#if defined(SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
 /*------------------------------------------------------------------------------
  * RemapFlux(): second order reconstruction for conservative remap.
- * SECOND ORDER REMAP: piecewise linear reconstruction and min/mod limiters
+ *   using piecewise linear reconstruction and min/mod limiters
  */
 
 void RemapFlux(const Real *U, const Real eps,
@@ -2532,10 +2532,10 @@ void RemapFlux(const Real *U, const Real eps,
 
 #endif /* SECOND_ORDER */
 
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
 /*------------------------------------------------------------------------------
  * RemapFlux(): third order reconstruction for conservative remap. 
- * THIRD ORDER REMAP: Colella & Sekora extremum preserving algorithm (PPME)
+ *   using Colella & Sekora extremum preserving algorithm (PPME)
  */
 
 void RemapFlux(const Real *U, const Real eps,
@@ -2629,6 +2629,6 @@ void RemapFlux(const Real *U, const Real eps,
   return;
 }
 
-#endif /* THIRD_ORDER_EXTREMA_PRESERVING */
+#endif /* THIRD_ORDER */
 
 #endif /* SHEARING_BOX */
