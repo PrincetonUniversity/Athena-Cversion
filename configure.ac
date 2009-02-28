@@ -31,7 +31,7 @@
 #   --enable-special-relativity              (special relativistic hydro or MHD)
 #
 # ALGORITHM "packages":
-#   --with-order=[1,2,3]                       (order of spatial reconstruction)
+#   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
 #   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]       (flux function)
 #   --with-integrator=[ctu,vl]                   (unsplit integration algorithm)
 #
@@ -307,25 +307,29 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# ALGORITHM PACKAGE: set the order of the spatial reconstruction
-#   --with-order=[1,2,3] (default is 2)
+# ALGORITHM PACKAGE: set the order and type of the spatial reconstruction
+#   --with-order=[1,2,3] - #-order reconstruction in the characteristic vars
+#   --with-order=[2p,3p] - #-order reconstruction in the primitive      vars
+#  (default is 2 -- 2nd-order reconstruction in the characteristic vars)
 
 AC_SUBST(ORDER)
 AC_SUBST(ACCURACY)
 
-AC_ARG_WITH(order, [  --with-order=ORDER      Order of Accuracy (1,2,3,3e)],
+AC_ARG_WITH(order, [  --with-order=ORDER      Order of Accuracy (1,2,3,2p,3p)],
 		with_order=$withval, with_order="2")
 ORDER=$with_order
 if test   "$with_order" = "1"; then
   ACCURACY="FIRST_ORDER"
 elif test "$with_order" = "2"; then
-  ACCURACY="SECOND_ORDER"
+  ACCURACY="SECOND_ORDER_CHAR"
+elif test "$with_order" = "2p"; then
+  ACCURACY="SECOND_ORDER_PRIM"
 elif test "$with_order" = "3"; then
-  ACCURACY="THIRD_ORDER"
-elif test "$with_order" = "3e"; then
-  ACCURACY="THIRD_ORDER_EXTREMA_PRESERVING"
+  ACCURACY="THIRD_ORDER_CHAR"
+elif test "$with_order" = "3p"; then
+  ACCURACY="THIRD_ORDER_PRIM"
 else
-  AC_MSG_ERROR([expected --with-order=1, 2, 3, or 3e])
+  AC_MSG_ERROR([expected --with-order=1, 2, 3, 2p, or 3p])
 fi
 
 #-------------------------------------------------------------------------------
