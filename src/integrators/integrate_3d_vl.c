@@ -142,12 +142,12 @@ void integrate_3d(Grid *pG, Domain *pD)
   int jb = jl+1, jt = ju-1;
   int kb = kl+1, kt = ku-1;
 #endif /* FIRST_ORDER */
-#ifdef SECOND_ORDER
+#if defined (SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
   int ib = il+2, it = iu-2;
   int jb = jl+2, jt = ju-2;
   int kb = kl+2, kt = ku-2;
 #endif /* SECOND_ORDER */
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   int ib = il+3, it = iu-3;
   int jb = jl+3, jt = ju-3;
   int kb = kl+3, kt = ku-3;
@@ -1250,10 +1250,10 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
 #ifdef FIRST_ORDER
   int minghost = 2;
 #endif /* FIRST_ORDER */
-#ifdef SECOND_ORDER
+#if defined (SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
   int minghost = 3;
 #endif /* SECOND_ORDER */
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   int minghost = 4;
 #endif /* THIRD_ORDER */
 #if defined(MHD) && defined(H_CORRECTION)
@@ -1580,12 +1580,12 @@ static void first_order_correction(const Grid *pG)
   int jb = jl+1, jt = ju-1;
   int kb = kl+1, kt = ku-1;
 #endif /* FIRST_ORDER */
-#ifdef SECOND_ORDER
+#if defined (SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
   int ib = il+2, it = iu-2;
   int jb = jl+2, jt = ju-2;
   int kb = kl+2, kt = ku-2;
 #endif /* SECOND_ORDER */
-#if defined(THIRD_ORDER) || defined(THIRD_ORDER_EXTREMA_PRESERVING)
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   int ib = il+3, it = iu-3;
   int jb = jl+3, jt = ju-3;
   int kb = kl+3, kt = ku-3;
