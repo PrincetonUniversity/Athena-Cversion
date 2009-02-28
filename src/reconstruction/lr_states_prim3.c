@@ -1,10 +1,12 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: lr_states_ppme.c
+ * FILE: lr_states_prim3.c
  *
  * PURPOSE: Third order (piecewise parabolic) spatial reconstruction in the
  *   primitive variables using the extremum-preserving limiters of
- *   Colella & Sekora.
+ *   Colella & Sekora.  With the CTU integrator, a time-evolution
+ *   (characteristic tracing) step is used to interpolate interface values
+ *   to the half time level {n+1/2}.
  *
  *   Limiting is performed in the primitive (rather than characteristic)
  *   variables.  When used with the VL integrator, an eigenvalue decomposition
@@ -43,7 +45,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-#ifdef THIRD_ORDER_EXTREMA_PRESERVING
+#ifdef THIRD_ORDER_PRIM
 
 static Real **pW=NULL, **Whalf=NULL;
 
@@ -77,14 +79,14 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 /* Set pointer to primitive variables */
   for (i=il-3; i<=iu+3; i++) pW[i] = (Real*)&(W[i]);
 
-#ifndef THREED_VL /* zero eigenmatrices if NOT using VL 3D integrator */
+#ifdef CTU_INTEGRATOR /* zero eigenmatrices if using CTU integrator */
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
       rem[n][m] = 0.0;
       lem[n][m] = 0.0;
     }
   }
-#endif /* THREED_VL */
+#endif /* CTU_INTEGRATOR */
 
 /*--- Step 1. ------------------------------------------------------------------
  * Compute interface states (CS eqns 12-15) over entire 1D pencil.  Using usual
@@ -220,7 +222,8 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
       pWr[n] = Wlv[n];
     }
 
-#ifndef THREED_VL /* only include steps below if NOT using VL 3D integrator */
+#ifdef CTU_INTEGRATOR /* only include steps below if CTU integrator */
+
 /*--- Step 6. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
 
@@ -328,7 +331,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
       }
     }
 
-#endif /* THREED_VL */
+#endif /* CTU_INTEGRATOR */
 
   } /*======================= END BIG LOOP OVER i ========================*/
 
@@ -365,4 +368,4 @@ void lr_states_destruct(void)
   return;
 }
 
-#endif /* THIRD_ORDER_EXTREMA_PRESERVING */
+#endif /* THIRD_ORDER_PRIM */

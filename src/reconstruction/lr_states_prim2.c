@@ -1,11 +1,15 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: lr_states_plm.c
+ * FILE: lr_states_prim2.c
  *
- * PURPOSE: Second order (piecewise linear) spatial reconstruction using
- *   characteristic interpolation in the primitive variables.  With the CTU
- *   integrator, a time-evolution (characteristic tracing) step is used to
- *   interpolate interface values to the half time level {n+1/2}.
+ * PURPOSE: Second order (piecewise linear) spatial reconstruction in the
+ *   primitive variables. With the CTU integrator, a time-evolution
+ *   (characteristic tracing) step is used to interpolate interface values
+ *   to the half time level {n+1/2}.
+ *
+ *   Limiting is performed in the primitive (rather than characteristic)
+ *   variables.  When used with the VL integrator, an eigenvalue decomposition
+ *   is NOT needed.
  *
  * NOTATION: 
  *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
@@ -34,7 +38,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-#ifdef SECOND_ORDER_CHAR
+#ifdef SECOND_ORDER_PRIM
 
 static Real **pW=NULL;
 
@@ -60,25 +64,81 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
   Real dWr[NWAVE+NSCALARS],dWg[NWAVE+NSCALARS];
-  Real dac[NWAVE+NSCALARS],dal[NWAVE+NSCALARS];
-  Real dar[NWAVE+NSCALARS],dag[NWAVE+NSCALARS],da[NWAVE+NSCALARS];
   Real Wlv[NWAVE+NSCALARS],Wrv[NWAVE+NSCALARS];
   Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
 
-/* Zero eigenmatrices, set pointer to primitive variables */
+/* Set pointer to primitive variables */
+  for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);
+
+#ifdef CTU_INTEGRATOR /* zero eigenmatrices if using CTU integrator */
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
       rem[n][m] = 0.0;
       lem[n][m] = 0.0;
     }
   }
-  for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);
+#endif /* CTU_INTEGRATOR */
 
 /*========================== START BIG LOOP OVER i =======================*/
   for (i=il-1; i<=iu+1; i++) {
 
 /*--- Step 1. ------------------------------------------------------------------
+ * Compute centered, L/R, and van Leer differences of primitive variables
+ * Note we access contiguous array elements by indexing pointers for speed */
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      dWc[n] = pW[i+1][n] - pW[i-1][n];
+      dWl[n] = pW[i][n]   - pW[i-1][n];
+      dWr[n] = pW[i+1][n] - pW[i][n];
+      if (dWl[n]*dWr[n] > 0.0) {
+        dWg[n] = 2.0*dWl[n]*dWr[n]/(dWl[n]+dWr[n]);
+      } else {
+        dWg[n] = 0.0;
+      }
+    }
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Apply monotonicity constraints to differences in primitive vars. */
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      dWm[n] = 0.0;
+      if (dWl[n]*dWr[n] > 0.0) {
+        lim_slope1 = MIN(    fabs(dWl[n]),fabs(dWr[n]));
+        lim_slope2 = MIN(0.5*fabs(dWc[n]),fabs(dWg[n]));
+        dWm[n] = SIGN(dWc[n])*MIN(2.0*lim_slope1,lim_slope2);
+      }
+    }
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Compute L/R values, ensure they lie between neighboring cell-centered vals */
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      Wlv[n] = pW[i][n] - 0.5*dWm[n];
+      Wrv[n] = pW[i][n] + 0.5*dWm[n];
+    }
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      Wlv[n] = MAX(MIN(pW[i][n],pW[i-1][n]),Wlv[n]);
+      Wlv[n] = MIN(MAX(pW[i][n],pW[i-1][n]),Wlv[n]);
+      Wrv[n] = MAX(MIN(pW[i][n],pW[i+1][n]),Wrv[n]);
+      Wrv[n] = MIN(MAX(pW[i][n],pW[i+1][n]),Wrv[n]);
+    }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * Set L/R values */
+
+    pWl = (Real *) &(Wl[i+1]);
+    pWr = (Real *) &(Wr[i]);
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      pWl[n] = Wrv[n];
+      pWr[n] = Wlv[n];
+    }
+
+#ifdef CTU_INTEGRATOR /* only include steps below if CTU integrator */
+
+/*--- Step 5. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
 
 #ifdef HYDRO
@@ -97,167 +157,27 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
-/*--- Step 2. ------------------------------------------------------------------
- * Compute centered, L/R, and van Leer differences of primitive variables
- * Note we access contiguous array elements by indexing pointers for speed */
-
-    for (n=0; n<(NWAVE+NSCALARS); n++) {
-      dWc[n] = pW[i+1][n] - pW[i-1][n];
-      dWl[n] = pW[i][n]   - pW[i-1][n];
-      dWr[n] = pW[i+1][n] - pW[i][n];
-      if (dWl[n]*dWr[n] > 0.0) {
-        dWg[n] = 2.0*dWl[n]*dWr[n]/(dWl[n]+dWr[n]);
-      } else {
-        dWg[n] = 0.0;
-      }
-    }
-
-/*--- Step 3. ------------------------------------------------------------------
- * Project differences in primitive variables along characteristics */
-
-    for (n=0; n<NWAVE; n++) {
-      dac[n] = lem[n][0]*dWc[0];
-      dal[n] = lem[n][0]*dWl[0];
-      dar[n] = lem[n][0]*dWr[0];
-      dag[n] = lem[n][0]*dWg[0];
-      for (m=1; m<NWAVE; m++) {
-	dac[n] += lem[n][m]*dWc[m];
-	dal[n] += lem[n][m]*dWl[m];
-	dar[n] += lem[n][m]*dWr[m];
-	dag[n] += lem[n][m]*dWg[m];
-      }
-    }
-
-/* Advected variables are treated differently; for them the right and left
- * eigenmatrices are simply the identitiy matrix.
- */
-#if (NSCALARS > 0)
-    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
-      dac[n] = dWc[n];
-      dal[n] = dWl[n];
-      dar[n] = dWr[n];
-      dag[n] = dWg[n];
-    }
-#endif
-
-/*--- Step 4. ------------------------------------------------------------------
- * Apply monotonicity constraints to characteristic projections */
-
-    for (n=0; n<(NWAVE+NSCALARS); n++) {
-      da[n] = 0.0;
-      if (dal[n]*dar[n] > 0.0) {
-        lim_slope1 = MIN(    fabs(dal[n]),fabs(dar[n]));
-        lim_slope2 = MIN(0.5*fabs(dac[n]),fabs(dag[n]));
-        da[n] = SIGN(dac[n])*MIN(2.0*lim_slope1,lim_slope2);
-      }
-    }
-
-/*--- Step 5. ------------------------------------------------------------------
- * Project monotonic slopes in characteristic back to primitive variables  */
-
-    for (n=0; n<NWAVE; n++) {
-      dWm[n] = da[0]*rem[n][0];
-      for (m=1; m<NWAVE; m++) {
-        dWm[n] += da[m]*rem[n][m];
-      }
-    }
-
-#if (NSCALARS > 0)
-    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
-      dWm[n] = da[n];
-    }
-#endif
 
 /*--- Step 6. ------------------------------------------------------------------
- * Limit velocity difference to sound speed
- * Limit velocity so momentum is always TVD (using only minmod limiter)
- * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
- * simulations, but found it added noise to Noh shocktube.
+ * Integrate linear interpolation function over domain of dependence defined by
+ * max(min) eigenvalue
  */
-
-#ifdef H_CORRECTION
-/*
-#ifdef ISOTHERMAL
-    qa = Iso_csound;
-#else
-    qa = sqrt(Gamma*W[i].P/W[i].d);
-#endif
-    dWm[1] = SIGN(dWm[1])*MIN(fabs(dWm[1]),qa);
-*/
-#endif /* H_CORRECTION */
-/*
-    qa = W[i  ].Vx*W[i  ].d - W[i-1].Vx*W[i-1].d;
-    qb = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
-    qc = W[i+1].Vx*W[i+1].d - W[i-1].Vx*W[i-1].d;
-    qx = SIGN(qc)*MIN(2.0*MIN(fabs(qa),fabs(qb)), 0.5*fabs(qc));
-
-    if ((-W[i].Vx*dWm[0]) > 0.0) {
-      qa = 0.0;
-      qb = -W[i].Vx*dWm[0];
-    } else {
-      qa = -W[i].Vx*dWm[0];
-      qb = 0.0;
-    }
-    if (qx > 0.0) {
-      qb += qx;
-    } else {
-      qa += qx;
-    }
-    qa = qa/W[i].d;
-    qb = qb/W[i].d;
-
-    dWm[1] = MIN(dWm[1],qb);
-    dWm[1] = MAX(dWm[1],qa);
-*/
-
-/*--- Step 7. ------------------------------------------------------------------
- * Compute L/R values, ensure they lie between neighboring cell-centered vals */
-
-    for (n=0; n<(NWAVE+NSCALARS); n++) {
-      Wlv[n] = pW[i][n] - 0.5*dWm[n];
-      Wrv[n] = pW[i][n] + 0.5*dWm[n];
-    }
-
-    for (n=0; n<(NWAVE+NSCALARS); n++) {
-      Wlv[n] = MAX(MIN(pW[i][n],pW[i-1][n]),Wlv[n]);
-      Wlv[n] = MIN(MAX(pW[i][n],pW[i-1][n]),Wlv[n]);
-      Wrv[n] = MAX(MIN(pW[i][n],pW[i+1][n]),Wrv[n]);
-      Wrv[n] = MIN(MAX(pW[i][n],pW[i+1][n]),Wrv[n]);
-    }
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       dW[n] = Wrv[n] - Wlv[n];
     }
 
-/*--- Step 8. ------------------------------------------------------------------
- * Integrate linear interpolation function over domain of dependence defined by
- * max(min) eigenvalue
- */
-
-    pWl = (Real *) &(Wl[i+1]);
-    pWr = (Real *) &(Wr[i]);
-
-#ifndef CTU_INTEGRATOR
-
-    for (n=0; n<(NWAVE+NSCALARS); n++) {
-      pWl[n] = Wrv[n];
-      pWr[n] = Wlv[n];
-    }
-
-#else  /* include steps 8-9 only if using CTU integrator */   
-
     qx = 0.5*MAX(ev[NWAVE-1],0.0)*dtodx;
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      pWl[n] = Wrv[n] - qx*dW[n];
+      pWl[n] -= qx*dW[n];
     }
 
     qx = -0.5*MIN(ev[0],0.0)*dtodx;
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      pWr[n] = Wlv[n] + qx*dW[n];
+      pWr[n] += qx*dW[n];
     }
 
-
-/*--- Step 9. ------------------------------------------------------------------
+/*--- Step 7. ------------------------------------------------------------------
  * Then subtract amount of each wave n that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
  * move in both directions.
@@ -341,4 +261,4 @@ void lr_states_destruct(void)
   return;
 }
 
-#endif /* SECOND_ORDER_CHAR */
+#endif /* SECOND_ORDER_PRIM */

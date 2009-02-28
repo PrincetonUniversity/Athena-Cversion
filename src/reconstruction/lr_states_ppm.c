@@ -3,9 +3,9 @@
  * FILE: lr_states_ppm.c
  *
  * PURPOSE: Third order (piecewise parabolic) spatial reconstruction using
- *   characteristic interpolation in the primitive variables.  A time-evolution
- *   (characteristic tracing) step is used to interpolate interface values to
- *   the half time level {n+1/2}, unless the unsplit integrator in 3D is VL.
+ *   characteristic interpolation in the primitive variables.  With the CTU
+ *   integrator, a time-evolution (characteristic tracing) step is used to
+ *   interpolate interface values to the half time level {n+1/2}
  *
  * NOTATION:
  *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
@@ -38,7 +38,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-#ifdef THIRD_ORDER
+#ifdef THIRD_ORDER_CHAR
 
 static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 
@@ -436,6 +436,15 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
     pWl = (Real *) &(Wl[i+1]);
     pWr = (Real *) &(Wr[i]);
 
+#ifndef CTU_INTEGRATOR 
+
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
+      pWl[n] = Wrv[n];
+      pWr[n] = Wlv[n];
+    }
+
+#else /* include steps 18-19 only if using CTU integrator */
+
     qx = TWO_3RDS*MAX(ev[NWAVE-1],0.0)*dtodx;
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n] - 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
@@ -446,8 +455,6 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
       pWr[n] = Wlv[n] + 0.75*qx*(dW[n] + (1.0 - qx)*W6[n]);
     }
 
-#ifndef THREED_VL /* include step 20 only if not using VL 3D integrator */
-/* NB: If THREED_VL is defined, cannot run 1D or 2D problems; see integrate.c */
 
 /*--- Step 19. -----------------------------------------------------------------
  * Then subtract amount of each wave m that does not reach the interface
@@ -514,7 +521,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
       }
     }
 
-#endif /* THREED_VL */
+#endif /* CTU_INTEGRATOR */
 
 /*--- Step 20. -----------------------------------------------------------------
  * Save eigenvalues and eigenmatrices at i+1 for use in next iteration */
@@ -566,4 +573,4 @@ void lr_states_destruct(void)
   return;
 }
 
-#endif /* THIRD_ORDER */
+#endif /* THIRD_ORDER_CHAR */
