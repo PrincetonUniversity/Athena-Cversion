@@ -47,13 +47,14 @@ static Real **emf3=NULL, **emf3_cc=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
 #ifdef MHD
-static Real *Bxc=NULL, *Bxi=NULL;
+static Real *Bxc=NULL;
 #endif /* MHD */
 static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
-/* conserved variables at t^{n+1/2} computed in predict step */
+/* conserved and primitive variables at t^{n+1/2} computed in predict step */
 static Gas **Uhalf=NULL;
+static Prim **Whalf=NULL; 
 
 /* variables needed for H-correction of Sanders et al (1998) */
 extern Real etah;
@@ -81,22 +82,21 @@ void integrate_2d(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
-  Real dt = pG->dt, hdt = 0.5*pG->dt;
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
   Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
-#ifdef MHD
-  Real d, M1, M2, M3, B1c, B2c, B3c;
-#endif
-#ifdef H_CORRECTION
-  Real cfr,cfl,lambdar,lambdal;
-#endif
 #if (NSCALARS > 0)
   int n;
 #endif
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,flx_m1l,flx_m1r,flx_m2l,flx_m2r;
+#endif
+#ifdef MHD
+  Real V1, V2, V3, B1c, B2c, B3c;
+#endif
+#ifdef H_CORRECTION
+  Real cfr,cfl,lambdar,lambdal;
 #endif
 
   int il=is-(nghost-1), iu=ie+(nghost-1);
@@ -105,52 +105,78 @@ void integrate_2d(Grid *pG, Domain *pD)
   for (j=js-nghost; j<=je+nghost; j++) {
     for (i=is-nghost; i<=ie+nghost; i++) {
       Uhalf[j][i] = pG->U[ks][j][i];
+#ifdef MHD
+      B1_x1Face[j][i] = pG->B1i[ks][j][i]; 
+      B2_x2Face[j][i] = pG->B2i[ks][j][i]; 
+#endif /* MHD */
     }
   }
 
 /*=== STEP 1: Compute first-order fluxes at t^{n} in x1-direction ============*/
 /* No source terms are needed since there is no temporal evolution */
 
+/*--- Step 1a ------------------------------------------------------------------
+ * Load 1D vector of conserved variables;
+ * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ */
+
   for (j=js-nghost; j<=je+nghost; j++) {
-    for (i=is-(nghost-1); i<=ie+nghost; i++) {
-      Ul[i].d  = pG->U[ks][j][i-1].d;
-      Ul[i].Mx = pG->U[ks][j][i-1].M1;
-      Ul[i].My = pG->U[ks][j][i-1].M2;
-      Ul[i].Mz = pG->U[ks][j][i-1].M3;
+    for (i=is-nghost; i<=ie+nghost; i++) {
+      U1d[i].d  = pG->U[ks][j][i].d;
+      U1d[i].Mx = pG->U[ks][j][i].M1;
+      U1d[i].My = pG->U[ks][j][i].M2;
+      U1d[i].Mz = pG->U[ks][j][i].M3;
 #ifndef BAROTROPIC
-      Ul[i].E  = pG->U[ks][j][i-1].E;
+      U1d[i].E  = pG->U[ks][j][i].E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-      B1_x1Face[j][i] = pG->B1i[ks][j][i];
-      Ul[i].By = pG->U[ks][j][i-1].B2c;
-      Ul[i].Bz = pG->U[ks][j][i-1].B3c;
-      Bxc[i] = pG->U[ks][j][i-1].B1c;
+      Bxc[i]    = pG->U[ks][j][i].B1c;
+      U1d[i].By = pG->U[ks][j][i].B2c;
+      U1d[i].Bz = pG->U[ks][j][i].B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) Ul[i].s[n] = pG->U[ks][j][i-1].s[n];
+      for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][j][i].s[n];
 #endif
 
-      Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &Bxc[i]));
+/* Convert to primitive variables -- for SR use primitive variables stored
+ * in Grid structure */
 
-      Ur[i].d  = pG->U[ks][j][i].d;
-      Ur[i].Mx = pG->U[ks][j][i].M1;
-      Ur[i].My = pG->U[ks][j][i].M2;
-      Ur[i].Mz = pG->U[ks][j][i].M3;
+#ifndef SPECIAL_RELATIVITY
+      Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+#else
+      W[i].d  = pG->W[ks][j][i].d;
+      W[i].Vx = pG->W[ks][j][i].V1;
+      W[i].Vy = pG->W[ks][j][i].V2;
+      W[i].Vz = pG->W[ks][j][i].V3;
 #ifndef BAROTROPIC
-      Ur[i].E  = pG->U[ks][j][i].E;
+      W[i].P  = pG->W[ks][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-      Ur[i].By = pG->U[ks][j][i].B2c;
-      Ur[i].Bz = pG->U[ks][j][i].B3c;
-      Bxc[i] = pG->U[ks][j][i].B1c;
+      W[i].By = pG->W[ks][j][i].B2c;
+      W[i].Bz = pG->W[ks][j][i].B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) Ur[i].s[n] = pG->U[ks][j][i  ].s[n];
-#endif
+      for (n=0; n<NSCALARS; n++) W[i].r[n] = pG->W[ks][j][i].r[n];
+#endif /* NSCALARS */
+#endif /* SPECIAL_RELATIVITY */
 
-      Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &Bxc[i]));
+    }
 
-/* Compute flux in x1-direction  */
+/*--- Step 1b ------------------------------------------------------------------
+ * Compute first-order L/R states in U and W */
+
+    for (i=il; i<=ie+nghost; i++) {
+      Wl[i] = W[i-1];
+      Wr[i] = W[i  ];
+
+      Ul[i] = U1d[i-1];
+      Ur[i] = U1d[i  ];
+    }
+
+/*--- Step 1c ------------------------------------------------------------------
+ * Compute flux in x1-direction */
+
+    for (i=il; i<=ie+nghost; i++) {
       fluxes(Ul[i],Ur[i],Wl[i],Wr[i],MHDARG(B1_x1Face[j][i] ,) &x1Flux[j][i]);
     }
   }
@@ -158,46 +184,68 @@ void integrate_2d(Grid *pG, Domain *pD)
 /*=== STEP 2: Compute first-order fluxes at t^{n} in x2-direction ============*/
 /* No source terms are needed since there is no temporal evolution */
 
+/*--- Step 2a ------------------------------------------------------------------
+ * Load 1D vector of conserved variables;
+ * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
+ */
+
   for (i=is-nghost; i<=ie+nghost; i++) {
-    for (j=js-(nghost-1); j<=je+nghost; j++) {
-      Ul[j].d  = pG->U[ks][j-1][i].d;
-      Ul[j].Mx = pG->U[ks][j-1][i].M2;
-      Ul[j].My = pG->U[ks][j-1][i].M3;
-      Ul[j].Mz = pG->U[ks][j-1][i].M1;
+    for (j=js-nghost; j<=je+nghost; j++) {
+      U1d[j].d  = pG->U[ks][j][i].d;
+      U1d[j].Mx = pG->U[ks][j][i].M2;
+      U1d[j].My = pG->U[ks][j][i].M3;
+      U1d[j].Mz = pG->U[ks][j][i].M1;
 #ifndef BAROTROPIC
-      Ul[j].E  = pG->U[ks][j-1][i].E;
+      U1d[j].E  = pG->U[ks][j][i].E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-      B2_x2Face[j][i] = pG->B2i[ks][j][i];
-      Ul[j].By = pG->U[ks][j-1][i].B3c;
-      Ul[j].Bz = pG->U[ks][j-1][i].B1c;
-      Bxc[j] = pG->U[ks][j-1][i].B1c;
+      Bxc[j]    = pG->U[ks][j][i].B2c;
+      U1d[j].By = pG->U[ks][j][i].B3c;
+      U1d[j].Bz = pG->U[ks][j][i].B1c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) Ul[j].s[n] = pG->U[ks][j-1][i].s[n];
+      for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pG->U[ks][j][i].s[n];
 #endif
 
-      Cons1D_to_Prim1D(&Ul[j],&Wl[j] MHDARG( , &B2_x2Face[j][i]));
+/* Convert to primitive variables -- for SR use primitive variables stored
+ * in Grid structure */
 
-      Ur[j].d  = pG->U[ks][j][i].d;
-      Ur[j].Mx = pG->U[ks][j][i].M2;
-      Ur[j].My = pG->U[ks][j][i].M3;
-      Ur[j].Mz = pG->U[ks][j][i].M1;
+#ifndef SPECIAL_RELATIVITY
+      Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
+#else
+      W[j].d  = pG->W[ks][j][i].d;
+      W[j].Vx = pG->W[ks][j][i].V2;
+      W[j].Vy = pG->W[ks][j][i].V3;
+      W[j].Vz = pG->W[ks][j][i].V1;
 #ifndef BAROTROPIC
-      Ur[j].E  = pG->U[ks][j][i].E;
+      W[j].P  = pG->W[ks][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-      Ur[j].By = pG->U[ks][j][i].B3c;
-      Ur[j].Bz = pG->U[ks][j][i].B1c;
-      Bxc[j] = pG->U[ks][j][i].B1c;
+      W[j].By = pG->W[ks][j][i].B3c;
+      W[j].Bz = pG->W[ks][j][i].B1c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) Ur[j].s[n] = pG->U[ks][j][i].s[n];
-#endif
+      for (n=0; n<NSCALARS; n++) W[j].r[n] = pG->W[ks][j][i].r[n];
+#endif /* NSCALARS */
+#endif /* SPECIAL_RELATIVITY */
 
-      Cons1D_to_Prim1D(&Ur[j],&Wr[j] MHDARG( , &B2_x2Face[j][i]));
+    }
 
-/* Compute flux in x2-direction */
+/*--- Step 2b ------------------------------------------------------------------
+ * Compute first-order L/R states in U and W */
+
+    for (j=jl; j<=je+nghost; j++) {
+      Wl[j] = W[j-1];
+      Wr[j] = W[j  ];
+
+      Ul[j] = U1d[j-1];
+      Ur[j] = U1d[j  ];
+    }
+
+/*--- Step 1c ------------------------------------------------------------------
+ * Compute flux in x1-direction */
+
+    for (j=jl; j<=je+nghost; j++) {
       fluxes(Ul[j],Ur[j],Wl[j],Wr[j],MHDARG(B2_x2Face[j][i] ,) &x2Flux[j][i]);
     }
   }
@@ -212,8 +260,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef MHD
-  for (j=js-(nghost-1); j<=je+(nghost-1); j++) {
-    for (i=is-(nghost-1); i<=ie+(nghost-1); i++) {
+  for (j=js-nghost; j<=je+nghost; j++) {
+    for (i=is-nghost; i<=ie+nghost; i++) {
       emf3_cc[j][i] =
         (pG->U[ks][j][i].B1c*pG->U[ks][j][i].M2 -
          pG->U[ks][j][i].B2c*pG->U[ks][j][i].M1)/pG->U[ks][j][i].d;
@@ -230,10 +278,10 @@ void integrate_2d(Grid *pG, Domain *pD)
       B1_x1Face[j][i] -= hdtodx2*(emf3[j+1][i  ] - emf3[j][i]);
       B2_x2Face[j][i] += hdtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
-    B1_x1Face[j][iu] -= hdtodx2*(emf3[j+1][iu]-emf3[j][iu]);
+    B1_x1Face[j][iu+1] -= hdtodx2*(emf3[j+1][iu+1]-emf3[j][iu+1]);
   }
-  for (i=il+1; i<=iu-1; i++) {
-    B2_x2Face[ju][i] += hdtodx1*(emf3[ju][i+1]-emf3[ju][i]);
+  for (i=il; i<=iu; i++) {
+    B2_x2Face[ju+1][i] += hdtodx1*(emf3[ju+1][i+1]-emf3[ju+1][i]);
   }
 
 /*--- Step 4c ------------------------------------------------------------------
@@ -241,8 +289,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  * face-centered fields.
  */
 
-  for (j=jl+1; j<=ju-1; j++) {
-    for (i=il+1; i<=iu-1; i++) {
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
       Uhalf[j][i].B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
       Uhalf[j][i].B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
     }
@@ -252,18 +300,21 @@ void integrate_2d(Grid *pG, Domain *pD)
 /*=== STEP 5: Update cell-centered variables to half-timestep ================*/
 
 /*--- Step 5a ------------------------------------------------------------------
- * Update cell-centered variables to half-timestep using x1-fluxes
+ * Update cell-centered variables (including B3c) to half-timestep with x1Flux
  */
 
-  for (j=jl+1; j<=ju-1; j++) {
-    for (i=il+1; i<=iu-1; i++) {
-      Uhalf[j][i].d  -= hdtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
-      Uhalf[j][i].M1 -= hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
-      Uhalf[j][i].M2 -= hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
-      Uhalf[j][i].M3 -= hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      Uhalf[j][i].d   -= hdtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
+      Uhalf[j][i].M1  -= hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
+      Uhalf[j][i].M2  -= hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
+      Uhalf[j][i].M3  -= hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
 #ifndef BAROTROPIC
-      Uhalf[j][i].E  -= hdtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
+      Uhalf[j][i].E   -= hdtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+      Uhalf[j][i].B3c -= hdtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+#endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         Uhalf[j][i].s[n] -= hdtodx1*(x1Flux[j][i+1].s[n] - x1Flux[j][i].s[n]);
@@ -272,18 +323,21 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 
 /*--- Step 5b ------------------------------------------------------------------
- * Update cell-centered variables to half-timestep using x2-fluxes
+ * Update cell-centered variables (including B3c) to half-timestep with x2Flux
  */
 
-  for (j=jl+1; j<=ju-1; j++) {
-    for (i=il+1; i<=iu-1; i++) {
-      Uhalf[j][i].d  -= hdtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
-      Uhalf[j][i].M1 -= hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-      Uhalf[j][i].M2 -= hdtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
-      Uhalf[j][i].M3 -= hdtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      Uhalf[j][i].d   -= hdtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
+      Uhalf[j][i].M1  -= hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+      Uhalf[j][i].M2  -= hdtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+      Uhalf[j][i].M3  -= hdtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
 #ifndef BAROTROPIC
-      Uhalf[j][i].E  -= hdtodx2*(x2Flux[j+1][i].E  - x2Flux[j][i].E );
+      Uhalf[j][i].E   -= hdtodx2*(x2Flux[j+1][i].E  - x2Flux[j][i].E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+      Uhalf[j][i].B3c -= hdtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
+#endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         Uhalf[j][i].s[n] -= hdtodx2*(x2Flux[j+1][i].s[n] - x2Flux[j][i].s[n]);
@@ -301,8 +355,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-    for (j=jl+1; j<=ju-1; j++) {
-      for (i=il+1; i<=iu-1; i++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phic = (*StaticGravPot)( x1,             x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
@@ -332,8 +386,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (j=jl+1; j<=ju-1; j++) {
-    for (i=il+1; i<=iu-1; i++) {
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
       phic = pG->Phi[ks][j][i];
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
@@ -356,7 +410,7 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* SELF_GRAVITY */
 
-/*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
+/*=== STEP 7: Compute primitive variables at half timestep ===================*/
 
 /*--- Step 7a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
@@ -373,82 +427,145 @@ void integrate_2d(Grid *pG, Domain *pD)
       U1d[i].E  = Uhalf[j][i].E;
 #endif /* BAROTROPIC */
 #ifdef MHD
+      Bxc[i]    = Uhalf[j][i].B1c;
       U1d[i].By = Uhalf[j][i].B2c;
       U1d[i].Bz = Uhalf[j][i].B3c;
-      Bxc[i] = Uhalf[j][i].B1c;
-      Bxi[i] = B1_x1Face[j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++) U1d[i].s[n] = Uhalf[j][i].s[n];
 #endif
 
-      Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
-    }
-
 /*--- Step 7b ------------------------------------------------------------------
- * Compute L and R states at x1-interfaces, store in 2D array
- */
+ * With special relativity, load primitive variables at last timestep into W
+ * as first guess in iterative conversion method */
 
-    lr_states(W, MHDARG( Bxc , ) 0.0,0.0,il+1,iu-1,Wl,Wr);
+#ifdef SPECIAL_RELATIVITY
+      W[i].d  = pG->W[ks][j][i].d;
+      W[i].Vx = pG->W[ks][j][i].V1;
+      W[i].Vy = pG->W[ks][j][i].V2;
+      W[i].Vz = pG->W[ks][j][i].V3;
+#ifndef BAROTROPIC
+      W[i].P  = pG->W[ks][j][i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+      W[i].By = pG->W[ks][j][i].B2c;
+      W[i].Bz = pG->W[ks][j][i].B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) W[i].r[n] = pG->W[ks][j][i].r[n];
+#endif /* NSCALARS */
+#endif /* SPECIAL_RELATIVITY */
 
-    for (i=il+1; i<=iu; i++) {
-      Wl_x1Face[j][i] = Wl[i];
-      Wr_x1Face[j][i] = Wr[i];
+/*--- Step 7c ------------------------------------------------------------------
+ * convert conserved to primitive, and store in array Whalf */
+
+      Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+
+      Whalf[j][i].d  = W[i].d;
+      Whalf[j][i].V1 = W[i].Vx;
+      Whalf[j][i].V2 = W[i].Vy;
+      Whalf[j][i].V3 = W[i].Vz;
+#ifndef BAROTROPIC
+      Whalf[j][i].P  = W[i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+      Whalf[j][i].B1c = Bxc[i];
+      Whalf[j][i].B2c = W[i].By;
+      Whalf[j][i].B3c = W[i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) Whalf[j][i].r[n] = W[i].r[n];
+#endif /* NSCALARS */
     }
   }
 
-/*=== STEP 8: Compute second-order L/R x2-interface states ===================*/
+/*=== STEP 8: Compute second-order L/R x1-interface states ===================*/
 
 /*--- Step 8a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;
- * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
+ * Load 1D vector of primitive variables;
+ * W = (d, V1, V2, V3, E, B2c, B3c, s[n])
  */
 
-  for (i=il; i<=iu; i++) {
-    for (j=jl; j<=ju; j++) {
-      U1d[j].d  = Uhalf[j][i].d;
-      U1d[j].Mx = Uhalf[j][i].M2;
-      U1d[j].My = Uhalf[j][i].M3;
-      U1d[j].Mz = Uhalf[j][i].M1;
+  for (j=js-1; j<=je+1; j++) {
+    for (i=il; i<=iu; i++) {
+      W[i].d  = Whalf[j][i].d;
+      W[i].Vx = Whalf[j][i].V1;
+      W[i].Vy = Whalf[j][i].V2;
+      W[i].Vz = Whalf[j][i].V3;
 #ifndef BAROTROPIC
-      U1d[j].E  = Uhalf[j][i].E;
+      W[i].P  = Whalf[j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-      U1d[j].By = Uhalf[j][i].B3c;
-      U1d[j].Bz = Uhalf[j][i].B1c;
-      Bxc[j] = Uhalf[j][i].B2c;
-      Bxi[j] = B2_x2Face[j][i];
+      Bxc[i]  = Whalf[j][i].B1c;
+      W[i].By = Whalf[j][i].B2c;
+      W[i].Bz = Whalf[j][i].B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++) U1d[j].s[n] = Uhalf[j][i].s[n];
-#endif
-      Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
+      for (n=0; n<NSCALARS; n++) W[i].r[n] = Whalf[j][i].r[n];
+#endif /* NSCALARS */
     }
 
 /*--- Step 8b ------------------------------------------------------------------
- * Compute L and R states at x2-interfaces, store in 2D array
+ * Compute L/R states on x1-interfaces, store into arrays
  */
 
-    lr_states(W, MHDARG( Bxc , ) 0.0,0.0,jl+1,ju-1,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) 0.0,0.0,is,ie,Wl,Wr);
 
-    for (j=jl+1; j<=ju; j++) {
+    for (i=is; i<=ie+1; i++) {
+      Wl_x1Face[j][i] = Wl[i];
+      Wr_x1Face[j][i] = Wr[i];
+
+    }
+  }
+
+/*=== STEP 9: Compute second-order L/R x2-interface states ===================*/
+
+/*--- Step 9a ------------------------------------------------------------------
+ * Load 1D vector of primitive variables;
+ * W = (d, V2, V3, V1, P, B3c, B1c, r[n])
+ */
+
+  for (i=is-1; i<=ie+1; i++) {
+    for (j=jl; j<=ju; j++) {
+      W[j].d  = Whalf[j][i].d;
+      W[j].Vx = Whalf[j][i].V2;
+      W[j].Vy = Whalf[j][i].V3;
+      W[j].Vz = Whalf[j][i].V1;
+#ifndef BAROTROPIC
+      W[j].P  = Whalf[j][i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+      Bxc[j]  = Whalf[j][i].B2c;
+      W[j].By = Whalf[j][i].B3c;
+      W[j].Bz = Whalf[j][i].B1c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) W[j].r[n] = Whalf[j][i].r[n];
+#endif /* NSCALARS */
+    }
+
+    lr_states(W, MHDARG( Bxc , ) 0.0,0.0,js,je,Wl,Wr);
+
+/* Store L/R states in primitive variables. */
+
+    for (j=js; j<=je+1; j++) {
       Wl_x2Face[j][i] = Wl[j];
       Wr_x2Face[j][i] = Wr[j];
     }
   }
 
-/*=== STEP 9: Not needed in 2D ===*/
+/*=== STEP 10: Not needed in 2D ===*/
 
-/*=== STEP 10: Compute 2D x1-Flux, x2-Flux, x3-Flux ==========================*/
+/*=== STEP 11: Compute 2D x1-Flux, x2-Flux, x3-Flux ==========================*/
 
-/*--- Step 10a -----------------------------------------------------------------
+/*--- Step 11a -----------------------------------------------------------------
  * Compute maximum wavespeeds in multidimensions (eta in eq. 10 from Sanders et
  *  al. (1998)) for H-correction, if needed.
  */
 
 #ifdef H_CORRECTION
   for (j=js-1; j<=je+1; j++) {
-    for (i=is-11; i<=iu; i++) {
+    for (i=is-1; i<=iu; i++) {
       cfr = cfast(&(Ur_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
       cfl = cfast(&(Ul_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
       lambdar = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d + cfr;
@@ -468,7 +585,7 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
 #endif /* H_CORRECTION */
 
-/*--- Step 10b -----------------------------------------------------------------
+/*--- Step 11b -----------------------------------------------------------------
  * Compute second-order fluxes in x1-direction
  */
 
@@ -488,7 +605,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 10c -----------------------------------------------------------------
+/*--- Step 11c -----------------------------------------------------------------
  * Compute second-order fluxes in x2-direction
  */
 
@@ -507,34 +624,31 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*=== STEP 11: Update face-centered B for a full timestep ====================*/
+/*=== STEP 12: Update face-centered B for a full timestep ====================*/
         
-/*--- Step 11a -----------------------------------------------------------------
+/*--- Step 12a -----------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at the half-time-step.
  */
 
 #ifdef MHD
-  for (j=jl; j<=ju; j++) {
-    for (i=il; i<=iu; i++) {
-      d  = Uhalf[j][i].d ;
-      M1 = Uhalf[j][i].M1;
-      M2 = Uhalf[j][i].M2;
-      B1c = Uhalf[j][i].B1c;
-      B2c = Uhalf[j][i].B2c;
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      V1 = Whalf[j][i].V1;
+      V2 = Whalf[j][i].V2;
+      B1c = Whalf[j][i].B1c;
+      B2c = Whalf[j][i].B2c;
 
-      emf3_cc[j][i] = (B1c*M2 - B2c*M1)/d;
+      emf3_cc[j][i] = (B1c*V2 - B2c*V1);
     }
   }
-#endif
 
-/*--- Step 11b -----------------------------------------------------------------
+/*--- Step 12b -----------------------------------------------------------------
  * Integrate emf*^{n+1/2} to the grid cell corners
  */
 
-#ifdef MHD
   integrate_emf3_corner(pG);
 
-/*--- Step 11c -----------------------------------------------------------------
+/*--- Step 12c -----------------------------------------------------------------
  * Update the interface magnetic fields using CT for a full time step.
  */
 
@@ -548,11 +662,22 @@ void integrate_2d(Grid *pG, Domain *pD)
   for (i=is; i<=ie; i++) {
     pG->B2i[ks][je+1][i] += dtodx1*(emf3[je+1][i+1] - emf3[je+1][i]);
   }
-#endif
 
-/*=== STEP 12: Add source terms for a full timestep using n+1/2 states =======*/
+/*--- Step 12d -----------------------------------------------------------------
+ * Set cell centered magnetic fields to average of updated face centered fields.
+ */
+
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i]+pG->B1i[ks][j][i+1]);
+      pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
+    }
+  }
+#endif /* MHD */
+
+/*=== STEP 13: Add source terms for a full timestep using n+1/2 states =======*/
        
-/*--- Step 12a -----------------------------------------------------------------
+/*--- Step 13a -----------------------------------------------------------------
  * Add gravitational source terms due to a Static Potential
  * To improve conservation of total energy, we average the energy
  * source term computed at cell faces.
@@ -585,7 +710,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 12b -----------------------------------------------------------------
+/*--- Step 13b -----------------------------------------------------------------
  * Add gravitational source terms for self-gravity.
  * A flux correction using Phi^{n+1} in the main loop is required to make
  * the source terms 2nd order: see selfg_flux_correction().
@@ -666,26 +791,28 @@ void integrate_2d(Grid *pG, Domain *pD)
     for (i=is; i<=ie+1; i++) {
       pG->x1MassFlux[j][i] = x1Flux[j][i].d;
       pG->x2MassFlux[j][i] = x2Flux[j][i].d;
-      pG->x3MassFlux[j][i] = x3Flux[j][i].d;
     }
   }
 #endif /* SELF_GRAVITY */
 
-/*=== STEP 13: Update cell-centered values for a full timestep ===============*/
+/*=== STEP 14: Update cell-centered values for a full timestep ===============*/
 
-/*--- Step 13a -----------------------------------------------------------------
- * Update cell-centered variables in pG using 2D x1-Fluxes
+/*--- Step 14a -----------------------------------------------------------------
+ * Update cell-centered variables in pG (including B3c) using 2D x1-Fluxes
  */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].d  -= dtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
-      pG->U[ks][j][i].M1 -= dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
-      pG->U[ks][j][i].M2 -= dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
-      pG->U[ks][j][i].M3 -= dtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
+      pG->U[ks][j][i].d   -= dtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
+      pG->U[ks][j][i].M1  -= dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
+      pG->U[ks][j][i].M2  -= dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
+      pG->U[ks][j][i].M3  -= dtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
 #ifndef BAROTROPIC
-      pG->U[ks][j][i].E  -= dtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
+      pG->U[ks][j][i].E   -= dtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+      pG->U[ks][j][i].B3c -= dtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+#endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         pG->U[ks][j][i].s[n] -= dtodx1*(x1Flux[j][i+1].s[n]
@@ -694,19 +821,22 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 13b -----------------------------------------------------------------
- * Update cell-centered variables in pG using 2D x2-Fluxes
+/*--- Step 14b -----------------------------------------------------------------
+ * Update cell-centered variables in pG (including B3c) using 2D x2-Fluxes
  */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].d  -= dtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
-      pG->U[ks][j][i].M1 -= dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-      pG->U[ks][j][i].M2 -= dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
-      pG->U[ks][j][i].M3 -= dtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
+      pG->U[ks][j][i].d   -= dtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
+      pG->U[ks][j][i].M1  -= dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+      pG->U[ks][j][i].M2  -= dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
+      pG->U[ks][j][i].M3  -= dtodx2*(x2Flux[j+1][i].My - x2Flux[j][i].My);
 #ifndef BAROTROPIC
-      pG->U[ks][j][i].E  -= dtodx2*(x2Flux[j+1][i].E  - x2Flux[j][i].E );
+      pG->U[ks][j][i].E   -= dtodx2*(x2Flux[j+1][i].E  - x2Flux[j][i].E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+      pG->U[ks][j][i].B3c -= dtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
+#endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         pG->U[ks][j][i].s[n] -= dtodx2*(x2Flux[j+1][i].s[n]
@@ -715,19 +845,73 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 13e -----------------------------------------------------------------
- * LAST STEP!
- * Set cell centered magnetic fields to average of updated face centered fields.
+/*--- Step 14c -----------------------------------------------------------------
+ * With special relativity, compute primitive variables at new timestep and
+ * store in Grid structure
  */
 
-#ifdef MHD
+#ifdef SPECIAL_RELATIVITY
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i]+pG->B1i[ks][j][i+1]);
-      pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
+
+/* Load 1D vector of conserved variables */
+
+      U1d[i].d  = pG->U[ks][j][i].d;
+      U1d[i].Mx = pG->U[ks][j][i].M1;
+      U1d[i].My = pG->U[ks][j][i].M2;
+      U1d[i].Mz = pG->U[ks][j][i].M3;
+#ifndef BAROTROPIC
+      U1d[i].E  = pG->U[ks][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+      Bxc[i]    = pG->U[ks][j][i].B1c;
+      U1d[i].By = pG->U[ks][j][i].B2c;
+      U1d[i].Bz = pG->U[ks][j][i].B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][j][i].s[n];
+#endif
+
+/* Load 1D vector of primitive variables from Whalf as initial guess */
+
+      W[i].d  = Whalf[j][i].d;
+      W[i].Vx = Whalf[j][i].V1;
+      W[i].Vy = Whalf[j][i].V2;
+      W[i].Vz = Whalf[j][i].V3;
+#ifndef BAROTROPIC
+      W[i].P  = Whalf[j][i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+      W[i].By = Whalf[j][i].B2c;
+      W[i].Bz = Whalf[j][i].B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) W[i].r[n] = Whalf[j][i].r[n];
+#endif /* NSCALARS */
+
+/* Convert variables and store result into Grid */
+
+      Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+
+      pG->W[ks][j][i].d  = W[i].d;
+      pG->W[ks][j][i].V1 = W[i].Vx;
+      pG->W[ks][j][i].V2 = W[i].Vy;
+      pG->W[ks][j][i].V3 = W[i].Vz;
+#ifndef BAROTROPIC
+      pG->W[ks][j][i].P = W[i].P;
+#endif /* BAROTROPIC */
+#ifdef MHD
+      pG->W[ks][j][i].B1c = Bxc[i];
+      pG->W[ks][j][i].B2c = W[i].By;
+      pG->W[ks][j][i].B3c = W[i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pG->W[ks][j][i].r[n] = W[i].r[n];
+#endif /* NSCALARS */
     }
   }
-#endif /* MHD */
+
+#endif /* SPECIAL_RELATIVITY */
 
   return;
 }
@@ -748,7 +932,6 @@ void integrate_destruct_2d(void)
 #endif /* H_CORRECTION */
 #ifdef MHD
   if (Bxc != NULL) free(Bxc);
-  if (Bxi != NULL) free(Bxi);
   if (B1_x1Face != NULL) free_2d_array(B1_x1Face);
   if (B2_x2Face != NULL) free_2d_array(B2_x2Face);
 #endif /* MHD */
@@ -768,6 +951,8 @@ void integrate_destruct_2d(void)
   if (x2Flux    != NULL) free_2d_array(x2Flux);
 
   if (Uhalf    != NULL) free_2d_array(Uhalf);
+  if (Whalf    != NULL) free_2d_array(Whalf);
+
 
   return;
 }
@@ -796,7 +981,6 @@ void integrate_init_2d(int nx1, int nx2)
 #endif /* H_CORRECTION */
 #ifdef MHD
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
   if ((B1_x1Face = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
     goto on_error;
   if ((B2_x2Face = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
@@ -825,6 +1009,8 @@ void integrate_init_2d(int nx1, int nx2)
 
   if ((Uhalf = (Gas**)calloc_2d_array(Nx2,Nx1, sizeof(Gas))) == NULL)
     goto on_error;
+  if ((Whalf = (Prim**)calloc_2d_array(Nx2,Nx1, sizeof(Prim))) == NULL)
+    goto on_error;
 
   return;
 
@@ -848,15 +1034,15 @@ void integrate_init_2d(int nx1, int nx2)
 #ifdef MHD
 static void integrate_emf3_corner(const Grid *pG)
 {
-  int i,is,ie,j,js,je;
+  int i,il,iu,j,jl,ju;
   Real emf_l1, emf_r1, emf_l2, emf_r2;
 
-  is = pG->is;   ie = pG->ie;
-  js = pG->js;   je = pG->je;
+  il = pG->is-(nghost-1);   iu = pG->ie+(nghost-1);
+  jl = pG->js-(nghost-1);   ju = pG->je+(nghost-1);
 
 /* NOTE: The x1-Flux of B2 is -E3.  The x2-Flux of B1 is +E3. */
-  for (j=js-1; j<=je+2; j++) {
-    for (i=is-1; i<=ie+2; i++) {
+  for (j=jl; j<=ju+1; j++) {
+    for (i=il; i<=iu+1; i++) {
       if (x1Flux[j-1][i].d > 0.0) {
         emf_l2 = -x1Flux[j-1][i].By
           + (x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1]);
