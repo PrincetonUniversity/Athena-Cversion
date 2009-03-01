@@ -24,6 +24,13 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef PARTICLES
+extern float ***dpar;
+extern float ***M1par;
+extern float ***M2par;
+extern float ***M3par;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* dump_tab_cons: output CONSERVED variables  */
 
@@ -164,6 +171,20 @@ void dump_tab_cons(Grid *pG, Domain *pD, Output *pOut)
   col_cnt++;
 #endif
 
+/* write out column headers for particles */
+#ifdef PARTICLES
+  if (pOut->out_pargrid) {
+    fprintf(pfile," [%d]=dpar",col_cnt);
+    col_cnt++;
+    fprintf(pfile," [%d]=M1par",col_cnt);
+    col_cnt++;
+    fprintf(pfile," [%d]=M2par",col_cnt);
+    col_cnt++;
+    fprintf(pfile," [%d]=M3par",col_cnt);
+    col_cnt++;
+  }
+#endif
+
 /* write out column headers for passive scalars */
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) {
@@ -218,6 +239,15 @@ void dump_tab_cons(Grid *pG, Domain *pD, Output *pOut)
         fprintf(pfile,fmt,pG->Phi[k][j][i]);
 #endif
 
+#ifdef PARTICLES
+        if (pOut->out_pargrid) {
+          fprintf(pfile,fmt,dpar[k][j][i]);
+          fprintf(pfile,fmt,M1par[k][j][i]);
+          fprintf(pfile,fmt,M2par[k][j][i]);
+          fprintf(pfile,fmt,M3par[k][j][i]);
+        }
+#endif
+
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,pGas->s[n]);
 #endif
@@ -240,7 +270,7 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
   FILE *pfile;
   Prim Primitives;
   Gas *pGas;
-  Real x1,x2,x3,KE,ME=0.0;
+  Real x1,x2,x3,d1,KE,ME=0.0;
   char zone_fmt[20], fmt[80];
   int col_cnt=1, nmax;
 #if (NSCALARS > 0)
@@ -370,6 +400,20 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
   col_cnt++;
 #endif
 
+/* write out column headers for particles */
+#ifdef PARTICLES
+  if (pOut->out_pargrid) {
+    fprintf(pfile," [%d]=dpar",col_cnt);
+    col_cnt++;
+    fprintf(pfile," [%d]=V1par",col_cnt);
+    col_cnt++;
+    fprintf(pfile," [%d]=V2par",col_cnt);
+    col_cnt++;
+    fprintf(pfile," [%d]=V3par",col_cnt);
+    col_cnt++;
+  }
+#endif
+
 /* write out column headers for passive scalars */
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) {
@@ -388,13 +432,14 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
 	Primitives = pG->W[k][j][i];
 #else
         Primitives.d  = pG->U[k][j][i].d;
-        Primitives.V1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-        Primitives.V2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
-        Primitives.V3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+        d1 = 1.0/pG->U[k][j][i].d;
+        Primitives.V1 = pG->U[k][j][i].M1*d1;
+        Primitives.V2 = pG->U[k][j][i].M2*d1;
+        Primitives.V3 = pG->U[k][j][i].M3*d1;
 #ifndef BAROTROPIC
 	KE = 0.5*(pG->U[k][j][i].M1*pG->U[k][j][i].M1 
                 + pG->U[k][j][i].M2*pG->U[k][j][i].M2
-                + pG->U[k][j][i].M3*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+                + pG->U[k][j][i].M3*pG->U[k][j][i].M3)*d1;
 #ifdef MHD
 	ME = 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c +
                   pG->U[k][j][i].B2c*pG->U[k][j][i].B2c +
@@ -440,6 +485,19 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
 
 #ifdef SELF_GRAVITY
         fprintf(pfile,fmt,pG->Phi[k][j][i]);
+#endif
+
+#ifdef PARTICLES
+        if (pOut->out_pargrid) {
+          fprintf(pfile,fmt,dpar[k][j][i]);
+          if (dpar[k][j][i]>0.0)
+            d1 = 1.0/dpar[k][j][i];
+          else
+            d1 = 0.0;
+          fprintf(pfile,fmt,M1par[k][j][i]*d1);
+          fprintf(pfile,fmt,M2par[k][j][i]*d1);
+          fprintf(pfile,fmt,M3par[k][j][i]*d1);
+        }
 #endif
 
 #if (NSCALARS > 0)

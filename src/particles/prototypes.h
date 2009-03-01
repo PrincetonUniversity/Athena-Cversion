@@ -41,4 +41,10 @@ void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc);
 void set_bvals_final_particle(Grid *pG, Domain *pD);
 #endif
 
+/* output_particle.c */
+void init_output_particle(Grid *pG);
+void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
+void destruct_particle_grid();
+void dump_particle_binary(Grid *pG, Domain *pD);
+
 #endif /* PARTICLES_PROTOTYPES_H */

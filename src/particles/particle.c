@@ -45,7 +45,7 @@ typedef struct Gas_Info_s{
 
 /* Filewide global variables */
 int il,iu, jl,ju, kl,ku;	/* left and right limit of grid indices */
-Real x1l,x1u,x2l,x2u,x3l,x3u;	/* left and right limit of grid boundary */
+Real x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar;	/* left and right limit of grid boundary */
 static Gas_Info ***mygas;	/* additional gas information */
 
 static GVDFun_t gasvshift = NULL;/* the gas velocity difference from Keplerian due to pressure gradient */
@@ -131,7 +131,7 @@ void integrate_particle(Grid *pG)
 #endif
 
   cellvol1 = 1.0;
-  /* dx1, dx2, dx3 are shortcut expressions as well as dimension indicators */
+  /* dx11, dx21, dx31 are shortcut expressions as well as dimension indicators */
   if (pG->Nx1 > 1)  { dx11 = 1.0/pG->dx1; cellvol1 *= dx11; }
   else dx11 = 0.0;
 
@@ -560,7 +560,7 @@ void remove_ghost_particle(Grid *pG)
   p = 0;
   while (p<pG->nparticle) {
     cur = &(pG->particle[p]);
-    if ((cur->x1 >= x1u) || (cur->x1 < x1l) || (cur->x2 >= x2u) || (cur->x2 < x2l) || (cur->x3 >= x3u) || (cur->x3 < x3l))
+    if ((cur->x1 >= x1upar) || (cur->x1 < x1lpar) || (cur->x2 >= x2upar) || (cur->x2 < x2lpar) || (cur->x3 >= x3upar) || (cur->x3 < x3lpar))
     { /* if the particle is outside the box */
       pG->nparticle -= 1;
       pG->grproperty[cur->property].num -= 1;
@@ -779,7 +779,7 @@ Real get_ts(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
 /* Calculate the left and right grid limit
    Input: pG: grid;
    Output: il,iu,jl,ju,kl,ku: grid limit indices;
-           x1l,x1u,x2l,x2u,x3l,x3u: grid boundary coordinates
+           x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar: grid boundary coordinates
 */
 void grid_limit(Grid *pG, Domain *pD)
 {
@@ -811,38 +811,38 @@ void grid_limit(Grid *pG, Domain *pD)
   get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
   if ((par_geti("grid","ibc_x1") == 2) && (my_iproc == 0))
-    x1l = pG->x1_0 + (il+m1 + pG->idisp)*pG->dx1;
+    x1lpar = pG->x1_0 + (il+m1 + pG->idisp)*pG->dx1;
   else
-    x1l = pG->x1_0 + (pG->is + pG->idisp)*pG->dx1;
+    x1lpar = pG->x1_0 + (pG->is + pG->idisp)*pG->dx1;
 
   if ((par_geti("grid","obc_x1") == 2) && (my_iproc == pD->NGrid_x1-1))
-    x1u = pG->x1_0 + (iu + pG->idisp)*pG->dx1;
+    x1upar = pG->x1_0 + (iu + pG->idisp)*pG->dx1;
   else
-    x1u = pG->x1_0 + (pG->ie + 1 + pG->idisp)*pG->dx1;
+    x1upar = pG->x1_0 + (pG->ie + 1 + pG->idisp)*pG->dx1;
 
   if ((par_geti("grid","ibc_x2") == 2) && (my_jproc == 0))
-    x2l = pG->x2_0 + (jl+m2 + pG->jdisp)*pG->dx2;
+    x2lpar = pG->x2_0 + (jl+m2 + pG->jdisp)*pG->dx2;
   else
-    x2l = pG->x2_0 + (pG->js + pG->jdisp)*pG->dx2;
+    x2lpar = pG->x2_0 + (pG->js + pG->jdisp)*pG->dx2;
 
   if ((par_geti("grid","obc_x2") == 2) && (my_jproc == pD->NGrid_x2-1))
-    x2u = pG->x2_0 + (ju + pG->jdisp)*pG->dx2;
+    x2upar = pG->x2_0 + (ju + pG->jdisp)*pG->dx2;
   else
-    x2u = pG->x2_0 + (pG->je + 1 + pG->jdisp)*pG->dx2;
+    x2upar = pG->x2_0 + (pG->je + 1 + pG->jdisp)*pG->dx2;
 
   if ((par_geti("grid","ibc_x3") == 2) && (my_kproc == 0))
-    x3l = pG->x3_0 + (kl+m3 + pG->kdisp)*pG->dx3;
+    x3lpar = pG->x3_0 + (kl+m3 + pG->kdisp)*pG->dx3;
   else
-    x3l = pG->x3_0 + (pG->ks + pG->kdisp)*pG->dx3;
+    x3lpar = pG->x3_0 + (pG->ks + pG->kdisp)*pG->dx3;
 
   if ((par_geti("grid","obc_x3") == 2) && (my_kproc == pD->NGrid_x3-1))
-    x3u = pG->x3_0 + (ku + pG->kdisp)*pG->dx3;
+    x3upar = pG->x3_0 + (ku + pG->kdisp)*pG->dx3;
   else
-    x3u = pG->x3_0 + (pG->ke + 1 + pG->kdisp)*pG->dx3;
+    x3upar = pG->x3_0 + (pG->ke + 1 + pG->kdisp)*pG->dx3;
 
-  if (pG->Nx1 == 1) x1u += MAX(0.1*fabs(pG->x1_0), 1.);
-  if (pG->Nx2 == 1) x2u += MAX(0.1*fabs(pG->x2_0), 1.);
-  if (pG->Nx3 == 1) x3u += MAX(0.1*fabs(pG->x3_0), 1.);
+  if (pG->Nx1 == 1) x1upar += MAX(0.1*fabs(pG->x1_0), 1.);
+  if (pG->Nx2 == 1) x2upar += MAX(0.1*fabs(pG->x2_0), 1.);
+  if (pG->Nx3 == 1) x3upar += MAX(0.1*fabs(pG->x3_0), 1.);
 
   return;
 }

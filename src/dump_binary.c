@@ -17,6 +17,13 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef PARTICLES
+extern float ***dpar;
+extern float ***M1par;
+extern float ***M2par;
+extern float ***M3par;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* dump_binary:  */
 
@@ -153,6 +160,39 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
     }
     fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
   }}
+#endif
+
+#ifdef PARTICLES
+  if (pOut->out_pargrid) {
+    for (k=0; k<ndata[2]; k++) {
+    for (j=0; j<ndata[1]; j++) {
+      for (i=0; i<ndata[0]; i++) {
+        datax[i] = dpar[k+kl][j+jl][i+il];
+      }
+      fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+    }}
+    for (k=0; k<ndata[2]; k++) {
+    for (j=0; j<ndata[1]; j++) {
+      for (i=0; i<ndata[0]; i++) {
+        datax[i] = M1par[k+kl][j+jl][i+il];
+      }
+      fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+    }}
+    for (k=0; k<ndata[2]; k++) {
+    for (j=0; j<ndata[1]; j++) {
+      for (i=0; i<ndata[0]; i++) {
+        datax[i] = M2par[k+kl][j+jl][i+il];
+      }
+      fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+    }}
+    for (k=0; k<ndata[2]; k++) {
+    for (j=0; j<ndata[1]; j++) {
+      for (i=0; i<ndata[0]; i++) {
+        datax[i] = M3par[k+kl][j+jl][i+il];
+      }
+      fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+    }}
+  }
 #endif
 
 /* close file and free memory */

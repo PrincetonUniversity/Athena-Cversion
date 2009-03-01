@@ -15,6 +15,13 @@
 #include "athena.h"
 #include "prototypes.h"
 
+#ifdef PARTICLES
+extern float ***dpar;
+extern float ***M1par;
+extern float ***M2par;
+extern float ***M3par;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* dump_vtk:   */
 
@@ -173,6 +180,36 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
   }
 #endif
 
+/* Write binned particle grid */
+
+#ifdef PARTICLES
+  if (pOut->out_pargrid) {
+    fprintf(pfile,"\nSCALARS particle_density float\n");
+    fprintf(pfile,"LOOKUP_TABLE default\n");
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+        for (i=il; i<=iu; i++) {
+          data[i-il] = dpar[k][j][i];
+        }
+        if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+        fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+      }
+    }
+    fprintf(pfile,"\nVECTORS particle_momentum float\n");
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+        for (i=il; i<=iu; i++) {
+	  data[3*(i-il)] = M1par[k][j][i];
+	  data[3*(i-il)+1] = M2par[k][j][i];
+	  data[3*(i-il)+2] = M3par[k][j][i];
+        }
+        if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
+        fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+      }
+    }
+  }
+#endif
+
 /* Write passive scalars */
 
 #if (NSCALARS > 0)
@@ -190,7 +227,6 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
     }
   }
 #endif
-
 
 /* close file and free memory */
 

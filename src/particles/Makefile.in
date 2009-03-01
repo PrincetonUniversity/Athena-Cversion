@@ -11,7 +11,8 @@
 #
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = particle.o\
-	   set_bvals_particle.o
+	   set_bvals_particle.o\
+	   output_particle.o
 
 OBJ = $(CORE_OBJ)
 

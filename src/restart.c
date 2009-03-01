@@ -372,6 +372,9 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   for (p=0; p<pG->nparticle; p++)
     pG->grproperty[pG->particle[p].property].num += 1;
 
+/* remove ghost particles */
+  remove_ghost_particle(pG);
+
 #endif /* PARTICLES */
 
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */

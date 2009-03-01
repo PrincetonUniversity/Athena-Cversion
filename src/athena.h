@@ -349,6 +349,9 @@ typedef struct Domain_s{
 struct Output_s;
 typedef void (*VGFunout_t)(Grid *pGrid, Domain *pD, struct Output_s *pout);
 typedef Real (*Gasfun_t)(const Grid *pG, const int i, const int j, const int k);
+#ifdef PARTICLES
+typedef int (*PropFun_t)(const int property);
+#endif
 
 typedef struct Output_s{
   int n;          /* the N from the <outputN> block of this output */
@@ -357,6 +360,10 @@ typedef struct Output_s{
   int num;        /* dump number (0=first) */
   char *out;      /* variable (or user fun) to be output */
   char *id;       /* filename is of the form <basename>[.idump][.id].<ext> */
+#ifdef PARTICLES
+  int out_pargrid;    /* output grid binned particles (=1) or not (=0) */
+  PropFun_t par_prop; /* particle property selection function */
+#endif
 
 /* variables which describe data min/max */
   Real dmin;      /* user defined min for scaling data */
@@ -388,6 +395,7 @@ typedef struct Output_s{
 /* pointers to output functions; data expressions */
   VGFunout_t fun; /* function pointer */
   Gasfun_t expr;  /* expression for output */
+
 } Output;
 
 

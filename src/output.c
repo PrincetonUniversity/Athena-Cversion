@@ -101,6 +101,12 @@ static size_t out_size  = 0;       /* Size of the array OutArray[] */
 static Output *OutArray = NULL;    /* Array of Output modes */
 static Output rst_out;             /* Restart Output */
 static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
+#ifdef PARTICLES
+extern float ***dpar;
+extern float ***M1par;
+extern float ***M2par;
+extern float ***M3par;
+#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -111,7 +117,7 @@ static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
  *   getRGB
  *============================================================================*/
 
-Real expr_d  (const Grid *pG, const int i, const int j, const int k);
+Real expr_d    (const Grid *pG, const int i, const int j, const int k);
 Real expr_M1 (const Grid *pG, const int i, const int j, const int k);
 Real expr_M2 (const Grid *pG, const int i, const int j, const int k);
 Real expr_M3 (const Grid *pG, const int i, const int j, const int k);
@@ -126,6 +132,17 @@ Real expr_V3 (const Grid *pG, const int i, const int j, const int k);
 Real expr_P  (const Grid *pG, const int i, const int j, const int k);
 Real expr_cs2(const Grid *pG, const int i, const int j, const int k);
 Real expr_S  (const Grid *pG, const int i, const int j, const int k);
+#ifdef PARTICLES
+extern Real expr_dpar (const Grid *pG, const int i, const int j, const int k);
+extern Real expr_M1par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_M2par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
+extern int  property_all(const int property);
+int check_particle_binning(char *out);
+#endif
 static Gasfun_t getexpr(const int n, const char *expr);
 static void free_output(Output *pout);
 static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
@@ -185,6 +202,26 @@ void init_output(Grid *pGrid)
 
     new_out.out = par_gets_def(block,"out","all");
 
+#ifdef PARTICLES
+    /* check input for particle binning (=1, default) or not (=0) */
+    new_out.out_pargrid = par_geti_def(block,"pargrid", check_particle_binning(new_out.out));
+    if ((new_out.out_pargrid < 0) || (new_out.out_pargrid >1)) {
+      ath_perr(-1,"[init_output]: %s/pargrid must be 0 or 1\n",
+	       block, block);
+      continue;
+    }
+
+/* set particle property selection function. By default, will select all the
+ * particles. Used only when particle output is called, otherwise useless. */
+    if(par_exist(block,"par_prop"))
+      new_out.par_prop = get_usr_par_prop(par_gets(block,"par_prop"));
+    else
+      new_out.par_prop = property_all;
+
+/* initiate particle output */
+    init_output_particle(pGrid);
+#endif
+
 /* First handle data dumps of all CONSERVED variables (out=all) */
 
     if(strcmp(new_out.out,"all") == 0){
@@ -212,6 +249,9 @@ void init_output(Grid *pGrid)
       }
       else if (strcmp(fmt,"hst")==0){
 	new_out.fun = dump_history;
+#ifdef PARTICLES
+	new_out.out_pargrid = 0; /* don't need to bin particles */
+#endif
 	goto add_it;
       }
       else if (strcmp(fmt,"tab")==0){
@@ -220,6 +260,9 @@ void init_output(Grid *pGrid)
       }
       else if (strcmp(fmt,"rst")==0){
 	new_out.fun = dump_restart;
+#ifdef PARTICLES
+	new_out.out_pargrid = 0; /* don't need to bin particles */
+#endif
 	add_rst_out(&new_out);
 	ath_pout(0,"Added out%d\n",outn);
 	continue;
@@ -460,7 +503,15 @@ void data_output(Grid *pGrid, Domain *pD, const int flag)
  * If dump_flag != 0, make output */
   for (n=0; n<out_count; n++) {
     if(dump_flag[n] != 0) {
+#ifdef PARTICLES
+      if (OutArray[n].out_pargrid == 1) /* if binned particle is to be output */
+        particle_to_grid(pGrid, pD, &(OutArray[n]));
+#endif
       (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
+#ifdef PARTICLES
+      if (OutArray[n].out_pargrid == 1) /* if binned particle is to be output */
+        destruct_particle_grid();
+#endif
       OutArray[n].num++;
     }
   }
@@ -902,7 +953,6 @@ Real expr_cs2(const Grid *pG, const int i, const int j, const int k)
 }
 #endif /* ADIABATIC */
 
-
 /*--------------------------------------------------------------------------- */
 /* expr_S: entropy = P/d^{Gamma}  */
 
@@ -918,6 +968,30 @@ Real expr_S(const Grid *pG, const int i, const int j, const int k)
   return P/pow((double)gp->d, (double)Gamma);
 }
 #endif /* ADIABATIC */
+
+/*---------------------------------------------------------------------------_*/
+/* check if particle binning is need */
+#ifdef PARTICLES
+int check_particle_binning(char *out)
+{/* 1: need binning; 0: no */
+  if (strcmp(out,"dpar")==0)
+    return  1;
+  else if (strcmp(out,"M1par")==0)
+    return  1;
+  else if (strcmp(out,"M2par")==0)
+    return  1;
+  else if (strcmp(out,"M3par")==0)
+    return  1;
+  else if (strcmp(out,"V1par")==0)
+    return  1;
+  else if (strcmp(out,"V2par")==0)
+    return  1;
+  else if (strcmp(out,"V3par")==0)
+    return  1;
+  else
+    return 0;
+}
+#endif /* PARTICLES */
 
 /*--------------------------------------------------------------------------- */
 /* getexpr: return a function pointer for a simple expression - no parsing.
@@ -967,6 +1041,22 @@ static Gasfun_t getexpr(const int n, const char *expr)
   else if (strcmp(expr,"S")==0)
     return  expr_S;
 #endif /* ADIABATIC */
+#ifdef PARTICLES
+  else if (strcmp(expr,"dpar")==0)
+    return  expr_dpar;
+  else if (strcmp(expr,"M1par")==0)
+    return  expr_M1par;
+  else if (strcmp(expr,"M2par")==0)
+    return  expr_M2par;
+  else if (strcmp(expr,"M3par")==0)
+    return  expr_M3par;
+  else if (strcmp(expr,"V1par")==0)
+    return  expr_V1par;
+  else if (strcmp(expr,"V2par")==0)
+    return  expr_V2par;
+  else if (strcmp(expr,"V3par")==0)
+    return  expr_V3par;
+#endif
   else {
     FILE *fp = fopen("tmp.expr.c","w");
     fprintf(fp,"#include \"athena.h\"\n");
