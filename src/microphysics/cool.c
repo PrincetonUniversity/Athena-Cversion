@@ -46,19 +46,33 @@ Real KoyInut(const Real dens, const Real Press, const Real dt)
 {
   Real n,coolrate=0.0;
 #ifndef BAROTROPIC
-  Real T,coolratepp,MaxdT;
+  Real T,coolratepp,MaxdT,dT;
+	Real Teq, logn, lognT;
 
 /* Compute number density and Temperature */
   n = dens/mbar;
+	logn = log10(n);
   T = MAX((Press/(n*kb)),Tmin);
+
+/* Compute the minimun Temperature*/
+    Teq = Tmin;
 
 /* KI cooling rate per particle */
   coolratepp = HeatRate*
    (n*(1.0e7*exp(-1.184e5/(T+1000.)) + 0.014*sqrt(T)*exp(-92.0/T)) - 1.0);
 
+/* Expected dT by KI cooling rate */
+  dT = coolratepp*dt*Gamma_1/kb;
+
+  if ((T-dT) <= 185.0){
+    lognT = 3.9247499 - 1.8479378*logn + 1.5335032*logn*logn
+     -0.47665872*pow(logn,3) + 0.076789136*pow(logn,4)-0.0049052587*pow(logn,5);
+    Teq = pow(10.0,lognT) / n;
+  }
+
 /* Compute maximum change in T allowed to keep T positive, and limit cooling
  * rate to this value */
-  MaxdT = kb*(T-Tmin)/(dt*Gamma_1);
+  MaxdT = kb*(T-Teq)/(dt*Gamma_1);
   coolrate = MIN(coolratepp,MaxdT);
 #endif /* BAROTROPIC */
   return n*coolrate;
