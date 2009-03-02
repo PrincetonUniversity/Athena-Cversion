@@ -257,6 +257,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif /* MHD */
 
   data_output_enroll(pGrid->time,6.2831853e2,0,output_1d,NULL,NULL,0,0.0,0.0,0,0);
+
   return;
 }
 
@@ -309,6 +310,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   dump_history_enroll(hst_Bz, "<Bz>");
   dump_history_enroll(hst_BxBy, "<-Bx By>");
 #endif /* MHD */
+
+  data_output_enroll(pGrid->time,6.2831853e2,0,output_1d,NULL,NULL,0,0.0,0.0,0,0);
 
   return;
 }
