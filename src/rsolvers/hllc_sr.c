@@ -188,30 +188,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
      pFlux->E = 0.0;
   }
   else if( lmdas > 0.0){ /* Fls */
-     /* first calculate ps using Mignone Eq 17 */
-/*     A   = lmdal * Ul.E - Ul.Mx;
-     B   = Ul.Mx * (lmdal - Wl.Vx) - Wl.P;
-     den = 1 + lmdas * lmdal;
-     ps  = (A * lmdas - B) * den;
-
-     printf("A: %f\n",A);
-     printf("B: %f\n",B);
-     printf("den: %f\n",den);
-     printf("psl: %f\n",ps);
-
-     A  = lmdar * Ur.E - Ur.Mx;
-     B  = Ur.Mx * (lmdar - Wr.Vx) - Wr.P;
-     den = 1 + lmdas * lmdar;
-     ps  = (A * lmdas - B) * den;
-
-     printf("A: %f\n",A);
-     printf("B: %f\n",B);
-     printf("den: %f\n",den);
-     printf("psr: %f\n",ps); */
 
      /* Mignone 2006 Eq 48 */
      ps = -Fhll.E*lmdas + Fhll.Mx;
-/*     printf("psHll: %f\n",ps); */
 
      /* now calculate Usl with Mignone Eq 16 */
      den = 1.0 / (lmdal - lmdas);
@@ -237,27 +216,12 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
      return;
   }
   else if( lmdar >= 0.0){ /* Frs */
-     /* first calculate ps using Mignone Eq 17 */
-     /*A  = lmdar * Ur.E - Ur.Mx;
-     B  = Ur.Mx * (lmdar - Wr.Vx) - Wr.P;
-     den = 1 + lmdas * lmdar;
-     ps  = (A * lmdas - B) * den;
-
-     printf("psr: %f\n",ps);
-
-     A   = lmdal * Ul.E - Ul.Mx;
-     B   = Ul.Mx * (lmdal - Wl.Vx) - Wl.P;
-     den = 1 + lmdas * lmdal;
-     ps  = (A * lmdas - B) * den;
-
-     printf("psl: %f\n",ps);*/
 
      /* Mignone 2006 Eq 48 */
      ps = -Fhll.E*lmdas + Fhll.Mx;
-/*     printf("psHll: %f\n",ps); */
 
      /* now calculate Usr with Mignone Eq 16 */
-     den = lmdar - lmdas;
+     den = 1.0 / (lmdar - lmdas);
 
      Usr.d  = Ur.d * (lmdar - Wr.Vx) * den;
      Usr.Mx = (Ur.Mx * (lmdar - Wr.Vx) + ps - Wr.P) * den;

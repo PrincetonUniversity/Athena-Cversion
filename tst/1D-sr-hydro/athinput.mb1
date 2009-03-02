@@ -30,12 +30,12 @@ dt      = 0.01              # time increment between outputs
 <time>
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 1000      # cycle limit
+nlim            = 100000      # cycle limit
 tlim            = 0.4       # time limit
 
 <grid>
 
-Nx1             = 100       # Number of zones in X1-direction
+Nx1             = 400       # Number of zones in X1-direction
 x1min           = -0.5      # minimum value of X1
 x1max           = 0.5       # maximum value of X1
 ibc_x1          = 2         # inner (X1) boundary flag
