@@ -115,3 +115,10 @@ Gasfun_t get_usr_expr(const char *expr){
 VGFunout_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef PARTICLES
+PropFun_t get_usr_par_prop(const char *name)
+{
+  return NULL;
+}
+#endif
