@@ -1,13 +1,33 @@
 #include "../copyright.h"
 /*=============================================================================
 FILE: output_particle.c
-PURPOSE: 
+PURPOSE: contains all the routines necessary for outputting particles. There are
+  two basic formats:
+  1. Bin particles to the grid, then output particles as a grid.
+  2. Dump the particle list directly.
+
+  For particle binning, there can be many choices since particles may have different
+  properties. We provide a default (and trivial) particle selection function, which
+  select all the particles with different properties. The user can define their own
+  particle selection functions in the problem generator and pass them to the main code.
+
+  The output quantities include, density, momentum density and velocity of the selected
+  particles averaged in one grid cell. The binned data are saved in arrays dpar, M1par,
+  M2par and M3par, the expression function expr_??? are used to pick the relevant
+  quantities, which is part of the output data structure. The way to output these binned
+  particle quantities are then exactly the same as other gas quantities.
+
+  Dumping particle list has not been developed yet since we need to figure out how to
+  do visualization.
 
 CONTAINS PUBLIC FUNCTIONS:
-
+  void init_output_particle(Grid *pG);
+  void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
+  void destruct_particle_grid();
+  void dump_particle_binary(Grid *pG, Domain *pD);
 
 History:
- Created:	Xuening Bai		Mar. 2009
+  Created:	Xuening Bai		Mar. 2009
 
 ==============================================================================*/
 #include <stdio.h>

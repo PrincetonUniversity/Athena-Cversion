@@ -33,7 +33,7 @@ typedef double Real;
 
 /* general 3-vector */
 typedef struct Vector_s{
-  Real f1, f2, f3;		
+  Real x1, x2, x3;
 }Vector;
 
 /*----------------------------------------------------------------------------*/

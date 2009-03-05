@@ -70,7 +70,6 @@ void gasvshift_quad(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 int compare_gr(Grid *pG, Real dx11, Real dx21, Real dx31, Grain gr1, Grain gr2);
 void quicksort_particle(Grid *pG, Real dx11, Real dx21, Real dx31, long start, long end);
 
-
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 
 /* --------------Main Particle Integrator (corrector step) -----------------------
@@ -115,9 +114,9 @@ void integrate_particle(Grid *pG)
   for (ks=kl; ks<=ku; ks++)	/* refresh feedback array */
     for (js=jl; js<=ju; js++)
       for (is=il; is<=iu; is++) {
-        pG->feedback[ks][js][is].f1 = 0.0;
-        pG->feedback[ks][js][is].f2 = 0.0;
-        pG->feedback[ks][js][is].f3 = 0.0;
+        pG->feedback[ks][js][is].x1 = 0.0;
+        pG->feedback[ks][js][is].x2 = 0.0;
+        pG->feedback[ks][js][is].x3 = 0.0;
       }
 #endif /* FEEDBACK */
 
@@ -459,9 +458,9 @@ void feedback(Grid* pG)
   for (k=kl; k<=ku; k++)
     for (j=jl; j<=ju; j++)
       for (i=il; i<=iu; i++) {
-        pG->feedback[k][j][i].f1 = 0.0;
-        pG->feedback[k][j][i].f2 = 0.0;
-        pG->feedback[k][j][i].f3 = 0.0;
+        pG->feedback[k][j][i].x1 = 0.0;
+        pG->feedback[k][j][i].x2 = 0.0;
+        pG->feedback[k][j][i].x3 = 0.0;
       }
 
   /* convenient expressions */
@@ -520,9 +519,9 @@ void appy_feedback(Grid *pG)
   for (k=kl; k<=ku; k++)
     for (j=jl; j<=ju; j++)
       for (i=il; i<=iu; i++) {
-        pG->U[k][j][i].M1 -= pG->feedback[k][j][i].f1;
-        pG->U[k][j][i].M2 -= pG->feedback[k][j][i].f2;
-        pG->U[k][j][i].M3 -= pG->feedback[k][j][i].f3;
+        pG->U[k][j][i].M1 -= pG->feedback[k][j][i].x1;
+        pG->U[k][j][i].M2 -= pG->feedback[k][j][i].x2;
+        pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
       }
 }
 
@@ -721,9 +720,9 @@ void distF_linear(Grid *pG, Real weight[2][2][2], Real is, Real js, Real ks, Rea
           for (i=0; i<2; i++) {
             i1 = i+is;
             if ((i1 <= iu) && (i1 >= il)) {
-              pG->feedback[k1][j1][i1].f1 += weight[k][j][i] * fb1;
-              pG->feedback[k1][j1][i1].f2 += weight[k][j][i] * fb2;
-              pG->feedback[k1][j1][i1].f3 += weight[k][j][i] * fb3;
+              pG->feedback[k1][j1][i1].x1 += weight[k][j][i] * fb1;
+              pG->feedback[k1][j1][i1].x2 += weight[k][j][i] * fb2;
+              pG->feedback[k1][j1][i1].x3 += weight[k][j][i] * fb3;
             }
           }
         }

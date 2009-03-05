@@ -394,7 +394,6 @@ int main(int argc, char *argv[])
  *            (3) Set boundary values
  *            (4) Set new timestep
  */
-long p;
   while (level0_Grid.time < tlim && (nlim < 0 || level0_Grid.nstep < nlim)) {
 
 /* Only write output's with t_out>t when last argument of data_output = 0 */
