@@ -98,9 +98,14 @@ void problem(Grid *pGrid, Domain *pDomain)
   Omega = par_getd_def("problem","omega",1.0e-3);
   amp = par_getd("problem","amp");
   beta = par_getd("problem","beta");
-  B0 = sqrt((double)(2.0*pres/beta));
   ifield = par_geti_def("problem","ifield", 1);
   ipert = par_geti_def("problem","ipert", 1);
+
+/* Compute field strength based on beta.  */
+#ifdef ISOTHERMAL
+  pres = Iso_csound2;
+#endif
+  B0 = sqrt((double)(2.0*pres/beta));
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->is + pGrid->idisp;
@@ -346,6 +351,14 @@ void problem(Grid *pGrid, Domain *pDomain)
   if (ipert == 6) dump_history_enroll(hst_dBy, "<dBy>");
 #endif /* MHD */
 
+/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
+#ifdef OHMIC
+  eta_Ohm = par_getd("problem","eta");
+#endif
+#ifdef NAVIER_STOKES
+  nu_V = par_getd("problem","nu");
+#endif
+
   return;
 }
 
@@ -371,7 +384,15 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
+/* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu_V */
+
   Omega = par_getd_def("problem","omega",1.0e-3);
+#ifdef OHMIC
+  eta_Ohm = par_getd("problem","eta");
+#endif
+#ifdef NAVIER_STOKES
+  nu_V = par_getd("problem","nu");
+#endif
 
 /* enroll gravitational potential function */
 
