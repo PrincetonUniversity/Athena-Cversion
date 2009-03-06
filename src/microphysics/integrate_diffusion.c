@@ -85,75 +85,96 @@ void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
   if(pGrid->Nx3 > 1) dim++;
 
 /* Set function pointers for viscosity, resistivity, and anisotropic conduction
- * based on dimension of problem, and macros set by configure 
+ * based on dimension of problem, and macros set by configure.  Also check that
+ * diffusion coefficients were set in problem generator.
  */
 
-  switch(dim){
-
-/* 1D (braginskii viscosity and anisotropic conduction not allowed) */
-  case 1:
 #ifdef NAVIER_STOKES
+  switch(dim){
+  case 1:
     ApplyViscosity = ns_viscosity_1d;
     ns_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef OHMIC
-    ApplyResistivity = ohmic_resistivity_1d;
-    ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef HALL_MHD
-    ApplyResistivity = hall_resistivity_1d;
-    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
     break;
-
-/* 2D */
   case 2:
-#ifdef NAVIER_STOKES
     ApplyViscosity = ns_viscosity_2d;
     ns_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef BRAGINSKII
-    ApplyViscosity = brag_viscosity_2d;
-    brag_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef OHMIC
-    ApplyResistivity = ohmic_resistivity_2d;
-    ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef HALL_MHD
-    ApplyResistivity = hall_resistivity_2d;
-    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef ANISOTROPIC_CONDUCTION
-    ApplyThermalConduct = anisoconduct_2d;
-    anisoconduct_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-    break;
-
-/* 3D */
   case 3:
-#ifdef NAVIER_STOKES
     ApplyViscosity = ns_viscosity_3d;
     ns_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef BRAGINSKII
-    ApplyViscosity = brag_viscosity_3d;
-    brag_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef OHMIC
-    ApplyResistivity = ohmic_resistivity_3d;
-    ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef HALL_MHD
-    ApplyResistivity = hall_resistivity_3d;
-    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
-#ifdef ANISOTROPIC_CONDUCTION
-    ApplyThermalConduct = anisoconduct_3d;
-    anisoconduct_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
-#endif
     break;
   }
+  if (nu_V <= 0.0) 
+    ath_error("[diff_init] coefficent of viscosity nu_V was not set\n");
+#endif
+#ifdef OHMIC
+  switch(dim){
+  case 1:
+    ApplyResistivity = ohmic_resistivity_1d;
+    ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  case 2:
+    ApplyResistivity = ohmic_resistivity_2d;
+    ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  case 3:
+    ApplyResistivity = ohmic_resistivity_3d;
+    ohmic_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  }
+  if (eta_Ohm <= 0.0) 
+    ath_error("[diff_init] coefficent of resistivity eta_Ohm was not set\n");
+#endif
+#ifdef HALL_MHD
+  switch(dim){
+  case 1:
+    ApplyResistivity = hall_resistivity_1d;
+    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  case 2:
+    ApplyResistivity = hall_resistivity_2d;
+    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  case 3:
+    ApplyResistivity = hall_resistivity_3d;
+    hall_resistivity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  }
+  if (eta_Hall <= 0.0) 
+    ath_error("[diff_init] coefficent of resistivity eta_Hall was not set\n");
+#endif
+#ifdef BRAGINSKII
+  switch(dim){
+  case 1:
+    ath_error("[diff_init] Braginskii viscosity requires 2D or 3D\n");
+    break;
+  case 2:
+    ApplyViscosity = brag_viscosity_2d;
+    brag_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  case 3:
+    ApplyViscosity = brag_viscosity_3d;
+    brag_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  }
+  if (nu_V <= 0.0) 
+    ath_error("[diff_init] coefficent of viscosity nu_V was not set\n");
+#endif
+#ifdef ANISOTROPIC_CONDUCTION
+  switch(dim){
+    ath_error("[diff_init] anisotropic conduction requires 2D or 3D\n");
+    break;
+  case 2:
+    ApplyThermalConduct = anisoconduct_2d;
+    anisoconduct_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  case 3:
+    ApplyThermalConduct = anisoconduct_3d;
+    anisoconduct_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
+  }
+  if (chi_C <= 0.0) 
+    ath_error("[diff_init] coefficent of conduction chi_C was not set\n");
+#endif
 
 /* Set function pointer for isotropic thermal diffusion operator (the same
  * function handles 1d/2d/3d)
@@ -162,6 +183,8 @@ void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
 #ifdef ISOTROPIC_CONDUCTION
   ApplyThermalConduct = isoconduct;
   isoconduct_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+  if (kappa_T <= 0.0) 
+    ath_error("[diff_init] coefficent of conduction kappa_T was not set\n");
 #endif
 
   return;
