@@ -12,10 +12,11 @@ PURPOSE: contains all the routines necessary for outputting particles. There are
   particle selection functions in the problem generator and pass them to the main code.
 
   The output quantities include, density, momentum density and velocity of the selected
-  particles averaged in one grid cell. The binned data are saved in arrays dpar, M1par,
-  M2par and M3par, the expression function expr_??? are used to pick the relevant
-  quantities, which is part of the output data structure. The way to output these binned
-  particle quantities are then exactly the same as other gas quantities.
+  particles averaged in one grid cell. The binned data are saved in arrays dpar, and grid_v.
+  The latter is borrowed from particle.c to save memory. The expression functions expr_???
+  are used to pick the relevant quantities, which is part of the output data structure.
+  The way to output these binned particle quantities are then exactly the same as other
+  gas quantities.
 
   Dumping particle list has not been developed yet since we need to figure out how to
   do visualization.
@@ -41,11 +42,10 @@ History:
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
-float ***dpar;
-float ***M1par;
-float ***M2par;
-float ***M3par;
+float ***dpar;		/* binned particle mass/number density */
+extern Vector ***grid_v;/* binned particle momentum density, borrowed from particle.c */
 int il,iu, jl,ju, kl,ku;
+
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -60,6 +60,7 @@ Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
+extern void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[2][2][2], int *is, int *js, int *ks);
 int property_all(const int property);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -75,9 +76,14 @@ void init_output_particle(Grid *pG)
 void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
 {
   int i, j, k, m1, m2, m3, Nx1T, Nx2T, Nx3T;
+  int is,js,ks,i1,j1,k1;
   long p;
-  Real dx11, dx21, dx31, cellvol1, drho, a;
+  Real dx11, dx21, dx31, cellvol1, drho;
+  Real weight[2][2][2];
   Grain *gr;
+  Real dmax,dmin;
+  dmax = 0.0;
+  dmin = 1.0e18;
 
   /* Get grid limit related quantities */
   cellvol1 = 1.0;
@@ -106,25 +112,17 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
 
   /* allocate memory for particle interpolation */
   dpar = (float***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(float));
-  if (dpar == NULL) goto on_error;
-
-  M1par = (float***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(float));
-  if (M1par == NULL) goto on_error;
-
-  M2par = (float***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(float));
-  if (M1par == NULL) goto on_error;
-
-  M3par = (float***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(float));
-  if (M1par == NULL) goto on_error;
+  if (dpar == NULL)
+    ath_error("[init_output_particle]: Error allocating memory\n");
 
   /* initialization */
   for (k=kl; k<=ku; k++)
     for (j=jl; j<=ju; j++)
       for (i=il; i<=iu; i++) {
         dpar[k][j][i] = 0.0;
-        M1par[k][j][i] = 0.0;
-        M2par[k][j][i] = 0.0;
-        M3par[k][j][i] = 0.0;
+        grid_v[k][j][i].x1 = 0.0;
+        grid_v[k][j][i].x2 = 0.0;
+        grid_v[k][j][i].x3 = 0.0;
       }
 
   /* bin the particles */
@@ -133,47 +131,52 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
     /* judge if the particle should be selected */
     if ((*(pout->par_prop))(gr->property)) {
 
-      /* get grid index */
-      if (dx11 > 0.0)
-        celli(pG, gr->x1, dx11, &i, &a);
-      else /* x1 dimension collapses */
-        i = pG->is;
-      if (dx21 > 0.0)
-        cellj(pG, gr->x2, dx21, &j, &a);
-      else /* x2 dimension collapses */
-        j = pG->js;
-      if (dx31 > 0.0)
-        k = cellk(pG, gr->x3, dx31, &k, &a);
-      else /* x3 dimension collapses */
-        k = pG->ks;
+      getwei_linear(pG, gr->x1, gr->x2, gr->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
 
-      /* bin the particles to the grid */
+      /* distribute feedback force */
+      for (k=0; k<2; k++) {
+        k1 = k+ks;
+        if ((k1 <= ku) && (k1 >= kl)) {
+          for (j=0; j<2; j++) {
+            j1 = j+js;
+            if ((j1 <= ju) && (j1 >= jl)) {
+              for (i=0; i<2; i++) {
+                i1 = i+is;
+                if ((i1 <= iu) && (i1 >= il)) {
+                  /* interpolate the particles to the grid */
 #ifdef FEEDBACK
-      drho = pG->grproperty[gr->property].m * cellvol1;
+                  drho = pG->grproperty[gr->property].m;
 #else
-      drho = cellvol1;
+                  drho = 1.0;
 #endif
-      dpar[k][j][i] += drho;
-      M1par[k][j][i] += drho*gr->v1;
-      M2par[k][j][i] += drho*gr->v2;
-      M3par[k][j][i] += drho*gr->v3;
+                  dpar[k1][j1][i1] += weight[k][j][i]*drho;
+                  grid_v[k1][j1][i1].x1 += weight[k][j][i]*drho*gr->v1;
+                  grid_v[k1][j1][i1].x2 += weight[k][j][i]*drho*gr->v2;
+                  grid_v[k1][j1][i1].x3 += weight[k][j][i]*drho*gr->v3;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 
-  return;
+  for (k=kl; k<=ku; k++)
+    for (j=jl; j<=ju; j++)
+      for (i=il; i<=iu; i++) {
+        if (dpar[k][j][i]>dmax) dmax = dpar[k][j][i];
+        if (dpar[k][j][i]<dmin) dmin = dpar[k][j][i];
+      }
+fprintf(stderr,"dmax=%f,	dmin=%f\n",dmax,dmin);
 
-  on_error:
-    ath_error("[init_output_particle]: Error allocating memory\n");
+  return;
 }
 
 /* release particle grid memory */
 void destruct_particle_grid()
 {
   free_3d_array(dpar);
-  free_3d_array(M1par);
-  free_3d_array(M2par);
-  free_3d_array(M3par);
-
   return;
 }
 
@@ -193,38 +196,38 @@ Real expr_dpar(const Grid *pG, const int i, const int j, const int k) {
 }
 
 Real expr_M1par(const Grid *pG, const int i, const int j, const int k) {
-  if (M1par == NULL) ath_error("[expr_M1par]: Particles have not been binned for output, please set pargrid to 1.\n");
-  return M1par[k][j][i];
+  if (dpar == NULL) ath_error("[expr_M1par]: Particles have not been binned for output, please set pargrid to 1.\n");
+  return grid_v[k][j][i].x1;
 }
 
 Real expr_M2par(const Grid *pG, const int i, const int j, const int k) {
-  if (M2par == NULL) ath_error("[expr_M2par]: Particles have not been binned for output, please set pargrid to 1.\n");
-  return M2par[k][j][i];
+  if (dpar == NULL) ath_error("[expr_M2par]: Particles have not been binned for output, please set pargrid to 1.\n");
+  return grid_v[k][j][i].x2;
 }
 
 Real expr_M3par(const Grid *pG, const int i, const int j, const int k) {
-  if (M3par == NULL) ath_error("[expr_M3par]: Particles have not been binned for output, please set pargrid to 1.\n");
-  return M3par[k][j][i];
+  if (dpar == NULL) ath_error("[expr_M3par]: Particles have not been binned for output, please set pargrid to 1.\n");
+  return grid_v[k][j][i].x3;
 }
 
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k) {
   if (dpar == NULL) ath_error("[expr_V1par]: Particles have not been binned for output, please set pargrid to 1.\n");
   if (dpar[k][j][i]>0.0)
-    return M1par[k][j][i]/dpar[k][j][i];
+    return grid_v[k][j][i].x1/dpar[k][j][i];
   else return 0.0;
 }
 
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k) {
   if (dpar == NULL) ath_error("[expr_V2par]: Particles have not been binned for output, please set pargrid to 1.\n");
   if (dpar[k][j][i]>0.0)
-    return M2par[k][j][i]/dpar[k][j][i];
+    return grid_v[k][j][i].x2/dpar[k][j][i];
   else return 0.0;
 }
 
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k) {
   if (dpar == NULL) ath_error("[expr_V3par]: Particles have not been binned for output, please set pargrid to 1.\n");
   if (dpar[k][j][i]>0.0)
-    return M3par[k][j][i]/dpar[k][j][i];
+    return grid_v[k][j][i].x3/dpar[k][j][i];
   else return 0.0;
 }
 

@@ -26,9 +26,7 @@
 
 #ifdef PARTICLES
 extern float ***dpar;
-extern float ***M1par;
-extern float ***M2par;
-extern float ***M3par;
+extern Vector ***grid_v;
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -242,9 +240,9 @@ void dump_tab_cons(Grid *pG, Domain *pD, Output *pOut)
 #ifdef PARTICLES
         if (pOut->out_pargrid) {
           fprintf(pfile,fmt,dpar[k][j][i]);
-          fprintf(pfile,fmt,M1par[k][j][i]);
-          fprintf(pfile,fmt,M2par[k][j][i]);
-          fprintf(pfile,fmt,M3par[k][j][i]);
+          fprintf(pfile,fmt,grid_v[k][j][i].x1);
+          fprintf(pfile,fmt,grid_v[k][j][i].x2);
+          fprintf(pfile,fmt,grid_v[k][j][i].x3);
         }
 #endif
 
@@ -494,9 +492,9 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
             d1 = 1.0/dpar[k][j][i];
           else
             d1 = 0.0;
-          fprintf(pfile,fmt,M1par[k][j][i]*d1);
-          fprintf(pfile,fmt,M2par[k][j][i]*d1);
-          fprintf(pfile,fmt,M3par[k][j][i]*d1);
+          fprintf(pfile,fmt,grid_v[k][j][i].x1*d1);
+          fprintf(pfile,fmt,grid_v[k][j][i].x2*d1);
+          fprintf(pfile,fmt,grid_v[k][j][i].x3*d1);
         }
 #endif
 

@@ -17,9 +17,7 @@
 
 #ifdef PARTICLES
 extern float ***dpar;
-extern float ***M1par;
-extern float ***M2par;
-extern float ***M3par;
+extern Vector ***grid_v;
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -199,9 +197,9 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
-	  data[3*(i-il)] = M1par[k][j][i];
-	  data[3*(i-il)+1] = M2par[k][j][i];
-	  data[3*(i-il)+2] = M3par[k][j][i];
+	  data[3*(i-il)] = grid_v[k][j][i].x1;
+	  data[3*(i-il)+1] = grid_v[k][j][i].x2;
+	  data[3*(i-il)+2] = grid_v[k][j][i].x3;
         }
         if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
         fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);

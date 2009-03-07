@@ -35,22 +35,16 @@ History:
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
-/* Fluid information used for drag force and feedback calculation */
-typedef struct Gas_Info_s{
-  Real v1, v2, v3;	
-#ifndef ISOTHERMAL	
-  Real cs;
-#endif /* ISOTHERMAL */
-}Gas_Info;
-
 /* Filewide global variables */
 int il,iu, jl,ju, kl,ku;	/* left and right limit of grid indices */
 Real x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar;	/* left and right limit of grid boundary */
-static Gas_Info ***mygas;	/* additional gas information */
+Vector ***grid_v;		/* gas velocities */
+#ifndef ISOTHERMAL
+Real ***grid_cs;		/* gas sound speed */
+#endif
 
 static GVDFun_t gasvshift = NULL;/* the gas velocity difference from Keplerian due to pressure gradient */
 Real vsc1, vsc2;		/* coefficients for velocity difference */
-
 
 /*=========================== PROTOTYPES OF PRIVATE FUNCTIONS ===============================*/
 
@@ -73,13 +67,11 @@ void quicksort_particle(Grid *pG, Real dx11, Real dx21, Real dx31, long start, l
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 
 /* --------------Main Particle Integrator (corrector step) -----------------------
-   Evolve particles for one full step using 2nd order implicit mid-
-   point method.
+   Evolve particles for one full step using 2nd order fully implicit method.
    Input: 
      pG: grid which is already evolved in the predictor step. The
          particles are unevolved.
    Output:
-     vmax: maximum of the updated particle velocity.
      pG: particle velocity updated with one full time step.
          feedback force is also calculated for the corrector step.
    Note: numerical experiment shows that velocity evolution may be unstable if t_stop/dt<0.006.
@@ -145,7 +137,6 @@ void integrate_particle(Grid *pG)
   for (p=0; p<pG->nparticle; p++)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
-
     /* step 1: predictor of the particle position after one time step */
     x1n = curG->x1+curG->v1*pG->dt;
     x2n = curG->x2+curG->v2*pG->dt;
@@ -205,7 +196,6 @@ void integrate_particle(Grid *pG)
       vd2 = curG->v2-u2;
       vd3 = curG->v3-u3;
       vd = sqrt(SQR(vd1) + SQR(vd2) + SQR(vd3)); /* dimension independent */
-
       /* particle stopping time */
       tstop = get_ts(pG, curG, rho, cs, vd);
       ts12 = 1.0/tstop;
@@ -349,12 +339,13 @@ void integrate_particle(Grid *pG)
 /* Initialization for particles.
    We assume to have "partypes" types of particles, each type has "parnum" particles.
    We enforce that each type has equal number of particles to ensure equal resolution.
-   Allocate memory for the mygas array, feedback array.
+   Allocate memory for the gas velocity/sound speed array, feedback array.
 */
 void init_particle(Grid *pG, Domain *pD)
 {
   int N1T, N2T, N3T;
   Grain *GrArray;
+  long size = 1000,size1 = 1,size2 = 1;
 
   /* get coordinate limit */
   grid_limit(pG, pD);
@@ -369,12 +360,24 @@ void init_particle(Grid *pG, Domain *pD)
     ath_error("[init_particle]: Particle types must not be negative!\n");
 
   /* initialize the particle array */
-  pG->arrsize = (long)(2*pG->partypes*par_geti("particle","parnum"));
+  if(par_exist("particle","parnumcell")) {
+    /* if we consider number of particles per cell */
+    size1 = N1T*N2T*N3T*(long)(pG->partypes*par_geti("particle","parnumcell"));
+    if (size1 < 0)
+      ath_error("[init_particle]: Particle number must not be negative!\n");
+  }
 
-  if (pG->arrsize < 0)
-    ath_error("[init_particle]: Particle number must not be negative!\n");
+  if(par_exist("particle","parnumgrid")) {
+    /* if we consider number of particles per grid */
+    size2 = (long)(pG->partypes*par_geti("particle","parnumgrid"));
+    if (size2 < 0)
+      ath_error("[init_particle]: Particle number must not be negative!\n");
+    /* account for the ghost cells */
+    size2 = (long)(size2/((double)(pG->Nx1*pG->Nx2*pG->Nx3))*N1T*N2T*N3T);
+  }
 
-  if (pG->arrsize<100) pG->arrsize = 100;
+  size = MAX(size, MAX(size1, size2));
+  pG->arrsize = (long)(1.2*size);	/* account for number fluctuations */
 
   pG->particle = (Grain*)calloc_1d_array(pG->arrsize, sizeof(Grain));
   if (pG->particle == NULL) goto on_error;
@@ -393,8 +396,12 @@ void init_particle(Grid *pG, Domain *pD)
   vsc2 = par_getd_def("problem","vsc2",0.0);
 
   /* allocate the memory for gas and feedback arrays */
-  mygas = (Gas_Info***)calloc_3d_array(N3T, N2T, N1T, sizeof(Gas_Info));
-  if (mygas == NULL) goto on_error;
+  grid_v = (Vector***)calloc_3d_array(N3T, N2T, N1T, sizeof(Vector));
+  if (grid_v == NULL) goto on_error;
+#ifndef ISOTHERMAL
+  grid_cs = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
+  if (grid_cs == NULL) goto on_error;
+#endif
 
 #ifdef FEEDBACK
   pG->feedback = (Vector***)calloc_3d_array(N3T, N2T, N1T, sizeof(Vector));
@@ -416,7 +423,10 @@ void particle_destruct(Grid *pG)
   free_1d_array(grrhoa);
 
   /* free memory for gas and feedback arrays */
-  if (mygas != NULL) free_3d_array(mygas);
+  if (grid_v != NULL) free_3d_array(grid_v);
+#ifndef ISOTHERMAL
+  if (grid_cs != NULL) free_3d_array(grid_cs);
+#endif
 #ifdef FEEDBACK
   if (pG->feedback != NULL) free_3d_array(pG->feedback);
 #endif
@@ -668,11 +678,11 @@ int getval_linear(Grid *pG, Real weight[2][2][2], int is, int js, int ks, Real *
             i1 = i+is;
             if ((i1 <= iu) && (i1 >= il)) {
               D += weight[k][j][i] * pG->U[k1][j1][i1].d;
-              v1 += weight[k][j][i] * mygas[k1][j1][i1].v1;
-              v2 += weight[k][j][i] * mygas[k1][j1][i1].v2;
-              v3 += weight[k][j][i] * mygas[k1][j1][i1].v3;
+              v1 += weight[k][j][i] * grid_v[k1][j1][i1].x1;
+              v2 += weight[k][j][i] * grid_v[k1][j1][i1].x2;
+              v3 += weight[k][j][i] * grid_v[k1][j1][i1].x3;
 #ifndef ISOTHERMAL
-              C += weight[k][j][i] * mygas[k1][j1][i1].cs;
+              C += weight[k][j][i] * grid_cs[k1][j1][i1];
 #endif
               totwei += weight[k][j][i];
             }
@@ -809,32 +819,32 @@ void grid_limit(Grid *pG, Domain *pD)
    * the outermost layer of the ghost cells */
   get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
-  if ((par_geti("grid","ibc_x1") == 2) && (my_iproc == 0))
+  if ((par_geti_def("grid","ibc_x1",4) == 2) && (my_iproc == 0))
     x1lpar = pG->x1_0 + (il+m1 + pG->idisp)*pG->dx1;
   else
     x1lpar = pG->x1_0 + (pG->is + pG->idisp)*pG->dx1;
 
-  if ((par_geti("grid","obc_x1") == 2) && (my_iproc == pD->NGrid_x1-1))
+  if ((par_geti_def("grid","obc_x1",4) == 2) && (my_iproc == pD->NGrid_x1-1))
     x1upar = pG->x1_0 + (iu + pG->idisp)*pG->dx1;
   else
     x1upar = pG->x1_0 + (pG->ie + 1 + pG->idisp)*pG->dx1;
 
-  if ((par_geti("grid","ibc_x2") == 2) && (my_jproc == 0))
+  if ((par_geti_def("grid","ibc_x2",4) == 2) && (my_jproc == 0))
     x2lpar = pG->x2_0 + (jl+m2 + pG->jdisp)*pG->dx2;
   else
     x2lpar = pG->x2_0 + (pG->js + pG->jdisp)*pG->dx2;
 
-  if ((par_geti("grid","obc_x2") == 2) && (my_jproc == pD->NGrid_x2-1))
+  if ((par_geti_def("grid","obc_x2",4) == 2) && (my_jproc == pD->NGrid_x2-1))
     x2upar = pG->x2_0 + (ju + pG->jdisp)*pG->dx2;
   else
     x2upar = pG->x2_0 + (pG->je + 1 + pG->jdisp)*pG->dx2;
 
-  if ((par_geti("grid","ibc_x3") == 2) && (my_kproc == 0))
+  if ((par_geti_def("grid","ibc_x3",4) == 2) && (my_kproc == 0))
     x3lpar = pG->x3_0 + (kl+m3 + pG->kdisp)*pG->dx3;
   else
     x3lpar = pG->x3_0 + (pG->ks + pG->kdisp)*pG->dx3;
 
-  if ((par_geti("grid","obc_x3") == 2) && (my_kproc == pD->NGrid_x3-1))
+  if ((par_geti_def("grid","obc_x3",4) == 2) && (my_kproc == pD->NGrid_x3-1))
     x3upar = pG->x3_0 + (ku + pG->kdisp)*pG->dx3;
   else
     x3upar = pG->x3_0 + (pG->ke + 1 + pG->kdisp)*pG->dx3;
@@ -848,7 +858,7 @@ void grid_limit(Grid *pG, Domain *pD)
 
 /* Calculate the gas information from conserved variables
    Input: pG: grid (now already evolved in the predictor step).
-   Output: calculate 3D array mygas in the grid structure.
+   Output: calculate 3D array grid_v/grid_cs in the grid structure.
            Calculated are gas velocity and sound speed.
 */
 void get_gasinfo(Grid *pG)
@@ -864,19 +874,19 @@ void get_gasinfo(Grid *pG)
     for (j=jl; j<=ju; j++)
       for (i=il; i<=iu; i++) {
         rho1 = 1.0/(pG->U[k][j][i].d);
-        mygas[k][j][i].v1 = pG->U[k][j][i].M1 * rho1;
-        mygas[k][j][i].v2 = pG->U[k][j][i].M2 * rho1;
-        mygas[k][j][i].v3 = pG->U[k][j][i].M3 * rho1;
+        grid_v[k][j][i].x1 = pG->U[k][j][i].M1 * rho1;
+        grid_v[k][j][i].x2 = pG->U[k][j][i].M2 * rho1;
+        grid_v[k][j][i].x3 = pG->U[k][j][i].M3 * rho1;
 #ifndef ISOTHERMAL
   #ifdef ADIABATIC
         /* E = P/(gamma-1) + rho*v^2/2 + B^2/2 */
-        P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(mygas[k][j][i].v1) \
-             + SQR(mygas[k][j][i].v2) + SQR(mygas[k][j][i].v3));
+        P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(grid_v[k][j][i].x1) \
+             + SQR(grid_v[k][j][i].x2) + SQR(grid_v[k][j][i].x3));
     #ifdef MHD
         P = P - 0.5*(SQR(pG->U[k][j][i].B1c)+SQR(pG->U[k][j][i].B2c)+SQR(pG->U[k][j][i].B3c));
     #endif /* MHD */
         P = MAX(Gamma_1*P, TINY_NUMBER);
-        mygas[k][j][i].cs = sqrt(Gamma*P/pG->U[k][j][i].d);
+        grid_cs[k][j][i] = sqrt(Gamma*P/pG->U[k][j][i].d);
   #else
         ath_error("[get_gasinfo] can not calculate the sound speed!\n");
   #endif /* ADIABATIC */

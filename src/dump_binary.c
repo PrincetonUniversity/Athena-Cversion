@@ -19,9 +19,7 @@
 
 #ifdef PARTICLES
 extern float ***dpar;
-extern float ***M1par;
-extern float ***M2par;
-extern float ***M3par;
+extern Vector ***grid_v;
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -174,21 +172,21 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = M1par[k+kl][j+jl][i+il];
+        datax[i] = grid_v[k+kl][j+jl][i+il].x1;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = M2par[k+kl][j+jl][i+il];
+        datax[i] = grid_v[k+kl][j+jl][i+il].x2;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = M3par[k+kl][j+jl][i+il];
+        datax[i] = grid_v[k+kl][j+jl][i+il].x3;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}

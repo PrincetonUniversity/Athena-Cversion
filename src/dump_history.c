@@ -181,11 +181,11 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 
   for(p=0; p<pGrid->nparticle; p++) {
     gr = &(pGrid->particle[p]);
-    if ((gr->x1 < x1upar) || (gr->x1 >= x1lpar) || (gr->x2 < x2upar) || (gr->x2 >= x2lpar) || (gr->x3 < x3upar) || (gr->x3 >= x3lpar))
+    if ((gr->x1 < x1upar) && (gr->x1 >= x1lpar) && (gr->x2 < x2upar) && (gr->x2 >= x2lpar) && (gr->x3 < x3upar) && (gr->x3 >= x3lpar))
     {/* If particle is in the grid (for outflow B.C., also count for particles in the ghost cells) */
-      rho = cellvol1;				/* contribution to number density */
+      rho = 1.0;				/* contribution to total number */
 #ifdef FEEDBACK
-      rho *= pGrid->grproperty[gr->property].m;	/* contribution to mass density */
+      rho *= pGrid->grproperty[gr->property].m;	/* contribution to total mass */
 #endif
       mhst = parhst;
       scal[mhst] += rho;

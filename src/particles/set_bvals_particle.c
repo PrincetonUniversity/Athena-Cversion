@@ -340,7 +340,7 @@ void set_bvals_particle(Grid *pG, Domain *pD)
     }
 
 #ifdef SHEARING_BOX
-    if (pG->Nx3>0) {
+    if (pG->Nx3>1) {
     /* For 3D shearing box boundary conditions */
       if (my_iproc == 0) /* inner boundary */
         shearingbox_ix1_particle(pG, pD, numpar);
@@ -2078,7 +2078,7 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
         *(pd++) = (double)(cur->property)+0.01;
         /* delete the particle */
         pG->nparticle -= 1;
-        pG->grproperty[cur->property] -= 1;
+        pG->grproperty[cur->property].num -= 1;
         p -= 1;
         pG->particle[p] = pG->particle[pG->nparticle];
       }
@@ -2141,7 +2141,7 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
         *(pd++) = (double)(cur->property)+0.01;
         /* delete the particle */
         pG->nparticle -= 1;
-        pG->grproperty[cur->property] -= 1;
+        pG->grproperty[cur->property].num -= 1;
         p -= 1;
         pG->particle[p] = pG->particle[pG->nparticle];
       }
