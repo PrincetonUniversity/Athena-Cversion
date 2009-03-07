@@ -42,7 +42,7 @@ void new_dt(Grid *pGrid)
   max_v1=0.0;	max_v2=0.0;	max_v3=0.0;
   max_dti = 0.0;
 
-#ifndef SPECIAL RELATIVITY
+#ifndef SPECIAL_RELATIVITY
   for (k=pGrid->ks; k<=pGrid->ke; k++) {
   for (j=pGrid->js; j<=pGrid->je; j++) {
     for (i=pGrid->is; i<=pGrid->ie; i++) {
@@ -104,6 +104,7 @@ void new_dt(Grid *pGrid)
 
     }
   }}
+
 #else
   max_v1 = max_v2 = max_v3 = 1.0;
 #endif /* SPECIAL_RELATIVITY */
