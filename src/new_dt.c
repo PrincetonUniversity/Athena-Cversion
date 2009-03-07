@@ -5,6 +5,12 @@
  * PURPOSE: Computes timestep using CFL condition on cell-centered velocities
  *   and sound speed, and Alfven speed from face-centered B.
  *
+ * For special relativity, the time step limit is just (1/dx), since the fastest
+ * wave speed is never larger than c=1.
+ *
+ * A CFL condition is also applied using particle velocities if PARTICLES is
+ * defined.
+ *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   new_dt()  - computes dt
  *   sync_dt() - synchronizes dt across all MPI patches
@@ -36,6 +42,7 @@ void new_dt(Grid *pGrid)
   max_v1=0.0;	max_v2=0.0;	max_v3=0.0;
   max_dti = 0.0;
 
+#ifndef SPECIAL RELATIVITY
   for (k=pGrid->ks; k<=pGrid->ke; k++) {
   for (j=pGrid->js; j<=pGrid->je; j++) {
     for (i=pGrid->is; i<=pGrid->ie; i++) {
@@ -97,6 +104,9 @@ void new_dt(Grid *pGrid)
 
     }
   }}
+#else
+  max_v1 = max_v2 = max_v3 = 1.0;
+#endif /* SPECIAL_RELATIVITY */
 
 /* compute maximum cfl velocity with particles */
 #ifdef PARTICLES
