@@ -40,8 +40,26 @@
 #error : The SR HLLC flux does not work with passive scalars.
 #endif
 
-/*void printCons1D(const Cons1D* c);
-  void printPrim1D(const Prim1D* p);*/
+void printCons1D(const Cons1D* c);
+  void printPrim1D(const Prim1D* p);
+
+void printCons1D(const Cons1D* c){
+   printf("d:  %e\n",c->d);
+   printf("E:  %e\n",c->E);
+   printf("Mx: %e\n",c->Mx);
+   printf("My: %e\n",c->My);
+   printf("Mz: %e\n",c->Mz);
+   printf("\n");
+}
+
+void printPrim1D(const Prim1D* p){
+   printf("d:  %e\n",p->d);
+   printf("P:  %e\n",p->P);
+   printf("Vx: %e\n",p->Vx);
+   printf("Vy: %e\n",p->Vy);
+   printf("Vz: %e\n",p->Vz);
+   printf("\n");
+}
 
 /*----------------------------------------------------------------------------*/
 /* fluxes
@@ -61,11 +79,21 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   Real lmdal,lmdar; /* Left and Right wave speeds */
   Real lmdas; /* Contact wave speed */
   Real ovlrmll;
-  Real b,bsq,rad;
+  Real AL,AR,BL,BR,a,b,c;
+  Real bsq,rad;
   Real den,ps; /* Pressure in inner region */
 
+  /*printf("Wl\n");
+  printPrim1D(&Wl);
+  printf("Wr\n");
+  printPrim1D(&Wr);
+  printf("Ul\n");
+  printCons1D(&Ul);
+  printf("Ur\n");
+  printCons1D(&Ur);*/
+
 /*--- Step 1. ------------------------------------------------------------------
- * Compute the max and min wave speeds used in Mignone
+ * Compute the max and min wave speeds used in Mignone 
  */
 
   rhl = Wl.d + Wl.P * Gamma / Gamma_1; /* Mignone Eq 3.5 */
@@ -114,7 +142,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   Fr.Mz = Ur.Mz * Wr.Vx;
   Fr.E  = Ur.Mx;
 
-/*  printf("F_L\n");
+  /*printf("F_L\n");
   printCons1D(&Fl);
   printf("F_R\n");
   printCons1D(&Fr);*/
@@ -156,15 +184,17 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
      bsq = b * b;
      rad = sqrt(bsq - 4.0 * Fhll.E * Uhll.Mx);
      lmdas = (-b - rad) / (2.0 * Fhll.E);
+     /*printf("%e\n",Fhll.E);*/
   }
   else{
+     /*printf("HERE: %e\n",Fhll.E);*/
      lmdas = Uhll.Mx / (Uhll.E + Fhll.Mx);
   }
 
   /*********************************/
-/*  printf("lamdal: %f\n",lmdal);
-  printf("lamdas: %f\n",lmdas);
-  printf("lamdar: %f\n\n",lmdar);*/
+  /*printf("lamdal: %e\n",lmdal);
+  printf("lamdas: %e\n",lmdas);
+  printf("lamdar: %e\n\n",lmdar);*/
 
 /*--- Step 5. ------------------------------------------------------------------
  * Determine intercell flux according to Mignone 13
@@ -201,7 +231,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
      Usl.Mz = Ul.Mz * (lmdal - Wl.Vx) * den;
      Usl.E  = (Ul.E * (lmdal - Wl.Vx) + ps * lmdas - Wl.P * Wl.Vx) * den;
 
-/*     printf("ps: %f\n",ps);
+     /*printf("ps: %f\n",ps);
+     printf("Fl\n");
+     printCons1D(&Fl);
      printf("Usl\n");
      printCons1D(&Usl);*/
 
@@ -229,7 +261,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
      Usr.Mz = Ur.Mz * (lmdar - Wr.Vx) * den;
      Usr.E  = (Ur.E * (lmdar - Wr.Vx) + ps * lmdas - Wr.P * Wr.Vx) * den;
 
-/*     printf("ps: %f\n",ps);
+     /*printf("ps: %f\n",ps);
+     printf("Fr\n");
+     printCons1D(&Fr);
      printf("Usr\n");
      printCons1D(&Usr); */
 
@@ -256,6 +290,8 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   
   /* need to deal with scalar fluxes */
 }
+
+
 
 #endif /* HLLC_FLUX */
 #endif /* SPECIAL_RELATIVITY */
