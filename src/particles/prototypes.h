@@ -23,7 +23,7 @@ void integrate_particle(Grid *pG);
 void init_particle(Grid *pG, Domain *pD);
 void particle_destruct(Grid *pG);
 void particle_realloc(Grid *pG, long n);
-void remove_ghost_particle(Grid *pG);
+void update_particle_status(Grid *pG);
 #ifdef FEEDBACK
 void feedback(Grid *pG);
 #endif

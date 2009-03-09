@@ -34,7 +34,11 @@ History:
 #ifdef PARTICLES         /* endif at the end of the file */
 
 /* particle structure size */
-#define NVAR_P 7
+#ifdef MPI_PARALLEL
+#define NVAR_P 10
+#else
+#define NVAR_P 9
+#endif
 
 /* send and receive buffer, size dynamically determined
  * They are mainly used for MPI, and shearing box.
@@ -84,7 +88,7 @@ static long packing_ix2_particle(Grid *pG, int nlayer);
 static long packing_ox2_particle(Grid *pG, int nlayer);
 static long packing_ix3_particle(Grid *pG, int nlayer);
 static long packing_ox3_particle(Grid *pG, int nlayer);
-
+static void packing_one_particle(Grain *cur, long n, short pos);
 static void shift_packed_particle(double *buf, long n, int index, double shift);
 static void unpack_particle(Grid *pG, double *buf, long n);
 
@@ -724,8 +728,12 @@ void set_bvals_particle(Grid *pG, Domain *pD)
     if (pG->rx3_id < 0 && pG->lx3_id < 0) {
       (*apply_ix3)(pG);
       (*apply_ox3)(pG);
-    } 
+    }
   }
+
+/*--- Step 5. ------------------------------------------------------------------
+ * Update the status of the crossing particles */
+  update_particle_status(pG);
 
   return;
 }
@@ -760,12 +768,12 @@ void advect_particles(Grid *pG, Domain *pD)
 #ifdef MPI_PARALLEL
   /* calculate the farthest grid that advection can reach */
   x3len = pG->dx3*pG->Nx3;
-  ishl = gridshift(1.5*Omega*(x1l-pG->dx1)*pG->dt/x3len);
-  ishu = gridshift(1.5*Omega*(x1u+pG->dx1)*pG->dt/x3len);
+  ishl = gridshift((1.5*Omega*(x1l-pG->dx1)*pG->dt - pG->dx3)/x3len);
+  ishu = gridshift((1.5*Omega*(x1u+pG->dx1)*pG->dt + pG->dx3)/x3len);
 
   /* loop over all the possible destination grids */
   for (i=ishl; i<=ishu; i++)
-  if (i != 0) { /* avoid moving particles to itself */
+  if (i != 0) { /* avoid moving particles to the same grid */
     /* find the processor id to send/receive data */
     inds = my_kproc + i;
     if (inds < 0) inds += pD->NGrid_x3;
@@ -1481,21 +1489,20 @@ static long packing_ix1_particle(Grid *pG, int nlayer)
   /* loop over all particle to pack the ones in the boundary */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x1 < x1u) && (cur->x1 >= x1l)) /* if the particle is the regime */
-    { /* add one particle to buffer */
-      n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
+
+    if (cur->x1 < x1u) {
+      if ((cur->pos == 0) || (cur->pos == 1))
+      { /* ghost particle or grid particle */
+        if (cur->x1 >= x1l) {/* in the boundary */
+          packing_one_particle(cur, n, 0); /* pack as ghost particle */
+          n += 1;
+        }
       }
-      /* pack the particle */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
+      else if (cur->pos != 21) /* it's not from ox1 */
+      {/* crossing particle in the boundary */
+        packing_one_particle(cur, n, 11); /* pack as crossing particle from ix1 */
+        n += 1;
+      }
     }
   }
 
@@ -1515,7 +1522,7 @@ static long packing_ox1_particle(Grid *pG, int nlayer)
   Real x1l,x1u;	/* lower and upper coordinate limit in x1 outer boundary */
   long p, n = 0;
   double *pd = send_buf;
-long i;
+
   /* get lower and upper coordinate limit in x1 inner boundary */
   x1l = pG->x1_0 + (pG->ie-nlayer+1 + pG->idisp)*pG->dx1;
   x1u = pG->x1_0 + (pG->ie+1 + pG->idisp)*pG->dx1;
@@ -1523,21 +1530,20 @@ long i;
   /* loop over all particle to pack the ones in the boundary */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x1 < x1u) && (cur->x1 >= x1l)) /* if the particle is the regime */
-    { /* add one particle to buffer */
-      n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
+
+    if (cur->x1 >= x1l) {
+      if ((cur->pos == 0) || (cur->pos == 1))
+      { /* ghost particle or grid particle */
+        if (cur->x1 < x1u) {/* in the boundary */
+          packing_one_particle(cur, n, 0); /* pack as ghost particle */
+          n += 1;
+        }
       }
-      /* pack the particle */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
+      else if (cur->pos != 11) /* it's not from ix1 */
+      {/* crossing particle in the boundary */
+        packing_one_particle(cur, n, 21); /* pack as crossing particle from ox1 */
+        n += 1;
+      }
     }
   }
 
@@ -1565,21 +1571,20 @@ static long packing_ix2_particle(Grid *pG, int nlayer)
   /* loop over all particle to pack the ones in the boundary */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x2 < x2u) && (cur->x2 >= x2l)) /* if the particle is the regime */
-    { /* add one particle to buffer */
-      n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
+
+    if (cur->x2 < x2u) {
+      if ((cur->pos == 0) || (cur->pos == 1))
+      { /* ghost particle or grid particle */
+        if (cur->x2 >= x2l) {/* in the boundary */
+          packing_one_particle(cur, n, 0); /* pack as ghost particle */
+          n += 1;
+        }
       }
-      /* pack the particle */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
+      else if (cur->pos != 22) /* it's not from ox2 */
+      {/* crossing particle in the boundary */
+        packing_one_particle(cur, n, 12); /* pack as crossing particle from ix2 */
+        n += 1;
+      }
     }
   }
 
@@ -1607,21 +1612,20 @@ static long packing_ox2_particle(Grid *pG, int nlayer)
   /* loop over all particle to pack the ones in the boundary */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x2 < x2u) && (cur->x2 >= x2l)) /* if the particle is the regime */
-    { /* add one particle to buffer */
-      n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
+
+    if (cur->x2 >= x2l) {
+      if ((cur->pos == 0) || (cur->pos == 1))
+      { /* ghost particle or grid particle */
+        if (cur->x2 < x2u) {/* in the boundary */
+          packing_one_particle(cur, n, 0); /* pack as ghost particle */
+          n += 1;
+        }
       }
-      /* pack the particle */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
+      else if (cur->pos != 12) /* it's not from ix2 */
+      {/* crossing particle in the boundary */
+        packing_one_particle(cur, n, 22); /* pack as crossing particle from ox2 */
+        n += 1;
+      }
     }
   }
 
@@ -1649,21 +1653,20 @@ static long packing_ix3_particle(Grid *pG, int nlayer)
   /* loop over all particle to pack the ones in the boundary */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x3 < x3u) && (cur->x3 >= x3l)) /* if the particle is the regime */
-    { /* add one particle to buffer */
-      n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
+
+    if (cur->x3 < x3u) {
+      if ((cur->pos == 0) || (cur->pos == 1))
+      { /* ghost particle or grid particle */
+        if (cur->x3 >= x3l) {/* in the boundary */
+          packing_one_particle(cur, n, 0); /* pack as ghost particle */
+          n += 1;
+        }
       }
-      /* pack the particle */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
+      else if (cur->pos != 23) /* it's not from ox3 */
+      {/* crossing particle in the boundary */
+        packing_one_particle(cur, n, 13); /* pack as crossing particle from ix3 */
+        n += 1;
+      }
     }
   }
   return n;
@@ -1681,7 +1684,6 @@ static long packing_ox3_particle(Grid *pG, int nlayer)
   Grain *cur;	/* current pointer */
   Real x3l,x3u;	/* lower and upper coordinate limit in x3 outer boundary */
   long p, n = 0;
-  double *pd = send_buf;
 
   /* get lower and upper coordinate limit in x1 inner boundary */
   x3l = pG->x3_0 + (pG->ke-nlayer+1 + pG->kdisp)*pG->dx3;
@@ -1690,24 +1692,54 @@ static long packing_ox3_particle(Grid *pG, int nlayer)
   /* loop over all particle to pack the ones in the boundary */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x3 < x3u) && (cur->x3 >= x3l)) /* if the particle is the regime */
-    { /* add one particle to buffer */
-      n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
+
+    if (cur->x3 >= x3l) {
+      if ((cur->pos == 0) || (cur->pos == 1))
+      { /* ghost particle or grid particle */
+        if (cur->x3 < x3u) {/* in the boundary */
+          packing_one_particle(cur, n, 0); /* pack as ghost particle */
+          n += 1;
+        }
       }
-      /* pack the particle */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
+      else if (cur->pos != 13) /* it's not from ix3 */
+      {/* crossing particle in the boundary */
+        packing_one_particle(cur, n, 23); /* pack as crossing particle from ox3 */
+        n += 1;
+      }
     }
   }
   return n;
+}
+
+/* subroutine for packing one particle to send buffer
+   Input:
+     cur: particle pointer;
+     p: starting index in the buffer
+     pos: particle position (0: ghost; 1: grid; 2: cross in/out;
+   Output:
+     one particle is added to the send buffer
+*/
+static void packing_one_particle(Grain *cur, long n, short pos)
+{
+  double *pd;
+  if ((n+2) > send_bufsize) {
+    realloc_sendbuf();
+  }
+  pd = &(send_buf[NVAR_P*n]);
+  /* pack the particle */
+  *(pd++) = cur->x1;
+  *(pd++) = cur->x2;
+  *(pd++) = cur->x3;
+  *(pd++) = cur->v1;
+  *(pd++) = cur->v2;
+  *(pd++) = cur->v3;
+  *(pd++) = (double)(cur->property)+0.01;
+  *(pd++) = (double)(pos)+0.01;
+  *(pd++) = (double)(cur->my_id)+0.01;
+#ifdef MPI_PARALLEL
+  *(pd++) = (double)(cur->init_id)+0.01;
+#endif
+  return;
 }
 
 /* shift the coordinate/velocity of the packed particles by a constant amount
@@ -1764,6 +1796,11 @@ static void unpack_particle(Grid *pG, double *buf, long n)
     cur->v3 = *(pd++);
     cur->property = (int)(*(pd++));
     pG->grproperty[cur->property].num += 1;
+    cur->pos = (short)(*(pd++));
+    cur->my_id = (long)(*(pd++));
+#ifdef MPI_PARALLEL
+    cur->init_id = (int)(*(pd++));
+#endif
   }
 
   return;
@@ -2060,22 +2097,15 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
   while (p<pG->nparticle) {
     cur = &(pG->particle[p]);
     p += 1;
-    if (cur->x1 < ix1b) { /* particles in inner boundary */
+    if ((cur->pos == 21) || ( (cur->pos == 0) && (cur->x1 < ix1b)))
+    { /* crossing particle or ghost particle from ox1 */
       if (((reg == 1) && (cur->x3 >= x3c)) || ((reg == 2) && (cur->x3 < x3c)))
       {         /* region I */                      /* region II */
+        /* apply the shift */
+        cur->x3 = x3min + fmod(cur->x3 - x3min + yshift, Lx3);
+        /* pack the particle */
+        packing_one_particle(cur, n, cur->pos);
         n += 1;
-        if ((n+1) > send_bufsize) {
-          realloc_sendbuf();
-          pd = &send_buf[NVAR_P*(n-1)];
-        }
-        /* pack the particle and apply shift */
-        *(pd++) = cur->x1;
-        *(pd++) = cur->x2;
-        *(pd++) = x3min + fmod(cur->x3 - x3min + yshift, Lx3);
-        *(pd++) = cur->v1;
-        *(pd++) = cur->v2;
-        *(pd++) = cur->v3;
-        *(pd++) = (double)(cur->property)+0.01;
         /* delete the particle */
         pG->nparticle -= 1;
         pG->grproperty[cur->property].num -= 1;
@@ -2123,22 +2153,15 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
   while (p<pG->nparticle) {
     cur = &(pG->particle[p]);
     p += 1;
-    if (cur->x1 >= ox1b) {/* particles in outer boundary */
+    if ((cur->pos == 11) || ( (cur->pos == 0) && (cur->x1 >= ox1b)))
+    { /* crossing particle or ghost particle from ix1 */
       if (((reg == 1) && (cur->x3 < x3c)) || ((reg == 2) && (cur->x3 >= x3c)))
       {         /* region I */                      /* region II */
+        /* apply the shift */
+        cur->x3 = x3min + fmod(cur->x3 - x3min + Lx3 - yshift, Lx3);
+        /* pack the particle */
+        packing_one_particle(cur, n, cur->pos);
         n += 1;
-        if ((n+1) > send_bufsize) {
-          realloc_sendbuf();
-          pd = &(send_buf[NVAR_P*(n-1)]);
-	}
-        /* pack the particle and apply shift */
-        *(pd++) = cur->x1;
-        *(pd++) = cur->x2;
-        *(pd++) = x3min + fmod(cur->x3 - x3min + Lx3 - yshift, Lx3);
-        *(pd++) = cur->v1;
-        *(pd++) = cur->v2;
-        *(pd++) = cur->v3;
-        *(pd++) = (double)(cur->property)+0.01;
         /* delete the particle */
         pG->nparticle -= 1;
         pG->grproperty[cur->property].num -= 1;
@@ -2172,23 +2195,12 @@ static long packing_particle_fargo(Grid *pG, Real yl, Real yu)
     cur = &(pG->particle[p]);
     p += 1;
     if ((cur->x3 >= yl) && (cur->x3 < yu))
-    {/* particles in the range */
+    { /* pack the particle as it is */
+      packing_one_particle(cur, n, cur->pos);
       n += 1;
-      if ((n+1) > send_bufsize) {
-        realloc_sendbuf();
-        pd = &(send_buf[NVAR_P*(n-1)]);
-      }
-      /* pack the particle and apply shift */
-      *(pd++) = cur->x1;
-      *(pd++) = cur->x2;
-      *(pd++) = cur->x3;
-      *(pd++) = cur->v1;
-      *(pd++) = cur->v2;
-      *(pd++) = cur->v3;
-      *(pd++) = (double)(cur->property)+0.01;
       /* delete the particle */
       pG->nparticle -= 1;
-      pG->grproperty[cur->property] -= 1;
+      pG->grproperty[cur->property].num -= 1;
       p -= 1;
       pG->particle[p] = pG->particle[pG->nparticle];
     }

@@ -290,7 +290,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);/* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE LIST",13) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE LIST, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE LIST, found %s",line);
   fread(&(pG->nparticle),sizeof(long),1,fp);
   fread(&(pG->partypes),sizeof(int),1,fp);
   for (i=0; i<pG->partypes; i++) {          /* particle property list */
@@ -307,7 +307,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE X1",11) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE X1, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE X1, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].x1),sizeof(Real),1,fp);
   }
@@ -316,7 +316,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE X2",11) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE X2, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE X2, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].x2),sizeof(Real),1,fp);
   }
@@ -325,7 +325,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE X3",11) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE X3, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE X3, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].x3),sizeof(Real),1,fp);
   }
@@ -334,7 +334,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE V1",11) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE V1, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE V1, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].v1),sizeof(Real),1,fp);
   }
@@ -343,7 +343,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE V2",11) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE V2, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE V2, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].v2),sizeof(Real),1,fp);
   }
@@ -352,7 +352,7 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE V3",11) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE V3, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE V3, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].v3),sizeof(Real),1,fp);
   }
@@ -361,19 +361,37 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
   fgets(line,MAXLEN,fp);
   if(strncmp(line,"PARTICLE PROPERTY",17) != 0)
-    ath_error("[restart_grid_block]: Expected PARTICLE PROPERTY, found %s",line);
+    ath_error("[restart_particle_block]: Expected PARTICLE PROPERTY, found %s",line);
   for (p=0; p<pG->nparticle; p++) {
     fread(&(pG->particle[p].property),sizeof(int),1,fp);
+    pG->particle[p].pos = 1;	/* grid particle */
   }
+
+/* Read particle my_id */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE MY_ID",14) != 0)
+    ath_error("[restart_particle_block]: Expected PARTICLE MY_ID, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].my_id),sizeof(long),1,fp);
+  }
+
+#ifdef MPI_PARALLEL
+/* Read particle init_id */
+  fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
+  fgets(line,MAXLEN,fp);
+  if(strncmp(line,"PARTICLE INIT_ID",16) != 0)
+    ath_error("[restart_particle_block]: Expected PARTICLE INIT_ID, found %s",line);
+  for (p=0; p<pG->nparticle; p++) {
+    fread(&(pG->particle[p].init_id),sizeof(int),1,fp);
+  }
+#endif
 
 /* count the number of particles with different types */
   for (i=0; i<pG->partypes; i++)
     pG->grproperty[i].num = 0;
   for (p=0; p<pG->nparticle; p++)
     pG->grproperty[pG->particle[p].property].num += 1;
-
-/* remove ghost particles */
-  remove_ghost_particle(pG);
 
 #endif /* PARTICLES */
 
@@ -410,8 +428,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   Rad_Ran2_State ranstate;
 #endif
 #ifdef PARTICLES
-  long p;
   int nprop, *ibuf = NULL, ibufsize, nibuf = 0;
+  long np, p, *lbuf = NULL, lbufsize, nlbuf = 0;
 #endif
   int bufsize, nbuf = 0;
   Real *buf = NULL;
@@ -423,8 +441,13 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     return;  /* Right now, we just don't write instead of aborting completely */
   }
 #ifdef PARTICLES
-  ibufsize = 262144 / sizeof(int);  /* 256 KB worth of Reals */
+  ibufsize = 262144 / sizeof(int);  /* 256 KB worth of ints */
   if ((ibuf = (int*)calloc_1d_array(ibufsize, sizeof(int))) == NULL) {
+    ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
+    return;  /* Right now, we just don't write instead of aborting completely */
+  }
+  lbufsize = 262144 / sizeof(long);  /* 256 KB worth of longs */
+  if ((lbuf = (long*)calloc_1d_array(lbufsize, sizeof(long))) == NULL) {
     ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
     return;  /* Right now, we just don't write instead of aborting completely */
   }
@@ -665,9 +688,12 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 #endif
 
 #ifdef PARTICLES
-  /* Write out the number of particles*/
+  /* Write out the number of particles */
   fprintf(fp,"\nPARTICLE LIST\n");
-  fwrite(&(pG->nparticle),sizeof(long),1,fp);
+  np = 0;
+  for (p=0; p<pG->nparticle; p++)
+    if (pG->particle[p].pos == 1) np += 1;
+  fwrite(&(np),sizeof(long),1,fp);
 
   /* Write out the particle properties */
 #ifdef FEEDBACK
@@ -696,7 +722,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write x1 */
   fprintf(fp,"\nPARTICLE X1\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     buf[nbuf++] = pG->particle[p].x1;
     if ((nbuf+1) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -710,7 +737,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write x2 */
   fprintf(fp,"\nPARTICLE X2\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     buf[nbuf++] = pG->particle[p].x2;
     if ((nbuf+1) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -724,7 +752,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write x3 */
   fprintf(fp,"\nPARTICLE X3\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     buf[nbuf++] = pG->particle[p].x3;
     if ((nbuf+1) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -738,7 +767,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write v1 */
   fprintf(fp,"\nPARTICLE V1\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     buf[nbuf++] = pG->particle[p].v1;
     if ((nbuf+1) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -752,7 +782,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write v2 */
   fprintf(fp,"\nPARTICLE V2\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     buf[nbuf++] = pG->particle[p].v2;
     if ((nbuf+1) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -766,7 +797,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write v3 */
   fprintf(fp,"\nPARTICLE V3\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     buf[nbuf++] = pG->particle[p].v3;
     if ((nbuf+1) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -780,7 +812,8 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write properties */
   fprintf(fp,"\nPARTICLE PROPERTY\n");
-  for (p=0;p<pG->nparticle;p++){
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
     ibuf[nibuf++] = pG->particle[p].property;
     if ((nibuf+1) > ibufsize) {
       fwrite(ibuf,sizeof(int),nibuf,fp);
@@ -791,6 +824,38 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     fwrite(ibuf,sizeof(int),nibuf,fp);
     nibuf = 0;
   }
+
+  /* Write my_id */
+  fprintf(fp,"\nPARTICLE MY_ID\n");
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
+    lbuf[nlbuf++] = pG->particle[p].my_id;
+    if ((nlbuf+1) > lbufsize) {
+      fwrite(lbuf,sizeof(long),nlbuf,fp);
+      nlbuf = 0;
+    }
+  }
+  if (nlbuf > 0) {
+    fwrite(lbuf,sizeof(long),nlbuf,fp);
+    nlbuf = 0;
+  }
+
+#ifdef MPI_PARALLEL
+  /* Write init_id */
+  fprintf(fp,"\nPARTICLE INIT_ID\n");
+  for (p=0;p<pG->nparticle;p++)
+  if (pG->particle[p].pos == 1){
+    ibuf[nibuf++] = pG->particle[p].init_id;
+    if ((nibuf+1) > ibufsize) {
+      fwrite(ibuf,sizeof(int),nibuf,fp);
+      nibuf = 0;
+    }
+  }
+  if (nibuf > 0) {
+    fwrite(ibuf,sizeof(int),nibuf,fp);
+    nibuf = 0;
+  }
+#endif
 
 #endif /*PARTICLES*/
 

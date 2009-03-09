@@ -17,11 +17,13 @@ CONTAINS PUBLIC FUNCTIONS:
   void particle_realloc(Grid *pG, long n);
   void feedback(Grid* pG);
   void shuffle(Grid* pG);
-  void remove_ghost_particle(Grid *pG);
+  void update_particle_status(Grid *pG);
 
 History:
- Created:	Emmanuel Jacquet	May 2008
- Rewritten:	Xuening Bai		Feb. 2009
+  Created:	Emmanuel Jacquet	May 2008
+  Rewritten:	Xuening Bai		Feb. 2009
+  Particle tracking capability added
+                Xuening Bai             Mar. 2009
 
 ==============================================================================*/
 #include <stdio.h>
@@ -132,11 +134,13 @@ void integrate_particle(Grid *pG)
   if (pG->Nx3 > 1)  { dx31 = 1.0/pG->dx3; cellvol1 *= dx31; }
   else dx31 = 0.0;
 
-  /*---------------Main loop over all the particles--------------*/
+  /*-----------------------Main loop over all the particles---------------------*/
+  p = 0;
 
-  for (p=0; p<pG->nparticle; p++)
+  while (p<pG->nparticle)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
+
     /* step 1: predictor of the particle position after one time step */
     x1n = curG->x1+curG->v1*pG->dt;
     x2n = curG->x2+curG->v2*pG->dt;
@@ -317,18 +321,34 @@ void integrate_particle(Grid *pG)
     distF_linear(pG, weight, is, js, ks, fb1, fb2, fb3);
 #endif /* FEEDBACK */
 
-    /* step 7: update particle in pG */
-    curG->x1 = curP->x1;
-    curG->x2 = curP->x2;
-    curG->x3 = curP->x3;
-    curG->v1 = curP->v1;
-    curG->v2 = curP->v2;
-    curG->v3 = curP->v3;
+    /* step 7: update the particle in pG */
+    /* if the particle is a ghost particle, delete it */
+    if (curG->pos == 0) {
+      pG->nparticle -= 1;
+      pG->grproperty[curG->property].num -= 1;
+      pG->particle[p] = pG->particle[pG->nparticle];
+    }
+    /* if the particle is a grid particle, update */
+    else{
+#ifndef FARGO
+      /* if it crosses the grid boundary, mark it as a crossing out particle */
+      if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
+#else
+      /* FARGO will naturally return the "crossing out" particles in the x3 direction to the grid */
+      if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar))
+#endif
+          curG->pos = 10;
+      /* update the particle */
+      curG->x1 = curP->x1;
+      curG->x2 = curP->x2;
+      curG->x3 = curP->x3;
+      curG->v1 = curP->v1;
+      curG->v2 = curP->v2;
+      curG->v3 = curP->v3;
+      p++;
+    }
 
-  }/* end of the for loop */
-
-  /* remove all ghost particles */
-  remove_ghost_particle(pG);
+  } /* end of the for loop */
 
   /* output the status */
   ath_pout(0, "In processor %d, there are %ld particles.\n", pG->my_id, pG->nparticle);
@@ -559,26 +579,21 @@ void shuffle(Grid *pG)
   return;
 }
 
-/* remove all the particle in the ghost cells */
-void remove_ghost_particle(Grid *pG)
+/* update the status of the particles after applying boundary conditions */
+void update_particle_status(Grid *pG)
 {
-  Grain *cur;
   long p;
-
-  /* loop over all particle to remove ghosts */
-  p = 0;
-  while (p<pG->nparticle) {
+  Grain *cur;
+  for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    if ((cur->x1 >= x1upar) || (cur->x1 < x1lpar) || (cur->x2 >= x2upar) || (cur->x2 < x2lpar) || (cur->x3 >= x3upar) || (cur->x3 < x3lpar))
-    { /* if the particle is outside the box */
-      pG->nparticle -= 1;
-      pG->grproperty[cur->property].num -= 1;
-      pG->particle[p] = pG->particle[pG->nparticle];
+    if (cur->pos >= 10) /* crossing out/in particle from the previous step */
+    {
+      if ((cur->x1>=x1upar) || (cur->x1<x1lpar) || (cur->x2>=x2upar) || (cur->x2<x2lpar) || (cur->x3>=x3upar) || (cur->x3<x3lpar))
+        cur->pos = 0; /* ghost particle */
+      else
+        cur->pos = 1; /* grid particle */
     }
-    else
-      p += 1;
   }
-
   return;
 }
 
@@ -781,6 +796,10 @@ Real get_ts(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
 
     tstop = rhoa/(rho*vd*CD);
   } /* endif */
+
+  /* avoid zero stopping time */
+  if (tstop < 1.0e-8*pG->dt)
+    tstop = 1.0e-8*pG->dt;
 
   return tstop;
 }
