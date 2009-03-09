@@ -40,8 +40,8 @@
 #error : The SR HLLD flux does not work with passive scalars.
 #endif
 
-/*void printCons1D(const Cons1D *U);
-  void printPrim1D(const Prim1D *W);*/
+void printCons1D(const Cons1D *U);
+void printPrim1D(const Prim1D *W);
 
 /* stores slowest and fastest signal speeds into low and high */
 void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
@@ -54,6 +54,28 @@ int solveQuartic(double* a, double* r, const Real error);
 /* stores solution to cubic equation defined by a[] in r[] */
 int solveCubic(double* a, double* r);
 
+void printCons1D(const Cons1D *U){
+   printf("d:  %.6e\n",U->d);
+   printf("E:  %.6e\n",U->E);
+   printf("Mx: %.6e\n",U->Mx);
+   printf("My: %.6e\n",U->My);
+   printf("Mz: %.6e\n",U->Mz);
+   /*printf("By: %.6e\n",U->By);
+     printf("Bz: %.6e\n",U->Bz);*/
+   printf("\n");
+}
+
+void printPrim1D(const Prim1D *W){
+   printf("d:  %.6e\n",W->d);
+   printf("P:  %.6e\n",W->P);
+   printf("Vx: %.6e\n",W->Vx);
+   printf("Vy: %.6e\n",W->Vy);
+   printf("Vz: %.6e\n",W->Vz);
+   /*printf("By: %.6e\n",W->By);
+     printf("Bz: %.6e\n",W->Bz);*/
+   printf("\n");
+}
+
 /*----------------------------------------------------------------------------*/
 /* fluxes
  *   Input Arguments:
@@ -63,6 +85,8 @@ int solveCubic(double* a, double* r);
  *   Output Arguments:
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
+
+int count=0;
 
 void fluxes(const Cons1D Ul, const Cons1D Ur,
             const Prim1D Wl, const Prim1D Wr, const Real Bx, 
@@ -137,6 +161,15 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
    status = 0;
    jump = 0.05;
    error = 1.0;
+
+   /*printf("Wl\n");
+   printf("%.3f %.3f %.3f %.3f\n",Wl.d,Wl.P,Wl.Vx,Wl.By);
+   printf("Wr\n");
+   printf("%.3f %.3f %.3f %.3f\n",Wr.d,Wr.P,Wr.Vx,Wr.By);
+   printf("Ur\n");
+   printf("%.3f %.3f %.3f %.3f\n",Ur.d,Ur.E,Ur.Mx,Ur.By);*/
+   count++;
+   /* printf("COUNT: %d\n",count); */
 
 /*--- Step 1. ------------------------------------------------------------------
  * Compute the max and min wave speeds used in Mignone
@@ -308,7 +341,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
       /* positive root corresponds to physical solution */
 
       p0 = ( -b + sqrt(b*b - 4.0*a*c) )/(2.0*a);
-      /* printf("P0\n\n"); */
+      /*printf("P0\n\n");*/
    }
    else{
       /* printf("Phll\n\n"); */
@@ -325,6 +358,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
    /* printf("p0: %f\n\n",pt); */
 
    while(error > maxError){
+      /*printf("pt: %e\n",pt);
+      printf("error: %e\n",error);
+      printf("status: %d\n",status);*/
 
       /*--- Step 5.1. ----------------------------------------------------------
        * Solve jump conditions across the fast waves
@@ -444,41 +480,47 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
       /* Mignone Eq 45 */
 
-      spdMinVxl = spd[1] - vxl;
-      spdMinVxr = spd[3] - vxr;
-      ovs3Mns1 = 1.0 / (spd[3] - spd[1]); 
+      if(Kxl != Kxr){
 
-      aLy = Ual.By*spdMinVxl + Bx*vyl;
-      aRy = Uar.By*spdMinVxr + Bx*vyr;
+         spdMinVxl = spd[1] - vxl;
+         spdMinVxr = spd[3] - vxr;
+         ovs3Mns1 = 1.0 / (spd[3] - spd[1]); 
 
-      aLz = Ual.Bz*spdMinVxl + Bx*vzl;
-      aRz = Uar.Bz*spdMinVxr + Bx*vzr;
+         aLy = Ual.By*spdMinVxl + Bx*vyl;
+         aRy = Uar.By*spdMinVxr + Bx*vyr;
 
-      Bcy = (aRy - aLy) * ovs3Mns1;
-      Bcz = (aRz - aLz) * ovs3Mns1;
+         aLz = Ual.Bz*spdMinVxl + Bx*vzl;
+         aRz = Uar.Bz*spdMinVxr + Bx*vzr;
 
-      /*--- Step 5.3 -----------------------------------------------------------
-       * Use Mignone Eq 48 to find next improved total pressure value
-       */
+         Bcy = (aRy - aLy) * ovs3Mns1;
+         Bcz = (aRz - aLz) * ovs3Mns1;
+
+         /*--- Step 5.3 -----------------------------------------------------------
+          * Use Mignone Eq 48 to find next improved total pressure value
+          */
       
-      dKx  = Kxr - Kxl;
+         dKx  = Kxr - Kxl;
 
-      Klsq = SQR(Kxl) + SQR(Kyl) + SQR(Kzl);
-      Krsq = SQR(Kxr) + SQR(Kyr) + SQR(Kzr);
+         Klsq = SQR(Kxl) + SQR(Kyl) + SQR(Kzl);
+         Krsq = SQR(Kxr) + SQR(Kyr) + SQR(Kzr);
 
-      KldotB = (Kxl*Bx + Kyl*Bcy + Kzl*Bcz);
-      KrdotB = (Kxr*Bx + Kyr*Bcy + Kzr*Bcz);
+         KldotB = (Kxl*Bx + Kyl*Bcy + Kzl*Bcz);
+         KrdotB = (Kxr*Bx + Kyr*Bcy + Kzr*Bcz);
 
-      KldotBhc = dKx * KldotB;
-      KrdotBhc = dKx * KrdotB;
+         KldotBhc = dKx * KldotB;
+         KrdotBhc = dKx * KrdotB;
 
-      /* Mignone Eq 49 */
-      Yl = (1.0 - Klsq) / (etal*dKx - KldotBhc);
-      Yr = (1.0 - Krsq) / (etar*dKx - KrdotBhc);
+         /* Mignone Eq 49 */
+         Yl = (1.0 - Klsq) / (etal*dKx - KldotBhc);
+         Yr = (1.0 - Krsq) / (etar*dKx - KrdotBhc);
 
-      /* printf("dKx: %e\n",dKx);
-      printf("Yl: %e\n",Yl);
-      printf("Yr: %e\n",Yr); */
+          printf("dKx: %e\n",dKx);
+            printf("Yl: %e\n",Yl);
+            printf("Yr: %e\n",Yr); 
+      }
+      else{
+         break;
+      }
 
       /* Mignone Eq 48 */
       fp = dKx * (1.0 - Bx*(Yr - Yl));
@@ -515,7 +557,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
                tmp = -1.0;
             else
                tmp = 1.0;
-
+            
             pt = (1.0 + tmp*jump)*pt;
          }
       }
@@ -604,9 +646,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
    printf("Eta_L: %f\n",etal);
    printf("Eta_R: %f\n",etar);
    printf("KldotB: %f\n",KldotB);
-   printf("KrdotB: %f\n\n",KrdotB);*/
+   printf("KrdotB: %f\n\n",KrdotB);
 
-   /*printf("Kxl: %f\n",Kxl);
+   printf("Kxl: %f\n",Kxl);
    printf("Kxr: %f\n",Kxr);
    printf("Kyl: %f\n",Kyl);
    printf("Kyr: %f\n",Kyr);
@@ -661,10 +703,11 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
    spd[2] = (vxcl+vxcr)*0.5;
 
    /* printf("pt: %f\n",pt); */
-   for(i=0; i<5; i++)
-      /* printf("spd[%d]: %e\n",i,spd[i]); */
+/*   for(i=0; i<5; i++)
+      printf("spd[%d]: %e\n",i,spd[i]);
+        printf("\n");*/
 
-   if(spd[1] >= 0){ /* aL flux */
+   if(spd[1] > 0){ /* aL flux */
 
       /*printf("Ual\n");
         printCons1D(&Ual);*/
@@ -679,7 +722,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
       return;
    }
-   else if(fabs(spd[2]) <= maxError){
+   else if(fabs(spd[2]) == 0.0){
       pFlux->d = 0.0;
       pFlux->Mx = 0.0;
       pFlux->My = 0.0;
