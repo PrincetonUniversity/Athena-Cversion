@@ -129,6 +129,7 @@ void set_bvals_particle(Grid *pG, Domain *pD)
 #endif /* MPI_PARALLEL */
 #ifdef SHEARING_BOX
   long numpar;  /* number of particles before applying B.C. */
+  int vyind;	/* index for vy, 5 for 3D (x1,x2,x3)=(X,Y,Z), 6 for 2D (x1,x2,x3)=(X,Z,Y) */
 #endif
 
 /*--- Step 1. ------------------------------------------------------------------
@@ -145,6 +146,10 @@ void set_bvals_particle(Grid *pG, Domain *pD)
 
 #ifdef SHEARING_BOX
   numpar = pG->nparticle;
+  if (pG->Nx3 > 1) /* 3D shearing box (x1,x2,x3)=(X,Y,Z) */
+    vyind = 5;
+  else             /* 2D shearing box (x1,x2,x3)=(X,Z,Y) */
+    vyind = 6;
 #endif
 
 #ifdef MPI_PARALLEL
@@ -167,10 +172,10 @@ void set_bvals_particle(Grid *pG, Domain *pD)
         /* physical boundary on the rignt in periodic B.C. */
         shift_packed_particle(send_buf, cnt_send, 1, -Lx1);
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
+/* Note in 2D shearing sheet, (X,Y,Z)=(x1,x3,x2) */
 #ifndef FARGO
         /* velocity shift for shearing box */
-        shift_packed_particle(send_buf, cnt_send, 6, vshear);
+        shift_packed_particle(send_buf, cnt_send, vyind, vshear);
 #endif
 #endif /* SHEARING_BOX */
       }
@@ -218,10 +223,10 @@ void set_bvals_particle(Grid *pG, Domain *pD)
         /* physical boundary on the left in periodic B.C. */
         shift_packed_particle(send_buf, cnt_send, 1, Lx1);
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
+/* Note in 2D shearing sheet, (X,Y,Z)=(x1,x3,x2) */
 #ifndef FARGO
         /* velocity shift for shearing box */
-        shift_packed_particle(send_buf, cnt_send, 6, -vshear);
+        shift_packed_particle(send_buf, cnt_send, vyind, -vshear);
 #endif
 #endif /* SHEARING_BOX */
       }
@@ -750,7 +755,7 @@ void advect_particles(Grid *pG, Domain *pD)
   long cnt_recv, n;
   int ishl, ishu, i;
   int inds, indr, ids, idr;
-  Real x3len, yl, yu;
+  Real x2len, yl, yu;
   int err;
   MPI_Request rq;
   MPI_Status stat;
@@ -762,35 +767,35 @@ void advect_particles(Grid *pG, Domain *pD)
   /* shift the particles */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    cur->x3 = x3min + fmod(cur->x3 + cur->shift - x3min + Lx3, Lx3);
+    cur->x2 = x2min + fmod(cur->x2 + cur->shift - x2min + Lx2, Lx2);
   }
 
 #ifdef MPI_PARALLEL
   /* calculate the farthest grid that advection can reach */
-  x3len = pG->dx3*pG->Nx3;
-  ishl = gridshift((1.5*Omega*(x1l-pG->dx1)*pG->dt - pG->dx3)/x3len);
-  ishu = gridshift((1.5*Omega*(x1u+pG->dx1)*pG->dt + pG->dx3)/x3len);
+  x2len = pG->dx2*pG->Nx2;
+  ishl = gridshift((1.5*Omega*(x1l-pG->dx1)*pG->dt - pG->dx2)/x2len);
+  ishu = gridshift((1.5*Omega*(x1u+pG->dx1)*pG->dt + pG->dx2)/x2len);
 
   /* loop over all the possible destination grids */
   for (i=ishl; i<=ishu; i++)
   if (i != 0) { /* avoid moving particles to the same grid */
     /* find the processor id to send/receive data */
-    inds = my_kproc + i;
-    if (inds < 0) inds += pD->NGrid_x3;
-    if (inds > (pD->NGrid_x3-1)) inds -= pD->NGrid_x3;
-    ids = pD->GridArray[inds][my_jproc][my_iproc].id;	/* send to */
+    inds = my_jproc + i;
+    if (inds < 0) inds += pD->NGrid_x2;
+    if (inds > (pD->NGrid_x2-1)) inds -= pD->NGrid_x2;
+    ids = pD->GridArray[my_kproc][inds][my_iproc].id;	/* send to */
 
-    indr = my_kproc - i;
-    if (indr < 0) indr += pD->NGrid_x3;
-    if (indr > (pD->NGrid_x3-1)) indr -= pD->NGrid_x3;
-    idr = pD->GridArray[indr][my_jproc][my_iproc].id;	/* receive from */
+    indr = my_jproc - i;
+    if (indr < 0) indr += pD->NGrid_x2;
+    if (indr > (pD->NGrid_x2-1)) indr -= pD->NGrid_x2;
+    idr = pD->GridArray[my_kproc][indr][my_iproc].id;	/* receive from */
 
     /* Post a non-blocking receive for the data size */
     err = MPI_Irecv(&cnt_recv, 1, MPI_LONG, idr, boundary_particle_tag, MPI_COMM_WORLD, &rq);
     if(err) ath_error("[set_bvals_particle]: MPI_Irecv error = %d\n",err);
 
     /* packing particles */
-    yl = x3min + inds*x3len;	yu = x3min + (inds+1)*x3len;
+    yl = x2min + inds*x2len;	yu = x2min + (inds+1)*x2len;
     n = packing_particle_fargo(pG, yl, yu);
 
     /* send buffer size */
@@ -1352,16 +1357,23 @@ static void outflow_particle(Grid *pG)
 static void periodic_ix1_particle(Grid *pG)
 {
   long n = 0;
+#ifdef SHEARING_BOX
+  int vyind;	/* index for vy, 5 for 3D (x1,x2,x3)=(X,Y,Z), 6 for 2D (x1,x2,x3)=(X,Z,Y) */
+
+  if (pG->Nx3 > 1) /* 3D shearing box (x1,x2,x3)=(X,Y,Z) */
+    vyind = 5;
+  else             /* 2D shearing box (x1,x2,x3)=(X,Z,Y) */
+    vyind = 6;
+#endif
 
   /* pack boundary particles */
   n = packing_ox1_particle(pG, nghost);
   /* shift the particles */
   shift_packed_particle(send_buf, n, 1, -Lx1);
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
 #ifndef FARGO
   /* velocity shift for shearing box */
-  shift_packed_particle(send_buf, n, 6, vshear);
+  shift_packed_particle(send_buf, n, vyind, vshear);
 #endif
 #endif /* SHEARING_BOX */
   /* copy boudary particles to the rear */
@@ -1378,16 +1390,23 @@ static void periodic_ix1_particle(Grid *pG)
 static void periodic_ox1_particle(Grid *pG)
 {
   long n = 0;
+#ifdef SHEARING_BOX
+  int vyind;	/* index for vy, 5 for 3D (x1,x2,x3)=(X,Y,Z), 6 for 2D (x1,x2,x3)=(X,Z,Y) */
+
+  if (pG->Nx3 > 1) /* 3D shearing box (x1,x2,x3)=(X,Y,Z) */
+    vyind = 5;
+  else             /* 2D shearing box (x1,x2,x3)=(X,Z,Y) */
+    vyind = 6;
+#endif
 
   /* pack boundary particles */
   n = packing_ix1_particle(pG, nghost);
   /* shift the particles */
   shift_packed_particle(send_buf, n, 1, Lx1);
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
 #ifndef FARGO
   /* velocity shift for shearing box */
-  shift_packed_particle(send_buf, n, 6, -vshear);
+  shift_packed_particle(send_buf, n, vyind, -vshear);
 #endif
 #endif /* SHEARING_BOX */
   /* copy boudary particles to the rear */
@@ -1807,7 +1826,6 @@ static void unpack_particle(Grid *pG, double *buf, long n)
 }
 
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
 /* Shearing box boundary condition, Inner x1 boundary (ibc_x1=4)
  * This routine works for only 3D.
  * Input: numpar: for the packing routine, the array index to start with.
@@ -1816,7 +1834,7 @@ static void shearingbox_ix1_particle(Grid *pG, Domain *pD, long numpar)
 {
 #ifdef MPI_PARALLEL
   Real yshear, yshift;		/* amount of shear, whole (yshear) and fractional (yshift) */
-  Real x3len;			/* length in x3 (y) direction of a grid */
+  Real x2len;			/* length in x2 (y) direction of a grid */
   int id1s, id1r, id2s, id2r;	/* processor ids to send and receive data */
   int ind1, ind2, ind3;		/* x1,x2,x3 indices of grid in the domain */
   long n1, n2;			/* number of packed particles */
@@ -1832,26 +1850,26 @@ static void shearingbox_ix1_particle(Grid *pG, Domain *pD, long numpar)
 /*-------------------------- MPI case: Step 1. Find locations ---------------------------------*/
   /* compute the distance the computational domain has sheared in y */
   yshear = vshear*pG->time;
-  yshift = fmod(yshear, Lx3);
-  x3len = pG->dx3*pG->Nx3;
+  yshift = fmod(yshear, Lx2);
+  x2len = pG->dx2*pG->Nx2;
   /* obtain processor ids to send and receive */
-  ind1 = 0;		ind2 = my_jproc;
-  ind3 = my_kproc + (int)(yshift/x3len) + 1;
-  if (ind3 > (pD->NGrid_x3-1)) ind3 -= pD->NGrid_x3;
-  if (ind3 > (pD->NGrid_x3-1)) ind3 -= pD->NGrid_x3;
+  ind1 = 0;		ind3 = my_kproc;
+  ind2 = my_jproc + (int)(yshift/x2len) + 1;
+  if (ind2 > (pD->NGrid_x2-1)) ind2 -= pD->NGrid_x2;
+  if (ind2 > (pD->NGrid_x2-1)) ind2 -= pD->NGrid_x2;
   id1s = pD->GridArray[ind3][ind2][ind1].id;	/* for region I (send to) */
 
-  ind3 = my_kproc + (int)(yshift/x3len);
-  if (ind3 > (pD->NGrid_x3-1)) ind3 -= pD->NGrid_x3;
+  ind2 = my_jproc + (int)(yshift/x2len);
+  if (ind2 > (pD->NGrid_x2-1)) ind2 -= pD->NGrid_x2;
   id2s = pD->GridArray[ind3][ind2][ind1].id;	/* for region II (send to) */
 
-  ind3 = my_kproc - (int)(yshift/x3len) - 1;
-  if (ind3 < 0) ind3 += pD->NGrid_x3;
-  if (ind3 < 0) ind3 += pD->NGrid_x3;
+  ind2 = my_jproc - (int)(yshift/x2len) - 1;
+  if (ind2 < 0) ind2 += pD->NGrid_x2;
+  if (ind2 < 0) ind2 += pD->NGrid_x2;
   id1r = pD->GridArray[ind3][ind2][ind1].id;	/* for region I (receive from) */
 
-  ind3 = my_kproc - (int)(yshift/x3len);
-  if (ind3 < 0) ind3 += pD->NGrid_x3;
+  ind2 = my_jproc - (int)(yshift/x2len);
+  if (ind2 < 0) ind2 += pD->NGrid_x2;
   id2r = pD->GridArray[ind3][ind2][ind1].id;	/* for region II (receive from) */
 
 /*----------------------MPI case: Step 2. Exchange particles -------------------------------*/
@@ -1944,7 +1962,7 @@ static void shearingbox_ox1_particle(Grid *pG, Domain *pD, long numpar)
 {
 #ifdef MPI_PARALLEL
   Real yshear, yshift;		/* amount of shear, whole (yshear) and fractional (yshift) */
-  Real x3len;			/* length in x3 (y) direction of a grid */
+  Real x2len;			/* length in x2 (y) direction of a grid */
   int id1s, id1r, id2s, id2r;	/* processor ids to send and receive data */
   int ind1, ind2, ind3;		/* x1,x2,x3 indices of grid in the domain */
   long n1, n2;			/* number of packed particles */
@@ -1960,26 +1978,26 @@ static void shearingbox_ox1_particle(Grid *pG, Domain *pD, long numpar)
 /*-------------------------- MPI case: Step 1. Find locations ---------------------------------*/
   /* compute the distance the computational domain has sheared in y */
   yshear = vshear*pG->time;
-  yshift = fmod(yshear, Lx3);
-  x3len = pG->dx3*pG->Nx3;
+  yshift = fmod(yshear, Lx2);
+  x2len = pG->dx2*pG->Nx2;
   /* obtain processor ids to send and receive */
-  ind1 = pD->NGrid_x1-1;	ind2 = my_jproc;
-  ind3 = my_kproc - (int)(yshift/x3len) - 1;
-  if (ind3 < 0) ind3 += pD->NGrid_x3;
-  if (ind3 < 0) ind3 += pD->NGrid_x3;
+  ind1 = pD->NGrid_x1-1;	ind3 = my_kproc;
+  ind2 = my_jproc - (int)(yshift/x2len) - 1;
+  if (ind2 < 0) ind2 += pD->NGrid_x2;
+  if (ind2 < 0) ind2 += pD->NGrid_x2;
   id1s = pD->GridArray[ind3][ind2][ind1].id;	/* for region I (send to) */
 
-  ind3 = my_kproc - (int)(yshift/x3len);
-  if (ind3 < 0) ind3 += pD->NGrid_x3;
+  ind2 = my_jproc - (int)(yshift/x2len);
+  if (ind2 < 0) ind2 += pD->NGrid_x2;
   id2s = pD->GridArray[ind3][ind2][ind1].id;	/* for region II (send to) */
 
-  ind3 = my_kproc + (int)(yshift/x3len) + 1;
-  if (ind3 > (pD->NGrid_x3-1)) ind3 -= pD->NGrid_x3;
-  if (ind3 > (pD->NGrid_x3-1)) ind3 -= pD->NGrid_x3;
+  ind2 = my_jproc + (int)(yshift/x2len) + 1;
+  if (ind2 > (pD->NGrid_x2-1)) ind2 -= pD->NGrid_x2;
+  if (ind2 > (pD->NGrid_x2-1)) ind2 -= pD->NGrid_x2;
   id1r = pD->GridArray[ind3][ind2][ind1].id;	/* for region I (receive from) */
 
-  ind3 = my_kproc + (int)(yshift/x3len);
-  if (ind3 > (pD->NGrid_x3-1)) ind3 -= pD->NGrid_x3;
+  ind2 = my_jproc + (int)(yshift/x2len);
+  if (ind2 > (pD->NGrid_x2-1)) ind2 -= pD->NGrid_x2;
   id2r = pD->GridArray[ind3][ind2][ind1].id;	/* for region II (receive from) */
 
 /*----------------------MPI case: Step 2. Exchange particles -------------------------------*/
@@ -2076,15 +2094,15 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
   long n, p;
   Real ix1b;		/* coordinate limit in x1 inner boundary */
   Real yshear, yshift;	/* amount of shear, whole (yshear) and fractional (yshift) */
-  Real x30, x3c;	/* x3c: y-coordinate marking the demarcation of the two regions */
+  Real x20, x2c;	/* x2c: y-coordinate marking the demarcation of the two regions */
   double *pd;
 
 /*---------------- Step.1 -----------------------*/
   /* get the distance of shear */
   yshear = vshear*pG->time;
-  yshift = fmod(yshear, Lx3);
-  x30 = pG->x3_0+(pG->ke+pG->kdisp+1)*pG->dx3;
-  x3c = x30 - fmod(yshear, pG->dx3*pG->Nx3);
+  yshift = fmod(yshear, Lx2);
+  x20 = pG->x2_0+(pG->je+pG->jdisp+1)*pG->dx2;
+  x2c = x20 - fmod(yshear, pG->dx2*pG->Nx2);
   /* get coordinate limits for particles to be packed*/
   ix1b = pG->x1_0 + (pG->is + pG->idisp)*pG->dx1;
   /* buffer assignment */
@@ -2099,10 +2117,10 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
     p += 1;
     if ((cur->pos == 21) || ( (cur->pos == 0) && (cur->x1 < ix1b)))
     { /* crossing particle or ghost particle from ox1 */
-      if (((reg == 1) && (cur->x3 >= x3c)) || ((reg == 2) && (cur->x3 < x3c)))
+      if (((reg == 1) && (cur->x2 >= x2c)) || ((reg == 2) && (cur->x2 < x2c)))
       {         /* region I */                      /* region II */
         /* apply the shift */
-        cur->x3 = x3min + fmod(cur->x3 - x3min + yshift, Lx3);
+        cur->x2 = x2min + fmod(cur->x2 - x2min + yshift, Lx2);
         /* pack the particle */
         packing_one_particle(cur, n, cur->pos);
         n += 1;
@@ -2113,7 +2131,7 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
         pG->particle[p] = pG->particle[pG->nparticle];
       }
       if (reg == 0)	/* non-mpi case, directly shift the particle positions */
-        cur->x3 = x3min + fmod(cur->x3 - x3min + yshift, Lx3);
+        cur->x2 = x2min + fmod(cur->x2 - x2min + yshift, Lx2);
     }
   }
 
@@ -2132,15 +2150,15 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
   long n, p;
   Real ox1b;		/* coordinate limit of x1 outer boundary */
   Real yshear, yshift;	/* amount of shear, whole (yshear) and fractional (yshift) */
-  Real x30, x3c;	/* x3c: y-coordinate marking the demarcation of the two regions */
+  Real x20, x2c;	/* x2c: y-coordinate marking the demarcation of the two regions */
   double *pd;
 
 /*---------------- Step.1 -----------------------*/
   /* get the distance of shear */
   yshear = vshear*pG->time;
-  yshift = fmod(yshear, Lx3);
-  x30 = pG->x3_0+(pG->ks+pG->kdisp)*pG->dx3;
-  x3c = x30 + fmod(yshear, pG->dx3*pG->Nx3);
+  yshift = fmod(yshear, Lx2);
+  x20 = pG->x2_0+(pG->js+pG->jdisp)*pG->dx2;
+  x2c = x20 + fmod(yshear, pG->dx2*pG->Nx2);
   /* get coordinate limits for particles to be packed*/
   ox1b = pG->x1_0 + (pG->ie + 1 + pG->idisp)*pG->dx1;
   /* buffer assignment */
@@ -2155,10 +2173,10 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
     p += 1;
     if ((cur->pos == 11) || ( (cur->pos == 0) && (cur->x1 >= ox1b)))
     { /* crossing particle or ghost particle from ix1 */
-      if (((reg == 1) && (cur->x3 < x3c)) || ((reg == 2) && (cur->x3 >= x3c)))
+      if (((reg == 1) && (cur->x2 < x2c)) || ((reg == 2) && (cur->x2 >= x2c)))
       {         /* region I */                      /* region II */
         /* apply the shift */
-        cur->x3 = x3min + fmod(cur->x3 - x3min + Lx3 - yshift, Lx3);
+        cur->x2 = x2min + fmod(cur->x2 - x2min + Lx2 - yshift, Lx2);
         /* pack the particle */
         packing_one_particle(cur, n, cur->pos);
         n += 1;
@@ -2169,7 +2187,7 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
         pG->particle[p] = pG->particle[pG->nparticle];
       }
       if (reg == 0)	/* non-mpi case, directly shift the particle positions */
-        cur->x3 = x3min + fmod(cur->x3 - x3min + Lx3 - yshift, Lx3);
+        cur->x2 = x2min + fmod(cur->x2 - x2min + Lx2 - yshift, Lx2);
     }
   }
 
@@ -2179,7 +2197,7 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
 #ifdef FARGO
 /* packing the particle for FARGO
    Input: pG: grid; 
-      yl, yu: lower and upper limit of x3 (y) coordinate for particles to be packed
+      yl, yu: lower and upper limit of x2 (y) coordinate for particles to be packed
    Return: number of packed particles in the specified region.
 */
 static long packing_particle_fargo(Grid *pG, Real yl, Real yu)
@@ -2194,7 +2212,7 @@ static long packing_particle_fargo(Grid *pG, Real yl, Real yu)
   while (p<pG->nparticle) {
     cur = &(pG->particle[p]);
     p += 1;
-    if ((cur->x3 >= yl) && (cur->x3 < yu))
+    if ((cur->x2 >= yl) && (cur->x2 < yu))
     { /* pack the particle as it is */
       packing_one_particle(cur, n, cur->pos);
       n += 1;

@@ -94,9 +94,11 @@ void integrate_particle(Grid *pG)
   Real ft1, ft2, ft3;		/* total force */
   Real dx11, dx21, dx31, cellvol1;/* one over dx1, dx2, dx3 and cell volumn */
   Real ts11, ts12;		/* 1/stopping time */
-  Real b0, b1, b2, oh;		/* other shortcut expressions */
+  Real b0, b1, b2, b3;		/* other shortcut expressions */
   Real x1n, x2n, x3n;		/* first order new position at half a time step */
-  Real omg, omg2;		/* Omega, Omega^2 */
+#ifdef SHEARING_BOX
+  Real omg, omg2, oh;		/* Omega, Omega^2, Omega*dt */
+#endif
 #ifdef FEEDBACK
   Real fb1, fb2, fb3;		/* feedback force */
 #endif
@@ -119,8 +121,6 @@ void integrate_particle(Grid *pG)
   /* calculate some shortcut expressions */
 #ifdef SHEARING_BOX
   omg = Omega;         omg2 = SQR(omg);
-#else
-  omg = 0.0;		   omg2 = 0.0;
 #endif
 
   cellvol1 = 1.0;
@@ -175,17 +175,24 @@ void integrate_particle(Grid *pG)
 
     /* Force due to rotation */
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
-  #ifdef FARGO
-    fc1 += 2.0*curG->v3*omg;
-    fc3 += -0.5*curG->v1*omg;
-  #else
-    fc1 += 3.0*omg2*curG->x1 + 2.0*curG->v3*omg;
-    fc3 += -2.0*curG->v1*omg;
-  #endif /* FARGO */
-  #ifdef VERTICAL_GRAVITY
-    fc2 += -omg2*curG->x2;
-  #endif /* VERTICAL_GRAVITY */
+    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    #ifdef FARGO
+      fc1 += 2.0*curG->v2*omg;
+      fc2 += -0.5*curG->v1*omg;
+    #else
+      fc1 += 3.0*omg2*curG->x1 + 2.0*curG->v2*omg;
+      fc2 += -2.0*curG->v1*omg;
+    #endif /* FARGO */
+    #ifdef VERTICAL_GRAVITY
+      fc3 += -omg2*curG->x3;
+    #endif /* VERTICAL_GRAVITY */
+    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+      fc1 += 3.0*omg2*curG->x1 + 2.0*curG->v3*omg;
+      fc3 += -2.0*curG->v1*omg;
+    #ifdef VERTICAL_GRAVITY
+      fc2 += -omg2*curG->x2;
+    #endif /* VERTICAL_GRAVITY */
+    }
 #endif /* SHEARING_BOX */
 
     /* step 3: calculate the force at the predicted positoin */
@@ -216,44 +223,70 @@ void integrate_particle(Grid *pG)
 
     /* Force due to rotation */
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
-  #ifdef FARGO
-    fp1 += 2.0*curG->v3*omg;
-    fp3 += -0.5*curG->v1*omg;
-  #else
-    fp1 += 3.0*omg2*x1n + 2.0*curG->v3*omg;
-    fp3 += -2.0*curG->v1*omg;
-  #endif /* FARGO */
-  #ifdef VERTICAL_GRAVITY
-    fp2 += -omg2*x2n;
-  #endif /* VERTICAL_GRAVITY */
+    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    #ifdef FARGO
+      fp1 += 2.0*curG->v2*omg;
+      fp2 += -0.5*curG->v1*omg;
+    #else
+      fp1 += 3.0*omg2*x1n + 2.0*curG->v2*omg;
+      fp2 += -2.0*curG->v1*omg;
+    #endif /* FARGO */
+    #ifdef VERTICAL_GRAVITY
+      fp3 += -omg2*x3n;
+    #endif /* VERTICAL_GRAVITY */
+    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+      fp1 += 3.0*omg2*x1n + 2.0*curG->v3*omg;
+      fp3 += -2.0*curG->v1*omg;
+    #ifdef VERTICAL_GRAVITY
+      fp2 += -omg2*x2n;
+    #endif /* VERTICAL_GRAVITY */
+    }
 #endif /* SHEARING_BOX */
 
     /* step 4: calculate the velocity update */
     /* shortcut expressions */
     b0 = 1.0+pG->dt*ts11;
-    oh = omg*pG->dt;
 
     /* Total force */
-    ft1 = 0.5*(fc1+b0*fp1-2.0*oh*fp3);
+    ft1 = 0.5*(fc1+b0*fp1);
     ft2 = 0.5*(fc2+b0*fp2);
-#ifdef FARGO
-    ft3 = 0.5*(fc3+b0*fp3+0.5*oh*fp1);
-#else
-    ft3 = 0.5*(fc3+b0*fp3+2.0*oh*fp1);
-#endif
+    ft3 = 0.5*(fc3+b0*fp3);
+#ifdef SHEARING_BOX
+    oh = omg*pG->dt;
+    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+      ft1 += -oh*fp2;
+    #ifdef FARGO
+      ft2 += 0.25*oh*fp1;
+    #else
+      ft2 += oh*fp1;
+    #endif
+    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+      ft1 += -oh*fp3;
+      ft3 += oh*fp1;
+    }
+#endif /* SHEARING_BOX */
 
     /* calculate the inverse matrix elements */
     b1 = 1.0+0.5*pG->dt*(ts11 + ts12 + pG->dt*ts11*ts12);
     b2 = pG->dt/(b1*b1);
+    b3 = b2*b1;
 
     /* velocity update */
-    dv1 = b2*(b1*ft1+2.0*oh*ft3);
-    dv2 = b2*b1*ft2;
-#ifdef FARGO
-    dv3 = b2*(b1*ft3-0.5*oh*ft1);
-#else
-    dv3 = b2*(b1*ft3-2.0*oh*ft1);
+    dv1 = b3*ft1;
+    dv2 = b3*ft2;
+    dv3 = b3*ft3;
+#ifdef SHEARING_BOX
+    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+      dv1 += 2.0*b2*oh*ft2;
+    #ifdef FARGO
+      dv2 -= 0.5*b2*oh*ft1;
+    #else
+      dv2 -= 2.0*b2*oh*ft1;
+    #endif
+    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+      dv1 += 2.0*b2*oh*ft3;
+      dv3 -= 2.0*b2*oh*ft1;
+    }
 #endif
 
     /* Step 5: particle update to curP */
@@ -293,17 +326,24 @@ void integrate_particle(Grid *pG)
     x2n = 0.5*(curG->x2+curP->x2);
     x3n = 0.5*(curG->x3+curP->x3);
 #ifdef SHEARING_BOX
-/* Note in shearing sheet, (X,Y,Z)=(x1,x3,x2) */
-  #ifdef FARGO
-    fb1 += 1.0*omg*(curG->v3+curP->v3);
-    fb3 += -0.25*omg*(curG->v1+curP->v1);
-  #else
-    fb1 += 3.0*omg2*x1n + 1.0*omg*(curG->v3+curP->v3);
-    fb3 += -1.0*omg*(curG->v1+curP->v1);
-  #endif /* FARGO */
-  #ifdef VERTICAL_GRAVITY
-    fb2 += -omg2*x2n;
-  #endif /* VERTICAL_GRAVITY */
+    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    #ifdef FARGO
+      fb1 += (curG->v2+curP->v2)*omg;
+      fb2 += -0.25*(curG->v1+curP->v1)*omg;
+    #else
+      fb1 += 3.0*omg2*x1n + (curG->v2+curP->v2)*omg;
+      fb2 += -(curG->v1+curP->v1)*omg;
+    #endif /* FARGO */
+    #ifdef VERTICAL_GRAVITY
+      fb3 += -omg2*x3n;
+    #endif /* VERTICAL_GRAVITY */
+    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+      fb1 += 3.0*omg2*x1n + (curG->v3+curP->v3)*omg;
+      fb3 += -(curG->v1+curP->v1)*omg;
+    #ifdef VERTICAL_GRAVITY
+      fb2 += -omg2*x2n;
+    #endif /* VERTICAL_GRAVITY */
+    }
 #endif /* SHEARING_BOX */
 
     /* Velocity change due to the gas drag */
@@ -334,8 +374,8 @@ void integrate_particle(Grid *pG)
       /* if it crosses the grid boundary, mark it as a crossing out particle */
       if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
 #else
-      /* FARGO will naturally return the "crossing out" particles in the x3 direction to the grid */
-      if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar))
+      /* FARGO will naturally return the "crossing out" particles in the x2 direction to the grid */
+      if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
 #endif
           curG->pos = 10;
       /* update the particle */
