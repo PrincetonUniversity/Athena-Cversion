@@ -25,7 +25,7 @@ void particle_destruct(Grid *pG);
 void particle_realloc(Grid *pG, long n);
 void update_particle_status(Grid *pG);
 #ifdef FEEDBACK
-void feedback(Grid *pG);
+void feedback_predictor(Grid *pG);
 #endif
 void shuffle(Grid *pG);
 #endif

@@ -53,8 +53,8 @@ int celli(const Grid* pGrid, const Real x, const Real dx1_1, int *i, Real *a)
 {
   *a = (x - pGrid->x1_0) * dx1_1 - pGrid->idisp;
   *i = (int)(*a);
-  if (((*a)-(*i)) < 0.5) return 0;	/* on the left half of the cell*/
-  else return 1;		/* on the right half of the cell*/
+  if (((*a)-(*i)) < 0.5) return 0;	/* in the left half of the cell*/
+  else return 1;			/* in the right half of the cell*/
 }
 
 Real x1cc(const Grid* pGrid, const int i)
@@ -67,7 +67,7 @@ int cellj(const Grid* pGrid, const Real y, const Real dx2_1, int *j, Real *b)
   *b = (y - pGrid->x2_0) * dx2_1 - pGrid->jdisp;
   *j = (int)(*b);
   if (((*b)-(*j)) < 0.5) return 0;	/* in the left half of the cell*/
-  else return 1;		/* in the right half of the cell*/
+  else return 1;			/* in the right half of the cell*/
 }
 
 Real x2cc(const Grid* pGrid, const int j)
@@ -80,7 +80,7 @@ int cellk(const Grid* pGrid, const Real z, const Real dx3_1, int *k, Real *c)
   *c = (z - pGrid->x3_0) * dx3_1 - pGrid->kdisp;
   *k = (int)(*c);
   if (((*c)-(*k)) < 0.5) return 0;	/* in the left half of the cell*/
-  else return 1;		/* in the right half of the cell*/
+  else return 1;			/* in the right half of the cell*/
 }
 
 Real x3cc(const Grid* pGrid, const int k)

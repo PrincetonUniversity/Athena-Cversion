@@ -15,7 +15,7 @@ CONTAINS PUBLIC FUNCTIONS:
   void init_particle(Grid *pG, Domain *pD);
   void particle_destruct(Grid *pG);
   void particle_realloc(Grid *pG, long n);
-  void feedback(Grid* pG);
+  void feedback_predictor(Grid* pG);
   void shuffle(Grid* pG);
   void update_particle_status(Grid *pG);
 
@@ -40,26 +40,33 @@ History:
 /* Filewide global variables */
 int il,iu, jl,ju, kl,ku;	/* left and right limit of grid indices */
 Real x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar;	/* left and right limit of grid boundary */
+int ncell;			/* number of neighbouring cells involved in 1D interpolation */
+
 Vector ***grid_v;		/* gas velocities */
 #ifndef ISOTHERMAL
 Real ***grid_cs;		/* gas sound speed */
 #endif
 
-static GVDFun_t gasvshift = NULL;/* the gas velocity difference from Keplerian due to pressure gradient */
-Real vsc1, vsc2;		/* coefficients for velocity difference */
+static WeightFun_t getweight = NULL; /* get weight function */
+
+static GVDFun_t gasvshift = NULL;    /* the gas velocity difference from Keplerian due to pressure gradient */
+Real vsc1, vsc2;		     /* coefficients for velocity difference */
 
 /*=========================== PROTOTYPES OF PRIVATE FUNCTIONS ===============================*/
 
-void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[2][2][2], int *is, int *js, int *ks);
-int getval_linear(Grid *pG, Real weight[2][2][2], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
+void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
+void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
+
+int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
+
+#ifdef FEEDBACK
+void distF_pr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3);
+void distF_cr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3);
+#endif
 
 Real get_ts(Grid *pG, Grain *curG, Real rho, Real cs, Real vd);
 void grid_limit(Grid *pG, Domain *pD);
 void get_gasinfo(Grid *pG);
-
-#ifdef FEEDBACK
-void distF_linear(Grid *pG, Real weight[2][2][2], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3);
-#endif
 
 void gasvshift_quad(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 
@@ -83,7 +90,7 @@ void integrate_particle(Grid *pG)
 {
   /* loca variables */
   Grain *curG, *curP, mygr;	/* pointer of the current working position */
-  Real weight[2][2][2];		/* weight function */
+  Real weight[3][3][3];		/* weight function */
   int is, js, ks;		/* starting location of interpolation */
   long p;			/* particle index */
   Real rho, u1, u2, u3;		/* density and velocity of the fluid from interpolation */
@@ -148,8 +155,8 @@ void integrate_particle(Grid *pG)
 
     /* step 2: calculate the force at current position */
     /* interpolation to get fluid density, velocity and the sound speed */
-    getwei_linear(pG, curG->x1, curG->x2, curG->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
-    if (getval_linear(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
+    getweight(pG, curG->x1, curG->x2, curG->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
+    if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
     { /* particle in the grid */
       /* apply gas velocity shift due to pressure gradient */
       gasvshift(curG->x1, curG->x2, curG->x3, &u1, &u2, &u3);
@@ -197,8 +204,8 @@ void integrate_particle(Grid *pG)
 
     /* step 3: calculate the force at the predicted positoin */
     /* interpolation to get fluid density, velocity and the sound speed */
-    getwei_linear(pG, x1n, x2n, x3n, dx11, dx21, dx31, weight, &is, &js, &ks);
-    if (getval_linear(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
+    getweight(pG, x1n, x2n, x3n, dx11, dx21, dx31, weight, &is, &js, &ks);
+    if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
     { /* particle in the grid */
       /* apply gas velocity shift due to pressure gradient */
       gasvshift(x1n, x2n, x3n, &u1, &u2, &u3);
@@ -357,8 +364,8 @@ void integrate_particle(Grid *pG)
     fb3 = pG->grproperty[curG->property].m * fb3 * cellvol1;
 
     /* distribute the drag force (density) to the grid */
-    getwei_linear(pG, x1n, x2n, x3n, dx11, dx21, dx31, weight, &is, &js, &ks);
-    distF_linear(pG, weight, is, js, ks, fb1, fb2, fb3);
+    getweight(pG, x1n, x2n, x3n, dx11, dx21, dx31, weight, &is, &js, &ks);
+    distF_cr(pG, weight, is, js, ks, fb1, fb2, fb3);
 #endif /* FEEDBACK */
 
     /* step 7: update the particle in pG */
@@ -403,7 +410,7 @@ void integrate_particle(Grid *pG)
 */
 void init_particle(Grid *pG, Domain *pD)
 {
-  int N1T, N2T, N3T;
+  int N1T, N2T, N3T, interp;
   Grain *GrArray;
   long size = 1000,size1 = 1,size2 = 1;
 
@@ -448,6 +455,19 @@ void init_particle(Grid *pG, Domain *pD)
 
   grrhoa = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
   if (grrhoa == NULL) goto on_error;
+
+  /* set the interpolation function pointer */
+  interp = par_geti_def("particle","interp",1);
+  if (interp == 1)
+  { /* linear interpolation */
+    getweight = getwei_linear;
+    ncell = 2;
+  } else if (interp == 2)
+  { /* TSC interpolation */
+    getweight = getwei_TSC;
+    ncell = 3;
+  } else
+      ath_error("[init_particle]: Invalid interp value (should equals 1 or 2)!\n");
 
   /* set gas velocity shift function pointer */
   gasvshift = gasvshift_quad;	/* by default will adopt the quadratic velocity shift */
@@ -508,11 +528,11 @@ void particle_realloc(Grid *pG, long n)
    This subroutine is used ONLY in the predictor step.
 */
 #ifdef FEEDBACK
-void feedback(Grid* pG)
+void feedback_predictor(Grid* pG)
 {
   int i,j,k, is,js,ks;
   long p;			/* particle index */
-  Real weight[2][2][2];		/* weight function */
+  Real weight[3][3][3];		/* weight function */
   Real rho, u1, u2, u3;		/* density and velocity of the fluid from interpolation */
   Real cs, tstop;		/* sound speed, stopping time */
   Real vd1, vd2, vd3, vd;	/* velocity difference between particle and fluid */
@@ -549,8 +569,8 @@ void feedback(Grid* pG)
   {/* loop over all particle */
     cur = &(pG->particle[p]);
     /* interpolation to get fluid density and velocity */
-    getwei_linear(pG, cur->x1, cur->x2, cur->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
-    if (getval_linear(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
+    getweight(pG, cur->x1, cur->x2, cur->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
+    if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
     { /* particle is in the grid */
       /* apply gas velocity shift due to pressure gradient */
       gasvshift(cur->x1, cur->x2, cur->x3, &u1, &u2, &u3);
@@ -571,7 +591,7 @@ void feedback(Grid* pG)
       f3 = m * vd3 * ts1 * cellvol1;
 
       /* distribute the drag force (density) to the grid */
-      distF_linear(pG, weight, is, js, ks, f1, f2, f3);
+      distF_pr(pG, weight, is, js, ks, f1, f2, f3);
     }
   }/* end of the for loop */
 
@@ -639,13 +659,13 @@ void update_particle_status(Grid *pG)
 
 /*=========================== PRIVATE FUNCTIONS ===============================*/
 
-/* Linear interpolation step 1: get weight
+/* get weight using linear interpolation
    Input: pG: grid; x1,x2,x3: global coordinate; dx11,dx21,dx31: 1 over dx1,dx2,dx3
    Output: weight: weight function; is,js,ks: starting cell indices in the grid.
    Note: this interpolation works in any 1-3 dimensions.
 */
 
-void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[2][2][2], int *is, int *js, int *ks)
+void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks)
 {
   int i, j, k, i1, j1, k1;
   Real a, b, c;				/* grid coordinate for the position (x1,x2,x3) */
@@ -660,9 +680,9 @@ void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Re
     wei1[0] = 1.0 - wei1[1];			/* 0: left; 1: right */
   }
   else { /* x1 dimension collapses */
-    *is = pG->is;				/* starting x1 index */
-    wei1[1] = 0.0;				/* one direction weight */
-    wei1[0] = 1.0;				/* 0: left; 1: right */
+    *is = pG->is;
+    wei1[1] = 0.0;
+    wei1[0] = 1.0;
   }
 
   /* x2 direction */
@@ -673,9 +693,9 @@ void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Re
     wei2[0] = 1.0 - wei2[1];			/* 0: left; 1: right */
   }
   else { /* x2 dimension collapses */
-    *js = pG->js;				/* starting x2 index */
-    wei2[1] = 0.0;				/* one direction weight */
-    wei2[0] = 1.0;				/* 0: left; 1: right */
+    *js = pG->js;
+    wei2[1] = 0.0;
+    wei2[0] = 1.0;
   }
 
   /* x3 direction */
@@ -686,9 +706,9 @@ void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Re
     wei3[0] = 1.0 - wei3[1];			/* 0: left; 1: right */
   }
   else { /* x3 dimension collapses */
-    *ks = pG->ks;				/* starting x3 index */
-    wei3[1] = 0.0;				/* one direction weight */
-    wei3[0] = 1.0;				/* 0: left; 1: right */
+    *ks = pG->ks;
+    wei3[1] = 0.0;
+    wei3[0] = 1.0;
   }
 
   /* calculate 3D weight */
@@ -700,7 +720,74 @@ void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Re
   return;
 }
 
-/* Linear interpolation step 2: get interpolated value
+/* get weight using Triangular Shaped Cloud (TSC) interpolation 
+   Input: pG: grid; x1,x2,x3: global coordinate; dx11,dx21,dx31: 1 over dx1,dx2,dx3
+   Output: weight: weight function; is,js,ks: starting cell indices in the grid.
+   Note: this interpolation works in any 1-3 dimensions.
+*/
+
+void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks)
+{
+  int i, j, k, i1, j1, k1;
+  Real a, b, c, d;			/* grid coordinate for the position (x1,x2,x3) */
+  Real wei1[3], wei2[3], wei3[3];	/* weight function in x1,x2,x3 directions */
+
+  /* find cell locations and calculate 1D weight */
+  /* x1 direction */
+  if (dx11 > 0.0) {
+    celli(pG, x1, dx11, &i, &a);		/* x1 index */
+    *is = i - 1;				/* starting x1 index, wei[0] */
+    d = a - i;
+    wei1[0] = 0.5*SQR(1.0-d);			/* 0: left; 2: right */
+    wei1[1] = 0.75-SQR(d-0.5);			/* one direction weight */
+    wei1[2] = 0.5*SQR(d);
+  }
+  else { /* x1 dimension collapses */
+    *is = pG->is;
+    wei1[1] = 0.0;	wei1[2] = 0.0;
+    wei1[0] = 1.0;
+  }
+
+  /* x2 direction */
+  if (dx21 > 0.0) {
+    cellj(pG, x2, dx21, &j, &b);		/* x2 index */
+    *js = j - 1;				/* starting x2 index */
+    d = b - j;
+    wei2[0] = 0.5*SQR(1.0-d);			/* 0: left; 2: right */
+    wei2[1] = 0.75-SQR(d-0.5);			/* one direction weight */
+    wei2[2] = 0.5*SQR(d);
+  }
+  else { /* x2 dimension collapses */
+    *js = pG->js;
+    wei2[1] = 0.0;	wei2[2] = 0.0;
+    wei2[0] = 1.0;
+  }
+
+  /* x3 direction */
+  if (dx31 > 0.0) {
+    cellk(pG, x3, dx31, &k, &c);		/* x3 index */
+    *ks = k - 1;				/* starting x3 index */
+    d = c - k;
+    wei3[0] = 0.5*SQR(1.0-d);			/* 0: left; 2: right */
+    wei3[1] = 0.75-SQR(d-0.5);			/* one direction weight */
+    wei3[2] = 0.5*SQR(d);
+  }
+  else { /* x3 dimension collapses */
+    *ks = pG->ks;
+    wei3[1] = 0.0;	wei3[2] = 0.0;
+    wei3[0] = 1.0;
+  }
+
+  /* calculate 3D weight */
+  for (k=0; k<3; k++)
+    for (j=0; j<3; j++)
+      for (i=0; i<3; i++)
+        weight[k][j][i] = wei1[i] * wei2[j] * wei3[k];
+
+  return;
+}
+
+/* get interpolated value using the weight
    Input:
      pG: grid; weight: weight function;
      is,js,ks: starting cell indices in the grid.
@@ -709,7 +796,7 @@ void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Re
    Return: 0: normal exit;  -1: particle lie out of the grid, cannot interpolate!
    Note: this interpolation works in any 1-3 dimensions.
 */
-int getval_linear(Grid *pG, Real weight[2][2][2], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs)
+int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs)
 {
   int i, j, k, i1, j1, k1;
   Real D, v1, v2, v3;		/* density and velocity of the fluid */
@@ -723,13 +810,13 @@ int getval_linear(Grid *pG, Real weight[2][2][2], int is, int js, int ks, Real *
   totwei = 0.0;		totwei1 = 1.0;
   /* Interpolate density, velocity and sound speed */
   /* Note: in lower dimensions only wei[0] is non-zero, which ensures the validity */
-  for (k=0; k<2; k++) {
+  for (k=0; k<ncell; k++) {
     k1 = k+ks;
     if ((k1 <= ku) && (k1 >= kl)) {
-      for (j=0; j<2; j++) {
+      for (j=0; j<ncell; j++) {
         j1 = j+js;
         if ((j1 <= ju) && (j1 >= jl)) {
-          for (i=0; i<2; i++) {
+          for (i=0; i<ncell; i++) {
             i1 = i+is;
             if ((i1 <= iu) && (i1 >= il)) {
               D += weight[k][j][i] * pG->U[k1][j1][i1].d;
@@ -763,7 +850,8 @@ int getval_linear(Grid *pG, Real weight[2][2][2], int is, int js, int ks, Real *
   return 0;
 }
 
-/* Distribute the feedback force to grid cells
+#ifdef FEEDBACK
+/* Distribute the feedback force to grid cells for the predictor step
    Input: 
      pG: grid;   weight: weight function; 
      is,js,ks: starting cell indices in the grid.
@@ -771,18 +859,51 @@ int getval_linear(Grid *pG, Real weight[2][2][2], int is, int js, int ks, Real *
    Output:
      pG: feedback array is updated.
 */
-#ifdef FEEDBACK
-void distF_linear(Grid *pG, Real weight[2][2][2], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3)
+void distF_pr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3)
 {
   int i,j,k,i1,j1,k1;
   /* distribute feedback force */
-  for (k=0; k<2; k++) {
+  for (k=0; k<ncell; k++) {
     k1 = k+ks;
     if ((k1 <= ku) && (k1 >= kl)) {
-      for (j=0; j<2; j++) {
+      for (j=0; j<ncell; j++) {
         j1 = j+js;
         if ((j1 <= ju) && (j1 >= jl)) {
-          for (i=0; i<2; i++) {
+          for (i=0; i<ncell; i++) {
+            i1 = i+is;
+            if ((i1 <= iu) && (i1 >= il)) {
+              pG->feedback[k1][j1][i1].x1 += weight[k][j][i] * fb1;
+              pG->feedback[k1][j1][i1].x2 += weight[k][j][i] * fb2;
+              pG->feedback[k1][j1][i1].x3 += weight[k][j][i] * fb3;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return;
+}
+
+/* Distribute the feedback force to grid cells for the corrector step
+   Input: 
+     pG: grid;   weight: weight function; 
+     is,js,ks: starting cell indices in the grid.
+     f1, f2, f3: feedback force from one particle.
+   Output:
+     pG: feedback array is updated.
+*/
+void distF_cr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3)
+{
+  int i,j,k,i1,j1,k1;
+  /* distribute feedback force */
+  for (k=0; k<ncell; k++) {
+    k1 = k+ks;
+    if ((k1 <= ku) && (k1 >= kl)) {
+      for (j=0; j<ncell; j++) {
+        j1 = j+js;
+        if ((j1 <= ju) && (j1 >= jl)) {
+          for (i=0; i<ncell; i++) {
             i1 = i+is;
             if ((i1 <= iu) && (i1 >= il)) {
               pG->feedback[k1][j1][i1].x1 += weight[k][j][i] * fb1;

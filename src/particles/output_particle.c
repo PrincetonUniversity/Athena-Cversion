@@ -60,7 +60,8 @@ Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
-extern void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[2][2][2], int *is, int *js, int *ks);
+extern void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
+extern void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
 int property_all(const int property);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -79,8 +80,11 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
   int is,js,ks,i1,j1,k1;
   long p;
   Real dx11, dx21, dx31, cellvol1, drho;
-  Real weight[2][2][2];
+  Real weight[3][3][3];
   Grain *gr;
+  int interp, ncell;
+  WeightFun_t getweight = NULL; /* get weight function */
+
   Real dmax,dmin;
   dmax = 0.0;
   dmin = 1.0e18;
@@ -125,22 +129,33 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
         grid_v[k][j][i].x3 = 0.0;
       }
 
+  /* Get weight function */
+  interp = par_geti_def("particle","interp",1);
+  if (interp == 1) {
+    getweight = getwei_linear;
+    ncell = 2;
+  }
+  else if (interp == 2) {
+    getweight = getwei_TSC;
+    ncell = 3;
+  }
+
   /* bin the particles */
   for (p=0; p<pG->nparticle; p++) {
     gr = &(pG->particle[p]);
     /* judge if the particle should be selected */
     if ((*(pout->par_prop))(gr->property)) {
 
-      getwei_linear(pG, gr->x1, gr->x2, gr->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
+      getweight(pG, gr->x1, gr->x2, gr->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
 
       /* distribute feedback force */
-      for (k=0; k<2; k++) {
+      for (k=0; k<ncell; k++) {
         k1 = k+ks;
         if ((k1 <= ku) && (k1 >= kl)) {
-          for (j=0; j<2; j++) {
+          for (j=0; j<ncell; j++) {
             j1 = j+js;
             if ((j1 <= ju) && (j1 >= jl)) {
-              for (i=0; i<2; i++) {
+              for (i=0; i<ncell; i++) {
                 i1 = i+is;
                 if ((i1 <= iu) && (i1 >= il)) {
                   /* interpolate the particles to the grid */
@@ -162,9 +177,9 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
     }
   }
 
-  for (k=kl; k<=ku; k++)
-    for (j=jl; j<=ju; j++)
-      for (i=il; i<=iu; i++) {
+  for (k=pG->ks; k<=pG->ke; k++)
+    for (j=pG->js; j<=pG->je; j++)
+      for (i=pG->is; i<=pG->ie; i++) {
         if (dpar[k][j][i]>dmax) dmax = dpar[k][j][i];
         if (dpar[k][j][i]<dmin) dmin = dpar[k][j][i];
       }
