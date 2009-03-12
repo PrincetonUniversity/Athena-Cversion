@@ -682,6 +682,11 @@ PropFun_t get_usr_par_prop(const char *name)
 {
   return NULL;
 }
+
+GVDFun_t get_usr_gasvshift(const char *name)
+{
+  return NULL;
+}
 #endif
 
 /* ========================================================================== */

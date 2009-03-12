@@ -171,6 +171,7 @@ Gasfun_t get_usr_expr(const char *expr);
 VGFunout_t get_usr_out_fun(const char *name);
 #ifdef PARTICLES
 PropFun_t get_usr_par_prop(const char *name);
+GVDFun_t get_usr_gasvshift(const char *name);
 #endif
 
 /*----------------------------------------------------------------------------*/
