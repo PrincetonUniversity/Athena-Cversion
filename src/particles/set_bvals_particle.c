@@ -51,6 +51,7 @@ static long recv_bufsize;	/* size of the recv buffer (in unit of particles) */
 int my_iproc, my_jproc, my_kproc;	/* processor indices in the computational domain */
 Real x1min,x1max,x2min,x2max,x3min,x3max;/* min and max coordinate limits of the computational domain */
 Real Lx1, Lx2, Lx3;			/* domain size in x1, x2, x3 direction */
+int NShuffle;				/* number of time steps for resorting particles */
 
 #ifdef SHEARING_BOX
 Real vshear;				/* shear velocity */
@@ -135,7 +136,8 @@ void set_bvals_particle(Grid *pG, Domain *pD)
 /*--- Step 1. ------------------------------------------------------------------
  * shuffle if necessary */
 
-  /* shuffle every NSHUFFLE steps */
+  /* shuffle every NShuffle steps */
+  /* if NShuffle is not positive, don't shuffle */
   if ((NShuffle>0) && (fmod(pG->nstep, NShuffle)<0.1))
     shuffle(pG);
 
@@ -870,7 +872,7 @@ void set_bvals_particle_init(Grid *pG, Domain *pD)
   get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
   /* get the number of time steps for shuffle */
-  NShuffle = par_geti("particle","nshuf");
+  NShuffle = par_geti_def("particle","nshuf",0); /* by default, do not shuffle */
 
 #ifdef SHEARING_BOX
   vshear = 1.5 * Omega * Lx1;	/* shear velocity between inner and outer x1 boundaries */

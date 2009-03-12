@@ -21,8 +21,7 @@ CONTAINS PUBLIC FUNCTIONS:
 
 History:
   Created:	Emmanuel Jacquet	May 2008
-  Rewritten:	Xuening Bai		Feb. 2009
-  Particle tracking capability added
+  Rewritten, with mpi, 2nd order feedback
                 Xuening Bai             Mar. 2009
 
 ==============================================================================*/
@@ -37,20 +36,24 @@ History:
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
+/* function types for interpolation schemes */
+typedef Real (*TSFun_t)(Grid *pG, Grain *cur, Real rho, Real cs, Real vd);
+
 /* Filewide global variables */
 int il,iu, jl,ju, kl,ku;	/* left and right limit of grid indices */
 Real x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar;	/* left and right limit of grid boundary */
 int ncell;			/* number of neighbouring cells involved in 1D interpolation */
+Real tstop0;			/* value of the fixed stopping time */
 
 Vector ***grid_v;		/* gas velocities */
 #ifndef ISOTHERMAL
 Real ***grid_cs;		/* gas sound speed */
 #endif
 
-static WeightFun_t getweight = NULL; /* get weight function */
+static GVDFun_t gasvshift    = NULL;   /* the gas velocity difference from Keplerian due to pressure gradient */
+static TSFun_t get_ts        = NULL;   /* get the stopping time */
+static WeightFun_t getweight = NULL;   /* get weight function */
 
-static GVDFun_t gasvshift = NULL;    /* the gas velocity difference from Keplerian due to pressure gradient */
-Real vsc1, vsc2;		     /* coefficients for velocity difference */
 
 /*=========================== PROTOTYPES OF PRIVATE FUNCTIONS ===============================*/
 
@@ -64,11 +67,14 @@ void distF_pr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb
 void distF_cr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3);
 #endif
 
-Real get_ts(Grid *pG, Grain *curG, Real rho, Real cs, Real vd);
+Real get_ts_epstein(Grid *pG, Grain *curG, Real rho, Real cs, Real vd);
+Real get_ts_general(Grid *pG, Grain *curG, Real rho, Real cs, Real vd);
+Real get_ts_fixed(Grid *pG, Grain *curG, Real rho, Real cs, Real vd);
+
 void grid_limit(Grid *pG, Domain *pD);
 void get_gasinfo(Grid *pG);
 
-void gasvshift_quad(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
+void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 
 int compare_gr(Grid *pG, Real dx11, Real dx21, Real dx31, Grain gr1, Grain gr2);
 void quicksort_particle(Grid *pG, Real dx11, Real dx21, Real dx31, long start, long end);
@@ -99,7 +105,7 @@ void integrate_particle(Grid *pG)
   Real dv1, dv2, dv3;		/* amount of velocity update */
   Real fc1, fc2, fc3, fp1, fp2, fp3;/* force at current and predictor position */
   Real ft1, ft2, ft3;		/* total force */
-  Real dx11, dx21, dx31, cellvol1;/* one over dx1, dx2, dx3 and cell volumn */
+  Real dx11, dx21, dx31;	/* one over dx1, dx2, dx3 */
   Real ts11, ts12;		/* 1/stopping time */
   Real b0, b1, b2, b3;		/* other shortcut expressions */
   Real x1n, x2n, x3n;		/* first order new position at half a time step */
@@ -130,16 +136,15 @@ void integrate_particle(Grid *pG)
   omg = Omega;         omg2 = SQR(omg);
 #endif
 
-  cellvol1 = 1.0;
   /* dx11, dx21, dx31 are shortcut expressions as well as dimension indicators */
-  if (pG->Nx1 > 1)  { dx11 = 1.0/pG->dx1; cellvol1 *= dx11; }
-  else dx11 = 0.0;
+  if (pG->Nx1 > 1)  dx11 = 1.0/pG->dx1;
+  else              dx11 = 0.0;
 
-  if (pG->Nx2 > 1)  { dx21 = 1.0/pG->dx2; cellvol1 *= dx21; }
-  else dx21 = 0.0;
+  if (pG->Nx2 > 1)  dx21 = 1.0/pG->dx2;
+  else              dx21 = 0.0;
 
-  if (pG->Nx3 > 1)  { dx31 = 1.0/pG->dx3; cellvol1 *= dx31; }
-  else dx31 = 0.0;
+  if (pG->Nx3 > 1)  dx31 = 1.0/pG->dx3;
+  else              dx31 = 0.0;
 
   /*-----------------------Main loop over all the particles---------------------*/
   p = 0;
@@ -156,10 +161,13 @@ void integrate_particle(Grid *pG)
     /* step 2: calculate the force at current position */
     /* interpolation to get fluid density, velocity and the sound speed */
     getweight(pG, curG->x1, curG->x2, curG->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
+
     if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
     { /* particle in the grid */
+
       /* apply gas velocity shift due to pressure gradient */
       gasvshift(curG->x1, curG->x2, curG->x3, &u1, &u2, &u3);
+
       /* velocity difference */
       vd1 = curG->v1-u1;
       vd2 = curG->v2-u2;
@@ -170,7 +178,8 @@ void integrate_particle(Grid *pG)
       tstop = get_ts(pG, curG, rho, cs, vd);
       ts11 = 1.0/tstop;
     }
-    else { /* particle out of the grid, free motion, with warning sign */
+    else
+    { /* particle out of the grid, free motion, with warning sign */
       vd1 = 0.0;        vd2 = 0.0;      vd3 = 0.0;      ts11 = 0.0;
       ath_perr(1, "Particle move out of grid %d!\n", pG->my_id); /* level = ? */
     }
@@ -182,7 +191,8 @@ void integrate_particle(Grid *pG)
 
     /* Force due to rotation */
 #ifdef SHEARING_BOX
-    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    if (pG->Nx3 > 1)
+    {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
     #ifdef FARGO
       fc1 += 2.0*curG->v2*omg;
       fc2 += -0.5*curG->v1*omg;
@@ -193,7 +203,9 @@ void integrate_particle(Grid *pG)
     #ifdef VERTICAL_GRAVITY
       fc3 += -omg2*curG->x3;
     #endif /* VERTICAL_GRAVITY */
-    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+    }
+    else
+    { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
       fc1 += 3.0*omg2*curG->x1 + 2.0*curG->v3*omg;
       fc3 += -2.0*curG->v1*omg;
     #ifdef VERTICAL_GRAVITY
@@ -205,8 +217,10 @@ void integrate_particle(Grid *pG)
     /* step 3: calculate the force at the predicted positoin */
     /* interpolation to get fluid density, velocity and the sound speed */
     getweight(pG, x1n, x2n, x3n, dx11, dx21, dx31, weight, &is, &js, &ks);
+
     if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
     { /* particle in the grid */
+
       /* apply gas velocity shift due to pressure gradient */
       gasvshift(x1n, x2n, x3n, &u1, &u2, &u3);
       /* velocity difference */
@@ -214,11 +228,13 @@ void integrate_particle(Grid *pG)
       vd2 = curG->v2-u2;
       vd3 = curG->v3-u3;
       vd = sqrt(SQR(vd1) + SQR(vd2) + SQR(vd3)); /* dimension independent */
+
       /* particle stopping time */
       tstop = get_ts(pG, curG, rho, cs, vd);
       ts12 = 1.0/tstop;
     }
-    else { /* particle out of the grid, free motion, with warning sign */
+    else
+    { /* particle out of the grid, free motion, with warning sign */
       vd1 = 0.0;	vd2 = 0.0;	vd3 = 0.0;	ts12 = 0.0;
       ath_perr(1, "Particle move out of grid %d!\n", pG->my_id); /* level = ? */
     }
@@ -230,7 +246,8 @@ void integrate_particle(Grid *pG)
 
     /* Force due to rotation */
 #ifdef SHEARING_BOX
-    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    if (pG->Nx3 > 1)
+    {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
     #ifdef FARGO
       fp1 += 2.0*curG->v2*omg;
       fp2 += -0.5*curG->v1*omg;
@@ -241,7 +258,9 @@ void integrate_particle(Grid *pG)
     #ifdef VERTICAL_GRAVITY
       fp3 += -omg2*x3n;
     #endif /* VERTICAL_GRAVITY */
-    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+    }
+    else
+    { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
       fp1 += 3.0*omg2*x1n + 2.0*curG->v3*omg;
       fp3 += -2.0*curG->v1*omg;
     #ifdef VERTICAL_GRAVITY
@@ -258,6 +277,7 @@ void integrate_particle(Grid *pG)
     ft1 = 0.5*(fc1+b0*fp1);
     ft2 = 0.5*(fc2+b0*fp2);
     ft3 = 0.5*(fc3+b0*fp3);
+
 #ifdef SHEARING_BOX
     oh = omg*pG->dt;
     if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
@@ -282,6 +302,7 @@ void integrate_particle(Grid *pG)
     dv1 = b3*ft1;
     dv2 = b3*ft2;
     dv3 = b3*ft3;
+
 #ifdef SHEARING_BOX
     if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
       dv1 += 2.0*b2*oh*ft2;
@@ -332,8 +353,10 @@ void integrate_particle(Grid *pG)
     x1n = 0.5*(curG->x1+curP->x1);
     x2n = 0.5*(curG->x2+curP->x2);
     x3n = 0.5*(curG->x3+curP->x3);
+
 #ifdef SHEARING_BOX
-    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    if (pG->Nx3 > 1)
+    {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
     #ifdef FARGO
       fb1 += (curG->v2+curP->v2)*omg;
       fb2 += -0.25*(curG->v1+curP->v1)*omg;
@@ -344,7 +367,9 @@ void integrate_particle(Grid *pG)
     #ifdef VERTICAL_GRAVITY
       fb3 += -omg2*x3n;
     #endif /* VERTICAL_GRAVITY */
-    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+    }
+    else
+    {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
       fb1 += 3.0*omg2*x1n + (curG->v3+curP->v3)*omg;
       fb3 += -(curG->v1+curP->v1)*omg;
     #ifdef VERTICAL_GRAVITY
@@ -359,24 +384,26 @@ void integrate_particle(Grid *pG)
     fb3 = dv3 - pG->dt*fb3;
 
     /* Drag force density */
-    fb1 = pG->grproperty[curG->property].m * fb1 * cellvol1;
-    fb2 = pG->grproperty[curG->property].m * fb2 * cellvol1;
-    fb3 = pG->grproperty[curG->property].m * fb3 * cellvol1;
+    fb1 = pG->grproperty[curG->property].m * fb1;
+    fb2 = pG->grproperty[curG->property].m * fb2;
+    fb3 = pG->grproperty[curG->property].m * fb3;
 
     /* distribute the drag force (density) to the grid */
     getweight(pG, x1n, x2n, x3n, dx11, dx21, dx31, weight, &is, &js, &ks);
     distF_cr(pG, weight, is, js, ks, fb1, fb2, fb3);
+
 #endif /* FEEDBACK */
 
     /* step 7: update the particle in pG */
     /* if the particle is a ghost particle, delete it */
-    if (curG->pos == 0) {
+    if (curG->pos == 0)
+    {
       pG->nparticle -= 1;
       pG->grproperty[curG->property].num -= 1;
       pG->particle[p] = pG->particle[pG->nparticle];
     }
-    /* if the particle is a grid particle, update */
-    else{
+    else
+    {  /* if the particle is a grid particle, update */
 #ifndef FARGO
       /* if it crosses the grid boundary, mark it as a crossing out particle */
       if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
@@ -385,6 +412,7 @@ void integrate_particle(Grid *pG)
       if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
 #endif
           curG->pos = 10;
+
       /* update the particle */
       curG->x1 = curP->x1;
       curG->x2 = curP->x2;
@@ -410,7 +438,7 @@ void integrate_particle(Grid *pG)
 */
 void init_particle(Grid *pG, Domain *pD)
 {
-  int N1T, N2T, N3T, interp;
+  int i, N1T, N2T, N3T, interp, tsmode;
   Grain *GrArray;
   long size = 1000,size1 = 1,size2 = 1;
 
@@ -427,14 +455,16 @@ void init_particle(Grid *pG, Domain *pD)
     ath_error("[init_particle]: Particle types must not be negative!\n");
 
   /* initialize the particle array */
-  if(par_exist("particle","parnumcell")) {
+  if(par_exist("particle","parnumcell"))
+  {
     /* if we consider number of particles per cell */
     size1 = N1T*N2T*N3T*(long)(pG->partypes*par_geti("particle","parnumcell"));
     if (size1 < 0)
       ath_error("[init_particle]: Particle number must not be negative!\n");
   }
 
-  if(par_exist("particle","parnumgrid")) {
+  if(par_exist("particle","parnumgrid"))
+  {
     /* if we consider number of particles per grid */
     size2 = (long)(pG->partypes*par_geti("particle","parnumgrid"));
     if (size2 < 0)
@@ -456,28 +486,57 @@ void init_particle(Grid *pG, Domain *pD)
   grrhoa = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
   if (grrhoa == NULL) goto on_error;
 
+  /* by default these global values are zero */
+  for (i=0; i<pG->partypes; i++)
+    grrhoa[i] = 0.0;
+  alamcoeff = 0.0;
+
   /* set the interpolation function pointer */
   interp = par_geti_def("particle","interp",1);
   if (interp == 1)
   { /* linear interpolation */
     getweight = getwei_linear;
     ncell = 2;
-  } else if (interp == 2)
+  }
+  else if (interp == 2)
   { /* TSC interpolation */
     getweight = getwei_TSC;
     ncell = 3;
-  } else
-      ath_error("[init_particle]: Invalid interp value (should equals 1 or 2)!\n");
+  }
+  else
+    ath_error("[init_particle]: Invalid interp value (should equals 1 or 2)!\n");
+
+  /* set the stopping time function pointer */
+  tsmode = par_geti_def("particle","tsmode",1);
+  if (tsmode == 0)
+    get_ts = get_ts_epstein;
+  else if (tsmode == 1)
+    get_ts = get_ts_general;
+  else if (tsmode == 2)
+  {
+    get_ts = get_ts_fixed;
+    tstop0 = par_getd("problem","tstop");
+  }
+  else
+    ath_error("[init_particle]: tsmode must be 0, 1, or 2!\n");
 
   /* set gas velocity shift function pointer */
-  gasvshift = gasvshift_quad;	/* by default will adopt the quadratic velocity shift */
-  /* set velocity shift coefficients (for gas pressure gradient) */
-  vsc1 = par_getd_def("problem","vsc1",0.0);
-  vsc2 = par_getd_def("problem","vsc2",0.0);
+  if (par_exist("particle","vshiftfun"))
+  {
+    gasvshift = get_usr_gasvshift(par_gets("particle","vshiftfun"));
+    if (gasvshift == NULL)
+    {
+      ath_pout(0,"[init_particle]: Invalid velocity shift function name! Will not do velocity shift.\n");
+      gasvshift = gasvshift_zero;
+    }
+  }
+  else
+    gasvshift = gasvshift_zero;	/* by default will not do velocity shift */
 
   /* allocate the memory for gas and feedback arrays */
   grid_v = (Vector***)calloc_3d_array(N3T, N2T, N1T, sizeof(Vector));
   if (grid_v == NULL) goto on_error;
+
 #ifndef ISOTHERMAL
   grid_cs = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
   if (grid_cs == NULL) goto on_error;
@@ -504,9 +563,11 @@ void particle_destruct(Grid *pG)
 
   /* free memory for gas and feedback arrays */
   if (grid_v != NULL) free_3d_array(grid_v);
+
 #ifndef ISOTHERMAL
   if (grid_cs != NULL) free_3d_array(grid_cs);
 #endif
+
 #ifdef FEEDBACK
   if (pG->feedback != NULL) free_3d_array(pG->feedback);
 #endif
@@ -518,8 +579,11 @@ void particle_destruct(Grid *pG)
 void particle_realloc(Grid *pG, long n)
 {
   pG->arrsize = MAX((long)(1.2*pG->arrsize), n);
+
   if ((pG->particle = (Grain*)realloc(pG->particle, pG->arrsize*sizeof(Grain))) == NULL)
     ath_error("[init_particle]: Error re-allocating memory with array size %ld.\n", n);
+
+  return;
 }
 
 /* Calculate the feedback of the drag force from the particle to the fluid
@@ -538,7 +602,6 @@ void feedback_predictor(Grid* pG)
   Real vd1, vd2, vd3, vd;	/* velocity difference between particle and fluid */
   Real f1, f2, f3;		/* feedback force */
   Real m, ts1;			/* grain mass, 1/tstop */
-  Real cellvol1;		/* 1/(dx1*dx2*dx3) */
   Real dx11, dx21, dx31;	/* one over dx1, dx2, dx3 */
   Grain *cur;			/* pointer of the current working position */
 
@@ -554,24 +617,25 @@ void feedback_predictor(Grid* pG)
       }
 
   /* convenient expressions */
-  cellvol1 = 1.0;
-  if (pG->Nx1 > 1)  { dx11 = 1.0/pG->dx1; cellvol1 *= dx11; }
-  else  dx11 = 0.0;
+  if (pG->Nx1 > 1)  dx11 = 1.0/pG->dx1;
+  else              dx11 = 0.0;
 
-  if (pG->Nx2 > 1)  { dx21 = 1.0/pG->dx2;  cellvol1 *= dx21; }
-  else dx21 = 0.0;
+  if (pG->Nx2 > 1)  dx21 = 1.0/pG->dx2;
+  else              dx21 = 0.0;
 
-  if (pG->Nx3 > 1)  { dx31 = 1.0/pG->dx3;   cellvol1 *= dx31; }
-  else dx31 = 0.0;
+  if (pG->Nx3 > 1)  dx31 = 1.0/pG->dx3;
+  else              dx31 = 0.0;
 
   /* loop over all particles to calculate the drag force */
   for (p=0; p<pG->nparticle; p++)
   {/* loop over all particle */
     cur = &(pG->particle[p]);
+
     /* interpolation to get fluid density and velocity */
     getweight(pG, cur->x1, cur->x2, cur->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
     if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
     { /* particle is in the grid */
+
       /* apply gas velocity shift due to pressure gradient */
       gasvshift(cur->x1, cur->x2, cur->x3, &u1, &u2, &u3);
       /* velocity difference */
@@ -586,9 +650,9 @@ void feedback_predictor(Grid* pG)
 
       /* Drag force density */
       m = pG->grproperty[cur->property].m;
-      f1 = m * vd1 * ts1 * cellvol1;
-      f2 = m * vd2 * ts1 * cellvol1;
-      f3 = m * vd3 * ts1 * cellvol1;
+      f1 = m * vd1 * ts1;
+      f2 = m * vd2 * ts1;
+      f3 = m * vd3 * ts1;
 
       /* distribute the drag force (density) to the grid */
       distF_pr(pG, weight, is, js, ks, f1, f2, f3);
@@ -633,6 +697,7 @@ void shuffle(Grid *pG)
 
   /* output status */
   ath_pout(0, "Resorting particles...\n");
+
   /* sort the particles according to their positions */
   quicksort_particle(pG, dx11, dx21, dx31, 0, pG->nparticle-1);
 
@@ -644,6 +709,7 @@ void update_particle_status(Grid *pG)
 {
   long p;
   Grain *cur;
+
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
     if (cur->pos >= 10) /* crossing out/in particle from the previous step */
@@ -920,12 +986,12 @@ void distF_cr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb
 }
 #endif /* FEEDBACK */
 
-/* Calculate the stopping time 
+/* Calculate the stopping time for the most general case
    The relavent scale to calculate is: 
    1. a/lambda_m == alam
    2. rho_s*a in normalized unit == rhoa
 */
-Real get_ts(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
+Real get_ts_general(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
 {
   Real tstop;		/* stopping time */
   int type;		/* type of the particle (to look for properties) */
@@ -957,6 +1023,31 @@ Real get_ts(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
 
     tstop = rhoa/(rho*vd*CD);
   } /* endif */
+
+  /* avoid zero stopping time */
+  if (tstop < 1.0e-8*pG->dt)
+    tstop = 1.0e-8*pG->dt;
+
+  return tstop;
+}
+
+/* Calculate the stopping time in the Epstein regime */
+/* Note grrhoa == rho_s*a in normalized unit */
+Real get_ts_epstein(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
+{
+  Real tstop = grrhoa[cur->property]/(rho*cs);
+
+  /* avoid zero stopping time */
+  if (tstop < 1.0e-8*pG->dt)
+    tstop = 1.0e-8*pG->dt;
+
+  return tstop;
+}
+
+/* Return the fixed stopping time */
+Real get_ts_fixed(Grid *pG, Grain *cur, Real rho, Real cs, Real vd)
+{
+  Real tstop = tstop0;
 
   /* avoid zero stopping time */
   if (tstop < 1.0e-8*pG->dt)
@@ -1052,11 +1143,13 @@ void get_gasinfo(Grid *pG)
   /* get gas information */
   for (k=kl; k<=ku; k++)
     for (j=jl; j<=ju; j++)
-      for (i=il; i<=iu; i++) {
+      for (i=il; i<=iu; i++)
+      {
         rho1 = 1.0/(pG->U[k][j][i].d);
         grid_v[k][j][i].x1 = pG->U[k][j][i].M1 * rho1;
         grid_v[k][j][i].x2 = pG->U[k][j][i].M2 * rho1;
         grid_v[k][j][i].x3 = pG->U[k][j][i].M3 * rho1;
+
 #ifndef ISOTHERMAL
   #ifdef ADIABATIC
         /* E = P/(gamma-1) + rho*v^2/2 + B^2/2 */
@@ -1078,14 +1171,15 @@ void get_gasinfo(Grid *pG)
 
 /*----------------Subroutines for pressure gradient -----------------*/
 
-/* Calculate the gas velocity difference to Keplerian velocity as a
+/* Calculate the gas velocity difference to what it should be as a
    function of position and apply the shift to the velocity (u1,u2,u3).
-   This routine assumes a quadratic dependence on the x2 (or Z in shearing box).
-   vsc1, vsc2 are coefficients.
+   This is the default routine, which applies no velocity shift.
+   In the case of the streaming instability, this corresponds to \eta*v_K.
+   User can assign their velocity shift function in the problem generator
+   using get_usr_par_prop().
 */
-void gasvshift_quad(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3)
 {
-  *u2 += vsc1+vsc2*SQR(x2);
   return;
 }
 
@@ -1140,9 +1234,11 @@ void quicksort_particle(Grid *pG, Real dx11, Real dx21, Real dx31, long start, l
   gr = pG->particle[pivot];
   pG->particle[pivot] = pG->particle[start];
   pG->particle[start] = gr;
+
   /* initial configuration */
   pivot = start;
   i = start + 1;
+
   /* move the particles that are "smaller" than the pivot before it */
   while (i <= end) {
     if (compare_gr(pG, dx11, dx21, dx31, pG->particle[pivot], pG->particle[i]) == 2)

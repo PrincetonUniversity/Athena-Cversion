@@ -37,7 +37,6 @@ Real Omega;
 #ifdef PARTICLES
 Real alamcoeff;	/* coefficient for the calculation of a/lambda */
 Real *grrhoa;	/* an array of particle solid density times particle size in normalized unit */
-int NShuffle;	/* number of time steps for resorting particles */
 #endif
 
 #ifdef CONST_GRAVITY
