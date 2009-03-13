@@ -63,6 +63,7 @@ void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real 
 int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
 
 #ifdef FEEDBACK
+void apply_feedback(Grid *pG);
 void distF_pr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3);
 void distF_cr(Grid *pG, Real weight[3][3][3], Real is, Real js, Real ks, Real fb1, Real fb2, Real fb3);
 #endif
@@ -425,6 +426,10 @@ void integrate_particle(Grid *pG)
 
   } /* end of the for loop */
 
+#ifdef FEEDBACK
+  apply_feedback(pG);
+#endif
+
   /* output the status */
   ath_pout(0, "In processor %d, there are %ld particles.\n", pG->my_id, pG->nparticle);
 
@@ -666,7 +671,7 @@ void feedback_predictor(Grid* pG)
    This routine is just first order accurate, and is just used
    for test purposes.
 */
-void appy_feedback(Grid *pG)
+void apply_feedback(Grid *pG)
 {
   int i,j,k;
 
@@ -677,6 +682,7 @@ void appy_feedback(Grid *pG)
         pG->U[k][j][i].M2 -= pG->feedback[k][j][i].x2;
         pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
       }
+  return;
 }
 
 #endif /* FEEDBACK */

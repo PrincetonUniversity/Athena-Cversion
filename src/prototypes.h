@@ -116,7 +116,11 @@ void data_output_destruct(void);
 void dump_history_enroll(const Gasfun_t pfun, const char *label);
 void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
 			const char *fmt, const Gasfun_t expr, int n,
-			const Real dmin, const Real dmax, int sdmin, int sdmax);
+			const Real dmin, const Real dmax, int sdmin, int sdmax
+#ifdef PARTICLES
+			, const int out_pargrid, PropFun_t par_prop
+#endif
+);
 float ***subset3(Grid *pGrid, Output *pout);
 float  **subset2(Grid *pGrid, Output *pout);
 float   *subset1(Grid *pGrid, Output *pout);

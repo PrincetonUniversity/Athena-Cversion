@@ -355,7 +355,7 @@ struct Output_s;
 typedef void (*VGFunout_t)(Grid *pGrid, Domain *pD, struct Output_s *pout);
 typedef Real (*Gasfun_t)(const Grid *pG, const int i, const int j, const int k);
 #ifdef PARTICLES
-typedef int (*PropFun_t)(const int property);
+typedef int (*PropFun_t)(Grain *gr);
 #endif
 
 typedef struct Output_s{

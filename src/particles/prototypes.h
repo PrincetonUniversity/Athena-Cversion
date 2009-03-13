@@ -45,6 +45,6 @@ void set_bvals_final_particle(Grid *pG, Domain *pD);
 void init_output_particle(Grid *pG);
 void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
 void destruct_particle_grid();
-void dump_particle_binary(Grid *pG, Domain *pD);
+void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut);
 
 #endif /* PARTICLES_PROTOTYPES_H */

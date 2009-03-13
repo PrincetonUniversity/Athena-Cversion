@@ -55,7 +55,7 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   }
 #endif /* WRITE_GHOST_CELLS */
 
-  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,NULL,"bin")) 
+  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,NULL,"bin"))
      == NULL){
     ath_error("[dump_binary]: Error constructing filename\n");
     return;

@@ -140,7 +140,7 @@ extern Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
-extern int  property_all(const int property);
+extern int  property_all(Grain *gr);
 int check_particle_binning(char *out);
 #endif
 static Gasfun_t getexpr(const int n, const char *expr);
@@ -213,8 +213,13 @@ void init_output(Grid *pGrid)
 
 /* set particle property selection function. By default, will select all the
  * particles. Used only when particle output is called, otherwise useless. */
-    if(par_exist(block,"par_prop"))
+    if(par_exist(block,"par_prop")) {
       new_out.par_prop = get_usr_par_prop(par_gets(block,"par_prop"));
+      if (new_out.par_prop == NULL) {
+        ath_pout(0,"[init_output]: Particle selection function not found! Now use the default one.\n");
+        new_out.par_prop = property_all;
+      }
+    }
     else
       new_out.par_prop = property_all;
 
@@ -271,6 +276,13 @@ void init_output(Grid *pGrid)
 	new_out.fun = dump_vtk;
 	goto add_it;
       }
+#ifdef PARTICLES
+      else if (strcmp(fmt,"lis")==0){ /* dump particle list */
+	new_out.fun = dump_particle_binary;
+	new_out.out_pargrid = 0; /* don't need to bin particles */
+	goto add_it;
+      }
+#endif
       else{    /* Unknown data dump (fatal error) */
 	ath_error("Unsupported dump mode for %s/out_fmt=%s for out=all\n",
           block,fmt);
@@ -598,7 +610,11 @@ void data_output_destruct(void)
 
 void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
 			const char *fmt, const Gasfun_t expr, int n,
-			const Real dmin, const Real dmax, int sdmin, int sdmax)
+			const Real dmin, const Real dmax, int sdmin, int sdmax
+#ifdef PARTICLES
+			, const int out_pargrid, PropFun_t par_prop
+#endif
+)
 {
   Output new_out;
 
@@ -616,6 +632,10 @@ void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
   new_out.sdmax = sdmax;
   new_out.fun   = fun;
   new_out.expr  = expr;
+#ifdef PARTICLES
+  new_out.out_pargrid = out_pargrid;
+  new_out.par_prop = par_prop;
+#endif
 
   if(fmt != NULL){
     if((new_out.out_fmt = ath_strdup(fmt)) == NULL)
