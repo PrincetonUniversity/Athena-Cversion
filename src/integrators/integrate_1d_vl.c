@@ -51,9 +51,6 @@ static Prim *Whalf=NULL;
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
 
-void printCons1D(Cons1D*);
-void printPrim1D(Prim1D*);
-
 void integrate_1d(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, hdtodx1=0.5*pG->dt/pG->dx1;
@@ -141,13 +138,6 @@ void integrate_1d(Grid *pG, Domain *pD)
 
   for (i=il; i<=ie+nghost; i++) {
     fluxes(Ul[i],Ur[i],Wl[i],Wr[i], MHDARG( B1_x1Face[i] , ) &x1Flux[i]);
-    /*printf("-- %d --\n",i);
-    printf("Wl\n");
-    printPrim1D(&Wl[i]);
-    printf("Wr\n");
-    printPrim1D(&Wr[i]);
-    printf("Flux\n");
-    printCons1D(&x1Flux[i]);*/
   }
 
 /*=== STEPS 2-4: Not needed in 1D ===*/
