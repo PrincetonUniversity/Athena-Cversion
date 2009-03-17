@@ -31,7 +31,7 @@ dt      = 0.01              # time increment between outputs
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000     # cycle limit
-tlim            = 0.40       # time limit
+tlim            = 0.02       # time limit
 
 <grid>
 
@@ -61,7 +61,7 @@ shk_dir = 1                 # Shock Direction -- (1,2,3) = (x1,x2,x3)
 
 dl  = 1.0                   # density on left half of grid
 pl  = 1.0                   # pressure
-v1l = 0.9                   # X-velocity
+v1l = 0.0                   # X-velocity
 v2l = 0.0                   # Y-velocity
 v3l = 0.0                   # Z-velocity
 b1l = 0.5                   # X-magnetic-field 
