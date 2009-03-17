@@ -54,14 +54,15 @@ int solveQuartic(double* a, double* r, const Real error);
 /* stores solution to cubic equation defined by a[] in r[] */
 int solveCubic(double* a, double* r);
 
+#ifdef MHD
 void printCons1D(const Cons1D *U){
    printf("d:  %.6e\n",U->d);
    printf("E:  %.6e\n",U->E);
    printf("Mx: %.6e\n",U->Mx);
    printf("My: %.6e\n",U->My);
    printf("Mz: %.6e\n",U->Mz);
-   /*printf("By: %.6e\n",U->By);
-     printf("Bz: %.6e\n",U->Bz);*/
+   printf("By: %.6e\n",U->By);
+   printf("Bz: %.6e\n",U->Bz);
    printf("\n");
 }
 
@@ -71,10 +72,11 @@ void printPrim1D(const Prim1D *W){
    printf("Vx: %.6e\n",W->Vx);
    printf("Vy: %.6e\n",W->Vy);
    printf("Vz: %.6e\n",W->Vz);
-   /*printf("By: %.6e\n",W->By);
-     printf("Bz: %.6e\n",W->Bz);*/
+   printf("By: %.6e\n",W->By);
+   printf("Bz: %.6e\n",W->Bz);
    printf("\n");
 }
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* fluxes
@@ -177,8 +179,8 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
    getMaxSignalSpeeds(Wl,Wr,Bx,maxError,spd,spd+4);
 
-   /*printf("spd[0]: %f\n",spd[0]);
-     printf("spd[4]: %f\n",spd[4]);*/
+   printf("spd[0]: %f\n",spd[0]);
+     printf("spd[4]: %f\n",spd[4]);
 
 
 /*--- Step 2. ------------------------------------------------------------------
@@ -268,10 +270,12 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
  */
 
    if(spd[0] >= 0.0){
+      printf("Flux_L\n");
       *pFlux = Fl;
       return;
    }
    if(spd[4] <= 0.0){
+      printf("Flux_R\n");
       *pFlux = Fr;
       return;
    }
@@ -313,24 +317,34 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
    /* printf("Phll: %f\n",phll); */
 
+   /* compute hll-conserved flux (Eq 31 Mignone 2006) */
+   
+   lllr = spd[0]*spd[4];
+
+   Fhll.d  = (spd[4]*Fl.d  - spd[0]*Fr.d  + lllr*(Ur.d  - Ul.d )) * ovlrMll;
+   Fhll.Mx = (spd[4]*Fl.Mx - spd[0]*Fr.Mx + lllr*(Ur.Mx - Ul.Mx)) * ovlrMll;
+   Fhll.My = (spd[4]*Fl.My - spd[0]*Fr.My + lllr*(Ur.My - Ul.My)) * ovlrMll;
+   Fhll.Mz = (spd[4]*Fl.Mz - spd[0]*Fr.Mz + lllr*(Ur.Mz - Ul.Mz)) * ovlrMll;
+   Fhll.E  = (spd[4]*Fl.E  - spd[0]*Fr.E  + lllr*(Ur.E  - Ul.E )) * ovlrMll;
+   Fhll.By = (spd[4]*Fl.By - spd[0]*Fr.By + lllr*(Ur.By - Ul.By)) * ovlrMll;
+   Fhll.Bz = (spd[4]*Fl.Bz - spd[0]*Fr.Bz + lllr*(Ur.Bz - Ul.Bz)) * ovlrMll;
+
+   pFlux->d = Fhll.d;
+   pFlux->Mx = Fhll.Mx;
+   pFlux->My = Fhll.My;
+   pFlux->Mz = Fhll.Mz;
+   pFlux->E = Fhll.E;
+   pFlux->By = Fhll.By;
+   pFlux->Bz = Fhll.Bz;
+
+   return;
+   
+   /* printf("Fhll\n");
+      printCons1D(&Fhll); */
+
    /* set initial total pressure according to Mignone Eq 53 */
 
    if( SQR(Bx) / phll < 0.1){
-
-      /* compute hll-conserved flux (Eq 31 Mignone 2006) */
-   
-      lllr = spd[0]*spd[4];
-
-      Fhll.d  = (spd[4]*Fl.d  - spd[0]*Fr.d  + lllr*(Ur.d  - Ul.d )) * ovlrMll;
-      Fhll.Mx = (spd[4]*Fl.Mx - spd[0]*Fr.Mx + lllr*(Ur.Mx - Ul.Mx)) * ovlrMll;
-      Fhll.My = (spd[4]*Fl.My - spd[0]*Fr.My + lllr*(Ur.My - Ul.My)) * ovlrMll;
-      Fhll.Mz = (spd[4]*Fl.Mz - spd[0]*Fr.Mz + lllr*(Ur.Mz - Ul.Mz)) * ovlrMll;
-      Fhll.E  = (spd[4]*Fl.E  - spd[0]*Fr.E  + lllr*(Ur.E  - Ul.E )) * ovlrMll;
-      Fhll.By = (spd[4]*Fl.By - spd[0]*Fr.By + lllr*(Ur.By - Ul.By)) * ovlrMll;
-      Fhll.Bz = (spd[4]*Fl.Bz - spd[0]*Fr.Bz + lllr*(Ur.Bz - Ul.Bz)) * ovlrMll;
-
-      /* printf("Fhll\n");
-         printCons1D(&Fhll); */
       
       /* Now use Mignone Eq 55 */
 
@@ -475,9 +489,11 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
       Kzr = (Rr.Mz + Rr.Bz*etar) * ovKrdenom;
 
       /* Mignone states that lamda_a = K_a^x just before Eq 37 */
+
       spd[1] = Kxl;
       spd[3] = Kxr;
 
+      
       /* Mignone Eq 45 */
 
       if(Kxl != Kxr){
@@ -514,9 +530,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
          Yl = (1.0 - Klsq) / (etal*dKx - KldotBhc);
          Yr = (1.0 - Krsq) / (etar*dKx - KrdotBhc);
 
-          printf("dKx: %e\n",dKx);
+         /*printf("dKx: %e\n",dKx);
             printf("Yl: %e\n",Yl);
-            printf("Yr: %e\n",Yr); 
+            printf("Yr: %e\n",Yr); */
       }
       else{
          break;
@@ -529,6 +545,8 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
       /* printf("Status: %d\n",status); */
 
       if(status == 0){ /* first loop */
+         if(fabs(fp) < maxError)
+            break;
          fpold = fp;
          ptold = pt;
          pt = (1.0 + jump)*pt;
@@ -703,11 +721,34 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
    spd[2] = (vxcl+vxcr)*0.5;
 
    /* printf("pt: %f\n",pt); */
-/*   for(i=0; i<5; i++)
+   for(i=0; i<5; i++)
       printf("spd[%d]: %e\n",i,spd[i]);
-        printf("\n");*/
+   printf("\n");
 
-   if(spd[1] > 0){ /* aL flux */
+   /* Check for consistancy according to Mignone Eq 54;
+      If inconsistant, use HLL flux */
+
+   if( (wl - pt <= 0) || (wr - pt <= 0) || 
+       (vxcl - Kxl <= -1.e-6) || (Kxr - vxcr <= -1.e-6) ||
+       (spd[1] - vxl >= 0.0) || (spd[3] - vxr <= 0.0) ||
+       (spd[1] - spd[0] <= -1.e-6) || (spd[4] - spd[3] <= -1.e-6)){
+      
+      printf("Flux_HLL\n");
+
+      pFlux->d = Fhll.d;
+      pFlux->Mx = Fhll.Mx;
+      pFlux->My = Fhll.My;
+      pFlux->Mz = Fhll.Mz;
+      pFlux->E = Fhll.E;
+      pFlux->By = Fhll.By;
+      pFlux->Bz = Fhll.Bz;
+
+      return;
+   }
+
+   if(spd[1] >= -1.0e-6){ /* aL flux */
+
+      printf("Flux_aL\n");
 
       /*printf("Ual\n");
         printCons1D(&Ual);*/
@@ -722,43 +763,10 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
       return;
    }
-   else if(fabs(spd[2]) == 0.0){
-      pFlux->d = 0.0;
-      pFlux->Mx = 0.0;
-      pFlux->My = 0.0;
-      pFlux->Mz = 0.0;
-      pFlux->E = 0.0;
-      pFlux->By = 0.0;
-      pFlux->Bz = 0.0;
-   }
-   else if(spd[2] > 0){ /* cL flux */
+   else if(spd[3] <= 1.0e-6){ /* aR flux */
 
-      pFlux->d  = Fal.d  + spd[2]*(Ucl.d  - Ual.d );
-      pFlux->Mx = Fal.Mx + spd[2]*(Ucl.Mx - Ual.Mx);
-      pFlux->My = Fal.My + spd[2]*(Ucl.My - Ual.My);
-      pFlux->Mz = Fal.Mz + spd[2]*(Ucl.Mz - Ual.Mz);
-      pFlux->E  = Fal.E  + spd[2]*(Ucl.E  - Ual.E );
-      pFlux->By = Fal.By + spd[2]*(Ucl.By - Ual.By);
-      pFlux->Bz = Fal.Bz + spd[2]*(Ucl.Bz - Ual.Bz);
-
-      return;
-   }
-   else if( spd[3] >= 0){ /* cR flux */
-
-      /*printf("Uar\n");
-        printCons1D(&Uar);*/
-
-      pFlux->d  = Far.d  + spd[2]*(Ucr.d  - Uar.d );
-      pFlux->Mx = Far.Mx + spd[2]*(Ucr.Mx - Uar.Mx);
-      pFlux->My = Far.My + spd[2]*(Ucr.My - Uar.My);
-      pFlux->Mz = Far.Mz + spd[2]*(Ucr.Mz - Uar.Mz);
-      pFlux->E  = Far.E  + spd[2]*(Ucr.E  - Uar.E );
-      pFlux->By = Far.By + spd[2]*(Ucr.By - Uar.By);
-      pFlux->Bz = Far.Bz + spd[2]*(Ucr.Bz - Uar.Bz);
-
-      return;
-   }
-   else{ /* aR flux */
+      printf("Flux_aR\n");
+      
       pFlux->d = Far.d;
       pFlux->Mx = Far.Mx;
       pFlux->My = Far.My;
@@ -766,8 +774,39 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
       pFlux->E = Far.E;
       pFlux->By = Far.By;
       pFlux->Bz = Far.Bz;
+      
+      return;
    }
-   
+   else{
+      if(spd[2] > 0.0){ /* cL flux */
+
+         printf("Flux_cL\n");
+
+         pFlux->d  = Fal.d  + spd[2]*(Ucl.d  - Ual.d );
+         pFlux->Mx = Fal.Mx + spd[2]*(Ucl.Mx - Ual.Mx);
+         pFlux->My = Fal.My + spd[2]*(Ucl.My - Ual.My);
+         pFlux->Mz = Fal.Mz + spd[2]*(Ucl.Mz - Ual.Mz);
+         pFlux->E  = Fal.E  + spd[2]*(Ucl.E  - Ual.E );
+         pFlux->By = Fal.By + spd[2]*(Ucl.By - Ual.By);
+         pFlux->Bz = Fal.Bz + spd[2]*(Ucl.Bz - Ual.Bz);
+         
+         return;
+      }
+      else{ /* cR flux */
+
+         printf("Flux_cR\n");
+
+         pFlux->d  = Far.d  + spd[2]*(Ucr.d  - Uar.d );
+         pFlux->Mx = Far.Mx + spd[2]*(Ucr.Mx - Uar.Mx);
+         pFlux->My = Far.My + spd[2]*(Ucr.My - Uar.My);
+         pFlux->Mz = Far.Mz + spd[2]*(Ucr.Mz - Uar.Mz);
+         pFlux->E  = Far.E  + spd[2]*(Ucr.E  - Uar.E );
+         pFlux->By = Far.By + spd[2]*(Ucr.By - Uar.By);
+         pFlux->Bz = Far.Bz + spd[2]*(Ucr.Bz - Uar.Bz);
+
+         return;
+      }
+   }
 }
 
 /* Use Mignone(2005) */
