@@ -41,7 +41,7 @@
 #endif
 
 void printCons1D(const Cons1D* c);
-  void printPrim1D(const Prim1D* p);
+void printPrim1D(const Prim1D* p);
 
 void printCons1D(const Cons1D* c){
    printf("d:  %e\n",c->d);
@@ -79,8 +79,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   Real lmdal,lmdar; /* Left and Right wave speeds */
   Real lmdas; /* Contact wave speed */
   Real ovlrmll;
-  Real AL,AR,BL,BR,a,b,c;
-  Real bsq,rad;
+  Real a,b,c,quad,rad;
   Real den,ps; /* Pressure in inner region */
 
   /*printf("Wl\n");
@@ -179,17 +178,20 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
   /* quadratic formula calculation */
 
-  if(fabs(Fhll.E) > (TINY_NUMBER)){
-     b   = -(Uhll.E + Fhll.Mx);
-     bsq = b * b;
-     rad = sqrt(bsq - 4.0 * Fhll.E * Uhll.Mx);
-     lmdas = (-b - rad) / (2.0 * Fhll.E);
-     /*printf("%e\n",Fhll.E);*/
+  a = Fhll.E;
+  b = -(Uhll.E + Fhll.Mx);
+  c = Uhll.Mx;
+
+/*  if(fabs(Fhll.E) > (TINY_NUMBER)){
+     rad = sqrt(b*b - 4.0*a*c);
+     lmdas = (-b + SIGN(b)*rad) / (2.0 * a);
   }
   else{
-     /*printf("HERE: %e\n",Fhll.E);*/
-     lmdas = Uhll.Mx / (Uhll.E + Fhll.Mx);
-  }
+     lmdas = -c/b;
+     }*/
+
+  quad = -0.5*(b + SIGN(b)*sqrt(b*b - 4.0*a*c));
+  lmdas = c/quad;
 
   /*********************************/
   /*printf("lamdal: %e\n",lmdal);
@@ -210,14 +212,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
      return;
   }
-  else if( lmdas == 0.0 ){
-     pFlux->d = 0.0;
-     pFlux->Mx = 0.0;
-     pFlux->My = 0.0;
-     pFlux->Mz = 0.0;
-     pFlux->E = 0.0;
-  }
-  else if( lmdas > 0.0){ /* Fls */
+  else if( lmdas >= 0.0){ /* Fls */
 
      /* Mignone 2006 Eq 48 */
      ps = -Fhll.E*lmdas + Fhll.Mx;

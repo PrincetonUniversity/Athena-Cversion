@@ -67,7 +67,7 @@ v3l = 0.0                   # Z-velocity
 r[0]l = 1.0                 # "color"
 
 dr  = 1.0                   # density on right half of grid
-pr  = .66666666666666e-6    # pressure
+pr  = .666666666667e-6      # pressure
 v1r = 0.0                   # X-velocity
 v2r = 0.0                   # Y-velocity
 v3r = 0.0                   # Z-velocity
