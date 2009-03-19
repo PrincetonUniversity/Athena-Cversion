@@ -327,12 +327,11 @@ void integrate_init_1d(int nx1)
   if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
   if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
 
   if ((W  = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
   if ((Wl = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr = (Prim1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-
-  if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Wr = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
 
   if((StaticGravPot != NULL) || (CoolingFunc != NULL)){
     if ((dhalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
@@ -360,12 +359,11 @@ void integrate_destruct_1d(void)
   if (U1d != NULL) free(U1d);
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);
+  if (x1Flux != NULL) free(x1Flux);
 
   if (W  != NULL) free(W);
   if (Wl != NULL) free(Wl);
   if (Wr != NULL) free(Wr);
-
-  if (x1Flux != NULL) free(x1Flux);
 
   if (dhalf != NULL) free(dhalf);
   if (phalf != NULL) free(phalf);
