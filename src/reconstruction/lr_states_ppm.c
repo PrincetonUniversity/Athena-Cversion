@@ -91,7 +91,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 
 #ifdef HYDRO
 #ifdef ISOTHERMAL
-    esys_prim_iso_hyd(W[i].d,W[i].Vx,       ev,rem,lem);
+    esys_prim_iso_hyd(W[i].d,W[i].Vx,             ev,rem,lem);
 #else
     esys_prim_adb_hyd(W[i].d,W[i].Vx,Gamma*W[i].P,ev,rem,lem);
 #endif /* ISOTHERMAL */
@@ -99,9 +99,11 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 
 #ifdef MHD
 #ifdef ISOTHERMAL
-    esys_prim_iso_mhd(W[i].d,W[i].Vx,       Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
+    esys_prim_iso_mhd(
+      W[i].d,W[i].Vx,             Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
 #else
-    esys_prim_adb_mhd(W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
+    esys_prim_adb_mhd(
+      W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
@@ -250,19 +252,19 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 
 #ifdef HYDRO
 #ifdef ISOTHERMAL
-    esys_prim_iso_hyd(W[i+1].d,W[i+1].Vx,         ev_ip1,rem_ip1,lem_ip1);
+    esys_prim_iso_hyd(W[i+1].d,W[i+1].Vx,               ev_ip1,rem_ip1,lem_ip1);
 #else
-    esys_prim_adb_hyd(W[i+1].d,W[i+1].Vx,W[i+1].P,ev_ip1,rem_ip1,lem_ip1);
+    esys_prim_adb_hyd(W[i+1].d,W[i+1].Vx,Gamma*W[i+1].P,ev_ip1,rem_ip1,lem_ip1);
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
 
 #ifdef MHD
 #ifdef ISOTHERMAL
     esys_prim_iso_mhd(W[i+1].d,W[i+1].Vx,
-		       Bxc[i+1],W[i+1].By,W[i+1].Bz,ev_ip1,rem_ip1,lem_ip1);
+      Bxc[i+1],W[i+1].By,W[i+1].Bz,ev_ip1,rem_ip1,lem_ip1);
 #else
-    esys_prim_adb_mhd(W[i+1].d,W[i+1].Vx,W[i+1].P,
-		       Bxc[i+1],W[i+1].By,W[i+1].Bz,ev_ip1,rem_ip1,lem_ip1);
+    esys_prim_adb_mhd(W[i+1].d,W[i+1].Vx,Gamma*W[i+1].P,
+      Bxc[i+1],W[i+1].By,W[i+1].Bz,ev_ip1,rem_ip1,lem_ip1);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
