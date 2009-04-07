@@ -250,7 +250,7 @@ void Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
   u0 = 1.0 / sqrt(1.0 - xvsq);
   xWplusBsq = 1.0 / (xW + Bsq);
   MdotBoverxW = MdotB / xW;
-
+ 
   W->d = U->d / u0;
 
   W->Vx = U->Mx;
@@ -259,6 +259,7 @@ void Cons1D_to_Prim1D(const Cons1D *U, Prim1D *W, const Real *Bx)
 
   W->Vx += MdotBoverxW * (*Bx);
   W->Vy += MdotBoverxW * U->By;
+  W->Vz += MdotBoverxW * U->Bz;
 
   W->Vx *= xWplusBsq;
   W->Vy *= xWplusBsq;
@@ -332,7 +333,7 @@ static void calc_Function(Real Bsq, Real Msq, Real MdotB, Real MdotBsq, Real E,
 /* Change these for whatever equation of state is desired */
 /* We have an ideal equation of state below */
   Real P = Gamma_1overGamma * vsq_1 * (W - doversqrtvsq_1);
-  Real dPdvsq = Gamma_1overGamma * (0.5 * doversqrtvsq_1);
+  Real dPdvsq = Gamma_1overGamma * (0.5 * doversqrtvsq_1 - W);
   Real dPdW = Gamma_1overGamma * vsq_1;
 
   Real Wsq = SQR(W);
