@@ -35,6 +35,7 @@
 #include "../globals.h"
 #include "prototypes.h"
 #include "../prototypes.h"
+#include "../particles/particle.h"
 
 #ifdef CTU_INTEGRATOR
 
@@ -88,7 +89,7 @@ void integrate_2d(Grid *pG, Domain *pD)
   int i,il,iu,is=pG->is, ie=pG->ie;
   int j,jl,ju,js=pG->js, je=pG->je;
   int ks=pG->ks;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
   Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
 #ifdef MHD
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
@@ -225,6 +226,22 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
 #endif /* SHEARING_BOX */
 
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for particle feedback for 0.5*dt to L/R states
+ */
+
+#ifdef FEEDBACK
+    for (i=is-1; i<=iu; i++) {
+      d1 = 1.0/W[i-1].d;
+      Wl[i].Vx -= pG->feedback[ks][j][i-1].x1*d1;
+      Wl[i].Vz -= pG->feedback[ks][j][i-1].x3*d1;
+
+      d1 = 1.0/W[i].d;
+      Wr[i].Vx -= pG->feedback[ks][j][i].x1*d1;
+      Wr[i].Vz -= pG->feedback[ks][j][i].x3*d1;
+    }
+#endif /* FEEDBACK */
+
 /*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 2D array
  */
@@ -236,6 +253,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
     }
+
   }
 
 /*=== STEP 2: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
@@ -330,6 +348,22 @@ void integrate_2d(Grid *pG, Domain *pD)
       }
     }
 #endif /* BAROTROPIC */
+
+/*--- Step 2c (cont) -----------------------------------------------------------
+ * Add source terms for particle feedback for 0.5*dt to L/R states
+ */
+
+#ifdef FEEDBACK
+   for (j=js-1; j<=ju; j++) {
+      d1 = 1.0/W[j-1].d;
+      Wl[j].Vx -= pG->feedback[ks][j-1][i].x2*d1;
+      Wl[j].Vy -= pG->feedback[ks][j-1][i].x3*d1;
+
+      d1 = 1.0/W[j].d;
+      Wr[j].Vx -= pG->feedback[ks][j][i].x2*d1;
+      Wr[j].Vy -= pG->feedback[ks][j][i].x3*d1;
+    }
+#endif /* FEEDBACK */
 
 /*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x2-direction, storing into 2D array
@@ -696,14 +730,19 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifndef MHD
+#ifndef PARTICLES
   if ((StaticGravPot != NULL) || (CoolingFunc != NULL)) 
-#endif 
+#endif
+#endif
   {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
         dhalf[j][i] = pG->U[ks][j][i].d
           - hdtodx1*(x1Flux[j  ][i+1].d - x1Flux[j][i].d)
           - hdtodx2*(x2Flux[j+1][i  ].d - x2Flux[j][i].d);
+#ifdef PARTICLES
+        grid_d[ks][j][i] = dhalf[j][i];
+#endif
       }
     }
   }
@@ -713,7 +752,9 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifndef MHD
+#ifndef PARTICLES
   if (CoolingFunc != NULL) 
+#endif /* PARTICLES */
 #endif /* MHD */
   {
   for (j=js-1; j<=je+1; j++) {
@@ -764,6 +805,13 @@ void integrate_2d(Grid *pG, Domain *pD)
       M1h += pG->dt*Omega*pG->U[ks][j][i].M3;
 #endif /* SHEARING_BOX */
 
+/* Add the particle feedback terms */
+#ifdef FEEDBACK
+      M1h -= pG->feedback[ks][j][i].x1;
+      M2h -= pG->feedback[ks][j][i].x2;
+      M3h -= pG->feedback[ks][j][i].x3;
+#endif /* FEEDBACK */
+
 #ifndef BAROTROPIC
       phalf[j][i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[j][i];
 #endif
@@ -784,6 +832,19 @@ void integrate_2d(Grid *pG, Domain *pD)
       phalf[j][i] *= Gamma_1;
 #endif
 
+#ifdef PARTICLES
+      d1 = 1.0/dhalf[j][i];
+      grid_v[ks][j][i].x1 = M1h*d1;
+      grid_v[ks][j][i].x2 = M2h*d1;
+      grid_v[ks][j][i].x3 = M3h*d1;
+#ifndef ISOTHERMAL
+  #ifdef ADIABATIC
+      grid_cs[ks][j][i] = sqrt(Gamma*phalf[j][i]*d1);
+  #else
+      ath_error("[get_gasinfo] can not calculate the sound speed!\n");
+  #endif /* ADIABATIC */
+#endif  /* ISOTHERMAL */
+#endif /* PARTICLES */
     }
   }
   }

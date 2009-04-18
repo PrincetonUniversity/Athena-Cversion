@@ -10,9 +10,12 @@
 #   the appropriate object files, compiler options, and library paths.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = particle.o\
+CORE_OBJ = feedback.o\
+	   init_particle.o\
+	   integrators_particle.o\
+	   output_particle.o\
 	   set_bvals_particle.o\
-	   output_particle.o
+	   utils.o
 
 OBJ = $(CORE_OBJ)
 

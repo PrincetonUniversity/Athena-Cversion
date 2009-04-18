@@ -35,12 +35,9 @@ Real Omega;
 #endif
 
 #ifdef PARTICLES
-Real alamcoeff;	/* coefficient for the calculation of a/lambda */
-Real *grrhoa;	/* an array of particle solid density times particle size in normalized unit */
-#endif
-
-#ifdef CONST_GRAVITY
-Real g;
+GVDFun_t    gasvshift = NULL;   /* the gas velocity difference from Keplerian due to pressure gradient */
+TSFun_t     get_ts    = NULL;   /* get the stopping time */
+WeightFun_t getweight = NULL;   /* get weight function */
 #endif
 
 #ifdef EXPLICIT_DIFFUSION
@@ -74,7 +71,10 @@ extern Real Omega;
 #ifdef PARTICLES
 extern Real alamcoeff;
 extern Real *grrhoa;
-extern int NShuffle;
+
+extern GVDFun_t    gasvshift;   /* the gas velocity difference from Keplerian due to pressure gradient */
+extern TSFun_t     get_ts;      /* get the stopping time */
+extern WeightFun_t getweight;   /* get weight function */
 #endif
 
 #ifdef CONST_GRAVITY

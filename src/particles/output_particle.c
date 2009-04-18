@@ -22,13 +22,11 @@ PURPOSE: contains all the routines necessary for outputting particles. There are
   do visualization.
 
 CONTAINS PUBLIC FUNCTIONS:
-  void init_output_particle(Grid *pG);
   void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
-  void destruct_particle_grid();
   void dump_particle_binary(Grid *pG, Domain *pD);
 
 History:
-  Created:	Xuening Bai		Mar. 2009
+  Written by Xuening Bai, Mar. 2009
 
 ==============================================================================*/
 #include <stdio.h>
@@ -38,13 +36,10 @@ History:
 #include "../athena.h"
 #include "../prototypes.h"
 #include "prototypes.h"
+#include "particle.h"
 #include "../globals.h"
 
 #ifdef PARTICLES         /* endif at the end of the file */
-
-float ***dpar;		/* binned particle mass/number density */
-extern Vector ***grid_v;/* binned particle momentum density, borrowed from particle.c */
-int il,iu, jl,ju, kl,ku;
 
 
 /*==============================================================================
@@ -60,80 +55,41 @@ Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
-extern void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
-extern void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
 int property_all(Grain *gr);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 
-/* Initialize particle output (for unbinned output format) */
-void init_output_particle(Grid *pG)
-{
-  return;
-}
-
 /* Bin the particles to grid cells */
 void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
 {
-  int i, j, k, m1, m2, m3, Nx1T, Nx2T, Nx3T;
-  int is,js,ks,i1,j1,k1;
+  int i,j,k, is,js,ks, i1,j1,k1;
   long p;
-  Real dx11, dx21, dx31, drho;
+  Real drho;
   Real weight[3][3][3];
+  Vector cell1;
   Grain *gr;
-  int interp, ncell;
-  WeightFun_t getweight = NULL; /* get weight function */
 
   /* Get grid limit related quantities */
 
-  if (pG->Nx1 > 1)  { dx11 = 1.0/pG->dx1; m1 = 1; }
-  else { dx11 = 0.0; m1 = 0; }
+  if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;
+  else              cell1.x1 = 0.0;
 
-  if (pG->Nx2 > 1)  { dx21 = 1.0/pG->dx2; m2 = 1; }
-  else { dx21 = 0.0; m2 = 0; }
+  if (pG->Nx2 > 1)  cell1.x2 = 1.0/pG->dx2;
+  else              cell1.x2 = 0.0;
 
-  if (pG->Nx3 > 1)  { dx31 = 1.0/pG->dx3; m3 = 1; }
-  else { dx31 = 0.0; m3 = 0; }
-
-  il = pG->is - m1*nghost;
-  iu = pG->ie + m1*nghost;
-
-  jl = pG->js - m2*nghost;
-  ju = pG->je + m2*nghost;
-
-  kl = pG->ks - m3*nghost;
-  ku = pG->ke + m3*nghost;
-
-  Nx1T = iu - il + 1;
-  Nx2T = ju - jl + 1;
-  Nx3T = ku - kl + 1;
-
-  /* allocate memory for particle interpolation */
-  dpar = (float***)calloc_3d_array(Nx3T, Nx2T, Nx1T, sizeof(float));
-  if (dpar == NULL)
-    ath_error("[init_output_particle]: Error allocating memory\n");
+  if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;
+  else              cell1.x3 = 0.0;
 
   /* initialization */
-  for (k=kl; k<=ku; k++)
-    for (j=jl; j<=ju; j++)
-      for (i=il; i<=iu; i++) {
-        dpar[k][j][i] = 0.0;
+  for (k=klp; k<=kup; k++)
+    for (j=jlp; j<=jup; j++)
+      for (i=ilp; i<=iup; i++) {
+        grid_d[k][j][i] = 0.0;
         grid_v[k][j][i].x1 = 0.0;
         grid_v[k][j][i].x2 = 0.0;
         grid_v[k][j][i].x3 = 0.0;
       }
-
-  /* Get weight function */
-  interp = par_geti_def("particle","interp",1);
-  if (interp == 1) {
-    getweight = getwei_linear;
-    ncell = 2;
-  }
-  else if (interp == 2) {
-    getweight = getwei_TSC;
-    ncell = 3;
-  }
 
   /* bin the particles */
   for (p=0; p<pG->nparticle; p++) {
@@ -141,25 +97,25 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
     /* judge if the particle should be selected */
     if ((*(pout->par_prop))(gr)) {/* 1: true; 0: false */
 
-      getweight(pG, gr->x1, gr->x2, gr->x3, dx11, dx21, dx31, weight, &is, &js, &ks);
+      getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
 
       /* distribute feedback force */
       for (k=0; k<ncell; k++) {
         k1 = k+ks;
-        if ((k1 <= ku) && (k1 >= kl)) {
+        if ((k1 <= kup) && (k1 >= klp)) {
           for (j=0; j<ncell; j++) {
             j1 = j+js;
-            if ((j1 <= ju) && (j1 >= jl)) {
+            if ((j1 <= jup) && (j1 >= jlp)) {
               for (i=0; i<ncell; i++) {
                 i1 = i+is;
-                if ((i1 <= iu) && (i1 >= il)) {
+                if ((i1 <= iup) && (i1 >= ilp)) {
                   /* interpolate the particles to the grid */
 #ifdef FEEDBACK
                   drho = pG->grproperty[gr->property].m;
 #else
                   drho = 1.0;
 #endif
-                  dpar[k1][j1][i1] += weight[k][j][i]*drho;
+                  grid_d[k1][j1][i1] += weight[k][j][i]*drho;
                   grid_v[k1][j1][i1].x1 += weight[k][j][i]*drho*gr->v1;
                   grid_v[k1][j1][i1].x2 += weight[k][j][i]*drho*gr->v2;
                   grid_v[k1][j1][i1].x3 += weight[k][j][i]*drho*gr->v3;
@@ -172,13 +128,6 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
     }
   }
 
-  return;
-}
-
-/* release particle grid memory */
-void destruct_particle_grid()
-{
-  free_3d_array(dpar);
   return;
 }
 
@@ -265,6 +214,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
       fwrite(fdata,sizeof(float),8,p_binfile);
       fwrite(&(my_id),sizeof(long),1,p_binfile);
       fwrite(&(init_id),sizeof(int),1,p_binfile);
+
     }
   }
 
@@ -276,43 +226,36 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 /* expr_*: where * are variables d,M1,M2,M3,V1,V2,V3 for particles */
 
 Real expr_dpar(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_dpar]: Particles have not been binned for output, please set pargrid to 1.\n");
-  return dpar[k][j][i];
+  return grid_d[k][j][i];
 }
 
 Real expr_M1par(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_M1par]: Particles have not been binned for output, please set pargrid to 1.\n");
   return grid_v[k][j][i].x1;
 }
 
 Real expr_M2par(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_M2par]: Particles have not been binned for output, please set pargrid to 1.\n");
   return grid_v[k][j][i].x2;
 }
 
 Real expr_M3par(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_M3par]: Particles have not been binned for output, please set pargrid to 1.\n");
   return grid_v[k][j][i].x3;
 }
 
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_V1par]: Particles have not been binned for output, please set pargrid to 1.\n");
-  if (dpar[k][j][i]>0.0)
-    return grid_v[k][j][i].x1/dpar[k][j][i];
+  if (grid_d[k][j][i]>0.0)
+    return grid_v[k][j][i].x1/grid_d[k][j][i];
   else return 0.0;
 }
 
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_V2par]: Particles have not been binned for output, please set pargrid to 1.\n");
-  if (dpar[k][j][i]>0.0)
-    return grid_v[k][j][i].x2/dpar[k][j][i];
+  if (grid_d[k][j][i]>0.0)
+    return grid_v[k][j][i].x2/grid_d[k][j][i];
   else return 0.0;
 }
 
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k) {
-  if (dpar == NULL) ath_error("[expr_V3par]: Particles have not been binned for output, please set pargrid to 1.\n");
-  if (dpar[k][j][i]>0.0)
-    return grid_v[k][j][i].x3/dpar[k][j][i];
+  if (grid_d[k][j][i]>0.0)
+    return grid_v[k][j][i].x3/grid_d[k][j][i];
   else return 0.0;
 }
 

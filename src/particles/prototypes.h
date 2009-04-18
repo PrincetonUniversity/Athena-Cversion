@@ -16,22 +16,41 @@
 #include "../config.h"
 
 /*----------------------------------------------------------------------------*/
-/* particle.c */
-
 #ifdef PARTICLES
-void integrate_particle(Grid *pG);
+
+/*----------------------------------------------------------------------------*/
+/* feedback.c */
+#ifdef FEEDBACK
+void exchange_feedback(Grid *pG, Domain *pD);
+void exchange_feedback_init(Grid *pG, Domain *pD);
+void exchange_feedback_fun(enum Direction dir, VBCFun_t prob_bc);
+void exchange_feedback_destruct(Grid *pG, Domain *pD);
+#endif
+
+/*----------------------------------------------------------------------------*/
+/* init_particle.c */
+VGFun_t integrate_particle_init(int type);
 void init_particle(Grid *pG, Domain *pD);
 void particle_destruct(Grid *pG);
 void particle_realloc(Grid *pG, long n);
-void update_particle_status(Grid *pG);
+
+/*----------------------------------------------------------------------------*/
+/* integrators_particle.c */
+void integrate_particle_exp(Grid *pG);
+void integrate_particle_semimp(Grid *pG);
+void integrate_particle_fulimp(Grid *pG);
 #ifdef FEEDBACK
-void feedback_predictor(Grid *pG);
-#endif
-void shuffle(Grid *pG);
+void feedback_predictor(Grid* pG);
+void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3);
 #endif
 
+/*----------------------------------------------------------------------------*/
+/* output_particle.c */
+void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
+void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut);
+
+/*----------------------------------------------------------------------------*/
 /* set_bvals_particle.c */
-#ifdef PARTICLES
 void set_bvals_particle(Grid *pG, Domain *pD);
 #ifdef FARGO
 void advect_particles(Grid *pG, Domain *pD);
@@ -39,12 +58,29 @@ void advect_particles(Grid *pG, Domain *pD);
 void set_bvals_particle_init(Grid *pG, Domain *pD);
 void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc);
 void set_bvals_final_particle(Grid *pG, Domain *pD);
+
+/*----------------------------------------------------------------------------*/
+/* utils.c */
+void get_gasinfo(Grid *pG);
+void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
+
+void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+int  getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
+
+Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd);
+Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd);
+Real get_ts_fixed  (Grid *pG, int type, Real rho, Real cs, Real vd);
+
+#ifdef FEEDBACK
+void feedback_clear(Grid *pG);
+void apply_feedback(Grid *pG);
+void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
+void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
 #endif
 
-/* output_particle.c */
-void init_output_particle(Grid *pG);
-void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
-void destruct_particle_grid();
-void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut);
+void shuffle(Grid* pG);
+
+#endif /* PARTICLES */
 
 #endif /* PARTICLES_PROTOTYPES_H */

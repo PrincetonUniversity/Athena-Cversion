@@ -16,10 +16,8 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-
 #ifdef PARTICLES
-extern float ***dpar;
-extern Vector ***grid_v;
+#include "particles/particle.h"
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -165,7 +163,7 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = dpar[k+kl][j+jl][i+il];
+        datax[i] = grid_d[k+kl][j+jl][i+il];
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}

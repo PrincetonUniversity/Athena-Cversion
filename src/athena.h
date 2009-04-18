@@ -129,7 +129,6 @@ typedef struct Prim1D_s{
 /*--------------------------------------------------------------------------*/
 /* Grain structure: Basic quantities for one particle.
  * Note: One particle here represents a collection of billions of real particles
- * Created: Emmanuel Jacquet, May 2008;  Modified: Xuening Bai, Dec. 2008
  */
 
 #ifdef PARTICLES
@@ -301,11 +300,11 @@ typedef struct Grid_s{
   char *outfilename;        /* basename for output files */
 
 #ifdef PARTICLES
-  Grain *particle; 		/* linked list of all particles */
-  long arrsize;			/* size of the particle array */
-  long nparticle;		/* number of particles */
-  Grain_Property *grproperty;	/* array of particle properties of all types */
   int partypes;			/* number of particle types types (size, density, mass) */
+  Grain_Property *grproperty;	/* array of particle properties of all types */
+  long nparticle;		/* number of particles */
+  long arrsize;			/* size of the particle array */
+  Grain *particle; 		/* linked list of all particles */
 #ifdef FEEDBACK
   Vector ***feedback;		/* array of feedback force to grid */
 #endif /* FEEDBACK */
@@ -418,7 +417,9 @@ typedef void (*VGFun_t) (Grid *pG);    /* void grid function */
 typedef void (*VGDFun_t)(Grid *pG, Domain *pD);     /*void grid + domain func */
 #ifdef PARTICLES
 /* function types for interpolation schemes */
-typedef void (*WeightFun_t)(Grid *pG, Real x1, Real x2, Real x3, Real dx11, Real dx21, Real dx31, Real weight[3][3][3], int *is, int *js, int *ks);
+typedef void (*WeightFun_t)(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+/* function types for stopping time calculation */
+typedef Real (*TSFun_t)(Grid *pG, int type, Real rho, Real cs, Real vd);
 /* describe the gas velocity difference due to the pressure gradient */
 typedef void (*GVDFun_t)(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
 #endif /* PARTICLES */

@@ -23,10 +23,8 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-
 #ifdef PARTICLES
-extern float ***dpar;
-extern Vector ***grid_v;
+#include "particles/particle.h"
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -239,7 +237,7 @@ void dump_tab_cons(Grid *pG, Domain *pD, Output *pOut)
 
 #ifdef PARTICLES
         if (pOut->out_pargrid) {
-          fprintf(pfile,fmt,dpar[k][j][i]);
+          fprintf(pfile,fmt,grid_d[k][j][i]);
           fprintf(pfile,fmt,grid_v[k][j][i].x1);
           fprintf(pfile,fmt,grid_v[k][j][i].x2);
           fprintf(pfile,fmt,grid_v[k][j][i].x3);
@@ -487,9 +485,9 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
 
 #ifdef PARTICLES
         if (pOut->out_pargrid) {
-          fprintf(pfile,fmt,dpar[k][j][i]);
-          if (dpar[k][j][i]>0.0)
-            d1 = 1.0/dpar[k][j][i];
+          fprintf(pfile,fmt,grid_d[k][j][i]);
+          if (grid_d[k][j][i]>0.0)
+            d1 = 1.0/grid_d[k][j][i];
           else
             d1 = 0.0;
           fprintf(pfile,fmt,grid_v[k][j][i].x1*d1);

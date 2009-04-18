@@ -222,9 +222,6 @@ void init_output(Grid *pGrid)
     }
     else
       new_out.par_prop = property_all;
-
-/* initiate particle output */
-    init_output_particle(pGrid);
 #endif
 
 /* First handle data dumps of all CONSERVED variables (out=all) */
@@ -520,10 +517,6 @@ void data_output(Grid *pGrid, Domain *pD, const int flag)
         particle_to_grid(pGrid, pD, &(OutArray[n]));
 #endif
       (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
-#ifdef PARTICLES
-      if (OutArray[n].out_pargrid == 1) /* if binned particle is to be output */
-        destruct_particle_grid();
-#endif
       OutArray[n].num++;
     }
   }

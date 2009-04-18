@@ -28,6 +28,7 @@ History:
 #include "../athena.h"
 #include "../prototypes.h"
 #include "prototypes.h"
+#include "particle.h"
 #include "../globals.h"
 
 
@@ -47,15 +48,12 @@ static double *send_buf = NULL, *recv_buf = NULL;
 static long NBUF;		/* buffer size unit (in number of particle) */
 static long send_bufsize;	/* size of the send buffer (in unit of particles) */
 static long recv_bufsize;	/* size of the recv buffer (in unit of particles) */
+static int  nbc;		/* number of boundary layers for particle BC */
 
-int my_iproc, my_jproc, my_kproc;	/* processor indices in the computational domain */
-Real x1min,x1max,x2min,x2max,x3min,x3max;/* min and max coordinate limits of the computational domain */
-Real Lx1, Lx2, Lx3;			/* domain size in x1, x2, x3 direction */
-int NShuffle;				/* number of time steps for resorting particles */
-
-#ifdef SHEARING_BOX
-Real vshear;				/* shear velocity */
-#endif /* SHEARING_BOX */
+static int my_iproc, my_jproc, my_kproc;	/* processor indices in the computational domain */
+static Real x1min,x1max,x2min,x2max,x3min,x3max;/* min and max coordinate limits of the computational domain */
+static Real Lx1, Lx2, Lx3;			/* domain size in x1, x2, x3 direction */
+static int NShuffle;				/* number of time steps for resorting particles */
 
 /* boundary condition function pointers. local to this function  */
 static VBCFun_t apply_ix1 = NULL, apply_ox1 = NULL;
@@ -66,6 +64,8 @@ static VBCFun_t apply_ix3 = NULL, apply_ox3 = NULL;
 /*----------------------------------------------------------------------------*/
 static void realloc_sendbuf();
 static void realloc_recvbuf();
+
+static void update_particle_status(Grid *pG);
 
 static void reflect_ix1_particle(Grid *pG);
 static void reflect_ox1_particle(Grid *pG);
@@ -745,6 +745,7 @@ void set_bvals_particle(Grid *pG, Domain *pD)
   return;
 }
 
+
 #ifdef FARGO
 /* Advect particles by 1.5*Omega*x1*dt for the FARGO algorithm.
 */
@@ -855,6 +856,13 @@ void set_bvals_particle_init(Grid *pG, Domain *pD)
   recv_bufsize = NBUF;
   send_buf = (double*)calloc_1d_array(NVAR_P*send_bufsize, sizeof(double));
   recv_buf = (double*)calloc_1d_array(NVAR_P*recv_bufsize, sizeof(double));
+
+/* number of boundary layers to pack the particles */
+#ifdef FEEDBACK
+  nbc = 4;	/* need 4 layers of ghost particles for feedback predictor */
+#else
+  nbc = 1;	/* do not need ghost particles otherwise, but leave one layer for output purposes */
+#endif
 
 /* calculate distances of the computational domain and shear velocity */
   x1min = par_getd("grid","x1min");
@@ -1144,6 +1152,7 @@ void set_bvals_particle_destruct(Grid *pG, Domain *pD)
 /*----------------------------------------------------------------------------------------------*/
 /* Following are the functions:
  *   realloc_sendbuf & realloc_recvbuf
+ *   update_particle_status
  *   reflecting_???_particle
  *   outflow_???_particle
  *   periodic_???_particle
@@ -1169,6 +1178,25 @@ static void realloc_recvbuf()
   recv_bufsize += NBUF;
   if ((recv_buf = (double*)realloc(recv_buf, NVAR_P*(recv_bufsize)*sizeof(double))) == NULL)
     ath_error("[set_bvals_prticles]: failed to allocate memory for buffer.\n");
+  return;
+}
+
+/* update the status of the particles after applying boundary conditions */
+static void update_particle_status(Grid *pG)
+{
+  long p;
+  Grain *cur;
+
+  for (p=0; p<pG->nparticle; p++) {
+    cur = &(pG->particle[p]);
+    if (cur->pos >= 10) /* crossing out/in particle from the previous step */
+    {
+      if ((cur->x1>=x1upar) || (cur->x1<x1lpar) || (cur->x2>=x2upar) || (cur->x2<x2lpar) || (cur->x3>=x3upar) || (cur->x3<x3lpar))
+        cur->pos = 0; /* ghost particle */
+      else
+        cur->pos = 1; /* grid particle */
+    }
+  }
   return;
 }
 

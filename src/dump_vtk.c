@@ -14,10 +14,8 @@
 #include "defs.h"
 #include "athena.h"
 #include "prototypes.h"
-
 #ifdef PARTICLES
-extern float ***dpar;
-extern Vector ***grid_v;
+#include "particles/particle.h"
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -187,7 +185,7 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
-          data[i-il] = dpar[k][j][i];
+          data[i-il] = grid_d[k][j][i];
         }
         if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
         fwrite(data,sizeof(float),(size_t)ndata0,pfile);
