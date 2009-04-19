@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
 
 /* Only write output's with t_out>t when last argument of data_output = 0 */
     data_output(&level0_Grid, &level0_Domain, 0);
-
+  level0_Grid.dt = par_getd("problem","dt");
 /* modify timestep so loop finishes at t=tlim exactly */
     if ((tlim-level0_Grid.time) < level0_Grid.dt) {
       level0_Grid.dt = (tlim-level0_Grid.time);

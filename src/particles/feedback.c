@@ -119,8 +119,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
   if (pG->Nx3 > 1){
 
 #ifdef MPI_PARALLEL
-    cnt1 = pG->Nx1 > 1 ? pG->Nx1 + 1 : 1;
-    cnt2 = pG->Nx2 > 1 ? pG->Nx2 + 1 : 1;
+    cnt1 = pG->Nx1 > 1 ? pG->Nx1 + 2*NGF : 1;
+    cnt2 = pG->Nx2 > 1 ? pG->Nx2 + 2*NGF : 1;
     cnt = NGF*cnt1*cnt2*NVAR_F;
 
 /* MPI blocks to both left and right */
@@ -177,8 +177,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
   if (pG->Nx2 > 1){
 
 #ifdef MPI_PARALLEL
-    cnt1 = pG->Nx1 > 1 ? pG->Nx1 + 1 : 1;
-    cnt3 = pG->Nx3 > 1 ? pG->Nx3 + 2*NGF : 1;
+    cnt1 = pG->Nx1 > 1 ? pG->Nx1 + 2*NGF : 1;
+    cnt3 = pG->Nx3 > 1 ? pG->Nx3 : 1;
     cnt = NGF*cnt1*cnt3*NVAR_F;
 
 /* MPI blocks to both left and right */
@@ -250,8 +250,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
   if (pG->Nx1 > 1){
 
 #ifdef MPI_PARALLEL
-    cnt2 = pG->Nx2 > 1 ? pG->Nx2 + 2*NGF : 1;
-    cnt3 = pG->Nx3 > 1 ? pG->Nx3 + 2*NGF : 1;
+    cnt2 = pG->Nx2 > 1 ? pG->Nx2 : 1;
+    cnt3 = pG->Nx3 > 1 ? pG->Nx3 : 1;
     cnt = NGF*cnt2*cnt3*NVAR_F;
 
 /* MPI blocks to both left and right */
@@ -1201,7 +1201,7 @@ static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
 
 /* Manually unpack the data from the receive buffer */
   for (k=pG->ks; k<=pG->ke; k++){
-    for (j=pG->js; k<pG->js+NGF; j++){
+    for (j=pG->js; j<pG->js+NGF; j++){
       for (i=il; i<=iu; i++){
         /* Get a pointer to the Gas cell */
         pq = &(pG->feedback[k][j][i]);
@@ -1234,7 +1234,7 @@ static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
 
 /* Manually unpack the data from the receive buffer */
   for (k=pG->ks; k<=pG->ke; k++){
-    for (j=pG->je-NGF+1; k<=pG->je; j++){
+    for (j=pG->je-NGF+1; j<=pG->je; j++){
       for (i=il; i<=iu; i++){
         /* Get a pointer to the Gas cell */
         pq = &(pG->feedback[k][j][i]);
@@ -1267,7 +1267,7 @@ static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
 
 /* Manually unpack the data from the receive buffer */
   for (k=pG->ks; k<=pG->ke; k++){
-    for (j=pG->js; k<=pG->je; j++){
+    for (j=pG->js; j<=pG->je; j++){
       for (i=pG->is; i<pG->is+NGF; i++){
         /* Get a pointer to the Gas cell */
         pq = &(pG->feedback[k][j][i]);
@@ -1300,7 +1300,7 @@ static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
 
 /* Manually unpack the data from the receive buffer */
   for (k=pG->ks; k<=pG->ke; k++){
-    for (j=pG->js; k<=pG->je; j++){
+    for (j=pG->js; j<=pG->je; j++){
       for (i=pG->ie-NGF+1; i<=pG->ie; i++){
         /* Get a pointer to the Gas cell */
         pq = &(pG->feedback[k][j][i]);

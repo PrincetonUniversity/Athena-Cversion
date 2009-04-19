@@ -1309,7 +1309,9 @@ void integrate_init_2d(int nx1, int nx2)
     goto on_error;
 
 #ifndef MHD
+#ifndef PARTICLES
   if((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
 #endif
   {
   if ((dhalf = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
