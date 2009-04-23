@@ -312,6 +312,14 @@ void problem(Grid *pGrid, Domain *pDomain)
         if (j==je) pGrid->B2i[k][je+1][i] = B0/sqrt(2);
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0/sqrt(2);
       }
+      if (ifield == 5) {
+        pGrid->B1i[k][j][i] = 0.0;
+        pGrid->B2i[k][j][i] = B0;
+        pGrid->B3i[k][j][i] = 0.0;
+        if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
+        if (j==je) pGrid->B2i[k][je+1][i] = B0;
+        if (k==ke) pGrid->B3i[ke+1][j][i] = 0.0;
+      }
 #endif /* MHD */
     }
   }}
