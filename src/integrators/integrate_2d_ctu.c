@@ -112,11 +112,18 @@ void integrate_2d(Grid *pG, Domain *pD)
   Real fact, TH_om, om_dt = Omega*pG->dt;
 #endif /* SHEARING_BOX */
 
+/* With particles, one more ghost cell must be updated in predict step */
+#ifdef PARTICLES
+  il = is - 3;
+  iu = ie + 3;
+  jl = js - 3;
+  ju = je + 3;
+#else
   il = is - 2;
   iu = ie + 2;
-
   jl = js - 2;
   ju = je + 2;
+#endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
@@ -154,10 +161,10 @@ void integrate_2d(Grid *pG, Domain *pD)
       Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
     }
 
-    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,il+1,iu-1,Wl,Wr);
 
 #ifdef MHD
-    for (i=is-1; i<=iu; i++) {
+    for (i=il+1; i<=iu; i++) {
       MHD_src = (pG->U[ks][j][i-1].M2/pG->U[ks][j][i-1].d)*
                (pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1])/pG->dx1;
       Wl[i].By += hdt*MHD_src;
@@ -173,7 +180,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
     if (StaticGravPot != NULL){
-      for (i=is-1; i<=iu; i++) {
+      for (i=il+1; i<=iu; i++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phicr = (*StaticGravPot)( x1             ,x2,x3);
         phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
@@ -189,7 +196,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-    for (i=is-1; i<=iu; i++) {
+    for (i=il+1; i<=iu; i++) {
       Wl[i].Vx -= hdtodx1*(pG->Phi[ks][j][i] - pG->Phi[ks][j][i-1]);
       Wr[i].Vx -= hdtodx1*(pG->Phi[ks][j][i] - pG->Phi[ks][j][i-1]);
     }
@@ -201,7 +208,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
     if (CoolingFunc != NULL){
-      for (i=is-1; i<=iu; i++) {
+      for (i=il+1; i<=iu; i++) {
         coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
         coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
 
@@ -217,12 +224,20 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SHEARING_BOX
-    for (i=is-1; i<=iu; i++) {
+    for (i=il+1; i<=iu; i++) {
       Wl[i].Vx += pG->dt*Omega*W[i-1].Vz; /* (dt/2)*( 2 Omega Vy) */
+#ifdef FARGO
+      Wl[i].Vz -= 0.25*pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-1/2 Omega Vx) */
+#else
       Wl[i].Vz -= pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
+#endif
 
       Wr[i].Vx += pG->dt*Omega*W[i].Vz; /* (dt/2)*( 2 Omega Vy) */
+#ifdef FARGO
+      Wr[i].Vz -= 0.25*pG->dt*Omega*W[i].Vx; /* (dt/2)*(-1/2 Omega Vx) */
+#else
       Wr[i].Vz -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
+#endif
     }
 #endif /* SHEARING_BOX */
 
@@ -231,7 +246,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef FEEDBACK
-    for (i=is-1; i<=iu; i++) {
+    for (i=il+1; i<=iu; i++) {
       d1 = 1.0/W[i-1].d;
       Wl[i].Vx -= pG->feedback[ks][j][i-1].x1*d1;
       Wl[i].Vz -= pG->feedback[ks][j][i-1].x3*d1;
@@ -246,7 +261,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Compute 1D fluxes in x1-direction, storing into 2D array
  */
 
-    for (i=is-1; i<=iu; i++) {
+    for (i=il+1; i<=iu; i++) {
       Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i] MHDARG( , &Bxi[i]));
       Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i] MHDARG( , &Bxi[i]));
 
@@ -292,10 +307,10 @@ void integrate_2d(Grid *pG, Domain *pD)
       Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
     }
 
-    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,js-1,je+1,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,jl+1,ju-1,Wl,Wr);
 
 #ifdef MHD
-    for (j=js-1; j<=ju; j++) {
+    for (j=jl+1; j<=ju; j++) {
       MHD_src = (pG->U[ks][j-1][i].M1/pG->U[ks][j-1][i].d)*
         (pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i])/pG->dx2;
       Wl[j].Bz += hdt*MHD_src;
@@ -311,7 +326,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
   
     if (StaticGravPot != NULL){
-      for (j=js-1; j<=ju; j++) {
+      for (j=jl+1; j<=ju; j++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phicr = (*StaticGravPot)(x1, x2             ,x3);
         phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
@@ -327,7 +342,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-    for (j=js-1; j<=ju; j++) {
+    for (j=jl+1; j<=ju; j++) {
       Wl[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
       Wr[j].Vx -= hdtodx2*(pG->Phi[ks][j][i] - pG->Phi[ks][j-1][i]);
     }
@@ -339,7 +354,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
     if (CoolingFunc != NULL){
-      for (j=js-1; j<=ju; j++) {
+      for (j=jl+1; j<=ju; j++) {
         coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt));
         coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt));
 
@@ -354,7 +369,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef FEEDBACK
-   for (j=js-1; j<=ju; j++) {
+   for (j=jl+1; j<=ju; j++) {
       d1 = 1.0/W[j-1].d;
       Wl[j].Vx -= pG->feedback[ks][j-1][i].x2*d1;
       Wl[j].Vy -= pG->feedback[ks][j-1][i].x3*d1;
@@ -369,7 +384,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Compute 1D fluxes in x2-direction, storing into 2D array
  */
 
-    for (j=js-1; j<=ju; j++) {
+    for (j=jl+1; j<=ju; j++) {
       Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j] MHDARG( , &Bxi[j]));
       Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j] MHDARG( , &Bxi[j]));
 
@@ -401,14 +416,14 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Update the interface magnetic fields using CT for a half time step.
  */
 
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu-1; i++) {
       B1_x1Face[j][i] -= hdtodx2*(emf3[j+1][i  ] - emf3[j][i]);
       B2_x2Face[j][i] += hdtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
     B1_x1Face[j][iu] -= hdtodx2*(emf3[j+1][iu] - emf3[j][iu]);
   }
-  for (i=is-1; i<=ie+1; i++) {
+  for (i=il+1; i<=iu-1; i++) {
     B2_x2Face[ju][i] += hdtodx1*(emf3[ju][i+1] - emf3[ju][i]);
   }
 #endif
@@ -420,8 +435,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS
  */
 
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=iu; i++) {
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu; i++) {
       Ul_x1Face[j][i].d  -= hdtodx2*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
       Ul_x1Face[j][i].Mx -= hdtodx2*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
       Ul_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
@@ -459,8 +474,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef MHD
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=iu; i++) {
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu; i++) {
       dbx = pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1];
       B1 = pG->U[ks][j][i-1].B1c;
       B2 = pG->U[ks][j][i-1].B2c;
@@ -500,8 +515,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=iu; i++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phic = (*StaticGravPot)(x1, x2             ,x3);
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
@@ -532,8 +547,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=iu; i++) {
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu; i++) {
       phic = pG->Phi[ks][j][i];
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j+1][i]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j-1][i]);
@@ -564,8 +579,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
  */
 
-  for (j=js-1; j<=ju; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+  for (j=jl+1; j<=ju; j++) {
+    for (i=il+1; i<=iu-1; i++) {
       Ul_x2Face[j][i].d  -= hdtodx1*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
       Ul_x2Face[j][i].Mx -= hdtodx1*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
       Ul_x2Face[j][i].My -= hdtodx1*(x1Flux[j-1][i+1].Mz - x1Flux[j-1][i].Mz);
@@ -603,8 +618,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef MHD
-  for (j=js-1; j<=ju; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+  for (j=jl+1; j<=ju; j++) {
+    for (i=il+1; i<=iu-1; i++) {
       dby = pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i];
       B1 = pG->U[ks][j-1][i].B1c;
       B2 = pG->U[ks][j-1][i].B2c;
@@ -644,8 +659,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-    for (j=js-1; j<=ju; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phic = (*StaticGravPot)((x1            ),x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
@@ -676,8 +691,8 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (j=js-1; j<=ju; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+  for (j=jl+1; j<=ju; j++) {
+    for (i=il+1; i<=iu-1; i++) {
       phic = pG->Phi[ks][j][i];
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
@@ -710,13 +725,21 @@ void integrate_2d(Grid *pG, Domain *pD)
  */
 
 #ifdef SHEARING_BOX
-  for (j=js-1; j<=ju; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+  for (j=jl+1; j<=ju; j++) {
+    for (i=il+1; i<=iu-1; i++) {
       Ur_x2Face[j][i].Mz += pG->dt*Omega*pG->U[ks][j][i].M3;
+#ifdef FARGO
+      Ur_x2Face[j][i].My -= 0.25*pG->dt*Omega*pG->U[ks][j][i].M1;
+#else
       Ur_x2Face[j][i].My -= pG->dt*Omega*pG->U[ks][j][i].M1;
+#endif
 
       Ul_x2Face[j][i].Mz += pG->dt*Omega*pG->U[ks][j-1][i].M3;
+#ifdef FARGO
+      Ul_x2Face[j][i].My -= 0.25*pG->dt*Omega*pG->U[ks][j-1][i].M1;
+#else
       Ul_x2Face[j][i].My -= pG->dt*Omega*pG->U[ks][j-1][i].M1;
+#endif
     }
   }
 #endif /* SHEARING_BOX */
@@ -735,8 +758,8 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 #endif
   {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         dhalf[j][i] = pG->U[ks][j][i].d
           - hdtodx1*(x1Flux[j  ][i+1].d - x1Flux[j][i].d)
           - hdtodx2*(x2Flux[j+1][i  ].d - x2Flux[j][i].d);
@@ -757,8 +780,8 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif /* PARTICLES */
 #endif /* MHD */
   {
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=ie+1; i++) {
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu-1; i++) {
       M1h = pG->U[ks][j][i].M1
         - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
         - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
@@ -803,6 +826,12 @@ void integrate_2d(Grid *pG, Domain *pD)
 /* Add the tidal potential and Coriolis terms for shearing box. */
 #ifdef SHEARING_BOX
       M1h += pG->dt*Omega*pG->U[ks][j][i].M3;
+#ifdef FARGO
+      M3h -= 0.25*pG->dt*Omega*pG->U[ks][j][i].M1;
+#else
+      M3h -= pG->dt*Omega*pG->U[ks][j][i].M1;
+#endif
+
 #endif /* SHEARING_BOX */
 
 /* Add the particle feedback terms */
@@ -858,7 +887,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 #ifdef H_CORRECTION
   for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=iu; i++) {
+    for (i=is-1; i<=ie+2; i++) {
       cfr = cfast(&(Ur_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
       cfl = cfast(&(Ul_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
       lambdar = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d + cfr;
@@ -867,7 +896,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-  for (j=js-1; j<=ju; j++) {
+  for (j=js-1; j<=je+2; j++) {
     for (i=is-1; i<=ie+1; i++) {
       cfr = cfast(&(Ur_x2Face[j][i]) MHDARG( , &(B2_x2Face[j][i])));
       cfl = cfast(&(Ul_x2Face[j][i]) MHDARG( , &(B2_x2Face[j][i])));
@@ -963,13 +992,23 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 /* Store the current state */
       M1n  = pG->U[ks][j][i].M1;
+#ifdef FARGO
+      dM3n = pG->U[ks][j][i].M3;
+#else
       dM3n = pG->U[ks][j][i].M3 + pG->U[ks][j][i].d*TH_om*x1;
+#endif
 
 /* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
-      frx1_dM3 = x1Flux[j][i+1].Mz + TH_om*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
-      flx1_dM3 = x1Flux[j][i  ].Mz + TH_om*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
-      frx2_dM3 = x2Flux[j+1][i].My + TH_om*(x1            )*x2Flux[j+1][i].d;
-      flx2_dM3 = x2Flux[j  ][i].My + TH_om*(x1            )*x2Flux[j  ][i].d;
+      frx1_dM3 = x1Flux[j][i+1].Mz;
+      flx1_dM3 = x1Flux[j][i  ].Mz;
+      frx2_dM3 = x2Flux[j+1][i].My;
+      flx2_dM3 = x2Flux[j  ][i].My;
+#ifndef FARGO
+      frx1_dM3 += TH_om*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+      flx1_dM3 += TH_om*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+      frx2_dM3 += TH_om*(x1            )*x2Flux[j+1][i].d;
+      flx2_dM3 += TH_om*(x1            )*x2Flux[j  ][i].d;
+#endif
 
 /* evolve M1n and dM3n by dt/2 using Forward Euler */
       M1e = M1n - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
@@ -983,8 +1022,10 @@ void integrate_2d(Grid *pG, Domain *pD)
  * discretization for the momentum fluctuation equation. */
 
       pG->U[ks][j][i].M1 += (2.0*dM3e - 0.5*om_dt*M1e)*fact;
-      pG->U[ks][j][i].M3 -= (0.5*(M1e + om_dt*dM3e)*fact + 
-           0.75*om_dt*(x1Flux[j][i].d + x1Flux[j][i+1].d));
+      pG->U[ks][j][i].M3 -= 0.5*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+      pG->U[ks][j][i].M3 -= 0.75*om_dt*(x1Flux[j][i].d + x1Flux[j][i+1].d);
+#endif
 
 /* Update the energy for a fixed potential, and add the Z-component (M2)
  * of the gravitational acceleration.
