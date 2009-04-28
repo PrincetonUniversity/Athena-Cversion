@@ -114,8 +114,17 @@
  * MAXLEN = maximum line length in input parameter file
  */
 
+/* Number of ghost cells must be 5 with particles and 3rd order */
 enum {
+#ifdef PARTICLES 
+#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
+  nghost = 5,
+#else
   nghost = 4,
+#endif
+#else
+  nghost = 4,
+#endif
   num_digit = 4
 };
 #define MAXLEN 256
