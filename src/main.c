@@ -447,12 +447,12 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef FARGO
-    if (level0_Grid.Nx3 > 0) { /* perform gas advection only in 3D */
+    if (level0_Grid.Nx3 > 0) { /* perform advection only in 3D */
       Fargo(&level0_Grid, &level0_Domain);
-    }
 #ifdef PARTICLES
-    advect_particles(&level0_Grid, &level0_Domain);
+      advect_particles(&level0_Grid, &level0_Domain);
 #endif
+    }
 #endif
 
     Userwork_in_loop(&level0_Grid, &level0_Domain);
