@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
 
 /* Only write output's with t_out>t when last argument of data_output = 0 */
     data_output(&level0_Grid, &level0_Domain, 0);
-  level0_Grid.dt = par_getd("problem","dt");
+
 /* modify timestep so loop finishes at t=tlim exactly */
     if ((tlim-level0_Grid.time) < level0_Grid.dt) {
       level0_Grid.dt = (tlim-level0_Grid.time);
@@ -432,10 +432,10 @@ int main(int argc, char *argv[])
 #ifdef FEEDBACK
     feedback_predictor(&level0_Grid);
 #endif
+/* integrate the particles */
 
     (*Integrate)(&level0_Grid, &level0_Domain);
 
-/* integrate the particles */
 #ifdef PARTICLES
     (*Integrate_Particles)(&level0_Grid);
 #endif
@@ -447,7 +447,9 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef FARGO
-    Fargo(&level0_Grid, &level0_Domain);
+    if (level0_Grid.Nx3 > 0) { /* perform gas advection only in 3D */
+      Fargo(&level0_Grid, &level0_Domain);
+    }
 #ifdef PARTICLES
     advect_particles(&level0_Grid, &level0_Domain);
 #endif
