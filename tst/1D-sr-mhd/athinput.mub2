@@ -1,13 +1,13 @@
 <comment>
 
-problem = SR mhd shocktube 1 from MUB (Brio & Wu)
+problem = SR mhd shocktube 2 from MUB (Brio & Wu)
 author  = A. Mignone, M. Ugliano, & G. Bodo
 journal = MNRAS 364, 126 (2009)
 config  = --with-problem=shkset1d --enable-special-relativity --with-integrator=vl
 
 <job>
 
-problem_id      = SRmub1       # problem ID: basename of output filenames
+problem_id      = SRmub2       # problem ID: basename of output filenames
 maxout          = 3         # Output blocks number from 1 -> maxout
 
 <output1>
@@ -31,12 +31,12 @@ dt      = 0.01              # time increment between outputs
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000     # cycle limit
-tlim            = 0.40       # time limit
+tlim            = 0.55       # time limit
 
 <grid>
 
-Nx1             = 400       # Number of zones in X1-direction
-x1min           = 0.0       # minimum value of X1
+Nx1             = 800       # Number of zones in X1-direction
+x1min           = 0.0      # minimum value of X1
 x1max           = 1.0       # maximum value of X1
 ibc_x1          = 2         # inner (X1) boundary flag
 obc_x1          = 2         # outer (X1) boundary flag
@@ -55,26 +55,26 @@ obc_x3          = 2         # outer (X1) boundary flag
 
 <problem>
 
-gamma   = 2.0               # gamma = C_p/C_v
+gamma   = 1.666666666667    # gamma = C_p/C_v
 
 shk_dir = 1                 # Shock Direction -- (1,2,3) = (x1,x2,x3)
 
-dl  = 1.0                   # density on left half of grid
-pl  = 1.0                   # pressure
-v1l = 0.0                   # X-velocity
-v2l = 0.0                   # Y-velocity
-v3l = 0.0                   # Z-velocity
-b1l = 0.5                   # X-magnetic-field 
-b2l = 1.0                   # Y-magnetic-field
-b3l = 0.0                   # Z-magnetic-field
+dl  = 1.08                   # density on left half of grid
+pl  = 0.95                   # pressure
+v1l = 0.4                   # X-velocity
+v2l = 0.3                   # Y-velocity
+v3l = 0.2                   # Z-velocity
+b1l = 2.0                   # X-magnetic-field 
+b2l = 0.3                   # Y-magnetic-field
+b3l = 0.3                   # Z-magnetic-field
 r[0]l = 1.0                 # "color"
 
-dr  = 0.125                 # density on right half of grid
-pr  = 0.1                   # pressure
-v1r = 0.0                   # X-velocity
-v2r = 0.0                   # Y-velocity
-v3r = 0.0                   # Z-velocity
-b1r = 0.5                   # X-magnetic-field 
-b2r = -1.0                  # Y-magnetic-field
-b3r = 0.0                   # Z-magnetic-field
+dr  = 1.0                 # density on right half of grid
+pr  = 1.0                   # pressure
+v1r = -0.45                   # X-velocity
+v2r = -0.2                   # Y-velocity
+v3r = 0.2                   # Z-velocity
+b1r = 2.0                   # X-magnetic-field 
+b2r = -0.7                  # Y-magnetic-field
+b3r = 0.5                   # Z-magnetic-field
 r[0]r = 0.0                 # "color"
