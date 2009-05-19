@@ -524,3 +524,5 @@ int solveCubic(double* a, double* root){
 }
 
 #endif
+#endif
+#endif

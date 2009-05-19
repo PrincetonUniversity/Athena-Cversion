@@ -43,6 +43,7 @@
 void printCons1D(const Cons1D* c);
 void printPrim1D(const Prim1D* p);
 
+#ifdef HYDRO
 void printCons1D(const Cons1D* c){
    printf("d:  %e\n",c->d);
    printf("E:  %e\n",c->E);
@@ -60,6 +61,7 @@ void printPrim1D(const Prim1D* p){
    printf("Vz: %e\n",p->Vz);
    printf("\n");
 }
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* fluxes

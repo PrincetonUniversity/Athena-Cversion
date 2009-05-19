@@ -1,24 +1,21 @@
 #include "../copyright.h"
+
 /*=============================================================================
- * FILE: hlld_sr.c
+ * FILE: flux_hlld_rmhd.c
  *
  * PURPOSE: Compute 1D fluxes using the relativistic Riemann solver described
  * by Mignone, Ugliano, and Bodo.  For the equivalent hydro-only code, refer
- * to hllc_sr.c
+ * to flux_hllc_rhd.c
  *
  * REFERENCES:
+ *
  * A. Mignone, M. Ugliano and G. Bodo, "A five-wave HLL Riemann solver for
  * relativistic MHD", Mon. Not. R. Astron. Soc. 000, 1-15 (2007)
  *
  * V. Honkkila and P. Janhunen, "HLLC solver for ideal relativistic MHD",
  * Journal of Computational Physics, 233, 643 92007
  *
- * HISTORY: Written by Jonathan Fulton, February 2009
- *
- * CONTAINS PUBLIC FUNCTIONS: 
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ *=============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -31,28 +28,37 @@
 
 #ifdef HLLD_FLUX
 #ifdef SPECIAL_RELATIVITY
-     
-#ifdef HYDRO
-#error : The HLLD flux only works for MHD.
-#endif /* HYDRO */
 
 #if (NSCALARS > 0)
 #error : The SR HLLD flux does not work with passive scalars.
 #endif
 
+#define MAX_ITER 20
+
+typedef struct RIEMANN_STATE{
+      int fail;
+      Real vx, vy, vz;
+      Real Bx, By, Bz;
+      Real Kx, Ky, Kz, K2;
+      Real w, sw, p, rho;
+      Cons1D U, R;
+      Real S, Sa;
+} Riemann_State;
+
 void printCons1D(const Cons1D *U);
 void printPrim1D(const Prim1D *W);
 
-/* stores slowest and fastest signal speeds into low and high */
+void flux_LR(Cons1D U, Prim1D W, Cons1D *flux, Real Bx, Real* p);
+Real ptot(Prim1D W, Real Bx);
+Real Fstar(Riemann_State *PaL, Riemann_State *PaR, Real* Sc, Real p, Real Bx);
+int get_Riemann_State(Riemann_State *Pv, Real p, Real Bx);
+void get_astate(Riemann_State *Pa, Real p, Real Bx);
+void get_cstate(Riemann_State *PaL, Riemann_State *PaR, Cons1D* Uc, Real p, Real Bx);
 void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
                         const Real Bx, const Real error,
                         Real* low, Real* high);
-
-/* store solution to quartic equation defined by coefficients a[] in r[] */
-int solveQuartic(double* a, double* r, const Real error);
-
-/* stores solution to cubic equation defined by a[] in r[] */
-int solveCubic(double* a, double* r);
+int solveQuartic(double* a, double* root, double error);
+int solveCubic(double* a, double* root);
 
 #ifdef MHD
 void printCons1D(const Cons1D *U){
@@ -78,738 +84,503 @@ void printPrim1D(const Prim1D *W){
 }
 #endif
 
+
 /*----------------------------------------------------------------------------*/
-/* fluxes
+/* flux_hlld_rmhd
  *   Input Arguments:
  *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
- *     Wl,Wr = L/R-states of PRIMITIVE variables at cell interface
  *     Bx = B in direction of slice at cell interface
  *   Output Arguments:
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-int count=0;
-
 void fluxes(const Cons1D Ul, const Cons1D Ur,
-            const Prim1D Wl, const Prim1D Wr, const Real Bx, 
-            Cons1D *pFlux)
+                    const Prim1D Wl, const Prim1D Wr, const Real Bx, 
+                    Cons1D *pFlux)
 {
-   Cons1D Fl,Fr;           /* left and right fluxes as in Mignone Eq 16 */
-   Cons1D Uhll,Fhll;       /* hll-conserved quants, hll-flux */
-   Prim1D Whll;            /* hll-primitive values */
-   Cons1D Ual,Uar;         /* left-a and right-a conserved quantities */
-   Cons1D Fal,Far;         /* left-a and right-a fluxes as in Mignone Eq 16 */
-   Cons1D Ucl,Ucr;         /* conserved quantities as in Mignone Eq 16 */
-   Cons1D Rl,Rr;           /* constants from Mignone Eq 12: R=lamda*U - F */
-   Real spd[5];            /* wave speeds */
-   Real pt,ptold;          /* total pressure, used to solve all fluxes */
-   Real p0,phll;           /* pressure given Bx->0 and hll-pressure */
-   Real ovlrMll;           /* 1.0 / (lamdar - lamdal) */
-   Real lllr;              /* lamdal * lamdar */
-   Real a,b,c;             /* quadratic equation coefficients */
-   Real b0l,bxl,byl,bzl, 
-        b0r,bxr,byr,bzr;   /* covariant magnetic field components */
-   Real uxl,uyl,uzl,
-      uxr,uyr,uzr;         /* four-velocity components of left/right states */
-   Real gammal,vsql,vDotBl,
-      gammar,vsqr,vDotBr;  /* gamma, v-squared, and dot product of v and B */
-   Real wgl,bsql,wl,ptl,
-      wgr,bsqr,wr,ptr;     /* gas enthalpy, b-squared, total enthalpy and total pressure */
-   Real vxl,vyl,vzl,
-      vxr,vyr,vzr;         /* velocity components defined in Mignone Eq 23-25 */
-   Real Al,Gl,Cl,Ql,Xl,
-      Ar,Gr,Cr,Qr,Xr;      /* constants defined in Mignone Eq 26-30 */
-   Real ovspdMinusVxl,
-      ovspdMinusVxr;       /* 1.0 / (spd - vx) */
-   Real vDotRml,vDotRmr;   /* v dotted with Rm as in Mignone Eq 31 */
-   Real wal,war;           /* total enthalpies */
-   Real Kxl,Kyl,Kzl,
-      Kxr,Kyr,Kzr;         /* K-vector components defined in Mignone Eq 36 */
-   Real signBx;            /* the sign of Bx */
-   Real etal,etar;         /* eta variable in Mignone Eq 43 */
-   Real ovKldenom,
-      ovKrdenom;           /* 1.0 / (denom) in Mignone Eq 43 */
-   Real Bcy,Bcz;           /* Magnetic field components from Mignone Eq 45 */
-   Real aRy,aRz,
-      aLy,aLz;             /* Parts of numerator in Mignone Eq 45 */
-   Real spdMinVxl,
-      spdMinVxr;           /* lamda - Vx */
-   Real ovs3Mns1;          /* 1.0 / (spd[3] - spd[1]) */
-   Real dKx,Klsq,Krsq,
-      KldotB,KrdotB,
-      KldotBhc,KrdotBhc;   /* variables from Mignone Eq 49 */
-   Real Yl,Yr;             /* Y(p) given in Mignone Eq 49 */
-   Real fp,fpold;          /* f(p), Mignone Eq 48 */
-   Real mKlsq,mKrsq,
-      ovEtalmKdB,
-      ovEtarmKdB;          /* variables from Mignone Eq 47 */
-   Real vxcl,vycl,vzcl,
-      vxcr,vycr,vzcr;      /* velocities given in Mignone Eq 47 */
-   Real ovldalMvxcl,
-      ovldarMvxcr;         /* denominators in Mignone Eqs 50-51 */
-   Real vclDotBc,
-      vcrDotBc;            /* V_c dotted with B_c, Mignone Eq 51-52 */
-   Real ecrPpt,eclPpt;       /* E_c + pt, Mignone Eq 52 */
-   Real jump,slope,error;  /* used for secant root finding */
-   Real tmp;               /* temporary variable used to shorten equations and 
-                              reduce redundant calculations */
-   const Real 
-      maxError = 1e-6;     /* Maximum error allowed */
-   int status;             /* 0:first loop, 1:bounding,
-                              2:iterating full secant method to find root */
-   int i;
-
-   /* initialize root-finding variables */
-   status = 0;
-   jump = 0.05;
-   error = 1.0;
-
-   /*printf("Wl\n");
-   printf("%.3f %.3f %.3f %.3f\n",Wl.d,Wl.P,Wl.Vx,Wl.By);
-   printf("Wr\n");
-   printf("%.3f %.3f %.3f %.3f\n",Wr.d,Wr.P,Wr.Vx,Wr.By);
-   printf("Ur\n");
-   printf("%.3f %.3f %.3f %.3f\n",Ur.d,Ur.E,Ur.Mx,Ur.By);*/
-   count++;
-   /* printf("COUNT: %d\n",count); */
-
-/*--- Step 1. ------------------------------------------------------------------
- * Compute the max and min wave speeds used in Mignone
- */
-
-   getMaxSignalSpeeds(Wl,Wr,Bx,maxError,spd,spd+4);
-
-   printf("spd[0]: %f\n",spd[0]);
-     printf("spd[4]: %f\n",spd[4]);
-
-
-/*--- Step 2. ------------------------------------------------------------------
- * Compute left and right fluxes
- */
-
-   /* compute covariant magnetic field components */
+   int k;
+   int switch_to_hll;
+   Real scrh;
+   Cons1D Fl, Fr;
+   Real Pl, Pr;
+   Cons1D Uhll, Fhll;
+   Prim1D Whll;
+   Real Sl, Sr;
    
-   vsql = SQR(Wl.Vx) + SQR(Wl.Vy) + SQR(Wl.Vz);
-   vsqr = SQR(Wr.Vx) + SQR(Wr.Vy) + SQR(Wr.Vz);
+   Real p0, f0, p, f, dp, dS_1;
+   Cons1D Uc;
+   Riemann_State PaL, PaR;
 
-   gammal = 1.0 / sqrt(1 - vsql);  
-   gammar = 1.0 / sqrt(1 - vsqr);
+   Real a,b,c;
 
-   vDotBl = Wl.Vx*Bx + Wl.Vy*Wl.By + Wl.Vz*Wl.Bz;
-   vDotBr = Wr.Vx*Bx + Wr.Vy*Wr.By + Wr.Vz*Wr.Bz;
+   Real Sc;
 
-   b0l = gammal * vDotBl;
-   b0r = gammar * vDotBr;
 
-   bxl = (Bx / gammal) + (gammal * vDotBl * Wl.Vx);
-   bxr = (Bx / gammar) + (gammar * vDotBr * Wr.Vx);
-
-   byl = (Wl.By / gammal) + (gammal * vDotBl * Wl.Vy);
-   byr = (Wr.By / gammar) + (gammar * vDotBr * Wr.Vy);
-
-   bzl = (Wl.Bz / gammal) + (gammal * vDotBl * Wl.Vz);
-   bzr = (Wr.Bz / gammar) + (gammar * vDotBr * Wr.Vz);
-
-   /* Compute spacial four-velocity components */
-
-   uxl = gammal * Wl.Vx;
-   uxr = gammar * Wr.Vx;
-
-   uyl = gammal * Wl.Vy;
-   uyr = gammar * Wr.Vy;
+   /* find min/max wave speeds */
+   getMaxSignalSpeeds(Wl,Wr,Bx,1e-12,&Sl,&Sr);
    
-   uzl = gammal * Wl.Vz;
-   uzr = gammar * Wr.Vz;
+   /* compute L/R fluxes */
+   flux_LR(Ul,Wl,&Fl,Bx,&Pl);
+   flux_LR(Ur,Wr,&Fr,Bx,&Pr);
 
-   /* Compute total enthalpy and total pressure */
-
-   bsql = SQR(bxl) + SQR(byl) + SQR(bzl) - SQR(b0l);
-   bsqr = SQR(bxr) + SQR(byr) + SQR(bzr) - SQR(b0r);
-
-   wgl = Wl.d + (Gamma / Gamma_1) * Wl.P;
-   wgr = Wr.d + (Gamma / Gamma_1) * Wr.P;
-
-   wl = wgl + bsql;
-   wr = wgr + bsqr;
-
-   ptl = Wl.P + 0.5*bsql;
-   ptr = Wr.P + 0.5*bsqr;
-
-
-   /* Now use Mignone Eq 7 to compute left/right fluxes */
-
-   Fl.d = Ul.d * Wl.Vx;
-   Fr.d = Ur.d * Wr.Vx;
-
-   Fl.Mx = wl*uxl*uxl - bxl*bxl + ptl;
-   Fr.Mx = wr*uxr*uxr - bxr*bxr + ptr;
-
-   Fl.My = wl*uxl*uyl - bxl*byl;
-   Fr.My = wr*uxr*uyr - bxr*byr;
-
-   Fl.Mz = wl*uxl*uzl - bxl*bzl;
-   Fr.Mz = wr*uxr*uzr - bxr*bzr;
-
-   Fl.E = Ul.Mx;
-   Fr.E = Ur.Mx;
-
-   Fl.By = Ul.By*Wl.Vx - Bx*Wl.Vy;
-   Fr.By = Ur.By*Wr.Vx - Bx*Wr.Vy;
-
-   Fl.Bz = Ul.Bz*Wl.Vx - Bx*Wl.Vz;
-   Fr.Bz = Ur.Bz*Wr.Vx - Bx*Wr.Vz;
-
-   /*printf("F_L\n");
-   printCons1D(&Fl);
-   printf("F_R\n");
-   printCons1D(&Fr);*/
-
-
-/*--- Step 3. ------------------------------------------------------------------
- * If supersonic, return appropriate flux.
- */
-
-   if(spd[0] >= 0.0){
-      printf("Flux_L\n");
-      *pFlux = Fl;
-      return;
+   if(Sl >= 0.0){
+      /*printf("Flux_L\n");*/
+      pFlux->d  = Fl.d;
+      pFlux->Mx = Fl.Mx;
+      pFlux->My = Fl.My;
+      pFlux->Mz = Fl.Mz;
+      pFlux->By = Fl.By;
+      pFlux->Bz = Fl.Bz;
+      pFlux->E  = Fl.E;
    }
-   if(spd[4] <= 0.0){
-      printf("Flux_R\n");
-      *pFlux = Fr;
-      return;
-   }
-
-/*--- Step 4. ------------------------------------------------------------------
- * Initialize total pressure variale according to Mignone Eq 53
- */
-
-   /* compute hll-conserved vector (Eq 29 Mignone 2006)*/
-   
-   ovlrMll = 1.0 / (spd[4] - spd[0]);
-
-   Uhll.d  = (spd[4]*Ur.d  - spd[0]*Ul.d  + Fl.d  - Fr.d ) * ovlrMll;
-   Uhll.Mx = (spd[4]*Ur.Mx - spd[0]*Ul.Mx + Fl.Mx - Fr.Mx) * ovlrMll;
-   Uhll.My = (spd[4]*Ur.My - spd[0]*Ul.My + Fl.My - Fr.My) * ovlrMll;
-   Uhll.Mz = (spd[4]*Ur.Mz - spd[0]*Ul.Mz + Fl.Mz - Fr.Mz) * ovlrMll;
-   Uhll.E  = (spd[4]*Ur.E  - spd[0]*Ul.E  + Fl.E  - Fr.E ) * ovlrMll;
-   Uhll.By = (spd[4]*Ur.By - spd[0]*Ul.By + Fl.By - Fr.By) * ovlrMll;
-   Uhll.Bz = (spd[4]*Ur.Bz - spd[0]*Ul.Bz + Fl.Bz - Fr.Bz) * ovlrMll;
-
-   /* compute phll using variable converter; need initial guess for Whll */
-   Whll.d = (Wl.d+Wr.d)/2.0;
-   Whll.Vx = (Wl.Vx+Wr.Vx)/2.0;
-   Whll.Vy = (Wl.Vy+Wr.Vy)/2.0;
-   Whll.Vz = (Wl.Vz+Wr.Vz)/2.0;
-   Whll.P = (Wl.P+Wr.P)/2.0;
-   Whll.By = (Wl.By+Wr.By)/2.0;
-   Whll.Bz = (Wl.Bz+Wr.Bz)/2.0;
-
-   Cons1D_to_Prim1D((const Cons1D*)(&Uhll),(Prim1D*)(&Whll),
-                    (const Real*)(&Bx));   
-
-   /*printf("Uhll\n");
-   printCons1D(&Uhll);
-   printf("Whll\n");
-   printPrim1D(&Whll);*/
-
-   phll = Whll.P;
-
-   /* printf("Phll: %f\n",phll); */
-
-   /* compute hll-conserved flux (Eq 31 Mignone 2006) */
-   
-   lllr = spd[0]*spd[4];
-
-   Fhll.d  = (spd[4]*Fl.d  - spd[0]*Fr.d  + lllr*(Ur.d  - Ul.d )) * ovlrMll;
-   Fhll.Mx = (spd[4]*Fl.Mx - spd[0]*Fr.Mx + lllr*(Ur.Mx - Ul.Mx)) * ovlrMll;
-   Fhll.My = (spd[4]*Fl.My - spd[0]*Fr.My + lllr*(Ur.My - Ul.My)) * ovlrMll;
-   Fhll.Mz = (spd[4]*Fl.Mz - spd[0]*Fr.Mz + lllr*(Ur.Mz - Ul.Mz)) * ovlrMll;
-   Fhll.E  = (spd[4]*Fl.E  - spd[0]*Fr.E  + lllr*(Ur.E  - Ul.E )) * ovlrMll;
-   Fhll.By = (spd[4]*Fl.By - spd[0]*Fr.By + lllr*(Ur.By - Ul.By)) * ovlrMll;
-   Fhll.Bz = (spd[4]*Fl.Bz - spd[0]*Fr.Bz + lllr*(Ur.Bz - Ul.Bz)) * ovlrMll;
-
-   pFlux->d = Fhll.d;
-   pFlux->Mx = Fhll.Mx;
-   pFlux->My = Fhll.My;
-   pFlux->Mz = Fhll.Mz;
-   pFlux->E = Fhll.E;
-   pFlux->By = Fhll.By;
-   pFlux->Bz = Fhll.Bz;
-
-   return;
-   
-   /* printf("Fhll\n");
-      printCons1D(&Fhll); */
-
-   /* set initial total pressure according to Mignone Eq 53 */
-
-   if( SQR(Bx) / phll < 0.1){
-      
-      /* Now use Mignone Eq 55 */
-
-      a = 1.0;
-      b = Uhll.E - Fhll.Mx;
-      c = Uhll.Mx*Fhll.E - Fhll.Mx*Uhll.E;
-
-      /* positive root corresponds to physical solution */
-
-      p0 = ( -b + sqrt(b*b - 4.0*a*c) )/(2.0*a);
-      /*printf("P0\n\n");*/
+   else if(Sr <= 0.0){
+      /*printf("Flux_R\n");*/
+      pFlux->d  = Fr.d;
+      pFlux->Mx = Fr.Mx;
+      pFlux->My = Fr.My;
+      pFlux->Mz = Fr.Mz;
+      pFlux->By = Fr.By;
+      pFlux->Bz = Fr.Bz;
+      pFlux->E  = Fr.E;
    }
    else{
-      /* printf("Phll\n\n"); */
-      p0 = phll;
-   }
-
-/*--- Step 5. ------------------------------------------------------------------
- * Iterate according to Mignone section 3.4 to find the correct value for 
- * total pressure
- */
-
-   /* set initial pressure */
-   pt = p0;
-   /* printf("p0: %f\n\n",pt); */
-
-   while(error > maxError){
-      /*printf("pt: %e\n",pt);
-      printf("error: %e\n",error);
-      printf("status: %d\n",status);*/
-
-      /*--- Step 5.1. ----------------------------------------------------------
-       * Solve jump conditions across the fast waves
-       */
-
-      Rl.d = spd[0]*Ul.d - Fl.d;
-      Rr.d = spd[4]*Ur.d - Fr.d;
-
-      Rl.Mx = spd[0]*Ul.Mx - Fl.Mx;
-      Rr.Mx = spd[4]*Ur.Mx - Fr.Mx;
-
-      Rl.My = spd[0]*Ul.My - Fl.My;
-      Rr.My = spd[4]*Ur.My - Fr.My;
-
-      Rl.Mz = spd[0]*Ul.Mz - Fl.Mz;
-      Rr.Mz = spd[4]*Ur.Mz - Fr.Mz;
-
-      Rl.E = spd[0]*Ul.E - Fl.E;
-      Rr.E = spd[4]*Ur.E - Fr.E;
-
-      Rl.By = spd[0]*Ul.By - Fl.By;
-      Rr.By = spd[4]*Ur.By - Fr.By;
-
-      Rl.Bz = spd[0]*Ul.Bz - Fl.Bz;
-      Rr.Bz = spd[4]*Ur.Bz - Fr.Bz;
-
-      /*** First solve for velocities using Mignone Eqs 22-30 ***/
-
-      /* left side */
-      Al = Rl.Mx - spd[0]*Rl.E + pt*(1.0 - SQR(spd[0]));
-      Gl = Rl.By*Rl.By + Rl.Bz*Rl.Bz;
-      Cl = Rl.My*Rl.By + Rl.Mz*Rl.Bz;
-      Ql = -Al - Gl + SQR(Bx)*(1.0 - SQR(spd[0]));
-      Xl = Bx*(Al*spd[0]*Bx + Cl) - (Al + Gl)*(spd[0]*pt + Rl.E);
-
-      vxl = ( Bx*(Al*Bx + spd[0]*Cl) - (Al + Gl)*(pt + Rl.Mx) ) / Xl;
-
-      tmp = Cl + Bx*(spd[0]*Rl.Mx - Rl.E);
-      vyl = ( Ql*Rl.My + Rl.By*tmp ) / Xl;
-      vzl = ( Ql*Rl.Mz + Rl.Bz*tmp ) / Xl;
-
-      /* right side */
-      Ar = Rr.Mx - spd[4]*Rr.E + pt*(1.0 - SQR(spd[4]));
-      Gr = Rr.By*Rr.By + Rr.Bz*Rr.Bz;
-      Cr = Rr.My*Rr.By + Rr.Mz*Rr.Bz;
-      Qr = -Ar - Gr + SQR(Bx)*(1.0 - SQR(spd[4]));
-      Xr = Bx*(Ar*spd[4]*Bx + Cr) - (Ar + Gr)*(spd[4]*pt + Rr.E);
       
-      vxr = ( Bx*(Ar*Bx + spd[4]*Cr) - (Ar + Gr)*(pt + Rr.Mx) ) / Xr;
-
-      tmp = Cr + Bx*(spd[4]*Rr.Mx - Rr.E);
-      vyr = ( Qr*Rr.My + Rr.By*tmp ) / Xr;
-      vzr = ( Qr*Rr.Mz + Rr.Bz*tmp ) / Xr;
-
-      /*printf("vxl: %e\n",vxl);
-        printf("vxr: %e\n",vxr); */
-
-      /*** Mignone Eq 21 ***/
-
-      /* left side */
-      ovspdMinusVxl = 1.0 / (spd[0] - vxl);
-      /* printf("spd[0]: %f\n",spd[0]);
-         printf("vxl: %f\n",vxl); */
-
-      Ual.By = (Rl.By - Bx*vyl) * ovspdMinusVxl;
-      Ual.Bz = (Rl.Bz - Bx*vzl) * ovspdMinusVxl;
-
-      /* right side */
-      ovspdMinusVxr = 1.0 / (spd[4] - vxr);
-      /* printf("spd[4]: %f\n",spd[4]);
-         printf("vxr: %f\n",vxr); */
-
-      Uar.By = (Rr.By - Bx*vyr) * ovspdMinusVxr;
-      Uar.Bz = (Rr.Bz - Bx*vzr) * ovspdMinusVxr;
-
-      /*** Mignone Eq 31 ***/
-      
-      /* left side */
-      vDotRml = vxl*Rl.Mx + vyl*Rl.My + vzl*Rl.Mz;
-      wal = pt + (Rl.E - vDotRml) * ovspdMinusVxl;
-
-      /* right side */
-      vDotRmr = vxr*Rr.Mx + vyr*Rr.My + vzr*Rr.Mz;
-      war = pt + (Rr.E - vDotRmr) * ovspdMinusVxr;
-
-      /*--- Step 5.2 -----------------------------------------------------------
-       * Comput K-vectors according to Mignone Eq 43 and Bc-vector according to
-       * Mignone Eq 45
-       */
-      
-      if(Bx > 0)
-         signBx = 1.0;
-      else
-         signBx = -1.0;
-
-      /* Mignone Eq 35 */
-      etal = -signBx * sqrt(wal);
-      etar = signBx * sqrt(war);
-
-      /* Mignone Eq 43 */
-
-      ovKldenom = 1.0 / (spd[0]*pt + Rl.E + Bx*etal);
-      ovKrdenom = 1.0 / (spd[4]*pt + Rr.E + Bx*etar);
-
-      Kxl = (Rl.Mx + pt + (Bx*spd[0])*etal) * ovKldenom;
-      Kxr = (Rr.Mx + pt + (Bx*spd[4])*etar) * ovKrdenom;
-
-      Kyl = (Rl.My + Rl.By*etal) * ovKldenom;
-      Kyr = (Rr.My + Rr.By*etar) * ovKrdenom;
-
-      Kzl = (Rl.Mz + Rl.Bz*etal) * ovKldenom;
-      Kzr = (Rr.Mz + Rr.Bz*etar) * ovKrdenom;
-
-      /* Mignone states that lamda_a = K_a^x just before Eq 37 */
-
-      spd[1] = Kxl;
-      spd[3] = Kxr;
-
-      
-      /* Mignone Eq 45 */
-
-      if(Kxl != Kxr){
-
-         spdMinVxl = spd[1] - vxl;
-         spdMinVxr = spd[3] - vxr;
-         ovs3Mns1 = 1.0 / (spd[3] - spd[1]); 
-
-         aLy = Ual.By*spdMinVxl + Bx*vyl;
-         aRy = Uar.By*spdMinVxr + Bx*vyr;
-
-         aLz = Ual.Bz*spdMinVxl + Bx*vzl;
-         aRz = Uar.Bz*spdMinVxr + Bx*vzr;
-
-         Bcy = (aRy - aLy) * ovs3Mns1;
-         Bcz = (aRz - aLz) * ovs3Mns1;
-
-         /*--- Step 5.3 -----------------------------------------------------------
-          * Use Mignone Eq 48 to find next improved total pressure value
-          */
-      
-         dKx  = Kxr - Kxl;
-
-         Klsq = SQR(Kxl) + SQR(Kyl) + SQR(Kzl);
-         Krsq = SQR(Kxr) + SQR(Kyr) + SQR(Kzr);
-
-         KldotB = (Kxl*Bx + Kyl*Bcy + Kzl*Bcz);
-         KrdotB = (Kxr*Bx + Kyr*Bcy + Kzr*Bcz);
-
-         KldotBhc = dKx * KldotB;
-         KrdotBhc = dKx * KrdotB;
-
-         /* Mignone Eq 49 */
-         Yl = (1.0 - Klsq) / (etal*dKx - KldotBhc);
-         Yr = (1.0 - Krsq) / (etar*dKx - KrdotBhc);
-
-         /*printf("dKx: %e\n",dKx);
-            printf("Yl: %e\n",Yl);
-            printf("Yr: %e\n",Yr); */
-      }
-      else{
-         break;
-      }
-
-      /* Mignone Eq 48 */
-      fp = dKx * (1.0 - Bx*(Yr - Yl));
-
-
-      /* printf("Status: %d\n",status); */
-
-      if(status == 0){ /* first loop */
-         if(fabs(fp) < maxError)
-            break;
-         fpold = fp;
-         ptold = pt;
-         pt = (1.0 + jump)*pt;
-         status = 1;
-      }
-      else if(status == 1){ /* second loop */
-
-         /* if already bounded, then procede with secant */
-         if( (fp>0 && fpold<0) || (fp<0 && fpold>0) ){
-            tmp = pt;
-            pt = pt - (pt - ptold)/(fp - fpold) * fp;
-            ptold = tmp;
-            fpold = fp;
-            error = fabs(fp);
-            status = 2;
-         }
-
-         /* if not bounded, bound the zero */
-         else{
-            slope = (fp - fpold)/(pt - ptold);
-            ptold = pt;
-            fpold = fp;
-
-            /* sign of jump */
-            if(fp*slope > 0)
-               tmp = -1.0;
-            else
-               tmp = 1.0;
-            
-            pt = (1.0 + tmp*jump)*pt;
-         }
-      }
-      else{ /* status == 2, secant method */
-         tmp = pt;
-         pt = pt - (pt - ptold)/(fp - fpold) * fp;
-         ptold = tmp;
-         fpold = fp;
-         error = fabs(fp);
-      }
-
-      /* printf("pt: %f\n",pt);
-      printf("fp: %f\n",fp);
-      printf("error: %f\n\n",error); */
-   }
-
-/*--- Step 6.-------------------------------------------------------------------
- * Now begin back subsitution and returning fluxes
- */
-
-   /* Mignone Eq 32-34 */
-
-   /* left side */
-   vDotBl = vxl*Bx + vyl*Ual.By + vzl*Ual.Bz;
-
-   Ual.d  = Rl.d * ovspdMinusVxl;
-   /*printf("Rl_D: %f\n",Rl.d);
-     printf("den: %f\n",ovspdMinusVxl);*/
-   Ual.E  = (Rl.E + pt*vxl - vDotBl*Bx) * ovspdMinusVxl;
-   Ual.Mx = (Ual.E + pt)*vxl - vDotBl*Bx;
-   Ual.My = (Ual.E + pt)*vyl - vDotBl*Ual.By;
-   Ual.Mz = (Ual.E + pt)*vzl - vDotBl*Ual.Bz;
-
-   /* right side */
-   vDotBr = vxr*Bx + vyr*Uar.By + vzr*Uar.Bz;
-      
-   Uar.d  = Rr.d * ovspdMinusVxr;
-   Uar.E  = (Rr.E + pt*vxr - vDotBr*Bx) * ovspdMinusVxr;
-   Uar.Mx = (Uar.E + pt)*vxr - vDotBr*Bx;
-   Uar.My = (Uar.E + pt)*vyr - vDotBr*Uar.By;
-   Uar.Mz = (Uar.E + pt)*vzr - vDotBr*Uar.Bz;
-
-   /* compute FaL and FaR according to Mignone Eq 16.5;
-      Note, the equation as listed in paper is slightly
-      incorrect.  lamda term should not have subscript */
-
-   /* FaL */
-
-   Fal.d  = Fl.d  + spd[0]*(Ual.d  - Ul.d );
-   Fal.Mx = Fl.Mx + spd[0]*(Ual.Mx - Ul.Mx);
-   Fal.My = Fl.My + spd[0]*(Ual.My - Ul.My);
-   Fal.Mz = Fl.Mz + spd[0]*(Ual.Mz - Ul.Mz);
-   Fal.E  = Fl.E  + spd[0]*(Ual.E  - Ul.E );
-   Fal.By = Fl.By + spd[0]*(Ual.By - Ul.By);
-   Fal.Bz = Fl.Bz + spd[0]*(Ual.Bz - Ul.Bz);
-
-   /* FaR */
-
-   Far.d  = Fr.d  + spd[4]*(Uar.d  - Ur.d );
-   Far.Mx = Fr.Mx + spd[4]*(Uar.Mx - Ur.Mx);
-   Far.My = Fr.My + spd[4]*(Uar.My - Ur.My);
-   Far.Mz = Fr.Mz + spd[4]*(Uar.Mz - Ur.Mz);
-   Far.E  = Fr.E  + spd[4]*(Uar.E  - Ur.E );
-   Far.By = Fr.By + spd[4]*(Uar.By - Ur.By);
-   Far.Bz = Fr.Bz + spd[4]*(Uar.Bz - Ur.Bz);
-
-
-   /* now compute velocities in Mignone Eq 47 */
-
-   mKlsq = 1.0 - Klsq;
-   mKrsq = 1.0 - Krsq;
-
-   ovEtalmKdB = 1.0 / (etal - KldotB);
-   ovEtarmKdB = 1.0 / (etar - KrdotB);
-
-   vxcl = Kxl - Bx * mKlsq * ovEtalmKdB;
-   vycl = Kyl - Bcy * mKlsq * ovEtalmKdB;
-   vzcl = Kzl - Bcz * mKlsq * ovEtalmKdB;
-
-   vxcr = Kxr - Bx * mKrsq * ovEtarmKdB;
-   vycr = Kxr - Bcy * mKrsq * ovEtarmKdB;
-   vzcr = Kxr - Bcz * mKrsq * ovEtarmKdB;
-
-   /*printf("Klsq: %f\n",Klsq);
-   printf("Krsq: %f\n",Krsq);
-   printf("Eta_L: %f\n",etal);
-   printf("Eta_R: %f\n",etar);
-   printf("KldotB: %f\n",KldotB);
-   printf("KrdotB: %f\n\n",KrdotB);
-
-   printf("Kxl: %f\n",Kxl);
-   printf("Kxr: %f\n",Kxr);
-   printf("Kyl: %f\n",Kyl);
-   printf("Kyr: %f\n",Kyr);
-   printf("Kzl: %f\n",Kzl);
-   printf("Kzr: %f\n\n",Kzr);*/
-
-   /*printf("Bx: %f\n",Bx);
-   printf("Bcy: %f\n",Bcy);
-   printf("Bcz: %f\n\n",Bcz);*/
-
-   /*printf("vxcl: %e\n",vxcl);
-   printf("vxcr: %e\n",vxcr);
-   printf("vycl: %e\n",vycl);
-   printf("vycr: %e\n",vycr);
-   printf("vzcl: %e\n",vzcl);
-   printf("vzcr: %e\n\n",vzcr);*/
-
-   /* now compute UcL and UcR according to Mignone Eqs 50-52 */
-
-   Ucl.By = Bcy;
-   Ucr.By = Bcy;
-
-   Ucl.Bz = Bcz;
-   Ucr.Bz = Bcz;
-
-   ovldalMvxcl = 1.0 / (spd[1] - vxcl);
-   ovldarMvxcr = 1.0 / (spd[3] - vxcr);
-
-   Ucl.d = Ual.d * (spd[1] - vxl) * ovldalMvxcl;
-   Ucr.d = Uar.d * (spd[3] - vxr) * ovldarMvxcr;
-
-   vclDotBc = vxcl*Bx + vycl*Ucl.By + vzcl*Ucl.Bz;
-   vcrDotBc = vxcr*Bx + vycr*Ucr.By + vzcr*Ucr.Bz;
-
-   Ucl.E = (spd[1]*Ual.E - Ual.Mx + pt*vxcl - vclDotBc*Bx) * ovldalMvxcl;
-   Ucr.E = (spd[3]*Uar.E - Uar.Mx + pt*vxcr - vcrDotBc*Bx) * ovldarMvxcr;
-
-   eclPpt = Ucl.E + pt;
-   ecrPpt = Ucr.E + pt;
-
-   Ucl.Mx = eclPpt*vxcl - vclDotBc*Bx;
-   Ucr.Mx = ecrPpt*vxcr - vcrDotBc*Bx;
-
-   Ucl.My = eclPpt*vycl - vclDotBc*Ucl.By;
-   Ucr.My = ecrPpt*vycr - vcrDotBc*Ucr.By;
-
-   Ucl.Mz = eclPpt*vzcl - vclDotBc*Ucl.Bz;
-   Ucr.Mz = ecrPpt*vzcr - vcrDotBc*Ucr.Bz;
-
-   /* Now use Mignone equation 47 to solve for lamda_c = Vx */
-
-   spd[2] = (vxcl+vxcr)*0.5;
-
-   /* printf("pt: %f\n",pt); */
-   for(i=0; i<5; i++)
-      printf("spd[%d]: %e\n",i,spd[i]);
-   printf("\n");
-
-   /* Check for consistancy according to Mignone Eq 54;
-      If inconsistant, use HLL flux */
-
-   if( (wl - pt <= 0) || (wr - pt <= 0) || 
-       (vxcl - Kxl <= -1.e-6) || (Kxr - vxcr <= -1.e-6) ||
-       (spd[1] - vxl >= 0.0) || (spd[3] - vxr <= 0.0) ||
-       (spd[1] - spd[0] <= -1.e-6) || (spd[4] - spd[3] <= -1.e-6)){
-      
-      printf("Flux_HLL\n");
+      /* Compute HLL average state */
+
+      dS_1 = 1.0/(Sr - Sl);
+
+      Uhll.d  = (Sr*Ur.d  - Sl*Ul.d  + Fl.d  - Fr.d ) * dS_1;
+      Uhll.Mx = (Sr*Ur.Mx - Sl*Ul.Mx + Fl.Mx - Fr.Mx) * dS_1;
+      Uhll.My = (Sr*Ur.My - Sl*Ul.My + Fl.My - Fr.My) * dS_1;
+      Uhll.Mz = (Sr*Ur.Mz - Sl*Ul.Mz + Fl.Mz - Fr.Mz) * dS_1;
+      Uhll.By = (Sr*Ur.By - Sl*Ul.By + Fl.By - Fr.By) * dS_1;
+      Uhll.Bz = (Sr*Ur.Bz - Sl*Ul.Bz + Fl.Bz - Fr.Bz) * dS_1;
+      Uhll.E  = (Sr*Ur.E  - Sl*Ul.E  + Fl.E  - Fr.E ) * dS_1;
+
+      Fhll.d  = (Sr*Fl.d  - Sl*Fr.d  + Sl*Sr*(Ur.d  - Ul.d )) * dS_1;
+      Fhll.Mx = (Sr*Fl.Mx - Sl*Fr.Mx + Sl*Sr*(Ur.Mx - Ul.Mx)) * dS_1;
+      Fhll.My = (Sr*Fl.My - Sl*Fr.My + Sl*Sr*(Ur.My - Ul.My)) * dS_1;
+      Fhll.Mz = (Sr*Fl.Mz - Sl*Fr.Mz + Sl*Sr*(Ur.Mz - Ul.Mz)) * dS_1;
+      Fhll.By = (Sr*Fl.By - Sl*Fr.By + Sl*Sr*(Ur.By - Ul.By)) * dS_1;
+      Fhll.Bz = (Sr*Fl.Bz - Sl*Fr.Bz + Sl*Sr*(Ur.Bz - Ul.Bz)) * dS_1;
+      Fhll.E  = (Sr*Fl.E  - Sl*Fr.E  + Sl*Sr*(Ur.E  - Ul.E )) * dS_1;
 
       pFlux->d = Fhll.d;
       pFlux->Mx = Fhll.Mx;
       pFlux->My = Fhll.My;
       pFlux->Mz = Fhll.Mz;
-      pFlux->E = Fhll.E;
       pFlux->By = Fhll.By;
       pFlux->Bz = Fhll.Bz;
+      pFlux->E = Fhll.E;
 
       return;
-   }
 
-   if(spd[1] >= -1.0e-6){ /* aL flux */
+      /* set up some variables */
 
-      printf("Flux_aL\n");
+      PaL.S = Sl;
+      PaR.S = Sr;
 
-      /*printf("Ual\n");
-        printCons1D(&Ual);*/
+      PaL.R.d  = Sl*Ul.d  - Fl.d;
+      PaL.R.Mx = Sl*Ul.Mx - Fl.Mx;
+      PaL.R.My = Sl*Ul.My - Fl.My;
+      PaL.R.Mz = Sl*Ul.Mz - Fl.Mz;
+      PaL.R.By = Sl*Ul.By - Fl.By;
+      PaL.R.Bz = Sl*Ul.Bz - Fl.Bz;
+      PaL.R.E  = Sl*Ul.E  - Fl.E;
 
-      pFlux->d = Fal.d;
-      pFlux->Mx = Fal.Mx;
-      pFlux->My = Fal.My;
-      pFlux->Mz = Fal.Mz;
-      pFlux->E = Fal.E;
-      pFlux->By = Fal.By;
-      pFlux->Bz = Fal.Bz;
+      PaR.R.d  = Sr*Ur.d  - Fr.d;
+      PaR.R.Mx = Sr*Ur.Mx - Fr.Mx;
+      PaR.R.My = Sr*Ur.My - Fr.My;
+      PaR.R.Mz = Sr*Ur.Mz - Fr.Mz;
+      PaR.R.By = Sr*Ur.By - Fr.By;
+      PaR.R.Bz = Sr*Ur.Bz - Fr.Bz;
+      PaR.R.E  = Sr*Ur.E  - Fr.E;
 
-      return;
-   }
-   else if(spd[3] <= 1.0e-6){ /* aR flux */
-
-      printf("Flux_aR\n");
-      
-      pFlux->d = Far.d;
-      pFlux->Mx = Far.Mx;
-      pFlux->My = Far.My;
-      pFlux->Mz = Far.Mz;
-      pFlux->E = Far.E;
-      pFlux->By = Far.By;
-      pFlux->Bz = Far.Bz;
-      
-      return;
-   }
-   else{
-      if(spd[2] > 0.0){ /* cL flux */
-
-         printf("Flux_cL\n");
-
-         pFlux->d  = Fal.d  + spd[2]*(Ucl.d  - Ual.d );
-         pFlux->Mx = Fal.Mx + spd[2]*(Ucl.Mx - Ual.Mx);
-         pFlux->My = Fal.My + spd[2]*(Ucl.My - Ual.My);
-         pFlux->Mz = Fal.Mz + spd[2]*(Ucl.Mz - Ual.Mz);
-         pFlux->E  = Fal.E  + spd[2]*(Ucl.E  - Ual.E );
-         pFlux->By = Fal.By + spd[2]*(Ucl.By - Ual.By);
-         pFlux->Bz = Fal.Bz + spd[2]*(Ucl.Bz - Ual.Bz);
+      scrh = MAX(Pl,Pr);
+      if(SQR(Bx)/scrh < 0.01){ /* -- try the B->0 limit */
          
+         a = Sr - Sl;
+         b = PaR.R.E - PaL.R.E + Sr*PaL.R.Mx - Sl*PaR.R.Mx;
+         c = PaL.R.Mx*PaR.R.E - PaR.R.Mx*PaL.R.E;
+         scrh = b*b - 4.0*a*c;
+         scrh = MAX(scrh, 0.0);
+         p0 = 0.5*(-b + sqrt(scrh))*dS_1;
+
+      }
+      else{
+         Whll.d  = 0.5*(Wl.d  + Wr.d );
+         Whll.Vx = 0.5*(Wl.Vx + Wr.Vx);
+         Whll.Vy = 0.5*(Wl.Vy + Wr.Vy);
+         Whll.Vz = 0.5*(Wl.Vz + Wr.Vz);
+         Whll.By = 0.5*(Wl.By + Wr.By);
+         Whll.Bz = 0.5*(Wl.Bz + Wr.Bz);
+         Whll.P  = 0.5*(Wl.P  + Wr.P );
+         Cons1D_to_Prim1D((const Cons1D*)(&Uhll),(Prim1D*)(&Whll),
+                          (const Real*)(&Bx));
+         p0 = ptot(Whll,Bx);
+      }
+
+      /* -- check if guess makes sense */
+
+      switch_to_hll = 0;
+      f0 = Fstar(&PaL, &PaR, &Sc, p0, Bx);
+      if(f0 != f0 || PaL.fail) switch_to_hll = 1;
+
+      /* -- Root finder -- */
+
+      k = 0;
+      if (fabs(f0) > 1.e-12 && !switch_to_hll){
+         p = 1.025*p0; f = f0;
+         for(k = 1; k < MAX_ITER; k++){
+            
+            f = Fstar(&PaL, &PaR, &Sc, p, Bx);
+            if ( f != f || PaL.fail || (k > 9) ||
+                (fabs(f) > fabs(f0) && k > 4) ) {
+               switch_to_hll = 1;
+               break;
+            }
+
+            dp = (p - p0)/(f - f0)*f;
+
+            p0 = p; f0 = f;
+            p -= dp;
+            if (p < 0.0) p = 1.e-6;
+            if (fabs(dp) < 1.e-6*p || fabs(f) < 1.e-6) break;
+         }
+      }else p = p0;
+
+      /* too many iter? --> use HLL */
+
+      if(PaL.fail) switch_to_hll = 1;
+      if(switch_to_hll || 1){
+         
+         printf("Flux_HLL\n");
+
+         pFlux->d  = Fhll.d;
+         pFlux->Mx = Fhll.Mx;
+         pFlux->My = Fhll.My;
+         pFlux->Mz = Fhll.Mz;
+         pFlux->By = Fhll.By;
+         pFlux->Bz = Fhll.Bz;
+         pFlux->E  = Fhll.E;
+
          return;
       }
-      else{ /* cR flux */
 
-         printf("Flux_cR\n");
+      /* solution should be reliable */
 
-         pFlux->d  = Far.d  + spd[2]*(Ucr.d  - Uar.d );
-         pFlux->Mx = Far.Mx + spd[2]*(Ucr.Mx - Uar.Mx);
-         pFlux->My = Far.My + spd[2]*(Ucr.My - Uar.My);
-         pFlux->Mz = Far.Mz + spd[2]*(Ucr.Mz - Uar.Mz);
-         pFlux->E  = Far.E  + spd[2]*(Ucr.E  - Uar.E );
-         pFlux->By = Far.By + spd[2]*(Ucr.By - Uar.By);
-         pFlux->Bz = Far.Bz + spd[2]*(Ucr.Bz - Uar.Bz);
+      if(PaL.Sa >= -1.e-6){
+         get_astate(&PaL, p, Bx);
 
-         return;
+         printf("Flux_aL\n");
+         
+         pFlux->d  = Fl.d  + Sl*(PaL.U.d  - Ul.d );
+         pFlux->Mx = Fl.Mx + Sl*(PaL.U.Mx - Ul.Mx);
+         pFlux->My = Fl.My + Sl*(PaL.U.My - Ul.My);
+         pFlux->Mz = Fl.Mz + Sl*(PaL.U.Mz - Ul.Mz);
+         pFlux->By = Fl.By + Sl*(PaL.U.By - Ul.By);
+         pFlux->Bz = Fl.Bz + Sl*(PaL.U.Bz - Ul.Bz);
+         pFlux->E  = Fl.E  + Sl*(PaL.U.E  - Ul.E );
       }
-   }
+      else if(PaR.Sa <= 1.e-6){
+         get_astate(&PaR, p, Bx);
+
+         printf("Flux_aR\n");
+
+         pFlux->d  = Fr.d  + Sr*(PaR.U.d  - Ur.d );
+         pFlux->Mx = Fr.Mx + Sr*(PaR.U.Mx - Ur.Mx);
+         pFlux->My = Fr.My + Sr*(PaR.U.My - Ur.My);
+         pFlux->Mz = Fr.Mz + Sr*(PaR.U.Mz - Ur.Mz);
+         pFlux->By = Fr.By + Sr*(PaR.U.By - Ur.By);
+         pFlux->Bz = Fr.Bz + Sr*(PaR.U.Bz - Ur.Bz);
+         pFlux->E  = Fr.E  + Sr*(PaR.U.E  - Ur.E );
+      }
+      else{
+         get_cstate(&PaL,&PaR,&Uc,p,Bx);
+         if(Sc > 0.0){
+            printf("Flux_cL\n");
+            
+            pFlux->d  = Fl.d  + Sl*(PaL.U.d  - Ul.d )
+                              + PaL.Sa*(Uc.d  - PaL.U.d );
+            pFlux->Mx = Fl.Mx + Sl*(PaL.U.Mx - Ul.Mx)
+                              + PaL.Sa*(Uc.Mx - PaL.U.Mx);
+            pFlux->My = Fl.My + Sl*(PaL.U.My - Ul.My)
+                              + PaL.Sa*(Uc.My - PaL.U.My);
+            pFlux->Mz = Fl.Mz + Sl*(PaL.U.Mz - Ul.Mz)
+                              + PaL.Sa*(Uc.Mz - PaL.U.Mz);
+            pFlux->By = Fl.By + Sl*(PaL.U.By - Ul.By)
+                              + PaL.Sa*(Uc.By - PaL.U.By);
+            pFlux->Bz = Fl.Bz + Sl*(PaL.U.Bz - Ul.Bz)
+                              + PaL.Sa*(Uc.Bz - PaL.U.Bz);
+            pFlux->By = Fl.E  + Sl*(PaL.U.E  - Ul.E )
+                              + PaL.Sa*(Uc.E  - PaL.U.E );
+         }
+         else{
+            printf("Flux_cR\n");
+
+            pFlux->d  = Fr.d  + Sr*(PaR.U.d  - Ur.d )
+                              + PaR.Sa*(Uc.d  - PaR.U.d );
+            pFlux->Mx = Fr.Mx + Sr*(PaR.U.Mx - Ur.Mx)
+                              + PaR.Sa*(Uc.Mx - PaR.U.Mx);
+            pFlux->My = Fr.My + Sr*(PaR.U.My - Ur.My)
+                              + PaR.Sa*(Uc.My - PaR.U.My);
+            pFlux->Mz = Fr.Mz + Sr*(PaR.U.Mz - Ur.Mz)
+                              + PaR.Sa*(Uc.Mz - PaR.U.Mz);
+            pFlux->By = Fr.By + Sr*(PaR.U.By - Ur.By)
+                              + PaR.Sa*(Uc.By - PaR.U.By);
+            pFlux->Bz = Fr.Bz + Sr*(PaR.U.Bz - Ur.Bz)
+                              + PaR.Sa*(Uc.Bz - PaR.U.Bz);
+            pFlux->By = Fr.E  + Sr*(PaR.U.E  - Ur.E )
+                              + PaR.Sa*(Uc.E  - PaR.U.E );
+         }
+      }
+
+   } /* end if for sL,sR */
+
 }
 
-/* Use Mignone(2005) */
+void flux_LR(Cons1D U, Prim1D W, Cons1D *flux, Real Bx, Real* p){
+   Real vB, b2, wtg2, Bmag2, pt;
+   Real g, g2, g_2, h, gmmr, theta;
+   Real bx, by, bz;
+
+   /* calculate enthalpy */
+
+   theta = W.P/W.d;
+   gmmr = Gamma / Gamma_1;
+
+   h = 1.0 + gmmr*theta;
+
+   /* calculate gamma */
+
+   g   = U.d/W.d;
+   g2  = SQR(g);
+   g_2 = 1.0/g2;
+
+   vB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
+   Bmag2 = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
+
+   bx = g*(  Bx*g_2 + vB*W.Vx);
+   by = g*(W.By*g_2 + vB*W.Vy);
+   bz = g*(W.Bz*g_2 + vB*W.Vz);
+
+   b2 = Bmag2*g_2 + vB*vB;
+
+   pt = W.P + 0.5*b2;
+
+   wtg2 = (W.d*h + b2)*g2;
+
+   flux->d  = U.d*W.Vx;
+   flux->Mx = wtg2*W.Vx*W.Vx - bx*bx + pt;
+   flux->My = wtg2*W.Vy*W.Vx - by*bx;
+   flux->Mz = wtg2*W.Vz*W.Vx - bz*bx;
+   flux->By = W.Vx*W.By - Bx*W.Vy;
+   flux->Bz = W.Vx*W.Bz - Bx*W.Vz;
+   flux->E  = U.Mx;
+
+   *p = pt;
+}
+
+Real Fstar(Riemann_State *PaL, Riemann_State *PaR, Real* Sc, Real p, Real Bx){
+   int success = 1;
+   Real dK, Bxc, Byc, Bzc;
+   Real sBx, fun;
+   Real vxcL, KLBc;
+   Real vxcR, KRBc;
+
+   sBx = Bx > 0.0 ? 1.0 : -1.0;
+
+   success *= get_Riemann_State(PaL, p, Bx);
+   success *= get_Riemann_State(PaR, p, Bx);
+
+   /* comptue B from average state */
+   
+   dK = PaR->Kx - PaL->Kx + 1.e-12;
+
+   Bxc = Bx*dK;
+   Byc =   PaR->By*(PaR->Kx - PaR->vx)
+         - PaL->By*(PaL->Kx - PaL->vx)
+         + Bx*(PaR->vy - PaL->vy);
+   Bzc =   PaR->Bz*(PaR->Kx - PaR->vx)
+         - PaL->Bz*(PaL->Kx - PaL->vx)
+         + Bx*(PaR->vz - PaL->vz);
+
+   KLBc = PaL->Kx*Bxc + PaL->Ky*Byc + PaL->Kz*Bzc;
+   KRBc = PaR->Kx*Bxc + PaR->Ky*Byc + PaR->Kz*Bzc;
+
+   vxcL = PaL->Kx - dK*Bx*(1.0 - PaL->K2)/(PaL->sw*dK - KLBc);
+   vxcR = PaR->Kx - dK*Bx*(1.0 - PaR->K2)/(PaR->sw*dK - KRBc);
+
+   PaL->Sa = PaL->Kx;
+   PaR->Sa = PaR->Kx;
+   *Sc      = 0.5*(vxcL + vxcR);
+   fun     = vxcL - vxcR;
+
+   /* check if state makes physical sense */
+
+   success *= (vxcL - PaL->Kx) > -1.e-6;
+   success *= (PaR->Kx - vxcR) > -1.e-6;
+
+   success *= (PaL->S - PaL->vx) < 0.0;
+   success *= (PaR->S - PaR->vx) > 0.0;
+   
+   success *= (PaR->w - p) > 0.0;
+   success *= (PaL->w - p) > 0.0;
+   success *= (PaL->Sa - PaL->S) > -1.e-6;
+   success *= (PaR->S  - PaR->Sa) > -1.e-6;
+
+   PaL->fail = !success;
+
+   return fun;
+}
+
+int get_Riemann_State(Riemann_State *Pv, Real p, Real Bx){
+   Real A, C, G, X, s;
+   Real vx, vy, vz, scrh, S;
+   Cons1D R;
+
+   S = Pv->S;
+   R = Pv->R;
+
+   A = R.Mx + p*(1.0 - S*S) - S*R.E;
+   C = R.By*R.My + R.Bz*R.Mz;
+   G = SQR(R.By) + SQR(R.Bz);
+   X = Bx*(A*S*Bx + C) - (A + G)*(S*p + R.E);
+
+   vx = ( Bx*(A*Bx + C*S) - (R.Mx + p)*(G + A) );
+   vy = ( - (A + G - Bx*Bx*(1.0 - S*S))*R.My + R.By*(C + Bx*(S*R.Mx - R.E)) );
+   vz = ( - (A + G - Bx*Bx*(1.0 - S*S))*R.Mz + R.Bz*(C + Bx*(S*R.Mx - R.E)) );
+
+   scrh = vx*R.Mx + vy*R.My + vz*R.Mz;
+   scrh = X*R.E - scrh;
+   Pv->w = p + scrh/(X*S - vx);
+
+   Pv->vx = vx/X;
+   Pv->vy = vy/X;
+   Pv->vz = vz/X;
+
+   Pv->Bx = Bx;
+   Pv->By = -(R.By*(S*p + R.E) - Bx*R.My)/A;
+   Pv->Bz = -(R.Bz*(S*p + R.E) - Bx*R.Mz)/A;
+
+   s = Bx > 0.0 ? 1.0 : -1.0;
+   if(S < 0.0) s *= -1.0;
+   
+   if(Pv->w < 0.0){
+      return (0); /* -- failure -- */
+   }
+
+   Pv->sw = s*sqrt(Pv->w);
+
+   scrh = 1.0/(S*p + R.E + Bx*Pv->sw);
+   Pv->Kx = scrh*(R.Mx + p +   Bx*Pv->sw);
+   Pv->Ky = scrh*(R.My     + R.By*Pv->sw);
+   Pv->Kz = scrh*(R.Mz     + R.Bz*Pv->sw);
+
+   Pv->K2 = SQR(Pv->Kx) + SQR(Pv->Ky) + SQR(Pv->Kz);
+   return (1); /* -- successful -- */
+}
+
+void get_astate(Riemann_State *Pa, Real p, Real Bx){
+   Cons1D *Ua,*R;
+   Real vB,S;
+
+   Ua = &(Pa->U);
+   S  = Pa->S;
+   R  = &(Pa->R);
+
+   Ua->d  = R->d/(S - Pa->vx);
+   Ua->By = (R->By - Bx*Pa->vy)/(S - Pa->vx);
+   Ua->Bz = (R->Bz - Bx*Pa->vz)/(S - Pa->vx);
+
+   vB    = Pa->vx*Bx + Pa->vy*Ua->By + Pa->vz*Ua->Bz;
+   Ua->E = (R->E + p*Pa->vx - vB*Bx)/(S - Pa->vx);
+
+   Ua->Mx = (Ua->E + p)*Pa->vx - vB*Bx;
+   Ua->My = (Ua->E + p)*Pa->vy - vB*Ua->By;
+   Ua->Mz = (Ua->E + p)*Pa->vz - vB*Ua->Bz;
+   
+}
+
+void get_cstate(Riemann_State *PaL, Riemann_State *PaR, Cons1D* Uc, Real p, Real Bx){
+   Cons1D* Ua;
+   Real dK;
+   Real vxcL, vycL, vzcL, KLBc;
+   Real vxcR, vycR, vzcR, KRBc;
+   Real vxc, vyc, vzc, vBc;
+   Real Bxc, Byc, Bzc, Sa, vxa;
+
+   get_astate(PaL,p,Bx);
+   get_astate(PaR,p,Bx);
+   dK = (PaR->Kx - PaL->Kx) + 1.e-12;
+
+   Bxc = Bx*dK;
+   Byc =   PaR->By*(PaR->Kx - PaR->vx)
+         - PaL->By*(PaL->Kx - PaL->vx)
+         + Bx*(PaR->vy - PaL->vy);
+   Bzc =   PaR->Bz*(PaR->Kx - PaR->vx)
+         - PaL->Bz*(PaL->Kx - PaL->vx)
+         + Bx*(PaR->vz - PaL->vz);
+
+   Bxc = Bx;
+   Byc /= dK;
+   Bzc /= dK;
+
+   Uc->By = Byc;
+   Uc->Bz = Bzc;
+
+   KLBc = PaL->Kx*Bxc + PaL->Ky*Byc + PaL->Kz*Bzc;
+   KRBc = PaR->Kx*Bxc + PaR->Ky*Byc + PaR->Kz*Bzc;
+
+   vxcL = PaL->Kx -     Bx*(1.0 - PaL->K2)/(PaL->sw - KLBc);
+   vxcR = PaR->Kx -     Bx*(1.0 - PaR->K2)/(PaR->sw - KRBc);
+
+   vycL = PaL->Ky - Uc->By*(1.0 - PaL->K2)/(PaL->sw - KLBc);
+   vycR = PaR->Ky - Uc->By*(1.0 - PaR->K2)/(PaR->sw - KRBc);
+
+   vzcL = PaL->Kz - Uc->Bz*(1.0 - PaL->K2)/(PaL->sw - KLBc);
+   vzcR = PaR->Kz - Uc->Bz*(1.0 - PaR->K2)/(PaR->sw - KRBc);
+
+   vxc = 0.5*(vxcL + vxcR);
+   vyc = 0.5*(vycL + vycR);
+   vzc = 0.5*(vzcL + vzcR);
+
+   if (vxc > 0.0){
+      get_astate(PaL, p, Bx);
+      Ua = &(PaL->U);
+      Sa = PaL->Sa;
+      vxa = PaL->vx;
+   }
+   else{
+      get_astate(PaR, p, Bx);
+      Ua = &(PaL->U);
+      Sa = PaR->Sa;
+      vxa = PaR->vx;
+   }
+
+   vBc = vxc*Bx + vyc*Uc->By + vzc*Uc->Bz;
+
+   Uc->d = Ua->d*(Sa - vxa)/(Sa - vxc);
+   Uc->E = (Sa*Ua->E - Ua->Mx + p*vxc - vBc*Bx)/(Sa - vxc);
+
+   Uc->Mx = (Uc->E + p)*vxc - vBc*Bx;
+   Uc->My = (Uc->E + p)*vyc - vBc*Uc->By;
+   Uc->Mz = (Uc->E + p)*vzc - vBc*Uc->Bz;
+   
+}
+
+Real ptot(Prim1D W, Real Bx){
+   Real vel2, Bmag2, vB;
+   double pt;
+
+   vel2  = SQR(W.Vx) + SQR(W.Vy) + SQR(W.Vz);
+   Bmag2 = SQR(Bx)   + SQR(W.By) + SQR(W.Bz);
+   vB    = W.Vx*Bx   + W.Vy*W.By + W.Vz*W.Bz;
+
+   pt = W.P + 0.5*(Bmag2*(1.0 - vel2) + vB*vB);
+   return (pt);
+}
+
 void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
                         const Real Bx, const Real error,
                         Real* low, Real* high){
@@ -836,6 +607,13 @@ void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
 
    int nl,nr;
    int i;
+
+   /*printf("SPEED: Wl\n");
+   printPrim1D(&Wl);
+   printf("SPEED: Wr\n");
+   printPrim1D(&Wr);*/
+
+   /*printf("Bx: %f\n",Bx);*/
 
 
    rhohl = Wl.d + (Gamma/Gamma_1) * (Wl.P);
@@ -873,7 +651,7 @@ void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
    bxr = Bx/gammar2 + Wr.Vx*vDotBr; 
 
    blsq = Blsq / gammal2 + SQR(vDotBl);
-   blsq = Brsq / gammar2 + SQR(vDotBr);
+   brsq = Brsq / gammar2 + SQR(vDotBr);
 
    if( fabs(Bx) < error ){
 
@@ -948,8 +726,16 @@ void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
       ar[0] = SQR(bxr)*csrsq - gammar2*SQR(Wr.Vx)*(brsq + csrsq*rhohr) + 
          csrsq_1*rhohr*gammar4*SQR(Wr.Vx)*SQR(Wr.Vx);
 
+/*      for(i=0; i<5; i++)
+         printf("al[%d]: %f\n",i,al[i]);
+      for(i=0; i<5; i++)
+      printf("ar[%d]: %f\n",i,ar[i]);*/
+
       nl = solveQuartic(al,rl,1.0e-10);
       nr = solveQuartic(ar,rr,1.0e-10);
+
+      /*printf("nl: %d\n",nl);
+        printf("nr: %d\n",nr);*/
 
       if(nl == 0){
          lml = -1.0;
@@ -1074,9 +860,25 @@ int solveQuartic(double* a, double* root, double error){
       root[1] = -a3/4.0 + R/2.0 - D/2.0;
       nRoots += 2;
    }
+
+   /* incorrect but approximately right for situation */
+   else{
+      D = 0;
+      root[0] = -a3/4.0 + R/2.0 + D/2.0;
+      root[1] = -a3/4.0 + R/2.0 - D/2.0;
+      nRoots += 2;
+   }
    
    if(eSq >= 0){
       E = sqrt(eSq);
+      root[nRoots] = -a3/4.0 - R/2.0 + E/2.0;
+      root[nRoots+1] = -a3/4.0 - R/2.0 - E/2.0;
+      nRoots += 2;
+   }
+
+   /* incorrect but approximately right for situation */
+   else{
+      E = 0;
       root[nRoots] = -a3/4.0 - R/2.0 + E/2.0;
       root[nRoots+1] = -a3/4.0 - R/2.0 - E/2.0;
       nRoots += 2;
@@ -1132,5 +934,7 @@ int solveCubic(double* a, double* root){
    }
 }
 
-#endif /* HLLD_FLUX */
-#endif /* SPECIAL_RELATIVITY */
+#undef MAX_ITER
+
+#endif
+#endif
