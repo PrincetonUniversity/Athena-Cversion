@@ -16,6 +16,7 @@ CORE_OBJ = esystem_roe.o\
 	   hllc.o \
 	   hlld.o \
 	   hllc_sr.o \
+	   hlle_sr.o \
 	   hlld_sr.o \
 	   hlle.o \
 	   roe.o \

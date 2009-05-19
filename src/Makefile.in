@@ -100,6 +100,7 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/hllc.o \
 	       rsolvers/hlld.o \
 	       rsolvers/hllc_sr.o \
+	       rsolvers/hlle_sr.o \
 	       rsolvers/hlld_sr.o \
 	       rsolvers/hlle.o \
 	       rsolvers/roe.o \
