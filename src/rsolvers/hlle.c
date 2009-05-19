@@ -36,6 +36,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
+#ifndef SPECIAL_RELATIVITY
 #ifdef HLLE_FLUX
 #define HLLE_FUNCTION fluxes
 #endif
@@ -244,3 +245,4 @@ void HLLE_FUNCTION(const Cons1D Ul, const Cons1D Ur,
   return;
 }
 #endif /* HLLE_FLUX */
+#endif
