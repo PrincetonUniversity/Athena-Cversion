@@ -345,7 +345,7 @@ static void calc_Function(Real Bsq, Real Msq, Real MdotB, Real MdotBsq, Real E,
   J11 = -2.0 * BsqplusW * (vsq + MdotBsq / Wcu);
   J12 = - BsqplusWqsq; 
   J21 = -1.0 + dPdW - MdotBsq / Wcu; 
-  J22 = -0.5 * Bsq - dPdvsq;
+  J22 = -0.5 * Bsq + dPdvsq;
 
   detinv = 1.0 / (J11 * J22 - J12 * J21);
 
