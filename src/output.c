@@ -118,6 +118,9 @@ extern float ***M3par;
  *============================================================================*/
 
 Real expr_d    (const Grid *pG, const int i, const int j, const int k);
+#ifdef SPECIAL_RELATIVITY
+Real expr_d0 (const Grid *pG, const int i, const int j, const int k);
+#endif
 Real expr_M1 (const Grid *pG, const int i, const int j, const int k);
 Real expr_M2 (const Grid *pG, const int i, const int j, const int k);
 Real expr_M3 (const Grid *pG, const int i, const int j, const int k);
@@ -890,6 +893,11 @@ float *subset1(Grid *pgrid, Output *pout)
 Real expr_d(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].d;
 }
+#ifdef SPECIAL_RELATIVITY
+Real expr_d0(const Grid *pG, const int i, const int j, const int k){
+   return pG->W[k][j][i].d;
+}
+#endif
 Real expr_M1(const Grid *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1;
 }
@@ -939,6 +947,9 @@ Real expr_V3(const Grid *pG, const int i, const int j, const int k) {
 }
 
 Real expr_P(const Grid *pG, const int i, const int j, const int k) {
+#ifdef SPECIAL_RELATIVITY
+   return pG->W[k][j][i].P;
+#endif
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
 #elif defined ADIABATIC
@@ -1018,6 +1029,8 @@ static Gasfun_t getexpr(const int n, const char *expr)
 
   if (strcmp(expr,"d")==0)
     return expr_d;
+  else if (strcmp(expr,"d0")==0)
+     return expr_d0;
   else if (strcmp(expr,"M1")==0)
     return expr_M1;
   else if (strcmp(expr,"M2")==0)
