@@ -677,8 +677,9 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pG->U[ks][j][is-i] = pG->U[ks][j][ie-(i-1)];
-
+#ifndef FARGO
         pG->U[ks][j][is-i].M3 += TH_omL*pG->U[ks][j][is-i].d;
+#endif
 #ifdef ADIABATIC
 /* No change in the internal energy */
         pG->U[ks][j][is-i].E += (0.5/pG->U[ks][j][is-i].d)*
@@ -829,7 +830,7 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
       for (n=0; n<(NSCALARS); n++) {
         for (j=js-nghost; j<=je+nghost; j++) U[j] = GhstZns[k][i][j].s[n];
-        RemapFlux(U,epsi,js,je+1,Flx);
+        RemapFlux(U,epso,js,je+1,Flx);
         for(j=js; j<=je; j++){
           GhstZnsBuf[k][i][j].s[n] = GhstZns[k][i][j].s[n] - (Flx[j+1]-Flx[j]);
         }
@@ -1297,7 +1298,9 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pG->U[ks][j][ie+i] = pG->U[ks][j][is+(i-1)];
-        pG->U[ks][j][ie+i].M3 -= 1.5*Omega*Lx*pG->U[ks][j][ie+i].d;
+#ifndef FARGO
+        pG->U[ks][j][ie+i].M3 -= TH_omL*pG->U[ks][j][ie+i].d;
+#endif
 #ifdef ADIABATIC
 /* No change in the internal energy */
         pG->U[ks][j][ie+i].E += (0.5/pG->U[ks][j][ie+i].d)*

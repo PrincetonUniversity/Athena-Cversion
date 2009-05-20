@@ -432,10 +432,10 @@ int main(int argc, char *argv[])
 #ifdef FEEDBACK
     feedback_predictor(&level0_Grid);
 #endif
-/* integrate the particles */
 
     (*Integrate)(&level0_Grid, &level0_Domain);
 
+/* integrate the particles */
 #ifdef PARTICLES
     (*Integrate_Particles)(&level0_Grid);
 #endif
@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef FARGO
-    if (level0_Grid.Nx3 > 0) { /* perform advection only in 3D */
+    if (level0_Grid.Nx3 > 1) { /* perform advection only in 3D */
       Fargo(&level0_Grid, &level0_Domain);
 #ifdef PARTICLES
       advect_particles(&level0_Grid, &level0_Domain);
