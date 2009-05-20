@@ -35,7 +35,9 @@
 #include "../globals.h"
 #include "prototypes.h"
 #include "../prototypes.h"
+#ifdef PARTICLES
 #include "../particles/particle.h"
+#endif
 
 #ifdef CTU_INTEGRATOR
 
@@ -249,10 +251,12 @@ void integrate_2d(Grid *pG, Domain *pD)
     for (i=il+1; i<=iu; i++) {
       d1 = 1.0/W[i-1].d;
       Wl[i].Vx -= pG->feedback[ks][j][i-1].x1*d1;
+      Wl[i].Vy -= pG->feedback[ks][j][i-1].x2*d1;
       Wl[i].Vz -= pG->feedback[ks][j][i-1].x3*d1;
 
       d1 = 1.0/W[i].d;
       Wr[i].Vx -= pG->feedback[ks][j][i].x1*d1;
+      Wr[i].Vy -= pG->feedback[ks][j][i].x2*d1;
       Wr[i].Vz -= pG->feedback[ks][j][i].x3*d1;
     }
 #endif /* FEEDBACK */
@@ -373,10 +377,12 @@ void integrate_2d(Grid *pG, Domain *pD)
       d1 = 1.0/W[j-1].d;
       Wl[j].Vx -= pG->feedback[ks][j-1][i].x2*d1;
       Wl[j].Vy -= pG->feedback[ks][j-1][i].x3*d1;
+      Wl[j].Vz -= pG->feedback[ks][j-1][i].x1*d1;
 
       d1 = 1.0/W[j].d;
       Wr[j].Vx -= pG->feedback[ks][j][i].x2*d1;
       Wr[j].Vy -= pG->feedback[ks][j][i].x3*d1;
+      Wr[j].Vz -= pG->feedback[ks][j][i].x1*d1;
     }
 #endif /* FEEDBACK */
 

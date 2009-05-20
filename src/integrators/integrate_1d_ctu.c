@@ -22,6 +22,9 @@
 #include "../globals.h"
 #include "prototypes.h"
 #include "../prototypes.h"
+#ifdef PARTICLES
+#include "../particles/particle.h"
+#endif
 
 #ifdef CTU_INTEGRATOR
 
@@ -48,10 +51,10 @@ static Real *dhalf = NULL, *phalf = NULL;
 void integrate_1d(Grid *pG, Domain *pD)
 {
   Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;
-  int i, is = pG->is, ie = pG->ie;
+  int i,il,iu, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
   Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
 #ifdef MHD
   Real B1ch,B2ch,B3ch;
@@ -61,6 +64,15 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
+#endif
+
+/* With particles, one more ghost cell must be updated in predict step */
+#ifdef PARTICLES
+  il = is - 3;
+  iu = ie + 3;
+#else
+  il = is - 1;
+  iu = ie + 1;
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -104,7 +116,7 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-    for (i=is; i<=ie+1; i++) {
+    for (i=il+1; i<=iu; i++) {
       cc_pos(pG,i,js,ks,&x1,&x2,&x3);
       phicr = (*StaticGravPot)( x1                ,x2,x3);
       phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
@@ -120,7 +132,7 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (i=is; i<=ie+1; i++) {
+  for (i=il+1; i<=iu; i++) {
     Wl[i].Vx -= hdtodx1*(pG->Phi[ks][js][i] - pG->Phi[ks][js][i-1]);
     Wr[i].Vx -= hdtodx1*(pG->Phi[ks][js][i] - pG->Phi[ks][js][i-1]);
   }
@@ -132,7 +144,7 @@ void integrate_1d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
   if (CoolingFunc != NULL){
-    for (i=is; i<=ie+1; i++) {
+    for (i=il+1; i<=iu; i++) {
       coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
       coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
 
@@ -146,7 +158,7 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Compute 1D fluxes in x1-direction
  */
 
-  for (i=is; i<=ie+1; i++) {
+  for (i=il+1; i<=iu; i++) {
     Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i] MHDARG( , &Bxi[i]));
     Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i] MHDARG( , &Bxi[i]));
 
@@ -162,9 +174,15 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Calculate d^{n+1/2} (needed with static potential, or cooling)
  */
 
-  if ((StaticGravPot != NULL) || (CoolingFunc != NULL)) {
-    for (i=is; i<=ie; i++) {
+#ifndef PARTICLES
+  if ((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
+  {
+    for (i=il+1; i<=iu-1; i++) {
       dhalf[i] = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
+#ifdef PARTICLES
+      grid_d[ks][js][i] = dhalf[i];
+#endif
     }
   }
 
@@ -172,13 +190,17 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Calculate P^{n+1/2} (needed with cooling)
  */
 
-#ifndef BAROTROPIC
-  if (CoolingFunc != NULL) {
-    for (i=is; i<=ie; i++) {
+#ifndef PARTICLES
+  if (CoolingFunc != NULL)
+#endif /* PARTICLES */
+  {
+    for (i=il+1; i<=iu-1; i++) {
       M1h = pG->U[ks][js][i].M1 - hdtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
       M2h = pG->U[ks][js][i].M2 - hdtodx1*(x1Flux[i+1].My - x1Flux[i].My);
       M3h = pG->U[ks][js][i].M3 - hdtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
+#ifndef BAROTROPIC
       Eh  = pG->U[ks][js][i].E  - hdtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
+#endif
 
 /* Add source terms for fixed gravitational potential */
       if (StaticGravPot != NULL){
@@ -195,6 +217,14 @@ void integrate_1d(Grid *pG, Domain *pD)
       M1h -= hdtodx1*(phir-phil)*pG->U[ks][js][i].d;
 #endif /* SELF_GRAVITY */
 
+/* Add the particle feedback terms */
+#ifdef FEEDBACK
+      M1h -= pG->feedback[ks][js][i].x1;
+      M2h -= pG->feedback[ks][js][i].x2;
+      M3h -= pG->feedback[ks][js][i].x3;
+#endif /* FEEDBACK */
+
+#ifndef BAROTROPIC
       phalf[i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[i];
 
 #ifdef MHD
@@ -202,13 +232,23 @@ void integrate_1d(Grid *pG, Domain *pD)
       B2ch = pG->U[ks][js][i].B2c - hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
       B3ch = pG->U[ks][js][i].B3c - hdtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
       phalf[i] -= 0.5*(B1ch*B1ch + B2ch*B2ch + B3ch*B3ch);
-#endif
+#endif /* MHD */
 
       phalf[i] *= Gamma_1;
+#endif /* BARATROPIC */
+
+#ifdef PARTICLES
+      d1 = 1.0/dhalf[i];
+      grid_v[ks][js][i].x1 = M1h*d1;
+      grid_v[ks][js][i].x2 = M2h*d1;
+      grid_v[ks][js][i].x3 = M3h*d1;
+#ifndef ISOTHERMAL
+      grid_cs[ks][js][i] = sqrt(Gamma*phalf[i]*d1);
+#endif  /* ISOTHERMAL */
+#endif /* PARTICLES */
 
     }
   }
-#endif /* BAROTROPIC */
 
 /*=== STEPS 9-10: Not needed in 1D ===*/
 

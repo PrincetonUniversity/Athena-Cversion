@@ -41,6 +41,9 @@
 #include "../globals.h"
 #include "prototypes.h"
 #include "../prototypes.h"
+#ifdef PARTICLES
+#include "../particles/particle.h"
+#endif
 
 #ifdef CTU_INTEGRATOR
 
@@ -100,10 +103,10 @@ void integrate_3d(Grid *pG, Domain *pD)
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
-  int i, is = pG->is, ie = pG->ie;
-  int j, js = pG->js, je = pG->je;
-  int k, ks = pG->ks, ke = pG->ke;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
+  int i,il,iu, is = pG->is, ie = pG->ie;
+  int j,jl,ju, js = pG->js, je = pG->je;
+  int k,kl,ku, ks = pG->ks, ke = pG->ke;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
   Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
 #ifdef MHD
   Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
@@ -128,6 +131,23 @@ void integrate_3d(Grid *pG, Domain *pD)
   Real fact, TH_om, om_dt = Omega*pG->dt;
 #endif /* SHEARING_BOX */
 
+/* With particles, one more ghost cell must be updated in predict step */
+#ifdef PARTICLES
+  il = is - 3;
+  iu = ie + 3;
+  jl = js - 3;
+  ju = je + 3;
+  kl = ks - 3;
+  ku = ke + 3;
+#else
+  il = is - 2;
+  iu = ie + 2;
+  jl = js - 2;
+  ju = je + 2;
+  kl = ks - 2;
+  ku = ke + 2;
+#endif
+
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -135,8 +155,8 @@ void integrate_3d(Grid *pG, Domain *pD)
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         U1d[i].d  = pG->U[k][j][i].d;
         U1d[i].Mx = pG->U[k][j][i].M1;
@@ -168,7 +188,7 @@ void integrate_3d(Grid *pG, Domain *pD)
      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
 
 #ifdef MHD
-      for (i=is-1; i<=ie+2; i++) {
+      for (i=il+1; i<=iu; i++) {
 /* Source terms for left states in zone i-1 */
         db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])*dx1i;
         db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])*dx2i;
@@ -228,7 +248,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
       if (StaticGravPot != NULL){
-        for (i=is-1; i<=ie+2; i++) {
+        for (i=il+1; i<=iu; i++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phicr = (*StaticGravPot)( x1             ,x2,x3);
           phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
@@ -244,7 +264,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-      for (i=is-1; i<=ie+2; i++) {
+      for (i=il+1; i<=iu; i++) {
         Wl[i].Vx -= q1*(pG->Phi[k][j][i] - pG->Phi[k][j][i-1]);
         Wr[i].Vx -= q1*(pG->Phi[k][j][i] - pG->Phi[k][j][i-1]);
       }
@@ -256,7 +276,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       if (CoolingFunc != NULL){
-        for (i=is-1; i<=ie+2; i++) {
+        for (i=il+1; i<=iu; i++) {
           coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
           coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
 
@@ -271,7 +291,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SHEARING_BOX
-      for (i=is-1; i<=ie+2; i++) {
+      for (i=il+1; i<=iu; i++) {
 	Wl[i].Vx += pG->dt*Omega*W[i-1].Vy; /* (dt/2)*( 2 Omega Vy) */
 #ifdef FARGO
 	Wl[i].Vy -= 0.25*pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-1/2 Omega Vx) */
@@ -288,11 +308,29 @@ void integrate_3d(Grid *pG, Domain *pD)
       }
 #endif /* SHEARING_BOX */
 
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for particle feedback for 0.5*dt to L/R states
+ */
+
+#ifdef FEEDBACK
+    for (i=il+1; i<=iu; i++) {
+      d1 = 1.0/W[i-1].d;
+      Wl[i].Vx -= pG->feedback[k][j][i-1].x1*d1;
+      Wl[i].Vy -= pG->feedback[k][j][i-1].x2*d1;
+      Wl[i].Vz -= pG->feedback[k][j][i-1].x3*d1;
+
+      d1 = 1.0/W[i].d;
+      Wr[i].Vx -= pG->feedback[k][j][i].x1*d1;
+      Wr[i].Vy -= pG->feedback[k][j][i].x2*d1;
+      Wr[i].Vz -= pG->feedback[k][j][i].x3*d1;
+    }
+#endif /* FEEDBACK */
+
 /*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 3D array
  */
 
-      for (i=is-1; i<=ie+2; i++) {
+      for (i=il+1; i<=iu; i++) {
         Prim1D_to_Cons1D(&Ul_x1Face[k][j][i],&Wl[i] MHDARG( , &Bxi[i]));
         Prim1D_to_Cons1D(&Ur_x1Face[k][j][i],&Wr[i] MHDARG( , &Bxi[i]));
 
@@ -309,8 +347,8 @@ void integrate_3d(Grid *pG, Domain *pD)
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  */
 
-  for (k=ks-2; k<=ke+2; k++) {
-    for (i=is-2; i<=ie+2; i++) {
+  for (k=kl; k<=ku; k++) {
+    for (i=il; i<=iu; i++) {
       for (j=js-nghost; j<=je+nghost; j++) {
         U1d[j].d  = pG->U[k][j][i].d;
         U1d[j].Mx = pG->U[k][j][i].M2;
@@ -342,7 +380,7 @@ void integrate_3d(Grid *pG, Domain *pD)
       lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,js-1,je+1,Wl,Wr);
 
 #ifdef MHD
-      for (j=js-1; j<=je+2; j++) {
+      for (j=jl+1; j<=ju; j++) {
 /* Source terms for left states in zone j-1 */
         db1 = (pG->B1i[k  ][j-1][i+1] - pG->B1i[k][j-1][i])*dx1i;
         db2 = (pG->B2i[k  ][j  ][i  ] - pG->B2i[k][j-1][i])*dx2i;
@@ -402,7 +440,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
       if (StaticGravPot != NULL){
-        for (j=js-1; j<=je+2; j++) {
+        for (j=jl+1; j<=ju; j++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phicr = (*StaticGravPot)(x1, x2             ,x3);
           phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
@@ -418,7 +456,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-      for (j=js-1; j<=je+2; j++) {
+      for (j=jl+1; j<=ju; j++) {
         Wl[j].Vx -= q2*(pG->Phi[k][j][i] - pG->Phi[k][j-1][i]);
         Wr[j].Vx -= q2*(pG->Phi[k][j][i] - pG->Phi[k][j-1][i]);
       }
@@ -430,7 +468,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       if (CoolingFunc != NULL){
-        for (j=js-1; j<=je+2; j++) {
+        for (j=jl+1; j<=ju; j++) {
           coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt));
           coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt));
 
@@ -440,11 +478,30 @@ void integrate_3d(Grid *pG, Domain *pD)
       }
 #endif /* BAROTROPIC */
 
+/*--- Step 2c (cont) -----------------------------------------------------------
+ * Add source terms for particle feedback for 0.5*dt to L/R states
+ */
+
+#ifdef FEEDBACK
+   for (j=jl+1; j<=ju; j++) {
+      d1 = 1.0/W[j-1].d;
+      Wl[j].Vx -= pG->feedback[k][j-1][i].x2*d1;
+      Wl[j].Vy -= pG->feedback[k][j-1][i].x3*d1;
+      Wl[j].Vz -= pG->feedback[k][j-1][i].x1*d1;
+
+      d1 = 1.0/W[j].d;
+      Wr[j].Vx -= pG->feedback[k][j][i].x2*d1;
+      Wr[j].Vy -= pG->feedback[k][j][i].x3*d1;
+      Wr[j].Vz -= pG->feedback[k][j][i].x1*d1;
+    }
+#endif /* FEEDBACK */
+
+
 /*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x2-direction, storing into 3D array
  */
 
-      for (j=js-1; j<=je+2; j++) {
+      for (j=jl+1; j<=ju; j++) {
         Prim1D_to_Cons1D(&Ul_x2Face[k][j][i],&Wl[j] MHDARG( , &Bxi[j]));
         Prim1D_to_Cons1D(&Ur_x2Face[k][j][i],&Wr[j] MHDARG( , &Bxi[j]));
 
@@ -461,8 +518,8 @@ void integrate_3d(Grid *pG, Domain *pD)
  * U1d = (d, M3, M1, M2, E, B1c, B2c, s[n])
  */
 
-  for (j=js-2; j<=je+2; j++) {
-    for (i=is-2; i<=ie+2; i++) {
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
       for (k=ks-nghost; k<=ke+nghost; k++) {
         U1d[k].d  = pG->U[k][j][i].d;
         U1d[k].Mx = pG->U[k][j][i].M3;
@@ -494,7 +551,7 @@ void integrate_3d(Grid *pG, Domain *pD)
       lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx3,ks-1,ke+1,Wl,Wr);
 
 #ifdef MHD
-      for (k=ks-1; k<=ke+2; k++) {
+      for (k=kl+1; k<=ku; k++) {
 /* Source terms for left states in zone k-1 */
         db1 = (pG->B1i[k-1][j  ][i+1] - pG->B1i[k-1][j][i])*dx1i;
         db2 = (pG->B2i[k-1][j+1][i  ] - pG->B2i[k-1][j][i])*dx2i;
@@ -554,7 +611,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
       if (StaticGravPot != NULL){
-        for (k=ks-1; k<=ke+2; k++) {
+        for (k=kl+1; k<=ku; k++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phicr = (*StaticGravPot)(x1,x2, x3             );
           phicl = (*StaticGravPot)(x1,x2,(x3-    pG->dx3));
@@ -570,7 +627,7 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-      for (k=ks-1; k<=ke+2; k++) {
+      for (k=kl+1; k<=ku; k++) {
         Wl[k].Vx -= q3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
         Wr[k].Vx -= q3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
       }
@@ -582,7 +639,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       if (CoolingFunc != NULL){
-        for (k=ks-1; k<=ke+2; k++) {
+        for (k=kl+1; k<=ku; k++) {
           coolfl = (*CoolingFunc)(Wl[k].d,Wl[k].P,(0.5*pG->dt));
           coolfr = (*CoolingFunc)(Wr[k].d,Wr[k].P,(0.5*pG->dt));
   
@@ -592,11 +649,30 @@ void integrate_3d(Grid *pG, Domain *pD)
       }
 #endif /* BAROTROPIC */
 
+/*--- Step 3c (cont) -----------------------------------------------------------
+ * Add source terms for particle feedback for 0.5*dt to L/R states
+ */
+
+#ifdef FEEDBACK
+   for (k=kl+1; k<=ku; k++) {
+      d1 = 1.0/W[k-1].d;
+      Wl[k].Vx -= pG->feedback[k-1][j][i].x3*d1;
+      Wl[k].Vy -= pG->feedback[k-1][j][i].x1*d1;
+      Wl[k].Vz -= pG->feedback[k-1][j][i].x2*d1;
+
+      d1 = 1.0/W[k].d;
+      Wr[k].Vx -= pG->feedback[k][j][i].x3*d1;
+      Wr[k].Vy -= pG->feedback[k][j][i].x1*d1;
+      Wr[k].Vz -= pG->feedback[k][j][i].x2*d1;
+    }
+#endif /* FEEDBACK */
+
+
 /*--- Step 3d ------------------------------------------------------------------
  * Compute 1D fluxes in x3-direction, storing into 3D array
  */
 
-      for (k=ks-1; k<=ke+2; k++) {
+      for (k=kl+1; k<=ku; k++) {
         Prim1D_to_Cons1D(&Ul_x3Face[k][j][i],&Wl[k] MHDARG( , &Bxi[k]));
         Prim1D_to_Cons1D(&Ur_x3Face[k][j][i],&Wr[k] MHDARG( , &Bxi[k]));
 
@@ -615,9 +691,9 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 #ifdef MHD
 /* emf1 */
-  for (k=ks-2; k<=ke+2; k++) {
-    for (j=js-2; j<=je+2; j++) {
-      for (i=is-2; i<=ie+2; i++) {
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
         emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
 			    pG->U[k][j][i].B3c*pG->U[k][j][i].M2)
                               /pG->U[k][j][i].d;
@@ -638,9 +714,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  * Update the interface magnetic fields using CT for a half time step.
  */
 
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         B1_x1Face[k][j][i] += q3*(emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
                               q2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
         B2_x2Face[k][j][i] += q1*(emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
@@ -648,18 +724,18 @@ void integrate_3d(Grid *pG, Domain *pD)
         B3_x3Face[k][j][i] += q2*(emf1[k  ][j+1][i  ] - emf1[k][j][i]) -
                               q1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
       }
-      B1_x1Face[k][j][ie+2] += q3*(emf2[k+1][j  ][ie+2]-emf2[k][j][ie+2]) -
-                               q2*(emf3[k  ][j+1][ie+2]-emf3[k][j][ie+2]);
+      B1_x1Face[k][j][iu] += q3*(emf2[k+1][j  ][iu]-emf2[k][j][iu]) -
+                               q2*(emf3[k  ][j+1][iu]-emf3[k][j][iu]);
     }
-    for (i=is-1; i<=ie+1; i++) {
-      B2_x2Face[k][je+2][i] += q1*(emf3[k  ][je+2][i+1]-emf3[k][je+2][i]) -
-                               q3*(emf1[k+1][je+2][i  ]-emf1[k][je+2][i]);
+    for (i=il+1; i<=iu-1; i++) {
+      B2_x2Face[k][ju][i] += q1*(emf3[k  ][ju][i+1]-emf3[k][ju][i]) -
+                               q3*(emf1[k+1][ju][i  ]-emf1[k][ju][i]);
     }
   }
-  for (j=js-1; j<=je+1; j++) {
-    for (i=is-1; i<=ie+1; i++) {
-      B3_x3Face[ke+2][j][i] += q2*(emf1[ke+2][j+1][i  ]-emf1[ke+2][j][i]) -
-                               q1*(emf2[ke+2][j  ][i+1]-emf2[ke+2][j][i]);
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu-1; i++) {
+      B3_x3Face[ku][j][i] += q2*(emf1[ku][j+1][i  ]-emf1[ku][j][i]) -
+                               q1*(emf2[ku][j  ][i+1]-emf2[ku][j][i]);
     }
   }
 #endif /* MHD */
@@ -671,9 +747,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
  */
 
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+2; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-2; i++) {
         Ul_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i-1].d -x2Flux[k][j][i-1].d );
         Ul_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
         Ul_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i-1].Mx-x2Flux[k][j][i-1].Mx);
@@ -760,9 +836,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef MHD
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+2; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
         db1 = (pG->B1i[k  ][j  ][i  ] - pG->B1i[k][j][i-1])*dx1i;
         db2 = (pG->B2i[k  ][j+1][i-1] - pG->B2i[k][j][i-1])*dx2i;
         db3 = (pG->B3i[k+1][j  ][i-1] - pG->B3i[k][j][i-1])*dx3i;
@@ -847,9 +923,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+2; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
         phic = (*StaticGravPot)(x1, x2             ,x3);
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
@@ -900,9 +976,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+2; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
         phic = pG->Phi[k][j][i];
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
@@ -955,9 +1031,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
  */
 
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         Ul_x2Face[k][j][i].d -=q1*(x1Flux[k][j-1][i+1].d -x1Flux[k][j-1][i].d );
         Ul_x2Face[k][j][i].Mx-=q1*(x1Flux[k][j-1][i+1].My-x1Flux[k][j-1][i].My);
         Ul_x2Face[k][j][i].My-=q1*(x1Flux[k][j-1][i+1].Mz-x1Flux[k][j-1][i].Mz);
@@ -1044,9 +1120,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef MHD
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         db1 = (pG->B1i[k  ][j-1][i+1] - pG->B1i[k][j-1][i])*dx1i;
         db2 = (pG->B2i[k  ][j  ][i  ] - pG->B2i[k][j-1][i])*dx2i;
         db3 = (pG->B3i[k+1][j-1][i  ] - pG->B3i[k][j-1][i])*dx3i;
@@ -1131,9 +1207,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
         phic = (*StaticGravPot)((x1            ),x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
@@ -1183,9 +1259,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         phic = pG->Phi[k][j][i];
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
@@ -1237,9 +1313,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SHEARING_BOX
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+2; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         Ur_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j][i].M2;
 #ifdef FARGO
         Ur_x2Face[k][j][i].Mx -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
@@ -1265,9 +1341,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
  */
 
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         Ul_x3Face[k][j][i].d -=q1*(x1Flux[k-1][j][i+1].d -x1Flux[k-1][j][i].d );
         Ul_x3Face[k][j][i].Mx-=q1*(x1Flux[k-1][j][i+1].Mz-x1Flux[k-1][j][i].Mz);
         Ul_x3Face[k][j][i].My-=q1*(x1Flux[k-1][j][i+1].Mx-x1Flux[k-1][j][i].Mx);
@@ -1354,9 +1430,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef MHD
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         db1 = (pG->B1i[k-1][j  ][i+1] - pG->B1i[k-1][j][i])*dx1i;
         db2 = (pG->B2i[k-1][j+1][i  ] - pG->B2i[k-1][j][i])*dx2i;
         db3 = (pG->B3i[k  ][j  ][i  ] - pG->B3i[k-1][j][i])*dx3i;
@@ -1441,9 +1517,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
   if (StaticGravPot != NULL){
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
         phic = (*StaticGravPot)((x1            ),x2,x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
@@ -1494,9 +1570,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SELF_GRAVITY
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         phic = pG->Phi[k][j][i];
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
@@ -1549,9 +1625,9 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SHEARING_BOX
-  for (k=ks-1; k<=ke+2; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         Ur_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j][i].M2;
 #ifdef FARGO
         Ur_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
@@ -1577,16 +1653,21 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifndef MHD
+#ifndef PARTICLES
   if ((StaticGravPot != NULL) || (CoolingFunc != NULL))
 #endif
+#endif
   {
-    for (k=ks-1; k<=ke+1; k++) {
-      for (j=js-1; j<=je+1; j++) {
-	for (i=is-1; i<=ie+1; i++) {
+    for (k=kl+1; k<=ku-1; k++) {
+      for (j=jl+1; j<=ju-1; j++) {
+	for (i=il+1; i<=iu-1; i++) {
 	  dhalf[k][j][i] = pG->U[k][j][i].d 
 	    - q1*(x1Flux[k  ][j  ][i+1].d - x1Flux[k][j][i].d)
 	    - q2*(x2Flux[k  ][j+1][i  ].d - x2Flux[k][j][i].d)
 	    - q3*(x3Flux[k+1][j  ][i  ].d - x3Flux[k][j][i].d);
+#ifdef PARTICLES
+          grid_d[k][j][i] = dhalf[k][j][i];
+#endif
 	}
       }
     }
@@ -1597,12 +1678,14 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifndef MHD
+#ifndef PARTICLES
   if (CoolingFunc != NULL)
+#endif /* PARTICLES */
 #endif /* MHD */
   {
-  for (k=ks-1; k<=ke+1; k++) {
-    for (j=js-1; j<=je+1; j++) {
-      for (i=is-1; i<=ie+1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         M1h = pG->U[k][j][i].M1
            - q1*(x1Flux[k  ][j  ][i+1].Mx - x1Flux[k][j][i].Mx)
            - q2*(x2Flux[k  ][j+1][i  ].Mz - x2Flux[k][j][i].Mz)
@@ -1667,6 +1750,13 @@ void integrate_3d(Grid *pG, Domain *pD)
 #endif
 #endif /* SHEARING_BOX */
 
+/* Add the particle feedback terms */
+#ifdef FEEDBACK
+      M1h -= pG->feedback[k][j][i].x1;
+      M2h -= pG->feedback[k][j][i].x2;
+      M3h -= pG->feedback[k][j][i].x3;
+#endif /* FEEDBACK */
+
 #ifndef BAROTROPIC
         phalf[k][j][i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[k][j][i];
 #endif
@@ -1686,6 +1776,20 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
         phalf[k][j][i] *= Gamma_1;
 #endif
+
+#ifdef PARTICLES
+      d1 = 1.0/dhalf[k][j][i];
+      grid_v[k][j][i].x1 = M1h*d1;
+      grid_v[k][j][i].x2 = M2h*d1;
+      grid_v[k][j][i].x3 = M3h*d1;
+#ifndef ISOTHERMAL
+  #ifdef ADIABATIC
+      grid_cs[k][j][i] = sqrt(Gamma*phalf[k][j][i]*d1);
+  #else
+      ath_error("[get_gasinfo] can not calculate the sound speed!\n");
+  #endif /* ADIABATIC */
+#endif  /* ISOTHERMAL */
+#endif /* PARTICLES */
 
       }
     }
