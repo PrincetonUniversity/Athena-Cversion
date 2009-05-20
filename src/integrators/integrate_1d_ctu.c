@@ -154,6 +154,25 @@ void integrate_1d(Grid *pG, Domain *pD)
   }
 #endif /* BAROTROPIC */
 
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for particle feedback for 0.5*dt to L/R states
+ */
+
+#ifdef FEEDBACK
+    for (i=il+1; i<=iu; i++) {
+      d1 = 1.0/W[i-1].d;
+      Wl[i].Vx -= pG->feedback[ks][js][i-1].x1*d1;
+      Wl[i].Vy -= pG->feedback[ks][js][i-1].x2*d1;
+      Wl[i].Vz -= pG->feedback[ks][js][i-1].x3*d1;
+
+      d1 = 1.0/W[i].d;
+      Wr[i].Vx -= pG->feedback[ks][js][i].x1*d1;
+      Wr[i].Vy -= pG->feedback[ks][js][i].x2*d1;
+      Wr[i].Vz -= pG->feedback[ks][js][i].x3*d1;
+    }
+#endif /* FEEDBACK */
+
+
 /*--- Step 1d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction
  */
