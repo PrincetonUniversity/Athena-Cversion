@@ -60,12 +60,13 @@ void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc);
 void set_bvals_final_particle(Grid *pG, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
-/* utils.c */
+/* utils_particle.c */
 void get_gasinfo(Grid *pG);
 void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 
 void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
 void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+void getwei_QP    (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
 int  getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
 
 Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd);

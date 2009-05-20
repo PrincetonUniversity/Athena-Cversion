@@ -18,8 +18,8 @@ CONTAINS PUBLIC FUNCTIONS:
   void set_bvals_particle_destruct(Grid *pG);
 
 History:
- Created:	Emmanuel Jacquet	May 2008
- Rewritten:	Xuening Bai		Feb. 2009
+  Created:	Emmanuel Jacquet	May 2008
+  Rewritten:	Xuening Bai		Feb. 2009
 ==============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -2265,6 +2265,7 @@ static int gridshift(Real shift)
     return (int)(shift)-1;
   else return 0;
 }
+
 #endif /* FARGO */
 
 #endif /* SHEARING_BOX */

@@ -131,6 +131,11 @@ void init_particle(Grid *pG, Domain *pD)
     getweight = getwei_TSC;
     ncell = 3;
   }
+  else if (interp == 3)
+  { /* Quadratic polynomial interpolation */
+    getweight = getwei_QP;
+    ncell = 3;
+  }
   else
     ath_error("[init_particle]: Invalid interp value (should equals 1 or 2)!\n");
 

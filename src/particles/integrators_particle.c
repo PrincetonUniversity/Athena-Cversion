@@ -210,7 +210,7 @@ void integrate_particle_fulimp(Grid *pG)
 
 #ifdef FARGO
     /* shift = -3/2 * Omega * x * dt */
-    curG->shift = -0.75*omg*(curG->x1+curP->x1)*pG->dt;
+    curG->shift = -0.75*Omega*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     curP->property = curG->property;

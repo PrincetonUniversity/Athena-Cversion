@@ -111,7 +111,7 @@ PARTICLES_OBJ = particles/feedback.o \
 	        particles/integrators_particle.o \
 	        particles/output_particle.o\
 	        particles/set_bvals_particle.o \
-	        particles/utils.o
+	        particles/utils_particle.o
 
 ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${PARTICLES_OBJ}
 

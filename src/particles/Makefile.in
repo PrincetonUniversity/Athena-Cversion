@@ -15,7 +15,7 @@ CORE_OBJ = feedback.o\
 	   integrators_particle.o\
 	   output_particle.o\
 	   set_bvals_particle.o\
-	   utils.o
+	   utils_particle.o
 
 OBJ = $(CORE_OBJ)
 

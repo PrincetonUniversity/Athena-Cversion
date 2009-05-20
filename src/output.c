@@ -101,12 +101,6 @@ static size_t out_size  = 0;       /* Size of the array OutArray[] */
 static Output *OutArray = NULL;    /* Array of Output modes */
 static Output rst_out;             /* Restart Output */
 static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
-#ifdef PARTICLES
-extern float ***dpar;
-extern float ***M1par;
-extern float ***M2par;
-extern float ***M3par;
-#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:

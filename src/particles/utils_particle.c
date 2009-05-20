@@ -8,8 +8,6 @@ PURPOSE: Contains most of the utilities for the particle code: all the
   purposes only.
 
 CONTAINS PUBLIC FUNCTIONS:
-  void get_gasinfo(Grid *pG);
-  void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 
   void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
   void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
@@ -19,12 +17,15 @@ CONTAINS PUBLIC FUNCTIONS:
   Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd);
   Real get_ts_fixed  (Grid *pG, int type, Real rho, Real cs, Real vd);
 
+  void get_gasinfo(Grid *pG);
   void feedback_clear(Grid *pG);
   void apply_feedback(Grid *pG);
   void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
   void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
 
   void shuffle(Grid* pG);
+
+  void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 
 History:
   Written by Xuening Bai, Apr. 2009
@@ -50,81 +51,11 @@ void quicksort_particle(Grid *pG, Vector cell1, long start, long end);
 
 /*=================================== ALL FUNCTIONS ======================================*/
 /*----------------------------------------------------------------------------------------
- * gas velocity shift function;
  * interpolation functions;
  * stopping time functions;
  * feedback related functions;
  * shuffle related functions;
  *----------------------------------------------------------------------------------------*/
-
-/*============================================================================*/
-/*----------------temperary function to get gas information-------------------
- *
- * void get_gasinfo(Grid *pG);
- */
-/*============================================================================*/
-
-/* Calculate the gas information from conserved variables
-   Input: pG: grid (now already evolved in the predictor step).
-   Output: calculate 3D array grid_v/grid_cs in the grid structure.
-           Calculated are gas velocity and sound speed.
-*/
-void get_gasinfo(Grid *pG)
-{
-  int i,j,k;
-  Real rho1;
-#ifdef ADIABATIC
-  Real P;
-#endif
-
-  /* get gas information */
-  for (k=klp; k<=kup; k++)
-    for (j=jlp; j<=jup; j++)
-      for (i=ilp; i<=iup; i++)
-      {
-        rho1 = 1.0/(pG->U[k][j][i].d);
-        grid_d[k][j][i]    = pG->U[k][j][i].d;
-        grid_v[k][j][i].x1 = pG->U[k][j][i].M1 * rho1;
-        grid_v[k][j][i].x2 = pG->U[k][j][i].M2 * rho1;
-        grid_v[k][j][i].x3 = pG->U[k][j][i].M3 * rho1;
-
-#ifndef ISOTHERMAL
-  #ifdef ADIABATIC
-        /* E = P/(gamma-1) + rho*v^2/2 + B^2/2 */
-        P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(grid_v[k][j][i].x1) \
-             + SQR(grid_v[k][j][i].x2) + SQR(grid_v[k][j][i].x3));
-    #ifdef MHD
-        P = P - 0.5*(SQR(pG->U[k][j][i].B1c)+SQR(pG->U[k][j][i].B2c)+SQR(pG->U[k][j][i].B3c));
-    #endif /* MHD */
-        P = MAX(Gamma_1*P, TINY_NUMBER);
-        grid_cs[k][j][i] = sqrt(Gamma*P*rho1);
-  #else
-        ath_error("[get_gasinfo] can not calculate the sound speed!\n");
-  #endif /* ADIABATIC */
-#endif /* ISOTHERMAL */
-      }
-
-  return;
-}
-
-/*============================================================================*/
-/*-----------------------gas velocity shift function--------------------------
- *
- * gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
- */
-/*============================================================================*/
-
-/* Calculate the gas velocity difference to what it should be as a
-   function of position and apply the shift to the velocity (u1,u2,u3).
-   This is the default routine, which applies no velocity shift.
-   In the case of the streaming instability, this corresponds to \eta*v_K.
-   User can assign their velocity shift function in the problem generator
-   using get_usr_par_prop().
-*/
-void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3)
-{
-  return;
-}
 
 
 /*============================================================================*/
@@ -248,6 +179,73 @@ void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3
     wei3[0] = 0.5*SQR(1.0-d);			/* 0: left; 2: right */
     wei3[1] = 0.75-SQR(d-0.5);			/* one direction weight */
     wei3[2] = 0.5*SQR(d);
+  }
+  else { /* x3 dimension collapses */
+    *ks = pG->ks;
+    wei3[1] = 0.0;	wei3[2] = 0.0;
+    wei3[0] = 1.0;
+  }
+
+  /* calculate 3D weight */
+  for (k=0; k<3; k++)
+    for (j=0; j<3; j++)
+      for (i=0; i<3; i++)
+        weight[k][j][i] = wei1[i] * wei2[j] * wei3[k];
+
+  return;
+}
+
+
+/* get weight using quadratic polynomial interpolation 
+   Input: pG: grid; x1,x2,x3: global coordinate; cell1: 1 over dx1,dx2,dx3
+   Output: weight: weight function; is,js,ks: starting cell indices in the grid.
+   Note: this interpolation works in any 1-3 dimensions.
+*/
+void getwei_QP(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks)
+{
+  int i, j, k, i1, j1, k1;
+  Real a, b, c, d;			/* grid coordinate for the position (x1,x2,x3) */
+  Real wei1[3], wei2[3], wei3[3];	/* weight function in x1,x2,x3 directions */
+
+  /* find cell locations and calculate 1D weight */
+  /* x1 direction */
+  if (cell1.x1 > 0.0) {
+    celli(pG, x1, cell1.x1, &i, &a);		/* x1 index */
+    *is = i - 1;				/* starting x1 index, wei[0] */
+    d = a - i;
+    wei1[0] = 0.5*(0.5-d)*(1.5-d);		/* 0: left; 2: right */
+    wei1[1] = 1.0-SQR(d-0.5);			/* one direction weight */
+    wei1[2] = 0.5*(d-0.5)*(d+0.5);
+  }
+  else { /* x1 dimension collapses */
+    *is = pG->is;
+    wei1[1] = 0.0;	wei1[2] = 0.0;
+    wei1[0] = 1.0;
+  }
+
+  /* x2 direction */
+  if (cell1.x2 > 0.0) {
+    cellj(pG, x2, cell1.x2, &j, &b);		/* x2 index */
+    *js = j - 1;				/* starting x2 index */
+    d = b - j;
+    wei2[0] = 0.5*(0.5-d)*(1.5-d);		/* 0: left; 2: right */
+    wei2[1] = 1.0-SQR(d-0.5);			/* one direction weight */
+    wei2[2] = 0.5*(d-0.5)*(d+0.5);
+  }
+  else { /* x2 dimension collapses */
+    *js = pG->js;
+    wei2[1] = 0.0;	wei2[2] = 0.0;
+    wei2[0] = 1.0;
+  }
+
+  /* x3 direction */
+  if (cell1.x3 > 0.0) {
+    cellk(pG, x3, cell1.x3, &k, &c);		/* x3 index */
+    *ks = k - 1;				/* starting x3 index */
+    d = c - k;
+    wei3[0] = 0.5*(0.5-d)*(1.5-d);		/* 0: left; 2: right */
+    wei3[1] = 1.0-SQR(d-0.5);			/* one direction weight */
+    wei3[2] = 0.5*(d-0.5)*(d+0.5);
   }
   else { /* x3 dimension collapses */
     *ks = pG->ks;
@@ -411,12 +409,56 @@ Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
 /*============================================================================*/
 /*--------------------------------FEEDBACK------------------------------------
  *
+ * void get_gasinfo(Grid *pG);
  * void feedback_clear(Grid *pG);
  * void apply_feedback(Grid *pG);
  * void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
  * void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
  */
 /*============================================================================*/
+
+/* Calculate the gas information from conserved variables for feedback_predictor
+   Input: pG: grid (not evolved yet).
+   Output: calculate 3D array grid_v/grid_cs in the grid structure.
+           Calculated are gas velocity and sound speed.
+*/
+void get_gasinfo(Grid *pG)
+{
+  int i,j,k;
+  Real rho1;
+#ifdef ADIABATIC
+  Real P;
+#endif
+
+  /* get gas information */
+  for (k=klp; k<=kup; k++)
+    for (j=jlp; j<=jup; j++)
+      for (i=ilp; i<=iup; i++)
+      {
+        rho1 = 1.0/(pG->U[k][j][i].d);
+        grid_d[k][j][i]    = pG->U[k][j][i].d;
+        grid_v[k][j][i].x1 = pG->U[k][j][i].M1 * rho1;
+        grid_v[k][j][i].x2 = pG->U[k][j][i].M2 * rho1;
+        grid_v[k][j][i].x3 = pG->U[k][j][i].M3 * rho1;
+
+#ifndef ISOTHERMAL
+  #ifdef ADIABATIC
+        /* E = P/(gamma-1) + rho*v^2/2 + B^2/2 */
+        P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(grid_v[k][j][i].x1) \
+             + SQR(grid_v[k][j][i].x2) + SQR(grid_v[k][j][i].x3));
+    #ifdef MHD
+        P = P - 0.5*(SQR(pG->U[k][j][i].B1c)+SQR(pG->U[k][j][i].B2c)+SQR(pG->U[k][j][i].B3c));
+    #endif /* MHD */
+        P = MAX(Gamma_1*P, TINY_NUMBER);
+        grid_cs[k][j][i] = sqrt(Gamma*P*rho1);
+  #else
+        ath_error("[get_gasinfo] can not calculate the sound speed!\n");
+  #endif /* ADIABATIC */
+#endif /* ISOTHERMAL */
+      }
+
+  return;
+}
 
 #ifdef FEEDBACK
 
@@ -633,6 +675,26 @@ void quicksort_particle(Grid *pG, Vector cell1, long start, long end)
   quicksort_particle(pG, cell1, start, pivot-1);
   quicksort_particle(pG, cell1, pivot+1, end);
 
+  return;
+}
+
+
+/*============================================================================*/
+/*-----------------------gas velocity shift function--------------------------
+ *
+ * gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
+ */
+/*============================================================================*/
+
+/* Calculate the gas velocity difference to what it should be as a
+   function of position and apply the shift to the velocity (u1,u2,u3).
+   This is the default routine, which applies no velocity shift.
+   In the case of the streaming instability, this corresponds to \eta*v_K.
+   User can assign their velocity shift function in the problem generator
+   using get_usr_par_prop().
+*/
+void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3)
+{
   return;
 }
 
