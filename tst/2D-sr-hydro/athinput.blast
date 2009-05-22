@@ -12,41 +12,40 @@ maxout          = 4          # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt = hst               # History data dump
-dt      = 0.001             # time increment between outputs
+dt      = 0.1             # time increment between outputs
 
-<output2>
-out_fmt = bin               # Binary data dump
-dt      = 0.01              # time increment between outputs
+#<output2>
+#out_fmt = bin               # Binary data dump
+#dt      = 0.01              # time increment between outputs
 
 <output3>
-out_fmt = ppm
-dt      = 0.002
-type    = slice
-out     = d
-id      = d
-dmin    = 0.08
-dmax    = 6.5
-palette = rainbow
-
-<output4>
-out_fmt = tab
+out_fmt = pgm
 dt      = 0.01
+type    = slice
+out     = d0
+id      = d0
+dmin    = 0.0001
+dmax    = 3.4
+
+#<output4>
+#out_fmt = tab
+#dt      = 0.01
 
 <time>
 
-cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.3       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000     # cycle limit
-tlim            = 1.0       # time limit
+tlim            = 3.0       # time limit
 
 <grid>
 
-Nx1             = 200        # Number of zones in X-direction
+Nx1             = 400        # Number of zones in X-direction
 x1min           = -0.5       # minimum value of X
 x1max           = 0.5        # maximum value of X
 ibc_x1          = 4          # inner-I (X) boundary flag
 obc_x1          = 4          # outer-I (X) boundary flag
 
-Nx2             = 300        # Number of zones in Y-direction
+Nx2             = 600        # Number of zones in Y-direction
 x2min           = -0.75      # minimum value of Y
 x2max           = 0.75       # maximum value of Y
 ibc_x2          = 4          # inner-J (Y) boundary flag
@@ -59,8 +58,8 @@ x3max           = 0.0       # maximum value of X3
 <problem>
 
 gamma           = 1.66667   # gamma = C_p/C_v
-iso_csound      = 0.40825   # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
+#iso_csound      = 0.40825   # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
 pamb            = 0.1       # ambient pressure
-prat            = 10.0     # Pressure ratio initially
+prat            = 100.0     # Pressure ratio initially
 radius          = 0.1       # Radius of the inner sphere
 angle           = 45        # Angle of B w.r.t. the x-axis (degrees)

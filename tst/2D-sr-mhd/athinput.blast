@@ -3,12 +3,12 @@
 problem = Blast wave
 author  = T.A. Gardiner & J.M. Stone
 journal = JCP, 205, 509 (2005) (for MHD version of test)
-config  = --with-gas=hydro --with-problem=blast
+config  = --with-problem=blast
 
 <job>
 
 problem_id      = Blast      # problem ID: basename of output filenames
-maxout          = 4          # Output blocks number from 1 -> maxout
+maxout          = 3          # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt = hst               # History data dump
@@ -24,13 +24,9 @@ dt      = 0.002
 type    = slice
 out     = d
 id      = d
-dmin    = 0.08
-dmax    = 6.5
+dmin    = 0.06
+dmax    = 4.4
 palette = rainbow
-
-<output4>
-out_fmt = tab
-dt      = 0.01
 
 <time>
 
@@ -61,6 +57,7 @@ x3max           = 0.0       # maximum value of X3
 gamma           = 1.66667   # gamma = C_p/C_v
 iso_csound      = 0.40825   # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
 pamb            = 0.1       # ambient pressure
-prat            = 10.0     # Pressure ratio initially
+prat            = 100.0     # Pressure ratio initially
+b0              = 1.0       # magnetic field strength
 radius          = 0.1       # Radius of the inner sphere
 angle           = 45        # Angle of B w.r.t. the x-axis (degrees)

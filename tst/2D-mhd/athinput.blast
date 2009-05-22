@@ -55,7 +55,7 @@ x3max           = 0.0       # maximum value of X3
 <problem>
 
 gamma           = 1.66667   # gamma = C_p/C_v
-iso_csound      = 0.40825   # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
+#iso_csound      = 0.40825   # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
 pamb            = 0.1       # ambient pressure
 prat            = 100.0     # Pressure ratio initially
 b0              = 1.0       # magnetic field strength
