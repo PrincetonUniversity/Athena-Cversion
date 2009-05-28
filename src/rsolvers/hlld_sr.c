@@ -48,19 +48,42 @@ typedef struct RIEMANN_STATE{
 void printCons1D(const Cons1D *U);
 void printPrim1D(const Prim1D *W);
 
+/* computes left/right fluxes from left/right states */
 void flux_LR(Cons1D U, Prim1D W, Cons1D *flux, Real Bx, Real* p);
+
+/* computes total pressure */
 Real ptot(Prim1D W, Real Bx);
+
+/* want f = 0 */
 Real Fstar(Riemann_State *PaL, Riemann_State *PaR, Real* Sc, Real p, Real Bx);
+
+/* performs some computations and returns > 0 for success, 0 for failure
 int get_Riemann_State(Riemann_State *Pv, Real p, Real Bx);
+
+/* computes left/right a states */
 void get_astate(Riemann_State *Pa, Real p, Real Bx);
+
+/* computes left/right c states */
 void get_cstate(Riemann_State *PaL, Riemann_State *PaR, Cons1D* Uc, Real p, Real Bx);
+
+/* computes min/max signal speeds */
 void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
                         const Real Bx, const Real error,
                         Real* low, Real* high);
+
+/* solves quartic equation defined by a and returns roots in root
+ * returns the number of real roots 
+ * error specifies an accuracy
+ * currently force four real solutions b/c it's physical */
 int solveQuartic(double* a, double* root, double error);
+
+/* solves cubic equation defined by a and stores roots in root
+ * returns number of real roots */
 int solveCubic(double* a, double* root);
 
 #ifdef MHD
+
+/* functions for printing conserved/primitive vectors */
 void printCons1D(const Cons1D *U){
    printf("d:  %.6e\n",U->d);
    printf("E:  %.6e\n",U->E);
@@ -165,16 +188,6 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
       Fhll.Bz = (Sr*Fl.Bz - Sl*Fr.Bz + Sl*Sr*(Ur.Bz - Ul.Bz)) * dS_1;
       Fhll.E  = (Sr*Fl.E  - Sl*Fr.E  + Sl*Sr*(Ur.E  - Ul.E )) * dS_1;
 
-      pFlux->d = Fhll.d;
-      pFlux->Mx = Fhll.Mx;
-      pFlux->My = Fhll.My;
-      pFlux->Mz = Fhll.Mz;
-      pFlux->By = Fhll.By;
-      pFlux->Bz = Fhll.Bz;
-      pFlux->E = Fhll.E;
-
-      return;
-
       /* set up some variables */
 
       PaL.S = Sl;
@@ -252,7 +265,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
       /* too many iter? --> use HLL */
 
       if(PaL.fail) switch_to_hll = 1;
-      if(switch_to_hll || 1){
+      if(switch_to_hll){
          
          printf("Flux_HLL\n");
 
