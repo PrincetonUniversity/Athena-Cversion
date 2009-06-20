@@ -21,8 +21,8 @@
  *  ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
  *  ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
  *
- * To run simulations of stratified disks (including vertical gravity),
- * un-comment the macro VERTICAL_GRAVITY below.
+ * To run simulations of stratified disks (including vertical gravity), use the
+ * strat.c problem generator.
  *
  * Code must be configured using --enable-shearing-box
  *
@@ -39,8 +39,6 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-
-/* #define VERTICAL_GRAVITY */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -68,9 +66,6 @@ static Real hst_dBy(const Grid *pG, const int i, const int j, const int k);
 #endif /* MHD */
 
 /*=========================== PUBLIC FUNCTIONS =================================
- * Contains the usual, plus:
- * ShearingSheetBC() - shearing sheet BCs in 3D, called by set_bval().
- * EvolveEy()      - sets Ey in integrator to keep <Bz>=const. 
  *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
@@ -94,8 +89,9 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[problem]: HGB only works on a 2D or 3D grid\n");
   }
 
-/* Read problem parameters.  Note Omega set to 10^{-3} by default */
-  Omega = par_getd_def("problem","omega",1.0e-3);
+/* Read problem parameters.  Note Omega_0 set to 10^{-3} by default */
+  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
   beta = par_getd("problem","beta");
   ifield = par_geti_def("problem","ifield", 1);
@@ -213,12 +209,10 @@ void problem(Grid *pGrid, Domain *pDomain)
       if (ipert == 4) {
         rd = dFP[i+pGrid->idisp];
         rvx = vxFP[i+pGrid->idisp];
-        rvy = vyFP[i+pGrid->idisp] + 1.5*Omega*x1;  /* subtract mean flow */
+        rvy = vyFP[i+pGrid->idisp] + qshear*Omega_0*x1; /* subtract mean flow */
         rvz = 0.0;
       }
-/* Note the initial conditions in JGG for this test are incorrect.  B. Johnson
- * [private communication] is not certain what are the correct values used to
- * make the plot in the paper.  Thus, this test does not work */
+/* Note the initial conditions in JGG for this test are incorrect. */
       if (ipert == 5) {
         ifield = 0;
         rd = den + 8.9525e-10*cos((double)(kx*x1 + ky*x2 + kz*x3 - PI/4.));
@@ -231,7 +225,7 @@ void problem(Grid *pGrid, Domain *pDomain)
         rby *= cos((double)(kx*x1 + ky*(x2-0.5*pGrid->dx2) + kz*x3 - PI/4.));
         rbz = -0.320324e-7;
         rbz *= cos((double)(kx*x1 + ky*x2 + kz*(x3-0.5*pGrid->dx3) - PI/4.));;
-        rbz += (sqrt(15.0)/16.0)*(Omega/kz);
+        rbz += (sqrt(15.0)/16.0)*(Omega_0/kz);
       } 
       if (ipert == 6) {
         ifield = 0;
@@ -255,7 +249,7 @@ void problem(Grid *pGrid, Domain *pDomain)
       pGrid->U[k][j][i].M1 = rd*rvx;
       pGrid->U[k][j][i].M2 = rd*rvy;
 #ifndef FARGO
-      pGrid->U[k][j][i].M2 -= rd*(1.5*Omega*x1);
+      pGrid->U[k][j][i].M2 -= rd*(qshear*Omega_0*x1);
 #endif
       pGrid->U[k][j][i].M3 = rd*rvz;
 #ifdef ADIABATIC
@@ -394,7 +388,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
 /* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu_V */
 
-  Omega = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  qshear  = par_getd_def("problem","qshear",1.5);
 #ifdef OHMIC
   eta_Ohm = par_getd("problem","eta");
 #endif
@@ -532,19 +527,15 @@ double ran2(long int *idum)
 #undef RNMX
 
 /*------------------------------------------------------------------------------
- * ShearingBoxPot: includes vertical gravity if macro VERTICAL_GRAVITY is
- *   defined above.
+ * ShearingBoxPot:
  */
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
 #ifndef FARGO
-  phi -= 1.5*Omega*Omega*x1*x1;
+  phi -= qshear*Omega_0*Omega_0*x1*x1;
 #endif
-#ifdef VERTICAL_GRAVITY
-  phi += 0.5*Omega*Omega*x3*x3;
-#endif /* VERTICAL_GRAVITY */
   return phi;
 }
 
@@ -559,7 +550,7 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 #ifdef FARGO
   return (pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  return (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  return (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
 }
 
@@ -577,7 +568,8 @@ static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j, const int k)
 #ifdef FARGO
   return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  return pG->U[k][j][i].M1*
+    (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
 }
 
@@ -588,7 +580,7 @@ static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k)
 #ifdef FARGO
   dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
   return pG->U[k][j][i].d*dVy*dVy;
 }
@@ -636,7 +628,7 @@ static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k)
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   dBz = pG->U[k][j][i].B3c-(sqrt(15.0/16.0))/(2.0*PI)/sqrt(4.*PI);
   dVx = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-  dVy = pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1;
+  dVy = pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1;
   dVz = pG->U[k][j][i].M3/pG->U[k][j][i].d;
   
 /*  return (dVx*dVx + dVy*dVy + dVz*dVz + pG->U[k][j][i].B1c*pG->U[k][j][i].B1c
@@ -664,12 +656,12 @@ static Real hst_dBy(const Grid *pG, const int i, const int j, const int k)
   Lz = xmax - xmin;
 
   fky = 2.0*PI/Ly;
-  fkx = -4.0*PI/Lx + 1.5*Omega*fky*pG->time;
+  fkx = -4.0*PI/Lx + qshear*Omega_0*fky*pG->time;
   fkz = 2.0*PI/Lz;
 
 /* compute real part of Fourier mode, for comparison to JGG fig 11 */
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  dBy = 2.0*(pG->U[k][j][i].B2c - (0.2-0.15*Omega*pG->time));
+  dBy = 2.0*(pG->U[k][j][i].B2c - (0.2-0.15*Omega_0*pG->time));
   dBy *= cos(fkx*x1 + fky*x2 + fkz*x3);
 
   return dBy;

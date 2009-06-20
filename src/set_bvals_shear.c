@@ -121,7 +121,7 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,ii,j,k,n,joffset,jremap;
-  Real xmin,xmax,Lx,Ly,TH_omL,yshear,deltay,epsi;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
@@ -143,8 +143,8 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   xmax = par_getd("grid","x2max");
   Ly = xmax - xmin;
 
-  TH_omL = 1.5*Omega*Lx;
-  yshear = TH_omL*pG->time;
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -172,7 +172,7 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
         GhstZns[k][i][j].U[1] = pG->U[k][j][ii].M1;
         GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2;
 #ifndef FARGO
-        GhstZns[k][i][j].U[2] += TH_omL*pG->U[k][j][ii].d;
+        GhstZns[k][i][j].U[2] += qomL*pG->U[k][j][ii].d;
 #endif
         GhstZns[k][i][j].U[3] = pG->U[k][j][ii].M3;
 #ifdef ADIABATIC
@@ -678,7 +678,7 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
       for (i=1; i<=nghost; i++) {
         pG->U[ks][j][is-i] = pG->U[ks][j][ie-(i-1)];
 #ifndef FARGO
-        pG->U[ks][j][is-i].M3 += TH_omL*pG->U[ks][j][is-i].d;
+        pG->U[ks][j][is-i].M3 += qomL*pG->U[ks][j][is-i].d;
 #endif
 #ifdef ADIABATIC
 /* No change in the internal energy */
@@ -740,7 +740,7 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,ii,j,k,n,joffset,jremap;
-  Real xmin,xmax,Lx,Ly,TH_omL,yshear,deltay,epso;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
@@ -762,8 +762,8 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
   xmax = par_getd("grid","x2max");
   Ly = xmax - xmin;
 
-  TH_omL = 1.5*Omega*Lx;
-  yshear = TH_omL*pG->time;
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -791,7 +791,7 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
         GhstZns[k][i][j].U[1] = pG->U[k][j][ii].M1;
         GhstZns[k][i][j].U[2] = pG->U[k][j][ii].M2;
 #ifndef FARGO
-        GhstZns[k][i][j].U[2] -= TH_omL*pG->U[k][j][ii].d;
+        GhstZns[k][i][j].U[2] -= qomL*pG->U[k][j][ii].d;
 #endif
         GhstZns[k][i][j].U[3] = pG->U[k][j][ii].M3;
 #ifdef ADIABATIC
@@ -1299,7 +1299,7 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
       for (i=1; i<=nghost; i++) {
         pG->U[ks][j][ie+i] = pG->U[ks][j][is+(i-1)];
 #ifndef FARGO
-        pG->U[ks][j][ie+i].M3 -= TH_omL*pG->U[ks][j][ie+i].d;
+        pG->U[ks][j][ie+i].M3 -= qomL*pG->U[ks][j][ie+i].d;
 #endif
 #ifdef ADIABATIC
 /* No change in the internal energy */
@@ -1364,7 +1364,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int j,k,joffset,jremap;
-  Real xmin,xmax,Lx,Ly,TH_omL,yshear,deltay,epsi;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
@@ -1385,8 +1385,8 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
   xmax = par_getd("grid","x2max");
   Ly = xmax - xmin;
 
-  TH_omL = 1.5*Omega*Lx;
-  yshear = TH_omL*pG->time;
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
   deltay = fmod(yshear, Ly);
   joffset = (int)(deltay/pG->dx2);
   epsi = (fmod(deltay,pG->dx2))/pG->dx2;
@@ -1707,7 +1707,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int j,k,joffset,jremap;
-  Real xmin,xmax,Lx,Ly,TH_omL,yshear,deltay,epso;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
@@ -1728,8 +1728,8 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
   xmax = par_getd("grid","x2max");
   Ly = xmax - xmin;
 
-  TH_omL = 1.5*Omega*Lx;
-  yshear = TH_omL*pG->time;
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
   deltay = fmod(yshear, Ly);
   joffset = (int)(deltay/pG->dx2);
   epso = -(fmod(deltay,pG->dx2))/pG->dx2;
@@ -2204,7 +2204,7 @@ void Fargo(Grid *pG, Domain *pD)
 
 /* Compute integer and fractional peices of a cell covered by shear */
       cc_pos(pG, i, js, ks, &x1,&x2,&x3);
-      yshear = -1.5*Omega*x1*pG->dt;
+      yshear = -qshear*Omega_0*x1*pG->dt;
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
         ath_error("[set_bvals_shear]: FARGO offset exceeded # of gh zns\n");
@@ -2272,7 +2272,7 @@ void Fargo(Grid *pG, Domain *pD)
 
 /* Compute emfz =  VyBx, which is at cell-face in x1-direction  */
 
-      yshear = -1.5*Omega*(x1 - 0.5*pG->dx1)*pG->dt;
+      yshear = -qshear*Omega_0*(x1 - 0.5*pG->dx1)*pG->dt;
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
         ath_error("[set_bvals_shear]: FARGO offset exceeded # of gh zns\n");

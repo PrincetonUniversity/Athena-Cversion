@@ -101,8 +101,9 @@ static void integrate_emf3_corner(const Grid *pG);
 void integrate_3d(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
-  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
+  Real hdt = 0.5*pG->dt;
+  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
   int i,il,iu, is = pG->is, ie = pG->ie;
   int j,jl,ju, js = pG->js, je = pG->je;
   int k,kl,ku, ks = pG->ks, ke = pG->ke;
@@ -112,7 +113,6 @@ void integrate_3d(Grid *pG, Domain *pD)
   Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
   Real db1,db2,db3,l1,l2,l3,B1,B2,B3,V1,V2,V3;
   Real B1ch,B2ch,B3ch;
-  Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
   Real cfr,cfl,lambdar,lambdal;
@@ -125,10 +125,10 @@ void integrate_3d(Grid *pG, Domain *pD)
 #endif
 #ifdef SHEARING_BOX
   int my_iproc,my_jproc,my_kproc;
-  Real M1n, dM2n; /* M1, dM2=(My+d*1.5*Omega*x) at time n */
+  Real M1n, dM2n; /* M1, dM2=(My+d*q*Omega_0*x) at time n */
   Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
   Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
-  Real fact, TH_om, om_dt = Omega*pG->dt;
+  Real fact, qom, om_dt = Omega_0*pG->dt;
 #endif /* SHEARING_BOX */
 
 /* With particles, one more ghost cell must be updated in predict step */
@@ -288,22 +288,26 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
+ * The tidal gravity terms are added through the StaticGravPot
+ *    Vx source term = (dt/2)*( 2 Omega_0 Vy)
+ *    Vy source term = (dt/2)*(-2 Omega_0 Vx)
+ *    Vy source term = (dt/2)*((q-2) Omega_0 Vx) (with FARGO)
  */
 
 #ifdef SHEARING_BOX
       for (i=il+1; i<=iu; i++) {
-	Wl[i].Vx += pG->dt*Omega*W[i-1].Vy; /* (dt/2)*( 2 Omega Vy) */
+	Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy;
 #ifdef FARGO
-	Wl[i].Vy -= 0.25*pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-1/2 Omega Vx) */
+	Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
 #else
-	Wl[i].Vy -= pG->dt*Omega*W[i-1].Vx; /* (dt/2)*(-2 Omega Vx) */
+	Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
 #endif
 
-	Wr[i].Vx += pG->dt*Omega*W[i].Vy; /* (dt/2)*( 2 Omega Vy) */
+	Wr[i].Vx += pG->dt*Omega_0*W[i].Vy;
 #ifdef FARGO
-	Wr[i].Vy -= 0.25*pG->dt*Omega*W[i].Vx; /* (dt/2)*(-1/2 Omega Vx) */
+	Wr[i].Vy += hdt*(qshear-2.)*Omega_0*W[i].Vx;
 #else
-	Wr[i].Vy -= pG->dt*Omega*W[i].Vx; /* (dt/2)*(-2 Omega Vx) */
+	Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx;
 #endif
       }
 #endif /* SHEARING_BOX */
@@ -1306,28 +1310,29 @@ void integrate_3d(Grid *pG, Domain *pD)
 #endif /* SELF_GRAVITY */
 
 /*--- Step 6d (cont) -----------------------------------------------------------
- * Add source terms for shearing box arising from x1-Flux gradient
- *    Vx source term is (dt/2)( 2 Omega V y); Vx on x2Face is z-comp.
- *    Vy source term is (dt/2)(-2 Omega V x); Vy on x2Face is x-comp.
- *    With FARGO Vy source term is (dt/2)(-1/2 Omega V x)
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+ * x1-Flux gradient.  The tidal gravity terms are added via StaticGravPot
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
  */
 
 #ifdef SHEARING_BOX
   for (k=kl+1; k<=ku-1; k++) {
     for (j=jl+1; j<=ju; j++) {
       for (i=il+1; i<=iu-1; i++) {
-        Ur_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j][i].M2;
+        Ur_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j][i].M2;
 #ifdef FARGO
-        Ur_x2Face[k][j][i].Mx -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+        Ur_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
 #else
-        Ur_x2Face[k][j][i].Mx -= pG->dt*Omega*pG->U[k][j][i].M1;
+        Ur_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j][i].M1;
 #endif
 
-        Ul_x2Face[k][j][i].Mz += pG->dt*Omega*pG->U[k][j-1][i].M2;
+        Ul_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j-1][i].M2;
 #ifdef FARGO
-        Ul_x2Face[k][j][i].Mx -= 0.25*pG->dt*Omega*pG->U[k][j-1][i].M1;
+        Ul_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j-1][i].M1;
 #else
-        Ul_x2Face[k][j][i].Mx -= pG->dt*Omega*pG->U[k][j-1][i].M1;
+        Ul_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j-1][i].M1;
 #endif
       }
     }
@@ -1618,28 +1623,29 @@ void integrate_3d(Grid *pG, Domain *pD)
 #endif /* SELF_GRAVITY */
 
 /*--- Step 7d (cont) -----------------------------------------------------------
- * Add source terms for shearing box arising from x1-Flux gradient
- *    Vx source term is (dt/2)( 2 Omega V y); Vx on x3Face is y-comp.
- *    Vy source term is (dt/2)(-2 Omega V x); Vy on x3Face is z-comp.
- *    With FARGO Vy source term is (dt/2)(-1/2 Omega V x)
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+ * x1-Flux gradient.  The tidal gravity terms are added via StaticGravPot
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
  */
 
 #ifdef SHEARING_BOX
   for (k=kl+1; k<=ku; k++) {
     for (j=jl+1; j<=ju-1; j++) {
       for (i=il+1; i<=iu-1; i++) {
-        Ur_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k][j][i].M2;
+        Ur_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k][j][i].M2;
 #ifdef FARGO
-        Ur_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+        Ur_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
 #else
-        Ur_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k][j][i].M1;
+        Ur_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k][j][i].M1;
 #endif
 
-        Ul_x3Face[k][j][i].My += pG->dt*Omega*pG->U[k-1][j][i].M2;
+        Ul_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k-1][j][i].M2;
 #ifdef FARGO
-        Ul_x3Face[k][j][i].Mz -= 0.25*pG->dt*Omega*pG->U[k-1][j][i].M1;
+        Ul_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k-1][j][i].M1;
 #else
-        Ul_x3Face[k][j][i].Mz -= pG->dt*Omega*pG->U[k-1][j][i].M1;
+        Ul_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k-1][j][i].M1;
 #endif
       }
     }
@@ -1742,11 +1748,11 @@ void integrate_3d(Grid *pG, Domain *pD)
 /* Add the Coriolis terms for shearing box.  Tidal potential already added by
  * StaticGravPot above.  */
 #ifdef SHEARING_BOX
-        M1h += pG->dt*Omega*pG->U[k][j][i].M2;
+        M1h += pG->dt*Omega_0*pG->U[k][j][i].M2;
 #ifdef FARGO
-        M2h -= 0.25*pG->dt*Omega*pG->U[k][j][i].M1;
+        M2h += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
 #else
-        M2h -= pG->dt*Omega*pG->U[k][j][i].M1;
+        M2h -= pG->dt*Omega_0*pG->U[k][j][i].M1;
 #endif
 #endif /* SHEARING_BOX */
 
@@ -2018,8 +2024,8 @@ void integrate_3d(Grid *pG, Domain *pD)
  */
 
 #ifdef SHEARING_BOX
-  fact = om_dt/(1.0 + 0.25*om_dt*om_dt);
-  TH_om = 1.5*Omega; /* Three-Halves Omega */
+  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+  qom = qshear*Omega_0;
   for(k=ks; k<=ke; ++k) {
     for(j=js; j<=je; ++j) {
       for(i=is; i<=ie; ++i) {
@@ -2030,7 +2036,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifdef FARGO
 	dM2n = pG->U[k][j][i].M2;
 #else
-	dM2n = pG->U[k][j][i].M2 + pG->U[k][j][i].d*TH_om*x1;
+	dM2n = pG->U[k][j][i].M2 + qom*x1*pG->U[k][j][i].d;
 #endif
 
 /* Calculate the flux for the y-momentum fluctuation */
@@ -2041,12 +2047,12 @@ void integrate_3d(Grid *pG, Domain *pD)
 	frx3_dM2 = x3Flux[k+1][j][i].Mz;
 	flx3_dM2 = x3Flux[k  ][j][i].Mz;
 #ifndef FARGO
-	frx1_dM2 += TH_om*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
-	flx1_dM2 += TH_om*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
-	frx2_dM2 += TH_om*(x1)*x2Flux[k][j+1][i].d;
-	flx2_dM2 += TH_om*(x1)*x2Flux[k][j  ][i].d;
-	frx3_dM2 += TH_om*(x1)*x3Flux[k+1][j][i].d;
-	flx3_dM2 += TH_om*(x1)*x3Flux[k  ][j][i].d;
+	frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
+	flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
+	frx2_dM2 += qom*(x1            )*x2Flux[k][j+1][i].d;
+	flx2_dM2 += qom*(x1            )*x2Flux[k][j  ][i].d;
+	frx3_dM2 += qom*(x1            )*x3Flux[k+1][j][i].d;
+	flx3_dM2 += qom*(x1            )*x3Flux[k  ][j][i].d;
 #endif
 
 /* Now evolve M1n and dM2n by dt/2 using Forward Euler */
@@ -2062,10 +2068,11 @@ void integrate_3d(Grid *pG, Domain *pD)
  * potential momentum source terms using a Crank-Nicholson
  * discretization for the momentum fluctuation equation. */
 
-	pG->U[k][j][i].M1 += (2.0*dM2e - 0.5*om_dt*M1e)*fact;
-	pG->U[k][j][i].M2 -= 0.5*(M1e + om_dt*dM2e)*fact;
+	pG->U[k][j][i].M1 += (4.0*dM2e - 2.0*(qshear-2.)*om_dt*M1e)*fact;
+	pG->U[k][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
 #ifndef FARGO
-	pG->U[k][j][i].M2 -= 0.75*om_dt*(x1Flux[k][j][i].d+x1Flux[k][j][i+1].d);
+	pG->U[k][j][i].M2 -= 0.5*qshear*om_dt*
+           (x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
 #endif
 
 /* Update the energy for a fixed potential, and add the Z-component (M3)

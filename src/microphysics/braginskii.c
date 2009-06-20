@@ -80,7 +80,7 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       Vel[ks][j][i].y = pG->U[ks][j][i].M2/pG->U[ks][j][i].d;
 #ifdef FARGO
       cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-      Vel[ks][j][i].y -= 1.5*Omega*x1;
+      Vel[ks][j][i].y -= qshear*Omega_0*x1;
 #endif
       Vel[ks][j][i].z = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
     }
@@ -314,7 +314,7 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
         Vel[k][j][i].y = pG->U[k][j][i].M2/pG->U[k][j][i].d;
 #ifdef FARGO
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        Vel[k][j][i].y -= 1.5*Omega*x1;
+        Vel[k][j][i].y -= qshear*Omega_0*x1;
 #endif
         Vel[k][j][i].z = pG->U[k][j][i].M3/pG->U[k][j][i].d;
       }

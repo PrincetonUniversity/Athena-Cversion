@@ -65,7 +65,7 @@ void integrate_particle_fulimp(Grid *pG)
   Real ts11, ts12;		/* 1/stopping time */
   Real b0,A,B,C,D,Det1;		/* matrix elements and determinant */
 #ifdef SHEARING_BOX
-  Real oh, oh2;			/* Omega*dt and its square */
+  Real oh, oh2;			/* Omega_0*dt and its square */
   Real yshift_frac;		/* fractional shift in the boundary (in cell unit) */
 #endif
 #ifdef FEEDBACK
@@ -143,7 +143,7 @@ void integrate_particle_fulimp(Grid *pG)
     ft.x3 = 0.5*(fc.x3+b0*fp.x3);
 
 #ifdef SHEARING_BOX
-    oh = Omega*pG->dt;
+    oh = Omega_0*pG->dt;
     if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
       ft.x1 += -oh*fp.x2;
     #ifdef FARGO
@@ -209,8 +209,8 @@ void integrate_particle_fulimp(Grid *pG)
       curP->x3 = curG->x3;
 
 #ifdef FARGO
-    /* shift = -3/2 * Omega * x * dt */
-    curG->shift = -0.75*Omega*(curG->x1+curP->x1)*pG->dt;
+    /* shift = -3/2 * Omega_0 * x * dt */
+    curG->shift = -0.75*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     curP->property = curG->property;
@@ -267,7 +267,7 @@ void integrate_particle_semimp(Grid *pG)
   Real ts1, b, b2;		/* other shortcut expressions */
   Real x1n, x2n, x3n;		/* first order new position at half a time step */
 #ifdef SHEARING_BOX
-  Real b1, oh;			/* Omega*h */
+  Real b1, oh;			/* Omega_0*h */
 #endif
 #ifdef FEEDBACK
   Vector fb;			/* feedback force */
@@ -325,7 +325,7 @@ void integrate_particle_semimp(Grid *pG)
     /* shortcut expressions */
     b = pG->dt*ts1+2.0;
 #ifdef SHEARING_BOX
-    oh = Omega*pG->dt;
+    oh = Omega_0*pG->dt;
 #ifdef FARGO
     b1 = 1.0/(SQR(b)+SQR(oh));
 #else
@@ -384,8 +384,8 @@ void integrate_particle_semimp(Grid *pG)
       curP->x3 = curG->x3;
 
 #ifdef FARGO
-    /* shift = -3/2 * Omega * x * dt */
-    curG->shift = -0.75*Omega*(curG->x1+curP->x1)*pG->dt;
+    /* shift = -3/2 * Omega_0 * x * dt */
+    curG->shift = -0.75*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     /* step 6: calculate feedback force to the gas */
@@ -530,8 +530,8 @@ void integrate_particle_exp(Grid *pG)
       curP->x3 = curG->x3;
 
 #ifdef FARGO
-    /* shift = -3/2 * Omega * x * dt */
-    curG->shift = -0.75*Omega*(curG->x1+curP->x1)*pG->dt;
+    /* shift = -3/2 * Omega_0 * x * dt */
+    curG->shift = -0.75*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     /* step 6: calculate feedback force to the gas */
@@ -785,16 +785,16 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
   ft.x1 = ft.x2 = ft.x3 = 0.0;
 
 #ifdef SHEARING_BOX
-  Real omg2 = SQR(Omega);
+  Real omg2 = SQR(Omega_0);
 
   if (pG->Nx3 > 1)
   {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
   #ifdef FARGO
-    ft.x1 += 2.0*v2*Omega;
-    ft.x2 += -0.5*v1*Omega;
+    ft.x1 += 2.0*v2*Omega_0;
+    ft.x2 += -0.5*v1*Omega_0;
   #else
-    ft.x1 += 3.0*omg2*x1 + 2.0*v2*Omega;
-    ft.x2 += -2.0*v1*Omega;
+    ft.x1 += 3.0*omg2*x1 + 2.0*v2*Omega_0;
+    ft.x2 += -2.0*v1*Omega_0;
   #endif /* FARGO */
   #ifdef VERTICAL_GRAVITY
     ft.x3 += -omg2*x3;
@@ -802,8 +802,8 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
   }
   else
   { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
-    ft.x1 += 3.0*omg2*x1 + 2.0*v3*Omega;
-    ft.x3 += -2.0*v1*Omega;
+    ft.x1 += 3.0*omg2*x1 + 2.0*v3*Omega_0;
+    ft.x3 += -2.0*v1*Omega_0;
   #ifdef VERTICAL_GRAVITY
     ft.x2 += -omg2*x2;
   #endif /* VERTICAL_GRAVITY */

@@ -31,7 +31,7 @@ Real four_pi_G, grav_mean_rho;
 #endif
 
 #ifdef SHEARING_BOX
-Real Omega;
+Real Omega_0, qshear;
 #endif
 
 #ifdef PARTICLES
@@ -65,7 +65,7 @@ extern Real four_pi_G, grav_mean_rho;
 #endif
 
 #ifdef SHEARING_BOX
-extern Real Omega;
+extern Real Omega_0, qshear;
 #endif
 
 #ifdef PARTICLES

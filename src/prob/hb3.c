@@ -90,7 +90,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   kx = 2.0*PI/Lx;
 
 /* Read problem parameters */
-  Omega = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
   beta = par_getd("problem","beta");
   B0 = sqrt((double)(2.0*pres/beta));
@@ -137,7 +138,7 @@ void problem(Grid *pGrid, Domain *pDomain)
       pGrid->U[ks][j][i].d  = rd;
       pGrid->U[ks][j][i].M1 = rd*rvx;
       pGrid->U[ks][j][i].M2 = 0.0;
-      pGrid->U[ks][j][i].M3 = -rd*1.5*Omega*x1;
+      pGrid->U[ks][j][i].M3 = -rd*qshear*Omega_0*x1;
 #ifdef ADIABATIC
       pGrid->U[ks][j][i].E = rp/Gamma_1
         + 0.5*(SQR(pGrid->U[ks][j][i].M1) + SQR(pGrid->U[ks][j][i].M3))/rd;
@@ -221,7 +222,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   Real x1min, x1max;
 
-  Omega = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  qshear  = par_getd_def("problem","qshear",1.5);
 
 /* Must recompute global variable Lx needed by BC routines */
   x1min = par_getd("grid","x1min");
@@ -348,7 +350,7 @@ double ran2(long int *idum)
  */
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3){
-  return -1.5*Omega*Omega*x1*x1;  
+  return -qshear*Omega_0*Omega_0*x1*x1;  
 }
 
 /*------------------------------------------------------------------------------
@@ -359,7 +361,7 @@ static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  return (pG->U[k][j][i].M3/pG->U[k][j][i].d + 1.5*Omega*x1);
+  return (pG->U[k][j][i].M3/pG->U[k][j][i].d + qshear*Omega_0*x1);
 }
 
 /*------------------------------------------------------------------------------
@@ -370,7 +372,8 @@ static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  return pG->U[k][j][i].M1*
+    (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 }
 
 /*------------------------------------------------------------------------------
@@ -385,7 +388,7 @@ static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
 
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-  dMy = (pG->U[k][j][i].M2 + 1.5*Omega*x1*pG->U[k][j][i].d);
+  dMy = (pG->U[k][j][i].M2 + qshear*Omega_0*x1*pG->U[k][j][i].d);
   dE = 0.5*(pG->U[k][j][i].M1*pG->U[k][j][i].M1 + 4.0*dMy*dMy)/pG->U[k][j][i].d;
 
   return dE;

@@ -21,7 +21,6 @@
  *
  * REFERENCE: Stone, J., Hawley, J. & Balbus, S. A., ApJ 463, 656-673 (1996)
  *            Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992)
- *            Johnson, Guan, & Gammie, ApJSupp, (2008)
  *============================================================================*/
 
 #include <float.h>
@@ -36,10 +35,10 @@
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- * ran2()          - random number generator from NR
+ * ran2()           - random number generator from NR
  * ShearingBoxPot() - tidal potential in 3D shearing box
- * expr_dV2()       - computes delta(Vy)
- * hst_*            - new history variables
+ * expr_*()         - computes new output variables
+ * hst_*            - adds new history variables
  *============================================================================*/
 
 static double ran2(long int *idum);
@@ -58,15 +57,10 @@ static Real hst_Bx(const Grid *pG, const int i, const int j, const int k);
 static Real hst_By(const Grid *pG, const int i, const int j, const int k);
 static Real hst_Bz(const Grid *pG, const int i, const int j, const int k);
 static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k);
-static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k);
-static Real hst_dBy(const Grid *pG, const int i, const int j, const int k);
 #endif /* MHD */
 void output_1d(Grid *pGrid, Domain *pD, Output *pOut);
 
 /*=========================== PUBLIC FUNCTIONS =================================
- * Contains the usual, plus:
- * ShearingSheetBC() - shearing sheet BCs in 3D, called by set_bval().
- * EvolveEy()      - sets Ey in integrator to keep <Bz>=const. 
  *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
@@ -92,7 +86,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Read problem parameters.  Note Omega set to 10^{-3} by default */
   pres=den*Iso_csound2;
-  Omega = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
   beta = par_getd("problem","beta");
   B0 = sqrt((double)(2.0*pres/beta));
@@ -162,7 +157,7 @@ void problem(Grid *pGrid, Domain *pDomain)
       pGrid->U[k][j][i].M1 = rd*rvx;
       pGrid->U[k][j][i].M2 = rd*rvy;
 #ifndef FARGO
-      pGrid->U[k][j][i].M2 -= rd*(1.5*Omega*x1);
+      pGrid->U[k][j][i].M2 -= rd*(qshear*Omega_0*x1);
 #endif
       pGrid->U[k][j][i].M3 = rd*rvz;
 #ifdef ADIABATIC
@@ -283,7 +278,8 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
-  Omega = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  qshear  = par_getd_def("problem","qshear",1.5);
 
 /* With viscosity and/or resistivity, read eta_Ohm and nu_V */
 #ifdef OHMIC
@@ -438,7 +434,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   static int frst=1;
 
 #ifndef FARGO
-  phi -= 1.5*Omega*Omega*x1*x1;
+  phi -= qshear*Omega_0*Omega_0*x1*x1;
 #endif
   /* Ensure vertical periodicity in ghost zones */
   if (frst == 1) {
@@ -456,7 +452,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   phi += 0.5*Omega*Omega*z*z;
 */
 
-  phi += 0.5*Omega*Omega*(SQR(2.0-sqrt(SQR(2.0-fabs(z)) + 0.01)));
+  phi += 0.5*Omega_0*Omega_0*(SQR(2.0-sqrt(SQR(2.0-fabs(z)) + 0.01)));
 
   return phi;
 }
@@ -472,7 +468,7 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 #ifdef FARGO
   return (pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  return (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  return (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
 }
 
@@ -522,7 +518,7 @@ static Real expr_KE(const Grid *pG, const int i, const int j, const int k)
 #ifdef FARGO
   Vy = (pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  Vy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  Vy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
   Vx = pG->U[k][j][i].M1/pG->U[k][j][i].d;
   Vz = pG->U[k][j][i].M3/pG->U[k][j][i].d;
@@ -545,7 +541,8 @@ static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j, const int k)
 #ifdef FARGO
   return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  return pG->U[k][j][i].M1*
+    (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
 }
 
@@ -556,7 +553,7 @@ static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k)
 #ifdef FARGO
   dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d);
 #else
-  dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1);
+  dVy = (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
   return pG->U[k][j][i].d*dVy*dVy;
 }
@@ -596,51 +593,6 @@ static Real hst_Bz(const Grid *pG, const int i, const int j, const int k)
 static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;
-}
-
-static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k)
-{
-  Real x1,x2,x3,dVx,dVy,dVz,dBz;
-  cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  dBz = pG->U[k][j][i].B3c-(sqrt(15.0/16.0))/(2.0*PI)/sqrt(4.*PI);
-  dVx = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-  dVy = pG->U[k][j][i].M2/pG->U[k][j][i].d + 1.5*Omega*x1;
-  dVz = pG->U[k][j][i].M3/pG->U[k][j][i].d;
-  
-/*  return (dVx*dVx + dVy*dVy + dVz*dVz + pG->U[k][j][i].B1c*pG->U[k][j][i].B1c
-    + pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + dBz*dBz); */
-  return (pG->U[k][j][i].B1c*pG->U[k][j][i].B1c
-    + pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + dBz*dBz); 
-}
-
-static Real hst_dBy(const Grid *pG, const int i, const int j, const int k)
-{
-  double fkx, fky, fkz; /* Fourier kx, ky */
-  double dBy;
-  Real xmin,xmax,Lx,Ly,Lz,x1,x2,x3;
-
-  xmin = par_getd("grid","x1min");
-  xmax = par_getd("grid","x1max");
-  Lx = xmax - xmin;
-
-  xmin = par_getd("grid","x2min");
-  xmax = par_getd("grid","x2max");
-  Ly = xmax - xmin;
-
-  xmin = par_getd("grid","x3min");
-  xmax = par_getd("grid","x3max");
-  Lz = xmax - xmin;
-
-  fky = 2.0*PI/Ly;
-  fkx = -4.0*PI/Lx + 1.5*Omega*fky*pG->time;
-  fkz = 2.0*PI/Lz;
-
-/* compute real part of Fourier mode, for comparison to JGG fig 11 */
-  cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  dBy = 2.0*(pG->U[k][j][i].B2c - (0.2-0.15*Omega*pG->time));
-  dBy *= cos(fkx*x1 + fky*x2 + fkz*x3);
-
-  return dBy;
 }
 #endif /* MHD */
 
