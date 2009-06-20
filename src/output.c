@@ -1023,8 +1023,10 @@ static Gasfun_t getexpr(const int n, const char *expr)
 
   if (strcmp(expr,"d")==0)
     return expr_d;
+#ifdef SPECIAL_RELATIVITY
   else if (strcmp(expr,"d0")==0)
      return expr_d0;
+#endif
   else if (strcmp(expr,"M1")==0)
     return expr_M1;
   else if (strcmp(expr,"M2")==0)
