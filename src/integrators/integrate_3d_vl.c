@@ -153,6 +153,9 @@ void integrate_3d(Grid *pG, Domain *pD)
   int kb = kl+3, kt = ku-3;
 #endif /* THIRD_ORDER */
 
+/* Set etah=0 so first calls to flux functions do not use H-correction */
+  etah = 0.0;
+
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {

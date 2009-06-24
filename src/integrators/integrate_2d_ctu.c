@@ -127,6 +127,9 @@ void integrate_2d(Grid *pG, Domain *pD)
   ju = je + 2;
 #endif
 
+/* Set etah=0 so first calls to flux functions do not use H-correction */
+  etah = 0.0;
+
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------

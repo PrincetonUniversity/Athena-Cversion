@@ -102,6 +102,9 @@ void integrate_2d(Grid *pG, Domain *pD)
   int il=is-(nghost-1), iu=ie+(nghost-1);
   int jl=js-(nghost-1), ju=je+(nghost-1);
 
+/* Set etah=0 so first calls to flux functions do not use H-correction */
+  etah = 0.0;
+
   for (j=js-nghost; j<=je+nghost; j++) {
     for (i=is-nghost; i<=ie+nghost; i++) {
       Uhalf[j][i] = pG->U[ks][j][i];
