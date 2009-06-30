@@ -2047,6 +2047,9 @@ void Fargo(Grid *pG, Domain *pD)
   int jfs = nfghost, jfe = pG->Nx2 + nfghost - 1;
   int i,j,k,jj,n,joffset;
   Real x1,x2,x3,yshear,eps;
+#ifdef ADIABATIC
+  Real qom_dt = qshear*Omega_0*pG->dt;
+#endif
 #ifdef MPI_PARALLEL
   int err,cnt;
   double *pd;
@@ -2069,6 +2072,11 @@ void Fargo(Grid *pG, Domain *pD)
         FargoVars[k][i][j].U[2] = pG->U[k][jj][i].M2;
         FargoVars[k][i][j].U[3] = pG->U[k][jj][i].M3;
 #ifdef ADIABATIC
+#ifdef MHD
+/* Add energy equation source term in MHD */
+        pG->U[k][jj][i].E -= qom_dt*pG->U[k][jj][i].B1c*
+         (pG->U[k][jj][i].B2c - (qom_dt/2.)*pG->U[k][jj][i].B1c);
+#endif /* MHD */
         FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;
 #endif /* ADIABATIC */
 /* Only store Bz and Bx in that order.  This is to match order in FargoFlx:
