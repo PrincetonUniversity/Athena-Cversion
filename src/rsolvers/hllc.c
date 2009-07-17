@@ -199,6 +199,20 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   pFlux->E  += sm*cp*am;
 #endif /* ISOTHERMAL */
 
+#ifdef CYLINDRICAL
+/* COMPUTE THE INTERMEDIATE PRESSURE TERM */
+  if (bm > 0.0 || bp < 0.0) {
+#ifndef ISOTHERMAL
+    pFlux->Pflux = sl*Wl.P + sr*Wr.P;
+#else /* ISOTHERMAL */
+    pFlux->Pflux = (sl*Wl.d + sr*Wr.d)*Iso_csound2;
+#endif /* ISOTHERMAL */
+  }
+  else {
+    pFlux->Pflux = cp; 
+  }
+#endif /* CYLINDRICAL */
+
   return;
 }
 #endif /* SPECIAL_RELATIVITY */

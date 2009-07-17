@@ -146,11 +146,17 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
   if(spd[0] >= 0.0){
     *pFlux = Fl;
+#ifdef CYLINDRICAL
+    pFlux->Pflux = ptl;
+#endif 
     return;
   }
 
   if(spd[4] <= 0.0){
     *pFlux = Fr;
+#ifdef CYLINDRICAL
+    pFlux->Pflux = ptr;
+#endif 
     return;
   }
 
@@ -349,6 +355,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   }
 #endif
 
+#ifdef CYLINDRICAL
+  pFlux->Pflux = ptst;
+#endif
   return;
 }
 

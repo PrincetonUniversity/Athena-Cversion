@@ -28,6 +28,7 @@
  *     scal[19] = particle 0.5*d*v2**2
  *     scal[20] = particle 0.5*d*v3**2
  *     scal[20+NSCALARS] = passively advected scalars
+ *     scal[21+NSCALARS] = angular momentum
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
@@ -87,6 +88,11 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   double rho, cellvol1;
 #endif
 
+  double x1, x2, x3, grid_vol;
+#ifdef CYLINDRICAL
+  double my_Rmin, my_Rmax, Rmin, Rmax;
+#endif 
+
   total_hst_cnt = 9 + NSCALARS + usr_hst_cnt;
 #ifdef ADIABATIC
   total_hst_cnt++;
@@ -99,6 +105,9 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 #endif
 #ifdef PARTICLES
   total_hst_cnt += 7;
+#endif
+#ifdef CYLINDRICAL
+  total_hst_cnt++;  /* for angular momentum */
 #endif
 
 /* Add a white space to the format */
@@ -120,36 +129,43 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
+        // WEIGHT THE VARIABLES IN EACH CELL BY x1
+#ifdef CYLINDRICAL
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+#else
+        x1 = 1.0;
+#endif
+
         mhst = 2;
-	scal[mhst] += pGrid->U[k][j][i].d;
+	scal[mhst] += x1*pGrid->U[k][j][i].d;
 	d1 = 1.0/pGrid->U[k][j][i].d;
 #ifndef BAROTROPIC
         mhst++;
-	scal[mhst] += pGrid->U[k][j][i].E;
+	scal[mhst] += x1*pGrid->U[k][j][i].E;
 #endif
         mhst++;
-	scal[mhst] += pGrid->U[k][j][i].M1;
+	scal[mhst] += x1*pGrid->U[k][j][i].M1;
         mhst++;
-	scal[mhst] += pGrid->U[k][j][i].M2;
+	scal[mhst] += x1*pGrid->U[k][j][i].M2;
         mhst++;
-	scal[mhst] += pGrid->U[k][j][i].M3;
+	scal[mhst] += x1*pGrid->U[k][j][i].M3;
         mhst++;
-	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].M1)*d1;
+	scal[mhst] += x1*0.5*SQR(pGrid->U[k][j][i].M1)*d1;
         mhst++;
-	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].M2)*d1;
+	scal[mhst] += x1*0.5*SQR(pGrid->U[k][j][i].M2)*d1;
         mhst++;
-	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].M3)*d1;
+	scal[mhst] += x1*0.5*SQR(pGrid->U[k][j][i].M3)*d1;
 #ifdef MHD
         mhst++;
-	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].B1c);
+	scal[mhst] += x1*0.5*SQR(pGrid->U[k][j][i].B1c);
         mhst++;
-	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].B2c);
+	scal[mhst] += x1*0.5*SQR(pGrid->U[k][j][i].B2c);
         mhst++;
-	scal[mhst] += 0.5*SQR(pGrid->U[k][j][i].B3c);
+	scal[mhst] += x1*0.5*SQR(pGrid->U[k][j][i].B3c);
 #endif
 #ifdef SELF_GRAVITY
         mhst++;
-        scal[mhst] += pGrid->U[k][j][i].d*pGrid->Phi[k][j][i];
+        scal[mhst] += x1*pGrid->U[k][j][i].d*pGrid->Phi[k][j][i];
 #endif
 #ifdef PARTICLES
         parhst = mhst+1;
@@ -158,14 +174,19 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 #if (NSCALARS > 0)
 	for(n=0; n<NSCALARS; n++){
           mhst++;
-	  scal[mhst] += pGrid->U[k][j][i].s[n];
+	  scal[mhst] += x1*pGrid->U[k][j][i].s[n];
 	}
+#endif
+
+#ifdef CYLINDRICAL
+        mhst++;
+        scal[mhst] += x1*(x1*pGrid->U[k][j][i].M2);
 #endif
 
 /* Calculate the user defined history variables */
 	for(n=0; n<usr_hst_cnt; n++){
           mhst++;
-	  scal[mhst] += (*phst_fun[n])(pGrid, i, j, k);
+	  scal[mhst] += x1*(*phst_fun[n])(pGrid, i, j, k);
 	}
       }
     }
@@ -208,6 +229,12 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
   vol_rat = (pD->ide - pD->ids + 1)*(pD->jde - pD->jds + 1)*
             (pD->kde - pD->kds + 1);
+#ifdef CYLINDRICAL
+  cc_pos(pGrid,is,js,ks,&Rmin,&x2,&x3);
+  cc_pos(pGrid,ie,je,ke,&Rmax,&x2,&x3);
+  Rmin -= 0.5*pGrid->dx1;
+  Rmax += 0.5*pGrid->dx1;
+#endif
 
 /* The parent sums the scal[] array.
  * Note that this assumes (dx1,dx2,dx3) = const. */
@@ -220,6 +247,17 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 		   MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
   if(err)
     ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
+
+#ifdef CYLINDRICAL
+  my_Rmin = Rmin;
+  my_Rmax = Rmax;
+  err = MPI_Reduce(&my_Rmin, &Rmin, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+  if(err) 
+    ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
+  err = MPI_Reduce(&my_Rmax, &Rmax, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+  if(err) 
+    ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
+#endif /* CYLINDRICAL */
 #endif
 
 /* For parallel calculations, only the parent computes the average
@@ -229,6 +267,9 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 #endif
 
   dvol = 1.0/(double)vol_rat;
+#ifdef CYLINDRICAL
+  dvol /= 0.5*(Rmin+Rmax);
+#endif
 
   for (i=2; i<total_hst_cnt; i++) {
     scal[i] *= dvol;
@@ -305,6 +346,12 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
       fprintf(p_hstfile,"  [%i]=scalar %i",mhst,n);
     }
 #endif
+
+#ifdef CYLINDRICAL
+    mhst++;
+    fprintf(p_hstfile,"   [%i]=Ang.Mom.",mhst);
+#endif
+
     for(n=0; n<usr_hst_cnt; n++){
       mhst++;
       fprintf(p_hstfile,"  [%i]=%s",mhst,usr_label[n]);

@@ -33,6 +33,19 @@ void cc_pos(const Grid *pG, const int i, const int j,const int k,
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/* vc_pos:  Compute the volume-center of grid cell (i,j,k) */
+void vc_pos(const Grid *pG, const int i, const int j,const int k,
+            Real *px1, Real *px2, Real *px3)
+{
+  *px1 = pG->x1_0 + ((i + pG->idisp) + 0.5)*pG->dx1;
+#ifdef CYLINDRICAL
+  *px1 += SQR(pG->dx1)/(12.0*(*px1));
+#endif
+  *px2 = pG->x2_0 + ((j + pG->jdisp) + 0.5)*pG->dx2;
+  *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
+  return;
+}
 
 /*============================================================================
 

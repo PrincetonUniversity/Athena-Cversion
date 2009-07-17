@@ -98,7 +98,11 @@ void new_dt(Grid *pGrid)
       if (pGrid->Nx1 > 1)
         max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
       if (pGrid->Nx2 > 1)
+#ifdef CYLINDRICAL
+        max_v2 = MAX(max_v2,(fabs(v2)+sqrt((double)cf2sq))/r[i]);
+#else
         max_v2 = MAX(max_v2,fabs(v2)+sqrt((double)cf2sq));
+#endif
       if (pGrid->Nx3 > 1)
         max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
 

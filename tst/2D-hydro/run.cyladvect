@@ -1,0 +1,28 @@
+#! /bin/csh
+# Script for running cylindrical advection tests.
+# Run script in this directory (tst/2D-hydro)
+#
+# It creates a temporary run directory=cyladvect
+#
+# It redirects all output to a log file
+#
+# It expects to find the executable in bin (../../../bin/ from cyladvect)
+#
+# It expects to find the input file in (../ from cyladvect)
+
+set rundir=cyladvect
+set logfile=0
+
+if (! -d $rundir) then 
+  mkdir $rundir
+endif
+cd $rundir
+
+#foreach nx1 (32 64 128 256 512 1024)
+foreach nx1 (32 64 128)
+#  foreach iprob (1 3)
+  foreach iprob (4)
+    ../../../bin/athena -i ../athinput.cyladvect log/file_open=$logfile grid/Nx1=$nx1 grid/Nx2=$nx1 job/problem_id=CylAdvect_$nx1 problem/iprob=$iprob -d problem$iprob
+    echo 'Finished '{$nx1}'x'{$nx1}' problem '{$iprob}''
+  end
+end

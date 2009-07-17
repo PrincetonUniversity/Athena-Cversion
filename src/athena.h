@@ -102,6 +102,9 @@ typedef struct Cons1D_s{
 #if (NSCALARS > 0)
   Real s[NSCALARS];              /* passively advected scalars */
 #endif
+#ifdef CYLINDRICAL
+  Real Pflux;	 		/* pressure component of flux */
+#endif
 }Cons1D;
 
 /*----------------------------------------------------------------------------*/
@@ -406,6 +409,9 @@ typedef struct Output_s{
 /* typedefs for functions that compute static gravitational potential and
  * cooling, set in problem generator, and used by integrators */
 typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
+#ifdef CYLINDRICAL
+typedef Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3);
+#endif
 typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
 
 /* Directions for the set_bvals_fun() function */

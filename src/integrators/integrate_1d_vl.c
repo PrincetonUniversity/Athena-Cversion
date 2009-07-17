@@ -22,7 +22,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-#ifdef VL_INTEGRATOR
+#if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1D *Wl_x1Face=NULL, *Wr_x1Face=NULL;

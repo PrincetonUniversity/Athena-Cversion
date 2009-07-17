@@ -83,6 +83,12 @@ void show_config(void)
   ath_pout(0," Particles:               OFF\n");
 #endif
 
+#if defined(CYLINDRICAL)
+  ath_pout(0," Coordinate System:       cylindrical\n");
+#else
+  ath_pout(0," Coordinate System:       Cartesian\n");
+#endif
+
 #ifdef SPECIAL_RELATIVITY
   ath_pout(0," Special relativity:      ON\n");
 #else
@@ -182,6 +188,12 @@ void show_config(void)
 #else
   ath_pout(0," FARGO:                   OFF\n");
 #endif
+
+#ifdef HLL_ALL_WAVE
+  ath_pout(0," All-wave integration:    ON\n");
+#else
+  ath_pout(0," All-wave integration:    OFF\n");
+#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -248,6 +260,12 @@ void show_config_par(void)
   #endif
 #else
     par_sets("configure","particles","none","no particles");
+#endif
+
+#if defined(CYLINDRICAL)
+  par_sets("configure","coord","cylindrical","coordinate system");
+#else
+  par_sets("configure","coord","Cartesian","coordinate system");
 #endif
 
 #if defined(SPECIAL_RELATIVITY)
@@ -348,6 +366,12 @@ void show_config_par(void)
   par_sets("configure","FARGO","yes","FARGO enabled?");
 #else
   par_sets("configure","FARGO","no","FARGO enabled?");
+#endif
+
+#ifdef HLL_ALL_WAVE
+  par_sets("configure","L/R integration style","yes","All-wave integration enabled?");
+#else
+  par_sets("configure","L/R integration style","no","All-wave integration enabled?");
 #endif
 
   return;

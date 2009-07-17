@@ -230,6 +230,17 @@ void HLLE_FUNCTION(const Cons1D Ul, const Cons1D Ur,
   }
 #endif
 
+#ifdef CYLINDRICAL
+#ifndef ISOTHERMAL
+  Fl.Pflux = Wl.P;
+  Fr.Pflux = Wr.P;
+#ifdef MHD
+  Fl.Pflux += pbl;
+  Fr.Pflux += pbr;
+#endif /* MHD */
+#endif /* ISOTHERMAL */
+#endif /* CYLINDRICAL */
+
 /*--- Step 6. ------------------------------------------------------------------
  * Compute the HLLE flux at interface.
  */
@@ -241,6 +252,11 @@ void HLLE_FUNCTION(const Cons1D Ul, const Cons1D Ur,
   for (n=0; n<(NWAVE+NSCALARS); n++){
     pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
+
+#ifdef CYLINDRICAL
+  n = NWAVE+NSCALARS;
+  pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
+#endif 
 
   return;
 }

@@ -70,6 +70,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   Real *pUl, *pUr, *pFl, *pFr, *pF;
   Cons1D Fl,Fr;
   int n,m,hlle_flag;
+#ifdef CYLINDRICAL
+  Real Eint,Emag,Ekin,coeff2[NWAVE];
+#endif
 
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
@@ -202,11 +205,23 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
   if(ev[0] >= 0.0){
     *pFlux = Fl;
+#ifdef CYLINDRICAL
+    pFlux->Pflux = Wl.P;
+#ifdef MHD
+    pFlux->Pflux += pbl;
+#endif /* MHD */
+#endif /* CYLINDRICAL */
     return;
   }
 
   if(ev[NWAVE-1] <= 0.0){
     *pFlux = Fr;
+#ifdef CYLINDRICAL
+    pFlux->Pflux = Wl.P;
+#ifdef MHD
+    pFlux->Pflux += pbr;
+#endif /* MHD */
+#endif /* CYLINDRICAL */
     return;
   }
 
@@ -270,11 +285,20 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 
   for (m=0; m<NWAVE; m++) {
     coeff[m] = 0.5*MAX(fabs(ev[m]),etah)*a[m];
+#ifdef CYLINDRICAL
+    coeff2[m] = 0.5*SIGN(ev[m])*a[m];
+#endif
   }
   for (n=0; n<NWAVE; n++) {
     pF[n] = 0.5*(pFl[n] + pFr[n]);
+#ifdef CYLINDRICAL
+    u_inter[n] = 0.5*(pUl[n] + pUr[n]);
+#endif
     for (m=0; m<NWAVE; m++) {
       pF[n] -= coeff[m]*rem[n][m];
+#ifdef CYLINDRICAL
+      u_inter[n] -= coeff2[m]*rem[n][m];
+#endif
     }
   }
 
@@ -286,6 +310,18 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
     for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
   }
 #endif
+
+#ifdef CYLINDRICAL
+/* "TOTAL PRESSURE FLUX" COMPUTED FROM AVERAGED STAR-STATES */
+  Emag = 0.0;
+#ifdef MHD
+  Emag = 0.5*(SQR(u_inter[NWAVE-2])+SQR(u_inter[NWAVE-1])+SQR(Bxi));
+#endif /* MHD */
+  Ekin = 0.5*(SQR(u_inter[1])+SQR(u_inter[2])+SQR(u_inter[3]))/u_inter[0];
+  Eint = u_inter[4] - Emag - Ekin;
+
+  pFlux->Pflux = Eint*Gamma_1 + Emag;
+#endif /* CYLINDRICAL */
 
   return;
 }

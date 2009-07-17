@@ -35,6 +35,7 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   int k, kl = pGrid->ks, ku = pGrid->ke;
   float dat[2],*datax,*datay,*dataz;
   Real *pq,x1,x2,x3;
+  int coordsys = -1;
 
 #ifdef WRITE_GHOST_CELLS
   if(pGrid->Nx1 > 1){
@@ -63,6 +64,16 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
     ath_error("[dump_binary]: Unable to open binary dump file\n");
     return;
   }
+
+/* Write the coordinate system information */
+#if defined CARTESIAN
+  coordsys = -1;
+#elif defined CYLINDRICAL
+  coordsys = -2;
+#elif defined SPHERICAL
+  coordsys = -3;
+#endif
+  fwrite(&coordsys,sizeof(int),1,p_binfile);
 
 /* Write number of zones and variables */
   ndata[0] = iu-il+1;

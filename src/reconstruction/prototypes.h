@@ -40,5 +40,10 @@ void lr_states_init(int nx1, int nx2, int nx3);
 void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
                const Real dt, const Real dtodx, const int is, const int ie,
                Prim1D Wl[], Prim1D Wr[]);
+#ifdef CYLINDRICAL
+void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
+                   const Real dt, const Real dtodx, const int is, const int ie,
+                   Prim1D Wl[], Prim1D Wr[]);
+#endif /* CYLINDRICAL */
 
 #endif /* RECONSTRUCTION_PROTOTYPES_H */

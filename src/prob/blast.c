@@ -15,6 +15,9 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+#ifdef CYLINDRICAL
+#include "cyl.h"
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* problem:  */

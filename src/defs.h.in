@@ -38,6 +38,9 @@
 #define GENERAL_EOS       /* P = P(rho,eth) */
 #endif
 
+/* Coordinate system: CARTESIAN or CYLINDRICAL */
+#define @COORD@
+
 /* Number of passively advected scalars */
 #define NSCALARS @NSCALARS@
 
@@ -106,6 +109,9 @@
 /* fargo: FARGO or NO_FARGO */
 #define @FARGO_MODE@
 
+/* L/R integration style: HLL_ALL_WAVE or NOT_HLL_ALL_WAVE */
+#define @HLL_ALL_WAVE_MODE@
+
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */
 
@@ -145,6 +151,7 @@ enum {
 #define PI       3.14159265358979323846
 #define ONE_3RD  0.3333333333333333
 #define TWO_3RDS 0.6666666666666667
+#define FOUR_3RDS 1.333333333333333
 #define TINY_NUMBER 1.0e-20
 #define HUGE_NUMBER 1.0e+20
 

@@ -44,6 +44,11 @@ WeightFun_t getweight = NULL;   /* get weight function */
 Real eta_Ohm=0.0, eta_Hall=0.0, nu_V=0.0, kappa_T=0.0, chi_C=0.0;
 #endif
 
+#ifdef CYLINDRICAL
+StaticGravAcc_t x1GravAcc = NULL;
+Real *r=NULL, *ri=NULL;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -83,6 +88,11 @@ extern Real g;
 
 #ifdef EXPLICIT_DIFFUSION
 extern Real eta_Ohm, eta_Hall, nu_V, kappa_T, chi_C;
+#endif
+
+#ifdef CYLINDRICAL
+extern StaticGravAcc_t x1GravAcc;
+extern Real *r, *ri;
 #endif
 
 #endif /* MAIN_C */

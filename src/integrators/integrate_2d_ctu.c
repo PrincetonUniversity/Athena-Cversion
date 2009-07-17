@@ -38,8 +38,9 @@
 #ifdef PARTICLES
 #include "../particles/particle.h"
 #endif
+#include "../debug.h"
 
-#ifdef CTU_INTEGRATOR
+#if defined(CTU_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1D **Ul_x1Face=NULL, **Ur_x1Face=NULL;
@@ -130,6 +131,12 @@ void integrate_2d(Grid *pG, Domain *pD)
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;
 
+  ath_pout(1,"VIEWING CELL (%d,%d)\n", IVIEW,JVIEW);
+  cc_pos(pG,IVIEW,JVIEW,ks,&x1,&x2,&x3);
+  ath_pout(1,"(x1,x2,x3) = (" FMT ", " FMT ", " FMT ")\n", x1,x2,x3);
+  ath_pout(1,"dx1 = " FMT ",\t dx2 = " FMT ",\t dx3 = " FMT "\n", pG->dx1,pG->dx2,pG->dx3);
+  ath_pout(1,"dt = " FMT "\n", pG->dt);
+
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -156,6 +163,11 @@ void integrate_2d(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][j][i].s[n];
 #endif
+
+      if (VIEW2D) {
+        debug_header(3,"STEP 1A - LOAD CONSERVED VARIABLES");
+        print_cons1d(3,"U1d",&U1d[i],ks,j,i,1);
+      }
     }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -939,6 +951,14 @@ void integrate_2d(Grid *pG, Domain *pD)
 
       fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
+
+      if (VIEW2D) {
+        debug_header(2,"STEP 9B - COMPUTE 2ND ORDER X1-FLUXES");
+        print_cons1d(3,"Ul_x1Face",&Ul_x1Face[j][i],ks,j,i,1);
+        print_cons1d(3,"Ur_x1Face",&Ur_x1Face[j][i],ks,j,i,1);
+        print_cons1d(2,"x1Flux",&x1Flux[j][i],ks,j,i,1);
+        print_cons1d(4,"x1Flux",&x1Flux[j][i+1],ks,j,i+1,1);
+      }
     }
   }
 
@@ -959,6 +979,14 @@ void integrate_2d(Grid *pG, Domain *pD)
 
       fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],
                  MHDARG( B2_x2Face[j][i] , )&x2Flux[j][i]);
+
+      if (VIEW2D) {
+        debug_header(2,"STEP 9C - COMPUTE 2ND ORDER X2-FLUXES");
+        print_cons1d(3,"Ul_x2Face",&Ul_x2Face[j][i],ks,j,i,2);
+        print_cons1d(3,"Ur_x2Face",&Ur_x2Face[j][i],ks,j,i,2);
+        print_cons1d(2,"x2Flux",&x2Flux[j][i],ks,j,i,2);
+        print_cons1d(4,"x2Flux",&x2Flux[j+1][i],ks,j+1,i,2);
+      }
     }
   }
 
@@ -988,6 +1016,9 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
+
+  debug_header(1,"STEP 11 - BEFORE SOURCE TERMS ADDED");
+  print_gas(1,"U", &pG->U[ks][JVIEW][IVIEW],ks,JVIEW,IVIEW);
 
 /*--- Step 11a -----------------------------------------------------------------
  * Add gravitational (or shearing box) source terms as a Static Potential.
@@ -1221,6 +1252,10 @@ void integrate_2d(Grid *pG, Domain *pD)
                                          - x1Flux[j][i  ].s[n]);
 #endif
 
+      if (VIEW2D) {
+        debug_header(1,"STEP 12A - AFTER CC-VAL UPDATE BY X1-FLUX GRADIENTS");
+        print_gas(1,"U", &pG->U[ks][j][i], ks,j,i);
+      }
     }
   }
 
@@ -1246,6 +1281,11 @@ void integrate_2d(Grid *pG, Domain *pD)
         pG->U[ks][j][i].s[n] -= dtodx2*(x2Flux[j+1][i].s[n] 
                                          - x2Flux[j  ][i].s[n]);
 #endif
+
+      if (VIEW2D) {
+        debug_header(1,"STEP 12B - AFTER CC-VAL UPDATE BY X2-FLUX GRADIENTS");
+        print_gas(1,"U", &pG->U[ks][j][i], ks,j,i);
+      }
     }
   }
 
@@ -1263,6 +1303,11 @@ void integrate_2d(Grid *pG, Domain *pD)
       pG->U[ks][j][i].B2c =0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
 /* Set the 3-interface magnetic field equal to the cell center field. */
       pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
+
+      if (VIEW2D) {
+        debug_header(1,"STEP 12D - AFTER UPDATING CELL-CENTERED FIELDS");
+        print_gas(1,"U", &pG->U[ks][j][i], ks,j,i);
+      }
     }
   }
 #endif /* MHD */

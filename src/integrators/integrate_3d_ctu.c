@@ -45,7 +45,7 @@
 #include "../particles/particle.h"
 #endif
 
-#ifdef CTU_INTEGRATOR
+#if defined(CTU_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1D ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;

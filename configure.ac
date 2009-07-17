@@ -23,6 +23,7 @@
 #   --with-viscosity=[ns,braginskii]                        (explicit viscosity)
 #   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #   --with-particles=[feedback,passive]              (dust particle integration)
+#   --with-coord=[cartesian,cylindrical]                     (coordinate system)
 #
 # PHYSICS "features":
 #   --enable-ion-radiation                         (ionizing radiative transfer)
@@ -44,6 +45,7 @@
 #   --enable-fft                (compile and link with FFTW block decomposition)
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-fargo                                      (enable FARGO algorithm)
+#   --enable-hllallwave                    (all-wave integration for HLL fluxes)
 #
 #-------------------------------------------------------------------------------
 # generic things
@@ -241,6 +243,37 @@ elif test "$particles_algorithm" = "none"; then
   PARTICLES_ALGORITHM="NO_PARTICLES"
 else
   AC_MSG_ERROR([expected --with-particles=feedback or passive])
+fi
+
+#-------------------------------------------------------------------------------
+# PACKAGE: coordinate system
+#   --with-coord=[cartesian,cylindrical] (default is cartesian)
+  
+AC_SUBST(COORD)
+AC_ARG_WITH(coord, [  --with-coord=COORD      Coordinate System (cartesian,cylindrical)],
+                with_coord=$withval, with_coord=cartesian)
+if test   "$with_coord" = "cartesian";  then
+  COORD="CARTESIAN"
+elif test "$with_coord" = "cylindrical"; then
+  if test "$with_eos" = "isothermal"; then
+    AC_MSG_ERROR([Sorry, isothermal EOS and cylindrical coordinates are currently incompatible!])
+  elif test "$nscalars" != "0"; then
+    AC_MSG_ERROR([Sorry, passive scalars and cylindrical coordinates are currently incompatible!])
+  elif test "$gravity_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, self-gravity and cylindrical coordinates are currently incompatible!])
+  elif test "$resistivity_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, resistivity and cylindrical coordinates are currently incompatible!])
+  elif test "$viscosity_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, viscosity and cylindrical coordinates are currently incompatible!])
+  elif test "$conduction_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, thermal conduction and cylindrical coordinates are currently incompatible!])
+  elif test "$particles_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, particles and cylindrical coordinates are currently incompatible!])
+  else
+    COORD="CYLINDRICAL"
+  fi
+else
+  AC_MSG_ERROR([expected --with-coord=cartesian or cylindrical])
 fi
 
 #-------------------------------------------------------------------------------
@@ -506,6 +539,34 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on all-wave integration for HLL fluxes
+#   --enable-hllallwaves
+# This allows the L/R-states algorithms to integrate characteristics over
+# domains of dependence of all waves, even those that lie on the "wrong" side of
+# the interface.  Requires that one of the HLL-type lrstates algorithms be 
+# enabled, otherwise prints error message.
+
+AC_SUBST(HLL_ALL_WAVE_MODE)
+AC_ARG_ENABLE(hllallwave, [  --enable-hllallwave    turn on all-wave integration for HLL fluxes], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+if test "$with_flux" = "hlle"; then
+  HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
+  HLL_ALL_WAVE_MODE_USER="ON"
+elif test "$with_flux" = "hllc"; then
+  HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
+  HLL_ALL_WAVE_MODE_USER="ON"
+elif test "$with_flux" = "hlld"; then
+  HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
+  HLL_ALL_WAVE_MODE_USER="ON"
+else
+  AC_MSG_ERROR([All-wave integration only works with HLL-type fluxes!])
+fi
+else
+  HLL_ALL_WAVE_MODE="NOT_HLL_ALL_WAVE"
+  HLL_ALL_WAVE_MODE_USER="OFF"
+fi  
+
+#-------------------------------------------------------------------------------
 # check for various library functions
 
 AC_PROG_GCC_TRADITIONAL
@@ -537,6 +598,7 @@ echo ""
 echo "Problem:                 $PROBLEM"
 echo "Gas properties:          $GAS"
 echo "Equation of State:       $EOS"
+echo "Coordinate System:       $COORD"
 echo "Advected scalar fields:  $NSCALARS"
 if test "$gravity_algorithm" = "none"; then
   echo "Self-gravity:            $SELF_GRAVITY_USER"
@@ -567,3 +629,5 @@ echo "H-correction:            $H_CORRECTION_MODE_USER"
 echo "FFT:                     $FFT_MODE_USER"
 echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
+echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
+

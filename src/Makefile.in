@@ -18,6 +18,8 @@ CORE_OBJ = ath_array.o \
            cc_pos.o \
            convert_var.o \
            convert_var_sr.o \
+           cyl.o \
+           debug.o \
            dump_binary.o \
            dump_dx.o \
            dump_history.o \
@@ -84,6 +86,9 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_1d_ctu.o \
 		  integrators/integrate_2d_ctu.o \
 		  integrators/integrate_3d_ctu.o \
+		  integrators/integrate_1d_ctu_cyl.o \
+		  integrators/integrate_2d_ctu_cyl.o \
+		  integrators/integrate_3d_ctu_cyl.o \
 		  integrators/integrate_1d_vl.o \
 		  integrators/integrate_2d_vl.o \
 		  integrators/integrate_3d_vl.o

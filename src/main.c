@@ -37,6 +37,10 @@ static char *athena_version = "version 3.1 - 01-JAN-2008";
 
 static void change_rundir(const char *name);
 static void usage(const char *prog);
+#ifdef CYLINDRICAL
+void scaling_factor_init_cyl(int nx1, int nx2, int nx3);
+void scaling_factor_destruct_cyl(void);
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* main: Athena main program  */
@@ -77,6 +81,13 @@ int main(int argc, char *argv[])
 #endif /* MPI_PARALLEL */
   int out_level, err_level, lazy; /* output & error log levels, lazy param. */
   FILE *fp;
+
+/* variables for computing cylindrical scaling factors */
+#ifdef CYLINDRICAL
+  int is, ie, js, ks;
+  Real x1, x2, x3;
+  Grid *pG;
+#endif
 
 /* MPICH modifies argc and argv when calling MPI_Init() so that
  * after calling MPI_Init() only athena's command line arguments are
@@ -322,6 +333,22 @@ int main(int argc, char *argv[])
   /* Initialize the first nstep value to flush the output and error logs. */
   nflush = nstep_start + iflush;
 
+/*--- Step 5.5 ---------------------------------------------------------------*/
+/* Allocate and initialize the scaling factors for cylindrical coordinates */
+#ifdef CYLINDRICAL   
+  pG = &level0_Grid;  // for brevity & clarity
+  is = pG->is;
+  ie = pG->ie;
+  js = pG->js;
+  ks = pG->ks;
+  scaling_factor_init_cyl(pG->Nx1,pG->Nx2,pG->Nx3);
+  for (i=is-nghost; i<=ie+nghost; i++) {
+    cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+    r[i]  = x1;
+    ri[i] = x1 - 0.5*pG->dx1;
+  }
+#endif 
+
 /*--- Step 6. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
  * set boundary conditions for initial conditions  */
@@ -566,6 +593,10 @@ int main(int argc, char *argv[])
 #endif
   par_close();
 
+#ifdef CYLINDRICAL
+  scaling_factor_destruct_cyl();
+#endif
+
 #ifdef MPI_PARALLEL
   MPI_Finalize();
 #endif /* MPI_PARALLEL */
@@ -680,3 +711,36 @@ static void usage(const char *prog)
   show_config();
   exit(0);
 }
+
+#ifdef CYLINDRICAL
+/*----------------------------------------------------------------------------*/
+/*  scaling_factor_init_cyl: allocate storage arrays for scaling factors
+ *    used in cylindrical coordinates
+ */
+void scaling_factor_init_cyl(int nx1, int nx2, int nx3)
+{
+  int Nx1 = nx1 + 2*nghost;
+//  int Nx2 = nx2 + 2*nghost;
+//  int Nx3 = nx3 + 2*nghost;
+  
+  if ((r  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+  if ((ri = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+  
+  return;
+    
+  on_error:
+  scaling_factor_destruct_cyl();
+  ath_error("[scaling_factor_init_cyl]: malloc returned a NULL pointer\n");
+} 
+
+/*----------------------------------------------------------------------------*/
+/*  scaling_factor_destruct_cyl: free storage arrays for scaling factors
+ *    used in cylindrical coordinates
+ */
+void scaling_factor_destruct_cyl(void)
+{
+  if (r  != NULL) free(r);
+  if (ri != NULL) free(ri);
+}
+#endif /* CYLINDRICAL */
+

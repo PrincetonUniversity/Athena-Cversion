@@ -1,0 +1,57 @@
+<comment>
+problem = Blast wave, beta=0.02
+author  = T.A. Gardiner & J.M. Stone
+journal = JCP, 205, 509 (2005) (for MHD version of test)
+config  = --with-problem=blast --with-gas=mhd --with-flux=roe
+
+<log>
+file_open       = 0             # write to .out file?  otherwise, writes to stdout
+out_level       = 0             # sets output level (default=0)
+
+<job>
+problem_id      = Blast_B10     # problem ID: basename of output filenames
+maxout          = 2             # Output blocks number from 1 -> maxout
+
+<output1>
+out_fmt         = hst           # History data dump
+dt              = 0.005         # time increment between outputs
+
+<output2>
+out_fmt         = bin           # Binary data dump
+dt              = 0.005         # time increment between outputs
+
+<time>
+cour_no         = 0.8           # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 100000        # cycle limit
+tlim            = 0.02          # time limit
+
+<grid>
+Nx1             = 200           # Number of zones in X-direction
+x1min           = -0.5          # minimum value of X
+x1max           = 0.5           # maximum value of X
+ibc_x1          = 4             # inner-I (X) boundary flag
+obc_x1          = 4             # outer-I (X) boundary flag
+
+Nx2             = 200           # Number of zones in Y-direction
+x2min           = -.5           # minimum value of Y
+x2max           = .5            # maximum value of Y
+ibc_x2          = 4             # inner-J (Y) boundary flag
+obc_x2          = 4             # outer-J (Y) boundary flag
+
+Nx3             = 1             # Number of zones in Z-direction
+x3min           = 0.0           # minimum value of Z
+x3max           = 0.0           # maximum value of Z
+
+<parallel>
+NGrid_x1        = 4
+NGrid_x2        = 4
+NGrid_x3        = 1
+
+<problem>
+gamma           = 1.6666666667  # gamma = C_p/C_v
+iso_csound      = 0.4082482905  # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
+pamb            = 1.0           # ambient pressure
+prat            = 100.0         # Pressure ratio initially
+b0              = 10.0          # magnetic field strength
+radius          = 0.125         # Radius of the inner sphere
+angle           = 45            # Angle of B w.r.t. the x-axis (degrees)

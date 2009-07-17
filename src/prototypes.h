@@ -83,6 +83,8 @@ void baton_stop(const int Nb, const int tag);
 /* cc_pos.c */
 void cc_pos(const Grid *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
+void vc_pos(const Grid *pG, const int i, const int j,const int k,
+            Real *px1, Real *px2, Real *px3);
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
