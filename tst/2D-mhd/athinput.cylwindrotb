@@ -14,16 +14,16 @@ maxout          = 2                 # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt         = bin               # Binary data dump
-dt              = 0.1               # time increment between outputs
+dt              = 1.0               # time increment between outputs
 
 <output2>
 out_fmt         = hst               # History data dump
-dt              = 0.1               # time increment between outputs
+dt              = 0.5               # time increment between outputs
 
 <time>
-cour_no         = 0.8               # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 100000            # cycle limit
-tlim            = 10.0              # time limit
+cour_no         = 0.4 #0.8               # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 1 #100000            # cycle limit
+tlim            = 5.0               # time limit
 
 <grid>
 Nx1             = 128               # Number of zones in R-direction

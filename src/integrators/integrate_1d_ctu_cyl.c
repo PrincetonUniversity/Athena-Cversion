@@ -121,6 +121,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     if (VIEW1D) {
       debug_header(3,"STEP 1A - LOAD CONSERVED VARIABLES");
       print_cons1d(3,"U1d",&U1d[i],ks,js,i,1);
+      ath_pout(3,"Bxc[%d] = " FMT "\n", i,Bxc[i]);
     }
   }
 
@@ -140,7 +141,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     geom_src[i] /= y1;
 
     if (VIEW1D) {
-      debug_header(3, "STEP 1B - COMPUTE GEOMETRIC SOURCE TERM");
+      debug_header(3, "STEP 1B - COMPUTE CELL-CENTERED GEOMETRIC SOURCE TERM");
       ath_pout(3, "geom_src[%d] = " FMT "\n",i,geom_src[i]);
     }
   }
@@ -543,7 +544,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     pG->U[ks][js][i].E  -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].E  - ri[i]*x1Flux[i].E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-    pG->U[ks][js][i].B2c -= (dtodx1/r[i])*(x1Flux[i+1].By - x1Flux[i].By);
+    pG->U[ks][js][i].B2c -= dtodx1*(x1Flux[i+1].By - x1Flux[i].By);
     pG->U[ks][js][i].B3c -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Bz - ri[i]*x1Flux[i].Bz);
 /* For consistency, set B2i and B3i to cell-centered values.  */
     pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;

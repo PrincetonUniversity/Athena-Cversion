@@ -23,16 +23,16 @@ dt              = 0.1                # time increment between outputs
 
 <output2>
 out_fmt         = bin                # Binary data dump
-dt              = 0.1                # time increment between outputs
+dt              = 0.05               # time increment between outputs
 
 <grid>
-Nx1             = 200                # Number of zones in R-direction
+Nx1             = 128 #200                # Number of zones in R-direction
 x1min           = 1.0                # minimum value of R
 x1max           = 2.0                # maximum value of R
 ibc_x1          = 3                  # inner (R) boundary flag
 obc_x1          = 3                  # outer (R) boundary flag
 
-Nx2             = 400                # Number of zones in PHI-direction
+Nx2             = 256 #400                # Number of zones in PHI-direction
 x2min           = -0.66666666666667  # minimum value of PHI
 x2max           = 0.66666666666667   # maximum value of PHI
 ibc_x2          = 4                  # inner (PHI) boundary flag

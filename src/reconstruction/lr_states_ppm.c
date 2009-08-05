@@ -995,7 +995,6 @@ void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
                       + qxx2*(dW[n] + (1.0-      2.0*qx2)*W6[n]);
     }
 
-
 /*--- Step 19. -----------------------------------------------------------------
  * Then subtract amount of each wave m that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
@@ -1099,6 +1098,7 @@ void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
     }
 
   } /*====================== END BIG LOOP OVER i =========================*/
+
 
   return;
 }

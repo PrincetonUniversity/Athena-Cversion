@@ -197,7 +197,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       geom_src[j][i] /= y1;
 
       if (VIEW2D) {
-        debug_header(3, "STEP 1B - COMPUTE GEOMETRIC SOURCE TERM");
+        debug_header(3, "STEP 1B - COMPUTE CELL-CENTERED GEOMETRIC SOURCE TERM");
         ath_pout(3, "geom_src[%d][%d] = " FMT "\n",j,i,geom_src[j][i]);
       }
     }
@@ -1016,8 +1016,8 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 
 #ifdef MHD
-      B1ch = 0.5*(ri[i]*B1_x1Face[j][i] + ri[i+1]*B1_x1Face[j][i+1])/r[i];
-      B2ch = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
+      B1ch = 0.5*(ri[i]*B1_x1Face[j][i] + ri[i+1]*B1_x1Face[j  ][i+1])/r[i];
+      B2ch = 0.5*(      B2_x2Face[j][i] +         B2_x2Face[j+1][i  ]);
       B3ch = pG->U[ks][j][i].B3c 
         - (hdtodx1/r[i])*(ri[i+1]*x1Flux[j][i+1].Bz - ri[i]*x1Flux[j][i].Bz)
         - (hdtodx2/r[i])*(x2Flux[j+1][i].By - x2Flux[j][i].By);
@@ -1044,6 +1044,17 @@ void integrate_2d(Grid *pG, Domain *pD)
   #endif /* ADIABATIC */
 #endif  /* ISOTHERMAL */
 #endif /* PARTICLES */
+
+      if (VIEW2D) {
+        debug_header(4,"STEP 8B - CALCULATE CELL-CENTERED EMFS");
+        ath_pout(4,"emf3_cc[%d][%d] = " FMT "\n", j,i,emf3_cc[j][i]);
+        ath_pout(4,"B1ch = " FMT "\n", B1ch);
+        ath_pout(4,"B2ch = " FMT "\n", B2ch);
+        ath_pout(4,"M1h = " FMT "\n", M1h);
+        ath_pout(4,"M2h = " FMT "\n", M2h);
+        ath_pout(4,"dhalf[%d][%d] = " FMT "\n", j,i,dhalf[j][i]);
+      }
+
     }
   }
   }
@@ -1150,6 +1161,15 @@ void integrate_2d(Grid *pG, Domain *pD)
     for (i=is; i<=ie; i++) {
       pG->B1i[ks][j][i] -= (dtodx2/ri[i])*(emf3[j+1][i  ] - emf3[j][i]);
       pG->B2i[ks][j][i] += dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
+
+      if (VIEW2D) {
+        debug_header(4,"STEP 10B - UPDATE INTERFACE FIELDS USING CT");
+        ath_pout(4,"B1i[%d][%d][%d] = " FMT "\n", ks,j,i,pG->B1i[ks][j][i]);
+        ath_pout(4,"B2i[%d][%d][%d] = " FMT "\n", ks,j,i,pG->B2i[ks][j][i]);
+        ath_pout(4,"emf3[%d][%d] = " FMT "\n", j,i,emf3[j][i]);
+        ath_pout(4,"emf3[%d][%d] = " FMT "\n", j,i+1,emf3[j][i+1]);
+      }
+
     }
     pG->B1i[ks][j][ie+1] -= (dtodx2/ri[ie+1])*(emf3[j+1][ie+1] - emf3[j][ie+1]);
   }
@@ -1257,6 +1277,9 @@ void integrate_2d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
         pG->U[ks][j][i].E -= (dtodx1/r[i])*(ri[i  ]*x1Flux[j][i  ].d*(phic - phil) +
                                             ri[i+1]*x1Flux[j][i+1].d*(phir - phic));
+        if (VIEW2D) {
+          ath_pout(2,"term1 = " FMT "\n", (dtodx1/r[i])*(ri[i  ]*x1Flux[j][i  ].d*(phic - phil) + ri[i+1]*x1Flux[j][i+1].d*(phir - phic)));
+        }
 #endif
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -1266,12 +1289,16 @@ void integrate_2d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
         pG->U[ks][j][i].E -= (dtodx2/r[i])*(x2Flux[j  ][i].d*(phic - phil) +
                                             x2Flux[j+1][i].d*(phir - phic));
+        if (VIEW2D) {
+          ath_pout(2,"term2 = " FMT "\n", (dtodx2/r[i])*(x2Flux[j  ][i].d*(phic - phil) + x2Flux[j+1][i].d*(phir - phic)));
+        }
 #endif
 
         if (VIEW2D) {
           debug_header(2,"STEP 11A - AFTER STATIC GRAVITATIONAL SOURCE TERM");
           print_gas(2,"U", &pG->U[ks][j][i], ks,j,i);
           ath_pout(2,"grav_src = " FMT "\n", -dhalf[j][i]*g);
+          ath_pout(2,"dhalf = " FMT "\n", dhalf[j][i]);
         }
       }
     }
@@ -1499,8 +1526,8 @@ void integrate_2d(Grid *pG, Domain *pD)
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
 
-      pG->U[ks][j][i].B1c =0.5*(ri[i]*pG->B1i[ks][j][i]+ri[i+1]*pG->B1i[ks][j][i+1])/r[i];
-      pG->U[ks][j][i].B2c =0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
+      pG->U[ks][j][i].B1c =0.5*(ri[i]*pG->B1i[ks][j][i] + ri[i+1]*pG->B1i[ks][j][i+1])/r[i];
+      pG->U[ks][j][i].B2c =0.5*(      pG->B2i[ks][j][i] +         pG->B2i[ks][j+1][i]);
 /* Set the 3-interface magnetic field equal to the cell center field. */
       pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
 

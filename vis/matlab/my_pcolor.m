@@ -13,12 +13,12 @@ status = 0;
 [ny1,ny2] = size(Y);
 [nc1,nc2] = size(C);
 if ~(nx1==ny1 && nx2==ny2)
-    status = -1
+    status = -1;
     fprintf(2,'[my_pcolor]:  X and Y must be the same size!\n');
     return;
 end;
 if ~((nc1==nx1 || nc1==nx1-1) && (nc2==nx2 || nc2==nx2-1))
-    status = -1
+    status = -1;
     fprintf(2,'[my_pcolor]:  C is not of compatible size!\n');
     return;
 end;

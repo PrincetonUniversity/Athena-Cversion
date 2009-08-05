@@ -99,7 +99,7 @@ void problem(Grid *pG, Domain *pDomain)
   ymin = 0.45/rho_A;
   ymax = 2.6/rho_A;
 
-  printf("theta = %f,\t omega = %f,\t beta = %f,\t E = %f\n", theta,omega,beta,E);
+  printf("theta = %f,\t omega = %f,\t eta = %f,\t E = %f\n", theta,omega,eta,E);
   printf("xslow = %f,\t yslow = %f,\t xfast = %f,\t yfast = %f\n", xslow,yslow,xfast,yfast);
   printf("xmin = %f,\t ymin = %f,\t xmax = %f,\t ymax = %f\n", xmin,ymin,xmax,ymax);
 
@@ -117,7 +117,10 @@ void problem(Grid *pG, Domain *pDomain)
       sign_change(myfunc,1.0+TINY_NUMBER,yslow,x,&a,&b);
     } else if (x < xfast) {
       sign_change(myfunc,yfast,1.0-TINY_NUMBER,x,&a,&b);
-      sign_change(myfunc,b,1.0-TINY_NUMBER,x,&a,&b);
+      if (!sign_change(myfunc,b,1.0-TINY_NUMBER,x,&a,&b)) {
+        a = yfast;
+        b = 1.0-TINY_NUMBER;
+      }
     } else {
       sign_change(myfunc,0.5*ymin,yfast,x,&a,&b);
     }
@@ -199,12 +202,6 @@ void problem(Grid *pG, Domain *pDomain)
   x1GravAcc = grav_acc;
   set_bvals_mhd_fun(left_x1,do_nothing_bc);
   set_bvals_mhd_fun(right_x1,do_nothing_bc);
-//   set_bvals_fun(right_x1,cyl_grad_outflow2_ox1);
-
-//   if (xmax > xfast) 
-//     set_bvals_fun(right_x1,cyl_grad_outflow2_ox1);
-//   else
-//     set_bvals_fun(right_x1,do_nothing_bc);
 
   free_1d_array((void *)Wind);
 
@@ -256,7 +253,7 @@ GVDFun_t get_usr_gasvshift(const char *name)
 
 void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
-//   printf("Max divB = %1.10e\n", compute_div_b(pG));
+//   printf("Max divB = %1.10e\n", compute_div_b(pGrid));
 }
 
 void Userwork_after_loop(Grid *pGrid, Domain *pDomain)

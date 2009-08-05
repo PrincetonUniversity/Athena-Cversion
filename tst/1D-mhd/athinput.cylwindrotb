@@ -6,7 +6,7 @@ config  = --with-problem=cylwindrotb --with-coord=cylindrical --with-gas=mhd --w
 
 <log>
 file_open       = 0                 # write to .out file?  otherwise, writes to stdout
-out_level       = 0                 # sets output level (default=0)
+out_level       = 0 #5                 # sets output level (default=0)
 
 <job>
 problem_id      = CylWindRotB       # problem ID: basename of output filenames
@@ -14,16 +14,16 @@ maxout          = 2                 # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt         = bin               # Binary data dump
-dt              = 0.1               # time increment between outputs
+dt              = 1.0               # time increment between outputs
 
 <output2>
 out_fmt         = hst               # History data dump
-dt              = 0.1               # time increment between outputs
+dt              = 0.5               # time increment between outputs
 
 <time>
 cour_no         = 0.8               # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000            # cycle limit
-tlim            = 10.0              # time limit
+tlim            = 5.0               # time limit
 
 <grid>
 Nx1             = 128               # Number of zones in R-direction

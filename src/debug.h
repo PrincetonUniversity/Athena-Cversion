@@ -7,11 +7,9 @@
 /*============================================================================
  * DEFINITIONS
  *============================================================================*/
-#define IVIEW 128
+#define IVIEW 68
 #define JVIEW 4
-// #define IVIEW 25
-// #define JVIEW 39
-#define KVIEW 1
+#define KVIEW 4
 #define VIEW1D (i==IVIEW) && (pG->my_id==0)
 #define VIEW2D (i==IVIEW) && (j==JVIEW) && (pG->my_id==0)
 #define VIEW3D (i==IVIEW) && (j==JVIEW) && (k==KVIEW) && (pG->my_id==0)

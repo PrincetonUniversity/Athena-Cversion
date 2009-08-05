@@ -382,10 +382,12 @@ Real compute_div_b(Grid *pG)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        divB = (pG->dx2)*(pG->dx3)*((x1+0.5*pG->dx1)*pG->B1i[k][j][i+1] - (x1-0.5*pG->dx1)*pG->B1i[k][j][i])
-             + (pG->dx1)*(pG->dx3)*(pG->B2i[k][j+1][i] - pG->B2i[k][j][i]);
+        divB = ((x1+0.5*pG->dx1)*pG->B1i[k][j][i+1] - (x1-0.5*pG->dx1)*pG->B1i[k][j][i]);
+        if (je > js)
+          divB += (pG->B2i[k][j+1][i] - pG->B2i[k][j][i])/(x1*pG->dx2);
         if (ke > ks)
-          divB += (pG->dx1)*(x1*pG->dx2)*(pG->B3i[k+1][j][i] - pG->B3i[k][j][i]);
+          divB += (pG->B3i[k+1][j][i] - pG->B3i[k][j][i])/(pG->dx3);
+
         maxdivB = MAX(maxdivB,fabs(divB));
       }
     }
@@ -525,9 +527,9 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
   }}
 
 #if defined MPI_PARALLEL
-  Nx1 = pDomain->ixe - pDomain->ixs + 1;
-  Nx2 = pDomain->jxe - pDomain->jxs + 1;
-  Nx3 = pDomain->kxe - pDomain->kxs + 1;
+  Nx1 = pDomain->ide - pDomain->ids + 1;
+  Nx2 = pDomain->jde - pDomain->jds + 1;
+  Nx3 = pDomain->kde - pDomain->kds + 1;
 #else
   Nx1 = ie - is + 1;
   Nx2 = je - js + 1;
@@ -595,12 +597,17 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
   x2max = pG->x2_0 + (je + pG->jdisp + 1)*pG->dx2;
   x3min = pG->x3_0 + (ks + pG->kdisp    )*pG->dx3;
   x3max = pG->x3_0 + (ke + pG->kdisp + 1)*pG->dx3;
-  grid_vol = 0.5*(x1max + x1min)*(x1max - x1min)*(x2max - x2min);
-  if (pG->Nx3 > 1)
+  grid_vol = 0.5*(x1max + x1min)*(x1max - x1min);
+  dvol = pG->dx1;
+  if (pG->Nx2 > 1) {
+    grid_vol *= (x2max - x2min);
+    dvol *= pG->dx2;
+  }
+  if (pG->Nx3 > 1) {
     grid_vol *= (x3max - x3min);
-  dvol = pG->dx1*pG->dx2/grid_vol;
-  if (pG->Nx3 > 1)
     dvol *= pG->dx3;
+  }
+  dvol /= grid_vol;
 
 
 /* Compute RMS error over all variables, and print out */
@@ -708,7 +715,7 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
  *  FIRST SUCH INTERVAL FOUND, (a,b), IS RETURNED.
  */
 int sign_change(Real (*func)(const Real,const Real), const Real a0, const Real b0, const Real x, Real *a, Real *b) {
-  const int kmax=15;
+  const int kmax=20;
   int k, n, i;
   Real delta, fk, fkp1;
 
@@ -726,7 +733,7 @@ int sign_change(Real (*func)(const Real,const Real), const Real a0, const Real b
       fk = fkp1;
     }
   }
-  ath_error("[sign_change]: No sign change was detected in (%f,%f) for x=%f!\n",a0,b0,x);
+//   ath_error("[sign_change]: No sign change was detected in (%f,%f) for x=%f!\n",a0,b0,x);
   return 0;
 } 
 

@@ -50,12 +50,13 @@ if (~((nvar==4) || (nvar==5) || (nvar==7) || (nvar==8)))
 end;
 
 % READ (Gamma-1), ISOTHERMAL SOUND SPEED, TIME, AND dt
-dat = fread(fid,4,'float');
+dat = fread(fid,2,'float');
 gamma_1     = dat(1);
 iso_csound  = dat(2);
 time_offset = ftell(fid);  % GET POSITION OF time, dt
-time        = dat(3);  % READ IN, BUT NOT USED
-dt          = dat(4);  % READ IN, BUT NOT USED
+dat = fread(fid,2,'float');
+time        = dat(1);  % READ IN, BUT NOT USED
+dt          = dat(2);  % READ IN, BUT NOT USED
 
 % READ X1,X2,X3 COORDINATES
 x1zones = fread(fid,nx1,'float');
