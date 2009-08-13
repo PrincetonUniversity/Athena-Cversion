@@ -747,7 +747,7 @@ void set_bvals_particle(Grid *pG, Domain *pD)
 
 
 #ifdef FARGO
-/* Advect particles by 1.5*Omega_0*x1*dt for the FARGO algorithm.
+/* Advect particles by qshear*Omega_0*x1*dt for the FARGO algorithm.
 */
 void advect_particles(Grid *pG, Domain *pD)
 {
@@ -776,8 +776,8 @@ void advect_particles(Grid *pG, Domain *pD)
 #ifdef MPI_PARALLEL
   /* calculate the farthest grid that advection can reach */
   x2len = pG->dx2*pG->Nx2;
-  ishl = gridshift((1.5*Omega_0*(x1l-pG->dx1)*pG->dt - pG->dx2)/x2len);
-  ishu = gridshift((1.5*Omega_0*(x1u+pG->dx1)*pG->dt + pG->dx2)/x2len);
+  ishl = gridshift((qshear*Omega_0*(x1l-pG->dx1)*pG->dt - pG->dx2)/x2len);
+  ishu = gridshift((qshear*Omega_0*(x1u+pG->dx1)*pG->dt + pG->dx2)/x2len);
 
   /* loop over all the possible destination grids */
   for (i=ishl; i<=ishu; i++)
@@ -883,7 +883,7 @@ void set_bvals_particle_init(Grid *pG, Domain *pD)
   NShuffle = par_geti_def("particle","nshuf",0); /* by default, do not shuffle */
 
 #ifdef SHEARING_BOX
-  vshear = 1.5 * Omega_0 * Lx1;	/* shear velocity between inner and outer x1 boundaries */
+  vshear = qshear * Omega_0 * Lx1;	/* shear velocity between inner and outer x1 boundaries */
 #endif /* SHEARING_BOX */
 
 /* Set function pointers for physical boundaries in x1-direction */

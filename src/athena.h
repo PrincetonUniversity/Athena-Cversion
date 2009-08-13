@@ -307,9 +307,9 @@ typedef struct Grid_s{
   Grain_Property *grproperty;	/* array of particle properties of all types */
   long nparticle;		/* number of particles */
   long arrsize;			/* size of the particle array */
-  Grain *particle; 		/* linked list of all particles */
+  Grain *particle; 		/* array of all particles */
 #ifdef FEEDBACK
-  Vector ***feedback;		/* array of feedback force to grid */
+  Vector ***feedback;		/* array of feedback force to the grid */
 #endif /* FEEDBACK */
 #endif /* PARTICLES */
 
@@ -427,7 +427,7 @@ typedef void (*WeightFun_t)(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, R
 /* function types for stopping time calculation */
 typedef Real (*TSFun_t)(Grid *pG, int type, Real rho, Real cs, Real vd);
 /* describe the gas velocity difference due to the pressure gradient */
-typedef void (*GVDFun_t)(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
+typedef void (*GVDFun_t)(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 #endif /* PARTICLES */
 
 #endif /* ATHENA_H */

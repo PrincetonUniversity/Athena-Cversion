@@ -11,6 +11,7 @@ CONTAINS PUBLIC FUNCTIONS:
 
   void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
   void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+  void getwei_QP    (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
   int  getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
 
   Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd);
@@ -490,6 +491,7 @@ void apply_feedback(Grid *pG)
         pG->U[k][j][i].M2 -= pG->feedback[k][j][i].x2;
         pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
       }
+
   return;
 }
 
@@ -514,11 +516,7 @@ void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb)
         if ((j1 <= jup) && (j1 >= jlp)) {
           for (i=0; i<ncell; i++) {
             i1 = i+is;
-#ifdef SHEARING_BOX
-            if ((i1 <= is0) && (i1 >= ie0)) {
-#else
             if ((i1 <= iup) && (i1 >= ilp)) {
-#endif
               pG->feedback[k1][j1][i1].x1 += weight[k][j][i] * fb.x1;
               pG->feedback[k1][j1][i1].x2 += weight[k][j][i] * fb.x2;
               pG->feedback[k1][j1][i1].x3 += weight[k][j][i] * fb.x3;

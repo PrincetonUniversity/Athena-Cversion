@@ -77,7 +77,7 @@ void init_particle(Grid *pG, Domain *pD)
   N3T = kup-klp+1;
 
   /* check particle types */
-  pG->partypes = par_geti("particle","partypes");
+  pG->partypes = par_geti_def("particle","partypes",1);
 
   if (pG->partypes < 0)
     ath_error("[init_particle]: Particle types must not be negative!\n");
@@ -120,7 +120,7 @@ void init_particle(Grid *pG, Domain *pD)
   alamcoeff = 0.0;
 
   /* set the interpolation function pointer */
-  interp = par_geti_def("particle","interp",1);
+  interp = par_geti_def("particle","interp",2);
   if (interp == 1)
   { /* linear interpolation */
     getweight = getwei_linear;

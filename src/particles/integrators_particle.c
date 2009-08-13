@@ -60,7 +60,7 @@ void integrate_particle_fulimp(Grid *pG)
   Real x1n, x2n, x3n;		/* first order new position at half a time step */
   Real dv1, dv2, dv3;		/* amount of velocity update */
   Vector fd, fr;		/* drag force and other forces */
-  Vector fc, fp, ft;		/* force at current and predictor position, total force */
+  Vector fc, fp, ft;		/* force at current and predicted position, total force */
   Vector cell1;			/* one over dx1, dx2, dx3 */
   Real ts11, ts12;		/* 1/stopping time */
   Real b0,A,B,C,D,Det1;		/* matrix elements and determinant */
@@ -101,7 +101,7 @@ void integrate_particle_fulimp(Grid *pG)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
 
-    /* step 1: predictor of the particle position after one time step */
+    /* step 1: predict of the particle position after one time step */
     if (pG->Nx1 > 1)  x1n = curG->x1+curG->v1*pG->dt;
     else x1n = curG->x1;
     if (pG->Nx2 > 1)  x2n = curG->x2+curG->v2*pG->dt;
@@ -111,7 +111,7 @@ void integrate_particle_fulimp(Grid *pG)
 
 #ifdef SHEARING_BOX
 #ifndef FARGO
-    if (pG->Nx3 > 1) x2n -= 0.75*curG->v1*SQR(pG->dt); /* advection part */
+    if (pG->Nx3 > 1) x2n -= 0.5*qshear*curG->v1*SQR(pG->dt); /* advection part */
 #endif
 #endif
 
@@ -147,13 +147,17 @@ void integrate_particle_fulimp(Grid *pG)
     if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
       ft.x1 += -oh*fp.x2;
     #ifdef FARGO
-      ft.x2 += 0.25*oh*fp.x1;
+      ft.x2 += 0.5*(2.0-qshear)*oh*fp.x1;
     #else
       ft.x2 += oh*fp.x1;
     #endif
     } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
       ft.x1 += -oh*fp.x3;
+    #ifdef FARGO
+      ft.x3 += 0.5*(2.0-qshear)*oh*fp.x1;
+    #else
       ft.x3 += oh*fp.x1;
+    #endif
     }
 #endif /* SHEARING_BOX */
 
@@ -163,8 +167,8 @@ void integrate_particle_fulimp(Grid *pG)
     oh2 = SQR(oh);
     B = oh * (-2.0-(ts11+ts12)*pG->dt);
 #ifdef FARGO
-    A = D - 0.5*oh2;
-    C = -0.25*B;
+    A = D - (2.0-qshear)*oh2;
+    C = 0.5*(qshear-2.0)*B;
 #else /* FARGO */
     A = D - 2.0*oh2;
     C = -B;
@@ -209,8 +213,8 @@ void integrate_particle_fulimp(Grid *pG)
       curP->x3 = curG->x3;
 
 #ifdef FARGO
-    /* shift = -3/2 * Omega_0 * x * dt */
-    curG->shift = -0.75*Omega_0*(curG->x1+curP->x1)*pG->dt;
+    /* shift = -qshear * Omega_0 * x * dt */
+    curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     curP->property = curG->property;
@@ -295,7 +299,7 @@ void integrate_particle_semimp(Grid *pG)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
 
-    /* step 1: predictor of the particle position after half a time step */
+    /* step 1: predict of the particle position after half a time step */
     if (pG->Nx1 > 1)  x1n = curG->x1+0.5*curG->v1*pG->dt;
     else x1n = curG->x1;
     if (pG->Nx2 > 1)  x2n = curG->x2+0.5*curG->v2*pG->dt;
@@ -305,7 +309,7 @@ void integrate_particle_semimp(Grid *pG)
 
 #ifdef SHEARING_BOX
 #ifndef FARGO
-    if (pG->Nx3 > 1) x2n -= 0.1875*curG->v1*SQR(pG->dt); /* advection part */
+    if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt); /* advection part */
 #endif
 #endif
 
@@ -327,7 +331,7 @@ void integrate_particle_semimp(Grid *pG)
 #ifdef SHEARING_BOX
     oh = Omega_0*pG->dt;
 #ifdef FARGO
-    b1 = 1.0/(SQR(b)+SQR(oh));
+    b1 = 1.0/(SQR(b)+2.0*(2.0-qshear)*SQR(oh));
 #else
     b1 = 1.0/(SQR(b)+4.0*SQR(oh));
 #endif /* FARGO */
@@ -341,11 +345,10 @@ void integrate_particle_semimp(Grid *pG)
     if (pG->Nx3>1)
     {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
       dv1 = pG->dt*2.0*b2*ft.x1 + pG->dt*4.0*oh*b1*ft.x2;
-      dv2 = pG->dt*2.0*b2*ft.x2;
     #ifdef FARGO
-      dv2 -= pG->dt*oh*b1*ft.x1;
+      dv2 = pG->dt*2.0*b2*ft.x2 - 2.0*(2.0-qshear)*pG->dt*oh*b1*ft.x1;
     #else
-      dv2 -= 4.0*pG->dt*oh*b1*ft.x1;
+      dv2 = pG->dt*2.0*b2*ft.x2 - 4.0*pG->dt*oh*b1*ft.x1;
     #endif /* FARGO */
       dv3 = pG->dt*2.0*ft.x3/b;
     }
@@ -353,7 +356,11 @@ void integrate_particle_semimp(Grid *pG)
     {/* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
       dv1 = pG->dt*2.0*b2*ft.x1 + pG->dt*4.0*oh*b1*ft.x3;
       dv2 = pG->dt*2.0*ft.x2/b;
+    #ifdef FARGO
+      dv3 = pG->dt*2.0*b2*ft.x3 - 2.0*(2.0-qshear)*pG->dt*oh*b1*ft.x1;
+    #else
       dv3 = pG->dt*2.0*b2*ft.x3 - 4.0*pG->dt*oh*b1*ft.x1;
+    #endif
     }
 #else
     dv1 = pG->dt*2.0*b2*ft.x1;
@@ -384,8 +391,8 @@ void integrate_particle_semimp(Grid *pG)
       curP->x3 = curG->x3;
 
 #ifdef FARGO
-    /* shift = -3/2 * Omega_0 * x * dt */
-    curG->shift = -0.75*Omega_0*(curG->x1+curP->x1)*pG->dt;
+    /* shift = -qshear * Omega_0 * x * dt */
+    curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     /* step 6: calculate feedback force to the gas */
@@ -466,21 +473,24 @@ void integrate_particle_exp(Grid *pG)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
 
-    /* step 1: predictor of the particle position after half a time step */
-    if (pG->Nx1 > 1)  x1n = curG->x1+0.5*curG->v1*pG->dt;
+    /* step 1: predict of the particle position after half a time step */
+    if (pG->Nx1 > 1)
+      x1n = curG->x1+0.5*curG->v1*pG->dt;
     else x1n = curG->x1;
-    if (pG->Nx2 > 1)  x2n = curG->x2+0.5*curG->v2*pG->dt;
+    if (pG->Nx2 > 1)
+      x2n = curG->x2+0.5*curG->v2*pG->dt;
     else x2n = curG->x2;
-    if (pG->Nx3 > 1)  x3n = curG->x3+0.5*curG->v3*pG->dt;
+    if (pG->Nx3 > 1)
+      x3n = curG->x3+0.5*curG->v3*pG->dt;
     else x3n = curG->x3;
 
 #ifdef SHEARING_BOX
 #ifndef FARGO
-    if (pG->Nx3 > 1) x2n -= 0.1875*curG->v1*SQR(pG->dt); /* advection part */
+    if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt); /* advection part */
 #endif
 #endif
 
-    /* step 2: predictor of particle velocity after half a time step */
+    /* step 2: calculate the force at current position */
     fd = Get_Drag(pG, curG->property, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3, cell1, &ts1);
 
     fr = Get_Force(pG, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3);
@@ -530,8 +540,8 @@ void integrate_particle_exp(Grid *pG)
       curP->x3 = curG->x3;
 
 #ifdef FARGO
-    /* shift = -3/2 * Omega_0 * x * dt */
-    curG->shift = -0.75*Omega_0*(curG->x1+curP->x1)*pG->dt;
+    /* shift = -qshear * Omega_0 * x * dt */
+    curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     /* step 6: calculate feedback force to the gas */
@@ -640,7 +650,8 @@ void feedback_predictor(Grid* pG)
 
 /* Calculate the feedback of the drag force from the particle to the gas
    Serves for the corrector step. It deals with one particle at a time.
-   Input: pG: grid with particles
+   Input: pG: grid with particles; gri,grf: initial and final particles;
+          dv: velocity difference between gri and grf.
    Output: pG: the array of drag forces exerted by the particle is updated
 */
 void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3)
@@ -680,7 +691,7 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1
 #ifndef FARGO
   if (pG->Nx3 > 1) /* 3D shearing box */
   {
-    distrFB_shear(pG, weight, is, js, ks, fb);
+//    distrFB_shear(pG, weight, is, js, ks, fb);
   }
 #endif
 #endif /* SHEARING_BOX */
@@ -791,9 +802,9 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
   {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
   #ifdef FARGO
     ft.x1 += 2.0*v2*Omega_0;
-    ft.x2 += -0.5*v1*Omega_0;
+    ft.x2 += (qshear-2.0)*v1*Omega_0;
   #else
-    ft.x1 += 3.0*omg2*x1 + 2.0*v2*Omega_0;
+    ft.x1 += 2.0*(qshear*omg2*x1 + v2*Omega_0);
     ft.x2 += -2.0*v1*Omega_0;
   #endif /* FARGO */
   #ifdef VERTICAL_GRAVITY
@@ -802,8 +813,13 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
   }
   else
   { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
-    ft.x1 += 3.0*omg2*x1 + 2.0*v3*Omega_0;
+  #ifdef FARGO
+    ft.x1 += 2.0*v3*Omega_0;
+    ft.x3 += (qshear-2.0)*v1*Omega_0;
+  #else
+    ft.x1 += 2.0*(qshear*omg2*x1 + v3*Omega_0);
     ft.x3 += -2.0*v1*Omega_0;
+  #endif /* FARGO */
   #ifdef VERTICAL_GRAVITY
     ft.x2 += -omg2*x2;
   #endif /* VERTICAL_GRAVITY */

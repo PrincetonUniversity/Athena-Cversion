@@ -22,8 +22,9 @@ PURPOSE: contains all the routines necessary for outputting particles. There are
   do visualization.
 
 CONTAINS PUBLIC FUNCTIONS:
-  void particle_to_grid(Grid *pG, Domain *pD, Output *pout);
+  void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop);
   void dump_particle_binary(Grid *pG, Domain *pD);
+  int property_all(Grain *gr);
 
 History:
   Written by Xuening Bai, Mar. 2009
@@ -61,7 +62,7 @@ int property_all(Grain *gr);
 /*----------------------------------------------------------------------------*/
 
 /* Bin the particles to grid cells */
-void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
+void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 {
   int i,j,k, is,js,ks, i1,j1,k1;
   long p;
@@ -95,7 +96,7 @@ void particle_to_grid(Grid *pG, Domain *pD, Output *pout)
   for (p=0; p<pG->nparticle; p++) {
     gr = &(pG->particle[p]);
     /* judge if the particle should be selected */
-    if ((*(pout->par_prop))(gr)) {/* 1: true; 0: false */
+    if ((*par_prop)(gr)) {/* 1: true; 0: false */
 
       getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
 
@@ -221,6 +222,14 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   return;
 }
 
+/* default choice for binning particles to the grid: 
+   All the particles are binned, return true for any value.
+*/
+int property_all(Grain *gr)
+{
+  return 1;  /* always true */
+}
+
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are variables d,M1,M2,M3,V1,V2,V3 for particles */
@@ -257,14 +266,6 @@ Real expr_V3par(const Grid *pG, const int i, const int j, const int k) {
   if (grid_d[k][j][i]>0.0)
     return grid_v[k][j][i].x3/grid_d[k][j][i];
   else return 0.0;
-}
-
-/* default choice for binning particles to the grid: 
-   All the particles are binned, return true for any value.
-*/
-int property_all(Grain *gr)
-{
-  return 1;  /* always true */
 }
 
 #endif /*PARTICLES*/

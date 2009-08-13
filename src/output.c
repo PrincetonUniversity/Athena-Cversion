@@ -137,7 +137,6 @@ extern Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
-extern int  property_all(Grain *gr);
 int check_particle_binning(char *out);
 #endif
 static Gasfun_t getexpr(const int n, const char *expr);
@@ -511,7 +510,7 @@ void data_output(Grid *pGrid, Domain *pD, const int flag)
     if(dump_flag[n] != 0) {
 #ifdef PARTICLES
       if (OutArray[n].out_pargrid == 1) /* if binned particle is to be output */
-        particle_to_grid(pGrid, pD, &(OutArray[n]));
+        particle_to_grid(pGrid, pD, OutArray[n].par_prop);
 #endif
       (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
       OutArray[n].num++;

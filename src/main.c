@@ -12,6 +12,7 @@ static char *athena_version = "version 3.1 - 01-JAN-2008";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -455,7 +456,7 @@ int main(int argc, char *argv[])
     set_bvals_mhd(&level0_Grid, &level0_Domain); /* Re-apply hydro bc's */
 #endif
 
-/* predictor step of particle feedback to the gas */
+/* predict step of particle feedback to the gas */
 #ifdef FEEDBACK
     feedback_predictor(&level0_Grid);
 #endif
@@ -480,7 +481,7 @@ int main(int argc, char *argv[])
       advect_particles(&level0_Grid, &level0_Domain);
 #endif
     }
-#endif
+#endif /* FARGO */
 
     Userwork_in_loop(&level0_Grid, &level0_Domain);
 
