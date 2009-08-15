@@ -434,7 +434,7 @@ int main(int argc, char *argv[])
     if ((tlim-level0_Grid.time) < level0_Grid.dt) {
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
-level0_Grid.dt=0.02;
+
 /* operator-split explicit diffusion: resistivity, viscosity, conduction
  * Done first since CFL constraint is applied which may change dt  */
 #ifdef EXPLICIT_DIFFUSION
@@ -451,8 +451,6 @@ level0_Grid.dt=0.02;
 #endif
 
     (*Integrate)(&level0_Grid, &level0_Domain);
-
-feedback_predictor(&level0_Grid);
 
 #ifdef FARGO
     if (level0_Grid.Nx3 > 1) { /* perform advection only in 3D */
