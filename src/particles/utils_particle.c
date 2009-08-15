@@ -20,9 +20,7 @@ CONTAINS PUBLIC FUNCTIONS:
 
   void get_gasinfo(Grid *pG);
   void feedback_clear(Grid *pG);
-  void apply_feedback(Grid *pG);
   void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
-  void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
 
   void shuffle(Grid* pG);
 
@@ -412,9 +410,7 @@ Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
  *
  * void get_gasinfo(Grid *pG);
  * void feedback_clear(Grid *pG);
- * void apply_feedback(Grid *pG);
  * void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
- * void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
  */
 /*============================================================================*/
 
@@ -479,22 +475,6 @@ void feedback_clear(Grid *pG)
   return;
 }
 
-/* Implement feedback to the gas (in the corrector step) */
-void apply_feedback(Grid *pG)
-{
-  int i,j,k;
-
-  for (k=pG->ks; k<=pG->ke; k++)
-    for (j=pG->js; j<=pG->je; j++)
-      for (i=pG->is; i<=pG->ie; i++) {
-        pG->U[k][j][i].M1 -= pG->feedback[k][j][i].x1;
-        pG->U[k][j][i].M2 -= pG->feedback[k][j][i].x2;
-        pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
-      }
-
-  return;
-}
-
 /* Distribute the feedback force to grid cells
    Input: 
      pG: grid;   weight: weight function; 
@@ -529,43 +509,6 @@ void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb)
 
   return;
 }
-
-#ifdef SHEARING_BOX
-/* Distribute the feedback force to grid cells for 3D shearing box boundary
-   Input: 
-     pG: grid;   weight: weight function; 
-     is,js,ks: starting cell indices in the grid.
-     f1, f2, f3: feedback force from one particle.
-   Output:
-     pG: feedback array is updated.
-*/
-void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb)
-{
-  int i,j,k,i1,j1,k1;
-
-  /* distribute feedback force */
-  for (k=0; k<ncell; k++) {
-    k1 = k+ks;
-    if ((k1 <= kup) && (k1 >= klp)) {
-      for (j=0; j<ncell; j++) {
-        j1 = j+js;
-        if ((j1 <= jup) && (j1 >= jlp)) {
-          for (i=0; i<ncell; i++) {
-            i1 = i+is;
-            if ((i1 > is0) && (i1 < ie0)) {
-              pG->feedback[k1][j1][i1].x1 += weight[k][j][i] * fb.x1;
-              pG->feedback[k1][j1][i1].x2 += weight[k][j][i] * fb.x2;
-              pG->feedback[k1][j1][i1].x3 += weight[k][j][i] * fb.x3;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return;
-}
-#endif /* SHEARING_BOX */
 
 #endif /* FEEDBACK */
 

@@ -137,6 +137,11 @@ void integrate_2d(Grid *pG, Domain *pD)
   ath_pout(1,"dx1 = " FMT ",\t dx2 = " FMT ",\t dx3 = " FMT "\n", pG->dx1,pG->dx2,pG->dx3);
   ath_pout(1,"dt = " FMT "\n", pG->dt);
 
+/* Compute predictor feedback from particle drag */
+#ifdef FEEDBACK
+  feedback_predictor(pG);
+#endif
+
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -291,7 +296,6 @@ void integrate_2d(Grid *pG, Domain *pD)
       fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
     }
-
   }
 
 /*=== STEP 2: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
@@ -905,6 +909,15 @@ void integrate_2d(Grid *pG, Domain *pD)
   }
   }
 
+/*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
+
+#ifdef PARTICLES
+  (*Integrate_Particles)(pG);
+#ifdef FEEDBACK
+  exchange_feedback(pG, pD);
+#endif
+#endif
+
 /*=== STEP 9: Compute 2D x1-Flux, x2-Flux ====================================*/
 
 /*--- Step 9a ------------------------------------------------------------------
@@ -961,7 +974,6 @@ void integrate_2d(Grid *pG, Domain *pD)
       }
     }
   }
-
 /*--- Step 9c ------------------------------------------------------------------
  * Compute 2D x2-fluxes from corrected L/R states.
  */
@@ -1063,12 +1075,18 @@ void integrate_2d(Grid *pG, Domain *pD)
       dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
                   - hdtodx2*(frx2_dM3 - flx2_dM3);
 
+#ifdef FEEDBACK
+      M1e -= 0.5*pG->feedback[ks][j][i].x1;
+      dM3e -= 0.5*pG->feedback[ks][j][i].x3;
+#endif
+
 /* Update the 1- and 3-momentum (X and Y in 2D shearing box) for the Coriolis
  * and tidal potential source terms using a Crank-Nicholson
  * discretization for the momentum fluctuation equation. */
 
       pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
       pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+
 #ifndef FARGO
       pG->U[ks][j][i].M3 -= 0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
 #endif
@@ -1226,6 +1244,19 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 #endif /* BAROTROPIC */
+
+/*--- Step 11d -----------------------------------------------------------------
+ * Add source terms for particle feedback
+ */
+
+#ifdef FEEDBACK
+  for (j=js; j<=je; j++)
+    for (i=is; i<=ie; i++) {
+      pG->U[ks][j][i].M1 -= pG->feedback[ks][j][i].x1;
+      pG->U[ks][j][i].M2 -= pG->feedback[ks][j][i].x2;
+      pG->U[ks][j][i].M3 -= pG->feedback[ks][j][i].x3;
+    }
+#endif
 
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 

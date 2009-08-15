@@ -29,7 +29,6 @@ void exchange_feedback_destruct(Grid *pG, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* init_particle.c */
-VGFun_t integrate_particle_init(int type);
 void init_particle(Grid *pG, Domain *pD);
 void particle_destruct(Grid *pG);
 void particle_realloc(Grid *pG, long n);
@@ -76,9 +75,7 @@ Real get_ts_fixed  (Grid *pG, int type, Real rho, Real cs, Real vd);
 
 #ifdef FEEDBACK
 void feedback_clear(Grid *pG);
-void apply_feedback(Grid *pG);
 void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
-void distrFB_shear(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
 #endif
 
 void shuffle(Grid* pG);

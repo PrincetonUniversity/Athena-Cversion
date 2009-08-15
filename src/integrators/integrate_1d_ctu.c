@@ -75,6 +75,11 @@ void integrate_1d(Grid *pG, Domain *pD)
   iu = ie + 1;
 #endif
 
+/* Compute predictor feedback from particle drag */
+#ifdef FEEDBACK
+  feedback_predictor(pG);
+#endif
+
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -269,6 +274,15 @@ void integrate_1d(Grid *pG, Domain *pD)
     }
   }
 
+/*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
+
+#ifdef PARTICLES
+  (*Integrate_Particles)(pG);
+#ifdef FEEDBACK
+  exchange_feedback(pG, pD);
+#endif
+#endif
+
 /*=== STEPS 9-10: Not needed in 1D ===*/
 
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
@@ -339,6 +353,18 @@ void integrate_1d(Grid *pG, Domain *pD)
     }
   }
 #endif /* BAROTROPIC */
+
+/*--- Step 11d -----------------------------------------------------------------
+ * Add source terms for particle feedback
+ */
+
+#ifdef FEEDBACK
+  for (i=is; i<=ie; i++) {
+    pG->U[ks][js][i].M1 -= pG->feedback[ks][js][i].x1;
+    pG->U[ks][js][i].M2 -= pG->feedback[ks][js][i].x2;
+    pG->U[ks][js][i].M3 -= pG->feedback[ks][js][i].x3;
+  }
+#endif
 
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 

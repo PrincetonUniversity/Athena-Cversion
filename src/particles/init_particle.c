@@ -38,27 +38,6 @@ void grid_limit(Grid *pG, Domain *pD);
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 
-/* set the particle integrator pointer
- */
-VGFun_t integrate_particle_init(int type)
-{
-  switch(type){
-    case 1: /* 2nd order explicit integrator */
-      return integrate_particle_exp;
-
-    case 2: /* 2nd order semi-implicit integrator */
-      return integrate_particle_semimp;
-
-    case 3: /* 2nd order fully implicit integrator */
-      return integrate_particle_fulimp;
-
-    default:
-      ath_perr(-1,"[integrate_particle_init]: unknown integrator type: %d\n",type);
-      exit(EXIT_FAILURE);
-  }
-}
-
-
 /* Initialization for particles.
  * We assume to have "partypes" types of particles, each type has "parnum" particles.
  * We enforce that each type has equal number of particles to ensure equal resolution.
@@ -66,7 +45,7 @@ VGFun_t integrate_particle_init(int type)
  */
 void init_particle(Grid *pG, Domain *pD)
 {
-  int i, N1T, N2T, N3T, interp, tsmode;
+  int i, N1T, N2T, N3T, integratortype, interp, tsmode;
   Grain *GrArray;
   long size = 1000, size1 = 1, size2 = 1;
 
@@ -118,6 +97,26 @@ void init_particle(Grid *pG, Domain *pD)
   for (i=0; i<pG->partypes; i++)
     grrhoa[i] = 0.0;
   alamcoeff = 0.0;
+
+  /* Set the particle integrator pointer */
+  integratortype = par_geti_def("particle","integrator",2);
+  switch(integratortype){
+    case 1: /* 2nd order explicit integrator */
+      Integrate_Particles = integrate_particle_exp;
+      break;
+
+    case 2: /* 2nd order semi-implicit integrator */
+      Integrate_Particles = integrate_particle_semimp;
+      break;
+
+    case 3: /* 2nd order fully implicit integrator */
+      Integrate_Particles = integrate_particle_fulimp;
+      break;
+
+    default:
+      ath_perr(-1,"[init_particle]: unknown integrator type: %d\n",integratortype);
+      exit(EXIT_FAILURE);
+  }
 
   /* set the interpolation function pointer */
   interp = par_geti_def("particle","interp",2);

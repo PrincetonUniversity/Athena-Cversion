@@ -644,8 +644,6 @@ void feedback_predictor(Grid* pG)
       distrFB(pG, weight, is, js, ks, fb);
     }
   }/* end of the for loop */
-
-  return;
 }
 
 /* Calculate the feedback of the drag force from the particle to the gas

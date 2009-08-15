@@ -151,6 +151,11 @@ void integrate_3d(Grid *pG, Domain *pD)
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;
 
+/* Compute predictor feedback from particle drag */
+#ifdef FEEDBACK
+  feedback_predictor(pG);
+#endif
+
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -1660,7 +1665,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 /*--- Step 8a ------------------------------------------------------------------
  * Calculate d^{n+1/2} (needed with static potential, cooling, or MHD)
  */
-
 #ifndef MHD
 #ifndef PARTICLES
   if ((StaticGravPot != NULL) || (CoolingFunc != NULL))
@@ -1804,6 +1808,15 @@ void integrate_3d(Grid *pG, Domain *pD)
     }
   }
   }
+
+/*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
+
+#ifdef PARTICLES
+  (*Integrate_Particles)(pG);
+#ifdef FEEDBACK
+  exchange_feedback(pG, pD);
+#endif
+#endif
 
 /*=== STEP 9: Compute 3D x1-Flux, x2-Flux, x3-Flux ===========================*/
 
@@ -2067,12 +2080,18 @@ void integrate_3d(Grid *pG, Domain *pD)
 	            - q2*(frx2_dM2 - flx2_dM2) 
                     - q3*(frx3_dM2 - flx3_dM2);
 
+#ifdef FEEDBACK
+      M1e -= 0.5*pG->feedback[k][j][i].x1;
+      dM2e -= 0.5*pG->feedback[k][j][i].x2;
+#endif
+
 /* Update the 1- and 2-momentum for the Coriolis and tidal
  * potential momentum source terms using a Crank-Nicholson
  * discretization for the momentum fluctuation equation. */
 
-	pG->U[k][j][i].M1 += (4.0*dM2e - 2.0*(qshear-2.)*om_dt*M1e)*fact;
+	pG->U[k][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
 	pG->U[k][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+
 #ifndef FARGO
 	pG->U[k][j][i].M2 -= 0.5*qshear*om_dt*
            (x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
@@ -2315,6 +2334,20 @@ void integrate_3d(Grid *pG, Domain *pD)
   }
 #endif /* BAROTROPIC */
 
+/*--- Step 11d -----------------------------------------------------------------
+ * Add source terms for particle feedback
+ */
+
+#ifdef FEEDBACK
+  for (k=ks; k<=ke; k++)
+    for (j=js; j<=je; j++)
+      for (i=is; i<=ie; i++) {
+      pG->U[k][j][i].M1 -= pG->feedback[k][j][i].x1;
+      pG->U[k][j][i].M2 -= pG->feedback[k][j][i].x2;
+      pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
+    }
+#endif
+
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 
 /*--- Step 12a -----------------------------------------------------------------
@@ -2531,9 +2564,10 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
   if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
     == NULL) goto on_error;
 
-
 #ifndef MHD
+#ifndef PARTICLES
   if((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
 #endif
   {
   if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)

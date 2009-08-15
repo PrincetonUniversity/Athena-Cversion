@@ -51,9 +51,6 @@ int main(int argc, char *argv[])
   time_t start, stop;
   int have_time = time(&start); /* Is current calendar time (UTC) available? */
   VGDFun_t Integrate;     /* function pointer to integrator, set at runtime */
-#ifdef PARTICLES
-  VGFun_t Integrate_Particles; /* function pointer to particle integrator, set at runtime */
-#endif
 #ifdef SELF_GRAVITY
   VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
 #endif
@@ -383,9 +380,6 @@ int main(int argc, char *argv[])
   init_output(&level0_Grid); 
   lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
   Integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-#ifdef PARTICLES
-  Integrate_Particles = integrate_particle_init(par_geti_def("particle","integrator",3));
-#endif
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
@@ -440,7 +434,7 @@ int main(int argc, char *argv[])
     if ((tlim-level0_Grid.time) < level0_Grid.dt) {
       level0_Grid.dt = (tlim-level0_Grid.time);
     }
-
+level0_Grid.dt=0.02;
 /* operator-split explicit diffusion: resistivity, viscosity, conduction
  * Done first since CFL constraint is applied which may change dt  */
 #ifdef EXPLICIT_DIFFUSION
@@ -456,23 +450,9 @@ int main(int argc, char *argv[])
     set_bvals_mhd(&level0_Grid, &level0_Domain); /* Re-apply hydro bc's */
 #endif
 
-/* predict step of particle feedback to the gas */
-#ifdef FEEDBACK
-    feedback_predictor(&level0_Grid);
-#endif
-
     (*Integrate)(&level0_Grid, &level0_Domain);
 
-/* integrate the particles */
-#ifdef PARTICLES
-    (*Integrate_Particles)(&level0_Grid);
-#endif
-
-/* apply feedback to the gas */
-#ifdef FEEDBACK
-    exchange_feedback(&level0_Grid, &level0_Domain);
-    apply_feedback(&level0_Grid);
-#endif
+feedback_predictor(&level0_Grid);
 
 #ifdef FARGO
     if (level0_Grid.Nx3 > 1) { /* perform advection only in 3D */
