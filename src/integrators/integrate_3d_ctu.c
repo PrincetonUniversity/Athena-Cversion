@@ -761,7 +761,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 
   for (k=kl+1; k<=ku-1; k++) {
     for (j=jl+1; j<=ju-1; j++) {
-      for (i=il+1; i<=iu-2; i++) {
+      for (i=il+1; i<=iu; i++) {
         Ul_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i-1].d -x2Flux[k][j][i-1].d );
         Ul_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
         Ul_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i-1].Mx-x2Flux[k][j][i-1].Mx);
@@ -2042,9 +2042,9 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifdef SHEARING_BOX
   fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
   qom = qshear*Omega_0;
-  for(k=ks; k<=ke; ++k) {
-    for(j=js; j<=je; ++j) {
-      for(i=is; i<=ie; ++i) {
+  for(k=ks; k<=ke; k++) {
+    for(j=js; j<=je; j++) {
+      for(i=is; i<=ie; i++) {
 	cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
 /* Store the current state */
