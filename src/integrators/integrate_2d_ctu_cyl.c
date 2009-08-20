@@ -1195,8 +1195,8 @@ void integrate_2d(Grid *pG, Domain *pD)
 #ifdef SHEARING_BOX
   fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
   qom = qshear*Omega_0;
-  for(j=js; j<=je; ++j) {
-    for(i=is; i<=ie; ++i) {
+  for(j=js; j<=je; j++) {
+    for(i=is; i<=ie; i++) {
       cc_pos(pG,i,j,ks,&x1,&x2,&x3);
 
 /* Store the current state */
