@@ -17,9 +17,10 @@
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
  *  ipert = 3 - J&G vortical shwave (hydro test)
- *  ipert = 4 - nonlinear density wave test of Fromang & Paploizou
+ *  ipert = 4 - nonlinear density wave test of Fromang & Papaloizou
  *  ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
  *  ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
+ *  ipert = 7 - nonlinear shearing wave test of Heinemann & Papaloizou (2008)
  *
  * To run simulations of stratified disks (including vertical gravity), use the
  * strat.c problem generator.
@@ -171,8 +172,9 @@ void problem(Grid *pGrid, Domain *pDomain)
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
  *  ipert = 3 - vortical shwave (hydro test)
- *  ipert = 4 - Fromang & Paploizou nonlinear density wave (hydro test)
+ *  ipert = 4 - Fromang & Papaloizou nonlinear density wave (hydro test)
  *  ipert = 5 & 6 - JGG MHD shwave tests
+ *  ipert = 7 - Heinemann & Papaloizou (2008) nonlinear shwave (hydro test)
  */
       if (ipert == 1) {
         rval = amp*(ran2(&iseed) - 0.5);
@@ -240,6 +242,19 @@ void problem(Grid *pGrid, Domain *pDomain)
         rby *= cos((double)(kx*x1 + ky*(x2-0.5*pGrid->dx2) + kz*x3));
         rby += (0.2);
         rbz = 0.0;
+      }
+      if (ipert == 7) {
+        double kappa2 = 2.0*(2.0 - qshear)*Omega_0*Omega_0;
+        double aa = (kx*kx + ky*ky)*Iso_csound*Iso_csound + kappa2;
+        double bb = 2.0*qshear*Omega_0*ky*Iso_csound;
+        double denom = aa*aa + bb*bb;
+        double rd_hat =             (ky*Iso_csound*bb - 2.0*Omega_0*aa)*amp/denom;
+        double px_hat = -Iso_csound*(ky*Iso_csound*aa + 2.0*Omega_0*bb)*amp/denom;
+        double py_hat = (amp + ky*px_hat + (2.0-qshear)*Omega_0*rd_hat)/kx;
+        rd  = 1.0 + rd_hat*cos((double)(kx*x1 + ky*x2));
+        rvx =       px_hat*sin((double)(kx*x1 + ky*x2))/rd;
+        rvy =       py_hat*sin((double)(kx*x1 + ky*x2))/rd;
+        rvz = 0.0;
       }
 
 /* Initialize d, M, and P.  For 3D shearing box M1=Vx, M2=Vy, M3=Vz
