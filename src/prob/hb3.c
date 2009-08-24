@@ -120,7 +120,11 @@ void problem(Grid *pGrid, Domain *pDomain)
       if (ipert == 2) {
         rp = pres;
         rd = den*(1.0 + 0.1*sin((double)kx*x1));
+#ifdef ADIABATIC
         rvx = amp*sqrt(Gamma*pres/den);
+#else
+        rvx = amp*sqrt(pres/den);
+#endif
       }
       if (ipert == 3) {
         rval = 1.0 + amp*(ran2(&iseed) - 0.5);
@@ -138,7 +142,11 @@ void problem(Grid *pGrid, Domain *pDomain)
       pGrid->U[ks][j][i].d  = rd;
       pGrid->U[ks][j][i].M1 = rd*rvx;
       pGrid->U[ks][j][i].M2 = 0.0;
+#ifdef FARGO
+      pGrid->U[ks][j][i].M3 = 0.0;
+#else
       pGrid->U[ks][j][i].M3 = -rd*qshear*Omega_0*x1;
+#endif
 #ifdef ADIABATIC
       pGrid->U[ks][j][i].E = rp/Gamma_1
         + 0.5*(SQR(pGrid->U[ks][j][i].M1) + SQR(pGrid->U[ks][j][i].M3))/rd;
@@ -252,9 +260,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-GVDFun_t get_usr_gasvshift(const char *name)
+void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
 {
-  return NULL;
+  return;
+}
+
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+{
+  return;
 }
 #endif
 
@@ -350,7 +363,11 @@ double ran2(long int *idum)
  */
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3){
-  return -qshear*Omega_0*Omega_0*x1*x1;  
+  Real phi=0.0;
+#ifndef FARGO
+  phi -= qshear*SQR(Omega_0*x1);
+#endif
+  return phi;
 }
 
 /*------------------------------------------------------------------------------
@@ -361,7 +378,11 @@ static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
+#ifdef FARGO
+  return pG->U[k][j][i].M3/pG->U[k][j][i].d;
+#else
   return (pG->U[k][j][i].M3/pG->U[k][j][i].d + qshear*Omega_0*x1);
+#endif
 }
 
 /*------------------------------------------------------------------------------
@@ -372,8 +393,11 @@ static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  return pG->U[k][j][i].M1*
-    (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
+#ifdef FARGO
+  return pG->U[k][j][i].M1*pG->U[k][j][i].M3/pG->U[k][j][i].d;
+#else
+  return pG->U[k][j][i].M1*(pG->U[k][j][i].M3/pG->U[k][j][i].d + qshear*Omega_0*x1);
+#endif
 }
 
 /*------------------------------------------------------------------------------
@@ -386,9 +410,11 @@ static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
   Real x1,x2,x3;
   Real dMy, dE;
 
-  cc_pos(pG,i,j,k,&x1,&x2,&x3);
-
-  dMy = (pG->U[k][j][i].M2 + qshear*Omega_0*x1*pG->U[k][j][i].d);
+#ifdef FARGO
+  dMy = pG->U[k][j][i].M3;
+#else
+  dMy = (pG->U[k][j][i].M3 + qshear*Omega_0*x1*pG->U[k][j][i].d);
+#endif
   dE = 0.5*(pG->U[k][j][i].M1*pG->U[k][j][i].M1 + 4.0*dMy*dMy)/pG->U[k][j][i].d;
 
   return dE;
@@ -400,11 +426,15 @@ static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
 
 static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
 {
+#ifdef ADIABATIC
   Real x1,x2,x3,phi;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   phi = ShearingBoxPot(x1, x2, x3);
 
   return pG->U[k][j][i].E + pG->U[k][j][i].d*phi;
+#else
+  return 0.0;
+#endif
 }
 
 /*------------------------------------------------------------------------------

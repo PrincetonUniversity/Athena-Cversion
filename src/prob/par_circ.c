@@ -31,7 +31,6 @@
 #endif /* PARTICLES */
 
 /* private functions */
-static void getval_gasv(Real x1n, Real x2n, Real x3n, Real *u1, Real *u2, Real *u3);
 static Vector ParticleTroj(Real t);
 static Vector ParticleVel(Vector pos);
 static int ParticleLocator(Real x1, Real x2, Real x3);
@@ -234,10 +233,20 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-GVDFun_t get_usr_gasvshift(const char *name)
+void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
 {
-  if (strcmp(name, "circ")==0) return getval_gasv;
-  else return NULL;
+  Real dx1, dx2, dx3;
+  dx1 = x1-x1c;          dx2 = x2-x2c;          dx3 = x3-x3c;
+  *u1 = omgx2*dx3-omgx3*dx2;
+  *u2 = omgx3*dx1-omgx1*dx3;
+  *u3 = omgx1*dx2-omgx2*dx1;
+
+  return;
+}
+
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+{
+  return;
 }
 #endif
 
@@ -285,17 +294,6 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
  
 /*------------------------ Private functions ---------------------*/
-
-/* Get exact gas quantities */
-static void getval_gasv(Real x1n, Real x2n, Real x3n, Real *u1, Real *u2, Real *u3)
-{
-  Real dx1, dx2, dx3;
-  dx1 = x1n-x1c;	  dx2 = x2n-x2c;	  dx3 = x3n-x3c;
-  *u1 = omgx2*dx3-omgx3*dx2;
-  *u2 = omgx3*dx1-omgx1*dx3;
-  *u3 = omgx1*dx2-omgx2*dx1;
-  return;
-}
 
 /* Compute particle trajectory */
 static Vector ParticleTroj(Real t)
