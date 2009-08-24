@@ -152,19 +152,6 @@ void init_particle(Grid *pG, Domain *pD)
   else
     ath_error("[init_particle]: tsmode must be 1, 2 or 3!\n");
 
-  /* set gas velocity shift function pointer */
-  if (par_exist("particle","vshiftfun"))
-  {
-    gasvshift = get_usr_gasvshift(par_gets("particle","vshiftfun"));
-    if (gasvshift == NULL)
-    {
-      ath_pout(0,"[init_particle]: Invalid velocity shift function name! Will not do velocity shift.\n");
-      gasvshift = gasvshift_zero;
-    }
-  }
-  else
-    gasvshift = gasvshift_zero;	/* by default will not do velocity shift */
-
   /* allocate the memory for gas and feedback arrays */
   grid_d = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
   if (grid_d == NULL) goto on_error;

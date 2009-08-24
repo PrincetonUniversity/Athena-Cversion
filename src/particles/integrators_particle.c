@@ -278,6 +278,9 @@ void integrate_particle_semimp(Grid *pG)
 #endif
 
   /*----------------------------Initialization---------------------------*/
+int is,js,ks,i,j;
+Real weight[3][3][3];
+
 #ifdef FEEDBACK
   feedback_clear(pG);	/* clean the feedback array */
 #endif /* FEEDBACK */
@@ -291,14 +294,14 @@ void integrate_particle_semimp(Grid *pG)
 
   /* delete all ghost particles */
   Delete_Ghost(pG);
-
+long q;
   /*---------------------Main loop over all the particles-------------------*/
   p = 0;
 
   while (p<pG->nparticle)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
-
+q=curG->my_id;
     /* step 1: predict of the particle position after half a time step */
     if (pG->Nx1 > 1)  x1n = curG->x1+0.5*curG->v1*pG->dt;
     else x1n = curG->x1;
@@ -644,6 +647,7 @@ void feedback_predictor(Grid* pG)
       distrFB(pG, weight, is, js, ks, fb);
     }
   }/* end of the for loop */
+
 }
 
 /* Calculate the feedback of the drag force from the particle to the gas
@@ -751,7 +755,7 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3, Real v1, Real v2,
   if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
   { /* particle in the grid */
 
-    /* apply gas velocity shift due to pressure gradient */
+    /* apply possible gas velocity shift (e.g., for fake gas velocity field) */
     gasvshift(x1, x2, x3, &u1, &u2, &u3);
 
     /* velocity difference */
@@ -767,7 +771,7 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3, Real v1, Real v2,
   else
   { /* particle out of the grid, free motion, with warning sign */
     vd1 = 0.0;	vd2 = 0.0;	vd3 = 0.0;	ts1 = 0.0;
-    ath_perr(1, "Particle move out of grid %d!\n", pG->my_id); /* level = ? */
+    ath_perr(1, "Particle move out of grid %d!\n", pG->my_id); /* warming! */
   }
 
   *tstop1 = ts1;
@@ -791,7 +795,16 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3, Real v1, Real v2,
 Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
 {
   Vector ft;
+  Real w1,w2,w3;
+
   ft.x1 = ft.x2 = ft.x3 = 0.0;
+  w1=v1;  w2=v2;  w3=v3;
+
+  /* User defined forces
+   * Should be independent of velocity, or the integrators must be modified
+   * Can also change the velocity to account for velocity difference.
+   */
+  Userforce_particle(&ft, x1, x2, x3, &w1, &w2, &w3);
 
 #ifdef SHEARING_BOX
   Real omg2 = SQR(Omega_0);
@@ -799,11 +812,11 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
   if (pG->Nx3 > 1)
   {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
   #ifdef FARGO
-    ft.x1 += 2.0*v2*Omega_0;
-    ft.x2 += (qshear-2.0)*v1*Omega_0;
+    ft.x1 += 2.0*w2*Omega_0;
+    ft.x2 += (qshear-2.0)*w1*Omega_0;
   #else
-    ft.x1 += 2.0*(qshear*omg2*x1 + v2*Omega_0);
-    ft.x2 += -2.0*v1*Omega_0;
+    ft.x1 += 2.0*(qshear*omg2*x1 + w2*Omega_0);
+    ft.x2 += -2.0*w1*Omega_0;
   #endif /* FARGO */
   #ifdef VERTICAL_GRAVITY
     ft.x3 += -omg2*x3;
@@ -812,11 +825,11 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
   else
   { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
   #ifdef FARGO
-    ft.x1 += 2.0*v3*Omega_0;
-    ft.x3 += (qshear-2.0)*v1*Omega_0;
+    ft.x1 += 2.0*w3*Omega_0;
+    ft.x3 += (qshear-2.0)*w1*Omega_0;
   #else
-    ft.x1 += 2.0*(qshear*omg2*x1 + v3*Omega_0);
-    ft.x3 += -2.0*v1*Omega_0;
+    ft.x1 += 2.0*(qshear*omg2*x1 + w3*Omega_0);
+    ft.x3 += -2.0*w1*Omega_0;
   #endif /* FARGO */
   #ifdef VERTICAL_GRAVITY
     ft.x2 += -omg2*x2;

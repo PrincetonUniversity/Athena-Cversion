@@ -25,6 +25,7 @@ CONTAINS PUBLIC FUNCTIONS:
   void shuffle(Grid* pG);
 
   void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
+  void User_ParticleForce_Zero(Vector *ft, Real x1, Real x2, Real x3, Real *w1, Real *w2, Real *w3);
 
 History:
   Written by Xuening Bai, Apr. 2009
@@ -627,14 +628,21 @@ void quicksort_particle(Grid *pG, Vector cell1, long start, long end)
  */
 /*============================================================================*/
 
-/* Calculate the gas velocity difference to what it should be as a
-   function of position and apply the shift to the velocity (u1,u2,u3).
+/* Infer new gas velocity (u1,u2,u3) based on current position and velocity.
    This is the default routine, which applies no velocity shift.
-   In the case of the streaming instability, this corresponds to \eta*v_K.
-   User can assign their velocity shift function in the problem generator
+   This routine is particularly useful for code test where user can generate
+   arbitrary gas velocity field, which can be done in the problem generator
    using get_usr_par_prop().
 */
 void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3)
+{
+  return;
+}
+
+/* User defined particle force generator.
+ * This is the default routine, which has no additional forces.
+ */
+void User_ParticleForce_Zero(Vector *ft, Real x1, Real x2, Real x3, Real *w1, Real *w2, Real *w3)
 {
   return;
 }

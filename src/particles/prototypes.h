@@ -62,7 +62,6 @@ void set_bvals_final_particle(Grid *pG, Domain *pD);
 /*----------------------------------------------------------------------------*/
 /* utils_particle.c */
 void get_gasinfo(Grid *pG);
-void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
 
 void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
 void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
@@ -79,6 +78,9 @@ void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vecto
 #endif
 
 void shuffle(Grid* pG);
+
+void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
+void User_ParticleForce_Zero(Vector *ft, Real x1, Real x2, Real x3, Real *w1, Real *w2, Real *w3);
 
 #endif /* PARTICLES */
 

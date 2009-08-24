@@ -114,7 +114,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
   }
 
-  lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is,ie,Wl,Wr);
+  lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,il+1,iu-1,Wl,Wr);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states

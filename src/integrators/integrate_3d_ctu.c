@@ -193,7 +193,7 @@ void integrate_3d(Grid *pG, Domain *pD)
        Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
      }
 
-     lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
+     lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,il+1,iu-1,Wl,Wr);
 
 #ifdef MHD
       for (i=il+1; i<=iu; i++) {
@@ -389,7 +389,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,js-1,je+1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,jl+1,ju-1,Wl,Wr);
 
 #ifdef MHD
       for (j=jl+1; j<=ju; j++) {
@@ -560,7 +560,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG( , &Bxc[k]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx3,ks-1,ke+1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx3,kl+1,ku-1,Wl,Wr);
 
 #ifdef MHD
       for (k=kl+1; k<=ku; k++) {
