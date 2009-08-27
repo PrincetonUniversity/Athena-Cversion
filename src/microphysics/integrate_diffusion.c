@@ -98,6 +98,7 @@ void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
   case 2:
     ApplyViscosity = ns_viscosity_2d;
     ns_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
+    break;
   case 3:
     ApplyViscosity = ns_viscosity_3d;
     ns_viscosity_init(pGrid->Nx1, pGrid->Nx2, pGrid->Nx3);
