@@ -309,10 +309,8 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho,
       }
     }
   }
-  if (totwei < TINY_NUMBER) {
-    ath_perr(0, "[particle]: Particle lies out of the grid: (is, js, ks)=(%d, %d, %d).\n",is, js, ks);
+  if (totwei < TINY_NUMBER) /* particle lies out of the grid, warning! */
     return -1;
-  }
 
   totwei1 = 1.0/totwei;
   *rho = D*totwei1;

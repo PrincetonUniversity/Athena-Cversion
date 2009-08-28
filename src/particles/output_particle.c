@@ -140,6 +140,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   char *fname;
   long p, nout, my_id;
   int init_id = 0;
+  short pos;
   Grain *gr;
   float fdata[12];  /* coordinate of grid and domain boundary */
 
@@ -211,8 +212,10 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 #ifdef MPI_PARALLEL
       init_id = gr->init_id;
 #endif
+      pos = gr->pos;
 
       fwrite(fdata,sizeof(float),8,p_binfile);
+//      fwrite(&(pos),sizeof(short),1,p_binfile);
       fwrite(&(my_id),sizeof(long),1,p_binfile);
       fwrite(&(init_id),sizeof(int),1,p_binfile);
 

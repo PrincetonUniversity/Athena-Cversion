@@ -16,8 +16,6 @@
  *  Code must be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is need to establish the NSH equilibrium (ipert=0,1,2).
  *
- * USERWORK_AFTER_LOOP function is used to test linear growth rate for ipert=1, 2.
- *
  * Reference:
  *   Youdin & Johansen, 2007, ApJ, 662, 613
  *   Johansen & Youdin, 2007, ApJ, 662, 627
@@ -67,8 +65,10 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real pert_even(Real fR, Real fI, Real x, Real z, Real t);
 static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t);
 static int property_mybin(Grain *gr);
-extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
@@ -284,14 +284,14 @@ fprintf(stderr,"%f	%f\n",etavk,Iso_csound);
         {
 
           if (ipert == 3) /* ramdom particle position in a cell */
-            x1p = x1l + pGrid->dx1*(ran2(&iseed)-0.5);
+            x1p = x1l + pGrid->dx1*ran2(&iseed);
           else
             x1p = x1l+pGrid->dx1/Npar*(ip+0.5);
 
           for (jp=0;jp<Npar;jp++)
           {
             if (ipert == 3) /* ramdom particle position in a cell */
-              x2p = x2l + pGrid->dx2*(ran2(&iseed)-0.5);
+              x2p = x2l + pGrid->dx2*ran2(&iseed);
             else
               x2p = x2l+pGrid->dx2/Npar*(jp+0.5);
 
@@ -457,7 +457,7 @@ static Real expr_dVxpar(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  return grid_v[k][j][i].x1/grid_d[k][j][i] - wxNSH;
+  return expr_V1par(pG,i,j,k)-wxNSH;
 }
 
 /* dVypar */
@@ -466,9 +466,9 @@ static Real expr_dVypar(const Grid *pG, const int i, const int j, const int k)
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef FARGO
-  return grid_v[k][j][i].x3/grid_d[k][j][i] - wyNSH;
+  return expr_V3par(pG,i,j,k)-wyNSH;
 #else
-  return grid_v[k][j][i].x3/grid_d[k][j][i] - wyNSH + qshear*Omega_0*x1);
+  return expr_V3par(pG,i,j,k)-wyNSH+qshear*Omega_0*x1;
 #endif
 }
 

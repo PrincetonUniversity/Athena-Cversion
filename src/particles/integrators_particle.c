@@ -34,6 +34,7 @@ extern Real vshear;					/* shear velocity */
 /*=========================== PROTOTYPES OF PRIVATE FUNCTIONS ===============================*/
 
 void   Delete_Ghost(Grid *pG);
+void   JudgeCrossing(Grid *pG, Real x1, Real x2, Real x3, Grain *gr);
 Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3, Vector cell1, Real *tstop1);
 Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3);
 
@@ -225,14 +226,8 @@ void integrate_particle_fulimp(Grid *pG)
 #endif /* FEEDBACK */
 
     /* step 7: update the particle in pG */
-#ifndef FARGO
-    /* if it crosses the grid boundary, mark it as a crossing out particle */
-    if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
-#else
-    /* FARGO will naturally return the "crossing out" particles in the x2 direction to the grid */
-    if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
-#endif
-        curG->pos = 10;
+    /* update particle status (crossing boundary or not) */
+    JudgeCrossing(pG, curP->x1, curP->x2, curP->x3, curG);
 
     /* update the particle */
     curG->x1 = curP->x1;
@@ -294,14 +289,14 @@ Real weight[3][3][3];
 
   /* delete all ghost particles */
   Delete_Ghost(pG);
-long q;
+
   /*---------------------Main loop over all the particles-------------------*/
   p = 0;
 
   while (p<pG->nparticle)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
-q=curG->my_id;
+
     /* step 1: predict of the particle position after half a time step */
     if (pG->Nx1 > 1)  x1n = curG->x1+0.5*curG->v1*pG->dt;
     else x1n = curG->x1;
@@ -404,14 +399,8 @@ q=curG->my_id;
 #endif /* FEEDBACK */
 
     /* step 7: update the particle in pG */
-#ifndef FARGO
-    /* if it crosses the grid boundary, mark it as a crossing out particle */
-    if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
-#else
-    /* FARGO will naturally return the "crossing out" particles in the x2 direction to the grid */
-    if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
-#endif
-        curG->pos = 10;
+    /* update particle status (crossing boundary or not) */
+    JudgeCrossing(pG, curP->x1, curP->x2, curP->x3, curG);
 
     /* update the particle */
     curG->x1 = curP->x1;
@@ -553,14 +542,8 @@ void integrate_particle_exp(Grid *pG)
 #endif /* FEEDBACK */
 
     /* step 7: update the particle in pG */
-#ifndef FARGO
-    /* if it crosses the grid boundary, mark it as a crossing out particle */
-    if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x2>=x2upar) || (curP->x2<x2lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
-#else
-    /* FARGO will naturally return the "crossing out" particles in the x2 direction to the grid */
-    if ((curP->x1>=x1upar) || (curP->x1<x1lpar) || (curP->x3>=x3upar) || (curP->x3<x3lpar))
-#endif
-        curG->pos = 10;
+    /* update particle status (crossing boundary or not) */
+    JudgeCrossing(pG, curP->x1, curP->x2, curP->x3, curG);
 
     /* update the particle */
     curG->x1 = curP->x1;
@@ -732,6 +715,23 @@ void Delete_Ghost(Grid *pG)
   return;
 }
 
+/* Judge if the particle is a crossing particle */
+void JudgeCrossing(Grid *pG, Real x1, Real x2, Real x3, Grain *gr)
+{
+#ifndef FARGO
+    /* if it crosses the grid boundary, mark it as a crossing out particle */
+    if ((x1>=x1upar) || (x1<x1lpar) || (x2>=x2upar) || (x2<x2lpar) || (x3>=x3upar) || (x3<x3lpar))
+      gr->pos = 10;
+#else
+    /* FARGO will naturally return the "crossing out" particles in the x2 direction to the grid */
+    if ((x1>=x1upar) || (x1<x1lpar) || (x3>=x3upar) || (x3<x3lpar))
+      gr->pos = 10;
+    else if ((pG->Nx3==1) && ((x2>=x2upar) || (x2<x2lpar))) /* 2D problem */
+      gr->pos = 10;
+#endif
+    return;
+}
+
 /* Calcualte the drag force to the particles 
    Input:
      pG: grid;	type: particle type;	cell1: 1/dx1,1/dx2,1/dx3;
@@ -771,7 +771,7 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3, Real v1, Real v2,
   else
   { /* particle out of the grid, free motion, with warning sign */
     vd1 = 0.0;	vd2 = 0.0;	vd3 = 0.0;	ts1 = 0.0;
-    ath_perr(1, "Particle move out of grid %d!\n", pG->my_id); /* warming! */
+    ath_perr(0, "Particle move out of grid %d with position (%f,%f,%f)!\n",pG->my_id,x1,x2,x3); /* warning! */
   }
 
   *tstop1 = ts1;

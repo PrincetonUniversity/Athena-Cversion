@@ -1167,6 +1167,7 @@ void set_bvals_particle_destruct(Grid *pG, Domain *pD)
 static void realloc_sendbuf()
 {
   send_bufsize += NBUF;
+  ath_pout(1,"[set_bvals_prticles]: reallocating send buffer...");
   if ((send_buf = (double*)realloc(send_buf, NVAR_P*(send_bufsize)*sizeof(double))) == NULL)
     ath_error("[set_bvals_prticles]: failed to allocate memory for buffer.\n");
   return;
@@ -1176,6 +1177,7 @@ static void realloc_sendbuf()
 static void realloc_recvbuf()
 {
   recv_bufsize += NBUF;
+  ath_pout(1,"[set_bvals_prticles]: reallocating receive buffer...");
   if ((recv_buf = (double*)realloc(recv_buf, NVAR_P*(recv_bufsize)*sizeof(double))) == NULL)
     ath_error("[set_bvals_prticles]: failed to allocate memory for buffer.\n");
   return;
