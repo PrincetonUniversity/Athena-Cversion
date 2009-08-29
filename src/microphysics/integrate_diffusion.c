@@ -59,13 +59,16 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
 #endif
 
 /* Call diffusion operators.  Function pointers set in 
- * integrate_explicit_diff_init() */
+ * integrate_explicit_diff_init().  Conduction must be called first, since
+ * viscosity and resistivity change T and would require extra call to
+ * set_bval_mhd(). 
+ */
+
+  if (ApplyThermalConduct != NULL) (*ApplyThermalConduct)(pGrid, pDomain);
 
   if (ApplyViscosity != NULL) (*ApplyViscosity)(pGrid, pDomain);
 
   if (ApplyResistivity != NULL) (*ApplyResistivity)(pGrid, pDomain);
-
-  if (ApplyThermalConduct != NULL) (*ApplyThermalConduct)(pGrid, pDomain);
 
   return;
 }
