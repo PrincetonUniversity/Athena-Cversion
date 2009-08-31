@@ -222,6 +222,8 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
     }
   }
 
+  fclose(p_binfile);
+
   return;
 }
 
