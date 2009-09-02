@@ -274,7 +274,7 @@ void getwei_QP(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3]
 */
 int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs)
 {
-  int i, j, k, i1, j1, k1;
+  int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
   Real D, v1, v2, v3;		/* density and velocity of the fluid */
 #ifndef ISOTHERMAL
   Real C = 0.0;			/* fluid sound speed */
@@ -286,26 +286,24 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho,
   totwei = 0.0;		totwei1 = 1.0;
   /* Interpolate density, velocity and sound speed */
   /* Note: in lower dimensions only wei[0] is non-zero, which ensures the validity */
-  for (k=0; k<ncell; k++) {
-    k1 = k+ks;
-    if ((k1 <= kup) && (k1 >= klp)) {
-      for (j=0; j<ncell; j++) {
-        j1 = j+js;
-        if ((j1 <= jup) && (j1 >= jlp)) {
-          for (i=0; i<ncell; i++) {
-            i1 = i+is;
-            if ((i1 <= iup) && (i1 >= ilp)) {
-              D += weight[k][j][i] * grid_d[k1][j1][i1];
-              v1 += weight[k][j][i] * grid_v[k1][j1][i1].x1;
-              v2 += weight[k][j][i] * grid_v[k1][j1][i1].x2;
-              v3 += weight[k][j][i] * grid_v[k1][j1][i1].x3;
+  n0 = ncell-1;
+  k1 = MAX(ks, klp);	k2 = MIN(ks+n0, kup);
+  j1 = MAX(js, jlp);	j2 = MIN(js+n0, jup);
+  i1 = MAX(is, ilp);	i2 = MIN(is+n0, iup);
+  for (k=k1; k<=k2; k++) {
+    k0=k-k1;
+    for (j=j1; j<=j2; j++) {
+      j0=j-j1;
+      for (i=i1; i<=i2; i++) {
+        i0=i-i1;
+        D += weight[k0][j0][i0] * grid_d[k1][j1][i1];
+        v1 += weight[k0][j0][i0] * grid_v[k1][j1][i1].x1;
+        v2 += weight[k0][j0][i0] * grid_v[k1][j1][i1].x2;
+        v3 += weight[k0][j0][i0] * grid_v[k1][j1][i1].x3;
 #ifndef ISOTHERMAL
-              C += weight[k][j][i] * grid_cs[k1][j1][i1];
+        C += weight[k0][j0][i0] * grid_cs[k1][j1][i1];
 #endif
-              totwei += weight[k][j][i];
-            }
-          }
-        }
+        totwei += weight[k0][j0][i0];
       }
     }
   }
@@ -359,7 +357,6 @@ Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd)
   if (alam < 2.25) {		/* Epstein regime */
     tstop = rhoa/(rho*cs);
   }
-
   else {
     Re = 4.0*alam*vd/cs;	/* the Reynolds number */
 
@@ -401,7 +398,6 @@ Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
 
   return tstop;
 }
-
 
 
 /*============================================================================*/
@@ -484,24 +480,22 @@ void feedback_clear(Grid *pG)
 */
 void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb)
 {
-  int i,j,k,i1,j1,k1;
+  int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
 
   /* distribute feedback force */
-  for (k=0; k<ncell; k++) {
-    k1 = k+ks;
-    if ((k1 <= kup) && (k1 >= klp)) {
-      for (j=0; j<ncell; j++) {
-        j1 = j+js;
-        if ((j1 <= jup) && (j1 >= jlp)) {
-          for (i=0; i<ncell; i++) {
-            i1 = i+is;
-            if ((i1 <= iup) && (i1 >= ilp)) {
-              pG->feedback[k1][j1][i1].x1 += weight[k][j][i] * fb.x1;
-              pG->feedback[k1][j1][i1].x2 += weight[k][j][i] * fb.x2;
-              pG->feedback[k1][j1][i1].x3 += weight[k][j][i] * fb.x3;
-            }
-          }
-        }
+  n0 = ncell-1;
+  k1 = MAX(ks, klp);    k2 = MIN(ks+n0, kup);
+  j1 = MAX(js, jlp);    j2 = MIN(js+n0, jup);
+  i1 = MAX(is, ilp);    i2 = MIN(is+n0, iup);
+  for (k=k1; k<=k2; k++) {
+    k0 = k-k1;
+    for (j=j1; j<=j2; j++) {
+      j0 = j-j1;
+      for (i=i1; i<=i2; i++) {
+        i0 = i-i1;
+        pG->feedback[k][j][i].x1 += weight[k0][j0][i0] * fb.x1;
+        pG->feedback[k][j][i].x2 += weight[k0][j0][i0] * fb.x2;
+        pG->feedback[k][j][i].x3 += weight[k0][j0][i0] * fb.x3;
       }
     }
   }
