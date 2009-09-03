@@ -1047,9 +1047,11 @@ void integrate_2d(Grid *pG, Domain *pD)
 
       if (VIEW2D) {
         debug_header(4,"STEP 8B - CALCULATE CELL-CENTERED EMFS");
+#ifdef MHD
         ath_pout(4,"emf3_cc[%d][%d] = " FMT "\n", j,i,emf3_cc[j][i]);
         ath_pout(4,"B1ch = " FMT "\n", B1ch);
         ath_pout(4,"B2ch = " FMT "\n", B2ch);
+#endif
         ath_pout(4,"M1h = " FMT "\n", M1h);
         ath_pout(4,"M2h = " FMT "\n", M2h);
         ath_pout(4,"dhalf[%d][%d] = " FMT "\n", j,i,dhalf[j][i]);

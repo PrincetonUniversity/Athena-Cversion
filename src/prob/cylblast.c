@@ -41,8 +41,8 @@ void problem(Grid *pG, Domain *pDomain)
   int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   int il,iu,jl,ju,kl,ku;
   Real r0,phi0,x0,y0,z0,angle;
-  Real x1,x2,x3,y1,y2,y3,x1i,x2i,x3i;
-  Real x,y,z,pressure;
+  Real x1,x2,x3,x2i;
+  Real x,y,z,Eint,Emag,Ekin;
 
   is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
   js = pG->js;  je = pG->je;  nx2 = je-js+1;
@@ -63,41 +63,37 @@ void problem(Grid *pG, Domain *pDomain)
     ath_error("[cylblast]: Only (R,phi) can be used in 2D!\n");
   }
 
-/* Read initial conditions */
-
+  /* READ IN INITIAL CONDITIONS */
   radius = par_getd("problem","radius");
   pamb = par_getd("problem","pamb");
   prat = par_getd("problem","prat");
   omega = par_getd("problem","omega");
-#ifdef MHD
   b0 = par_getd("problem","b0");
-#endif
-  /* placement of center of blast */
+
+  /* PLACEMENT OF CENTER OF BLAST */
   r0 = par_getd("problem","r0");
   phi0 = par_getd("problem","phi0");
   z0 = par_getd("problem","z0");
 
+  /* ORIENTATION OF FIELD W.R.T. POS. X-AXIS */
   angle = (PI/180.0)*par_getd("problem","angle");
 
   x0 = r0*cos(phi0);
   y0 = r0*sin(phi0);
 
-/* set up uniform ambient medium with circular over-pressured region */
+  /* SET UP UNIFORM AMBIENT MEDIUM WITH CIRCULAR OVER-PRESSURED REGION */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        vc_pos(pG,i,j,k,&x1,&x2,&x3);
-	x1i = x1 - 0.5*pG->dx1;
-	x2i = x2 - 0.5*pG->dx2;
-	x3i = x3 - 0.5*pG->dx3;
+        x2i = x2 - 0.5*pG->dx2;
 
         pG->U[k][j][i].d = 1.0;
         pG->U[k][j][i].M1 = 0.0;
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*y1*omega;
+        pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
         pG->U[k][j][i].M3 = 0.0;
 #ifdef MHD
-        // THIS IS A PLANAR MAGNETIC FIELD IN THE R-PHI PLANE
+        /* SET UP A PLANAR MAGNETIC FIELD IN THE X-Y (R-PHI) PLANE */
         pG->B1i[k][j][i] = b0*(cos(angle)*cos(x2)+sin(angle)*sin(x2)); 
         pG->B2i[k][j][i] = b0*(-cos(angle)*sin(x2i)+sin(angle)*cos(x2i));
         pG->B3i[k][j][i] = 0.0;
@@ -105,29 +101,24 @@ void problem(Grid *pG, Domain *pDomain)
         pG->U[k][j][i].B2c = b0*(-cos(angle)*sin(x2)+sin(angle)*cos(x2));
         pG->U[k][j][i].B3c = 0.0;
 #endif
-        /* Cartesian position */
+        /* CARTESIAN POSITION OF CELL CENTER */
         x = x1*cos(x2);
         y = x1*sin(x2);
         z = x3;
-        /* initialize total energy */
-        pressure=pamb;
-        if (SQR(x-x0) + SQR(y-y0) + SQR(z-z0) < SQR(radius)) {
-          pressure=pamb*prat;
-        }
-#ifndef ISOTHERMAL
-        pG->U[k][j][i].E = pressure/Gamma_1 
-#ifdef MHD
-          + 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c)
-          + SQR(pG->U[k][j][i].B3c))
-#endif
-          + 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2)
-          + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d;
-#else
-        if (SQR(x-x0) + SQR(y-y0) + SQR(z-z0) < SQR(radius)) {
-          pG->U[k][j][i].d = prat;
-        }
-#endif /* ISOTHERMAL */
 
+        /* INITIALIZE TOTAL ENERGY */
+#ifndef ISOTHERMAL
+        Eint = pamb/Gamma_1;
+        if (SQR(x-x0) + SQR(y-y0) + SQR(z-z0) < SQR(radius)) {
+          Eint *= prat;
+        }
+        Emag = 0.0;
+#ifdef MHD
+        Emag = 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
+#endif
+        Ekin = 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d;
+        pG->U[k][j][i].E = Eint + Emag + Ekin;
+#endif /* ISOTHERMAL */
       }
     }
   }

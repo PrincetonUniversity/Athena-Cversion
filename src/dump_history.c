@@ -90,7 +90,7 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 
   double x1, x2, x3, grid_vol;
 #ifdef CYLINDRICAL
-  double my_Rmin, my_Rmax, Rmin, Rmax;
+  double Rmin, Rmax;
 #endif 
 
   total_hst_cnt = 9 + NSCALARS + usr_hst_cnt;
@@ -231,8 +231,8 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   vol_rat = (pD->ide - pD->ids + 1)*(pD->jde - pD->jds + 1)*
             (pD->kde - pD->kds + 1);
 #ifdef CYLINDRICAL
-  cc_pos(pGrid,is,js,ks,&Rmin,&x2,&x3);
-  cc_pos(pGrid,ie,je,ke,&Rmax,&x2,&x3);
+  cc_pos(pGrid,pD->ids,pD->jds,pD->kds,&Rmin,&x2,&x3);
+  cc_pos(pGrid,pD->ide,pD->jde,pD->kde,&Rmax,&x2,&x3);
   Rmin -= 0.5*pGrid->dx1;
   Rmax += 0.5*pGrid->dx1;
 #endif
@@ -248,17 +248,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 		   MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
   if(err)
     ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
-
-#ifdef CYLINDRICAL
-  my_Rmin = Rmin;
-  my_Rmax = Rmax;
-  err = MPI_Reduce(&my_Rmin, &Rmin, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-  if(err) 
-    ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
-  err = MPI_Reduce(&my_Rmax, &Rmax, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-  if(err) 
-    ath_error("[dump_history]: MPI_Reduce call returned error = %d\n",err);
-#endif /* CYLINDRICAL */
 #endif
 
 /* For parallel calculations, only the parent computes the average

@@ -1,7 +1,7 @@
 #! /bin/csh
-# Script for running 3D rotating cylindrical MHD wind tests.
+# Script for running 3D cyldrical MHD blast tests.
 #
-# It creates a temporary run directory cylwindrotb
+# It creates a temporary run directory cylblast/3D
 #
 # If logfile=1, it redirects all output to a log file
 #
@@ -13,7 +13,7 @@
 
 set bindir=/a1/home/askinner/minerva/bin
 set inputdir=/a1/home/askinner/minerva/tst/3D-mhd
-set outputdir=/net/locutus/askinner/cylwindrotb/3D
+set outputdir=/net/locutus/askinner/cylblast/3D
 set logfile=0
 
 if (! -d $outputdir) then 
@@ -22,7 +22,6 @@ endif
 
 cd $bindir
 
-foreach nx1 (128 256 512 1024 2048)
-    ./athena -i $inputdir/athinput.cylwindrotb log/file_open=$logfile grid/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
-    echo 'Finished '{$nx1}'' problem
-end
+athena -i $inputdir/athinput.cylblast_B1  log/file_open=$logfile -d $outputdir
+athena -i $inputdir/athinput.cylblast_B10 log/file_open=$logfile -d $outputdir
+

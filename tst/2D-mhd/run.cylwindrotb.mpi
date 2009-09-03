@@ -1,5 +1,5 @@
 #! /bin/csh
-# Script for running 1D rotating cylindrical MHD wind tests.
+# Script for running 2D rotating cylindrical MHD wind tests.
 #
 # It creates a temporary run directory cylwindrotb
 #
@@ -12,9 +12,10 @@
 # It redirects all output to outputdir
 
 set bindir=/a1/home/askinner/minerva/bin
-set inputdir=/a1/home/askinner/minerva/tst/1D-mhd
-set outputdir=/net/locutus/askinner/cylwindrotb/1D
+set inputdir=/a1/home/askinner/minerva/tst/2D-mhd
+set outputdir=/net/locutus/askinner/cylwindrotb/2D
 set logfile=0
+set np=24
 
 if (! -d $outputdir) then 
   mkdir $outputdir
@@ -22,7 +23,13 @@ endif
 
 cd $bindir
 
+recon hostfile
+wipe -v hostfile
+lamboot -v hostfile
 foreach nx1 (128 256 512 1024 2048)
-    ./athena -i $inputdir/athinput.cylwindrotb log/file_open=$logfile grid/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
+    mpirun -np $np athena -i $inputdir/athinput.cylwindrotb log/file_open=$logfile grid/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
     echo 'Finished '{$nx1}'' problem
 end
+wipe -v hostfile
+lamhalt
+

@@ -26,7 +26,7 @@ nlim            = 100000            # cycle limit
 tlim            = 5.0               # time limit
 
 <grid>
-Nx1             = 256 #128               # Number of zones in R-direction
+Nx1             = 128               # Number of zones in R-direction
 x1min           = 0.5               # minimum value of R
 x1max           = 0.8               # maximum value of R
 ibc_x1          = 3                 # inner (R) boundary flag

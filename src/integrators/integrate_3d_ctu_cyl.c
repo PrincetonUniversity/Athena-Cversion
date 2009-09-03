@@ -213,7 +213,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 
         /* CALCULATE THE CELL-CENTERED GEOMETRIC SOURCE VECTOR NOW USING U^{n}
         * THIS WILL BE USED AT THE END OF THE INTEGRATION STEP AS A SOURCE TERM
-        * FOR THE CELL-CENTERED CONSERVED VARIABLES */
+        * FOR THE CELL-CENTERED CONSERVED VARIABLES (STEPS 6D,7D,8B) */
         vc_pos(pG,i,j,k,&y1,&y2,&y3);
 
         geom_src[k][j][i] = W[i].d*SQR(W[i].Vy);
@@ -1864,7 +1864,7 @@ void integrate_3d(Grid *pG, Domain *pD)
   }
 #endif /* SHEARING_BOX */
 
-/*--- Step 8g ------------------------------------------------------------------
+/*--- Step 7d (cont) -----------------------------------------------------------
  * ADD THE GEOMETRIC SOURCE-TERM IN THE X1-DIRECTION TO THE CORRECTED L/R 
  * STATES ON X3-FACES.  S_{M_R} = -(\rho V_\phi^2 - B_\phi^2)/R
  */
@@ -2028,11 +2028,13 @@ void integrate_3d(Grid *pG, Domain *pD)
 
       if (VIEW3D) {
         debug_header(4,"STEP 8B - CALCULATE CELL-CENTERED EMFS");
+#ifdef MHD
         ath_pout(4,"emf1_cc[%d][%d][%d] = " FMT "\n", k,j,i,emf1_cc[k][j][i]);
         ath_pout(4,"emf2_cc[%d][%d][%d] = " FMT "\n", k,j,i,emf2_cc[k][j][i]);
         ath_pout(4,"emf3_cc[%d][%d][%d] = " FMT "\n", k,j,i,emf3_cc[k][j][i]);
         ath_pout(4,"B1ch = " FMT "\n", B1ch);
         ath_pout(4,"B2ch = " FMT "\n", B2ch);
+#endif
         ath_pout(4,"M1h = " FMT "\n", M1h);
         ath_pout(4,"M2h = " FMT "\n", M2h);
         ath_pout(4,"dhalf[%d][%d][%d] = " FMT "\n", k,j,i,dhalf[k][j][i]);

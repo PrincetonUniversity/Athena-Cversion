@@ -1,24 +1,28 @@
 #! /bin/csh
 # Script for running 2D rotating cylindrical MHD wind tests.
-# Run script in this directory (tst/2D-mhd)
 #
-# It creates a temporary run directory=cylwindrotb
+# It creates a temporary run directory cylwindrotb
 #
-# It redirects all output to a log file
+# If logfile=1, it redirects all output to a log file
 #
-# It expects to find the executable in bin (../../../bin/ from cylwindrotb)
+# It expects to find the executable in bindir
 #
-# It expects to find the input file in (../ from cylwindrotb)
+# It expects to find the input file in inputdir
+#
+# It redirects all output to outputdir
 
-set rundir=cylwindrotb
+set bindir=/a1/home/askinner/minerva/bin
+set inputdir=/a1/home/askinner/minerva/tst/2D-mhd
+set outputdir=/net/locutus/askinner/cylwindrotb/2D
 set logfile=0
 
-if (! -d $rundir) then 
-  mkdir $rundir
+if (! -d $outputdir) then 
+  mkdir $outputdir
 endif
-cd $rundir
+
+cd $bindir
 
 foreach nx1 (128 256 512 1024 2048)
-    ../../../bin/athena -i ../athinput.cylwindrotb log/file_open=$logfile grid/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1
+    ./athena -i $inputdir/athinput.cylwindrotb log/file_open=$logfile grid/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
     echo 'Finished '{$nx1}'' problem
 end

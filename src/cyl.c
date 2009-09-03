@@ -412,7 +412,7 @@ Real compute_div_b(Grid *pG)
  *  1 MEANS RELATIVE ERROR.  DO NOT USE RELATIVE ERROR IF THE SOLUTION IS 
  *  INITIALLY ZERO!!!
  */
-void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, const int errortype)
+void compute_l1_error(char *problem, Grid *pG, Domain *pD, Gas ***Soln, const int errortype)
 {
   int i=0,j=0,k=0;
 #if (NSCALARS > 0)
@@ -420,7 +420,7 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
 #endif
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
-  Real x1,x2,x3,x1min,x1max,x2min,x2max,x3min,x3max,grid_vol,dvol;
+  Real x1,x2,x3,Rmin,Rmax,Ravg;
   Gas error,total_error;
   FILE *fp;
   char *fname, fnamestr[256];
@@ -526,15 +526,9 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
 #endif
   }}
 
-#if defined MPI_PARALLEL
-  Nx1 = pDomain->ide - pDomain->ids + 1;
-  Nx2 = pDomain->jde - pDomain->jds + 1;
-  Nx3 = pDomain->kde - pDomain->kds + 1;
-#else
-  Nx1 = ie - is + 1;
-  Nx2 = je - js + 1;
-  Nx3 = ke - ks + 1;
-#endif
+  Nx1 = pD->Nx1;
+  Nx2 = pD->Nx2;
+  Nx3 = pD->Nx3;
 
   count = Nx1*Nx2*Nx3;
 
@@ -590,26 +584,6 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
 #endif /* MPI_PARALLEL */
 
 
-  // VOLUME AVERAGE
-  x1min = pG->x1_0 + (is + pG->idisp    )*pG->dx1;
-  x1max = pG->x1_0 + (ie + pG->idisp + 1)*pG->dx1;
-  x2min = pG->x2_0 + (js + pG->jdisp    )*pG->dx2;
-  x2max = pG->x2_0 + (je + pG->jdisp + 1)*pG->dx2;
-  x3min = pG->x3_0 + (ks + pG->kdisp    )*pG->dx3;
-  x3max = pG->x3_0 + (ke + pG->kdisp + 1)*pG->dx3;
-  grid_vol = 0.5*(x1max + x1min)*(x1max - x1min);
-  dvol = pG->dx1;
-  if (pG->Nx2 > 1) {
-    grid_vol *= (x2max - x2min);
-    dvol *= pG->dx2;
-  }
-  if (pG->Nx3 > 1) {
-    grid_vol *= (x3max - x3min);
-    dvol *= pG->dx3;
-  }
-  dvol /= grid_vol;
-
-
 /* Compute RMS error over all variables, and print out */
 
   rms_error = SQR(total_error.d) + SQR(total_error.M1) + SQR(total_error.M2)
@@ -621,8 +595,12 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
 #ifndef ISOTHERMAL
   rms_error += SQR(total_error.E);
 #endif /* ISOTHERMAL */
-//   rms_error = sqrt(rms_error)/(double)count;
-  rms_error = sqrt(rms_error)*dvol;
+  cc_pos(pG,pD->ids,pD->jds,pD->kds,&Rmin,&x2,&x3);
+  cc_pos(pG,pD->ide,pD->jde,pD->kde,&Rmax,&x2,&x3);
+  Rmin -= 0.5*pG->dx1;
+  Rmax += 0.5*pG->dx1;
+  Ravg = 0.5*(Rmax-Rmin);
+  rms_error = sqrt(rms_error)/((double)count*Ravg);
 
 
 /* Print error to file "BLAH-errors.#.dat"  */
@@ -663,33 +641,24 @@ void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, con
   fprintf(fp,"%d  %d  %d  %e",Nx1,Nx2,Nx3,rms_error);
 
   fprintf(fp,"  %e  %e  %e  %e",
-/*	  (total_error.d/(double) count),
-	  (total_error.M1/(double)count),
-	  (total_error.M2/(double)count),
-	  (total_error.M3/(double)count));*/
-	  (total_error.d*dvol),
-	  (total_error.M1*dvol),
-	  (total_error.M2*dvol),
-	  (total_error.M3*dvol));
+	  (total_error.d/(double) count*Ravg),
+	  (total_error.M1/(double)count*Ravg),
+	  (total_error.M2/(double)count*Ravg),
+	  (total_error.M3/(double)count*Ravg));
 
 #ifndef ISOTHERMAL
-//   fprintf(fp,"  %e",(total_error.E/(double)count));
-  fprintf(fp,"  %e",(total_error.E*dvol));
+  fprintf(fp,"  %e",(total_error.E/(double)count)*Ravg);
 #endif /* ISOTHERMAL */
 
 #ifdef MHD
   fprintf(fp,"  %e  %e  %e",
-/*	  (total_error.B1c/(double)count),
-	  (total_error.B2c/(double)count),
-	  (total_error.B3c/(double)count));*/
-	  (total_error.B1c*dvol),
-	  (total_error.B2c*dvol),
-	  (total_error.B3c*dvol));
+	  (total_error.B1c/(double)count*Ravg),
+	  (total_error.B2c/(double)count*Ravg),
+	  (total_error.B3c/(double)count*Ravg));
 #endif /* MHD */
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++) {
-//       fprintf(fp,"  %e",total_error.s[n]/(double)count);
-      fprintf(fp,"  %e",total_error.s[n]*dvol);
+      fprintf(fp,"  %e",total_error.s[n]/(double)count*Ravg);
     }
 #endif
 

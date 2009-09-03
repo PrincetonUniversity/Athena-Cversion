@@ -121,7 +121,9 @@ void integrate_1d(Grid *pG, Domain *pD)
     if (VIEW1D) {
       debug_header(3,"STEP 1A - LOAD CONSERVED VARIABLES");
       print_cons1d(3,"U1d",&U1d[i],ks,js,i,1);
+#ifdef MHD
       ath_pout(3,"Bxc[%d] = " FMT "\n", i,Bxc[i]);
+#endif
     }
   }
 

@@ -27,7 +27,7 @@ tlim            = 5.0               # time limit
 
 <grid>
 Nx1             = 128               # Number of zones in R-direction
-x1min           = 0.188               # minimum value of R
+x1min           = 0.188             # minimum value of R
 x1max           = 1.0               # maximum value of R
 ibc_x1          = 3                 # inner (R) boundary flag
 obc_x1          = 3                 # outer (R) boundary flag

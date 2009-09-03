@@ -100,7 +100,7 @@ void problem(Grid *pG, Domain *pDomain)
       X = x1*cos(x2);
       Y = x1*sin(x2);
 
-      /* dist IS DISTANCE FROM CENTER */
+      /* dist IS DISTANCE FROM CENTER OF LOOP TO GRID CELL CORNER */
       dist = sqrt(SQR(X-X0) + SQR(Y-Y0));
       if (dist < rad) {
         a3[j][i] = amp*(rad - dist);
