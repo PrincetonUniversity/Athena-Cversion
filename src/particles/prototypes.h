@@ -35,9 +35,10 @@ void particle_realloc(Grid *pG, long n);
 
 /*----------------------------------------------------------------------------*/
 /* integrators_particle.c */
-void integrate_particle_exp(Grid *pG);
-void integrate_particle_semimp(Grid *pG);
-void integrate_particle_fulimp(Grid *pG);
+void Integrate_Particles(Grid *pG, Domain *pD);
+void int_par_exp   (Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
+void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
+void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
 #ifdef FEEDBACK
 void feedback_predictor(Grid* pG);
 void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3);

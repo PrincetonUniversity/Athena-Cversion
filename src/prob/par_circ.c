@@ -88,7 +88,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[par_circ]: number of particle types must be 1!\n");
 
 /* particle stopping time */
-  tstop0 = par_getd_def("problem","tstop",0.0); /* in code unit */
+  tstop0[0] = par_getd_def("problem","tstop",0.0); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
     ath_error("[par_circ]: This test works only for fixed stopping time!\n");
 

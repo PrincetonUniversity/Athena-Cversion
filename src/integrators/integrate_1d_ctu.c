@@ -277,7 +277,7 @@ void integrate_1d(Grid *pG, Domain *pD)
 /*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
 
 #ifdef PARTICLES
-  (*Integrate_Particles)(pG);
+  Integrate_Particles(pG,pD);
 #ifdef FEEDBACK
   exchange_feedback(pG, pD);
 #endif

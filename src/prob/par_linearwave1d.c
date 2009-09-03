@@ -114,9 +114,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
+  tstop0[0] = par_getd_def("problem","tstop",0.0); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
     ath_error("[par_linearwave1d]: This test works only for fixed stopping time!\n");
-fprintf(stderr,"wei=%e\n",0.25-0.25*cos(kw*pGrid->dx1));
 
   /* particle perturbation amplitude */
   switch(wavedir){

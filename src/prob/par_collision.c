@@ -77,6 +77,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
+  tstop0[0] = par_getd("problem","tstop"); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
     ath_error("[par_collision]: This test works only for fixed stopping time!\n");
 
@@ -332,7 +333,9 @@ static Vector ParticleTroj(Real t)
 {
   Vector pos;
   Real L1,L2,L3;
-  Real factor=tstop0/(1.0+mratio)*(1.0-exp(-(1.0+mratio)*t/tstop0));
+  Real factor=tstop0[0]/(1.0+mratio)*(1.0-exp(-(1.0+mratio)*t/tstop0[0]));
+#endif /* SHEARING_BOX */
+
 
   pos.x1 = x0[0] + wx*factor;
   pos.x2 = x0[1] + wy*factor;
@@ -350,7 +353,7 @@ static Vector ParticleTroj(Real t)
 static Vector ParticleVel(Real t)
 {
   Vector vel;
-  Real factor = exp(-(1.0+mratio)*t/tstop0);
+  Real factor = exp(-(1.0+mratio)*t/tstop0[0]);
 
   vel.x1 = wx*factor;
   vel.x2 = wy*factor;

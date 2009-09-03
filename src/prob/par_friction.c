@@ -246,9 +246,9 @@ static Vector ParticleTroj(Real t)
   Vector pos;
   Real L1,L2,L3;
 
-  pos.x1 = x1c+v01*tstop0*(1.0-exp(-t/tstop0));
-  pos.x2 = x2c+v02*tstop0*(1.0-exp(-t/tstop0));
-  pos.x3 = x3c+v03*tstop0*(1.0-exp(-t/tstop0));
+  pos.x1 = x1c+v01*tstop0[0]*(1.0-exp(-t/tstop0[0]));
+  pos.x2 = x2c+v02*tstop0[0]*(1.0-exp(-t/tstop0[0]));
+  pos.x3 = x3c+v03*tstop0[0]*(1.0-exp(-t/tstop0[0]));
 
   L1 = x1max-x1min;	L2 = x2max-x2min;	L3 = x3max-x3min;
 
@@ -264,9 +264,9 @@ static Vector ParticleVel(Real t)
 {
   Vector vel;
 
-  vel.x1 = v01*exp(-t/tstop0);
-  vel.x2 = v02*exp(-t/tstop0);
-  vel.x3 = v03*exp(-t/tstop0);
+  vel.x1 = v01*exp(-t/tstop0[0]);
+  vel.x2 = v02*exp(-t/tstop0[0]);
+  vel.x3 = v03*exp(-t/tstop0[0]);
 
   return vel;
 }

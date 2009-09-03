@@ -154,11 +154,12 @@ typedef struct Grain_s{
 /* List of physical grain properties */
 typedef struct Grain_Property_s{
 #ifdef FEEDBACK
-  Real m;		/* mass of this type of particle (g) */
+  Real m;		/* mass of this type of particle */
 #endif
   Real rad;		/* radius of this type of particle (cm) */
   Real rho;		/* solid density of this type of particle (g/cm^3) */
   long num;		/* number of particles with this property */
+  short integrator;	/* integrator type: exp (1), semi (2) or full (3) */
 }Grain_Property;
 
 #endif /* PARTICLES */

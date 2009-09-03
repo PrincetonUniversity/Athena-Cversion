@@ -35,7 +35,6 @@ Real Omega_0, qshear;
 #endif
 
 #ifdef PARTICLES
-VGFun_t Integrate_Particles = NULL; /* function pointer to particle integrator */
 TSFun_t     get_ts    = NULL;   /* get the stopping time */
 WeightFun_t getweight = NULL;   /* get weight function */
 #endif
@@ -77,7 +76,6 @@ extern Real Omega_0, qshear;
 extern Real alamcoeff;
 extern Real *grrhoa;
 
-extern VGFun_t Integrate_Particles;
 extern TSFun_t     get_ts;      /* get the stopping time */
 extern WeightFun_t getweight;   /* get weight function */
 #endif

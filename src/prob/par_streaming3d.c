@@ -27,6 +27,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include "defs.h"
 #include "athena.h"
@@ -50,7 +51,7 @@
 /* NSH equilibrium parameters */
 Real rho0, mratio, etavk, uxNSH, uyNSH, wxNSH, wyNSH;
 /* domain size variables */
-Real x1min,x1max,x3min,x3max,Lx,Lz;
+Real x1min,x1max,x2min,x2max,x3min,x3max,Lx,Ly,Lz;
 int Npar,Npar3,downsamp,Nx;
 /* eigen vector for a streaming instability mode */
 Real Reux,Imux,Reuy,Imuy,Reuz,Imuz,Rewx,Imwx,Rewy,Imwy,Rewz,Imwz,Rerho,Imrho,omg,s;
@@ -92,6 +93,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   x1max = par_getd("grid","x1max");
   Lx = x1max - x1min;
 
+  x2min = par_getd("grid","x2min");
+  x2max = par_getd("grid","x2max");
+  Ly = x2max - x2min;
+
   x3min = par_getd("grid","x3min");
   x3max = par_getd("grid","x3max");
   Lz = x3max - x3min;
@@ -123,6 +128,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   downsamp = par_geti_def("problem","downsamp",Npar3);
 
   /* particle stopping time */
+  tstop0[0] = par_getd("problem","tstop"); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
     ath_error("[par_streaming3d]: This test works only for fixed stopping time!\n");
 
@@ -158,7 +164,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     omg   = -0.3480127*Omega_0;
     s     =  0.4190204*Omega_0;
     mratio=  3.0;
-    tstop0=  0.1/Omega_0;
+    tstop0[0]=  0.1/Omega_0;
     etavk = 0.05;
   }
 
@@ -182,7 +188,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     omg   =  0.4998786*Omega_0;
     s     =  0.0154764*Omega_0;
     mratio=  0.2;
-    tstop0=  0.1/Omega_0;
+    tstop0[0]=  0.1/Omega_0;
     etavk = 0.05;
   }
 
@@ -225,9 +231,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   etavk = etavk * Iso_csound; /* switch to code unit (N.B.!) */
 
   /* calculate NSH equilibrium velocity */
-  denorm1 = 1.0/(SQR(1.0+mratio)+SQR(tstop0*Omega_0));
+  denorm1 = 1.0/(SQR(1.0+mratio)+SQR(tstop0[0]*Omega_0));
 
-  wxNSH = -2.0*tstop0*Omega_0*denorm1*etavk;
+  wxNSH = -2.0*tstop0[0]*Omega_0*denorm1*etavk;
   wyNSH = -(1.0+mratio)*denorm1*etavk;
 
   uxNSH = -mratio*wxNSH;
@@ -287,22 +293,26 @@ fprintf(stderr,"%f	%f\n",etavk,Iso_csound);
         for (ip=0;ip<Npar;ip++)
         {
 
-          if (ipert == 3) /* ramdom particle position in a cell */
-            x1p = x1l + pGrid->dx1*ran2(&iseed);
-          else
+          if (ipert != 3) /* ramdom particle position in a cell */
             x1p = x1l+pGrid->dx1/Npar*(ip+0.5);
+//          else
+//            x1p = x1l + pGrid->dx1*ran2(&iseed);
 
           for (jp=0;jp<Npar;jp++)
           {
-            if (ipert == 3) /* ramdom particle position in a cell */
-              x2p = x2l + pGrid->dx2*ran2(&iseed);
-            else
+            if (ipert != 3) /* ramdom particle position in a cell */
               x2p = x2l+pGrid->dx2/Npar*(jp+0.5);
+//            else
+//              x2p = x2l + pGrid->dx2*ran2(&iseed);
 
             for (kp=0;kp<Npar;kp++)
             {
-              if (ipert == 3) /* ramdom particle position in a cell */
-                x3p = x3l + pGrid->dx3*(ran2(&iseed)-0.5);
+              if (ipert == 3){ /* ramdom particle position in a cell */
+//                x3p = x3l + pGrid->dx3*(ran2(&iseed)-0.5);
+                x1p = x1min + Lx*ran2(&iseed);
+                x2p = x2min + Ly*ran2(&iseed);
+                x3p = x3min + Lz*ran2(&iseed);
+              }
               else
                 x3p = x3l+pGrid->dx3/Npar*(kp+0.5);
 
@@ -569,7 +579,7 @@ static int property_mybin(Grain *gr)
 {
   long a,b,c,d,e,ds,sp;
 
-  sp = downsamp/Npar3;         /* spacing in cells */
+  sp = MAX(downsamp/Npar3,1);  /* spacing in cells */
   ds = Npar3*sp;               /* actual dowmsampling */
 
   a = gr->my_id/ds;

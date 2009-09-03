@@ -60,8 +60,6 @@ integrator      = 3         # particle integrator (1: explicit; 2: semi-implicit
 interp          = 2         # interpolation scheme (1: CIC; 2: TSC; 3: QP)
 tsmode          = 3         # stopping time calculation mode (1: General; 2: Epstein; 3: fixed);
 
-vshiftfun       = circ      # gas velocity shift: gas is static
-
 nshuf           = -1        # number of time steps to shuffle the particles
 
 

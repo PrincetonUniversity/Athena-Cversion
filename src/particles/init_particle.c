@@ -93,30 +93,19 @@ void init_particle(Grid *pG, Domain *pD)
   grrhoa = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
   if (grrhoa == NULL) goto on_error;
 
+  tstop0 = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
+  if (tstop0 == NULL) goto on_error;
+
   /* by default these global values are zero */
-  for (i=0; i<pG->partypes; i++)
+  for (i=0; i<pG->partypes; i++) {
+    tstop0[i] = 0.0;
     grrhoa[i] = 0.0;
+  }
   alamcoeff = 0.0;
 
-  /* Set the particle integrator pointer */
-  integratortype = par_geti_def("particle","integrator",2);
-  switch(integratortype){
-    case 1: /* 2nd order explicit integrator */
-      Integrate_Particles = integrate_particle_exp;
-      break;
-
-    case 2: /* 2nd order semi-implicit integrator */
-      Integrate_Particles = integrate_particle_semimp;
-      break;
-
-    case 3: /* 2nd order fully implicit integrator */
-      Integrate_Particles = integrate_particle_fulimp;
-      break;
-
-    default:
-      ath_perr(-1,"[init_particle]: unknown integrator type: %d\n",integratortype);
-      exit(EXIT_FAILURE);
-  }
+  /* Set particle integrator to according to particle types */
+  for (i=0; i<pG->partypes; i++)
+    pG->grproperty[i].integrator = par_geti_def("particle","integrator",2);
 
   /* set the interpolation function pointer */
   interp = par_geti_def("particle","interp",2);
@@ -145,10 +134,7 @@ void init_particle(Grid *pG, Domain *pD)
   else if (tsmode == 2)
     get_ts = get_ts_epstein;
   else if (tsmode == 3)
-  {
     get_ts = get_ts_fixed;
-    tstop0 = par_getd("problem","tstop");
-  }
   else
     ath_error("[init_particle]: tsmode must be 1, 2 or 3!\n");
 
@@ -280,20 +266,6 @@ void grid_limit(Grid *pG, Domain *pD)
   if (pG->Nx1 == 1) x1upar += MAX(0.1*fabs(pG->x1_0), 1.);
   if (pG->Nx2 == 1) x2upar += MAX(0.1*fabs(pG->x2_0), 1.);
   if (pG->Nx3 == 1) x3upar += MAX(0.1*fabs(pG->x3_0), 1.);
-
-#ifdef SHEARING_BOX
-  /* get the x1 grid limit indices for 3D shearing box feedback */
-  is0 = ilp;	ie0 = iup;	/* by default */
-#ifndef FARGO
-  if (pG->Nx3 > 1) /* 3D shearing box */
-  {
-    if (my_iproc == 0)
-      is0 = pG->is;
-    if (my_iproc == pD->NGrid_x1-1)
-      ie0 = pG->ie;
-  }
-#endif
-#endif /* SHEARING_BOX */
 
   return;
 }

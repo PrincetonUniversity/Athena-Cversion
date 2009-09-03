@@ -390,7 +390,7 @@ Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd)
 /* Return the fixed stopping time */
 Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
 {
-  Real tstop = tstop0;
+  Real tstop = tstop0[type];
 
   /* avoid zero stopping time */
   if (tstop < 1.0e-8*pG->dt)

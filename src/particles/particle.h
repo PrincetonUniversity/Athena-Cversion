@@ -25,30 +25,26 @@ Vector ***grid_v;		/* gas velocities */
 Real   ***grid_cs;		/* gas sound speed */
 #endif
 
-/* coefficient for the calculation of a/lambda */
-Real alamcoeff;
-
-/* an array of particle solid density times particle size in normalized unit */
-Real *grrhoa;
-
+/*--------------- grid limit quantities ---------------*/
 /* left and right limit of grid indices */
 int ilp,iup, jlp,jup, klp,kup;
-
 /* left and right limit of grid boundary */
 Real x1lpar, x1upar, x2lpar, x2upar, x3lpar, x3upar;
+
+/*---------- Quantities for Stopping time calculation ----------*/
+/* array of particle stopping time (for tstop=const) for each particle type */
+Real *tstop0;
+/* an array of particle solid density times particle size in normalized unit */
+Real *grrhoa;
+/* coefficient for the calculation of a/lambda */
+Real alamcoeff;
 
 /* number of neighbouring cells involved in 1D interpolation */
 int ncell;
 
-/* value of the fixed stopping time */
-Real tstop0;
-
 #ifdef SHEARING_BOX
 /* shear velocity */
 Real vshear;
-
-/* left and right limit in x1 boundary, for feedback */
-int is0, ie0;
 #endif
 
 #endif /* PARTICLES */

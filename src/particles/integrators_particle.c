@@ -5,9 +5,10 @@ PURPOSE: provide three kinds of particle integrators, namely, 2nd order explicit
 2nd order semi-implicit and 2nd order fully implicit.
 
 CONTAINS PUBLIC FUNCTIONS:
-void integrate_particle_exp(Grid *pG);
-void integrate_particle_semimp(Grid *pG);
-void integrate_particle_fulimp(Grid *pG);
+void Integrate_Particles(Grid *pG, Domain *pD);
+void int_par_exp   (Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
+void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
+void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
 void feedback_predictor(Grid* pG);
 void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3);
 
@@ -27,10 +28,6 @@ Written by Xuening Bai, Mar.2009
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
-#ifdef SHEARING_BOX
-extern Real vshear;					/* shear velocity */
-#endif /* SHEARING_BOX */
-
 /*=========================== PROTOTYPES OF PRIVATE FUNCTIONS ===============================*/
 
 void   Delete_Ghost(Grid *pG);
@@ -41,246 +38,27 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
 
 /*----------------------------------------------------------------------------------------*/
 /*================================= PUBLIC FUNCTIONS =====================================*/
-/*----------------------------------------------------------------------------------------
-   Contains 3 integrators. They differ only in the first FOUR steps.
-   Steps 5,6,7 are the same for all integrators.
- */
 
-/* --------------------- 2nd order fully implicit particle integrator ------------------------------
-   Input: 
-     pG: grid which is already evolved in the predictor step. The
-         particles are unevolved.
-   Output:
-     pG: particle velocity updated with one full time step.
-         feedback force is also calculated for the corrector step.
+/*---------------------------------- Main Integrator ------------------------------------
+  Input: Grid which is already evolved in half a time step. Paricles unevolved.
+  Output: particle updated for one full time step; feedback array for corrector updated.
+  Note: This routine allows has the flexibility to freely choose the particle integrator.
+    Should use fully implicit integrator for tightly coupoled particles, otherwise
+    the semi-implicit integrator performs better.
 */
-void integrate_particle_fulimp(Grid *pG)
+void Integrate_Particles(Grid *pG, Domain *pD)
 {
-  Grain *curG, *curP, mygr;	/* pointer of the current working position */
-  long p;			/* particle index */
-  Real x1n, x2n, x3n;		/* first order new position at half a time step */
-  Real dv1, dv2, dv3;		/* amount of velocity update */
-  Vector fd, fr;		/* drag force and other forces */
-  Vector fc, fp, ft;		/* force at current and predicted position, total force */
-  Vector cell1;			/* one over dx1, dx2, dx3 */
-  Real ts11, ts12;		/* 1/stopping time */
-  Real b0,A,B,C,D,Det1;		/* matrix elements and determinant */
-#ifdef SHEARING_BOX
-  Real oh, oh2;			/* Omega_0*dt and its square */
-  Real yshift_frac;		/* fractional shift in the boundary (in cell unit) */
-#endif
-#ifdef FEEDBACK
-  Vector fb;			/* feedback force */
-#endif
+  Grain *curG, *curP, mygr;     /* pointer of the current working position */
+  long p;                       /* particle index */
+  Real dv1, dv2, dv3;           /* amount of velocity update */
+  Vector cell1;                 /* one over dx1, dx2, dx3 */
 
   /*-------------------- Initialization --------------------*/
 #ifdef FEEDBACK
-  feedback_clear(pG);	/* clean the feedback array */
+  feedback_clear(pG);   /* clean the feedback array */
 #endif /* FEEDBACK */
 
-  curP = &(mygr);	/* temperory particle */
-
-  /* cell1 is a shortcut expressions as well as dimension indicator */
-  if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;  else cell1.x1 = 0.0;
-  if (pG->Nx2 > 1)  cell1.x2 = 1.0/pG->dx2;  else cell1.x2 = 0.0;
-  if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;  else cell1.x3 = 0.0;
-
-#ifdef SHEARING_BOX
-  /* fractional shift in cell unit at the x1 boundary */
-  yshift_frac = fmod(vshear*pG->time, pG->dx1);
-  if (yshift_frac > 0.5)
-    yshift_frac -= 1.0;
-#endif
-
-  /* delete all ghost particles */
-  Delete_Ghost(pG);
-
-  /*-----------------------Main loop over all the particles---------------------*/
-  p = 0;
-
-  while (p<pG->nparticle)
-  {/* loop over all particles */
-    curG = &(pG->particle[p]);
-
-    /* step 1: predict of the particle position after one time step */
-    if (pG->Nx1 > 1)  x1n = curG->x1+curG->v1*pG->dt;
-    else x1n = curG->x1;
-    if (pG->Nx2 > 1)  x2n = curG->x2+curG->v2*pG->dt;
-    else x2n = curG->x2;
-    if (pG->Nx3 > 1)  x3n = curG->x3+curG->v3*pG->dt;
-    else x3n = curG->x3;
-
-#ifdef SHEARING_BOX
-#ifndef FARGO
-    if (pG->Nx3 > 1) x2n -= 0.5*qshear*curG->v1*SQR(pG->dt); /* advection part */
-#endif
-#endif
-
-    /* step 2: calculate the force at current position */
-    fd = Get_Drag(pG, curG->property, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3, cell1, &ts11);
-
-    fr = Get_Force(pG, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3);
-
-    fc.x1 = fd.x1+fr.x1;
-    fc.x2 = fd.x2+fr.x2;
-    fc.x3 = fd.x3+fr.x3;
-
-    /* step 3: calculate the force at the predicted positoin */
-    fd = Get_Drag(pG, curG->property, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3, cell1, &ts12);
-
-    fr = Get_Force(pG, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3);
-
-    fp.x1 = fd.x1+fr.x1;
-    fp.x2 = fd.x2+fr.x2;
-    fp.x3 = fd.x3+fr.x3;
-
-    /* step 4: calculate the velocity update */
-    /* shortcut expressions */
-    b0 = 1.0+pG->dt*ts11;
-
-    /* Total force */
-    ft.x1 = 0.5*(fc.x1+b0*fp.x1);
-    ft.x2 = 0.5*(fc.x2+b0*fp.x2);
-    ft.x3 = 0.5*(fc.x3+b0*fp.x3);
-
-#ifdef SHEARING_BOX
-    oh = Omega_0*pG->dt;
-    if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
-      ft.x1 += -oh*fp.x2;
-    #ifdef FARGO
-      ft.x2 += 0.5*(2.0-qshear)*oh*fp.x1;
-    #else
-      ft.x2 += oh*fp.x1;
-    #endif
-    } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
-      ft.x1 += -oh*fp.x3;
-    #ifdef FARGO
-      ft.x3 += 0.5*(2.0-qshear)*oh*fp.x1;
-    #else
-      ft.x3 += oh*fp.x1;
-    #endif
-    }
-#endif /* SHEARING_BOX */
-
-    /* calculate the inverse matrix elements */
-    D = 1.0+0.5*pG->dt*(ts11 + ts12 + pG->dt*ts11*ts12);
-#ifdef SHEARING_BOX
-    oh2 = SQR(oh);
-    B = oh * (-2.0-(ts11+ts12)*pG->dt);
-#ifdef FARGO
-    A = D - (2.0-qshear)*oh2;
-    C = 0.5*(qshear-2.0)*B;
-#else /* FARGO */
-    A = D - 2.0*oh2;
-    C = -B;
-#endif /* FARGO */
-    Det1 = 1.0/(SQR(A)-B*C);
-    if (pG->Nx3>1) {
-      dv1 = pG->dt*Det1*(ft.x1*A-ft.x2*B);
-      dv2 = pG->dt*Det1*(-ft.x1*C+ft.x2*A);
-      dv3 = pG->dt*ft.x3/D;
-    } else {
-      dv1 = pG->dt*Det1*(ft.x1*A-ft.x3*B);
-      dv3 = pG->dt*Det1*(-ft.x1*C+ft.x3*A);
-      dv2 = pG->dt*ft.x2/D;
-    }
-#else /* SHEARING_BOX */
-    D = 1.0/D;
-    dv1 = pG->dt*ft.x1*D;
-    dv2 = pG->dt*ft.x2*D;
-    dv3 = pG->dt*ft.x3*D;
-#endif /* SHEARING_BOX */
-
-    /* Step 5: particle update to curP */
-    /* velocity update */
-    curP->v1 = curG->v1 + dv1;
-    curP->v2 = curG->v2 + dv2;
-    curP->v3 = curG->v3 + dv3;
-
-    /* position update */
-    if (pG->Nx1 > 1)
-      curP->x1 = curG->x1 + 0.5*pG->dt*(curG->v1+curP->v1);
-    else /* do not move if this dimension collapses */
-      curP->x1 = curG->x1;
-
-    if (pG->Nx2 > 1)
-      curP->x2 = curG->x2 + 0.5*pG->dt*(curG->v2+curP->v2);
-    else /* do not move if this dimension collapses */
-      curP->x2 = curG->x2;
-
-    if (pG->Nx3 > 1)
-      curP->x3 = curG->x3 + 0.5*pG->dt*(curG->v3+curP->v3);
-    else /* do not move if this dimension collapses */
-      curP->x3 = curG->x3;
-
-#ifdef FARGO
-    /* shift = -qshear * Omega_0 * x * dt */
-    curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
-#endif
-
-    curP->property = curG->property;
-
-    /* step 6: calculate feedback force to the gas */
-#ifdef FEEDBACK
-    feedback_corrector(pG, curG, curP, cell1, dv1, dv2, dv3);
-#endif /* FEEDBACK */
-
-    /* step 7: update the particle in pG */
-    /* update particle status (crossing boundary or not) */
-    JudgeCrossing(pG, curP->x1, curP->x2, curP->x3, curG);
-
-    /* update the particle */
-    curG->x1 = curP->x1;
-    curG->x2 = curP->x2;
-    curG->x3 = curP->x3;
-    curG->v1 = curP->v1;
-    curG->v2 = curP->v2;
-    curG->v3 = curP->v3;
-    p++;
-
-  } /* end of the for loop */
-
-  /* output the status */
-  ath_pout(0, "In processor %d, there are %ld particles.\n", pG->my_id, pG->nparticle);
-
-  return;
-}
-
-
-/* --------------------- 2nd order semi-implicit particle integrator ------------------------------
-   Input: 
-     pG: grid which is already evolved in the predictor step. The
-         particles are unevolved.
-   Output:
-     pG: particle velocity updated with one full time step.
-         feedback force is also calculated for the corrector step.
-*/
-void integrate_particle_semimp(Grid *pG)
-{
-  /* loca variables */
-  Grain *curG, *curP, mygr;	/* pointer of the current working position */
-  long p;			/* particle index */
-  Real dv1, dv2, dv3;		/* particle velocity derivatives */
-  Vector fd, fr, ft;		/* drag force and other forces, total force */
-  Vector cell1;			/* one over dx1, dx2, dx3 */
-  Real ts1, b, b2;		/* other shortcut expressions */
-  Real x1n, x2n, x3n;		/* first order new position at half a time step */
-#ifdef SHEARING_BOX
-  Real b1, oh;			/* Omega_0*h */
-#endif
-#ifdef FEEDBACK
-  Vector fb;			/* feedback force */
-#endif
-
-  /*----------------------------Initialization---------------------------*/
-int is,js,ks,i,j;
-Real weight[3][3][3];
-
-#ifdef FEEDBACK
-  feedback_clear(pG);	/* clean the feedback array */
-#endif /* FEEDBACK */
-
-  curP = &(mygr);	/* temperory particle */
+  curP = &(mygr);       /* temperory particle */
 
   /* cell1 is a shortcut expressions as well as dimension indicator */
   if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;  else cell1.x1 = 0.0;
@@ -290,83 +68,31 @@ Real weight[3][3][3];
   /* delete all ghost particles */
   Delete_Ghost(pG);
 
-  /*---------------------Main loop over all the particles-------------------*/
   p = 0;
-
   while (p<pG->nparticle)
   {/* loop over all particles */
     curG = &(pG->particle[p]);
 
-    /* step 1: predict of the particle position after half a time step */
-    if (pG->Nx1 > 1)  x1n = curG->x1+0.5*curG->v1*pG->dt;
-    else x1n = curG->x1;
-    if (pG->Nx2 > 1)  x2n = curG->x2+0.5*curG->v2*pG->dt;
-    else x2n = curG->x2;
-    if (pG->Nx3 > 1)  x3n = curG->x3+0.5*curG->v3*pG->dt;
-    else x3n = curG->x3;
+    /* Step 1: Calculate velocity update */
+    switch(pG->grproperty[curG->property].integrator)
+    {
+      case 1: /* 2nd order explicit integrator */
+        int_par_exp(pG,curG,cell1,&dv1,&dv2,&dv3);
+        break;
 
-#ifdef SHEARING_BOX
-#ifndef FARGO
-    if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt); /* advection part */
-#endif
-#endif
+      case 2: /* 2nd order semi-implicit integrator */
+        int_par_semimp(pG,curG,cell1,&dv1,&dv2,&dv3);
+        break;
 
-    /* Step 2: interpolation to get fluid density, velocity and the sound speed at predicted position */
-    fd = Get_Drag(pG, curG->property, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3, cell1, &ts1);
+      case 3: /* 2nd order fully implicit integrator */
+        int_par_fulimp(pG,curG,cell1,&dv1,&dv2,&dv3);
+        break;
 
-    fr = Get_Force(pG, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3);
-
-    ft.x1 = fd.x1+fr.x1;
-    ft.x2 = fd.x2+fr.x2;
-    ft.x3 = fd.x3+fr.x3;
-
-    /* step 3: (not needed) */
-
-    /* step 4: calculate velocity update */
-
-    /* shortcut expressions */
-    b = pG->dt*ts1+2.0;
-#ifdef SHEARING_BOX
-    oh = Omega_0*pG->dt;
-#ifdef FARGO
-    b1 = 1.0/(SQR(b)+2.0*(2.0-qshear)*SQR(oh));
-#else
-    b1 = 1.0/(SQR(b)+4.0*SQR(oh));
-#endif /* FARGO */
-    b2 = b*b1;
-#else
-    b2 = 1.0/b;
-#endif /* SHEARING BOX */
-
-    /* velocity evolution */
-#ifdef SHEARING_BOX
-    if (pG->Nx3>1)
-    {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
-      dv1 = pG->dt*2.0*b2*ft.x1 + pG->dt*4.0*oh*b1*ft.x2;
-    #ifdef FARGO
-      dv2 = pG->dt*2.0*b2*ft.x2 - 2.0*(2.0-qshear)*pG->dt*oh*b1*ft.x1;
-    #else
-      dv2 = pG->dt*2.0*b2*ft.x2 - 4.0*pG->dt*oh*b1*ft.x1;
-    #endif /* FARGO */
-      dv3 = pG->dt*2.0*ft.x3/b;
+      default:
+        ath_error("[integrate_particle]: unknown integrator type!");
     }
-    else
-    {/* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
-      dv1 = pG->dt*2.0*b2*ft.x1 + pG->dt*4.0*oh*b1*ft.x3;
-      dv2 = pG->dt*2.0*ft.x2/b;
-    #ifdef FARGO
-      dv3 = pG->dt*2.0*b2*ft.x3 - 2.0*(2.0-qshear)*pG->dt*oh*b1*ft.x1;
-    #else
-      dv3 = pG->dt*2.0*b2*ft.x3 - 4.0*pG->dt*oh*b1*ft.x1;
-    #endif
-    }
-#else
-    dv1 = pG->dt*2.0*b2*ft.x1;
-    dv2 = pG->dt*2.0*b2*ft.x2;
-    dv3 = pG->dt*2.0*b2*ft.x3;
-#endif /* SHEARING_BOX */
 
-    /* Step 5: particle update to curP */
+    /* Step 2: particle update to curP */
     /* velocity update */
     curP->v1 = curG->v1 + dv1;
     curP->v2 = curG->v2 + dv2;
@@ -393,155 +119,12 @@ Real weight[3][3][3];
     curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
-    /* step 6: calculate feedback force to the gas */
+    /* Step 3: calculate feedback force to the gas */
 #ifdef FEEDBACK
     feedback_corrector(pG, curG, curP, cell1, dv1, dv2, dv3);
 #endif /* FEEDBACK */
 
-    /* step 7: update the particle in pG */
-    /* update particle status (crossing boundary or not) */
-    JudgeCrossing(pG, curP->x1, curP->x2, curP->x3, curG);
-
-    /* update the particle */
-    curG->x1 = curP->x1;
-    curG->x2 = curP->x2;
-    curG->x3 = curP->x3;
-    curG->v1 = curP->v1;
-    curG->v2 = curP->v2;
-    curG->v3 = curP->v3;
-    p++;
-
-  }/* end of the while loop */
-
-  /* write to log file */
-  ath_pout(0, "In processor %d, there are %ld particles.\n", pG->my_id, pG->nparticle);	/* level? */
-
-  return;
-}
-
-
-/* --------------------- 2nd order explicit particle integrator ------------------------------
-   Input: 
-     pG: grid which is already evolved in the predictor step. The
-         particles are unevolved.
-   Output:
-     pG: particle velocity updated with one full time step.
-         feedback force is also calculated for the corrector step.
-*/
-void integrate_particle_exp(Grid *pG)
-{
-  /* local variables */
-  Grain *curG, *curP, mygr;	/* pointer of the current working position */
-  long p;			/* particle index */
-  Real dv1, dv2, dv3;		/* amount of velocity update */
-  Vector fd, fr, ft;		/* drag force and other forces, total force */
-  Vector cell1;			/* one over dx1, dx2, dx3 */
-  Real ts1;			/* 1/stopping time */
-  Real x1n, x2n, x3n;		/* first order new position at half a time step */
-  Real v1n, v2n, v3n;		/* first order new velocity at half a time step */
-#ifdef FEEDBACK
-  Vector fb;			/* feedback force */
-#endif
-
-  /*-------------------- Initialization --------------------*/
-#ifdef FEEDBACK
-  feedback_clear(pG);	/* clean the feedback array */
-#endif /* FEEDBACK */
-
-  curP = &(mygr);	/* temperory particle */
-
-  /* cell1 is a shortcut expressions as well as dimension indicator */
-  if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;  else cell1.x1 = 0.0;
-  if (pG->Nx2 > 1)  cell1.x2 = 1.0/pG->dx2;  else cell1.x2 = 0.0;
-  if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;  else cell1.x3 = 0.0;
-
-  /* delete all ghost particles */
-  Delete_Ghost(pG);
-
-  /*-----------------------Main loop over all the particles---------------------*/
-  p = 0;
-
-  while (p<pG->nparticle)
-  {/* loop over all particles */
-    curG = &(pG->particle[p]);
-
-    /* step 1: predict of the particle position after half a time step */
-    if (pG->Nx1 > 1)
-      x1n = curG->x1+0.5*curG->v1*pG->dt;
-    else x1n = curG->x1;
-    if (pG->Nx2 > 1)
-      x2n = curG->x2+0.5*curG->v2*pG->dt;
-    else x2n = curG->x2;
-    if (pG->Nx3 > 1)
-      x3n = curG->x3+0.5*curG->v3*pG->dt;
-    else x3n = curG->x3;
-
-#ifdef SHEARING_BOX
-#ifndef FARGO
-    if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt); /* advection part */
-#endif
-#endif
-
-    /* step 2: calculate the force at current position */
-    fd = Get_Drag(pG, curG->property, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3, cell1, &ts1);
-
-    fr = Get_Force(pG, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3);
-
-    ft.x1 = fd.x1+fr.x1;
-    ft.x2 = fd.x2+fr.x2;
-    ft.x3 = fd.x3+fr.x3;
-
-    v1n = curG->v1 + 0.5*ft.x1*pG->dt;
-    v2n = curG->v2 + 0.5*ft.x2*pG->dt;
-    v3n = curG->v3 + 0.5*ft.x3*pG->dt;
-
-    /* step 3: calculate the force at the predicted positoin */
-    fd = Get_Drag(pG, curG->property, x1n, x2n, x3n, v1n, v2n, v3n, cell1, &ts1);
-
-    fr = Get_Force(pG, x1n, x2n, x3n, v1n, v2n, v3n);
-
-    ft.x1 = fd.x1+fr.x1;
-    ft.x2 = fd.x2+fr.x2;
-    ft.x3 = fd.x3+fr.x3;
-
-    /* step 4: calculate velocity update */
-    dv1 = ft.x1*pG->dt;
-    dv2 = ft.x2*pG->dt;
-    dv3 = ft.x3*pG->dt;
-
-    /* Step 5: particle update to curP */
-    /* velocity update */
-    curP->v1 = curG->v1 + dv1;
-    curP->v2 = curG->v2 + dv2;
-    curP->v3 = curG->v3 + dv3;
-
-    /* position update */
-    if (pG->Nx1 > 1)
-      curP->x1 = curG->x1 + 0.5*pG->dt*(curG->v1+curP->v1);
-    else /* do not move if this dimension collapses */
-      curP->x1 = curG->x1;
-
-    if (pG->Nx2 > 1)
-      curP->x2 = curG->x2 + 0.5*pG->dt*(curG->v2+curP->v2);
-    else /* do not move if this dimension collapses */
-      curP->x2 = curG->x2;
-
-    if (pG->Nx3 > 1)
-      curP->x3 = curG->x3 + 0.5*pG->dt*(curG->v3+curP->v3);
-    else /* do not move if this dimension collapses */
-      curP->x3 = curG->x3;
-
-#ifdef FARGO
-    /* shift = -qshear * Omega_0 * x * dt */
-    curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
-#endif
-
-    /* step 6: calculate feedback force to the gas */
-#ifdef FEEDBACK
-    feedback_corrector(pG, curG, curP, cell1, dv1, dv2, dv3);
-#endif /* FEEDBACK */
-
-    /* step 7: update the particle in pG */
+    /* Step 4: Final update of the particle */
     /* update particle status (crossing boundary or not) */
     JudgeCrossing(pG, curP->x1, curP->x2, curP->x3, curG);
 
@@ -558,6 +141,264 @@ void integrate_particle_exp(Grid *pG)
 
   /* output the status */
   ath_pout(0, "In processor %d, there are %ld particles.\n", pG->my_id, pG->nparticle);
+
+  return;
+}
+
+/* --------------------- 2nd order fully implicit particle integrator ------------------------------
+   Input: 
+     grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
+   Output:
+     dv1,dv2,dv3: velocity update
+*/
+void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3)
+{
+  Real x1n, x2n, x3n;		/* first order new position at half a time step */
+  Vector fd, fr;		/* drag force and other forces */
+  Vector fc, fp, ft;		/* force at current and predicted position, total force */
+  Real ts11, ts12;		/* 1/stopping time */
+  Real b0,A,B,C,D,Det1;		/* matrix elements and determinant */
+#ifdef SHEARING_BOX
+  Real oh, oh2;			/* Omega_0*dt and its square */
+#endif
+
+  /* step 1: predict of the particle position after one time step */
+  if (pG->Nx1 > 1)  x1n = curG->x1+curG->v1*pG->dt;
+  else x1n = curG->x1;
+  if (pG->Nx2 > 1)  x2n = curG->x2+curG->v2*pG->dt;
+  else x2n = curG->x2;
+  if (pG->Nx3 > 1)  x3n = curG->x3+curG->v3*pG->dt;
+  else x3n = curG->x3;
+
+#ifdef SHEARING_BOX
+#ifndef FARGO
+  if (pG->Nx3 > 1) x2n -= 0.5*qshear*curG->v1*SQR(pG->dt); /* advection part */
+#endif
+#endif
+
+  /* step 2: calculate the force at current position */
+  fd = Get_Drag(pG, curG->property, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3, cell1, &ts11);
+
+  fr = Get_Force(pG, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3);
+
+  fc.x1 = fd.x1+fr.x1;
+  fc.x2 = fd.x2+fr.x2;
+  fc.x3 = fd.x3+fr.x3;
+
+  /* step 3: calculate the force at the predicted positoin */
+  fd = Get_Drag(pG, curG->property, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3, cell1, &ts12);
+
+  fr = Get_Force(pG, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3);
+
+  fp.x1 = fd.x1+fr.x1;
+  fp.x2 = fd.x2+fr.x2;
+  fp.x3 = fd.x3+fr.x3;
+
+  /* step 4: calculate the velocity update */
+  /* shortcut expressions */
+  b0 = 1.0+pG->dt*ts11;
+
+  /* Total force */
+  ft.x1 = 0.5*(fc.x1+b0*fp.x1);
+  ft.x2 = 0.5*(fc.x2+b0*fp.x2);
+  ft.x3 = 0.5*(fc.x3+b0*fp.x3);
+
+#ifdef SHEARING_BOX
+  oh = Omega_0*pG->dt;
+  if (pG->Nx3 > 1) {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    ft.x1 += -oh*fp.x2;
+  #ifdef FARGO
+    ft.x2 += 0.5*(2.0-qshear)*oh*fp.x1;
+  #else
+    ft.x2 += oh*fp.x1;
+  #endif
+  } else {         /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+    ft.x1 += -oh*fp.x3;
+  #ifdef FARGO
+    ft.x3 += 0.5*(2.0-qshear)*oh*fp.x1;
+  #else
+    ft.x3 += oh*fp.x1;
+  #endif
+  }
+#endif /* SHEARING_BOX */
+
+    /* calculate the inverse matrix elements */
+  D = 1.0+0.5*pG->dt*(ts11 + ts12 + pG->dt*ts11*ts12);
+#ifdef SHEARING_BOX
+  oh2 = SQR(oh);
+  B = oh * (-2.0-(ts11+ts12)*pG->dt);
+#ifdef FARGO
+  A = D - (2.0-qshear)*oh2;
+  C = 0.5*(qshear-2.0)*B;
+#else /* FARGO */
+  A = D - 2.0*oh2;
+  C = -B;
+#endif /* FARGO */
+  Det1 = 1.0/(SQR(A)-B*C);
+  if (pG->Nx3>1) {
+    *dv1 = pG->dt*Det1*(ft.x1*A-ft.x2*B);
+    *dv2 = pG->dt*Det1*(-ft.x1*C+ft.x2*A);
+    *dv3 = pG->dt*ft.x3/D;
+  } else {
+    *dv1 = pG->dt*Det1*(ft.x1*A-ft.x3*B);
+    *dv3 = pG->dt*Det1*(-ft.x1*C+ft.x3*A);
+    *dv2 = pG->dt*ft.x2/D;
+  }
+#else /* SHEARING_BOX */
+  D = 1.0/D;
+  *dv1 = pG->dt*ft.x1*D;
+  *dv2 = pG->dt*ft.x2*D;
+  *dv3 = pG->dt*ft.x3*D;
+#endif /* SHEARING_BOX */
+
+  return;
+}
+
+
+/* --------------------- 2nd order semi-implicit particle integrator ------------------------------
+   Input: 
+     grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
+   Output:
+     dv1,dv2,dv3: velocity update
+*/
+void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3)
+{
+  /* loca variables */
+  Vector fd, fr, ft;		/* drag force and other forces, total force */
+  Real ts1, b, b2;		/* other shortcut expressions */
+  Real x1n, x2n, x3n;		/* first order new position at half a time step */
+#ifdef SHEARING_BOX
+  Real b1, oh;			/* Omega_0*h */
+#endif
+
+  /* step 1: predict of the particle position after half a time step */
+  if (pG->Nx1 > 1)  x1n = curG->x1+0.5*curG->v1*pG->dt;
+  else x1n = curG->x1;
+  if (pG->Nx2 > 1)  x2n = curG->x2+0.5*curG->v2*pG->dt;
+  else x2n = curG->x2;
+  if (pG->Nx3 > 1)  x3n = curG->x3+0.5*curG->v3*pG->dt;
+  else x3n = curG->x3;
+
+#ifdef SHEARING_BOX
+#ifndef FARGO
+  if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt); /* advection part */
+#endif
+#endif
+
+  /* Step 2: interpolation to get fluid density, velocity and the sound speed at predicted position */
+  fd = Get_Drag(pG, curG->property, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3, cell1, &ts1);
+
+  fr = Get_Force(pG, x1n, x2n, x3n, curG->v1, curG->v2, curG->v3);
+
+  ft.x1 = fd.x1+fr.x1;
+  ft.x2 = fd.x2+fr.x2;
+  ft.x3 = fd.x3+fr.x3;
+
+  /* step 3: calculate velocity update */
+
+  /* shortcut expressions */
+  b = pG->dt*ts1+2.0;
+#ifdef SHEARING_BOX
+  oh = Omega_0*pG->dt;
+#ifdef FARGO
+  b1 = 1.0/(SQR(b)+2.0*(2.0-qshear)*SQR(oh));
+#else
+  b1 = 1.0/(SQR(b)+4.0*SQR(oh));
+#endif /* FARGO */
+  b2 = b*b1;
+#else
+  b2 = 1.0/b;
+#endif /* SHEARING BOX */
+
+    /* velocity evolution */
+#ifdef SHEARING_BOX
+  if (pG->Nx3>1)
+  {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
+    *dv1 = pG->dt*2.0*b2*ft.x1 + pG->dt*4.0*oh*b1*ft.x2;
+  #ifdef FARGO
+    *dv2 = pG->dt*2.0*b2*ft.x2 - 2.0*(2.0-qshear)*pG->dt*oh*b1*ft.x1;
+  #else
+    *dv2 = pG->dt*2.0*b2*ft.x2 - 4.0*pG->dt*oh*b1*ft.x1;
+  #endif /* FARGO */
+    *dv3 = pG->dt*2.0*ft.x3/b;
+  }
+  else
+  {/* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
+    *dv1 = pG->dt*2.0*b2*ft.x1 + pG->dt*4.0*oh*b1*ft.x3;
+    *dv2 = pG->dt*2.0*ft.x2/b;
+  #ifdef FARGO
+    *dv3 = pG->dt*2.0*b2*ft.x3 - 2.0*(2.0-qshear)*pG->dt*oh*b1*ft.x1;
+  #else
+    *dv3 = pG->dt*2.0*b2*ft.x3 - 4.0*pG->dt*oh*b1*ft.x1;
+  #endif
+  }
+#else
+  *dv1 = pG->dt*2.0*b2*ft.x1;
+  *dv2 = pG->dt*2.0*b2*ft.x2;
+  *dv3 = pG->dt*2.0*b2*ft.x3;
+#endif /* SHEARING_BOX */
+
+  return;
+}
+
+
+/* --------------------- 2nd order explicit particle integrator ------------------------------
+   Input: 
+     grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
+   Output:
+     dv1,dv2,dv3: velocity update
+*/
+void int_par_exp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3)
+{
+  /* local variables */
+  Vector fd, fr, ft;		/* drag force and other forces, total force */
+  Real ts1;			/* 1/stopping time */
+  Real x1n, x2n, x3n;		/* first order new position at half a time step */
+  Real v1n, v2n, v3n;		/* first order new velocity at half a time step */
+
+  /* step 1: predict of the particle position after half a time step */
+  if (pG->Nx1 > 1)
+    x1n = curG->x1+0.5*curG->v1*pG->dt;
+  else x1n = curG->x1;
+  if (pG->Nx2 > 1)
+    x2n = curG->x2+0.5*curG->v2*pG->dt;
+  else x2n = curG->x2;
+  if (pG->Nx3 > 1)
+    x3n = curG->x3+0.5*curG->v3*pG->dt;
+  else x3n = curG->x3;
+
+#ifdef SHEARING_BOX
+#ifndef FARGO
+  if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt); /* advection part */
+#endif
+#endif
+
+  /* step 2: calculate the force at current position */
+  fd = Get_Drag(pG, curG->property, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3, cell1, &ts1);
+
+  fr = Get_Force(pG, curG->x1, curG->x2, curG->x3, curG->v1, curG->v2, curG->v3);
+
+  ft.x1 = fd.x1+fr.x1;
+  ft.x2 = fd.x2+fr.x2;
+  ft.x3 = fd.x3+fr.x3;
+
+  v1n = curG->v1 + 0.5*ft.x1*pG->dt;
+  v2n = curG->v2 + 0.5*ft.x2*pG->dt;
+  v3n = curG->v3 + 0.5*ft.x3*pG->dt;
+
+  /* step 3: calculate the force at the predicted positoin */
+  fd = Get_Drag(pG, curG->property, x1n, x2n, x3n, v1n, v2n, v3n, cell1, &ts1);
+
+  fr = Get_Force(pG, x1n, x2n, x3n, v1n, v2n, v3n);
+
+  ft.x1 = fd.x1+fr.x1;
+  ft.x2 = fd.x2+fr.x2;
+  ft.x3 = fd.x3+fr.x3;
+
+  /* step 4: calculate velocity update */
+  *dv1 = ft.x1*pG->dt;
+  *dv2 = ft.x2*pG->dt;
+  *dv3 = ft.x3*pG->dt;
 
   return;
 }
