@@ -54,10 +54,12 @@ void problem(Grid *pGrid, Domain *pDomain)
   int k, ks = pGrid->ks, ke = pGrid->ke;
   int kl,ku,ix1,ix2,nx1,nx2,gcd;
   Real angle, sin_a, cos_a; /* Angle the shock makes with the x1-direction */
+  Prim1D Wl, Wr;
+  Cons1D Ul, Ur;
   Gas ql, qr;
-  Real dl,pl,ul,vl,wl,dr,pr,ur,vr,wr;
+  Prim Wl, Wr;
 #ifdef MHD
-  Real bxl,byl,bzl,bxr,byr,bzr;
+  Real Bxl,Bxr;
 #endif /* MHD */
   div_t id;   /* structure containing remainder and quotient */
 
@@ -116,33 +118,37 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Parse left state read from input file: dl,pl,ul,vl,wl,bxl,byl,bzl */
 
-  dl = par_getd("problem","dl");
+  Wl.d = par_getd("problem","dl");
 #ifdef ADIABATIC
-  pl = par_getd("problem","pl");
+  Wl.P = par_getd("problem","pl");
 #endif
-  ul = par_getd("problem","v1l");
-  vl = par_getd("problem","v2l");
-  wl = par_getd("problem","v3l");
+  Wl.Vx = par_getd("problem","v1l");
+  Wl.Vy = par_getd("problem","v2l");
+  Wl.Vz = par_getd("problem","v3l");
 #ifdef MHD
-  bxl = par_getd("problem","b1l");
-  byl = par_getd("problem","b2l");
-  bzl = par_getd("problem","b3l");
+  Bxl = par_getd("problem","b1l");
+  Wl.By = par_getd("problem","b2l");
+  Wl.Bz = par_getd("problem","b3l");
 #endif
 
 /* Parse right state read from input file: dr,pr,ur,vr,wr,bxr,byr,bzr */
 
-  dr = par_getd("problem","dr");
+  Wr.d = par_getd("problem","dr");
 #ifdef ADIABATIC
-  pr = par_getd("problem","pr");
+  Wr.P = par_getd("problem","pr");
 #endif
-  ur = par_getd("problem","v1r");
-  vr = par_getd("problem","v2r");
-  wr = par_getd("problem","v3r");
+  Wr.Vx = par_getd("problem","v1r");
+  Wr.Vy = par_getd("problem","v2r");
+  Wr.Vz = par_getd("problem","v3r");
 #ifdef MHD
-  bxr = par_getd("problem","b1r");
-  byr = par_getd("problem","b2r");
-  bzr = par_getd("problem","b3r");
+  Bxr = par_getd("problem","b1r");
+  Wr.By = par_getd("problem","b2r");
+  Wr.Bz = par_getd("problem","b3r");
+  if (Bxr != Bxl) ath_error(0,"[shkset2d] L/R values of Bx not the same\n");
 #endif
+
+  Prim1D_to_Cons1D(&Ul,&Wl MHDARG( , &Bxl));
+  Prim1D_to_Cons1D(&Ur,&Wr MHDARG( , &Bxr));
 
 /* Initialize ql rotated to the (x1,x2,x3) coordinate system */
   ql.d   = dl;
@@ -406,6 +412,9 @@ void shkset2d_iib(Grid *pGrid)
 	pGrid->B2i[k][j][is-i] = pGrid->B2i[k][j-r2][is-i+r1];
 	pGrid->B3i[k][j][is-i] = pGrid->B3i[k][j-r2][is-i+r1];
 #endif
+#ifdef SPECIAL_RELATIVITY
+	pGrid->W  [k][j][is-i] = pGrid->W  [k][j-r2][is-i+r1];
+#endif
       }
     }
   }
@@ -448,6 +457,9 @@ void shkset2d_oib(Grid *pGrid)
 	pGrid->B2i[k][j][ie+i] = pGrid->B2i[k][j+r2][ie+i-r1];
 	pGrid->B3i[k][j][ie+i] = pGrid->B3i[k][j+r2][ie+i-r1];
 #endif
+#ifdef SPECIAL_RELATIVITY
+	pGrid->W[k][j][ie+i] = pGrid->W[k][j+r2][ie+i-r1];
+#endif
       }
     }
   }
@@ -488,6 +500,9 @@ void shkset2d_ijb(Grid *pGrid)
 	pGrid->B2i[k][js-j][i] = pGrid->B2i[k][js-j+r2][i-r1];
 	pGrid->B3i[k][js-j][i] = pGrid->B3i[k][js-j+r2][i-r1];
 #endif
+#ifdef SPECIAL_RELATIVITY
+	pGrid->W  [k][js-j][i] = pGrid->W  [k][js-j+r2][i-r1];
+#endif
       }
     }
   }
@@ -501,7 +516,7 @@ void shkset2d_ijb(Grid *pGrid)
 void shkset2d_ojb(Grid *pGrid)
 {
   const int je = pGrid->je;
-  int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
+  iny i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
 
   if (pGrid->Nx1 > 1){
     iu = pGrid->ie + nghost - r1;
@@ -529,6 +544,9 @@ void shkset2d_ojb(Grid *pGrid)
 	pGrid->B1i[k][je+j][i] = pGrid->B1i[k][je+j-r2][i+r1];
 	if(j>1) pGrid->B2i[k][je+j][i] = pGrid->B2i[k][je+j-r2][i+r1];
 	pGrid->B3i[k][je+j][i] = pGrid->B3i[k][je+j-r2][i+r1];
+#endif
+#ifdef SPECIAL_RELATIVITY
+	pGrid->W[k][je+j][i] = pGrid->W[k][je+j-r2][i+r1];
 #endif
       }
     }
