@@ -85,6 +85,14 @@ void cc_pos(const Grid *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
 void vc_pos(const Grid *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
+#ifdef PARTICLES
+int celli(const Grid* pGrid, const Real x, const Real dx1_1, int *i, Real *a);
+Real x1cc(const Grid* pGrid, const int i);
+int cellj(const Grid* pGrid, const Real y, const Real dx2_1, int *j, Real *b);
+Real x2cc(const Grid* pGrid, const int j);
+int cellk(const Grid* pGrid, const Real z, const Real dx3_1, int *k, Real *c);
+Real x3cc(const Grid* pGrid, const int k);
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
