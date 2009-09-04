@@ -35,10 +35,10 @@
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
 #   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]       (flux function)
 #   --with-integrator=[ctu,vl]                   (unsplit integration algorithm)
+#   --with-cflags=[opt,debug,profile]                       (set compiler flags)
 #
 # ALGORITHM "features":
 #   --enable-single                                 (double or single precision)
-#   --enable-debug                                       (compile in debug mode)
 #   --enable-ghost                      (write out ghost cells in outputs/dumps)
 #   --enable-mpi                                          (parallelize with MPI)
 #   --enable-h-correction              (turn on H-correction in multidimensions)
@@ -412,6 +412,29 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM PACKAGE: set compiler options.
+#   --with-cflags=[opt,debug,profile] (default is opt)
+
+AC_SUBST(DEBUG_MODE)
+AC_SUBST(COMPILER_OPTS)
+
+AC_ARG_WITH(cflags, [  --with-cflags=DEBUG_MODE      Set debugging mode (opt,debug,profile)],
+		with_debug=$withval, with_debug="opt")
+if test "$with_debug" = "debug"; then
+  COMPILER_OPTS="-g -Wall -W -ansi -pedantic"
+  DEBUG_MODE="DEBUG"
+elif test "$with_debug" = "profile"; then
+  COMPILER_OPTS="-O3 -pg"
+  DEBUG_MODE="PROFILE"
+elif test "$with_debug" = "opt"; then
+  COMPILER_OPTS="-O3"
+  DEBUG_MODE="OPTIMIZE"
+else
+  AC_MSG_ERROR([expected --with-cflags=opt,debug, or profile])
+fi
+
+
+#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: precision of floating point arithmetic
 #   --enable-single (default is double)
 
@@ -422,23 +445,6 @@ if test "$ok" = "yes"; then
   PRECISION="SINGLE_PREC"
 else
   PRECISION="DOUBLE_PREC"
-fi
-
-#-------------------------------------------------------------------------------
-# ALGORITHM FEATURE: compile with debugging; turns on diagnostic output in code,
-#   and uses compiler options: -g -Wall -W -ansi -pedantic
-#   --enable-debug (default is debugging off)
-
-AC_SUBST(DEBUG_MODE)
-AC_SUBST(COMPILER_OPTS)
-AC_ARG_ENABLE(debug, [  --enable-debug          debug (default is optimized)], 
-		      ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-  COMPILER_OPTS="-g -Wall -W -ansi -pedantic"
-  DEBUG_MODE="DEBUG"
-else
-  COMPILER_OPTS="-O3"
-  DEBUG_MODE="OPTIMIZE"
 fi
 
 #-------------------------------------------------------------------------------
@@ -459,7 +465,6 @@ fi
 # ALGORITHM FEATURE: parallelize with MPI, --enable-mpi (default is no MPI)
 
 AC_SUBST(MPI_MODE)
-
 AC_ARG_ENABLE(mpi, [  --enable-mpi           enable MPI parellelization], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   MPI_MODE="MPI_PARALLEL"
