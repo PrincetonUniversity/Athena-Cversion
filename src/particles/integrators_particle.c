@@ -10,7 +10,7 @@ void int_par_exp   (Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, R
 void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
 void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
 void feedback_predictor(Grid* pG);
-void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3);
+void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3, Real ts);
 
 History:
 Written by Xuening Bai, Mar.2009
@@ -50,7 +50,7 @@ void Integrate_Particles(Grid *pG, Domain *pD)
 {
   Grain *curG, *curP, mygr;     /* pointer of the current working position */
   long p;                       /* particle index */
-  Real dv1, dv2, dv3;           /* amount of velocity update */
+  Real dv1, dv2, dv3, ts;       /* amount of velocity update, stopping time */
   Vector cell1;                 /* one over dx1, dx2, dx3 */
 
   /*-------------------- Initialization --------------------*/
@@ -77,15 +77,15 @@ void Integrate_Particles(Grid *pG, Domain *pD)
     switch(pG->grproperty[curG->property].integrator)
     {
       case 1: /* 2nd order explicit integrator */
-        int_par_exp(pG,curG,cell1,&dv1,&dv2,&dv3);
+        int_par_exp(pG,curG,cell1, &dv1,&dv2,&dv3, &ts);
         break;
 
       case 2: /* 2nd order semi-implicit integrator */
-        int_par_semimp(pG,curG,cell1,&dv1,&dv2,&dv3);
+        int_par_semimp(pG,curG,cell1, &dv1,&dv2,&dv3, &ts);
         break;
 
       case 3: /* 2nd order fully implicit integrator */
-        int_par_fulimp(pG,curG,cell1,&dv1,&dv2,&dv3);
+        int_par_fulimp(pG,curG,cell1, &dv1,&dv2,&dv3, &ts);
         break;
 
       default:
@@ -121,7 +121,7 @@ void Integrate_Particles(Grid *pG, Domain *pD)
 
     /* Step 3: calculate feedback force to the gas */
 #ifdef FEEDBACK
-    feedback_corrector(pG, curG, curP, cell1, dv1, dv2, dv3);
+    feedback_corrector(pG, curG, curP, cell1, dv1, dv2, dv3, ts);
 #endif /* FEEDBACK */
 
     /* Step 4: Final update of the particle */
@@ -151,7 +151,7 @@ void Integrate_Particles(Grid *pG, Domain *pD)
    Output:
      dv1,dv2,dv3: velocity update
 */
-void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3)
+void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts)
 {
   Real x1n, x2n, x3n;		/* first order new position at half a time step */
   Vector fd, fr;		/* drag force and other forces */
@@ -251,6 +251,8 @@ void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, R
   *dv3 = pG->dt*ft.x3*D;
 #endif /* SHEARING_BOX */
 
+  *ts = 0.5/ts11+0.5/ts12;
+
   return;
 }
 
@@ -261,7 +263,7 @@ void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, R
    Output:
      dv1,dv2,dv3: velocity update
 */
-void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3)
+void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts)
 {
   /* loca variables */
   Vector fd, fr, ft;		/* drag force and other forces, total force */
@@ -338,6 +340,8 @@ void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, R
   *dv3 = pG->dt*2.0*b2*ft.x3;
 #endif /* SHEARING_BOX */
 
+  *ts = 1.0/ts1;
+
   return;
 }
 
@@ -348,7 +352,7 @@ void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, R
    Output:
      dv1,dv2,dv3: velocity update
 */
-void int_par_exp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3)
+void int_par_exp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts)
 {
   /* local variables */
   Vector fd, fr, ft;		/* drag force and other forces, total force */
@@ -400,6 +404,8 @@ void int_par_exp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real
   *dv2 = ft.x2*pG->dt;
   *dv3 = ft.x3*pG->dt;
 
+  *ts = 1.0/ts1;
+
   return;
 }
 
@@ -422,6 +428,7 @@ void feedback_predictor(Grid* pG)
   Real m, ts1h;			/* grain mass, 0.5*dt/tstop */
   Vector cell1;			/* one over dx1, dx2, dx3 */
   Vector fb;			/* drag force, fluid velocity */
+  Real Elosspar;			/* particle energy dissipation */
   Grain *cur;			/* pointer of the current working position */
 
   /* initialization */
@@ -467,8 +474,10 @@ void feedback_predictor(Grid* pG)
       fb.x2 = m * vd2 * ts1h;
       fb.x3 = m * vd3 * ts1h;
 
+      Elosspar = fb.x1*vd1 + fb.x2*vd2 + fb.x3*vd3;
+
       /* distribute the drag force (density) to the grid */
-      distrFB(pG, weight, is, js, ks, fb);
+      distrFB(pG, weight, is, js, ks, fb, Elosspar);
     }
   }/* end of the for loop */
 
@@ -480,13 +489,13 @@ void feedback_predictor(Grid* pG)
           dv: velocity difference between gri and grf.
    Output: pG: the array of drag forces exerted by the particle is updated
 */
-void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3)
+void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3, Real ts)
 {
   int is, js, ks;
   Real x1, x2, x3, v1, v2, v3;
   Real mgr;
   Real weight[3][3][3];
-
+  Real Elosspar;                        /* particle energy dissipation */
   Vector fb;
 
   mgr = pG->grproperty[gri->property].m;
@@ -504,6 +513,9 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1
   fb.x2 = dv2 - pG->dt*fb.x2;
   fb.x3 = dv3 - pG->dt*fb.x3;
 
+  /* energy dissipation */
+  Elosspar = mgr*(SQR(fb.x1)+SQR(fb.x2)+SQR(fb.x3))*ts;
+
   /* Drag force density */
   fb.x1 = mgr*fb.x1;
   fb.x2 = mgr*fb.x2;
@@ -511,16 +523,7 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1
 
   /* distribute the drag force (density) to the grid */
   getweight(pG, x1, x2, x3, cell1, weight, &is, &js, &ks);
-  distrFB(pG, weight, is, js, ks, fb);
-
-#ifdef SHEARING_BOX
-#ifndef FARGO
-  if (pG->Nx3 > 1) /* 3D shearing box */
-  {
-//    distrFB_shear(pG, weight, is, js, ks, fb);
-  }
-#endif
-#endif /* SHEARING_BOX */
+  distrFB(pG, weight, is, js, ks, fb, Elosspar);
 
   return;
 
@@ -659,9 +662,6 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
     ft.x1 += 2.0*(qshear*omg2*x1 + w2*Omega_0);
     ft.x2 += -2.0*w1*Omega_0;
   #endif /* FARGO */
-  #ifdef VERTICAL_GRAVITY
-    ft.x3 += -omg2*x3;
-  #endif /* VERTICAL_GRAVITY */
   }
   else
   { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
@@ -672,9 +672,6 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3, Real v1, Real v2, Real v3)
     ft.x1 += 2.0*(qshear*omg2*x1 + w3*Omega_0);
     ft.x3 += -2.0*w1*Omega_0;
   #endif /* FARGO */
-  #ifdef VERTICAL_GRAVITY
-    ft.x2 += -omg2*x2;
-  #endif /* VERTICAL_GRAVITY */
   }
 #endif /* SHEARING_BOX */
 

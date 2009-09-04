@@ -282,6 +282,11 @@ void integrate_2d(Grid *pG, Domain *pD)
       Wr[i].Vx -= pG->feedback[ks][j][i].x1*d1;
       Wr[i].Vy -= pG->feedback[ks][j][i].x2*d1;
       Wr[i].Vz -= pG->feedback[ks][j][i].x3*d1;
+
+#ifndef BAROTROPIC
+      Wl[i].P += pG->Eloss[ks][j][i-1]*Gamma_1;
+      Wr[i].P += pG->Eloss[ks][j][i]*Gamma_1;
+#endif
     }
 #endif /* FEEDBACK */
 
@@ -406,6 +411,11 @@ void integrate_2d(Grid *pG, Domain *pD)
       Wr[j].Vx -= pG->feedback[ks][j][i].x2*d1;
       Wr[j].Vy -= pG->feedback[ks][j][i].x3*d1;
       Wr[j].Vz -= pG->feedback[ks][j][i].x1*d1;
+
+#ifndef BAROTROPIC
+      Wl[i].P += pG->Eloss[ks][j-1][i]*Gamma_1;
+      Wr[i].P += pG->Eloss[ks][j][i]*Gamma_1;
+#endif
     }
 #endif /* FEEDBACK */
 
@@ -1255,6 +1265,9 @@ void integrate_2d(Grid *pG, Domain *pD)
       pG->U[ks][j][i].M1 -= pG->feedback[ks][j][i].x1;
       pG->U[ks][j][i].M2 -= pG->feedback[ks][j][i].x2;
       pG->U[ks][j][i].M3 -= pG->feedback[ks][j][i].x3;
+#ifndef BAROTROPIC
+      pG->U[ks][j][i].E += pG->Eloss[ks][j][i];
+#endif
     }
 #endif
 

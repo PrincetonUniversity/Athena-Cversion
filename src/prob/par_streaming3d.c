@@ -241,8 +241,6 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   wyNSH += etavk;
 
-fprintf(stderr,"%f	%f\n",etavk,Iso_csound);
-
 /* Now set initial conditions for the gas */
   t = 0.0;
 
@@ -274,7 +272,9 @@ fprintf(stderr,"%f	%f\n",etavk,Iso_csound);
 
 /* Now set initial conditions for the particles */
   p = 0;
-
+  Lx = pGrid->Nx1*pGrid->dx1; x1min = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
+  Ly = pGrid->Nx2*pGrid->dx2; x2min = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
+  Lz = pGrid->Nx3*pGrid->dx3; x3min = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
   for (k=pGrid->ks; k<=pGrid->ke; k++)
   {
     x3l = pGrid->x3_0 + (k+pGrid->kdisp)*pGrid->dx3;
@@ -293,21 +293,21 @@ fprintf(stderr,"%f	%f\n",etavk,Iso_csound);
         for (ip=0;ip<Npar;ip++)
         {
 
-          if (ipert != 3) /* ramdom particle position in a cell */
+          if (ipert != 3) /* quasi-uniform distribution */
             x1p = x1l+pGrid->dx1/Npar*(ip+0.5);
 //          else
 //            x1p = x1l + pGrid->dx1*ran2(&iseed);
 
           for (jp=0;jp<Npar;jp++)
           {
-            if (ipert != 3) /* ramdom particle position in a cell */
+            if (ipert != 3) /* quasi-uniform distribution */
               x2p = x2l+pGrid->dx2/Npar*(jp+0.5);
 //            else
 //              x2p = x2l + pGrid->dx2*ran2(&iseed);
 
             for (kp=0;kp<Npar;kp++)
             {
-              if (ipert == 3){ /* ramdom particle position in a cell */
+              if (ipert == 3){ /* ramdom particle position in the grid */
 //                x3p = x3l + pGrid->dx3*(ran2(&iseed)-0.5);
                 x1p = x1min + Lx*ran2(&iseed);
                 x2p = x2min + Ly*ran2(&iseed);
@@ -404,6 +404,8 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
+  Real interval;
+
   StaticGravPot = ShearingBoxPot;
 
   Omega_0 = par_getd("problem","omega");
@@ -440,6 +442,17 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
     fread(&Iso_csound, sizeof(Real),1,fp);  Iso_csound2 = SQR(Iso_csound);
     fread(&kx, sizeof(Real),1,fp);   fread(&kz, sizeof(Real),1,fp);
   }
+
+  if (pG->my_id == 0)
+#ifdef MPI_PARALLEL
+    sprintf(name, "../%s_%d_%d.dat", pGrid->outfilename,Nx,ipert);
+#else
+    sprintf(name, "%s_%d_%d.dat", pG->outfilename,Nx,ipert);
+#endif
+
+/* enroll output function */
+  interval = par_getd_def("problem","interval",0.01/Omega_0);
+  data_output_enroll(pG->time,interval,0,OutputModeAmplitude,NULL,NULL,0,0.0,0.0,0,0,1,property_all);
 
   return;
 }

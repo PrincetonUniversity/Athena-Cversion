@@ -31,7 +31,7 @@ History:
 #ifdef FEEDBACK         /* endif at the end of the file */
 
 /* number of quantities to be exchanged for each cell */
-#define NVAR_F 3
+#define NVAR_F 4
 /* number of boundary cells to be exchanged */
 #define NGF    2
 
@@ -655,6 +655,8 @@ static void reflect_ix3_feedback(Grid *pG)
         pG->feedback[kr][j][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[kr][j][i].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflect 3-mom. */
+
+        pG->Eloss[kr][j][i] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -678,6 +680,8 @@ static void reflect_ox3_feedback(Grid *pG)
         pG->feedback[kr][j][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[kr][j][i].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflect 3-mom. */
+
+        pG->Eloss[kr][j][i] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -701,6 +705,8 @@ static void reflect_ix2_feedback(Grid *pG)
         pG->feedback[k][jr][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflect 2-mom. */
         pG->feedback[k][jr][i].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k][jr][i] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -724,6 +730,8 @@ static void reflect_ox2_feedback(Grid *pG)
         pG->feedback[k][jr][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflect 2-mom. */
         pG->feedback[k][jr][i].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k][jr][i] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -747,6 +755,8 @@ static void reflect_ix1_feedback(Grid *pG)
         pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflect 1-mom. */
         pG->feedback[k][j][ir].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k][j][ir].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k][j][ir] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -770,6 +780,8 @@ static void reflect_ox1_feedback(Grid *pG)
         pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflect 1-mom. */
         pG->feedback[k][j][ir].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k][j][ir].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k][j][ir] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -801,6 +813,8 @@ static void periodic_ix3_feedback(Grid *pG)
         pG->feedback[k][j][i].x1 += pG->feedback[k+dk][j][i].x1;
         pG->feedback[k][j][i].x2 += pG->feedback[k+dk][j][i].x2;
         pG->feedback[k][j][i].x3 += pG->feedback[k+dk][j][i].x3;
+
+        pG->Eloss[k][j][i] += pG->Eloss[k+dk][j][i];
       }
     }
   }
@@ -823,6 +837,8 @@ static void periodic_ox3_feedback(Grid *pG)
         pG->feedback[k+dk][j][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[k+dk][j][i].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k+dk][j][i].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k+dk][j][i] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -845,6 +861,8 @@ static void periodic_ix2_feedback(Grid *pG)
         pG->feedback[k][j][i].x1 += pG->feedback[k][j+dj][i].x1;
         pG->feedback[k][j][i].x2 += pG->feedback[k][j+dj][i].x2;
         pG->feedback[k][j][i].x3 += pG->feedback[k][j+dj][i].x3;
+
+        pG->Eloss[k][j][i] += pG->Eloss[k][j+dj][i];
       }
     }
   }
@@ -867,6 +885,8 @@ static void periodic_ox2_feedback(Grid *pG)
         pG->feedback[k][j+dj][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[k][j+dj][i].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k][j+dj][i].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k][j+dj][i] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -889,6 +909,8 @@ static void periodic_ix1_feedback(Grid *pG)
         pG->feedback[k][j][i].x1 += pG->feedback[k][j][i+di].x1;
         pG->feedback[k][j][i].x2 += pG->feedback[k][j][i+di].x2;
         pG->feedback[k][j][i].x3 += pG->feedback[k][j][i+di].x3;
+
+        pG->Eloss[k][j][i] += pG->Eloss[k][j][i+di];
       }
     }
   }
@@ -911,6 +933,8 @@ static void periodic_ox1_feedback(Grid *pG)
         pG->feedback[k][j][i+di].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[k][j][i+di].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k][j][i+di].x3 += pG->feedback[k][j][i].x3;
+
+        pG->Eloss[k][j][i+di] += pG->Eloss[k][j][i];
       }
     }
   }
@@ -942,6 +966,8 @@ static void send_ix3_feedback(Grid *pG)
         *(pd++) = pq->x1;
         *(pd++) = pq->x2;
         *(pd++) = pq->x3;
+
+        *(pd++) = pG->Eloss[k][j][i];
       }
     }
   }
@@ -975,6 +1001,8 @@ static void send_ox3_feedback(Grid *pG)
         *(pd++) = pq->x1;
         *(pd++) = pq->x2;
         *(pd++) = pq->x3;
+
+        *(pd++) = pG->Eloss[k][j][i];
       }
     }
   }
@@ -1008,6 +1036,8 @@ static void send_ix2_feedback(Grid *pG)
         *(pd++) = pq->x1;
         *(pd++) = pq->x2;
         *(pd++) = pq->x3;
+
+        *(pd++) = pG->Eloss[k][j][i];
       }
     }
   }
@@ -1041,6 +1071,8 @@ static void send_ox2_feedback(Grid *pG)
         *(pd++) = pq->x1;
         *(pd++) = pq->x2;
         *(pd++) = pq->x3;
+
+        *(pd++) = pG->Eloss[k][j][i];
       }
     }
   }
@@ -1074,6 +1106,8 @@ static void send_ix1_feedback(Grid *pG)
         *(pd++) = pq->x1;
         *(pd++) = pq->x2;
         *(pd++) = pq->x3;
+
+        *(pd++) = pG->Eloss[k][j][i];
       }
     }
   }
@@ -1107,6 +1141,8 @@ static void send_ox1_feedback(Grid *pG)
         *(pd++) = pq->x1;
         *(pd++) = pq->x2;
         *(pd++) = pq->x3;
+
+        *(pd++) = pG->Eloss[k][j][i];
       }
     }
   }
@@ -1144,6 +1180,7 @@ static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
         pq->x2 += *(pd++);
         pq->x3 += *(pd++);
 
+        pG->Eloss[k][j][i] += *(pd++);
       }
     }
   }
@@ -1177,6 +1214,7 @@ static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
         pq->x2 += *(pd++);
         pq->x3 += *(pd++);
 
+        pG->Eloss[k][j][i] += *(pd++);
       }
     }
   }
@@ -1210,6 +1248,7 @@ static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
         pq->x2 += *(pd++);
         pq->x3 += *(pd++);
 
+        pG->Eloss[k][j][i] += *(pd++);
       }
     }
   }
@@ -1243,6 +1282,7 @@ static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
         pq->x2 += *(pd++);
         pq->x3 += *(pd++);
 
+        pG->Eloss[k][j][i] += *(pd++);
       }
     }
   }
@@ -1276,6 +1316,7 @@ static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
         pq->x2 += *(pd++);
         pq->x3 += *(pd++);
 
+        pG->Eloss[k][j][i] += *(pd++);
       }
     }
   }
@@ -1309,6 +1350,7 @@ static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
         pq->x2 += *(pd++);
         pq->x3 += *(pd++);
 
+        pG->Eloss[k][j][i] += *(pd++);
       }
     }
   }

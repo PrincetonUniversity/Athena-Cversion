@@ -418,7 +418,7 @@ void get_gasinfo(Grid *pG)
 {
   int i,j,k;
   Real rho1;
-#ifdef ADIABATIC
+#ifndef BAROTROPIC
   Real P;
 #endif
 
@@ -434,7 +434,7 @@ void get_gasinfo(Grid *pG)
         grid_v[k][j][i].x3 = pG->U[k][j][i].M3 * rho1;
 
 #ifndef ISOTHERMAL
-  #ifdef ADIABATIC
+  #ifndef BAROTROPIC
         /* E = P/(gamma-1) + rho*v^2/2 + B^2/2 */
         P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(grid_v[k][j][i].x1) \
              + SQR(grid_v[k][j][i].x2) + SQR(grid_v[k][j][i].x3));
@@ -445,7 +445,7 @@ void get_gasinfo(Grid *pG)
         grid_cs[k][j][i] = sqrt(Gamma*P*rho1);
   #else
         ath_error("[get_gasinfo] can not calculate the sound speed!\n");
-  #endif /* ADIABATIC */
+  #endif /* BAROTROPIC */
 #endif /* ISOTHERMAL */
       }
 
@@ -465,6 +465,8 @@ void feedback_clear(Grid *pG)
         pG->feedback[k][j][i].x1 = 0.0;
         pG->feedback[k][j][i].x2 = 0.0;
         pG->feedback[k][j][i].x3 = 0.0;
+
+        pG->Eloss[k][j][i] = 0.0;
       }
 
   return;
@@ -478,7 +480,7 @@ void feedback_clear(Grid *pG)
    Output:
      pG: feedback array is updated.
 */
-void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb)
+void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb, Real Elosspar)
 {
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
 
@@ -496,6 +498,8 @@ void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb)
         pG->feedback[k][j][i].x1 += weight[k0][j0][i0] * fb.x1;
         pG->feedback[k][j][i].x2 += weight[k0][j0][i0] * fb.x2;
         pG->feedback[k][j][i].x3 += weight[k0][j0][i0] * fb.x3;
+
+        pG->Eloss[k][j][i] += weight[k0][j0][i0] * Elosspar;
       }
     }
   }
@@ -609,33 +613,6 @@ void quicksort_particle(Grid *pG, Vector cell1, long start, long end)
   quicksort_particle(pG, cell1, start, pivot-1);
   quicksort_particle(pG, cell1, pivot+1, end);
 
-  return;
-}
-
-
-/*============================================================================*/
-/*-----------------------gas velocity shift function--------------------------
- *
- * gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
- */
-/*============================================================================*/
-
-/* Infer new gas velocity (u1,u2,u3) based on current position and velocity.
-   This is the default routine, which applies no velocity shift.
-   This routine is particularly useful for code test where user can generate
-   arbitrary gas velocity field, which can be done in the problem generator
-   using get_usr_par_prop().
-*/
-void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3)
-{
-  return;
-}
-
-/* User defined particle force generator.
- * This is the default routine, which has no additional forces.
- */
-void User_ParticleForce_Zero(Vector *ft, Real x1, Real x2, Real x3, Real *w1, Real *w2, Real *w3)
-{
   return;
 }
 

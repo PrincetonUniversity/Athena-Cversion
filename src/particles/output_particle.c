@@ -64,7 +64,8 @@ int property_all(Grain *gr);
 /* Bin the particles to grid cells */
 void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 {
-  int i,j,k, is,js,ks, i1,j1,k1;
+  int i,j,k, is,js,ks, i0,j0,k0, i1,j1,k1, i2,j2,k2;
+  int n0 = ncell-1;
   long p;
   Real drho;
   Real weight[3][3][3];
@@ -101,28 +102,27 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
       getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
 
       /* distribute feedback force */
-      for (k=0; k<ncell; k++) {
-        k1 = k+ks;
-        if ((k1 <= kup) && (k1 >= klp)) {
-          for (j=0; j<ncell; j++) {
-            j1 = j+js;
-            if ((j1 <= jup) && (j1 >= jlp)) {
-              for (i=0; i<ncell; i++) {
-                i1 = i+is;
-                if ((i1 <= iup) && (i1 >= ilp)) {
-                  /* interpolate the particles to the grid */
+      k1 = MAX(ks, klp);    k2 = MIN(ks+n0, kup);
+      j1 = MAX(js, jlp);    j2 = MIN(js+n0, jup);
+      i1 = MAX(is, ilp);    i2 = MIN(is+n0, iup);
+
+      for (k=k1; k<=k2; k++) {
+        k0 = k-k1;
+        for (j=j1; j<=j2; j++) {
+          j0 = j-j1;
+          for (i=i1; i<=i2; i++) {
+            i0 = i-i1;
+            /* interpolate the particles to the grid */
 #ifdef FEEDBACK
-                  drho = pG->grproperty[gr->property].m;
+            drho = pG->grproperty[gr->property].m;
 #else
-                  drho = 1.0;
+            drho = 1.0;
 #endif
-                  grid_d[k1][j1][i1] += weight[k][j][i]*drho;
-                  grid_v[k1][j1][i1].x1 += weight[k][j][i]*drho*gr->v1;
-                  grid_v[k1][j1][i1].x2 += weight[k][j][i]*drho*gr->v2;
-                  grid_v[k1][j1][i1].x3 += weight[k][j][i]*drho*gr->v3;
-                }
-              }
-            }
+            grid_d[k][j][i] += weight[k0][j0][i0]*drho;
+            grid_v[k][j][i].x1 += weight[k0][j0][i0]*drho*gr->v1;
+            grid_v[k][j][i].x2 += weight[k0][j0][i0]*drho*gr->v2;
+            grid_v[k][j][i].x3 += weight[k0][j0][i0]*drho*gr->v3;
+
           }
         }
       }

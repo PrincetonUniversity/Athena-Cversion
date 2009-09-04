@@ -382,6 +382,8 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {
+  Real interval;
+
   StaticGravPot = ShearingBoxPot;
 
   Omega_0 = par_getd("problem","omega");
@@ -418,6 +420,12 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
     fread(&Iso_csound, sizeof(Real),1,fp);  Iso_csound2 = SQR(Iso_csound);
     fread(&kx, sizeof(Real),1,fp);   fread(&kz, sizeof(Real),1,fp);
   }
+
+  sprintf(name, "%s_%d_%d.dat", pG->outfilename,pG->Nx1,ipert);
+
+/* enroll output function */
+  interval = par_getd_def("problem","interval",0.01/Omega_0);
+  data_output_enroll(pG->time,interval,0,OutputModeAmplitude,NULL,NULL,0,0.0,0.0,0,0,1,property_all);
 
   return;
 }

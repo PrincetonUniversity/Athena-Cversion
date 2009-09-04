@@ -153,6 +153,9 @@ void init_particle(Grid *pG, Domain *pD)
 #ifdef FEEDBACK
   pG->feedback = (Vector***)calloc_3d_array(N3T, N2T, N1T, sizeof(Vector));
   if (pG->feedback == NULL) goto on_error;
+
+  pG->Eloss = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
+  if (pG->Eloss == NULL) goto on_error;
 #endif
 
   return;
@@ -180,6 +183,7 @@ void particle_destruct(Grid *pG)
 
 #ifdef FEEDBACK
   if (pG->feedback != NULL) free_3d_array(pG->feedback);
+  if (pG->Eloss != NULL) free_3d_array(pG->Eloss);
 #endif
 
   return;

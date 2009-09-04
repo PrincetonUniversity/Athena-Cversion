@@ -10,16 +10,20 @@ run     = ./athena -i ../tst/particle/athinput.par_streaming2d
 <job>
 
 problem_id      = Streaming2d    # problem ID: basename of output filenames
-maxout          = 2              # Output blocks number from 1 -> maxout
+maxout          = 1              # Output blocks number from 1 -> maxout
 
 <output1>
+out_fmt = rst               # restart dump
+dt      = 100.0             # time step between output
+
+<output2>
 out_fmt = lis               # particle list data dump (ONLY for particles)
 dt      = 0.4               # time step between output
 id      = ds
 par_prop = downsamp         # user defined particle selection function
 
-<output2>
-out_fmt = ppm               # ppm images of gas density
+<output3>
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = difdpar
 id      = difdpar
@@ -29,8 +33,8 @@ palette = jh_colors
 dmin    = -0.2           # min value
 dmax    = 0.2            # max value
 
-<output3>
-out_fmt = ppm               # ppm images of particle density
+<output4>
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = difd
 id      = difd
@@ -39,8 +43,8 @@ palette = jh_colors
 dmin    = -0.001          # min value
 dmax    = 0.001           # max value
 
-<output4>
-out_fmt = ppm               # ppm images of particle density
+<output5>
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = dVx
 id      = dVx
@@ -49,8 +53,8 @@ palette = jh_colors
 dmin    = -0.05           # min value
 dmax    = 0.05            # max value
 
-<output5>
-out_fmt = ppm               # ppm images of gas density
+<output6>
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = dVxpar
 id      = dVxpar
@@ -60,12 +64,8 @@ palette = jh_colors
 dmin    = -0.05           # min value
 dmax    = 0.05            # max value
 
-<output6>
-out_fmt = rst               # restart dump
-dt      = 300.0             # time step between output
-
 <output7>
-out_fmt = ppm               # ppm images of particle density
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = dVy
 id      = dVy
@@ -75,7 +75,7 @@ dmin    = -0.05          # min value
 dmax    = 0.05            # max value
 
 <output8>
-out_fmt = ppm               # ppm images of gas density
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = V2par
 id      = V2par
@@ -84,7 +84,7 @@ dmin    = -0.05           # min value
 dmax    = 0.05            # max value
 
 <output9>
-out_fmt = ppm               # ppm images of particle density
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = V2
 id      = V2
@@ -93,7 +93,7 @@ dmin    = -0.05           # min value
 dmax    = 0.05            # max value
 
 <output10>
-out_fmt = ppm               # ppm images of gas density
+out_fmt = ppm               # ppm image
 dt      = 0.4               # time step between output
 out     = V2par
 id      = V2par
@@ -104,12 +104,12 @@ dmax    = 0.05            # max value
 <time>
 
 cour_no         = 0.9       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 1000000    # cycle limit
+nlim            = 1000000   # cycle limit
 tlim            = 300       # time limit
 
 <grid>
 
-Nx1             = 256        # Number of zones in X-direction
+Nx1             = 256       # Number of zones in X-direction
 x1min           = -1.0      # minimum value of X
 x1max           = 1.0       # maximum value of X
 ibc_x1          = 4         # inner-I (X) boundary flag (relection)
@@ -156,5 +156,5 @@ amp             = 1.0e-6    # amplitude of perturbation
 nwave           = 1         # number of wavelengths across the box
 ipert           = 3         # perturbation mode (0: nsh; 1: linA; 2: linB; 3: white)
 
-interval        = 0.4       # time interval for user defined output
+interval        = 0.2       # time interval for user defined output
 downsamp        = 32        # down sampling in the particle list output

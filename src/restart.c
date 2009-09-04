@@ -26,6 +26,7 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+#include "particles/particle.h"
 
 /*----------------------------------------------------------------------------*/
 /* restart_grid_block: Reads nstep,time,dt,arrays of Gas and face-centered B in 
@@ -299,9 +300,13 @@ void restart_grid_block(char *res_file, Grid *pG, Domain *pD)
 #endif
     fread(&(pG->grproperty[i].rad),sizeof(Real),1,fp);
     fread(&(pG->grproperty[i].rho),sizeof(Real),1,fp);
+    fread(&(tstop0[i]),sizeof(Real),1,fp);
     fread(&(grrhoa[i]),sizeof(Real),1,fp);
   }
   fread(&(alamcoeff),sizeof(Real),1,fp);   /* coefficient to calculate the Reynolds number */
+
+  for (i=0; i<pG->partypes; i++)
+    fread(&(pG->grproperty[i].integrator),sizeof(short),1,fp);
 
 /* Read the x1-coordinate */
   fgets(line,MAXLEN,fp);    /* Read the '\n' preceeding the next string */
@@ -428,8 +433,10 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   Rad_Ran2_State ranstate;
 #endif
 #ifdef PARTICLES
-  int nprop, *ibuf = NULL, ibufsize, nibuf = 0;
-  long np, p, *lbuf = NULL, lbufsize, nlbuf = 0;
+  int nprop, *ibuf = NULL, ibufsize, lbufsize, sbufsize, nibuf, nlbuf, nsbuf;
+  long np, p, *lbuf = NULL;
+  short *sbuf = NULL;
+  nibuf = 0;	nsbuf = 0;	nlbuf = 0;
 #endif
   int bufsize, nbuf = 0;
   Real *buf = NULL;
@@ -448,6 +455,11 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
   }
   lbufsize = 262144 / sizeof(long);  /* 256 KB worth of longs */
   if ((lbuf = (long*)calloc_1d_array(lbufsize, sizeof(long))) == NULL) {
+    ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
+    return;  /* Right now, we just don't write instead of aborting completely */
+  }
+  sbufsize = 262144 / sizeof(short);  /* 256 KB worth of longs */
+  if ((sbuf = (short*)calloc_1d_array(sbufsize, sizeof(short))) == NULL) {
     ath_perr(-1,"[dump_restart]: Error allocating memory for buffer\n");
     return;  /* Right now, we just don't write instead of aborting completely */
   }
@@ -697,9 +709,9 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 
   /* Write out the particle properties */
 #ifdef FEEDBACK
-  nprop = 4;
+  nprop = 5;
 #else
-  nprop = 3;
+  nprop = 4;
 #endif
   fwrite(&(pG->partypes),sizeof(int),1,fp); /* number of particle types */
   for (i=0; i<pG->partypes; i++) {          /* particle property list */
@@ -708,6 +720,7 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
 #endif
     buf[nbuf++] = pG->grproperty[i].rad;
     buf[nbuf++] = pG->grproperty[i].rho;
+    buf[nbuf++] = tstop0[i];
     buf[nbuf++] = grrhoa[i];
     if ((nbuf+nprop) > bufsize) {
       fwrite(buf,sizeof(Real),nbuf,fp);
@@ -719,6 +732,18 @@ void dump_restart(Grid *pG, Domain *pD, Output *pout)
     nbuf = 0;
   }
   fwrite(&(alamcoeff),sizeof(Real),1,fp);  /* coefficient to calculate the Reynolds number */
+
+  for (i=0; i<pG->partypes; i++) {          /* particle integrator type */
+    sbuf[nsbuf++] = pG->grproperty[i].integrator;
+    if ((nsbuf+1) > sbufsize) {
+      fwrite(sbuf,sizeof(short),nsbuf,fp);
+      nsbuf = 0;
+    }
+  }
+  if (nsbuf > 0) {
+    fwrite(sbuf,sizeof(short),nsbuf,fp);
+    nsbuf = 0;
+  }
 
   /* Write x1 */
   fprintf(fp,"\nPARTICLE X1\n");

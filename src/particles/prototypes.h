@@ -36,12 +36,12 @@ void particle_realloc(Grid *pG, long n);
 /*----------------------------------------------------------------------------*/
 /* integrators_particle.c */
 void Integrate_Particles(Grid *pG, Domain *pD);
-void int_par_exp   (Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
-void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
-void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3);
+void int_par_exp   (Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts);
+void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts);
+void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts);
 #ifdef FEEDBACK
 void feedback_predictor(Grid* pG);
-void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3);
+void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3, Real ts);
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -75,13 +75,10 @@ Real get_ts_fixed  (Grid *pG, int type, Real rho, Real cs, Real vd);
 
 #ifdef FEEDBACK
 void feedback_clear(Grid *pG);
-void distrFB      (Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb);
+void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb, Real Elosspar);
 #endif
 
 void shuffle(Grid* pG);
-
-void gasvshift_zero(Real x1, Real x2, Real x3, Real *u1, Real *u2, Real *u3);
-void User_ParticleForce_Zero(Vector *ft, Real x1, Real x2, Real x3, Real *w1, Real *w2, Real *w3);
 
 #endif /* PARTICLES */
 

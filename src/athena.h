@@ -304,13 +304,14 @@ typedef struct Grid_s{
   char *outfilename;        /* basename for output files */
 
 #ifdef PARTICLES
-  int partypes;			/* number of particle types types (size, density, mass) */
-  Grain_Property *grproperty;	/* array of particle properties of all types */
-  long nparticle;		/* number of particles */
-  long arrsize;			/* size of the particle array */
-  Grain *particle; 		/* array of all particles */
+  int partypes;              /* number of particle types types (size, density, mass) */
+  Grain_Property *grproperty;/* array of particle properties of all types */
+  long nparticle;            /* number of particles */
+  long arrsize;              /* size of the particle array */
+  Grain *particle;           /* array of all particles */
 #ifdef FEEDBACK
-  Vector ***feedback;		/* array of feedback force to the grid */
+  Vector ***feedback;        /* array of feedback force to the grid */
+  Real ***Eloss;             /* array of energy dissipation */
 #endif /* FEEDBACK */
 #endif /* PARTICLES */
 

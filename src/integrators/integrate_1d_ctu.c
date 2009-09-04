@@ -174,6 +174,11 @@ void integrate_1d(Grid *pG, Domain *pD)
       Wr[i].Vx -= pG->feedback[ks][js][i].x1*d1;
       Wr[i].Vy -= pG->feedback[ks][js][i].x2*d1;
       Wr[i].Vz -= pG->feedback[ks][js][i].x3*d1;
+
+#ifndef BAROTROPIC
+      Wl[i].P += pG->Eloss[ks][js][i-1]*Gamma_1;
+      Wr[i].P += pG->Eloss[ks][js][i]*Gamma_1;
+#endif
     }
 #endif /* FEEDBACK */
 
@@ -363,6 +368,9 @@ void integrate_1d(Grid *pG, Domain *pD)
     pG->U[ks][js][i].M1 -= pG->feedback[ks][js][i].x1;
     pG->U[ks][js][i].M2 -= pG->feedback[ks][js][i].x2;
     pG->U[ks][js][i].M3 -= pG->feedback[ks][js][i].x3;
+#ifndef BAROTROPIC
+      pG->U[ks][js][i].E += pG->Eloss[ks][js][i];
+#endif
   }
 #endif
 
