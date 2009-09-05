@@ -25,6 +25,7 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef SELF_GRAVITY_USING_MULTIGRID
 #ifdef MPI_PARALLEL
 static double *send_buf=NULL, *recv_buf=NULL;
 #endif
@@ -93,7 +94,6 @@ void selfg_by_multig_2d(Grid *pG, Domain *pD)
 
 void selfg_by_multig_3d(Grid *pG, Domain *pD)
 {
-#ifdef SELF_GRAVITY_USING_MULTIGRID
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -271,14 +271,12 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   free_3d_array(Root_grid.rhs);
   free_3d_array(Root_grid.Phi);
 
-#endif /* SELF_GRAVITY_USING_MULTIGRID */
   return;
 }
 
 /*----------------------------------------------------------------------------*/
 /* Functions needed for the multigrid solver in 3D
  */
-#ifdef SELF_GRAVITY_USING_MULTIGRID
 
 void multig_3d(MGrid *pMG)
 {
@@ -510,7 +508,6 @@ void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
 
   return;
 }
-#endif /* SELF_GRAVITY_USING_MULTIGRID */
 
 /*----------------------------------------------------------------------------*/
 /* set_mg_bvals:  sets BC for Jacobi iterates for MPI parallel jobs.
@@ -523,7 +520,6 @@ void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
  * fill the corner cells properly
  */
 
-#ifdef SELF_GRAVITY_USING_MULTIGRID
 #ifdef MPI_PARALLEL
 void set_mg_bvals(MGrid *pMG)
 {

@@ -17,6 +17,7 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef SELF_GRAVITY
 static Real ***dPhi=NULL;
 
 /*----------------------------------------------------------------------------*/
@@ -36,7 +37,6 @@ static Real ***dPhi=NULL;
 
 void selfg_flux_correction(Grid *pG)
 {
-#ifdef SELF_GRAVITY
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -316,7 +316,6 @@ void selfg_flux_correction(Grid *pG)
     break;
 
   } /* end of switch statement */
-#endif /* SELF_GRAVITY */
 
   return;
 }
@@ -372,3 +371,4 @@ VGDFun_t selfg_init(Grid *pG, Domain *pD)
 
   return NULL;
 }
+#endif /* SELF_GRAVITY */

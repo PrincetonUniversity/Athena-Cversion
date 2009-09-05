@@ -3,11 +3,24 @@
 /*==============================================================================
  * //////////////////////////// ATHENA Main Program \\\\\\\\\\\\\\\\\\\\\\\\\\\
  *
- *  Athena - Developed by JM Stone, TA Gardiner, PJ Teuben, & JF Hawley
+ *  Athena - C version developed by JM Stone, TA Gardiner, & PJ Teuben.
+ *  Significant additional contributions from X. Bai, M. Krumholz, N. Lemaster,
+ *  I. Parrish, & A. Skinner.  See also the F90 version developed by JF Hawley
+ *  & JB Simon.
+ *
+ *  History:
+ *   v1.0 [Feb 2003] - 1D adiabatic and isothermal MHD
+ *   v1.1 [Sep 2003] - bug fixes in eigensystems
+ *   v2.0 [Dec 2004] - 2D adiabatic and isothermal MHD
+ *   v3.0 [Feb 2007] - 3D adiabatic and isothermal MHD with MPI
+ *   v3.1 [Jan 2008] - multiple species, self-gravity
+ *   v3.2 [Sep 2009] - viscosity, resistivity, conduction, particles, special
+ *                     relativity, cylindrical coordinates
+ *
  *  See the GNU General Public License for usage restrictions. 
  *
  *============================================================================*/
-static char *athena_version = "version 3.1 - 01-JAN-2008";
+static char *athena_version = "version 3.2 - 07-SEP-2009";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,10 +43,10 @@ static char *athena_version = "version 3.1 - 01-JAN-2008";
  *   usage         - outputs help message and terminates execution
  *============================================================================*/
 
-/* This define controls the maximum number of mkdir() and chdir() file
-   operations will be executed at a given time in the change_rundir()
-   function when running in parallel.  This is the value passed to
-   baton_start() and baton_end(). */ 
+/* Maximum number of mkdir() and chdir() file operations that will be executed
+ * at once in the change_rundir() function when running in parallel, passed to
+ * baton_start() and baton_end().
+ */ 
 #define MAX_FILE_OP 256
 
 static void change_rundir(const char *name);
@@ -386,7 +399,7 @@ int main(int argc, char *argv[])
   set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
 #ifdef EXPLICIT_DIFFUSION
-  integrate_explicit_diff_init(&level0_Grid,&level0_Domain);
+  integrate_explicit_diff_init(&level0_Grid);
 #endif
 #ifdef ION_RADIATION
   IonRadTransfer = ion_radtransfer_init(&level0_Grid, &level0_Domain, ires);
@@ -682,11 +695,12 @@ static void usage(const char *prog)
   ath_perr(-1,"\nUsage: %s [options] [block/par=value ...]\n",prog);
   ath_perr(-1,"\nOptions:\n");
   ath_perr(-1,"  -i <file>       Alternate input file [athinput]\n");
+  ath_perr(-1,"  -r <file>       Restart a simulation with this file\n");
   ath_perr(-1,"  -d <directory>  Alternate run dir [current dir]\n");
   ath_perr(-1,"  -h              This Help, and configuration settings\n");
-  ath_perr(-1,"  -n              Parse input, but don't run program\n"); 
-  ath_perr(-1,"  -c              Show Configuration details and quit\n"); 
-  ath_perr(-1,"  -r <file>       Restart a simulation with this file\n");
+  ath_perr(-1,"  -n              Parse input, but don't run program\n");
+  ath_perr(-1,"  -c              Show Configuration details and quit\n");
+  ath_perr(-1,"  -t hh:mm:ss     With MPI, wall time limit for final output\n");
   show_config();
   exit(0);
 }

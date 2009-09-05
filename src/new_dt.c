@@ -28,19 +28,20 @@
 
 void new_dt(Grid *pGrid)
 {
+#ifndef SPECIAL_RELATIVITY
   int i,j,k;
-  Real di,v1,v2,v3,qsq,p,asq,cf1sq,cf2sq,cf3sq;
-  Real max_v1, max_v2, max_v3, max_dti;
+  Real di,v1,v2,v3,qsq,asq,cf1sq,cf2sq,cf3sq;
+#ifdef ADIABATIC
+  Real p;
+#endif
 #ifdef MHD
   Real b1,b2,b3,bsq,tsum,tdif;
 #endif /* MHD */
 #ifdef PARTICLES
   long q;
 #endif /* PARTICLES */
-  Real nu, eta, min_dx;
-
-  max_v1=0.0;	max_v2=0.0;	max_v3=0.0;
-  max_dti = 0.0;
+#endif /* SPECIAL RELATIVITY */
+  Real max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
 
 #ifndef SPECIAL_RELATIVITY
   for (k=pGrid->ks; k<=pGrid->ke; k++) {

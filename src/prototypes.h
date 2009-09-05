@@ -196,8 +196,10 @@ void restart_grid_block(char *res_file, Grid *pGrid, Domain *pDomain);
 
 /*----------------------------------------------------------------------------*/
 /* self_gravity.c  */
+#ifdef SELF_GRAVITY
 VGDFun_t selfg_init(Grid *pG, Domain *pD);
 void selfg_flux_correction(Grid *pG);
+#endif
 void selfg_by_multig_1d(Grid *pG, Domain *pD);
 void selfg_by_multig_2d(Grid *pG, Domain *pD);
 void selfg_by_multig_3d(Grid *pG, Domain *pD);

@@ -7,7 +7,6 @@
 #include "globals.h"
 #include "prototypes.h"
 #include "cyl.h"
-//#include "debug.h"
 
 #ifdef CYLINDRICAL
 

@@ -35,7 +35,10 @@ void dump_tab_cons(Grid *pG, Domain *pD, Output *pOut)
   int dnum = pOut->num;
   FILE *pfile;
   Gas *pGas;
-  Real x1,x2,x3,KE,ME=0.0;
+  Real x1,x2,x3;
+#ifndef BAROTROPIC
+  Real KE,ME=0.0;
+#endif
   char zone_fmt[20], fmt[80];
   int col_cnt=1, nmax;
 #if (NSCALARS > 0)
@@ -265,8 +268,10 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
   int dnum = pOut->num;
   FILE *pfile;
   Prim Primitives;
-  Gas *pGas;
-  Real x1,x2,x3,d1,KE,ME=0.0;
+  Real x1,x2,x3,d1;
+#ifndef BAROTROPIC
+  Real KE,ME=0.0;
+#endif
   char zone_fmt[20], fmt[80];
   int col_cnt=1, nmax;
 #if (NSCALARS > 0)

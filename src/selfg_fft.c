@@ -46,9 +46,9 @@ static ath_fft_data *work=NULL;
  *   This algorithm taken from pp.35-38 of Hockney & Eastwood
  */
 
+#ifdef SELF_GRAVITY_USING_FFT
 void selfg_by_fft_1d(Grid *pG, Domain *pD)
 {
-#ifdef SELF_GRAVITY_USING_FFT
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
@@ -87,11 +87,11 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
   for (i=is; i<=ie; i++) {
     pG->Phi[ks][js][i] -= total_Phi;
   }
-
-#endif /* SELF_GRAVITY_USING_FFT */
 }
+#endif /* SELF_GRAVITY_USING_FFT */
 
 #ifdef FFT_ENABLED
+#ifdef SELF_GRAVITY_USING_FFT
 /*----------------------------------------------------------------------------*/
 /* selfg_by_fft_2d:
  *   Only works for uniform grid, periodic boundary conditions
@@ -99,7 +99,6 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
 
 void selfg_by_fft_2d(Grid *pG, Domain *pD)
 {
-#ifdef SELF_GRAVITY_USING_FFT
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -170,7 +169,6 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
     }
   }
 
-#endif /* SELF_GRAVITY_USING_FFT */
   return;
 }
 
@@ -181,7 +179,6 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
 
 void selfg_by_fft_3d(Grid *pG, Domain *pD)
 {
-#ifdef SELF_GRAVITY_USING_FFT
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -272,7 +269,6 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
     }
   }}
 
-#endif /* SELF_GRAVITY_USING_FFT */
   return;
 }
 
@@ -302,4 +298,5 @@ void selfg_by_fft_3d_init(Grid *pG, Domain *pD)
   work = ath_3d_fft_malloc(fplan3d);
 }
 
+#endif /* SELF_GRAVITY_USING_FFT */
 #endif /* FFT_ENABLED */

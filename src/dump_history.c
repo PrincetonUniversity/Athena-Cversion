@@ -88,8 +88,9 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   double rho, cellvol1;
 #endif
 
-  double x1, x2, x3, grid_vol;
+  Real x1=1.0;
 #ifdef CYLINDRICAL
+  Real x2, x3;
   double Rmin, Rmax;
 #endif 
 
@@ -129,11 +130,9 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        // WEIGHT THE VARIABLES IN EACH CELL BY x1
+        /* WEIGHT THE VARIABLES IN EACH CELL BY x1 */
 #ifdef CYLINDRICAL
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-#else
-        x1 = 1.0;
 #endif
 
         mhst = 2;

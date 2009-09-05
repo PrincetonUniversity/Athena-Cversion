@@ -19,7 +19,6 @@ CORE_OBJ = ath_array.o \
            convert_var.o \
            convert_var_sr.o \
            cyl.o \
-           debug.o \
            dump_binary.o \
            dump_dx.o \
            dump_history.o \

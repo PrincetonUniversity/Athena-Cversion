@@ -46,8 +46,11 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 
 void init_domain(Grid *pG, Domain *pD)
 {
-  int i,j,k,ib,jb,kb,id,nproc=0;
+  int i,j,k,ib,jb,kb,id;
   div_t x1div, x2div, x3div;        /* A divisor with quot and rem members */
+#ifdef MPI_PARALLEL
+  int nproc=0;
+#endif
 
 /* Initialize the min/max coordinates of this Domain, using parameters read
  * from <grid> block in input file. */

@@ -942,17 +942,18 @@ Real expr_V3(const Grid *pG, const int i, const int j, const int k) {
 Real expr_P(const Grid *pG, const int i, const int j, const int k) {
 #ifdef SPECIAL_RELATIVITY
    return pG->W[k][j][i].P;
-#endif
+#else
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
-#elif defined ADIABATIC
+#else
   Gas *gp = &(pG->U[k][j][i]);
   return Gamma_1*(gp->E 
 #ifdef MHD
 		  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
 		  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
-#endif
+#endif /* ISOTHERMAL */
+#endif /* SPECIAL RELATIVITY */
 }
 
 /*--------------------------------------------------------------------------- */

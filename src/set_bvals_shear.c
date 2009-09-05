@@ -1360,7 +1360,7 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
 #ifdef MHD
 void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 {
-  int is = pG->is, ie = pG->ie;
+  int ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int j,k,joffset,jremap;
@@ -1703,7 +1703,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 #ifdef MHD
 void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
 {
-  int is = pG->is, ie = pG->ie;
+  int is = pG->is;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int j,k,joffset,jremap;
@@ -2392,7 +2392,10 @@ void Fargo(Grid *pG, Domain *pD)
 
 void set_bvals_shear_init(Grid *pG, Domain *pD)
 {
-  int nx1,nx2,nx3,size1=0,size2=0,size;
+  int nx1,nx2,nx3;
+#ifdef MPI_PARALLEL
+  int size1=0,size2=0,size;
+#endif
 #ifdef FARGO
   Real xmin,xmax,x2,x3;
 #endif
