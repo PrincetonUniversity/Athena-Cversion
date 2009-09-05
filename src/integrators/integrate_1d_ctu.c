@@ -54,9 +54,11 @@ void integrate_1d(Grid *pG, Domain *pD)
   int i,il,iu, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
-  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
-#ifdef MHD
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h;
+#ifndef BAROTROPIC
+  Real coolfl,coolfr,coolf,Eh=0.0;
+#endif
+#if defined(MHD) && !defined(BAROTROPIC)
   Real B1ch,B2ch,B3ch;
 #endif
 #if (NSCALARS > 0)
@@ -68,6 +70,7 @@ void integrate_1d(Grid *pG, Domain *pD)
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
+  Real d1;
   il = is - 3;
   iu = ie + 3;
 #else
@@ -114,7 +117,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
   }
 
-  lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,il+1,iu-1,Wl,Wr);
+  lr_states(W, MHDARG( Bxc , ) dtodx1,il+1,iu-1,Wl,Wr);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
@@ -264,7 +267,7 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif /* MHD */
 
       phalf[i] *= Gamma_1;
-#endif /* BARATROPIC */
+#endif /* BAROTROPIC */
 
 #ifdef PARTICLES
       d1 = 1.0/dhalf[i];

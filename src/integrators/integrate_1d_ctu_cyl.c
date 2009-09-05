@@ -1,11 +1,12 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: integrate_1d_ctu.c
+ * FILE: integrate_1d_ctu_cyl.c
  *
- * PURPOSE: Integrate MHD equations using 1D version of the CTU integrator.
- *   Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure, where U is of type
- *   Gas.  Adds gravitational source terms, self-gravity, and optically-thin
- *   cooling.
+ * PURPOSE: 1D Cylindrical Grid Integrator.
+ *   Integrates MHD equations using 1D version of the CTU integrator in
+ *   cylindrical coordinates.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid
+ *   structure, where U is of type Gas.  Adds gravitational source terms,
+ *   self-gravity, and optically-thin cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   integrate_1d()
@@ -25,7 +26,6 @@
 #ifdef PARTICLES
 #include "../particles/particle.h"
 #endif
-#include "../debug.h"
 
 #if defined(CTU_INTEGRATOR) && defined(CYLINDRICAL)
 
@@ -85,14 +85,6 @@ void integrate_1d(Grid *pG, Domain *pD)
   iu = ie + 1;
 #endif
 
-  ath_pout(1,"VIEWING CELL (%d)\n", IVIEW);
-  cc_pos(pG,IVIEW,js,ks,&x1,&x2,&x3);
-  vc_pos(pG,IVIEW,js,ks,&y1,&y2,&y3);
-  ath_pout(1,"(x1,x2,x3) = (" FMT ", " FMT ", " FMT ")\n", x1,x2,x3);
-  ath_pout(1,"R_vc = " FMT "\n", y1);
-  ath_pout(1,"dx1 = " FMT ",\t dx2 = " FMT ",\t dx3 = " FMT "\n", pG->dx1,pG->dx2,pG->dx3);
-  ath_pout(1,"dt = " FMT "\n", pG->dt);
-
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -117,14 +109,6 @@ void integrate_1d(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][js][i].s[n];
 #endif
-
-    if (VIEW1D) {
-      debug_header(3,"STEP 1A - LOAD CONSERVED VARIABLES");
-      print_cons1d(3,"U1d",&U1d[i],ks,js,i,1);
-#ifdef MHD
-      ath_pout(3,"Bxc[%d] = " FMT "\n", i,Bxc[i]);
-#endif
-    }
   }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -141,22 +125,9 @@ void integrate_1d(Grid *pG, Domain *pD)
     geom_src[i] -= SQR(W[i].By);
 #endif
     geom_src[i] /= y1;
-
-    if (VIEW1D) {
-      debug_header(3, "STEP 1B - COMPUTE CELL-CENTERED GEOMETRIC SOURCE TERM");
-      ath_pout(3, "geom_src[%d] = " FMT "\n",i,geom_src[i]);
-    }
   }
 
-  lr_states_cyl(W, MHDARG( Bxc , ) pG->dt,dtodx1,is,ie,Wl,Wr);
-
-  for (i=is-nghost; i<=ie+nghost; i++) {
-    if (VIEW1D) {
-      debug_header(4, "STEP 1B - COMPUTE L/R STATES AT X1-INTERFACES");
-      print_prim1d(4,"Wl",&Wl[i],ks,js,i,1);
-      print_prim1d(4,"Wr",&Wr[i],ks,js,i,1);
-    }
-  }
+  lr_states_cyl(W, MHDARG( Bxc , ) dtodx1,is,ie,Wl,Wr);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
@@ -172,13 +143,6 @@ void integrate_1d(Grid *pG, Domain *pD)
       /* APPLY GRAVITATIONAL SOURCE TERMS TO VELOCITY USING ACCELERATION FOR (dt/2) */
       Wl[i].Vx -= hdt*gl;
       Wr[i].Vx -= hdt*gr;
-
-      if (VIEW1D) {
-        debug_header(4,"STEP 1C - AFTER STATIC GRAVITY SOURCE");
-        ath_pout(4,"gravity_src_l = " FMT ",\tgravity_src_r = " FMT "\n",-hdt*gl, -hdt*gr);
-        print_prim1d(4,"Wl",&Wl[i],ks,js,i,1);
-        print_prim1d(4,"Wr",&Wr[i],ks,js,i,1);
-      }
     }
   }
 
@@ -307,16 +271,6 @@ void integrate_1d(Grid *pG, Domain *pD)
                MHDARG( Bxi[i] , ) &x1Flux[i]);
   }
 
-  for (i=il+1; i<=iu; i++) {
-    if (VIEW1D) {
-      debug_header(2,"STEP 1D - COMPUTE X1-FLUXES");
-      print_cons1d(3,"Ul_x1Face",&Ul_x1Face[i],ks,js,i,1);
-      print_cons1d(3,"Ur_x1Face",&Ur_x1Face[i],ks,js,i,1);
-      print_cons1d(2,"x1Flux",&x1Flux[i],ks,js,i,1);
-      print_cons1d(4,"x1Flux",&x1Flux[i+1],ks,js,i+1,1);
-    }
-  }
-
 /*=== STEPS 2-7: Not needed in 1D ===*/
 
 /*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
@@ -439,12 +393,6 @@ void integrate_1d(Grid *pG, Domain *pD)
       pG->U[ks][js][i].E -= (dtodx1/r[i])*(ri[i  ]*x1Flux[i  ].d*(phic - phil) +
                                            ri[i+1]*x1Flux[i+1].d*(phir - phic));
 #endif
-
-      if (VIEW1D) {
-        debug_header(2,"STEP 11A - AFTER STATIC GRAVITATIONAL SOURCE TERM");
-        print_gas(2,"U", &pG->U[ks][js][i], ks,js,i);
-        ath_pout(2,"grav_src = " FMT "\n", -dhalf[i]*g);
-      }
     }
   }
 
@@ -519,12 +467,6 @@ void integrate_1d(Grid *pG, Domain *pD)
 
     /* ADD TIME-CENTERED GEOMETRIC SOURCE TERM FOR FULL dt */
     pG->U[ks][js][i].M1 += pG->dt*geom_src[i];
-
-    if (VIEW1D) {
-      debug_header(2,"STEP 11A - AFTER GEOMETRIC SOURCE TERM");
-      print_gas(2,"U", &pG->U[ks][js][i], ks,js,i);
-      ath_pout(2,"geom_src = " FMT "\n", geom_src[i]);
-    }
   }
 
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
@@ -556,11 +498,6 @@ void integrate_1d(Grid *pG, Domain *pD)
     for (n=0; n<NSCALARS; n++)
       pG->U[ks][js][i].s[n] -= dtodx1*(x1Flux[i+1].s[n] - x1Flux[i].s[n]);
 #endif
-
-    if (VIEW1D) {
-      debug_header(2,"STEP 12A - AFTER CC-VAL UPDATE BY X1-FLUX GRADIENTS");
-      print_gas(2,"U", &pG->U[ks][js][i], ks,js,i);
-    }
   }
 
   return;

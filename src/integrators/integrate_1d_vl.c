@@ -305,7 +305,7 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Compute L/R states on x1-interfaces, store into arrays
  */
 
-  lr_states(W, MHDARG( Bxc , ) 0.0,0.0,is,ie,Wl,Wr);
+  lr_states(W, MHDARG( Bxc , ) 0.0,is,ie,Wl,Wr);
 
   for (i=is; i<=ie+1; i++) {
     Wl_x1Face[i] = Wl[i];

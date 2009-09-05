@@ -38,7 +38,6 @@
 #ifdef PARTICLES
 #include "../particles/particle.h"
 #endif
-#include "../debug.h"
 
 #if defined(CTU_INTEGRATOR) && defined(CARTESIAN)
 
@@ -89,15 +88,19 @@ void integrate_2d(Grid *pG, Domain *pD)
 {
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
-  Real hdt = 0.5*pG->dt;
   int i,il,iu,is=pG->is, ie=pG->ie;
   int j,jl,ju,js=pG->js, je=pG->je;
   int ks=pG->ks;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
-  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h;
+#ifndef BAROTROPIC
+  Real coolfl,coolfr,coolf,Eh=0.0;
+#endif
 #ifdef MHD
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
   Real B1ch, B2ch, B3ch;
+#endif
+#if defined(MHD) || defined(FARGO)
+  Real hdt = 0.5*pG->dt;
 #endif
 #ifdef H_CORRECTION
   Real cfr,cfl,lambdar,lambdal;
@@ -117,6 +120,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
+  Real d1;
   il = is - 3;
   iu = ie + 3;
   jl = js - 3;
@@ -130,12 +134,6 @@ void integrate_2d(Grid *pG, Domain *pD)
 
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;
-
-  ath_pout(1,"VIEWING CELL (%d,%d)\n", IVIEW,JVIEW);
-  cc_pos(pG,IVIEW,JVIEW,ks,&x1,&x2,&x3);
-  ath_pout(1,"(x1,x2,x3) = (" FMT ", " FMT ", " FMT ")\n", x1,x2,x3);
-  ath_pout(1,"dx1 = " FMT ",\t dx2 = " FMT ",\t dx3 = " FMT "\n", pG->dx1,pG->dx2,pG->dx3);
-  ath_pout(1,"dt = " FMT "\n", pG->dt);
 
 /* Compute predictor feedback from particle drag */
 #ifdef FEEDBACK
@@ -168,11 +166,6 @@ void integrate_2d(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][j][i].s[n];
 #endif
-
-      if (VIEW2D) {
-        debug_header(3,"STEP 1A - LOAD CONSERVED VARIABLES");
-        print_cons1d(3,"U1d",&U1d[i],ks,j,i,1);
-      }
     }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -183,7 +176,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
     }
 
-    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,il+1,iu-1,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) dtodx1,il+1,iu-1,Wl,Wr);
 
 #ifdef MHD
     for (i=il+1; i<=iu; i++) {
@@ -339,7 +332,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
     }
 
-    lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,jl+1,ju-1,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) dtodx2,jl+1,ju-1,Wl,Wr);
 
 #ifdef MHD
     for (j=jl+1; j<=ju; j++) {
@@ -506,7 +499,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 5b: Not needed in 2D ---
+/*--- Step 5b: Not needed in 2D ---*/
 /*--- Step 5c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x2-flux gradient to the conservative
  * variables on the x1Face..
@@ -650,7 +643,7 @@ void integrate_2d(Grid *pG, Domain *pD)
     }
   }
 
-/*--- Step 6b: Not needed in 2D ---
+/*--- Step 6b: Not needed in 2D ---*/
 /*--- Step 6c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x1-flux-gradients to the
  * conservative variables on the x2Face.
@@ -974,14 +967,6 @@ void integrate_2d(Grid *pG, Domain *pD)
 
       fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
                  MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
-
-      if (VIEW2D) {
-        debug_header(2,"STEP 9B - COMPUTE 2ND ORDER X1-FLUXES");
-        print_cons1d(3,"Ul_x1Face",&Ul_x1Face[j][i],ks,j,i,1);
-        print_cons1d(3,"Ur_x1Face",&Ur_x1Face[j][i],ks,j,i,1);
-        print_cons1d(2,"x1Flux",&x1Flux[j][i],ks,j,i,1);
-        print_cons1d(4,"x1Flux",&x1Flux[j][i+1],ks,j,i+1,1);
-      }
     }
   }
 /*--- Step 9c ------------------------------------------------------------------
@@ -1001,14 +986,6 @@ void integrate_2d(Grid *pG, Domain *pD)
 
       fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],
                  MHDARG( B2_x2Face[j][i] , )&x2Flux[j][i]);
-
-      if (VIEW2D) {
-        debug_header(2,"STEP 9C - COMPUTE 2ND ORDER X2-FLUXES");
-        print_cons1d(3,"Ul_x2Face",&Ul_x2Face[j][i],ks,j,i,2);
-        print_cons1d(3,"Ur_x2Face",&Ur_x2Face[j][i],ks,j,i,2);
-        print_cons1d(2,"x2Flux",&x2Flux[j][i],ks,j,i,2);
-        print_cons1d(4,"x2Flux",&x2Flux[j+1][i],ks,j+1,i,2);
-      }
     }
   }
 
@@ -1038,9 +1015,6 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif
 
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
-
-  debug_header(1,"STEP 11 - BEFORE SOURCE TERMS ADDED");
-  print_gas(1,"U", &pG->U[ks][JVIEW][IVIEW],ks,JVIEW,IVIEW);
 
 /*--- Step 11a -----------------------------------------------------------------
  * Add gravitational (or shearing box) source terms as a Static Potential.
@@ -1295,11 +1269,6 @@ void integrate_2d(Grid *pG, Domain *pD)
         pG->U[ks][j][i].s[n] -= dtodx1*(x1Flux[j][i+1].s[n] 
                                          - x1Flux[j][i  ].s[n]);
 #endif
-
-      if (VIEW2D) {
-        debug_header(1,"STEP 12A - AFTER CC-VAL UPDATE BY X1-FLUX GRADIENTS");
-        print_gas(1,"U", &pG->U[ks][j][i], ks,j,i);
-      }
     }
   }
 
@@ -1325,11 +1294,6 @@ void integrate_2d(Grid *pG, Domain *pD)
         pG->U[ks][j][i].s[n] -= dtodx2*(x2Flux[j+1][i].s[n] 
                                          - x2Flux[j  ][i].s[n]);
 #endif
-
-      if (VIEW2D) {
-        debug_header(1,"STEP 12B - AFTER CC-VAL UPDATE BY X2-FLUX GRADIENTS");
-        print_gas(1,"U", &pG->U[ks][j][i], ks,j,i);
-      }
     }
   }
 
@@ -1347,11 +1311,6 @@ void integrate_2d(Grid *pG, Domain *pD)
       pG->U[ks][j][i].B2c =0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
 /* Set the 3-interface magnetic field equal to the cell center field. */
       pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
-
-      if (VIEW2D) {
-        debug_header(1,"STEP 12D - AFTER UPDATING CELL-CENTERED FIELDS");
-        print_gas(1,"U", &pG->U[ks][j][i], ks,j,i);
-      }
     }
   }
 #endif /* MHD */

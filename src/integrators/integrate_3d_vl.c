@@ -575,7 +575,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) 0.0,0.0,ib+1,it-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) 0.0,ib+1,it-1,Wl,Wr);
 
       for (i=ib+1; i<=it; i++) {
         Wl_x1Face[k][j][i] = Wl[i];
@@ -620,7 +620,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) 0.0,0.0,jb+1,jt-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) 0.0,jb+1,jt-1,Wl,Wr);
 
       for (j=jb+1; j<=jt; j++) {
         Wl_x2Face[k][j][i] = Wl[j];
@@ -665,7 +665,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG( , &Bxc[k]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) 0.0,0.0,kb+1,kt-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) 0.0,kb+1,kt-1,Wl,Wr);
 
       for (k=kb+1; k<=kt; k++) {
         Wl_x3Face[k][j][i] = Wl[k];

@@ -1,9 +1,11 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: integrate_3d_ctu.c
+ * FILE: integrate_3d_ctu_cyl.c
  *
- * PURPOSE: Integrate MHD equations using 3D version of the directionally
- *   unsplit CTU integrator of Colella (1990).  The variables updated are:
+ * PURPOSE: 3D Cylindrical Grid Integrator.
+ *   Integrates MHD equations using 3D version of the directionally unsplit CTU
+ *   integrator of Colella (1990) in cylindrical coordinates. The variables
+ *   updated are:
  *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
  *      B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically thin cooling,
@@ -44,7 +46,6 @@
 #ifdef PARTICLES
 #include "../particles/particle.h"
 #endif
-#include "../debug.h"
 
 #if defined(CTU_INTEGRATOR) && defined(CYLINDRICAL)
 
@@ -161,15 +162,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;
 
-  ath_pout(1,"VIEWING CELL (%d,%d,%d)\n", IVIEW,JVIEW,KVIEW);
-  cc_pos(pG,IVIEW,JVIEW,KVIEW,&x1,&x2,&x3);
-  vc_pos(pG,IVIEW,JVIEW,KVIEW,&y1,&y2,&y3);
-  ath_pout(1,"(x1,x2,x3) = (" FMT ", " FMT ", " FMT ")\n", x1,x2,x3);
-  ath_pout(1,"R_vc = " FMT "\n", y1);
-  ath_pout(1,"dx1 = " FMT ",\t dx2 = " FMT ",\t dx3 = " FMT "\n", pG->dx1,pG->dx2,pG->dx3);
-  ath_pout(1,"dt = " FMT "\n", pG->dt);
-
-
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 1a ------------------------------------------------------------------
@@ -197,11 +189,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[k][j][i].s[n];
 #endif
-
-        if (VIEW3D) {
-          debug_header(3,"STEP 1A - LOAD CONSERVED VARIABLES");
-          print_cons1d(3,"U1d",&U1d[i],k,j,i,1);
-        }
       }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -221,22 +208,9 @@ void integrate_3d(Grid *pG, Domain *pD)
         geom_src[k][j][i] -= SQR(W[i].By);
 #endif
         geom_src[k][j][i] /= y1;
-
-        if (VIEW3D) {
-          debug_header(3, "STEP 1B - COMPUTE CELL-CENTERED GEOMETRIC SOURCE TERM");
-          ath_pout(3, "geom_src[%d][%d][%d] = " FMT "\n",k,j,i,geom_src[k][j][i]);
-        }
       }
 
-      lr_states_cyl(W, MHDARG( Bxc , ) pG->dt,dtodx1,is-1,ie+1,Wl,Wr);
-
-      for (i=is-nghost; i<=ie+nghost; i++) {
-        if (VIEW3D) {
-          debug_header(4, "STEP 1B - COMPUTE L/R STATES AT X1-INTERFACES");
-          print_prim1d(4,"Wl",&Wl[i],k,j,i,1);
-          print_prim1d(4,"Wr",&Wr[i],k,j,i,1);
-        }
-      }
+      lr_states_cyl(W, MHDARG( Bxc , ) dtodx1,is-1,ie+1,Wl,Wr);
 
 #ifdef MHD
       for (i=il+1; i<=iu; i++) {
@@ -309,13 +283,6 @@ void integrate_3d(Grid *pG, Domain *pD)
           * FOR 0.5*dt */
           Wl[i].Vx -= hdt*gl;
           Wr[i].Vx -= hdt*gr;
-
-          if (VIEW3D) {
-            debug_header(4,"STEP 1C - AFTER STATIC GRAVITY SOURCE");
-            ath_pout(4,"gravity_src_l = " FMT ",\tgravity_src_r = " FMT "\n",gl,gr);
-            print_prim1d(4,"Wl",&Wl[i],k,j,i,1);
-            print_prim1d(4,"Wr",&Wr[i],k,j,i,1);
-          }
         }
       }
 
@@ -426,22 +393,6 @@ void integrate_3d(Grid *pG, Domain *pD)
         Wl[i].P  += hdt*geom_src_P;
 #endif /* ISOTHERMAL */
 
-        if (VIEW3D) {
-          debug_header(4,"STEP 1C - LEFT STATE AFTER GEOMETRIC SOURCE");
-          ath_pout(4,"geom_src_d = " FMT "\n",geom_src_d);
-          ath_pout(4,"geom_src_Vx = " FMT "\n",geom_src_Vx);
-          ath_pout(4,"geom_src_Vy = " FMT "\n",geom_src_Vy);
-#ifdef MHD
-          ath_pout(4,"geom_src_By = " FMT "\n",geom_src_By);
-          ath_pout(4,"geom_src_Bz = " FMT "\n",geom_src_Bz);
-#endif
-#ifndef ISOTHERMAL
-          ath_pout(4,"geom_src_P = " FMT "\n",geom_src_P);
-#endif
-          print_prim1d(4,"Wl",&Wl[i],k,j,i,1);
-        }
-
-
         /* RIGHT STATE GEOMETRIC SOURCE TERM (USES W[i]) */
         vc_pos(pG,i,j,k,&y1,&y2,&y3);
         rinv = 1.0/y1;
@@ -471,21 +422,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifndef ISOTHERMAL
         Wr[i].P  += hdt*geom_src_P;
 #endif /* ISOTHERMAL */
-
-        if (VIEW3D) {
-          debug_header(4,"STEP 1C - RIGHT STATE AFTER GEOMETRIC SOURCE");
-          ath_pout(4,"geom_src_d = " FMT "\n",geom_src_d);
-          ath_pout(4,"geom_src_Vx = " FMT "\n",geom_src_Vx);
-          ath_pout(4,"geom_src_Vy = " FMT "\n",geom_src_Vy);
-#ifdef MHD
-          ath_pout(4,"geom_src_By = " FMT "\n",geom_src_By);
-          ath_pout(4,"geom_src_Bz = " FMT "\n",geom_src_Bz);
-#endif
-#ifndef ISOTHERMAL
-          ath_pout(4,"geom_src_P = " FMT "\n",geom_src_P);
-#endif
-          print_prim1d(4,"Wr",&Wr[i],k,j,i,1);
-        }
       }
 
 /*--- Step 1d ------------------------------------------------------------------
@@ -498,16 +434,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 
         fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
-      }
-
-      for (i=il+1; i<=iu; i++) {
-        if (VIEW3D) {
-          debug_header(2,"STEP 1D - COMPUTE X1-FLUXES");
-          print_cons1d(3,"Ul_x1Face",&Ul_x1Face[k][j][i],k,j,i,1);
-          print_cons1d(3,"Ur_x1Face",&Ur_x1Face[k][j][i],k,j,i,1);
-          print_cons1d(2,"x1Flux",&x1Flux[k][j][i],k,j,i,1);
-          print_cons1d(4,"x1Flux",&x1Flux[k][j][i+1],k,j,i+1,1);
-        }
       }
 
     }
@@ -550,7 +476,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2/r[i],js-1,je+1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) dtodx2/r[i],js-1,je+1,Wl,Wr);
 
 #ifdef MHD
       for (j=jl+1; j<=ju; j++) {
@@ -721,7 +647,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG( , &Bxc[k]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx3,ks-1,ke+1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) dtodx3,ks-1,ke+1,Wl,Wr);
 
 #ifdef MHD
       for (k=kl+1; k<=ku; k++) {
@@ -2026,20 +1952,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 #endif  /* ISOTHERMAL */
 #endif /* PARTICLES */
 
-      if (VIEW3D) {
-        debug_header(4,"STEP 8B - CALCULATE CELL-CENTERED EMFS");
-#ifdef MHD
-        ath_pout(4,"emf1_cc[%d][%d][%d] = " FMT "\n", k,j,i,emf1_cc[k][j][i]);
-        ath_pout(4,"emf2_cc[%d][%d][%d] = " FMT "\n", k,j,i,emf2_cc[k][j][i]);
-        ath_pout(4,"emf3_cc[%d][%d][%d] = " FMT "\n", k,j,i,emf3_cc[k][j][i]);
-        ath_pout(4,"B1ch = " FMT "\n", B1ch);
-        ath_pout(4,"B2ch = " FMT "\n", B2ch);
-#endif
-        ath_pout(4,"M1h = " FMT "\n", M1h);
-        ath_pout(4,"M2h = " FMT "\n", M2h);
-        ath_pout(4,"dhalf[%d][%d][%d] = " FMT "\n", k,j,i,dhalf[k][j][i]);
-      }
-
       }
     }
   }
@@ -2117,14 +2029,6 @@ void integrate_3d(Grid *pG, Domain *pD)
         fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
 
-        if (VIEW3D) {
-          debug_header(2,"STEP 9B - COMPUTE 2ND ORDER X1-FLUXES");
-          print_cons1d(3,"Ul_x1Face",&Ul_x1Face[k][j][i],k,j,i,1);
-          print_cons1d(3,"Ur_x1Face",&Ur_x1Face[k][j][i],k,j,i,1);
-          print_cons1d(2,"x1Flux",&x1Flux[k][j][i],k,j,i,1);
-          print_cons1d(4,"x1Flux",&x1Flux[k][j][i+1],k,j,i+1,1);
-        }
-
       }
     }
   }
@@ -2155,14 +2059,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 
         fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],
                    MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
-
-        if (VIEW3D) {
-          debug_header(2,"STEP 9C - COMPUTE 2ND ORDER X2-FLUXES");
-          print_cons1d(3,"Ul_x2Face",&Ul_x2Face[k][j][i],k,j,i,2);
-          print_cons1d(3,"Ur_x2Face",&Ur_x2Face[k][j][i],k,j,i,2);
-          print_cons1d(2,"x2Flux",&x2Flux[k][j][i],k,j,i,2);
-          print_cons1d(4,"x2Flux",&x2Flux[k][j+1][i],k,j+1,i,2);
-        }
 
       }
     }
@@ -2255,15 +2151,6 @@ void integrate_3d(Grid *pG, Domain *pD)
         pG->B3i[k][j][i] += (dtodx2/r[i])*(        emf1[k  ][j+1][i  ] -       emf1[k][j][i])
                           - (dtodx1/r[i])*(ri[i+1]*emf2[k  ][j  ][i+1] - ri[i]*emf2[k][j][i]);
 
-        if (VIEW3D) {
-          debug_header(4,"STEP 10B - UPDATE INTERFACE FIELDS USING CT");
-          ath_pout(4,"B1i[%d][%d][%d] = " FMT "\n", k,j,i,pG->B1i[k][j][i]);
-          ath_pout(4,"B2i[%d][%d][%d] = " FMT "\n", k,j,i,pG->B2i[k][j][i]);
-          ath_pout(4,"B3i[%d][%d][%d] = " FMT "\n", k,j,i,pG->B3i[k][j][i]);
-          ath_pout(4,"emf3[%d][%d][%d] = " FMT "\n", k,j,i,emf3[k][j][i]);
-          ath_pout(4,"emf3[%d][%d][%d] = " FMT "\n", k,j,i+1,emf3[k][j][i+1]);
-        }
-
       }
       pG->B1i[k][j][ie+1] += dtodx3*(emf2[k+1][j  ][ie+1] - emf2[k][j][ie+1]) -
                   (dtodx2/ri[ie+1])*(emf3[k  ][j+1][ie+1] - emf3[k][j][ie+1]);
@@ -2282,9 +2169,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 #endif
 
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
-
-  debug_header(1,"STEP 11 - BEFORE SOURCE TERMS ADDED");
-  print_gas(1,"U", &pG->U[KVIEW][JVIEW][IVIEW],KVIEW,JVIEW,IVIEW);
 
 /*--- Step 11a -----------------------------------------------------------------
  * Add gravitational (or shearing box) source terms as a Static Potential.
@@ -2393,9 +2277,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
           pG->U[k][j][i].E -= (dtodx1/r[i])*(ri[i  ]*x1Flux[k][j][i  ].d*(phic - phil) +
                                              ri[i+1]*x1Flux[k][j][i+1].d*(phir - phic));
-          if (VIEW3D) {
-            ath_pout(2,"term1 = " FMT "\n", (dtodx1/r[i])*(ri[i  ]*x1Flux[k][j][i  ].d*(phic - phil) + ri[i+1]*x1Flux[k][j][i+1].d*(phir - phic)));
-          }
 #endif
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -2403,9 +2284,6 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
           pG->U[k][j][i].E -= (dtodx2/r[i])*(x2Flux[k][j  ][i].d*(phic - phil) +
                                              x2Flux[k][j+1][i].d*(phir - phic));
-          if (VIEW3D) {
-            ath_pout(2,"term2 = " FMT "\n", (dtodx2/r[i])*(x2Flux[k][j  ][i].d*(phic - phil) + x2Flux[k][j+1][i].d*(phir - phic)));
-          }
 #endif
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
@@ -2414,14 +2292,6 @@ void integrate_3d(Grid *pG, Domain *pD)
           pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                       x3Flux[k+1][j][i].d*(phir - phic));
 #endif
-
-          if (VIEW3D) {
-            debug_header(2,"STEP 11A - AFTER STATIC GRAVITATIONAL SOURCE TERM");
-            print_gas(2,"U", &pG->U[k][j][i], k,j,i);
-            ath_pout(2,"grav_src = " FMT "\n", -dhalf[k][j][i]*g);
-            ath_pout(2,"dhalf = " FMT "\n", dhalf[k][j][i]);
-          }
-
         }
       }
     }
@@ -2640,12 +2510,6 @@ void integrate_3d(Grid *pG, Domain *pD)
         /* ADD TIME-CENTERED GEOMETRIC SOURCE TERM FOR FULL dt */
         pG->U[k][j][i].M1 += pG->dt*geom_src[k][j][i];
 
-        if (VIEW3D) {
-          debug_header(2,"STEP 11A - AFTER GEOMETRIC SOURCE TERM");
-          print_gas(2,"U", &pG->U[k][j][i], k,j,i);
-          ath_pout(2,"geom_src = " FMT "\n", geom_src[k][j][i]);
-        }
-
       }
     }
   }
@@ -2677,11 +2541,6 @@ void integrate_3d(Grid *pG, Domain *pD)
                                        - x1Flux[k][j][i  ].s[n]);
 #endif
 
-        if (VIEW3D) {
-          debug_header(1,"STEP 12A - AFTER CC-VAL UPDATE BY X1-FLUX GRADIENTS");
-          print_gas(1,"U", &pG->U[k][j][i], k,j,i);
-        }
-
       }
     }
   }
@@ -2705,11 +2564,6 @@ void integrate_3d(Grid *pG, Domain *pD)
           pG->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
                                        - x2Flux[k][j  ][i].s[n]);
 #endif
-
-        if (VIEW3D) {
-          debug_header(1,"STEP 12B - AFTER CC-VAL UPDATE BY X2-FLUX GRADIENTS");
-          print_gas(1,"U", &pG->U[k][j][i], k,j,i);
-        }
 
       }
     }
@@ -2735,11 +2589,6 @@ void integrate_3d(Grid *pG, Domain *pD)
                                        - x3Flux[k  ][j][i].s[n]);
 #endif
 
-        if (VIEW3D) {
-          debug_header(1,"STEP 12C - AFTER CC-VAL UPDATE BY X3-FLUX GRADIENTS");
-          print_gas(1,"U", &pG->U[k][j][i], k,j,i);
-        }
-
       }
     }
   }
@@ -2756,11 +2605,6 @@ void integrate_3d(Grid *pG, Domain *pD)
         pG->U[k][j][i].B1c = 0.5*(ri[i]*pG->B1i[k][j][i] + ri[i+1]*pG->B1i[k  ][j  ][i+1])/r[i];
         pG->U[k][j][i].B2c = 0.5*(      pG->B2i[k][j][i] +         pG->B2i[k  ][j+1][i  ]);
         pG->U[k][j][i].B3c = 0.5*(      pG->B3i[k][j][i] +         pG->B3i[k+1][j  ][i  ]);
-
-        if (VIEW3D) {
-          debug_header(1,"STEP 12D - AFTER UPDATING CELL-CENTERED FIELDS");
-          print_gas(1,"U", &pG->U[k][j][i], k,j,i);
-        }
       }
     }
   }

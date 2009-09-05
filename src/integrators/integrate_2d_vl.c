@@ -512,7 +512,7 @@ void integrate_2d(Grid *pG, Domain *pD)
  * Compute L/R states on x1-interfaces, store into arrays
  */
 
-    lr_states(W, MHDARG( Bxc , ) 0.0,0.0,is,ie,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) 0.0,is,ie,Wl,Wr);
 
     for (i=is; i<=ie+1; i++) {
       Wl_x1Face[j][i] = Wl[i];
@@ -547,7 +547,7 @@ void integrate_2d(Grid *pG, Domain *pD)
 #endif /* NSCALARS */
     }
 
-    lr_states(W, MHDARG( Bxc , ) 0.0,0.0,js,je,Wl,Wr);
+    lr_states(W, MHDARG( Bxc , ) 0.0,js,je,Wl,Wr);
 
 /* Store L/R states in primitive variables. */
 

@@ -102,17 +102,23 @@ void integrate_3d(Grid *pG, Domain *pD)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
-  Real hdt = 0.5*pG->dt;
-  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
   int i,il,iu, is = pG->is, ie = pG->ie;
   int j,jl,ju, js = pG->js, je = pG->je;
   int k,kl,ku, ks = pG->ks, ke = pG->ke;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
-  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h;
+#ifndef BAROTROPIC
+  Real coolfl,coolfr,coolf,Eh=0.0;
+#endif
 #ifdef MHD
   Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
   Real db1,db2,db3,l1,l2,l3,B1,B2,B3,V1,V2,V3;
   Real B1ch,B2ch,B3ch;
+#endif
+#if defined(MHD) || defined(FARGO)
+  Real hdt = 0.5*pG->dt;
+#endif
+#if defined(MHD) || defined(SELF_GRAVITY)
+  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
 #endif
 #ifdef H_CORRECTION
   Real cfr,cfl,lambdar,lambdal;
@@ -133,6 +139,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
+  Real d1;
   il = is - 3;
   iu = ie + 3;
   jl = js - 3;
@@ -193,7 +200,7 @@ void integrate_3d(Grid *pG, Domain *pD)
        Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
      }
 
-     lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx1,il+1,iu-1,Wl,Wr);
+     lr_states(W, MHDARG( Bxc , ) dtodx1,il+1,iu-1,Wl,Wr);
 
 #ifdef MHD
       for (i=il+1; i<=iu; i++) {
@@ -395,7 +402,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx2,jl+1,ju-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) dtodx2,jl+1,ju-1,Wl,Wr);
 
 #ifdef MHD
       for (j=jl+1; j<=ju; j++) {
@@ -572,7 +579,7 @@ void integrate_3d(Grid *pG, Domain *pD)
         Cons1D_to_Prim1D(&U1d[k],&W[k] MHDARG( , &Bxc[k]));
       }
 
-      lr_states(W, MHDARG( Bxc , ) pG->dt,dtodx3,kl+1,ku-1,Wl,Wr);
+      lr_states(W, MHDARG( Bxc , ) dtodx3,kl+1,ku-1,Wl,Wr);
 
 #ifdef MHD
       for (k=kl+1; k<=ku; k++) {
