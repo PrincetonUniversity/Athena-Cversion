@@ -32,6 +32,7 @@
 #endif /* HYDRO */
 #endif /* BRAGINSKII */
 
+#ifdef BRAGINSKII
 /* The viscous fluxes, contained in special structures */
 typedef struct ViscFlux_t{
   Real Mx;
@@ -41,14 +42,9 @@ typedef struct ViscFlux_t{
   Real E;
 #endif
 }ViscFlux;
-typedef struct ThreeDVect_t{
-  Real x;
-  Real y;
-  Real z;
-}ThreeDVect;
 
 static ViscFlux ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
-static ThreeDVect ***Vel=NULL;
+static Vector ***Vel=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -57,7 +53,6 @@ static ThreeDVect ***Vel=NULL;
 
 void brag_viscosity_2d(Grid *pG, Domain *pD)
 {
-#ifdef BRAGINSKII
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -76,13 +71,13 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      Vel[ks][j][i].x = pG->U[ks][j][i].M1/pG->U[ks][j][i].d;
-      Vel[ks][j][i].y = pG->U[ks][j][i].M2/pG->U[ks][j][i].d;
+      Vel[ks][j][i].x1 = pG->U[ks][j][i].M1/pG->U[ks][j][i].d;
+      Vel[ks][j][i].x2 = pG->U[ks][j][i].M2/pG->U[ks][j][i].d;
 #ifdef FARGO
       cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-      Vel[ks][j][i].y -= qshear*Omega_0*x1;
+      Vel[ks][j][i].x2 -= qshear*Omega_0*x1;
 #endif
-      Vel[ks][j][i].z = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
+      Vel[ks][j][i].x3 = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
     }
   }
 
@@ -102,10 +97,10 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       B02 = MAX(B02,TINY_NUMBER);  /* limit in case B=0 */
 
 /* Monotonized Velocity gradient dVx/dy */
-      dVr = 0.5*((Vel[ks][j+1][i-1].x + Vel[ks][j+1][i].x) -
-                 (Vel[ks][j  ][i-1].x + Vel[ks][j  ][i].x));
-      dVl = 0.5*((Vel[ks][j  ][i-1].x + Vel[ks][j  ][i].x) -
-                 (Vel[ks][j-1][i-1].x + Vel[ks][j-1][i].x));
+      dVr = 0.5*((Vel[ks][j+1][i-1].x1 + Vel[ks][j+1][i].x1) -
+                 (Vel[ks][j  ][i-1].x1 + Vel[ks][j  ][i].x1));
+      dVl = 0.5*((Vel[ks][j  ][i-1].x1 + Vel[ks][j  ][i].x1) -
+                 (Vel[ks][j-1][i-1].x1 + Vel[ks][j-1][i].x1));
       dVc = dVr + dVl;
   
       dVxdy = 0.0;
@@ -115,10 +110,10 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dy */
-      dVr = 0.5*((Vel[ks][j+1][i-1].y + Vel[ks][j+1][i].y) -
-                 (Vel[ks][j  ][i-1].y + Vel[ks][j  ][i].y));
-      dVl = 0.5*((Vel[ks][j  ][i-1].y + Vel[ks][j  ][i].y) -
-                 (Vel[ks][j-1][i-1].y + Vel[ks][j-1][i].y));
+      dVr = 0.5*((Vel[ks][j+1][i-1].x2 + Vel[ks][j+1][i].x2) -
+                 (Vel[ks][j  ][i-1].x2 + Vel[ks][j  ][i].x2));
+      dVl = 0.5*((Vel[ks][j  ][i-1].x2 + Vel[ks][j  ][i].x2) -
+                 (Vel[ks][j-1][i-1].x2 + Vel[ks][j-1][i].x2));
       dVc = dVr + dVl;
   
       dVydy = 0.0;
@@ -128,10 +123,10 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dy */
-      dVr = 0.5*((Vel[ks][j+1][i-1].z + Vel[ks][j+1][i].z) -
-                 (Vel[ks][j  ][i-1].z + Vel[ks][j  ][i].z));
-      dVl = 0.5*((Vel[ks][j  ][i-1].z + Vel[ks][j  ][i].z) -
-                 (Vel[ks][j-1][i-1].z + Vel[ks][j-1][i].z));
+      dVr = 0.5*((Vel[ks][j+1][i-1].x3 + Vel[ks][j+1][i].x3) -
+                 (Vel[ks][j  ][i-1].x3 + Vel[ks][j  ][i].x3));
+      dVl = 0.5*((Vel[ks][j  ][i-1].x3 + Vel[ks][j  ][i].x3) -
+                 (Vel[ks][j-1][i-1].x3 + Vel[ks][j-1][i].x3));
       dVc = dVr + dVl;
   
       dVzdy = 0.0;
@@ -143,11 +138,11 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
 /* compute BBdV and div(V) */
 
       BBdV = 
-        Bx/B02*(Bx*(Vel[ks][j][i].x-Vel[ks][j][i-1].x)/pG->dx1 + By*dVxdy) +
-        By/B02*(Bx*(Vel[ks][j][i].y-Vel[ks][j][i-1].y)/pG->dx1 + By*dVydy) +
-        Bz/B02*(Bx*(Vel[ks][j][i].z-Vel[ks][j][i-1].z)/pG->dx1 + By*dVzdy);
+        Bx/B02*(Bx*(Vel[ks][j][i].x1-Vel[ks][j][i-1].x1)/pG->dx1 + By*dVxdy) +
+        By/B02*(Bx*(Vel[ks][j][i].x2-Vel[ks][j][i-1].x2)/pG->dx1 + By*dVydy) +
+        Bz/B02*(Bx*(Vel[ks][j][i].x3-Vel[ks][j][i-1].x3)/pG->dx1 + By*dVzdy);
 
-      divV = (Vel[ks][j][i].x-Vel[ks][j][i-1].x)/pG->dx1 + dVydy;
+      divV = (Vel[ks][j][i].x1-Vel[ks][j][i-1].x1)/pG->dx1 + dVydy;
       nud = nu_V*0.5*(pG->U[ks][j][i].d + pG->U[ks][j][i-1].d);
 
       qa = nud*(BBdV - ONE_3RD*divV);
@@ -160,9 +155,9 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       x1Flux[ks][j][i].E =
-         0.5*(Vel[ks][j][i-1].x + Vel[ks][j][i].x)*x1Flux[ks][j][i].Mx +
-         0.5*(Vel[ks][j][i-1].y + Vel[ks][j][i].y)*x1Flux[ks][j][i].My +
-         0.5*(Vel[ks][j][i-1].z + Vel[ks][j][i].z)*x1Flux[ks][j][i].Mz;
+         0.5*(Vel[ks][j][i-1].x1 + Vel[ks][j][i].x1)*x1Flux[ks][j][i].Mx +
+         0.5*(Vel[ks][j][i-1].x2 + Vel[ks][j][i].x2)*x1Flux[ks][j][i].My +
+         0.5*(Vel[ks][j][i-1].x3 + Vel[ks][j][i].x3)*x1Flux[ks][j][i].Mz;
 #endif /* BAROTROPIC */
     }
   }
@@ -183,10 +178,10 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
 
 /* Monotonized Velocity gradient dVx/dx */
-      dVr = 0.5*((Vel[ks][j-1][i+1].x + Vel[ks][j][i+1].x) -
-                 (Vel[ks][j-1][i  ].x + Vel[ks][j][i  ].x));
-      dVl = 0.5*((Vel[ks][j-1][i  ].x + Vel[ks][j][i  ].x) -
-                 (Vel[ks][j-1][i-1].x + Vel[ks][j][i-1].x));
+      dVr = 0.5*((Vel[ks][j-1][i+1].x1 + Vel[ks][j][i+1].x1) -
+                 (Vel[ks][j-1][i  ].x1 + Vel[ks][j][i  ].x1));
+      dVl = 0.5*((Vel[ks][j-1][i  ].x1 + Vel[ks][j][i  ].x1) -
+                 (Vel[ks][j-1][i-1].x1 + Vel[ks][j][i-1].x1));
       dVc = dVr + dVl;
 
       dVxdx = 0.0;
@@ -196,10 +191,10 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dx */
-      dVr = 0.5*((Vel[ks][j-1][i+1].y + Vel[ks][j][i+1].y) -
-                 (Vel[ks][j-1][i  ].y + Vel[ks][j][i  ].y));
-      dVl = 0.5*((Vel[ks][j-1][i  ].y + Vel[ks][j][i  ].y) -
-                 (Vel[ks][j-1][i-1].y + Vel[ks][j][i-1].y));
+      dVr = 0.5*((Vel[ks][j-1][i+1].x2 + Vel[ks][j][i+1].x2) -
+                 (Vel[ks][j-1][i  ].x2 + Vel[ks][j][i  ].x2));
+      dVl = 0.5*((Vel[ks][j-1][i  ].x2 + Vel[ks][j][i  ].x2) -
+                 (Vel[ks][j-1][i-1].x2 + Vel[ks][j][i-1].x2));
       dVc = dVr + dVl;
 
       dVydx = 0.0;
@@ -209,10 +204,10 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dx */
-      dVr = 0.5*((Vel[ks][j-1][i+1].z + Vel[ks][j][i+1].z) -
-                 (Vel[ks][j-1][i  ].z + Vel[ks][j][i  ].z));
-      dVl = 0.5*((Vel[ks][j-1][i  ].z + Vel[ks][j][i  ].z) -
-                 (Vel[ks][j-1][i-1].z + Vel[ks][j][i-1].z));
+      dVr = 0.5*((Vel[ks][j-1][i+1].x3 + Vel[ks][j][i+1].x3) -
+                 (Vel[ks][j-1][i  ].x3 + Vel[ks][j][i  ].x3));
+      dVl = 0.5*((Vel[ks][j-1][i  ].x3 + Vel[ks][j][i  ].x3) -
+                 (Vel[ks][j-1][i-1].x3 + Vel[ks][j][i-1].x3));
       dVc = dVr + dVl;
 
       dVzdx = 0.0;
@@ -224,11 +219,11 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
 /* compute BBdV and div(V) */
 
       BBdV =
-        Bx/B02*(Bx*dVxdx + By*(Vel[ks][j][i].x-Vel[ks][j-1][i].x)/pG->dx2) +
-        By/B02*(Bx*dVydx + By*(Vel[ks][j][i].y-Vel[ks][j-1][i].y)/pG->dx2) +
-        Bz/B02*(Bx*dVzdx + By*(Vel[ks][j][i].z-Vel[ks][j-1][i].z)/pG->dx2);
+        Bx/B02*(Bx*dVxdx + By*(Vel[ks][j][i].x1-Vel[ks][j-1][i].x1)/pG->dx2) +
+        By/B02*(Bx*dVydx + By*(Vel[ks][j][i].x2-Vel[ks][j-1][i].x2)/pG->dx2) +
+        Bz/B02*(Bx*dVzdx + By*(Vel[ks][j][i].x3-Vel[ks][j-1][i].x3)/pG->dx2);
 
-      divV = dVxdx + (Vel[ks][j][i].y-Vel[ks][j-1][i].y)/pG->dx2;
+      divV = dVxdx + (Vel[ks][j][i].x2-Vel[ks][j-1][i].x2)/pG->dx2;
       nud = nu_V*0.5*(pG->U[ks][j][i].d + pG->U[ks][j-1][i].d);
 
       qa = nud*(BBdV - ONE_3RD*divV);
@@ -241,9 +236,9 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
         x2Flux[ks][j][i].E =
-           0.5*(Vel[ks][j-1][i].x + Vel[ks][j][i].x)*x2Flux[ks][j][i].Mx +
-           0.5*(Vel[ks][j-1][i].y + Vel[ks][j][i].y)*x2Flux[ks][j][i].My +
-           0.5*(Vel[ks][j-1][i].z + Vel[ks][j][i].z)*x2Flux[ks][j][i].Mz;
+           0.5*(Vel[ks][j-1][i].x1 + Vel[ks][j][i].x1)*x2Flux[ks][j][i].Mx +
+           0.5*(Vel[ks][j-1][i].x2 + Vel[ks][j][i].x2)*x2Flux[ks][j][i].My +
+           0.5*(Vel[ks][j-1][i].x3 + Vel[ks][j][i].x3)*x2Flux[ks][j][i].Mz;
 #endif /* BAROTROPIC */
     }
   }
@@ -278,7 +273,6 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
     }
   }
 
-#endif /* BRAGINSKII */
   return;
 }
 
@@ -289,7 +283,6 @@ void brag_viscosity_2d(Grid *pG, Domain *pD)
 
 void brag_viscosity_3d(Grid *pG, Domain *pD)
 {
-#ifdef BRAGINSKII
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -310,13 +303,13 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        Vel[k][j][i].x = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-        Vel[k][j][i].y = pG->U[k][j][i].M2/pG->U[k][j][i].d;
+        Vel[k][j][i].x1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
+        Vel[k][j][i].x2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
 #ifdef FARGO
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        Vel[k][j][i].y -= qshear*Omega_0*x1;
+        Vel[k][j][i].x2 -= qshear*Omega_0*x1;
 #endif
-        Vel[k][j][i].z = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+        Vel[k][j][i].x3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
       }
     }
   }
@@ -338,10 +331,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       B02 = MAX(B02,TINY_NUMBER);  /* limit in case B=0 */
 
 /* Monotonized Velocity gradient dVx/dy */
-      dVr = 0.5*((Vel[k][j+1][i-1].x + Vel[k][j+1][i].x) -
-                 (Vel[k][j  ][i-1].x + Vel[k][j  ][i].x));
-      dVl = 0.5*((Vel[k][j  ][i-1].x + Vel[k][j  ][i].x) -
-                 (Vel[k][j-1][i-1].x + Vel[k][j-1][i].x));
+      dVr = 0.5*((Vel[k][j+1][i-1].x1 + Vel[k][j+1][i].x1) -
+                 (Vel[k][j  ][i-1].x1 + Vel[k][j  ][i].x1));
+      dVl = 0.5*((Vel[k][j  ][i-1].x1 + Vel[k][j  ][i].x1) -
+                 (Vel[k][j-1][i-1].x1 + Vel[k][j-1][i].x1));
       dVc = dVr + dVl;
 
       dVxdy = 0.0;
@@ -351,10 +344,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dy */
-      dVr = 0.5*((Vel[k][j+1][i-1].y + Vel[k][j+1][i].y) -
-                 (Vel[k][j  ][i-1].y + Vel[k][j  ][i].y));
-      dVl = 0.5*((Vel[k][j  ][i-1].y + Vel[k][j  ][i].y) -
-                 (Vel[k][j-1][i-1].y + Vel[k][j-1][i].y));
+      dVr = 0.5*((Vel[k][j+1][i-1].x2 + Vel[k][j+1][i].x2) -
+                 (Vel[k][j  ][i-1].x2 + Vel[k][j  ][i].x2));
+      dVl = 0.5*((Vel[k][j  ][i-1].x2 + Vel[k][j  ][i].x2) -
+                 (Vel[k][j-1][i-1].x2 + Vel[k][j-1][i].x2));
       dVc = dVr + dVl;
 
       dVydy = 0.0;
@@ -364,10 +357,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dy */
-      dVr = 0.5*((Vel[k][j+1][i-1].z + Vel[k][j+1][i].z) -
-                 (Vel[k][j  ][i-1].z + Vel[k][j  ][i].z));
-      dVl = 0.5*((Vel[k][j  ][i-1].z + Vel[k][j  ][i].z) -
-                 (Vel[k][j-1][i-1].z + Vel[k][j-1][i].z));
+      dVr = 0.5*((Vel[k][j+1][i-1].x3 + Vel[k][j+1][i].x3) -
+                 (Vel[k][j  ][i-1].x3 + Vel[k][j  ][i].x3));
+      dVl = 0.5*((Vel[k][j  ][i-1].x3 + Vel[k][j  ][i].x3) -
+                 (Vel[k][j-1][i-1].x3 + Vel[k][j-1][i].x3));
       dVc = dVr + dVl;
 
       dVzdy = 0.0;
@@ -377,10 +370,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVx/dz */
-      dVr = 0.5*((Vel[k+1][j][i-1].x + Vel[k+1][j][i].x) -
-                 (Vel[k  ][j][i-1].x + Vel[k  ][j][i].x));
-      dVl = 0.5*((Vel[k  ][j][i-1].x + Vel[k  ][j][i].x) -
-                 (Vel[k-1][j][i-1].x + Vel[k-1][j][i].x));
+      dVr = 0.5*((Vel[k+1][j][i-1].x1 + Vel[k+1][j][i].x1) -
+                 (Vel[k  ][j][i-1].x1 + Vel[k  ][j][i].x1));
+      dVl = 0.5*((Vel[k  ][j][i-1].x1 + Vel[k  ][j][i].x1) -
+                 (Vel[k-1][j][i-1].x1 + Vel[k-1][j][i].x1));
       dVc = dVr + dVl;
 
       dVxdz = 0.0;
@@ -390,10 +383,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dz */
-      dVr = 0.5*((Vel[k+1][j][i-1].y + Vel[k+1][j][i].y) -
-                 (Vel[k  ][j][i-1].y + Vel[k  ][j][i].y));
-      dVl = 0.5*((Vel[k  ][j][i-1].y + Vel[k  ][j][i].y) -
-                 (Vel[k-1][j][i-1].y + Vel[k-1][j][i].y));
+      dVr = 0.5*((Vel[k+1][j][i-1].x2 + Vel[k+1][j][i].x2) -
+                 (Vel[k  ][j][i-1].x2 + Vel[k  ][j][i].x2));
+      dVl = 0.5*((Vel[k  ][j][i-1].x2 + Vel[k  ][j][i].x2) -
+                 (Vel[k-1][j][i-1].x2 + Vel[k-1][j][i].x2));
       dVc = dVr + dVl;
 
       dVydz = 0.0;
@@ -403,10 +396,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dz */
-      dVr = 0.5*((Vel[k+1][j][i-1].z + Vel[k+1][j][i].z) -
-                 (Vel[k  ][j][i-1].z + Vel[k  ][j][i].z));
-      dVl = 0.5*((Vel[k  ][j][i-1].z + Vel[k  ][j][i].z) -
-                 (Vel[k-1][j][i-1].z + Vel[k-1][j][i].z));
+      dVr = 0.5*((Vel[k+1][j][i-1].x3 + Vel[k+1][j][i].x3) -
+                 (Vel[k  ][j][i-1].x3 + Vel[k  ][j][i].x3));
+      dVl = 0.5*((Vel[k  ][j][i-1].x3 + Vel[k  ][j][i].x3) -
+                 (Vel[k-1][j][i-1].x3 + Vel[k-1][j][i].x3));
       dVc = dVr + dVl;
 
       dVzdz = 0.0;
@@ -418,12 +411,12 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 /* compute BBdV and div(V) */
 
       BBdV =
-        Bx*(Bx*(Vel[k][j][i].x-Vel[k][j][i-1].x)/pG->dx1 + By*dVxdy + Bz*dVxdz)+
-        By*(Bx*(Vel[k][j][i].y-Vel[k][j][i-1].y)/pG->dx1 + By*dVydy + Bz*dVydz)+
-        Bz*(Bx*(Vel[k][j][i].z-Vel[k][j][i-1].z)/pG->dx1 + By*dVzdy + Bz*dVzdz);
+        Bx*(Bx*(Vel[k][j][i].x1-Vel[k][j][i-1].x1)/pG->dx1 +By*dVxdy +Bz*dVxdz)+
+        By*(Bx*(Vel[k][j][i].x2-Vel[k][j][i-1].x2)/pG->dx1 +By*dVydy +Bz*dVydz)+
+        Bz*(Bx*(Vel[k][j][i].x3-Vel[k][j][i-1].x3)/pG->dx1 +By*dVzdy +Bz*dVzdz);
       BBdV /= B02;
 
-      divV = (Vel[k][j][i].x-Vel[k][j][i-1].x)/pG->dx1 + dVydy + dVzdz;
+      divV = (Vel[k][j][i].x1-Vel[k][j][i-1].x1)/pG->dx1 + dVydy + dVzdz;
       nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
 
       qa = nud*(BBdV - ONE_3RD*divV);
@@ -436,9 +429,9 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       x1Flux[k][j][i].E =
-         0.5*(Vel[k][j][i-1].x + Vel[k][j][i].x)*x1Flux[k][j][i].Mx +
-         0.5*(Vel[k][j][i-1].y + Vel[k][j][i].y)*x1Flux[k][j][i].My +
-         0.5*(Vel[k][j][i-1].z + Vel[k][j][i].z)*x1Flux[k][j][i].Mz;
+         0.5*(Vel[k][j][i-1].x1 + Vel[k][j][i].x1)*x1Flux[k][j][i].Mx +
+         0.5*(Vel[k][j][i-1].x2 + Vel[k][j][i].x2)*x1Flux[k][j][i].My +
+         0.5*(Vel[k][j][i-1].x3 + Vel[k][j][i].x3)*x1Flux[k][j][i].Mz;
 #endif /* BAROTROPIC */
     }
   }}
@@ -460,10 +453,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
 
 /* Monotonized Velocity gradient dVx/dx */
-      dVr = 0.5*((Vel[k][j-1][i+1].x + Vel[k][j][i+1].x) -
-                 (Vel[k][j-1][i  ].x + Vel[k][j][i  ].x));
-      dVl = 0.5*((Vel[k][j-1][i  ].x + Vel[k][j][i  ].x) -
-                 (Vel[k][j-1][i-1].x + Vel[k][j][i-1].x));
+      dVr = 0.5*((Vel[k][j-1][i+1].x1 + Vel[k][j][i+1].x1) -
+                 (Vel[k][j-1][i  ].x1 + Vel[k][j][i  ].x1));
+      dVl = 0.5*((Vel[k][j-1][i  ].x1 + Vel[k][j][i  ].x1) -
+                 (Vel[k][j-1][i-1].x1 + Vel[k][j][i-1].x1));
       dVc = dVr + dVl;
 
       dVxdx = 0.0;
@@ -473,10 +466,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dx */
-      dVr = 0.5*((Vel[k][j-1][i+1].y + Vel[k][j][i+1].y) -
-                 (Vel[k][j-1][i  ].y + Vel[k][j][i  ].y));
-      dVl = 0.5*((Vel[k][j-1][i  ].y + Vel[k][j][i  ].y) -
-                 (Vel[k][j-1][i-1].y + Vel[k][j][i-1].y));
+      dVr = 0.5*((Vel[k][j-1][i+1].x2 + Vel[k][j][i+1].x2) -
+                 (Vel[k][j-1][i  ].x2 + Vel[k][j][i  ].x2));
+      dVl = 0.5*((Vel[k][j-1][i  ].x2 + Vel[k][j][i  ].x2) -
+                 (Vel[k][j-1][i-1].x2 + Vel[k][j][i-1].x2));
       dVc = dVr + dVl;
 
       dVydx = 0.0;
@@ -486,10 +479,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dx */
-      dVr = 0.5*((Vel[k][j-1][i+1].z + Vel[k][j][i+1].z) -
-                 (Vel[k][j-1][i  ].z + Vel[k][j][i  ].z));
-      dVl = 0.5*((Vel[k][j-1][i  ].z + Vel[k][j][i  ].z) -
-                 (Vel[k][j-1][i-1].z + Vel[k][j][i-1].z));
+      dVr = 0.5*((Vel[k][j-1][i+1].x3 + Vel[k][j][i+1].x3) -
+                 (Vel[k][j-1][i  ].x3 + Vel[k][j][i  ].x3));
+      dVl = 0.5*((Vel[k][j-1][i  ].x3 + Vel[k][j][i  ].x3) -
+                 (Vel[k][j-1][i-1].x3 + Vel[k][j][i-1].x3));
       dVc = dVr + dVl;
 
       dVzdx = 0.0;
@@ -499,10 +492,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVx/dz */
-      dVr = 0.5*((Vel[k+1][j-1][i].x + Vel[k+1][j][i].x) -
-                 (Vel[k  ][j-1][i].x + Vel[k  ][j][i].x));
-      dVl = 0.5*((Vel[k  ][j-1][i].x + Vel[k  ][j][i].x) -
-                 (Vel[k-1][j-1][i].x + Vel[k-1][j][i].x));
+      dVr = 0.5*((Vel[k+1][j-1][i].x1 + Vel[k+1][j][i].x1) -
+                 (Vel[k  ][j-1][i].x1 + Vel[k  ][j][i].x1));
+      dVl = 0.5*((Vel[k  ][j-1][i].x1 + Vel[k  ][j][i].x1) -
+                 (Vel[k-1][j-1][i].x1 + Vel[k-1][j][i].x1));
       dVc = dVr + dVl;
 
       dVxdz = 0.0;
@@ -512,10 +505,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dz */
-      dVr = 0.5*((Vel[k+1][j-1][i].y + Vel[k+1][j][i].y) -
-                 (Vel[k  ][j-1][i].y + Vel[k  ][j][i].y));
-      dVl = 0.5*((Vel[k  ][j-1][i].y + Vel[k  ][j][i].y) -
-                 (Vel[k-1][j-1][i].y + Vel[k-1][j][i].y));
+      dVr = 0.5*((Vel[k+1][j-1][i].x2 + Vel[k+1][j][i].x2) -
+                 (Vel[k  ][j-1][i].x2 + Vel[k  ][j][i].x2));
+      dVl = 0.5*((Vel[k  ][j-1][i].x2 + Vel[k  ][j][i].x2) -
+                 (Vel[k-1][j-1][i].x2 + Vel[k-1][j][i].x2));
       dVc = dVr + dVl;
 
       dVydz = 0.0;
@@ -525,10 +518,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dz */
-      dVr = 0.5*((Vel[k+1][j-1][i].z + Vel[k+1][j][i].z) -
-                 (Vel[k  ][j-1][i].z + Vel[k  ][j][i].z));
-      dVl = 0.5*((Vel[k  ][j-1][i].z + Vel[k  ][j][i].z) -
-                 (Vel[k-1][j-1][i].z + Vel[k-1][j][i].z));
+      dVr = 0.5*((Vel[k+1][j-1][i].x3 + Vel[k+1][j][i].x3) -
+                 (Vel[k  ][j-1][i].x3 + Vel[k  ][j][i].x3));
+      dVl = 0.5*((Vel[k  ][j-1][i].x3 + Vel[k  ][j][i].x3) -
+                 (Vel[k-1][j-1][i].x3 + Vel[k-1][j][i].x3));
       dVc = dVr + dVl;
 
       dVzdz = 0.0;
@@ -540,12 +533,12 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 /* compute BBdV and div(V) */
 
       BBdV =
-        Bx*(Bx*dVxdx + By*(Vel[k][j][i].x-Vel[k][j-1][i].x)/pG->dx2 + Bz*dVxdz)+
-        By*(Bx*dVydx + By*(Vel[k][j][i].y-Vel[k][j-1][i].y)/pG->dx2 + Bz*dVydz)+
-        Bz*(Bx*dVzdx + By*(Vel[k][j][i].z-Vel[k][j-1][i].z)/pG->dx2 + Bz*dVzdz);
+        Bx*(Bx*dVxdx +By*(Vel[k][j][i].x1-Vel[k][j-1][i].x1)/pG->dx2 +Bz*dVxdz)+
+        By*(Bx*dVydx +By*(Vel[k][j][i].x2-Vel[k][j-1][i].x2)/pG->dx2 +Bz*dVydz)+
+        Bz*(Bx*dVzdx +By*(Vel[k][j][i].x3-Vel[k][j-1][i].x3)/pG->dx2 +Bz*dVzdz);
       BBdV /= B02;
 
-      divV = dVxdx + (Vel[k][j][i].y-Vel[k][j-1][i].y)/pG->dx2 + dVzdz;
+      divV = dVxdx + (Vel[k][j][i].x2-Vel[k][j-1][i].x2)/pG->dx2 + dVzdz;
       nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
 
       qa = nud*(BBdV - ONE_3RD*divV);
@@ -558,9 +551,9 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
         x2Flux[k][j][i].E =
-           0.5*(Vel[k][j-1][i].x + Vel[k][j][i].x)*x2Flux[k][j][i].Mx +
-           0.5*(Vel[k][j-1][i].y + Vel[k][j][i].y)*x2Flux[k][j][i].My +
-           0.5*(Vel[k][j-1][i].z + Vel[k][j][i].z)*x2Flux[k][j][i].Mz;
+           0.5*(Vel[k][j-1][i].x1 + Vel[k][j][i].x1)*x2Flux[k][j][i].Mx +
+           0.5*(Vel[k][j-1][i].x2 + Vel[k][j][i].x2)*x2Flux[k][j][i].My +
+           0.5*(Vel[k][j-1][i].x3 + Vel[k][j][i].x3)*x2Flux[k][j][i].Mz;
 #endif /* BAROTROPIC */
     }
   }}
@@ -582,10 +575,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
 
 /* Monotonized Velocity gradient dVx/dx */
-      dVr = 0.5*((Vel[k-1][j][i+1].x + Vel[k][j][i+1].x) -
-                 (Vel[k-1][j][i  ].x + Vel[k][j][i  ].x));
-      dVl = 0.5*((Vel[k-1][j][i  ].x + Vel[k][j][i  ].x) -
-                 (Vel[k-1][j][i-1].x + Vel[k][j][i-1].x));
+      dVr = 0.5*((Vel[k-1][j][i+1].x1 + Vel[k][j][i+1].x1) -
+                 (Vel[k-1][j][i  ].x1 + Vel[k][j][i  ].x1));
+      dVl = 0.5*((Vel[k-1][j][i  ].x1 + Vel[k][j][i  ].x1) -
+                 (Vel[k-1][j][i-1].x1 + Vel[k][j][i-1].x1));
       dVc = dVr + dVl;
 
       dVxdx = 0.0;
@@ -595,10 +588,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dx */
-      dVr = 0.5*((Vel[k-1][j][i+1].y + Vel[k][j][i+1].y) -
-                 (Vel[k-1][j][i  ].y + Vel[k][j][i  ].y));
-      dVl = 0.5*((Vel[k-1][j][i  ].y + Vel[k][j][i  ].y) -
-                 (Vel[k-1][j][i-1].y + Vel[k][j][i-1].y));
+      dVr = 0.5*((Vel[k-1][j][i+1].x2 + Vel[k][j][i+1].x2) -
+                 (Vel[k-1][j][i  ].x2 + Vel[k][j][i  ].x2));
+      dVl = 0.5*((Vel[k-1][j][i  ].x2 + Vel[k][j][i  ].x2) -
+                 (Vel[k-1][j][i-1].x2 + Vel[k][j][i-1].x2));
       dVc = dVr + dVl;
 
       dVydx = 0.0;
@@ -608,10 +601,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dx */
-      dVr = 0.5*((Vel[k-1][j][i+1].z + Vel[k][j][i+1].z) -
-                 (Vel[k-1][j][i  ].z + Vel[k][j][i  ].z));
-      dVl = 0.5*((Vel[k-1][j][i  ].z + Vel[k][j][i  ].z) -
-                 (Vel[k-1][j][i-1].z + Vel[k][j][i-1].z));
+      dVr = 0.5*((Vel[k-1][j][i+1].x3 + Vel[k][j][i+1].x3) -
+                 (Vel[k-1][j][i  ].x3 + Vel[k][j][i  ].x3));
+      dVl = 0.5*((Vel[k-1][j][i  ].x3 + Vel[k][j][i  ].x3) -
+                 (Vel[k-1][j][i-1].x3 + Vel[k][j][i-1].x3));
       dVc = dVr + dVl;
 
       dVzdx = 0.0;
@@ -621,10 +614,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVx/dy */
-      dVr = 0.5*((Vel[k-1][j+1][i].x + Vel[k][j+1][i].x) -
-                 (Vel[k-1][j  ][i].x + Vel[k][j  ][i].x));
-      dVl = 0.5*((Vel[k-1][j  ][i].x + Vel[k][j  ][i].x) -
-                 (Vel[k-1][j-1][i].x + Vel[k][j-1][i].x));
+      dVr = 0.5*((Vel[k-1][j+1][i].x1 + Vel[k][j+1][i].x1) -
+                 (Vel[k-1][j  ][i].x1 + Vel[k][j  ][i].x1));
+      dVl = 0.5*((Vel[k-1][j  ][i].x1 + Vel[k][j  ][i].x1) -
+                 (Vel[k-1][j-1][i].x1 + Vel[k][j-1][i].x1));
       dVc = dVr + dVl;
 
       dVxdy = 0.0;
@@ -634,10 +627,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVy/dy */
-      dVr = 0.5*((Vel[k-1][j+1][i].y + Vel[k][j+1][i].y) -
-                 (Vel[k-1][j  ][i].y + Vel[k][j  ][i].y));
-      dVl = 0.5*((Vel[k-1][j  ][i].y + Vel[k][j  ][i].y) -
-                 (Vel[k-1][j-1][i].y + Vel[k][j-1][i].y));
+      dVr = 0.5*((Vel[k-1][j+1][i].x2 + Vel[k][j+1][i].x2) -
+                 (Vel[k-1][j  ][i].x2 + Vel[k][j  ][i].x2));
+      dVl = 0.5*((Vel[k-1][j  ][i].x2 + Vel[k][j  ][i].x2) -
+                 (Vel[k-1][j-1][i].x2 + Vel[k][j-1][i].x2));
       dVc = dVr + dVl;
 
       dVydy = 0.0;
@@ -647,10 +640,10 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
 
 /* Monotonized Velocity gradient dVz/dy */
-      dVr = 0.5*((Vel[k-1][j+1][i].z + Vel[k][j+1][i].z) -
-                 (Vel[k-1][j  ][i].z + Vel[k][j  ][i].z));
-      dVl = 0.5*((Vel[k-1][j  ][i].z + Vel[k][j  ][i].z) -
-                 (Vel[k-1][j-1][i].z + Vel[k][j-1][i].z));
+      dVr = 0.5*((Vel[k-1][j+1][i].x3 + Vel[k][j+1][i].x3) -
+                 (Vel[k-1][j  ][i].x3 + Vel[k][j  ][i].x3));
+      dVl = 0.5*((Vel[k-1][j  ][i].x3 + Vel[k][j  ][i].x3) -
+                 (Vel[k-1][j-1][i].x3 + Vel[k][j-1][i].x3));
       dVc = dVr + dVl;
 
       dVzdy = 0.0;
@@ -662,12 +655,12 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 /* compute BBdV and div(V) */
 
       BBdV =
-        Bx*(Bx*dVxdx + By*dVxdy + Bz*(Vel[k][j][i].x-Vel[k-1][j][i].x)/pG->dx3)+
-        By*(Bx*dVydx + By*dVydy + Bz*(Vel[k][j][i].y-Vel[k-1][j][i].y)/pG->dx3)+
-        Bz*(Bx*dVzdx + By*dVzdy + Bz*(Vel[k][j][i].z-Vel[k-1][j][i].z)/pG->dx3);
+        Bx*(Bx*dVxdx +By*dVxdy +Bz*(Vel[k][j][i].x1-Vel[k-1][j][i].x1)/pG->dx3)+
+        By*(Bx*dVydx +By*dVydy +Bz*(Vel[k][j][i].x2-Vel[k-1][j][i].x2)/pG->dx3)+
+        Bz*(Bx*dVzdx +By*dVzdy +Bz*(Vel[k][j][i].x3-Vel[k-1][j][i].x3)/pG->dx3);
       BBdV /= B02;
 
-      divV = dVxdx + dVydy + (Vel[k][j][i].z-Vel[k-1][j][i].z)/pG->dx3;
+      divV = dVxdx + dVydy + (Vel[k][j][i].x3-Vel[k-1][j][i].x3)/pG->dx3;
       nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
 
       qa = nud*(BBdV - ONE_3RD*divV);
@@ -680,9 +673,9 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
         x3Flux[k][j][i].E  =
-           0.5*(Vel[k-1][j][i].x + Vel[k][j][i].x)*x3Flux[k][j][i].Mx +
-           0.5*(Vel[k-1][j][i].y + Vel[k][j][i].y)*x3Flux[k][j][i].My +
-           0.5*(Vel[k-1][j][i].z + Vel[k][j][i].z)*x3Flux[k][j][i].Mz;
+           0.5*(Vel[k-1][j][i].x1 + Vel[k][j][i].x1)*x3Flux[k][j][i].Mx +
+           0.5*(Vel[k-1][j][i].x2 + Vel[k][j][i].x2)*x3Flux[k][j][i].My +
+           0.5*(Vel[k-1][j][i].x3 + Vel[k][j][i].x3)*x3Flux[k][j][i].Mz;
 #endif /* BAROTROPIC */
       }
     }
@@ -738,7 +731,6 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
       }
     }
   }
-#endif /* BRAGINSKII */
 
   return;
 }
@@ -749,7 +741,6 @@ void brag_viscosity_3d(Grid *pG, Domain *pD)
 
 void brag_viscosity_init(int nx1, int nx2, int nx3)
 {
-#ifdef BRAGINSKII
   int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
   if (nx2 > 1){
     Nx2 = nx2 + 2*nghost;
@@ -768,14 +759,13 @@ void brag_viscosity_init(int nx1, int nx2, int nx3)
     == NULL) goto on_error;
   if ((x3Flux = (ViscFlux***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ViscFlux)))
     == NULL) goto on_error;
-  if ((Vel = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+  if ((Vel = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
     == NULL) goto on_error;
   return;
 
   on_error:
   brag_viscosity_destruct();
   ath_error("[brag_viscosity_init]: malloc returned a NULL pointer\n");
-#endif /* BRAGINSKII */
   return;
 }
 
@@ -785,12 +775,10 @@ void brag_viscosity_init(int nx1, int nx2, int nx3)
 
 void brag_viscosity_destruct(void)
 {
-#ifdef BRAGINSKII
   if (x1Flux != NULL) free_3d_array(x1Flux);
   if (x2Flux != NULL) free_3d_array(x2Flux);
   if (x3Flux != NULL) free_3d_array(x3Flux);
   if (Vel != NULL) free_3d_array(Vel);
-#endif /* BRAGINSKII */
-
   return;
 }
+#endif /* BRAGINSKII */

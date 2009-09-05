@@ -30,14 +30,10 @@
 #endif
 #endif
 
+#ifdef ISOTROPIC_CONDUCTION
 /* Arrays for the temperature and heat fluxes */
-typedef struct ThreeDVect_t{
-  Real x;
-  Real y;
-  Real z;
-}ThreeDVect;
 static Real ***Temp=NULL;
-static ThreeDVect ***EFlux=NULL;
+static Vector ***EFlux=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -46,7 +42,6 @@ static ThreeDVect ***EFlux=NULL;
 
 void isoconduct(Grid *pG, Domain *pD)
 {
-#ifdef ISOTROPIC_CONDUCTION
   int i, is = pG->is, ie = pG->ie;
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
@@ -94,8 +89,8 @@ void isoconduct(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie+1; i++) {
-        EFlux[k][j][i].x = (Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
-        EFlux[k][j][i].x *= kappa_T;
+        EFlux[k][j][i].x1 = (Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
+        EFlux[k][j][i].x1 *= kappa_T;
       }
     }
   }
@@ -108,8 +103,8 @@ void isoconduct(Grid *pG, Domain *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        EFlux[k][j][i].y = (Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
-        EFlux[k][j][i].y *= kappa_T;
+        EFlux[k][j][i].x2 = (Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
+        EFlux[k][j][i].x2 *= kappa_T;
       }
     }}
   }
@@ -122,8 +117,8 @@ void isoconduct(Grid *pG, Domain *pD)
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        EFlux[k][j][i].z = (Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
-        EFlux[k][j][i].z *= kappa_T;
+        EFlux[k][j][i].x3 = (Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
+        EFlux[k][j][i].x3 *= kappa_T;
       }
     }}
   }
@@ -135,7 +130,7 @@ void isoconduct(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x - EFlux[k][j][i].x);
+        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x1 - EFlux[k][j][i].x1);
       }
     }
   }
@@ -148,7 +143,7 @@ void isoconduct(Grid *pG, Domain *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].y - EFlux[k][j][i].y);
+        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].x2 - EFlux[k][j][i].x2);
       }
     }}
   }
@@ -161,11 +156,10 @@ void isoconduct(Grid *pG, Domain *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].z - EFlux[k][j][i].z);
+        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].x3 - EFlux[k][j][i].x3);
       }
     }}
   }
-#endif /* ISOTROPIC_CONDUCTION */
 
   return;
 }
@@ -176,7 +170,6 @@ void isoconduct(Grid *pG, Domain *pD)
 
 void isoconduct_init(int nx1, int nx2, int nx3)
 {
-#ifdef ISOTROPIC_CONDUCTION
   int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
   if (nx2 > 1){
     Nx2 = nx2 + 2*nghost;
@@ -191,14 +184,13 @@ void isoconduct_init(int nx1, int nx2, int nx3)
 
   if ((Temp = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
     goto on_error;
-  if ((EFlux = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+  if ((EFlux = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
     == NULL) goto on_error;
   return;
 
   on_error:
   isoconduct_destruct();
   ath_error("[isoconduct_init]: malloc returned a NULL pointer\n");
-#endif /* ISOTROPIC_CONDUCTION */
 }
 
 /*----------------------------------------------------------------------------*/
@@ -207,10 +199,8 @@ void isoconduct_init(int nx1, int nx2, int nx3)
 
 void isoconduct_destruct(void)
 {
-#ifdef ISOTROPIC_CONDUCTION
   if (Temp != NULL) free_3d_array(Temp);
   if (EFlux != NULL) free_3d_array(EFlux);
-#endif /* ISOTROPIC_CONDUCTION */
-
   return;
 }
+#endif /* ISOTROPIC_CONDUCTION */

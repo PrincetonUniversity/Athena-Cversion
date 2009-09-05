@@ -33,13 +33,9 @@
 #endif /* HYDRO */
 #endif
 
-/* The resistive emfs, contained in special structure */
-typedef struct ThreeDVect_t{
-  Real x;
-  Real y;
-  Real z;
-}ThreeDVect;
-static ThreeDVect ***emf=NULL, ***EFlux=NULL;
+#ifdef OHMIC
+/* The resistive emfs and energy flux, contained in 3D vector structure */
+static Vector ***emf=NULL, ***EFlux=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -48,7 +44,6 @@ static ThreeDVect ***emf=NULL, ***EFlux=NULL;
 
 void ohmic_resistivity_1d(Grid *pG, Domain *pD)
 {
-#ifdef OHMIC
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
@@ -56,31 +51,31 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
 
 /*--- Step 1 -------------------------------------------------------------------
  * Compute resistive EMF.  Note:
- *   emf.x = eta*J1 = 0
- *   emf.y = eta*J2 = eta_Ohm*(-dB3/dx1)
- *   emf.z = eta*J3 = eta_Ohm*(dB2/dx1)
- * emf.y and emf.z use B3c and B2c respectively, and are centered at x1-faces
+ *   emf.x1 = eta*J1 = 0
+ *   emf.x2 = eta*J2 = eta_Ohm*(-dB3/dx1)
+ *   emf.x3 = eta*J3 = eta_Ohm*(dB2/dx1)
+ * emf.x2 and emf.x3 use B3c and B2c respectively, and are centered at x1-faces
  */
 
   for (i=is; i<=ie+1; i++) {
-    emf[ks][js][i].x = 0.0;
-    emf[ks][js][i].y = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
-    emf[ks][js][i].z =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
+    emf[ks][js][i].x1 = 0.0;
+    emf[ks][js][i].x2 = -(pG->U[ks][js][i].B3c -pG->U[ks][js][i-1].B3c)/pG->dx1;
+    emf[ks][js][i].x3 =  (pG->U[ks][js][i].B2c -pG->U[ks][js][i-1].B2c)/pG->dx1;
 /* Multiple components by constant \eta_Ohm */
-    emf[ks][js][i].y *= eta_Ohm;
-    emf[ks][js][i].z *= eta_Ohm;
+    emf[ks][js][i].x2 *= eta_Ohm;
+    emf[ks][js][i].x3 *= eta_Ohm;
   }
 
 #ifndef BAROTROPIC
 /*--- Step 2 -------------------------------------------------------------------
  * Compute flux of total energy due to resistive diffusion = B X emf
- *  EFlux.x =  By*emf.z - Bz*emf.y
+ *  EFlux.x1 =  By*emf.x3 - Bz*emf.y
  */   
       
   for (i=is; i<=ie+1; i++) {
-    EFlux[ks][js][i].x =
-       0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c)*emf[ks][js][i].z
-     - 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c)*emf[ks][js][i].y;
+    EFlux[ks][js][i].x1 =
+       0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c)*emf[ks][js][i].x3
+     - 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c)*emf[ks][js][i].x2;
   }
 #endif
 
@@ -90,8 +85,8 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is; i<=ie; i++) {
-    pG->U[ks][js][i].B2c += dtodx1*(emf[ks][js][i+1].z - emf[ks][js][i].z);
-    pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].y - emf[ks][js][i].y);
+    pG->U[ks][js][i].B2c += dtodx1*(emf[ks][js][i+1].x3 - emf[ks][js][i].x3);
+    pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].x2 - emf[ks][js][i].x2);
   }
 
 /* For consistency, set B2i and B3i to cell-centered values. */
@@ -107,11 +102,9 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is; i<=ie; i++) {
-    pG->U[ks][js][i].E  += dtodx1*(EFlux[ks][js][i+1].x - EFlux[ks][js][i].x);
+    pG->U[ks][js][i].E  += dtodx1*(EFlux[ks][js][i+1].x1 - EFlux[ks][js][i].x1);
   }                       
 #endif /* BAROTROPIC */
-
-#endif /* OHMIC */
 
   return;
 }
@@ -122,7 +115,6 @@ void ohmic_resistivity_1d(Grid *pG, Domain *pD)
 
 void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 {
-#ifdef OHMIC
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -131,48 +123,48 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 
 /*--- Step 1 -------------------------------------------------------------------
  * Compute resistive EMF.  Note:
- *   emf.x = eta*J1 = eta_Ohm*(dB3/dx2)
- *   emf.y = eta*J2 = eta_Ohm*(-dB3/dx1)
- *   emf.z = eta*J3 = eta_Ohm*(dB2/dx1 - dB1/dx2)
- * emf.x and emf.y use B3c, and in 2D are centered at x2- and x1-interfaces
+ *   emf.x1 = eta*J1 = eta_Ohm*(dB3/dx2)
+ *   emf.x2 = eta*J2 = eta_Ohm*(-dB3/dx1)
+ *   emf.x3 = eta*J3 = eta_Ohm*(dB2/dx1 - dB1/dx2)
+ * emf.x1 and emf.x2 use B3c, and in 2D are centered at x2- and x1-interfaces
  */
 
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie+1; i++) {
-      emf[ks][j][i].x =  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i].B3c)/pG->dx2;
-      emf[ks][j][i].y = -(pG->U[ks][j][i].B3c - pG->U[ks][j][i-1].B3c)/pG->dx1;
+      emf[ks][j][i].x1 =  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i].B3c)/pG->dx2;
+      emf[ks][j][i].x2 = -(pG->U[ks][j][i].B3c - pG->U[ks][j][i-1].B3c)/pG->dx1;
 
-      emf[ks][j][i].z = (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
-                        (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
+      emf[ks][j][i].x3 = (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
+                         (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
 /* Multiple components by constant \eta_Ohm */
-      emf[ks][j][i].x *= eta_Ohm;
-      emf[ks][j][i].y *= eta_Ohm;
-      emf[ks][j][i].z *= eta_Ohm;
+      emf[ks][j][i].x1 *= eta_Ohm;
+      emf[ks][j][i].x2 *= eta_Ohm;
+      emf[ks][j][i].x3 *= eta_Ohm;
     }
   }
 
 #ifndef BAROTROPIC
 /*--- Step 2 -------------------------------------------------------------------
  * Compute flux of total energy due to resistive diffusion = B X emf
- *  EFlux.x =  By*emf.z - Bz*emf.y
- *  EFlux.y =  Bz*emf.x - Bx*emf.z
+ *  EFlux.x1 =  By*emf.x3 - Bz*emf.x2
+ *  EFlux.x2 =  Bz*emf.x1 - Bx*emf.x3
  */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      EFlux[ks][j][i].x =
+      EFlux[ks][j][i].x1 =
          0.25*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c)*
-                (emf[ks][j][i].z + emf[ks][j+1][i].z)
-       - 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c)*emf[ks][j][i].y;
+                (emf[ks][j][i].x3 + emf[ks][j+1][i].x3)
+       - 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c)*emf[ks][j][i].x2;
     }
   }
   
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie; i++) {
-      EFlux[ks][j][i].y =   
-         0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x
+      EFlux[ks][j][i].x2 =   
+         0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x1
        - 0.25*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c)*
-                (emf[ks][j][i].z + emf[ks][j][i+1].z);
+                (emf[ks][j][i].x3 + emf[ks][j][i+1].x3);
     }
   }
 #endif
@@ -185,16 +177,16 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].z - emf[ks][j][i].z);
-      pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].z - emf[ks][j][i].z);
+      pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].x3 - emf[ks][j][i].x3);
+      pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].x3 - emf[ks][j][i].x3);
 
-      pG->U[ks][j][i].B3c += dtodx2*(emf[ks][j+1][i  ].x - emf[ks][j][i].x) -
-                             dtodx1*(emf[ks][j  ][i+1].y - emf[ks][j][i].y);
+      pG->U[ks][j][i].B3c += dtodx2*(emf[ks][j+1][i  ].x1 - emf[ks][j][i].x1) -
+                             dtodx1*(emf[ks][j  ][i+1].x2 - emf[ks][j][i].x2);
     }
-    pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].z - emf[ks][j][ie+1].z);
+    pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].x3 -emf[ks][j][ie+1].x3);
   }
   for (i=is; i<=ie; i++) {
-    pG->B2i[ks][je+1][i] += dtodx1*(emf[ks][je+1][i+1].z - emf[ks][je+1][i].z);
+    pG->B2i[ks][je+1][i] += dtodx1*(emf[ks][je+1][i+1].x3 -emf[ks][je+1][i].x3);
   }
 
 /* Set cell centered magnetic fields to average of updated face centered fields.
@@ -215,13 +207,11 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
  */
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].E  += dtodx1*(EFlux[ks][j][i+1].x - EFlux[ks][j][i].x);
-      pG->U[ks][j][i].E  += dtodx2*(EFlux[ks][j+1][i].y - EFlux[ks][j][i].y);
+      pG->U[ks][j][i].E  += dtodx1*(EFlux[ks][j][i+1].x1 - EFlux[ks][j][i].x1);
+      pG->U[ks][j][i].E  += dtodx2*(EFlux[ks][j+1][i].x2 - EFlux[ks][j][i].x2);
     } 
   }                       
 #endif /* BAROTROPIC */
-
-#endif /* OHMIC */
 
   return;
 }
@@ -232,7 +222,6 @@ void ohmic_resistivity_2d(Grid *pG, Domain *pD)
 
 void ohmic_resistivity_3d(Grid *pG, Domain *pD)
 {
-#ifdef OHMIC
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -242,24 +231,24 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
 
 /*--- Step 1 -------------------------------------------------------------------
  * Compute resistive EMFs.  Note:
- *   emf.x = eta*J1 = eta_Ohm*(dB3/dx2 - dB2/dx3)
- *   emf.y = eta*J2 = eta_Ohm*(dB1/dx3 - dB3/dx1)
- *   emf.z = eta*J3 = eta_Ohm*(dB2/dx1 - dB1/dx2)
+ *   emf.x1 = eta*J1 = eta_Ohm*(dB3/dx2 - dB2/dx3)
+ *   emf.x2 = eta*J2 = eta_Ohm*(dB1/dx3 - dB3/dx1)
+ *   emf.x3 = eta*J3 = eta_Ohm*(dB2/dx1 - dB1/dx2)
  */
 
   for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie+1; i++) {
-        emf[k][j][i].x = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
-                         (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
-        emf[k][j][i].y = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
-                         (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
-        emf[k][j][i].z = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
-                         (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+        emf[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
+                          (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+        emf[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+                          (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
+        emf[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+                          (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
 /* Multiple components by constant \eta_Ohm */
-        emf[k][j][i].x *= eta_Ohm;
-        emf[k][j][i].y *= eta_Ohm;
-        emf[k][j][i].z *= eta_Ohm;
+        emf[k][j][i].x1 *= eta_Ohm;
+        emf[k][j][i].x2 *= eta_Ohm;
+        emf[k][j][i].x3 *= eta_Ohm;
       }
     }
   }
@@ -268,41 +257,41 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
 /*--- Step 2 -------------------------------------------------------------------
  * THIS WILL USE OLD B
  * Compute flux of total energy due to resistive diffusion = B X emf
- *  EFlux.x =  By*emf.z - Bz*emf.y
- *  EFlux.y =  Bz*emf.x - Bx*emf.z
- *  EFlux.x =  Bx*emf.y - By*emf.x
+ *  EFlux.x1 =  By*emf.x3 - Bz*emf.x2
+ *  EFlux.x2 =  Bz*emf.x1 - Bx*emf.x3
+ *  EFlux.x3 =  Bx*emf.x2 - By*emf.x1
  */
 
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      EFlux[k][j][i].x = 
+      EFlux[k][j][i].x1 = 
          0.25*(pG->U[k][j][i].B2c + pG->U[k][j][i-1].B2c)*
-                (emf[k][j][i].z + emf[k][j+1][i].z)
+                (emf[k][j][i].x3 + emf[k][j+1][i].x3)
        - 0.25*(pG->U[k][j][i].B3c + pG->U[k][j][i-1].B3c)*
-                (emf[k][j][i].y + emf[k+1][j][i].y);
+                (emf[k][j][i].x2 + emf[k+1][j][i].x2);
     }
   }}
 
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie; i++) {
-      EFlux[k][j][i].y =   
+      EFlux[k][j][i].x2 =   
          0.25*(pG->U[k][j][i].B3c + pG->U[k][j-1][i].B3c)*
-                (emf[k][j][i].x + emf[k+1][j][i].x)
+                (emf[k][j][i].x1 + emf[k+1][j][i].x1)
        - 0.25*(pG->U[k][j][i].B1c + pG->U[k][j-1][i].B1c)*
-                (emf[k][j][i].z + emf[k][j][i+1].z);
+                (emf[k][j][i].x3 + emf[k][j][i+1].x3);
     }
   }}
 
   for (k=ks; k<=ke+1; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      EFlux[k][j][i].z =   
+      EFlux[k][j][i].x3 =   
          0.25*(pG->U[k][j][i].B1c + pG->U[k-1][j][i].B1c)*
-                (emf[k][j][i].y + emf[k][j][i+1].y)
+                (emf[k][j][i].x2 + emf[k][j][i+1].x2)
        - 0.25*(pG->U[k][j][i].B2c + pG->U[k-1][j][i].B2c)*
-                (emf[k][j][i].x + emf[k][j+1][i].x);
+                (emf[k][j][i].x1 + emf[k][j+1][i].x1);
     }
   }}
 #endif
@@ -315,28 +304,28 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->B1i[k][j][i] += dtodx3*(emf[k+1][j  ][i  ].y - emf[k][j][i].y) -
-                            dtodx2*(emf[k  ][j+1][i  ].z - emf[k][j][i].z);
-        pG->B2i[k][j][i] += dtodx1*(emf[k  ][j  ][i+1].z - emf[k][j][i].z) -
-                            dtodx3*(emf[k+1][j  ][i  ].x - emf[k][j][i].x);
-        pG->B3i[k][j][i] += dtodx2*(emf[k  ][j+1][i  ].x - emf[k][j][i].x) -
-                            dtodx1*(emf[k  ][j  ][i+1].y - emf[k][j][i].y);
+        pG->B1i[k][j][i] += dtodx3*(emf[k+1][j  ][i  ].x2 - emf[k][j][i].x2) -
+                            dtodx2*(emf[k  ][j+1][i  ].x3 - emf[k][j][i].x3);
+        pG->B2i[k][j][i] += dtodx1*(emf[k  ][j  ][i+1].x3 - emf[k][j][i].x3) -
+                            dtodx3*(emf[k+1][j  ][i  ].x1 - emf[k][j][i].x1);
+        pG->B3i[k][j][i] += dtodx2*(emf[k  ][j+1][i  ].x1 - emf[k][j][i].x1) -
+                            dtodx1*(emf[k  ][j  ][i+1].x2 - emf[k][j][i].x2);
       }
       pG->B1i[k][j][ie+1] +=
-        dtodx3*(emf[k+1][j  ][ie+1].y - emf[k][j][ie+1].y) -
-        dtodx2*(emf[k  ][j+1][ie+1].z - emf[k][j][ie+1].z);
+        dtodx3*(emf[k+1][j  ][ie+1].x2 - emf[k][j][ie+1].x2) -
+        dtodx2*(emf[k  ][j+1][ie+1].x3 - emf[k][j][ie+1].x3);
     }
     for (i=is; i<=ie; i++) {
       pG->B2i[k][je+1][i] +=
-        dtodx1*(emf[k  ][je+1][i+1].z - emf[k][je+1][i].z) -
-        dtodx3*(emf[k+1][je+1][i  ].x - emf[k][je+1][i].x);
+        dtodx1*(emf[k  ][je+1][i+1].x3 - emf[k][je+1][i].x3) -
+        dtodx3*(emf[k+1][je+1][i  ].x1 - emf[k][je+1][i].x1);
     }
   }
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
       pG->B3i[ke+1][j][i] +=
-        dtodx2*(emf[ke+1][j+1][i  ].x - emf[ke+1][j][i].x) -
-        dtodx1*(emf[ke+1][j  ][i+1].y - emf[ke+1][j][i].y);
+        dtodx2*(emf[ke+1][j+1][i  ].x1 - emf[ke+1][j][i].x1) -
+        dtodx1*(emf[ke+1][j  ][i+1].x2 - emf[ke+1][j][i].x2);
     }
   }
 
@@ -360,15 +349,13 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E  += dtodx1*(EFlux[k][j][i+1].x - EFlux[k][j][i].x);
-        pG->U[k][j][i].E  += dtodx2*(EFlux[k][j+1][i].y - EFlux[k][j][i].y);
-        pG->U[k][j][i].E  += dtodx3*(EFlux[k+1][j][i].z - EFlux[k][j][i].z);
+        pG->U[k][j][i].E  += dtodx1*(EFlux[k][j][i+1].x1 - EFlux[k][j][i].x1);
+        pG->U[k][j][i].E  += dtodx2*(EFlux[k][j+1][i].x2 - EFlux[k][j][i].x2);
+        pG->U[k][j][i].E  += dtodx3*(EFlux[k+1][j][i].x3 - EFlux[k][j][i].x3);
       }
     }
   }
 #endif /* BAROTROPIC */
-
-#endif /* OHMIC */
 
   return;
 }
@@ -379,7 +366,6 @@ void ohmic_resistivity_3d(Grid *pG, Domain *pD)
 
 void ohmic_resistivity_init(int nx1, int nx2, int nx3)
 {
-#ifdef OHMIC
   int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
   if (nx2 > 1){
     Nx2 = nx2 + 2*nghost;
@@ -392,10 +378,10 @@ void ohmic_resistivity_init(int nx1, int nx2, int nx3)
     Nx3 = nx3;
   }
   
-  if ((emf = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+  if ((emf = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
     == NULL) goto on_error;
 #ifndef BAROTROPIC
-  if ((EFlux = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+  if ((EFlux = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
     == NULL) goto on_error;
 #endif 
   return;
@@ -403,7 +389,6 @@ void ohmic_resistivity_init(int nx1, int nx2, int nx3)
   on_error:
   ohmic_resistivity_destruct();
   ath_error("[ohmic_resisticvity_init]: malloc returned a NULL pointer\n");
-#endif /* OHMIC */
   return;
 }
 
@@ -413,11 +398,10 @@ void ohmic_resistivity_init(int nx1, int nx2, int nx3)
 
 void ohmic_resistivity_destruct(void)
 {
-#ifdef OHMIC
   if (emf != NULL) free_3d_array(emf);
 #ifndef BAROTROPIC
   if (EFlux != NULL) free_3d_array(EFlux);
 #endif
-#endif /* OHMIC */
   return;
 }
+#endif /* OHMIC */

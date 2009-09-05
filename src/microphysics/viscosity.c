@@ -27,6 +27,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
+#ifdef NAVIER_STOKES
 /* The viscous fluxes and velocities, contained in special structures */
 typedef struct ViscFlux_t{
   Real Mx;
@@ -36,14 +37,9 @@ typedef struct ViscFlux_t{
   Real E;
 #endif
 }ViscFlux;
-typedef struct ThreeDVect_t{
-  Real x;
-  Real y;
-  Real z;
-}ThreeDVect;
 
 static ViscFlux ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
-static ThreeDVect ***Vel=NULL;
+static Vector ***Vel=NULL;
 static Real ***divv=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -53,7 +49,6 @@ static Real ***divv=NULL;
 
 void ns_viscosity_1d(Grid *pG, Domain *pD)
 {
-#ifdef NAVIER_STOKES
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
@@ -65,9 +60,9 @@ void ns_viscosity_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is-2; i<=ie+2; i++) {
-    Vel[ks][js][i].x = pG->U[ks][js][i].M1/pG->U[ks][js][i].d;
-    Vel[ks][js][i].y = pG->U[ks][js][i].M2/pG->U[ks][js][i].d;
-    Vel[ks][js][i].z = pG->U[ks][js][i].M3/pG->U[ks][js][i].d;
+    Vel[ks][js][i].x1 = pG->U[ks][js][i].M1/pG->U[ks][js][i].d;
+    Vel[ks][js][i].x2 = pG->U[ks][js][i].M2/pG->U[ks][js][i].d;
+    Vel[ks][js][i].x3 = pG->U[ks][js][i].M3/pG->U[ks][js][i].d;
   }
 
 /*--- Step 2a ------------------------------------------------------------------
@@ -75,20 +70,20 @@ void ns_viscosity_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is; i<=ie+1; i++) {
-    x1Flux[ks][js][i].Mx =(4./3.)*(Vel[ks][js][i].x-Vel[ks][js][i-1].x)/pG->dx1;
-    x1Flux[ks][js][i].My = (Vel[ks][js][i].y - Vel[ks][js][i-1].y)/pG->dx1;
-    x1Flux[ks][js][i].Mz = (Vel[ks][js][i].z - Vel[ks][js][i-1].z)/pG->dx1;
+    x1Flux[ks][js][i].Mx = (Vel[ks][js][i].x1 - Vel[ks][js][i-1].x1)/pG->dx1;
+    x1Flux[ks][js][i].My = (Vel[ks][js][i].x2 - Vel[ks][js][i-1].x2)/pG->dx1;
+    x1Flux[ks][js][i].Mz = (Vel[ks][js][i].x3 - Vel[ks][js][i-1].x3)/pG->dx1;
 
     nud = nu_V*0.5*(pG->U[ks][js][i].d + pG->U[ks][js][i-1].d);
-    x1Flux[ks][js][i].Mx *= nud;
+    x1Flux[ks][js][i].Mx *= (4./3.)*nud;
     x1Flux[ks][js][i].My *= nud;
     x1Flux[ks][js][i].Mz *= nud;
 
 #ifndef BAROTROPIC
     x1Flux[ks][js][i].E  =
-       0.5*(Vel[ks][js][i-1].x + Vel[ks][js][i].x)*x1Flux[ks][js][i].Mx +
-       0.5*(Vel[ks][js][i-1].y + Vel[ks][js][i].y)*x1Flux[ks][js][i].My +
-       0.5*(Vel[ks][js][i-1].z + Vel[ks][js][i].z)*x1Flux[ks][js][i].Mz;
+       0.5*(Vel[ks][js][i-1].x1 + Vel[ks][js][i].x1)*x1Flux[ks][js][i].Mx +
+       0.5*(Vel[ks][js][i-1].x2 + Vel[ks][js][i].x2)*x1Flux[ks][js][i].My +
+       0.5*(Vel[ks][js][i-1].x3 + Vel[ks][js][i].x3)*x1Flux[ks][js][i].Mz;
 #endif /* BAROTROPIC */
   }
 
@@ -105,7 +100,6 @@ void ns_viscosity_1d(Grid *pG, Domain *pD)
 #endif /* BAROTROPIC */
   }
 
-#endif /* NAVIER_STOKES */
   return;
 }
 
@@ -115,7 +109,6 @@ void ns_viscosity_1d(Grid *pG, Domain *pD)
 
 void ns_viscosity_2d(Grid *pG, Domain *pD)
 {
-#ifdef NAVIER_STOKES
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -129,16 +122,16 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
 
   for (j=js-2; j<=je+2; j++) {
     for (i=is-2; i<=ie+2; i++) {
-      Vel[ks][j][i].x = pG->U[ks][j][i].M1/pG->U[ks][j][i].d;
-      Vel[ks][j][i].y = pG->U[ks][j][i].M2/pG->U[ks][j][i].d;
-      Vel[ks][j][i].z = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
+      Vel[ks][j][i].x1 = pG->U[ks][j][i].M1/pG->U[ks][j][i].d;
+      Vel[ks][j][i].x2 = pG->U[ks][j][i].M2/pG->U[ks][j][i].d;
+      Vel[ks][j][i].x3 = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
     }
   }
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      divv[ks][j][i] = ((Vel[ks][j][i+1].x - Vel[ks][j][i-1].x)/(2.0*pG->dx1) +
-                        (Vel[ks][j+1][i].y - Vel[ks][j-1][i].y)/(2.0*pG->dx2));
+      divv[ks][j][i] = ((Vel[ks][j][i+1].x1 -Vel[ks][j][i-1].x1)/(2.0*pG->dx1) +
+                        (Vel[ks][j+1][i].x2 -Vel[ks][j-1][i].x2)/(2.0*pG->dx2));
     }
   }
 
@@ -148,14 +141,14 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      x1Flux[ks][j][i].Mx = 2.0*(Vel[ks][j][i].x - Vel[ks][j][i-1].x)/pG->dx1
+      x1Flux[ks][j][i].Mx = 2.0*(Vel[ks][j][i].x1 - Vel[ks][j][i-1].x1)/pG->dx1
          - ONE_3RD*(divv[ks][j][i] + divv[ks][j][i-1]);
 
-      x1Flux[ks][j][i].My = (Vel[ks][j][i].y - Vel[ks][j][i-1].y)/pG->dx1
-        + ((Vel[ks][j+1][i].x + Vel[ks][j+1][i-1].x) - 
-           (Vel[ks][j-1][i].x + Vel[ks][j-1][i-1].x))/(4.0*pG->dx2); 
+      x1Flux[ks][j][i].My = (Vel[ks][j][i].x2 - Vel[ks][j][i-1].x2)/pG->dx1
+        + ((Vel[ks][j+1][i].x1 + Vel[ks][j+1][i-1].x1) - 
+           (Vel[ks][j-1][i].x1 + Vel[ks][j-1][i-1].x1))/(4.0*pG->dx2); 
 
-      x1Flux[ks][j][i].Mz = (Vel[ks][j][i].z - Vel[ks][j][i-1].z)/pG->dx1;
+      x1Flux[ks][j][i].Mz = (Vel[ks][j][i].x3 - Vel[ks][j][i-1].x3)/pG->dx1;
 
       nud = nu_V*0.5*(pG->U[ks][j][i].d + pG->U[ks][j][i-1].d);
       x1Flux[ks][j][i].Mx *= nud;
@@ -164,9 +157,9 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       x1Flux[ks][j][i].E  =
-         0.5*(Vel[ks][j][i-1].x + Vel[ks][j][i].x)*x1Flux[ks][j][i].Mx +
-         0.5*(Vel[ks][j][i-1].y + Vel[ks][j][i].y)*x1Flux[ks][j][i].My +
-         0.5*(Vel[ks][j][i-1].z + Vel[ks][j][i].z)*x1Flux[ks][j][i].Mz;
+         0.5*(Vel[ks][j][i-1].x1 + Vel[ks][j][i].x1)*x1Flux[ks][j][i].Mx +
+         0.5*(Vel[ks][j][i-1].x2 + Vel[ks][j][i].x2)*x1Flux[ks][j][i].My +
+         0.5*(Vel[ks][j][i-1].x3 + Vel[ks][j][i].x3)*x1Flux[ks][j][i].Mz;
 #endif /* BAROTROPIC */
     }
   }
@@ -177,14 +170,14 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie; i++) {
-      x2Flux[ks][j][i].Mx = (Vel[ks][j][i].x - Vel[ks][j-1][i].x)/pG->dx2
-        + ((Vel[ks][j][i+1].y + Vel[ks][j-1][i+1].y) - 
-           (Vel[ks][j][i-1].y + Vel[ks][j-1][i-1].y))/(4.0*pG->dx1);
+      x2Flux[ks][j][i].Mx = (Vel[ks][j][i].x1 - Vel[ks][j-1][i].x1)/pG->dx2
+        + ((Vel[ks][j][i+1].x2 + Vel[ks][j-1][i+1].x2) - 
+           (Vel[ks][j][i-1].x2 + Vel[ks][j-1][i-1].x2))/(4.0*pG->dx1);
 
-      x2Flux[ks][j][i].My = 2.0*(Vel[ks][j][i].y - Vel[ks][j-1][i].y)/pG->dx2
+      x2Flux[ks][j][i].My = 2.0*(Vel[ks][j][i].x2 - Vel[ks][j-1][i].x2)/pG->dx2
          - ONE_3RD*(divv[ks][j][i] + divv[ks][j-1][i]);
 
-      x2Flux[ks][j][i].Mz = (Vel[ks][j][i].z - Vel[ks][j-1][i].z)/pG->dx2;
+      x2Flux[ks][j][i].Mz = (Vel[ks][j][i].x3 - Vel[ks][j-1][i].x3)/pG->dx2;
 
       nud = nu_V*0.5*(pG->U[ks][j][i].d + pG->U[ks][j-1][i].d);
       x2Flux[ks][j][i].Mx *= nud;
@@ -193,9 +186,9 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
       x2Flux[ks][j][i].E  =
-         0.5*(Vel[ks][j-1][i].x + Vel[ks][j][i].x)*x2Flux[ks][j][i].Mx +
-         0.5*(Vel[ks][j-1][i].y + Vel[ks][j][i].y)*x2Flux[ks][j][i].My +
-         0.5*(Vel[ks][j-1][i].z + Vel[ks][j][i].z)*x2Flux[ks][j][i].Mz;
+         0.5*(Vel[ks][j-1][i].x1 + Vel[ks][j][i].x1)*x2Flux[ks][j][i].Mx +
+         0.5*(Vel[ks][j-1][i].x2 + Vel[ks][j][i].x2)*x2Flux[ks][j][i].My +
+         0.5*(Vel[ks][j-1][i].x3 + Vel[ks][j][i].x3)*x2Flux[ks][j][i].Mz;
 #endif /* BAROTROPIC */
     }
   }
@@ -230,7 +223,6 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
     }
   }
 
-#endif /* NAVIER_STOKES */
   return;
 }
 
@@ -240,7 +232,6 @@ void ns_viscosity_2d(Grid *pG, Domain *pD)
 
 void ns_viscosity_3d(Grid *pG, Domain *pD)
 {
-#ifdef NAVIER_STOKES
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -256,9 +247,9 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
   for (k=ks-2; k<=ke+2; k++) {
     for (j=js-2; j<=je+2; j++) {
       for (i=is-2; i<=ie+2; i++) {
-        Vel[k][j][i].x = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-        Vel[k][j][i].y = pG->U[k][j][i].M2/pG->U[k][j][i].d;
-        Vel[k][j][i].z = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+        Vel[k][j][i].x1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
+        Vel[k][j][i].x2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
+        Vel[k][j][i].x3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
       }
     }
   }
@@ -266,9 +257,9 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        divv[k][j][i] = ((Vel[k][j][i+1].x - Vel[k][j][i-1].x)/(2.0*pG->dx1) +
-                         (Vel[k][j+1][i].y - Vel[k][j-1][i].y)/(2.0*pG->dx2) +
-                         (Vel[k+1][j][i].z - Vel[k-1][j][i].z)/(2.0*pG->dx3));
+        divv[k][j][i] = ((Vel[k][j][i+1].x1 - Vel[k][j][i-1].x1)/(2.0*pG->dx1) +
+                         (Vel[k][j+1][i].x2 - Vel[k][j-1][i].x2)/(2.0*pG->dx2) +
+                         (Vel[k+1][j][i].x3 - Vel[k-1][j][i].x3)/(2.0*pG->dx3));
       }
     }
   }
@@ -280,16 +271,16 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie+1; i++) {
-        x1Flux[k][j][i].Mx = 2.0*(Vel[k][j][i].x - Vel[k][j][i-1].x)/pG->dx1
+        x1Flux[k][j][i].Mx = 2.0*(Vel[k][j][i].x1 - Vel[k][j][i-1].x1)/pG->dx1
            - ONE_3RD*(divv[k][j][i] + divv[k][j][i-1]);
 
-        x1Flux[k][j][i].My = (Vel[k][j][i].y - Vel[k][j][i-1].y)/pG->dx1
-          + ((Vel[k][j+1][i].x + Vel[k][j+1][i-1].x) - 
-             (Vel[k][j-1][i].x + Vel[k][j-1][i-1].x))/(4.0*pG->dx2); 
+        x1Flux[k][j][i].My = (Vel[k][j][i].x2 - Vel[k][j][i-1].x2)/pG->dx1
+          + ((Vel[k][j+1][i].x1 + Vel[k][j+1][i-1].x1) - 
+             (Vel[k][j-1][i].x1 + Vel[k][j-1][i-1].x1))/(4.0*pG->dx2); 
 
-        x1Flux[k][j][i].Mz = (Vel[k][j][i].z - Vel[k][j][i-1].z)/pG->dx1
-          + ((Vel[k+1][j][i].x + Vel[k+1][j][i-1].x) - 
-             (Vel[k-1][j][i].x + Vel[k-1][j][i-1].x))/(4.0*pG->dx3);
+        x1Flux[k][j][i].Mz = (Vel[k][j][i].x3 - Vel[k][j][i-1].x3)/pG->dx1
+          + ((Vel[k+1][j][i].x1 + Vel[k+1][j][i-1].x1) - 
+             (Vel[k-1][j][i].x1 + Vel[k-1][j][i-1].x1))/(4.0*pG->dx3);
 
         nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
         x1Flux[k][j][i].Mx *= nud;
@@ -298,9 +289,9 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
         x1Flux[k][j][i].E  =
-           0.5*(Vel[k][j][i-1].x + Vel[k][j][i].x)*x1Flux[k][j][i].Mx +
-           0.5*(Vel[k][j][i-1].y + Vel[k][j][i].y)*x1Flux[k][j][i].My +
-           0.5*(Vel[k][j][i-1].z + Vel[k][j][i].z)*x1Flux[k][j][i].Mz;
+           0.5*(Vel[k][j][i-1].x1 + Vel[k][j][i].x1)*x1Flux[k][j][i].Mx +
+           0.5*(Vel[k][j][i-1].x2 + Vel[k][j][i].x2)*x1Flux[k][j][i].My +
+           0.5*(Vel[k][j][i-1].x3 + Vel[k][j][i].x3)*x1Flux[k][j][i].Mz;
 #endif /* BAROTROPIC */
       }
     }
@@ -313,16 +304,16 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        x2Flux[k][j][i].Mx = (Vel[k][j][i].x - Vel[k][j-1][i].x)/pG->dx2
-          + ((Vel[k][j][i+1].y + Vel[k][j-1][i+1].y) - 
-             (Vel[k][j][i-1].y + Vel[k][j-1][i-1].y))/(4.0*pG->dx1);
+        x2Flux[k][j][i].Mx = (Vel[k][j][i].x1 - Vel[k][j-1][i].x1)/pG->dx2
+          + ((Vel[k][j][i+1].x2 + Vel[k][j-1][i+1].x2) - 
+             (Vel[k][j][i-1].x2 + Vel[k][j-1][i-1].x2))/(4.0*pG->dx1);
 
-        x2Flux[k][j][i].My = 2.0*(Vel[k][j][i].y - Vel[k][j-1][i].y)/pG->dx2
+        x2Flux[k][j][i].My = 2.0*(Vel[k][j][i].x2 - Vel[k][j-1][i].x2)/pG->dx2
            - ONE_3RD*(divv[k][j][i] + divv[k][j-1][i]);
 
-        x2Flux[k][j][i].Mz = (Vel[k][j][i].z - Vel[k][j-1][i].z)/pG->dx2
-          + ((Vel[k+1][j][i].y + Vel[k+1][j-1][i].y) - 
-             (Vel[k-1][j][i].y + Vel[k-1][j-1][i].y))/(4.0*pG->dx3);
+        x2Flux[k][j][i].Mz = (Vel[k][j][i].x3 - Vel[k][j-1][i].x3)/pG->dx2
+          + ((Vel[k+1][j][i].x2 + Vel[k+1][j-1][i].x2) - 
+             (Vel[k-1][j][i].x2 + Vel[k-1][j-1][i].x2))/(4.0*pG->dx3);
 
         nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
         x2Flux[k][j][i].Mx *= nud;
@@ -331,9 +322,9 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
         x2Flux[k][j][i].E  =
-           0.5*(Vel[k][j-1][i].x + Vel[k][j][i].x)*x2Flux[k][j][i].Mx +
-           0.5*(Vel[k][j-1][i].y + Vel[k][j][i].y)*x2Flux[k][j][i].My +
-           0.5*(Vel[k][j-1][i].z + Vel[k][j][i].z)*x2Flux[k][j][i].Mz;
+           0.5*(Vel[k][j-1][i].x1 + Vel[k][j][i].x1)*x2Flux[k][j][i].Mx +
+           0.5*(Vel[k][j-1][i].x2 + Vel[k][j][i].x2)*x2Flux[k][j][i].My +
+           0.5*(Vel[k][j-1][i].x3 + Vel[k][j][i].x3)*x2Flux[k][j][i].Mz;
 #endif /* BAROTROPIC */
       }
     }
@@ -346,15 +337,15 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        x3Flux[k][j][i].Mx = (Vel[k][j][i].x - Vel[k-1][j][i].x)/pG->dx3
-          + ((Vel[k][j][i+1].z + Vel[k-1][j][i+1].z) -
-             (Vel[k][j][i-1].z + Vel[k-1][j][i-1].z))/(4.0*pG->dx1);
+        x3Flux[k][j][i].Mx = (Vel[k][j][i].x1 - Vel[k-1][j][i].x1)/pG->dx3
+          + ((Vel[k][j][i+1].x3 + Vel[k-1][j][i+1].x3) -
+             (Vel[k][j][i-1].x3 + Vel[k-1][j][i-1].x3))/(4.0*pG->dx1);
 
-        x3Flux[k][j][i].My = (Vel[k][j][i].y - Vel[k-1][j][i].y)/pG->dx3
-          + ((Vel[k][j+1][i].z + Vel[k-1][j+1][i].z) -
-             (Vel[k][j-1][i].z + Vel[k-1][j-1][i].z))/(4.0*pG->dx2);
+        x3Flux[k][j][i].My = (Vel[k][j][i].x2 - Vel[k-1][j][i].x2)/pG->dx3
+          + ((Vel[k][j+1][i].x3 + Vel[k-1][j+1][i].x3) -
+             (Vel[k][j-1][i].x3 + Vel[k-1][j-1][i].x3))/(4.0*pG->dx2);
 
-        x3Flux[k][j][i].Mz = 2.0*(Vel[k][j][i].z - Vel[k-1][j][i].z)/pG->dx3
+        x3Flux[k][j][i].Mz = 2.0*(Vel[k][j][i].x3 - Vel[k-1][j][i].x3)/pG->dx3
            - ONE_3RD*(divv[k][j][i] + divv[k-1][j][i]);
 
         nud = nu_V*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
@@ -364,9 +355,9 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
 
 #ifndef BAROTROPIC
         x3Flux[k][j][i].E  =
-           0.5*(Vel[k-1][j][i].x + Vel[k][j][i].x)*x3Flux[k][j][i].Mx +
-           0.5*(Vel[k-1][j][i].y + Vel[k][j][i].y)*x3Flux[k][j][i].My +
-           0.5*(Vel[k-1][j][i].z + Vel[k][j][i].z)*x3Flux[k][j][i].Mz;
+           0.5*(Vel[k-1][j][i].x1 + Vel[k][j][i].x1)*x3Flux[k][j][i].Mx +
+           0.5*(Vel[k-1][j][i].x2 + Vel[k][j][i].x2)*x3Flux[k][j][i].My +
+           0.5*(Vel[k-1][j][i].x3 + Vel[k][j][i].x3)*x3Flux[k][j][i].Mz;
 #endif /* BAROTROPIC */
       }
     }
@@ -423,7 +414,6 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
     }
   }
 
-#endif /* NAVIER_STOKES */
   return;
 }
 
@@ -433,7 +423,6 @@ void ns_viscosity_3d(Grid *pG, Domain *pD)
 
 void ns_viscosity_init(int nx1, int nx2, int nx3)
 {
-#ifdef NAVIER_STOKES
   int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
   if (nx2 > 1){
     Nx2 = nx2 + 2*nghost;
@@ -452,7 +441,7 @@ void ns_viscosity_init(int nx1, int nx2, int nx3)
     == NULL) goto on_error;
   if ((x3Flux = (ViscFlux***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ViscFlux)))
     == NULL) goto on_error;
-  if ((Vel = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+  if ((Vel = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
     == NULL) goto on_error;
   if ((divv = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
     goto on_error;
@@ -461,7 +450,6 @@ void ns_viscosity_init(int nx1, int nx2, int nx3)
   on_error:
   ns_viscosity_destruct();
   ath_error("[ns_viscosity_init]: malloc returned a NULL pointer\n");
-#endif /* NAVIER_STOKES */
   return;
 }
 
@@ -471,12 +459,11 @@ void ns_viscosity_init(int nx1, int nx2, int nx3)
 
 void ns_viscosity_destruct(void)
 {   
-#ifdef NAVIER_STOKES
   if (x1Flux != NULL) free_3d_array(x1Flux);
   if (x2Flux != NULL) free_3d_array(x2Flux);
   if (x3Flux != NULL) free_3d_array(x3Flux);
   if (Vel != NULL) free_3d_array(Vel);
   if (divv != NULL) free_3d_array(divv);
-#endif /* NAVIER_STOKES */
   return;
 }
+#endif /* NAVIER_STOKES */

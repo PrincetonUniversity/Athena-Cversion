@@ -42,10 +42,10 @@ static const Real Tmin = 10;
  *   Koyama & Inutsuka, ApJ 564, L97 (2002).  Returns rate in cgs.
  */
 
+#ifndef BAROTROPIC
 Real KoyInut(const Real dens, const Real Press, const Real dt)
 {
   Real n,coolrate=0.0;
-#ifndef BAROTROPIC
   Real T,coolratepp,MaxdT,dT;
 	Real Teq, logn, lognT;
 
@@ -74,6 +74,6 @@ Real KoyInut(const Real dens, const Real Press, const Real dt)
  * rate to this value */
   MaxdT = kb*(T-Teq)/(dt*Gamma_1);
   coolrate = MIN(coolratepp,MaxdT);
-#endif /* BAROTROPIC */
   return n*coolrate;
 }
+#endif /* BAROTROPIC */

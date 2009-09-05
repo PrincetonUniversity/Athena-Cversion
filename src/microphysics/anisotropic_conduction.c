@@ -37,15 +37,10 @@
 #endif /* HYDRO */
 #endif /* ANISOTROPIC_CONDUCTION */
 
-typedef struct ThreeDVect_t{
-  Real x;
-  Real y;
-  Real z;
-}ThreeDVect;
-
 /* Arrays for the temperature and heat fluxes */
+#ifdef ANISOTROPIC_CONDUCTION
 static Real ***Temp=NULL;
-static ThreeDVect ***EFlux=NULL;
+static Vector ***EFlux=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -54,7 +49,6 @@ static ThreeDVect ***EFlux=NULL;
 
 void anisoconduct_2d(Grid *pG, Domain *pD)
 {
-#ifdef ANISOTROPIC_CONDUCTION
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -106,8 +100,8 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
       bDotGradT = pG->B1i[ks][j][i]*(Temp[ks][j][i]-Temp[ks][j][i-1])/pG->dx1
          + By*dTdy;
-      EFlux[ks][j][i].x = pG->B1i[ks][j][i]*bDotGradT/B02;
-      EFlux[ks][j][i].x *= chi_C;
+      EFlux[ks][j][i].x1 = pG->B1i[ks][j][i]*bDotGradT/B02;
+      EFlux[ks][j][i].x1 *= chi_C;
     }
   }
 
@@ -137,8 +131,8 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
       bDotGradT = pG->B2i[ks][j][i]*(Temp[ks][j][i]-Temp[ks][j-1][i])/pG->dx2
          + Bx*dTdx;
-      EFlux[ks][j][i].y = pG->B2i[ks][j][i]*bDotGradT/B02;
-      EFlux[ks][j][i].y *= chi_C;
+      EFlux[ks][j][i].x2 = pG->B2i[ks][j][i]*bDotGradT/B02;
+      EFlux[ks][j][i].x2 *= chi_C;
     }
   }
 
@@ -148,11 +142,10 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].E += dtodx1*(EFlux[ks][j][i+1].x - EFlux[ks][j][i].x);
-      pG->U[ks][j][i].E += dtodx2*(EFlux[ks][j+1][i].y - EFlux[ks][j][i].y);
+      pG->U[ks][j][i].E += dtodx1*(EFlux[ks][j][i+1].x1 - EFlux[ks][j][i].x1);
+      pG->U[ks][j][i].E += dtodx2*(EFlux[ks][j+1][i].x2 - EFlux[ks][j][i].x2);
     }
   }
-#endif /* ANISOTROPIC_CONDUCTION */
 
   return;
 }
@@ -164,7 +157,6 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
 void anisoconduct_3d(Grid *pG, Domain *pD)
 {
-#ifdef ANISOTROPIC_CONDUCTION
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -234,8 +226,8 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
         bDotGradT = pG->B1i[k][j][i]*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1
            + By*dTdy + Bz*dTdz;
-        EFlux[k][j][i].x = pG->B1i[k][j][i]*bDotGradT/B02;
-        EFlux[k][j][i].x *= chi_C;
+        EFlux[k][j][i].x1 = pG->B1i[k][j][i]*bDotGradT/B02;
+        EFlux[k][j][i].x1 *= chi_C;
       }
     }
   }
@@ -281,8 +273,8 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
         bDotGradT = pG->B2i[k][j][i]*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2
            + Bx*dTdx + Bz*dTdz;
-        EFlux[k][j][i].y = pG->B2i[k][j][i]*bDotGradT/B02;
-        EFlux[k][j][i].y *= chi_C;
+        EFlux[k][j][i].x2 = pG->B2i[k][j][i]*bDotGradT/B02;
+        EFlux[k][j][i].x2 *= chi_C;
       }
     }
   }
@@ -328,8 +320,8 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
         bDotGradT = pG->B3i[k][j][i]*(Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3
            + Bx*dTdx + By*dTdy;
-        EFlux[k][j][i].z = pG->B3i[k][j][i]*bDotGradT/B02;
-        EFlux[k][j][i].z *= chi_C;
+        EFlux[k][j][i].x3 = pG->B3i[k][j][i]*bDotGradT/B02;
+        EFlux[k][j][i].x3 *= chi_C;
       }
     }
   }
@@ -341,13 +333,12 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x - EFlux[k][j][i].x);
-        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].y - EFlux[k][j][i].y);
-        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].z - EFlux[k][j][i].z);
+        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x1 - EFlux[k][j][i].x1);
+        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].x2 - EFlux[k][j][i].x2);
+        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].x3 - EFlux[k][j][i].x3);
       }
     }
   }
-#endif /* ANISOTROPIC_CONDUCTION */
 
   return;
 }
@@ -358,7 +349,6 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
 void anisoconduct_init(int nx1, int nx2, int nx3)
 {
-#ifdef ANISOTROPIC_CONDUCTION
   int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
   if (nx2 > 1){
     Nx2 = nx2 + 2*nghost;
@@ -373,14 +363,13 @@ void anisoconduct_init(int nx1, int nx2, int nx3)
 
   if ((Temp = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
     goto on_error;
-  if ((EFlux = (ThreeDVect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(ThreeDVect)))
+  if ((EFlux = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
      == NULL) goto on_error;
   return;
 
   on_error:
   anisoconduct_destruct();
   ath_error("[anisoconduct_init]: malloc returned a NULL pointer\n");
-#endif /* ANISOTROPIC_CONDUCTION */
 }
 
 /*----------------------------------------------------------------------------*/
@@ -389,10 +378,9 @@ void anisoconduct_init(int nx1, int nx2, int nx3)
 
 void anisoconduct_destruct(void)
 {
-#ifdef ANISOTROPIC_CONDUCTION
   if (Temp != NULL) free_3d_array(Temp);
   if (EFlux != NULL) free_3d_array(EFlux);
-#endif /* ANISOTROPIC_CONDUCTION */
 
   return;
 }
+#endif /* ANISOTROPIC_CONDUCTION */

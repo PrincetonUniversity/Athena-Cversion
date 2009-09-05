@@ -34,7 +34,7 @@ static int dim=0;
 
 void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
 {
-  Real min_dx,min_dt=0.0;
+  Real min_dx;
 
 /* Calculate explicit diffusion timestep */
 
@@ -46,7 +46,7 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
 #endif        
 /* I think the Hall timestep limit needs density */
 #ifdef HALL_MHD
-  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*(eta_Ohm + eta_Hall))));
+  pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*(eta_Ohm +eta_Hall))));
 #endif        
 #if defined(NAVIER_STOKES) || defined(BRAGINSKII)
   pGrid->dt = MIN(pGrid->dt,CourNo*((min_dx*min_dx)/(4.0*nu_V)));
@@ -79,7 +79,7 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
  *   operators, call initialization routines to allocate memory
  */
 
-void integrate_explicit_diff_init(Grid *pGrid, Domain *pDomain)
+void integrate_explicit_diff_init(Grid *pGrid)
 {   
 /* Calculate the dimensions  */
   dim=0;
