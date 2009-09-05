@@ -54,7 +54,7 @@ static Real **pW=NULL, **Whalf=NULL;
  * Input Arguments:
  *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell center
- *   dt = timestep;  dtodx = dt/dx
+ *   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-3:iu+3]
  *
@@ -63,11 +63,11 @@ static Real **pW=NULL, **Whalf=NULL;
  */
 
 void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
-	       const Real dt, const Real dtodx, const int il, const int iu,
+	       const Real dtodx, const int il, const int iu,
 	       Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;
-  Real pb,lim_slope,qa,qb,qc,qx,s,alphal,alphar,dalpha,dI;
+  Real lim_slope,qa,qb,qc,qx;
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real d2Wc[NWAVE+NSCALARS],d2Wl[NWAVE+NSCALARS];
   Real d2Wr[NWAVE+NSCALARS],d2W [NWAVE+NSCALARS];
@@ -345,7 +345,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 
 void lr_states_init(int nx1, int nx2, int nx3)
 {
-  int i, nmax;
+  int nmax;
   nmax =  nx1 > nx2  ? nx1 : nx2;
   nmax = (nx3 > nmax ? nx3 : nmax) + 2*nghost;
 

@@ -43,7 +43,7 @@ static Real **pW=NULL;
  * Input Arguments:
  *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell center
- *   dt = timestep;   dtodx = dt/dx
+ *   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-2:iu+2]
  *
@@ -52,11 +52,11 @@ static Real **pW=NULL;
  */
 
 void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
-               const Real dt, const Real dtodx, const int il, const int iu,
+               const Real dtodx, const int il, const int iu,
                Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;
-  Real pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
+  Real lim_slope1,lim_slope2,qa,qx;
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
   Real dWr[NWAVE+NSCALARS],dWg[NWAVE+NSCALARS];
@@ -172,46 +172,9 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 #endif
 
 /*--- Step 6. ------------------------------------------------------------------
- * Limit velocity difference to sound speed
- * Limit velocity so momentum is always TVD (using only minmod limiter)
- * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
- * simulations, but found it added noise to Noh shocktube.
- */
-
-#ifdef H_CORRECTION
-/*
-#ifdef ISOTHERMAL
-    qa = Iso_csound;
-#else
-    qa = sqrt(Gamma*W[i].P/W[i].d);
-#endif
-    dWm[1] = SIGN(dWm[1])*MIN(fabs(dWm[1]),qa);
-*/
-#endif /* H_CORRECTION */
-/*
-    qa = W[i  ].Vx*W[i  ].d - W[i-1].Vx*W[i-1].d;
-    qb = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
-    qc = W[i+1].Vx*W[i+1].d - W[i-1].Vx*W[i-1].d;
-    qx = SIGN(qc)*MIN(2.0*MIN(fabs(qa),fabs(qb)), 0.5*fabs(qc));
-
-    if ((-W[i].Vx*dWm[0]) > 0.0) {
-      qa = 0.0;
-      qb = -W[i].Vx*dWm[0];
-    } else {
-      qa = -W[i].Vx*dWm[0];
-      qb = 0.0;
-    }
-    if (qx > 0.0) {
-      qb += qx;
-    } else {
-      qa += qx;
-    }
-    qa = qa/W[i].d;
-    qb = qb/W[i].d;
-
-    dWm[1] = MIN(dWm[1],qb);
-    dWm[1] = MAX(dWm[1],qa);
-*/
+ * Limit velocity difference to sound speed (deleted).  Was added to make
+ * turbulence runs more robust, but found added noise to Noh shocktube and 
+ * other tests.  See r995 and earlier for this step */
 
 /*--- Step 7. ------------------------------------------------------------------
  * Compute L/R values, ensure they lie between neighboring cell-centered vals */
@@ -220,13 +183,6 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
       Wlv[n] = pW[i][n] - 0.5*dWm[n];
       Wrv[n] = pW[i][n] + 0.5*dWm[n];
     }
-
-//     for (n=0; n<(NWAVE+NSCALARS); n++) {
-//       Wlv[n] = MAX(MIN(pW[i][n],pW[i-1][n]),Wlv[n]);
-//       Wlv[n] = MIN(MAX(pW[i][n],pW[i-1][n]),Wlv[n]);
-//       Wrv[n] = MAX(MIN(pW[i][n],pW[i+1][n]),Wrv[n]);
-//       Wrv[n] = MIN(MAX(pW[i][n],pW[i+1][n]),Wrv[n]);
-//     }
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       C = Wrv[n] + Wlv[n];
@@ -283,7 +239,6 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
         qx1 = 0.5*dtodx*ev[NWAVE-1];
         qx2 = 0.5*dtodx*ev[n];
         for (m=0; m<NWAVE; m++) {
-//           qa += lem[n][m]*0.5*dtodx*(ev[NWAVE-1]-ev[n])*dW[m];
           qa += lem[n][m]*(qx1*dW[m] - qx2*dW[m]);
         }
         for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
@@ -295,7 +250,6 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
           qx1 = -0.5*dtodx*MIN(ev[0],0.0);
           qx2 = -0.5*dtodx*ev[n];
           for (m=0; m<NWAVE; m++) {
-//             qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
             qa += lem[n][m]*(-qx1*dW[m] + qx2*dW[m]);
           }
           for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
@@ -310,7 +264,6 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
         qx1 = -0.5*dtodx*ev[0];
         qx2 = -0.5*dtodx*ev[n];
         for (m=0; m<NWAVE; m++) {
-//           qa += lem[n][m]*0.5*dtodx*(ev[0]-ev[n])*dW[m];
           qa += lem[n][m]*(-qx1*dW[m] + qx2*dW[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
@@ -322,7 +275,6 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
           qx1 = 0.5*dtodx*MAX(ev[NWAVE-1],0.0);
           qx2 = 0.5*dtodx*ev[n];
           for (m=0; m<NWAVE; m++) {
-//             qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
             qa += lem[n][m]*(qx1*dW[m] - qx2*dW[m]);
           }
           for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
@@ -355,7 +307,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
  * Input Arguments:
  *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell center
- *   dt = timestep;   dtodx = dt/dx
+ *   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-2:iu+2]
  *
@@ -364,11 +316,11 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
  */
 
 void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
-                   const Real dt, const Real dtodx, const int il, const int iu,
+                   const Real dtodx, const int il, const int iu,
                    Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;
-  Real pb,lim_slope1,lim_slope2,qa,qb,qc,qx;
+  Real lim_slope1,lim_slope2,qa,qx;
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
   Real dWr[NWAVE+NSCALARS],dWg[NWAVE+NSCALARS];
@@ -490,46 +442,9 @@ void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
 #endif
 
 /*--- Step 6. ------------------------------------------------------------------
- * Limit velocity difference to sound speed
- * Limit velocity so momentum is always TVD (using only minmod limiter)
- * CURRENTLY NOT USED.  Was added to make code more robust for turbulence
- * simulations, but found it added noise to Noh shocktube.
- */
-
-#ifdef H_CORRECTION
-/*
-#ifdef ISOTHERMAL
-    qa = Iso_csound;
-#else
-    qa = sqrt(Gamma*W[i].P/W[i].d);
-#endif
-    dWm[1] = SIGN(dWm[1])*MIN(fabs(dWm[1]),qa);
-*/
-#endif /* H_CORRECTION */
-/*
-    qa = W[i  ].Vx*W[i  ].d - W[i-1].Vx*W[i-1].d;
-    qb = W[i+1].Vx*W[i+1].d - W[i  ].Vx*W[i  ].d;
-    qc = W[i+1].Vx*W[i+1].d - W[i-1].Vx*W[i-1].d;
-    qx = SIGN(qc)*MIN(2.0*MIN(fabs(qa),fabs(qb)), 0.5*fabs(qc));
-
-    if ((-W[i].Vx*dWm[0]) > 0.0) {
-      qa = 0.0;
-      qb = -W[i].Vx*dWm[0];
-    } else {
-      qa = -W[i].Vx*dWm[0];
-      qb = 0.0;
-    }
-    if (qx > 0.0) {
-      qb += qx;
-    } else {
-      qa += qx;
-    }
-    qa = qa/W[i].d;
-    qb = qb/W[i].d;
-
-    dWm[1] = MIN(dWm[1],qb);
-    dWm[1] = MAX(dWm[1],qa);
-*/
+ * Limit velocity difference to sound speed (deleted).  Was added to make
+ * turbulence runs more robust, but found added noise to Noh shocktube and 
+ * other tests.  See r995 and earlier for this step */
 
 /*--- Step 7. ------------------------------------------------------------------
  * Compute L/R values, ensure they lie between neighboring cell-centered vals */

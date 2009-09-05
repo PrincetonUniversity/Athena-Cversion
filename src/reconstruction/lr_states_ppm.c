@@ -47,7 +47,7 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
  * Input Arguments:
  *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell center
- *   dt = timestep;  dtodx = dt/dx
+ *   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-3:iu+3]
  *
@@ -56,7 +56,7 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
  */
 
 void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
-	       const Real dt, const Real dtodx, const int il, const int iu,
+	       const Real dtodx, const int il, const int iu,
 	       Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;
@@ -468,12 +468,9 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
     for (n=0; n<NWAVE; n++) {
       if (ev[n] >= 0.0) {
         qa  = 0.0;
-//         qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
-//         qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
         qx1 = 0.5*dtodx*ev[NWAVE-1];
         qx2 = 0.5*dtodx*ev[n];
         for (m=0; m<NWAVE; m++) {
-// 	  qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
           qa += lem[n][m]*(qx1*(dW[m] - (1.0 - FOUR_3RDS*qx1)*W6[m])
                          - qx2*(dW[m] - (1.0 - FOUR_3RDS*qx2)*W6[m]));
         }
@@ -483,12 +480,9 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 /* For HLL fluxes, subtract wave moving away from interface as well. */
         if (ev[n] > 0.0) {
           qa  = 0.0;
-//           qb = 0.5*dtodx*(ev[0]-ev[n]);
-//           qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - ev[n]*ev[n]);
           qx1 = -0.5*dtodx*MIN(ev[0],0.0);
           qx2 = -0.5*dtodx*ev[n];
           for (m=0; m<NWAVE; m++) {
-//             qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
             qa += lem[n][m]*(-qx1*(dW[m] + (1.0 - FOUR_3RDS*qx1)*W6[m])
                             + qx2*(dW[m] + (1.0 - FOUR_3RDS*qx2)*W6[m]));
           }
@@ -502,12 +496,9 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
     for (n=0; n<NWAVE; n++) {
       if (ev[n] <= 0.0) {
         qa = 0.0;
-//         qb = 0.5*dtodx*(ev[0]-ev[n]);
-//         qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - ev[n]*ev[n]);
         qx1 = -0.5*dtodx*ev[0];
         qx2 = -0.5*dtodx*ev[n];
         for (m=0; m<NWAVE; m++) {
-//           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
           qa += lem[n][m]*(-qx1*(dW[m] + (1.0 - FOUR_3RDS*qx1)*W6[m])
                           + qx2*(dW[m] + (1.0 - FOUR_3RDS*qx2)*W6[m]));
         }
@@ -517,12 +508,9 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 /* For HLL fluxes, subtract wave moving away from interface as well. */
         if (ev[n] < 0.) {
           qa = 0.0;
-//           qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
-//           qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
           qx1 = 0.5*dtodx*MAX(ev[NWAVE-1],0.0);
           qx2 = 0.5*dtodx*ev[n];
           for (m=0; m<NWAVE; m++) {
-//            qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
             qa += lem[n][m]*(qx1*(dW[m] - (1.0 - FOUR_3RDS*qx1)*W6[m])
                           - qx2*(dW[m] - (1.0 - FOUR_3RDS*qx2)*W6[m]));
           }
@@ -572,7 +560,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
  * Input Arguments:
  *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell center
- *   dt = timestep;  dtodx = dt/dx
+ *   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-3:iu+3]
  *
@@ -581,7 +569,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
  */
 
 void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
-	           const Real dt, const Real dtodx, const int il, const int iu,
+	           const Real dtodx, const int il, const int iu,
 	           Prim1D Wl[], Prim1D Wr[])
 {
   int i,n,m;

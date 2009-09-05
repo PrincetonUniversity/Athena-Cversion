@@ -198,8 +198,7 @@ void esys_prim_adb_hyd(const Real d, const Real v1, const Real rho_a2,
 
 #if defined(BAROTROPIC) && defined(MHD)
 void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
-  const Real b2, const Real b3, 
-  Real eigenvalues[],
+  const Real b2, const Real b3, Real eigenvalues[],
   Real right_eigenmatrix[][6], Real left_eigenmatrix[][6])
 {
   Real btsq,vaxsq,cfsq,cf,cssq,cs,bt,bet2,bet3,alpha_f,alpha_s;
@@ -372,8 +371,7 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
 
 #if !defined(BAROTROPIC) && defined(MHD)
 void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
-  const Real b1, const Real b2, const Real b3,
-  Real eigenvalues[],
+  const Real b1, const Real b2, const Real b3, Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
 {
   Real di,cfsq,cf,cssq,cs,bt,bet2,bet3,alpha_f,alpha_s;

@@ -28,7 +28,7 @@
  * Input Arguments:
  *   W = PRIMITIVE variables at cell centers along 1-D slice
  *   Bxc = B in direction of slice at cell centers
- *   dt = timestep;   dtodx = dt/dx
+ *   dtodx = dt/dx
  *   il,iu = lower and upper indices of zone centers in slice
  * W must be initialized over [il-1:iu+1]
  *
@@ -37,7 +37,7 @@
  */
 
 void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
-	       const Real dt, const Real dtodx, const int il, const int iu,
+	       const Real dtodx, const int il, const int iu,
 	       Prim1D Wl[], Prim1D Wr[])
 {
   int i;
