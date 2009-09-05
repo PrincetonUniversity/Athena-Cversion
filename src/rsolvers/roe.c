@@ -64,7 +64,10 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dU[NWAVE],a[NWAVE];
 #ifdef TEST_INTERMEDIATE_STATES
-  Real u_inter[NWAVE],p_inter=0.0;
+  Real u_inter[NWAVE];
+#ifdef ADIABATIC
+  Real p_inter=0.0;
+#endif
 #endif /* TEST_INTERMEDIATE_STATES */
 /*  Prim1D Wl, Wr; */
   Real *pUl, *pUr, *pFl, *pFr, *pF;

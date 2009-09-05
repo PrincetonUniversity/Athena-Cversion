@@ -70,7 +70,9 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   Real Bxsig;                         /* sign(Bx) = 1 for Bx>0, -1 for Bx<0 */
   Real Bxsq = SQR(Bxi);               /* Bx^2 */
   Real tmp;                      /* Temp variable for repeated calculations */
+#if (NSCALARS > 0)
   int n;
+#endif
 
 
 

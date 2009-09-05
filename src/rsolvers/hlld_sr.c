@@ -57,7 +57,7 @@ Real ptot(Prim1D W, Real Bx);
 /* want f = 0 */
 Real Fstar(Riemann_State *PaL, Riemann_State *PaR, Real* Sc, Real p, Real Bx);
 
-/* performs some computations and returns > 0 for success, 0 for failure
+/* performs some computations and returns > 0 for success, 0 for failure */
 int get_Riemann_State(Riemann_State *Pv, Real p, Real Bx);
 
 /* computes left/right a states */

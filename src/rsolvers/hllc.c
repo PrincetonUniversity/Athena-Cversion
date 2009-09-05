@@ -46,7 +46,10 @@
 void fluxes(const Cons1D Ul, const Cons1D Ur,
             const Prim1D Wl, const Prim1D Wr, Cons1D *pFlux)
 {
-  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,hroe;
+  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe;
+#ifndef BAROTROPIC
+  Real hroe;
+#endif
   Real ev[NWAVE];
   Real *pFl, *pFr, *pF;
   Cons1D Fl,Fr;
