@@ -67,9 +67,6 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
 #endif
-#ifdef ION_RADIATION
-  VGFun_t IonRadTransfer; /* function pointer to ionization, set at runtime */
-#endif
   Real dt_done;
 
   Grid level0_Grid;      /* only level0 Grid and Domain in this version */
@@ -322,9 +319,6 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   init_particle(&level0_Grid, &level0_Domain);
 #endif
-#ifdef ION_RADIATION
-  ion_radtransfer_init_domain(&level0_Grid, &level0_Domain);
-#endif
 
   if (level0_Grid.Nx1 > 1 && level0_Grid.Nx2 > 1 && level0_Grid.Nx3 > 1
     && CourNo >= 0.5) 
@@ -401,9 +395,6 @@ int main(int argc, char *argv[])
 #ifdef EXPLICIT_DIFFUSION
   integrate_explicit_diff_init(&level0_Grid);
 #endif
-#ifdef ION_RADIATION
-  IonRadTransfer = ion_radtransfer_init(&level0_Grid, &level0_Domain, ires);
-#endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
@@ -453,14 +444,6 @@ int main(int argc, char *argv[])
 #ifdef EXPLICIT_DIFFUSION
     integrate_explicit_diff(&level0_Grid, &level0_Domain);
     set_bvals_mhd(&level0_Grid, &level0_Domain);
-#endif
-
-#ifdef ION_RADIATION
-    /* Note that we do the ionizing radiative transfer step first
-       because it is capable of decreasing the time step relative to
-       the value computed by Courant. */
-    (*IonRadTransfer)(&level0_Grid);
-    set_bvals_mhd(&level0_Grid, &level0_Domain); /* Re-apply hydro bc's */
 #endif
 
     (*Integrate)(&level0_Grid, &level0_Domain);

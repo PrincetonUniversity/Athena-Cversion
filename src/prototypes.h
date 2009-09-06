@@ -20,10 +20,6 @@
 
 /* Include prototypes in /src sub-directories */
 
-#ifdef ION_RADIATION
-#include "ionradiation/prototypes.h"
-#endif
-
 #ifdef FFT_ENABLED
 #include "fftsrc/prototypes.h"
 #endif

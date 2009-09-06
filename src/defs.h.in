@@ -61,17 +61,6 @@
 /* special relativity */
 #define @SPECIAL_RELATIVITY_MODE@
 
-/* Ionizing radiative transfer: ION_RADIATION or NO_ION_RADIATION */
-#define @ION_RADIATION_MODE@
-
-/* Ionizing radiative transfer from point sources:
- * ION_RADPOINT or NO_ION_RADPOINT */
-#define @ION_POINT_MODE@
-
-/* Ionizing radiative transfer from plane parallel fronts:
- * ION_RADPLANE or NO_ION_RADPLANE */
-#define @ION_PLANE_MODE@
-
 /* order of spatial reconstruction: FIRST_ORDER,
  * SECOND_ORDER_CHAR, SECOND_ORDER_PRIM, THIRD_ORDER_CHAR, THIRD_ORDER_PRIM */
 #define @ACCURACY@

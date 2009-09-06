@@ -32,9 +32,6 @@ CUSTLIBS = -ldl -lm
 ifeq (@FFT_MODE@,FFT_ENABLED)
    BLOCKINC = -I fftsrc
 endif
-ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
-   IONRADINC = -I ionradiation -I .. -I .
-endif
 
 #-------------------  compiler/library definitions  ----------------------------
 # select using MACHINE=<name> in command line.  For example

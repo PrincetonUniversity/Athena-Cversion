@@ -165,110 +165,6 @@ typedef struct Grain_Property_s{
 #endif /* PARTICLES */
 
 /*----------------------------------------------------------------------------*/
-/* structure Ray: a structure for storing information about a ray
- * passing through the grid, which we use to do radaitive transfer.
- */
-#ifdef ION_RADPOINT
-
-typedef struct Ray_s {
-  Real n1, n2, n3;         /* Unit vector specifying ray direction */
-  Real x1_0, x2_0, x3_0;   /* Physical position of ray origin */
-  Real x1_1, x2_1, x3_1;   /* Physical position of ray end */
-#ifdef MPI_PARALLEL
-  int nproc;               /* Number of processor domains the ray intersects */
-  int *proc_list;          /* List of processor domains through which the ray
-			    * passes
-			    */
-  Real *x1_dom;            /* Coordinates where ray enters and exits
-			    * processor domains
-			    */
-  Real *x2_dom;
-  Real *x3_dom;
-  Real *proc_length_list;  /* Length of ray passing through proc domain */
-  int *ncell;
-  int **i_list;            /* List of cells through which this ray passes, 
-			    * indexed by processor, then by cell number
-			    */
-  int **j_list;
-  int **k_list;
-  Real **cell_length_list; /* Length of ray passing through cell */
-#else
-  int ncell;
-  int *i_list;             /* List of cells through which this ray passes, 
-			    * indexed by cell number
-			    */
-  int *j_list;
-  int *k_list;
-  Real *cell_length_list;  /* Length of ray passing through cell */
-#endif
-  Real flux;               /* Ionizing flux */
-  int leaf;                /* Is this ray a leaf? */
-  Real length;             /* Length of this ray segment, start to end */
-  Real cum_length;         /* Length of ray up to this point from free base */
-  struct Ray_s *child[4];  /* Pointer to 4 children */
-  struct Ray_s *parent;    /* Pointer to parent */
-  int lev;                 /* Level of the ray */
-  int mynum, levnum;       /* Number of the ray, relative to parent
-			      and on its level as a whole */
-} Ray;
-
-/*----------------------------------------------------------------------------*/
-/* structure Rad_Ran2_State: The internal state of the random number
- * generator used by the ionizing radiative transfer routines
- */
-#define NTAB_RAN2 32
-typedef struct Rad_Ran2_State_s {
-  long seed, idum2, iy;
-  long iv[NTAB_RAN2];
-} Rad_Ran2_State;
-
-/*----------------------------------------------------------------------------*/
-/* structure Ray_Tree: a tree of rays
- */
-typedef struct Ray_Tree_s {
-  Real x1, x2, x3;         /* Physical position of tree center */
-  Real x1blo, x2blo, x3blo; /* Bounding box around tree */
-  Real x1bhi, x2bhi, x3bhi;
-  float rotation[3][3];    /* Rotation matrix describing tree orientation */
-  int max_level;           /* Maximum level of the tree */
-  int rebuild_ctr;         /* Counter to count time to rebuild tree */
-  Rad_Ran2_State ranstate; /* State of random number generator
-			      associated with this tree */
-  Ray *rays;               /* List of rays */
-} Ray_Tree;
-
-/*----------------------------------------------------------------------------*/
-/* structure Radpoint:  An object that describes a point source of ionizing
- * radiation.
- */
-typedef struct Radpoint_s {
-  Real x1, x2, x3;           /* Physical position of radiator */
-  Real s;                    /* Ionizing luminosity of source, in units
-				of 1/time (i.e. photons / sec, not erg /sec */
-  Ray_Tree tree;             /* The ray tree associated with this
-				radiator */
-} Radpoint;
-
-#endif /* ION_RADPOINT */
-
-#ifdef ION_RADPLANE
-/*----------------------------------------------------------------------------*/
-/* structure Radplane:  An object that describes source of
- * plane-parallel ionizing radiation entering the grid on one side.
- */
-typedef struct Radplane_s {
-  int dir;                   /* Direction of radiation propagation: -1
-				= -x direction, +1 = +x direction, -2
-				= -y direction, +2 = +y direction,
-				etc. */
-  Real flux;                 /* Ionizing flux, in units
-				of 1/time/area (i.e. photons / sec /
-				cm^2, not erg /sec / cm^2 */
-} Radplane;
-
-#endif /* ION_RADPLANE */
-
-/*----------------------------------------------------------------------------*/
 /* structure Grid: All data needed by a single processor to integrate equations
  *   Initialized by init_grid().  By using an array of Gas, rather than arrays
  *   of each variable, we guarantee data for each cell are contiguous in memory.
@@ -315,14 +211,6 @@ typedef struct Grid_s{
 #endif /* FEEDBACK */
 #endif /* PARTICLES */
 
-#ifdef ION_RADPOINT
-  int nradpoint;            /* number of point radiatiors */
-  Radpoint *radpointlist;   /* list of radiators */
-#endif
-#ifdef ION_RADPLANE
-  int nradplane;            /* number of planar rad fronts */
-  Radplane *radplanelist;   /* list of radiation plane sources */
-#endif
   int my_id;                /* process ID (or rank in MPI) updating this Grid */
   int rx1_id, lx1_id;       /* ID of grids to R/L in x1-dir (default = -1) */
   int rx2_id, lx2_id;       /* ID of grids to R/L in x2-dir (default = -1) */

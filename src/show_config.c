@@ -95,24 +95,6 @@ void show_config(void)
   ath_pout(0," Special Relativity:      OFF\n");
 #endif
 
-#ifdef ION_RADIATION
-  ath_pout(0," Ionizing radiation:      ON\n");
-#else
-  ath_pout(0," Ionizing radiation:      OFF\n");
-#endif
-
-#ifdef ION_RADPOINT
-  ath_pout(0,"   Ionizing point sources:  ON\n");
-#else
-  ath_pout(0,"   Ionizing point sources:  OFF\n");
-#endif
-
-#ifdef ION_RADPLANE
-  ath_pout(0,"   Ionizing plane sources:  ON\n");
-#else
-  ath_pout(0,"   Ionizing plane sources:  OFF\n");
-#endif
-
 #if defined(FIRST_ORDER)
   ath_pout(0," Order of Accuracy:       1 (FIRST_ORDER)\n");
 #elif defined(SECOND_ORDER_CHAR)
@@ -272,24 +254,6 @@ void show_config_par(void)
   par_sets("configure","special relativity","yes","Special relativistic?");
 #else
   par_sets("configure","special relativity","no","Special relativistic?");
-#endif
-
-#if defined(ION_RADIATION)
-  par_sets("configure","ionizing radiation","yes","Ionizing rad transfer?");
-#else
-  par_sets("configure","ionizing radiation","no","Ionizing rad transfer?");
-#endif
-
-#if defined(ION_RADPOINT)
-  par_sets("configure","point source","yes","Point source of radiation?");
-#else
-  par_sets("configure","point source","no","Point source of radiation?");
-#endif
-
-#if defined(ION_RADPLANE)
-  par_sets("configure","plane source","yes","Plane source of radiation?");
-#else
-  par_sets("configure","plane source","no","Plane source of radiation?");
 #endif
 
 #if defined(FIRST_ORDER)

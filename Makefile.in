@@ -42,9 +42,6 @@ compile:
 ifeq (@FFT_MODE@,FFT_ENABLED)
 	(cd src/fftsrc; $(MAKE) compile)
 endif
-ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
-	(cd src/ionradiation; $(MAKE) compile)
-endif
 	(cd src/microphysics; $(MAKE) compile)
 	(cd src/integrators; $(MAKE) compile)
 	(cd src/reconstruction; $(MAKE) compile)

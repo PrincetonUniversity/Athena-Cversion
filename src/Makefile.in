@@ -63,15 +63,6 @@ else
 endif
 endif
 
-IONRAD_OBJ =
-ifeq (@ION_RADIATION_MODE@,ION_RADIATION)
-   IONRAD_OBJ = ionradiation/ionrad.o \
-		ionradiation/ionrad_3d.o \
-		ionradiation/ionrad_chemistry.o \
-		ionradiation/ionradplane_3d.o \
-		ionradiation/ionradpoint_3d.o
-endif
-
 MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
 		microphysics/braginskii.o \
 		microphysics/cool.o \
@@ -117,7 +108,7 @@ PARTICLES_OBJ = particles/feedback.o \
 	        particles/set_bvals_particle.o \
 	        particles/utils_particle.o
 
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${IONRAD_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${PARTICLES_OBJ}
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${PARTICLES_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 
