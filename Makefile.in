@@ -53,7 +53,6 @@ endif
 #  target clean:
 clean:
 	(cd src/fftsrc; $(MAKE) clean)
-	(cd src/ionradiation; $(MAKE) clean)
 	(cd src/microphysics; $(MAKE) clean)
 	(cd src/integrators; $(MAKE) clean)
 	(cd src/reconstruction; $(MAKE) clean)
