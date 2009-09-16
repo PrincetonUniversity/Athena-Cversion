@@ -670,56 +670,27 @@ void ShearingSheet_ix1(Grid *pG, Domain *pD)
   } /* end of if */
 
 /*--- Step 11 ------------------------------------------------------------------
- * Shearing sheet BC in 2D  */
+ * Shearing sheet BC in 2D.  Periodic BC already applied in x1 and x2 in
+ * set_bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
+ * to azimuthal velocity when FARGO not defined */
 
+#ifndef FARGO
   if (pG->Nx3 == 1) {
 
-    for (j=js; j<=je; j++) {
+    for (j=js-nghost; j<=je+nghost; j++) {
       for (i=1; i<=nghost; i++) {
-        pG->U[ks][j][is-i] = pG->U[ks][j][ie-(i-1)];
-#ifndef FARGO
-        pG->U[ks][j][is-i].M3 += qomL*pG->U[ks][j][is-i].d;
-#endif
 #ifdef ADIABATIC
 /* No change in the internal energy */
         pG->U[ks][j][is-i].E += (0.5/pG->U[ks][j][is-i].d)*
-         (SQR(pG->U[ks][j][is-i].M3) - SQR(pG->U[ks][j][ie-(i-1)].M3));
+         (SQR((pG->U[ks][j][is-i].M3 + qomL*pG->U[ks][j][is-i].d))
+        - SQR(pG->U[ks][j][is-i].M3));
 #endif
-      }
-    }
-
-#ifdef MHD
-    for (j=js; j<=je; j++) {
-      for (i=1; i<=nghost; i++) {
-        pG->B1i[ks][j][is-i] = pG->B1i[ks][j][ie-(i-1)];
-      }
-    }
-
-    for (j=js; j<=je+1; j++) {
-      for (i=1; i<=nghost; i++) {
-        pG->B2i[ks][j][is-i] = pG->B2i[ks][j][ie-(i-1)];
-      }
-    }
-#endif
-
-/* periodic BC in Y for 2D.  Note will not work with MPI decomposition in Y */
-    for(j=1; j<=nghost; j++){
-      for(i=is-nghost; i<is; i++){
-        pG->U[ks][js-j][i] = pG->U[ks][je-(j-1)][i];
-        pG->U[ks][je+j][i] = pG->U[ks][js+(j-1)][i];
-#ifdef MHD
-        pG->B1i[ks][js-j][i] = pG->B1i[ks][je-(j-1)][i];
-        pG->B2i[ks][js-j][i] = pG->B2i[ks][je-(j-1)][i];
-        pG->B3i[ks][js-j][i] = pG->B3i[ks][je-(j-1)][i];
-          
-        pG->B1i[ks][je+j][i] = pG->B1i[ks][js+(j-1)][i];
-        pG->B2i[ks][je+j][i] = pG->B2i[ks][js+(j-1)][i];
-        pG->B3i[ks][je+j][i] = pG->B3i[ks][js+(j-1)][i];
-#endif /* MHD */
+        pG->U[ks][j][is-i].M3 += qomL*pG->U[ks][j][is-i].d;
       }
     }
 
   }
+#endif /* FARGO */
 
   return;
 }
@@ -1291,57 +1262,27 @@ void ShearingSheet_ox1(Grid *pG, Domain *pD)
   } /* end of if */
 
 /*--- Step 11 ------------------------------------------------------------------
- * Shearing sheet BC in 2D  */
+ * Shearing sheet BC in 2D.  Periodic BC already applied in x1 and x2 in
+ * set_bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
+ * to azimuthal velocity when FARGO not defined */
 
+#ifndef FARGO
   if (pG->Nx3 == 1) {
 
-    for (j=js; j<=je; j++) {
+    for (j=js-nghost; j<=je+nghost; j++) {
       for (i=1; i<=nghost; i++) {
-        pG->U[ks][j][ie+i] = pG->U[ks][j][is+(i-1)];
-#ifndef FARGO
-        pG->U[ks][j][ie+i].M3 -= qomL*pG->U[ks][j][ie+i].d;
-#endif
 #ifdef ADIABATIC
 /* No change in the internal energy */
         pG->U[ks][j][ie+i].E += (0.5/pG->U[ks][j][ie+i].d)*
-          (SQR(pG->U[ks][j][ie+i].M3) - SQR(pG->U[ks][j][is+(i-1)].M3));
+          (SQR((pG->U[ks][j][ie+i].M3 - qomL*pG->U[ks][j][ie+i].d))
+         - SQR(pG->U[ks][j][ie+i].M3));
 #endif
-      }
-    }
-
-#ifdef MHD
-/* Note that i=ie+1 is not a boundary condition for the interface field B1i */
-    for (j=js; j<=je; j++) {
-      for (i=2; i<=nghost; i++) {
-        pG->B1i[ks][j][ie+i] = pG->B1i[ks][j][is+(i-1)];
-      }
-    }
-
-    for (j=js; j<=je+1; j++) {
-      for (i=1; i<=nghost; i++) {
-        pG->B2i[ks][j][ie+i] = pG->B2i[ks][j][is+(i-1)];
-      }
-    }
-#endif
-
-/* periodic BC in Y for 2D.  Note will not work with MPI decomposition in Y */
-    for(j=1; j<=nghost; j++){
-      for(i=ie+1; i<=ie+nghost; i++){
-        pG->U[ks][js-j][i] = pG->U[ks][je-(j-1)][i];
-        pG->U[ks][je+j][i] = pG->U[ks][js+(j-1)][i];
-#ifdef MHD
-        pG->B1i[ks][js-j][i] = pG->B1i[ks][je-(j-1)][i];
-        pG->B2i[ks][js-j][i] = pG->B2i[ks][je-(j-1)][i];
-        pG->B3i[ks][js-j][i] = pG->B3i[ks][je-(j-1)][i];
-
-        pG->B1i[ks][je+j][i] = pG->B1i[ks][js+(j-1)][i];
-        pG->B2i[ks][je+j][i] = pG->B2i[ks][js+(j-1)][i];
-        pG->B3i[ks][je+j][i] = pG->B3i[ks][js+(j-1)][i];
-#endif /* MHD */
+        pG->U[ks][j][ie+i].M3 -= qomL*pG->U[ks][j][ie+i].d;
       }
     }
 
   }
+#endif /* FARGO */
 
   return;
 }
@@ -1366,6 +1307,7 @@ void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
   int j,k,joffset,jremap;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
+  int is = pG->is;
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
   double *pd;
@@ -1709,6 +1651,7 @@ void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **tEy)
   int j,k,joffset,jremap;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
+  int ie = pG->ie;
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
   double *pd;
