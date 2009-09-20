@@ -93,6 +93,7 @@
 #include "globals.h"
 #include "palette.h"
 #include "prototypes.h"
+#include "particles/prototypes.h"
 
 #define MAXOUT_DEFAULT     10
 
@@ -247,20 +248,21 @@ void init_output(Grid *pGrid)
       }
       else if (strcmp(fmt,"hst")==0){
 	new_out.fun = dump_history;
-#ifdef PARTICLES
-	new_out.out_pargrid = 0; /* don't need to bin particles */
-#endif
 	goto add_it;
       }
+#ifdef PARTICLES
+     else if (strcmp(fmt,"phst")==0){
+        new_out.fun = dump_particle_history;
+        new_out.out_pargrid = 0; /* do not bin particles */
+        goto add_it;
+      }
+#endif
       else if (strcmp(fmt,"tab")==0){
 	new_out.fun = dump_tab_cons;
 	goto add_it;
       }
       else if (strcmp(fmt,"rst")==0){
 	new_out.fun = dump_restart;
-#ifdef PARTICLES
-	new_out.out_pargrid = 0; /* don't need to bin particles */
-#endif
 	add_rst_out(&new_out);
 	ath_pout(0,"Added out%d\n",outn);
 	continue;
@@ -272,7 +274,7 @@ void init_output(Grid *pGrid)
 #ifdef PARTICLES
       else if (strcmp(fmt,"lis")==0){ /* dump particle list */
 	new_out.fun = dump_particle_binary;
-	new_out.out_pargrid = 0; /* don't need to bin particles */
+	new_out.out_pargrid = 0; /* do not bin particles */
 	goto add_it;
       }
 #endif

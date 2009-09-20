@@ -465,8 +465,8 @@ void feedback_predictor(Grid* pG)
       vd = sqrt(vd1*vd1 + vd2*vd2 + vd3*vd3);
 
       /* calculate particle stopping time */
-      tstop = MAX(get_ts(pG, cur->property, rho, cs, vd), pG->dt); /* to avoid the stiff dependence on tstop */
-      ts1h = 0.5*pG->dt/tstop;
+      tstop = get_ts(pG, cur->property, rho, cs, vd);
+      ts1h = pG->dt/(2.0*tstop+pG->dt);
 
       /* Drag force density */
       m = pG->grproperty[cur->property].m;

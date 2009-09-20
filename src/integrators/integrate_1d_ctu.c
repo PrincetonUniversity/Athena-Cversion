@@ -67,6 +67,9 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
 #endif
+#ifdef FEEDBACK
+  Real dt1 = 1.0/pG->dt;
+#endif
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
@@ -372,7 +375,8 @@ void integrate_1d(Grid *pG, Domain *pD)
     pG->U[ks][js][i].M2 -= pG->feedback[ks][js][i].x2;
     pG->U[ks][js][i].M3 -= pG->feedback[ks][js][i].x3;
 #ifndef BAROTROPIC
-      pG->U[ks][js][i].E += pG->Eloss[ks][js][i];
+    pG->U[ks][js][i].E += pG->Eloss[ks][js][i];
+    pG->Eloss[ks][js][i] *= dt1;
 #endif
   }
 #endif

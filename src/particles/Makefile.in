@@ -10,7 +10,8 @@
 #   the appropriate object files, compiler options, and library paths.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = feedback.o\
+CORE_OBJ = dump_particle_history.o\
+	   feedback.o\
 	   init_particle.o\
 	   integrators_particle.o\
 	   output_particle.o\

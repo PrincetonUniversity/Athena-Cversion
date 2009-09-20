@@ -19,6 +19,11 @@
 #ifdef PARTICLES
 
 /*----------------------------------------------------------------------------*/
+/* dump_particle_history.c */
+void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut);
+void dump_parhistory_enroll();
+
+/*----------------------------------------------------------------------------*/
 /* feedback.c */
 #ifdef FEEDBACK
 void exchange_feedback(Grid *pG, Domain *pD);

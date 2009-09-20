@@ -128,7 +128,7 @@ void init_particle(Grid *pG, Domain *pD)
     ath_error("[init_particle]: Invalid interp value (should equals 1 or 2)!\n");
 
   /* set the stopping time function pointer */
-  tsmode = par_geti_def("particle","tsmode",1);
+  tsmode = par_geti("particle","tsmode");
   if (tsmode == 1)
     get_ts = get_ts_general;
   else if (tsmode == 2)

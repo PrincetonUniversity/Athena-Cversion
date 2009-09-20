@@ -251,5 +251,8 @@ void ath_error(char *fmt, ...);
 void minmax1(float *data, int nx1, float *dmin, float *dmax);
 void minmax2(float **data, int nx2, int nx1, float *dmin, float *dmax);
 void minmax3(float ***data, int nx3, int nx2, int nx1,float *dmin,float *dmax);
-
+#ifdef PARTICLES
+void InverseMatrix(Real **a, int n, Real **b);
+void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
+#endif
 #endif /* PROTOTYPES_H */

@@ -101,7 +101,8 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/roe.o \
 	       rsolvers/two_shock.o
 
-PARTICLES_OBJ = particles/feedback.o \
+PARTICLES_OBJ = particles/dump_particle_history.o\
+	        particles/feedback.o \
 	        particles/init_particle.o \
 	        particles/integrators_particle.o \
 	        particles/output_particle.o\

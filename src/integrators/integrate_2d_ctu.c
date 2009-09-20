@@ -111,6 +111,9 @@ void integrate_2d(Grid *pG, Domain *pD)
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,flux_m1l,flux_m1r,flux_m2l,flux_m2r;
 #endif
+#ifdef FEEDBACK
+  Real dt1 = 1.0/pG->dt;
+#endif
 #ifdef SHEARING_BOX
   Real M1n, dM3n;   /* M1, dM3=(My+d*q*Omega_0*x) at time n */
   Real M1e, dM3e;   /* M1, dM3 evolved by dt/2  */
@@ -1241,6 +1244,7 @@ void integrate_2d(Grid *pG, Domain *pD)
       pG->U[ks][j][i].M3 -= pG->feedback[ks][j][i].x3;
 #ifndef BAROTROPIC
       pG->U[ks][j][i].E += pG->Eloss[ks][j][i];
+      pG->Eloss[ks][j][i] *= dt1; /* for history output purpose */
 #endif
     }
 #endif

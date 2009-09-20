@@ -129,6 +129,9 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #endif
+#ifdef FEEDBACK
+  Real dt1 = 1.0/pG->dt;
+#endif
 #ifdef SHEARING_BOX
   int my_iproc,my_jproc,my_kproc;
   Real M1n, dM2n; /* M1, dM2=(My+d*q*Omega_0*x) at time n */
@@ -2371,6 +2374,7 @@ void integrate_3d(Grid *pG, Domain *pD)
       pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
 #ifndef BAROTROPIC
       pG->U[k][j][i].E += pG->Eloss[k][j][i];
+      pG->Eloss[k][j][i] *= dt1; /* for history output purpose */
 #endif
     }
 #endif

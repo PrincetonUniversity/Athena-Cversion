@@ -73,7 +73,6 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
   Grain *gr;
 
   /* Get grid limit related quantities */
-
   if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;
   else              cell1.x1 = 0.0;
 
@@ -139,8 +138,11 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   FILE *p_binfile;
   char *fname;
   long p, nout, my_id;
-  int init_id = 0;
+  int is,js,ks,h,init_id = 0;
   short pos;
+  Vector cell1;
+  Real weight[3][3][3];         /* weight function */
+  Real dpar,u1,u2,u3,cs;
   Grain *gr;
   float fdata[12];  /* coordinate of grid and domain boundary */
 
@@ -155,6 +157,17 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
     ath_error("[dump_particle_binary]: Unable to open binary dump file\n");
     return;
   }
+
+  /* bin all the particles to the grid */
+  particle_to_grid(pG, pD, property_all);
+
+  /* Get grid limit related quantities */
+  if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;
+  else                 cell1.x1 = 0.0;
+  if (pG->Nx2 > 1)  cell1.x2 = 1.0/pG->dx2;
+  else                 cell1.x2 = 0.0;
+  if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;
+  else                 cell1.x3 = 0.0;
 
   /* find out how many particles is to be output */
   nout = 0;
@@ -196,6 +209,11 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
     gr = &(pG->particle[p]);
     if ((*(pOut->par_prop))(gr)) { /* 1: true; 0: false */
 
+      /* get the local particle density */
+      getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
+      h = getvalues(pG, weight, is, js, ks, &dpar, &u1, &u2, &u3, &cs);
+
+      /* collect data */
       fdata[0] = (float)(gr->x1);
       fdata[1] = (float)(gr->x2);
       fdata[2] = (float)(gr->x3);
@@ -203,11 +221,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
       fdata[4] = (float)(gr->v2);
       fdata[5] = (float)(gr->v3);
       fdata[6] = (float)(pG->grproperty[gr->property].rad);
-#ifdef FEEDBACK
-      fdata[7] = (float)(pG->grproperty[gr->property].m);
-#else
-      fdata[7] = (float)(1.0);
-#endif
+      fdata[7] = (float)(dpar);
       my_id = gr->my_id;
 #ifdef MPI_PARALLEL
       init_id = gr->init_id;
