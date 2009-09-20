@@ -20,15 +20,8 @@
  *     scal[11] = 0.5*b2**2
  *     scal[12] = 0.5*b3**2
  *     scal[13] = d*Phi
- *     scal[14] = particle mass
- *     scal[15] = particle d*v1
- *     scal[16] = particle d*v2
- *     scal[17] = particle d*v3
- *     scal[18] = particle 0.5*d*v1**2
- *     scal[19] = particle 0.5*d*v2**2
- *     scal[20] = particle 0.5*d*v3**2
- *     scal[20+NSCALARS] = passively advected scalars
- *     scal[21+NSCALARS] = angular momentum
+ *     scal[14+NSCALARS] = passively advected scalars
+ *     scal[15+NSCALARS] = angular momentum
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
@@ -46,14 +39,10 @@
 #include "prototypes.h"
 
 /* Maximum Number of default history dump columns. */
-#define NSCAL 21
+#define NSCAL 14
 
 /* Maximum number of history dump columns that the user routine can add. */
 #define MAX_USR_H_COUNT 10
-
-#ifdef PARTICLES
-extern Real x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar;	/* left and right limit of grid boundary */
-#endif
 
 /* Array of strings / labels for the user added history column. */
 static char *usr_label[MAX_USR_H_COUNT];
@@ -81,12 +70,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
   int my_vol_rat; /* My (Grid Volume)/(dx1*dx2*dx3) */
   int err;
 #endif
-#ifdef PARTICLES
-  int parhst;
-  long p;
-  Grain *gr;
-  double rho, cellvol1;
-#endif
 
   Real x1=1.0;
 #ifdef CYLINDRICAL
@@ -103,9 +86,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 #endif
 #ifdef SELF_GRAVITY
   total_hst_cnt += 1;
-#endif
-#ifdef PARTICLES
-  total_hst_cnt += 7;
 #endif
 #ifdef CYLINDRICAL
   total_hst_cnt++;  /* for angular momentum */
@@ -166,10 +146,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
         mhst++;
         scal[mhst] += x1*pGrid->U[k][j][i].d*pGrid->Phi[k][j][i];
 #endif
-#ifdef PARTICLES
-        parhst = mhst+1;
-        mhst += 7;
-#endif
 #if (NSCALARS > 0)
 	for(n=0; n<NSCALARS; n++){
           mhst++;
@@ -190,41 +166,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
       }
     }
   }
-
-#ifdef PARTICLES
-/* Calculate the volume averaged particle mass, momentum and kinetic energy */
-  /* calculate the reciprocal of cell volume */
-  cellvol1 = 1.0;
-  if (pGrid->Nx1 > 1)  cellvol1 = cellvol1/pGrid->dx1;
-  if (pGrid->Nx2 > 1)  cellvol1 = cellvol1/pGrid->dx2;
-  if (pGrid->Nx3 > 1)  cellvol1 = cellvol1/pGrid->dx3;
-
-  for(p=0; p<pGrid->nparticle; p++) {
-    gr = &(pGrid->particle[p]);
-    if ((gr->x1 < x1upar) && (gr->x1 >= x1lpar) && (gr->x2 < x2upar) && (gr->x2 >= x2lpar) && (gr->x3 < x3upar) && (gr->x3 >= x3lpar))
-    {/* If particle is in the grid (for outflow B.C., also count for particles in the ghost cells) */
-#ifdef FEEDBACK
-      rho = pGrid->grproperty[gr->property].m;	/* contribution to total mass */
-#else
-      rho = 1.0;				/* contribution to total number */
-#endif
-      mhst = parhst;
-      scal[mhst] += rho;
-      mhst++;
-      scal[mhst] += rho*gr->v1;
-      mhst++;
-      scal[mhst] += rho*gr->v2;
-      mhst++;
-      scal[mhst] += rho*gr->v3;
-      mhst++;
-      scal[mhst] += 0.5*rho*SQR(gr->v1);
-      mhst++;
-      scal[mhst] += 0.5*rho*SQR(gr->v2);
-      mhst++;
-      scal[mhst] += 0.5*rho*SQR(gr->v3);
-    }
-  }
-#endif /* PARTICLES */
 
 /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
   vol_rat = (pD->ide - pD->ids + 1)*(pD->jde - pD->jds + 1)*
@@ -312,22 +253,6 @@ void dump_history(Grid *pGrid, Domain *pD, Output *pOut)
 #ifdef SELF_GRAVITY
     mhst++;
     fprintf(p_hstfile,"   [%i]=grav PE ",mhst);
-#endif
-#ifdef PARTICLES
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=mass_par",mhst);
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=M1_par  ",mhst);
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=M2_par  ",mhst);
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=M3_par  ",mhst);
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=KE1_par ",mhst);
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=KE2_par ",mhst);
-    mhst++;
-    fprintf(p_hstfile,"  [%i]=KE3_par ",mhst);
 #endif
 #if (NSCALARS > 0)
     for(n=0; n<NSCALARS; n++){
