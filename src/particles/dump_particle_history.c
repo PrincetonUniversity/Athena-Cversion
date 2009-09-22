@@ -91,7 +91,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   long *my_npar;
 
   my_npar  = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
-  my_array = calloc_2d_array(NARY+MAX_USR_ARAY, Grid->partypes, sizeof(Real));
+  my_array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, pGrid->partypes, sizeof(Real));
 #endif
 
   npar  = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
@@ -162,7 +162,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
 #ifdef MPI_PARALLEL
-  for (i=1; i<tot_scal_cnt; i++){
+  for (i=1; i<tot_scal_cnt; i++)
     my_scal[i] = scal[i];
 
   err = MPI_Reduce(&(my_scal[1]),&(scal[1]),1,             MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);

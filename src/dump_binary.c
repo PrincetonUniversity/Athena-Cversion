@@ -28,7 +28,7 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
   int dnum = pOut->num;
   FILE *p_binfile;
   char *fname;
-  int n,ndata[6];
+  int n,ndata[7];
 /* Upper and Lower bounds on i,j,k for data dump */
   int i, il = pGrid->is, iu = pGrid->ie;
   int j, jl = pGrid->js, ju = pGrid->je;
@@ -86,7 +86,12 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
 #else
   ndata[5] = 0;
 #endif
-  fwrite(ndata,sizeof(int),6,p_binfile);
+#ifdef PARTICLES
+  ndata[6] = 1;
+#else
+  ndata[6] = 0;
+#endif
+  fwrite(ndata,sizeof(int),7,p_binfile);
 
 /* Write (gamma-1) and isothermal sound speed */
 

@@ -240,6 +240,9 @@ void init_output(Grid *pGrid)
       }
       else if (strcmp(fmt,"bin")==0){
 	new_out.fun = dump_binary;
+#ifdef PARTICLES
+        new_out.out_pargrid = 1; /* bin particles */
+#endif
 	goto add_it;
       }
       else if (strcmp(fmt,"dx")==0){
@@ -252,8 +255,7 @@ void init_output(Grid *pGrid)
       }
 #ifdef PARTICLES
      else if (strcmp(fmt,"phst")==0){
-        new_out.fun = dump_particle_history;
-        new_out.out_pargrid = 0; /* do not bin particles */
+        new_out.fun = dump_particle_history; /* do not bin particles (default) */
         goto add_it;
       }
 #endif
@@ -269,12 +271,14 @@ void init_output(Grid *pGrid)
       }
       else if (strcmp(fmt,"vtk")==0){
 	new_out.fun = dump_vtk;
+#ifdef PARTICLES
+        new_out.out_pargrid = 1; /* bin particles */
+#endif
 	goto add_it;
       }
 #ifdef PARTICLES
       else if (strcmp(fmt,"lis")==0){ /* dump particle list */
-	new_out.fun = dump_particle_binary;
-	new_out.out_pargrid = 0; /* do not bin particles */
+	new_out.fun = dump_particle_binary; /* do not bin particles (default) */
 	goto add_it;
       }
 #endif
