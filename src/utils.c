@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <math.h>
 #include "defs.h"
 #include "athena.h"
 #include "prototypes.h"
@@ -178,3 +179,130 @@ void minmax3(float ***data,int nx3,int nx2,int nx1, float *dmino, float *dmaxo)
   *dmino = dmin;
   *dmaxo = dmax;
 }
+
+#ifdef PARTICLES
+/* LU decomposition from Numerical Recipes
+ * Using Crout's method with partial pivoting
+ * a is the input matrix, and is returned with LU decomposition readily made,
+ * n is the matrix size, indx records the history of row permutation,
+ * whereas d =1(-1) for even(odd) number of permutations.
+ */
+void ludcmp(Real **a, int n, int *indx, Real *d)
+{
+  int i,imax,j,k;
+  Real big,dum,sum,temp;
+  Real *rowscale;  /* the implicit scaling of each row */
+
+  rowscale = (Real*)calloc_1d_array(n, sizeof(Real));
+  *d=1.0;  /* No row interchanges yet */
+
+  for (i=0;i<n;i++) { /* Loop over rows to get the implicit scaling information */
+    big=0.0;
+    for (j=0;j<n;j++)
+      if ((temp=fabs(a[i][j])) > big) big=temp;
+    if (big == 0.0) ath_error("[LUdecomp]:Input matrix is singular!");
+    rowscale[i]=1.0/big;  /* Save the scaling */
+  }
+
+  for (j=0;j<n;j++) { /* Loop over columns of Crout's method */
+    /* Calculate the upper block */
+    for (i=0;i<j;i++) {
+      sum=a[i][j];
+      for (k=0;k<i;k++) sum -= a[i][k]*a[k][j];
+      a[i][j]=sum;
+    }
+    /* Calculate the lower block (first step) */
+    big=0.0;
+    for (i=j;i<n;i++) {
+      sum=a[i][j];
+      for (k=0;k<j;k++)
+        sum -= a[i][k]*a[k][j];
+      a[i][j]=sum;
+      /* search for the largest pivot element */
+      if ( (dum=rowscale[i]*fabs(sum)) >= big) {
+        big=dum;
+        imax=i;
+      }
+    }
+    /* row interchange */
+    if (j != imax) {
+      for (k=0;k<n;k++) {
+        dum=a[imax][k];
+        a[imax][k]=a[j][k];
+        a[j][k]=dum;
+      }
+      *d = -(*d);
+      rowscale[imax]=rowscale[j];
+    }
+    indx[j]=imax; /* record row interchange history */
+    /* Calculate the lower block (second step) */
+    if (a[j][j] == 0.0) a[j][j]=TINY_NUMBER;
+    dum=1.0/(a[j][j]);
+    for (i=j+1;i<n;i++) a[i][j] *= dum;
+  }
+  free(rowscale);
+}
+
+/* Backward substitution (from numerical recipies)
+ * a is the input matrix done with LU decomposition, n is the matrix size
+ * indx id the history of row permutation
+ * b is the vector on the right (AX=b), and is returned with the solution
+ */
+void lubksb(Real **a, int n, int *indx, Real b[])
+{
+  int i,ii=-1,ip,j;
+  Real sum;
+  /* Solve L*y=b */
+  for (i=0;i<n;i++) {
+    ip=indx[i];
+    sum=b[ip];
+    b[ip]=b[i];
+    if (ii>=0)
+      for (j=ii;j<=i-1;j++) sum -= a[i][j]*b[j];
+    else if (sum) ii=i;
+    b[i]=sum;
+  }
+  /* Solve U*x=y */
+  for (i=n-1;i>=0;i--) {
+    sum=b[i];
+    for (j=i+1;j<n;j++) sum -= a[i][j]*b[j];
+    b[i]=sum/a[i][i];
+  }
+}
+
+/* Inverse matrix solver
+ * a: input matrix; n: matrix size, b: return matrix
+ * Note: the input matrix will be DESTROYED
+ */
+void InverseMatrix(Real **a, int n, Real **b)
+{
+  int i,j,*indx;
+  Real *col,d;
+
+  indx = (int*)calloc_1d_array(n, sizeof(int));
+  col = (Real*)calloc_1d_array(n, sizeof(Real));
+
+  ludcmp(a,n,indx,&d);
+
+  for (j=0; j<n; j++) {
+    for (i=0; i<n; i++) col[i]=0.0;
+    col[j]=1.0;
+    lubksb(a, n, indx, col);
+    for (i=0; i<n; i++)    b[i][j] = col[i];
+  }
+
+  return;
+}
+
+/* Matrix multiplication: a(m*n) * b(n*l) = c(m*l) */
+void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
+{
+  int i, j, k;
+  for (i=0; i<m; i++)
+    for (j=0; j<l; j++)
+    {
+      c[i][j] = 0.0;
+      for (k=0; k<n; k++) c[i][j] += a[i][k] * b[k][j];
+    }
+}
+#endif

@@ -86,12 +86,13 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   char fmt[20];
   Grain *gr;
 #ifdef MPI_PARALLEL
-  Real my_scal[NSCAL+MAX_USR_SCAL],**my_array;
+  Real my_scal[NSCAL+MAX_USR_SCAL],*sendbuf,*recvbuf;
   int err;
   long *my_npar;
 
-  my_npar  = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
-  my_array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, pGrid->partypes, sizeof(Real));
+  my_npar = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
+  sendbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes, sizeof(Real));
+  recvbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes, sizeof(Real));
 #endif
 
   npar  = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
@@ -208,15 +209,24 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 
 #ifdef MPI_PARALLEL
   for (i=0; i<pGrid->partypes; i++)
-  {
     my_npar[i] = npar[i];
 
-    for (j=0; j<6; j++)
-      my_array[j][i] = array[j][i];
+  for (j=0; j<6; j++)
+  {
+    n = j*pGrid->partypes;
+    for (i=0; i<pGrid->partypes; i++)
+      sendbuf[n+i] = array[j][i];
   }
 
   err = MPI_Allreduce(my_npar, npar, pGrid->partypes,  MPI_LONG,  MPI_SUM,MPI_COMM_WORLD);
-  err = MPI_Allreduce(my_array,array,6*pGrid->partypes,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  err = MPI_Allreduce(sendbuf,recvbuf,6*pGrid->partypes,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+
+  for (j=0; j<6; j++)
+  {
+    n = j*pGrid->partypes;
+    for (i=0; i<pGrid->partypes; i++)
+      array[j][i] = recvbuf[n+i];
+  }
 #endif
 
   for (j=0; j<6; j++) {
@@ -246,11 +256,25 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
 #ifdef MPI_PARALLEL
-  for (i=0; i<pGrid->partypes; i++)
   for (j=6; j<tot_aray_cnt; j++)
-    my_array[j][i] = array[j][i];
+  {
+    n = (j-6)*pGrid->partypes;
+    for (i=0; i<pGrid->partypes; i++)
+      sendbuf[n+i] = array[j][i];
+  }
 
-  err = MPI_Reduce(my_array,array,tot_aray_cnt*pGrid->partypes,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+  err = MPI_Reduce(sendbuf,recvbuf,(tot_aray_cnt-6)*pGrid->partypes,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+
+  if (pGrid->my_id == 0)
+  {
+    for (j=6; j<tot_aray_cnt; j++)
+    {
+      n = (j-6)*pGrid->partypes;
+      for (i=0; i<pGrid->partypes; i++)
+        array[j][i] = recvbuf[n+i];
+    }
+
+  }
 #endif
 
   if (pGrid->my_id == 0) {
@@ -362,7 +386,8 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   free_2d_array(array);
 #ifdef MPI_PARALLEL
   free(my_npar);
-  free_2d_array(my_array);
+  free(sendbuf);
+  free(recvbuf);
 #endif
 
   return;

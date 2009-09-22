@@ -49,7 +49,7 @@
 Real rho0, mratio, etavk, *epsilon, uxNSH, uyNSH, *wxNSH, *wyNSH;
 int ipert;
 /* particle number related variables */
-int Npar,Npar2,Nx;
+int Npar,Npar2;
 /* output variables */
 long ntrack;   /* number of tracer particles */
 long nlis;     /* number of output particles for list output */
@@ -102,8 +102,6 @@ void problem(Grid *pGrid, Domain *pDomain)
   x2min = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
   x2max = pGrid->x2_0 + (pGrid->je + pGrid->jdisp + 1.0)*pGrid->dx2;
   Lz = x2max - x2min;
-
-  Nx = par_geti("grid","Nx1"); /* used for particle selection function */
 
 /* Read initial conditions */
   rho0 = 1.0;
@@ -302,11 +300,15 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   qshear = par_getd_def("problem","qshear",1.5);
   ipert = par_geti_def("problem","ipert", 1);
 
-  Nx = par_geti("grid","Nx1");
   Npar  = (int)(sqrt(par_geti("particle","parnumcell")));
   Npar2 = SQR(Npar);
   nlis = par_geti_def("problem","nlis",pG->Nx1*pG->Nx2);
   ntrack = par_geti_def("problem","ntrack",2000);
+
+  /* assign particle effective mass */
+  epsilon= (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
+  wxNSH  = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
+  wyNSH  = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
 
   fread(&rho0, sizeof(Real),1,fp);
   fread(&mratio, sizeof(Real),1,fp);  fread(epsilon,sizeof(Real),pG->partypes,fp);
