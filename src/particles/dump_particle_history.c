@@ -52,6 +52,8 @@
 #include "prototypes.h"
 #include "particle.h"
 
+#ifdef PARTICLES /* endif at the end of the file */
+
 /* Maximum Number of default history dump columns. */
 #define NSCAL 10
 #define NARAY 12
@@ -436,4 +438,6 @@ void dump_parhistory_enroll(const Parfun_t pfun, const char *label, const int se
 
 #undef MAX_USR_SCAL
 #undef MAX_USR_ARAY
+
+#endif /* PARTICLES */
 

@@ -322,9 +322,9 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   ntrack = par_geti_def("problem","ntrack",2000);
 
   /* assign particle effective mass */
-  epsilon= (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
-  wxNSH  = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
-  wyNSH  = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
+  epsilon= (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
+  wxNSH  = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
+  wyNSH  = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
 
   fread(&rho0, sizeof(Real),1,fp);
   fread(&mratio, sizeof(Real),1,fp); fread(epsilon,sizeof(Real),pG->partypes,fp);
