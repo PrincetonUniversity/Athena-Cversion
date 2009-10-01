@@ -3,12 +3,12 @@
  * FILE: par_linearwave1d.c
  *
  * PURPOSE: Problem generator for plane-parallel, grid-aligned linear wave tests
- *   with Lagrangian particles. Works only for 2D grid and with wavevector parallel
- *   to grid. Particles can be initialized either with uniform density or with the
- *   same density profile as gas.
+ *   with Lagrangian particles. Works only for 2D grid and with wavevector
+ *   parallel to grid. Particles can be initialized either with uniform density
+ *   or with the same density profile as gas.
  *
- *   Can be used for either standing (problem/vflow=1.0) or travelling
- *   (problem/vflow=0.0) waves.
+ *  Can be used for either standing (problem/vflow=1.0) or travelling
+ *  (problem/vflow=0.0) waves.
  *
  *============================================================================*/
 
@@ -25,8 +25,14 @@
 #error : The par_linearwave problem requires particles to be enabled.
 #endif /* PARTICLES */
 
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * GetPosition()    - get particle status (grid/crossing)
+ *============================================================================*/
 int GetPosition(Grain *gr);
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -76,14 +82,16 @@ void problem(Grid *pGrid, Domain *pDomain)
     switch(wavedir){
     case 1:
       pGrid->U[k][j][i].d = 1.0+amp*sin(kw*x1);
-      pGrid->U[k][j][i].M1 = pGrid->U[k][j][i].d*(vflow+amp*Iso_csound*sin(kw*x1));
+      pGrid->U[k][j][i].M1 = pGrid->U[k][j][i].d*
+                             (vflow+amp*Iso_csound*sin(kw*x1));
       pGrid->U[k][j][i].M2 = 0.0;
       break;
 
     case 2:
       pGrid->U[k][j][i].d = 1.0+amp*sin(kw*x2);
       pGrid->U[k][j][i].M1 = 0.0;
-      pGrid->U[k][j][i].M2 = pGrid->U[k][j][i].d*(vflow+amp*Iso_csound*sin(kw*x2));
+      pGrid->U[k][j][i].M2 = pGrid->U[k][j][i].d*
+                             (vflow+amp*Iso_csound*sin(kw*x2));
       break;
 
     default:
@@ -106,17 +114,18 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   /* basic parameters */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[par_linearwave1d]: This test works only for ONE particle species!\n");
+    ath_error("[par_linwave1d]: This test only allows ONE particle species!\n");
 
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
   pGrid->nparticle = Npar*Npar*pGrid->Nx1*pGrid->Nx2;
   pGrid->grproperty[0].num = pGrid->nparticle;
-  if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
   tstop0[0] = par_getd_def("problem","tstop",0.0); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
-    ath_error("[par_linearwave1d]: This test works only for fixed stopping time!\n");
+    ath_error("[par_linwave1d]: This test only allows fixed stopping time!\n");
 
   /* particle perturbation amplitude */
   switch(wavedir){
@@ -163,8 +172,10 @@ void problem(Grid *pGrid, Domain *pDomain)
             switch(wavedir){
             case 1:
               pGrid->particle[p].x1 = x1p;
-              if (samp == 1)
-                pGrid->particle[p].x1 += par_amp*cos(kw*x1p)/kw - factor2*SQR(par_amp)*sin(2.0*kw*x1p)/kw;
+              if (samp == 1) {
+                pGrid->particle[p].x1 += par_amp*cos(kw*x1p)/kw
+                                      - factor2*SQR(par_amp)*sin(2.0*kw*x1p)/kw;
+              }
               pGrid->particle[p].x2 = x2p;
               pGrid->particle[p].v1 = vflow+amp*Iso_csound*sin(kw*x1p);
               pGrid->particle[p].v2 = 0.0;
@@ -173,8 +184,10 @@ void problem(Grid *pGrid, Domain *pDomain)
             case 2:
               pGrid->particle[p].x1 = x1p;
               pGrid->particle[p].x2 = x2p;
-              if (samp == 1)
-                pGrid->particle[p].x2 += par_amp*cos(kw*x2p)/kw - factor2*SQR(par_amp)*sin(2.0*kw*x2p)/kw;
+              if (samp == 1) {
+                pGrid->particle[p].x2 += par_amp*cos(kw*x2p)/kw
+                                      - factor2*SQR(par_amp)*sin(2.0*kw*x2p)/kw;
+              }
               pGrid->particle[p].v1 = 0.0;
               pGrid->particle[p].v2 = vflow+amp*Iso_csound*sin(kw*x2p);
               break;
@@ -262,12 +275,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -321,6 +336,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
   /* Print error to file "Par_LinWave-errors.#.dat", where #=wavedir  */
   fname = ath_fname(NULL,"Par_LinWave1d-errors",1,wavedir,NULL,"dat");
+
   /* Open output file in write mode */
   FILE *fid = fopen(fname,"w");
 
@@ -336,13 +352,17 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
         SolLagd = SolGasd;
       else
         SolLagd = SolGasd-amp*sin(kw*(x1-vflow*time));
+
       /* output */
       fprintf(fid,"%f	",x1);
-      fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
-      fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]-1.0,SolLagd-1.0,grid_d[ks][js][i]-SolLagd);
+      fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,
+                                SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
+      fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]-1.0,
+                                SolLagd-1.0,grid_d[ks][js][i]-SolLagd);
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,pGrid->U[ks][js][i].s[n]-SolLagd);
+        fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,
+                                  pGrid->U[ks][js][i].s[n]-SolLagd);
 #endif
       fprintf(fid,"\n");
     }
@@ -358,13 +378,17 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
         SolLagd = SolGasd;
       else
         SolLagd = SolGasd-amp*sin(kw*(x2-vflow*time));
+
       /* output */
       fprintf(fid,"%f   ",x2);
-      fprintf(fid,"%e   %e      %e      ",pGrid->U[ks][j][is].d-1.0,SolGasd-1.0,pGrid->U[ks][j][is].d-SolGasd);
-      fprintf(fid,"%e   %e      %e      ",grid_d[ks][j][is]-1.0,SolLagd-1.0,grid_d[ks][j][is]-SolLagd);
+      fprintf(fid,"%e   %e      %e      ",pGrid->U[ks][j][is].d-1.0,
+                                SolGasd-1.0,pGrid->U[ks][j][is].d-SolGasd);
+      fprintf(fid,"%e   %e      %e      ",grid_d[ks][j][is]-1.0,
+                                SolLagd-1.0,grid_d[ks][j][is]-SolLagd);
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        fprintf(fid,"%e %e      ",pGrid->U[ks][j][is].s[n]-1.0,pGrid->U[ks][j][is].s[n]-SolLagd); 
+        fprintf(fid,"%e %e      ",pGrid->U[ks][j][is].s[n]-1.0,
+                        pGrid->U[ks][j][is].s[n]-SolLagd); 
 #endif
       fprintf(fid,"\n");
     }
@@ -378,7 +402,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 
-/*------------------------ Private functions ---------------------*/
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
+
 int GetPosition(Grain *gr)
 {
   if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar) || (gr->x3>=x3upar) || (gr->x3<x3lpar))

@@ -2,13 +2,13 @@
 /*==============================================================================
  * FILE: par_circ.c
  *
- * PURPOSE: Problem generator for particle code test, works for 2D or 3D. The gas
- *   is set tobe steady state, with a circular motion around the center of the domain.
- *   This is not done by playing with gas dynamics, but by setting the gas at
- *   rest, and properly treat gasvshift function. A particle with zero stopping
- *   is initiated and serve as Lagrangian particle to trace fluid element
- *   trajectories. This test is used to test particle integrator performance in
- *   strong coupling regime.
+ * PURPOSE: Problem generator for particle code test, works for 2D or 3D. The 
+ *   gas is set tobe steady state, with a circular motion around the center of
+ *   the domain. This is not done by playing with gas dynamics, but by setting
+ *   the gas at rest, and properly treat gasvshift function. A particle with
+ *   zero stopping is initiated and serve as Lagrangian particle to trace fluid
+ *   element trajectories. This test is used to test particle integrator
+ *   performance in strong coupling regime.
  *
  *   Configure --with-particle=passive --with-eos=isothermal
  *   
@@ -30,18 +30,28 @@
 #error : The circular motion problem requires particles to be enabled.
 #endif /* PARTICLES */
 
-/* private functions */
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ParticleTroj()    - analytical particle trajectory
+ * ParticleVel()     - analytical particle velocity
+ * ParticleLocator() - locate the particles (for mpi)
+ * ran2()            - random number generator
+ *============================================================================*/
+
 static Vector ParticleTroj(Real t);
 static Vector ParticleVel(Vector pos);
 static int ParticleLocator(Real x1, Real x2, Real x3);
 double ran2(long int *idum);
 
+/*------------------------ filewide global variables -------------------------*/
 Real x1c,x2c,x3c;
 Real x01,x02,x03;
 Real omg, omgx1, omgx2, omgx3;	/* angular velocity and orientation */
 Real r01,r02,r03,r0dn,r0cn1,r0cn2,r0cn3,n1,n2,n3;
 char name[50];
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -233,7 +243,8 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                             Real *u1, Real *u2, Real *u3)
 {
   Real dx1, dx2, dx3;
   dx1 = x1-x1c;          dx2 = x2-x2c;          dx3 = x3-x3c;
@@ -244,7 +255,8 @@ void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, 
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -293,7 +305,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   return;
 }
  
-/*------------------------ Private functions ---------------------*/
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 
 /* Compute particle trajectory */
 static Vector ParticleTroj(Real t)

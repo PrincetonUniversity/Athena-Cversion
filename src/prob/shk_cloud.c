@@ -264,12 +264,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }

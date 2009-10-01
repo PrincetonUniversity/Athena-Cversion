@@ -2,11 +2,11 @@
 /*==============================================================================
  * FILE: par_linearwave2d.c
  *
- * PURPOSE: Problem generator for oblique linear waves with Lagrangian particles.
- *   Only works for 2D grid. The angle the wave propagates to the grid is automatically
- *   computed to be tan^{-1} (X/Y), so that periodic boundary conditions can be used.
- *   Particles can be initialized either with uniform density or with the same
- *   density profile as gas.
+ * PURPOSE: Problem generator for oblique linear waves with Lagrangian
+ *   particles. Only works for 2D grid. The angle the wave propagates to the
+ *   grid is automatically computed to be tan^{-1} (X/Y), so that periodic
+ *   boundary conditions can be used. Particles can be initialized either with
+ *   uniform density or with the same density profile as gas.
  *
  *   Note angle=0 or 90 [grid aligned waves] is not allowed in this routine.
  *   Use linearwave1d for grid aligned wave on 1D/2D/3D grids.
@@ -29,8 +29,14 @@
 #error : The par_linearwave problem requires particles to be enabled.
 #endif /* PARTICLES */
 
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * GetPosition()    - get particle status (grid/crossing)
+ *============================================================================*/
 int GetPosition(Grain *gr);
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -81,8 +87,10 @@ void problem(Grid *pGrid, Domain *pDomain)
     cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
     kr = kx1*x1+kx2*x2;
     pGrid->U[k][j][i].d = 1.0+amp*sin(kr);
-    pGrid->U[k][j][i].M1 = pGrid->U[k][j][i].d*(vflow + amp*Iso_csound*sin(kr))*cos(angle);
-    pGrid->U[k][j][i].M2 = pGrid->U[k][j][i].d*(vflow + amp*Iso_csound*sin(kr))*sin(angle);
+    pGrid->U[k][j][i].M1 = pGrid->U[k][j][i].d*
+                           (vflow + amp*Iso_csound*sin(kr))*cos(angle);
+    pGrid->U[k][j][i].M2 = pGrid->U[k][j][i].d*
+                           (vflow + amp*Iso_csound*sin(kr))*sin(angle);
     pGrid->U[k][j][i].M3 = 0.0;
 #if (NSCALARS > 0)
     if (samp == 1)
@@ -99,23 +107,31 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   /* basic parameters */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[par_linearwave1d]: This test works only for ONE particle species!\n");
+    ath_error("[par_linwave1d]: This test only allows ONE particle species!\n");
 
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
   pGrid->nparticle = Npar*Npar*pGrid->Nx1*pGrid->Nx2;
   pGrid->grproperty[0].num = pGrid->nparticle;
-  if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
   tstop0[0] = par_getd_def("problem","tstop",0.0); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
-    ath_error("[par_linearwave1d]: This test works only for fixed stopping time!\n");
+    ath_error("[par_linwave1d]: This test only allows fixed stopping time!\n");
 
   /* particle perturbation amplitude */
-  kd1 = kx1*pGrid->dx1;		kd2 = kx2*pGrid->dx2;
-  par_amp = 4.0*amp*SQR(ktot)/(SQR(kx1)*sin(kd1)/(kd1)*(3.0+cos(kd2))+SQR(kx2)*sin(kd2)/(kd2)*(3.0+cos(kd1)));
-  factor2 = (SQR(SQR(kx1)*sin(kd1)/kd1)*(1.0+SQR(cos(kd2)))+SQR(kx1*kx2)*sin(2*kd1)*sin(2*kd2)/(kd1*kd2)+SQR(SQR(kx2)*sin(kd2)/kd2)*(1.0+SQR(cos(kd1)))) \
-            /(SQR(kx1)*sin(2.0*kd1)/(2.0*kd1)*(3.0+cos(2.0*kd2))+SQR(kx2)*sin(2.0*kd2)/(2.0*kd2)*(3.0+cos(2.0*kd1)))/SQR(ktot);
+  kd1 = kx1*pGrid->dx1;
+  kd2 = kx2*pGrid->dx2;
+
+  par_amp = 4.0*amp*SQR(ktot)/(SQR(kx1)*sin(kd1)/(kd1)*(3.0+cos(kd2))
+                               +SQR(kx2)*sin(kd2)/(kd2)*(3.0+cos(kd1)));
+
+  factor2 = (SQR(SQR(kx1)*sin(kd1)/kd1)*(1.0+SQR(cos(kd2)))
+             +SQR(kx1*kx2)*sin(2*kd1)*sin(2*kd2)/(kd1*kd2)
+             +SQR(SQR(kx2)*sin(kd2)/kd2)*(1.0+SQR(cos(kd1))))
+            /(SQR(kx1)*sin(2.0*kd1)/(2.0*kd1)*(3.0+cos(2.0*kd2))
+             +SQR(kx2)*sin(2.0*kd2)/(2.0*kd2)*(3.0+cos(2.0*kd1)))/SQR(ktot);
 //par_amp=amp;
 //factor2 = 0.5;
 
@@ -149,8 +165,10 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->particle[p].x2 = x2p;
             if (samp == 1)
             {
-              pGrid->particle[p].x1 += (par_amp*cos(kr) - factor2*SQR(par_amp)*sin(2.0*kr))*cos(angle)/ktot;
-              pGrid->particle[p].x2 += (par_amp*cos(kr) - factor2*SQR(par_amp)*sin(2.0*kr))*sin(angle)/ktot;
+              pGrid->particle[p].x1 += (par_amp*cos(kr)
+                            - factor2*SQR(par_amp)*sin(2.0*kr))*cos(angle)/ktot;
+              pGrid->particle[p].x2 += (par_amp*cos(kr)
+                            - factor2*SQR(par_amp)*sin(2.0*kr))*sin(angle)/ktot;
             }
             pGrid->particle[p].x3 = x3p;
 
@@ -235,12 +253,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -310,11 +330,14 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
       SolLagd = SolGasd-amp*sin(kr-ktot*vflow*time);
     /* output */
     fprintf(fid,"%f	",x1);
-    fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
-    fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]/SQR(Npar)-1.0,SolLagd-1.0,grid_d[ks][js][i]/SQR(Npar)-SolLagd);
+    fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,
+                                SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
+    fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]/SQR(Npar)-1.0,
+                               SolLagd-1.0,grid_d[ks][js][i]/SQR(Npar)-SolLagd);
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
-      fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,pGrid->U[ks][js][i].s[n]-SolLagd);
+      fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,
+                                  pGrid->U[ks][js][i].s[n]-SolLagd);
 #endif
     fprintf(fid,"\n");
   }
@@ -323,10 +346,13 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 
-/*------------------------ Private functions ---------------------*/
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
+
 int GetPosition(Grain *gr)
 {
-  if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar) || (gr->x3>=x3upar) || (gr->x3<x3lpar))
+  if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar)
+                       || (gr->x3>=x3upar) || (gr->x3<x3lpar))
     return 10; /* crossing particle */
   else
     return 1;  /* grid particle */

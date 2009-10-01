@@ -337,7 +337,7 @@ void set_bvals_particle(Grid *pG, Domain *pD)
 
       if (cnt_recv > 0) {
         /* Post a non-blocking receive for the input data from the right grid */
-        err = MPI_Irecv(recv_buf, cnt_recv*NVAR_P, MPI_DOUBL, pG->rx1_id,
+        err = MPI_Irecv(recv_buf, cnt_recv*NVAR_P, MPI_DOUBLE, pG->rx1_id,
                                   boundary_particle_tag, MPI_COMM_WORLD, &rq);
         if(err) ath_error("[set_bvals_particle]: MPI_Irecv error = %d\n",err);
 

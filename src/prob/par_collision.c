@@ -2,9 +2,10 @@
 /*==============================================================================
  * FILE: par_collision.c
  *
- * PURPOSE: Problem generator for particle feedback test in 2D. The particles and
- *   gas are initialized to have the same total momentum in the opposite direction.
- *   Both have uniform density. One test particle is picked up for precision test.
+ * PURPOSE: Problem generator for particle feedback test in 2D. The particles
+ *   and gas are initialized to have the same total momentum in the opposite
+ *   direction. Both have uniform density. One test particle is picked up for
+ *   precision test.
  *
  *   Configure --with-particle=feedback --with-eos=isothermal
  *
@@ -26,9 +27,15 @@
 #error : The feedback problem requires particles to be enabled.
 #endif /* PARTICLES */
 
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ParticleTroj()   - analytical particle trajectory
+ * ParticleVel()    - analytical particle velocity
+ *============================================================================*/
 static Vector ParticleTroj(Real t);
 static Vector ParticleVel(Real t);
 
+/*------------------------ filewide global variables -------------------------*/
 Real mratio,wx,wy,wz;
 Real x1min,x1max,x2min,x2max;
 Real x0[3]; /* test particle initial position */
@@ -37,6 +44,8 @@ long idlab; /* test particle id */
 int cpuid;  /* test particle cpu id */
 char name[50];
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -69,17 +78,18 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   /* basic parameters */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[par_collision]: This test works only for ONE particle species!\n");
+    ath_error("[par_collision]: This test only allows ONE particle species!\n");
 
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
   pGrid->nparticle = Npar*Npar*pGrid->Nx1*pGrid->Nx2;
   pGrid->grproperty[0].num = pGrid->nparticle;
-  if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
   tstop0[0] = par_getd("problem","tstop"); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
-    ath_error("[par_collision]: This test works only for fixed stopping time!\n");
+    ath_error("[par_collision]: This test only allow fixed stopping time!\n");
 
   /* assign particle effective mass */
 #ifdef FEEDBACK
@@ -247,12 +257,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3, 
+                     Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -270,7 +282,8 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
   p = 0;  lab = -1;
   while (p<pGrid->nparticle) {
 #ifdef MPI_PARALLEL
-    if ((pGrid->particle[p].my_id == idlab) && (pGrid->particle[p].init_id == cpuid))
+    if ((pGrid->particle[p].my_id == idlab) && 
+        (pGrid->particle[p].init_id == cpuid))
 #else
     if (pGrid->particle[p].my_id == idlab)
 #endif
@@ -307,7 +320,8 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 
     /* output */
     fid = fopen(name,"a+");
-    fprintf(fid,"%e	%e	%e	%e	%e	%e\n", t, s, ds, v, dv, Mtot);
+    fprintf(fid,"%e	%e	%e	%e	%e	%e\n", 
+                  t,     s,     ds,     v,       dv,   Mtot);
     fclose(fid);
   }
 
@@ -326,8 +340,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 
-/*------------------------ Private functions ---------------------*/
-
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 /* Compute particle trajectory */
 static Vector ParticleTroj(Real t)
 {

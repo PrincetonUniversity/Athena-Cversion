@@ -4,11 +4,12 @@
  *
  * PURPOSE: Problem generator for particle epicycle trajectory presicion test.
  *   This code works for both 2D and 3D. No gas is involved, but gas has to be
- *   initialized anyway. The particle stopping time should be set to be sufficiently
- *   large so that only shear terms affect particle motion.
+ *   initialized anyway. The particle stopping time should be set to be
+ *   sufficiently large so that only shear terms affect particle motion.
  *
- *  Code should be configured using --enable-shearing-box and --with-eos=isothermal.
+ *  Should be configured using --enable-shearing-box and --with-eos=isothermal.
  *  Optional choices are --enable-fargo and --enable-mpi
+ *
  *============================================================================*/
 
 #include <float.h>
@@ -34,16 +35,28 @@
 #error : The epicycle problem requires isothermal equation of state.
 #endif /* ISOTHERMAL */
 
-/* trajectory variables */
-Real amp, Lx, Ly, x1min, x1max, x2min, x2max, omg;
 
-/* Private functions */
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ShearingBoxPot()   - shearing box tidal gravitational potential
+ * ParticlePosition() - analytical particle trajectory
+ * ParticleVelocity() - analytical particle velocity
+ * ParticleLocator()  - locate the particles (for mpi)
+ *============================================================================*/
+
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Vector ParticlePosition(const Real t);
 static Vector ParticleVelocity(const Vector pos, const Real t);
 static int ParticleLocator(const Vector pos);
-char name[50];
 
+/*------------------------ filewide global variables -------------------------*/
+char name[50];
+/* trajectory variables */
+Real amp, Lx, Ly, x1min, x1max, x2min, x2max, omg;
+
+
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -78,12 +91,12 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* particle type */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[par_epicycle]: This test works only for ONE particle species!\n");
+    ath_error("[par_epicycle]: This test only allows ONE particle species!\n");
 
 /* particle stopping time */
   tstop0 = par_getd_def("problem","tstop",1.0e20); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
-    ath_error("[par_epicycle]: This test works only for fixed stopping time!\n");
+    ath_error("[par_epicycle]: This test only allows fixed stopping time!\n");
 
 /* particle position */
   parpos = ParticlePosition(0.0);
@@ -202,12 +215,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -245,7 +260,8 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 
       /* output */
       fid = fopen(name,"a+");
-      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e	%e\n", t, ds, E, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
+      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e
+	%e\n", t, ds, E, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
       fclose(fid);
     }
   }
@@ -263,8 +279,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   return;
 }
  
-/*------------------------ Private functions ---------------------*/
-
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 /* ShearingBoxPot */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
@@ -314,7 +330,8 @@ static Vector ParticleVelocity(const Vector pos, const Real t)
 /* Judge if the particle is in this cpu */
 static int ParticleLocator(const Vector pos)
 {
-  if ((pos.x1<x1upar) && (pos.x1>=x1lpar) && (pos.x2<x2upar) && (pos.x2>=x2lpar) &&(pos.x3<x3upar) && (pos.x3>=x3lpar))
+  if ((pos.x1<x1upar) && (pos.x1>=x1lpar) && (pos.x2<x2upar)
+      && (pos.x2>=x2lpar) &&(pos.x3<x3upar) && (pos.x3>=x3lpar))
     return 1;	/* yes */
   else
     return 0;	/* no */

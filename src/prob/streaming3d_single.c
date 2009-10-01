@@ -2,11 +2,11 @@
 /*==============================================================================
  * FILE: streaming3d.c
  *
- * PURPOSE: Problem generator for streaming instability test in non-stratified disks.
- *   This code works in 3D, with single particle species ONLY.. Isothermal eos is assumed,
- *   and the value etavk/iso_sound is fixed. In the case of growth rate test, since one
- *   requires an integer number of wavelengths across the grid, the isothermal sound
- *   speed is re-evaluated.
+ * PURPOSE: Problem generator for streaming instability test in non-stratified
+ *   disks. This code works in 3D, with single particle species ONLY. Isothermal
+ *   eos is assumed, and the value etavk/iso_sound is fixed. In the case of
+ *   growth rate test, since one requires an integer number of wavelengths
+ *   across the grid, the isothermal sound speed is re-evaluated.
  *
  * Perturbation modes:
  *    ipert = 0: no perturbation, test for the NSH equilibrium, need FARGO
@@ -14,7 +14,7 @@
  *    ipert = 2: linB of YJ07 (cold start), need FARGO
  *    ipert = 3: random perturbation (warm start), do not need FARGO
  *
- *  Code must be configured using --enable-shearing-box and --with-eos=isothermal.
+ *  Must be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is need to establish the NSH equilibrium (ipert=0,1,2).
  *
  * Reference:
@@ -46,7 +46,7 @@
 #error : The streaming3d problem requires isothermal equation of state.
 #endif /* ISOTHERMAL */
 
-
+/*------------------------ filewide global variables -------------------------*/
 /* NSH equilibrium parameters */
 Real rho0, mratio, etavk, uxNSH, uyNSH, wxNSH, wyNSH;
 /* particle number variables */
@@ -59,7 +59,15 @@ int ipert, nwave;
 /* output filename */
 char name[50];
 
-/* Private functions */
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ran2()            - random number generator
+ * OutputModeAmplitude() - output the perturbation amplitude
+ * ShearingBoxPot()  - shearing box tidal gravitational potential
+ * pert_???()        - perturbation wave form for linear growth rate test
+ * property_mybin()  - particle property selection function
+ * property_???()    - particle property selection function
+ *============================================================================*/
 double ran2(long int *idum);
 void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
@@ -71,6 +79,8 @@ extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -108,11 +118,11 @@ void problem(Grid *pGrid, Domain *pDomain)
   qshear = par_getd_def("problem","qshear",1.5);
   amp = par_getd_def("problem","amp",0.0);
   ipert = par_geti_def("problem","ipert", 1);
-  etavk = par_getd_def("problem","etavk",0.05); /* in unit of iso_sound (N.B.!) */
+  etavk = par_getd_def("problem","etavk",0.05);/* in unit of iso_sound (N.B.) */
 
   /* particle number */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[streaming3d]: This test works only for ONE particle species!\n");
+    ath_error("[streaming3d]: This test only allows ONE particle species!\n");
 
   Npar  = (int)(pow(par_geti("particle","parnumcell"),1.0/3.0));
   Npar3 = Npar*SQR(Npar);
@@ -123,7 +133,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   if (pGrid->nparticle+2 > pGrid->arrsize)
     particle_realloc(pGrid, pGrid->nparticle+2);
 
-  /* set the down sampling of the particle list output (by default, output 1 particle per cell) */
+  /* set the down sampling of the particle list output
+   * (by default, output 1 particle per cell)
+   */
   downsamp = par_geti_def("problem","downsamp",Npar3);
 
   /* particle stopping time */
@@ -139,7 +151,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 #else
   mratio = 0.0;
   if ((ipert == 1) || (ipert == 2))
-    ath_error("[streaming3d]: linear growth test requires FEEDBACK to be turned on!\n");
+    ath_error("[streaming3d]: linear growth test requires FEEDBACK to be\
+ turned on!\n");
 #endif
   amp = amp*mratio; /* N.B.! */
 
@@ -206,7 +219,8 @@ void problem(Grid *pGrid, Domain *pDomain)
     /* Reset isothermal sound speed */
     cs = Kxn/kx/etavk*Omega_0;
     if (cs != Iso_csound)
-      ath_pout(0, "[streaming3d]: Iso_csound=%f is modified to cs=%f.\n", Iso_csound, cs);
+      ath_pout(0, "[streaming3d]: Iso_csound=%f is modified to cs=%f.\n",
+                                             Iso_csound, cs);
     Iso_csound = cs;
     Iso_csound2 = SQR(Iso_csound);
 
@@ -217,7 +231,8 @@ void problem(Grid *pGrid, Domain *pDomain)
       reduct = 1.0;
     }
     else if (interp == 2) {/* TSC */
-        paramp = 4.0*amp*kx*pGrid->dx1/sin(kx*pGrid->dx1)/(3.0+cos(kz*pGrid->dx2));
+        paramp = 4.0*amp*kx*pGrid->dx1/sin(kx*pGrid->dx1)/
+                                    (3.0+cos(kz*pGrid->dx2));
         factor2 = 0.5*tan(kx*pGrid->dx1)/(kx*pGrid->dx1);
         reduct = 1.0/(1.0-0.25*SQR(kx*pGrid->dx1)); reduct=1.0;
     }
@@ -273,9 +288,15 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Now set initial conditions for the particles */
   p = 0;
-  Lx = pGrid->Nx1*pGrid->dx1; x1min = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
-  Ly = pGrid->Nx2*pGrid->dx2; x2min = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
-  Lz = pGrid->Nx3*pGrid->dx3; x3min = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
+  Lx = pGrid->Nx1*pGrid->dx1;
+  x1min = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
+
+  Ly = pGrid->Nx2*pGrid->dx2;
+  x2min = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
+
+  Lz = pGrid->Nx3*pGrid->dx3;
+  x3min = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
+
   for (k=pGrid->ks; k<=pGrid->ke; k++)
   {
     x3l = pGrid->x3_0 + (k+pGrid->kdisp)*pGrid->dx3;
@@ -323,8 +344,10 @@ void problem(Grid *pGrid, Domain *pDomain)
               pGrid->particle[p].x3 = x3p;
 
               if ((ipert == 1) || (ipert == 2)) {
-                pGrid->particle[p].x1 += paramp*cos(kz*x3p)*(-sin(kx*x1p)+factor2*paramp*sin(2.0*kx*x1p))/kx;
-//              pGrid->particle[p].x1 += amp*cos(kz*x3p)*(-sin(kx*x1p)+0.5*amp*sin(2.0*kx*x1p))/kx;
+                pGrid->particle[p].x1 += paramp*cos(kz*x3p)*(-sin(kx*x1p)
+                                        +factor2*paramp*sin(2.0*kx*x1p))/kx;
+//              pGrid->particle[p].x1 += amp*cos(kz*x3p)*(-sin(kx*x1p)
+//                                       +0.5*amp*sin(2.0*kx*x1p))/kx;
                 w1 = etavk * pert_even(Rewx,Imwx,pGrid->particle[p].x1,x3p,t);
                 w3 = etavk * pert_odd (Rewz,Imwz,pGrid->particle[p].x1,x3p,t);
                 w2 = etavk * pert_even(Rewy,Imwy,pGrid->particle[p].x1,x3p,t);
@@ -367,7 +390,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* enroll output function */
   interval = par_getd_def("problem","interval",0.01/Omega_0);
-  data_output_enroll(pGrid->time,interval,0,OutputModeAmplitude,NULL,NULL,0,0.0,0.0,0,0,1,property_all);
+  data_output_enroll(pGrid->time,interval,0,OutputModeAmplitude,
+                                 NULL,NULL,0,0.0,0.0,0,0,1,property_all);
 
   return;
 }
@@ -445,7 +469,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 
 /* enroll output function */
   interval = par_getd_def("problem","interval",0.01/Omega_0);
-  data_output_enroll(pG->time,interval,0,OutputModeAmplitude,NULL,NULL,0,0.0,0.0,0,0,1,property_all);
+  data_output_enroll(pG->time,interval,0,OutputModeAmplitude,
+                              NULL,NULL,0,0.0,0.0,0,0,1,property_all);
 
   return;
 }
@@ -528,12 +553,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   *w2 -= etavk;
   return;
@@ -556,8 +583,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   return;
 }
  
-/*------------------------ Private functions ---------------------*/
 
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 /* ShearingBoxPot */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
@@ -601,6 +629,7 @@ static int property_mybin(Grain *gr)
     return 0;
 }
 
+/*--------------------------------------------------------------------------- */
 /* Output function */
 void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
 {

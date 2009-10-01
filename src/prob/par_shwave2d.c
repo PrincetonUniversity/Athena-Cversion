@@ -19,11 +19,17 @@
 #include "particles/particle.h"
 
 #ifndef SHEARING_BOX
-#error : The epicyclic wave problem requires shearing-box to be enabled.
+#error : The shear wave problem requires shearing-box to be enabled.
 #endif /* SHEARING_BOX */
 
 int Nx12;
 
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * GetPosition()    - get particle status (grid/crossing)
+ * ShearingBoxPot() - shearing box tidal potential
+ * property_mybin() - particle selection function for output
+ *============================================================================*/
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 #ifdef PARTICLES
 int GetPosition(Grain *gr);
@@ -31,6 +37,8 @@ static int property_mybin(Grain *gr);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 #endif
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -105,17 +113,18 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   /* basic parameters */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[par_shwave2d]: This test works only for ONE particle species!\n");
+    ath_error("[par_shwave2d]: This test only allows ONE particle species!\n");
 
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
   pGrid->nparticle = Npar*Npar*Npar*pGrid->Nx1*pGrid->Nx2*pGrid->Nx3;
   pGrid->grproperty[0].num = pGrid->nparticle;
-  if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
   tstop0[0] = par_getd_def("problem","tstop",0.0); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
-    ath_error("[par_shwave2d]: This test works only for fixed stopping time!\n");
+    ath_error("[par_shwave2d]: This test only allows fixed stopping time!\n");
 
 /* Now set initial conditions for the particles */
   p = 0;
@@ -152,7 +161,8 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->particle[p].x1 = x1p;
             pGrid->particle[p].x2 = x2p;
             if (samp == 1)
-                pGrid->particle[p].x2 += (-amp*sin(ky*x2p) + 0.5*SQR(amp)*sin(2.0*ky*x2p))/ky;
+                pGrid->particle[p].x2 += (-amp*sin(ky*x2p)
+                                          + 0.5*SQR(amp)*sin(2.0*ky*x2p))/ky;
             pGrid->particle[p].x3 = x3p;
 
             pGrid->particle[p].v1 = -v1x*sin(ky*x2p);
@@ -277,12 +287,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -332,10 +344,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
     fprintf(fid,"%f	",x2);
     fprintf(fid,"%e	",pGrid->U[ks][j][is].d-1.0);
 #ifdef PARTICLES
-    fprintf(fid,"%e	%e	",grid_d[ks][j][is]-1.0,grid_d[ks][j][is]-pGrid->U[ks][j][is].d);
+    fprintf(fid,"%e	%e	",grid_d[ks][j][is]-1.0,
+                        grid_d[ks][j][is]-pGrid->U[ks][j][is].d);
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
-      fprintf(fid,"%e	%e	",pGrid->U[ks][j][is].s[n]-1.0,grid_d[ks][j][is]-pGrid->U[ks][j][is].s[n]);
+      fprintf(fid,"%e	%e	",pGrid->U[ks][j][is].s[n]-1.0,
+                        grid_d[ks][j][is]-pGrid->U[ks][j][is].s[n]);
 #endif
 #endif
     fprintf(fid,"\n");
@@ -347,10 +361,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 
-/*------------------------ Private functions ---------------------*/
-
-/*------------------------------------------------------------------------------
- * ShearingBoxPot:
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
+/* ShearingBoxPot:
  */
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
@@ -365,7 +378,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 #ifdef PARTICLES
 int GetPosition(Grain *gr)
 {
-  if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar) || (gr->x3>=x3upar) || (gr->x3<x3lpar))
+  if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar)                       || (gr->x3>=x3upar) || (gr->x3<x3lpar))
     return 10; /* crossing particle */
   else
     return 1;  /* grid particle */

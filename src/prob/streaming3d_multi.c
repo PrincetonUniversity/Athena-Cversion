@@ -2,9 +2,10 @@
 /*==============================================================================
  * FILE: streaming3d_multi.c
  *
- * PURPOSE: Problem generator for non-linear streaming instability in non-stratified disks.
- *   This code works in 3D ONLY. It generalizes the NSH equilibrium solution to allow multiple-
- *   species dust components. Isothermal eos is assumed, and the value etavk/iso_sound is fixed.
+ * PURPOSE: Problem generator for non-linear streaming instability in
+ *   non-stratified disks. This code works in 3D ONLY. It generalizes the NSH
+ *   equilibrium solution to allow multiple-species dust components. Isothermal
+ *   eos is assumed, and the value etavk/iso_sound is fixed.
  *
  * Perturbation modes:
  *    ipert = 0: multi-nsh equilibtium
@@ -12,7 +13,7 @@
  *    ipert = 2: white noise within the entire grid
  *    ipert = 3: non-nsh velocity
  *
- *  Code must be configured using --enable-shearing-box and --with-eos=isothermal.
+ *  Must be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is recommended.
  *
  * Reference:
@@ -44,7 +45,7 @@
 #error : The streaming3d problem requires isothermal equation of state.
 #endif /* ISOTHERMAL */
 
-
+/*------------------------ filewide global variables -------------------------*/
 /* NSH equilibrium/perturbation parameters */
 Real rho0, mratio, etavk, *epsilon, uxNSH, uyNSH, *wxNSH, *wyNSH;
 int ipert;
@@ -55,10 +56,19 @@ long ntrack;   /* number of tracer particles */
 long nlis;     /* number of output particles for list output */
 int mytype;    /* specific particle type for output */
 
-/* Private functions */
+
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ran2()            - random number generator
+ * MultiNSH()        - multiple component NSH equilibrium solver
+ * ShearingBoxPot()  - shearing box tidal gravitational potential
+ * hst_rho_Vx_dVy()  - total Reynolds stress for history dump
+ * property_???()    - particle property selection function
+ *============================================================================*/
 double ran2(long int *idum);
 
-void MultiNSH(int n, Real *tstop, Real *epsilon, Real etavk, Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH);
+void MultiNSH(int n, Real *tstop, Real *epsilon, Real etavk,
+                     Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH);
 
 static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
 
@@ -74,6 +84,8 @@ extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -110,7 +122,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   Omega_0 = par_getd("problem","omega");
   qshear = par_getd_def("problem","qshear",1.5);
   ipert = par_geti_def("problem","ipert", 2);
-  etavk = par_getd_def("problem","etavk",0.05); /* in unit of iso_sound (N.B.!) */
+  etavk = par_getd_def("problem","etavk",0.05);/* in unit of iso_sound (N.B.) */
 
   /* particle number */
   Npar  = (int)(sqrt(par_geti("particle","parnumcell")));
@@ -133,6 +145,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   for (i=0; i<pGrid->partypes; i++) {
     tstop0[i] = tsmin*exp(i*log(tsmax/tsmin)/MAX(pGrid->partypes-1,1.0));
+
     /* use fully implicit integrator for well coupled particles */
     if (tstop0[i] < tscrit) pGrid->grproperty[i].integrator = 3;
   }
@@ -168,7 +181,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   etavk = etavk * Iso_csound; /* switch to code unit */
 
   /* calculate NSH equilibrium velocity */
-  MultiNSH(pGrid->partypes, tstop0, epsilon, etavk, &uxNSH, &uyNSH, wxNSH, wyNSH);
+  MultiNSH(pGrid->partypes, tstop0, epsilon, etavk,
+                            &uxNSH, &uyNSH, wxNSH, wyNSH);
 
 /* Now set initial conditions for the gas */
   for (k=pGrid->ks; k<=pGrid->ke; k++) {
@@ -276,8 +290,11 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
 
-  /* set the # of the particles in list output (by default, output 1 particle per cell) */
+  /* set the # of the particles in list output
+   * (by default, output 1 particle per cell)
+   */
   nlis = par_geti_def("problem","nlis",pGrid->Nx1*pGrid->Nx2);
+
   /* set the number of particles to keep track of */
   ntrack = par_geti_def("problem","ntrack",2000);
 
@@ -297,10 +314,13 @@ void problem(Grid *pGrid, Domain *pDomain)
 void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 {
   fwrite(&rho0, sizeof(Real),1,fp);
-  fwrite(&mratio, sizeof(Real),1,fp); fwrite(epsilon, sizeof(Real),pG->partypes,fp);
+  fwrite(&mratio, sizeof(Real),1,fp);
+  fwrite(epsilon, sizeof(Real),pG->partypes,fp);
   fwrite(&etavk, sizeof(Real),1,fp);
-  fwrite(&uxNSH, sizeof(Real),1,fp); fwrite(&uyNSH, sizeof(Real),1,fp);
-  fwrite(wxNSH, sizeof(Real),pG->partypes,fp); fwrite(wyNSH, sizeof(Real),pG->partypes,fp);
+  fwrite(&uxNSH, sizeof(Real),1,fp);
+  fwrite(&uyNSH, sizeof(Real),1,fp);
+  fwrite(wxNSH, sizeof(Real),pG->partypes,fp);
+  fwrite(wyNSH, sizeof(Real),pG->partypes,fp);
 
   return;
 }
@@ -327,10 +347,13 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   wyNSH  = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
 
   fread(&rho0, sizeof(Real),1,fp);
-  fread(&mratio, sizeof(Real),1,fp); fread(epsilon,sizeof(Real),pG->partypes,fp);
+  fread(&mratio, sizeof(Real),1,fp);
+  fread(epsilon,sizeof(Real),pG->partypes,fp);
   fread(&etavk, sizeof(Real),1,fp);
-  fread(&uxNSH, sizeof(Real),1,fp); fread(&uyNSH, sizeof(Real),1,fp);
-  fread(wxNSH, sizeof(Real),pG->partypes,fp); fread(wyNSH, sizeof(Real),pG->partypes,fp);
+  fread(&uxNSH, sizeof(Real),1,fp);
+  fread(&uyNSH, sizeof(Real),1,fp);
+  fread(wxNSH, sizeof(Real),pG->partypes,fp);
+  fread(wyNSH, sizeof(Real),pG->partypes,fp);
 
   dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
 
@@ -338,7 +361,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 /* difdpar */
-static Real expr_rhopardif(const Grid *pG, const int i, const int j, const int k)
+static Real expr_rhopardif(const Grid *pG,
+                           const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -349,14 +373,16 @@ static Real expr_rhopardif(const Grid *pG, const int i, const int j, const int k
  * hst_rho_Vx_dVy: Reynolds stress, added as history variable.
  */
 
-static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k)
+static Real hst_rho_Vx_dVy(const Grid *pG,
+                           const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef FARGO
   return pG->U[k][j][i].M1*pG->U[k][j][i].M2/pG->U[k][j][i].d;
 #else
-  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
+  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d
+                            + qshear*Omega_0*x1);
 #endif
 }
 
@@ -379,12 +405,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   *w2 -= etavk;
   return;
@@ -409,8 +437,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   return;
 }
 
-/*------------------------ Private functions ---------------------*/
-
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 /* ShearingBoxPot */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
@@ -448,17 +476,21 @@ static int property_type(Grain *gr)
     return 0;
 }
 
+/*--------------------------------------------------------------------------- */
 /* Multi-species NSH equilibrium
- * Input: # of particle types (n), dust stopping time and mass ratio array, and drift speed etavk.
- * Output: gas NSH equlibrium velocity (u), and dust NSH equilibrium velocity array (w).
+ * Input: # of particle types (n), dust stopping time and mass ratio array, and
+ *        drift speed etavk.
+ * Output: gas NSH equlibrium velocity (u), and dust NSH equilibrium velocity
+ *         array (w).
  */
-void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk, Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH)
+void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
+                     Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH)
 {
   int i,j;
   Real *Lambda1,**Lam1GamP1, **A, **B, **Tmp;
 
   Lambda1 = (Real*)calloc_1d_array(n, sizeof(Real));     /* Lambda^{-1} */
-  Lam1GamP1=(Real**)calloc_2d_array(n, n, sizeof(Real)); /* Lambda^{-1}*(1+Gamma) */
+  Lam1GamP1=(Real**)calloc_2d_array(n, n, sizeof(Real)); /* Lambda1*(1+Gamma) */
   A       = (Real**)calloc_2d_array(n, n, sizeof(Real));
   B       = (Real**)calloc_2d_array(n, n, sizeof(Real));
   Tmp     = (Real**)calloc_2d_array(n, n, sizeof(Real));

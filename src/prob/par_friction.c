@@ -2,10 +2,10 @@
 /*==============================================================================
  * FILE: par_friction.c
  *
- * PURPOSE: Problem generator for particle code test, works for 2D and 3D. The fluid
- *   is set to be at rest. One test particle with initial velocity v0 is then stopped
- *   by the gas. This problem is used to test particle integrator performance in weak
- *   coupling regime.
+ * PURPOSE: Problem generator for particle code test, works for 2D and 3D. The
+ *   fluid is set to be at rest. One test particle with initial velocity v0 is
+ *   then stopped by the gas. This problem is used to test particle integrator
+ *   performance in weak coupling regime.
  *
  *   Configure --with-particle=passive --with-eos=isothermal
  *
@@ -27,16 +27,24 @@
 #error : The friction problem requires particles to be enabled.
 #endif /* PARTICLES */
 
-/* private functions */
-static void getval_gasv(Real x1n, Real x2n, Real x3n, Real *u1, Real *u2, Real *u3);
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ParticleTroj()    - analytical particle trajectory
+ * ParticleVel()     - analytical particle velocity
+ * ParticleLocator() - locate the particles (for mpi)
+ *============================================================================*/
+
 static Vector ParticleTroj(Real t);
 static Vector ParticleVel(Real t);
 static int ParticleLocator(Real x1, Real x2, Real x3);
 
+/*------------------------ filewide global variables -------------------------*/
 Real x1c,x2c,x3c,v01,v02,v03;
 Real x1min,x1max,x2min,x2max,x3min,x3max;
 char name[50];
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -185,12 +193,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -238,8 +248,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 
-/*------------------------ Private functions ---------------------*/
-
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 /* Compute particle trajectory */
 static Vector ParticleTroj(Real t)
 {

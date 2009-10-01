@@ -2,7 +2,9 @@
 /*==============================================================================
  * FILE: par_epiwave1d.c
  *
- * PURPOSE: Problem generator raadial epicyclic wave test with Lagrangian particles.
+ * PURPOSE: Problem generator raadial epicyclic wave test with Lagrangian
+ *   particles.
+ *
  *   Only works for 2D, and the wavevector is in x1 direction. Particles can be
  *   initialized either with uniform density or with density profile same as the
  *   gas. SHEARING_BOX must be turned on, FARGO is optional.
@@ -22,14 +24,22 @@
 #include "particles/particle.h"
 
 #ifndef SHEARING_BOX
-#error : The epicyclic wave problem requires shearing-box to be enabled.
+#error : The shear wave problem requires shearing-box to be enabled.
 #endif /* SHEARING_BOX */
 
+
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * GetPosition()    - get particle status (grid/crossing)
+ * ShearingBoxPot() - shearing box tidal potential
+ *============================================================================*/
 #ifdef PARTICLES
 int GetPosition(Grain *gr);
 #endif
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -72,17 +82,18 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* Read initial conditions for the particles */
   /* basic parameters */
   if (par_geti("particle","partypes") != 1)
-    ath_error("[par_shwave1d]: This test works only for ONE particle species!\n");
+    ath_error("[par_shwave1d]: This test only allows ONE particle species!\n");
 
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
   pGrid->nparticle = Npar*Npar*pGrid->Nx1*pGrid->Nx2;
   pGrid->grproperty[0].num = pGrid->nparticle;
-  if (pGrid->nparticle+2 > pGrid->arrsize) particle_realloc(pGrid, pGrid->nparticle+2);
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
 
   /* particle stopping time */
   tstop0[0] = par_getd_def("problem","tstop",0.0); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
-    ath_error("[par_shwave1d]: This test works only for fixed stopping time!\n");
+    ath_error("[par_shwave1d]: This test only allows fixed stopping time!\n");
 
   par_amp = amp;
   factor2 = 0.5;
@@ -146,8 +157,10 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
     }
 
-    if (x1min != -4.7965) ath_error("[par_shwave1d]: ipert=2 requires x1min=-4.7965\n");
-    if (x1max != 4.7965) ath_error("[par_shwave1d]: ipert=2 requires x1max=4.7965\n");
+    if (x1min != -4.7965)
+      ath_error("[par_shwave1d]: ipert=2 requires x1min=-4.7965\n");
+    if (x1max != 4.7965)
+      ath_error("[par_shwave1d]: ipert=2 requires x1max=4.7965\n");
 
   /* Now set initial conditions to wave solution */
 
@@ -197,7 +210,8 @@ void problem(Grid *pGrid, Domain *pDomain)
           pGrid->particle[p].x1 = x1p;
           pGrid->particle[p].x2 = x2p;
           if (samp == 1)
-            pGrid->particle[p].x1 += -par_amp*sin(kx*x1p)/kx + factor2*SQR(amp)*sin(2.0*kx*x1p)/kx;
+            pGrid->particle[p].x1 += -par_amp*sin(kx*x1p)/kx
+                                     +factor2*SQR(amp)*sin(2.0*kx*x1p)/kx;
           pGrid->particle[p].x3 = x3p;
 
           pGrid->particle[p].v1 = v1x*cos(kx*x1p);
@@ -317,12 +331,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   return;
 }
@@ -395,9 +411,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
       SolLagd = SolGasd-amp*cos(kx*x1);
     /* output */
     fprintf(fid,"%f	",x1);
-    fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
+    fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,
+                                SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
 #ifdef PARTICLES
-    fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]-1.0,SolLagd-1.0,grid_d[ks][js][i]-SolLagd);
+    fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]-1.0,SolLagd-1.0,
+                                          grid_d[ks][js][i]-SolLagd);
 #endif
 #ifdef FARGO
 //    fprintf(fid,"%e     %e      %e      ",pGrid->U[ks][js][i].d, pGrid->U[ks][js][i].M1, pGrid->U[ks][js][i].M3);
@@ -406,7 +424,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #endif
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
-      fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,pGrid->U[ks][js][i].s[n]-SolLagd);
+      fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,
+                                  pGrid->U[ks][js][i].s[n]-SolLagd);
 #endif
     fprintf(fid,"\n");
   }
@@ -417,7 +436,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 
-/*------------------------ Private functions ---------------------*/
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 
 #ifdef PARTICLES
 int GetPosition(Grain *gr)

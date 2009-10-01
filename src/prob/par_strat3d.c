@@ -2,16 +2,17 @@
 /*==============================================================================
  * FILE: par_strat3d.c
  *
- * PURPOSE: Problem generator for non-linear streaming instability in stratified disks.
- *   This code works in 3D ONLY. Isothermal eos is assumed, and the value etavk/iso_sound
- *   is fixed. MPI domain decomposition in x is allowed, but not in z.
+ * PURPOSE: Problem generator for non-linear streaming instability in stratified
+ *   disks. This code works in 3D ONLY. Isothermal eos is assumed, and the value
+ *   etavk/iso_sound is fixed. MPI domain decomposition in x is allowed, but 
+ *   not in z.
  *
  * Perturbation modes:
  *    ipert = 0: multi-nsh equilibtium
  *    ipert = 1: white noise within the entire grid
  *    ipert = 2: non-nsh velocity
  *
- *  Code must be configured using --enable-shearing-box and --with-eos=isothermal.
+ *  Should be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is recommended.
  *
  * Reference:
@@ -43,6 +44,7 @@
 #error : The streaming3d problem requires isothermal equation of state.
 #endif /* ISOTHERMAL */
 
+/*------------------------ filewide global variables -------------------------*/
 /* flow properties */
 Real vsc1,vsc2;
 int ipert;
@@ -54,12 +56,23 @@ long ntrack;   /* number of tracer particles */
 long nlis;     /* number of output particles for list output */
 int mytype;    /* specific particle type for output */
 
-/* Private functions */
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * ran2()            - random number generator
+ * Normal()          - normal distribution generator
+ * Erf()             - error function
+ * MultiNSH()        - multiple component NSH equilibrium solver
+ * ShearingBoxPot()  - shearing box tidal gravitational potential
+ * hst_rho_Vx_dVy()  - total Reynolds stress for history dump
+ * property_???()    - particle property selection function
+ *============================================================================*/
+
 double ran2(long int *idum);
 double Normal(long int *idum);
 Real Erf(Real z);
 
-void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk, Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH);
+void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
+                     Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH);
 static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
@@ -74,6 +87,8 @@ extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
 
+/*=========================== PUBLIC FUNCTIONS =================================
+ *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -81,8 +96,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 {
   int i,j,k,ks,pt,tsmode;
   long p,q;
-  Real ScaleHg,tsmin,tsmax,tscrit,amin,amax,Hparmin,Hparmax,mratio,pwind,rhoaconv;
-  Real *ep,*ScaleHpar,epsum,etavk;
+  Real ScaleHg,tsmin,tsmax,tscrit,amin,amax,Hparmin,Hparmax;
+  Real *ep,*ScaleHpar,epsum,mratio,pwind,rhoaconv,etavk;
   Real *epsilon,*uxNSH,*uyNSH,**wxNSH,**wyNSH;
   Real rhog,h,x1,x2,x3,t,x1p,x2p,x3p,zmin,zmax,dx3_1,b;
   long int iseed = -1; /* Initialize on the first call to ran2 */
@@ -93,7 +108,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   
 #ifdef MPI_PARALLEL
   if (par_geti("parallel","NGrid_x3") > 2) {
-    ath_error("[par_strat2d]: Domain decomposition in x3 (z) is not allowed to exceed 2!\n");
+    ath_error("[par_strat2d]: Domain decomposition in x3 (z) is must be no more\
+ than 2!\n");
   }
 #endif
 
@@ -140,8 +156,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   ScaleHpar = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
 
   epsilon = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
-  wxNSH   = (Real**)calloc_2d_array(pGrid->Nx3+1, pGrid->partypes, sizeof(Real));
-  wyNSH   = (Real**)calloc_2d_array(pGrid->Nx3+1, pGrid->partypes, sizeof(Real));
+  wxNSH   = (Real**)calloc_2d_array(pGrid->Nx3+1, pGrid->partypes,sizeof(Real));
+  wyNSH   = (Real**)calloc_2d_array(pGrid->Nx3+1, pGrid->partypes,sizeof(Real));
   uxNSH   = (Real*)calloc_1d_array(pGrid->Nx3+1, sizeof(Real));
   uyNSH   = (Real*)calloc_1d_array(pGrid->Nx3+1, sizeof(Real));
 
@@ -164,10 +180,13 @@ void problem(Grid *pGrid, Domain *pDomain)
     amax = par_getd("problem","amax");
 
     for (i=0; i<pGrid->partypes; i++)
-      pGrid->grproperty[i].rad = amin*exp(i*log(amax/amin)/MAX(pGrid->partypes-1,1.0));
+      pGrid->grproperty[i].rad = amin*
+                               exp(i*log(amax/amin)/MAX(pGrid->partypes-1,1.0));
 
     if (tsmode >= 2) {/* Epstein/General regime */
-      rhoaconv = par_getd_def("problem","rhoaconv",1.0); /* conversion factor for rhoa */
+      /* conversion factor for rhoa */
+      rhoaconv = par_getd_def("problem","rhoaconv",1.0);
+
       for (i=0; i<pGrid->partypes; i++)
         grrhoa[i]=pGrid->grproperty[i].rad*rhoaconv;
     }
@@ -180,7 +199,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   Hparmax = par_getd("problem","hparmax"); /* in unit of gas scale height */
   Hparmin = par_getd("problem","hparmin");
   for (i=0; i<pGrid->partypes; i++) 
-    ScaleHpar[i] = Hparmax*exp(-i*log(Hparmax/Hparmin)/MAX(pGrid->partypes-1,1.0));
+    ScaleHpar[i] = Hparmax*
+                   exp(-i*log(Hparmax/Hparmin)/MAX(pGrid->partypes-1,1.0));
 
 #ifdef FEEDBACK
   mratio = par_getd_def("problem","mratio",0.0); /* total mass fraction */
@@ -197,7 +217,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   for (i=0; i<pGrid->partypes; i++)
   {
     ep[i] = mratio*ep[i]/epsum;
-    pGrid->grproperty[i].m = sqrt(2.0*PI)*ScaleHg/Lz*ep[i]*pGrid->Nx1*pGrid->Nx2*pGrid->Nx3/Npar;
+    pGrid->grproperty[i].m = sqrt(2.0*PI)*ScaleHg/Lz*ep[i]*
+                                          pGrid->Nx1*pGrid->Nx2*pGrid->Nx3/Npar;
   }
 #else
   mratio = 0.0;
@@ -214,11 +235,13 @@ void problem(Grid *pGrid, Domain *pDomain)
 
     for (i=0; i<pGrid->partypes; i++) {
       epsilon[i] = ep[i]/ScaleHpar[i]*exp(-0.5*SQR(h/ScaleHg)*(SQR(1.0/ScaleHpar[i])-1.0))/erf(Lz/(sqrt(8.0)*ScaleHpar[i]*ScaleHg));
+
       if (tsmode != 3)
         tstop0[i] = get_ts(pGrid,i,exp(-0.5*SQR(h/ScaleHg)),Iso_csound,etavk);
     }
 
-    MultiNSH(pGrid->partypes, tstop0, epsilon, etavk, &uxNSH[q], &uyNSH[q], wxNSH[q], wyNSH[q]);
+    MultiNSH(pGrid->partypes, tstop0, epsilon, etavk,
+                              &uxNSH[q], &uyNSH[q], wxNSH[q], wyNSH[q]);
   }
 
 /* Now set initial conditions for the gas */
@@ -299,8 +322,11 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
 
-  /* set the # of the particles in list output (by default, output 1 particle per cell) */
+  /* set the # of the particles in list output
+   * (by default, output 1 particle per cell)
+   */
   nlis = par_geti_def("problem","nlis",pGrid->Nx1*pGrid->Nx2*pGrid->Nx3);
+
   /* set the number of particles to keep track of */
   ntrack = par_geti_def("problem","ntrack",2000);
 
@@ -365,14 +391,16 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k)
+static Real hst_rho_Vx_dVy(const Grid *pG,
+                           const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef FARGO
   return pG->U[k][j][i].M1*pG->U[k][j][i].M2/pG->U[k][j][i].d;
 #else
-  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
+  return pG->U[k][j][i].M1*(pG->U[k][j][i].M2/pG->U[k][j][i].d
+                            + qshear*Omega_0*x1);
 #endif
 }
 
@@ -396,12 +424,14 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
-void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
 {
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+                                          Real *w1, Real *w2, Real *w3)
 {
   Real z,fac;
 
@@ -438,8 +468,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   return;
 }
  
-/*------------------------ Private functions ---------------------*/
 
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*--------------------------------------------------------------------------- */
 /* ShearingBoxPot */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
@@ -494,17 +525,21 @@ static int property_type(Grain *gr)
     return 0;
 }
 
+/*----------------------------------------------------------------------------*/
 /* Multi-species NSH equilibrium
- * Input: # of particle types (n), dust stopping time and mass ratio array, and drift speed etavk.
- * Output: gas NSH equlibrium velocity (u), and dust NSH equilibrium velocity array (w).
+ * Input: # of particle types (n), dust stopping time and mass ratio array, and 
+ *        drift speed etavk.
+ * Output: gas NSH equlibrium velocity (u), and dust NSH equilibrium velocity
+ *         array (w).
  */
-void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk, Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH)
+void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
+                     Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH)
 {
   int i,j;
   Real *Lambda1,**Lam1GamP1, **A, **B, **Tmp;
 
   Lambda1 = (Real*)calloc_1d_array(n, sizeof(Real));     /* Lambda^{-1} */
-  Lam1GamP1=(Real**)calloc_2d_array(n, n, sizeof(Real)); /* Lambda^{-1}*(1+Gamma) */
+  Lam1GamP1=(Real**)calloc_2d_array(n, n, sizeof(Real)); /* Lambda1*(1+Gamma) */
   A       = (Real**)calloc_2d_array(n, n, sizeof(Real));
   B       = (Real**)calloc_2d_array(n, n, sizeof(Real));
   Tmp     = (Real**)calloc_2d_array(n, n, sizeof(Real));
@@ -527,6 +562,7 @@ void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk, Real *uxNSH, Real *u
   for (j=0; j<n; j++)
     B[i][j] *= Lambda1[j];
   MatrixMult(Lam1GamP1, B, n,n,n, A);
+
   /* Obtain NSH velocities */
   *uxNSH = 0.0;  *uyNSH = 0.0;
   for (i=0; i<n; i++){
@@ -613,6 +649,7 @@ double ran2(long int *idum)
   else return temp;
 }
 
+/*--------------------------------------------------------------------------- */
 /* Normal distribution random number generator */
 double Normal(long int *idum)
 {
@@ -626,6 +663,7 @@ double Normal(long int *idum)
   return Y;
 }
 
+/*--------------------------------------------------------------------------- */
 /* Error function  */
 Real Erf(Real z)
 {
