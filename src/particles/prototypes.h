@@ -41,12 +41,16 @@ void particle_realloc(Grid *pG, long n);
 /*----------------------------------------------------------------------------*/
 /* integrators_particle.c */
 void Integrate_Particles(Grid *pG, Domain *pD);
-void int_par_exp   (Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts);
-void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts);
-void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, Real *dv1, Real *dv2, Real *dv3, Real *ts);
+void int_par_exp   (Grid *pG, Grain *curG, Vector cell1,
+                              Real *dv1, Real *dv2, Real *dv3, Real *ts);
+void int_par_semimp(Grid *pG, Grain *curG, Vector cell1,
+                              Real *dv1, Real *dv2, Real *dv3, Real *ts);
+void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1,
+                              Real *dv1, Real *dv2, Real *dv3, Real *ts);
 #ifdef FEEDBACK
 void feedback_predictor(Grid* pG);
-void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1, Real dv1, Real dv2, Real dv3, Real ts);
+void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
+                                  Real dv1, Real dv2, Real dv3, Real ts);
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -69,10 +73,15 @@ void set_bvals_final_particle(Grid *pG, Domain *pD);
 /* utils_particle.c */
 void get_gasinfo(Grid *pG);
 
-void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
-void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
-void getwei_QP    (Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
-int  getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
+void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
+                             Real weight[3][3][3], int *is, int *js, int *ks);
+void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
+                             Real weight[3][3][3], int *is, int *js, int *ks);
+void getwei_QP    (Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
+                             Real weight[3][3][3], int *is, int *js, int *ks);
+
+int  getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+                         Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
 
 Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd);
 Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd);
@@ -80,7 +89,8 @@ Real get_ts_fixed  (Grid *pG, int type, Real rho, Real cs, Real vd);
 
 #ifdef FEEDBACK
 void feedback_clear(Grid *pG);
-void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks, Vector fb, Real Elosspar);
+void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+                                             Vector fb, Real Elosspar);
 #endif
 
 void shuffle(Grid* pG);

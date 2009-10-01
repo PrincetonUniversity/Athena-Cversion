@@ -251,9 +251,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   zmin = pGrid->x3_0 + (pGrid->ks+pGrid->kdisp)*pGrid->dx3;
   zmax = pGrid->x3_0 + (pGrid->ke+pGrid->kdisp+1)*pGrid->dx3;
 
-  for (pt=0; pt<pGrid->partypes; pt++) {
+  for (q=0; q<Npar; q++) {
 
-    for (q=0; q<Npar; q++) {
+    for (pt=0; pt<pGrid->partypes; pt++) {
 
       x1p = x1min + Lx*ran2(&iseed);
       x2p = x2min + Ly*ran2(&iseed);
@@ -415,8 +415,8 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
     z = x3;
 
   fac = Lg/(0.5*Lz+Lg-fabs(z));
-  ft->x2 -= SQR(Omega_0)*z*(1.0-SQR(fac)*fac); /* 3rd order sharp */
-//  *ft.x2 -= SQR(Omega_0)*z*(1.0-SQR(fac));  /* 2nd order sharp */
+  ft->x3 -= SQR(Omega_0)*z*(1.0-SQR(fac)*fac); /* 3rd order sharp */
+//  *ft.x3 -= SQR(Omega_0)*z*(1.0-SQR(fac));  /* 2nd order sharp */
 
   return;
 }

@@ -75,8 +75,11 @@ static int usr_aray_cnt = 0; /* User History Counter <= MAX_USR_ARAY */
 
 extern Real expr_dpar(const Grid *pG, const int i, const int j, const int k);
 
+/*============================================================================*/
+/*----------------------------- Public Functions -----------------------------*/
+
 /*----------------------------------------------------------------------------*/
-/* dump_history:  */
+/* dump_particle_history:  */
 
 void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 {
@@ -93,17 +96,20 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   long *my_npar;
 
   my_npar = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
-  sendbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes, sizeof(Real));
-  recvbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes, sizeof(Real));
+  sendbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes,
+                                                             sizeof(Real));
+  recvbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes,
+                                                             sizeof(Real));
 #endif
 
   npar  = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
-  array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, pGrid->partypes, sizeof(Real));
+  array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, pGrid->partypes,
+                                                             sizeof(Real));
 
   tot_scal_cnt = 10 + usr_scal_cnt;
   tot_aray_cnt = 12 + usr_aray_cnt;
 
-   particle_to_grid(pGrid, pD, property_all);
+  particle_to_grid(pGrid, pD, property_all);
 
 /* Add a white space to the format */
   if(pOut->dat_fmt == NULL){
@@ -117,7 +123,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
     scal[i] = 0.0;
   }
 
-/* Compute scalar history variables */
+/*--------------------- Compute scalar history variables ---------------------*/
   scal[0] = pGrid->time;
 
   /* Maximum density and energy dissipation rate */
@@ -137,9 +143,9 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
     if (gr->pos == 1) /* grid particle */
     {
 #ifdef FEEDBACK
-      rho = pGrid->grproperty[gr->property].m;  /* contribution to total mass */
+      rho = pGrid->grproperty[gr->property].m;/* contribution to total mass */
 #else
-      rho = 1.0;                                /* contribution to total number */
+      rho = 1.0;                              /* contribution to total number */
 #endif
       mhst = 3;
       scal[mhst] += rho;
@@ -168,8 +174,10 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   for (i=1; i<tot_scal_cnt; i++)
     my_scal[i] = scal[i];
 
-  err = MPI_Reduce(&(my_scal[1]),&(scal[1]),1,             MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
-  err = MPI_Reduce(&(my_scal[2]),&(scal[2]),8+usr_scal_cnt,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+  err = MPI_Reduce(&(my_scal[1]),&(scal[1]),1,
+                                 MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
+  err = MPI_Reduce(&(my_scal[2]),&(scal[2]),8+usr_scal_cnt,
+                                 MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
 #endif
 
   /* Average the sums */
@@ -204,8 +212,12 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
     {
       prp = gr->property;
       npar[prp] += 1;
-      array[0][prp] += gr->x1;   array[1][prp] += gr->x2;   array[2][prp] += gr->x3;
-      array[3][prp] += gr->v1;   array[4][prp] += gr->v2;   array[5][prp] += gr->v3;
+      array[0][prp] += gr->x1;
+      array[1][prp] += gr->x2;
+      array[2][prp] += gr->x3;
+      array[3][prp] += gr->v1;
+      array[4][prp] += gr->v2;
+      array[5][prp] += gr->v3;
     }
   }
 
@@ -220,8 +232,10 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
       sendbuf[n+i] = array[j][i];
   }
 
-  err = MPI_Allreduce(my_npar, npar, pGrid->partypes,  MPI_LONG,  MPI_SUM,MPI_COMM_WORLD);
-  err = MPI_Allreduce(sendbuf,recvbuf,6*pGrid->partypes,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  err = MPI_Allreduce(my_npar, npar,  pGrid->partypes,
+                                      MPI_LONG,  MPI_SUM,MPI_COMM_WORLD);
+  err = MPI_Allreduce(sendbuf,recvbuf,6*pGrid->partypes,
+                                      MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
   for (j=0; j<6; j++)
   {
@@ -265,7 +279,8 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
       sendbuf[n+i] = array[j][i];
   }
 
-  err = MPI_Reduce(sendbuf,recvbuf,(tot_aray_cnt-6)*pGrid->partypes,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+  err = MPI_Reduce(sendbuf,recvbuf,(tot_aray_cnt-6)*pGrid->partypes,
+                                   MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
 
   if (pGrid->my_id == 0)
   {
@@ -291,9 +306,8 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 
   }
 
-/*==========================================================================*/
+/*------------------------ Output particle history file ----------------------*/
 
-/* Output particle history file */
   if (pGrid->my_id == 0) {
 
 #ifdef MPI_PARALLEL
@@ -395,21 +409,22 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   return;
 }
 
-/*------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 /* enroll particle history variables
  * set: global variable (0) or particle type dependent variable (1)
  */
-void dump_parhistory_enroll(const Parfun_t pfun, const char *label, const int set)
+void dump_parhistory_enroll(const Parfun_t pfun, const char *label,
+                                                 const int  set)
 {
   if (set == 0) /* global variable */
   {
     if(usr_scal_cnt >= MAX_USR_SCAL)
-      ath_error("[dump_parhistory_enroll]: MAX_USR_SCAL = %d exceeded\n",
+      ath_error("[par_history_enroll]: MAX_USR_SCAL = %d exceeded\n",
                 MAX_USR_SCAL);
 
     /* Copy the label string */
     if((usr_label_scal[usr_scal_cnt] = ath_strdup(label)) == NULL)
-      ath_error("[dump_parhistory_enroll]: Error on sim_strdup(\"%s\")\n",label);
+      ath_error("[par_history_enroll]: Error on sim_strdup(\"%s\")\n",label);
 
     /* Store the function pointer */
     phst_scalfun[usr_scal_cnt] = pfun;
@@ -418,12 +433,12 @@ void dump_parhistory_enroll(const Parfun_t pfun, const char *label, const int se
   else /* particle type dependent variable */
   {
     if(usr_aray_cnt >= MAX_USR_ARAY)
-      ath_error("[dump_parhistory_enroll]: MAX_USR_ARAY = %d exceeded\n",
+      ath_error("[par_history_enroll]: MAX_USR_ARAY = %d exceeded\n",
                 MAX_USR_ARAY);
 
     /* Copy the label string */
     if((usr_label_aray[usr_aray_cnt] = ath_strdup(label)) == NULL)
-      ath_error("[dump_parhistory_enroll]: Error on sim_strdup(\"%s\")\n",label);
+      ath_error("[par_history_enroll]: Error on sim_strdup(\"%s\")\n",label);
 
     /* Store the function pointer */
     phst_arayfun[usr_aray_cnt] = pfun;

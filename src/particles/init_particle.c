@@ -1,22 +1,21 @@
 #include "../copyright.h"
 /*=============================================================================
-FILE: init_particle.c
-PURPOSE: Initialize particle related structures and functions. Particle
-  integrator is enrolled by calling integrate_particle_init(int type).
-  In init_particle(Grid *pG, Domain *pD), all the particle related arrays
-  are allocated, interpolation and stopping time calculation functions are
-  enrolled, most global variables for particles are evaluated. Also contains
-  functions for particle array reallocation and destruction.
-
-CONTAINS PUBLIC FUNCTIONS:
-  VGFun_t integrate_particle_init(int type);
-  void init_particle(Grid *pG, Domain *pD);
-  void particle_destruct(Grid *pG);
-  void particle_realloc(Grid *pG, long n);
-
-History:
-  Written by  Xuening Bai      Apr. 2009
-
+ * FILE: init_particle.c
+ * PURPOSE: Initialize particle related structures and functions. Particle
+ *   integrator is enrolled by calling integrate_particle_init(int type). In
+ *   init_particle(Grid *pG, Domain *pD), all the particle related arrays are
+ *   allocated, interpolation and stopping time calculation functions are
+ *   enrolled, most global variables for particles are evaluated. Also contains
+ *   functions for particle array reallocation and destruction.
+ *
+ * CONTAINS PUBLIC FUNCTIONS:
+ *   integrate_particle_init();
+ *   init_particle();
+ *   particle_destruct();
+ *   particle_realloc();
+ *
+ * History:
+ *   Written by  Xuening Bai      Apr. 2009
 ==============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,18 +29,21 @@ History:
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
-/*=========================== PROTOTYPES OF PRIVATE FUNCTIONS ===============================*/
-
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ *   grid_limit()   - get the limit coordinates of the grid
+ *============================================================================*/
 void grid_limit(Grid *pG, Domain *pD);
 
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 
-/* Initialization for particles.
- * We assume to have "partypes" types of particles, each type has "parnum" particles.
- * We enforce that each type has equal number of particles to ensure equal resolution.
+/*----------------------------------------------------------------------------*/
+/* Initialization for particles
  * Allocate memory for the gas velocity/sound speed array, feedback array.
+ * Note we enforce that each type has equal number of particles to ensure equal
+ * resolution.
  */
 void init_particle(Grid *pG, Domain *pD)
 {
@@ -49,19 +51,19 @@ void init_particle(Grid *pG, Domain *pD)
   Grain *GrArray;
   long size = 1000, size1 = 1, size2 = 1;
 
-  /* get coordinate limit */
+/* get coordinate limit */
   grid_limit(pG, pD);
   N1T = iup-ilp+1;
   N2T = jup-jlp+1;
   N3T = kup-klp+1;
 
-  /* check particle types */
+/* check particle types */
   pG->partypes = par_geti_def("particle","partypes",1);
 
   if (pG->partypes < 0)
     ath_error("[init_particle]: Particle types must not be negative!\n");
 
-  /* initialize the particle array */
+/* initialize the particle array */
   if(par_exist("particle","parnumcell"))
   {
     /* if we consider number of particles per cell */
@@ -86,8 +88,9 @@ void init_particle(Grid *pG, Domain *pD)
   pG->particle = (Grain*)calloc_1d_array(pG->arrsize, sizeof(Grain));
   if (pG->particle == NULL) goto on_error;
 
-  /* allocate memory for particle properties */
-  pG->grproperty = (Grain_Property*)calloc_1d_array(pG->partypes, sizeof(Grain_Property));
+/* allocate memory for particle properties */
+  pG->grproperty = (Grain_Property*)calloc_1d_array(pG->partypes,
+                                                    sizeof(Grain_Property));
   if (pG->grproperty == NULL) goto on_error;
 
   grrhoa = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
@@ -96,18 +99,18 @@ void init_particle(Grid *pG, Domain *pD)
   tstop0 = (Real*)calloc_1d_array(pG->partypes, sizeof(Real));
   if (tstop0 == NULL) goto on_error;
 
-  /* by default these global values are zero */
+/* by default these global values are zero */
   for (i=0; i<pG->partypes; i++) {
     tstop0[i] = 0.0;
     grrhoa[i] = 0.0;
   }
   alamcoeff = 0.0;
 
-  /* Set particle integrator to according to particle types */
+/* Set particle integrator to according to particle types */
   for (i=0; i<pG->partypes; i++)
     pG->grproperty[i].integrator = par_geti_def("particle","integrator",2);
 
-  /* set the interpolation function pointer */
+/* set the interpolation function pointer */
   interp = par_geti_def("particle","interp",2);
   if (interp == 1)
   { /* linear interpolation */
@@ -125,9 +128,9 @@ void init_particle(Grid *pG, Domain *pD)
     ncell = 3;
   }
   else
-    ath_error("[init_particle]: Invalid interp value (should equals 1 or 2)!\n");
+    ath_error("[init_particle]: Invalid interp value (should be 1 or 2)!\n");
 
-  /* set the stopping time function pointer */
+/* set the stopping time function pointer */
   tsmode = par_geti("particle","tsmode");
   if (tsmode == 1)
     get_ts = get_ts_general;
@@ -138,7 +141,7 @@ void init_particle(Grid *pG, Domain *pD)
   else
     ath_error("[init_particle]: tsmode must be 1, 2 or 3!\n");
 
-  /* allocate the memory for gas and feedback arrays */
+/* allocate the memory for gas and feedback arrays */
   grid_d = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
   if (grid_d == NULL) goto on_error;
 
@@ -164,8 +167,9 @@ void init_particle(Grid *pG, Domain *pD)
     ath_error("[init_particle]: Error allocating memory.\n");
 }
 
-
-/* Finalization for particles */
+/*----------------------------------------------------------------------------*/
+/* Finalization for particles
+ */
 void particle_destruct(Grid *pG)
 {
   free_1d_array(pG->particle);
@@ -189,25 +193,32 @@ void particle_destruct(Grid *pG)
   return;
 }
 
-
-/* Enlarge the particle array */
+/*----------------------------------------------------------------------------*/
+/* Enlarge the particle array
+ */
 void particle_realloc(Grid *pG, long n)
 {
   pG->arrsize = MAX((long)(1.2*pG->arrsize), n);
 
-  if ((pG->particle = (Grain*)realloc(pG->particle, pG->arrsize*sizeof(Grain))) == NULL)
-    ath_error("[init_particle]: Error re-allocating memory with array size %ld.\n", n);
+  if ((pG->particle = (Grain*)realloc(pG->particle,
+                                      pG->arrsize*sizeof(Grain))) == NULL)
+  {
+    ath_error("[init_particle]: Error re-allocating memory with array size\
+ %ld.\n", n);
+  }
 
   return;
 }
 
-/*=========================== PRIVATE FUNCTIONS ===============================*/
+/*============================================================================*/
+/*----------------------------- Private Functions ----------------------------*/
 
+/*----------------------------------------------------------------------------*/
 /* Calculate the left and right grid limit
-   Input: pG: grid;
-   Output: ilp,iup,jlp,jup,klp,kup: grid limit indices;
-           x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar: grid boundary coordinates
-*/
+ * Input: pG: grid;
+ * Output: ilp,iup,jlp,jup,klp,kup: grid limit indices;
+ *         x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar: grid boundary coordinates
+ */
 void grid_limit(Grid *pG, Domain *pD)
 {
   int m1, m2, m3;	/* dimension flags */
@@ -222,7 +233,7 @@ void grid_limit(Grid *pG, Domain *pD)
   if (pG->Nx3 > 1) m3 = 1;
   else m3 = 0;
 
-  /* set left and right grid indices */
+/* set left and right grid indices */
   ilp = pG->is - m1*nghost;
   iup = pG->ie + m1*nghost;
 
@@ -232,9 +243,10 @@ void grid_limit(Grid *pG, Domain *pD)
   klp = pG->ks - m3*nghost;
   kup = pG->ke + m3*nghost;
 
-  /* set left and right boundary for removing particles */
-  /* Note: for outflow B.C. (ibc=2), we only remove the particles in
-   * the outermost layer of the ghost cells */
+/* set left and right boundary for removing particles
+ * Note: for outflow B.C. (ibc=2), we only remove the particles in
+ * the outermost layer of the ghost cells
+ */
   get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
 
   if ((par_geti_def("grid","ibc_x1",4) == 2) && (my_iproc == 0))

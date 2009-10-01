@@ -1,21 +1,23 @@
 #include "../copyright.h"
 /*=============================================================================
-FILE: feedback.c
-PURPOSE: Exchange particle feedback between boundary cells. The procedure is
-  opposite to setting boundary conditions. Extra feedback forces are exterted
-  to cells outside the grid boundary, by feedback exchange, these forces are
-  properly added to cells inside the grid boundary, according to various
-  boundary conditions.
-    Currently, for shearing box simulation in 3D, FARGO must be enabled.
-
-CONTAINS PUBLIC FUNCTIONS:
-  void exchange_feedback(Grid *pG, Domain *pD);
-  void exchange_feedback_init(Grid *pG, Domain *pD);
-  void exchange_feedback_fun(enum Direction dir, VBCFun_t prob_bc);
-  void exchange_feedback_destruct(Grid *pG, Domain *pD);
-
-History:
-  Written by Xuening Bai, Apr. 2009
+ * FILE: feedback.c
+ *
+ * PURPOSE: Exchange particle feedback between boundary cells. The procedure is
+ *   opposite to setting boundary conditions. Extra feedback forces are exterted
+ *   to cells outside the grid boundary, by feedback exchange, these forces are
+ *   properly added to cells inside the grid boundary, according to various
+ *   boundary conditions.
+ *
+ *   Currently, for shearing box simulation in 3D, FARGO must be enabled.
+ *
+ * CONTAINS PUBLIC FUNCTIONS:
+ *   exchange_feedback()
+ *   exchange_feedback_init()
+ *   exchange_feedback_fun()
+ *   exchange_feedback_destruct()
+ * 
+ * History:
+ *   Written by Xuening Bai, Apr. 2009
 ==============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,10 +45,14 @@ static double *send_buf = NULL, *recv_buf = NULL;
 
 #endif /* MPI_PARALLEL */
 
-static int my_iproc, my_jproc, my_kproc;	/* processor indices in the computational domain */
-static int il,iu, jl,ju, kl,ku;		/* grid index limit for feedback exchange */
-static Real x1min,x1max,x2min,x2max,x3min,x3max;/* min and max coordinate limits of the computational domain */
-static Real Lx1, Lx2, Lx3;			/* domain size in x1, x2, x3 direction */
+/* processor indices in the computational domain */
+static int my_iproc, my_jproc, my_kproc;
+/* grid index limit for feedback exchange */
+static int il,iu, jl,ju, kl,ku;
+/* min and max coordinate limits of the computational domain */
+static Real x1min,x1max,x2min,x2max,x3min,x3max;
+/* domain size in x1, x2, x3 direction */
+static Real Lx1, Lx2, Lx3;
 
 /* boundary condition function pointers. local to this function  */
 static VBCFun_t apply_ix1 = NULL, apply_ox1 = NULL;
@@ -55,6 +61,15 @@ static VBCFun_t apply_ix3 = NULL, apply_ox3 = NULL;
 
 /*====================== PROTOTYPE OF PRIVATE FUNCTIONS ======================*/
 /*----------------------------------------------------------------------------*/
+
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ *   reflect_???()  - apply reflecting BCs at boundary ???
+ *   outflow_???()  - apply outflow BCs at boundary ???
+ *   periodic_???() - apply periodic BCs at boundary ???
+ *   send_???()     - MPI send of data at ??? boundary
+ *   receive_???()  - MPI receive of data at ??? boundary
+ *============================================================================*/
 
 static void reflect_ix1_feedback(Grid *pG);
 static void reflect_ox1_feedback(Grid *pG);
@@ -96,14 +111,15 @@ static void shearingbox_ox1_feedback(Grid *pG, Domain *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* exchange_feedback: calls appropriate functions to set ghost zones.  The function
- *   pointers (*apply_???) are set during initialization by set_bvals_particle_init()
- *   to be either a user-defined function, or one of the functions corresponding
- *   to reflecting, periodic, or outflow.  If the left- or right-Grid ID numbers
- *   are >= 1 (neighboring grids exist), then MPI calls are used.
+/* exchange_feedback: calls appropriate functions to copy feedback in the ghost
+ *    zones back to the grid.  The function pointers (*apply_???) are set during
+ *    initialization by exchange_feedback_init() to be either a user-defined
+ *    function, or one of the functions corresponding to reflecting, periodic,
+ *    or outflow.  If the left- or right-Grid ID numbers are >= 1 (neighboring
+ *    grids exist), then MPI calls are used.
  *
- * Order for updating boundary conditions must always be x1-x2-x3 in order to
- * fill the corner cells properly
+ *  Order for updating boundary conditions must always be x3-x2-x1 in order to
+ *  fill the corner cells properly (opposite to setting MHD B.C.!)
  */
 
 void exchange_feedback(Grid *pG, Domain *pD)
@@ -126,14 +142,16 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* MPI blocks to both left and right */
     if (pG->rx3_id >= 0 && pG->lx3_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx3_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx3_id, 
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ox3_feedback(pG);       /* send R */
       recv_ix3_feedback(pG, &rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx3_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx3_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ix3_feedback(pG);       /* send L */
@@ -143,7 +161,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* Physical boundary on left, MPI block on right */
     if (pG->rx3_id >= 0 && pG->lx3_id < 0) {
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx3_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx3_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ox3_feedback(pG);       /* send R */
@@ -154,7 +173,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* MPI block on left, Physical boundary on right */
     if (pG->rx3_id < 0 && pG->lx3_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx3_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx3_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ix3_feedback(pG);       /* send L */
@@ -184,14 +204,16 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* MPI blocks to both left and right */
     if (pG->rx2_id >= 0 && pG->lx2_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ox2_feedback(pG);       /* send R */
       recv_ix2_feedback(pG, &rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ix2_feedback(pG);       /* send L */
@@ -201,7 +223,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* Physical boundary on left, MPI block on right */
     if (pG->rx2_id >= 0 && pG->lx2_id < 0) {
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ox2_feedback(pG);       /* send R */
@@ -212,7 +235,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* MPI block on left, Physical boundary on right */
     if (pG->rx2_id < 0 && pG->lx2_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ix2_feedback(pG);       /* send L */
@@ -229,7 +253,7 @@ void exchange_feedback(Grid *pG, Domain *pD)
 
   }
 
-/*--- Step 2.cont.  -------------------------------------------------------------
+/*--- Step 2.cont.  ------------------------------------------------------------
  * shift the feedback in x1 direction */
 #ifdef SHEARING_BOX
 #ifndef FARGO
@@ -257,14 +281,16 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* MPI blocks to both left and right */
     if (pG->rx1_id >= 0 && pG->lx1_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ox1_feedback(pG);       /* send R */
       recv_ix1_feedback(pG, &rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ix1_feedback(pG);       /* send L */
@@ -274,7 +300,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* Physical boundary on left, MPI block on right */
     if (pG->rx1_id >= 0 && pG->lx1_id < 0) {
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ox1_feedback(pG);       /* send R */
@@ -285,7 +312,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 /* MPI block on left, Physical boundary on right */
     if (pG->rx1_id < 0 && pG->lx1_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id, boundary_cells_tag, MPI_COMM_WORLD, &rq);
+      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+                                     boundary_cells_tag, MPI_COMM_WORLD, &rq);
       if(err) ath_error("[exchange_feedback]: MPI_Irecv error = %d\n",err);
 
       send_ix1_feedback(pG);       /* send L */
@@ -573,7 +601,7 @@ void exchange_feedback_init(Grid *pG, Domain *pD)
       ath_error("[exchange_feedback_init]: Failed to allocate send buffer\n");
 
     if((recv_buf = (double*)malloc(size*NVAR_F*sizeof(double))) == NULL)
-      ath_error("[exchange_feedback_init]: Failed to allocate receive buffer\n");
+      ath_error("[exchange_feedback_init]: Failed to allocate recv buffer\n");
   }
 #endif /* MPI_PARALLEL */
 
@@ -581,8 +609,8 @@ void exchange_feedback_init(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* exchange_feedback_fun:  sets function pointers for user-defined feedback exchange 
-   in problem file
+/* exchange_feedback_fun: sets function pointers for user-defined feedback
+ *   exchange in problem file
  */
 
 void exchange_feedback_fun(enum Direction dir, VBCFun_t prob_bc)
@@ -654,7 +682,7 @@ static void reflect_ix3_feedback(Grid *pG)
       for (i=il; i<=iu; i++) {
         pG->feedback[kr][j][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[kr][j][i].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflect 3-mom. */
+        pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflection */
 
         pG->Eloss[kr][j][i] += pG->Eloss[k][j][i];
       }
@@ -679,7 +707,7 @@ static void reflect_ox3_feedback(Grid *pG)
       for (i=il; i<=iu; i++) {
         pG->feedback[kr][j][i].x1 += pG->feedback[k][j][i].x1;
         pG->feedback[kr][j][i].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflect 3-mom. */
+        pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflection */
 
         pG->Eloss[kr][j][i] += pG->Eloss[k][j][i];
       }
@@ -703,7 +731,7 @@ static void reflect_ix2_feedback(Grid *pG)
       jr = 2*nghost-j-1;
       for (i=il; i<=iu; i++) {
         pG->feedback[k][jr][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflect 2-mom. */
+        pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflection. */
         pG->feedback[k][jr][i].x3 += pG->feedback[k][j][i].x3;
 
         pG->Eloss[k][jr][i] += pG->Eloss[k][j][i];
@@ -728,7 +756,7 @@ static void reflect_ox2_feedback(Grid *pG)
       jr = 2*pG->je-j+1;
       for (i=il; i<=iu; i++) {
         pG->feedback[k][jr][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflect 2-mom. */
+        pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflection */
         pG->feedback[k][jr][i].x3 += pG->feedback[k][j][i].x3;
 
         pG->Eloss[k][jr][i] += pG->Eloss[k][j][i];
@@ -752,7 +780,7 @@ static void reflect_ix1_feedback(Grid *pG)
     for (j=pG->js; j<=pG->je; j++) {
       for (i=nghost-NGF; i<nghost; i++) {
         ir = 2*nghost-i-1;
-        pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflect 1-mom. */
+        pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflection */
         pG->feedback[k][j][ir].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k][j][ir].x3 += pG->feedback[k][j][i].x3;
 
@@ -777,7 +805,7 @@ static void reflect_ox1_feedback(Grid *pG)
     for (j=pG->js; j<=pG->je; j++) {
       for (i=pG->ie+1; i<=pG->ie+NGF; i++) {
         ir = 2*pG->ie-i+1;
-        pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflect 1-mom. */
+        pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflection */
         pG->feedback[k][j][ir].x2 += pG->feedback[k][j][i].x2;
         pG->feedback[k][j][ir].x3 += pG->feedback[k][j][i].x3;
 
@@ -973,7 +1001,8 @@ static void send_ix3_feedback(Grid *pG)
   }
 
 /* send contents of buffer to the neighboring grid on L-x3 */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id, boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id, 
+                                boundary_cells_tag, MPI_COMM_WORLD);
   if(err) ath_error("[send_ix3_feedback]: MPI_Send error = %d\n",err);
 
   return;
@@ -1008,7 +1037,8 @@ static void send_ox3_feedback(Grid *pG)
   }
 
 /* send contents of buffer to the neighboring grid on R-x3 */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx3_id, boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx3_id,
+                                boundary_cells_tag, MPI_COMM_WORLD);
   if(err) ath_error("[send_ox3_feedback]: MPI_Send error = %d\n",err);
 
   return;
@@ -1043,7 +1073,8 @@ static void send_ix2_feedback(Grid *pG)
   }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id, boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                                boundary_cells_tag, MPI_COMM_WORLD);
   if(err) ath_error("[send_ix2_feedback]: MPI_Send error = %d\n",err);
 
   return;
@@ -1078,7 +1109,8 @@ static void send_ox2_feedback(Grid *pG)
   }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id, boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                                boundary_cells_tag, MPI_COMM_WORLD);
   if(err) ath_error("[send_ox2_feedback]: MPI_Send error = %d\n",err);
 
   return;
@@ -1113,7 +1145,8 @@ static void send_ix1_feedback(Grid *pG)
   }
 
 /* send contents of buffer to the neighboring grid on L-x1 */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id, boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+                                boundary_cells_tag, MPI_COMM_WORLD);
   if(err) ath_error("[send_ix1_feedback]: MPI_Send error = %d\n",err);
 
   return;
@@ -1148,7 +1181,8 @@ static void send_ox1_feedback(Grid *pG)
   }
 
 /* send contents of buffer to the neighboring grid on R-x1 */
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id, boundary_cells_tag, MPI_COMM_WORLD);
+  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+                                boundary_cells_tag, MPI_COMM_WORLD);
   if(err) ath_error("[send_ox1_feedback]: MPI_Send error = %d\n",err);
 
   return;

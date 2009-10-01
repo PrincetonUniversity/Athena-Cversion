@@ -201,7 +201,8 @@ void init_output(Grid *pGrid)
 
 #ifdef PARTICLES
     /* check input for particle binning (=1, default) or not (=0) */
-    new_out.out_pargrid = par_geti_def(block,"pargrid", check_particle_binning(new_out.out));
+    new_out.out_pargrid = par_geti_def(block,"pargrid",
+                                       check_particle_binning(new_out.out));
     if ((new_out.out_pargrid < 0) || (new_out.out_pargrid >1)) {
       ath_perr(-1,"[init_output]: %s/pargrid must be 0 or 1\n",
 	       block, block);
@@ -213,7 +214,8 @@ void init_output(Grid *pGrid)
     if(par_exist(block,"par_prop")) {
       new_out.par_prop = get_usr_par_prop(par_gets(block,"par_prop"));
       if (new_out.par_prop == NULL) {
-        ath_pout(0,"[init_output]: Particle selection function not found! Now use the default one.\n");
+        ath_pout(0,"[init_output]: Particle selection function not found! \
+Now use the default one.\n");
         new_out.par_prop = property_all;
       }
     }
@@ -255,7 +257,7 @@ void init_output(Grid *pGrid)
       }
 #ifdef PARTICLES
      else if (strcmp(fmt,"phst")==0){
-        new_out.fun = dump_particle_history; /* do not bin particles (default) */
+        new_out.fun = dump_particle_history;/* do not bin particles (default) */
         goto add_it;
       }
 #endif

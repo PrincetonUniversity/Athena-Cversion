@@ -249,9 +249,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   zmin = pGrid->x2_0 + (pGrid->js+pGrid->jdisp)*pGrid->dx2;
   zmax = pGrid->x2_0 + (pGrid->je+pGrid->jdisp+1.0)*pGrid->dx2;
 
-  for (pt=0; pt<pGrid->partypes; pt++) {
+  for (q=0; q<Npar; q++) {
 
-    for (q=0; q<Npar; q++) {
+    for (pt=0; pt<pGrid->partypes; pt++) {
 
       x1p = x1min + Lx*ran2(&iseed);
       x2p = ScaleHpar[pt]*ScaleHg*Normal(&iseed);

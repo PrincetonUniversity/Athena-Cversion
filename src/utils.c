@@ -180,7 +180,8 @@ void minmax3(float ***data,int nx3,int nx2,int nx1, float *dmino, float *dmaxo)
   *dmaxo = dmax;
 }
 
-#ifdef PARTICLES
+#if defined(PARTICLES) || defined(CHEMISTRY)
+/*----------------------------------------------------------------------------*/
 /* LU decomposition from Numerical Recipes
  * Using Crout's method with partial pivoting
  * a is the input matrix, and is returned with LU decomposition readily made,
@@ -196,7 +197,8 @@ void ludcmp(Real **a, int n, int *indx, Real *d)
   rowscale = (Real*)calloc_1d_array(n, sizeof(Real));
   *d=1.0;  /* No row interchanges yet */
 
-  for (i=0;i<n;i++) { /* Loop over rows to get the implicit scaling information */
+  for (i=0;i<n;i++)
+  { /* Loop over rows to get the implicit scaling information */
     big=0.0;
     for (j=0;j<n;j++)
       if ((temp=fabs(a[i][j])) > big) big=temp;
@@ -243,6 +245,7 @@ void ludcmp(Real **a, int n, int *indx, Real *d)
   free(rowscale);
 }
 
+/*----------------------------------------------------------------------------*/
 /* Backward substitution (from numerical recipies)
  * a is the input matrix done with LU decomposition, n is the matrix size
  * indx id the history of row permutation
@@ -270,6 +273,7 @@ void lubksb(Real **a, int n, int *indx, Real b[])
   }
 }
 
+/*----------------------------------------------------------------------------*/
 /* Inverse matrix solver
  * a: input matrix; n: matrix size, b: return matrix
  * Note: the input matrix will be DESTROYED
@@ -294,6 +298,7 @@ void InverseMatrix(Real **a, int n, Real **b)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
 /* Matrix multiplication: a(m*n) * b(n*l) = c(m*l) */
 void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 {
@@ -305,4 +310,4 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
       for (k=0; k<n; k++) c[i][j] += a[i][k] * b[k][j];
     }
 }
-#endif
+#endif /* PARTICLES or CHEMISTRY */

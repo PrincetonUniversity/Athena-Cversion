@@ -1,34 +1,36 @@
 #include "../copyright.h"
 /*=============================================================================
-FILE: output_particle.c
-PURPOSE: contains all the routines necessary for outputting particles. There are
-  two basic formats:
-  1. Bin particles to the grid, then output particles as a grid.
-  2. Dump the particle list directly.
-
-  For particle binning, there can be many choices since particles may have different
-  properties. We provide a default (and trivial) particle selection function, which
-  select all the particles with different properties. The user can define their own
-  particle selection functions in the problem generator and pass them to the main code.
-
-  The output quantities include, density, momentum density and velocity of the selected
-  particles averaged in one grid cell. The binned data are saved in arrays dpar, and grid_v.
-  The latter is borrowed from particle.c to save memory. The expression functions expr_???
-  are used to pick the relevant quantities, which is part of the output data structure.
-  The way to output these binned particle quantities are then exactly the same as other
-  gas quantities.
-
-  Dumping particle list has not been developed yet since we need to figure out how to
-  do visualization.
-
-CONTAINS PUBLIC FUNCTIONS:
-  void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop);
-  void dump_particle_binary(Grid *pG, Domain *pD);
-  int property_all(Grain *gr);
-
-History:
-  Written by Xuening Bai, Mar. 2009
-
+ * FILE: output_particle.c
+ *
+ * PURPOSE: contains routines necessary for outputting particles.
+ *   There are two basic formats:
+ *    1. Bin particles to the grid, then output particles as a grid.
+ *    2. Dump the particle list directly.
+ *
+ *   For particle binning, there can be many choices since particles may have
+ *   different properties. We provide a default (and trivial) particle selection
+ *   function, which select all the particles with different properties. The 
+ *   user can define their own particle selection functions in the problem
+ *   generator and pass them to the main code.
+ *
+ *   The output quantities include, density, momentum density and velocity of
+ *   the selected particles averaged in one grid cell. The binned data are
+ *   saved in arrays dpar, and grid_v. The latter is borrowed from particle.c
+ *   to save memory. The expression functions expr_??? are used to pick the 
+ *   relevant quantities, which is part of the output data structure. The way
+ *   to output these binned particle quantities are then exactly the same as
+ *   other gas quantities.
+ *
+ *   Dumping particle list has not been developed yet since we need to figure
+ *   out how to do visualization.
+ *
+ * CONTAINS PUBLIC FUNCTIONS:
+ *   particle_to_grid();
+ *   dump_particle_binary();
+ *   property_all();
+ * 
+ * History:
+ *   Written by Xuening Bai, Mar. 2009
 ==============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +63,9 @@ int property_all(Grain *gr);
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 
-/* Bin the particles to grid cells */
+/*----------------------------------------------------------------------------*/
+/* Bin the particles to grid cells
+ */
 void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 {
   int i,j,k, is,js,ks, i0,j0,k0, i1,j1,k1, i2,j2,k2;
@@ -131,7 +135,9 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
   return;
 }
 
-/* dump unbinned particles in binary format */
+/*----------------------------------------------------------------------------*/
+/* dump unbinned particles in binary format
+ */
 void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 {
   int dnum = pOut->num;
@@ -241,9 +247,10 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
 /* default choice for binning particles to the grid: 
-   All the particles are binned, return true for any value.
-*/
+ * All the particles are binned, return true for any value.
+ */
 int property_all(Grain *gr)
 {
   return 1;  /* always true */
@@ -251,6 +258,7 @@ int property_all(Grain *gr)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
+
 /* expr_*: where * are variables d,M1,M2,M3,V1,V2,V3 for particles */
 
 Real expr_dpar(const Grid *pG, const int i, const int j, const int k) {

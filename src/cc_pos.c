@@ -56,11 +56,13 @@ Modified: Xuening Bai, Dec. 2008
 ============================================================================*/
 
 #ifdef PARTICLES
-/* Input: pGrid: grid; x: global x coordinate; dx1_1: 1/dx1 (to improve performance)
-   Output: i: i-index containing x; a: grid index coordinate of x;
-   Return: 0: x is on the left of the ith cell;
-           1: x is on the right of the ith cell;
-*/
+/*----------------------------------------------------------------------------*/
+/* Input: pGrid: grid; x: global x coordinate;
+ *        dx1_1: 1/dx1 (to improve performance)
+ * Output: i: i-index containing x; a: grid index coordinate of x;
+ * Return: 0: x is on the left of the ith cell;
+ *         1: x is on the right of the ith cell;
+ */
 
 int celli(const Grid* pGrid, const Real x, const Real dx1_1, int *i, Real *a)
 {
