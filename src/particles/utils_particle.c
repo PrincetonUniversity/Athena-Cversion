@@ -303,12 +303,12 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
       for (i=i1; i<=i2; i++) {
         i0=i-i1;
 
-        D += weight[k0][j0][i0] * grid_d[k1][j1][i1];
-        v1 += weight[k0][j0][i0] * grid_v[k1][j1][i1].x1;
-        v2 += weight[k0][j0][i0] * grid_v[k1][j1][i1].x2;
-        v3 += weight[k0][j0][i0] * grid_v[k1][j1][i1].x3;
+        D += weight[k0][j0][i0] * grid_d[k][j][i];
+        v1 += weight[k0][j0][i0] * grid_v[k][j][i].x1;
+        v2 += weight[k0][j0][i0] * grid_v[k][j][i].x2;
+        v3 += weight[k0][j0][i0] * grid_v[k][j][i].x3;
 #ifndef ISOTHERMAL
-        C += weight[k0][j0][i0] * grid_cs[k1][j1][i1];
+        C += weight[k0][j0][i0] * grid_cs[k][j][i];
 #endif
         totwei += weight[k0][j0][i0];
       }
