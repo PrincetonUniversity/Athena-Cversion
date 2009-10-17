@@ -125,6 +125,7 @@ int main(int argc, char* argv[])
       fseek(fidin, 12*sizeof(float), SEEK_SET);
       fread(&ntype,sizeof(int),1,fidin);
       fseek(fidin, ntype*sizeof(float), SEEK_CUR);
+      fread(buffer,sizeof(float),2,fidin);
       fread(&n,sizeof(long),1,fidin);
 
       ntot += n;
@@ -155,7 +156,7 @@ int main(int argc, char* argv[])
       /* read header */
       fread(buffer,sizeof(float),12,fidin);
       fread(&ntype,sizeof(int),1,fidin);
-      fread(&typeinfo,sizeof(float),ntype,fidin);
+      fread(typeinfo,sizeof(float),ntype,fidin);
       fread(time,sizeof(float),2,fidin);
       fread(&n,sizeof(long),1,fidin);
 
@@ -166,9 +167,9 @@ int main(int argc, char* argv[])
           buffer[j] = buffer[j+6];
 
         fwrite(buffer,sizeof(float),12,fidout);
-        fwrite(&ntype,sizeof(int),1,fidin);
-        fwrite(&typeinfo,sizeof(float),ntype,fidin);
-        fwrite(time,sizeof(float),2,fidin);
+        fwrite(&ntype,sizeof(int),1,fidout);
+        fwrite(typeinfo,sizeof(float),ntype,fidout);
+        fwrite(time,sizeof(float),2,fidout);
         fwrite(&ntot,sizeof(long),1,fidout);
       }
 
@@ -191,7 +192,8 @@ int main(int argc, char* argv[])
 
     fclose(fidout);
 
-    free(typeinfo);
+    if (typeinfo != NULL)
+      free(typeinfo);
   }
 
   return 0;

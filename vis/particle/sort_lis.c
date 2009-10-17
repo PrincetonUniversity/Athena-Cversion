@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     if (i == f1)
       typeinfo = (float*)calloc_1d_array(ntype,sizeof(float));
 
-    fread(&typeinfo,sizeof(float),ntype,fid);
+    fread(typeinfo,sizeof(float),ntype,fid);
     fread(&time,sizeof(float),2,fid);
     fread(&n,sizeof(long),1,fid);
 
