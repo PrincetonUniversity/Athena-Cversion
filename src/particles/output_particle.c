@@ -208,7 +208,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   for (i=0; i<pG->partypes; i++)
   {
     fdata[0] = (float)(pG->grproperty[i].rad);
-    fwrite(&(fdata),sizeof(float),1,p_binfile);
+    fwrite(fdata,sizeof(float),1,p_binfile);
   }
 
   /* Write time, dt */
