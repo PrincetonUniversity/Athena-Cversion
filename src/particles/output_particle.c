@@ -90,10 +90,10 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
   for (k=klp; k<=kup; k++)
     for (j=jlp; j<=jup; j++)
       for (i=ilp; i<=iup; i++) {
-        grid_d[k][j][i] = 0.0;
-        grid_v[k][j][i].x1 = 0.0;
-        grid_v[k][j][i].x2 = 0.0;
-        grid_v[k][j][i].x3 = 0.0;
+        pG->Coup[k][j][i].grid_d = 0.0;
+        pG->Coup[k][j][i].grid_v1 = 0.0;
+        pG->Coup[k][j][i].grid_v2 = 0.0;
+        pG->Coup[k][j][i].grid_v3 = 0.0;
       }
 
   /* bin the particles */
@@ -104,7 +104,7 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 
       getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
 
-      /* distribute feedback force */
+      /* distribute particles */
       k1 = MAX(ks, klp);    k2 = MIN(ks+n0, kup);
       j1 = MAX(js, jlp);    j2 = MIN(js+n0, jup);
       i1 = MAX(is, ilp);    i2 = MIN(is+n0, iup);
@@ -121,10 +121,10 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 #else
             drho = 1.0;
 #endif
-            grid_d[k][j][i] += weight[k0][j0][i0]*drho;
-            grid_v[k][j][i].x1 += weight[k0][j0][i0]*drho*gr->v1;
-            grid_v[k][j][i].x2 += weight[k0][j0][i0]*drho*gr->v2;
-            grid_v[k][j][i].x3 += weight[k0][j0][i0]*drho*gr->v3;
+            pG->Coup[k][j][i].grid_d  += weight[k0][j0][i0]*drho;
+            pG->Coup[k][j][i].grid_v1 += weight[k0][j0][i0]*drho*gr->v1;
+            pG->Coup[k][j][i].grid_v2 += weight[k0][j0][i0]*drho*gr->v2;
+            pG->Coup[k][j][i].grid_v3 += weight[k0][j0][i0]*drho*gr->v3;
 
           }
         }
@@ -144,11 +144,14 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   FILE *p_binfile;
   char *fname;
   long p, nout, my_id;
-  int is,js,ks,h,init_id = 0;
+  int i,is,js,ks,h,init_id = 0;
   short pos;
   Vector cell1;
   Real weight[3][3][3];         /* weight function */
   Real dpar,u1,u2,u3,cs;
+#ifdef FEEDBACK
+  Real stiffness;
+#endif
   Grain *gr;
   float fdata[12];  /* coordinate of grid and domain boundary */
 
@@ -183,7 +186,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 
 /* write the basic information */
 
-  /* write the grid and domain boundary */
+  /* Write the grid and domain boundary */
   fdata[0]  = (float)(pG->x1_0 + (pG->is + pG->idisp)*pG->dx1);
   fdata[1]  = (float)(pG->x1_0 + (pG->ie+1 + pG->idisp)*pG->dx1);
   fdata[2]  = (float)(pG->x2_0 + (pG->js + pG->jdisp)*pG->dx2);
@@ -198,6 +201,15 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   fdata[11] = (float)(par_getd("grid","x3max"));
 
   fwrite(fdata,sizeof(float),12,p_binfile);
+
+  /* Write particle property information */
+  fwrite(&(pG->partypes),sizeof(int),1,p_binfile);
+
+  for (i=0; i<pG->partypes; i++)
+  {
+    fdata[0] = (float)(pG->grproperty[i].rad);
+    fwrite(&(fdata),sizeof(float),1,p_binfile);
+  }
 
   /* Write time, dt */
   fdata[0] = (float)pG->time;
@@ -217,7 +229,11 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 
       /* get the local particle density */
       getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
+#ifdef FEEDBACK
+      h = getvalues(pG, weight, is, js, ks, &dpar,&u1,&u2,&u3,&cs,&stiffness);
+#else
       h = getvalues(pG, weight, is, js, ks, &dpar, &u1, &u2, &u3, &cs);
+#endif
 
       /* collect data */
       fdata[0] = (float)(gr->x1);
@@ -226,16 +242,16 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
       fdata[3] = (float)(gr->v1);
       fdata[4] = (float)(gr->v2);
       fdata[5] = (float)(gr->v3);
-      fdata[6] = (float)(pG->grproperty[gr->property].rad);
-      fdata[7] = (float)(dpar);
+//      fdata[6] = (float)(pG->grproperty[gr->property].rad);
+      fdata[6] = (float)(dpar);
       my_id = gr->my_id;
 #ifdef MPI_PARALLEL
       init_id = gr->init_id;
 #endif
       pos = gr->pos;
 
-      fwrite(fdata,sizeof(float),8,p_binfile);
-//      fwrite(&(pos),sizeof(short),1,p_binfile);
+      fwrite(fdata,sizeof(float),7,p_binfile);
+      fwrite(&(gr->property),sizeof(int),1,p_binfile);
       fwrite(&(my_id),sizeof(long),1,p_binfile);
       fwrite(&(init_id),sizeof(int),1,p_binfile);
 
@@ -262,36 +278,36 @@ int property_all(Grain *gr)
 /* expr_*: where * are variables d,M1,M2,M3,V1,V2,V3 for particles */
 
 Real expr_dpar(const Grid *pG, const int i, const int j, const int k) {
-  return grid_d[k][j][i];
+  return pG->Coup[k][j][i].grid_d;
 }
 
 Real expr_M1par(const Grid *pG, const int i, const int j, const int k) {
-  return grid_v[k][j][i].x1;
+  return pG->Coup[k][j][i].grid_v1;
 }
 
 Real expr_M2par(const Grid *pG, const int i, const int j, const int k) {
-  return grid_v[k][j][i].x2;
+  return pG->Coup[k][j][i].grid_v2;
 }
 
 Real expr_M3par(const Grid *pG, const int i, const int j, const int k) {
-  return grid_v[k][j][i].x3;
+  return pG->Coup[k][j][i].grid_v3;
 }
 
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k) {
-  if (grid_d[k][j][i]>0.0)
-    return grid_v[k][j][i].x1/grid_d[k][j][i];
+  if (pG->Coup[k][j][i].grid_d>0.0)
+    return pG->Coup[k][j][i].grid_v1/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
 
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k) {
-  if (grid_d[k][j][i]>0.0)
-    return grid_v[k][j][i].x2/grid_d[k][j][i];
+  if (pG->Coup[k][j][i].grid_d>0.0)
+    return pG->Coup[k][j][i].grid_v2/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
 
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k) {
-  if (grid_d[k][j][i]>0.0)
-    return grid_v[k][j][i].x3/grid_d[k][j][i];
+  if (pG->Coup[k][j][i].grid_d>0.0)
+    return pG->Coup[k][j][i].grid_v3/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
 

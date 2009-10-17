@@ -18,13 +18,6 @@
 /*----------------------------------------------------------------------------*/
 #ifdef PARTICLES
 
-/*----------- 3D Arrays to store gas quantities at (n+1/2) step --------------*/
-Real   ***grid_d;		/* gas density */
-Vector ***grid_v;		/* gas velocities */
-#ifndef ISOTHERMAL
-Real   ***grid_cs;		/* gas sound speed */
-#endif
-
 /*--------------------------- grid limit quantities -----------------------==-*/
 /* left and right limit of grid indices */
 int ilp,iup, jlp,jup, klp,kup;

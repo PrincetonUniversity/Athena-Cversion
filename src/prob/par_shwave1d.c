@@ -277,9 +277,9 @@ static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 static Real dratio(const Grid *pG, const int i, const int j, const int k)
 {
 #if (NSCALARS > 0)
-  return grid_d[k][j][i]/pG->U[k][j][i].s[0];
+  return pG->Coup[k][j][i].grid_d/pG->U[k][j][i].s[0];
 #else
-  return grid_d[k][j][i]/pG->U[k][j][i].d;
+  return pG->Coup[k][j][i].grid_d/pG->U[k][j][i].d;
 #endif
 }
 #endif
@@ -414,8 +414,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
     fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,
                                 SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
 #ifdef PARTICLES
-    fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]-1.0,SolLagd-1.0,
-                                          grid_d[ks][js][i]-SolLagd);
+    fprintf(fid,"%e	%e	%e	", pG->Coup[ks][js][i].grid_d-1.0,
+                        SolLagd-1.0, pG->Coup[ks][js][i].grid_d-SolLagd);
 #endif
 #ifdef FARGO
 //    fprintf(fid,"%e     %e      %e      ",pGrid->U[ks][js][i].d, pGrid->U[ks][js][i].M1, pGrid->U[ks][js][i].M3);

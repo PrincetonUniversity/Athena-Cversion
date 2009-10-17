@@ -39,9 +39,9 @@ int main(int argc, char* argv[])
   char in_name[100], out_name[100];
   struct stat st;
   /* data variables */
-  int i,p,err,cpuid;
+  int i,p,err,cpuid,ntype,property;
   long j,n,ntot,pid;
-  float buffer[20];
+  float time[2],buffer[20],*typeinfo;
 
   /* Read Arguments */
   for (i=1; i<argc; i++) {
@@ -122,7 +122,9 @@ int main(int argc, char* argv[])
       if (fidin == NULL)
         join_error("Fail to open input file %s!\n",in_name);
 
-      fread(buffer,sizeof(float),14,fidin);
+      fseek(fidin, 12*sizeof(float), SEEK_SET);
+      fread(&ntype,sizeof(int),1,fidin);
+      fseek(fidin, ntype*sizeof(float), SEEK_CUR);
       fread(&n,sizeof(long),1,fidin);
 
       ntot += n;
@@ -139,6 +141,8 @@ int main(int argc, char* argv[])
     if (fidout == NULL)
         join_error("Fail to open output file %s!\n",out_name);
 
+    typeinfo = (float*)calloc(ntype,sizeof(float));
+
     for (p=0; p<nproc; p++)
     {
       if (p == 0)
@@ -149,7 +153,10 @@ int main(int argc, char* argv[])
       fidin = fopen(in_name,"rb");
 
       /* read header */
-      fread(buffer,sizeof(float),14,fidin);
+      fread(buffer,sizeof(float),12,fidin);
+      fread(&ntype,sizeof(int),1,fidin);
+      fread(&typeinfo,sizeof(float),ntype,fidin);
+      fread(time,sizeof(float),2,fidin);
       fread(&n,sizeof(long),1,fidin);
 
       /* write header */
@@ -158,17 +165,23 @@ int main(int argc, char* argv[])
         for (j=0; j<6; j++)
           buffer[j] = buffer[j+6];
 
-        fwrite(buffer,sizeof(float),14,fidout);
+        fwrite(buffer,sizeof(float),12,fidout);
+        fwrite(&ntype,sizeof(int),1,fidin);
+        fwrite(&typeinfo,sizeof(float),ntype,fidin);
+        fwrite(time,sizeof(float),2,fidin);
         fwrite(&ntot,sizeof(long),1,fidout);
       }
 
       /* read and write data */
       for (j=0; j<n; j++)
       {
-        fread(buffer,sizeof(float),8,fidin);
+        fread(buffer,sizeof(float),7,fidin);
+        fread(&property,sizeof(int),1,fidin);
         fread(&pid,sizeof(long),1,fidin);
         fread(&cpuid,sizeof(int),1,fidin);
-        fwrite(buffer,sizeof(float),8,fidout);
+
+        fwrite(buffer,sizeof(float),7,fidout);
+        fwrite(&property,sizeof(int),1,fidout);
         fwrite(&pid,sizeof(long),1,fidout);
         fwrite(&cpuid,sizeof(int),1,fidout);
       }
@@ -177,6 +190,8 @@ int main(int argc, char* argv[])
     }
 
     fclose(fidout);
+
+    free(typeinfo);
   }
 
   return 0;

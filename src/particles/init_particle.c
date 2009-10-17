@@ -141,25 +141,9 @@ void init_particle(Grid *pG, Domain *pD)
   else
     ath_error("[init_particle]: tsmode must be 1, 2 or 3!\n");
 
-/* allocate the memory for gas and feedback arrays */
-  grid_d = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
-  if (grid_d == NULL) goto on_error;
-
-  grid_v = (Vector***)calloc_3d_array(N3T, N2T, N1T, sizeof(Vector));
-  if (grid_v == NULL) goto on_error;
-
-#ifndef ISOTHERMAL
-  grid_cs = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
-  if (grid_cs == NULL) goto on_error;
-#endif
-
-#ifdef FEEDBACK
-  pG->feedback = (Vector***)calloc_3d_array(N3T, N2T, N1T, sizeof(Vector));
-  if (pG->feedback == NULL) goto on_error;
-
-  pG->Eloss = (Real***)calloc_3d_array(N3T, N2T, N1T, sizeof(Real));
-  if (pG->Eloss == NULL) goto on_error;
-#endif
+/* allocate the memory for gas-particle coupling array */
+  pG->Coup = (GPCouple***)calloc_3d_array(N3T, N2T, N1T, sizeof(GPCouple));
+  if (pG->Coup == NULL) goto on_error;
 
   return;
 
@@ -178,17 +162,7 @@ void particle_destruct(Grid *pG)
   free_1d_array(grrhoa);
 
   /* free memory for gas and feedback arrays */
-  if (grid_d != NULL) free_3d_array(grid_d);
-  if (grid_v != NULL) free_3d_array(grid_v);
-
-#ifndef ISOTHERMAL
-  if (grid_cs != NULL) free_3d_array(grid_cs);
-#endif
-
-#ifdef FEEDBACK
-  if (pG->feedback != NULL) free_3d_array(pG->feedback);
-  if (pG->Eloss != NULL) free_3d_array(pG->Eloss);
-#endif
+  if (pG->Coup != NULL) free_3d_array(pG->Coup);
 
   return;
 }

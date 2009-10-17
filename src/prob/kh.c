@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: rt.c
+ * FILE: kh.c
  *
  * PURPOSE: Problem generator for KH instability.  Sets up two versions:
  *  iprob=1: slip surface with random perturbations

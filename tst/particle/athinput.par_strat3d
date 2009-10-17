@@ -87,6 +87,7 @@ nshuf           = 2000      # number of time steps to shuffle the particles
 
 omega           = 1.0       # angular velocity of rotation
 iso_csound      = 1.0       # sound speed
+vertical_bc     = 0         # vertical BC (0: periodic; 1: closed)
 
 tsmin           = 0.1       # stopping time for smallest particles
 tsmax           = 0.4       # stopping time for largest particles

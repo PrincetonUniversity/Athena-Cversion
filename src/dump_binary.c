@@ -179,28 +179,28 @@ void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = grid_d[k+kl][j+jl][i+il];
+        datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_d;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = grid_v[k+kl][j+jl][i+il].x1;
+        datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_v1;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = grid_v[k+kl][j+jl][i+il].x2;
+        datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_v2;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        datax[i] = grid_v[k+kl][j+jl][i+il].x3;
+        datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_v3;
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
     }}

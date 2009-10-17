@@ -240,10 +240,10 @@ void dump_tab_cons(Grid *pG, Domain *pD, Output *pOut)
 
 #ifdef PARTICLES
         if (pOut->out_pargrid) {
-          fprintf(pfile,fmt,grid_d[k][j][i]);
-          fprintf(pfile,fmt,grid_v[k][j][i].x1);
-          fprintf(pfile,fmt,grid_v[k][j][i].x2);
-          fprintf(pfile,fmt,grid_v[k][j][i].x3);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_d);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_v1);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_v2);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_v3);
         }
 #endif
 
@@ -490,14 +490,14 @@ void dump_tab_prim(Grid *pG, Domain *pD, Output *pOut)
 
 #ifdef PARTICLES
         if (pOut->out_pargrid) {
-          fprintf(pfile,fmt,grid_d[k][j][i]);
-          if (grid_d[k][j][i]>0.0)
-            d1 = 1.0/grid_d[k][j][i];
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_d);
+          if (pG->Coup[k][j][i].grid_d>0.0)
+            d1 = 1.0/pG->Coup[k][j][i].grid_d;
           else
             d1 = 0.0;
-          fprintf(pfile,fmt,grid_v[k][j][i].x1*d1);
-          fprintf(pfile,fmt,grid_v[k][j][i].x2*d1);
-          fprintf(pfile,fmt,grid_v[k][j][i].x3*d1);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_v1*d1);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_v2*d1);
+          fprintf(pfile,fmt,pG->Coup[k][j][i].grid_v3*d1);
         }
 #endif
 

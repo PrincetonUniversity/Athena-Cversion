@@ -185,7 +185,7 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
-          data[i-il] = grid_d[k][j][i];
+          data[i-il] = pGrid->Coup[k][j][i].grid_d;
         }
         if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
         fwrite(data,sizeof(float),(size_t)ndata0,pfile);
@@ -195,9 +195,9 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
-	  data[3*(i-il)] = grid_v[k][j][i].x1;
-	  data[3*(i-il)+1] = grid_v[k][j][i].x2;
-	  data[3*(i-il)+2] = grid_v[k][j][i].x3;
+	  data[3*(i-il)] = pGrid->Coup[k][j][i].grid_v1;
+	  data[3*(i-il)+1] = pGrid->Coup[k][j][i].grid_v2;
+	  data[3*(i-il)+2] = pGrid->Coup[k][j][i].grid_v3;
         }
         if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
         fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);

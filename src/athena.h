@@ -129,7 +129,7 @@ typedef struct Prim1D_s{
 #endif
 }Prim1D;
 
-/*--------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 /* Grain structure: Basic quantities for one particle.
  * Note: One particle here represents a collection of billions of real particles
  */
@@ -141,7 +141,7 @@ typedef struct Grain_s{
   Real x1,x2,x3;	/* coordinate in X,Y,Z */
   Real v1,v2,v3;	/* velocity in X,Y,Z */
   int property;		/* index of grain properties */
-  short pos;		/* position: 0: ghost; 1: grid; 10,11,12,13: cross out/in; */
+  short pos;		/* position: 0: ghost; 1: grid; >=10: cross out/in; */
   long my_id;		/* particle id */
 #ifdef MPI_PARALLEL
   int init_id;		/* particle's initial host processor id */
@@ -161,6 +161,24 @@ typedef struct Grain_Property_s{
   long num;		/* number of particles with this property */
   short integrator;	/* integrator type: exp (1), semi (2) or full (3) */
 }Grain_Property;
+
+/* Grid elements for gas-particle coupling */
+typedef struct GPCouple_s{
+  Real grid_d;		/* gas density (at 1/2 step) */
+  Real grid_v1;		/* gas velocities (at 1/2 step) */
+  Real grid_v2;
+  Real grid_v3;
+#ifndef BAROTROPIC
+  Real grid_cs;		/* gas sound speed */
+#endif
+#ifdef FEEDBACK
+  Real fb1;             /* momentum feedback to the grid */
+  Real fb2;
+  Real fb3;
+  Real FBstiff;         /* stiffness of the feedback term */
+  Real Eloss;           /* energy dissipation */
+#endif
+}GPCouple;
 
 #endif /* PARTICLES */
 
@@ -200,15 +218,12 @@ typedef struct Grid_s{
   char *outfilename;        /* basename for output files */
 
 #ifdef PARTICLES
-  int partypes;              /* number of particle types types (size, density, mass) */
+  int partypes;              /* number of particle types */
   Grain_Property *grproperty;/* array of particle properties of all types */
   long nparticle;            /* number of particles */
   long arrsize;              /* size of the particle array */
   Grain *particle;           /* array of all particles */
-#ifdef FEEDBACK
-  Vector ***feedback;        /* array of feedback force to the grid */
-  Real ***Eloss;             /* array of energy dissipation */
-#endif /* FEEDBACK */
+  GPCouple ***Coup;          /* array of gas-particle coupling */
 #endif /* PARTICLES */
 
   int my_id;                /* process ID (or rank in MPI) updating this Grid */

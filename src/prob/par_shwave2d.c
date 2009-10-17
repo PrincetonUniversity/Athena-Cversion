@@ -246,7 +246,7 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 #ifdef PARTICLES
 static Real diffdpar(const Grid *pG, const int i, const int j, const int k)
 {
-  return grid_d[k][j][i]-1.0;
+  return pG->Coup[k][j][i].grid_d-1.0;
 }
 
 static Real expr_dV2par(const Grid *pG, const int i, const int j, const int k)
@@ -344,12 +344,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
     fprintf(fid,"%f	",x2);
     fprintf(fid,"%e	",pGrid->U[ks][j][is].d-1.0);
 #ifdef PARTICLES
-    fprintf(fid,"%e	%e	",grid_d[ks][j][is]-1.0,
-                        grid_d[ks][j][is]-pGrid->U[ks][j][is].d);
+    fprintf(fid,"%e	%e	",pG->Coup[ks][j][is].grid_d-1.0,
+                        pG->Coup[ks][j][is].grid_d-pGrid->U[ks][j][is].d);
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
       fprintf(fid,"%e	%e	",pGrid->U[ks][j][is].s[n]-1.0,
-                        grid_d[ks][j][is]-pGrid->U[ks][j][is].s[n]);
+                        pG->Coup[ks][j][is].grid_d-pGrid->U[ks][j][is].s[n]);
 #endif
 #endif
     fprintf(fid,"\n");

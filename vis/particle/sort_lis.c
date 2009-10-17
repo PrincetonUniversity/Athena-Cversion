@@ -39,9 +39,9 @@ int main(int argc, char* argv[])
   FILE *fid;
   char fname[100];
   /* data variables */
-  int i,*cpuid;
+  int i,*cpuid,*property,ntype;
   long p,n,*pid,*order;
-  float header[20],**data;
+  float header[20],**data,time[2],*typeinfo=NULL;
 
   /* Read Arguments */
   for (i=1; i<argc; i++) {
@@ -95,10 +95,18 @@ int main(int argc, char* argv[])
         sort_error("Fail to open output file %s!\n",fname);
 
     /* read header */
-    fread(header,sizeof(float),14,fid);
+    fread(header,sizeof(float),12,fid);
+    fread(&ntype,sizeof(int),1,fid);
+
+    if (i == f1)
+      typeinfo = (float*)calloc_1d_array(ntype,sizeof(float));
+
+    fread(&typeinfo,sizeof(float),ntype,fid);
+    fread(&time,sizeof(float),2,fid);
     fread(&n,sizeof(long),1,fid);
 
-    data  = (float**)calloc_2d_array(n,8,sizeof(float));
+    data  = (float**)calloc_2d_array(n,7,sizeof(float));
+    property = (int*)calloc_1d_array(n,sizeof(int));
     pid   = (long*)calloc_1d_array(n,sizeof(long));
     cpuid = (int*)calloc_1d_array(n,sizeof(int));
     order = (long*)calloc_1d_array(n,sizeof(long));
@@ -106,7 +114,8 @@ int main(int argc, char* argv[])
     /* read data */
     for (p=0; p<n; p++)
     {
-      fread(data[p],sizeof(float),8,fid);
+      fread(data[p],sizeof(float),7,fid);
+      fread(&(property[p]),sizeof(int),1,fid);
       fread(&(pid[p]),sizeof(long),1,fid);
       fread(&(cpuid[p]),sizeof(int),1,fid);
     }
@@ -123,22 +132,29 @@ int main(int argc, char* argv[])
     fid = fopen(fname,"wb");
 
     /* write header */
-    fwrite(header,sizeof(float),14,fid);
+    fwrite(header,sizeof(float),12,fid);
+    fwrite(&ntype,sizeof(int),1,fid);
+    fwrite(typeinfo,sizeof(float),ntype,fid);
+    fwrite(time,sizeof(float),2,fid);
     fwrite(&n,sizeof(long),1,fid);
 
     /* write data */
     for (p=0; p<n; p++)
     {
-      fwrite(data[order[p]],sizeof(float),8,fid);
+      fwrite(data[order[p]],sizeof(float),7,fid);
+      fwrite(&property[p],sizeof(int),1,fid);
       fwrite(&pid[order[p]],sizeof(long),1,fid);
       fwrite(&cpuid[order[p]],sizeof(int),1,fid);
     }
 
-    free_2d_array(data);
+    free_2d_array(data);          free(property);
     free(pid);    free(cpuid);    free(order);
 
     fclose(fid);
   }
+
+  if (typeinfo != NULL)
+    free(typeinfo);
 
   return 0;
 }
@@ -169,7 +185,7 @@ static void quicksort(int *cpuid, long *pid, long *order, long ns, long ne)
   {
     a = order[i];   b = order[pivot];
 
-    if ((cpuid[a] <= cpuid[b]) && (pid[a] < pid[b]))
+    if ((cpuid[a] < cpuid[b]) || ((cpuid[a] == cpuid[b]) && (pid[a] < pid[b])))
     {/* the ith particle is smaller, move it before the pivot */
       order[pivot] = a;
       pivot++;

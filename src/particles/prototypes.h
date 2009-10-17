@@ -80,8 +80,13 @@ void getwei_TSC   (Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
 void getwei_QP    (Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
                              Real weight[3][3][3], int *is, int *js, int *ks);
 
-int  getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
-                         Real *rho, Real *u1, Real *u2, Real *u3, Real *cs);
+int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+#ifndef FEEDBACK
+                        Real *rho, Real *u1, Real *u2, Real *u3, Real *cs
+#else
+             Real *rho, Real *u1,  Real *u2, Real *u3, Real *cs, Real *stiff
+#endif
+);
 
 Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd);
 Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd);
@@ -89,7 +94,14 @@ Real get_ts_fixed  (Grid *pG, int type, Real rho, Real cs, Real vd);
 
 #ifdef FEEDBACK
 void feedback_clear(Grid *pG);
-void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+void distrFB_pred(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+#ifndef BAROTROPIC
+                            Vector fb, Real stiffness, Real Elosspar
+#else
+                            Vector fb, Real stiffness
+#endif
+);
+void distrFB_corr(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
                                              Vector fb, Real Elosspar);
 #endif
 

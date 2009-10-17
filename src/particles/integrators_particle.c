@@ -438,23 +438,37 @@ void int_par_exp(Grid *pG, Grain *curG, Vector cell1,
 */
 void feedback_predictor(Grid* pG)
 {
-  int is,js,ks;
-  long p;			/* particle index */
-  Real weight[3][3][3];		/* weight function */
-  Real rho, cs, tstop;		/* density, sound speed, stopping time */
+  int is,js,ks,i,j,k;
+  long p;                   /* particle index */
+  Real weight[3][3][3];     /* weight function */
+  Real rho, cs, tstop;      /* density, sound speed, stopping time */
   Real u1, u2, u3;
-  Real vd1, vd2, vd3, vd;	/* velocity difference between particle and fluid */
-  Real f1, f2, f3;		/* feedback force */
-  Real m, ts1h;			/* grain mass, 0.5*dt/tstop */
-  Vector cell1;			/* one over dx1, dx2, dx3 */
-  Vector fb;			/* drag force, fluid velocity */
-  Real Elosspar;			/* particle energy dissipation */
-  Grain *cur;			/* pointer of the current working position */
+  Real vd1, vd2, vd3, vd;   /* velocity difference between particle and gas */
+  Real f1, f2, f3;          /* feedback force */
+  Real m, ts1h;             /* grain mass, 0.5*dt/tstop */
+  Vector cell1;             /* one over dx1, dx2, dx3 */
+  Vector fb;                /* drag force, fluid velocity */
+#ifndef BAROTROPIC
+  Real Elosspar;            /* energy dissipation rate due to drag */
+#endif
+  Real stiffness;           /* stiffness parameter of feedback */
+  Grain *cur;               /* pointer of the current working position */
 
   /* initialization */
   get_gasinfo(pG);		/* calculate gas information */
 
-  feedback_clear(pG);		/* clean the feedback array */
+  for (k=klp; k<=kup; k++)
+    for (j=jlp; j<=jup; j++)
+      for (i=ilp; i<=iup; i++) {
+        /* clean the feedback array */
+        pG->Coup[k][j][i].fb1 = 0.0;
+        pG->Coup[k][j][i].fb2 = 0.0;
+        pG->Coup[k][j][i].fb3 = 0.0;
+#ifndef BAROTROPIC
+        pG->Coup[k][j][i].Eloss = 0.0;
+#endif
+        pG->Coup[k][j][i].FBstiff = 0.0;
+      }
 
   /* convenient expressions */
   if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;
@@ -473,7 +487,8 @@ void feedback_predictor(Grid* pG)
 
     /* interpolation to get fluid density and velocity */
     getweight(pG, cur->x1, cur->x2, cur->x3, cell1, weight, &is, &js, &ks);
-    if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
+    if (getvalues(pG, weight, is, js, ks,
+                              &rho, &u1, &u2, &u3, &cs, &stiffness) == 0)
     { /* particle is in the grid */
 
       /* apply gas velocity shift due to pressure gradient */
@@ -494,13 +509,35 @@ void feedback_predictor(Grid* pG)
       fb.x2 = m * vd2 * ts1h;
       fb.x3 = m * vd3 * ts1h;
 
-      Elosspar = fb.x1*vd1 + fb.x2*vd2 + fb.x3*vd3;
+      /* calculate feedback stiffness */
+       stiffness = 2.0*m*ts1h;
 
+#ifndef BAROTROPIC
+      Elosspar = fb.x1*vd1 + fb.x2*vd2 + fb.x3*vd3;
       /* distribute the drag force (density) to the grid */
-      distrFB(pG, weight, is, js, ks, fb, Elosspar);
+      distrFB_pred(pG, weight, is, js, ks, fb, stiffness, Elosspar);
+#else
+      /* distribute the drag force (density) to the grid */
+      distrFB_pred(pG, weight, is, js, ks, fb, stiffness);
+#endif
     }
   }/* end of the for loop */
 
+/* normalize stiffness and correct for feedback */
+  for (k=klp; k<=kup; k++)
+    for (j=jlp; j<=jup; j++)
+      for (i=ilp; i<=iup; i++)
+      {
+        pG->Coup[k][j][i].FBstiff /= pG->U[k][j][i].d;
+
+//        stiffness = 1.0/MAX(1.0, pG->Coup[k][j][i].FBstiff);
+
+//        pG->Coup[k][j][i].fb1 *= stiffness;
+//        pG->Coup[k][j][i].fb2 *= stiffness;
+//        pG->Coup[k][j][i].fb3 *= stiffness;
+      }
+
+  return;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -545,7 +582,7 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
 
   /* distribute the drag force (density) to the grid */
   getweight(pG, x1, x2, x3, cell1, weight, &is, &js, &ks);
-  distrFB(pG, weight, is, js, ks, fb, Elosspar);
+  distrFB_corr(pG, weight, is, js, ks, fb, Elosspar);
 
   return;
 
@@ -617,13 +654,20 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3,
   int is, js, ks;
   Real rho, u1, u2, u3, cs;
   Real vd1, vd2, vd3, vd, tstop, ts1;
+#ifdef FEEDBACK
+  Real stiffness;
+#endif
   Real weight[3][3][3];		/* weight function */
   Vector fd;
 
   /* interpolation to get fluid density, velocity and the sound speed */
   getweight(pG, x1, x2, x3, cell1, weight, &is, &js, &ks);
 
+#ifndef FEEDBACK
   if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
+#else
+  if (getvalues(pG, weight, is, js, ks, &rho,&u1,&u2,&u3,&cs, &stiffness) == 0)
+#endif
   { /* particle in the grid */
 
     /* apply possible gas velocity shift (e.g., for fake gas velocity field) */
@@ -637,6 +681,9 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3,
 
     /* particle stopping time */
     tstop = get_ts(pG, type, rho, cs, vd);
+#ifdef FEEDBACK
+//    tstop *= MAX(1.0,stiffness);
+#endif
     ts1 = 1.0/tstop;
   }
   else

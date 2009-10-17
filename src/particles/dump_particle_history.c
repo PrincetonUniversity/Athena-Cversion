@@ -11,13 +11,14 @@
  *     scal[0] = time
  *     scal[1] = maximum particle density
  *     scal[2] = energy dissipation rate from the drag
- *     scal[3] = particle mass
- *     scal[4] = particle x1 momentum
- *     scal[5] = particle x2 momentum
- *     scal[6] = particle x3 momentum
- *     scal[7] = particle x1 kinetic energy
- *     scal[8] = particle x2 kinetic energy
- *     scal[9] = particle x3 kinetic energy
+ *     scal[3] = maximum stiffness parameter
+ *     scal[4] = particle mass
+ *     scal[5] = particle x1 momentum
+ *     scal[6] = particle x2 momentum
+ *     scal[7] = particle x3 momentum
+ *     scal[8] = particle x1 kinetic energy
+ *     scal[9] = particle x2 kinetic energy
+ *     scal[10] = particle x3 kinetic energy
  *
  *   The second set is particle type dependent quantities, which contains
  *     array[0] = particle x1 average position
@@ -55,7 +56,7 @@
 #ifdef PARTICLES /* endif at the end of the file */
 
 /* Maximum Number of default history dump columns. */
-#define NSCAL 10
+#define NSCAL 11
 #define NARAY 12
 
 /* Maximum number of history dump columns that the user routine can add. */
@@ -106,7 +107,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, pGrid->partypes,
                                                              sizeof(Real));
 
-  tot_scal_cnt = 10 + usr_scal_cnt;
+  tot_scal_cnt = 11 + usr_scal_cnt;
   tot_aray_cnt = 12 + usr_aray_cnt;
 
   particle_to_grid(pGrid, pD, property_all);
@@ -127,14 +128,18 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   scal[0] = pGrid->time;
 
   /* Maximum density and energy dissipation rate */
-  scal[1]=0.0;
-  scal[2]=0.0;
+  scal[1] = 0.0;
+  scal[2] = 0.0;
+  scal[3] = 0.0;
   for (k=pGrid->ks; k<=pGrid->ke; k++)
   for (j=pGrid->js; j<=pGrid->je; j++)
   for (i=pGrid->is; i<=pGrid->ie; i++)
   {
     scal[1] = MAX(scal[1],expr_dpar(pGrid,i,j,k));
-    scal[2]+= pGrid->Eloss[k][j][i];
+#ifdef FEEDBACK
+    scal[2] = MAX(scal[2],pGrid->Coup[k][j][i].FBstiff);
+#endif
+    scal[3]+= pGrid->Coup[k][j][i].Eloss;
   }
 
   /* particle mass, momentum and kinetic energy */
@@ -147,7 +152,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 #else
       rho = 1.0;                              /* contribution to total number */
 #endif
-      mhst = 3;
+      mhst = 4;
       scal[mhst] += rho;
       mhst++;
       scal[mhst] += rho*gr->v1;
@@ -174,9 +179,9 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   for (i=1; i<tot_scal_cnt; i++)
     my_scal[i] = scal[i];
 
-  err = MPI_Reduce(&(my_scal[1]),&(scal[1]),1,
+  err = MPI_Reduce(&(my_scal[1]),&(scal[1]),2,
                                  MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
-  err = MPI_Reduce(&(my_scal[2]),&(scal[2]),8+usr_scal_cnt,
+  err = MPI_Reduce(&(my_scal[3]),&(scal[3]),8+usr_scal_cnt,
                                  MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
 #endif
 
@@ -188,7 +193,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 
     dvol = 1.0/(double)vol_rat;
 
-    for (i=2; i<tot_scal_cnt; i++)
+    for (i=3; i<tot_scal_cnt; i++)
       scal[i] *= dvol;
   }
 
@@ -328,6 +333,8 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
       fprintf(fid,"#  [%i]=time    ",mhst);
       mhst++;
       fprintf(fid,"  [%i]=d_max   ",mhst);
+      mhst++;
+      fprintf(fid,"  [%i]=stiffmax",mhst);
       mhst++;
       fprintf(fid,"  [%i]=Edot    ",mhst);
       mhst++;

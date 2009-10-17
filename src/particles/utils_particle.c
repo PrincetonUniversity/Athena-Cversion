@@ -276,12 +276,21 @@ void getwei_QP(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
  * Note: this interpolation works in any 1-3 dimensions.
  */
 int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, 
-                        Real *rho, Real *u1, Real *u2, Real *u3, Real *cs)
-{
+#ifndef FEEDBACK
+                        Real *rho, Real *u1, Real *u2, Real *u3, Real *cs
+#else
+             Real *rho, Real *u1,  Real *u2, Real *u3, Real *cs, Real *stiff
+#endif
+
+){
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
   Real D, v1, v2, v3;		/* density and velocity of the fluid */
+  GPCouple *pq;
 #ifndef ISOTHERMAL
   Real C = 0.0;			/* fluid sound speed */
+#endif
+#ifdef FEEDBACK
+  Real stiffness=0.0;
 #endif
   Real totwei, totwei1;		/* total weight (in case of edge cells) */
 
@@ -303,12 +312,16 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
       for (i=i1; i<=i2; i++) {
         i0=i-i1;
 
-        D += weight[k0][j0][i0] * grid_d[k][j][i];
-        v1 += weight[k0][j0][i0] * grid_v[k][j][i].x1;
-        v2 += weight[k0][j0][i0] * grid_v[k][j][i].x2;
-        v3 += weight[k0][j0][i0] * grid_v[k][j][i].x3;
+        pq = &(pG->Coup[k][j][i]);
+        D += weight[k0][j0][i0] * pq->grid_d;
+        v1 += weight[k0][j0][i0] * pq->grid_v1;
+        v2 += weight[k0][j0][i0] * pq->grid_v2;
+        v3 += weight[k0][j0][i0] * pq->grid_v3;
 #ifndef ISOTHERMAL
-        C += weight[k0][j0][i0] * grid_cs[k][j][i];
+        C += weight[k0][j0][i0] * pq->grid_cs;
+#endif
+#ifdef FEEDBACK
+        stiffness += weight[k0][j0][i0] * pq->FBstiff;
 #endif
         totwei += weight[k0][j0][i0];
       }
@@ -325,6 +338,9 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 #else
   *cs = C*totwei1;
 #endif /* ISOTHERMAL */
+#ifdef FEEDBACK
+  *stiff = stiffness*totwei1;
+#endif
 
   return 0;
 }
@@ -415,7 +431,7 @@ Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
  *
  * get_gasinfo()
  * feedback_clear()
- * distrFB()
+ * distrFB_????()
  */
 /*============================================================================*/
 
@@ -429,6 +445,7 @@ void get_gasinfo(Grid *pG)
 {
   int i,j,k;
   Real rho1;
+  GPCouple *pq;
 #ifndef BAROTROPIC
   Real P;
 #endif
@@ -438,22 +455,25 @@ void get_gasinfo(Grid *pG)
     for (j=jlp; j<=jup; j++)
       for (i=ilp; i<=iup; i++)
       {
+        pq = &(pG->Coup[k][j][i]);
         rho1 = 1.0/(pG->U[k][j][i].d);
-        grid_d[k][j][i]    = pG->U[k][j][i].d;
-        grid_v[k][j][i].x1 = pG->U[k][j][i].M1 * rho1;
-        grid_v[k][j][i].x2 = pG->U[k][j][i].M2 * rho1;
-        grid_v[k][j][i].x3 = pG->U[k][j][i].M3 * rho1;
+
+        pq->grid_d  = pG->U[k][j][i].d;
+        pq->grid_v1 = pG->U[k][j][i].M1 * rho1;
+        pq->grid_v2 = pG->U[k][j][i].M2 * rho1;
+        pq->grid_v3 = pG->U[k][j][i].M3 * rho1;
 
 #ifndef ISOTHERMAL
   #ifndef BAROTROPIC
         /* E = P/(gamma-1) + rho*v^2/2 + B^2/2 */
-        P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(grid_v[k][j][i].x1) \
-             + SQR(grid_v[k][j][i].x2) + SQR(grid_v[k][j][i].x3));
+        P = pG->U[k][j][i].E - 0.5*pG->U[k][j][i].d*(SQR(pq->grid_v1) \
+             + SQR(pq->grid_v2) + SQR(pq->grid_v3));
     #ifdef MHD
-        P = P - 0.5*(SQR(pG->U[k][j][i].B1c)+SQR(pG->U[k][j][i].B2c)+SQR(pG->U[k][j][i].B3c));
+        P = P - 0.5*(SQR(pG->U[k][j][i].B1c)+SQR(pG->U[k][j][i].B2c)
+                                            +SQR(pG->U[k][j][i].B3c));
     #endif /* MHD */
         P = MAX(Gamma_1*P, TINY_NUMBER);
-        grid_cs[k][j][i] = sqrt(Gamma*P*rho1);
+        pq->grid_cs = sqrt(Gamma*P*rho1);
   #else
         ath_error("[get_gasinfo] can not calculate the sound speed!\n");
   #endif /* BAROTROPIC */
@@ -469,22 +489,25 @@ void get_gasinfo(Grid *pG)
 void feedback_clear(Grid *pG)
 {
   int i,j,k;
+  GPCouple *pq;
 
   for (k=klp; k<=kup; k++)
     for (j=jlp; j<=jup; j++)
       for (i=ilp; i<=iup; i++) {
-        pG->feedback[k][j][i].x1 = 0.0;
-        pG->feedback[k][j][i].x2 = 0.0;
-        pG->feedback[k][j][i].x3 = 0.0;
+        pq = &(pG->Coup[k][j][i]);
 
-        pG->Eloss[k][j][i] = 0.0;
+        pq->fb1 = 0.0;
+        pq->fb2 = 0.0;
+        pq->fb3 = 0.0;
+
+        pq->Eloss = 0.0;
       }
 
   return;
 }
 
 /*----------------------------------------------------------------------------*/
-/* Distribute the feedback force to grid cells
+/* Distribute the feedback force to grid cells for the predict step
  * Input: 
  *   pG: grid;   weight: weight function; 
  *   is,js,ks: starting cell indices in the grid.
@@ -492,10 +515,15 @@ void feedback_clear(Grid *pG)
  * Output:
  *   pG: feedback array is updated.
  */
-void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
-                       Vector fb, Real Elosspar)
-{
+void distrFB_pred(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+#ifndef BAROTROPIC
+                       Vector fb, Real stiffness, Real Elosspar
+#else
+                       Vector fb, Real stiffness
+#endif
+){
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
+  GPCouple *pq;
 
   /* distribute feedback force */
   n0 = ncell-1;
@@ -508,11 +536,15 @@ void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
       j0 = j-j1;
       for (i=i1; i<=i2; i++) {
         i0 = i-i1;
-        pG->feedback[k][j][i].x1 += weight[k0][j0][i0] * fb.x1;
-        pG->feedback[k][j][i].x2 += weight[k0][j0][i0] * fb.x2;
-        pG->feedback[k][j][i].x3 += weight[k0][j0][i0] * fb.x3;
+        pq = &(pG->Coup[k][j][i]);
 
-        pG->Eloss[k][j][i] += weight[k0][j0][i0] * Elosspar;
+        pq->fb1 += weight[k0][j0][i0] * fb.x1;
+        pq->fb2 += weight[k0][j0][i0] * fb.x2;
+        pq->fb3 += weight[k0][j0][i0] * fb.x3;
+#ifndef BAROTROPIC
+        pq->Eloss += weight[k0][j0][i0] * Elosspar;
+#endif
+        pq->FBstiff += weight[k0][j0][i0] * stiffness;
       }
     }
   }
@@ -522,6 +554,45 @@ void distrFB(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 
 #endif /* FEEDBACK */
 
+/*----------------------------------------------------------------------------*/
+/* Distribute the feedback force to grid cells for the correct step
+ * Input:
+ *   pG: grid;   weight: weight function;
+ *   is,js,ks: starting cell indices in the grid.
+ *   f1, f2, f3: feedback force from one particle.
+ * Output:
+ *   pG: feedback array is updated.
+ */
+void distrFB_corr(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+                       Vector fb, Real Elosspar)
+{
+  int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
+  GPCouple *pq;
+
+  /* distribute feedback force */
+  n0 = ncell-1;
+  k1 = MAX(ks, klp);    k2 = MIN(ks+n0, kup);
+  j1 = MAX(js, jlp);    j2 = MIN(js+n0, jup);
+  i1 = MAX(is, ilp);    i2 = MIN(is+n0, iup);
+  for (k=k1; k<=k2; k++) {
+    k0 = k-k1;
+    for (j=j1; j<=j2; j++) {
+      j0 = j-j1;
+      for (i=i1; i<=i2; i++) {
+        i0 = i-i1;
+        pq = &(pG->Coup[k][j][i]);
+
+        pq->fb1 += weight[k0][j0][i0] * fb.x1;
+        pq->fb2 += weight[k0][j0][i0] * fb.x2;
+        pq->fb3 += weight[k0][j0][i0] * fb.x3;
+
+        pq->Eloss += weight[k0][j0][i0] * Elosspar;
+      }
+    }
+  }
+
+  return;
+}
 
 /*============================================================================*/
 /*---------------------------------SHUFFLE------------------------------------

@@ -73,7 +73,8 @@ Real Erf(Real z);
 void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
                      Real *uxNSH, Real *uyNSH,  Real *wxNSH, Real *wyNSH);
 static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
-
+static void close_ix2(Grid *pGrid);
+static void close_ox2(Grid *pGrid);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 
 static int property_limit(Grain *gr);
@@ -93,7 +94,7 @@ extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
 
 void problem(Grid *pGrid, Domain *pDomain)
 {
-  int i,j,js,pt,tsmode;
+  int i,j,js,pt,tsmode,vertical_bc;
   long p,q;
   Real ScaleHg,tsmin,tsmax,tscrit,amin,amax,Hparmin,Hparmax;
   Real *ep,*ScaleHpar,epsum,mratio,pwind,rhoaconv,etavk;
@@ -247,7 +248,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   for (i=pGrid->is; i<=pGrid->ie; i++) {
     cc_pos(pGrid,i,j,pGrid->ks,&x1,&x2,&x3);
 
-    rhog = exp(-0.5*SQR(x3/ScaleHg));
+    rhog = exp(-0.5*SQR(x2/ScaleHg));
     pGrid->U[pGrid->ks][j][i].d = rhog;
 
     if (ipert != 1) {/* NSH velocity */
@@ -327,6 +328,16 @@ void problem(Grid *pGrid, Domain *pDomain)
   /* set the number of particles to keep track of */
   ntrack = par_geti_def("problem","ntrack",2000);
 
+  /* set vertical boundary conditions (by default, periodic) */
+  vertical_bc = par_geti_def("problem","vertical_bc",0);
+
+  if (vertical_bc == 1) /* closed BC */
+  {
+    set_bvals_mhd_fun(left_x2,  close_ix2);
+    set_bvals_mhd_fun(right_x2, close_ox2);
+  }
+
+  /* finalize */
   free(ep);  free(ScaleHpar);
   free(epsilon);
   free_2d_array(wxNSH);  free_2d_array(wyNSH);
@@ -397,6 +408,43 @@ static Real hst_rho_Vx_dVy(const Grid *pG,
 #endif
 }
 
+static void close_ix2(Grid *pGrid)
+{
+  int js = pGrid->js;
+  int ks = pGrid->ks, ke = pGrid->ke;
+  int i,j,k,il,iu; /* i-lower/upper */
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+
+  for (k=ks; k<=ke; k++)
+    for (j=1; j<=nghost; j++)
+      for (i=il; i<=iu; i++) {
+        pGrid->U[k][js-j][i] = pGrid->U[k][js][i];
+        pGrid->U[k][js-j][i].M2 = 0.0;
+      }
+
+  return;
+}
+
+static void close_ox2(Grid *pGrid)
+{
+  int je = pGrid->je;
+  int ks = pGrid->ks, ke = pGrid->ke;
+  int i,j,k,il,iu; /* i-lower/upper */
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+
+  for (k=ks; k<=ke; k++)
+    for (j=1; j<=nghost; j++)
+      for (i=il; i<=iu; i++) {
+        pGrid->U[k][je+j][i] = pGrid->U[k][je][i];
+        pGrid->U[k][je+j][i].M2 = 0.0;
+      }
+
+  return;
+}
 
 Gasfun_t get_usr_expr(const char *expr)
 {

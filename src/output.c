@@ -263,6 +263,9 @@ Now use the default one.\n");
 #endif
       else if (strcmp(fmt,"tab")==0){
 	new_out.fun = dump_tab_cons;
+#ifdef PARTICLES
+        new_out.out_pargrid = 1; /* bin particles */
+#endif
 	goto add_it;
       }
       else if (strcmp(fmt,"rst")==0){
@@ -319,6 +322,9 @@ Now use the default one.\n");
 */
       else if (strcmp(fmt,"tab")==0){
         new_out.fun = dump_tab_prim;
+#ifdef PARTICLES
+        new_out.out_pargrid = 1; /* bin particles */
+#endif
         goto add_it;
       }
 /*

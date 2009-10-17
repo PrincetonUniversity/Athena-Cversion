@@ -172,18 +172,18 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef FEEDBACK
     for (i=il+1; i<=iu; i++) {
       d1 = 1.0/W[i-1].d;
-      Wl[i].Vx -= pG->feedback[ks][js][i-1].x1*d1;
-      Wl[i].Vy -= pG->feedback[ks][js][i-1].x2*d1;
-      Wl[i].Vz -= pG->feedback[ks][js][i-1].x3*d1;
+      Wl[i].Vx -= pG->Coup[ks][js][i-1].fb1*d1;
+      Wl[i].Vy -= pG->Coup[ks][js][i-1].fb2*d1;
+      Wl[i].Vz -= pG->Coup[ks][js][i-1].fb3*d1;
 
       d1 = 1.0/W[i].d;
-      Wr[i].Vx -= pG->feedback[ks][js][i].x1*d1;
-      Wr[i].Vy -= pG->feedback[ks][js][i].x2*d1;
-      Wr[i].Vz -= pG->feedback[ks][js][i].x3*d1;
+      Wr[i].Vx -= pG->Coup[ks][js][i].fb1*d1;
+      Wr[i].Vy -= pG->Coup[ks][js][i].fb2*d1;
+      Wr[i].Vz -= pG->Coup[ks][js][i].fb3*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Eloss[ks][js][i-1]*Gamma_1;
-      Wr[i].P += pG->Eloss[ks][js][i]*Gamma_1;
+      Wl[i].P += pG->Coup[ks][js][i-1].Eloss*Gamma_1;
+      Wr[i].P += pG->Coup[ks][js][i].Eloss*Gamma_1;
 #endif
     }
 #endif /* FEEDBACK */
@@ -216,7 +216,7 @@ void integrate_1d(Grid *pG, Domain *pD)
     for (i=il+1; i<=iu-1; i++) {
       dhalf[i] = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
 #ifdef PARTICLES
-      grid_d[ks][js][i] = dhalf[i];
+      pG->Coup[ks][js][i].grid_d = dhalf[i];
 #endif
     }
   }
@@ -254,9 +254,9 @@ void integrate_1d(Grid *pG, Domain *pD)
 
 /* Add the particle feedback terms */
 #ifdef FEEDBACK
-      M1h -= pG->feedback[ks][js][i].x1;
-      M2h -= pG->feedback[ks][js][i].x2;
-      M3h -= pG->feedback[ks][js][i].x3;
+      M1h -= pG->Coup[ks][js][i].fb1;
+      M2h -= pG->Coup[ks][js][i].fb2;
+      M3h -= pG->Coup[ks][js][i].fb3;
 #endif /* FEEDBACK */
 
 #ifndef BAROTROPIC
@@ -274,12 +274,12 @@ void integrate_1d(Grid *pG, Domain *pD)
 
 #ifdef PARTICLES
       d1 = 1.0/dhalf[i];
-      grid_v[ks][js][i].x1 = M1h*d1;
-      grid_v[ks][js][i].x2 = M2h*d1;
-      grid_v[ks][js][i].x3 = M3h*d1;
-#ifndef ISOTHERMAL
-      grid_cs[ks][js][i] = sqrt(Gamma*phalf[i]*d1);
-#endif  /* ISOTHERMAL */
+      pG->Coup[ks][js][i].grid_v1 = M1h*d1;
+      pG->Coup[ks][js][i].grid_v2 = M2h*d1;
+      pG->Coup[ks][js][i].grid_v3 = M3h*d1;
+#ifndef BAROTROPIC
+      pG->Coup[ks][js][i].grid_cs = sqrt(Gamma*phalf[i]*d1);
+#endif  /* BAROTROPIC */
 #endif /* PARTICLES */
 
     }
@@ -371,12 +371,12 @@ void integrate_1d(Grid *pG, Domain *pD)
 
 #ifdef FEEDBACK
   for (i=is; i<=ie; i++) {
-    pG->U[ks][js][i].M1 -= pG->feedback[ks][js][i].x1;
-    pG->U[ks][js][i].M2 -= pG->feedback[ks][js][i].x2;
-    pG->U[ks][js][i].M3 -= pG->feedback[ks][js][i].x3;
+    pG->U[ks][js][i].M1 -= pG->Coup[ks][js][i].fb1;
+    pG->U[ks][js][i].M2 -= pG->Coup[ks][js][i].fb2;
+    pG->U[ks][js][i].M3 -= pG->Coup[ks][js][i].fb3;
 #ifndef BAROTROPIC
-    pG->U[ks][js][i].E += pG->Eloss[ks][js][i];
-    pG->Eloss[ks][js][i] *= dt1;
+    pG->U[ks][js][i].E += pG->Coup[ks][js][i].Eloss;
+    pG->Coup[ks][js][i].Eloss *= dt1;
 #endif
   }
 #endif

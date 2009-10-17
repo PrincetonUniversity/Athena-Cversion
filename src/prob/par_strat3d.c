@@ -74,7 +74,8 @@ Real Erf(Real z);
 void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
                      Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH);
 static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
-
+static void close_ix3(Grid *pGrid);
+static void close_ox3(Grid *pGrid);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 
 static int property_limit(Grain *gr);
@@ -94,7 +95,7 @@ extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
 
 void problem(Grid *pGrid, Domain *pDomain)
 {
-  int i,j,k,ks,pt,tsmode;
+  int i,j,k,ks,pt,tsmode,vertical_bc;
   long p,q;
   Real ScaleHg,tsmin,tsmax,tscrit,amin,amax,Hparmin,Hparmax;
   Real *ep,*ScaleHpar,epsum,mratio,pwind,rhoaconv,etavk;
@@ -330,6 +331,16 @@ void problem(Grid *pGrid, Domain *pDomain)
   /* set the number of particles to keep track of */
   ntrack = par_geti_def("problem","ntrack",2000);
 
+  /* set vertical boundary conditions (by default, periodic) */
+  vertical_bc = par_geti_def("problem","vertical_bc",0);
+
+  if (vertical_bc == 1) /* closed BC */
+  {
+    set_bvals_mhd_fun(left_x3,  close_ix3);
+    set_bvals_mhd_fun(right_x3, close_ox3);
+  }
+
+  /* finalize */
   free(ep);  free(ScaleHpar);
   free(epsilon);
   free_2d_array(wxNSH);  free_2d_array(wyNSH);
@@ -404,6 +415,47 @@ static Real hst_rho_Vx_dVy(const Grid *pG,
 #endif
 }
 
+static void close_ix3(Grid *pGrid)
+{
+  int ks = pGrid->ks;
+  int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+
+  ju = pGrid->je + nghost;
+  jl = pGrid->js - nghost;
+
+  for (k=1; k<=nghost; k++)
+    for (j=jl; j<=ju; j++)
+      for (i=il; i<=iu; i++) {
+        pGrid->U[ks-k][j][i] = pGrid->U[ks][j][i];
+        pGrid->U[ks-k][j][i].M3 = 0.0;
+      }
+
+  return;
+}
+
+static void close_ox3(Grid *pGrid)
+{
+  int ke = pGrid->ke;
+  int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+
+  ju = pGrid->je + nghost;
+  jl = pGrid->js - nghost;
+
+  for (k=1; k<=nghost; k++)
+    for (j=jl; j<=ju; j++)
+      for (i=il; i<=iu; i++) {
+        pGrid->U[ke+k][j][i] = pGrid->U[ke][j][i];
+        pGrid->U[ke+k][j][i].M3 = 0.0;
+      }
+
+  return;
+}
 
 Gasfun_t get_usr_expr(const char *expr)
 {

@@ -337,18 +337,18 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifdef FEEDBACK
     for (i=il+1; i<=iu; i++) {
       d1 = 1.0/W[i-1].d;
-      Wl[i].Vx -= pG->feedback[k][j][i-1].x1*d1;
-      Wl[i].Vy -= pG->feedback[k][j][i-1].x2*d1;
-      Wl[i].Vz -= pG->feedback[k][j][i-1].x3*d1;
+      Wl[i].Vx -= pG->Coup[k][j][i-1].fb1*d1;
+      Wl[i].Vy -= pG->Coup[k][j][i-1].fb2*d1;
+      Wl[i].Vz -= pG->Coup[k][j][i-1].fb3*d1;
 
       d1 = 1.0/W[i].d;
-      Wr[i].Vx -= pG->feedback[k][j][i].x1*d1;
-      Wr[i].Vy -= pG->feedback[k][j][i].x2*d1;
-      Wr[i].Vz -= pG->feedback[k][j][i].x3*d1;
+      Wr[i].Vx -= pG->Coup[k][j][i].fb1*d1;
+      Wr[i].Vy -= pG->Coup[k][j][i].fb2*d1;
+      Wr[i].Vz -= pG->Coup[k][j][i].fb3*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Eloss[k][j][i-1]*Gamma_1;
-      Wr[i].P += pG->Eloss[k][j][i]*Gamma_1;
+      Wl[i].P += pG->Coup[k][j][i-1].Eloss*Gamma_1;
+      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
 
     }
@@ -513,18 +513,18 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifdef FEEDBACK
    for (j=jl+1; j<=ju; j++) {
       d1 = 1.0/W[j-1].d;
-      Wl[j].Vx -= pG->feedback[k][j-1][i].x2*d1;
-      Wl[j].Vy -= pG->feedback[k][j-1][i].x3*d1;
-      Wl[j].Vz -= pG->feedback[k][j-1][i].x1*d1;
+      Wl[j].Vx -= pG->Coup[k][j-1][i].fb2*d1;
+      Wl[j].Vy -= pG->Coup[k][j-1][i].fb3*d1;
+      Wl[j].Vz -= pG->Coup[k][j-1][i].fb1*d1;
 
       d1 = 1.0/W[j].d;
-      Wr[j].Vx -= pG->feedback[k][j][i].x2*d1;
-      Wr[j].Vy -= pG->feedback[k][j][i].x3*d1;
-      Wr[j].Vz -= pG->feedback[k][j][i].x1*d1;
+      Wr[j].Vx -= pG->Coup[k][j][i].fb2*d1;
+      Wr[j].Vy -= pG->Coup[k][j][i].fb3*d1;
+      Wr[j].Vz -= pG->Coup[k][j][i].fb1*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Eloss[k][j-1][i]*Gamma_1;
-      Wr[i].P += pG->Eloss[k][j][i]*Gamma_1;
+      Wl[i].P += pG->Coup[k][j-1][i].Eloss*Gamma_1;
+      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
 
     }
@@ -690,18 +690,18 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifdef FEEDBACK
    for (k=kl+1; k<=ku; k++) {
       d1 = 1.0/W[k-1].d;
-      Wl[k].Vx -= pG->feedback[k-1][j][i].x3*d1;
-      Wl[k].Vy -= pG->feedback[k-1][j][i].x1*d1;
-      Wl[k].Vz -= pG->feedback[k-1][j][i].x2*d1;
+      Wl[k].Vx -= pG->Coup[k-1][j][i].fb3*d1;
+      Wl[k].Vy -= pG->Coup[k-1][j][i].fb1*d1;
+      Wl[k].Vz -= pG->Coup[k-1][j][i].fb2*d1;
 
       d1 = 1.0/W[k].d;
-      Wr[k].Vx -= pG->feedback[k][j][i].x3*d1;
-      Wr[k].Vy -= pG->feedback[k][j][i].x1*d1;
-      Wr[k].Vz -= pG->feedback[k][j][i].x2*d1;
+      Wr[k].Vx -= pG->Coup[k][j][i].fb3*d1;
+      Wr[k].Vy -= pG->Coup[k][j][i].fb1*d1;
+      Wr[k].Vz -= pG->Coup[k][j][i].fb2*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Eloss[k-1][j][i]*Gamma_1;
-      Wr[i].P += pG->Eloss[k][j][i]*Gamma_1;
+      Wl[i].P += pG->Coup[k-1][j][i].Eloss*Gamma_1;
+      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
     }
 #endif /* FEEDBACK */
@@ -1706,7 +1706,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 	    - q2*(x2Flux[k  ][j+1][i  ].d - x2Flux[k][j][i].d)
 	    - q3*(x3Flux[k+1][j  ][i  ].d - x3Flux[k][j][i].d);
 #ifdef PARTICLES
-          grid_d[k][j][i] = dhalf[k][j][i];
+          pG->Coup[k][j][i].grid_d = dhalf[k][j][i];
 #endif
 	}
       }
@@ -1792,9 +1792,9 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 /* Add the particle feedback terms */
 #ifdef FEEDBACK
-      M1h -= pG->feedback[k][j][i].x1;
-      M2h -= pG->feedback[k][j][i].x2;
-      M3h -= pG->feedback[k][j][i].x3;
+      M1h -= pG->Coup[k][j][i].fb1;
+      M2h -= pG->Coup[k][j][i].fb2;
+      M3h -= pG->Coup[k][j][i].fb3;
 #endif /* FEEDBACK */
 
 #ifndef BAROTROPIC
@@ -1819,16 +1819,12 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 #ifdef PARTICLES
       d1 = 1.0/dhalf[k][j][i];
-      grid_v[k][j][i].x1 = M1h*d1;
-      grid_v[k][j][i].x2 = M2h*d1;
-      grid_v[k][j][i].x3 = M3h*d1;
-#ifndef ISOTHERMAL
-  #ifdef ADIABATIC
-      grid_cs[k][j][i] = sqrt(Gamma*phalf[k][j][i]*d1);
-  #else
-      ath_error("[get_gasinfo] can not calculate the sound speed!\n");
-  #endif /* ADIABATIC */
-#endif  /* ISOTHERMAL */
+      pG->Coup[k][j][i].grid_v1 = M1h*d1;
+      pG->Coup[k][j][i].grid_v2 = M2h*d1;
+      pG->Coup[k][j][i].grid_v3 = M3h*d1;
+#ifndef BAROTROPIC
+      pG->Coup[k][j][i].grid_cs = sqrt(Gamma*phalf[k][j][i]*d1);
+#endif  /* BAROTROPIC */
 #endif /* PARTICLES */
 
       }
@@ -2108,8 +2104,8 @@ void integrate_3d(Grid *pG, Domain *pD)
                     - q3*(frx3_dM2 - flx3_dM2);
 
 #ifdef FEEDBACK
-      M1e -= 0.5*pG->feedback[k][j][i].x1;
-      dM2e -= 0.5*pG->feedback[k][j][i].x2;
+      M1e -= 0.5*pG->Coup[k][j][i].fb1;
+      dM2e -= 0.5*pG->Coup[k][j][i].fb2;
 #endif
 
 /* Update the 1- and 2-momentum for the Coriolis and tidal
@@ -2369,12 +2365,12 @@ void integrate_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++)
     for (j=js; j<=je; j++)
       for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].M1 -= pG->feedback[k][j][i].x1;
-      pG->U[k][j][i].M2 -= pG->feedback[k][j][i].x2;
-      pG->U[k][j][i].M3 -= pG->feedback[k][j][i].x3;
+      pG->U[k][j][i].M1 -= pG->Coup[k][j][i].fb1;
+      pG->U[k][j][i].M2 -= pG->Coup[k][j][i].fb2;
+      pG->U[k][j][i].M3 -= pG->Coup[k][j][i].fb3;
 #ifndef BAROTROPIC
-      pG->U[k][j][i].E += pG->Eloss[k][j][i];
-      pG->Eloss[k][j][i] *= dt1; /* for history output purpose */
+      pG->U[k][j][i].E += pG->Coup[k][j][i].Eloss;
+      pG->Coup[k][j][i].Eloss *= dt1; /* for history output purpose */
 #endif
     }
 #endif

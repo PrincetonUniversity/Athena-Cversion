@@ -680,11 +680,11 @@ static void reflect_ix3_feedback(Grid *pG)
     kr = 2*nghost-k-1;
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pG->feedback[kr][j][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[kr][j][i].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflection */
+        pG->Coup[kr][j][i].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[kr][j][i].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[kr][j][i].fb3 -= pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[kr][j][i] += pG->Eloss[k][j][i];
+        pG->Coup[kr][j][i].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -705,11 +705,11 @@ static void reflect_ox3_feedback(Grid *pG)
     kr = 2*pG->ke-k+1;
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pG->feedback[kr][j][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[kr][j][i].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[kr][j][i].x3 -= pG->feedback[k][j][i].x3; /* reflection */
+        pG->Coup[kr][j][i].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[kr][j][i].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[kr][j][i].fb3 -= pG->Coup[k][j][i].fb3; /* reflection */
 
-        pG->Eloss[kr][j][i] += pG->Eloss[k][j][i];
+        pG->Coup[kr][j][i].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -730,11 +730,11 @@ static void reflect_ix2_feedback(Grid *pG)
     for (j=nghost-NGF; j<nghost; j++) {
       jr = 2*nghost-j-1;
       for (i=il; i<=iu; i++) {
-        pG->feedback[k][jr][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflection. */
-        pG->feedback[k][jr][i].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k][jr][i].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[k][jr][i].fb2 -= pG->Coup[k][j][i].fb2; /* reflection */
+        pG->Coup[k][jr][i].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k][jr][i] += pG->Eloss[k][j][i];
+        pG->Coup[k][jr][i].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -755,11 +755,11 @@ static void reflect_ox2_feedback(Grid *pG)
     for (j=pG->je+1; j<=pG->je+NGF; j++) {
       jr = 2*pG->je-j+1;
       for (i=il; i<=iu; i++) {
-        pG->feedback[k][jr][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k][jr][i].x2 -= pG->feedback[k][j][i].x2; /* reflection */
-        pG->feedback[k][jr][i].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k][jr][i].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[k][jr][i].fb2 -= pG->Coup[k][j][i].fb2; /* reflection */
+        pG->Coup[k][jr][i].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k][jr][i] += pG->Eloss[k][j][i];
+        pG->Coup[k][jr][i].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -780,11 +780,11 @@ static void reflect_ix1_feedback(Grid *pG)
     for (j=pG->js; j<=pG->je; j++) {
       for (i=nghost-NGF; i<nghost; i++) {
         ir = 2*nghost-i-1;
-        pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflection */
-        pG->feedback[k][j][ir].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[k][j][ir].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k][j][ir].fb1 -= pG->Coup[k][j][i].fb1; /* reflection */
+        pG->Coup[k][j][ir].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[k][j][ir].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k][j][ir] += pG->Eloss[k][j][i];
+        pG->Coup[k][j][ir].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -805,11 +805,11 @@ static void reflect_ox1_feedback(Grid *pG)
     for (j=pG->js; j<=pG->je; j++) {
       for (i=pG->ie+1; i<=pG->ie+NGF; i++) {
         ir = 2*pG->ie-i+1;
-        pG->feedback[k][j][ir].x1 -= pG->feedback[k][j][i].x1; /* reflection */
-        pG->feedback[k][j][ir].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[k][j][ir].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k][j][ir].fb1 -= pG->Coup[k][j][i].fb1; /* reflection */
+        pG->Coup[k][j][ir].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[k][j][ir].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k][j][ir] += pG->Eloss[k][j][i];
+        pG->Coup[k][j][ir].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -838,11 +838,11 @@ static void periodic_ix3_feedback(Grid *pG)
   for (k=nghost; k<nghost+NGF; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pG->feedback[k][j][i].x1 += pG->feedback[k+dk][j][i].x1;
-        pG->feedback[k][j][i].x2 += pG->feedback[k+dk][j][i].x2;
-        pG->feedback[k][j][i].x3 += pG->feedback[k+dk][j][i].x3;
+        pG->Coup[k][j][i].fb1 += pG->Coup[k+dk][j][i].fb1;
+        pG->Coup[k][j][i].fb2 += pG->Coup[k+dk][j][i].fb2;
+        pG->Coup[k][j][i].fb3 += pG->Coup[k+dk][j][i].fb3;
 
-        pG->Eloss[k][j][i] += pG->Eloss[k+dk][j][i];
+        pG->Coup[k][j][i].Eloss += pG->Coup[k+dk][j][i].Eloss;
       }
     }
   }
@@ -862,11 +862,11 @@ static void periodic_ox3_feedback(Grid *pG)
   for (k=nghost-NGF; k<nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pG->feedback[k+dk][j][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k+dk][j][i].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[k+dk][j][i].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k+dk][j][i].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[k+dk][j][i].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[k+dk][j][i].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k+dk][j][i] += pG->Eloss[k][j][i];
+        pG->Coup[k+dk][j][i].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -886,11 +886,11 @@ static void periodic_ix2_feedback(Grid *pG)
   for (k=pG->ks; k<=pG->ke; k++) {
     for (j=nghost; j<nghost+NGF; j++) {
       for (i=il; i<=iu; i++) {
-        pG->feedback[k][j][i].x1 += pG->feedback[k][j+dj][i].x1;
-        pG->feedback[k][j][i].x2 += pG->feedback[k][j+dj][i].x2;
-        pG->feedback[k][j][i].x3 += pG->feedback[k][j+dj][i].x3;
+        pG->Coup[k][j][i].fb1 += pG->Coup[k][j+dj][i].fb1;
+        pG->Coup[k][j][i].fb2 += pG->Coup[k][j+dj][i].fb2;
+        pG->Coup[k][j][i].fb3 += pG->Coup[k][j+dj][i].fb3;
 
-        pG->Eloss[k][j][i] += pG->Eloss[k][j+dj][i];
+        pG->Coup[k][j][i].Eloss += pG->Coup[k][j+dj][i].Eloss;
       }
     }
   }
@@ -910,11 +910,11 @@ static void periodic_ox2_feedback(Grid *pG)
   for (k=pG->ks; k<=pG->ke; k++) {
     for (j=nghost-NGF; j<nghost; j++) {
       for (i=il; i<=iu; i++) {
-        pG->feedback[k][j+dj][i].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k][j+dj][i].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[k][j+dj][i].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k][j+dj][i].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[k][j+dj][i].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[k][j+dj][i].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k][j+dj][i] += pG->Eloss[k][j][i];
+        pG->Coup[k][j+dj][i].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -934,11 +934,11 @@ static void periodic_ix1_feedback(Grid *pG)
   for (k=pG->ks; k<=pG->ke; k++) {
     for (j=pG->js; j<=pG->je; j++) {
       for (i=nghost; i<nghost+NGF; i++) {
-        pG->feedback[k][j][i].x1 += pG->feedback[k][j][i+di].x1;
-        pG->feedback[k][j][i].x2 += pG->feedback[k][j][i+di].x2;
-        pG->feedback[k][j][i].x3 += pG->feedback[k][j][i+di].x3;
+        pG->Coup[k][j][i].fb1 += pG->Coup[k][j][i+di].fb1;
+        pG->Coup[k][j][i].fb2 += pG->Coup[k][j][i+di].fb2;
+        pG->Coup[k][j][i].fb3 += pG->Coup[k][j][i+di].fb3;
 
-        pG->Eloss[k][j][i] += pG->Eloss[k][j][i+di];
+        pG->Coup[k][j][i].Eloss += pG->Coup[k][j][i+di].Eloss;
       }
     }
   }
@@ -958,11 +958,11 @@ static void periodic_ox1_feedback(Grid *pG)
   for (k=pG->ks; k<=pG->ke; k++) {
     for (j=pG->js; j<=pG->je; j++) {
       for (i=nghost-NGF; i<nghost; i++) {
-        pG->feedback[k][j][i+di].x1 += pG->feedback[k][j][i].x1;
-        pG->feedback[k][j][i+di].x2 += pG->feedback[k][j][i].x2;
-        pG->feedback[k][j][i+di].x3 += pG->feedback[k][j][i].x3;
+        pG->Coup[k][j][i+di].fb1 += pG->Coup[k][j][i].fb1;
+        pG->Coup[k][j][i+di].fb2 += pG->Coup[k][j][i].fb2;
+        pG->Coup[k][j][i+di].fb3 += pG->Coup[k][j][i].fb3;
 
-        pG->Eloss[k][j][i+di] += pG->Eloss[k][j][i];
+        pG->Coup[k][j][i+di].Eloss += pG->Coup[k][j][i].Eloss;
       }
     }
   }
@@ -979,7 +979,7 @@ static void periodic_ox1_feedback(Grid *pG)
 static void send_ix3_feedback(Grid *pG)
 {
   int i,j,k,cnt,err;
-  Vector *pq;
+  GPCouple *pq;
   double *pd = send_buf;
 
 /* Pack feedback data into send buffer */
@@ -989,13 +989,13 @@ static void send_ix3_feedback(Grid *pG)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
 
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        *(pd++) = pq->x1;
-        *(pd++) = pq->x2;
-        *(pd++) = pq->x3;
+        *(pd++) = pq->fb1;
+        *(pd++) = pq->fb2;
+        *(pd++) = pq->fb3;
 
-        *(pd++) = pG->Eloss[k][j][i];
+        *(pd++) = pq->Eloss;
       }
     }
   }
@@ -1015,7 +1015,7 @@ static void send_ix3_feedback(Grid *pG)
 static void send_ox3_feedback(Grid *pG)
 {
   int i,j,k,cnt,err;
-  Vector *pq;
+  GPCouple *pq;
   double *pd = send_buf;
 
 /* Pack feedback data into send buffer */
@@ -1025,13 +1025,13 @@ static void send_ox3_feedback(Grid *pG)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
 
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        *(pd++) = pq->x1;
-        *(pd++) = pq->x2;
-        *(pd++) = pq->x3;
+        *(pd++) = pq->fb1;
+        *(pd++) = pq->fb2;
+        *(pd++) = pq->fb3;
 
-        *(pd++) = pG->Eloss[k][j][i];
+        *(pd++) = pq->Eloss;
       }
     }
   }
@@ -1051,7 +1051,7 @@ static void send_ox3_feedback(Grid *pG)
 static void send_ix2_feedback(Grid *pG)
 {
   int i,j,k,cnt,err;
-  Vector *pq;
+  GPCouple *pq;
   double *pd = send_buf;
 
 /* Pack feedback data into send buffer */
@@ -1061,13 +1061,13 @@ static void send_ix2_feedback(Grid *pG)
     for (j=nghost-NGF; j<nghost; j++) {
       for (i=il; i<=iu; i++) {
 
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        *(pd++) = pq->x1;
-        *(pd++) = pq->x2;
-        *(pd++) = pq->x3;
+        *(pd++) = pq->fb1;
+        *(pd++) = pq->fb2;
+        *(pd++) = pq->fb3;
 
-        *(pd++) = pG->Eloss[k][j][i];
+        *(pd++) = pq->Eloss;
       }
     }
   }
@@ -1087,7 +1087,7 @@ static void send_ix2_feedback(Grid *pG)
 static void send_ox2_feedback(Grid *pG)
 {
   int i,j,k,cnt,err;
-  Vector *pq;
+  GPCouple *pq;
   double *pd = send_buf;
 
 /* Pack feedback data into send buffer */
@@ -1097,13 +1097,13 @@ static void send_ox2_feedback(Grid *pG)
     for (j=pG->je+1; j<=pG->je+NGF; j++) {
       for (i=il; i<=iu; i++) {
 
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        *(pd++) = pq->x1;
-        *(pd++) = pq->x2;
-        *(pd++) = pq->x3;
+        *(pd++) = pq->fb1;
+        *(pd++) = pq->fb2;
+        *(pd++) = pq->fb3;
 
-        *(pd++) = pG->Eloss[k][j][i];
+        *(pd++) = pq->Eloss;
       }
     }
   }
@@ -1123,7 +1123,7 @@ static void send_ox2_feedback(Grid *pG)
 static void send_ix1_feedback(Grid *pG)
 {
   int i,j,k,cnt,err;
-  Vector *pq;
+  GPCouple *pq;
   double *pd = send_buf;
 
 /* Pack feedback data into send buffer */
@@ -1133,13 +1133,13 @@ static void send_ix1_feedback(Grid *pG)
     for (j=pG->js; j<=pG->je; j++) {
       for (i=nghost-NGF; i<nghost; i++) {
 
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        *(pd++) = pq->x1;
-        *(pd++) = pq->x2;
-        *(pd++) = pq->x3;
+        *(pd++) = pq->fb1;
+        *(pd++) = pq->fb2;
+        *(pd++) = pq->fb3;
 
-        *(pd++) = pG->Eloss[k][j][i];
+        *(pd++) = pq->Eloss;
       }
     }
   }
@@ -1159,7 +1159,7 @@ static void send_ix1_feedback(Grid *pG)
 static void send_ox1_feedback(Grid *pG)
 {
   int i,j,k,cnt,err;
-  Vector *pq;
+  GPCouple *pq;
   double *pd = send_buf;
 
 /* Pack feedback data into send buffer */
@@ -1169,13 +1169,13 @@ static void send_ox1_feedback(Grid *pG)
     for (j=pG->js; j<=pG->je; j++) {
       for (i=pG->ie+1; i<=pG->ie+NGF; i++) {
 
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        *(pd++) = pq->x1;
-        *(pd++) = pq->x2;
-        *(pd++) = pq->x3;
+        *(pd++) = pq->fb1;
+        *(pd++) = pq->fb2;
+        *(pd++) = pq->fb3;
 
-        *(pd++) = pG->Eloss[k][j][i];
+        *(pd++) = pq->Eloss;
       }
     }
   }
@@ -1195,7 +1195,7 @@ static void send_ox1_feedback(Grid *pG)
 static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
 {
   int i,j,k,err;
-  Vector *pq;
+  GPCouple *pq;
   MPI_Status stat;
   double *pd = recv_buf;
 
@@ -1208,13 +1208,13 @@ static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
         /* Get a pointer to the Gas cell */
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        pq->x1 += *(pd++);
-        pq->x2 += *(pd++);
-        pq->x3 += *(pd++);
+        pq->fb1 += *(pd++);
+        pq->fb2 += *(pd++);
+        pq->fb3 += *(pd++);
 
-        pG->Eloss[k][j][i] += *(pd++);
+        pq->Eloss += *(pd++);
       }
     }
   }
@@ -1229,7 +1229,7 @@ static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
 static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
 {
   int i,j,k,err;
-  Vector *pq;
+  GPCouple *pq;
   MPI_Status stat;
   double *pd = recv_buf;
 
@@ -1242,13 +1242,13 @@ static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
         /* Get a pointer to the Gas cell */
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        pq->x1 += *(pd++);
-        pq->x2 += *(pd++);
-        pq->x3 += *(pd++);
+        pq->fb1 += *(pd++);
+        pq->fb2 += *(pd++);
+        pq->fb3 += *(pd++);
 
-        pG->Eloss[k][j][i] += *(pd++);
+        pq->Eloss += *(pd++);
       }
     }
   }
@@ -1263,7 +1263,7 @@ static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
 static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
 {
   int i,j,k,err;
-  Vector *pq;
+  GPCouple *pq;
   MPI_Status stat;
   double *pd = recv_buf;
 
@@ -1276,13 +1276,13 @@ static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
     for (j=pG->js; j<pG->js+NGF; j++){
       for (i=il; i<=iu; i++){
         /* Get a pointer to the Gas cell */
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        pq->x1 += *(pd++);
-        pq->x2 += *(pd++);
-        pq->x3 += *(pd++);
+        pq->fb1 += *(pd++);
+        pq->fb2 += *(pd++);
+        pq->fb3 += *(pd++);
 
-        pG->Eloss[k][j][i] += *(pd++);
+        pq->Eloss += *(pd++);
       }
     }
   }
@@ -1297,7 +1297,7 @@ static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
 static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
 {
   int i,j,k,err;
-  Vector *pq;
+  GPCouple *pq;
   MPI_Status stat;
   double *pd = recv_buf;
 
@@ -1310,13 +1310,13 @@ static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
     for (j=pG->je-NGF+1; j<=pG->je; j++){
       for (i=il; i<=iu; i++){
         /* Get a pointer to the Gas cell */
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        pq->x1 += *(pd++);
-        pq->x2 += *(pd++);
-        pq->x3 += *(pd++);
+        pq->fb1 += *(pd++);
+        pq->fb2 += *(pd++);
+        pq->fb3 += *(pd++);
 
-        pG->Eloss[k][j][i] += *(pd++);
+        pq->Eloss += *(pd++);
       }
     }
   }
@@ -1331,7 +1331,7 @@ static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
 static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
 {
   int i,j,k,err;
-  Vector *pq;
+  GPCouple *pq;
   MPI_Status stat;
   double *pd = recv_buf;
 
@@ -1344,13 +1344,13 @@ static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
     for (j=pG->js; j<=pG->je; j++){
       for (i=pG->is; i<pG->is+NGF; i++){
         /* Get a pointer to the Gas cell */
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        pq->x1 += *(pd++);
-        pq->x2 += *(pd++);
-        pq->x3 += *(pd++);
+        pq->fb1 += *(pd++);
+        pq->fb2 += *(pd++);
+        pq->fb3 += *(pd++);
 
-        pG->Eloss[k][j][i] += *(pd++);
+        pq->Eloss += *(pd++);
       }
     }
   }
@@ -1365,7 +1365,7 @@ static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
 static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
 {
   int i,j,k,err;
-  Vector *pq;
+  GPCouple *pq;
   MPI_Status stat;
   double *pd = recv_buf;
 
@@ -1378,13 +1378,13 @@ static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
     for (j=pG->js; j<=pG->je; j++){
       for (i=pG->ie-NGF+1; i<=pG->ie; i++){
         /* Get a pointer to the Gas cell */
-        pq = &(pG->feedback[k][j][i]);
+        pq = &(pG->Coup[k][j][i]);
 
-        pq->x1 += *(pd++);
-        pq->x2 += *(pd++);
-        pq->x3 += *(pd++);
+        pq->fb1 += *(pd++);
+        pq->fb2 += *(pd++);
+        pq->fb3 += *(pd++);
 
-        pG->Eloss[k][j][i] += *(pd++);
+        pq->Eloss += *(pd++);
       }
     }
   }

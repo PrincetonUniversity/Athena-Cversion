@@ -247,9 +247,9 @@ static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 static Real dratio(const Grid *pG, const int i, const int j, const int k)
 {
 #if (NSCALARS > 0)
-  return grid_d[k][j][i]/pG->U[k][j][i].s[0];
+  return pG->Coup[k][j][i].grid_d/pG->U[k][j][i].s[0];
 #else
-  return grid_d[k][j][i]/pG->U[k][j][i].d;
+  return pG->Coup[k][j][i].grid_d/pG->U[k][j][i].d;
 #endif
 }
 #endif
@@ -357,8 +357,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
       fprintf(fid,"%f	",x1);
       fprintf(fid,"%e	%e	%e	",pGrid->U[ks][js][i].d-1.0,
                                 SolGasd-1.0,pGrid->U[ks][js][i].d-SolGasd);
-      fprintf(fid,"%e	%e	%e	",grid_d[ks][js][i]-1.0,
-                                SolLagd-1.0,grid_d[ks][js][i]-SolLagd);
+      fprintf(fid,"%e	%e	%e	",pG->Coup[ks][js][i].grid_d-1.0,
+                                SolLagd-1.0,pG->Coup[ks][js][i].grid_d-SolLagd);
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         fprintf(fid,"%e	%e	",pGrid->U[ks][js][i].s[n]-1.0,
@@ -383,8 +383,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
       fprintf(fid,"%f   ",x2);
       fprintf(fid,"%e   %e      %e      ",pGrid->U[ks][j][is].d-1.0,
                                 SolGasd-1.0,pGrid->U[ks][j][is].d-SolGasd);
-      fprintf(fid,"%e   %e      %e      ",grid_d[ks][j][is]-1.0,
-                                SolLagd-1.0,grid_d[ks][j][is]-SolLagd);
+      fprintf(fid,"%e   %e      %e      ",pG->Coup[ks][j][is].grid_d-1.0,
+                                SolLagd-1.0,pG->Coup[ks][j][is].grid_d-SolLagd);
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         fprintf(fid,"%e %e      ",pGrid->U[ks][j][is].s[n]-1.0,

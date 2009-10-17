@@ -366,7 +366,7 @@ static Real expr_rhopardif(const Grid *pG,
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  return grid_d[k][j][i] - rho0*mratio;
+  return pG->Coup[k][j][i].grid_d - rho0*mratio;
 }
 
 /*------------------------------------------------------------------------------
