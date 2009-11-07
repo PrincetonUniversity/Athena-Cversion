@@ -34,6 +34,8 @@
  *   JudgeCrossing()  - judge if the particle cross the grid boundary
  *   Get_Drag()       - calculate the drag force
  *   Get_Force()      - calculate forces other than the drag
+ *   Get_Term()       - calculate the termination particle velocity
+ *   Get_ForceDiff()  - calculate the force difference between particle and gas
  *============================================================================*/
 void   Delete_Ghost(Grid *pG);
 void   JudgeCrossing(Grid *pG, Real x1, Real x2, Real x3, Grain *gr);
@@ -41,6 +43,10 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3,
                 Real v1, Real v2, Real v3, Vector cell1, Real *tstop1);
 Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3,
                            Real v1, Real v2, Real v3);
+Vector Get_Term(Grid *pG, int type, Real x1, Real x2, Real x3, Vector cell1,
+                                                      Real *tstop);
+Vector Get_ForceDiff(Grid *pG, Real x1, Real x2, Real x3,
+                               Real v1, Real v2, Real v3);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -58,8 +64,9 @@ void Integrate_Particles(Grid *pG, Domain *pD)
 {
   Grain *curG, *curP, mygr;     /* pointer of the current working position */
   long p;                       /* particle index */
-  Real dv1, dv2, dv3, ts;       /* amount of velocity update, stopping time */
+  Real dv1, dv2, dv3, ts, t1;   /* amount of velocity update, stopping time */
   Vector cell1;                 /* one over dx1, dx2, dx3 */
+  Vector vterm;                 /* termination velocity */
 
 /* Initialization */
 #ifdef FEEDBACK
@@ -75,7 +82,6 @@ void Integrate_Particles(Grid *pG, Domain *pD)
 
   /* delete all ghost particles */
   Delete_Ghost(pG);
-
 
   p = 0;
   while (p<pG->nparticle)
@@ -97,11 +103,16 @@ void Integrate_Particles(Grid *pG, Domain *pD)
         int_par_fulimp(pG,curG,cell1, &dv1,&dv2,&dv3, &ts);
         break;
 
+      case 4: /* specific integrator in the strong coupling limit */
+        int_par_spec(pG,curG,cell1, &dv1,&dv2,&dv3, &ts);
+        break;
+
       default:
         ath_error("[integrate_particle]: unknown integrator type!");
     }
 
 /* Step 2: particle update to curP */
+
     /* velocity update */
     curP->v1 = curG->v1 + dv1;
     curP->v2 = curG->v2 + dv2;
@@ -118,7 +129,7 @@ void Integrate_Particles(Grid *pG, Domain *pD)
     else /* do not move if this dimension collapses */
       curP->x2 = curG->x2;
 
-    if (pG->Nx3 > 1)
+   if (pG->Nx3 > 1)
       curP->x3 = curG->x3 + 0.5*pG->dt*(curG->v3 + curP->v3);
     else /* do not move if this dimension collapses */
       curP->x3 = curG->x3;
@@ -127,6 +138,15 @@ void Integrate_Particles(Grid *pG, Domain *pD)
     /* shift = -qshear * Omega_0 * x * dt */
     curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
+
+    /* special treatment for integrator #4 */
+    if (pG->grproperty[curG->property].integrator == 4)
+    {
+       vterm = Get_Term(pG,curG->property,curP->x1,curP->x2,curP->x3,cell1,&t1);
+       curP->v1 = vterm.x1;     curP->v2 = vterm.x2;     curP->v2 = vterm.x2;
+
+       dv1=curP->v1-curG->v1;   dv2=curP->v2-curG->v2;   dv3=curP->v3-curG->v3;
+    }
 
 /* Step 3: calculate feedback force to the gas */
 #ifdef FEEDBACK
@@ -280,7 +300,6 @@ void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1,
 void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, 
                               Real *dv1, Real *dv2, Real *dv3, Real *ts)
 {
-  /* loca variables */
   Vector fd, fr, ft;	/* drag force and other forces, total force */
   Real ts1, b, b2;	/* other shortcut expressions */
   Real x1n, x2n, x3n;	/* first order new position at half a time step */
@@ -372,7 +391,6 @@ void int_par_semimp(Grid *pG, Grain *curG, Vector cell1,
 void int_par_exp(Grid *pG, Grain *curG, Vector cell1,
                            Real *dv1, Real *dv2, Real *dv3, Real *ts)
 {
-  /* local variables */
   Vector fd, fr, ft;	/* drag force and other forces, total force */
   Real ts1;		/* 1/stopping time */
   Real x1n, x2n, x3n;	/* first order new position at half a time step */
@@ -425,6 +443,47 @@ void int_par_exp(Grid *pG, Grain *curG, Vector cell1,
   *dv3 = ft.x3*pG->dt;
 
   *ts = 1.0/ts1;
+
+  return;
+}
+
+/*------------------- 2nd order specific particle integrator -------------------
+ * This integrator works ONLY in the strong coupling regime (t_stop<h)
+ * Input:
+ *   grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
+ * Output:
+ *   dv1,dv2,dv3: velocity update
+ */
+void int_par_spec(Grid *pG, Grain *curG, Vector cell1,
+                            Real *dv1, Real *dv2, Real *dv3, Real *ts)
+{
+  Vector vterm;         /* termination velocity */
+  Real x1n, x2n, x3n;   /* predicted position at half a time step */
+
+/* step 1: predict of the particle position after half a time step */
+  if (pG->Nx1 > 1)
+    x1n = curG->x1+0.5*curG->v1*pG->dt;
+  else x1n = curG->x1;
+  if (pG->Nx2 > 1)
+    x2n = curG->x2+0.5*curG->v2*pG->dt;
+  else x2n = curG->x2;
+  if (pG->Nx3 > 1)
+    x3n = curG->x3+0.5*curG->v3*pG->dt;
+  else x3n = curG->x3;
+
+#ifdef SHEARING_BOX
+#ifndef FARGO
+  if (pG->Nx3 > 1) x2n -= 0.125*qshear*curG->v1*SQR(pG->dt);/* advection part */
+#endif
+#endif
+
+/* step 2: get gas termination velocity */
+  vterm = Get_Term(pG, curG->property, x1n, x2n, x3n, cell1, ts);
+
+/* step 3: calculate the velocity difference */
+  *dv1 = 2.0*(vterm.x1 - curG->v1);
+  *dv2 = 2.0*(vterm.x2 - curG->v2);
+  *dv3 = 2.0*(vterm.x3 - curG->v3);
 
   return;
 }
@@ -715,16 +774,14 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3,
                            Real v1, Real v2, Real v3)
 {
   Vector ft;
-  Real w1,w2,w3;
 
   ft.x1 = ft.x2 = ft.x3 = 0.0;
-  w1=v1;  w2=v2;  w3=v3;
 
 /* User defined forces
  * Should be independent of velocity, or the integrators must be modified
  * Can also change the velocity to account for velocity difference.
  */
-  Userforce_particle(&ft, x1, x2, x3, &w1, &w2, &w3);
+  Userforce_particle(&ft, x1, x2, x3, v1, v2, v3);
 
 #ifdef SHEARING_BOX
   Real omg2 = SQR(Omega_0);
@@ -732,26 +789,109 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3,
   if (pG->Nx3 > 1)
   {/* 3D shearing sheet (x1,x2,x3)=(X,Y,Z) */
   #ifdef FARGO
-    ft.x1 += 2.0*w2*Omega_0;
-    ft.x2 += (qshear-2.0)*w1*Omega_0;
+    ft.x1 += 2.0*v2*Omega_0;
+    ft.x2 += (qshear-2.0)*v1*Omega_0;
   #else
-    ft.x1 += 2.0*(qshear*omg2*x1 + w2*Omega_0);
-    ft.x2 += -2.0*w1*Omega_0;
+    ft.x1 += 2.0*(qshear*omg2*x1 + v2*Omega_0);
+    ft.x2 += -2.0*v1*Omega_0;
   #endif /* FARGO */
   }
   else
   { /* 2D shearing sheet (x1,x2,x3)=(X,Z,Y) */
   #ifdef FARGO
-    ft.x1 += 2.0*w3*Omega_0;
-    ft.x3 += (qshear-2.0)*w1*Omega_0;
+    ft.x1 += 2.0*v3*Omega_0;
+    ft.x3 += (qshear-2.0)*v1*Omega_0;
   #else
-    ft.x1 += 2.0*(qshear*omg2*x1 + w3*Omega_0);
-    ft.x3 += -2.0*w1*Omega_0;
+    ft.x1 += 2.0*(qshear*omg2*x1 + v3*Omega_0);
+    ft.x3 += -2.0*v1*Omega_0;
   #endif /* FARGO */
   }
 #endif /* SHEARING_BOX */
 
   return ft;
+}
+
+/* Calculate the termination velocity of strongly coupled particles
+ * Used for the special integrator
+ * Force difference include pressure gradient and momentum feedback
+ * Input:
+ *   pG: grid;  type: particle type;  x1,x2,x3: particle position;
+ * Return:
+ *   termination velocity, and the stopping time.
+ */
+Vector Get_Term(Grid *pG, int type, Real x1, Real x2, Real x3, Vector cell1,
+                                                       Real *tstop)
+{
+  Vector vterm;             /* termination velocity */
+  Vector ft;                /* force difference */
+  Real rho, u1, u2, u3, cs; /* gas velocity */
+  int is, js, ks;
+#ifdef FEEDBACK
+  Real stiffness;
+#endif
+  Real weight[3][3][3];     /* weight function */
+
+  /* interpolation to get fluid density, velocity and the sound speed */
+  getweight(pG, x1, x2, x3, cell1, weight, &is, &js, &ks);
+
+#ifndef FEEDBACK
+  if (getvalues(pG, weight, is, js, ks, &rho, &u1, &u2, &u3, &cs) == 0)
+#else
+  if (getvalues(pG, weight, is, js, ks, &rho,&u1,&u2,&u3,&cs, &stiffness) == 0)
+#endif
+  { /* position in the grid */
+
+    /* apply possible gas velocity shift (e.g., for fake gas velocity field) */
+    gasvshift(x1, x2, x3, &u1, &u2, &u3);
+
+    /* particle stopping time */
+    *tstop = get_ts(pG, type, rho, cs, 0.0);
+
+    /* force difference */
+    ft = Get_ForceDiff(pG, x1, x2, x3, u1, u2, u3);
+
+    /* termination velocity */
+    vterm.x1 = u1 + *tstop*ft.x1;
+    vterm.x2 = u2 + *tstop*ft.x2;
+    vterm.x3 = u3 + *tstop*ft.x3;
+  }
+  else
+  {
+    vterm.x1 = 0.0;    vterm.x2 = 0.0;    vterm.x3 = 0.0;
+    ath_perr(0, "[get_term]: Position (%f,%f,%f) is out of grid!\n",
+                                           pG->my_id,x1,x2,x3); /* warning! */
+  }
+
+  return vterm;
+}
+
+/* Calculate the force (density) difference between particles and gas
+ * Used ONLY for the special integrator.
+ * THIS ROUTINE MUST BE EDITTED BY THE USER!
+ * Force differences due to gas pressure gradient and momentum feedback are
+ * automatically included. The user must provide other sources.
+ * Input:
+ *   pG: grid;
+ *   x1,x2,x3,v1,v2,v3: particle position and velocity;
+ * Return:
+ *   forces;
+ */
+Vector Get_ForceDiff(Grid *pG, Real x1, Real x2, Real x3,
+                               Real v1, Real v2, Real v3)
+{
+  Vector fd;
+
+  fd.x1 = 0.0;    fd.x2 = 0.0;    fd.x3 = 0.0;
+
+  Userforce_particle(&fd, x1, x2, x3, v1, v2, v3);
+
+/*
+  fd.x1 += x1;
+  fd.x2 += x2;
+  fd.x3 += x3;
+*/
+
+  return fd;
 }
 
 #endif /*PARTICLES*/

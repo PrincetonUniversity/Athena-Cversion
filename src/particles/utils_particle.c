@@ -552,8 +552,6 @@ void distrFB_pred(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
   return;
 }
 
-#endif /* FEEDBACK */
-
 /*----------------------------------------------------------------------------*/
 /* Distribute the feedback force to grid cells for the correct step
  * Input:
@@ -593,6 +591,8 @@ void distrFB_corr(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 
   return;
 }
+
+#endif /* FEEDBACK */
 
 /*============================================================================*/
 /*---------------------------------SHUFFLE------------------------------------

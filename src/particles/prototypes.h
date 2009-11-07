@@ -47,6 +47,8 @@ void int_par_semimp(Grid *pG, Grain *curG, Vector cell1,
                               Real *dv1, Real *dv2, Real *dv3, Real *ts);
 void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1,
                               Real *dv1, Real *dv2, Real *dv3, Real *ts);
+void int_par_spec  (Grid *pG, Grain *curG, Vector cell1,
+                              Real *dv1, Real *dv2, Real *dv3, Real *ts);
 #ifdef FEEDBACK
 void feedback_predictor(Grid* pG);
 void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,

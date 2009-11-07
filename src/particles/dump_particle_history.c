@@ -138,8 +138,8 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
     scal[1] = MAX(scal[1],expr_dpar(pGrid,i,j,k));
 #ifdef FEEDBACK
     scal[2] = MAX(scal[2],pGrid->Coup[k][j][i].FBstiff);
-#endif
     scal[3]+= pGrid->Coup[k][j][i].Eloss;
+#endif
   }
 
   /* particle mass, momentum and kinetic energy */
