@@ -42,7 +42,8 @@ static Vector ParticleTroj(Real t);
 static Vector ParticleVel(Vector pos);
 static int ParticleLocator(Real x1, Real x2, Real x3);
 double ran2(long int *idum);
-
+extern Vector Get_Term(Grid *pG, int type, Real x1, Real x2, Real x3,
+                                 Vector cell1,      Real *tstop);
 /*------------------------ filewide global variables -------------------------*/
 Real x1c,x2c,x3c;
 Real x01,x02,x03;
@@ -60,12 +61,18 @@ void problem(Grid *pGrid, Domain *pDomain)
   int i,j,k,in;
   long p, seed;
   Real x1min,x1max,x2min,x2max,x3min,x3max;
-  Real ranv1, ranv2, ranv3, ranvnorm;
+  Real ranv1, ranv2, ranv3, ranvnorm, tstop;
   Real theta, phi, rad, vran, thetaran, phiran;
+  Vector cell1, vterm;
 
   if (par_geti("grid","Nx1") == 1 || par_geti("grid","Nx2") == 1) {
     ath_error("[par_circ]: this test only works with Nx1 & Nx2 > 1\n");
   }
+
+  /* cell1 is a shortcut expressions as well as dimension indicator */
+  if (pGrid->Nx1 > 1)  cell1.x1 = 1.0/pGrid->dx1;  else cell1.x1 = 0.0;
+  if (pGrid->Nx2 > 1)  cell1.x2 = 1.0/pGrid->dx2;  else cell1.x2 = 0.0;
+  if (pGrid->Nx3 > 1)  cell1.x3 = 1.0/pGrid->dx3;  else cell1.x3 = 0.0;
 
 /* Initialize boxsize */
   x1min = par_getd("grid","x1min");
@@ -151,9 +158,16 @@ void problem(Grid *pGrid, Domain *pDomain)
     pGrid->particle[p].x1 = x01;
     pGrid->particle[p].x2 = x02;
     pGrid->particle[p].x3 = x03;
-    pGrid->particle[p].v1 = omgx2*r03-omgx3*r02+ranv1;
-    pGrid->particle[p].v2 = omgx3*r01-omgx1*r03+ranv2;
-    pGrid->particle[p].v3 = omgx1*r02-omgx2*r01+ranv3;
+
+    vterm = Get_Term(pGrid,0,x01,x02,x03,cell1,&tstop);
+
+//    pGrid->particle[p].v1 = omgx2*r03-omgx3*r02+ranv1;
+//    pGrid->particle[p].v2 = omgx3*r01-omgx1*r03+ranv2;
+//    pGrid->particle[p].v3 = omgx1*r02-omgx2*r01+ranv3;
+    pGrid->particle[p].v1 = ranv1+vterm.x1;
+    pGrid->particle[p].v2 = ranv2+vterm.x2;
+    pGrid->particle[p].v3 = ranv3+vterm.x3;
+
     pGrid->particle[p].pos = 1; /* grid particle */
     pGrid->particle[p].my_id = p;
 #ifdef MPI_PARALLEL
@@ -256,7 +270,7 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
 }
 
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
+                                    const Real v1, const Real v2, const Real v3)
 {
   return;
 }
@@ -265,7 +279,7 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
 void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
   long p;
-  Real t,ds,dv;
+  Real t,ds,dv,r1,r0,dr;
   Vector pos0, vel0, pos;
   Grain *gr;
   FILE *fid;
@@ -285,9 +299,13 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 
       ds = sqrt(SQR(pos0.x1-gr->x1)+SQR(pos0.x2-gr->x2)+SQR(pos0.x3-gr->x3));
       dv = sqrt(SQR(vel0.x1-gr->v1)+SQR(vel0.x2-gr->v2)+SQR(vel0.x3-gr->v3));
+      r0 = sqrt(SQR(pos0.x1-x1c)+SQR(pos0.x2-x2c)+SQR(pos0.x3-x3c));
+      r1 = sqrt(SQR(gr->x1-x1c)+SQR(gr->x2-x2c)+SQR(gr->x3-x3c));
+      dr = r1-r0;
 
       fid = fopen(name,"a+");
-      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e	%e\n", t, ds, dv, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
+//      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e	%e\n", t, ds, dv, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
+      fprintf(fid,"%e   %e      %e\n", t, ds, dr);
       fclose(fid);
     }
   }

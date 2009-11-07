@@ -394,9 +394,9 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
 }
 
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
+                                    const Real v1, const Real v2, const Real v3)
 {
-  *w3 -= etavk;
+  ft->x1 -= 2.0*etavk*Omega_0;
   return;
 }
 #endif

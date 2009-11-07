@@ -161,8 +161,8 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->particle[p].x1 = x1p;
             pGrid->particle[p].x2 = x2p;
             if (samp == 1)
-                pGrid->particle[p].x2 += (-amp*sin(ky*x2p)
-                                          + 0.5*SQR(amp)*sin(2.0*ky*x2p))/ky;
+                pGrid->particle[p].x2 += (-amp*sin(ky*x2p));
+//                                          + 0.5*SQR(amp)*sin(2.0*ky*x2p))/ky;
             pGrid->particle[p].x3 = x3p;
 
             pGrid->particle[p].v1 = -v1x*sin(ky*x2p);
@@ -294,7 +294,7 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
 }
 
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
+                                    const Real v1, const Real v2, const Real v3)
 {
   return;
 }
@@ -344,12 +344,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
     fprintf(fid,"%f	",x2);
     fprintf(fid,"%e	",pGrid->U[ks][j][is].d-1.0);
 #ifdef PARTICLES
-    fprintf(fid,"%e	%e	",pG->Coup[ks][j][is].grid_d-1.0,
-                        pG->Coup[ks][j][is].grid_d-pGrid->U[ks][j][is].d);
+    fprintf(fid,"%e	%e	",pGrid->Coup[ks][j][is].grid_d-1.0,
+                        pGrid->Coup[ks][j][is].grid_d-pGrid->U[ks][j][is].d);
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
       fprintf(fid,"%e	%e	",pGrid->U[ks][j][is].s[n]-1.0,
-                        pG->Coup[ks][j][is].grid_d-pGrid->U[ks][j][is].s[n]);
+                        pGrid->Coup[ks][j][is].grid_d-pGrid->U[ks][j][is].s[n]);
 #endif
 #endif
     fprintf(fid,"\n");

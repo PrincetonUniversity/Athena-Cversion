@@ -472,11 +472,11 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
 }
 
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
+                                    const Real v1, const Real v2, const Real v3)
 {
   Real z,fac;
 
-  *w3 -= vsc1 + vsc2*SQR(x2);
+  ft->x1 -= (vsc1 + vsc2*SQR(x2))*Omega_0;
 
   if(x2 > x2max)
     z = x2-Lz;

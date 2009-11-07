@@ -264,7 +264,7 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
 }
 
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
+                                    const Real v1, const Real v2, const Real v3)
 {
   return;
 }
@@ -348,8 +348,6 @@ static Vector ParticleTroj(Real t)
   Vector pos;
   Real L1,L2,L3;
   Real factor=tstop0[0]/(1.0+mratio)*(1.0-exp(-(1.0+mratio)*t/tstop0[0]));
-#endif /* SHEARING_BOX */
-
 
   pos.x1 = x0[0] + wx*factor;
   pos.x2 = x0[1] + wy*factor;

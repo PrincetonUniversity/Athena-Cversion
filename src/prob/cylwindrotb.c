@@ -239,25 +239,6 @@ VGFunout_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-#ifdef PARTICLES
-PropFun_t get_usr_par_prop(const char *name)
-{
-  return NULL;
-}
-
-void gasvshift(const Real x1, const Real x2, const Real x3,
-                                    Real *u1, Real *u2, Real *u3)
-{
-  return;
-}
-
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
-{
-  return;
-}
-#endif
-
 void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 //   printf("Max divB = %1.10e\n", compute_div_b(pGrid));

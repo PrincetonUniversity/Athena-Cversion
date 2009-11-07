@@ -94,7 +94,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[par_epicycle]: This test only allows ONE particle species!\n");
 
 /* particle stopping time */
-  tstop0 = par_getd_def("problem","tstop",1.0e20); /* in code unit */
+  tstop0[0] = par_getd_def("problem","tstop",1.0e20); /* in code unit */
   if (par_geti("particle","tsmode") != 3)
     ath_error("[par_epicycle]: This test only allows fixed stopping time!\n");
 
@@ -222,7 +222,7 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
 }
 
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                          Real *w1, Real *w2, Real *w3)
+                                    const Real v1, const Real v2, const Real v3)
 {
   return;
 }
@@ -260,8 +260,7 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 
       /* output */
       fid = fopen(name,"a+");
-      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e
-	%e\n", t, ds, E, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
+      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e	%e\n", t, ds, E, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
       fclose(fid);
     }
   }
