@@ -487,7 +487,7 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
 {
   Real z,fac;
 
-  *ft->x1 -= (vsc1 + vsc2*SQR(x3))*Omega_0;
+  ft->x1 -= 2.0*(vsc1 + vsc2*SQR(x3))*Omega_0;
 
   if(x3 > x3max)
     z = x3-Lz;
