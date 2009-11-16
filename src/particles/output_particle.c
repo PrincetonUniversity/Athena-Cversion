@@ -44,11 +44,9 @@
 
 #ifdef PARTICLES         /* endif at the end of the file */
 
-
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   expr_*
- *   property_all
  *============================================================================*/
 
 Real expr_dpar (const Grid *pG, const int i, const int j, const int k);
@@ -58,7 +56,6 @@ Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
-int property_all(Grain *gr);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -100,7 +97,7 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
   for (p=0; p<pG->nparticle; p++) {
     gr = &(pG->particle[p]);
     /* judge if the particle should be selected */
-    if ((*par_prop)(gr)) {/* 1: true; 0: false */
+    if ((*par_prop)(gr, &(pG->parsub[p]))) {/* 1: true; 0: false */
 
       getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
 
@@ -178,10 +175,26 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;
   else                 cell1.x3 = 0.0;
 
+  /* update the particle auxilary array */
+  for (p=0; p<pG->nparticle; p++)
+  {
+    gr = &(pG->particle[p]);
+
+    /* get the local particle density */
+    getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
+#ifdef FEEDBACK
+    h = getvalues(pG, weight, is, js, ks, &dpar,&u1,&u2,&u3,&cs,&stiffness);
+#else
+    h = getvalues(pG, weight, is, js, ks, &dpar, &u1, &u2, &u3, &cs);
+#endif
+
+    pG->parsub[p].dpar = dpar;
+  }
+
   /* find out how many particles is to be output */
   nout = 0;
   for (p=0; p<pG->nparticle; p++)
-    if ((*(pOut->par_prop))(&(pG->particle[p]))) /* 1: true; 0: false */
+    if ((*(pOut->par_prop))(&(pG->particle[p]), &(pG->parsub[p])))
       nout += 1;
 
 /* write the basic information */
@@ -225,15 +238,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   for (p=0; p<pG->nparticle; p++)
   {
     gr = &(pG->particle[p]);
-    if ((*(pOut->par_prop))(gr)) { /* 1: true; 0: false */
-
-      /* get the local particle density */
-      getweight(pG, gr->x1, gr->x2, gr->x3, cell1, weight, &is, &js, &ks);
-#ifdef FEEDBACK
-      h = getvalues(pG, weight, is, js, ks, &dpar,&u1,&u2,&u3,&cs,&stiffness);
-#else
-      h = getvalues(pG, weight, is, js, ks, &dpar, &u1, &u2, &u3, &cs);
-#endif
+    if ((*(pOut->par_prop))(gr,&(pG->parsub[p]))) { /* 1: true; 0: false */
 
       /* collect data */
       fdata[0] = (float)(gr->x1);
@@ -243,7 +248,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
       fdata[4] = (float)(gr->v2);
       fdata[5] = (float)(gr->v3);
 //      fdata[6] = (float)(pG->grproperty[gr->property].rad);
-      fdata[6] = (float)(dpar);
+      fdata[6] = (float)(pG->parsub[p].dpar);
       my_id = gr->my_id;
 #ifdef MPI_PARALLEL
       init_id = gr->init_id;
@@ -267,7 +272,7 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 /* default choice for binning particles to the grid: 
  * All the particles are binned, return true for any value.
  */
-int property_all(Grain *gr)
+int property_all(const Grain *gr, const GrainAux *grsub)
 {
   return 1;  /* always true */
 }

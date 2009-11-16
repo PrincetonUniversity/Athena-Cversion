@@ -66,14 +66,13 @@ char name[50];
  * ShearingBoxPot()  - shearing box tidal gravitational potential
  * pert_???()        - perturbation wave form for linear growth rate test
  * property_mybin()  - particle property selection function
- * property_???()    - particle property selection function
  *============================================================================*/
 double ran2(long int *idum);
 void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 static Real pert_even(Real fR, Real fI, Real x, Real z, Real t);
 static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t);
-static int property_mybin(Grain *gr);
+static int property_mybin(const Grain *gr, const GrainAux *grsub);
 extern Real expr_V3(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
@@ -609,7 +608,7 @@ static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_mybin(Grain *gr)
+static int property_mybin(const Grain *gr, const GrainAux *grsub)
 {
   long a,b,c,d,e,ds,sp;
 

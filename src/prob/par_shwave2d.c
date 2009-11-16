@@ -33,7 +33,7 @@ int Nx12;
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 #ifdef PARTICLES
 int GetPosition(Grain *gr);
-static int property_mybin(Grain *gr);
+static int property_mybin(const Grain *gr, const GrainAux *grsub);
 extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
 #endif
 
@@ -385,7 +385,7 @@ int GetPosition(Grain *gr)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_mybin(Grain *gr)
+static int property_mybin(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->my_id<Nx12) && (gr->pos == 1))
     return 1;

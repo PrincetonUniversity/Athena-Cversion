@@ -55,6 +55,7 @@ long Npar;
 long ntrack;   /* number of tracer particles */
 long nlis;     /* number of output particles for list output */
 int mytype;    /* specific particle type for output */
+Real dpar_thresh; /* threshold particle density */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -77,9 +78,10 @@ static void close_ix2(Grid *pGrid);
 static void close_ox2(Grid *pGrid);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 
-static int property_limit(Grain *gr);
-static int property_trace(Grain *gr);
-static int property_type(Grain *gr);
+static int property_limit(const Grain *gr, const GrainAux *grsub);
+static int property_trace(const Grain *gr, const GrainAux *grsub);
+static int property_type(const Grain *gr, const GrainAux *grsub);
+static int property_dense(const Grain *gr, const GrainAux *grsub);
 
 extern Real expr_dpar(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
@@ -328,6 +330,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   /* set the number of particles to keep track of */
   ntrack = par_geti_def("problem","ntrack",2000);
 
+  /* set the threshold particle density */
+  dpar_thresh = par_geti_def("problem","dpar_thresh",10.0);
+
   /* set vertical boundary conditions (by default, periodic) */
   vertical_bc = par_geti_def("problem","vertical_bc",0);
 
@@ -539,7 +544,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_limit(Grain *gr)
+static int property_limit(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<nlis))
     return 1;
@@ -548,7 +553,7 @@ static int property_limit(Grain *gr)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_trace(Grain *gr)
+static int property_trace(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<ntrack))
     return 1;
@@ -557,9 +562,18 @@ static int property_trace(Grain *gr)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_type(Grain *gr)
+static int property_type(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->property == mytype))
+    return 1;
+  else
+    return 0;
+}
+
+/* user defined particle selection function (1: true; 0: false) */
+static int property_dense(const Grain *gr, const GrainAux *grsub)
+{
+  if ((gr->pos == 1) && (grsub->dpar > dpar_thresh))
     return 1;
   else
     return 0;

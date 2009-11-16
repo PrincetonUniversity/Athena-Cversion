@@ -88,6 +88,9 @@ void init_particle(Grid *pG, Domain *pD)
   pG->particle = (Grain*)calloc_1d_array(pG->arrsize, sizeof(Grain));
   if (pG->particle == NULL) goto on_error;
 
+  pG->parsub   = (GrainAux*)calloc_1d_array(pG->arrsize, sizeof(GrainAux));
+  if (pG->parsub == NULL) goto on_error;
+
 /* allocate memory for particle properties */
   pG->grproperty = (Grain_Property*)calloc_1d_array(pG->partypes,
                                                     sizeof(Grain_Property));
@@ -157,6 +160,7 @@ void init_particle(Grid *pG, Domain *pD)
 void particle_destruct(Grid *pG)
 {
   free_1d_array(pG->particle);
+  free_1d_array(pG->parsub);
 
   free_1d_array(pG->grproperty);
   free_1d_array(grrhoa);
@@ -174,8 +178,17 @@ void particle_realloc(Grid *pG, long n)
 {
   pG->arrsize = MAX((long)(1.2*pG->arrsize), n);
 
+  /* for the main particle array */
   if ((pG->particle = (Grain*)realloc(pG->particle,
                                       pG->arrsize*sizeof(Grain))) == NULL)
+  {
+    ath_error("[init_particle]: Error re-allocating memory with array size\
+ %ld.\n", n);
+  }
+
+  /* for the auxilary array */
+  if ((pG->parsub = (GrainAux*)realloc(pG->parsub,
+                                      pG->arrsize*sizeof(GrainAux))) == NULL)
   {
     ath_error("[init_particle]: Error re-allocating memory with array size\
  %ld.\n", n);

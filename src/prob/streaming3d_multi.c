@@ -74,9 +74,9 @@ static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
 
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
 
-static int property_limit(Grain *gr);
-static int property_trace(Grain *gr);
-static int property_type(Grain *gr);
+static int property_limit(const Grain *gr, const GrainAux *grsub);
+static int property_trace(const Grain *gr, const GrainAux *grsub);
+static int property_type(const Grain *gr, const GrainAux *grsub);
 
 extern Real expr_dpar(const Grid *pG, const int i, const int j, const int k);
 extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
@@ -451,7 +451,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_limit(Grain *gr)
+static int property_limit(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<nlis))
     return 1;
@@ -460,7 +460,7 @@ static int property_limit(Grain *gr)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_trace(Grain *gr)
+static int property_trace(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<ntrack))
     return 1;
@@ -469,7 +469,7 @@ static int property_trace(Grain *gr)
 }
 
 /* user defined particle selection function (1: true; 0: false) */
-static int property_type(Grain *gr)
+static int property_type(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->property == mytype))
     return 1;

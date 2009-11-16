@@ -281,7 +281,6 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 #else
              Real *rho, Real *u1,  Real *u2, Real *u3, Real *cs, Real *stiff
 #endif
-
 ){
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
   Real D, v1, v2, v3;		/* density and velocity of the fluid */

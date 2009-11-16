@@ -922,7 +922,7 @@ void advect_particles(Grid *pG, Domain *pD)
   /* shift the particles */
   for (p=0; p<pG->nparticle; p++) {
     cur = &(pG->particle[p]);
-    cur->x2 = x2min + fmod(cur->x2 + cur->shift - x2min + Lx2, Lx2);
+    cur->x2 = x2min + fmod(cur->x2 + pG->parsub[p].shift - x2min + Lx2, Lx2);
   }
 
 #ifdef MPI_PARALLEL

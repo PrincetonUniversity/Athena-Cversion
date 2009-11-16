@@ -136,7 +136,7 @@ void Integrate_Particles(Grid *pG, Domain *pD)
 
 #ifdef FARGO
     /* shift = -qshear * Omega_0 * x * dt */
-    curG->shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
+    pG->parsub[p].shift = -0.5*qshear*Omega_0*(curG->x1+curP->x1)*pG->dt;
 #endif
 
     /* special treatment for integrator #4 */

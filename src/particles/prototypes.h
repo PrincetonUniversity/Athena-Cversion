@@ -59,7 +59,7 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
 /* output_particle.c */
 void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop);
 void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut);
-int  property_all(Grain *gr);
+int  property_all(const Grain *gr, const GrainAux *grsub);
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals_particle.c */
