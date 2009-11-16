@@ -136,7 +136,7 @@ typedef struct Prim1D_s{
 
 #ifdef PARTICLES
 
-/* Physical quantities of a grain particle */
+/* Physical quantities of a dust particle */
 typedef struct Grain_s{
   Real x1,x2,x3;	/* coordinate in X,Y,Z */
   Real v1,v2,v3;	/* velocity in X,Y,Z */
@@ -150,6 +150,14 @@ typedef struct Grain_s{
   Real shift;		/* amount of shift in x2 direction */
 #endif
 }Grain;
+
+/* Auxilary quantities for a dust particle */
+typedef struct GrainAux_s{
+  Real dpar;            /* local particle density */
+#ifdef FARGO
+  Real shift;           /* amount of shift in x2 direction */
+#endif
+}GrainAux;
 
 /* List of physical grain properties */
 typedef struct Grain_Property_s{
@@ -223,6 +231,7 @@ typedef struct Grid_s{
   long nparticle;            /* number of particles */
   long arrsize;              /* size of the particle array */
   Grain *particle;           /* array of all particles */
+  GrainAux *parsub;          /* supplemental particle information */
   GPCouple ***Coup;          /* array of gas-particle coupling */
 #endif /* PARTICLES */
 
@@ -262,7 +271,7 @@ struct Output_s;
 typedef void (*VGFunout_t)(Grid *pGrid, Domain *pD, struct Output_s *pout);
 typedef Real (*Gasfun_t)(const Grid *pG, const int i, const int j, const int k);
 #ifdef PARTICLES
-typedef int (*PropFun_t)(Grain *gr);
+typedef int (*PropFun_t)(const Grain *gr, const GrainAux *grsub);
 typedef Real (*Parfun_t)(const Grid *pG, const Grain *gr);
 #endif
 
