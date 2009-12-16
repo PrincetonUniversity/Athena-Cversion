@@ -6,6 +6,8 @@
  *   the initial conditions to minimize grid noise is very complex, so this
  *   special function has been written to handle only 3D problems.
  *
+ * This problem cannot be run with Static Mesh Refinement.
+ *
  * This code is most easily understood in terms of a one dimensional
  * problem in the coordinate system (x1,x2,x3).  Two coordinate rotations are
  * applied to obtain a new wave vector in a 3D space in the (x,y,z)
@@ -67,6 +69,10 @@
 #include "globals.h"
 #include "prototypes.h"
 
+#ifdef STATIC_MESH_REFINEMENT
+#error The shkset3d test does not work with SMR.
+#endif
+
 /* Parameters which define initial solution -- made global so that they can be
  * shared with all private functions in this file */
 
@@ -96,12 +102,12 @@ static  Real Pl, Pr;
  * Az() - z-component of vector potential for initial conditions
  *============================================================================*/
 
-static void lx_bc(Grid *pG);
-static void rx_bc(Grid *pG);
-static void ly_bc(Grid *pG);
-static void ry_bc(Grid *pG);
-static void lz_bc(Grid *pG);
-static void rz_bc(Grid *pG);
+static void lx_bc(GridS *pG);
+static void rx_bc(GridS *pG);
+static void ly_bc(GridS *pG);
+static void ry_bc(GridS *pG);
+static void lz_bc(GridS *pG);
+static void rz_bc(GridS *pG);
 static Real Ax(const Real x1, const Real x2, const Real x3);
 static Real Ay(const Real x1, const Real x2, const Real x3);
 static Real Az(const Real x1, const Real x2, const Real x3);
@@ -110,12 +116,11 @@ static Real Az(const Real x1, const Real x2, const Real x3);
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
-
+  GridS *pGrid = pDomain->Grid;
   int n;
   int i, j, k, ix, jx, kx, mix, mjx, mkx;
-  int ie = pGrid->ie, je = pGrid->je, ke = pGrid->ke;
 
   int Nx1, Nx2, Nx3; /* Complete Grid dimensions */
   int sx, sy, sz; /* Number of unit cells in each direction */
@@ -147,13 +152,14 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /*--- Step 1 -------------------------------------------------------------------
  * Read initial conditions, check that inputs are within valid range, allocate
- * memory for arrays
+ * memory for arrays.  We know this Domain must be the root Grid, since this
+ * problem generator does not work with SMR.
  */
 
-  Nx1 = par_geti("grid","Nx1");
-  Nx2 = par_geti("grid","Nx2");
-  Nx3 = par_geti("grid","Nx3");
-  if(Nx1 <= 0 || Nx2 <= 0 || Nx3 <= 0)
+  Nx1 = pDomain->Nx[0];
+  Nx2 = pDomain->Nx[1];
+  Nx3 = pDomain->Nx[2];
+  if(pDomain->Nx[2] <= 0)
     ath_error("[get_set_input]: This problem assumes a 3D domain\n");
 
 /* Get dimensions of unit cell, check that total grid size is an integer number
@@ -290,8 +296,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* qa_max_ix comes from calculating x=0 at jx=0, kx=0 */
 /* qa_max_ix - qa_min_ix = 2*rx! */
 
-  d_ix = -pGrid->x1_0/pGrid->dx1 - rx*(pGrid->x2_0/(ry*pGrid->dx2) 
-    + pGrid->x3_0/(rz*pGrid->dx3));
+  d_ix = -pGrid->x1min/pGrid->dx1 - rx*(pGrid->x2min/(ry*pGrid->dx2) 
+    + pGrid->x3min/(rz*pGrid->dx3));
   qa_max_ix = ceil(d_ix);
   qa_min_ix = qa_max_ix - rx - rx;
 
@@ -338,9 +344,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif /* MHD */
 
 /* Calculate the Position of the left-most corner of the sqa and qa grids. */
-  sp0_x1 = pGrid->x1_0 + qa_min_ix*pGrid->dx1;
-  sp0_x2 = pGrid->x2_0 + qa_min_jx*pGrid->dx2;
-  sp0_x3 = pGrid->x3_0 + qa_min_kx*pGrid->dx3;
+  sp0_x1 = pGrid->x1min + qa_min_ix*pGrid->dx1;
+  sp0_x2 = pGrid->x2min + qa_min_jx*pGrid->dx2;
+  sp0_x3 = pGrid->x3min + qa_min_kx*pGrid->dx3;
 
 /*--- Step 3 -------------------------------------------------------------------
  * First, initialize the interface magnetic fields in sqa
@@ -602,17 +608,17 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Now initialize variables over the whole grid
  */
 
-  for (k=0; k<=ke+nghost; k++) {
-    for (j=0; j<=je+nghost; j++) {
-      for (i=0; i<=ie+nghost; i++) {
+  for (k=0; k<=(pGrid->ke)+nghost; k++) {
+    for (j=0; j<=(pGrid->je)+nghost; j++) {
+      for (i=0; i<=(pGrid->ie)+nghost; i++) {
 
 /* Calculate the coordinate of this fluid element and the mapped coordinate to
  * the equivalent fluid element on the interval (0 < iy <= ry) and
  * (0 < iz <= rz). */
 
-	mix = ix = i + pGrid->idisp;
-	mjx = jx = j + pGrid->jdisp;
-	mkx = kx = k + pGrid->kdisp;
+	mix = ix = (i-(pGrid->is)) + pGrid->Disp[0];
+	mjx = jx = (j-(pGrid->js)) + pGrid->Disp[1];
+	mkx = kx = (k-(pGrid->ks)) + pGrid->Disp[2];
 
 	n=0;
 	while(mjx < 0){
@@ -682,12 +688,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * set function pointers for BCs, and conclude
  */
 
-  set_bvals_mhd_fun(left_x1, lx_bc);
-  set_bvals_mhd_fun(right_x1, rx_bc);
-  set_bvals_mhd_fun(left_x2, ly_bc);
-  set_bvals_mhd_fun(right_x2, ry_bc);
-  set_bvals_mhd_fun(left_x3, lz_bc);
-  set_bvals_mhd_fun(right_x3, rz_bc);
+  set_bvals_mhd_fun(pDomain, left_x1,  lx_bc);
+  set_bvals_mhd_fun(pDomain, right_x1, rx_bc);
+  set_bvals_mhd_fun(pDomain, left_x2,  ly_bc);
+  set_bvals_mhd_fun(pDomain, right_x2, ry_bc);
+  set_bvals_mhd_fun(pDomain, left_x3,  lz_bc);
+  set_bvals_mhd_fun(pDomain, right_x3, rz_bc);
 
   free_3d_array((void***)sqa );  sqa  = NULL;
 #ifdef MHD
@@ -711,31 +717,31 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM,FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
@@ -746,7 +752,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * lx_bc: apply boundary condition in left-x direction
  */
 
-static void lx_bc(Grid *pG)
+static void lx_bc(GridS *pG)
 {
   int i, j, k, mi, mj, mk, is, js, je, ks, ke;
   is = pG->is;
@@ -786,7 +792,7 @@ static void lx_bc(Grid *pG)
  * rx_bc: apply boundary condition in right-x direction
  */
 
-static void rx_bc(Grid *pG)
+static void rx_bc(GridS *pG)
 {
   int i, j, k, mi, mj, mk, ie, js, je, ks, ke;
   ie = pG->ie;
@@ -826,7 +832,7 @@ static void rx_bc(Grid *pG)
  * ly_bc: apply boundary condition in left-y direction
  */
 
-static void ly_bc(Grid *pG)
+static void ly_bc(GridS *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, js, ks, ke;
   is = pG->is; ie = pG->ie;
@@ -866,7 +872,7 @@ static void ly_bc(Grid *pG)
  * ry_bc: apply boundary condition in right-y direction
  */
 
-static void ry_bc(Grid *pG)
+static void ry_bc(GridS *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, je, ks, ke;
   is = pG->is; ie = pG->ie;
@@ -906,7 +912,7 @@ static void ry_bc(Grid *pG)
  * lz_bc: apply boundary condition in left-z direction
  */
 
-static void lz_bc(Grid *pG)
+static void lz_bc(GridS *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, js, je, ks;
   is = pG->is; ie = pG->ie;
@@ -946,7 +952,7 @@ static void lz_bc(Grid *pG)
  * rz_bc: apply boundary condition in right-z direction
  */
 
-static void rz_bc(Grid *pG)
+static void rz_bc(GridS *pG)
 {
   int i, j, k, mi, mj, mk, is, ie, js, je, ke;
   is = pG->is; ie = pG->ie;

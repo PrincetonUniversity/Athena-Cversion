@@ -89,17 +89,18 @@ static Real **remapEyiib=NULL, **remapEyoib=NULL;
  *============================================================================*/
 
 #ifdef MHD
-static void integrate_emf1_corner(const Grid *pG);
-static void integrate_emf2_corner(const Grid *pG);
-static void integrate_emf3_corner(const Grid *pG);
+static void integrate_emf1_corner(const GridS *pG);
+static void integrate_emf2_corner(const GridS *pG);
+static void integrate_emf3_corner(const GridS *pG);
 #endif /* MHD */
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
 
-void integrate_3d(Grid *pG, Domain *pD)
+void integrate_3d(DomainS *pD)
 {
+  GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
   int i,il,iu, is = pG->is, ie = pG->ie;
@@ -139,6 +140,10 @@ void integrate_3d(Grid *pG, Domain *pD)
   Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
   Real fact, qom, om_dt = Omega_0*pG->dt;
 #endif /* SHEARING_BOX */
+#ifdef STATIC_MESH_REFINEMENT
+  int ncg,npg,dim;
+  int ii,ics,ice,jj,jcs,jce,kk,kcs,kce,ips,ipe,jps,jpe,kps,kpe;
+#endif
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
@@ -1989,15 +1994,15 @@ void integrate_3d(Grid *pG, Domain *pD)
 
 /* Remap Ey at is and ie+1 to conserve Bz in shearing box */
 #ifdef SHEARING_BOX
-    get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
+    get_myGridIndex(pD, pG->myProcID, &my_iproc, &my_jproc, &my_kproc);
 
 /* compute remapped Ey from opposite side of grid */
 
     if (my_iproc == 0) {
-      RemapEy_ix1(pG, pD, emf2, remapEyiib);
+      RemapEy_ix1(pD, emf2, remapEyiib);
     }
-    if (my_iproc == (pD->NGrid_x1-1)) {
-      RemapEy_ox1(pG, pD, emf2, remapEyoib);
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      RemapEy_ox1(pD, emf2, remapEyoib);
     }
 
 /* Now average Ey and remapped Ey */
@@ -2010,7 +2015,7 @@ void integrate_3d(Grid *pG, Domain *pD)
       }
     }
 
-    if (my_iproc == (pD->NGrid_x1-1)) {
+    if (my_iproc == (pD->NGrid[0]-1)) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++){
           emf2[k][j][ie+1]  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
@@ -2371,6 +2376,7 @@ void integrate_3d(Grid *pG, Domain *pD)
 #ifndef BAROTROPIC
       pG->U[k][j][i].E += pG->Coup[k][j][i].Eloss;
       pG->Coup[k][j][i].Eloss *= dt1; /* for history output purpose */
+      pG->Eloss[k][j][i] *= dt1; /* for history output purpose */
 #endif
     }
 #endif
@@ -2447,7 +2453,6 @@ void integrate_3d(Grid *pG, Domain *pD)
   }
 
 /*--- Step 12d -----------------------------------------------------------------
- * LAST STEP!
  * Set cell centered magnetic fields to average of updated face centered fields.
  */
 
@@ -2463,7 +2468,419 @@ void integrate_3d(Grid *pG, Domain *pD)
   }
 #endif /* MHD */
 
+#ifdef STATIC_MESH_REFINEMENT
+/*--- Step 12e -----------------------------------------------------------------
+ * With SMR, store fluxes at boundaries of child and parent grids.  */
+/* Loop over all child grids ------------------*/
+
+  for (ncg=0; ncg<pG->NCGrid; ncg++) {
+
+/* x1-boundaries of child Grids (interior to THIS Grid) */
+
+    for (dim=0; dim<2; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->CGrid[ncg].ijks[0];
+        if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
+        jcs = pG->CGrid[ncg].ijks[1];
+        jce = pG->CGrid[ncg].ijke[1];
+        kcs = pG->CGrid[ncg].ijks[2];
+        kce = pG->CGrid[ncg].ijke[2];
+
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (j=jcs, jj=0; j<=jce; j++, jj++){
+            pG->CGrid[ncg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d; 
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx; 
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz; 
+#ifndef BAROTROPIC
+            pG->CGrid[ncg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B1c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By; 
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n]; 
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kcs, kk=0; k<=kce+1; k++, kk++){
+          for (j=jcs, jj=0; j<=jce; j++, jj++){
+            pG->CGrid[ncg].myEMF2[dim][kk][jj] = emf2[k][j][i];
+          }
+        }
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (j=jcs, jj=0; j<=jce+1; j++, jj++){
+            pG->CGrid[ncg].myEMF3[dim][kk][jj] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x2-boundaries of child Grids (interior to THIS Grid) */
+
+    for (dim=2; dim<4; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        ics = pG->CGrid[ncg].ijks[0];
+        ice = pG->CGrid[ncg].ijke[0];
+        if (dim==2) j = pG->CGrid[ncg].ijks[1];
+        if (dim==3) j = pG->CGrid[ncg].ijke[1] + 1;
+        kcs = pG->CGrid[ncg].ijks[2];
+        kce = pG->CGrid[ncg].ijke[2];
+
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d; 
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz; 
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My; 
+#ifndef BAROTROPIC
+            pG->CGrid[ncg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz; 
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B2c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n]; 
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kcs, kk=0; k<=kce+1; k++, kk++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myEMF1[dim][kk][ii] = emf1[k][j][i];
+          }
+        }
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (i=ics, ii=0; i<=ice+1; i++, ii++){
+            pG->CGrid[ncg].myEMF3[dim][kk][ii] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x3-boundaries of child Grids (interior to THIS Grid) */
+
+    for (dim=4; dim<6; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        ics = pG->CGrid[ncg].ijks[0];
+        ice = pG->CGrid[ncg].ijke[0];
+        jcs = pG->CGrid[ncg].ijks[1];
+        jce = pG->CGrid[ncg].ijke[1];
+        if (dim==4) k = pG->CGrid[ncg].ijks[2];
+        if (dim==5) k = pG->CGrid[ncg].ijke[2] + 1;
+
+        for (j=jcs, jj=0; j<=jce; j++, jj++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d; 
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My; 
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx; 
+#ifndef BAROTROPIC
+            pG->CGrid[ncg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By; 
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz; 
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B3c = 0.0;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n]; 
+#endif
+          }
+        }
+#ifdef MHD
+        for (j=jcs, jj=0; j<=jce+1; j++, jj++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myEMF1[dim][jj][ii] = emf1[k][j][i];
+          }
+        }
+        for (j=jcs, jj=0; j<=jce; j++, jj++){
+          for (i=ics, ii=0; i<=ice+1; i++, ii++){
+            pG->CGrid[ncg].myEMF2[dim][jj][ii] = emf2[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+  } /* end loop over child Grids */
+
+/* Loop over all parent grids ------------------*/
+
+  for (npg=0; npg<pG->NPGrid; npg++) {
+
+/* x1-boundaries of parent Grids (at boundaries of THIS Grid)  */
+
+    for (dim=0; dim<2; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->PGrid[npg].ijks[0];
+        if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
+        jps = pG->PGrid[npg].ijks[1];
+        jpe = pG->PGrid[npg].ijke[1];
+        kps = pG->PGrid[npg].ijks[2];
+        kpe = pG->PGrid[npg].ijke[2];
+
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (j=jps, jj=0; j<=jpe; j++, jj++){
+            pG->PGrid[npg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d; 
+            pG->PGrid[npg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx; 
+            pG->PGrid[npg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz; 
+#ifndef BAROTROPIC
+            pG->PGrid[npg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->PGrid[npg].myFlx[dim][kk][jj].B1c = 0.0;
+            pG->PGrid[npg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By; 
+            pG->PGrid[npg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n]; 
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kps, kk=0; k<=kpe+1; k++, kk++){
+          for (j=jps, jj=0; j<=jpe; j++, jj++){
+            pG->PGrid[npg].myEMF2[dim][kk][jj] = emf2[k][j][i];
+          }
+        }
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (j=jps, jj=0; j<=jpe+1; j++, jj++){
+            pG->PGrid[npg].myEMF3[dim][kk][jj] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x2-boundaries of parent Grids (at boundaries of THIS Grid)  */
+
+    for (dim=2; dim<4; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        ips = pG->PGrid[npg].ijks[0];
+        ipe = pG->PGrid[npg].ijke[0];
+        if (dim==2) j = pG->PGrid[npg].ijks[1];
+        if (dim==3) j = pG->PGrid[npg].ijke[1] + 1;
+        kps = pG->PGrid[npg].ijks[2];
+        kpe = pG->PGrid[npg].ijke[2];
+
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d; 
+            pG->PGrid[npg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz; 
+            pG->PGrid[npg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My; 
+#ifndef BAROTROPIC
+            pG->PGrid[npg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->PGrid[npg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz; 
+            pG->PGrid[npg].myFlx[dim][kk][ii].B2c = 0.0;
+            pG->PGrid[npg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n]; 
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kps, kk=0; k<=kpe+1; k++, kk++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myEMF1[dim][kk][ii] = emf1[k][j][i];
+          }
+        }
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (i=ips, ii=0; i<=ipe+1; i++, ii++){
+            pG->PGrid[npg].myEMF3[dim][kk][ii] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x3-boundaries of parent Grids (at boundaries of THIS Grid)  */
+
+    for (dim=4; dim<6; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        ips = pG->PGrid[npg].ijks[0];
+        ipe = pG->PGrid[npg].ijke[0];
+        jps = pG->PGrid[npg].ijks[1];
+        jpe = pG->PGrid[npg].ijke[1];
+        if (dim==4) k = pG->PGrid[npg].ijks[2];
+        if (dim==5) k = pG->PGrid[npg].ijke[2] + 1;
+
+        for (j=jps, jj=0; j<=jpe; j++, jj++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d; 
+            pG->PGrid[npg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My; 
+            pG->PGrid[npg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx; 
+#ifndef BAROTROPIC
+            pG->PGrid[npg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->PGrid[npg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By; 
+            pG->PGrid[npg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz; 
+            pG->PGrid[npg].myFlx[dim][jj][ii].B3c = 0.0;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n]; 
+#endif
+          }
+        }
+#ifdef MHD
+        for (j=jps, jj=0; j<=jpe+1; j++, jj++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myEMF1[dim][jj][ii] = emf1[k][j][i];
+          }
+        }
+        for (j=jps, jj=0; j<=jpe; j++, jj++){
+          for (i=ips, ii=0; i<=ipe+1; i++, ii++){
+            pG->PGrid[npg].myEMF2[dim][jj][ii] = emf2[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+  }
+
+#endif /* STATIC_MESH_REFINEMENT */
   return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* integrate_init_3d: Allocate temporary integration arrays 
+*/
+
+void integrate_init_3d(MeshS *pM)
+{
+  int nmax,size1=0,size2=0,size3=0,nl,nd;
+
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[2] > size3){
+          size3 = pM->Domain[nl][nd].Grid->Nx[2];
+        }
+      }
+    }
+  }
+
+  size1 = size1 + 2*nghost;
+  size2 = size2 + 2*nghost;
+  size3 = size3 + 2*nghost;
+  nmax = MAX((MAX(size1,size2)),size3);
+
+#ifdef MHD
+  if ((emf1 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf2 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf3 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+
+  if ((emf1_cc=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf2_cc=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf3_cc=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+#endif /* MHD */
+#ifdef H_CORRECTION
+  if ((eta1 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((eta2 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((eta3 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+#endif /* H_CORRECTION */
+
+#ifdef MHD
+  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+
+  if ((B1_x1Face = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
+    == NULL) goto on_error;
+  if ((B2_x2Face = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
+    == NULL) goto on_error;
+  if ((B3_x3Face = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
+    == NULL) goto on_error;
+#endif /* MHD */
+
+  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+
+  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((x1Flux    = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((x2Flux    = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+  if ((x3Flux    = (Cons1D***)calloc_3d_array(size3,size2,size1,sizeof(Cons1D)))
+    == NULL) goto on_error;
+
+#ifndef MHD
+#ifndef PARTICLES
+  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
+#endif
+#endif
+  {
+  if ((dhalf = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((phalf = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  }
+
+#ifdef SHEARING_BOX
+  if ((remapEyiib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEyoib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    goto on_error;
+#endif
+
+  return;
+
+  on_error:
+    integrate_destruct();
+    ath_error("[integrate_init]: malloc returned a NULL pointer\n");
 }
 
 /*----------------------------------------------------------------------------*/
@@ -2519,105 +2936,6 @@ void integrate_destruct_3d(void)
   return;
 }
 
-/*----------------------------------------------------------------------------*/
-/* integrate_init_3d: Allocate temporary integration arrays 
-*/
-
-void integrate_init_3d(int nx1, int nx2, int nx3)
-{
-  int nmax;
-  int Nx1 = nx1 + 2*nghost;
-  int Nx2 = nx2 + 2*nghost;
-  int Nx3 = nx3 + 2*nghost;
-  nmax = MAX(MAX(Nx1,Nx2),Nx3);
-
-#ifdef MHD
-  if ((emf1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf1_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf2_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf3_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* MHD */
-#ifdef H_CORRECTION
-  if ((eta1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((eta2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((eta3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* H_CORRECTION */
-
-#ifdef MHD
-  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-
-  if ((B1_x1Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((B2_x2Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((B3_x3Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* MHD */
-
-  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-
-  if ((Ul_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
-    == NULL) goto on_error;
-  if ((Ur_x1Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
-    == NULL) goto on_error;
-  if ((Ul_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
-    == NULL) goto on_error;
-  if ((Ur_x2Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D)))
-    == NULL) goto on_error;
-  if ((Ul_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((Ur_x3Face = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-
-#ifndef MHD
-#ifndef PARTICLES
-  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
-#endif
-#endif
-  {
-  if ((dhalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((phalf = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  }
-
-#ifdef SHEARING_BOX
-  if ((remapEyiib = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEyoib = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
-    goto on_error;
-#endif
-
-  return;
-
-  on_error:
-  integrate_destruct();
-  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
-}
-
-
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
@@ -2634,7 +2952,7 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
  */
 
 #ifdef MHD
-static void integrate_emf1_corner(const Grid *pG)
+static void integrate_emf1_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
@@ -2692,8 +3010,7 @@ static void integrate_emf1_corner(const Grid *pG)
   return;
 }
 
-
-static void integrate_emf2_corner(const Grid *pG)
+static void integrate_emf2_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
@@ -2751,7 +3068,7 @@ static void integrate_emf2_corner(const Grid *pG)
   return;
 }
 
-static void integrate_emf3_corner(const Grid *pG)
+static void integrate_emf3_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;

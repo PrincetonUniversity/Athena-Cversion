@@ -14,8 +14,8 @@
  *   N < maxout.  If N > maxout, that <outputN> block is ignored.
  *
  * OPTIONS available in an <outputN> block are:
- *   out         = all,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2
- *   out_fmt     = bin,dx,hst,tab,rst,vtk,fits,pdf,pgm,ppm
+ *   out         = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2
+ *   out_fmt     = bin,hst,tab,rst,vtk,fits,pdf,pgm,ppm
  *   dat_fmt     = format string used to write tabular output (e.g. %12.5e)
  *   dt          = problem time between outputs
  *   id          = any string
@@ -99,8 +99,8 @@
 
 static int out_count = 0;    /* Number of Outputs initialized in the OutArray */
 static size_t out_size  = 0;       /* Size of the array OutArray[] */
-static Output *OutArray = NULL;    /* Array of Output modes */
-static Output rst_out;             /* Restart Output */
+static OutputS *OutArray = NULL;    /* Array of Output modes */
+static OutputS rst_out;             /* Restart Output */
 static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
 
 /*==============================================================================
@@ -112,36 +112,36 @@ static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
  *   getRGB
  *============================================================================*/
 
-Real expr_d    (const Grid *pG, const int i, const int j, const int k);
+Real expr_d    (const GridS *pG, const int i, const int j, const int k);
 #ifdef SPECIAL_RELATIVITY
-Real expr_d0 (const Grid *pG, const int i, const int j, const int k);
+Real expr_d0 (const GridS *pG, const int i, const int j, const int k);
 #endif
-Real expr_M1 (const Grid *pG, const int i, const int j, const int k);
-Real expr_M2 (const Grid *pG, const int i, const int j, const int k);
-Real expr_M3 (const Grid *pG, const int i, const int j, const int k);
-Real expr_E  (const Grid *pG, const int i, const int j, const int k);
-Real expr_B1c(const Grid *pG, const int i, const int j, const int k);
-Real expr_B2c(const Grid *pG, const int i, const int j, const int k);
-Real expr_B3c(const Grid *pG, const int i, const int j, const int k);
-Real expr_ME (const Grid *pG, const int i, const int j, const int k);
-Real expr_V1 (const Grid *pG, const int i, const int j, const int k);
-Real expr_V2 (const Grid *pG, const int i, const int j, const int k);
-Real expr_V3 (const Grid *pG, const int i, const int j, const int k);
-Real expr_P  (const Grid *pG, const int i, const int j, const int k);
-Real expr_cs2(const Grid *pG, const int i, const int j, const int k);
-Real expr_S  (const Grid *pG, const int i, const int j, const int k);
+Real expr_M1 (const GridS *pG, const int i, const int j, const int k);
+Real expr_M2 (const GridS *pG, const int i, const int j, const int k);
+Real expr_M3 (const GridS *pG, const int i, const int j, const int k);
+Real expr_E  (const GridS *pG, const int i, const int j, const int k);
+Real expr_B1c(const GridS *pG, const int i, const int j, const int k);
+Real expr_B2c(const GridS *pG, const int i, const int j, const int k);
+Real expr_B3c(const GridS *pG, const int i, const int j, const int k);
+Real expr_ME (const GridS *pG, const int i, const int j, const int k);
+Real expr_V1 (const GridS *pG, const int i, const int j, const int k);
+Real expr_V2 (const GridS *pG, const int i, const int j, const int k);
+Real expr_V3 (const GridS *pG, const int i, const int j, const int k);
+Real expr_P  (const GridS *pG, const int i, const int j, const int k);
+Real expr_cs2(const GridS *pG, const int i, const int j, const int k);
+Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 #ifdef PARTICLES
-extern Real expr_dpar (const Grid *pG, const int i, const int j, const int k);
-extern Real expr_M1par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_M2par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_dpar (const GridS *pG, const int i, const int j, const int k);
+extern Real expr_M1par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_M2par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_M3par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V1par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 int check_particle_binning(char *out);
 #endif
-static Gasfun_t getexpr(const int n, const char *expr);
-static void free_output(Output *pout);
+static GasFun_t getexpr(const int n, const char *expr);
+static void free_output(OutputS *pout);
 static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
 			int *l, int *u, int *new_nx, Real *new_x, Real *new_dx);
 float *getRGB(char *name);
@@ -150,11 +150,11 @@ float *getRGB(char *name);
 /*----------------------------------------------------------------------------*/
 /* init_output:  */
 
-void init_output(Grid *pGrid)
+void init_output(MeshS *pM)
 {
-  int i,j,outn,maxout;
+  int i,j,outn,maxout,nl,nd;
   char block[80], *fmt, defid[10];
-  Output new_out;
+  OutputS new_out;
   int usr_expr_flag;
 
   maxout = par_geti_def("job","maxout",MAXOUT_DEFAULT);
@@ -171,33 +171,31 @@ void init_output(Grid *pGrid)
       continue;
     }
 
-/* Zero (NULL) all members of the Output structure */
-    memset(&new_out,0,sizeof(Output));
+/* Zero (NULL) all members of the OutputS structure */
+    memset(&new_out,0,sizeof(OutputS));
 
 /* The next output time and number */
-    new_out.t   = par_getd_def(block,"time",pGrid->time);
+    new_out.t   = par_getd_def(block,"time",pM->time);
     new_out.num = par_geti_def(block,"num",0);
 
     new_out.dt  = par_getd(block,"dt");
     new_out.n   = outn;
 
-    if (par_exist(block,"dat_fmt"))
-      new_out.dat_fmt = par_gets(block,"dat_fmt");
+    if (par_exist(block,"dat_fmt")) new_out.dat_fmt = par_gets(block,"dat_fmt");
 
 /* set id in output filename to input string if present, otherwise use "outN"
  * as default, where N is output number */
     sprintf(defid,"out%d",outn);
     new_out.id = par_gets_def(block,"id",defid);
 
-    if(par_exist(block,"out_fmt"))
+    if(par_exist(block,"out_fmt")) 
       fmt = new_out.out_fmt = par_gets(block,"out_fmt");
 
-/* out:     controls what variable can be output (all, or any of expr_*)
- * out_fmt: controls format of output (single variable) or dump (all variables)
- *
- * if "out" doesn't exist, we assume 'all' variables are meant to be dumped */
+/* out:     controls what variable can be output (all, prim, or any of expr_*)
+ * out_fmt: controls format of output (single variable) or dump (all cons/prim)
+ * if "out" doesn't exist, we assume 'cons' variables are meant to be dumped */
 
-    new_out.out = par_gets_def(block,"out","all");
+    new_out.out = par_gets_def(block,"out","cons");
 
 #ifdef PARTICLES
     /* check input for particle binning (=1, default) or not (=0) */
@@ -223,16 +221,16 @@ Now use the default one.\n");
       new_out.par_prop = property_all;
 #endif
 
-/* First handle data dumps of all CONSERVED variables (out=all) */
+/* First handle data dumps of all CONSERVED variables (out=cons) */
 
-    if(strcmp(new_out.out,"all") == 0){
-/* check for valid data dump: dump format = {bin, dx, hst, tab, rst, vtk} */
+    if(strcmp(new_out.out,"cons") == 0){
+/* check for valid data dump: dump format = {bin, hst, tab, rst, vtk} */
       if(par_exist(block,"name")){
 	/* The output function is user defined - get its name */
 	char *name = par_gets(block,"name");
 	/* Get a pointer to the output function via its name */
-	new_out.fun = get_usr_out_fun(name);
-	if(new_out.fun == NULL){
+	new_out.out_fun = get_usr_out_fun(name);
+	if(new_out.out_fun == NULL){
 	  free_output(&new_out);
 	  ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
 		    name,block,fmt);
@@ -241,41 +239,43 @@ Now use the default one.\n");
 	goto add_it;
       }
       else if (strcmp(fmt,"bin")==0){
-	new_out.fun = dump_binary;
+	new_out.out_fun = dump_binary;
+#ifdef PARTICLES
+        new_out.out_pargrid = 1; /* bin particles */
+#endif
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
 	goto add_it;
       }
-      else if (strcmp(fmt,"dx")==0){
-	new_out.fun = dump_dx;
-	goto add_it;
-      }
       else if (strcmp(fmt,"hst")==0){
-	new_out.fun = dump_history;
+	new_out.out_fun = dump_history;
+/* level and domain number needed for history dumpes with SMR */
+        nl = new_out.nlevel = par_geti_def(block,"level",0);
+        nd = new_out.ndomain = par_geti_def(block,"domain",0);
 	goto add_it;
       }
 #ifdef PARTICLES
-     else if (strcmp(fmt,"phst")==0){
+      else if (strcmp(fmt,"phst")==0){
         new_out.fun = dump_particle_history;/* do not bin particles (default) */
         goto add_it;
       }
 #endif
       else if (strcmp(fmt,"tab")==0){
-	new_out.fun = dump_tab_cons;
+	new_out.out_fun = dump_tab_cons;
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
 	goto add_it;
       }
       else if (strcmp(fmt,"rst")==0){
-	new_out.fun = dump_restart;
+	new_out.res_fun = dump_restart;
 	add_rst_out(&new_out);
 	ath_pout(0,"Added out%d\n",outn);
 	continue;
       }
       else if (strcmp(fmt,"vtk")==0){
-	new_out.fun = dump_vtk;
+	new_out.out_fun = dump_vtk;
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
@@ -288,7 +288,7 @@ Now use the default one.\n");
       }
 #endif
       else{    /* Unknown data dump (fatal error) */
-	ath_error("Unsupported dump mode for %s/out_fmt=%s for out=all\n",
+	ath_error("Unsupported dump mode for %s/out_fmt=%s for out=cons\n",
           block,fmt);
       }
     }
@@ -296,13 +296,13 @@ Now use the default one.\n");
 /* Next handle data dumps of all PRIMITIVE variables (out=prim) */
 
     if(strcmp(new_out.out,"prim") == 0){
-/* check for valid data dump: dump format = {bin, dx, tab, vtk} */
+/* check for valid data dump: dump format = {bin, tab, vtk} */
       if(par_exist(block,"name")){
         /* The output function is user defined - get its name */
         char *name = par_gets(block,"name");
         /* Get a pointer to the output function via its name */
-        new_out.fun = get_usr_out_fun(name);
-        if(new_out.fun == NULL){
+        new_out.out_fun = get_usr_out_fun(name);
+        if(new_out.out_fun == NULL){
           free_output(&new_out);
           ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
                     name,block,fmt);
@@ -312,16 +312,12 @@ Now use the default one.\n");
       }
 /*
       else if (strcmp(fmt,"bin")==0){
-        new_out.fun = dump_binary_prim;
-        goto add_it;
-      }
-      else if (strcmp(fmt,"dx")==0){
-        new_out.fun = dump_dx_prim;
+        new_out.out_fun = dump_binary_prim;
         goto add_it;
       }
 */
       else if (strcmp(fmt,"tab")==0){
-        new_out.fun = dump_tab_prim;
+        new_out.out_fun = dump_tab_prim;
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
@@ -329,7 +325,7 @@ Now use the default one.\n");
       }
 /*
       else if (strcmp(fmt,"vtk")==0){
-        new_out.fun = dump_vtk_prim;
+        new_out.out_fun = dump_vtk_prim;
         goto add_it;
       }
 */
@@ -365,16 +361,20 @@ Now use the default one.\n");
       continue;
     }
 
+/* level and domain number */
+    nl = new_out.nlevel = par_geti_def(block,"level",0);
+    nd = new_out.ndomain = par_geti_def(block,"domain",0);
+
 /* ix1, ix2, ix3:  parse and set size and coordinates of output "grid" */
-    parse_slice(block,"ix1" ,pGrid->Nx1, pGrid->x1_0, pGrid->dx1,
-		&new_out.ix1l, &new_out.ix1u, 
-		&new_out.Nx1, &new_out.x1_0, &new_out.dx1);
-    parse_slice(block,"ix2", pGrid->Nx2, pGrid->x2_0, pGrid->dx2,
-		&new_out.ix2l, &new_out.ix2u, 
-		&new_out.Nx2, &new_out.x2_0, &new_out.dx2);
-    parse_slice(block,"ix3", pGrid->Nx3, pGrid->x3_0, pGrid->dx3,
-		&new_out.ix3l, &new_out.ix3u, 
-		&new_out.Nx3, &new_out.x3_0, &new_out.dx3);
+    parse_slice(block,"ix1", pM->Domain[nl][nd].Nx[0],
+      pM->Domain[nl][nd].MinX[0], pM->Domain[nl][nd].dx[0],
+      &new_out.ix1l, &new_out.ix1u, &new_out.Nx1, &new_out.x1_0, &new_out.dx1);
+    parse_slice(block,"ix2", pM->Domain[nl][nd].Nx[1],
+      pM->Domain[nl][nd].MinX[1], pM->Domain[nl][nd].dx[1],
+      &new_out.ix2l, &new_out.ix2u, &new_out.Nx2, &new_out.x2_0, &new_out.dx2);
+    parse_slice(block,"ix3", pM->Domain[nl][nd].Nx[2],
+      pM->Domain[nl][nd].MinX[2], pM->Domain[nl][nd].dx[2],
+      &new_out.ix3l, &new_out.ix3u, &new_out.Nx3, &new_out.x3_0, &new_out.dx3);
 
 /* notice the way how the ndim is increased while filling dim[] */
     new_out.ndim = 0;
@@ -418,8 +418,8 @@ Now use the default one.\n");
       /* The output function is user defined - get its name */
       char *name = par_gets(block,"name");
       /* Get a pointer to the output function via its name */
-      new_out.fun = get_usr_out_fun(name);
-      if(new_out.fun == NULL){
+      new_out.out_fun = get_usr_out_fun(name);
+      if(new_out.out_fun == NULL){
 	free_output(&new_out);
 	ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
 		  name,block,fmt);
@@ -427,17 +427,17 @@ Now use the default one.\n");
       free(name);  name = NULL;
     }
     else if (strcmp(fmt,"fits")==0)
-      new_out.fun = output_fits;
+      new_out.out_fun = output_fits;
     else if (strcmp(fmt,"pdf")==0)
-      new_out.fun = output_pdf;
+      new_out.out_fun = output_pdf;
     else if (strcmp(fmt,"pgm")==0)
-      new_out.fun = output_pgm;
+      new_out.out_fun = output_pgm;
     else if (strcmp(fmt,"ppm")==0)
-      new_out.fun = output_ppm;
+      new_out.out_fun = output_ppm;
     else if (strcmp(fmt,"vtk")==0)
-      new_out.fun = output_vtk;
+      new_out.out_fun = output_vtk;
     else if (strcmp(fmt,"tab")==0)
-      new_out.fun = output_tab;
+      new_out.out_fun = output_tab;
     else {
 /* unknown output format is fatal */
       free_output(&new_out);
@@ -466,26 +466,29 @@ Now use the default one.\n");
  *   write of all output's.  If the input argument flag=0, then only those
  *   output's whose next output time has passed will be written.        */
 
-void data_output(Grid *pGrid, Domain *pD, const int flag)
+void data_output(MeshS *pM, const int flag)
 {
-  int n;
+  DomainS *pD;
+  int n,nl,nd;
   int dump_flag[MAXOUT_DEFAULT+1];
   char block[80];
 
 /* Loop over all elements in output array
  * set dump flag to input argument, check whether time for output */
+
   for (n=0; n<out_count; n++) {
     dump_flag[n] = flag;
-    if (pGrid->time >= OutArray[n].t) {
+    if (pM->time >= OutArray[n].t) {
       OutArray[n].t += OutArray[n].dt;
       dump_flag[n] = 1;
     }
   }
 
 /* Now check for restart dump, and make restart if dump_flag != 0 */
+
   if(rst_flag){
     dump_flag[out_count] = flag;
-    if(pGrid->time >= rst_out.t){
+    if(pM->time >= rst_out.t){
       rst_out.t += rst_out.dt;
       dump_flag[out_count] = 1;
     }
@@ -512,22 +515,25 @@ void data_output(Grid *pGrid, Domain *pD, const int flag)
       par_setd(block,"time","%.15e",rst_out.t,"Next Output Time");
 
 /* Write the restart file */
-      (*(rst_out.fun))(pGrid,pD,&(rst_out));
+      (*(rst_out.res_fun))(pM,&(rst_out));
 
       rst_out.num++;
     }
   }
 
-/* Loop over all elements in output array
- * If dump_flag != 0, make output */
+/* Loop over all elements in output array, if dump_flag != 0, make output */
+
   for (n=0; n<out_count; n++) {
     if(dump_flag[n] != 0) {
+
 #ifdef PARTICLES
-      if (OutArray[n].out_pargrid == 1) /* if binned particle is to be output */
-        particle_to_grid(pGrid, pD, OutArray[n].par_prop);
+      if (OutArray[n].out_pargrid == 1)      /* binned particles are output */
+        particle_to_grid(pD, OutArray[n].par_prop);
 #endif
-      (*OutArray[n].fun)(pGrid,pD,&(OutArray[n]));
+      (*OutArray[n].out_fun)(pM,&(OutArray[n]));
+
       OutArray[n].num++;
+
     }
   }
 
@@ -537,15 +543,15 @@ void data_output(Grid *pGrid, Domain *pD, const int flag)
 /*----------------------------------------------------------------------------*/
 /* add_output: adds element initialized by init_output() to array of Outputs  */
 
-int add_output(Output *new_out)
+int add_output(OutputS *new_out)
 {
   size_t new_size;
-  Output *new_array;
+  OutputS *new_array;
 
   if ((size_t)out_count >= out_size) {
 /* Grow the output array by some small value, say 5 at a time */
     new_size = out_size + 5;
-    if((new_array = realloc(OutArray,new_size*sizeof(Output))) == NULL){
+    if((new_array = realloc(OutArray,new_size*sizeof(OutputS))) == NULL){
       ath_error("[add_output]: Error growing output array\n");
     }
     OutArray = new_array;
@@ -559,9 +565,9 @@ int add_output(Output *new_out)
 }
 
 /*----------------------------------------------------------------------------*/
-/* add_rst: sets restart Output structure to value set by init_output() */
+/* add_rst: sets restart OutputS structure to value set by init_output() */
 
-void add_rst_out(Output *new_out)
+void add_rst_out(OutputS *new_out)
 {
   rst_flag = 1;
   rst_out = *new_out;
@@ -580,7 +586,8 @@ void data_output_destruct(void)
   for (i=0; i<out_count; i++) {
 /* print the global min/max computed over the calculation */
     if (OutArray[i].out != NULL){
-      if(strcmp(OutArray[i].out,"all") != 0)
+      if((strcmp(OutArray[i].out,"cons") != 0) ||
+         (strcmp(OutArray[i].out,"prim") != 0))
 	ath_pout(0,"Global min/max for %s: %g %g\n",OutArray[i].out,
 		 OutArray[i].gmin, OutArray[i].gmax);
 
@@ -611,18 +618,18 @@ void data_output_destruct(void)
 /*----------------------------------------------------------------------------*/
 /* data_output_enroll: Enroll a user-defined data output function */
 
-void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
-			const char *fmt, const Gasfun_t expr, int n,
+void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
+			const char *fmt, const GasFun_t expr, int n,
 			const Real dmin, const Real dmax, int sdmin, int sdmax
 #ifdef PARTICLES
 			, const int out_pargrid, PropFun_t par_prop
 #endif
 )
 {
-  Output new_out;
+  OutputS new_out;
 
 /* Zero (NULL) all members of the Output */
-  memset(&new_out,0,sizeof(Output));
+  memset(&new_out,0,sizeof(OutputS));
 
 /* Set the input values and strdup the fmt string */
   new_out.n     = n;
@@ -633,7 +640,7 @@ void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
   new_out.dmax  = dmax;
   new_out.sdmin = sdmin;
   new_out.sdmax = sdmax;
-  new_out.fun   = fun;
+  new_out.out_fun  = fun;
   new_out.expr  = expr;
 #ifdef PARTICLES
   new_out.out_pargrid = out_pargrid;
@@ -653,7 +660,7 @@ void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
 /*----------------------------------------------------------------------------*/
 /* subset3:  there is only one way to copy a cube into a cube */
 
-float ***subset3(Grid *pgrid, Output *pout)
+float ***subset3(GridS *pgrid, OutputS *pout)
 {
   float ***data;
   int Nx1, Nx2, Nx3;
@@ -668,7 +675,7 @@ float ***subset3(Grid *pgrid, Output *pout)
   Nx3 = pout->Nx3;
 
 #ifdef WRITE_GHOST_CELLS
-  if(pgrid->Nx1 > 1){
+  if(pgrid->Nx[0] > 1){
     il = pgrid->is - nghost;
     iu = pgrid->ie + nghost;
   }
@@ -677,7 +684,7 @@ float ***subset3(Grid *pgrid, Output *pout)
     iu = pgrid->ie;
   }
 
-  if(pgrid->Nx2 > 1){
+  if(pgrid->Nx[1] > 1){
     jl = pgrid->js - nghost;
     ju = pgrid->je + nghost;
   }
@@ -685,7 +692,7 @@ float ***subset3(Grid *pgrid, Output *pout)
     jl = pgrid->js;
     ju = pgrid->je;
   }
-  if(pgrid->Nx3 > 1){
+  if(pgrid->Nx[2] > 1){
     kl = pgrid->ks - nghost;
     ku = pgrid->ke + nghost;
   }
@@ -715,7 +722,7 @@ float ***subset3(Grid *pgrid, Output *pout)
 /*----------------------------------------------------------------------------*/
 /* subset2:  this handles all 3 cases of subsetting a cube to a plane */
 
-float **subset2(Grid *pgrid, Output *pout)
+float **subset2(GridS *pgrid, OutputS *pout)
 {
   float **data, factor;
   int Nx1, Nx2, Nx3;
@@ -730,20 +737,20 @@ float **subset2(Grid *pgrid, Output *pout)
   Nx3 = pout->Nx3;
 
 #ifdef WRITE_GHOST_CELLS
-  if(pgrid->Nx1 > 1){
+  if(pgrid->Nx[0] > 1){
     il = pgrid->is - nghost;
   }
   else{
     il = pgrid->is;
   }
 
-  if(pgrid->Nx2 > 1){
+  if(pgrid->Nx[1] > 1){
     jl = pgrid->js - nghost;
   }
   else{
     jl = pgrid->js;
   }
-  if(pgrid->Nx3 > 1){
+  if(pgrid->Nx[2] > 1){
     kl = pgrid->ks - nghost;
   }
   else{
@@ -757,7 +764,7 @@ float **subset2(Grid *pgrid, Output *pout)
 
 /* handle TWO_DIM simulations */
 
-  if (pgrid->Nx3 == 1) {
+  if (pgrid->Nx[2] == 1) {
     data = (float **) calloc_2d_array(Nx2,Nx1,sizeof(float));
     for (j=0; j<Nx2; j++) {
       for (i=0; i<Nx1; i++) {
@@ -765,7 +772,7 @@ float **subset2(Grid *pgrid, Output *pout)
       }
     }
     return data;
-  } else if (pgrid->Nx2 == 1  || pgrid->Nx2 == 1) {
+  } else if (pgrid->Nx[0] == 1  || pgrid->Nx[1] == 1) {
     ath_error("subset2: cannot handle twodim with nx1 or nx2 being 1 yet");
   }
 	  
@@ -813,7 +820,7 @@ float **subset2(Grid *pgrid, Output *pout)
 /*----------------------------------------------------------------------------*/
 /* subset1:  this handles all 3 cases of subsetting a cube to a vector */
 
-float *subset1(Grid *pgrid, Output *pout)
+float *subset1(GridS *pgrid, OutputS *pout)
 {
   float *data, factor;
   int Nx1, Nx2, Nx3;
@@ -828,20 +835,20 @@ float *subset1(Grid *pgrid, Output *pout)
   Nx3 = pout->Nx3;
 
 #ifdef WRITE_GHOST_CELLS
-  if(pgrid->Nx1 > 1){
+  if(pgrid->Nx[0] > 1){
     il = pgrid->is - nghost;
   }
   else{
     il = pgrid->is;
   }
 
-  if(pgrid->Nx2 > 1){
+  if(pgrid->Nx[1] > 1){
     jl = pgrid->js - nghost;
   }
   else{
     jl = pgrid->js;
   }
-  if(pgrid->Nx3 > 1){
+  if(pgrid->Nx[2] > 1){
     kl = pgrid->ks - nghost;
   }
   else{
@@ -897,25 +904,25 @@ float *subset1(Grid *pgrid, Output *pout)
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the conserved variables d,M1,M2,M3,E */
 
-Real expr_d(const Grid *pG, const int i, const int j, const int k) {
+Real expr_d(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].d;
 }
 #ifdef SPECIAL_RELATIVITY
-Real expr_d0(const Grid *pG, const int i, const int j, const int k){
+Real expr_d0(const GridS *pG, const int i, const int j, const int k){
    return pG->W[k][j][i].d;
 }
 #endif
-Real expr_M1(const Grid *pG, const int i, const int j, const int k) {
+Real expr_M1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1;
 }
-Real expr_M2(const Grid *pG, const int i, const int j, const int k) {
+Real expr_M2(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M2;
 }
-Real expr_M3(const Grid *pG, const int i, const int j, const int k) {
+Real expr_M3(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3;
 }
 #ifndef BAROTROPIC
-Real expr_E(const Grid *pG, const int i, const int j, const int k) {
+Real expr_E(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].E;
 }
 #endif
@@ -924,16 +931,16 @@ Real expr_E(const Grid *pG, const int i, const int j, const int k) {
 /* expr_*: where * are magnetic field variables: B1c, B2c, B3c, B^2 */
 
 #ifdef MHD
-Real expr_B1c(const Grid *pG, const int i, const int j, const int k) {
+Real expr_B1c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B1c;
 }
-Real expr_B2c(const Grid *pG, const int i, const int j, const int k) {
+Real expr_B2c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B2c;
 }
-Real expr_B3c(const Grid *pG, const int i, const int j, const int k) {
+Real expr_B3c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B3c;
 }
-Real expr_ME(const Grid *pG, const int i, const int j, const int k) {
+Real expr_ME(const GridS *pG, const int i, const int j, const int k) {
   return 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
 	      pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + 
 	      pG->U[k][j][i].B3c*pG->U[k][j][i].B3c);
@@ -943,17 +950,17 @@ Real expr_ME(const Grid *pG, const int i, const int j, const int k) {
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the primitive variables */
 
-Real expr_V1(const Grid *pG, const int i, const int j, const int k) {
+Real expr_V1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1/pG->U[k][j][i].d;
 }
-Real expr_V2(const Grid *pG, const int i, const int j, const int k) {
+Real expr_V2(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M2/pG->U[k][j][i].d;
 }
-Real expr_V3(const Grid *pG, const int i, const int j, const int k) {
+Real expr_V3(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3/pG->U[k][j][i].d;
 }
 
-Real expr_P(const Grid *pG, const int i, const int j, const int k) {
+Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #ifdef SPECIAL_RELATIVITY
    return pG->W[k][j][i].P;
 #else
@@ -974,7 +981,7 @@ Real expr_P(const Grid *pG, const int i, const int j, const int k) {
 /* expr_cs2: sound speed squared  */
 
 #ifdef ADIABATIC
-Real expr_cs2(const Grid *pG, const int i, const int j, const int k)
+Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 {
   Gas *gp = &(pG->U[k][j][i]);
   return (Gamma*Gamma_1*(gp->E 
@@ -989,7 +996,7 @@ Real expr_cs2(const Grid *pG, const int i, const int j, const int k)
 /* expr_S: entropy = P/d^{Gamma}  */
 
 #ifdef ADIABATIC
-Real expr_S(const Grid *pG, const int i, const int j, const int k)
+Real expr_S(const GridS *pG, const int i, const int j, const int k)
 {
   Gas *gp = &(pG->U[k][j][i]);
   Real P = Gamma_1*(gp->E 
@@ -1029,7 +1036,7 @@ int check_particle_binning(char *out)
 /* getexpr: return a function pointer for a simple expression - no parsing.
  *   For a user defined expression, get_usr_expr() in problem.c is used.  */
 
-static Gasfun_t getexpr(const int n, const char *expr)
+static GasFun_t getexpr(const int n, const char *expr)
 {
   char ename[32];
 
@@ -1114,7 +1121,7 @@ static Gasfun_t getexpr(const int n, const char *expr)
  *   error occurs in adding a new output; this function frees memory and returns
  *   control to calling function */
 
-static void free_output(Output *pOut)
+static void free_output(OutputS *pOut)
 {
   if(pOut->out     != NULL) free(pOut->out);
   if(pOut->out_fmt != NULL) free(pOut->out_fmt);

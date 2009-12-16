@@ -23,7 +23,7 @@ static double *data=NULL; /* Computed data array: data[size_dat] */
 static int size_pdf=0; /* Number of elements in the pdf[] array */
 static int *pdf=NULL; /* (non-normalized) PDF */
 #ifdef MPI_PARALLEL
-static int *cg_pdf=NULL; /* (non-normalized) complete grid PDF */
+static int *cd_pdf=NULL; /* (non-normalized) complete Domain PDF */
 #endif /* MPI_PARALLEL */
 
 static char def_fmt[]="%21.15e"; /* A default tabular dump data format */
@@ -31,14 +31,13 @@ static char def_fmt[]="%21.15e"; /* A default tabular dump data format */
 /*----------------------------------------------------------------------------*/
 /* output_pdf:   */
 
-void output_pdf(Grid *pG, Domain *pD, Output *pout)
+void output_pdf(MeshS *pM, OutputS *pOut)
 {
+  GridS *pG;
   FILE *pfile;
   char fmt[80];
   char fid[80]; /* File "id" for the statistics table */
-  int i, is = pG->is, ie = pG->ie;
-  int j, js = pG->js, je = pG->je;
-  int k, ks = pG->ks, ke = pG->ke;
+  int i,j,k,is,ie,js,je,ks,ke;
   int n, data_cnt;
   double dmin, dmax, delta, dpdf, dat, scl;
   double mean=0.0, var=0.0; /* mean and variance of the distribution */
@@ -46,10 +45,23 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
   double skew=0.0, kurt=0.0; /* skewness and kurtosis of the distribution */
   double r, s, ep=0.0; /* Temp. variables for calculating the variance, etc. */
 #ifdef MPI_PARALLEL
-  int err, cg_data_cnt;
-  cg_data_cnt = (pD->ide-pD->ids +1)*(pD->jde-pD->jds +1)*(pD->kde-pD->kds +1);
+  DomainS *pD;
+  int ierr, cd_data_cnt, myID_Comm_Domain;
 #endif /* MPI_PARALLEL */
 
+/* Return if Grid is not on this processor */
+
+  pG = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pG == NULL) return;
+
+#ifdef MPI_PARALLEL
+  pD = (DomainS*)&(pM->Domain[pOut->nlevel][pOut->ndomain]);
+  ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
+  cd_data_cnt = (pD->Nx[0])*(pD->Nx[1])*(pD->Nx[2]);
+#endif
+  is = pG->is, ie = pG->ie;
+  js = pG->js, je = pG->je;
+  ks = pG->ks, ke = pG->ke;
   data_cnt = (ie - is + 1)*(je - js + 1)*(ke - ks + 1);
 
 /* Are the requisite arrays allocated? */
@@ -62,7 +74,7 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 /* This choice for size_pdf represents a balance between
  * resolution in the PDF and "shot noise" in the data binning. */
 #ifdef MPI_PARALLEL
-    size_pdf = (int)sqrt((double)cg_data_cnt);
+    size_pdf = (int)sqrt((double)cd_data_cnt);
 #else /* MPI_PARALLEL */
     size_pdf = (int)sqrt((double)size_dat);
 #endif /* MPI_PARALLEL */
@@ -71,24 +83,24 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
       ath_error("[output_pdf]: Failed to allocate pdf array\n");
 
 #ifdef MPI_PARALLEL
-    if(pG->my_id == 0){ /* I'm the parent */
-      cg_pdf = (int *)calloc(size_pdf,sizeof(int));
-      if(cg_pdf == NULL)
-	ath_error("[output_pdf]: Failed to allocate cg_pdf array\n");
+    if(myID_Comm_Domain == 0){ /* I'm the parent */
+      cd_pdf = (int *)calloc(size_pdf,sizeof(int));
+      if(cd_pdf == NULL)
+	ath_error("[output_pdf]: Failed to allocate cd_pdf array\n");
     }
 #endif /* MPI_PARALLEL */
   }
 
 
 /* Initialize dmin, dmax */
-  dmin = dmax = (*pout->expr)(pG,is,js,ks);
+  dmin = dmax = (*pOut->expr)(pG,is,js,ks);
 
 /* Fill the data array */
   n=0;
   for(k = ks; k<=ke; k++){
     for(j = js; j<=je; j++){
       for(i = is; i<=ie; i++){
-	data[n] = (double)(*pout->expr)(pG,i,j,k);
+	data[n] = (double)(*pOut->expr)(pG,i,j,k);
 	dmin = data[n] < dmin ? data[n] : dmin;
 	dmax = data[n] > dmax ? data[n] : dmax;
 	mean += data[n];
@@ -100,18 +112,15 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 #ifdef MPI_PARALLEL
 
   dat = dmin;
-  err = MPI_Allreduce(&dat, &dmin, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-  if(err) ath_error("[dump_pdf]: MPI_Allreduce (dmin) error = %d\n",err);
+  ierr = MPI_Allreduce(&dat, &dmin, 1, MPI_DOUBLE, MPI_MIN, pD->Comm_Domain);
 
   dat = dmax;
-  err = MPI_Allreduce(&dat, &dmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-  if(err) ath_error("[dump_pdf]: MPI_Allreduce (dmax) error = %d\n",err);
+  ierr = MPI_Allreduce(&dat, &dmax, 1, MPI_DOUBLE, MPI_MAX, pD->Comm_Domain);
 
   dat = mean;
-  err = MPI_Allreduce(&dat, &mean, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  if(err) ath_error("[dump_pdf]: MPI_Allreduce (mean) error = %d\n",err);
+  ierr = MPI_Allreduce(&dat, &mean, 1, MPI_DOUBLE, MPI_SUM, pD->Comm_Domain);
 
-  mean /= (double)cg_data_cnt; /* Complete the calc. of the mean */
+  mean /= (double)cd_data_cnt; /* Complete the calc. of the mean */
 
 #else /* MPI_PARALLEL */
 
@@ -133,27 +142,23 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 #ifdef MPI_PARALLEL
 
     dat = ep;
-    err = MPI_Allreduce(&dat, &ep, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if(err) ath_error("[dump_pdf]: MPI_Allreduce (ep) error = %d\n",err);
+    ierr = MPI_Allreduce(&dat, &ep, 1, MPI_DOUBLE, MPI_SUM, pD->Comm_Domain);
 
     dat = var;
-    err = MPI_Allreduce(&dat, &var, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if(err) ath_error("[dump_pdf]: MPI_Allreduce (var) error = %d\n",err);
+    ierr = MPI_Allreduce(&dat, &var, 1, MPI_DOUBLE, MPI_SUM, pD->Comm_Domain);
 
     dat = skew;
-    err = MPI_Allreduce(&dat, &skew, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if(err) ath_error("[dump_pdf]: MPI_Allreduce (skew) error = %d\n",err);
+    ierr = MPI_Allreduce(&dat, &skew, 1, MPI_DOUBLE, MPI_SUM, pD->Comm_Domain);
 
     dat = kurt;
-    err = MPI_Allreduce(&dat, &kurt, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if(err) ath_error("[dump_pdf]: MPI_Allreduce (kurt) error = %d\n",err);
+    ierr = MPI_Allreduce(&dat, &kurt, 1, MPI_DOUBLE, MPI_SUM, pD->Comm_Domain);
 
-    adev /= (double)cg_data_cnt;
-    var = (var - ep*ep/(double)cg_data_cnt)/(double)(cg_data_cnt-1);
+    adev /= (double)cd_data_cnt;
+    var = (var - ep*ep/(double)cd_data_cnt)/(double)(cd_data_cnt-1);
     sdev = sqrt(var);
     if(sdev > 0.0){
-      skew /= var*sdev*cg_data_cnt;
-      kurt = kurt/(var*var*cg_data_cnt) - 3.0;
+      skew /= var*sdev*cd_data_cnt;
+      kurt = kurt/(var*var*cd_data_cnt) - 3.0;
     }
 
 #else /* MPI_PARALLEL */
@@ -170,13 +175,13 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
   }
 
 /* Store the global maximum and minimum of the quantity */
-  if(pout->num > 0){
-    pout->gmin = dmin < pout->gmin ? dmin : pout->gmin;
-    pout->gmax = dmax > pout->gmax ? dmax : pout->gmax;
+  if(pOut->num > 0){
+    pOut->gmin = dmin < pOut->gmin ? dmin : pOut->gmin;
+    pOut->gmax = dmax > pOut->gmax ? dmax : pOut->gmax;
   }
   else{
-    pout->gmin = dmin;
-    pout->gmax = dmax;
+    pOut->gmin = dmin;
+    pOut->gmax = dmax;
   }
 
 /* Compute the pdf directly using sampling. Define size_pdf bins, each of equal
@@ -197,22 +202,21 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 
 #ifdef MPI_PARALLEL
 
-/* Sum up the pdf in the array cg_pdf */
-  err = MPI_Reduce(pdf, cg_pdf, size_pdf, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-  if(err) ath_error("[dump_pdf]: MPI_Reduce (pdf) error = %d\n",err);
+/* Sum up the pdf in the array cd_pdf */
+  ierr = MPI_Reduce(pdf,cd_pdf,size_pdf, MPI_INT, MPI_SUM, 0, pD->Comm_Domain);
 
 #endif /* MPI_PARALLEL */
 
 #ifdef MPI_PARALLEL
 /* For parallel calculations, only the parent writes the output. */
-  if(pG->my_id != 0) return;
+  if(myID_Comm_Domain != 0) return;
 #endif /* MPI_PARALLEL */
 
 /* Open the output file */
 #ifdef MPI_PARALLEL
-  pfile = ath_fopen("../",pG->outfilename,num_digit,pout->num,pout->id,"prb","w");
+  pfile = ath_fopen("../",pM->outfilename,num_digit,pOut->num,pOut->id,"prb","w");
 #else
-  pfile = ath_fopen(NULL,pG->outfilename,num_digit,pout->num,pout->id,"prb","w");
+  pfile = ath_fopen(NULL,pM->outfilename,num_digit,pOut->num,pOut->id,"prb","w");
 #endif
   if(pfile == NULL){
     ath_perr(-1,"[output_pdf]: File Open Error Occured");
@@ -221,8 +225,7 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 
 /* Write out some extra information in a header */
   fprintf(pfile,"# Time = %21.15e\n",pG->time);
-  fprintf(pfile,"# nstep = %d\n",pG->nstep);
-  fprintf(pfile,"# expr = \"%s\"\n",pout->out);
+  fprintf(pfile,"# expr = \"%s\"\n",pOut->out);
   fprintf(pfile,"# Nbin = %d\n",((dmax - dmin) > 0.0 ? size_pdf : 1));
   fprintf(pfile,"# dmin = %21.15e\n",dmin); 
   fprintf(pfile,"# dmax = %21.15e\n",dmax); 
@@ -234,16 +237,16 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
   fprintf(pfile,"# kurtosis = %21.15e\n#\n",kurt); 
 
 /* Add a white space to the format */
-  if(pout->dat_fmt == NULL)
+  if(pOut->dat_fmt == NULL)
     sprintf(fmt,"%s  %s\n",def_fmt, def_fmt);
   else
-    sprintf(fmt,"%s  %s\n",pout->dat_fmt,pout->dat_fmt);
+    sprintf(fmt,"%s  %s\n",pOut->dat_fmt,pOut->dat_fmt);
 
 /* write out the normalized Proabability Distribution Function */
   if(dmax - dmin > 0.0){
     delta = (dmax - dmin)/(double)(size_pdf);
 #ifdef MPI_PARALLEL
-    scl = (double)size_pdf/(double)(cg_data_cnt*(dmax - dmin));
+    scl = (double)size_pdf/(double)(cd_data_cnt*(dmax - dmin));
 #else
     scl = (double)size_pdf/(double)(data_cnt*(dmax - dmin));
 #endif /* MPI_PARALLEL */
@@ -251,7 +254,7 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
 /* Calculate the normalized Prob. Dist. Fun. */
       dat = dmin + (n + 0.5)*delta;
 #ifdef MPI_PARALLEL
-      dpdf = (double)(cg_pdf[n])*scl;
+      dpdf = (double)(cd_pdf[n])*scl;
 #else
       dpdf = (double)(pdf[n])*scl;
 #endif /* MPI_PARALLEL */
@@ -264,28 +267,28 @@ void output_pdf(Grid *pG, Domain *pD, Output *pout)
   fclose(pfile);
 
 /* Also write a history type file on the statistics */
-  sprintf(fid,"prb_stat.%s",pout->id);
+  sprintf(fid,"prb_stat.%s",pOut->id);
 #ifdef MPI_PARALLEL
-  pfile = ath_fopen("../",pG->outfilename,0,0,fid,"tab","a");
+  pfile = ath_fopen("../",pM->outfilename,0,0,fid,"tab","a");
 #else
-  pfile = ath_fopen(NULL,pG->outfilename,0,0,fid,"tab","a");
+  pfile = ath_fopen(NULL,pM->outfilename,0,0,fid,"tab","a");
 #endif
   if(pfile == NULL){
     ath_perr(-1,"[output_pdf]: File Open Error Occured");
     return;
   }
 
-  if(pout->num == 0){
-    fprintf(pfile,"# expr = \"%s\"\n#\n",pout->out);
-    fprintf(pfile,"# time  nstep  dmin  dmax  mean  variance  \"std. dev.\"  ");
+  if(pOut->num == 0){
+    fprintf(pfile,"# expr = \"%s\"\n#\n",pOut->out);
+    fprintf(pfile,"# time  dmin  dmax  mean  variance  \"std. dev.\"  ");
     fprintf(pfile,"\"avg. dev.\"  skewness  kurtosis\n#\n");
   }
 
 /* Add a white space to the format */
-  if(pout->dat_fmt == NULL) sprintf(fmt," %s",def_fmt);
-  else                      sprintf(fmt," %s",pout->dat_fmt);
+  if(pOut->dat_fmt == NULL) sprintf(fmt," %s",def_fmt);
+  else                      sprintf(fmt," %s",pOut->dat_fmt);
 
-  fprintf(pfile,"%21.15e %d",pG->time,pG->nstep);
+  fprintf(pfile,"%21.15e",pG->time);
 
 /* write out the table of statistics */
   fprintf(pfile,fmt,dmin);

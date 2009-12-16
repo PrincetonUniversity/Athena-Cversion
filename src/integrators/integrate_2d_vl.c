@@ -68,7 +68,7 @@ static Real **eta1=NULL, **eta2=NULL;
  *============================================================================*/
 
 #ifdef MHD
-static void integrate_emf3_corner(const Grid *pG);
+static void integrate_emf3_corner(GridS *pG);
 #endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -78,8 +78,9 @@ static void integrate_emf3_corner(const Grid *pG);
  *   NOT ALL STEPS ARE NEEDED IN 2D.
  */
 
-void integrate_2d(Grid *pG, Domain *pD)
+void integrate_2d(DomainS *pD)
 {
+  GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
   int i, is = pG->is, ie = pG->ie;
@@ -919,6 +920,82 @@ void integrate_2d(Grid *pG, Domain *pD)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/* integrate_init_2d: Allocate temporary integration arrays */
+
+void integrate_init_2d(MeshS *pM)
+{
+  int nmax,size1=0,size2=0,nl,nd;
+
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+      }
+    }
+  }
+
+  size1 = size1 + 2*nghost;
+  size2 = size2 + 2*nghost;
+  nmax = MAX(size1,size2);
+
+#ifdef MHD
+  if ((emf3 = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((emf3_cc = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif /* MHD */
+#ifdef H_CORRECTION
+  if ((eta1 = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((eta2 = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif /* H_CORRECTION */
+#ifdef MHD
+  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+  if ((B1_x1Face = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((B2_x2Face = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif /* MHD */
+
+  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+
+  if ((Wl_x1Face = (Prim1D**)calloc_2d_array(size2,size1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x1Face = (Prim1D**)calloc_2d_array(size2,size1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wl_x2Face = (Prim1D**)calloc_2d_array(size2,size1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x2Face = (Prim1D**)calloc_2d_array(size2,size1, sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((x1Flux    = (Cons1D**)calloc_2d_array(size2,size1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+  if ((x2Flux    = (Cons1D**)calloc_2d_array(size2,size1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+
+  if ((Uhalf = (Gas**)calloc_2d_array(size2,size1, sizeof(Gas))) == NULL)
+    goto on_error;
+  if ((Whalf = (Prim**)calloc_2d_array(size2,size1, sizeof(Prim))) == NULL)
+    goto on_error;
+
+  return;
+
+  on_error:
+    integrate_destruct();
+    ath_error("[integrate_init]: malloc returned a NULL pointer\n");
+}
 
 /*----------------------------------------------------------------------------*/
 /* integrate_destruct_2d:  Free temporary integration arrays */
@@ -960,69 +1037,6 @@ void integrate_destruct_2d(void)
   return;
 }
 
-/*----------------------------------------------------------------------------*/
-/* integrate_init_2d: Allocate temporary integration arrays */
-
-void integrate_init_2d(int nx1, int nx2)
-{
-  int nmax;
-  int Nx1 = nx1 + 2*nghost;
-  int Nx2 = nx2 + 2*nghost;
-  nmax = MAX(Nx1,Nx2);
-
-#ifdef MHD
-  if ((emf3 = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf3_cc = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* MHD */
-#ifdef H_CORRECTION
-  if ((eta1 = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((eta2 = (Real**)calloc_2d_array(Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* H_CORRECTION */
-#ifdef MHD
-  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-  if ((B1_x1Face = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((B2_x2Face = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* MHD */
-
-  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-
-  if ((Wl_x1Face = (Prim1D**)calloc_2d_array(Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x1Face = (Prim1D**)calloc_2d_array(Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wl_x2Face = (Prim1D**)calloc_2d_array(Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x2Face = (Prim1D**)calloc_2d_array(Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((x1Flux    = (Cons1D**)calloc_2d_array(Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((x2Flux    = (Cons1D**)calloc_2d_array(Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-
-  if ((Uhalf = (Gas**)calloc_2d_array(Nx2,Nx1, sizeof(Gas))) == NULL)
-    goto on_error;
-  if ((Whalf = (Prim**)calloc_2d_array(Nx2,Nx1, sizeof(Prim))) == NULL)
-    goto on_error;
-
-  return;
-
-  on_error:
-  integrate_destruct();
-  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
-}
-
-
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
@@ -1035,7 +1049,7 @@ void integrate_init_2d(int nx1, int nx2)
  */ 
 
 #ifdef MHD
-static void integrate_emf3_corner(const Grid *pG)
+static void integrate_emf3_corner(GridS *pG)
 {
   int i,il,iu,j,jl,ju;
   Real emf_l1, emf_r1, emf_l2, emf_r2;

@@ -399,13 +399,14 @@ void par_dist_mpi(const int mytid, MPI_Comm comm)
   int count;
   char *block_name;
 
-  if(mytid == 0){    /* I'm the Parent */
+  if(mytid == 0){    /* I'm the rank=0 process */
     if (!now_open) ath_error("Parameter file is not open\n");
     if(debug)
       fprintf(stdout,"[par_dist_mpi]: Sending Parameter file \"%s\"\n",
 	      now_filename);
 
-/* Share the filename with the children */ count = 1 + (int)strlen(now_filename);
+/* Share the filename with the children */
+    count = 1 + (int)strlen(now_filename);
     if(MPI_SUCCESS != MPI_Bcast(&count, 1, MPI_INT, 0, comm))
       ath_error("[par_dist_mpi]: Error on calling MPI_Bcast\n");
 /* printf("[tid=%d]: filename length = %d\n",mytid,count); */

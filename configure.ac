@@ -34,14 +34,15 @@
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
 #
 # ALGORITHM "features":
-#   --enable-single                                 (double or single precision)
-#   --enable-ghost                      (write out ghost cells in outputs/dumps)
-#   --enable-mpi                                          (parallelize with MPI)
-#   --enable-h-correction              (turn on H-correction in multidimensions)
-#   --enable-fft                (compile and link with FFTW block decomposition)
-#   --enable-shearing box                    (include shearing box source terms)
 #   --enable-fargo                                      (enable FARGO algorithm)
+#   --enable-fft                (compile and link with FFTW block decomposition)
+#   --enable-ghost                      (write out ghost cells in outputs/dumps)
+#   --enable-h-correction              (turn on H-correction in multidimensions)
 #   --enable-hllallwave                    (all-wave integration for HLL fluxes)
+#   --enable-mpi                                          (parallelize with MPI)
+#   --enable-shearing box                    (include shearing box source terms)
+#   --enable-single                                 (double or single precision)
+#   --enable-smr                                        (static mesh refinement)
 #
 #-------------------------------------------------------------------------------
 # generic things
@@ -492,6 +493,21 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: static mesh refinement
+#   --enable-smr (default is no SMR)
+
+AC_SUBST(MESH_REFINEMENT)
+AC_ARG_ENABLE(smr, [  --enable-smr         static mesh refinement (default is no refinement)], 
+		      ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  MESH_REFINEMENT="STATIC_MESH_REFINEMENT"
+  SMR_MODE_USER="ON"
+else
+  MESH_REFINEMENT="NO_MESH_REFINEMENT"
+  SMR_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: turn on all-wave integration for HLL fluxes
 #   --enable-hllallwaves
 # This allows the L/R-states algorithms to integrate characteristics over
@@ -578,4 +594,5 @@ echo "FFT:                     $FFT_MODE_USER"
 echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
+echo "Static Mesh Refinement:  $SMR_MODE_USER"
 

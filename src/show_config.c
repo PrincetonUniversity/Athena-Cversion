@@ -176,6 +176,12 @@ void show_config(void)
 #else
   ath_pout(0," All-wave integration:    OFF\n");
 #endif
+
+#ifdef STATIC_MESH_REFINEMENT
+  ath_pout(0," Static mesh refinement:  ON\n");
+#else
+  ath_pout(0," Static mesh refinement:  OFF\n");
+#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -336,6 +342,12 @@ void show_config_par(void)
   par_sets("configure","L/R integration style","yes","All-wave integration enabled?");
 #else
   par_sets("configure","L/R integration style","no","All-wave integration enabled?");
+#endif
+
+#ifdef STATIC_MESH_REFINEMENT
+  par_sets("configure","SMR","yes","SMR enabled?");
+#else
+  par_sets("configure","SMR","no","SMR enabled?");
 #endif
 
   return;

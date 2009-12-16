@@ -1,14 +1,13 @@
 <comment>
-
 problem = RT instability 
 author  = R. Liska & B. Wendroff
 journal = SIAM J. Sci. Comput., 25, 995-1017 (2003)
 config  = --with-problem=rt --with-gas=hydro
 
 <job>
-
 problem_id   = rt          # problem ID: basename of output filenames
-maxout       = 3            # Output blocks number from 1 -> maxout
+maxout       = 3           # Output blocks number from 1 -> maxout
+num_domains  = 1           # number of Domains in Mesh
 
 <output1>
 out_fmt = hst               # History data dump
@@ -28,33 +27,40 @@ dmax    = 2.1
 palette = rainbow
 
 <time>
-
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 30000     # cycle limit
 tlim            = 8.5       # time limit
 
-<grid>
-
-Nx1             = 200        # Number of zones in X1-direction
+<domain1>
+level           = 0          # refinement level this Domain (root=0)
+Nx1             = 100        # Number of zones in X1-direction
 x1min           = -0.1666667 # minimum value of X1
 x1max           = 0.1666667  # maximum value of X1
-ibc_x1          = 4          # inner-I (X1) boundary flag
-obc_x1          = 4          # outer-I (X1) boundary flag
+bc_ix1          = 4          # boundary condition flag for inner-I (X1)
+bc_ox1          = 4          # boundary condition flag for outer-I (X1)
 
-Nx2             = 400        # Number of zones in X2-direction
-x2min           = -0.5       # minimum value of X2
-x2max           = 0.5        # maximum value of X2
-ibc_x2          = 1          # inner-II (X2) boundary flag
-obc_x2          = 1          # outer-II (X2) boundary flag
+Nx2             = 200       # Number of zones in X2-direction
+x2min           = -0.5      # minimum value of X2
+x2max           = 0.5       # maximum value of X2
+bc_ix2          = 1         # boundary condition flag for inner-J (X2)
+bc_ox2          = 1         # boundary condition flag for outer-J (X2)
 
-Nx3             = 1          # Number of zones in X3-direction
-x3min           = -0.5       # minimum value of X3
-x3max           = 0.5        # maximum value of X3
-ibc_x3          = 4          # inner-III (X3) boundary flag
-obc_x3          = 4          # outer-III (X3) boundary flag
+Nx3             = 1         # Number of zones in X3-direction
+x3min           = -0.5      # minimum value of X3
+x3max           = 0.5       # maximum value of X3
+bc_ix3          = 4         # boundary condition flag for inner-K (X3)
+bc_ox3          = 4         # boundary condition flag for outer-K (X3)
+
+<domain2>
+level           = 1         # refinement level this Domain (root=0)
+Nx1             = 200       # Number of zones in X1-direction
+Nx2             = 200       # Number of zones in X2-direction
+Nx3             = 1         # Number of zones in X3-direction
+iDisp           = 0         # i-displacement measured in cells of this level
+jDisp           = 100       # j-displacement measured in cells of this level
+kDisp           = 0         # k-displacement measured in cells of this level
 
 <problem>
-
 gamma = 1.4         # gamma = C_p/C_v
 amp   = 0.01
 iprob = 1

@@ -54,7 +54,7 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 /* lr_states_init:  NoOp for first order, but included for compatibility
  *   with integrator (needed for 2nd and 3rd order). */
 
-void lr_states_init(int nx1, int nx2, int nx3)
+void lr_states_init(MeshS *pM)
 {
   return;
 }

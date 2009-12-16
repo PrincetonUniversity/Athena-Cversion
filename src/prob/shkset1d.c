@@ -19,10 +19,12 @@
 /*----------------------------------------------------------------------------*/
 /* problem:    */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,middle;
+  GridS *pGrid=(pDomain->Grid);
+  int i,il,iu,j,jl,ju,k,kl,ku;
   int shk_dir; /* Shock direction: {1,2,3} -> {x1,x2,x3} */
+  Real x1,x2,x3;
   Prim1D W1d, Wl, Wr;
   Cons1D U1d, Ul, Ur;
 #ifdef MHD
@@ -76,16 +78,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 
 /* Set up the index bounds for initializing the grid */
-  if (pGrid->Nx1 > 1) {
-    iu = pGrid->ie + nghost;
-    il = pGrid->is - nghost;
-  }
-  else {
-    iu = pGrid->ie;
-    il = pGrid->is;
-  }
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
 
-  if (pGrid->Nx2 > 1) {
+  if (pGrid->Nx[1] > 1) {
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   }
@@ -94,7 +90,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     jl = pGrid->js;
   }
 
-  if (pGrid->Nx3 > 1) {
+  if (pGrid->Nx[2] > 1) {
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   }
@@ -104,19 +100,18 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 
 /* Initialize the grid including the ghost cells.  Discontinuity is always
- * located in middle of grid (at zone index half way between is,ie),
- * regardless of value of x-coordinate */
+ * located at x=0, so xmin/xmax in input file must be set appropriately. */
 
   switch(shk_dir) {
 /*--- shock in 1-direction ---------------------------------------------------*/
   case 1:  /* shock in 1-direction  */
-    middle = il - 1 + (int)(0.5*(iu-il+1));
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
+          cc_pos(pGrid, i, j, k, &x1, &x2, &x3);
 
 /* set primitive and conserved variables to be L or R state */
-          if (i <= middle) {
+          if (x1 <= 0.0) {
             W1d = Wl;
             U1d = Ul;
           } else {
@@ -168,13 +163,13 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /*--- shock in 2-direction ---------------------------------------------------*/
   case 2:  /* shock in 2-direction  */
-    middle = jl - 1 + (int)(0.5*(ju-jl+1));
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
+          cc_pos(pGrid, i, j, k, &x1, &x2, &x3);
 
 /* set primitive variables to be L or R state */
-          if (j <= middle) {
+          if (x2 <= 0.0) {
             W1d = Wl;
             U1d = Ul;
           } else {
@@ -226,13 +221,13 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /*--- shock in 3-direction ---------------------------------------------------*/
   case 3:  /* shock in 3-direction  */
-    middle = kl - 1 + (int)(0.5*(ku-kl+1));
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
+          cc_pos(pGrid, i, j, k, &x1, &x2, &x3);
 
 /* set primitive variables to be L or R state */
-          if (k <= middle) {
+          if (x3 <= 0.0) {
             W1d = Wl;
             U1d = Ul;
           } else {
@@ -299,31 +294,31 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }

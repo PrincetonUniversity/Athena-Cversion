@@ -30,22 +30,23 @@
 #include "globals.h"
 #include "prototypes.h"
 
-/* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas ***Soln=NULL;
+/* Initial solution on root level, shared with Userwork_after_loop  */
+static Gas ***RootSoln=NULL;
 static int wave_flag;
 
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
+  Gas ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,wave_dir;
   Real amp,vflow;
   Real d0,p0,u0,v0,w0,h0;
   Real x1,x2,x3,r,ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
-  Real x1max,x2max,lambda;
 #ifdef MHD
   Real bx0,by0,bz0,xfact,yfact;
 #endif /* MHD */
@@ -63,10 +64,15 @@ void problem(Grid *pGrid, Domain *pDomain)
   vflow = par_getd("problem","vflow");
   wave_dir = par_getd("problem","wave_dir");
 
-/* allocate memory for solution */
+/* allocate memory for solution on this level.  If this is root level
+ * also allocate memory for RootSoln */
 
   if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-    ath_error("[linear_wave1d]: Error allocating memory\n");
+    ath_error("[linear_wave1d]: Error allocating memory for Soln\n");
+  if (pDomain->Level == 0){
+    if ((RootSoln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+      ath_error("[linear_wave1d]: Error allocating memory for RootSoln\n");
+  }
 
 /* Get eigenmatrix, where the quantities u0 and bx0 are parallel to the
  * wavevector, and v0,w0,by0,bz0 are perpendicular.  Background state chosen
@@ -254,21 +260,19 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif
   }}}
 #ifdef MHD
-  if (pGrid->Nx1 > 1) {
-    for (k=ks; k<=ke; k++) {
-      for (j=js; j<=je; j++) {
-        pGrid->B1i[k][j][ie+1] = pGrid->B1i[k][j][ie];
-      }
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      pGrid->B1i[k][j][ie+1] = pGrid->B1i[k][j][ie];
     }
   }
-  if (pGrid->Nx2 > 1) {
+  if (pGrid->Nx[1] > 1) {
     for (k=ks; k<=ke; k++) {
       for (i=is; i<=ie; i++) {
         pGrid->B2i[k][je+1][i] = pGrid->B2i[k][je][i];
       }
     }
   }
-  if (pGrid->Nx3 > 1) {
+  if (pGrid->Nx[2] > 1) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
         pGrid->B3i[ke+1][j][i] = pGrid->B3i[ke][j][i];
@@ -297,6 +301,33 @@ void problem(Grid *pGrid, Domain *pDomain)
   nu_V = par_getd("problem","nu");
 #endif
 
+/* save solution on root grid */
+
+  if (pDomain->Level == 0) {
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      RootSoln[k][j][i].d  = Soln[k][j][i].d ;
+      RootSoln[k][j][i].M1 = Soln[k][j][i].M1;
+      RootSoln[k][j][i].M2 = Soln[k][j][i].M2;
+      RootSoln[k][j][i].M3 = Soln[k][j][i].M3;
+#ifndef ISOTHERMAL
+      RootSoln[k][j][i].E  = Soln[k][j][i].E ;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+      RootSoln[k][j][i].B1c = Soln[k][j][i].B1c;
+      RootSoln[k][j][i].B2c = Soln[k][j][i].B2c;
+      RootSoln[k][j][i].B3c = Soln[k][j][i].B3c;
+#endif
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) 
+        RootSoln[k][j][i].s[n] = Soln[k][j][i].s[n];
+#endif
+    }}}
+  }
+
+  free_3d_array(Soln);
+
   return;
 }
 
@@ -311,12 +342,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
 #ifdef SELF_GRAVITY
   four_pi_G = par_getd("problem","four_pi_G");
@@ -335,27 +366,30 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-/*---------------------------------------------------------------------------
+/*------------------------------------------------------------------------------
  * Userwork_after_loop: computes L1-error in linear waves,
  * ASSUMING WAVE HAS PROPAGATED AN INTEGER NUMBER OF PERIODS
- * Must set parameters in input file appropriately so that this is true
+ * Must set parameters (tlim, wavespeeds, box size) in input file appropriately
+ * so that this is true
+ * With nested grids, computes L1 error only on root grid (level=0).
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pGrid;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke;
 #if (NSCALARS > 0)
@@ -384,6 +418,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   for (n=0; n<NSCALARS; n++) total_error.s[n] = 0.0;
 #endif
 
+/* Compute error only on root Grid, which is in Domain[0][0] */
+
+  pGrid=pM->Domain[0][0].Grid;
+  if (pGrid == NULL) return;
+
 /* compute L1 error in each variable, and rms total error */
 
   is = pGrid->is; ie = pGrid->ie;
@@ -408,21 +447,21 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #endif
 
     for (i=is; i<=ie; i++) {
-      error.d   += fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d );
-      error.M1  += fabs(pGrid->U[k][j][i].M1  - Soln[k][j][i].M1);
-      error.M2  += fabs(pGrid->U[k][j][i].M2  - Soln[k][j][i].M2);
-      error.M3  += fabs(pGrid->U[k][j][i].M3  - Soln[k][j][i].M3); 
+      error.d   += fabs(pGrid->U[k][j][i].d   - RootSoln[k][j][i].d );
+      error.M1  += fabs(pGrid->U[k][j][i].M1  - RootSoln[k][j][i].M1);
+      error.M2  += fabs(pGrid->U[k][j][i].M2  - RootSoln[k][j][i].M2);
+      error.M3  += fabs(pGrid->U[k][j][i].M3  - RootSoln[k][j][i].M3); 
 #ifdef MHD
-      error.B1c += fabs(pGrid->U[k][j][i].B1c - Soln[k][j][i].B1c);
-      error.B2c += fabs(pGrid->U[k][j][i].B2c - Soln[k][j][i].B2c);
-      error.B3c += fabs(pGrid->U[k][j][i].B3c - Soln[k][j][i].B3c);
+      error.B1c += fabs(pGrid->U[k][j][i].B1c - RootSoln[k][j][i].B1c);
+      error.B2c += fabs(pGrid->U[k][j][i].B2c - RootSoln[k][j][i].B2c);
+      error.B3c += fabs(pGrid->U[k][j][i].B3c - RootSoln[k][j][i].B3c);
 #endif /* MHD */
 #ifndef ISOTHERMAL
-      error.E   += fabs(pGrid->U[k][j][i].E   - Soln[k][j][i].E );
+      error.E   += fabs(pGrid->U[k][j][i].E   - RootSoln[k][j][i].E );
 #endif /* ISOTHERMAL */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++) 
-        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - Soln[k][j][i].s[n]);;
+        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - RootSoln[k][j][i].s[n]);;
 #endif
     }
 

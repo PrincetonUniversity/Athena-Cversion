@@ -31,27 +31,28 @@
  * dmrbv_ojb() - sets BCs on R-x2 (top edge) of grid.  
  *============================================================================*/
 
-void dmrbv_iib(Grid *pGrid);
-void dmrbv_ijb(Grid *pGrid);
-void dmrbv_ojb(Grid *pGrid);
+void dmrbv_iib(GridS *pGrid);
+void dmrbv_ijb(GridS *pGrid);
+void dmrbv_ojb(GridS *pGrid);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
-int i=0,j=0;
-int is,ie,js,je,ks;
-Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
+  GridS *pGrid = pDomain->Grid;
+  int i=0,j=0;
+  int is,ie,js,je,ks;
+  Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
 
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
   ks = pGrid->ks;
-  if (pGrid->Nx1 == 1 || pGrid->Nx2 == 1) {
+  if (pGrid->Nx[0] == 1 || pGrid->Nx[1] == 1) {
     ath_error("[dmr]: this test only works with Nx1 & Nx2 > 1\n");
   }
-  if (pGrid->Nx3 > 1) {
+  if (pGrid->Nx[2] > 1) {
     ath_error("[dmr]: this test only works for 2D problems, with Nx3=1\n");
   }
 
@@ -82,9 +83,10 @@ Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
 
 /* Set boundary value function pointers */
 
-  set_bvals_mhd_fun(left_x1,dmrbv_iib);
-  set_bvals_mhd_fun(left_x2,dmrbv_ijb);
-  set_bvals_mhd_fun(right_x2,dmrbv_ojb);
+  if (pDomain->Disp[0] == 0) set_bvals_mhd_fun(pDomain, left_x1,  dmrbv_iib);
+  if (pDomain->Disp[1] == 0) set_bvals_mhd_fun(pDomain, left_x2,  dmrbv_ijb);
+  if (pDomain->MaxX[1] == pDomain->RootMaxX[1])
+    set_bvals_mhd_fun(pDomain, right_x2, dmrbv_ojb);
 }
 
 /*==============================================================================
@@ -98,30 +100,30 @@ Real d0,e0,u0,v0,x1_shock,x1,x2,x3;
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
 
@@ -132,7 +134,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * Note quantities at this boundary are held fixed at the downstream state
  */
 
-void dmrbv_iib(Grid *pGrid)
+void dmrbv_iib(GridS *pGrid)
 {
 int i=0,j=0;
 int is,ie,js,je,ks,jl,ju;
@@ -165,7 +167,7 @@ Real d0,e0,u0,v0;
  * x1 < 0.16666666, and are reflected for x1 > 0.16666666
  */
 
-void dmrbv_ijb(Grid *pGrid)
+void dmrbv_ijb(GridS *pGrid)
 {
 int i=0,j=0;
 int is,ie,js,je,ks,il,iu;
@@ -209,7 +211,7 @@ Real d0,e0,u0,v0,x1,x2,x3;
  * x1 > 0.16666666+v1_shock*time
  */
 
-void dmrbv_ojb(Grid *pGrid)
+void dmrbv_ojb(GridS *pGrid)
 {
 int i=0,j=0;
 int is,ie,js,je,ks,il,iu;

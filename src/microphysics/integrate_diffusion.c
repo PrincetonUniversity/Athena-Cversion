@@ -20,20 +20,22 @@
 #include "prototypes.h"
 
 /* function pointers for diffusion operators (determined at runtime) */
-static VGDFun_t ApplyViscosity=NULL;
-static VGDFun_t ApplyResistivity=NULL;
-static VGDFun_t ApplyThermalConduct=NULL;
+static VDFun_t ApplyViscosity=NULL;
+static VDFun_t ApplyResistivity=NULL;
+static VDFun_t ApplyThermalConduct=NULL;
 
 /* dimension of calculation (determined at runtime) */
 static int dim=0;
 
+#ifdef EXPLICIT_DIFFUSION
 /*----------------------------------------------------------------------------*/
 /* integrate_explicit_diff:  called in main loop, sets timestep and calls
  *   appropriate functions for each diffusion operator
  */
 
-void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
+void integrate_explicit_diff(MeshS *pM)
 {
+  GridS *pGrid=pM->Domain[0][0].Grid
   Real min_dx;
 
 /* Calculate explicit diffusion timestep */
@@ -73,19 +75,18 @@ void integrate_explicit_diff(Grid *pGrid, Domain *pDomain)
   return;
 }
 
-
 /*----------------------------------------------------------------------------*/
 /* integrate_explicit_diff_init: Set function pointers for diffusion 
  *   operators, call initialization routines to allocate memory
  */
 
-void integrate_explicit_diff_init(Grid *pGrid)
+void integrate_explicit_diff_init(MeshS *pM)
 {   
 /* Calculate the dimensions  */
   dim=0;
-  if(pGrid->Nx1 > 1) dim++;
-  if(pGrid->Nx2 > 1) dim++;
-  if(pGrid->Nx3 > 1) dim++;
+  if(pM->Nx1 > 1) dim++;
+  if(pM->Nx2 > 1) dim++;
+  if(pM->Nx3 > 1) dim++;
 
 /* Set function pointers for viscosity, resistivity, and anisotropic conduction
  * based on dimension of problem, and macros set by configure.  Also check that
@@ -220,3 +221,4 @@ void integrate_explicit_diff_destruct()
   anisoconduct_destruct();
 #endif
 }
+#endif /* EXPLICIT_DIFFUSION */

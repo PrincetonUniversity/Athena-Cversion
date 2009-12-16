@@ -48,8 +48,9 @@ static Real *dhalf = NULL, *phalf = NULL;
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
 
-void integrate_1d(Grid *pG, Domain *pD)
+void integrate_1d(DomainS *pD)
 {
+  GridS *pG=(pD->Grid);
   Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;
   int i,il,iu, is = pG->is, ie = pG->ie;
   int js = pG->js;
@@ -69,6 +70,9 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif
 #ifdef FEEDBACK
   Real dt1 = 1.0/pG->dt;
+#endif
+#ifdef STATIC_MESH_REFINEMENT
+  int ncg,npg,dim;
 #endif
 
 /* With particles, one more ghost cell must be updated in predict step */
@@ -408,41 +412,121 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif
   }
 
+/*--- Step 12b: Not needed in 1D ---*/
+/*--- Step 12c: Not needed in 1D ---*/
+/*--- Step 12d: Not needed in 1D ---*/
+
+#ifdef STATIC_MESH_REFINEMENT
+/*--- Step 12e -----------------------------------------------------------------
+ * With SMR, store fluxes at boundaries of child and parent grids.
+ */
+
+/* x1-boundaries of child Grids (interior to THIS Grid) */
+  for (ncg=0; ncg<pG->NCGrid; ncg++) {
+    for (dim=0; dim<2; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->CGrid[ncg].ijks[0];
+        if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
+
+        pG->CGrid[ncg].myFlx[dim][ks][js].d  = x1Flux[i].d; 
+        pG->CGrid[ncg].myFlx[dim][ks][js].M1 = x1Flux[i].Mx; 
+        pG->CGrid[ncg].myFlx[dim][ks][js].M2 = x1Flux[i].My;
+        pG->CGrid[ncg].myFlx[dim][ks][js].M3 = x1Flux[i].Mz; 
+#ifndef BAROTROPIC
+        pG->CGrid[ncg].myFlx[dim][ks][js].E  = x1Flux[i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+        pG->CGrid[ncg].myFlx[dim][ks][js].B1c = 0.0;
+        pG->CGrid[ncg].myFlx[dim][ks][js].B2c = x1Flux[i].By; 
+        pG->CGrid[ncg].myFlx[dim][ks][js].B3c = x1Flux[i].Bz; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pG->CGrid[ncg].myFlx[dim][ks][js].s[n]  = x1Flux[i].s[n]; 
+#endif
+      }
+    }
+  }
+
+/* x1-boundaries of parent Grids (at boundaries of THIS Grid)  */
+  for (npg=0; npg<pG->NPGrid; npg++) {
+    for (dim=0; dim<2; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->PGrid[npg].ijks[0];
+        if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
+
+        pG->PGrid[npg].myFlx[dim][ks][js].d  = x1Flux[i].d; 
+        pG->PGrid[npg].myFlx[dim][ks][js].M1 = x1Flux[i].Mx; 
+        pG->PGrid[npg].myFlx[dim][ks][js].M2 = x1Flux[i].My;
+        pG->PGrid[npg].myFlx[dim][ks][js].M3 = x1Flux[i].Mz; 
+#ifndef BAROTROPIC
+        pG->PGrid[npg].myFlx[dim][ks][js].E  = x1Flux[i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+        pG->PGrid[npg].myFlx[dim][ks][js].B1c = 0.0;
+        pG->PGrid[npg].myFlx[dim][ks][js].B2c = x1Flux[i].By; 
+        pG->PGrid[npg].myFlx[dim][ks][js].B3c = x1Flux[i].Bz; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pG->PGrid[npg].myFlx[dim][ks][js].s[n]  = x1Flux[i].s[n]; 
+#endif
+      }
+    }
+  }
+
+#endif /* STATIC_MESH_REFINEMENT */
+
   return;
 }
 
 /*----------------------------------------------------------------------------*/
 /* integrate_init_1d: Allocate temporary integration arrays */
 
-void integrate_init_1d(int nx1)
+void integrate_init_1d(MeshS *pM)
 {
-  int Nx1;
-  Nx1 = nx1 + 2*nghost;
+  int size1=0,nl,nd;
+
+/* Cycle over all Grids on this processor to find maximum Nx1 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if ((pM->Domain[nl][nd].Grid->Nx[0]) > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+      }
+    }
+  }
+
+  size1 = size1 + 2*nghost;
 
 #ifdef MHD
-  if ((Bxc = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-  if ((Bxi = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+  if ((Bxc = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+  if ((Bxi = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
 #endif /* MHD */
 
-  if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((U1d       = (Cons1D*)malloc(size1*sizeof(Cons1D))) ==NULL) goto on_error;
+  if ((Ul_x1Face = (Cons1D*)malloc(size1*sizeof(Cons1D))) ==NULL) goto on_error;
+  if ((Ur_x1Face = (Cons1D*)malloc(size1*sizeof(Cons1D))) ==NULL) goto on_error;
+  if ((x1Flux    = (Cons1D*)malloc(size1*sizeof(Cons1D))) ==NULL) goto on_error;
 
-  if ((W  = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((W  = (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl = (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr = (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
 
   if((StaticGravPot != NULL) || (CoolingFunc != NULL)){
-    if ((dhalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+    if ((dhalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
   }
   if(CoolingFunc != NULL){
-    if ((phalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+    if ((phalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
   }
 
   return;
 
   on_error:
+    integrate_destruct();
     ath_error("[integrate_init_1d]: malloc returned a NULL pointer\n");
 }
 

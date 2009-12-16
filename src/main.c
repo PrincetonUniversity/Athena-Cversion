@@ -4,9 +4,9 @@
  * //////////////////////////// ATHENA Main Program \\\\\\\\\\\\\\\\\\\\\\\\\\\
  *
  *  Athena - C version developed by JM Stone, TA Gardiner, & PJ Teuben.
- *  Significant additional contributions from X. Bai, M. Krumholz, N. Lemaster,
- *  I. Parrish, & A. Skinner.  See also the F90 version developed by JF Hawley
- *  & JB Simon.
+ *
+ *  Significant additional contributions from X. Bai, N. Lemaster, I. Parrish,
+ *  & A. Skinner.  See also the F90 version developed by JF Hawley & JB Simon.
  *
  *  History:
  *   v1.0 [Feb 2003] - 1D adiabatic and isothermal MHD
@@ -16,11 +16,12 @@
  *   v3.1 [Jan 2008] - multiple species, self-gravity
  *   v3.2 [Sep 2009] - viscosity, resistivity, conduction, particles, special
  *                     relativity, cylindrical coordinates
+ *   v4.0 [Jan 2010] - static mesh refinement with MPI
  *
- *  See the GNU General Public License for usage restrictions. 
+ * See the GNU General Public License for usage restrictions. 
  *
  *============================================================================*/
-static char *athena_version = "version 3.2 - 07-SEP-2009";
+static char *athena_version = "version 4.0 - XX-XXX-2010";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,14 +44,15 @@ static char *athena_version = "version 3.2 - 07-SEP-2009";
  *   usage         - outputs help message and terminates execution
  *============================================================================*/
 
+static void change_rundir(const char *name);
+static void usage(const char *prog);
+
 /* Maximum number of mkdir() and chdir() file operations that will be executed
  * at once in the change_rundir() function when running in parallel, passed to
  * baton_start() and baton_end().
  */ 
 #define MAX_FILE_OP 256
 
-static void change_rundir(const char *name);
-static void usage(const char *prog);
 #ifdef CYLINDRICAL
 void scaling_factor_init_cyl(int nx1, int nx2, int nx3);
 void scaling_factor_destruct_cyl(void);
@@ -61,34 +63,40 @@ void scaling_factor_destruct_cyl(void);
 
 int main(int argc, char *argv[])
 {
-  time_t start, stop;
-  int have_time = time(&start); /* Is current calendar time (UTC) available? */
-  VGDFun_t Integrate;     /* function pointer to integrator, set at runtime */
+  MeshS Mesh;             /* the entire mesh hierarchy, see athena.h */
+  VDFun_t Integrate;      /* function pointer to integrator, set at runtime */
 #ifdef SELF_GRAVITY
-  VGDFun_t SelfGrav;     /* function pointer to self-gravity, set at runtime */
+  VGDFun_t SelfGrav;      /* function pointer to self-gravity, set at runtime */
 #endif
-  Real dt_done;
-
-  Grid level0_Grid;      /* only level0 Grid and Domain in this version */
-  Domain level0_Domain;
-
-  int ires=0;            /* restart flag, set to 1 if -r argument on cmdline */
-  int i,nlim,done=0,zones,iquit=0,iflush,nflush,nstep_start=0;
-  Real tlim;
-  double cpu_time, zcs;
-  char *definput = "athinput", *rundir = NULL, *res_file = NULL, *name = NULL;
+  int nl,nd;
+  char *definput = "athinput";  /* default input filename */
   char *athinput = definput;
+  int ires=0;             /* restart flag, set to 1 if -r argument on cmdline */
+  char *res_file = NULL;  /* restart filename */
+  char *rundir = NULL;    /* directory to which output is directed */
+  int nstep_start=0;      /* number of cycles already completed on restart */
+  char *name = NULL;
+  FILE *fp;               /* file pointer for data outputs */
+  int nflag=0;            /* set to 1 if -n argument is given on command line */
+  int i,nlim;             /* cycle index and limit */
+  Real tlim;              /* time limit (in code units) */
+
+  int out_level, err_level, lazy; /* diagnostic output & error log levels */
+  int iflush, nflush;             /* flush buffers every iflush cycles */
+
+  int iquit=0;  /* quit signal sent to ath_sig_act, our system signal handler */
+
+/* local variables used for timing and performance measures */
+
+  time_t start, stop;
+  int have_time = time(&start);  /* Is current calendar time (UTC) available? */
+  int zones;
+  double cpu_time, zcs;
   long clk_tck = sysconf(_SC_CLK_TCK);
   struct tms tbuf;
   clock_t time0,time1, have_times;
   struct timeval tvs, tve;
-#ifdef MPI_PARALLEL
-  char *pc, *suffix, new_name[MAXLEN];
-  int len, h, m, s, err, use_wtlim=0;
-  double wtend;
-#endif /* MPI_PARALLEL */
-  int out_level, err_level, lazy; /* output & error log levels, lazy param. */
-  FILE *fp;
+  Real dt_done;
 
 /* variables for computing cylindrical scaling factors */
 #ifdef CYLINDRICAL
@@ -97,14 +105,27 @@ int main(int argc, char *argv[])
   Grid *pG;
 #endif
 
-/* MPICH modifies argc and argv when calling MPI_Init() so that
- * after calling MPI_Init() only athena's command line arguments are
- * present and they are the same for the parent and child processes
- * alike. Note that this is not required by the MPI standard. */
 #ifdef MPI_PARALLEL
+  char *pc, *suffix, new_name[MAXLEN];
+  int len, h, m, s, err, use_wtlim=0;
+  double wtend;
   if(MPI_SUCCESS != MPI_Init(&argc, &argv))
     ath_error("[main]: Error on calling MPI_Init\n");
 #endif /* MPI_PARALLEL */
+
+/*----------------------------------------------------------------------------*/
+/* Steps in main:
+ *  1 - check for command line options and respond
+ *  2 - read input file and parse command line for changes
+ *  3 - set up diagnostic log files
+ *  4 - initialize Mesh, Domains, and Grids
+ *  5 - set initial conditions
+ *  6 - set boundary condition function pointers, and use to set BCs
+ *  7 - set function pointers for desired algorithms and physics
+ *  8 - write initial conditions to output file(s)
+ *  9 - main loop
+ *  10 - finish by writing final output(s), diagnostics, and free memory
+ */
 
 /*--- Step 1. ----------------------------------------------------------------*/
 /* Check for command line options and respond.  See comments in usage()
@@ -114,37 +135,36 @@ int main(int argc, char *argv[])
 /* If argv[i] is a 2 character string of the form "-?" then: */
     if(*argv[i] == '-'  && *(argv[i]+1) != '\0' && *(argv[i]+2) == '\0'){
       switch(*(argv[i]+1)) {
-      case 'i':                                /* -i <file>   */
+      case 'i':                      /* -i <file>   */
 	athinput = argv[++i];
 	break;
-      case 'r':                                /* -r <file>   */
+      case 'r':                      /* -r <file>   */
 	ires = 1;
 	res_file = argv[++i];
-/* If the input file has not yet been set, use the restart file */
+/* If input file is not set on command line, use the restart file */
 	if(athinput == definput) athinput = res_file;
 	break;
-      case 'd':                                /* -d <directory>   */
+      case 'd':                      /* -d <directory>   */
 	rundir = argv[++i];
 	break;
-      case 'n':                                /* -n */
-	done = 1;
+      case 'n':                      /* -n */
+	nflag = 1;
 	break;
-      case 'h':                                /* -h */
+      case 'h':                      /* -h */
 	usage(argv[0]);
 	break;
-      case 'c':                                /* -c */
+      case 'c':                      /* -c */
 	show_config();
 	exit(0);
 	break;
 #ifdef MPI_PARALLEL
-      case 't':                                /* -t hh:mm:ss */
+      case 't':                      /* -t hh:mm:ss */
 	use_wtlim = 1; /* Logical to use a wall time limit */
 	sscanf(argv[++i],"%d:%d:%d",&h,&m,&s);
 	wtend = MPI_Wtime() + s + 60*(m + 60*h);
 	printf("Wall time limit: %d hrs, %d min, %d sec\n",h,m,s);
 	break;
-#endif /* MPI_PARALLEL */
-#ifndef MPI_PARALLEL
+#else
       default:
 	usage(argv[0]);
 	break;
@@ -153,29 +173,33 @@ int main(int argc, char *argv[])
     }
   }
 
-/*--- Step 2. (MPI_PARALLEL) -------------------------------------------------*/
-/* For MPI_PARALLEL jobs, have parent read input file, parse command line, and
- * distribute information to children  */
+/*--- Step 2. ----------------------------------------------------------------*/
+/* Read input file and parse command line.  For MPI_PARALLEL jobs, parent reads
+ * input file and distributes information to children  */
 
 #ifdef MPI_PARALLEL
-/* Get my task id (rank in MPI) */
-  if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD,&(level0_Grid.my_id)))
-    ath_error("Error on calling MPI_Comm_rank\n");
+/* Get proc id (rank) in MPI_COMM_WORLD, store as global variable */
 
-/* Only parent (my_id==0) reads input parameter file, parses command line */
-  if(level0_Grid.my_id == 0){
-    par_open(athinput); 
+  if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &myID_Comm_world))
+    ath_error("[main]: Error on calling MPI_Comm_rank\n");
+
+/* Only rank=0 processor reads input parameter file, parses command line,
+ * broadcasts the contents of the (updated) parameter file to the children. */
+
+  if(myID_Comm_world == 0){
+    par_open(athinput);   /* for restarts, default is athinput=resfile */ 
     par_cmdline(argc,argv);
   }
+  par_dist_mpi(myID_Comm_world,MPI_COMM_WORLD);
 
-/* Distribute the contents of the (updated) parameter file to the children. */
-  par_dist_mpi(level0_Grid.my_id,MPI_COMM_WORLD);
+/* Modify the problem_id name in the <job> block to include information about
+ * processor ids, so that all output filenames constructed from this name will
+ * include myID_Comm_world as an identifier.  Only child processes modify
+ * name, rank=0 process does not have myID_Comm_world in the filename */
 
-/* Each child uses my_id in all output filenames to distinguish its output.
- * Output from the parent process does not have my_id in the filename */
-  if(level0_Grid.my_id != 0){
+  if(myID_Comm_world != 0){
     name = par_gets("job","problem_id");
-    sprintf(new_name,"%s-id%d",name,level0_Grid.my_id);
+    sprintf(new_name,"%s-id%d",name,myID_Comm_world);
     free(name);
     par_sets("job","problem_id",new_name,NULL);
   }
@@ -183,19 +207,22 @@ int main(int argc, char *argv[])
   show_config_par(); /* Add the configure block to the parameter database */
 
 /* Share the restart flag with the children */
+
   if(MPI_SUCCESS != MPI_Bcast(&ires, 1, MPI_INT, 0, MPI_COMM_WORLD))
     ath_error("[main]: Error on calling MPI_Bcast\n");
 
-/* Parent needs to send the restart file name to the children.  This requires 
+/* rank=0 needs to send the restart file name to the children.  This requires 
  * sending the length of the restart filename string, the string, and then
  * having each child add my_id to the name so it opens the appropriate file */
 
-/* Find length of restart filename */
+/* Parent finds length of restart filename */
+
   if(ires){ 
-    if(level0_Grid.my_id == 0)
+    if(myID_Comm_world == 0)
       len = 1 + (int)strlen(res_file);
 
 /* Share this length with the children */
+
     if(MPI_SUCCESS != MPI_Bcast(&len, 1, MPI_INT, 0, MPI_COMM_WORLD))
       ath_error("[main]: Error on calling MPI_Bcast\n");
 
@@ -203,14 +230,14 @@ int main(int argc, char *argv[])
       ath_error("[main]: Restart filename length = %d is too large\n",len);
 
 /* Share the restart filename with the children */
-    if(level0_Grid.my_id == 0) strcpy(new_name, res_file);
+
+    if(myID_Comm_world == 0) strcpy(new_name, res_file);
     if(MPI_SUCCESS != MPI_Bcast(new_name, len, MPI_CHAR, 0, MPI_COMM_WORLD))
       ath_error("[main]: Error on calling MPI_Bcast\n");
 
 /* Assume the restart file name is of the form
-       [/some/dir/elsewhere/]basename.0000.rst and search for the
-       periods in the name. */
-/* DOES THIS REQUIRE NAME HAVE 4 INTEGERS? */
+ *  [/some/dir/]basename.0000.rst and search for the periods in the name. */
+
     pc = &(new_name[len - 5]);
     if(*pc != '.'){
       ath_error("[main]: Bad Restart filename: %s\n",new_name);
@@ -222,48 +249,52 @@ int main(int argc, char *argv[])
 	ath_error("[main]: Bad Restart filename: %s\n",new_name);
     }while(*pc != '.');
 
-/* Add my_id to the filename */
-    if(level0_Grid.my_id == 0) {     /* I'm the parent */
+/* Only children add myID_Comm_world to the filename */
+
+    if(myID_Comm_world == 0) {
       strcpy(new_name, res_file);
-    } else {                         /* I'm a child */
+    } else {       
       suffix = ath_strdup(pc);
-      sprintf(pc,"-id%d%s",level0_Grid.my_id,suffix);
+      sprintf(pc,"-id%d%s",myID_Comm_world,suffix);
       free(suffix);
       res_file = new_name;
     }
   }
 
-  if(done){          /* Quit MPI_PARALLEL job if code was run with -n option. */
+/* Quit MPI_PARALLEL job if code was run with -n option. */
+
+  if(nflag){          
     par_dump(0,stdout);   
     par_close();
     MPI_Finalize();
     return 0;
   }
 
-/*--- Step 2. (Serial job) ---------------------------------------------------*/
-/* If this is *not* an MPI_PARALLEL job, there is only one process to open and
+#else
+/* For serial (single processor) job, there is only one process to open and
  * read input file  */
 
-#else
-  level0_Grid.my_id = 0;
+  myID_Comm_world = 0;
   par_open(athinput);   /* opens AND reads */
   par_cmdline(argc,argv);
   show_config_par();   /* Add the configure block to the parameter database */
 
-  if(done){      /* Quit non-MPI_PARALLEL job if code was run with -n option. */
+/* Quit non-MPI_PARALLEL job if code was run with -n option. */
+
+  if(nflag){
     par_dump(0,stdout);
     par_close();
     return 0;
   }
-
 #endif /* MPI_PARALLEL */
 
 /*--- Step 3. ----------------------------------------------------------------*/
 /* set up the simulation log files */
 
-/* Open the simulation <problem_id>.out and <problem_id>.err files? */
-/* If not, output will go to stdout and stderr streams.  Files will only be
- * opened if file_open=1 in the <log> block in the athinput file */
+/* Open <problem_id>.out and <problem_id>.err files if file_open=1 in the 
+ * <log> block of the input file.  Otherwise, diagnositic output will go to
+ * stdout and stderr streams. */
+
   if(par_geti_def("log","file_open",0)){
     iflush = par_geti_def("log","iflush",0);
     name = par_gets("job","problem_id");
@@ -277,11 +308,11 @@ int main(int argc, char *argv[])
   }
   iflush = iflush > 0 ? iflush : 0; /* make iflush non-negative */
 
-  /* Set the ath_log output and error logging levels */
+/* Set the ath_log output and error logging levels */
   out_level = par_geti_def("log","out_level",0);
   err_level = par_geti_def("log","err_level",0);
 #ifdef MPI_PARALLEL
-  if(level0_Grid.my_id > 0){ /* Children may use different log levels */
+    if(myID_Comm_world > 0){   /* Children may use different log levels */
     out_level = par_geti_def("log","child_out_level",-1);
     err_level = par_geti_def("log","child_err_level",-1);
   }
@@ -291,16 +322,27 @@ int main(int argc, char *argv[])
   if(have_time > 0) /* current calendar time (UTC) is available */
     ath_pout(0,"Simulation started on %s\n",ctime(&start));
 
-/*--- Step 3. ----------------------------------------------------------------*/
-/* set variables in <time> block (these control execution time) */
+/*--- Step 4. ----------------------------------------------------------------*/
+/* Initialize nested mesh hierarchy. */
+
+  init_mesh(&Mesh);
+  init_grid(&Mesh);
+#ifdef PARTICLES
+  init_particle(&Mesh);
+#endif
+
+/*--- Step 5. ----------------------------------------------------------------*/
+/* Set initial conditions, either by reading from restart or calling problem
+ * generator.  But first start by setting variables in <time> block (these
+ * control execution time), and reading EOS parameters from <problem> block.  */
 
   CourNo = par_getd("time","cour_no");
+  if (Mesh.Nx[0] > 1 && Mesh.Nx[1] > 1 && Mesh.Nx[2] > 1 && CourNo >= 0.5) 
+    ath_error("CourNo=%e , must be < 0.5 with 3D integrator\n",CourNo);
+
   nlim = par_geti_def("time","nlim",-1);
   tlim = par_getd("time","tlim");
 
-/* Set variables in <job> block, EOS parameters from <problem> block.  */
-
-  level0_Grid.outfilename = par_gets("job","problem_id");
 #ifdef ISOTHERMAL
   Iso_csound = par_getd("problem","iso_csound");
   Iso_csound2 = Iso_csound*Iso_csound;
@@ -310,32 +352,24 @@ int main(int argc, char *argv[])
   Gamma_2 = Gamma - 2.0;
 #endif
 
-/*--- Step 4. ----------------------------------------------------------------*/
-/* Initialize and partition the computational Domain across processors.  Then
- * initialize each individual Grid block within Domain  */
-
-  init_domain(&level0_Grid, &level0_Domain);
-  init_grid  (&level0_Grid, &level0_Domain);
-#ifdef PARTICLES
-  init_particle(&level0_Grid, &level0_Domain);
-#endif
-
-  if (level0_Grid.Nx1 > 1 && level0_Grid.Nx2 > 1 && level0_Grid.Nx3 > 1
-    && CourNo >= 0.5) 
-    ath_error("CourNo=%e , must be < 0.5 with 3D integrator\n",CourNo);
-
-/*--- Step 5. ----------------------------------------------------------------*/
-/* Set initial conditions, either by reading from restart or calling
- * problem generator */
-
   if(ires) {
-    restart_grid_block(res_file, &level0_Grid, &level0_Domain);  /*  Restart */
-    nstep_start = level0_Grid.nstep;
-  } else {     
-    problem(&level0_Grid, &level0_Domain);      /* New problem */
+    restart_grids(res_file, &Mesh);  /*  Restart */
+    nstep_start = Mesh.nstep;
+  } else {                           /* New problem */
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL) problem(&(Mesh.Domain[nl][nd]));
+      }
+    }
   }
 
-  /* Initialize the first nstep value to flush the output and error logs. */
+/* restrict initial solution so grid hierarchy is consistent */
+#ifdef STATIC_MESH_REFINEMENT
+  SMR_init(&Mesh);
+  RestrictCorrect(&Mesh);
+#endif
+
+/* Initialize the first nstep value to flush the output and error logs. */
   nflush = nstep_start + iflush;
 
 /*--- Step 5.5 ---------------------------------------------------------------*/
@@ -356,44 +390,59 @@ int main(int argc, char *argv[])
 
 /*--- Step 6. ----------------------------------------------------------------*/
 /* set boundary value function pointers using BC flags in <grid> blocks, then
- * set boundary conditions for initial conditions  */
+ * set boundary conditions for initial conditions.  With SMR, this includes
+ * a prolongation step to set ghost zones at internal fine/coarse boundaries  */
 
-  set_bvals_mhd_init(&level0_Grid, &level0_Domain);
+  set_bvals_mhd_init(&Mesh);
+
 #ifdef SELF_GRAVITY
-  set_bvals_grav_init(&level0_Grid, &level0_Domain);
+  set_bvals_grav_init(&Mesh);
 #endif
 #ifdef SHEARING_BOX
-  set_bvals_shear_init(&level0_Grid, &level0_Domain);
+  set_bvals_shear_init(&Mesh);
 #endif
 #ifdef PARTICLES
-  set_bvals_particle_init(&level0_Grid, &level0_Domain);
+  set_bvals_particle_init(&Mesh);
 #endif
 
-  set_bvals_mhd(&level0_Grid, &level0_Domain);
+  for (nl=0; nl<(Mesh.NLevels); nl++){ 
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+      if (Mesh.Domain[nl][nd].Grid != NULL){
+        set_bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-  set_bvals_particle(&level0_Grid, &level0_Domain);
+        set_bvals_particle(&(Mesh.Domain[nl][nd]));
 #ifdef FEEDBACK
-  exchange_feedback_init(&level0_Grid, &level0_Domain);
+        exchange_feedback_init(&(Mesh.Domain[nl][nd]));
 #endif
+#endif
+      }
+    }
+  }
+
+/* Now that BC set, prolongate solution into child Grid GZ with SMR */
+#ifdef STATIC_MESH_REFINEMENT
+  Prolongate(&Mesh);
 #endif
 
-  if(ires == 0) new_dt(&level0_Grid);
+/* For new runs, set initial timestep */
+
+  if(ires == 0) new_dt(&Mesh);
 
 /*--- Step 7. ----------------------------------------------------------------*/
 /* Set function pointers for integrator; self-gravity (based on dimensions)
  * Initialize gravitational potential for new runs
  * Allocate temporary arrays */
 
-  init_output(&level0_Grid); 
-  lr_states_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
-  Integrate = integrate_init(level0_Grid.Nx1,level0_Grid.Nx2,level0_Grid.Nx3);
+  init_output(&Mesh); 
+  lr_states_init(&Mesh);
+  Integrate = integrate_init(&Mesh);
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
   set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
 #ifdef EXPLICIT_DIFFUSION
-  integrate_explicit_diff_init(&level0_Grid);
+  integrate_explicit_diff_init(&Mesh);
 #endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
@@ -401,15 +450,10 @@ int main(int argc, char *argv[])
 
   if(out_level >= 0){
     fp = athout_fp();
-    par_dump(0,fp); /* Dump a copy of the parsed information to athout */
+    par_dump(0,fp);      /* Dump a copy of the parsed information to athout */
   }
-
   change_rundir(rundir); /* Change to the requested run directory */
-
-/* Write of all output's forced when last argument of data_output = 1 */
-  if (ires==0) data_output(&level0_Grid, &level0_Domain, 1);
-
-  ath_sig_init(); /* Install a signal handler */
+  ath_sig_init();        /* Install a signal handler */
 
   gettimeofday(&tvs,NULL);
   if((have_times = times(&tbuf)) > 0)
@@ -417,47 +461,89 @@ int main(int argc, char *argv[])
   else
     time0 = clock();
 
+/* Force output of everything (by passing last argument of data_output = 1) */
+
+  if (ires==0) data_output(&Mesh, 1);
+
   ath_pout(0,"\nSetup complete, entering main loop...\n\n");
-  ath_pout(0,"cycle=%i time=%e next dt=%e\n",level0_Grid.nstep,
-	   level0_Grid.time,
-	   level0_Grid.dt);
+  ath_pout(0,"cycle=%i time=%e next dt=%e\n",Mesh.nstep, Mesh.time, Mesh.dt);
 
 /*--- Step 9. ----------------------------------------------------------------*/
 /* START OF MAIN INTEGRATION LOOP ==============================================
- * Steps are: (1) Check for data ouput
- *            (2) Integrate level0 grid
- *            (3) Set boundary values
- *            (4) Set new timestep
+ * Steps are: (a) Check for data ouput
+ *            (b) Add explicit diffusion with operator splitting
+ *            (c) Integrate all Grids over Mesh hierarchy
+ *            (d) Restrict solution and correct fine/coarse boundaries
+ *            (e) Userwork
+ *            (f) Self-gravity
+ *            (g) Update time, set new timestep
+ *            (h) Set boundary values
+ *            (i) check for stopping criteria
  */
-  while (level0_Grid.time < tlim && (nlim < 0 || level0_Grid.nstep < nlim)) {
 
-/* Only write output's with t_out>t when last argument of data_output = 0 */
-    data_output(&level0_Grid, &level0_Domain, 0);
+  while (Mesh.time < tlim && (nlim < 0 || Mesh.nstep < nlim)) {
 
-/* modify timestep so loop finishes at t=tlim exactly */
-    if ((tlim-level0_Grid.time) < level0_Grid.dt) {
-      level0_Grid.dt = (tlim-level0_Grid.time);
+/* modify timestep so loop finishes at t=tlim exactly, spread across Grid's */
+    if ((tlim - (Mesh.time)) < Mesh.dt) {
+      Mesh.dt = (tlim - (Mesh.time));
+
+      for (nl=0; nl<(Mesh.NLevels); nl++){
+        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+          if (Mesh.Domain[nl][nd].Grid != NULL)
+            Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
+        }
+      }
     }
 
+/*--- Step 9a. ---------------------------------------------------------------*/
+/* Only write output's with t_out>t (last argument of data_output = 0) */
+
+    data_output(&Mesh, 0);
+
+/*--- Step 9b. ---------------------------------------------------------------*/
 /* operator-split explicit diffusion: resistivity, viscosity, conduction
  * Done first since CFL constraint is applied which may change dt  */
+
 #ifdef EXPLICIT_DIFFUSION
-    integrate_explicit_diff(&level0_Grid, &level0_Domain);
+    integrate_explicit_diff(&Mesh);
     set_bvals_mhd(&level0_Grid, &level0_Domain);
 #endif
 
-    (*Integrate)(&level0_Grid, &level0_Domain);
+/*--- Step 9c. ---------------------------------------------------------------*/
+/* Loop over all Domains and call Integrator */
+
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          (*Integrate)(&(Mesh.Domain[nl][nd]));
 
 #ifdef FARGO
-    if (level0_Grid.Nx3 > 1) { /* perform advection only in 3D */
-      Fargo(&level0_Grid, &level0_Domain);
+          if (level0_Grid.Nx3 > 1) {  /* perform orbital advection in 3D only */
+            Fargo(&level0_Grid, &level0_Domain);
 #ifdef PARTICLES
-      advect_particles(&level0_Grid, &level0_Domain);
+            advect_particles(&level0_Grid, &level0_Domain);
 #endif
-    }
+          }
 #endif /* FARGO */
+        }
+      }
+    }
 
-    Userwork_in_loop(&level0_Grid, &level0_Domain);
+/*--- Step 9d. ---------------------------------------------------------------*/
+/* With SMR, restrict solution from Child --> Parent grids  */
+
+#ifdef STATIC_MESH_REFINEMENT
+    RestrictCorrect(&Mesh);
+#endif
+
+/*--- Step 9e. ---------------------------------------------------------------*/
+/* User work (defined in problem()) */
+
+    Userwork_in_loop(&Mesh);
+
+/*--- Step 9f. ---------------------------------------------------------------*/
+/* Compute gravitational potential using new density, and add second-order
+ * correction to fluxes for accelerations due to self-gravity. */
 
 #ifdef SELF_GRAVITY
     (*SelfGrav)(&level0_Grid, &level0_Domain);
@@ -465,42 +551,68 @@ int main(int argc, char *argv[])
     selfg_flux_correction(&level0_Grid);
 #endif
 
-    dt_done = level0_Grid.dt;
-    level0_Grid.nstep++;
-    level0_Grid.time += level0_Grid.dt;
-    new_dt(&level0_Grid);
+/*--- Step 9g. ---------------------------------------------------------------*/
+/* Update Mesh time, and time in all Grid's.  Compute new dt */
 
-/* Boundary values must be set after time is updated for t-dependent BCs */
-    set_bvals_mhd(&level0_Grid, &level0_Domain);
+    Mesh.nstep++;
+    Mesh.time += Mesh.dt;
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          Mesh.Domain[nl][nd].Grid->time = Mesh.time;
+        }
+      }
+    }
+
+    dt_done = Mesh.dt;
+    new_dt(&Mesh);
+
+/*--- Step 9h. ---------------------------------------------------------------*/
+/* Boundary values must be set after time is updated for t-dependent BCs.
+ * With SMR, ghost zones at internal fine/coarse boundaries set by Prolongate */
+
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          set_bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-    set_bvals_particle(&level0_Grid, &level0_Domain);
+          set_bvals_particle(&level0_Grid, &level0_Domain);
 #endif
+        }
+      }
+    }
+
+#ifdef STATIC_MESH_REFINEMENT
+    Prolongate(&Mesh);
+#endif
+
+/*--- Step 9i. ---------------------------------------------------------------*/
+/* Force quit if wall time limit reached.  Check signals from system */
 
 #ifdef MPI_PARALLEL
     if(use_wtlim && (MPI_Wtime() > wtend))
       iquit = 103; /* an arbitrary, unused signal number */
 #endif /* MPI_PARALLEL */
-
-/* Update iquit for signals, MPI synchronize and return its value */
     if(ath_sig_act(&iquit) != 0) break;
 
-    ath_pout(0,"cycle=%i time=%e next dt=%e last dt=%e\n",
-	     level0_Grid.nstep,level0_Grid.time,
-	     level0_Grid.dt,dt_done);
+/* Print diagnostic message, flush message buffers, and continue... */
 
-    if(nflush == level0_Grid.nstep){
+    ath_pout(0,"cycle=%i time=%e next dt=%e last dt=%e\n",
+	     Mesh.nstep,Mesh.time,Mesh.dt,dt_done);
+
+    if(nflush == Mesh.nstep){
       ath_flush_out();
       ath_flush_err();
       nflush += iflush;
     }
-  }
-/* END OF MAIN INTEGRATION LOOP ==============================================*/
+  } /* END OF MAIN INTEGRATION LOOP ==========================================*/
 
 /*--- Step 10. ---------------------------------------------------------------*/
 /* Finish up by computing zc/sec, dumping data, and deallocate memory */
 
 /* Print diagnostic message as to why run terminated */
-  if (level0_Grid.nstep == nlim)
+
+  if (Mesh.nstep == nlim)
     ath_pout(0,"\nterminating on cycle limit\n");
 #ifdef MPI_PARALLEL
   else if(use_wtlim && iquit == 103)
@@ -510,6 +622,7 @@ int main(int argc, char *argv[])
     ath_pout(0,"\nterminating on time limit\n");
 
 /* Get time used */
+
   gettimeofday(&tve,NULL);
   if(have_times > 0) {
     times(&tbuf);
@@ -522,36 +635,53 @@ int main(int argc, char *argv[])
       (double)CLOCKS_PER_SEC;
   }
 
-/* Calculate and print the zone-cycles / cpu-second */
-  zones = level0_Grid.Nx1*level0_Grid.Nx2*level0_Grid.Nx3;
-  zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
+/* Calculate and print the zone-cycles/cpu-second on this processor */
+
+  zones = 0;
+  for (nl=0; nl<(Mesh.NLevels); nl++){ 
+  for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    if (Mesh.Domain[nl][nd].Grid != NULL) {
+      zones += (Mesh.Domain[nl][nd].Grid->Nx[0])*
+               (Mesh.Domain[nl][nd].Grid->Nx[1])*
+               (Mesh.Domain[nl][nd].Grid->Nx[2]);
+    }
+  }}
+  zcs = (double)zones*(double)((Mesh.nstep) - nstep_start)/cpu_time;
 
   ath_pout(0,"  tlim= %e   nlim= %i\n",tlim,nlim);
-  ath_pout(0,"  time= %e  cycle= %i\n",level0_Grid.time,level0_Grid.nstep);
+  ath_pout(0,"  time= %e  cycle= %i\n",Mesh.time,Mesh.nstep);
   ath_pout(0,"\nzone-cycles/cpu-second = %e\n",zcs);
 
-/* Calculate and print the zone-cycles / wall-second */
+/* Calculate and print the zone-cycles/wall-second on this processor */
+
   cpu_time = (double)(tve.tv_sec - tvs.tv_sec) +
     1.0e-6*(double)(tve.tv_usec - tvs.tv_usec);
-  zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
+  zcs = (double)zones*(double)((Mesh.nstep) - nstep_start)/cpu_time;
   ath_pout(0,"\nelapsed wall time = %e sec.\n",cpu_time);
   ath_pout(0,"\nzone-cycles/wall-second = %e\n",zcs);
 
+/* Calculate and print total zone-cycles/wall-second on all processors */
 #ifdef MPI_PARALLEL
-  zones = (level0_Domain.ide - level0_Domain.ids + 1)
-         *(level0_Domain.jde - level0_Domain.jds + 1)
-         *(level0_Domain.kde - level0_Domain.kds + 1);
-  zcs = (double)zones*(double)(level0_Grid.nstep-nstep_start)/cpu_time;
+  zones = 0;
+  for (nl=0; nl<(Mesh.NLevels); nl++){ 
+  for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    zones += (Mesh.Domain[nl][nd].Nx[0])*
+               (Mesh.Domain[nl][nd].Nx[1])*
+               (Mesh.Domain[nl][nd].Nx[2]);
+  }}
+  zcs = (double)zones*(double)(Mesh.nstep - nstep_start)/cpu_time;
   ath_pout(0,"\ntotal zone-cycles/wall-second = %e\n",zcs);
 #endif /* MPI_PARALLEL */
 
-/* complete any final User work, and make last dump */
+/* complete any final User work */
 
-  Userwork_after_loop(&level0_Grid, &level0_Domain);
-/* Write of all output's forced when last argument of data_output = 1 */
-  data_output(&level0_Grid, &level0_Domain, 1);
+  Userwork_after_loop(&Mesh);
 
-/* Free all temporary arrays */
+/* Final output everything (last argument of data_output = 1) */
+
+  data_output(&Mesh, 1);
+
+/* Free all memory */
 
   lr_states_destruct();
   integrate_destruct();
@@ -584,6 +714,7 @@ int main(int argc, char *argv[])
   return EXIT_SUCCESS;
 }
 
+/*============================================================================*/
 /*----------------------------------------------------------------------------*/
 /*  change_rundir: change run directory;  create it if it does not exist yet
  */
@@ -601,7 +732,6 @@ void change_rundir(const char *name)
     ath_error("[change_rundir]: MPI_Comm_rank error = %d\n",status);
 
   if(name != NULL && *name != '\0'){
-   /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",name); */
 
     if(my_id == 0)
       mkdir(name, 0775); /* May return an error, e.g. the directory exists */
@@ -627,11 +757,9 @@ void change_rundir(const char *name)
     }
   }
 
-  /* ======================================================================== */
+/* Next, change to the local run directory */
 
-  /* Next, change to the local run directory */
   sprintf(mydir, "id%d", my_id);
-  /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",mydir); */
 
   baton_start(MAX_FILE_OP, ch_rundir1_tag);
 
@@ -655,7 +783,6 @@ void change_rundir(const char *name)
 #else /* Serial job */
 
   if(name == NULL || *name == '\0') return;
-  /* ath_pout(0,"[change_rundir]: Changing run directory to \"%s\"\n",name); */
 
   mkdir(name, 0775); /* May return an error, e.g. the directory exists */
   if(chdir(name))
@@ -669,7 +796,8 @@ void change_rundir(const char *name)
 /*----------------------------------------------------------------------------*/
 /*  usage: outputs help
  *    athena_version is hardwired at beginning of this file
- *    CONFIGURE_DATE is macro set when configure script runs */
+ *    CONFIGURE_DATE is macro set when configure script runs
+ */
 
 static void usage(const char *prog)
 {
@@ -693,6 +821,7 @@ static void usage(const char *prog)
 /*  scaling_factor_init_cyl: allocate storage arrays for scaling factors
  *    used in cylindrical coordinates
  */
+
 void scaling_factor_init_cyl(int nx1, int nx2, int nx3)
 {
   int Nx1 = nx1 + 2*nghost;
@@ -713,10 +842,10 @@ void scaling_factor_init_cyl(int nx1, int nx2, int nx3)
 /*  scaling_factor_destruct_cyl: free storage arrays for scaling factors
  *    used in cylindrical coordinates
  */
+
 void scaling_factor_destruct_cyl(void)
 {
   if (r  != NULL) free(r);
   if (ri != NULL) free(ri);
 }
 #endif /* CYLINDRICAL */
-

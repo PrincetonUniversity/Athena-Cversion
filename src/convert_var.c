@@ -6,6 +6,7 @@
  *   Also contains function to compute fast magnetosonic speed.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
+ *   Cons_to_Prim() - converts Gas type to Prim type
  *   Cons1D_to_Prim1D() - converts 1D vector (Bx passed through arguments)
  *   Prim1D_to_Cons1D() - converts 1D vector (Bx passed through arguments)
  *   cfast()            - compute fast speed given input Cons1D, Bx
@@ -18,6 +19,47 @@
 #include "prototypes.h"
 
 #ifndef SPECIAL_RELATIVITY /* This version for Newtonian dynamics */
+
+/*----------------------------------------------------------------------------*/
+/* Cons_to_Prim: 
+ *   conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ *   primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ */
+
+Prim Cons_to_Prim(const Gas *pGas)
+{
+  Prim pPrim;
+#if (NSCALARS > 0)
+  int n;
+#endif
+  Real di = 1.0/pGas->d;
+
+  pPrim.d  = pGas->d;
+  pPrim.V1 = pGas->M1*di;
+  pPrim.V2 = pGas->M2*di;
+  pPrim.V3 = pGas->M3*di;
+
+#ifndef ISOTHERMAL
+  pPrim.P = pGas->E - 0.5*(SQR(pGas->M1)+SQR(pGas->M2)+SQR(pGas->M3))*di;
+#ifdef MHD
+  pPrim.P -= 0.5*(SQR(pGas->B1c) + SQR(pGas->B2c) + SQR(pGas->B3c));
+#endif /* MHD */
+  pPrim.P *= Gamma_1;
+  pPrim.P = MAX(pPrim.P,(TINY_NUMBER));
+#endif /* ISOTHERMAL */
+
+#ifdef MHD
+  pPrim.B1c = pGas->B1c;
+  pPrim.B2c = pGas->B2c;
+  pPrim.B3c = pGas->B3c;
+#endif /* MHD */
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) pPrim.r[n] = pGas->s[n]*di;
+#endif
+
+  return pPrim;
+}
 
 /*----------------------------------------------------------------------------*/
 /* Cons1D_to_Prim1D: 

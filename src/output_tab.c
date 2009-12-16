@@ -24,22 +24,28 @@
  *   output_tab_3d() - write tab file for 3D section of data
  *============================================================================*/
 
-void output_tab_1d(Grid *pGrid, Output *pOut, FILE *pFile);
-void output_tab_2d(Grid *pGrid, Output *pOut, FILE *pFile);
-void output_tab_3d(Grid *pGrid, Output *pOut, FILE *pFile);
+void output_tab_1d(GridS *pGrid, OutputS *pOut, FILE *pFile);
+void output_tab_2d(GridS *pGrid, OutputS *pOut, FILE *pFile);
+void output_tab_3d(GridS *pGrid, OutputS *pOut, FILE *pFile);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* output_tab:  open file, call 1D/2D/3D writer; called by data_ouput  */
 
-void output_tab(Grid *pGrid, Domain *pD, Output *pOut)
+void output_tab(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid;
   FILE *pFile;
   char *fname;
   int dnum = pOut->num;
 
+/* Return if Grid is not on this processor */
+
+  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pGrid == NULL) return;
+
 /* construct output filename */
-  fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"tab");
+  fname = ath_fname(NULL,pM->outfilename,num_digit,dnum,pOut->id,"tab");
   if (fname == NULL) {
     ath_error("[output_tab]: Error constructing output filename\n");
     return;
@@ -69,7 +75,7 @@ void output_tab(Grid *pGrid, Domain *pD, Output *pOut)
 /*----------------------------------------------------------------------------*/
 /* output_tab_1d: writes 1D data  */
 
-void output_tab_1d(Grid *pGrid, Output *pOut, FILE *pFile)
+void output_tab_1d(GridS *pGrid, OutputS *pOut, FILE *pFile)
 {
   int i,nx1;
   float *data, dmin, dmax, xworld;
@@ -98,7 +104,7 @@ void output_tab_1d(Grid *pGrid, Output *pOut, FILE *pFile)
 /*----------------------------------------------------------------------------*/
 /* output_tab_2d: writes 2D data  */
 
-void output_tab_2d(Grid *pGrid, Output *pOut, FILE *pFile)
+void output_tab_2d(GridS *pGrid, OutputS *pOut, FILE *pFile)
 {
   int i,j,nx1,nx2;
   float **data, dmin, dmax, xworld, yworld;
@@ -131,7 +137,7 @@ void output_tab_2d(Grid *pGrid, Output *pOut, FILE *pFile)
 /*----------------------------------------------------------------------------*/
 /* output_tab_3d: writes 3D data   */
 
-void output_tab_3d(Grid *pGrid, Output *pOut, FILE *pFile)
+void output_tab_3d(GridS *pGrid, OutputS *pOut, FILE *pFile)
 {
   int i,j,k,nx1,nx2,nx3;
   float ***data, dmin, dmax, xworld, yworld, zworld;

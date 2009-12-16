@@ -23,8 +23,9 @@
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i,is,ie,j,js,je,ks,nx1,nx2;
   Real d0,p0,B0,v0,x1,x2,x3,**az;
 
@@ -33,8 +34,11 @@ void problem(Grid *pGrid, Domain *pDomain)
   ks = pGrid->ks;
   nx1 = (ie-is)+1 + 2*nghost;
   nx2 = (je-js)+1 + 2*nghost;
-  if ((nx1 == 1) || (nx2 == 1)) {
-    ath_error("[orszag-tang]: This problem can only be run with Nx1>1\n");
+  if (pGrid->Nx[2] > 1) {
+    ath_error("[orszag-tang]: This problem can only be run in 2D\n");
+  }
+  if (pGrid->Nx[1] == 1) {
+    ath_error("[orszag-tang]: This problem can only be run in 2D\n");
   }
   if ((az = (Real**)calloc_2d_array(nx2, nx1, sizeof(Real))) == NULL) {
     ath_error("[orszag-tang]: Error allocating memory for vector pot\n");
@@ -72,11 +76,13 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 /* boundary conditions on interface B */
   for (j=js; j<=je; j++) {
-    pGrid->B1i[ks][j][ie+1] = pGrid->B1i[ks][j][is];
-  }
+  for (i=is; i<=ie+1; i++) {
+    pGrid->B1i[ks][j][i] = (az[j+1][i] - az[j][i])/pGrid->dx2;
+  }}
+  for (j=js; j<=je+1; j++) {
   for (i=is; i<=ie; i++) {
-    pGrid->B2i[ks][je+1][i] = pGrid->B2i[ks][js][i];
-  }
+    pGrid->B2i[ks][j][i] =-(az[j][i+1] - az[j][i])/pGrid->dx1;
+  }}
 
 /* initialize total energy and cell-centered B */
 
@@ -108,29 +114,29 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }

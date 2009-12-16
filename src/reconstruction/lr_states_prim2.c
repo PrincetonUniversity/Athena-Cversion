@@ -240,11 +240,31 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
 /*----------------------------------------------------------------------------*/
 /* lr_states_init:  Allocate enough memory for work arrays */
 
-void lr_states_init(int nx1, int nx2, int nx3)
+void lr_states_init(MeshS *pM)
 {
-  int nmax;
-  nmax =  nx1 > nx2  ? nx1 : nx2;
-  nmax = (nx3 > nmax ? nx3 : nmax) + 2*nghost;
+  int nmax,size1=0,size2=0,size3=0,nl,nd;
+
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[2] > size3){
+          size3 = pM->Domain[nl][nd].Grid->Nx[2];
+        }
+      }
+    }
+  }
+
+  size1 = size1 + 2*nghost;
+  size2 = size2 + 2*nghost;
+  size3 = size3 + 2*nghost;
+  nmax = MAX((MAX(size1,size2)),size3);
 
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
 

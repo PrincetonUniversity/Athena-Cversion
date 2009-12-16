@@ -21,13 +21,12 @@
 /*----------------------------------------------------------------------------*/
 /* dump_vtk:   */
 
-void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
+void dump_vtk(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid;
   FILE *pfile;
 /* Upper and Lower bounds on i,j,k for data dump */
-  int i, il = pGrid->is, iu = pGrid->ie;
-  int j, jl = pGrid->js, ju = pGrid->je;
-  int k, kl = pGrid->ks, ku = pGrid->ke;
+  int i,j,k,il,iu,jl,ju,kl,ku;
   int big_end = ath_big_endian();
   int ndata0;
   float *data;   /* points to 3*ndata0 allocated floats */
@@ -36,18 +35,25 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
   int n;
 #endif
 
-#ifdef WRITE_GHOST_CELLS
-  if(pGrid->Nx1 > 1) {
-    iu = pGrid->ie + nghost;
-    il = pGrid->is - nghost;
-  }
+/* Return if Grid is not on this processor */
 
-  if(pGrid->Nx2 > 1) {
+  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pGrid == NULL) return;
+
+  il = pGrid->is, iu = pGrid->ie;
+  jl = pGrid->js, ju = pGrid->je;
+  kl = pGrid->ks, ku = pGrid->ke;
+
+#ifdef WRITE_GHOST_CELLS
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+
+  if(pGrid->Nx[1] > 1) {
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   }
 
-  if(pGrid->Nx3 > 1) {
+  if(pGrid->Nx[2] > 1) {
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   }
@@ -55,7 +61,7 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Open output file, constructing filename in-line */
 
-  pfile = ath_fopen(NULL,pGrid->outfilename,num_digit,pOut->num,NULL,"vtk","w");
+  pfile = ath_fopen(NULL,pM->outfilename,num_digit,pOut->num,NULL,"vtk","w");
   if(pfile == NULL){
     ath_error("[dump_vtk]: File Open Error Occured");
     return;
@@ -84,10 +90,11 @@ void dump_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 
 /*  4. Dataset structure */
 
-/* Calculate the Grid origin */
-  x1 = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
-  x2 = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
-  x3 = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
+/* Set the Grid origin */
+
+  x1 = pGrid->x1min;
+  x2 = pGrid->x2min;
+  x3 = pGrid->x3min;
 
   fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
   fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,ju-jl+2,ku-kl+2);

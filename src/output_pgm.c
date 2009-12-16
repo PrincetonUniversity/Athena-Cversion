@@ -21,13 +21,19 @@
 /*----------------------------------------------------------------------------*/
 /* output_pgm: output 2D PGM image   */
 
-void output_pgm(Grid *pGrid, Domain *pD, Output *pOut)
+void output_pgm(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid;
   FILE *pfile;
   char *fname;
   int nx1,nx2,gray,i,j;
   float **data, dmin, dmax, max_min, sfact;
   int dnum = pOut->num;
+
+/* Return if Grid is not on this processor */
+
+  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pGrid == NULL) return;
 
 /* check output data is 2D (output must be a 2D slice for 3D runs) */
   if (pOut->ndim != 2) {
@@ -38,7 +44,7 @@ void output_pgm(Grid *pGrid, Domain *pD, Output *pOut)
 /* construct output filename.  pOut->id will either be name of variable,
  * if 'id=...' was included in <ouput> block, or 'outN' where N is number of
  * <output> block.  */
-  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"pgm"))
+  if((fname = ath_fname(NULL,pM->outfilename,num_digit,dnum,pOut->id,"pgm"))
      == NULL){
     ath_error("[output_pgm]: Error constructing filename\n");
     return;

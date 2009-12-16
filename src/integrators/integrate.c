@@ -22,21 +22,19 @@ static int dim=0;
 /*----------------------------------------------------------------------------*/
 /* integrate_init: initialize integrator; VGDFun_t defined in athena.h   */
 
-VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3)
+VDFun_t integrate_init(MeshS *pM)
 {
-
-/* Calculate the dimensions  */
+  int i;
+/* Calculate the dimensions (using root Domain)  */
   dim = 0;
-  if(Nx1 > 1) dim++;
-  if(Nx2 > 1) dim++;
-  if(Nx3 > 1) dim++;
+  for (i=0; i<3; i++) if(pM->Nx[i] > 1) dim++;
 
 /* set function pointer to appropriate integrator based on dimensions */
   switch(dim){
 
   case 1:
-    if(Nx1 <= 1) break;
-    integrate_init_1d(Nx1);
+    if(pM->Nx[0] <= 1) break;
+    integrate_init_1d(pM);
 #if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
     return integrate_1d;
 #else
@@ -44,8 +42,8 @@ VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3)
 #endif
 
   case 2:
-    if(Nx3 > 1) break;
-    integrate_init_2d(Nx1,Nx2);
+    if(pM->Nx[2] > 1) break;
+    integrate_init_2d(pM);
 #if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
     return integrate_2d;
 #else
@@ -53,7 +51,7 @@ VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3)
 #endif
 
   case 3:
-    integrate_init_3d(Nx1,Nx2,Nx3);
+    integrate_init_3d(pM);
 #if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
     return integrate_3d;
 #else
@@ -63,9 +61,9 @@ VGDFun_t integrate_init(int Nx1, int Nx2, int Nx3)
   }
 
   if (dim == 1)
-    ath_error("[integrate_init]: 1D problem must have Nx1 > 1: Nx1=%d, Nx2=%d, Nx3=%d\n",Nx1,Nx2,Nx3);
+    ath_error("[integrate_init]: 1D problem must have Nx1 > 1: Nx1=%d, Nx2=%d, Nx3=%d\n",pM->Nx[0],pM->Nx[1],pM->Nx[2]);
   if (dim == 2)
-     ath_error("[integrate_init]: 2D problem must have Nx1 and Nx2 > 1: Nx1=%d, Nx2=%d, Nx3=%d\n",Nx1,Nx2,Nx3);
+     ath_error("[integrate_init]: 2D problem must have Nx1 and Nx2 > 1: Nx1=%d, Nx2=%d, Nx3=%d\n",pM->Nx[0],pM->Nx[1],pM->Nx[2]);
 
 /* This is never executed, but generates a warning on some compilers. */
   return NULL;

@@ -19,31 +19,43 @@
  *============================================================================*/
 
 #include "athena.h"
+#include "defs.h"
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* cc_pos:  */
 
-void cc_pos(const Grid *pG, const int i, const int j,const int k,
+void cc_pos(const GridS *pG, const int i, const int j,const int k,
 	    Real *px1, Real *px2, Real *px3)
 {
+/*
   *px1 = pG->x1_0 + ((i + pG->idisp) + 0.5)*pG->dx1;
   *px2 = pG->x2_0 + ((j + pG->jdisp) + 0.5)*pG->dx2;
   *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
+  return;
+*/
+  *px1 = pG->x1min + ((Real)(i - pG->is) + 0.5)*pG->dx1;
+  *px2 = pG->x2min + ((Real)(j - pG->js) + 0.5)*pG->dx2;
+  *px3 = pG->x3min + ((Real)(k - pG->ks) + 0.5)*pG->dx3;
   return;
 }
 
 /*----------------------------------------------------------------------------*/
 /* vc_pos:  Compute the volume-center of grid cell (i,j,k) */
-void vc_pos(const Grid *pG, const int i, const int j,const int k,
+void vc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3)
 {
+/*
   *px1 = pG->x1_0 + ((i + pG->idisp) + 0.5)*pG->dx1;
 #ifdef CYLINDRICAL
   *px1 += SQR(pG->dx1)/(12.0*(*px1));
 #endif
   *px2 = pG->x2_0 + ((j + pG->jdisp) + 0.5)*pG->dx2;
   *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
+*/
+  *px1 = pG->x1min + ((Real)(i - nghost) + 0.5)*pG->dx1;
+  *px2 = pG->x2min + ((Real)(j - nghost) + 0.5)*pG->dx2;
+  *px3 = pG->x3min + ((Real)(k - nghost) + 0.5)*pG->dx3;
   return;
 }
 
@@ -64,7 +76,7 @@ Modified: Xuening Bai, Dec. 2008
  *         1: x is on the right of the ith cell;
  */
 
-int celli(const Grid* pGrid, const Real x, const Real dx1_1, int *i, Real *a)
+int celli(const GridS* pGrid, const Real x, const Real dx1_1, int *i, Real *a)
 {
   *a = (x - pGrid->x1_0) * dx1_1 - pGrid->idisp;
   *i = (int)(*a);

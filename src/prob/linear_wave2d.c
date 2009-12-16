@@ -35,20 +35,22 @@
 #include "prototypes.h"
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas ***Soln=NULL;
+static Gas ***RootSoln=NULL;
 static int wave_flag;
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
+  Gas ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2;
   Real amp,vflow,angle;
   Real d0,p0,u0,v0,w0,h0;
   Real x1,x2,x3,r,ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
-  Real x1size,x2size,lambda;
+  Real x1size,x2size,sin_a,cos_a,lambda;
 #ifdef MHD
   Real bx0,by0,bz0,xfact,yfact;
   Real **az;
@@ -62,8 +64,8 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* NOTE: For parallel calculations Nx1 != nx1 and Nx2 != nx2 */
 
-  Nx1 = par_geti("grid","Nx1");
-  Nx2 = par_geti("grid","Nx2");
+  Nx1 = pDomain->Nx[0];
+  Nx2 = pDomain->Nx[1];
   if (Nx1 == 1 || Nx2 == 1) {
     ath_error("[linear_wave2d]: this test only works with Nx1 & Nx2 > 1\n");
   }
@@ -77,6 +79,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
     ath_error("[linear_wave2d]: Error allocating memory\n");
+  if (pDomain->Level == 0){
+    if ((RootSoln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+      ath_error("[linear_wave1d]: Error allocating memory for RootSoln\n");
+  }
 
 /* Read initial conditions */
 
@@ -84,31 +90,20 @@ void problem(Grid *pGrid, Domain *pDomain)
   amp = par_getd("problem","amp");
   vflow = par_getd("problem","vflow");
 
-/* Set angle, dynamically resize grid so length of diagonal is one */
+/* Set angle, wavelength */
 
-  x1size = Nx1*pGrid->dx1;
-  x2size = Nx2*pGrid->dx2;
+  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
   angle = atan(x1size/x2size);
+  sin_a = sin(angle);
+  cos_a = cos(angle);
 
-  x1 = x1size*cos(angle);
-  x2 = x2size*sin(angle);
-
-/* For lambda choose the smaller of the 2 */
-  lambda = x1;
-  lambda = MIN(lambda,x2);
-
-  ath_pout(0,"lambda = %e\n",lambda);
-  ath_pout(0,"In order to make lambda = 1 Grid is being rescaled to have\n");
-  ath_pout(0,"x1size = %e\n",x1size/lambda);
-  ath_pout(0,"x2size = %e\n",x2size/lambda);
-
-  x1size /= lambda;
-  x2size /= lambda;
-
-  pGrid->dx1 /= lambda;
-  pGrid->dx2 /= lambda;
-
-  lambda = 1.0;
+/* Use the larger angle to determine the wavelength */
+  if (cos_a >= sin_a) {
+    lambda = x1size*cos_a;
+  } else {
+    lambda = x2size*sin_a;
+  }
 
 /* Get eigenmatrix, where the quantities u0 and bx0 are parallel to the
  * wavevector, and v0,w0,by0,bz0 are perpendicular. */
@@ -181,10 +176,10 @@ void problem(Grid *pGrid, Domain *pDomain)
       cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
       x1 = x1 - 0.5*pGrid->dx1;
       x2 = x2 - 0.5*pGrid->dx2;
-      r = (x1*cos(angle) + x2*sin(angle))/lambda;
+      r = (x1*cos_a + x2*sin_a)/lambda;
 
-      az[j][i] = -bx0*(x1*sin(angle) - x2*cos(angle))
-                - by0*(x1*cos(angle) + x2*sin(angle))
+      az[j][i] = -bx0*(x1*sin_a - x2*cos_a)
+                - by0*(x1*cos_a + x2*sin_a)
                 + amp*lambda*cos(2.0*PI*r)*rem[NWAVE-2][wave_flag]/(2.0*PI);
     }
   }
@@ -198,7 +193,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   for (j=js; j<=je; j++) {
   for (i=is; i<=ie; i++) {
     cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-    r = (x1*cos(angle) + x2*sin(angle))/lambda;
+    r = (x1*cos_a + x2*sin_a)/lambda;
 
     Soln[k][j][i].d = d0 + amp*sin(2.0*PI*r)*rem[0][wave_flag];
 
@@ -212,18 +207,12 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif /* HYDRO */
 #endif /* ISOTHERMAL */
 
-    Soln[k][j][i].M1 = d0*vflow*cos(angle)
-                    + amp*sin(2.0*PI*r)*rem[1][wave_flag]*cos(angle)
-                    - amp*sin(2.0*PI*r)*rem[2][wave_flag]*sin(angle);
-    Soln[k][j][i].M2 = d0*vflow*sin(angle)
-                    + amp*sin(2.0*PI*r)*rem[1][wave_flag]*sin(angle)
-                    + amp*sin(2.0*PI*r)*rem[2][wave_flag]*cos(angle);
-
-#ifdef MHD
-    pGrid->B1i[k][j][i] = (az[j+1][i] - az[j][i])/pGrid->dx2;
-    pGrid->B2i[k][j][i] =-(az[j][i+1] - az[j][i])/pGrid->dx1;
-#endif /* MHD */
-
+    Soln[k][j][i].M1 = d0*vflow*cos_a
+                    + amp*sin(2.0*PI*r)*rem[1][wave_flag]*cos_a
+                    - amp*sin(2.0*PI*r)*rem[2][wave_flag]*sin_a;
+    Soln[k][j][i].M2 = d0*vflow*sin_a
+                    + amp*sin(2.0*PI*r)*rem[1][wave_flag]*sin_a
+                    + amp*sin(2.0*PI*r)*rem[2][wave_flag]*cos_a;
     Soln[k][j][i].M3 = amp*sin(2.0*PI*r)*rem[3][wave_flag];
 
 #ifdef MHD
@@ -238,15 +227,28 @@ void problem(Grid *pGrid, Domain *pDomain)
   }}}
 
 #ifdef MHD
-/* Set face-centered fields at boundary */
+/* Set face-centered fields */
 
   for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie+1; i++) {
+    pGrid->B1i[k][j][i] = (az[j+1][i] - az[j][i])/pGrid->dx2;
+  }}}
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je+1; j++) {
+  for (i=is; i<=ie; i++) {
+    pGrid->B2i[k][j][i] =-(az[j][i+1] - az[j][i])/pGrid->dx1;
+  }}}
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    pGrid->B3i[k][j][i] = Soln[k][j][i].B3c;
+  }}}
+  if (pGrid->Nx[2] > 1) {
     for (j=js; j<=je; j++) {
-      pGrid->B1i[k][j][ie+1] = pGrid->B1i[k][j][is];
-    }
     for (i=is; i<=ie; i++) {
-      pGrid->B2i[k][je+1][i] = pGrid->B2i[k][js][i];
-    }
+        pGrid->B3i[ke+1][j][i] = Soln[ke][j][i].B3c;
+    }}
   }
 
 /* compute cell-centered fields */
@@ -257,6 +259,7 @@ void problem(Grid *pGrid, Domain *pDomain)
      Soln[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i] + pGrid->B1i[k][j][i+1]);
      Soln[k][j][i].B2c = 0.5*(pGrid->B2i[k][j][i] + pGrid->B2i[k][j+1][i]);
   }}}
+  free_2d_array(az);
 #endif /* MHD */
 
 /* Now set initial conditions to 2d wave solution */ 
@@ -281,19 +284,6 @@ void problem(Grid *pGrid, Domain *pDomain)
         pGrid->U[k][j][i].s[n] = Soln[k][j][i].s[n];
 #endif
   }}}
-#ifdef MHD
-  if (pGrid->Nx3 > 1) {
-    for (k=ks; k<=ke+1; k++) {
-      for (j=js; j<=je; j++) {
-        for (i=is; i<=ie; i++) {
-          pGrid->B3i[k][j][i] = Soln[k][j][i].B3c;
-	}
-      }
-    }
-  }
-
-  free_2d_array((void**)az);
-#endif /* MHD */
 
 /* For self-gravitating problems, read 4\piG and compute mean density */
 
@@ -311,6 +301,33 @@ void problem(Grid *pGrid, Domain *pDomain)
   nu_V = par_getd("problem","nu");
 #endif
 
+/* save solution on root grid */
+
+  if (pDomain->Level == 0) {
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      RootSoln[k][j][i].d  = Soln[k][j][i].d ;
+      RootSoln[k][j][i].M1 = Soln[k][j][i].M1;
+      RootSoln[k][j][i].M2 = Soln[k][j][i].M2;
+      RootSoln[k][j][i].M3 = Soln[k][j][i].M3;
+#ifndef ISOTHERMAL
+      RootSoln[k][j][i].E  = Soln[k][j][i].E ;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+      RootSoln[k][j][i].B1c = Soln[k][j][i].B1c;
+      RootSoln[k][j][i].B2c = Soln[k][j][i].B2c;
+      RootSoln[k][j][i].B3c = Soln[k][j][i].B3c;
+#endif
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        RootSoln[k][j][i].s[n] = Soln[k][j][i].s[n];
+#endif
+    }}}
+  }
+
+  free_3d_array(Soln);
+
   return;
 }
 
@@ -326,24 +343,24 @@ void problem(Grid *pGrid, Domain *pDomain)
  * color()   - returns first passively advected scalar s[0]
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
 #if (NSCALARS > 0)
-static Real color(const Grid *pG, const int i, const int j, const int k)
+static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
 }
 #endif
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
@@ -351,11 +368,11 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
@@ -365,8 +382,9 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pGrid;
   int i=0,j=0,k=0;
 #if (NSCALARS > 0)
    int n;
@@ -379,7 +397,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   int Nx1, Nx2, Nx3, count;
 #if defined MPI_PARALLEL
   double err[8+NSCALARS], tot_err[8+NSCALARS];
-  int mpi_err;
+  int ierr,myID;
 #endif
 
   total_error.d = 0.0;
@@ -397,6 +415,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) total_error.s[n] = 0.0;
 #endif
+
+/* Compute error only on root Grid, which is in Domain[0][0] */
+
+  pGrid=pM->Domain[0][0].Grid;
+  if (pGrid == NULL) return;
 
 /* compute L1 error in each variable, and rms total error */
 
@@ -422,21 +445,21 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #endif
 
     for (i=is; i<=ie; i++) {
-      error.d   += fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d );
-      error.M1  += fabs(pGrid->U[k][j][i].M1  - Soln[k][j][i].M1);
-      error.M2  += fabs(pGrid->U[k][j][i].M2  - Soln[k][j][i].M2);
-      error.M3  += fabs(pGrid->U[k][j][i].M3  - Soln[k][j][i].M3); 
+      error.d   += fabs(pGrid->U[k][j][i].d   - RootSoln[k][j][i].d );
+      error.M1  += fabs(pGrid->U[k][j][i].M1  - RootSoln[k][j][i].M1);
+      error.M2  += fabs(pGrid->U[k][j][i].M2  - RootSoln[k][j][i].M2);
+      error.M3  += fabs(pGrid->U[k][j][i].M3  - RootSoln[k][j][i].M3); 
 #ifdef MHD
-      error.B1c += fabs(pGrid->U[k][j][i].B1c - Soln[k][j][i].B1c);
-      error.B2c += fabs(pGrid->U[k][j][i].B2c - Soln[k][j][i].B2c);
-      error.B3c += fabs(pGrid->U[k][j][i].B3c - Soln[k][j][i].B3c);
+      error.B1c += fabs(pGrid->U[k][j][i].B1c - RootSoln[k][j][i].B1c);
+      error.B2c += fabs(pGrid->U[k][j][i].B2c - RootSoln[k][j][i].B2c);
+      error.B3c += fabs(pGrid->U[k][j][i].B3c - RootSoln[k][j][i].B3c);
 #endif /* MHD */
 #ifndef ISOTHERMAL
-      error.E   += fabs(pGrid->U[k][j][i].E   - Soln[k][j][i].E );
+      error.E   += fabs(pGrid->U[k][j][i].E   - RootSoln[k][j][i].E );
 #endif /* ISOTHERMAL */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - Soln[k][j][i].s[n]);;
+        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - RootSoln[k][j][i].s[n]);;
 #endif
     }
 
@@ -457,20 +480,18 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #endif
   }}
 
-#if defined MPI_PARALLEL
-  Nx1 = pDomain->ide - pDomain->ids + 1;
-  Nx2 = pDomain->jde - pDomain->jds + 1;
-  Nx3 = pDomain->kde - pDomain->kds + 1;
+#ifdef MPI_PARALLEL
+  Nx1 = pM->Domain[0][0].Nx[0];
+  Nx2 = pM->Domain[0][0].Nx[1];
+  Nx3 = pM->Domain[0][0].Nx[2];
 #else
   Nx1 = ie - is + 1;
   Nx2 = je - js + 1;
   Nx3 = ke - ks + 1;
 #endif
-
   count = Nx1*Nx2*Nx3;
 
 #ifdef MPI_PARALLEL 
-
 /* Now we have to use an All_Reduce to get the total error over all the MPI
  * grids.  Begin by copying the error into the err[] array */
 
@@ -491,14 +512,13 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #endif
 
 /* Sum up the Computed Error */
-  mpi_err = MPI_Reduce(err, tot_err, (8+NSCALARS),
-		       MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-  if(mpi_err)
-    ath_error("[Userwork_after_loop]: MPI_Reduce call returned error = %d\n",
-	      mpi_err);
+  ierr = MPI_Reduce(err,tot_err,(8+NSCALARS),MPI_DOUBLE,MPI_SUM,0,
+    pM->Domain[0][0].Comm_Domain);
 
 /* If I'm the parent, copy the sum back to the total_error variable */
-  if(pGrid->my_id == 0){ /* I'm the parent */
+
+  ierr = MPI_Comm_rank(pM->Domain[0][0].Comm_Domain, &myID);
+  if(myID == 0){ /* I'm the parent */
     total_error.d   = tot_err[0];
     total_error.M1  = tot_err[1];
     total_error.M2  = tot_err[2];
@@ -536,7 +556,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /* Print error to file "LinWave-errors.#.dat", where #=wave_flag  */
 
+#ifdef MPI_PARALLEL
+  fname = ath_fname("../","LinWave-errors",1,wave_flag,NULL,"dat");
+#else
   fname = ath_fname(NULL,"LinWave-errors",1,wave_flag,NULL,"dat");
+#endif
 
 /* The file exists -- reopen the file in append mode */
   if((fp=fopen(fname,"r")) != NULL){

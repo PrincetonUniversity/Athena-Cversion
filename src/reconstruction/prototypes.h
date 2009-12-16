@@ -47,7 +47,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
  *  names below */
 
 void lr_states_destruct(void);
-void lr_states_init(int nx1, int nx2, int nx3);
+void lr_states_init(MeshS *pM);
 void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
                const Real dtodx, const int is, const int ie,
                Prim1D Wl[], Prim1D Wr[]);

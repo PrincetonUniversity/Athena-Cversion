@@ -27,8 +27,9 @@ static double ran2(long int *idum);
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,iprob;
   Real amp,drat,vflow,b0,a,sigma,x1,x2,x3;
@@ -44,7 +45,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   vflow = par_getd("problem","vflow");
   drat = par_getd("problem","drat");
   amp = par_getd("problem","amp");
+#ifdef MHD
   b0  = par_getd("problem","b0");
+#endif
 
 /* iprob=1.  Two uniform streams moving at +/- vflow, random perturbations */
 
@@ -148,12 +151,12 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
 #ifdef OHMIC
   eta_Ohm = par_getd("problem","eta");
@@ -168,13 +171,13 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 #if (NSCALARS > 0)
-static Real color(const Grid *pG, const int i, const int j, const int k)
+static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
 }
 #endif
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
@@ -182,16 +185,16 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }

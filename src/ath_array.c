@@ -49,7 +49,7 @@ void** calloc_2d_array(size_t nr, size_t nc, size_t size)
   size_t i;
 
   if((array = (void **)calloc(nr,sizeof(void*))) == NULL){
-    ath_error("[calloc_2d] failed to allocate memory for %d pointers\n",(int)nr);
+    ath_error("[calloc_2d] failed to allocate mem for %d pointers\n",(int)nr);
     return NULL;
   }
 

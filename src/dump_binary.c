@@ -23,38 +23,44 @@
 /*----------------------------------------------------------------------------*/
 /* dump_binary:  */
 
-void dump_binary(Grid *pGrid, Domain *pD, Output *pOut)
+void dump_binary(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid;
   int dnum = pOut->num;
   FILE *p_binfile;
   char *fname;
   int n,ndata[7];
 /* Upper and Lower bounds on i,j,k for data dump */
-  int i, il = pGrid->is, iu = pGrid->ie;
-  int j, jl = pGrid->js, ju = pGrid->je;
-  int k, kl = pGrid->ks, ku = pGrid->ke;
+  int i,j,k,il,iu,jl,ju,kl,ku;
   float dat[2],*datax,*datay,*dataz;
   Real *pq,x1,x2,x3;
   int coordsys = -1;
 
-#ifdef WRITE_GHOST_CELLS
-  if(pGrid->Nx1 > 1){
-    il = pGrid->is - nghost;
-    iu = pGrid->ie + nghost;
-  }
+/* Return if Grid is not on this processor */
 
-  if(pGrid->Nx2 > 1){
+  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pGrid == NULL) return;
+
+  il = pGrid->is, iu = pGrid->ie;
+  jl = pGrid->js, ju = pGrid->je;
+  kl = pGrid->ks, ku = pGrid->ke;
+
+#ifdef WRITE_GHOST_CELLS
+  il = pGrid->is - nghost;
+  iu = pGrid->ie + nghost;
+
+  if(pGrid->Nx[1] > 1){
     jl = pGrid->js - nghost;
     ju = pGrid->je + nghost;
   }
 
-  if(pGrid->Nx3 > 1){
+  if(pGrid->Nx[2] > 1){
     kl = pGrid->ks - nghost;
     ku = pGrid->ke + nghost;
   }
 #endif /* WRITE_GHOST_CELLS */
 
-  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,NULL,"bin"))
+  if((fname = ath_fname(NULL,pM->outfilename,num_digit,dnum,NULL,"bin"))
      == NULL){
     ath_error("[dump_binary]: Error constructing filename\n");
     return;

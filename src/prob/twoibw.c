@@ -26,22 +26,19 @@
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
   int shk_dir;
-  Real x1,x2,x3,x1_size,x2_size,x3_size;
+  Real x1,x2,x3;
 
   shk_dir = par_geti("problem","shk_dir");
   if (shk_dir < 1 || shk_dir > 3) {
     ath_error("[problem]: shk_dir = %d must be either 1, 2 or 3\n",shk_dir);
   }
-
-  x1_size = pGrid->Nx1*pGrid->dx1;
-  x2_size = pGrid->Nx2*pGrid->dx2;
-  x3_size = pGrid->Nx3*pGrid->dx3;
 
   if(shk_dir == 1) {
 /* setup dependent variables in X1-direction */
@@ -55,10 +52,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 	  pGrid->U[k][j][i].M1 = 0.0;
 	  pGrid->U[k][j][i].M2 = 0.0;
 	  pGrid->U[k][j][i].M3 = 0.0;
-	  if (x1 < 0.1*x1_size) {
+	  if (x1 < 0.1) {
 	    pGrid->U[k][j][i].E = 1.0e3/Gamma_1 ;
 	  }
-	  else if (x1 > 0.9*x1_size) {
+	  else if (x1 > 0.9) {
 	    pGrid->U[k][j][i].E = 1.0e2/Gamma_1 ;
 	  }
 	  else {
@@ -80,10 +77,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 	  pGrid->U[k][j][i].M1 = 0.0;
 	  pGrid->U[k][j][i].M2 = 0.0;
 	  pGrid->U[k][j][i].M3 = 0.0;
-	  if (x2 < 0.1*x2_size) {
+	  if (x2 < 0.1) {
 	    pGrid->U[k][j][i].E = 1.0e3/Gamma_1 ;
 	  }
-	  else if (x2 > 0.9*x2_size) {
+	  else if (x2 > 0.9) {
 	    pGrid->U[k][j][i].E = 1.0e2/Gamma_1 ;
 	  }
 	  else {
@@ -105,10 +102,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 	  pGrid->U[k][j][i].M1 = 0.0;
 	  pGrid->U[k][j][i].M2 = 0.0;
 	  pGrid->U[k][j][i].M3 = 0.0;
-	  if (x3 < 0.1*x3_size) {
+	  if (x3 < 0.1) {
 	    pGrid->U[k][j][i].E = 1.0e3/Gamma_1 ;
 	  }
-	  else if (x3 > 0.9*x3_size) {
+	  else if (x3 > 0.9) {
 	    pGrid->U[k][j][i].E = 1.0e2/Gamma_1 ;
 	  }
 	  else {
@@ -132,29 +129,29 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }

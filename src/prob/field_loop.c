@@ -38,14 +38,18 @@
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3,iprob;
   Real x1c,x2c,x3c,x1f,x2f,x3f;       /* cell- and face-centered coordinates */
   Real x1size,x2size,x3size,lambda=0.0,ang_2=0.0,sin_a2=0.0,cos_a2=1.0,x,y;
   Real rad,amp,vflow,drat,diag;
   Real ***az,***ay,***ax;
+#ifdef MHD
+  int ku;
+#endif
 #if (NSCALARS > 0)
   int n;
 #endif
@@ -92,8 +96,8 @@ void problem(Grid *pGrid, Domain *pDomain)
  * wavelength of cylinder */
 
   if(iprob == 4){
-    x1size = par_getd("grid","x1max") - par_getd("grid","x1min");
-    x3size = par_getd("grid","x3max") - par_getd("grid","x3min");
+    x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+    x3size = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
 
 /* We put 1 wavelength in each direction.  Hence the wavelength
  *     lambda = x1size*cos_a;
@@ -134,6 +138,8 @@ void problem(Grid *pGrid, Domain *pDomain)
       ay[k][j][i] = 0.0;
       if ((x1f*x1f + x2f*x2f) < rad*rad) {
         az[k][j][i] = amp*(rad - sqrt(x1f*x1f + x2f*x2f));
+      } else {
+        az[k][j][i] = 0.0;
       }
     }
 
@@ -142,6 +148,8 @@ void problem(Grid *pGrid, Domain *pDomain)
     if(iprob==2) {  
       if ((x2f*x2f + x3f*x3f) < rad*rad) {
         ax[k][j][i] = amp*(rad - sqrt(x2f*x2f + x3f*x3f));
+      } else {
+        ax[k][j][i] = 0.0;
       }
       ay[k][j][i] = 0.0;
       az[k][j][i] = 0.0;
@@ -150,10 +158,12 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* (iprob=3): field loop in x3-x1 plane (cylinder in 3D) */
 
     if(iprob==3) {  
-      ax[k][j][i] = 0.0;
       if ((x1f*x1f + x3f*x3f) < rad*rad) {
         ay[k][j][i] = amp*(rad - sqrt(x1f*x1f + x3f*x3f));
+      } else {
+        ay[k][j][i] = 0.0;
       }
+      ax[k][j][i] = 0.0;
       az[k][j][i] = 0.0;
     }
 
@@ -177,6 +187,8 @@ void problem(Grid *pGrid, Domain *pDomain)
       while(x < -0.5*lambda) x += lambda;
       if ((x*x + y*y) < rad*rad) {
         ax[k][j][i] = amp*(rad - sqrt(x*x + y*y))*(-sin_a2);
+      } else {
+        ax[k][j][i] = 0.0;
       }
 
       ay[k][j][i] = 0.0;
@@ -188,6 +200,8 @@ void problem(Grid *pGrid, Domain *pDomain)
       while(x < -0.5*lambda) x += lambda;
       if ((x*x + y*y) < rad*rad) {
         az[k][j][i] = amp*(rad - sqrt(x*x + y*y))*(cos_a2);
+      } else {
+        az[k][j][i] = 0.0;
       }
     }
 
@@ -197,9 +211,13 @@ void problem(Grid *pGrid, Domain *pDomain)
       ax[k][j][i] = 0.0;
       if ((x1f*x1f + x2c*x2c + x3f*x3f) < rad*rad) {
         ay[k][j][i] = amp*(rad - sqrt(x1f*x1f + x2c*x2c + x3f*x3f));
+      } else {
+        ay[k][j][i] = 0.0;
       }
       if ((x1f*x1f + x2f*x2f + x3c*x3c) < rad*rad) {
         az[k][j][i] = amp*(rad - sqrt(x1f*x1f + x2f*x2f + x3c*x3c));
+      } else {
+        az[k][j][i] = 0.0;
       }
     }
 
@@ -209,9 +227,9 @@ void problem(Grid *pGrid, Domain *pDomain)
  * will be different inside loop than background values
  */
 
-  x1size = pGrid->dx1*(Real)par_geti("grid","Nx1");
-  x2size = pGrid->dx2*(Real)par_geti("grid","Nx2");
-  x3size = pGrid->dx3*(Real)par_geti("grid","Nx3");
+  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
+  x3size = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
   diag = sqrt(x1size*x1size + x2size*x2size + x3size*x3size);
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
@@ -220,14 +238,7 @@ void problem(Grid *pGrid, Domain *pDomain)
      pGrid->U[k][j][i].M1 = pGrid->U[k][j][i].d*vflow*x1size/diag;
      pGrid->U[k][j][i].M2 = pGrid->U[k][j][i].d*vflow*x2size/diag;
      pGrid->U[k][j][i].M3 = pGrid->U[k][j][i].d*vflow*x3size/diag;
-#ifdef MHD
-     pGrid->B1i[k][j][i] = (az[k][j+1][i] - az[k][j][i])/pGrid->dx2 -
-                           (ay[k+1][j][i] - ay[k][j][i])/pGrid->dx3;
-     pGrid->B2i[k][j][i] = (ax[k+1][j][i] - ax[k][j][i])/pGrid->dx3 -
-                           (az[k][j][i+1] - az[k][j][i])/pGrid->dx1;
-     pGrid->B3i[k][j][i] = (ay[k][j][i+1] - ay[k][j][i])/pGrid->dx1 -
-                           (ax[k][j+1][i] - ax[k][j][i])/pGrid->dx2;
-#endif
+
      cc_pos(pGrid,i,j,k,&x1c,&x2c,&x3c);
      if ((x1c*x1c + x2c*x2c + x3c*x3c) < rad*rad) {
        pGrid->U[k][j][i].d = drat;
@@ -246,29 +257,29 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* boundary conditions on interface B */
 
 #ifdef MHD
-  i = ie+1;
   for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      pGrid->B1i[k][j][i] = (az[k][j+1][i] - az[k][j][i])/pGrid->dx2 -
-                     (ay[k+1][j][i] - ay[k][j][i])/pGrid->dx3;
-    }
-  }
-  j = je+1;
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie+1; i++) {
+    pGrid->B1i[k][j][i] = (az[k][j+1][i] - az[k][j][i])/pGrid->dx2 -
+                          (ay[k+1][j][i] - ay[k][j][i])/pGrid->dx3;
+  }}}
   for (k=ks; k<=ke; k++) {
-    for (i=is; i<=ie; i++) {
-      pGrid->B2i[k][j][i] = (ax[k+1][j][i] - ax[k][j][i])/pGrid->dx3 -
-                            (az[k][j][i+1] - az[k][j][i])/pGrid->dx1;
-    }
-  }
+  for (j=js; j<=je+1; j++) {
+  for (i=is; i<=ie; i++) {
+    pGrid->B2i[k][j][i] = (ax[k+1][j][i] - ax[k][j][i])/pGrid->dx3 -
+                          (az[k][j][i+1] - az[k][j][i])/pGrid->dx1;
+  }}}
   if (ke > ks) {
-    k = ke+1;
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        pGrid->B3i[k][j][i] = (ay[k][j][i+1] - ay[k][j][i])/pGrid->dx1 -
-                              (ax[k][j+1][i] - ax[k][j][i])/pGrid->dx2;
-      }
-    }
+    ku = ke+1;
+  } else {
+    ku = ke;
   }
+  for (k=ks; k<=ku; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    pGrid->B3i[k][j][i] = (ay[k][j][i+1] - ay[k][j][i])/pGrid->dx1 -
+                          (ax[k][j+1][i] - ax[k][j][i])/pGrid->dx2;
+  }}}
 #endif
 
 /* initialize total energy and cell-centered B */
@@ -279,12 +290,12 @@ void problem(Grid *pGrid, Domain *pDomain)
       for (i=is; i<=ie; i++) {
 #ifdef MHD
         pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i  ] + 
-				      pGrid->B1i[k][j][i+1]);
+                                     pGrid->B1i[k][j][i+1]);
         pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j  ][i] +
-				      pGrid->B2i[k][j+1][i]);
+                                     pGrid->B2i[k][j+1][i]);
 	if (ke > ks)
 	  pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k  ][j][i] + 
-					pGrid->B3i[k+1][j][i]);
+                                       pGrid->B3i[k+1][j][i]);
 	else
 	  pGrid->U[k][j][i].B3c = pGrid->B3i[k][j][i];
 #endif
@@ -293,10 +304,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 	pGrid->U[k][j][i].E = 1.0/Gamma_1
 #ifdef MHD
 	  + 0.5*(SQR(pGrid->U[k][j][i].B1c) + SQR(pGrid->U[k][j][i].B2c)
-	+ SQR(pGrid->U[k][j][i].B3c))
+               + SQR(pGrid->U[k][j][i].B3c))
 #endif
 	  + 0.5*(SQR(pGrid->U[k][j][i].M1) + SQR(pGrid->U[k][j][i].M2)
-	+ SQR(pGrid->U[k][j][i].M3))/pGrid->U[k][j][i].d;
+               + SQR(pGrid->U[k][j][i].M3))/pGrid->U[k][j][i].d;
 #endif /* ISOTHERMAL */
       }
     }
@@ -323,39 +334,53 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Temperature() - returns temperature for conduction tests
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
 #ifdef MHD
-static Real current(const Grid *pG, const int i, const int j, const int k)
+static Real current(const GridS *pG, const int i, const int j, const int k)
 {
   return ((pG->B2i[k][j][i]-pG->B2i[k][j][i-1])/pG->dx1 - 
 	  (pG->B1i[k][j][i]-pG->B1i[k][j-1][i])/pG->dx2);
 }
 
-static Real Bp2(const Grid *pG, const int i, const int j, const int k)
+static Real Bp2(const GridS *pG, const int i, const int j, const int k)
 {
   return (pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
 	  pG->U[k][j][i].B2c*pG->U[k][j][i].B2c);
 }
+
+static Real divB(const GridS *pG, const int i, const int j, const int k)
+{
+  Real qa;
+  if (pG->Nx[2] > 1) {
+    qa = (pG->B1i[k][j][i+1]-pG->B1i[k][j][i])/pG->dx1 + 
+         (pG->B2i[k][j+1][i]-pG->B2i[k][j][i])/pG->dx2 +
+         (pG->B3i[k+1][j][i]-pG->B3i[k][j][i])/pG->dx3;
+  } else {
+    qa = (pG->B1i[k][j][i+1]-pG->B1i[k][j][i])/pG->dx1 + 
+         (pG->B2i[k][j+1][i]-pG->B2i[k][j][i])/pG->dx2;
+  }
+  return qa;
+}
 #endif
 
 #if (NSCALARS > 0)
-static Real color(const Grid *pG, const int i, const int j, const int k)
+static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
 }
 #endif
 
 #ifndef BAROTROPIC
-static Real Temperature(const Grid *pG, const int i, const int j, const int k)
+static Real Temperature(const GridS *pG, const int i, const int j, const int k)
 {
   Real Temp;
   Temp = pG->U[k][j][i].E - (0.5/pG->U[k][j][i].d)*(
@@ -369,11 +394,12 @@ static Real Temperature(const Grid *pG, const int i, const int j, const int k)
 }
 #endif
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
 #ifdef MHD
   if(strcmp(expr,"J3")==0) return current;
   else if(strcmp(expr,"Bp2")==0) return Bp2;
+  else if(strcmp(expr,"divB")==0) return divB;
 #endif
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
@@ -382,14 +408,14 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }

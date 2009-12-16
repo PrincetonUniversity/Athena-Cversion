@@ -23,14 +23,17 @@ MPIINC =
 MPILIB =
 FFTWLIB =
 FFTWINC =
-HEALPIXINC =
-HEALPIXLIB =
 BLOCKINC = 
 BLOCKLIB = 
 CUSTLIBS = -ldl -lm
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
    BLOCKINC = -I fftsrc
+endif
+
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+  CC = mpicc 
+  LDR = mpicc 
 endif
 
 #-------------------  compiler/library definitions  ----------------------------
@@ -54,88 +57,16 @@ ifeq ($(MACHINE),peyton-mpi)
   FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
 else
-ifeq ($(MACHINE),macosx)
-  CC = gcc
-  LDR = gcc
-  OPT = @COMPILER_OPTS@
-else
-ifeq ($(MACHINE), gmc)
-  CC  = gcc
-  LDR = gcc 
-  OPT = @COMPILER_OPTS@
-  MPIINC = -I/u/krumholz/lib/mpich-1.2.7/include
-  MPILIB = -L/u/krumholz/lib/mpich-1.2.7/lib -lmpich
-  FFTWINC = -I/u/krumholz/lib/fftw-3.1.2-i64/include
-  FFTWLIB = -L/u/krumholz/lib/fftw-3.1.2-i64/lib -lfftw3
-  HEALPIXINC = -I/u/krumholz/lib/Healpix_2.00/include
-  HEALPIXLIB = -L/u/krumholz/lib/Healpix_2.00/lib -lchealpix.i64
-else
-ifeq ($(MACHINE),della)
-  CC = /usr/local/openmpi-1.1-intel/bin/mpicc
-  LDR = /usr/local/openmpi-1.1-intel/bin/mpicc
-  OPT = -O3 -xW -tpp7 -ipo -i-static
-  MPIINC = -I/usr/local/openmpi-1.1-intel/include
-  MPILIB = 
-  FFTWLIB = -L/home0/lemaster/bin/fftw-3.1.2/lib -lfftw3
-  FFTWINC = -I/home0/lemaster/bin/fftw-3.1.2/include
-else
-ifeq ($(MACHINE),orangena)
-  CC  = mpxlc
-  LDR = mpxlc
-  OPT = -O2 -qarch=440
-  MPIINC  = -I/bgl/BlueLight/ppcfloor/bglsys/include
-  MPILIB =
-  FFTWINC = -I/bgl/local/fftw-3.1.2/include
-  FFTWLIB = -L/bgl/local/fftw-3.1.2/lib -lfftw3
-  CUSTLIBS = -lmass -lmassv -lm -L/bgl/BlueLight/ppcfloor/bglsys/lib -L/bgl/local/lib/mass/4.2/bgl/lib
-else
-ifeq ($(MACHINE),woodhen)
-  CC = /usr/local/openmpi/1.2.3/intel-ib/x86_64/bin/mpicc
-  LDR = /usr/local/openmpi/1.2.3/intel-ib/x86_64/bin/mpicc
-  OPT = -O3 -xW -tpp7 -ipo -i-static
-  MPIINC = /usr/local/openmpi/1.2.3/intel-ib/x86_64/
-  MPILIB =
-  FFTWLIB = -L/home/lemaster/bin/fftw-3.1.2/lib -lfftw3
-  FFTWINC = -I/home/lemaster/bin/fftw-3.1.2/include
-  HEALPIXINC = -I/home/krumholz/lib/Healpix_2.01/include
-  HEALPIXLIB = -L/home/krumholz/lib/Healpix_2.01/lib -lchealpix
-else
 ifeq ($(MACHINE),artemis)
-#ifeq ($(MACHINE),artemisopenmpi)
   CC  = mpicc
   LDR = mpicc
   OPT = -O3 -xW -ipo -i-static
   MPIINC =
   MPILIB = -lmpi
-  FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
-  FFTWINC = -I/opt/fftw3/include
-else
-ifeq ($(MACHINE),artemismpt)
-  CC  = icc
-  LDR = icc
-  OPT = -O3 -xW -ipo -i-static
-  MPIINC =
-  MPILIB = -lmpi
-  FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
-  FFTWINC = -I/opt/fftw3/include
-else
-ifeq ($(MACHINE),artemismvapich)
-  CC  = mpicc
-  LDR = mpicc
-  OPT = -O3 -xW -ipo -i-static
-  MPIINC =
-  MPILIB =
   FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
   FFTWINC = -I/opt/fftw3/include
 else
   abort Unsupported MACHINE=$(MACHINE)
-endif
-endif
-endif
-endif
-endif
-endif
-endif
 endif
 endif
 endif
@@ -149,5 +80,5 @@ ifeq (@FFT_MODE@,NO_FFT)
   FFTWLIB = 
 endif
 
-CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(IONRADINC) $(HEALPIXINC)
-LIB = $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) $(HEALPIXLIB)
+CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC)
+LIB = $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS)

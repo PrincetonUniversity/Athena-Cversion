@@ -55,7 +55,7 @@
 #endif
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas ***Soln=NULL;
+static Gas ***RootSoln=NULL;
 
 /* Parameters which define initial solution -- made global so that they can be
  * shared with functions A1,2,3 which compute vector potentials */
@@ -79,10 +79,12 @@ static Real A3(const Real x1, const Real x2, const Real x3);
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
+  Gas ***Soln;
   int i=0,j=0,k=0;
-  int is,ie,js,je,ks,ke,nx1,nx2,nx3,Nx1,Nx2,Nx3;
+  int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   Real dx1 = pGrid->dx1;
   Real dx2 = pGrid->dx2;
   Real dx3 = pGrid->dx3;
@@ -101,22 +103,22 @@ void problem(Grid *pGrid, Domain *pDomain)
   nx2 = (je-js)+1 + 2*nghost;
   nx3 = (ke-ks)+1 + 2*nghost;
 
-/* NOTE: For parallel calculations Nx1 != nx1, Nx2 != nx2 and Nx3 != nx3 */
-
-  Nx1 = par_geti("grid","Nx1");
-  Nx2 = par_geti("grid","Nx2");
-  Nx3 = par_geti("grid","Nx3");
-  if(pGrid->Nx1 <= 1 || pGrid->Nx2 <= 1 || pGrid->Nx3 <= 1)
+  if(pGrid->Nx[2] <= 1)
     ath_error("[problem]: cp_alfven3d assumes a 3D grid\n");
 
   if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
     ath_error("[pgflow]: Error allocating memory for Soln\n");
 
+  if (pDomain->Level == 0){
+    if ((RootSoln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+      ath_error("[pgflow]: Error allocating memory for RootSoln\n");
+  }
+
 /* Imposing periodicity and one wavelength along each grid direction */
 
-  x1size = Nx1*dx1;
-  x2size = Nx2*dx2;
-  x3size = Nx3*dx3;
+  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
+  x3size = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
 
   ang_3 = atan(x1size/x2size);
   sin_a3 = sin(ang_3);
@@ -125,15 +127,6 @@ void problem(Grid *pGrid, Domain *pDomain)
   ang_2 = atan(0.5*(x1size*cos_a3 + x2size*sin_a3)/x3size);
   sin_a2 = sin(ang_2);
   cos_a2 = cos(ang_2);
-
-/* Store the angles (ang_2, ang_3) in degrees */
-
-  ang_2 *= 180.0/PI;
-  ang_3 *= 180.0/PI;
-
-  ath_pout(0,"angle_2 = %e  angle_3 = %e\n",ang_2,ang_3);
-
-/* Use x1, x2, x3 as temp. var. */
 
   x1 = x1size*cos_a2*cos_a3;
   x2 = x2size*cos_a2*sin_a3;
@@ -228,6 +221,29 @@ void problem(Grid *pGrid, Domain *pDomain)
     }
   }
 
+/* save solution on root grid */
+
+  if (pDomain->Level == 0) {
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      RootSoln[k][j][i].d  = Soln[k][j][i].d ;
+      RootSoln[k][j][i].M1 = Soln[k][j][i].M1;
+      RootSoln[k][j][i].M2 = Soln[k][j][i].M2;
+      RootSoln[k][j][i].M3 = Soln[k][j][i].M3;
+#ifndef ISOTHERMAL
+      RootSoln[k][j][i].E  = Soln[k][j][i].E ;
+#endif /* ISOTHERMAL */
+      RootSoln[k][j][i].B1c = Soln[k][j][i].B1c;
+      RootSoln[k][j][i].B2c = Soln[k][j][i].B2c;
+      RootSoln[k][j][i].B3c = Soln[k][j][i].B3c;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        RootSoln[k][j][i].s[n] = Soln[k][j][i].s[n];
+#endif
+    }}}
+  }
+
   return;
 }
 
@@ -242,26 +258,26 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
         
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
 
-Gasfun_t get_usr_expr(const char *expr){
+GasFun_t get_usr_expr(const char *expr){
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
@@ -271,8 +287,9 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pGrid;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
@@ -282,7 +299,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   int Nx1, Nx2, Nx3, count;
 #if defined MPI_PARALLEL
   double err[8], tot_err[8];
-  int mpi_err;
+  int ierr,myID;
 #endif
 
   total_error.d = 0.0;
@@ -296,11 +313,17 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   total_error.E = 0.0;
 #endif /* ISOTHERMAL */
 
-/* compute L1 error in each variable, and rms total error */
+/* Compute error only on root Grid, which is in Domain[0][0] */
+
+  pGrid=pM->Domain[0][0].Grid;
+  if (pGrid == NULL) return;
 
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
   ks = pGrid->ks; ke = pGrid->ke;
+
+/* compute L1 error in each variable, and rms total error */
+
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     error.d = 0.0;
@@ -315,15 +338,15 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #endif /* ISOTHERMAL */
 
     for (i=is; i<=ie; i++) {
-      error.d   += fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d);
-      error.M1  += fabs(pGrid->U[k][j][i].M1  - Soln[k][j][i].M1);
-      error.M2  += fabs(pGrid->U[k][j][i].M2  - Soln[k][j][i].M2);
-      error.M3  += fabs(pGrid->U[k][j][i].M3  - Soln[k][j][i].M3); 
-      error.B1c += fabs(pGrid->U[k][j][i].B1c - Soln[k][j][i].B1c);
-      error.B2c += fabs(pGrid->U[k][j][i].B2c - Soln[k][j][i].B2c);
-      error.B3c += fabs(pGrid->U[k][j][i].B3c - Soln[k][j][i].B3c);
+      error.d   += fabs(pGrid->U[k][j][i].d   - RootSoln[k][j][i].d);
+      error.M1  += fabs(pGrid->U[k][j][i].M1  - RootSoln[k][j][i].M1);
+      error.M2  += fabs(pGrid->U[k][j][i].M2  - RootSoln[k][j][i].M2);
+      error.M3  += fabs(pGrid->U[k][j][i].M3  - RootSoln[k][j][i].M3); 
+      error.B1c += fabs(pGrid->U[k][j][i].B1c - RootSoln[k][j][i].B1c);
+      error.B2c += fabs(pGrid->U[k][j][i].B2c - RootSoln[k][j][i].B2c);
+      error.B3c += fabs(pGrid->U[k][j][i].B3c - RootSoln[k][j][i].B3c);
 #ifndef ISOTHERMAL
-      error.E   += fabs(pGrid->U[k][j][i].E   -  Soln[k][j][i].E);
+      error.E   += fabs(pGrid->U[k][j][i].E   -  RootSoln[k][j][i].E);
 #endif /* ISOTHERMAL */
     }
 
@@ -340,19 +363,17 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   }}
 
 #if defined MPI_PARALLEL
-  Nx1 = pDomain->ide - pDomain->ids + 1;
-  Nx2 = pDomain->jde - pDomain->jds + 1;
-  Nx3 = pDomain->kde - pDomain->kds + 1;
+  Nx1 = pM->Domain[0][0].Nx[0];
+  Nx2 = pM->Domain[0][0].Nx[1];
+  Nx3 = pM->Domain[0][0].Nx[2];
 #else
   Nx1 = ie - is + 1;
   Nx2 = je - js + 1;
   Nx3 = ke - ks + 1;
 #endif
-
   count = Nx1*Nx2*Nx3;
 
 #ifdef MPI_PARALLEL 
-
 /* Now we have to use an All_Reduce to get the total error over all the MPI
  * grids.  Begin by copying the error into the err[] array */
   
@@ -367,15 +388,13 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   err[7] = total_error.E;
 #endif /* ISOTHERMAL */
 
-/* Sum up the Computed Error */
-  mpi_err = MPI_Reduce(err, tot_err, 8,
-		       MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-  if(mpi_err)
-    ath_error("[Userwork_after_loop]: MPI_Reduce call returned error = %d\n",
-	      mpi_err);
+  ierr = MPI_Reduce(err,tot_err,8,MPI_DOUBLE,MPI_SUM,0,
+    pM->Domain[0][0].Comm_Domain);
 
 /* If I'm the parent, copy the sum back to the total_error variable */
-  if(pGrid->my_id == 0){ /* I'm the parent */
+
+  ierr = MPI_Comm_rank(pM->Domain[0][0].Comm_Domain, &myID);
+  if(myID == 0){ /* I'm the parent */
     total_error.d   = tot_err[0];
     total_error.M1  = tot_err[1];
     total_error.M2  = tot_err[2];
@@ -404,7 +423,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /* Print error to file "cpaw3d-errors.dat" */
   
+#ifdef MPI_PARALLEL
+  fname = "../cpaw3d-errors.dat";
+#else
   fname = "cpaw3d-errors.dat";
+#endif
 /* The file exists -- reopen the file in append mode */
   if((fp=fopen(fname,"r")) != NULL){
     if((fp = freopen(fname,"a",fp)) == NULL){

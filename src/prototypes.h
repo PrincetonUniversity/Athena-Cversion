@@ -14,10 +14,6 @@
 #include "defs.h"
 #include "config.h"
 
-#ifdef MPI_PARALLEL
-#include "mpi.h"
-#endif
-
 /* Include prototypes in /src sub-directories */
 
 #ifdef FFT_ENABLED
@@ -77,73 +73,73 @@ void baton_stop(const int Nb, const int tag);
 
 /*----------------------------------------------------------------------------*/
 /* cc_pos.c */
-void cc_pos(const Grid *pG, const int i, const int j,const int k,
+void cc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
-void vc_pos(const Grid *pG, const int i, const int j,const int k,
+void vc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
 #ifdef PARTICLES
-int celli(const Grid* pGrid, const Real x, const Real dx1_1, int *i, Real *a);
-Real x1cc(const Grid* pGrid, const int i);
-int cellj(const Grid* pGrid, const Real y, const Real dx2_1, int *j, Real *b);
-Real x2cc(const Grid* pGrid, const int j);
-int cellk(const Grid* pGrid, const Real z, const Real dx3_1, int *k, Real *c);
-Real x3cc(const Grid* pGrid, const int k);
+int celli(const GridS *pGrid, const Real x, const Real dx1_1, int *i, Real *a);
+Real x1cc(const GridS *pGrid, const int i);
+int cellj(const GridS *pGrid, const Real y, const Real dx2_1, int *j, Real *b);
+Real x2cc(const GridS *pGrid, const int j);
+int cellk(const GridS *pGrid, const Real z, const Real dx3_1, int *k, Real *c);
+Real x3cc(const GridS *pGrid, const int k);
 #endif
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
+Prim Cons_to_Prim(const Gas *pU);
 void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW MHDARG( , const Real *pBx));
 void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx));
 Real cfast(const Cons1D *U MHDARG( , const Real *Bx));
 
 /*----------------------------------------------------------------------------*/
-/* init_domain.c */
-void init_domain(Grid *pG, Domain *pD);
-void get_myGridIndex(Domain *pD, const int my_id, int *pi, int *pj, int *pk);
+/* init_grid.c */
+void init_grid(MeshS *pM);
 
 /*----------------------------------------------------------------------------*/
-/* init_grid.c */
-void init_grid(Grid *pGrid, Domain *pD);
+/* init_mesh.c */
+void init_mesh(MeshS *pM);
+void get_myGridIndex(DomainS *pD, const int my_id, int *pi, int *pj, int *pk);
 
 /*----------------------------------------------------------------------------*/
 /* new_dt.c */
-void new_dt(Grid *pGrid);
+void new_dt(MeshS *pM);
 #ifdef MPI_PARALLEL
-void sync_dt(Grid *pG);
+void sync_dt(MeshS *pM);
 #endif
 
 /*----------------------------------------------------------------------------*/
 /* output.c - and related files */
-void init_output(Grid *pGrid);
-void data_output(Grid *pGrid, Domain *pD, const int flag);
-int  add_output(Output *new_out);
-void add_rst_out(Output *new_out);
+void init_output(MeshS *pM);
+void data_output(MeshS *pM, const int flag);
+int  add_output(OutputS *new_out);
+void add_rst_out(OutputS *new_out);
 void data_output_destruct(void);
-void dump_history_enroll(const Gasfun_t pfun, const char *label);
-void data_output_enroll(Real time, Real dt, int num, const VGFunout_t fun,
-			const char *fmt, const Gasfun_t expr, int n,
+void dump_history_enroll(const GasFun_t pfun, const char *label);
+void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
+			const char *fmt, const GasFun_t expr, int n,
 			const Real dmin, const Real dmax, int sdmin, int sdmax
 #ifdef PARTICLES
 			, const int out_pargrid, PropFun_t par_prop
 #endif
 );
-float ***subset3(Grid *pGrid, Output *pout);
-float  **subset2(Grid *pGrid, Output *pout);
-float   *subset1(Grid *pGrid, Output *pout);
+float ***subset3(GridS *pGrid, OutputS *pout);
+float  **subset2(GridS *pGrid, OutputS *pout);
+float   *subset1(GridS *pGrid, OutputS *pout);
 
-void output_fits (Grid *pGrid, Domain *pD, Output *pOut);
-void output_pdf  (Grid *pGrid, Domain *pD, Output *pOut);
-void output_pgm  (Grid *pGrid, Domain *pD, Output *pOut);
-void output_ppm  (Grid *pGrid, Domain *pD, Output *pOut);
-void output_vtk  (Grid *pGrid, Domain *pD, Output *pOut);
-void output_tab  (Grid *pGrid, Domain *pD, Output *pOut);
+void output_fits (MeshS *pM, OutputS *pOut);
+void output_pdf  (MeshS *pM, OutputS *pOut);
+void output_pgm  (MeshS *pM, OutputS *pOut);
+void output_ppm  (MeshS *pM, OutputS *pOut);
+void output_vtk  (MeshS *pM, OutputS *pOut);
+void output_tab  (MeshS *pM, OutputS *pOut);
 
-void dump_binary (Grid *pGrid, Domain *pD, Output *pOut);
-void dump_dx     (Grid *pGrid, Domain *pD, Output *pOut);
-void dump_history(Grid *pGrid, Domain *pD, Output *pOut);
-void dump_tab_cons(Grid *pGrid, Domain *pD, Output *pOut);
-void dump_tab_prim(Grid *pGrid, Domain *pD, Output *pOut);
-void dump_vtk    (Grid *pGrid, Domain *pD, Output *pOut);
+void dump_binary  (MeshS *pM, OutputS *pOut);
+void dump_history (MeshS *pM, OutputS *pOut);
+void dump_tab_cons(MeshS *pM, OutputS *pOut);
+void dump_tab_prim(MeshS *pM, OutputS *pOut);
+void dump_vtk     (MeshS *pM, OutputS *pOut);
 
 /*----------------------------------------------------------------------------*/
 /* par.c */
@@ -172,13 +168,13 @@ void par_dist_mpi(const int mytid, MPI_Comm comm);
 
 /*----------------------------------------------------------------------------*/
 /* prob/PROBLEM.c ; linked to problem.c */
-void problem(Grid *pgrid, Domain *pDomain);
-void Userwork_in_loop(Grid *pgrid, Domain *pDomain);
-void Userwork_after_loop(Grid *pgrid, Domain *pDomain);
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp);
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp);
-Gasfun_t get_usr_expr(const char *expr);
-VGFunout_t get_usr_out_fun(const char *name);
+void problem(DomainS *pD);
+void Userwork_in_loop(MeshS *pM);
+void Userwork_after_loop(MeshS *pM);
+void problem_read_restart(MeshS *pM, FILE *fp);
+void problem_write_restart(MeshS *pM, FILE *fp);
+GasFun_t get_usr_expr(const char *expr);
+VOutFun_t get_usr_out_fun(const char *name);
 #ifdef PARTICLES
 PropFun_t get_usr_par_prop(const char *name);
 void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
@@ -187,15 +183,14 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
 
 /*----------------------------------------------------------------------------*/
 /* restart.c  */
-void dump_restart(Grid *pG, Domain *pD, Output *pout);
-void restart_grid_block(char *res_file, Grid *pGrid, Domain *pDomain);
+void dump_restart(MeshS *pM, OutputS *pout);
+void restart_grids(char *res_file, MeshS *pM);
 
 /*----------------------------------------------------------------------------*/
 /* self_gravity.c  */
 #ifdef SELF_GRAVITY
 VGDFun_t selfg_init(Grid *pG, Domain *pD);
 void selfg_flux_correction(Grid *pG);
-#endif
 void selfg_by_multig_1d(Grid *pG, Domain *pD);
 void selfg_by_multig_2d(Grid *pG, Domain *pD);
 void selfg_by_multig_3d(Grid *pG, Domain *pD);
@@ -207,12 +202,13 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD);
 void selfg_by_fft_2d_init(Grid *pG, Domain *pD);
 void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
 #endif /* FFT_ENABLED */
+#endif /* SELF_GRAVITY */
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals_mhd.c  */
-void set_bvals_mhd_init(Grid *pG, Domain *pD);
-void set_bvals_mhd_fun(enum Direction dir, VBCFun_t prob_bc);
-void set_bvals_mhd(Grid *pGrid, Domain *pDomain);
+void set_bvals_mhd_init(MeshS *pM);
+void set_bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
+void set_bvals_mhd(DomainS *pDomain);
 
 /*----------------------------------------------------------------------------*/
 /* set_bvals_grav.c  */
@@ -225,14 +221,14 @@ void set_bvals_grav(Grid *pGrid, Domain *pDomain);
 /*----------------------------------------------------------------------------*/
 /* set_bvals_shear.c  */
 #ifdef SHEARING_BOX
-void ShearingSheet_ix1(Grid *pG, Domain *pD);
-void ShearingSheet_ox1(Grid *pG, Domain *pD);
-void RemapEy_ix1(Grid *pG, Domain *pD, Real ***emfy, Real **remapEyiib);
-void RemapEy_ox1(Grid *pG, Domain *pD, Real ***emfy, Real **remapEyoib);
-void set_bvals_shear_init(Grid *pG, Domain *pD);
+void ShearingSheet_ix1(DomainS *pD);
+void ShearingSheet_ox1(DomainS *pD);
+void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
+void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
+void set_bvals_shear_init(MeshS *pM);
 void set_bvals_shear_destruct(void);
 #ifdef FARGO
-void Fargo(Grid *pG, Domain *pD);
+void Fargo(DomainS *pD);
 #endif
 #endif /* SHEARING_BOX */
 
@@ -240,6 +236,12 @@ void Fargo(Grid *pG, Domain *pD);
 /* show_config.c */
 void show_config(void);
 void show_config_par(void);
+
+/*----------------------------------------------------------------------------*/
+/* smr.c */
+void RestrictCorrect(MeshS *pM);
+void Prolongate(MeshS *pM);
+void SMR_init(MeshS *pM);
 
 /*----------------------------------------------------------------------------*/
 /* utils.c */

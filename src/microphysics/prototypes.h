@@ -50,9 +50,11 @@ void hall_resistivity_destruct(void);
 #endif
 
 /* integrate_diffusion.c */
-void integrate_explicit_diff(Grid *pGrid, Domain *pDomain);
-void integrate_explicit_diff_init(Grid *pGrid);
+#ifdef EXPLICIT_DIFFUSION
+void integrate_explicit_diff(MeshS *pM);
+void integrate_explicit_diff_init(MeshS *pM);
 void integrate_explicit_diff_destruct(void);
+#endif
 
 /* isotropic_conduction.c */
 #ifdef ISOTROPIC_CONDUCTION

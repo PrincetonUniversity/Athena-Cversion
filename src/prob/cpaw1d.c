@@ -30,27 +30,35 @@
 #endif
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas *Soln=NULL;
+static Gas *RootSoln=NULL;
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js;
   int k, ks = pGrid->ks;
+  Gas *Soln;
   Real x1,x2,x3,cs,sn,b_par,b_perp,lambda,k_par,v_par,v_perp,den,pres;
-  Soln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas));
-  if (Soln == NULL) ath_error("[cpaw1d] Error initializing solution array");
 
-  if (pGrid->Nx2 > 1 || pGrid->Nx3 > 1) {
+  if ((Soln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas))) == NULL)
+    ath_error("[cpaw1d] Error initializing Soln array");
+
+  if (pDomain->Level == 0) {
+    if ((RootSoln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas))) == NULL)
+      ath_error("[cpaw1d] Error initializing RootSoln array");
+  }
+
+  if (pGrid->Nx[1] > 1 || pGrid->Nx[2] > 1) {
     ath_error("[cpaw1d] grid must be 1D");
   }
 
-/* Put one wavelength on the grid, and initialize k_parallel */
+/* Put one wavelength on the root Domain, and initialize k_parallel */
 
-  lambda = pGrid->Nx1*pGrid->dx1; 
+  lambda = pDomain->RootMaxX[0] - pDomain->RootMinX[0]; 
   k_par = 2.0*PI/lambda;
 
   b_par = par_getd("problem","b_par");
@@ -102,6 +110,25 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif
   }
 
+/* save solution on root grid */
+
+  if (pDomain->Level == 0) {
+    for (i=is; i<=ie+1; i++) {
+      RootSoln[i].d  = Soln[i].d;
+      RootSoln[i].M1 = Soln[i].M1;
+      RootSoln[i].M2 = Soln[i].M2;
+      RootSoln[i].M3 = Soln[i].M3;
+
+      RootSoln[i].B1c = Soln[i].B1c;
+      RootSoln[i].B2c = Soln[i].B2c;
+      RootSoln[i].B3c = Soln[i].B3c;
+#ifndef ISOTHERMAL
+      RootSoln[i].E = Soln[i].E;
+#endif
+    }
+  }
+
+  free(Soln);
   return;
 }
 
@@ -116,26 +143,26 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
@@ -145,17 +172,15 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pGrid;
   int i=0,is,ie,js,ks,Nx1;
   Real rms_error=0.0;
   Gas error;
   FILE *fp;
   char *fname;
-  is = pGrid->is; ie = pGrid->ie;
-  js = pGrid->js;
-  ks = pGrid->ks;
-  Nx1 = (ie-is+1);
+
   error.d = 0.0;
   error.M1 = 0.0;
   error.M2 = 0.0;
@@ -167,18 +192,26 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   error.E = 0.0;
 #endif /* ISOTHERMAL */
 
+/* Compute error only on root Grid, which is in Domain[0][0] */
+
+  pGrid=pM->Domain[0][0].Grid;
+  is = pGrid->is; ie = pGrid->ie;
+  js = pGrid->js;
+  ks = pGrid->ks;
+  Nx1 = (ie-is+1);
+
 /* compute L1 error in each variable, and rms total error */
 
   for (i=is; i<=ie; i++) {
-    error.d   += fabs(pGrid->U[ks][js][i].d   - Soln[i].d  );
-    error.M1  += fabs(pGrid->U[ks][js][i].M1  - Soln[i].M1 );
-    error.M2  += fabs(pGrid->U[ks][js][i].M2  - Soln[i].M2 );
-    error.M3  += fabs(pGrid->U[ks][js][i].M3  - Soln[i].M3 );
-    error.B1c += fabs(pGrid->U[ks][js][i].B1c - Soln[i].B1c);
-    error.B2c += fabs(pGrid->U[ks][js][i].B2c - Soln[i].B2c);
-    error.B3c += fabs(pGrid->U[ks][js][i].B3c - Soln[i].B3c);
+    error.d   += fabs(pGrid->U[ks][js][i].d   - RootSoln[i].d  );
+    error.M1  += fabs(pGrid->U[ks][js][i].M1  - RootSoln[i].M1 );
+    error.M2  += fabs(pGrid->U[ks][js][i].M2  - RootSoln[i].M2 );
+    error.M3  += fabs(pGrid->U[ks][js][i].M3  - RootSoln[i].M3 );
+    error.B1c += fabs(pGrid->U[ks][js][i].B1c - RootSoln[i].B1c);
+    error.B2c += fabs(pGrid->U[ks][js][i].B2c - RootSoln[i].B2c);
+    error.B3c += fabs(pGrid->U[ks][js][i].B3c - RootSoln[i].B3c);
 #ifndef ISOTHERMAL
-    error.E   += fabs(pGrid->U[ks][js][i].E   - Soln[i].E  );
+    error.E   += fabs(pGrid->U[ks][js][i].E   - RootSoln[i].E  );
 #endif /* ISOTHERMAL */
   }
 

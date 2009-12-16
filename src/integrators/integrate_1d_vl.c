@@ -51,8 +51,9 @@ static Prim *Whalf=NULL;
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
 
-void integrate_1d(Grid *pG, Domain *pD)
+void integrate_1d(DomainS *pD)
 {
+  GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, hdtodx1=0.5*pG->dt/pG->dx1;
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
@@ -486,6 +487,51 @@ void integrate_1d(Grid *pG, Domain *pD)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/* integrate_init_1d: Allocate temporary integration arrays */
+
+void integrate_init_1d(MeshS *pM)
+{
+  int size1=0,nl,nd;
+
+/* Cycle over all Grids on this processor to find maximum Nx1 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->N[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+      }
+    }
+  }
+
+  size1 = size1 + 2*nghost;
+
+  if ((Wl_x1Face = (Prim1D*)malloc(size1*sizeof(Prim1D))) ==NULL) goto on_error;
+  if ((Wr_x1Face = (Prim1D*)malloc(size1*sizeof(Prim1D))) ==NULL) goto on_error;
+  if ((x1Flux    = (Cons1D*)malloc(size1*sizeof(Cons1D))) ==NULL) goto on_error;
+
+#ifdef MHD
+  if ((Bxc = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+  if ((B1_x1Face = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+#endif /* MHD */
+
+  if ((U1d =      (Cons1D*)malloc(size1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ul  =      (Cons1D*)malloc(size1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ur  =      (Cons1D*)malloc(size1*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W   =      (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl  =      (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr  =      (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
+
+  if ((Uhalf = (Gas*)malloc(size1*sizeof(Gas))) == NULL) goto on_error;
+  if ((Whalf = (Prim*)malloc(size1*sizeof(Prim))) == NULL) goto on_error;
+
+  return;
+
+  on_error:
+    integrate_destruct();
+    ath_error("[integrate_init]: malloc returned a NULL pointer\n");
+}
 
 /*----------------------------------------------------------------------------*/
 /* integrate_destruct_1d:  Free temporary integration arrays */
@@ -513,38 +559,4 @@ void integrate_destruct_1d(void)
 
   return;
 }
-
-/*----------------------------------------------------------------------------*/
-/* integrate_init_1d: Allocate temporary integration arrays */
-
-void integrate_init_1d(int nx1)
-{
-  int Nx1 = nx1 + 2*nghost;
-
-  if ((Wl_x1Face = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr_x1Face = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-
-#ifdef MHD
-  if ((Bxc = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-  if ((B1_x1Face = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-#endif /* MHD */
-
-  if ((U1d =      (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((W   =      (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl  =      (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr  =      (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-
-  if ((Uhalf = (Gas*)malloc(Nx1*sizeof(Gas))) == NULL) goto on_error;
-  if ((Whalf = (Prim*)malloc(Nx1*sizeof(Prim))) == NULL) goto on_error;
-
-  return;
-
-  on_error:
-  integrate_destruct();
-  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
-}
-
 #endif /* VL_INTEGRATOR */

@@ -21,21 +21,22 @@
 #endif
 
 /* computes difference d{i,j}-d{j,i} to test if solution is symmetric */
-static Real expr_diff_d(const Grid *pG, const int i, const int j, const int k);
+static Real expr_diff_d(const GridS *pG, const int i, const int j, const int k);
 
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  int a;
-  Real d_in, p_in, d_out, p_out;
+  int ir,irefine,nx2;
+  Real d_in,p_in,d_out,p_out,Ly,rootdx2;
 
 /* Set up the grid bounds for initializing the grid */
-  if (pGrid->Nx1 <= 1 || pGrid->Nx2 <= 1) {
+  if (pGrid->Nx[0] <= 1 || pGrid->Nx[1] <= 1) {
     ath_error("[problem]: This problem requires Nx1 > 1, Nx2 > 1\n");
   }
 
@@ -45,6 +46,16 @@ void problem(Grid *pGrid, Domain *pDomain)
   d_out = par_getd("problem","d_out");
   p_out = par_getd("problem","p_out");
 
+/* Find number of Nx2 cells on root grid.  At x=0, interface is at nx2/2 */
+
+  irefine = 1;
+  for (ir=1;ir<=pDomain->Level;ir++) irefine *= 2;
+
+  Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
+  rootdx2 = pGrid->dx2*((double)(irefine));
+  nx2 = (int)(Ly/rootdx2);
+  nx2 /= 2;
+
 /* Initialize the grid */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -53,10 +64,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 	pGrid->U[k][j][i].M2 = 0.0;
 	pGrid->U[k][j][i].M3 = 0.0;
 
-	a = (2*(i + pGrid->idisp) - 1)*pGrid->Nx2
-	  + (2*(j + pGrid->jdisp) - 1)*pGrid->Nx1;
-
-	if(a > pGrid->Nx1*pGrid->Nx2) {
+	if(((j-js + pDomain->Disp[1])+(i-is + pDomain->Disp[0])) > (nx2*irefine)) {
 	  pGrid->U[k][j][i].d  = d_out;
 #ifndef ISOTHERMAL
 	  pGrid->U[k][j][i].E = p_out/Gamma_1;
@@ -85,35 +93,35 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"diff_d")==0) return expr_diff_d;
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
 
-static Real expr_diff_d(const Grid *pG, const int i, const int j, const int k)
+static Real expr_diff_d(const GridS *pG, const int i, const int j, const int k)
 {
  return (pG->U[k][j][i].d - pG->U[k][i][j].d);
 }

@@ -45,15 +45,15 @@
 
 static double ran2(long int *idum);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
-static Real expr_dV3(const Grid *pG, const int i, const int j, const int k);
-static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
-static Real hst_dEk(const Grid *pG, const int i, const int j, const int k);
-static Real hst_E_total(const Grid *pG, const int i, const int j, const int k);
+static Real expr_dV3(const GridS *pG, const int i, const int j, const int k);
+static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
+static Real hst_dEk(const GridS *pG, const int i, const int j, const int k);
+static Real hst_E_total(const GridS *pG, const int i, const int j, const int k);
 #ifdef MHD
-static Real hst_Bx(const Grid *pG, const int i, const int j, const int k);
-static Real hst_By(const Grid *pG, const int i, const int j, const int k);
-static Real hst_Bz(const Grid *pG, const int i, const int j, const int k);
-static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k);
+static Real hst_Bx(const GridS *pG, const int i, const int j, const int k);
+static Real hst_By(const GridS *pG, const int i, const int j, const int k);
+static Real hst_Bz(const GridS *pG, const int i, const int j, const int k);
+static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k);
 #endif
 
 /* boxsize, made a global variable so can be accessed by bval, etc. routines */
@@ -63,8 +63,9 @@ static Real Lx;
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks;
@@ -74,18 +75,19 @@ void problem(Grid *pGrid, Domain *pDomain)
   Real den = 1.0, pres = 1.0e-5, rd, rp, rvx;
   Real beta,B0,kx,amp;
   double rval;
+  static int frst=1;  /* flag so new history variables enrolled only once */
 
-  if (pGrid->Nx2 == 1){
+  if (pGrid->Nx[1] == 1){
     ath_error("[problem]: HB3 only works on a 2D grid\n");
   }
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[2] > 1){
     ath_error("[problem]: HB3 does not work on 3D grid\n");
   }
 
 /* Initialize boxsize */
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
+  x1min = pDomain->RootMinX[0];
+  x1max = pDomain->RootMaxX[0];
   Lx = x1max - x1min;
   kx = 2.0*PI/Lx;
 
@@ -191,16 +193,18 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* enroll new history variables */
 
-  dump_history_enroll(hst_dEk, "<0.5rho(Vx^2+4dVy^2)>");
-  dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
-  dump_history_enroll(hst_E_total, "<E + rho Phi>");
+  if (frst == 1) {
+    dump_history_enroll(hst_dEk, "<0.5rho(Vx^2+4dVy^2)>");
+    dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
+    dump_history_enroll(hst_E_total, "<E + rho Phi>");
 #ifdef MHD
-  dump_history_enroll(hst_Bx, "<Bx>");
-  dump_history_enroll(hst_By, "<By>");
-  dump_history_enroll(hst_Bz, "<Bz>");
-  dump_history_enroll(hst_BxBy, "<-Bx By>");
+    dump_history_enroll(hst_Bx, "<Bx>");
+    dump_history_enroll(hst_By, "<By>");
+    dump_history_enroll(hst_Bz, "<Bz>");
+    dump_history_enroll(hst_BxBy, "<-Bx By>");
 #endif /* MHD */
-
+    frst = 0;
+  }
 
   return;
 }
@@ -216,7 +220,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
@@ -226,7 +230,7 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
  *    and initialize gravity on restarts
  */
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   Real x1min, x1max;
 
@@ -244,21 +248,21 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 /* Get_user_expression computes dVy */
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"dVy")==0) return expr_dV3;
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
 
@@ -357,7 +361,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3){
  * expr_dV3: computes delta(Vy) 
  */
 
-static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
+static Real expr_dV3(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -372,7 +376,7 @@ static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
  * hst_rho_Vx_dVy: Reynolds stress, added as history variable.
  */
 
-static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k)
+static Real hst_rho_Vx_dVy(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -388,7 +392,7 @@ static Real hst_rho_Vx_dVy(const Grid *pG, const int i, const int j, const int k
  *   is a constant, added as history variable 
  */
 
-static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
+static Real hst_dEk(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   Real dMy, dE;
@@ -407,7 +411,7 @@ static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
  * hst_E_total: total energy (including tidal potential).
  */
 
-static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
+static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
 #ifdef ADIABATIC
   Real x1,x2,x3,phi;
@@ -425,22 +429,22 @@ static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
  */
 
 #ifdef MHD
-static Real hst_Bx(const Grid *pG, const int i, const int j, const int k)
+static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][pG->is].B1c;
 }
 
-static Real hst_By(const Grid *pG, const int i, const int j, const int k)
+static Real hst_By(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][pG->js][i].B2c;
 }
 
-static Real hst_Bz(const Grid *pG, const int i, const int j, const int k)
+static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[pG->ks][j][i].B3c;
 }
 
-static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k)
+static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;
 }

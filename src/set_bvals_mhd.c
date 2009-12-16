@@ -4,23 +4,22 @@
  *
  * PURPOSE: Sets boundary conditions (quantities in ghost zones) on each edge
  *   of a Grid for the MHD variables.  Each edge of a Grid represents either:
- *    (1) the physical boundary of computational Domain; in which case BCs are
+ *    (1) a physical boundary at the edge of the Mesh; in which case BCs are
  *        specified by an integer flag input by user (or by user-defined BC
  *        function in the problem file)
  *    (2) the boundary between Grids resulting from decomposition of a larger
- *        computational domain using MPI; in which case BCs are handled
- *        by MPI calls
- *    (3) an internal boundary between fine/coarse grid levels in a nested grid;
- *        in which case BCs require prolongation and restriction operators (and
- *        possibly some combination of (1) and (2) as well!)
- *   This file contains functions called in the main loop that can handle each
- *   of these cases.  The naming convention for BCs is:
- *       ibc_x1 = Inner Boundary Condition for x1
- *       obc_x1 = Outer Boundary Condition for x1
- *   similarly for ibc_x2; obc_x2; ibc_x3; obc_x3
+ *        Domain using MPI; in which case BCs are handled by MPI calls
+ *    (3) an internal boundary between fine/coarse grid levels in a nested Mesh;
+ *        in which case the BCs require a prolongation operator from the parent
+ *   This file contains functions that can handle the first two cases.  Case (3)
+ *   is handled in the Prolongate function called from main loop.
+ *   The naming convention of the integer flags for BCs is:
+ *       bc_ix1 = Inner Boundary Condition for x1
+ *       bc_ox1 = Outer Boundary Condition for x1
+ *   similarly for bc_ix2; bc_ox2; bc_ix3; bc_ox3
  *
  * For case (1) -- PHYSICAL BOUNDARIES
- *   The values of the integer flags are:
+ *   The values of the integer flags (bc_ix1, etc.) are:
  *       1 = reflecting, B_normal = 0; 2 = outflow; 4 = periodic
  *       5 = reflecting, B_normal != 0
  *   Following ZEUS conventions, 3 would be flow-in (ghost zones held at
@@ -39,10 +38,15 @@
  *   non-blocking sends (MPI_Isend) and computations.
  *
  * For case (3) -- INTERNAL GRID LEVEL BOUNDARIES
+ *   This step is complicated and must be handled separately, in the function
+ *   Prolongate() called from the main loop.  In the algorithm below, nothing is
+ *   done for this case; the BCs are left to be set later.
  *
- * The type of BC is unchanged throughout a calculation.  Thus, during setup
- * we determine the BC type, and set a pointer to the appropriate BC function
- * using set_bvals_init().  MPI calls are used if the grid ID number to the
+ * Which case of BC is needed is unchanged throughout a calculation.  Thus,
+ * during setup we determine which case we need, and set a pointer to the
+ * appropriate BC function using set_bvals_init().  These pointers are stored in
+ * the Domain structure containing the Grid, since the BCs can be different for
+ * each different domain.  MPI calls are used when the proc ID number to the
  * left or right is >= 0.
  * 
  * With SELF-GRAVITY: BCs for Phi are set independently of the MHD variables
@@ -58,155 +62,150 @@
 #include <stdlib.h>
 #include "defs.h"
 #include "athena.h"
+#include "globals.h"
 #include "prototypes.h"
 
 #ifdef MPI_PARALLEL
-
 /* MPI send and receive buffer, size dynamically determined near end of
  * set_bvals_init() based on number of zones in each grid */
 static double *send_buf = NULL, *recv_buf = NULL;
 
-/* Maximim number of variables passed in any one MPI message = variables in the
- * Gas structure, plus 3 extra for the interface magnetic fields. */
+/* NVAR_SHARE = maximim number of variables passed in any one MPI message =
+ * variables in Gas, plus 3 extra for interface magnetic fields. */
 #ifdef MHD
 #define NVAR_SHARE (NVAR + 3)
 #else
 #define NVAR_SHARE NVAR
-#endif
+#endif /* MHD */
 
 #endif /* MPI_PARALLEL */
 
-/* boundary condition function pointers. local to this function  */
-static VBCFun_t apply_ix1 = NULL, apply_ox1 = NULL;
-static VBCFun_t apply_ix2 = NULL, apply_ox2 = NULL;
-static VBCFun_t apply_ix3 = NULL, apply_ox3 = NULL;
-
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- *   reflect_???()  - apply reflecting BCs at boundary ???
- *   outflow_???()  - apply outflow BCs at boundary ???
- *   periodic_???() - apply periodic BCs at boundary ???
+ *   reflect_???()  - reflecting BCs at boundary ???
+ *   outflow_???()  - outflow BCs at boundary ???
+ *   periodic_???() - periodic BCs at boundary ???
  *   send_???()     - MPI send of data at ??? boundary
  *   receive_???()  - MPI receive of data at ??? boundary
  *============================================================================*/
 
-static void reflect_ix1(Grid *pG);
-static void reflect_ox1(Grid *pG);
-static void reflect_ix2(Grid *pG);
-static void reflect_ox2(Grid *pG);
-static void reflect_ix3(Grid *pG);
-static void reflect_ox3(Grid *pG);
+static void reflect_ix1(GridS *pG);
+static void reflect_ox1(GridS *pG);
+static void reflect_ix2(GridS *pG);
+static void reflect_ox2(GridS *pG);
+static void reflect_ix3(GridS *pG);
+static void reflect_ox3(GridS *pG);
 
-static void outflow_ix1(Grid *pG);
-static void outflow_ox1(Grid *pG);
-static void outflow_ix2(Grid *pG);
-static void outflow_ox2(Grid *pG);
-static void outflow_ix3(Grid *pG);
-static void outflow_ox3(Grid *pG);
+static void outflow_ix1(GridS *pG);
+static void outflow_ox1(GridS *pG);
+static void outflow_ix2(GridS *pG);
+static void outflow_ox2(GridS *pG);
+static void outflow_ix3(GridS *pG);
+static void outflow_ox3(GridS *pG);
 
-static void periodic_ix1(Grid *pG);
-static void periodic_ox1(Grid *pG);
-static void periodic_ix2(Grid *pG);
-static void periodic_ox2(Grid *pG);
-static void periodic_ix3(Grid *pG);
-static void periodic_ox3(Grid *pG);
+static void periodic_ix1(GridS *pG);
+static void periodic_ox1(GridS *pG);
+static void periodic_ix2(GridS *pG);
+static void periodic_ox2(GridS *pG);
+static void periodic_ix3(GridS *pG);
+static void periodic_ox3(GridS *pG);
+
+static void ProlongateLater(GridS *pG);
 
 #ifdef MPI_PARALLEL
-static void send_ix1(Grid *pG);
-static void send_ox1(Grid *pG);
-static void send_ix2(Grid *pG);
-static void send_ox2(Grid *pG);
-static void send_ix3(Grid *pG);
-static void send_ox3(Grid *pG);
+static void send_ix1(DomainS *pD);
+static void send_ox1(DomainS *pD);
+static void send_ix2(DomainS *pD);
+static void send_ox2(DomainS *pD);
+static void send_ix3(DomainS *pD);
+static void send_ox3(DomainS *pD);
 
-static void receive_ix1(Grid *pG, MPI_Request *prq);
-static void receive_ox1(Grid *pG, MPI_Request *prq);
-static void receive_ix2(Grid *pG, MPI_Request *prq);
-static void receive_ox2(Grid *pG, MPI_Request *prq);
-static void receive_ix3(Grid *pG, MPI_Request *prq);
-static void receive_ox3(Grid *pG, MPI_Request *prq);
+static void receive_ix1(GridS *pG, MPI_Request *prq);
+static void receive_ox1(GridS *pG, MPI_Request *prq);
+static void receive_ix2(GridS *pG, MPI_Request *prq);
+static void receive_ox2(GridS *pG, MPI_Request *prq);
+static void receive_ix3(GridS *pG, MPI_Request *prq);
+static void receive_ox3(GridS *pG, MPI_Request *prq);
 #endif /* MPI_PARALLEL */
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
+
 /*----------------------------------------------------------------------------*/
 /* set_bvals_mhd: calls appropriate functions to set ghost zones.  The function
- *   pointers (*apply_???) are set during initialization by set_bvals_init()
- *   to be either a user-defined function, or one of the functions corresponding
- *   to reflecting, periodic, or outflow.  If the left- or right-Grid ID numbers
- *   are >= 1 (neighboring grids exist), then MPI calls are used.
+ *   pointers (*(pD->???_BCFun)) are set by set_bvals_init() to be either a
+ *   user-defined function, or one of the functions corresponding to reflecting,
+ *   periodic, or outflow.  If the left- or right-Grid ID numbers are >= 1
+ *   (neighboring grids exist), then MPI calls are used.
  *
  * Order for updating boundary conditions must always be x1-x2-x3 in order to
  * fill the corner cells properly
  */
 
-void set_bvals_mhd(Grid *pGrid, Domain *pDomain)
+void set_bvals_mhd(DomainS *pD)
 {
+  GridS *pGrid = (pD->Grid);
+#ifdef SHEARING_BOX
+  int myL,myM,myN;
+#endif
 #ifdef MPI_PARALLEL
-  int cnt1, cnt2, cnt3, cnt, err;
+  int cnt1, cnt2, cnt3, cnt, ierr;
   MPI_Request rq;
 #endif /* MPI_PARALLEL */
-#ifdef SHEARING_BOX
-  int my_iproc,my_jproc,my_kproc;
-#endif
 
 /*--- Step 1. ------------------------------------------------------------------
  * Boundary Conditions in x1-direction */
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt2 = pGrid->Nx2 > 1 ? pGrid->Nx2 + 1 : 1;
-    cnt3 = pGrid->Nx3 > 1 ? pGrid->Nx3 + 1 : 1;
+    cnt2 = pGrid->Nx[1] > 1 ? pGrid->Nx[1] + 1 : 1;
+    cnt3 = pGrid->Nx[2] > 1 ? pGrid->Nx[2] + 1 : 1;
     cnt = nghost*cnt2*cnt3*NVAR_SHARE;
 
 /* MPI blocks to both left and right */
     if (pGrid->rx1_id >= 0 && pGrid->lx1_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx1_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx1_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ox1   (pGrid);       /* send R */
+      send_ox1(pD);             /* send R */
       receive_ix1(pGrid, &rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx1_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx1_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ix1   (pGrid);       /* send L */
+      send_ix1(pD);             /* send L */
       receive_ox1(pGrid, &rq);  /* listen R */
     }
 
 /* Physical boundary on left, MPI block on right */
     if (pGrid->rx1_id >= 0 && pGrid->lx1_id < 0) {
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx1_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx1_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ox1    (pGrid);       /* send R */
-      (*apply_ix1)(pGrid);
+      send_ox1(pD);              /* send R */
+      (*(pD->ix1_BCFun))(pGrid);
       receive_ox1 (pGrid, &rq);  /* listen R */
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx1_id < 0 && pGrid->lx1_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx1_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx1_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ix1    (pGrid);       /* send L */
-      (*apply_ox1)(pGrid);
+      send_ix1(pD);              /* send L */
+      (*(pD->ox1_BCFun))(pGrid);
       receive_ix1 (pGrid, &rq);  /* listen L */
     }
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx1_id < 0 && pGrid->lx1_id < 0) {
-      (*apply_ix1)(pGrid);
-      (*apply_ox1)(pGrid);
+      (*(pD->ix1_BCFun))(pGrid);
+      (*(pD->ox1_BCFun))(pGrid);
     } 
 
   }
@@ -214,71 +213,67 @@ void set_bvals_mhd(Grid *pGrid, Domain *pDomain)
 /*--- Step 2. ------------------------------------------------------------------
  * Boundary Conditions in x2-direction */
 
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt1 = pGrid->Nx1 > 1 ? pGrid->Nx1 + 2*nghost : 1;
-    cnt3 = pGrid->Nx3 > 1 ? pGrid->Nx3 + 1 : 1;
+    cnt1 = pGrid->Nx[0] > 1 ? pGrid->Nx[0] + 2*nghost : 1;
+    cnt3 = pGrid->Nx[2] > 1 ? pGrid->Nx[2] + 1 : 1;
     cnt = nghost*cnt1*cnt3*NVAR_SHARE;
 
 /* MPI blocks to both left and right */
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx2_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx2_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ox2   (pGrid);       /* send R */
+      send_ox2(pD);             /* send R */
       receive_ix2(pGrid, &rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx2_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx2_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ix2   (pGrid);       /* send L */
+      send_ix2(pD);             /* send L */
       receive_ox2(pGrid, &rq);  /* listen R */
     }
 
 /* Physical boundary on left, MPI block on right */
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id < 0) {
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx2_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx2_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ox2    (pGrid);       /* send R */
-      (*apply_ix2)(pGrid);
+      send_ox2(pD);              /* send R */
+      (*(pD->ix2_BCFun))(pGrid);
       receive_ox2 (pGrid, &rq);  /* listen R */
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx2_id < 0 && pGrid->lx2_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx2_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx2_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ix2    (pGrid);       /* send L */
-      (*apply_ox2)(pGrid);
+      send_ix2(pD);              /* send L */
+      (*(pD->ox2_BCFun))(pGrid);
       receive_ix2 (pGrid, &rq);  /* listen L */
     }
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx2_id < 0 && pGrid->lx2_id < 0) {
-      (*apply_ix2)(pGrid);
-      (*apply_ox2)(pGrid);
+      (*(pD->ix2_BCFun))(pGrid);
+      (*(pD->ox2_BCFun))(pGrid);
     }
 
 /* shearing sheet BCs; function defined in problem generator */
 #ifdef SHEARING_BOX
-    get_myGridIndex(pDomain, pGrid->my_id, &my_iproc, &my_jproc, &my_kproc);
-    if (my_iproc == 0) {
-      ShearingSheet_ix1(pGrid, pDomain);
+    get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
+    if (myL == 0) {
+      ShearingSheet_ix1(pD);
     }
-    if (my_iproc == (pDomain->NGrid_x1-1)) {
-      ShearingSheet_ox1(pGrid, pDomain);
+    if (myL == ((pD->NGrid[0])-1)) {
+      ShearingSheet_ox1(pD);
     }
 #endif
 
@@ -287,61 +282,57 @@ void set_bvals_mhd(Grid *pGrid, Domain *pDomain)
 /*--- Step 3. ------------------------------------------------------------------
  * Boundary Conditions in x3-direction */
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[2] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt1 = pGrid->Nx1 > 1 ? pGrid->Nx1 + 2*nghost : 1;
-    cnt2 = pGrid->Nx2 > 1 ? pGrid->Nx2 + 2*nghost : 1;
+    cnt1 = pGrid->Nx[0] > 1 ? pGrid->Nx[0] + 2*nghost : 1;
+    cnt2 = pGrid->Nx[1] > 1 ? pGrid->Nx[1] + 2*nghost : 1;
     cnt = nghost*cnt1*cnt2*NVAR_SHARE;
 
 /* MPI blocks to both left and right */
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx3_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx3_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ox3   (pGrid);       /* send R */
+      send_ox3(pD);             /* send R */
       receive_ix3(pGrid, &rq);  /* listen L */
 
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx3_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx3_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ix3   (pGrid);       /* send L */
+      send_ix3(pD);             /* send L */
       receive_ox3(pGrid, &rq);  /* listen R */
     }
 
 /* Physical boundary on left, MPI block on right */
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id < 0) {
       /* Post a non-blocking receive for the input data from the right grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx3_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->rx3_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ox3    (pGrid);       /* send R */
-      (*apply_ix3)(pGrid);
+      send_ox3(pD);              /* send R */
+      (*(pD->ix3_BCFun))(pGrid);
       receive_ox3 (pGrid, &rq);  /* listen R */
     }
 
 /* MPI block on left, Physical boundary on right */
     if (pGrid->rx3_id < 0 && pGrid->lx3_id >= 0) {
       /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx3_id,
-		      boundary_cells_tag, MPI_COMM_WORLD, &rq);
-      if(err) ath_error("[set_bvals]: MPI_Irecv error = %d\n",err);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pGrid->lx3_id,
+		      boundary_cells_tag, pD->Comm_Domain, &rq);
 
-      send_ix3    (pGrid);       /* send L */
-      (*apply_ox3)(pGrid);
+      send_ix3(pD);              /* send L */
+      (*(pD->ox3_BCFun))(pGrid);
       receive_ix3 (pGrid, &rq);  /* listen L */
     }
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx3_id < 0 && pGrid->lx3_id < 0) {
-      (*apply_ix3)(pGrid);
-      (*apply_ox3)(pGrid);
+      (*(pD->ix3_BCFun))(pGrid);
+      (*(pD->ox3_BCFun))(pGrid);
     }
 
   }
@@ -354,275 +345,371 @@ void set_bvals_mhd(Grid *pGrid, Domain *pDomain)
  *   initialization, allocates memory for send/receive buffers with MPI
  */
 
-void set_bvals_mhd_init(Grid *pG, Domain *pD)
+void set_bvals_mhd_init(MeshS *pM)
 {
-  int ibc_x1, obc_x1; /* x1 inner and outer boundary condition flag */
-  int ibc_x2, obc_x2; /* x2 inner and outer boundary condition flag */
-  int ibc_x3, obc_x3; /* x3 inner and outer boundary condition flag */
+  GridS *pG;
+  DomainS *pD;
+  int i,nl,nd,irefine;
 #ifdef MPI_PARALLEL
-  int i,j,k,ib,jb,kb;
-  int my_id = pG->my_id;
-  int x1cnt, x2cnt, x3cnt; /* Number of Gas passed in x1-, x2-, x3-dir. */
-  int nx1t, nx2t, nx3t, size;
+  int myL,myM,myN,l,m,n,nx1t,nx2t,nx3t,size;
+  int x1cnt=0, x2cnt=0, x3cnt=0; /* Number of words passed in x1/x2/x3-dir. */
 #endif /* MPI_PARALLEL */
 
-/* Set function pointers for physical boundaries in x1-direction */
+/* Cycle through all the Domains that have active Grids on this proc */
 
-  if(pG->Nx1 > 1) {
-    if(apply_ix1 == NULL){
-
-      ibc_x1 = par_geti("grid","ibc_x1");
-      switch(ibc_x1){
-
-      case 1: /* Reflecting, B_normal=0 */
-	apply_ix1 = reflect_ix1;
-	break;
-
-      case 2: /* Outflow */
-	apply_ix1 = outflow_ix1;
-	break;
-
-      case 4: /* Periodic */
-	apply_ix1 = periodic_ix1;
+  for (nl=0; nl<(pM->NLevels); nl++){
+  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+  if (pM->Domain[nl][nd].Grid != NULL) {
+    pD = (DomainS*)&(pM->Domain[nl][nd]);  /* ptr to Domain */
+    pG = pM->Domain[nl][nd].Grid;          /* ptr to Grid */
+    irefine = 1;
+    for (i=1;i<=nl;i++) irefine *= 2;   /* C pow fn only takes doubles !! */
 #ifdef MPI_PARALLEL
-	if(pG->lx1_id < 0 && pD->NGrid_x1 > 1){
-	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
-	  pG->lx1_id = pD->GridArray[kb][jb][pD->NGrid_x1-1].id;
-	}
+/* get (l,m,n) coordinates of Grid being updated on this processor */
+      get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
 #endif /* MPI_PARALLEL */
-	break;
 
-      case 5: /* Reflecting, B_normal!=0 */
-	apply_ix1 = reflect_ix1;
-	break;
+/* Set function pointers for physical boundaries in x1-direction -------------*/
 
-      default:
-	ath_perr(-1,"[set_bvals_init]: ibc_x1 = %d unknown\n",ibc_x1);
-	exit(EXIT_FAILURE);
+    if(pG->Nx[0] > 1) {
+
+/*---- ix1 boundary ----------------------------------------------------------*/
+
+      if(pD->ix1_BCFun == NULL){    /* BCFun ptr was not set in prob gen */
+
+/* Domain boundary is in interior of root */
+        if(pD->Disp[0] != 0) {      
+          pD->ix1_BCFun = ProlongateLater;
+
+/* Domain is at L-edge of root Domain, but not R-edge and periodic BC  */
+        } else {
+          if(((pD->Disp[0] + pD->Nx[0])/irefine != pM->Nx[0]) && 
+               pM->BCFlag_ix1 == 4) {
+            ath_error("[bvals_init]:level=%d Domain touching ix1b but not ox1b and periodic BC not allowed\n",nl); 
+
+/* Domain is at L-edge of root Domain */
+          } else {                    
+            switch(pM->BCFlag_ix1){
+
+            case 1: /* Reflecting, B_normal=0 */
+              pD->ix1_BCFun = reflect_ix1;
+            break;
+
+            case 2: /* Outflow */
+              pD->ix1_BCFun = outflow_ix1;
+            break;
+
+            case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+              pD->ix1_BCFun = periodic_ix1;
+#ifdef MPI_PARALLEL
+              if(pG->lx1_id < 0 && pD->NGrid[0] > 1){
+                pG->lx1_id = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
+              }
+#endif /* MPI_PARALLEL */
+            break;
+
+            case 5: /* Reflecting, B_normal!=0 */
+              pD->ix1_BCFun = reflect_ix1;
+            break;
+
+            default:
+              ath_perr(-1,"[bvals_init]:bc_ix1=%d unknown\n",pM->BCFlag_ix1);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
       }
 
+/*---- ox1 boundary ----------------------------------------------------------*/
+
+      if(pD->ox1_BCFun == NULL){    /* BCFun ptr was not set in prob gen */
+
+/* Domain boundary is in interior of root */
+        if((pD->Disp[0] + pD->Nx[0])/irefine != pM->Nx[0]) {
+          pD->ox1_BCFun = ProlongateLater;
+
+/* Domain is at R-edge of root Domain, but not L-edge and periodic BC */
+        } else {
+          if((pD->Disp[0] != 0) && (pM->BCFlag_ox1 == 4)) {      
+            ath_error("[bvals_init]:level=%d Domain touching ox1b but not ix1b and periodic BC not allowed\n",nl); 
+
+
+/* Domain is at R-edge of root Domain */
+          } else {
+            switch(pM->BCFlag_ox1){
+
+            case 1: /* Reflecting, B_normal=0 */
+              pD->ox1_BCFun = reflect_ox1;
+            break;
+
+            case 2: /* Outflow */
+              pD->ox1_BCFun = outflow_ox1;
+            break;
+
+            case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+              pD->ox1_BCFun = periodic_ox1;
+#ifdef MPI_PARALLEL
+              if(pG->rx1_id < 0 && pD->NGrid[0] > 1){
+                pG->rx1_id = pD->GData[myN][myM][0].ID_Comm_Domain;
+              }
+#endif /* MPI_PARALLEL */
+            break;
+
+            case 5: /* Reflecting, B_normal!=0 */
+              pD->ox1_BCFun = reflect_ox1;
+            break;
+
+            default:
+              ath_perr(-1,"[bvals_init]:bc_ox1=%d unknown\n",pM->BCFlag_ox1);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
+      }
     }
 
-    if(apply_ox1 == NULL){
+/* Set function pointers for physical boundaries in x2-direction -------------*/
 
-      obc_x1 = par_geti("grid","obc_x1");
-      switch(obc_x1){
+    if(pG->Nx[1] > 1) {
 
-      case 1: /* Reflecting, B_normal=0 */
-	apply_ox1 = reflect_ox1;
-	break;
+/*---- ix2 boundary ----------------------------------------------------------*/
 
-      case 2: /* Outflow */
-	apply_ox1 = outflow_ox1;
-	break;
+      if(pD->ix2_BCFun == NULL){    /* BCFun ptr was not set in prob gen */
 
-      case 4: /* Periodic */
-	apply_ox1 = periodic_ox1;
+/* Domain boundary is in interior of root */
+        if(pD->Disp[1] != 0) {
+          pD->ix2_BCFun = ProlongateLater;
+
+/* Domain is at L-edge of root Domain, but not R-edge and periodic BC  */
+        } else {
+          if(((pD->Disp[1] + pD->Nx[1])/irefine != pM->Nx[1]) &&
+               pM->BCFlag_ix2 == 4) {
+            ath_error("[bvals_init]:level=%d Domain touching ix2b but not ox2b and periodic BC not allowed\n",nl); 
+
+
+/* Domain is at L-edge of root Domain */
+          } else {
+            switch(pM->BCFlag_ix2){
+
+            case 1: /* Reflecting, B_normal=0 */
+              pD->ix2_BCFun = reflect_ix2;
+            break;
+
+            case 2: /* Outflow */
+              pD->ix2_BCFun = outflow_ix2;
+            break;
+
+            case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+              pD->ix2_BCFun = periodic_ix2;
 #ifdef MPI_PARALLEL
-	if(pG->rx1_id < 0 && pD->NGrid_x1 > 1){
-	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
-	  pG->rx1_id = pD->GridArray[kb][jb][0].id;
-	}
+              if(pG->lx2_id < 0 && pD->NGrid[1] > 1){
+                pG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
+              }
 #endif /* MPI_PARALLEL */
-	break;
+            break;
+  
+            case 5: /* Reflecting, B_normal!=0 */
+              pD->ix2_BCFun = reflect_ix2;
+            break;
 
-      case 5: /* Reflecting, B_normal=!0 */
-	apply_ox1 = reflect_ox1;
-	break;
-
-      default:
-	ath_perr(-1,"[set_bvals_init]: obc_x1 = %d unknown\n",obc_x1);
-	exit(EXIT_FAILURE);
+            default:
+              ath_perr(-1,"[bvals_init]:bc_ix2=%d unknown\n",pM->BCFlag_ix2);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
       }
 
-    }
-  }
+/*---- ox2 boundary ----------------------------------------------------------*/
 
-/* Set function pointers for physical boundaries in x2-direction */
+      if(pD->ox2_BCFun == NULL){    /* BCFun ptr was not set in prob gen */
 
-  if(pG->Nx2 > 1) {
-    if(apply_ix2 == NULL){
+/* Domain boundary is in interior of root */
+        if((pD->Disp[1] + pD->Nx[1])/irefine != pM->Nx[1]) {
+          pD->ox2_BCFun = ProlongateLater;
 
-      ibc_x2 = par_geti("grid","ibc_x2");
-      switch(ibc_x2){
+/* Domain is at R-edge of root Domain, but not L-edge and periodic BC */
+        } else {
+          if((pD->Disp[1] != 0) && (pM->BCFlag_ox2 == 4)) {
+            ath_error("[bvals_init]:level=%d Domain touching ox2b but not ix2b and periodic BC not allowed\n",nl); 
 
-      case 1: /* Reflecting, B_normal=0 */
-	apply_ix2 = reflect_ix2;
-	break;
+/* Domain is at R-edge of root Domain */
+          } else {
+            switch(pM->BCFlag_ox2){
 
-      case 2: /* Outflow */
-	apply_ix2 = outflow_ix2;
-	break;
+            case 1: /* Reflecting, B_normal=0 */
+              pD->ox2_BCFun = reflect_ox2;
+            break;
 
-      case 4: /* Periodic */
-	apply_ix2 = periodic_ix2;
+            case 2: /* Outflow */
+              pD->ox2_BCFun = outflow_ox2;
+            break;
+
+            case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+              pD->ox2_BCFun = periodic_ox2;
 #ifdef MPI_PARALLEL
-	if(pG->lx2_id < 0 && pD->NGrid_x2 > 1){
-	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
-	  pG->lx2_id = pD->GridArray[kb][pD->NGrid_x2-1][ib].id;
-	}
+              if(pG->rx2_id < 0 && pD->NGrid[1] > 1){
+                pG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
+              }
 #endif /* MPI_PARALLEL */
-	break;
+            break;
 
-      case 5: /* Reflecting, B_normal!=0 */
-	apply_ix2 = reflect_ix2;
-	break;
+            case 5: /* Reflecting, B_normal!=0 */
+              pD->ox2_BCFun = reflect_ox2;
+            break;
 
-      default:
-	ath_perr(-1,"[set_bvals_init]: ibc_x2 = %d unknown\n",ibc_x2);
-	exit(EXIT_FAILURE);
+            default:
+              ath_perr(-1,"[bvals_init]:bc_ox2=%d unknown\n",pM->BCFlag_ox2);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
+      }
+    }
+
+/* Set function pointers for physical boundaries in x3-direction -------------*/
+
+    if(pG->Nx[2] > 1) {
+
+/*---- ix3 boundary ----------------------------------------------------------*/
+
+      if(pD->ix3_BCFun == NULL){    /* BCFun ptr was not set in prob gen */
+
+/* Domain boundary is in interior of root */
+        if(pD->Disp[2] != 0) {
+          pD->ix3_BCFun = ProlongateLater;
+
+/* Domain is at L-edge of root Domain, but not R-edge and periodic BC  */
+        } else {
+          if(((pD->Disp[2] + pD->Nx[2])/irefine != pM->Nx[2]) &&
+               pM->BCFlag_ix3 == 4) {
+            ath_error("[bvals_init]:level=%d Domain touching ix3b but not ox3b and periodic BC not allowed\n",nl); 
+
+/* Domain is at L-edge of root Domain */
+          } else {
+            switch(pM->BCFlag_ix3){
+
+            case 1: /* Reflecting, B_normal=0 */
+              pD->ix3_BCFun = reflect_ix3;
+            break;
+
+            case 2: /* Outflow */
+              pD->ix3_BCFun = outflow_ix3;
+            break;
+
+            case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+              pD->ix3_BCFun = periodic_ix3;
+#ifdef MPI_PARALLEL
+              if(pG->lx3_id < 0 && pD->NGrid[2] > 1){
+                pG->lx3_id = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
+              }
+#endif /* MPI_PARALLEL */
+            break;
+
+            case 5: /* Reflecting, B_normal!=0 */
+              pD->ix3_BCFun = reflect_ix3;
+            break;
+
+            default:
+              ath_perr(-1,"[bvals_init]:bc_ix3=%d unknown\n",pM->BCFlag_ix3);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
       }
 
-    }
+/*---- ox3 boundary ----------------------------------------------------------*/
 
-    if(apply_ox2 == NULL){
+      if(pD->ox3_BCFun == NULL){    /* BCFun ptr was not set in prob gen */
 
-      obc_x2 = par_geti("grid","obc_x2");
-      switch(obc_x2){
+/* Domain boundary is in interior of root */
+        if((pD->Disp[2] + pD->Nx[2])/irefine != pM->Nx[2]) {
+          pD->ox3_BCFun = ProlongateLater;
 
-      case 1: /* Reflecting, B_normal=0 */
-	apply_ox2 = reflect_ox2;
-	break;
+/* Domain is at R-edge of root Domain, but not L-edge and periodic BC */
+        } else {
+          if((pD->Disp[2] != 0) && (pM->BCFlag_ox3 == 4)) {
+            ath_error("[bvals_init]:level=%d Domain touching ox3b but not ix3b and periodic BC not allowed\n",nl); 
 
-      case 2: /* Outflow */
-	apply_ox2 = outflow_ox2;
-	break;
+/* Domain is at R-edge of root Domain */
+          } else {
+            switch(pM->BCFlag_ox3){
 
-      case 4: /* Periodic */
-	apply_ox2 = periodic_ox2;
+            case 1: /* Reflecting, B_normal=0 */
+              pD->ox3_BCFun = reflect_ox3;
+            break;
+
+            case 2: /* Outflow */
+              pD->ox3_BCFun = outflow_ox3;
+            break;
+
+            case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+              pD->ox3_BCFun = periodic_ox3;
 #ifdef MPI_PARALLEL
-	if(pG->rx2_id < 0 && pD->NGrid_x2 > 1){
-	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
-	  pG->rx2_id = pD->GridArray[kb][0][ib].id;
-	}
+              if(pG->rx3_id < 0 && pD->NGrid[2] > 1){
+                pG->rx3_id = pD->GData[0][myM][myL].ID_Comm_Domain;
+              }
 #endif /* MPI_PARALLEL */
-	break;
+            break;
 
-      case 5: /* Reflecting, B_normal!=0 */
-	apply_ox2 = reflect_ox2;
-	break;
+            case 5: /* Reflecting, B_normal!=0 */
+              pD->ox3_BCFun = reflect_ox3;
+            break;
 
-      default:
-	ath_perr(-1,"[set_bvals_init]: obc_x2 = %d unknown\n",obc_x2);
-	exit(EXIT_FAILURE);
+            default:
+              ath_perr(-1,"[bvals_init]:bc_ox3=%d unknown\n",pM->BCFlag_ox3);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
       }
-
-    }
-  }
-
-/* Set function pointers for physical boundaries in x3-direction */
-
-  if(pG->Nx3 > 1) {
-    if(apply_ix3 == NULL){
-
-      ibc_x3 = par_geti("grid","ibc_x3");
-      switch(ibc_x3){
-
-      case 1: /* Reflecting, B_normal=0 */
-	apply_ix3 = reflect_ix3;
-	break;
-
-      case 2: /* Outflow */
-	apply_ix3 = outflow_ix3;
-	break;
-
-      case 4: /* Periodic */
-	apply_ix3 = periodic_ix3;
-#ifdef MPI_PARALLEL
-	if(pG->lx3_id < 0 && pD->NGrid_x3 > 1){
-	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
-	  pG->lx3_id = pD->GridArray[pD->NGrid_x3-1][jb][ib].id;
-	}
-#endif /* MPI_PARALLEL */
-	break;
-
-      case 5: /* Reflecting, B_normal!=0 */
-	apply_ix3 = reflect_ix3;
-	break;
-
-      default:
-	ath_perr(-1,"[set_bvals_init]: ibc_x3 = %d unknown\n",ibc_x3);
-	exit(EXIT_FAILURE);
-      }
-
     }
 
-    if(apply_ox3 == NULL){
-
-      obc_x3 = par_geti("grid","obc_x3");
-      switch(obc_x3){
-
-      case 1: /* Reflecting, B_normal=0 */
-	apply_ox3 = reflect_ox3;
-	break;
-
-      case 2: /* Outflow */
-	apply_ox3 = outflow_ox3;
-	break;
-
-      case 4: /* Periodic */
-	apply_ox3 = periodic_ox3;
-#ifdef MPI_PARALLEL
-	if(pG->rx3_id < 0 && pD->NGrid_x3 > 1){
-	  get_myGridIndex(pD, my_id, &ib, &jb, &kb);
-	  pG->rx3_id = pD->GridArray[0][jb][ib].id;
-	}
-#endif /* MPI_PARALLEL */
-	break;
-
-      case 5: /* Reflecting, B_normal!=0 */
-	apply_ox3 = reflect_ox3;
-	break;
-
-      default:
-	ath_perr(-1,"[set_bvals_init]: obc_x3 = %d unknown\n",obc_x3);
-	exit(EXIT_FAILURE);
-      }
-
-    }
-  }
-
-/* allcoate memory for send/receive buffers in MPI parallel calculations */
+/* Figure out largest size needed for send/receive buffers with MPI ----------*/
 
 #ifdef MPI_PARALLEL
-  x1cnt = x2cnt = x3cnt = 0;
 
-  for (k=0; k<(pD->NGrid_x3); k++){
-    for (j=0; j<(pD->NGrid_x2); j++){
-      for (i=0; i<(pD->NGrid_x1); i++){
-	if(pD->NGrid_x1 > 1){
-	  nx2t = pD->GridArray[k][j][i].jge - pD->GridArray[k][j][i].jgs + 1;
+    for (n=0; n<(pD->NGrid[2]); n++){
+    for (m=0; m<(pD->NGrid[1]); m++){
+      for (l=0; l<(pD->NGrid[0]); l++){
+	if(pD->NGrid[0] > 1){
+	  nx2t = pD->GData[n][m][l].Nx[1];
 	  if(nx2t > 1) nx2t += 1;
 
-	  nx3t = pD->GridArray[k][j][i].kge - pD->GridArray[k][j][i].kgs + 1;
+	  nx3t = pD->GData[n][m][l].Nx[2];
 	  if(nx3t > 1) nx3t += 1;
 
-	  x1cnt = nx2t*nx3t > x1cnt ? nx2t*nx3t : x1cnt;
+          if(nx2t*nx3t > x1cnt) x1cnt = nx2t*nx3t;
 	}
 
-	if(pD->NGrid_x2 > 1){
-	  nx1t = pD->GridArray[k][j][i].ige - pD->GridArray[k][j][i].igs + 1;
+	if(pD->NGrid[1] > 1){
+	  nx1t = pD->GData[n][m][l].Nx[0];
 	  if(nx1t > 1) nx1t += 2*nghost;
 
-	  nx3t = pD->GridArray[k][j][i].kge - pD->GridArray[k][j][i].kgs + 1;
+	  nx3t = pD->GData[n][m][l].Nx[2];
 	  if(nx3t > 1) nx3t += 1;
 
-	  x2cnt = nx1t*nx3t > x2cnt ? nx1t*nx3t : x2cnt;
+          if(nx1t*nx3t > x2cnt) x2cnt = nx1t*nx3t;
 	}
 
 
-	if(pD->NGrid_x3 > 1){
-	  nx1t = pD->GridArray[k][j][i].ige - pD->GridArray[k][j][i].igs + 1;
+	if(pD->NGrid[2] > 1){
+	  nx1t = pD->GData[n][m][l].Nx[0];
 	  if(nx1t > 1) nx1t += 2*nghost;
 
-	  nx2t = pD->GridArray[k][j][i].jge - pD->GridArray[k][j][i].jgs + 1;
+	  nx2t = pD->GData[n][m][l].Nx[1];
 	  if(nx2t > 1) nx2t += 2*nghost;
 
-	  x3cnt = nx1t*nx2t > x3cnt ? nx1t*nx2t : x3cnt;
+          if(nx1t*nx2t > x3cnt) x3cnt = nx1t*nx2t;
 	}
       }
-    }
-  }
+    }}
+#endif /* MPI_PARALLEL */
+
+  }}}  /* End loop over all Domains with active Grids -----------------------*/
+
+#ifdef MPI_PARALLEL
+/* Allocate memory for send/receive buffers in MPI parallel calculations */
 
   size = x1cnt > x2cnt ? x1cnt : x2cnt;
   size = x3cnt >  size ? x3cnt : size;
@@ -645,26 +732,26 @@ void set_bvals_mhd_init(Grid *pG, Domain *pD)
 /* set_bvals_fun:  sets function pointers for user-defined BCs in problem file
  */
 
-void set_bvals_mhd_fun(enum Direction dir, VBCFun_t prob_bc)
+void set_bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
 {
   switch(dir){
   case left_x1:
-    apply_ix1 = prob_bc;
+    pD->ix1_BCFun = prob_bc;
     break;
   case right_x1:
-    apply_ox1 = prob_bc;
+    pD->ox1_BCFun = prob_bc;
     break;
   case left_x2:
-    apply_ix2 = prob_bc;
+    pD->ix2_BCFun = prob_bc;
     break;
   case right_x2:
-    apply_ox2 = prob_bc;
+    pD->ox2_BCFun = prob_bc;
     break;
   case left_x3:
-    apply_ix3 = prob_bc;
+    pD->ix3_BCFun = prob_bc;
     break;
   case right_x3:
-    apply_ox3 = prob_bc;
+    pD->ox3_BCFun = prob_bc;
     break;
   default:
     ath_perr(-1,"[set_bvals_fun]: Unknown direction = %d\n",dir);
@@ -675,26 +762,25 @@ void set_bvals_mhd_fun(enum Direction dir, VBCFun_t prob_bc)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /* Following are the functions:
- *   reflecting_???
+ *   reflecting_???:   where ???=[ix1,ox1,ix2,ox2,ix3,ox3]
  *   outflow_???
  *   periodic_???
  *   send_???
  *   receive_???
- * where ???=[ix1,ox1,ix2,ox2,ix3,ox3]
  */
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1,5)
+/* REFLECTING boundary conditions, Inner x1 boundary (bc_ix1=1,5)
  */
 
-static void reflect_ix1(Grid *pGrid)
+static void reflect_ix1(GridS *pGrid)
 {
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
 #ifdef MHD
-  int ibc_x1,ju,ku; /* j-upper, k-upper */
+  int bc_ix1,ju,ku; /* j-upper, k-upper */
   Real qa;
 #endif
 
@@ -712,14 +798,14 @@ static void reflect_ix1(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa=-1 if B_normal=0 (ibc_x1=1) */
-  ibc_x1 = par_geti("grid","ibc_x1");
-  if (ibc_x1 == 1) qa = -1.0;
-  if (ibc_x1 == 5) qa =  1.0;
+/* The multiplier qa=-1 if B_normal=0 (bc_ix1=1) */
+  bc_ix1 = par_geti("grid","bc_ix1");
+  if (bc_ix1 == 1) qa = -1.0;
+  if (bc_ix1 == 5) qa =  1.0;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
-      if (ibc_x1 == 1) pGrid->B1i[k][j][is] = 0.0;
+      if (bc_ix1 == 1) pGrid->B1i[k][j][is] = 0.0;
       for (i=1; i<=nghost; i++) {
         pGrid->B1i[k][j][is-i]   = qa*pGrid->B1i[k][j][is+i];
         pGrid->U[k][j][is-i].B1c = qa*pGrid->U[k][j][is+(i-1)].B1c;
@@ -727,7 +813,7 @@ static void reflect_ix1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx2 > 1) ju=je+1; else ju=je;
+  if (pGrid->Nx[1] > 1) ju=je+1; else ju=je;
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=ju; j++) {
       for (i=1; i<=nghost; i++) {
@@ -737,7 +823,7 @@ static void reflect_ix1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
@@ -752,17 +838,17 @@ static void reflect_ix1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x1 boundary (obc_x1=1,5)
+/* REFLECTING boundary conditions, Outer x1 boundary (bc_ox1=1,5)
  */
 
-static void reflect_ox1(Grid *pGrid)
+static void reflect_ox1(GridS *pGrid)
 {
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
 #ifdef MHD
-  int obc_x1,ju,ku; /* j-upper, k-upper */
+  int bc_ox1,ju,ku; /* j-upper, k-upper */
   Real qa;
 #endif
 
@@ -780,15 +866,15 @@ static void reflect_ox1(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa=-1 if B_normal=0 (obc_x1=1) */
-  obc_x1 = par_geti("grid","obc_x1");
-  if (obc_x1 == 1) qa = -1.0;
-  if (obc_x1 == 5) qa =  1.0;
+/* The multiplier qa=-1 if B_normal=0 (bc_ox1=1) */
+  bc_ox1 = par_geti("grid","bc_ox1");
+  if (bc_ox1 == 1) qa = -1.0;
+  if (bc_ox1 == 5) qa =  1.0;
 
-/* i=ie+1 is not set for the interface field B1i, except obc_x1=1 */
+/* i=ie+1 is not set for the interface field B1i, except bc_ox1=1 */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
-      if (obc_x1 == 1 ) pGrid->B1i[k][j][ie+1] = 0.0;
+      if (bc_ox1 == 1 ) pGrid->B1i[k][j][ie+1] = 0.0;
       pGrid->U[k][j][ie+1].B1c = qa*pGrid->U[k][j][ie].B1c;
       for (i=2; i<=nghost; i++) {
         pGrid->B1i[k][j][ie+i]   = qa*pGrid->B1i[k][j][ie-(i-2)];
@@ -797,7 +883,7 @@ static void reflect_ox1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx2 > 1) ju=je+1; else ju=je;
+  if (pGrid->Nx[1] > 1) ju=je+1; else ju=je;
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=ju; j++) {
       for (i=1; i<=nghost; i++) {
@@ -807,7 +893,7 @@ static void reflect_ox1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
@@ -822,20 +908,20 @@ static void reflect_ox1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1,5)
+/* REFLECTING boundary conditions, Inner x2 boundary (bc_ix2=1,5)
  */
 
-static void reflect_ix2(Grid *pGrid)
+static void reflect_ix2(GridS *pGrid)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu; /* i-lower/upper */
 #ifdef MHD
-  int ibc_x2,ku; /* k-upper */
+  int bc_ix2,ku; /* k-upper */
   Real qa;
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
@@ -857,10 +943,10 @@ static void reflect_ix2(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa=-1 if B_normal=0 (ibc_x2=1) */
-  ibc_x2 = par_geti("grid","ibc_x2");
-  if (ibc_x2 == 1) qa = -1.0;
-  if (ibc_x2 == 5) qa =  1.0;
+/* The multiplier qa=-1 if B_normal=0 (bc_ix2=1) */
+  bc_ix2 = par_geti("grid","bc_ix2");
+  if (bc_ix2 == 1) qa = -1.0;
+  if (bc_ix2 == 5) qa =  1.0;
 
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -872,7 +958,7 @@ static void reflect_ix2(Grid *pGrid)
   }
 
   for (k=ks; k<=ke; k++) {
-    if (ibc_x2 == 1) {
+    if (bc_ix2 == 1) {
       for (i=il; i<=iu; i++) {
         pGrid->B2i[k][js][i] = 0.0;
       }
@@ -885,7 +971,7 @@ static void reflect_ix2(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
@@ -900,20 +986,20 @@ static void reflect_ix2(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x2 boundary (obc_x2=1,5)
+/* REFLECTING boundary conditions, Outer x2 boundary (bc_ox2=1,5)
  */
 
-static void reflect_ox2(Grid *pGrid)
+static void reflect_ox2(GridS *pGrid)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu; /* i-lower/upper */
 #ifdef MHD
-  int obc_x2,ku; /* k-upper */
+  int bc_ox2,ku; /* k-upper */
   Real qa;
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
@@ -935,10 +1021,10 @@ static void reflect_ox2(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa=-1 if B_normal=0 (obc_x2=1) */
-  obc_x2 = par_geti("grid","obc_x2");
-  if (obc_x2 == 1) qa = -1.0;
-  if (obc_x2 == 5) qa =  1.0;
+/* The multiplier qa=-1 if B_normal=0 (bc_ox2=1) */
+  bc_ox2 = par_geti("grid","bc_ox2");
+  if (bc_ox2 == 1) qa = -1.0;
+  if (bc_ox2 == 5) qa =  1.0;
 
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -949,10 +1035,10 @@ static void reflect_ox2(Grid *pGrid)
     }
   }
 
-/* j=je+1 is not set for the interface field B2i, except obc_x2=1 */
+/* j=je+1 is not set for the interface field B2i, except bc_ox2=1 */
   for (k=ks; k<=ke; k++) {
     for (i=il; i<=iu; i++) {
-      if (obc_x2 == 1) pGrid->B2i[k][je+1][i] = 0.0;
+      if (bc_ox2 == 1) pGrid->B2i[k][je+1][i] = 0.0;
       pGrid->U[k][je+1][i].B2c = qa*pGrid->U[k][je][i].B2c;
     }
     for (j=2; j<=nghost; j++) {
@@ -963,7 +1049,7 @@ static void reflect_ox2(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
@@ -978,26 +1064,26 @@ static void reflect_ox2(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1,5)
+/* REFLECTING boundary conditions, Inner x3 boundary (bc_ix3=1,5)
  */
 
-static void reflect_ix3(Grid *pGrid)
+static void reflect_ix3(GridS *pGrid)
 {
   int ks = pGrid->ks;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
 #ifdef MHD
-  int ibc_x3;
+  int bc_ix3;
   Real qa;
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
     iu = pGrid->ie;
     il = pGrid->is;
   }
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   } else {
@@ -1019,10 +1105,10 @@ static void reflect_ix3(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa=-1 if B_normal=0 (ibc_x3=1) */
-  ibc_x3 = par_geti("grid","ibc_x3");
-  if (ibc_x3 == 1) qa = -1.0;
-  if (ibc_x3 == 5) qa =  1.0;
+/* The multiplier qa=-1 if B_normal=0 (bc_ix3=1) */
+  bc_ix3 = par_geti("grid","bci_x3");
+  if (bc_ix3 == 1) qa = -1.0;
+  if (bc_ix3 == 5) qa =  1.0;
 
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
@@ -1042,7 +1128,7 @@ static void reflect_ix3(Grid *pGrid)
     }
   }
 
-  if (ibc_x3 == 1) {
+  if (bc_ix3 == 1) {
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
       pGrid->B3i[ks][j][i] = 0.0;
@@ -1062,26 +1148,26 @@ static void reflect_ix3(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x3 boundary (obc_x3=1,5)
+/* REFLECTING boundary conditions, Outer x3 boundary (bc_ox3=1,5)
  */
 
-static void reflect_ox3(Grid *pGrid)
+static void reflect_ox3(GridS *pGrid)
 {
   int ke = pGrid->ke;
   int i,j,k ,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
 #ifdef MHD
-  int obc_x3;
+  int bc_ox3;
   Real qa;
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
     iu = pGrid->ie;
     il = pGrid->is;
   }
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   } else {
@@ -1103,10 +1189,10 @@ static void reflect_ox3(Grid *pGrid)
   }
 
 #ifdef MHD
-/* The multiplier qa=-1 if B_normal=0 (obc_x3=1) */
-  obc_x3 = par_geti("grid","obc_x3");
-  if (obc_x3 == 1) qa = -1.0;
-  if (obc_x3 == 5) qa =  1.0;
+/* The multiplier qa=-1 if B_normal=0 (bc_ox3=1) */
+  bc_ox3 = par_geti("grid","bc_ox3");
+  if (bc_ox3 == 1) qa = -1.0;
+  if (bc_ox3 == 5) qa =  1.0;
 
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
@@ -1126,10 +1212,10 @@ static void reflect_ox3(Grid *pGrid)
     }
   }
 
-/* k=ke+1 is not set for the interface field B3i, except obc_x3=1 */
+/* k=ke+1 is not set for the interface field B3i, except bc_ox3=1 */
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
-      if (obc_x3 == 1) pGrid->B3i[ke+1][j][i] = 0.0;
+      if (bc_ox3 == 1) pGrid->B3i[ke+1][j][i] = 0.0;
       pGrid->U[ke+1][j][i].B3c = qa*pGrid->U[ke][j][i].B3c;
     }
   }
@@ -1147,10 +1233,10 @@ static void reflect_ox3(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditionss, Inner x1 boundary (ibc_x1=2)
+/* OUTFLOW boundary conditionss, Inner x1 boundary (bc_ix1=2)
  */
 
-static void outflow_ix1(Grid *pGrid)
+static void outflow_ix1(GridS *pGrid)
 {
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
@@ -1180,7 +1266,7 @@ static void outflow_ix1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx2 > 1) ju=je+1; else ju=je;
+  if (pGrid->Nx[1] > 1) ju=je+1; else ju=je;
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=ju; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1189,7 +1275,7 @@ static void outflow_ix1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1203,10 +1289,10 @@ static void outflow_ix1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions, Outer x1 boundary (obc_x1=2)
+/* OUTFLOW boundary conditions, Outer x1 boundary (bc_ox1=2)
  */
 
-static void outflow_ox1(Grid *pGrid)
+static void outflow_ox1(GridS *pGrid)
 {
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
@@ -1237,7 +1323,7 @@ static void outflow_ox1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx2 > 1) ju=je+1; else ju=je;
+  if (pGrid->Nx[1] > 1) ju=je+1; else ju=je;
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=ju; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1246,7 +1332,7 @@ static void outflow_ox1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1260,10 +1346,10 @@ static void outflow_ox1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions, Inner x2 boundary (ibc_x2=2)
+/* OUTFLOW boundary conditions, Inner x2 boundary (bc_ix2=2)
  */
 
-static void outflow_ix2(Grid *pGrid)
+static void outflow_ix2(GridS *pGrid)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
@@ -1272,7 +1358,7 @@ static void outflow_ix2(Grid *pGrid)
   int ku; /* k-upper */
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
@@ -1308,7 +1394,7 @@ static void outflow_ix2(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
@@ -1322,10 +1408,10 @@ static void outflow_ix2(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions, Outer x2 boundary (obc_x2=2)
+/* OUTFLOW boundary conditions, Outer x2 boundary (bc_ox2=2)
  */
 
-static void outflow_ox2(Grid *pGrid)
+static void outflow_ox2(GridS *pGrid)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
@@ -1334,7 +1420,7 @@ static void outflow_ox2(Grid *pGrid)
   int ku; /* k-upper */
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
@@ -1373,7 +1459,7 @@ static void outflow_ox2(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
@@ -1387,22 +1473,22 @@ static void outflow_ox2(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions, Inner x3 boundary (ibc_x3=2)
+/* OUTFLOW boundary conditions, Inner x3 boundary (bc_ix3=2)
  */
 
-static void outflow_ix3(Grid *pGrid)
+static void outflow_ix3(GridS *pGrid)
 {
   int ks = pGrid->ks;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
     iu = pGrid->ie;
     il = pGrid->is;
   }
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   } else {
@@ -1451,22 +1537,22 @@ static void outflow_ix3(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions, Outer x3 boundary (obc_x3=2)
+/* OUTFLOW boundary conditions, Outer x3 boundary (bc_ox3=2)
  */
 
-static void outflow_ox3(Grid *pGrid)
+static void outflow_ox3(GridS *pGrid)
 {
   int ke = pGrid->ke;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
     iu = pGrid->ie;
     il = pGrid->is;
   }
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   } else {
@@ -1516,10 +1602,10 @@ static void outflow_ox3(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
+/* PERIODIC boundary conditions, Inner x1 boundary (bc_ix1=4)
  */
 
-static void periodic_ix1(Grid *pGrid)
+static void periodic_ix1(GridS *pGrid)
 {
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
@@ -1549,7 +1635,7 @@ static void periodic_ix1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx2 > 1) ju=je+1; else ju=je;
+  if (pGrid->Nx[1] > 1) ju=je+1; else ju=je;
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=ju; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1558,7 +1644,7 @@ static void periodic_ix1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1572,10 +1658,10 @@ static void periodic_ix1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Outer x1 boundary (obc_x1=4)
+/* PERIODIC boundary conditions (cont), Outer x1 boundary (bc_ox1=4)
  */
 
-static void periodic_ox1(Grid *pGrid)
+static void periodic_ox1(GridS *pGrid)
 {
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
@@ -1606,7 +1692,7 @@ static void periodic_ox1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx2 > 1) ju=je+1; else ju=je;
+  if (pGrid->Nx[1] > 1) ju=je+1; else ju=je;
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=ju; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1615,7 +1701,7 @@ static void periodic_ox1(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1629,10 +1715,10 @@ static void periodic_ox1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Inner x2 boundary (ibc_x2=4)
+/* PERIODIC boundary conditions (cont), Inner x2 boundary (bc_ix2=4)
  */
 
-static void periodic_ix2(Grid *pGrid)
+static void periodic_ix2(GridS *pGrid)
 {
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
@@ -1641,7 +1727,7 @@ static void periodic_ix2(Grid *pGrid)
   int ku; /* k-upper */
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
@@ -1677,7 +1763,7 @@ static void periodic_ix2(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
@@ -1691,10 +1777,10 @@ static void periodic_ix2(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Outer x2 boundary (obc_x2=4)
+/* PERIODIC boundary conditions (cont), Outer x2 boundary (bc_ox2=4)
  */
 
-static void periodic_ox2(Grid *pGrid)
+static void periodic_ox2(GridS *pGrid)
 {
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
@@ -1703,7 +1789,7 @@ static void periodic_ox2(Grid *pGrid)
   int ku; /* k-upper */
 #endif
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
@@ -1740,7 +1826,7 @@ static void periodic_ox2(Grid *pGrid)
     }
   }
 
-  if (pGrid->Nx3 > 1) ku=ke+1; else ku=ke;
+  if (pGrid->Nx[2] > 1) ku=ke+1; else ku=ke;
   for (k=ks; k<=ku; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
@@ -1754,22 +1840,22 @@ static void periodic_ox2(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Inner x3 boundary (ibc_x3=4)
+/* PERIODIC boundary conditions (cont), Inner x3 boundary (bc_ix3=4)
  */
 
-static void periodic_ix3(Grid *pGrid)
+static void periodic_ix3(GridS *pGrid)
 {
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
     iu = pGrid->ie;
     il = pGrid->is;
   }
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   } else {
@@ -1818,22 +1904,22 @@ static void periodic_ix3(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Outer x3 boundary (obc_x3=4)
+/* PERIODIC boundary conditions (cont), Outer x3 boundary (bc_ox3=4)
  */
 
-static void periodic_ox3(Grid *pGrid)
+static void periodic_ox3(GridS *pGrid)
 {
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
 
-  if (pGrid->Nx1 > 1){
+  if (pGrid->Nx[0] > 1){
     iu = pGrid->ie + nghost;
     il = pGrid->is - nghost;
   } else {
     iu = pGrid->ie;
     il = pGrid->is;
   }
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost;
   } else {
@@ -1882,32 +1968,45 @@ static void periodic_ox3(Grid *pGrid)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/* PROLONGATION boundary conditions.  Nothing is actually done here, the
+ * prolongation is actually handled in ProlongateGhostZones in main loop, so
+ * this is just a NoOp function.
+ */
+
+static void ProlongateLater(GridS *pGrid)
+{
+  return;
+}
+
+
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs; ~760 lines */
 
 /*----------------------------------------------------------------------------*/
 /* MPI_SEND of boundary conditions, Inner x1 boundary -- send left
  */
 
-static void send_ix1(Grid *pG)
+static void send_ix1(DomainS *pD)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,cnt,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,cnt,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  double *pd = send_buf;
+  double *pSnd = send_buf;
+  GridS *pG=pD->Grid;
 
   il = pG->is;
   iu = pG->is + nghost - 1;
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js;
     ju = pG->je + 1;
   } else {
     jl = ju = pG->js;
   }
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -1924,23 +2023,23 @@ static void send_ix1(Grid *pG)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        *(pd++) = pq->d;
-        *(pd++) = pq->M1;
-        *(pd++) = pq->M2;
-        *(pd++) = pq->M3;
-#ifdef MHD
-        *(pd++) = pq->B1c;
-        *(pd++) = pq->B2c;
-        *(pd++) = pq->B3c;
-        *(pd++) = pG->B1i[k][j][i];
-        *(pd++) = pG->B2i[k][j][i];
-        *(pd++) = pG->B3i[k][j][i];
-#endif /* MHD */
+        *(pSnd++) = pq->d;
+        *(pSnd++) = pq->M1;
+        *(pSnd++) = pq->M2;
+        *(pSnd++) = pq->M3;
 #ifndef BAROTROPIC
-        *(pd++) = pq->E;
+        *(pSnd++) = pq->E;
 #endif /* BAROTROPIC */
+#ifdef MHD
+        *(pSnd++) = pq->B1c;
+        *(pSnd++) = pq->B2c;
+        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pG->B1i[k][j][i];
+        *(pSnd++) = pG->B2i[k][j][i];
+        *(pSnd++) = pG->B3i[k][j][i];
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
 #endif
       }
     }
@@ -1948,9 +2047,8 @@ static void send_ix1(Grid *pG)
 
 /* send contents of buffer to the neighboring grid on L-x1 */
 
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
-		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[send_ix1]: MPI_Send error = %d\n",err);
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+		 boundary_cells_tag, pD->Comm_Domain);
 
   return;
 }
@@ -1959,26 +2057,27 @@ static void send_ix1(Grid *pG)
 /* MPI_SEND of boundary conditions, Outer x1 boundary -- send right
  */
 
-static void send_ox1(Grid *pG)
+static void send_ox1(DomainS *pD)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,cnt,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,cnt,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  double *pd = send_buf;
+  double *pSnd = send_buf;
+  GridS *pG=pD->Grid;
 
   il = pG->ie - nghost + 1;
   iu = pG->ie;
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js;
     ju = pG->je + 1;
   } else {
     jl = ju = pG->js;
   }
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -1995,23 +2094,23 @@ static void send_ox1(Grid *pG)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        *(pd++) = pq->d;
-        *(pd++) = pq->M1;
-        *(pd++) = pq->M2;
-        *(pd++) = pq->M3;
-#ifdef MHD
-        *(pd++) = pq->B1c;
-        *(pd++) = pq->B2c;
-        *(pd++) = pq->B3c;
-        *(pd++) = pG->B1i[k][j][i];
-        *(pd++) = pG->B2i[k][j][i];
-        *(pd++) = pG->B3i[k][j][i];
-#endif /* MHD */
+        *(pSnd++) = pq->d;
+        *(pSnd++) = pq->M1;
+        *(pSnd++) = pq->M2;
+        *(pSnd++) = pq->M3;
 #ifndef BAROTROPIC
-        *(pd++) = pq->E;
+        *(pSnd++) = pq->E;
 #endif /* BAROTROPIC */
+#ifdef MHD
+        *(pSnd++) = pq->B1c;
+        *(pSnd++) = pq->B2c;
+        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pG->B1i[k][j][i];
+        *(pSnd++) = pG->B2i[k][j][i];
+        *(pSnd++) = pG->B3i[k][j][i];
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
 #endif
       }
     }
@@ -2019,9 +2118,8 @@ static void send_ox1(Grid *pG)
 
 /* send contents of buffer to the neighboring grid on R-x1 */
 
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
-		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[send_ox1]: MPI_Send error = %d\n",err);
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+		 boundary_cells_tag, pD->Comm_Domain);
 
   return;
 }
@@ -2030,16 +2128,17 @@ static void send_ox1(Grid *pG)
 /* MPI_SEND of boundary conditions, Inner x2 boundary -- send left
  */
 
-static void send_ix2(Grid *pG)
+static void send_ix2(DomainS *pD)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,cnt,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,cnt,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  double *pd = send_buf;
+  double *pSnd = send_buf;
+  GridS *pG=pD->Grid;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
@@ -2049,7 +2148,7 @@ static void send_ix2(Grid *pG)
   jl = pG->js;
   ju = pG->js + nghost - 1;
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -2066,23 +2165,23 @@ static void send_ix2(Grid *pG)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        *(pd++) = pq->d;
-        *(pd++) = pq->M1;
-        *(pd++) = pq->M2;
-        *(pd++) = pq->M3;
-#ifdef MHD
-        *(pd++) = pq->B1c;
-        *(pd++) = pq->B2c;
-        *(pd++) = pq->B3c;
-        *(pd++) = pG->B1i[k][j][i];
-        *(pd++) = pG->B2i[k][j][i];
-        *(pd++) = pG->B3i[k][j][i];
-#endif /* MHD */
+        *(pSnd++) = pq->d;
+        *(pSnd++) = pq->M1;
+        *(pSnd++) = pq->M2;
+        *(pSnd++) = pq->M3;
 #ifndef BAROTROPIC
-        *(pd++) = pq->E;
+        *(pSnd++) = pq->E;
 #endif /* BAROTROPIC */
+#ifdef MHD
+        *(pSnd++) = pq->B1c;
+        *(pSnd++) = pq->B2c;
+        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pG->B1i[k][j][i];
+        *(pSnd++) = pG->B2i[k][j][i];
+        *(pSnd++) = pG->B3i[k][j][i];
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
 #endif
       }
     }
@@ -2090,9 +2189,8 @@ static void send_ix2(Grid *pG)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
 
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[send_ix2]: MPI_Send error = %d\n",err);
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+		 boundary_cells_tag, pD->Comm_Domain);
 
   return;
 }
@@ -2101,16 +2199,17 @@ static void send_ix2(Grid *pG)
 /* MPI_SEND of boundary conditions, Outer x2 boundary -- send right
  */
 
-static void send_ox2(Grid *pG)
+static void send_ox2(DomainS *pD)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,cnt,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,cnt,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  double *pd = send_buf;
+  double *pSnd = send_buf;
+  GridS *pG=pD->Grid;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
@@ -2120,7 +2219,7 @@ static void send_ox2(Grid *pG)
   jl = pG->je - nghost + 1;
   ju = pG->je;
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -2137,23 +2236,23 @@ static void send_ox2(Grid *pG)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        *(pd++) = pq->d;
-        *(pd++) = pq->M1;
-        *(pd++) = pq->M2;
-        *(pd++) = pq->M3;
-#ifdef MHD
-        *(pd++) = pq->B1c;
-        *(pd++) = pq->B2c;
-        *(pd++) = pq->B3c;
-        *(pd++) = pG->B1i[k][j][i];
-        *(pd++) = pG->B2i[k][j][i];
-        *(pd++) = pG->B3i[k][j][i];
-#endif /* MHD */
+        *(pSnd++) = pq->d;
+        *(pSnd++) = pq->M1;
+        *(pSnd++) = pq->M2;
+        *(pSnd++) = pq->M3;
 #ifndef BAROTROPIC
-        *(pd++) = pq->E;
+        *(pSnd++) = pq->E;
 #endif /* BAROTROPIC */
+#ifdef MHD
+        *(pSnd++) = pq->B1c;
+        *(pSnd++) = pq->B2c;
+        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pG->B1i[k][j][i];
+        *(pSnd++) = pG->B2i[k][j][i];
+        *(pSnd++) = pG->B3i[k][j][i];
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
 #endif
       }
     }
@@ -2161,9 +2260,8 @@ static void send_ox2(Grid *pG)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
 
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-		 boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[send_ox2]: MPI_Send error = %d\n",err);
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+		 boundary_cells_tag, pD->Comm_Domain);
 
   return;
 }
@@ -2172,23 +2270,24 @@ static void send_ox2(Grid *pG)
 /* MPI_SEND of boundary conditions, Inner x3 boundary -- send left
  */
 
-static void send_ix3(Grid *pG)
+static void send_ix3(DomainS *pD)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,cnt,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,cnt,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  double *pd = send_buf;
+  double *pSnd = send_buf;
+  GridS *pG=pD->Grid;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
     il = iu = pG->is;
   }
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js - nghost;
     ju = pG->je + nghost;
   } else {
@@ -2208,23 +2307,23 @@ static void send_ix3(Grid *pG)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        *(pd++) = pq->d;
-        *(pd++) = pq->M1;
-        *(pd++) = pq->M2;
-        *(pd++) = pq->M3;
-#ifdef MHD
-        *(pd++) = pq->B1c;
-        *(pd++) = pq->B2c;
-        *(pd++) = pq->B3c;
-        *(pd++) = pG->B1i[k][j][i];
-        *(pd++) = pG->B2i[k][j][i];
-        *(pd++) = pG->B3i[k][j][i];
-#endif /* MHD */
+        *(pSnd++) = pq->d;
+        *(pSnd++) = pq->M1;
+        *(pSnd++) = pq->M2;
+        *(pSnd++) = pq->M3;
 #ifndef BAROTROPIC
-        *(pd++) = pq->E;
+        *(pSnd++) = pq->E;
 #endif /* BAROTROPIC */
+#ifdef MHD
+        *(pSnd++) = pq->B1c;
+        *(pSnd++) = pq->B2c;
+        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pG->B1i[k][j][i];
+        *(pSnd++) = pG->B2i[k][j][i];
+        *(pSnd++) = pG->B3i[k][j][i];
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
 #endif
       }
     }
@@ -2232,9 +2331,8 @@ static void send_ix3(Grid *pG)
 
 /* send contents of buffer to the neighboring grid on L-x3 */
 
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[send_ix3]: MPI_Send error = %d\n",err);
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id,
+		  boundary_cells_tag, pD->Comm_Domain);
 
   return;
 }
@@ -2243,23 +2341,24 @@ static void send_ix3(Grid *pG)
 /* MPI_SEND of boundary conditions, Outer x3 boundary -- send right
  */
 
-static void send_ox3(Grid *pG)
+static void send_ox3(DomainS *pD)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,cnt,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,cnt,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  double *pd = send_buf;
+  double *pSnd = send_buf;
+  GridS *pG=pD->Grid;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
     il = iu = pG->is;
   }
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js - nghost;
     ju = pG->je + nghost;
   } else {
@@ -2279,23 +2378,23 @@ static void send_ox3(Grid *pG)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        *(pd++) = pq->d;
-        *(pd++) = pq->M1;
-        *(pd++) = pq->M2;
-        *(pd++) = pq->M3;
-#ifdef MHD
-        *(pd++) = pq->B1c;
-        *(pd++) = pq->B2c;
-        *(pd++) = pq->B3c;
-        *(pd++) = pG->B1i[k][j][i];
-        *(pd++) = pG->B2i[k][j][i];
-        *(pd++) = pG->B3i[k][j][i];
-#endif /* MHD */
+        *(pSnd++) = pq->d;
+        *(pSnd++) = pq->M1;
+        *(pSnd++) = pq->M2;
+        *(pSnd++) = pq->M3;
 #ifndef BAROTROPIC
-        *(pd++) = pq->E;
+        *(pSnd++) = pq->E;
 #endif /* BAROTROPIC */
+#ifdef MHD
+        *(pSnd++) = pq->B1c;
+        *(pSnd++) = pq->B2c;
+        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pG->B1i[k][j][i];
+        *(pSnd++) = pG->B2i[k][j][i];
+        *(pSnd++) = pG->B3i[k][j][i];
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
 #endif
       }
     }
@@ -2303,9 +2402,8 @@ static void send_ox3(Grid *pG)
 
 /* send contents of buffer to the neighboring grid on R-x3 */
 
-  err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx3_id,
-		  boundary_cells_tag, MPI_COMM_WORLD);
-  if(err) ath_error("[send_ox3]: MPI_Send error = %d\n",err);
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx3_id,
+		  boundary_cells_tag, pD->Comm_Domain);
 
   return;
 }
@@ -2314,27 +2412,26 @@ static void send_ox3(Grid *pG)
 /* MPI_RECEIVE of boundary conditions, Inner x1 boundary -- listen left
  */
 
-static void receive_ix1(Grid *pG, MPI_Request *prq)
+static void receive_ix1(GridS *pG, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  MPI_Status stat;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf;
 
   il = pG->is - nghost;
   iu = pG->is - 1;
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js;
     ju = pG->je + 1;
   } else {
     jl = ju = pG->js;
   }
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -2343,8 +2440,7 @@ static void receive_ix1(Grid *pG, MPI_Request *prq)
 
 /* Wait to receive the input data from the left grid */
 
-  err = MPI_Wait(prq, &stat);
-  if(err) ath_error("[receive_ix1]: MPI_Wait error = %d\n",err);
+  ierr = MPI_Wait(prq, MPI_STATUS_IGNORE);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -2354,23 +2450,23 @@ static void receive_ix1(Grid *pG, MPI_Request *prq)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        pq->d = *(pd++);
-        pq->M1 = *(pd++);
-        pq->M2 = *(pd++);
-        pq->M3 = *(pd++);
-#ifdef MHD
-        pq->B1c = *(pd++);
-        pq->B2c = *(pd++);
-        pq->B3c = *(pd++);
-        pG->B1i[k][j][i] = *(pd++);
-        pG->B2i[k][j][i] = *(pd++);
-        pG->B3i[k][j][i] = *(pd++);
-#endif /* MHD */
+        pq->d  = *(pRcv++);
+        pq->M1 = *(pRcv++);
+        pq->M2 = *(pRcv++);
+        pq->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E = *(pd++);
+        pq->E  = *(pRcv++);
 #endif /* BAROTROPIC */
+#ifdef MHD
+        pq->B1c = *(pRcv++);
+        pq->B2c = *(pRcv++);
+        pq->B3c = *(pRcv++);
+        pG->B1i[k][j][i] = *(pRcv++);
+        pG->B2i[k][j][i] = *(pRcv++);
+        pG->B3i[k][j][i] = *(pRcv++);
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2383,27 +2479,26 @@ static void receive_ix1(Grid *pG, MPI_Request *prq)
 /* MPI_RECEIVE of boundary conditions, Outer x1 boundary -- listen right
  */
 
-static void receive_ox1(Grid *pG, MPI_Request *prq)
+static void receive_ox1(GridS *pG, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  MPI_Status stat;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf;
 
   il = pG->ie + 1;
   iu = pG->ie + nghost;
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js;
     ju = pG->je + 1;
   } else {
     jl = ju = pG->js;
   }
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -2412,8 +2507,7 @@ static void receive_ox1(Grid *pG, MPI_Request *prq)
 
 /* Wait to receive the input data from the right grid */
 
-  err = MPI_Wait(prq, &stat);
-  if(err) ath_error("[receive_ox1]: MPI_Wait error = %d\n",err);
+  ierr = MPI_Wait(prq, MPI_STATUS_IGNORE);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -2423,29 +2517,29 @@ static void receive_ox1(Grid *pG, MPI_Request *prq)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        pq->d = *(pd++);
-        pq->M1 = *(pd++);
-        pq->M2 = *(pd++);
-        pq->M3 = *(pd++);
+        pq->d  = *(pRcv++);
+        pq->M1 = *(pRcv++);
+        pq->M2 = *(pRcv++);
+        pq->M3 = *(pRcv++);
+#ifndef BAROTROPIC
+        pq->E  = *(pRcv++);
+#endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pd++);
-        pq->B2c = *(pd++);
-        pq->B3c = *(pd++);
+        pq->B1c = *(pRcv++);
+        pq->B2c = *(pRcv++);
+        pq->B3c = *(pRcv++);
 /* Do not set B1i[ie+1] for shearing sheet boundary conditions */
 #ifdef SHEARING_BOX
-        if (i>il) {pG->B1i[k][j][i] = *(pd++);}
-        else {pd++;}
+        if (i>il) {pG->B1i[k][j][i] = *(pRcv++);}
+        else {pRcv++;}
 #else
-        pG->B1i[k][j][i] = *(pd++);
+        pG->B1i[k][j][i] = *(pRcv++);
 #endif /* SHEARING_BOX */
-        pG->B2i[k][j][i] = *(pd++);
-        pG->B3i[k][j][i] = *(pd++);
+        pG->B2i[k][j][i] = *(pRcv++);
+        pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
-#ifndef BAROTROPIC
-        pq->E = *(pd++);
-#endif /* BAROTROPIC */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2458,17 +2552,16 @@ static void receive_ox1(Grid *pG, MPI_Request *prq)
 /* MPI_RECEIVE of boundary conditions, Inner x2 boundary -- listen left
  */
 
-static void receive_ix2(Grid *pG, MPI_Request *prq)
+static void receive_ix2(GridS *pG, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  MPI_Status stat;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
@@ -2478,7 +2571,7 @@ static void receive_ix2(Grid *pG, MPI_Request *prq)
   jl = pG->js - nghost;
   ju = pG->js - 1;
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -2487,8 +2580,7 @@ static void receive_ix2(Grid *pG, MPI_Request *prq)
 
 /* Wait to receive the input data from the left grid */
 
-  err = MPI_Wait(prq, &stat);
-  if(err) ath_error("[receive_ix2]: MPI_Wait error = %d\n",err);
+  ierr = MPI_Wait(prq, MPI_STATUS_IGNORE);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -2498,23 +2590,23 @@ static void receive_ix2(Grid *pG, MPI_Request *prq)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        pq->d = *(pd++);
-        pq->M1 = *(pd++);
-        pq->M2 = *(pd++);
-        pq->M3 = *(pd++);
-#ifdef MHD
-        pq->B1c = *(pd++);
-        pq->B2c = *(pd++);
-        pq->B3c = *(pd++);
-        pG->B1i[k][j][i] = *(pd++);
-        pG->B2i[k][j][i] = *(pd++);
-        pG->B3i[k][j][i] = *(pd++);
-#endif /* MHD */
+        pq->d  = *(pRcv++);
+        pq->M1 = *(pRcv++);
+        pq->M2 = *(pRcv++);
+        pq->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E = *(pd++);
+        pq->E  = *(pRcv++);
 #endif /* BAROTROPIC */
+#ifdef MHD
+        pq->B1c = *(pRcv++);
+        pq->B2c = *(pRcv++);
+        pq->B3c = *(pRcv++);
+        pG->B1i[k][j][i] = *(pRcv++);
+        pG->B2i[k][j][i] = *(pRcv++);
+        pG->B3i[k][j][i] = *(pRcv++);
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2527,17 +2619,16 @@ static void receive_ix2(Grid *pG, MPI_Request *prq)
 /* MPI_RECEIVE of boundary conditions, Outer x2 boundary -- listen right
  */
 
-static void receive_ox2(Grid *pG, MPI_Request *prq)
+static void receive_ox2(GridS *pG, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  MPI_Status stat;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
@@ -2547,7 +2638,7 @@ static void receive_ox2(Grid *pG, MPI_Request *prq)
   jl = pG->je + 1;
   ju = pG->je + nghost;
 
-  if(pG->Nx3 > 1){
+  if(pG->Nx[2] > 1){
     kl = pG->ks;
     ku = pG->ke + 1;
   } else {
@@ -2556,8 +2647,7 @@ static void receive_ox2(Grid *pG, MPI_Request *prq)
 
 /* Wait to receive the input data from the right grid */
 
-  err = MPI_Wait(prq, &stat);
-  if(err) ath_error("[receive_ox2]: MPI_Wait error = %d\n",err);
+  ierr = MPI_Wait(prq, MPI_STATUS_IGNORE);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -2567,23 +2657,23 @@ static void receive_ox2(Grid *pG, MPI_Request *prq)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        pq->d = *(pd++);
-        pq->M1 = *(pd++);
-        pq->M2 = *(pd++);
-        pq->M3 = *(pd++);
-#ifdef MHD
-        pq->B1c = *(pd++);
-        pq->B2c = *(pd++);
-        pq->B3c = *(pd++);
-        pG->B1i[k][j][i] = *(pd++);
-        pG->B2i[k][j][i] = *(pd++);
-        pG->B3i[k][j][i] = *(pd++);
-#endif /* MHD */
+        pq->d  = *(pRcv++);
+        pq->M1 = *(pRcv++);
+        pq->M2 = *(pRcv++);
+        pq->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E = *(pd++);
+        pq->E  = *(pRcv++);
 #endif /* BAROTROPIC */
+#ifdef MHD
+        pq->B1c = *(pRcv++);
+        pq->B2c = *(pRcv++);
+        pq->B3c = *(pRcv++);
+        pG->B1i[k][j][i] = *(pRcv++);
+        pG->B2i[k][j][i] = *(pRcv++);
+        pG->B3i[k][j][i] = *(pRcv++);
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2596,24 +2686,23 @@ static void receive_ox2(Grid *pG, MPI_Request *prq)
 /* MPI_RECEIVE of boundary conditions, Inner x3 boundary -- listen left
  */
 
-static void receive_ix3(Grid *pG, MPI_Request *prq)
+static void receive_ix3(GridS *pG, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  MPI_Status stat;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
     il = iu = pG->is;
   }
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js - nghost;
     ju = pG->je + nghost;
   } else {
@@ -2625,8 +2714,7 @@ static void receive_ix3(Grid *pG, MPI_Request *prq)
 
 /* Wait to receive the input data from the left grid */
 
-  err = MPI_Wait(prq, &stat);
-  if(err) ath_error("[receive_ix3]: MPI_Wait error = %d\n",err);
+  ierr = MPI_Wait(prq, MPI_STATUS_IGNORE);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -2636,23 +2724,23 @@ static void receive_ix3(Grid *pG, MPI_Request *prq)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        pq->d = *(pd++);
-        pq->M1 = *(pd++);
-        pq->M2 = *(pd++);
-        pq->M3 = *(pd++);
-#ifdef MHD
-        pq->B1c = *(pd++);
-        pq->B2c = *(pd++);
-        pq->B3c = *(pd++);
-        pG->B1i[k][j][i] = *(pd++);
-        pG->B2i[k][j][i] = *(pd++);
-        pG->B3i[k][j][i] = *(pd++);
-#endif /* MHD */
+        pq->d  = *(pRcv++);
+        pq->M1 = *(pRcv++);
+        pq->M2 = *(pRcv++);
+        pq->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E = *(pd++);
+        pq->E  = *(pRcv++);
 #endif /* BAROTROPIC */
+#ifdef MHD
+        pq->B1c = *(pRcv++);
+        pq->B2c = *(pRcv++);
+        pq->B3c = *(pRcv++);
+        pG->B1i[k][j][i] = *(pRcv++);
+        pG->B2i[k][j][i] = *(pRcv++);
+        pG->B3i[k][j][i] = *(pRcv++);
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2665,24 +2753,23 @@ static void receive_ix3(Grid *pG, MPI_Request *prq)
 /* MPI_RECEIVE of boundary conditions, Outer x3 boundary -- listen right
  */
 
-static void receive_ox3(Grid *pG, MPI_Request *prq)
+static void receive_ox3(GridS *pG, MPI_Request *prq)
 {
-  int i,il,iu,j,jl,ju,k,kl,ku,err;
+  int i,il,iu,j,jl,ju,k,kl,ku,ierr;
 #if (NSCALARS > 0)
   int n;
 #endif
   Gas *pq;
-  MPI_Status stat;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf;
 
-  if(pG->Nx1 > 1){
+  if(pG->Nx[0] > 1){
     il = pG->is - nghost;
     iu = pG->ie + nghost;
   } else {
     il = iu = pG->is;
   }
 
-  if(pG->Nx2 > 1){
+  if(pG->Nx[1] > 1){
     jl = pG->js - nghost;
     ju = pG->je + nghost;
   } else {
@@ -2694,8 +2781,7 @@ static void receive_ox3(Grid *pG, MPI_Request *prq)
 
 /* Wait to receive the input data from the right grid */
 
-  err = MPI_Wait(prq, &stat);
-  if(err) ath_error("[receive_ox3]: MPI_Wait error = %d\n",err);
+  ierr = MPI_Wait(prq, MPI_STATUS_IGNORE);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -2705,23 +2791,23 @@ static void receive_ox3(Grid *pG, MPI_Request *prq)
         /* Get a pointer to the Gas cell */
         pq = &(pG->U[k][j][i]);
 
-        pq->d = *(pd++);
-        pq->M1 = *(pd++);
-        pq->M2 = *(pd++);
-        pq->M3 = *(pd++);
-#ifdef MHD
-        pq->B1c = *(pd++);
-        pq->B2c = *(pd++);
-        pq->B3c = *(pd++);
-        pG->B1i[k][j][i] = *(pd++);
-        pG->B2i[k][j][i] = *(pd++);
-        pG->B3i[k][j][i] = *(pd++);
-#endif /* MHD */
+        pq->d  = *(pRcv++);
+        pq->M1 = *(pRcv++);
+        pq->M2 = *(pRcv++);
+        pq->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E = *(pd++);
+        pq->E  = *(pRcv++);
 #endif /* BAROTROPIC */
+#ifdef MHD
+        pq->B1c = *(pRcv++);
+        pq->B2c = *(pRcv++);
+        pq->B3c = *(pRcv++);
+        pG->B1i[k][j][i] = *(pRcv++);
+        pG->B2i[k][j][i] = *(pRcv++);
+        pG->B3i[k][j][i] = *(pRcv++);
+#endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pd++);
+        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
 #endif
       }
     }

@@ -20,12 +20,11 @@ CORE_OBJ = ath_array.o \
            convert_var_sr.o \
            cyl.o \
            dump_binary.o \
-           dump_dx.o \
            dump_history.o \
            dump_tab.o \
            dump_vtk.o \
            init_grid.o \
-           init_domain.o \
+           init_mesh.o \
            main.o \
            new_dt.o \
            output.o \
@@ -45,6 +44,7 @@ CORE_OBJ = ath_array.o \
            set_bvals_mhd.o \
            set_bvals_shear.o \
            show_config.o \
+	   smr.o \
            utils.o
 
 FFT_OBJ =

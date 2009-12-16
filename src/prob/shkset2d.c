@@ -34,10 +34,10 @@
  * shkset2d_ojb() - sets BCs on R-x2 (top edge) of grid.
  *============================================================================*/
 
-void shkset2d_iib(Grid *pGrid);
-void shkset2d_oib(Grid *pGrid);
-void shkset2d_ijb(Grid *pGrid);
-void shkset2d_ojb(Grid *pGrid);
+void shkset2d_iib(GridS *pGrid);
+void shkset2d_oib(GridS *pGrid);
+void shkset2d_ijb(GridS *pGrid);
+void shkset2d_ojb(GridS *pGrid);
 
 /* Make size of box and dimension of unit cell (r1 x r2) static globals so they
  * can be accessed by boundary value functions */
@@ -47,17 +47,18 @@ static int r1,r2;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  int kl,ku,ix1,ix2,nx1,nx2,gcd;
+  int kl,ku,irefine,ir,ix1,ix2,nx1,nx2,gcd;
   Real angle, sin_a, cos_a; /* Angle the shock makes with the x1-direction */
+  Real rootdx1, rootdx2;
   Prim1D Wl, Wr;
   Cons1D Ul, Ur;
   Gas ql, qr;
-  Prim Wl, Wr;
 #ifdef MHD
   Real Bxl,Bxr;
 #endif /* MHD */
@@ -70,7 +71,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   Real afl_ly, afr_ly, afl_ry, afr_ry;
   Real vfl, vfr, B1r, B2r;
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[1] == 1)
+    ath_error("[shkset2d]: This problem can only be run in 2D or 3D\n");
+
+  if (pGrid->Nx[2] > 1){
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   } else {
@@ -78,10 +82,19 @@ void problem(Grid *pGrid, Domain *pDomain)
     kl = pGrid->ks;
   }
 
-  nx1 = (ie-is)+1;
-  nx2 = (je-js)+1;
-  if ((nx1 == 1) || (nx2 == 1))
-    ath_error("[shkset2d]: This problem can only be run in 2D\n");
+/* Find number of cells on root grid */
+
+  irefine = 1;
+  for (ir=1;ir<=pDomain->Level;ir++) irefine *= 2;
+
+  Lx = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
+
+  rootdx1 = pGrid->dx1*((double)(irefine)); 
+  rootdx2 = pGrid->dx2*((double)(irefine)); 
+
+  nx1 = (int)(Lx/rootdx1);
+  nx2 = (int)(Ly/rootdx2);
 
 /* Compute greatest common divisor of nx1,nx2.  The size of the "unit cell"
  * is nx1/gcd by nx2/gcd */
@@ -105,8 +118,6 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Compute angle initial interface makes to the grid */
 
-  Lx = pGrid->Nx1*pGrid->dx1;
-  Ly = pGrid->Nx2*pGrid->dx2;
   if(Lx == Ly){
     cos_a = sin_a = sqrt(0.5);
   }
@@ -151,48 +162,40 @@ void problem(Grid *pGrid, Domain *pDomain)
   Prim1D_to_Cons1D(&Ur,&Wr MHDARG( , &Bxr));
 
 /* Initialize ql rotated to the (x1,x2,x3) coordinate system */
-  ql.d   = dl;
-  ql.M1  = dl*(ul*cos_a - vl*sin_a);
-  ql.M2  = dl*(ul*sin_a + vl*cos_a);
-  ql.M3  = dl*wl;
+  ql.d   = Ul.d;
+  ql.M1  = Ul.Mx*cos_a - Ul.My*sin_a;
+  ql.M2  = Ul.Mx*sin_a + Ul.My*cos_a;
+  ql.M3  = Ul.Mz;
 #ifdef MHD
-  ql.B1c = bxl*cos_a - byl*sin_a;
-  ql.B2c = bxl*sin_a + byl*cos_a;
-  ql.B3c = bzl;
+  ql.B1c = Bxl*cos_a - Ul.By*sin_a;
+  ql.B2c = Bxl*sin_a + Ul.By*cos_a;
+  ql.B3c = Ul.Bz;
 #endif
 #ifdef ADIABATIC
-  ql.E   = pl/Gamma_1
-#ifdef MHD
-    + 0.5*(bxl*bxl + byl*byl + bzl*bzl)
-#endif
-    + 0.5*(ul*ul + vl*vl + wl*wl)*dl;
+  ql.E   = Ul.E;
 #endif
 
 /* Initialize qr rotated to the (x1,x2,x3) coordinate system */
-  qr.d   = dr;
-  qr.M1  = dr*(ur*cos_a - vr*sin_a);
-  qr.M2  = dr*(ur*sin_a + vr*cos_a);
-  qr.M3  = dr*wr;
+  qr.d   = Ur.d;
+  qr.M1  = Ur.Mx*cos_a - Ur.My*sin_a;
+  qr.M2  = Ur.Mx*sin_a + Ur.My*cos_a;
+  qr.M3  = Ur.Mz;
 #ifdef MHD
-  qr.B1c = bxr*cos_a - byr*sin_a;
-  qr.B2c = bxr*sin_a + byr*cos_a;
-  qr.B3c = bzr;
+  qr.B1c = Bxr*cos_a - Ur.By*sin_a;
+  qr.B2c = Bxr*sin_a + Ur.By*cos_a;
+  qr.B3c = Ur.Bz;
 #endif
 #ifdef ADIABATIC
-  qr.E   = pr/Gamma_1
-#ifdef MHD
-    + 0.5*(bxr*bxr + byr*byr + bzr*bzr)
-#endif
-    + 0.5*(ur*ur + vr*vr + wr*wr)*dr;
+  qr.E   = Ur.E;
 #endif
 
 /* Initialize the grid */
 
   for (k=kl; k<=ku; k++) {
     for (j=0; j<=je+nghost; j++) {
-      ix2 = j + pGrid->jdisp;
+      ix2 = j + pGrid->Disp[1];
       for (i=0; i<=ie+nghost; i++) {
-	ix1 = i + pGrid->idisp;
+	ix1 = i + pGrid->Disp[0];
 
 /* cell is completely in the left state */
 	if((drr = r2*(ix1) + r1*(ix2) - gcd*r1*r2) <= 0){
@@ -312,10 +315,10 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Set boundary value function pointers */
 
-  set_bvals_mhd_fun(left_x1,shkset2d_iib);
-  set_bvals_mhd_fun(left_x2,shkset2d_ijb);
-  set_bvals_mhd_fun(right_x1,shkset2d_oib);
-  set_bvals_mhd_fun(right_x2,shkset2d_ojb);
+  set_bvals_mhd_fun(pDomain, left_x1,  shkset2d_iib);
+  set_bvals_mhd_fun(pDomain, left_x2,  shkset2d_ijb);
+  set_bvals_mhd_fun(pDomain, right_x1, shkset2d_oib);
+  set_bvals_mhd_fun(pDomain, right_x2, shkset2d_ojb);
 
   return;
 }
@@ -331,30 +334,30 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
 
@@ -365,12 +368,12 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * cells implied by the size of the unit cell (r1xr2).
  */
 
-void shkset2d_iib(Grid *pGrid)
+void shkset2d_iib(GridS *pGrid)
 {
   const int is = pGrid->is;
   int i, j, k, ju, jl, kl, ku; /* j-upper, j-lower */
 
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost;
     jl = pGrid->js - nghost + r2;
   } else {
@@ -378,7 +381,7 @@ void shkset2d_iib(Grid *pGrid)
     jl = pGrid->js;
   }
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[2] > 1){
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   } else {
@@ -408,12 +411,12 @@ void shkset2d_iib(Grid *pGrid)
  * Function shkset2d_oib: same for oib
  */
 
-void shkset2d_oib(Grid *pGrid)
+void shkset2d_oib(GridS *pGrid)
 {
   const int ie = pGrid->ie;
   int i, j, k, ju, jl, kl, ku; /* j-upper, j-lower */
 
-  if (pGrid->Nx2 > 1){
+  if (pGrid->Nx[1] > 1){
     ju = pGrid->je + nghost - r2;
     jl = pGrid->js - nghost;
   } else {
@@ -421,7 +424,7 @@ void shkset2d_oib(Grid *pGrid)
     jl = pGrid->js;
   }
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[2] > 1){
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   } else {
@@ -453,20 +456,15 @@ void shkset2d_oib(Grid *pGrid)
  * Function shkset2d_ijb: same for ijb
  */
 
-void shkset2d_ijb(Grid *pGrid)
+void shkset2d_ijb(GridS *pGrid)
 {
   const int js = pGrid->js;
   int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
 
-  if (pGrid->Nx1 > 1){
-    iu = pGrid->ie + nghost;
-    il = pGrid->is - nghost + r1;
-  } else {
-    iu = pGrid->ie;
-    il = pGrid->is;
-  }
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost + r1;
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[2] > 1){
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   } else {
@@ -496,20 +494,15 @@ void shkset2d_ijb(Grid *pGrid)
  * Function shkset2d_ojb: same for ojb
  */
 
-void shkset2d_ojb(Grid *pGrid)
+void shkset2d_ojb(GridS *pGrid)
 {
   const int je = pGrid->je;
-  iny i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
+  int i, j, k, iu, il, kl, ku; /* i-upper, i-lower */
 
-  if (pGrid->Nx1 > 1){
-    iu = pGrid->ie + nghost - r1;
-    il = pGrid->is - nghost;
-  } else {
-    iu = pGrid->ie;
-    il = pGrid->is;
-  }
+  iu = pGrid->ie + nghost - r1;
+  il = pGrid->is - nghost;
 
-  if (pGrid->Nx3 > 1){
+  if (pGrid->Nx[2] > 1){
     ku = pGrid->ke + nghost;
     kl = pGrid->ks - nghost;
   } else {

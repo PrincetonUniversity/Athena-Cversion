@@ -4,25 +4,25 @@
  * FILE: athena.h
  *
  * PURPOSE: Contains definitions of the following data types and structures:
- *   Real  - either float or double, depending on configure option
- *   Gas   - cell-centered conserved variables
- *   Prim  - cell-centered primitive variables
+ *   Real   - either float or double, depending on configure option
+ *   Gas    - cell-centered conserved variables
+ *   Prim   - cell-centered primitive variables
  *   Cons1D - conserved variables in 1D: same as Gas minus Bx
  *   Prim1D - primitive variables in 1D: same as Prim minus Bx
  *   Grain  - basic properties of particles
- *   Ray,Rad_Ran2_State,Ray_Tree,Radpoint,Radplane - for ionizing rad transport
- *   Grid   - everything needed by a Grid: arrays of Gas, B, indices, time, etc.
- *   Grid_Indices - indices and ID of one Grid in a Domain
- *   Domain - info on array of Grids covering computational domain 
- *   Output - everything associated with an individual output: time, type, etc.
+ *   GridS   - everything in a single Grid: arrays of Gas, B field, etc.
+ *   DomainS - everything in a single Domain (potentially many Grids)
+ *   MeshS   - everything across whole Mesh (potentially many Domains)
+ *   OutputS - everything associated with an individual output
  *============================================================================*/
 #include "defs.h"
 
-/*----------------------------------------------------------------------------*/
-/* variable type Real
- *   depends on macro set by configure
- */ 
+#ifdef MPI_PARALLEL
+#include "mpi.h"
+#endif
 
+/* variable type Real:   depends on macro set by configure
+ */ 
 #if defined(SINGLE_PREC)
 typedef float  Real;
 #elif defined(DOUBLE_PREC)
@@ -31,23 +31,47 @@ typedef double Real;
 # error "Not a valid precision flag"
 #endif
 
-/* general 3-vector */
-typedef struct Vector_s{
-  Real x1, x2, x3;
-}Vector;
+/* general 3-vectors of Reals and integers 
+ */
+typedef struct Real3Vect_s{
+  Real x, y, z;
+}Real3Vect;
+typedef struct Int3Vect_s{
+  int i, j, k;
+}Int3Vect;
+
+/* sides of a cube, used to find overlaps between Grids at different levels 
+ */
+typedef struct Side_s{
+  int ijkl[3];    /* indices of left-sides  in each dir [0,1,2]=[i,j,k] */ 
+  int ijkr[3];    /* indices of right-sides in each dir [0,1,2]=[i,j,k] */ 
+}SideS;
+
+/* number of zones in, and identifying information about, a Grid
+ */
+typedef struct GridsData_s{
+  int Nx[3];                /* number of zones in each dir [0,1,2]=[x1,x2,x3] */
+  int Disp[3];     /* i,j,k displacements from origin of root [0,1,2]=[i,j,k] */
+  int ID_Comm_world;      /* ID of process for this Grid in MPI_COMM_WORLD */
+  int ID_Comm_Domain;     /* ID of process for this Grid in Comm_Domain    */
+#ifdef STATIC_MESH_REFINEMENT
+  int ID_Comm_Children;     /* ID updating this Grid in Comm_Domain    */
+  int ID_Comm_Parent;     /* ID updating this Grid in Comm_Domain    */
+#endif
+}GridsDataS;
 
 /*----------------------------------------------------------------------------*/
-/* structure Gas: conserved variables 
+/* Gas structure: conserved variables 
  *  IMPORTANT!! The order of the elements in Gas CANNOT be changed.
  */
 
 typedef struct Gas_s{
   Real d;			/* density */
-  Real M1;			/* Momenta in 1,2,3.  Use 1,2,3 to label */
-  Real M2;                      /* directions in anticipation of         */
-  Real M3;                      /* covariant coordinates in future       */
+  Real M1;			/* momentum density in 1,2,3 directions */
+  Real M2;
+  Real M3;
 #ifndef BAROTROPIC
-  Real E;			/* Total energy density */
+  Real E;			/* total energy density */
 #endif /* BAROTROPIC */
 #ifdef MHD
   Real B1c;			/* cell centered magnetic fields in 1,2,3 */
@@ -55,18 +79,18 @@ typedef struct Gas_s{
   Real B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-  Real s[NSCALARS];              /* passively advected scalars */
+  Real s[NSCALARS];             /* passively advected scalars */
 #endif
 }Gas;
 
 /*----------------------------------------------------------------------------*/
-/* structure Prim: primitive variables, used with special relativity 
+/* Prim structure: primitive variables, used with special relativity 
  *  IMPORTANT!! The order of the elements in Prim CANNOT be changed.
  */
 
 typedef struct Prim_s{
-  Real d;			/* density  */
-  Real V1;			/* Velocity in 1,2,3 */
+  Real d;			/* density */
+  Real V1;			/* velocity in 1,2,3 */
   Real V2;
   Real V3;
 #ifndef BAROTROPIC
@@ -78,29 +102,29 @@ typedef struct Prim_s{
   Real B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-  Real r[NSCALARS];              /* density-normalized advected scalars */
+  Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
 }Prim;
 
 /*----------------------------------------------------------------------------*/
-/* structure Cons1D:  conserved variables in 1D (does not contain Bx)
+/* Cons1D structure:  conserved variables in 1D (does not contain Bx)
  *  IMPORTANT!! The order of the elements in Cons1D CANNOT be changed.
  */
 
 typedef struct Cons1D_s{
   Real d;			/* density */
-  Real Mx;			/* Momenta in X,Y,Z.  Use X,Y,Z now instead  */
-  Real My;                      /* of 1,2,3 since this structure can contain */
-  Real Mz;                      /* a slice in any dimension: 1,2,or 3        */
+  Real Mx;			/* momentum density in X,Y,Z; where X is     */
+  Real My;                      /* direction longitudinal to 1D slice; which */
+  Real Mz;                      /* can be in any dimension: 1,2,or 3         */
 #ifndef BAROTROPIC
-  Real E;			/* Total energy density */
+  Real E;			/* total energy density */
 #endif /* BAROTROPIC */
 #ifdef MHD
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
 #if (NSCALARS > 0)
-  Real s[NSCALARS];              /* passively advected scalars */
+  Real s[NSCALARS];             /* passively advected scalars */
 #endif
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
@@ -108,13 +132,13 @@ typedef struct Cons1D_s{
 }Cons1D;
 
 /*----------------------------------------------------------------------------*/
-/* structure Prim1D:  primitive variables in 1D (does not contain Bx)
+/* Prim1D structure:  primitive variables in 1D (does not contain Bx)
  *  IMPORTANT!! The order of the elements in Prim1D CANNOT be changed.
  */
 
 typedef struct Prim1D_s{
   Real d;			/* density */
-  Real Vx;			/* Velocity in X,Y,Z */
+  Real Vx;			/* velocity in X,Y,Z */
   Real Vy;
   Real Vz;
 #ifndef BAROTROPIC
@@ -125,7 +149,7 @@ typedef struct Prim1D_s{
   Real Bz;
 #endif /* MHD */
 #if (NSCALARS > 0)
-  Real r[NSCALARS];              /* density-normalized advected scalars */
+  Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
 }Prim1D;
 
@@ -144,10 +168,10 @@ typedef struct Grain_s{
   short pos;		/* position: 0: ghost; 1: grid; >=10: cross out/in; */
   long my_id;		/* particle id */
 #ifdef MPI_PARALLEL
-  int init_id;		/* particle's initial host processor id */
+  int init_id;          /* particle's initial host processor id */
 #endif
 #ifdef FARGO
-  Real shift;		/* amount of shift in x2 direction */
+  Real shift;           /* amount of shift in x2 direction */
 #endif
 }Grain;
 
@@ -191,10 +215,31 @@ typedef struct GPCouple_s{
 #endif /* PARTICLES */
 
 /*----------------------------------------------------------------------------*/
-/* structure Grid: All data needed by a single processor to integrate equations
- *   Initialized by init_grid().  By using an array of Gas, rather than arrays
- *   of each variable, we guarantee data for each cell are contiguous in memory.
+/* Grid overlap structures, used for SMR
  */
+
+#ifdef STATIC_MESH_REFINEMENT
+typedef struct GridOvrlp_s{
+  int ijks[3];           /* start ijk on this Grid of overlap [0,1,2]=[i,j,k] */
+  int ijke[3];           /* end   ijk on this Grid of overlap [0,1,2]=[i,j,k] */
+  int ID, DomN;          /* processor ID, and Domain #, of OVERLAP Grid */
+  int nWordsRC, nWordsP; /* # of words communicated for Rest/Corr and Prol */
+  Gas **myFlx[6];        /* fluxes of conserved variables at 6 boundaries */
+#ifdef MHD
+  Real **myEMF1[6];      /* fluxes of magnetic field (EMF1) at 6 boundaries */
+  Real **myEMF2[6];      /* fluxes of magnetic field (EMF2) at 6 boundaries */
+  Real **myEMF3[6];      /* fluxes of magnetic field (EMF3) at 6 boundaries */
+#endif
+}GridOvrlp;
+#endif /* STATIC_MESH_REFINEMENT */
+
+/*----------------------------------------------------------------------------*/
+/* GridS: 3D arrays of dependent variables, plus grid data, plus particle data,
+ *   plus data about child and parent Grids, plus MPI rank information for a
+ *   Grid, where a Grid is defined to be the region of a Domain at some
+ *   refinement level being updated by a single processor.  Uses an array of
+ *   Gas, rather than arrays of each variable, to increase locality of data for
+ *   a given cell in memory.  */
 
 typedef struct Grid_s{
   Gas ***U;			/* conserved variables */
@@ -210,20 +255,20 @@ typedef struct Grid_s{
   Real ***x2MassFlux;           /* x2 mass flux for source term correction */
   Real ***x3MassFlux;           /* x3 mass flux for source term correction */
 #endif /* GRAVITY */
-  Real x1_0;	            /* x1-position of coordinate ix = 0 */
-  Real x2_0;	            /* x2-position of coordinate jx = 0 */
-  Real x3_0;	            /* x3-position of coordinate kx = 0 */
-  Real dx1,dx2,dx3;         /* cell size */
-  Real dt,time;		    /* time step, absolute time */
-  int nstep;		    /* number of integration steps taken */
-  int Nx1,Nx2,Nx3;          /* number of zones in each direction in this Grid */
-  int is,ie;		    /* start/end cell index in x1 direction */
-  int js,je;		    /* start/end cell index in x2 direction */
-  int ks,ke;		    /* start/end cell index in x3 direction */
-  int idisp;                /* coordinate ix = index i + idisp */
-  int jdisp;                /* coordinate jx = index j + jdisp */
-  int kdisp;                /* coordinate kx = index k + kdisp */
-  char *outfilename;        /* basename for output files */
+  Real x1min,x1max;        /* min/max of x1 on this Grid */
+  Real x2min,x2max;        /* min/max of x2 on this Grid */
+  Real x3min,x3max;        /* min/max of x3 on this Grid */
+  Real dx1,dx2,dx3;        /* cell size on this Grid */
+  Real time, dt;           /* current time and timestep  */
+  int is,ie;		   /* start/end cell index in x1 direction */
+  int js,je;		   /* start/end cell index in x2 direction */
+  int ks,ke;		   /* start/end cell index in x3 direction */
+  int Nx[3];       /* # of zones in each dir on Grid [0,1,2]=[x1,x2,x3] */
+  int Disp[3];     /* i,j,k displacements of Grid from origin [0,1,2]=[i,j,k] */
+
+  int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
+  int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
+  int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
 
 #ifdef PARTICLES
   int partypes;              /* number of particle types */
@@ -235,43 +280,95 @@ typedef struct Grid_s{
   GPCouple ***Coup;          /* array of gas-particle coupling */
 #endif /* PARTICLES */
 
-  int my_id;                /* process ID (or rank in MPI) updating this Grid */
-  int rx1_id, lx1_id;       /* ID of grids to R/L in x1-dir (default = -1) */
-  int rx2_id, lx2_id;       /* ID of grids to R/L in x2-dir (default = -1) */
-  int rx3_id, lx3_id;       /* ID of grids to R/L in x3-dir (default = -1) */
-}Grid;
+#ifdef STATIC_MESH_REFINEMENT
+  int NCGrid;         /* # of child  Grids that overlap this Grid */
+  int NPGrid;         /* # of parent Grids that this Grid overlaps */
+  int NmyCGrid;       /* # of child  Grids on same processor as this Grid */
+  int NmyPGrid;       /* # of parent Grids on same processor (either 0 or 1) */
+
+  GridOvrlp *CGrid;     /* 1D array of data for NCGrid child  overlap regions */
+  GridOvrlp *PGrid;     /* 1D array of data for NPGrid parent overlap regions */
+/* NB: The order of the Grids in these two arrays is such that the first
+ * NmyCGrid[NmyPGrid] elements contain overlap regions being updated by the
+ * same processor as this Grid */
+#endif /* STATIC_MESH_REFINEMENT */
+
+}GridS;
+
+typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */
 
 /*----------------------------------------------------------------------------*/
-/* structure GridIndices: indices and IDs of each Grid in Domain
- * structure Domain: 3D array of GridIndices, and all other information about
- *   this Domain that might be needed by an individual processor updating an
- *   individual Grid
+/* DomainS: information about one region of Mesh at some particular level.
+ *
+ * Contains pointer to a single Grid, even though the Domain may contain many
+ * Grids, because for any general parallelization mode, no more than one Grid
+ * can exist per Domain per processor.
+ *
+ * The i,j,k displacements are measured in units of grid cells on this Domain
  */
 
-typedef struct Grid_Indices_s{
-  int igs, jgs, kgs;             /* Minimum coordinate of cells in this Grid */
-  int ige, jge, kge;             /* Maximum coordinate of cells in this Grid */
-  int id;                        /* process ID (rank in MPI) */
-}Grid_Indices;
-
 typedef struct Domain_s{
-  Grid_Indices ***GridArray;     /* 3D array of Grids tiling this Domain */
-  int ids, jds, kds;        /* Minimum coordinate of cells over entire Domain */
-  int ide, jde, kde;        /* Maximum coordinate of cells over entire Domain */
-  int NGrid_x1;             /* Number of Grids in x1 direction for this Domain */
-  int NGrid_x2;            /* Number of Grids in x2 direction for this Domain */
-  int NGrid_x3;            /* Number of Grids in x3 direction for this Domain */
-  int Nx1,Nx2,Nx3;  /* total number of zones in each direction over all Grids */
-}Domain;
+  Real RootMinX[3];   /* min(x) in each dir on root Domain [0,1,2]=[x1,x2,x3] */
+  Real RootMaxX[3];   /* max(x) in each dir on root Domain [0,1,2]=[x1,x2,x3] */
+  Real MinX[3];       /* min(x) in each dir on this Domain [0,1,2]=[x1,x2,x3] */
+  Real MaxX[3];       /* max(x) in each dir on this Domain [0,1,2]=[x1,x2,x3] */
+  Real dx[3];                  /* cell size in this Domain [0,1,2]=[x1,x2,x3] */
+  int Nx[3];      /* # of zones in each dir in this Domain [0,1,2]=[x1,x2,x3] */
+  int NGrid[3];   /* # of Grids in each dir in this Domain [0,1,2]=[x1,x2,x3] */
+  int Disp[3];   /* i,j,k displacements of Domain from origin [0,1,2]=[i,j,k] */
+  int Level,DomNumber;   /* level and ID number of this Domain */
+  int InputBlock;        /* # of <domain> block in input file for this Domain */
+  GridS *Grid;       /* pointer to Grid in this Dom updated on this processor */
+
+  GridsDataS ***GData; /* size,location, & processor IDs of Grids in this Dom */
+
+  VGFun_t ix1_BCFun, ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
+  VGFun_t ix2_BCFun, ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
+  VGFun_t ix3_BCFun, ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
+
+#ifdef MPI_PARALLEL
+  MPI_Comm Comm_Domain;        /* MPI communicator between Grids on this Dom */
+  MPI_Group Group_Domain;      /* MPI group for Domain communicator */
+#ifdef STATIC_MESH_REFINEMENT
+  MPI_Comm Comm_Parent;        /* MPI communicator to Grids in parent Domain  */
+  MPI_Comm Comm_Children;      /* MPI communicator to Grids in  child Domains */
+  MPI_Group Group_Children;    /* MPI group for Children communicator */
+#endif /* STATIC_MESH_REFINEMENT */
+#endif /* MPI_PARALLEL */
+}DomainS;
+
+typedef void (*VDFun_t)(DomainS *pD);  /* generic void function of Domain */
 
 /*----------------------------------------------------------------------------*/
-/* structure Output: everything for outputs */
+/* MeshS: information about entire mesh hierarchy, including array of Domains
+ */
+
+typedef struct Mesh_s{
+  Real RootMinX[3];   /* min(x) in each dir on root Domain [0,1,2]=[x1,x2,x3] */
+  Real RootMaxX[3];   /* max(x) in each dir on root Domain [0,1,2]=[x1,x2,x3] */
+  Real dx[3];     /* cell size on root Domain [0,1,2]=[x1,x2,x3] */
+  Real time, dt;  /* current time and timestep for entire Mesh */
+  int Nx[3];      /* # of zones in each dir on root Domain [0,1,2]=[x1,x2,x3] */
+  int nstep;                 /* number of integration steps taken */
+  int BCFlag_ix1, BCFlag_ox1;  /* BC flag on root domain for inner/outer x1 */
+  int BCFlag_ix2, BCFlag_ox2;  /* BC flag on root domain for inner/outer x2 */
+  int BCFlag_ix3, BCFlag_ox3;  /* BC flag on root domain for inner/outer x3 */
+  int NLevels;               /* overall number of refinement levels in mesh */
+  int *DomainsPerLevel;      /* number of Domains per level (DPL) */
+  DomainS **Domain;          /* array of Domains, indexed over levels and DPL */
+  char *outfilename;           /* basename for output files containing -id#  */
+}MeshS;
+
+/*----------------------------------------------------------------------------*/
+/* OutputS: everything for outputs */
   
 struct Output_s;
-typedef void (*VGFunout_t)(Grid *pGrid, Domain *pD, struct Output_s *pout);
-typedef Real (*Gasfun_t)(const Grid *pG, const int i, const int j, const int k);
+typedef void (*VOutFun_t)(MeshS *pM, struct Output_s *pout);
+typedef void (*VResFun_t)(MeshS *pM, struct Output_s *pout);
+typedef Real (*GasFun_t)(const GridS *pG, const int i,const int j,const int k);
 #ifdef PARTICLES
 typedef int (*PropFun_t)(const Grain *gr, const GrainAux *grsub);
+typedef Real (*Parfun_t)(const Grid *pG, const Grain *gr);
 typedef Real (*Parfun_t)(const Grid *pG, const Grain *gr);
 #endif
 
@@ -286,6 +383,10 @@ typedef struct Output_s{
   int out_pargrid;    /* output grid binned particles (=1) or not (=0) */
   PropFun_t par_prop; /* particle property selection function */
 #endif
+
+/* level and domain number of output (default = [0,0] = root level) */
+
+  int nlevel, ndomain;
 
 /* variables which describe data min/max */
   Real dmin;      /* user defined min for scaling data */
@@ -315,32 +416,34 @@ typedef struct Output_s{
   float *der;     /* helper array of derivatives for interpolation into RGB */
 
 /* pointers to output functions; data expressions */
-  VGFunout_t fun; /* function pointer */
-  Gasfun_t expr;  /* expression for output */
+  VOutFun_t out_fun; /* output function pointer */
+  VResFun_t res_fun; /* restart function pointer */
+  GasFun_t expr;     /* pointer to expression that computes quant for output */
 
-} Output;
+}OutputS;
 
 
-/* typedefs for functions that compute static gravitational potential and
- * cooling, set in problem generator, and used by integrators */
+/*----------------------------------------------------------------------------*/
+/* typedefs for functions:
+ */
+/* for static gravitational potential and cooling, set in problem generator,
+ * and used by integrators */
+
 typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
 #ifdef CYLINDRICAL
 typedef Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3);
 #endif
 typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
 
-/* Directions for the set_bvals_fun() function */
-enum Direction {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
-
-/* Definitions of various functions */
-typedef void (*VBCFun_t)(Grid *pG);    /* void boundary cond fn */
-typedef void (*VGFun_t) (Grid *pG);    /* void grid function */
-typedef void (*VGDFun_t)(Grid *pG, Domain *pD);     /*void grid + domain func */
 #ifdef PARTICLES
-/* function type for interpolation schemes */
-typedef void (*WeightFun_t)(Grid *pG, Real x1, Real x2, Real x3, Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
-/* function type for stopping time calculation */
-typedef Real (*TSFun_t)(Grid *pG, int type, Real rho, Real cs, Real vd);
+/* function types for interpolation schemes and stopping time */
+typedef void (*WeightFun_t)(GridS *pG, Real x1, Real x2, Real x3,
+  Real3Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 #endif /* PARTICLES */
+
+/*----------------------------------------------------------------------------*/
+/* Directions for the set_bvals_fun() function */
+enum BCDirection {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};
 
 #endif /* ATHENA_H */

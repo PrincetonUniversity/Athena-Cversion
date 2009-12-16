@@ -27,8 +27,9 @@
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
   int i,il,iu,js,ks;
   Real dl,pl,ul,vl,wl,x1,x2,x3;
 
@@ -38,7 +39,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   js = pGrid->js;
   ks = pGrid->ks;
 
-  if (pGrid->Nx2 > 1 || pGrid->Nx3 > 1) {
+  if (pGrid->Nx[1] > 1 || pGrid->Nx[2] > 1) {
     ath_error("Shu Osher test only works for 1D problem in x1-direction\n");
   }
 
@@ -83,29 +84,29 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }

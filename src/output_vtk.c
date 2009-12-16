@@ -21,19 +21,21 @@
  *   output_vtk_3d() - write vtk file for 3D data
  *============================================================================*/
 
-static void output_vtk_2d(Grid *pGrid, Domain *pD, Output *pOut);
-static void output_vtk_3d(Grid *pGrid, Domain *pD, Output *pOut);
+static void output_vtk_2d(MeshS *pM, OutputS *pOut);
+static void output_vtk_3d(MeshS *pM, OutputS *pOut);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* output_vtk:   */
 
-void output_vtk(Grid *pGrid, Domain *pD, Output *pOut)
+void output_vtk(MeshS *pM, OutputS *pOut)
 {
+  if (pM->Domain[pOut->nlevel][pOut->ndomain].Grid == NULL) return;
+
   if (pOut->ndim == 3) {
-    output_vtk_3d(pGrid, pD, pOut);
+    output_vtk_3d(pM, pOut);
   } else if (pOut->ndim == 2) {
-    output_vtk_2d(pGrid, pD, pOut);
+    output_vtk_2d(pM, pOut);
   } else {
     ath_error("[output_vtk]: Only able to output 2D or 3D");
   }
@@ -44,8 +46,9 @@ void output_vtk(Grid *pGrid, Domain *pD, Output *pOut)
 /*----------------------------------------------------------------------------*/
 /* output_vtk_2d: writes 2D data  */
 
-static void output_vtk_2d(Grid *pGrid, Domain *pD, Output *pOut)
+static void output_vtk_2d(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid=pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
   FILE *pfile;
 /* Upper and Lower bounds on i,j,k for data dump */
   int big_end = ath_big_endian();
@@ -55,7 +58,7 @@ static void output_vtk_2d(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Open output file, constructing filename in-line */
 
-  pfile=ath_fopen(NULL,pGrid->outfilename,num_digit,pOut->num,pOut->id,"vtk","w");
+  pfile=ath_fopen(NULL,pM->outfilename,num_digit,pOut->num,pOut->id,"vtk","w");
   if(pfile == NULL){
     ath_error("[output_vtk]: File Open Error Occured");
     return;
@@ -79,10 +82,10 @@ static void output_vtk_2d(Grid *pGrid, Domain *pD, Output *pOut)
 
 /*  4. Dataset structure */
 
-/* Calculate the Grid origin */
-  x1 = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
-  x2 = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
-  x3 = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
+/* Set the Grid origin */
+  x1 = pGrid->x1min;
+  x2 = pGrid->x2min;
+  x3 = pGrid->x3min;
   ndata0 = pOut->Nx1 * pOut->Nx2 * pOut->Nx3;
   dx1 = (pOut->Nx1 == 1 ? pGrid->dx1 * pOut->Nx1 : pGrid->dx1);
   dx2 = (pOut->Nx2 == 1 ? pGrid->dx2 * pOut->Nx2 : pGrid->dx2);
@@ -114,8 +117,9 @@ static void output_vtk_2d(Grid *pGrid, Domain *pD, Output *pOut)
 /*----------------------------------------------------------------------------*/
 /* output_vtk_3d: writes 3D data  */
 
-static void output_vtk_3d(Grid *pGrid, Domain *pD, Output *pOut)
+static void output_vtk_3d(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid=pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
   FILE *pfile;
 /* Upper and Lower bounds on i,j,k for data dump */
   int big_end = ath_big_endian();
@@ -125,7 +129,7 @@ static void output_vtk_3d(Grid *pGrid, Domain *pD, Output *pOut)
 
 /* Open output file, constructing filename in-line */
 
-  pfile=ath_fopen(NULL,pGrid->outfilename,num_digit,pOut->num,pOut->id,"vtk","w");
+  pfile=ath_fopen(NULL,pM->outfilename,num_digit,pOut->num,pOut->id,"vtk","w");
   if(pfile == NULL){
     ath_error("[output_vtk]: File Open Error Occured");
     return;
@@ -149,10 +153,10 @@ static void output_vtk_3d(Grid *pGrid, Domain *pD, Output *pOut)
 
 /*  4. Dataset structure */
 
-/* Calculate the Grid origin */
-  x1 = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
-  x2 = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
-  x3 = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
+/* Set the Grid origin */
+  x1 = pGrid->x1min;
+  x2 = pGrid->x2min;
+  x3 = pGrid->x3min;
   ndata0 = pOut->Nx1 * pOut->Nx2;
 
   fprintf(pfile,"DATASET STRUCTURED_POINTS\n");

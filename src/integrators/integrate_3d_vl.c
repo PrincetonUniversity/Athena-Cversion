@@ -11,10 +11,6 @@
  *     For adb hydro, requires (9*Cons1D + 3*Real + 1*Gas) = 53 3D arrays
  *     For adb mhd, requires   (9*Cons1D + 9*Real + 1*Gas) = 80 3D arrays
  *
- *   If FIRST_ORDER_FLUX_CORRECTION is defined, uses first-order fluxes when
- *   predict state is negative.  Added by Nicole Lemaster to run supersonic
- *   turbulence
- *
  * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
  *   for multidimensional MHD", NewA 14, 139 (2009)
  *
@@ -69,28 +65,6 @@ extern Real etah;
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
 
-/* FIRST_ORDER_FLUX_CORRECTION: Drop to first order for interfaces where
- * higher-order fluxes would cause cell-centered density to go negative.
- * Called in Step 13d, see private function first_order_correction()
- * for important details.  Primarily added (MNL) to increase robustness of code
- * for drive/decaying supersonic turbulence.  Uncomment define below to turn
- * correction ON.
- */
-
-/* #define FIRST_ORDER_FLUX_CORRECTION */
-
-#if defined (FIRST_ORDER_FLUX_CORRECTION) && defined(H_CORRECTION)
-#error : Flux correction in the VL integrator does not work with H-corrrection.
-#endif 
-
-/* variables needed to drop to first-order fluxes */
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-static char ***Ineg=NULL;
-enum {correct_hydro_x1=1, correct_hydro_x2=2, correct_hydro_x3=4,
-      correct_mhd_x1=8,   correct_mhd_x2=16,  correct_mhd_x3=32,
-      correct_hydro_all=7,correct_mhd_all=56};
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
-
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
  *   integrate_emf1_corner() - 
@@ -99,20 +73,18 @@ enum {correct_hydro_x1=1, correct_hydro_x2=2, correct_hydro_x3=4,
  *   first_order_correction() -
  *============================================================================*/
 
-static void integrate_emf1_corner(const Grid *pG);
-static void integrate_emf2_corner(const Grid *pG);
-static void integrate_emf3_corner(const Grid *pG);
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-static void first_order_correction(const Grid *pG);
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
+static void integrate_emf1_corner(const GridS *pG);
+static void integrate_emf2_corner(const GridS *pG);
+static void integrate_emf3_corner(const GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* integrate_3d: 3D van Leer unsplit integrator for MHD. 
  */
 
-void integrate_3d(Grid *pG, Domain *pD)
+void integrate_3d(DomainS *pD)
 {
+  GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
   Real dt = pG->dt, hdt = 0.5*pG->dt;
@@ -850,11 +822,11 @@ void integrate_3d(Grid *pG, Domain *pD)
     for (j=jb+1; j<=jt-1; j++) {
       for (i=ib+1; i<=it-1; i++) {
         pG->B1i[k][j][i] += dtodx3*(emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
-                               dtodx2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
+                            dtodx2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
         pG->B2i[k][j][i] += dtodx1*(emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
-                               dtodx3*(emf1[k+1][j  ][i  ] - emf1[k][j][i]);
+                            dtodx3*(emf1[k+1][j  ][i  ] - emf1[k][j][i]);
         pG->B3i[k][j][i] += dtodx2*(emf1[k  ][j+1][i  ] - emf1[k][j][i]) -
-                               dtodx1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
+                            dtodx1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
       }
       pG->B1i[k][j][it] +=
         dtodx3*(emf2[k+1][j  ][it] - emf2[k][j][it]) -
@@ -1143,25 +1115,9 @@ void integrate_3d(Grid *pG, Domain *pD)
           pG->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
                                        - x3Flux[k  ][j][i].s[n]);
 #endif
-
-#ifndef FIRST_ORDER_FLUX_CORRECTION
-        if (!(pG->U[k][j][i].d > 0.0))
-          ath_error("Step 14c: pG->U[%d][%d][%d].d = %3.2e\n",
-                        pG->kdisp+k, pG->jdisp+j, pG->idisp+i,
-                        pG->U[k][j][i].d);
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
       }
     }
   }
-
-/*--- Step 13d -----------------------------------------------------------------
- * If cell-centered densities have gone negative, correct cell-centered
- * variables by using 1st order fluxes instead of higher order
- */
-
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-  first_order_correction(pG);
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 /*--- Step 13e -----------------------------------------------------------------
  * LAST STEP!
@@ -1183,6 +1139,107 @@ void integrate_3d(Grid *pG, Domain *pD)
   return;
 }
 
+
+/*----------------------------------------------------------------------------*/
+/* integrate_init_3d: Allocate temporary integration arrays */
+
+void integrate_init_3d(MeshS *pM)
+{
+  int nmax,size1=0,size2=0,size3=0,nl,nd;
+
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[2] > size3){
+          size3 = pM->Domain[nl][nd].Grid->Nx[2];
+        }
+      }
+    }
+  }
+
+  size1 = size1 + 2*nghost;
+  size2 = size2 + 2*nghost;
+  size3 = size3 + 2*nghost;
+  nmax = MAX((MAX(size1,size2)),size3);
+
+#ifdef MHD
+  if ((emf1 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf2 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf3 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+
+  if ((emf1_cc=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf2_cc=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((emf3_cc=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+#endif /* MHD */
+#ifdef H_CORRECTION
+  if ((eta1 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((eta2 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+  if ((eta3 = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+#endif /* H_CORRECTION */
+  if ((Wl_x1Face = (Prim1D***)calloc_3d_array(size3,size2,size1,sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x1Face = (Prim1D***)calloc_3d_array(size3,size2,size1,sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wl_x2Face = (Prim1D***)calloc_3d_array(size3,size2,size1,sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x2Face = (Prim1D***)calloc_3d_array(size3,size2,size1,sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wl_x3Face = (Prim1D***)calloc_3d_array(size3,size2,size1,sizeof(Prim1D)))
+    == NULL) goto on_error;
+  if ((Wr_x3Face = (Prim1D***)calloc_3d_array(size3,size2,size1,sizeof(Prim1D)))
+    == NULL) goto on_error;
+
+#ifdef MHD
+  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
+
+  if ((B1_x1Face = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((B2_x2Face = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((B3_x3Face = (Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+#endif /* MHD */
+
+  if ((U1d = (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ul  = (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((Ur  = (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
+  if ((W   = (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wl  = (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((Wr  = (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+
+  if ((x1Flux = (Cons1D***)calloc_3d_array(size3,size2,size1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+  if ((x2Flux = (Cons1D***)calloc_3d_array(size3,size2,size1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+  if ((x3Flux = (Cons1D***)calloc_3d_array(size3,size2,size1, sizeof(Cons1D))) 
+    == NULL) goto on_error;
+
+  if ((Uhalf = (Gas***)calloc_3d_array(size3,size2,size1, sizeof(Gas))) == NULL)
+    goto on_error;
+
+  return;
+
+  on_error:
+    integrate_destruct();
+    ath_error("[integrate_init]: malloc returned a NULL pointer\n");
+}
 
 /*----------------------------------------------------------------------------*/
 /* integrate_destruct_3d:  Free temporary integration arrays */
@@ -1229,118 +1286,9 @@ void integrate_destruct_3d(void)
   if (x3Flux    != NULL) free_3d_array(x3Flux);
 
   if (Uhalf    != NULL) free_3d_array(Uhalf);
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-  if (Ineg     != NULL) free_3d_array(Ineg);
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
   return;
 }
-
-/*----------------------------------------------------------------------------*/
-/* integrate_init_3d: Allocate temporary integration arrays */
-
-void integrate_init_3d(int nx1, int nx2, int nx3)
-{
-  int nmax;
-  int Nx1 = nx1 + 2*nghost;
-  int Nx2 = nx2 + 2*nghost;
-  int Nx3 = nx3 + 2*nghost;
-  nmax = MAX(MAX(Nx1,Nx2),Nx3);
-
-/* Make sure we have enough ghost cells to proceed.  If we have more
- * ghost cells than necessary, we'll fully time-evolve them instead of
- * ignoring them. */
-#ifdef FIRST_ORDER
-  int minghost = 2;
-#endif /* FIRST_ORDER */
-#if defined (SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
-  int minghost = 3;
-#endif /* SECOND_ORDER */
-#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
-  int minghost = 4;
-#endif /* THIRD_ORDER */
-#if defined(MHD) && defined(H_CORRECTION)
-  minghost++;
-#endif
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-  minghost++;
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
-  if (nghost < minghost)
-    ath_error("[integrate_init_3d]: The VL integrator requires at least %d ghost zones with this configuration.\n", minghost);
-
-#ifdef MHD
-  if ((emf1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((emf1_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf2_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((emf3_cc = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* MHD */
-#ifdef H_CORRECTION
-  if ((eta1 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((eta2 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((eta3 = (Real***)calloc_3d_array(Nx3, Nx2, Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-#endif /* H_CORRECTION */
-  if ((Wl_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x1Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wl_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x2Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wl_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-  if ((Wr_x3Face = (Prim1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Prim1D)))
-    == NULL) goto on_error;
-
-#ifdef MHD
-  if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-  if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
-
-  if ((B1_x1Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-  if ((B2_x2Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-  if ((B3_x3Face = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)    goto on_error;
-#endif /* MHD */
-
-  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((W   =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-
-  if ((x1Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((x2Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-  if ((x3Flux    = (Cons1D***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Cons1D))) 
-    == NULL) goto on_error;
-
-  if ((Uhalf = (Gas***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Gas))) == NULL)
-    goto on_error;
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-  if ((Ineg = (char***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(char))) == NULL)
-    goto on_error;
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
-
-  return;
-
-  on_error:
-  integrate_destruct();
-  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
-}
-
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
@@ -1359,7 +1307,7 @@ void integrate_init_3d(int nx1, int nx2, int nx3)
  */ 
 
 #ifdef MHD
-static void integrate_emf1_corner(const Grid *pG)
+static void integrate_emf1_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
@@ -1422,7 +1370,7 @@ static void integrate_emf1_corner(const Grid *pG)
 
 /*----------------------------------------------------------------------------*/
 
-static void integrate_emf2_corner(const Grid *pG)
+static void integrate_emf2_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
@@ -1485,7 +1433,7 @@ static void integrate_emf2_corner(const Grid *pG)
 
 /*----------------------------------------------------------------------------*/
 
-static void integrate_emf3_corner(const Grid *pG)
+static void integrate_emf3_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
@@ -1546,612 +1494,5 @@ static void integrate_emf3_corner(const Grid *pG)
   return;
 }
 #endif /* MHD */
-
-/*----------------------------------------------------------------------------*/
-/* first_order_correction()
- *   Drop to first order fluxes for interfaces where higher-order fluxes
- *   would cause cell-centered densities to go negative.  There needs to be
- *   at least 5 ghost cells for this to work at third order.  This is not
- *   presently compatible with the H-correction.  If negative densities
- *   persist at the end of this function, call ath_error().
- *
- *   Ineg: Contains flags indicating which interfaces need to be modified
- *         for a given cell.
- */
-
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-static void first_order_correction(const Grid *pG)
-{
-  Real dtodx1 = pG->dt/pG->dx1;
-  Real dtodx2 = pG->dt/pG->dx2;
-  Real dtodx3 = pG->dt/pG->dx3;
-  int i, is = pG->is, ie = pG->ie;
-  int j, js = pG->js, je = pG->je;
-  int k, ks = pG->ks, ke = pG->ke;
-  int il = is - nghost, iu = ie + nghost;
-  int jl = js - nghost, ju = je + nghost;
-  int kl = ks - nghost, ku = ke + nghost;
-#ifdef MHD
-  Real de1_l2, de1_r2, de1_l3, de1_r3;
-  Real de2_l1, de2_r1, de2_l3, de2_r3;
-  Real de3_l1, de3_r1, de3_l2, de3_r2;
-#endif /* MHD */
-
-/* Set widest loop limits possible */
-#ifdef FIRST_ORDER
-  int ib = il+1, it = iu-1;
-  int jb = jl+1, jt = ju-1;
-  int kb = kl+1, kt = ku-1;
-#endif /* FIRST_ORDER */
-#if defined (SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
-  int ib = il+2, it = iu-2;
-  int jb = jl+2, jt = ju-2;
-  int kb = kl+2, kt = ku-2;
-#endif /* SECOND_ORDER */
-#if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
-  int ib = il+3, it = iu-3;
-  int jb = jl+3, jt = ju-3;
-  int kb = kl+3, kt = ku-3;
-#endif /* THIRD_ORDER */
-
-  int negcount = 0;
-
-  /* Initialize our interface flags */
-  int Nx1 = pG->Nx1 + 2*nghost;
-  int Nx2 = pG->Nx2 + 2*nghost;
-  int Nx3 = pG->Nx3 + 2*nghost;
-  memset(Ineg[0][0], 0, Nx1*Nx2*Nx3*sizeof(char));
-
-  /* Find negative cell-centered densities on the grid */
-  for (k=kb+1; k<=kt-1; k++) {
-    for (j=jb+1; j<=jt-1; j++) {
-      for (i=ib+1; i<=it-1; i++) {
-        if (pG->U[k][j][i].d <= 0.0) {
-          /* All interfaces of this cell will be modified */
-
-          /* Left interfaces: */
-          Ineg[k][j][i] |= correct_hydro_all | correct_mhd_all;
-
-          /* Right interfaces */
-          Ineg[k][j][i+1] |= correct_hydro_x1 | correct_mhd_x1;
-          Ineg[k][j+1][i] |= correct_hydro_x2 | correct_mhd_x2;
-          Ineg[k+1][j][i] |= correct_hydro_x3 | correct_mhd_x3;
-
-          /* ath_perr(1,"RANK %d Warning: negative density in [%d][%d][%d]\n",
-                          pG->my_id,pG->kdisp+k,pG->jdisp+j,
-                          pG->idisp+i); */
-          negcount++;
-        }
-      }
-    }
-  }
-
-  if (negcount > 0) {
-    ath_perr(-1,"RANK %d Warning: %d negative densities being corrected\n",
-        pG->my_id, negcount);
-
-    /* Modifying these fluxes will impact the hydro variables only for
-     * the cells adjacent to the interfaces.  For the magnetic fields
-     * however, the impact of modifying the fluxes has a larger reach. */
-#ifdef MHD
-    /* Set flags for the additional interface magnetic fields that will
-     * require modification. */
-    /* Loop over interfaces, not cell centers */
-    for (k=kb+1; k<=kt; k++) {
-      for (j=jb+1; j<=jt; j++) {
-        for (i=ib+1; i<=it; i++) {
-          if (Ineg[k][j][i] & correct_hydro_x1) {
-            /* via emf2[k][j][i] */
-            Ineg[k-1][j][i] |= correct_mhd_x1;
-            Ineg[k][j][i-1] |= correct_mhd_x3;
-
-            /* additional via emf2[k+1][j][i] */
-            Ineg[k+1][j][i] |= correct_mhd_x1 | correct_mhd_x3;
-            Ineg[k+1][j][i-1] |= correct_mhd_x3;
-
-            /* additional via emf3[k][j][i] */
-            Ineg[k][j-1][i] |= correct_mhd_x1;
-            Ineg[k][j][i-1] |= correct_mhd_x2;
-
-            /* additional via emf3[k][j+1][i] */
-            Ineg[k][j+1][i] |= correct_mhd_x1 | correct_mhd_x2;
-            Ineg[k][j+1][i-1] |= correct_mhd_x2;
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x2) {
-            /* via emf1[k][j][i] */
-            Ineg[k-1][j][i] |= correct_mhd_x2;
-            Ineg[k][j-1][i] |= correct_mhd_x3;
-
-            /* additional via emf1[k+1][j][i] */
-            Ineg[k+1][j][i] |= correct_mhd_x2 | correct_mhd_x3;
-            Ineg[k+1][j-1][i] |= correct_mhd_x3;
-
-            /* additional via emf3[k][j][i] */
-            Ineg[k][j-1][i] |= correct_mhd_x1;
-            Ineg[k][j][i-1] |= correct_mhd_x2;
-
-            /* additional via emf3[k][j][i+1] */
-            Ineg[k][j][i+1] |= correct_mhd_x1 | correct_mhd_x2;
-            Ineg[k][j-1][i+1] |= correct_mhd_x1;
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x3) {
-            /* via emf1[k][j][i] */
-            Ineg[k-1][j][i] |= correct_mhd_x2;
-            Ineg[k][j-1][i] |= correct_mhd_x3;
-
-            /* additional via emf1[k][j+1][i] */
-            Ineg[k][j+1][i] |= correct_mhd_x2 | correct_mhd_x3;
-            Ineg[k-1][j+1][i] |= correct_mhd_x2;
-
-            /* additional via emf2[k][j][i] */
-            Ineg[k-1][j][i] |= correct_mhd_x1;
-            Ineg[k][j][i-1] |= correct_mhd_x3;
-
-            /* additional via emf2[k][j][i+1] */
-            Ineg[k][j][i+1] |= correct_mhd_x1 | correct_mhd_x3;
-            Ineg[k-1][j][i+1] |= correct_mhd_x1;
-          }
-        }
-      }
-    }
-#endif /* MHD */
-
-    /* Undo correction of cell-centered values due to higher-order fluxes
-     * (steps 13a-c) for hydro interfaces flagged above */
-    for (k=kb+2; k<=kt-2; k++) {
-      for (j=jb+2; j<=jt-2; j++) {
-        for (i=ib+2; i<=it-2; i++) {
-          if (Ineg[k][j][i] & correct_hydro_x1) {
-            /* Uncorrect using x1 flux through left interface */
-            pG->U[k][j][i].d -=dtodx1*x1Flux[k][j][i].d ;
-            pG->U[k][j][i].M1-=dtodx1*x1Flux[k][j][i].Mx;
-            pG->U[k][j][i].M2-=dtodx1*x1Flux[k][j][i].My;
-            pG->U[k][j][i].M3-=dtodx1*x1Flux[k][j][i].Mz;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E -=dtodx1*x1Flux[k][j][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j][i+1] & correct_hydro_x1) {
-            /* Uncorrect using x1 flux through right interface */
-            pG->U[k][j][i].d +=dtodx1*x1Flux[k][j][i+1].d;
-            pG->U[k][j][i].M1+=dtodx1*x1Flux[k][j][i+1].Mx;
-            pG->U[k][j][i].M2+=dtodx1*x1Flux[k][j][i+1].My;
-            pG->U[k][j][i].M3+=dtodx1*x1Flux[k][j][i+1].Mz;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E +=dtodx1*x1Flux[k][j][i+1].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x2) {
-            /* Uncorrect using x2 flux through left interface */
-            pG->U[k][j][i].d -=dtodx2*x2Flux[k][j][i].d;
-            pG->U[k][j][i].M1-=dtodx2*x2Flux[k][j][i].Mz;
-            pG->U[k][j][i].M2-=dtodx2*x2Flux[k][j][i].Mx;
-            pG->U[k][j][i].M3-=dtodx2*x2Flux[k][j][i].My;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E -=dtodx2*x2Flux[k][j][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j+1][i] & correct_hydro_x2) {
-            /* Uncorrect using x2 flux through right interface */
-            pG->U[k][j][i].d +=dtodx2*x2Flux[k][j+1][i].d;
-            pG->U[k][j][i].M1+=dtodx2*x2Flux[k][j+1][i].Mz;
-            pG->U[k][j][i].M2+=dtodx2*x2Flux[k][j+1][i].Mx;
-            pG->U[k][j][i].M3+=dtodx2*x2Flux[k][j+1][i].My;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E +=dtodx2*x2Flux[k][j+1][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x3) {
-            /* Uncorrect using x3 flux through left interface */
-            pG->U[k][j][i].d -=dtodx3*x3Flux[k][j][i].d;
-            pG->U[k][j][i].M1-=dtodx3*x3Flux[k][j][i].My;
-            pG->U[k][j][i].M2-=dtodx3*x3Flux[k][j][i].Mz;
-            pG->U[k][j][i].M3-=dtodx3*x3Flux[k][j][i].Mx;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E -=dtodx3*x3Flux[k][j][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k+1][j][i] & correct_hydro_x3) {
-            /* Uncorrect using x3 flux through right interface */
-            pG->U[k][j][i].d +=dtodx3*x3Flux[k+1][j][i].d;
-            pG->U[k][j][i].M1+=dtodx3*x3Flux[k+1][j][i].My;
-            pG->U[k][j][i].M2+=dtodx3*x3Flux[k+1][j][i].Mz;
-            pG->U[k][j][i].M3+=dtodx3*x3Flux[k+1][j][i].Mx;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E +=dtodx3*x3Flux[k+1][j][i].E;
-#endif /* BAROTROPIC */
-          }
-        }
-      }
-    }
-
-    /* Undo correction of interface magnetic fields (step 11) for interface
-     * fields flagged above */
-#ifdef MHD
-    /* Loop over interfaces, not cell centers */
-    for (k=kb+2; k<=kt-1; k++) {
-      for (j=jb+2; j<=jt-1; j++) {
-        for (i=ib+2; i<=it-1; i++) {
-          if (Ineg[k][j][i] & correct_mhd_x1) {
-            pG->B1i[k][j][i] -= dtodx3*(emf2[k+1][j  ][i  ] - emf2[k][j][i])-
-                                   dtodx2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
-          }
-          if (Ineg[k][j][i] & correct_mhd_x2) {
-            pG->B2i[k][j][i] -= dtodx1*(emf3[k  ][j  ][i+1] - emf3[k][j][i])-
-                                   dtodx3*(emf1[k+1][j  ][i  ] - emf1[k][j][i]);
-          }
-          if (Ineg[k][j][i] & correct_mhd_x3) {
-            pG->B3i[k][j][i] -= dtodx2*(emf1[k  ][j+1][i  ] - emf1[k][j][i])-
-                                   dtodx1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
-          }
-        }
-      }
-    }
-#endif /* MHD */
-
-    /* Calculate 1st order L/R states from Uhalf and then fluxes from those
-     * L/R states (replacement for steps 7a-c and 9a-c) for hydro interfaces
-     * flagged above */
-    /* Loop over interfaces, not cell centers */
-    for (k=kb+2; k<=kt-1; k++) {
-      for (j=jb+2; j<=jt-1; j++) {
-        for (i=ib+2; i<=it-1; i++) {
-          if (Ineg[k][j][i] & correct_hydro_x1) {
-            Ul[i].d = Uhalf[k][j][i-1].d;
-            Ul[i].Mx = Uhalf[k][j][i-1].M1;
-            Ul[i].My = Uhalf[k][j][i-1].M2;
-            Ul[i].Mz = Uhalf[k][j][i-1].M3;
-#ifndef BAROTROPIC
-            Ul[i].E = Uhalf[k][j][i-1].E;
-#endif /* BAROTROPIC */
-
-            Ur[i].d = Uhalf[k][j][i].d;
-            Ur[i].Mx = Uhalf[k][j][i].M1;
-            Ur[i].My = Uhalf[k][j][i].M2;
-            Ur[i].Mz = Uhalf[k][j][i].M3;
-#ifndef BAROTROPIC
-            Ur[i].E = Uhalf[k][j][i].E;
-#endif /* BAROTROPIC */
-            Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B1_x1Face[k][j][i]));
-            Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B1_x1Face[k][j][i]));
-
-            fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
-                       MHDARG( B1_x1Face[k][j][i] , ) &x1Flux[k][j][i]);
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x2) {
-            Ul[i].d = Uhalf[k][j-1][i].d;
-            Ul[i].Mx = Uhalf[k][j-1][i].M2;
-            Ul[i].My = Uhalf[k][j-1][i].M3;
-            Ul[i].Mz = Uhalf[k][j-1][i].M1;
-#ifndef BAROTROPIC
-            Ul[i].E = Uhalf[k][j-1][i].E;
-#endif /* BAROTROPIC */
-
-            Ur[i].d = Uhalf[k][j][i].d;
-            Ur[i].Mx = Uhalf[k][j][i].M2;
-            Ur[i].My = Uhalf[k][j][i].M3;
-            Ur[i].Mz = Uhalf[k][j][i].M1;
-#ifndef BAROTROPIC
-            Ur[i].E = Uhalf[k][j][i].E;
-#endif /* BAROTROPIC */
-            Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B2_x2Face[k][j][i]));
-            Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B2_x2Face[k][j][i]));
-
-            fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
-                       MHDARG( B2_x2Face[k][j][i] , ) &x2Flux[k][j][i]);
-        }
-
-          if (Ineg[k][j][i] & correct_hydro_x3) {
-            Ul[i].d = Uhalf[k-1][j][i].d;
-            Ul[i].Mx = Uhalf[k-1][j][i].M3;
-            Ul[i].My = Uhalf[k-1][j][i].M1;
-            Ul[i].Mz = Uhalf[k-1][j][i].M2;
-#ifndef BAROTROPIC
-            Ul[i].E = Uhalf[k-1][j][i].E;
-#endif /* BAROTROPIC */
-
-            Ur[i].d = Uhalf[k][j][i].d;
-            Ur[i].Mx = Uhalf[k][j][i].M3;
-            Ur[i].My = Uhalf[k][j][i].M1;
-            Ur[i].Mz = Uhalf[k][j][i].M2;
-#ifndef BAROTROPIC
-            Ur[i].E = Uhalf[k][j][i].E;
-#endif /* BAROTROPIC */
-            Cons1D_to_Prim1D(&Ul[i],&Wl[i] MHDARG( , &B3_x3Face[k][j][i]));
-            Cons1D_to_Prim1D(&Ur[i],&Wr[i] MHDARG( , &B3_x3Face[k][j][i]));
-
-            fluxes(Ul[i],Ur[i],Wl[i],Wr[i],
-                       MHDARG( B3_x3Face[k][j][i] , ) &x3Flux[k][j][i]);
-          }
-        }
-      }
-    }
-
-   /* Now re-calculate corner emfs and correct interface magnetic fields
-    * (replacement for step 11) for interface fields flagged above */
-#ifdef MHD
-    for (k=kb+2; k<=kt; k++) {
-      for (j=jb+2; j<=jt; j++) {
-        for (i=ib+2; i<=it-1; i++) {
-          if ((Ineg[k][j][i] & correct_mhd_x2) ||
-              (Ineg[k-1][j][i] & correct_mhd_x2) ||
-              (Ineg[k][j][i] & correct_mhd_x3) ||
-              (Ineg[k][j-1][i] & correct_mhd_x3)) {
-            /* integrate_emf1_corner: emf1[k][j][i] */
-
-	    if (x2Flux[k-1][j][i].d > 0.0)
-	      de1_l3 = x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i];
-	    else if (x2Flux[k-1][j][i].d < 0.0)
-	      de1_l3 = x3Flux[k][j][i].Bz - emf1_cc[k-1][j][i];
-	    else {
-	      de1_l3 = 0.5*(x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i] +
-			    x3Flux[k][j  ][i].Bz - emf1_cc[k-1][j  ][i] );
-	    }
-
-	    if (x2Flux[k][j][i].d > 0.0)
-	      de1_r3 = x3Flux[k][j-1][i].Bz - emf1_cc[k][j-1][i];
-	    else if (x2Flux[k][j][i].d < 0.0)
-	      de1_r3 = x3Flux[k][j][i].Bz - emf1_cc[k][j][i];
-	    else {
-	      de1_r3 = 0.5*(x3Flux[k][j-1][i].Bz - emf1_cc[k][j-1][i] +
-			    x3Flux[k][j  ][i].Bz - emf1_cc[k][j  ][i] );
-	    }
-
-	    if (x3Flux[k][j-1][i].d > 0.0)
-	      de1_l2 = -x2Flux[k-1][j][i].By - emf1_cc[k-1][j-1][i];
-	    else if (x3Flux[k][j-1][i].d < 0.0)
-	      de1_l2 = -x2Flux[k][j][i].By - emf1_cc[k][j-1][i];
-	    else {
-	      de1_l2 = 0.5*(-x2Flux[k-1][j][i].By - emf1_cc[k-1][j-1][i]
-			    -x2Flux[k  ][j][i].By - emf1_cc[k  ][j-1][i] );
-	    }
-
-	    if (x3Flux[k][j][i].d > 0.0)
-	      de1_r2 = -x2Flux[k-1][j][i].By - emf1_cc[k-1][j][i];
-	    else if (x3Flux[k][j][i].d < 0.0)
-	      de1_r2 = -x2Flux[k][j][i].By - emf1_cc[k][j][i];
-	    else {
-	      de1_r2 = 0.5*(-x2Flux[k-1][j][i].By - emf1_cc[k-1][j][i]
-			    -x2Flux[k  ][j][i].By - emf1_cc[k  ][j][i] );
-	    }
-
-            emf1[k][j][i] = 0.25*(  x3Flux[k][j][i].Bz + x3Flux[k][j-1][i].Bz
-                                  - x2Flux[k][j][i].By - x2Flux[k-1][j][i].By 
-			          + de1_l2 + de1_r2 + de1_l3 + de1_r3);
-          }
-        }
-      }
-    }
-
-    for (k=kb+2; k<=kt; k++) {
-      for (j=jb+2; j<=jt-1; j++) {
-        for (i=ib+2; i<=it; i++) {
-          if ((Ineg[k][j][i] & correct_mhd_x1) ||
-              (Ineg[k-1][j][i] & correct_mhd_x1) ||
-              (Ineg[k][j][i] & correct_mhd_x3) ||
-              (Ineg[k][j][i-1] & correct_mhd_x3)) {
-            /* integrate_emf2_corner: emf2[k][j][i] */
-
-	    if (x1Flux[k-1][j][i].d > 0.0)
-	      de2_l3 = -x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1];
-	    else if (x1Flux[k-1][j][i].d < 0.0)
-	      de2_l3 = -x3Flux[k][j][i].By - emf2_cc[k-1][j][i];
-	    else {
-	      de2_l3 = 0.5*(-x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1] 
-			    -x3Flux[k][j][i  ].By - emf2_cc[k-1][j][i  ] );
-	    }
-
-	    if (x1Flux[k][j][i].d > 0.0)
-	      de2_r3 = -x3Flux[k][j][i-1].By - emf2_cc[k][j][i-1];
-	    else if (x1Flux[k][j][i].d < 0.0)
-	      de2_r3 = -x3Flux[k][j][i].By - emf2_cc[k][j][i];
-	    else {
-	      de2_r3 = 0.5*(-x3Flux[k][j][i-1].By - emf2_cc[k][j][i-1] 
-			    -x3Flux[k][j][i  ].By - emf2_cc[k][j][i  ] );
-	    }
-
-	    if (x3Flux[k][j][i-1].d > 0.0)
-	      de2_l1 = x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i-1];
-	    else if (x3Flux[k][j][i-1].d < 0.0)
-	      de2_l1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i-1];
-	    else {
-	      de2_l1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i-1] +
-			    x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i-1] );
-	    }
-
-	    if (x3Flux[k][j][i].d > 0.0)
-	      de2_r1 = x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i];
-	    else if (x3Flux[k][j][i].d < 0.0)
-	      de2_r1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i];
-	    else {
-	      de2_r1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
-			    x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
-	    }
-
-	    emf2[k][j][i] = 0.25*(  x1Flux[k][j][i].Bz + x1Flux[k-1][j][i  ].Bz
-                                  - x3Flux[k][j][i].By - x3Flux[k  ][j][i-1].By
-			          + de2_l1 + de2_r1 + de2_l3 + de2_r3);
-          }
-        }
-      }
-    }
-
-    for (k=kb+2; k<=kt-1; k++) {
-      for (j=jb+2; j<=jt; j++) {
-        for (i=ib+2; i<=it; i++) {
-          if ((Ineg[k][j][i] & correct_mhd_x1) ||
-              (Ineg[k][j-1][i] & correct_mhd_x1) ||
-              (Ineg[k][j][i] & correct_mhd_x2) ||
-              (Ineg[k][j][i-1] & correct_mhd_x2)) {
-            /* integrate_emf3_corner: emf3[k][j][i] */
-
-	    if (x1Flux[k][j-1][i].d > 0.0)
-	      de3_l2 = x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1];
-	    else if (x1Flux[k][j-1][i].d < 0.0)
-	      de3_l2 = x2Flux[k][j][i].Bz - emf3_cc[k][j-1][i];
-	    else {
-	      de3_l2 = 0.5*(x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1] + 
-			    x2Flux[k][j][i  ].Bz - emf3_cc[k][j-1][i  ] );
-	    }
-
-	    if (x1Flux[k][j][i].d > 0.0)
-	      de3_r2 = x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1];
-	    else if (x1Flux[k][j][i].d < 0.0)
-	      de3_r2 = x2Flux[k][j][i].Bz - emf3_cc[k][j][i];
-	    else {
-	      de3_r2 = 0.5*(x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1] + 
-			    x2Flux[k][j][i  ].Bz - emf3_cc[k][j][i  ] );
-	    }
-
-	    if (x2Flux[k][j][i-1].d > 0.0)
-	      de3_l1 = -x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i-1];
-	    else if (x2Flux[k][j][i-1].d < 0.0)
-	      de3_l1 = -x1Flux[k][j][i].By - emf3_cc[k][j][i-1];
-	    else {
-	      de3_l1 = 0.5*(-x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i-1]
-			    -x1Flux[k][j  ][i].By - emf3_cc[k][j  ][i-1] );
-	    }
-
-	    if (x2Flux[k][j][i].d > 0.0)
-	      de3_r1 = -x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i];
-	    else if (x2Flux[k][j][i].d < 0.0)
-	      de3_r1 = -x1Flux[k][j][i].By - emf3_cc[k][j][i];
-	    else {
-	      de3_r1 = 0.5*(-x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i]
-			    -x1Flux[k][j  ][i].By - emf3_cc[k][j  ][i] );
-	    }
-
-	    emf3[k][j][i] = 0.25*(  x2Flux[k][j  ][i-1].Bz + x2Flux[k][j][i].Bz
-			          - x1Flux[k][j-1][i  ].By - x1Flux[k][j][i].By
-			          + de3_l1 + de3_r1 + de3_l2 + de3_r2);
-          }
-        }
-      }
-    }
-
-    /* Loop over interfaces, not cell centers */
-    for (k=kb+2; k<=kt-1; k++) {
-      for (j=jb+2; j<=jt-1; j++) {
-        for (i=ib+2; i<=it-1; i++) {
-          if (Ineg[k][j][i] & correct_mhd_x1) {
-            pG->B1i[k][j][i] += dtodx3*(emf2[k+1][j  ][i  ] - emf2[k][j][i])-
-                                   dtodx2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
-          }
-          if (Ineg[k][j][i] & correct_mhd_x2) {
-            pG->B2i[k][j][i] += dtodx1*(emf3[k  ][j  ][i+1] - emf3[k][j][i])-
-                                   dtodx3*(emf1[k+1][j  ][i  ] - emf1[k][j][i]);
-          }
-          if (Ineg[k][j][i] & correct_mhd_x3) {
-            pG->B3i[k][j][i] += dtodx2*(emf1[k  ][j+1][i  ] - emf1[k][j][i])-
-                                   dtodx1*(emf2[k  ][j  ][i+1] - emf2[k][j][i]);
-          }
-        }
-      }
-    }
-#endif /* MHD */
-
-   /* Now correct cell-centered values using 1st order fluxes for hydro
-    * interfaces flagged above (replacement for steps 13a-c) */
-    for (k=kb+2; k<=kt-2; k++) {
-      for (j=jb+2; j<=jt-2; j++) {
-        for (i=ib+2; i<=it-2; i++) {
-          if (Ineg[k][j][i] & correct_hydro_x1) {
-            /* Correct using x1 flux through left interface */
-            pG->U[k][j][i].d +=dtodx1*x1Flux[k][j][i].d ;
-            pG->U[k][j][i].M1+=dtodx1*x1Flux[k][j][i].Mx;
-            pG->U[k][j][i].M2+=dtodx1*x1Flux[k][j][i].My;
-            pG->U[k][j][i].M3+=dtodx1*x1Flux[k][j][i].Mz;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E +=dtodx1*x1Flux[k][j][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j][i+1] & correct_hydro_x1) {
-            /* Correct using x1 flux through right interface */
-            pG->U[k][j][i].d -=dtodx1*x1Flux[k][j][i+1].d;
-            pG->U[k][j][i].M1-=dtodx1*x1Flux[k][j][i+1].Mx;
-            pG->U[k][j][i].M2-=dtodx1*x1Flux[k][j][i+1].My;
-            pG->U[k][j][i].M3-=dtodx1*x1Flux[k][j][i+1].Mz;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E -=dtodx1*x1Flux[k][j][i+1].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x2) {
-            /* Correct using x2 flux through left interface */
-            pG->U[k][j][i].d +=dtodx2*x2Flux[k][j][i].d;
-            pG->U[k][j][i].M1+=dtodx2*x2Flux[k][j][i].Mz;
-            pG->U[k][j][i].M2+=dtodx2*x2Flux[k][j][i].Mx;
-            pG->U[k][j][i].M3+=dtodx2*x2Flux[k][j][i].My;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E +=dtodx2*x2Flux[k][j][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j+1][i] & correct_hydro_x2) {
-            /* Correct using x2 flux through right interface */
-            pG->U[k][j][i].d -=dtodx2*x2Flux[k][j+1][i].d;
-            pG->U[k][j][i].M1-=dtodx2*x2Flux[k][j+1][i].Mz;
-            pG->U[k][j][i].M2-=dtodx2*x2Flux[k][j+1][i].Mx;
-            pG->U[k][j][i].M3-=dtodx2*x2Flux[k][j+1][i].My;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E -=dtodx2*x2Flux[k][j+1][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k][j][i] & correct_hydro_x3) {
-            /* Correct using x3 flux through left interface */
-            pG->U[k][j][i].d +=dtodx3*x3Flux[k][j][i].d;
-            pG->U[k][j][i].M1+=dtodx3*x3Flux[k][j][i].My;
-            pG->U[k][j][i].M2+=dtodx3*x3Flux[k][j][i].Mz;
-            pG->U[k][j][i].M3+=dtodx3*x3Flux[k][j][i].Mx;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E +=dtodx3*x3Flux[k][j][i].E;
-#endif /* BAROTROPIC */
-          }
-
-          if (Ineg[k+1][j][i] & correct_hydro_x3) {
-            /* Correct using x3 flux through right interface */
-            pG->U[k][j][i].d -=dtodx3*x3Flux[k+1][j][i].d;
-            pG->U[k][j][i].M1-=dtodx3*x3Flux[k+1][j][i].My;
-            pG->U[k][j][i].M2-=dtodx3*x3Flux[k+1][j][i].Mz;
-            pG->U[k][j][i].M3-=dtodx3*x3Flux[k+1][j][i].Mx;
-#ifndef BAROTROPIC
-            pG->U[k][j][i].E -=dtodx3*x3Flux[k+1][j][i].E;
-#endif /* BAROTROPIC */
-          }
-        }
-      }
-    }
-
-    /* Now check for negative cell-centered densities again */
-    negcount = 0;
-    for (k=ks; k<=ke; k++) {
-      for (j=js; j<=je; j++) {
-        for (i=is; i<=ie; i++) {
-          if (pG->U[k][j][i].d <= 0.0) {
-            ath_perr(-1,"15: pG->U[%d][%d][%d].d = %5.4e\n",
-                          pG->kdisp+k,pG->jdisp+j,pG->idisp+i,
-                          pG->U[k][j][i].d);
-            negcount++;
-          }
-        }
-      }
-    }
-
-    if (negcount > 0) ath_error("Negative densities persist.\n");
-  } /* original negcount > 0 */
-
-  return;
-}
-#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #endif /* VL_INTEGRATOR */

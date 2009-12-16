@@ -27,20 +27,26 @@ static float **data=NULL;
  *============================================================================*/
 
 static void compute_rgb(double data, double min, double max, int *pR, int *pG,
-                    int *pB, Output *p);
+                    int *pB, OutputS *p);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* output_ppm:  output PPM image */
 
-void output_ppm(Grid *pGrid, Domain *pD, Output *pOut)
+void output_ppm(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid;
   FILE *pfile;
   char *fname;
   int nx1,nx2,i,j;
   float dmin, dmax;
   int dnum = pOut->num;
   int red,green,blue;
+
+/* Return if Grid is not on this processor */
+
+  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pGrid == NULL) return;
 
 /* check output data is 2D (output must be a 2D slice for 3D runs) */
   if (pOut->ndim != 2) {
@@ -51,7 +57,7 @@ void output_ppm(Grid *pGrid, Domain *pD, Output *pOut)
 /* construct output filename.  pOut->id will either be name of variable,
  * if 'id=...' was included in <ouput> block, or 'outN' where N is number of
  * <output> block.  */
-  if((fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"ppm"))
+  if((fname = ath_fname(NULL,pM->outfilename,num_digit,dnum,pOut->id,"ppm"))
      == NULL){
     ath_error("[output_ppm]: Error constructing filename\n");
     return;
@@ -123,7 +129,7 @@ void output_ppm(Grid *pGrid, Domain *pD, Output *pOut)
 /* compute_rgb: converts data into RGB values using palette in Output struct  */
 
 static void compute_rgb(double data, double min, double max,
-  int *R, int *G, int *B, Output *pOut)
+  int *R, int *G, int *B, OutputS *pOut)
 {
   int i;
   float x, *rgb = pOut->rgb, *der = pOut->der;

@@ -38,14 +38,15 @@ static Real bxl,byl,bzl;
  * shk_cloud_iib() - fixes BCs on L-x1 (left edge) of grid to postshock flow.
  *============================================================================*/
 
-void shk_cloud_iib(Grid *pGrid);
+void shk_cloud_iib(GridS *pGrid);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,iprob;
   Real jump1, jump2, jump3;
@@ -56,8 +57,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 #endif /* MHD */
   Real dr,pr,ur;
 
-/* Read inpuot parameters */
+/* Read input parameters */
 
+printf("start problem\n");
   xshock = -2.0;
   rad    = 1.0;
   Mach = par_getd("problem","Mach");
@@ -211,8 +213,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Set IIB value function pointer */
 
-  set_bvals_mhd_fun(left_x1,shk_cloud_iib);
+  if (pDomain->Disp[0] == 0) set_bvals_mhd_fun(pDomain,left_x1,shk_cloud_iib);
 
+printf("done problem\n");
   return;
 }
 
@@ -228,24 +231,24 @@ void problem(Grid *pGrid, Domain *pDomain)
  * color()   - returns first passively advected scalar s[0]
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
 #if (NSCALARS > 0)
-static Real color(const Grid *pG, const int i, const int j, const int k)
+static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
 }
 #endif
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
@@ -254,16 +257,16 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
@@ -275,7 +278,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * Note quantities at this boundary are held fixed at the downstream state
  */
 
-void shk_cloud_iib(Grid *pGrid)
+void shk_cloud_iib(GridS *pGrid)
 {
   int i=0,j=0,k=0;
   int js,je,ks,ke;

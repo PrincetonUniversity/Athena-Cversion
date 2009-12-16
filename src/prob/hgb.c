@@ -41,6 +41,8 @@
 #include "globals.h"
 #include "prototypes.h"
 
+Real Lx,Ly,Lz; /* root grid size, global to share with output functions */
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * ran2()          - random number generator from NR
@@ -51,19 +53,19 @@
 
 static double ran2(long int *idum);
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
-static Real expr_dV2(const Grid *pG, const int i, const int j, const int k);
-static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
-static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k);
+static Real expr_dV2(const GridS *pG, const int i, const int j, const int k);
+static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
+static Real hst_rho_dVy2(const GridS *pG,const int i, const int j, const int k);
 #ifdef ADIABATIC
-static Real hst_E_total(const Grid *pG, const int i, const int j, const int k);
+static Real hst_E_total(const GridS *pG, const int i, const int j, const int k);
 #endif
 #ifdef MHD
-static Real hst_Bx(const Grid *pG, const int i, const int j, const int k);
-static Real hst_By(const Grid *pG, const int i, const int j, const int k);
-static Real hst_Bz(const Grid *pG, const int i, const int j, const int k);
-static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k);
-static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k);
-static Real hst_dBy(const Grid *pG, const int i, const int j, const int k);
+static Real hst_Bx(const GridS *pG, const int i, const int j, const int k);
+static Real hst_By(const GridS *pG, const int i, const int j, const int k);
+static Real hst_Bz(const GridS *pG, const int i, const int j, const int k);
+static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k);
+static Real hst_dEw2(const GridS *pG, const int i, const int j, const int k);
+static Real hst_dBy(const GridS *pG, const int i, const int j, const int k);
 #endif /* MHD */
 
 /*=========================== PUBLIC FUNCTIONS =================================
@@ -71,8 +73,9 @@ static Real hst_dBy(const Grid *pG, const int i, const int j, const int k);
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   FILE *fp;
   Real xFP[160],dFP[160],vxFP[160],vyFP[160];
   int is = pGrid->is, ie = pGrid->ie;
@@ -80,13 +83,14 @@ void problem(Grid *pGrid, Domain *pDomain)
   int ks = pGrid->ks, ke = pGrid->ke;
   int ixs,jxs,kxs,i,j,k,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
-  Real x1,x2,x3,xmin,xmax,Lx,Ly,Lz;
+  Real x1,x2,x3,xmin,xmax;
   Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
-  Real beta,B0,kx,ky,kz,amp;
+  Real beta=1.0,B0,kx,ky,kz,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
+  static int frst=1;  /* flag so new history variables enrolled only once */
 
-  if (pGrid->Nx2 == 1){
+  if (pGrid->Nx[1] == 1){
     ath_error("[problem]: HGB only works on a 2D or 3D grid\n");
   }
 
@@ -94,8 +98,10 @@ void problem(Grid *pGrid, Domain *pDomain)
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
+#ifdef MHD
   beta = par_getd("problem","beta");
   ifield = par_geti_def("problem","ifield", 1);
+#endif
   ipert = par_geti_def("problem","ipert", 1);
 
 /* Compute field strength based on beta.  */
@@ -105,23 +111,15 @@ void problem(Grid *pGrid, Domain *pDomain)
   B0 = sqrt((double)(2.0*pres/beta));
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
-  ixs = pGrid->is + pGrid->idisp;
-  jxs = pGrid->js + pGrid->jdisp;
-  kxs = pGrid->ks + pGrid->kdisp;
-  iseed = -1 - (ixs + pDomain->Nx1*(jxs + pDomain->Nx2*kxs));
+  ixs = pGrid->Disp[0];
+  jxs = pGrid->Disp[1];
+  kxs = pGrid->Disp[2];
+  iseed = -1 - (ixs + pDomain->Nx[0]*(jxs + pDomain->Nx[1]*kxs));
 
 /* Initialize boxsize */
-  xmin = par_getd("grid","x1min");
-  xmax = par_getd("grid","x1max");
-  Lx = xmax - xmin;
-
-  xmin = par_getd("grid","x2min");
-  xmax = par_getd("grid","x2max");
-  Ly = xmax - xmin;
-
-  xmin = par_getd("grid","x3min");
-  xmax = par_getd("grid","x3max");
-  Lz = xmax - xmin;
+  Lx = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
+  Lz = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
 
 /* initialize wavenumbers, given input number of waves per L */
   nwx = par_geti_def("problem","nwx",1);
@@ -134,7 +132,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* For PF density wave test, read data from file */
 
   if (ipert == 4) {
-    if (pGrid->Nx1 == 160) {
+    if (pGrid->Nx[0] == 160) {
       if((fp = fopen("Data-160-FPwave.dat","r")) == NULL)
          ath_error("Error opening Data-160-FPwave.dat\n");
       for (i=0; i<160; i++) {
@@ -142,7 +140,7 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
     }
 
-    if (pGrid->Nx1 == 40) {
+    if (pGrid->Nx[0] == 40) {
       if((fp = fopen("Data-40-FPwave.dat","r")) == NULL)
          ath_error("Error opening Data-40-FPwave.dat\n");
       for (i=0; i<40; i++) {
@@ -150,9 +148,9 @@ void problem(Grid *pGrid, Domain *pDomain)
       }
     }
 
-    xmin = par_getd("grid","x1min");
+    xmin = pDomain->RootMinX[0];
     if (xmin != -4.7965) ath_error("[hgb]: iprob=4 requires xmin=-4.7965\n");
-    xmax = par_getd("grid","x1max");
+    xmax = pDomain->RootMaxX[0];
     if (xmax != 4.7965) ath_error("[hgb]: iprob=4 requires xmax=4.7965\n");
   }
 
@@ -209,9 +207,9 @@ void problem(Grid *pGrid, Domain *pDomain)
         rvz = 0.0;
       }
       if (ipert == 4) {
-        rd = dFP[i+pGrid->idisp];
-        rvx = vxFP[i+pGrid->idisp];
-        rvy = vyFP[i+pGrid->idisp] + qshear*Omega_0*x1; /* subtract mean flow */
+        rd = dFP[i-is];
+        rvx = vxFP[i-is];
+        rvy = vyFP[i-is] + qshear*Omega_0*x1; /*subtract mean vy*/
         rvz = 0.0;
       }
 /* Note the initial conditions in JGG for this test are incorrect. */
@@ -244,16 +242,18 @@ void problem(Grid *pGrid, Domain *pDomain)
         rbz = 0.0;
       }
       if (ipert == 7) {
+#ifdef ISOTHERMAL
         double kappa2 = 2.0*(2.0 - qshear)*Omega_0*Omega_0;
         double aa = (kx*kx + ky*ky)*Iso_csound*Iso_csound + kappa2;
         double bb = 2.0*qshear*Omega_0*ky*Iso_csound;
         double denom = aa*aa + bb*bb;
-        double rd_hat =             (ky*Iso_csound*bb - 2.0*Omega_0*aa)*amp/denom;
-        double px_hat = -Iso_csound*(ky*Iso_csound*aa + 2.0*Omega_0*bb)*amp/denom;
+        double rd_hat =            (ky*Iso_csound*bb -2.0*Omega_0*aa)*amp/denom;
+        double px_hat =-Iso_csound*(ky*Iso_csound*aa +2.0*Omega_0*bb)*amp/denom;
         double py_hat = (amp + ky*px_hat + (2.0-qshear)*Omega_0*rd_hat)/kx;
         rd  = 1.0 + rd_hat*cos((double)(kx*x1 + ky*x2));
         rvx =       px_hat*sin((double)(kx*x1 + ky*x2))/rd;
         rvy =       py_hat*sin((double)(kx*x1 + ky*x2))/rd;
+#endif
         rvz = 0.0;
       }
 
@@ -352,21 +352,24 @@ void problem(Grid *pGrid, Domain *pDomain)
 
   StaticGravPot = ShearingBoxPot;
 
-/* enroll new history variables */
+/* enroll new history variables, only once  */
 
-  dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
-  dump_history_enroll(hst_rho_dVy2, "<rho dVy^2>");
+  if (frst == 1) {
+    dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
+    dump_history_enroll(hst_rho_dVy2, "<rho dVy^2>");
 #ifdef ADIABATIC
-  dump_history_enroll(hst_E_total, "<E + rho Phi>");
+    dump_history_enroll(hst_E_total, "<E + rho Phi>");
 #endif
 #ifdef MHD
-  dump_history_enroll(hst_Bx, "<Bx>");
-  dump_history_enroll(hst_By, "<By>");
-  dump_history_enroll(hst_Bz, "<Bz>");
-  dump_history_enroll(hst_BxBy, "<-Bx By>");
-  if (ipert == 5) dump_history_enroll(hst_dEw2, "<dEw2>");
-  if (ipert == 6) dump_history_enroll(hst_dBy, "<dBy>");
+    dump_history_enroll(hst_Bx, "<Bx>");
+    dump_history_enroll(hst_By, "<By>");
+    dump_history_enroll(hst_Bz, "<Bz>");
+    dump_history_enroll(hst_BxBy, "<-Bx By>");
+    if (ipert == 5) dump_history_enroll(hst_dEw2, "<dEw2>");
+    if (ipert == 6) dump_history_enroll(hst_dBy, "<dBy>");
 #endif /* MHD */
+    frst = 0;
+  }
 
 /* With viscosity and/or resistivity, read eta_Ohm and nu_V */
 #ifdef OHMIC
@@ -390,7 +393,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
@@ -399,7 +402,7 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
  * 'problem_read_restart' must enroll gravity on restarts
  */
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
 /* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu_V */
 
@@ -434,21 +437,21 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 /* Get_user_expression computes dVy */
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"dVy")==0) return expr_dV2;
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
 
@@ -546,7 +549,7 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
  * expr_dV2: computes delta(Vy) 
  */
 
-static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
+static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -564,7 +567,7 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
  * hst_E_total: total energy (including tidal potential).
  */
 
-static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j, const int k)
+static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -576,7 +579,7 @@ static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j, const int k)
 #endif
 }
 
-static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k)
+static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -589,7 +592,7 @@ static Real hst_rho_dVy2(const Grid *pG, const int i, const int j, const int k)
 }
 
 #ifdef ADIABATIC
-static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
+static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -605,27 +608,27 @@ static Real hst_E_total(const Grid *pG, const int i, const int j, const int k)
  */
 
 #ifdef MHD
-static Real hst_Bx(const Grid *pG, const int i, const int j, const int k)
+static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B1c;
 }
 
-static Real hst_By(const Grid *pG, const int i, const int j, const int k)
+static Real hst_By(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B2c;
 }
 
-static Real hst_Bz(const Grid *pG, const int i, const int j, const int k)
+static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B3c;
 }
 
-static Real hst_BxBy(const Grid *pG, const int i, const int j, const int k)
+static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;
 }
 
-static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k)
+static Real hst_dEw2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVx,dVy,dVz,dBz;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -640,23 +643,13 @@ static Real hst_dEw2(const Grid *pG, const int i, const int j, const int k)
     + pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + dBz*dBz); 
 }
 
-static Real hst_dBy(const Grid *pG, const int i, const int j, const int k)
+static Real hst_dBy(const GridS *pG, const int i, const int j, const int k)
 {
   double fkx, fky, fkz; /* Fourier kx, ky */
   double dBy;
-  Real xmin,xmax,Lx,Ly,Lz,x1,x2,x3;
+  Real x1,x2,x3;
 
-  xmin = par_getd("grid","x1min");
-  xmax = par_getd("grid","x1max");
-  Lx = xmax - xmin;
-
-  xmin = par_getd("grid","x2min");
-  xmax = par_getd("grid","x2max");
-  Ly = xmax - xmin;
-
-  xmin = par_getd("grid","x3min");
-  xmax = par_getd("grid","x3max");
-  Lz = xmax - xmin;
+/* Lx,Ly, and Lz are globals */
 
   fky = 2.0*PI/Ly;
   fkx = -4.0*PI/Lx + qshear*Omega_0*fky*pG->time;

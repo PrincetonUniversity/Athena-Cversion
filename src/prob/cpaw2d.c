@@ -42,7 +42,7 @@
  * Vector potential A3 defined in prvate function below.  B_par, etc. must
  * be defined as globals to be used by A3() */
  
-static Gas **Soln=NULL;
+static Gas **RootSoln=NULL;
 static Real A3(const Real x1, const Real x2);
 Real sin_a, cos_a, b_par, b_perp;
 Real k_par;
@@ -50,66 +50,74 @@ Real k_par;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
+  Gas **Soln;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
   int nx1, nx2;
   Real angle;    /* Angle the wave direction makes with the x1-direction */
-  Real dx1 = pGrid->dx1;
-  Real dx2 = pGrid->dx2;
-  Real x1,x2,x3,cs,sn;
+  Real x1size,x2size,x1,x2,x3,cs,sn;
   Real v_par, v_perp, den, pres;
   Real lambda; /* Wavelength */
  
   nx1 = (ie - is + 1) + 2*nghost;
   nx2 = (je - js + 1) + 2*nghost;
 
-  if (pGrid->Nx1 == 1) {
-    ath_error("[cpaw2d] Grid must be 2D with Nx1>1");
+  if (pGrid->Nx[1] == 1) {
+    ath_error("[cpaw2d] Grid must be 2D");
   }
 
   if ((Soln = (Gas**)calloc_2d_array(nx2,nx1,sizeof(Gas))) == NULL)
     ath_error("[pgflow]: Error allocating memory for Soln\n");
 
+  if (pDomain->Level == 0){
+    if ((RootSoln = (Gas**)calloc_2d_array(nx2,nx1,sizeof(Gas))) == NULL)
+      ath_error("[pgflow]: Error allocating memory for RootSoln\n");
+  }
+
 /* An angle =  0.0 is a wave aligned with the x1-direction. */
 /* An angle = 90.0 is a wave aligned with the x2-direction. */
 
   angle = par_getd("problem","angle");
+  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
 
 /* Compute the sin and cos of the angle and the wavelength. */
+/* Put one wavelength in the grid */
 
   if (angle == 0.0) {
     sin_a = 0.0;
     cos_a = 1.0;
-    lambda = pGrid->Nx1*pGrid->dx1; /* Put one wavelength in the grid */
+    lambda = x1size;
   }
   else if (angle == 90.0) {
     sin_a = 1.0;
     cos_a = 0.0;
-    lambda = pGrid->Nx2*pGrid->dx2; /* Put one wavelength in the grid */
+    lambda = x2size;
   }
   else {
 
 /* We put 1 wavelength in each direction.  Hence the wavelength
- *     lambda = pGrid->Nx1*pGrid->dx1*cos_a;
- *     AND  lambda = pGrid->Nx2*pGrid->dx2*sin_a;
- *     are both satisfied. */
+ *      lambda = (pDomain->RootMaxX[0] - pDomain->RootMinX[0])*cos_a
+ *  AND lambda = (pDomain->RootMaxX[1] - pDomain->RootMinX[1])*sin_a;
+ *  are both satisfied. */
 
-    if((pGrid->Nx1*pGrid->dx1) == (pGrid->Nx2*pGrid->dx2)){
+    if(x1size == x2size){
       cos_a = sin_a = sqrt(0.5);
     }
     else{
-      angle = atan((double)(pGrid->Nx1*pGrid->dx1)/(pGrid->Nx2*pGrid->dx2));
+      angle = atan((double)(x1size/x2size));
       sin_a = sin(angle);
       cos_a = cos(angle);
     }
 /* Use the larger angle to determine the wavelength */
     if (cos_a >= sin_a) {
-      lambda = pGrid->Nx1*pGrid->dx1*cos_a;
+      lambda = x1size*cos_a;
     } else {
-      lambda = pGrid->Nx2*pGrid->dx2*sin_a;
+      lambda = x2size*sin_a;
     }
   }
 
@@ -141,13 +149,13 @@ void problem(Grid *pGrid, Domain *pDomain)
         x1 -= 0.5*pGrid->dx1;
         x2 -= 0.5*pGrid->dx2;
 
-        pGrid->B1i[k][j][i] = -(A3(x1,x2+dx2) - A3(x1,x2))/dx2;
-        pGrid->B2i[k][j][i] =  (A3(x1+dx1,x2) - A3(x1,x2))/dx1;
+        pGrid->B1i[k][j][i] = -(A3(x1,(x2+pGrid->dx2)) - A3(x1,x2))/pGrid->dx2;
+        pGrid->B2i[k][j][i] =  (A3((x1+pGrid->dx1),x2) - A3(x1,x2))/pGrid->dx1;
         pGrid->B3i[k][j][i] = b_perp*cs;
       }
     }
   }
-  if (pGrid->Nx3 > 1) {
+  if (pGrid->Nx[2] > 1) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie+1; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
@@ -194,6 +202,30 @@ void problem(Grid *pGrid, Domain *pDomain)
     }
   }
 
+/* save solution on root grid */
+
+  if (pDomain->Level == 0) {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      RootSoln[j][i].d  = Soln[j][i].d ;
+      RootSoln[j][i].M1 = Soln[j][i].M1;
+      RootSoln[j][i].M2 = Soln[j][i].M2;
+      RootSoln[j][i].M3 = Soln[j][i].M3;
+#ifndef ISOTHERMAL
+      RootSoln[j][i].E  = Soln[j][i].E ;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+      RootSoln[j][i].B1c = Soln[j][i].B1c;
+      RootSoln[j][i].B2c = Soln[j][i].B2c;
+      RootSoln[j][i].B3c = Soln[j][i].B3c;
+#endif
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        RootSoln[j][i].s[n] = Soln[j][i].s[n];
+#endif
+    }}
+  }
+
   return;
 }
 
@@ -209,26 +241,26 @@ void problem(Grid *pGrid, Domain *pDomain)
  * A3() - computes vector potential to initialize fields
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
@@ -238,18 +270,14 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pGrid;
   int i,j,is,ie,js,je,ks,Nx1,Nx2;
   Real rms_error=0.0;
   Gas error;
   FILE *fp;
   char *fname;
-  is = pGrid->is; ie = pGrid->ie;
-  js = pGrid->js; je = pGrid->je;
-  ks = pGrid->ks;
-  Nx1 = (ie-is+1);
-  Nx2 = (je-js+1);
   error.d = 0.0;
   error.M1 = 0.0;
   error.M2 = 0.0;
@@ -261,19 +289,30 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
   error.E = 0.0;
 #endif /* ISOTHERMAL */
 
+/* Compute error only on root Grid, which is in Domain[0][0] */
+
+  pGrid=pM->Domain[0][0].Grid;
+  if (pGrid == NULL) return;
+
+  is = pGrid->is; ie = pGrid->ie;
+  js = pGrid->js; je = pGrid->je;
+  ks = pGrid->ks;
+  Nx1 = (ie-is+1);
+  Nx2 = (je-js+1);
+
 /* compute L1 error in each variable, and rms total error */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      error.d   += fabs(pGrid->U[ks][j][i].d   - Soln[j][i].d  );
-      error.M1  += fabs(pGrid->U[ks][j][i].M1  - Soln[j][i].M1 );
-      error.M2  += fabs(pGrid->U[ks][j][i].M2  - Soln[j][i].M2 );
-      error.M3  += fabs(pGrid->U[ks][j][i].M3  - Soln[j][i].M3 );
-      error.B1c += fabs(pGrid->U[ks][j][i].B1c - Soln[j][i].B1c);
-      error.B2c += fabs(pGrid->U[ks][j][i].B2c - Soln[j][i].B2c);
-      error.B3c += fabs(pGrid->U[ks][j][i].B3c - Soln[j][i].B3c);
+      error.d   += fabs(pGrid->U[ks][j][i].d   - RootSoln[j][i].d  );
+      error.M1  += fabs(pGrid->U[ks][j][i].M1  - RootSoln[j][i].M1 );
+      error.M2  += fabs(pGrid->U[ks][j][i].M2  - RootSoln[j][i].M2 );
+      error.M3  += fabs(pGrid->U[ks][j][i].M3  - RootSoln[j][i].M3 );
+      error.B1c += fabs(pGrid->U[ks][j][i].B1c - RootSoln[j][i].B1c);
+      error.B2c += fabs(pGrid->U[ks][j][i].B2c - RootSoln[j][i].B2c);
+      error.B3c += fabs(pGrid->U[ks][j][i].B3c - RootSoln[j][i].B3c);
 #ifndef ISOTHERMAL
-      error.E   += fabs(pGrid->U[ks][j][i].E   - Soln[j][i].E  );
+      error.E   += fabs(pGrid->U[ks][j][i].E   - RootSoln[j][i].E  );
 #endif /* ISOTHERMAL */
     }
   }

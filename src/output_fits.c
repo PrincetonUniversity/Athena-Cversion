@@ -22,21 +22,27 @@
  *   output_fits_3d() - write fits file for 3D data
  *============================================================================*/
 
-void output_fits_2d(Grid *pGrid, Output *pOut, FILE *pFile);
-void output_fits_3d(Grid *pGrid, Output *pOut, FILE *pFile);
+void output_fits_2d(GridS *pGrid, OutputS *pOut, FILE *pFile);
+void output_fits_3d(GridS *pGrid, OutputS *pOut, FILE *pFile);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* output_fits:  open file, call 2D/3D writer; called by data_ouput  */
 
-void output_fits(Grid *pGrid, Domain *pD, Output *pOut)
+void output_fits(MeshS *pM, OutputS *pOut)
 {
+  GridS *pGrid;
   FILE *pFile;
   char *fname;
   int dnum = pOut->num;
 
+/* Return if Grid is not on this processor */
+
+  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
+  if (pGrid == NULL) return;
+
 /* construct output filename */
-  fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,pOut->id,"fits");
+  fname = ath_fname(NULL,pM->outfilename,num_digit,dnum,pOut->id,"fits");
   if (fname == NULL) {
     ath_error("[output_fits]: Error constructing output filename\n");
     return;
@@ -67,14 +73,14 @@ void output_fits(Grid *pGrid, Domain *pD, Output *pOut)
 /*----------------------------------------------------------------------------*/
 /* output_fits_2d: writes 2D data  */
 
-void output_fits_2d(Grid *pGrid, Output *pOut, FILE *pFile)
+void output_fits_2d(GridS *pG, OutputS *pOut, FILE *pFile)
 {
   int n, nx1, nx2;
   float **data, dmin, dmax, zero = 0.0;
   int recsize, ncard = 0;
   char card[81];
 
-  data = subset2(pGrid,pOut);
+  data = subset2(pG,pOut);
   nx1 = pOut->Nx1;     /* we know it's a 2dim image */
   nx2 = pOut->Nx2;
   minmax2(data,nx2,nx1,&dmin,&dmax);
@@ -82,22 +88,22 @@ void output_fits_2d(Grid *pGrid, Output *pOut, FILE *pFile)
   ncard = 0;
   sprintf(card,"SIMPLE  = T");
   fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"BITPIX  = -32");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS   = 2");             fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS1  = %d",nx1);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS2  = %d",nx2);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRPIX1  = %g",1.0);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRPIX2  = %g",1.0);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CDELT1  = %g",pGrid->dx1); fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CDELT2  = %g",pGrid->dx2); fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL1  = %g",pGrid->x1_0);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL2  = %g",pGrid->x2_0);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CTYPE1  = 'X'");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CTYPE2  = 'Y'");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"DATAMIN = %g",dmin);       fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"DATAMAX = %g",dmax);       fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"TIME    = %g",pGrid->time);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"END");                     fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"BITPIX  = -32");          fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS   = 2");            fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS1  = %d",nx1);       fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS2  = %d",nx2);       fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRPIX1  = %g",1.0);       fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRPIX2  = %g",1.0);       fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CDELT1  = %g",pG->dx1);   fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CDELT2  = %g",pG->dx2);   fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL1  = %g",pG->x1min); fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL2  = %g",pG->x2min); fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CTYPE1  = 'X'");          fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CTYPE2  = 'Y'");          fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"DATAMIN = %g",dmin);      fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"DATAMAX = %g",dmax);      fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"TIME    = %g",pG->time);  fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"END");                    fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card," ");
 
 /* better make sure we never wrote more than 2880/80 here ... */
@@ -134,7 +140,7 @@ void output_fits_2d(Grid *pGrid, Output *pOut, FILE *pFile)
 /*----------------------------------------------------------------------------*/
 /* output_fits_3d: writes 3D data   */
 
-void output_fits_3d(Grid *pGrid, Output *pOut, FILE *pFile)
+void output_fits_3d(GridS *pG, OutputS *pOut, FILE *pFile)
 {
   int ndata[3],i,j,k,n;
   float ***data, dmin, dmax, zero = 0.0;
@@ -146,32 +152,32 @@ void output_fits_3d(Grid *pGrid, Output *pOut, FILE *pFile)
   ndata[1] = pOut->Nx2;
   ndata[2] = pOut->Nx3;
 
-  data = subset3(pGrid,pOut);
+  data = subset3(pG,pOut);
   minmax3(data, ndata[2], ndata[1], ndata[0], &dmin, &dmax);
 
   ncard = 0;
-  sprintf(card,"SIMPLE  = T");             fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"BITPIX  = -32");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS   = 3");             fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS1  = %d",ndata[0]);   fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS2  = %d",ndata[1]);   fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"NAXIS3  = %d",ndata[2]);   fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRPIX1  = %g",1.0);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRPIX2  = %g",1.0);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRPIX3  = %g",1.0);        fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CDELT1  = %g",pGrid->dx1); fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CDELT2  = %g",pGrid->dx2); fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CDELT3  = %g",pGrid->dx2); fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL1  = %g",pGrid->x1_0);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL2  = %g",pGrid->x2_0);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL3  = %g",pGrid->x3_0);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CTYPE1  = 'X'");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CTYPE2  = 'Y'");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CTYPE3  = 'Z'");           fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"TIME    = %g",pGrid->time);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"DATAMIN = %g",dmin);       fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"DATAMAX = %g",dmax);       fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"END");                     fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"SIMPLE  = T");           fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"BITPIX  = -32");         fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS   = 3");           fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS1  = %d",ndata[0]); fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS2  = %d",ndata[1]); fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"NAXIS3  = %d",ndata[2]); fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRPIX1  = %g",1.0);      fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRPIX2  = %g",1.0);      fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRPIX3  = %g",1.0);      fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CDELT1  = %g",pG->dx1);  fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CDELT2  = %g",pG->dx2);  fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CDELT3  = %g",pG->dx2);  fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL1  = %g",pG->x1min);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL2  = %g",pG->x2min);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL3  = %g",pG->x3min);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CTYPE1  = 'X'");         fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CTYPE2  = 'Y'");         fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CTYPE3  = 'Z'");         fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"TIME    = %g",pG->time);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"DATAMIN = %g",dmin);     fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"DATAMAX = %g",dmax);     fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"END");                   fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card," ");
 
 /* better make sure we never wrote more than 2880/80 here ... */

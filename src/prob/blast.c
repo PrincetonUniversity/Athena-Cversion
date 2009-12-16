@@ -22,8 +22,9 @@
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid=(pDomain->Grid);
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
@@ -34,7 +35,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 #ifdef SPECIAL_RELATIVITY
   Real w, gamma, gamma2, b2, BdotV, magB, Pt;
- Real b[4];
+  Real b[4];
 #endif
 
   rin = par_getd("problem","radius");
@@ -42,8 +43,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   prat = par_getd("problem","prat");
 #ifdef MHD
   b0 = par_getd("problem","b0");
-#endif
   theta = (PI/180.0)*par_getd("problem","angle");
+#endif
 
 /* setup uniform ambient medium with spherical over-pressured region */
 
@@ -164,29 +165,29 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+GasFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
