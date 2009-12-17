@@ -19,7 +19,7 @@
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d
+ *   integrate_3d_vl()
  *   integrate_destruct_3d()
  *   integrate_init_3d()
  *============================================================================*/
@@ -82,7 +82,7 @@ static void integrate_emf3_corner(const GridS *pG);
 /* integrate_3d: 3D van Leer unsplit integrator for MHD. 
  */
 
-void integrate_3d(DomainS *pD)
+void integrate_3d_vl(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
@@ -124,6 +124,10 @@ void integrate_3d(DomainS *pD)
   int jb = jl+3, jt = ju-3;
   int kb = kl+3, kt = ku-3;
 #endif /* THIRD_ORDER */
+#ifdef STATIC_MESH_REFINEMENT
+  int ncg,npg,dim;
+  int ii,ics,ice,jj,jcs,jce,kk,kcs,kce,ips,ipe,jps,jpe,kps,kpe;
+#endif
 
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;
@@ -1135,6 +1139,303 @@ void integrate_3d(DomainS *pD)
     }
   }
 #endif /* MHD */
+
+#ifdef STATIC_MESH_REFINEMENT
+/*--- Step 12e -----------------------------------------------------------------
+ * With SMR, store fluxes at boundaries of child and parent grids.  */
+/* Loop over all child grids ------------------*/
+
+  for (ncg=0; ncg<pG->NCGrid; ncg++) {
+
+/* x1-boundaries of child Grids (interior to THIS Grid) */
+
+    for (dim=0; dim<2; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->CGrid[ncg].ijks[0];
+        if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
+        jcs = pG->CGrid[ncg].ijks[1];
+        jce = pG->CGrid[ncg].ijke[1];
+        kcs = pG->CGrid[ncg].ijks[2];
+        kce = pG->CGrid[ncg].ijke[2];
+
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (j=jcs, jj=0; j<=jce; j++, jj++){
+            pG->CGrid[ncg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz;
+#ifndef BAROTROPIC
+            pG->CGrid[ncg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B1c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n];
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kcs, kk=0; k<=kce+1; k++, kk++){
+          for (j=jcs, jj=0; j<=jce; j++, jj++){
+            pG->CGrid[ncg].myEMF2[dim][kk][jj] = emf2[k][j][i];
+          }
+        }
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (j=jcs, jj=0; j<=jce+1; j++, jj++){
+            pG->CGrid[ncg].myEMF3[dim][kk][jj] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x2-boundaries of child Grids (interior to THIS Grid) */
+
+    for (dim=2; dim<4; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        ics = pG->CGrid[ncg].ijks[0];
+        ice = pG->CGrid[ncg].ijke[0];
+        if (dim==2) j = pG->CGrid[ncg].ijks[1];
+        if (dim==3) j = pG->CGrid[ncg].ijke[1] + 1;
+        kcs = pG->CGrid[ncg].ijks[2];
+        kce = pG->CGrid[ncg].ijke[2];
+
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My;
+#ifndef BAROTROPIC
+            pG->CGrid[ncg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B2c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n];
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kcs, kk=0; k<=kce+1; k++, kk++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myEMF1[dim][kk][ii] = emf1[k][j][i];
+          }
+        }
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (i=ics, ii=0; i<=ice+1; i++, ii++){
+            pG->CGrid[ncg].myEMF3[dim][kk][ii] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x3-boundaries of child Grids (interior to THIS Grid) */
+
+    for (dim=4; dim<6; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        ics = pG->CGrid[ncg].ijks[0];
+        ice = pG->CGrid[ncg].ijke[0];
+        jcs = pG->CGrid[ncg].ijks[1];
+        jce = pG->CGrid[ncg].ijke[1];
+        if (dim==4) k = pG->CGrid[ncg].ijks[2];
+        if (dim==5) k = pG->CGrid[ncg].ijke[2] + 1;
+
+        for (j=jcs, jj=0; j<=jce; j++, jj++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx;
+#ifndef BAROTROPIC
+            pG->CGrid[ncg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B3c = 0.0;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n];
+#endif
+          }
+        }
+#ifdef MHD
+        for (j=jcs, jj=0; j<=jce+1; j++, jj++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myEMF1[dim][jj][ii] = emf1[k][j][i];
+          }
+        }
+        for (j=jcs, jj=0; j<=jce; j++, jj++){
+          for (i=ics, ii=0; i<=ice+1; i++, ii++){
+            pG->CGrid[ncg].myEMF2[dim][jj][ii] = emf2[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+  } /* end loop over child Grids */
+
+/* Loop over all parent grids ------------------*/
+
+  for (npg=0; npg<pG->NPGrid; npg++) {
+
+/* x1-boundaries of parent Grids (at boundaries of THIS Grid)  */
+
+    for (dim=0; dim<2; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->PGrid[npg].ijks[0];
+        if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
+        jps = pG->PGrid[npg].ijks[1];
+        jpe = pG->PGrid[npg].ijke[1];
+        kps = pG->PGrid[npg].ijks[2];
+        kpe = pG->PGrid[npg].ijke[2];
+
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (j=jps, jj=0; j<=jpe; j++, jj++){
+            pG->PGrid[npg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz;
+#ifndef BAROTROPIC
+            pG->PGrid[npg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->PGrid[npg].myFlx[dim][kk][jj].B1c = 0.0;
+            pG->PGrid[npg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By;
+            pG->PGrid[npg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n];
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kps, kk=0; k<=kpe+1; k++, kk++){
+          for (j=jps, jj=0; j<=jpe; j++, jj++){
+            pG->PGrid[npg].myEMF2[dim][kk][jj] = emf2[k][j][i];
+          }
+        }
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (j=jps, jj=0; j<=jpe+1; j++, jj++){
+            pG->PGrid[npg].myEMF3[dim][kk][jj] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x2-boundaries of parent Grids (at boundaries of THIS Grid)  */
+
+    for (dim=2; dim<4; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        ips = pG->PGrid[npg].ijks[0];
+        ipe = pG->PGrid[npg].ijke[0];
+        if (dim==2) j = pG->PGrid[npg].ijks[1];
+        if (dim==3) j = pG->PGrid[npg].ijke[1] + 1;
+        kps = pG->PGrid[npg].ijks[2];
+        kpe = pG->PGrid[npg].ijke[2];
+
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My;
+#ifndef BAROTROPIC
+            pG->PGrid[npg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->PGrid[npg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz;
+            pG->PGrid[npg].myFlx[dim][kk][ii].B2c = 0.0;
+            pG->PGrid[npg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n];
+#endif
+          }
+        }
+#ifdef MHD
+        for (k=kps, kk=0; k<=kpe+1; k++, kk++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myEMF1[dim][kk][ii] = emf1[k][j][i];
+          }
+        }
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (i=ips, ii=0; i<=ipe+1; i++, ii++){
+            pG->PGrid[npg].myEMF3[dim][kk][ii] = emf3[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+
+/* x3-boundaries of parent Grids (at boundaries of THIS Grid)  */
+
+    for (dim=4; dim<6; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        ips = pG->PGrid[npg].ijks[0];
+        ipe = pG->PGrid[npg].ijke[0];
+        jps = pG->PGrid[npg].ijks[1];
+        jpe = pG->PGrid[npg].ijke[1];
+        if (dim==4) k = pG->PGrid[npg].ijks[2];
+        if (dim==5) k = pG->PGrid[npg].ijke[2] + 1;
+
+        for (j=jps, jj=0; j<=jpe; j++, jj++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx;
+#ifndef BAROTROPIC
+            pG->PGrid[npg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+            pG->PGrid[npg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By;
+            pG->PGrid[npg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz;
+            pG->PGrid[npg].myFlx[dim][jj][ii].B3c = 0.0;
+#endif /* MHD */
+#if (NSCALARS > 0)
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n];
+#endif
+          }
+        }
+#ifdef MHD
+        for (j=jps, jj=0; j<=jpe+1; j++, jj++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myEMF1[dim][jj][ii] = emf1[k][j][i];
+          }
+        }
+        for (j=jps, jj=0; j<=jpe; j++, jj++){
+          for (i=ips, ii=0; i<=ipe+1; i++, ii++){
+            pG->PGrid[npg].myEMF2[dim][jj][ii] = emf2[k][j][i];
+          }
+        }
+#endif /* MHD */
+      }
+    }
+  }
+
+#endif /* STATIC_MESH_REFINEMENT */
 
   return;
 }

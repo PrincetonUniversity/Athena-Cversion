@@ -7,7 +7,7 @@
  *   Adds gravitational source terms, self-gravity.
  *        
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_1d()
+ *   integrate_1d_vl()
  *   integrate_init_1d()
  *   integrate_destruct_1d()
  *============================================================================*/
@@ -51,7 +51,7 @@ static Prim *Whalf=NULL;
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
 
-void integrate_1d(DomainS *pD)
+void integrate_1d_vl(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, hdtodx1=0.5*pG->dt/pG->dx1;
@@ -64,6 +64,9 @@ void integrate_1d(DomainS *pD)
 #endif
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flx_m1l,flx_m1r;
+#endif
+#ifdef STATIC_MESH_REFINEMENT
+  int ncg,npg,dim;
 #endif
 
   int il=is-(nghost-1), iu=ie+(nghost-1);
@@ -484,6 +487,69 @@ void integrate_1d(DomainS *pD)
 
 #endif /* SPECIAL_RELATIVITY */
 
+#ifdef STATIC_MESH_REFINEMENT
+/*--- Step 12e -----------------------------------------------------------------
+ * With SMR, store fluxes at boundaries of child and parent grids.
+ */
+
+/* x1-boundaries of child Grids (interior to THIS Grid) */
+  for (ncg=0; ncg<pG->NCGrid; ncg++) {
+    for (dim=0; dim<2; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->CGrid[ncg].ijks[0];
+        if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
+
+        pG->CGrid[ncg].myFlx[dim][ks][js].d  = x1Flux[i].d;
+        pG->CGrid[ncg].myFlx[dim][ks][js].M1 = x1Flux[i].Mx;
+        pG->CGrid[ncg].myFlx[dim][ks][js].M2 = x1Flux[i].My;
+        pG->CGrid[ncg].myFlx[dim][ks][js].M3 = x1Flux[i].Mz;
+#ifndef BAROTROPIC
+        pG->CGrid[ncg].myFlx[dim][ks][js].E  = x1Flux[i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+        pG->CGrid[ncg].myFlx[dim][ks][js].B1c = 0.0;
+        pG->CGrid[ncg].myFlx[dim][ks][js].B2c = x1Flux[i].By;
+        pG->CGrid[ncg].myFlx[dim][ks][js].B3c = x1Flux[i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pG->CGrid[ncg].myFlx[dim][ks][js].s[n]  = x1Flux[i].s[n];
+#endif
+      }
+    }
+  }
+
+/* x1-boundaries of parent Grids (at boundaries of THIS Grid)  */
+  for (npg=0; npg<pG->NPGrid; npg++) {
+    for (dim=0; dim<2; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->PGrid[npg].ijks[0];
+        if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
+
+        pG->PGrid[npg].myFlx[dim][ks][js].d  = x1Flux[i].d;
+        pG->PGrid[npg].myFlx[dim][ks][js].M1 = x1Flux[i].Mx;
+        pG->PGrid[npg].myFlx[dim][ks][js].M2 = x1Flux[i].My;
+        pG->PGrid[npg].myFlx[dim][ks][js].M3 = x1Flux[i].Mz;
+#ifndef BAROTROPIC
+        pG->PGrid[npg].myFlx[dim][ks][js].E  = x1Flux[i].E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+        pG->PGrid[npg].myFlx[dim][ks][js].B1c = 0.0;
+        pG->PGrid[npg].myFlx[dim][ks][js].B2c = x1Flux[i].By;
+        pG->PGrid[npg].myFlx[dim][ks][js].B3c = x1Flux[i].Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pG->PGrid[npg].myFlx[dim][ks][js].s[n]  = x1Flux[i].s[n];
+#endif
+      }
+    }
+  }
+
+#endif /* STATIC_MESH_REFINEMENT */
+
   return;
 }
 
@@ -498,7 +564,7 @@ void integrate_init_1d(MeshS *pM)
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       if (pM->Domain[nl][nd].Grid != NULL) {
-        if (pM->Domain[nl][nd].Grid->N[0] > size1){
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
           size1 = pM->Domain[nl][nd].Grid->Nx[0];
         }
       }

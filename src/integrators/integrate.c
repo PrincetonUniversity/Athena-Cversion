@@ -25,6 +25,7 @@ static int dim=0;
 VDFun_t integrate_init(MeshS *pM)
 {
   int i;
+  Real cfl;
 /* Calculate the dimensions (using root Domain)  */
   dim = 0;
   for (i=0; i<3; i++) if(pM->Nx[i] > 1) dim++;
@@ -35,8 +36,10 @@ VDFun_t integrate_init(MeshS *pM)
   case 1:
     if(pM->Nx[0] <= 1) break;
     integrate_init_1d(pM);
-#if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
-    return integrate_1d;
+#if defined(CTU_INTEGRATOR)
+    return integrate_1d_ctu;
+#elif defined(VL_INTEGRATOR)
+    return integrate_1d_vl;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 1D problem");
 #endif
@@ -44,16 +47,29 @@ VDFun_t integrate_init(MeshS *pM)
   case 2:
     if(pM->Nx[2] > 1) break;
     integrate_init_2d(pM);
-#if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
-    return integrate_2d;
+#if defined(CTU_INTEGRATOR)
+    return integrate_2d_ctu;
+#elif defined(VL_INTEGRATOR)
+    cfl = par_getd("time","cour_no");
+    if (cfl >= 0.5)
+      ath_error("<time>cour_no=%e, must be < 0.5 with 2D VL integrator\n",cfl);
+    return integrate_2d_vl;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 2D problem");
 #endif
 
   case 3:
     integrate_init_3d(pM);
-#if defined(CTU_INTEGRATOR) || defined(VL_INTEGRATOR)
-    return integrate_3d;
+#if defined(CTU_INTEGRATOR)
+    cfl = par_getd("time","cour_no");
+    if (cfl >= 0.5)
+      ath_error("<time>cour_no=%e, must be < 0.5 with 3D CTU integrator\n",cfl);
+    return integrate_3d_ctu;
+#elif defined(VL_INTEGRATOR)
+    cfl = par_getd("time","cour_no");
+    if (cfl >= 0.5)
+      ath_error("<time>cour_no=%e, must be < 0.5 with 3D VL integrator\n",cfl);
+    return integrate_3d_vl;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 3D problem");
 #endif

@@ -8,7 +8,7 @@
  *   cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_1d()
+ *   integrate_1d_ctu()
  *   integrate_init_1d()
  *   integrate_destruct_1d()
  *============================================================================*/
@@ -48,7 +48,7 @@ static Real *dhalf = NULL, *phalf = NULL;
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
 
-void integrate_1d(DomainS *pD)
+void integrate_1d_ctu(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;

@@ -27,7 +27,7 @@
  *   178, 137 (2008)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d()
+ *   integrate_3d_ctu()
  *   integrate_init_3d()
  *   integrate_destruct_3d()
  *============================================================================*/
@@ -98,7 +98,7 @@ static void integrate_emf3_corner(const GridS *pG);
 /*----------------------------------------------------------------------------*/
 /* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
 
-void integrate_3d(DomainS *pD)
+void integrate_3d_ctu(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;

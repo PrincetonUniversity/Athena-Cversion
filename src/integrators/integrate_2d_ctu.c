@@ -21,7 +21,7 @@
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_2d()
+ *   integrate_2d_ctu()
  *   integrate_init_2d()
  *   integrate_destruct_2d()
  *============================================================================*/
@@ -84,7 +84,7 @@ static void integrate_emf3_corner(GridS *pG);
  *   NOT ALL STEPS ARE NEEDED IN 2D.
  */
 
-void integrate_2d(DomainS *pD)
+void integrate_2d_ctu(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2;

@@ -337,9 +337,6 @@ int main(int argc, char *argv[])
  * control execution time), and reading EOS parameters from <problem> block.  */
 
   CourNo = par_getd("time","cour_no");
-  if (Mesh.Nx[0] > 1 && Mesh.Nx[1] > 1 && Mesh.Nx[2] > 1 && CourNo >= 0.5) 
-    ath_error("CourNo=%e , must be < 0.5 with 3D integrator\n",CourNo);
-
   nlim = par_geti_def("time","nlim",-1);
   tlim = par_getd("time","tlim");
 
