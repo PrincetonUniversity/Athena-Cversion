@@ -40,15 +40,16 @@
 /* Arrays for the temperature and heat fluxes */
 #ifdef ANISOTROPIC_CONDUCTION
 static Real ***Temp=NULL;
-static Vector ***EFlux=NULL;
+static Real3Vect ***EFlux=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* anisoconduct_2d: anisotropic conduction in 2d.
  */
 
-void anisoconduct_2d(Grid *pG, Domain *pD)
+void anisoconduct_2d(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -100,8 +101,8 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
       bDotGradT = pG->B1i[ks][j][i]*(Temp[ks][j][i]-Temp[ks][j][i-1])/pG->dx1
          + By*dTdy;
-      EFlux[ks][j][i].x1 = pG->B1i[ks][j][i]*bDotGradT/B02;
-      EFlux[ks][j][i].x1 *= chi_C;
+      EFlux[ks][j][i].x = pG->B1i[ks][j][i]*bDotGradT/B02;
+      EFlux[ks][j][i].x *= chi_C;
     }
   }
 
@@ -131,8 +132,8 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
       bDotGradT = pG->B2i[ks][j][i]*(Temp[ks][j][i]-Temp[ks][j-1][i])/pG->dx2
          + Bx*dTdx;
-      EFlux[ks][j][i].x2 = pG->B2i[ks][j][i]*bDotGradT/B02;
-      EFlux[ks][j][i].x2 *= chi_C;
+      EFlux[ks][j][i].y = pG->B2i[ks][j][i]*bDotGradT/B02;
+      EFlux[ks][j][i].y *= chi_C;
     }
   }
 
@@ -142,8 +143,8 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].E += dtodx1*(EFlux[ks][j][i+1].x1 - EFlux[ks][j][i].x1);
-      pG->U[ks][j][i].E += dtodx2*(EFlux[ks][j+1][i].x2 - EFlux[ks][j][i].x2);
+      pG->U[ks][j][i].E += dtodx1*(EFlux[ks][j][i+1].x - EFlux[ks][j][i].x);
+      pG->U[ks][j][i].E += dtodx2*(EFlux[ks][j+1][i].y - EFlux[ks][j][i].y);
     }
   }
 
@@ -155,8 +156,9 @@ void anisoconduct_2d(Grid *pG, Domain *pD)
 /* anisoconduct_3d: anisotropic conduction in 3d.
  */
 
-void anisoconduct_3d(Grid *pG, Domain *pD)
+void anisoconduct_3d(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -226,8 +228,8 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
         bDotGradT = pG->B1i[k][j][i]*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1
            + By*dTdy + Bz*dTdz;
-        EFlux[k][j][i].x1 = pG->B1i[k][j][i]*bDotGradT/B02;
-        EFlux[k][j][i].x1 *= chi_C;
+        EFlux[k][j][i].x = pG->B1i[k][j][i]*bDotGradT/B02;
+        EFlux[k][j][i].x *= chi_C;
       }
     }
   }
@@ -273,8 +275,8 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
         bDotGradT = pG->B2i[k][j][i]*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2
            + Bx*dTdx + Bz*dTdz;
-        EFlux[k][j][i].x2 = pG->B2i[k][j][i]*bDotGradT/B02;
-        EFlux[k][j][i].x2 *= chi_C;
+        EFlux[k][j][i].y = pG->B2i[k][j][i]*bDotGradT/B02;
+        EFlux[k][j][i].y *= chi_C;
       }
     }
   }
@@ -320,8 +322,8 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 
         bDotGradT = pG->B3i[k][j][i]*(Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3
            + Bx*dTdx + By*dTdy;
-        EFlux[k][j][i].x3 = pG->B3i[k][j][i]*bDotGradT/B02;
-        EFlux[k][j][i].x3 *= chi_C;
+        EFlux[k][j][i].z = pG->B3i[k][j][i]*bDotGradT/B02;
+        EFlux[k][j][i].z *= chi_C;
       }
     }
   }
@@ -333,9 +335,9 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x1 - EFlux[k][j][i].x1);
-        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].x2 - EFlux[k][j][i].x2);
-        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].x3 - EFlux[k][j][i].x3);
+        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x - EFlux[k][j][i].x);
+        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].y - EFlux[k][j][i].y);
+        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].z - EFlux[k][j][i].z);
       }
     }
   }
@@ -347,23 +349,44 @@ void anisoconduct_3d(Grid *pG, Domain *pD)
 /* anisoconduct_init: Allocate temporary arrays
 */
 
-void anisoconduct_init(int nx1, int nx2, int nx3)
+void anisoconduct_init(MeshS *pM)
 {
-  int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
-  if (nx2 > 1){
-    Nx2 = nx2 + 2*nghost;
-  } else {
-    Nx2 = nx2;
+  int nl,nd,size1=0,size2=0,size3=0,Nx1,Nx2,Nx3;
+
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[2] > size3){
+          size3 = pM->Domain[nl][nd].Grid->Nx[2];
+        }
+      }
+    }
   }
-  if (nx3 > 1){
-    Nx3 = nx3 + 2*nghost;
+
+  Nx1 = size1 + 2*nghost;
+
+  if (pM->Nx[1] > 1){
+    Nx2 = size2 + 2*nghost;
   } else {
-    Nx3 = nx3;
+    Nx2 = size2;
+  }
+
+  if (pM->Nx[2] > 1){
+    Nx3 = size3 + 2*nghost;
+  } else {
+    Nx3 = size3;
   }
 
   if ((Temp = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
     goto on_error;
-  if ((EFlux = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
+  if ((EFlux = (Real3Vect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real3Vect)))
      == NULL) goto on_error;
   return;
 

@@ -33,21 +33,22 @@
 #ifdef ISOTROPIC_CONDUCTION
 /* Arrays for the temperature and heat fluxes */
 static Real ***Temp=NULL;
-static Vector ***EFlux=NULL;
+static Real3Vect ***EFlux=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* isoconduct: isotropic conduction in 1d/2d/3d.
  */
 
-void isoconduct(Grid *pG, Domain *pD)
+void isoconduct(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
   Real dtodx1 = pG->dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
 
-  if (pG->Nx2 > 1){
+  if (pG->Nx[1] > 1){
     jl = js - 1;
     ju = je + 1;
     dtodx2 = pG->dt/pG->dx2;
@@ -55,7 +56,7 @@ void isoconduct(Grid *pG, Domain *pD)
     jl = js;
     ju = je;
   }
-  if (pG->Nx3 > 1){
+  if (pG->Nx[2] > 1){
     kl = ks - 1;
     ku = ke + 1;
     dtodx3 = pG->dt/pG->dx3;
@@ -89,8 +90,8 @@ void isoconduct(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie+1; i++) {
-        EFlux[k][j][i].x1 = (Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
-        EFlux[k][j][i].x1 *= kappa_T;
+        EFlux[k][j][i].x = (Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
+        EFlux[k][j][i].x *= kappa_T;
       }
     }
   }
@@ -99,12 +100,12 @@ void isoconduct(Grid *pG, Domain *pD)
  * Compute heat fluxes in 2-direction
  */
 
-  if (pG->Nx2 > 1) {
+  if (pG->Nx[1] > 1) {
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        EFlux[k][j][i].x2 = (Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
-        EFlux[k][j][i].x2 *= kappa_T;
+        EFlux[k][j][i].y = (Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
+        EFlux[k][j][i].y *= kappa_T;
       }
     }}
   }
@@ -113,12 +114,12 @@ void isoconduct(Grid *pG, Domain *pD)
  * Compute heat fluxes in 3-direction
  */
 
-  if (pG->Nx3 > 1) {
+  if (pG->Nx[2] > 1) {
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        EFlux[k][j][i].x3 = (Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
-        EFlux[k][j][i].x3 *= kappa_T;
+        EFlux[k][j][i].z = (Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
+        EFlux[k][j][i].z *= kappa_T;
       }
     }}
   }
@@ -130,7 +131,7 @@ void isoconduct(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x1 - EFlux[k][j][i].x1);
+        pG->U[k][j][i].E += dtodx1*(EFlux[k][j][i+1].x - EFlux[k][j][i].x);
       }
     }
   }
@@ -139,11 +140,11 @@ void isoconduct(Grid *pG, Domain *pD)
  * Update energy using x2-fluxes
  */
 
-  if (pG->Nx2 > 1){
+  if (pG->Nx[1] > 1){
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].x2 - EFlux[k][j][i].x2);
+        pG->U[k][j][i].E += dtodx2*(EFlux[k][j+1][i].y - EFlux[k][j][i].y);
       }
     }}
   }
@@ -152,11 +153,11 @@ void isoconduct(Grid *pG, Domain *pD)
  * Update energy using x3-fluxes
  */
 
-  if (pG->Nx3 > 1){
+  if (pG->Nx[2] > 1){
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].x3 - EFlux[k][j][i].x3);
+        pG->U[k][j][i].E += dtodx3*(EFlux[k+1][j][i].z - EFlux[k][j][i].z);
       }
     }}
   }
@@ -168,23 +169,43 @@ void isoconduct(Grid *pG, Domain *pD)
 /* isoconduct_init: Allocate temporary arrays
 */
 
-void isoconduct_init(int nx1, int nx2, int nx3)
+void isoconduct_init(MeshS *pM)
 {
-  int Nx1 = nx1 + 2*nghost, Nx2, Nx3;
-  if (nx2 > 1){
-    Nx2 = nx2 + 2*nghost;
-  } else {
-    Nx2 = nx2;
-  }
-  if (nx3 > 1){
-    Nx3 = nx3 + 2*nghost;
-  } else {
-    Nx3 = nx3;
+  int nl,nd,size1=0,size2=0,size3=0,Nx1,Nx2,Nx3;
+
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[2] > size3){
+          size3 = pM->Domain[nl][nd].Grid->Nx[2];
+        }
+      }
+    }
   }
 
+  Nx1 = size1 + 2*nghost;
+
+  if (pM->Nx[1] > 1){
+    Nx2 = size2 + 2*nghost;
+  } else {
+    Nx2 = size2;
+  }
+
+  if (pM->Nx[2] > 1){
+    Nx3 = size3 + 2*nghost;
+  } else {
+    Nx3 = size3;
+  }
   if ((Temp = (Real***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real))) == NULL)
     goto on_error;
-  if ((EFlux = (Vector***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Vector)))
+  if ((EFlux = (Real3Vect***)calloc_3d_array(Nx3,Nx2,Nx1, sizeof(Real3Vect)))
     == NULL) goto on_error;
   return;
 

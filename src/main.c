@@ -439,7 +439,7 @@ int main(int argc, char *argv[])
   set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
 #ifdef EXPLICIT_DIFFUSION
-  integrate_explicit_diff_init(&Mesh);
+  integrate_diff_init(&Mesh);
 #endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
@@ -486,8 +486,9 @@ int main(int argc, char *argv[])
 
       for (nl=0; nl<(Mesh.NLevels); nl++){
         for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
-          if (Mesh.Domain[nl][nd].Grid != NULL)
+          if (Mesh.Domain[nl][nd].Grid != NULL){
             Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
+          }
         }
       }
     }
@@ -498,12 +499,18 @@ int main(int argc, char *argv[])
     data_output(&Mesh, 0);
 
 /*--- Step 9b. ---------------------------------------------------------------*/
-/* operator-split explicit diffusion: resistivity, viscosity, conduction
+/* operator-split explicit diffusion: thermal conduction, viscosity, resistivity
  * Done first since CFL constraint is applied which may change dt  */
 
 #ifdef EXPLICIT_DIFFUSION
-    integrate_explicit_diff(&Mesh);
-    set_bvals_mhd(&level0_Grid, &level0_Domain);
+    integrate_diff(&Mesh);
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          set_bvals_mhd(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
 #endif
 
 /*--- Step 9c. ---------------------------------------------------------------*/
@@ -691,7 +698,7 @@ int main(int argc, char *argv[])
   set_bvals_shear_destruct();
 #endif
 #ifdef EXPLICIT_DIFFUSION
-  integrate_explicit_diff_destruct();
+  integrate_diff_destruct();
 #endif
   par_close();
 
