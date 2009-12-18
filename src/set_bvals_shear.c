@@ -254,7 +254,7 @@ void ShearingSheet_ix1(DomainS *pD)
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into GhstZns.  */
 
-    get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
  * This assumes every grid has same number of cells in x2-direction! */
@@ -271,11 +271,11 @@ void ShearingSheet_ix1(DomainS *pD)
 
       jproc = my_jproc + (Ngrids + 1);
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1]; 
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc - (Ngrids + 1);
       if (jproc < 0) jproc += pD->NGrid[1]; 
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
@@ -357,15 +357,15 @@ void ShearingSheet_ix1(DomainS *pD)
 
     } else {
 
-/* index of sendto and getfrom processors in GridArray are -/+1 from Step 5a */
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
       jproc = my_jproc + Ngrids;
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc - Ngrids;
       if (jproc < 0) jproc += pD->NGrid[1];
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       cnt = nghost*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data from the left grid */
@@ -844,7 +844,7 @@ void ShearingSheet_ox1(DomainS *pD)
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into GhstZns.  */
 
-    get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
  * This assumes every grid has same number of cells in x2-direction! */
@@ -861,11 +861,11 @@ void ShearingSheet_ox1(DomainS *pD)
 
       jproc = my_jproc - (Ngrids + 1);
       if (jproc < 0) jproc += pD->NGrid[1]; 
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc + (Ngrids + 1);
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1]; 
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
@@ -949,15 +949,15 @@ void ShearingSheet_ox1(DomainS *pD)
 
     } else {
 
-/* index of sendto and getfrom processors in GridArray are -/+1 from Step 5a */
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
       jproc = my_jproc - Ngrids;
       if (jproc < 0) jproc += pD->NGrid[1];
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc + Ngrids;
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       cnt = nghost*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data from the left grid */
@@ -1497,7 +1497,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into tEy.  */
 
-    get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
  * This assumes every grid has same number of cells in x2-direction! */
@@ -1514,11 +1514,11 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
       jproc = my_jproc + (Ngrids + 1);
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc - (Ngrids + 1);
       if (jproc < 0) jproc += pD->NGrid[1];
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from tEyBuf */
@@ -1579,15 +1579,15 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
     } else {
 
-/* index of sendto and getfrom processors in GridArray are -/+1 from Step 5a */
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
       jproc = my_jproc + Ngrids;
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc - Ngrids;
       if (jproc < 0) jproc += pD->NGrid[1];
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
@@ -1655,7 +1655,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
   int ie = pG->ie;
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int err,sendto_id,getfrom_id;
-  double *pSnd,*pRcv
+  double *pSnd,*pRcv;
   Real *pEy;
   MPI_Request rq;
 #endif
@@ -1841,7 +1841,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into tEy.  */
 
-    get_myGridIndex(pD, pG->my_id, &my_iproc, &my_jproc, &my_kproc);
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* Find integer and fractional number of grids over which offset extends.
  * This assumes every grid has same number of cells in x2-direction! */
@@ -1858,11 +1858,11 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
       jproc = my_jproc - (Ngrids + 1);
       if (jproc < 0) jproc += pD->NGrid[1];
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc + (Ngrids + 1);
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from tEyBuf */
@@ -1922,15 +1922,15 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
     } else {
 
-/* index of sendto and getfrom processors in GridArray are -/+1 from Step 5a */
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
       jproc = my_jproc - Ngrids;
       if (jproc < 0) jproc += pD->NGrid[1];
-      sendto_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       jproc = my_jproc + Ngrids;
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
-      getfrom_id = pD->GridArray[my_kproc][jproc][my_iproc].id;
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
@@ -1996,7 +1996,7 @@ void Fargo(DomainS *pD)
 #endif
 #ifdef MPI_PARALLEL
   int err,cnt;
-  double *pSnd,*pRcv
+  double *pSnd,*pRcv;
   FGas *pFGas;
   MPI_Request rq;
 #endif
@@ -2404,7 +2404,7 @@ void set_bvals_shear_init(MeshS *pM)
 #ifdef MPI_PARALLEL
   size1 = nghost*pG->Nx[1]*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 #ifdef FARGO
-  size2 = nfghost*(pG->Nxp[0]+1)*(pG->Nx[2]+1)*(NFARGO+NSCALARS);
+  size2 = nfghost*(pG->Nx[0]+1)*(pG->Nx[2]+1)*(NFARGO+NSCALARS);
 #endif
   size = MAX(size1,size2);
 

@@ -8,14 +8,12 @@
  *   Gammie & Balbus.
  *
  * Several different field configurations and perturbations are possible:
- *
- *  ifield = 0 - uses field set by choice of ipert flag
  *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
  *  ifield = 2 - uniform Bz
  *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ *  ifield = 4 - uniform By, but only for |z|<2
  *
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
- *
  *
  * Code must be configured using --enable-shearing-box
  *
@@ -58,7 +56,9 @@ static Real hst_By(const GridS *pG, const int i, const int j, const int k);
 static Real hst_Bz(const GridS *pG, const int i, const int j, const int k);
 static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k);
 #endif /* MHD */
-void output_1d(GridS *pGrid, Domain *pD, Output *pOut);
+
+/* top and bottom of root Domain, shared with outputs, etc. */
+static Real ztop, zbtm;
 
 /*=========================== PUBLIC FUNCTIONS =================================
  *============================================================================*/
@@ -76,8 +76,8 @@ void problem(DomainS *pDomain)
   int ixs,jxs,kxs,i,j,k,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax,Lx,Ly,Lz;
-  Real den = 1.0, pres, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
-  Real beta,B0,kx,ky,kz,amp;
+  Real den = 1.0, pres, rd, rp, rvx, rvy, rvz;
+  Real beta,B0,kx,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
@@ -103,19 +103,15 @@ void problem(DomainS *pDomain)
   iseed = -1 - (ixs + pDomain->Nx[0]*(jxs + pDomain->Nx[1]*kxs));
 
 /* Initialize boxsize */
+  ztop = pDomain->RootMaxX[2];
+  zbtm = pDomain->RootMinX[2];
   Lx = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
   Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
   Lz = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
 
 /* initialize wavenumbers, given input number of waves per L */
   nwx = par_geti_def("problem","nwx",1);
-  nwy = par_geti_def("problem","nwy",1);
-  nwz = par_geti_def("problem","nwz",1);
-  kx = (2.0*PI/Lx)*((double)nwx);  /* nxw should be -ve for leading wave */
-  ky = (2.0*PI/Ly)*((double)nwy);
-  kz = (2.0*PI/Lz)*((double)nwz);
-
-
+  kx = (2.0*PI/Lx)*((double)nwx);
 
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
@@ -161,20 +157,19 @@ void problem(DomainS *pDomain)
 #endif
 
 /* Initialize magnetic field.  For 3D shearing box B1=Bx, B2=By, B3=Bz
- *  ifield = 0 - 
  *  ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
  *  ifield = 2 - uniform Bz
  *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ *  ifield = 4 - uniform By, but only for |z|<2
  */
 #ifdef MHD
-      if (ifield == 0) {
-        pGrid->B1i[k][j][i] = rbx;
-        pGrid->B2i[k][j][i] = rby;
-        pGrid->B3i[k][j][i] = rbz;
-        if (i==ie) pGrid->B1i[k][j][ie+1] =  pGrid->B1i[k][j][is];
-        if (j==je) pGrid->B2i[k][je+1][i] =  pGrid->B2i[k][js][i];
-        if (k==ke) pGrid->B3i[ke+1][j][i] =  pGrid->B3i[ks][j][i];
-      }
+      pGrid->B1i[k][j][i] = 0.0;
+      pGrid->B2i[k][j][i] = 0.0;
+      pGrid->B3i[k][j][i] = 0.0;
+      if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
+      if (j==je) pGrid->B2i[k][je+1][i] = 0.0;
+      if (k==ke) pGrid->B3i[ke+1][j][i] = 0.0;
+
       if (ifield == 1) {
         pGrid->B1i[k][j][i] = 0.0;
         pGrid->B2i[k][j][i] = 0.0;
@@ -198,6 +193,14 @@ void problem(DomainS *pDomain)
         if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
         if (j==je) pGrid->B2i[k][je+1][i] = B0*(cos((double)kx*x1));
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0*(sin((double)kx*x1));
+      }
+      if (ifield == 4 && fabs(x3) < 2.0) {
+        pGrid->B1i[k][j][i] = 0.0;
+        pGrid->B2i[k][j][i] = B0;
+        pGrid->B3i[k][j][i] = 0.0;
+        if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
+        if (j==je) pGrid->B2i[k][je+1][i] = B0;
+        if (k==ke) pGrid->B3i[ke+1][j][i] = 0.0;
       }
 
 #ifdef ADIABATIC
@@ -247,8 +250,6 @@ void problem(DomainS *pDomain)
 #endif /* MHD */
     frst = 0;
   }
-
-  data_output_enroll(pGrid->time,6.2831853e2,0,output_1d,NULL,NULL,0,0.0,0.0,0,0);
 
   return;
 }
@@ -303,8 +304,6 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   dump_history_enroll(hst_Bz, "<Bz>");
   dump_history_enroll(hst_BxBy, "<-Bx By>");
 #endif /* MHD */
-
-  data_output_enroll(pGrid->time,6.2831853e2,0,output_1d,NULL,NULL,0,0.0,0.0,0,0);
 
   return;
 }
@@ -415,29 +414,23 @@ double ran2(long int *idum)
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0,z;
-  static Real zt,zb;
-  static int frst=1;
 
 #ifndef FARGO
   phi -= qshear*Omega_0*Omega_0*x1*x1;
 #endif
   /* Ensure vertical periodicity in ghost zones */
-  if (frst == 1) {
-    zb = par_getd("grid","x3min");
-    zt = par_getd("grid","x3max");
-    frst=0;
-  }
-  if(x3 > zt) 
-    z=x3-zt+zb;
-  else if (x3 < zb)
-    z=x3-zb+zt;
+  if(x3 > ztop) 
+    z=x3-ztop+zbtm;
+  else if (x3 < zbtm)
+    z=x3-zbtm+ztop;
   else
     z=x3;
 /*
   phi += 0.5*Omega*Omega*z*z;
 */
 
-  phi += 0.5*Omega_0*Omega_0*(SQR(2.0-sqrt(SQR(2.0-fabs(z)) + 0.01)));
+  phi += 0.5*Omega_0*Omega_0*
+   (SQR(fabs(ztop)-sqrt(SQR(fabs(ztop)-fabs(z)) + 0.01)));
 
   return phi;
 }
@@ -580,141 +573,3 @@ static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;
 }
 #endif /* MHD */
-
-void output_1d(GridS *pGrid, Domain *pD, Output *pOut)
-{
-  int i, is = pGrid->is, ie = pGrid->ie;
-  int j, js = pGrid->js, je = pGrid->je;
-  int k, ks = pGrid->ks, ke = pGrid->ke;
-  int tot1d,i1d,nzmx,kg,kdisp;
-  int dnum = pOut->num;
-  double darea,**out1d;
-
-  FILE *p_1dfile;
-  char *fname;
-  int area_rat; /* (Grid Volume)/(dx1*dx2*dx3) */
-
-#ifdef MPI_PARALLEL
-  double *my_out1d;
-  double *g_out1d;
-  int my_area_rat; /* My (Grid Volume)/(dx1*dx2*dx3) */
-  int err;
-#endif
-
-#ifdef MHD
-  tot1d=5;
-#else
-  tot1d=3;
-#endif /* MHD */
- 
-  nzmx=pD->kde+1;
-  out1d = (double **) calloc_2d_array(nzmx,tot1d,sizeof(double));
-#ifdef MPI_PARALLEL
-  my_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
-  g_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
-#endif
-  for (k=0; k<nzmx; k++) {
-    for (i1d=0; i1d<tot1d; i1d++) {
-      out1d[k][i1d] = 0.0;
-    }
-  }
-  kdisp=pGrid->kdisp;
-  /* Compute 1d averaged variables */
-  for (k=ks; k<=ke; k++) {
-    kg=k+kdisp;
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-	i1d=0;
-	out1d[kg][i1d] += pGrid->U[k][j][i].d;
-	i1d++;
-	out1d[kg][i1d] += expr_KE(pGrid,i,j,k);
-	i1d++;
-	out1d[kg][i1d] += hst_rho_Vx_dVy(pGrid,i,j,k);
-#ifdef MHD
-	i1d++;
-	out1d[kg][i1d] += expr_ME(pGrid,i,j,k);
-	i1d++;
-	out1d[kg][i1d] += hst_BxBy(pGrid,i,j,k);
-#endif
-      }
-    }
-  }
-
-  /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
-  area_rat = (pD->ide - pD->ids + 1)*(pD->jde - pD->jds + 1); 
-
-/* The parent sums the scal[] array.
- * Note that this assumes (dx1,dx2,dx3) = const. */
-
-#ifdef MPI_PARALLEL 
-  for(i1d=0; i1d<tot1d; i1d++){
-    for (k=0; k<nzmx; k++) {
-      my_out1d[k] = out1d[k][i1d];
-    }
-    err = MPI_Reduce(my_out1d, g_out1d, nzmx,
-		     MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(err)
-      ath_error("[output_1d]: MPI_Reduce call returned error = %d\n",err);
-    for (k=0; k<nzmx; k++) {
-      out1d[k][i1d] = g_out1d[k];
-    }
-
-  }
-#endif
-
-/* For parallel calculations, only the parent computes the average
- * and writes the output. */
-#ifdef MPI_PARALLEL
-  if(pGrid->my_id == 0){ /* I'm the parent */
-#endif
-
-  darea = 1.0/(double)area_rat;
-  for (k=0; k<nzmx; k++) {
-    for (i1d=0; i1d<tot1d; i1d++) {
-      out1d[k][i1d] *= darea;
-    }
-  }
-
-/* Generate filename */
-#ifdef MPI_PARALLEL
-  fname = ath_fname("../",pGrid->outfilename,num_digit,dnum,NULL,"1d");
-#else
-  fname = ath_fname(NULL,pGrid->outfilename,num_digit,dnum,NULL,"1d");
-#endif
-  if (fname == NULL) {
-    ath_error("[output_1d]: Error constructing output filename\n");
-    return;
-  }
-
-/* open filename */
-  p_1dfile = fopen(fname,"w");
-  if (p_1dfile == NULL) {
-    ath_error("[output_1d]: Unable to open 1d average file %s\n",fname);
-    return;
-  }
-
-/* Write out data */
-
-  for (k=0; k<nzmx; k++) {
-#ifdef MHD
-    fprintf(p_1dfile,"%G %G %G %G %G\n",out1d[k][0],out1d[k][1],out1d[k][2],
-	    out1d[k][3],out1d[k][4]);
-#else
-    fprintf(p_1dfile,"%G %G %G\n",out1d[k][0],out1d[k][1],out1d[k][2]);
-#endif /* MHD */
-  }
-
-  fclose(p_1dfile);
-  free(fname);
-#ifdef MPI_PARALLEL
-  }
-#endif
-
-  free_2d_array(out1d); /* Free the memory we malloc'd */
-#ifdef MPI_PARALLEL
-  free_1d_array(my_out1d); /* Free the memory we malloc'd */
-  free_1d_array(g_out1d); /* Free the memory we malloc'd */
-#endif
-}
-
-

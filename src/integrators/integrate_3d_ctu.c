@@ -1994,7 +1994,7 @@ void integrate_3d_ctu(DomainS *pD)
 
 /* Remap Ey at is and ie+1 to conserve Bz in shearing box */
 #ifdef SHEARING_BOX
-    get_myGridIndex(pD, pG->myProcID, &my_iproc, &my_jproc, &my_kproc);
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* compute remapped Ey from opposite side of grid */
 
