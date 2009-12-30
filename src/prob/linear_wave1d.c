@@ -31,7 +31,7 @@
 #include "prototypes.h"
 
 /* Initial solution on root level, shared with Userwork_after_loop  */
-static Gas ***RootSoln=NULL;
+static ConsVarS ***RootSoln=NULL;
 static int wave_flag;
 
 
@@ -41,7 +41,7 @@ static int wave_flag;
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
-  Gas ***Soln;
+  ConsVarS ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,wave_dir;
   Real amp,vflow;
@@ -67,11 +67,11 @@ void problem(DomainS *pDomain)
 /* allocate memory for solution on this level.  If this is root level
  * also allocate memory for RootSoln */
 
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-    ath_error("[linear_wave1d]: Error allocating memory for Soln\n");
+  if ((Soln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))==NULL)
+    ath_error("[problem]: Error allocating memory for Soln\n");
   if (pDomain->Level == 0){
-    if ((RootSoln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-      ath_error("[linear_wave1d]: Error allocating memory for RootSoln\n");
+    if ((RootSoln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))
+      == NULL) ath_error("[problem]: Error alloc memory for RootSoln\n");
   }
 
 /* Get eigenmatrix, where the quantities u0 and bx0 are parallel to the
@@ -366,7 +366,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   return;
 }
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
@@ -397,7 +397,7 @@ void Userwork_after_loop(MeshS *pM)
 #endif
 
   Real rms_error=0.0;
-  Gas error,total_error;
+  ConsVarS error,total_error;
   FILE *fp;
   char *fname;
   int Nx1, Nx2, Nx3, count;

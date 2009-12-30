@@ -30,7 +30,7 @@
 #endif
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas *RootSoln=NULL;
+static ConsVarS *RootSoln=NULL;
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
@@ -41,15 +41,15 @@ void problem(DomainS *pDomain)
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js;
   int k, ks = pGrid->ks;
-  Gas *Soln;
+  ConsVarS *Soln;
   Real x1,x2,x3,cs,sn,b_par,b_perp,lambda,k_par,v_par,v_perp,den,pres;
 
-  if ((Soln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas))) == NULL)
-    ath_error("[cpaw1d] Error initializing Soln array");
+  if ((Soln = (ConsVarS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsVarS))) == NULL)
+    ath_error("[problem] Error initializing Soln array");
 
   if (pDomain->Level == 0) {
-    if ((RootSoln = (Gas*)malloc(((ie-is+1)+2*nghost)*sizeof(Gas))) == NULL)
-      ath_error("[cpaw1d] Error initializing RootSoln array");
+    if ((RootSoln = (ConsVarS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsVarS)))
+       == NULL) ath_error("[problem] Error initializing RootSoln array");
   }
 
   if (pGrid->Nx[1] > 1 || pGrid->Nx[2] > 1) {
@@ -153,7 +153,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   return;
 }
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
@@ -177,7 +177,7 @@ void Userwork_after_loop(MeshS *pM)
   GridS *pGrid;
   int i=0,is,ie,js,ks,Nx1;
   Real rms_error=0.0;
-  Gas error;
+  ConsVarS error;
   FILE *fp;
   char *fname;
 

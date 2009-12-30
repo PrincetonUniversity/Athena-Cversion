@@ -55,7 +55,7 @@
 #endif
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas ***RootSoln=NULL;
+static ConsVarS ***RootSoln=NULL;
 
 /* Parameters which define initial solution -- made global so that they can be
  * shared with functions A1,2,3 which compute vector potentials */
@@ -82,7 +82,7 @@ static Real A3(const Real x1, const Real x2, const Real x3);
 void problem(DomainS *pDomain)
 {
   GridS *pGrid = pDomain->Grid;
-  Gas ***Soln;
+  ConsVarS**Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   Real dx1 = pGrid->dx1;
@@ -106,12 +106,12 @@ void problem(DomainS *pDomain)
   if(pGrid->Nx[2] <= 1)
     ath_error("[problem]: cp_alfven3d assumes a 3D grid\n");
 
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-    ath_error("[pgflow]: Error allocating memory for Soln\n");
+  if ((Soln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))==NULL)
+    ath_error("[problem]: Error allocating memory for Soln\n");
 
   if (pDomain->Level == 0){
-    if ((RootSoln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-      ath_error("[pgflow]: Error allocating memory for RootSoln\n");
+    if ((RootSoln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))
+      == NULL) ath_error("[problem]: Error allocating memory for RootSoln\n");
   }
 
 /* Imposing periodicity and one wavelength along each grid direction */
@@ -269,7 +269,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 
-GasFun_t get_usr_expr(const char *expr){
+ConsFun_t get_usr_expr(const char *expr){
   return NULL;
 }
 
@@ -293,7 +293,7 @@ void Userwork_after_loop(MeshS *pM)
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
-  Gas error,total_error;
+  ConsVarS error,total_error;
   FILE *fp;
   char *fname;
   int Nx1, Nx2, Nx3, count;

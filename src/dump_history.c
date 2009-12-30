@@ -57,7 +57,7 @@
 static char *usr_label[MAX_USR_H_COUNT];
 
 /* Array of history dump function pointers for user added history columns. */
-static GasFun_t phst_fun[MAX_USR_H_COUNT];
+static ConsFun_t phst_fun[MAX_USR_H_COUNT];
 
 static int usr_hst_cnt = 0; /* User History Counter <= MAX_USR_H_COUNT */
 
@@ -295,7 +295,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 /*----------------------------------------------------------------------------*/
 /* dump_history_enroll:  */
 
-void dump_history_enroll(const GasFun_t pfun, const char *label){
+void dump_history_enroll(const ConsFun_t pfun, const char *label){
 
   if(usr_hst_cnt >= MAX_USR_H_COUNT)
     ath_error("[dump_history_enroll]: MAX_USR_H_COUNT = %d exceeded\n",

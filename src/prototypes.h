@@ -88,10 +88,10 @@ Real x3cc(const GridS *pGrid, const int k);
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
-Prim Cons_to_Prim(const Gas *pU);
-void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW MHDARG( , const Real *pBx));
-void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx));
-Real cfast(const Cons1D *U MHDARG( , const Real *Bx));
+PrimVarS Cons_to_Prim(const ConsVarS *pU);
+void Cons1D_to_Prim1D(const CVar1DS *pU, PVar1DS *pW, const Real *pBx);
+void Prim1D_to_Cons1D(CVar1DS *pU, const PVar1DS *pW, const Real *pBx);
+Real cfast(const CVar1DS *U, const Real *Bx);
 
 /*----------------------------------------------------------------------------*/
 /* init_grid.c */
@@ -116,9 +116,9 @@ void data_output(MeshS *pM, const int flag);
 int  add_output(OutputS *new_out);
 void add_rst_out(OutputS *new_out);
 void data_output_destruct(void);
-void dump_history_enroll(const GasFun_t pfun, const char *label);
+void dump_history_enroll(const ConsFun_t pfun, const char *label);
 void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
-			const char *fmt, const GasFun_t expr, int n,
+			const char *fmt, const ConsFun_t expr, int n,
 			const Real dmin, const Real dmax, int sdmin, int sdmax
 #ifdef PARTICLES
 			, const int out_pargrid, PropFun_t par_prop
@@ -173,7 +173,7 @@ void Userwork_in_loop(MeshS *pM);
 void Userwork_after_loop(MeshS *pM);
 void problem_read_restart(MeshS *pM, FILE *fp);
 void problem_write_restart(MeshS *pM, FILE *fp);
-GasFun_t get_usr_expr(const char *expr);
+ConsFun_t get_usr_expr(const char *expr);
 VOutFun_t get_usr_out_fun(const char *name);
 #ifdef PARTICLES
 PropFun_t get_usr_par_prop(const char *name);

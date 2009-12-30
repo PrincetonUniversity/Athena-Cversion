@@ -248,7 +248,7 @@ static Real color(const GridS *pG, const int i, const int j, const int k)
 }
 #endif
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;

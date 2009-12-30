@@ -37,7 +37,7 @@ static MPI_Request  **send_rq=NULL;
 #endif
 static int maxND, *start_addrP;
 
-static Gas ***GZ[3];
+static ConsVarS ***GZ[3];
 #ifdef MHD
 Real **SMRemf1, **SMRemf2, **SMRemf3;
 Real3Vect ***BFld[3];
@@ -50,9 +50,9 @@ Real3Vect ***BFld[3];
  *   mcd_slope - returns monotonized central-difference slope
  *============================================================================*/
 
-void ProCon(const Gas Uim1,const Gas Ui,  const Gas Uip1,
-            const Gas Ujm1,const Gas Ujp1,const Gas Ukm1,const Gas Ukp1,
-            Gas PCon[][2][2]);
+void ProCon(const ConsVarS Uim1,const ConsVarS Ui,  const ConsVarS Uip1,
+            const ConsVarS Ujm1,const ConsVarS Ujp1,
+            const ConsVarS Ukm1,const ConsVarS Ukp1, ConsVarS PCon[][2][2]);
 #ifdef MHD
 void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
   const Real dx1c, const Real dx2c, const Real dx3c);
@@ -1057,7 +1057,7 @@ void Prolongate(MeshS *pM)
   int ngz1,ngz2,ngz3;
   double *pRcv,*pSnd;
   GridOvrlp *pCO, *pPO;
-  Gas ProlongedC[2][2][2];
+  ConsVarS ProlongedC[2][2][2];
 #ifdef MHD
   Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
 #endif
@@ -1686,12 +1686,12 @@ void SMR_init(MeshS *pM)
   max2 += 2*nghost;
   max3 += 2*nghost;
 
-  if((GZ[0]=(Gas***)calloc_3d_array(max3,max2,nghost,sizeof(Gas)))==NULL)
-    ath_error("[SMR_init]:Failed to allocate GZ[0]C\n");
-  if((GZ[1]=(Gas***)calloc_3d_array(max3,nghost,max1,sizeof(Gas)))==NULL)
-    ath_error("[SMR_init]:Failed to allocate GZ[1]C\n");
-  if((GZ[2]=(Gas***)calloc_3d_array(nghost,max2,max1,sizeof(Gas)))==NULL)
-    ath_error("[SMR_init]:Failed to allocate GZ[2]C\n");
+  if((GZ[0]=(ConsVarS***)calloc_3d_array(max3,max2,nghost,sizeof(ConsVarS)))
+    ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[0]C\n");
+  if((GZ[1]=(ConsVarS***)calloc_3d_array(max3,nghost,max1,sizeof(ConsVarS)))
+    ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[1]C\n");
+  if((GZ[2]=(ConsVarS***)calloc_3d_array(nghost,max2,max1,sizeof(ConsVarS)))
+    ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[2]C\n");
 #ifdef MHD
   ngh1 = nghost + 1;
   if((BFld[0]=(Real3Vect***)calloc_3d_array(max3,max2,ngh1,sizeof(Real3Vect)))
@@ -1709,14 +1709,12 @@ void SMR_init(MeshS *pM)
 /* ProlongedCons() - prolongates conserved variables in a 2x2x2 cube.
  */
 
-void ProCon(const Gas Uim1,const Gas Ui,  const Gas Uip1,
-            const Gas Ujm1,const Gas Ujp1,const Gas Ukm1,const Gas Ukp1,
-            Gas PCon[][2][2])
+void ProCon(const ConsVarS Uim1,const ConsVarS Ui,  const ConsVarS Uip1,
+            const ConsVarS Ujm1,const ConsVarS Ujp1,
+            const ConsVarS Ukm1,const ConsVarS Ukp1, ConsVarS PCon[][2][2])
 {
   int n,i,j,k;
   Real dq1,dq2,dq3,Pim1,Pi,Pip1,Pjm1,Pjp1,Pkm1,Pkp1;
-  Prim Wim1,Wi,Wip1,Wjm1,Wjp1,Wkm1,Wkp1;
-  Real dq1d,dq2d,dq3d;
 
 /* First order prolongation -- just copy values */
 #ifdef FIRST_ORDER

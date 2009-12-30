@@ -71,7 +71,7 @@
 static double *send_buf = NULL, *recv_buf = NULL;
 
 /* NVAR_SHARE = maximim number of variables passed in any one MPI message =
- * variables in Gas, plus 3 extra for interface magnetic fields. */
+ * variables in ConsVarS, plus 3 extra for interface magnetic fields. */
 #ifdef MHD
 #define NVAR_SHARE (NVAR + 3)
 #else
@@ -1992,7 +1992,7 @@ static void send_ix1(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2013,33 +2013,33 @@ static void send_ix1(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in Gas structure into send buffer */
+/* Pack data in ConsVarS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 1 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        *(pSnd++) = pq->d;
-        *(pSnd++) = pq->M1;
-        *(pSnd++) = pq->M2;
-        *(pSnd++) = pq->M3;
+        *(pSnd++) = pCons->d;
+        *(pSnd++) = pCons->M1;
+        *(pSnd++) = pCons->M2;
+        *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pq->E;
+        *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        *(pSnd++) = pq->B1c;
-        *(pSnd++) = pq->B2c;
-        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pCons->B1c;
+        *(pSnd++) = pCons->B2c;
+        *(pSnd++) = pCons->B3c;
         *(pSnd++) = pG->B1i[k][j][i];
         *(pSnd++) = pG->B2i[k][j][i];
         *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
       }
     }
@@ -2063,7 +2063,7 @@ static void send_ox1(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2084,33 +2084,33 @@ static void send_ox1(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in Gas structure into send buffer */
+/* Pack data in ConsVarS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 1 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        *(pSnd++) = pq->d;
-        *(pSnd++) = pq->M1;
-        *(pSnd++) = pq->M2;
-        *(pSnd++) = pq->M3;
+        *(pSnd++) = pCons->d;
+        *(pSnd++) = pCons->M1;
+        *(pSnd++) = pCons->M2;
+        *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pq->E;
+        *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        *(pSnd++) = pq->B1c;
-        *(pSnd++) = pq->B2c;
-        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pCons->B1c;
+        *(pSnd++) = pCons->B2c;
+        *(pSnd++) = pCons->B3c;
         *(pSnd++) = pG->B1i[k][j][i];
         *(pSnd++) = pG->B2i[k][j][i];
         *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
       }
     }
@@ -2134,7 +2134,7 @@ static void send_ix2(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2155,33 +2155,33 @@ static void send_ix2(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in Gas structure into send buffer */
+/* Pack data in ConsVarS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 2 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        *(pSnd++) = pq->d;
-        *(pSnd++) = pq->M1;
-        *(pSnd++) = pq->M2;
-        *(pSnd++) = pq->M3;
+        *(pSnd++) = pCons->d;
+        *(pSnd++) = pCons->M1;
+        *(pSnd++) = pCons->M2;
+        *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pq->E;
+        *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        *(pSnd++) = pq->B1c;
-        *(pSnd++) = pq->B2c;
-        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pCons->B1c;
+        *(pSnd++) = pCons->B2c;
+        *(pSnd++) = pCons->B3c;
         *(pSnd++) = pG->B1i[k][j][i];
         *(pSnd++) = pG->B2i[k][j][i];
         *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
       }
     }
@@ -2205,7 +2205,7 @@ static void send_ox2(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2226,33 +2226,33 @@ static void send_ox2(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in Gas structure into send buffer */
+/* Pack data in ConsVarS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 2 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        *(pSnd++) = pq->d;
-        *(pSnd++) = pq->M1;
-        *(pSnd++) = pq->M2;
-        *(pSnd++) = pq->M3;
+        *(pSnd++) = pCons->d;
+        *(pSnd++) = pCons->M1;
+        *(pSnd++) = pCons->M2;
+        *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pq->E;
+        *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        *(pSnd++) = pq->B1c;
-        *(pSnd++) = pq->B2c;
-        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pCons->B1c;
+        *(pSnd++) = pCons->B2c;
+        *(pSnd++) = pCons->B3c;
         *(pSnd++) = pG->B1i[k][j][i];
         *(pSnd++) = pG->B2i[k][j][i];
         *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
       }
     }
@@ -2276,7 +2276,7 @@ static void send_ix3(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2297,33 +2297,33 @@ static void send_ix3(DomainS *pD)
   kl = pG->ks;
   ku = pG->ks + nghost - 1;
 
-/* Pack data in Gas structure into send buffer */
+/* Pack data in ConsVarS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 3 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        *(pSnd++) = pq->d;
-        *(pSnd++) = pq->M1;
-        *(pSnd++) = pq->M2;
-        *(pSnd++) = pq->M3;
+        *(pSnd++) = pCons->d;
+        *(pSnd++) = pCons->M1;
+        *(pSnd++) = pCons->M2;
+        *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pq->E;
+        *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        *(pSnd++) = pq->B1c;
-        *(pSnd++) = pq->B2c;
-        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pCons->B1c;
+        *(pSnd++) = pCons->B2c;
+        *(pSnd++) = pCons->B3c;
         *(pSnd++) = pG->B1i[k][j][i];
         *(pSnd++) = pG->B2i[k][j][i];
         *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
       }
     }
@@ -2347,7 +2347,7 @@ static void send_ox3(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2368,33 +2368,33 @@ static void send_ox3(DomainS *pD)
   kl = pG->ke - nghost + 1;
   ku = pG->ke;
 
-/* Pack data in Gas structure into send buffer */
+/* Pack data in ConsVarS structure into send buffer */
 
     /* Following expression gives same cnt as in Step 3 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        *(pSnd++) = pq->d;
-        *(pSnd++) = pq->M1;
-        *(pSnd++) = pq->M2;
-        *(pSnd++) = pq->M3;
+        *(pSnd++) = pCons->d;
+        *(pSnd++) = pCons->M1;
+        *(pSnd++) = pCons->M2;
+        *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pq->E;
+        *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        *(pSnd++) = pq->B1c;
-        *(pSnd++) = pq->B2c;
-        *(pSnd++) = pq->B3c;
+        *(pSnd++) = pCons->B1c;
+        *(pSnd++) = pCons->B2c;
+        *(pSnd++) = pCons->B3c;
         *(pSnd++) = pG->B1i[k][j][i];
         *(pSnd++) = pG->B2i[k][j][i];
         *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pq->s[n];
+        for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
       }
     }
@@ -2418,7 +2418,7 @@ static void receive_ix1(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pRcv = recv_buf;
 
   il = pG->is - nghost;
@@ -2447,26 +2447,26 @@ static void receive_ix1(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        pq->d  = *(pRcv++);
-        pq->M1 = *(pRcv++);
-        pq->M2 = *(pRcv++);
-        pq->M3 = *(pRcv++);
+        pCons->d  = *(pRcv++);
+        pCons->M1 = *(pRcv++);
+        pCons->M2 = *(pRcv++);
+        pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E  = *(pRcv++);
+        pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pRcv++);
-        pq->B2c = *(pRcv++);
-        pq->B3c = *(pRcv++);
+        pCons->B1c = *(pRcv++);
+        pCons->B2c = *(pRcv++);
+        pCons->B3c = *(pRcv++);
         pG->B1i[k][j][i] = *(pRcv++);
         pG->B2i[k][j][i] = *(pRcv++);
         pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
+        for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2485,7 +2485,7 @@ static void receive_ox1(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pRcv = recv_buf;
 
   il = pG->ie + 1;
@@ -2514,20 +2514,20 @@ static void receive_ox1(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        pq->d  = *(pRcv++);
-        pq->M1 = *(pRcv++);
-        pq->M2 = *(pRcv++);
-        pq->M3 = *(pRcv++);
+        pCons->d  = *(pRcv++);
+        pCons->M1 = *(pRcv++);
+        pCons->M2 = *(pRcv++);
+        pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E  = *(pRcv++);
+        pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pRcv++);
-        pq->B2c = *(pRcv++);
-        pq->B3c = *(pRcv++);
+        pCons->B1c = *(pRcv++);
+        pCons->B2c = *(pRcv++);
+        pCons->B3c = *(pRcv++);
 /* Do not set B1i[ie+1] for shearing sheet boundary conditions */
 #ifdef SHEARING_BOX
         if (i>il) {pG->B1i[k][j][i] = *(pRcv++);}
@@ -2539,7 +2539,7 @@ static void receive_ox1(GridS *pG, MPI_Request *prq)
         pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
+        for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2558,7 +2558,7 @@ static void receive_ix2(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2587,26 +2587,26 @@ static void receive_ix2(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        pq->d  = *(pRcv++);
-        pq->M1 = *(pRcv++);
-        pq->M2 = *(pRcv++);
-        pq->M3 = *(pRcv++);
+        pCons->d  = *(pRcv++);
+        pCons->M1 = *(pRcv++);
+        pCons->M2 = *(pRcv++);
+        pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E  = *(pRcv++);
+        pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pRcv++);
-        pq->B2c = *(pRcv++);
-        pq->B3c = *(pRcv++);
+        pCons->B1c = *(pRcv++);
+        pCons->B2c = *(pRcv++);
+        pCons->B3c = *(pRcv++);
         pG->B1i[k][j][i] = *(pRcv++);
         pG->B2i[k][j][i] = *(pRcv++);
         pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
+        for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2625,7 +2625,7 @@ static void receive_ox2(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2654,26 +2654,26 @@ static void receive_ox2(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        pq->d  = *(pRcv++);
-        pq->M1 = *(pRcv++);
-        pq->M2 = *(pRcv++);
-        pq->M3 = *(pRcv++);
+        pCons->d  = *(pRcv++);
+        pCons->M1 = *(pRcv++);
+        pCons->M2 = *(pRcv++);
+        pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E  = *(pRcv++);
+        pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pRcv++);
-        pq->B2c = *(pRcv++);
-        pq->B3c = *(pRcv++);
+        pCons->B1c = *(pRcv++);
+        pCons->B2c = *(pRcv++);
+        pCons->B3c = *(pRcv++);
         pG->B1i[k][j][i] = *(pRcv++);
         pG->B2i[k][j][i] = *(pRcv++);
         pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
+        for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2692,7 +2692,7 @@ static void receive_ix3(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2721,26 +2721,26 @@ static void receive_ix3(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        pq->d  = *(pRcv++);
-        pq->M1 = *(pRcv++);
-        pq->M2 = *(pRcv++);
-        pq->M3 = *(pRcv++);
+        pCons->d  = *(pRcv++);
+        pCons->M1 = *(pRcv++);
+        pCons->M2 = *(pRcv++);
+        pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E  = *(pRcv++);
+        pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pRcv++);
-        pq->B2c = *(pRcv++);
-        pq->B3c = *(pRcv++);
+        pCons->B1c = *(pRcv++);
+        pCons->B2c = *(pRcv++);
+        pCons->B3c = *(pRcv++);
         pG->B1i[k][j][i] = *(pRcv++);
         pG->B2i[k][j][i] = *(pRcv++);
         pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
+        for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
       }
     }
@@ -2759,7 +2759,7 @@ static void receive_ox3(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  Gas *pq;
+  ConsVarS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2788,26 +2788,26 @@ static void receive_ox3(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the Gas cell */
-        pq = &(pG->U[k][j][i]);
+        /* Get a pointer to the ConsVarS cell */
+        pCons = &(pG->U[k][j][i]);
 
-        pq->d  = *(pRcv++);
-        pq->M1 = *(pRcv++);
-        pq->M2 = *(pRcv++);
-        pq->M3 = *(pRcv++);
+        pCons->d  = *(pRcv++);
+        pCons->M1 = *(pRcv++);
+        pCons->M2 = *(pRcv++);
+        pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-        pq->E  = *(pRcv++);
+        pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-        pq->B1c = *(pRcv++);
-        pq->B2c = *(pRcv++);
-        pq->B3c = *(pRcv++);
+        pCons->B1c = *(pRcv++);
+        pCons->B2c = *(pRcv++);
+        pCons->B3c = *(pRcv++);
         pG->B1i[k][j][i] = *(pRcv++);
         pG->B2i[k][j][i] = *(pRcv++);
         pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) pq->s[n] = *(pRcv++);
+        for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
       }
     }

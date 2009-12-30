@@ -35,7 +35,7 @@
 #include "prototypes.h"
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static Gas ***RootSoln=NULL;
+static ConsVarS ***RootSoln=NULL;
 static int wave_flag;
 
 /*----------------------------------------------------------------------------*/
@@ -44,7 +44,7 @@ static int wave_flag;
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
-  Gas ***Soln;
+  ConsVarS ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2;
   Real amp,vflow,angle;
@@ -67,21 +67,21 @@ void problem(DomainS *pDomain)
   Nx1 = pDomain->Nx[0];
   Nx2 = pDomain->Nx[1];
   if (Nx1 == 1 || Nx2 == 1) {
-    ath_error("[linear_wave2d]: this test only works with Nx1 & Nx2 > 1\n");
+    ath_error("[problem]: this test only works with Nx1 & Nx2 > 1\n");
   }
 
 /* allocate memory for solution and vector potential */
 
 #ifdef MHD
   if ((az = (Real**)calloc_2d_array(nx2, nx1, sizeof(Real))) == NULL)
-    ath_error("[linear_wave2d]: Error allocating memory for \"az\"\n");
+    ath_error("[problem]: Error allocating memory for \"az\"\n");
 #endif /* MHD */
 
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-    ath_error("[linear_wave2d]: Error allocating memory\n");
+  if ((Soln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))==NULL)
+    ath_error("[problem]: Error allocating memory\n");
   if (pDomain->Level == 0){
-    if ((RootSoln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
-      ath_error("[linear_wave1d]: Error allocating memory for RootSoln\n");
+    if ((RootSoln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))
+      == NULL) ath_error("[problem]: Error alloc memory for RootSoln\n");
   }
 
 /* Read initial conditions */
@@ -360,7 +360,7 @@ static Real color(const GridS *pG, const int i, const int j, const int k)
 }
 #endif
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
@@ -391,7 +391,7 @@ void Userwork_after_loop(MeshS *pM)
 #endif
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
-  Gas error,total_error;
+  ConsVarS error,total_error;
   FILE *fp;
   char *fname;
   int Nx1, Nx2, Nx3, count;

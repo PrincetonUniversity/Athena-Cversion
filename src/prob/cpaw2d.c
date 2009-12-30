@@ -42,7 +42,7 @@
  * Vector potential A3 defined in prvate function below.  B_par, etc. must
  * be defined as globals to be used by A3() */
  
-static Gas **RootSoln=NULL;
+static ConsVarS **RootSoln=NULL;
 static Real A3(const Real x1, const Real x2);
 Real sin_a, cos_a, b_par, b_perp;
 Real k_par;
@@ -53,7 +53,7 @@ Real k_par;
 void problem(DomainS *pDomain)
 {
   GridS *pGrid = pDomain->Grid;
-  Gas **Soln;
+  ConsVarS **Soln;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
@@ -67,15 +67,15 @@ void problem(DomainS *pDomain)
   nx2 = (je - js + 1) + 2*nghost;
 
   if (pGrid->Nx[1] == 1) {
-    ath_error("[cpaw2d] Grid must be 2D");
+    ath_error("[problem] Grid must be 2D");
   }
 
-  if ((Soln = (Gas**)calloc_2d_array(nx2,nx1,sizeof(Gas))) == NULL)
-    ath_error("[pgflow]: Error allocating memory for Soln\n");
+  if ((Soln = (ConsVarS**)calloc_2d_array(nx2,nx1,sizeof(ConsVarS))) == NULL)
+    ath_error("[problem]: Error allocating memory for Soln\n");
 
   if (pDomain->Level == 0){
-    if ((RootSoln = (Gas**)calloc_2d_array(nx2,nx1,sizeof(Gas))) == NULL)
-      ath_error("[pgflow]: Error allocating memory for RootSoln\n");
+    if ((RootSoln =(ConsVarS**)calloc_2d_array(nx2,nx1,sizeof(ConsVarS)))==NULL)
+      ath_error("[problem]: Error allocating memory for RootSoln\n");
   }
 
 /* An angle =  0.0 is a wave aligned with the x1-direction. */
@@ -251,7 +251,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   return;
 }
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
@@ -275,7 +275,7 @@ void Userwork_after_loop(MeshS *pM)
   GridS *pGrid;
   int i,j,is,ie,js,je,ks,Nx1,Nx2;
   Real rms_error=0.0;
-  Gas error;
+  ConsVarS error;
   FILE *fp;
   char *fname;
   error.d = 0.0;

@@ -2,11 +2,10 @@
 /*==============================================================================
  * FILE: init_grid.c
  *
- * PURPOSE: Initializes most variables in the Grid structure:
- *      [ijk]s,[ijk]e,dx[123],x[123]min,x[123]max,[ijk]Disp
- *   Allocates memory for 3D arrays of Gas, interface B, etc.  With SMR, finds
- *   all overlaps between child and parent Grids, and initializes data needed
- *   for restriction, flux-correction, and prolongation steps.
+ * PURPOSE: Initializes most variables in the Grid structure.  Allocates memory
+ *   for 3D arrays of ConsVar, interface B, etc.  With SMR, finds all overlaps
+ *   between child and parent Grids, and initializes data needed for restriction
+ *   flux-correction, and prolongation steps.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   init_grid()
@@ -137,7 +136,7 @@ void init_grid(MeshS *pM)
       }
       pG->x3max = pG->x3min + (Real)(pG->Nx[2])*pG->dx3;
 
-/* ---------  Allocate 3D arrays to hold Gas based on size of grid --------- */
+/* ------  Allocate 3D arrays to hold ConsVar based on size of grid --------- */
 
       if (pG->Nx[0] > 1)
         n1z = pG->Nx[0] + 2*nghost;
@@ -154,9 +153,9 @@ void init_grid(MeshS *pM)
       else
         n3z = 1;
 
-/* Build a 3D array of type Gas */
+/* Build a 3D array of type ConsVarS */
 
-      pG->U = (Gas***)calloc_3d_array(n3z, n2z, n1z, sizeof(Gas));
+      pG->U = (ConsVarS***)calloc_3d_array(n3z, n2z, n1z, sizeof(ConsVarS));
       if (pG->U == NULL) goto on_error1;
     
 /* Build 3D arrays to hold interface field */
@@ -462,8 +461,8 @@ printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
 
 /* Allocate memory for myFlx and my EMFs */
 
-                  pG->CGrid[ncg].myFlx[2*dim] = (Gas**)calloc_2d_array(
-                    n2z,n1z, sizeof(Gas));
+                  pG->CGrid[ncg].myFlx[2*dim] = (ConsVarS**)calloc_2d_array(
+                    n2z,n1z, sizeof(ConsVarS));
                   if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
                    "[init_grid]:failed to allocate CGrid ixb myFlx\n");
 if(myID_Comm_world==0){
@@ -561,8 +560,8 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z,n1z+1);
 
 /* Allocate memory for myFlx and myEMFs*/
 
-                  pG->CGrid[ncg].myFlx[(2*dim)+1] = (Gas**)calloc_2d_array(
-                    n2z,n1z, sizeof(Gas));
+                  pG->CGrid[ncg].myFlx[(2*dim)+1] = (ConsVarS**)calloc_2d_array(
+                    n2z,n1z, sizeof(ConsVarS));
                   if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
                     "[init_grid]:failed to allocate CGrid oxb myFlx\n");
 if(myID_Comm_world==0){
@@ -873,8 +872,8 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the
  * overlap on the parent Grid (the actual number of words sent). */
 
-                    pG->PGrid[npg].myFlx[2*dim] = (Gas**)calloc_2d_array(
-                      n2z,n1z, sizeof(Gas));
+                    pG->PGrid[npg].myFlx[2*dim] = (ConsVarS**)calloc_2d_array(
+                      n2z,n1z, sizeof(ConsVarS));
                     if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid ixb myFlx\n");
 if(myID_Comm_world==0){
@@ -976,8 +975,8 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z,n1z+1);
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the
  * overlap on the parent Grid (the actual number of words sent). */
 
-                    pG->PGrid[npg].myFlx[(2*dim)+1] = (Gas**)calloc_2d_array(
-                      n2z,n1z, sizeof(Gas));
+                    pG->PGrid[npg].myFlx[(2*dim)+1] =
+                      (ConsVarS**)calloc_2d_array(n2z,n1z, sizeof(ConsVarS));
                     if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid oxb myFlx\n");
 if(myID_Comm_world==0){

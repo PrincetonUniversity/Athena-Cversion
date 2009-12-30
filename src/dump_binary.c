@@ -156,7 +156,7 @@ void dump_binary(MeshS *pM, OutputS *pOut)
   }
   fwrite(dataz,sizeof(float),(size_t)ndata[2],p_binfile);
 
-/* Write cell-centered data in Gas array pGrid->U[n] */
+/* Write cell-centered data in ConsVarS array pGrid->U[n] */
 
   for (n=0;n<NVAR; n++) {
     for (k=0; k<ndata[2]; k++) {

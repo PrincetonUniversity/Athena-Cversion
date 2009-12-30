@@ -4,7 +4,7 @@
  *
  * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
  *   method of Colella (1990).  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type Gas
+ *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsVarS
  *      B1i, B2i -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically-thin cooling,
  *   and H-correction of Sanders et al.
@@ -42,9 +42,9 @@
 #if defined(CTU_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of conserved variables and fluxes at each cell face */
-static Cons1D **Ul_x1Face=NULL, **Ur_x1Face=NULL;
-static Cons1D **Ul_x2Face=NULL, **Ur_x2Face=NULL;
-static Cons1D **x1Flux=NULL, **x2Flux=NULL;
+static CVar1DS **Ul_x1Face=NULL, **Ur_x1Face=NULL;
+static CVar1DS **Ul_x2Face=NULL, **Ur_x2Face=NULL;
+static CVar1DS **x1Flux=NULL, **x2Flux=NULL;
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
@@ -53,11 +53,9 @@ static Real **emf3=NULL, **emf3_cc=NULL;
 #endif /* MHD */
 
 /* 1D scratch vectors used by lr_states and flux functions */
-#ifdef MHD
 static Real *Bxc=NULL, *Bxi=NULL;
-#endif /* MHD */
-static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
-static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
+static PVar1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static CVar1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
 /* density and Pressure at t^{n+1/2} needed by MHD, cooling, and gravity */
 static Real **dhalf = NULL,**phalf = NULL;
@@ -92,7 +90,7 @@ void integrate_2d_ctu(DomainS *pD)
   int i,il,iu,is=pG->is, ie=pG->ie;
   int j,jl,ju,js=pG->js, je=pG->je;
   int ks=pG->ks;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h;
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h,Bx=0.0;
 #ifndef BAROTROPIC
   Real coolfl,coolfr,coolf,Eh=0.0;
 #endif
@@ -181,10 +179,10 @@ void integrate_2d_ctu(DomainS *pD)
  */
 
     for (i=is-nghost; i<=ie+nghost; i++) {
-      Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+      Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
     }
 
-    lr_states(W, MHDARG( Bxc , ) dtodx1,il+1,iu-1,Wl,Wr);
+    lr_states(W,Bxc,dtodx1,il+1,iu-1,Wl,Wr);
 
 #ifdef MHD
     for (i=il+1; i<=iu; i++) {
@@ -296,11 +294,13 @@ void integrate_2d_ctu(DomainS *pD)
  */
 
     for (i=il+1; i<=iu; i++) {
-      Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i] MHDARG( , &Bxi[i]));
-      Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i] MHDARG( , &Bxi[i]));
+      Prim1D_to_Cons1D(&Ul_x1Face[j][i],&Wl[i],&Bxi[i]);
+      Prim1D_to_Cons1D(&Ur_x1Face[j][i],&Wr[i],&Bxi[i]);
 
-      fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
-                 MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
+#ifdef MHD
+      Bx = B1_x1Face[j][i];
+#endif
+      fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],Bx,&x1Flux[j][i]);
     }
   }
 
@@ -337,10 +337,10 @@ void integrate_2d_ctu(DomainS *pD)
  */
 
     for (j=js-nghost; j<=je+nghost; j++) {
-      Cons1D_to_Prim1D(&U1d[j],&W[j] MHDARG( , &Bxc[j]));
+      Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
     }
 
-    lr_states(W, MHDARG( Bxc , ) dtodx2,jl+1,ju-1,Wl,Wr);
+    lr_states(W,Bxc,dtodx2,jl+1,ju-1,Wl,Wr);
 
 #ifdef MHD
     for (j=jl+1; j<=ju; j++) {
@@ -425,11 +425,13 @@ void integrate_2d_ctu(DomainS *pD)
  */
 
     for (j=jl+1; j<=ju; j++) {
-      Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j] MHDARG( , &Bxi[j]));
-      Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j] MHDARG( , &Bxi[j]));
+      Prim1D_to_Cons1D(&Ul_x2Face[j][i],&Wl[j],&Bxi[j]);
+      Prim1D_to_Cons1D(&Ur_x2Face[j][i],&Wr[j],&Bxi[j]);
 
-      fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],
-                 MHDARG( B2_x2Face[j][i] , ) &x2Flux[j][i]);
+#ifdef MHD
+      Bx = B2_x2Face[j][i];
+#endif
+      fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],Bx,&x2Flux[j][i]);
     }
   }
 
@@ -935,8 +937,11 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef H_CORRECTION
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+2; i++) {
-      cfr = cfast(&(Ur_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
-      cfl = cfast(&(Ul_x1Face[j][i]) MHDARG( , &(B1_x1Face[j][i])));
+#ifdef MHD
+      Bx = B1_x1Face[j][i];
+#endif
+      cfr = cfast(&(Ur_x1Face[j][i]),&Bx);
+      cfl = cfast(&(Ul_x1Face[j][i]),&Bx);
       lambdar = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d + cfr;
       lambdal = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d - cfl;
       eta1[j][i] = 0.5*fabs(lambdar - lambdal);
@@ -945,8 +950,11 @@ void integrate_2d_ctu(DomainS *pD)
 
   for (j=js-1; j<=je+2; j++) {
     for (i=is-1; i<=ie+1; i++) {
-      cfr = cfast(&(Ur_x2Face[j][i]) MHDARG( , &(B2_x2Face[j][i])));
-      cfl = cfast(&(Ul_x2Face[j][i]) MHDARG( , &(B2_x2Face[j][i])));
+#ifdef MHD
+      Bx = B2_x2Face[j][i];
+#endif
+      cfr = cfast(&(Ur_x2Face[j][i]),&Bx);
+      cfl = cfast(&(Ul_x2Face[j][i]),&Bx);
       lambdar = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d + cfr;
       lambdal = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d - cfl;
       eta2[j][i] = 0.5*fabs(lambdar - lambdal);
@@ -966,11 +974,13 @@ void integrate_2d_ctu(DomainS *pD)
       etah = MAX(etah,eta2[j+1][i  ]);
       etah = MAX(etah,eta1[j  ][i  ]);
 #endif /* H_CORRECTION */
-      Cons1D_to_Prim1D(&Ul_x1Face[j][i],&Wl[i] MHDARG( , &B1_x1Face[j][i]));
-      Cons1D_to_Prim1D(&Ur_x1Face[j][i],&Wr[i] MHDARG( , &B1_x1Face[j][i]));
+#ifdef MHD
+      Bx = B1_x1Face[j][i];
+#endif
+      Cons1D_to_Prim1D(&Ul_x1Face[j][i],&Wl[i],&Bx);
+      Cons1D_to_Prim1D(&Ur_x1Face[j][i],&Wr[i],&Bx);
 
-      fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],
-                 MHDARG( B1_x1Face[j][i] , ) &x1Flux[j][i]);
+      fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],Bx,&x1Flux[j][i]);
     }
   }
 /*--- Step 9c ------------------------------------------------------------------
@@ -985,11 +995,13 @@ void integrate_2d_ctu(DomainS *pD)
       etah = MAX(etah,eta1[j  ][i+1]);
       etah = MAX(etah,eta2[j  ][i  ]);
 #endif /* H_CORRECTION */
-      Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Wl[i] MHDARG( , &B2_x2Face[j][i]));
-      Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Wr[i] MHDARG( , &B2_x2Face[j][i]));
+#ifdef MHD
+      Bx = B2_x2Face[j][i];
+#endif
+      Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Wl[i],&Bx);
+      Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Wr[i],&Bx);
 
-      fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],
-                 MHDARG( B2_x2Face[j][i] , )&x2Flux[j][i]);
+      fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],Bx,&x2Flux[j][i]);
     }
   }
 
@@ -1518,35 +1530,35 @@ void integrate_init_2d(MeshS *pM)
     goto on_error;
 #endif /* H_CORRECTION */
 
-#ifdef MHD
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
 
+#ifdef MHD
   if ((B1_x1Face = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
     goto on_error;
   if ((B2_x2Face = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
     goto on_error;
 #endif /* MHD */
 
-  if ((U1d =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(nmax*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((W  =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr =      (Prim1D*)malloc(nmax*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((U1d= (CVar1DS*)malloc(nmax*sizeof(CVar1DS))) == NULL) goto on_error;
+  if ((Ul = (CVar1DS*)malloc(nmax*sizeof(CVar1DS))) == NULL) goto on_error;
+  if ((Ur = (CVar1DS*)malloc(nmax*sizeof(CVar1DS))) == NULL) goto on_error;
+  if ((W  = (PVar1DS*)malloc(nmax*sizeof(PVar1DS))) == NULL) goto on_error;
+  if ((Wl = (PVar1DS*)malloc(nmax*sizeof(PVar1DS))) == NULL) goto on_error;
+  if ((Wr = (PVar1DS*)malloc(nmax*sizeof(PVar1DS))) == NULL) goto on_error;
 
-  if ((Ul_x1Face = (Cons1D**)calloc_2d_array(size2,size1,sizeof(Cons1D)))==NULL)
+  if ((Ul_x1Face=(CVar1DS**)calloc_2d_array(size2,size1,sizeof(CVar1DS)))==NULL)
     goto on_error;
-  if ((Ur_x1Face = (Cons1D**)calloc_2d_array(size2,size1,sizeof(Cons1D)))==NULL)
+  if ((Ur_x1Face=(CVar1DS**)calloc_2d_array(size2,size1,sizeof(CVar1DS)))==NULL)
     goto on_error;
-  if ((Ul_x2Face = (Cons1D**)calloc_2d_array(size2,size1,sizeof(Cons1D)))==NULL)
+  if ((Ul_x2Face=(CVar1DS**)calloc_2d_array(size2,size1,sizeof(CVar1DS)))==NULL)
     goto on_error;
-  if ((Ur_x2Face = (Cons1D**)calloc_2d_array(size2,size1,sizeof(Cons1D)))==NULL)
+  if ((Ur_x2Face=(CVar1DS**)calloc_2d_array(size2,size1,sizeof(CVar1DS)))==NULL)
     goto on_error;
 
-  if ((x1Flux    = (Cons1D**)calloc_2d_array(size2,size1,sizeof(Cons1D)))==NULL)
+  if ((x1Flux   =(CVar1DS**)calloc_2d_array(size2,size1,sizeof(CVar1DS)))==NULL)
     goto on_error;
-  if ((x2Flux    = (Cons1D**)calloc_2d_array(size2,size1,sizeof(Cons1D)))==NULL)
+  if ((x2Flux   =(CVar1DS**)calloc_2d_array(size2,size1,sizeof(CVar1DS)))==NULL)
     goto on_error;
 
 #ifndef MHD
@@ -1581,9 +1593,9 @@ void integrate_destruct_2d(void)
   if (eta1 != NULL) free_2d_array(eta1);
   if (eta2 != NULL) free_2d_array(eta2);
 #endif /* H_CORRECTION */
-#ifdef MHD
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
+#ifdef MHD
   if (B1_x1Face != NULL) free_2d_array(B1_x1Face);
   if (B2_x2Face != NULL) free_2d_array(B2_x2Face);
 #endif /* MHD */

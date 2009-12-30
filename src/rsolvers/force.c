@@ -37,9 +37,9 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void fluxes(const Cons1D Ul, const Cons1D Ur, 
-            const Prim1D Wl, const Prim1D Wr,
-            MHDARG(const Real Bxi,) Cons1D *pFlux)
+void fluxes(const CVar1DS Ul, const CVar1DS Ur, 
+            const PVar1DS Wl, const PVar1DS Wr,
+            const Real Bxi, CVar1DS *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
@@ -51,8 +51,8 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 #endif
   Real ev[NWAVE],al,ar;
   Real *pFl, *pFc, *pFr, *pUc, *pF;
-  Prim1D Wc;
-  Cons1D Fl, Fc, Fr, Uc;
+  PVar1DS Wc;
+  CVar1DS Fl, Fc, Fr, Uc;
   int n;
 
 /* The first 5 steps are identical to those in hlle fluxes */
@@ -242,7 +242,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
   }
 
 /* Convert the HLL mean state to primitive variables */
-  Cons1D_to_Prim1D(&Uc,&Wc MHDARG( , &Bxi));
+  Cons1D_to_Prim1D(&Uc,&Wc,&Bxi);
 
 /* Compute the LW flux along the line dx/dt = 0 */
 

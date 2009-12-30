@@ -394,7 +394,7 @@ static Real Temperature(const GridS *pG, const int i, const int j, const int k)
 }
 #endif
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
 #ifdef MHD
   if(strcmp(expr,"J3")==0) return current;

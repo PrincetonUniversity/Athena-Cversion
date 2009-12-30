@@ -76,7 +76,7 @@ void problem(DomainS *pDomain)
   int ixs,jxs,kxs,i,j,k,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax,Lx,Ly,Lz;
-  Real den = 1.0, pres, rd, rp, rvx, rvy, rvz;
+  Real den=1.0, pres=1.0e-6, rd, rp, rvx, rvy, rvz;
   Real beta,B0,kx,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
@@ -87,7 +87,9 @@ void problem(DomainS *pDomain)
   }
 
 /* Read problem parameters.  Note Omega set to 10^{-3} by default */
+#ifdef ISOTHERMAL
   pres=den*Iso_csound2;
+#endif
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
@@ -309,7 +311,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 /* Get_user_expression computes dVy */
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"dVy")==0) return expr_dV2;
   else if(strcmp(expr,"beta")==0) return expr_beta;
@@ -462,10 +464,16 @@ static Real expr_beta(const GridS *pG, const int i, const int j, const int k)
   B2=pG->U[k][j][i].B1c*pG->U[k][j][i].B1c;
   B2+=pG->U[k][j][i].B2c*pG->U[k][j][i].B2c;
   B2+=pG->U[k][j][i].B3c*pG->U[k][j][i].B3c;
+
+#ifdef ISOTHERMAL
   return (2.0*Iso_csound2*pG->U[k][j][i].d/B2);
 #else
-  return NULL;
+  return 0.0;
 #endif
+
+#else
+  return 0.0;
+#endif /* MHD */
 }
 
 /*------------------------------------------------------------------------------

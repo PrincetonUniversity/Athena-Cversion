@@ -69,12 +69,12 @@ typedef struct Remap_s{
 }Remap;
 
 /* Define structure for variables used in FARGO algorithm */
-typedef struct FGas_s{
+typedef struct FCons_s{
   Real U[NFARGO];
 #if (NSCALARS > 0)
   Real s[NSCALARS];
 #endif
-}FGas;
+}FConsS;
 
 /* The memory for all the arrays below is allocated in set_bvals_shear_init */
 /* Arrays of ghost zones containing remapped conserved quantities */
@@ -95,7 +95,7 @@ static double *send_buf = NULL, *recv_buf = NULL;
 #endif
 #ifdef FARGO
 int nfghost;
-static FGas ***FargoVars=NULL, ***FargoFlx=NULL;
+static FConsS ***FargoVars=NULL, ***FargoFlx=NULL;
 #endif
 
 /*==============================================================================
@@ -128,7 +128,7 @@ void ShearingSheet_ix1(DomainS *pD)
   int err,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Remap *pRemap;
-  Gas *pGas;
+  ConsVarS *pCons;
   MPI_Request rq;
 #endif
 
@@ -517,26 +517,26 @@ void ShearingSheet_ix1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=je-nghost+1; j<=je; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          *(pSnd++) = pGas->d;
-          *(pSnd++) = pGas->M1;
-          *(pSnd++) = pGas->M2;
-          *(pSnd++) = pGas->M3;
+          *(pSnd++) = pCons->d;
+          *(pSnd++) = pCons->M1;
+          *(pSnd++) = pCons->M2;
+          *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-          *(pSnd++) = pGas->E;
+          *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-          *(pSnd++) = pGas->B1c;
-          *(pSnd++) = pGas->B2c;
-          *(pSnd++) = pGas->B3c;
+          *(pSnd++) = pCons->B1c;
+          *(pSnd++) = pCons->B2c;
+          *(pSnd++) = pCons->B3c;
           *(pSnd++) = pG->B1i[k][j][i];
           *(pSnd++) = pG->B2i[k][j][i];
           *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) = pGas->s[n];
+          for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
         }
       }
@@ -555,26 +555,26 @@ void ShearingSheet_ix1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=js-nghost; j<=js-1; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          pGas->d  = *(pRcv++);
-          pGas->M1 = *(pRcv++);
-          pGas->M2 = *(pRcv++);
-          pGas->M3 = *(pRcv++);
+          pCons->d  = *(pRcv++);
+          pCons->M1 = *(pRcv++);
+          pCons->M2 = *(pRcv++);
+          pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-          pGas->E  = *(pRcv++);
+          pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-          pGas->B1c = *(pRcv++);
-          pGas->B2c = *(pRcv++);
-          pGas->B3c = *(pRcv++);
+          pCons->B1c = *(pRcv++);
+          pCons->B2c = *(pRcv++);
+          pCons->B3c = *(pRcv++);
           pG->B1i[k][j][i] = *(pRcv++);
           pG->B2i[k][j][i] = *(pRcv++);
           pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) pGas->s[n] = *(pRcv++);
+          for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
         }
       }
@@ -589,26 +589,26 @@ void ShearingSheet_ix1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=js; j<=js+nghost-1; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          *(pSnd++) = pGas->d;
-          *(pSnd++) = pGas->M1;
-          *(pSnd++) = pGas->M2;
-          *(pSnd++) = pGas->M3;
+          *(pSnd++) = pCons->d;
+          *(pSnd++) = pCons->M1;
+          *(pSnd++) = pCons->M2;
+          *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-          *(pSnd++) = pGas->E;
+          *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-          *(pSnd++) = pGas->B1c;
-          *(pSnd++) = pGas->B2c;
-          *(pSnd++) = pGas->B3c;
+          *(pSnd++) = pCons->B1c;
+          *(pSnd++) = pCons->B2c;
+          *(pSnd++) = pCons->B3c;
           *(pSnd++) = pG->B1i[k][j][i];
           *(pSnd++) = pG->B2i[k][j][i];
           *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) = pGas->s[n];
+          for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
         }
       }
@@ -627,26 +627,26 @@ void ShearingSheet_ix1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=je+1; j<=je+nghost; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          pGas->d  = *(pRcv++);
-          pGas->M1 = *(pRcv++);
-          pGas->M2 = *(pRcv++);
-          pGas->M3 = *(pRcv++);
+          pCons->d  = *(pRcv++);
+          pCons->M1 = *(pRcv++);
+          pCons->M2 = *(pRcv++);
+          pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-          pGas->E  = *(pRcv++);
+          pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-          pGas->B1c = *(pRcv++);
-          pGas->B2c = *(pRcv++);
-          pGas->B3c = *(pRcv++);
+          pCons->B1c = *(pRcv++);
+          pCons->B2c = *(pRcv++);
+          pCons->B3c = *(pRcv++);
           pG->B1i[k][j][i] = *(pRcv++);
           pG->B2i[k][j][i] = *(pRcv++);
           pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) pGas->s[n] = *(pRcv++);
+          for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
         }
       }
@@ -718,7 +718,7 @@ void ShearingSheet_ox1(DomainS *pD)
   int err,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Remap *pRemap;
-  Gas *pGas;
+  ConsVarS *pCons;
   MPI_Request rq;
 #endif
 
@@ -1109,26 +1109,26 @@ void ShearingSheet_ox1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=je-nghost+1; j<=je; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          *(pSnd++) = pGas->d;
-          *(pSnd++) = pGas->M1;
-          *(pSnd++) = pGas->M2;
-          *(pSnd++) = pGas->M3;
+          *(pSnd++) = pCons->d;
+          *(pSnd++) = pCons->M1;
+          *(pSnd++) = pCons->M2;
+          *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-          *(pSnd++) = pGas->E;
+          *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-          *(pSnd++) = pGas->B1c;
-          *(pSnd++) = pGas->B2c;
-          *(pSnd++) = pGas->B3c;
+          *(pSnd++) = pCons->B1c;
+          *(pSnd++) = pCons->B2c;
+          *(pSnd++) = pCons->B3c;
           *(pSnd++) = pG->B1i[k][j][i];
           *(pSnd++) = pG->B2i[k][j][i];
           *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) = pGas->s[n];
+          for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
         }
       }
@@ -1147,26 +1147,26 @@ void ShearingSheet_ox1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=js-nghost; j<=js-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          pGas->d  = *(pRcv++);
-          pGas->M1 = *(pRcv++);
-          pGas->M2 = *(pRcv++);
-          pGas->M3 = *(pRcv++);
+          pCons->d  = *(pRcv++);
+          pCons->M1 = *(pRcv++);
+          pCons->M2 = *(pRcv++);
+          pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-          pGas->E  = *(pRcv++);
+          pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-          pGas->B1c = *(pRcv++);
-          pGas->B2c = *(pRcv++);
-          pGas->B3c = *(pRcv++);
+          pCons->B1c = *(pRcv++);
+          pCons->B2c = *(pRcv++);
+          pCons->B3c = *(pRcv++);
           pG->B1i[k][j][i] = *(pRcv++);
           pG->B2i[k][j][i] = *(pRcv++);
           pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) pGas->s[n] = *(pRcv++);
+          for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
         }
       }
@@ -1181,26 +1181,26 @@ void ShearingSheet_ox1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=js; j<=js+nghost-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          *(pSnd++) = pGas->d;
-          *(pSnd++) = pGas->M1;
-          *(pSnd++) = pGas->M2;
-          *(pSnd++) = pGas->M3;
+          *(pSnd++) = pCons->d;
+          *(pSnd++) = pCons->M1;
+          *(pSnd++) = pCons->M2;
+          *(pSnd++) = pCons->M3;
 #ifndef BAROTROPIC
-          *(pSnd++) = pGas->E;
+          *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-          *(pSnd++) = pGas->B1c;
-          *(pSnd++) = pGas->B2c;
-          *(pSnd++) = pGas->B3c;
+          *(pSnd++) = pCons->B1c;
+          *(pSnd++) = pCons->B2c;
+          *(pSnd++) = pCons->B3c;
           *(pSnd++) = pG->B1i[k][j][i];
           *(pSnd++) = pG->B2i[k][j][i];
           *(pSnd++) = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) = pGas->s[n];
+          for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
         }
       }
@@ -1219,26 +1219,26 @@ void ShearingSheet_ox1(DomainS *pD)
     for (k=ks; k<=ke+1; k++){
       for (j=je+1; j<=je+nghost; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the Gas cell */
-          pGas = &(pG->U[k][j][i]);
+          /* Get a pointer to the ConsVarS cell */
+          pCons = &(pG->U[k][j][i]);
 
-          pGas->d  = *(pRcv++);
-          pGas->M1 = *(pRcv++);
-          pGas->M2 = *(pRcv++);
-          pGas->M3 = *(pRcv++);
+          pCons->d  = *(pRcv++);
+          pCons->M1 = *(pRcv++);
+          pCons->M2 = *(pRcv++);
+          pCons->M3 = *(pRcv++);
 #ifndef BAROTROPIC
-          pGas->E  = *(pRcv++);
+          pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #ifdef MHD
-          pGas->B1c = *(pRcv++);
-          pGas->B2c = *(pRcv++);
-          pGas->B3c = *(pRcv++);
+          pCons->B1c = *(pRcv++);
+          pCons->B2c = *(pRcv++);
+          pCons->B3c = *(pRcv++);
           pG->B1i[k][j][i] = *(pRcv++);
           pG->B2i[k][j][i] = *(pRcv++);
           pG->B3i[k][j][i] = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) pGas->s[n] = *(pRcv++);
+          for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
         }
       }
@@ -1997,7 +1997,7 @@ void Fargo(DomainS *pD)
 #ifdef MPI_PARALLEL
   int err,cnt;
   double *pSnd,*pRcv;
-  FGas *pFGas;
+  FConsS *pFCons;
   MPI_Request rq;
 #endif
 
@@ -2070,10 +2070,10 @@ void Fargo(DomainS *pD)
       for (i=is; i<=ie+1; i++){
         for (j=jfe-nfghost+1; j<=jfe; j++){
           /* Get a pointer to the FargoVars cell */
-          pFGas = &(FargoVars[k][i][j]);
-          for (n=0; n<NFARGO; n++) *(pSnd++) = pFGas->U[n];
+          pFCons = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) *(pSnd++) = pFCons->U[n];
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) = pFGas->s[n];
+          for (n=0; n<NSCALARS; n++) *(pSnd++) = pFCons->s[n];
 #endif
         }
       }
@@ -2093,10 +2093,10 @@ void Fargo(DomainS *pD)
       for (i=is; i<=ie+1; i++){
         for (j=jfs-nfghost; j<=jfs-1; j++){
           /* Get a pointer to the FargoVars cell */
-          pFGas = &(FargoVars[k][i][j]);
-          for (n=0; n<NFARGO; n++) pFGas->U[n] = *(pRcv++);
+          pFCons = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) pFCons->U[n] = *(pRcv++);
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) pFGas->s[n] = *(pRcv++);
+          for (n=0; n<NSCALARS; n++) pFCons->s[n] = *(pRcv++);
 #endif
         }
       }
@@ -2112,10 +2112,10 @@ void Fargo(DomainS *pD)
       for (i=is; i<=ie+1; i++){
         for (j=jfs; j<=jfs+nfghost-1; j++){
           /* Get a pointer to the FargoVars cell */
-          pFGas = &(FargoVars[k][i][j]);
-          for (n=0; n<NFARGO; n++) *(pSnd++) = pFGas->U[n];
+          pFCons = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) *(pSnd++) = pFCons->U[n];
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) = pFGas->s[n];
+          for (n=0; n<NSCALARS; n++) *(pSnd++) = pFCons->s[n];
 #endif
         }
       }
@@ -2135,10 +2135,10 @@ void Fargo(DomainS *pD)
       for (i=is; i<=ie+1; i++){
         for (j=jfe+1; j<=jfe+nfghost; j++){
           /* Get a pointer to the FargoVars cell */
-          pFGas = &(FargoVars[k][i][j]);
-          for (n=0; n<NFARGO; n++) pFGas->U[n] = *(pRcv++);
+          pFCons = &(FargoVars[k][i][j]);
+          for (n=0; n<NFARGO; n++) pFCons->U[n] = *(pRcv++);
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) pFGas->s[n] = *(pRcv++);
+          for (n=0; n<NSCALARS; n++) pFCons->s[n] = *(pRcv++);
 #endif
         }
       }
@@ -2381,22 +2381,22 @@ void set_bvals_shear_init(MeshS *pM)
   nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 1);
   max2 = max2 + 2*nfghost;
 
-  if((FargoVars=(FGas***)calloc_3d_array(max3,max1,max2,sizeof(FGas)))==NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+  if((FargoVars=(FConsS***)calloc_3d_array(max3,max1,max2,sizeof(FConsS)))
+    ==NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
-  if((FargoFlx=(FGas***)calloc_3d_array(max3,max1,max2,sizeof(FGas)))==NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+  if((FargoFlx=(FConsS***)calloc_3d_array(max3,max1,max2,sizeof(FConsS)))==NULL)
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif
 
   if((U = (Real*)malloc(max2*sizeof(Real))) == NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
   if((Flx = (Real*)malloc(max2*sizeof(Real))) == NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
 #if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   if ((Uhalf = (Real*)malloc(max2*sizeof(Real))) == NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif
 
 /* allocate memory for send/receive buffers in MPI parallel calculations */

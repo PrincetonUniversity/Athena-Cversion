@@ -437,7 +437,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 /* Get_user_expression computes dVy */
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"dVy")==0) return expr_dV2;
   return NULL;

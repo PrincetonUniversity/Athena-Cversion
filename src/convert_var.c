@@ -6,7 +6,7 @@
  *   Also contains function to compute fast magnetosonic speed.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   Cons_to_Prim() - converts Gas type to Prim type
+ *   Cons_to_Prim() - converts ConsVar type to PrimVar type
  *   Cons1D_to_Prim1D() - converts 1D vector (Bx passed through arguments)
  *   Prim1D_to_Cons1D() - converts 1D vector (Bx passed through arguments)
  *   cfast()            - compute fast speed given input Cons1D, Bx
@@ -26,36 +26,36 @@
  *   primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
  */
 
-Prim Cons_to_Prim(const Gas *pGas)
+PrimVarS Cons_to_Prim(const ConsVarS *pCons)
 {
-  Prim pPrim;
+  PrimVarS pPrim;
 #if (NSCALARS > 0)
   int n;
 #endif
-  Real di = 1.0/pGas->d;
+  Real di = 1.0/pCons->d;
 
-  pPrim.d  = pGas->d;
-  pPrim.V1 = pGas->M1*di;
-  pPrim.V2 = pGas->M2*di;
-  pPrim.V3 = pGas->M3*di;
+  pPrim.d  = pCons->d;
+  pPrim.V1 = pCons->M1*di;
+  pPrim.V2 = pCons->M2*di;
+  pPrim.V3 = pCons->M3*di;
 
 #ifndef ISOTHERMAL
-  pPrim.P = pGas->E - 0.5*(SQR(pGas->M1)+SQR(pGas->M2)+SQR(pGas->M3))*di;
+  pPrim.P = pCons->E - 0.5*(SQR(pCons->M1)+SQR(pCons->M2)+SQR(pCons->M3))*di;
 #ifdef MHD
-  pPrim.P -= 0.5*(SQR(pGas->B1c) + SQR(pGas->B2c) + SQR(pGas->B3c));
+  pPrim.P -= 0.5*(SQR(pCons->B1c) + SQR(pCons->B2c) + SQR(pCons->B3c));
 #endif /* MHD */
   pPrim.P *= Gamma_1;
   pPrim.P = MAX(pPrim.P,(TINY_NUMBER));
 #endif /* ISOTHERMAL */
 
 #ifdef MHD
-  pPrim.B1c = pGas->B1c;
-  pPrim.B2c = pGas->B2c;
-  pPrim.B3c = pGas->B3c;
+  pPrim.B1c = pCons->B1c;
+  pPrim.B2c = pCons->B2c;
+  pPrim.B3c = pCons->B3c;
 #endif /* MHD */
 
 #if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) pPrim.r[n] = pGas->s[n]*di;
+  for (n=0; n<NSCALARS; n++) pPrim.r[n] = pCons->s[n]*di;
 #endif
 
   return pPrim;
@@ -68,7 +68,7 @@ Prim Cons_to_Prim(const Gas *pGas)
  * Bx is passed in through the argument list.
  */
 
-void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW MHDARG( , const Real *pBx))
+void Cons1D_to_Prim1D(const CVar1DS *pU, PVar1DS *pW, const Real *pBx)
 {
 #if (NSCALARS > 0)
   int n;
@@ -108,7 +108,7 @@ void Cons1D_to_Prim1D(const Cons1D *pU, Prim1D *pW MHDARG( , const Real *pBx))
  * Bx is passed in through the argument list.
  */
 
-void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx))
+void Prim1D_to_Cons1D(CVar1DS *pU, const PVar1DS *pW, const Real *pBx)
 {
 #if (NSCALARS > 0)
   int n;
@@ -143,7 +143,7 @@ void Prim1D_to_Cons1D(Cons1D *pU, const Prim1D *pW MHDARG( , const Real *pBx))
  *   variables and Bx. 
  */
 
-Real cfast(const Cons1D *U MHDARG( , const Real *Bx))
+Real cfast(const CVar1DS *U, const Real *Bx)
 {
   Real asq;
 #ifndef ISOTHERMAL

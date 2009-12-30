@@ -40,8 +40,8 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
 /* All of the Riemann solvers in this directory contain the same function name
  */
 
-void fluxes(const Cons1D Ul, const Cons1D Ur,
-            const Prim1D Wl, const Prim1D Wr,
-            MHDARG(const Real Bxi,) Cons1D *pF);
+void fluxes(const CVar1DS Ul, const CVar1DS Ur,
+            const PVar1DS Wl, const PVar1DS Wr,
+            const Real Bxi, CVar1DS *pF);
 
 #endif /* RSOLVERS_PROTOTYPES_H */

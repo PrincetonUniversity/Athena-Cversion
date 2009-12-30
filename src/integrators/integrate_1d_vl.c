@@ -25,24 +25,17 @@
 #if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of primitive variables and fluxes at each cell face */
-static Prim1D *Wl_x1Face=NULL, *Wr_x1Face=NULL;
-static Cons1D *x1Flux=NULL;
-
-/* The interface magnetic field */
-#ifdef MHD
-static Real *B1_x1Face=NULL;
-#endif /* MHD */
+static PVar1DS *Wl_x1Face=NULL, *Wr_x1Face=NULL;
+static CVar1DS *x1Flux=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
-#ifdef MHD
-static Real *Bxc=NULL;
-#endif /* MHD */
-static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
-static Cons1D *U1d=NULL, *Ul=NULL, *Ur=NULL;
+static Real *Bxc=NULL, *Bxi=NULL;
+static PVar1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static CVar1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
 /* conserved and primitive variables at t^{n+1/2} computed in predict step */
-static Gas *Uhalf=NULL;
-static Prim *Whalf=NULL;
+static ConsVarS *Uhalf=NULL;
+static PrimVarS *Whalf=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -73,9 +66,6 @@ void integrate_1d_vl(DomainS *pD)
 
   for (i=is-nghost; i<=ie+nghost; i++) {
     Uhalf[i] = pG->U[ks][js][i];
-#ifdef MHD
-    B1_x1Face[i] = pG->B1i[ks][js][i];
-#endif /* MHD */
   }
 
 /*=== STEP 1: Compute first-order fluxes at t^{n} in x1-direction ============*/
@@ -95,9 +85,10 @@ void integrate_1d_vl(DomainS *pD)
     U1d[i].E  = pG->U[ks][js][i].E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-    Bxc[i]    = pG->U[ks][js][i].B1c;
     U1d[i].By = pG->U[ks][js][i].B2c;
     U1d[i].Bz = pG->U[ks][js][i].B3c;
+    Bxc[i] = pG->U[ks][js][i].B1c;
+    Bxi[i] = pG->B1i[ks][js][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][js][i].s[n];
@@ -107,7 +98,7 @@ void integrate_1d_vl(DomainS *pD)
  * in Grid structure */
 
 #ifndef SPECIAL_RELATIVITY
-    Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+    Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
 #else
     W[i].d  = pG->W[ks][js][i].d;
     W[i].Vx = pG->W[ks][js][i].V1;
@@ -141,7 +132,7 @@ void integrate_1d_vl(DomainS *pD)
  * Compute flux in x1-direction */
 
   for (i=il; i<=ie+nghost; i++) {
-    fluxes(Ul[i],Ur[i],Wl[i],Wr[i], MHDARG( B1_x1Face[i] , ) &x1Flux[i]);
+    fluxes(Ul[i],Ur[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
   }
 
 /*=== STEPS 2-4: Not needed in 1D ===*/
@@ -261,7 +252,7 @@ void integrate_1d_vl(DomainS *pD)
 /*--- Step 7c ------------------------------------------------------------------
  * convert conserved to primitive, and store in array Whalf */
 
-    Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+    Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
 
     Whalf[i].d  = W[i].d;
     Whalf[i].V1 = W[i].Vx;
@@ -309,7 +300,7 @@ void integrate_1d_vl(DomainS *pD)
  * Compute L/R states on x1-interfaces, store into arrays
  */
 
-  lr_states(W, MHDARG( Bxc , ) 0.0,is,ie,Wl,Wr);
+  lr_states(W,Bxc,0.0,is,ie,Wl,Wr);
 
   for (i=is; i<=ie+1; i++) {
     Wl_x1Face[i] = Wl[i];
@@ -325,10 +316,10 @@ void integrate_1d_vl(DomainS *pD)
  */
 
   for (i=is; i<=ie+1; i++) {
-    Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[i] MHDARG( , &B1_x1Face[i]));
-    Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[i] MHDARG( , &B1_x1Face[i]));
-    fluxes(Ul[i],Ur[i],Wl_x1Face[i],Wr_x1Face[i],
-      MHDARG(B1_x1Face[i], ) &x1Flux[i]);
+    Prim1D_to_Cons1D(&Ul[i],&Wl_x1Face[i],&Bxi[i]);
+    Prim1D_to_Cons1D(&Ur[i],&Wr_x1Face[i],&Bxi[i]);
+
+    fluxes(Ul[i],Ur[i],Wl_x1Face[i],Wr_x1Face[i],Bxi[i],&x1Flux[i]);
   }
 
 /*=== STEP 12: Not needed in 1D ===*/
@@ -466,7 +457,7 @@ void integrate_1d_vl(DomainS *pD)
 
 /* Convert variables and store result into Grid */
 
-    Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
+    Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
 
     pG->W[ks][js][i].d  = W[i].d;
     pG->W[ks][js][i].V1 = W[i].Vx;
@@ -573,24 +564,22 @@ void integrate_init_1d(MeshS *pM)
 
   size1 = size1 + 2*nghost;
 
-  if ((Wl_x1Face = (Prim1D*)malloc(size1*sizeof(Prim1D))) ==NULL) goto on_error;
-  if ((Wr_x1Face = (Prim1D*)malloc(size1*sizeof(Prim1D))) ==NULL) goto on_error;
-  if ((x1Flux    = (Cons1D*)malloc(size1*sizeof(Cons1D))) ==NULL) goto on_error;
+  if ((Wl_x1Face=(PVar1DS*)malloc(size1*sizeof(PVar1DS))) ==NULL) goto on_error;
+  if ((Wr_x1Face=(PVar1DS*)malloc(size1*sizeof(PVar1DS))) ==NULL) goto on_error;
+  if ((x1Flux   =(CVar1DS*)malloc(size1*sizeof(CVar1DS))) ==NULL) goto on_error;
 
-#ifdef MHD
   if ((Bxc = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
-  if ((B1_x1Face = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
-#endif /* MHD */
+  if ((Bxi = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
 
-  if ((U1d =      (Cons1D*)malloc(size1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul  =      (Cons1D*)malloc(size1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur  =      (Cons1D*)malloc(size1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((W   =      (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl  =      (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr  =      (Prim1D*)malloc(size1*sizeof(Prim1D))) == NULL) goto on_error;
+  if ((U1d= (CVar1DS*)malloc(size1*sizeof(CVar1DS))) == NULL) goto on_error;
+  if ((Ul = (CVar1DS*)malloc(size1*sizeof(CVar1DS))) == NULL) goto on_error;
+  if ((Ur = (CVar1DS*)malloc(size1*sizeof(CVar1DS))) == NULL) goto on_error;
+  if ((W  = (PVar1DS*)malloc(size1*sizeof(PVar1DS))) == NULL) goto on_error;
+  if ((Wl = (PVar1DS*)malloc(size1*sizeof(PVar1DS))) == NULL) goto on_error;
+  if ((Wr = (PVar1DS*)malloc(size1*sizeof(PVar1DS))) == NULL) goto on_error;
 
-  if ((Uhalf = (Gas*)malloc(size1*sizeof(Gas))) == NULL) goto on_error;
-  if ((Whalf = (Prim*)malloc(size1*sizeof(Prim))) == NULL) goto on_error;
+  if ((Uhalf = (ConsVarS*)malloc(size1*sizeof(ConsVarS)))==NULL) goto on_error;
+  if ((Whalf = (PrimVarS*)malloc(size1*sizeof(PrimVarS)))==NULL) goto on_error;
 
   return;
 
@@ -608,10 +597,8 @@ void integrate_destruct_1d(void)
   if (Wr_x1Face != NULL) free(Wr_x1Face);
   if (x1Flux    != NULL) free(x1Flux);
 
-#ifdef MHD
   if (Bxc != NULL) free(Bxc);
-  if (B1_x1Face != NULL) free(B1_x1Face);
-#endif /* MHD */
+  if (Bxi != NULL) free(Bxc);
 
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);

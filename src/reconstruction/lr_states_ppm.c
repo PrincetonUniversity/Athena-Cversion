@@ -55,9 +55,8 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
  *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
-	       const Real dtodx, const int il, const int iu,
-	       Prim1D Wl[], Prim1D Wr[])
+void lr_states(const PVar1DS W[], const Real Bxc[], const Real dtodx,
+               const int il, const int iu, PVar1DS Wl[], PVar1DS Wr[])
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qb,qc,qx;
@@ -568,9 +567,8 @@ void lr_states(const Prim1D W[], MHDARG( const Real Bxc[] , )
  *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states_cyl(const Prim1D W[], MHDARG( const Real Bxc[] , )
-	           const Real dtodx, const int il, const int iu,
-	           Prim1D Wl[], Prim1D Wr[])
+void lr_states_cyl(const PVar1DS W[], const Real Bxc[], const Real dtodx,
+                   const int il, const int iu, PVar1DS Wl[], PVar1DS Wr[])
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qb,qc,qx;

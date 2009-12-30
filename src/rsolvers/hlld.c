@@ -51,12 +51,12 @@
  *   Flux = fluxes of CONSERVED variables at cell interface
  */
 
-void fluxes(const Cons1D Ul, const Cons1D Ur,
-            const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+void fluxes(const CVar1DS Ul, const CVar1DS Ur,
+            const PVar1DS Wl, const PVar1DS Wr, const Real Bxi, CVar1DS *pFlux)
 {
-  Cons1D Ulst,Uldst,Urdst,Urst;       /* Conserved variable for all states */
-  Prim1D Wlst,Wrst;                   /* Primitive variables for all states */
-  Cons1D Fl,Fr;                       /* Fluxes for left & right states */
+  CVar1DS Ulst,Uldst,Urdst,Urst;       /* Conserved variable for all states */
+  PVar1DS Wlst,Wrst;                   /* Primitive variables for all states */
+  CVar1DS Fl,Fr;                       /* Fluxes for left & right states */
   Real spd[5];                        /* signal speeds, left to right */
 /*  Real maxspd; */
   Real sdl,sdr,sdml,sdmr;             /* S_i-u_i, S_i-S_M (i=L or R) */
@@ -375,11 +375,11 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
  *   Flux = fluxes of CONSERVED variables at cell interface
  */
 
-void fluxes(const Cons1D Ul, const Cons1D Ur,
-            const Prim1D Wl, const Prim1D Wr, const Real Bxi, Cons1D *pFlux)
+void fluxes(const CVar1DS Ul, const CVar1DS Ur,
+            const PVar1DS Wl, const PVar1DS Wr, const Real Bxi, CVar1DS *pFlux)
 {
-  Cons1D Ulst,Ucst,Urst;              /* Conserved variable for all states */
-  Cons1D Fl,Fr;                       /* Fluxes for left & right states */
+  CVar1DS Ulst,Ucst,Urst;              /* Conserved variable for all states */
+  CVar1DS Fl,Fr;                       /* Fluxes for left & right states */
   Real spd[5],idspd;                  /* signal speeds, left to right */
   Real pbl,pbr;                       /* Magnetic pressures */
   Real cfl,cfr;                       /* Cf (left & right) */

@@ -304,7 +304,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   return;
 }
 
-GasFun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }

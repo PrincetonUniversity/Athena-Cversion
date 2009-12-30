@@ -140,7 +140,7 @@ extern Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
 extern Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 int check_particle_binning(char *out);
 #endif
-static GasFun_t getexpr(const int n, const char *expr);
+static ConsFun_t getexpr(const int n, const char *expr);
 static void free_output(OutputS *pout);
 static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
 			int *l, int *u, int *new_nx, Real *new_x, Real *new_dx);
@@ -619,7 +619,7 @@ void data_output_destruct(void)
 /* data_output_enroll: Enroll a user-defined data output function */
 
 void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
-			const char *fmt, const GasFun_t expr, int n,
+			const char *fmt, const ConsFun_t expr, int n,
 			const Real dmin, const Real dmax, int sdmin, int sdmax
 #ifdef PARTICLES
 			, const int out_pargrid, PropFun_t par_prop
@@ -967,7 +967,7 @@ Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
 #else
-  Gas *gp = &(pG->U[k][j][i]);
+  ConsVarS *gp = &(pG->U[k][j][i]);
   return Gamma_1*(gp->E 
 #ifdef MHD
 		  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
@@ -983,7 +983,7 @@ Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #ifdef ADIABATIC
 Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 {
-  Gas *gp = &(pG->U[k][j][i]);
+  ConsVarS *gp = &(pG->U[k][j][i]);
   return (Gamma*Gamma_1*(gp->E 
 #ifdef MHD
 	  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
@@ -998,7 +998,7 @@ Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 #ifdef ADIABATIC
 Real expr_S(const GridS *pG, const int i, const int j, const int k)
 {
-  Gas *gp = &(pG->U[k][j][i]);
+  ConsVarS *gp = &(pG->U[k][j][i]);
   Real P = Gamma_1*(gp->E 
 #ifdef MHD
 		   - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
@@ -1036,7 +1036,7 @@ int check_particle_binning(char *out)
 /* getexpr: return a function pointer for a simple expression - no parsing.
  *   For a user defined expression, get_usr_expr() in problem.c is used.  */
 
-static GasFun_t getexpr(const int n, const char *expr)
+static ConsFun_t getexpr(const int n, const char *expr)
 {
   char ename[32];
 

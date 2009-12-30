@@ -4,13 +4,13 @@
  * FILE: athena.h
  *
  * PURPOSE: Contains definitions of the following data types and structures:
- *   Real   - either float or double, depending on configure option
- *   Gas    - cell-centered conserved variables
- *   Prim   - cell-centered primitive variables
- *   Cons1D - conserved variables in 1D: same as Gas minus Bx
- *   Prim1D - primitive variables in 1D: same as Prim minus Bx
- *   Grain  - basic properties of particles
- *   GridS   - everything in a single Grid: arrays of Gas, B field, etc.
+ *   Real     - either float or double, depending on configure option
+ *   ConsVarS - cell-centered conserved variables
+ *   PrimVarS - cell-centered primitive variables
+ *   CVar1DS  - conserved variables in 1D: same as ConsVarS minus Bx
+ *   PVar1DS  - primitive variables in 1D: same as PrimVarS minus Bx
+ *   GrainS - basic properties of particles
+ *   GridS  - everything in a single Grid
  *   DomainS - everything in a single Domain (potentially many Grids)
  *   MeshS   - everything across whole Mesh (potentially many Domains)
  *   OutputS - everything associated with an individual output
@@ -61,11 +61,11 @@ typedef struct GridsData_s{
 }GridsDataS;
 
 /*----------------------------------------------------------------------------*/
-/* Gas structure: conserved variables 
- *  IMPORTANT!! The order of the elements in Gas CANNOT be changed.
+/* ConsVarS: conserved variables 
+ *  IMPORTANT!! The order of the elements in ConsVarS CANNOT be changed.
  */
 
-typedef struct Gas_s{
+typedef struct ConsVar_s{
   Real d;			/* density */
   Real M1;			/* momentum density in 1,2,3 directions */
   Real M2;
@@ -81,14 +81,14 @@ typedef struct Gas_s{
 #if (NSCALARS > 0)
   Real s[NSCALARS];             /* passively advected scalars */
 #endif
-}Gas;
+}ConsVarS;
 
 /*----------------------------------------------------------------------------*/
-/* Prim structure: primitive variables, used with special relativity 
- *  IMPORTANT!! The order of the elements in Prim CANNOT be changed.
+/* PrimVarS: primitive variables
+ *  IMPORTANT!! The order of the elements in PrimVarS CANNOT be changed.
  */
 
-typedef struct Prim_s{
+typedef struct PrimVar_s{
   Real d;			/* density */
   Real V1;			/* velocity in 1,2,3 */
   Real V2;
@@ -104,14 +104,14 @@ typedef struct Prim_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-}Prim;
+}PrimVarS;
 
 /*----------------------------------------------------------------------------*/
-/* Cons1D structure:  conserved variables in 1D (does not contain Bx)
- *  IMPORTANT!! The order of the elements in Cons1D CANNOT be changed.
+/* CVar1DS:  conserved variables in 1D (does not contain Bx)
+ *  IMPORTANT!! The order of the elements in CVar1DS CANNOT be changed.
  */
 
-typedef struct Cons1D_s{
+typedef struct CVar1D_s{
   Real d;			/* density */
   Real Mx;			/* momentum density in X,Y,Z; where X is     */
   Real My;                      /* direction longitudinal to 1D slice; which */
@@ -129,14 +129,14 @@ typedef struct Cons1D_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-}Cons1D;
+}CVar1DS;
 
 /*----------------------------------------------------------------------------*/
-/* Prim1D structure:  primitive variables in 1D (does not contain Bx)
- *  IMPORTANT!! The order of the elements in Prim1D CANNOT be changed.
+/* PVar1DS:  primitive variables in 1D (does not contain Bx)
+ *  IMPORTANT!! The order of the elements in PVar1DS CANNOT be changed.
  */
 
-typedef struct Prim1D_s{
+typedef struct PVar1D_s{
   Real d;			/* density */
   Real Vx;			/* velocity in X,Y,Z */
   Real Vy;
@@ -151,11 +151,10 @@ typedef struct Prim1D_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-}Prim1D;
+}PVar1DS;
 
 /*----------------------------------------------------------------------------*/
-/* Grain structure: Basic quantities for one particle.
- * Note: One particle here represents a collection of billions of real particles
+/* GrainS: Basic quantities for one pseudo-particle.
  */
 
 #ifdef PARTICLES
@@ -173,7 +172,7 @@ typedef struct Grain_s{
 #ifdef FARGO
   Real shift;           /* amount of shift in x2 direction */
 #endif
-}Grain;
+}GrainS;
 
 /* Auxilary quantities for a dust particle */
 typedef struct GrainAux_s{
@@ -215,7 +214,7 @@ typedef struct GPCouple_s{
 #endif /* PARTICLES */
 
 /*----------------------------------------------------------------------------*/
-/* Grid overlap structures, used for SMR
+/* GridOvrlpS: contains information about Grid overlaps, used for SMR
  */
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -224,31 +223,28 @@ typedef struct GridOvrlp_s{
   int ijke[3];           /* end   ijk on this Grid of overlap [0,1,2]=[i,j,k] */
   int ID, DomN;          /* processor ID, and Domain #, of OVERLAP Grid */
   int nWordsRC, nWordsP; /* # of words communicated for Rest/Corr and Prol */
-  Gas **myFlx[6];        /* fluxes of conserved variables at 6 boundaries */
+  ConsVarS **myFlx[6];   /* fluxes of conserved variables at 6 boundaries */
 #ifdef MHD
   Real **myEMF1[6];      /* fluxes of magnetic field (EMF1) at 6 boundaries */
   Real **myEMF2[6];      /* fluxes of magnetic field (EMF2) at 6 boundaries */
   Real **myEMF3[6];      /* fluxes of magnetic field (EMF3) at 6 boundaries */
 #endif
-}GridOvrlp;
+}GridOvrlpS;
 #endif /* STATIC_MESH_REFINEMENT */
 
 /*----------------------------------------------------------------------------*/
 /* GridS: 3D arrays of dependent variables, plus grid data, plus particle data,
  *   plus data about child and parent Grids, plus MPI rank information for a
- *   Grid, where a Grid is defined to be the region of a Domain at some
+ *   Grid.  Remember a Grid is defined as the region of a Domain at some
  *   refinement level being updated by a single processor.  Uses an array of
- *   Gas, rather than arrays of each variable, to increase locality of data for
- *   a given cell in memory.  */
+ *   ConsVarS, rather than arrays of each variable, to increase locality of data
+ *   for a given cell in memory.  */
 
 typedef struct Grid_s{
-  Gas ***U;			/* conserved variables */
+  ConsVarS ***U;                /* conserved variables */
 #ifdef MHD
   Real ***B1i,***B2i,***B3i;    /* interface magnetic fields */
 #endif /* MHD */
-#ifdef SPECIAL_RELATIVITY
-  Prim ***W;                    /* primitive variables, needed with SR */
-#endif /* SPECIAL_RELATIVITY */
 #ifdef SELF_GRAVITY
   Real ***Phi, ***Phi_old;      /* gravitational potential */
   Real ***x1MassFlux;           /* x1 mass flux for source term correction */
@@ -286,11 +282,10 @@ typedef struct Grid_s{
   int NmyCGrid;       /* # of child  Grids on same processor as this Grid */
   int NmyPGrid;       /* # of parent Grids on same processor (either 0 or 1) */
 
-  GridOvrlp *CGrid;     /* 1D array of data for NCGrid child  overlap regions */
-  GridOvrlp *PGrid;     /* 1D array of data for NPGrid parent overlap regions */
-/* NB: The order of the Grids in these two arrays is such that the first
- * NmyCGrid[NmyPGrid] elements contain overlap regions being updated by the
- * same processor as this Grid */
+  GridOvrlpS *CGrid;    /* 1D array of data for NCGrid child  overlap regions */
+  GridOvrlpS *PGrid;    /* 1D array of data for NPGrid parent overlap regions */
+/* NB: The first NmyCGrid[NmyPGrid] elements of these arrays contain overlap
+ * regions being updated by the same processor as this Grid */
 #endif /* STATIC_MESH_REFINEMENT */
 
 }GridS;
@@ -365,7 +360,7 @@ typedef struct Mesh_s{
 struct Output_s;
 typedef void (*VOutFun_t)(MeshS *pM, struct Output_s *pout);
 typedef void (*VResFun_t)(MeshS *pM, struct Output_s *pout);
-typedef Real (*GasFun_t)(const GridS *pG, const int i,const int j,const int k);
+typedef Real (*ConsFun_t)(const GridS *pG, const int i,const int j,const int k);
 #ifdef PARTICLES
 typedef int (*PropFun_t)(const Grain *gr, const GrainAux *grsub);
 typedef Real (*Parfun_t)(const Grid *pG, const Grain *gr);
@@ -418,7 +413,7 @@ typedef struct Output_s{
 /* pointers to output functions; data expressions */
   VOutFun_t out_fun; /* output function pointer */
   VResFun_t res_fun; /* restart function pointer */
-  GasFun_t expr;     /* pointer to expression that computes quant for output */
+  ConsFun_t expr;     /* pointer to expression that computes quant for output */
 
 }OutputS;
 
