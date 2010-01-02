@@ -3,7 +3,7 @@
  * FILE: init_grid.c
  *
  * PURPOSE: Initializes most variables in the Grid structure.  Allocates memory
- *   for 3D arrays of ConsVar, interface B, etc.  With SMR, finds all overlaps
+ *   for 3D arrays of Cons, interface B, etc.  With SMR, finds all overlaps
  *   between child and parent Grids, and initializes data needed for restriction
  *   flux-correction, and prolongation steps.
  *
@@ -136,7 +136,7 @@ void init_grid(MeshS *pM)
       }
       pG->x3max = pG->x3min + (Real)(pG->Nx[2])*pG->dx3;
 
-/* ------  Allocate 3D arrays to hold ConsVar based on size of grid --------- */
+/* ---------  Allocate 3D arrays to hold Cons based on size of grid --------- */
 
       if (pG->Nx[0] > 1)
         n1z = pG->Nx[0] + 2*nghost;
@@ -153,9 +153,9 @@ void init_grid(MeshS *pM)
       else
         n3z = 1;
 
-/* Build a 3D array of type ConsVarS */
+/* Build a 3D array of type ConsS */
 
-      pG->U = (ConsVarS***)calloc_3d_array(n3z, n2z, n1z, sizeof(ConsVarS));
+      pG->U = (ConsS***)calloc_3d_array(n3z, n2z, n1z, sizeof(ConsS));
       if (pG->U == NULL) goto on_error1;
     
 /* Build 3D arrays to hold interface field */
@@ -170,13 +170,6 @@ void init_grid(MeshS *pM)
       pG->B3i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->B3i == NULL) goto on_error4;
 #endif /* MHD */
-
-/* Build 3D array for primitive variables with SR */
-
-#ifdef SPECIAL_RELATIVITY
-      pG->W = (Prim***)calloc_3d_array(n3z, n2z, n1z, sizeof(Prim));
-      if (pG->W == NULL) goto on_error5;
-#endif /* SPECIAL_RELATIVITY */
 
 /* Build 3D arrays to gravitational potential and mass fluxes */
 
@@ -461,8 +454,8 @@ printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
 
 /* Allocate memory for myFlx and my EMFs */
 
-                  pG->CGrid[ncg].myFlx[2*dim] = (ConsVarS**)calloc_2d_array(
-                    n2z,n1z, sizeof(ConsVarS));
+                  pG->CGrid[ncg].myFlx[2*dim] = (ConsS**)calloc_2d_array(
+                    n2z,n1z, sizeof(ConsS));
                   if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
                    "[init_grid]:failed to allocate CGrid ixb myFlx\n");
 if(myID_Comm_world==0){
@@ -560,8 +553,8 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z,n1z+1);
 
 /* Allocate memory for myFlx and myEMFs*/
 
-                  pG->CGrid[ncg].myFlx[(2*dim)+1] = (ConsVarS**)calloc_2d_array(
-                    n2z,n1z, sizeof(ConsVarS));
+                  pG->CGrid[ncg].myFlx[(2*dim)+1] = (ConsS**)calloc_2d_array(
+                    n2z,n1z, sizeof(ConsS));
                   if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
                     "[init_grid]:failed to allocate CGrid oxb myFlx\n");
 if(myID_Comm_world==0){
@@ -872,8 +865,8 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the
  * overlap on the parent Grid (the actual number of words sent). */
 
-                    pG->PGrid[npg].myFlx[2*dim] = (ConsVarS**)calloc_2d_array(
-                      n2z,n1z, sizeof(ConsVarS));
+                    pG->PGrid[npg].myFlx[2*dim] = (ConsS**)calloc_2d_array(
+                      n2z,n1z, sizeof(ConsS));
                     if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid ixb myFlx\n");
 if(myID_Comm_world==0){
@@ -976,7 +969,7 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z,n1z+1);
  * overlap on the parent Grid (the actual number of words sent). */
 
                     pG->PGrid[npg].myFlx[(2*dim)+1] =
-                      (ConsVarS**)calloc_2d_array(n2z,n1z, sizeof(ConsVarS));
+                      (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
                     if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid oxb myFlx\n");
 if(myID_Comm_world==0){
@@ -1087,10 +1080,6 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
     free_3d_array(pG->Phi_old);
   on_error6:
     free_3d_array(pG->Phi);
-#endif
-#ifdef SPECIAL_RELATIVITY
-  on_error5:
-    free_3d_array(pG->W);
 #endif
 #ifdef MHD
   on_error4:

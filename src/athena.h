@@ -4,13 +4,13 @@
  * FILE: athena.h
  *
  * PURPOSE: Contains definitions of the following data types and structures:
- *   Real     - either float or double, depending on configure option
- *   ConsVarS - cell-centered conserved variables
- *   PrimVarS - cell-centered primitive variables
- *   CVar1DS  - conserved variables in 1D: same as ConsVarS minus Bx
- *   PVar1DS  - primitive variables in 1D: same as PrimVarS minus Bx
- *   GrainS - basic properties of particles
- *   GridS  - everything in a single Grid
+ *   Real    - either float or double, depending on configure option
+ *   ConsS   - cell-centered conserved variables
+ *   PrimS   - cell-centered primitive variables
+ *   Cons1DS - conserved variables in 1D: same as ConsS minus Bx
+ *   Prim1DS - primitive variables in 1D: same as PrimS minus Bx
+ *   GrainS  - basic properties of particles
+ *   GridS   - everything in a single Grid
  *   DomainS - everything in a single Domain (potentially many Grids)
  *   MeshS   - everything across whole Mesh (potentially many Domains)
  *   OutputS - everything associated with an individual output
@@ -61,11 +61,11 @@ typedef struct GridsData_s{
 }GridsDataS;
 
 /*----------------------------------------------------------------------------*/
-/* ConsVarS: conserved variables 
- *  IMPORTANT!! The order of the elements in ConsVarS CANNOT be changed.
+/* ConsS: conserved variables 
+ *  IMPORTANT!! The order of the elements in ConsS CANNOT be changed.
  */
 
-typedef struct ConsVar_s{
+typedef struct Cons_s{
   Real d;			/* density */
   Real M1;			/* momentum density in 1,2,3 directions */
   Real M2;
@@ -81,14 +81,14 @@ typedef struct ConsVar_s{
 #if (NSCALARS > 0)
   Real s[NSCALARS];             /* passively advected scalars */
 #endif
-}ConsVarS;
+}ConsS;
 
 /*----------------------------------------------------------------------------*/
-/* PrimVarS: primitive variables
- *  IMPORTANT!! The order of the elements in PrimVarS CANNOT be changed.
+/* PrimS: primitive variables
+ *  IMPORTANT!! The order of the elements in PrimS CANNOT be changed.
  */
 
-typedef struct PrimVar_s{
+typedef struct Prim_s{
   Real d;			/* density */
   Real V1;			/* velocity in 1,2,3 */
   Real V2;
@@ -104,14 +104,14 @@ typedef struct PrimVar_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-}PrimVarS;
+}PrimS;
 
 /*----------------------------------------------------------------------------*/
-/* CVar1DS:  conserved variables in 1D (does not contain Bx)
- *  IMPORTANT!! The order of the elements in CVar1DS CANNOT be changed.
+/* Cons1DS:  conserved variables in 1D (does not contain Bx)
+ *  IMPORTANT!! The order of the elements in Cons1DS CANNOT be changed.
  */
 
-typedef struct CVar1D_s{
+typedef struct Cons1D_s{
   Real d;			/* density */
   Real Mx;			/* momentum density in X,Y,Z; where X is     */
   Real My;                      /* direction longitudinal to 1D slice; which */
@@ -129,14 +129,14 @@ typedef struct CVar1D_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-}CVar1DS;
+}Cons1DS;
 
 /*----------------------------------------------------------------------------*/
-/* PVar1DS:  primitive variables in 1D (does not contain Bx)
- *  IMPORTANT!! The order of the elements in PVar1DS CANNOT be changed.
+/* Prim1DS:  primitive variables in 1D (does not contain Bx)
+ *  IMPORTANT!! The order of the elements in Prim1DS CANNOT be changed.
  */
 
-typedef struct PVar1D_s{
+typedef struct Prim1D_s{
   Real d;			/* density */
   Real Vx;			/* velocity in X,Y,Z */
   Real Vy;
@@ -151,7 +151,7 @@ typedef struct PVar1D_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-}PVar1DS;
+}Prim1DS;
 
 /*----------------------------------------------------------------------------*/
 /* GrainS: Basic quantities for one pseudo-particle.
@@ -223,7 +223,7 @@ typedef struct GridOvrlp_s{
   int ijke[3];           /* end   ijk on this Grid of overlap [0,1,2]=[i,j,k] */
   int ID, DomN;          /* processor ID, and Domain #, of OVERLAP Grid */
   int nWordsRC, nWordsP; /* # of words communicated for Rest/Corr and Prol */
-  ConsVarS **myFlx[6];   /* fluxes of conserved variables at 6 boundaries */
+  ConsS **myFlx[6];   /* fluxes of conserved variables at 6 boundaries */
 #ifdef MHD
   Real **myEMF1[6];      /* fluxes of magnetic field (EMF1) at 6 boundaries */
   Real **myEMF2[6];      /* fluxes of magnetic field (EMF2) at 6 boundaries */
@@ -237,11 +237,11 @@ typedef struct GridOvrlp_s{
  *   plus data about child and parent Grids, plus MPI rank information for a
  *   Grid.  Remember a Grid is defined as the region of a Domain at some
  *   refinement level being updated by a single processor.  Uses an array of
- *   ConsVarS, rather than arrays of each variable, to increase locality of data
+ *   ConsS, rather than arrays of each variable, to increase locality of data
  *   for a given cell in memory.  */
 
 typedef struct Grid_s{
-  ConsVarS ***U;                /* conserved variables */
+  ConsS ***U;                /* conserved variables */
 #ifdef MHD
   Real ***B1i,***B2i,***B3i;    /* interface magnetic fields */
 #endif /* MHD */

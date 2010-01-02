@@ -71,7 +71,7 @@
 static double *send_buf = NULL, *recv_buf = NULL;
 
 /* NVAR_SHARE = maximim number of variables passed in any one MPI message =
- * variables in ConsVarS, plus 3 extra for interface magnetic fields. */
+ * variables in ConsS, plus 3 extra for interface magnetic fields. */
 #ifdef MHD
 #define NVAR_SHARE (NVAR + 3)
 #else
@@ -789,10 +789,6 @@ static void reflect_ix1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
         pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][j][is-i]    =  pGrid->W[k][j][is+(i-1)];
-        pGrid->W[k][j][is-i].V1 = -pGrid->W[k][j][is-i].V1; /* reflect 1-vel. */
-#endif
       }
     }
   }
@@ -857,10 +853,6 @@ static void reflect_ox1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i]    =  pGrid->U[k][j][ie-(i-1)];
         pGrid->U[k][j][ie+i].M1 = -pGrid->U[k][j][ie+i].M1; /* reflect 1-mom. */
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][j][ie+i]    =  pGrid->W[k][j][ie-(i-1)];
-        pGrid->W[k][j][ie+i].V1 = -pGrid->W[k][j][ie+i].V1; /* reflect 1-vel. */
-#endif
       }
     }
   }
@@ -934,10 +926,6 @@ static void reflect_ix2(GridS *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[k][js-j][i]    =  pGrid->U[k][js+(j-1)][i];
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][js-j][i]    =  pGrid->W[k][js+(j-1)][i];
-        pGrid->W[k][js-j][i].V2 = -pGrid->W[k][js-j][i].V2; /* reflect 2-vel. */
-#endif
       }
     }
   }
@@ -1012,10 +1000,6 @@ static void reflect_ox2(GridS *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
         pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][je+j][i]    =  pGrid->W[k][je-(j-1)][i];
-        pGrid->W[k][je+j][i].V2 = -pGrid->W[k][je+j][i].V2; /* reflect 2-vel. */
-#endif
       }
     }
   }
@@ -1096,10 +1080,6 @@ static void reflect_ix3(GridS *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
         pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[ks-k][j][i]    =  pGrid->W[ks+(k-1)][j][i];
-        pGrid->W[ks-k][j][i].V3 = -pGrid->W[ks-k][j][i].V3; /* reflect 3-vel. */
-#endif
       }
     }
   }
@@ -1180,10 +1160,6 @@ static void reflect_ox3(GridS *pGrid)
       for (i=il; i<=iu; i++) {
         pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
         pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[ke+k][j][i]    =  pGrid->W[ke-(k-1)][j][i];
-        pGrid->W[ke+k][j][i].V3 = -pGrid->W[ke+k][j][i].V3; /* reflect 3-vel. */
-#endif
       }
     }
   }
@@ -1250,9 +1226,6 @@ static void outflow_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i] = pGrid->U[k][j][is];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][j][is-i] = pGrid->W[k][j][is];
-#endif
       }
     }
   }
@@ -1306,9 +1279,6 @@ static void outflow_ox1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][j][ie+i] = pGrid->W[k][j][ie];
-#endif
       }
     }
   }
@@ -1370,9 +1340,6 @@ static void outflow_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][js][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][js-j][i] = pGrid->W[k][js][i];
-#endif
       }
     }
   }
@@ -1434,9 +1401,6 @@ static void outflow_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][je][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][je+j][i] = pGrid->W[k][je][i];
-#endif
       }
     }
   }
@@ -1500,9 +1464,6 @@ static void outflow_ix3(GridS *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ks-k][j][i] = pGrid->U[ks][j][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[ks-k][j][i] = pGrid->W[ks][j][i];
-#endif
       }
     }
   }
@@ -1564,9 +1525,6 @@ static void outflow_ox3(GridS *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ke][j][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[ke+k][j][i] = pGrid->W[ke][j][i];
-#endif
       }
     }
   }
@@ -1619,9 +1577,6 @@ static void periodic_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i] = pGrid->U[k][j][ie-(i-1)];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][j][is-i] = pGrid->W[k][j][ie-(i-1)];
-#endif
       }
     }
   }
@@ -1675,9 +1630,6 @@ static void periodic_ox1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][is+(i-1)];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][j][ie+i] = pGrid->W[k][j][is+(i-1)];
-#endif
       }
     }
   }
@@ -1739,9 +1691,6 @@ static void periodic_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][je-(j-1)][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][js-j][i] = pGrid->W[k][je-(j-1)][i];
-#endif
       }
     }
   }
@@ -1801,9 +1750,6 @@ static void periodic_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][js+(j-1)][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[k][je+j][i] = pGrid->W[k][js+(j-1)][i];
-#endif
       }
     }
   }
@@ -1867,9 +1813,6 @@ static void periodic_ix3(GridS *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ks-k][j][i] = pGrid->U[ke-(k-1)][j][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[ks-k][j][i] = pGrid->W[ke-(k-1)][j][i];
-#endif
       }
     }
   }
@@ -1931,9 +1874,6 @@ static void periodic_ox3(GridS *pGrid)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ks+(k-1)][j][i];
-#ifdef SPECIAL_RELATIVITY
-        pGrid->W[ke+k][j][i] = pGrid->W[ks+(k-1)][j][i];
-#endif
       }
     }
   }
@@ -1992,7 +1932,7 @@ static void send_ix1(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2013,14 +1953,14 @@ static void send_ix1(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in ConsVarS structure into send buffer */
+/* Pack data in ConsS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 1 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         *(pSnd++) = pCons->d;
@@ -2063,7 +2003,7 @@ static void send_ox1(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2084,14 +2024,14 @@ static void send_ox1(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in ConsVarS structure into send buffer */
+/* Pack data in ConsS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 1 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         *(pSnd++) = pCons->d;
@@ -2134,7 +2074,7 @@ static void send_ix2(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2155,14 +2095,14 @@ static void send_ix2(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in ConsVarS structure into send buffer */
+/* Pack data in ConsS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 2 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         *(pSnd++) = pCons->d;
@@ -2205,7 +2145,7 @@ static void send_ox2(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2226,14 +2166,14 @@ static void send_ox2(DomainS *pD)
     kl = ku = pG->ks;
   }
 
-/* Pack data in ConsVarS structure into send buffer */
+/* Pack data in ConsS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 2 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         *(pSnd++) = pCons->d;
@@ -2276,7 +2216,7 @@ static void send_ix3(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2297,14 +2237,14 @@ static void send_ix3(DomainS *pD)
   kl = pG->ks;
   ku = pG->ks + nghost - 1;
 
-/* Pack data in ConsVarS structure into send buffer */
+/* Pack data in ConsS structure into send buffer */
 
   /* Following expression gives same cnt as in Step 3 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         *(pSnd++) = pCons->d;
@@ -2347,7 +2287,7 @@ static void send_ox3(DomainS *pD)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pSnd = send_buf;
   GridS *pG=pD->Grid;
 
@@ -2368,14 +2308,14 @@ static void send_ox3(DomainS *pD)
   kl = pG->ke - nghost + 1;
   ku = pG->ke;
 
-/* Pack data in ConsVarS structure into send buffer */
+/* Pack data in ConsS structure into send buffer */
 
     /* Following expression gives same cnt as in Step 3 in set_bvals()  */
   cnt = (iu-il+1)*(ju-jl+1)*(ku-kl+1)*NVAR_SHARE;
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         *(pSnd++) = pCons->d;
@@ -2418,7 +2358,7 @@ static void receive_ix1(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pRcv = recv_buf;
 
   il = pG->is - nghost;
@@ -2447,7 +2387,7 @@ static void receive_ix1(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         pCons->d  = *(pRcv++);
@@ -2485,7 +2425,7 @@ static void receive_ox1(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pRcv = recv_buf;
 
   il = pG->ie + 1;
@@ -2514,7 +2454,7 @@ static void receive_ox1(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         pCons->d  = *(pRcv++);
@@ -2558,7 +2498,7 @@ static void receive_ix2(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2587,7 +2527,7 @@ static void receive_ix2(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         pCons->d  = *(pRcv++);
@@ -2625,7 +2565,7 @@ static void receive_ox2(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2654,7 +2594,7 @@ static void receive_ox2(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         pCons->d  = *(pRcv++);
@@ -2692,7 +2632,7 @@ static void receive_ix3(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2721,7 +2661,7 @@ static void receive_ix3(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         pCons->d  = *(pRcv++);
@@ -2759,7 +2699,7 @@ static void receive_ox3(GridS *pG, MPI_Request *prq)
 #if (NSCALARS > 0)
   int n;
 #endif
-  ConsVarS *pCons;
+  ConsS *pCons;
   double *pRcv = recv_buf;
 
   if(pG->Nx[0] > 1){
@@ -2788,7 +2728,7 @@ static void receive_ox3(GridS *pG, MPI_Request *prq)
   for (k=kl; k<=ku; k++){
     for (j=jl; j<=ju; j++){
       for (i=il; i<=iu; i++){
-        /* Get a pointer to the ConsVarS cell */
+        /* Get a pointer to the ConsS cell */
         pCons = &(pG->U[k][j][i]);
 
         pCons->d  = *(pRcv++);

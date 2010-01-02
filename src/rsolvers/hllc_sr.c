@@ -40,11 +40,11 @@
 #error : The SR HLLC flux does not work with passive scalars.
 #endif
 
-void printCons1D(const Cons1D* c);
-void printPrim1D(const Prim1D* p);
+void printCons1D(const Cons1DS* c);
+void printPrim1D(const Prim1DS* p);
 
 #ifdef HYDRO
-void printCons1D(const Cons1D* c){
+void printCons1D(const Cons1DS* c){
    printf("d:  %e\n",c->d);
    printf("E:  %e\n",c->E);
    printf("Mx: %e\n",c->Mx);
@@ -53,7 +53,7 @@ void printCons1D(const Cons1D* c){
    printf("\n");
 }
 
-void printPrim1D(const Prim1D* p){
+void printPrim1D(const Prim1DS* p){
    printf("d:  %e\n",p->d);
    printf("P:  %e\n",p->P);
    printf("Vx: %e\n",p->Vx);
@@ -72,10 +72,10 @@ void printPrim1D(const Prim1D* p){
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface 
  */
 
-void fluxes(const Cons1D Ul, const Cons1D Ur,
-            const Prim1D Wl, const Prim1D Wr, Cons1D *pFlux)
+void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+            const Prim1DS Wl, const Prim1DS Wr, const Real Bxi, Cons1DS *pFlux)
 {
-  Cons1D Fl,Fr,Fhll,Uhll,Usl,Usr;
+  Cons1DS Fl,Fr,Fhll,Uhll,Usl,Usr;
   Real rhl, rhr, csl, csr, cslsq, csrsq, vsql, vsqr, gammasql, gammasqr;
   Real ssl, ssr, radl, radr, lmdapl, lmdapr, lmdaml, lmdamr, lmdatlmda;
   Real lmdal,lmdar; /* Left and Right wave speeds */

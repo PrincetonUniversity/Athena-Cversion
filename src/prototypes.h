@@ -88,10 +88,12 @@ Real x3cc(const GridS *pGrid, const int k);
 
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
-PrimVarS Cons_to_Prim(const ConsVarS *pU);
-void Cons1D_to_Prim1D(const CVar1DS *pU, PVar1DS *pW, const Real *pBx);
-void Prim1D_to_Cons1D(CVar1DS *pU, const PVar1DS *pW, const Real *pBx);
-Real cfast(const CVar1DS *U, const Real *Bx);
+PrimS Cons_to_Prim(const ConsS *pU);
+Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx);
+Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx);
+#ifndef SPECIAL_RELATIVITY
+Real cfast(const Cons1DS *U, const Real *Bx);
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* init_grid.c */

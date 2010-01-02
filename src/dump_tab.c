@@ -275,7 +275,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
   int dnum = pOut->num;
   int nl,nd,i,j,k,il,iu,jl,ju,kl,ku,nGrid,nvar,nscal,ngrav;
   FILE *pfile;
-  PrimVarS W;
+  PrimS W;
   Real x1,x2,x3,d1;
   char zone_fmt[20], fmt[80];
   int col_cnt, nmax;

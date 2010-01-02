@@ -48,11 +48,11 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
 
 void lr_states_destruct(void);
 void lr_states_init(MeshS *pM);
-void lr_states(const PVar1DS W[], const Real Bxc[], const Real dtodx,
-               const int is, const int ie, PVar1DS Wl[], PVar1DS Wr[]);
+void lr_states(const Prim1DS W[], const Real Bxc[], const Real dtodx,
+               const int is, const int ie, Prim1DS Wl[], Prim1DS Wr[]);
 #ifdef CYLINDRICAL
-void lr_states_cyl(const PVar1DS W[], const Real Bxc[], const Real dtodx,
-                   const int is, const int ie, PVar1DS Wl[], PVar1DS Wr[]);
+void lr_states_cyl(const Prim1DS W[], const Real Bxc[], const Real dtodx,
+                   const int is, const int ie, Prim1DS Wl[], Prim1DS Wr[]);
 #endif /* CYLINDRICAL */
 
 #endif /* RECONSTRUCTION_PROTOTYPES_H */

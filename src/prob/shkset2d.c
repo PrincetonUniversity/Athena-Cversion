@@ -56,12 +56,10 @@ void problem(DomainS *pDomain)
   int kl,ku,irefine,ir,ix1,ix2,nx1,nx2,gcd;
   Real angle, sin_a, cos_a; /* Angle the shock makes with the x1-direction */
   Real rootdx1, rootdx2;
-  Prim1D Wl, Wr;
-  Cons1D Ul, Ur;
+  Prim1DS Wl, Wr;
+  Cons1DS Ul, Ur;
   ConsVarS ql, qr;
-#ifdef MHD
-  Real Bxl,Bxr;
-#endif /* MHD */
+  Real Bxl=0.0,Bxr=0.0;
   div_t id;   /* structure containing remainder and quotient */
 
 /* Following are used to compute volume of cell crossed by initial interface
@@ -158,8 +156,8 @@ void problem(DomainS *pDomain)
   if (Bxr != Bxl) ath_error(0,"[shkset2d] L/R values of Bx not the same\n");
 #endif
 
-  Prim1D_to_Cons1D(&Ul,&Wl MHDARG( , &Bxl));
-  Prim1D_to_Cons1D(&Ur,&Wr MHDARG( , &Bxr));
+  Ul = Prim1D_to_Cons1D(&Wl, &Bxl);
+  Ur = Prim1D_to_Cons1D(&Wr, &Bxr);
 
 /* Initialize ql rotated to the (x1,x2,x3) coordinate system */
   ql.d   = Ul.d;
@@ -398,9 +396,6 @@ void shkset2d_iib(GridS *pGrid)
 	pGrid->B2i[k][j][is-i] = pGrid->B2i[k][j-r2][is-i+r1];
 	pGrid->B3i[k][j][is-i] = pGrid->B3i[k][j-r2][is-i+r1];
 #endif
-#ifdef SPECIAL_RELATIVITY
-	pGrid->W  [k][j][is-i] = pGrid->W  [k][j-r2][is-i+r1];
-#endif
       }
     }
   }
@@ -443,9 +438,6 @@ void shkset2d_oib(GridS *pGrid)
 	pGrid->B2i[k][j][ie+i] = pGrid->B2i[k][j+r2][ie+i-r1];
 	pGrid->B3i[k][j][ie+i] = pGrid->B3i[k][j+r2][ie+i-r1];
 #endif
-#ifdef SPECIAL_RELATIVITY
-	pGrid->W[k][j][ie+i] = pGrid->W[k][j+r2][ie+i-r1];
-#endif
       }
     }
   }
@@ -480,9 +472,6 @@ void shkset2d_ijb(GridS *pGrid)
 	pGrid->B1i[k][js-j][i] = pGrid->B1i[k][js-j+r2][i-r1];
 	pGrid->B2i[k][js-j][i] = pGrid->B2i[k][js-j+r2][i-r1];
 	pGrid->B3i[k][js-j][i] = pGrid->B3i[k][js-j+r2][i-r1];
-#endif
-#ifdef SPECIAL_RELATIVITY
-	pGrid->W  [k][js-j][i] = pGrid->W  [k][js-j+r2][i-r1];
 #endif
       }
     }
@@ -520,9 +509,6 @@ void shkset2d_ojb(GridS *pGrid)
 	pGrid->B1i[k][je+j][i] = pGrid->B1i[k][je+j-r2][i+r1];
 	if(j>1) pGrid->B2i[k][je+j][i] = pGrid->B2i[k][je+j-r2][i+r1];
 	pGrid->B3i[k][je+j][i] = pGrid->B3i[k][je+j-r2][i+r1];
-#endif
-#ifdef SPECIAL_RELATIVITY
-	pGrid->W[k][je+j][i] = pGrid->W[k][je+j-r2][i+r1];
 #endif
       }
     }

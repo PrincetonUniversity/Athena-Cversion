@@ -25,11 +25,9 @@ void problem(DomainS *pDomain)
   int i,il,iu,j,jl,ju,k,kl,ku;
   int shk_dir; /* Shock direction: {1,2,3} -> {x1,x2,x3} */
   Real x1,x2,x3;
-  Prim1D W1d, Wl, Wr;
-  Cons1D U1d, Ul, Ur;
-#ifdef MHD
-  Real Bxl, Bxr;
-#endif
+  Prim1DS Wl, Wr;
+  Cons1DS U1d, Ul, Ur;
+  Real Bxl=0.0, Bxr=0.0;
 
 /* Parse left state read from input file: dl,pl,ul,vl,wl,bxl,byl,bzl */
 
@@ -68,8 +66,8 @@ void problem(DomainS *pDomain)
   Wr.r[0] = par_getd("problem","r[0]r");
 #endif
 
-  Prim1D_to_Cons1D(&Ul,&Wl MHDARG( , &Bxl));
-  Prim1D_to_Cons1D(&Ur,&Wr MHDARG( , &Bxr));
+  Ul = Prim1D_to_Cons1D(&Wl, &Bxl);
+  Ur = Prim1D_to_Cons1D(&Wr, &Bxr);
 
 /* Parse shock direction */
   shk_dir = par_geti("problem","shk_dir");
@@ -112,10 +110,8 @@ void problem(DomainS *pDomain)
 
 /* set primitive and conserved variables to be L or R state */
           if (x1 <= 0.0) {
-            W1d = Wl;
             U1d = Ul;
           } else {
-            W1d = Wr;
             U1d = Ur;
           }
 
@@ -138,24 +134,6 @@ void problem(DomainS *pDomain)
 #if (NSCALARS > 0)
           pGrid->U[k][j][i].s[0] = U1d.s[0];
 #endif
-
-#ifdef SPECIAL_RELATIVITY
-          pGrid->W[k][j][i].d  = W1d.d;
-          pGrid->W[k][j][i].V1 = W1d.Vx;
-          pGrid->W[k][j][i].V2 = W1d.Vy;
-          pGrid->W[k][j][i].V3 = W1d.Vz;
-#ifdef MHD
-          pGrid->W[k][j][i].B1c = Bxl;
-          pGrid->W[k][j][i].B2c = W1d.By;
-          pGrid->W[k][j][i].B3c = W1d.Bz;
-#endif
-#ifdef ADIABATIC
-          pGrid->W[k][j][i].P = W1d.P;
-#endif
-#if (NSCALARS > 0)
-          pGrid->W[k][j][i].r[0] = W1d.r[0];
-#endif
-#endif /* SPECIAL_RELATIVITY */
         }
       }
     }
@@ -170,10 +148,8 @@ void problem(DomainS *pDomain)
 
 /* set primitive variables to be L or R state */
           if (x2 <= 0.0) {
-            W1d = Wl;
             U1d = Ul;
           } else {
-            W1d = Wr;
             U1d = Ur;
           }
 
@@ -196,24 +172,6 @@ void problem(DomainS *pDomain)
 #if (NSCALARS > 0)
           pGrid->U[k][j][i].s[0] = U1d.s[0];
 #endif
-
-#ifdef SPECIAL_RELATIVITY
-          pGrid->W[k][j][i].d  = W1d.d;
-          pGrid->W[k][j][i].V1 = W1d.Vz;
-          pGrid->W[k][j][i].V2 = W1d.Vx;
-          pGrid->W[k][j][i].V3 = W1d.Vy;
-#ifdef MHD
-          pGrid->W[k][j][i].B1c = W1d.Bz;
-          pGrid->W[k][j][i].B2c = Bxl;
-          pGrid->W[k][j][i].B3c = W1d.By;
-#endif
-#ifdef ADIABATIC
-          pGrid->W[k][j][i].P = W1d.P;
-#endif
-#if (NSCALARS > 0)
-          pGrid->W[k][j][i].r[0] = W1d.r[0];
-#endif
-#endif /* SPECIAL_RELATIVITY */
         }
       }
     }
@@ -228,10 +186,8 @@ void problem(DomainS *pDomain)
 
 /* set primitive variables to be L or R state */
           if (x3 <= 0.0) {
-            W1d = Wl;
             U1d = Ul;
           } else {
-            W1d = Wr;
             U1d = Ur;
           }
 
@@ -254,24 +210,6 @@ void problem(DomainS *pDomain)
 #if (NSCALARS > 0)
           pGrid->U[k][j][i].s[0] = U1d.s[0];
 #endif
-
-#ifdef SPECIAL_RELATIVITY
-          pGrid->W[k][j][i].d  = W1d.d;
-          pGrid->W[k][j][i].V1 = W1d.Vy;
-          pGrid->W[k][j][i].V2 = W1d.Vz;
-          pGrid->W[k][j][i].V3 = W1d.Vx;
-#ifdef MHD
-          pGrid->W[k][j][i].B1c = W1d.By;
-          pGrid->W[k][j][i].B2c = W1d.Bz;
-          pGrid->W[k][j][i].B3c = Bxl;
-#endif
-#ifdef ADIABATIC
-          pGrid->W[k][j][i].P = W1d.P;
-#endif
-#if (NSCALARS > 0)
-          pGrid->W[k][j][i].r[0] = W1d.r[0];
-#endif
-#endif /* SPECIAL_RELATIVITY */
         }
       }
     }

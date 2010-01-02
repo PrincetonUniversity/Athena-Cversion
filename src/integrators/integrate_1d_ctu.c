@@ -4,7 +4,7 @@
  *
  * PURPOSE: Integrate MHD equations using 1D version of the CTU integrator.
  *   Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure, where U is of type
- *   ConsVarS. Adds gravitational source terms, self-gravity, and optically-thin
+ *   ConsS. Adds gravitational source terms, self-gravity, and optically-thin
  *   cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
@@ -27,14 +27,17 @@
 #endif
 
 #if defined(CTU_INTEGRATOR) && defined(CARTESIAN)
+#ifdef SPECIAL_RELATIVITY
+#error : The CTU integrator cannot be used for special relativity.
+#endif /* SPECIAL_RELATIVITY */
 
 /* The L/R states of conserved variables and fluxes at each cell face */
-static CVar1DS *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
+static Cons1DS *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
-static PVar1DS *W=NULL, *Wl=NULL, *Wr=NULL;
-static CVar1DS *U1d=NULL;
+static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static Cons1DS *U1d=NULL;
 
 /* Variables at t^{n+1/2} used for source terms */
 static Real *dhalf = NULL, *phalf = NULL;
@@ -119,7 +122,7 @@ void integrate_1d_ctu(DomainS *pD)
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
-    Cons1D_to_Prim1D(&U1d[i], &W[i], &Bxc[i]);
+    W[i] = Cons1D_to_Prim1D(&U1d[i], &Bxc[i]);
   }
 
   lr_states(W,Bxc,dtodx1,il+1,iu-1,Wl,Wr);
@@ -196,8 +199,8 @@ void integrate_1d_ctu(DomainS *pD)
  */
 
   for (i=il+1; i<=iu; i++) {
-    Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i], &Bxi[i]);
-    Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i], &Bxi[i]);
+    Ul_x1Face[i] = Prim1D_to_Cons1D(&Wl[i], &Bxi[i]);
+    Ur_x1Face[i] = Prim1D_to_Cons1D(&Wr[i], &Bxi[i]);
 
     fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
   }
@@ -502,14 +505,14 @@ void integrate_init_1d(MeshS *pM)
   if ((Bxc = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
 
-  if ((U1d       =(CVar1DS*)malloc(size1*sizeof(CVar1DS)))==NULL) goto on_error;
-  if ((Ul_x1Face =(CVar1DS*)malloc(size1*sizeof(CVar1DS)))==NULL) goto on_error;
-  if ((Ur_x1Face =(CVar1DS*)malloc(size1*sizeof(CVar1DS)))==NULL) goto on_error;
-  if ((x1Flux    =(CVar1DS*)malloc(size1*sizeof(CVar1DS)))==NULL) goto on_error;
+  if ((U1d       =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+  if ((Ul_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+  if ((Ur_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+  if ((x1Flux    =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
 
-  if ((W  = (PVar1DS*)malloc(size1*sizeof(PVar1DS))) == NULL) goto on_error;
-  if ((Wl = (PVar1DS*)malloc(size1*sizeof(PVar1DS))) == NULL) goto on_error;
-  if ((Wr = (PVar1DS*)malloc(size1*sizeof(PVar1DS))) == NULL) goto on_error;
+  if ((W  = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((Wl = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((Wr = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
 
   if((StaticGravPot != NULL) || (CoolingFunc != NULL)){
     if ((dhalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;

@@ -1,20 +1,17 @@
 #include "../copyright.h"
-
 /*=============================================================================
- * FILE: flux_hlld_rmhd.c
+ * FILE: hlle_sr.c
  *
- * PURPOSE: Compute 1D fluxes using the relativistic Riemann solver described
- * by Mignone, Ugliano, and Bodo.  For the equivalent hydro-only code, refer
- * to flux_hllc_rhd.c
+ * PURPOSE: Compute 1D fluxes using an HLLE-type relativistic Riemann solver.
+ *   Works for both hydro and MHD, but is very diffusive.
  *
- * REFERENCES:
+ * HISTORY:
+ *   First version written by Kevin Tian, 2007
+ *   Updated by Jonathan Fulton, February 2009
  *
- * A. Mignone, M. Ugliano and G. Bodo, "A five-wave HLL Riemann solver for
- * relativistic MHD", Mon. Not. R. Astron. Soc. 000, 1-15 (2007)
- *
- * V. Honkkila and P. Janhunen, "HLLC solver for ideal relativistic MHD",
- * Journal of Computational Physics, 233, 643 92007
- *
+ * CONTAINS PUBLIC FUNCTIONS: 
+ *   fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h
  *=============================================================================*/
 
 #include <math.h>

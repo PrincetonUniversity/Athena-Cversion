@@ -1,21 +1,18 @@
 #include "../copyright.h"
-
 /*=============================================================================
- * FILE: flux_hlld_rmhd.c
+ * FILE: hlld_sr.c
  *
  * PURPOSE: Compute 1D fluxes using the relativistic Riemann solver described
  * by Mignone, Ugliano, and Bodo.  For the equivalent hydro-only code, refer
- * to flux_hllc_rhd.c
+ * to hllc_sr.c
  *
  * REFERENCES:
- *
  * A. Mignone, M. Ugliano and G. Bodo, "A five-wave HLL Riemann solver for
  * relativistic MHD", Mon. Not. R. Astron. Soc. 000, 1-15 (2007)
  *
  * V. Honkkila and P. Janhunen, "HLLC solver for ideal relativistic MHD",
  * Journal of Computational Physics, 233, 643 92007
- *
- *=============================================================================*/
+ *============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -67,19 +64,18 @@ void get_astate(Riemann_State *Pa, Real p, Real Bx);
 void get_cstate(Riemann_State *PaL, Riemann_State *PaR, Cons1D* Uc, Real p, Real Bx);
 
 /* computes min/max signal speeds */
-void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
-                        const Real Bx, const Real error,
-                        Real* low, Real* high);
+void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,const Real Bx, Real* low, Real* high);
+void MaxChSpeed (const Prim1D W, const Real Bx, Real* cmin, Real* cmax);
 
 /* solves quartic equation defined by a and returns roots in root
  * returns the number of real roots 
  * error specifies an accuracy
  * currently force four real solutions b/c it's physical */
-int solveQuartic(double* a, double* root, double error);
+int QUARTIC (real b, real c, real d, real e, real z[]);
 
 /* solves cubic equation defined by a and stores roots in root
  * returns number of real roots */
-int solveCubic(double* a, double* root);
+int CUBIC (real b, real c, real d, real z[])
 
 #ifdef MHD
 
@@ -118,8 +114,7 @@ void printPrim1D(const Prim1D *W){
  */
 
 void fluxes(const Cons1D Ul, const Cons1D Ur,
-                    const Prim1D Wl, const Prim1D Wr, const Real Bx, 
-                    Cons1D *pFlux)
+            const Prim1D Wl, const Prim1D Wr, const Real Bx, Cons1D *pFlux)
 {
    int k;
    int switch_to_hll;
@@ -325,7 +320,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
                               + PaL.Sa*(Uc.By - PaL.U.By);
             pFlux->Bz = Fl.Bz + Sl*(PaL.U.Bz - Ul.Bz)
                               + PaL.Sa*(Uc.Bz - PaL.U.Bz);
-            pFlux->By = Fl.E  + Sl*(PaL.U.E  - Ul.E )
+            pFlux->E  = Fl.E  + Sl*(PaL.U.E  - Ul.E )
                               + PaL.Sa*(Uc.E  - PaL.U.E );
          }
          else{
@@ -343,7 +338,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
                               + PaR.Sa*(Uc.By - PaR.U.By);
             pFlux->Bz = Fr.Bz + Sr*(PaR.U.Bz - Ur.Bz)
                               + PaR.Sa*(Uc.Bz - PaR.U.Bz);
-            pFlux->By = Fr.E  + Sr*(PaR.U.E  - Ur.E )
+            pFlux->E  = Fr.E  + Sr*(PaR.U.E  - Ur.E )
                               + PaR.Sa*(Uc.E  - PaR.U.E );
          }
       }
@@ -596,355 +591,363 @@ Real ptot(Prim1D W, Real Bx){
 
 void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
                         const Real Bx, const Real error,
-                        Real* low, Real* high){
+                        Real* low, Real* high)
+{
 
-   Real lml,lmr;        /* smallest roots, Mignone Eq 55 */
-   Real lpl,lpr;        /* largest roots, Mignone Eq 55 */
+  real sl_min,sl_max;
+  real sr_min,sr_max;
 
-   Real vlsq,vrsq;
-   Real gammal, gammar;
-   Real gammal2, gammar2;
-   Real gammal4, gammar4;
-   Real rhohl,rhohr;
-   Real cslsq,csrsq;
-   Real cslsq_1,csrsq_1;
-   Real Blsq,Brsq;
-   Real vDotBl,vDotBr;
-   Real b0l,b0r;
-   Real bxl,bxr;
-   Real blsq,brsq;
-   Real Ql,Qr;
-   Real al[5],ar[5];
-   Real rl[4],rr[4];
-   Real discl,discr;
+  MaxChSpeed (Wl, Bx, &sl_min, &sl_max);
+  MaxChSpeed (Wr, Bx, &sr_min, &sr_max);
 
-   int nl,nr;
-   int i;
+  if (sl_min <= sr_min) {
+     *low = sl_min;
+  } else {
+     *low = sr_min;
+  }
 
-   /*printf("SPEED: Wl\n");
-   printPrim1D(&Wl);
-   printf("SPEED: Wr\n");
-   printPrim1D(&Wr);*/
+  if (sl_max >= sr_max) {
+     *high = sl_max;
+  } else {
+     *high = sr_max;
+  }
 
-   /*printf("Bx: %f\n",Bx);*/
-
-
-   rhohl = Wl.d + (Gamma/Gamma_1) * (Wl.P);
-   rhohr = Wr.d + (Gamma/Gamma_1) * (Wr.P);
-
-   /* Mignone RHD(2005) Eq 4 */
-   cslsq = (Gamma * Wl.P) / (rhohl); 
-   csrsq = (Gamma * Wr.P) / (rhohr);
-
-   cslsq_1 = 1.0 - cslsq;
-   csrsq_1 = 1.0 - csrsq;
-
-   vlsq = SQR(Wl.Vx) + SQR(Wl.Vy) + SQR(Wl.Vz);
-   vrsq = SQR(Wr.Vx) + SQR(Wr.Vy) + SQR(Wr.Vz);
-
-   gammal = 1.0 / sqrt(1 - vlsq);
-   gammar = 1.0 / sqrt(1 - vrsq);
-
-   gammal2 = SQR(gammal);
-   gammar2 = SQR(gammar);
-
-   gammal4 = SQR(gammal2);
-   gammar4 = SQR(gammar2);
-
-   Blsq = SQR(Bx) + SQR(Wl.By) + SQR(Wl.Bz);
-   Brsq = SQR(Bx) + SQR(Wr.By) + SQR(Wr.Bz);
-
-   vDotBl = Wl.Vx*Bx + Wl.Vy*Wl.By + Wl.Vz*Wl.Bz;
-   vDotBr = Wr.Vx*Bx + Wr.Vy*Wr.By + Wr.Vz*Wr.Bz;
-
-   b0l = gammal * vDotBl;
-   b0r = gammar * vDotBr;
-
-   bxl = Bx/gammal2 + Wl.Vx*vDotBl;
-   bxr = Bx/gammar2 + Wr.Vx*vDotBr; 
-
-   blsq = Blsq / gammal2 + SQR(vDotBl);
-   brsq = Brsq / gammar2 + SQR(vDotBr);
-
-   if( fabs(Bx) < error ){
-
-      /*printf("Quadratic\n\n");*/
-
-      /* Mignone Eq 58 */
-
-      Ql = blsq - cslsq*vDotBl;
-      Qr = brsq - csrsq*vDotBr;
-
-      /*printf("Ql: %e\n",Ql);
-        printf("Qr: %e\n\n",Qr);*/
-
-      al[2] = rhohl*(cslsq + gammal2*cslsq_1) + Ql;
-      ar[2] = rhohr*(csrsq + gammar2*csrsq_1) + Qr;
-
-      al[1] = -2.0 * rhohl * gammal2 * Wl.Vx * cslsq_1;
-      ar[1] = -2.0 * rhohr * gammar2 * Wr.Vx * csrsq_1;
-
-      al[0] = rhohl*(gammal2*Wl.Vx*Wl.Vx*cslsq_1 - cslsq) - Ql;
-      ar[0] = rhohr*(gammar2*Wr.Vx*Wr.Vx*csrsq_1 - csrsq) - Qr;
-
-      /*printf("al[2]: %e\n",al[2]);
-      printf("al[1]: %e\n",al[1]);
-      printf("al[0]: %e\n\n",al[0]);
-
-      printf("ar[2]: %e\n",ar[2]);
-      printf("ar[1]: %e\n",ar[1]);
-      printf("ar[0]: %e\n\n",ar[0]);*/
-
-      discl = sqrt(al[1]*al[1] - 4.0*al[2]*al[0]);
-      discr = sqrt(ar[1]*ar[1] - 4.0*ar[2]*ar[0]);
-
-      lml = (-al[1] - discl) / (2.0*al[2]);
-      lpl = (-al[1] + discl) / (2.0*al[2]);
-
-      lmr = (-ar[1] - discr) / (2.0*ar[2]);
-      lpr = (-ar[1] + discr) / (2.0*ar[2]);
-
-      /*printf("lml: %f\n",lml);
-      printf("lpl: %f\n",lpl);
-      printf("lmr: %f\n",lmr);
-      printf("lpr: %f\n\n",lpr);*/
-   }
-   else{
-      /*printf("Quartic\n\n");*/
-
-      al[4] = -SQR(b0l)*cslsq + cslsq_1*rhohl*gammal4 + 
-         gammal2*(blsq + cslsq*rhohl);
-      ar[4] = -SQR(b0r)*csrsq + csrsq_1*rhohr*gammar4 + 
-         gammar2*(brsq + csrsq*rhohr);
-
-      al[3] = 2*b0l*bxl*cslsq - 4*cslsq_1*rhohl*gammal4*Wl.Vx - 
-         2*gammal2*(blsq + cslsq*rhohl)*Wl.Vx;
-      ar[3] = 2*b0r*bxr*csrsq - 4*csrsq_1*rhohr*gammar4*Wr.Vx - 
-         2*gammar2*(brsq + csrsq*rhohr)*Wr.Vx;
-
-      al[2] = SQR(b0l)*cslsq - SQR(bxl)*cslsq - gammal2*(blsq + cslsq*rhohl) + 
-         6*cslsq_1*rhohl*gammal4*SQR(Wl.Vx)
-         + gammal2*SQR(Wl.Vx)*(blsq + cslsq*rhohl);
-      ar[2] = SQR(b0r)*csrsq - SQR(bxr)*csrsq - gammar2*(brsq + csrsq*rhohr) + 
-         6*csrsq_1*rhohr*gammar4*SQR(Wr.Vx)
-         + gammar2*SQR(Wr.Vx)*(brsq + csrsq*rhohr);
-
-      al[1] = -2*b0l*bxl*cslsq + 2*gammal2*Wl.Vx*(blsq + cslsq*rhohl) - 
-         4*cslsq_1*rhohl*gammal4*SQR(Wl.Vx)*Wl.Vx;
-      ar[1] = -2*b0r*bxr*csrsq + 2*gammar2*Wr.Vx*(brsq + csrsq*rhohr) - 
-         4*csrsq_1*rhohr*gammar4*SQR(Wr.Vx)*Wr.Vx;
-
-      al[0] = SQR(bxl)*cslsq - gammal2*SQR(Wl.Vx)*(blsq + cslsq*rhohl) + 
-         cslsq_1*rhohl*gammal4*SQR(Wl.Vx)*SQR(Wl.Vx);
-      ar[0] = SQR(bxr)*csrsq - gammar2*SQR(Wr.Vx)*(brsq + csrsq*rhohr) + 
-         csrsq_1*rhohr*gammar4*SQR(Wr.Vx)*SQR(Wr.Vx);
-
-/*      for(i=0; i<5; i++)
-         printf("al[%d]: %f\n",i,al[i]);
-      for(i=0; i<5; i++)
-      printf("ar[%d]: %f\n",i,ar[i]);*/
-
-      nl = solveQuartic(al,rl,1.0e-10);
-      nr = solveQuartic(ar,rr,1.0e-10);
-
-      /*printf("nl: %d\n",nl);
-        printf("nr: %d\n",nr);*/
-
-      if(nl == 0){
-         lml = -1.0;
-         lpl = 1.0;
-      }
-      else{
-         lml = rl[0];
-         lpl = rl[0];
-
-         /* find smallest and largest roots */
-         for(i=1; i<nl; i++){
-            if(rl[i] < lml)
-               lml = rl[i];
-            if(rl[i] > lpl)
-               lpl = rl[i];
-         }
-      }
-
-      if(nr == 0){
-         lmr = -1.0;
-         lpr = 1.0;
-      }
-      else{
-         lmr = rr[0];
-         lpr = rr[0];
-
-         /* find smallest and largest roots */
-         for(i=1; i<nr; i++){
-            if(rr[i] < lmr)
-               lmr = rr[i];
-            if(rr[i] > lpr)
-               lpr = rr[i];
-         }
-      }
-      
-   }
-
-   /* Mi */
-   
-   if(lml < lmr)
-      *low = lml;
-   else
-      *low = lmr;
-
-   if(lpl > lpr)
-      *high = lpl;
-   else
-      *high = lpr;
 }
 
-/* algorithm from Abramowitz and Stegun (1972) */
-int solveQuartic(double* a, double* root, double error){
-   double a3,a2,a1,a0;
-   double cubicA[4];
-   double cubicR[3];
-   double R,D,E;
-   double rSq,dSq,eSq;
-   double y1;
-   double alpha,tmp;
-   int i,nRoots;
+void MaxChSpeed (const Prim1D W, const Real Bx, Real* cmin, Real* cmax)
+{
+  int   i, iflag;
+  real  rhoh
+  real  vB, vB2, w_1;
+  real  eps2, one_m_eps2, a2_w;
+  real  vx, vx2, u0, u02;
+  real  a4, a3, a2, a1, a0;
+  real  scrh1, scrh2, scrh;
+  real  b2;
+  real *vp, lambda[4];
+  real  MAX_MACH_NUMBER
+  static real *cs2, *h;
 
-   /* normalize coefficients */
+  rhoh = W.d + (Gamma/Gamma_1)* (W.P);
+  cs2 = (Gamma * W.P) / (rhoh);
+  
+  scrh   = fabs(W.Vx)/sqrt(cs2);
+  MAX_MACH_NUMBER = dmax(scrh, MAX_MACH_NUMBER);
 
-   a3 = a[3]/a[4];
-   a2 = a[2]/a[4];
-   a1 = a[1]/a[4];
-   a0 = a[0]/a[4];
+  vB  = W.Vx*Bx + W.Vy*W.By + W.VZz*W.BZ);
+  u02 = SQR(W.Vx) + SQR(W.Vy) + SQR(W.Vz);
+  b2  = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
 
-   /* Reduce to cubic equation */
+  if (u02 >= 1.0){
+     ath_error("[MaxChSpeed]:! |v|= %10.4 > 1\n",u02);
+  }
 
-   cubicA[3] = 1.0;
-   cubicA[2] = -a2;
-   cubicA[1] = a1*a3 - 4.0*a0;
-   cubicA[0] = 4.0*a2*a0 - SQR(a1) - SQR(a3)*a0;
-
-   nRoots = solveCubic(cubicA,cubicR);
-
-   /* select one of the cubic roots to serve as y1 */
-
-   for(i=0; i<nRoots; i++){
-      y1 = cubicR[i];
-      rSq = SQR(a3)/4.0 - a2 + y1;
-      tmp = SQR(y1) - 4.0*a0;
-
-      if( (rSq > -error) && (tmp > -error) )
-         break;
-   }
-   
-
-   /* Reduce to solving two quadratic equations */
-
-   nRoots = 0;
-
-   /* if(R^2 == 0) */
-   
-   if(rSq < error){
-      R = 0;
-      if(tmp >= 0.0)
-         tmp = sqrt(tmp);
-      else
-         tmp = 0.0;
-
-      alpha = 3.0*SQR(a3)/4.0 - 2.0*a2;
+  if (u02 < 1.e-14) {
+    
+    /* -----------------------------------------------------
+        if total velocity is = 0 eigenvalue equation 
+        reduces to a biquadratic:
          
-      dSq = alpha + 2.0*tmp;
-      eSq = alpha - 2.0*tmp;
-   }
-   
-   /* if(R^2 > 0) */
-   else{
-      R = sqrt(rSq);
-      tmp = (4.0*a3*a2 - 8.0*a1 - SQR(a3)*a3)/4.0;
-      alpha = 3.0*SQR(a3)/4.0 - rSq - 2.0*a2;
+            x^4 + a1*x^2 + a0 = 0
+            
+         with a0 = cs^2*bx*bx/W, a1 = - a0 - eps^2
+       ----------------------------------------------------- */
+       
+      w_1  = 1.0/(rhoh + b2);   
+      eps2 = cs2 + b2*w_1*(1.0 - cs2);
+      a0   = cs2*SQR(Bx)*w_1;
+      a1   = - a0 - eps2;
+      scrh = a1*a1 - 4.0*a0;
+
+      scrh = max(scrh, 0.0);
+      scrh = sqrt(0.5*(-a1 + sqrt(scrh)));
+      cmax =  scrh;
+      cmin = -scrh;
+      continue;      
+    }
+
+    vB2 = vB*vB;
+    u02 = 1.0/(1.0 - u02);
+    b2  = b2/u02 + vB2;
+    u0  = sqrt(u02);
+    w_1 = 1.0/(rhoh + b2);   
+    vx  = W.Vx;
+    vx2 = SQR(vx);
+
+    if (fabs(Bx) < 1.e-14){
+
+      eps2  = cs2 + b2*w_1*(1.0 - cs2);
+
+      scrh1 = (1.0 - eps2)*u02;
+      scrh2 = cs2*vB2*w_1 - eps2;
       
-      dSq = alpha + tmp/R;
-      eSq = alpha - tmp/R;
-   }
-   
-   if(dSq >= 0){
-      D = sqrt(dSq);
-      root[0] = -a3/4.0 + R/2.0 + D/2.0;
-      root[1] = -a3/4.0 + R/2.0 - D/2.0;
-      nRoots += 2;
-   }
+      a2  = scrh1 - scrh2;
+      a1  = -2.0*vx*scrh1;
+      a0  = vx2*scrh1 + scrh2;
 
-   /* incorrect but approximately right for situation */
-   else{
-      D = 0;
-      root[0] = -a3/4.0 + R/2.0 + D/2.0;
-      root[1] = -a3/4.0 + R/2.0 - D/2.0;
-      nRoots += 2;
-   }
-   
-   if(eSq >= 0){
-      E = sqrt(eSq);
-      root[nRoots] = -a3/4.0 - R/2.0 + E/2.0;
-      root[nRoots+1] = -a3/4.0 - R/2.0 - E/2.0;
-      nRoots += 2;
-   }
+      cmax = 0.5*(-a1 + sqrt(a1*a1 - 4.0*a2*a0))/a2;
+      cmin = 0.5*(-a1 - sqrt(a1*a1 - 4.0*a2*a0))/a2;
+      continue;
 
-   /* incorrect but approximately right for situation */
-   else{
-      E = 0;
-      root[nRoots] = -a3/4.0 - R/2.0 + E/2.0;
-      root[nRoots+1] = -a3/4.0 - R/2.0 - E/2.0;
-      nRoots += 2;
-   }
+    }else{
+
+      scrh1 = Bx/u02 + vB*vx;  /* -- this is bx/u0 -- */
+      scrh2 = scrh1*scrh1;  
+                     
+      a2_w       = cs2*w_1;
+      eps2       = (cs2*rhoh + b2)*w_1;
+      one_m_eps2 = u02*rhoh*(1.0 - cs2)*w_1;
+
+    /* ---------------------------------------
+         Define coefficients for the quartic  
+       --------------------------------------- */
+    
+      scrh = 2.0*(a2_w*vB*scrh1 - eps2*vx);
+      a4 = one_m_eps2 - a2_w*vB2 + eps2;
+      a3 = - 4.0*vx*one_m_eps2 + scrh;
+      a2 =   6.0*vx2*one_m_eps2 + a2_w*(vB2 - scrh2) + eps2*(vx2 - 1.0);
+      a1 = - 4.0*vx*vx2*one_m_eps2 - scrh;
+      a0 = vx2*vx2*one_m_eps2 + a2_w*scrh2 - eps2*vx2;
+   
+      if (a4 < 1.e-12){
+        ath_error ("[MaxChSpeed]: Can not divide by a4\n");
+      }
+
+      scrh = 1.0/a4;
+     
+      a3 *= scrh;
+      a2 *= scrh;
+      a1 *= scrh;
+      a0 *= scrh;
+      iflag = QUARTIC(a3, a2, a1, a0, lambda);
+  
+      if (iflag){
+        printf ("Can not find max speed:\n");
+        SHOW(uprim,i);
+        print ("QUARTIC: f(x) = %12.6e + x*(%12.6e + x*(%12.6e ",
+                 a0*a4, a1*a4, a2*a4);
+        print ("+ x*(%12.6e + x*%12.6e)))\n", a3*a4, a4);
+        ath_error ("[MaxChSpeed]: Can't find max speed\n");
+      }
+
+      cmax = max(lambda[3], lambda[2]);
+      cmax = max(cmax, lambda[1]);
+      cmax = max(cmax, lambda[0]);
+      cmax = min(cmax, 1.0);
+
+      cmin = min(lambda[3], lambda[2]);
+      cmin = min(cmin, lambda[1]);
+      cmin = min(cmin, lambda[0]);
+      cmin = max(cmin, -1.0);
+
+    }
+  }
+}
+
+/* ******************************************** */
+int QUARTIC (real b, real c, real d, 
+             real e, real z[])
+/* 
+ *
+ * PURPOSE:
+ *
+ *   Solve a quartic equation in the form 
+ *
+ *      z^4 + bz^3 + cz^2 + dz + e = 0
+ *
+ *   For its purpose, it is assumed that ALL 
+ *   roots are real. This makes things faster.
+ *
+ *
+ * ARGUMENTS
+ *
+ *   b, c,
+ *   d, e  (IN)  = coefficient of the quartic
+ *                 z^4 + bz^3 + cz^2 + dz + e = 0
+ *
+ *   z[]   (OUT) = a vector containing the 
+ *                 (real) roots of the quartic
+ *   
+ *
+ * REFERENCE:
+ *
+ *   http://www.1728.com/quartic2.htm 
+ * 
+ *
+ *
+ ********************************************** */
+{
+  int    n, ifail;
+  real b2, f, g, h;
+  real a2, a1, a0, u[4];
+  real p, q, r, s;
+  static real three_256 = 3.0/256.0;
+  static real one_64 = 1.0/64.0;
+  
+  b2 = b*b;
+
+  f = c - b2*0.375;
+  g = d + b2*b*0.125 - b*c*0.5;
+  h = e - b2*b2*three_256 + 0.0625*b2*c - 0.25*b*d;
+  
+  a2 = 0.5*f;
+  a1 = (f*f - 4.0*h)*0.0625;
+  a0 = -g*g*one_64;
+
+  ifail = CUBIC(a2, a1, a0, u);
+
+  if (ifail)return(1);
+
+  if (u[1] < 1.e-14){
+
+    p = sqrt(u[2]);
+    s = 0.25*b;
+    z[0] = z[2] = - p - s;
+    z[1] = z[3] = + p - s;
+    
+  }else{
+  
+    p = sqrt(u[1]);
+    q = sqrt(u[2]);
+  
+    r = -0.125*g/(p*q);
+    s =  0.25*b;
+     
+    z[0] = - p - q + r - s;
+    z[1] =   p - q - r - s;
+    z[2] = - p + q - r - s;
+    z[3] =   p + q + r - s;
+
+  }  
+
+  /* ----------------------------------------------
+       verify that cmax and cmin satisfy original 
+       equation
+     ---------------------------------------------- */  
+
+  for (n = 0; n < 4; n++){
+    s = e + z[n]*(d + z[n]*(c + z[n]*(b + z[n])));
+    if (s != s) {
+      printf ("Nan found in QUARTIC \n");
+      return(1);
+    }
+    if (fabs(s) > 1.e-6) {
+      printf ("Solution does not satisfy f(z) = 0; f(z) = %12.6e\n",s);
+      return(1);
+    }
+  }
+
+  return(0);
+/*  
+  printf (" z: %f ; %f ; %f ; %f\n",z[0], z[1], z[2], z[3]);
+  */
+}
+/* *************************************************** */
+int CUBIC(real b, real c, real d, real z[])
+/* 
+ *
+ * PURPOSE:
+ *
+ *   Solve a cubic equation in the form 
+ *
+ *      z^3 + bz^2 + cz + d = 0
+ *
+ *   For its purpose, it is assumed that ALL 
+ *   roots are real. This makes things faster.
+ *
+ *
+ * ARGUMENTS
+ *
+ *   b, c, d (IN)  = coefficient of the cubic
+ *                    z^3 + bz^2 + cz + d = 0
+ *
+ *   z[]   (OUT)   = a vector containing the 
+ *                   (real) roots of the cubic.
+ *                   Roots should be sorted
+ *                   in increasing order.
+ *   
+ *
+ * REFERENCE:
+ *
+ *   http://www.1728.com/cubic2.htm 
+ *
+ *
+ *
+ ***************************************************** */
+{
+  real b2, g2;
+  real f, g, h;
+  real i, i2, j, k, m, n, p;
+  static real one_3 = 1.0/3.0, one_27=1.0/27.0;
+
+  b2 = b*b;
+ 
+/*  ----------------------------------------------
+     the expression for f should be 
+     f = c - b*b/3.0; however, to avoid negative
+     round-off making h > 0.0 or g^2/4 - h < 0.0
+     we let c --> c(1- 1.1e-16)
+    ---------------------------------------------- */
+
+  f  = c*(1.0 - 1.e-16) - b2*one_3;
+  g  = b*(2.0*b2 - 9.0*c)*one_27 + d; 
+  g2 = g*g;
+  i2 = -f*f*f*one_27;
+  h  = g2*0.25 - i2;
+
+/* --------------------------------------------
+     Real roots are possible only when 
+   
+               h <= 0 
+   -------------------------------------------- */
+
+  if (h > 1.e-12){
+    printf ("Only one real root (%12.6e)!\n", h);
+  }
+  if (i2 < 0.0){
+/*
+    printf ("i2 < 0.0 %12.6e\n",i2);
+    return(1);
+*/
+    i2 = 0.0;
+  }
+
+/* --------------------------------------
+       i^2 must be >= g2*0.25
+   -------------------------------------- */
+  
+  i = sqrt(i2);       /*  > 0   */
+  j = pow(i, one_3);  /*  > 0   */
+  k = -0.5*g/i;
+
+/*  this is to prevent unpleseant situation 
+    where both g and i are close to zero       */
+
+  k = (k < -1.0 ? -1.0:k);
+  k = (k >  1.0 ?  1.0:k);
+  
+  k = acos(k)*one_3;       /*  pi/3 < k < 0 */
+ 
+  m = cos(k);              /*   > 0   */
+  n = sqrt(3.0)*sin(k);    /*   > 0   */
+  p = -b*one_3;
+
+  z[0] = -j*(m + n) + p;
+  z[1] = -j*(m - n) + p;
+  z[2] =  2.0*j*m + p;
+
+/* ------------------------------------------------------
+    Since j, m, n > 0, it should follow that from
+    
+      z0 = -jm - jn + p
+      z1 = -jm + jn + p
+      z2 = 2jm + p
       
-   return nRoots;
-}   
-
-
-/* Cubic equation solver */
-int solveCubic(double* a, double* root){
-   double a2,a1,a0;
-   double q,r,d,e;
-   double qCubed;
-   double theta,sqrtQ;
-
-   a2 = a[2]/a[3];
-   a1 = a[1]/a[3];
-   a0 = a[0]/a[3];
-
-   q = (SQR(a2) - 3.0*a1)/9.0;
-   r = (2*SQR(a2)*a2 - 9.0*a2*a1 + 27.0*a0)/54.0;
-   qCubed = SQR(q)*q;
-   d = qCubed - SQR(r);
-   
-   /* Three real roots */
-
-   if(d >= 0){
-      if(qCubed > 0)
-         theta = acos(r/sqrt(qCubed));
-      else
-         theta = 0;
-
-      sqrtQ = sqrt(q);
-
-      root[0] = -2.0 * sqrtQ * cos(theta/3.0) - a2/3.0;
-      root[1] = -2.0 * sqrtQ * cos((theta + 2.0*PI)/3.0) - a2/3.0;
-      root[2] = -2.0 * sqrtQ * cos((theta + 4.0*PI)/3.0) - a2/3.0;
-
-      return 3;
-   }
-
-   /* One real root */
-
-   else{
-      e = pow(sqrt(-d) + fabs(r),(ONE_3RD) );
-
-      if(r > 0) e = -e;
-
-      root[0] = (e + q/e) - a2/3.0;
-
-      return 1;
-   }
+    z2 is the greatest of the roots, while z0 is the 
+    smallest one.
+   ------------------------------------------------------ */
+      
+  return(0);
 }
 
 #undef MAX_ITER

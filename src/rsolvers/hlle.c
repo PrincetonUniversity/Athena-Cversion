@@ -52,9 +52,9 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void HLLE_FUNCTION(const CVar1DS Ul, const CVar1DS Ur,
-                   const PVar1DS Wl, const PVar1DS Wr,
-                   const Real Bxi, CVar1DS *pFlux)
+void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
+                   const Prim1DS Wl, const Prim1DS Wr,
+                   const Real Bxi, Cons1DS *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
@@ -66,7 +66,7 @@ void HLLE_FUNCTION(const CVar1DS Ul, const CVar1DS Ur,
 #endif
   Real ev[NWAVE],al,ar;
   Real *pFl, *pFr, *pF;
-  CVar1DS Fl,Fr;
+  Cons1DS Fl,Fr;
   int n;
 
 

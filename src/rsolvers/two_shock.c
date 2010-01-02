@@ -46,9 +46,9 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void fluxes(const CVar1DS Ul, const CVar1DS Ur,
-            const PVar1DS Wl, const PVar1DS Wr,
-            const Real Bxi, CVar1DS *pFlux)
+void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+            const Prim1DS Wl, const Prim1DS Wr,
+            const Real Bxi, Cons1DS *pFlux)
 {
   Real zl, zc, zr, dc, Vxc, tmp;
   Real sl, sr;  /* Left and right going shock velocity */

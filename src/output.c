@@ -113,9 +113,6 @@ static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
  *============================================================================*/
 
 Real expr_d    (const GridS *pG, const int i, const int j, const int k);
-#ifdef SPECIAL_RELATIVITY
-Real expr_d0 (const GridS *pG, const int i, const int j, const int k);
-#endif
 Real expr_M1 (const GridS *pG, const int i, const int j, const int k);
 Real expr_M2 (const GridS *pG, const int i, const int j, const int k);
 Real expr_M3 (const GridS *pG, const int i, const int j, const int k);
@@ -907,11 +904,6 @@ float *subset1(GridS *pgrid, OutputS *pout)
 Real expr_d(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].d;
 }
-#ifdef SPECIAL_RELATIVITY
-Real expr_d0(const GridS *pG, const int i, const int j, const int k){
-   return pG->W[k][j][i].d;
-}
-#endif
 Real expr_M1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1;
 }
@@ -961,20 +953,16 @@ Real expr_V3(const GridS *pG, const int i, const int j, const int k) {
 }
 
 Real expr_P(const GridS *pG, const int i, const int j, const int k) {
-#ifdef SPECIAL_RELATIVITY
-   return pG->W[k][j][i].P;
-#else
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
 #else
-  ConsVarS *gp = &(pG->U[k][j][i]);
+  ConsS *gp = &(pG->U[k][j][i]);
   return Gamma_1*(gp->E 
 #ifdef MHD
 		  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
 		  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
 #endif /* ISOTHERMAL */
-#endif /* SPECIAL RELATIVITY */
 }
 
 /*--------------------------------------------------------------------------- */
@@ -983,7 +971,7 @@ Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #ifdef ADIABATIC
 Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 {
-  ConsVarS *gp = &(pG->U[k][j][i]);
+  ConsS *gp = &(pG->U[k][j][i]);
   return (Gamma*Gamma_1*(gp->E 
 #ifdef MHD
 	  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
@@ -998,7 +986,7 @@ Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 #ifdef ADIABATIC
 Real expr_S(const GridS *pG, const int i, const int j, const int k)
 {
-  ConsVarS *gp = &(pG->U[k][j][i]);
+  ConsS *gp = &(pG->U[k][j][i]);
   Real P = Gamma_1*(gp->E 
 #ifdef MHD
 		   - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
@@ -1044,10 +1032,6 @@ static ConsFun_t getexpr(const int n, const char *expr)
 
   if (strcmp(expr,"d")==0)
     return expr_d;
-#ifdef SPECIAL_RELATIVITY
-  else if (strcmp(expr,"d0")==0)
-     return expr_d0;
-#endif
   else if (strcmp(expr,"M1")==0)
     return expr_M1;
   else if (strcmp(expr,"M2")==0)

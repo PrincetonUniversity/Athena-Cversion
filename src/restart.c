@@ -22,7 +22,7 @@
  * were run originally.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   restart_grids() - reads nstep,time,dt,ConsVarS and B from restart file 
+ *   restart_grids() - reads nstep,time,dt,ConsS and B from restart file 
  *   dump_restart()       - writes a restart file
  *
  *============================================================================*/
@@ -38,7 +38,7 @@
 #include "particles/particle.h"
 
 /*----------------------------------------------------------------------------*/
-/* restart_grids: Reads nstep, time, dt, and arrays of ConsVarS and interface B
+/* restart_grids: Reads nstep, time, dt, and arrays of ConsS and interface B
  *   for each of the Grid structures in the restart file.  By the time this
  *   function is called (in Step 6 of main()), the Mesh hierarchy has already
  *   been re-initialized by init_mesh() and init_grid() in Step 4 of main()

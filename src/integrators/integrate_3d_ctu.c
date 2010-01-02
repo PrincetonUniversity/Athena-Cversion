@@ -4,12 +4,12 @@
  *
  * PURPOSE: Integrate MHD equations using 3D version of the directionally
  *   unsplit CTU integrator of Colella (1990).  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsVarS
+ *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
  *      B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically thin cooling,
  *   shearing box source terms, and the H-correction of Sanders et al.
- *     For adb hydro, requires (9*CVar1DS +  3*Real) = 48 3D arrays
- *     For adb mhd, requires   (9*CVar1DS + 10*Real) = 73 3D arrays
+ *     For adb hydro, requires (9*Cons1DS +  3*Real) = 48 3D arrays
+ *     For adb mhd, requires   (9*Cons1DS + 10*Real) = 73 3D arrays
  *   The H-correction of Sanders et al. adds another 3 arrays.  
  *
  * REFERENCES:
@@ -46,12 +46,15 @@
 #endif
 
 #if defined(CTU_INTEGRATOR) && defined(CARTESIAN)
+#ifdef SPECIAL_RELATIVITY
+#error : The CTU integrator cannot be used for special relativity.
+#endif /* SPECIAL_RELATIVITY */
 
 /* The L/R states of conserved variables and fluxes at each cell face */
-static CVar1DS ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
-static CVar1DS ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
-static CVar1DS ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
-CVar1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
+static Cons1DS ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
+static Cons1DS ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
+static Cons1DS ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
+Cons1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
@@ -62,8 +65,8 @@ static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
-static PVar1DS *W=NULL, *Wl=NULL, *Wr=NULL;
-static CVar1DS *U1d=NULL;
+static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static Cons1DS *U1d=NULL;
 
 /* density and Pressure at t^{n+1/2} needed by MHD, cooling, and gravity */
 static Real ***dhalf = NULL, ***phalf=NULL;
@@ -203,7 +206,7 @@ void integrate_3d_ctu(DomainS *pD)
  */
 
      for (i=is-nghost; i<=ie+nghost; i++) {
-       Cons1D_to_Prim1D(&U1d[i],&W[i],&Bxc[i]);
+       W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
      }
 
      lr_states(W,Bxc,dtodx1,il+1,iu-1,Wl,Wr);
@@ -362,8 +365,8 @@ void integrate_3d_ctu(DomainS *pD)
  */
 
       for (i=il+1; i<=iu; i++) {
-        Prim1D_to_Cons1D(&Ul_x1Face[k][j][i],&Wl[i],&Bxi[i]);
-        Prim1D_to_Cons1D(&Ur_x1Face[k][j][i],&Wr[i],&Bxi[i]);
+        Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
+        Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
 
 #ifdef MHD
         Bx = B1_x1Face[k][j][i];
@@ -408,7 +411,7 @@ void integrate_3d_ctu(DomainS *pD)
  */
 
       for (j=js-nghost; j<=je+nghost; j++) {
-        Cons1D_to_Prim1D(&U1d[j],&W[j],&Bxc[j]);
+        W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
       }
 
       lr_states(W,Bxc,dtodx2,jl+1,ju-1,Wl,Wr);
@@ -542,8 +545,8 @@ void integrate_3d_ctu(DomainS *pD)
  */
 
       for (j=jl+1; j<=ju; j++) {
-        Prim1D_to_Cons1D(&Ul_x2Face[k][j][i],&Wl[j],&Bxi[j]);
-        Prim1D_to_Cons1D(&Ur_x2Face[k][j][i],&Wr[j],&Bxi[j]);
+        Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
+        Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
 
 #ifdef MHD
         Bx = B2_x2Face[k][j][i];
@@ -588,7 +591,7 @@ void integrate_3d_ctu(DomainS *pD)
  */
 
       for (k=ks-nghost; k<=ke+nghost; k++) {
-        Cons1D_to_Prim1D(&U1d[k],&W[k],&Bxc[k]);
+        W[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
       }
 
       lr_states(W,Bxc,dtodx3,kl+1,ku-1,Wl,Wr);
@@ -721,8 +724,8 @@ void integrate_3d_ctu(DomainS *pD)
  */
 
       for (k=kl+1; k<=ku; k++) {
-        Prim1D_to_Cons1D(&Ul_x3Face[k][j][i],&Wl[k],&Bxi[k]);
-        Prim1D_to_Cons1D(&Ur_x3Face[k][j][i],&Wr[k],&Bxi[k]);
+        Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
+        Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
 
 #ifdef MHD
         Bx = B3_x3Face[k][j][i];
@@ -1929,8 +1932,8 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef MHD
         Bx = B1_x1Face[k][j][i];
 #endif
-        Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Wl[i],&Bx);
-        Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Wr[i],&Bx);
+        Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Bx);
+        Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Bx);
 
         fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx,
                &x1Flux[k][j][i]);
@@ -1960,8 +1963,8 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef MHD
         Bx = B2_x2Face[k][j][i];
 #endif
-        Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Wl[i],&Bx);
-        Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Wr[i],&Bx);
+        Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Bx);
+        Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Bx);
 
         fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],Bx,
                &x2Flux[k][j][i]);
@@ -1991,8 +1994,8 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef MHD
         Bx = B3_x3Face[k][j][i];
 #endif
-        Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Wl[i],&Bx);
-        Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Wr[i],&Bx);
+        Wl[i] = Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Bx);
+        Wr[i] = Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Bx);
 
         fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],Bx,
                &x3Flux[k][j][i]);
@@ -2852,28 +2855,28 @@ void integrate_init_3d(MeshS *pM)
     == NULL) goto on_error;
 #endif /* MHD */
 
-  if ((U1d=(CVar1DS*)malloc(nmax*sizeof(CVar1DS))) == NULL) goto on_error;
-  if ((W  =(PVar1DS*)malloc(nmax*sizeof(PVar1DS))) == NULL) goto on_error;
-  if ((Wl =(PVar1DS*)malloc(nmax*sizeof(PVar1DS))) == NULL) goto on_error;
-  if ((Wr =(PVar1DS*)malloc(nmax*sizeof(PVar1DS))) == NULL) goto on_error;
+  if ((U1d=(Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
+  if ((W  =(Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((Wl =(Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((Wr =(Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
 
-  if ((Ul_x1Face=(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((Ul_x1Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((Ur_x1Face=(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((Ur_x1Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((Ul_x2Face=(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((Ul_x2Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((Ur_x2Face=(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((Ur_x2Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((Ul_x3Face=(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((Ul_x3Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((Ur_x3Face=(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((Ur_x3Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((x1Flux   =(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((x1Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((x2Flux   =(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((x2Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
-  if ((x3Flux   =(CVar1DS***)calloc_3d_array(size3,size2,size1,sizeof(CVar1DS)))
+  if ((x3Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
 
 #ifndef MHD

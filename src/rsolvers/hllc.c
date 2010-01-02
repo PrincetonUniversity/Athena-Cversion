@@ -43,9 +43,9 @@
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface 
  */
 
-void fluxes(const CVar1DS Ul, const CVar1DS Ur,
-            const PVar1DS Wl, const PVar1DS Wr,
-            const Real Bxi, CVar1DS *pFlux)
+void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+            const Prim1DS Wl, const Prim1DS Wr,
+            const Real Bxi, Cons1DS *pFlux)
 {
   Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe;
 #ifndef BAROTROPIC
@@ -53,7 +53,7 @@ void fluxes(const CVar1DS Ul, const CVar1DS Ur,
 #endif
   Real ev[NWAVE];
   Real *pFl, *pFr, *pF;
-  CVar1DS Fl,Fr;
+  Cons1DS Fl,Fr;
   int n;
   Real cfl,cfr,bp,bm,tmp;
   Real al,ar; /* Min and Max wave speeds */
