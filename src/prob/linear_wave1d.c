@@ -31,7 +31,7 @@
 #include "prototypes.h"
 
 /* Initial solution on root level, shared with Userwork_after_loop  */
-static ConsVarS ***RootSoln=NULL;
+static ConsS ***RootSoln=NULL;
 static int wave_flag;
 
 
@@ -41,7 +41,7 @@ static int wave_flag;
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
-  ConsVarS ***Soln;
+  ConsS ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,wave_dir;
   Real amp,vflow;
@@ -67,10 +67,10 @@ void problem(DomainS *pDomain)
 /* allocate memory for solution on this level.  If this is root level
  * also allocate memory for RootSoln */
 
-  if ((Soln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))==NULL)
+  if ((Soln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))==NULL)
     ath_error("[problem]: Error allocating memory for Soln\n");
   if (pDomain->Level == 0){
-    if ((RootSoln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))
+    if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))
       == NULL) ath_error("[problem]: Error alloc memory for RootSoln\n");
   }
 
@@ -397,7 +397,7 @@ void Userwork_after_loop(MeshS *pM)
 #endif
 
   Real rms_error=0.0;
-  ConsVarS error,total_error;
+  ConsS error,total_error;
   FILE *fp;
   char *fname;
   int Nx1, Nx2, Nx3, count;

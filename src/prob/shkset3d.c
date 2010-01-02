@@ -135,15 +135,15 @@ void problem(DomainS *pDomain)
   int N, isqa, jsqa, ksqa;
   int scx, scy, scz; /* scx = N/rx, scy = N/ry, scz = N/rz */
   Real sdx, sdy, sdz;
-  ConsVarS *pq, ***sqa=NULL; /* allocated to dimensions sqa[N][N][2N] */
+  ConsS *pq, ***sqa=NULL; /* allocated to dimensions sqa[N][N][2N] */
 #ifdef MHD
   Real ***sB1i=NULL, ***sB2i=NULL, ***sB3i=NULL;
 #endif /* MHD */
 
 /* The Riemann Problem Left and Right states in the Grid coordinate system */
-  ConsVarS ql, qr;
+  ConsS ql, qr;
 /* The unit cell enclosing the Riemann problem interface. */
-  ConsVarS ***qa=NULL; /* allocated to dimensions qa[rz][ry][rx] */
+  ConsS ***qa=NULL; /* allocated to dimensions qa[rz][ry][rx] */
 #ifdef MHD
   Real ***aB1i=NULL, ***aB2i=NULL, ***aB3i=NULL;
 #endif /* MHD */
@@ -229,7 +229,7 @@ void problem(DomainS *pDomain)
   Pr  = par_getd("problem","pr");
 #endif /* ADIABATIC */
 
-/* Calculate the conservative (ConsVarS) L/R states in the Grid's coordinates */
+/* Calculate the conservative (ConsS) L/R states in the Grid's coordinates */
 
 /* This is the left state */
   ql.d  = dl;
@@ -273,7 +273,7 @@ void problem(DomainS *pDomain)
 
 /* Allocate 3D arrays with size of UNIT CELL */
 
-  if((qa = (ConsVarS***)calloc_3d_array(rz, ry, rx+rx, sizeof(ConsVarS)))==NULL)
+  if((qa = (ConsS***)calloc_3d_array(rz, ry, rx+rx, sizeof(ConsS)))==NULL)
     ath_error("[shkset3d]: Error allocating qa[%d][%d][%d]\n",rz,ry,rx+rx);
 
 #ifdef MHD
@@ -328,7 +328,7 @@ void problem(DomainS *pDomain)
   sdy = pGrid->dx2/scy;
   sdz = pGrid->dx3/scz;
 
-  if((sqa = (ConsVarS***)calloc_3d_array(N, N, N+N, sizeof(ConsVarS))) == NULL)
+  if((sqa = (ConsS***)calloc_3d_array(N, N, N+N, sizeof(ConsS))) == NULL)
     ath_error("[shkset3d]: Error allocating sqa[%d][%d][%d]\n",N,N,N+N);
 
 #ifdef MHD

@@ -30,7 +30,7 @@
 #endif
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static ConsVarS *RootSoln=NULL;
+static ConsS *RootSoln=NULL;
 
 /*----------------------------------------------------------------------------*/
 /* problem:   */
@@ -41,14 +41,14 @@ void problem(DomainS *pDomain)
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js;
   int k, ks = pGrid->ks;
-  ConsVarS *Soln;
+  ConsS *Soln;
   Real x1,x2,x3,cs,sn,b_par,b_perp,lambda,k_par,v_par,v_perp,den,pres;
 
-  if ((Soln = (ConsVarS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsVarS))) == NULL)
+  if ((Soln = (ConsS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsS))) == NULL)
     ath_error("[problem] Error initializing Soln array");
 
   if (pDomain->Level == 0) {
-    if ((RootSoln = (ConsVarS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsVarS)))
+    if ((RootSoln = (ConsS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsS)))
        == NULL) ath_error("[problem] Error initializing RootSoln array");
   }
 
@@ -177,7 +177,7 @@ void Userwork_after_loop(MeshS *pM)
   GridS *pGrid;
   int i=0,is,ie,js,ks,Nx1;
   Real rms_error=0.0;
-  ConsVarS error;
+  ConsS error;
   FILE *fp;
   char *fname;
 

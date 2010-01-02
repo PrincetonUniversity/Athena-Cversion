@@ -42,7 +42,7 @@
  * Vector potential A3 defined in prvate function below.  B_par, etc. must
  * be defined as globals to be used by A3() */
  
-static ConsVarS **RootSoln=NULL;
+static ConsS **RootSoln=NULL;
 static Real A3(const Real x1, const Real x2);
 Real sin_a, cos_a, b_par, b_perp;
 Real k_par;
@@ -53,7 +53,7 @@ Real k_par;
 void problem(DomainS *pDomain)
 {
   GridS *pGrid = pDomain->Grid;
-  ConsVarS **Soln;
+  ConsS **Soln;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
@@ -70,11 +70,11 @@ void problem(DomainS *pDomain)
     ath_error("[problem] Grid must be 2D");
   }
 
-  if ((Soln = (ConsVarS**)calloc_2d_array(nx2,nx1,sizeof(ConsVarS))) == NULL)
+  if ((Soln = (ConsS**)calloc_2d_array(nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[problem]: Error allocating memory for Soln\n");
 
   if (pDomain->Level == 0){
-    if ((RootSoln =(ConsVarS**)calloc_2d_array(nx2,nx1,sizeof(ConsVarS)))==NULL)
+    if ((RootSoln =(ConsS**)calloc_2d_array(nx2,nx1,sizeof(ConsS)))==NULL)
       ath_error("[problem]: Error allocating memory for RootSoln\n");
   }
 
@@ -275,7 +275,7 @@ void Userwork_after_loop(MeshS *pM)
   GridS *pGrid;
   int i,j,is,ie,js,je,ks,Nx1,Nx2;
   Real rms_error=0.0;
-  ConsVarS error;
+  ConsS error;
   FILE *fp;
   char *fname;
   error.d = 0.0;

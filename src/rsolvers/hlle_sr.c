@@ -12,7 +12,7 @@
  * CONTAINS PUBLIC FUNCTIONS: 
  *   fluxes() - all Riemann solvers in Athena must have this function name and
  *              use the same argument list as defined in rsolvers/prototypes.h
- *=============================================================================*/
+ *============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -30,16 +30,14 @@
 #error : The SR HLLE flux does not work with passive scalars.
 #endif
 
-void flux_LR(Cons1D U, Prim1D W, Cons1D *flux, Real Bx, Real* p);
-void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
+void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p);
+void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
                         const Real Bx, const Real error,
                         Real* low, Real* high);
 int solveQuartic(double* a, double* root, double error);
 int solveCubic(double* a, double* root);
 
-
 #ifdef MHD
-
 /*----------------------------------------------------------------------------*/
 /* hlle_sr
  *   Input Arguments:
@@ -49,18 +47,17 @@ int solveCubic(double* a, double* root);
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
-void fluxes(const Cons1D Ul, const Cons1D Ur,
-                    const Prim1D Wl, const Prim1D Wr, const Real Bx, 
-                    Cons1D *pFlux)
+void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+            const Prim1DS Wl, const Prim1DS Wr, const Real Bx, Cons1DS *pFlux)
 {
-   Cons1D Fl, Fr;
-   Cons1D Uhll, Fhll;
+   Cons1DS Fl, Fr;
+   Cons1DS Uhll, Fhll;
    Real Pl, Pr;
    Real Sl, Sr;
    Real dS_1;
 
       /* find min/max wave speeds */
-   getMaxSignalSpeeds(Wl,Wr,Bx,1e-6,&Sl,&Sr);
+   getMaxSignalSpeeds(Wl,Wr,Bx,1.0e-6,&Sl,&Sr);
    /* compute L/R fluxes */
    flux_LR(Ul,Wl,&Fl,Bx,&Pl);
    flux_LR(Ur,Wr,&Fr,Bx,&Pr);
@@ -124,7 +121,7 @@ void fluxes(const Cons1D Ul, const Cons1D Ur,
 }
 
 
-void flux_LR(Cons1D U, Prim1D W, Cons1D *flux, Real Bx, Real* p){
+void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p){
    Real vB, b2, wtg2, Bmag2, pt;
    Real g, g2, g_2, h, gmmr, theta;
    Real bx, by, bz;
@@ -167,7 +164,7 @@ void flux_LR(Cons1D U, Prim1D W, Cons1D *flux, Real Bx, Real* p){
 }
 
 
-void getMaxSignalSpeeds(const Prim1D Wl, const Prim1D Wr,
+void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
                         const Real Bx, const Real error,
                         Real* low, Real* high){
 
@@ -520,6 +517,6 @@ int solveCubic(double* a, double* root){
    }
 }
 
-#endif
-#endif
-#endif
+#endif /* MHD */
+#endif /* SPECIAL_RELATIVITY */
+#endif /* HLLE_FLUX */

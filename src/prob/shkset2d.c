@@ -58,7 +58,7 @@ void problem(DomainS *pDomain)
   Real rootdx1, rootdx2;
   Prim1DS Wl, Wr;
   Cons1DS Ul, Ur;
-  ConsVarS ql, qr;
+  ConsS ql, qr;
   Real Bxl=0.0,Bxr=0.0;
   div_t id;   /* structure containing remainder and quotient */
 

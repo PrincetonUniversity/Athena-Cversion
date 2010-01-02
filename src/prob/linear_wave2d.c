@@ -35,7 +35,7 @@
 #include "prototypes.h"
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */
-static ConsVarS ***RootSoln=NULL;
+static ConsS ***RootSoln=NULL;
 static int wave_flag;
 
 /*----------------------------------------------------------------------------*/
@@ -44,7 +44,7 @@ static int wave_flag;
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
-  ConsVarS ***Soln;
+  ConsS ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3,Nx1,Nx2;
   Real amp,vflow,angle;
@@ -77,10 +77,10 @@ void problem(DomainS *pDomain)
     ath_error("[problem]: Error allocating memory for \"az\"\n");
 #endif /* MHD */
 
-  if ((Soln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))==NULL)
+  if ((Soln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))==NULL)
     ath_error("[problem]: Error allocating memory\n");
   if (pDomain->Level == 0){
-    if ((RootSoln = (ConsVarS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsVarS)))
+    if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))
       == NULL) ath_error("[problem]: Error alloc memory for RootSoln\n");
   }
 
@@ -391,7 +391,7 @@ void Userwork_after_loop(MeshS *pM)
 #endif
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
-  ConsVarS error,total_error;
+  ConsS error,total_error;
   FILE *fp;
   char *fname;
   int Nx1, Nx2, Nx3, count;
