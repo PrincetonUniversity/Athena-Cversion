@@ -3,14 +3,14 @@
  * FILE: restart.c
  *
  * PURPOSE: Functions for writing and reading restart files.  Restart files
- *   begin with the entire input parameter (athinput.XX) file used to start the
- *   run in text format, followed by data in binary format for selected
- *   quantaties (time, dt, etc) and for each of the Grid structures being
- *   updated by this processor.  Lastly, any problem-specific data in binary
- *   format is included, which must be written by a user function in the problem
- *   generator.  Since all of the mesh data (NLevels, number of Domains, size of
- *   Grids, etc.) can be recalculated from the athinput file, only the dependent
- *   variables (time, dt, nstep, U, B, etc.) are dumped in restart files.
+ *   begin with the input parameter file (athinput.XX) used to start the run in
+ *   text format, followed by binary format data for selected quantities (time,
+ *   dt, etc) for each of the Grid structures being updated by this processor.
+ *   Lastly, any problem-specific data in binary format is included, which must
+ *   be written by a user function in the problem generator.  Since all of the
+ *   mesh data (NLevels, number of Domains, size of Grids, etc.) can be
+ *   recalculated from the athinput file, only the dependent variables (time,
+ *   dt, nstep, U, B, etc.) are dumped in restart files.
  *
  *   The athinput file included at the start of the restart file is parsed by
  *   main() in Step 2, using the standard par_* functions, with the parameters
@@ -23,7 +23,7 @@
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   restart_grids() - reads nstep,time,dt,ConsS and B from restart file 
- *   dump_restart()       - writes a restart file
+ *   dump_restart()  - writes a restart file
  *
  *============================================================================*/
 
@@ -109,6 +109,9 @@ void restart_grids(char *res_file, MeshS *pM)
       je = pG->je;
       ks = pG->ks;
       ke = pG->ke;
+
+/* propagate time and dt to all Grids */
+
       pG->time = pM->time;
       pG->dt   = pM->dt;
 

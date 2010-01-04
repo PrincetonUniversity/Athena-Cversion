@@ -316,7 +316,7 @@ void init_grid(MeshS *pM)
  * level nl on both this and other processors.    */
 
       if (pG->NCGrid > 0) {
-        pG->CGrid = (GridOvrlp*)calloc_1d_array(pG->NCGrid, sizeof(GridOvrlp));
+        pG->CGrid =(GridOvrlpS*)calloc_1d_array(pG->NCGrid, sizeof(GridOvrlpS));
         if(pG->CGrid==NULL) ath_error("[init_grid]:failed to allocate CGrid\n");
 
         for (ncg=0; ncg<pG->NCGrid; ncg++){
@@ -725,7 +725,7 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
  * level nl on both this and other processors. */
 
       if (pG->NPGrid > 0) {
-        pG->PGrid = (GridOvrlp*)calloc_1d_array(pG->NPGrid, sizeof(GridOvrlp));
+        pG->PGrid =(GridOvrlpS*)calloc_1d_array(pG->NPGrid, sizeof(GridOvrlpS));
         if(pG->PGrid==NULL) ath_error("[init_grid]:failed to allocate PGrid\n");
 
         for (npg=0; npg<pG->NPGrid; npg++){

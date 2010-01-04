@@ -238,8 +238,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   qshear  = par_getd_def("problem","qshear",1.5);
 
 /* Must recompute global variable Lx needed by BC routines */
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
+  x1min = pDomain->RootMinX[0];
+  x1max = pDomain->RootMaxX[0];
   Lx = x1max - x1min;
 
   StaticGravPot = ShearingBoxPot;

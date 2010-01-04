@@ -75,7 +75,7 @@ void RestrictCorrect(MeshS *pM)
   int k,kk,kcs,kce,kps,kpe;
   Real q1,q2,q3,fact;
   double *pRcv,*pSnd;
-  GridOvrlp *pCO, *pPO;
+  GridOvrlpS *pCO, *pPO;
 #ifdef MHD
   int ib,jb,kb,nFld=0;
 #endif
@@ -138,7 +138,7 @@ void RestrictCorrect(MeshS *pM)
  * loaded by this child Grid in Step 3 below during last iteration of loop. */
 
       if (ncg < pG->NmyCGrid) {
-        pCO=(GridOvrlp*)&(pG->CGrid[ncg]);
+        pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);
         pRcv = (double*)&(send_bufRC[pCO->DomN][0]);
       } else {
 
@@ -157,7 +157,7 @@ void RestrictCorrect(MeshS *pM)
         mAddress = 0;
         mIndex += pG->NmyCGrid;
         for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].nWordsRC;
-        pCO=(GridOvrlp*)&(pG->CGrid[mIndex]);
+        pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
         pRcv = (double*)&(recv_bufRC[rbufN][nd][mAddress]);
 #else
 /* If not MPI_PARALLEL, and child Grid not on this processor, then error */
@@ -547,7 +547,7 @@ void RestrictCorrect(MeshS *pM)
     start_addr=0;
 
     for (npg=0; npg<(pG->NPGrid); npg++){
-      pPO=(GridOvrlp*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
+      pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
       cnt = 0;
 
 /* Get coordinates ON THIS GRID of overlap region of parent Grid */
@@ -1056,7 +1056,7 @@ void Prolongate(MeshS *pM)
   int k,kk,kcs,kce,kps,kpe,kgzs,kgze;
   int ngz1,ngz2,ngz3;
   double *pRcv,*pSnd;
-  GridOvrlp *pCO, *pPO;
+  GridOvrlpS *pCO, *pPO;
   ConsS ProlongedC[2][2][2];
 #ifdef MHD
   Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
@@ -1116,7 +1116,7 @@ void Prolongate(MeshS *pM)
     for(i=0; i<maxND; i++) start_addrP[i] = 0;
 
     for (ncg=0; ncg<(pG->NCGrid); ncg++){
-      pCO=(GridOvrlp*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
+      pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
 
 /* index send_buf with DomN of child, since could be multiple child Domains on
  * same processor.  Start address must be different for each DomN */
@@ -1213,7 +1213,7 @@ void Prolongate(MeshS *pM)
 /* If parent Grid is on this processor, data is at start of recv buffer */
 
       if (npg < pG->NmyPGrid) {
-        pPO = (GridOvrlp*)&(pG->PGrid[npg]);
+        pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
         pRcv = (double*)&(recv_bufP[rbufN][nd][0]);
       } else {
 
@@ -1233,7 +1233,7 @@ void Prolongate(MeshS *pM)
         mAddress = 0;
         mIndex += pG->NmyPGrid;
         for (i=0; i<mIndex; i++) mAddress += pG->PGrid[i].nWordsP;
-        pPO = (GridOvrlp*)&(pG->PGrid[mIndex]); 
+        pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]); 
         pRcv = (double*)&(recv_bufP[rbufN][nd][mAddress]);
 
 #else
@@ -1561,7 +1561,7 @@ void Prolongate(MeshS *pM)
  * first element of CGrid array */ 
 
       for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
-        pCO=(GridOvrlp*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
+        pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
 
         for (i=0; i<pCO->nWordsP; i++) {
           recv_bufP[rbufN][pCO->DomN][i]=send_bufP[pCO->DomN][i];
