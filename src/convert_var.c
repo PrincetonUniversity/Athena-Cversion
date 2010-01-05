@@ -328,7 +328,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
 {
   Prim1DS Prim1D;
   Real Bsq = 0.0, Msq = 0.0, S = 0.0, Ssq = 0.0;
-  Real Qp = 0.0, Q = 0.0, Ep = 0.0, E = 0.0, d = 0.0, En = 0.0;
+  Real Qp = 0.0, Q = 0.0, Ep = 0.0, E = 0.0, d = 0.0;
   Real scrh1, scrh2, tmp1, tmp2;
   Real Usq, Vsq, Gsq, rho, Chi, pgas, ent;
   Real fQ, dfQ, dQstep;
@@ -479,13 +479,11 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     Gsq = 1.0/(1.0-Vsq);
     Chi = calc_chi (d,Vsq,Gsq,Q);
     rho = d / sqrt(fabs(Gsq));
-    ent = En / sqrt(fabs(Gsq));
     pgas = Gamma_1*Chi/Gamma;
     printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
 
     Prim1D.d = MAX(rho,TINY_NUMBER);
     Prim1D.P = MAX(pgas,TINY_NUMBER);
-    Prim1D.En = Prim1D.P * pow(Prim1D.d,-Gamma);
     Prim1D.By = U->By;
     Prim1D.Bz = U->Bz;
 
@@ -498,7 +496,6 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     tmp2 = 1.0 / (Q + Bsq);
     Prim1D.d = MAX(rho,TINY_NUMBER);
     Prim1D.P = MAX(pgas,TINY_NUMBER);
-    Prim1D.En = Prim1D.P * pow(Prim1D.d,-Gamma);
     Prim1D.Vx = (U->Mx + S*(*Bx)*tmp1)*tmp2;
     Prim1D.Vy = (U->My + S*U->By*tmp1)*tmp2;
     Prim1D.Vz = (U->Mz + S*U->Bz*tmp1)*tmp2;

@@ -2,8 +2,7 @@
 /*==============================================================================
  * FILE: jet.c
  *
- * PURPOSE: Sets up a jet on x1-L boundary (left edge)
- *
+ * PURPOSE: Sets up a jet introduced through L-x1 boundary (left edge)
  *============================================================================*/
 
 #include <math.h>
@@ -19,13 +18,13 @@
  * jet_iib() - sets BCs on L-x1 (left edge) of grid.
  *============================================================================*/
 
-void jet_iib(Grid *pGrid);
+void jet_iib(GridS *pGrid);
 
 /* Make radius of jet and jet variables static global so they can be accessed
    by BC functions */
 static Real rjet;
-static Prim1D Wjet;
-static Cons1D Ujet;
+static Prim1DS Wjet;
+static Cons1DS Ujet;
 static Real x1_mid,x2_mid, x3_mid;
 
 #ifdef MHD
@@ -35,13 +34,14 @@ static Real bxjet;
 /*----------------------------------------------------------------------------*/
 /* problem */
 
-void problem(Grid *pGrid, Domain *pDomain){
+void problem(DomainS *pDomain){
+   GridS *pGrid=(pDomain->Grid);
    int i, is = pGrid->is, ie = pGrid->ie;
    int j, js = pGrid->js, je = pGrid->je;
    int k, ks = pGrid->ks, ke = pGrid->ke;
    int il,iu,jl,ju,kl,ku;
-   Prim1D W;
-   Cons1D U;
+   Prim1DS W;
+   Cons1DS U;
    Real x1_min, x1_max;
    Real x2_min, x2_max;
    Real x3_min, x3_max;
@@ -75,15 +75,15 @@ void problem(Grid *pGrid, Domain *pDomain){
 
    rjet = par_getd("problem", "rjet");
    
-   Prim1D_to_Cons1D(&U,&W MHDARG( , &bx));
-   Prim1D_to_Cons1D(&Ujet,&Wjet MHDARG( , &bxjet));
+   U = Prim1D_to_Cons1D(&W, &bx);
+   Ujet = Prim1D_to_Cons1D(&Wjet, &bxjet);
 
-   x1_min = par_getd("grid", "x1min");
-   x1_max = par_getd("grid", "x1max");
-   x2_min = par_getd("grid", "x2min");
-   x2_max = par_getd("grid", "x2max");
-   x3_min = par_getd("grid", "x3min");
-   x3_max = par_getd("grid", "x3max");
+   x1_min = pDomain->RootMinX[0];
+   x1_max = pDomain->RootMaxX[0];
+   x2_min = pDomain->RootMinX[1];
+   x2_max = pDomain->RootMaxX[1];
+   x3_min = pDomain->RootMinX[2];
+   x3_max = pDomain->RootMaxX[2];
 
    x1_mid = 0.5 * (x1_max + x1_min);
    x2_mid = 0.5 * (x2_max + x2_min);
@@ -94,7 +94,7 @@ void problem(Grid *pGrid, Domain *pDomain){
    il = is - nghost;
    ju = je + nghost;
    jl = js - nghost;
-   if(pGrid->Nx3 > 1){
+   if(pGrid->Nx[2] > 1){
       ku = pGrid->ke + nghost;
       kl = pGrid->ks - nghost;
    }
@@ -121,26 +121,13 @@ void problem(Grid *pGrid, Domain *pDomain){
             pGrid->B2i[k][j][i] = U.By;
             pGrid->B3i[k][j][i] = U.Bz;
 #endif
-
-#ifdef SPECIAL_RELATIVITY
-            pGrid->W[k][j][i].d  = W.d;
-            pGrid->W[k][j][i].V1 = W.Vx;
-            pGrid->W[k][j][i].V2 = W.Vy;
-            pGrid->W[k][j][i].V3 = W.Vz;
-            pGrid->W[k][j][i].P  = W.P;
-#ifdef MHD
-            pGrid->W[k][j][i].B1c = bx;
-            pGrid->W[k][j][i].B2c = W.By;
-            pGrid->W[k][j][i].B3c = W.Bz;
-#endif
-#endif
          }
       }
    }
 
 /* Set boundary value function pointers */
 
-   set_bvals_mhd_fun(left_x1,jet_iib);
+   if (pDomain->Disp[0] == 0) set_bvals_mhd_fun(pDomain,left_x1,jet_iib);
 
 }
 
@@ -156,31 +143,55 @@ void problem(Grid *pGrid, Domain *pDomain){
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
+  int nl,nd;
+
+  Wjet.d  = par_getd("problem", "djet");
+  Wjet.P  = par_getd("problem", "pjet");
+  Wjet.Vx = par_getd("problem", "vxjet");
+  Wjet.Vy = par_getd("problem", "vyjet");
+  Wjet.Vz = par_getd("problem", "vzjet");
+#ifdef MHD
+  bxjet   = par_getd("problem", "bxjet");
+  Wjet.By = par_getd("problem", "byjet");
+  Wjet.Bz = par_getd("problem", "bzjet");
+#endif
+
+  rjet = par_getd("problem", "rjet");
+  Ujet = Prim1D_to_Cons1D(&Wjet, &bxjet);
+
+  for (nl=0; nl<pM->NLevels; nl++){
+  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+    if (pM->Domain[nl][nd].Grid != NULL) {
+      if (pM->Domain[nl][nd].Disp[0] == 0) 
+        set_bvals_mhd_fun(&(pM->Domain[nl][nd]),left_x1,jet_iib);
+    }
+  }}
+
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
@@ -193,48 +204,33 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  * if cell is within jet radius, to jet values
  ******************************************************************************/
 
-void jet_iib(Grid *pGrid){
-   int i, is = pGrid->is;
-   int j, js = pGrid->js, je = pGrid->je;
-   int k, ks = pGrid->ks, ke = pGrid->ke;
-   Real rad,x1,x2,x3;
+void jet_iib(GridS *pGrid){
+  int i, is = pGrid->is;
+  int j, js = pGrid->js, je = pGrid->je;
+  int k, ks = pGrid->ks, ke = pGrid->ke;
+  Real rad,x1,x2,x3;
 
-   for(k=ks; k<=ke; k++){
-      for(j=js; j<=je; j++){
-         for(i=1; i<=nghost; i++){
-            cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-            rad = sqrt(SQR(x2 - x2_mid) + SQR(x3 - x3_mid));
+  for(k=ks; k<=ke; k++){
+    for(j=js; j<=je; j++){
+      for(i=1; i<=nghost; i++){
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+        rad = sqrt(SQR(x2 - x2_mid) + SQR(x3 - x3_mid));
             
-            if(rad <= rjet){
-               pGrid->U[k][j][i].d  = Ujet.d;
-               pGrid->U[k][j][i].M1 = Ujet.Mx;
-               pGrid->U[k][j][i].M2 = Ujet.My;
-               pGrid->U[k][j][i].M3 = Ujet.Mz;
-               pGrid->U[k][j][i].E  = Ujet.E;
+        if(rad <= rjet){
+          pGrid->U[k][j][i].d  = Ujet.d;
+          pGrid->U[k][j][i].M1 = Ujet.Mx;
+          pGrid->U[k][j][i].M2 = Ujet.My;
+          pGrid->U[k][j][i].M3 = Ujet.Mz;
+          pGrid->U[k][j][i].E  = Ujet.E;
 #ifdef MHD
-               pGrid->U[k][j][i].B1c = bxjet;
-               pGrid->U[k][j][i].B2c = Ujet.By;
-               pGrid->U[k][j][i].B3c = Ujet.Bz;
+          pGrid->U[k][j][i].B1c = bxjet;
+          pGrid->U[k][j][i].B2c = Ujet.By;
+          pGrid->U[k][j][i].B3c = Ujet.Bz;
 #endif
-
-#ifdef SPECIAL_RELATIVITY
-               pGrid->W[k][j][i].d  = Wjet.d;
-               pGrid->W[k][j][i].V1 = Wjet.Vx;
-               pGrid->W[k][j][i].V2 = Wjet.Vy;
-               pGrid->W[k][j][i].V3 = Wjet.Vz;
-               pGrid->W[k][j][i].P  = Wjet.P;
-#ifdef MHD
-               pGrid->W[k][j][i].B1c = bxjet;
-               pGrid->W[k][j][i].B2c = Wjet.By;
-               pGrid->W[k][j][i].B3c = Wjet.Bz;
-#endif
-#endif
-            }
-            else{
-               pGrid->U[k][j][i] = pGrid->U[k][j][is];
-               pGrid->W[k][j][i] = pGrid->W[k][j][is];
-            }
-         }
+        } else{
+          pGrid->U[k][j][i] = pGrid->U[k][j][is];
+        }
       }
-   }
+    }
+  }
 }
