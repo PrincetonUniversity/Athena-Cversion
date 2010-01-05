@@ -435,7 +435,7 @@ int main(int argc, char *argv[])
   Integrate = integrate_init(&Mesh);
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
-  if(ires == 0) (*SelfGrav)(&level0_Grid, &level0_Domain);
+  (*SelfGrav)(&level0_Grid, &level0_Domain);
   set_bvals_grav(&level0_Grid, &level0_Domain);
 #endif
 #ifdef EXPLICIT_DIFFUSION

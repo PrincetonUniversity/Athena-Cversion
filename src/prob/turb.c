@@ -539,7 +539,7 @@ void problem(Grid *pGrid, Domain *pD)
   int j, js=pGrid->js, je = pGrid->je;
   int k, ks=pGrid->ks, ke = pGrid->ke;
 
-  rseed -(pGrid->my_id+1);
+  rseed = (pGrid->my_id+1);
   initialize(pGrid, pD);
   tdrive = 0.0;
 
@@ -660,7 +660,7 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
 void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 {  
   /* Allocate memory and initialize everything */
-  rseed -(pG->my_id+1);
+  rseed  = (pG->my_id+1);
   initialize(pG, pD);
   tdrive = pG->time;
 
