@@ -92,9 +92,9 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 /* Set the Grid origin */
 
-  x1 = pGrid->x1min;
-  x2 = pGrid->x2min;
-  x3 = pGrid->x3min;
+  x1 = pGrid->MinX[0];
+  x2 = pGrid->MinX[1];
+  x3 = pGrid->MinX[2];
 
   fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
   fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,ju-jl+2,ku-kl+2);

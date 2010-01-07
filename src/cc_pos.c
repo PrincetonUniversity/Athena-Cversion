@@ -34,9 +34,9 @@ void cc_pos(const GridS *pG, const int i, const int j,const int k,
   *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
   return;
 */
-  *px1 = pG->x1min + ((Real)(i - pG->is) + 0.5)*pG->dx1;
-  *px2 = pG->x2min + ((Real)(j - pG->js) + 0.5)*pG->dx2;
-  *px3 = pG->x3min + ((Real)(k - pG->ks) + 0.5)*pG->dx3;
+  *px1 = pG->MinX[0] + ((Real)(i - pG->is) + 0.5)*pG->dx1;
+  *px2 = pG->MinX[1] + ((Real)(j - pG->js) + 0.5)*pG->dx2;
+  *px3 = pG->MinX[2] + ((Real)(k - pG->ks) + 0.5)*pG->dx3;
   return;
 }
 
@@ -53,21 +53,19 @@ void vc_pos(const GridS *pG, const int i, const int j,const int k,
   *px2 = pG->x2_0 + ((j + pG->jdisp) + 0.5)*pG->dx2;
   *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
 */
-  *px1 = pG->x1min + ((Real)(i - nghost) + 0.5)*pG->dx1;
-  *px2 = pG->x2min + ((Real)(j - nghost) + 0.5)*pG->dx2;
-  *px3 = pG->x3min + ((Real)(k - nghost) + 0.5)*pG->dx3;
+  *px1 = pG->MinX[0] + ((Real)(i - pG->is) + 0.5)*pG->dx1;
+  *px2 = pG->MinX[1] + ((Real)(j - pG->js) + 0.5)*pG->dx2;
+  *px3 = pG->MinX[2] + ((Real)(k - pG->ks) + 0.5)*pG->dx3;
   return;
 }
 
+#ifdef PARTICLES
 /*============================================================================
-
 cell-location functions 
 Created: Emmanuel Jacquet, Mar. 2008
 Modified: Xuening Bai, Dec. 2008
-
 ============================================================================*/
 
-#ifdef PARTICLES
 /*----------------------------------------------------------------------------*/
 /* Input: pGrid: grid; x: global x coordinate;
  *        dx1_1: 1/dx1 (to improve performance)

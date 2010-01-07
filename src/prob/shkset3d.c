@@ -295,8 +295,8 @@ void problem(DomainS *pDomain)
 /* qa_max_ix comes from calculating x=0 at jx=0, kx=0 */
 /* qa_max_ix - qa_min_ix = 2*rx! */
 
-  d_ix = -pGrid->x1min/pGrid->dx1 - rx*(pGrid->x2min/(ry*pGrid->dx2) 
-    + pGrid->x3min/(rz*pGrid->dx3));
+  d_ix = -pGrid->MinX[0]/pGrid->dx1 - rx*(pGrid->MinX[1]/(ry*pGrid->dx2) 
+    + pGrid->MinX[2]/(rz*pGrid->dx3));
   qa_max_ix = ceil(d_ix);
   qa_min_ix = qa_max_ix - rx - rx;
 
@@ -343,9 +343,9 @@ void problem(DomainS *pDomain)
 #endif /* MHD */
 
 /* Calculate the Position of the left-most corner of the sqa and qa grids. */
-  sp0_x1 = pGrid->x1min + qa_min_ix*pGrid->dx1;
-  sp0_x2 = pGrid->x2min + qa_min_jx*pGrid->dx2;
-  sp0_x3 = pGrid->x3min + qa_min_kx*pGrid->dx3;
+  sp0_x1 = pGrid->MinX[0] + qa_min_ix*pGrid->dx1;
+  sp0_x2 = pGrid->MinX[1] + qa_min_jx*pGrid->dx2;
+  sp0_x3 = pGrid->MinX[2] + qa_min_kx*pGrid->dx3;
 
 /*--- Step 3 -------------------------------------------------------------------
  * First, initialize the interface magnetic fields in sqa

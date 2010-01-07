@@ -66,7 +66,7 @@ void init_grid(MeshS *pM)
 
 /* ---------------------  Intialize grid in 1-direction --------------------- */
 /* Initialize is,ie,dx1
- * Compute Disp, x1min, and x1max using displacement of Domain and Grid
+ * Compute Disp, MinX[0], and MaxX[0] using displacement of Domain and Grid
  * location within Domain */
 
       pG->Nx[0] = pD->GData[myN][myM][myL].Nx[0];
@@ -81,16 +81,16 @@ void init_grid(MeshS *pM)
       pG->dx1 = pD->dx[0];
     
       pG->Disp[0] = pD->Disp[0];
-      pG->x1min = pD->MinX[0];
+      pG->MinX[0] = pD->MinX[0];
       for (l=1; l<=myL; l++) {
-        pG->Disp[0] +=      pD->GData[myN][myM][l-1].Nx[0];
-        pG->x1min += (Real)(pD->GData[myN][myM][l-1].Nx[0])*pG->dx1;
+        pG->Disp[0] +=        pD->GData[myN][myM][l-1].Nx[0];
+        pG->MinX[0] += (Real)(pD->GData[myN][myM][l-1].Nx[0])*pG->dx1;
       }
-      pG->x1max = pG->x1min + (Real)(pG->Nx[0])*pG->dx1;
+      pG->MaxX[0] = pG->MinX[0] + (Real)(pG->Nx[0])*pG->dx1;
     
 /* ---------------------  Intialize grid in 2-direction --------------------- */
 /* Initialize js,je,dx2
- * Compute Disp, x2min, and x2max using displacement of Domain and Grid
+ * Compute Disp, MinX[1], and MaxX[1] using displacement of Domain and Grid
  * location within Domain */
 
       pG->Nx[1] = pD->GData[myN][myM][myL].Nx[1];
@@ -105,16 +105,16 @@ void init_grid(MeshS *pM)
       pG->dx2 = pD->dx[1];
 
       pG->Disp[1] = pD->Disp[1];
-      pG->x2min = pD->MinX[1];
+      pG->MinX[1] = pD->MinX[1];
       for (m=1; m<=myM; m++) {
-        pG->Disp[1] +=      pD->GData[myN][m-1][myL].Nx[1];
-        pG->x2min += (Real)(pD->GData[myN][m-1][myL].Nx[1])*pG->dx2;
+        pG->Disp[1] +=        pD->GData[myN][m-1][myL].Nx[1];
+        pG->MinX[1] += (Real)(pD->GData[myN][m-1][myL].Nx[1])*pG->dx2;
       }
-      pG->x2max = pG->x2min + (Real)(pG->Nx[1])*pG->dx2;
+      pG->MaxX[1] = pG->MinX[1] + (Real)(pG->Nx[1])*pG->dx2;
 
 /* ---------------------  Intialize grid in 3-direction --------------------- */
 /* Initialize ks,ke,dx3
- * Compute Disp, x3min, and x3max using displacement of Domain and Grid
+ * Compute Disp, MinX[2], and MaxX[2] using displacement of Domain and Grid
  * location within Domain */
 
       pG->Nx[2] = pD->GData[myN][myM][myL].Nx[2];
@@ -129,12 +129,12 @@ void init_grid(MeshS *pM)
       pG->dx3 = pD->dx[2];
 
       pG->Disp[2] = pD->Disp[2];
-      pG->x3min = pD->MinX[2];
+      pG->MinX[2] = pD->MinX[2];
       for (n=1; n<=myN; n++) {
-        pG->Disp[2] +=      pD->GData[n-1][myM][myL].Nx[2];
-        pG->x3min += (Real)(pD->GData[n-1][myM][myL].Nx[2])*pG->dx3;
+        pG->Disp[2] +=        pD->GData[n-1][myM][myL].Nx[2];
+        pG->MinX[2] += (Real)(pD->GData[n-1][myM][myL].Nx[2])*pG->dx3;
       }
-      pG->x3max = pG->x3min + (Real)(pG->Nx[2])*pG->dx3;
+      pG->MaxX[2] = pG->MinX[2] + (Real)(pG->Nx[2])*pG->dx3;
 
 /* ---------  Allocate 3D arrays to hold Cons based on size of grid --------- */
 

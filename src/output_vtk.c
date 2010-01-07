@@ -83,9 +83,9 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut)
 /*  4. Dataset structure */
 
 /* Set the Grid origin */
-  x1 = pGrid->x1min;
-  x2 = pGrid->x2min;
-  x3 = pGrid->x3min;
+  x1 = pGrid->MinX[0];
+  x2 = pGrid->MinX[1];
+  x3 = pGrid->MinX[2];
   ndata0 = pOut->Nx1 * pOut->Nx2 * pOut->Nx3;
   dx1 = (pOut->Nx1 == 1 ? pGrid->dx1 * pOut->Nx1 : pGrid->dx1);
   dx2 = (pOut->Nx2 == 1 ? pGrid->dx2 * pOut->Nx2 : pGrid->dx2);
@@ -154,9 +154,9 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut)
 /*  4. Dataset structure */
 
 /* Set the Grid origin */
-  x1 = pGrid->x1min;
-  x2 = pGrid->x2min;
-  x3 = pGrid->x3min;
+  x1 = pGrid->MinX[0];
+  x2 = pGrid->MinX[1];
+  x3 = pGrid->MinX[2];
   ndata0 = pOut->Nx1 * pOut->Nx2;
 
   fprintf(pfile,"DATASET STRUCTURED_POINTS\n");

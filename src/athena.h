@@ -251,9 +251,8 @@ typedef struct Grid_s{
   Real ***x2MassFlux;           /* x2 mass flux for source term correction */
   Real ***x3MassFlux;           /* x3 mass flux for source term correction */
 #endif /* GRAVITY */
-  Real x1min,x1max;        /* min/max of x1 on this Grid */
-  Real x2min,x2max;        /* min/max of x2 on this Grid */
-  Real x3min,x3max;        /* min/max of x3 on this Grid */
+  Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
+  Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real dx1,dx2,dx3;        /* cell size on this Grid */
   Real time, dt;           /* current time and timestep  */
   int is,ie;		   /* start/end cell index in x1 direction */

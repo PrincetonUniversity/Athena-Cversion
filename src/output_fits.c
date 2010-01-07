@@ -96,8 +96,8 @@ void output_fits_2d(GridS *pG, OutputS *pOut, FILE *pFile)
   sprintf(card,"CRPIX2  = %g",1.0);       fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CDELT1  = %g",pG->dx1);   fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CDELT2  = %g",pG->dx2);   fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL1  = %g",pG->x1min); fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL2  = %g",pG->x2min); fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL1  = %g",pG->MinX[0]);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL2  = %g",pG->MinX[1]);fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CTYPE1  = 'X'");          fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CTYPE2  = 'Y'");          fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"DATAMIN = %g",dmin);      fprintf(pFile,"%-80s",card); ncard++;
@@ -168,9 +168,9 @@ void output_fits_3d(GridS *pG, OutputS *pOut, FILE *pFile)
   sprintf(card,"CDELT1  = %g",pG->dx1);  fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CDELT2  = %g",pG->dx2);  fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CDELT3  = %g",pG->dx2);  fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL1  = %g",pG->x1min);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL2  = %g",pG->x2min);fprintf(pFile,"%-80s",card); ncard++;
-  sprintf(card,"CRVAL3  = %g",pG->x3min);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL1  = %g",pG->MinX[0]);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL2  = %g",pG->MinX[1]);fprintf(pFile,"%-80s",card); ncard++;
+  sprintf(card,"CRVAL3  = %g",pG->MinX[2]);fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CTYPE1  = 'X'");         fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CTYPE2  = 'Y'");         fprintf(pFile,"%-80s",card); ncard++;
   sprintf(card,"CTYPE3  = 'Z'");         fprintf(pFile,"%-80s",card); ncard++;
