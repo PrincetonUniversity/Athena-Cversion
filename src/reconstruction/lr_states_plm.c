@@ -5,7 +5,7 @@
  * PURPOSE: Second order (piecewise linear) spatial reconstruction using
  *   characteristic interpolation in the primitive variables.  With the CTU
  *   integrator, a time-evolution (characteristic tracing) step is used to
- *   interpolate interface values to the half time level {n+1/2}.
+ *   interpolate interface values to the half time level {n+1/2}. 
  *
  * NOTATION: 
  *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
@@ -35,6 +35,9 @@
 #include "../prototypes.h"
 
 #ifdef SECOND_ORDER_CHAR
+#ifdef SPECIAL_RELATIVITY
+#error : PLM reconstruction (order=2) cannot be used for special relativity.
+#endif /* SPECIAL_RELATIVITY */
 
 static Real **pW=NULL;
 

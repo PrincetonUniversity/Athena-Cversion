@@ -39,6 +39,9 @@
 #include "../prototypes.h"
 
 #ifdef THIRD_ORDER_CHAR
+#ifdef SPECIAL_RELATIVITY
+#error : PPM reconstruction (order=3) cannot be used for special relativity.
+#endif /* SPECIAL_RELATIVITY */
 
 static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 

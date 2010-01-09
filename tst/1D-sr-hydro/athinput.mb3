@@ -24,7 +24,7 @@ out_fmt = bin               # Binary data dump
 dt      = 0.01              # time increment between outputs
 
 <time>
-cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.5       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000     # cycle limit
 tlim            = 0.4       # time limit
 

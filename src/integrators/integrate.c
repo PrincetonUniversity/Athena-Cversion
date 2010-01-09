@@ -39,6 +39,9 @@ VDFun_t integrate_init(MeshS *pM)
 #if defined(CTU_INTEGRATOR)
     return integrate_1d_ctu;
 #elif defined(VL_INTEGRATOR)
+    cfl = par_getd("time","cour_no");
+    if (cfl > 0.5)
+      ath_error("<time>cour_no=%e, must be <= 0.5 with 1D VL integrator\n",cfl);
     return integrate_1d_vl;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 1D problem");
@@ -51,8 +54,8 @@ VDFun_t integrate_init(MeshS *pM)
     return integrate_2d_ctu;
 #elif defined(VL_INTEGRATOR)
     cfl = par_getd("time","cour_no");
-    if (cfl >= 0.5)
-      ath_error("<time>cour_no=%e, must be < 0.5 with 2D VL integrator\n",cfl);
+    if (cfl > 0.5)
+      ath_error("<time>cour_no=%e, must be <= 0.5 with 2D VL integrator\n",cfl);
     return integrate_2d_vl;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 2D problem");
@@ -62,13 +65,13 @@ VDFun_t integrate_init(MeshS *pM)
     integrate_init_3d(pM);
 #if defined(CTU_INTEGRATOR)
     cfl = par_getd("time","cour_no");
-    if (cfl >= 0.5)
-      ath_error("<time>cour_no=%e, must be < 0.5 with 3D CTU integrator\n",cfl);
+    if (cfl > 0.5)
+      ath_error("<time>cour_no=%e, must be <= 0.5 with 3D CTU integrator\n",cfl);
     return integrate_3d_ctu;
 #elif defined(VL_INTEGRATOR)
     cfl = par_getd("time","cour_no");
-    if (cfl >= 0.5)
-      ath_error("<time>cour_no=%e, must be < 0.5 with 3D VL integrator\n",cfl);
+    if (cfl > 0.5)
+      ath_error("<time>cour_no=%e, must be <= 0.5 with 3D VL integrator\n",cfl);
     return integrate_3d_vl;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 3D problem");

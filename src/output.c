@@ -307,12 +307,10 @@ Now use the default one.\n");
         free(name);  name = NULL;
         goto add_it;
       }
-/*
       else if (strcmp(fmt,"bin")==0){
-        new_out.out_fun = dump_binary_prim;
+        new_out.out_fun = dump_binary;
         goto add_it;
       }
-*/
       else if (strcmp(fmt,"tab")==0){
         new_out.out_fun = dump_tab_prim;
 #ifdef PARTICLES

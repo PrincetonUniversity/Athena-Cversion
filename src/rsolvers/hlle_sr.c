@@ -32,12 +32,10 @@
 
 void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p);
 void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
-                        const Real Bx, const Real error,
-                        Real* low, Real* high);
+                        const Real Bx, const Real error, Real* low, Real* high);
 int solveQuartic(double* a, double* root, double error);
 int solveCubic(double* a, double* root);
 
-#ifdef MHD
 /*----------------------------------------------------------------------------*/
 /* hlle_sr
  *   Input Arguments:
@@ -56,7 +54,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
    Real Sl, Sr;
    Real dS_1;
 
-      /* find min/max wave speeds */
+   /* find min/max wave speeds */
    getMaxSignalSpeeds(Wl,Wr,Bx,1.0e-6,&Sl,&Sr);
    /* compute L/R fluxes */
    flux_LR(Ul,Wl,&Fl,Bx,&Pl);
@@ -68,9 +66,11 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pFlux->Mx = Fl.Mx;
       pFlux->My = Fl.My;
       pFlux->Mz = Fl.Mz;
+      pFlux->E  = Fl.E;
+#ifdef MHD
       pFlux->By = Fl.By;
       pFlux->Bz = Fl.Bz;
-      pFlux->E  = Fl.E;
+#endif
 
       return;
    }
@@ -80,9 +80,11 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pFlux->Mx = Fr.Mx;
       pFlux->My = Fr.My;
       pFlux->Mz = Fr.Mz;
+      pFlux->E  = Fr.E;
+#ifdef MHD
       pFlux->By = Fr.By;
       pFlux->Bz = Fr.Bz;
-      pFlux->E  = Fr.E;
+#endif
 
       return;
    }
@@ -96,35 +98,43 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       Uhll.Mx = (Sr*Ur.Mx - Sl*Ul.Mx + Fl.Mx - Fr.Mx) * dS_1;
       Uhll.My = (Sr*Ur.My - Sl*Ul.My + Fl.My - Fr.My) * dS_1;
       Uhll.Mz = (Sr*Ur.Mz - Sl*Ul.Mz + Fl.Mz - Fr.Mz) * dS_1;
+      Uhll.E  = (Sr*Ur.E  - Sl*Ul.E  + Fl.E  - Fr.E ) * dS_1;
+#ifdef MHD
       Uhll.By = (Sr*Ur.By - Sl*Ul.By + Fl.By - Fr.By) * dS_1;
       Uhll.Bz = (Sr*Ur.Bz - Sl*Ul.Bz + Fl.Bz - Fr.Bz) * dS_1;
-      Uhll.E  = (Sr*Ur.E  - Sl*Ul.E  + Fl.E  - Fr.E ) * dS_1;
+#endif
 
       Fhll.d  = (Sr*Fl.d  - Sl*Fr.d  + Sl*Sr*(Ur.d  - Ul.d )) * dS_1;
       Fhll.Mx = (Sr*Fl.Mx - Sl*Fr.Mx + Sl*Sr*(Ur.Mx - Ul.Mx)) * dS_1;
       Fhll.My = (Sr*Fl.My - Sl*Fr.My + Sl*Sr*(Ur.My - Ul.My)) * dS_1;
       Fhll.Mz = (Sr*Fl.Mz - Sl*Fr.Mz + Sl*Sr*(Ur.Mz - Ul.Mz)) * dS_1;
+      Fhll.E  = (Sr*Fl.E  - Sl*Fr.E  + Sl*Sr*(Ur.E  - Ul.E )) * dS_1;
+#ifdef MHD
       Fhll.By = (Sr*Fl.By - Sl*Fr.By + Sl*Sr*(Ur.By - Ul.By)) * dS_1;
       Fhll.Bz = (Sr*Fl.Bz - Sl*Fr.Bz + Sl*Sr*(Ur.Bz - Ul.Bz)) * dS_1;
-      Fhll.E  = (Sr*Fl.E  - Sl*Fr.E  + Sl*Sr*(Ur.E  - Ul.E )) * dS_1;
+#endif
 
       pFlux->d = Fhll.d;
       pFlux->Mx = Fhll.Mx;
       pFlux->My = Fhll.My;
       pFlux->Mz = Fhll.Mz;
+      pFlux->E = Fhll.E;
+#ifdef MHD
       pFlux->By = Fhll.By;
       pFlux->Bz = Fhll.Bz;
-      pFlux->E = Fhll.E;
+#endif
 
       return;
    }
 }
 
 
-void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p){
-   Real vB, b2, wtg2, Bmag2, pt;
-   Real g, g2, g_2, h, gmmr, theta;
-   Real bx, by, bz;
+void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p)
+{
+   Real wtg2, pt, g, g2, g_2, h, gmmr, theta;
+#ifdef MHD
+   Real bx, by, bz, vB, b2, Bmag2;
+#endif
 
    /* calculate enthalpy */
 
@@ -139,6 +149,10 @@ void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p){
    g2  = SQR(g);
    g_2 = 1.0/g2;
 
+   pt = W.P;
+   wtg2 = W.d*h*g2;
+
+#ifdef MHD
    vB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
    Bmag2 = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
 
@@ -148,56 +162,42 @@ void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p){
 
    b2 = Bmag2*g_2 + vB*vB;
 
-   pt = W.P + 0.5*b2;
-
-   wtg2 = (W.d*h + b2)*g2;
+   pt += 0.5*b2;
+   wtg2 += b2*g2;
+#endif
 
    flux->d  = U.d*W.Vx;
-   flux->Mx = wtg2*W.Vx*W.Vx - bx*bx + pt;
-   flux->My = wtg2*W.Vy*W.Vx - by*bx;
-   flux->Mz = wtg2*W.Vz*W.Vx - bz*bx;
+   flux->Mx = wtg2*W.Vx*W.Vx + pt;
+   flux->My = wtg2*W.Vy*W.Vx;
+   flux->Mz = wtg2*W.Vz*W.Vx;
+   flux->E  = U.Mx;
+#ifdef MHD
+   flux->Mx -= bx*bx;
+   flux->My -= by*bx;
+   flux->Mz -= bz*bx;
    flux->By = W.Vx*W.By - Bx*W.Vy;
    flux->Bz = W.Vx*W.Bz - Bx*W.Vz;
-   flux->E  = U.Mx;
+#endif
 
    *p = pt;
 }
 
 
 void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
-                        const Real Bx, const Real error,
-                        Real* low, Real* high){
-
+                        const Real Bx, const Real error, Real* low, Real* high)
+{
    Real lml,lmr;        /* smallest roots, Mignone Eq 55 */
    Real lpl,lpr;        /* largest roots, Mignone Eq 55 */
-
-   Real vlsq,vrsq;
-   Real gammal, gammar;
-   Real gammal2, gammar2;
-   Real gammal4, gammar4;
-   Real rhohl,rhohr;
-   Real cslsq,csrsq;
-   Real cslsq_1,csrsq_1;
-   Real Blsq,Brsq;
-   Real vDotBl,vDotBr;
-   Real b0l,b0r;
-   Real bxl,bxr;
-   Real blsq,brsq;
-   Real Ql,Qr;
-   Real al[5],ar[5];
+   Real rhohl, rhohr, cslsq, csrsq, cslsq_1, csrsq_1, vlsq, vrsq;
+   Real gammal, gammar, gammal2, gammar2, gammal4, gammar4;
+#ifdef MHD
+   Real Blsq,Brsq,vDotBl,vDotBr,b0l,b0r,bxl,bxr,blsq,brsq,Ql,Qr;
    Real rl[4],rr[4];
+#endif
+   Real al[5],ar[5];
    Real discl,discr;
-
    int nl,nr;
    int i;
-
-   /*printf("SPEED: Wl\n");
-   printPrim1D(&Wl);
-   printf("SPEED: Wr\n");
-   printPrim1D(&Wr);*/
-
-   /*printf("Bx: %f\n",Bx);*/
-
 
    rhohl = Wl.d + (Gamma/Gamma_1) * (Wl.P);
    rhohr = Wr.d + (Gamma/Gamma_1) * (Wr.P);
@@ -221,6 +221,7 @@ void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
    gammal4 = SQR(gammal2);
    gammar4 = SQR(gammar2);
 
+#ifdef MHD
    Blsq = SQR(Bx) + SQR(Wl.By) + SQR(Wl.Bz);
    Brsq = SQR(Bx) + SQR(Wr.By) + SQR(Wr.Bz);
 
@@ -237,33 +238,27 @@ void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
    brsq = Brsq / gammar2 + SQR(vDotBr);
 
    if( fabs(Bx) < error ){
+#endif /* MHD */
 
-      /*printf("Quadratic\n\n");*/
+      /* Mignone Eq 58.  These formulae are used in the case of hydro */
 
-      /* Mignone Eq 58 */
-
-      Ql = blsq - cslsq*vDotBl;
-      Qr = brsq - csrsq*vDotBr;
-
-      /*printf("Ql: %e\n",Ql);
-        printf("Qr: %e\n\n",Qr);*/
-
-      al[2] = rhohl*(cslsq + gammal2*cslsq_1) + Ql;
-      ar[2] = rhohr*(csrsq + gammar2*csrsq_1) + Qr;
+      al[0] = rhohl*(gammal2*Wl.Vx*Wl.Vx*cslsq_1 - cslsq);
+      ar[0] = rhohr*(gammar2*Wr.Vx*Wr.Vx*csrsq_1 - csrsq);
 
       al[1] = -2.0 * rhohl * gammal2 * Wl.Vx * cslsq_1;
       ar[1] = -2.0 * rhohr * gammar2 * Wr.Vx * csrsq_1;
 
-      al[0] = rhohl*(gammal2*Wl.Vx*Wl.Vx*cslsq_1 - cslsq) - Ql;
-      ar[0] = rhohr*(gammar2*Wr.Vx*Wr.Vx*csrsq_1 - csrsq) - Qr;
+      al[2] = rhohl*(cslsq + gammal2*cslsq_1);
+      ar[2] = rhohr*(csrsq + gammar2*csrsq_1);
 
-      /*printf("al[2]: %e\n",al[2]);
-      printf("al[1]: %e\n",al[1]);
-      printf("al[0]: %e\n\n",al[0]);
-
-      printf("ar[2]: %e\n",ar[2]);
-      printf("ar[1]: %e\n",ar[1]);
-      printf("ar[0]: %e\n\n",ar[0]);*/
+#ifdef MHD
+      Ql = blsq - cslsq*vDotBl;
+      Qr = brsq - csrsq*vDotBr;
+      al[2] += Ql;
+      ar[2] += Qr;
+      al[0] -= Ql;
+      ar[0] -= Qr;
+#endif 
 
       discl = sqrt(al[1]*al[1] - 4.0*al[2]*al[0]);
       discr = sqrt(ar[1]*ar[1] - 4.0*ar[2]*ar[0]);
@@ -274,14 +269,8 @@ void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
       lmr = (-ar[1] - discr) / (2.0*ar[2]);
       lpr = (-ar[1] + discr) / (2.0*ar[2]);
 
-      /*printf("lml: %f\n",lml);
-      printf("lpl: %f\n",lpl);
-      printf("lmr: %f\n",lmr);
-      printf("lpr: %f\n\n",lpr);*/
-   }
-   else{
-      /*printf("Quartic\n\n");*/
-
+#ifdef MHD
+   } else{
       al[4] = -SQR(b0l)*cslsq + cslsq_1*rhohl*gammal4 + 
          gammal2*(blsq + cslsq*rhohl);
       ar[4] = -SQR(b0r)*csrsq + csrsq_1*rhohr*gammar4 + 
@@ -309,52 +298,39 @@ void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
       ar[0] = SQR(bxr)*csrsq - gammar2*SQR(Wr.Vx)*(brsq + csrsq*rhohr) + 
          csrsq_1*rhohr*gammar4*SQR(Wr.Vx)*SQR(Wr.Vx);
 
-/*      for(i=0; i<5; i++)
-         printf("al[%d]: %f\n",i,al[i]);
-      for(i=0; i<5; i++)
-      printf("ar[%d]: %f\n",i,ar[i]);*/
-
       nl = solveQuartic(al,rl,1.0e-10);
       nr = solveQuartic(ar,rr,1.0e-10);
-
-      /*printf("nl: %d\n",nl);
-        printf("nr: %d\n",nr);*/
 
       if(nl == 0){
          lml = -1.0;
          lpl = 1.0;
-      }
-      else{
+      } else{
          lml = rl[0];
          lpl = rl[0];
 
          /* find smallest and largest roots */
          for(i=1; i<nl; i++){
-            if(rl[i] < lml)
-               lml = rl[i];
-            if(rl[i] > lpl)
-               lpl = rl[i];
+            if(rl[i] < lml) lml = rl[i];
+            if(rl[i] > lpl) lpl = rl[i];
          }
       }
 
       if(nr == 0){
          lmr = -1.0;
          lpr = 1.0;
-      }
-      else{
+      } else{
          lmr = rr[0];
          lpr = rr[0];
 
          /* find smallest and largest roots */
          for(i=1; i<nr; i++){
-            if(rr[i] < lmr)
-               lmr = rr[i];
-            if(rr[i] > lpr)
-               lpr = rr[i];
+            if(rr[i] < lmr) lmr = rr[i];
+            if(rr[i] > lpr) lpr = rr[i];
          }
       }
       
    }
+#endif /* MHD */
 
    /* Mi */
    
@@ -407,7 +383,6 @@ int solveQuartic(double* a, double* root, double error){
          break;
    }
    
-
    /* Reduce to solving two quadratic equations */
 
    nRoots = 0;
@@ -517,6 +492,5 @@ int solveCubic(double* a, double* root){
    }
 }
 
-#endif /* MHD */
 #endif /* SPECIAL_RELATIVITY */
 #endif /* HLLE_FLUX */

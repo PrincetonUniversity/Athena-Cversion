@@ -3,10 +3,11 @@
  * FILE: dump_binary.c
  *
  * PURPOSE: Function to write an unformatted dump of the field variables that
- *   can be read, e.g., by IDL scripts.  Also called by dump_dx().
+ *   can be read, e.g., by IDL scripts.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_binary -
+ *   dump_binary - writes either conserved or primitive variables depending
+ *                 on value of pOut->out read from input block.
  *============================================================================*/
 
 #include <stdio.h>
@@ -26,6 +27,7 @@
 void dump_binary(MeshS *pM, OutputS *pOut)
 {
   GridS *pGrid;
+  PrimS Prim;
   int dnum = pOut->num;
   FILE *p_binfile;
   char *fname;
@@ -33,7 +35,7 @@ void dump_binary(MeshS *pM, OutputS *pOut)
 /* Upper and Lower bounds on i,j,k for data dump */
   int i,j,k,il,iu,jl,ju,kl,ku;
   float dat[2],*datax,*datay,*dataz;
-  Real *pq,x1,x2,x3;
+  Real *pData,x1,x2,x3;
   int coordsys = -1;
 
 /* Return if Grid is not on this processor */
@@ -137,35 +139,43 @@ void dump_binary(MeshS *pM, OutputS *pOut)
 
   for (i=il; i<=iu; i++) {
     cc_pos(pGrid,i,jl,kl,&x1,&x2,&x3);
-    pq = ((Real *) &(x1));
-    datax[i-il] = (float)(*pq);
+    pData = ((Real *) &(x1));
+    datax[i-il] = (float)(*pData);
   }
   fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
 
   for (j=jl; j<=ju; j++) {
     cc_pos(pGrid,il,j,kl,&x1,&x2,&x3);
-    pq = ((Real *) &(x2));
-    datay[j-jl] = (float)(*pq);
+    pData = ((Real *) &(x2));
+    datay[j-jl] = (float)(*pData);
   }
   fwrite(datay,sizeof(float),(size_t)ndata[1],p_binfile);
 
   for (k=kl; k<=ku; k++) {
     cc_pos(pGrid,il,jl,k,&x1,&x2,&x3);
-    pq = ((Real *) &(x3));
-    dataz[k-kl] = (float)(*pq);
+    pData = ((Real *) &(x3));
+    dataz[k-kl] = (float)(*pData);
   }
   fwrite(dataz,sizeof(float),(size_t)ndata[2],p_binfile);
 
-/* Write cell-centered data in ConsVarS array pGrid->U[n] */
+/* Write cell-centered data (either conserved or primitives) */
 
   for (n=0;n<NVAR; n++) {
     for (k=0; k<ndata[2]; k++) {
     for (j=0; j<ndata[1]; j++) {
       for (i=0; i<ndata[0]; i++) {
-        pq = ((Real *) &(pGrid->U[k+kl][j+jl][i+il])) + n;
-        datax[i] = (float)(*pq);
+
+        if (strcmp(pOut->out,"cons") == 0){
+          pData = ((Real*)&(pGrid->U[k+kl][j+jl][i+il])) + n;
+        } else if(strcmp(pOut->out,"prim") == 0) {
+          Prim = Cons_to_Prim(&(pGrid->U[k+kl][j+jl][i+il]));
+          pData = ((Real*)&(Prim)) + n;
+        }
+        datax[i] = (float)(*pData);
+
       }
       fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+
     }}
   }
 
@@ -173,8 +183,8 @@ void dump_binary(MeshS *pM, OutputS *pOut)
   for (k=0; k<ndata[2]; k++) {
   for (j=0; j<ndata[1]; j++) {
     for (i=0; i<ndata[0]; i++) {
-      pq = ((Real *) &(pGrid->Phi[k+kl][j+jl][i+il]));
-      datax[i] = (float)(*pq);
+      pData = &(pGrid->Phi[k+kl][j+jl][i+il]);
+      datax[i] = (float)(*pData);
     }
     fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
   }}

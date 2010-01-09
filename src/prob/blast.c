@@ -135,18 +135,6 @@ void problem(DomainS *pDomain)
 	if (j == je && je > js) pGrid->B2i[k][j+1][i] = bya;
 	if (k == ke && ke > ks) pGrid->B3i[k+1][j][i] = bza;
 #endif /* MHD */
-
-
-        pGrid->W[k][j][i].d  = da;
-        pGrid->W[k][j][i].V1 = ua;
-        pGrid->W[k][j][i].V2 = va;
-        pGrid->W[k][j][i].V3 = wa;
-        pGrid->W[k][j][i].P  = pressure;
-#ifdef MHD
-        pGrid->W[k][j][i].B1c = bxa;
-        pGrid->W[k][j][i].B1c = bya;
-        pGrid->W[k][j][i].B1c = bya;
-#endif
 #endif /* SPECIAL_RELATIVITY */
 
       }

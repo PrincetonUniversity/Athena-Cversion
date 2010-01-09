@@ -23,11 +23,15 @@ COMMON SHARE1,nx,ny,nz,nvar,nscalars
 COMMON SHARE2,x,y,z
 COMMON SHARE3,time,dt,gamm1,isocs
 COMMON SHARE4,d,e,p,vx,vy,vz,bx,by,bz,s,phi
+openr,1,filename
+;
+; Read coordsys
+;
+readu,1,coordsys
 ;
 ; Read number of zones and variables
 ;
-ndata=LONARR(6)
-openr,1,filename
+ndata=LONARR(7)
 readu,1,ndata
 nx=ndata[0]
 ny=ndata[1]
@@ -35,6 +39,7 @@ nz=ndata[2]
 nvar=ndata[3]
 nscalars=ndata[4]
 ngrav=ndata[5]
+npart=ndata[6]
 ;
 ; Read (gamma-1) and isothermal sound speed
 ;
