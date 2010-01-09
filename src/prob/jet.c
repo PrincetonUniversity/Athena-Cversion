@@ -27,9 +27,7 @@ static Prim1DS Wjet;
 static Cons1DS Ujet;
 static Real x1_mid,x2_mid, x3_mid;
 
-#ifdef MHD
-static Real bxjet;
-#endif
+static Real Bxjet;
 
 /*----------------------------------------------------------------------------*/
 /* problem */
@@ -45,9 +43,8 @@ void problem(DomainS *pDomain){
    Real x1_min, x1_max;
    Real x2_min, x2_max;
    Real x3_min, x3_max;
-#ifdef MHD
-   Real bx;
-#endif
+   Real Bx=0.0;
+   Bxjet = 0.0;
 
 /* read parameters from input file */
 
@@ -57,7 +54,7 @@ void problem(DomainS *pDomain){
    W.Vy = par_getd("problem", "vy");
    W.Vz = par_getd("problem", "vz");
 #ifdef MHD
-   bx   = par_getd("problem", "bx");
+   Bx   = par_getd("problem", "bx");
    W.By = par_getd("problem", "by");
    W.Bz = par_getd("problem", "bz");
 #endif
@@ -68,15 +65,15 @@ void problem(DomainS *pDomain){
    Wjet.Vy = par_getd("problem", "vyjet");
    Wjet.Vz = par_getd("problem", "vzjet");
 #ifdef MHD
-   bxjet   = par_getd("problem", "bxjet");
+   Bxjet   = par_getd("problem", "bxjet");
    Wjet.By = par_getd("problem", "byjet");
    Wjet.Bz = par_getd("problem", "bzjet");
 #endif
 
    rjet = par_getd("problem", "rjet");
    
-   U = Prim1D_to_Cons1D(&W, &bx);
-   Ujet = Prim1D_to_Cons1D(&Wjet, &bxjet);
+   U = Prim1D_to_Cons1D(&W, &Bx);
+   Ujet = Prim1D_to_Cons1D(&Wjet, &Bxjet);
 
    x1_min = pDomain->RootMinX[0];
    x1_max = pDomain->RootMaxX[0];
@@ -114,10 +111,10 @@ void problem(DomainS *pDomain){
             pGrid->U[k][j][i].M3 = U.Mz;
             pGrid->U[k][j][i].E  = U.E;
 #ifdef MHD
-            pGrid->U[k][j][i].B1c = bx;
+            pGrid->U[k][j][i].B1c = Bx;
             pGrid->U[k][j][i].B2c = U.By;
             pGrid->U[k][j][i].B3c = U.Bz;
-            pGrid->B1i[k][j][i] = bx;
+            pGrid->B1i[k][j][i] = Bx;
             pGrid->B2i[k][j][i] = U.By;
             pGrid->B3i[k][j][i] = U.Bz;
 #endif
@@ -158,13 +155,13 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   Wjet.Vy = par_getd("problem", "vyjet");
   Wjet.Vz = par_getd("problem", "vzjet");
 #ifdef MHD
-  bxjet   = par_getd("problem", "bxjet");
+  Bxjet   = par_getd("problem", "bxjet");
   Wjet.By = par_getd("problem", "byjet");
   Wjet.Bz = par_getd("problem", "bzjet");
 #endif
 
   rjet = par_getd("problem", "rjet");
-  Ujet = Prim1D_to_Cons1D(&Wjet, &bxjet);
+  Ujet = Prim1D_to_Cons1D(&Wjet, &Bxjet);
 
   for (nl=0; nl<pM->NLevels; nl++){
   for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
@@ -223,7 +220,7 @@ void jet_iib(GridS *pGrid){
           pGrid->U[k][j][i].M3 = Ujet.Mz;
           pGrid->U[k][j][i].E  = Ujet.E;
 #ifdef MHD
-          pGrid->U[k][j][i].B1c = bxjet;
+          pGrid->U[k][j][i].B1c = Bxjet;
           pGrid->U[k][j][i].B2c = Ujet.By;
           pGrid->U[k][j][i].B3c = Ujet.Bz;
 #endif

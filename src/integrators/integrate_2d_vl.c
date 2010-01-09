@@ -1010,7 +1010,7 @@ void integrate_destruct_2d(void)
   if (eta2 != NULL) free_2d_array(eta2);
 #endif /* H_CORRECTION */
   if (Bxc != NULL) free(Bxc);
-  if (Bxi != NULL) free(Bxc);
+  if (Bxi != NULL) free(Bxi);
 #ifdef MHD
   if (B1_x1Face != NULL) free_2d_array(B1_x1Face);
   if (B2_x2Face != NULL) free_2d_array(B2_x2Face);
