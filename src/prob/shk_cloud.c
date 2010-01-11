@@ -213,7 +213,7 @@ printf("start problem\n");
 
 /* Set IIB value function pointer */
 
-  if (pDomain->Disp[0] == 0) set_bvals_mhd_fun(pDomain,left_x1,shk_cloud_iib);
+  if (pDomain->Disp[0] == 0) bvals_mhd_fun(pDomain,left_x1,shk_cloud_iib);
 
 printf("done problem\n");
   return;

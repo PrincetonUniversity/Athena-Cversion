@@ -25,21 +25,18 @@
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
+  Prim1DS W;
+  Cons1DS U1d;
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  Real pressure,prat,rad,da,pa,ua,va,wa,x1,x2,x3;
-  Real bxa,bya,bza,b0=0.0;
-  Real rin;
+  Real pressure,prat,rad,pa,da,x1,x2,x3;
+  Real b0=0.0,Bx=0.0,rin;
   double theta;
-
-#ifdef SPECIAL_RELATIVITY
-  Real w, gamma, gamma2, b2, BdotV, magB, Pt;
-  Real b[4];
-#endif
 
   rin = par_getd("problem","radius");
   pa  = par_getd("problem","pamb");
+  da  = 1.0;
   prat = par_getd("problem","prat");
 #ifdef MHD
   b0 = par_getd("problem","b0");
@@ -48,95 +45,49 @@ void problem(DomainS *pDomain)
 
 /* setup uniform ambient medium with spherical over-pressured region */
 
-  da = 1.0;
-  ua = 0.0;
-  va = 0.0;
-  wa = 0.0;
-  bxa = b0*cos(theta);
-  bya = b0*sin(theta);
-  bza = 0.0;
+  W.d = da;
+  W.Vx = 0.0;
+  W.Vy = 0.0;
+  W.Vz = 0.0;
+#ifdef MHD
+  Bx = b0*cos(theta);
+  W.By = b0*sin(theta);
+  W.Bz = 0.0;
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-
-#ifndef SPECIAL_RELATIVITY
-	pGrid->U[k][j][i].d  = da;
-	pGrid->U[k][j][i].M1 = da*ua;
-	pGrid->U[k][j][i].M2 = da*va;
-	pGrid->U[k][j][i].M3 = da*wa;
-#ifdef MHD
-	pGrid->B1i[k][j][i] = bxa;
-	pGrid->B2i[k][j][i] = bya;
-	pGrid->B3i[k][j][i] = bza;
-	pGrid->U[k][j][i].B1c = bxa;
-	pGrid->U[k][j][i].B2c = bya;
-	pGrid->U[k][j][i].B3c = bza;
-	if (i == ie && ie > is) pGrid->B1i[k][j][i+1] = bxa;
-	if (j == je && je > js) pGrid->B2i[k][j+1][i] = bya;
-	if (k == ke && ke > ks) pGrid->B3i[k+1][j][i] = bza;
-#endif
 	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 	rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-	pressure = pa;
-	if (rad < rin) pressure = prat*pa;
 #ifndef ISOTHERMAL
-        pGrid->U[k][j][i].E = pressure/Gamma_1 
-#ifdef MHD
-          + 0.5*(bxa*bxa + bya*bya + bza*bza)
+        W.P = pa;
+	if (rad < rin) W.P = prat*pa;
+#else
+        W.d = da;
+	if (rad < rin) W.d = prat*da;
 #endif
-          + 0.5*da*(ua*ua + va*va + wa*wa);
-#else
-	if (rad < rin) pGrid->U[k][j][i].d = prat*da;
-#endif /* ISOTHERMAL */
 
-#else
+        U1d = Prim1D_to_Cons1D(&(W),&Bx);
 
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-	rad = sqrt(x1*x1 + x2*x2 + x3*x3);
-	pressure = pa;
-	if (rad < rin){ pressure = prat*pa;}
-
-        w = da + (Gamma/Gamma_1)*pressure; 
-        gamma = 1.0 / sqrt(1.0 - (ua*ua + va*va + wa*wa));
-        gamma2 = SQR(gamma);
-        Pt = pressure;
-
-#ifndef MHD
-        pGrid->U[k][j][i].d  = gamma*da;
-	pGrid->U[k][j][i].M1 = w*gamma2*ua;
-	pGrid->U[k][j][i].M2 = w*gamma2*va;
-	pGrid->U[k][j][i].M3 = w*gamma2*wa;
-        pGrid->U[k][j][i].E = w*gamma2 - Pt;
-#else
-        BdotV = bxa*ua + bya*va + bza*wa;
-        magB = sqrt(bxa*bxa + bya*bya + bza*bza);
-        b[0] = gamma * BdotV;
-        b[1] = magB/gamma + gamma*BdotV*ua;
-        b[2] = magB/gamma + gamma*BdotV*va;
-        b[3] = magB/gamma + gamma*BdotV*wa;
-        b2 = SQR(BdotV) + SQR(magB)/gamma2;
-
-        Pt += 0.5*b2;
-
-        pGrid->U[k][j][i].d  = gamma*da;
-	pGrid->U[k][j][i].M1 = (w + b2)*gamma2*ua - b[0]*b[1];
-	pGrid->U[k][j][i].M2 = (w + b2)*gamma2*va - b[0]*b[2];
-	pGrid->U[k][j][i].M3 = (w + b2)*gamma2*wa - b[0]*b[3];
-        pGrid->U[k][j][i].E = (w + b2)*gamma2 - Pt - SQR(b[0]);
-
-	pGrid->B1i[k][j][i] = bxa;
-	pGrid->B2i[k][j][i] = bya;
-	pGrid->B3i[k][j][i] = bza;
-	pGrid->U[k][j][i].B1c = bxa;
-	pGrid->U[k][j][i].B2c = bya;
-	pGrid->U[k][j][i].B3c = bza;
-	if (i == ie && ie > is) pGrid->B1i[k][j][i+1] = bxa;
-	if (j == je && je > js) pGrid->B2i[k][j+1][i] = bya;
-	if (k == ke && ke > ks) pGrid->B3i[k+1][j][i] = bza;
+	pGrid->U[k][j][i].d  = U1d.d;
+	pGrid->U[k][j][i].M1 = U1d.Mx;
+	pGrid->U[k][j][i].M2 = U1d.My;
+	pGrid->U[k][j][i].M3 = U1d.Mz;
+#ifndef ISOTHERMAL
+	pGrid->U[k][j][i].E  = U1d.E;
+#endif
+#ifdef MHD
+	pGrid->B1i[k][j][i] = Bx;
+	pGrid->B2i[k][j][i] = U1d.By;
+	pGrid->B3i[k][j][i] = U1d.Bz;
+	pGrid->U[k][j][i].B1c = Bx;
+	pGrid->U[k][j][i].B2c = U1d.By;
+	pGrid->U[k][j][i].B3c = U1d.Bz;
+	if (i == ie && ie > is) pGrid->B1i[k][j][i+1] = Bx;
+	if (j == je && je > js) pGrid->B2i[k][j+1][i] = U1d.By;
+	if (k == ke && ke > ks) pGrid->B3i[k+1][j][i] = U1d.Bz;
 #endif /* MHD */
-#endif /* SPECIAL_RELATIVITY */
-
       }
     }
   }

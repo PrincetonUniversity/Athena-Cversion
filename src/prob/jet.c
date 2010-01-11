@@ -124,7 +124,7 @@ void problem(DomainS *pDomain){
 
 /* Set boundary value function pointers */
 
-   if (pDomain->Disp[0] == 0) set_bvals_mhd_fun(pDomain,left_x1,jet_iib);
+   if (pDomain->Disp[0] == 0) bvals_mhd_fun(pDomain,left_x1,jet_iib);
 
 }
 
@@ -167,7 +167,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
     if (pM->Domain[nl][nd].Grid != NULL) {
       if (pM->Domain[nl][nd].Disp[0] == 0) 
-        set_bvals_mhd_fun(&(pM->Domain[nl][nd]),left_x1,jet_iib);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]),left_x1,jet_iib);
     }
   }}
 
@@ -225,7 +225,8 @@ void jet_iib(GridS *pGrid){
           pGrid->U[k][j][i].B3c = Ujet.Bz;
 #endif
         } else{
-          pGrid->U[k][j][i] = pGrid->U[k][j][is];
+          pGrid->U[k][j][is-i] = pGrid->U[k][j][is+(i-1)];
+          pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is+(i-1)].M1;
         }
       }
     }

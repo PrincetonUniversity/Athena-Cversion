@@ -83,10 +83,10 @@ void problem(DomainS *pDomain)
 
 /* Set boundary value function pointers */
 
-  if (pDomain->Disp[0] == 0) set_bvals_mhd_fun(pDomain, left_x1,  dmrbv_iib);
-  if (pDomain->Disp[1] == 0) set_bvals_mhd_fun(pDomain, left_x2,  dmrbv_ijb);
+  if (pDomain->Disp[0] == 0) bvals_mhd_fun(pDomain, left_x1,  dmrbv_iib);
+  if (pDomain->Disp[1] == 0) bvals_mhd_fun(pDomain, left_x2,  dmrbv_ijb);
   if (pDomain->MaxX[1] == pDomain->RootMaxX[1])
-    set_bvals_mhd_fun(pDomain, right_x2, dmrbv_ojb);
+    bvals_mhd_fun(pDomain, right_x2, dmrbv_ojb);
 }
 
 /*==============================================================================

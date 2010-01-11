@@ -687,12 +687,12 @@ void problem(DomainS *pDomain)
  * set function pointers for BCs, and conclude
  */
 
-  set_bvals_mhd_fun(pDomain, left_x1,  lx_bc);
-  set_bvals_mhd_fun(pDomain, right_x1, rx_bc);
-  set_bvals_mhd_fun(pDomain, left_x2,  ly_bc);
-  set_bvals_mhd_fun(pDomain, right_x2, ry_bc);
-  set_bvals_mhd_fun(pDomain, left_x3,  lz_bc);
-  set_bvals_mhd_fun(pDomain, right_x3, rz_bc);
+  bvals_mhd_fun(pDomain, left_x1,  lx_bc);
+  bvals_mhd_fun(pDomain, right_x1, rx_bc);
+  bvals_mhd_fun(pDomain, left_x2,  ly_bc);
+  bvals_mhd_fun(pDomain, right_x2, ry_bc);
+  bvals_mhd_fun(pDomain, left_x3,  lz_bc);
+  bvals_mhd_fun(pDomain, right_x3, rz_bc);
 
   free_3d_array((void***)sqa );  sqa  = NULL;
 #ifdef MHD

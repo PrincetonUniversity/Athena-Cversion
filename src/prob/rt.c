@@ -146,9 +146,9 @@ void problem(DomainS *pDomain)
 */
 
   StaticGravPot = grav_pot2;
-  if (pDomain->Disp[1] == 0) set_bvals_mhd_fun(pDomain, left_x2,  reflect_ix2);
+  if (pDomain->Disp[1] == 0) bvals_mhd_fun(pDomain, left_x2,  reflect_ix2);
   if (pDomain->MaxX[1] == pDomain->RootMaxX[1])
-    set_bvals_mhd_fun(pDomain, right_x2, reflect_ox2);
+    bvals_mhd_fun(pDomain, right_x2, reflect_ox2);
 
   } /* end of 2D initialization  */
 
@@ -257,9 +257,9 @@ void problem(DomainS *pDomain)
 
   StaticGravPot = grav_pot3;
 
-  if (pDomain->Disp[2] == 0) set_bvals_mhd_fun(pDomain, left_x3,  reflect_ix3);
+  if (pDomain->Disp[2] == 0) bvals_mhd_fun(pDomain, left_x3,  reflect_ix3);
   if (pDomain->MaxX[2] == pDomain->RootMaxX[2])
-    set_bvals_mhd_fun(pDomain, right_x3, reflect_ox3);
+    bvals_mhd_fun(pDomain, right_x3, reflect_ox3);
 
   } /* end of 3D initialization */
 
@@ -295,8 +295,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
     StaticGravPot = grav_pot2;
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-        set_bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x2,  reflect_ix2);
-        set_bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x2, reflect_ox2);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x2,  reflect_ix2);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x2, reflect_ox2);
       }
     }
   }
@@ -305,8 +305,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
     StaticGravPot = grav_pot3;
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-        set_bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x3,  reflect_ix3);
-        set_bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x3, reflect_ox3);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x3,  reflect_ix3);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x3, reflect_ox3);
       }
     }
   }

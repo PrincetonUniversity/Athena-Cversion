@@ -26,6 +26,7 @@ id      = d
 dmin    = 0.06
 dmax    = 4.4
 palette = rainbow
+ix3     = 75
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
@@ -34,21 +35,23 @@ tlim            = 1.0       # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 200       # Number of zones in X1-direction
+Nx1             = 100       # Number of zones in X1-direction
 x1min           = -0.5      # minimum value of X1
 x1max           = 0.5       # maximum value of X1
 bc_ix1          = 4         # inner-I (X1) boundary flag
 bc_ox1          = 4         # outer-I (X1) boundary flag
 
-Nx2             = 300       # Number of zones in X2-direction
+Nx2             = 150       # Number of zones in X2-direction
 x2min           = -0.75     # minimum value of X2
 x2max           = 0.75      # maximum value of X2
 bc_ix2          = 4         # inner-J (X2) boundary flag
 bc_ox2          = 4         # outer-J (X2) boundary flag
 
-Nx3             = 1         # Number of zones in X3-direction
-x3min           = 0.0       # minimum value of X3
-x3max           = 0.0       # maximum value of X3
+Nx3             = 100       # Number of zones in X3-direction
+x3min           = -0.5      # minimum value of X3
+x3max           = 0.5       # maximum value of X3
+bc_ix3          = 4         # inner-K (X3) boundary flag
+bc_ox3          = 4         # outer-K (X3) boundary flag
 
 <problem>
 gamma           = 1.66667   # gamma = C_p/C_v

@@ -313,10 +313,10 @@ void problem(DomainS *pDomain)
 
 /* Set boundary value function pointers */
 
-  set_bvals_mhd_fun(pDomain, left_x1,  shkset2d_iib);
-  set_bvals_mhd_fun(pDomain, left_x2,  shkset2d_ijb);
-  set_bvals_mhd_fun(pDomain, right_x1, shkset2d_oib);
-  set_bvals_mhd_fun(pDomain, right_x2, shkset2d_ojb);
+  bvals_mhd_fun(pDomain, left_x1,  shkset2d_iib);
+  bvals_mhd_fun(pDomain, left_x2,  shkset2d_ijb);
+  bvals_mhd_fun(pDomain, right_x1, shkset2d_oib);
+  bvals_mhd_fun(pDomain, right_x2, shkset2d_ojb);
 
   return;
 }

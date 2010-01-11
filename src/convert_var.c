@@ -534,7 +534,7 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *W, const Real *Bx)
   U0 = 1.0 / (1.0 - vsq);
 
 #ifdef MHD
-  Bsq = SQR(*Bx) + SQR(W->By) + SQR(W->Bz);
+  Bsq = (*Bx)*(*Bx) + SQR(W->By) + SQR(W->Bz);
   vDotB = (*Bx)*W->Vx + W->By*W->Vy + W->Bz*W->Vz;
 #endif
 

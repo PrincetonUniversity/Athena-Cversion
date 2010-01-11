@@ -69,9 +69,9 @@ void problem(DomainS *pD)
 
 /* Set boundary value function pointers */
 
-  set_bvals_mhd_fun(pD, right_x1,noh3d_oib);
-  set_bvals_mhd_fun(pD, right_x2,noh3d_ojb);
-  if (pGrid->Nx[2] > 1) set_bvals_mhd_fun(pD, right_x3,noh3d_okb);
+  bvals_mhd_fun(pD, right_x1,noh3d_oib);
+  bvals_mhd_fun(pD, right_x2,noh3d_ojb);
+  if (pGrid->Nx[2] > 1) bvals_mhd_fun(pD, right_x3,noh3d_okb);
 
 }
 

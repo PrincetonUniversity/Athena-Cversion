@@ -390,24 +390,24 @@ int main(int argc, char *argv[])
  * set boundary conditions for initial conditions.  With SMR, this includes
  * a prolongation step to set ghost zones at internal fine/coarse boundaries  */
 
-  set_bvals_mhd_init(&Mesh);
+  bvals_mhd_init(&Mesh);
 
 #ifdef SELF_GRAVITY
-  set_bvals_grav_init(&Mesh);
+  bvals_grav_init(&Mesh);
 #endif
 #ifdef SHEARING_BOX
-  set_bvals_shear_init(&Mesh);
+  bvals_shear_init(&Mesh);
 #endif
 #ifdef PARTICLES
-  set_bvals_particle_init(&Mesh);
+  bvals_particle_init(&Mesh);
 #endif
 
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
-        set_bvals_mhd(&(Mesh.Domain[nl][nd]));
+        bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-        set_bvals_particle(&(Mesh.Domain[nl][nd]));
+        bvals_particle(&(Mesh.Domain[nl][nd]));
 #ifdef FEEDBACK
         exchange_feedback_init(&(Mesh.Domain[nl][nd]));
 #endif
@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
   (*SelfGrav)(&level0_Grid, &level0_Domain);
-  set_bvals_grav(&level0_Grid, &level0_Domain);
+  bvals_grav(&level0_Grid, &level0_Domain);
 #endif
 #ifdef EXPLICIT_DIFFUSION
   integrate_diff_init(&Mesh);
@@ -507,7 +507,7 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
-          set_bvals_mhd(&(Mesh.Domain[nl][nd]));
+          bvals_mhd(&(Mesh.Domain[nl][nd]));
         }
       }
     }
@@ -551,7 +551,7 @@ int main(int argc, char *argv[])
 
 #ifdef SELF_GRAVITY
     (*SelfGrav)(&level0_Grid, &level0_Domain);
-    set_bvals_grav(&level0_Grid, &level0_Domain);
+    bvals_grav(&level0_Grid, &level0_Domain);
     selfg_flux_correction(&level0_Grid);
 #endif
 
@@ -578,9 +578,9 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
-          set_bvals_mhd(&(Mesh.Domain[nl][nd]));
+          bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-          set_bvals_particle(&level0_Grid, &level0_Domain);
+          bvals_particle(&level0_Grid, &level0_Domain);
 #endif
         }
       }
@@ -692,10 +692,10 @@ int main(int argc, char *argv[])
   data_output_destruct();
 #ifdef PARTICLES
   particle_destruct(&level0_Grid);
-  set_bvals_particle_destruct(&level0_Grid);
+  bvals_particle_destruct(&level0_Grid);
 #endif
 #ifdef SHEARING_BOX
-  set_bvals_shear_destruct();
+  bvals_shear_destruct();
 #endif
 #ifdef EXPLICIT_DIFFUSION
   integrate_diff_destruct();

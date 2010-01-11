@@ -207,28 +207,28 @@ void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
 #endif /* SELF_GRAVITY */
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_mhd.c  */
-void set_bvals_mhd_init(MeshS *pM);
-void set_bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
-void set_bvals_mhd(DomainS *pDomain);
+/* bvals_mhd.c  */
+void bvals_mhd_init(MeshS *pM);
+void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
+void bvals_mhd(DomainS *pDomain);
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_grav.c  */
+/* bvals_grav.c  */
 #ifdef SELF_GRAVITY
-void set_bvals_grav_init(Grid *pG, Domain *pD);
-void set_bvals_grav_fun(enum Direction dir, VBCFun_t prob_bc);
-void set_bvals_grav(Grid *pGrid, Domain *pDomain);
+void bvals_grav_init(Grid *pG, Domain *pD);
+void bvals_grav_fun(enum Direction dir, VBCFun_t prob_bc);
+void bvals_grav(Grid *pGrid, Domain *pDomain);
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_shear.c  */
+/* bvals_shear.c  */
 #ifdef SHEARING_BOX
 void ShearingSheet_ix1(DomainS *pD);
 void ShearingSheet_ox1(DomainS *pD);
 void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
 void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
-void set_bvals_shear_init(MeshS *pM);
-void set_bvals_shear_destruct(void);
+void bvals_shear_init(MeshS *pM);
+void bvals_shear_destruct(void);
 #ifdef FARGO
 void Fargo(DomainS *pD);
 #endif
