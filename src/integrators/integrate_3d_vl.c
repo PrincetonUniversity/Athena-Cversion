@@ -165,8 +165,9 @@ void integrate_3d_vl(DomainS *pD)
       Wl[i] = W[i-1];
       Wr[i] = W[i  ];
 
-      Ul[i] = U1d[i-1];
-      Ur[i] = U1d[i  ];
+/* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
+      Ul[i] = Prim1D_to_Cons1D(&Wl[i], &Bxc[i-1]);
+      Ur[i] = Prim1D_to_Cons1D(&Wr[i], &Bxc[i  ]);
     }
 
 /*--- Step 1c ------------------------------------------------------------------
@@ -222,8 +223,9 @@ void integrate_3d_vl(DomainS *pD)
         Wl[j] = W[j-1];
         Wr[j] = W[j  ];
 
-        Ul[j] = U1d[j-1];
-        Ur[j] = U1d[j  ];
+/* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
+        Ul[j] = Prim1D_to_Cons1D(&Wl[j], &Bxc[j-1]);
+        Ur[j] = Prim1D_to_Cons1D(&Wr[j], &Bxc[j  ]);
       }
 
 /*--- Step 2c ------------------------------------------------------------------
@@ -279,8 +281,9 @@ void integrate_3d_vl(DomainS *pD)
         Wl[k] = W[k-1];
         Wr[k] = W[k  ]; 
 
-        Ul[k] = U1d[k-1];
-        Ur[k] = U1d[k  ]; 
+/* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
+        Ul[k] = Prim1D_to_Cons1D(&Wl[k], &Bxc[k-1]);
+        Ur[k] = Prim1D_to_Cons1D(&Wr[k], &Bxc[k  ]);
       }
 
 /*--- Step 3c ------------------------------------------------------------------

@@ -34,10 +34,15 @@
 
 #if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
+#define FIRST_ORDER_FLUX_CORRECTION
+
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1DS **Wl_x1Face=NULL, **Wr_x1Face=NULL;
 static Prim1DS **Wl_x2Face=NULL, **Wr_x2Face=NULL;
 static Cons1DS **x1Flux=NULL, **x2Flux=NULL;
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+static Cons1DS **x1FluxP=NULL, **x2FluxP=NULL;
+#endif
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
@@ -47,7 +52,7 @@ static Real **emf3=NULL, **emf3_cc=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
-static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static Prim1DS *W1d=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
 /* conserved and primitive variables at t^{n+1/2} computed in predict step */
@@ -66,6 +71,9 @@ static Real **eta1=NULL, **eta2=NULL;
 #ifdef MHD
 static void integrate_emf3_corner(GridS *pG);
 #endif
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+static void FixCell(GridS *pG, Int3Vect);
+#endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -77,7 +85,7 @@ static void integrate_emf3_corner(GridS *pG);
 void integrate_2d_vl(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
-  PrimS Whalf;
+  PrimS W,Whalf;
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
   int i, is = pG->is, ie = pG->ie;
@@ -96,6 +104,11 @@ void integrate_2d_vl(DomainS *pD)
 #ifdef STATIC_MESH_REFINEMENT
   int ncg,npg,dim;
   int ii,ics,ice,jj,jcs,jce,ips,ipe,jps,jpe;
+#endif
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  int flag_cell=0,negd=0,negP=0,superl=0;
+  Real Vsq;
+  Int3Vect BadCell;
 #endif
   int il=is-(nghost-1), iu=ie+(nghost-1);
   int jl=js-(nghost-1), ju=je+(nghost-1);
@@ -145,15 +158,16 @@ void integrate_2d_vl(DomainS *pD)
  * Compute first-order L/R states */
 
     for (i=is-nghost; i<=ie+nghost; i++) {
-      W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+      W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
     }
 
     for (i=il; i<=ie+nghost; i++) {
-      Wl[i] = W[i-1];
-      Wr[i] = W[i  ];
+      Wl[i] = W1d[i-1];
+      Wr[i] = W1d[i  ];
 
-      Ul[i] = U1d[i-1];
-      Ur[i] = U1d[i  ];
+/* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
+      Ul[i] = Prim1D_to_Cons1D(&Wl[i], &Bxc[i-1]);
+      Ur[i] = Prim1D_to_Cons1D(&Wr[i], &Bxc[i  ]);
     }
 
 /*--- Step 1c ------------------------------------------------------------------
@@ -199,15 +213,16 @@ void integrate_2d_vl(DomainS *pD)
  * Compute first-order L/R states */
 
     for (j=js-nghost; j<=je+nghost; j++) {
-      W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+      W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
     }
 
     for (j=jl; j<=je+nghost; j++) {
-      Wl[j] = W[j-1];
-      Wr[j] = W[j  ];
+      Wl[j] = W1d[j-1];
+      Wr[j] = W1d[j  ];
 
-      Ul[j] = U1d[j-1];
-      Ur[j] = U1d[j  ];
+/* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
+      Ul[j] = Prim1D_to_Cons1D(&Wl[j], &Bxc[j-1]);
+      Ur[j] = Prim1D_to_Cons1D(&Wr[j], &Bxc[j  ]);
     }
 
 /*--- Step 2c ------------------------------------------------------------------
@@ -289,6 +304,9 @@ void integrate_2d_vl(DomainS *pD)
       for (n=0; n<NSCALARS; n++)
         Uhalf[j][i].s[n] -= hdtodx1*(x1Flux[j][i+1].s[n] - x1Flux[j][i].s[n]);
 #endif
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+      x1FluxP[j][i] = x1Flux[j][i];
+#endif
     }
   }
 
@@ -311,6 +329,9 @@ void integrate_2d_vl(DomainS *pD)
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
         Uhalf[j][i].s[n] -= hdtodx2*(x2Flux[j+1][i].s[n] - x2Flux[j][i].s[n]);
+#endif
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+      x2FluxP[j][i] = x2Flux[j][i];
 #endif
     }
   }
@@ -409,10 +430,10 @@ void integrate_2d_vl(DomainS *pD)
  */
 
     for (i=il; i<=iu; i++) {
-      W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+      W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
     }
 
-    lr_states(W,Bxc,0.0,is,ie,Wl,Wr);
+    lr_states(W1d,Bxc,0.0,is,ie,Wl,Wr);
 
     for (i=is; i<=ie+1; i++) {
       Wl_x1Face[j][i] = Wl[i];
@@ -452,10 +473,10 @@ void integrate_2d_vl(DomainS *pD)
  */
 
     for (j=jl; j<=ju; j++) {
-      W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+      W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
     }
 
-    lr_states(W,Bxc,0.0,js,je,Wl,Wr);
+    lr_states(W1d,Bxc,0.0,js,je,Wl,Wr);
 
     for (j=js; j<=je+1; j++) {
       Wl_x2Face[j][i] = Wl[j];
@@ -760,9 +781,67 @@ void integrate_2d_vl(DomainS *pD)
     }
   }
 
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/*=== STEP 14: First-order flux correction ===================================*/
+
+/* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
+ * by using 1st order predictor fluxes */
+
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      W = Cons_to_Prim(&(pG->U[ks][j][i]));
+      if (W.d < 0.0) {
+        flag_cell = 1;
+        BadCell.i = i;
+        BadCell.j = j;
+        BadCell.k = ks;
+        negd++;
+      }
+      if (W.P < 0.0) {
+        flag_cell = 1;
+        BadCell.i = i;
+        BadCell.j = j;
+        BadCell.k = ks;
+        negP++;
+      }
+#ifdef SPECIAL_RELATIVITY
+      Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+      if (Vsq > 1.0) {
+        flag_cell = 1;
+        BadCell.i = i;
+        BadCell.j = j;
+        BadCell.k = ks;
+        superl++;
+      }
+#endif
+      if (flag_cell != 0) {
+        FixCell(pG, BadCell);
+        flag_cell=0;
+      }
+    }
+  }
+
+  if (negd > 0 || negP > 0)
+    printf("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
+/*
+    ath_error("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
+*/
+#ifdef SPECIAL_RELATIVITY
+  if (negd > 0 || negP > 0 || superl > 0)
+    printf("[Step14]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
+      ,negd,negP,superl);
+/*
+    ath_error("[Step14]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
+      ,negd,negP,superl);
+*/
+#endif
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
+
 #ifdef STATIC_MESH_REFINEMENT
-/*--- Step 13d -----------------------------------------------------------------
- * With SMR, store fluxes at boundaries of child and parent grids.
+/*=== STEP 15: With SMR, store fluxes at fine/coarse boundaries ==============*/
+
+/*--- Step 15a -----------------------------------------------------------------
+ * store fluxes at boundaries of child grids.
  */
 
   for (ncg=0; ncg<pG->NCGrid; ncg++) {
@@ -839,6 +918,10 @@ void integrate_2d_vl(DomainS *pD)
       }
     }
   }
+
+/*--- Step 15b -----------------------------------------------------------------
+ * store fluxes at boundaries with parent grids.
+ */
 
   for (npg=0; npg<pG->NPGrid; npg++) {
 
@@ -969,7 +1052,7 @@ void integrate_init_2d(MeshS *pM)
   if ((U1d= (Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
   if ((Ul = (Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
   if ((Ur = (Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
-  if ((W  = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((W1d= (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wl = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wr = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
 
@@ -985,6 +1068,12 @@ void integrate_init_2d(MeshS *pM)
     == NULL) goto on_error;
   if ((x2Flux    = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
     == NULL) goto on_error;
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if ((x1FluxP    = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
+    == NULL) goto on_error;
+  if ((x2FluxP    = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
+    == NULL) goto on_error;
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
   if ((Uhalf = (ConsS**)calloc_2d_array(size2,size1,sizeof(ConsS)))==NULL)
     goto on_error;
@@ -1016,12 +1105,12 @@ void integrate_destruct_2d(void)
   if (B2_x2Face != NULL) free_2d_array(B2_x2Face);
 #endif /* MHD */
 
-  if (U1d      != NULL) free(U1d);
-  if (Ul       != NULL) free(Ul);
-  if (Ur       != NULL) free(Ur);
-  if (W        != NULL) free(W);
-  if (Wl       != NULL) free(Wl);
-  if (Wr       != NULL) free(Wr);
+  if (U1d != NULL) free(U1d);
+  if (Ul  != NULL) free(Ul);
+  if (Ur  != NULL) free(Ur);
+  if (W1d != NULL) free(W1d);
+  if (Wl  != NULL) free(Wl);
+  if (Wr  != NULL) free(Wr);
 
   if (Wl_x1Face != NULL) free_2d_array(Wl_x1Face);
   if (Wr_x1Face != NULL) free_2d_array(Wr_x1Face);
@@ -1029,9 +1118,12 @@ void integrate_destruct_2d(void)
   if (Wr_x2Face != NULL) free_2d_array(Wr_x2Face);
   if (x1Flux    != NULL) free_2d_array(x1Flux);
   if (x2Flux    != NULL) free_2d_array(x2Flux);
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if (x1FluxP   != NULL) free_2d_array(x1FluxP);
+  if (x2FluxP   != NULL) free_2d_array(x2FluxP);
+#endif
 
   if (Uhalf    != NULL) free_2d_array(Uhalf);
-
 
   return;
 }
@@ -1120,5 +1212,110 @@ static void integrate_emf3_corner(GridS *pG)
   return;
 }
 #endif /* MHD */
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/*----------------------------------------------------------------------------*/
+/* FixCell() - uses first order fluxes to fix negative d,P or superluminal v
+ */ 
+
+static void FixCell(GridS *pG, Int3Vect indx)
+{
+  int ks=pG->ks;
+  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
+  Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1;
+
+/* Compute difference of predictor and corrector fluxes at cell faces */
+
+  x1FD_i.d    = x1Flux[indx.j  ][indx.i  ].d - x1FluxP[indx.j  ][indx.i  ].d;
+  x1FD_ip1.d  = x1Flux[indx.j  ][indx.i+1].d - x1FluxP[indx.j  ][indx.i+1].d;
+  x2FD_j.d    = x2Flux[indx.j  ][indx.i  ].d - x2FluxP[indx.j  ][indx.i  ].d;
+  x2FD_jp1.d  = x2Flux[indx.j+1][indx.i  ].d - x2FluxP[indx.j+1][indx.i  ].d;
+
+  x1FD_i.Mx    = x1Flux[indx.j  ][indx.i  ].Mx - x1FluxP[indx.j  ][indx.i  ].Mx;
+  x1FD_ip1.Mx  = x1Flux[indx.j  ][indx.i+1].Mx - x1FluxP[indx.j  ][indx.i+1].Mx;
+  x2FD_j.Mx    = x2Flux[indx.j  ][indx.i  ].Mx - x2FluxP[indx.j  ][indx.i  ].Mx;
+  x2FD_jp1.Mx  = x2Flux[indx.j+1][indx.i  ].Mx - x2FluxP[indx.j+1][indx.i  ].Mx;
+
+  x1FD_i.My    = x1Flux[indx.j  ][indx.i  ].My - x1FluxP[indx.j  ][indx.i  ].My;
+  x1FD_ip1.My  = x1Flux[indx.j  ][indx.i+1].My - x1FluxP[indx.j  ][indx.i+1].My;
+  x2FD_j.My    = x2Flux[indx.j  ][indx.i  ].My - x2FluxP[indx.j  ][indx.i  ].My;
+  x2FD_jp1.My  = x2Flux[indx.j+1][indx.i  ].My - x2FluxP[indx.j+1][indx.i  ].My;
+
+  x1FD_i.Mz    = x1Flux[indx.j  ][indx.i  ].Mz - x1FluxP[indx.j  ][indx.i  ].Mz;
+  x1FD_ip1.Mz  = x1Flux[indx.j  ][indx.i+1].Mz - x1FluxP[indx.j  ][indx.i+1].Mz;
+  x2FD_j.Mz    = x2Flux[indx.j  ][indx.i  ].Mz - x2FluxP[indx.j  ][indx.i  ].Mz;
+  x2FD_jp1.Mz  = x2Flux[indx.j+1][indx.i  ].Mz - x2FluxP[indx.j+1][indx.i  ].Mz;
+
+#ifndef BAROTROPIC
+  x1FD_i.E    = x1Flux[indx.j  ][indx.i  ].E - x1FluxP[indx.j  ][indx.i  ].E;
+  x1FD_ip1.E  = x1Flux[indx.j  ][indx.i+1].E - x1FluxP[indx.j  ][indx.i+1].E;
+  x2FD_j.E    = x2Flux[indx.j  ][indx.i  ].E - x2FluxP[indx.j  ][indx.i  ].E;
+  x2FD_jp1.E  = x2Flux[indx.j+1][indx.i  ].E - x2FluxP[indx.j+1][indx.i  ].E;
+#endif /* BAROTROPIC */
+
+/* Use flux differences to correct bad cell */
+
+  pG->U[ks][indx.j][indx.i].d  += dtodx1*(x1FD_ip1.d  - x1FD_i.d );
+  pG->U[ks][indx.j][indx.i].M1 += dtodx1*(x1FD_ip1.Mx - x1FD_i.Mx);
+  pG->U[ks][indx.j][indx.i].M2 += dtodx1*(x1FD_ip1.My - x1FD_i.My);
+  pG->U[ks][indx.j][indx.i].M3 += dtodx1*(x1FD_ip1.Mz - x1FD_i.Mz);
+#ifndef BAROTROPIC
+  pG->U[ks][indx.j][indx.i].E  += dtodx1*(x1FD_ip1.E  - x1FD_i.E );
+#endif /* BAROTROPIC */
+
+  pG->U[ks][indx.j][indx.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
+  pG->U[ks][indx.j][indx.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
+  pG->U[ks][indx.j][indx.i].M2 += dtodx2*(x2FD_jp1.Mx - x2FD_j.Mx);
+  pG->U[ks][indx.j][indx.i].M3 += dtodx2*(x2FD_jp1.My - x2FD_j.My);
+#ifndef BAROTROPIC
+  pG->U[ks][indx.j][indx.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
+#endif /* BAROTROPIC */
+
+/* Use flux differences to correct bad cell neighbors at i-1 and i+1 */
+
+  if (indx.i > pG->is) {
+    pG->U[ks][indx.j][indx.i-1].d  += dtodx1*(x1FD_i.d );
+    pG->U[ks][indx.j][indx.i-1].M1 += dtodx1*(x1FD_i.Mx);
+    pG->U[ks][indx.j][indx.i-1].M2 += dtodx1*(x1FD_i.My);
+    pG->U[ks][indx.j][indx.i-1].M3 += dtodx1*(x1FD_i.Mz);
+#ifndef BAROTROPIC
+    pG->U[ks][indx.j][indx.i-1].E  += dtodx1*(x1FD_i.E );
+#endif /* BAROTROPIC */
+  }
+
+  if (indx.i < pG->ie) {
+    pG->U[ks][indx.j][indx.i+1].d  -= dtodx1*(x1FD_ip1.d );
+    pG->U[ks][indx.j][indx.i+1].M1 -= dtodx1*(x1FD_ip1.Mx);
+    pG->U[ks][indx.j][indx.i+1].M2 -= dtodx1*(x1FD_ip1.My);
+    pG->U[ks][indx.j][indx.i+1].M3 -= dtodx1*(x1FD_ip1.Mz);
+#ifndef BAROTROPIC
+    pG->U[ks][indx.j][indx.i+1].E  -= dtodx1*(x1FD_ip1.E );
+#endif /* BAROTROPIC */
+  }
+
+/* Use flux differences to correct bad cell neighbors at j-1 and j+1 */
+
+  if (indx.j > pG->js) {
+    pG->U[ks][indx.j-1][indx.i].d  += dtodx2*(x2FD_j.d );
+    pG->U[ks][indx.j-1][indx.i].M1 += dtodx2*(x2FD_j.Mz);
+    pG->U[ks][indx.j-1][indx.i].M2 += dtodx2*(x2FD_j.Mx);
+    pG->U[ks][indx.j-1][indx.i].M3 += dtodx2*(x2FD_j.My);
+#ifndef BAROTROPIC
+    pG->U[ks][indx.j-1][indx.i].E  += dtodx2*(x2FD_j.E );
+#endif /* BAROTROPIC */
+  }
+
+  if (indx.j < pG->je) {
+    pG->U[ks][indx.j+1][indx.i].d  -= dtodx2*(x2FD_jp1.d );
+    pG->U[ks][indx.j+1][indx.i].M1 -= dtodx2*(x2FD_jp1.Mz);
+    pG->U[ks][indx.j+1][indx.i].M2 -= dtodx2*(x2FD_jp1.Mx);
+    pG->U[ks][indx.j+1][indx.i].M3 -= dtodx2*(x2FD_jp1.My);
+#ifndef BAROTROPIC
+    pG->U[ks][indx.j+1][indx.i].E  -= dtodx2*(x2FD_jp1.E );
+#endif /* BAROTROPIC */
+  }
+
+}
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #endif /* VL_INTEGRATOR */

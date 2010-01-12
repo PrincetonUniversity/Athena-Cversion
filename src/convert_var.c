@@ -456,9 +456,21 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
 /* Case of p < 0, which triggers an exit currently */
 /* Should be amended to either solve the cold MHD eqn's, fall back on the
  * entropy or tell the integrator to switch to a more diffusive update */
-    printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+/*    printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e\n",
       rho,pgas,Chi,Vsq,Gsq,Q);
     ath_error("[Cons1D_to_Prim1D]: Got a negative pressure\n");
+*/
+    tmp1 = 1.0 / Q;
+    tmp2 = 1.0 / (Q + Bsq);
+    Prim1D.d = MAX(rho,TINY_NUMBER);
+    Prim1D.P = MAX(pgas,1.0e-5);
+    Prim1D.Vx = (U->Mx + S*(*Bx)*tmp1)*tmp2;
+    Prim1D.Vy = (U->My + S*U->By*tmp1)*tmp2;
+    Prim1D.Vz = (U->Mz + S*U->Bz*tmp1)*tmp2;
+
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
+
   } else if (nr_success == 3) {
 /* Case of V^2 > 0, in which case we try again with some rescalings */
     printf("[Cons1D_to_Prim1D]: Got a superluminal velocity, fixing\n");

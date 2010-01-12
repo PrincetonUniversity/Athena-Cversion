@@ -30,13 +30,14 @@ void problem(DomainS *pDomain)
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  Real pressure,prat,rad,pa,da,x1,x2,x3;
+  Real pressure,drat,prat,rad,pa,da,x1,x2,x3;
   Real b0=0.0,Bx=0.0,rin;
   double theta;
 
   rin = par_getd("problem","radius");
   pa  = par_getd("problem","pamb");
-  da  = 1.0;
+  da  = par_getd_def("problem","damb",1.0);
+  drat = par_getd_def("problem","drat",1.0);
   prat = par_getd("problem","prat");
 #ifdef MHD
   b0 = par_getd("problem","b0");
@@ -63,10 +64,9 @@ void problem(DomainS *pDomain)
 #ifndef ISOTHERMAL
         W.P = pa;
 	if (rad < rin) W.P = prat*pa;
-#else
-        W.d = da;
-	if (rad < rin) W.d = prat*da;
 #endif
+        W.d = da;
+	if (rad < rin) W.d = drat*da;
 
         U1d = Prim1D_to_Cons1D(&(W),&Bx);
 

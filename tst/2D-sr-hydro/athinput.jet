@@ -6,7 +6,7 @@ config  = --with-gas=hydro --with-problem=jet --enable-special-relativity --with
 
 <job>
 problem_id      = SRjet     # problem ID: basename of output filenames
-maxout          = 3         # Output blocks number from 1 -> maxout
+maxout          = 4         # Output blocks number from 1 -> maxout
 num_domains     = 1         # number of Domains in Mesh
 
 <output1>
@@ -14,6 +14,11 @@ out_fmt = hst               # History data dump
 dt      = 0.1               # time increment between outputs
 
 <output2>
+out_fmt = bin               # Binary data dump
+dt      = 1.0               # time increment between outputs
+out     = prim              # output primitive variables
+
+<output3>
 out_fmt = ppm
 dt      = 0.1
 out     = d
@@ -23,7 +28,17 @@ dmax    = 61.0
 palette = rainbow
 level   = 0
 
-<output3>
+<output4>
+out_fmt = ppm
+dt      = 0.1
+out     = G
+id      = gamma-l0
+dmin    = 0.0
+dmax    = 10.0
+palette = rainbow
+level   = 0
+
+<output5>
 out_fmt = ppm
 dt      = 0.1
 out     = d
@@ -33,25 +48,20 @@ dmax    = 61.0
 palette = rainbow
 level   = 1
 
-<output4>
-out_fmt = bin               # Binary data dump
-dt      = 0.01              # time increment between outputs
-out     = prim              # output primitive variables
-
 <time>
 cour_no         = 0.5       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000    # cycle limit
-tlim            = 110.0      # time limit
+tlim            = 120.0      # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 300       # Number of zones in X1-direction
+Nx1             = 600       # Number of zones in X1-direction
 x1min           = 0.0       # minimum value of X1
 x1max           = 60.0      # maximum value of X1
 bc_ix1          = 2         # boundary condition flag for inner-I (X1)
 bc_ox1          = 2         # boundary condition flag for outer-I (X1)
 
-Nx2             = 250       # Number of zones in X2-direction
+Nx2             = 500       # Number of zones in X2-direction
 x2min           = -25.0     # minimum value of X2
 x2max           = 25.0      # maximum value of X2
 bc_ix2          = 2         # boundary condition flag for inner-J (X2)

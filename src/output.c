@@ -14,7 +14,7 @@
  *   N < maxout.  If N > maxout, that <outputN> block is ignored.
  *
  * OPTIONS available in an <outputN> block are:
- *   out         = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2
+ *   out         = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2,G
  *   out_fmt     = bin,hst,tab,rst,vtk,fits,pdf,pgm,ppm
  *   dat_fmt     = format string used to write tabular output (e.g. %12.5e)
  *   dt          = problem time between outputs
@@ -127,6 +127,9 @@ Real expr_V3 (const GridS *pG, const int i, const int j, const int k);
 Real expr_P  (const GridS *pG, const int i, const int j, const int k);
 Real expr_cs2(const GridS *pG, const int i, const int j, const int k);
 Real expr_S  (const GridS *pG, const int i, const int j, const int k);
+#ifdef SPECIAL_RELATIVITY
+Real expr_G  (const GridS *pG, const int i, const int j, const int k);
+#endif
 #ifdef PARTICLES
 extern Real expr_dpar (const GridS *pG, const int i, const int j, const int k);
 extern Real expr_M1par(const GridS *pG, const int i, const int j, const int k);
@@ -994,6 +997,18 @@ Real expr_S(const GridS *pG, const int i, const int j, const int k)
 }
 #endif /* ADIABATIC */
 
+/*--------------------------------------------------------------------------- */
+/* expr_G: gamma = 1/sqrt(1-v^2)  */
+
+#ifdef SPECIAL_RELATIVITY
+Real expr_G(const GridS *pG, const int i, const int j, const int k)
+{
+  PrimS W;
+  W = Cons_to_Prim(&(pG->U[k][j][i]));
+  return 1.0/sqrt(1.0 - (SQR(W.V1)+SQR(W.V2)+SQR(W.V3)));
+}
+#endif /* SPECIAL_RELATIVITY */
+
 /*---------------------------------------------------------------------------_*/
 /* check if particle binning is need */
 #ifdef PARTICLES
@@ -1066,6 +1081,10 @@ static ConsFun_t getexpr(const int n, const char *expr)
   else if (strcmp(expr,"S")==0)
     return  expr_S;
 #endif /* ADIABATIC */
+#ifdef SPECIAL_RELATIVITY
+  else if (strcmp(expr,"G")==0)
+    return  expr_G;
+#endif /* SPECIAL_RELATIVITY */
 #ifdef PARTICLES
   else if (strcmp(expr,"dpar")==0)
     return  expr_dpar;
