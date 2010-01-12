@@ -56,6 +56,18 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
    /* find min/max wave speeds */
    getMaxSignalSpeeds(Wl,Wr,Bx,1.0e-6,&Sl,&Sr);
+
+   if (Sl != Sl) {
+      Sl = -1.0;
+      Sr =  1.0;
+   }
+
+   if (Sr != Sr) {
+      Sl = -1.0;
+      Sr = 1.0;
+   }
+
+
    /* compute L/R fluxes */
    flux_LR(Ul,Wl,&Fl,Bx,&Pl);
    flux_LR(Ur,Wr,&Fr,Bx,&Pr);
