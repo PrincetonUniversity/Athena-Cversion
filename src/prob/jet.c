@@ -22,12 +22,10 @@ void jet_iib(GridS *pGrid);
 
 /* Make radius of jet and jet variables static global so they can be accessed
    by BC functions */
-static Real rjet;
+static Real rjet,Bxjet;
 static Prim1DS Wjet;
 static Cons1DS Ujet;
-static Real x1_mid,x2_mid, x3_mid;
-
-static Real Bxjet;
+static Real x1_mid,x2_mid,x3_mid;
 
 /*----------------------------------------------------------------------------*/
 /* problem */
@@ -223,10 +221,20 @@ void jet_iib(GridS *pGrid){
           pGrid->U[k][j][i].B1c = Bxjet;
           pGrid->U[k][j][i].B2c = Ujet.By;
           pGrid->U[k][j][i].B3c = Ujet.Bz;
+          pGrid->B1i[k][j][i] = Bxjet;
+          pGrid->B2i[k][j][i] = Ujet.By;
+          pGrid->B3i[k][j][i] = Ujet.Bz;
 #endif
         } else{
           pGrid->U[k][j][is-i] = pGrid->U[k][j][is+(i-1)];
-          pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is+(i-1)].M1;
+          pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1;
+#ifdef MHD
+          pGrid->U[k][j][is-i].B2c = -pGrid->U[k][j][is-i].B2c;
+          pGrid->U[k][j][is-i].B3c = -pGrid->U[k][j][is-i].B3c;
+          pGrid->B1i[k][j][is-i] =  pGrid->B1i[k][j][is+i];
+          pGrid->B2i[k][j][is-i] = -pGrid->B2i[k][j][is+(i-1)];
+          pGrid->B3i[k][j][is-i] = -pGrid->B3i[k][j][is+(i-1)];
+#endif
         }
       }
     }
