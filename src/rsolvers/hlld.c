@@ -194,7 +194,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* Ul* */
   /* eqn (39) of M&K */
   Ulst.Mx = Ulst.d * spd[2];
-  if(fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) {
+  if((fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) ||
+     (fabs(spd[2])/fabs(spd[0]) <= SMALL_NUMBER &&
+      fabs(Wl.Vx)/fabs(spd[0]) <= SMALL_NUMBER)) {
     Ulst.My = Ulst.d * Wl.Vy;
     Ulst.Mz = Ulst.d * Wl.Vz;
 
@@ -222,13 +224,15 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   /* eqn (48) of M&K */
   Ulst.E = (sdl*Ul.E - ptl*Wl.Vx + ptst*spd[2] +
             Bxi*(Wl.Vx*Bxi+Wl.Vy*Ul.By+Wl.Vz*Ul.Bz - vbstl))/sdml;
-  Cons1D_to_Prim1D(&Ulst,&Wlst,&Bxi);
+  Wlst = Cons1D_to_Prim1D(&Ulst,&Bxi);
 
 
 /* Ur* */
   /* eqn (39) of M&K */
   Urst.Mx = Urst.d * spd[2];
-  if(fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) {
+  if((fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) ||
+     (fabs(spd[2])/fabs(spd[4]) <= SMALL_NUMBER &&
+      fabs(Wr.Vx)/fabs(spd[4]) <= SMALL_NUMBER)) {
     Urst.My = Urst.d * Wr.Vy;
     Urst.Mz = Urst.d * Wr.Vz;
 
@@ -256,7 +260,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   /* eqn (48) of M&K */
   Urst.E = (sdr*Ur.E - ptr*Wr.Vx + ptst*spd[2] +
             Bxi*(Wr.Vx*Bxi+Wr.Vy*Ur.By+Wr.Vz*Ur.Bz - vbstr))/sdmr;
-  Cons1D_to_Prim1D(&Urst,&Wrst,&Bxi);
+  Wrst = Cons1D_to_Prim1D(&Urst,&Bxi);
 
 
 /* Ul** and Ur** - if Bx is zero, same as *-states */
