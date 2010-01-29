@@ -42,6 +42,7 @@ static Prim1DS **Wl_x2Face=NULL, **Wr_x2Face=NULL;
 static Cons1DS **x1Flux=NULL, **x2Flux=NULL;
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static Cons1DS **x1FluxP=NULL, **x2FluxP=NULL;
+static Real **emf3P=NULL;
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -106,7 +107,7 @@ void integrate_2d_vl(DomainS *pD)
   int ii,ics,ice,jj,jcs,jce,ips,ipe,jps,jpe;
 #endif
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-  int flag_cell=0,negd=0,negP=0,superl=0;
+  int flag_cell=0,negd=0,negP=0,superl=0,NaNFlux=0;
   Real Vsq;
   Int3Vect BadCell;
 #endif
@@ -304,9 +305,6 @@ void integrate_2d_vl(DomainS *pD)
       for (n=0; n<NSCALARS; n++)
         Uhalf[j][i].s[n] -= hdtodx1*(x1Flux[j][i+1].s[n] - x1Flux[j][i].s[n]);
 #endif
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-      x1FluxP[j][i] = x1Flux[j][i];
-#endif
     }
   }
 
@@ -330,11 +328,24 @@ void integrate_2d_vl(DomainS *pD)
       for (n=0; n<NSCALARS; n++)
         Uhalf[j][i].s[n] -= hdtodx2*(x2Flux[j+1][i].s[n] - x2Flux[j][i].s[n]);
 #endif
+    }
+  }
+
 #ifdef FIRST_ORDER_FLUX_CORRECTION
+/*--- Step 5d ------------------------------------------------------------------
+ * With first-orde flux correction, save predict fluxes and emf3
+ */
+
+  for (j=js; j<=je+1; j++) {
+    for (i=is; i<=ie+1; i++) {
+      x1FluxP[j][i] = x1Flux[j][i];
       x2FluxP[j][i] = x2Flux[j][i];
+#ifdef MHD
+      emf3P[j][i] = emf3[j][i];
 #endif
     }
   }
+#endif
 
 /*=== STEP 6: Add source terms to predict values at half-timestep ============*/
 
@@ -540,6 +551,25 @@ void integrate_2d_vl(DomainS *pD)
       Ur[i] = Prim1D_to_Cons1D(&Wr_x1Face[j][i],&Bx);
 
       fluxes(Ul[i],Ur[i],Wl_x1Face[j][i],Wr_x1Face[j][i],Bx,&x1Flux[j][i]);
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/* revert to predictor flux if this flux Nan'ed */
+      if ((x1Flux[j][i].d  != x1Flux[j][i].d)  ||
+#ifndef BAROTROPIC
+          (x1Flux[j][i].E  != x1Flux[j][i].E)  ||
+#endif
+#ifdef MHD
+          (x1Flux[j][i].By != x1Flux[j][i].By) ||
+          (x1Flux[j][i].Bz != x1Flux[j][i].Bz) ||
+#endif
+          (x1Flux[j][i].Mx != x1Flux[j][i].Mx) ||
+          (x1Flux[j][i].My != x1Flux[j][i].My) ||
+          (x1Flux[j][i].Mz != x1Flux[j][i].Mz)) {
+        x1Flux[j][i] = x1FluxP[j][i];
+        NaNFlux++;
+      }
+#endif
+
     }
   }
 
@@ -562,8 +592,35 @@ void integrate_2d_vl(DomainS *pD)
       Ur[i] = Prim1D_to_Cons1D(&Wr_x2Face[j][i],&Bx);
 
       fluxes(Ul[i],Ur[i],Wl_x2Face[j][i],Wr_x2Face[j][i],Bx,&x2Flux[j][i]);
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/* revert to predictor flux if this flux NaN'ed */
+      if ((x2Flux[j][i].d  != x2Flux[j][i].d)  ||
+#ifndef BAROTROPIC
+          (x2Flux[j][i].E  != x2Flux[j][i].E)  ||
+#endif
+#ifdef MHD
+          (x2Flux[j][i].By != x2Flux[j][i].By) ||
+          (x2Flux[j][i].Bz != x2Flux[j][i].Bz) ||
+#endif
+          (x2Flux[j][i].Mx != x2Flux[j][i].Mx) ||
+          (x2Flux[j][i].My != x2Flux[j][i].My) ||
+          (x2Flux[j][i].Mz != x2Flux[j][i].Mz)) {
+        x2Flux[j][i] = x2FluxP[j][i];
+        NaNFlux++;
+      }
+#endif
+
     }
   }
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if (NaNFlux != 0) {
+    printf("[Step10] %i second-order fluxes replaced\n",NaNFlux);
+    NaNFlux=0;
+  }
+#endif
+  
 
 /*=== STEP 11: Update face-centered B for a full timestep ====================*/
         
@@ -823,17 +880,10 @@ void integrate_2d_vl(DomainS *pD)
 
   if (negd > 0 || negP > 0)
     printf("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
-/*
-    ath_error("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
-*/
 #ifdef SPECIAL_RELATIVITY
   if (negd > 0 || negP > 0 || superl > 0)
     printf("[Step14]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
       ,negd,negP,superl);
-/*
-    ath_error("[Step14]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
-      ,negd,negP,superl);
-*/
 #endif
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
@@ -1069,10 +1119,14 @@ void integrate_init_2d(MeshS *pM)
   if ((x2Flux    = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
     == NULL) goto on_error;
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-  if ((x1FluxP    = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
+  if ((x1FluxP = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
     == NULL) goto on_error;
-  if ((x2FluxP    = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
+  if ((x2FluxP = (Cons1DS**)calloc_2d_array(size2,size1, sizeof(Cons1DS))) 
     == NULL) goto on_error;
+#ifdef MHD
+  if ((emf3P = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
+    goto on_error;
+#endif
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
   if ((Uhalf = (ConsS**)calloc_2d_array(size2,size1,sizeof(ConsS)))==NULL)
@@ -1121,6 +1175,9 @@ void integrate_destruct_2d(void)
 #ifdef FIRST_ORDER_FLUX_CORRECTION
   if (x1FluxP   != NULL) free_2d_array(x1FluxP);
   if (x2FluxP   != NULL) free_2d_array(x2FluxP);
+#ifdef MHD
+  if (emf3P     != NULL) free_2d_array(emf3P);
+#endif
 #endif
 
   if (Uhalf    != NULL) free_2d_array(Uhalf);
@@ -1223,6 +1280,10 @@ static void FixCell(GridS *pG, Int3Vect indx)
   int ks=pG->ks;
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
   Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1;
+#ifdef MHD
+  int i,j;
+  Real emf3D_ji, emf3D_jip1, emf3D_jp1i, emf3D_jp1ip1;
+#endif
 
 /* Compute difference of predictor and corrector fluxes at cell faces */
 
@@ -1253,7 +1314,19 @@ static void FixCell(GridS *pG, Int3Vect indx)
   x2FD_jp1.E  = x2Flux[indx.j+1][indx.i  ].E - x2FluxP[indx.j+1][indx.i  ].E;
 #endif /* BAROTROPIC */
 
-/* Use flux differences to correct bad cell */
+#ifdef MHD
+  x1FD_i.Bz    = x1Flux[indx.j  ][indx.i  ].Bz - x1FluxP[indx.j  ][indx.i  ].Bz;
+  x1FD_ip1.Bz  = x1Flux[indx.j  ][indx.i+1].Bz - x1FluxP[indx.j  ][indx.i+1].Bz;
+  x2FD_j.By    = x2Flux[indx.j  ][indx.i  ].By - x2FluxP[indx.j  ][indx.i  ].By;
+  x2FD_jp1.By  = x2Flux[indx.j+1][indx.i  ].By - x2FluxP[indx.j+1][indx.i  ].By;
+
+  emf3D_ji     = emf3[indx.j  ][indx.i  ] - emf3P[indx.j  ][indx.i  ];
+  emf3D_jip1   = emf3[indx.j  ][indx.i+1] - emf3P[indx.j  ][indx.i+1];
+  emf3D_jp1i   = emf3[indx.j+1][indx.i  ] - emf3P[indx.j+1][indx.i  ];
+  emf3D_jp1ip1 = emf3[indx.j+1][indx.i+1] - emf3P[indx.j+1][indx.i+1];
+#endif /* MHD */
+
+/* Use flux differences to correct bad cell-centered quantities */
 
   pG->U[ks][indx.j][indx.i].d  += dtodx1*(x1FD_ip1.d  - x1FD_i.d );
   pG->U[ks][indx.j][indx.i].M1 += dtodx1*(x1FD_ip1.Mx - x1FD_i.Mx);
@@ -1262,6 +1335,9 @@ static void FixCell(GridS *pG, Int3Vect indx)
 #ifndef BAROTROPIC
   pG->U[ks][indx.j][indx.i].E  += dtodx1*(x1FD_ip1.E  - x1FD_i.E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+  pG->U[ks][indx.j][indx.i].B3c += dtodx1*(x1FD_ip1.Bz - x1FD_i.Bz);
+#endif /* MHD */
 
   pG->U[ks][indx.j][indx.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
   pG->U[ks][indx.j][indx.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
@@ -1270,8 +1346,11 @@ static void FixCell(GridS *pG, Int3Vect indx)
 #ifndef BAROTROPIC
   pG->U[ks][indx.j][indx.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+  pG->U[ks][indx.j][indx.i].B3c += dtodx2*(x2FD_jp1.By - x2FD_j.By);
+#endif /* MHD */
 
-/* Use flux differences to correct bad cell neighbors at i-1 and i+1 */
+/* Use flux differences to correct cell-centered values at i-1 and i+1 */
 
   if (indx.i > pG->is) {
     pG->U[ks][indx.j][indx.i-1].d  += dtodx1*(x1FD_i.d );
@@ -1281,6 +1360,9 @@ static void FixCell(GridS *pG, Int3Vect indx)
 #ifndef BAROTROPIC
     pG->U[ks][indx.j][indx.i-1].E  += dtodx1*(x1FD_i.E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+    pG->U[ks][indx.j][indx.i-1].B3c += dtodx1*(x1FD_i.Bz);
+#endif /* MHD */
   }
 
   if (indx.i < pG->ie) {
@@ -1291,9 +1373,12 @@ static void FixCell(GridS *pG, Int3Vect indx)
 #ifndef BAROTROPIC
     pG->U[ks][indx.j][indx.i+1].E  -= dtodx1*(x1FD_ip1.E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+    pG->U[ks][indx.j][indx.i+1].B3c -= dtodx1*(x1FD_ip1.Bz);
+#endif /* MHD */
   }
 
-/* Use flux differences to correct bad cell neighbors at j-1 and j+1 */
+/* Use flux differences to correct cell-centered values at j-1 and j+1 */
 
   if (indx.j > pG->js) {
     pG->U[ks][indx.j-1][indx.i].d  += dtodx2*(x2FD_j.d );
@@ -1303,6 +1388,9 @@ static void FixCell(GridS *pG, Int3Vect indx)
 #ifndef BAROTROPIC
     pG->U[ks][indx.j-1][indx.i].E  += dtodx2*(x2FD_j.E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+    pG->U[ks][indx.j-1][indx.i].B3c += dtodx2*(x2FD_j.By);
+#endif /* MHD */
   }
 
   if (indx.j < pG->je) {
@@ -1313,7 +1401,50 @@ static void FixCell(GridS *pG, Int3Vect indx)
 #ifndef BAROTROPIC
     pG->U[ks][indx.j+1][indx.i].E  -= dtodx2*(x2FD_jp1.E );
 #endif /* BAROTROPIC */
+#ifdef MHD
+    pG->U[ks][indx.j+1][indx.i].B3c -= dtodx2*(x2FD_jp1.By);
+#endif /* MHD */
   }
+
+/* Use emf3 difference to correct face-centered fields around bad cell */
+#ifdef MHD
+  pG->B1i[ks][indx.j][indx.i  ] += dtodx2*(emf3D_jp1i   - emf3D_ji);
+  pG->B1i[ks][indx.j][indx.i+1] += dtodx2*(emf3D_jp1ip1 - emf3D_jip1);
+  pG->B2i[ks][indx.j  ][indx.i] -= dtodx1*(emf3D_jip1   - emf3D_ji);
+  pG->B2i[ks][indx.j+1][indx.i] -= dtodx1*(emf3D_jp1ip1 - emf3D_jp1i);
+
+  if (indx.j > pG->js) {
+    pG->B1i[ks][indx.j-1][indx.i  ] -= dtodx2*(emf3D_ji);
+    pG->B1i[ks][indx.j-1][indx.i+1] -= dtodx2*(emf3D_jip1);
+  }
+  if (indx.j < pG->je) {
+    pG->B1i[ks][indx.j+1][indx.i  ] += dtodx2*(emf3D_jp1i);
+    pG->B1i[ks][indx.j+1][indx.i+1] += dtodx2*(emf3D_jp1ip1);
+  }
+
+  if (indx.i > pG->is) {
+    pG->B2i[ks][indx.j  ][indx.i-1] += dtodx1*(emf3D_ji);
+    pG->B2i[ks][indx.j+1][indx.i-1] += dtodx1*(emf3D_jp1i);
+  }
+  if (indx.i < pG->ie) {
+    pG->B2i[ks][indx.j  ][indx.i+1] -= dtodx1*(emf3D_jip1);
+    pG->B2i[ks][indx.j+1][indx.i+1] -= dtodx1*(emf3D_jp1ip1);
+  }
+
+  for (j=(indx.j-1); j<=(indx.j+1); j++) {
+  for (i=(indx.i-1); i<=(indx.i+1); i++) {
+    pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j][i+1]);
+    pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j+1][i]);
+  }}
+#endif /* MHD */
+
+#ifdef STATIC_MESH_REFINEMENT
+/* With SMR, replace higher-order fluxes with predict fluxes in case they are
+ * used at fine/coarse grid boundaries */ 
+
+  x1Flux[indx.j][indx.i] = x1FluxP[indx.j][indx.i];
+  x2Flux[indx.j][indx.i] = x2FluxP[indx.j][indx.i];
+#endif /* STATIC_MESH_REFINEMENT */
 
 }
 #endif /* FIRST_ORDER_FLUX_CORRECTION */

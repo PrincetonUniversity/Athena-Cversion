@@ -22,7 +22,7 @@ out     = prim              # output primitive variables
 out_fmt = ppm
 dt      = 0.1
 out     = d
-id      = d0-l0
+id      = d0
 dmin    = 0.01
 dmax    = 61.0
 palette = rainbow
@@ -32,7 +32,7 @@ level   = 0
 out_fmt = ppm
 dt      = 0.1
 out     = G
-id      = gamma-l0
+id      = gamma
 dmin    = 0.0
 dmax    = 10.0
 palette = rainbow
@@ -48,8 +48,18 @@ dmax    = 61.0
 palette = rainbow
 level   = 1
 
+<output6>
+out_fmt = ppm
+dt      = 0.1
+out     = G
+id      = gamma
+dmin    = 0.0
+dmax    = 10.0
+palette = rainbow
+level   = 1
+
 <time>
-cour_no         = 0.5       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000    # cycle limit
 tlim            = 120.0      # time limit
 
