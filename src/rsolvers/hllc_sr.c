@@ -13,7 +13,7 @@
  *   A. Mignone and G. Bodo, "An HLLC Solver for Relativistic Flows - II:
  *   Magnetohydrodynamics", arxiv:astro-ph/0601640v1 (2006)
  *
- * HISTORY: Written by Jonathan Fulton, February 2009
+ * HISTORY: Written by Jonathan FUlton, February 2009
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   fluxes() - all Riemann solvers in Athena must have this function name and
@@ -32,10 +32,6 @@
 #ifdef HLLC_FLUX
 #ifdef SPECIAL_RELATIVITY
 
-#ifdef MHD
-#error : The HLLC flux only works for hydro.
-#endif
-
 #if (NSCALARS > 0)
 #error : The SR HLLC flux does not work with passive scalars.
 #endif
@@ -43,26 +39,71 @@
 void printCons1D(const Cons1DS* c);
 void printPrim1D(const Prim1DS* p);
 
-#ifdef HYDRO
+#ifdef MHD
+void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p);
+void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
+                        const Real Bx, Real* low, Real* high);
+void getMaxSignalSpeedsa(const Prim1DS Wl, const Prim1DS Wr,
+			 const Real Bx, Real* low, Real* high);
+void getLambdaMinMax(const Prim1DS W, const Real Bx, Real* lm, Real* lp);
+int getMaxChSpeed  (const Prim1DS W, const Real Bx, Real *cmin, Real *cmax);
+void getVChar(const Prim1DS W, const Real Bx, Real* lml, Real* lmr);
+void getVChara(const Prim1DS W, const Real Bx, Real* lml, Real* lmr);
+void getSoundSpeed2(const Prim1DS W, Real *cs2, Real *h);
+/* solves quartic equation defined by a and returns roots in root
+ * returns the number of Real roots 
+ * error specifies an accuracy
+ * currently force four Real solutions b/c it's physical */
+int QUARTIC (Real b, Real c, Real d, Real e, Real z[]);
+
+/* solves cubic equation defined by a and stores roots in root
+ * returns number of Real roots */
+int CUBIC(Real b, Real c, Real d, Real z[]);
+
 void printCons1D(const Cons1DS* c){
-   printf("d:  %e\n",c->d);
-   printf("E:  %e\n",c->E);
-   printf("Mx: %e\n",c->Mx);
-   printf("My: %e\n",c->My);
-   printf("Mz: %e\n",c->Mz);
-   printf("\n");
+  printf("d:  %e\n",c->d);
+  printf("E:  %e\n",c->E);
+  printf("Mx: %e\n",c->Mx);
+  printf("My: %e\n",c->My);
+  printf("Mz: %e\n",c->Mz);
+  printf("By: %e\n",c->By);
+  printf("Bz: %e\n",c->Bz);
+  printf("\n");
 }
 
 void printPrim1D(const Prim1DS* p){
-   printf("d:  %e\n",p->d);
-   printf("P:  %e\n",p->P);
-   printf("Vx: %e\n",p->Vx);
-   printf("Vy: %e\n",p->Vy);
-   printf("Vz: %e\n",p->Vz);
-   printf("\n");
+  printf("d:  %e\n",p->d);
+  printf("P:  %e\n",p->P);
+  printf("Vx: %e\n",p->Vx);
+  printf("Vy: %e\n",p->Vy);
+  printf("Vz: %e\n",p->Vz);
+  printf("By: %e\n",p->By);
+  printf("Bz: %e\n",p->Bz);
+  printf("\n");
 }
 #endif
 
+#ifdef HYDRO
+void printCons1D(const Cons1DS* c){
+  printf("d:  %e\n",c->d);
+  printf("E:  %e\n",c->E);
+  printf("Mx: %e\n",c->Mx);
+  printf("My: %e\n",c->My);
+  printf("Mz: %e\n",c->Mz);
+  printf("\n");
+}
+
+void printPrim1D(const Prim1DS* p){
+  printf("d:  %e\n",p->d);
+  printf("P:  %e\n",p->P);
+  printf("Vx: %e\n",p->Vx);
+  printf("Vy: %e\n",p->Vy);
+  printf("Vz: %e\n",p->Vz);
+  printf("\n");
+}
+#endif
+
+#ifdef HYDRO
 /*----------------------------------------------------------------------------*/
 /* fluxes
  *   Input Arguments:
@@ -82,20 +123,20 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real lmdas; /* Contact wave speed */
   Real ovlrmll;
   Real a,b,c,quad,rad;
-  Real den,ps; /* Pressure in inner region */
+  Real den,ps; /* PressUre in inner region */
 
   /*printf("Wl\n");
-  printPrim1D(&Wl);
-  printf("Wr\n");
-  printPrim1D(&Wr);
-  printf("Ul\n");
-  printCons1D(&Ul);
-  printf("Ur\n");
-  printCons1D(&Ur);*/
+    printPrim1D(&Wl);
+    printf("Wr\n");
+    printPrim1D(&Wr);
+    printf("Ul\n");
+    printCons1D(&Ul);
+    printf("Ur\n");
+    printCons1D(&Ur);*/
 
-/*--- Step 1. ------------------------------------------------------------------
- * Compute the max and min wave speeds used in Mignone 
- */
+  /*--- Step 1. ------------------------------------------------------------------
+   * Compute the max and min wave speeds used in Mignone 
+   */
 
   rhl = Wl.d + Wl.P * Gamma / Gamma_1; /* Mignone Eq 3.5 */
   rhr = Wr.d + Wr.P * Gamma / Gamma_1;
@@ -127,9 +168,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   lmdar = MAX(lmdapl, lmdapr);
   
 
-/*--- Step 2. ------------------------------------------------------------------
- * Compute L/R fluxes according to Mignone 2
- */
+  /*--- Step 2. ------------------------------------------------------------------
+   * Compute L/R fluxes according to Mignone 2
+   */
 
   Fl.d  = Ul.d * Wl.Vx;
   Fl.Mx = Ul.Mx * Wl.Vx + Wl.P;
@@ -144,14 +185,14 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Fr.E  = Ur.Mx;
 
   /*printf("F_L\n");
-  printCons1D(&Fl);
-  printf("F_R\n");
-  printCons1D(&Fr);*/
+    printCons1D(&Fl);
+    printf("F_R\n");
+    printCons1D(&Fr);*/
 
-/*--- Step 3. ------------------------------------------------------------------
- * Compute HLL flux using Mignone Eq 11 (necessary for computing lmdas (Eq 18)
- * Compute HLL conserved quantities using Mignone eq 9
- */
+  /*--- Step 3. ------------------------------------------------------------------
+   * Compute HLL flux using Mignone Eq 11 (necessary for computing lmdas (Eq 18)
+   * Compute HLL conserved quantities using Mignone eq 9
+   */
 
   ovlrmll = 1.0 / ( lmdar - lmdal );
   lmdatlmda = lmdal*lmdar;
@@ -168,125 +209,1029 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Uhll.Mz = (lmdar * Ur.Mz - lmdal * Ul.Mz + Fl.Mz - Fr.Mz) * ovlrmll;
   Uhll.E  = (lmdar * Ur.E  - lmdal * Ul.E  + Fl.E  - Fr.E ) * ovlrmll;
 
-/*  printf("Uhll\n");
-  printCons1D(&Uhll);
-  printf("Fhll\n");
-  printCons1D(&Fhll);*/
+  /*  printf("Uhll\n");
+      printCons1D(&Uhll);
+      printf("Fhll\n");
+      printCons1D(&Fhll);*/
 
-/*--- Step 4. ------------------------------------------------------------------
- * Compute contact wave speed using larger root from Mignone Eq 18
- * Physical root is the root with the minus sign
- */
+  /*--- Step 4. ------------------------------------------------------------------
+   * Compute contact wave speed using larger root from Mignone Eq 18
+   * Physical root is the root with the minus sign
+   */
 
-  /* quadratic formula calculation */
+  /* quadratic formUla calcUlation */
 
   a = Fhll.E;
   b = -(Uhll.E + Fhll.Mx);
   c = Uhll.Mx;
 
-/*  if(fabs(Fhll.E) > (TINY_NUMBER)){
-     rad = sqrt(b*b - 4.0*a*c);
-     lmdas = (-b + SIGN(b)*rad) / (2.0 * a);
-  }
-  else{
-     lmdas = -c/b;
-     }*/
+  /*  if(fabs(Fhll.E) > (TINY_NUMBER)){
+      rad = sqrt(b*b - 4.0*a*c);
+      lmdas = (-b + SIGN(b)*rad) / (2.0 * a);
+      }
+      else{
+      lmdas = -c/b;
+      }*/
 
   quad = -0.5*(b + SIGN(b)*sqrt(b*b - 4.0*a*c));
   lmdas = c/quad;
 
   /*********************************/
   /*printf("lamdal: %e\n",lmdal);
-  printf("lamdas: %e\n",lmdas);
-  printf("lamdar: %e\n\n",lmdar);*/
+    printf("lamdas: %e\n",lmdas);
+    printf("lamdar: %e\n\n",lmdar);*/
 
-/*--- Step 5. ------------------------------------------------------------------
- * Determine intercell flux according to Mignone 13
- */
+  /*--- Step 5. ------------------------------------------------------------------
+   * Determine intercell flux according to Mignone 13
+   */
 
   if( lmdal >= 0.0){ /* Fl */
-     /* intercell flux is left flux */
-     pFlux->d  = Fl.d;
-     pFlux->Mx = Fl.Mx;
-     pFlux->My = Fl.My;
-     pFlux->Mz = Fl.Mz;
-     pFlux->E  = Fl.E;
+    /* intercell flux is left flux */
+    pFlux->d  = Fl.d;
+    pFlux->Mx = Fl.Mx;
+    pFlux->My = Fl.My;
+    pFlux->Mz = Fl.Mz;
+    pFlux->E  = Fl.E;
 
-     return;
+    retUrn;
   }
   else if( lmdas >= 0.0){ /* Fls */
 
-     /* Mignone 2006 Eq 48 */
-     ps = -Fhll.E*lmdas + Fhll.Mx;
+    /* Mignone 2006 Eq 48 */
+    ps = -Fhll.E*lmdas + Fhll.Mx;
 
-     /* now calculate Usl with Mignone Eq 16 */
-     den = 1.0 / (lmdal - lmdas);
+    /* now calcUlate Usl with Mignone Eq 16 */
+    den = 1.0 / (lmdal - lmdas);
 
-     Usl.d  = Ul.d * (lmdal - Wl.Vx) * den;
-     Usl.Mx = (Ul.Mx * (lmdal - Wl.Vx) + ps - Wl.P) * den;
-     Usl.My = Ul.My * (lmdal - Wl.Vx) * den;
-     Usl.Mz = Ul.Mz * (lmdal - Wl.Vx) * den;
-     Usl.E  = (Ul.E * (lmdal - Wl.Vx) + ps * lmdas - Wl.P * Wl.Vx) * den;
+    Usl.d  = Ul.d * (lmdal - Wl.Vx) * den;
+    Usl.Mx = (Ul.Mx * (lmdal - Wl.Vx) + ps - Wl.P) * den;
+    Usl.My = Ul.My * (lmdal - Wl.Vx) * den;
+    Usl.Mz = Ul.Mz * (lmdal - Wl.Vx) * den;
+    Usl.E  = (Ul.E * (lmdal - Wl.Vx) + ps * lmdas - Wl.P * Wl.Vx) * den;
 
-     /*printf("ps: %f\n",ps);
-     printf("Fl\n");
-     printCons1D(&Fl);
-     printf("Usl\n");
-     printCons1D(&Usl);*/
+    /*printf("ps: %f\n",ps);
+      printf("Fl\n");
+      printCons1D(&Fl);
+      printf("Usl\n");
+      printCons1D(&Usl);*/
 
-     /* now calculate Fsr using Mignone Eq 14 */
+    /* now calcUlate Fsr using Mignone Eq 14 */
 
-     pFlux->d  = lmdal*(Usl.d  - Ul.d ) + Fl.d;
-     pFlux->Mx = lmdal*(Usl.Mx - Ul.Mx) + Fl.Mx;
-     pFlux->My = lmdal*(Usl.My - Ul.My) + Fl.My;
-     pFlux->Mz = lmdal*(Usl.Mz - Ul.Mz) + Fl.Mz;
-     pFlux->E  = lmdal*(Usl.E  - Ul.E ) + Fl.E;
+    pFlux->d  = lmdal*(Usl.d  - Ul.d ) + Fl.d;
+    pFlux->Mx = lmdal*(Usl.Mx - Ul.Mx) + Fl.Mx;
+    pFlux->My = lmdal*(Usl.My - Ul.My) + Fl.My;
+    pFlux->Mz = lmdal*(Usl.Mz - Ul.Mz) + Fl.Mz;
+    pFlux->E  = lmdal*(Usl.E  - Ul.E ) + Fl.E;
 
-     return;
+    retUrn;
   }
   else if( lmdar >= 0.0){ /* Frs */
 
-     /* Mignone 2006 Eq 48 */
-     ps = -Fhll.E*lmdas + Fhll.Mx;
+    /* Mignone 2006 Eq 48 */
+    ps = -Fhll.E*lmdas + Fhll.Mx;
 
-     /* now calculate Usr with Mignone Eq 16 */
-     den = 1.0 / (lmdar - lmdas);
+    /* now calcUlate Usr with Mignone Eq 16 */
+    den = 1.0 / (lmdar - lmdas);
 
-     Usr.d  = Ur.d * (lmdar - Wr.Vx) * den;
-     Usr.Mx = (Ur.Mx * (lmdar - Wr.Vx) + ps - Wr.P) * den;
-     Usr.My = Ur.My * (lmdar - Wr.Vx) * den;
-     Usr.Mz = Ur.Mz * (lmdar - Wr.Vx) * den;
-     Usr.E  = (Ur.E * (lmdar - Wr.Vx) + ps * lmdas - Wr.P * Wr.Vx) * den;
+    Usr.d  = Ur.d * (lmdar - Wr.Vx) * den;
+    Usr.Mx = (Ur.Mx * (lmdar - Wr.Vx) + ps - Wr.P) * den;
+    Usr.My = Ur.My * (lmdar - Wr.Vx) * den;
+    Usr.Mz = Ur.Mz * (lmdar - Wr.Vx) * den;
+    Usr.E  = (Ur.E * (lmdar - Wr.Vx) + ps * lmdas - Wr.P * Wr.Vx) * den;
 
-     /*printf("ps: %f\n",ps);
-     printf("Fr\n");
-     printCons1D(&Fr);
-     printf("Usr\n");
-     printCons1D(&Usr); */
+    /*printf("ps: %f\n",ps);
+      printf("Fr\n");
+      printCons1D(&Fr);
+      printf("Usr\n");
+      printCons1D(&Usr); */
 
-     /* now calculate Fsr using Mignone Eq 14 */
+    /* now calcUlate Fsr using Mignone Eq 14 */
 
-     pFlux->d  = lmdar*(Usr.d  - Ur.d ) + Fr.d;
-     pFlux->Mx = lmdar*(Usr.Mx - Ur.Mx) + Fr.Mx;
-     pFlux->My = lmdar*(Usr.My - Ur.My) + Fr.My;
-     pFlux->Mz = lmdar*(Usr.Mz - Ur.Mz) + Fr.Mz;
-     pFlux->E  = lmdar*(Usr.E  - Ur.E ) + Fr.E;
+    pFlux->d  = lmdar*(Usr.d  - Ur.d ) + Fr.d;
+    pFlux->Mx = lmdar*(Usr.Mx - Ur.Mx) + Fr.Mx;
+    pFlux->My = lmdar*(Usr.My - Ur.My) + Fr.My;
+    pFlux->Mz = lmdar*(Usr.Mz - Ur.Mz) + Fr.Mz;
+    pFlux->E  = lmdar*(Usr.E  - Ur.E ) + Fr.E;
 
-     return;
+    retUrn;
   }
   else{ /* Fr */
-     /* intercell flux is right flux */
-     pFlux->d  = Fr.d;
-     pFlux->Mx = Fr.Mx;
-     pFlux->My = Fr.My;
-     pFlux->Mz = Fr.Mz;
-     pFlux->E  = Fr.E;
+    /* intercell flux is right flux */
+    pFlux->d  = Fr.d;
+    pFlux->Mx = Fr.Mx;
+    pFlux->My = Fr.My;
+    pFlux->Mz = Fr.Mz;
+    pFlux->E  = Fr.E;
 
-     return;
+    retUrn;
   }
   
   /* need to deal with scalar fluxes */
 }
+
+#endif /* HYDRO */
+
+#ifdef MHD
+/*----------------------------------------------------------------------------*/
+/* fluxes
+ *   Input Arguments:
+ *     Ul,Ur = L/R-states of CONSERVED variables at cell interface 
+ *     Wl,Wr = L/R-states of PRIMITIVE variables at cell interface 
+ *   Output Arguments:
+ *     pFlux = pointer to fluxes of CONSERVED variables at cell interface 
+ */
+
+void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+            const Prim1DS Wl, const Prim1DS Wr, const Real Bxi, Cons1DS *pFlux)
+{
+  Cons1DS Fl,Fr,Fhll,Uhll,Usl,Usr;
+  Prim1DS Wsl,Wsr,Whll;
+  Real Sl, Sr, Pl, Pr;
+  Real Sla, Sra;
+  Real dS_1, scrh;
+  Real Bx, Bys, Bzs;
+  Real BtFBt, Bt2, FBt2;
+  Real a, b, c;
+  Real ps, vxs, vys, vzs, gammas_2, vBs, V2l, V2r;
+  Real vxl, vxr, alpha_l, alpha_r;
+  int ps_success,vxs_success,int_success;
+	
+  /*printf("Wl\n");
+    printPrim1D(&Wl);
+    printf("Wr\n");
+    printPrim1D(&Wr);
+    printf("Ul\n");
+    printCons1D(&Ul);
+    printf("Ur\n");
+    printCons1D(&Ur);*/
+	
+  /*--- Step 1. ------------------------------------------------------------------
+   * Compute the max and min wave speeds used in Mignone 
+   */
+  getMaxSignalSpeeds(Wl,Wr,Bxi,&Sl,&Sr);
+  getMaxSignalSpeedsa(Wl,Wr,Bxi,&Sla,&Sra);
+  /*printf("[hllc_sr_mhd]: Exact Wave speeds     %10.4e %10.4e\n",Sl,Sr);
+    printf("[hllc_sr_mhd]: Estimated Wave speeds %10.4e %10.4e\n",Sla,Sra);*/
+
+	
+  if (Sla != Sla) {
+    printf("[hllc_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
+    Sla = -1.0;
+    Sra =  1.0;
+  }
+	
+  if (Sra != Sra) {
+    printf("[hllc_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
+    Sla = -1.0;
+    Sra = 1.0;
+  }
+	
+  if (Sla < -1.0) {
+    printf("[hlle_sr]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
+    Sla = -1.0;
+    Sra = 1.0;
+  }
+  if (Sra > 1.0) {
+    printf("[hlle_sr]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
+    Sla = -1.0;
+    Sra = 1.0;
+  }
+	
+  if (Sl != Sl) {
+    printf("[hllc_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr =  1.0;
+  }
+	
+  if (Sr != Sr) {
+    printf("[hllc_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr = 1.0;
+  }
+	
+  if (Sl < -1.0) {
+    printf("[hlle_sr]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr = 1.0;
+  }
+  if (Sr > 1.0) {
+    printf("[hlle_sr]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr = 1.0;
+  }
+	
+  if (Sl ==-1.0) Sl = Sla;
+  if (Sr == 1.0) Sr = Sra;
+
+  /* compute L/R fluxes */
+  flux_LR(Ul,Wl,&Fl,Bxi,&Pl);
+  flux_LR(Ur,Wr,&Fr,Bxi,&Pr);
+	
+  /*--- Step 2. ------------------------------------------------------------------
+   * Construct HLL fluxes & average state
+   */
+  dS_1 = 1.0/(Sr - Sl);
+
+  Uhll.d  = (Sr*Ur.d  - Sl*Ul.d  + Fl.d  - Fr.d ) * dS_1;
+  Uhll.Mx = (Sr*Ur.Mx - Sl*Ul.Mx + Fl.Mx - Fr.Mx) * dS_1;
+  Uhll.My = (Sr*Ur.My - Sl*Ul.My + Fl.My - Fr.My) * dS_1;
+  Uhll.Mz = (Sr*Ur.Mz - Sl*Ul.Mz + Fl.Mz - Fr.Mz) * dS_1;
+  Uhll.E  = (Sr*Ur.E  - Sl*Ul.E  + Fl.E  - Fr.E ) * dS_1;
+  Uhll.By = (Sr*Ur.By - Sl*Ul.By + Fl.By - Fr.By) * dS_1;
+  Uhll.Bz = (Sr*Ur.Bz - Sl*Ul.Bz + Fl.Bz - Fr.Bz) * dS_1;
+	
+  Whll = Cons1D_to_Prim1D (&Uhll,&Bx);
+  V2l = SQR(Whll.Vx) + SQR(Whll.Vy) + SQR(Whll.Vz);
+  if (Whll.P < 0 || Whll.d < 0 || V2l > 1.0){
+    printf("[hllc_sr_mhd]: hll average state has Pl = %10.4e, dl = %10.4e, Vsq = \n",Whll.P,Whll.d,V2l);
+  }
+		
+  Fhll.d  = (Sr*Fl.d  - Sl*Fr.d  + Sl*Sr*(Ur.d  - Ul.d )) * dS_1;
+  Fhll.Mx = (Sr*Fl.Mx - Sl*Fr.Mx + Sl*Sr*(Ur.Mx - Ul.Mx)) * dS_1;
+  Fhll.My = (Sr*Fl.My - Sl*Fr.My + Sl*Sr*(Ur.My - Ul.My)) * dS_1;
+  Fhll.Mz = (Sr*Fl.Mz - Sl*Fr.Mz + Sl*Sr*(Ur.Mz - Ul.Mz)) * dS_1;
+  Fhll.E  = (Sr*Fl.E  - Sl*Fr.E  + Sl*Sr*(Ur.E  - Ul.E )) * dS_1;
+  Fhll.By = (Sr*Fl.By - Sl*Fr.By + Sl*Sr*(Ur.By - Ul.By)) * dS_1;
+  Fhll.Bz = (Sr*Fl.Bz - Sl*Fr.Bz + Sl*Sr*(Ur.Bz - Ul.Bz)) * dS_1;
+  /*printf("[hllc_sr_mhd]: HLL fluxes %10.4e %10.4e %10.4e %10.4e %10.4e\n",Fhll.E,Fl.E,Fr.E,Ul.E,Ur.E);*/
+
+
+  if (Sl == -1.0) {
+    pFlux->d = Fhll.d;
+    pFlux->Mx = Fhll.Mx;
+    pFlux->My = Fhll.My;
+    pFlux->Mz = Fhll.Mz;
+    pFlux->E = Fhll.E;
+    pFlux->By = Fhll.By;
+    pFlux->Bz = Fhll.Bz;
+		
+    return;
+  }
+	
+  if (Sr == 1.0) {
+    pFlux->d = Fhll.d;
+    pFlux->Mx = Fhll.Mx;
+    pFlux->My = Fhll.My;
+    pFlux->Mz = Fhll.Mz;
+    pFlux->E = Fhll.E;
+    pFlux->By = Fhll.By;
+    pFlux->Bz = Fhll.Bz;
+		
+    return;
+  }
+
+	
+  /*--- Step 3. ------------------------------------------------------------------
+   * Compute fluxes based on wave speeds (Mignone et al. eqn 26)
+   */
+  if(Sl >= 0.0){
+    /*printf("Flux_L\n");*/
+    pFlux->d  = Fl.d;
+    pFlux->Mx = Fl.Mx;
+    pFlux->My = Fl.My;
+    pFlux->Mz = Fl.Mz;
+    pFlux->E  = Fl.E;
+    pFlux->By = Fl.By;
+    pFlux->Bz = Fl.Bz;
+		
+    if (pFlux->d != pFlux->d) {
+      printf("[hllc_sr_mhd] Sl, Sr, dS_1, Fld, Frd, Uld, Urd %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e\n",Sl,Sr,dS_1,Fl.d,Fr.d,Ul.d,Ur.d);
+      ath_error("[hllc_sr_mhd]: NaN in hllc density flux\n");
+    }
+		
+    return;
+   
+  }
+  else if(Sr <= 0.0){
+    /*printf("Flux_R\n");*/
+    pFlux->d  = Fr.d;
+    pFlux->Mx = Fr.Mx;
+    pFlux->My = Fr.My;
+    pFlux->Mz = Fr.Mz;
+    pFlux->E  = Fr.E;
+    pFlux->By = Fr.By;
+    pFlux->Bz = Fr.Bz;
+		
+    if (pFlux->d != pFlux->d) {
+      printf("[hllc_sr_mhd] Sl, Sr, dS_1, Fld, Frd, Uld, Urd %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e\n",Sl,Sr,dS_1,Fl.d,Fr.d,Ul.d,Ur.d);
+      ath_error("[hllc_sr_mhd]: NaN in hllc density flux\n");
+    }
+		
+    return;
+  }
+  else {
+    vxs_success = 1;
+		
+    /* Construct HLLC fluxes */
+    /*printf("Flux_HLLC\n");*/
+    vxl = Wl.Vx;
+    vxr = Wr.Vx;
+		
+    Bx  = Bxi;/*(Sr*Bxi   - Sl*Bxi) * dS_1;*/
+    Bys = Uhll.By;
+    Bzs = Uhll.Bz;
+		
+    if (fabs(Bx) < 1.0e-12) {
+      a  = Fhll.E;
+      b  = - (Fhll.Mx + Uhll.E);
+      c  = Uhll.Mx;
+    } else {
+      BtFBt = Uhll.By*Fhll.By + Uhll.Bz*Fhll.Bz;
+      Bt2 = Uhll.By*Uhll.By + Uhll.Bz*Uhll.Bz;
+      FBt2 = Fhll.By*Fhll.By + Fhll.Bz*Fhll.Bz;                
+			
+      a  = Fhll.E - BtFBt;
+      b  = Bt2 + FBt2 - (Fhll.Mx + Uhll.E);
+      c  = Uhll.Mx - BtFBt;
+    }
+
+    /*
+      scrh = 1.0 + sqrt(1.0 - 4.0*a*c/(b*b));
+      if (scrh != scrh) {
+      hllc_success = 0;
+      printf("[hllc_sr_mhd]: NaN on scrh: a,b,c, 4*a*c/b/b %10.4e %10.4e %10.4e %10.4e\n",a,b,c,4.0*a*c/(b*b));
+      }
+      vxs  = - 2.0*c/(b*scrh);
+    */
+    if (fabs(a) > 1.e-12){       
+      /*vxs = 0.5*(- b - sqrt(b*b - 4.0*a*c))/a;*/
+      scrh = 1.0 + sqrt(1.0 - 4.0*a*c/(b*b));
+      if (scrh != scrh) {
+	vxs_success = 0;
+	printf("[hllc_sr_mhd]: NaN on scrh: a,b,c, 4*a*c/b/b %10.4e %10.4e %10.4e %10.4e\n",a,b,c,4.0*a*c/(b*b));
+      }
+      vxs  = - 2.0*c/(b*scrh);
+    }else{
+      vxs = -c/b;
+    }
+    if (vxs != vxs) {
+      vxs_success = 0;
+      printf("[hllc_sr_mhd]: HLL fluxes %10.4e %10.4e\n",Fhll.E,BtFBt);
+      printf("[hllc_sr_mhd]: NaN in vxs: Bx,a,b,c %10.4e %10.4e %10.4e %10.4e\n",Bx,a,b,c);
+    }
+		
+    if (fabs(vxs) > 1.0) {
+      vxs_success = 0;
+      printf("[hllc_sr_mhd]: vxs > 1: Bx,a,b,c %10.4e %10.4e %10.4e %10.4e\n",Bx,a,b,c);
+    }
+		
+    ps_success = 0;
+    if (vxs_success == 1) {
+      ps_success = 1;
+      if (fabs(Bx) < 1.0e-12) {
+			
+	/* -------------------------------
+	   the value of vy and vz
+	   is irrelevant in this case  
+	   ------------------------------- */
+			
+	ps  = Fhll.Mx - Fhll.E*vxs;
+
+	if (ps < 0) {
+	  ps_success = 0;
+	  printf("[hllc_sr_mhd]: ps = %10.4e < 0\n",ps);
+	}
+			
+	alpha_l = (Sl - vxl)/(Sl - vxs);
+	alpha_r = (Sr - vxr)/(Sr - vxs);
+			
+	Usl.d = Ul.d*alpha_l;
+	Usr.d = Ur.d*alpha_r;
+			
+	Usl.E = (Sl*Ul.E - Fl.E + ps*vxs)/(Sl - vxs);
+	Usr.E = (Sr*Ur.E - Fr.E + ps*vxs)/(Sr - vxs);
+			
+	Usl.Mx = (Usl.E + ps)*vxs; 
+	Usr.Mx = (Usr.E + ps)*vxs;
+	Usl.My = Ul.My*alpha_l; 
+	Usr.My = Ur.My*alpha_r; 
+	Usl.Mz = Ul.Mz*alpha_l; 
+	Usr.Mz = Ur.Mz*alpha_r;
+			
+	Usl.By = Ul.By*alpha_l;
+	Usr.By = Ur.By*alpha_r;
+	Usl.Bz = Ul.Bz*alpha_l;
+	Usr.Bz = Ur.Bz*alpha_r;
+			
+      }else{
+
+	vys = (Bys*vxs - Fhll.By)/Bx;
+	vzs = (Bzs*vxs - Fhll.Bz)/Bx;
+
+	gammas_2 = vxs*vxs + vys*vys + vzs*vzs;
+	gammas_2 = 1.0 - gammas_2;
+	vBs = vxs*Bx + vys*Bys + vzs*Bzs;
+			
+	ps = (Bx*vBs - Fhll.E)*vxs + (Bx*Bx*gammas_2) + Fhll.Mx;
+	if (ps < 0) {
+	  ps_success = 0;
+	  printf("[hllc_sr_mhd]: ps = %10.4e < 0\n",ps);
+	}
+			
+	alpha_l = (Sl - vxl)/(Sl - vxs);
+	alpha_r = (Sr - vxr)/(Sr - vxs);
+			
+	if (alpha_l != alpha_l) {
+	  ath_error("[hllc_sr_mhd]: NaN in alpha_l: Sl, vxl, vxs %10.4e %10.4e %10.4e\n",Sl,vxl,vxs);
+	}
+			
+	if (alpha_r != alpha_r) {
+	  ath_error("[hllc_sr_mhd]: NaN in alpha_r: Sr, vxr, vxs %10.4e %10.4e %10.4e\n",Sl,vxl,vxs);
+	}
+			
+	Usl.d = Ul.d*alpha_l;
+	Usr.d = Ur.d*alpha_r;
+			
+	Usl.E = (Sl*Ul.E - Fl.E + ps*vxs - vBs*Bx)/(Sl - vxs);
+	Usr.E = (Sr*Ur.E - Fr.E + ps*vxs - vBs*Bx)/(Sr - vxs);
+			
+	Usl.Mx = (Usl.E + ps)*vxs - vBs*Bx; 
+	Usr.Mx = (Usr.E + ps)*vxs - vBs*Bx;
+	Usl.My = (Sl*Ul.My - Fl.My - Bx*(Bys*gammas_2 + vBs*vys))/(Sl - vxs); 
+	Usr.My = (Sr*Ur.My - Fr.My - Bx*(Bys*gammas_2 + vBs*vys))/(Sr - vxs);  
+	Usl.Mz = (Sl*Ul.Mz - Fl.Mz - Bx*(Bzs*gammas_2 + vBs*vzs))/(Sl - vxs); 
+	Usr.Mz = (Sr*Ur.Mz - Fr.Mz - Bx*(Bzs*gammas_2 + vBs*vzs))/(Sr - vxs);
+			
+	Usl.By = Usr.By = Bys;
+	Usl.Bz = Usr.Bz = Bzs;
+      }
+    }
+		
+    /*  ----  Compute HLLC flux  ----  */
+    int_success = 0;
+    if (vxs_success && ps_success){
+      int_success = 1;
+      Wsl = Cons1D_to_Prim1D (&Usl,&Bx);
+      Wsr = Cons1D_to_Prim1D (&Usr,&Bx);
+      V2l = SQR(Wsl.Vx) + SQR(Wsl.Vy) + SQR(Wsl.Vz);
+      V2r = SQR(Wsr.Vx) + SQR(Wsr.Vy) + SQR(Wsr.Vz);
+      if (Wsl.P < 0.0) int_success = 0;
+      if (Wsl.d < 0.0) int_success = 0;
+      if (Wsr.P < 0.0) int_success = 0;
+      if (Wsr.d < 0.0) int_success = 0;
+      if (V2l   > 1.0) int_success = 0;
+      if (V2r   > 1.0) int_success = 0;
+      if (int_success == 0){
+	printf("[hllc_sr_mhd]: Wave speeds            Sl = %10.4e, Sr = %10.4e, Vxs = %10.4e\n",Sl,Sr,vxs);
+	printf("[hllc_sr_mhd]: Intermediate state has Pl = %10.4e, dl = %10.4e, V2l = %10.4e\n",Wsl.P,Wsl.d,V2l);
+	printf("[hllc_sr_mhd]: Intermediate state has Pr = %10.4e, dr = %10.4e, V2l = %10.4e\n",Wsr.P,Wsr.d,V2r);
+      }
+    }
+		
+    if (int_success){
+      if (vxs > 0.0) {
+	pFlux->d  = Fl.d  + Sl*(Usl.d  - Ul.d );
+	pFlux->Mx = Fl.Mx + Sl*(Usl.Mx - Ul.Mx);
+	pFlux->My = Fl.My + Sl*(Usl.My - Ul.My);
+	pFlux->Mz = Fl.Mz + Sl*(Usl.Mz - Ul.Mz);
+	pFlux->E  = Fl.E  + Sl*(Usl.E  - Ul.E );
+	pFlux->By = Fl.By + Sl*(Usl.By - Ul.By);
+	pFlux->Bz = Fl.Bz + Sl*(Usl.Bz - Ul.Bz);
+	/*pFlux->Mx+= Pl;*/
+			
+	if (pFlux->d != pFlux->d) {
+	  printf("[hllc_sr_mhd] Sl, Usld, Uld, Fld, %10.4e %10.4e %10.4e %10.4e\n",Sl,Usl.d,Ul.d,Fl.d);
+	  ath_error("[hllc_sr_mhd]: NaN in hllc density flux\n");
+	}
+			
+	return;
+			
+      }else {
+	pFlux->d  = Fr.d  + Sr*(Usr.d  - Ur.d );
+	pFlux->Mx = Fr.Mx + Sr*(Usr.Mx - Ur.Mx);
+	pFlux->My = Fr.My + Sr*(Usr.My - Ur.My);
+	pFlux->Mz = Fr.Mz + Sr*(Usr.Mz - Ur.Mz);
+	pFlux->E  = Fr.E  + Sr*(Usr.E  - Ur.E );
+	pFlux->By = Fr.By + Sr*(Usr.By - Ur.By);
+	pFlux->Bz = Fr.Bz + Sr*(Usr.Bz - Ur.Bz);
+	/*pFlux->Mx+= Pr;*/
+			
+	if (pFlux->d != pFlux->d) {
+	  printf("[hllc_sr_mhd] Sr, Usrd, Urd, Frd %10.4e %10.4e %10.4e %10.4e \n",Sl,Usr.d,Ur.d,Fr.d);
+	  ath_error("[hllc_sr_mhd]: NaN in hllc density flux\n");
+	}
+			
+	return;
+      }
+			
+    } else {
+      printf("[hllc_sr_mhd]: Reverting to hll flux\n");
+      pFlux->d = Fhll.d;
+      pFlux->Mx = Fhll.Mx;
+      pFlux->My = Fhll.My;
+      pFlux->Mz = Fhll.Mz;
+      pFlux->E = Fhll.E;
+      pFlux->By = Fhll.By;
+      pFlux->Bz = Fhll.Bz;
+			
+      if (pFlux->d != pFlux->d) {
+	printf("[hllc_sr_mhd] Sr, Usrd, Urd, Frd %10.4e %10.4e %10.4e %10.4e \n",Sl,Usr.d,Ur.d,Fr.d);
+	ath_error("[hllc_sr_mhd]: NaN in hllc density flux\n");
+      }
+			
+      return;
+			
+    }
+
+
+  }
+}
+
+void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p)
+{
+  Real wtg2, pt, g, g2, g_2, h, gmmr, theta;
+  Real bx, by, bz, vB, b2, Bmag2;
+	
+  /* calcUlate enthalpy */
+	
+  theta = W.P/W.d;
+  gmmr = Gamma / Gamma_1;
+	
+  h = 1.0 + gmmr*theta;
+	
+  /* calcUlate gamma */
+  g   = U.d/W.d;
+  g2  = SQR(g);
+  g_2 = 1.0/g2;
+	
+  pt = W.P;
+  wtg2 = W.d*h*g2;
+	
+  vB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
+  Bmag2 = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
+	
+  bx = g*(  Bx*g_2 + vB*W.Vx);
+  by = g*(W.By*g_2 + vB*W.Vy);
+  bz = g*(W.Bz*g_2 + vB*W.Vz);
+	
+  b2 = Bmag2*g_2 + vB*vB;
+	
+  pt += 0.5*b2;
+  wtg2 += b2*g2;
+	
+  flux->d  = U.d*W.Vx;
+  flux->Mx = wtg2*W.Vx*W.Vx + pt;
+  flux->My = wtg2*W.Vy*W.Vx;
+  flux->Mz = wtg2*W.Vz*W.Vx;
+  flux->E  = U.Mx;
+
+  flux->Mx -= bx*bx;
+  flux->My -= by*bx;
+  flux->Mz -= bz*bx;
+  flux->By = W.Vx*W.By - Bx*W.Vy;
+  flux->Bz = W.Vx*W.Bz - Bx*W.Vz;
+	
+  *p = pt;
+}
+
+void getMaxSignalSpeeds(const Prim1DS Wl, const Prim1DS Wr,
+			const Real Bx, Real* low, Real* high)
+{
+	
+  Real lml,lmr;        /* smallest roots, Mignone Eq 55 */
+  Real lpl,lpr;        /* largest roots, Mignone Eq 55 */
+  Real al,ar;
+	
+  getVChar(Wl,Bx,&lml,&lpl);
+  /*printf("[hlle_sr]: Left characteristics %10.4e %10.4e\n",lml,lpl);*/
+  getVChar(Wr,Bx,&lmr,&lpr);
+  /*printf("[hlle_sr]: Right characteristics %10.4e %10.4e\n",lmr,lpr);*/
+	
+  *low =  MIN(lml, lmr);
+  *high = MAX(lpl, lpr);
+}
+
+void getVChar(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
+{
+  Real rhoh,vsq,bsq;
+  Real cssq,vasq,asq;
+  Real Vx2,gamma,gamma2;
+  Real Bx2,Bsq,vDotB,vDotBsq,b0,bx;
+  Real w_1,a0,a1,a2,a3,a4,Q;
+  Real scrh,scrh1,scrh2,eps2;
+  Real a2_w,one_m_eps2,lambda[5];
+  int iflag;
+	
+  rhoh = W.d + (Gamma/Gamma_1) * (W.P);
+	
+  Vx2 = SQR(W.Vx);
+  vsq = Vx2 + SQR(W.Vy) + SQR(W.Vz);
+  if (vsq > 1.0){
+    /*printPrim1D(W);*/
+    ath_error("[getVChar]: |v|= %f > 1\n",vsq);
+  }
+  gamma = 1.0 / sqrt(1 - vsq);    
+  gamma2 = SQR(gamma);
+	
+  Bx2 = SQR(Bx);
+  Bsq = Bx2 + SQR(W.By) + SQR(W.Bz);
+  vDotB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
+  vDotBsq = SQR(vDotB);
+  b0 = gamma * vDotB;
+  bx = Bx/gamma2 + W.Vx*vDotB;
+  bsq = Bsq / gamma2 + SQR(vDotB);
+	
+  cssq = (Gamma * W.P) / (rhoh);
+  vasq = bsq / (rhoh + bsq);
+	
+  if (bsq < 0.0) bsq = 0.0;
+  if (cssq < 0.0) cssq = 0.0;
+  if (cssq > 1.0) cssq = 1.0;
+  if (vasq > 1.0) bsq = rhoh + bsq;
+  /*printf("[hlle_sr]: Sound, Alfven & Magneto sonic speeds %10.4e %10.4e %10.4e\n",cssq,vasq,asq);*/
+	
+  if (vsq < 1.0e-12) {
+    w_1  = 1.0/(rhoh + bsq);   
+    eps2 = cssq + bsq*w_1*(1.0 - cssq);
+    a0   = cssq*Bx*Bx*w_1;
+    a1   = - a0 - eps2;
+    scrh = a1*a1 - 4.0*a0;
+    if (scrh < 0.0) scrh = 0.0;
+		
+    scrh = sqrt(0.5*(-a1 + sqrt(scrh)));
+    *lp =  scrh;
+    *lm = -scrh;
+    /*printf("[getVChar]: Zero velocity wave speeds %10.4e %10.4e %10.4e %10.4e %10.4e\n",*lm,*lp,a0,a1,scrh);*/
+    return;
+  }
+	
+  /*	
+	vB2 = vB*vB;
+	u02 = 1.0/(1.0 - u02);
+	b2  = b2/u02 + vB2;
+	u0  = sqrt(u02);
+  */
+  w_1 = 1.0/(rhoh + bsq);   
+	
+  if (Bx < 1.0e-14) {
+		
+    eps2  = cssq + bsq*w_1*(1.0 - cssq);
+		
+    scrh1 = (1.0 - eps2)*gamma2;
+    scrh2 = cssq*vDotBsq*w_1 - eps2;
+		
+    a2  = scrh1 - scrh2;
+    a1  = -2.0*W.Vx*scrh1;
+    a0  = Vx2*scrh1 + scrh2;
+		
+    *lp = 0.5*(-a1 + sqrt(a1*a1 - 4.0*a2*a0))/a2;
+    *lm = 0.5*(-a1 - sqrt(a1*a1 - 4.0*a2*a0))/a2;
+		
+    return;
+  }
+	
+  scrh1 = bx;  /* -- this is bx/u0 -- */
+  scrh2 = scrh1*scrh1;  
+	
+  a2_w       = cssq*w_1;
+  eps2       = (cssq*rhoh + bsq)*w_1;
+  one_m_eps2 = gamma2*rhoh*(1.0 - cssq)*w_1;
+	
+  /* ---------------------------------------
+     Define coefficients for the quartic  
+     --------------------------------------- */
+	
+  scrh = 2.0*(a2_w*vDotB*scrh1 - eps2*W.Vx);
+  a4 = one_m_eps2 - a2_w*vDotBsq + eps2;
+  a3 = - 4.0*W.Vx*one_m_eps2 + scrh;
+  a2 =   6.0*Vx2*one_m_eps2 + a2_w*(vDotBsq - scrh2) + eps2*(Vx2 - 1.0);
+  a1 = - 4.0*W.Vx*Vx2*one_m_eps2 - scrh;
+  a0 = Vx2*Vx2*one_m_eps2 + a2_w*scrh2 - eps2*Vx2;
+	
+  if (a4 < 1.e-12){
+    /*printPrim1D(W);*/
+    ath_error("[MAX_CH_SPEED]: Can not divide by a4 in MAX_CH_SPEED\n");
+  }
+	
+  scrh = 1.0/a4;
+	
+  a3 *= scrh;
+  a2 *= scrh;
+  a1 *= scrh;
+  a0 *= scrh;
+  iflag = QUARTIC(a3, a2, a1, a0, lambda);
+	
+  if (iflag){
+    printf ("Can not find max speed:\n");
+    /*SHOW(uprim,i);*/
+    printf("QUARTIC: f(x) = %12.6e + x*(%12.6e + x*(%12.6e ",
+	   a0*a4, a1*a4, a2*a4);
+    printf("+ x*(%12.6e + x*%12.6e)))\n", a3*a4, a4);
+    ath_error("[MAX_CH_SPEED]: Failed to find wave speeds");
+  }
+	
+  *lp = MAX(lambda[3], lambda[2]);
+  *lp = MAX(*lp, lambda[1]);
+  *lp = MAX(*lp, lambda[0]);
+  *lp = MAX(*lp, 1.0);
+	
+  *lm = MIN(lambda[3], lambda[2]);
+  *lm = MIN(*lm, lambda[1]);
+  *lm = MIN(*lm, lambda[0]);
+  *lm = MIN(*lm, -1.0);
+	
+  return;
+	
+}
+
+/* ******************************************** */
+int QUARTIC (Real b, Real c, Real d, 
+             Real e, Real z[])
+/* 
+ *
+ * PURPOSE:
+ *
+ *   Solve a quartic equation in the form 
+ *
+ *      z^4 + bz^3 + cz^2 + dz + e = 0
+ *
+ *   For its purpose, it is assumed that ALL 
+ *   roots are real. This makes things faster.
+ *
+ *
+ * ARGUMENTS
+ *
+ *   b, c,
+ *   d, e  (IN)  = coefficient of the quartic
+ *                 z^4 + bz^3 + cz^2 + dz + e = 0
+ *
+ *   z[]   (OUT) = a vector containing the 
+ *                 (real) roots of the quartic
+ *   
+ *
+ * REFERENCE:
+ *
+ *   http://www.1728.com/quartic2.htm 
+ * 
+ *
+ *
+ ********************************************** */
+{
+  int    n, ifail;
+  Real b2, f, g, h;
+  Real a2, a1, a0, u[4];
+  Real p, q, r, s;
+  static Real three_256 = 3.0/256.0;
+  static Real one_64 = 1.0/64.0;
+	
+  b2 = b*b;
+	
+  f = c - b2*0.375;
+  g = d + b2*b*0.125 - b*c*0.5;
+  h = e - b2*b2*three_256 + 0.0625*b2*c - 0.25*b*d;
+	
+  a2 = 0.5*f;
+  a1 = (f*f - 4.0*h)*0.0625;
+  a0 = -g*g*one_64;
+	
+  ifail = CUBIC(a2, a1, a0, u);
+	
+  if (ifail)return(1);
+	
+  if (u[1] < 1.e-14){
+		
+    p = sqrt(u[2]);
+    s = 0.25*b;
+    z[0] = z[2] = - p - s;
+    z[1] = z[3] = + p - s;
+		
+  }else{
+		
+    p = sqrt(u[1]);
+    q = sqrt(u[2]);
+		
+    r = -0.125*g/(p*q);
+    s =  0.25*b;
+		
+    z[0] = - p - q + r - s;
+    z[1] =   p - q - r - s;
+    z[2] = - p + q - r - s;
+    z[3] =   p + q + r - s;
+		
+  }  
+	
+  /* ----------------------------------------------
+     verify that cmax and cmin satisfy original 
+     equation
+     ---------------------------------------------- */  
+	
+  for (n = 0; n < 4; n++){
+    s = e + z[n]*(d + z[n]*(c + z[n]*(b + z[n])));
+    if (s != s) {
+      printf ("Nan found in QUARTIC \n");
+      return(1);
+    }
+    if (fabs(s) > 1.e-6) {
+      printf ("Solution does not satisfy f(z) = 0; f(z) = %12.6e\n",s);
+      return(1);
+    }
+  }
+	
+  return(0);
+  /*  
+      printf (" z: %f ; %f ; %f ; %f\n",z[0], z[1], z[2], z[3]);
+  */
+}
+/* *************************************************** */
+int CUBIC(Real b, Real c, Real d, Real z[])
+/* 
+ *
+ * PURPOSE:
+ *
+ *   Solve a cubic equation in the form 
+ *
+ *      z^3 + bz^2 + cz + d = 0
+ *
+ *   For its purpose, it is assumed that ALL 
+ *   roots are real. This makes things faster.
+ *
+ *
+ * ARGUMENTS
+ *
+ *   b, c, d (IN)  = coefficient of the cubic
+ *                    z^3 + bz^2 + cz + d = 0
+ *
+ *   z[]   (OUT)   = a vector containing the 
+ *                   (real) roots of the cubic.
+ *                   Roots should be sorted
+ *                   in increasing order.
+ *   
+ *
+ * REFERENCE:
+ *
+ *   http://www.1728.com/cubic2.htm 
+ *
+ *
+ *
+ ***************************************************** */
+{
+  Real b2, g2;
+  Real f, g, h;
+  Real i, i2, j, k, m, n, p;
+  static Real one_3 = 1.0/3.0, one_27=1.0/27.0;
+	
+  b2 = b*b;
+	
+  /*  ----------------------------------------------
+      the expression for f should be 
+      f = c - b*b/3.0; however, to avoid negative
+      round-off making h > 0.0 or g^2/4 - h < 0.0
+      we let c --> c(1- 1.1e-16)
+      ---------------------------------------------- */
+	
+  f  = c*(1.0 - 1.e-16) - b2*one_3;
+  g  = b*(2.0*b2 - 9.0*c)*one_27 + d; 
+  g2 = g*g;
+  i2 = -f*f*f*one_27;
+  h  = g2*0.25 - i2;
+	
+  /* --------------------------------------------
+     Real roots are possible only when 
+	 
+     h <= 0 
+     -------------------------------------------- */
+	
+  if (h > 1.e-12){
+    printf ("Only one real root (%12.6e)!\n", h);
+  }
+  if (i2 < 0.0){
+    /*
+      printf ("i2 < 0.0 %12.6e\n",i2);
+      return(1);
+    */
+    i2 = 0.0;
+  }
+	
+  /* --------------------------------------
+     i^2 must be >= g2*0.25
+     -------------------------------------- */
+	
+  i = sqrt(i2);       /*  > 0   */
+  j = pow(i, one_3);  /*  > 0   */
+  k = -0.5*g/i;
+	
+  /*  this is to prevent unpleseant situation 
+      where both g and i are close to zero       */
+	
+  k = (k < -1.0 ? -1.0:k);
+  k = (k >  1.0 ?  1.0:k);
+	
+  k = acos(k)*one_3;       /*  pi/3 < k < 0 */
+	
+  m = cos(k);              /*   > 0   */
+  n = sqrt(3.0)*sin(k);    /*   > 0   */
+  p = -b*one_3;
+	
+  z[0] = -j*(m + n) + p;
+  z[1] = -j*(m - n) + p;
+  z[2] =  2.0*j*m + p;
+	
+  /* ------------------------------------------------------
+     Since j, m, n > 0, it should follow that from
+    
+     z0 = -jm - jn + p
+     z1 = -jm + jn + p
+     z2 = 2jm + p
+	 
+     z2 is the greatest of the roots, while z0 is the 
+     smallest one.
+     ------------------------------------------------------ */
+	
+  return(0);
+}
+
+/* **************************************************************** */
+void getSoundSpeed2  (const Prim1DS W, Real *cs2, Real *h)
+/*
+ *
+ *    Define the square of the sound speed for adiabatic EOS
+ *
+ ****************************************************************** */
+{
+  Real  theta, Gamma_1;
+	
+  Gamma_1 = Gamma/(Gamma - 1.0);
+  theta = W.P/W.d;
+  *h = 1.0 + Gamma_1*theta;
+  *cs2 = Gamma*theta/(*h);
+}
+
+
+void getMaxSignalSpeedsa(const Prim1DS Wl, const Prim1DS Wr,
+			 const Real Bx, Real* low, Real* high)
+{
+	
+  Real lml,lmr;        /* smallest roots, Mignone Eq 55 */
+  Real lpl,lpr;        /* largest roots, Mignone Eq 55 */
+  Real al,ar;
+	
+  getVChara(Wl,Bx,&lml,&lpl);
+  /*printf("[hlle_sr]: Left characteristics %10.4e %10.4e\n",lml,lpl);*/
+  getVChara(Wr,Bx,&lmr,&lpr);
+  /*printf("[hlle_sr]: Right characteristics %10.4e %10.4e\n",lmr,lpr);*/
+	
+  *low =  MIN(lml, lmr);
+  *high = MAX(lpl, lpr);
+}
+
+void getVChara(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
+{
+  Real rhoh,vsq,bsq;
+  Real cssq,vasq,asq;
+  Real gamma,gamma2;
+  Real Bsq,vDotB,b0,bx;
+  Real tmp1,tmp2,tmp3,tmp4,tmp5;
+  Real vm,vp;
+	
+  rhoh = W.d + (Gamma/Gamma_1) * (W.P);
+	
+  vsq = SQR(W.Vx) + SQR(W.Vy) + SQR(W.Vz);
+  gamma = 1.0 / sqrt(1 - vsq);    
+  gamma2 = SQR(gamma);
+	
+  Bsq = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
+  vDotB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
+  b0 = gamma * vDotB;
+  bx = Bx/gamma2 + W.Vx*vDotB;
+  bsq = Bsq / gamma2 + SQR(vDotB);
+	
+  cssq = (Gamma * W.P) / (rhoh);
+  vasq = bsq / (rhoh + bsq);
+  asq = cssq + vasq - (cssq*vasq);
+	
+  if (cssq < 0.0) cssq = 0.0;
+  if (vasq > 0.0) vasq = 0.0;
+  if (asq < 0.0) asq = 0.0;
+  if (cssq > 1.0) cssq = 1.0;
+  if (vasq > 1.0) vasq = 1.0;
+  if (asq > 1.0) asq = 1.0;
+  /*printf("[hlle_sr]: Sound, Alfven & Magneto sonic speeds %10.4e %10.4e %10.4e\n",cssq,vasq,asq);*/
+	
+  tmp1 = (1.0 - asq);
+  tmp2 = (1.0 - vsq);
+  tmp3 = (1.0 - vsq*asq);
+  tmp4 = SQR(W.Vx);
+  tmp5 = 1.0 / tmp3;
+	
+  vm = tmp1*W.Vx - sqrt(asq*tmp2*(tmp3 - tmp1*tmp4));
+  vp = tmp1*W.Vx + sqrt(asq*tmp2*(tmp3 - tmp1*tmp4));
+  vm *=tmp5;
+  vp *=tmp5;
+	
+  if (vp > vm) {
+    *lm = vm;
+    *lp = vp;
+  } else {
+    *lm = vp;
+    *lp = vm;
+  }
+}
+
+
+
+#endif /* MHD */
+
+
 
 
 
