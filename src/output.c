@@ -181,6 +181,10 @@ void init_output(MeshS *pM)
     new_out.dt  = par_getd(block,"dt");
     new_out.n   = outn;
 
+/* level and domain number needed with SMR */
+    nl = new_out.nlevel = par_geti_def(block,"level",0);
+    nd = new_out.ndomain = par_geti_def(block,"domain",0);
+
     if (par_exist(block,"dat_fmt")) new_out.dat_fmt = par_gets(block,"dat_fmt");
 
 /* set id in output filename to input string if present, otherwise use "outN"
@@ -250,9 +254,6 @@ Now use the default one.\n");
       }
       else if (strcmp(fmt,"hst")==0){
 	new_out.out_fun = dump_history;
-/* level and domain number needed for history dumpes with SMR */
-        nl = new_out.nlevel = par_geti_def(block,"level",0);
-        nd = new_out.ndomain = par_geti_def(block,"domain",0);
 	goto add_it;
       }
 #ifdef PARTICLES
@@ -358,10 +359,6 @@ Now use the default one.\n");
       free_output(&new_out);
       continue;
     }
-
-/* level and domain number */
-    nl = new_out.nlevel = par_geti_def(block,"level",0);
-    nd = new_out.ndomain = par_geti_def(block,"domain",0);
 
 /* ix1, ix2, ix3:  parse and set size and coordinates of output "grid" */
     parse_slice(block,"ix1", pM->Domain[nl][nd].Nx[0],
