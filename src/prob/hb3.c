@@ -6,11 +6,15 @@
  *   based on "A powerful local shear instability in weakly magnetized disks.
  *   III - Long-term evolution in a shearing sheet" by Hawley & Balbus.  This
  *   is the third of the HB papers on the MRI, thus hb3.
- * Several different field configurations and perturbations are possible:
+ *
+ * Several different perturbations and field configurations are possible:
+ *  ipert = 1 - isentropic perturbations to P & d [default]
+ *  ipert = 2 - uniform Vx=amp, sinusoidal density
+ *  ipert = 3 - random perturbations to P [used by HB]
+ *  ipert = 4 - sinusoidal perturbation to Vx in z
+ *
  *  ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
  *  ifield = 2 - uniform Bz
- *  ipert = 1 - random perturbations to P [default, used by HB]
- *  ipert = 2 - uniform Vx=amp
  *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
  *============================================================================*/
@@ -27,7 +31,7 @@
 
 #ifndef SHEARING_BOX
 #error : The HB3 problem requires shearing-box to be enabled.
-#endif /* HYDRO */
+#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -57,7 +61,7 @@ static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k);
 #endif
 
 /* boxsize, made a global variable so can be accessed by bval, etc. routines */
-static Real Lx;
+static Real Lx,Lz;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -71,9 +75,9 @@ void problem(DomainS *pDomain)
   int ks = pGrid->ks;
   int i,j,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
-  Real x1, x2, x3, x1min, x1max;
+  Real x1, x2, x3, x1min, x1max, x2min, x2max;
   Real den = 1.0, pres = 1.0e-5, rd, rp, rvx;
-  Real beta,B0,kx,amp;
+  Real beta,B0,kx,kz,amp;
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
 
@@ -90,6 +94,11 @@ void problem(DomainS *pDomain)
   x1max = pDomain->RootMaxX[0];
   Lx = x1max - x1min;
   kx = 2.0*PI/Lx;
+
+  x2min = pDomain->RootMinX[1];
+  x2max = pDomain->RootMaxX[1];
+  Lz = x2max - x2min;
+  kz = 2.0*PI/Lz;
 
 /* Read problem parameters */
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
@@ -108,6 +117,7 @@ void problem(DomainS *pDomain)
  *  ipert = 1 - isentropic perturbations to P & d [default]
  *  ipert = 2 - uniform Vx=amp, sinusoidal density
  *  ipert = 3 - random perturbations to P [used by HB]
+ *  ipert = 4 - sinusoidal perturbation to Vx in z
  */
       if (ipert == 1) {
         rval = 1.0 + amp*(ran2(&iseed) - 0.5);
@@ -137,6 +147,11 @@ void problem(DomainS *pDomain)
         rd = rval*den;
 #endif
         rvx = 0.0;
+      }
+      if (ipert == 4) {
+        rp = pres;
+        rd = den;
+        rvx = amp*sin((double)kz*x2);
       }
 
 /* Initialize d, M, and P.  For 2D shearing box M1=Vx, M2=Vz, M3=Vy */ 
@@ -238,8 +253,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   qshear  = par_getd_def("problem","qshear",1.5);
 
 /* Must recompute global variable Lx needed by BC routines */
-  x1min = pDomain->RootMinX[0];
-  x1max = pDomain->RootMaxX[0];
+  x1min = pM->RootMinX[0];
+  x1max = pM->RootMaxX[0];
   Lx = x1max - x1min;
 
   StaticGravPot = ShearingBoxPot;
