@@ -15,6 +15,9 @@ CORE_OBJ = ath_array.o \
 	   ath_log.o \
            ath_signal.o \
            baton.o \
+           bvals_grav.o \
+           bvals_mhd.o \
+           bvals_shear.o \
            cc_pos.o \
            convert_var.o \
            cyl.o \
@@ -39,9 +42,6 @@ CORE_OBJ = ath_array.o \
 	   selfg.o \
 	   selfg_fft.o \
 	   selfg_multigrid.o \
-           set_bvals_grav.o \
-           set_bvals_mhd.o \
-           set_bvals_shear.o \
            show_config.o \
 	   smr.o \
            utils.o
@@ -105,7 +105,7 @@ PARTICLES_OBJ = particles/dump_particle_history.o\
 	        particles/init_particle.o \
 	        particles/integrators_particle.o \
 	        particles/output_particle.o\
-	        particles/set_bvals_particle.o \
+	        particles/bvals_particle.o \
 	        particles/utils_particle.o
 
 ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${PARTICLES_OBJ}

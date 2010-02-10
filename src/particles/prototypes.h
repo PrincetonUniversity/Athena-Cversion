@@ -19,6 +19,16 @@
 #ifdef PARTICLES
 
 /*----------------------------------------------------------------------------*/
+/* bvals_particle.c */
+void bvals_particle(Grid *pG, Domain *pD);
+#ifdef FARGO
+void advect_particles(Grid *pG, Domain *pD);
+#endif
+void bvals_particle_init(Grid *pG, Domain *pD);
+void bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc);
+void bvals_final_particle(Grid *pG, Domain *pD);
+
+/*----------------------------------------------------------------------------*/
 /* dump_particle_history.c */
 void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut);
 void dump_parhistory_enroll();
@@ -60,16 +70,6 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
 void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop);
 void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut);
 int  property_all(const Grain *gr, const GrainAux *grsub);
-
-/*----------------------------------------------------------------------------*/
-/* set_bvals_particle.c */
-void set_bvals_particle(Grid *pG, Domain *pD);
-#ifdef FARGO
-void advect_particles(Grid *pG, Domain *pD);
-#endif
-void set_bvals_particle_init(Grid *pG, Domain *pD);
-void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc);
-void set_bvals_final_particle(Grid *pG, Domain *pD);
 
 /*----------------------------------------------------------------------------*/
 /* utils_particle.c */
