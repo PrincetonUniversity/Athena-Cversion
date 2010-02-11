@@ -1,27 +1,27 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: set_bvals_shear.c
+ * FILE: bvals_shear.c
  *
- * PURPOSE: 3D shearing sheet boundary conditions at ix1 and ox1.  Called by
- *   set_bvals_mhd.  Decomposition of the Domain into MPI grids in X,Y and/or Z
- *   is allowed.  The RemapEy() function (which applies the shearing sheet
- *   boundary conditions to the y-component of the EMF to keep <Bz>=const) is
- *   called directly by the 3D integrator.  Configure code with
+ * PURPOSE: Shearing sheet boundary conditions at ix1 and ox1 for both 2D and 3D
+ *   Called by bvals_mhd.  Decomposition of the Domain into MPI grids in X,Y
+ *   and/or Z is allowed.  The RemapEy() function (which applies the shearing
+ *   sheet boundary conditions to the y-component of the EMF to keep <Bz>=const)
+ *   is called directly by the 3D integrator.  Configure code with
  *   --enable-shearing-box to use.
  *
- * FARGO algorithm is implemented in the Fargo() function called in the
- *   main loop directly after the integrator and before set_bvals_mhd.  Code
- *   must be configured with --enable-shearing-box --enable-fargo to use this
- *   option.
+ * FARGO (orbital advection) algorithm is implemented in the Fargo() function
+ *   called in the main loop directly after the integrator and before bvals_mhd.
+ *   Code must be configured with --enable-shearing-box --enable-fargo to use
+ *   this option.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- * ShearingSheet_ix1() - shearing sheet BCs on ix1, called by set_bval().
- * ShearingSheet_ox1() - shearing sheet BCs on ox1, called by set_bval().
- * RemapEy_ix1()      - sets Ey at ix1 in integrator to keep <Bz>=const. 
- * RemapEy_ox1()      - sets Ey at ox1 in integrator to keep <Bz>=const. 
- * Fargo()            - implements FARGO algorithm for background flow
- * set_bvals_shear_init() - allocates memory for arrays used here
- * set_bvals_shear_destruct() - frees memory for arrays used here
+ * ShearingSheet_ix1() - shearing sheet BCs on ix1
+ * ShearingSheet_ox1() - shearing sheet BCs on ox1
+ * RemapEy_ix1()       - sets Ey at ix1 in integrator to keep <Bz>=const. 
+ * RemapEy_ox1()       - sets Ey at ox1 in integrator to keep <Bz>=const. 
+ * Fargo()             - implements FARGO algorithm for background flow
+ * bvals_shear_init() - allocates memory for arrays used here
+ * bvals_shear_destruct() - frees memory for arrays used here
  *============================================================================*/
 
 #include <float.h>
@@ -76,7 +76,7 @@ typedef struct FCons_s{
 #endif
 }FConsS;
 
-/* The memory for all the arrays below is allocated in set_bvals_shear_init */
+/* The memory for all the arrays below is allocated in bvals_shear_init */
 /* Arrays of ghost zones containing remapped conserved quantities */
 static Remap ***GhstZns=NULL, ***GhstZnsBuf=NULL;
 /* 1D vectors for reconstruction in conservative remap step */
@@ -109,9 +109,9 @@ void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
 /*----------------------------------------------------------------------------*/
 /* ShearingSheet_ix1: 3D shearing-sheet BCs in x1.  It applies a remap
  * in Y after the ghost cells have been set by the usual periodic BCs in X and
- * Y implemented in set_bvals.c
+ * Y implemented in bvals_mhd.c
  *
- * This is a public function which is called by set_bvals_mhd() inside a
+ * This is a public function which is called by bvals_mhd() inside a
  * SHEARING_BOX macro.
  *----------------------------------------------------------------------------*/
 
@@ -125,10 +125,10 @@ void ShearingSheet_ix1(DomainS *pD)
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
-  int err,sendto_id,getfrom_id;
+  int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Remap *pRemap;
-  ConsVarS *pCons;
+  ConsS *pCons;
   MPI_Request rq;
 #endif
 
@@ -282,9 +282,8 @@ void ShearingSheet_ix1(DomainS *pD)
 
       cnt = nghost*joverlap*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[ShearingSheet_ix1]: MPI_Irecv error at 5b = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -300,16 +299,14 @@ void ShearingSheet_ix1(DomainS *pD)
           }
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      shearing_sheet_ix1_tag, pD->Comm_Domain);
-      if(err) ath_error("[ShearingSheet_ix1]: MPI_Send error at 5b = %d\n",err);
 
 /*--- Step 5c. -----------------------------------------------------------------
  * unpack data sent from [je-(joverlap-1):je], and remap into cells in
  * [js:js+(joverlap-1)] in GhstZns */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[ShearingSheet_ix1]: MPI_Wait error at 5c = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -369,9 +366,8 @@ void ShearingSheet_ix1(DomainS *pD)
 
       cnt = nghost*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[ShearingSheet_ix1]: MPI_Irecv error at 5e = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -386,15 +382,13 @@ void ShearingSheet_ix1(DomainS *pD)
           }
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      shearing_sheet_ix1_tag, pD->Comm_Domain);
-      if(err) ath_error("[ShearingSheet_ix1]: MPI_Send error at 5e = %d\n",err);
 
 /* unpack data sent from [js:je-overlap], and remap into cells in
  * [js+joverlap:je] in GhstZns */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[ShearingSheet_ix1]: MPI_Wait error at 5e = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -469,7 +463,7 @@ void ShearingSheet_ix1(DomainS *pD)
 
 /*--- Step 8. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
- * periodic_ix2() and periodic_ox2() in set_bavls_mhd.c) */
+ * periodic_ix2() and periodic_ox2() in bvals_mhd.c) */
 
   if (pD->NGrid[1] == 1) {
 
@@ -504,20 +498,19 @@ void ShearingSheet_ix1(DomainS *pD)
 
 /*--- Step 9. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
- * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_mhd.c */
 
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = nghost*nghost*(pG->Nx[2] + 1)*NVAR_SHARE;
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[ShearingSheet_ix1]: MPI_Irecv error at 9a = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je-nghost+1; j<=je; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           *(pSnd++) = pCons->d;
@@ -543,19 +536,17 @@ void ShearingSheet_ix1(DomainS *pD)
     }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                    shearing_sheet_ix1_tag, pD->Comm_Domain);
-    if(err) ath_error("[ShearingSheet_ix1]: MPI_Send error at 9a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[Shearing_Sheet_ix1]: MPI_Wait error at 9a = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js-nghost; j<=js-1; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           pCons->d  = *(pRcv++);
@@ -581,15 +572,14 @@ void ShearingSheet_ix1(DomainS *pD)
     }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                     shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[ShearingSheet_ix1]: MPI_Irecv error at 9b = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js; j<=js+nghost-1; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           *(pSnd++) = pCons->d;
@@ -615,19 +605,17 @@ void ShearingSheet_ix1(DomainS *pD)
     }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                    shearing_sheet_ix1_tag, pD->Comm_Domain);
-    if(err) ath_error("[ShearingSheet_ix1]: MPI_Send error at 9b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[ShearingSheet_ix1]: MPI_Wait error at 9b = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je+1; j<=je+nghost; j++){
         for (i=is-nghost; i<is; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           pCons->d  = *(pRcv++);
@@ -671,7 +659,7 @@ void ShearingSheet_ix1(DomainS *pD)
 
 /*--- Step 11 ------------------------------------------------------------------
  * Shearing sheet BC in 2D.  Periodic BC already applied in x1 and x2 in
- * set_bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
+ * bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
  * to azimuthal velocity when FARGO not defined */
 
 #ifndef FARGO
@@ -699,9 +687,9 @@ void ShearingSheet_ix1(DomainS *pD)
 /*----------------------------------------------------------------------------*/
 /* ShearingSheet_ox1: 3D shearing-sheet BCs in x1.  It applies a remap
  * in Y after the ghost cells have been set by the usual periodic BCs in X and
- * Y implemented in set_bvals.c
+ * Y implemented in bvals_mhd.c
  *
- * This is a public function which is called by set_bvals_mhd() inside a
+ * This is a public function which is called by bvals_mhd() inside a
  * SHEARING_BOX macro.
  *----------------------------------------------------------------------------*/
 
@@ -715,10 +703,10 @@ void ShearingSheet_ox1(DomainS *pD)
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
-  int err,sendto_id,getfrom_id;
+  int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Remap *pRemap;
-  ConsVarS *pCons;
+  ConsS *pCons;
   MPI_Request rq;
 #endif
 
@@ -872,9 +860,8 @@ void ShearingSheet_ox1(DomainS *pD)
 
       cnt = nghost*joverlap*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[ShearingSheet_ox1]: MPI_Irecv error at 5b = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -890,9 +877,8 @@ void ShearingSheet_ox1(DomainS *pD)
           }
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      shearing_sheet_ox1_tag, pD->Comm_Domain);
-      if(err) ath_error("[ShearingSheet_ox1]: MPI_Send error at 5b = %d\n",err);
 
 
 /*--- Step 5c. -----------------------------------------------------------------
@@ -900,8 +886,7 @@ void ShearingSheet_ox1(DomainS *pD)
  * [je-(joverlap-1):je] in GhstZns
  */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[ShearingSheet_ox1]: MPI_Wait error at 5c = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -961,9 +946,8 @@ void ShearingSheet_ox1(DomainS *pD)
 
       cnt = nghost*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[ShearingSheet_ox1]: MPI_Irecv error at 5e = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -978,15 +962,13 @@ void ShearingSheet_ox1(DomainS *pD)
           }
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      shearing_sheet_ox1_tag, pD->Comm_Domain);
-      if(err) ath_error("[ShearingSheet_ox1]: MPI_Send error at 5e = %d\n",err);
 
 /* unpack data sent from [js+joverlap:je], and remap into cells in
  * [js:je-joverlap] in GhstZns */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[ShearingSheet_ox1]: MPI_Wait error at 5e = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1061,7 +1043,7 @@ void ShearingSheet_ox1(DomainS *pD)
 
 /*--- Step 8. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
- * periodic_ix2() and periodic_ox2() in set_bavls_mhd.c) */
+ * periodic_ix2() and periodic_ox2() in bvals_mhd.c) */
 
   if (pD->NGrid[1] == 1) {
 
@@ -1096,20 +1078,19 @@ void ShearingSheet_ox1(DomainS *pD)
 
 /*--- Step 9. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
- * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_mhd.c */
 
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = nghost*nghost*(pG->Nx[2] + 1)*NVAR_SHARE;
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[ShearingSheet_ox1]: MPI_Irecv error at 9a = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je-nghost+1; j<=je; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           *(pSnd++) = pCons->d;
@@ -1135,19 +1116,17 @@ void ShearingSheet_ox1(DomainS *pD)
     }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                    shearing_sheet_ox1_tag, pD->Comm_Domain);
-    if(err) ath_error("[ShearingSheet_ox1]: MPI_Send error at 9a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[ShearingSheet_ox1]: MPI_Wait error at 9a = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js-nghost; j<=js-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           pCons->d  = *(pRcv++);
@@ -1173,15 +1152,14 @@ void ShearingSheet_ox1(DomainS *pD)
     }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                     shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[ShearingSheet_ox1]: MPI_Irecv error at 9b = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js; j<=js+nghost-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           *(pSnd++) = pCons->d;
@@ -1207,19 +1185,17 @@ void ShearingSheet_ox1(DomainS *pD)
     }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                    shearing_sheet_ox1_tag, pD->Comm_Domain);
-    if(err) ath_error("[ShearingSheet_ox1]: MPI_Send error at 9b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[ShearingSheet_ox1]: MPI_Wait error at 9b = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je+1; j<=je+nghost; j++){
         for (i=ie+1; i<=ie+nghost; i++){
-          /* Get a pointer to the ConsVarS cell */
+          /* Get a pointer to the ConsS cell */
           pCons = &(pG->U[k][j][i]);
 
           pCons->d  = *(pRcv++);
@@ -1263,7 +1239,7 @@ void ShearingSheet_ox1(DomainS *pD)
 
 /*--- Step 11 ------------------------------------------------------------------
  * Shearing sheet BC in 2D.  Periodic BC already applied in x1 and x2 in
- * set_bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
+ * bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
  * to azimuthal velocity when FARGO not defined */
 
 #ifndef FARGO
@@ -1310,7 +1286,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 #ifdef MPI_PARALLEL
   int is = pG->is;
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
-  int err,sendto_id,getfrom_id;
+  int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Real *pEy;
   MPI_Request rq;
@@ -1351,9 +1327,8 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
     cnt = pG->Nx[1]*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 1 = %d\n",err);
 
 /* send Ey at [is] to ox1 (send L) -- this data is needed by remapEy_ox1 */
 
@@ -1364,14 +1339,12 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
         *(pSnd++) = *pEy;
       }
     }
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
                    remapEy_tag, pD->Comm_Domain);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 1 = %d\n",err);
 
 /* Listen for data from ox1 (listen L), unpack and set temporary array */
 
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Wait error at 1 = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++) {
@@ -1403,9 +1376,8 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
     cnt = nghost*(pG->Nx[2] + 1);
 /* Post a non-blocking receive for the input data from the left grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 2a = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1416,13 +1388,11 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
     }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                    remapEy_tag, pD->Comm_Domain);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 2a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Wait error at 2a = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1433,9 +1403,8 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
     }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 2b = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1446,13 +1415,11 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
     }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                    remapEy_tag, pD->Comm_Domain);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 2b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[RemapEy_ix1]: MPI_Wait error at 2b = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1525,9 +1492,8 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
       cnt = joverlap*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 5b = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1536,9 +1502,8 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
           *(pSnd++) = *pEy;
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      remapEy_tag, pD->Comm_Domain);
-      if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 5b = %d\n",err);
 
 
 /*--- Step 5c. -----------------------------------------------------------------
@@ -1546,8 +1511,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
  * [js:js+(joverlap-1)] in tEy
  */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[RemapEy_ix1]: MPI_Wait error at 5c = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1591,9 +1555,8 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
       cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[RemapEy_ix1]: MPI_Irecv error at 5e = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1602,15 +1565,13 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
           *(pSnd++) = *pEy;
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      remapEy_tag, pD->Comm_Domain);
-      if(err) ath_error("[RemapEy_ix1]: MPI_Send error at 5e = %d\n",err);
 
 /* unpack data sent from [js:je-overlap], and remap into cells in
  * [js+joverlap:je] in tEy */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[RemapEy_ix1]: MPI_Wait error at 5e = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1654,7 +1615,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 #ifdef MPI_PARALLEL
   int ie = pG->ie;
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
-  int err,sendto_id,getfrom_id;
+  int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Real *pEy;
   MPI_Request rq;
@@ -1695,9 +1656,8 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
     cnt = pG->Nx[1]*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from remapEy_ix1 (listen R) */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 1 = %d\n",err);
 
 /* send Ey at [ie+1] to ix1 (send R) -- this data is needed by remapEy_ix1 */
 
@@ -1708,14 +1668,12 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
         *(pSnd++) = *pEy;
       }
     }
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
                    remapEy_tag, pD->Comm_Domain);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 1 = %d\n",err);
 
 /* Listen for data from ix1 (listen R), unpack and set temporary array */
 
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Wait error at 1 = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++) {
@@ -1747,9 +1705,8 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
     cnt = nghost*(pG->Nx[2] + 1);
 /* Post a non-blocking receive for the input data from the left grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 2a = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1760,13 +1717,11 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
     }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                    remapEy_tag, pD->Comm_Domain);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 2a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Wait error at 2a = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1777,9 +1732,8 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
     }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 2b = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1790,13 +1744,11 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
     }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                    remapEy_tag, pD->Comm_Domain);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 2b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[RemapEy_ox1]: MPI_Wait error at 2b = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
@@ -1869,9 +1821,8 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
       cnt = joverlap*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 5b = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1880,17 +1831,15 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
           *(pSnd++) = *pEy;
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      remapEy_tag, pD->Comm_Domain);
-      if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 5b = %d\n",err);
 
 /*--- Step 5c. -----------------------------------------------------------------
  * unpack data sent from [js:js+(joverlap-1)], and remap into cells in
  * [je-(joverlap-1):je] in tEy
  */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[RemapEy_ox1]: MPI_Wait error at 5c = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1934,9 +1883,8 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
       cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
-      err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
-      if(err) ath_error("[RemapEy_ox1]: MPI_Irecv error at 5e = %d\n",err);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1945,15 +1893,13 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
           *(pSnd++) = *pEy;
         }
       }
-      err = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
                      remapEy_tag, pD->Comm_Domain);
-      if(err) ath_error("[RemapEy_ox1]: MPI_Send error at 5e = %d\n",err);
 
 /* unpack data sent from [js+overlap:je], and remap into cells in
  * [js:je-joverlap] in tEy */
 
-      err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-      if(err) ath_error("[RemapEy_ox1]: MPI_Wait error at 5e = %d\n",err);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -1977,7 +1923,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /*----------------------------------------------------------------------------*/
 /* Fargo: implements FARGO algorithm.  Only works in 3D.  This function is
- * called in the main loop after the integrator (and before set_bvals_mhd).
+ * called in the main loop after the integrator (and before bvals_mhd).
  *  Written in Munich 24-27.4.2008
  *----------------------------------------------------------------------------*/
 
@@ -1995,7 +1941,7 @@ void Fargo(DomainS *pD)
   Real qom_dt = qshear*Omega_0*pG->dt;
 #endif
 #ifdef MPI_PARALLEL
-  int err,cnt;
+  int ierr,cnt;
   double *pSnd,*pRcv;
   FConsS *pFCons;
   MPI_Request rq;
@@ -2038,7 +1984,7 @@ void Fargo(DomainS *pD)
 
 /*--- Step 2. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y to FargoVars array
- * (method is similar to periodic_ix2() and periodic_ox2() in set_bvals_mhd).
+ * (method is similar to periodic_ix2() and periodic_ox2() in bvals_mhd).
  * Note there are extra ghost zones in Y in the FargoVars array  */
 
   if (pD->NGrid[1] == 1) {
@@ -2057,13 +2003,12 @@ void Fargo(DomainS *pD)
 
 /*--- Step 3. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
- * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_mhd.c */
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = (pG->Nx[0]+1)*nfghost*(pG->Nx[2] + 1)*(NFARGO + NSCALARS);
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     fargo_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[Fargo]: MPI_Irecv error at 3a = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -2080,13 +2025,11 @@ void Fargo(DomainS *pD)
     }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                    fargo_tag, pD->Comm_Domain);
-    if(err) ath_error("[Fargo]: MPI_Send error at 3a = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[Fargo]: MPI_Wait error at 3a = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
@@ -2103,9 +2046,8 @@ void Fargo(DomainS *pD)
     }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    err = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
                     fargo_tag, pD->Comm_Domain, &rq);
-    if(err) ath_error("[Fargo]: MPI_Irecv error at 3b = %d\n",err);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -2122,13 +2064,11 @@ void Fargo(DomainS *pD)
     }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    err = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                    fargo_tag, pD->Comm_Domain);
-    if(err) ath_error("[Fargo]: MPI_Send error at 3b = %d\n",err);
 
 /* Wait to receive the input data from the left grid */
-    err = MPI_Wait(&rq, MPI_STATUS_IGNORE);
-    if(err) ath_error("[Fargo]: MPI_Wait error at 3b = %d\n",err);
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
@@ -2158,7 +2098,7 @@ void Fargo(DomainS *pD)
       yshear = -qshear*Omega_0*x1*pG->dt;
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
-        ath_error("[set_bvals_shear]: FARGO offset exceeded # of gh zns\n");
+        ath_error("[bvals_shear]: FARGO offset exceeded # of gh zns\n");
       eps = (fmod(yshear,pG->dx2))/pG->dx2;
 
 /* Compute fluxes of hydro variables  */
@@ -2226,7 +2166,7 @@ void Fargo(DomainS *pD)
       yshear = -qshear*Omega_0*(x1 - 0.5*pG->dx1)*pG->dt;
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
-        ath_error("[set_bvals_shear]: FARGO offset exceeded # of gh zns\n");
+        ath_error("[bvals_shear]: FARGO offset exceeded # of gh zns\n");
       eps = (fmod(yshear,pG->dx2))/pG->dx2;
 
       for (j=jfs-nfghost; j<=jfe+nfghost; j++) {
@@ -2330,10 +2270,10 @@ void Fargo(DomainS *pD)
 
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_shear_init: allocates memory for temporary arrays/buffers
+/* bvals_shear_init: allocates memory for temporary arrays/buffers
  */
 
-void set_bvals_shear_init(MeshS *pM)
+void bvals_shear_init(MeshS *pM)
 {
   GridS *pG;
   int nl,nd,nx1,nx2,nx3,max1=0,max2=0,max3=0;
@@ -2364,14 +2304,14 @@ void set_bvals_shear_init(MeshS *pM)
 /* Allocate memory for temporary arrays and vectors */
 
   if((GhstZns=(Remap***)calloc_3d_array(max3,nghost,max2,sizeof(Remap)))==NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
   if((GhstZnsBuf=(Remap***)calloc_3d_array(max3,nghost,max2,sizeof(Remap))) ==
-    NULL) ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
 #ifdef MHD
   if ((tEyBuf=(Real**)calloc_2d_array(max3,max2,sizeof(Real))) == NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif /* MHD */
 
 /* estimate extra ghost cells needed by FARGO, allocate arrays accordingly */
@@ -2409,20 +2349,20 @@ void set_bvals_shear_init(MeshS *pM)
   size = MAX(size1,size2);
 
   if((send_buf = (double*)malloc(size*sizeof(double))) == NULL)
-    ath_error("[set_bvals_shear_init]: Failed to allocate send buffer\n");
+    ath_error("[bvals_shear_init]: Failed to allocate send buffer\n");
 
   if((recv_buf = (double*)malloc(size*sizeof(double))) == NULL)
-    ath_error("[set_bvals_shear_init]: Failed to allocate receive buffer\n");
+    ath_error("[bvals_shear_init]: Failed to allocate receive buffer\n");
 #endif /* MPI_PARALLEL */
 
   return;
 }
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_shear_destruct:  Free temporary arrays
+/* bvals_shear_destruct:  Free temporary arrays
  */
 
-void set_bvals_shear_destruct(void)
+void bvals_shear_destruct(void)
 {
   if (GhstZns    != NULL) free_3d_array(GhstZns);
   if (GhstZnsBuf != NULL) free_3d_array(GhstZnsBuf);

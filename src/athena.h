@@ -24,6 +24,9 @@
 /* variable type Real:   depends on macro set by configure
  */ 
 #if defined(SINGLE_PREC)
+#ifdef MPI_PARALLEL
+#error: MPI requires double precision
+#endif /*MPI_PARALLEL */
 typedef float  Real;
 #elif defined(DOUBLE_PREC)
 typedef double Real;

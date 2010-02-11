@@ -756,6 +756,8 @@ void bvals_mhd_init(MeshS *pM)
     for (n=0; n<(pD->NGrid[2]); n++){
     for (m=0; m<(pD->NGrid[1]); m++){
       for (l=0; l<(pD->NGrid[0]); l++){
+
+/* x1cnt is surface area of x1 faces */
 	if(pD->NGrid[0] > 1){
 	  nx2t = pD->GData[n][m][l].Nx[1];
 	  if(nx2t > 1) nx2t += 1;
@@ -763,10 +765,10 @@ void bvals_mhd_init(MeshS *pM)
 	  nx3t = pD->GData[n][m][l].Nx[2];
 	  if(nx3t > 1) nx3t += 1;
 
-/* x1cnt is surface area of x1 faces */
           if(nx2t*nx3t > x1cnt) x1cnt = nx2t*nx3t;
 	}
 
+/* x2cnt is surface area of x2 faces */
 	if(pD->NGrid[1] > 1){
 	  nx1t = pD->GData[n][m][l].Nx[0];
 	  if(nx1t > 1) nx1t += 2*nghost;
@@ -774,11 +776,10 @@ void bvals_mhd_init(MeshS *pM)
 	  nx3t = pD->GData[n][m][l].Nx[2];
 	  if(nx3t > 1) nx3t += 1;
 
-/* x2cnt is surface area of x2 faces */
           if(nx1t*nx3t > x2cnt) x2cnt = nx1t*nx3t;
 	}
 
-
+/* x3cnt is surface area of x3 faces */
 	if(pD->NGrid[2] > 1){
 	  nx1t = pD->GData[n][m][l].Nx[0];
 	  if(nx1t > 1) nx1t += 2*nghost;
@@ -786,7 +787,6 @@ void bvals_mhd_init(MeshS *pM)
 	  nx2t = pD->GData[n][m][l].Nx[1];
 	  if(nx2t > 1) nx2t += 2*nghost;
 
-/* x3cnt is surface area of x3 faces */
           if(nx1t*nx2t > x3cnt) x3cnt = nx1t*nx2t;
 	}
       }
@@ -1470,7 +1470,8 @@ static void outflow_ix3(GridS *pGrid)
     }
   }
 
-  for (k=1; k<=nghost; k++) {
+/* B3i is not set at k=ks-nghost */
+  for (k=1; k<=nghost-1; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->B3i[ks-k][j][i] = pGrid->B3i[ks][j][i];
@@ -2118,6 +2119,7 @@ static void conduct_ix3(GridS *pGrid)
     }
   }
 
+/* B3i is not set at k=ks-nghost */
   for (k=1; k<=nghost-1; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {

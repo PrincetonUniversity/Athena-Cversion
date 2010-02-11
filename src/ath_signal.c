@@ -47,10 +47,9 @@ int ath_sig_act(int *piquit)
 {
 
 #ifdef MPI_PARALLEL
-  int err, sig = sig_caught > *piquit ? sig_caught : *piquit;
+  int ierr, sig = sig_caught > *piquit ? sig_caught : *piquit;
 
-  err = MPI_Allreduce(&sig, piquit, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-  if(err) ath_error("[sim_sig_act]: MPI_Allreduce returned error = %d\n",err);
+  ierr = MPI_Allreduce(&sig, piquit, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
 #else /* SERIAL */
 

@@ -184,12 +184,11 @@ void new_dt(MeshS *pM)
 void sync_dt(MeshS *pM)
 {
   double dt, my_dt;
-  int err;
+  int ierr;
 
   my_dt = pM->dt;
 
-  err = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-  if(err) ath_error("[sync_dt]: MPI_Allreduce returned error code %d\n",err);
+  ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
   pM->dt = dt;
 
