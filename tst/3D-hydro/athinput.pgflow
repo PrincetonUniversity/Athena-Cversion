@@ -21,7 +21,7 @@ id      = d
 dt      = 0.1
 dmin    = 0.0377
 dmax    = 0.08096
-ix3     = 8
+x3      = 0.5
 
 <output3>
 out_fmt = ppm               # PPM image dump
@@ -31,7 +31,7 @@ id      = drho
 dt      = 0.1
 dmin    = -0.0002
 dmax    = 0.0002
-ix3     = 8
+x3      = 0.5
 
 <time>
 

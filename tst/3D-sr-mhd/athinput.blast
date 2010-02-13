@@ -26,7 +26,7 @@ id      = d
 dmin    = 0.06
 dmax    = 4.4
 palette = rainbow
-ix3     = 75
+x3      = 0.0
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number

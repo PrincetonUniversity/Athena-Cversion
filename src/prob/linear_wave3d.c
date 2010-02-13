@@ -590,9 +590,9 @@ void Userwork_after_loop(MeshS *pM)
 /* Print error to file "LinWave-errors.#.dat", where #=wave_flag  */
 
 #ifdef MPI_PARALLEL
-  fname = ath_fname("../","LinWave-errors",1,wave_flag,NULL,"dat");
+  fname = ath_fname("../","LinWave-errors",NULL,NULL,1,wave_flag,NULL,"dat");
 #else
-  fname = ath_fname(NULL,"LinWave-errors",1,wave_flag,NULL,"dat");
+  fname = ath_fname(NULL,"LinWave-errors",NULL,NULL,1,wave_flag,NULL,"dat");
 #endif
 
 /* The file exists -- reopen the file in append mode */

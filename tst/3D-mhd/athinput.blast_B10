@@ -26,19 +26,7 @@ id      = d
 dmin    = 0.08
 dmax    = 6.5
 palette = rainbow
-ix3     = 100
-
-<output4>
-out_fmt = ppm
-dt      = 0.002
-type    = slice
-out     = d
-id      = d-lev1
-dmin    = 0.08
-dmax    = 6.5
-palette = rainbow
-level   = 1
-ix3     = 120
+x3      = 0.0
 
 <time>
 cour_no         = 0.4           # The Courant, Friedrichs, & Lewy (CFL) Number

@@ -25,7 +25,7 @@ palette = jh_colors
 dt      = 100.0      # time step between output of delta V3
 dmin    = -1.2e-7    # min value for imaging delta V3
 dmax    =  1.2e-7    # max value for imaging delta V3
-ix3     = 1          # slice in X-Y plane
+x3      = 0.0          # slice in X-Y plane
 
 <output4>
 out_fmt = ppm                # Binary data dump
@@ -35,7 +35,7 @@ palette = jh_colors
 dt      = 100.0      # time step between output of delta V3
 dmin    = 0.9e-6     # min value for imaging delta V3
 dmax    = 1.1e-6     # max value for imaging delta V3
-ix3     = 1          # slice in X-Y plane
+x3      = 0.0          # slice in X-Y plane
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number

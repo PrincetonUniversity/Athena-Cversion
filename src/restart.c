@@ -21,6 +21,9 @@
  * MPI parallel jobs must be restarted on the same number of processors as they
  * were run originally.
  *
+ * With SMR, restart files contain ALL levels and domains being updated by each
+ * processor in one file, written in the default directory for the process.
+ *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   restart_grids() - reads nstep,time,dt,ConsS and B from restart file 
  *   dump_restart()  - writes a restart file
@@ -423,6 +426,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
 {
   GridS *pG;
   FILE *fp;
+  char *fname;
   int i,j,k,is,ie,js,je,ks,ke,nl,nd;
 #ifdef MHD
   int ib=0,jb=0,kb=0;
@@ -463,11 +467,15 @@ void dump_restart(MeshS *pM, OutputS *pout)
   }
 #endif
 
-/* Open the output file */
+/* Create filename and Open the output file */
 
-  fp = ath_fopen(NULL,pM->outfilename,num_digit,pout->num,NULL,"rst","wb");
-  if(fp == NULL){
-    ath_perr(-1,"[dump_restart]: Error opening the restart file\n");
+  if((fname = ath_fname(NULL,pM->outfilename,NULL,NULL,num_digit,
+      pout->num,NULL,"rst")) == NULL){
+    ath_error("[dump_restart]: Error constructing filename\n");
+  }
+
+  if((fp = fopen(fname,"wb")) == NULL){
+    ath_error("[dump_restart]: Unable to open restart file\n");
     return;
   }
 

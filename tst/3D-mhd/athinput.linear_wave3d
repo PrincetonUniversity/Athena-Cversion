@@ -25,7 +25,7 @@ dmax    = 1.0001
 out     = d
 id      = d-12
 palette = jh_colors
-ix3     = 1
+x3      = 0.0
 
 <output4>
 out_fmt = ppm              # ppm images of density
@@ -35,7 +35,7 @@ dmax    = 1.0001
 out     = d
 id      = d-23
 palette = jh_colors
-ix1     = 1
+x1      = 0.0
 
 <output5>
 out_fmt = ppm             # ppm images of color, for entropy waves
@@ -46,7 +46,7 @@ out     = color
 id      = color
 palette = rainbow
 usr_expr_flag=1
-ix3     = 1
+x3      = 0.0
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number

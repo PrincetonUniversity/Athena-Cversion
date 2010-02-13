@@ -30,7 +30,6 @@ CORE_OBJ = ath_array.o \
            main.o \
            new_dt.o \
            output.o \
-           output_fits.o \
            output_pdf.o \
            output_pgm.o \
            output_ppm.o \

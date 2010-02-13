@@ -26,14 +26,14 @@ out_fmt = ppm                # ppm data dump
 dt      = 6.2831853e1        # time increment between outputs
 out     = B1c
 id      = B1c
-ix2     = 32
+x2      = 0.0
 
 <output5>
 out_fmt = ppm                # ppm data dump
 dt      = 6.2831853e1        # time increment between outputs
 out     = V3
 id      = V3
-ix2     = 32
+x2      = 0.0
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number

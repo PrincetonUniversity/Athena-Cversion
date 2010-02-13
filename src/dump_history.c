@@ -9,7 +9,7 @@
  *   TOTAL, VOLUME INTEGRATED quantities, NOT volume averages (just divide by
  *   the Domain volume to compute the latter).  History data is written
  *   periodically, giving the time-evolution of that quantitity.
- * Default (hardwired) values are:
+ *   Default (hardwired) values are:
  *     scal[0] = time
  *     scal[1] = dt
  *     scal[2] = mass
@@ -32,10 +32,10 @@
  * Alternatively, up to MAX_USR_H_COUNT new history variables can be added using
  * dump_history_enroll() in the problem generator.
  *
- * Data is integrated over a single Domain, by default the root (level=0)
- * Domain.  If <output>level or <output>domain != 0, then the data integrated
- * over this Domain will be output to a seperate file with <output>id added to
- * the filename (this can be set by user to identify file).
+ * With SMR, data is integrated over each Domain separately, and dumped to
+ * separate files with the level and domain number encoded in the filename.
+ * Dumps are always made for all levels and domains, and are written in lev#
+ * directories of root (rank=0) process.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   dump_history()        - Writes variables as formatted table
@@ -68,10 +68,11 @@ void dump_history(MeshS *pM, OutputS *pOut)
 {
   GridS *pG;
   DomainS *pD;
-  int i,j,k,is,ie,js,je,ks,ke;
+  int i,j,k,is,ie,js,je,ks,ke,nl,nd;
   double dVol, scal[NSCAL + NSCALARS + MAX_USR_H_COUNT], d1;
   FILE *pfile;
-  char fmt[80];
+  char *fname,*plev=NULL,*pdom=NULL,*pdir=NULL,fmt[80];
+  char levstr[8],domstr[8],dirstr[8];
   int n, total_hst_cnt, mhst;
 #ifdef MPI_PARALLEL
   double my_scal[NSCAL + NSCALARS + MAX_USR_H_COUNT]; /* My Volume averages */
@@ -80,18 +81,6 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef CYLINDRICAL
   Real x1,x2,x3;
 #endif 
-
-/* Return if Grid is not on this processor */
-
-  pG = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
-  if (pG == NULL) return;
-
-#ifdef MPI_PARALLEL
-  pD = (DomainS*)&(pM->Domain[pOut->nlevel][pOut->ndomain]);
-#endif
-  is = pG->is, ie = pG->ie;
-  js = pG->js, je = pG->je;
-  ks = pG->ks, ke = pG->ke;
 
   total_hst_cnt = 9 + NSCALARS + usr_hst_cnt;
 #ifdef ADIABATIC
@@ -115,179 +104,209 @@ void dump_history(MeshS *pM, OutputS *pOut)
     sprintf(fmt," %s",pOut->dat_fmt);
   }
 
-  for (i=2; i<total_hst_cnt; i++) {
-    scal[i] = 0.0;
-  }
+/* store time and dt in first two elements of output vector */
+
+  scal[0] = pM->time;
+  scal[1] = pM->dt;
+
+/* Loop over all Domains in Mesh, and output Grid data */
+
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
+        pG = pM->Domain[nl][nd].Grid;
+#ifdef MPI_PARALLEL
+        pD = (DomainS*)&(pM->Domain[nl][nd]);
+#endif
+        is = pG->is, ie = pG->ie;
+        js = pG->js, je = pG->je;
+        ks = pG->ks, ke = pG->ke;
+
+        for (i=2; i<total_hst_cnt; i++) {
+          scal[i] = 0.0;
+        }
  
 /* Compute history variables */
 
-  scal[0] = pG->time;
-  scal[1] = pG->dt;
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
+        for (k=ks; k<=ke; k++) {
+          for (j=js; j<=je; j++) {
+            for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
-        cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        dVol = x1*(pG->dx1)*(pG0->dx2)*(pG->dx3); 
+              cc_pos(pG,i,j,k,&x1,&x2,&x3);
+              dVol = x1*(pG->dx1)*(pG0->dx2)*(pG->dx3); 
 #else
-        dVol = (pG->dx1)*(pG->dx2)*(pG->dx3); 
+              dVol = (pG->dx1)*(pG->dx2)*(pG->dx3); 
 #endif
-
-        mhst = 2;
-	scal[mhst] += dVol*pG->U[k][j][i].d;
-	d1 = 1.0/pG->U[k][j][i].d;
+              mhst = 2;
+              scal[mhst] += dVol*pG->U[k][j][i].d;
+              d1 = 1.0/pG->U[k][j][i].d;
 #ifndef BAROTROPIC
-        mhst++;
-	scal[mhst] += dVol*pG->U[k][j][i].E;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].E;
 #endif
-        mhst++;
-	scal[mhst] += dVol*pG->U[k][j][i].M1;
-        mhst++;
-	scal[mhst] += dVol*pG->U[k][j][i].M2;
-        mhst++;
-	scal[mhst] += dVol*pG->U[k][j][i].M3;
-        mhst++;
-	scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M1)*d1;
-        mhst++;
-	scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M2)*d1;
-        mhst++;
-	scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M3)*d1;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].M1;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].M2;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].M3;
+              mhst++;
+              scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M1)*d1;
+              mhst++;
+              scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M2)*d1;
+              mhst++;
+              scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M3)*d1;
 #ifdef MHD
-        mhst++;
-	scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B1c);
-        mhst++;
-	scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B2c);
-        mhst++;
-	scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B3c);
+              mhst++;
+              scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B1c);
+              mhst++;
+              scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B2c);
+              mhst++;
+              scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B3c);
 #endif
 #ifdef SELF_GRAVITY
-        mhst++;
-        scal[mhst] += dVol*pG->U[k][j][i].d*pG->Phi[k][j][i];
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].d*pG->Phi[k][j][i];
 #endif
 #if (NSCALARS > 0)
-	for(n=0; n<NSCALARS; n++){
-          mhst++;
-	  scal[mhst] += dVol*pG->U[k][j][i].s[n];
-	}
+              for(n=0; n<NSCALARS; n++){
+                mhst++;
+                scal[mhst] += dVol*pG->U[k][j][i].s[n];
+              }
 #endif
 
 #ifdef CYLINDRICAL
-        mhst++;
-        scal[mhst] += dVol*(x1*pG->U[k][j][i].M2);
+              mhst++;
+              scal[mhst] += dVol*(x1*pG->U[k][j][i].M2);
 #endif
 
 /* Calculate the user defined history variables */
-	for(n=0; n<usr_hst_cnt; n++){
-          mhst++;
-	  scal[mhst] += dVol*(*phst_fun[n])(pG, i, j, k);
-	}
-      }
-    }
-  }
+              for(n=0; n<usr_hst_cnt; n++){
+                mhst++;
+                scal[mhst] += dVol*(*phst_fun[n])(pG, i, j, k);
+              }
+            }
+          }
+        }
 
 /* Compute the sum over all Grids in Domain */
 
 #ifdef MPI_PARALLEL 
-  for(i=2; i<total_hst_cnt; i++){
-    my_scal[i] = scal[i];
-  }
-  ierr = MPI_Reduce(&(my_scal[2]), &(scal[2]), (total_hst_cnt - 2),
-    MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
+        for(i=2; i<total_hst_cnt; i++){
+          my_scal[i] = scal[i];
+        }
+        ierr = MPI_Reduce(&(my_scal[2]), &(scal[2]), (total_hst_cnt - 2),
+          MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
 #endif
 
 /* Only the parent (rank=0) process computes the average and writes output. */
 #ifdef MPI_PARALLEL
-  ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
-  if(myID_Comm_Domain == 0){ /* I'm the parent */
+        ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
+        if(myID_Comm_Domain == 0){ /* I'm the parent */
 #endif
 
-/* Write history file */
+/* Create filename and open file.  History files are always written in lev#
+ * directories of root (rank=0) process. */
 #ifdef MPI_PARALLEL
-  if (pOut->nlevel > 0) {
-    pfile = ath_fopen("../",pM->outfilename,0,0,pOut->id,"hst","a");
-  } else {
-    pfile = ath_fopen("../",pM->outfilename,0,0,NULL,"hst","a");
-  }
+        if (nl>0) {
+          plev = &levstr[0];
+          sprintf(plev,"lev%d",nl);
+          pdir = &dirstr[0];
+          sprintf(pdir,"../lev%d",nl);
+        }
 #else
-  if (pOut->nlevel > 0) {
-    pfile = ath_fopen(NULL,pM->outfilename,0,0,pOut->id,"hst","a");
-  } else {
-    pfile = ath_fopen(NULL,pM->outfilename,0,0,NULL,"hst","a");
-  }
+        if (nl>0) {
+          plev = &levstr[0];
+          sprintf(plev,"lev%d",nl);
+          pdir = &dirstr[0];
+          sprintf(pdir,"lev%d",nl);
+        }
 #endif
-  if(pfile == NULL){
-    ath_perr(-1,"[dump_history]: Unable to open the history file\n");
-    return;
-  }
+        if (nd>0) {
+          pdom = &domstr[0];
+          sprintf(pdom,"dom%d",nd);
+        }
+
+        fname = ath_fname(pdir,pM->outfilename,plev,pdom,0,0,NULL,"hst");
+        if(fname == NULL){
+          ath_perr(-1,"[dump_history]: Unable to create history filename\n");
+        }
+        pfile = fopen(fname,"a");
+        if(pfile == NULL){
+          ath_perr(-1,"[dump_history]: Unable to open the history file\n");
+        }
 
 /* Write out column headers */
 
-  mhst = 0;
-  if(pOut->num == 0){
-    mhst++;
-    fprintf(pfile,"#   [%i]=time   ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=dt      ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=mass    ",mhst);
+        mhst = 0;
+        if(pOut->num == 0){
+          mhst++;
+          fprintf(pfile,"#   [%i]=time   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=dt      ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=mass    ",mhst);
 #ifdef ADIABATIC
-    mhst++;
-    fprintf(pfile,"   [%i]=total E ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=total E ",mhst);
 #endif
-    mhst++;
-    fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x3 Mom. ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x1-KE   ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x2-KE   ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x3-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-KE   ",mhst);
 #ifdef MHD
-    mhst++;
-    fprintf(pfile,"   [%i]=x1-ME   ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x2-ME   ",mhst);
-    mhst++;
-    fprintf(pfile,"   [%i]=x3-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-ME   ",mhst);
 #endif
 #ifdef SELF_GRAVITY
-    mhst++;
-    fprintf(pfile,"   [%i]=grav PE ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=grav PE ",mhst);
 #endif
 #if (NSCALARS > 0)
-    for(n=0; n<NSCALARS; n++){
-      mhst++;
-      fprintf(pfile,"  [%i]=scalar %i",mhst,n);
-    }
+          for(n=0; n<NSCALARS; n++){
+            mhst++;
+            fprintf(pfile,"  [%i]=scalar %i",mhst,n);
+          }
 #endif
 
 #ifdef CYLINDRICAL
-    mhst++;
-    fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
 #endif
 
-    for(n=0; n<usr_hst_cnt; n++){
-      mhst++;
-      fprintf(pfile,"  [%i]=%s",mhst,usr_label[n]);
-    }
-    fprintf(pfile,"\n#\n");
-  }
+          for(n=0; n<usr_hst_cnt; n++){
+            mhst++;
+            fprintf(pfile,"  [%i]=%s",mhst,usr_label[n]);
+          }
+          fprintf(pfile,"\n#\n");
+        }
 
-/* Write out data */
+/* Write out data, and close file */
 
-  for (i=0; i<total_hst_cnt; i++) {
-    fprintf(pfile,fmt,scal[i]);
-  }
-  fprintf(pfile,"\n");
-  fclose(pfile);
+        for (i=0; i<total_hst_cnt; i++) {
+          fprintf(pfile,fmt,scal[i]);
+        }
+        fprintf(pfile,"\n");
+        fclose(pfile);
 
 #ifdef MPI_PARALLEL
-  }
+        }
 #endif
+      }
+    }
+  }
 
   return;
 }

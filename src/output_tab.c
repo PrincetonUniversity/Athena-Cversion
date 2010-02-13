@@ -2,17 +2,18 @@
 /*==============================================================================
  * FILE: output_tab.c
  *
- * PURPOSE: Functions for writing output in tabular format.
+ * PURPOSE: Functions for writing output in tabular format.  With SMR,
+ *   dumps are made for all levels and domains, unless nlevel and ndomain are
+ *   specified in <output> blocks.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   output_tab() - opens file and calls appropriate 1D/2D/3D output function
- *     Uses subset1,2,3() to extract appropriate section to be output.
+ *     Uses OutData1,2,3() to extract appropriate section to be output.
  *============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "defs.h"
 #include "athena.h"
 #include "prototypes.h"
@@ -24,9 +25,9 @@
  *   output_tab_3d() - write tab file for 3D section of data
  *============================================================================*/
 
-void output_tab_1d(GridS *pGrid, OutputS *pOut, FILE *pFile);
-void output_tab_2d(GridS *pGrid, OutputS *pOut, FILE *pFile);
-void output_tab_3d(GridS *pGrid, OutputS *pOut, FILE *pFile);
+void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd);
+void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd);
+void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -34,58 +35,75 @@ void output_tab_3d(GridS *pGrid, OutputS *pOut, FILE *pFile);
 
 void output_tab(MeshS *pM, OutputS *pOut)
 {
-  GridS *pGrid;
+  int nl,nd;
+
+/* Loop over all Domains in Mesh, and output Grid data */
+
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
+
+/* write files if domain and level match input, or are not specified (-1) */
+      if ((pOut->nlevel == -1 || pOut->nlevel == nl) &&
+          (pOut->ndomain == -1 || pOut->ndomain == nd)){
+
+        if (pOut->ndim == 3) {
+          output_tab_3d(pM,pOut,nl,nd);
+        } else if (pOut->ndim == 2) {
+          output_tab_2d(pM,pOut,nl,nd);
+        } else if (pOut->ndim == 1) {
+          output_tab_1d(pM,pOut,nl,nd);
+        }
+      }}
+    }
+  }
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* output_tab_1d: writes 1D data.  Note x-coordinate is just i-index.  */
+
+void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
+{
+  GridS *pGrid=pM->Domain[nl][nd].Grid;
+  int i,nx1;
   FILE *pFile;
-  char *fname;
-  int dnum = pOut->num;
+  char *fname,*plev=NULL,*pdom=NULL;
+  char levstr[8],domstr[8];
+  Real *data=NULL;
+  Real dmin, dmax, xworld;
 
-/* Return if Grid is not on this processor */
+/* compute 1D array of data */
+  data = OutData1(pGrid,pOut,&nx1);
+  if (data == NULL) return;  /* slice not in range of Grid */
 
-  pGrid = pM->Domain[pOut->nlevel][pOut->ndomain].Grid;
-  if (pGrid == NULL) return;
+  minmax1(data,nx1,&dmin,&dmax);
 
 /* construct output filename */
-  fname = ath_fname(NULL,pM->outfilename,num_digit,dnum,pOut->id,"tab");
-  if (fname == NULL) {
-    ath_error("[output_tab]: Error constructing output filename\n");
-    return;
+  if (nl>0) {
+    plev = &levstr[0];
+    sprintf(plev,"lev%d",nl);
+  }
+  if (nd>0) {
+    pdom = &domstr[0];
+    sprintf(pdom,"dom%d",nd);
+  }
+
+  if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,pOut->num,
+      pOut->id,"tab")) == NULL){
+    ath_error("[output_tab]: Error constructing filename\n");
   }
 
 /* open filename */
   pFile = fopen(fname,"w");
   if (pFile == NULL) {
     ath_error("[output_tab]: Unable to open tab file %s\n",fname);
-    return;
   }
 
-/* call appropriate 1D, 2D or 3D output routine */
-  if (pOut->ndim == 3) {
-    output_tab_3d(pGrid,pOut,pFile);
-  } else if (pOut->ndim == 2) {
-    output_tab_2d(pGrid,pOut,pFile);
-  } else if (pOut->ndim == 1) {
-    output_tab_1d(pGrid,pOut,pFile);
-  }
-
-  fclose(pFile);
-  free(fname);
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
-/* output_tab_1d: writes 1D data  */
-
-void output_tab_1d(GridS *pGrid, OutputS *pOut, FILE *pFile)
-{
-  int i,nx1;
-  float *data, dmin, dmax, xworld;
-
-  data = subset1(pGrid,pOut);
-  nx1 = pOut->Nx1;     /* we know it's 1dim data */
-  minmax1(data,nx1,&dmin,&dmax);
-
-  for (i=0; i<pOut->Nx1; i++) {
-    xworld = pOut->x1_0  + pOut->dx1*(float)(i);
+/* write data */
+  for (i=0; i<nx1; i++) {
+    xworld = (float)(i);  /* just i index for now */
     fprintf(pFile,"%g %g\n",xworld,data[i]);
   }
   
@@ -98,26 +116,55 @@ void output_tab_1d(GridS *pGrid, OutputS *pOut, FILE *pFile)
     pOut->gmax = MAX(dmax,pOut->gmax);
   }
 
+  fclose(pFile);
   free_1d_array(data); /* Free the memory we malloc'd */
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_tab_2d: writes 2D data  */
+/* output_tab_2d: writes 2D data.  Note x/y-coordinate is just i/j-index.  */
 
-void output_tab_2d(GridS *pGrid, OutputS *pOut, FILE *pFile)
+void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {
+  GridS *pGrid=pM->Domain[nl][nd].Grid;
   int i,j,nx1,nx2;
-  float **data, dmin, dmax, xworld, yworld;
+  FILE *pFile;
+  char *fname,*plev=NULL,*pdom=NULL;
+  char levstr[8],domstr[8];
+  Real **data=NULL;
+  Real dmin, dmax, xworld, yworld;
 
-  data = subset2(pGrid,pOut);
-  nx1 = pOut->Nx1;     /* we know it's 2dim data */
-  nx2 = pOut->Nx2;
+/* compute 2D array of data */
+  data = OutData2(pGrid,pOut,&nx1,&nx2);
+  if (data == NULL) return;  /* slice not in range of Grid */
+
   minmax2(data,nx2,nx1,&dmin,&dmax);
 
-  for (j=0; j<pOut->Nx2; j++) {
-    for (i=0; i<pOut->Nx1; i++) {
-      xworld = pOut->x1_0  + pOut->dx1*(float)(i);
-      yworld = pOut->x2_0  + pOut->dx2*(float)(j);
+/* construct output filename */
+  if (nl>0) {
+    plev = &levstr[0];
+    sprintf(plev,"lev%d",nl);
+  }
+  if (nd>0) {
+    pdom = &domstr[0];
+    sprintf(pdom,"dom%d",nd);
+  }
+
+  if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,pOut->num,
+      pOut->id,"tab")) == NULL){
+    ath_error("[output_tab]: Error constructing filename\n");
+  }
+
+/* open filename */
+  pFile = fopen(fname,"w");
+  if (pFile == NULL) {
+    ath_error("[output_tab]: Unable to open tab file %s\n",fname);
+  }
+
+/* write data */
+  for (j=0; j<nx2; j++) {
+    for (i=0; i<nx1; i++) {
+      xworld = (float)(i); /* just i index for now */
+      yworld = (float)(j); /* just j index for now */
       fprintf(pFile,"%g %g %g\n",xworld,yworld,data[j][i]);
     }
   }
@@ -131,29 +178,54 @@ void output_tab_2d(GridS *pGrid, OutputS *pOut, FILE *pFile)
     pOut->gmax = MAX(dmax,pOut->gmax);
   }
 
+  fclose(pFile);
   free_2d_array(data); /* Free the memory we malloc'd */
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_tab_3d: writes 3D data   */
+/* output_tab_3d: writes 3D data.  Note x/y/z-coordinate is just i/j/k-index  */
 
-void output_tab_3d(GridS *pGrid, OutputS *pOut, FILE *pFile)
+void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {
+  GridS *pGrid=pM->Domain[nl][nd].Grid;
   int i,j,k,nx1,nx2,nx3;
-  float ***data, dmin, dmax, xworld, yworld, zworld;
+  FILE *pFile;
+  char *fname,*plev=NULL,*pdom=NULL;
+  char levstr[8],domstr[8];
+  Real ***data, dmin, dmax, xworld, yworld, zworld;
 
-  data = subset3(pGrid,pOut);
-  nx1 = pOut->Nx1;     /* we know it's 3dim data */
-  nx2 = pOut->Nx2;
-  nx3 = pOut->Nx3;
+/* compute 3D array of data */
+  data = OutData3(pGrid,pOut,&nx1,&nx2,&nx3);
   minmax3(data,nx3,nx2,nx1,&dmin,&dmax);
 
-  for (k=0; k<pOut->Nx3; k++) {
-    for (j=0; j<pOut->Nx2; j++) {
-      for (i=0; i<pOut->Nx1; i++) {
-        xworld = pOut->x1_0  + pOut->dx1*(float)(i);
-        yworld = pOut->x2_0  + pOut->dx2*(float)(j);
-        zworld = pOut->x3_0  + pOut->dx3*(float)(k);
+/* construct output filename */
+  if (nl>0) {
+    plev = &levstr[0];
+    sprintf(plev,"lev%d",nl);
+  }
+  if (nd>0) {
+    pdom = &domstr[0];
+    sprintf(pdom,"dom%d",nd);
+  }
+
+  if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,pOut->num,
+      pOut->id,"tab")) == NULL){
+    ath_error("[output_tab]: Error constructing filename\n");
+  }
+
+/* open filename */
+  pFile = fopen(fname,"w");
+  if (pFile == NULL) {
+    ath_error("[output_tab]: Unable to open tab file %s\n",fname);
+  }
+
+/* write data */
+  for (k=0; k<nx3; k++) {
+    for (j=0; j<nx2; j++) {
+      for (i=0; i<nx1; i++) {
+        xworld = (float)(i);  /* just i-index for now */
+        yworld = (float)(j);  /* just j-index for now */
+        zworld = (float)(k);  /* just k-index for now */
         fprintf(pFile,"%g %g %g %g\n",xworld,yworld,zworld,data[k][j][i]);
       }
     }
@@ -168,5 +240,6 @@ void output_tab_3d(GridS *pGrid, OutputS *pOut, FILE *pFile)
     pOut->gmax = MAX(dmax,pOut->gmax);
   }
 
+  fclose(pFile);
   free_3d_array(data); /* Free the memory we malloc'd */
 }

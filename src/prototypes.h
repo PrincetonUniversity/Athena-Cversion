@@ -54,12 +54,9 @@ int ath_pout(const int level, const char *fmt, ...);
 /*----------------------------------------------------------------------------*/
 /* ath_files.c */
 char *ath_fname(const char *path, const char *basename,
+                const char *levstr, const char *domstr,
                 const int dlen, const int idump, 
                 const char *id, const char *ext);
-FILE *ath_fopen(const char *path, const char *basename,
-                const int dlen, const int idump, 
-                const char *id, const char *ext, const char *mode);
-size_t ath_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 /*----------------------------------------------------------------------------*/
 /* ath_signal.c */
@@ -126,11 +123,10 @@ void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
 			, const int out_pargrid, PropFun_t par_prop
 #endif
 );
-float ***subset3(GridS *pGrid, OutputS *pout);
-float  **subset2(GridS *pGrid, OutputS *pout);
-float   *subset1(GridS *pGrid, OutputS *pout);
+Real ***OutData3(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2, int *Nx3);
+Real  **OutData2(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2);
+Real   *OutData1(GridS *pGrid, OutputS *pOut, int *Nx1);
 
-void output_fits (MeshS *pM, OutputS *pOut);
 void output_pdf  (MeshS *pM, OutputS *pOut);
 void output_pgm  (MeshS *pM, OutputS *pOut);
 void output_ppm  (MeshS *pM, OutputS *pOut);
@@ -252,9 +248,9 @@ int ath_gcd(int a, int b);
 int ath_big_endian(void);
 void ath_bswap(void *vdat, int sizeof_len, int cnt);
 void ath_error(char *fmt, ...);
-void minmax1(float *data, int nx1, float *dmin, float *dmax);
-void minmax2(float **data, int nx2, int nx1, float *dmin, float *dmax);
-void minmax3(float ***data, int nx3, int nx2, int nx1,float *dmin,float *dmax);
+void minmax1(Real   *data, int nx1,                   Real *dmin, Real *dmax);
+void minmax2(Real  **data, int nx2, int nx1,          Real *dmin, Real *dmax);
+void minmax3(Real ***data, int nx3, int nx2, int nx1, Real *dmin, Real *dmax);
 #ifdef PARTICLES
 void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);

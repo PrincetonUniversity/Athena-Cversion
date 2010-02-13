@@ -33,7 +33,7 @@ palette = rainbow
 dt      = 0.004     # time step between images
 dmin    = -0.04     # min value for imaging J3
 dmax    =  0.08     # max value for imaging J3
-ix3     = 1         # x3 slice of image
+x3      = 0.0       # x3 slice of image
 
 <output4>
 out_fmt = ppm       # ppm image
@@ -44,7 +44,7 @@ palette = rainbow
 dt      = 0.004     # time step between images
 dmin    = 0.0       # min value for imaging Bp
 dmax    = 1.0e-6    # max value for imaging Bp
-ix3     = 1         # x3 slice of image
+x3      = 0.0       # x3 slice of image
 
 <output5>
 out_fmt = ppm      # ppm image
@@ -54,7 +54,7 @@ id      = d
 palette = rainbow
 dmin    = 1.0    # min value for imaging d
 dmax    = 2.0    # max value for imaging d
-ix3     = 32
+x3      = 0.0
 
 <output6>
 out_fmt = ppm
@@ -64,7 +64,7 @@ usr_expr_flag = 1
 dt      = 0.01
 dmin    = 1.0
 dmax    = 0.5
-ix3     = 32
+x3      = 0.0
 
 <output7>
 out_fmt = ppm
@@ -74,7 +74,7 @@ usr_expr_flag = 1
 dt      = 0.01
 dmin    = 1.0
 dmax    = 0.5
-ix2     = 32
+x2      = 0.0
 
 <grid>
 

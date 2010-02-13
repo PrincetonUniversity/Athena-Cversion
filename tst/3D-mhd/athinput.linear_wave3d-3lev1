@@ -25,20 +25,9 @@ dmax    = 0.0001
 out     = V2
 id      = V2
 palette = jh_colors
-ix3     = 1
+x3      = 0.0
 
 <output4>
-out_fmt = ppm                # ppm images of V2
-dt      = 0.01
-dmin    = -0.0001
-dmax    = 0.0001
-out     = V2
-id      = V2-lev1
-palette = jh_colors
-level   = 1
-domain  = 2
-
-<output5>
 out_fmt = ppm                # ppm images of color, for entropy waves
 dt      = 0.01
 dmin    = 0.0
@@ -47,7 +36,7 @@ out     = color
 id      = color
 palette = rainbow
 usr_expr_flag=1
-ix3     = 1
+x3      = 0.0
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number

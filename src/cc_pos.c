@@ -2,7 +2,7 @@
 /*==============================================================================
  * FILE: cc_pos.c
  *
- * PURPOSE: Function to compute (x1,x2,x3) positions of center of cell i,j,k.  
+ * PURPOSE: Functions to compute (x1,x2,x3) positions of cells i,j,k.  
  *   In a nested grid, each Grid structure is a patch in a larger computational
  *   domain (with the exception of the level0 grid).  The displacement of the
  *   origin of the Grid from the origin of the computational domain (level0 
@@ -14,6 +14,7 @@
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   cc_pos() - given i,j,k returns cell-centered x1,x2,x3
+ *   fc_pos() - given i,j,k returns face-centered x1,x2,x3
  *   x1cc - given i, returns cell-centered x1. Same for x2cc and x3cc
  *   celli - given x, returns containing cell first index. Same holds for cellj  *and cellk
  *============================================================================*/
@@ -28,15 +29,21 @@
 void cc_pos(const GridS *pG, const int i, const int j,const int k,
 	    Real *px1, Real *px2, Real *px3)
 {
-/*
-  *px1 = pG->x1_0 + ((i + pG->idisp) + 0.5)*pG->dx1;
-  *px2 = pG->x2_0 + ((j + pG->jdisp) + 0.5)*pG->dx2;
-  *px3 = pG->x3_0 + ((k + pG->kdisp) + 0.5)*pG->dx3;
-  return;
-*/
   *px1 = pG->MinX[0] + ((Real)(i - pG->is) + 0.5)*pG->dx1;
   *px2 = pG->MinX[1] + ((Real)(j - pG->js) + 0.5)*pG->dx2;
   *px3 = pG->MinX[2] + ((Real)(k - pG->ks) + 0.5)*pG->dx3;
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* fc_pos:  */
+
+void fc_pos(const GridS *pG, const int i, const int j,const int k,
+	    Real *px1, Real *px2, Real *px3)
+{
+  *px1 = pG->MinX[0] + ((Real)(i - pG->is))*pG->dx1;
+  *px2 = pG->MinX[1] + ((Real)(j - pG->js))*pG->dx2;
+  *px3 = pG->MinX[2] + ((Real)(k - pG->ks))*pG->dx3;
   return;
 }
 

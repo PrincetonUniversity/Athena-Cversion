@@ -30,7 +30,7 @@ dmin    = -0.1
 dmax    = 0.1
 palette = jh_colors
 dt      = 0.01              # time increment between outputs
-ix3     = 16
+x3      = 0.75
 
 <output4>
 out_fmt = ppm               # ppm data dump
@@ -40,7 +40,7 @@ dmin    = 1.0002
 dmax    = 0.9998
 palette = jh_colors
 dt      = 0.01              # time increment between outputs
-ix3     = 16
+x3      = 0.75
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)

@@ -45,7 +45,7 @@ void new_dt(MeshS *pM)
 #endif /* PARTICLES */
 #endif /* SPECIAL RELATIVITY */
   int nl,nd;
-  Real max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
+  Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
 
 /* Loop over all Domains with a Grid on this processor -----------------------*/
 
@@ -165,13 +165,20 @@ void new_dt(MeshS *pM)
   sync_dt(pM);
 #endif /* MPI_PARALLEL */
 
-/* Now load timestep into all Grid structures in all Domains */
+/* modify timestep so loop finishes at t=tlim exactly */
+
+  tlim = par_getd("time","tlim");
+  if ((tlim - pM->time) < pM->dt) pM->dt = tlim - pM->time;
+
+/* Spread timestep across all Grid structures in all Domains */
 
   for (nl=0; nl<=(pM->NLevels)-1; nl++){
-  for (nd=0; nd<=(pM->DomainsPerLevel[nl])-1; nd++){
-  if (pM->Domain[nl][nd].Grid != NULL) {
-    pM->Domain[nl][nd].Grid->dt = pM->dt;
-  }}}
+    for (nd=0; nd<=(pM->DomainsPerLevel[nl])-1; nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pM->Domain[nl][nd].Grid->dt = pM->dt;
+      }
+    }
+  }
 
   return;
 }

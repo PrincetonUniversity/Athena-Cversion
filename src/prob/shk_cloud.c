@@ -59,7 +59,6 @@ void problem(DomainS *pDomain)
 
 /* Read input parameters */
 
-printf("start problem\n");
   xshock = -2.0;
   rad    = 1.0;
   Mach = par_getd("problem","Mach");
@@ -215,7 +214,6 @@ printf("start problem\n");
 
   if (pDomain->Disp[0] == 0) bvals_mhd_fun(pDomain,left_x1,shk_cloud_iib);
 
-printf("done problem\n");
   return;
 }
 

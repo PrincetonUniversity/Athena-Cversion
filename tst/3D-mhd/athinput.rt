@@ -28,7 +28,7 @@ out     = d
 id      = d
 dmin    = 0.9
 dmax    = 10.1
-ix2     = 16
+x2      = 0.0
 palette = rainbow
 
 <time>

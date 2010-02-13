@@ -14,14 +14,14 @@
  *   N < maxout.  If N > maxout, that <outputN> block is ignored.
  *
  * OPTIONS available in an <outputN> block are:
- *   out         = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2,G
- *   out_fmt     = bin,hst,tab,rst,vtk,fits,pdf,pgm,ppm
- *   dat_fmt     = format string used to write tabular output (e.g. %12.5e)
- *   dt          = problem time between outputs
- *   id          = any string
- *   dmin/dmax   = max/min applied to all outputs
- *   ix1,ix2,ix3 = range of indices to be dumped (see parse_slice())
- *   palette     = rainbow,jh_colors,idl1,idl2,step8,step32,heat
+ *   out       = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2,G
+ *   out_fmt   = bin,hst,tab,rst,vtk,pdf,pgm,ppm
+ *   dat_fmt   = format string used to write tabular output (e.g. %12.5e)
+ *   dt        = problem time between outputs
+ *   id        = any string
+ *   dmin/dmax = max/min applied to all outputs
+ *   x1,x2,x3  = range over which data is averaged or sliced; see parse_slice()
+ *   palette   = rainbow,jh_colors,idl1,idl2,step8,step32,heat
  *   usr_expr_flag = 1 for user-defined expression (defined in problem.c)
  *   
  * EXAMPLE of an <outputN> block for a VTK dump:
@@ -29,13 +29,14 @@
  *   out_fmt = vtk
  *   out_dt  = 0.1
  *
- * EXAMPLE of an <outputN> block for a ppm image of a XY-slice in ppm format:
+ * EXAMPLE of an <outputN> block for a ppm image of a x1-x2 slice with data
+ * averaged over 0.5-10 in x3 in ppm format:
  *   <output5>
  *   out_fmt = ppm
  *   dt      = 100.0
  *   out     = d
  *   id      = d
- *   ix3     = 64
+ *   x3      = 0.5:10.0
  *   dmin    = 0.25
  *   dmax    = 2.9
  *   palette = rainbow
@@ -61,8 +62,8 @@
  *   modify init_output() to set the output function pointer when out_fmt=X
  *   in the input file (see below for examples of pgm, ppm, etc.)
  *
- *   To add a problem-specific user-defined output function in the problem
- *   definition file...
+ *   See Users Manual to add a problem-specific user-defined output function in
+ *   the problem definition file.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   init_output() -
@@ -70,7 +71,7 @@
  *   add_output()
  *   add_rst_out()
  *   data_output_destruct()
- *   subset1,2,3()   -
+ *   OutData1,2,3()   -
  *
  * VARIABLE TYPE AND STRUCTURE DEFINITIONS: none
  *============================================================================*/
@@ -142,8 +143,7 @@ int check_particle_binning(char *out);
 #endif
 static ConsFun_t getexpr(const int n, const char *expr);
 static void free_output(OutputS *pout);
-static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
-			int *l, int *u, int *new_nx, Real *new_x, Real *new_dx);
+static void parse_slice(char *block, char *axname, Real *l, Real *u, int *flag);
 float *getRGB(char *name);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -181,9 +181,9 @@ void init_output(MeshS *pM)
     new_out.dt  = par_getd(block,"dt");
     new_out.n   = outn;
 
-/* level and domain number needed with SMR */
-    nl = new_out.nlevel = par_geti_def(block,"level",0);
-    nd = new_out.ndomain = par_geti_def(block,"domain",0);
+/* level and domain number can be specified with SMR  */
+    nl = new_out.nlevel = par_geti_def(block,"level",-1);
+    nd = new_out.ndomain = par_geti_def(block,"domain",-1);
 
     if (par_exist(block,"dat_fmt")) new_out.dat_fmt = par_gets(block,"dat_fmt");
 
@@ -329,6 +329,7 @@ Now use the default one.\n");
       }
 */
       else{    /* Unknown data dump (fatal error) */
+printf("Unsupported dump mode");
         ath_error("Unsupported dump mode for %s/out_fmt=%s for out=prim\n",
           block,fmt);
       }
@@ -360,24 +361,30 @@ Now use the default one.\n");
       continue;
     }
 
-/* ix1, ix2, ix3:  parse and set size and coordinates of output "grid" */
-    parse_slice(block,"ix1", pM->Domain[nl][nd].Nx[0],
-      pM->Domain[nl][nd].MinX[0], pM->Domain[nl][nd].dx[0],
-      &new_out.ix1l, &new_out.ix1u, &new_out.Nx1, &new_out.x1_0, &new_out.dx1);
-    parse_slice(block,"ix2", pM->Domain[nl][nd].Nx[1],
-      pM->Domain[nl][nd].MinX[1], pM->Domain[nl][nd].dx[1],
-      &new_out.ix2l, &new_out.ix2u, &new_out.Nx2, &new_out.x2_0, &new_out.dx2);
-    parse_slice(block,"ix3", pM->Domain[nl][nd].Nx[2],
-      pM->Domain[nl][nd].MinX[2], pM->Domain[nl][nd].dx[2],
-      &new_out.ix3l, &new_out.ix3u, &new_out.Nx3, &new_out.x3_0, &new_out.dx3);
+/* x1, x2, x3:  parse coordinate range for slicing and averaging */
+    new_out.ndim = 1;
+    for (i=1; i<3; i++) if (pM->Nx[i]>1) new_out.ndim++;
+printf("output dims = %i\n",new_out.ndim);
 
-/* notice the way how the ndim is increased while filling dim[] */
-    new_out.ndim = 0;
-    if (new_out.Nx1 > 1) new_out.ndim++;
-    if (new_out.Nx2 > 1) new_out.ndim++;
-    if (new_out.Nx3 > 1) new_out.ndim++;
-    ath_pout(1,"DEBUG %d  ndim=%d  Nx=[%d %d %d]\n",
-            new_out.n, new_out.ndim, new_out.Nx1,new_out.Nx2,new_out.Nx3);
+    new_out.x1l = pM->RootMinX[0];
+    new_out.x1u = pM->RootMaxX[0];
+    new_out.reduce_x1 = 0;
+    parse_slice(block,"x1",&new_out.x1l,&new_out.x1u,&new_out.reduce_x1);
+    if (new_out.reduce_x1 != 0) new_out.ndim--;
+
+    new_out.x2l = pM->RootMinX[1];
+    new_out.x2u = pM->RootMaxX[1];
+    new_out.reduce_x2 = 0;
+    parse_slice(block,"x2",&new_out.x2l,&new_out.x2u,&new_out.reduce_x2);
+    if (new_out.reduce_x2 != 0) new_out.ndim--;
+
+    new_out.x3l = pM->RootMinX[2];
+    new_out.x3u = pM->RootMaxX[2];
+    new_out.reduce_x3 = 0;
+    parse_slice(block,"x3",&new_out.x3l,&new_out.x3u,&new_out.reduce_x3);
+    if (new_out.reduce_x3 != 0) new_out.ndim--;
+    if (new_out.ndim <= 0) ath_error("Too many slices specified in %s\n",block);
+printf("output dims = %i\n",new_out.ndim);
 
 /* dmin/dmax & sdmin/sdmax */
     if(par_exist(block,"dmin") != 0){ /* Use a fixed minimum scale? */
@@ -405,7 +412,7 @@ Now use the default one.\n");
     }
 
 /* check for valid data output option (output of single variables)
- *  output format = {fits, pdf, pgm, ppm, tab, vtk}.  Note for pdf and tab
+ *  output format = {pdf, pgm, ppm, tab, vtk}.  Note for pdf and tab
  *  outputs we also get the format for the print statements.
  */
 
@@ -421,8 +428,6 @@ Now use the default one.\n");
       }
       free(name);  name = NULL;
     }
-    else if (strcmp(fmt,"fits")==0)
-      new_out.out_fun = output_fits;
     else if (strcmp(fmt,"pdf")==0)
       new_out.out_fun = output_pdf;
     else if (strcmp(fmt,"pgm")==0)
@@ -581,7 +586,7 @@ void data_output_destruct(void)
   for (i=0; i<out_count; i++) {
 /* print the global min/max computed over the calculation */
     if (OutArray[i].out != NULL){
-      if((strcmp(OutArray[i].out,"cons") != 0) ||
+      if((strcmp(OutArray[i].out,"cons") != 0) &&
          (strcmp(OutArray[i].out,"prim") != 0))
 	ath_pout(0,"Global min/max for %s: %g %g\n",OutArray[i].out,
 		 OutArray[i].gmin, OutArray[i].gmax);
@@ -653,28 +658,23 @@ void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
 }
 
 /*----------------------------------------------------------------------------*/
-/* subset3:  there is only one way to copy a cube into a cube */
+/* OutData3: creates 3D array of output data with dimensions equal to Grid
+ * using output expression (function pointer) stored in Output structure.
+ * Dimensions of array created also returned in arguments. */
 
-float ***subset3(GridS *pgrid, OutputS *pout)
+Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, int *Nx3)
 {
-  float ***data;
-  int Nx1, Nx2, Nx3;
-  int i,j,k, il, jl, kl, iu, ju, ku;
+  Real ***data;
+  int i,j,k,il,jl,kl,iu,ju,ku;
 
-  if (pout->ndim != 3)
-    ath_error("[subset3] <output%d> %s has dimension %d, not 3\n",
-              pout->n,pout->out, pout->ndim);
-
-  Nx1 = pout->Nx1;
-  Nx2 = pout->Nx2;
-  Nx3 = pout->Nx3;
+  if (pout->ndim != 3) ath_error("[OutData3] <output%d> %s is %d-D, not 3-D\n",
+    pout->n,pout->out, pout->ndim);
 
 #ifdef WRITE_GHOST_CELLS
   if(pgrid->Nx[0] > 1){
     il = pgrid->is - nghost;
     iu = pgrid->ie + nghost;
-  }
-  else{
+  } else{
     il = pgrid->is;
     iu = pgrid->ie;
   }
@@ -682,16 +682,15 @@ float ***subset3(GridS *pgrid, OutputS *pout)
   if(pgrid->Nx[1] > 1){
     jl = pgrid->js - nghost;
     ju = pgrid->je + nghost;
-  }
- else{
+  } else{
     jl = pgrid->js;
     ju = pgrid->je;
   }
+
   if(pgrid->Nx[2] > 1){
     kl = pgrid->ks - nghost;
     ku = pgrid->ke + nghost;
-  }
-  else{
+  } else{
     kl = pgrid->ks;
     ku = pgrid->ke;
   }
@@ -703,193 +702,430 @@ float ***subset3(GridS *pgrid, OutputS *pout)
   kl = pgrid->ks;
   ku = pgrid->ke;
 #endif
-  ath_pout(1,"subset3: lu's:  %d %d    %d %d     %d %d\n",
-          il,  iu,  jl,  ju,  kl,  ku);
+  *Nx1 = iu-il+1;
+  *Nx2 = ju-jl+1;
+  *Nx3 = ku-kl+1;
 
-  data = (float ***) calloc_3d_array(Nx3,Nx2,Nx1,sizeof(float));
-  for (k=0; k<Nx3; k++)
-    for (j=0; j<Nx2; j++)
-      for (i=0; i<Nx1; i++)
+  data = (Real***) calloc_3d_array(*Nx3,*Nx2,*Nx1,sizeof(Real));
+  if (data = NULL) ath_error("[OutData3] Error creating 3D data array\n");
+  for (k=0; k<*Nx3; k++)
+    for (j=0; j<*Nx2; j++)
+      for (i=0; i<*Nx1; i++)
         data[k][j][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
   return data;
 }
 
 /*----------------------------------------------------------------------------*/
-/* subset2:  this handles all 3 cases of subsetting a cube to a plane */
+/* OutData2: creates 2D array of output data with two dimensions equal to Grid
+ * and one dimension reduced according to range stored in x1l/x1u, etc.  Data
+ * is computed using output expression (function pointer) stored in Output
+ * structure.  If slice range lies outside of coordinate range in Grid, the
+ * NULL pointer is returned.  Dimensions of array created are also returned in
+ * arguments */
 
-float **subset2(GridS *pgrid, OutputS *pout)
+Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
 {
-  float **data, factor;
-  int Nx1, Nx2, Nx3;
-  int i,j,k, il, jl, kl;
+  Real **data;
+  Real factor,x1fc,x2fc,x3fc;
+  int Nx3;
+  int i,j,k,il,jl,kl,iu,ju,ku;
+  int istart,iend,jstart,jend,kstart,kend;
 
-  if (pout->ndim != 2)
-    ath_error("[subset2] <output%d> %s has dimension %d, not 2\n",
-	      pout->n,pout->out, pout->ndim);
-
-  Nx1 = pout->Nx1;
-  Nx2 = pout->Nx2;
-  Nx3 = pout->Nx3;
+  if (pout->ndim != 2) ath_error("[OutData2] <output%d> %s is %d-D, not 2-D\n",
+    pout->n,pout->out, pout->ndim);
 
 #ifdef WRITE_GHOST_CELLS
   if(pgrid->Nx[0] > 1){
     il = pgrid->is - nghost;
-  }
-  else{
+    iu = pgrid->ie + nghost;
+  } else{
     il = pgrid->is;
+    iu = pgrid->ie;
   }
 
   if(pgrid->Nx[1] > 1){
     jl = pgrid->js - nghost;
-  }
-  else{
+    ju = pgrid->je + nghost;
+  } else{
     jl = pgrid->js;
+    ju = pgrid->je;
   }
+
   if(pgrid->Nx[2] > 1){
     kl = pgrid->ks - nghost;
-  }
-  else{
+    ku = pgrid->ke + nghost;
+  } else{
     kl = pgrid->ks;
+    ku = pgrid->ke;
   }
 #else
   il = pgrid->is;
+  iu = pgrid->ie;
   jl = pgrid->js;
+  ju = pgrid->je;
   kl = pgrid->ks;
+  ku = pgrid->ke;
 #endif
+  *Nx1 = iu-il+1;
+  *Nx2 = ju-jl+1;
+  Nx3 = ku-kl+1;
 
-/* handle TWO_DIM simulations */
+/* data is already 2D in 2D simulations */
 
   if (pgrid->Nx[2] == 1) {
-    data = (float **) calloc_2d_array(Nx2,Nx1,sizeof(float));
-    for (j=0; j<Nx2; j++) {
-      for (i=0; i<Nx1; i++) {
-	data[j][i] = (*pout->expr)(pgrid,i+il,j+jl,0);
+    data = (Real**) calloc_2d_array(*Nx2,*Nx1,sizeof(Real));
+    if (data == NULL) ath_error("[OutData2] Error creating 2D data array\n");
+    for (j=0; j<*Nx2; j++) {
+      for (i=0; i<*Nx1; i++) {
+	data[j][i] = (*pout->expr)(pgrid,i+il,j+jl,kl);
       }
     }
     return data;
-  } else if (pgrid->Nx[0] == 1  || pgrid->Nx[1] == 1) {
-    ath_error("subset2: cannot handle twodim with nx1 or nx2 being 1 yet");
   }
+
+/* Slice 3D data into 2D arrays according to reduce_x* flags */
 	  
-  if (pout->Nx3 == 1) {
 /* Nx3,Nx2,Nx1 -> Nx2,Nx1 */
-    data = (float **) calloc_2d_array(Nx2,Nx1,sizeof(float));
-    factor = 1.0/(pout->ix3u - pout->ix3l+1);
-    for (j=0; j<Nx2; j++) {
-      for (i=0; i<Nx1; i++) {
+  if (pout->reduce_x3 != 0) {
+    if (pout->x3u < pgrid->MinX[2] || pout->x3l > pgrid->MaxX[2]) return NULL;
+
+    /* find k indices of slice range */
+    k=kl+1;
+    fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+    while (pout->x3l >= x3fc) {
+      k++;
+      fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+    }
+    kstart = k-1;
+
+    k=ku;
+    fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+    while (pout->x3u < x3fc) {
+      k--;
+      fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+    }
+    kend = k;
+
+    /* allocate array and compute data */
+    data = (Real**) calloc_2d_array(*Nx2,*Nx1,sizeof(Real));
+    if (data == NULL) ath_error("[OutData2] Error creating 2D data array\n");
+    factor = 1.0/(kend - kstart + 1);
+    for (j=0; j<*Nx2; j++) {
+      for (i=0; i<*Nx1; i++) {
 	data[j][i] = 0.0;
-	for (k=pout->ix3l; k<=pout->ix3u; k++)
+	for (k=kstart; k<=kend; k++)
 	  data[j][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
 	data[j][i] *= factor;
       }
     }
-  } else if (pout->Nx2 == 1) {
+
 /* Nx3,Nx2,Nx1 -> Nx3,Nx1 */
-    data = (float **) calloc_2d_array(Nx3,Nx1,sizeof(float));
-    factor = 1.0/(pout->ix2u - pout->ix2l+1);
+  } else if (pout->reduce_x2 != 0) {
+    if (pout->x2u < pgrid->MinX[1] || pout->x2l > pgrid->MaxX[1]) return NULL;
+
+    /* find j indices of slice range */
+    j=jl+1;
+    fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x2l >= x2fc) {
+      j++;
+      fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    }
+    jstart = j-1;
+
+    j=ju;
+    fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x2u < x2fc) {
+      j--;
+      fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    }
+    jend = j;
+
+    /* allocate array and compute data */
+    data = (Real**) calloc_2d_array(Nx3,*Nx1,sizeof(Real));
+    if (data == NULL) ath_error("[OutData2] Error creating 2D data array\n");
+    factor = 1.0/(jend - jstart + 1);
     for (k=0; k<Nx3; k++) {
-      for (i=0; i<Nx1; i++) {
+      for (i=0; i<*Nx1; i++) {
 	data[k][i] = 0.0;
-	for (j=pout->ix2l; j<=pout->ix2u; j++)
+	for (j=jstart; j<=jend; j++)
 	  data[k][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
 	data[k][i] *= factor;
       }
     }
-  } else if (pout->Nx1 == 1) {
+    *Nx2 = Nx3; /* return second dimension of array created */
+
 /* Nx3,Nx2,Nx1 -> Nx3,Nx2 */
-    data = (float **) calloc_2d_array(Nx3,Nx2,sizeof(float));
-    factor = 1.0/(pout->ix1u - pout->ix1l+1);
+  } else if (pout->reduce_x1 != 0) {
+    if (pout->x1u < pgrid->MinX[0] || pout->x1l > pgrid->MaxX[0]) return NULL;
+
+    /* find i indices of slice range */
+    i=il+1;
+    fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x1l >= x1fc) {
+      i++;
+      fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    }
+    istart = i-1;
+
+    i=iu;
+    fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x1u < x1fc) {
+      i--;
+      fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    }
+    iend = i;
+
+    /* allocate array and compute data */
+
+    data = (Real**) calloc_2d_array(Nx3,*Nx2,sizeof(Real));
+    if (data == NULL) ath_error("[OutData2] Error creating 2D data array\n");
+    factor = 1.0/(iend - istart + 1);
     for (k=0; k<Nx3; k++) {
-      for (j=0; j<Nx2; j++) {
+      for (j=0; j<*Nx2; j++) {
 	data[k][j] = 0.0;
-	for (i=pout->ix1l; i<=pout->ix1u; i++)
+	for (i=istart; i<=iend; i++)
 	  data[k][j] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
 	data[k][j] *= factor;
       }
     }
+    *Nx1 = *Nx2;
+    *Nx2 = Nx3; /* return dimensions of array created */
   } else
-    ath_perr(-1,"Should not reach here\n");
+    ath_perr(-1,"[OutData2]: Should not reach here\n");
   return data;
 }
 
 /*----------------------------------------------------------------------------*/
-/* subset1:  this handles all 3 cases of subsetting a cube to a vector */
+/* OutData1: creates 1D array of output data with one dimensions equal to Grid
+ * and two dimensions reduced according to range stored in x1l/x1u, etc.  Data
+ * is computed using output expression (function pointer) stored in Output
+ * structure.  If slice range lies outside of coordinate range in Grid, the
+ * NULL pointer is returned.  Dimension of array created is also returned in
+ * arguments. */
 
-float *subset1(GridS *pgrid, OutputS *pout)
+Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
 {
-  float *data, factor;
-  int Nx1, Nx2, Nx3;
-  int i,j,k, il, jl, kl;
+  Real *data;
+  Real factor,x1fc,x2fc,x3fc;
+  int Nx2, Nx3;
+  int i,j,k,il,jl,kl,iu,ju,ku;
+  int istart,iend,jstart,jend,kstart,kend;
 
-  if (pout->ndim != 1)
-    ath_error("[subset1] <output%d> %s has dimension %d, not 1\n",
-	      pout->n,pout->out, pout->ndim);
-
-  Nx1 = pout->Nx1;
-  Nx2 = pout->Nx2;
-  Nx3 = pout->Nx3;
+  if (pout->ndim != 1) ath_error("[OutData1] <output%d> %s is %d-D, not 1-D\n",
+    pout->n,pout->out, pout->ndim);
 
 #ifdef WRITE_GHOST_CELLS
   if(pgrid->Nx[0] > 1){
     il = pgrid->is - nghost;
-  }
-  else{
+    iu = pgrid->ie + nghost;
+  } else{
     il = pgrid->is;
+    iu = pgrid->ie;
   }
 
   if(pgrid->Nx[1] > 1){
     jl = pgrid->js - nghost;
-  }
-  else{
+    ju = pgrid->je + nghost;
+  } else{
     jl = pgrid->js;
+    ju = pgrid->je;
   }
+
   if(pgrid->Nx[2] > 1){
     kl = pgrid->ks - nghost;
-  }
-  else{
+    ku = pgrid->ke + nghost;
+  } else{
     kl = pgrid->ks;
+    ku = pgrid->ke;
   }
 #else
   il = pgrid->is;
+  iu = pgrid->ie;
   jl = pgrid->js;
+  ju = pgrid->je;
   kl = pgrid->ks;
+  ku = pgrid->ke;
 #endif
+  *Nx1 = iu-il+1;
+  Nx2 = ju-jl+1;
+  Nx3 = ku-kl+1;
 
-  if (pout->Nx3 > 1) {
-/* Nx3,Nx2,Nx1 -> Nx3 */
-    data = (float *) calloc_1d_array(Nx3,sizeof(float));
-    factor = 1.0/(pout->ix2u - pout->ix2l+1)/(pout->ix1u - pout->ix1l+1);
-    for (k=0; k<Nx3; k++) {
-      data[k] = 0.0;
-      for (j=0; j<Nx2; j++)
-	for (i=0; i<Nx1; i++)
-	  data[k] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
-      data[k] *= factor;
+/* data is already 1D in 1D simulations */
+
+  if (pgrid->Nx[1] == 1) {
+    data = (Real*) calloc_1d_array(*Nx1,sizeof(Real));
+    if (data == NULL) ath_error("[OutData1] Error creating 1D data array\n");
+    for (i=0; i<*Nx1; i++) {
+      data[i] = (*pout->expr)(pgrid,i+il,jl,kl);
     }
-  } else if (pout->Nx2 > 1) {
-/* Nx3,Nx2,Nx1 -> Nx2 */
-    data = (float *) calloc_1d_array(Nx2,sizeof(float));
-    factor = 1.0/(pout->ix3u - pout->ix3l+1)/(pout->ix1u - pout->ix1l+1);
-    for (j=0; j<Nx2; j++) {
-      data[j] = 0.0;
-      for (k=0; k<Nx3; k++)
-	for (i=0; i<Nx1; i++)
-	  data[j] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
-      data[j] *= factor;
-    }
-  } else if (pout->Nx1 > 1) {
+    return data;
+  }
+
+/* Slice 2D and 3D data into 2D arrays according to reduce_x* flags */
+
 /* Nx3,Nx2,Nx1 -> Nx1 */
-    data = (float *) calloc_1d_array(Nx1,sizeof(float));
-    factor = 1.0/(pout->ix3u - pout->ix3l+1)/(pout->ix2u - pout->ix2l+1);
-    for (i=0; i<Nx1; i++) {
+  if (pout->reduce_x1 == 0) {
+    if (pout->x3u < pgrid->MinX[2] || pout->x3l > pgrid->MaxX[2] ||
+        pout->x2u < pgrid->MinX[1] || pout->x2l > pgrid->MaxX[1]) return NULL;
+
+    /* find k indices of slice range */
+    if (pgrid->Nx[2] == 1){
+      kstart=kl;
+      kend=ku;
+    } else {
+      k=kl+1;
+      fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      while (pout->x3l >= x3fc) {
+        k++;
+        fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      }
+      kstart = k-1;
+
+      k=ku;
+      fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      while (pout->x3u < x3fc) {
+        k--;
+        fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      }
+      kend = k;
+    }
+
+    /* find j indices of slice range */
+    j=jl+1;
+    fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x2l >= x2fc) {
+      j++;
+      fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    }
+    jstart = j-1;
+
+    j=ju;
+    fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x2u < x2fc) {
+      j--;
+      fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    }
+    jend = j;
+
+    /* allocate array and compute data */
+    data = (Real*) calloc_1d_array(*Nx1,sizeof(Real));
+    factor = 1.0/(kend - kstart + 1)/(jend - jstart + 1);
+    for (i=0; i<*Nx1; i++) {
       data[i] = 0.0;
-      for (k=0; k<Nx3; k++)
-	for (j=0; j<Nx2; j++)
+      for (k=kstart; k<kend; k++)
+	for (j=jstart; j<jend; j++)
 	  data[i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
       data[i] *= factor;
     }
+
+/* Nx3,Nx2,Nx1 -> Nx2 */
+  } else if (pout->reduce_x2 == 0) {
+    if (pout->x3u < pgrid->MinX[2] || pout->x3l > pgrid->MaxX[2] ||
+        pout->x1u < pgrid->MinX[0] || pout->x1l > pgrid->MaxX[0]) return NULL;
+
+    /* find k indices of slice range */
+    if (pgrid->Nx[2] == 1){
+      kstart=kl;
+      kend=ku;
+    } else {
+      k=kl+1;
+      fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      while (pout->x3l >= x3fc) {
+        k++;
+        fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      }
+      kstart = k-1;
+
+      k=ku;
+      fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      while (pout->x3u < x3fc) {
+        k--;
+        fc_pos(pgrid,il,jl,k,&x1fc,&x2fc,&x3fc);
+      }
+      kend = k;
+    }
+
+    /* find i indices of slice range */
+    i=il+1;
+    fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x1l >= x1fc) {
+      i++;
+      fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    }
+    istart = i-1;
+
+    i=iu;
+    fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x1u < x1fc) {
+      i--;
+      fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    }
+    iend = i;
+
+    /* allocate array and compute data */
+    data = (Real*) calloc_1d_array(Nx2,sizeof(Real));
+    factor = 1.0/(kend - kstart + 1)/(iend - istart + 1);
+    for (j=0; j<Nx2; j++) {
+      data[j] = 0.0;
+      for (k=kstart; k<kend; k++)
+	for (i=istart; i<iend; i++)
+	  data[j] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+      data[j] *= factor;
+    }
+    *Nx1 = Nx2; /* return dimensions of array created */
+
+/* Nx3,Nx2,Nx1 -> Nx3. Data must be 3D in this case. */
+  } else if (pout->reduce_x3 == 0) {
+    if (pout->x2u < pgrid->MinX[1] || pout->x2l > pgrid->MaxX[1] ||
+        pout->x1u < pgrid->MinX[0] || pout->x1l > pgrid->MaxX[0]) return NULL;
+
+    /* find j indices of slice range */
+    j=jl+1;
+    fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x2l >= x2fc) {
+      j++;
+      fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    }
+    jstart = j-1;
+
+    j=ju;
+    fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x2u < x2fc) {
+      j--;
+      fc_pos(pgrid,il,j,kl,&x1fc,&x2fc,&x3fc);
+    }
+    jend = j;
+
+    /* find i indices of slice range */
+    i=il+1;
+    fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x1l >= x1fc) {
+      i++;
+      fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    }
+    istart = i-1;
+
+    i=iu;
+    fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    while (pout->x1u < x1fc) {
+      i--;
+      fc_pos(pgrid,i,jl,kl,&x1fc,&x2fc,&x3fc);
+    }
+    iend = i;
+
+    /* allocate array and compute data */
+    data = (Real*) calloc_1d_array(Nx3,sizeof(Real));
+    factor = 1.0/(jend - jstart + 1)/(iend - istart + 1);
+    for (k=0; k<Nx3; k++) {
+      data[k] = 0.0;
+      for (j=jstart; j<jend; j++)
+	for (i=istart; i<iend; i++)
+	  data[k] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+      data[k] *= factor;
+    }
+    *Nx1 = Nx3; /* return dimensions of array created */
   } else {
-    ath_perr(-1,"Should not reach here\n");
+    ath_perr(-1,"[OutData1]: Should not reach here\n");
   }
 
   return data;
@@ -1099,17 +1335,7 @@ static ConsFun_t getexpr(const int n, const char *expr)
     return  expr_V3par;
 #endif
   else {
-    FILE *fp = fopen("tmp.expr.c","w");
-    fprintf(fp,"#include \"athena.h\"\n");
-    fprintf(fp,"#include \"prototypes.h\"\n");
-    fprintf(fp,"#include \"gasexpr.h\"\n");
-    fprintf(fp,"Real %s(const Grid *pG, const int i, const int j, const int k) {\n",ename);
-    fprintf(fp,"  return %s;\n",expr);
-    fprintf(fp,"}\n");
-    fclose(fp);
-/* compile and link it to a shared object */
-/* but for now just return NULL */
-    ath_perr(-1,"Warning: dynamics expressions not supported yet\n");
+    ath_perr(-1,"Unknown data expression\n");
     return NULL;
   }
 }
@@ -1130,31 +1356,26 @@ static void free_output(OutputS *pOut)
 
 /*----------------------------------------------------------------------------*/
 /* parse_slice: sets the lower and upper bounds of a slice along an axis, 
- *   using values of ix1, ix2 or ix3 in the <output> block. The user can select
- *   bounds in the range 1..n (0 is not used for anything).  Valid formats are:
- *       ix1 = 5                a single value along x1 will be selected
- *       ix1 = 5:10             values 5 through 10 along x1 will be averaged
- *       ix1 = :                all planes along x1 (1:n) will be averaged
- *   and also
- *       ix1 = 5:               5:n actually
- *       ix1 = :10              1:10 actually
- *   If values for ix1,ix2,ix3 are not set in the <output> block, that
- *   dimension is not reduced, and the upper/lower bounds are set to -1.
- *   This function only parses the input text to extract the integer indices.
- *   the actual slicing and averaging is done by subset1,2().
+ *   using values of x1, x2 or x3 in the <output> block.  These are used to
+ *   slice the data for outputs, averaged between l and u.  Valid formats are:
+ *       x1 = 5e3         both l and u set to 5.0e3
+ *       x1 = 5.3:10e4    l set to 5.3, u set to 1.0e5
+ *       x1 = :           l set to RootMinX, u set to RootMaxX
+ *       x1 = 5:          l set to 5.0, u set to RootMaxX
+ *       x1 = :10         l set to RootMinX, u set to 10.0
+ *   If values for x1,x2,x3 are not set in the <output> block, then l and u
+ *   are not changed (default values should be set in calling function).
  *
- *   The integer values of ix1,ix2,ix3 refer to the integer index of grid cells.
- *   If output of ghost cells is DISABLED (default), then ix1=5 refers to the
- *   fifth cell beyond the ghost zones (with index i=nghost+ix1).  If output
- *   of ghost cells is ENABLED (code configured with --enable-ghost), then
- *   ix1=5 refers to the fifth cell in the array (index i=ix1)
+ *   Note that data is always reduced along the directions specified by x1/2/3.
+ *   It is not possible to create a smaller 3D array by specifying ranges for
+ *   all three of x1,x2 and x3 at once.  Instead, this would reduce the data to
+ *   a single point (not allowed).
  *
- *   Also note that the user select an axis 1 based (i.e. 1..N) but they
- *   are stored 0 based (i.e. 0..N-1)
+ *   This function only parses the input text to extract values of l and u,
+ *   the actual slicing and averaging is done by OutData1,2,3().
  */
 
-static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
-			int *l, int *u, int *new_nx, Real *new_x, Real *new_dx)
+static void parse_slice(char *block, char *axname, Real *l, Real *u, int *flag)
 {
   char *expr, *cp;
 
@@ -1165,43 +1386,22 @@ static void parse_slice(char *block, char *axname, int nx, Real x, Real dx,
       *cp++ = 0;
       while (*cp && isspace(*cp)) cp++;
       if (*cp)
-	*u = atoi(cp)-1;
-      else
-	*u = nx-1;
+	*u = atof(cp);
       cp = expr;
       while (*cp && isspace(*cp)) cp++;
       if (*cp)
-	*l = atoi(cp)-1;
-      else
-	*l = 0;
+	*l = atof(cp);
     } else {               /* single slice  */
-      *l = *u = atoi(expr)-1;
+      *l = *u = atof(expr);
     }
-    if (*l < 0 || *l >= nx) {
-      ath_error("[parse_slice]: %s has illegal slice %d, not in range 1..%d\n",
-	        expr,*l,nx);
+    if (*l > *u) {
+      ath_error("[parse_slice]: lower slice limit %d > upper %d in %s\n",
+      *l,*u,expr);
     }
     free(expr);
-    ath_pout(1,"DEBUG: parse_slice: %s/%s = %s =>  %d .. %d\n",
-              block,axname,expr,*l,*u);
-  } else {             /* no slicing in this axis */
-    ath_pout(1,"DEBUG: parse_slice: %s/%s => no slicing \n",block,axname);
-    *l = *u = -1;
+    *flag = 1;
   }
-  if (*l == -1) {
-    *new_nx = nx;
-    *new_x  = x;
-    *new_dx = dx;
 
-/* notice that we don't use the FITS pixel centered definition of a WCS, but the
- * "left" edge of the cell. Thus the computational domain goes from x .. x+dx*nx
- */ 
-
-  } else {
-    *new_nx = 1;
-    *new_dx = (*u - *l + 1) * dx;
-    *new_x  = x + (*l+1)*dx ;
-  }
 }
 
 /*----------------------------------------------------------------------------*/

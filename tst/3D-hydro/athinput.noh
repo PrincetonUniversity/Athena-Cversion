@@ -28,7 +28,7 @@ id      = d
 dt      = 0.01
 dmin    = 1.0
 dmax    = 64.0
-ix3     = 1
+x3      = 0.0
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number

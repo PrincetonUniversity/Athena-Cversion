@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
   char *rundir = NULL;    /* directory to which output is directed */
   int nstep_start=0;      /* number of cycles already completed on restart */
   char *name = NULL;
+  char level_dir[80];     /* names of directories for levels > 0 */
   FILE *fp;               /* file pointer for data outputs */
   int nflag=0;            /* set to 1 if -n argument is given on command line */
   int i,nlim;             /* cycle index and limit */
@@ -449,8 +450,12 @@ int main(int argc, char *argv[])
     fp = athout_fp();
     par_dump(0,fp);      /* Dump a copy of the parsed information to athout */
   }
-  change_rundir(rundir); /* Change to the requested run directory */
+  change_rundir(rundir); /* Change to run directory */
   ath_sig_init();        /* Install a signal handler */
+  for (nl=1; nl<(Mesh.NLevels); nl++){
+    sprintf(level_dir,"lev%d",nl);
+    mkdir(level_dir, 0775); /* Create directories for levels > 0 */
+  }
 
   gettimeofday(&tvs,NULL);
   if((have_times = times(&tbuf)) > 0)
@@ -479,19 +484,6 @@ int main(int argc, char *argv[])
  */
 
   while (Mesh.time < tlim && (nlim < 0 || Mesh.nstep < nlim)) {
-
-/* modify timestep so loop finishes at t=tlim exactly, spread across Grid's */
-    if ((tlim - (Mesh.time)) < Mesh.dt) {
-      Mesh.dt = (tlim - (Mesh.time));
-
-      for (nl=0; nl<(Mesh.NLevels); nl++){
-        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
-          if (Mesh.Domain[nl][nd].Grid != NULL){
-            Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
-          }
-        }
-      }
-    }
 
 /*--- Step 9a. ---------------------------------------------------------------*/
 /* Only write output's with t_out>t (last argument of data_output = 0) */

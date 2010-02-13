@@ -132,10 +132,10 @@ void ath_error(char *fmt, ...)
  *  Works on data of type float, not Real.
  */
 
-void minmax1(float *data, int nx1, float *dmino, float *dmaxo)
+void minmax1(Real *data, int nx1, Real *dmino, Real *dmaxo)
 {
   int i;
-  register float dmin, dmax;
+  register Real dmin, dmax;
 
   dmin = dmax = data[0];
   for (i=0; i<nx1; i++) {
@@ -146,10 +146,10 @@ void minmax1(float *data, int nx1, float *dmino, float *dmaxo)
   *dmaxo = dmax;
 }
 
-void minmax2(float **data, int nx2, int nx1, float *dmino, float *dmaxo)
+void minmax2(Real **data, int nx2, int nx1, Real *dmino, Real *dmaxo)
 {
   int i,j;
-  register float dmin, dmax;
+  register Real dmin, dmax;
 
   dmin = dmax = data[0][0];
   for (j=0; j<nx2; j++) {
@@ -162,10 +162,10 @@ void minmax2(float **data, int nx2, int nx1, float *dmino, float *dmaxo)
   *dmaxo = dmax;
 }
 
-void minmax3(float ***data,int nx3,int nx2,int nx1, float *dmino, float *dmaxo)
+void minmax3(Real ***data, int nx3, int nx2, int nx1, Real *dmino, Real *dmaxo)
 {
   int i,j,k;
-  register float dmin, dmax;
+  register Real dmin, dmax;
 
   dmin = dmax = data[0][0][0];
   for (k=0; k<nx3; k++) {

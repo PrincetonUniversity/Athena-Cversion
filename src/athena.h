@@ -381,29 +381,23 @@ typedef struct Output_s{
   PropFun_t par_prop; /* particle property selection function */
 #endif
 
-/* level and domain number of output (default = [0,0] = root level) */
+/* level and domain number of output (default = [-1,-1] = output all levels) */
 
   int nlevel, ndomain;
 
 /* variables which describe data min/max */
-  Real dmin;      /* user defined min for scaling data */
-  Real dmax;      /* user defined max for scaling data */
-  Real gmin;      /* computed global min (over all data output so far) */
-  Real gmax;      /* computed global max (over all data output so far) */
-  int sdmin;      /* 0 = auto scale, otherwise use dmin */
-  int sdmax;      /* 0 = auto scale, otherwise use dmax */
+  Real dmin,dmax;   /* user defined min/max for scaling data */
+  Real gmin,gmax;   /* computed global min/max (over all output data) */
+  int sdmin,sdmax;  /* 0 = auto scale, otherwise use dmin/dmax */
 
 /* variables which describe coordinates of output data volume */
   int ndim;       /* 3=cube 2=slice 1=vector 0=scalar */
-  int ix1l, ix1u; /* lower/upper x1 indices for data slice  -1 = all data */
-  int ix2l, ix2u; /* lower/upper x2 indices for data slice  -1 = all data */
-  int ix3l, ix3u; /* lower/upper x3 indices for data slice  -1 = all data */
-  int Nx1;        /* number of grid points to be output in x1 */
-  int Nx2;        /* number of grid points to be output in x2 */
-  int Nx3;        /* number of grid points to be output in x3 */
-  Real x1_0, dx1; /* origin and grid spacing of output slice in x1 */
-  Real x2_0, dx2; /* origin and grid spacing of output slice in x2 */
-  Real x3_0, dx3; /* origin and grid spacing of output slice in x3 */
+  int reduce_x1;  /* flag to denote reduction in x1 (0=no reduction) */
+  int reduce_x2;  /* flag to denote reduction in x2 (0=no reduction) */
+  int reduce_x3;  /* flag to denote reduction in x3 (0=no reduction) */
+  Real x1l, x1u;  /* lower/upper x1 range for data slice  */
+  Real x2l, x2u;  /* lower/upper x2 range for data slice  */
+  Real x3l, x3u;  /* lower/upper x3 range for data slice  */
 
 /* variables which describe output format */
   char *out_fmt;  /* output format = {bin, tab, hdf, hst, pgm, ppm, ...} */

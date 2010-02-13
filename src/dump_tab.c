@@ -2,11 +2,11 @@
 /*==============================================================================
  * FILE: dump_tab.c
  *
- * PURPOSE: Functions to write a dump as a formatted table.  Note that all the
- *   data is output for all Grids over the whole Mesh hierarchy on this
- *   processor using formatted writes, so the resulting output files can be
- *   extremely large.  Useful for 1D calculations, some 2D calculations, and
- *   for very small 3D runs.  
+ * PURPOSE: Functions to write a dump as a formatted table.  The resulting
+ *   output files can be extremely large, so they are realy only useful for 1D
+ *   calculations, some 2D calculations, and for very small 3D runs.  With SMR,
+ *   dumps are made for all levels and domains, unless nlevel and ndomain are
+ *   specified in <output> block.
  *
  * REMINDER: use the slicing option available in output_tab() to write selected
  *   variables as a formatted table along any arbitrary 1D slice, or in any
@@ -34,9 +34,10 @@
 void dump_tab_cons(MeshS *pM, OutputS *pOut)
 {
   GridS *pG;
-  int dnum = pOut->num;
-  int nl,nd,i,j,k,il,iu,jl,ju,kl,ku,nGrid,nvar,nscal,ngrav;
+  int nl,nd,i,j,k,il,iu,jl,ju,kl,ku;
   FILE *pfile;
+  char *fname,*plev=NULL,*pdom=NULL;
+  char levstr[8],domstr[8];
   Real x1,x2,x3;
   char zone_fmt[20], fmt[80];
   int col_cnt, nmax;
@@ -44,37 +45,46 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
   int n;
 #endif
 
-/* Open the output file */
-  if((pfile = ath_fopen(NULL,pM->outfilename,num_digit,dnum,NULL,"tab","w")) 
-     == NULL){
-    ath_error("[dump_tab_cons]: File Open Error Occured");
-    return;
+/* Add a white space to the format, setup format for integer zone columns */
+  if(pOut->dat_fmt == NULL){
+     sprintf(fmt," %%12.8e"); /* Use a default format */
   }
-
-/* Write out some header information about Mesh hierarchy */
-
-  fprintf(pfile,"# Dump of CONSERVED variables at Time = %g\n",pM->time);
-  fprintf(pfile,"# NLevels in Mesh hierarchy\n%d\n",pM->NLevels);
-  fprintf(pfile,"# DomainsPerLevel in Mesh hierarchy\n");
-  for (nl=0;nl<pM->NLevels;nl++) fprintf(pfile,"  %d",pM->DomainsPerLevel[nl]);
-
-/* Find and write number of Grids output in this file (on this processor) */
-
-  nGrid=0;
-  for (nl=0; nl<(pM->NLevels); nl++){
-    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-      if (pM->Domain[nl][nd].Grid != NULL) nGrid++;
-    }
+  else{
+    sprintf(fmt," %s",pOut->dat_fmt);
   }
-  fprintf(pfile,"\n# nGrids in this file\n%d\n",nGrid);
+  sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-      if (pM->Domain[nl][nd].Grid != NULL) {
+      if (pM->Domain[nl][nd].Grid != NULL){
+
+/* write files if domain and level match input, or are not specified (-1) */
+      if ((pOut->nlevel == -1 || pOut->nlevel == nl) &&
+          (pOut->ndomain == -1 || pOut->ndomain == nd)){
         pG = pM->Domain[nl][nd].Grid;
         col_cnt = 1;
+
+/* construct output filename. */
+        if (nl>0) {
+          plev = &levstr[0];
+          sprintf(plev,"lev%d",nl);
+        }
+        if (nd>0) {
+          pdom = &domstr[0];
+          sprintf(pdom,"dom%d",nd);
+        }
+
+        if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,
+            pOut->num,NULL,"tab")) == NULL){
+          ath_error("[dump_tab]: Error constructing filename\n");
+        }
+
+/* open output file */
+        if((pfile = fopen(fname,"w")) == NULL){
+          ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
+        }
 
 /* Upper and Lower bounds on i,j,k for data dump */
         il = pG->is; iu = pG->ie;
@@ -100,26 +110,22 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
         nmax += 2*nghost;
 #endif
 
-/* Add a white space to the format, setup format for integer zone columns */
-        if(pOut->dat_fmt == NULL){
-          sprintf(fmt," %%12.8e"); /* Use a default format */
-        }
-        else{
-          sprintf(fmt," %s",pOut->dat_fmt);
-        }
-        sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
+/* Write out some header information */
 
-/* Write info about this Grid */
-
-        ngrav = 0;
-        nvar = NVAR;
-        nscal = NSCALARS;
-#ifdef SELF_GRAVITY
-        ngrav = 1;
-#endif
-        fprintf(pfile,"\n#  Level Domain Nx1  Nx2  Nx3 nvar nscal ngrav\n");
-        fprintf(pfile,"   %d     %d      %d  %d  %d     %d    %d    %d\n"
-          ,nl,nd,(iu-il+1),(ju-jl+1),(ku-kl+1),nvar,nscal,ngrav);
+        if (pG->Nx[0] > 1) {
+          fprintf(pfile,"# Nx1 = %d\n",iu-il+1);
+          fprintf(pfile,"# x1-size = %g\n",(iu-il+1)*pG->dx1);
+        }
+        if (pG->Nx[1] > 1) {
+          fprintf(pfile,"# Nx2 = %d\n",ju-jl+1);
+          fprintf(pfile,"# x2-size = %g\n",(ju-jl+1)*pG->dx2);
+        }
+        if (pG->Nx[2] > 1) {
+          fprintf(pfile,"# Nx3 = %d\n",ku-kl+1);
+          fprintf(pfile,"# x3-size = %g\n",(ku-kl+1)*pG->dx3);
+        }
+        fprintf(pfile,"# CONSERVED vars at Time= %g, level= %i, domain= %i\n",
+          pM->time,nl,nd);
 
 /* write out i,j,k column headers.  Note column number is embedded in header */
 
@@ -257,7 +263,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
             }
           }
         }
-      }
+      }}
     } /* end loop over domains */
   } /* end loop over levels */
 
@@ -272,9 +278,10 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 void dump_tab_prim(MeshS *pM, OutputS *pOut)
 {
   GridS *pG;
-  int dnum = pOut->num;
-  int nl,nd,i,j,k,il,iu,jl,ju,kl,ku,nGrid,nvar,nscal,ngrav;
+  int nl,nd,i,j,k,il,iu,jl,ju,kl,ku;
   FILE *pfile;
+  char *fname,*plev=NULL,*pdom=NULL;
+  char levstr[8],domstr[8];
   PrimS W;
   Real x1,x2,x3,d1;
   char zone_fmt[20], fmt[80];
@@ -283,37 +290,46 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
   int n;
 #endif
 
-/* Open the output file */
-  if((pfile = ath_fopen(NULL,pM->outfilename,num_digit,dnum,NULL,"tab","w")) 
-     == NULL){
-    ath_error("[dump_tab_prim]: File Open Error Occured");
-    return;
+/* Add a white space to the format, setup format for integer zone columns */
+  if(pOut->dat_fmt == NULL){
+    sprintf(fmt," %%12.8e"); /* Use a default format */
   }
-
-/* Write out some header information about Mesh hierarchy */
-
-  fprintf(pfile,"# Dump of PRIMITIVE variables at Time = %g\n",pM->time);
-  fprintf(pfile,"# NLevels in Mesh hierarchy\n%d\n",pM->NLevels);
-  fprintf(pfile,"# DomainsPerLevel in Mesh hierarchy\n");
-  for (nl=0; nl<pM->NLevels; nl++) fprintf(pfile,"  %d",pM->DomainsPerLevel[nl]);
-
-/* Find and write number of Grids output in this file (on this processor) */
-
-  nGrid=0;
-  for (nl=0; nl<(pM->NLevels); nl++){
-    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-      if (pM->Domain[nl][nd].Grid != NULL) nGrid++;
-    }
+  else{
+    sprintf(fmt," %s",pOut->dat_fmt);
   }
-  fprintf(pfile,"\n# nGrids in this file\n%d\n",nGrid);
+  sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-      if (pM->Domain[nl][nd].Grid != NULL) {
+      if (pM->Domain[nl][nd].Grid != NULL){
+
+/* write files if domain and level match input, or are not specified (-1) */
+      if ((pOut->nlevel == -1 || pOut->nlevel == nl) &&
+          (pOut->ndomain == -1 || pOut->ndomain == nd)){
         pG = pM->Domain[nl][nd].Grid;
         col_cnt = 1;
+
+/* construct output filename. */
+        if (nl>0) {
+          plev = &levstr[0];
+          sprintf(plev,"lev%d",nl);
+        }
+        if (nd>0) {
+          pdom = &domstr[0];
+          sprintf(pdom,"dom%d",nd);
+        }
+
+        if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,
+            pOut->num,NULL,"tab")) == NULL){
+          ath_error("[dump_tab]: Error constructing filename\n");
+        }
+
+/* open output file */
+        if((pfile = fopen(fname,"w")) == NULL){
+          ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
+        }
 
 /* Upper and Lower bounds on i,j,k for data dump */
 
@@ -340,26 +356,22 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
         nmax += 2*nghost;
 #endif
 
-/* Add a white space to the format, setup format for integer zone columns */
-        if(pOut->dat_fmt == NULL){
-          sprintf(fmt," %%12.8e"); /* Use a default format */
-        }
-        else{
-          sprintf(fmt," %s",pOut->dat_fmt);
-        }
-        sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
+/* Write out some header information */
 
-/* Write info about this Grid */
-
-        ngrav = 0;
-        nvar = NVAR;
-        nscal = NSCALARS;
-#ifdef SELF_GRAVITY
-        ngrav = 1;
-#endif
-        fprintf(pfile,"\n#  Level Domain Nx1  Nx2  Nx3 nvar nscal ngrav\n");
-        fprintf(pfile,"   %d     %d      %d  %d  %d     %d    %d    %d\n"
-          ,nl,nd,(iu-il+1),(ju-jl+1),(ku-kl+1),nvar,nscal,ngrav);
+        if (pG->Nx[0] > 1) {
+          fprintf(pfile,"# Nx1 = %d\n",iu-il+1);
+          fprintf(pfile,"# x1-size = %g\n",(iu-il+1)*pG->dx1);
+        }
+        if (pG->Nx[1] > 1) {
+          fprintf(pfile,"# Nx2 = %d\n",ju-jl+1);
+          fprintf(pfile,"# x2-size = %g\n",(ju-jl+1)*pG->dx2);
+        }
+        if (pG->Nx[2] > 1) {
+          fprintf(pfile,"# Nx3 = %d\n",ku-kl+1);
+          fprintf(pfile,"# x3-size = %g\n",(ku-kl+1)*pG->dx3);
+        }
+        fprintf(pfile,"# PRIMITIVE vars at Time = %g, level= %i, domain= %i\n",
+          pM->time,nl,nd);
 
 /* write out i,j,k column headers.  Note column number is embedded in header */
 
@@ -499,7 +511,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
             }
           }
         }
-      }
+      }}
     } /* end loop over domains */
   } /* end loop over levels */
 

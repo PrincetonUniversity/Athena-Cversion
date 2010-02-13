@@ -30,7 +30,7 @@ id      = d
 palette = rainbow
 dmin    = 1.0      # min value for imaging color
 dmax    = 20.0     # max value for imaging color
-ix3     = 32       # integer index of slice
+x3      = 0.0      # x3 value of slice
 
 <output4>
 out_fmt = ppm      # ppm image
@@ -41,7 +41,7 @@ usr_expr_flag = 1
 palette = rainbow
 dmin    = 0.0      # min value for imaging color
 dmax    = 1.0      # max value for imaging color
-ix3     = 32       # integer index of slice
+x3      = 0.0      # x3 value of slice
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)

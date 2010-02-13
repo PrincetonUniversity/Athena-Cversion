@@ -503,7 +503,7 @@ void Userwork_after_loop(MeshS *pM)
 
 /* Print error to file "LinWave-errors.#.dat", where #=wave_flag  */
 
-  fname = ath_fname(NULL,"LinWave-errors",1,wave_flag,NULL,"dat");
+  fname = ath_fname(NULL,"LinWave-errors",NULL,NULL,1,wave_flag,NULL,"dat");
 /* The file exists -- reopen the file in append mode */
   if((fp=fopen(fname,"r")) != NULL){
     if((fp = freopen(fname,"a",fp)) == NULL){
