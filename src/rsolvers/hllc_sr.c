@@ -253,7 +253,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->Mz = Fl.Mz;
     pFlux->E  = Fl.E;
 
-    retUrn;
+    return;
   }
   else if( lmdas >= 0.0){ /* Fls */
 
@@ -283,7 +283,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->Mz = lmdal*(Usl.Mz - Ul.Mz) + Fl.Mz;
     pFlux->E  = lmdal*(Usl.E  - Ul.E ) + Fl.E;
 
-    retUrn;
+    return;
   }
   else if( lmdar >= 0.0){ /* Frs */
 
@@ -313,7 +313,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->Mz = lmdar*(Usr.Mz - Ur.Mz) + Fr.Mz;
     pFlux->E  = lmdar*(Usr.E  - Ur.E ) + Fr.E;
 
-    retUrn;
+    return;
   }
   else{ /* Fr */
     /* intercell flux is right flux */
@@ -323,7 +323,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->Mz = Fr.Mz;
     pFlux->E  = Fr.E;
 
-    retUrn;
+    return;
   }
   
   /* need to deal with scalar fluxes */

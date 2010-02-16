@@ -43,6 +43,7 @@
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
 #   --enable-smr                                        (static mesh refinement)
+#   --enable-fofc                 (first-order flux correction in VL integrator)
 #
 #-------------------------------------------------------------------------------
 # generic things
@@ -536,6 +537,24 @@ else
 fi  
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: first-order flux correction with VL integrator
+#   --enable-fofc
+
+AC_SUBST(FOFC_MODE)
+AC_ARG_ENABLE(fofc, [  --enable-fofc    enable first-order flux correction], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+if test "$with_integrator" = "vl"; then
+  FOFC_MODE="FIRST_ORDER_FLUX_CORRECTION"
+  FOFC_MODE_USER="ON"
+else
+  AC_MSG_ERROR([first-order flux correction only works with VL integrator!])
+fi
+else
+  FOFC_MODE="NO_FIRST_ORDER_FLUX_CORRECTION"
+  FOFC_MODE_USER="OFF"
+fi  
+
+#-------------------------------------------------------------------------------
 # check for various library functions
 
 AC_PROG_GCC_TRADITIONAL
@@ -595,4 +614,5 @@ echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
+echo "first-order flux corr:   $FOFC_MODE_USER"
 

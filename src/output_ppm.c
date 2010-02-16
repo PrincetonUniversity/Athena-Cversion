@@ -121,6 +121,7 @@ void output_ppm(MeshS *pM, OutputS *pOut)
           fclose(pfile);
           free_2d_array(data);
           free(fname);
+          data = NULL;
         }
       }}
     }

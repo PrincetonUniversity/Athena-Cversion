@@ -41,6 +41,10 @@ static Prim1DS ***Wl_x1Face=NULL, ***Wr_x1Face=NULL;
 static Prim1DS ***Wl_x2Face=NULL, ***Wr_x2Face=NULL;
 static Prim1DS ***Wl_x3Face=NULL, ***Wr_x3Face=NULL;
 static Cons1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+static Cons1DS ***x1FluxP=NULL, ***x2FluxP=NULL, ***x3FluxP=NULL;
+static Real ***emf1P=NULL, ***emf2P=NULL, ***emf3P=NULL;
+#endif
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
@@ -51,7 +55,7 @@ static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
-static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static Prim1DS *W1d=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
 /* conserved variables at t^{n+1/2} computed in predict step */
@@ -65,15 +69,18 @@ static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
- *   integrate_emf1_corner() - 
- *   integrate_emf2_corner() - 
- *   integrate_emf3_corner() - 
- *   first_order_correction() -
+ *   integrate_emf1_corner() - upwind CT method of GS (2005) for emf1
+ *   integrate_emf2_corner() - upwind CT method of GS (2005) for emf2 
+ *   integrate_emf3_corner() - upwind CT method of GS (2005) for emf3
+ *   FixCell() - apply first-order correction to one cell
  *============================================================================*/
 #ifdef MHD
 static void integrate_emf1_corner(const GridS *pG);
 static void integrate_emf2_corner(const GridS *pG);
 static void integrate_emf3_corner(const GridS *pG);
+#endif
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+static void FixCell(GridS *pG, Int3Vect);
 #endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -84,7 +91,7 @@ static void integrate_emf3_corner(const GridS *pG);
 void integrate_3d_vl(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
-  PrimS Whalf;
+  PrimS W,Whalf;
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
   Real dt = pG->dt, hdt = 0.5*pG->dt;
@@ -104,6 +111,11 @@ void integrate_3d_vl(DomainS *pD)
 #ifdef STATIC_MESH_REFINEMENT
   int ncg,npg,dim;
   int ii,ics,ice,jj,jcs,jce,kk,kcs,kce,ips,ipe,jps,jpe,kps,kpe;
+#endif
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  int flag_cell=0,negd=0,negP=0,superl=0,NaNFlux=0;
+  Real Vsq;
+  Int3Vect BadCell;
 #endif
   int il=is-(nghost-1), iu=ie+(nghost-1);
   int jl=js-(nghost-1), ju=je+(nghost-1);
@@ -158,12 +170,12 @@ void integrate_3d_vl(DomainS *pD)
  * Compute first-order L/R states */
 
     for (i=is-nghost; i<=ie+nghost; i++) {
-      W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+      W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
     }
 
     for (i=il; i<=ie+nghost; i++) {
-      Wl[i] = W[i-1];
-      Wr[i] = W[i  ];
+      Wl[i] = W1d[i-1];
+      Wr[i] = W1d[i  ];
 
 /* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
       Ul[i] = Prim1D_to_Cons1D(&Wl[i], &Bxc[i-1]);
@@ -177,7 +189,7 @@ void integrate_3d_vl(DomainS *pD)
 /*--- Step 1d ------------------------------------------------------------------
  * Compute flux in x1-direction */
 
-      for (i=il+1; i<=iu; i++) {
+      for (i=il; i<=ie+nghost; i++) {
         fluxes(Ul[i],Ur[i],Wl[i],Wr[i],Bxi[i],&x1Flux[k][j][i]);
       }
     }
@@ -191,9 +203,9 @@ void integrate_3d_vl(DomainS *pD)
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  */
 
-  for (k=kl; k<=ku; k++) {
-    for (i=il; i<=iu; i++) {
-      for (j=jl+1; j<=ju; j++) {
+  for (k=ks-nghost; k<=ke+nghost; k++) {
+    for (i=is-nghost; i<=ie+nghost; i++) {
+      for (j=js-nghost; j<=je+nghost; j++) {
 	U1d[j].d  = pG->U[k][j][i].d;
 	U1d[j].Mx = pG->U[k][j][i].M2;
 	U1d[j].My = pG->U[k][j][i].M3;
@@ -216,12 +228,12 @@ void integrate_3d_vl(DomainS *pD)
  * Compute first-order L/R states */
 
       for (j=js-nghost; j<=je+nghost; j++) {
-        W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+        W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
       }
 
-      for (j=jl; i<=je+nghost; j++) {
-        Wl[j] = W[j-1];
-        Wr[j] = W[j  ];
+      for (j=jl; j<=je+nghost; j++) {
+        Wl[j] = W1d[j-1];
+        Wr[j] = W1d[j  ];
 
 /* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
         Ul[j] = Prim1D_to_Cons1D(&Wl[j], &Bxc[j-1]);
@@ -260,8 +272,8 @@ void integrate_3d_vl(DomainS *pD)
 	U1d[k].E  = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
 #ifdef MHD
-	U1d[k].By = pG->U[k-1][j][i].B1c;
-	U1d[k].Bz = pG->U[k-1][j][i].B2c;
+	U1d[k].By = pG->U[k][j][i].B1c;
+	U1d[k].Bz = pG->U[k][j][i].B2c;
         Bxc[k] = pG->U[k][j][i].B3c;
         Bxi[k] = pG->B3i[k][j][i];
 #endif /* MHD */
@@ -274,12 +286,12 @@ void integrate_3d_vl(DomainS *pD)
  * Compute first-order L/R states */      
         
       for (k=ks-nghost; k<=ke+nghost; k++) {
-        W[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
+        W1d[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
       }
 
       for (k=kl; k<=ke+nghost; k++) { 
-        Wl[k] = W[k-1];
-        Wr[k] = W[k  ]; 
+        Wl[k] = W1d[k-1];
+        Wr[k] = W1d[k  ]; 
 
 /* Compute U from W in case Pfloor used in Cons1D_to_Prim1D */
         Ul[k] = Prim1D_to_Cons1D(&Wl[k], &Bxc[k-1]);
@@ -437,6 +449,27 @@ void integrate_3d_vl(DomainS *pD)
     }
   }
 
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/*--- Step 5d ------------------------------------------------------------------
+ * With first-order flux correction, save predict fluxes and emf3
+ */
+
+  for (k=ks; k<=ke+1; k++) {
+    for (j=js; j<=je+1; j++) {
+      for (i=is; i<=ie+1; i++) {
+        x1FluxP[k][j][i] = x1Flux[k][j][i];
+        x2FluxP[k][j][i] = x2Flux[k][j][i];
+        x3FluxP[k][j][i] = x3Flux[k][j][i];
+#ifdef MHD
+        emf1P[k][j][i] = emf1[k][j][i];
+        emf2P[k][j][i] = emf2[k][j][i];
+        emf3P[k][j][i] = emf3[k][j][i];
+#endif
+      }
+    }
+  }
+#endif
+
 /*=== STEP 6: Add source terms to predict values at half-timestep ============*/
 
 /*--- Step 6a ------------------------------------------------------------------
@@ -552,10 +585,10 @@ void integrate_3d_vl(DomainS *pD)
  */
 
       for (i=il; i<=iu; i++) {
-        W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+        W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
       }
 
-      lr_states(W,Bxc,0.0,is,ie,Wl,Wr);
+      lr_states(W1d,Bxc,0.0,is,ie,Wl,Wr);
 
       for (i=is; i<=ie+1; i++) {
         Wl_x1Face[k][j][i] = Wl[i];
@@ -596,10 +629,10 @@ void integrate_3d_vl(DomainS *pD)
  */
 
       for (j=jl; j<=ju; j++) {
-        W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+        W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
       }
 
-      lr_states(W,Bxc,0.0,js,je,Wl,Wr);
+      lr_states(W1d,Bxc,0.0,js,je,Wl,Wr);
 
       for (j=js; j<=je+1; j++) {
         Wl_x2Face[k][j][i] = Wl[j];
@@ -640,10 +673,10 @@ void integrate_3d_vl(DomainS *pD)
  */
 
       for (k=kl; k<=ku; k++) {
-        W[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
+        W1d[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
       }
 
-      lr_states(W,Bxc,0.0,ks,ke,Wl,Wr);
+      lr_states(W1d,Bxc,0.0,ks,ke,Wl,Wr);
 
       for (k=ks; k<=ke+1; k++) {
         Wl_x3Face[k][j][i] = Wl[k];
@@ -733,6 +766,25 @@ void integrate_3d_vl(DomainS *pD)
 
         fluxes(Ul[i],Ur[i],Wl_x1Face[k][j][i],Wr_x1Face[k][j][i],Bx,
                &x1Flux[k][j][i]);
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/* revert to predictor flux if this flux Nan'ed */
+        if ((x1Flux[k][j][i].d  != x1Flux[k][j][i].d)  ||
+#ifndef BAROTROPIC
+            (x1Flux[k][j][i].E  != x1Flux[k][j][i].E)  ||
+#endif
+#ifdef MHD
+            (x1Flux[k][j][i].By != x1Flux[k][j][i].By) ||
+            (x1Flux[k][j][i].Bz != x1Flux[k][j][i].Bz) ||
+#endif
+            (x1Flux[k][j][i].Mx != x1Flux[k][j][i].Mx) ||
+            (x1Flux[k][j][i].My != x1Flux[k][j][i].My) ||
+            (x1Flux[k][j][i].Mz != x1Flux[k][j][i].Mz)) {
+          x1Flux[k][j][i] = x1FluxP[k][j][i];
+          NaNFlux++;
+        }
+#endif
+
       }
     }
   }
@@ -764,6 +816,25 @@ void integrate_3d_vl(DomainS *pD)
 
         fluxes(Ul[i],Ur[i],Wl_x2Face[k][j][i],Wr_x2Face[k][j][i],Bx,
                &x2Flux[k][j][i]);
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/* revert to predictor flux if this flux NaN'ed */
+        if ((x2Flux[k][j][i].d  != x2Flux[k][j][i].d)  ||
+#ifndef BAROTROPIC
+            (x2Flux[k][j][i].E  != x2Flux[k][j][i].E)  ||
+#endif
+#ifdef MHD
+            (x2Flux[k][j][i].By != x2Flux[k][j][i].By) ||
+            (x2Flux[k][j][i].Bz != x2Flux[k][j][i].Bz) ||
+#endif
+            (x2Flux[k][j][i].Mx != x2Flux[k][j][i].Mx) ||
+            (x2Flux[k][j][i].My != x2Flux[k][j][i].My) ||
+            (x2Flux[k][j][i].Mz != x2Flux[k][j][i].Mz)) {
+          x2Flux[k][j][i] = x2FluxP[k][j][i];
+          NaNFlux++;
+        }
+#endif
+
       }
     }
   }
@@ -795,9 +866,35 @@ void integrate_3d_vl(DomainS *pD)
 
         fluxes(Ul[i],Ur[i],Wl_x3Face[k][j][i],Wr_x3Face[k][j][i],Bx,
                &x3Flux[k][j][i]);
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/* revert to predictor flux if this flux NaN'ed */
+        if ((x3Flux[k][j][i].d  != x3Flux[k][j][i].d)  ||
+#ifndef BAROTROPIC
+            (x3Flux[k][j][i].E  != x3Flux[k][j][i].E)  ||
+#endif
+#ifdef MHD
+            (x3Flux[k][j][i].By != x3Flux[k][j][i].By) ||
+            (x3Flux[k][j][i].Bz != x3Flux[k][j][i].Bz) ||
+#endif
+            (x3Flux[k][j][i].Mx != x3Flux[k][j][i].Mx) ||
+            (x3Flux[k][j][i].My != x3Flux[k][j][i].My) ||
+            (x3Flux[k][j][i].Mz != x3Flux[k][j][i].Mz)) {
+          x3Flux[k][j][i] = x3FluxP[k][j][i];
+          NaNFlux++;
+        }
+#endif
+
       }
     }
   }
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if (NaNFlux != 0) {
+    printf("[Step10] %i second-order fluxes replaced\n",NaNFlux);
+    NaNFlux=0;
+  }
+#endif
 
 /*=== STEP 11: Update face-centered B for a full timestep ====================*/
         
@@ -1144,10 +1241,63 @@ void integrate_3d_vl(DomainS *pD)
     }
   }
 
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/*=== STEP 14: First-order flux correction ===================================*/
+
+/* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
+ * by using 1st order predictor fluxes */
+
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        W = Cons_to_Prim(&(pG->U[k][j][i]));
+        if (W.d < 0.0) {
+          flag_cell = 1;
+          BadCell.i = i;
+          BadCell.j = j;
+          BadCell.k = k;
+          negd++;
+        }
+        if (W.P < 0.0) {
+          flag_cell = 1;
+          BadCell.i = i;
+          BadCell.j = j;
+          BadCell.k = k;
+          negP++;
+        }
+#ifdef SPECIAL_RELATIVITY
+        Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+        if (Vsq > 1.0) {
+          flag_cell = 1;
+          BadCell.i = i;
+          BadCell.j = j;
+          BadCell.k = k;
+          superl++; 
+        }
+#endif
+        if (flag_cell != 0) {
+          FixCell(pG, BadCell);
+          flag_cell=0;
+        }
+      }
+    }
+  }
+
+  if (negd > 0 || negP > 0)
+    printf("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
+#ifdef SPECIAL_RELATIVITY
+  if (negd > 0 || negP > 0 || superl > 0)
+    printf("[Step14]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
+      ,negd,negP,superl);
+#endif
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
+
 #ifdef STATIC_MESH_REFINEMENT
-/*--- Step 13d -----------------------------------------------------------------
- * With SMR, store fluxes at boundaries of child and parent grids.  */
-/* Loop over all child grids ------------------*/
+/*=== STEP 15: With SMR, store fluxes at fine/coarse boundaries ==============*/
+
+/*--- Step 15a -----------------------------------------------------------------
+ * store fluxes at boundaries of child grids.
+ */
 
   for (ncg=0; ncg<pG->NCGrid; ncg++) {
 
@@ -1293,7 +1443,9 @@ void integrate_3d_vl(DomainS *pD)
     }
   } /* end loop over child Grids */
 
-/* Loop over all parent grids ------------------*/
+/*--- Step 15b -----------------------------------------------------------------
+ * store fluxes at boundaries with parent grids.
+ */
 
   for (npg=0; npg<pG->NPGrid; npg++) {
 
@@ -1525,7 +1677,7 @@ void integrate_init_3d(MeshS *pM)
   if ((U1d = (Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
   if ((Ul  = (Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
   if ((Ur  = (Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
-  if ((W   = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((W1d = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wl  = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wr  = (Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
 
@@ -1535,6 +1687,23 @@ void integrate_init_3d(MeshS *pM)
     == NULL) goto on_error;
   if ((x3Flux = (Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
     == NULL) goto on_error;
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if ((x1FluxP =(Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
+    == NULL) goto on_error;
+  if ((x2FluxP =(Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
+    == NULL) goto on_error;
+  if ((x3FluxP =(Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
+    == NULL) goto on_error;
+#ifdef MHD
+  if ((emf1P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
+    == NULL) goto on_error;
+  if ((emf2P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
+    == NULL) goto on_error;
+  if ((emf3P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
+    == NULL) goto on_error;
+#endif
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
+
   if ((Uhalf = (ConsS***)calloc_3d_array(size3,size2,size1,sizeof(ConsS)))
     == NULL) goto on_error;
 
@@ -1578,18 +1747,28 @@ void integrate_destruct_3d(void)
   if (B3_x3Face != NULL) free_3d_array(B3_x3Face);
 #endif /* MHD */
 
-  if (U1d      != NULL) free(U1d);
-  if (Ul       != NULL) free(Ul);
-  if (Ur       != NULL) free(Ur);
-  if (W        != NULL) free(W);
-  if (Wl       != NULL) free(Wl);
-  if (Wr       != NULL) free(Wr);
+  if (U1d != NULL) free(U1d);
+  if (Ul  != NULL) free(Ul);
+  if (Ur  != NULL) free(Ur);
+  if (W1d != NULL) free(W1d);
+  if (Wl  != NULL) free(Wl);
+  if (Wr  != NULL) free(Wr);
 
-  if (x1Flux    != NULL) free_3d_array(x1Flux);
-  if (x2Flux    != NULL) free_3d_array(x2Flux);
-  if (x3Flux    != NULL) free_3d_array(x3Flux);
+  if (x1Flux  != NULL) free_3d_array(x1Flux);
+  if (x2Flux  != NULL) free_3d_array(x2Flux);
+  if (x3Flux  != NULL) free_3d_array(x3Flux);
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if (x1FluxP != NULL) free_3d_array(x1FluxP);
+  if (x2FluxP != NULL) free_3d_array(x2FluxP);
+  if (x3FluxP != NULL) free_3d_array(x3FluxP);
+#ifdef MHD
+  if (emf1P   != NULL) free_3d_array(emf1P);
+  if (emf2P   != NULL) free_3d_array(emf2P);
+  if (emf3P   != NULL) free_3d_array(emf3P);
+#endif
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
-  if (Uhalf    != NULL) free_3d_array(Uhalf);
+  if (Uhalf  != NULL) free_3d_array(Uhalf);
 
   return;
 }
@@ -1613,17 +1792,16 @@ void integrate_destruct_3d(void)
 #ifdef MHD
 static void integrate_emf1_corner(const GridS *pG)
 {
-  int i, is = pG->is, ie = pG->ie;
-  int j, js = pG->js, je = pG->je;
-  int k, ks = pG->ks, ke = pG->ke;
-  int il = is - nghost, iu = ie + nghost;
-  int jl = js - nghost, ju = je + nghost;
-  int kl = ks - nghost, ku = ke + nghost;
+  int i,il,iu,j,jl,ju,k,kl,ku;
   Real de1_l2, de1_r2, de1_l3, de1_r3;
 
-  for (k=kl+1; k<=ku; k++) {
-    for (j=jl+1; j<=ju; j++) {
-      for (i=il+1; i<=iu-1; i++) {
+  il = pG->is-(nghost-1);   iu = pG->ie+(nghost-1);
+  jl = pG->js-(nghost-1);   ju = pG->je+(nghost-1);
+  kl = pG->ks-(nghost-1);   ku = pG->ke+(nghost-1);
+
+  for (k=kl; k<=ku+1; k++) {
+    for (j=jl; j<=ju+1; j++) {
+      for (i=il; i<=iu; i++) {
 /* NOTE: The x2-Flux of By is -E1. */
 /*       The x3-Flux of Bz is +E1. */
 	if (x2Flux[k-1][j][i].d > 0.0)
@@ -1676,17 +1854,16 @@ static void integrate_emf1_corner(const GridS *pG)
 
 static void integrate_emf2_corner(const GridS *pG)
 {
-  int i, is = pG->is, ie = pG->ie;
-  int j, js = pG->js, je = pG->je;
-  int k, ks = pG->ks, ke = pG->ke;
-  int il = is - nghost, iu = ie + nghost;
-  int jl = js - nghost, ju = je + nghost;
-  int kl = ks - nghost, ku = ke + nghost;
+  int i,il,iu,j,jl,ju,k,kl,ku;
   Real de2_l1, de2_r1, de2_l3, de2_r3;
 
-  for (k=kl+1; k<=ku; k++) {
-    for (j=jl+1; j<=ju-1; j++) {
-      for (i=il+1; i<=iu; i++) {
+  il = pG->is-(nghost-1);   iu = pG->ie+(nghost-1);
+  jl = pG->js-(nghost-1);   ju = pG->je+(nghost-1);
+  kl = pG->ks-(nghost-1);   ku = pG->ke+(nghost-1);
+
+  for (k=kl; k<=ku+1; k++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu+1; i++) {
 /* NOTE: The x1-Flux of Bz is +E2. */
 /*       The x3-Flux of By is -E2. */
 	if (x1Flux[k-1][j][i].d > 0.0)
@@ -1739,17 +1916,16 @@ static void integrate_emf2_corner(const GridS *pG)
 
 static void integrate_emf3_corner(const GridS *pG)
 {
-  int i, is = pG->is, ie = pG->ie;
-  int j, js = pG->js, je = pG->je;
-  int k, ks = pG->ks, ke = pG->ke;
-  int il = is - nghost, iu = ie + nghost;
-  int jl = js - nghost, ju = je + nghost;
-  int kl = ks - nghost, ku = ke + nghost;
+  int i,il,iu,j,jl,ju,k,kl,ku;
   Real de3_l1, de3_r1, de3_l2, de3_r2;
 
-  for (k=kl+1; k<=ku-1; k++) {
-    for (j=jl+1; j<=ju; j++) {
-      for (i=il+1; i<=iu; i++) {
+  il = pG->is-(nghost-1);   iu = pG->ie+(nghost-1);
+  jl = pG->js-(nghost-1);   ju = pG->je+(nghost-1);
+  kl = pG->ks-(nghost-1);   ku = pG->ke+(nghost-1);
+
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju+1; j++) {
+      for (i=il; i<=iu+1; i++) {
 /* NOTE: The x1-Flux of By is -E3. */
 /*       The x2-Flux of Bx is +E3. */
 	if (x1Flux[k][j-1][i].d > 0.0)
@@ -1798,5 +1974,250 @@ static void integrate_emf3_corner(const GridS *pG)
   return;
 }
 #endif /* MHD */
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+/*----------------------------------------------------------------------------*/
+/* FixCell() - uses first order fluxes to fix negative d,P or superluminal v
+ */ 
+
+static void FixCell(GridS *pG, Int3Vect ix)
+{
+  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
+  Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1, x3FD_k, x3FD_kp1;
+#ifdef MHD
+  int i,j,k;
+  Real emf1D_kj, emf1D_kp1j, emf1D_kjp1, emf1D_kp1jp1;
+  Real emf2D_ki, emf2D_kip1, emf2D_kp1i, emf2D_kp1ip1;
+  Real emf3D_ji, emf3D_jip1, emf3D_jp1i, emf3D_jp1ip1;
+#endif
+
+/* Compute difference of predictor and corrector fluxes at cell faces */
+
+  x1FD_i.d = x1Flux[ix.k][ix.j][ix.i].d - x1FluxP[ix.k][ix.j][ix.i].d;
+  x2FD_j.d = x2Flux[ix.k][ix.j][ix.i].d - x2FluxP[ix.k][ix.j][ix.i].d;
+  x3FD_k.d = x3Flux[ix.k][ix.j][ix.i].d - x3FluxP[ix.k][ix.j][ix.i].d;
+
+  x1FD_ip1.d = x1Flux[ix.k][ix.j][ix.i+1].d - x1FluxP[ix.k][ix.j][ix.i+1].d;
+  x2FD_jp1.d = x2Flux[ix.k][ix.j+1][ix.i].d - x2FluxP[ix.k][ix.j+1][ix.i].d;
+  x3FD_kp1.d = x2Flux[ix.k+1][ix.j][ix.i].d - x3FluxP[ix.k+1][ix.j][ix.i].d;
+
+  x1FD_i.Mx = x1Flux[ix.k][ix.j][ix.i].Mx - x1FluxP[ix.k][ix.j][ix.i].Mx;
+  x2FD_j.Mx = x2Flux[ix.k][ix.j][ix.i].Mx - x2FluxP[ix.k][ix.j][ix.i].Mx;
+  x3FD_k.Mx = x3Flux[ix.k][ix.j][ix.i].Mx - x3FluxP[ix.k][ix.j][ix.i].Mx;
+
+  x1FD_ip1.Mx = x1Flux[ix.k][ix.j][ix.i+1].Mx - x1FluxP[ix.k][ix.j][ix.i+1].Mx;
+  x2FD_jp1.Mx = x2Flux[ix.k][ix.j+1][ix.i].Mx - x2FluxP[ix.k][ix.j+1][ix.i].Mx;
+  x3FD_kp1.Mx = x2Flux[ix.k+1][ix.j][ix.i].Mx - x3FluxP[ix.k+1][ix.j][ix.i].Mx;
+
+  x1FD_i.My = x1Flux[ix.k][ix.j][ix.i].My - x1FluxP[ix.k][ix.j][ix.i].My;
+  x2FD_j.My = x2Flux[ix.k][ix.j][ix.i].My - x2FluxP[ix.k][ix.j][ix.i].My;
+  x3FD_k.My = x3Flux[ix.k][ix.j][ix.i].My - x3FluxP[ix.k][ix.j][ix.i].My;
+
+  x1FD_ip1.My = x1Flux[ix.k][ix.j][ix.i+1].My - x1FluxP[ix.k][ix.j][ix.i+1].My;
+  x2FD_jp1.My = x2Flux[ix.k][ix.j+1][ix.i].My - x2FluxP[ix.k][ix.j+1][ix.i].My;
+  x3FD_kp1.My = x2Flux[ix.k+1][ix.j][ix.i].My - x3FluxP[ix.k+1][ix.j][ix.i].My;
+
+  x1FD_i.Mz = x1Flux[ix.k][ix.j][ix.i].Mz - x1FluxP[ix.k][ix.j][ix.i].Mz;
+  x2FD_j.Mz = x2Flux[ix.k][ix.j][ix.i].Mz - x2FluxP[ix.k][ix.j][ix.i].Mz;
+  x3FD_k.Mz = x3Flux[ix.k][ix.j][ix.i].Mz - x3FluxP[ix.k][ix.j][ix.i].Mz;
+
+  x1FD_ip1.Mz = x1Flux[ix.k][ix.j][ix.i+1].Mz - x1FluxP[ix.k][ix.j][ix.i+1].Mz;
+  x2FD_jp1.Mz = x2Flux[ix.k][ix.j+1][ix.i].Mz - x2FluxP[ix.k][ix.j+1][ix.i].Mz;
+  x3FD_kp1.Mz = x2Flux[ix.k+1][ix.j][ix.i].Mz - x3FluxP[ix.k+1][ix.j][ix.i].Mz;
+
+#ifndef BAROTROPIC
+  x1FD_i.E = x1Flux[ix.k][ix.j][ix.i].E - x1FluxP[ix.k][ix.j][ix.i].E;
+  x2FD_j.E = x2Flux[ix.k][ix.j][ix.i].E - x2FluxP[ix.k][ix.j][ix.i].E;
+  x3FD_k.E = x3Flux[ix.k][ix.j][ix.i].E - x3FluxP[ix.k][ix.j][ix.i].E;
+
+  x1FD_ip1.E = x1Flux[ix.k][ix.j][ix.i+1].E - x1FluxP[ix.k][ix.j][ix.i+1].E;
+  x2FD_jp1.E = x2Flux[ix.k][ix.j+1][ix.i].E - x2FluxP[ix.k][ix.j+1][ix.i].E;
+  x3FD_kp1.E = x2Flux[ix.k+1][ix.j][ix.i].E - x3FluxP[ix.k+1][ix.j][ix.i].E;
+#endif /* BAROTROPIC */
+
+#ifdef MHD
+  emf1D_kj     = emf1[ix.k  ][ix.j  ][ix.i] - emf1P[ix.k  ][ix.j  ][ix.i];
+  emf1D_kjp1   = emf1[ix.k  ][ix.j+1][ix.i] - emf1P[ix.k  ][ix.j+1][ix.i];
+  emf1D_kp1j   = emf1[ix.k+1][ix.j  ][ix.i] - emf1P[ix.k+1][ix.j  ][ix.i];
+  emf1D_kp1jp1 = emf1[ix.k+1][ix.j+1][ix.i] - emf1P[ix.k+1][ix.j+1][ix.i];
+
+  emf2D_ki     = emf2[ix.k  ][ix.j][ix.i  ] - emf2P[ix.k  ][ix.j][ix.i  ];
+  emf2D_kip1   = emf2[ix.k  ][ix.j][ix.i+1] - emf2P[ix.k  ][ix.j][ix.i+1];
+  emf2D_kp1i   = emf2[ix.k+1][ix.j][ix.i  ] - emf2P[ix.k+1][ix.j][ix.i  ];
+  emf2D_kp1ip1 = emf2[ix.k+1][ix.j][ix.i+1] - emf2P[ix.k+1][ix.j][ix.i+1];
+
+  emf3D_ji     = emf3[ix.k][ix.j  ][ix.i  ] - emf3P[ix.k][ix.j  ][ix.i  ];
+  emf3D_jip1   = emf3[ix.k][ix.j  ][ix.i+1] - emf3P[ix.k][ix.j  ][ix.i+1];
+  emf3D_jp1i   = emf3[ix.k][ix.j+1][ix.i  ] - emf3P[ix.k][ix.j+1][ix.i  ];
+  emf3D_jp1ip1 = emf3[ix.k][ix.j+1][ix.i+1] - emf3P[ix.k][ix.j+1][ix.i+1];
+#endif /* MHD */
+
+/* Use flux differences to correct bad cell-centered quantities */
+  
+  pG->U[ix.k][ix.j][ix.i].d  += dtodx1*(x1FD_ip1.d  - x1FD_i.d );
+  pG->U[ix.k][ix.j][ix.i].M1 += dtodx1*(x1FD_ip1.Mx - x1FD_i.Mx);
+  pG->U[ix.k][ix.j][ix.i].M2 += dtodx1*(x1FD_ip1.My - x1FD_i.My);
+  pG->U[ix.k][ix.j][ix.i].M3 += dtodx1*(x1FD_ip1.Mz - x1FD_i.Mz);
+#ifndef BAROTROPIC
+  pG->U[ix.k][ix.j][ix.i].E  += dtodx1*(x1FD_ip1.E  - x1FD_i.E );
+#endif /* BAROTROPIC */
+  
+  pG->U[ix.k][ix.j][ix.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
+  pG->U[ix.k][ix.j][ix.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
+  pG->U[ix.k][ix.j][ix.i].M2 += dtodx2*(x2FD_jp1.Mx - x2FD_j.Mx);
+  pG->U[ix.k][ix.j][ix.i].M3 += dtodx2*(x2FD_jp1.My - x2FD_j.My);
+#ifndef BAROTROPIC
+  pG->U[ix.k][ix.j][ix.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
+#endif /* BAROTROPIC */
+
+  pG->U[ix.k][ix.j][ix.i].d  += dtodx3*(x3FD_kp1.d  - x3FD_k.d );
+  pG->U[ix.k][ix.j][ix.i].M1 += dtodx3*(x3FD_kp1.Mz - x3FD_k.Mz);
+  pG->U[ix.k][ix.j][ix.i].M2 += dtodx3*(x3FD_kp1.Mx - x3FD_k.Mx);
+  pG->U[ix.k][ix.j][ix.i].M3 += dtodx3*(x3FD_kp1.My - x3FD_k.My);
+#ifndef BAROTROPIC
+  pG->U[ix.k][ix.j][ix.i].E  += dtodx3*(x3FD_kp1.E  - x3FD_k.E );
+#endif /* BAROTROPIC */
+
+/* Use flux differences to correct cell-centered values at i-1 and i+1 */
+  
+  if (ix.i > pG->is) {
+    pG->U[ix.k][ix.j][ix.i-1].d  += dtodx1*(x1FD_i.d );
+    pG->U[ix.k][ix.j][ix.i-1].M1 += dtodx1*(x1FD_i.Mx);
+    pG->U[ix.k][ix.j][ix.i-1].M2 += dtodx1*(x1FD_i.My);
+    pG->U[ix.k][ix.j][ix.i-1].M3 += dtodx1*(x1FD_i.Mz);
+#ifndef BAROTROPIC
+    pG->U[ix.k][ix.j][ix.i-1].E  += dtodx1*(x1FD_i.E );
+#endif /* BAROTROPIC */
+  }
+  
+  if (ix.i < pG->ie) {
+    pG->U[ix.k][ix.j][ix.i+1].d  -= dtodx1*(x1FD_ip1.d );
+    pG->U[ix.k][ix.j][ix.i+1].M1 -= dtodx1*(x1FD_ip1.Mx);
+    pG->U[ix.k][ix.j][ix.i+1].M2 -= dtodx1*(x1FD_ip1.My);
+    pG->U[ix.k][ix.j][ix.i+1].M3 -= dtodx1*(x1FD_ip1.Mz);
+#ifndef BAROTROPIC
+    pG->U[ix.k][ix.j][ix.i+1].E  -= dtodx1*(x1FD_ip1.E );
+#endif /* BAROTROPIC */
+  }
+
+/* Use flux differences to correct cell-centered values at j-1 and j+1 */
+  
+  if (ix.j > pG->js) {
+    pG->U[ix.k][ix.j-1][ix.i].d  += dtodx2*(x2FD_j.d );
+    pG->U[ix.k][ix.j-1][ix.i].M1 += dtodx2*(x2FD_j.Mz);
+    pG->U[ix.k][ix.j-1][ix.i].M2 += dtodx2*(x2FD_j.Mx);
+    pG->U[ix.k][ix.j-1][ix.i].M3 += dtodx2*(x2FD_j.My);
+#ifndef BAROTROPIC
+    pG->U[ix.k][ix.j-1][ix.i].E  += dtodx2*(x2FD_j.E );
+#endif /* BAROTROPIC */
+  }
+  
+  if (ix.j < pG->je) {
+    pG->U[ix.k][ix.j+1][ix.i].d  -= dtodx2*(x2FD_jp1.d );
+    pG->U[ix.k][ix.j+1][ix.i].M1 -= dtodx2*(x2FD_jp1.Mz);
+    pG->U[ix.k][ix.j+1][ix.i].M2 -= dtodx2*(x2FD_jp1.Mx);
+    pG->U[ix.k][ix.j+1][ix.i].M3 -= dtodx2*(x2FD_jp1.My);
+#ifndef BAROTROPIC
+    pG->U[ix.k][ix.j+1][ix.i].E  -= dtodx2*(x2FD_jp1.E );
+#endif /* BAROTROPIC */
+  }
+
+/* Use flux differences to correct cell-centered values at k-1 and k+1 */
+ 
+  if (ix.k > pG->ks) {
+    pG->U[ix.k-1][ix.j][ix.i].d  += dtodx3*(x3FD_k.d );
+    pG->U[ix.k-1][ix.j][ix.i].M1 += dtodx3*(x3FD_k.Mz);
+    pG->U[ix.k-1][ix.j][ix.i].M2 += dtodx3*(x3FD_k.Mx);
+    pG->U[ix.k-1][ix.j][ix.i].M3 += dtodx3*(x3FD_k.My);
+#ifndef BAROTROPIC
+    pG->U[ix.k-1][ix.j][ix.i].E  += dtodx3*(x3FD_k.E );
+#endif /* BAROTROPIC */
+  }
+ 
+  if (ix.k < pG->ke) {
+    pG->U[ix.k+1][ix.j][ix.i].d  -= dtodx3*(x3FD_kp1.d );
+    pG->U[ix.k+1][ix.j][ix.i].M1 -= dtodx3*(x3FD_kp1.Mz);
+    pG->U[ix.k+1][ix.j][ix.i].M2 -= dtodx3*(x3FD_kp1.Mx);
+    pG->U[ix.k+1][ix.j][ix.i].M3 -= dtodx3*(x3FD_kp1.My);
+#ifndef BAROTROPIC
+    pG->U[ix.k+1][ix.j][ix.i].E  -= dtodx3*(x3FD_kp1.E );
+#endif /* BAROTROPIC */
+  }
+
+/* Use emf differences to correct face-centered fields on edges of bad cell */
+#ifdef MHD
+  pG->B1i[ix.k][ix.j][ix.i  ] -= dtodx3*(emf2D_kp1i   - emf2D_ki) -
+                                 dtodx2*(emf3D_jp1i   - emf3D_ji);
+  pG->B1i[ix.k][ix.j][ix.i+1] -= dtodx3*(emf2D_kp1ip1 - emf2D_kip1) -
+                                 dtodx2*(emf3D_jp1ip1 - emf3D_jip1);
+  pG->B2i[ix.k][ix.j  ][ix.i] -= dtodx1*(emf3D_jip1   - emf3D_ji) -
+                                 dtodx3*(emf1D_kp1j   - emf1D_kj);
+  pG->B2i[ix.k][ix.j+1][ix.i] -= dtodx1*(emf3D_jp1ip1 - emf3D_jp1i) -
+                                 dtodx3*(emf1D_kp1jp1 - emf1D_kjp1);
+  pG->B3i[ix.k  ][ix.j][ix.i] -= dtodx2*(emf1D_kjp1   - emf1D_kj) -
+                                 dtodx1*(emf2D_kip1   - emf2D_ki);
+  pG->B3i[ix.k+1][ix.j][ix.i] -= dtodx2*(emf1D_kp1jp1 - emf1D_kp1j) -
+                                 dtodx1*(emf2D_kp1ip1 - emf2D_kp1i);
+  
+/* Use emf differences to correct face-centered fields around bad cell */
+  if (ix.i > pG->is) {
+    pG->B2i[ix.k  ][ix.j  ][ix.i-1] += dtodx1*(emf3D_ji);
+    pG->B2i[ix.k  ][ix.j+1][ix.i-1] += dtodx1*(emf3D_jp1i);
+    pG->B3i[ix.k  ][ix.j  ][ix.i-1] -= dtodx1*(emf2D_ki);
+    pG->B3i[ix.k+1][ix.j  ][ix.i-1] -= dtodx1*(emf2D_kp1i);
+  }
+  if (ix.i < pG->ie) {
+    pG->B2i[ix.k  ][ix.j  ][ix.i+1] -= dtodx1*(emf3D_jip1);
+    pG->B2i[ix.k  ][ix.j+1][ix.i+1] -= dtodx1*(emf3D_jp1ip1);
+    pG->B3i[ix.k  ][ix.j  ][ix.i+1] += dtodx1*(emf2D_kip1);
+    pG->B3i[ix.k+1][ix.j  ][ix.i+1] += dtodx1*(emf2D_kp1ip1);
+  }
+  
+  if (ix.j > pG->js) {
+    pG->B3i[ix.k  ][ix.j-1][ix.i  ] += dtodx2*(emf1D_kj);
+    pG->B3i[ix.k+1][ix.j-1][ix.i  ] += dtodx2*(emf1D_kp1j);
+    pG->B1i[ix.k  ][ix.j-1][ix.i  ] -= dtodx2*(emf3D_ji);
+    pG->B1i[ix.k  ][ix.j-1][ix.i+1] -= dtodx2*(emf3D_jip1);
+  }
+  if (ix.j < pG->je) {
+    pG->B3i[ix.k  ][ix.j+1][ix.i  ] -= dtodx2*(emf1D_kjp1);
+    pG->B3i[ix.k+1][ix.j+1][ix.i  ] -= dtodx2*(emf1D_kp1jp1);
+    pG->B1i[ix.k  ][ix.j+1][ix.i  ] += dtodx2*(emf3D_jp1i);
+    pG->B1i[ix.k  ][ix.j+1][ix.i+1] += dtodx2*(emf3D_jp1ip1);
+  }
+  
+  if (ix.k > pG->ks) {
+    pG->B1i[ix.k-1][ix.j  ][ix.i  ] += dtodx3*(emf2D_ki);
+    pG->B1i[ix.k-1][ix.j  ][ix.i+1] += dtodx3*(emf2D_kip1);
+    pG->B2i[ix.k-1][ix.j  ][ix.i  ] -= dtodx3*(emf1D_kj);
+    pG->B2i[ix.k-1][ix.j+1][ix.i  ] -= dtodx3*(emf1D_kjp1);
+  }
+  if (ix.k < pG->ke) {
+    pG->B1i[ix.k+1][ix.j  ][ix.i  ] -= dtodx3*(emf2D_kp1i);
+    pG->B1i[ix.k+1][ix.j  ][ix.i+1] -= dtodx3*(emf2D_kp1ip1);
+    pG->B2i[ix.k+1][ix.j  ][ix.i  ] += dtodx3*(emf1D_kp1j);
+    pG->B2i[ix.k+1][ix.j+1][ix.i  ] += dtodx3*(emf1D_kp1jp1);
+  }
+  
+/* Compute new cell-centered fields */
+  for (k=(ix.k-1); k<=(ix.k+1); k++) {
+  for (j=(ix.j-1); j<=(ix.j+1); j++) {
+  for (i=(ix.i-1); i<=(ix.i+1); i++) {
+    pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
+    pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
+    pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
+  }}}
+#endif /* MHD */
+
+/* With SMR, replace higher-order fluxes with predict fluxes in case they are
+ * used at fine/coarse grid boundaries */
+#ifdef STATIC_MESH_REFINEMENT
+  x1Flux[ix.k][ix.j][ix.i] = x1FluxP[ix.k][ix.j][ix.i];
+  x2Flux[ix.k][ix.j][ix.i] = x2FluxP[ix.k][ix.j][ix.i];
+  x3Flux[ix.k][ix.j][ix.i] = x3FluxP[ix.k][ix.j][ix.i];
+#endif /* STATIC_MESH_REFINEMENT */
+
+}
+#endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #endif /* VL_INTEGRATOR */

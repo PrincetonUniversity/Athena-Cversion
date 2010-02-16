@@ -34,8 +34,6 @@
 
 #if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
-#define FIRST_ORDER_FLUX_CORRECTION
-
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1DS **Wl_x1Face=NULL, **Wr_x1Face=NULL;
 static Prim1DS **Wl_x2Face=NULL, **Wr_x2Face=NULL;
@@ -68,6 +66,7 @@ static Real **eta1=NULL, **eta2=NULL;
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
  *   integrate_emf3_corner() - the upwind CT method of Gardiner & Stone (2005) 
+ *   FixCell() - apply first-order correction to one cell
  *============================================================================*/
 #ifdef MHD
 static void integrate_emf3_corner(GridS *pG);
@@ -333,7 +332,7 @@ void integrate_2d_vl(DomainS *pD)
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*--- Step 5d ------------------------------------------------------------------
- * With first-orde flux correction, save predict fluxes and emf3
+ * With first-order flux correction, save predict fluxes and emf3
  */
 
   for (j=js; j<=je+1; j++) {
@@ -1275,7 +1274,7 @@ static void integrate_emf3_corner(GridS *pG)
 /* FixCell() - uses first order fluxes to fix negative d,P or superluminal v
  */ 
 
-static void FixCell(GridS *pG, Int3Vect indx)
+static void FixCell(GridS *pG, Int3Vect ix)
 {
   int ks=pG->ks;
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
@@ -1287,152 +1286,160 @@ static void FixCell(GridS *pG, Int3Vect indx)
 
 /* Compute difference of predictor and corrector fluxes at cell faces */
 
-  x1FD_i.d    = x1Flux[indx.j  ][indx.i  ].d - x1FluxP[indx.j  ][indx.i  ].d;
-  x1FD_ip1.d  = x1Flux[indx.j  ][indx.i+1].d - x1FluxP[indx.j  ][indx.i+1].d;
-  x2FD_j.d    = x2Flux[indx.j  ][indx.i  ].d - x2FluxP[indx.j  ][indx.i  ].d;
-  x2FD_jp1.d  = x2Flux[indx.j+1][indx.i  ].d - x2FluxP[indx.j+1][indx.i  ].d;
+  x1FD_i.d = x1Flux[ix.j][ix.i].d - x1FluxP[ix.j][ix.i].d;
+  x2FD_j.d = x2Flux[ix.j][ix.i].d - x2FluxP[ix.j][ix.i].d;
 
-  x1FD_i.Mx    = x1Flux[indx.j  ][indx.i  ].Mx - x1FluxP[indx.j  ][indx.i  ].Mx;
-  x1FD_ip1.Mx  = x1Flux[indx.j  ][indx.i+1].Mx - x1FluxP[indx.j  ][indx.i+1].Mx;
-  x2FD_j.Mx    = x2Flux[indx.j  ][indx.i  ].Mx - x2FluxP[indx.j  ][indx.i  ].Mx;
-  x2FD_jp1.Mx  = x2Flux[indx.j+1][indx.i  ].Mx - x2FluxP[indx.j+1][indx.i  ].Mx;
+  x1FD_ip1.d = x1Flux[ix.j][ix.i+1].d - x1FluxP[ix.j][ix.i+1].d;
+  x2FD_jp1.d = x2Flux[ix.j+1][ix.i].d - x2FluxP[ix.j+1][ix.i].d;
 
-  x1FD_i.My    = x1Flux[indx.j  ][indx.i  ].My - x1FluxP[indx.j  ][indx.i  ].My;
-  x1FD_ip1.My  = x1Flux[indx.j  ][indx.i+1].My - x1FluxP[indx.j  ][indx.i+1].My;
-  x2FD_j.My    = x2Flux[indx.j  ][indx.i  ].My - x2FluxP[indx.j  ][indx.i  ].My;
-  x2FD_jp1.My  = x2Flux[indx.j+1][indx.i  ].My - x2FluxP[indx.j+1][indx.i  ].My;
+  x1FD_i.Mx = x1Flux[ix.j][ix.i].Mx - x1FluxP[ix.j][ix.i].Mx;
+  x2FD_j.Mx = x2Flux[ix.j][ix.i].Mx - x2FluxP[ix.j][ix.i].Mx;
 
-  x1FD_i.Mz    = x1Flux[indx.j  ][indx.i  ].Mz - x1FluxP[indx.j  ][indx.i  ].Mz;
-  x1FD_ip1.Mz  = x1Flux[indx.j  ][indx.i+1].Mz - x1FluxP[indx.j  ][indx.i+1].Mz;
-  x2FD_j.Mz    = x2Flux[indx.j  ][indx.i  ].Mz - x2FluxP[indx.j  ][indx.i  ].Mz;
-  x2FD_jp1.Mz  = x2Flux[indx.j+1][indx.i  ].Mz - x2FluxP[indx.j+1][indx.i  ].Mz;
+  x1FD_ip1.Mx = x1Flux[ix.j][ix.i+1].Mx - x1FluxP[ix.j][ix.i+1].Mx;
+  x2FD_jp1.Mx = x2Flux[ix.j+1][ix.i].Mx - x2FluxP[ix.j+1][ix.i].Mx;
+
+  x1FD_i.My = x1Flux[ix.j][ix.i].My - x1FluxP[ix.j][ix.i].My;
+  x2FD_j.My = x2Flux[ix.j][ix.i].My - x2FluxP[ix.j][ix.i].My;
+
+  x1FD_ip1.My = x1Flux[ix.j][ix.i+1].My - x1FluxP[ix.j][ix.i+1].My;
+  x2FD_jp1.My = x2Flux[ix.j+1][ix.i].My - x2FluxP[ix.j+1][ix.i].My;
+
+  x1FD_i.Mz = x1Flux[ix.j][ix.i].Mz - x1FluxP[ix.j][ix.i].Mz;
+  x2FD_j.Mz = x2Flux[ix.j][ix.i].Mz - x2FluxP[ix.j][ix.i].Mz;
+
+  x1FD_ip1.Mz = x1Flux[ix.j][ix.i+1].Mz - x1FluxP[ix.j][ix.i+1].Mz;
+  x2FD_jp1.Mz = x2Flux[ix.j+1][ix.i].Mz - x2FluxP[ix.j+1][ix.i].Mz;
 
 #ifndef BAROTROPIC
-  x1FD_i.E    = x1Flux[indx.j  ][indx.i  ].E - x1FluxP[indx.j  ][indx.i  ].E;
-  x1FD_ip1.E  = x1Flux[indx.j  ][indx.i+1].E - x1FluxP[indx.j  ][indx.i+1].E;
-  x2FD_j.E    = x2Flux[indx.j  ][indx.i  ].E - x2FluxP[indx.j  ][indx.i  ].E;
-  x2FD_jp1.E  = x2Flux[indx.j+1][indx.i  ].E - x2FluxP[indx.j+1][indx.i  ].E;
+  x1FD_i.E = x1Flux[ix.j][ix.i].E - x1FluxP[ix.j][ix.i].E;
+  x2FD_j.E = x2Flux[ix.j][ix.i].E - x2FluxP[ix.j][ix.i].E;
+
+  x1FD_ip1.E = x1Flux[ix.j][ix.i+1].E - x1FluxP[ix.j][ix.i+1].E;
+  x2FD_jp1.E = x2Flux[ix.j+1][ix.i].E - x2FluxP[ix.j+1][ix.i].E;
 #endif /* BAROTROPIC */
 
 #ifdef MHD
-  x1FD_i.Bz    = x1Flux[indx.j  ][indx.i  ].Bz - x1FluxP[indx.j  ][indx.i  ].Bz;
-  x1FD_ip1.Bz  = x1Flux[indx.j  ][indx.i+1].Bz - x1FluxP[indx.j  ][indx.i+1].Bz;
-  x2FD_j.By    = x2Flux[indx.j  ][indx.i  ].By - x2FluxP[indx.j  ][indx.i  ].By;
-  x2FD_jp1.By  = x2Flux[indx.j+1][indx.i  ].By - x2FluxP[indx.j+1][indx.i  ].By;
+  x1FD_i.Bz = x1Flux[ix.j][ix.i].Bz - x1FluxP[ix.j][ix.i].Bz;
+  x2FD_j.By = x2Flux[ix.j][ix.i].By - x2FluxP[ix.j][ix.i].By;
 
-  emf3D_ji     = emf3[indx.j  ][indx.i  ] - emf3P[indx.j  ][indx.i  ];
-  emf3D_jip1   = emf3[indx.j  ][indx.i+1] - emf3P[indx.j  ][indx.i+1];
-  emf3D_jp1i   = emf3[indx.j+1][indx.i  ] - emf3P[indx.j+1][indx.i  ];
-  emf3D_jp1ip1 = emf3[indx.j+1][indx.i+1] - emf3P[indx.j+1][indx.i+1];
+  x1FD_ip1.Bz = x1Flux[ix.j][ix.i+1].Bz - x1FluxP[ix.j][ix.i+1].Bz;
+  x2FD_jp1.By = x2Flux[ix.j+1][ix.i].By - x2FluxP[ix.j+1][ix.i].By;
+
+  emf3D_ji     = emf3[ix.j  ][ix.i  ] - emf3P[ix.j  ][ix.i  ];
+  emf3D_jip1   = emf3[ix.j  ][ix.i+1] - emf3P[ix.j  ][ix.i+1];
+  emf3D_jp1i   = emf3[ix.j+1][ix.i  ] - emf3P[ix.j+1][ix.i  ];
+  emf3D_jp1ip1 = emf3[ix.j+1][ix.i+1] - emf3P[ix.j+1][ix.i+1];
 #endif /* MHD */
 
 /* Use flux differences to correct bad cell-centered quantities */
 
-  pG->U[ks][indx.j][indx.i].d  += dtodx1*(x1FD_ip1.d  - x1FD_i.d );
-  pG->U[ks][indx.j][indx.i].M1 += dtodx1*(x1FD_ip1.Mx - x1FD_i.Mx);
-  pG->U[ks][indx.j][indx.i].M2 += dtodx1*(x1FD_ip1.My - x1FD_i.My);
-  pG->U[ks][indx.j][indx.i].M3 += dtodx1*(x1FD_ip1.Mz - x1FD_i.Mz);
+  pG->U[ks][ix.j][ix.i].d  += dtodx1*(x1FD_ip1.d  - x1FD_i.d );
+  pG->U[ks][ix.j][ix.i].M1 += dtodx1*(x1FD_ip1.Mx - x1FD_i.Mx);
+  pG->U[ks][ix.j][ix.i].M2 += dtodx1*(x1FD_ip1.My - x1FD_i.My);
+  pG->U[ks][ix.j][ix.i].M3 += dtodx1*(x1FD_ip1.Mz - x1FD_i.Mz);
 #ifndef BAROTROPIC
-  pG->U[ks][indx.j][indx.i].E  += dtodx1*(x1FD_ip1.E  - x1FD_i.E );
+  pG->U[ks][ix.j][ix.i].E  += dtodx1*(x1FD_ip1.E  - x1FD_i.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-  pG->U[ks][indx.j][indx.i].B3c += dtodx1*(x1FD_ip1.Bz - x1FD_i.Bz);
+  pG->U[ks][ix.j][ix.i].B3c += dtodx1*(x1FD_ip1.Bz - x1FD_i.Bz);
 #endif /* MHD */
 
-  pG->U[ks][indx.j][indx.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
-  pG->U[ks][indx.j][indx.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
-  pG->U[ks][indx.j][indx.i].M2 += dtodx2*(x2FD_jp1.Mx - x2FD_j.Mx);
-  pG->U[ks][indx.j][indx.i].M3 += dtodx2*(x2FD_jp1.My - x2FD_j.My);
+  pG->U[ks][ix.j][ix.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
+  pG->U[ks][ix.j][ix.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
+  pG->U[ks][ix.j][ix.i].M2 += dtodx2*(x2FD_jp1.Mx - x2FD_j.Mx);
+  pG->U[ks][ix.j][ix.i].M3 += dtodx2*(x2FD_jp1.My - x2FD_j.My);
 #ifndef BAROTROPIC
-  pG->U[ks][indx.j][indx.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
+  pG->U[ks][ix.j][ix.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-  pG->U[ks][indx.j][indx.i].B3c += dtodx2*(x2FD_jp1.By - x2FD_j.By);
+  pG->U[ks][ix.j][ix.i].B3c += dtodx2*(x2FD_jp1.By - x2FD_j.By);
 #endif /* MHD */
 
 /* Use flux differences to correct cell-centered values at i-1 and i+1 */
 
-  if (indx.i > pG->is) {
-    pG->U[ks][indx.j][indx.i-1].d  += dtodx1*(x1FD_i.d );
-    pG->U[ks][indx.j][indx.i-1].M1 += dtodx1*(x1FD_i.Mx);
-    pG->U[ks][indx.j][indx.i-1].M2 += dtodx1*(x1FD_i.My);
-    pG->U[ks][indx.j][indx.i-1].M3 += dtodx1*(x1FD_i.Mz);
+  if (ix.i > pG->is) {
+    pG->U[ks][ix.j][ix.i-1].d  += dtodx1*(x1FD_i.d );
+    pG->U[ks][ix.j][ix.i-1].M1 += dtodx1*(x1FD_i.Mx);
+    pG->U[ks][ix.j][ix.i-1].M2 += dtodx1*(x1FD_i.My);
+    pG->U[ks][ix.j][ix.i-1].M3 += dtodx1*(x1FD_i.Mz);
 #ifndef BAROTROPIC
-    pG->U[ks][indx.j][indx.i-1].E  += dtodx1*(x1FD_i.E );
+    pG->U[ks][ix.j][ix.i-1].E  += dtodx1*(x1FD_i.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-    pG->U[ks][indx.j][indx.i-1].B3c += dtodx1*(x1FD_i.Bz);
+    pG->U[ks][ix.j][ix.i-1].B3c += dtodx1*(x1FD_i.Bz);
 #endif /* MHD */
   }
 
-  if (indx.i < pG->ie) {
-    pG->U[ks][indx.j][indx.i+1].d  -= dtodx1*(x1FD_ip1.d );
-    pG->U[ks][indx.j][indx.i+1].M1 -= dtodx1*(x1FD_ip1.Mx);
-    pG->U[ks][indx.j][indx.i+1].M2 -= dtodx1*(x1FD_ip1.My);
-    pG->U[ks][indx.j][indx.i+1].M3 -= dtodx1*(x1FD_ip1.Mz);
+  if (ix.i < pG->ie) {
+    pG->U[ks][ix.j][ix.i+1].d  -= dtodx1*(x1FD_ip1.d );
+    pG->U[ks][ix.j][ix.i+1].M1 -= dtodx1*(x1FD_ip1.Mx);
+    pG->U[ks][ix.j][ix.i+1].M2 -= dtodx1*(x1FD_ip1.My);
+    pG->U[ks][ix.j][ix.i+1].M3 -= dtodx1*(x1FD_ip1.Mz);
 #ifndef BAROTROPIC
-    pG->U[ks][indx.j][indx.i+1].E  -= dtodx1*(x1FD_ip1.E );
+    pG->U[ks][ix.j][ix.i+1].E  -= dtodx1*(x1FD_ip1.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-    pG->U[ks][indx.j][indx.i+1].B3c -= dtodx1*(x1FD_ip1.Bz);
+    pG->U[ks][ix.j][ix.i+1].B3c -= dtodx1*(x1FD_ip1.Bz);
 #endif /* MHD */
   }
 
 /* Use flux differences to correct cell-centered values at j-1 and j+1 */
 
-  if (indx.j > pG->js) {
-    pG->U[ks][indx.j-1][indx.i].d  += dtodx2*(x2FD_j.d );
-    pG->U[ks][indx.j-1][indx.i].M1 += dtodx2*(x2FD_j.Mz);
-    pG->U[ks][indx.j-1][indx.i].M2 += dtodx2*(x2FD_j.Mx);
-    pG->U[ks][indx.j-1][indx.i].M3 += dtodx2*(x2FD_j.My);
+  if (ix.j > pG->js) {
+    pG->U[ks][ix.j-1][ix.i].d  += dtodx2*(x2FD_j.d );
+    pG->U[ks][ix.j-1][ix.i].M1 += dtodx2*(x2FD_j.Mz);
+    pG->U[ks][ix.j-1][ix.i].M2 += dtodx2*(x2FD_j.Mx);
+    pG->U[ks][ix.j-1][ix.i].M3 += dtodx2*(x2FD_j.My);
 #ifndef BAROTROPIC
-    pG->U[ks][indx.j-1][indx.i].E  += dtodx2*(x2FD_j.E );
+    pG->U[ks][ix.j-1][ix.i].E  += dtodx2*(x2FD_j.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-    pG->U[ks][indx.j-1][indx.i].B3c += dtodx2*(x2FD_j.By);
+    pG->U[ks][ix.j-1][ix.i].B3c += dtodx2*(x2FD_j.By);
 #endif /* MHD */
   }
 
-  if (indx.j < pG->je) {
-    pG->U[ks][indx.j+1][indx.i].d  -= dtodx2*(x2FD_jp1.d );
-    pG->U[ks][indx.j+1][indx.i].M1 -= dtodx2*(x2FD_jp1.Mz);
-    pG->U[ks][indx.j+1][indx.i].M2 -= dtodx2*(x2FD_jp1.Mx);
-    pG->U[ks][indx.j+1][indx.i].M3 -= dtodx2*(x2FD_jp1.My);
+  if (ix.j < pG->je) {
+    pG->U[ks][ix.j+1][ix.i].d  -= dtodx2*(x2FD_jp1.d );
+    pG->U[ks][ix.j+1][ix.i].M1 -= dtodx2*(x2FD_jp1.Mz);
+    pG->U[ks][ix.j+1][ix.i].M2 -= dtodx2*(x2FD_jp1.Mx);
+    pG->U[ks][ix.j+1][ix.i].M3 -= dtodx2*(x2FD_jp1.My);
 #ifndef BAROTROPIC
-    pG->U[ks][indx.j+1][indx.i].E  -= dtodx2*(x2FD_jp1.E );
+    pG->U[ks][ix.j+1][ix.i].E  -= dtodx2*(x2FD_jp1.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-    pG->U[ks][indx.j+1][indx.i].B3c -= dtodx2*(x2FD_jp1.By);
+    pG->U[ks][ix.j+1][ix.i].B3c -= dtodx2*(x2FD_jp1.By);
 #endif /* MHD */
   }
+
+/* Use emf3 difference to correct face-centered fields on edges of bad cell */
+#ifdef MHD
+  pG->B1i[ks][ix.j][ix.i  ] += dtodx2*(emf3D_jp1i   - emf3D_ji);
+  pG->B1i[ks][ix.j][ix.i+1] += dtodx2*(emf3D_jp1ip1 - emf3D_jip1);
+  pG->B2i[ks][ix.j  ][ix.i] -= dtodx1*(emf3D_jip1   - emf3D_ji);
+  pG->B2i[ks][ix.j+1][ix.i] -= dtodx1*(emf3D_jp1ip1 - emf3D_jp1i);
 
 /* Use emf3 difference to correct face-centered fields around bad cell */
-#ifdef MHD
-  pG->B1i[ks][indx.j][indx.i  ] += dtodx2*(emf3D_jp1i   - emf3D_ji);
-  pG->B1i[ks][indx.j][indx.i+1] += dtodx2*(emf3D_jp1ip1 - emf3D_jip1);
-  pG->B2i[ks][indx.j  ][indx.i] -= dtodx1*(emf3D_jip1   - emf3D_ji);
-  pG->B2i[ks][indx.j+1][indx.i] -= dtodx1*(emf3D_jp1ip1 - emf3D_jp1i);
-
-  if (indx.j > pG->js) {
-    pG->B1i[ks][indx.j-1][indx.i  ] -= dtodx2*(emf3D_ji);
-    pG->B1i[ks][indx.j-1][indx.i+1] -= dtodx2*(emf3D_jip1);
+  if (ix.j > pG->js) {
+    pG->B1i[ks][ix.j-1][ix.i  ] -= dtodx2*(emf3D_ji);
+    pG->B1i[ks][ix.j-1][ix.i+1] -= dtodx2*(emf3D_jip1);
   }
-  if (indx.j < pG->je) {
-    pG->B1i[ks][indx.j+1][indx.i  ] += dtodx2*(emf3D_jp1i);
-    pG->B1i[ks][indx.j+1][indx.i+1] += dtodx2*(emf3D_jp1ip1);
+  if (ix.j < pG->je) {
+    pG->B1i[ks][ix.j+1][ix.i  ] += dtodx2*(emf3D_jp1i);
+    pG->B1i[ks][ix.j+1][ix.i+1] += dtodx2*(emf3D_jp1ip1);
   }
 
-  if (indx.i > pG->is) {
-    pG->B2i[ks][indx.j  ][indx.i-1] += dtodx1*(emf3D_ji);
-    pG->B2i[ks][indx.j+1][indx.i-1] += dtodx1*(emf3D_jp1i);
+  if (ix.i > pG->is) {
+    pG->B2i[ks][ix.j  ][ix.i-1] += dtodx1*(emf3D_ji);
+    pG->B2i[ks][ix.j+1][ix.i-1] += dtodx1*(emf3D_jp1i);
   }
-  if (indx.i < pG->ie) {
-    pG->B2i[ks][indx.j  ][indx.i+1] -= dtodx1*(emf3D_jip1);
-    pG->B2i[ks][indx.j+1][indx.i+1] -= dtodx1*(emf3D_jp1ip1);
+  if (ix.i < pG->ie) {
+    pG->B2i[ks][ix.j  ][ix.i+1] -= dtodx1*(emf3D_jip1);
+    pG->B2i[ks][ix.j+1][ix.i+1] -= dtodx1*(emf3D_jp1ip1);
   }
 
-  for (j=(indx.j-1); j<=(indx.j+1); j++) {
-  for (i=(indx.i-1); i<=(indx.i+1); i++) {
+/* compute new cell-centered fields */
+  for (j=(ix.j-1); j<=(ix.j+1); j++) {
+  for (i=(ix.i-1); i<=(ix.i+1); i++) {
     pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j][i+1]);
     pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j+1][i]);
   }}
@@ -1442,8 +1449,8 @@ static void FixCell(GridS *pG, Int3Vect indx)
 /* With SMR, replace higher-order fluxes with predict fluxes in case they are
  * used at fine/coarse grid boundaries */ 
 
-  x1Flux[indx.j][indx.i] = x1FluxP[indx.j][indx.i];
-  x2Flux[indx.j][indx.i] = x2FluxP[indx.j][indx.i];
+  x1Flux[ix.j][ix.i] = x1FluxP[ix.j][ix.i];
+  x2Flux[ix.j][ix.i] = x2FluxP[ix.j][ix.i];
 #endif /* STATIC_MESH_REFINEMENT */
 
 }

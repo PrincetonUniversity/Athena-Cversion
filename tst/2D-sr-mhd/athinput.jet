@@ -1,5 +1,5 @@
 <comment>
-problem = SR hydro jet
+problem = SR MHD jet
 author  = 
 journal = 
 config  = --with-gas=hydro --with-problem=jet --enable-special-relativity --with-integrator=vl
@@ -26,7 +26,6 @@ id      = d0
 dmin    = 0.01
 dmax    = 61.0
 palette = rainbow
-level   = 0
 
 <output4>
 out_fmt = ppm
@@ -36,27 +35,6 @@ id      = gamma
 dmin    = 0.0
 dmax    = 10.0
 palette = rainbow
-level   = 0
-
-<output5>
-out_fmt = ppm
-dt      = 0.1
-out     = d
-id      = d0-l1
-dmin    = 0.01
-dmax    = 61.0
-palette = rainbow
-level   = 1
-
-<output6>
-out_fmt = ppm
-dt      = 0.1
-out     = G
-id      = gamma
-dmin    = 0.0
-dmax    = 10.0
-palette = rainbow
-level   = 1
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
@@ -70,12 +48,14 @@ x1min           = 0.0       # minimum value of X1
 x1max           = 60.0      # maximum value of X1
 bc_ix1          = 2         # boundary condition flag for inner-I (X1)
 bc_ox1          = 2         # boundary condition flag for outer-I (X1)
+NGrid_x1        = 2         # number of MPI blocks in X1
 
 Nx2             = 250       # Number of zones in X2-direction
 x2min           = -25.0     # minimum value of X2
 x2max           = 25.0      # maximum value of X2
 bc_ix2          = 2         # boundary condition flag for inner-J (X2)
 bc_ox2          = 2         # boundary condition flag for outer-J (X2)
+NGrid_x2        = 2         # number of MPI blocks in X2
 
 Nx3             = 1         # Number of zones in X3-direction
 x3min           = -25.0     # minimum value of X3
