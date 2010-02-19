@@ -19,6 +19,7 @@
 #include "../prototypes.h"
 #include "prototypes.h"
 
+#ifdef EXPLICIT_DIFFUSION
 /* function pointers for diffusion operators (determined at runtime) */
 static VDFun_t TConductF=NULL;
 static VDFun_t ViscosityF=NULL;
@@ -27,7 +28,6 @@ static VDFun_t ResistivityF=NULL;
 /* minimum timestep for explicit integration of diffusion operators */
 static Real dtmin_diffusion;
 
-#ifdef EXPLICIT_DIFFUSION
 /*----------------------------------------------------------------------------*/
 /* integrate_diff:  called in main loop, sets timestep and calls
  *   appropriate functions for each diffusion operator

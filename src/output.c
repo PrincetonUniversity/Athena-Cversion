@@ -465,8 +465,7 @@ Now use the default one.\n");
 
 void data_output(MeshS *pM, const int flag)
 {
-  DomainS *pD;
-  int n,nl,nd;
+  int n;
   int dump_flag[MAXOUT_DEFAULT+1];
   char block[80];
 
@@ -525,7 +524,7 @@ void data_output(MeshS *pM, const int flag)
 
 #ifdef PARTICLES
       if (OutArray[n].out_pargrid == 1)      /* binned particles are output */
-        particle_to_grid(pD, OutArray[n].par_prop);
+        particle_to_grid(pM, OutArray[n].par_prop);
 #endif
       (*OutArray[n].out_fun)(pM,&(OutArray[n]));
 
@@ -704,7 +703,7 @@ Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, int *Nx3)
   *Nx3 = ku-kl+1;
 
   data = (Real***) calloc_3d_array(*Nx3,*Nx2,*Nx1,sizeof(Real));
-  if (data = NULL) ath_error("[OutData3] Error creating 3D data array\n");
+  if (data == NULL) ath_error("[OutData3] Error creating 3D data array\n");
   for (k=0; k<*Nx3; k++)
     for (j=0; j<*Nx2; j++)
       for (i=0; i<*Nx1; i++)

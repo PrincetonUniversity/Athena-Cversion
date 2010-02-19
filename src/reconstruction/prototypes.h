@@ -4,10 +4,8 @@
 /*==============================================================================
  * FILE: prototypes.h
  *
- * PURPOSE: Prototypes for all public functions in the src/reconstruction
- *   directory.
+ * PURPOSE: Prototypes for all public functions in the /src/reconstruction dir
  *============================================================================*/
-
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"
@@ -15,9 +13,7 @@
 
 #include "../config.h"
 
-/*----------------------------------------------------------------------------*/
 /* esystem_prim.c */
-
 #if defined(BAROTROPIC) && defined(HYDRO)
 void esys_prim_iso_hyd(const Real d, const Real v1,
   Real eigenvalues[],
@@ -42,10 +38,8 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
 #endif
 
-/*----------------------------------------------------------------------------*/
 /*  All of the lr_states_*.c files in this directory contain the same function
  *  names below */
-
 void lr_states_destruct(void);
 void lr_states_init(MeshS *pM);
 void lr_states(const Prim1DS W[], const Real Bxc[], const Real dtodx,

@@ -4,10 +4,8 @@
 /*==============================================================================
  * FILE: prototypes.h
  *
- * PURPOSE: Prototypes for all public functions in the src/rsolvers
- *   directory.
+ * PURPOSE: Prototypes for all public functions in the /src/rsolvers directory.
  *============================================================================*/
-
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"
@@ -15,9 +13,7 @@
 
 #include "../config.h"
 
-/*----------------------------------------------------------------------------*/
 /* esystem_*.c */
-
 void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
   Real eigenvalues[],
   Real right_eigenmatrix[][4], Real left_eigenmatrix[][4]);
@@ -36,10 +32,8 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
   const Real x, const Real y, Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
 
-/*----------------------------------------------------------------------------*/
 /* All of the Riemann solvers in this directory contain the same function name
  */
-
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
             const Prim1DS Wl, const Prim1DS Wr,
             const Real Bxi, Cons1DS *pF);

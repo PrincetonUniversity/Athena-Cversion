@@ -53,21 +53,22 @@
  *      ath_3d_fft_create_plan()
  */
 
-struct ath_3d_fft_plan *ath_3d_fft_quick_plan(Grid *pGrid, Domain *pD,
+struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
 				ath_fft_data *data, ath_fft_direction dir)
 {
+  GridS *pGrid = (pD->Grid);
   /* Get size of global FFT grid */
-  int gnx1 = pD->ide - pD->ids + 1;
-  int gnx2 = pD->jde - pD->jds + 1;
-  int gnx3 = pD->kde - pD->kds + 1;
+  int gnx1 = pD->Nx[0];
+  int gnx2 = pD->Nx[1];
+  int gnx3 = pD->Nx[2];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pGrid->is + pGrid->idisp;
-  int gie = pGrid->ie + pGrid->idisp;
-  int gjs = pGrid->js + pGrid->jdisp;
-  int gje = pGrid->je + pGrid->jdisp;
-  int gks = pGrid->ks + pGrid->kdisp;
-  int gke = pGrid->ke + pGrid->kdisp;
+  int gis = pD->Disp[0];
+  int gie = pD->Disp[0] + pGrid->Nx[0];
+  int gjs = pD->Disp[1];
+  int gje = pD->Disp[1] + pGrid->Nx[1];
+  int gks = pD->Disp[2];
+  int gke = pD->Disp[2] + pGrid->Nx[2];
 
   /* Create the plan using a more generic function.
    * If the data hasn't already been allocated, it will now */
@@ -218,22 +219,23 @@ void ath_3d_fft_destroy_plan(struct ath_3d_fft_plan *ath_plan)
  *      ath_2d_fft_create_plan()
  */
 
-struct ath_2d_fft_plan *ath_2d_fft_quick_plan(Grid *pGrid, Domain *pD,
+struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
 				ath_fft_data *data, ath_fft_direction dir)
 {
-  if (pGrid->Nx3 != 1) {
+  GridS *pGrid=(pD->Grid);
+  if (pGrid->Nx[2] != 1) {
     ath_error("ath_2d_fft_quick_plan only works for Nx3=1.\n");
   }
 
   /* Get size of global FFT grid */
-  int gnx1 = pD->ide - pD->ids + 1;
-  int gnx2 = pD->jde - pD->jds + 1;
+  int gnx1 = pD->Nx[0];
+  int gnx2 = pD->Nx[1];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pGrid->is + pGrid->idisp;
-  int gie = pGrid->ie + pGrid->idisp;
-  int gjs = pGrid->js + pGrid->jdisp;
-  int gje = pGrid->je + pGrid->jdisp;
+  int gis = pD->Disp[0];
+  int gie = pD->Disp[0] + pGrid->Nx[0];
+  int gjs = pD->Disp[1];
+  int gje = pD->Disp[1] + pGrid->Nx[1];
 
   /* Create the plan using a more generic function
    * If the data hasn't already been allocated, it will now */

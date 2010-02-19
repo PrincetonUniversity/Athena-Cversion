@@ -3,7 +3,7 @@
 
  AUTHORS:
      James M. Stone, Princeton Univeristy
-     Thomas A. Gardiner, Princeton University/Cray Research
+     Thomas A. Gardiner, Sandia National Laboratory
      Peter J. Teuben, University of Maryland
      John F. Hawley, University of Virginia
 

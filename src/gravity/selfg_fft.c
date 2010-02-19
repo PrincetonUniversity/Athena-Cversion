@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: selfg_fft.c
  *
@@ -17,19 +17,20 @@
  *   For NON-PERIODIC BCs, use selfg_multig() functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   selfg_by_fft_1d() - actually uses FEBS
- *   selfg_by_fft_2d() - 2D Poisson solver using FFTs
- *   selfg_by_fft_3d() - 3D Poisson solver using FFTs
- *   selfg_by_fft_2d_init() - initializes FFT plans for 2D
- *   selfg_by_fft_3d_init() - initializes FFT plans for 3D
+ *   selfg_fft_1d() - actually uses FEBS
+ *   selfg_fft_2d() - 2D Poisson solver using FFTs
+ *   selfg_fft_3d() - 3D Poisson solver using FFTs
+ *   selfg_fft_2d_init() - initializes FFT plans for 2D
+ *   selfg_fft_3d_init() - initializes FFT plans for 3D
  *============================================================================*/
 
 #include <math.h>
 #include <float.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
 
 #ifdef FFT_ENABLED
 
@@ -41,14 +42,15 @@ static ath_fft_data *work=NULL;
 #endif /* FFT_ENABLED */
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_fft_1d:  Actually uses forward elimination - back substituion!!
+/* selfg_fft_1d:  Actually uses forward elimination - back substituion!!
  *   Only works for uniform grid, periodic boundary conditions 
  *   This algorithm taken from pp.35-38 of Hockney & Eastwood
  */
 
 #ifdef SELF_GRAVITY_USING_FFT
-void selfg_by_fft_1d(Grid *pG, Domain *pD)
+void selfg_fft_1d(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
@@ -67,7 +69,7 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
     drho = (pG->U[ks][js][i].d - grav_mean_rho);
     pG->Phi[ks][js][is] += ((float)(i-is+1))*four_pi_G*dx_sq*drho;
   }
-  pG->Phi[ks][js][is] /= (float)(pG->Nx1);
+  pG->Phi[ks][js][is] /= (float)(pG->Nx[0]);
 
   drho = (pG->U[ks][js][is].d - grav_mean_rho);
   pG->Phi[ks][js][is+1] = 2.0*pG->Phi[ks][js][is] + four_pi_G*dx_sq*drho;
@@ -82,7 +84,7 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
   for (i=is; i<=ie; i++) {
     total_Phi += pG->Phi[ks][js][i];
   }
-  total_Phi /= (float)(pG->Nx1);
+  total_Phi /= (float)(pG->Nx[0]);
 
   for (i=is; i<=ie; i++) {
     pG->Phi[ks][js][i] -= total_Phi;
@@ -93,12 +95,13 @@ void selfg_by_fft_1d(Grid *pG, Domain *pD)
 #ifdef FFT_ENABLED
 #ifdef SELF_GRAVITY_USING_FFT
 /*----------------------------------------------------------------------------*/
-/* selfg_by_fft_2d:
+/* selfg_fft_2d:
  *   Only works for uniform grid, periodic boundary conditions
  */
 
-void selfg_by_fft_2d(Grid *pG, Domain *pD)
+void selfg_fft_2d(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -117,9 +120,9 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][0] =
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] =
         four_pi_G*(pG->U[ks][j][i].d - grav_mean_rho);
-      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][1] = 0.0;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] = 0.0;
     }
   }
 
@@ -129,32 +132,32 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
  * by zero at i=is,j=js, and to avoid if statement in loop   */
 /* To compute kx,ky note that indices relative to whole Domain are needed */
 
-  dkx = 2.0*PI/(double)(pD->ide - pD->ids + 1);
-  dky = 2.0*PI/(double)(pD->jde - pD->jds + 1);
+  dkx = 2.0*PI/(double)(pD->Nx[0]);
+  dky = 2.0*PI/(double)(pD->Nx[1]);
 
-  if ((js+pG->jdisp)==0 && (is+pG->idisp)==0) {
-    work[F2DI(0,0,pG->Nx1,pG->Nx2)][0] = 0.0;
-    work[F2DI(0,0,pG->Nx1,pG->Nx2)][1] = 0.0;
+  if ((pG->Disp[1])==0 && (pG->Disp[0])==0) {
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][0] = 0.0;
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][1] = 0.0;
   } else {
-    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
-                  ((2.0*cos((js+pG->jdisp)*dky)-2.0)/dx2sq));
-    work[F2DI(0,0,pG->Nx1,pG->Nx2)][0] *= pcoeff;
-    work[F2DI(0,0,pG->Nx1,pG->Nx2)][1] *= pcoeff;
+    pcoeff = 1.0/(((2.0*cos((pG->Disp[0])*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq));
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
   }
 
   for (j=js+1; j<=je; j++){
-    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
-                  ((2.0*cos((j +pG->jdisp)*dky)-2.0)/dx2sq));
-    work[F2DI(0,j-js,pG->Nx1,pG->Nx2)][0] *= pcoeff;
-    work[F2DI(0,j-js,pG->Nx1,pG->Nx2)][1] *= pcoeff;
+    pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+    work[F2DI(0,j-js,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+    work[F2DI(0,j-js,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
   }
 
   for (i=is+1; i<=ie; i++){
     for (j=js; j<=je; j++){
-      pcoeff = 1.0/(((2.0*cos((i+pG->idisp)*dkx)-2.0)/dx1sq) +
-                    ((2.0*cos((j+pG->jdisp)*dky)-2.0)/dx2sq));
-      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][0] *= pcoeff;
-      work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][1] *= pcoeff;
+      pcoeff = 1.0/(((2.0*cos(( (i-is)+pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
     }
   }
 
@@ -164,7 +167,7 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
 
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-      pG->Phi[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx1,pG->Nx2)][0]/
+      pG->Phi[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]/
         bplan2d->cnt;
     }
   }
@@ -173,12 +176,13 @@ void selfg_by_fft_2d(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_fft_3d:
+/* selfg_fft_3d:
  *   Only works for uniform grid, periodic boundary conditions
  */
 
-void selfg_by_fft_3d(Grid *pG, Domain *pD)
+void selfg_fft_3d(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -199,9 +203,9 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] = 
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
         four_pi_G*(pG->U[k][j][i].d - grav_mean_rho);
-      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] = 0.0;
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
     }
   }}
 
@@ -211,48 +215,48 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
  * by zero at i=is,j=js,k=ks, and to avoid if statement in loop   */
 /* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
 
-  dkx = 2.0*PI/(double)(pD->ide - pD->ids + 1);
-  dky = 2.0*PI/(double)(pD->jde - pD->jds + 1);
-  dkz = 2.0*PI/(double)(pD->kde - pD->kds + 1);
+  dkx = 2.0*PI/(double)(pD->Nx[0]);
+  dky = 2.0*PI/(double)(pD->Nx[1]);
+  dkz = 2.0*PI/(double)(pD->Nx[2]);
 
-  if ((ks+pG->kdisp)==0 && (js+pG->jdisp)==0 && (is+pG->idisp)==0) {
-    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] = 0.0;
-    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][1] = 0.0;
+  if ((pG->Disp[2])==0 && (pG->Disp[1])==0 && (pG->Disp[0])==0) {
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 0.0;
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
   } else {
-    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
-                  ((2.0*cos((js+pG->jdisp)*dky)-2.0)/dx2sq) +
-                  ((2.0*cos((ks+pG->kdisp)*dkz)-2.0)/dx3sq));
-    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
-    work[F3DI(0,0,0,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
+    pcoeff = 1.0/(((2.0*cos((pG->Disp[0])*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq) +
+                  ((2.0*cos((pG->Disp[2])*dkz)-2.0)/dx3sq));
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
   }
 
 
   for (k=ks+1; k<=ke; k++){
-    pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
-                  ((2.0*cos((js+pG->jdisp)*dky)-2.0)/dx2sq) +
-                  ((2.0*cos((k +pG->kdisp)*dkz)-2.0)/dx3sq));
-    work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
-    work[F3DI(0,0,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
+    pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((        pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                  ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+    work[F3DI(0,0,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+    work[F3DI(0,0,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
   }
 
   for (j=js+1; j<=je; j++){
     for (k=ks; k<=ke; k++){
-      pcoeff = 1.0/(((2.0*cos((is+pG->idisp)*dkx)-2.0)/dx1sq) +
-                    ((2.0*cos((j +pG->jdisp)*dky)-2.0)/dx2sq) +
-                    ((2.0*cos((k +pG->kdisp)*dkz)-2.0)/dx3sq));
-      work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
-      work[F3DI(0,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
+      pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                    ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+      work[F3DI(0,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+      work[F3DI(0,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
     }
   }
 
   for (i=is+1; i<=ie; i++){
   for (j=js; j<=je; j++){
     for (k=ks; k<=ke; k++){
-      pcoeff = 1.0/(((2.0*cos((i+pG->idisp)*dkx)-2.0)/dx1sq) +
-                    ((2.0*cos((j+pG->jdisp)*dky)-2.0)/dx2sq) +
-                    ((2.0*cos((k+pG->kdisp)*dkz)-2.0)/dx3sq));
-      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0] *= pcoeff;
-      work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][1] *= pcoeff;
+      pcoeff = 1.0/(((2.0*cos(( (i-is)+pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                    ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
     }
   }}
 
@@ -264,8 +268,9 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
   for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-      pG->Phi[k][j][i] = work[F3DI(i-is,j-js,k-ks,pG->Nx1,pG->Nx2,pG->Nx3)][0]/
-        bplan3d->gcnt;
+      pG->Phi[k][j][i] = 
+        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+        / bplan3d->gcnt;
     }
   }}
 
@@ -273,29 +278,47 @@ void selfg_by_fft_3d(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_fft_2d_init:
+/* selfg_fft_2d_init:
  *   Initializes plans for forward/backward FFTs, and allocates memory needed
  *   by FFTW.
  */
 
-void selfg_by_fft_2d_init(Grid *pG, Domain *pD)
+void selfg_fft_2d_init(MeshS *pM)
 {
-  fplan2d = ath_2d_fft_quick_plan(pG, pD, NULL, ATH_FFT_FORWARD);
-  bplan2d = ath_2d_fft_quick_plan(pG, pD, NULL, ATH_FFT_BACKWARD);
-  work = ath_2d_fft_malloc(fplan2d);
+  DomainS *pD;
+  int nl,nd;
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
+        pD = (DomainS*)&(pM->Domain[nl][nd]);
+        fplan2d = ath_2d_fft_quick_plan(pD, NULL, ATH_FFT_FORWARD);
+        bplan2d = ath_2d_fft_quick_plan(pD, NULL, ATH_FFT_BACKWARD);
+        work = ath_2d_fft_malloc(fplan2d);
+      }
+    }
+  }
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_fft_3d_init:
+/* selfg_fft_3d_init:
  *   Initializes plans for forward/backward FFTs, and allocates memory needed
  *   by FFTW.
  */
 
-void selfg_by_fft_3d_init(Grid *pG, Domain *pD)
+void selfg_fft_3d_init(MeshS *pM)
 {
-  fplan3d = ath_3d_fft_quick_plan(pG, pD, NULL, ATH_FFT_FORWARD);
-  bplan3d = ath_3d_fft_quick_plan(pG, pD, NULL, ATH_FFT_BACKWARD);
-  work = ath_3d_fft_malloc(fplan3d);
+  DomainS *pD;
+  int nl,nd;
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
+        pD = (DomainS*)&(pM->Domain[nl][nd]);
+        fplan3d = ath_3d_fft_quick_plan(pD, NULL, ATH_FFT_FORWARD);
+        bplan3d = ath_3d_fft_quick_plan(pD, NULL, ATH_FFT_BACKWARD);
+        work = ath_3d_fft_malloc(fplan3d);
+      }
+    }
+  }
 }
 
 #endif /* SELF_GRAVITY_USING_FFT */

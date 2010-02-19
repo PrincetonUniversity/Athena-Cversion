@@ -85,7 +85,7 @@ struct ath_2d_fft_plan {
  *
  **************************************************************************/
 
-struct ath_3d_fft_plan *ath_3d_fft_quick_plan(Grid *pGrid, Domain *pD,
+struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
 				ath_fft_data *data, ath_fft_direction dir);
 struct ath_3d_fft_plan *ath_3d_fft_create_plan(int gnx3, int gnx2,
 				int gnx1, int gks, int gke, int gjs, int gje,
@@ -102,7 +102,7 @@ void ath_3d_fft_destroy_plan(struct ath_3d_fft_plan *ath_plan);
  *
  **************************************************************************/
 
-struct ath_2d_fft_plan *ath_2d_fft_quick_plan(Grid *pGrid, Domain *pD,
+struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
 				ath_fft_data *data, ath_fft_direction dir);
 struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
 				int gjs, int gje, int gis, int gie,

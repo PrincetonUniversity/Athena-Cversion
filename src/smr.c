@@ -68,14 +68,17 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr);
 
 void RestrictCorrect(MeshS *pM)
 {
-  GridS *pG, *pCG;
-  int n,nl,nd,ncg,dim,nDim,npg,rbufN,start_addr,cnt,nCons,nFlx;
+  GridS *pG;
+  int nl,nd,ncg,dim,nDim,npg,rbufN,start_addr,cnt,nCons,nFlx;
   int i,ii,ics,ice,ips,ipe;
   int j,jj,jcs,jce,jps,jpe;
   int k,kk,kcs,kce,kps,kpe;
   Real q1,q2,q3,fact;
   double *pRcv,*pSnd;
   GridOvrlpS *pCO, *pPO;
+#if (NSCALARS > 0)
+  int n;
+#endif
 #ifdef MHD
   int ib,jb,kb,nFld=0;
 #endif
@@ -1049,8 +1052,8 @@ void RestrictCorrect(MeshS *pM)
 
 void Prolongate(MeshS *pM)
 {
-  GridS *pG, *pCG;
-  int ns,nDim,nl,nd,ncg,dim,npg,rbufN,id,l,m,n,mend,nend;
+  GridS *pG;
+  int nDim,nl,nd,ncg,dim,npg,rbufN,id,l,m,n,mend,nend;
   int i,ii,ics,ice,ips,ipe,igzs,igze;
   int j,jj,jcs,jce,jps,jpe,jgzs,jgze;
   int k,kk,kcs,kce,kps,kpe,kgzs,kgze;
@@ -1058,6 +1061,9 @@ void Prolongate(MeshS *pM)
   double *pRcv,*pSnd;
   GridOvrlpS *pCO, *pPO;
   ConsS ProlongedC[2][2][2];
+#if (NSCALARS > 0)
+  int n;
+#endif
 #ifdef MHD
   Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
 #endif
@@ -1713,8 +1719,11 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
             const ConsS Ujm1,const ConsS Ujp1,
             const ConsS Ukm1,const ConsS Ukp1, ConsS PCon[][2][2])
 {
-  int n,i,j,k;
+  int i,j,k;
   Real dq1,dq2,dq3,Pim1,Pi,Pip1,Pjm1,Pjp1,Pkm1,Pkp1;
+#if (NSCALARS > 0)
+  int n;
+#endif
 
 /* First order prolongation -- just copy values */
 #ifdef FIRST_ORDER

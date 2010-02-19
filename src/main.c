@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
   MeshS Mesh;             /* the entire mesh hierarchy, see athena.h */
   VDFun_t Integrate;      /* function pointer to integrator, set at runtime */
 #ifdef SELF_GRAVITY
-  VGDFun_t SelfGrav;      /* function pointer to self-gravity, set at runtime */
+  VDFun_t SelfGrav;      /* function pointer to self-gravity, set at runtime */
 #endif
   int nl,nd;
   char *definput = "athinput";  /* default input filename */
@@ -435,9 +435,15 @@ int main(int argc, char *argv[])
   lr_states_init(&Mesh);
   Integrate = integrate_init(&Mesh);
 #ifdef SELF_GRAVITY
-  SelfGrav = selfg_init(&level0_Grid, &level0_Domain);
-  (*SelfGrav)(&level0_Grid, &level0_Domain);
-  bvals_grav(&level0_Grid, &level0_Domain);
+  SelfGrav = selfg_init(&Mesh);
+  for (nl=0; nl<(Mesh.NLevels); nl++){ 
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+      if (Mesh.Domain[nl][nd].Grid != NULL){
+        (*SelfGrav)(&(Mesh.Domain[nl][nd]));
+        bvals_grav(&(Mesh.Domain[nl][nd]));
+      }
+    }
+  }
 #endif
 #ifdef EXPLICIT_DIFFUSION
   integrate_diff_init(&Mesh);
@@ -542,9 +548,15 @@ int main(int argc, char *argv[])
  * correction to fluxes for accelerations due to self-gravity. */
 
 #ifdef SELF_GRAVITY
-    (*SelfGrav)(&level0_Grid, &level0_Domain);
-    bvals_grav(&level0_Grid, &level0_Domain);
-    selfg_flux_correction(&level0_Grid);
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          (*SelfGrav)(&(Mesh.Domain[nl][nd]));
+          bvals_grav(&(Mesh.Domain[nl][nd]));
+          selfg_fc(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
 #endif
 
 /*--- Step 9g. ---------------------------------------------------------------*/

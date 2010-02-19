@@ -5,26 +5,24 @@
  * FILE: prototypes.h
  *
  * PURPOSE: Prototypes for all public functions from the /src directory,
- *   and all subdirectories in /src
  *============================================================================*/
-
 #include <stdio.h>
 #include <stdarg.h>
 #include "athena.h"
 #include "defs.h"
 #include "config.h"
 
-/* Include prototypes in /src sub-directories */
-
+/* Include prototypes from /src sub-directories */
 #ifdef FFT_ENABLED
 #include "fftsrc/prototypes.h"
 #endif
 
-#include "microphysics/prototypes.h"
+#include "gravity/prototypes.h"
 #include "integrators/prototypes.h"
+#include "microphysics/prototypes.h"
+#include "particles/prototypes.h"
 #include "reconstruction/prototypes.h"
 #include "rsolvers/prototypes.h"
-#include "particles/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */
@@ -69,8 +67,30 @@ void baton_start(const int Nb, const int tag);
 void baton_stop(const int Nb, const int tag);
 
 /*----------------------------------------------------------------------------*/
+/* bvals_mhd.c  */
+void bvals_mhd_init(MeshS *pM);
+void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
+void bvals_mhd(DomainS *pDomain);
+
+/*----------------------------------------------------------------------------*/
+/* bvals_shear.c  */
+#ifdef SHEARING_BOX
+void ShearingSheet_ix1(DomainS *pD);
+void ShearingSheet_ox1(DomainS *pD);
+void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
+void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
+void bvals_shear_init(MeshS *pM);
+void bvals_shear_destruct(void);
+#ifdef FARGO
+void Fargo(DomainS *pD);
+#endif
+#endif /* SHEARING_BOX */
+
+/*----------------------------------------------------------------------------*/
 /* cc_pos.c */
 void cc_pos(const GridS *pG, const int i, const int j,const int k,
+            Real *px1, Real *px2, Real *px3);
+void fc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
 void vc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
@@ -183,52 +203,6 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
 /* restart.c  */
 void dump_restart(MeshS *pM, OutputS *pout);
 void restart_grids(char *res_file, MeshS *pM);
-
-/*----------------------------------------------------------------------------*/
-/* self_gravity.c  */
-#ifdef SELF_GRAVITY
-VGDFun_t selfg_init(Grid *pG, Domain *pD);
-void selfg_flux_correction(Grid *pG);
-void selfg_by_multig_1d(Grid *pG, Domain *pD);
-void selfg_by_multig_2d(Grid *pG, Domain *pD);
-void selfg_by_multig_3d(Grid *pG, Domain *pD);
-void selfg_by_multig_3d_init(Grid *pG, Domain *pD);
-#if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT)
-void selfg_by_fft_1d(Grid *pG, Domain *pD);
-void selfg_by_fft_2d(Grid *pG, Domain *pD);
-void selfg_by_fft_3d(Grid *pG, Domain *pD);
-void selfg_by_fft_2d_init(Grid *pG, Domain *pD);
-void selfg_by_fft_3d_init(Grid *pG, Domain *pD);
-#endif /* FFT_ENABLED */
-#endif /* SELF_GRAVITY */
-
-/*----------------------------------------------------------------------------*/
-/* bvals_mhd.c  */
-void bvals_mhd_init(MeshS *pM);
-void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
-void bvals_mhd(DomainS *pDomain);
-
-/*----------------------------------------------------------------------------*/
-/* bvals_grav.c  */
-#ifdef SELF_GRAVITY
-void bvals_grav_init(Grid *pG, Domain *pD);
-void bvals_grav_fun(enum Direction dir, VBCFun_t prob_bc);
-void bvals_grav(Grid *pGrid, Domain *pDomain);
-#endif
-
-/*----------------------------------------------------------------------------*/
-/* bvals_shear.c  */
-#ifdef SHEARING_BOX
-void ShearingSheet_ix1(DomainS *pD);
-void ShearingSheet_ox1(DomainS *pD);
-void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
-void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
-void bvals_shear_init(MeshS *pM);
-void bvals_shear_destruct(void);
-#ifdef FARGO
-void Fargo(DomainS *pD);
-#endif
-#endif /* SHEARING_BOX */
 
 /*----------------------------------------------------------------------------*/
 /* show_config.c */

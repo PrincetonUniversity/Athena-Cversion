@@ -4,10 +4,8 @@
 /*==============================================================================
  * FILE: prototypes.h
  *
- * PURPOSE: Prototypes for all public functions in the src/particles
- *   directory.
+ * PURPOSE: Prototypes for all public functions in the /src/particles dir
  *============================================================================*/
-
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"
@@ -15,10 +13,8 @@
 
 #include "../config.h"
 
-/*----------------------------------------------------------------------------*/
 #ifdef PARTICLES
 
-/*----------------------------------------------------------------------------*/
 /* bvals_particle.c */
 void bvals_particle(Grid *pG, Domain *pD);
 #ifdef FARGO
@@ -28,12 +24,10 @@ void bvals_particle_init(Grid *pG, Domain *pD);
 void bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc);
 void bvals_final_particle(Grid *pG, Domain *pD);
 
-/*----------------------------------------------------------------------------*/
 /* dump_particle_history.c */
 void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut);
 void dump_parhistory_enroll();
 
-/*----------------------------------------------------------------------------*/
 /* feedback.c */
 #ifdef FEEDBACK
 void exchange_feedback(Grid *pG, Domain *pD);
@@ -42,13 +36,11 @@ void exchange_feedback_fun(enum Direction dir, VBCFun_t prob_bc);
 void exchange_feedback_destruct(Grid *pG, Domain *pD);
 #endif
 
-/*----------------------------------------------------------------------------*/
 /* init_particle.c */
 void init_particle(Grid *pG, Domain *pD);
 void particle_destruct(Grid *pG);
 void particle_realloc(Grid *pG, long n);
 
-/*----------------------------------------------------------------------------*/
 /* integrators_particle.c */
 void Integrate_Particles(Grid *pG, Domain *pD);
 void int_par_exp   (Grid *pG, Grain *curG, Vector cell1,
@@ -65,13 +57,11 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
                                   Real dv1, Real dv2, Real dv3, Real ts);
 #endif
 
-/*----------------------------------------------------------------------------*/
 /* output_particle.c */
 void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop);
 void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut);
 int  property_all(const Grain *gr, const GrainAux *grsub);
 
-/*----------------------------------------------------------------------------*/
 /* utils_particle.c */
 void get_gasinfo(Grid *pG);
 
@@ -110,5 +100,4 @@ void distrFB_corr(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 void shuffle(Grid* pG);
 
 #endif /* PARTICLES */
-
 #endif /* PARTICLES_PROTOTYPES_H */

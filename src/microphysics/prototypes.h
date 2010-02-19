@@ -4,16 +4,8 @@
 /*==============================================================================
  * FILE: prototypes.h
  *
- * PURPOSE: Prototypes for all public functions from the following files:
- *   anisotropic_conduction.c
- *   braginskii.c
- *   cool.c
- *   integrate_diffusion.c
- *   isotropic_conduction.c
- *   resistivity.c
- *   viscosity.c
+ * PURPOSE: Prototypes for all public functions in the /src/microphysics dir
  *============================================================================*/
-
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"

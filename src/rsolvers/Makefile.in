@@ -6,9 +6,6 @@
 # PURPOSE: Template for rsolvers/Makefile.  When 'configure' is run, a new
 # Makefile will be created (overwriting the last) from this template.
 #
-# TO BY-PASS CONFIGURE: copy this file into Makefile, and edit by hand to set
-#   the appropriate object files, compiler options, and library paths.
-#
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = esystem_roe.o\
 	   exact.o \
@@ -58,11 +55,7 @@ clean:
 depend: Makedepend
 
 Makedepend:
-ifeq ($(MACHINE),orangena)
-	makedepend ${CFLAGS} ${SRC} > Makedepend
-else
 	${CC} -MM ${CFLAGS} ${SRC} > Makedepend
-endif
 
 # this forces a rebuild of all objects, if code re-configure'd
 include Makedepend

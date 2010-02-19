@@ -198,6 +198,7 @@ void bvals_mhd(DomainS *pD)
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
       unpack_ox1(pGrid);
+
     }
 
 /* MPI block on left, Physical boundary on right */
@@ -218,6 +219,7 @@ void bvals_mhd(DomainS *pD)
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
       unpack_ix1(pGrid);
+
     }
 #endif /* MPI_PARALLEL */
 
@@ -289,6 +291,7 @@ void bvals_mhd(DomainS *pD)
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
       unpack_ox2(pGrid);
+
     }
 
 /* MPI block on left, Physical boundary on right */
@@ -309,6 +312,7 @@ void bvals_mhd(DomainS *pD)
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
       unpack_ix2(pGrid);
+
     }
 #endif /* MPI_PARALLEL */
 
@@ -390,6 +394,7 @@ void bvals_mhd(DomainS *pD)
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
       unpack_ox3(pGrid);
+
     }
 
 /* MPI block on left, Physical boundary on right */
@@ -410,6 +415,7 @@ void bvals_mhd(DomainS *pD)
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
       unpack_ix3(pGrid);
+
     }
 #endif /* MPI_PARALLEL */
 
@@ -450,7 +456,7 @@ void bvals_mhd_init(MeshS *pM)
     for (i=1;i<=nl;i++) irefine *= 2;   /* C pow fn only takes doubles !! */
 #ifdef MPI_PARALLEL
 /* get (l,m,n) coordinates of Grid being updated on this processor */
-      get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
+    get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
 #endif /* MPI_PARALLEL */
 
 /* Set function pointers for physical boundaries in x1-direction -------------*/
@@ -2622,7 +2628,7 @@ static void pack_ox3(GridS *pG)
 
 static void unpack_ix1(GridS *pG)
 {
-  int is = pG->is, ie = pG->ie;
+  int is = pG->is;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
@@ -2693,7 +2699,7 @@ static void unpack_ix1(GridS *pG)
 
 static void unpack_ox1(GridS *pG)
 {
-  int is = pG->is, ie = pG->ie;
+  int ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
@@ -2765,7 +2771,7 @@ static void unpack_ox1(GridS *pG)
 static void unpack_ix2(GridS *pG)
 {
   int is = pG->is, ie = pG->ie;
-  int js = pG->js, je = pG->je;
+  int js = pG->js;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
 #ifdef MHD
@@ -2836,7 +2842,7 @@ static void unpack_ix2(GridS *pG)
 static void unpack_ox2(GridS *pG)
 {
   int is = pG->is, ie = pG->ie;
-  int js = pG->js, je = pG->je;
+  int je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
 #ifdef MHD
@@ -2908,7 +2914,7 @@ static void unpack_ix3(GridS *pG)
 {
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
-  int ks = pG->ks, ke = pG->ke;
+  int ks = pG->ks;
   int i,j,k;
 #if (NSCALARS > 0)
   int n;
@@ -2976,7 +2982,7 @@ static void unpack_ox3(GridS *pG)
 {
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
-  int ks = pG->ks, ke = pG->ke;
+  int ke = pG->ke;
   int i,j,k;
 #if (NSCALARS > 0)
   int n;

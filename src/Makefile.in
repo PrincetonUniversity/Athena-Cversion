@@ -6,16 +6,12 @@
 # PURPOSE: Template for src/Makefile.  When 'configure' is run, a new Makefile
 # will be created (overwriting the last) from this template.
 #
-# TO BY-PASS CONFIGURE: copy this file into Makefile, and edit by hand to set
-#   the appropriate object files, compiler options, and library paths.
-#
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = ath_array.o \
            ath_files.o \
 	   ath_log.o \
            ath_signal.o \
            baton.o \
-           bvals_grav.o \
            bvals_mhd.o \
            bvals_shear.o \
            cc_pos.o \
@@ -38,9 +34,6 @@ CORE_OBJ = ath_array.o \
            par.o \
            problem.o \
            restart.o \
-	   selfg.o \
-	   selfg_fft.o \
-	   selfg_multigrid.o \
            show_config.o \
 	   smr.o \
            utils.o
@@ -61,15 +54,6 @@ else
 endif
 endif
 
-MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
-		microphysics/braginskii.o \
-		microphysics/cool.o \
-		microphysics/hall.o \
-		microphysics/integrate_diffusion.o \
-		microphysics/isotropic_conduction.o \
-		microphysics/resistivity.o \
-		microphysics/viscosity.o
-
 INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_1d_ctu.o \
 		  integrators/integrate_2d_ctu.o \
@@ -80,6 +64,28 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_1d_vl.o \
 		  integrators/integrate_2d_vl.o \
 		  integrators/integrate_3d_vl.o
+
+GRAVITY_OBJ = gravity/bvals_grav.o \
+              gravity/selfg.o \
+              gravity/selfg_fft.o \
+              gravity/selfg_multigrid.o
+
+MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
+		microphysics/braginskii.o \
+		microphysics/cool.o \
+		microphysics/hall.o \
+		microphysics/integrate_diffusion.o \
+		microphysics/isotropic_conduction.o \
+		microphysics/resistivity.o \
+		microphysics/viscosity.o
+
+PARTICLES_OBJ = particles/dump_particle_history.o\
+	        particles/feedback.o \
+	        particles/init_particle.o \
+	        particles/integrators_particle.o \
+	        particles/output_particle.o\
+	        particles/bvals_particle.o \
+	        particles/utils_particle.o
 
 RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \
@@ -99,15 +105,7 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/roe.o \
 	       rsolvers/two_shock.o
 
-PARTICLES_OBJ = particles/dump_particle_history.o\
-	        particles/feedback.o \
-	        particles/init_particle.o \
-	        particles/integrators_particle.o \
-	        particles/output_particle.o\
-	        particles/bvals_particle.o \
-	        particles/utils_particle.o
-
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${MICROPHYS_OBJ} ${INTEGRATORS_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${PARTICLES_OBJ}
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 
@@ -145,11 +143,7 @@ clean:
 depend: Makedepend
 
 Makedepend:
-ifeq ($(MACHINE),orangena)
-	makedepend ${CFLAGS} ${SRC} > Makedepend
-else
 	${CC} -MM ${CFLAGS} ${SRC} > Makedepend
-endif
 
 # a few functionality tests of some modules of the code
 par:	par.c

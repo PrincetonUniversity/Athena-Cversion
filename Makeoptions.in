@@ -28,7 +28,9 @@ BLOCKLIB =
 CUSTLIBS = -ldl -lm
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
-   BLOCKINC = -I fftsrc
+  BLOCKINC = -I fftsrc
+  FFTWLIB = -L/opt/local/lib -lfftw3
+  FFTWINC = -I/opt/local/include
 endif
 
 ifeq (@MPI_MODE@,MPI_PARALLEL)

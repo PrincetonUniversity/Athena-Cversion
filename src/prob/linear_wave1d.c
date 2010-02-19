@@ -350,6 +350,7 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
 #ifdef SELF_GRAVITY
+  Real d0 = 1.0;
   four_pi_G = par_getd("problem","four_pi_G");
   grav_mean_rho = d0;
 #endif /* SELF_GRAVITY */

@@ -1,4 +1,4 @@
-#include "copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: selfg_multigrid.c
  *
@@ -20,10 +20,11 @@
 
 #include <math.h>
 #include <float.h>
-#include "defs.h"
-#include "athena.h"
-#include "globals.h"
+#include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
+#include "../prototypes.h"
 
 #ifdef SELF_GRAVITY_USING_MULTIGRID
 #ifdef MPI_PARALLEL
