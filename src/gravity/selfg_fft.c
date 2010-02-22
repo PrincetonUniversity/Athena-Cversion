@@ -32,14 +32,20 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-#ifdef FFT_ENABLED
+#ifdef SELF_GRAVITY_USING_FFT
+
+#ifndef FFT_ENABLED
+#error self gravity with FFT requires configure --enable-fft
+#endif /* FFT_ENABLED */
 
 /* plans for forward and backward FFTs; work space for FFTW */
 static struct ath_2d_fft_plan *fplan2d, *bplan2d;
 static struct ath_3d_fft_plan *fplan3d, *bplan3d;
 static ath_fft_data *work=NULL;
 
-#endif /* FFT_ENABLED */
+#ifdef STATIC_MESH_REFINEMENT
+#error self gravity with FFT not yet implemented to work with SMR
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* selfg_fft_1d:  Actually uses forward elimination - back substituion!!
@@ -47,7 +53,6 @@ static ath_fft_data *work=NULL;
  *   This algorithm taken from pp.35-38 of Hockney & Eastwood
  */
 
-#ifdef SELF_GRAVITY_USING_FFT
 void selfg_fft_1d(DomainS *pD)
 {
   GridS *pG = (pD->Grid);
@@ -90,10 +95,7 @@ void selfg_fft_1d(DomainS *pD)
     pG->Phi[ks][js][i] -= total_Phi;
   }
 }
-#endif /* SELF_GRAVITY_USING_FFT */
 
-#ifdef FFT_ENABLED
-#ifdef SELF_GRAVITY_USING_FFT
 /*----------------------------------------------------------------------------*/
 /* selfg_fft_2d:
  *   Only works for uniform grid, periodic boundary conditions
@@ -322,4 +324,3 @@ void selfg_fft_3d_init(MeshS *pM)
 }
 
 #endif /* SELF_GRAVITY_USING_FFT */
-#endif /* FFT_ENABLED */

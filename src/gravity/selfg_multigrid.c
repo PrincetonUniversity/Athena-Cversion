@@ -27,6 +27,15 @@
 #include "../prototypes.h"
 
 #ifdef SELF_GRAVITY_USING_MULTIGRID
+
+#ifdef STATIC_MESH_REFINEMENT
+#error self gravity with multigrid not yet implemented to work with SMR
+#endif
+
+#ifdef MPI_PARALLEL
+#error self gravity with multigrid not yet implemented to work with MPI
+#endif
+
 #ifdef MPI_PARALLEL
 static double *send_buf=NULL, *recv_buf=NULL;
 #endif
@@ -74,8 +83,9 @@ void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
 /* selfg_by_multig_1d:
  */
 
-void selfg_by_multig_1d(Grid *pG, Domain *pD)
+void selfg_multig_1d(DomainS *pD)
 {
+  ath_error("[selfg_multig_1d] 1D multigrid not implemented yet\n");
   return;
 }
 
@@ -83,8 +93,9 @@ void selfg_by_multig_1d(Grid *pG, Domain *pD)
 /* selfg_by_multig_2d:
  */
 
-void selfg_by_multig_2d(Grid *pG, Domain *pD)
+void selfg_multig_2d(DomainS *pD)
 {
+  ath_error("[selfg_multig_2d] 2D multigrid not implemented yet\n");
   return;
 }
 
@@ -93,8 +104,9 @@ void selfg_by_multig_2d(Grid *pG, Domain *pD)
  *   to compute potential at boundary
  */
 
-void selfg_by_multig_3d(Grid *pG, Domain *pD)
+void selfg_multig_3d(DomainS *pD)
 {
+  GridS *pG = (pD->Grid);
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
@@ -215,12 +227,12 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
 
 /* Initialize MGrid structure for top level (the root, or finest, level) */
 
-  Root_grid.Nx1 = pG->Nx1;
-  Root_grid.Nx2 = pG->Nx2;
-  Root_grid.Nx3 = pG->Nx3;
-  Root_grid.is = 1;  Root_grid.ie = pG->Nx1;
-  Root_grid.js = 1;  Root_grid.je = pG->Nx2;
-  Root_grid.ks = 1;  Root_grid.ke = pG->Nx3;
+  Root_grid.Nx1 = pG->Nx[0];
+  Root_grid.Nx2 = pG->Nx[1];
+  Root_grid.Nx3 = pG->Nx[2];
+  Root_grid.is = 1;  Root_grid.ie = pG->Nx[0];
+  Root_grid.js = 1;  Root_grid.je = pG->Nx[1];
+  Root_grid.ks = 1;  Root_grid.ke = pG->Nx[2];
   Root_grid.dx1 = pG->dx1;
   Root_grid.dx2 = pG->dx2;
   Root_grid.dx3 = pG->dx3;
@@ -229,9 +241,9 @@ void selfg_by_multig_3d(Grid *pG, Domain *pD)
   Root_grid.rx3_id = pG->rx3_id; Root_grid.lx3_id = pG->lx3_id;
 
 /* There is only one ghost zone needed at each level, not nghost */
-  Nx1z = pG->Nx1 + 2;
-  Nx2z = pG->Nx2 + 2;
-  Nx3z = pG->Nx3 + 2;
+  Nx1z = pG->Nx[0] + 2;
+  Nx2z = pG->Nx[1] + 2;
+  Nx3z = pG->Nx[2] + 2;
   Root_grid.rhs = (Real ***) calloc_3d_array(Nx3z,Nx2z,Nx1z,sizeof(Real));
   Root_grid.Phi = (Real ***) calloc_3d_array(Nx3z,Nx2z,Nx1z,sizeof(Real));
   if (Root_grid.rhs == NULL) {
@@ -1004,21 +1016,36 @@ void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
  *   iterates during Jacobi iterations.
  */
 
-void selfg_by_multig_3d_init(Grid *pG, Domain *pD)
+void selfg_multig_3d_init(MeshS *pM)
 {
 #ifdef MPI_PARALLEL
   int i,j,k,x1cnt,x2cnt,x3cnt;
   int nx1t,nx2t,nx3t, size;
   int NGrid_x1, NGrid_x2, NGrid_x3;
 #endif
-  int Nx1z, Nx2z, Nx3z;
+  int nmax,size1=0,size2=0,size3=0,nl,nd;
 
-/* Allocate memory for error array used during restriction */
+/* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[1] > size2){
+          size2 = pM->Domain[nl][nd].Grid->Nx[1];
+        }
+        if (pM->Domain[nl][nd].Grid->Nx[2] > size3){
+          size3 = pM->Domain[nl][nd].Grid->Nx[2];
+        }
+      }
+    }
+  }
 
-  Nx1z = pG->Nx1 + 2;
-  Nx2z = pG->Nx2 + 2;
-  Nx3z = pG->Nx3 + 2;
-  error = (Real ***) calloc_3d_array(Nx3z, Nx2z, Nx1z, sizeof(Real));
+  size1 += 2;
+  size2 += 2;
+  size3 += 2;
+  error = (Real ***)calloc_3d_array(size3, size2, size1, sizeof(Real));
   if (error == NULL) {
     ath_error("[multig_3d]: Error allocating memory for error array\n");
   }

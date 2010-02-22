@@ -1080,13 +1080,13 @@ static void pack_Phi_ox1(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = send_buf[0];
+  double *pSnd = send_buf[0];
 
 /* Pack only Phi into send buffer */
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
       for (i=ie-(nghost-1); i<=ie; i++){
-        *(pd++) = pG->Phi[k][j][i];
+        *(pSnd++) = pG->Phi[k][j][i];
       }
     }
   }
@@ -1103,13 +1103,13 @@ static void pack_Phi_ix2(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = send_buf[0];
+  double *pSnd = send_buf[0];
 
 /* Pack only Phi into send buffer */
   for (k=ks; k<=ke; k++){
     for (j=js; j<=js+(nghost-1); j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        *(pd++) = pG->Phi[k][j][i];
+        *(pSnd++) = pG->Phi[k][j][i];
       }
     }
   }
@@ -1126,14 +1126,14 @@ static void pack_Phi_ox2(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = send_buf[0];
+  double *pSnd = send_buf[0];
 
 /* Pack only Phi into send buffer */
 
   for (k=ks; k<=ke; k++){
     for (j=je-(nghost-1); j<=je; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        *(pd++) = pG->Phi[k][j][i];
+        *(pSnd++) = pG->Phi[k][j][i];
       }
     }
   }
@@ -1150,14 +1150,14 @@ static void pack_Phi_ix3(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = send_buf[0];
+  double *pSnd = send_buf[0];
 
 /* Pack only Phi into send buffer */
 
   for (k=ks; k<=ks+(nghost-1); k++){
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        *(pd++) = pG->Phi[k][j][i];
+        *(pSnd++) = pG->Phi[k][j][i];
       }
     }
   }
@@ -1179,14 +1179,14 @@ static void pack_Phi_ox3(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = send_buf;
+  double *pSnd = send_buf[0];
 
 /* Pack only Phi into send buffer */
 
   for (k=ke-(nghost-1); k<=ke; k++){
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        *(pd++) = pG->Phi[k][j][i];
+        *(pSnd++) = pG->Phi[k][j][i];
       }
     }
   }
@@ -1203,14 +1203,14 @@ static void unpack_Phi_ix1(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = recv_buf;
+  double *pRcv = recv_buf[0];
 
 /* Manually unpack the data from the receive buffer */
 
   for (k=ks; k<=ke; k++){
     for (j=js; j<=js; j++){
       for (i=is-nghost; i<=is-1; i++){
-        pG->Phi[k][j][i] = *(pd++);
+        pG->Phi[k][j][i] = *(pRcv++);
       }
     }
   }
@@ -1227,14 +1227,14 @@ static void unpack_Phi_ox1(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = recv_buf[0];
+  double *pRcv = recv_buf[0];
 
 /* Manually unpack the data from the receive buffer */
 
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
       for (i=ie+1; i<=ie+nghost; i++){
-        pG->Phi[k][j][i] = *(pd++);
+        pG->Phi[k][j][i] = *(pRcv++);
       }
     }
   }
@@ -1251,14 +1251,14 @@ static void unpack_Phi_ix2(GridS *pG)
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = recv_buf[0];
+  double *pRcv = recv_buf[0];
 
 /* Manually unpack the data from the receive buffer */
 
   for (k=ks; k<=ke; k++){
     for (j=js-nghost; j<=js-1; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        pG->Phi[k][j][i] = *(pd++);
+        pG->Phi[k][j][i] = *(pRcv++);
       }
     }
   }
@@ -1275,14 +1275,14 @@ static void unpack_Phi_ox2(GridS *pG)
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-  double *pd = recv_buf[0];
+  double *pRcv = recv_buf[0];
 
 /* Manually unpack the data from the receive buffer */
 
   for (k=ks; k<=ke; k++){
     for (j=je+1; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        pG->Phi[k][j][i] = *(pd++);
+        pG->Phi[k][j][i] = *(pRcv++);
       }
     }
   }
@@ -1299,14 +1299,14 @@ static void unpack_Phi_ix3(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks;
   int i,j,k;
-  double *pd = recv_buf[0];
+  double *pRcv = recv_buf[0];
 
 /* Manually unpack the data from the receive buffer */
 
   for (k=ks-nghost; k<=ks-1; k++){
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        pG->Phi[k][j][i] = *(pd++);
+        pG->Phi[k][j][i] = *(pRcv++);
       }
     }
   }
@@ -1323,14 +1323,14 @@ static void unpack_Phi_ox3(GridS *pG)
   int js = pGrid->js, je = pGrid->je;
   int ke = pGrid->ke;
   int i,j,k;
-  double *pd = recv_buf[0];
+  double *pRcv = recv_buf[0];
 
 /* Manually unpack the data from the receive buffer */
 
   for (k=ke+1; k<=ke+nghost; k++){
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
-        pG->Phi[k][j][i] = *(pd++);
+        pG->Phi[k][j][i] = *(pRcv++);
       }
     }
   }

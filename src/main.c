@@ -349,6 +349,12 @@ int main(int argc, char *argv[])
   Gamma_1 = Gamma - 1.0;
   Gamma_2 = Gamma - 2.0;
 #endif
+/* initialize gravity constants <0, selfg_init will test these values below to
+ * ensure user has set values in problem generator */
+#ifdef SELF_GRAVITY
+  grav_mean_rho = -1.0;
+  four_pi_G = -1.0;
+#endif
 
   if(ires) {
     restart_grids(res_file, &Mesh);  /*  Restart */

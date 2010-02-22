@@ -374,13 +374,14 @@ Now use the default one.\n");
     new_out.x2u = pM->RootMaxX[1];
     new_out.reduce_x2 = 0;
     parse_slice(block,"x2",&new_out.x2l,&new_out.x2u,&new_out.reduce_x2);
-    if (new_out.reduce_x2 != 0) new_out.ndim--;
+    if (pM->Nx[1] > 1 && new_out.reduce_x2 != 0) new_out.ndim--;
 
     new_out.x3l = pM->RootMinX[2];
     new_out.x3u = pM->RootMaxX[2];
     new_out.reduce_x3 = 0;
     parse_slice(block,"x3",&new_out.x3l,&new_out.x3u,&new_out.reduce_x3);
-    if (new_out.reduce_x3 != 0) new_out.ndim--;
+    if (pM->Nx[2] > 1 && new_out.reduce_x3 != 0) new_out.ndim--;
+
     if (new_out.ndim <= 0) ath_error("Too many slices specified in %s\n",block);
 
 /* dmin/dmax & sdmin/sdmax */

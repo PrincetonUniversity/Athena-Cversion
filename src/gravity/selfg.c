@@ -510,6 +510,12 @@ VDFun_t selfg_init(MeshS *pM)
   if(pM->Nx[1] > 1) dim++;
   if(pM->Nx[2] > 1) dim++;
 
+/* test that user set values for constants */
+  if (grav_mean_rho < 0.0)
+    ath_error("[selfg_init] grav_mean_rho must be set >0 in prob generator\n");
+  if (four_pi_G < 0.0)
+    ath_error("[selfg_init] four_pi_G must be set >0 in prob generator\n");
+
 /* Return function pointer based on dimensions and algorithm */
 
   switch(dim){
