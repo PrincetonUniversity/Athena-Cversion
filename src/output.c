@@ -113,7 +113,7 @@ static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
  *   getRGB
  *============================================================================*/
 
-Real expr_d    (const GridS *pG, const int i, const int j, const int k);
+Real expr_d  (const GridS *pG, const int i, const int j, const int k);
 Real expr_M1 (const GridS *pG, const int i, const int j, const int k);
 Real expr_M2 (const GridS *pG, const int i, const int j, const int k);
 Real expr_M3 (const GridS *pG, const int i, const int j, const int k);
@@ -708,7 +708,7 @@ Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, int *Nx3)
   for (k=0; k<*Nx3; k++)
     for (j=0; j<*Nx2; j++)
       for (i=0; i<*Nx1; i++)
-        data[k][j][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+        data[k][j][i] = (*pout->expr)(pgrid,i+il,j+jl,k+kl);
   return data;
 }
 
@@ -1009,8 +1009,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
     factor = 1.0/(kend - kstart + 1)/(jend - jstart + 1);
     for (i=0; i<*Nx1; i++) {
       data[i] = 0.0;
-      for (k=kstart; k<kend; k++)
-	for (j=jstart; j<jend; j++)
+      for (k=kstart; k<=kend; k++)
+	for (j=jstart; j<=jend; j++)
 	  data[i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
       data[i] *= factor;
     }
@@ -1064,8 +1064,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
     factor = 1.0/(kend - kstart + 1)/(iend - istart + 1);
     for (j=0; j<Nx2; j++) {
       data[j] = 0.0;
-      for (k=kstart; k<kend; k++)
-	for (i=istart; i<iend; i++)
+      for (k=kstart; k<=kend; k++)
+	for (i=istart; i<=iend; i++)
 	  data[j] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
       data[j] *= factor;
     }
@@ -1115,8 +1115,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
     factor = 1.0/(jend - jstart + 1)/(iend - istart + 1);
     for (k=0; k<Nx3; k++) {
       data[k] = 0.0;
-      for (j=jstart; j<jend; j++)
-	for (i=istart; i<iend; i++)
+      for (j=jstart; j<=jend; j++)
+	for (i=istart; i<=iend; i++)
 	  data[k] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
       data[k] *= factor;
     }

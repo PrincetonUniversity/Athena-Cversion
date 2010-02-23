@@ -69,10 +69,18 @@ void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
   GridS *pGrid=pM->Domain[nl][nd].Grid;
   int i,nx1;
   FILE *pFile;
-  char *fname,*plev=NULL,*pdom=NULL;
+  char fmt[80],*fname,*plev=NULL,*pdom=NULL;
   char levstr[8],domstr[8];
   Real *data=NULL;
   Real dmin, dmax, xworld;
+
+/* Add a white space to the format, setup format for integer zone columns */
+  if(pOut->dat_fmt == NULL){
+     sprintf(fmt," %%12.8e"); /* Use a default format */
+  }
+  else{
+    sprintf(fmt," %s",pOut->dat_fmt);
+  }
 
 /* compute 1D array of data */
   data = OutData1(pGrid,pOut,&nx1);
@@ -104,7 +112,9 @@ void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
 /* write data */
   for (i=0; i<nx1; i++) {
     xworld = (float)(i);  /* just i index for now */
-    fprintf(pFile,"%g %g\n",xworld,data[i]);
+    fprintf(pFile,fmt,xworld);
+    fprintf(pFile,fmt,data[i]);
+    fprintf(pFile,"\n");
   }
   
 /* Compute and store global min/max, for output at end of run */
@@ -128,10 +138,18 @@ void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
   GridS *pGrid=pM->Domain[nl][nd].Grid;
   int i,j,nx1,nx2;
   FILE *pFile;
-  char *fname,*plev=NULL,*pdom=NULL;
+  char fmt[80],*fname,*plev=NULL,*pdom=NULL;
   char levstr[8],domstr[8];
   Real **data=NULL;
   Real dmin, dmax, xworld, yworld;
+
+/* Add a white space to the format, setup format for integer zone columns */
+  if(pOut->dat_fmt == NULL){
+     sprintf(fmt," %%12.8e"); /* Use a default format */
+  }
+  else{
+    sprintf(fmt," %s",pOut->dat_fmt);
+  }
 
 /* compute 2D array of data */
   data = OutData2(pGrid,pOut,&nx1,&nx2);
@@ -165,7 +183,10 @@ void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
     for (i=0; i<nx1; i++) {
       xworld = (float)(i); /* just i index for now */
       yworld = (float)(j); /* just j index for now */
-      fprintf(pFile,"%g %g %g\n",xworld,yworld,data[j][i]);
+      fprintf(pFile,fmt,xworld);
+      fprintf(pFile,fmt,yworld);
+      fprintf(pFile,fmt,data[j][i]);
+      fprintf(pFile,"\n");
     }
   }
   
@@ -190,9 +211,17 @@ void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
   GridS *pGrid=pM->Domain[nl][nd].Grid;
   int i,j,k,nx1,nx2,nx3;
   FILE *pFile;
-  char *fname,*plev=NULL,*pdom=NULL;
+  char fmt[80],*fname,*plev=NULL,*pdom=NULL;
   char levstr[8],domstr[8];
   Real ***data, dmin, dmax, xworld, yworld, zworld;
+
+/* Add a white space to the format, setup format for integer zone columns */
+  if(pOut->dat_fmt == NULL){
+     sprintf(fmt," %%12.8e"); /* Use a default format */
+  }
+  else{
+    sprintf(fmt," %s",pOut->dat_fmt);
+  }
 
 /* compute 3D array of data */
   data = OutData3(pGrid,pOut,&nx1,&nx2,&nx3);
@@ -226,7 +255,11 @@ void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
         xworld = (float)(i);  /* just i-index for now */
         yworld = (float)(j);  /* just j-index for now */
         zworld = (float)(k);  /* just k-index for now */
-        fprintf(pFile,"%g %g %g %g\n",xworld,yworld,zworld,data[k][j][i]);
+        fprintf(pFile,fmt,xworld);
+        fprintf(pFile,fmt,yworld);
+        fprintf(pFile,fmt,zworld);
+        fprintf(pFile,fmt,data[k][j][i]);
+        fprintf(pFile,"\n");
       }
     }
   }
