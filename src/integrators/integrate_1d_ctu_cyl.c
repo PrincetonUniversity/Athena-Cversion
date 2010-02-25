@@ -1,15 +1,14 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: integrate_1d_ctu_cyl.c
+ * FILE: integrate_1d_ctu.c
  *
- * PURPOSE: 1D Cylindrical Grid Integrator.
- *   Integrates MHD equations using 1D version of the CTU integrator in
- *   cylindrical coordinates.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid
- *   structure, where U is of type Gas.  Adds gravitational source terms,
- *   self-gravity, and optically-thin cooling.
+ * PURPOSE: Integrate MHD equations using 1D version of the CTU integrator.
+ *   Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure, where U is of type
+ *   ConsS. Adds gravitational source terms, self-gravity, and optically-thin
+ *   cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_1d()
+ *   integrate_1d_ctu()
  *   integrate_init_1d()
  *   integrate_destruct_1d()
  *============================================================================*/
@@ -28,16 +27,17 @@
 #endif
 
 #if defined(CTU_INTEGRATOR) && defined(CYLINDRICAL)
+#ifdef SPECIAL_RELATIVITY
+#error : The CTU integrator cannot be used for special relativity.
+#endif /* SPECIAL_RELATIVITY */
 
 /* The L/R states of conserved variables and fluxes at each cell face */
-static Cons1D *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
+static Cons1DS *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
-#ifdef MHD
 static Real *Bxc=NULL, *Bxi=NULL;
-#endif /* MHD */
-static Prim1D *W=NULL, *Wl=NULL, *Wr=NULL;
-static Cons1D *U1d=NULL;
+static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static Cons1DS *U1d=NULL;
 
 /* Variables at t^{n+1/2} used for source terms */
 static Real *dhalf = NULL, *phalf = NULL;
@@ -52,15 +52,18 @@ static Real *geom_src=NULL;
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
 
-void integrate_1d(Grid *pG, Domain *pD)
+void integrate_1d_ctu(DomainS *pD)
 {
+  GridS *pG=(pD->Grid);
   Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;
   int i,il,iu, is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks;
-  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,d1;
-  Real coolfl,coolfr,coolf,M1h,M2h,M3h,Eh=0.0;
-#ifdef MHD
+  Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h;
+#ifndef BAROTROPIC
+  Real coolfl,coolfr,coolf,Eh=0.0;
+#endif
+#if defined(MHD) && !defined(BAROTROPIC)
   Real B1ch,B2ch,B3ch;
 #endif
 #if (NSCALARS > 0)
@@ -69,20 +72,36 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
 #endif
+#ifdef FEEDBACK
+  Real dt1 = 1.0/pG->dt;
+#endif
+#ifdef STATIC_MESH_REFINEMENT
+  int ncg,npg,dim;
+#endif
 
   /* VARIABLES NEEDED FOR CYLINDRICAL COORDINATES */
-  Real Pl,Pr,Pavg,g,gl,gr,rinv;
+#ifndef ISOTHERMAL
+  Real Plh,Prh,Pavgh;
+#endif
+  Real g,gl,gr;
   Real hdt = 0.5*pG->dt;
-  Real y1,y2,y3;
+  Real y1,y2,y3,rinv;
   Real geom_src_d,geom_src_Vx,geom_src_Vy,geom_src_P,geom_src_By,geom_src_Bz;
+  const Real *r=pG->r, *ri=pG->ri;
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
+  Real d1;
   il = is - 3;
   iu = ie + 3;
 #else
   il = is - 1;
   iu = ie + 1;
+#endif
+
+/* Compute predictor feedback from particle drag */
+#ifdef FEEDBACK
+  feedback_predictor(pG);
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -116,18 +135,10 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
-    Cons1D_to_Prim1D(&U1d[i],&W[i] MHDARG( , &Bxc[i]));
-
-    /* CALCULATE THE CELL-CENTERED GEOMETRIC SOURCE VECTOR NOW USING U^{n} */
-    vc_pos(pG,i,js,ks,&y1,&y2,&y3);
-    geom_src[i] = W[i].d*SQR(W[i].Vy);
-#ifdef MHD
-    geom_src[i] -= SQR(W[i].By);
-#endif
-    geom_src[i] /= y1;
+    W[i] = Cons1D_to_Prim1D(&U1d[i], &Bxc[i]);
   }
 
-  lr_states_cyl(W, MHDARG( Bxc , ) dtodx1,is,ie,Wl,Wr);
+  lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,cyl_x1);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
@@ -140,7 +151,7 @@ void integrate_1d(Grid *pG, Domain *pD)
       vc_pos(pG,i,js,ks,&y1,&y2,&y3);
       gr = (*x1GravAcc)(y1,y2,y3);
 
-      /* APPLY GRAVITATIONAL SOURCE TERMS TO VELOCITY USING ACCELERATION FOR (dt/2) */
+      /* APPLY SOURCE TERMS TO VELOCITY USING ACCELERATION FOR (dt/2) */
       Wl[i].Vx -= hdt*gl;
       Wr[i].Vx -= hdt*gr;
     }
@@ -180,14 +191,19 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef FEEDBACK
     for (i=il+1; i<=iu; i++) {
       d1 = 1.0/W[i-1].d;
-      Wl[i].Vx -= pG->feedback[ks][js][i-1].x1*d1;
-      Wl[i].Vy -= pG->feedback[ks][js][i-1].x2*d1;
-      Wl[i].Vz -= pG->feedback[ks][js][i-1].x3*d1;
+      Wl[i].Vx -= pG->Coup[ks][js][i-1].fb1*d1;
+      Wl[i].Vy -= pG->Coup[ks][js][i-1].fb2*d1;
+      Wl[i].Vz -= pG->Coup[ks][js][i-1].fb3*d1;
 
       d1 = 1.0/W[i].d;
-      Wr[i].Vx -= pG->feedback[ks][js][i].x1*d1;
-      Wr[i].Vy -= pG->feedback[ks][js][i].x2*d1;
-      Wr[i].Vz -= pG->feedback[ks][js][i].x3*d1;
+      Wr[i].Vx -= pG->Coup[ks][js][i].fb1*d1;
+      Wr[i].Vy -= pG->Coup[ks][js][i].fb2*d1;
+      Wr[i].Vz -= pG->Coup[ks][js][i].fb3*d1;
+
+#ifndef BAROTROPIC
+      Wl[i].P += pG->Coup[ks][js][i-1].Eloss*Gamma_1;
+      Wr[i].P += pG->Coup[ks][js][i].Eloss*Gamma_1;
+#endif
     }
 #endif /* FEEDBACK */
 
@@ -264,11 +280,10 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
   for (i=il+1; i<=iu; i++) {
-    Prim1D_to_Cons1D(&Ul_x1Face[i],&Wl[i] MHDARG( , &Bxi[i]));
-    Prim1D_to_Cons1D(&Ur_x1Face[i],&Wr[i] MHDARG( , &Bxi[i]));
+    Ul_x1Face[i] = Prim1D_to_Cons1D(&Wl[i], &Bxi[i]);
+    Ur_x1Face[i] = Prim1D_to_Cons1D(&Wr[i], &Bxi[i]);
 
-    fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],
-               MHDARG( Bxi[i] , ) &x1Flux[i]);
+    fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
   }
 
 /*=== STEPS 2-7: Not needed in 1D ===*/
@@ -279,15 +294,12 @@ void integrate_1d(Grid *pG, Domain *pD)
  * Calculate d^{n+1/2} (needed with static potential, or cooling)
  */
 
-  /* THIS VARIABLE IS USED BELOW, SO ALWAYS COMPUTE IT! */
-  if (dhalf != NULL) {
-    for (i=il+1; i<=iu-1; i++) {
-      dhalf[i] = pG->U[ks][js][i].d 
-        - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].d - ri[i]*x1Flux[i].d);
+  for (i=il+1; i<=iu-1; i++) {
+    dhalf[i] = pG->U[ks][js][i].d 
+              - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].d - ri[i]*x1Flux[i].d );
 #ifdef PARTICLES
-      grid_d[ks][js][i] = dhalf[i];
+    pG->Coup[ks][js][i].grid_d = dhalf[i];
 #endif
-    }
   }
 
 /*--- Step 8b ------------------------------------------------------------------
@@ -299,31 +311,19 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif /* PARTICLES */
   {
     for (i=il+1; i<=iu-1; i++) {
-      cc_pos(pG,i,js,ks,&x1,&x2,&x3);
-      vc_pos(pG,i,js,ks,&y1,&y2,&y3);
-
-      Pl = x1Flux[i].Pflux;
-      Pr = x1Flux[i+1].Pflux;
-      Pavg = (ri[i]*Pl + ri[i+1]*Pr)/(2.0*r[i]);
-
-      M1h = pG->U[ks][js][i].M1
-        - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Mx - ri[i]*x1Flux[i].Mx - pG->dx1*Pavg);
-
-      M2h = pG->U[ks][js][i].M2
-        - (hdtodx1/SQR(r[i]))*(SQR(ri[i+1])*x1Flux[i+1].My - SQR(ri[i])*x1Flux[i].My);
-
-      M3h = pG->U[ks][js][i].M3
-        - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Mz - ri[i]*x1Flux[i].Mz);
-
+      M1h = pG->U[ks][js][i].M1 - hdtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
+      M2h = pG->U[ks][js][i].M2 - hdtodx1*(x1Flux[i+1].My - x1Flux[i].My);
+      M3h = pG->U[ks][js][i].M3 - hdtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
 #ifndef BAROTROPIC
-      Eh  = pG->U[ks][js][i].E
-        - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].E  - ri[i]*x1Flux[i].E );
+      Eh  = pG->U[ks][js][i].E  - hdtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
 #endif
 
 /* Add source terms for fixed gravitational potential */
       if (StaticGravPot != NULL){
-        g = (*x1GravAcc)(y1,y2,y3);
-        M1h -= hdt*pG->U[ks][js][i].d*g;
+        cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        M1h -= hdtodx1*(phir-phil)*pG->U[ks][js][i].d;
       }
 
 /* Add source terms due to self-gravity  */
@@ -335,9 +335,9 @@ void integrate_1d(Grid *pG, Domain *pD)
 
 /* Add the particle feedback terms */
 #ifdef FEEDBACK
-      M1h -= pG->feedback[ks][js][i].x1;
-      M2h -= pG->feedback[ks][js][i].x2;
-      M3h -= pG->feedback[ks][js][i].x3;
+      M1h -= pG->Coup[ks][js][i].fb1;
+      M2h -= pG->Coup[ks][js][i].fb2;
+      M3h -= pG->Coup[ks][js][i].fb3;
 #endif /* FEEDBACK */
 
 #ifndef BAROTROPIC
@@ -346,30 +346,76 @@ void integrate_1d(Grid *pG, Domain *pD)
 #ifdef MHD
       B1ch = pG->U[ks][js][i].B1c;
       B2ch = pG->U[ks][js][i].B2c - hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
-      B3ch = pG->U[ks][js][i].B3c
-        - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Bz - ri[i]*x1Flux[i].Bz);
+      B3ch = pG->U[ks][js][i].B3c - hdtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
       phalf[i] -= 0.5*(B1ch*B1ch + B2ch*B2ch + B3ch*B3ch);
 #endif /* MHD */
 
       phalf[i] *= Gamma_1;
-#endif /* BARATROPIC */
+#endif /* BAROTROPIC */
 
 #ifdef PARTICLES
       d1 = 1.0/dhalf[i];
-      grid_v[ks][js][i].x1 = M1h*d1;
-      grid_v[ks][js][i].x2 = M2h*d1;
-      grid_v[ks][js][i].x3 = M3h*d1;
-#ifndef ISOTHERMAL
-      grid_cs[ks][js][i] = sqrt(Gamma*phalf[i]*d1);
-#endif  /* ISOTHERMAL */
+      pG->Coup[ks][js][i].grid_v1 = M1h*d1;
+      pG->Coup[ks][js][i].grid_v2 = M2h*d1;
+      pG->Coup[ks][js][i].grid_v3 = M3h*d1;
+#ifndef BAROTROPIC
+      pG->Coup[ks][js][i].grid_cs = sqrt(Gamma*phalf[i]*d1);
+#endif  /* BAROTROPIC */
 #endif /* PARTICLES */
 
     }
   }
 
+/*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
+
+#ifdef PARTICLES
+  Integrate_Particles(pG,pD);
+#ifdef FEEDBACK
+  exchange_feedback(pG, pD);
+#endif
+#endif
+
 /*=== STEPS 9-10: Not needed in 1D ===*/
 
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
+
+/*--- Step 11a -----------------------------------------------------------------
+ * ADD GEOMETRIC SOURCE TERMS.
+ */
+
+  for (i=is; i<=ie; i++) {
+    cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+    vc_pos(pG,i,js,ks,&y1,&y2,&y3);
+
+    /* CALCULATE X2-MOMENTUM AT TIME n+1/2 */
+    M2h = pG->U[ks][js][i].M2
+        - (hdtodx1/SQR(r[i]))*(SQR(ri[i+1])*x1Flux[i+1].My - SQR(ri[i])*x1Flux[i].My);
+
+    /* COMPUTE GEOMETRIC SOURCE TERM AT TIME n+1/2 */
+    geom_src[i] = SQR(M2h)/dhalf[i];
+#ifdef MHD
+    B2ch = pG->U[ks][js][i].B2c - hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
+    geom_src[i] -= SQR(B2ch);
+#endif
+#ifdef ISOTHERMAL
+    geom_src[i] += Iso_csound2*dhalf[i];
+#ifdef MHD
+    B1ch = pG->U[ks][js][i].B1c;
+    B3ch = pG->U[ks][js][i].B3c - hdtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
+    geom_src[i] += 0.5*(SQR(B1ch)+SQR(B2ch)+SQR(B3ch));
+#endif
+#else /* ISOTHERMAL */
+    Plh   = x1Flux[i].Pflux;
+    Prh   = x1Flux[i+1].Pflux;
+    Pavgh = (ri[i]*Plh + ri[i+1]*Prh)/(2.0*r[i]);
+    geom_src[i] += Pavgh;
+#endif
+    geom_src[i] /= y1;
+
+    /* ADD TIME-CENTERED GEOMETRIC SOURCE TERM FOR FULL dt */
+    pG->U[ks][js][i].M1 += pG->dt*geom_src[i];
+
+  }
 
 /*--- Step 11a -----------------------------------------------------------------
  * Add gravitational source terms as a Static Potential.
@@ -390,8 +436,8 @@ void integrate_1d(Grid *pG, Domain *pD)
       pG->U[ks][js][i].M1 -= pG->dt*dhalf[i]*g;
 
 #ifndef BAROTROPIC
-      pG->U[ks][js][i].E -= (dtodx1/r[i])*(ri[i  ]*x1Flux[i  ].d*(phic - phil) +
-                                           ri[i+1]*x1Flux[i+1].d*(phir - phic));
+      pG->U[ks][js][i].E -= (dtodx1/r[i])*(ri[i]*x1Flux[i  ].d*(phic - phil) +
+                                         ri[i+1]*x1Flux[i+1].d*(phir - phic));
 #endif
     }
   }
@@ -442,32 +488,20 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif /* BAROTROPIC */
 
 /*--- Step 11d -----------------------------------------------------------------
- * ADD GEOMETRIC SOURCE TERMS.
+ * Add source terms for particle feedback
  */
 
+#ifdef FEEDBACK
   for (i=is; i<=ie; i++) {
-    cc_pos(pG,i,js,ks,&x1,&x2,&x3);
-    vc_pos(pG,i,js,ks,&y1,&y2,&y3);
-
-    /* CALCULATE d AT TIME n+1/2 */
-    dhalf[i] = pG->U[ks][js][i].d
-              - (hdtodx1/r[i])*(ri[i+1]*x1Flux[i+1].d - ri[i]*x1Flux[i].d);
-
-    /* CALCULATE M2 AT TIME n+1/2 */
-    M2h = pG->U[ks][js][i].M2
-        - (hdtodx1/SQR(r[i]))*(SQR(ri[i+1])*x1Flux[i+1].My - SQR(ri[i])*x1Flux[i].My);
-
-    /* COMPUTE GEOMETRIC SOURCE TERM AT TIME n+1/2 */
-    geom_src[i] = SQR(M2h)/dhalf[i];
-#ifdef MHD
-    B2ch = pG->U[ks][js][i].B2c - hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
-    geom_src[i] -= SQR(B2ch);
+    pG->U[ks][js][i].M1 -= pG->Coup[ks][js][i].fb1;
+    pG->U[ks][js][i].M2 -= pG->Coup[ks][js][i].fb2;
+    pG->U[ks][js][i].M3 -= pG->Coup[ks][js][i].fb3;
+#ifndef BAROTROPIC
+    pG->U[ks][js][i].E += pG->Coup[ks][js][i].Eloss;
+    pG->Coup[ks][js][i].Eloss *= dt1;
 #endif
-    geom_src[i] /= y1;
-
-    /* ADD TIME-CENTERED GEOMETRIC SOURCE TERM FOR FULL dt */
-    pG->U[ks][js][i].M1 += pG->dt*geom_src[i];
   }
+#endif
 
 /*=== STEP 12: Update cell-centered values for a full timestep ===============*/
 
@@ -476,12 +510,8 @@ void integrate_1d(Grid *pG, Domain *pD)
  */
 
   for (i=is; i<=ie; i++) {
-    Pl = x1Flux[i].Pflux;
-    Pr = x1Flux[i+1].Pflux;
-    Pavg = (ri[i]*Pl + ri[i+1]*Pr)/(2.0*r[i]);
-
     pG->U[ks][js][i].d  -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].d  - ri[i]*x1Flux[i].d );
-    pG->U[ks][js][i].M1 -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Mx - ri[i]*x1Flux[i].Mx - pG->dx1*Pavg);
+    pG->U[ks][js][i].M1 -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Mx - ri[i]*x1Flux[i].Mx);
     pG->U[ks][js][i].M2 -= (dtodx1/SQR(r[i]))*(SQR(ri[i+1])*x1Flux[i+1].My - SQR(ri[i])*x1Flux[i].My);
     pG->U[ks][js][i].M3 -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].Mz - ri[i]*x1Flux[i].Mz);
 #ifndef BAROTROPIC
@@ -496,9 +526,76 @@ void integrate_1d(Grid *pG, Domain *pD)
 #endif /* MHD */
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
-      pG->U[ks][js][i].s[n] -= dtodx1*(x1Flux[i+1].s[n] - x1Flux[i].s[n]);
+      pG->U[ks][js][i].s[n] -= (dtodx1/r[i])*(ri[i+1]*x1Flux[i+1].s[n] - ri[i]*x1Flux[i].s[n]);
 #endif
   }
+
+/*--- Step 12b: Not needed in 1D ---*/
+/*--- Step 12c: Not needed in 1D ---*/
+/*--- Step 12d: Not needed in 1D ---*/
+
+#ifdef STATIC_MESH_REFINEMENT
+/*--- Step 12e -----------------------------------------------------------------
+ * With SMR, store fluxes at boundaries of child and parent grids.
+ */
+
+/* x1-boundaries of child Grids (interior to THIS Grid) */
+  for (ncg=0; ncg<pG->NCGrid; ncg++) {
+    for (dim=0; dim<2; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->CGrid[ncg].ijks[0];
+        if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
+
+        pG->CGrid[ncg].myFlx[dim][ks][js].d  = x1Flux[i].d; 
+        pG->CGrid[ncg].myFlx[dim][ks][js].M1 = x1Flux[i].Mx; 
+        pG->CGrid[ncg].myFlx[dim][ks][js].M2 = x1Flux[i].My;
+        pG->CGrid[ncg].myFlx[dim][ks][js].M3 = x1Flux[i].Mz; 
+#ifndef BAROTROPIC
+        pG->CGrid[ncg].myFlx[dim][ks][js].E  = x1Flux[i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+        pG->CGrid[ncg].myFlx[dim][ks][js].B1c = 0.0;
+        pG->CGrid[ncg].myFlx[dim][ks][js].B2c = x1Flux[i].By; 
+        pG->CGrid[ncg].myFlx[dim][ks][js].B3c = x1Flux[i].Bz; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pG->CGrid[ncg].myFlx[dim][ks][js].s[n]  = x1Flux[i].s[n]; 
+#endif
+      }
+    }
+  }
+
+/* x1-boundaries of parent Grids (at boundaries of THIS Grid)  */
+  for (npg=0; npg<pG->NPGrid; npg++) {
+    for (dim=0; dim<2; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
+
+        if (dim==0) i = pG->PGrid[npg].ijks[0];
+        if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
+
+        pG->PGrid[npg].myFlx[dim][ks][js].d  = x1Flux[i].d; 
+        pG->PGrid[npg].myFlx[dim][ks][js].M1 = x1Flux[i].Mx; 
+        pG->PGrid[npg].myFlx[dim][ks][js].M2 = x1Flux[i].My;
+        pG->PGrid[npg].myFlx[dim][ks][js].M3 = x1Flux[i].Mz; 
+#ifndef BAROTROPIC
+        pG->PGrid[npg].myFlx[dim][ks][js].E  = x1Flux[i].E; 
+#endif /* BAROTROPIC */
+#ifdef MHD
+        pG->PGrid[npg].myFlx[dim][ks][js].B1c = 0.0;
+        pG->PGrid[npg].myFlx[dim][ks][js].B2c = x1Flux[i].By; 
+        pG->PGrid[npg].myFlx[dim][ks][js].B3c = x1Flux[i].Bz; 
+#endif /* MHD */
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pG->PGrid[npg].myFlx[dim][ks][js].s[n]  = x1Flux[i].s[n]; 
+#endif
+      }
+    }
+  }
+
+#endif /* STATIC_MESH_REFINEMENT */
 
   return;
 }
@@ -506,37 +603,48 @@ void integrate_1d(Grid *pG, Domain *pD)
 /*----------------------------------------------------------------------------*/
 /* integrate_init_1d: Allocate temporary integration arrays */
 
-void integrate_init_1d(int nx1)
+void integrate_init_1d(MeshS *pM)
 {
-  int Nx1;
-  Nx1 = nx1 + 2*nghost;
+  int size1=0,nl,nd;
 
-#ifdef MHD
-  if ((Bxc = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-  if ((Bxi = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-#endif /* MHD */
-
-  if ((U1d       = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ul_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((Ur_x1Face = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-  if ((x1Flux    = (Cons1D*)malloc(Nx1*sizeof(Cons1D))) == NULL) goto on_error;
-
-  if ((W  = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wl = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-  if ((Wr = (Prim1D*)malloc(Nx1*sizeof(Prim1D))) == NULL) goto on_error;
-
-  if ((dhalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
-
-  if(CoolingFunc != NULL){
-    if ((phalf  = (Real*)malloc(Nx1*sizeof(Real))) == NULL) goto on_error;
+/* Cycle over all Grids on this processor to find maximum Nx1 */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        if ((pM->Domain[nl][nd].Grid->Nx[0]) > size1){
+          size1 = pM->Domain[nl][nd].Grid->Nx[0];
+        }
+      }
+    }
   }
 
-  /* DATA STRUCTURES FOR CYLINDRICAL COORDINATES */
-  if ((geom_src = (Real*)calloc_1d_array(Nx1,sizeof(Real))) == NULL) goto on_error;
+  size1 = size1 + 2*nghost;
+
+  if ((Bxc = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+  if ((Bxi = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+
+  if ((U1d       =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+  if ((Ul_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+  if ((Ur_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+  if ((x1Flux    =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+
+  if ((W  = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((Wl = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((Wr = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
+
+  if ((dhalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+
+  if(CoolingFunc != NULL){
+    if ((phalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+  }
+
+  if ((geom_src = (Real*)calloc_1d_array(size1, sizeof(Real))) == NULL) 
+    goto on_error;
 
   return;
 
   on_error:
+    integrate_destruct();
     ath_error("[integrate_init_1d]: malloc returned a NULL pointer\n");
 }
 
@@ -545,10 +653,8 @@ void integrate_init_1d(int nx1)
 
 void integrate_destruct_1d(void)
 {
-#ifdef MHD
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
-#endif /* MHD */
 
   if (U1d != NULL) free(U1d);
   if (Ul_x1Face != NULL) free(Ul_x1Face);
@@ -562,8 +668,7 @@ void integrate_destruct_1d(void)
   if (dhalf != NULL) free(dhalf);
   if (phalf != NULL) free(phalf);
 
-  /* DATA STRUCTURES FOR CYLINDRICAL COORDINATES */
-  if (geom_src != NULL) free(geom_src);
+  if (geom_src  != NULL) free_1d_array(geom_src);
 
   return;
 }

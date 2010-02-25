@@ -290,6 +290,10 @@ typedef struct Grid_s{
  * regions being updated by the same processor as this Grid */
 #endif /* STATIC_MESH_REFINEMENT */
 
+#ifdef CYLINDRICAL
+  Real *r,*ri;                  /* cylindrical scaling factors */ 
+#endif /* CYLINDRICAL */
+
 }GridS;
 
 typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */

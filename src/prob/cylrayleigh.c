@@ -19,15 +19,20 @@
 #include "prototypes.h"
 #include "cyl.h"
 
-static Real bphi0,omega0,rho0,pgas0,kappa,noise_level;
+static Real bphi0,omega0,rho0,pgas0,q,noise_level;
 
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  Real omega = omega0/pow(x1,kappa);
-  return 0.5*SQR(x1*omega)/(1.0-kappa);
+  if (q == 1.0) {
+    return SQR(omega0)*log(x1);
+  }
+  else {
+    Real omega = omega0/pow(x1,q);
+    return 0.5*SQR(x1*omega)/(1.0-q);
+  }
 }
 
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  Real omega = omega0/pow(x1,kappa);
+  Real omega = omega0/pow(x1,q);
   return x1*SQR(omega);
 }
 
@@ -40,41 +45,38 @@ void problem(Grid *pG, Domain *pDomain)
 {
   int i,j,k;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
-  int nx1,nx2,nx3,myid;
+  int nx1,nx2,nx3,myid=0;
   Real x1,x2,x3,R1,R2;
   Real r,noise,omega;
   Real Eint,Emag,Ekin;
 
-  is = pG->is;  ie = pG->ie;
-  js = pG->js;  je = pG->je;
-  ks = pG->ks;  ke = pG->ke;
+  is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
+  js = pG->js;  je = pG->je;  nx2 = je-js+1;
+  ks = pG->ks;  ke = pG->ke;  nx3 = ke-ks+1;
 
-  il = is-nghost;  iu = ie+nghost;
-  jl = js-nghost;  ju = je+nghost;
-  if (ke-ks == 0) {
-    kl = ks;  ku = ke; 
-  } else {
-    kl = ks-nghost;  ku = ke+nghost;
+  il = is-nghost*(nx1>1);  iu = ie+nghost*(nx1>1);  nx1 = iu-il+1;
+  jl = js-nghost*(nx2>1);  ju = je+nghost*(nx2>1);  nx2 = ju-jl+1;
+  kl = ks-nghost*(nx3>1);  ku = ke+nghost*(nx3>1);  nx3 = ku-kl+1;
+
+#ifndef CYLINDRICAL
+  ath_error("[cylrayleigh]: This problem only works in cylindrical!\n");
+#endif
+
+  if (nx1==1) {
+    ath_error("[cylrayleigh]: This problem can only be run in 2D or 3D!\n");
   }
-
-  nx1 = iu-il+1;
-  nx2 = ju-jl+1;
-  nx3 = ku-kl+1;
-
-  if ((nx2 == 1) && (nx3 == 1)) {
-    ath_error("[cyl_rayleigh]: This problem can only be run in 2D or 3D!\n");
+  else if (nx2==1 && nx3>1) {
+    ath_error("[cylrayleigh]: Only (R,phi) can be used in 2D!\n");
   }
-
 
   /* SEED THE RANDOM NUMBER GENERATOR */
-  MPI_Comm_rank(MPI_COMM_WORLD,&myid);
-  srand(SEED+myid);
+  srand(SEED + pG->my_id);
 
   omega0      = par_getd("problem", "omega0");
   bphi0       = par_getd("problem", "bphi0");
   rho0        = par_getd("problem", "rho0");
   pgas0       = par_getd("problem", "pgas0");
-  kappa       = par_getd("problem", "kappa");
+  q           = par_getd("problem", "q");
   noise_level = par_getd("problem", "noise_level");
 
 
@@ -83,20 +85,20 @@ void problem(Grid *pG, Domain *pDomain)
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
         memset(&(pG->U[k][j][i]),0.0,sizeof(Gas));
-	R1 = x1 - 0.5*pG->dx1;
-	R2 = x1 + 0.5*pG->dx1;
+        R1 = x1 - 0.5*pG->dx1;
+        R2 = x1 + 0.5*pG->dx1;
 
         // RANDOM NUMBER BETWEEN 0 AND 1
-        r = ((double) rand()/((double)RAND_MAX + 1.0)); 
-	// RANDOM NUMBER BETWEEN +/- noise_level
+        r = ((double) rand()/((double)RAND_MAX + 1.0));
+        // RANDOM NUMBER BETWEEN +/- noise_level
         noise = noise_level*(2.0*r-1.0);
 
         pG->U[k][j][i].d   = rho0;
-	omega = omega0/pow(x1,kappa);
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
-//        pG->U[k][j][i].M2 = pG->U[k][j][i].d*omega0*(pow(R2,3-kappa)-pow(R1,3-kappa))/(x1*pG->dx1*(3-kappa));
-        // NOW PERTURB M2
-	if ((i>=is) && (i<=ie)) {
+//         omega = omega0/pow(x1,q);
+//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
+        pG->U[k][j][i].M2 = rho0*omega0*(pow(R2,3.0-q)-pow(R1,3.0-q))/(x1*pG->dx1*(3.0-q));
+        // NOW PERTURB v_phi
+        if ((i>=is) && (i<=ie)) {
           pG->U[k][j][i].M2 *= (1.0 + noise);
         }
 
@@ -120,10 +122,8 @@ void problem(Grid *pG, Domain *pDomain)
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_fun(left_x1,do_nothing_bc);
-  set_bvals_fun(right_x1,do_nothing_bc);
-//  set_bvals_fun(left_x1,strict_outflow_ix1);
-//  set_bvals_fun(right_x1,strict_outflow_ox1);
+  set_bvals_mhd_fun(left_x1,do_nothing_bc);
+  set_bvals_mhd_fun(right_x1,do_nothing_bc);
 
   return;
 }
@@ -135,6 +135,8 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_write_restart() - writes problem-specific user data to restart files
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
+ * get_usr_out_fun()       - returns a user defined output function pointer
+ * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
@@ -150,12 +152,12 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   bphi0       = par_getd("problem", "bphi0");
   rho0        = par_getd("problem", "rho0");
   pgas0       = par_getd("problem", "pgas0");
-  kappa       = par_getd("problem", "kappa");
+  q           = par_getd("problem", "q");
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_fun(left_x1,do_nothing_bc);
-  set_bvals_fun(right_x1,do_nothing_bc);
+  set_bvals_mhd_fun(left_x1,do_nothing_bc);
+  set_bvals_mhd_fun(right_x1,do_nothing_bc);
   return;
 }
 
@@ -164,13 +166,10 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pG, Domain *pDomain)
-{
-//   printf("Max divB = %1.10e\n", compute_div_b(pG));
-}
-
-void Userwork_after_loop(Grid *pG, Domain *pDomain)
+void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
-/*=========================== PRIVATE FUNCTIONS ==============================*/
+void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+{
+}

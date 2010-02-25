@@ -16,5 +16,5 @@ while 1
         step = sscanf(token,'%d');
         break;
     end;
-    base = strcat(base,token,'.');
+    basename = strcat(basename,token,'.');
 end;

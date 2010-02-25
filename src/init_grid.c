@@ -190,6 +190,20 @@ void init_grid(MeshS *pM)
       if (pG->x3MassFlux == NULL) goto on_error10;
 #endif /* SELF_GRAVITY */
 
+/* Allocate and initialize cylindrical scaling factors */
+#ifdef CYLINDRICAL
+      pG->r = (Real*)calloc_1d_array(n1z, sizeof(Real));
+      if (pG->r == NULL) goto on_error11;
+
+      pG->ri = (Real*)calloc_1d_array(n1z, sizeof(Real));
+      if (pG->ri == NULL) goto on_error12;
+      for (i=pG->is-nghost; i<=pG->ie+nghost; i++) {
+        pG->ri[i] = pG->MinX[0] + ((Real)(i - pG->is))*pG->dx1;
+        pG->r[i]  = pG->ri[i] + 0.5*pG->dx1;
+      }
+#endif /* CYLINDRICAL */
+
+
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
  * or an internal boundary between fine/coarse grids), then ID is set to -1
@@ -1069,6 +1083,12 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
 
 /*--- Error messages ---------------------------------------------------------*/
 
+#ifdef CYLINDRICAL
+  on_error12:
+    free_1d_array(pG->ri);
+  on_error11:
+    free_1d_array(pG->r);
+#endif
 #ifdef SELF_GRAVITY
   on_error10:
     free_3d_array(pG->x3MassFlux);

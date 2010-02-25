@@ -25,9 +25,9 @@ end;
     
 % MAKE PSEUDOCOLOR PLOT
 surf(X,Y,zeros(nx1,nx2),C);
-view([0 90]);
-axis equal;
-axis tight;
+view(2);
+% axis equal;
+% axis tight;
 shading flat;
 
 return;

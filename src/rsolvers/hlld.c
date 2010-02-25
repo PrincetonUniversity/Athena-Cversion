@@ -194,9 +194,17 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* Ul* */
   /* eqn (39) of M&K */
   Ulst.Mx = Ulst.d * spd[2];
-  if((fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) ||
-     (fabs(spd[2])/fabs(spd[0]) <= SMALL_NUMBER &&
-      fabs(Wl.Vx)/fabs(spd[0]) <= SMALL_NUMBER)) {
+//   if((fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) ||
+//      (fabs(spd[2])/fabs(spd[0]) <= SMALL_NUMBER &&
+//       fabs(Wl.Vx)/fabs(spd[0]) <= SMALL_NUMBER)) {
+//     Ulst.My = Ulst.d * Wl.Vy;
+//     Ulst.Mz = Ulst.d * Wl.Vz;
+// 
+//     Ulst.By = Ul.By;
+//     Ulst.Bz = Ul.Bz;
+//   }
+  if (fabs(Ul.d*sdl*sdml/Bxsq-1.0) < SMALL_NUMBER) {
+    /* Degenerate case */
     Ulst.My = Ulst.d * Wl.Vy;
     Ulst.Mz = Ulst.d * Wl.Vz;
 
@@ -208,17 +216,21 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     tmp = Bxi*(sdl-sdml)/(Ul.d*sdl*sdml-Bxsq);
     Ulst.My = Ulst.d * (Wl.Vy - Ul.By*tmp);
     Ulst.Mz = Ulst.d * (Wl.Vz - Ul.Bz*tmp);
+//     if(Ul.By == 0.0 && Ul.Bz == 0.0) {
+//       Ulst.By = 0.0;
+//       Ulst.Bz = 0.0;
+//     }
+//     else {
+//       /* eqns (45) and (47) of M&K */
+//       tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
+//       Ulst.By = Ul.By * tmp;
+//       Ulst.Bz = Ul.Bz * tmp;
+//     }
 
-    if(Ul.By == 0.0 && Ul.Bz == 0.0) {
-      Ulst.By = 0.0;
-      Ulst.Bz = 0.0;
-    }
-    else {
-      /* eqns (45) and (47) of M&K */
-      tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
-      Ulst.By = Ul.By * tmp;
-      Ulst.Bz = Ul.Bz * tmp;
-    }
+    /* eqns (45) and (47) of M&K */
+    tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
+    Ulst.By = Ul.By * tmp;
+    Ulst.Bz = Ul.Bz * tmp;
   }
   vbstl = (Ulst.Mx*Bxi+Ulst.My*Ulst.By+Ulst.Mz*Ulst.Bz)/Ulst.d;
   /* eqn (48) of M&K */
@@ -230,9 +242,17 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* Ur* */
   /* eqn (39) of M&K */
   Urst.Mx = Urst.d * spd[2];
-  if((fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) ||
-     (fabs(spd[2])/fabs(spd[4]) <= SMALL_NUMBER &&
-      fabs(Wr.Vx)/fabs(spd[4]) <= SMALL_NUMBER)) {
+//   if((fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) ||
+//      (fabs(spd[2])/fabs(spd[4]) <= SMALL_NUMBER &&
+//       fabs(Wr.Vx)/fabs(spd[4]) <= SMALL_NUMBER)) {
+//     Urst.My = Urst.d * Wr.Vy;
+//     Urst.Mz = Urst.d * Wr.Vz;
+// 
+//     Urst.By = Ur.By;
+//     Urst.Bz = Ur.Bz;
+//   }
+  if (fabs(Ur.d*sdr*sdmr/Bxsq-1.0) < SMALL_NUMBER) {
+    /* Degenerate case */
     Urst.My = Urst.d * Wr.Vy;
     Urst.Mz = Urst.d * Wr.Vz;
 
@@ -245,16 +265,21 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Urst.My = Urst.d * (Wr.Vy - Ur.By*tmp);
     Urst.Mz = Urst.d * (Wr.Vz - Ur.Bz*tmp);
 
-    if(Ur.By == 0.0 && Ur.Bz == 0.0) {
-      Urst.By = 0.0;
-      Urst.Bz = 0.0;
-    }
-    else {
-      /* eqns (45) and (47) of M&K */
-      tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
-      Urst.By = Ur.By * tmp;
-      Urst.Bz = Ur.Bz * tmp;
-    }
+//     if(Ur.By == 0.0 && Ur.Bz == 0.0) {
+//       Urst.By = 0.0;
+//       Urst.Bz = 0.0;
+//     }
+//     else {
+//       /* eqns (45) and (47) of M&K */
+//       tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
+//       Urst.By = Ur.By * tmp;
+//       Urst.Bz = Ur.Bz * tmp;
+//     }
+
+    /* eqns (45) and (47) of M&K */
+    tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
+    Urst.By = Ur.By * tmp;
+    Urst.Bz = Ur.Bz * tmp;
   }
   vbstr = (Urst.Mx*Bxi+Urst.My*Urst.By+Urst.Mz*Urst.Bz)/Urst.d;
   /* eqn (48) of M&K */
@@ -264,7 +289,8 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 
 /* Ul** and Ur** - if Bx is zero, same as *-states */
-  if(Bxi == 0.0) {
+//   if(Bxi == 0.0) {
+  if(0.5*Bxsq/MIN(pbl,pbr) < SQR(SMALL_NUMBER)) {
     Uldst = Ulst;
     Urdst = Urst;
   }
@@ -395,6 +421,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real tmp,mfact,bfact,X;             /* temporary variables */
   int n;
 
+  /* FROM ROE */
+  Real sqrtdl,sqrtdr,isdlpdr,idroe,v1roe,b2roe,b3roe,x,y;
+  Real bt_starsq,vaxsq,twid_csq,ct2,tsum,tdif,cf2_cs2,cfsq,cf;
 
 /*--- Step 1. ------------------------------------------------------------------
  * Convert left- and right- states in conserved to primitive variables.
@@ -420,9 +449,32 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   cfl = sqrt((gpbl + sqrt(SQR(gpbl)-4*gpl*Bxsq))/(2.0*Wl.d));
   cfr = sqrt((gpbr + sqrt(SQR(gpbr)-4*gpr*Bxsq))/(2.0*Wr.d));
 
-  spd[0] = MIN(Wl.Vx-cfl,Wr.Vx-cfr);
-  spd[4] = MAX(Wl.Vx+cfl,Wr.Vx+cfr);
- 
+//   spd[0] = MIN(Wl.Vx-cfl,Wr.Vx-cfr);
+//   spd[4] = MAX(Wl.Vx+cfl,Wr.Vx+cfr);
+
+  /* COMPUTE ROE AVERAGES */
+  sqrtdl = sqrt((double)Wl.d);
+  sqrtdr = sqrt((double)Wr.d);
+  isdlpdr = 1.0/(sqrtdl + sqrtdr);
+  idroe  = 1.0/(sqrtdl*sqrtdr);
+  v1roe = (sqrtdl*Wl.Vx + sqrtdr*Wr.Vx)*isdlpdr;
+  b2roe = (sqrtdr*Wl.By + sqrtdl*Wr.By)*isdlpdr;
+  b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
+  x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))*SQR(isdlpdr);
+  y = 0.5*(Wl.d + Wr.d)*idroe;
+
+  /* COMPUTE FAST MAGNETOSONIC SPEED */
+  bt_starsq = (SQR(b2roe) + SQR(b3roe))*y;
+  vaxsq = Bxsq*idroe;
+  twid_csq = Iso_csound2 + x;
+  ct2 = bt_starsq*idroe;
+  tsum = vaxsq + ct2 + twid_csq;
+  cfsq = 0.5*(tsum + sqrt((double)(SQR(tsum) - 4.0*twid_csq*vaxsq)));
+  cf = sqrt((double)cfsq);
+
+  spd[0] = MIN(Wl.Vx-cfl,v1roe-cf);
+  spd[4] = MAX(v1roe+cf,Wr.Vx+cfr);
+
 /*--- Step 3. ------------------------------------------------------------------
  * Compute L/R fluxes
  */
@@ -506,7 +558,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Ulst.Mx = mxhll;
 
   tmp = (spd[0]-spd[1])*(spd[0]-spd[3]);
-  if (tmp == 0) {
+//   if (tmp == 0) {
+  if ((fabs(spd[0]/spd[1]-1.0) < SMALL_NUMBER) 
+        || (fabs(spd[0]/spd[3]-1.0) < SMALL_NUMBER)) {
     /* degenerate case described below eqn. (39) */
     Ulst.My = Ul.My;
     Ulst.Mz = Ul.Mz;
@@ -533,7 +587,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Urst.Mx = mxhll;
 
   tmp = (spd[4]-spd[1])*(spd[4]-spd[3]);
-  if (tmp == 0) {
+//   if (tmp == 0) {
+  if ((fabs(spd[4]/spd[1]-1.0) < SMALL_NUMBER) 
+        || (fabs(spd[4]/spd[3]-1.0) < SMALL_NUMBER)) {
     /* degenerate case described below eqn. (39) */
     Urst.My = Ur.My;
     Urst.Mz = Ur.Mz;

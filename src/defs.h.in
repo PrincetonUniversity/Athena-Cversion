@@ -186,4 +186,10 @@ enum {LtoR_tag,
 };
 #endif /* MPI_PARALLEL */
 
+/*----------------------------------------------------------------------------*/
+
+/* Integer constants to identify directions (DO NOT CHANGE THE ORDER!!) */
+enum DIRECTION {cart_x1, cart_x2, cart_x3,
+                 cyl_x1,  cyl_x2,  cyl_x3};
+
 #endif /* DEFINITIONS_H */

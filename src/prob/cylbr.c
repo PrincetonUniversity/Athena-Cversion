@@ -5,9 +5,6 @@
  * A simple magnetostatic test of force balance using a B-field with uniform
  * R-component.  
  *
- *
- *
- *
  *============================================================================*/
 
 #include <math.h>
@@ -24,16 +21,16 @@
 #error This problem only works for adiabatic MHD...
 #endif 
 
-static Real br, omega, vz, rho, a;
+static Real br0, omega0, vz0, rho0, pgas0, a, x2min, x2max;
 static int iprob;
 
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   switch (iprob) {
-    case 1:   return 0.5*SQR(x1*omega);
+    case 1:   return 0.5*SQR(x1*omega0);
               break;
-    case 2:   return 0.5*SQR(x1*omega) - 0.5*SQR(br/x1);
+    case 2:   return 0.5*SQR(x1*omega0) - 0.5*SQR(br0/x1);
               break;
-    case 3:   return 0.5*SQR(x1*omega) + 2.0*log(x1);
+    case 3:   return 0.5*SQR(x1*omega0) - 0.5*SQR(br0)/SQR(x1);
               break;
     default:  return 0.0;
   }
@@ -41,21 +38,19 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
 
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   switch (iprob) {
-    case 1:   return x1*SQR(omega);
+    case 1:   return x1*SQR(omega0);
               break;
-    case 2:   return x1*SQR(omega) + SQR(br)/pow(x1,3);
+    case 2:   return x1*SQR(omega0) + SQR(br0)/pow(x1,3);
               break;
-    case 3:   return x1*SQR(omega) + 2.0/x1;
+    case 3:   return x1*SQR(omega0) + SQR(br0)/pow(x1,3);
               break;
     default:  return 0.0;
   }
 }
 
-void cylbr_ir_bc(Grid *pG, int var_flag);
-void cylbr_or_bc(Grid *pG, int var_flag);
-
 static Gas ***Soln=NULL;
-
+void cylbr_ix1(Grid *pG);
+void cylbr_ox1(Grid *pG);
 
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -67,43 +62,43 @@ void problem(Grid *pG, Domain *pDomain)
   int i,j,k;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
   int nx1,nx2,nx3;
-  Real x1,x2,x3,x1i,x2i,x3i,r1,r2,phi1,phi2,pgas,magE,kinE,tlim;
-  Real x1min, x1max, x2min, x2max, x3min, x3max;
-  Real divB=0.0, maxdivB=0.0;
+  Real x1,x2,x3,x1i,x2i,x3i,r1,r2,phi1,phi2,tlim;
+//   Real x1min,x1max,x2min,x2max,x3min,x3max;
+  Real Eint,Ekin,Emag,pgas,vphi;
   Real y1,y2,y3;
 
-  is = pG->is;  ie = pG->ie;
-  js = pG->js;  je = pG->je;
-  ks = pG->ks;  ke = pG->ke;
+  is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
+  js = pG->js;  je = pG->je;  nx2 = je-js+1;
+  ks = pG->ks;  ke = pG->ke;  nx3 = ke-ks+1;
 
-  il = is-nghost;  iu = ie+nghost;
-  jl = js-nghost;  ju = je+nghost;
-  if (ke-ks == 0) {
-    kl = ks;  ku = ke; 
-  } else {
-    kl = ks-nghost;  ku = ke+nghost;
+  il = is-nghost*(nx1>1);  iu = ie+nghost*(nx1>1);  nx1 = iu-il+1;
+  jl = js-nghost*(nx2>1);  ju = je+nghost*(nx2>1);  nx2 = ju-jl+1;
+  kl = ks-nghost*(nx3>1);  ku = ke+nghost*(nx3>1);  nx3 = ku-kl+1;
+
+#ifndef CYLINDRICAL
+  ath_error("[cylbr]: This problem only works in cylindrical!\n");
+#endif
+
+  if (nx1==1) {
+    ath_error("[cylbr]: This problem can only be run in 2D or 3D!\n");
+  }
+  else if (nx2==1 && nx3>1) {
+    ath_error("[cylbr]: Only (R,phi) can be used in 2D!\n");
   }
 
-  nx1 = iu-il+1;
-  nx2 = ju-jl+1;
-  nx3 = ku-kl+1;
-
-  if ((nx2 == 1) && (nx3 == 1)) {
-    ath_error("[field_loop]: This problem can only be run in 2D or 3D\n");
-  }
-
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
+//   x1min = par_getd("grid","x1min");
+//   x1max = par_getd("grid","x1max");
   x2min = par_getd("grid","x2min");
   x2max = par_getd("grid","x2max");
-  x3min = par_getd("grid","x3min");
-  x3max = par_getd("grid","x3max");
+//   x3min = par_getd("grid","x3min");
+//   x3max = par_getd("grid","x3max");
   a = 2.0*PI/(x2max-x2min);
 
-  omega  = par_getd("problem", "omega");
-  vz     = par_getd("problem", "vz");
-  br     = par_getd("problem", "br");
-  rho    = par_getd("problem", "rho");
+  omega0 = par_getd("problem", "omega0");
+  vz0    = par_getd("problem", "vz0");
+  br0    = par_getd("problem", "br0");
+  rho0   = par_getd("problem", "rho0");
+  pgas0  = par_getd("problem", "pgas0");
   iprob  = par_geti("problem", "iprob");
 
 
@@ -124,60 +119,49 @@ void problem(Grid *pG, Domain *pDomain)
         phi2 = x2 + 0.5*pG->dx2;
 
         switch (iprob) {
-          case 1:   pG->U[k][j][i].d   = rho;
-                    pG->B1i[k][j][i]   = br/r1;
-                    pG->U[k][j][i].B1c = br/x1;
+          case 1:   pG->U[k][j][i].d   = rho0;
+                    pG->B1i[k][j][i]   = br0/r1;
+                    pG->U[k][j][i].B1c = br0/x1;
                     pgas = 1.0;
                     break;
           case 2:   pG->U[k][j][i].d   = SQR(sin(a*x2));
-                    pG->B1i[k][j][i]   = br*cos(a*x2)/r1;
-                    pG->U[k][j][i].B1c = br*cos(a*x2)/x1;
-                    pgas = 1.0 + 0.5*SQR(br*sin(a*x2)/x1);
+                    pG->B1i[k][j][i]   = br0*cos(a*x2)/r1;
+                    pG->U[k][j][i].B1c = br0*cos(a*x2)/x1;
+                    pgas = 1.0 + 0.5*SQR(br0*sin(a*x2)/x1);
                     break;
-          case 3:   pG->U[k][j][i].d   = (0.5*SQR(br)/SQR(x1))*(SQR(sin(a*x2))+1.0);
-                    pG->B1i[k][j][i]   = br*cos(a*x2)/r1;
-                    pG->U[k][j][i].B1c = br*cos(a*x2)/x1;
-                    pgas = pG->U[k][j][i].d;
+         case 3:    vphi = omega0*y1;
+                    pG->U[k][j][i].d   = rho0 + SQR(sin(a*(x2-x2min)));
+                    pG->B1i[k][j][i]   = br0*(cos(a*(x2-x2min)))/r1;
+                    pG->U[k][j][i].B1c = br0*(cos(a*(x2-x2min)))/x1;
+                    pgas = pgas0 + 0.5*SQR(br0)*pG->U[k][j][i].d/SQR(x1);
                     break;
           default:  ath_error("[cylbr]:  Not an accepted problem number\n");
         }
 
         pG->U[k][j][i].M1 = 0.0;
-//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*y1*omega;
-        pG->U[k][j][i].M3 = pG->U[k][j][i].d*vz;
+        pG->U[k][j][i].M2 = pG->U[k][j][i].d*vphi;
+//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*y1*omega0;
+        pG->U[k][j][i].M3 = pG->U[k][j][i].d*vz0;
 
-        magE = 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
-        kinE = 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d; 
-        pG->U[k][j][i].E = pgas/Gamma_1 + magE + kinE;
+        Eint = pgas/Gamma_1;
+// printf("(%d,%d,%d) Pg = %f\n", i,j,k,pgas);
+        Emag = 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
+        Ekin = 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d; 
+        pG->U[k][j][i].E = Eint + Emag + Ekin;
 
-      }
-    }
-  }
-
-
-
-/* SAVE SOLUTION */
-  for (k=kl; k<=ku; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
+        /* SAVE SOLUTION */
         Soln[k][j][i] = pG->U[k][j][i];
       }
     }
   }
 
-
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-//   set_bvals_fun(left_x1,do_nothing_bc);
-//   set_bvals_fun(right_x1,do_nothing_bc);
-
-  set_bvals_fun(left_x1,cylbr_ir_bc);
-  set_bvals_fun(right_x1,cylbr_or_bc);
+  set_bvals_mhd_fun(left_x1,cylbr_ix1);
+  set_bvals_mhd_fun(right_x1,cylbr_ox1);
 
   return;
 }
-
 
 
 
@@ -186,6 +170,8 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_write_restart() - writes problem-specific user data to restart files
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
+ * get_usr_out_fun()       - returns a user defined output function pointer
+ * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
@@ -205,165 +191,134 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pG, Domain *pDomain)
-{
-//   printf("Max divB = %1.10e\n", compute_div_b(pG));
+VGFunout_t get_usr_out_fun(const char *name){
+  return NULL;
 }
 
-/*---------------------------------------------------------------------------
- * Userwork_after_loop: computes L1-error in linear waves,
- * ASSUMING WAVE HAS PROPAGATED AN INTEGER NUMBER OF PERIODS
- * Must set parameters in input file appropriately so that this is true
- */
+#ifdef PARTICLES
+PropFun_t get_usr_par_prop(const char *name)
+{
+  return NULL; 
+}
+
+void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3)
+{
+  return;
+}
+
+void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, Real *w1, Real *w2, Real *w3)
+{
+  return;
+}
+#endif
+
+void Userwork_in_loop(Grid *pG, Domain *pDomain)
+{
+}
 
 void Userwork_after_loop(Grid *pG, Domain *pDomain)
 {
- compute_l1_error("CylBR", pG, pDomain, Soln, 0);
+  compute_l1_error("CylBR", pG, pDomain, Soln, 0);
 }
 
 
 
-/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*============================================================================
+ * BOUNDARY CONDITION FUNCTIONS
+ *============================================================================*/
 
-/*-----------------------------------------------------------------------------
- * Function cylbr_or_bc
- *
- * Time-dependent boundary condition for outer-R boundary.  The initial 
- * boundary values are simply advected in the phi-direction by solid-body 
- * rotation.
+/*----------------------------------------------------------------------------*/
+/* B_R = B_0/R boundary conditions, Inner x1 boundary
  */
-void cylbr_or_bc(Grid *pG, int var_flag)
+
+void cylbr_ix1(Grid *pG)
 {
+  int is = pG->is;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  int is,ie,js,je,ks,ke,il,iu,jl,ju,kl,ku;
-  Real x1,x2,x3,r1,r2,phi1,phi2,pgas,magE,kinE;
-  Real y1,y2,y3;
+  Real x1,x2,x3,y1,y2,y3,r1,r2;
+  Real phi0,Eint,Emag,Ekin,vphi,pgas,C;
 
-  if (var_flag == 1) return;
-
-  is = pG->is; ie = pG->ie;
-  js = pG->js; je = pG->je;
-  ks = pG->ks; ke = pG->ke;
-
-  il = is-nghost;  iu = ie+nghost;
-  jl = js-nghost;  ju = je+nghost;
-  if (ke-ks == 0) {
-    kl = ks;  ku = ke; 
-  } else {
-    kl = ks-nghost;  ku = ke+nghost;
-  }
-
-  for (k=kl; k<=ku; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=ie+1; i<=iu; i++) {
-        cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        vc_pos(pG,i,j,k,&y1,&y2,&y3);
-
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      cc_pos(pG,is,j,k,&x1,&x2,&x3);
+      phi0 = a*(x2 - omega0*pG->time - x2min);
+      C = (x1-0.5*pG->dx1)*pG->B1i[k][j][is];
+      for (i=1; i<=nghost; i++) {
+        cc_pos(pG,is-i,j,k,&x1,&x2,&x3);
+        vc_pos(pG,is-i,j,k,&y1,&y2,&y3);
         r1 = x1 - 0.5*pG->dx1;
         r2 = x1 + 0.5*pG->dx1;
-        phi1 = x2 - 0.5*pG->dx2;
-        phi2 = x2 + 0.5*pG->dx2;
-        x2 = x2 - omega*pG->time;
 
-        switch (iprob) {
-          case 1:   pG->U[k][j][i].d   = rho;
-                    pG->B1i[k][j][i]   = br/r1;
-                    pG->U[k][j][i].B1c = br/x1;
-                    pgas = 1.0;
-                    break;
-          case 2:   pG->U[k][j][i].d   = SQR(sin(a*x2));
-                    pG->B1i[k][j][i]   = br*cos(a*x2)/r1;
-                    pG->U[k][j][i].B1c = br*cos(a*x2)/x1;
-                    pgas = 1.0 + 0.5*SQR(br*sin(a*x2)/x1);
-                    break;
-          case 3:   pG->U[k][j][i].d   = (0.5*SQR(br)/SQR(x1))*(SQR(sin(a*x2))+1.0);
-                    pG->B1i[k][j][i]   = br*cos(a*x2)/r1;
-                    pG->U[k][j][i].B1c = br*cos(a*x2)/x1;
-                    pgas = pG->U[k][j][i].d;
-                    break;
-          default:  printf("[cylbr_or_bc]:  Not an accepted problem number\n");
-        }
-        pG->U[k][j][i].M1 = 0.0;
-//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*y1*omega;
-        pG->U[k][j][i].M3 = pG->U[k][j][i].d*vz;
+        vphi = omega0*y1;
+//         pG->U[k][j][is-i].d   = rho0 + SQR(sin(phi0));
+        pG->U[k][j][is-i].d   = pG->U[k][j][is].d;
+//         pG->B1i[k][j][is-i]   = br0*(cos(phi0))/r1;
+//         pG->U[k][j][is-i].B1c = br0*(cos(phi0))/x1;
+        pG->B1i[k][j][is-i]   = C/r1;
+        pG->U[k][j][is-i].B1c = C/x1;
+        pgas = pgas0 + 0.5*SQR(br0)*pG->U[k][j][is-i].d/SQR(x1);
 
-        magE = 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
-        kinE = 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d; 
-        pG->U[k][j][i].E = pgas/Gamma_1 + magE + kinE;
+        pG->U[k][j][is-i].M1 = 0.0;
+        pG->U[k][j][is-i].M2 = pG->U[k][j][is-i].d*vphi;
+        pG->U[k][j][is-i].M3 = pG->U[k][j][is-i].d*vz0;
+
+        Eint = pgas/Gamma_1;
+        Emag = 0.5*(SQR(pG->U[k][j][is-i].B1c) + SQR(pG->U[k][j][is-i].B2c) + SQR(pG->U[k][j][is-i].B3c));
+        Ekin = 0.5*(SQR(pG->U[k][j][is-i].M1) + SQR(pG->U[k][j][is-i].M2) + SQR(pG->U[k][j][is-i].M3))/pG->U[k][j][is-i].d; 
+        pG->U[k][j][is-i].E = Eint + Emag + Ekin;
       }
     }
   }
+
+  return;
 }
 
-/*-----------------------------------------------------------------------------
- * Function cylbr_ir_bc
- *
- * Time-dependent boundary condition for inner-R boundary.  The initial 
- * boundary values are simply advected in the phi-direction by solid-body 
- * rotation.
+/*----------------------------------------------------------------------------*/
+/* B_R = B_0/R boundary conditions, Outer x1 boundary
  */
-void cylbr_ir_bc(Grid *pG, int var_flag)
+
+void cylbr_ox1(Grid *pG)
 {
+  int ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  int is,ie,js,je,ks,ke,il,iu,jl,ju,kl,ku;
-  Real x1,x2,x3,r1,r2,phi1,phi2,pgas,magE,kinE;
-  Real y1,y2,y3;
+  Real x1,x2,x3,y1,y2,y3,r1,r2;
+  Real phi0,Eint,Emag,Ekin,vphi,pgas,C;
 
-  if (var_flag == 1) return;
-
-  is = pG->is; ie = pG->ie;
-  js = pG->js; je = pG->je;
-  ks = pG->ks; ke = pG->ke;
-
-  il = is-nghost;  iu = ie+nghost;
-  jl = js-nghost;  ju = je+nghost;
-  if (ke-ks == 0) {
-    kl = ks;  ku = ke; 
-  } else {
-    kl = ks-nghost;  ku = ke+nghost;
-  }
-
-  for (k=kl; k<=ku; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=0; i<=is-1; i++) {
-        cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        vc_pos(pG,i,j,k,&y1,&y2,&y3);
-
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      cc_pos(pG,ie,j,k,&x1,&x2,&x3);
+      phi0 = a*(x2 - omega0*pG->time - x2min);
+      C = x1*pG->U[k][j][ie].B1c;
+      for (i=1; i<=nghost; i++) {
+        cc_pos(pG,ie+i,j,k,&x1,&x2,&x3);
+        vc_pos(pG,ie+i,j,k,&y1,&y2,&y3);
         r1 = x1 - 0.5*pG->dx1;
         r2 = x1 + 0.5*pG->dx1;
-        phi1 = x2 - 0.5*pG->dx2;
-        phi2 = x2 + 0.5*pG->dx2;
-        x2 = x2 - omega*pG->time;
 
-        switch (iprob) {
-          case 1:   pG->U[k][j][i].d   = rho;
-                    pG->B1i[k][j][i]   = br/r1;
-                    pG->U[k][j][i].B1c = br/x1;
-                    pgas = 1.0;
-                    break;
-          case 2:   pG->U[k][j][i].d   = SQR(sin(a*x2));
-                    pG->B1i[k][j][i]   = br*cos(a*x2)/r1;
-                    pG->U[k][j][i].B1c = br*cos(a*x2)/x1;
-                    pgas = 1.0 + 0.5*SQR(br*sin(a*x2)/x1);
-                    break;
-          case 3:   pG->U[k][j][i].d   = (0.5*SQR(br)/SQR(x1))*(SQR(sin(a*x2))+1.0);
-                    pG->B1i[k][j][i]   = br*cos(a*x2)/r1;
-                    pG->U[k][j][i].B1c = br*cos(a*x2)/x1;
-                    pgas = pG->U[k][j][i].d;
-                    break;
-          default:  printf("[cylbr_ir_bc]:  Not an accepted problem number\n");
-        }
-        pG->U[k][j][i].M1 = 0.0;
-//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*y1*omega;
-        pG->U[k][j][i].M3 = pG->U[k][j][i].d*vz;
+        vphi = omega0*y1;
+//         pG->U[k][j][ie+i].d   = rho0 + SQR(sin(phi0));
+        pG->U[k][j][ie+i].d   = pG->U[k][j][ie].d;
+//         pG->B1i[k][j][ie+i]   = br0*(cos(phi0))/r1;
+//         pG->U[k][j][ie+i].B1c = br0*(cos(phi0))/x1;
+        pG->B1i[k][j][ie+i]   = C/r1;
+        pG->U[k][j][ie+i].B1c = C/x1;
+        pgas = pgas0 + 0.5*SQR(br0)*pG->U[k][j][ie+i].d/SQR(x1);
 
-        magE = 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
-        kinE = 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d; 
-        pG->U[k][j][i].E = pgas/Gamma_1 + magE + kinE;
+        pG->U[k][j][ie+i].M1 = 0.0;
+        pG->U[k][j][ie+i].M2 = pG->U[k][j][ie+i].d*vphi;
+        pG->U[k][j][ie+i].M3 = pG->U[k][j][ie+i].d*vz0;
+
+        Eint = pgas/Gamma_1;
+        Emag = 0.5*(SQR(pG->U[k][j][ie+i].B1c) + SQR(pG->U[k][j][ie+i].B2c) + SQR(pG->U[k][j][ie+i].B3c));
+        Ekin = 0.5*(SQR(pG->U[k][j][ie+i].M1) + SQR(pG->U[k][j][ie+i].M2) + SQR(pG->U[k][j][ie+i].M3))/pG->U[k][j][ie+i].d; 
+        pG->U[k][j][ie+i].E = Eint + Emag + Ekin;
       }
     }
   }
-}
 
+  return;
+}

@@ -209,7 +209,7 @@ void integrate_3d_ctu(DomainS *pD)
        W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
      }
 
-     lr_states(W,Bxc,dtodx1,il+1,iu-1,Wl,Wr);
+     lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,cart_x1);
 
 #ifdef MHD
       for (i=il+1; i<=iu; i++) {
@@ -414,7 +414,7 @@ void integrate_3d_ctu(DomainS *pD)
         W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
       }
 
-      lr_states(W,Bxc,dtodx2,jl+1,ju-1,Wl,Wr);
+      lr_states(pG,W,Bxc,pG->dt,pG->dx2,jl+1,ju-1,Wl,Wr,cart_x2);
 
 #ifdef MHD
       for (j=jl+1; j<=ju; j++) {
@@ -594,7 +594,7 @@ void integrate_3d_ctu(DomainS *pD)
         W[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
       }
 
-      lr_states(W,Bxc,dtodx3,kl+1,ku-1,Wl,Wr);
+      lr_states(pG,W,Bxc,pG->dt,pG->dx3,kl+1,ku-1,Wl,Wr,cart_x3);
 
 #ifdef MHD
       for (k=kl+1; k<=ku; k++) {

@@ -25,29 +25,33 @@
 #include "prototypes.h"
 #include "cyl.h"
 
-static Real r0,phi0,amp,rad,omega,vz0;
 
-static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  return 0.5*SQR(x1*omega);
-}
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * grav_pot() - gravitational potential
+ * grav_acc() - gravitational acceleration
+ *============================================================================*/
 
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return x1*SQR(omega);
-}
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
+static Real grav_acc(const Real x1, const Real x2, const Real x3);
 
-static Gas ***Soln=NULL;
+static Real omega;
+static ConsS ***RootSoln=NULL;
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* problem:   */
+/* problem:  */
 
-void problem(Grid *pG, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pG = pDomain->Grid;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   int il,iu,jl,ju,kl,ku;
   Real X0,Y0,X,Y,R1,R2,dist;
   Real x1,x2,x3,x1i,x2i,x3i,y1,y2,y3;
   Real **a3;
+  Real r0,phi0,amp,rad,vz0;
 
   is = pG->is;  ie = pG->ie;
   js = pG->js;  je = pG->je;
@@ -74,7 +78,7 @@ void problem(Grid *pG, Domain *pDomain)
   }
 
   /* ALLOCATE MEMORY FOR SOLUTION */
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+  if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylfieldloop]: Error allocating memory for solution\n");
 
   /* READ INITIAL CONDITIONS */
@@ -114,7 +118,7 @@ void problem(Grid *pG, Domain *pDomain)
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
         vc_pos(pG,i,j,k,&y1,&y2,&y3);
-        memset(&(pG->U[k][j][i]),0.0,sizeof(Gas));
+        memset(&(pG->U[k][j][i]),0.0,sizeof(ConsS));
         R1 = x1 - 0.5*pG->dx1;
 
         pG->U[k][j][i].d = 1.0;
@@ -155,23 +159,23 @@ void problem(Grid *pG, Domain *pDomain)
           pG->U[k][j][i].B3c = pG->B3i[k][j][i];
 
 #ifndef ISOTHERMAL
-        pG->U[k][j][i].E = 1.0/Gamma_1 
+        pG->U[k][j][i].E = 1.0/Gamma_1
           + 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c))
           + 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d;
 #endif /* ISOTHERMAL */
 
         // SAVE SOLUTION
-        Soln[k][j][i] = pG->U[k][j][i];
+        RootSoln[k][j][i] = pG->U[k][j][i];
       }
     }
   }
 
-  free_3d_array((void***)a3);
+  free_2d_array((void**)a3);
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_mhd_fun(left_x1,do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain, left_x1, do_nothing_bc);
+  bvals_mhd_fun(pDomain, right_x1, do_nothing_bc);
 
   return;
 }
@@ -180,6 +184,8 @@ void problem(Grid *pG, Domain *pDomain)
  * PROBLEM USER FUNCTIONS:
  * problem_write_restart() - writes problem-specific user data to restart files
  * problem_read_restart()  - reads problem-specific user data from restart files
+ * Emag()                  - computes magnetic pressure (Bx^2 + By^2)
+ * divB()                  - computes divergence of magnetic field
  * get_usr_expr()          - sets pointer to expression for special output data
  * get_usr_out_fun()       - returns a user defined output function pointer
  * get_usr_par_prop()      - returns a user defined particle selection function
@@ -187,31 +193,65 @@ void problem(Grid *pG, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+#ifdef MHD
+static Real Emag(const GridS *pG, const int i, const int j, const int k)
 {
+  return (SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
+}
+
+static Real divB(const GridS *pG, const int i, const int j, const int k)
+{
+  Real qa,x1,x2,x3;
+
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  qa = ((x1+0.5*pG->dx1)*pG->B1i[k][j][i+1] - (x1-0.5*pG->dx1)*pG->B1i[k][j][i])/(x1*pG->dx1)
+        + (pG->B2i[k][j+1][i] - pG->B2i[k][j][i])/(x1*pG->dx2);
+  if (pG->Nx[2] > 1)
+    qa += (pG->B3i[k+1][j][i] - pG->B3i[k][j][i])/(pG->dx3);
+
+  return qa;
+}
+#endif
+
+ConsFun_t get_usr_expr(const char *expr)
+{
+#ifdef MHD
+  if(strcmp(expr,"Emag")==0) return Emag;
+  else if(strcmp(expr,"divB")==0) return divB;
+#endif
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pG, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
-//   printf("Max divB = %1.10e\n", compute_div_b(pG));
 }
 
-void Userwork_after_loop(Grid *pG, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
-  compute_l1_error("CylFieldLoop", pG, pDomain, Soln, 0);
+  compute_l1_error("CylFieldLoop", pM, RootSoln);
+}
+
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+  return 0.5*SQR(x1*omega);
+}
+
+static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+  return x1*SQR(omega);
 }

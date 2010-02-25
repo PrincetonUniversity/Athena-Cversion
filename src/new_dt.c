@@ -46,6 +46,7 @@ void new_dt(MeshS *pM)
 #endif /* SPECIAL RELATIVITY */
   int nl,nd;
   Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
+  Real x1,x2,x3;
 
 /* Loop over all Domains with a Grid on this processor -----------------------*/
 
@@ -117,7 +118,8 @@ void new_dt(MeshS *pM)
           max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
         if (pGrid->Nx[1] > 1)
 #ifdef CYLINDRICAL
-          max_v2 = MAX(max_v2,(fabs(v2)+sqrt((double)cf2sq))/r[i]);
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          max_v2 = MAX(max_v2,(fabs(v2)+sqrt((double)cf2sq))/x1);
 #else
           max_v2 = MAX(max_v2,fabs(v2)+sqrt((double)cf2sq));
 #endif

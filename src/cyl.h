@@ -9,23 +9,23 @@
 /*============================================================================
  * CONVERSION FUNCTIONS
  *============================================================================*/
-void Gas_to_Prim(const Gas *pU, Prim *pW);
-void Prim_to_Gas(Gas *pU, const Prim *pW);
+// void Cons_to_Prim(const ConsS *pU, PrimS *pW);
+void Prim_to_Cons(ConsS *pU, const PrimS *pW);
 
 /*============================================================================
  * BOUNDARY CONDITION FUNCTIONS
  *============================================================================*/
-void do_nothing_bc(Grid *pG);
-void diode_outflow_ix1(Grid *pGrid);
-void diode_outflow_ox1(Grid *pGrid);
-void diode_outflow_ix3(Grid *pGrid);
-void diode_outflow_ox3(Grid *pGrid);
+void do_nothing_bc(GridS *pG);
+void diode_outflow_ix1(GridS *pGrid);
+void diode_outflow_ox1(GridS *pGrid);
+void diode_outflow_ix3(GridS *pGrid);
+void diode_outflow_ox3(GridS *pGrid);
 
 /*============================================================================
  * ERROR-ANALYSIS FUNCTIONS
  *============================================================================*/
-Real compute_div_b(Grid *pG);
-void compute_l1_error(char *problem, Grid *pG, Domain *pDomain, Gas ***Soln, const int errortype);
+Real compute_div_b(GridS *pG);
+void compute_l1_error(char *problem, MeshS *pM, ConsS ***RootSoln);
 
 /*============================================================================
  * ROOT-FINDING FUNCTIONS

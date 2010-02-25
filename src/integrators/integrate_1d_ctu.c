@@ -125,7 +125,7 @@ void integrate_1d_ctu(DomainS *pD)
     W[i] = Cons1D_to_Prim1D(&U1d[i], &Bxc[i]);
   }
 
-  lr_states(W,Bxc,dtodx1,il+1,iu-1,Wl,Wr);
+  lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,cart_x1);
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
