@@ -1,10 +1,12 @@
-function [i,j,k,onfacei,onfacej,onfacek] = xyz_to_ijk(Grid,x,y,z)
+%ATH_XYZ_TO_IJK    Convert from xyz to ijk coordinates
 % 
-% xyz_to_ijk:  CONVERT A SPATIAL COORDINATE TO ITS CORRESPONDING GRID
-% COORDINATE--SORT OF THE OPPOSITE OF ATHENA'S cc_pos.  
+%   [I,J,K] = ATH_XYZ_TO_IJK(GRID,X,Y,Z) converts the coordinate(s) of the
+%   spatial (but not necessarily geometric) center(s) (X,Y,Z) to the grid
+%   coordinate(s) (I,J,K), like an inverse of Athena's cc_pos().
 %
-% AUTHOR:  AARON SKINNER
-% LAST MODIFIED:  10/06/09
+%   AUTHOR:  Aaron Skinner
+%   LAST MODIFIED:  2/1/2010
+function [i,j,k,onfacei,onfacej,onfacek] = ath_xyz_to_ijk(Grid,x,y,z)
 
 tol = 1E-6;
 onfacei = 0;

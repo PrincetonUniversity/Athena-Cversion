@@ -1,15 +1,19 @@
-function [X,Y,Z,status] = slice_xyz(Grid,var,x,y,z,interp)
-% 
-% slice_xyz:  CREATE A 2D SLICE OF A GIVEN VARIABLE USING SPATIAL 
-% COORDINATES.  EXACTLY TWO OF x,y,z MUST BE VECTORS OF COORDINATES, THE 
-% REMAINING ONE BEING THE FIXED VALUE THROUGH WHICH TO TAKE THE SLICE.  IF
-% IT IS DETERMINED THAT THIS FIXED VALUE LIES BETWEEN GRID ZONES (E.G. FOR
-% AN EVEN GRID), AN OPTIONAL INTERPOLATION FLAG MAY BE SET TO 1 AND THE
-% AVERAGE OF THE TWO ADJACENT SLICES WILL BE RETURNED.  NOTE THAT IN THE
-% CASE OF (ANTI-)SYMMETRY FOR AN EVEN GRID, THIS INTERPOLATION IS EXACT.
+%ATH_SLICE_XYZ    Slice resampling using xyz coordinates
 %
-% AUTHOR:  AARON SKINNER
-% LAST MODIFIED:  10/06/09
+%   [X,Y,Z,STATUS] = ATH_SLICE_XYZ(GRID,VAR,X,Y,Z,INTERP) creates a 2D
+%   slice of a given variable VAR using spatial coordinates.  Exactly two
+%   of X, Y, Z must be vectors of coordinates, the remaining one being the
+%   fixed value through which to take the slice.  If it is determined that
+%   this fixed value lies between grid zones (e.g. for an even grid), the
+%   interpolation flag INTERP may be set to 1 and the average of the two
+%   adjacent slices will be returned.  Note that in the case of
+%   (anti)-symmetry for an even grid, this interpolation is exact.  
+% 
+%   See also ATH_SLICE_IJK
+% 
+%   AUTHOR:  Aaron Skinner
+%   LAST MODIFIED:  2/1/2010
+function [X,Y,Z,status] = ath_slice_xyz(Grid,var,x,y,z,interp)
 
 % TRANSFORM IN CYLINDRICAL CASE?
 transform = true;
@@ -27,11 +31,11 @@ elseif (lenx>1 && leny>1 && lenz==1)
     dir = 3;
 else
     status = -1;
-    fprintf(2,'[slice_xyz]:  Exactly two of x,y,z must be vectors!\n');
+    fprintf(2,'[ath_slice_xyz]:  Exactly two of x,y,z must be vectors!\n');
     return;
 end;
 
-[i,j,k,onfacei,onfacej,onfacek] = xyz_to_ijk(Grid,x,y,z);
+[i,j,k,onfacei,onfacej,onfacek] = ath_xyz_to_ijk(Grid,x,y,z);
 
 % COMPUTE SLICE
 switch (dir)

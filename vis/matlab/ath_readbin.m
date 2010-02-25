@@ -1,9 +1,22 @@
-function [time,dt,var,status] = readbin(Grid,filename,varname)
+%ATH_READBIN    Read in Athena .bin files
 % 
-% readbin:  READS A .bin FILE AND RETURNS THE DESIRED VARIABLE.
+%   [TIME,DT,VAR,STATUS] = ATH_READBIN(GRID,FILENAME,VARNAME) reads .bin
+%   file at location FILENAME and returns the desired variable indicated by
+%   the string VARNAME.  If the flag consistency_check is set to true, then
+%   a check is performed to ensure that the same grid metadata is used in
+%   each opened file.
 %
-% AUTHOR:  AARON SKINNER
-% LAST MODIFIED:  6/29/09
+%   The only supported strings for VARNAME are
+%       'd'             - density
+%       'M1','M2','M3'  - momentum components
+%       'E'             - total energy
+%       'B1','B2','B3'  - magnetic field components
+%
+%   For a longer list of derived variables, see ATH_GETVAR
+%
+%   AUTHOR:  Aaron Skinner
+%   LAST MODIFIED:  2/1/2010
+function [time,dt,var,status] = ath_readbin(Grid,filename,varname)
 
 consistency_check = false;
 time = 0.0;
@@ -12,9 +25,9 @@ var = [];
 status = 0;
 
 % PARSE FILENAME AND TEST TO SEE IF .bin
-[path,basename,step,ext] = parse_filename(filename);
+[path,basename,step,ext] = ath_parse_filename(filename);
 if (~strcmp(ext,'.bin'))
-    fprintf(2,'[readbin]:  %s is not a .bin file!\n', filename);
+    fprintf(2,'[ath_readbin]:  %s is not a .bin file!\n', filename);
     status = -1;
     return;
 end;
@@ -22,7 +35,7 @@ end;
 % OPEN FILE FOR READING
 [fid, message] = fopen(filename,'r');
 if (fid==-1)
-    fprintf(2,'[readbin]:  %s could not be opened!\n', filename);
+    fprintf(2,'[ath_readbin]:  %s could not be opened!\n', filename);
     fprintf(2,'%s', message);
     status = -1;
     return;
@@ -65,7 +78,8 @@ if (consistency_check)
     warn = warn && (gamma_1    == Grid.gamma_1   );
     warn = warn && (iso_csound == Grid.iso_csound);
     if (warn)
-        fprintf(2,'[readbin]:  %s failed consistency check!\n',filename);
+        fprintf(2, ...
+            '[ath_readbin]:  %s failed consistency check!\n',filename);
         status = -1;
         return;
     else
@@ -117,7 +131,7 @@ switch(varname)
         end;
     otherwise
         status = -1;
-        fprintf('[readbin]:  %s is not a valid variable!\n',varname);
+        fprintf('[ath_readbin]:  %s is not a valid variable!\n',varname);
         return;
 end;
 
@@ -127,7 +141,7 @@ time = fread(fid,1,'float');
 dt   = fread(fid,1,'float');
 
 % SET THE FILE POINTER TO THE BEGINNING OF THE DATA
-offset = Grid.data_offset + skip*N*sizeof('single');
+offset = Grid.data_offset + skip*N*ath_sizeof('single');
 fseek(fid,offset,'bof');
 
 % READ IN CELL-CENTERED DATA
@@ -136,7 +150,7 @@ var = reshape(fread(fid,N,'float'),nx1,nx2,nx3);
 % CLOSE FILE
 status = fclose(fid);
 if (status == -1)
-    fprintf(2,'[readbin]:  %s could not be closed!\n', filename);
+    fprintf(2,'[ath_readbin]:  %s could not be closed!\n', filename);
 end;
 
 return;
