@@ -156,19 +156,22 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx1_id >= 0 && pGrid->lx1_id >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_id,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_id,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_ix1(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_ox1(pGrid); 
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
+
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
 
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
@@ -184,16 +187,19 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx1_id >= 0 && pGrid->lx1_id < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_id,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_ox1(pGrid); 
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
       (*(pD->ix1_BCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
@@ -205,16 +211,19 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx1_id < 0 && pGrid->lx1_id >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_id,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_ix1(pGrid); 
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
       (*(pD->ox1_BCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
@@ -249,19 +258,22 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_id,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_id,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_ix2(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_ox2(pGrid); 
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
+
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
 
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
@@ -277,16 +289,19 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx2_id >= 0 && pGrid->lx2_id < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_id,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_ox2(pGrid); 
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
       (*(pD->ix2_BCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
@@ -298,16 +313,19 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx2_id < 0 && pGrid->lx2_id >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_id,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_ix2(pGrid); 
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
       (*(pD->ox2_BCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
@@ -352,19 +370,22 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_id,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_id,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_ix3(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_ox3(pGrid); 
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
+
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
 
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
@@ -380,16 +401,19 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx3_id >= 0 && pGrid->lx3_id < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_id,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_ox3(pGrid); 
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
       (*(pD->ix3_BCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
@@ -401,16 +425,19 @@ void bvals_mhd(DomainS *pD)
     if (pGrid->rx3_id < 0 && pGrid->lx3_id >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_id,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_ix3(pGrid); 
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
       (*(pD->ox3_BCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
@@ -2219,7 +2246,8 @@ static void pack_ix1(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pSnd = send_buf[0];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
 
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
@@ -2290,7 +2318,8 @@ static void pack_ox1(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pSnd = send_buf[1];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
 
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
@@ -2360,7 +2389,8 @@ static void pack_ix2(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pSnd = send_buf[0];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=js+(nghost-1); j++) {
@@ -2431,7 +2461,8 @@ static void pack_ox2(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pSnd = send_buf[1];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
 
   for (k=ks; k<=ke; k++){
     for (j=je-(nghost-1); j<=je; j++){
@@ -2499,7 +2530,8 @@ static void pack_ix3(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pSnd = send_buf[0];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
 
   for (k=ks; k<=ks+(nghost-1); k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2567,7 +2599,8 @@ static void pack_ox3(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pSnd = send_buf[1];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
 
   for (k=ke-(nghost-1); k<=ke; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2638,7 +2671,8 @@ static void unpack_ix1(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pRcv = recv_buf[0];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[0][0]);
 
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
@@ -2709,7 +2743,8 @@ static void unpack_ox1(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pRcv = recv_buf[1];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[1][0]);
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2780,7 +2815,8 @@ static void unpack_ix2(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pRcv = recv_buf[0];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[0][0]);
 
   for (k=ks; k<=ke; k++) {
     for (j=js-nghost; j<=js-1; j++) {
@@ -2851,7 +2887,8 @@ static void unpack_ox2(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pRcv = recv_buf[1];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[1][0]);
 
   for (k=ks; k<=ke; k++) {
     for (j=je+1; j<=je+nghost; j++) {
@@ -2919,7 +2956,8 @@ static void unpack_ix3(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pRcv = recv_buf[0];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[0][0]);
 
   for (k=ks-nghost; k<=ks-1; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2987,7 +3025,8 @@ static void unpack_ox3(GridS *pG)
 #if (NSCALARS > 0)
   int n;
 #endif
-  double *pRcv = recv_buf[1];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[1][0]);
 
   for (k=ke+1; k<=ke+nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
