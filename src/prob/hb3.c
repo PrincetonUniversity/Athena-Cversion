@@ -81,6 +81,9 @@ void problem(DomainS *pDomain)
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
 
+/* specify xz (r-z) plane */
+  ShBoxCoord = xz;
+
   if (pGrid->Nx[1] == 1){
     ath_error("[problem]: HB3 only works on a 2D grid\n");
   }

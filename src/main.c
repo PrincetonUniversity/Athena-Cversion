@@ -498,12 +498,10 @@ int main(int argc, char *argv[])
           (*Integrate)(&(Mesh.Domain[nl][nd]));
 
 #ifdef FARGO
-          if (Mesh.Nx[2] > 1) {  /* perform orbital advection in 3D only */
-            Fargo(&(Mesh.Domain[nl][nd]));
+          Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-            advect_particles(&level0_Grid, &level0_Domain);
+          advect_particles(&level0_Grid, &level0_Domain);
 #endif
-          }
 #endif /* FARGO */
         }
       }

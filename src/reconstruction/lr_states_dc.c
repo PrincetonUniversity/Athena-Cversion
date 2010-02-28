@@ -36,8 +36,9 @@
  *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const Prim1DS W[], const Real Bxc[], const Real dtodx,
-               const int il, const int iu, Prim1DS Wl[], Prim1DS Wr[])
+void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
+               const Real dt, const Real dx, const int il, const int iu,
+               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir)
 {
   int i;
 

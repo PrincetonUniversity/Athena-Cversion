@@ -55,8 +55,9 @@ static Real **pW=NULL;
  *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const Prim1DS W[], const Real Bxc[], const Real dtodx,
-               const int il, const int iu, Prim1DS Wl[], Prim1DS Wr[])
+void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
+               const Real dt, const Real dx, const int il, const int iu,
+               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir)
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qx;
@@ -66,6 +67,7 @@ void lr_states(const Prim1DS W[], const Real Bxc[], const Real dtodx,
   Real Wlv[NWAVE+NSCALARS],Wrv[NWAVE+NSCALARS];
   Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
+  Real dtodx = dt/dx;
 
 /* Set pointer to primitive variables */
   for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);

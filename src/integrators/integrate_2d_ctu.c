@@ -117,8 +117,11 @@ void integrate_2d_ctu(DomainS *pD)
   Real dt1 = 1.0/pG->dt;
 #endif
 #ifdef SHEARING_BOX
-  Real M1n, dM3n;   /* M1, dM3=(My+d*q*Omega_0*x) at time n */
-  Real M1e, dM3e;   /* M1, dM3 evolved by dt/2  */
+/* in XY shearing sheet 2=phi; in XZ shearing sheet 2=Z and 3=phi */
+  Real Vphi, Mphi;
+  Real M1n, dM2n, dM3n;   /* M1, dM2/3=(My+d*q*Omega_0*x) at time n */
+  Real M1e, dM2e, dM3e;   /* M1, dM2/3 evolved by dt/2  */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2;
   Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
   Real fact, qom, om_dt = Omega_0*pG->dt;
 #endif /* SHEARING_BOX */
@@ -253,19 +256,37 @@ void integrate_2d_ctu(DomainS *pD)
 
 #ifdef SHEARING_BOX
     for (i=il+1; i<=iu; i++) {
-      Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vz;
+      if (ShBoxCoord == xz){
+        Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vz;
 #ifdef FARGO
-      Wl[i].Vz += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
+        Wl[i].Vz += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
 #else
-      Wl[i].Vz -= pG->dt*Omega_0*W[i-1].Vx;
+        Wl[i].Vz -= pG->dt*Omega_0*W[i-1].Vx;
 #endif
 
-      Wr[i].Vx += pG->dt*Omega_0*W[i].Vz; 
+        Wr[i].Vx += pG->dt*Omega_0*W[i].Vz;
 #ifdef FARGO
-      Wr[i].Vz += hdt*(qshear-2.)*Omega_0*W[i].Vx;
+        Wr[i].Vz += hdt*(qshear-2.)*Omega_0*W[i].Vx;
 #else
-      Wr[i].Vz -= pG->dt*Omega_0*W[i].Vx;
+        Wr[i].Vz -= pG->dt*Omega_0*W[i].Vx;
 #endif
+      }
+
+      if (ShBoxCoord == xy) {
+        Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy;
+#ifdef FARGO
+        Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
+#else
+        Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
+#endif
+
+        Wr[i].Vx += pG->dt*Omega_0*W[i].Vy;
+#ifdef FARGO
+        Wr[i].Vy += hdt*(qshear-2.)*Omega_0*W[i].Vx;
+#else
+        Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx;
+#endif
+      }
     }
 #endif /* SHEARING_BOX */
 
@@ -773,19 +794,36 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef SHEARING_BOX
   for (j=jl+1; j<=ju; j++) {
     for (i=il+1; i<=iu-1; i++) {
-      Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M3;
+      if (ShBoxCoord == xz){
+        Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M3;
 #ifdef FARGO
-      Ur_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+        Ur_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
 #else
-      Ur_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+        Ur_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
 #endif
 
-      Ul_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j-1][i].M3;
+        Ul_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j-1][i].M3;
 #ifdef FARGO
-      Ul_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j-1][i].M1;
+        Ul_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j-1][i].M1;
 #else
-      Ul_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j-1][i].M1;
+        Ul_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j-1][i].M1;
 #endif
+      }
+
+      if (ShBoxCoord == xy){
+        Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M2;
+#ifdef FARGO
+        Ur_x2Face[j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+#else
+        Ur_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+#endif
+        Ul_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j-1][i].M2;
+#ifdef FARGO
+        Ul_x2Face[j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[ks][j-1][i].M1;
+#else
+        Ul_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j-1][i].M1;
+#endif
+      }
     }
   }
 #endif /* SHEARING_BOX */
@@ -871,11 +909,14 @@ void integrate_2d_ctu(DomainS *pD)
 
 /* Add the Coriolis terms for shearing box. */
 #ifdef SHEARING_BOX
-      M1h += pG->dt*Omega_0*pG->U[ks][j][i].M3;
+      if (ShBoxCoord == xy) M1h += pG->dt*Omega_0*pG->U[ks][j][i].M2;
+      if (ShBoxCoord == xz) M1h += pG->dt*Omega_0*pG->U[ks][j][i].M3;
 #ifdef FARGO
-      M3h += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+      if (ShBoxCoord == xy) M2h += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+      if (ShBoxCoord == xz) M3h += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
 #else
-      M3h -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+      if (ShBoxCoord == xy) M2h -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+      if (ShBoxCoord == xz) M3h -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
 #endif
 
 #endif /* SHEARING_BOX */
@@ -1053,45 +1094,78 @@ void integrate_2d_ctu(DomainS *pD)
 /* Store the current state */
       M1n  = pG->U[ks][j][i].M1;
 #ifdef FARGO
-      dM3n = pG->U[ks][j][i].M3;
+      if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2;
+      if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3;
 #else
-      dM3n = pG->U[ks][j][i].M3 + qom*x1*pG->U[ks][j][i].d;
+      if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2 + qom*x1*pG->U[ks][j][i].d;
+      if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3 + qom*x1*pG->U[ks][j][i].d;
 #endif
 
 /* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
-      frx1_dM3 = x1Flux[j][i+1].Mz;
-      flx1_dM3 = x1Flux[j][i  ].Mz;
-      frx2_dM3 = x2Flux[j+1][i].My;
-      flx2_dM3 = x2Flux[j  ][i].My;
+      if (ShBoxCoord==xy){
+        frx1_dM2 = x1Flux[j][i+1].My;
+        flx1_dM2 = x1Flux[j][i  ].My;
+        frx2_dM2 = x2Flux[j+1][i].Mx;
+        flx2_dM2 = x2Flux[j  ][i].Mx;
+      }
+      if (ShBoxCoord==xz){
+        frx1_dM3 = x1Flux[j][i+1].Mz;
+        flx1_dM3 = x1Flux[j][i  ].Mz;
+        frx2_dM3 = x2Flux[j+1][i].My;
+        flx2_dM3 = x2Flux[j  ][i].My;
+      }
 #ifndef FARGO
-      frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
-      flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
-      frx2_dM3 += qom*(x1            )*x2Flux[j+1][i].d;
-      flx2_dM3 += qom*(x1            )*x2Flux[j  ][i].d;
+      if (ShBoxCoord==xy){
+        frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+        flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+        frx2_dM2 += qom*(x1            )*x2Flux[j+1][i].d;
+        flx2_dM2 += qom*(x1            )*x2Flux[j  ][i].d;
+      }
+      if (ShBoxCoord==xz){
+        frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+        flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+        frx2_dM3 += qom*(x1            )*x2Flux[j+1][i].d;
+        flx2_dM3 += qom*(x1            )*x2Flux[j  ][i].d;
+      }
 #endif
 
 /* evolve M1n and dM3n by dt/2 using flux gradients */
       M1e = M1n - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
                 - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
 
-      dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
-                  - hdtodx2*(frx2_dM3 - flx2_dM3);
+      if (ShBoxCoord==xy){
+        dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
+                    - hdtodx2*(frx2_dM2 - flx2_dM2);
+      }
+      if (ShBoxCoord==xz){
+        dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
+                    - hdtodx2*(frx2_dM3 - flx2_dM3);
+      }
 
 #ifdef FEEDBACK
       M1e -= 0.5*pG->Coup[ks][j][i].fb1;
-      dM3e -= 0.5*pG->Coup[ks][j][i].fb3;
+      if (ShBoxCoord==xy) dM2e -= 0.5*pG->Coup[ks][j][i].fb2;
+      if (ShBoxCoord==xz) dM3e -= 0.5*pG->Coup[ks][j][i].fb3;
 #endif
 
-/* Update the 1- and 3-momentum (X and Y in 2D shearing box) for the Coriolis
- * and tidal potential source terms using a Crank-Nicholson
+/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
+ * for the Coriolis and tidal potential source terms using a Crank-Nicholson
  * discretization for the momentum fluctuation equation. */
 
-      pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
-      pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
-
+      if (ShBoxCoord==xy){
+        pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
 #ifndef FARGO
-      pG->U[ks][j][i].M3 -= 0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+        pG->U[ks][j][i].M2 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
 #endif
+      }
+      if (ShBoxCoord==xz){
+        pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+        pG->U[ks][j][i].M3 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+      }
 
 /* Update the energy for a fixed potential, and add the Z-component (M2)
  * of the gravitational acceleration.

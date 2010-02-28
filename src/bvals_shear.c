@@ -121,7 +121,7 @@ void ShearingSheet_ix1(DomainS *pD)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,ii,j,k,n,joffset,jremap;
+  int i,ii,j,k,ku,n,joffset,jremap;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
@@ -160,11 +160,12 @@ void ShearingSheet_ix1(DomainS *pD)
 
 /*--- Step 2. ------------------------------------------------------------------
  * Copy data into GhstZns array.  Note i and j indices are switched.
- * Steps 2-10 are for 3D runs.  Step 11 handles 2D separately */
+ * Steps 2-10 are for 3D or 2d xy runs.  Step 11 handles 2D xz separately */
 
-  if (pG->Nx[2] > 1) {  /* this if ends at end of step 10 */
+  if (pG->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
 
-  for(k=ks; k<=ke+1; k++) {
+  if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
+  for(k=ks; k<=ku; k++) {
     for(j=js-nghost; j<=je+nghost; j++){
       for(i=0; i<nghost; i++){
         ii = is-nghost+i;
@@ -197,7 +198,7 @@ void ShearingSheet_ix1(DomainS *pD)
  * Copy GhstZns into buffer, at the same time apply a conservative remap of
  * solution over the fractional part of grid cell */
 
-  for(k=ks; k<=ke+1; k++) {
+  for(k=ks; k<=ku; k++) {
     for(i=0; i<nghost; i++){
 
       for (n=0; n<(NREMAP); n++) {
@@ -227,7 +228,7 @@ void ShearingSheet_ix1(DomainS *pD)
 
   if (pD->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke+1; k++) {
+    for(k=ks; k<=ku; k++) {
       for(j=js; j<=je; j++){
         jremap = j - joffset;
         if (jremap < (int)js) jremap += pG->Nx[1];
@@ -280,13 +281,13 @@ void ShearingSheet_ix1(DomainS *pD)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
 
-      cnt = nghost*joverlap*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
+      cnt = nghost*joverlap*(ku-ks+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -309,7 +310,7 @@ void ShearingSheet_ix1(DomainS *pD)
       ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=js; j<=js+(joverlap-1); j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -332,7 +333,7 @@ void ShearingSheet_ix1(DomainS *pD)
 
     if (Ngrids == 0) {
 
-      for(k=ks; k<=ke+1; k++) {
+      for(k=ks; k<=ku; k++) {
         for(j=js+joverlap; j<=je; j++){
           jremap = j-joverlap;
           for(i=0; i<nghost; i++){
@@ -364,13 +365,13 @@ void ShearingSheet_ix1(DomainS *pD)
       if (jproc < 0) jproc += pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = nghost*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
+      cnt = nghost*(pG->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=js; j<=je-joverlap; j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -391,7 +392,7 @@ void ShearingSheet_ix1(DomainS *pD)
       ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=js+joverlap; j<=je; j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -436,11 +437,13 @@ void ShearingSheet_ix1(DomainS *pD)
     }
   }
 
-/* Copy the face-centered B3 component of the field at k=ke+1 */
+/* Copy the face-centered B3 component of the field at k=ke+1 in 3D */
 #ifdef MHD
-  for(j=js; j<=je; j++){
-    for(i=0; i<nghost; i++){
-      pG->B3i[ke+1][j][is-nghost+i] = GhstZns[ke+1][i][j].U[NREMAP-1];
+  if (pG->Nx[2] > 1) {
+    for(j=js; j<=je; j++){
+      for(i=0; i<nghost; i++){
+        pG->B3i[ke+1][j][is-nghost+i] = GhstZns[ke+1][i][j].U[NREMAP-1];
+      }
     }
   }
 #endif /* MHD */
@@ -455,7 +458,15 @@ void ShearingSheet_ix1(DomainS *pD)
     for (j=js; j<=je; j++) {
       for(i=is-nghost; i<is; i++){
         pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i]+pG->B2i[k][j+1][i]);
-        pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+      }
+    }
+  }
+  if (pG->Nx[2] > 1) {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for(i=is-nghost; i<is; i++){
+          pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+        }
       }
     }
   }
@@ -485,10 +496,12 @@ void ShearingSheet_ix1(DomainS *pD)
       }
     }
 #ifdef MHD
-    for (j=1; j<=nghost; j++) {
-      for (i=is-nghost; i<is; i++) {
-        pG->B3i[ke+1][js-j][i] = pG->B3i[ke+1][je-(j-1)][i];
-        pG->B3i[ke+1][je+j][i] = pG->B3i[ke+1][js+(j-1)][i];
+    if (pG->Nx[2] > 1) {
+      for (j=1; j<=nghost; j++) {
+        for (i=is-nghost; i<is; i++) {
+          pG->B3i[ke+1][js-j][i] = pG->B3i[ke+1][je-(j-1)][i];
+          pG->B3i[ke+1][je+j][i] = pG->B3i[ke+1][js+(j-1)][i];
+        }
       }
     }
 #endif /* MHD */
@@ -502,12 +515,12 @@ void ShearingSheet_ix1(DomainS *pD)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = nghost*nghost*(pG->Nx[2] + 1)*NVAR_SHARE;
+    cnt = nghost*nghost*(ku-ks+1)*NVAR_SHARE;
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=je-nghost+1; j<=je; j++){
         for (i=is-nghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
@@ -543,7 +556,7 @@ void ShearingSheet_ix1(DomainS *pD)
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=js-nghost; j<=js-1; j++){
         for (i=is-nghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
@@ -576,7 +589,7 @@ void ShearingSheet_ix1(DomainS *pD)
                     shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=js; j<=js+nghost-1; j++){
         for (i=is-nghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
@@ -612,7 +625,7 @@ void ShearingSheet_ix1(DomainS *pD)
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=je+1; j<=je+nghost; j++){
         for (i=is-nghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
@@ -658,12 +671,12 @@ void ShearingSheet_ix1(DomainS *pD)
   } /* end of if */
 
 /*--- Step 11 ------------------------------------------------------------------
- * Shearing sheet BC in 2D.  Periodic BC already applied in x1 and x2 in
+ * Shearing sheet BC in 2D xz.  Periodic BC already applied in x1 and x2 in
  * bvals_mhd (including for MPI parallel jobs).  Now just have to add offset
  * to azimuthal velocity when FARGO not defined */
 
 #ifndef FARGO
-  if (pG->Nx[2] == 1) {
+  if (pG->Nx[2] == 1 && ShBoxCoord==xz) {
 
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=1; i<=nghost; i++) {
@@ -699,7 +712,7 @@ void ShearingSheet_ox1(DomainS *pD)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,ii,j,k,n,joffset,jremap;
+  int i,ii,j,k,ku,n,joffset,jremap;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
@@ -738,11 +751,12 @@ void ShearingSheet_ox1(DomainS *pD)
 
 /*--- Step 2. ------------------------------------------------------------------
  * Copy data into GhstZns array.  Note i and j indices are switched.
- * Steps 2-10 are for 3D runs.  Step 11 handles 2D separately */
+ * Steps 2-10 are for 3D or 2D xy runs.  Step 11 handles 2D xz separately */
 
-  if (pG->Nx[2] > 1) {  /* this if ends at end of step 10 */
+  if (pG->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
 
-  for(k=ks; k<=ke+1; k++) {
+  if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
+  for(k=ks; k<=ku; k++) {
     for(j=js-nghost; j<=je+nghost; j++){
       for(i=0; i<nghost; i++){
         ii = ie+1+i;
@@ -775,7 +789,7 @@ void ShearingSheet_ox1(DomainS *pD)
  * Copy GhstZns into buffer, at the same time apply a conservative remap of
  * solution over the fractional part of grid cell */
 
-  for(k=ks; k<=ke+1; k++) {
+  for(k=ks; k<=ku; k++) {
     for(i=0; i<nghost; i++){
 
       for (n=0; n<(NREMAP); n++) {
@@ -805,7 +819,7 @@ void ShearingSheet_ox1(DomainS *pD)
 
   if (pD->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke+1; k++) {
+    for(k=ks; k<=ku; k++) {
       for(j=js; j<=je; j++){
         jremap = j + joffset;
         if (jremap > (int)je) jremap -= pG->Nx[1];
@@ -858,13 +872,13 @@ void ShearingSheet_ox1(DomainS *pD)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
 
-      cnt = nghost*joverlap*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
+      cnt = nghost*joverlap*(ku-ks+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=js; j<=js+(joverlap-1); j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -889,7 +903,7 @@ void ShearingSheet_ox1(DomainS *pD)
       ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -912,7 +926,7 @@ void ShearingSheet_ox1(DomainS *pD)
 
     if (Ngrids == 0) {
 
-      for(k=ks; k<=ke+1; k++) {
+      for(k=ks; k<=ku; k++) {
         for(j=js; j<=je-joverlap; j++){
           jremap = j+joverlap;
           for(i=0; i<nghost; i++){
@@ -944,13 +958,13 @@ void ShearingSheet_ox1(DomainS *pD)
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = nghost*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1)*(NREMAP+NSCALARS);
+      cnt = nghost*(pG->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP+NSCALARS);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=js+joverlap; j<=je; j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -971,7 +985,7 @@ void ShearingSheet_ox1(DomainS *pD)
       ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
       pRcv = recv_buf;
-      for (k=ks; k<=ke+1; k++) {
+      for (k=ks; k<=ku; k++) {
         for (j=js; j<=je-joverlap; j++) {
           for(i=0; i<nghost; i++){
             /* Get a pointer to the Remap structure */
@@ -1016,11 +1030,13 @@ void ShearingSheet_ox1(DomainS *pD)
     }
   }
 
-/* Copy the face-centered B3 component of the field at k=ke+1 */
+/* Copy the face-centered B3 component of the field at k=ke+1 in 3D */
 #ifdef MHD
-  for(j=js; j<=je; j++){
-    for(i=0; i<nghost; i++){
-      pG->B3i[ke+1][j][ie+1+i] = GhstZns[ke+1][i][j].U[NREMAP-1];
+  if (pG->Nx[2] > 1) {
+    for(j=js; j<=je; j++){
+      for(i=0; i<nghost; i++){
+        pG->B3i[ke+1][j][ie+1+i] = GhstZns[ke+1][i][j].U[NREMAP-1];
+      }
     }
   }
 #endif /* MHD */
@@ -1035,7 +1051,15 @@ void ShearingSheet_ox1(DomainS *pD)
     for (j=js; j<=je; j++) {
       for(i=ie+1; i<=ie+nghost; i++){
         pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i]+pG->B2i[k][j+1][i]);
-        pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+      }
+    }
+  }
+  if (pG->Nx[2] > 1) {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for(i=ie+1; i<=ie+nghost; i++){
+          pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+        }
       }
     }
   }
@@ -1082,12 +1106,12 @@ void ShearingSheet_ox1(DomainS *pD)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = nghost*nghost*(pG->Nx[2] + 1)*NVAR_SHARE;
+    cnt = nghost*nghost*(ku-ks+1)*NVAR_SHARE;
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=je-nghost+1; j<=je; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           /* Get a pointer to the ConsS cell */
@@ -1123,7 +1147,7 @@ void ShearingSheet_ox1(DomainS *pD)
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=js-nghost; j<=js-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           /* Get a pointer to the ConsS cell */
@@ -1156,7 +1180,7 @@ void ShearingSheet_ox1(DomainS *pD)
                     shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=js; j<=js+nghost-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           /* Get a pointer to the ConsS cell */
@@ -1192,7 +1216,7 @@ void ShearingSheet_ox1(DomainS *pD)
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (j=je+1; j<=je+nghost; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           /* Get a pointer to the ConsS cell */
@@ -1243,7 +1267,7 @@ void ShearingSheet_ox1(DomainS *pD)
  * to azimuthal velocity when FARGO not defined */
 
 #ifndef FARGO
-  if (pG->Nx[2] == 1) {
+  if (pG->Nx[2] == 1 && ShBoxCoord==xz) {
 
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=1; i<=nghost; i++) {
@@ -1325,8 +1349,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* MPI calls to swap data */
 
-    cnt = pG->Nx[1]*(pG->Nx[2]+1);
-/* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
+    cnt = pG->Nx[1]*(pG->Nx[2]+1); /* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
 
@@ -1922,8 +1945,8 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
 
 /*----------------------------------------------------------------------------*/
-/* Fargo: implements FARGO algorithm.  Only works in 3D.  This function is
- * called in the main loop after the integrator (and before bvals_mhd).
+/* Fargo: implements FARGO algorithm.  Only works in 3D or 2D xy.  Called in
+ * the main loop after the integrator (and before bvals_mhd).
  *  Written in Munich 24-27.4.2008
  *----------------------------------------------------------------------------*/
 
@@ -1935,7 +1958,7 @@ void Fargo(DomainS *pD)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int jfs = nfghost, jfe = pG->Nx[1] + nfghost - 1;
-  int i,j,k,jj,n,joffset;
+  int i,j,k,ku,jj,n,joffset;
   Real x1,x2,x3,yshear,eps;
 #ifdef ADIABATIC
   Real qom_dt = qshear*Omega_0*pG->dt;
@@ -1952,7 +1975,8 @@ void Fargo(DomainS *pD)
  * Since the FargoVars array has extra ghost zones in y, it must be indexed
  * over [jfs:jfe] instead of [js:je]  */
 
-  for(k=ks; k<=ke+1; k++) {
+  if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
+  for(k=ks; k<=ku; k++) {
     for(j=jfs; j<=jfe+1; j++){
       for(i=is; i<=ie+1; i++){
         jj = j-(jfs-js);
@@ -1989,7 +2013,7 @@ void Fargo(DomainS *pD)
 
   if (pD->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke+1; k++) {
+    for(k=ks; k<=ku; k++) {
       for(i=is; i<=ie+1; i++){
         for(j=1; j<=nfghost; j++){
           FargoVars[k][i][jfs-j] = FargoVars[k][i][jfe-(j-1)];
@@ -2006,12 +2030,12 @@ void Fargo(DomainS *pD)
  * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_mhd.c */
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = (pG->Nx[0]+1)*nfghost*(pG->Nx[2] + 1)*(NFARGO + NSCALARS);
+    cnt = (pG->Nx[0]+1)*nfghost*(ku-ks+1)*(NFARGO + NSCALARS);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     fargo_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (i=is; i<=ie+1; i++){
         for (j=jfe-nfghost+1; j<=jfe; j++){
           /* Get a pointer to the FargoVars cell */
@@ -2032,7 +2056,7 @@ void Fargo(DomainS *pD)
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (i=is; i<=ie+1; i++){
         for (j=jfs-nfghost; j<=jfs-1; j++){
           /* Get a pointer to the FargoVars cell */
@@ -2050,7 +2074,7 @@ void Fargo(DomainS *pD)
                     fargo_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (i=is; i<=ie+1; i++){
         for (j=jfs; j<=jfs+nfghost-1; j++){
           /* Get a pointer to the FargoVars cell */
@@ -2071,7 +2095,7 @@ void Fargo(DomainS *pD)
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
     pRcv = recv_buf;
-    for (k=ks; k<=ke+1; k++){
+    for (k=ks; k<=ku; k++){
       for (i=is; i<=ie+1; i++){
         for (j=jfe+1; j<=jfe+nfghost; j++){
           /* Get a pointer to the FargoVars cell */
@@ -2090,7 +2114,7 @@ void Fargo(DomainS *pD)
  * Compute fluxes, including both (1) the fractional part of grid cell, and
  * (2) the sum over integer number of cells  */
 
-  for(k=ks; k<=ke+1; k++) {
+  for(k=ks; k<=ku; k++) {
     for(i=is; i<=ie+1; i++){
 
 /* Compute integer and fractional peices of a cell covered by shear */
@@ -2217,6 +2241,7 @@ void Fargo(DomainS *pD)
  *  FargoFlx.U[NFARGO-1] = emfz  */
 
 #ifdef MHD
+  if (pG->Nx[2]==1) ath_error("[Fargo] only works in 3D with MHD\n");
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       jj = j-js+jfs;

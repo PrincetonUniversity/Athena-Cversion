@@ -192,4 +192,9 @@ enum {LtoR_tag,
 enum DIRECTION {cart_x1, cart_x2, cart_x3,
                  cyl_x1,  cyl_x2,  cyl_x3};
 
+#ifdef SHEARING_BOX
+/* integer constants to denote direction of 2D slice in shearing box */
+enum SS2DCoord {xy, xz};
+#endif
+
 #endif /* DEFINITIONS_H */
