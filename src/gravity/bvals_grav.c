@@ -125,6 +125,9 @@ void bvals_grav(DomainS *pD)
       ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
       if (mIndex == 0) unpack_ix1(pGrid);
@@ -150,6 +153,9 @@ void bvals_grav(DomainS *pD)
       /* set physical boundary */
       (*(ix1_GBCFun))(pGrid);
 
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
+
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
       unpack_ox1(pGrid);
@@ -170,6 +176,9 @@ void bvals_grav(DomainS *pD)
 
       /* set physical boundary */
       (*(ox1_GBCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
@@ -214,6 +223,9 @@ void bvals_grav(DomainS *pD)
       ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
       if (mIndex == 0) unpack_ix2(pGrid);
@@ -239,6 +251,9 @@ void bvals_grav(DomainS *pD)
       /* set physical boundary */
       (*(ix2_GBCFun))(pGrid);
 
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
+
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
       unpack_ox2(pGrid);
@@ -259,6 +274,9 @@ void bvals_grav(DomainS *pD)
 
       /* set physical boundary */
       (*(ox2_GBCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
@@ -314,6 +332,9 @@ void bvals_grav(DomainS *pD)
       ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
       if (mIndex == 0) unpack_ix3(pGrid);
@@ -339,6 +360,9 @@ void bvals_grav(DomainS *pD)
       /* set physical boundary */
       (*(ix3_GBCFun))(pGrid);
 
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
+
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
       unpack_ox3(pGrid);
@@ -359,6 +383,9 @@ void bvals_grav(DomainS *pD)
 
       /* set physical boundary */
       (*(ox3_GBCFun))(pGrid);
+
+      /* check non-blocking send has completed. */
+      ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
