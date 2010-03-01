@@ -18,17 +18,17 @@ out_fmt = bin               # Binary data dump
 dt      = 0.1               # time increment between outputs
 
 <output3>
-out_fmt = ppm                 # ppm images of density
+out_fmt = ppm               # ppm images of density
 dt      = 0.01
-dmin    = -0.0001
-dmax    = 0.0001
-out     = V2
-id      = V2
+dmin    = 0.9999
+dmax    = 1.0001
+out     = d
+id      = d
 palette = jh_colors
-ix3     = 1
+x3      = 0.0
 
 <output4>
-out_fmt = ppm                 # ppm images of color, for entropy waves
+out_fmt = ppm               # ppm images of color, for entropy waves
 dt      = 0.01
 dmin    = 0.0
 dmax    = 2.0e-6
@@ -36,7 +36,7 @@ out     = color
 id      = color
 palette = rainbow
 usr_expr_flag=1
-ix3     = 1
+x3      = 0.0
 
 <time>
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number

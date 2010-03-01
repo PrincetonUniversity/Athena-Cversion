@@ -24,7 +24,7 @@ id      = d
 dt      = 0.005
 dmin    = 2.0
 dmax    = 17.0
-ix3     = 1
+x3      = 0.0
 
 <output4>
 out_fmt = ppm
@@ -33,7 +33,7 @@ id      = P
 dt      = 0.005
 dmin    = 0.1
 dmax    = 6.0
-ix3     = 1
+x3      = 0.0
 
 <time>
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
