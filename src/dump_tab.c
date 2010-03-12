@@ -52,7 +52,6 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
   else{
     sprintf(fmt," %s",pOut->dat_fmt);
   }
-  sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -109,6 +108,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
         }
         nmax += 2*nghost;
 #endif
+        sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
 
 /* Write out some header information */
 
@@ -297,7 +297,6 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
   else{
     sprintf(fmt," %s",pOut->dat_fmt);
   }
-  sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -355,6 +354,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
         }
         nmax += 2*nghost;
 #endif
+        sprintf(zone_fmt,"%%%dd", (int)(2+log10((double)(nmax))));
 
 /* Write out some header information */
 
