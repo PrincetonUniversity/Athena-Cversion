@@ -27,6 +27,7 @@ Real four_pi_G, grav_mean_rho;    /* 4\pi G and mean density in domain */
 #endif
 
 #ifdef SHEARING_BOX
+GravPotFun_t ShearingBoxPot = NULL;
 Real Omega_0, qshear; /* orbital frequency and shear parameter dln\Omega/dlnr */
 enum SS2DCoord ShBoxCoord;
 #endif
@@ -67,6 +68,7 @@ extern Real four_pi_G, grav_mean_rho;
 #endif
 
 #ifdef SHEARING_BOX
+extern GravPotFun_t ShearingBoxPot;
 extern Real Omega_0, qshear;
 extern enum SS2DCoord ShBoxCoord;
 #endif

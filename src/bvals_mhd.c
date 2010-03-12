@@ -131,7 +131,7 @@ void bvals_mhd(DomainS *pD)
 {
   GridS *pGrid = (pD->Grid);
 #ifdef SHEARING_BOX
-  int myL,myM,myN;
+  int myL,myM,myN,BCFlag;
 #endif
 #ifdef MPI_PARALLEL
   int cnt, cnt2, cnt3, ierr, mIndex;
@@ -340,13 +340,17 @@ void bvals_mhd(DomainS *pD)
       (*(pD->ox2_BCFun))(pGrid);
     } 
 
-/* shearing sheet BCs; function defined in problem generator */
+/* shearing sheet BCs; function defined in problem generator.
+ * Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
+ * level grid is specified by the <domain1> block in the input file */
 #ifdef SHEARING_BOX
+    BCFlag = par_geti_def("domain1","bc_ix1",0);
     get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
-    if (myL == 0) {
+    if (myL == 0 && BCFlag == 4) {
       ShearingSheet_ix1(pD);
     }
-    if (myL == ((pD->NGrid[0])-1)) {
+    BCFlag = par_geti_def("domain1","bc_ox1",0);
+    if (myL == ((pD->NGrid[0])-1) && BCFlag == 4) {
       ShearingSheet_ox1(pD);
     }
 #endif

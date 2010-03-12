@@ -46,13 +46,13 @@ Real Lx,Ly,Lz; /* root grid size, global to share with output functions */
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * ran2()          - random number generator from NR
- * ShearingBoxPot() - tidal potential in 3D shearing box
+ * UnstratifiedDisk() - tidal potential in 3D shearing box
  * expr_dV2()       - computes delta(Vy)
  * hst_*            - new history variables
  *============================================================================*/
 
 static double ran2(long int *idum);
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k);
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
 static Real hst_rho_dVy2(const GridS *pG,const int i, const int j, const int k);
@@ -350,7 +350,7 @@ void problem(DomainS *pDomain)
 
 /* enroll gravitational potential function */
 
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = UnstratifiedDisk;
 
 /* enroll new history variables, only once  */
 
@@ -417,7 +417,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 /* enroll gravitational potential function */
 
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = UnstratifiedDisk;
 
 /* enroll new history variables */
 
@@ -533,10 +533,10 @@ double ran2(long int *idum)
 #undef RNMX
 
 /*------------------------------------------------------------------------------
- * ShearingBoxPot:
+ * UnstratifiedDisk:
  */
 
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
 #ifndef FARGO
@@ -596,7 +596,7 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  phi = ShearingBoxPot(x1, x2, x3);
+  phi = UnstratifiedDisk(x1, x2, x3);
 
   return pG->U[k][j][i].E + pG->U[k][j][i].d*phi;
 }

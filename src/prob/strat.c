@@ -34,13 +34,15 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * ran2()           - random number generator from NR
- * ShearingBoxPot() - tidal potential in 3D shearing box
+ * UnstratifiedDisk() - tidal potential in 3D shearing box
+ * VertGrav()         - potential for vertical component of gravity
  * expr_*()         - computes new output variables
  * hst_*            - adds new history variables
  *============================================================================*/
 
 static double ran2(long int *idum);
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
+static Real VertGrav(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k);
 static Real expr_beta(const GridS *pG, const int i, const int j, const int k);
 static Real expr_ME(const GridS *pG, const int i, const int j, const int k);
@@ -234,7 +236,8 @@ void problem(DomainS *pDomain)
 
 /* enroll gravitational potential function */
 
-  StaticGravPot = ShearingBoxPot;
+  StaticGravPot = VertGrav;
+  ShearingBoxPot = UnstratifiedDisk;
 
 /* enroll new history variables */
 
@@ -291,7 +294,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 /* enroll gravitational potential function */
 
-  StaticGravPot = ShearingBoxPot;
+  StaticGravPot = VertGrav;
+  ShearingBoxPot = UnstratifiedDisk;
 
 /* enroll new history variables */
 
@@ -411,25 +415,31 @@ double ran2(long int *idum)
 #undef RNMX
 
 /*------------------------------------------------------------------------------
- * ShearingBoxPot */
+ * UnstratifiedDisk */
 
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
-  Real phi=0.0,z;
-
+  Real phi=0.0;
 #ifndef FARGO
   phi -= qshear*Omega_0*Omega_0*x1*x1;
 #endif
+  return phi;
+}
+
+/*------------------------------------------------------------------------------
+ * VertGrav */
+
+static Real VertGrav(const Real x1, const Real x2, const Real x3)
+{
+  Real phi=0.0,z;
+
   /* Ensure vertical periodicity in ghost zones */
-  if(x3 > ztop) 
+  if(x3 > ztop)
     z=x3-ztop+zbtm;
   else if (x3 < zbtm)
     z=x3-zbtm+ztop;
   else
     z=x3;
-/*
-  phi += 0.5*Omega*Omega*z*z;
-*/
 
   phi += 0.5*Omega_0*Omega_0*
    (SQR(fabs(ztop)-sqrt(SQR(fabs(ztop)-fabs(z)) + 0.01)));
@@ -549,7 +559,7 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  phi = ShearingBoxPot(x1, x2, x3);
+  phi = UnstratifiedDisk(x1, x2, x3);
 
   return pG->U[k][j][i].E + pG->U[k][j][i].d*phi;
 }

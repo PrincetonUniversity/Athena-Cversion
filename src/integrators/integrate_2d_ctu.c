@@ -247,7 +247,7 @@ void integrate_2d_ctu(DomainS *pD)
 
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
- * The tidal gravity terms are added through the StaticGravPot
+ * starting with tidal gravity terms added through the ShearingBoxPot
  *    Vx source term = (dt/2)*( 2 Omega_0 Vy)
  *    Vy source term = (dt/2)*(-2 Omega_0 Vx)
  *    Vy source term = (dt/2)*((q-2) Omega_0 Vx) (with FARGO)
@@ -255,35 +255,41 @@ void integrate_2d_ctu(DomainS *pD)
  */
 
 #ifdef SHEARING_BOX
-    for (i=il+1; i<=iu; i++) {
-      if (ShBoxCoord == xz){
-        Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vz;
-#ifdef FARGO
-        Wl[i].Vz += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
-#else
-        Wl[i].Vz -= pG->dt*Omega_0*W[i-1].Vx;
-#endif
+    if (ShearingBoxPot != NULL){
+      for (i=il+1; i<=iu; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phicr = (*ShearingBoxPot)( x1             ,x2,x3);
+        phicl = (*ShearingBoxPot)((x1-    pG->dx1),x2,x3);
+        phifc = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
 
+        Wl[i].Vx -= dtodx1*(phifc - phicl);
+        Wr[i].Vx -= dtodx1*(phicr - phifc);
+      }
+    }
+
+    if (ShBoxCoord == xz){
+      for (i=il+1; i<=iu; i++) {
+        Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vz;
         Wr[i].Vx += pG->dt*Omega_0*W[i].Vz;
 #ifdef FARGO
+        Wl[i].Vz += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
         Wr[i].Vz += hdt*(qshear-2.)*Omega_0*W[i].Vx;
 #else
+        Wl[i].Vz -= pG->dt*Omega_0*W[i-1].Vx;
         Wr[i].Vz -= pG->dt*Omega_0*W[i].Vx;
 #endif
       }
+    }
 
-      if (ShBoxCoord == xy) {
+    if (ShBoxCoord == xy) {
+      for (i=il+1; i<=iu; i++) {
         Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy;
-#ifdef FARGO
-        Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
-#else
-        Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
-#endif
-
         Wr[i].Vx += pG->dt*Omega_0*W[i].Vy;
 #ifdef FARGO
+        Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
         Wr[i].Vy += hdt*(qshear-2.)*Omega_0*W[i].Vx;
 #else
+        Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
         Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx;
 #endif
       }
@@ -784,7 +790,7 @@ void integrate_2d_ctu(DomainS *pD)
 
 /*--- Step 6d (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
- * x1-Flux gradient.  The tidal gravity terms are added via StaticGravPot
+ * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
  *    Vx source term is (dt/2)( 2 Omega_0 Vy)
  *    Vy source term is (dt/2)(-2 Omega_0 Vx)
  *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
@@ -792,35 +798,59 @@ void integrate_2d_ctu(DomainS *pD)
  */
 
 #ifdef SHEARING_BOX
-  for (j=jl+1; j<=ju; j++) {
-    for (i=il+1; i<=iu-1; i++) {
-      if (ShBoxCoord == xz){
-        Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M3;
-#ifdef FARGO
-        Ur_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
-#else
-        Ur_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+  if (ShearingBoxPot != NULL){
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phic = (*ShearingBoxPot)((x1            ),x2,x3);
+        phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+
+        Ur_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef BAROTROPIC
+        Ur_x2Face[j][i].E -= hdtodx1*(x1Flux[j  ][i  ].d*(phic - phil) +
+                                      x1Flux[j  ][i+1].d*(phir - phic));
 #endif
 
+        phic = (*ShearingBoxPot)((x1            ),(x2-pG->dx2),x3);
+        phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
+        phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
+
+        Ul_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j-1][i].d;
+#ifndef BAROTROPIC
+        Ul_x2Face[j][i].E -= hdtodx1*(x1Flux[j-1][i  ].d*(phic - phil) +
+                                      x1Flux[j-1][i+1].d*(phir - phic));
+#endif
+      }
+    }
+  }
+
+  if (ShBoxCoord == xz){
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
+        Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M3;
         Ul_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j-1][i].M3;
 #ifdef FARGO
+        Ur_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
         Ul_x2Face[j][i].My += hdt*(qshear-2.)*Omega_0*pG->U[ks][j-1][i].M1;
 #else
+        Ur_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
         Ul_x2Face[j][i].My -= pG->dt*Omega_0*pG->U[ks][j-1][i].M1;
 #endif
       }
+    }
+  }
 
-      if (ShBoxCoord == xy){
+  if (ShBoxCoord == xy){
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
         Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M2;
-#ifdef FARGO
-        Ur_x2Face[j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
-#else
-        Ur_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
-#endif
         Ul_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j-1][i].M2;
 #ifdef FARGO
+        Ur_x2Face[j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
         Ul_x2Face[j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[ks][j-1][i].M1;
 #else
+        Ur_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
         Ul_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j-1][i].M1;
 #endif
       }
@@ -907,8 +937,19 @@ void integrate_2d_ctu(DomainS *pD)
       M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
 #endif /* SELF_GRAVITY */
 
-/* Add the Coriolis terms for shearing box. */
+/* Add the tidal gravity and Coriolis terms for shearing box. */
 #ifdef SHEARING_BOX
+      if (ShearingBoxPot != NULL){
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+        M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+
+        phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+        M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+      }
+
       if (ShBoxCoord == xy) M1h += pG->dt*Omega_0*pG->U[ks][j][i].M2;
       if (ShBoxCoord == xz) M1h += pG->dt*Omega_0*pG->U[ks][j][i].M3;
 #ifdef FARGO
@@ -918,7 +959,6 @@ void integrate_2d_ctu(DomainS *pD)
       if (ShBoxCoord == xy) M2h -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
       if (ShBoxCoord == xz) M3h -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
 #endif
-
 #endif /* SHEARING_BOX */
 
 /* Add the particle feedback terms */
@@ -1076,7 +1116,7 @@ void integrate_2d_ctu(DomainS *pD)
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
 
 /*--- Step 11a -----------------------------------------------------------------
- * Add gravitational (or shearing box) source terms as a Static Potential.
+ * Add gravitational (or shearing box) source terms.
  * Remember with the 2D shearing box (1,2,3) = (x,z,y)
  *   A Crank-Nicholson update is used for shearing box terms.
  *   The energy source terms computed at cell faces are averaged to improve
@@ -1167,23 +1207,19 @@ void integrate_2d_ctu(DomainS *pD)
 #endif
       }
 
-/* Update the energy for a fixed potential, and add the Z-component (M2)
- * of the gravitational acceleration.
+/* Update the energy for a fixed potential.
  * This update is identical to non-SHEARING_BOX below  */
 
-      phic = (*StaticGravPot)((x1            ),x2,x3);
-      phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-      phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+      phic = (*ShearingBoxPot)((x1            ),x2,x3);
+      phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+      phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
 #ifndef BAROTROPIC
       pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
                                    x1Flux[j][i+1].d*(phir - phic));
 #endif
 
-      phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-      phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-
-      pG->U[ks][j][i].M2 -= dtodx2*dhalf[j][i]*(phir-phil);
-
+      phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+      phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
 #ifndef BAROTROPIC
       pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
                                    x2Flux[j+1][i].d*(phir - phic));
@@ -1191,7 +1227,7 @@ void integrate_2d_ctu(DomainS *pD)
     }
   }
 
-#else /* ! SHEARING_BOX */
+#endif /* SHEARING_BOX */
 
   if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
@@ -1220,7 +1256,6 @@ void integrate_2d_ctu(DomainS *pD)
     }
   }
 
-#endif /* SHEARING_BOX */
 
 /*--- Step 11b -----------------------------------------------------------------
  * Add source terms for self-gravity.
