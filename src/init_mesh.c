@@ -672,15 +672,13 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
       groupn++;
     }}}
 
-/* Create a new group for this Domain, then use this group to create a new
- * communicator, then free it to be used for next Domain. */
+/* Create a new group for this Domain; use it to create a new communicator */
 
 printf("Domain_Comm ProcID=%d Nranks=%d ranks=",myID_Comm_world,Nranks);
 for (i=0; i<Nranks; i++) printf("%d ",ranks[i]);
 printf("\n");
     ierr = MPI_Group_incl(world_group,Nranks,ranks,&(pD->Group_Domain));
     ierr = MPI_Comm_create(MPI_COMM_WORLD,pD->Group_Domain,&(pD->Comm_Domain));
-/*    ierr = MPI_Group_free(&new_group); */
 
 /*
 int myrank=0;
@@ -698,29 +696,18 @@ printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
 /*--- Step 9: Create MPI Communicators for Child and Parent Domains ----------*/
 
 #if defined(MPI_PARALLEL) && defined(STATIC_MESH_REFINEMENT)
-/* Initialize communicators to NULL, since not all Domains use them */
+/* Initialize communicators to NULL, since not all Domains use them, and
+ * allocate memory for ranks[] array */
 
   for (nl=0; nl<=maxlevel; nl++){
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-    pM->Domain[nl][nd].Comm_Parent = MPI_COMM_NULL;
-    pM->Domain[nl][nd].Comm_Children = MPI_COMM_NULL;
-  }}
-
-/* Allocate memory for ranks[] array */
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      pM->Domain[nl][nd].Comm_Parent = MPI_COMM_NULL;
+      pM->Domain[nl][nd].Comm_Children = MPI_COMM_NULL;
+    }
+  }
 
   if (maxlevel > 0) {
-    max_rank = 0;
-    Nranks0 = (pM->Domain[0][0].NGrid[0])*(pM->Domain[0][0].NGrid[1])*
-              (pM->Domain[0][0].NGrid[2]);
-    for (nl=1; nl<=maxlevel; nl++){
-      Nranks = Nranks0;
-      for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-        Nranks += (pD->NGrid[0])*(pD->NGrid[1])*(pD->NGrid[2]);
-      }
-      max_rank = MAX(max_rank, Nranks);
-      Nranks0 = Nranks - Nranks0;
-    }
-    ranks = (int*)calloc_1d_array(max_rank,sizeof(int));
+    ranks = (int*)calloc_1d_array(Nproc_Comm_world,sizeof(int));
   }
 
 /* For each Domain up to (maxlevel-1), initialize communicator with children */
@@ -728,6 +715,23 @@ printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
   for (nl=0; nl<maxlevel; nl++){
   for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
     pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
+    child_found = 0;
+
+/* Load integer array with ranks of processes in MPI_COMM_WORLD updating Grids
+ * on this Domain, in case a child Domain is found.  Set IDs in Comm_Children
+ * communicator based on index in rank array, in case child found.  If no
+ * child is found these ranks will never be used. */
+
+    Nranks = (pD->NGrid[0])*(pD->NGrid[1])*(pD->NGrid[2]);
+    groupn = 0;
+
+    for(n=0; n<(pD->NGrid[2]); n++){
+    for(m=0; m<(pD->NGrid[1]); m++){
+    for(l=0; l<(pD->NGrid[0]); l++){
+      ranks[groupn] = pD->GData[n][m][l].ID_Comm_world;
+      pD->GData[n][m][l].ID_Comm_Children = groupn;
+      groupn++;
+    }}}
 
 /* edges of this Domain */
     for (i=0; i<3; i++) {
@@ -737,7 +741,6 @@ printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
 
 /* Loop over all Domains at next level, looking for children of this Domain */
 
-    child_found = 0;
     for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
       pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);  /* set ptr to potential child*/
 
@@ -747,22 +750,6 @@ printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
         D2.ijkr[i] = 1;
         if (pCD->Nx[i] > 1) D2.ijkr[i] = (pCD->Disp[i] + pCD->Nx[i])/2;
       }
-
-/* Load integer array with ranks of processes in MPI_COMM_WORLD updating Grids
- * on this Domain, in case a child Domain is found.  Set IDs in Comm_Children
- * communicator based on index in rank array, in case child found.  If no
- * child is found these ranks will never be used. */
-
-      Nranks = (pD->NGrid[0])*(pD->NGrid[1])*(pD->NGrid[2]);
-      groupn = 0;
-
-      for(n=0; n<(pD->NGrid[2]); n++){
-      for(m=0; m<(pD->NGrid[1]); m++){
-      for(l=0; l<(pD->NGrid[0]); l++){
-        ranks[groupn] = pD->GData[n][m][l].ID_Comm_world;
-        pD->GData[n][m][l].ID_Comm_Children = groupn;
-        groupn++;
-      }}}
 
       if (D1.ijkl[0] < D2.ijkr[0] && D1.ijkr[0] > D2.ijkl[0] &&
           D1.ijkl[1] < D2.ijkr[1] && D1.ijkr[1] > D2.ijkl[1] &&
@@ -830,7 +817,6 @@ printf("WorldID=%d Children_CommID=%d\n",myID_Comm_world,myrank);
           pCD->Comm_Parent = pD->Comm_Children;
         }
       }
-/*      ierr = MPI_Group_free(&new_group);  */
     }
   }}
 

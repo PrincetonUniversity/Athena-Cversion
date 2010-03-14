@@ -210,13 +210,13 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #endif
 
 /* Create filename and open file.  History files are always written in lev#
- * directories of root (rank=0) process. */
+ * directories of root process (rank=0 in MPI_COMM_WORLD) */
 #ifdef MPI_PARALLEL
         if (nl>0) {
           plev = &levstr[0];
           sprintf(plev,"lev%d",nl);
           pdir = &dirstr[0];
-          sprintf(pdir,"../lev%d",nl);
+          sprintf(pdir,"../id0/lev%d",nl);
         }
 #else
         if (nl>0) {
