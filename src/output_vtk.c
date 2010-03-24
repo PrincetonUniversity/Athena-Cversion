@@ -68,8 +68,9 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
   char levstr[8],domstr[8];
 /* Upper and Lower bounds on i,j,k for data dump */
   int big_end = ath_big_endian();
-  int nx1,nx2,ndata0;
-  Real **data2d=NULL;
+  int i,j,nx1,nx2;
+  Real **data2d=NULL; /* 2D array of data to be dumped */
+  float *data;        /* data actually output has to be floats */
   double x1, x2, x3, dx1, dx2, dx3;
 
 /* Allocate memory for and compute 2D array of data */
@@ -98,6 +99,13 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
     ath_error("[output_vtk]: Unable to open vtk file %s\n",fname);
   }
 
+/* Allocate memory for temporary array of floats */
+
+  if((data = (float *)malloc(nx1*sizeof(float))) == NULL){
+     ath_error("[output_vtk]: malloc failed for temporary array\n");
+     return;
+  }
+
 /* There are five basic parts to the VTK "legacy" file format.  */
 /*  1. Write file version and identifier */
 
@@ -118,7 +126,6 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
   x1 = pGrid->MinX[0];
   x2 = pGrid->MinX[1];
   x3 = pGrid->MinX[2];
-  ndata0 = nx1*nx2;
   dx1 = (pOut->reduce_x1 == 1 ? pGrid->dx1 * pGrid->Nx[0] : pGrid->dx1);
   dx2 = (pOut->reduce_x2 == 1 ? pGrid->dx2 * pGrid->Nx[1] : pGrid->dx2);
   dx3 = (pOut->reduce_x3 == 1 ? pGrid->dx3 * pGrid->Nx[2] : pGrid->dx3);
@@ -130,18 +137,24 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 
 /*  5. Data  */
 
-  fprintf(pfile,"CELL_DATA %d \n", ndata0);
+  fprintf(pfile,"CELL_DATA %d \n", nx1*nx2);
 
 /* Write data */
 
   fprintf(pfile,"SCALARS %s float\n", pOut->id);
   fprintf(pfile,"LOOKUP_TABLE default\n");
-  if(!big_end) ath_bswap(data2d[0],sizeof(float),ndata0);
-  fwrite(data2d[0],sizeof(float),(size_t)ndata0,pfile);
+  for (j=0; j<nx2; j++){
+    for (i=0; i<nx1; i++){
+      data[i] = (float)data2d[j][i];
+    }
+    if(!big_end) ath_bswap(data,sizeof(float),nx1);
+    fwrite(data,sizeof(float),(size_t)nx1,pfile);
+  }
 
 /* close file and free memory */
 
   fclose(pfile);
+  free(data);
   free_2d_array(data2d);
   return;
 }
@@ -157,9 +170,13 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
   char levstr[8],domstr[8];
 /* Upper and Lower bounds on i,j,k for data dump */
   int big_end = ath_big_endian();
-  int nx1,nx2,nx3,ndata0, k;
-  Real ***data3d=NULL;
+  int nx1,nx2,nx3,i,j,k;
+  Real ***data3d=NULL; /* 3D array of data to be dumped */
+  float *data;         /* data actually output has to be floats */
   double x1, x2, x3;
+
+/* Allocate memory for and compute 3D array of data values */
+  data3d = OutData3(pGrid,pOut,&nx1,&nx2,&nx3);
 
 /* construct output filename.  pOut->id will either be name of variable,
  * if 'id=...' was included in <ouput> block, or 'outN' where N is number of
@@ -183,8 +200,15 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
     ath_error("[output_vtk]: Unable to open vtk file %s\n",fname);
   }
 
-/* Allocate memory for and compute 3D array of data values */
-  data3d = OutData3(pGrid,pOut,&nx1,&nx2,&nx3);
+/* Allocate memory for temporary array of floats */
+
+  x1 = pGrid->MinX[0];
+  x2 = pGrid->MinX[1];
+  x3 = pGrid->MinX[2];
+  if((data = (float *)malloc(nx1*sizeof(float))) == NULL){
+     ath_error("[output_vtk]: malloc failed for temporary array\n");
+     return;
+  }
 
 /* There are five basic parts to the VTK "legacy" file format.  */
 /*  1. Write file version and identifier */
@@ -202,12 +226,6 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
 
 /*  4. Dataset structure */
 
-/* Set the Grid origin */
-  x1 = pGrid->MinX[0];
-  x2 = pGrid->MinX[1];
-  x3 = pGrid->MinX[2];
-  ndata0 = nx1*nx2;
-
   fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
   fprintf(pfile,"DIMENSIONS %d %d %d\n",nx1+1,nx2+1,nx3+1);
   fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
@@ -222,13 +240,19 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
   fprintf(pfile,"SCALARS %s float\n", pOut->id);
   fprintf(pfile,"LOOKUP_TABLE default\n");
   for (k=0; k<nx3; k++) {
-    if(!big_end) ath_bswap(data3d[k][0],sizeof(float),ndata0);
-    fwrite(data3d[k][0],sizeof(float),(size_t)ndata0,pfile);
+    for (j=0; j<nx2; j++) {
+      for (i=0; i<nx1; i++) {
+        data[i] = (float)data3d[k][j][i];
+      }
+      if(!big_end) ath_bswap(data,sizeof(float),nx1);
+      fwrite(data,sizeof(float),(size_t)nx1,pfile);
+    }
   }
 
 /* close file and free memory */
 
   fclose(pfile);
+  free(data);
   free_3d_array(data3d);
   return;
 }

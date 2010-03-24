@@ -4,7 +4,7 @@
  *
  * PURPOSE: Function to write a dump in VTK "legacy" format.  With SMR,
  *   dumps are made for all levels and domains, unless nlevel and ndomain are
- *   specified in <output> block.
+ *   specified in <output> block.  Works for BOTH conserved and primitives.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   dump_vtk() - writes VTK dump (all variables).

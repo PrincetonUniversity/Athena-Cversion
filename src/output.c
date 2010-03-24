@@ -322,12 +322,10 @@ Now use the default one.\n");
 #endif
         goto add_it;
       }
-/*
       else if (strcmp(fmt,"vtk")==0){
-        new_out.out_fun = dump_vtk_prim;
+        new_out.out_fun = dump_vtk;
         goto add_it;
       }
-*/
       else{    /* Unknown data dump (fatal error) */
         ath_error("Unsupported dump mode for %s/out_fmt=%s for out=prim\n",
           block,fmt);
