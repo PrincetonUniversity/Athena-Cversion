@@ -45,6 +45,8 @@ void show_config(void)
   ath_pout(0," Self-gravity:            using multigrid\n");
 #elif defined(SELF_GRAVITY_USING_FFT)
   ath_pout(0," Self-gravity:            using FFTs\n");
+#elif defined(SELF_GRAVITY_USING_FFT_OBC)
+  ath_pout(0," Self-gravity:            using FFT_OBC\n");
 #else
   ath_pout(0," Self-gravity:            OFF\n");
 #endif
@@ -212,6 +214,8 @@ void show_config_par(void)
   par_sets("configure","self-gravity","multigrid","Self-gravity algorithm");
 #elif defined(SELF_GRAVITY_USING_FFT)
   par_sets("configure","self-gravity","FFT","Self-gravity algorithm");
+#elif defined(SELF_GRAVITY_USING_FFT_OBC)
+  par_sets("configure","self-gravity","FFT_OBC","Self-gravity algorithm");
 #else
   par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
 #endif

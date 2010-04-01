@@ -17,7 +17,7 @@
 #   --with-gas=[hydro,mhd]                              (hydro or mhd algorithm)
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
-#   --with-gravity=[fft,multigrid]                                (self-gravity)
+#   --with-gravity=[fft,fft_obc,multigrid]                        (self-gravity)
 #   --with-resistivity=[ohmic,hall]                       (explicit resistivity)
 #   --with-viscosity=[ns,braginskii]                        (explicit viscosity)
 #   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
@@ -121,17 +121,21 @@ fi
 
 #-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: self-gravity
-#  --with-gravity= [fft,multigrid]
+#  --with-gravity= [fft,fft_obc,multigrid]
 
 AC_SUBST(SELF_GRAVITY_DEFINE)
 AC_SUBST(SELF_GRAVITY_ALGORITHM)
-AC_ARG_WITH(gravity, [  --with-gravity=SELF_GRAVITY_ALGORITHM   Algorithm for self gravity (fft, multigrid)],
+AC_ARG_WITH(gravity, [  --with-gravity=SELF_GRAVITY_ALGORITHM   Algorithm for self gravity (fft, fft_obc, multigrid)],
                 gravity_algorithm=$withval, gravity_algorithm=none)
 
 if test   "$gravity_algorithm" = "fft"; then
   SELF_GRAVITY_DEFINE="SELF_GRAVITY"
   SELF_GRAVITY_USER="ON"
   SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_USING_FFT"
+elif test   "$gravity_algorithm" = "fft_obc"; then
+  SELF_GRAVITY_DEFINE="SELF_GRAVITY"
+  SELF_GRAVITY_USER="ON"
+  SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_USING_FFT_OBC"
 elif test "$gravity_algorithm" = "multigrid"; then
   SELF_GRAVITY_DEFINE="SELF_GRAVITY"
   SELF_GRAVITY_USER="ON"
@@ -141,7 +145,7 @@ elif test "$gravity_algorithm" = "none"; then
   SELF_GRAVITY_USER="OFF"
   SELF_GRAVITY_ALGORITHM="SELF_GRAVITY_NONE"
 else
-  AC_MSG_ERROR([expected --with-gravity=fft or multigrid])
+  AC_MSG_ERROR([expected --with-gravity=fft, fft_obc, or multigrid])
 fi
 
 #-------------------------------------------------------------------------------

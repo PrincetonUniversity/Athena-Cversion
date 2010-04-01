@@ -26,7 +26,7 @@ VDFun_t selfg_init(MeshS *pM);
 void selfg_flux_correction(GridS *pG);
 #endif /* SELF_GRAVITY */
 
-/* selfg_fft.c  */
+/* selfg_multigrid.c  */
 #ifdef SELF_GRAVITY
 void selfg_multig_1d(DomainS *pD);
 void selfg_multig_2d(DomainS *pD);
@@ -34,7 +34,7 @@ void selfg_multig_3d(DomainS *pD);
 void selfg_multig_3d_init(MeshS *pM);
 #endif /* SELF_GRAVITY */
 
-/* selfg_multigrid.c  */
+/* selfg_fft.c  */
 #ifdef SELF_GRAVITY
 #if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT)
 void selfg_fft_1d(DomainS *pD);
@@ -43,6 +43,13 @@ void selfg_fft_3d(DomainS *pD);
 void selfg_fft_2d_init(MeshS *pM);
 void selfg_fft_3d_init(MeshS *pM);
 #endif /* FFT_ENABLED */
+#if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT_OBC)
+void selfg_fft_obc_3d(DomainS *pD);
+void selfg_fft_obc_3d_init(MeshS *pM);
+#endif /* FFT_ENABLED SELF_GRAVITY_USING_FFT_OBC */
+
+
+
 #endif /* SELF_GRAVITY */
 
 #endif /* GRAVITY_PROTOTYPES_H */

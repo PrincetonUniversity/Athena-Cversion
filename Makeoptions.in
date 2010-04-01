@@ -68,7 +68,15 @@ ifeq ($(MACHINE),artemis)
   FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
   FFTWINC = -I/opt/fftw3/include
 else
+ifeq ($(MACHINE),macosx)
+  CC = gcc
+  LDR = gcc
+  OPT = -O3 
+  FFTWLIB = -L/opt/local/lib -lfftw3
+  FFTWINC = -I/opt/local/include
+else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif

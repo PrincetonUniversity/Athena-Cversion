@@ -540,6 +540,19 @@ VDFun_t selfg_init(MeshS *pM)
     selfg_fft_3d_init(pM);
     return selfg_fft_3d;
 #endif
+/* for gravity using FFTs with open BC, also initialize plans and data for FFTW */
+#ifdef SELF_GRAVITY_USING_FFT_OBC
+  case 1:
+    ath_error("[selfg_init] FFT with open BC not defined for 1D \n");
+  case 2:
+    ath_error("[selfg_init] FFT with open BC not defined for 2D \n");
+  case 3:
+    selfg_fft_obc_3d_init(pM);
+    return selfg_fft_obc_3d;
+#endif
+
+
+
   }
 
   return NULL;
