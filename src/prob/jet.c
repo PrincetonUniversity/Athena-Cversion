@@ -208,22 +208,22 @@ void jet_iib(GridS *pGrid){
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=nghost; i++){
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+        cc_pos(pGrid,(is-i),j,k,&x1,&x2,&x3);
         rad = sqrt(SQR(x2 - x2_mid) + SQR(x3 - x3_mid));
             
         if(rad <= rjet){
-          pGrid->U[k][j][i].d  = Ujet.d;
-          pGrid->U[k][j][i].M1 = Ujet.Mx;
-          pGrid->U[k][j][i].M2 = Ujet.My;
-          pGrid->U[k][j][i].M3 = Ujet.Mz;
-          pGrid->U[k][j][i].E  = Ujet.E;
+          pGrid->U[k][j][is-i].d  = Ujet.d;
+          pGrid->U[k][j][is-i].M1 = Ujet.Mx;
+          pGrid->U[k][j][is-i].M2 = Ujet.My;
+          pGrid->U[k][j][is-i].M3 = Ujet.Mz;
+          pGrid->U[k][j][is-i].E  = Ujet.E;
 #ifdef MHD
-          pGrid->U[k][j][i].B1c = Bxjet;
-          pGrid->U[k][j][i].B2c = Ujet.By;
-          pGrid->U[k][j][i].B3c = Ujet.Bz;
-          pGrid->B1i[k][j][i] = Bxjet;
-          pGrid->B2i[k][j][i] = Ujet.By;
-          pGrid->B3i[k][j][i] = Ujet.Bz;
+          pGrid->U[k][j][is-i].B1c = Bxjet;
+          pGrid->U[k][j][is-i].B2c = Ujet.By;
+          pGrid->U[k][j][is-i].B3c = Ujet.Bz;
+          pGrid->B1i[k][j][is-i] = Bxjet;
+          pGrid->B2i[k][j][is-i] = Ujet.By;
+          pGrid->B3i[k][j][is-i] = Ujet.Bz;
 #endif
         } else{
           pGrid->U[k][j][is-i] = pGrid->U[k][j][is+(i-1)];
