@@ -60,7 +60,7 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 
 void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir)
+               Prim1DS Wl[], Prim1DS Wr[], const int dir)
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qb,qc,qx;
@@ -81,9 +81,7 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
   const Real dtodx = dt/dx;
 #ifdef CYLINDRICAL
   const Real *r=pG->r, *ri=pG->ri;
-#else
-  const Real *r=NULL, *ri=NULL;
-#endif /* CYLINDRICAL */
+#endif
 
 /* Zero eigenmatrices, set pointer to primitive variables */
   for (n=0; n<NWAVE; n++) {
@@ -126,12 +124,15 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
  * Note we access contiguous array elements by indexing pointers for speed */
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+      if (dir==1) {
         dWc[n] = (pW[i+1][n]*r[i+1] - pW[i-1][n]*r[i-1])/r[i];
         dWl[n] = (pW[i  ][n]*r[i  ] - pW[i-1][n]*r[i-1])/ri[i];
         dWr[n] = (pW[i+1][n]*r[i+1] - pW[i  ][n]*r[i  ])/ri[i+1];
       }
-      else {
+      else
+#endif
+      {
         dWc[n] = pW[i+1][n] - pW[i-1][n];
         dWl[n] = pW[i  ][n] - pW[i-1][n];
         dWr[n] = pW[i+1][n] - pW[i  ][n];
@@ -251,11 +252,14 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
  */
 
   for (n=0; n<(NWAVE+NSCALARS); n++) {
-    if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+    if (dir==1) {
       Wim1h[il-1][n] = (0.5*(pW[il-1][n]*r[il-1] + pW[il-2][n]*r[il-2])
                      - (dWm[il-1][n]*r[il-1] - dWm[il-2][n]*r[il-2])/6.0)/ri[il-1];
     }
-    else {
+    else
+#endif
+    {
       Wim1h[il-1][n] =.5*(pW[il-1][n]+pW[il-2][n])-(dWm[il-1][n]-dWm[il-2][n])/6.;
     }
   }
@@ -299,12 +303,15 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
  * Compute centered, L/R, and van Leer differences of primitive variables */
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+      if (dir==1) {
         dWc[n] = (pW[i+2][n]*r[i+2] - pW[i  ][n]*r[i  ])/r[i+1];
         dWl[n] = (pW[i+1][n]*r[i+1] - pW[i  ][n]*r[i  ])/ri[i+1];
         dWr[n] = (pW[i+2][n]*r[i+2] - pW[i+1][n]*r[i+1])/ri[i+2];
       }
-      else {
+      else
+#endif
+      {
         dWc[n] = pW[i+2][n] - pW[i  ][n];
         dWl[n] = pW[i+1][n] - pW[i  ][n];
         dWr[n] = pW[i+2][n] - pW[i+1][n];
@@ -420,11 +427,14 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
  */
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
-      if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+      if (dir==1) {
         Wim1h[i+1][n] = (0.5*(pW[i+1][n]*r[i+1] + pW[i][n]*r[i]) 
                       - (dWm[i+1][n]*r[i+1] - dWm[i][n]*r[i])/6.0)/ri[i+1];
       }
-      else {
+      else
+#endif
+      {
         Wim1h[i+1][n] = 0.5*(pW[i+1][n]+pW[i][n]) - (dWm[i+1][n]-dWm[i][n])/6.0;
       }
     }
@@ -442,7 +452,9 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
  * cell-centered vals */
 
     gamma_curv = 0.0;
-    if (dir==cyl_x1) gamma_curv = dx/(6.0*r[i]);
+#ifdef CYLINDRICAL
+    if (dir==1) gamma_curv = dx/(6.0*r[i]);
+#endif
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
@@ -505,11 +517,13 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
         qx1 = 0.5*dtodx*ev[n];
         qb  = qx1;
         qc  = FOUR_3RDS*SQR(qx1);
-        if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+        if (dir==1) {
           qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
           qb  -= qxx1;
           qc  -= 2.0*qx1*qxx1;
         }
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
         }
@@ -521,11 +535,13 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
         qx2 = 0.5*dtodx*ev[n];
         qb  = qx2;
         qc  = FOUR_3RDS*SQR(qx2);
-        if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+        if (dir==1) {
           qxx2 = SQR(qx2)*dx/(3.0*(ri[i]-dx*qx2));
           qb  -= qxx2;
           qc  -= 2.0*qx2*qxx2;
         }
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
@@ -538,8 +554,10 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
 
     qx1  = 0.5*MAX(ev[NWAVE-1],0.0)*dtodx;
     qxx1 = 0.0;
-    if (dir==cyl_x1) 
+#ifdef CYLINDRICAL
+    if (dir==1) 
       qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
+#endif
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n] - qx1 *(dW[n] - (1.0-FOUR_3RDS*qx1)*W6[n])
                       + qxx1*(dW[n] - (1.0-      2.0*qx1)*W6[n]);
@@ -547,8 +565,10 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
 
     qx2  = -0.5*MIN(ev[0],0.0)*dtodx;
     qxx2 = 0.0;
-    if (dir==cyl_x1) 
+#ifdef CYLINDRICAL
+    if (dir==1) 
       qxx2 = SQR(qx2)*dx/(3.0*(ri[i]+dx*qx2));
+#endif
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWr[n] = Wlv[n] + qx2 *(dW[n] + (1.0-FOUR_3RDS*qx2)*W6[n])
                       + qxx2*(dW[n] + (1.0-      2.0*qx2)*W6[n]);
@@ -568,12 +588,14 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
         qx2 = 0.5*dtodx*ev[n];
         qb  = qx1 - qx2;
         qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
-        if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+        if (dir==1) {
           qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
           qxx2 = SQR(qx2)*dx/(3.0*(ri[i+1]-dx*qx2));
           qb -= qxx1 - qxx2;
           qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
         }
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
         }
@@ -588,12 +610,14 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
         qx2 = 0.5*dtodx*ev[n];
         qb  = qx1 - qx2;
         qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
-        if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+        if (dir==1) {
           qxx1 = SQR(qx1)*dx/(3.0*(r[i]-dx*qx1));
           qxx2 = SQR(qx2)*dx/(3.0*(r[i]-dx*qx2));
           qb -= qxx1 - qxx2;
           qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
         }
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }

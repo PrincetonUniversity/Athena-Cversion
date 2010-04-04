@@ -44,6 +44,6 @@ void lr_states_destruct(void);
 void lr_states_init(MeshS *pM);
 void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int is, const int ie,
-               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir);
+               Prim1DS Wl[], Prim1DS Wr[], const int dir);
 
 #endif /* RECONSTRUCTION_PROTOTYPES_H */

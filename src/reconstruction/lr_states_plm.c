@@ -56,7 +56,7 @@ static Real **pW=NULL;
 
 void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[], 
                const Real dt, const Real dx, const int il, const int iu, 
-               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir)
+               Prim1DS Wl[], Prim1DS Wr[], const int dir)
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qx;
@@ -76,8 +76,6 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
   const Real dtodx = dt/dx;
 #ifdef CYLINDRICAL
   const Real *r=pG->r, *ri=pG->ri;
-#else
-  const Real *r=NULL, *ri=NULL;
 #endif /* CYLINDRICAL */
 
 /* Zero eigenmatrices, set pointer to primitive variables */
@@ -117,22 +115,25 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * Compute centered, L/R, and van Leer differences of primitive variables
  * Note we access contiguous array elements by indexing pointers for speed */
 
-    if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+    if (dir==1) {
       /* compute cylindrical weighting factors */
      zc = 1.0/(1.0 - SQR(dx)/(12.0*r[i+1]*r[i-1]));
      zl = 1.0/(1.0 - SQR(dx)/(12.0*r[i  ]*r[i-1]));
      zr = 1.0/(1.0 - SQR(dx)/(12.0*r[i+1]*r[i  ]));
     }
-
+#endif
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       dWc[n] = pW[i+1][n] - pW[i-1][n];
       dWl[n] = pW[i][n]   - pW[i-1][n];
       dWr[n] = pW[i+1][n] - pW[i][n];
-      if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+      if (dir==1) {
         dWc[n] *= zc;
         dWl[n] *= zl;
         dWr[n] *= zr;
       }
+#endif
       if (dWl[n]*dWr[n] > 0.0) {
         dWg[n] = 2.0*dWl[n]*dWr[n]/(dWl[n]+dWr[n]);
       } else {
@@ -205,7 +206,9 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * Compute L/R values, ensure they lie between neighboring cell-centered vals */
 
     gamma_curv = 0.0;
-    if (dir==cyl_x1) gamma_curv = dx/(6.0*r[i]);
+#ifdef CYLINDRICAL
+    if (dir==1) gamma_curv = dx/(6.0*r[i]);
+#endif
     opg = 1.0 + gamma_curv;
     omg = 1.0 - gamma_curv;
     beta  = omg/opg;
@@ -261,8 +264,10 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       qa = 0.0;
       if (hllallwave_flag || ev[n] > 0.) {
         qx = 0.5*dtodx*ev[n];
-        if (dir==cyl_x1) 
+#ifdef CYLINDRICAL
+        if (dir==1) 
           qx *= 1.0 - dx*qx/(3.0*(ri[i+1]-dx*qx));
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
         }
@@ -272,7 +277,9 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       qa = 0.0;
       if (hllallwave_flag || ev[n] < 0.) {
         qx = 0.5*dtodx*ev[n];
-        if (dir==cyl_x1) 
+#ifdef CYLINDRICAL
+        if (dir==1)
+#endif
           qx *= 1.0 - dx*qx/(3.0*(ri[i]-dx*qx));
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
@@ -283,15 +290,19 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 #else  /* include steps 8-9 only if using CTU integrator (AND NOT HLL) */   
     qx = 0.5*MAX(ev[NWAVE-1],0.0)*dtodx;
-    if (dir==cyl_x1) 
+#ifdef CYLINDRICAL
+    if (dir==1) 
       qx *= 1.0 - dx*qx/(3.0*(ri[i+1]-dx*qx));
+#endif
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n] - qx*dW[n];
     }
 
     qx = -0.5*MIN(ev[0],0.0)*dtodx;
-    if (dir==cyl_x1) 
+#ifdef CYLINDRICAL
+    if (dir==1) 
       qx *= 1.0 + dx*qx/(3.0*(ri[i]+dx*qx));
+#endif
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWr[n] = Wlv[n] + qx*dW[n];
     }
@@ -308,10 +319,12 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
         qa  = 0.0;
         qx1 = 0.5*dtodx*ev[NWAVE-1];
         qx2 = 0.5*dtodx*ev[n];
-        if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+        if (dir==1) {
           qx1 *= 1.0 - dx*qx1/(3.0*(ri[i+1]-dx*qx1));
           qx2 *= 1.0 - dx*qx2/(3.0*(ri[i+1]-dx*qx2));
         }
+#endif
         qx = qx1 - qx2;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
@@ -325,10 +338,12 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
         qa = 0.0;
         qx1 = -0.5*dtodx*ev[0];
         qx2 = -0.5*dtodx*ev[n];
-        if (dir==cyl_x1) {
+#ifdef CYLINDRICAL
+        if (dir==1) {
           qx1 *= 1.0 + dx*qx1/(3.0*(ri[i]+dx*qx1));
           qx2 *= 1.0 + dx*qx2/(3.0*(ri[i]+dx*qx2));
         }
+#endif
         qx = -qx1 + qx2;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
