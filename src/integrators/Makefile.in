@@ -11,9 +11,6 @@ CORE_OBJ = integrate.o \
 	   integrate_1d_ctu.o \
 	   integrate_2d_ctu.o \
 	   integrate_3d_ctu.o \
-	   integrate_1d_ctu_cyl.o \
-	   integrate_2d_ctu_cyl.o \
-	   integrate_3d_ctu_cyl.o \
 	   integrate_1d_vl.o \
 	   integrate_2d_vl.o \
 	   integrate_3d_vl.o
