@@ -190,7 +190,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
  */
 
   ptst = ptl + Ul.d*sdl*(sdl-sdml);
-
+ 
 /* Ul* */
   /* eqn (39) of M&K */
   Ulst.Mx = Ulst.d * spd[2];
@@ -421,9 +421,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real tmp,mfact,bfact,X;             /* temporary variables */
   int n;
 
-  /* FROM ROE */
-  Real sqrtdl,sqrtdr,isdlpdr,idroe,v1roe,b2roe,b3roe,x,y;
-  Real bt_starsq,vaxsq,twid_csq,ct2,tsum,tdif,cf2_cs2,cfsq,cf;
+//   /* FROM ROE */
+//   Real sqrtdl,sqrtdr,isdlpdr,idroe,v1roe,b2roe,b3roe,x,y;
+//   Real bt_starsq,vaxsq,twid_csq,ct2,tsum,tdif,cf2_cs2,cfsq,cf;
 
 /*--- Step 1. ------------------------------------------------------------------
  * Convert left- and right- states in conserved to primitive variables.
@@ -449,31 +449,31 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   cfl = sqrt((gpbl + sqrt(SQR(gpbl)-4*gpl*Bxsq))/(2.0*Wl.d));
   cfr = sqrt((gpbr + sqrt(SQR(gpbr)-4*gpr*Bxsq))/(2.0*Wr.d));
 
-//   spd[0] = MIN(Wl.Vx-cfl,Wr.Vx-cfr);
-//   spd[4] = MAX(Wl.Vx+cfl,Wr.Vx+cfr);
+  spd[0] = MIN(Wl.Vx-cfl,Wr.Vx-cfr);
+  spd[4] = MAX(Wl.Vx+cfl,Wr.Vx+cfr);
 
-  /* COMPUTE ROE AVERAGES */
-  sqrtdl = sqrt((double)Wl.d);
-  sqrtdr = sqrt((double)Wr.d);
-  isdlpdr = 1.0/(sqrtdl + sqrtdr);
-  idroe  = 1.0/(sqrtdl*sqrtdr);
-  v1roe = (sqrtdl*Wl.Vx + sqrtdr*Wr.Vx)*isdlpdr;
-  b2roe = (sqrtdr*Wl.By + sqrtdl*Wr.By)*isdlpdr;
-  b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
-  x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))*SQR(isdlpdr);
-  y = 0.5*(Wl.d + Wr.d)*idroe;
-
-  /* COMPUTE FAST MAGNETOSONIC SPEED */
-  bt_starsq = (SQR(b2roe) + SQR(b3roe))*y;
-  vaxsq = Bxsq*idroe;
-  twid_csq = Iso_csound2 + x;
-  ct2 = bt_starsq*idroe;
-  tsum = vaxsq + ct2 + twid_csq;
-  cfsq = 0.5*(tsum + sqrt((double)(SQR(tsum) - 4.0*twid_csq*vaxsq)));
-  cf = sqrt((double)cfsq);
-
-  spd[0] = MIN(Wl.Vx-cfl,v1roe-cf);
-  spd[4] = MAX(v1roe+cf,Wr.Vx+cfr);
+//   /* COMPUTE ROE AVERAGES */
+//   sqrtdl = sqrt((double)Wl.d);
+//   sqrtdr = sqrt((double)Wr.d);
+//   isdlpdr = 1.0/(sqrtdl + sqrtdr);
+//   idroe  = 1.0/(sqrtdl*sqrtdr);
+//   v1roe = (sqrtdl*Wl.Vx + sqrtdr*Wr.Vx)*isdlpdr;
+//   b2roe = (sqrtdr*Wl.By + sqrtdl*Wr.By)*isdlpdr;
+//   b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
+//   x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))*SQR(isdlpdr);
+//   y = 0.5*(Wl.d + Wr.d)*idroe;
+// 
+//   /* COMPUTE FAST MAGNETOSONIC SPEED */
+//   bt_starsq = (SQR(b2roe) + SQR(b3roe))*y;
+//   vaxsq = Bxsq*idroe;
+//   twid_csq = Iso_csound2 + x;
+//   ct2 = bt_starsq*idroe;
+//   tsum = vaxsq + ct2 + twid_csq;
+//   cfsq = 0.5*(tsum + sqrt((double)(SQR(tsum) - 4.0*twid_csq*vaxsq)));
+//   cf = sqrt((double)cfsq);
+// 
+//   spd[0] = MIN(Wl.Vx-cfl,v1roe-cf);
+//   spd[4] = MAX(v1roe+cf,Wr.Vx+cfr);
 
 /*--- Step 3. ------------------------------------------------------------------
  * Compute L/R fluxes
