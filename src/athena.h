@@ -84,6 +84,9 @@ typedef struct Cons_s{
 #if (NSCALARS > 0)
   Real s[NSCALARS];             /* passively advected scalars */
 #endif
+#ifdef CYLINDRICAL
+  Real Pflux;	 		/* pressure component of flux */
+#endif
 }ConsS;
 
 /*----------------------------------------------------------------------------*/
