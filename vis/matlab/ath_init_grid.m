@@ -54,13 +54,14 @@ end;
 coordsys = fread(fid,1,'int');
 
 % READ NUMBER OF DATA POINTS, VARIABLES, SCALARS, ETC.
-dat = fread(fid,6,'int');
+dat = fread(fid,7,'int');
 nx1      = dat(1);
 nx2      = dat(2);
 nx3      = dat(3);
 nvar     = dat(4);
 nscalars = dat(5);
 ifgrav   = dat(6);
+ifpart   = dat(7);
 ndim     = (nx1 > 1) + (nx2 > 1) + (nx3 > 1);
 if (~(ndim==1 || ndim==2 || ndim==3))
     fprintf(2,'[ath_init_grid]:  %d is an invalid dimension!\n', ndims);
@@ -134,6 +135,7 @@ Grid.nscalars    = nscalars;
 Grid.gamma_1     = gamma_1;
 Grid.iso_csound  = iso_csound;
 Grid.gravity     = (ifgrav == 1);
+Grid.particles   = (ifpart == 1);
 Grid.adiabatic   = (nvar==5 || nvar==8);
 Grid.mhd         = (nvar==7 || nvar==8);
 Grid.x1zones     = x1zones;
