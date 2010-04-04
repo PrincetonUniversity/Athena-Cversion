@@ -131,7 +131,6 @@ void dump_history(MeshS *pM, OutputS *pOut)
         for (k=ks; k<=ke; k++) {
           for (j=js; j<=je; j++) {
             for (i=is; i<=ie; i++) {
-//               dVol = (pG->dx1)*(pG->dx2)*(pG->dx3);
               dVol = 1.0; 
               if (pG->dx1 > 0.0) dVol *= pG->dx1;
               if (pG->dx2 > 0.0) dVol *= pG->dx2;
