@@ -92,8 +92,9 @@ void cc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
 void fc_pos(const GridS *pG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
-void vc_pos(const GridS *pG, const int i, const int j,const int k,
-            Real *px1, Real *px2, Real *px3);
+#ifdef CYLINDRICAL
+Real x1vc(const GridS *pG, const int i);
+#endif
 #ifdef PARTICLES
 int celli(const GridS *pGrid, const Real x, const Real dx1_1, int *i, Real *a);
 Real x1cc(const GridS *pGrid, const int i);
@@ -225,6 +226,21 @@ void ath_error(char *fmt, ...);
 void minmax1(Real   *data, int nx1,                   Real *dmin, Real *dmax);
 void minmax2(Real  **data, int nx2, int nx1,          Real *dmin, Real *dmax);
 void minmax3(Real ***data, int nx3, int nx2, int nx1, Real *dmin, Real *dmax);
+void do_nothing_bc(GridS *pG);
+Real compute_div_b(GridS *pG);
+int sign_change(Real (*func)(const Real,const Real), const Real a0, const Real b0, const Real x, Real *a, Real *b);
+int bisection(Real (*func)(const Real,const Real), const Real a0, const Real b0, const Real x, Real *root);
+Real trapzd(Real (*func)(Real), const Real a, const Real b, const int n, const Real s);
+Real qsimp(Real (*func)(Real), const Real a, const Real b);
+Real avg1d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
+Real avg2d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
+Real avg3d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
+Real vecpot2b1i(Real (*A2)(Real,Real,Real), Real (*A3)(Real,Real,Real),
+                const GridS *pG, const int i, const int j, const int k);
+Real vecpot2b2i(Real (*A1)(Real,Real,Real), Real (*A3)(Real,Real,Real),
+                const GridS *pG, const int i, const int j, const int k);
+Real vecpot2b3i(Real (*A1)(Real,Real,Real), Real (*A2)(Real,Real,Real),
+                const GridS *pG, const int i, const int j, const int k);
 #ifdef PARTICLES
 void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
