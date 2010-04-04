@@ -2,7 +2,8 @@
 /*==============================================================================
  * FILE: cylwindrotb.c
  *
- *  A test of the magnetized rotational wind problem.  
+ * The cylindrical analogue of the Bondi accretion (Parker wind) problem with
+ * rotation and magnetic field.  Axisymmetric.
  *
  *============================================================================*/
 
@@ -14,42 +15,39 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-#include "cyl.h"
 
-static Real theta, omega, eta, E, v_z;
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * grav_pot() - gravitational potential
+ * grav_acc() - gravitational acceleration
+ * myfunc()   - used to compute transonic solution
+ *============================================================================*/
 
+static Real theta,omega,eta,E,vz;
 const Real rho_A = 1.0;
 const Real R_A   = 1.0;
 const Real GM    = 1.0;
-
-
-static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  return -GM/x1;
-}
-
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return GM/SQR(x1);
-}
-
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
+static Real grav_acc(const Real x1, const Real x2, const Real x3);
 Real myfunc(const Real x, const Real y);
-static Gas ***Soln=NULL;
-
+static ConsS ***RootSoln=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
-
-void problem(Grid *pG, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pG = pDomain->Grid;
   int i,j,k,n,converged;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
   int nx1, nx2, nx3;
   Real x1, x2, x3;
   Real a,b,c,d,xmin,xmax,ymin,ymax;
   Real x,y,xslow,yslow,xfast,yfast;
-  Real R0,R1,R2,rho,Mdot,K,Omega,P_gas,beta,v_R,B_R,v_phi,B_phi;
-  Gas *Wind=NULL;
-  Real *pU,*pWl,*pWr;
+  Real R0,R1,R2,rho,Mdot,K,Omega,Pgas,beta,vR,BR,vphi,Bphi;
+  ConsS *Wind=NULL;
+  Real *pU=NULL,*pUl=NULL,*pUr=NULL;
+  Real lsf,rsf;
 
   is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
   js = pG->js;  je = pG->je;  nx2 = je-js+1;
@@ -67,26 +65,26 @@ void problem(Grid *pG, Domain *pDomain)
 #endif
 
   if (nx1==1) {
-    ath_error("[cylwind]: Only R can be used in 1D!\n");
+    ath_error("[cylwindrotb]: Only R can be used in 1D!\n");
   }
   else if (nx2==1 && nx3>1) {
-    ath_error("[cylwind]: Only (R,phi) can be used in 2D!\n");
+    ath_error("[cylwindrotb]: Only (R,phi) can be used in 2D!\n");
   }
 
-  // ALLOCATE MEMORY FOR WIND SOLUTION 
-  if ((Wind = (Gas*)calloc_1d_array(nx1,sizeof(Gas))) == NULL)
+  /* ALLOCATE MEMORY FOR WIND SOLUTION */
+  if ((Wind = (ConsS*)calloc_1d_array(nx1+1,sizeof(ConsS))) == NULL)
     ath_error("[cylwindrotb]: Error allocating memory\n");
 
-  // ALLOCATE MEMORY FOR GRID SOLUTION 
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+  /* ALLOCATE MEMORY FOR GRID SOLUTION */
+  if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylwindrotb]: Error allocating memory\n");
 
   theta = par_getd("problem","theta");
   omega = par_getd("problem","omega");
-  v_z   = par_getd("problem","v_z");
+  vz    = par_getd("problem","vz");
 
-  // NUMERICAL SOLUTION OBTAINED FROM MATLAB
-  // HOPEFULLY WE CAN REPLACE THIS WITH A FUNCTION SOLVER LATER...
+  /* THIS NUMERICAL SOLUTION WAS OBTAINED FROM MATLAB.
+   * IDEALLY, WE REPLACE THIS WITH A NONLINEAR SOLVER... */
   xslow = 0.5243264128;
   yslow = 2.4985859152;
   xfast = 1.6383327831;
@@ -94,8 +92,8 @@ void problem(Grid *pG, Domain *pDomain)
   E     = 7.8744739104;
   eta   = 2.3608500383;
 
-  xmin = par_getd("grid","x1min")/R_A;
-  xmax = par_getd("grid","x1max")/R_A;
+  xmin = par_getd("domain1","x1min")/R_A;
+  xmax = par_getd("domain1","x1max")/R_A;
   ymin = 0.45/rho_A;
   ymax = 2.6/rho_A;
 
@@ -104,15 +102,19 @@ void problem(Grid *pG, Domain *pDomain)
   printf("xmin = %f,\t ymin = %f,\t xmax = %f,\t ymax = %f\n", xmin,ymin,xmax,ymax);
 
 
-  // CALCULATE THE WIND SOLUTION AT CELL-CENTERS
-  for (i=il; i<=iu; i++) {
-    cc_pos(pG,i,jl,kl,&x1,&x2,&x3);
-    R0 = x1;
+  /* CALCULATE THE 1D WIND SOLUTION AT CELL-INTERFACES */
+  for (i=il; i<=iu+1; i++) {
+    memset(&(Wind[i]),0.0,sizeof(ConsS));
+    cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+
+    /* WANT THE SOLUTION AT R-INTERFACES */
+    R0 = x1 - 0.5*pG->dx1;
     x = R0/R_A;
 
+    /* LOOK FOR A SIGN CHANGE INTERVAL */
     if (x < xslow) {
-      sign_change(myfunc,yslow,10*ymax,x,&a,&b);
-      sign_change(myfunc,b,10*ymax,x,&a,&b);
+      sign_change(myfunc,yslow,10.0*ymax,x,&a,&b);
+      sign_change(myfunc,b,10.0*ymax,x,&a,&b);
     } else if (x < 1.0) {
       sign_change(myfunc,1.0+TINY_NUMBER,yslow,x,&a,&b);
     } else if (x < xfast) {
@@ -124,90 +126,75 @@ void problem(Grid *pG, Domain *pDomain)
     } else {
       sign_change(myfunc,0.5*ymin,yfast,x,&a,&b);
     }
+
+    /* USE BISECTION TO FIND THE ROOT */
     converged = bisection(myfunc,a,b,x,&y);
     if(!converged) {
       ath_error("[cylwindrotb]:  Bisection did not converge!\n");
     }
 
+    /* CONSTRUCT THE SOLUTION */
     rho = rho_A*y;
     Mdot = sqrt(R_A*SQR(rho_A)*GM*eta);
     Omega = sqrt((GM*omega)/pow(R_A,3));
     K = (GM*theta)/(Gamma*pow(rho_A,Gamma_1)*R_A);
-    P_gas = K*pow(rho,Gamma);
-    v_R = Mdot/(R0*rho);
+    Pgas = K*pow(rho,Gamma);
+    vR = Mdot/(R0*rho);
     beta = sqrt(1.0/rho_A);
-    B_R = beta*rho*v_R;
-    v_phi = R0*Omega*(1.0/SQR(x)-y)/(1.0-y);
-    B_phi = beta*rho*(v_phi-R0*Omega);
-
-// printf("\n");
-// printf("r = %f,\t phi = %f\n", y1,x2);
-// printf("rho = %f\n", rho);
-// printf("Phi = %f\n", Phi);
-// printf("K = %f\n", K);
-// printf("Omega = %f\n", Omega);
-// printf("f = %f\n", f);
-// printf("P = %f\n", P);
-// printf("vr = %f\n", vr);
-// printf("vphi = %f\n", vphi);
-// printf("Br = %f\n", Br);
-// printf("Bphi = %f\n", Bphi);
-// printf("\n");
+    BR = beta*rho*vR;
+    vphi = R0*Omega*(1.0/SQR(x)-y)/(1.0-y);
+    Bphi = beta*rho*(vphi-R0*Omega);
 
     Wind[i].d   = rho;
-    Wind[i].M1  = rho*v_R;
-    Wind[i].M2  = rho*v_phi;
-    Wind[i].M3  = rho*v_z;
-
-    Wind[i].B1c = B_R;
-    Wind[i].B2c = B_phi;
+    Wind[i].M1  = rho*vR;
+    Wind[i].M2  = rho*vphi;
+    Wind[i].M3  = rho*vz;
+    Wind[i].B1c = BR;
+    Wind[i].B2c = Bphi;
     Wind[i].B3c = 0.0;
-
-    Wind[i].E   = P_gas/Gamma_1 
+    Wind[i].E   = Pgas/Gamma_1
       + 0.5*(SQR(Wind[i].B1c) + SQR(Wind[i].B2c) + SQR(Wind[i].B3c))
-      + 0.5*(SQR(Wind[i].M1) + SQR(Wind[i].M2) + SQR(Wind[i].M3))/Wind[i].d;
+      + 0.5*(SQR(Wind[i].M1 ) + SQR(Wind[i].M2 ) + SQR(Wind[i].M3 ))/Wind[i].d;
   }
 
-  // COPY THE WIND SOLUTION ACROSS THE GRID, SAVE FOR ERROR ANALYSIS
+  /* AVERAGE THE WIND SOLUTION ACROSS THE ZONE FOR CC VARIABLES */
+  for (i=il; i<=iu; i++) {
+    memset(&(pG->U[ks][js][i]),0.0,sizeof(ConsS));
+    cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+    lsf = (x1 - 0.5*pG->dx1)/x1;
+    rsf = (x1 + 0.5*pG->dx1)/x1;
+
+    pU  = (Real*)&(pG->U[ks][js][i]);
+    pUl = (Real*)&(Wind[i]);
+    pUr = (Real*)&(Wind[i+1]);
+    for (n=0; n<NWAVE; n++) {
+      pU[n] = 0.5*(lsf*pUl[n] + rsf*pUr[n]);
+    }
+
+    pG->B1i[ks][js][i]   = Wind[i].B1c;
+    pG->B2i[ks][js][i]   = Wind[i].B2c;
+    pG->B3i[ks][js][i]   = Wind[i].B3c;
+  }
+
+  /* COPY 1D SOLUTION ACROSS THE GRID AND SAVE */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pG->U[k][j][i] = Wind[i];
-
-        // SAVE SOLUTION
-        Soln[k][j][i]  = Wind[i];
+        pG->U[k][j][i] = pG->U[ks][js][i];
+        RootSoln[k][j][i]  = pG->U[ks][js][i];
       }
     }
   }
-
-
-// /* INITIALIZE INTERFACE B-FIELDS */
-  for (k=kl; k<=ku; k++) {
-    for (j=jl; j<=ju; j++) {
-      pG->B1i[k][j][il] = Wind[il].B1c;
-      for (i=il+1; i<=iu; i++) {
-        cc_pos(pG,i,jl,kl,&x1,&x2,&x3);
-        R1 = x1 - pG->dx1;
-        R0 = x1 - 0.5*pG->dx1;
-        R2 = x1;
-        pG->B1i[k][j][i] = (R1*Wind[i-1].B1c + R2*Wind[i].B1c)/(2.0*R0);
-        pG->B2i[k][j][i] = Wind[i].B2c;
-        pG->B3i[k][j][i] = 0.0;
-      }
-    }
-  }
-
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_mhd_fun(left_x1,do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
   free_1d_array((void *)Wind);
 
   return;
 }
-
 
 /*==============================================================================
  * PROBLEM USER FUNCTIONS:
@@ -215,42 +202,48 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
  * get_usr_out_fun()       - returns a user defined output function pointer
- * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
-//   printf("Max divB = %1.10e\n", compute_div_b(pGrid));
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
-  compute_l1_error("CylWindRotB", pGrid, pDomain, Soln, 0);
+  compute_l1_error("CylWindRotB", pM, RootSoln, 1);
 }
-
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
+
+static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+  return -GM/x1;
+}
+
+static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+  return GM/SQR(x1);
+}
+
 /*-----------------------------------------------------------------------------
  * Function func
  *

@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: cyl_blast.c
+ * FILE: cylblast.c
  *
  * PURPOSE: Problem generator for blast wave in cylindrical coords.  Can only
  *   be run in 2D or 3D.  Input parameters are:
@@ -8,7 +8,11 @@
  *      problem/pamb   = ambient pressure
  *      problem/prat   = ratio of interior to ambient pressure
  *      problem/b0     = initial azimuthal magnetic field (units sqrt(Pamb))
- *      problem/omega  = initial azimuthal flow angular velocity
+ *      problem/rho0   = background density
+ *      problem/omega0 = initial azimuthal flow angular velocity
+ *
+ * REFERENCE: P. Londrillo & L. Del Zanna, "High-order upwind schemes for
+ *   multidimensional MHD", ApJ, 530, 508 (2000), and references therein.
  *============================================================================*/
 
 #include <math.h>
@@ -19,28 +23,30 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-#include "cyl.h"
 
-static Real radius,pamb,prat,b0,omega;
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * grav_pot() - gravitational potential
+ * grav_acc() - gravitational acceleration
+ * M2()       - phi-momentum
+ *============================================================================*/
 
-static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  return 0.5*SQR(x1*omega);
-}
+static Real omega0,rho0;
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
+static Real grav_acc(const Real x1, const Real x2, const Real x3);
+Real M2(const Real x1, const Real x2, const Real x3);
 
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return x1*SQR(omega);
-}
-
-
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pG, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pG = pDomain->Grid;
   int i,j,k;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   int il,iu,jl,ju,kl,ku;
-  Real r0,phi0,x0,y0,z0,angle;
+  Real r0,phi0,x0,y0,z0,angle,radius,proat,pamb,b0;
   Real x1,x2,x3,x2i;
   Real x,y,z,Eint,Emag,Ekin;
 
@@ -65,15 +71,16 @@ void problem(Grid *pG, Domain *pDomain)
 
   /* READ IN INITIAL CONDITIONS */
   radius = par_getd("problem","radius");
-  pamb = par_getd("problem","pamb");
-  prat = par_getd("problem","prat");
-  omega = par_getd("problem","omega");
-  b0 = par_getd("problem","b0");
+  pamb   = par_getd("problem","pamb");
+  prat   = par_getd("problem","prat");
+  rho0   = par_getd("problem","rho0");
+  omega0 = par_getd("problem","omega0");
+  b0     = par_getd("problem","b0");
 
   /* PLACEMENT OF CENTER OF BLAST */
-  r0 = par_getd("problem","r0");
+  r0   = par_getd("problem","r0");
   phi0 = par_getd("problem","phi0");
-  z0 = par_getd("problem","z0");
+  z0   = par_getd("problem","z0");
 
   /* ORIENTATION OF FIELD W.R.T. POS. X-AXIS */
   angle = (PI/180.0)*par_getd("problem","angle");
@@ -88,15 +95,15 @@ void problem(Grid *pG, Domain *pDomain)
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
         x2i = x2 - 0.5*pG->dx2;
 
-        pG->U[k][j][i].d = 1.0;
+        pG->U[k][j][i].d  = rho0;
         pG->U[k][j][i].M1 = 0.0;
         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
         pG->U[k][j][i].M3 = 0.0;
 #ifdef MHD
         /* SET UP A PLANAR MAGNETIC FIELD IN THE X-Y (R-PHI) PLANE */
-        pG->B1i[k][j][i] = b0*(cos(angle)*cos(x2)+sin(angle)*sin(x2)); 
-        pG->B2i[k][j][i] = b0*(-cos(angle)*sin(x2i)+sin(angle)*cos(x2i));
-        pG->B3i[k][j][i] = 0.0;
+        pG->B1i[k][j][i]   = b0*(cos(angle)*cos(x2)+sin(angle)*sin(x2)); 
+        pG->B2i[k][j][i]   = b0*(-cos(angle)*sin(x2i)+sin(angle)*cos(x2i));
+        pG->B3i[k][j][i]   = 0.0;
         pG->U[k][j][i].B1c = b0*(cos(angle)*cos(x2)+sin(angle)*sin(x2));
         pG->U[k][j][i].B2c = b0*(-cos(angle)*sin(x2)+sin(angle)*cos(x2));
         pG->U[k][j][i].B3c = 0.0;
@@ -125,11 +132,11 @@ void problem(Grid *pG, Domain *pDomain)
 
   /* Enroll the gravitational function and radial BC */
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;  
-  set_bvals_mhd_fun(left_x1, do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
-  set_bvals_mhd_fun(left_x2, do_nothing_bc);
-  set_bvals_mhd_fun(right_x2,do_nothing_bc);
+  x1GravAcc = grav_acc;
+  bvals_mhd_fun(pDomain,left_x1, do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,left_x2, do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x2,do_nothing_bc);
 
   return;
 }
@@ -140,34 +147,47 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
  * get_usr_out_fun()       - returns a user defined output function pointer
- * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+  return 0.5*SQR(x1*omega);
+}
+
+static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+  return x1*SQR(omega);
+}
+
+Real M2(const Real x1, const Real x2, const Real x3) {
+  return rho0*omega0*x1;
 }

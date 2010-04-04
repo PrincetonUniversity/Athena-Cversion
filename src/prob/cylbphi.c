@@ -3,7 +3,7 @@
  * FILE: cylbphi.c
  *
  * A simple magnetostatic test of pressure balance using a B-field with uniform
- * phi-component.  
+ * phi-component.
  *
  *============================================================================*/
 
@@ -15,50 +15,33 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-#include "cyl.h"
 
-#if !defined MHD || !defined ADIABATIC
-#error This problem only works for adiabatic MHD...
-#endif 
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * grav_pot() - gravitational potential
+ * grav_acc() - gravitational acceleration
+ * M2()       - phi-momentum
+ * A3()       - magnetic vector potential
+ *============================================================================*/
 
-static Real bphi0, omega0, vz0, rho0, pgas0;
+static Real omega0,rho0;
 static int iprob;
-
-static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  switch (iprob) {
-    case 1:   return 0.5*SQR(x1*omega0) - (SQR(bphi0)/rho0)*log(x1);
-              break;
-    case 2:   return 0.5*SQR(x1*omega0);
-              break;
-    default:  return 0.0;
-  }
-}
-
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  switch (iprob) {
-    case 1:   return x1*SQR(omega0) - SQR(bphi0)/(rho0*x1);
-              break;
-    case 2:   return x1*SQR(omega0);
-              break;
-    default:  return 0.0;
-  }
-}
-
-static Gas ***Soln=NULL;
-
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
+static Real grav_acc(const Real x1, const Real x2, const Real x3);
+Real M2(const Real x1, const Real x2, const Real x3);
+static ConsS ***RootSoln=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
-
-void problem(Grid *pG, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pG = pDomain->Grid;
   int i,j,k;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
   int nx1,nx2,nx3;
   Real x1,x2,x3;
-  Real y1,y2,y3;
-  Real Eint, Emag, Ekin;
+  Real Eint,Emag,Ekin,vphi0,vz0,pgas0;
 
   is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
   js = pG->js;  je = pG->je;  nx2 = je-js+1;
@@ -91,7 +74,7 @@ void problem(Grid *pG, Domain *pDomain)
 
 
   /* ALLOCATE MEMORY FOR SOLUTION */
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+  if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylbphi]: Error allocating memory for solution!\n");
 
 
@@ -104,14 +87,12 @@ void problem(Grid *pG, Domain *pDomain)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        vc_pos(pG,i,j,k,&y1,&y2,&y3);
         memset(&(pG->U[k][j][i]),0.0,sizeof(Gas));
 
         pG->U[k][j][i].d  = rho0;
         pG->U[k][j][i].M1 = 0.0;
-//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*y1*omega0;
-        pG->U[k][j][i].M3 = vz0;
+        pG->U[k][j][i].M2 = avg1d(M2,pG,i,j,k);
+        pG->U[k][j][i].M3 = pG->U[k][j][i].d*vz0;
         switch (iprob) {
           case 1:   // CONSTANT B_phi
                     pG->B2i[k][j][i]   = bphi0;
@@ -133,20 +114,18 @@ void problem(Grid *pG, Domain *pDomain)
         pG->U[k][j][i].E = Eint + Emag + Ekin;
 
         /* SAVE SOLUTION */
-        Soln[k][j][i] = pG->U[ks][j][i];
+        RootSoln[k][j][i] = pG->U[ks][j][i];
       }
     }
   }
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_mhd_fun(left_x1,do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
   return;
 }
-
-
 
 /*==============================================================================
  * PROBLEM USER FUNCTIONS:
@@ -154,32 +133,61 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
  * get_usr_out_fun()       - returns a user defined output function pointer
- * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
-{
+VOutFun_t get_usr_out_fun(const char *name){
+  return NULL;
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
-  compute_l1_error("CylBPhi", pGrid, pDomain, Soln, 0);
+//   printf("Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
 }
 
+void Userwork_after_loop(MeshS *pM)
+{
+  compute_l1_error("CylBPhi", pM, RootSoln, 1);
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+  switch (iprob) {
+    case 1:   return 0.5*SQR(x1*omega0) - (SQR(bphi0)/rho0)*log(x1);
+              break;
+    case 2:   return 0.5*SQR(x1*omega0);
+              break;
+    default:  return 0.0;
+  }
+}
+
+static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+  switch (iprob) {
+    case 1:   return x1*SQR(omega0) - SQR(bphi0)/(rho0*x1);
+              break;
+    case 2:   return x1*SQR(omega0);
+              break;
+    default:  return 0.0;
+  }
+}
+
+Real M2(const Real x1, const Real x2, const Real x3) {
+  return rho0*omega0*x1;
+}

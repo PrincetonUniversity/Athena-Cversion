@@ -4,8 +4,7 @@
 /*==============================================================================
  * FILE: cylrayleigh.c
  *
- *  A simple magnetostatic test of the Rayleigh instability using 
- *  omega = 1/r^K.
+ *  A test of the Rayleigh instability using omega(R) = omega_0/R^q.
  *
  *============================================================================*/
 
@@ -17,37 +16,22 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-#include "cyl.h"
 
-static Real bphi0,omega0,rho0,pgas0,q,noise_level;
-
-static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  if (q == 1.0) {
-    return SQR(omega0)*log(x1);
-  }
-  else {
-    Real omega = omega0/pow(x1,q);
-    return 0.5*SQR(x1*omega)/(1.0-q);
-  }
-}
-
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  Real omega = omega0/pow(x1,q);
-  return x1*SQR(omega);
-}
-
+static Real rho0,omega0,q;
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
+static Real grav_acc(const Real x1, const Real x2, const Real x3);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
-
-void problem(Grid *pG, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pG = pDomain->Grid;
   int i,j,k;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
   int nx1,nx2,nx3,myid=0;
   Real x1,x2,x3,R1,R2;
-  Real r,noise,omega;
+  Real r,noise,omega,bphi0,pgas0,noise_level;
   Real Eint,Emag,Ekin;
 
   is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
@@ -93,10 +77,8 @@ void problem(Grid *pG, Domain *pDomain)
         // RANDOM NUMBER BETWEEN +/- noise_level
         noise = noise_level*(2.0*r-1.0);
 
-        pG->U[k][j][i].d   = rho0;
-//         omega = omega0/pow(x1,q);
-//         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
-        pG->U[k][j][i].M2 = rho0*omega0*(pow(R2,3.0-q)-pow(R1,3.0-q))/(x1*pG->dx1*(3.0-q));
+        pG->U[k][j][i].d  = rho0;
+        pG->U[k][j][i].M2 = avg1d(M2,pG,i,j,k);
         // NOW PERTURB v_phi
         if ((i>=is) && (i<=ie)) {
           pG->U[k][j][i].M2 *= (1.0 + noise);
@@ -122,13 +104,11 @@ void problem(Grid *pG, Domain *pDomain)
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_mhd_fun(left_x1,do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
   return;
 }
-
-
 
 /*==============================================================================
  * PROBLEM USER FUNCTIONS:
@@ -136,40 +116,62 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
  * get_usr_out_fun()       - returns a user defined output function pointer
- * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
-  omega0      = par_getd("problem", "omega0");
-  bphi0       = par_getd("problem", "bphi0");
-  rho0        = par_getd("problem", "rho0");
-  pgas0       = par_getd("problem", "pgas0");
-  q           = par_getd("problem", "q");
+  rho0   = par_getd("problem","rho0");
+  omega0 = par_getd("problem","omega0");
+  q      = par_getd("problem","q");
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_mhd_fun(left_x1,do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+VOutFun_t get_usr_out_fun(const char *name){
+  return NULL;
+}
+
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+  if (q == 1.0) {
+    return SQR(omega0)*log(x1);
+  }
+  else {
+    Real omega = omega0/pow(x1,q);
+    return 0.5*SQR(x1*omega)/(1.0-q);
+  }
+}
+
+static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+  Real omega = omega0/pow(x1,q);
+  return x1*SQR(omega);
+}
+
+Real M2(const Real x1, const Real x2, const Real x3) {
+  return rho0*omega0*pow(x1,1.0-q);
 }

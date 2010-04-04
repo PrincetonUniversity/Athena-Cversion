@@ -2,7 +2,8 @@
 /*==============================================================================
  * FILE: cylwindrot.c
  *
- *  A test of rotational Bondi accretion (Parker wind) problem.  
+ * The cylindrical analogue of the Bondi accretion (Parker wind) problem with
+ * rotation.  Hydrodynamic, axisymmetric.
  *
  *============================================================================*/
 
@@ -14,35 +15,32 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-#include "cyl.h"
 
-static Real ang_mom, c_infty, lambda_s, vz0;
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ * grav_pot() - gravitational potential
+ * grav_acc() - gravitational acceleration
+ * myfunc()   - used to compute transonic solution
+ *============================================================================*/
+
+static Real ang_mom,c_infty,lambda_s,vz0;
 static int iprob;
-
-static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  return -SQR(c_infty)/x1;
-}
-
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return SQR(c_infty/x1);
-}
-
+static Real grav_pot(const Real x1, const Real x2, const Real x3);
+static Real grav_acc(const Real x1, const Real x2, const Real x3);
 Real myfunc(Real x, Real v);
-
-static Gas ***Soln=NULL;
-
+static ConsS ***RootSoln=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
-
-void problem(Grid *pG, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pG = pDomain->Grid;
   int i,j,k;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
   int nx1,nx2,nx3;
   Real x1,x2,x3;
-  Real xs,vs,v,pgas,alpha,beta,a,b,converged;
+  Real xs,vs,v,pgas0,pgas,alpha,beta,a,b,converged;
 
   is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
   js = pG->js;  je = pG->je;  nx2 = je-js+1;
@@ -68,12 +66,13 @@ void problem(Grid *pG, Domain *pDomain)
   }
 
   /* ALLOCATE MEMORY FOR SOLUTION */
-  if ((Soln = (Gas***)calloc_3d_array(nx3,nx2,nx1,sizeof(Gas))) == NULL)
+  if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylwindrot]: Error allocating memory for solution\n");
 
   ang_mom = par_getd("problem","ang_mom");
   c_infty = par_getd("problem","c_infty");
-  vz0      = par_getd("problem","vz0");
+  vz0     = par_getd("problem","vz0");
+  iprob   = par_geti("problem","iprob");
   printf("gamma = %f,\t ang_mom = %f,\t c_infty = %f\n", Gamma, ang_mom, c_infty);
 
   beta = 2.0*Gamma_1/(Gamma+1.0);
@@ -86,82 +85,65 @@ void problem(Grid *pG, Domain *pDomain)
   // COMPUTE 1D WIND/ACCRETION SOLUTION
   for (i=il; i<=iu; i++) {
     cc_pos(pG,i,j,k,&x1,&x2,&x3);
-    memset(&(pG->U[ks][js][i]),0.0,sizeof(Gas));
+    memset(&(pG->U[ks][js][i]),0.0,sizeof(ConsS));
     vs = pow(lambda_s/x1,0.5*beta);
 
     switch(iprob) {
-      case 0: // PARKER WIND
-              if (x1 < xs) { 
-                a = TINY_NUMBER;
-                b = vs;
-              } else { 
-                a = vs;
-                b = HUGE_NUMBER;
+      case 1: /* WIND */
+              if (x1 < xs) {
+                a = TINY_NUMBER;  b = vs;
+              }
+              else {
+                a = vs;           b = HUGE_NUMBER;
               }
               break;
-      case 1: // BONDI ACCRETION
-              if (x1 < xs) { 
-                a = vs;
-                b = HUGE_NUMBER;
-              } else { 
-                a = TINY_NUMBER;
-                b = vs;
+      case 2: /* ACCRETION */
+              if (x1 < xs) {
+                a = vs;           b = HUGE_NUMBER;
+              }
+              else {
+                a = TINY_NUMBER;  b = vs;
               }
               break;
-      default:  ath_error("[cylwindrot]:  Not an accepted problem number\n");
+      default:  ath_error("[cylwindrot]:  Not an accepted problem number!\n");
     }
 
     converged = bisection(myfunc,a,b,x1,&v);
-    if (!converged) {
-      ath_error("[cylwindrot]:  Bisection did not converge!\n");
-    }
+    if (!converged) ath_error("[cylwindrot]:  Bisection did not converge!\n");
 
-    pG->U[ks][js][i].d = lambda_s/(x1*v);
+    pG->U[ks][js][i].d   = lambda_s/(x1*v);
+    pG->U[ks][js][i].M1  = lambda_s/x1;
+    if (iprob==2)
+      pG->U[ks][js][i].M1  *= -1.0;
+    pG->U[ks][js][i].M2  = pG->U[ks][js][i].d*ang_mom/x1;
+    pG->U[ks][js][i].M3  = pG->U[ks][js][i].d*vz0;
 
-    switch(iprob) {
-      case 0: // PARKER WIND
-              pG->U[ks][js][i].M1  = lambda_s/x1;
-              break; 
-      case 1: // BONDI ACCRETION
-              pG->U[ks][js][i].M1  = -lambda_s/x1;
-              break;
-      default:  ath_error("[cylwindrot]:  Not an accepted problem number\n");
-    }
-
-    pG->U[ks][js][i].M2  = pG->U[ks][js][i].d*ang_mom/x1; 
-    pG->U[ks][js][i].M3  = pG->U[ks][js][i].d*vz0; 
-
-    /* INITIALIZE TOTAL ENERGY */
+        /* INITIALIZE TOTAL ENERGY */
 #ifndef ISOTHERMAL
-    pgas = (1.0/Gamma)*pow(pG->U[ks][js][i].d,Gamma);
-    pG->U[ks][js][i].E = pgas/Gamma_1
-      + 0.5*(SQR(pG->U[ks][js][i].M1) + SQR(pG->U[ks][js][i].M2) + SQR(pG->U[ks][js][i].M3))/pG->U[ks][js][i].d;
+        pgas0 = 1.0/Gamma;
+        pgas = pgas0*pow(pG->U[ks][js][i].d,Gamma);
+        pG->U[ks][js][i].E = pgas/Gamma_1
+          + 0.5*(SQR(pG->U[ks][js][i].M1) + SQR(pG->U[ks][js][i].M2) + SQR(pG->U[ks][js][i].M3))/pG->U[ks][js][i].d;
 #endif /* ISOTHERMAL */
   }
 
-
-  // COPY WIND SOLUTION AND SAVE
+  /* COPY 1D SOLUTION AND SAVE */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pG->U[k][j][i] = pG->U[ks][js][i];
-
-        // SAVE SOLUTION
-        Soln[k][j][i] = pG->U[ks][js][i];
+        RootSoln[k][j][i] = pG->U[ks][js][i];
       }
     }
   }
 
-
-  StaticGravPot = grav_pot;  
+  StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  set_bvals_mhd_fun(left_x1,do_nothing_bc);
-  set_bvals_mhd_fun(right_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
+  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
   return;
 }
-
-
 
 /*==============================================================================
  * PROBLEM USER FUNCTIONS:
@@ -169,49 +151,56 @@ void problem(Grid *pG, Domain *pDomain)
  * problem_read_restart()  - reads problem-specific user data from restart files
  * get_usr_expr()          - sets pointer to expression for special output data
  * get_usr_out_fun()       - returns a user defined output function pointer
- * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
-  compute_l1_error("CylWindRot", pGrid, pDomain, Soln, 0);
+  compute_l1_error("CylWindRot", pM, RootSoln, 1);
 }
 
 
-/*-----------------------------------------------------------------------------
- * Function func
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+  return -SQR(c_infty)/x1;
+}
+
+static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+  return SQR(c_infty/x1);
+}
+
+/*------------------------------------------------------------------------------
+ *  FUNCTION myfunc
  *
  * This function is used to calculate v as a function of x, gamma, and lambda 
  * using the bisection method.  
- *
- */
+ *----------------------------------------------------------------------------*/
 Real myfunc(Real x, Real v) 
 {
   return Gamma_1*(1/x + 1/Gamma_1 - 0.5*(SQR(v/c_infty)+SQR(ang_mom/x)))*pow(v*x/c_infty,Gamma_1) - pow(lambda_s,Gamma_1);
 }
-
