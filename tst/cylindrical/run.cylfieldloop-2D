@@ -10,13 +10,24 @@
 #
 # It expects to find the input file in (../ from cylfieldloop/)
 
-set rundir=cylfieldloop
+set basedir=~/svnathena
+set bindir=$basedir/bin
+set inputdir=$basedir/tst/cylindrical
+set outputdir=$inputdir/cylfieldloop
 set logfile=0
+set np=4
 
-if (! -d $rundir) then 
-  mkdir $rundir
+if (! -d $outputdir) then 
+  mkdir $outputdir
 endif
-cd $rundir
+cd $outputdir
 
-../../../bin/athena -i ../athinput.cylfieldloop log/file_open=$logfile
+cp $inputdir/hostfile.$np ./hostfile
+
+recon hostfile
+wipe -v hostfile
+lamboot -v hostfile
+mpirun -np $np $bindir/athena -i $inputdir/athinput.cylfieldloop-2D log/file_open=$logfile -d $outputdir
+wipe -v hostfile
+lamhalt
 

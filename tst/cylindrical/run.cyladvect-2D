@@ -1,28 +1,33 @@
 #! /bin/csh
 # Script for running cylindrical advection tests.
-# Run script in this directory (tst/2D-hydro)
+# Run script in this directory (tst/cylindrical)
 #
-# It creates a temporary run directory=cyladvect
+# It creates the directory=cyladvect
 #
 # It redirects all output to a log file
 #
-# It expects to find the executable in bin (../../../bin/ from cyladvect)
+# It expects to find the executable in bindir
 #
-# It expects to find the input file in (../ from cyladvect)
+# It expects to find the input file in inputdir
 
-set rundir=cyladvect
+set bindir=~/svnathena/bin
+set inputdir=~/svnathena/tst/cylindrical
+set outputdir=~/svnathena/bin/cyladvect2
 set logfile=0
+set np=4
 
-if (! -d $rundir) then 
-  mkdir $rundir
+if (! -d $outputdir) then 
+  mkdir $outputdir
 endif
-cd $rundir
 
-#foreach nx1 (32 64 128 256 512 1024)
-foreach nx1 (32 64 128)
-#  foreach iprob (1 3)
-  foreach iprob (4)
-    ../../../bin/athena -i ../athinput.cyladvect log/file_open=$logfile grid/Nx1=$nx1 grid/Nx2=$nx1 job/problem_id=CylAdvect_$nx1 problem/iprob=$iprob -d problem$iprob
-    echo 'Finished '{$nx1}'x'{$nx1}' problem '{$iprob}''
+recon
+wipe -v
+lamboot -v
+foreach nx1 (32 64 128 256 512)
+  foreach iprob (1)
+    mpirun -np $np $bindir/athena -i $inputdir/athinput.cyladvect-2D log/file_open=$logfile domain1/Nx1=$nx1 domain1/Nx2=$nx1 job/problem_id=CylAdvect_$nx1 problem/iprob=$iprob -d $outputdir
+    echo 'Finished CylAdvect '{$nx1}'x'{$nx1}' problem '{$iprob}''
   end
 end
+wipe -v
+lamhalt
