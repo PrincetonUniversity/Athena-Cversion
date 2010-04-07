@@ -279,8 +279,8 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
         qx = 0.5*dtodx*ev[n];
 #ifdef CYLINDRICAL
         if (dir==1)
-#endif
           qx *= 1.0 - dx*qx/(3.0*(ri[i]-dx*qx));
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
         }
