@@ -655,8 +655,9 @@ void integrate_init_1d(MeshS *pM)
   if ((Wr = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
 
 #ifdef CYLINDRICAL
-  if((StaticGravPot != NULL) || (CoolingFunc != NULL)){
+  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
 #endif
+  {
     if ((dhalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
   }
   if(CoolingFunc != NULL){
