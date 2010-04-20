@@ -80,7 +80,7 @@ void integrate_diff_init(MeshS *pM)
   if(pM->Nx[1] > 1) dim++;
   if(pM->Nx[2] > 1) dim++;
 
-  dtmin_diffusion = 0.0;
+  dtmin_diffusion = (HUGE_NUMBER);
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       if (pM->Domain[nl][nd].Grid != NULL) {
