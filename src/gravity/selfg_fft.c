@@ -170,7 +170,7 @@ void selfg_fft_2d(DomainS *pD)
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
       pG->Phi[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]/
-        bplan2d->cnt;
+        bplan2d->gcnt;
     }
   }
 
