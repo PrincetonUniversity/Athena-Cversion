@@ -443,7 +443,7 @@ void integrate_2d_vl(DomainS *pD)
       W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
     }
 
-    lr_states(pG,W1d,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,cart_x1);
+    lr_states(pG,W1d,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,1);
 
     for (i=is; i<=ie+1; i++) {
       Wl_x1Face[j][i] = Wl[i];
@@ -486,7 +486,7 @@ void integrate_2d_vl(DomainS *pD)
       W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
     }
 
-    lr_states(pG,W1d,Bxc,pG->dt,pG->dx2,js,je,Wl,Wr,cart_x2);
+    lr_states(pG,W1d,Bxc,pG->dt,pG->dx2,js,je,Wl,Wr,2);
 
     for (j=js; j<=je+1; j++) {
       Wl_x2Face[j][i] = Wl[j];

@@ -221,7 +221,7 @@ void integrate_1d_vl(DomainS *pD)
     W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
   }
 
-  lr_states(pG,W,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,cart_x1);
+  lr_states(pG,W,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,1);
 
   for (i=is; i<=ie+1; i++) {
     Wl_x1Face[i] = Wl[i];
