@@ -64,7 +64,7 @@ static Real **pW=NULL, **Whalf=NULL;
 
 void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir)
+               Prim1DS Wl[], Prim1DS Wr[], const int dir)
 {
   int i,n,m;
   Real lim_slope,qa,qb,qc,qx;
