@@ -137,13 +137,6 @@ int  add_output(OutputS *new_out);
 void add_rst_out(OutputS *new_out);
 void data_output_destruct(void);
 void dump_history_enroll(const ConsFun_t pfun, const char *label);
-void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
-			const char *fmt, const ConsFun_t expr, int n,
-			const Real dmin, const Real dmax, int sdmin, int sdmax
-#ifdef PARTICLES
-			, const int out_pargrid, PropFun_t par_prop
-#endif
-);
 Real ***OutData3(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2, int *Nx3);
 Real  **OutData2(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2);
 Real   *OutData1(GridS *pGrid, OutputS *pOut, int *Nx1);

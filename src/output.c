@@ -630,48 +630,6 @@ void data_output_destruct(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* data_output_enroll: Enroll a user-defined data output function */
-
-void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
-			const char *fmt, const ConsFun_t expr, int n,
-			const Real dmin, const Real dmax, int sdmin, int sdmax
-#ifdef PARTICLES
-			, const int out_pargrid, PropFun_t par_prop
-#endif
-)
-{
-  OutputS new_out;
-
-/* Zero (NULL) all members of the Output */
-  memset(&new_out,0,sizeof(OutputS));
-
-/* Set the input values and strdup the fmt string */
-  new_out.n     = n;
-  new_out.t     = time;
-  new_out.dt    = dt;
-  new_out.num   = num;
-  new_out.dmin  = dmin;
-  new_out.dmax  = dmax;
-  new_out.sdmin = sdmin;
-  new_out.sdmax = sdmax;
-  new_out.out_fun  = fun;
-  new_out.expr  = expr;
-#ifdef PARTICLES
-  new_out.out_pargrid = out_pargrid;
-  new_out.par_prop = par_prop;
-#endif
-
-  if(fmt != NULL){
-    if((new_out.out_fmt = ath_strdup(fmt)) == NULL)
-      ath_perr(-1,"[dump_user_enroll]: Warning out_fmt strdup failed\n");
-  }
-
-  if(add_output(&new_out) && fmt != NULL) free(&(new_out.out_fmt));
-
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
 /* OutData3: creates 3D array of output data with dimensions equal to Grid
  * using output expression (function pointer) stored in Output structure.
  * Dimensions of array created also returned in arguments. */
