@@ -32,6 +32,7 @@
 #include "../prototypes.h"
 
 #ifdef EXACT_FLUX
+#ifndef SPECIAL_RELATIVITY
 
 #ifdef MHD
 #error : The exact flux for MHD has not been implemented.
@@ -323,9 +324,6 @@ static double rtsafe(void (*funcd)(double, double, double, double, double,
 #undef MAXIT 
 
 #elif defined ADIABATIC
-/*==============================================================================
- *  ADIABATIC EXACT SOLVER written by Nick Hand
- *============================================================================*/
 
 /*------------------------------------------------------------------*/
 
@@ -421,7 +419,7 @@ static Real getPC(const Prim1DS Wl, const Prim1DS Wr)
   Real POld; 
   Real VxDiff = Wr.Vx - Wl.Vx;
   int i = 0;   
-  Real TOL = 1.0e-2;
+  Real TOL = 1.0e-6;
   Real change, p, fr, fl, frder, flder; 
   Real MAX_ITER = 100; 
 
@@ -694,4 +692,5 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 #endif /*ISOTHERMAL*/
 
+#endif /* SPECIAL_RELATIVITY */
 #endif /* EXACT_FLUX */

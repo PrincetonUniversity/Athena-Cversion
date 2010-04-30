@@ -9,6 +9,7 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = esystem_roe.o\
 	   exact.o \
+	   exact_sr.o \
 	   force.o \
 	   hllc.o \
 	   hlld.o \
