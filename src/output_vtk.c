@@ -69,6 +69,7 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 /* Upper and Lower bounds on i,j,k for data dump */
   int big_end = ath_big_endian();
   int i,j,nx1,nx2;
+  Real dmin, dmax;
   Real **data2d=NULL; /* 2D array of data to be dumped */
   float *data;        /* data actually output has to be floats */
   double x1, x2, x3, dx1, dx2, dx3;
@@ -98,6 +99,11 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if((pfile = fopen(fname,"w")) == NULL){
     ath_error("[output_vtk]: Unable to open vtk file %s\n",fname);
   }
+
+/* Store the global min / max, for output at end of run */
+  minmax2(data2d,nx2,nx1,&dmin,&dmax);
+  pOut->gmin = MIN(dmin,pOut->gmin);
+  pOut->gmax = MAX(dmax,pOut->gmax);
 
 /* Allocate memory for temporary array of floats */
 
@@ -171,6 +177,7 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
 /* Upper and Lower bounds on i,j,k for data dump */
   int big_end = ath_big_endian();
   int nx1,nx2,nx3,i,j,k;
+  Real dmin, dmax;
   Real ***data3d=NULL; /* 3D array of data to be dumped */
   float *data;         /* data actually output has to be floats */
   double x1, x2, x3;
@@ -199,6 +206,11 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if((pfile = fopen(fname,"w")) == NULL){
     ath_error("[output_vtk]: Unable to open vtk file %s\n",fname);
   }
+
+/* Store the global min / max, for output at end of run */
+  minmax3(data3d,nx3,nx2,nx1,&dmin,&dmax);
+  pOut->gmin = MIN(dmin,pOut->gmin);
+  pOut->gmax = MAX(dmax,pOut->gmax);
 
 /* Allocate memory for temporary array of floats */
 

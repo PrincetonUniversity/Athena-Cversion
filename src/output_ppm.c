@@ -91,13 +91,8 @@ void output_ppm(MeshS *pM, OutputS *pOut)
 
 /* Store the global min / max, for output at end of run */
           minmax2(data,nx2,nx1,&dmin,&dmax);
-          if (pOut->num == 0) {
-            pOut->gmin = dmin;
-            pOut->gmax = dmax;
-          } else {
-            pOut->gmin = MIN(dmin,pOut->gmin);
-            pOut->gmax = MAX(dmax,pOut->gmax);
-          }
+          pOut->gmin = MIN(dmin,pOut->gmin);
+          pOut->gmax = MAX(dmax,pOut->gmax);
 
           fprintf(pfile,"P6\n");
           fprintf(pfile,"# dmin= %.7e, dmax= %.7e, gmin= %.7e, gmax= %.7e\n",

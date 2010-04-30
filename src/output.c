@@ -387,11 +387,13 @@ Now use the default one.\n");
       new_out.sdmin = 1;
       new_out.dmin = par_getd(block,"dmin");
     }
+    new_out.gmin = (HUGE_NUMBER);
 
     if(par_exist(block,"dmax") != 0){ /* Use a fixed maximum scale? */
       new_out.sdmax = 1;
       new_out.dmax = par_getd(block,"dmax");
     }
+    new_out.gmax = -1.0*(HUGE_NUMBER);
 
 /* palette: default is rainbow */
     if (strcmp(fmt,"ppm") == 0) {
@@ -577,14 +579,31 @@ void add_rst_out(OutputS *new_out)
 void data_output_destruct(void)
 {
   int i;
+  double global_min, global_max;
+#ifdef MPI_PARALLEL
+  int ierr;
+#endif
 
   for (i=0; i<out_count; i++) {
+
 /* print the global min/max computed over the calculation */
+
     if (OutArray[i].out != NULL){
       if((strcmp(OutArray[i].out,"cons") != 0) &&
-         (strcmp(OutArray[i].out,"prim") != 0))
+         (strcmp(OutArray[i].out,"prim") != 0)){
+/* get global min/max with MPI calculation */
+#ifdef MPI_PARALLEL
+        ierr = MPI_Allreduce(&OutArray[i].gmin, &global_min, 1, MPI_DOUBLE,
+          MPI_MIN, MPI_COMM_WORLD);
+        ierr = MPI_Allreduce(&OutArray[i].gmax, &global_max, 1, MPI_DOUBLE,
+          MPI_MAX, MPI_COMM_WORLD);
+#else
+        global_min = OutArray[i].gmin;
+        global_max = OutArray[i].gmax;
+#endif
 	ath_pout(0,"Global min/max for %s: %g %g\n",OutArray[i].out,
-		 OutArray[i].gmin, OutArray[i].gmax);
+		 global_min, global_max);
+      }
 
       free(OutArray[i].out);
     }

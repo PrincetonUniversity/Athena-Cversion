@@ -118,13 +118,8 @@ void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
   }
   
 /* Compute and store global min/max, for output at end of run */
-  if (pOut->num == 0) {
-    pOut->gmin = dmin;
-    pOut->gmax = dmax;
-  } else {
-    pOut->gmin = MIN(dmin,pOut->gmin);
-    pOut->gmax = MAX(dmax,pOut->gmax);
-  }
+  pOut->gmin = MIN(dmin,pOut->gmin);
+  pOut->gmax = MAX(dmax,pOut->gmax);
 
   fclose(pFile);
   free_1d_array(data); /* Free the memory we malloc'd */

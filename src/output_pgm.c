@@ -82,13 +82,8 @@ void output_pgm(MeshS *pM, OutputS *pOut)
 
 /* Store the global min / max, for output at end of run */
           minmax2(data,nx2,nx1,&dmin,&dmax);
-          if (pOut->num == 0) {
-            pOut->gmin = dmin;
-            pOut->gmax = dmax;
-          } else {
-            pOut->gmin = MIN(dmin,pOut->gmin);
-            pOut->gmax = MAX(dmax,pOut->gmax);
-          }
+          pOut->gmin = MIN(dmin,pOut->gmin);
+          pOut->gmax = MAX(dmax,pOut->gmax);
 
 /* Override auto-scale? */
           if (pOut->sdmin != 0) dmin = pOut->dmin;

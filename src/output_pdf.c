@@ -182,14 +182,8 @@ void output_pdf(MeshS *pM, OutputS *pOut)
         }
 
 /* Store the global maximum and minimum of the quantity */
-        if(pOut->num > 0){
-          pOut->gmin = dmin < pOut->gmin ? dmin : pOut->gmin;
-          pOut->gmax = dmax > pOut->gmax ? dmax : pOut->gmax;
-        }
-        else{
-          pOut->gmin = dmin;
-          pOut->gmax = dmax;
-        }
+        pOut->gmin = dmin < pOut->gmin ? dmin : pOut->gmin;
+        pOut->gmax = dmax > pOut->gmax ? dmax : pOut->gmax;
 
 /* Compute the pdf directly using sampling. Define size_pdf bins, each of equal
  * size, and fill them with the number of cells whose data value falls in the
