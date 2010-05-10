@@ -37,7 +37,6 @@ void getMaxSignalSpeeds_echo(const Prim1DS Wl, const Prim1DS Wr,
 			     const Real Bx, Real* low, Real* high);
 void getVChar_echo(const Prim1DS W, const Real Bx, Real* lml, Real* lmr);
 void getVChar_pluto(const Prim1DS W, const Real Bx, Real* lml, Real* lmr);
-void getSoundSpeed2(const Prim1DS W, Real *cs2, Real *h);
 /* solves quartic equation defined by a and returns roots in root
  * returns the number of Real roots 
  * error specifies an accuracy
@@ -63,63 +62,81 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 {
   Cons1DS Fl, Fr;
   Cons1DS Uhll, Fhll;
+  Prim1DS Whll;
   Real Pl, Pr;
   Real Sl, Sr;
   Real Sla, Sra;
-  Real dS_1;
+  Real dS_1, V2l;
+  int wave_speed_fail;
 
-  /* find min/max wave speeds */
+  wave_speed_fail = 0;
+	
+/*--- Step 1. ------------------------------------------------------------------
+ * Compute the max and min wave speeds used in Mignone 
+ */
   getMaxSignalSpeeds_pluto(Wl,Wr,Bx,&Sl,&Sr);
-  getMaxSignalSpeeds_echo(Wl,Wr,Bx,&Sla,&Sra);
-  /*printf("[hlld_sr_mhd]: Exact Wave speeds     %10.4e %10.4e\n",Sl,Sr);
-    printf("[hlld_sr_mhd]: Estimated Wave speeds %10.4e %10.4e\n",Sla,Sra);*/
-	
-  if (Sla != Sla) {
-    printf("[hlld_sr_mhd]: NaN in estimated Sl %10.4e %10.4e\n",Sl,Sr);
-    Sla = -1.0;
-    Sra =  1.0;
-  }
-	
-  if (Sra != Sra) {
-    printf("[hlld_sr_mhd]: NaN in estimated Sr %10.4e %10.4e\n",Sl,Sr);
-    Sla = -1.0;
-    Sra = 1.0;
-  }
-	
-  if (Sla < -1.0) {
-    printf("[hlld_sr]: Superluminal estimated Sl %10.4e %10.4e\n",Sl,Sr);
-    Sla = -1.0;
-    Sra = 1.0;
-  }
-  if (Sra > 1.0) {
-    printf("[hlld_sr]: Superluminal estimated Sr %10.4e %10.4e\n",Sl,Sr);
-    Sla = -1.0;
-    Sra = 1.0;
-  }
 	
   if (Sl != Sl) {
-    printf("[hlld_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
     Sl = -1.0;
     Sr =  1.0;
   }
 	
   if (Sr != Sr) {
-    printf("[hlld_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
     Sl = -1.0;
     Sr = 1.0;
   }
 	
   if (Sl < -1.0) {
-    printf("[hlld_sr]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
     Sl = -1.0;
     Sr = 1.0;
   }
   if (Sr > 1.0) {
-    printf("[hlld_sr]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
     Sl = -1.0;
     Sr = 1.0;
   }
+
+/*--- Step 1a. -----------------------------------------------------------------
+ * If PLUTO wavespeeds are bad, fall back to the estimate used in ECHO
+ */
+  if (wave_speed_fail){
+    getMaxSignalSpeeds_echo (Wl,Wr,Bx,&Sla,&Sra);
 	
+    if (Sla != Sla) {
+      printf("[hlle_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra =  1.0;
+    }
+	
+    if (Sra != Sra) {
+      printf("[hlle_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra = 1.0;
+    }
+	
+    if (Sla < -1.0) {
+      printf("[hlle_sr_mhd]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra = 1.0;
+    }
+    if (Sra > 1.0) {
+      printf("[hlle_sr_mhd]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra = 1.0;
+    }
+
+    Sl = Sla;
+    Sr = Sra;
+
+  }
+
   /* compute L/R fluxes */
   flux_LR(Ul,Wl,&Fl,Bx,&Pl);
   flux_LR(Ur,Wr,&Fr,Bx,&Pr);
@@ -166,6 +183,17 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Uhll.By = (Sr*Ur.By - Sl*Ul.By + Fl.By - Fr.By) * dS_1;
     Uhll.Bz = (Sr*Ur.Bz - Sl*Ul.Bz + Fl.Bz - Fr.Bz) * dS_1;
 #endif
+	
+    /*Whll = check_Prim1D(&Uhll, &Bx);
+    V2l = SQR(Whll.Vx) + SQR(Whll.Vy) + SQR(Whll.Vz);
+    if (Whll.P < 0 || Whll.d < 0 || V2l > 1.0){
+      printf("[hlle_sr_mhd]: Unphysical hll average state\n");
+      printf("[hlle_sr_mhd]: Phll = %10.4e, dhll = %10.4e\n",Whll.P,Whll.d);
+      printf("[hlle_sr_mhd]: V^2 hll = %10.4e\n",V2l);
+      printf("[hlle_sr_mhd]: Reverting to LF fluxes\n");
+      Sl = -1.0;
+      Sr =  1.0;
+      }*/
 
     Fhll.d  = (Sr*Fl.d  - Sl*Fr.d  + Sl*Sr*(Ur.d  - Ul.d )) * dS_1;
     Fhll.Mx = (Sr*Fl.Mx - Sl*Fr.Mx + Sl*Sr*(Ur.Mx - Ul.Mx)) * dS_1;
@@ -187,6 +215,119 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->Bz = Fhll.Bz;
 #endif
 
+    if (pFlux->d != pFlux->d) {
+      printf("[hlle_sr_mhd]: NaN in hll density flux\n");
+      printf("[hlle_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
+      printf("[hlle_sr_mhd]: dS_1 = %10.4e\n",dS_1);
+      printf("[hlle_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
+      printf("[hlle_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);
+    }
+
+    return;
+  }
+}
+
+void entropy_flux (const Cons1DS Ul, const Cons1DS Ur,
+            const Prim1DS Wl, const Prim1DS Wr, const Real Bx, Real *pFlux)
+{
+  Real Fl, Fr;
+  Real USl, USr;
+  Real WSl, WSr;
+  Real Uhll, Fhll;
+  Real Pl, Pr;
+  Real Sl, Sr;
+  Real Sla, Sra;
+  Real dS_1;
+  int wave_speed_fail;
+
+  wave_speed_fail = 0;
+	
+/*--- Step 1. ------------------------------------------------------------------
+ * Compute the max and min wave speeds used in Mignone 
+ */
+  getMaxSignalSpeeds_pluto(Wl,Wr,Bx,&Sl,&Sr);
+	
+  if (Sl != Sl) {
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr =  1.0;
+  }
+	
+  if (Sr != Sr) {
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr = 1.0;
+  }
+	
+  if (Sl < -1.0) {
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr = 1.0;
+  }
+  if (Sr > 1.0) {
+    wave_speed_fail = 1;
+    printf("[hlle_sr_mhd]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
+    Sl = -1.0;
+    Sr = 1.0;
+  }
+
+/*--- Step 1a. -----------------------------------------------------------------
+ * If PLUTO wavespeeds are bad, fall back to the estimate used in ECHO
+ */
+  if (wave_speed_fail){
+    getMaxSignalSpeeds_echo (Wl,Wr,Bx,&Sla,&Sra);
+	
+    if (Sla != Sla) {
+      printf("[hlle_sr_mhd]: NaN in Sl %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra =  1.0;
+    }
+	
+    if (Sra != Sra) {
+      printf("[hlle_sr_mhd]: NaN in Sr %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra = 1.0;
+    }
+	
+    if (Sla < -1.0) {
+      printf("[hlle_sr_mhd]: Superluminal Sl %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra = 1.0;
+    }
+    if (Sra > 1.0) {
+      printf("[hlle_sr_mhd]: Superluminal Sr %10.4e %10.4e\n",Sl,Sr);
+      Sla = -1.0;
+      Sra = 1.0;
+    }
+
+    Sl = Sla;
+    Sr = Sra;
+
+  }
+
+  /* compute L/R fluxes */
+  WSl = Wl.P*pow(Wl.d,1.0-Gamma);
+  WSr = Wr.P*pow(Wr.d,1.0-Gamma);
+  USl = WSl * Ul.d/Wl.d;
+  USr = WSr * Ur.d/Wr.d;
+  Fl = USl * Wl.Vx;
+  Fr = USr * Wr.Vx;
+
+  if(Sl >= 0.0){
+    *pFlux = Fl;
+    return;
+  }
+  else if(Sr <= 0.0){
+    *pFlux = Fr;
+    return;
+  }
+  else{
+    /* Compute HLL average state */
+    dS_1 = 1.0/(Sr - Sl);
+    *pFlux = (Sr*Fl  - Sl*Fr  + Sl*Sr*(USr  - USl)) * dS_1;
     return;
   }
 }
@@ -254,9 +395,7 @@ void getMaxSignalSpeeds_pluto(const Prim1DS Wl, const Prim1DS Wr,
   Real al,ar;
 	
   getVChar_pluto(Wl,Bx,&lml,&lpl);
-  /*printf("[hlle_sr]: Left characteristics %10.4e %10.4e\n",lml,lpl);*/
   getVChar_pluto(Wr,Bx,&lmr,&lpr);
-  /*printf("[hlle_sr]: Right characteristics %10.4e %10.4e\n",lmr,lpr);*/
 	
   *low =  MIN(lml, lmr);
   *high = MAX(lpl, lpr);
@@ -278,13 +417,10 @@ void getVChar_pluto(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
   Vx2 = SQR(W.Vx);
   vsq = Vx2 + SQR(W.Vy) + SQR(W.Vz);
   if (vsq > 1.0){
-    printf("[getVChar]: |v|= %f > 1\n",vsq);
-		
+    printf("[getVChar]: |v|= %f > 1\n",vsq);		
     *lm = -1.0;
-    *lp = 1.0;
-		
-    return;
-		
+    *lp = 1.0;	
+    return;		
   }
   gamma = 1.0 / sqrt(1 - vsq);    
   gamma2 = SQR(gamma);
@@ -304,7 +440,6 @@ void getVChar_pluto(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
   if (cssq < 0.0) cssq = 0.0;
   if (cssq > 1.0) cssq = 1.0;
   if (vasq > 1.0) bsq = rhoh + bsq;
-  /*printf("[hlle_sr]: Sound, Alfven & Magneto sonic speeds %10.4e %10.4e %10.4e\n",cssq,vasq,asq);*/
 	
   if (vsq < 1.0e-12) {
     w_1  = 1.0/(rhoh + bsq);   
@@ -317,16 +452,9 @@ void getVChar_pluto(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
     scrh = sqrt(0.5*(-a1 + sqrt(scrh)));
     *lp =  scrh;
     *lm = -scrh;
-    /*printf("[getVChar]: Zero velocity wave speeds %10.4e %10.4e %10.4e %10.4e %10.4e\n",*lm,*lp,a0,a1,scrh);*/
     return;
   }
 	
-  /*	
-	vB2 = vB*vB;
-	u02 = 1.0/(1.0 - u02);
-	b2  = b2/u02 + vB2;
-	u0  = sqrt(u02);
-  */
   w_1 = 1.0/(rhoh + bsq);   
 	
   if (Bx < 1.0e-14) {
@@ -396,29 +524,83 @@ void getVChar_pluto(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
     return;
   }
 	
-  /*
-   *lp = MAX(lambda[3], lambda[2]);
-   *lp = MAX(*lp, lambda[1]);
-   *lp = MAX(*lp, lambda[0]);
-   *lp = MIN(*lp, 1.0);
-	 
-   *lm = MIN(lambda[3], lambda[2]);
-   *lm = MIN(*lm, lambda[1]);
-   *lm = MIN(*lm, lambda[0]);
-   *lm = MAX(*lm, -1.0);
-   */
-  /*printf("[hlld_sr_mhd]: wave speeds %10.4e %10.4e %10.4e %10.4e %10.4e\n",lambda[0],lambda[1],lambda[2],lambda[3],lambda[4]);*/
-	
   *lp = MIN(1.0,MAX(lambda[3], lambda[2]));
   *lp = MIN(1.0,MAX(*lp, lambda[1]));
   *lp = MIN(1.0,MAX(*lp, lambda[0]));
-	
+
   *lm = MAX(-1.0,MIN(lambda[3], lambda[2]));
   *lm = MAX(-1.0,MIN(*lm, lambda[1]));
   *lm = MAX(-1.0,MIN(*lm, lambda[0]));
 	
   return;
 	
+}
+
+void getMaxSignalSpeeds_echo (const Prim1DS Wl, const Prim1DS Wr,
+			      const Real Bx, Real* low, Real* high)
+{
+	
+  Real lml,lmr;        /* smallest roots, Mignone Eq 55 */
+  Real lpl,lpr;        /* largest roots, Mignone Eq 55 */
+  Real al,ar;
+	
+  getVChar_echo(Wl,Bx,&lml,&lpl);
+  getVChar_echo(Wr,Bx,&lmr,&lpr);
+	
+  *low =  MIN(lml, lmr);
+  *high = MAX(lpl, lpr);
+}
+
+void getVChar_echo(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
+{
+  Real rhoh,vsq,bsq;
+  Real cssq,vasq,asq;
+  Real gamma,gamma2;
+  Real Bsq,vDotB,b0,bx;
+  Real tmp1,tmp2,tmp3,tmp4,tmp5;
+  Real vm,vp;
+	
+  rhoh = W.d + (Gamma/Gamma_1) * (W.P);
+	
+  vsq = SQR(W.Vx) + SQR(W.Vy) + SQR(W.Vz);
+  gamma = 1.0 / sqrt(1 - vsq);    
+  gamma2 = SQR(gamma);
+	
+  Bsq = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
+  vDotB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
+  b0 = gamma * vDotB;
+  bx = Bx/gamma2 + W.Vx*vDotB;
+  bsq = Bsq / gamma2 + SQR(vDotB);
+	
+  cssq = (Gamma * W.P) / (rhoh);
+  vasq = bsq / (rhoh + bsq);
+  asq = cssq + vasq - (cssq*vasq);
+	
+  if (cssq < 0.0) cssq = 0.0;
+  if (vasq > 0.0) vasq = 0.0;
+  if (asq < 0.0) asq = 0.0;
+  if (cssq > 1.0) cssq = 1.0;
+  if (vasq > 1.0) vasq = 1.0;
+  if (asq > 1.0) asq = 1.0;
+	
+  tmp1 = (1.0 - asq);
+  tmp2 = (1.0 - vsq);
+  tmp3 = (1.0 - vsq*asq);
+  tmp4 = SQR(W.Vx);
+  tmp5 = 1.0 / tmp3;
+	
+  vm = tmp1*W.Vx - sqrt(asq*tmp2*(tmp3 - tmp1*tmp4));
+  vp = tmp1*W.Vx + sqrt(asq*tmp2*(tmp3 - tmp1*tmp4));
+  vm *=tmp5;
+  vp *=tmp5;
+	
+  if (vp > vm) {
+    *lm = vm;
+    *lp = vp;
+  } else {
+    *lm = vp;
+    *lp = vm;
+  }
 }
 
 /* ******************************************** */
@@ -625,92 +807,6 @@ int CUBIC(Real b, Real c, Real d, Real z[])
      ------------------------------------------------------ */
 	
   return(0);
-}
-
-/* **************************************************************** */
-void getSoundSpeed2  (const Prim1DS W, Real *cs2, Real *h)
-/*
- *
- *    Define the square of the sound speed for adiabatic EOS
- *
- ****************************************************************** */
-{
-  Real  theta, Gamma_1;
-	
-  Gamma_1 = Gamma/(Gamma - 1.0);
-  theta = W.P/W.d;
-  *h = 1.0 + Gamma_1*theta;
-  *cs2 = Gamma*theta/(*h);
-}
-
-void getMaxSignalSpeeds_echo (const Prim1DS Wl, const Prim1DS Wr,
-			      const Real Bx, Real* low, Real* high)
-{
-	
-  Real lml,lmr;        /* smallest roots, Mignone Eq 55 */
-  Real lpl,lpr;        /* largest roots, Mignone Eq 55 */
-  Real al,ar;
-	
-  getVChar_echo(Wl,Bx,&lml,&lpl);
-  /*printf("[hlle_sr]: Left characteristics %10.4e %10.4e\n",lml,lpl);*/
-  getVChar_echo(Wr,Bx,&lmr,&lpr);
-  /*printf("[hlle_sr]: Right characteristics %10.4e %10.4e\n",lmr,lpr);*/
-	
-  *low =  MIN(lml, lmr);
-  *high = MAX(lpl, lpr);
-}
-
-void getVChar_echo(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
-{
-  Real rhoh,vsq,bsq;
-  Real cssq,vasq,asq;
-  Real gamma,gamma2;
-  Real Bsq,vDotB,b0,bx;
-  Real tmp1,tmp2,tmp3,tmp4,tmp5;
-  Real vm,vp;
-	
-  rhoh = W.d + (Gamma/Gamma_1) * (W.P);
-	
-  vsq = SQR(W.Vx) + SQR(W.Vy) + SQR(W.Vz);
-  gamma = 1.0 / sqrt(1 - vsq);    
-  gamma2 = SQR(gamma);
-	
-  Bsq = SQR(Bx) + SQR(W.By) + SQR(W.Bz);
-  vDotB = W.Vx*Bx + W.Vy*W.By + W.Vz*W.Bz;
-  b0 = gamma * vDotB;
-  bx = Bx/gamma2 + W.Vx*vDotB;
-  bsq = Bsq / gamma2 + SQR(vDotB);
-	
-  cssq = (Gamma * W.P) / (rhoh);
-  vasq = bsq / (rhoh + bsq);
-  asq = cssq + vasq - (cssq*vasq);
-	
-  if (cssq < 0.0) cssq = 0.0;
-  if (vasq > 0.0) vasq = 0.0;
-  if (asq < 0.0) asq = 0.0;
-  if (cssq > 1.0) cssq = 1.0;
-  if (vasq > 1.0) vasq = 1.0;
-  if (asq > 1.0) asq = 1.0;
-  /*printf("[hlle_sr]: Sound, Alfven & Magneto sonic speeds %10.4e %10.4e %10.4e\n",cssq,vasq,asq);*/
-	
-  tmp1 = (1.0 - asq);
-  tmp2 = (1.0 - vsq);
-  tmp3 = (1.0 - vsq*asq);
-  tmp4 = SQR(W.Vx);
-  tmp5 = 1.0 / tmp3;
-	
-  vm = tmp1*W.Vx - sqrt(asq*tmp2*(tmp3 - tmp1*tmp4));
-  vp = tmp1*W.Vx + sqrt(asq*tmp2*(tmp3 - tmp1*tmp4));
-  vm *=tmp5;
-  vp *=tmp5;
-	
-  if (vp > vm) {
-    *lm = vm;
-    *lp = vp;
-  } else {
-    *lm = vp;
-    *lp = vm;
-  }
 }
 
 #endif /* SPECIAL_RELATIVITY */
