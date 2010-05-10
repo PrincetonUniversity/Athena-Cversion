@@ -40,9 +40,16 @@ Real Gamma_1overGamma;
 
 static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, Real Vsq, Real pgas);
 static Real calc_dfunc (Real Q, Real Bsq, Real Msq, Real Ssq, Real d, Real Vsq,
-  Real Gsq, Real Chi);
+			Real Gsq, Real Chi);
+static Real calc_ent_func (Real rho, Real pgas, Real d, Real ent);
+static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
+			   Real d, Real Vsq, Real Gsq, Real Chi,
+			   Real pgas, Real rho);
 static Real calc_vsq (Real Bsq, Real Msq, Real Ssq, Real Q);
 static Real calc_chi (Real d, Real Vsq, Real Gsq, Real Q);
+void FUNV2(const Real d, const Real v2, 
+	   const Real p, const Real Bsq, const Real Msq, const Real Ssq,
+	   Real *W, Real *f);
 #endif /* SPECIAL_RELATIVITY && MHD */
 
 
@@ -99,6 +106,209 @@ PrimS Cons_to_Prim(const ConsS *pCons)
 
   return Prim;
 }
+
+ConsS Prim_to_Cons (const PrimS *pW, const Real *pBx)
+{
+  Cons1DS U;
+  Prim1DS W;
+  ConsS Cons;
+#if (NSCALARS > 0)
+  int n;
+#endif
+  Real Bx=0.0;
+
+  W.d  = pW->d;
+  W.Vx = pW->V1;
+  W.Vy = pW->V2;
+  W.Vz = pW->V3;
+#ifndef ISOTHERMAL
+  W.P  = pW->P;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  W.By = pW->B2c;
+  W.Bz = pW->B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) W.r[n] = pW->r[n];
+#endif
+ 
+  U = Prim1D_to_Cons1D(&W, pBx);
+
+  Cons.d  = U.d;
+  Cons.M1 = U.Mx;
+  Cons.M2 = U.My;
+  Cons.M3 = U.Mz;
+#ifndef ISOTHERMAL
+  Cons.E = U.E;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Cons.B1c = *pBx;
+  Cons.B2c = U.By;
+  Cons.B3c = U.Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) Cons.s[n] = U.s[n];
+#endif
+
+  return Cons;
+}
+
+/*----------------------------------------------------------------------------*/
+/* fix_vsq: wrapper for the fix_vsq1D function, works 
+ *          only for SPECIAL_RELATIVITY && MHD only
+ * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ */
+#if defined(SPECIAL_RELATIVITY) && defined(MHD) /* special relativity only */
+PrimS fix_vsq (const ConsS *pCons)
+{
+  Cons1DS U;
+  Prim1DS W;
+  PrimS Prim;
+#if (NSCALARS > 0)
+  int n;
+#endif
+  Real Bx=0.0;
+
+  U.d  = pCons->d;
+  U.Mx = pCons->M1;
+  U.My = pCons->M2;
+  U.Mz = pCons->M3;
+#ifndef ISOTHERMAL
+  U.E  = pCons->E;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Bx = pCons->B1c;
+  U.By = pCons->B2c;
+  U.Bz = pCons->B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) U.s[n] = pCons->s[n];
+#endif
+
+  W = vsq1D_fix (&U, &Bx);
+
+  Prim.d  = W.d;
+  Prim.V1 = W.Vx;
+  Prim.V2 = W.Vy;
+  Prim.V3 = W.Vz;
+#ifndef ISOTHERMAL
+  Prim.P = W.P;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Prim.B1c = Bx;
+  Prim.B2c = W.By;
+  Prim.B3c = W.Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) Prim.r[n] = W.r[n];
+#endif
+
+  return Prim;
+}
+
+PrimS entropy_fix (const ConsS *pCons, const Real *ent)
+{
+  Cons1DS U;
+  Prim1DS W;
+  PrimS Prim;
+#if (NSCALARS > 0)
+  int n;
+#endif
+  Real Bx=0.0;
+
+  U.d  = pCons->d;
+  U.Mx = pCons->M1;
+  U.My = pCons->M2;
+  U.Mz = pCons->M3;
+#ifndef ISOTHERMAL
+  U.E  = pCons->E;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Bx = pCons->B1c;
+  U.By = pCons->B2c;
+  U.Bz = pCons->B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) U.s[n] = pCons->s[n];
+#endif
+
+  W = entropy_fix1D (&U, &Bx, ent);
+
+  Prim.d  = W.d;
+  Prim.V1 = W.Vx;
+  Prim.V2 = W.Vy;
+  Prim.V3 = W.Vz;
+#ifndef ISOTHERMAL
+  Prim.P = W.P;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Prim.B1c = Bx;
+  Prim.B2c = W.By;
+  Prim.B3c = W.Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) Prim.r[n] = W.r[n];
+#endif
+
+  return Prim;
+}
+#endif /* SPECIAL_RELATIVITY && MHD */
+
+/*----------------------------------------------------------------------------*/
+/* check_Prim: wrapper for the check_Prim1D function, works 
+ *          only for SPECIAL_RELATIVITY && MHD only
+ * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ */
+#if defined(SPECIAL_RELATIVITY) && defined(MHD) /* special relativity only */
+PrimS check_Prim(const ConsS *pCons)
+{
+  Cons1DS U;
+  Prim1DS W;
+  PrimS Prim;
+#if (NSCALARS > 0)
+  int n;
+#endif
+  Real Bx=0.0;
+
+  U.d  = pCons->d;
+  U.Mx = pCons->M1;
+  U.My = pCons->M2;
+  U.Mz = pCons->M3;
+#ifndef ISOTHERMAL
+  U.E  = pCons->E;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Bx = pCons->B1c;
+  U.By = pCons->B2c;
+  U.Bz = pCons->B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) U.s[n] = pCons->s[n];
+#endif
+
+  W = check_Prim1D(&U, &Bx);
+
+  Prim.d  = W.d;
+  Prim.V1 = W.Vx;
+  Prim.V2 = W.Vy;
+  Prim.V3 = W.Vz;
+#ifndef ISOTHERMAL
+  Prim.P = W.P;
+#endif /* ISOTHERMAL */
+#ifdef MHD
+  Prim.B1c = Bx;
+  Prim.B2c = W.By;
+  Prim.B3c = W.Bz;
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) Prim.r[n] = W.r[n];
+#endif
+
+  return Prim;
+}
+#endif /* SPECIAL_RELATIVITY && MHD */
 
 #ifndef SPECIAL_RELATIVITY /* Following versions for Newtonian dynamics */
 /*----------------------------------------------------------------------------*/
@@ -234,7 +444,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
   Real iR, iS, iT;
   Real ix1=0.0, iB, iC, v, vOverM;
 
-/* Step One: Reduce equations to a quartic polynomial in v */
+  /* Step One: Reduce equations to a quartic polynomial in v */
 
   Msq = SQR(U->Mx) + SQR(U->My) + SQR(U->Mz);
   M = sqrt(Msq);
@@ -257,7 +467,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     a1 = (-2.0 * Gamma * ME) * denom;
     a0 = Msq * denom;
 
-/* Step Two: Solve the polynomial analytically */
+    /* Step Two: Solve the polynomial analytically */
 
     i1 = -a2;
     i2 = a3 * a1 - 4.0 * a0;
@@ -267,15 +477,15 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     iS = (3.0 * i2 - SQR(a2)) / 9.0;
     iT = SQR(iR) + SQR(iS) * iS;
 
-/* iT may be negative, but ix1 then adds a complex number and its conjugate,
- * giving us a real value, so ix1 is real no matter what */
+    /* iT may be negative, but ix1 then adds a complex number and its conjugate,
+     * giving us a real value, so ix1 is real no matter what */
 
     if (iT < 0) {
       ix1 = 2.0*pow(sqrt(iR*iR + iT),(ONE_3RD))*cos(atan2(sqrt(-iT),iR)/3.0)
-             - i1/3.0;
+	- i1/3.0;
     } else {
       ix1 = pow((iR + sqrt(iT)),(ONE_3RD)) + pow((iR - sqrt(iT)),(ONE_3RD)) 
-             - i1/3.0;
+	- i1/3.0;
     }
 
     iB = 0.5*(a3 + sqrt(SQR(a3) - 4.0*a2 + 4.0*ix1));
@@ -284,7 +494,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
 
   }
 
-/* Step Three: Resolve primitives with the value of v */
+  /* Step Three: Resolve primitives with the value of v */
 
   /* ensure that v is physical */
   v = MAX(v, 0.0);
@@ -332,7 +542,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
   Real scrh1, scrh2, tmp1, tmp2;
   Real Usq, Vsq, Gsq, rho, Chi, pgas, ent;
   Real fQ, dfQ, dQstep;
-  Real tol = 1.0e-3;
+  Real tol = 1.0e-10;
 
   int nr_success;
   int q_incs;
@@ -348,7 +558,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
   /* Assign input energy & density to local variables */
   E = U->E;
   d = U->d;
-/*printf ("Start pars %10.4e %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,E,d);*/
+  /*printf ("Start pars %10.4e %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,E,d);*/
 
   /* Starting guess for W, based on taking the +ve */
   /* root of Eqn. A27, guarantees that p is +ve    */
@@ -357,30 +567,32 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
   Q = ( - scrh1 + sqrt(fabs(scrh1*scrh1 - 12.0*scrh2)))/6.0;
   /*printf ("Initial guess %10.4e\n",Q);*/
 
+  nr_success = 0;
   if (Q < 0.0) {
-    printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
-      Bsq,Msq,Ssq,E,d);
-    printf("[Cons1D_to_Prim1D]: Initial guess has Q < 0 %10.4e\n",Q);
+    /*printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	    Bsq,Msq,Ssq,E,d);
+	    printf("[Cons1D_to_Prim1D]: Initial guess has Q < 0 %10.4e\n",Q);*/
     Q = d;
   } else if (Q != Q) {
-    printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
-      Bsq,Msq,Ssq,E,d);
-    ath_error("[Cons1D_to_Prim1D]: Initial guess has Q = NaN %10.4e\n",Q);
+    nr_success = -4;
+    /*printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	    Bsq,Msq,Ssq,E,d);
+	    printf("[Cons1D_to_Prim1D]: Initial guess has Q = NaN %10.4e\n",Q);*/
   }
 
   /* 1d NR algorithm to find W from A1, converges */
   /* when W'(k+1) / W(k) < tol, or max iterations reached */
   dQstep = 1.0;
-  nr_success = 0;
   q_incs = 0;
-  while (nr_success == 0 && q_incs < 100) {
+  while (nr_success == 0 && q_incs < 100000) {
 
     if (fabs(dQstep) <= tol) nr_success = 1;
 
     /* Obtain scalar quantities based on current solution estimate */
     Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
     if (Vsq != Vsq){
-      printf("Vsq variables %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,Q);
+      nr_success = -3;
+      /*printf("Vsq variables %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,Q);*/
     }
     Gsq = 1.0/(1.0-Vsq);
     Chi = calc_chi (d,Vsq,Gsq,Q);
@@ -394,17 +606,19 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     /* Check that we didn't get a NaN in the process */
     /*printf ("Function evaluations %12.6e %12.6e\n",fQ,dfQ);*/
     if (fQ != fQ) {
-      printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
-      ath_error("[Cons1D_to_Prim1D]: Got a NaN in fQ\n");
+      nr_success = -1;
+      /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+	printf("[Cons1D_to_Prim1D]: Got a NaN in fQ\n");*/
     }
     if (dfQ != dfQ) {
-      printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
-      ath_error("[Cons1D_to_Prim1D]: Got a NaN in dfQ\n");
+      nr_success = -2;
+      /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+	printf("[Cons1D_to_Prim1D]: Got a NaN in dfQ\n");*/
     }
 
-/* If we start out very close to the solution try and make sure we don't
- * overshoot.--- Not actually clear that this does anything, so it can probably
- * be removed */
+    /* If we start out very close to the solution try and make sure we don't
+     * overshoot.--- Not actually clear that this does anything, so it can probably
+     * be removed */
     if (fabs(fQ) < 0.1 && q_incs == 0) {
       Q *= 10;
       Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
@@ -417,26 +631,28 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
       dfQ = calc_dfunc (Q, Bsq, Msq, Ssq, d, Vsq, Gsq, Chi);
     }
     
-/* Calculate step for NR update, check that it's not a Nan, update/check Q */
+    /* Calculate step for NR update, check that it's not a Nan, update/check Q */
     dQstep = fQ / dfQ;
     if (dQstep != dQstep){
-      printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
-      ath_error("[Cons1D_to_Prim1D]: Got a NaN in dQstep\n");
+      nr_success = -2;
+      /*printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
+	printf("[Cons1D_to_Prim1D]: Got a NaN in dQstep\n");*/
     }
     Q -= dQstep;
     if (Q != Q){
-      printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
-      ath_error("[Cons1D_to_Prim1D]: Got a NaN in Q\n");
+      nr_success = -1;
+      /*printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
+	printf("[Cons1D_to_Prim1D]: Got a NaN in Q\n");*/
     }
     q_incs ++;
 
-/* Rinse and repeat */
+    /* Rinse and repeat */
 
-/*printf ("Cycle parameters %10.4e %10.4e %10.4e %1.1i %1.1i \n",
- *Q,fQ,dQstep,nr_success,q_incs);*/
+    /*printf ("Cycle parameters %10.4e %10.4e %10.4e %1.1i %1.1i \n",
+     *Q,fQ,dQstep,nr_success,q_incs);*/
   }
 
-/* If we convered (indicated by nr_success = 1) then check solution */
+  /* If we convered (indicated by nr_success = 1) then check solution */
   if (nr_success == 1){
     /*Q = MAX(Q, d*(1.0e0+1.0e-6));*/
 
@@ -445,7 +661,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     Chi = calc_chi (d,Vsq,Gsq,Q);
     rho = d / sqrt(fabs(Gsq));
     pgas = Gamma_1*Chi/Gamma;
-/*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);*/
+    /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);*/
 
     if (pgas < 0.0) nr_success = 2;
     if (Vsq > 1.0) nr_success =  3;
@@ -453,16 +669,16 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
   }
 
   if (nr_success == 2) {
-/* Case of p < 0, which triggers an exit currently */
-/* Should be amended to either solve the cold MHD eqn's, fall back on the
- * entropy or tell the integrator to switch to a more diffusive update */
-/*    printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e\n",
-      rho,pgas,Chi,Vsq,Gsq,Q);
-    ath_error("[Cons1D_to_Prim1D]: Got a negative pressure\n");
-*/
+    /* Case of p < 0, which triggers an exit currently */
+    /* Should be amended to either solve the cold MHD eqn's, fall back on the
+     * entropy or tell the integrator to switch to a more diffusive update */
+    /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	   rho,pgas,Chi,Vsq,Gsq,Q);
+	   printf("[Cons1D_to_Prim1D]: Got a negative pressure\n");*/
+
     tmp1 = 1.0 / Q;
     tmp2 = 1.0 / (Q + Bsq);
-    Prim1D.d = MAX(rho,TINY_NUMBER);
+    Prim1D.d = MAX(rho,1.0e-4);
     Prim1D.P = MAX(pgas,1.0e-5);
     Prim1D.Vx = (U->Mx + S*(*Bx)*tmp1)*tmp2;
     Prim1D.Vy = (U->My + S*U->By*tmp1)*tmp2;
@@ -470,10 +686,9 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
 
     Prim1D.By = U->By;
     Prim1D.Bz = U->Bz;
-
   } else if (nr_success == 3) {
-/* Case of V^2 > 0, in which case we try again with some rescalings */
-    printf("[Cons1D_to_Prim1D]: Got a superluminal velocity, fixing\n");
+    /* Case of V^2 > 0, in which case we try again with some rescalings */
+    /*printf("[Cons1D_to_Prim1D]: Got a superluminal velocity, fixing\n");*/
 
     tmp1 = 1.0 / Q;
     tmp2 = 1.0 / (Q + Bsq);
@@ -492,22 +707,30 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     Chi = calc_chi (d,Vsq,Gsq,Q);
     rho = d / sqrt(fabs(Gsq));
     pgas = Gamma_1*Chi/Gamma;
-    printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+    /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);*/
 
-    Prim1D.d = MAX(rho,TINY_NUMBER);
-    Prim1D.P = MAX(pgas,TINY_NUMBER);
+    Prim1D.d = MAX(rho,1.0e-4);
+    Prim1D.P = MAX(pgas,1.0e-5);
     Prim1D.By = U->By;
     Prim1D.Bz = U->Bz;
 
   } else if (nr_success == 4) {
-/* Case of v^2 < 0, causes an exit */
-    ath_error("[Cons1D_to_Prim1D]: Got an imaginary velocity\n");
+    /* Case of v^2 < 0, returns unphysical state */
+    /*printf("[Cons1D_to_Prim1D]: Got an imaginary velocity\n");*/
+    Prim1D.d = -1.0;
+    Prim1D.P =  1.0;
+    Prim1D.Vx = 1.0;
+    Prim1D.Vy =1.0;
+    Prim1D.Vz = 1.0;
+
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
   } else if (nr_success == 1) {
-/* It worked!!! Should have a valid solution, so now set up primitives */
+    /* It worked!!! Should have a valid solution, so now set up primitives */
     tmp1 = 1.0 / Q;
     tmp2 = 1.0 / (Q + Bsq);
-    Prim1D.d = MAX(rho,TINY_NUMBER);
-    Prim1D.P = MAX(pgas,TINY_NUMBER);
+    Prim1D.d = MAX(rho,1.0e-4);
+    Prim1D.P = MAX(pgas,1.0e-5);
     Prim1D.Vx = (U->Mx + S*(*Bx)*tmp1)*tmp2;
     Prim1D.Vy = (U->My + S*U->By*tmp1)*tmp2;
     Prim1D.Vz = (U->Mz + S*U->Bz*tmp1)*tmp2;
@@ -515,16 +738,499 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     Prim1D.By = U->By;
     Prim1D.Bz = U->Bz;
   } else {
-/* NR iteration failed to converge, causes an exit */
-    printf ("Start pars %10.4e %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,E,d);
+    /* NR iteration failed to converge, causes an exit */
+    /*printf ("Start pars %10.4e %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,E,d);
     scrh1 = -4.0*(E - Bsq);
     scrh2 = Msq - 2.0*E*Bsq + Bsq*Bsq;
     Qp = ( - scrh1 + sqrt(scrh1*scrh1 - 12.0*scrh2))/6.0;
     Qp = MAX(Q, d*(1.0e0+1.0e-6));
     printf ("Initial guess %10.4e\n",Qp);
-    ath_error("[Cons1D_to_Prim1D]: NR iteration failed to converge %10.4e %10.4e %6.6i %6.6i \n",Q,dQstep,nr_success,q_incs); 
+    printf("[Cons1D_to_Prim1D]: NR iteration failed to converge %10.4e %10.4e %6.6i %6.6i \n",Q,dQstep,nr_success,q_incs);*/
+    Prim1D.d = -2.0;
+    Prim1D.P =  2.0;
+    Prim1D.Vx = 2.0;
+    Prim1D.Vy = 2.0;
+    Prim1D.Vz = 2.0;
+
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
   }
 
+  return Prim1D;
+}
+#endif /* SPECIAL_RELATIVITY && MHD */
+
+#if defined(SPECIAL_RELATIVITY) && defined(MHD)
+
+Prim1DS Cons1D_to_SPrim1D (const Cons1DS *U, const Real *Bx, const Real *ent)
+{
+  Prim1DS W;
+  Real g,g2,g_2;
+  Real vB,Bmag2,b2,scrh,v2;
+  Real Bsq = 0.0, Msq = 0.0, S = 0.0, Ssq = 0.0;
+
+/* first do the Con->Prim inversion */
+  W = Cons1D_to_Prim1D(U,Bx);
+
+/* Calculate the magnetic pressure */
+  g   = U->d/W.d;
+  g2  = SQR(g);
+  g_2 = 1.0/g2;
+	
+  vB = W.Vx*(*Bx) + W.Vy*W.By + W.Vz*W.Bz;
+  Bmag2 = SQR((*Bx)) + SQR(W.By) + SQR(W.Bz);	
+  b2 = Bmag2*g_2 + vB*vB;
+
+/* now check whether or not Pgas < 1% of total energy & recalulate state using
+ * entropy & MD limit if it is */
+  if (W.P <= 0.1*b2){
+    W = entropy_fix1D(U,Bx,ent);
+
+    /*Bsq = SQR((*Bx)) + SQR(U->By) + SQR(U->Bz);
+    Msq = SQR(U->Mx) + SQR(U->My) + SQR(U->Mz);
+    S = U->Mx * (*Bx) + U->My * U->By + U->Mz * U->Bz;
+    Ssq = SQR(S);
+
+    W.Vx = U->Mx - S*(*Bx)/Bsq;
+    W.Vy = U->My - S*U->By/Bsq;
+    W.Vz = U->Mz - S*U->Bz/Bsq;
+
+    scrh = 1.0/Bsq;
+    W.Vx *= scrh;
+    W.Vy *= scrh;
+    W.Vz *= scrh;
+
+    v2 = SQR(W.Vx) + SQR(W.Vy) + SQR(W.Vz);
+    if (v2 > 1.0){
+      printf("[Cons1d_to_SPrim1d]: V^2 > 1");
+    }
+    g = 1.0e0/sqrt(1.0-v2);
+    scrh = 1.0e0 / g;
+
+    W.d = U->d * scrh;
+    W.P = *ent * scrh * pow(W.d,-(1.0-Gamma));*/
+  }
+
+  return W;
+
+}
+
+#endif
+
+#if defined(SPECIAL_RELATIVITY) && defined(MHD) /* special relativity only */
+/*----------------------------------------------------------------------------*/
+/* Cons1D_to_Prim1D: SPECIAL RELATIVISTIC MHD VERSION 
+ *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ * Bx is passed in through the argument list.
+ *
+ * IMPORTANT: This algorithm uses an iterative (Newton-Raphson) root-finding
+ * step, which requires an initial guess for W. This is provided by solving
+ * a cubic equation for W based on passed values of U->E & U->d and assuming
+ * that v^2 = 1, as in Appendix A3 of Mignone & McKinney. Note that the
+ * conserved quantity is the total energy, 
+ * E = D*h*\gamma - p + 0.5*B^2 + 0.5*(v^2*B^2 - v \dot B)
+ */
+
+Prim1DS vsq1D_fix (const Cons1DS *U, const Real *Bx)
+{
+  Prim1DS Prim1D;
+  Cons1DS Con1D;
+  int    k, done=0;
+  Real Bsq = 0.0, Msq = 0.0, S = 0.0, Ssq = 0.0;
+  Real v2, v2c, fc, f, W, dW, lor2, lor;
+  Real fmin, fmax, v2min, v2max, p, d;
+	
+  d = 1.0e0;/*MAX(U->d,1.0e-2);*/
+  p = 1.0e-1;/*0.000255457;*/
+	
+  /* Calculate Bsq = B^2, Msq = M^2, S = M \dot B, Ssq = S^2 */
+  Bsq = SQR((*Bx)) + SQR(U->By) + SQR(U->Bz);
+  Msq = SQR(U->Mx) + SQR(U->My) + SQR(U->Mz);
+  S = U->Mx * (*Bx) + U->My * U->By + U->Mz * U->Bz;
+  Ssq = SQR(S);
+	
+  v2max = 1.0-1.e-8;
+  v2c = 0.95;
+  FUNV2(d, v2c, p, Bsq, Msq, Ssq, &W, &fc);
+  v2  = 0.96;
+  for (k = 1; k < 100; k++){
+    FUNV2(d, v2, p, Bsq, Msq, Ssq, &W, &f);
+    if (done == 1) break;
+    dW  = (v2 - v2c)/(f - fc)*f;
+    v2c = v2; fc = f;
+    v2 -= dW;
+    v2 = MIN(v2max,v2);
+    v2 = MAX(v2, 0.0);
+    if (fabs(v2) < 1.e-9) done = 1;
+    if (fabs(f) < 1.e-9) done = 1;
+  }
+  if (v2 > 1.0 || k >= 100) {
+    ath_error("[fix_vsq1D]: too many iter while fixing p , v^2 = %f\n", v2);
+  }
+	
+  lor2  = 1.0/(1.0 - v2);
+  lor   = sqrt(lor2);
+	
+  Con1D = *U;
+  Con1D.d = d;
+  Con1D.E = W - p + 0.5*(1.0 + v2)*Bsq - 0.5*Ssq/(W*W);
+  Prim1D = Cons1D_to_Prim1D(&Con1D, Bx);
+  v2 = SQR(Prim1D.Vx) + SQR(Prim1D.Vy) + SQR(Prim1D.Vz);
+  /*printf("[fix_vsq1D]: d = %10.4e, P = %10.4e, v^2 = %10.4e, %10.4e\n",Prim1D.d,Prim1D.P,v2,v2c);*/
+	
+  return Prim1D;
+}
+
+/* ****************************************************************** */
+void FUNV2(const Real d, const Real v2, 
+	   const Real p, const Real Bsq, const Real Msq, const Real Ssq,
+	   Real *W, Real *f)
+/*
+ *
+ *
+ *
+ * 
+ ******************************************************************** */
+{
+  Real lor2, lor, W2, pg;
+	
+  lor2 = 1.0/(1.0 - v2);
+  lor  = sqrt(lor2);
+  pg   = p*lor;
+  *W  = (d + pg*Gamma/(Gamma - 1.0))*lor;
+  W2    = SQR(*W);
+	
+  *f  =  Ssq*(2.0*(*W) + Bsq) + Msq*W2;
+  *f /= ((*W) + Bsq)*((*W) + Bsq)*W2;
+  *f -= v2;
+}
+#endif /* SPECIAL_RELATIVITY && MHD */
+
+#if defined(SPECIAL_RELATIVITY) && defined(MHD)
+
+Prim1DS entropy_fix1D (const Cons1DS *U, const Real *Bx, const Real *ent)
+{
+  Prim1DS Prim1D;
+  Real Bsq = 0.0, Msq = 0.0, S = 0.0, Ssq = 0.0, Ent = 0.0;
+  Real Qp = 0.0, Q = 0.0, Ep = 0.0, E = 0.0, d = 0.0;
+  Real scrh1, scrh2, tmp1, tmp2;
+  Real Usq, Vsq, Gsq, rho, Chi, pgas;
+  Real fQ, dfQ, dQstep;
+  Real tol = 1.0e-10;
+
+  int nr_success;
+  int q_incs;
+
+  Gamma_1overGamma = Gamma_1/Gamma;
+
+  /* Calculate Bsq = B^2, Msq = M^2, S = M \dot B, Ssq = S^2 */
+  Bsq = SQR((*Bx)) + SQR(U->By) + SQR(U->Bz);
+  Msq = SQR(U->Mx) + SQR(U->My) + SQR(U->Mz);
+  S = U->Mx * (*Bx) + U->My * U->By + U->Mz * U->Bz;
+  Ssq = SQR(S);
+
+  /* Assign input energy & density to local variables */
+  E = U->E;
+  d = U->d;
+  Ent = *ent;
+  /*printf ("Start pars %10.4e %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,E,d);*/
+
+  /* Starting guess for W, based on taking the +ve */
+  /* root of Eqn. A27, guarantees that p is +ve    */
+  scrh1 = -4.0*(E - Bsq);
+  scrh2 = Msq - 2.0*E*Bsq + Bsq*Bsq;
+  Q = ( - scrh1 + sqrt(fabs(scrh1*scrh1 - 12.0*scrh2)))/6.0;
+  /*printf ("Initial guess %10.4e\n",Q);*/
+
+  nr_success = 0;	
+  if (Q < 0.0) {
+    /*    printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	  Bsq,Msq,Ssq,E,d);
+	  printf("[Cons1D_to_Prim1D]: Initial guess has Q < 0 %10.4e\n",Q);
+    */ 
+    Q = d;
+  } else if (Q != Q) {
+    nr_success = 9;
+    /*printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	    Bsq,Msq,Ssq,E,d);
+	    printf("[check_Prim1D]: Initial guess has Q = NaN %10.4e\n",Q);*/
+  }
+
+  /* 1d NR algorithm to find W from A1, converges */
+  /* when W'(k+1) / W(k) < tol, or max iterations reached */
+  dQstep = 1.0;
+  q_incs = 0;
+  while (nr_success == 0 && q_incs < 1000) {
+
+    if (fabs(dQstep) <= tol) nr_success = 1;
+
+    /* Obtain scalar quantities based on current solution estimate */
+    Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
+    if (Vsq != Vsq){
+      /*printf("[check_Prim1D]: Vsq variables %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,Q);*/
+    }
+    Gsq = 1.0/(1.0-Vsq);
+    Chi = calc_chi (d,Vsq,Gsq,Q);
+    rho = d / sqrt(fabs(Gsq));
+    pgas = Gamma_1*Chi/Gamma;
+
+    /* Evaluate Eqn. A24, A25 for the total energy density */ 
+    fQ = calc_ent_func (rho, pgas, d, Ent);
+    dfQ = calc_ent_dfunc (Q, Bsq, Msq, Ssq, d, Vsq, Gsq, Chi, pgas, rho);
+
+    /* Check that we didn't get a NaN in the process */
+    /*printf ("Function evaluations %12.6e %12.6e\n",fQ,dfQ);*/
+    if (fQ != fQ) {
+      nr_success = 8;
+      /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+	printf("[check_Prim1D]: Got a NaN in fQ\n");*/
+    }
+    if (dfQ != dfQ) {
+      nr_success = 7;
+      /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+	printf("[check_Prim1D]: Got a NaN in dfQ\n");*/
+    }
+    
+    /* Calculate step for NR update, check that it's not a Nan, update/check Q */
+    dQstep = fQ / dfQ;
+    if (dQstep != dQstep){
+      nr_success = 6;	
+      /*printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
+	printf("[check_Prim1D]: Got a NaN in dQstep\n");*/
+    }
+    Q -= dQstep;
+    if (Q != Q){
+      nr_success = 5;
+      /*printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
+	printf("[check_Prim1D]: Got a NaN in Q\n");*/
+    }
+    q_incs ++;
+
+    /* Rinse and repeat */
+
+    /*printf ("Cycle parameters %10.4e %10.4e %10.4e %1.1i %1.1i \n",
+     *Q,fQ,dQstep,nr_success,q_incs);*/
+  }
+
+  /*printf("[entropy_fix1D]: d = %10.4e, P = %10.4e, v^2 = %10.4e\n",
+    rho,pgas,Vsq);*/
+
+  /* If we convered (indicated by nr_success = 1) then check solution */
+  if (nr_success == 1){
+    /*Q = MAX(Q, d*(1.0e0+1.0e-6));*/
+
+    Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
+    Gsq = 1.0/(1.0-Vsq);
+    Chi = calc_chi (d,Vsq,Gsq,Q);
+    rho = d / sqrt(fabs(Gsq));
+    pgas = Gamma_1*Chi/Gamma;
+
+    /*
+      if (pgas < 0.0) nr_success = 2;
+      if (Vsq > 1.0) nr_success =  3;
+      if (Vsq < 0.0) nr_success =  4;
+    */
+ 
+    tmp1 = 1.0 / Q;
+    tmp2 = 1.0 / (Q + Bsq);
+    Prim1D.d = rho;
+    Prim1D.P = pgas;
+    Prim1D.Vx = (U->Mx + S*(*Bx)*tmp1)*tmp2;
+    Prim1D.Vy = (U->My + S*U->By*tmp1)*tmp2;
+    Prim1D.Vz = (U->Mz + S*U->Bz*tmp1)*tmp2;
+	
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
+	  
+  } else {
+    Prim1D.d = -1.0;
+    Prim1D.P = -1.0;
+    Prim1D.Vx = 1.0;
+    Prim1D.Vy = 1.0;
+    Prim1D.Vz = 1.0;
+	  
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
+  }
+	  
+  return Prim1D;
+}
+#endif /* SPECIAL_RELATIVITY && MHD */
+
+
+#if defined(SPECIAL_RELATIVITY) && defined(MHD)
+/*----------------------------------------------------------------------------*/
+/* Cons1D_to_Prim1D: SPECIAL RELATIVISTIC MHD VERSION 
+ *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ * Bx is passed in through the argument list.
+ *
+ * IMPORTANT: This algorithm uses an iterative (Newton-Raphson) root-finding
+ * step, which requires an initial guess for W. This is provided by solving
+ * a cubic equation for W based on passed values of U->E & U->d and assuming
+ * that v^2 = 1, as in Appendix A3 of Mignone & McKinney. Note that the
+ * conserved quantity is the total energy, 
+ * E = D*h*\gamma - p + 0.5*B^2 + 0.5*(v^2*B^2 - v \dot B)
+ */
+
+Prim1DS check_Prim1D (const Cons1DS *U, const Real *Bx)
+{
+  Prim1DS Prim1D;
+  Real Bsq = 0.0, Msq = 0.0, S = 0.0, Ssq = 0.0;
+  Real Qp = 0.0, Q = 0.0, Ep = 0.0, E = 0.0, d = 0.0;
+  Real scrh1, scrh2, tmp1, tmp2;
+  Real Usq, Vsq, Gsq, rho, Chi, pgas, ent;
+  Real fQ, dfQ, dQstep;
+  Real tol = 1.0e-10;
+
+  int nr_success;
+  int q_incs;
+
+  Gamma_1overGamma = Gamma_1/Gamma;
+
+  /* Calculate Bsq = B^2, Msq = M^2, S = M \dot B, Ssq = S^2 */
+  Bsq = SQR((*Bx)) + SQR(U->By) + SQR(U->Bz);
+  Msq = SQR(U->Mx) + SQR(U->My) + SQR(U->Mz);
+  S = U->Mx * (*Bx) + U->My * U->By + U->Mz * U->Bz;
+  Ssq = SQR(S);
+
+  /* Assign input energy & density to local variables */
+  E = U->E;
+  d = U->d;
+  /*printf ("Start pars %10.4e %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,E,d);*/
+
+  /* Starting guess for W, based on taking the +ve */
+  /* root of Eqn. A27, guarantees that p is +ve    */
+  scrh1 = -4.0*(E - Bsq);
+  scrh2 = Msq - 2.0*E*Bsq + Bsq*Bsq;
+  Q = ( - scrh1 + sqrt(fabs(scrh1*scrh1 - 12.0*scrh2)))/6.0;
+  /*printf ("Initial guess %10.4e\n",Q);*/
+
+  nr_success = 0;	
+  if (Q < 0.0) {
+    /*    printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	  Bsq,Msq,Ssq,E,d);
+	  printf("[Cons1D_to_Prim1D]: Initial guess has Q < 0 %10.4e\n",Q);
+    */ 
+    Q = d;
+  } else if (Q != Q) {
+    nr_success = 9;
+    /*printf ("Startup parameters %10.4e %10.4e %10.4e %10.4e %10.4e\n",
+	    Bsq,Msq,Ssq,E,d);
+	    printf("[check_Prim1D]: Initial guess has Q = NaN %10.4e\n",Q);*/
+  }
+
+  /* 1d NR algorithm to find W from A1, converges */
+  /* when W'(k+1) / W(k) < tol, or max iterations reached */
+  dQstep = 1.0;
+  q_incs = 0;
+  while (nr_success == 0 && q_incs < 1000) {
+
+    if (fabs(dQstep) <= tol) nr_success = 1;
+
+    /* Obtain scalar quantities based on current solution estimate */
+    Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
+    if (Vsq != Vsq){
+      /*printf("[check_Prim1D]: Vsq variables %10.4e %10.4e %10.4e %10.4e\n",Bsq,Msq,Ssq,Q);*/
+    }
+    Gsq = 1.0/(1.0-Vsq);
+    Chi = calc_chi (d,Vsq,Gsq,Q);
+    rho = d / sqrt(fabs(Gsq));
+    pgas = Gamma_1*Chi/Gamma;
+
+    /* Evaluate Eqn. A24, A25 for the total energy density */ 
+    fQ = calc_func (Q, E, Bsq, Ssq, Vsq, pgas);
+    dfQ = calc_dfunc (Q, Bsq, Msq, Ssq, d, Vsq, Gsq, Chi);
+
+    /* Check that we didn't get a NaN in the process */
+    /*printf ("Function evaluations %12.6e %12.6e\n",fQ,dfQ);*/
+    if (fQ != fQ) {
+      nr_success = 8;
+      /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+	printf("[check_Prim1D]: Got a NaN in fQ\n");*/
+    }
+    if (dfQ != dfQ) {
+      nr_success = 7;
+      /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);
+	printf("[check_Prim1D]: Got a NaN in dfQ\n");*/
+    }
+
+    /* If we start out very close to the solution try and make sure we don't
+     * overshoot.--- Not actually clear that this does anything, so it can probably
+     * be removed */
+    if (fabs(fQ) < 0.1 && q_incs == 0) {
+      Q *= 10;
+      Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
+      Gsq = 1.0/(1.0-Vsq);
+      Chi = calc_chi (d,Vsq,Gsq,Q);
+      rho = d / sqrt(fabs(Gsq));
+      pgas = Gamma_1*Chi/Gamma;
+
+      fQ = calc_func (Q, E, Bsq, Ssq, Vsq, pgas);
+      dfQ = calc_dfunc (Q, Bsq, Msq, Ssq, d, Vsq, Gsq, Chi);
+    }
+    
+    /* Calculate step for NR update, check that it's not a Nan, update/check Q */
+    dQstep = fQ / dfQ;
+    if (dQstep != dQstep){
+      nr_success = 6;	
+      /*printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
+	printf("[check_Prim1D]: Got a NaN in dQstep\n");*/
+    }
+    Q -= dQstep;
+    if (Q != Q){
+      nr_success = 5;
+      /*printf("NR variables %10.4e %10.4e %10.4e\n",fQ,dfQ,dQstep);
+	printf("[check_Prim1D]: Got a NaN in Q\n");*/
+    }
+    q_incs ++;
+
+    /* Rinse and repeat */
+
+    /*printf ("Cycle parameters %10.4e %10.4e %10.4e %1.1i %1.1i \n",
+     *Q,fQ,dQstep,nr_success,q_incs);*/
+  }
+
+  /* If we convered (indicated by nr_success = 1) then check solution */
+  if (nr_success == 1){
+    /*Q = MAX(Q, d*(1.0e0+1.0e-6));*/
+
+    Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
+    Gsq = 1.0/(1.0-Vsq);
+    Chi = calc_chi (d,Vsq,Gsq,Q);
+    rho = d / sqrt(fabs(Gsq));
+    pgas = Gamma_1*Chi/Gamma;
+    /*printf("Soln %10.4e %10.4e %10.4e %10.4e %10.4e\n",rho,pgas,Chi,Vsq,Gsq);*/
+
+    /*
+      if (pgas < 0.0) nr_success = 2;
+      if (Vsq > 1.0) nr_success =  3;
+      if (Vsq < 0.0) nr_success =  4;
+    */
+ 
+    tmp1 = 1.0 / Q;
+    tmp2 = 1.0 / (Q + Bsq);
+    Prim1D.d = rho;
+    Prim1D.P = pgas;
+    Prim1D.Vx = (U->Mx + S*(*Bx)*tmp1)*tmp2;
+    Prim1D.Vy = (U->My + S*U->By*tmp1)*tmp2;
+    Prim1D.Vz = (U->Mz + S*U->Bz*tmp1)*tmp2;
+	
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
+	  
+  } else {
+    Prim1D.d = -1.0;
+    Prim1D.P = -1.0;
+    Prim1D.Vx = 1.0;
+    Prim1D.Vy = 1.0;
+    Prim1D.Vz = 1.0;
+	  
+    Prim1D.By = U->By;
+    Prim1D.Bz = U->Bz;
+  }
+	  
   return Prim1D;
 }
 #endif /* SPECIAL_RELATIVITY && MHD */
@@ -584,8 +1290,16 @@ static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, Real Vsq, Real pgas)
   return Q - pgas + 0.5*(1.0+Vsq)*Bsq - (0.5*Ssq/Q/Q) - E;
 }
 
+static Real calc_ent_func (Real rho, Real pgas, Real d, Real ent)
+{
+  Real tmp1;
+  /* Evaluate equation A25 for E, rather than E' */
+  tmp1 = pgas * pow(rho,-Gamma);
+  return d*tmp1 - ent;
+}
+
 static Real calc_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq, Real d, Real Vsq,
-       Real Gsq, Real Chi)
+		       Real Gsq, Real Chi)
 {
   /* Evaluate A8 for E & Q, rahter than E', W' */
   Real dp_dQ, dp_dchi, dchi_dQ, dp_drho, drho_dQ, dVsq_dQ;
@@ -612,6 +1326,37 @@ static Real calc_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq, Real d, Real Vsq,
   dp_dQ = dp_dchi*dchi_dQ + dp_drho*drho_dQ;
 
   return 1.0 - dp_dQ +0.5*Bsq*dVsq_dQ + Ssq / Qth;
+}
+
+static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
+			   Real d, Real Vsq, Real Gsq, Real Chi,
+			   Real pgas, Real rho)
+{
+  /* Evaluate A8 for E & Q, rahter than E', W' */
+  Real dp_dQ, dp_dchi, dchi_dQ, dp_drho, drho_dQ, dVsq_dQ;
+  Real G, Qsq, Qth, scrh1;
+
+  Qsq = Q*Q;
+  Qth = Qsq*Q;
+  G = sqrt(fabs(Gsq));
+
+  scrh1 = Q + Bsq;
+  dVsq_dQ  = Ssq*(3.0*Q*scrh1 + Bsq*Bsq) + Msq*Qth;
+  dVsq_dQ *= -2.0/Qth/(scrh1*scrh1*scrh1);
+
+  /* -- kinematical terms -- */
+  /* see eqn. A14 - A16 */
+  dchi_dQ =  1.0 - Vsq - 0.5*G*(d + 2.0*Chi*G)*dVsq_dQ;
+  drho_dQ = -0.5*d*G*dVsq_dQ;
+
+  /* -- thermo terms, change for different EOS --*/
+  /* see Section A2 of M&M */
+  dp_dchi = (Gamma - 1.0)/Gamma;
+  dp_drho = 0.0;
+
+  dp_dQ = dp_dchi*dchi_dQ + dp_drho*drho_dQ;
+
+  return d*pow(rho,-Gamma)*dp_dQ - Gamma*pgas*pow(rho,Gamma+1.0)*drho_dQ;
 }
 
 static Real calc_vsq (Real Bsq, Real Msq, Real Ssq, Real Q)
