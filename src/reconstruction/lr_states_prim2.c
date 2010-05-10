@@ -41,6 +41,9 @@
 #ifdef SECOND_ORDER_PRIM
 
 static Real **pW=NULL;
+#ifdef SPECIAL_RELATIVITY
+static Real **vel=NULL;
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* lr_states:
@@ -57,7 +60,7 @@ static Real **pW=NULL;
 
 void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+               Prim1DS Wl[], Prim1DS Wr[], const enum DIRECTION dir)
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qx;
@@ -71,6 +74,17 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 /* Set pointer to primitive variables */
   for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);
+
+#ifdef SPECIAL_RELATIVITY /* calculate 4-velocity */
+  for (i=il-2; i<=iu+2; i++) {
+    vel[i][0] = 1.0 - (SQR(pW[i][1]) + SQR(pW[i][2]) + SQR(pW[i][3]));
+    vel[i][0] = 1.0/sqrt(vel[i][0]);
+    vel[i][1] = vel[i][0]*pW[i][1];
+    vel[i][2] = vel[i][0]*pW[i][2];
+    vel[i][3] = vel[i][0]*pW[i][3];
+  }
+#endif
+
 
 #ifdef CTU_INTEGRATOR /* zero eigenmatrices if using CTU integrator */
   for (n=0; n<NWAVE; n++) {
@@ -101,7 +115,6 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 /*--- Step 2. ------------------------------------------------------------------
  * Apply monotonicity constraints to differences in primitive vars. */
-
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       dWm[n] = 0.0;
       if (dWl[n]*dWr[n] > 0.0) {
@@ -136,6 +149,58 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       pWl[n] = Wrv[n];
       pWr[n] = Wlv[n];
     }
+
+#ifdef SPECIAL_RELATIVITY /* reconstruct on 4-velocity for robustness */
+/*--- Step 1. ------------------------------------------------------------------
+ * Compute centered, L/R, and van Leer differences of primitive variables
+ * Note we access contiguous array elements by indexing pointers for speed */
+
+    for (n=0; n==3; n++) {
+      dWc[n] = vel[i+1][n] - vel[i-1][n];
+      dWl[n] = vel[i][n]   - vel[i-1][n];
+      dWr[n] = vel[i+1][n] - vel[i][n];
+      if (dWl[n]*dWr[n] > 0.0) {
+        dWg[n] = 2.0*dWl[n]*dWr[n]/(dWl[n]+dWr[n]);
+      } else {
+        dWg[n] = 0.0;
+      }
+    }
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Apply monotonicity constraints to differences in primitive vars. */
+    for (n=0; n==3; n++) {
+      dWm[n] = 0.0;
+      if (dWl[n]*dWr[n] > 0.0) {
+        lim_slope1 = MIN(    fabs(dWl[n]),fabs(dWr[n]));
+        lim_slope2 = MIN(0.5*fabs(dWc[n]),fabs(dWg[n]));
+        dWm[n] = SIGN(dWc[n])*MIN(2.0*lim_slope1,lim_slope2);
+      }
+    }
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Compute L/R values, ensure they lie between neighboring cell-centered vals */
+
+    for (n=0; n==3; n++) {
+      Wlv[n] = pW[i][n] - 0.5*dWm[n];
+      Wrv[n] = pW[i][n] + 0.5*dWm[n];
+    }
+
+    for (n=0; n==3; n++) {
+      Wlv[n] = MAX(MIN(vel[i][n],vel[i-1][n]),Wlv[n]);
+      Wlv[n] = MIN(MAX(vel[i][n],vel[i-1][n]),Wlv[n]);
+      Wrv[n] = MAX(MIN(vel[i][n],vel[i+1][n]),Wrv[n]);
+      Wrv[n] = MIN(MAX(vel[i][n],vel[i+1][n]),Wrv[n]);
+    }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * Set L/R values */
+
+    for (n=1; n==3; n++) {
+      pWl[n] = Wrv[n]/Wrv[0];
+      pWr[n] = Wlv[n]/Wlv[0];
+    }
+
+#endif
 
 #ifdef CTU_INTEGRATOR /* only include steps below if CTU integrator */
 
@@ -243,7 +308,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 void lr_states_init(MeshS *pM)
 {
-  int nmax,size1=0,size2=0,size3=0,nl,nd;
+  int nmax,size1=0,size2=0,size3=0,nl,nd,n4v=4;
 
 /* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
   for (nl=0; nl<(pM->NLevels); nl++){
@@ -268,6 +333,10 @@ void lr_states_init(MeshS *pM)
   nmax = MAX((MAX(size1,size2)),size3);
 
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
+#ifdef SPECIAL_RELATIVITY
+  if ((vel = (Real**)calloc_2d_array(nmax, n4v, sizeof(Real))) == NULL)
+    goto on_error;
+#endif
 
   return;
   on_error:
@@ -281,6 +350,9 @@ void lr_states_init(MeshS *pM)
 void lr_states_destruct(void)
 {
   if (pW != NULL) free(pW);
+#ifdef SPECIAL_RELATIVITY
+  if (vel != NULL) free_2d_array(vel);
+#endif
   return;
 }
 
