@@ -107,11 +107,22 @@ Real x3cc(const GridS *pGrid, const int k);
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
 PrimS Cons_to_Prim(const ConsS *pU);
+ConsS Prim_to_Cons(const PrimS *pW, const Real *pBx);
 Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx);
 Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx);
 #ifndef SPECIAL_RELATIVITY
 Real cfast(const Cons1DS *U, const Real *Bx);
 #endif
+#ifdef SPECIAL_RELATIVITY
+PrimS fix_vsq (const ConsS *pU);
+PrimS check_Prim(const ConsS *pU);
+PrimS entropy_fix (const ConsS *pU, const Real *ent);
+Prim1DS vsq1D_fix (const Cons1DS *pU, const Real *pBx);
+Prim1DS entropy_fix1D (const Cons1DS *pU, const Real *pBx, const Real *ent);
+Prim1DS check_Prim1D (const Cons1DS *pU, const Real *pBx);
+Prim1DS Cons1D_to_SPrim1D (const Cons1DS *U, const Real *Bx, const Real *ent);
+#endif
+
 
 /*----------------------------------------------------------------------------*/
 /* init_grid.c */
@@ -137,6 +148,13 @@ int  add_output(OutputS *new_out);
 void add_rst_out(OutputS *new_out);
 void data_output_destruct(void);
 void dump_history_enroll(const ConsFun_t pfun, const char *label);
+void data_output_enroll(Real time, Real dt, int num, const VOutFun_t fun,
+			const char *fmt, const ConsFun_t expr, int n,
+			const Real dmin, const Real dmax, int sdmin, int sdmax
+#ifdef PARTICLES
+			, const int out_pargrid, PropFun_t par_prop
+#endif
+);
 Real ***OutData3(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2, int *Nx3);
 Real  **OutData2(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2);
 Real   *OutData1(GridS *pGrid, OutputS *pOut, int *Nx1);
