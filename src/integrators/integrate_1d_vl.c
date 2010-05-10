@@ -22,6 +22,8 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
+#ifndef SPECIAL_RELATIVITY
+
 #if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of primitive variables and fluxes at each cell face */
@@ -466,3 +468,5 @@ void integrate_destruct_1d(void)
   return;
 }
 #endif /* VL_INTEGRATOR */
+
+#endif /* SPECIAL_RELATIVITY */
