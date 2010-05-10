@@ -32,6 +32,8 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
+#ifndef SPECIAL_RELATIVITY
+
 #if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
 /* The L/R states of primitive variables and fluxes at each cell face */
@@ -860,16 +862,6 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.k = ks;
         negP++;
       }
-#ifdef SPECIAL_RELATIVITY
-      Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
-      if (Vsq > 1.0) {
-        flag_cell = 1;
-        BadCell.i = i;
-        BadCell.j = j;
-        BadCell.k = ks;
-        superl++;
-      }
-#endif
       if (flag_cell != 0) {
         FixCell(pG, BadCell);
         flag_cell=0;
@@ -879,11 +871,6 @@ void integrate_2d_vl(DomainS *pD)
 
   if (negd > 0 || negP > 0)
     printf("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
-#ifdef SPECIAL_RELATIVITY
-  if (negd > 0 || negP > 0 || superl > 0)
-    printf("[Step14]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
-      ,negd,negP,superl);
-#endif
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -1457,3 +1444,5 @@ static void FixCell(GridS *pG, Int3Vect ix)
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #endif /* VL_INTEGRATOR */
+
+#endif /* SPECIAL_RELATIVITY */
