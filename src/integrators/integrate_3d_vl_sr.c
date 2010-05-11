@@ -70,8 +70,12 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1DS *W1d=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 
-/* conserved variables at t^{n+1/2} computed in predict step */
+/* primitive variables at t^{n} computed in predict step */
+static PrimS ***W=NULL;
+
+/* conserved & primitive variables at t^{n+1/2} computed in predict step */
 static ConsS ***Uhalf=NULL;
+static PrimS ***Whalf=NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
 extern Real etah;
@@ -104,7 +108,6 @@ static void FixCell(GridS *pG, Int3Vect);
 void integrate_3d_vl(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
-  PrimS W,Whalf;
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
   Real dt = pG->dt, hdt = 0.5*pG->dt;
@@ -130,7 +133,8 @@ void integrate_3d_vl(DomainS *pD)
   int flag_cell=0,negd=0,negP=0,superl=0,NaNFlux=0;
   int entropy,final,fail;
   Real Vsq;
-  ConsS U;
+  ConsS Ucheck;
+  PrimS Wcheck;
   Int3Vect BadCell;
 #endif
   int il=is-(nghost-1), iu=ie+(nghost-1);
@@ -144,6 +148,12 @@ void integrate_3d_vl(DomainS *pD)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         Uhalf[k][j][i] = pG->U[k][j][i];
+        W[k][j][i] = Cons_to_Prim(&(pG->U[k][j][i]));
+#ifdef USE_ENTROPY_FIX
+	S[k][j][i] = W[k][j][i].P * pow(W[k][j][i].d,1.0-Gamma);
+	S[k][j][i]*= pG->U[k][j][i].d / W[k][j][i].d;
+	Shalf[k][j][i] = S[k][j][i];
+#endif
 #ifdef MHD
         B1_x1Face[k][j][i] = pG->B1i[k][j][i];
         B2_x2Face[k][j][i] = pG->B2i[k][j][i];
@@ -157,43 +167,33 @@ void integrate_3d_vl(DomainS *pD)
 /* No source terms are needed since there is no temporal evolution */
 
 /*--- Step 1a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;
- * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ * Load 1D vector of primitive variables;
+ * W1d = (d, V1, V2, V3, P, B2c, B3c, s[n])
  */
 
   for (k=ks-nghost; k<=ke+nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
-	U1d[i].d  = pG->U[k][j][i].d;
-	U1d[i].Mx = pG->U[k][j][i].M1;
-	U1d[i].My = pG->U[k][j][i].M2;
-	U1d[i].Mz = pG->U[k][j][i].M3;
+	W1d[i].d  = W[k][j][i].d;
+	W1d[i].Vx = W[k][j][i].V1;
+	W1d[i].Vy = W[k][j][i].V2;
+	W1d[i].Vz = W[k][j][i].V3;
 #ifndef BAROTROPIC
-	U1d[i].E  = pG->U[k][j][i].E;
+	W1d[i].P  = W[k][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-	U1d[i].By = pG->U[k][j][i].B2c;
-	U1d[i].Bz = pG->U[k][j][i].B3c;
-        Bxc[i] = pG->U[k][j][i].B1c;
+	W1d[i].By = W[k][j][i].B2c;
+	W1d[i].Bz = W[k][j][i].B3c;
+        Bxc[i] = W[k][j][i].B1c;
         Bxi[i] = pG->B1i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[k][j][i].s[n];
+        for (n=0; n<NSCALARS; n++) W1d[i].s[n] = W[k][j][i].s[n];
 #endif
       }
 
 /*--- Step 1b ------------------------------------------------------------------
  * Compute first-order L/R states */
-
-    for (i=is-nghost; i<=ie+nghost; i++) {
-      W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
-#ifdef USE_ENTROPY_FIX
-      S[k][j][i] = W1d[i].P * pow(W1d[i].d,1.0-Gamma);
-      S[k][j][i]*= U1d[i].d / W1d[i].d;
-      Shalf[k][j][i] = S[k][j][i];
-#endif
-    }
-
     for (i=il; i<=ie+nghost; i++) {
       Wl[i] = W1d[i-1];
       Wr[i] = W1d[i  ];
@@ -223,38 +223,33 @@ void integrate_3d_vl(DomainS *pD)
 /* No source terms are needed since there is no temporal evolution */
 
 /*--- Step 2a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;
- * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
+ * Load 1D vector of primitive variables;
+ * W1d = (d, V2, V3, V1, P, B3c, B1c, s[n])
  */
 
   for (k=ks-nghost; k<=ke+nghost; k++) {
     for (i=is-nghost; i<=ie+nghost; i++) {
       for (j=js-nghost; j<=je+nghost; j++) {
-	U1d[j].d  = pG->U[k][j][i].d;
-	U1d[j].Mx = pG->U[k][j][i].M2;
-	U1d[j].My = pG->U[k][j][i].M3;
-	U1d[j].Mz = pG->U[k][j][i].M1;
+	W1d[j].d  = W[k][j][i].d;
+	W1d[j].Vx = W[k][j][i].V2;
+	W1d[j].Vy = W[k][j][i].V3;
+	W1d[j].Vz = W[k][j][i].V1;
 #ifndef BAROTROPIC
-	U1d[j].E  = pG->U[k][j][i].E;
+	W1d[j].P  = W[k][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-	U1d[j].By = pG->U[k][j][i].B3c;
-	U1d[j].Bz = pG->U[k][j][i].B1c;
-        Bxc[j] = pG->U[k][j][i].B2c;
+	W1d[j].By = W[k][j][i].B3c;
+	W1d[j].Bz = W[k][j][i].B1c;
+        Bxc[j] = W[k][j][i].B2c;
         Bxi[j] = pG->B2i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pG->U[k][j][i].s[n];
+        for (n=0; n<NSCALARS; n++) W1d[j].s[n] = W[k][j][i].s[n];
 #endif
       }
 
 /*--- Step 2b ------------------------------------------------------------------
  * Compute first-order L/R states */
-
-      for (j=js-nghost; j<=je+nghost; j++) {
-        W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
-      }
-
       for (j=jl; j<=je+nghost; j++) {
         Wl[j] = W1d[j-1];
         Wr[j] = W1d[j  ];
@@ -285,38 +280,33 @@ void integrate_3d_vl(DomainS *pD)
 /* No source terms are needed since there is no temporal evolution */
 
 /*--- Step 3a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;
- * U1d = (d, M3, M1, M2, E, B1c, B2c, s[n])
+ * Load 1D vector of primitive variables;
+ * W1d = (d, V3, V1, V2, P, B1c, B2c, s[n])
  */
 
   for (j=js-nghost; j<=je+nghost; j++) {
     for (i=is-nghost; i<=ie+nghost; i++) {
       for (k=ks-nghost; k<=ke+nghost; k++) {
-	U1d[k].d  = pG->U[k][j][i].d;
-	U1d[k].Mx = pG->U[k][j][i].M3;
-	U1d[k].My = pG->U[k][j][i].M1;
-	U1d[k].Mz = pG->U[k][j][i].M2;
+	W1d[k].d  = W[k][j][i].d;
+	W1d[k].Vx = W[k][j][i].V3;
+	W1d[k].Vy = W[k][j][i].V1;
+	W1d[k].Vz = W[k][j][i].V2;
 #ifndef BAROTROPIC
-	U1d[k].E  = pG->U[k][j][i].E;
+	W1d[k].P  = W[k][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-	U1d[k].By = pG->U[k][j][i].B1c;
-	U1d[k].Bz = pG->U[k][j][i].B2c;
-        Bxc[k] = pG->U[k][j][i].B3c;
+	W1d[k].By = W[k][j][i].B1c;
+	W1d[k].Bz = W[k][j][i].B2c;
+        Bxc[k] = W[k][j][i].B3c;
         Bxi[k] = pG->B3i[k][j][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) U1d[k].s[n] = pG->U[k][j][i].s[n];
+        for (n=0; n<NSCALARS; n++) W1d[k].s[n] = W[k][j][i].s[n];
 #endif
       }
 
 /*--- Step 3b ------------------------------------------------------------------
  * Compute first-order L/R states */      
-        
-      for (k=ks-nghost; k<=ke+nghost; k++) {
-        W1d[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
-      }
-
       for (k=kl; k<=ke+nghost; k++) { 
         Wl[k] = W1d[k-1];
         Wr[k] = W1d[k  ]; 
@@ -353,10 +343,12 @@ void integrate_3d_vl(DomainS *pD)
   for (k=ks-nghost; k<=ke+nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
-        Whalf = Cons_to_Prim(&pG->U[k][j][i]);
-        emf1_cc[k][j][i] = (Whalf.B2c*Whalf.V3 - Whalf.B3c*Whalf.V2);
-        emf2_cc[k][j][i] = (Whalf.B3c*Whalf.V1 - Whalf.B1c*Whalf.V3);
-        emf3_cc[k][j][i] = (Whalf.B1c*Whalf.V2 - Whalf.B2c*Whalf.V1);
+        emf1_cc[k][j][i] = (W[k][j][i].B2c*W[k][j][i].V3 - 
+			    W[k][j][i].B3c*W[k][j][i].V2);
+        emf2_cc[k][j][i] = (W[k][j][i].B3c*W[k][j][i].V1 -
+			    W[k][j][i].B1c*W[k][j][i].V3);
+        emf3_cc[k][j][i] = (W[k][j][i].B1c*W[k][j][i].V2 -
+			    W[k][j][i].B2c*W[k][j][i].V1);
       }
     }
   }
@@ -607,74 +599,42 @@ void integrate_3d_vl(DomainS *pD)
     }
   }
 
-/*--- Step 6b ------------------------------------------------------------------
- * Add source terms for self gravity for 0.5*dt to predict step.
- *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
+/*=== STEP 7: Conserved->Primitive variable inversion at t^{n+1/2} ===========*/
+        
+/* Invert conserved variables at t^{n+1/2} to primitive variables. With FOFC, 
+ * if cell-centered d < 0, P< 0, or v^2 > 1, correct by switching back to 
+ * values at beginning of step, rendering update first order in time for that
+ * cell.
  */
-
-#ifdef SELF_GRAVITY
-  for (k=kl; k<=ku; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        phic = pG->Phi[k][j][i];
-        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
-        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
-
-        Uhalf[k][j][i].M1 -= q1*(phir-phil)*pG->U[k][j][i].d;
-#ifndef BAROTROPIC
-        Uhalf[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
-                              + x1Flux[k][j][i+1].d*(phir - phic));
-#endif
-        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
-        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
-
-        Uhalf[k][j][i].M2 -= q2*(phir-phil)*pG->U[k][j][i].d;
-#ifndef BAROTROPIC
-        Uhalf[k][j][i].E -= q2*(x2Flux[k][j  ][i].d*(phic - phil)
-                              + x2Flux[k][j+1][i].d*(phir - phic));
-#endif
-        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
-        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
-
-        Uhalf[k][j][i].M3 -= q3*(phir-phil)*pG->U[k][j][i].d; 
-#ifndef BAROTROPIC
-        Uhalf[k][j][i].E -= q3*(x3Flux[k  ][j][i].d*(phic - phil)
-                              + x3Flux[k+1][j][i].d*(phir - phic));
-#endif
-      }
-    }
-  }
-#endif /* SELF_GRAVITY */
-
+        
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-/*=== STEP 7: First-order flux correction ===================================*/
-        
-/* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
- * by switching back to values at beginning of step*/
-        
   negd = 0;
   negP = 0;
   superl = 0;
-  for (k=ks; k<=ke; k++){ 
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-	W = check_Prim(&(Uhalf[k][j][i]));
-	if (W.d < 0.0) {
+  flag_cell = 0;
+#endif
+  for (k=ks-nghost; k<=ke+nghost; k++) {
+    for (i=is-nghost; i<=ie+nghost; i++) {
+      for (j=js-nghost; j<=je+nghost; j++) {
+	Whalf[k][j][i] = check_Prim(&(Uhalf[k][j][i]));
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+	if (Whalf[k][j][i].d < 0.0) {
 	  flag_cell = 1;
 	  BadCell.i = i;
 	  BadCell.j = j;
 	  BadCell.k = ks;
 	  negd++;
 	}
-	if (W.P < 0.0) {
+	if (Whalf[k][j][i].P < 0.0) {
 	  flag_cell = 1;
 	  BadCell.i = i;
 	  BadCell.j = j;
 	  BadCell.k = ks;
 	  negP++;
 	}
-#ifdef SPECIAL_RELATIVITY
-	Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+	Vsq = SQR(Whalf[k][j][i].V1) +
+	      SQR(Whalf[k][j][i].V2) + 
+	      SQR(Whalf[k][j][i].V3);
 	if (Vsq > 1.0) {
 	  flag_cell = 1;
 	  BadCell.i = i;
@@ -682,58 +642,56 @@ void integrate_3d_vl(DomainS *pD)
 	  BadCell.k = ks;
 	  superl++;
 	}
-#endif
 	if (flag_cell != 0) {
-	  Uhalf[k][j][i] = pG->U[k][j][i];
+	  Whalf[k][j][i].d = W[k][j][i].d;
+	  Whalf[k][j][i].V1 = W[k][j][i].V1;
+	  Whalf[k][j][i].V2 = W[k][j][i].V2;
+	  Whalf[k][j][i].V3 = W[k][j][i].V3;
+	  Whalf[k][j][i].P = W[k][j][i].P;
 	  flag_cell=0;
 	}
+#endif
       }
     }
   }
-#ifndef SPECIAL_RELATIVITY       
-  if (negd > 0 || negP > 0)
-    printf("[Step7]: %i cells had d<0; %i cells had P<0 at t_half\n",negd,negP);
-#else
-  if (negd > 0 || negP > 0 || superl > 0)
-    printf("[Step7]: %i cells had d<0; %i cells had P<0; %i cells had v>1 at t_half\n"
-           ,negd,negP,superl);
-#endif
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+  if (negd > 0 || negP > 0 || superl > 0){
+    printf("[Step7]: %i cells had d<0; %i cells had P<0;\n",negd,negP); 
+    printf("[Step7]: %i cells had v>1 at t_half\n",superl);
+  }
 #endif 
 
 /*=== STEP 8: Compute second-order L/R x1-interface states ===================*/
 
 /*--- Step 8a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;
- * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ * Load 1D vector of primitve variables;
+ * W1d = (d, V1, V2, V3, P, B2c, B3c, s[n])
  */
 
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=il; i<=iu; i++) {
-        U1d[i].d  = Uhalf[k][j][i].d;
-        U1d[i].Mx = Uhalf[k][j][i].M1;
-        U1d[i].My = Uhalf[k][j][i].M2;
-        U1d[i].Mz = Uhalf[k][j][i].M3;
+        W1d[i].d  = Whalf[k][j][i].d;
+        W1d[i].Vx = Whalf[k][j][i].V1;
+        W1d[i].Vy = Whalf[k][j][i].V2;
+        W1d[i].Vz = Whalf[k][j][i].V3;
 #ifndef BAROTROPIC
-        U1d[i].E  = Uhalf[k][j][i].E;
+        W1d[i].P  = Whalf[k][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        U1d[i].By = Uhalf[k][j][i].B2c;
-        U1d[i].Bz = Uhalf[k][j][i].B3c;
-        Bxc[i] = Uhalf[k][j][i].B1c;
+        W1d[i].By = Whalf[k][j][i].B2c;
+        W1d[i].Bz = Whalf[k][j][i].B3c;
+        Bxc[i] = Whalf[k][j][i].B1c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) U1d[i].s[n] = Uhalf[k][j][i].s[n];
+        for (n=0; n<NSCALARS; n++) W1d[i].s[n] = Whalf[k][j][i].s[n];
 #endif
       }
 
 /*--- Step 8b ------------------------------------------------------------------
  * Compute L and R states at x1-interfaces, store in 3D array
  */
-
-      for (i=il; i<=iu; i++) {
-	W1d[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
-      }
 
       lr_states(pG,W1d,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,cart_x1);
 
@@ -763,36 +721,32 @@ void integrate_3d_vl(DomainS *pD)
 
 /*--- Step 9a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
- * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
+ * W1d = (d, V2, V3, V1, P, B3c, B1c, s[n])
  */
 
   for (k=ks-1; k<=ke+1; k++) {
     for (i=is-1; i<=ie+1; i++) {
       for (j=jl; j<=ju; j++) {
-        U1d[j].d  = Uhalf[k][j][i].d;
-        U1d[j].Mx = Uhalf[k][j][i].M2;
-        U1d[j].My = Uhalf[k][j][i].M3;
-        U1d[j].Mz = Uhalf[k][j][i].M1;
+        W1d[j].d  = Whalf[k][j][i].d;
+        W1d[j].Vx = Whalf[k][j][i].V2;
+        W1d[j].Vy = Whalf[k][j][i].V3;
+        W1d[j].Vz = Whalf[k][j][i].V1;
 #ifndef BAROTROPIC
-        U1d[j].E  = Uhalf[k][j][i].E;
+        W1d[j].P  = Whalf[k][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        U1d[j].By = Uhalf[k][j][i].B3c;
-        U1d[j].Bz = Uhalf[k][j][i].B1c;
-        Bxc[j] = Uhalf[k][j][i].B2c;
+        W1d[j].By = Whalf[k][j][i].B3c;
+        W1d[j].Bz = Whalf[k][j][i].B1c;
+        Bxc[j] = Whalf[k][j][i].B2c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) U1d[j].s[n] = Uhalf[k][j][i].s[n];
+        for (n=0; n<NSCALARS; n++) W1d[j].s[n] = Whalf[k][j][i].s[n];
 #endif
       }
 
 /*--- Step 9b ------------------------------------------------------------------
  * Compute L and R states at x2-interfaces, store in 3D array
  */
-
-      for (j=jl; j<=ju; j++) {
-	W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
-      }
 
       lr_states(pG,W1d,Bxc,pG->dt,pG->dx2,js,je,Wl,Wr,cart_x2);
 
@@ -822,37 +776,32 @@ void integrate_3d_vl(DomainS *pD)
 
 /*--- Step 9a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
- * U1d = (d, M3, M1, M2, E, B1c, B2c, s[n])
+ * W1d = (d, V3, V1, V2, P, B1c, B2c, s[n])
  */
 
   for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) {
       for (k=kl; k<=ku; k++) {
-        U1d[k].d  = Uhalf[k][j][i].d;
-        U1d[k].Mx = Uhalf[k][j][i].M3;
-        U1d[k].My = Uhalf[k][j][i].M1;
-        U1d[k].Mz = Uhalf[k][j][i].M2;
+        W1d[k].d  = Whalf[k][j][i].d;
+        W1d[k].Vx = Whalf[k][j][i].V3;
+        W1d[k].Vy = Whalf[k][j][i].V1;
+        W1d[k].Vz = Whalf[k][j][i].V2;
 #ifndef BAROTROPIC
-        U1d[k].E  = Uhalf[k][j][i].E;
+        W1d[k].P  = Whalf[k][j][i].P;
 #endif /* BAROTROPIC */
 #ifdef MHD
-        U1d[k].By = Uhalf[k][j][i].B1c;
-        U1d[k].Bz = Uhalf[k][j][i].B2c;
-        Bxc[k] = Uhalf[k][j][i].B3c;
+        W1d[k].By = Whalf[k][j][i].B1c;
+        W1d[k].Bz = Whalf[k][j][i].B2c;
+        Bxc[k] = Whalf[k][j][i].B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) U1d[k].s[n] = Uhalf[k][j][i].s[n];
+        for (n=0; n<NSCALARS; n++) W1d[k].s[n] = Whalf[k][j][i].s[n];
 #endif
       }
 
 /*--- Step 9b ------------------------------------------------------------------
  * Compute L and R states at x3-interfaces, store in 3D array
  */
-
-      for (k=kl; k<=ku; k++) {
-        W1d[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
-      }
-
       lr_states(pG,W1d,Bxc,pG->dt,pG->dx3,ks,ke,Wl,Wr,cart_x3);
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
@@ -1149,10 +1098,12 @@ void integrate_3d_vl(DomainS *pD)
   for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        Whalf = Cons_to_Prim(&Uhalf[k][j][i]);
-        emf1_cc[k][j][i] = (Whalf.B2c*Whalf.V3 - Whalf.B3c*Whalf.V2);
-        emf2_cc[k][j][i] = (Whalf.B3c*Whalf.V1 - Whalf.B1c*Whalf.V3);
-        emf3_cc[k][j][i] = (Whalf.B1c*Whalf.V2 - Whalf.B2c*Whalf.V1);
+        emf1_cc[k][j][i] = (Whalf[k][j][i].B2c*Whalf[k][j][i].V3 - 
+			    Whalf[k][j][i].B3c*Whalf[k][j][i].V2);
+        emf2_cc[k][j][i] = (Whalf[k][j][i].B3c*Whalf[k][j][i].V1 -
+			    Whalf[k][j][i].B1c*Whalf[k][j][i].V3);
+        emf3_cc[k][j][i] = (Whalf[k][j][i].B1c*Whalf[k][j][i].V2 -
+			    Whalf[k][j][i].B2c*Whalf[k][j][i].V1);
       }
     }
   }
@@ -1258,161 +1209,6 @@ void integrate_3d_vl(DomainS *pD)
     }
   }
 
-/*--- Step 13b -----------------------------------------------------------------
- * Add gravitational source terms for self-gravity.
- * A flux correction using Phi^{n+1} in the main loop is required to make
- * the source terms 2nd order: see selfg_flux_correction().
- */
-
-#ifdef SELF_GRAVITY
-/* Add fluxes and source terms due to (d/dx1) terms  */
-
-  for (k=ks; k<=ke; k++){
-    for (j=js; j<=je; j++){
-      for (i=is; i<=ie; i++){
-        phic = pG->Phi[k][j][i];
-        phil = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k][j][i  ]);
-        phir = 0.5*(pG->Phi[k][j][i  ] + pG->Phi[k][j][i+1]);
-
-/* gx, gy and gz centered at L and R x1-faces */
-        gxl = (pG->Phi[k][j][i-1] - pG->Phi[k][j][i  ])/(pG->dx1);
-        gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])/(pG->dx1);
-
-        gyl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j+1][i-1]) +
-                    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]))/(pG->dx2);
-        gyr = 0.25*((pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) +
-                    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]))/(pG->dx2);
-
-        gzl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k+1][j][i-1]) +
-                    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]))/(pG->dx3);
-        gzr = 0.25*((pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) +
-                    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]))/(pG->dx3);
-
-/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
-        flx_m1l = 0.5*(gxl*gxl-gyl*gyl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
-        flx_m1r = 0.5*(gxr*gxr-gyr*gyr-gzr*gzr)/four_pi_G + grav_mean_rho*phir;
-
-        flx_m2l = gxl*gyl/four_pi_G;
-        flx_m2r = gxr*gyr/four_pi_G;
-
-        flx_m3l = gxl*gzl/four_pi_G;
-        flx_m3r = gxr*gzr/four_pi_G;
-
-/* Update momenta and energy with d/dx1 terms  */
-        pG->U[k][j][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
-        pG->U[k][j][i].M2 -= dtodx1*(flx_m2r - flx_m2l);
-        pG->U[k][j][i].M3 -= dtodx1*(flx_m3r - flx_m3l);
-#ifndef BAROTROPIC
-        pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
-                                    x1Flux[k][j][i+1].d*(phir - phic));
-#endif /* BAROTROPIC */
-      }
-    }
-  }
-
-/* Add fluxes and source terms due to (d/dx2) terms  */
-
-  for (k=ks; k<=ke; k++){
-    for (j=js; j<=je; j++){
-      for (i=is; i<=ie; i++){
-        phic = pG->Phi[k][j][i];
-        phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k][j  ][i]);
-        phir = 0.5*(pG->Phi[k][j  ][i] + pG->Phi[k][j+1][i]);
-
-/* gx, gy and gz centered at L and R x2-faces */
-        gxl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j-1][i+1]) +
-                    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]))/(pG->dx1);
-        gxr = 0.25*((pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) +
-                    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]))/(pG->dx1);
-
-        gyl = (pG->Phi[k][j-1][i] - pG->Phi[k][j  ][i])/(pG->dx2);
-        gyr = (pG->Phi[k][j  ][i] - pG->Phi[k][j+1][i])/(pG->dx2);
-
-        gzl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k+1][j-1][i]) +
-                    (pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) )/(pG->dx3);
-        gzr = 0.25*((pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) +
-                    (pG->Phi[k-1][j+1][i] - pG->Phi[k+1][j+1][i]) )/(pG->dx3);
-
-/* momentum fluxes in x2.  2nd term is needed only if Jean's swindle used */
-        flx_m1l = gyl*gxl/four_pi_G;
-        flx_m1r = gyr*gxr/four_pi_G;
-
-        flx_m2l = 0.5*(gyl*gyl-gxl*gxl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
-        flx_m2r = 0.5*(gyr*gyr-gxr*gxr-gzr*gzr)/four_pi_G + grav_mean_rho*phir;
-
-        flx_m3l = gyl*gzl/four_pi_G;
-        flx_m3r = gyr*gzr/four_pi_G;
-
-/* Update momenta and energy with d/dx2 terms  */
-        pG->U[k][j][i].M1 -= dtodx2*(flx_m1r - flx_m1l);
-        pG->U[k][j][i].M2 -= dtodx2*(flx_m2r - flx_m2l);
-        pG->U[k][j][i].M3 -= dtodx2*(flx_m3r - flx_m3l);
-#ifndef BAROTROPIC
-        pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
-                                    x2Flux[k][j+1][i].d*(phir - phic));
-#endif /* BAROTROPIC */
-      }
-    }
-  }
-
-/* Add fluxes and source terms due to (d/dx3) terms  */
-
-  for (k=ks; k<=ke; k++){
-    for (j=js; j<=je; j++){
-      for (i=is; i<=ie; i++){
-        phic = pG->Phi[k][j][i];
-        phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k  ][j][i]);
-        phir = 0.5*(pG->Phi[k  ][j][i] + pG->Phi[k+1][j][i]);
-
-/* gx, gy and gz centered at L and R x3-faces */
-        gxl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k-1][j][i+1]) +
-                    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]))/(pG->dx1);
-        gxr = 0.25*((pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) +
-                    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]))/(pG->dx1);
-
-        gyl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k-1][j+1][i]) +
-                    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]))/(pG->dx2);
-        gyr = 0.25*((pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) +
-                    (pG->Phi[k+1][j-1][i] - pG->Phi[k+1][j+1][i]))/(pG->dx2);
-
-        gzl = (pG->Phi[k-1][j][i] - pG->Phi[k  ][j][i])/(pG->dx3);
-        gzr = (pG->Phi[k  ][j][i] - pG->Phi[k+1][j][i])/(pG->dx3);
-
-/* momentum fluxes in x3.  2nd term is needed only if Jean's swindle used */
-        flx_m1l = gzl*gxl/four_pi_G;
-        flx_m1r = gzr*gxr/four_pi_G;
-
-        flx_m2l = gzl*gyl/four_pi_G;
-        flx_m2r = gzr*gyr/four_pi_G;
-
-        flx_m3l = 0.5*(gzl*gzl-gxl*gxl-gyl*gyl)/four_pi_G + grav_mean_rho*phil;
-        flx_m3r = 0.5*(gzr*gzr-gxr*gxr-gyr*gyr)/four_pi_G + grav_mean_rho*phir;
-
-/* Update momenta and energy with d/dx3 terms  */
-        pG->U[k][j][i].M1 -= dtodx3*(flx_m1r - flx_m1l);
-        pG->U[k][j][i].M2 -= dtodx3*(flx_m2r - flx_m2l);
-        pG->U[k][j][i].M3 -= dtodx3*(flx_m3r - flx_m3l);
-#ifndef BAROTROPIC
-        pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
-                                    x3Flux[k+1][j][i].d*(phir - phic));
-#endif /* BAROTROPIC */
-      }
-    }
-  }
-
-/* Save mass fluxes in Grid structure for source term correction in main loop */
-
-  for (k=ks; k<=ke+1; k++) {
-    for (j=js; j<=je+1; j++) {
-      for (i=is; i<=ie+1; i++) {
-        pG->x1MassFlux[k][j][i] = x1Flux[k][j][i].d;
-        pG->x2MassFlux[k][j][i] = x2Flux[k][j][i].d;
-        pG->x3MassFlux[k][j][i] = x3Flux[k][j][i].d;
-      }
-    }
-  }
-#endif /* SELF_GRAVITY */
-
 /*=== STEP 14: Update cell-centered values for a full timestep ===============*/
 
 /*--- Step 14a -----------------------------------------------------------------
@@ -1494,31 +1290,30 @@ void integrate_3d_vl(DomainS *pD)
   }
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-/*=== STEP 15a: First-order flux correction ==================================*/
-
-/* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
+/*=== STEP 15: First-order flux correction ===================================*/
+/*--- Step 15a -----------------------------------------------------------------
+ * If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
  * by using 1st order predictor fluxes */
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        W = check_Prim(&(pG->U[k][j][i]));
-        if (W.d < 0.0) {
+        Wcheck = check_Prim(&(pG->U[k][j][i]));
+        if (Wcheck.d < 0.0) {
           flag_cell = 1;
           BadCell.i = i;
           BadCell.j = j;
           BadCell.k = k;
           negd++;
         }
-        if (W.P < 0.0) {
+        if (Wcheck.P < 0.0) {
           flag_cell = 1;
           BadCell.i = i;
           BadCell.j = j;
           BadCell.k = k;
           negP++;
         }
-#ifdef SPECIAL_RELATIVITY
-        Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+        Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
         if (Vsq > 1.0) {
           flag_cell = 1;
           BadCell.i = i;
@@ -1526,7 +1321,6 @@ void integrate_3d_vl(DomainS *pD)
           BadCell.k = k;
           superl++; 
         }
-#endif
         if (flag_cell != 0) {
           FixCell(pG, BadCell);
           flag_cell=0;
@@ -1535,21 +1329,14 @@ void integrate_3d_vl(DomainS *pD)
     }
   }
 
-#ifndef SPECIAL_RELATIVITY
-  if (negd > 0 || negP > 0)
-    printf("[Step15a]: %i cells had d<0; %i cells had P<0\n",negd,negP);
-#else
   if (negd > 0 || negP > 0 || superl > 0){
     printf("[Step15a]: %i cells had d<0; %i cells had P<0;\n",negd,negP);
     printf("[Step15a]: %i cells had v>1	at 1st order correction\n",superl);
   }
-#endif
 
 
-#ifdef SPECIAL_RELATIVITY
-/*=== STEP 15b: Entropy & V^2 fixes ==========================================*/
-
-/* In SR the first-order flux correction can fail to fix an unphysical state.
+/*--- Step 15b -----------------------------------------------------------------
+ * In SR the first-order flux correction can fail to fix an unphysical state.
  * We must fix these cells in order to avoid NaN's at the next timestep,
  * particuarly if v^2 > 1. We have 2 approaches; firstly, we use the entropy
  * equation (which we have not applied a 1st order flux correction to) to
@@ -1568,16 +1355,16 @@ void integrate_3d_vl(DomainS *pD)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
 	flag_cell = 0;
-        W = check_Prim(&(pG->U[k][j][i]));
-        if (W.d < 0.0) {
+        Wcheck = check_Prim(&(pG->U[k][j][i]));
+        if (Wcheck.d < 0.0) {
           flag_cell = 1;
           negd++;
         }
-        if (W.P < 0.0) {
+        if (Wcheck.P < 0.0) {
           flag_cell = 1;
           negP++;
         }
-        Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+        Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
         if (Vsq > 1.0) {
           flag_cell = 1;
           superl++; 
@@ -1586,17 +1373,16 @@ void integrate_3d_vl(DomainS *pD)
 	if (flag_cell != 0) {
 	  entropy++;
 	  Bx = pG->U[k][j][i].B1c;
-	  W = entropy_fix (&(pG->U[k][j][i]),&(S[k][j][i]));
-	  Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
-	  U = Prim_to_Cons(&W,&Bx);
-	  W = check_Prim(&U);
-	  Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
-	  if (W.d > 0.0 && W.P > 0.0 && Vsq < 1.0){
-	    pG->U[k][j][i].d = U.d;
-	    pG->U[k][j][i].M1 = U.M1;
-	    pG->U[k][j][i].M2 = U.M2;
-	    pG->U[k][j][i].M3 = U.M3;
-	    pG->U[k][j][i].E = U.E;
+	  Wcheck = entropy_fix (&(pG->U[k][j][i]),&(S[k][j][i]));
+	  Ucheck = Prim_to_Cons(&Wcheck,&Bx);
+	  Wcheck = check_Prim(&Ucheck);
+	  Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
+	  if (Wcheck.d > 0.0 && Wcheck.P > 0.0 && Vsq < 1.0){
+	    pG->U[k][j][i].d = Ucheck.d;
+	    pG->U[k][j][i].M1 = Ucheck.M1;
+	    pG->U[k][j][i].M2 = Ucheck.M2;
+	    pG->U[k][j][i].M3 = Ucheck.M3;
+	    pG->U[k][j][i].E = Ucheck.E;
 	    flag_cell = 0;
 	  }
 	}
@@ -1604,16 +1390,16 @@ void integrate_3d_vl(DomainS *pD)
 	if (flag_cell != 0) {
 	  final++;
 	  Bx = pG->U[k][j][i].B1c;
-	  W = fix_vsq (&(pG->U[k][j][i]));
-	  U = Prim_to_Cons(&W,&Bx);
-	  pG->U[k][j][i].d = U.d;
-	  pG->U[k][j][i].M1 = U.M1;
-	  pG->U[k][j][i].M2 = U.M2;
-	  pG->U[k][j][i].M3 = U.M3;
-	  pG->U[k][j][i].E = U.E;
-	  W = check_Prim(&(pG->U[k][j][i]));
-	  Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
-	  if (W.d < 0.0 || W.P < 0.0 || Vsq > 1.0){
+	  Wcheck = fix_vsq (&(pG->U[k][j][i]));
+	  Ucheck = Prim_to_Cons(&Wcheck,&Bx);
+	  pG->U[k][j][i].d = Ucheck.d;
+	  pG->U[k][j][i].M1 = Ucheck.M1;
+	  pG->U[k][j][i].M2 = Ucheck.M2;
+	  pG->U[k][j][i].M3 = Ucheck.M3;
+	  pG->U[k][j][i].E = Ucheck.E;
+	  Wcheck = check_Prim(&(pG->U[k][j][i]));
+	  Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
+	  if (Wcheck.d < 0.0 || Wcheck.P < 0.0 || Vsq > 1.0){
 	    fail++;
 	  }
 	}
@@ -1628,7 +1414,7 @@ void integrate_3d_vl(DomainS *pD)
     printf("[Step15b]: %i cells required a  final fix\n",final);
     printf("[Step15b]: %i cells had an unphysical state\n",fail);
   }
-#endif /*SPECIAL_RELATIVITY*/
+
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 
@@ -2066,6 +1852,10 @@ void integrate_init_3d(MeshS *pM)
 
   if ((Uhalf = (ConsS***)calloc_3d_array(size3,size2,size1,sizeof(ConsS)))
     == NULL) goto on_error;
+  if ((Whalf = (PrimS***)calloc_3d_array(size3,size2,size1,sizeof(PrimS)))
+    == NULL) goto on_error;
+  if ((W     = (PrimS***)calloc_3d_array(size3,size2,size1,sizeof(PrimS)))
+    == NULL) goto on_error;
 
   return;
 
@@ -2134,13 +1924,15 @@ void integrate_destruct_3d(void)
   if (x2FluxS != NULL) free_3d_array(x2FluxS);
   if (x3FluxS != NULL) free_3d_array(x3FluxS);
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-  if (x1FluxSP!= NULL) free_3d_array(x1FluxS);
-  if (x2FluxSP!= NULL) free_3d_array(x2FluxS);
-  if (x3FluxSP!= NULL) free_3d_array(x3FluxS);
+  if (x1FluxSP!= NULL) free_3d_array(x1FluxSP);
+  if (x2FluxSP!= NULL) free_3d_array(x2FluxSP);
+  if (x3FluxSP!= NULL) free_3d_array(x3FluxSP);
 #endif
 #endif
 
   if (Uhalf  != NULL) free_3d_array(Uhalf);
+  if (Whalf  != NULL) free_3d_array(Whalf);
+  if (W      != NULL) free_3d_array(W);
 
   return;
 }
