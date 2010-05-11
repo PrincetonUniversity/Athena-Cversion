@@ -2,7 +2,7 @@
 /*==============================================================================
  * FILE: integrate_1d_vl.c
  *
- * PURPOSE: Integrate MHD equations using 1D version of MUSCL-Hancock (VL)
+ * PURPOSE: Integrate SRMHD equations using 1D version of MUSCL-Hancock (VL)
  *   integrator.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure.
  *   Adds gravitational source terms, self-gravity.
  *        
@@ -97,7 +97,7 @@ void integrate_1d_vl(DomainS *pD)
 
 /*--- Step 1a ------------------------------------------------------------------
  * Load 1D vector of primitive variables;  
- * W1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ * W1d = (d, V1, V2, V3, P, B2c, B3c, s[n])
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
@@ -120,6 +120,7 @@ void integrate_1d_vl(DomainS *pD)
 /*--- Step 1b ------------------------------------------------------------------
  * Compute first-order L/R states */
 
+/* Ensure that W & U are consistent */
   for (i=is-nghost; i<=ie+nghost; i++) {
     U1d[i] = Prim1D_to_Cons1D(&W1d[i],&Bxc[i]);
   }
@@ -242,8 +243,8 @@ void integrate_1d_vl(DomainS *pD)
 /*=== STEP 8: Compute second-order L/R x1-interface states ===================*/
 
 /*--- Step 8a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;
- * U = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ * Load 1D vector of primitive variables;
+ * W = (d, V1, V2, V3, P, B2c, B3c, s[n])
  */
 
   for (i=il; i<=iu; i++) {
@@ -358,7 +359,9 @@ void integrate_1d_vl(DomainS *pD)
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*=== STEP 15: First-order flux correction ===================================*/
-/* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
+
+/*--- Step 15a -----------------------------------------------------------------
+ * If cell-centered d or P have gone negative, or if v^2 > 1, correct
  * by using 1st order predictor fluxes */
         
   for (i=is; i<=ie; i++) {
@@ -396,6 +399,17 @@ void integrate_1d_vl(DomainS *pD)
     printf("[Step15a]: %i cells had d<0; %i cells had P<0;\n",negd,negP);
     printf("[Step15a]: %i cells had v>1 at 1st correction\n",superl);
   }
+
+/*--- Step 15b -----------------------------------------------------------------
+ * In SR the first-order flux correction can fail to fix an unphysical state.
+ * We must fix these cells in order to avoid NaN's at the next timestep,
+ * particuarly if v^2 > 1. We have 2 approaches; firstly, we use the entropy
+ * equation (which we have not applied a 1st order flux correction to) to
+ * calculate the pressure and the Lorentz factor of the gas. If this produces
+ * and unphysical state, then we floor the pressure and iterate on v^2 until
+ * v^2 < 1. Possibly could improved by averaging density and pressure from
+ * adjacent cells and then calculating pressure.
+ */
 
   fail = 0;
   negd = 0;
