@@ -32,15 +32,18 @@ static Cons1DS *x1Flux=NULL;
 
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
-static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
+static Prim1DS *W1d=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static Cons1DS *x1FluxP=NULL;
 #endif
 
+/* conserved & primitive variables at t^{n} */
+static PrimS *W=NULL;
 
 /* conserved variables at t^{n+1/2} computed in predict step */
 static ConsS *Uhalf=NULL;
+static PrimS *Whalf=NULL;
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static void FixCell(GridS *pG, Int3Vect);
@@ -86,32 +89,31 @@ void integrate_1d_vl(DomainS *pD)
 
   for (i=is-nghost; i<=ie+nghost; i++) {
     Uhalf[i] = pG->U[ks][js][i];
+    W[i] = Cons_to_Prim(&(pG->U[ks][js][i]));
   }
 
 /*=== STEP 1: Compute first-order fluxes at t^{n} in x1-direction ============*/
 /* No source terms are needed since there is no temporal evolution */
 
 /*--- Step 1a ------------------------------------------------------------------
- * Load 1D vector of conserved variables;  
- * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
+ * Load 1D vector of primitive variables;  
+ * W1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
-    U1d[i].d  = pG->U[ks][js][i].d;
-    U1d[i].Mx = pG->U[ks][js][i].M1;
-    U1d[i].My = pG->U[ks][js][i].M2;
-    U1d[i].Mz = pG->U[ks][js][i].M3;
-#ifndef BAROTROPIC
-    U1d[i].E  = pG->U[ks][js][i].E;
-#endif /* BAROTROPIC */
+    W1d[i].d  = W[i].d;
+    W1d[i].Vx = W[i].V1;
+    W1d[i].Vy = W[i].V2;
+    W1d[i].Vz = W[i].V3;
+    W1d[i].P  = W[i].P;
 #ifdef MHD
-    U1d[i].By = pG->U[ks][js][i].B2c;
-    U1d[i].Bz = pG->U[ks][js][i].B3c;
-    Bxc[i] = pG->U[ks][js][i].B1c;
+    W1d[i].By = W[i].B2c;
+    W1d[i].Bz = W[i].B3c;
+    Bxc[i] = W[i].B1c;
     Bxi[i] = pG->B1i[ks][js][i];
 #endif /* MHD */
 #if (NSCALARS > 0)
-    for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[ks][js][i].s[n];
+    for (n=0; n<NSCALARS; n++) W1d[i].s[n] = W[i].s[n];
 #endif
   }
 
@@ -119,12 +121,12 @@ void integrate_1d_vl(DomainS *pD)
  * Compute first-order L/R states */
 
   for (i=is-nghost; i<=ie+nghost; i++) {
-    W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+    U1d[i] = Prim1D_to_Cons1D(&W1d[i],&Bxc[i]);
   }
 
   for (i=il; i<=ie+nghost; i++) {
-    Wl[i] = W[i-1];
-    Wr[i] = W[i  ];
+    Wl[i] = W1d[i-1];
+    Wr[i] = W1d[i  ];
 
     Ul[i] = U1d[i-1];
     Ur[i] = U1d[i  ];
@@ -153,9 +155,7 @@ void integrate_1d_vl(DomainS *pD)
     Uhalf[i].M1  -= hdtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
     Uhalf[i].M2  -= hdtodx1*(x1Flux[i+1].My - x1Flux[i].My);
     Uhalf[i].M3  -= hdtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
-#ifndef BAROTROPIC
     Uhalf[i].E   -= hdtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
-#endif /* BAROTROPIC */
 #ifdef MHD
     Uhalf[i].B2c -= hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
     Uhalf[i].B3c -= hdtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
@@ -186,71 +186,56 @@ void integrate_1d_vl(DomainS *pD)
       phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
       Uhalf[i].M1 -= hdtodx1*pG->U[ks][js][i].d*(phir-phil);
-#ifndef BAROTROPIC
       Uhalf[i].E -= hdtodx1*(x1Flux[i  ].d*(phic - phil) +
                              x1Flux[i+1].d*(phir - phic));
-#endif
     }
   }
 
-/*--- Step 6b ------------------------------------------------------------------
- * Add source terms for self gravity for 0.5*dt to predict step.
- *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
+/*=== STEP 7: Conserved->Primitive variable inversion at t^{n+1/2} ===========*/
+        
+/* Invert conserved variables at t^{n+1/2} to primitive variables. With FOFC, 
+ * if cell-centered d < 0, P< 0, or v^2 > 1, correct by switching back to 
+ * values at beginning of step, rendering update first order in time for that
+ * cell.
  */
 
-#ifdef SELF_GRAVITY
-  for (i=il; i<=iu; i++) {
-    phic = pG->Phi[ks][js][i];
-    phir = 0.5*(pG->Phi[ks][js][i] + pG->Phi[ks][js][i+1]);
-    phil = 0.5*(pG->Phi[ks][js][i] + pG->Phi[ks][js][i-1]);
-
-    Uhalf[i].M1 -= hdtodx1*pG->U[ks][js][i].d*(phir-phil);
-#ifndef BAROTROPIC
-    Uhalf[i].E -= hdtodx1*(x1Flux[i  ].d*(phic - phil) +
-                           x1Flux[i+1].d*(phir - phic));
-#endif
-  }
-#endif /* SELF_GRAVITY */
-
-#ifdef FIRST_ORDER_FLUX_CORRECTION
-/*=== STEP 7: First-order flux correction ===================================*/
-        
-/* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
- * by switching back to values at beginning of step*/
-        
+#ifdef FIRST_ORDER_FLUX_CORRECTION        
   negd = 0;
   negP = 0;
   superl = 0;
-  for (i=is; i<=ie; i++) {
-    W[i] = check_Prim1D(&U1d[i],&Bxc[i]);
-    if (W[i].d < 0.0) {
+  flag_cell = 0;
+#endif
+  for (i=il; i<=iu; i++) {
+    Whalf[i] = Cons_to_Prim(&Uhalf[i]);
+#ifdef FIRST_ORDER_FLUX_CORRECTION   
+    if (Whalf[i].d < 0.0) {
       flag_cell = 1;
       negd++;
     }
-    if (W[i].P < 0.0) {
+    if (Whalf[i].P < 0.0) {
       flag_cell = 1;
       negP++;
     }
-#ifdef SPECIAL_RELATIVITY
-    Vsq = SQR(W[i].Vx) + SQR(W[i].Vy) + SQR(W[i].Vz);
+    Vsq = SQR(Whalf[i].V1) + SQR(Whalf[i].V2) + SQR(Whalf[i].V3);
     if (Vsq > 1.0) {
       flag_cell = 1;
       superl++;
     }
-#endif
     if (flag_cell != 0) {
-      Uhalf[i] = pG->U[ks][js][i];
+      Whalf[i].d = W[i].d;
+      Whalf[i].V1 = W[i].V1;
+      Whalf[i].V2 = W[i].V2;
+      Whalf[i].V3 = W[i].V3;
+      Whalf[i].P = W[i].P;
       flag_cell=0;
     }
+#endif
   }
-        
-  if (negd > 0 || negP > 0)
-    printf("[Step7]: %i cells had d<0; %i cells had P<0\n",negd,negP);
-#ifdef SPECIAL_RELATIVITY
+
+#ifdef FIRST_ORDER_FLUX_CORRECTION  
   if (negd > 0 || negP > 0 || superl > 0)
     printf("[Step7]: %i cells had d<0; %i cells had P<0; %i cells had v>1\n"
                                  ,negd,negP,superl);
-#endif
 #endif
 
 
@@ -262,20 +247,18 @@ void integrate_1d_vl(DomainS *pD)
  */
 
   for (i=il; i<=iu; i++) {
-    U1d[i].d  = Uhalf[i].d;
-    U1d[i].Mx = Uhalf[i].M1;
-    U1d[i].My = Uhalf[i].M2;
-    U1d[i].Mz = Uhalf[i].M3;
-#ifndef BAROTROPIC
-    U1d[i].E  = Uhalf[i].E;
-#endif /* BAROTROPIC */
+    W1d[i].d  = Whalf[i].d;
+    W1d[i].Vx = Whalf[i].V1;
+    W1d[i].Vy = Whalf[i].V2;
+    W1d[i].Vz = Whalf[i].V3;
+    W1d[i].P  = Whalf[i].P;
 #ifdef MHD
-    U1d[i].By = Uhalf[i].B2c;
-    U1d[i].Bz = Uhalf[i].B3c;
-    Bxc[i]  = Uhalf[i].B1c;
+    W1d[i].By = Whalf[i].B2c;
+    W1d[i].Bz = Whalf[i].B3c;
+    Bxc[i]  = Whalf[i].B1c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-    for (n=0; n<NSCALARS; n++) U1d[i].s[n] = Uhalf[i].s[n];
+    for (n=0; n<NSCALARS; n++) W1d[i].s[n] = Whalf[i].s[n];
 #endif /* NSCALARS */
   }
 
@@ -283,23 +266,19 @@ void integrate_1d_vl(DomainS *pD)
  * Compute L/R states on x1-interfaces, store into arrays
  */
 
-  for (i=il; i<=iu; i++) {
-    W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
-  }
-
-  lr_states(pG,W,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,cart_x1);
+  lr_states(pG,W1d,Bxc,pG->dt,pG->dx1,is,ie,Wl,Wr,cart_x1);
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
   for (i=il; i<=iu; i++) {
     Vsq = SQR(Wl[i].Vx) + SQR(Wl[i].Vy) + SQR(Wl[i].Vz);
     if (Vsq > 1.0){
-      Wl[i] = W[i];
-      Wr[i] = W[i];
+      Wl[i] = W1d[i];
+      Wr[i] = W1d[i];
     }
     Vsq = SQR(Wr[i].Vx) + SQR(Wr[i].Vy) + SQR(Wr[i].Vz);
     if (Vsq > 1.0){
-      Wl[i] = W[i];
-      Wr[i] = W[i];
+      Wl[i] = W1d[i];
+      Wr[i] = W1d[i];
     }
   }
 #endif
@@ -350,43 +329,6 @@ void integrate_1d_vl(DomainS *pD)
     }
   }
 
-/*--- Step 13b -----------------------------------------------------------------
- * Add gravitational source terms for self-gravity.
- * A flux correction using Phi^{n+1} in the main loop is required to make
- * the source terms 2nd order: see selfg_flux_correction().
- */
-
-#ifdef SELF_GRAVITY
-/* Add fluxes and source terms due to (d/dx1) terms  */
-
-  for (i=is; i<=ie; i++){
-    phic = pG->Phi[ks][js][i];
-    phil = 0.5*(pG->Phi[ks][js][i-1] + pG->Phi[ks][js][i  ]);
-    phir = 0.5*(pG->Phi[ks][js][i  ] + pG->Phi[ks][js][i+1]);
-
-/* gx, gy and gz centered at L and R x1-faces */
-    gxl = (pG->Phi[ks][js][i-1] - pG->Phi[ks][js][i  ])/(pG->dx1);
-    gxr = (pG->Phi[ks][js][i  ] - pG->Phi[ks][js][i+1])/(pG->dx1);
-
-/* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
-    flx_m1l = 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil;
-    flx_m1r = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
-
-/* Update momenta and energy with d/dx1 terms  */
-    pG->U[ks][js][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
-#ifndef BAROTROPIC
-    pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                  x1Flux[i+1].d*(phir - phic));
-#endif /* BAROTROPIC */
-  }
-
-/* Save mass fluxes in Grid structure for source term correction in main loop */
-
-  for (i=is; i<=ie+1; i++) {
-    pG->x1MassFlux[ks][js][i] = x1Flux[i].d;
-  }
-#endif /* SELF_GRAVITY */
-
 /*=== STEP 14: Update cell-centered values for a full timestep ===============*/
 
 /*--- Step 14a -----------------------------------------------------------------
@@ -435,7 +377,6 @@ void integrate_1d_vl(DomainS *pD)
         BadCell.k = ks;
         negP++;
       }
-#ifdef SPECIAL_RELATIVITY
       Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
       if (Vsq > 1.0) {
         flag_cell = 1;
@@ -444,25 +385,18 @@ void integrate_1d_vl(DomainS *pD)
         BadCell.k = ks;
         superl++;
       }
-#endif
       if (flag_cell != 0) {
         FixCell(pG, BadCell);
         flag_cell=0;
       }
 
   }
-#ifndef SPECIAL_RELATIVITY      
-  if (negd > 0 || negP > 0)
-    printf("[Step15a]: %i cells had d<0; %i cells had P<0 at 1st correction\n",
-	   negd,negP);
-#else
+
   if (negd > 0 || negP > 0 || superl > 0){
     printf("[Step15a]: %i cells had d<0; %i cells had P<0;\n",negd,negP);
     printf("[Step15a]: %i cells had v>1 at 1st correction\n",superl);
   }
-#endif
 
-#ifdef SPECIAL_RELATIVITY
   fail = 0;
   negd = 0;
   negP = 0;
@@ -508,7 +442,6 @@ void integrate_1d_vl(DomainS *pD)
     printf("[Step15b]: %i cells required a  final fix\n",final);
     printf("[Step15b]: %i cells had an unphysical state\n",fail);
   }
-#endif /*SPECIAL_RELATIVITY*/
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 
@@ -612,11 +545,13 @@ void integrate_init_1d(MeshS *pM)
   if ((U1d= (Cons1DS*)malloc(size1*sizeof(Cons1DS))) == NULL) goto on_error;
   if ((Ul = (Cons1DS*)malloc(size1*sizeof(Cons1DS))) == NULL) goto on_error;
   if ((Ur = (Cons1DS*)malloc(size1*sizeof(Cons1DS))) == NULL) goto on_error;
-  if ((W  = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
+  if ((W1d= (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wl = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wr = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
 
   if ((Uhalf = (ConsS*)malloc(size1*sizeof(ConsS)))==NULL) goto on_error;
+  if ((Whalf = (PrimS*)malloc(size1*sizeof(PrimS)))==NULL) goto on_error;
+  if ((W     = (PrimS*)malloc(size1*sizeof(PrimS)))==NULL) goto on_error;
 
   return;
 
@@ -644,11 +579,13 @@ void integrate_destruct_1d(void)
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);
   if (Ur       != NULL) free(Ur);
-  if (W        != NULL) free(W);
+  if (W1d      != NULL) free(W);
   if (Wl       != NULL) free(Wl);
   if (Wr       != NULL) free(Wr);
 
   if (Uhalf    != NULL) free(Uhalf);
+  if (Whalf    != NULL) free(Whalf);
+  if (W        != NULL) free(W);
 
   return;
 }
