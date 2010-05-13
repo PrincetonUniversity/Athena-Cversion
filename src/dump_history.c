@@ -37,6 +37,25 @@
  * Dumps are always made for all levels and domains, and are written in lev#
  * directories of root (rank=0) process.
  *
+ * With SR, the default (hardwired) variables are:
+ *     scal[0] = time
+ *     scal[1] = dt
+ *     scal[2] = mass
+ *     scal[3] = total energy
+ *     scal[4] = x1-mom
+ *     scal[5] = x2-mom
+ *     scal[6] = x3-mom
+ *     scal[7] = (U^t)**2
+ *     scal[8] = (U^x)**2
+ *     scal[9] = (U^y)**2
+ *     scal[10] = (U^z)**2
+ *     scal[11] = (b^t)**2
+ *     scal[12] = (b^x)**2
+ *     scal[13] = (b^y)**2
+ *     scal[14] = (b^z)**2
+ *     scal[15] = |b|**2
+ *     scal[16] = T^00_EM
+ *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   dump_history()        - Writes variables as formatted table
  *   dump_history_enroll() - Adds new user-defined history variables
@@ -80,7 +99,13 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #endif
 #ifdef CYLINDRICAL
   Real x1,x2,x3;
-#endif 
+#endif
+#ifdef SPECIAL_RELATIVITY
+  PrimS W;
+  Real g, g2, g_2;
+  Real bx, by, bz, vB, b2, Bmag2;
+#endif
+
 
   total_hst_cnt = 9 + NSCALARS + usr_hst_cnt;
 #ifdef ADIABATIC
@@ -95,6 +120,13 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef CYLINDRICAL
   total_hst_cnt++;  /* for angular momentum */
 #endif
+#ifdef SPECIAL_RELATIVITY
+  total_hst_cnt = 11 + usr_hst_cnt;
+#ifdef MHD
+   total_hst_cnt += 6;
+#endif
+#endif
+
 
 /* Add a white space to the format */
   if(pOut->dat_fmt == NULL){
@@ -135,6 +167,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
               if (pG->dx1 > 0.0) dVol *= pG->dx1;
               if (pG->dx2 > 0.0) dVol *= pG->dx2;
               if (pG->dx3 > 0.0) dVol *= pG->dx3;
+#ifndef SPECIAL_RELATIVITY
 #ifdef CYLINDRICAL
               cc_pos(pG,i,j,k,&x1,&x2,&x3);
               dVol *= x1;
@@ -182,6 +215,63 @@ void dump_history(MeshS *pM, OutputS *pOut)
               mhst++;
               scal[mhst] += dVol*(x1*pG->U[k][j][i].M2);
 #endif
+
+#else /* SPECIAL_RELATIVITY */
+
+              W = Cons_to_Prim (&(pG->U[k][j][i]));
+        
+              /* calculate gamma */
+              g   = pG->U[k][j][i].d/W.d;
+              g2  = SQR(g);
+              g_2 = 1.0/g2;
+
+              mhst = 2;
+              scal[mhst] += dVol*pG->U[k][j][i].d;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].E;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].M1;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].M2;
+              mhst++;
+              scal[mhst] += dVol*pG->U[k][j][i].M3;
+
+              mhst++;
+              scal[mhst] += dVol*SQR(g);
+              mhst++;
+              scal[mhst] += dVol*SQR(g*W.V1);
+              mhst++;
+              scal[mhst] += dVol*SQR(g*W.V2);
+              mhst++;
+              scal[mhst] += dVol*SQR(g*W.V3);
+
+#ifdef MHD
+
+              vB = W.V1*pG->U[k][j][i].B1c + W.V2*W.B2c + W.V3*W.B3c;
+              Bmag2 = SQR(pG->U[k][j][i].B1c) + SQR(W.B2c) + SQR(W.B3c);
+        
+              bx = g*(pG->U[k][j][i].B1c*g_2 + vB*W.V1);
+              by = g*(W.B2c*g_2 + vB*W.V2);
+              bz = g*(W.B3c*g_2 + vB*W.V3);
+        
+              b2 = Bmag2*g_2 + vB*vB;
+
+              mhst++;
+              scal[mhst] += dVol*(g*vB*g*vB);
+              mhst++;
+              scal[mhst] += dVol*bx*bx;
+              mhst++;
+              scal[mhst] += dVol*by*by;
+              mhst++;
+              scal[mhst] += dVol*bz*bz;
+              mhst++;
+              scal[mhst] += dVol*b2;
+              mhst++;
+              scal[mhst] += dVol*(Bmag2*(1.0 - 0.5*g_2) - SQR(vB) / 2.0);
+
+#endif /* MHD */
+
+#endif  /* SPECIAL_RELATIVITY */
 
 /* Calculate the user defined history variables */
               for(n=0; n<usr_hst_cnt; n++){
@@ -247,6 +337,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
           fprintf(pfile,"#   [%i]=time   ",mhst);
           mhst++;
           fprintf(pfile,"   [%i]=dt      ",mhst);
+#ifndef SPECIAL_RELATIVITY
           mhst++;
           fprintf(pfile,"   [%i]=mass    ",mhst);
 #ifdef ADIABATIC
@@ -288,6 +379,41 @@ void dump_history(MeshS *pM, OutputS *pOut)
           mhst++;
           fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
 #endif
+
+#else /* SPECIAL_RELATIVITY */
+          mhst++;
+          fprintf(pfile,"   [%i]=mass    ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=total E ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=Gamma   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-KE   ",mhst);
+#ifdef MHD
+          mhst++;
+          fprintf(pfile,"   [%i]=x0-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=bsq     ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=T^00_EM ",mhst);
+#endif
+#endif /* SPECIAL_RELATIVITY */
 
           for(n=0; n<usr_hst_cnt; n++){
             mhst++;
