@@ -36,7 +36,9 @@
 
 #if defined(VL_INTEGRATOR) && defined(CARTESIAN)
 
+#ifdef MHD
 #define USE_ENTROPY_FIX
+#endif /* MHD */
 
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1DS **Wl_x1Face=NULL, **Wr_x1Face=NULL;
@@ -945,6 +947,7 @@ void integrate_2d_vl(DomainS *pD)
  * adjacent cells and then calculating pressure.
  */
 
+#ifdef MHD
   negd = 0;
   negP = 0;
   superl = 0;
@@ -1010,7 +1013,7 @@ void integrate_2d_vl(DomainS *pD)
     printf("[Step15b]: %i cells required a  final fix\n",final);
     printf("[Step15b]: %i cells had an unphysical state\n",fail);
   }
-
+#endif /* MHD */
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #ifdef STATIC_MESH_REFINEMENT
