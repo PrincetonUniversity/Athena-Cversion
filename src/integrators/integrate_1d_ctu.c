@@ -65,7 +65,7 @@ void integrate_1d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
   Real coolfl,coolfr,coolf,Eh=0.0;
 #endif
-#if defined(MHD) && !defined(BAROTROPIC)
+#if defined(MHD) 
   Real B1ch,B2ch,B3ch;
 #endif
 #if (NSCALARS > 0)
