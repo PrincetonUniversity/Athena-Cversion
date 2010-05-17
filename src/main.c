@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   bvals_grav_init(&Mesh);
 #endif
-#ifdef SHEARING_BOX
+#if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_init(&Mesh);
 #endif
 #ifdef PARTICLES
@@ -674,7 +674,7 @@ int main(int argc, char *argv[])
   particle_destruct(&level0_Grid);
   bvals_particle_destruct(&level0_Grid);
 #endif
-#ifdef SHEARING_BOX
+#if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();
 #endif
 #ifdef EXPLICIT_DIFFUSION
