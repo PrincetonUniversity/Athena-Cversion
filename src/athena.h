@@ -430,7 +430,11 @@ typedef struct Output_s{
 typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
 #ifdef CYLINDRICAL
 typedef Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3);
+#ifdef FARGO
+typedef Real (*OrbitalFun_t)(const Real x1);
+typedef Real (*ShearFun_t)(const Real x1);
 #endif
+#endif /* Cylindrical */
 typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
 
 #ifdef PARTICLES
