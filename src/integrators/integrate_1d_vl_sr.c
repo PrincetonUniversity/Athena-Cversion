@@ -434,9 +434,8 @@ void integrate_1d_vl(DomainS *pD)
     }
     if (flag_cell != 0) {
       final++;
-      Bx = pG->U[ks][js][i].B1c;
       Wcheck = fix_vsq (&(pG->U[ks][js][i]));
-      U = Prim_to_Cons(&Wcheck,&Bx);
+      U = Prim_to_Cons(&Wcheck);
       pG->U[ks][js][i].d = U.d;
       pG->U[ks][js][i].M1 = U.M1;
       pG->U[ks][js][i].M2 = U.M2;
