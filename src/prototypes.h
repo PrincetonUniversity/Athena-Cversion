@@ -86,6 +86,12 @@ void Fargo(DomainS *pD);
 #endif
 #endif /* SHEARING_BOX */
 
+#if defined (FARGO) && defined (CYLINDRICAL)
+void bvals_shear_init(MeshS *pM);
+void bvals_shear_destruct(void);
+void Fargo(DomainS *pD);
+#endif 
+
 /*----------------------------------------------------------------------------*/
 /* cc_pos.c */
 void cc_pos(const GridS *pG, const int i, const int j,const int k,
