@@ -38,4 +38,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
             const Prim1DS Wl, const Prim1DS Wr,
             const Real Bxi, Cons1DS *pF);
 
+#ifdef SPECIAL_RELATIVITY
+void entropy_flux (const Cons1DS Ul, const Cons1DS Ur,
+		   const Prim1DS Wl, const Prim1DS Wr,
+		   const Real Bx, Real *pFlux);
+#endif
+
 #endif /* RSOLVERS_PROTOTYPES_H */
