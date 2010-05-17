@@ -643,12 +643,28 @@ void integrate_3d_vl(DomainS *pD)
 	  superl++;
 	}
 	if (flag_cell != 0) {
+#ifdef USE_ENTROPY_FIX
+	Wcheck = entropy_fix (&(Uhalf[k][j][i]),&(Shalf[k][j][i]));
+	Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
+	if (Wcheck.d > 0.0 && Wcheck.P > 0.0 && Vsq < 1.0){
+	  entropy++;
+	  Whalf[k][j][i].d = Wcheck.d;
+	  Whalf[k][j][i].P = Wcheck.P;
+	  Whalf[k][j][i].V1 = Wcheck.V1;
+	  Whalf[k][j][i].V2 = Wcheck.V2;
+	  Whalf[k][j][i].V3 = Wcheck.V3;
+	  flag_cell=0;
+	} else {
+#endif /* USE_ENTROPY_FIX */
 	  Whalf[k][j][i].d = W[k][j][i].d;
 	  Whalf[k][j][i].V1 = W[k][j][i].V1;
 	  Whalf[k][j][i].V2 = W[k][j][i].V2;
 	  Whalf[k][j][i].V3 = W[k][j][i].V3;
 	  Whalf[k][j][i].P = W[k][j][i].P;
 	  flag_cell=0;
+#ifdef USE_ENTROPY_FIX
+	}
+#endif /* USE_ENTROPY_FIX */
 	}
 #endif
       }
