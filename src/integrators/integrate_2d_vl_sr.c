@@ -471,12 +471,28 @@ void integrate_2d_vl(DomainS *pD)
         superl++;
       }
       if (flag_cell != 0) {
-	Whalf[j][i].d = W[j][i].d;
-	Whalf[j][i].V1 = W[j][i].V1;
-	Whalf[j][i].V2 = W[j][i].V2;
-	Whalf[j][i].V3 = W[j][i].V3;
-	Whalf[j][i].P = W[j][i].P;
-        flag_cell=0;
+#ifdef USE_ENTROPY_FIX
+	Wcheck = entropy_fix (&(Uhalf[j][i]),&(Shalf[j][i]));
+	Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
+	if (Wcheck.d > 0.0 && Wcheck.P > 0.0 && Vsq < 1.0){
+	  entropy++;
+	  Whalf[j][i].d = Wcheck.d;
+	  Whalf[j][i].P = Wcheck.P;
+	  Whalf[j][i].V1 = Wcheck.V1;
+	  Whalf[j][i].V2 = Wcheck.V2;
+	  Whalf[j][i].V3 = Wcheck.V3;
+	  flag_cell=0;
+	} else {
+#endif /* USE_ENTROPY_FIX */
+	  Whalf[j][i].d = W[j][i].d;
+	  Whalf[j][i].V1 = W[j][i].V1;
+	  Whalf[j][i].V2 = W[j][i].V2;
+	  Whalf[j][i].V3 = W[j][i].V3;
+	  Whalf[j][i].P = W[j][i].P;
+	  flag_cell=0;
+#ifdef USE_ENTROPY_FIX
+	}
+#endif /* USE_ENTROPY_FIX */
       }
 #endif
     }
@@ -1317,8 +1333,8 @@ void integrate_destruct_2d(void)
   if (x1FluxS   != NULL) free_2d_array(x1FluxS);
   if (x2FluxS   != NULL) free_2d_array(x2FluxS);
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-  if (x1FluxSP  != NULL) free_2d_array(x1FluxS);
-  if (x2FluxSP  != NULL) free_2d_array(x2FluxS);
+  if (x1FluxSP  != NULL) free_2d_array(x1FluxSP);
+  if (x2FluxSP  != NULL) free_2d_array(x2FluxSP);
 #endif
 #endif
 
