@@ -35,7 +35,7 @@
 #include "prototypes.h"
 
 /* The functions in this file will only work with the shearing box */
-#ifdef SHEARING_BOX
+#if defined(SHEARING_BOX) || (defined(CYLINDRICAL) && defined(FARGO))
 
 /* Define number of variables to be remapped */
 #ifdef BAROTROPIC /* BAROTROPIC EOS */
@@ -105,6 +105,9 @@ static FConsS ***FargoVars=NULL, ***FargoFlx=NULL;
 
 void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
 
+#endif
+
+#ifdef SHEARING_BOX
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* ShearingSheet_ix1: 3D shearing-sheet BCs in x1.  It applies a remap
@@ -114,7 +117,6 @@ void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
  * This is a public function which is called by bvals_mhd() inside a
  * SHEARING_BOX macro.
  *----------------------------------------------------------------------------*/
-
 void ShearingSheet_ix1(DomainS *pD)
 {
   GridS *pG = pD->Grid;
@@ -1943,6 +1945,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 }
 #endif /* MHD */
 
+#endif /* Shearing Box */
 
 /*----------------------------------------------------------------------------*/
 /* Fargo: implements FARGO algorithm.  Only works in 3D or 2D xy.  Called in
@@ -1960,8 +1963,11 @@ void Fargo(DomainS *pD)
   int jfs = nfghost, jfe = pG->Nx[1] + nfghost - 1;
   int i,j,k,ku,jj,n,joffset;
   Real x1,x2,x3,yshear,eps;
-#ifdef ADIABATIC
+#if defined(ADIABATIC) && defined(SHEARING_BOX)
   Real qom_dt = qshear*Omega_0*pG->dt;
+#endif
+#ifdef CYLINDRICAL
+  const Real *r=pG->r, *ri=pG->ri;
 #endif
 #ifdef MPI_PARALLEL
   int ierr,cnt;
@@ -1974,7 +1980,6 @@ void Fargo(DomainS *pD)
  * Copy data into FargoVars array.  Note i and j indices are switched.
  * Since the FargoVars array has extra ghost zones in y, it must be indexed
  * over [jfs:jfe] instead of [js:je]  */
-
   if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
   for(k=ks; k<=ku; k++) {
     for(j=jfs; j<=jfe+1; j++){
@@ -1984,7 +1989,7 @@ void Fargo(DomainS *pD)
         FargoVars[k][i][j].U[1] = pG->U[k][jj][i].M1;
         FargoVars[k][i][j].U[2] = pG->U[k][jj][i].M2;
         FargoVars[k][i][j].U[3] = pG->U[k][jj][i].M3;
-#ifdef ADIABATIC
+#if defined(ADIABATIC) && defined(SHEARING_BOX)
 #ifdef MHD
 /* Add energy equation source term in MHD */
         pG->U[k][jj][i].E -= qom_dt*pG->U[k][jj][i].B1c*
@@ -2005,7 +2010,6 @@ void Fargo(DomainS *pD)
       }
     }
   }
-
 /*--- Step 2. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y to FargoVars array
  * (method is similar to periodic_ix2() and periodic_ox2() in bvals_mhd).
@@ -2113,13 +2117,17 @@ void Fargo(DomainS *pD)
 /*--- Step 4. ------------------------------------------------------------------
  * Compute fluxes, including both (1) the fractional part of grid cell, and
  * (2) the sum over integer number of cells  */
-
   for(k=ks; k<=ku; k++) {
     for(i=is; i<=ie+1; i++){
 
 /* Compute integer and fractional peices of a cell covered by shear */
       cc_pos(pG, i, js, ks, &x1,&x2,&x3);
+#ifdef SHEARING_BOX
       yshear = -qshear*Omega_0*x1*pG->dt;
+#endif
+#ifdef CYLINDRICAL
+			yshear = ((*OrbitalProfile)(x1))*pG->dt;
+#endif
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
         ath_error("[bvals_shear]: FARGO offset exceeded # of gh zns\n");
@@ -2186,8 +2194,12 @@ void Fargo(DomainS *pD)
       }
 
 /* Compute emfz =  VyBx, which is at cell-face in x1-direction  */
-
+#ifdef SHEARING_BOX
       yshear = -qshear*Omega_0*(x1 - 0.5*pG->dx1)*pG->dt;
+#endif
+#ifdef CYLINDRICAL
+			yshear = ((*OrbitalProfile)(ri[i]))*pG->dt;
+#endif
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
         ath_error("[bvals_shear]: FARGO offset exceeded # of gh zns\n");
@@ -2211,7 +2223,6 @@ void Fargo(DomainS *pD)
 
     }
   }
-
 /*--- Step 5. ------------------------------------------------------------------
  * Update cell centered variables with flux gradient.  Note i/j are swapped */
 
@@ -2248,10 +2259,18 @@ void Fargo(DomainS *pD)
       for (i=is; i<=ie; i++) {
         pG->B1i[k][j][i] -= 
           (FargoFlx[k][i][jj+1].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+#ifdef SHEARING_BOX
         pG->B2i[k][j][i] += (pG->dx2/pG->dx1)* 
           (FargoFlx[k][i+1][jj].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
         pG->B2i[k][j][i] -= (pG->dx2/pG->dx3)* 
           (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+#endif 
+#ifdef CYLINDRICAL
+        pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
+                  (ri[i+1]*FargoFlx[k][i+1][jj].U[NFARGO-1] - ri[i]*FargoFlx[k][i][jj].U[NFARGO-1]);
+        pG->B2i[k][j][i] -= (r[i]*pG->dx2/pG->dx3)*
+          (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+#endif
         pG->B3i[k][j][i] += 
           (FargoFlx[k][i][jj+1].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
       }
@@ -2259,10 +2278,18 @@ void Fargo(DomainS *pD)
         (FargoFlx[k][ie+1][jj+1].U[NFARGO-1]-FargoFlx[k][ie+1][jj].U[NFARGO-1]);
     }
     for (i=is; i<=ie; i++) {
+#ifdef SHEARING_BOX
       pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)* 
         (FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-FargoFlx[k][i][jfe+1].U[NFARGO-1]);
       pG->B2i[k][je+1][i] -= (pG->dx2/pG->dx3)* 
         (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
+#endif
+#ifdef CYLINDRICAL
+      pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)*
+        (ri[i+1]*FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-ri[i]*FargoFlx[k][i][jfe+1].U[NFARGO-1]);
+      pG->B2i[k][je+1][i] -= (r[i]*pG->dx2/pG->dx3)*
+        (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
+#endif
     }
   }
   for (j=js; j<=je; j++) {
@@ -2272,7 +2299,7 @@ void Fargo(DomainS *pD)
         (FargoFlx[ke+1][i][jj+1].U[NFARGO-2]-FargoFlx[ke+1][i][jj].U[NFARGO-2]);
     }
   }
-#endif
+#endif /* MHD */
 
 /*--- Step 7. ------------------------------------------------------------------
  * compute cell-centered B  */
@@ -2281,7 +2308,12 @@ void Fargo(DomainS *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for(i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
         pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i]+pG->B1i[k][j][i+1]);
+#endif
+#ifdef CYLINDRICAL
+        pG->U[k][j][i].B1c = 0.5*(1.0/r[i])*(ri[i]*pG->B1i[k][j][i] + ri[i+1]*pG->B1i[k][j][i+1]);
+#endif
         pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i]+pG->B2i[k][j+1][i]);
         pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
       }
@@ -2293,7 +2325,7 @@ void Fargo(DomainS *pD)
 }
 #endif /* FARGO */
 
-
+#if defined(SHEARING_BOX) || (defined(CYLINDRICAL) && defined(FARGO))
 /*----------------------------------------------------------------------------*/
 /* bvals_shear_init: allocates memory for temporary arrays/buffers
  */
@@ -2307,6 +2339,9 @@ void bvals_shear_init(MeshS *pM)
 #endif
 #ifdef FARGO
   Real xmin,xmax,x2,x3;
+#endif
+#ifdef CYLINDRICAL
+	Real MachKep;
 #endif
 
 /* Loop over all Grids on this processor to find maximum size of arrays */
@@ -2343,7 +2378,13 @@ void bvals_shear_init(MeshS *pM)
 #ifdef FARGO
   xmin = pM->RootMinX[0];
   xmax = pM->RootMaxX[0];
+#ifdef SHEARING_BOX
   nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 1);
+#endif
+#ifdef CYLINDRICAL
+  MachKep = MAX( xmin*(*OrbitalProfile)(xmin), xmax*(*OrbitalProfile)(xmax) )/Iso_csound;
+  nfghost = nghost + 1 + ((int)(CourNo*MachKep));
+#endif
   max2 = max2 + 2*nfghost;
 
   if((FargoVars=(FConsS***)calloc_3d_array(max3,max1,max2,sizeof(FConsS)))
@@ -2568,4 +2609,4 @@ void RemapFlux(const Real *U, const Real eps,
 
 #endif /* THIRD_ORDER */
 
-#endif /* SHEARING_BOX */
+#endif /* SHEARING_BOX || Cylindrical + Fargo */
