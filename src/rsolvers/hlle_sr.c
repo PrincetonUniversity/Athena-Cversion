@@ -183,17 +183,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Uhll.By = (Sr*Ur.By - Sl*Ul.By + Fl.By - Fr.By) * dS_1;
     Uhll.Bz = (Sr*Ur.Bz - Sl*Ul.Bz + Fl.Bz - Fr.Bz) * dS_1;
 #endif
-	
-    /*Whll = check_Prim1D(&Uhll, &Bx);
-    V2l = SQR(Whll.Vx) + SQR(Whll.Vy) + SQR(Whll.Vz);
-    if (Whll.P < 0 || Whll.d < 0 || V2l > 1.0){
-      printf("[hlle_sr_mhd]: Unphysical hll average state\n");
-      printf("[hlle_sr_mhd]: Phll = %10.4e, dhll = %10.4e\n",Whll.P,Whll.d);
-      printf("[hlle_sr_mhd]: V^2 hll = %10.4e\n",V2l);
-      printf("[hlle_sr_mhd]: Reverting to LF fluxes\n");
-      Sl = -1.0;
-      Sr =  1.0;
-      }*/
 
     Fhll.d  = (Sr*Fl.d  - Sl*Fr.d  + Sl*Sr*(Ur.d  - Ul.d )) * dS_1;
     Fhll.Mx = (Sr*Fl.Mx - Sl*Fr.Mx + Sl*Sr*(Ur.Mx - Ul.Mx)) * dS_1;
@@ -214,14 +203,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->By = Fhll.By;
     pFlux->Bz = Fhll.Bz;
 #endif
-
-    if (pFlux->d != pFlux->d) {
-      printf("[hlle_sr_mhd]: NaN in hll density flux\n");
-      printf("[hlle_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-      printf("[hlle_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-      printf("[hlle_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-      printf("[hlle_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);
-    }
 
     return;
   }
