@@ -113,12 +113,12 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx);
 #ifndef SPECIAL_RELATIVITY
 Real cfast(const Cons1DS *U, const Real *Bx);
 #endif
-#ifdef SPECIAL_RELATIVITY
+#if defined(SPECIAL_RELATIVITY) && defined(MHD)
 PrimS fix_vsq (const ConsS *pU);
 PrimS check_Prim(const ConsS *pU);
 PrimS entropy_fix (const ConsS *pU, const Real *ent);
 Prim1DS check_Prim1D (const Cons1DS *pU, const Real *pBx);
-#endif
+#endif /* SPECIAL_RELATIVITY && MHD */
 
 
 /*----------------------------------------------------------------------------*/
