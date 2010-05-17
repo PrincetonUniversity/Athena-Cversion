@@ -14,6 +14,7 @@
  *   Magnetohydrodynamics", arxiv:astro-ph/0601640v1 (2006)
  *
  * HISTORY: Written by Jonathan FUlton, February 2009
+ *          Extended to MHD by Kris Beckwith, Spring 2010
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   fluxes() - all Riemann solvers in Athena must have this function name and
@@ -36,9 +37,6 @@
 #error : The SR HLLC flux does not work with passive scalars.
 #endif
 
-void printCons1D(const Cons1DS* c);
-void printPrim1D(const Prim1DS* p);
-
 #ifdef MHD
 void flux_LR(Cons1DS U, Prim1DS W, Cons1DS *flux, Real Bx, Real* p);
 void getMaxSignalSpeeds_pluto(const Prim1DS Wl, const Prim1DS Wr,
@@ -56,48 +54,6 @@ int QUARTIC (Real b, Real c, Real d, Real e, Real z[]);
 /* solves cubic equation defined by a and stores roots in root
  * returns number of Real roots */
 int CUBIC(Real b, Real c, Real d, Real z[]);
-
-void printCons1D(const Cons1DS* c){
-  printf("d:  %e\n",c->d);
-  printf("E:  %e\n",c->E);
-  printf("Mx: %e\n",c->Mx);
-  printf("My: %e\n",c->My);
-  printf("Mz: %e\n",c->Mz);
-  printf("By: %e\n",c->By);
-  printf("Bz: %e\n",c->Bz);
-  printf("\n");
-}
-
-void printPrim1D(const Prim1DS* p){
-  printf("d:  %e\n",p->d);
-  printf("P:  %e\n",p->P);
-  printf("Vx: %e\n",p->Vx);
-  printf("Vy: %e\n",p->Vy);
-  printf("Vz: %e\n",p->Vz);
-  printf("By: %e\n",p->By);
-  printf("Bz: %e\n",p->Bz);
-  printf("\n");
-}
-#endif
-
-#ifdef HYDRO
-void printCons1D(const Cons1DS* c){
-  printf("d:  %e\n",c->d);
-  printf("E:  %e\n",c->E);
-  printf("Mx: %e\n",c->Mx);
-  printf("My: %e\n",c->My);
-  printf("Mz: %e\n",c->Mz);
-  printf("\n");
-}
-
-void printPrim1D(const Prim1DS* p){
-  printf("d:  %e\n",p->d);
-  printf("P:  %e\n",p->P);
-  printf("Vx: %e\n",p->Vx);
-  printf("Vy: %e\n",p->Vy);
-  printf("Vz: %e\n",p->Vz);
-  printf("\n");
-}
 #endif
 
 #ifdef HYDRO
@@ -399,21 +355,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Uhll.E  = (Sr*Ur.E  - Sl*Ul.E  + Fl.E  - Fr.E ) * dS_1;
   Uhll.By = (Sr*Ur.By - Sl*Ul.By + Fl.By - Fr.By) * dS_1;
   Uhll.Bz = (Sr*Ur.Bz - Sl*Ul.Bz + Fl.Bz - Fr.Bz) * dS_1;
-
-/*--- Step 2a. -----------------------------------------------------------------
- * Check that HLL average state is physical, if not revert to LF fluxes and pray
- */	
-  /*Whll = check_Prim1D(&Uhll, &Bxi);
-  V2l = SQR(Whll.Vx) + SQR(Whll.Vy) + SQR(Whll.Vz);
-  if (Whll.P < 0 || Whll.d < 0 || V2l > 1.0){
-    switch_to_hll = 1;
-    printf("[hllc_sr_mhd]: Unphysical hll average state\n");
-    printf("[hllc_sr_mhd]: Phll = %10.4e, dhll = %10.4e\n",Whll.P,Whll.d);
-    printf("[hllc_sr_mhd]: V^2 hll = %10.4e\n",V2l);
-    printf("[hllc_sr_mhd]: Reverting to LF fluxes\n");
-    Sl = -1.0;
-    Sr =  1.0;
-    }*/
 		
   Fhll.d  = (Sr*Fl.d  - Sl*Fr.d  + Sl*Sr*(Ur.d  - Ul.d )) * dS_1;
   Fhll.Mx = (Sr*Fl.Mx - Sl*Fr.Mx + Sl*Sr*(Ur.Mx - Ul.Mx)) * dS_1;
@@ -432,14 +373,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->E = Fhll.E;
     pFlux->By = Fhll.By;
     pFlux->Bz = Fhll.Bz;
-
-    if (pFlux->d != pFlux->d) {
-      printf("[hllc_sr_mhd]: NaN in hll density flux\n");
-      printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-      printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-      printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-      printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);
-    }
 		
     return;
   }
@@ -456,14 +389,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->E  = Fl.E;
     pFlux->By = Fl.By;
     pFlux->Bz = Fl.Bz;
-
-    if (pFlux->d != pFlux->d) {
-      printf("[hllc_sr_mhd]: NaN in hllc density flux for Sl >= 0.0\n");
-      printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-      printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-      printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-      printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);
-    }
 		
     return;
    
@@ -476,14 +401,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->E  = Fr.E;
     pFlux->By = Fr.By;
     pFlux->Bz = Fr.Bz;
-
-    if (pFlux->d != pFlux->d) {
-      printf("[hllc_sr_mhd]: NaN in hllc density flux for Sr <= 0.0\n");
-      printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-      printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-      printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-      printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);
-    }
 		
     return;
   }
@@ -517,10 +434,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       scrh = 1.0 + sqrt(1.0 - 4.0*a*c/(b*b));
       if (scrh != scrh) {
 	switch_to_hll = 1;
-	/*printf("[hllc_sr_mhd]: NaN on vxs in scrh: \n");
-	printf("[hllc_sr_mhd]: a = %10.4e, b = %10.4e, c = %10.4e\n",a,b,c);
-	printf("[hllc_sr_mhd]: 4*a*c/b/b = %10.4e\n",4.0*a*c/(b*b));
-	printf("[hllc_sr_mhd]: Switching to hll fluxes");*/
       }
       vxs  = - 2.0*c/(b*scrh);
     } else {
@@ -528,11 +441,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     }
     if ((vxs != vxs || vxs > 1.0) && (switch_to_hll == 0)) {
       switch_to_hll = 1;
-      /*printf("[hllc_sr_mhd]: NaN on vxs: \n");
-      printf("[hllc_sr_mhd]: Fhll.E = %10.4e, BtFBt = %10.4e\n",Fhll.E,BtFBt);
-      printf("[hllc_sr_mhd]: Bx = %10.4e\n",Bx);
-      printf("[hllc_sr_mhd]: a = %10.4e, b = %10.4e, c = %10.4e\n",a,b,c);
-      printf("[hllc_sr_mhd]: Switching to hll fluxes");*/
     }
 		
     if (switch_to_hll) {
@@ -545,11 +453,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pFlux->Bz = Fhll.Bz;
 
       if (pFlux->d != pFlux->d) {
-	/*printf("[hllc_sr_mhd]: NaN in hll density flux\n");
-	printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-	printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-	printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-	printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);*/
       }
 		
       return;
@@ -566,8 +469,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
       if (ps < 0) {
 	switch_to_hll = 1;
-	/*printf("[hllc_sr_mhd]: ps = %10.4e < 0\n",ps);
-	  printf("[hllc_sr_mhd]: Switching to hll fluxes\n");*/
       } else {			
 	alpha_l = (Sl - vxl)/(Sl - vxs);
 	alpha_r = (Sr - vxr)/(Sr - vxs);
@@ -603,8 +504,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       ps = (Bx*vBs - Fhll.E)*vxs + (Bx*Bx*gammas_2) + Fhll.Mx;
       if (ps < 0) {
 	switch_to_hll = 1;
-	/*printf("[hllc_sr_mhd]: ps = %10.4e < 0\n",ps);
-	  printf("[hllc_sr_mhd]: Switching to hll fluxes\n");*/
       } else {
 			
 	alpha_l = (Sl - vxl)/(Sl - vxs);
@@ -612,18 +511,11 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 			
 	if (alpha_l != alpha_l) {
 	  switch_to_hll = 1;
-	  /*printf("[hllc_sr_mhd]: NaN in alpha_l:\n");
-	  printf("[hllc_sr_mhd]: Sl = %10.4e\n",Sl);
-	  printf("[hllc_sr_mhd]: vxl = %10.4e, vxs = %10.4e\n",vxl,vxs);
-	  printf("[hllc_sr_mhd]: Switching to hll fluxes\n");*/
 	}
 			
 	if (alpha_r != alpha_r) {
 	  switch_to_hll = 1;
-	  /*printf("[hllc_sr_mhd]: NaN in alpha_r:\n");
-	  printf("[hllc_sr_mhd]: Sr = %10.4e\n",Sr);
-	  printf("[hllc_sr_mhd]: vxr = %10.4e, vxs = %10.4e\n",vxr,vxs);
-	  printf("[hllc_sr_mhd]: Switching to hll fluxes\n");*/
+
 	}
 
 	if (switch_to_hll == 0){
@@ -655,61 +547,11 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pFlux->E = Fhll.E;
       pFlux->By = Fhll.By;
       pFlux->Bz = Fhll.Bz;
-
-      if (pFlux->d != pFlux->d) {
-	/*printf("[hllc_sr_mhd]: NaN in hll density flux\n");
-	printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-	printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-	printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-	printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);*/
-      }
 		
       return;
     }
 		
     /*  ----  Compute HLLC flux  ----  */
-    /*
-    Wsl = check_Prim1D (&Usl,&Bx);
-    Wsr = check_Prim1D (&Usr,&Bx);
-    V2l = SQR(Wsl.Vx) + SQR(Wsl.Vy) + SQR(Wsl.Vz);
-    V2r = SQR(Wsr.Vx) + SQR(Wsr.Vy) + SQR(Wsr.Vz);
-
-    if (Wsl.P < 0.0) switch_to_hll = 1;
-    if (Wsl.d < 0.0) switch_to_hll = 1;
-    if (Wsr.P < 0.0) switch_to_hll = 1;
-    if (Wsr.d < 0.0) switch_to_hll = 1;
-    if (V2l   > 1.0) switch_to_hll = 1;
-    if (V2r   > 1.0) switch_to_hll = 1;
-    if (switch_to_hll){
-      printf("[hllc_sr_mhd]: Unphysical intermediate state\n");
-      printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e, Vxs = %10.4e\n",
-	     Sl,Sr,vxs);
-      printf("[hllc_sr_mhd]: Pl = %10.4e, dl = %10.4e, V2l = %10.4e\n",
-	     Wsl.P,Wsl.d,V2l);
-      printf("[hllc_sr_mhd]: Pr = %10.4e, dr = %10.4e, V2l = %10.4e\n",
-	     Wsr.P,Wsr.d,V2r);
-	     printf("[hllc_sr_mhd]: Switching to hll fluxes\n");
-
-      pFlux->d = Fhll.d;
-      pFlux->Mx = Fhll.Mx;
-      pFlux->My = Fhll.My;
-      pFlux->Mz = Fhll.Mz;
-      pFlux->E = Fhll.E;
-      pFlux->By = Fhll.By;
-      pFlux->Bz = Fhll.Bz;
-
-      if (pFlux->d != pFlux->d) {
-	printf("[hllc_sr_mhd]: NaN in hll density flux\n");
-	printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-	printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-	printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-	printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);
-      }
-		
-      return;
-      }
-    */
-
     if (vxs > 0.0) {
       pFlux->d  = Fl.d  + Sl*(Usl.d  - Ul.d );
       pFlux->Mx = Fl.Mx + Sl*(Usl.Mx - Ul.Mx);
@@ -720,10 +562,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pFlux->Bz = Fl.Bz + Sl*(Usl.Bz - Ul.Bz);
 			
       if (pFlux->d != pFlux->d) {
-	/*printf("[hllc_sr_mhd]: NaN in hllc density flux, vxs > 0.0\n");
-	printf("[hllc_sr_mhd]: Sl = %10.4e, Fl.d = %10.4e\n",Sl,Fl.d);
-	printf("[hllc_sr_mhd]: Usl.d = %10.4e, Uld = %10.4e\n",Usl.d,Ul.d);
-	printf("[hllc_sr_mhd]: Switching to hll fluxes\n");*/
 
 	pFlux->d = Fhll.d;
 	pFlux->Mx = Fhll.Mx;
@@ -732,14 +570,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 	pFlux->E = Fhll.E;
 	pFlux->By = Fhll.By;
 	pFlux->Bz = Fhll.Bz;
-
-	if (pFlux->d != pFlux->d) {
-	  /*printf("[hllc_sr_mhd]: NaN in hll density flux\n");
-	  printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-	  printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-	  printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-	  printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);*/
-	}
 
       }
 			
@@ -755,10 +585,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 	pFlux->Bz = Fr.Bz + Sr*(Usr.Bz - Ur.Bz);
 			
       if (pFlux->d != pFlux->d) {
-	/*printf("[hllc_sr_mhd]: NaN in hllc density flux, vxs <= 0.0\n");
-	printf("[hllc_sr_mhd]: Sr = %10.4e, Fr.d = %10.4e\n",Sr,Fr.d);
-	printf("[hllc_sr_mhd]: Usr.d = %10.4e, Urd = %10.4e\n",Usr.d,Ur.d);
-	printf("[hllc_sr_mhd]: Switching to hll fluxes\n");*/
 
 	pFlux->d = Fhll.d;
 	pFlux->Mx = Fhll.Mx;
@@ -767,14 +593,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 	pFlux->E = Fhll.E;
 	pFlux->By = Fhll.By;
 	pFlux->Bz = Fhll.Bz;
-
-	if (pFlux->d != pFlux->d) {
-	  /*printf("[hllc_sr_mhd]: NaN in hll density flux\n");
-	  printf("[hllc_sr_mhd]: Sl = %10.4e, Sr = %10.4e\n",Sl,Sr);
-	  printf("[hllc_sr_mhd]: dS_1 = %10.4e\n",dS_1);
-	  printf("[hllc_sr_mhd]: Fld = %10.4e, Frd = %10.4e\n",Fl.d,Fr.d);
-	  printf("[hllc_sr_mhd]: Uld = %10.4e, Urd = %10.4e\n",Ul.d,Ur.d);*/
-	}
 
       }
 			
