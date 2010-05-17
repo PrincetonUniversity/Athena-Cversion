@@ -107,7 +107,7 @@ Real x3cc(const GridS *pGrid, const int k);
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
 PrimS Cons_to_Prim(const ConsS *pU);
-ConsS Prim_to_Cons(const PrimS *pW, const Real *pBx);
+ConsS Prim_to_Cons(const PrimS *pW);
 Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx);
 Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx);
 #ifndef SPECIAL_RELATIVITY
@@ -117,10 +117,7 @@ Real cfast(const Cons1DS *U, const Real *Bx);
 PrimS fix_vsq (const ConsS *pU);
 PrimS check_Prim(const ConsS *pU);
 PrimS entropy_fix (const ConsS *pU, const Real *ent);
-Prim1DS vsq1D_fix (const Cons1DS *pU, const Real *pBx);
-Prim1DS entropy_fix1D (const Cons1DS *pU, const Real *pBx, const Real *ent);
 Prim1DS check_Prim1D (const Cons1DS *pU, const Real *pBx);
-Prim1DS Cons1D_to_SPrim1D (const Cons1DS *U, const Real *Bx, const Real *ent);
 #endif
 
 
