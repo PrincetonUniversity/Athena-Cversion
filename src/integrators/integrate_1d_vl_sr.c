@@ -411,6 +411,7 @@ void integrate_1d_vl(DomainS *pD)
  * adjacent cells and then calculating pressure.
  */
 
+#ifdef MHD
   fail = 0;
   negd = 0;
   negP = 0;
@@ -455,6 +456,7 @@ void integrate_1d_vl(DomainS *pD)
     printf("[Step15b]: %i cells required a  final fix\n",final);
     printf("[Step15b]: %i cells had an unphysical state\n",fail);
   }
+#endif /* MHD */
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 
