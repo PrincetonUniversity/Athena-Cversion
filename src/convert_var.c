@@ -617,8 +617,7 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
     }
 
     /* If we start out very close to the solution try and make sure we don't
-     * overshoot.--- Not actually clear that this does anything, so it can probably
-     * be removed */
+     * overshoot. */
     if (fabs(fQ) < 0.1 && q_incs == 0) {
       Q *= 10;
       Vsq = calc_vsq (Bsq,Msq,Ssq,Q);
