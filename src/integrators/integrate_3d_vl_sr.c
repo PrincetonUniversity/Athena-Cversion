@@ -1388,9 +1388,8 @@ void integrate_3d_vl(DomainS *pD)
 #ifdef USE_ENTROPY_FIX
 	if (flag_cell != 0) {
 	  entropy++;
-	  Bx = pG->U[k][j][i].B1c;
 	  Wcheck = entropy_fix (&(pG->U[k][j][i]),&(S[k][j][i]));
-	  Ucheck = Prim_to_Cons(&Wcheck,&Bx);
+	  Ucheck = Prim_to_Cons(&Wcheck);
 	  Wcheck = check_Prim(&Ucheck);
 	  Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
 	  if (Wcheck.d > 0.0 && Wcheck.P > 0.0 && Vsq < 1.0){
@@ -1405,9 +1404,8 @@ void integrate_3d_vl(DomainS *pD)
 #endif /* USE_ENTROPY_FIX */
 	if (flag_cell != 0) {
 	  final++;
-	  Bx = pG->U[k][j][i].B1c;
 	  Wcheck = fix_vsq (&(pG->U[k][j][i]));
-	  Ucheck = Prim_to_Cons(&Wcheck,&Bx);
+	  Ucheck = Prim_to_Cons(&Wcheck);
 	  pG->U[k][j][i].d = Ucheck.d;
 	  pG->U[k][j][i].M1 = Ucheck.M1;
 	  pG->U[k][j][i].M2 = Ucheck.M2;
