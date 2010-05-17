@@ -971,9 +971,8 @@ void integrate_2d_vl(DomainS *pD)
 #ifdef USE_ENTROPY_FIX
       if (flag_cell != 0) {
 	entropy++;
-	Bx = pG->U[ks][j][i].B1c;
 	Wcheck = entropy_fix (&(pG->U[ks][j][i]),&(S[j][i]));
-	Ucheck = Prim_to_Cons(&Wcheck,&Bx);
+	Ucheck = Prim_to_Cons(&Wcheck);
 	Wcheck = check_Prim(&Ucheck);
 	Vsq = SQR(Wcheck.V1) + SQR(Wcheck.V2) + SQR(Wcheck.V3);
 	if (Wcheck.d > 0.0 && Wcheck.P > 0.0 && Vsq < 1.0){
@@ -988,9 +987,8 @@ void integrate_2d_vl(DomainS *pD)
 #endif
       if (flag_cell != 0) {
 	final++;
-	Bx = pG->U[ks][j][i].B1c;
 	Wcheck = fix_vsq (&(pG->U[ks][j][i]));
-	Ucheck = Prim_to_Cons(&Wcheck,&Bx);
+	Ucheck = Prim_to_Cons(&Wcheck);
 	pG->U[ks][j][i].d = Ucheck.d;
 	pG->U[ks][j][i].M1 = Ucheck.M1;
 	pG->U[ks][j][i].M2 = Ucheck.M2;
