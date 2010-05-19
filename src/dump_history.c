@@ -91,7 +91,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
   double dVol, scal[NSCAL + NSCALARS + MAX_USR_H_COUNT], d1;
   FILE *pfile;
   char *fname,*plev=NULL,*pdom=NULL,*pdir=NULL,fmt[80];
-  char levstr[8],domstr[8],dirstr[8];
+  char levstr[8],domstr[8],dirstr[20];
   int n, total_hst_cnt, mhst;
 #ifdef MPI_PARALLEL
   double my_scal[NSCAL + NSCALARS + MAX_USR_H_COUNT]; /* My Volume averages */
@@ -121,7 +121,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
   total_hst_cnt++;  /* for angular momentum */
 #endif
 #ifdef SPECIAL_RELATIVITY
-  total_hst_cnt = 11 + usr_hst_cnt;
+  total_hst_cnt = 12 + usr_hst_cnt;
 #ifdef MHD
    total_hst_cnt += 6;
 #endif
@@ -144,7 +144,9 @@ void dump_history(MeshS *pM, OutputS *pOut)
 /* Loop over all Domains in Mesh, and output Grid data */
 
   for (nl=0; nl<(pM->NLevels); nl++){
+
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+
       if (pM->Domain[nl][nd].Grid != NULL){
         pG = pM->Domain[nl][nd].Grid;
 #ifdef MPI_PARALLEL
@@ -245,6 +247,9 @@ void dump_history(MeshS *pM, OutputS *pOut)
               mhst++;
               scal[mhst] += dVol*SQR(g*W.V3);
 
+	      mhst++;
+	      scal[mhst] += dVol*W.P;
+
 #ifdef MHD
 
               vB = W.V1*pG->U[k][j][i].B1c + W.V2*W.B2c + W.V3*W.B3c;
@@ -315,6 +320,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
           sprintf(pdir,"lev%d",nl);
         }
 #endif
+
         if (nd>0) {
           pdom = &domstr[0];
           sprintf(pdom,"dom%d",nd);
@@ -390,7 +396,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
           mhst++;
           fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=x3 Mom. ",mhst);
+          fprintf(pfile,"   [%i]=x3 Mom." ,mhst);
           mhst++;
           fprintf(pfile,"   [%i]=Gamma   ",mhst);
           mhst++;
@@ -398,20 +404,22 @@ void dump_history(MeshS *pM, OutputS *pOut)
           mhst++;
           fprintf(pfile,"   [%i]=x2-KE   ",mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=x3-KE   ",mhst);
+          fprintf(pfile,"   [%i]=x3-KE  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=Press  " ,mhst);
 #ifdef MHD
           mhst++;
-          fprintf(pfile,"   [%i]=x0-ME   ",mhst);
+          fprintf(pfile,"   [%i]=x0-ME  " ,mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=x1-ME   ",mhst);
+          fprintf(pfile,"   [%i]=x1-ME  " ,mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=x2-ME   ",mhst);
+          fprintf(pfile,"   [%i]=x2-ME  " ,mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=x3-ME   ",mhst);
+          fprintf(pfile,"   [%i]=x3-ME  " ,mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=bsq     ",mhst);
+          fprintf(pfile,"   [%i]=bsq    " ,mhst);
           mhst++;
-          fprintf(pfile,"   [%i]=T^00_EM ",mhst);
+          fprintf(pfile,"   [%i]=T^00_EM" ,mhst);
 #endif
 #endif /* SPECIAL_RELATIVITY */
 
