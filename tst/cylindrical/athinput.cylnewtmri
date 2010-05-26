@@ -9,8 +9,8 @@ file_open       = 0             # write to .out file?  otherwise, writes to stdo
 out_level       = 0             # sets output level (default=0)
 
 <job>
-problem_id      = CylNewt   # problem ID: basename of output filenames
-maxout          = 11             # Output blocks number from 1 -> maxout
+problem_id      = CylNewtZ8   # problem ID: basename of output filenames
+maxout          = 12             # Output blocks number from 1 -> maxout
 num_domains     = 1
 
 <output1>
@@ -22,7 +22,7 @@ out_fmt         = vtk           # History data dump
 dt              = 6.28318531    # time increment between outputs
 
 <output3>
-out_fmt = tab
+name    = ktab
 out     = d
 id      = d
 x2      = :
@@ -31,7 +31,7 @@ dat_fmt = %12.5e
 dt      = 0.628318531
 
 <output4>
-out_fmt = tab
+name    = ktab
 out     = Pb 
 id      = Pb
 usr_expr_flag = 1
@@ -41,7 +41,7 @@ dat_fmt = %12.5e
 dt      = 0.628318531
 
 <output5>
-out_fmt = tab
+name    = ktab
 out     = Bz 
 id      = Bz 
 usr_expr_flag = 1
@@ -51,7 +51,7 @@ dat_fmt = %12.5e
 dt      = 0.628318531
 
 <output6>
-out_fmt = tab
+name    = ktab
 out     = Mrp 
 id      = Mrp 
 usr_expr_flag = 1
@@ -61,7 +61,7 @@ dat_fmt = %12.5e
 dt      = 0.628318531
 
 <output7>
-out_fmt = tab
+name    = ktab
 out     = Trp 
 id      = Trp 
 usr_expr_flag = 1
@@ -71,7 +71,7 @@ dat_fmt = %12.5e
 dt      = 0.628318531
 
 <output8>
-out_fmt = tab
+name    = ktab
 out     = Vaz
 id      = Vaz
 usr_expr_flag = 1
@@ -84,7 +84,7 @@ dt      = 0.628318531
 out_fmt = vtk
 out     = d
 id      = dRP
-x3      = :
+x3      = 0
 dt      = 0.628318531
 
 <output10>
@@ -92,17 +92,23 @@ out_fmt = vtk
 out     = Pb
 id      = PbRP
 usr_expr_flag = 1
-x3      = :
+x3      = 0
 dt      = 0.628318531
 
 <output11>
 out_fmt = rst
-dt      = 62.8318531
+dt      = 251.327412 
+# Every 40 inner orbits
+
+<output12>
+name = vtksub
+dt   = 17.771531
+# Every 1/10 of an R0=2 orbit
 
 <time>
 cour_no         = 0.4           # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000000      # cycle limit
-tlim            = 628.31         # time limit
+tlim            = 1257.0         # time limit
 
 <domain1>
 level           = 0
@@ -111,31 +117,31 @@ x1min           = 1.0           # minimum value of R
 x1max           = 4.0           # maximum value of R
 bc_ix1          = 3             # inner (R) boundary flag
 bc_ox1          = 3             # outer (R) boundary flag
+NGrid_x1        = 4
 
 Nx2             = 480           # Number of zones in PHI-direction
 x2min           = -3.14159   # minimum value of PHI
 x2max           =  3.14159   # maximum value of PHI
 bc_ix2          = 4             # inner (PHI) boundary flag
 bc_ox2          = 4             # outer (PHI) boundary flag
+NGrid_x2        = 16 
 
-Nx3             =  32             # Number of zones in Z-direction
+Nx3             = 32             # Number of zones in Z-direction
 x3min           = -0.4           # minimum value of Z
 x3max           = 0.4           # maximum value of Z
 bc_ix3          = 4
 bc_ox3          = 4
-
-<parallel>
-NGrid_x1        = 1
-NGrid_x2        = 1
 NGrid_x3        = 1
 
 <problem>
-iso_csound      = 0.070710678
+iso_csound      = 0.05
 rho0            = 100.0
-Amp             = 1.0e-6
-Beta            = 1000.0
+Amp             = 1.0e-4
+Beta            = 100.0
 R0              = 2.0
 Rm              = 2.5
 Lb              = 1.25
 rhomin          = 1.0e-3
 Flux            = 0
+Hbc             = 1
+Mbc             = 1
