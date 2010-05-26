@@ -249,6 +249,7 @@ Real qsimp(Real (*func)(Real), const Real a, const Real b);
 Real avg1d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
 Real avg2d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
 Real avg3d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
+Real avgXZ(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
 Real vecpot2b1i(Real (*A2)(Real,Real,Real), Real (*A3)(Real,Real,Real),
                 const GridS *pG, const int i, const int j, const int k);
 Real vecpot2b2i(Real (*A1)(Real,Real,Real), Real (*A3)(Real,Real,Real),
