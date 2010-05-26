@@ -38,8 +38,8 @@ static Real MdotR1(const GridS *pG, const int i, const int j, const int k);
 static Real MdotR2(const GridS *pG, const int i, const int j, const int k);
 static Real MdotR3(const GridS *pG, const int i, const int j, const int k);
 static Real MdotR4(const GridS *pG, const int i, const int j, const int k);
-
-
+static void dump_vtksub(MeshS *pM, OutputS *pOut);
+void out_ktab(MeshS *pM, OutputS *pOut);
 
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
 
@@ -103,7 +103,6 @@ void problem(DomainS *pDomain)
   il = is-nghost*(nx1>1);  iu = ie+nghost*(nx1>1);  nx1 = iu-il+1;
   jl = js-nghost*(nx2>1);  ju = je+nghost*(nx2>1);  nx2 = ju-jl+1;
   kl = ks-nghost*(nx3>1);  ku = ke+nghost*(nx3>1);  nx3 = ku-kl+1;
-
 
   rho0        = par_getd("problem", "rho0");
   Amp         = par_getd("problem", "Amp");
@@ -176,6 +175,7 @@ void problem(DomainS *pDomain)
 
 #endif
   return;
+
 }
 /*==============================================================================
  * PROBLEM USER FUNCTIONS:
@@ -307,6 +307,41 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
+
+  rho0        = par_getd("problem", "rho0");
+  Amp         = par_getd("problem", "Amp");
+  Beta        = par_getd("problem", "Beta");
+  R0          = par_getd("problem", "R0");
+	Rm          = par_getd("problem", "Rm");
+  Lb          = par_getd("problem","Lb");
+  rhomin      = par_getd("problem","rhomin");
+  Flux      = par_getd("problem","Flux");
+  Hbc       = par_getd("problem","Hbc");
+  Mbc       = par_getd("problem","Mbc");
+
+  StaticGravPot = grav_pot;
+  x1GravAcc = grav_acc;
+  bvals_mhd_fun(pM->Domain[0][0].Grid,left_x1,disk_ir);
+  bvals_mhd_fun(pM->Domain[0][0].Grid,right_x1,disk_or);
+#ifdef FARGO
+  OrbitalProfile = Omega;
+  ShearProfile = Shear;
+#endif
+	// Enroll history functions
+	//
+#ifdef MHD
+	dump_history_enroll(Br, "<Br>");
+	dump_history_enroll(Bp, "<Bp>");
+	dump_history_enroll(Bz, "<Bz>");
+	dump_history_enroll(Mrp, "<Mrp>");
+	dump_history_enroll(Trp, "<Trp>");
+	dump_history_enroll(MdotR1, "<MdotR1>");
+	dump_history_enroll(MdotR2, "<MdotR2>");
+	dump_history_enroll(MdotR3, "<MdotR3>");
+	dump_history_enroll(MdotR4, "<MdotR4>");
+
+#endif
+
   return;
 }
 
@@ -327,6 +362,11 @@ ConsFun_t get_usr_expr(const char *expr)
 }
 
 VOutFun_t get_usr_out_fun(const char *name){
+	if(strcmp(name,"vtksub")==0) {
+		return dump_vtksub;
+	} else if(strcmp(name,"ktab")==0) {
+		return out_ktab;
+	}
   return NULL;
 }
 
@@ -623,4 +663,216 @@ void disk_or(GridS *pGrid) {
 
 }
 
+static void dump_vtksub(MeshS *pM, OutputS *pOut) {
+	GridS *pGrid;
+	FILE *pfile;
+	char *fname, *plev = NULL, *pdom = NULL;
+	char levstr[8], domstr[8];
+	/* Upper and Lower bounds on i,j,k for data dump */
+	int i, j, k, il, iu, jl, ju, kl, ku;
+	int big_end = ath_big_endian();
+	int ndata0;
+	float *data; /* points to 3*ndata0 allocated floats */
+	double x1m, x2m, x3m, x1M, x1, x2, x3, dR;
 
+	/* Loop over all Domains in Mesh, and output Grid data */
+
+	pGrid = pM->Domain[0][0].Grid;
+
+	il = pGrid->is, iu = pGrid->ie;
+	jl = pGrid->js, ju = pGrid->je;
+	kl = pGrid->ks, ku = pGrid->ke;
+	x1m = pGrid->MinX[0];
+	x2m = pGrid->MinX[1];
+	x3m = pGrid->MinX[2];
+
+	x1M = pGrid->MaxX[0];
+	dR = pGrid->dx1;
+	// Exclude tiles not in the subvolume
+	if ((x1M <= 1.6) || (x1m >= 2.4)) {
+		return;
+	}
+	il = -1;
+	for (i = pGrid->is; i <= pGrid->ie; i++) {
+		cc_pos(pGrid, i, jl, kl, &x1, &x2, &x3);
+		// Get first index in range
+		if ((x1 + 0.5 * dR >= 1.6) && (il < 0)) {
+			il = i;
+			x1m = x1 - 0.5 * dR;
+		}
+		if (x1 - 0.5 * dR <= 2.4) {
+			iu = i;
+		}
+	}
+
+	ndata0 = iu - il + 1;
+
+	/* construct filename, open file */
+	if ((fname = ath_fname(plev, pM->outfilename, plev, pdom, num_digit,
+			pOut->num, "sub", "vtk")) == NULL) {
+		ath_error("[dump_vtk]: Error constructing filename\n");
+	}
+
+	if ((pfile = fopen(fname, "w")) == NULL) {
+		ath_error("[dump_vtk]: Unable to open vtk dump file\n");
+		return;
+	}
+
+	/* Allocate memory for temporary array of floats */
+
+	if ((data = (float *) malloc(3 * ndata0 * sizeof(float))) == NULL) {
+		ath_error("[dump_vtk]: malloc failed for temporary array\n");
+		return;
+	}
+
+	/* There are five basic parts to the VTK "legacy" file format.  */
+	/*  1. Write file version and identifier */
+
+	fprintf(pfile, "# vtk DataFile Version 2.0\n");
+
+	/*  2. Header */
+
+	fprintf(pfile, "Subvolume variables at time= %e, level= %i, domain= %i\n",
+			pGrid->time, 0, 0);
+
+	/*  3. File format */
+
+	fprintf(pfile, "BINARY\n");
+
+	/*  4. Dataset structure */
+
+	/* Set the Grid origin */
+
+	fprintf(pfile, "DATASET STRUCTURED_POINTS\n");
+	if (pGrid->Nx[1] == 1) {
+		fprintf(pfile, "DIMENSIONS %d %d %d\n", iu - il + 2, 1, 1);
+	} else {
+		if (pGrid->Nx[2] == 1) {
+			fprintf(pfile, "DIMENSIONS %d %d %d\n", iu - il + 2, ju - jl + 2, 1);
+		} else {
+			fprintf(pfile, "DIMENSIONS %d %d %d\n", iu - il + 2, ju - jl + 2, ku - kl
+					+ 2);
+		}
+	}
+	fprintf(pfile, "ORIGIN %e %e %e \n", x1m, x2m, x3m);
+	fprintf(pfile, "SPACING %e %e %e \n", pGrid->dx1, pGrid->dx2, pGrid->dx3);
+
+	/*  5. Data  */
+
+	fprintf(pfile, "CELL_DATA %d \n", (iu - il + 1) * (ju - jl + 1) * (ku - kl
+			+ 1));
+
+	/* Write density */
+
+	fprintf(pfile, "SCALARS density float\n");
+	fprintf(pfile, "LOOKUP_TABLE default\n");
+	for (k = kl; k <= ku; k++) {
+		for (j = jl; j <= ju; j++) {
+			for (i = il; i <= iu; i++) {
+				data[i - il] = (float) pGrid->U[k][j][i].d;
+			}
+			if (!big_end)
+				ath_bswap(data, sizeof(float), iu - il + 1);
+			fwrite(data, sizeof(float), (size_t) ndata0, pfile);
+		}
+	}
+
+	/* Write momentum or velocity */
+
+	fprintf(pfile, "\nVECTORS momentum float\n");
+	for (k = kl; k <= ku; k++) {
+		for (j = jl; j <= ju; j++) {
+			for (i = il; i <= iu; i++) {
+				data[3 * (i - il)] = (float) pGrid->U[k][j][i].M1;
+				data[3 * (i - il) + 1] = (float) pGrid->U[k][j][i].M2;
+				data[3 * (i - il) + 2] = (float) pGrid->U[k][j][i].M3;
+			}
+			if (!big_end)
+				ath_bswap(data, sizeof(float), 3 * (iu - il + 1));
+			fwrite(data, sizeof(float), (size_t) (3 * ndata0), pfile);
+		}
+	}
+
+	/* Write cell centered B */
+
+#ifdef MHD
+	fprintf(pfile, "\nVECTORS cell_centered_B float\n");
+	for (k = kl; k <= ku; k++) {
+		for (j = jl; j <= ju; j++) {
+			for (i = il; i <= iu; i++) {
+				data[3 * (i - il)] = (float) pGrid->U[k][j][i].B1c;
+				data[3 * (i - il) + 1] = (float) pGrid->U[k][j][i].B2c;
+				data[3 * (i - il) + 2] = (float) pGrid->U[k][j][i].B3c;
+			}
+			if (!big_end)
+				ath_bswap(data, sizeof(float), 3 * (iu - il + 1));
+			fwrite(data, sizeof(float), (size_t) (3 * ndata0), pfile);
+		}
+	}
+
+#endif
+
+	/* close file and free memory */
+
+	fclose(pfile);
+	free(data);
+
+	return;
+}
+
+void out_ktab(MeshS *pM, OutputS *pOut)
+{
+  GridS *pGrid=pM->Domain[0][0].Grid;
+  int i,nx1;
+  FILE *pFile;
+  char fmt[80],*fname,*plev=NULL,*pdom=NULL;
+  char levstr[8],domstr[8];
+  Real *data=NULL;
+  Real dmin, dmax, xworld;
+
+/* Add a white space to the format, setup format for integer zone columns */
+  if(pOut->dat_fmt == NULL){
+     sprintf(fmt," %%12.8e"); /* Use a default format */
+  }
+  else{
+    sprintf(fmt," %s",pOut->dat_fmt);
+  }
+
+/* compute 1D array of data */
+  data = OutData1(pGrid,pOut,&nx1);
+  if (data == NULL) return;  /* slice not in range of Grid */
+
+  minmax1(data,nx1,&dmin,&dmax);
+
+
+  if((fname = ath_fname(plev,pM->outfilename,0,0,0,0,
+      pOut->id,"tab")) == NULL){
+    ath_error("[output_tab]: Error constructing filename\n");
+  }
+
+  pFile = fopen(fname,"a");
+/* open filename */
+  if (pFile == NULL) {
+    ath_error("[output_tab]: Unable to open tab file %s\n",fname);
+  }
+
+/* write data */
+
+  if (pOut->num == 0) {
+  	for (i=0; i<nx1; i++) {
+  		fprintf(pFile,"%12d\t",pGrid->Disp[0]+i);
+  	}
+  	fprintf(pFile,"\n");
+  }
+  for (i=0; i<nx1; i++) {
+  	fprintf(pFile,fmt,data[i]);
+  	fprintf(pFile,"\t");
+  }
+  fprintf(pFile,"\n");
+/* Compute and store global min/max, for output at end of run */
+  pOut->gmin = MIN(dmin,pOut->gmin);
+  pOut->gmax = MAX(dmax,pOut->gmax);
+
+  fclose(pFile);
+  free_1d_array(data); /* Free the memory we malloc'd */
+}
