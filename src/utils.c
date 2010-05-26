@@ -708,6 +708,21 @@ Real avg3d(Real (*func)(Real, Real, Real), const GridS *pG,
   return qsimp(fz,zmin,zmax)/dvol;
 }
 
+Real avgXZ(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k) {
+  Real x1,x2,x3;
+
+  Real fXZ(Real z);
+
+  nrfunc=func;
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  xmin = x1 - 0.5*pG->dx1;  xmax = x1 + 0.5*pG->dx1;
+  zmin = x3 - 0.5*pG->dx3;  zmax = x3 + 0.5*pG->dx3;
+
+  ysav = x2;
+  return qsimp(fXZ,zmin,zmax)/(x1*pG->dx1*pG->dx3);
+
+}
+
 Real fz(Real z)
 {
   Real fy(Real y);
@@ -731,6 +746,14 @@ Real fx(Real x)
 #else
   return nrfunc(x,ysav,zsav);
 #endif
+}
+
+Real fXZ(Real z) {
+        Real fx(Real x);
+
+        zsav = z;
+        return qsimp(fx,xmin,xmax);
+
 }
 
 /*----------------------------------------------------------------------------*/
