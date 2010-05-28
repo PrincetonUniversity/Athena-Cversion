@@ -216,16 +216,48 @@ void RestrictCorrect(MeshS *pM)
         }
       } else {
 
-
         if (nDim == 2){  /* 2D problem */
+/* Correct B1i */
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics+1; i<=ice; i++) {
+            /* Set B1i at ics if no flux correction will be made.  Increment
+             * pointer even if value in Rcv pointer is ignored. */
+            if (i==ics+1){
+              if (pCO->myFlx[0] == NULL) {pG->B1i[kcs][j][ics] = *(pRcv++);}
+              else {pRcv++;}
+            }
+
             pG->B1i[kcs][j][i] = *(pRcv++);
+
+            /* Set B1i at ice+1 if no flux correction will be made.  Increment
+             * pointer even if value in Rcv pointer is ignored. */
+            if (i==ice){
+              if (pCO->myFlx[1] == NULL) {pG->B1i[kcs][j][ice+1] = *(pRcv++);}
+              else {pRcv++;}
+            }
           }}
+
+/* Correct B2i */
+          /* Set B2i at jcs if no flux correction will be made.  Increment
+           * pointer even if value in Rcv pointer is ignored. */
+          for (i=ics; i<=ice; i++) {
+            if (pCO->myFlx[2] == NULL) {pG->B2i[kcs][jcs][i] = *(pRcv++);}
+            else {pRcv++;}
+          }
+
           for (j=jcs+1; j<=jce; j++) {
           for (i=ics  ; i<=ice; i++) {
             pG->B2i[kcs][j][i] = *(pRcv++);
           }}
+
+          /* Set B2i at jce+1 if no flux correction will be made.  Increment
+           * pointer even if value in Rcv pointer is ignored. */
+          for (i=ics; i<=ice; i++) {
+            if (pCO->myFlx[3] == NULL) {pG->B2i[kcs][jce+1][i] = *(pRcv++);}
+            else {pRcv++;}
+          }
+
+/* Set cell-centered fields */
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
             pG->U[kcs][j][i].B1c=0.5*(pG->B1i[kcs][j][i] +pG->B1i[kcs][j][i+1]);
@@ -234,22 +266,74 @@ void RestrictCorrect(MeshS *pM)
           }}
 
         } else { /* 3D problem */
-
+/* Correct B1i */
           for (k=kcs  ; k<=kce; k++) {
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics+1; i<=ice; i++) {
+            /* Set B1i at ics if no flux correction will be made.  Increment
+             * pointer even if value in Rcv pointer is ignored. */
+            if (i==ics+1){
+              if (pCO->myFlx[0] == NULL) {pG->B1i[k][j][ics] = *(pRcv++);}
+              else {pRcv++;}
+            }
+
             pG->B1i[k][j][i] = *(pRcv++);
+
+            /* Set B1i at ice+1 if no flux correction will be made.  Increment
+             * pointer even if value in Rcv pointer is ignored. */
+            if (i==ice){
+              if (pCO->myFlx[1] == NULL) {pG->B1i[k][j][ice+1] = *(pRcv++);}
+              else {pRcv++;}
+            }
+
           }}}
+
+/* Correct B2i */
           for (k=kcs  ; k<=kce; k++) {
-          for (j=jcs+1; j<=jce; j++) {
-          for (i=ics  ; i<=ice; i++) {
-            pG->B2i[k][j][i] = *(pRcv++);
-          }}}
+            /* Set B2i at jcs if no flux correction will be made.  Increment
+             * pointer even if value in Rcv pointer is ignored. */
+            for (i=ics; i<=ice; i++) {
+              if (pCO->myFlx[2] == NULL) {pG->B2i[k][jcs][i] = *(pRcv++);}
+              else {pRcv++;}
+            }
+
+            for (j=jcs+1; j<=jce; j++) {
+            for (i=ics  ; i<=ice; i++) {
+              pG->B2i[k][j][i] = *(pRcv++);
+            }}
+
+            /* Set B2i at jce+1 if no flux correction will be made.  Increment
+             * pointer even if value in Rcv pointer is ignored. */
+            for (i=ics; i<=ice; i++) {
+              if (pCO->myFlx[3] == NULL) {pG->B2i[k][jce+1][i] = *(pRcv++);}
+              else {pRcv++;}
+            }
+          }
+
+/* Correct B3i */
+          /* Set B3i at kcs if no flux correction will be made.  Increment
+           * pointer even if value in Rcv pointer is ignored. */
+          for (j=jcs; j<=jce; j++) {
+          for (i=ics; i<=ice; i++) {
+            if (pCO->myFlx[4] == NULL) {pG->B3i[kcs][j][i] = *(pRcv++);}
+            else {pRcv++;}
+          }}
+
           for (k=kcs+1; k<=kce; k++) {
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics  ; i<=ice; i++) {
             pG->B3i[k][j][i] = *(pRcv++);
           }}}
+
+          /* Set B3i at kce+1 if no flux correction will be made.  Increment
+           * pointer even if value in Rcv pointer is ignored. */
+          for (j=jcs; j<=jce; j++) {
+          for (i=ics; i<=ice; i++) {
+            if (pCO->myFlx[5] == NULL) {pG->B3i[kce+1][j][i] = *(pRcv++);}
+            else {pRcv++;}
+          }}
+
+/* Set cell-centered fields */
           for (k=kcs; k<=kce; k++) {
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
@@ -666,41 +750,41 @@ void RestrictCorrect(MeshS *pM)
 
       if (nDim == 3) { /* 3D problem, restrict B1i,B2i,B3i */
 
-        for (k=kps  ; k<=kpe  ; k+=2) {
-        for (j=jps  ; j<=jpe  ; j+=2) {
-        for (i=ips+2; i<=ipe-1; i+=2) {
+        for (k=kps; k<=kpe  ; k+=2) {
+        for (j=jps; j<=jpe  ; j+=2) {
+        for (i=ips; i<=ipe+1; i+=2) {
           *(pSnd++) = 0.25*(pG->B1i[k  ][j][i] + pG->B1i[k  ][j+1][i]
                          +  pG->B1i[k+1][j][i] + pG->B1i[k+1][j+1][i]);
         }}}
-        for (k=kps  ; k<=kpe  ; k+=2) {
-        for (j=jps+2; j<=jpe-1; j+=2) {
-        for (i=ips  ; i<=ipe  ; i+=2) {
+        for (k=kps; k<=kpe  ; k+=2) {
+        for (j=jps; j<=jpe+1; j+=2) {
+        for (i=ips; i<=ipe  ; i+=2) {
           *(pSnd++) = 0.25*(pG->B2i[k  ][j][i] + pG->B2i[k  ][j][i+1]
                           + pG->B2i[k+1][j][i] + pG->B2i[k+1][j][i+1]);
         }}}
-        for (k=kps+2; k<=kpe-1; k+=2) {
-        for (j=jps  ; j<=jpe  ; j+=2) {
-        for (i=ips  ; i<=ipe  ; i+=2) {
+        for (k=kps; k<=kpe+1; k+=2) {
+        for (j=jps; j<=jpe  ; j+=2) {
+        for (i=ips; i<=ipe  ; i+=2) {
           *(pSnd++) = 0.25*(pG->B3i[k][j  ][i] + pG->B3i[k][j  ][i+1]
                           + pG->B3i[k][j+1][i] + pG->B3i[k][j+1][i+1]);
         }}}
-        nFld = ((kpe-kps+1)/2    )*((jpe-jps+1)/2    )*((ipe-ips-3)/2 + 1) +
-               ((kpe-kps+1)/2    )*((jpe-jps-3)/2 + 1)*((ipe-ips+1)/2    ) +
-               ((kpe-kps-3)/2 + 1)*((jpe-jps+1)/2    )*((ipe-ips+1)/2    );
+        nFld = ((kpe-kps+1)/2    )*((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
+               ((kpe-kps+1)/2    )*((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    ) +
+               ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2    )*((ipe-ips+1)/2    );
 
       } else {
 
         if (nDim == 2) { /* 2D problem, restrict B1i,B2i */
-          for (j=jps  ; j<=jpe  ; j+=2) {
-          for (i=ips+2; i<=ipe-1; i+=2) {
+          for (j=jps; j<=jpe  ; j+=2) {
+          for (i=ips; i<=ipe+1; i+=2) {
             *(pSnd++) = 0.5*(pG->B1i[kps][j][i] + pG->B1i[kps][j+1][i]);
           }}
-          for (j=jps+2; j<=jpe-1; j+=2) {
-          for (i=ips  ; i<=ipe  ; i+=2) {
+          for (j=jps; j<=jpe+1; j+=2) {
+          for (i=ips; i<=ipe  ; i+=2) {
             *(pSnd++) = 0.5*(pG->B2i[kps][j][i] + pG->B2i[kps][j][i+1]);
           }}
-          nFld = ((jpe-jps+1)/2    )*((ipe-ips-3)/2 + 1) +
-                 ((jpe-jps-3)/2 + 1)*((ipe-ips+1)/2    );
+          nFld = ((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
+                 ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    );
         }
 
       }
@@ -1194,7 +1278,6 @@ void Prolongate(MeshS *pM)
         ierr = MPI_Isend(&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]),
           pG->CGrid[ncg].nWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
           pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
-/*        start_addr += pG->CGrid[ncg].nWordsP; */
       }
 #endif /* MPI_PARALLEL */
 

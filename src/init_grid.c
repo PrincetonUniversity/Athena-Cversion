@@ -420,16 +420,16 @@ printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
 #ifdef MHD
               if (nDim==3) {
                 pG->CGrid[ncg].nWordsRC += 
-                  (n1z-1)*n2z*n3z + n1z*(n2z-1)*n3z + n1z*n2z*(n3z-1);
+                  (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
               } else {
                 if (nDim==2) {
-                  pG->CGrid[ncg].nWordsRC += (n1z-1)*n2z + n1z*(n2z-1);
+                  pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z + n1z*(n2z+1);
                 }
               }
 #endif /* MHD */
 
-/* (2) if any  edge of the child Grid is at the edge of the child Domain, then
- * allocate memory for fluxes and EMFs for Correction, and count GZ for Prolongation */
+/* (2) if edge of the child Grid is at edge of the child Domain, then allocate
+ * memory for fluxes and EMFs for Correction, and count GZ for Prolongation */
 
               for (dim=0; dim<nDim; dim++){    /* only checks nDim directions */
                 if (dim == 0) iGrid=l;
@@ -437,9 +437,15 @@ printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
                 if (dim == 2) iGrid=n;
 
 /* inner x1/x2/x3 boundary */
-/* only count Grids not at l-edge of root, but at l-edge of own Domain */
+/* First check that edge of child Grid is at edge of overlap (otherwise boundary
+ * is between MPI blocks in parent, and is internal to child Grid).
+ * Then check that edge of child Grid is not at l-edge of root (so that physical
+ * BCs are applied), but is at l-edge of own Domain (so it is not an internal
+ * MPI boundary on the child Domain). */
 
-                if ((pCD->Disp[dim] != 0) && (iGrid == 0)) {
+                if ((G2.ijkl[dim] == G3.ijkl[dim]) &&
+                    (pCD->Disp[dim] != 0) &&
+                    (iGrid == 0)) {
 
                   if (dim == 0) {
                     n1z = G3.ijkr[1] - G3.ijkl[1];
@@ -533,12 +539,17 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z,n1z+1);
                 }
 
 /* outer x1/x2/x3 boundary */
-/* Only count Grids not at r-edge of root, but at r-edge of own Domain */
+/* First check that edge of child Grid is at edge of overlap (otherwise boundary
+ * is between MPI blocks in parent, and is internal to child Grid).
+ * Then check that edge of child Grid is not at r-edge of root (so that physical
+ * BCs are applied), but is at r-edge of own Domain (so it is not an internal
+ * MPI boundary on the child Domain). */
 
                 irefine = 1;
                 for (i=1;i<=(nl+1);i++) irefine *= 2; /* child refinement lev */
-                if (((pCD->Disp[dim] + pCD->Nx[dim])/irefine) != pM->Nx[dim]
-                  && iGrid == (pCD->NGrid[dim]-1)) {
+                if ( (G2.ijkr[dim] == G3.ijkr[dim]) &&
+                    ((pCD->Disp[dim] + pCD->Nx[dim])/irefine != pM->Nx[dim]) &&
+                     (iGrid == (pCD->NGrid[dim]-1)) ) {
 
                   if (dim == 0) {
                     n1z = G3.ijkr[1] - G3.ijkl[1];
@@ -827,10 +838,10 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
 #ifdef MHD
               if (pG->Nx[2]>1) {
                 pG->PGrid[npg].nWordsRC += 
-                  (n1z-1)*n2z*n3z + n1z*(n2z-1)*n3z + n1z*n2z*(n3z-1);
+                  (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
               } else {
                 if (pG->Nx[1]>1) {
-                  pG->PGrid[npg].nWordsRC += (n1z-1)*n2z + n1z*(n2z-1);
+                  pG->PGrid[npg].nWordsRC += (n1z+1)*n2z + n1z*(n2z+1);
                 }
               }
 #endif /* MHD */
@@ -845,10 +856,16 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
                 if (dim == 2) iGrid=myN;
 
 /* inner x1/x2/x3 boundary */
-/* Only count Grids not at l-edge of root, but at l-edge of own Domain */
+/* First check that edge of this Grid is at edge of overlap (otherwise boundary
+ * is between MPI blocks in parent, and is internal to child Grid).
+ * Then check that edge of this Grid is not at l-edge of root (so that physical
+ * BCs are applied), but is at l-edge of own Domain (so it is not an internal
+ * MPI boundary on this Domain). */
 
-                if ((pD->Disp[dim] != 0) && (iGrid == 0)) {
-  
+                  if ((G1.ijkl[dim] == G3.ijkl[dim]) &&
+                      (pD->Disp[dim] != 0) &&
+                      (iGrid == 0)) {
+
                     if (dim == 0) {
                       n1z = G3.ijkr[1] - G3.ijkl[1];
                       n2z = G3.ijkr[2] - G3.ijkl[2];
@@ -945,12 +962,17 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z,n1z+1);
                 }
 
 /* outer x1/x2/x3 boundary */
-/* Only count Grids not at r-edge of root, but at r-edge of own Domain */
+/* First check that edge of this Grid is at edge of overlap (otherwise boundary
+ * is between MPI blocks in parent, and is internal to child Grid).
+ * Then check that edge of this Grid is not at r-edge of root (so that physical
+ * BCs are applied), but is at r-edge of own Domain (so it is not an internal
+ * MPI boundary on this Domain). */
 
                 irefine = 1;
                 for (i=1;i<=nl;i++) irefine *= 2; /* this level refinement */
-                if (((pD->Disp[dim] + pD->Nx[dim])/irefine) != pM->Nx[dim]
-                    && iGrid == (pD->NGrid[dim]-1)) {
+                if ( (G1.ijkr[dim] == G3.ijkr[dim]) &&
+                    ((pD->Disp[dim] + pD->Nx[dim])/irefine != pM->Nx[dim]) &&
+                     (iGrid == (pD->NGrid[dim]-1)) ) {
   
                     if (dim == 0) {
                       n1z = G3.ijkr[1] - G3.ijkl[1];
