@@ -114,7 +114,7 @@ void RestrictCorrect(MeshS *pM)
           ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
             pG->CGrid[ncg].nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
             pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
-            &(recv_rq[rbufN][nd][mIndex]));
+            &(recv_rq[nl-1][nd][mIndex]));
           mAddress += pG->CGrid[ncg].nWordsRC;
         }
 
@@ -151,7 +151,7 @@ void RestrictCorrect(MeshS *pM)
  * in any order. */
 
         mCount = pG->NCGrid - pG->NmyCGrid;
-        ierr = MPI_Waitany(mCount,recv_rq[rbufN][nd],&mIndex,MPI_STATUS_IGNORE);
+        ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
         if(mIndex == MPI_UNDEFINED){
           ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",nl,nd);
         }
@@ -1187,7 +1187,7 @@ void Prolongate(MeshS *pM)
           ierr = MPI_Irecv(&(recv_bufP[rbufN][nd][mAddress]),
             pG->PGrid[npg].nWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
             pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
-            &(recv_rq[rbufN][nd][mIndex]));
+            &(recv_rq[nl+1][nd][mIndex]));
           mAddress += pG->PGrid[npg].nWordsP;
         }
 
@@ -1311,7 +1311,7 @@ void Prolongate(MeshS *pM)
  * Grids, sent in Step 1.  Accept messages in any order. */
 
         mCount = pG->NPGrid - pG->NmyPGrid;
-        ierr = MPI_Waitany(mCount,recv_rq[rbufN][nd],&mIndex,MPI_STATUS_IGNORE);
+        ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
         if(mIndex == MPI_UNDEFINED){
           ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl,nd);
         }
@@ -1742,7 +1742,7 @@ void SMR_init(MeshS *pM)
     (double***)calloc_3d_array(2,maxND,max_recvRC,sizeof(double))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv_bufRC\n");
   if((recv_rq = (MPI_Request***)
-    calloc_3d_array(2,maxND,maxCG,sizeof(MPI_Request))) == NULL)
+    calloc_3d_array(pM->NLevels,maxND,maxCG,sizeof(MPI_Request))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv MPI_Request array\n");
   if((send_rq = (MPI_Request**)
     calloc_2d_array(maxND,maxCG,sizeof(MPI_Request))) == NULL)
