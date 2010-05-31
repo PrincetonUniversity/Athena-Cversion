@@ -444,9 +444,10 @@ void integrate_2d_vl(DomainS *pD)
 /*=== STEP 7: Conserved->Primitive variable inversion at t^{n+1/2} ===========*/
         
 /* Invert conserved variables at t^{n+1/2} to primitive variables. With FOFC, 
- * if cell-centered d < 0, P< 0, or v^2 > 1, correct by switching back to 
- * values at beginning of step, rendering update first order in time for that
- * cell.
+ * check if cell-centered d < 0, P< 0, or v^2 > 1. With Entropy fix, correct
+ * by computing new primitive state using the entropy variable, otherwise
+ * correct by switching back to values at beginning of step, rendering update
+ * first order in time for that cell.
  */
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION        
@@ -502,8 +503,9 @@ void integrate_2d_vl(DomainS *pD)
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION  
   if (negd > 0 || negP > 0 || superl > 0){
-    printf("[Step7]: %i cells had d<0; %i cells had P<0\n;",negd,negP);
+    printf("[Step7]: %i cells had d<0; %i cells had P<0\n",negd,negP);
     printf("[Step7]: %i cells had v>1 at t_half\n",superl);
+    printf("[Step7]: %i cells fixed using entropy at t_half\n",entropy);
   }
 #endif 
 
