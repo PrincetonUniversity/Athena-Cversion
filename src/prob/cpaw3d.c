@@ -82,7 +82,7 @@ static Real A3(const Real x1, const Real x2, const Real x3);
 void problem(DomainS *pDomain)
 {
   GridS *pGrid = pDomain->Grid;
-  ConsS**Soln;
+  ConsS ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   Real dx1 = pGrid->dx1;
