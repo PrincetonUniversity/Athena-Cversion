@@ -36,6 +36,7 @@
 # ALGORITHM "features":
 #   --enable-fargo                                      (enable FARGO algorithm)
 #   --enable-fft                (compile and link with FFTW block decomposition)
+#   --enable-fofc                 (first-order flux correction in VL integrator)
 #   --enable-ghost                      (write out ghost cells in outputs/dumps)
 #   --enable-h-correction              (turn on H-correction in multidimensions)
 #   --enable-hllallwave                    (all-wave integration for HLL fluxes)
@@ -43,7 +44,6 @@
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
 #   --enable-smr                                        (static mesh refinement)
-#   --enable-fofc                 (first-order flux correction in VL integrator)
 #
 #-------------------------------------------------------------------------------
 # generic things

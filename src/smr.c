@@ -463,10 +463,22 @@ void RestrictCorrect(MeshS *pM)
           }
 
           for (k=kcs, kk=0; k<=kce  ; k++, kk++) {
-          for (j=jcs, jj=0; j<=jce+1; j++, jj++) {
+            for (j=jcs, jj=0; j<=jce; j++, jj++) {
+              SMRemf3[kk][jj] = *(pRcv++);
+              pG->B2i[k][j][i]+= q1*(pCO->myEMF3[dim][kk][jj] -SMRemf3[kk][jj]);
+            }
+           /* only update B2i[jce+1] if ox2 [dim=3] boundary is at edge of child
+            * Domain (so ox2 boundary is between fine/coarse Grids), or at edge
+            * of this Grid. Otherwise ox2 boundary is between MPI Grids on child
+            * Domain, and it will be updated as B2i[jcs] by other child Grid */
+            jj = jce-jcs+1;
             SMRemf3[kk][jj] = *(pRcv++);
-            pG->B2i[k][j][i] += q1*(pCO->myEMF3[dim][kk][jj] - SMRemf3[kk][jj]);
-          }}
+            if((pCO->myEMF3[3] != NULL) || (jce==pG->je)){
+              pG->B2i[k][jce+1][i] +=
+                q1*(pCO->myEMF3[dim][kk][jj] - SMRemf3[kk][jj]);
+            }
+          }
+
           for (k=kcs, kk=0; k<=kce; k++, kk++) {
           for (j=jcs, jj=0; j<=jce; j++, jj++) {
             pG->B1i[k][j][ib] -=
@@ -476,17 +488,31 @@ void RestrictCorrect(MeshS *pM)
 
           if (nDim == 3){ /* 3D problem */
 
-            for (k=kcs, kk=0; k<=kce+1; k++, kk++) {
-            for (j=jcs, jj=0; j<=jce  ; j++, jj++) {
+            for (k=kcs, kk=0; k<=kce; k++, kk++) {
+            for (j=jcs, jj=0; j<=jce; j++, jj++) {
               SMRemf2[kk][jj] = *(pRcv++);
               pG->B3i[k][j][i] -= q1*(pCO->myEMF2[dim][kk][jj]-SMRemf2[kk][jj]);
             }}
+           /* only update B3i[kce+1] if ox3 [dim=5] boundary is at edge of child
+            * Domain (so ox3 boundary is between fine/coarse Grids), or at edge
+            * of this Grid. Otherwise ox3 boundary is between MPI Grids on child
+            * Domain, and it will be updated as B3i[kcs] by other child Grid */
+            kk = kce-kcs+1;
+            for (j=jcs, jj=0; j<=jce  ; j++, jj++) {
+              SMRemf2[kk][jj] = *(pRcv++); 
+              if((pCO->myEMF2[5] != NULL) || (kce==pG->ke)){
+                pG->B3i[kce+1][j][i] -= 
+                  q1*(pCO->myEMF2[dim][kk][jj] - SMRemf2[kk][jj]);
+              }
+            }
+
             for (k=kcs, kk=0; k<=kce; k++, kk++) {
             for (j=jcs, jj=0; j<=jce; j++, jj++) {
               pG->B1i[k][j][ib] +=
                 q3*(pCO->myEMF2[dim][kk+1][jj] - SMRemf2[kk+1][jj]) -
                 q3*(pCO->myEMF2[dim][kk  ][jj] - SMRemf2[kk  ][jj]);
             }}
+
             for (k=kcs-1; k<=kce+1; k++) {
             for (j=jcs; j<=jce; j++) {
               pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
@@ -522,11 +548,22 @@ void RestrictCorrect(MeshS *pM)
             q3 = -(pG->dt/pG->dx3);
           }
 
-          for (k=kcs, kk=0; k<=kce  ; k++, kk++) {
-          for (i=ics, ii=0; i<=ice+1; i++, ii++) {
+          for (k=kcs, kk=0; k<=kce; k++, kk++) {
+            for (i=ics, ii=0; i<=ice; i++, ii++) {
+              SMRemf3[kk][ii] = *(pRcv++);
+              pG->B1i[k][j][i]-= q2*(pCO->myEMF3[dim][kk][ii] -SMRemf3[kk][ii]);
+            }
+           /* only update B1i[ice+1] if ox1 [dim=1] boundary is at edge of child
+            * Domain (so ox1 boundary is between fine/coarse Grids), or at edge
+            * of this Grid. Otherwise ox1 boundary is between MPI Grids on child
+            * Domain, and it will be updated as B1i[ics] by other child Grid */
+            ii = ice-ics+1;
             SMRemf3[kk][ii] = *(pRcv++);
-            pG->B1i[k][j][i] -= q2*(pCO->myEMF3[dim][kk][ii] - SMRemf3[kk][ii]);
-          }}
+            if ((pCO->myEMF3[1] != NULL) || (ice==pG->ie)){
+              pG->B1i[k][j][ice+1] -=
+                q2*(pCO->myEMF3[dim][kk][ii] - SMRemf3[kk][ii]);
+            }
+          }
           for (k=kcs, kk=0; k<=kce; k++, kk++) {
           for (i=ics, ii=0; i<=ice; i++, ii++) {
             pG->B2i[k][jb][i] += 
@@ -536,17 +573,31 @@ void RestrictCorrect(MeshS *pM)
 
           if (nDim == 3){ /* 3D problem */
 
-            for (k=kcs, kk=0; k<=kce+1; k++, kk++) {
-            for (i=ics, ii=0; i<=ice  ; i++, ii++) {
+            for (k=kcs, kk=0; k<=kce; k++, kk++) {
+            for (i=ics, ii=0; i<=ice; i++, ii++) {
               SMRemf1[kk][ii] = *(pRcv++);
               pG->B3i[k][j][i] += q2*(pCO->myEMF1[dim][kk][ii]-SMRemf1[kk][ii]);
             }}
+           /* only update B3i[kce+1] if ox3 [dim=5] boundary is at edge of child
+            * Domain (so ox3 boundary is between fine/coarse Grids), or at edge
+            * of this Grid. Otherwise ox3 boundary is between MPI Grids on child
+            * Domain, and it will be updated as B3i[kcs] by other child Grid */
+            kk = kce-kcs+1;
+            for (i=ics, ii=0; i<=ice  ; i++, ii++) {
+              SMRemf1[kk][ii] = *(pRcv++);
+              if((pCO->myEMF1[5] != NULL) || (kce==pG->ke)){
+                pG->B3i[kce+1][j][i] +=
+                  q2*(pCO->myEMF1[dim][kk][ii] - SMRemf1[kk][ii]);
+              }
+            }
+
             for (k=kcs, kk=0; k<=kce; k++, kk++) {
             for (i=ics, ii=0; i<=ice; i++, ii++) {
               pG->B2i[k][jb][i] -= 
                 q3*(pCO->myEMF1[dim][kk+1][ii] - SMRemf1[kk+1][ii]) -
                 q3*(pCO->myEMF1[dim][kk  ][ii] - SMRemf1[kk  ][ii]);
             }}
+
             for (k=kcs-1; k<=kce+1; k++) {
             for (i=ics; i<=ice; i++) {
               pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
@@ -582,16 +633,41 @@ void RestrictCorrect(MeshS *pM)
             q3 =  (pG->dt/pG->dx3);
           }
 
-          for (j=jcs, jj=0; j<=jce+1; j++, jj++) {
-          for (i=ics, ii=0; i<=ice  ; i++, ii++) {
+          for (j=jcs, jj=0; j<=jce; j++, jj++) {
+          for (i=ics, ii=0; i<=ice; i++, ii++) {
             SMRemf1[jj][ii] = *(pRcv++);
             pG->B2i[k][j][i] -= q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
           }}
-          for (j=jcs, jj=0; j<=jce  ; j++, jj++) {
-          for (i=ics, ii=0; i<=ice+1; i++, ii++) {
+         /* only update B2i[jce+1] if ox2 [dim=3] boundary is at edge of child
+          * Domain (so ox2 boundary is between fine/coarse Grids), or at edge
+          * of this Grid. Otherwise ox2 boundary is between MPI Grids on child
+          * Domain, and it will be updated as B2i[jcs] by other child Grid */
+          jj = jce-jcs+1;
+          for (i=ics, ii=0; i<=ice  ; i++, ii++) {
+            SMRemf1[jj][ii] = *(pRcv++);
+            if((pCO->myEMF1[3] != NULL) || (jce==pG->je)){
+              pG->B2i[k][jce+1][i] -=
+                q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
+            }
+          }
+
+          for (j=jcs, jj=0; j<=jce; j++, jj++) {
+            for (i=ics, ii=0; i<=ice; i++, ii++) {
+              SMRemf2[jj][ii] = *(pRcv++);
+              pG->B1i[k][j][i]+= q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
+            }
+           /* only update B1i[ice+1] if ox1 [dim=1] boundary is at edge of child
+            * Domain (so ox1 boundary is between fine/coarse Grids), or at edge
+            * of this Grid. Otherwise ox1 boundary is between MPI Grids on child
+            * Domain, and it will be updated as B1i[ics] by other child Grid */
+            ii = ice-ics+1;
             SMRemf2[jj][ii] = *(pRcv++);
-            pG->B1i[k][j][i] += q3*(pCO->myEMF2[dim][jj][ii] - SMRemf2[jj][ii]);
-          }}
+            if ((pCO->myEMF2[1] != NULL) || (ice==pG->ie)){
+              pG->B1i[k][j][ice+1] +=
+                q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
+            }
+          }
+
           for (j=jcs, jj=0; j<=jce; j++, jj++) {
           for (i=ics, ii=0; i<=ice; i++, ii++) {
             pG->B3i[kb][j][i] +=
@@ -600,14 +676,17 @@ void RestrictCorrect(MeshS *pM)
               q1*(pCO->myEMF2[dim][jj  ][ii+1] - SMRemf2[jj  ][ii+1]) +
               q1*(pCO->myEMF2[dim][jj  ][ii  ] - SMRemf2[jj  ][ii  ]);
           }}
+
           for (j=jcs; j<=jce; j++) {
           for (i=ics-1; i<=ice+1; i++) {
             pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
           }}
+
           for (j=jcs-1; j<=jce+1; j++) {
           for (i=ics; i<=ice; i++) {
             pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
           }}
+
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
             pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
@@ -745,8 +824,9 @@ void RestrictCorrect(MeshS *pM)
 
 #ifdef MHD
 /*--- Step 3b. Restrict face-centered fields  --------------------------------*/
-/* Average face-centered magnetic fields.  Do not send fields at fine/coarse
- * boundaries (e.g. ips or ipe+1 for B1i) */
+/* Average face-centered magnetic fields.  Send fields at Grid boundaries
+ * (e.g. ips/ipe+1 for B1i) in case they are needed at edges of MPI blocks on
+ * same level.  Step 1c decides whether to use or ignore them. */
 
       if (nDim == 3) { /* 3D problem, restrict B1i,B2i,B3i */
 
@@ -1100,7 +1180,6 @@ void RestrictCorrect(MeshS *pM)
         ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].nWordsRC,
           MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[nl][nd].Comm_Parent,
           &(send_rq[nd][mIndex]));
-/*        start_addr += pG->PGrid[npg].nWordsRC; */
       }
 #endif /* MPI_PARALLEL */
 

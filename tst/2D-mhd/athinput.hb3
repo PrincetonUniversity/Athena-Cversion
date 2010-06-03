@@ -36,8 +36,6 @@ palette = jh_colors
 dt      = 62.831853  # time step between output of delta V3
 dmin    = -0.0006    # min value for imaging delta V3
 dmax    =  0.0006    # max value for imaging delta V3
-level   = 1
-domain  = 0
 
 <time>
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number

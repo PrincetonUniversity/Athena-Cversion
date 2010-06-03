@@ -28,18 +28,6 @@ palette = jh_colors
 x3      = 0.0
 
 <output4>
-out_fmt = ppm                 # ppm images of density
-dt      = 0.01
-dmin    = -0.0001
-dmax    = 0.0001
-out     = V2
-id      = V2-lev1
-palette = jh_colors
-level   = 1
-domain  = 2
-x3      = 0.0
-
-<output5>
 out_fmt = ppm                 # ppm images of color, for entropy waves
 dt      = 0.01
 dmin    = 0.0

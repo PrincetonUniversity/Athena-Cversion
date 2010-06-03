@@ -31,8 +31,6 @@ palette = rainbow
 dt      = 0.01              # time step between images
 dmin    = -0.04             # min value for imaging J3
 dmax    =  0.08             # max value for imaging J3
-level   = 0
-domain  = 0
 
 <output4>
 out_fmt = ppm               # ppm image
@@ -43,8 +41,6 @@ palette = rainbow
 dt      = 0.01              # time step between images
 dmin    = 0.0               # min value for imaging Bp
 dmax    = 1.0e-6            # max value for imaging Bp
-level   = 0
-domain  = 0
 
 <output5>
 out_fmt = ppm               # ppm image
@@ -52,8 +48,6 @@ dt      = 0.01              # time step between outputs
 out     = B3c
 id      = B3
 palette = rainbow
-level   = 0
-domain  = 0
 
 <output6>
 out_fmt = ppm               # ppm image
@@ -64,8 +58,6 @@ palette = rainbow
 dt      = 0.01              # time step between images
 dmin    = -1.0e-16          # min value for imaging Bp
 dmax    = 1.0e-16           # max value for imaging Bp
-level   = 0
-domain  = 0
 
 <output7>
 out_fmt = tab               # table 

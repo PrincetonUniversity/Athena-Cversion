@@ -36,8 +36,6 @@ id      = d-lev1
 dmin    = 0.08
 dmax    = 6.5
 palette = rainbow
-level   = 1
-domain  = 0
 
 <time>
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
