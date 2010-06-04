@@ -522,7 +522,8 @@ void RestrictCorrect(MeshS *pM)
 
           for (k=kcs; k<=kce; k++) {
             for (j=jcs; j<=jce; j++) {
-              pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
+              pG->U[k][j][ib  ].B1c=0.5*(pG->B1i[k][j][ib]+pG->B1i[k][j][ib+1]);
+              pG->U[k][j][ib-1].B1c=0.5*(pG->B1i[k][j][ib-1]+pG->B1i[k][j][ib]);
             }
             for (j=jcs-1; j<=jce+1; j++) {
               pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
@@ -610,7 +611,8 @@ void RestrictCorrect(MeshS *pM)
               pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
             }
             for (i=ics; i<=ice; i++) {
-              pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
+              pG->U[k][jb  ][i].B2c=0.5*(pG->B2i[k][jb][i]+pG->B2i[k][jb+1][i]);
+              pG->U[k][jb-1][i].B2c=0.5*(pG->B2i[k][jb-1][i]+pG->B2i[k][jb][i]);
             }
           }
         }
@@ -689,7 +691,8 @@ void RestrictCorrect(MeshS *pM)
 
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
-            pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
+            pG->U[kb  ][j][i].B3c=0.5*(pG->B3i[kb][j][i] + pG->B3i[kb+1][j][i]);
+            pG->U[kb-1][j][i].B3c=0.5*(pG->B3i[kb-1][j][i] + pG->B3i[kb][j][i]);
           }}
         }
       }
@@ -1580,7 +1583,7 @@ void Prolongate(MeshS *pM)
 
 #ifdef MHD
 /*--- Steps 3c.  Prolongate face-centered B ----------------------------------*/
-/* Set prolonged face-centered B fields for 1D, else initialize ProlongedF  */
+/* Set prolonged face-centered B fields for 1D (trivial case)  */
 
             if (nDim == 1) {
               for (l=0; l<=1; l++) {
@@ -1598,7 +1601,7 @@ void Prolongate(MeshS *pM)
               }}}
             }
 
-/* Set prolonged face-centered B fields for 2D and 3D */
+/* Load B-field ghost zone array with values read from Rcv buffer in 2D/3D */
 
             if (nDim == 2 || nDim ==3) {
               for (n=0; n<3; n++) {
@@ -1610,66 +1613,85 @@ void Prolongate(MeshS *pM)
               }}}
 
 /* If edge of cell touches fine/coarse boundary, use fine grid fields for the
- * normal component at interface. ProFld will not overwrite these values. */
+ * normal component at interface. ProFld will not overwrite these values.  If
+ * the start/end of boundary is between MPI Grids (pPO->myFlx[]==NULL), then use
+ * fine grid fields in corners as well. */
 
 /* inner x1 boundary */
-              if (dim == 0 && i == (ipe-1) &&
-                  j >= (jps+nghost) && j < (jpe-nghost)){
+              if ((dim == 0) &&
+                  (i == (ipe-1)) &&
+                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
                 ProlongedF[0][0][2].x = pG->B1i[k][j  ][i+2];
                 ProlongedF[0][1][2].x = pG->B1i[k][j+1][i+2];
-                if (nDim == 3) {
+                ProlongedF[1][0][2].x = pG->B1i[k][j  ][i+2];
+                ProlongedF[1][1][2].x = pG->B1i[k][j+1][i+2];
+                if ((nDim == 3) &&
+                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
                   ProlongedF[1][0][2].x = pG->B1i[k+1][j  ][i+2];
                   ProlongedF[1][1][2].x = pG->B1i[k+1][j+1][i+2];
-                } else {
-                  ProlongedF[1][0][2].x = pG->B1i[k][j  ][i+2];
-                  ProlongedF[1][1][2].x = pG->B1i[k][j+1][i+2];
                 }
               }
 
 /* outer x1 boundary */
-              if (dim == 1 && i == ips &&
-                  j >= (jps+nghost) && j < (jpe-nghost)){
+              if ((dim == 1) &&
+                  (i == ips) &&
+                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
                 ProlongedF[0][0][0].x = pG->B1i[k][j  ][i];
                 ProlongedF[0][1][0].x = pG->B1i[k][j+1][i];
-                if (nDim == 3){
+                ProlongedF[1][0][0].x = pG->B1i[k][j  ][i];
+                ProlongedF[1][1][0].x = pG->B1i[k][j+1][i];
+                if ((nDim == 3) &&
+                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
                   ProlongedF[1][0][0].x = pG->B1i[k+1][j  ][i];
                   ProlongedF[1][1][0].x = pG->B1i[k+1][j+1][i];
-                } else {
-                  ProlongedF[1][0][0].x = pG->B1i[k][j  ][i];
-                  ProlongedF[1][1][0].x = pG->B1i[k][j+1][i];
                 }
               }
 
 /* inner x2 boundary */
-              if (dim == 2 && j == (jpe-1) &&
-                  i >= (ips+nghost) && i < (ipe-nghost)){
+              if ((dim == 2) &&
+                  (j == (jpe-1)) &&
+                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
                 ProlongedF[0][2][0].y = pG->B2i[k][j+2][i  ];
                 ProlongedF[0][2][1].y = pG->B2i[k][j+2][i+1];
-                if (nDim == 3) {
+                ProlongedF[1][2][0].y = pG->B2i[k][j+2][i  ];
+                ProlongedF[1][2][1].y = pG->B2i[k][j+2][i+1];
+                if ((nDim == 3) &&
+                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
                   ProlongedF[1][2][0].y = pG->B2i[k+1][j+2][i  ];
                   ProlongedF[1][2][1].y = pG->B2i[k+1][j+2][i+1];
-                } else {
-                  ProlongedF[1][2][0].y = pG->B2i[k][j+2][i  ];
-                  ProlongedF[1][2][1].y = pG->B2i[k][j+2][i+1];
                 }
               }
 
 /* outer x2 boundary */
-              if (dim == 3 && j == jps &&
-                  i >= (ips+nghost) && i < (ipe-nghost)){
+              if ((dim == 3) &&
+                  (j == jps) &&
+                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
                 ProlongedF[0][0][0].y = pG->B2i[k][j][i  ];
                 ProlongedF[0][0][1].y = pG->B2i[k][j][i+1];
-                if (nDim == 3){
+                ProlongedF[1][0][0].y = pG->B2i[k][j][i  ];
+                ProlongedF[1][0][1].y = pG->B2i[k][j][i+1];
+                if ((nDim == 3) &&
+                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
                   ProlongedF[1][0][0].y = pG->B2i[k+1][j][i  ];
                   ProlongedF[1][0][1].y = pG->B2i[k+1][j][i+1];
-                } else {
-                  ProlongedF[1][0][0].y = pG->B2i[k][j][i  ];
-                  ProlongedF[1][0][1].y = pG->B2i[k][j][i+1];
                 }
               }
 
 /* inner x3 boundary */
-              if (dim == 4 && k == (kpe-1)){
+              if ((dim == 4) &&
+                  (k == (kpe-1)) &&
+                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
+                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
                 ProlongedF[2][0][0].z = pG->B3i[k+2][j  ][i  ];
                 ProlongedF[2][0][1].z = pG->B3i[k+2][j  ][i+1];
                 ProlongedF[2][1][0].z = pG->B3i[k+2][j+1][i  ];
@@ -1677,7 +1699,12 @@ void Prolongate(MeshS *pM)
               }
 
 /* outer x3 boundary */
-              if (dim == 5 && k == kps){
+              if ((dim == 5) && 
+                  (k == kps) &&
+                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
+                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
                 ProlongedF[0][0][0].z = pG->B3i[k][j  ][i  ];
                 ProlongedF[0][0][1].z = pG->B3i[k][j  ][i+1];
                 ProlongedF[0][1][0].z = pG->B3i[k][j+1][i  ];
@@ -1695,14 +1722,13 @@ void Prolongate(MeshS *pM)
                   pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].y;
                 if (dim != 5 || (k+n) != kps)
                   pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].z;
-/********************************/
+
                 pG->U[k+n][j+m][i+l].B1c = 
                   0.5*(ProlongedF[n][m][l].x + ProlongedF[n][m][l+1].x);
                 pG->U[k+n][j+m][i+l].B2c = 
                   0.5*(ProlongedF[n][m][l].y + ProlongedF[n][m+1][l].y);
                 pG->U[k+n][j+m][i+l].B3c = 
                   0.5*(ProlongedF[n][m][l].z + ProlongedF[n+1][m][l].z);
-/********************************/
               }}}
             }
 

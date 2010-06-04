@@ -484,6 +484,12 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
         pD->NGrid[0] = par_geti_def(block,"NGrid_x1",1);
         pD->NGrid[1] = par_geti_def(block,"NGrid_x2",1);
         pD->NGrid[2] = par_geti_def(block,"NGrid_x3",1);
+        if (pD->NGrid[0] == 0)
+          ath_error("[init_mesh] Cannot enter NGrid_x1=0 in %s\n",block);
+        if (pD->NGrid[1] == 0)
+          ath_error("[init_mesh] Cannot enter NGrid_x2=0 in %s\n",block);
+        if (pD->NGrid[2] == 0)
+          ath_error("[init_mesh] Cannot enter NGrid_x3=0 in %s\n",block);
       }
 
 /* Auto decompose Domain into Grids.  To use this option, set "AutoWithNProc"
