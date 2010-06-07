@@ -1909,6 +1909,11 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 {
   int i,j,k;
   Real dq1,dq2,dq3,Pim1,Pi,Pip1,Pjm1,Pjp1,Pkm1,Pkp1;
+#ifdef SPECIAL_RELATIVITY
+  PrimS W;
+  Real Vsq;
+  int fail,dfail,Pfail,Vfail;
+#endif
 #if (NSCALARS > 0)
   int n;
 #endif
@@ -2019,6 +2024,24 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #endif /* MHD */
 
 #ifndef BAROTROPIC
+#ifdef SPECIAL_RELATIVITY
+
+/* Prolongate E not P. Otherwise we'd need lots & lots of calls to
+ * Con_to_Prim, or a complete rewrite of the code here, so we'll just
+ * do this for now */
+
+  dq1 = mcd_slope(Uim1.E, Ui.E, Uip1.E);
+  dq2 = mcd_slope(Ujm1.E, Ui.E, Ujp1.E);
+  dq3 = mcd_slope(Ukm1.E, Ui.E, Ukp1.E);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].E = Ui.E 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+  }}}
+
+#else
+
 /* Prolongate P not E.   This is intentionally non-conservative. */
 
   Pi   = Ui.E   - 0.5*(SQR(Ui.M1  ) + SQR(Ui.M2  ) + SQR(Ui.M3  ))/Ui.d;
@@ -2060,6 +2083,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #endif /* MHD */
   }}}
 
+#endif /* SPECIAL_RELATIVITY */
 #endif /* BAROTROPIC */
 
 #if (NSCALARS > 0)
@@ -2076,6 +2100,64 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
     }}}
   }
 #endif /* NSCALARS */
+
+#ifdef SPECIAL_RELATIVITY
+/* With SR, we need to ensure that the new state is physical, otherwise
+ * everything will fall apart at the next time step */
+  dfail = 0;
+  Pfail = 0;
+  Vfail = 0;
+  fail = 0;
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    W = check_Prim(&(PCon[k][j][i]));
+    Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+    if (W.d < 0.0){
+      dfail++;
+      fail = 1;
+    }
+    if (W.P < 0.0){
+      Pfail++;
+      fail = 1;
+    }
+    if (Vsq > 1.0){
+      Vfail++;
+      fail = 1;
+    }
+  }}}
+
+/* If the state is unphysical, revert to first order prologongation */
+
+  if (fail) {
+    
+    for (k=0; k<2; k++){
+      for (j=0; j<2; j++){
+        for (i=0; i<2; i++){
+          PCon[k][j][i].d  = Ui.d;
+          PCon[k][j][i].M1 = Ui.M1;
+          PCon[k][j][i].M2 = Ui.M2;
+          PCon[k][j][i].M3 = Ui.M3;
+#ifndef BAROTROPIC
+          PCon[k][j][i].E  = Ui.E;
+#endif /* BAROTROPIC */
+#ifdef MHD
+          PCon[k][j][i].B1c = Ui.B1c;
+          PCon[k][j][i].B2c = Ui.B2c;
+          PCon[k][j][i].B3c = Ui.B3c;
+#endif /* MHD */
+#if (NSCALARS > 0)
+          for (n=0; n<NSCALARS; n++) PCon[k][j][i].s[n] = Ui.s[n];
+#endif /* NSCALARS */
+        }}}
+  }
+
+  dfail = 0;
+  Pfail = 0;
+  Vfail = 0;
+  fail = 0;
+
+#endif SPECIAL_RELATIVITY
 
 #endif /* FIRST_ORDER */
 }
