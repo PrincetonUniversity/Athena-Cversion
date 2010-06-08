@@ -139,9 +139,6 @@ void get_myGridIndex(DomainS *pD, const int my_id, int *pi, int *pj, int *pk);
 /*----------------------------------------------------------------------------*/
 /* new_dt.c */
 void new_dt(MeshS *pM);
-#ifdef MPI_PARALLEL
-void sync_dt(MeshS *pM);
-#endif
 
 /*----------------------------------------------------------------------------*/
 /* output.c - and related files */

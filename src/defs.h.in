@@ -53,10 +53,9 @@
 #define @FEEDBACK_DEFINE@
 
 /* resistivity, viscosity, and thermal conduction */
-#define @DIFFUSIVITIES_DEFINE@
-#define @RESISTIVITY_ALGORITHM@
-#define @VISCOSITY_ALGORITHM@
-#define @CONDUCTION_ALGORITHM@
+#define @RESISTIVITY_MODE@
+#define @VISCOSITY_MODE@
+#define @CONDUCTION_MODE@
 
 /* special relativity */
 #define @SPECIAL_RELATIVITY_MODE@

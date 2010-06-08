@@ -37,10 +37,14 @@ TSFun_t     get_ts    = NULL;     /* get the stopping time */
 WeightFun_t getweight = NULL;     /* get weight function */
 #endif
 
-#ifdef EXPLICIT_DIFFUSION
-/* coefficients of Ohmic resistivity, Hall conduction, kinematic viscosity,
- * isotropic and anisotropic thermal conduction  */
-Real eta_Ohm=0.0, eta_Hall=0.0, nu_V=0.0, kappa_T=0.0, chi_C=0.0;
+#ifdef THERMAL_CONDUCTION
+Real kappa_iso=0.0, kappa_aniso=0.0;         /* coeff of thermal conduction */
+#endif
+#ifdef RESISTIVITY
+Real eta_Ohm=0.0, eta_Hall=0.0, eta_AD=0.0;  /* coeff of non-ideal MHD procs */
+#endif
+#ifdef VISCOSITY
+Real nu_iso=0.0, nu_aniso=0.0;               /* coeff of viscosity */
 #endif
 
 #ifdef CYLINDRICAL
@@ -83,8 +87,14 @@ extern TSFun_t     get_ts;
 extern WeightFun_t getweight; 
 #endif
 
-#ifdef EXPLICIT_DIFFUSION
-extern Real eta_Ohm, eta_Hall, nu_V, kappa_T, chi_C;
+#ifdef THERMAL_CONDUCTION
+extern Real kappa_iso, kappa_aniso;
+#endif
+#ifdef RESISTIVITY
+extern Real eta_Ohm, eta_Hall, eta_AD;
+#endif
+#ifdef VISCOSITY
+extern Real nu_iso, nu_aniso;
 #endif
 
 #ifdef CYLINDRICAL

@@ -18,14 +18,14 @@
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,fft_obc,multigrid]                        (self-gravity)
-#   --with-resistivity=[ohmic,hall]                       (explicit resistivity)
-#   --with-viscosity=[ns,braginskii]                        (explicit viscosity)
-#   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #   --with-particles=[feedback,passive]              (dust particle integration)
 #   --with-coord=[cartesian,cylindrical]                     (coordinate system)
 #
 # PHYSICS "features":
+#   --enable-conduction                            (explicit thermal conduction)
+#   --enable-resistivity                                  (explicit resistivity)
 #   --enable-special-relativity              (special relativistic hydro or MHD)
+#   --enable-viscosity                                      (explicit viscosity)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
@@ -58,8 +58,9 @@ AC_PROG_INSTALL
 #   --with-problem=name (default is linear_wave1d)
 
 AC_SUBST(PROBLEM)
-AC_ARG_WITH(problem, [  --with-problem=PROB     Problem generator from src/prob/name.c],
-		with_problem=$withval, with_problem="linear_wave1d")
+AC_ARG_WITH(problem,
+	[--with-problem=PROB  Problem generator from src/prob/name.c],
+	with_problem=$withval, with_problem="linear_wave1d")
 PROBLEM=$with_problem
 if test -e src/prob/$PROBLEM.c; then
    rm -f src/problem.c
@@ -76,8 +77,9 @@ fi
 #   problem is hydro or mhd (see option --with-flux= below)
 
 AC_SUBST(GAS)
-AC_ARG_WITH(gas, [  --with-gas=GAS          Gas properties (mhd,hydro)],
-		with_gas=$withval, with_gas="mhd")
+AC_ARG_WITH(gas,
+	[--with-gas=GAS  Gas properties (mhd,hydro)],
+	with_gas=$withval, with_gas="mhd")
 if test   "$with_gas" = "hydro"; then
   GAS="HYDRO"
   flux_default="hllc"
@@ -93,8 +95,9 @@ fi
 #   --with-eos=[adiabatic,isothermal] (default is adiabatic)
 
 AC_SUBST(EOS)
-AC_ARG_WITH(eos, [  --with-eos=EOS          Equation of state (adiabatic,isothermal)],
-		with_eos=$withval, with_eos=adiabatic)
+AC_ARG_WITH(eos,
+	[--with-eos=EOS  Equation of state (adiabatic,isothermal)],
+	with_eos=$withval, with_eos=adiabatic)
 if test   "$with_eos" = "adiabatic";  then
   EOS="ADIABATIC"
 elif test "$with_eos" = "isothermal"; then
@@ -109,8 +112,9 @@ fi
 #   number of passively advected scalars
 
 AC_SUBST(NSCALARS)
-AC_ARG_WITH(nscalars, [  --with-nscalars=n (default is 0)],
-                nscalars=$withval, nscalars=0)
+AC_ARG_WITH(nscalars,
+	[--with-nscalars=n (default is 0)],
+	nscalars=$withval, nscalars=0)
 if test   "$nscalars" = "0"; then
   NSCALARS="0"
 elif test "$nscalars" != "0"; then
@@ -125,8 +129,9 @@ fi
 
 AC_SUBST(SELF_GRAVITY_DEFINE)
 AC_SUBST(SELF_GRAVITY_ALGORITHM)
-AC_ARG_WITH(gravity, [  --with-gravity=SELF_GRAVITY_ALGORITHM   Algorithm for self gravity (fft, fft_obc, multigrid)],
-                gravity_algorithm=$withval, gravity_algorithm=none)
+AC_ARG_WITH(gravity,
+	[--with-gravity=SELF_GRAVITY_ALGORITHM  Algorithm for self gravity (fft, fft_obc, multigrid)],
+	gravity_algorithm=$withval, gravity_algorithm=none)
 
 if test   "$gravity_algorithm" = "fft"; then
   SELF_GRAVITY_DEFINE="SELF_GRAVITY"
@@ -149,87 +154,14 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: resistivity
-#   --with-resistivity=[ohmic,hall]
-
-# default for difusivities macro is none.  If any of resistivity, viscosity, or
-# thermal conduction is enabled below, diffusivities will be defined
-AC_SUBST(DIFFUSIVITIES_DEFINE)
-DIFFUSIVITIES_DEFINE="NO_EXPLICIT_DIFFUSION"
-
-AC_SUBST(RESISTIVITY_ALGORITHM)
-AC_ARG_WITH(resistivity, [  --with-resistivity=RESISTIVITY_ALGORITHM  Type of resistivity (ohmic,hall)], 
-		resistivity_algorithm=$withval, resistivity_algorithm=none)
-
-if test "$resistivity_algorithm" = "ohmic"; then
-  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
-  RESISTIVITY_USER="Ohmic"
-  RESISTIVITY_ALGORITHM="OHMIC"
-elif test "$resistivity_algorithm" = "hall"; then
-  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
-  RESISTIVITY_USER="Hall"
-  RESISTIVITY_ALGORITHM="HALL_MHD"
-elif test "$resistivity_algorithm" = "none"; then
-  RESISTIVITY_USER="OFF"
-  RESISTIVITY_ALGORITHM="NO_RESISTIVITY"
-else
-  AC_MSG_ERROR([expected --with-resistivity=ohmic or hall])
-fi
-
-#-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: viscosity
-#   --with-viscosity=[ns,braginskii]
-
-AC_SUBST(VISCOSITY_ALGORITHM)
-AC_ARG_WITH(viscosity, [  --with-viscosity=VISCOSITY_ALGORITHM  Type of viscosity (ns,braginskii)], 
-		viscosity_algorithm=$withval, viscosity_algorithm=none)
-
-if test "$viscosity_algorithm" = "ns"; then
-  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
-  VISCOSITY_USER="Navier-Stokes"
-  VISCOSITY_ALGORITHM="NAVIER_STOKES"
-elif test "$viscosity_algorithm" = "braginskii"; then
-  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
-  VISCOSITY_USER="Braginskii"
-  VISCOSITY_ALGORITHM="BRAGINSKII"
-elif test "$viscosity_algorithm" = "none"; then
-  VISCOSITY_USER="OFF"
-  VISCOSITY_ALGORITHM="NO_VISCOSITY"
-else
-  AC_MSG_ERROR([expected --with-viscosity=ns or braginskii])
-fi
-
-#-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: thermal conduction
-#   --with-conduction=[isotropic,anisotropic]
-
-AC_SUBST(CONDUCTION_ALGORITHM)
-AC_ARG_WITH(conduction, [  --with-conduction=CONDUCTION_ALGORITHM  Type of conduction (isotropic,anisotropic)], 
-		conduction_algorithm=$withval, conduction_algorithm=none)
-
-if test "$conduction_algorithm" = "isotropic"; then
-  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
-  CONDUCTION_USER="isotropic"
-  CONDUCTION_ALGORITHM="ISOTROPIC_CONDUCTION"
-elif test "$conduction_algorithm" = "anisotropic"; then
-  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
-  CONDUCTION_USER="anisotropic"
-  CONDUCTION_ALGORITHM="ANISOTROPIC_CONDUCTION"
-elif test "$conduction_algorithm" = "none"; then
-  CONDUCTION_USER="OFF"
-  CONDUCTION_ALGORITHM="NO_CONDUCTION"
-else
-  AC_MSG_ERROR([expected --with-conduction=isotropic or anisotropic])
-fi
-
-#-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: particles
 #   --with-particles=[feedback,passive]
 
 AC_SUBST(PARTICLES_ALGORITHM)
 AC_SUBST(FEEDBACK_DEFINE)
-AC_ARG_WITH(particles, [  --with-particles=PARTICLES_ALGORITHM  particle integration algorithm (feedback, passive)], 
-		particles_algorithm=$withval, particles_algorithm=none)
+AC_ARG_WITH(particles,
+	[--with-particles=PARTICLES_ALGORITHM  particle integration algorithm (feedback, passive)], 
+	particles_algorithm=$withval, particles_algorithm=none)
 
 if test "$particles_algorithm" = "feedback"; then
   FEEDBACK_DEFINE="FEEDBACK"
@@ -252,31 +184,47 @@ fi
 #   --with-coord=[cartesian,cylindrical] (default is cartesian)
   
 AC_SUBST(COORD)
-AC_ARG_WITH(coord, [  --with-coord=COORD      Coordinate System (cartesian,cylindrical)],
-                with_coord=$withval, with_coord=cartesian)
+AC_ARG_WITH(coord,
+	[--with-coord=COORD  Coordinate System (cartesian,cylindrical)],
+	with_coord=$withval, with_coord=cartesian)
 if test   "$with_coord" = "cartesian";  then
   COORD="CARTESIAN"
 elif test "$with_coord" = "cylindrical"; then
-#  if test "$with_eos" = "isothermal"; then
-#    AC_MSG_ERROR([Sorry, isothermal EOS and cylindrical coordinates are currently incompatible!])
-#  elif test "$nscalars" != "0"; then
-  if test "$nscalars" != "0"; then
-    AC_MSG_ERROR([Sorry, passive scalars and cylindrical coordinates are currently incompatible!])
-  elif test "$gravity_algorithm" != "none"; then
-    AC_MSG_ERROR([Sorry, self-gravity and cylindrical coordinates are currently incompatible!])
-  elif test "$resistivity_algorithm" != "none"; then
-    AC_MSG_ERROR([Sorry, resistivity and cylindrical coordinates are currently incompatible!])
-  elif test "$viscosity_algorithm" != "none"; then
-    AC_MSG_ERROR([Sorry, viscosity and cylindrical coordinates are currently incompatible!])
-  elif test "$conduction_algorithm" != "none"; then
-    AC_MSG_ERROR([Sorry, thermal conduction and cylindrical coordinates are currently incompatible!])
-  elif test "$particles_algorithm" != "none"; then
-    AC_MSG_ERROR([Sorry, particles and cylindrical coordinates are currently incompatible!])
-  else
-    COORD="CYLINDRICAL"
-  fi
+  COORD="CYLINDRICAL"
 else
   AC_MSG_ERROR([expected --with-coord=cartesian or cylindrical])
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: explicit thermal conduction
+#  --enable-conduction
+  
+AC_SUBST(CONDUCTION_MODE) 
+AC_ARG_ENABLE(conduction,
+	[--enable-conduction  enable thermal conduction (default is no)],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  CONDUCTION_MODE="THERMAL_CONDUCTION"
+  CONDUCTION_MODE_USER="ON"
+else
+  CONDUCTION_MODE="NO_THERMAL_CONDUCTION"
+  CONDUCTION_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: explicit resistivity
+#  --enable-resistivity
+ 
+AC_SUBST(RESISTIVITY_MODE)
+AC_ARG_ENABLE(resistivity,
+	[--enable-resistivity  enable resistivity (default is no)],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RESISTIVITY_MODE="RESISTIVITY"
+  RESISTIVITY_MODE_USER="ON"
+else
+  RESISTIVITY_MODE="NO_RESISTIVITY"
+  RESISTIVITY_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -284,14 +232,31 @@ fi
 #  --enable-special-relativity
 
 AC_SUBST(SPECIAL_RELATIVITY_MODE)
-AC_ARG_ENABLE(special-relativity, [  --enable-special-relativity  enable special relativistic hydro or MHD (default is no)],
-                                ok=$enableval, ok=no)
+AC_ARG_ENABLE(special-relativity,
+	[--enable-special-relativity  enable special relativistic hydro or MHD (default is no)],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   SPECIAL_RELATIVITY_MODE="SPECIAL_RELATIVITY"
   SPECIAL_RELATIVITY_MODE_USER="ON"
 else
   SPECIAL_RELATIVITY_MODE="NEWTONIAN"
   SPECIAL_RELATIVITY_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: explicit viscosity
+#  --enable-viscosity
+
+AC_SUBST(VISCOSITY_MODE)
+AC_ARG_ENABLE(viscosity,
+	[--enable-viscosity  enable viscosity (default is no)],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  VISCOSITY_MODE="VISCOSITY"
+  VISCOSITY_MODE_USER="ON"
+else
+  VISCOSITY_MODE="NO_VISCOSITY"
+  VISCOSITY_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -303,8 +268,9 @@ fi
 AC_SUBST(ORDER)
 AC_SUBST(ACCURACY)
 
-AC_ARG_WITH(order, [  --with-order=ORDER      Order of Accuracy (1,2,3,2p,3p)],
-		with_order=$withval, with_order="2")
+AC_ARG_WITH(order,
+	[--with-order=ORDER      Order of Accuracy (1,2,3,2p,3p)],
+	with_order=$withval, with_order="2")
 ORDER=$with_order
 if test   "$with_order" = "1"; then
   ACCURACY="FIRST_ORDER"
@@ -327,8 +293,9 @@ fi
 
 AC_SUBST(FLUX_NAME)
 AC_SUBST(FLUX_DEF)
-AC_ARG_WITH(flux, [  --with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only),two-shock (hydro only))],
-		with_flux=$withval, with_flux=$flux_default)
+AC_ARG_WITH(flux,
+	[--with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only),two-shock (hydro only))],
+	with_flux=$withval, with_flux=$flux_default)
 FLUX_NAME=$with_flux
 if test   "$with_flux" = "roe"; then
   FLUX_DEF="ROE_FLUX"
@@ -355,8 +322,9 @@ fi
 AC_SUBST(INTEGRATOR)
 AC_SUBST(INTEGRATOR_DEF)
 
-AC_ARG_WITH(integrator, [  --with-integrator=INTEGRATOR      Which unsplit integrator (ctu, vl)],
-		with_integrator=$withval, with_integrator="ctu")
+AC_ARG_WITH(integrator,
+	[--with-integrator=INTEGRATOR  Which unsplit integrator (ctu, vl)],
+	with_integrator=$withval, with_integrator="ctu")
 INTEGRATOR=$with_integrator
 if test   "$with_integrator" = "ctu"; then
   INTEGRATOR_DEF="CTU_INTEGRATOR"
@@ -373,8 +341,9 @@ fi
 AC_SUBST(DEBUG_MODE)
 AC_SUBST(COMPILER_OPTS)
 
-AC_ARG_WITH(cflags, [  --with-cflags=DEBUG_MODE      Set debugging mode (opt,debug,profile)],
-		with_debug=$withval, with_debug="opt")
+AC_ARG_WITH(cflags,
+	[--with-cflags=DEBUG_MODE  Set debugging mode (opt,debug,profile)],
+	with_debug=$withval, with_debug="opt")
 if test "$with_debug" = "debug"; then
   COMPILER_OPTS="-g -Wall -W -ansi -pedantic"
   DEBUG_MODE="DEBUG"
@@ -394,8 +363,9 @@ fi
 #   --enable-single (default is double)
 
 AC_SUBST(PRECISION)
-AC_ARG_ENABLE(single, [  --enable-single         single-precision (default is double)], 
-		      ok=$enableval, ok=no)
+AC_ARG_ENABLE(single,
+	[--enable-single  single-precision (default is double)], 
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   PRECISION="SINGLE_PREC"
 else
@@ -407,7 +377,9 @@ fi
 #   --enable-ghost
 
 AC_SUBST(WRITE_GHOST_MODE)
-AC_ARG_ENABLE(ghost, [  --enable-ghost          write ghost zones], ok=$enableval, ok=no)
+AC_ARG_ENABLE(ghost,
+	[--enable-ghost  write ghost zones],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   WRITE_GHOST_MODE="WRITE_GHOST_CELLS" 
   WRITE_GHOST_MODE_USER="ON" 
@@ -420,7 +392,9 @@ fi
 # ALGORITHM FEATURE: parallelize with MPI, --enable-mpi (default is no MPI)
 
 AC_SUBST(MPI_MODE)
-AC_ARG_ENABLE(mpi, [  --enable-mpi           enable MPI parellelization], ok=$enableval, ok=no)
+AC_ARG_ENABLE(mpi,
+	[--enable-mpi  enable MPI parellelization],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   MPI_MODE="MPI_PARALLEL"
   MPI_MODE_USER="ON"
@@ -436,7 +410,9 @@ fi
 # H-correction is enabled with any other flux.
 
 AC_SUBST(H_CORRECTION_MODE)
-AC_ARG_ENABLE(h-correction, [  --enable-h-correction          turn on H-correction], ok=$enableval, ok=no)
+AC_ARG_ENABLE(h-correction,
+	[--enable-h-correction  turn on H-correction],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
 if test "$with_flux" = "roe"; then
   H_CORRECTION_MODE="H_CORRECTION"
@@ -454,8 +430,9 @@ fi
 #   --enable-fft
 
 AC_SUBST(FFT_MODE)
-AC_ARG_ENABLE(fft, [  --enable-fft      compile and link FFT interface code (req
-uires FFTW)], ok=$enableval, ok=no)
+AC_ARG_ENABLE(fft,
+	[--enable-fft  compile and link FFT interface code (requires FFTW)],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   FFT_MODE="FFT_ENABLED"
   FFT_MODE_USER="ON"
@@ -471,7 +448,9 @@ fi
 # shearing box is enabled with VL+CT integrator.
 
 AC_SUBST(SHEARING_BOX_MODE)
-AC_ARG_ENABLE(shearing-box, [  --enable-shearing-box      turn on shearing-box], ok=$enableval, ok=no)
+AC_ARG_ENABLE(shearing-box,
+	[--enable-shearing-box  turn on shearing-box],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
 if test "$with_integrator" = "ctu"; then
   SHEARING_BOX_MODE="SHEARING_BOX"
@@ -489,7 +468,9 @@ fi
 #   --enable-fargo
 
 AC_SUBST(FARGO_MODE)
-AC_ARG_ENABLE(fargo, [  --enable-fargo      turn on fargo], ok=$enableval, ok=no)
+AC_ARG_ENABLE(fargo,
+	[--enable-fargo  turn on fargo],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   FARGO_MODE="FARGO"
   FARGO_MODE_USER="ON"
@@ -503,8 +484,9 @@ fi
 #   --enable-smr (default is no SMR)
 
 AC_SUBST(MESH_REFINEMENT)
-AC_ARG_ENABLE(smr, [  --enable-smr         static mesh refinement (default is no refinement)], 
-		      ok=$enableval, ok=no)
+AC_ARG_ENABLE(smr,
+	[--enable-smr  static mesh refinement (default is no refinement)], 
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   MESH_REFINEMENT="STATIC_MESH_REFINEMENT"
   SMR_MODE_USER="ON"
@@ -522,7 +504,9 @@ fi
 # enabled, otherwise prints error message.
 
 AC_SUBST(HLL_ALL_WAVE_MODE)
-AC_ARG_ENABLE(hllallwave, [  --enable-hllallwave    turn on all-wave integration for HLL fluxes], ok=$enableval, ok=no)
+AC_ARG_ENABLE(hllallwave,
+	[--enable-hllallwave  turn on all-wave integration for HLL fluxes],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
 if test "$with_flux" = "hlle"; then
   HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
@@ -546,7 +530,9 @@ fi
 #   --enable-fofc
 
 AC_SUBST(FOFC_MODE)
-AC_ARG_ENABLE(fofc, [  --enable-fofc    enable first-order flux correction], ok=$enableval, ok=no)
+AC_ARG_ENABLE(fofc,
+	[--enable-fofc  enable first-order flux correction],
+	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
 if test "$with_integrator" = "vl"; then
   FOFC_MODE="FIRST_ORDER_FLUX_CORRECTION"
@@ -558,6 +544,21 @@ else
   FOFC_MODE="NO_FIRST_ORDER_FLUX_CORRECTION"
   FOFC_MODE_USER="OFF"
 fi  
+
+#-------------------------------------------------------------------------------
+# check for compatibility of various options
+
+if test "$with_coord" = "cylindrical"; then
+  if test "$with_eos" = "isothermal"; then
+    AC_MSG_ERROR([Sorry, isothermal EOS and cylindrical coordinates are currently incompatible!])
+  elif test "$nscalars" != "0"; then
+    AC_MSG_ERROR([Sorry, passive scalars and cylindrical coordinates are currently incompatible!])
+  elif test "$gravity_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, self-gravity and cylindrical coordinates are currently incompatible!])
+  elif test "$particles_algorithm" != "none"; then
+    AC_MSG_ERROR([Sorry, particles and cylindrical coordinates are currently incompatible!])
+  fi
+fi
 
 #-------------------------------------------------------------------------------
 # check for various library functions
@@ -598,9 +599,9 @@ if test "$gravity_algorithm" = "none"; then
 else
   echo "Self-gravity:            $SELF_GRAVITY_ALGORITHM"
 fi
-echo "Resistivity:             $RESISTIVITY_USER"
-echo "Viscosity:               $VISCOSITY_USER"
-echo "Thermal conduction:      $CONDUCTION_USER"
+echo "Resistivity:             $RESISTIVITY_MODE_USER"
+echo "Viscosity:               $VISCOSITY_MODE_USER"
+echo "Thermal conduction:      $CONDUCTION_MODE_USER"
 echo "Particles:               $PARTICLES_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""

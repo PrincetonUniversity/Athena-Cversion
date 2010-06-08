@@ -5,7 +5,7 @@
  * PURPOSE: Computes timestep using CFL condition on cell-centered velocities
  *   and sound speed, and Alfven speed from face-centered B, across all Grids
  *   being updated on this processor.  With MPI parallel jobs, also finds
- *   minimum dt across all processors..
+ *   minimum dt across all processors.
  *
  * For special relativity, the time step limit is just (1/dx), since the fastest
  * wave speed is never larger than c=1.
@@ -14,8 +14,7 @@
  * defined.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   new_dt()  - computes dt
- *   sync_dt() - synchronizes dt across all processors with MPI
+ *   new_dt() - computes dt
  *============================================================================*/
 
 #include <stdio.h>
@@ -44,6 +43,10 @@ void new_dt(MeshS *pM)
   long q;
 #endif /* PARTICLES */
 #endif /* SPECIAL RELATIVITY */
+#ifdef MPI_PARALLEL
+  double dt, my_dt;
+  int ierr;
+#endif
   int nl,nd;
   Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
   Real x1,x2,x3;
@@ -58,7 +61,6 @@ void new_dt(MeshS *pM)
 
 /* Maximum velocity is always c with special relativity */
 #ifdef SPECIAL_RELATIVITY
-
     max_v1 = max_v2 = max_v3 = 1.0;
 #else
 
@@ -164,7 +166,9 @@ void new_dt(MeshS *pM)
 /* Find minimum timestep over all processors */
 
 #ifdef MPI_PARALLEL
-  sync_dt(pM);
+  my_dt = pM->dt;
+  ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+  pM->dt = dt;
 #endif /* MPI_PARALLEL */
 
 /* modify timestep so loop finishes at t=tlim exactly */
@@ -184,23 +188,3 @@ void new_dt(MeshS *pM)
 
   return;
 }
-
-/*----------------------------------------------------------------------------*/
-/* sync_dt: uses MPI_Allreduce to compute minumum timestep over all MPI patches
- */
-
-#ifdef MPI_PARALLEL
-void sync_dt(MeshS *pM)
-{
-  double dt, my_dt;
-  int ierr;
-
-  my_dt = pM->dt;
-
-  ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-  pM->dt = dt;
-
-  return;
-}
-#endif /* MPI_PARALLEL */

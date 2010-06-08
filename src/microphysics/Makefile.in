@@ -7,12 +7,10 @@
 # Makefile will be created (overwriting the last) from this template.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = anisotropic_conduction.o \
-	   braginskii.o \
+CORE_OBJ = conduction.o \
+	   diff_dt.o \
 	   cool.o \
-	   hall.o \
 	   integrate_diffusion.o \
-	   isotropic_conduction.o \
            resistivity.o \
            viscosity.o
 

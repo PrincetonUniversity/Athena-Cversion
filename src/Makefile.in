@@ -70,12 +70,10 @@ GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg_fft_obc.o \
               gravity/selfg_multigrid.o
 
-MICROPHYS_OBJ = microphysics/anisotropic_conduction.o \
-		microphysics/braginskii.o \
+MICROPHYS_OBJ = microphysics/conduction.o \
+	        microphysics/diff_dt.o \
 		microphysics/cool.o \
-		microphysics/hall.o \
 		microphysics/integrate_diffusion.o \
-		microphysics/isotropic_conduction.o \
 		microphysics/resistivity.o \
 		microphysics/viscosity.o
 
