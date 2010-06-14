@@ -5,8 +5,11 @@
  * PURPOSE: Adds explicit resistivity terms to the induction and energy eqns,
  *      dB/dt = -Curl(E)
  *      dE/dt = Div(B X E)
- *   where E = eta_Ohm J +  = electric field (emf) 
+ *   where E = eta_Ohm J + Q_H(J X B) - Q_AD(J X B X B) = electric field (emf) 
  *         J = Curl(B) = current density
+ *         eta_Ohm = Ohmic resistivity
+ *         Q_H = Hall coefficient
+ *         Q_AD = ambipolar diffusion coefficient
  *   The induction equation is updated using CT to keep div(B)=0.  The total
  *   electric field (resistive EMF) is computed from calls to the EField_*
  *   functions.
@@ -96,27 +99,23 @@ void resistivity(DomainS *pD)
 
 /* 1D PROBLEM */
   if (ndim == 1){
-    for (k=kl; k<=ku; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=is-1; i<=ie+2; i++) {
-        J[k][j][i].x = 0.0;
-        J[k][j][i].y = -(pG->U[k][j][i].B3c - pG->U[k][j][i-1].B3c)/pG->dx1;
-        J[k][j][i].z =  (pG->U[k][j][i].B2c - pG->U[k][j][i-1].B2c)/pG->dx1;
-      }
-    }}
+    for (i=is-1; i<=ie+2; i++) {
+      J[ks][js][i].x = 0.0;
+      J[ks][js][i].y = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
+      J[ks][js][i].z =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
+    }
   }
 
 /* 2D PROBLEM */
   if (ndim == 2){
-    for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=is-1; i<=ie+2; i++) {
-        J[k][j][i].x =  (pG->U[k][j][i].B3c - pG->U[k][j-1][i  ].B3c)/pG->dx2;
-        J[k][j][i].y = -(pG->U[k][j][i].B3c - pG->U[k][j  ][i-1].B3c)/pG->dx1;
-        J[k][j][i].z =  (pG->B2i[k][j][i] - pG->B2i[k][j  ][i-1])/pG->dx1 -
-                        (pG->B1i[k][j][i] - pG->B1i[k][j-1][i  ])/pG->dx2;
+        J[ks][j][i].x=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
+        J[ks][j][i].y= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
+        J[ks][j][i].z=  (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
+                        (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
       }
-    }}
+    }
   }
 
 /* 3D PROBLEM */

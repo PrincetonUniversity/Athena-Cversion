@@ -32,7 +32,7 @@ Real diff_dt(MeshS *pM)
   Real dxmin,qa;
 #ifdef MPI_PARALLEL
   double my_dt, dt;
-  integer ierr;
+  int ierr;
 #endif
 
 /* Calculate minimum dx.  Always given by Grid on highest level of refinement */
