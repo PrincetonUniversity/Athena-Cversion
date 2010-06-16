@@ -52,6 +52,11 @@ ShearFun_t ShearProfile = NULL;
 #endif
 #endif
 
+#ifdef RAD_MULTIG
+int img = 0;
+int nmgrid;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -94,6 +99,11 @@ extern Real *r, *ri;
 extern OrbitalFun_t OrbitalProfile;
 extern ShearFun_t ShearProfile;
 #endif
+#endif
+
+#ifdef RAD_MULTIG
+extern int img;
+extern int nmgrid;
 #endif
 
 #endif /* MAIN_C */

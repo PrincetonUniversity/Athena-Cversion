@@ -621,6 +621,9 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
       sprintf(block,"domain%d",pD->InputBlock);
       pD->Grid = NULL;
+#ifdef RADIATION
+      pD->RadGrid = NULL;
+#endif
 
 /* Loop over GData array, and if there is a Grid assigned to this proc, 
  * allocate it */
@@ -631,6 +634,10 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
         if (pD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
           if ((pD->Grid = (GridS*)malloc(sizeof(GridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a Grid for %s\n",block);
+#ifdef RADIATION
+          if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+            ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+#endif
         }
       }}}
     }

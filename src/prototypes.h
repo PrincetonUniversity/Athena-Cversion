@@ -23,6 +23,7 @@
 #include "particles/prototypes.h"
 #include "reconstruction/prototypes.h"
 #include "rsolvers/prototypes.h"
+#include "radiation/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */
@@ -30,12 +31,25 @@ int athena_main(int argc, char *argv[]);
 
 /*----------------------------------------------------------------------------*/
 /* ath_array.c */
-void*   calloc_1d_array(                      size_t nc, size_t size);
-void**  calloc_2d_array(           size_t nr, size_t nc, size_t size);
-void*** calloc_3d_array(size_t nt, size_t nr, size_t nc, size_t size);
+void*       calloc_1d_array(                      size_t nc, size_t size);
+void**      calloc_2d_array(           size_t nr, size_t nc, size_t size);
+void***     calloc_3d_array(size_t nt, size_t nr, size_t nc, size_t size);
+void****    calloc_4d_array(                                 size_t ni, 
+                            size_t nj, size_t nk, size_t nl, size_t size);
+void*****   calloc_5d_array(                      size_t ni, size_t nj, 
+                            size_t nk, size_t nl, size_t nm, size_t size);
+void******  calloc_6d_array(           size_t ni, size_t nj, size_t nk, 
+                            size_t nl, size_t nm, size_t nn, size_t size);
+void******* calloc_7d_array(size_t ni, size_t nj, size_t nk, size_t nl, 
+                            size_t nm, size_t nn, size_t no, size_t size);
+
 void free_1d_array(void *array);
 void free_2d_array(void *array);
 void free_3d_array(void *array);
+void free_4d_array(void *array);
+void free_5d_array(void *array);
+void free_6d_array(void *array);
+void free_7d_array(void *array);
 
 /*----------------------------------------------------------------------------*/
 /* ath_log.c */
@@ -109,7 +123,10 @@ Real x2cc(const GridS *pGrid, const int j);
 int cellk(const GridS *pGrid, const Real z, const Real dx3_1, int *k, Real *c);
 Real x3cc(const GridS *pGrid, const int k);
 #endif
-
+#ifdef RADIATION
+void ccr_pos(const RadGridS *pRG, const int i, const int j,const int k,
+            Real *px1, Real *px2, Real *px3);
+#endif
 /*----------------------------------------------------------------------------*/
 /* convert_var.c */
 PrimS Cons_to_Prim(const ConsS *pU);

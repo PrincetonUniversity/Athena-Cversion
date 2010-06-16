@@ -4,16 +4,18 @@
  * FILE: athena.h
  *
  * PURPOSE: Contains definitions of the following data types and structures:
- *   Real    - either float or double, depending on configure option
- *   ConsS   - cell-centered conserved variables
- *   PrimS   - cell-centered primitive variables
- *   Cons1DS - conserved variables in 1D: same as ConsS minus Bx
- *   Prim1DS - primitive variables in 1D: same as PrimS minus Bx
- *   GrainS  - basic properties of particles
- *   GridS   - everything in a single Grid
- *   DomainS - everything in a single Domain (potentially many Grids)
- *   MeshS   - everything across whole Mesh (potentially many Domains)
- *   OutputS - everything associated with an individual output
+ *   Real     - either float or double, depending on configure option
+ *   ConsS    - cell-centered conserved variables
+ *   PrimS    - cell-centered primitive variables
+ *   Cons1DS  - conserved variables in 1D: same as ConsS minus Bx
+ *   Prim1DS  - primitive variables in 1D: same as PrimS minus Bx
+ *   GrainS   - basic properties of particles
+ *   RadS     - radiation variables
+ *   GridS    - everything in a single Grid
+ *   RadGridS - everything in a single Radiation Grid
+ *   DomainS  - everything in a single Domain (potentially many Grids)
+ *   MeshS    - everything across whole Mesh (potentially many Domains)
+ *   OutputS  - everything associated with an individual output
  *============================================================================*/
 #include "defs.h"
 
@@ -219,6 +221,62 @@ typedef struct GPCouple_s{
 
 #endif /* PARTICLES */
 
+#ifdef RADIATION
+
+/*----------------------------------------------------------------------------*/
+/* RadS: basic radiation quantities for single zone and frequency */
+
+typedef struct Rad_s {
+  Real S;                       /* total source function */
+  Real J;                       /* mean intensity */
+  Real B;                       /* thermal source function */
+  Real eps;                     /* thermalization coeff */
+  Real chi;                     /* total opacity */
+
+  Real lamstr;                  /* diagnal component of Lambda matrix */
+
+} RadS;
+
+/*----------------------------------------------------------------------------*/
+/* RadGridS:  3D arrays of dependent variables, plus grid data, to be used
+ * for radiative transfer computation.  Modelled after GridS. */
+
+typedef struct RadGrid_s {
+
+  int nmu;           /* # of polar angles */
+  int ng;            /* # of azimuthal angles */
+  int nf;            /* # of frequencies */
+
+  Real **w;          /* angular quadrature weights */
+  Real *mu;          /* polar angle array */
+  Real *gamma;       /* azimutha angle array */
+
+  RadS ****R;        /* array of radiation variables */
+
+  Real *****r1imu;   /* intensity on R side in x1-dir  */
+  Real *****l1imu;   /* intensity on L side in x1-dir  */
+  Real *****r2imu;   /* intensity on R side in x2-dir  */
+  Real *****l2imu;   /* intensity on L side in x2-dir  */
+  Real *****r3imu;   /* intensity on R side in x3-dir  */
+  Real *****l3imu;   /* intensity on L side in x3-dir  */
+
+  Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
+  Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
+  Real dx1,dx2,dx3;        /* cell size on this Grid */
+  int is,ie;		   /* start/end cell index in x1 direction */
+  int js,je;		   /* start/end cell index in x2 direction */
+  int ks,ke;		   /* start/end cell index in x3 direction */
+  int Nx[3];       /* # of zones in each dir on Grid [0,1,2]=[x1,x2,x3] */
+  int Disp[3];     /* i,j,k displacements of Grid from origin [0,1,2]=[i,j,k] */
+
+  int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
+  int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
+  int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
+
+} RadGridS;
+
+#endif /* RADIATION */
+
 /*----------------------------------------------------------------------------*/
 /* GridOvrlpS: contains information about Grid overlaps, used for SMR
  */
@@ -339,6 +397,9 @@ typedef struct Domain_s{
   MPI_Group Group_Children;    /* MPI group for Children communicator */
 #endif /* STATIC_MESH_REFINEMENT */
 #endif /* MPI_PARALLEL */
+#ifdef RADIATION
+  RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
+#endif
 }DomainS;
 
 typedef void (*VDFun_t)(DomainS *pD);  /* generic void function of Domain */

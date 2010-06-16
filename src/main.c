@@ -319,6 +319,9 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   init_particle(&Mesh);
 #endif
+#ifdef RADIATION
+  init_radiation(&Mesh);
+#endif
 
 /*--- Step 5. ----------------------------------------------------------------*/
 /* Set initial conditions, either by reading from restart or calling problem
@@ -426,6 +429,14 @@ int main(int argc, char *argv[])
 #ifdef EXPLICIT_DIFFUSION
   integrate_diff_init(&Mesh);
 #endif
+#ifdef RADIATION
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+	  radiation_temp_array_init(&(Mesh.Domain[nl][nd]));
+	}        
+      }}
+#endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
@@ -489,13 +500,28 @@ int main(int argc, char *argv[])
     }
 #endif
 
+/* Loop over all Domains, solve radiative transfer, and perform an
+ * operator split update of the hydro energy equation with radiation
+ * source term */
+#ifdef RADIATION
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+/* compute radiation variables from conserved variables */
+	  hydro_to_rad(&(Mesh.Domain[nl][nd]));  
+/* solve radiative transfer */
+	  rad_trans(&(Mesh.Domain[nl][nd]));
+	}        
+      }}
+#endif /* RADIATION */
+
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
 
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
-          (*Integrate)(&(Mesh.Domain[nl][nd]));
+	  /*  (*Integrate)(&(Mesh.Domain[nl][nd]));*/
 
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));
@@ -503,9 +529,11 @@ int main(int argc, char *argv[])
           advect_particles(&level0_Grid, &level0_Domain);
 #endif
 #endif /* FARGO */
+
         }
       }
     }
+
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
@@ -681,6 +709,10 @@ int main(int argc, char *argv[])
   integrate_diff_destruct();
 #endif
   par_close();
+#ifdef RADIATION
+ radiation_destruct(&Mesh);
+#endif
+
 
 #ifdef MPI_PARALLEL
   MPI_Finalize();

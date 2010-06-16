@@ -85,6 +85,14 @@ void show_config(void)
   ath_pout(0," Particles:               OFF\n");
 #endif
 
+#if defined(RADIATION)
+  #if defined(JACOBI)
+    ath_pout(0," Formal solution:         Jacobi\n");
+  #elif defined(GAUSSEID)
+    ath_pout(0," Formal solution:         Gauss-Seidel\n");
+  #endif
+#endif
+
 #if defined(CYLINDRICAL)
   ath_pout(0," Coordinate System:       cylindrical\n");
 #else
@@ -183,6 +191,12 @@ void show_config(void)
   ath_pout(0," Static mesh refinement:  ON\n");
 #else
   ath_pout(0," Static mesh refinement:  OFF\n");
+#endif
+
+#ifdef RAD_MULTIG
+  ath_pout(0," Multigrid rad. trans.:   ON\n");
+#else
+  ath_pout(0," Multigrid rad. trans.:   OFF\n");
 #endif
 }
 
