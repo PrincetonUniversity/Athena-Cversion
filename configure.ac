@@ -549,9 +549,7 @@ fi
 # check for compatibility of various options
 
 if test "$with_coord" = "cylindrical"; then
-  if test "$with_eos" = "isothermal"; then
-    AC_MSG_ERROR([Sorry, isothermal EOS and cylindrical coordinates are currently incompatible!])
-  elif test "$nscalars" != "0"; then
+  if test "$nscalars" != "0"; then
     AC_MSG_ERROR([Sorry, passive scalars and cylindrical coordinates are currently incompatible!])
   elif test "$gravity_algorithm" != "none"; then
     AC_MSG_ERROR([Sorry, self-gravity and cylindrical coordinates are currently incompatible!])
