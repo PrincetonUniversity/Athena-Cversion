@@ -207,23 +207,23 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
   if(ev[0] >= 0.0){
     *pFlux = Fl;
-#ifdef CYLINDRICAL
+#if defined(CYLINDRICAL) && !defined(BAROTROPIC)
     pFlux->Pflux = Wl.P;
 #ifdef MHD
     pFlux->Pflux += pbl;
 #endif /* MHD */
-#endif /* CYLINDRICAL */
+#endif /* CYLINDRICAL && NOT BAROTROPIC */
     return;
   }
 
   if(ev[NWAVE-1] <= 0.0){
     *pFlux = Fr;
-#ifdef CYLINDRICAL
+#if defined(CYLINDRICAL) && !defined(BAROTROPIC)
     pFlux->Pflux = Wl.P;
 #ifdef MHD
     pFlux->Pflux += pbr;
 #endif /* MHD */
-#endif /* CYLINDRICAL */
+#endif /* CYLINDRICAL && NOT BAROTROPIC */
     return;
   }
 
@@ -313,7 +313,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   }
 #endif
 
-#ifdef CYLINDRICAL
+#if defined(CYLINDRICAL) && !defined(BAROTROPIC)
 /* "TOTAL PRESSURE FLUX" COMPUTED FROM AVERAGED STAR-STATES */
   Emag = 0.0;
 #ifdef MHD
@@ -323,7 +323,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Eint = u_inter[4] - Emag - Ekin;
 
   pFlux->Pflux = Eint*Gamma_1 + Emag;
-#endif /* CYLINDRICAL */
+#endif /* CYLINDRICAL && NOT BAROTROPIC */
 
   return;
 }

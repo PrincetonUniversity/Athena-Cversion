@@ -148,7 +148,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
   if(spd[0] >= 0.0){
     *pFlux = Fl;
-#ifdef CYLINDRICAL
+#if defined(CYLINDRICAL) && !defined(BAROTROPIC)
     pFlux->Pflux = ptl;
 #endif 
     return;
@@ -156,7 +156,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
   if(spd[4] <= 0.0){
     *pFlux = Fr;
-#ifdef CYLINDRICAL
+#if defined(CYLINDRICAL) && !defined(BAROTROPIC)
     pFlux->Pflux = ptr;
 #endif 
     return;
@@ -387,7 +387,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   }
 #endif
 
-#ifdef CYLINDRICAL
+#if defined(CYLINDRICAL) && !defined(BAROTROPIC)
   pFlux->Pflux = ptst;
 #endif
   return;
