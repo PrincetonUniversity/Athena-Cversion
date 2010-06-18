@@ -46,7 +46,7 @@ void problem(DomainS *pDomain)
   int i,j,k;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3;
   int il,iu,jl,ju,kl,ku;
-  Real r0,phi0,x0,y0,z0,angle,radius,proat,pamb,b0;
+  Real r0,phi0,x0,y0,z0,angle,radius,prat,pamb,b0;
   Real x1,x2,x3,x2i;
   Real x,y,z,Eint,Emag,Ekin;
 
@@ -97,7 +97,7 @@ void problem(DomainS *pDomain)
 
         pG->U[k][j][i].d  = rho0;
         pG->U[k][j][i].M1 = 0.0;
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega;
+        pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega0;
         pG->U[k][j][i].M3 = 0.0;
 #ifdef MHD
         /* SET UP A PLANAR MAGNETIC FIELD IN THE X-Y (R-PHI) PLANE */
@@ -181,11 +181,11 @@ void Userwork_after_loop(MeshS *pM)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
-  return 0.5*SQR(x1*omega);
+  return 0.5*SQR(x1*omega0);
 }
 
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return x1*SQR(omega);
+  return x1*SQR(omega0);
 }
 
 Real M2(const Real x1, const Real x2, const Real x3) {
