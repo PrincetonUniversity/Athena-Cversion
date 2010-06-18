@@ -4,7 +4,7 @@ problem = HK Accretion Disk, cylindrical coords
 author  = Kareem
 journal = Hawley & Krolik
 
-<job>
+<job>num_domains     = 1                 # number of Domains in Mesh
 
 problem_id      = HKDisk      # problem ID: basename of output filenames
 maxout          = 3          # Output blocks number from 1 -> maxout
@@ -37,20 +37,20 @@ tlim            = 60000.0      # time limit
 Nx1             = 128  	        # Number of zones in X-direction
 x1min           = 4		# minimum value of X1 (radial coord)
 x1max           = 44		# maximum value of X1 (radial coord)
-ibc_x1          = 3		# inner-I (R) boundary flag
-obc_x1          = 3		# outer-I (R) boundary flag
+bc_ix1          = 3		# inner-I (R) boundary flag
+bc_ox1          = 3		# outer-I (R) boundary flag
 
 Nx2             = 32            # Number of zones in X2-direction
 x2min           = -.785398      # minimum value of X2 (theta coord; radians)
 x2max           = .785398       # maximum value of X2 (theta coord; radians)
-ibc_x2          = 4             # inner-J (PHI) boundary flag
-obc_x2          = 4             # outer-J (PHI) boundary flag
+bc_ix2          = 4             # inner-J (PHI) boundary flag
+bc_ox2          = 4             # outer-J (PHI) boundary flag
 
 Nx3             = 128            # Number of zones in X3-direction
 x3min           = -20.0         # minimum value of X3
 x3max           = 20.0          # maximum value of X3
-ibc_x3          = 3             # inner-K (Z) boundary flag
-obc_x3          = 3             # outer-K (Z) boundary flag
+bc_ix3          = 3             # inner-K (Z) boundary flag
+bc_ox3          = 3             # outer-K (Z) boundary flag
 
 <parallel>
 NGrid_x1 = 5

@@ -9,6 +9,7 @@ file_open       = 0             # write to .out file?  otherwise, writes to stdo
 out_level       = 0             # sets output level (default=0)
 
 <job>
+num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylRayleigh   # problem ID: basename of output filenames
 maxout          = 3             # Output blocks number from 1 -> maxout
 
@@ -29,24 +30,24 @@ cour_no         = 0.8           # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000000      # cycle limit
 tlim            = 300.0         # time limit
 
-<grid>
+<domain1>
+level           = 0             # refinement level this Domain (root=0)
 Nx1             = 200           # Number of zones in R-direction
 x1min           = 3.0           # minimum value of R
 x1max           = 7.0           # maximum value of R
-ibc_x1          = 3             # inner (R) boundary flag
-obc_x1          = 3             # outer (R) boundary flag
+bc_ix1          = 3             # inner (R) boundary flag
+bc_ox1          = 3             # outer (R) boundary flag
 
 Nx2             = 400           # Number of zones in PHI-direction
 x2min           = 0.0           # minimum value of PHI
 x2max           = 1.5707963268  # maximum value of PHI
-ibc_x2          = 4             # inner (PHI) boundary flag
-obc_x2          = 4             # outer (PHI) boundary flag
+bc_ix2          = 4             # inner (PHI) boundary flag
+bc_ox2          = 4             # outer (PHI) boundary flag
 
 Nx3             = 1             # Number of zones in Z-direction
 x3min           = 0.0           # minimum value of Z
 x3max           = 0.0           # maximum value of Z
 
-<parallel>
 NGrid_x1        = 4
 NGrid_x2        = 4
 NGrid_x3        = 1

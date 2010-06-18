@@ -11,9 +11,10 @@
 #
 # It redirects all output to outputdir
 
-set bindir=/a1/home/askinner/minerva/bin
-set inputdir=/a1/home/askinner/minerva/tst/2D-mhd
-set outputdir=/net/locutus/askinner/cylwindrotb/2D
+set basedir=/n/a2/askinner/svnathena
+set bindir=$basedir/bin
+set inputdir=$basedir/tst/cylindrical
+set outputdir=$basedir/bin/cylwindrotb
 set logfile=0
 
 if (! -d $outputdir) then 
@@ -22,7 +23,8 @@ endif
 
 cd $bindir
 
-foreach nx1 (128 256 512 1024 2048)
-    ./athena -i $inputdir/athinput.cylwindrotb log/file_open=$logfile grid/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
+#foreach nx1 (128 256 512 1024 2048)
+foreach nx1 (32)
+    ./athena -i $inputdir/athinput.cylwindrotb-2D log/file_open=$logfile domain1/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
     echo 'Finished '{$nx1}'' problem
 end

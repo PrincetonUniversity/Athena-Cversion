@@ -8,7 +8,7 @@ config  = --with-problem=cylunif --with-coord=cylindrical
 file_open       = 0                 # write to .out file?  otherwise, writes to stdout
 out_level       = 0                 # sets output level (default=0)
 
-<job>
+<job>num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylUnif    # problem ID: basename of output filenames
 maxout          = 2          # Output blocks number from 1 -> maxout
 
@@ -29,8 +29,8 @@ tlim            = 1.0       # time limit
 Nx1             = 128       # Number of zones in R-direction
 x1min           = 1.0       # minimum value of R
 x1max           = 2.0       # maximum value of R
-ibc_x1          = 3         # inner (R) boundary flag
-obc_x1          = 3         # outer (R) boundary flag
+bc_ix1          = 3         # inner (R) boundary flag
+bc_ox1          = 3         # outer (R) boundary flag
 
 Nx2             = 1         # Number of zones in PHI-direction
 x2min           = 0.0       # minimum value of PHI

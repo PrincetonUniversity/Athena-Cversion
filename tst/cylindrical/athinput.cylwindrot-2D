@@ -2,16 +2,16 @@
 problem = 2D Axisymmetric Rotating Wind (CYLINDRICAL)
 author  = A. Skinner
 journal = unpublished
-config  = --with-problem=cylwindrot --with-coord=cylindrical --with-gas=hydro
+config  = --with-problem=cylwindrot --with-coord=cylindrical --with-gas=hydro (--with-flux=hlld --enable-hllallwave)
 
 <log>
 file_open       = 0                 # write to .out file?  otherwise, writes to stdout
 out_level       = 0                 # sets output level (default=0)
 
 <job>
+num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylWindRot        # problem ID: basename of output filenames
 maxout          = 2                 # Output blocks number from 1 -> maxout
-num_domains     = 1                 # number of Domains in Mesh
 
 <output1>
 out_fmt         = bin               # Binary data dump
@@ -44,7 +44,6 @@ Nx3             = 1                 # Number of zones in Z-direction
 x3min           = 0.0               # minimum value of Z
 x3max           = 0.0               # maximum value of Z
 
-<parallel>
 NGrid_x1        = 16
 NGrid_x2        = 1
 NGrid_x3        = 1

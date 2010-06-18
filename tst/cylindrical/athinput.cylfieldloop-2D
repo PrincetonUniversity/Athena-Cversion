@@ -9,9 +9,9 @@ file_open       = 0                  # write to .out file?  otherwise, writes to
 out_level       = 0                  # sets output level (default=0)
 
 <job>
+num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylFieldLoop       # problem ID: basename of output filenames
 maxout          = 2                  # Output blocks number from 1 -> maxout
-num_domains     = 1                  # number of Domains in Mesh
 
 <time>
 cour_no         = 0.8                # The Courant, Friedrichs, & Lewy (CFL) Number
@@ -31,13 +31,13 @@ level   = 0
 
 <domain1>
 level           = 0                  # refinement level this Domain (root=0)
-Nx1             = 128 #200                # Number of zones in R-direction
+Nx1             = 128                # Number of zones in R-direction
 x1min           = 1.0                # minimum value of R
 x1max           = 2.0                # maximum value of R
 bc_ix1          = 3                  # inner (R) boundary flag
 bc_ox1          = 3                  # outer (R) boundary flag
 
-Nx2             = 256 #400                # Number of zones in PHI-direction
+Nx2             = 256                # Number of zones in PHI-direction
 x2min           = -0.66666666666667  # minimum value of PHI
 x2max           = 0.66666666666667   # maximum value of PHI
 bc_ix2          = 4                  # inner (PHI) boundary flag
@@ -51,10 +51,10 @@ bc_ox3          = 4                  # outer (PHI) boundary flag
 
 <domain2>
 level           = 1                  # refinement level this Domain (root=0)
-Nx1             = 128 #80                 # Number of zones in X1-direction
+Nx1             = 128                # Number of zones in X1-direction
 Nx2             = 64                 # Number of zones in X2-direction
 Nx3             = 1                  # Number of zones in X3-direction
-iDisp           = 0 #24                 # i-displacement measured in cells of this level
+iDisp           = 0                  # i-displacement measured in cells of this level
 jDisp           = 0                  # j-displacement measured in cells of this level
 kDisp           = 0                  # k-displacement measured in cells of this level
 
@@ -67,7 +67,6 @@ iDisp           = 64                 # i-displacement measured in cells of this 
 jDisp           = 32                 # j-displacement measured in cells of this level
 kDisp           = 0                  # k-displacement measured in cells of this level
 
-<parallel>
 NGrid_x1        = 1
 NGrid_x2        = 1
 NGrid_x3        = 1

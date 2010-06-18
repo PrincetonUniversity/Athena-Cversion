@@ -9,9 +9,9 @@ file_open       = 0                 # write to .out file?  otherwise, writes to 
 out_level       = 0 #5                 # sets output level (default=0)
 
 <job>
+num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylWindRotB       # problem ID: basename of output filenames
 maxout          = 2                 # Output blocks number from 1 -> maxout
-num_domains     = 1                 # number of Domains in Mesh
 
 <output1>
 out_fmt         = bin               # Binary data dump
@@ -31,8 +31,8 @@ level           = 0                 # refinement level this Domain (root=0)
 Nx1             = 128               # Number of zones in R-direction
 x1min           = 0.4               # minimum value of R
 x1max           = 1.8               # maximum value of R
-ibc_x1          = 3                 # inner (R) boundary flag
-obc_x1          = 3                 # outer (R) boundary flag
+bc_ix1          = 3                 # inner (R) boundary flag
+bc_ox1          = 3                 # outer (R) boundary flag
 
 Nx2             = 1                 # Number of zones in R-direction
 x2min           = 0.0               # minimum value of R
@@ -42,7 +42,6 @@ Nx3             = 1                 # Number of zones in Z-direction
 x3min           = 0.0               # minimum value of Z
 x3max           = 0.0               # maximum value of Z
 
-<parallel>
 NGrid_x1        = 16
 NGrid_x2        = 1
 NGrid_x3        = 1

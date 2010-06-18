@@ -9,9 +9,9 @@ file_open       = 0                 # write to .out file?  otherwise, writes to 
 out_level       = 0                 # sets output level (default=0)
 
 <job>
+num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylAdvect         # problem ID: basename of output filenames
 maxout          = 2                 # Output blocks number from 1 -> maxout
-num_domains     = 1                 # number of Domains in Mesh
 
 <output1>
 out_fmt         = bin               # Binary data dump

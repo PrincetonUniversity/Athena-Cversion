@@ -15,7 +15,7 @@ problem_id      = CylBPhi       # problem ID: basename of output filenames
 maxout          = 2             # Output blocks number from 1 -> maxout
 
 <time>
-cour_no         = 0.4           # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.8           # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000000      # cycle limit
 tlim            = 10.0          # time limit
 
@@ -41,11 +41,9 @@ x2max           = 0.01          # maximum value of X2
 bc_ix2          = 4             # inner (X2) boundary flag
 bc_ox2          = 4             # outer (X2) boundary flag
 
-Nx3             = 2             # Number of zones in X3-direction
+Nx3             = 1             # Number of zones in X3-direction
 x3min           = 0.0           # minimum value of X3
-x3max           = 0.015         # maximum value of X3
-bc_ix3          = 4             # inner (X2) boundary flag
-bc_ox3          = 4             # outer (X2) boundary flag
+x3max           = 0.0           # maximum value of X3
 
 <problem>
 iso_csound      = 1.732         # isothermal sound speed
