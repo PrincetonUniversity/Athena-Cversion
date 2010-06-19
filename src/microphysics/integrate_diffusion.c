@@ -30,6 +30,21 @@ void integrate_diff(MeshS *pM)
   int nl,nd;
   Real dtmin_expl;
 
+/* Calculate the magnetic diffusivity array
+ */
+#ifdef RESISTIVITY
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+
+        pG=pM->Domain[nl][nd].Grid;
+
+        get_eta(pG);
+      }
+    }
+  }
+#endif
+
   dtmin_expl = diff_dt(pM);
 
 /* Limit timestep by minimum for explicit update of diffusion operators.
@@ -86,7 +101,7 @@ void integrate_diff_init(MeshS *pM)
 #endif
 
 #ifdef RESISTIVITY
-  if ((eta_Ohm + eta_Hall + eta_AD) <= 0.0) 
+  if ((eta_Ohm + Q_Hall + Q_AD) <= 0.0) 
     ath_error("[diff_init] coefficents of resistivity not set\n");
   resistivity_init(pM);
 #endif
