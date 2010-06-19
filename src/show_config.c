@@ -51,12 +51,8 @@ void show_config(void)
   ath_pout(0," Self-gravity:            OFF\n");
 #endif
 
-#if defined(OHMIC)
-  ath_pout(0," Resistivity:             Ohmic\n");
-#elif defined(HALL_MHD)
-  ath_pout(0," Resistivity:             Hall\n");
-#else
-  ath_pout(0," Ohmic resistivity:       OFF\n");
+#if defined(RESISTIVITY)
+  ath_pout(0," Resistivity:             ON\n");
 #endif
 
 #if defined(NAVIER_STOKES)

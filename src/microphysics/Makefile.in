@@ -11,6 +11,7 @@ CORE_OBJ = conduction.o \
 	   diff_dt.o \
 	   cool.o \
 	   integrate_diffusion.o \
+           get_eta.o \
            resistivity.o \
            viscosity.o
 

@@ -250,6 +250,9 @@ typedef struct Grid_s{
   ConsS ***U;                /* conserved variables */
 #ifdef MHD
   Real ***B1i,***B2i,***B3i;    /* interface magnetic fields */
+#ifdef RESISTIVITY
+  Real ***eta_Ohm,***eta_Hall,***eta_AD; /* magnetic diffusivities */ 
+#endif
 #endif /* MHD */
 #ifdef SELF_GRAVITY
   Real ***Phi, ***Phi_old;      /* gravitational potential */
@@ -436,6 +439,10 @@ typedef Real (*ShearFun_t)(const Real x1);
 #endif
 #endif /* Cylindrical */
 typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
+#ifdef RESISTIVITY
+typedef void (*EtaFun_t)(GridS *pG, int i, int j, int k,
+                         Real *eta_O, Real *eta_H, Real *eta_A);
+#endif /* RESISTIVITY */
 
 #ifdef PARTICLES
 /* function types for interpolation schemes and stopping time */

@@ -74,7 +74,8 @@ MICROPHYS_OBJ = microphysics/conduction.o \
 	        microphysics/diff_dt.o \
 		microphysics/cool.o \
 		microphysics/integrate_diffusion.o \
-		microphysics/resistivity.o \
+		microphysics/get_eta.o \
+                microphysics/resistivity.o \
 		microphysics/viscosity.o
 
 PARTICLES_OBJ = particles/dump_particle_history.o\

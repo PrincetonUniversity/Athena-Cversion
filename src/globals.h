@@ -38,10 +38,11 @@ WeightFun_t getweight = NULL;     /* get weight function */
 #endif
 
 #ifdef THERMAL_CONDUCTION
-Real kappa_iso=0.0, kappa_aniso=0.0;         /* coeff of thermal conduction */
+Real kappa_iso=0.0, kappa_aniso=0.0;           /* coeff of thermal conduction */
 #endif
 #ifdef RESISTIVITY
-Real eta_Ohm=0.0, eta_Hall=0.0, eta_AD=0.0;  /* coeff of non-ideal MHD procs */
+Real eta_Ohm=0.0, Q_Hall=0.0, Q_AD=0.0;        /* diffusivities */
+EtaFun_t get_myeta = NULL;         /* function to calculate the diffusivities */
 #endif
 #ifdef VISCOSITY
 Real nu_iso=0.0, nu_aniso=0.0;               /* coeff of viscosity */
@@ -91,7 +92,8 @@ extern WeightFun_t getweight;
 extern Real kappa_iso, kappa_aniso;
 #endif
 #ifdef RESISTIVITY
-extern Real eta_Ohm, eta_Hall, eta_AD;
+extern Real eta_Ohm, Q_Hall, Q_AD;
+extern EtaFun_t get_myeta;
 #endif
 #ifdef VISCOSITY
 extern Real nu_iso, nu_aniso;

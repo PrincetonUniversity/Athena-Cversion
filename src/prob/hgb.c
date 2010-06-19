@@ -84,7 +84,7 @@ void problem(DomainS *pDomain)
   int ixs,jxs,kxs,i,j,k,ipert,ifield;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax;
-  Real den = 1.0, pres = 1.0e-6, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
+  Real den = 1.0, pres = 1.0, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
   Real beta=1.0,B0,kx,ky,kz,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
@@ -95,7 +95,7 @@ void problem(DomainS *pDomain)
   }
 
 /* Read problem parameters.  Note Omega_0 set to 10^{-3} by default */
-  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","Omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
 #ifdef MHD
@@ -107,6 +107,8 @@ void problem(DomainS *pDomain)
 /* Compute field strength based on beta.  */
 #ifdef ISOTHERMAL
   pres = Iso_csound2;
+#else
+  pres = par_getd("problem","pres");
 #endif
   B0 = sqrt((double)(2.0*pres/beta));
 
@@ -372,8 +374,10 @@ void problem(DomainS *pDomain)
   }
 
 /* With viscosity and/or resistivity, read eta_Ohm and nu_V */
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_A",0.0);
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
@@ -408,9 +412,13 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
+
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_A",0.0);
 #endif
+
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
 #endif
@@ -446,6 +454,18 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {

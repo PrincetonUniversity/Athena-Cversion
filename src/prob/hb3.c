@@ -205,6 +205,13 @@ void problem(DomainS *pDomain)
     }
   }
 
+/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_A",0.0);
+#endif
+
 /* enroll gravitational potential function, shearing sheet BC functions */
 
   ShearingBoxPot = UnstratifiedDisk;
@@ -254,6 +261,12 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
+
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_A",0.0);
+#endif
 
 /* Must recompute global variable Lx needed by BC routines */
   x1min = pM->RootMinX[0];

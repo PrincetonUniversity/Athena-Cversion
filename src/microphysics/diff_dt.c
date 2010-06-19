@@ -30,6 +30,12 @@ Real diff_dt(MeshS *pM)
   int irefine, ir;
   Real dtmin_diffusion=(HUGE_NUMBER);
   Real dxmin,qa;
+#ifdef RESISTIVITY
+  int i,j,k,nl,nd;
+  int il,iu,jl,ju,kl,ku;
+  Real qb;
+  GridS *pG;
+#endif
 #ifdef MPI_PARALLEL
   double my_dt, dt;
   int ierr;
@@ -56,13 +62,42 @@ Real diff_dt(MeshS *pM)
 #endif
 
 #ifdef RESISTIVITY
-  if (eta_Ohm > 0.0) dtmin_diffusion = MIN(dtmin_diffusion,(qa/eta_Ohm));
+  qb = 0.25*qa;
+  for (nl=pM->NLevels-1; nl>=0; nl--){
+    qb *= 4.0;
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
 
-/* FIX NEEDED: Hall timestep limit needs density and B */
-  if (eta_Hall > 0.0) dtmin_diffusion = MIN(dtmin_diffusion,(qa/eta_Hall));
+        pG = pM->Domain[nl][nd].Grid;
 
-/* FIX NEEDED: AD timestep limit needs B */
-  if (eta_AD > 0.0) dtmin_diffusion = MIN(dtmin_diffusion,(qa/eta_AD));
+        il = pG->is - 2;    iu = pG->ie + 2;
+        if (pG->Nx[1] > 1){
+          jl = pG->js - 2;  ju = pG->je + 2;
+        } else {
+          jl = pG->js;      ju = pG->je;
+        }
+        if (pG->Nx[2] > 1){
+          kl = pG->ks - 2;  ku = pG->ke + 2;
+        } else {
+          kl = pG->ks;      ku = pG->ke;
+        }
+
+        for (k=kl; k<=ku; k++) {
+        for (j=jl; j<=ju; j++) {
+        for (i=il; i<=iu; i++) {
+
+          if (eta_Ohm > 0.0)
+            dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_Ohm[k][j][i]));
+
+          if (Q_Hall > 0.0)
+            dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_Hall[k][j][i]));
+
+          if (Q_AD > 0.0)
+            dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_AD[k][j][i]));
+        }}}
+      }
+    }
+  }
 #endif
 
 /* Find minimum timestep over all processors */

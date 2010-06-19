@@ -354,12 +354,10 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   four_pi_G = par_getd("problem","four_pi_G");
   grav_mean_rho = d0;
 #endif /* SELF_GRAVITY */
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
-#endif
-#ifdef HALL_MHD
-  eta_Ohm = par_getd("problem","eta_O");
-  eta_Hall = par_getd("problem","eta_H");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
@@ -375,6 +373,18 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {

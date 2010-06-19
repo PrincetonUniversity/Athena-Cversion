@@ -171,32 +171,45 @@ void init_grid(MeshS *pM)
       if (pG->B3i == NULL) goto on_error4;
 #endif /* MHD */
 
+/* Build 3D arrays to magnetic diffusivities */
+
+#ifdef RESISTIVITY
+      pG->eta_Ohm = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->eta_Ohm == NULL) goto on_error5;
+
+      pG->eta_Hall = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->eta_Hall == NULL) goto on_error6;
+
+      pG->eta_AD = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->eta_AD == NULL) goto on_error7;
+#endif /* RESISTIVITY */
+
 /* Build 3D arrays to gravitational potential and mass fluxes */
 
 #ifdef SELF_GRAVITY
       pG->Phi = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Phi == NULL) goto on_error6;
+      if (pG->Phi == NULL) goto on_error9;
 
       pG->Phi_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Phi_old == NULL) goto on_error7;
+      if (pG->Phi_old == NULL) goto on_error10;
 
       pG->x1MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->x1MassFlux == NULL) goto on_error8;
+      if (pG->x1MassFlux == NULL) goto on_error11;
 
       pG->x2MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->x2MassFlux == NULL) goto on_error9;
+      if (pG->x2MassFlux == NULL) goto on_error12;
 
       pG->x3MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->x3MassFlux == NULL) goto on_error10;
+      if (pG->x3MassFlux == NULL) goto on_error13;
 #endif /* SELF_GRAVITY */
 
 /* Allocate and initialize cylindrical scaling factors */
 #ifdef CYLINDRICAL
       pG->r = (Real*)calloc_1d_array(n1z, sizeof(Real));
-      if (pG->r == NULL) goto on_error11;
+      if (pG->r == NULL) goto on_error14;
 
       pG->ri = (Real*)calloc_1d_array(n1z, sizeof(Real));
-      if (pG->ri == NULL) goto on_error12;
+      if (pG->ri == NULL) goto on_error15;
       for (i=pG->is-nghost; i<=pG->ie+nghost; i++) {
         pG->ri[i] = pG->MinX[0] + ((Real)(i - pG->is))*pG->dx1;
         pG->r[i]  = pG->ri[i] + 0.5*pG->dx1;
@@ -1106,22 +1119,30 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
 /*--- Error messages ---------------------------------------------------------*/
 
 #ifdef CYLINDRICAL
-  on_error12:
+  on_error15:
     free_1d_array(pG->ri);
-  on_error11:
+  on_error14:
     free_1d_array(pG->r);
 #endif
 #ifdef SELF_GRAVITY
-  on_error10:
+  on_error13:
     free_3d_array(pG->x3MassFlux);
-  on_error9:
+  on_error12:
     free_3d_array(pG->x2MassFlux);
-  on_error8:
+  on_error11:
     free_3d_array(pG->x1MassFlux);
-  on_error7:
+  on_error10:
     free_3d_array(pG->Phi_old);
-  on_error6:
+  on_error9:
     free_3d_array(pG->Phi);
+#endif
+#ifdef RESISTIVITY
+  on_error7:
+    free_3d_array(pG->eta_AD);
+  on_error6:
+    free_3d_array(pG->eta_Hall);
+  on_error5:
+    free_3d_array(pG->eta_Ohm);
 #endif
 #ifdef MHD
   on_error4:

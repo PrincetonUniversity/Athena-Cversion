@@ -26,16 +26,27 @@ Real KoyInut(const Real dens, const Real Press, const Real dt);
 /* diff_dt.c */
 Real diff_dt(MeshS *pM);
 
+/* get_eta.c */
+#ifdef RESISTIVITY
+void get_eta(GridS *pG);
+void eta_single_const(GridS *pG, int i, int j, int k,
+                      Real *eta_O, Real *eta_H, Real *eta_A);
+void eta_single_user(GridS *pG, int i, int j, int k,
+                      Real *eta_O, Real *eta_H, Real *eta_A);
+void eta_general_user(GridS *pG, int i, int j, int k,
+                      Real *eta_O, Real *eta_H, Real *eta_A);
+#endif
+
 /* integrate_diffusion.c */
 void integrate_diff(MeshS *pM);
 void integrate_diff_init(MeshS *pM);
 void integrate_diff_destruct(void);
 
 /* resistivity.c */
-#ifdef RESISTIVTY
+#ifdef RESISTIVITY
 void resistivity(DomainS *pD);
 void resistivity_init(MeshS *pM);
-void resistivity_destruct(void);
+void resistivity_destruct();
 #endif
 
 /* viscosity.c */
