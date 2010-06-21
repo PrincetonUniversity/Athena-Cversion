@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
     }
   }
 #endif
-#ifdef EXPLICIT_DIFFUSION
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_init(&Mesh);
 #endif
 
@@ -478,7 +478,7 @@ int main(int argc, char *argv[])
 /* operator-split explicit diffusion: thermal conduction, viscosity, resistivity
  * Done first since CFL constraint is applied which may change dt  */
 
-#ifdef EXPLICIT_DIFFUSION
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
     integrate_diff(&Mesh);
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
@@ -677,7 +677,7 @@ int main(int argc, char *argv[])
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();
 #endif
-#ifdef EXPLICIT_DIFFUSION
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_destruct();
 #endif
   par_close();

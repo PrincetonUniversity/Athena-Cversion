@@ -53,20 +53,18 @@ void show_config(void)
 
 #if defined(RESISTIVITY)
   ath_pout(0," Resistivity:             ON\n");
+#else
+  ath_pout(0," Resistivity:             OFF\n");
 #endif
 
-#if defined(NAVIER_STOKES)
-  ath_pout(0," Viscosity:               Navier-Stokes\n");
-#elif defined(BRAGINSKII)
-  ath_pout(0," Viscosity:               Braginskii\n");
+#if defined(VISCOSITY)
+  ath_pout(0," Viscosity:               ON\n");
 #else
   ath_pout(0," Viscosity:               OFF\n");
 #endif
 
-#if defined(ISOTROPIC_CONDUCTION)
-  ath_pout(0," Thermal conduction:      isotropic\n");
-#elif defined(ANISOTROPIC_CONDUCTION)
-  ath_pout(0," Thermal conduction:      anisotropic\n");
+#if defined(THERMAL_CONDUCTION)
+  ath_pout(0," Thermal conduction:      ON\n");
 #else
   ath_pout(0," Thermal conduction:      OFF\n");
 #endif
@@ -216,28 +214,22 @@ void show_config_par(void)
   par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
 #endif
 
-#if defined(OHMIC)
-  par_sets("configure","resistivity","Ohmic","resistivity algorithm");
-#elif defined(HALL_MHD)
-  par_sets("configure","resistivity","Hall","resistivity algorithm");
+#if defined(RESISTIVTY)
+  par_sets("configure","resistivity","ON","resistivity algorithm");
 #else
   par_sets("configure","resistivity","OFF","resistivity algorithm");
 #endif
 
-#if defined(NAVIER_STOKES)
-  par_sets("configure","viscosity","Navier-Stokes","viscosity algorithm");
-#elif defined(BRAGINSKII)
-  par_sets("configure","viscosity","Braginskii","viscosity algorithm");
+#if defined(VISCOSITY)
+  par_sets("configure","viscosity","ON","viscosity algorithm");
 #else
-  par_sets("configure","viscosity","none","viscosity algorithm");
+  par_sets("configure","viscosity","OFF","viscosity algorithm");
 #endif
 
-#if defined(ISOTROPIC_CONDUCTION)
-  par_sets("configure","thermal conduction","isotropic","conduction algorithm");
-#elif defined(ANISOTROPIC_CONDUCTION)
-  par_sets("configure","thermal conduction","anisotropic","conduction algorithm");
+#if defined(THERMAL_CONDUCTION)
+  par_sets("configure","thermal conduction","ON","conduction algorithm");
 #else
-  par_sets("configure","thermal conduction","none","conduction algorithm");
+  par_sets("configure","thermal conduction","OFF","conduction algorithm");
 #endif
 
 #if defined(PARTICLES)
