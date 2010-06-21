@@ -19,11 +19,13 @@
 
 #define SEED 31337
 
-static Real rho0,Amp,Beta, R0, Rm, Lb,rhomin, Flux, Hbc, Mbc;
+static Real rho0,Amp,Beta, R0, rhomin, Field, Hbc, Mbc, Mc;
 Real Mollifier(Real Center, Real Scl, Real x);
 void ScaleToBeta(GridS *pG, Real beta);
 void disk_ir(GridS *pG);
 void disk_or(GridS *pG);
+static Real ChiMag(Real R);
+static Real ChiSub(Real R);
 static Real Mrp(const GridS *pG, const int i, const int j, const int k);
 static Real Trp(const GridS *pG, const int i, const int j, const int k);
 static Real Pb(const GridS *pG, const int i, const int j, const int k);
@@ -38,6 +40,11 @@ static Real MdotR1(const GridS *pG, const int i, const int j, const int k);
 static Real MdotR2(const GridS *pG, const int i, const int j, const int k);
 static Real MdotR3(const GridS *pG, const int i, const int j, const int k);
 static Real MdotR4(const GridS *pG, const int i, const int j, const int k);
+static Real Msub(const GridS *pG, const int i, const int j, const int k);
+static Real Mrpsub(const GridS *pG, const int i, const int j, const int k);
+static Real Bzsub(const GridS *pG, const int i, const int j, const int k);
+static Real Bpsub(const GridS *pG, const int i, const int j, const int k);
+static Real Pbsub(const GridS *pG, const int i, const int j, const int k);
 static void dump_vtksub(MeshS *pM, OutputS *pOut);
 void out_ktab(MeshS *pM, OutputS *pOut);
 
@@ -48,7 +55,7 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
 
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
 	Real g;
-	g = (1/SQR(x1));
+	g = (1.0/SQR(x1));
 
 	return g;
 
@@ -69,21 +76,51 @@ static Real vphi(const Real x1, const Real x2, const Real x3) {
 
 
 static Real BzZero(const Real R, const Real phi, const Real z) {
-	Real Arg, bz, H0, m;
+	Real Arg, bz, H0, n, Rs, I;
 
-
-	H0 = sqrt(2.0)*Iso_csound/Omega(R0); 
+	H0 = sqrt(2.0)*Iso_csound/Omega(R0);
 	Arg = 2.0*PI*(R-R0)/H0;
-	m = (int)(R0/H0);
-	bz = Omega(R)*cos(Arg)*sin(m*phi)*Mollifier(Rm,Lb,R);
+	n = floor( (R-1.2)/H0 );
+	Rs = 1.3 + n*H0;
+	I = ChiMag(R);
+	bz = I*sin(Arg)*(Rs/R)*Omega(Rs);
 	return bz;
 }
+
 static Real BzNet(const Real R, const Real phi, const Real z) {
-	
-	return 0.0;
+	Real bz, I;
+
+	I = ChiMag(R);
+	bz = I*Omega(R);
+	return bz;
 }
 
+static Real BpNet(const Real R, const Real phi, const Real z) {
+	Real Bp, I;
+	I = ChiMag(R);
+	Bp = sqrt(rho0/R)*I/Mc;
+	// Define Bp so that the critical M is constant in radius
+	return Bp;
+}
 
+static Real ChiMag(Real R) {
+	Real I;
+	if ((R >= 1.2) && (R <= 3.8)) {
+		I = 1.0;
+	} else {
+		I = 0.0;
+	}
+	return I;
+}
+static Real ChiSub(Real R) {
+	Real I;
+	if ((R >= 1.6) && (R <= 2.4)) {
+		I = 1.0;
+	} else {
+		I = 0.0;
+	}
+	return I;
+}
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
@@ -104,43 +141,51 @@ void problem(DomainS *pDomain)
   jl = js-nghost*(nx2>1);  ju = je+nghost*(nx2>1);  nx2 = ju-jl+1;
   kl = ks-nghost*(nx3>1);  ku = ke+nghost*(nx3>1);  nx3 = ku-kl+1;
 
-  rho0        = par_getd("problem", "rho0");
-  Amp         = par_getd("problem", "Amp");
-  Beta        = par_getd("problem", "Beta");
-  R0          = par_getd("problem", "R0");
-	Rm          = par_getd("problem", "Rm");
-  Lb          = par_getd("problem","Lb");
-  rhomin      = par_getd("problem","rhomin");
-  Flux      = par_getd("problem","Flux");
-  Hbc       = par_getd("problem","Hbc");
-  Mbc       = par_getd("problem","Mbc");
+  rho0        = par_getd_def("problem", "rho0", 100.0);
+  Amp         = par_getd_def("problem", "Amp", 1.0e-2);
+  Beta        = par_getd_def("problem", "Beta",100.0);
+  R0          = par_getd_def("problem", "R0",2.0);
+  rhomin      = par_getd_def("problem","rhomin",1.0e-3);
+  Field      = par_getd_def("problem","Field",0);
+  Hbc       = par_getd_def("problem","Hbc",1);
+  Mbc       = par_getd_def("problem","Mbc",1);
+  Mc        = par_getd_def("problem","Mc",20.0);
 
   srand(SEED + myID_Comm_world);
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        x1 = x1vc(pG,i);
         r = 2.0*rand()/((double)RAND_MAX) - 1.0;
         pG->U[k][j][i].d = rho0;
-#ifndef FARGO
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*avg1d(vphi,pG,i,j,k)*(1.0+Mollifier(Rm,Lb,x1)*Amp*r);
+#ifdef FARGO
+        pG->U[k][j][i].M2 = 0.0;
 #else
-        pG->U[k][j][i].M2 = pG->U[k][j][i].d*avg1d(vphi,pG,i,j,k)*(Mollifier(Rm,Lb,x1)*Amp*r);
+        pG->U[k][j][i].M2 = pG->U[k][j][i].d*avg1d(vphi,pG,i,j,k);
 #endif
+        pG->U[k][j][i].M2 += pG->U[k][j][i].d*Amp*r*Iso_csound*ChiMag(x1);
 				r = 2.0*rand()/((double)RAND_MAX)-1.0;
         pG->U[k][j][i].M1 = 0.0;
-        pG->U[k][j][i].M3 = rho0*Amp*r;
+        pG->U[k][j][i].M3 = pG->U[k][j][i].d*Amp*r*Iso_csound*ChiMag(x1);
 #ifdef MHD
         pG->U[k][j][i].B1c = 0.0;
-        pG->U[k][j][i].B2c = 0.0;
-        if (Flux == 0) {
-          pG->U[k][j][i].B3c = avg2d(BzZero,pG,i,j,k);
+
+        if (Field == 2) {
+        	pG->U[k][j][i].B2c = BpNet(x1,x2,x3);
         } else {
-          pG->U[k][j][i].B3c = avg2d(BzNet,pG,i,j,k);
+          pG->U[k][j][i].B2c = 0.0;
+        }
+        if (Field == 0) {
+          pG->U[k][j][i].B3c = BzZero(x1,x2,x3);
+        } else if (Field == 1) {
+          pG->U[k][j][i].B3c = BzNet(x1,x2,x3);
+        } else {
+        	pG->U[k][j][i].B3c = 0.0;
         }
 
         pG->B1i[k][j][i] = 0.0;
-        pG->B2i[k][j][i] = 0.0;
+        pG->B2i[k][j][i] = pG->U[k][j][i].B2c;
         pG->B3i[k][j][i] = pG->U[k][j][i].B3c;
 
 #endif
@@ -149,7 +194,9 @@ void problem(DomainS *pDomain)
     }
   }
 #ifdef MHD
-  ScaleToBeta(pG,Beta);
+  if (Field != 2) {
+  	ScaleToBeta(pG,Beta);
+  }
 #endif /* MHD */
 
   StaticGravPot = grav_pot;
@@ -172,6 +219,11 @@ void problem(DomainS *pDomain)
 	dump_history_enroll(MdotR2, "<MdotR2>");
 	dump_history_enroll(MdotR3, "<MdotR3>");
 	dump_history_enroll(MdotR4, "<MdotR4>");
+	dump_history_enroll(Msub, "<Msub>");
+	dump_history_enroll(Mrpsub, "<Mrpsub>");
+	dump_history_enroll(Bpsub, "<Bpsub>");
+	dump_history_enroll(Bzsub, "<Bzsub>");
+	dump_history_enroll(Pbsub, "<Pbsub>");
 
 #endif
   return;
@@ -300,6 +352,66 @@ static Real Vz(const GridS *pG, const int i, const int j, const int k) {
 	return (pG->U[k][j][i].M3/pG->U[k][j][i].d);
 
 }
+
+static Real Msub(const GridS *pG, const int i, const int j, const int k) {
+	Real I, R;
+
+	R = x1vc(pG,i);
+	I = ChiSub(R);
+	return (pG->U[k][j][i].d*I);
+}
+
+static Real Mrpsub(const GridS *pG, const int i, const int j, const int k) {
+	Real I, R;
+
+	R = x1vc(pG,i);
+	I = ChiSub(R);
+#ifdef MHD
+	return (-1.0*pG->U[k][j][i].B1c*pG->U[k][j][i].B2c*I);
+#else
+	return 0.0;
+#endif
+
+}
+
+static Real Bpsub(const GridS *pG, const int i, const int j, const int k) {
+	Real I, R;
+
+	R = x1vc(pG,i);
+	I = ChiSub(R);
+#ifdef MHD
+	return (pG->U[k][j][i].B2c*I);
+#else
+	return 0.0;
+#endif
+
+}
+
+static Real Bzsub(const GridS *pG, const int i, const int j, const int k) {
+	Real I, R;
+
+	R = x1vc(pG,i);
+	I = ChiSub(R);
+#ifdef MHD
+	return (pG->U[k][j][i].B3c*I);
+#else
+	return 0.0;
+#endif
+
+}
+
+static Real Pbsub(const GridS *pG, const int i, const int j, const int k) {
+	Real I, R;
+
+	R = x1vc(pG,i);
+	I = ChiSub(R);
+#ifdef MHD
+	return (0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c))*I);
+#else
+	return 0.0;
+#endif
+
+}
 void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
@@ -308,21 +420,14 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
 
-  rho0        = par_getd("problem", "rho0");
-  Amp         = par_getd("problem", "Amp");
-  Beta        = par_getd("problem", "Beta");
-  R0          = par_getd("problem", "R0");
-	Rm          = par_getd("problem", "Rm");
-  Lb          = par_getd("problem","Lb");
-  rhomin      = par_getd("problem","rhomin");
-  Flux      = par_getd("problem","Flux");
-  Hbc       = par_getd("problem","Hbc");
-  Mbc       = par_getd("problem","Mbc");
+  R0          = par_getd_def("problem", "R0",2.0);
+  Hbc       = par_getd_def("problem","Hbc",1);
+  Mbc       = par_getd_def("problem","Mbc",1);
 
   StaticGravPot = grav_pot;
   x1GravAcc = grav_acc;
-  bvals_mhd_fun(pM->Domain[0][0].Grid,left_x1,disk_ir);
-  bvals_mhd_fun(pM->Domain[0][0].Grid,right_x1,disk_or);
+  bvals_mhd_fun(&(pM->Domain[0][0]),left_x1,disk_ir);
+  bvals_mhd_fun(&(pM->Domain[0][0]),right_x1,disk_or);
 #ifdef FARGO
   OrbitalProfile = Omega;
   ShearProfile = Shear;
@@ -339,6 +444,12 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	dump_history_enroll(MdotR2, "<MdotR2>");
 	dump_history_enroll(MdotR3, "<MdotR3>");
 	dump_history_enroll(MdotR4, "<MdotR4>");
+	dump_history_enroll(Msub, "<Msub>");
+	dump_history_enroll(Mrpsub, "<Mrpsub>");
+	dump_history_enroll(Bpsub, "<Bpsub>");
+	dump_history_enroll(Bzsub, "<Bzsub>");
+	dump_history_enroll(Pbsub, "<Pbsub>");
+
 
 #endif
 
@@ -357,6 +468,11 @@ ConsFun_t get_usr_expr(const char *expr)
 	else if(strcmp(expr,"Vr")==0) return Vr;
 	else if(strcmp(expr,"Vp")==0) return Vp;
 	else if(strcmp(expr,"Vz")==0) return Vz;
+	else if(strcmp(expr,"Msub")==0) return Msub;
+	else if(strcmp(expr,"Mrpsub")==0) return Mrpsub;
+	else if(strcmp(expr,"Bpsub")==0) return Bpsub;
+	else if(strcmp(expr,"Bzsub")==0) return Bzsub;
+	else if(strcmp(expr,"Pbsub")==0) return Pbsub;
 
   return NULL;
 }

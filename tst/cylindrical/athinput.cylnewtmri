@@ -136,12 +136,11 @@ NGrid_x3        = 1
 <problem>
 iso_csound      = 0.05
 rho0            = 100.0
-Amp             = 1.0e-4
+Amp             = 1.0e-2
 Beta            = 100.0
 R0              = 2.0
-Rm              = 2.5
-Lb              = 1.25
 rhomin          = 1.0e-3
-Flux            = 0
+Field           = 0
 Hbc             = 1
 Mbc             = 1
+Mc              = 20
