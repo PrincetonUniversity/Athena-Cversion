@@ -5,8 +5,9 @@
  *
  *  Athena - C version developed by JM Stone, TA Gardiner, & PJ Teuben.
  *
- *  Significant additional contributions from X. Bai, N. Lemaster, I. Parrish,
- *  & A. Skinner.  See also the F90 version developed by JF Hawley & JB Simon.
+ *  Significant additional contributions from X. Bai, K. Beckwith, N. Lemaster,
+ *  I. Parrish, & A. Skinner.  See also the F90 version developed by JF Hawley
+ *  & JB Simon.
  *
  *  History:
  *   v1.0 [Feb 2003] - 1D adiabatic and isothermal MHD
@@ -16,12 +17,12 @@
  *   v3.1 [Jan 2008] - multiple species, self-gravity
  *   v3.2 [Sep 2009] - viscosity, resistivity, conduction, particles, special
  *                     relativity, cylindrical coordinates
- *   v4.0 [Jan 2010] - static mesh refinement with MPI
+ *   v4.0 [Jul 2010] - static mesh refinement with MPI
  *
  * See the GNU General Public License for usage restrictions. 
  *
  *============================================================================*/
-static char *athena_version = "version 4.0 - XX-XXX-2010";
+static char *athena_version = "version 4.0 - 01-Jul-2010";
 
 #include <stdio.h>
 #include <stdlib.h>
