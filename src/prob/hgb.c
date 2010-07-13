@@ -373,14 +373,15 @@ void problem(DomainS *pDomain)
     frst = 0;
   }
 
-/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
+/* With viscosity and/or resistivity, read eta_Ohm and nu */
 #ifdef RESISTIVITY
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
   return;
@@ -408,7 +409,7 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
-/* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu_V */
+/* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu */
 
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
@@ -419,8 +420,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   Q_AD    = par_getd_def("problem","Q_A",0.0);
 #endif
 
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* enroll gravitational potential function */

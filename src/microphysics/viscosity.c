@@ -60,7 +60,7 @@ void viscosity(DomainS *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
-  Real dtodx1=pG->dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
+  Real x1,x2,x3,dtodx1=pG->dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
   
   if (pG->Nx[1] > 1){
     jl = js - 2;
@@ -88,17 +88,23 @@ void viscosity(DomainS *pD)
       x1Flux[k][j][i].Mx = 0.0;
       x1Flux[k][j][i].My = 0.0;
       x1Flux[k][j][i].Mz = 0.0;
+#ifndef BAROTROPIC
       x1Flux[k][j][i].E = 0.0;
+#endif
 
       x2Flux[k][j][i].Mx = 0.0;
       x2Flux[k][j][i].My = 0.0;
       x2Flux[k][j][i].Mz = 0.0;
+#ifndef BAROTROPIC
       x2Flux[k][j][i].E = 0.0;
+#endif
  
       x3Flux[k][j][i].Mx = 0.0;
       x3Flux[k][j][i].My = 0.0;
       x3Flux[k][j][i].Mz = 0.0;
+#ifndef BAROTROPIC
       x3Flux[k][j][i].E = 0.0;
+#endif
 
       Vel[k][j][i].x = pG->U[k][j][i].M1/pG->U[k][j][i].d;
       Vel[k][j][i].y = pG->U[k][j][i].M2/pG->U[k][j][i].d;
@@ -451,8 +457,8 @@ void ViscStress_aniso(DomainS *pD)
       VStress.Mz = qa*(3.0*Bz*Bx/B02);
 
       x1Flux[k][j][i].Mx += VStress.Mx;
-      x2Flux[k][j][i].My += VStress.My;
-      x3Flux[k][j][i].Mz += VStress.Mz;
+      x1Flux[k][j][i].My += VStress.My;
+      x1Flux[k][j][i].Mz += VStress.Mz;
 
 #ifndef BAROTROPIC
       x1Flux[k][j][i].E =
@@ -591,9 +597,9 @@ void ViscStress_aniso(DomainS *pD)
       VStress.My = qa*(3.0*By*By/B02 - 1.0);
       VStress.Mz = qa*(3.0*Bz*By/B02);
 
-      x1Flux[k][j][i].Mx += VStress.Mx;
+      x2Flux[k][j][i].Mx += VStress.Mx;
       x2Flux[k][j][i].My += VStress.My;
-      x3Flux[k][j][i].Mz += VStress.Mz;
+      x2Flux[k][j][i].Mz += VStress.Mz;
 
 #ifndef BAROTROPIC
         x2Flux[k][j][i].E +=
@@ -716,8 +722,8 @@ void ViscStress_aniso(DomainS *pD)
         VStress.My = qa*(3.0*By*Bz/B02);
         VStress.Mz = qa*(3.0*Bz*Bz/B02 - 1.0);
 
-        x1Flux[k][j][i].Mx += VStress.Mx;
-        x2Flux[k][j][i].My += VStress.My;
+        x3Flux[k][j][i].Mx += VStress.Mx;
+        x3Flux[k][j][i].My += VStress.My;
         x3Flux[k][j][i].Mz += VStress.Mz;
 
 #ifndef BAROTROPIC
