@@ -194,6 +194,7 @@ void HeatFlux_aniso(DomainS *pD)
   int k, ks = pG->ks, ke = pG->ke;
   Real Bx,By,Bz,B02,dTc,dTl,dTr,lim_slope,dTdx,dTdy,dTdz,bDotGradT;
 
+#ifdef MHD
   if (pD->Nx[1] == 1) return;  /* problem must be at least 2D */
 
 /* Compute heat fluxes in 1-direction  --------------------------------------*/
@@ -358,6 +359,7 @@ void HeatFlux_aniso(DomainS *pD)
       }
     }}
   }
+#endif /* MHD */
 
   return;
 }
