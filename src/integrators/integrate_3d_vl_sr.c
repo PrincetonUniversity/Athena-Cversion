@@ -678,7 +678,9 @@ void integrate_3d_vl(DomainS *pD)
   if (negd > 0 || negP > 0 || superl > 0){
     printf("[Step7]: %i cells had d<0; %i cells had P<0;\n",negd,negP); 
     printf("[Step7]: %i cells had v>1 at t_half\n",superl);
+#ifdef USE_ENTROPY_FIX
     printf("[Step7]: %i cells fixed using entropy at t_half\n",entropy);
+#endif /* USE_ENTROPY_FIX */
   }
 #endif 
 

@@ -163,7 +163,8 @@ ConsS Prim_to_Cons (const PrimS *pW)
   return Cons;
 }
 
-#if defined(SPECIAL_RELATIVITY) && defined(MHD) /* special relativity only */
+#ifdef SPECIAL_RELATIVITY /* special relativity only */
+#ifdef MHD /* MHD only */
 /*----------------------------------------------------------------------------*/
 /* fix_vsq: wrapper for the fix_vsq1D function, works 
  *          only for SPECIAL_RELATIVITY && MHD only
@@ -269,10 +270,11 @@ PrimS entropy_fix (const ConsS *pCons, const Real *ent)
 
   return Prim;
 }
+#endif /* MHD */
 
 /*----------------------------------------------------------------------------*/
 /* check_Prim: wrapper for the check_Prim1D function, works 
- *          only for SPECIAL_RELATIVITY && MHD only
+ *          only for SPECIAL_RELATIVITY
  * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
  * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
  */
@@ -302,7 +304,11 @@ PrimS check_Prim(const ConsS *pCons)
   for (n=0; n<NSCALARS; n++) U.s[n] = pCons->s[n];
 #endif
 
+#ifdef MHD
   W = check_Prim1D(&U, &Bx);
+#else
+  W = Cons1D_to_Prim1D(&U, &Bx);
+#endif
 
   Prim.d  = W.d;
   Prim.V1 = W.Vx;
