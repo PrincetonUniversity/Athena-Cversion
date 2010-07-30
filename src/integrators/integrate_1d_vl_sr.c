@@ -594,7 +594,7 @@ void integrate_destruct_1d(void)
   if (U1d      != NULL) free(U1d);
   if (Ul       != NULL) free(Ul);
   if (Ur       != NULL) free(Ur);
-  if (W1d      != NULL) free(W);
+  if (W1d      != NULL) free(W1d);
   if (Wl       != NULL) free(Wl);
   if (Wr       != NULL) free(Wr);
 
