@@ -18,11 +18,13 @@
  *   out_fmt   = bin,hst,tab,rst,vtk,pdf,pgm,ppm
  *   dat_fmt   = format string used to write tabular output (e.g. %12.5e)
  *   dt        = problem time between outputs
+ *   time      = time of next output (useful for restarts)
  *   id        = any string
  *   dmin/dmax = max/min applied to all outputs
- *   x1,x2,x3  = range over which data is averaged or sliced; see parse_slice()
  *   palette   = rainbow,jh_colors,idl1,idl2,step8,step32,heat
+ *   x1,x2,x3  = range over which data is averaged or sliced; see parse_slice()
  *   usr_expr_flag = 1 for user-defined expression (defined in problem.c)
+ *   level,domain = integer indices of level and domain to be output with SMR
  *   
  * EXAMPLE of an <outputN> block for a VTK dump:
  *   <output1>
@@ -54,10 +56,6 @@
  *  -data_output(): called in main loop, compares integration time with time 
  *     for output for each element in Output array, and calls output functions.
  *    
- *   To add permanently a new type of dump X, write a new function dump_X, then
- *   modify init_output() to set the output function pointer when out_fmt=X
- *   in the input file (see below for examples of bin, hst, rst, etc.)
- *    
  *   To add permanently a new type of output X, write a new function output_X, 
  *   modify init_output() to set the output function pointer when out_fmt=X
  *   in the input file (see below for examples of pgm, ppm, etc.)
@@ -68,8 +66,6 @@
  * CONTAINS PUBLIC FUNCTIONS: 
  *   init_output() -
  *   data_output() -
- *   add_output()
- *   add_rst_out()
  *   data_output_destruct()
  *   OutData1,2,3()   -
  *
@@ -98,11 +94,10 @@
 
 #define MAXOUT_DEFAULT     10
 
-static int out_count = 0;    /* Number of Outputs initialized in the OutArray */
-static size_t out_size  = 0;       /* Size of the array OutArray[] */
+static int out_count = 0;           /* Number of elements in the OutArray */
 static OutputS *OutArray = NULL;    /* Array of Output modes */
 static OutputS rst_out;             /* Restart Output */
-static int rst_flag = 0;           /* (0,1) -> Restart Outputs are (off,on) */
+static int rst_flag = 0;            /* (0,1) -> Restart Outputs are (off,on) */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -159,10 +154,19 @@ void init_output(MeshS *pM)
 
   maxout = par_geti_def("job","maxout",MAXOUT_DEFAULT);
 
-/*--------------------- begin loop over maxout output numbers ----------------*/
-  for (outn=1; outn<=maxout; outn++) {       /* check all outN up to 'maxout' */
+/* allocate output array */
+
+  if((OutArray = malloc(maxout*sizeof(OutputS))) == NULL){
+    ath_error("[init_output]: Error allocating output array\n");
+  }
+
+/*--- loop over maxout output blocks, reading parameters into a temporary -----*
+ *--- OutputS called new_out --------------------------------------------------*/
+
+  for (outn=1; outn<=maxout; outn++) {
 
     sprintf(block,"output%d",outn);
+
 /* An output format or output name is required.
  * If neither is present we write an error message and move on. */
     if((par_exist(block,"out_fmt") == 0) && (par_exist(block,"name") == 0)){
@@ -171,7 +175,7 @@ void init_output(MeshS *pM)
       continue;
     }
 
-/* Zero (NULL) all members of the OutputS structure */
+/* Zero (NULL) all members of the temporary OutputS structure "new_out" */
     memset(&new_out,0,sizeof(OutputS));
 
 /* The next output time and number */
@@ -271,7 +275,8 @@ Now use the default one.\n");
       }
       else if (strcmp(fmt,"rst")==0){
 	new_out.res_fun = dump_restart;
-	add_rst_out(&new_out);
+        rst_flag = 1;
+        rst_out = new_out;
 	ath_pout(0,"Added out%d\n",outn);
 	continue;
       }
@@ -444,17 +449,17 @@ Now use the default one.\n");
 
   add_it:
 
-/* DEBUG */
+/* Now copy data in "new_out" into OutArray structure, and increment index. */
+    
     ath_pout(1,"OUTPUT: %d %d %s %s [%g : %g]\n",
              new_out.n, new_out.ndim, new_out.out_fmt,
-             new_out.out, new_out.dmin, new_out.dmax);
+             new_out.out, new_out.dmin, new_out.dmax); /* DEBUG */
 
-    if(add_output(&new_out)) free_output(&new_out);
-    else{
-      ath_pout(0,"Added out%d\n",outn);
-    }
-  }
-/*------------------------- end loop over output numbers ---------------------*/
+    OutArray[out_count] = new_out;
+    out_count++;
+    ath_pout(0,"Added out%d\n",outn);
+
+  } /*---------------------- end loop over output blocks ----------------------*/
 
 }
 
@@ -538,41 +543,6 @@ void data_output(MeshS *pM, const int flag)
 }
 
 /*----------------------------------------------------------------------------*/
-/* add_output: adds element initialized by init_output() to array of Outputs  */
-
-int add_output(OutputS *new_out)
-{
-  size_t new_size;
-  OutputS *new_array;
-
-  if ((size_t)out_count >= out_size) {
-/* Grow the output array by some small value, say 5 at a time */
-    new_size = out_size + 5;
-    if((new_array = realloc(OutArray,new_size*sizeof(OutputS))) == NULL){
-      ath_error("[add_output]: Error growing output array\n");
-    }
-    OutArray = new_array;
-    out_size = new_size;
-  }
-
-  OutArray[out_count] = *new_out;
-  out_count++;
-
-  return 0; /* Success */
-}
-
-/*----------------------------------------------------------------------------*/
-/* add_rst: sets restart OutputS structure to value set by init_output() */
-
-void add_rst_out(OutputS *new_out)
-{
-  rst_flag = 1;
-  rst_out = *new_out;
-
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
 /* data_output_destruct: free all memory associated with Output, called by
  *   main() at end of run */
 
@@ -623,7 +593,6 @@ void data_output_destruct(void)
     free(OutArray);
     OutArray = NULL;
     out_count = 0;
-    out_size = 0;
   }
 
   return;
