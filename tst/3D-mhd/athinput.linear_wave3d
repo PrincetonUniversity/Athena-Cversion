@@ -6,7 +6,7 @@ config  = --with-gas=hydro --with-problem=linear_wave3d --with-nscalars=1
 
 <job>
 problem_id     = LinWave    # problem ID: basename of output filenames
-maxout         = 4          # Output blocks number from 1 -> maxout
+maxout         = 1          # Output blocks number from 1 -> maxout
 num_domains    = 1          # number of Domains in Mesh
 
 <output1>
@@ -123,5 +123,7 @@ wave_flag       = 0         # Wave family number (0 - 6)
 amp             = 1.0e-4    # Wave Amplitude
 vflow           = 0.0       # Average x1 velocity
 four_pi_G       = 1.0       # sets units for self-gravity
-nu              = 0.02      # coefficient of viscosity
-eta             = 0.01      # coefficient of resistivity
+nu              = 0.00      # coefficient of viscosity
+eta_O           = 0.02      # coefficient of resistivity
+Q_AD            = 0.00      # coefficient of ambipolar diffusion
+

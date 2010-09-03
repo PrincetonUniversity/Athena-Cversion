@@ -14,8 +14,8 @@
  *   Configure --with-gravity=fft to check Jeans stability of plane waves
  *   propagating parallel to grid.
  *
- *   Configure --with-resistivity=ohmic and/or --with-viscosity=ns to check
- *   damping of linear waves by resistivity and/or viscosity
+ *   Configure --enable-resistivity and/or --with-viscosity=ns to check damping
+ *   of linear waves by resistivity/ambipolar diffusion and/or viscosity
  *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
@@ -290,12 +290,10 @@ void problem(DomainS *pDomain)
 
 /* With viscosity and/or resistivity, read eta_R and nu_V */
 
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
-#endif
-#ifdef HALL_MHD
+#ifdef RESISTIVITY
   eta_Ohm = par_getd("problem","eta_O");
-  eta_Hall = par_getd("problem","eta_H");
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");

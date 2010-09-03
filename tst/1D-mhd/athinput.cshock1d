@@ -12,28 +12,28 @@ num_domains  = 1            # number of Domains in Mesh
 <output1>
 out_fmt = tab               # Tabular data dump
 out     = prim              # variables to be output
-dt      = 0.01              # time increment between outputs
+dt      = 0.1               # time increment between outputs
 
 <output2>
 out_fmt = hst               # History data dump
-dt      = 0.01               # time increment between outputs
+dt      = 0.1               # time increment between outputs
 
 <time>
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 1000000   # cycle limit
-tlim            = 4.0       # time limit
+tlim            = 6.0       # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 256       # Number of zones in X1-direction
+Nx1             = 48        # Number of zones in X1-direction
 x1min           = 0.0       # minimum value of X1
-x1max           = 16.0      # maximum value of X1
-bc_ix1          = 5         # boundary condition flag for inner-I (conducting)
+x1max           = 24.0      # maximum value of X1
+bc_ix1          = 2         # boundary condition flag for inner-I (outflow)
 bc_ox1          = 2         # boundary condition flag for outer-I (outflow)
 
 Nx2             = 1         # Number of zones in X2-direction
 x2min           = 0.0       # minimum value of X2
-x2max           = 0.25      # maximum value of X2
+x2max           = 0.0       # maximum value of X2
 bc_ix2          = 4         # boundary condition flag for inner-J (X2)
 bc_ox2          = 4         # boundary condition flag for outer-J (X2)
 
@@ -47,8 +47,8 @@ bc_ox3          = 4         # boundary condition flag for outer-K (X3)
 iso_csound      = 1.0       # isothermal sound speed
 
 Mach            = 50        # shock Mach number
-Alfv            = 8         # shock Alfven number
+Alfv            = 10        # shock Alfven number
 theta           = 45        # magnetic oblique angle (deg)
-comp            = 13.8435   # shock compression ratio (>1)
 
-N_L             = 4         # number of cells per L_A
+Ls              = 18        # estimated C-shock thickness (L_A)
+Ns              = 3600      # number of cells to resolve Ls semi-analytically

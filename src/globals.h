@@ -42,6 +42,7 @@ Real kappa_iso=0.0, kappa_aniso=0.0;           /* coeff of thermal conduction */
 #endif
 #ifdef RESISTIVITY
 Real eta_Ohm=0.0, Q_Hall=0.0, Q_AD=0.0;        /* diffusivities */
+Real d_ind;                                    /* index: n_e ~ d^(d_ind) */
 EtaFun_t get_myeta = NULL;         /* function to calculate the diffusivities */
 #endif
 #ifdef VISCOSITY
@@ -93,6 +94,7 @@ extern Real kappa_iso, kappa_aniso;
 #endif
 #ifdef RESISTIVITY
 extern Real eta_Ohm, Q_Hall, Q_AD;
+extern Real d_ind;
 extern EtaFun_t get_myeta;
 #endif
 #ifdef VISCOSITY

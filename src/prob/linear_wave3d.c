@@ -14,8 +14,8 @@
  *   Configure --with-gravity=fft to check Jeans stability of plane waves
  *   propagating parallel to grid.
  *
- *   Configure --with-resistivity=ohmic and/or --with-viscosity=ns to check
- *   damping of linear waves by resistivity and/or viscosity
+ *   Configure --enable-resistivity and/or --with-viscosity=ns to check
+ *   damping of linear waves by resistivity/ambipolar diffusion and/or viscosity
  *
  * This code is most easily understood in terms of a one dimensional
  * problem in the coordinate system (x,y,z).  Two coordinate rotations are
@@ -364,8 +364,10 @@ void problem(DomainS *pDomain)
 
 /* With viscosity and/or resistivity, read eta_R and nu_V */
 
-#ifdef OHMIC
-  eta_R = par_getd("problem","eta");
+#ifdef RESISTIVITY 
+  eta_Ohm = par_getd("problem","eta_O");
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
@@ -428,6 +430,18 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {

@@ -13,7 +13,7 @@ num_domains     = 1          # number of Domains in Mesh
 out_fmt = tab               # Tabular data dump
 out     = prim              # variables to be dumped
 dat_fmt = %12.5e            # Optional data format string
-dt      = 0.1               # time increment between outputs
+dt      = 10                # time increment between outputs
 
 <output2>
 out_fmt = hst               # History data dump
@@ -26,7 +26,7 @@ tlim            = 5.0       # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 128       # Number of zones in X1-direction
+Nx1             = 32        # Number of zones in X1-direction
 x1min           = 0.0       # minimum value of X1
 x1max           = 1.0       # maximum value of X1
 bc_ix1          = 4         # boundary condition flag for inner-I (X1)
@@ -73,9 +73,12 @@ kDisp           = 0         # k-displacement measured in cells of this level
 
 <problem>
 gamma = 1.6666666666666667  # gamma = C_p/C_v
-wave_flag       = 0         # Wave family number (0 - 4)
+iso_csound      = 1.0       # isothermal sound speed
+wave_flag       = 2         # Wave family number (0 - 4)
 wave_dir        = 1         # Wave direction (1 - 3)
 amp             = 1.0e-4    # Wave Amplitude
 vflow           = 0.0       # Average x1 velocity
-nu              = 0.02      # coefficient of viscosity
-eta             = 0.01      # coefficient of resistivity
+nu              = 0.01      # coefficient of viscosity
+eta_O           = 0.02      # coefficient of resistivity
+Q_AD            = 0.00      # coefficient of ambipolar diffusion
+

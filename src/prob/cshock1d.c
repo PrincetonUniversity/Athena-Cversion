@@ -50,8 +50,8 @@ void problem(DomainS *pDomain)
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
   int i0, nx1, N_L;
-  Real x1min,x1max,Lx,dx,x1,x2,x3,xs,xe,h,x01,x02;
-  Real Mach,Alfv,theta,d0,v0,vA,B0,Bx0,By0,L_A;
+  Real x1min,x1max,Lx,x1,x2,x3,xs,xe,h,x01,x02;
+  Real Mach,Alfv,theta,d0,v0,vA,B0,Bx0,By0;
   Real Ls,Ns,D01,D02,myD;
 
   nx1 = (ie-is)+1 + 2*nghost;
@@ -65,14 +65,14 @@ void problem(DomainS *pDomain)
       == NULL) ath_error("[problem]: Error alloc memory for RootSoln\n");
   }
 
-  /* Model parameters */
+/* Model parameters */
   Mach = par_getd("problem","Mach"); /* Mach number */
   Alfv = par_getd("problem","Alfv"); /* Alfven Mach number */
 
   theta = par_getd("problem","theta"); /* magnetic field obliquety (deg) */
   theta = theta * PI / 180.0;
 
-  /* upstream quantities (in the shock frame) */
+/* upstream quantities (in the shock frame) */
   d0 = 1.0;
   v0 = Mach * Iso_csound;
 
@@ -82,28 +82,27 @@ void problem(DomainS *pDomain)
   Bx0 = B0 * cos(theta);
   By0 = B0 * sin(theta);
 
-  /* root domain info */
+/* root domain info */
   x1min = pDomain->RootMinX[0];
   x1max = pDomain->RootMaxX[0];
   Lx = x1max - x1min;
-  dx = pDomain->dx[0]*pow(2.0,pDomain->Level);  /* Root grid resolution */
 
-  /* Ambipolar diffusion coefficient*/
-  N_L = par_geti("problem","N_L"); /* number of cells per L (AD length scale) */
-  L_A = dx * N_L;                  /* ambipolar diffusion length scale */
+/* Ambipolar diffusion coefficient 
+ * ambipolar diffusion length scale is FIXED to be 1 in code unit! */
 
-  Q_AD = L_A/vA;             /* N.B. AD diffusio coefficient is set this way! */
+  Q_AD = 1.0/vA;            /* N.B. AD diffusion coefficient is set this way! */
+  d_ind= 0.0;               /* constant ion density */
 
-  /* info for semi-analytic calculation */
+/* info for semi-analytic calculation */
   Ls  = par_getd_def("problem","Ls",20.0);  /* Estimated thickness of the
                                              * C-shock (in unit of L_A) */
   Ns  = par_getd_def("problem","Ns",5e3);   /* number of cells in Ls in the
                                              * semi-analytic calculation */
-  if (Ls*L_A > Lx)
+  if (Ls > Lx)
     ath_error("Domain size in x1 is shorter than the C-Shosck thickness!\n");
 
-  xs = x1min + 0.5*(Lx - Ls*L_A);
-  xe = xs + Ls*L_A;
+  xs = x1min + 0.5*(Lx - Ls);
+  xe = xs + Ls;
   h  = (xe - xs)/Ns;
 
 /* Find the 1D solution on this grid.
@@ -132,7 +131,7 @@ void problem(DomainS *pDomain)
   D01 = d0+1.0e-6;
   while (x02 <= xe)
   {
-    D02 = RK4(D01, Alfv, Mach, theta, h/L_A);
+    D02 = RK4(D01, Alfv, Mach, theta, h);
     if ((x1 >= x01) && (x1 < x02))
     {
       myD = (D01*(x02-x1)+D02*(x1-x01))/h;

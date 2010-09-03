@@ -29,7 +29,7 @@ Real diff_dt(MeshS *pM)
 {
   int irefine, ir;
   Real dtmin_diffusion=(HUGE_NUMBER);
-  Real dxmin,qa;
+  Real dxmin,qa,fac;
 #ifdef RESISTIVITY
   int i,j,k,nl,nd;
   int il,iu,jl,ju,kl,ku;
@@ -51,8 +51,12 @@ Real diff_dt(MeshS *pM)
   if (pM->Nx[2] > 1) dxmin = MIN( dxmin, (pM->dx[2]/(Real)(irefine)) );
 
   qa = CourNo*(dxmin*dxmin)/2.0;
-  if (pM->Nx[1] > 1) qa /= 2.0;
-  if (pM->Nx[2] > 1) qa /= 2.0;
+
+  fac = 1.0;
+  if (pM->Nx[1] > 1) fac = 2.0;
+  if (pM->Nx[2] > 1) fac = 3.0;
+
+  qa = qa / fac;
 
 #ifdef THERMAL_CONDUCTION
   dtmin_diffusion = MIN(dtmin_diffusion,(qa/(kappa_iso + kappa_aniso)));
@@ -90,10 +94,11 @@ Real diff_dt(MeshS *pM)
             dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_Ohm[k][j][i]));
 
           if (Q_Hall > 0.0)
-            dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_Hall[k][j][i]));
+            dtmin_diffusion = MIN(dtmin_diffusion,
+                                         (0.5*fac*qb/pG->eta_Hall[k][j][i]));
 
           if (Q_AD > 0.0)
-            dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_AD[k][j][i]));
+            dtmin_diffusion = MIN(dtmin_diffusion, (qb/pG->eta_AD[k][j][i]));
         }}}
       }
     }

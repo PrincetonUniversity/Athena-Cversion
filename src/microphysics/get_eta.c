@@ -114,8 +114,8 @@ void eta_single_const(GridS *pG, int i, int j, int k,
                                    + SQR(pG->U[k][j][i].B3c);
     Bmag = sqrt(Bsq);
 
-    *eta_H = Q_Hall * Bmag / pG->U[k][j][i].d;
-    *eta_A = Q_AD * Bsq / SQR(pG->U[k][j][i].d);
+    *eta_H = Q_Hall * Bmag / pow(pG->U[k][j][i].d, d_ind);
+    *eta_A = Q_AD * Bsq / pow(pG->U[k][j][i].d, 1.0+d_ind);
   }
 
   return;
