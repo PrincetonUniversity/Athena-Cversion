@@ -18,7 +18,7 @@ CORE_OBJ = esystem_roe.o\
 	   hlld_sr.o \
 	   hlle.o \
 	   roe.o \
-	   two_shock.o
+	   two_shock.o 
 
 OBJ = $(CORE_OBJ)
 

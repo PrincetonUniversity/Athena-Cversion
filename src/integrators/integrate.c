@@ -43,6 +43,8 @@ VDFun_t integrate_init(MeshS *pM)
     if (cfl > 0.5)
       ath_error("<time>cour_no=%e, must be <= 0.5 with 1D VL integrator\n",cfl);
     return integrate_1d_vl;
+#elif defined(radiMHD_INTEGRATOR)
+    return integrate_1d_radiMHD;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 1D problem");
 #endif

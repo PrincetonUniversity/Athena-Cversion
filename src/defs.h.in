@@ -25,7 +25,7 @@
 /* Problem generator with which Athena is compiled */
 #define A_PROBLEM "@PROBLEM@"
 
-/* HYDRO or MHD */
+/* HYDRO or MHD or radiation_HD*/
 #define @GAS@
 
 /* ADIABATIC or ISOTHERMAL or ... */
@@ -48,6 +48,7 @@
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
 
+
 /* Particles */
 #define @PARTICLES_ALGORITHM@
 #define @FEEDBACK_DEFINE@
@@ -66,7 +67,7 @@
 
 /* flux type
  * ROE_FLUX, HLLE_FLUX, HLLC_FLUX, HLLD_FLUX, FORCE_FLUX, EXACT_FLUX,
- * TWO_SHOCK_FLUX */
+ * TWO_SHOCK_FLUX, RADIHD_HLLE_FLUX*/
 #define @FLUX_DEF@
 
 /* unsplit integrator:
@@ -157,12 +158,18 @@ enum {
 #ifdef HYDRO
  enum {NWAVE = 4, NVAR = 4 + NSCALARS};
 #endif
+#ifdef radiation_HD
+ enum {NWAVE = 4, NVAR = 7 + NSCALARS};
+#endif
 #ifdef MHD
  enum {NWAVE = 6, NVAR = 7 + NSCALARS};
 #endif
 #else /* ADIABATIC or other EOS */
 #ifdef HYDRO
  enum {NWAVE = 5, NVAR = 5 + NSCALARS};
+#endif
+#ifdef radiation_HD
+ enum {NWAVE = 5, NVAR = 8 + NSCALARS};
 #endif
 #ifdef MHD
  enum {NWAVE = 7, NVAR = 8 + NSCALARS};

@@ -45,5 +45,8 @@ void lr_states_init(MeshS *pM);
 void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int is, const int ie,
                Prim1DS Wl[], Prim1DS Wr[], const int dir);
+void lr_states_dc_radiMHD(const GridS *pG, const Prim1DS W[], 
+		const int il, const int iu,
+               Prim1DS Wl[], Prim1DS Wr[]);
 
 #endif /* RECONSTRUCTION_PROTOTYPES_H */

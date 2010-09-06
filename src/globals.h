@@ -57,6 +57,12 @@ ShearFun_t ShearProfile = NULL;
 #endif
 #endif
 
+
+#ifdef radiation_HD
+Real Pratio;		/* Pratio=a_rT^4/rho a^2; The ratio between the pressure unit for radiation and gas */ 
+Real Cratio;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -107,6 +113,11 @@ extern OrbitalFun_t OrbitalProfile;
 extern ShearFun_t ShearProfile;
 #endif
 #endif
+
+#ifdef radiation_HD
+extern Real Pratio, Cratio;		 	
+#endif
+
 
 #endif /* MAIN_C */
 #endif /* GLOBALS_H */

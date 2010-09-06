@@ -14,7 +14,7 @@
 #
 # PHYSICS "packages":
 #   --with-problem='name'                 (use prob/name.c as problem generator)
-#   --with-gas=[hydro,mhd]                              (hydro or mhd algorithm)
+#   --with-gas=[hydro,mhd,radiation_HD] (hydro or mhd or radiation HD algorithm)
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,fft_obc,multigrid]                        (self-gravity)
@@ -29,8 +29,9 @@
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
-#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]       (flux function)
-#   --with-integrator=[ctu,vl]                   (unsplit integration algorithm)
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock,radiHD_hlle]
+#								 (flux function)
+#   --with-integrator=[ctu,vl,radiMHD]           (unsplit integration algorithm)
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
 #
 # ALGORITHM "features":
@@ -71,14 +72,14 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: gas mode (hydro or mhd)
+# PHYSICS PACKAGE: gas mode (hydro or mhd or radiation HD)
 #  --with-gas=hydro (default is mhd)
 #   mode also sets the default flux handling, since that depends on whether the
 #   problem is hydro or mhd (see option --with-flux= below)
 
 AC_SUBST(GAS)
 AC_ARG_WITH(gas,
-	[--with-gas=GAS  Gas properties (mhd,hydro)],
+	[--with-gas=GAS  Gas properties (mhd,hydro,radiation_HD)],
 	with_gas=$withval, with_gas="mhd")
 if test   "$with_gas" = "hydro"; then
   GAS="HYDRO"
@@ -86,8 +87,11 @@ if test   "$with_gas" = "hydro"; then
 elif test "$with_gas" = "mhd";   then
   GAS="MHD"
   flux_default="roe"
+elif test "$with_gas" = "radiation_HD"; then
+  GAS="radiation_HD"
+  flux_default="radiHD_hlle"
 else
-  AC_MSG_ERROR([expected --with-gas=mhd or hydro])
+  AC_MSG_ERROR([expected --with-gas=mhd or hydro or radiation_HD])
 fi
 
 #-------------------------------------------------------------------------------
@@ -288,13 +292,13 @@ fi
 
 #-------------------------------------------------------------------------------
 # ALGORITHM PACKAGE: flux function
-#   --with-flux=[roe,hlle,hllc,hlld,force,exact]
-#   (default is roe if gas=mhd, hllc if gas=hydro)
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact,radiHD_hlle]
+#   (default is roe if gas=mhd, hllc if gas=hydro, radiHD_hlle if gas=radiation_HD)
 
 AC_SUBST(FLUX_NAME)
 AC_SUBST(FLUX_DEF)
 AC_ARG_WITH(flux,
-	[--with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only),two-shock (hydro only))],
+	[--with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only),two-shock (hydro only), radiHD_hlle (radiation hydro only))],
 	with_flux=$withval, with_flux=$flux_default)
 FLUX_NAME=$with_flux
 if test   "$with_flux" = "roe"; then
@@ -311,8 +315,10 @@ elif test "$with_flux" = "exact"; then
   FLUX_DEF="EXACT_FLUX"
 elif test "$with_flux" = "two-shock"; then
   FLUX_DEF="TWO_SHOCK_FLUX"
+elif test "$with_flux" = "radiHD_hlle"; then
+  FLUX_DEF="RADIHD_HLLE_FLUX"
 else
-  AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, force, exact, two-shock])
+  AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, force, exact, two-shock, radiHD_hlle])
 fi
 
 #-------------------------------------------------------------------------------
@@ -323,15 +329,17 @@ AC_SUBST(INTEGRATOR)
 AC_SUBST(INTEGRATOR_DEF)
 
 AC_ARG_WITH(integrator,
-	[--with-integrator=INTEGRATOR  Which unsplit integrator (ctu, vl)],
+	[--with-integrator=INTEGRATOR  Which unsplit integrator (ctu, vl, radiMHD)],
 	with_integrator=$withval, with_integrator="ctu")
 INTEGRATOR=$with_integrator
 if test   "$with_integrator" = "ctu"; then
   INTEGRATOR_DEF="CTU_INTEGRATOR"
 elif test "$with_integrator" = "vl"; then
   INTEGRATOR_DEF="VL_INTEGRATOR"
+elif test "$with_integrator" = "radiMHD"; then
+  INTEGRATOR_DEF="radiMHD_INTEGRATOR"
 else
-  AC_MSG_ERROR([expected --with-integrator=ctu or vl])
+  AC_MSG_ERROR([expected --with-integrator=ctu or vl or radiMHD])
 fi
 
 #-------------------------------------------------------------------------------

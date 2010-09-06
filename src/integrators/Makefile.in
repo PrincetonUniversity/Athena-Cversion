@@ -16,7 +16,8 @@ CORE_OBJ = integrate.o \
 	   integrate_3d_vl.o \
            integrate_1d_vl_sr.o \
            integrate_2d_vl_sr.o \
-           integrate_3d_vl_sr.o
+           integrate_3d_vl_sr.o \
+	   integrate_1d_radiMHD.o
 
 OBJ = $(CORE_OBJ)
 

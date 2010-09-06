@@ -28,6 +28,8 @@ void show_config(void)
   ath_pout(0," Gas properties:          HYDRO\n");
 #elif defined(MHD)
   ath_pout(0," Gas properties:          MHD\n");
+#elif defined(radiation_HD)
+  ath_pout(0," Gas properties:          radiation_HD\n");  
 #endif
 
 #if defined(ADIABATIC)
@@ -117,6 +119,8 @@ void show_config(void)
   ath_pout(0," Flux:                    exact\n");
 #elif defined(TWO_SHOCK_FLUX)
   ath_pout(0," Flux:                    two-shock\n");
+#elif defined(RADIHD_HLLE_FLUX)
+  ath_pout(0," Flux:                    radiHD_hlle\n");
 #endif
 
 #if defined(CTU_INTEGRATOR)
