@@ -6,12 +6,12 @@ config  = --with-problem=cpaw3d
 
 <job>
 problem_id   = cpaw         # problem ID: basename of output filenames
-maxout       = 4            # Output blocks number from 1 -> maxout
+maxout       = 2            # Output blocks number from 1 -> maxout
 num_domains  = 1            # number of Domains in Mesh
 
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 2000      # cycle limit
+nlim            = 2000000   # cycle limit
 tlim            = 5.0       # time limit
 
 <output1>
@@ -19,8 +19,12 @@ out_fmt = hst               # History data dump
 dt      = 0.1               # time increment between outputs
 
 <output2>
-out_fmt = bin               # Binary data dump
-dt      = 0.1               # time increment between outputs
+out_fmt = tab               # Binary data dump
+dt      = 0.01              # time increment between outputs
+out     = V3
+id      = V3
+x2      = 0.0
+x3      = 0.0
 
 <output3>
 out_fmt = ppm               # ppm data dump
@@ -95,8 +99,12 @@ kDisp           = 112       # k-displacement measured in cells of this level
 
 <problem>
 gamma = 1.6666666666666667  # gamma = C_p/C_v
-iso_csound = 0.1 
+iso_csound = 1.0 
 pres    = 0.1               # pressure
 v_par   = 0.0               # vpar = {0, 1} -> {traveling, standing} wave
 b_par   = 1.0               # B parallel
-b_perp  = 0.1               # B perpendicular
+b_perp  = 1.0e-4            # B perpendicular
+dir     = 1                 # 1: right polarization (whistler wave), 2: left
+
+Q_H     = 1.0               # Hall parameter
+

@@ -61,7 +61,7 @@ static ConsS ***RootSoln=NULL;
  * shared with functions A1,2,3 which compute vector potentials */
 static Real b_par, b_perp;
 static Real ang_2, ang_3; /* Rotation angles about the y and z' axis */
-static Real sin_a2, cos_a2, sin_a3, cos_a3;
+static Real fac, sin_a2, cos_a2, sin_a3, cos_a3;
 static Real lambda, k_par; /* Wavelength, 2*PI/wavelength */
 
 /*==============================================================================
@@ -84,7 +84,7 @@ void problem(DomainS *pDomain)
   GridS *pGrid = pDomain->Grid;
   ConsS ***Soln;
   int i=0,j=0,k=0;
-  int is,ie,js,je,ks,ke,nx1,nx2,nx3;
+  int is,ie,js,je,ks,ke,nx1,nx2,nx3,dir;
   Real dx1 = pGrid->dx1;
   Real dx2 = pGrid->dx2;
   Real dx3 = pGrid->dx3;
@@ -94,6 +94,9 @@ void problem(DomainS *pDomain)
   Real x1size, x2size, x3size;
   Real x,x1,x2,x3,cs,sn;
   Real v_par, v_perp, den, pres;
+#ifdef RESISTIVITY
+  Real v_A, kva, omega_h, omega_l, omega_r;
+#endif
 
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
@@ -149,6 +152,31 @@ void problem(DomainS *pDomain)
   b_perp = par_getd("problem","b_perp");
   v_perp = b_perp/sqrt((double)den);
 
+  dir    = par_geti_def("problem","dir",1); /* right(1)/left(2) polarization */
+  if (dir == 1) /* right polarization */
+    fac = 1.0;
+  else          /* left polarization */
+    fac = -1.0;
+
+#ifdef RESISTIVITY
+  Q_Hall = par_getd("problem","Q_H");
+  d_ind  = 0.0;
+  v_A    = b_par/sqrt((double)den);
+  if (Q_Hall > 0.0)
+  {
+    kva     = k_par*v_A;
+    omega_h = 1.0/Q_Hall;
+
+    omega_r = 0.5*SQR(kva)/omega_h*(sqrt(1.0+SQR(2.0*omega_h/kva)) + 1.0);
+    omega_l = 0.5*SQR(kva)/omega_h*(sqrt(1.0+SQR(2.0*omega_h/kva)) - 1.0);
+
+    if (dir == 1) /* right polarization (whistler wave) */
+      v_perp = v_perp * kva / omega_r;
+    else          /* left polarization */
+      v_perp = v_perp * kva / omega_l;
+  }
+#endif
+
 /* The gas pressure and parallel velocity are free parameters. */
 
   pres = par_getd("problem","pres");
@@ -184,18 +212,18 @@ void problem(DomainS *pDomain)
 	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 	x = cos_a2*(x1*cos_a3 + x2*sin_a3) + x3*sin_a2;
 	sn = sin(k_par*x);
-	cs = cos(k_par*x);
+	cs = fac*cos(k_par*x);
 
 	pGrid->U[k][j][i].d  = den;
-	pGrid->U[k][j][i].M1 = den*(v_par*cos_a2*cos_a3 -
-				    v_perp*sn*sin_a3 -
+	pGrid->U[k][j][i].M1 = den*(v_par*cos_a2*cos_a3 +
+				    v_perp*sn*sin_a3 +
 				    v_perp*cs*sin_a2*cos_a3);
 
-	pGrid->U[k][j][i].M2 = den*(v_par*cos_a2*sin_a3 +
-				    v_perp*sn*cos_a3 -
+	pGrid->U[k][j][i].M2 = den*(v_par*cos_a2*sin_a3 -
+				    v_perp*sn*cos_a3 +
 				    v_perp*cs*sin_a2*sin_a3);
 
-	pGrid->U[k][j][i].M3 = den*(v_par*sin_a2 +
+	pGrid->U[k][j][i].M3 = den*(v_par*sin_a2 -
 				    v_perp*cs*cos_a2);
 
 	pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i  ] +
@@ -276,6 +304,18 @@ ConsFun_t get_usr_expr(const char *expr){
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+  
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {
@@ -486,7 +526,7 @@ static Real A1(const Real x1, const Real x2, const Real x3)
   x =  x1*cos_a2*cos_a3 + x2*cos_a2*sin_a3 + x3*sin_a2;
   y = -x1*sin_a3        + x2*cos_a3;
 
-  Ay = (b_perp/k_par)*sin(k_par*x);
+  Ay = fac*(b_perp/k_par)*sin(k_par*x);
   Az = (b_perp/k_par)*cos(k_par*x) + b_par*y;
 
   return -Ay*sin_a3 - Az*sin_a2*cos_a3;
@@ -504,7 +544,7 @@ static Real A2(const Real x1, const Real x2, const Real x3)
   x =  x1*cos_a2*cos_a3 + x2*cos_a2*sin_a3 + x3*sin_a2;
   y = -x1*sin_a3        + x2*cos_a3;
 
-  Ay = (b_perp/k_par)*sin(k_par*x);
+  Ay = fac*(b_perp/k_par)*sin(k_par*x);
   Az = (b_perp/k_par)*cos(k_par*x) + b_par*y;
 
   return Ay*cos_a3 - Az*sin_a2*sin_a3;

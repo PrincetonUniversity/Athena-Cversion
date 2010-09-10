@@ -42,7 +42,11 @@ void problem(DomainS *pDomain)
   int j, js = pGrid->js;
   int k, ks = pGrid->ks;
   ConsS *Soln;
-  Real x1,x2,x3,cs,sn,b_par,b_perp,lambda,k_par,v_par,v_perp,den,pres;
+  int dir;      /* right (1) or left (2) polarization */
+  Real x1,x2,x3,cs,sn,b_par,b_perp,fac,lambda,k_par,v_par,v_perp,den,pres;
+#ifdef RESISTIVITY
+  Real v_A, kva, omega_h, omega_l, omega_r;
+#endif
 
   if ((Soln = (ConsS*)malloc(((ie-is+1)+2*nghost)*sizeof(ConsS))) == NULL)
     ath_error("[problem] Error initializing Soln array");
@@ -66,6 +70,31 @@ void problem(DomainS *pDomain)
   b_perp = par_getd("problem","b_perp");
   v_perp = b_perp/sqrt((double)den);
 
+  dir    = par_geti_def("problem","dir",1); /* right(1)/left(2) polarization */
+  if (dir == 1) /* right polarization */
+    fac = 1.0;
+  else          /* left polarization */
+    fac = -1.0;
+
+#ifdef RESISTIVITY
+  Q_Hall = par_getd("problem","Q_H");
+  d_ind  = 0.0;
+  v_A    = b_par/sqrt((double)den);
+  if (Q_Hall > 0.0)
+  {
+    kva     = k_par*v_A;
+    omega_h = 1.0/Q_Hall; /* characteristic frequency for Hall */
+
+    omega_r = 0.5*SQR(kva)/omega_h*(sqrt(1.0+SQR(2.0*omega_h/kva)) + 1.0);
+    omega_l = 0.5*SQR(kva)/omega_h*(sqrt(1.0+SQR(2.0*omega_h/kva)) - 1.0);
+
+    if (dir == 1) /* right polarization (whistler wave) */
+      v_perp = v_perp * kva / omega_r;
+    else          /* left polarization */
+      v_perp = v_perp * kva / omega_l;
+  }
+#endif
+
 /* The gas pressure and parallel velocity are free parameters. */
   pres = par_getd("problem","pres");
   v_par = par_getd("problem","v_par");
@@ -81,11 +110,11 @@ void problem(DomainS *pDomain)
     Soln[i].d = den;
 
     Soln[i].M1 = den*v_par;
-    Soln[i].M2 = den*v_perp*sn;
-    Soln[i].M3 = den*v_perp*cs;
+    Soln[i].M2 = -fac*den*v_perp*sn;
+    Soln[i].M3 = -den*v_perp*cs;
  
     Soln[i].B1c = b_par;
-    Soln[i].B2c = b_perp*sn;
+    Soln[i].B2c = fac*b_perp*sn;
     Soln[i].B3c = b_perp*cs;
 #ifndef ISOTHERMAL
     Soln[i].E = pres/Gamma_1 
@@ -161,6 +190,19 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+
+  return;
+}
+#endif
+
 
 void Userwork_in_loop(MeshS *pM)
 {
