@@ -251,4 +251,13 @@ Real vecpot2b3i(Real (*A1)(Real,Real,Real), Real (*A2)(Real,Real,Real),
 void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
 #endif
+
+
+/*------------------------------------------------*/
+/* rad_utils.c */
+
+#ifdef RADIATION
+Real eff_sound(const Cons1DS U, Real dt);
+#endif
+
 #endif /* PROTOTYPES_H */

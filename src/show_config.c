@@ -120,13 +120,15 @@ void show_config(void)
 #elif defined(TWO_SHOCK_FLUX)
   ath_pout(0," Flux:                    two-shock\n");
 #elif defined(RADIHD_HLLE_FLUX)
-  ath_pout(0," Flux:                    radiHD_hlle\n");
+  ath_pout(0," Flux:                    radHD_hlle\n");
 #endif
 
 #if defined(CTU_INTEGRATOR)
   ath_pout(0," Unsplit integrator:      ctu\n");
 #elif defined(VL_INTEGRATOR)
   ath_pout(0," Unsplit integrator:      vl\n");
+#elif defined(radMHD_INTEGRATOR)
+  ath_pout(0," Unsplit integrator:	radMHD\n");
 #endif
 
 #if defined(SINGLE_PREC)

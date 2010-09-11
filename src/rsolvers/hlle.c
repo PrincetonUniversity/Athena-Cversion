@@ -262,17 +262,3 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #endif /* HLLE_FLUX */
 #endif
 
-#ifdef RADIHD_HLLE_FLUX
-/* This flux function is used for radiation hydro */
-
-
-void fluxes(const Cons1DS Ul, const Cons1DS Ur,
-                   const Prim1DS Wl, const Prim1DS Wr,
-                   const Real Bxi, Cons1DS *pFlux)
-{
-  
-
-  return;
-}
-
-#endif

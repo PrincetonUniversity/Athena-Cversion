@@ -38,6 +38,12 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
             const Prim1DS Wl, const Prim1DS Wr,
             const Real Bxi, Cons1DS *pF);
 
+#ifdef RADIATION
+void rad_fluxes(const Cons1DS Ul, const Cons1DS Ur,
+                   const Prim1DS Wl, const Prim1DS Wr,
+                   const Real Bxi, Cons1DS *pFlux, const Real dt);
+#endif
+
 #ifdef SPECIAL_RELATIVITY
 void entropy_flux (const Cons1DS Ul, const Cons1DS Ur,
 		   const Prim1DS Wl, const Prim1DS Wr,

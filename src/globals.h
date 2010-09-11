@@ -58,9 +58,12 @@ ShearFun_t ShearProfile = NULL;
 #endif
 
 
-#ifdef radiation_HD
+#ifdef RADIATION
 Real Pratio;		/* Pratio=a_rT^4/rho a^2; The ratio between the pressure unit for radiation and gas */ 
 Real Cratio;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
+Real Sigmat;		/* scattering plus absorption coefficient */
+Real Sigmaa;		/* Absorption coefficient  */
+Real Ridealgas;		/* Value of ideal gas constant under current unit. Used to calculate the temperature */
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -114,8 +117,10 @@ extern ShearFun_t ShearProfile;
 #endif
 #endif
 
-#ifdef radiation_HD
-extern Real Pratio, Cratio;		 	
+#ifdef RADIATION
+extern Real Pratio, Cratio;
+extern Real Sigmat, Sigmaa;
+extern Real Ridealgas;		 	
 #endif
 
 

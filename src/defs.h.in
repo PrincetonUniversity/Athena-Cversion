@@ -28,6 +28,11 @@
 /* HYDRO or MHD or radiation_HD*/
 #define @GAS@
 
+/* RADIATION is flag used both for HD and MHD  */
+#ifdef radiation_HD
+#define RADIATION
+#endif
+
 /* ADIABATIC or ISOTHERMAL or ... */
 #define @EOS@
 #define EOS_STR "@EOS@"

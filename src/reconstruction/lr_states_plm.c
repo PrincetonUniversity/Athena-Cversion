@@ -34,6 +34,7 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
+
 #ifdef SECOND_ORDER_CHAR
 #ifdef SPECIAL_RELATIVITY
 #error : PLM reconstruction (order=2) cannot be used for special relativity.
@@ -372,6 +373,8 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /*----------------------------------------------------------------------------*/
 /* lr_states_init:  Allocate enough memory for work arrays */
 
+#ifndef RADIATION
+
 void lr_states_init(MeshS *pM)
 {
   int nmax,size1=0,size2=0,size3=0,nl,nd;
@@ -415,4 +418,6 @@ void lr_states_destruct(void)
   return;
 }
 
+#endif /* If no radiation */
 #endif /* SECOND_ORDER_CHAR */
+

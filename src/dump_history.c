@@ -69,7 +69,8 @@
 #include "prototypes.h"
 
 /* Maximum Number of default history dump columns. */
-#define NSCAL 14
+/* With radiation HD, four extra variables are calculated */
+#define NSCAL 18
 
 /* Maximum number of history dump columns that the user routine can add. */
 #define MAX_USR_H_COUNT 30
@@ -113,6 +114,12 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef ADIABATIC
   total_hst_cnt++;
 #endif
+
+/* Add extra four columns for Er, Fluxr1, Fluxr2, Fluxr3 */
+#ifdef RADIATION
+  total_hst_cnt += 4;
+#endif
+
 #ifdef MHD
   total_hst_cnt += 3;
 #endif
@@ -217,6 +224,18 @@ void dump_history(MeshS *pM, OutputS *pOut)
               mhst++;
               scal[mhst] += dVol*(x1*pG->U[k][j][i].M2);
 #endif
+
+#ifdef	RADIATION
+	      mhst++;
+	      scal[mhst] += dVol*pG->U[k][j][i].Er;
+	      mhst++;
+	      scal[mhst] += dVol*pG->U[k][j][i].Fluxr1;
+	      mhst++;
+	      scal[mhst] += dVol*pG->U[k][j][i].Fluxr2;
+	      mhst++;
+	      scal[mhst] += dVol*pG->U[k][j][i].Fluxr3;
+#endif
+		
 
 #else /* SPECIAL_RELATIVITY */
 
@@ -401,6 +420,18 @@ void dump_history(MeshS *pM, OutputS *pOut)
             mhst++;
             fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
 #endif
+
+#ifdef RADIATION
+	    mhst++;
+            fprintf(pfile,"   [%i]=Er   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=x1-Fluxr   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=x2-Fluxr   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=x3-Fluxr   ",mhst);
+#endif
+
 
 #else /* SPECIAL_RELATIVITY */
             mhst++;

@@ -5,7 +5,7 @@ journal =
 config  = --with-gas=radiation_MHD --with-problem=radiMHD1d.c
 
 <job>
-problem_id      = radiMHDtest       # problem ID: basename of output filenames
+problem_id      = radMHDtest       # problem ID: basename of output filenames
 maxout          = 2         # Output blocks number from 1 -> maxout
 num_domains     = 1         # number of Domains in Mesh
 
@@ -78,3 +78,9 @@ gamma   = 1.666666667       # gamma = C_p/C_v
 Pratio = 1.0e-20	 	# ratio between radiation pressure unit and gas pressure unit
 
 Cratio = 1.0e5			# ratio between speed of light and velocity unit
+
+Sigmat = 1.e-6			# scattering plus absorption coefficient
+	
+Sigmaa = 1.e-4			# absorption coefficient
+
+Ridealgas = 1.0;		# Value of ideal gas constant under current unit. Used to calculate temperature

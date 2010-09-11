@@ -95,6 +95,14 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   for (n=0; n<NSCALARS; n++) U.s[n] = pCons->s[n];
 #endif
 
+#ifdef RADIATION
+  U.Er = pCons->Er;
+  U.Fluxr1 = pCons->Fluxr1;
+  U.Fluxr2 = pCons->Fluxr2;
+  U.Fluxr3 = pCons->Fluxr3;
+#endif
+
+
   W = Cons1D_to_Prim1D(&U, &Bx);
 
   Prim.d  = W.d;
@@ -111,6 +119,12 @@ PrimS Cons_to_Prim(const ConsS *pCons)
 #endif /* MHD */
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) Prim.r[n] = W.r[n];
+#endif
+#ifdef RADIATION
+  Prim.Er = W.Er;
+  Prim.Fluxr1 = W.Fluxr1;
+  Prim.Fluxr2 = W.Fluxr2;
+  Prim.Fluxr3 = W.Fluxr3;
 #endif
 
   return Prim;
@@ -141,6 +155,13 @@ ConsS Prim_to_Cons (const PrimS *pW)
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) W.r[n] = pW->r[n];
 #endif
+
+#ifdef RADIATION
+  W.Er = pW->Er;
+  W.Fluxr1 = pW->Fluxr1;
+  W.Fluxr2 = pW->Fluxr2;
+  W.Fluxr3 = pW->Fluxr3;
+#endif
  
   U = Prim1D_to_Cons1D(&W, &Bx);
 
@@ -158,6 +179,13 @@ ConsS Prim_to_Cons (const PrimS *pW)
 #endif /* MHD */
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) Cons.s[n] = U.s[n];
+#endif
+
+#ifdef RADIATION
+  Cons.Er = U.Er;
+  Cons.Fluxr1 = U.Fluxr1;
+  Cons.Fluxr2 = U.Fluxr2;
+  Cons.Fluxr3 = U.Fluxr3;
 #endif
 
   return Cons;
@@ -369,6 +397,13 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
   for (n=0; n<NSCALARS; n++) Prim1D.r[n] = pU->s[n]*di;
 #endif
 
+#ifdef RADIATION
+  Prim1D.Er = pU->Er;
+  Prim1D.Fluxr1 = pU->Fluxr1;
+  Prim1D.Fluxr2 = pU->Fluxr2;
+  Prim1D.Fluxr3 = pU->Fluxr3;
+#endif
+
   return Prim1D;
 }
 
@@ -406,6 +441,15 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) Cons1D.s[n] = pW->r[n]*pW->d;
 #endif
+
+
+#ifdef RADIATION
+  Cons1D.Er = pW->Er;
+  Cons1D.Fluxr1 = pW->Fluxr1;
+  Cons1D.Fluxr2 = pW->Fluxr2;
+  Cons1D.Fluxr3 = pW->Fluxr3;
+#endif
+
 
   return Cons1D;
 }

@@ -126,6 +126,15 @@ Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 #ifdef SPECIAL_RELATIVITY
 Real expr_G  (const GridS *pG, const int i, const int j, const int k);
 #endif
+
+#ifdef RADIATION
+Real expr_Er	 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Fluxr1 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Fluxr2 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Fluxr3 (const GridS *pG, const int i, const int j, const int k);
+#endif
+
+
 #ifdef PARTICLES
 extern Real expr_dpar (const GridS *pG, const int i, const int j, const int k);
 extern Real expr_M1par(const GridS *pG, const int i, const int j, const int k);
@@ -1093,6 +1102,23 @@ Real expr_E(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].E;
 }
 #endif
+
+#ifdef RADIATION
+Real expr_Er	 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Er;
+}
+Real expr_Fluxr1 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Fluxr1;
+}
+Real expr_Fluxr2 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Fluxr2;
+}
+Real expr_Fluxr3 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Fluxr3;
+}
+#endif
+
+
 
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are magnetic field variables: B1c, B2c, B3c, B^2 */

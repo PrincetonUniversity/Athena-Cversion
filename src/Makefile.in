@@ -35,7 +35,8 @@ CORE_OBJ = ath_array.o \
            restart.o \
            show_config.o \
 	   smr.o \
-           utils.o
+           utils.o \
+	   rad_utils.o
 
 FFT_OBJ =
 ifeq (@FFT_MODE@,FFT_ENABLED)
@@ -62,7 +63,11 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_3d_vl.o \
                   integrators/integrate_1d_vl_sr.o \
                   integrators/integrate_2d_vl_sr.o \
-                  integrators/integrate_3d_vl_sr.o
+                  integrators/integrate_3d_vl_sr.o \
+		  integrators/integrate_1d_radMHD.o \
+		  integrators/integrate_2d_radMHD.o \
+		  integrators/integrate_3d_radMHD.o \
+		  integrators/MatrixSolver/ludcmp.o
 
 GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg.o \
@@ -91,7 +96,8 @@ RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_plm.o \
 		     reconstruction/lr_states_ppm.o \
 		     reconstruction/lr_states_prim2.o \
-		     reconstruction/lr_states_prim3.o
+		     reconstruction/lr_states_prim3.o \
+	             reconstruction/lr_states_plm_radMHD.o
 
 RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/exact.o \
@@ -103,7 +109,8 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/hllc_sr.o \
 	       rsolvers/hlld_sr.o \
 	       rsolvers/roe.o \
-	       rsolvers/two_shock.o
+	       rsolvers/two_shock.o \
+	       rsolvers/radHD_hlle.o
 
 ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
 

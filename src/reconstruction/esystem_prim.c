@@ -25,6 +25,7 @@
  *   esys_prim_adb_hyd() - adiabatic hydrodynamics
  *   esys_prim_iso_mhd() - isothermal MHD
  *   esys_prim_adb_mhd() - adiabatic MHD
+ *   esys_rad_hyd()  	 - radiatio hydrodynamics
  *============================================================================*/
 
 #include <math.h>
@@ -478,7 +479,10 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   right_eigenmatrix[3][2] = -qf*bet3;
 /*right_eigenmatrix[3][3] = 0.0; */
   right_eigenmatrix[3][4] = -right_eigenmatrix[3][2];
-  right_eigenmatrix[3][5] = -bet2;
+  right_eigenmatrix[3][5] = -bet2;/* esys_prim_adb_mhd: ADIABATIC MHD
+ *   Input: d, v1, p, b1, b2, b3 = density, velocities, pressure, and B field
+ *   Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
+ */
   right_eigenmatrix[3][6] = -right_eigenmatrix[3][0];
 
   right_eigenmatrix[4][0] = d*asq*alpha_f;
@@ -490,7 +494,8 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   right_eigenmatrix[4][6] = right_eigenmatrix[4][0];
 
   right_eigenmatrix[5][0] = as*bet2;
-  right_eigenmatrix[5][1] = -bet3*s*sqrtd;
+  right_eigenmatrix[5][1] = -bet3*s*sqrtd;Real eigenvalues[],
+  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
   right_eigenmatrix[5][2] = -af*bet2;
 /*right_eigenmatrix[5][3] = 0.0; */
   right_eigenmatrix[5][4] = right_eigenmatrix[5][2];
@@ -570,3 +575,121 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   left_eigenmatrix[6][6] = left_eigenmatrix[0][6];
 }
 #endif
+
+
+
+/* esys_rad_hyd: radiation hydrodynamics
+ *   Input: aeff, v = effective sound speed, velocities 
+ *   Output: eigenvalues[8], right_eigenmatrix[9,9], left_eigenmatrix[9,9];
+ *   The order is rho, Mv1, Mv2, Mv3, E, Er, Fluxr1, Fluxr2, Fluxr3 
+ */
+
+#ifdef radiation_HD
+void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
+  Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE])
+{
+	 eigenvalues[0] = v1 - aeff;
+  	 eigenvalues[1] = v1;
+ 	 eigenvalues[2] = 0.0;
+ 	 eigenvalues[3] = 0.0;
+ 	 eigenvalues[4] = v1 + aeff;
+	 eigenvalues[5] = 0.0;
+ 	 eigenvalues[6] = 0.0;
+ 	 eigenvalues[7] = 0.0;
+	 eigenvalues[8] = 0.0;
+
+
+	/* Right-eigenvectors, stored as COLUMNS  */
+
+ 	 right_eigenmatrix[0][0] = 1.0;
+	 right_eigenmatrix[1][0] = v1 - aeff;
+	/*right_eigenmatrix[2][0] = 0.0; */
+	/*right_eigenmatrix[3][0] = 0.0; */
+  	right_eigenmatrix[4][0] = v1 * v1 /2.0 - v1 * aeff + aeff * aeff / (Gamma - 1.0);
+	/*right_eigenmatrix[5][0] = 0.0; */
+	/*right_eigenmatrix[6][0] = 0.0; */
+	/*right_eigenmatrix[7][0] = 0.0; */
+	/*right_eigenmatrix[8][0] = 0.0; */
+
+    right_eigenmatrix[0][1] = 1.0;
+	right_eigenmatrix[1][1] = v1; 
+	/*right_eigenmatrix[2][1] = 0.0; */
+	/*right_eigenmatrix[3][1] = 0.0; */
+	right_eigenmatrix[4][1] = v1 * v1 /2.0; 
+	/*right_eigenmatrix[5][1] = 0.0; */
+	/*right_eigenmatrix[6][1] = 0.0; */
+	/*right_eigenmatrix[7][1] = 0.0; */
+	/*right_eigenmatrix[8][1] = 0.0; */
+	
+	/*right_eigenmatrix[i][2] = 0.0; */
+	/*right_eigenmatrix[i][3] = 0.0; */
+	
+	
+	right_eigenmatrix[0][4] = 1.0;
+	right_eigenmatrix[1][4] = v1 + aeff; 
+	/*right_eigenmatrix[2][4] = 0.0; */
+	/*right_eigenmatrix[3][4] = 0.0; */
+	right_eigenmatrix[4][4] = v1 * v1 /2.0 + v1 * aeff + aeff * aeff / (Gamma - 1.0); 
+	/*right_eigenmatrix[5][4] = 0.0; */
+	/*right_eigenmatrix[6][4] = 0.0; */
+	/*right_eigenmatrix[7][4] = 0.0; */
+	/*right_eigenmatrix[8][4] = 0.0; */
+
+	/*right_eigenmatrix[i][5] = 0.0; */
+	/*right_eigenmatrix[i][6] = 0.0; */
+	/*right_eigenmatrix[i][7] = 0.0; */
+	/*right_eigenmatrix[i][8] = 0.0; */
+	
+
+
+/* Left-eigenvectors, stored as ROWS (eq. A4) */
+
+	left_eigenmatrix[0][0] = v1 * (1.0 + (Gamma - 1.0) * v1 / (2.0 * aeff)) / (2.0 * aeff);
+	left_eigenmatrix[0][1] = -1.0 * (1.0 + (Gamma - 1.0) * v1 / aeff)/(2.0 * aeff);
+	/*left_eigenmatrix[0][2] = 0.0; */
+	/*left_eigenmatrix[0][3] = 0.0; */
+	left_eigenmatrix[0][4] = (Gamma - 1.0) / (2.0 * aeff * aeff);
+	/*left_eigenmatrix[0][5] = 0.0; */
+	/*left_eigenmatrix[0][6] = 0.0; */
+	/*left_eigenmatrix[0][7] = 0.0; */
+	/*left_eigenmatrix[0][8] = 0.0; */
+
+	left_eigenmatrix[1][0] = 1.0 - (Gamma - 1.0) * v1 * v1/ (2.0 * aeff * aeff); 
+	left_eigenmatrix[1][1] = (Gamma - 1.0) * v1/(aeff * aeff);
+	/*left_eigenmatrix[1][2] = 0.0; */
+	/*left_eigenmatrix[1][3] = 0.0; */
+	left_eigenmatrix[1][4] = -(Gamma - 1.0)/(aeff * aeff);
+	/*left_eigenmatrix[1][5] = 0.0; */
+	/*left_eigenmatrix[1][6] = 0.0; */
+	/*left_eigenmatrix[1][7] = 0.0; */
+	/*left_eigenmatrix[1][8] = 0.0; */
+
+	/*left_eigenmatrix[2][i] = 0.0; */
+	/*left_eigenmatrix[3][1] = 0.0; */
+
+
+	left_eigenmatrix[4][0] = -v1 * (1.0 - (Gamma - 1.0) * v1/(2.0 * aeff)) / (2.0 * aeff); 
+	left_eigenmatrix[4][1] = (1.0 - (Gamma - 1.0) * v1/aeff)/(2.0 * aeff);
+	/*left_eigenmatrix[4][2] = 0.0; */
+	/*left_eigenmatrix[4][3] = 0.0; */
+	left_eigenmatrix[4][4] = (Gamma - 1.0)/(2.0 * aeff * aeff);
+	/*left_eigenmatrix[4][5] = 0.0; */
+	/*left_eigenmatrix[4][6] = 0.0; */
+	/*left_eigenmatrix[4][7] = 0.0; */
+	/*left_eigenmatrix[4][8] = 0.0; */
+
+	/*left_eigenmatrix[5][i] = 0.0; */
+	/*left_eigenmatrix[6][1] = 0.0; */
+	/*left_eigenmatrix[7][i] = 0.0; */
+	/*left_eigenmatrix[8][1] = 0.0; */
+
+
+}
+#endif
+
+
+
+
+
+
+

@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: radiMHD1d.c
+ * FILE: radMHD1d.c
  *
  * PURPOSE: Problem generator to test the radiation MHD code. 
  *  Development is underway. To be modified later 
@@ -27,6 +27,9 @@ void problem(DomainS *pDomain)
 
   Pratio = par_getd("problem","Pratio");
   Cratio = par_getd("problem","Cratio");
+  Sigmat = par_getd("Problem","Sigmat");
+  Sigmaa = par_getd("Problem","Sigmaa");
+  Ridealgas = par_getd("Problem","Ridealgas");
 
 
 /* Set up the index bounds for initializing the grid */

@@ -38,6 +38,12 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
 #endif
 
+
+#ifdef radiation_HD
+void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
+  Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE]);
+#endif
+
 /*  All of the lr_states_*.c files in this directory contain the same function
  *  names below */
 void lr_states_destruct(void);
@@ -45,8 +51,11 @@ void lr_states_init(MeshS *pM);
 void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int is, const int ie,
                Prim1DS Wl[], Prim1DS Wr[], const int dir);
-void lr_states_dc_radiMHD(const GridS *pG, const Prim1DS W[], 
-		const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[]);
+
+#ifdef RADIATION
+void lr_states_cons(const GridS *pG, const Cons1DS W[], const Real Bxc[], 
+               const Real dt, const Real dx, const int il, const int iu, 
+               Cons1DS Wl[], Cons1DS Wr[], const int dir);
+#endif /* RADIATION */
 
 #endif /* RECONSTRUCTION_PROTOTYPES_H */

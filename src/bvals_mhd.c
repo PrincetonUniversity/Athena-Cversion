@@ -17,6 +17,10 @@
  *       bc_ix1 = Boundary Condition for Inner x1 (at i=is)
  *       bc_ox1 = Boundary Condition for Outer x1 (at i=ie)
  *   similarly for bc_ix2; bc_ox2; bc_ix3; bc_ox3
+
+ * NOTE:
+ * Radiation is only used for 1, 2, 4 boundary condition now. To be improved later.
+ *
  *
  * For case (1) -- PHYSICAL BOUNDARIES
  *   The values of the integer flags (bc_ix1, etc.) are:
@@ -925,6 +929,9 @@ static void reflect_ix1(GridS *pGrid)
 #ifdef MHD
         pGrid->U[k][j][is-i].B1c= -pGrid->U[k][j][is-i].B1c;/* reflect 1-fld. */
 #endif
+#ifdef RADIATION
+	pGrid->U[k][j][is-i].Fluxr1 = -pGrid->U[k][j][is-i].Fluxr1; /* reflect 1-radiation flux. */
+#endif
       }
     }
   }
@@ -983,6 +990,10 @@ static void reflect_ox1(GridS *pGrid)
 #ifdef MHD
         pGrid->U[k][j][ie+i].B1c= -pGrid->U[k][j][ie+i].B1c;/* reflect 1-fld. */
 #endif
+#ifdef RADIATION
+	pGrid->U[k][j][ie+i].Fluxr1 = -pGrid->U[k][j][ie+i].Fluxr1; /* reflect 1-mom. */
+#endif
+
       }
     }
   }
@@ -1040,6 +1051,10 @@ static void reflect_ix2(GridS *pGrid)
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
 #ifdef MHD
         pGrid->U[k][js-j][i].B2c= -pGrid->U[k][js-j][i].B2c;/* reflect 2-fld. */
+#endif
+
+#ifdef RADIATION
+	pGrid->U[k][js-j][i].Fluxr2 = -pGrid->U[k][js-j][i].Fluxr2; /* reflect 2-radiation flux. */
 #endif
       }
     }
@@ -1101,6 +1116,10 @@ static void reflect_ox2(GridS *pGrid)
 #ifdef MHD
         pGrid->U[k][je+j][i].B2c= -pGrid->U[k][je+j][i].B2c;/* reflect 2-fld. */
 #endif
+#ifdef RADIATION
+	pGrid->U[k][je+j][i].Fluxr2 = -pGrid->U[k][je+j][i].Fluxr2; /* reflect 2-radiation flux. */
+#endif
+
       }
     }
   }
@@ -1158,6 +1177,10 @@ static void reflect_ix3(GridS *pGrid)
 #ifdef MHD
         pGrid->U[ks-k][j][i].B3c= -pGrid->U[ks-k][j][i].B3c;/* reflect 3-fld.*/
 #endif
+#ifdef RADIATION
+	pGrid->U[ks-k][j][i].Fluxr3 = -pGrid->U[ks-k][j][i].Fluxr3; /* reflect 3-radiation flux. */
+#endif
+
       }
     }
   }
@@ -1217,6 +1240,10 @@ static void reflect_ox3(GridS *pGrid)
 #ifdef MHD
         pGrid->U[ke+k][j][i].B3c= -pGrid->U[ke+k][j][i].B3c;/* reflect 3-fld. */
 #endif
+#ifdef RADIATION
+	pGrid->U[ke+k][j][i].Fluxr3 = -pGrid->U[ke+k][j][i].Fluxr3; /* reflect 3-radiation flux. */
+#endif
+
       }
     }
   }
@@ -1904,6 +1931,8 @@ static void conduct_ix1(GridS *pGrid)
         pGrid->U[k][j][is-i].B2c= -pGrid->U[k][j][is-i].B2c;/* reflect fld */
         pGrid->U[k][j][is-i].B3c= -pGrid->U[k][j][is-i].B3c;
 #endif
+
+
       }
     }
   }

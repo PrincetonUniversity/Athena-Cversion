@@ -87,7 +87,7 @@ typedef struct Cons_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-#ifdef radiation_HD
+#ifdef RADIATION
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;
@@ -116,7 +116,7 @@ typedef struct Prim_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-#ifdef radiation_HD
+#ifdef RADIATION
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;			/* Conserved variables and primitive variables are the same */
@@ -147,7 +147,7 @@ typedef struct Cons1D_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-#ifdef radiation_HD
+#ifdef RADIATION
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;
@@ -175,7 +175,7 @@ typedef struct Prim1D_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-#ifdef radiation_HD
+#ifdef RADIATION
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;			/* Conserved variables and primitive variables are the same */
@@ -324,7 +324,7 @@ typedef struct Grid_s{
   Real *r,*ri;                  /* cylindrical scaling factors */ 
 #endif /* CYLINDRICAL */
 
-#ifdef radiation_HD
+#ifdef RADIATION
   Real fra1D;			/* Tensor f to relate radiation energy density and pressure, 1D case */
 #endif
 
