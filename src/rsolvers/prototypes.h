@@ -32,17 +32,21 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
   const Real x, const Real y, Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
 
+#ifdef rad_hydro
+
+void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
+  const Real pressure,
+  Real eigenvalues[],
+  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5]);
+#endif
+
 /* All of the Riemann solvers in this directory contain the same function name
  */
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
             const Prim1DS Wl, const Prim1DS Wr,
             const Real Bxi, Cons1DS *pF);
 
-#ifdef RADIATION
-void rad_fluxes(const Cons1DS Ul, const Cons1DS Ur,
-                   const Prim1DS Wl, const Prim1DS Wr,
-                   const Real Bxi, Cons1DS *pFlux, const Real dt);
-#endif
+
 
 #ifdef SPECIAL_RELATIVITY
 void entropy_flux (const Cons1DS Ul, const Cons1DS Ur,

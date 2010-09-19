@@ -48,6 +48,9 @@
  *   Input Arguments:
  *     Bxi = B in direction of 1D slice at cell interface
  *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ * NOTE: For radiation code, time step is stored in Ul.My to calculate the 
+ * effective sound speed 
+ *
  *   Output Arguments:
  *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
@@ -64,6 +67,11 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #ifdef MHD
   Real b2roe,b3roe,x,y;
 #endif
+#ifdef rad_hydro
+  Real dt=pFlux->d;
+  Real Proe;
+#endif
+
   Real ev[NWAVE],al,ar;
   Real *pFl, *pFr, *pF;
   Cons1DS Fl,Fr;
@@ -91,6 +99,10 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   v1roe = (sqrtdl*Wl.Vx + sqrtdr*Wr.Vx)*isdlpdr;
   v2roe = (sqrtdl*Wl.Vy + sqrtdr*Wr.Vy)*isdlpdr;
   v3roe = (sqrtdl*Wl.Vz + sqrtdr*Wr.Vz)*isdlpdr;
+
+#ifdef rad_hydro
+  Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
+#endif
 
 /* The Roe average of the magnetic field is defined differently.  */
 
@@ -132,16 +144,28 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
+#ifdef rad_hydro
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, ev, NULL, NULL);
+#endif
+
 /*--- Step 4. ------------------------------------------------------------------
  * Compute the max and min wave speeds
  */
 
 /* left state */
+#ifndef rad_hydro
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
   asq = Gamma*Wl.P/Wl.d;
 #endif
+#endif
+
+#ifdef rad_hydro
+  asq = eff_sound(Wl,dt);
+  asq = asq * asq;
+#endif
+
 #ifdef MHD
   vaxsq = Bxi*Bxi/Wl.d;
   ct2 = (Ul.By*Ul.By + Ul.Bz*Ul.Bz)/Wl.d;
@@ -152,11 +176,19 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   cfl = sqrt((double)cfsq);
 
 /* right state */
+#ifndef rad_hydro
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
   asq = Gamma*Wr.P/Wr.d; 
 #endif
+#endif
+
+#ifdef rad_hydro
+  asq = eff_sound(Wr,dt);
+  asq = asq * asq;
+#endif
+
 #ifdef MHD
   vaxsq = Bxi*Bxi/Wr.d;
   ct2 = (Ur.By*Ur.By + Ur.Bz*Ur.Bz)/Wr.d;
@@ -167,7 +199,11 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   cfr = sqrt((double)cfsq);
 
 /* take max/min of Roe eigenvalues and L/R state wave speeds */
+#ifdef rad_hydro
+  ar = MAX(ev[4],(Wr.Vx + cfr));
+#else// radiation code v+aeff is ev[4], not ev[NWAVE-1]
   ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
+#endif
   al = MIN(ev[0]      ,(Wl.Vx - cfl));
 
   bp = MAX(ar, 0.0);

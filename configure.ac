@@ -14,7 +14,7 @@
 #
 # PHYSICS "packages":
 #   --with-problem='name'                 (use prob/name.c as problem generator)
-#   --with-gas=[hydro,mhd,radiation_HD] (hydro or mhd or radiation HD algorithm)
+#   --with-gas=[hydro,mhd,rad_hydro] (hydro or mhd or radiation HD algorithm)
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,fft_obc,multigrid]                        (self-gravity)
@@ -29,9 +29,9 @@
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
-#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock,radHD_hlle]
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]
 #								 (flux function)
-#   --with-integrator=[ctu,vl,radMHD]           (unsplit integration algorithm)
+#   --with-integrator=[ctu,vl]           (unsplit integration algorithm)
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
 #
 # ALGORITHM "features":
@@ -80,22 +80,25 @@ fi
 
 AC_SUBST(GAS)
 AC_ARG_WITH(gas,
-	[--with-gas=GAS  Gas properties (mhd,hydro,radiation_HD)],
+	[--with-gas=GAS  Gas properties (mhd,hydro,rad_hydro)],
 	with_gas=$withval, with_gas="mhd")
 if test   "$with_gas" = "hydro"; then
   GAS="HYDRO"
   flux_default="hllc"
   integrator_default="ctu"
+  order_default="2"
 elif test "$with_gas" = "mhd";   then
   GAS="MHD"
   flux_default="roe"
   integrator_default="ctu"
-elif test "$with_gas" = "radiation_HD"; then
-  GAS="radiation_HD"
-  flux_default="radHD_hlle"
-  integrator_default="radMHD"  
+  order_default="2"
+elif test "$with_gas" = "rad_hydro"; then
+  GAS="rad_hydro"
+  flux_default="hlle"
+  integrator_default="radMHD"
+  order_default="2p"
 else
-  AC_MSG_ERROR([expected --with-gas=mhd or hydro or radiation_HD])
+  AC_MSG_ERROR([expected --with-gas=mhd or hydro or rad_hydro])
 fi
 
 #-------------------------------------------------------------------------------
@@ -278,7 +281,7 @@ AC_SUBST(ACCURACY)
 
 AC_ARG_WITH(order,
 	[--with-order=ORDER      Order of Accuracy (1,2,3,2p,3p)],
-	with_order=$withval, with_order="2")
+	with_order=$withval, with_order=$order_default)
 ORDER=$with_order
 if test   "$with_order" = "1"; then
   ACCURACY="FIRST_ORDER"
@@ -296,13 +299,13 @@ fi
 
 #-------------------------------------------------------------------------------
 # ALGORITHM PACKAGE: flux function
-#   --with-flux=[roe,hlle,hllc,hlld,force,exact,radHD_hlle]
-#   (default is roe if gas=mhd, hllc if gas=hydro, radHD_hlle if gas=radiation_HD)
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact]
+#   (default is roe if gas=mhd, hllc if gas=hydro, hlle if gas=rad_hydro)
 
 AC_SUBST(FLUX_NAME)
 AC_SUBST(FLUX_DEF)
 AC_ARG_WITH(flux,
-	[--with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only),two-shock (hydro only), radHD_hlle (radiation hydro only))],
+	[--with-flux=FLUX_NAME   Flux function (roe, hllc (hydro only), hlld, hlle, force, exact (hydro only),two-shock (hydro only))],
 	with_flux=$withval, with_flux=$flux_default)
 FLUX_NAME=$with_flux
 if test   "$with_flux" = "roe"; then
@@ -319,21 +322,21 @@ elif test "$with_flux" = "exact"; then
   FLUX_DEF="EXACT_FLUX"
 elif test "$with_flux" = "two-shock"; then
   FLUX_DEF="TWO_SHOCK_FLUX"
-elif test "$with_flux" = "radHD_hlle"; then
-  FLUX_DEF="RADHD_HLLE_FLUX"
 else
-  AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, force, exact, two-shock, radHD_hlle])
+  AC_MSG_ERROR([Invalid flux function, valid types are: roe, hlle, hllc hlld, force, exact, two-shock])
 fi
 
 #-------------------------------------------------------------------------------
 # ALGORITHM PACKAGE: set the unsplit integration algorithm
-#   --with-integrator=[ctu,vl,radMHD] (default is ctu)
+#   --with-integrator=[ctu,vl] (default is ctu)
+# Integrator for radiation code is set as default. 
+# DO NOT USE integrator for radiation package
 
 AC_SUBST(INTEGRATOR)
 AC_SUBST(INTEGRATOR_DEF)
 
 AC_ARG_WITH(integrator,
-	[--with-integrator=INTEGRATOR  Which unsplit integrator (ctu, vl, radMHD)],
+	[--with-integrator=INTEGRATOR  Which unsplit integrator (ctu, vl)],
 	with_integrator=$withval, with_integrator=$integrator_default)
 INTEGRATOR=$with_integrator
 if test   "$with_integrator" = "ctu"; then
@@ -343,7 +346,7 @@ elif test "$with_integrator" = "vl"; then
 elif test "$with_integrator" = "radMHD"; then
   INTEGRATOR_DEF="radMHD_INTEGRATOR"
 else
-  AC_MSG_ERROR([expected --with-integrator=ctu or vl or radMHD])
+  AC_MSG_ERROR([expected --with-integrator=ctu or vl])
 fi
 
 

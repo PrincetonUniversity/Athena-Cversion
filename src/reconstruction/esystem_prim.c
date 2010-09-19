@@ -584,8 +584,8 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
  *   The order is rho, Mv1, Mv2, Mv3, E, Er, Fluxr1, Fluxr2, Fluxr3 
  */
 
-#ifdef radiation_HD
-void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
+#ifdef rad_hydro
+void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eigenvalues[],
   Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE])
 {
 	 eigenvalues[0] = v1 - aeff;
@@ -602,20 +602,20 @@ void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
 	/* Right-eigenvectors, stored as COLUMNS  */
 
  	 right_eigenmatrix[0][0] = 1.0;
-	 right_eigenmatrix[1][0] = v1 - aeff;
+	 right_eigenmatrix[1][0] = -aeff/rho;
 	/*right_eigenmatrix[2][0] = 0.0; */
 	/*right_eigenmatrix[3][0] = 0.0; */
-  	right_eigenmatrix[4][0] = v1 * v1 /2.0 - v1 * aeff + aeff * aeff / (Gamma - 1.0);
+  	right_eigenmatrix[4][0] = aeff * aeff;
 	/*right_eigenmatrix[5][0] = 0.0; */
 	/*right_eigenmatrix[6][0] = 0.0; */
 	/*right_eigenmatrix[7][0] = 0.0; */
 	/*right_eigenmatrix[8][0] = 0.0; */
 
-    right_eigenmatrix[0][1] = 1.0;
-	right_eigenmatrix[1][1] = v1; 
+    	right_eigenmatrix[0][1] = 1.0;
+        /*right_eigenmatrix[1][1] = 0.0; */
 	/*right_eigenmatrix[2][1] = 0.0; */
 	/*right_eigenmatrix[3][1] = 0.0; */
-	right_eigenmatrix[4][1] = v1 * v1 /2.0; 
+	/*right_eigenmatrix[4][1] = 0.0; */
 	/*right_eigenmatrix[5][1] = 0.0; */
 	/*right_eigenmatrix[6][1] = 0.0; */
 	/*right_eigenmatrix[7][1] = 0.0; */
@@ -626,10 +626,10 @@ void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
 	
 	
 	right_eigenmatrix[0][4] = 1.0;
-	right_eigenmatrix[1][4] = v1 + aeff; 
+	right_eigenmatrix[1][4] = aeff/rho; 
 	/*right_eigenmatrix[2][4] = 0.0; */
 	/*right_eigenmatrix[3][4] = 0.0; */
-	right_eigenmatrix[4][4] = v1 * v1 /2.0 + v1 * aeff + aeff * aeff / (Gamma - 1.0); 
+	right_eigenmatrix[4][4] = aeff * aeff; 
 	/*right_eigenmatrix[5][4] = 0.0; */
 	/*right_eigenmatrix[6][4] = 0.0; */
 	/*right_eigenmatrix[7][4] = 0.0; */
@@ -644,21 +644,21 @@ void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
 
 /* Left-eigenvectors, stored as ROWS (eq. A4) */
 
-	left_eigenmatrix[0][0] = v1 * (1.0 + (Gamma - 1.0) * v1 / (2.0 * aeff)) / (2.0 * aeff);
-	left_eigenmatrix[0][1] = -1.0 * (1.0 + (Gamma - 1.0) * v1 / aeff)/(2.0 * aeff);
+	/*left_eigenmatrix[0][0] = 0.0; */
+	left_eigenmatrix[0][1] = -rho/(2.0*aeff);
 	/*left_eigenmatrix[0][2] = 0.0; */
 	/*left_eigenmatrix[0][3] = 0.0; */
-	left_eigenmatrix[0][4] = (Gamma - 1.0) / (2.0 * aeff * aeff);
+	left_eigenmatrix[0][4] = 1.0/(2.0*aeff*aeff);
 	/*left_eigenmatrix[0][5] = 0.0; */
 	/*left_eigenmatrix[0][6] = 0.0; */
 	/*left_eigenmatrix[0][7] = 0.0; */
 	/*left_eigenmatrix[0][8] = 0.0; */
 
-	left_eigenmatrix[1][0] = 1.0 - (Gamma - 1.0) * v1 * v1/ (2.0 * aeff * aeff); 
-	left_eigenmatrix[1][1] = (Gamma - 1.0) * v1/(aeff * aeff);
+	left_eigenmatrix[1][0] = 1.0; 
+	/*left_eigenmatrix[1][1] = 0.0; */
 	/*left_eigenmatrix[1][2] = 0.0; */
 	/*left_eigenmatrix[1][3] = 0.0; */
-	left_eigenmatrix[1][4] = -(Gamma - 1.0)/(aeff * aeff);
+	left_eigenmatrix[1][4] = -1.0/(aeff * aeff);
 	/*left_eigenmatrix[1][5] = 0.0; */
 	/*left_eigenmatrix[1][6] = 0.0; */
 	/*left_eigenmatrix[1][7] = 0.0; */
@@ -668,11 +668,11 @@ void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
 	/*left_eigenmatrix[3][1] = 0.0; */
 
 
-	left_eigenmatrix[4][0] = -v1 * (1.0 - (Gamma - 1.0) * v1/(2.0 * aeff)) / (2.0 * aeff); 
-	left_eigenmatrix[4][1] = (1.0 - (Gamma - 1.0) * v1/aeff)/(2.0 * aeff);
+	/*left_eigenmatrix[4][0] = 0.0; */
+	left_eigenmatrix[4][1] = rho/(2.0*aeff);
 	/*left_eigenmatrix[4][2] = 0.0; */
 	/*left_eigenmatrix[4][3] = 0.0; */
-	left_eigenmatrix[4][4] = (Gamma - 1.0)/(2.0 * aeff * aeff);
+	left_eigenmatrix[4][4] = 1.0/(2.0*aeff*aeff);
 	/*left_eigenmatrix[4][5] = 0.0; */
 	/*left_eigenmatrix[4][6] = 0.0; */
 	/*left_eigenmatrix[4][7] = 0.0; */

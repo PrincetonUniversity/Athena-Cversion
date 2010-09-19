@@ -10,6 +10,7 @@
  * For special relativity, the time step limit is just (1/dx), since the fastest
  * wave speed is never larger than c=1.
  *
+ * For radiation code, effective sound/Alfven speed is also included 
  * A CFL condition is also applied using particle velocities if PARTICLES is
  * defined.
  *
@@ -47,6 +48,12 @@ void new_dt(MeshS *pM)
   double dt, my_dt;
   int ierr;
 #endif
+#ifdef rad_hydro 
+ Real aeff = 0.0;
+ Prim1DS Waeff; 
+ Real Bx=0;
+#endif/* radiation hydro, effective sound speed */
+
   int nl,nd;
   Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
   Real x1,x2,x3;
@@ -72,6 +79,16 @@ void new_dt(MeshS *pM)
         v2 = pGrid->U[k][j][i].M2*di;
         v3 = pGrid->U[k][j][i].M3*di;
         qsq = v1*v1 + v2*v2 + v3*v3;
+
+#ifdef rad_hydro
+	Waeff.d = 1.0/di;
+	Waeff.Vx = v1;
+	Waeff.Vy = v2;
+	Waeff.Vz = v3;
+	Waeff.P = (Gamma - 1.0) *  (pGrid->U[k][j][i].E - 0.5 * Waeff.d * (v1 * v1 + v2 * v2 + v3 * v3));
+	/* For MHD, should include magnetic field */
+#endif
+
 
 #ifdef MHD
 
@@ -115,19 +132,43 @@ void new_dt(MeshS *pM)
 
 #endif /* MHD */
 
+#ifdef rad_hydro
+	/* First step, pGrid->dt=0 */
+	if(pGrid->dt <= TINY_NUMBER)
+	aeff = sqrt(Gamma * Waeff.P/Waeff.d);
+	else
+        aeff = eff_sound(Waeff, pGrid->dt);
+#endif
+
 /* compute maximum cfl velocity (corresponding to minimum dt) */
-        if (pGrid->Nx[0] > 1)
-          max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
-        if (pGrid->Nx[1] > 1)
+        if (pGrid->Nx[0] > 1) {
+#ifdef rad_hydro
+	   max_v1 = MAX(max_v1,fabs(v1)+aeff);
+#else
+	   max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
+#endif
+	}
+        if (pGrid->Nx[1] > 1) {
 #ifdef CYLINDRICAL
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
           max_v2 = MAX(max_v2,(fabs(v2)+sqrt((double)cf2sq))/x1);
 #else
+#ifdef rad_hydro
+	  max_v2 = MAX(max_v2,fabs(v2)+aeff);
+#else
           max_v2 = MAX(max_v2,fabs(v2)+sqrt((double)cf2sq));
+
 #endif
-        if (pGrid->Nx[2] > 1)
+
+#endif
+	}
+        if (pGrid->Nx[2] > 1) {
+#ifdef	rad_hydro
+	  max_v3 = MAX(max_v3,fabs(v3)+aeff);
+#else
           max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
-  
+#endif
+	}  
       }
     }}
 

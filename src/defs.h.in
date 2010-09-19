@@ -25,13 +25,9 @@
 /* Problem generator with which Athena is compiled */
 #define A_PROBLEM "@PROBLEM@"
 
-/* HYDRO or MHD or radiation_HD*/
+/* HYDRO or MHD or rad_hydro*/
 #define @GAS@
 
-/* RADIATION is flag used both for HD and MHD  */
-#ifdef radiation_HD
-#define RADIATION
-#endif
 
 /* ADIABATIC or ISOTHERMAL or ... */
 #define @EOS@
@@ -72,11 +68,11 @@
 
 /* flux type
  * ROE_FLUX, HLLE_FLUX, HLLC_FLUX, HLLD_FLUX, FORCE_FLUX, EXACT_FLUX,
- * TWO_SHOCK_FLUX, RADIHD_HLLE_FLUX*/
+ * TWO_SHOCK_FLUX*/
 #define @FLUX_DEF@
 
 /* unsplit integrator:
- * CTU_INTEGRATOR or VL_INTEGRATOR */
+ * CTU_INTEGRATOR or VL_INTEGRATOR or radMHD_INTEGRATOR*/
 #define @INTEGRATOR_DEF@
 
 /* Real: DOUBLE_PREC or SINGLE_PREC */
@@ -163,8 +159,8 @@ enum {
 #ifdef HYDRO
  enum {NWAVE = 4, NVAR = 4 + NSCALARS};
 #endif
-#ifdef radiation_HD
- enum {NWAVE = 4, NVAR = 7 + NSCALARS};
+#ifdef rad_hydro
+ enum {NWAVE = 8, NVAR = 8 + NSCALARS};
 #endif
 #ifdef MHD
  enum {NWAVE = 6, NVAR = 7 + NSCALARS};
@@ -173,8 +169,8 @@ enum {
 #ifdef HYDRO
  enum {NWAVE = 5, NVAR = 5 + NSCALARS};
 #endif
-#ifdef radiation_HD
- enum {NWAVE = 5, NVAR = 8 + NSCALARS};
+#ifdef rad_hydro
+ enum {NWAVE = 9, NVAR = 9 + NSCALARS};
 #endif
 #ifdef MHD
  enum {NWAVE = 7, NVAR = 8 + NSCALARS};

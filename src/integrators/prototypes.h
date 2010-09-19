@@ -17,10 +17,10 @@
 VDFun_t integrate_init(MeshS *pM);
 void integrate_destruct(void);
 
-/* Only used for radiation integrators */
-#ifdef RADIATION
-void radiation_init_1d(int Ngrids);
-void radiation_destruct_1d(int Ngrids);
+/* Only used for rad_hydro integrators */
+#ifdef rad_hydro
+void rad_hydro_init_1d(int Ngrids);
+void rad_hydro_destruct_1d(int Ngrids);
 void ludcmp(Real **a, int n, int *indx, Real *d);
 void lubksb(Real **a, int n, int *indx, Real b[]);
 #endif

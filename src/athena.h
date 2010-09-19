@@ -87,11 +87,12 @@ typedef struct Cons_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-#ifdef RADIATION
+#ifdef rad_hydro
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;
   Real Fluxr3;
+  Real Edd_11;			/* Edding factor f, the first element */
 #endif
 }ConsS;
 
@@ -116,11 +117,12 @@ typedef struct Prim_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-#ifdef RADIATION
+#ifdef rad_hydro
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;			/* Conserved variables and primitive variables are the same */
   Real Fluxr3;
+  Real Edd_11;
 #endif
 }PrimS;
 
@@ -147,11 +149,12 @@ typedef struct Cons1D_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-#ifdef RADIATION
+#ifdef rad_hydro
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;
   Real Fluxr3;
+  Real Edd_11;
 #endif
 }Cons1DS;
 
@@ -175,11 +178,12 @@ typedef struct Prim1D_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-#ifdef RADIATION
+#ifdef rad_hydro
   Real Er;			/* Radiation Energy density */
   Real Fluxr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fluxr2;			/* Conserved variables and primitive variables are the same */
   Real Fluxr3;
+  Real Edd_11;
 #endif
 }Prim1DS;
 
@@ -324,9 +328,6 @@ typedef struct Grid_s{
   Real *r,*ri;                  /* cylindrical scaling factors */ 
 #endif /* CYLINDRICAL */
 
-#ifdef RADIATION
-  Real fra1D;			/* Tensor f to relate radiation energy density and pressure, 1D case */
-#endif
 
 }GridS;
 

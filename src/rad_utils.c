@@ -2,7 +2,7 @@
 /*==============================================================================
  * FILE: rad_utils.c
  *
- * PURPOSE: A set of functions used to calculate radiation quantities.
+ * PURPOSE: A set of functions used to calculate rad_hydro quantities.
  *
  * CONTAINS PUBLIC FUNCTIONS:
  *   eff_sound() - To calculate the effective sound speed
@@ -16,33 +16,33 @@
 #include "./globals.h"
 #include "prototypes.h"
 
-#ifdef RADIATION
+#ifdef rad_hydro
 /*----------------------------------------------------------------------------*/
 /* 
  *   Input Arguments:
  *     U = Conserved variable
+ *    The effective sound speed is calculated as conserved variable formula
  */
 
-Real eff_sound(const Cons1DS U, Real dt)
+Real eff_sound(const Prim1DS W, Real dt)
 {
-	Real pressure, temperature, velocity, enthalpy, SEE, Alpha, TEnergy;
-	Real aeff;
+	Real aeff, temperature, SPP, Alpha;
+
+	temperature = W.P / (W.d * R_ideal);
+	
+
+	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a 
+		* temperature * temperature * temperature / (W.d * R_ideal);
+
+	if(fabs(SPP * dt * 0.5) > 0.001)
+	Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+	else 
+	Alpha = 1.0 + 0.25 * SPP * dt;
+	/* In case SPP * dt  is small, use expansion expression */	
 
 
-	TEnergy = U.E;
-	pressure = (TEnergy - 0.5 * U.Mx * U.Mx / U.d )
-			* (Gamma - 1);
-	/* Should include magnetic energy for MHD */
-	temperature = pressure / (U.d * Ridealgas);
-	velocity = U.Mx / U.d;
+	aeff = ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
 
-
-	enthalpy = Gamma * TEnergy / U.d - (Gamma - 1.0) * velocity * velocity / 2.0;
-/* The Source term */
-	SEE = 4.0 * Sigmaa * temperature * temperature * temperature * (Gamma - 1.0)/ U.d;
-	Alpha = (1.0 - exp(-Pratio * Cratio * SEE * dt/2.0))/(Pratio * Cratio* SEE * dt/2.0);
-	aeff = -(Gamma - 1.0) * velocity * velocity/2.0 + Alpha * (Gamma - 1.0) * enthalpy 
-			+ (1.0 - Alpha) * (temperature + (Gamma - 1.0) * velocity * velocity/2.0);
 	aeff = sqrt(aeff); 
 
 	return aeff;

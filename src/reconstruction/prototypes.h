@@ -39,10 +39,10 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
 #endif
 
 
-#ifdef radiation_HD
-void esys_rad_hyd(const Real aeff, const Real v1, Real eigenvalues[],
+#ifdef rad_hydro
+void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eigenvalues[],
   Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE]);
-#endif
+#endif /* rad_hydro */
 
 /*  All of the lr_states_*.c files in this directory contain the same function
  *  names below */
@@ -52,10 +52,6 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int is, const int ie,
                Prim1DS Wl[], Prim1DS Wr[], const int dir);
 
-#ifdef RADIATION
-void lr_states_cons(const GridS *pG, const Cons1DS W[], const Real Bxc[], 
-               const Real dt, const Real dx, const int il, const int iu, 
-               Cons1DS Wl[], Cons1DS Wr[], const int dir);
-#endif /* RADIATION */
+
 
 #endif /* RECONSTRUCTION_PROTOTYPES_H */

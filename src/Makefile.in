@@ -96,8 +96,8 @@ RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_plm.o \
 		     reconstruction/lr_states_ppm.o \
 		     reconstruction/lr_states_prim2.o \
-		     reconstruction/lr_states_prim3.o \
-	             reconstruction/lr_states_plm_radMHD.o
+		     reconstruction/lr_states_prim3.o 
+	             
 
 RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/exact.o \
@@ -109,8 +109,8 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/hllc_sr.o \
 	       rsolvers/hlld_sr.o \
 	       rsolvers/roe.o \
-	       rsolvers/two_shock.o \
-	       rsolvers/radHD_hlle.o
+	       rsolvers/two_shock.o 
+	      
 
 ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
 

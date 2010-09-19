@@ -256,8 +256,8 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
 /*------------------------------------------------*/
 /* rad_utils.c */
 
-#ifdef RADIATION
-Real eff_sound(const Cons1DS U, Real dt);
+#ifdef rad_hydro
+Real eff_sound(const Prim1DS W, Real dt);
 #endif
 
 #endif /* PROTOTYPES_H */

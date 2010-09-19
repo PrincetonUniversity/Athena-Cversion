@@ -330,10 +330,12 @@ int main(int argc, char *argv[])
   nlim = par_geti_def("time","nlim",-1);
   tlim = par_getd("time","tlim");
 
+ 
 #ifdef ISOTHERMAL
   Iso_csound = par_getd("problem","iso_csound");
   Iso_csound2 = Iso_csound*Iso_csound;
 #else
+  
   Gamma = par_getd("problem","gamma");
   Gamma_1 = Gamma - 1.0;
   Gamma_2 = Gamma - 2.0;
@@ -344,6 +346,7 @@ int main(int argc, char *argv[])
   grav_mean_rho = -1.0;
   four_pi_G = -1.0;
 #endif
+  
 
   if(ires) {
     restart_grids(res_file, &Mesh);  /*  Restart */
@@ -356,11 +359,13 @@ int main(int argc, char *argv[])
     }
   }
 
+	
 /* restrict initial solution so grid hierarchy is consistent */
 #ifdef STATIC_MESH_REFINEMENT
   SMR_init(&Mesh);
   RestrictCorrect(&Mesh);
 #endif
+	
 
 /* Initialize the first nstep value to flush the output and error logs. */
   nflush = nstep_start + iflush;
@@ -371,6 +376,8 @@ int main(int argc, char *argv[])
  * a prolongation step to set ghost zones at internal fine/coarse boundaries  */
 
   bvals_mhd_init(&Mesh);
+
+   
 
 #ifdef SELF_GRAVITY
   bvals_grav_init(&Mesh);
@@ -447,6 +454,8 @@ int main(int argc, char *argv[])
     time0 = tbuf.tms_utime + tbuf.tms_stime;
   else
     time0 = clock();
+
+	
 
 /* Force output of everything (by passing last argument of data_output = 1) */
 

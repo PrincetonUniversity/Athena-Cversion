@@ -34,6 +34,7 @@
  *   esys_roe_adb_hyd()
  *   esys_roe_iso_mhd()
  *   esys_roe_adb_mhd()
+ *   esys_roe_rad_hyd()
  *============================================================================*/
 
 #include <stdlib.h>
@@ -644,3 +645,104 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   left_eigenmatrix[6][6] = left_eigenmatrix[0][6];
 }
 #endif
+
+
+#ifdef rad_hydro
+void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
+  const Real pressure,
+  Real eigenvalues[],
+  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
+{
+	
+  Real vsq,aeff,rho;
+  Real asq,na,qa;
+  Prim1DS W;
+  vsq = v1*v1 + v2*v2 + v3*v3;
+
+  rho = (h - 0.5 * vsq) * (Gamma - 1.0) / Gamma;
+  rho = pressure / rho;
+  W.P = pressure;
+  W.d = rho;
+
+  aeff = eff_sound(W, dt);
+
+/* Compute eigenvalues (eq. B2) */
+
+  eigenvalues[0] = v1 - aeff;
+  eigenvalues[1] = v1;
+  eigenvalues[2] = v1;
+  eigenvalues[3] = v1;
+  eigenvalues[4] = v1 + aeff;
+  if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
+
+/* Right-eigenvectors, stored as COLUMNS (eq. B3) */
+
+  right_eigenmatrix[0][0] = 1.0;
+  right_eigenmatrix[1][0] = v1 - aeff;
+  right_eigenmatrix[2][0] = v2;
+  right_eigenmatrix[3][0] = v3;
+  right_eigenmatrix[4][0] = h - v1*aeff;
+
+/*right_eigenmatrix[0][1] = 0.0; */
+/*right_eigenmatrix[1][1] = 0.0; */
+  right_eigenmatrix[2][1] = 1.0;
+/*right_eigenmatrix[3][1] = 0.0; */
+  right_eigenmatrix[4][1] = v2;
+
+/*right_eigenmatrix[0][2] = 0.0; */
+/*right_eigenmatrix[1][2] = 0.0; */
+/*right_eigenmatrix[2][2] = 0.0; */
+  right_eigenmatrix[3][2] = 1.0;
+  right_eigenmatrix[4][2] = v3;
+
+  right_eigenmatrix[0][3] = 1.0;
+  right_eigenmatrix[1][3] = v1;
+  right_eigenmatrix[2][3] = v2;
+  right_eigenmatrix[3][3] = v3;
+  right_eigenmatrix[4][3] = 0.5*vsq;
+
+  right_eigenmatrix[0][4] = 1.0;
+  right_eigenmatrix[1][4] = v1 + aeff;
+  right_eigenmatrix[2][4] = v2;
+  right_eigenmatrix[3][4] = v3;
+  right_eigenmatrix[4][4] = h + v1*aeff;
+
+/* Left-eigenvectors, stored as ROWS (eq. B4) */
+
+  na = 0.5/asq;
+  left_eigenmatrix[0][0] = na*(0.5*Gamma_1*vsq + v1*aeff);
+  left_eigenmatrix[0][1] = -na*(Gamma_1*v1 + aeff);
+  left_eigenmatrix[0][2] = -na*Gamma_1*v2;
+  left_eigenmatrix[0][3] = -na*Gamma_1*v3;
+  left_eigenmatrix[0][4] = na*Gamma_1;
+
+  left_eigenmatrix[1][0] = -v2;
+/*left_eigenmatrix[1][1] = 0.0; */
+  left_eigenmatrix[1][2] = 1.0;
+/*left_eigenmatrix[1][3] = 0.0; */
+/*left_eigenmatrix[1][4] = 0.0; */
+
+  left_eigenmatrix[2][0] = -v3;
+/*left_eigenmatrix[2][1] = 0.0; */
+/*left_eigenmatrix[2][2] = 0.0; */
+  left_eigenmatrix[2][3] = 1.0;
+/*left_eigenmatrix[2][4] = 0.0; */
+
+  qa = Gamma_1/asq;
+  left_eigenmatrix[3][0] = 1.0 - na*Gamma_1*vsq;
+  left_eigenmatrix[3][1] = qa*v1;
+  left_eigenmatrix[3][2] = qa*v2;
+  left_eigenmatrix[3][3] = qa*v3;
+  left_eigenmatrix[3][4] = -qa;
+
+  left_eigenmatrix[4][0] = na*(0.5*Gamma_1*vsq - v1*aeff);
+  left_eigenmatrix[4][1] = -na*(Gamma_1*v1 - aeff);
+  left_eigenmatrix[4][2] = left_eigenmatrix[0][2];
+  left_eigenmatrix[4][3] = left_eigenmatrix[0][3];
+  left_eigenmatrix[4][4] = left_eigenmatrix[0][4];
+
+
+
+}
+#endif
+

@@ -43,9 +43,6 @@ static Cons1DS *U1d=NULL;
 
 /* Radiation matter coupled speed */
 static Real *Cspeeds;
-/* Tensor to relate radiation energy density and pressure */
-/* To be modified later */
-static Real *frad = NULL;
 /* The matrix coefficient */
 static Real **MatrixEuler = NULL;
 /* Right hand side of the Matrix equation */
@@ -84,20 +81,25 @@ void integrate_1d_radMHD(DomainS *pD)
 
 
 	Real SEE, SErho, SEm;
+	Real SPP, alpha;
 	Real temperature, velocity, pressure, Sigmas;
 
-	Real Matrix_source[NWAVE], Matrix_source_Inv[NWAVE][NWAVE], tempguess[NWAVE];
-	Real Matrix_source_guess[NWAVE], Errort[NWAVE];
+	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Source[NVAR];
+	Real Propa_44;
+//, Propa[NVAR][NVAR];
+	Real Source_guess[NVAR], Errort[NVAR];
 
 	/* Initialize them to be zero */
-	for(i=0; i<NWAVE; i++){
-		Matrix_source[i] = 0.0;
-		Matrix_source_guess[i] = 0.0;
+	for(i=0; i<NVAR; i++){
+		Source[i] = 0.0;
+		Source_guess[i] = 0.0;
 		Errort[i] = 0.0;
-		for(j=0; j<NWAVE; j++) {
-			Matrix_source_Inv[i][j] = 0.0;
+		tempguess[i] = 0.0;
+		for(j=0; j<NVAR; j++) {
+			Source_Inv[i][j] = 0.0;			
 		if(i==j) {
-		 Matrix_source_Inv[i][j] = 1.0;
+		 Source_Inv[i][j] = 1.0;
+		
 		}
 	}
 	}
@@ -106,11 +108,13 @@ void integrate_1d_radMHD(DomainS *pD)
  	 il = is - 1;
   	 iu = ie + 1;
 
+		
+
 /* Allocate memory space for the Matrix calculation, just used for this grids */
 /* Nmatrix is the number of active cells just in this grids */
-/* Matrix size should be 2 * Nmatrix */
-   	Nmatrix = ie - is + 1;
-	radiation_init_1d(Nmatrix);
+/* Matrix size should be 2 * Nmatrix, ghost zones are included*/
+   	Nmatrix = ie - is + 1 ;
+	rad_hydro_init_1d(Nmatrix);
 
 
 /* In principle, should load a routine to calculate the tensor f */
@@ -120,7 +124,7 @@ void integrate_1d_radMHD(DomainS *pD)
   	Real temp1, temp2;
   	Real Matrixtheta[6];
   	Real Matrixphi[6];
-  	Sigmas = Sigmat - Sigmaa;
+  	Real Sigma_s = Sigma_t - Sigma_a;
 
 /* Load 1D vector of conserved variables and calculate the source term */
  	for (i=is-nghost; i<=ie+nghost; i++) {
@@ -133,27 +137,23 @@ void integrate_1d_radMHD(DomainS *pD)
     		U1d[i].Fluxr1  = pG->U[ks][js][i].Fluxr1;
     		U1d[i].Fluxr2  = pG->U[ks][js][i].Fluxr2;
     		U1d[i].Fluxr3  = pG->U[ks][js][i].Fluxr3;
+		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
 	}
 	
 
-
-
+	
+	
 /* *****************************************************/
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
 
 
 /* Step 1a: Calculate the Matrix elements  */
-/* ie-is+1=size1, otherwise it is wrong */
+/* ie-is+1 =size1, otherwise it is wrong */
 
-
-/* Now fra1D is a constant. To be improved later  */
-	for(i=is-1; i<=ie+1; i++){
-    		frad[i-is+1] = pG->fra1D;
-	}
 
 	for(i=is; i<=ie+1; i++){
-
-    		Cspeeds[i-is] = (frad[i-is+1] - frad[i-is]) / (frad[i-is+1] + frad[i-is]); 	
+	 	Cspeeds[i-is] = (U1d[i].Edd_11 - U1d[i-1].Edd_11) 
+				/ (U1d[i].Edd_11 + U1d[i-1].Edd_11); 		
 	}
 
 
@@ -163,39 +163,43 @@ void integrate_1d_radMHD(DomainS *pD)
 			* (Gamma - 1);
 /* if MHD - 0.5 * Bx * Bx   */
 
-    		temperature = pressure / (U1d[i].d * Ridealgas);
+    		temperature = pressure / (U1d[i].d * R_ideal);
       
 
-    		RHSEuler[2*(i-is)]   = U1d[i].Er + Cratio * pG->dt * Sigmaa 
+    		RHSEuler[2*(i-is)]   = U1d[i].Er + Crat * pG->dt * Sigma_a 
 				* temperature * temperature * temperature * temperature;
-    		RHSEuler[2*(i-is)+1] = U1d[i].Fluxr1 + pG->dt * Cratio * Sigmaa
+    		RHSEuler[2*(i-is)+1] = U1d[i].Fluxr1 + pG->dt *  Sigma_a
 				* temperature * temperature * temperature * temperature * U1d[i].Mx / U1d[i].d;
 	}
+
+		
 
 /*--------------------Note--------------------*.
 /* Should judge the boundary condition. Here just use the perodic boundary condition first */
 
 /* Step 1b: Setup the Matrix */
+		
+
 	for(i=is; i<=ie; i++){
 		velocity = U1d[i].Mx / U1d[i].d; 
-		Matrixtheta[0] = -Cratio * hdtodx1 * (1.0 + Cspeeds[i-is]) * frad[i-is];
-		Matrixtheta[1] = -Cratio * hdtodx1 * (1.0 + Cspeeds[i-is]);
-		Matrixtheta[2] = 1.0 + Cratio * hdtodx1 * (1.0 + Cspeeds[i-is+1]) * frad[i-is+1] 
-			+ Cratio * hdtodx1 * (1.0 - Cspeeds[i-is]) * frad[i-is+1] + Cratio * pG->dt * Sigmaa 
-			+ pG->dt * (Sigmaa - Sigmas) * (1.0 + frad[i-is+1]) * velocity * velocity / Cratio;
-		Matrixtheta[3] = Cratio * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) 
-				- pG->dt * (Sigmaa - Sigmas) * velocity;
-		Matrixtheta[4] = -Cratio * hdtodx1 * (1.0 - Cspeeds[i-is+1]) * frad[i-is+2];
-		Matrixtheta[5] = Cratio * hdtodx1 * (1.0 - Cspeeds[i-is+1]);
+		Matrixtheta[0] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]) * U1d[i-1].Edd_11;
+		Matrixtheta[1] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]);
+		Matrixtheta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Cspeeds[i-is+1]) * U1d[i].Edd_11 
+			+ Crat * hdtodx1 * (1.0 - Cspeeds[i-is]) * U1d[i].Edd_11 + Crat * pG->dt * Sigma_a 
+			+ pG->dt * (Sigma_a - Sigma_s) * (1.0 + U1d[i].Edd_11) * velocity * velocity / Crat;
+		Matrixtheta[3] = Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) 
+				- pG->dt * (Sigma_a - Sigma_s) * velocity;
+		Matrixtheta[4] = -Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]) * U1d[i+1].Edd_11;
+		Matrixtheta[5] = Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]);
 
 		Matrixphi[0]	= Matrixtheta[0];
-		Matrixphi[1]	= Matrixtheta[1] * frad[i-is];
-		Matrixphi[2]	= Cratio * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) * frad[i-is+1] 
-				- pG->dt * Sigmat * (1.0 + frad[i-is+1]) * velocity + pG->dt * Sigmaa * velocity;
-		Matrixphi[3]	= 1.0 + Cratio * hdtodx1 * (2.0 + Cspeeds[i-is+1] - Cspeeds[i-is]) * frad[i-is+1] 
-				+ Cratio * pG->dt * Sigmat;
+		Matrixphi[1]	= Matrixtheta[1] * U1d[i-1].Edd_11;
+		Matrixphi[2]	= Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) * U1d[i].Edd_11 
+				- pG->dt * Sigma_t * (1.0 + U1d[i].Edd_11) * velocity + pG->dt * Sigma_a * velocity;
+		Matrixphi[3]	= 1.0 + Crat * hdtodx1 * (2.0 + Cspeeds[i-is+1] 
+		- Cspeeds[i-is]) * U1d[i].Edd_11 + Crat * pG->dt * Sigma_t;
 		Matrixphi[4]	= -Matrixtheta[4];
-		Matrixphi[5]	= -Matrixtheta[5] * frad[i-is+2];
+		Matrixphi[5]	= -Matrixtheta[5] * U1d[i+1].Edd_11;
 	
 /* For perodic boundary condition....................*/
 		if(i == is) {
@@ -205,7 +209,6 @@ void integrate_1d_radMHD(DomainS *pD)
 			MatrixEuler[0][4] = Matrixtheta[5];
 			MatrixEuler[0][2*Nmatrix-2] = Matrixtheta[0];
 			MatrixEuler[0][2*Nmatrix-1] = Matrixtheta[1];
-
 			MatrixEuler[1][0] = Matrixphi[2];
 			MatrixEuler[1][1] = Matrixphi[3];
 			MatrixEuler[1][3] = Matrixphi[4];
@@ -235,34 +238,122 @@ void integrate_1d_radMHD(DomainS *pD)
 			}// end for j loop
 		}// end else
 	}// end for i loop
+
+
+		
+	
 	
 /* Step 1c: Solve the Matrix equation */
 		ludcmp(MatrixEuler,2*Nmatrix,Ern1,Ern2);
+		
 		lubksb(MatrixEuler,2*Nmatrix,Ern1,RHSEuler);
-	
-
+		
+		
 	for(i=is;i<=ie;i++){
 		pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)];
 		pG->U[ks][js][i].Fluxr1	= RHSEuler[2*(i-is)+1];
 		U1d[i].Er		= RHSEuler[2*(i-is)];
 		U1d[i].Fluxr1		= RHSEuler[2*(i-is)+1];
 	}
-/* Update the ghost zones for Periodic boundary condition*/
+	/* May need to update Edd_11 */
+
+
+/* Update the ghost zones for Periodic boundary condition to be used later */
+/* Boundary condition for pG grids is applied after this loop is finished */
+
+	 /* Inner boundary condition */
+		U1d[is-1].Er = U1d[ie].Er;
+		U1d[is-1].Fluxr1 = U1d[ie].Fluxr1;
+		U1d[is-2].Er = U1d[ie-1].Er;
+		U1d[is-2].Fluxr1 = U1d[ie-1].Fluxr1;
+
+	/* Outer boundary condition */
+		U1d[ie+1].Er = U1d[is].Er;
+		U1d[ie+1].Fluxr1 = U1d[is].Fluxr1;
+		U1d[ie+2].Er = U1d[is+1].Er;
+		U1d[ie+2].Fluxr1 = U1d[is+1].Fluxr1;
+		
+
+
+/*-----Step 2a----------------
+ *  Calcualte the left and right state */
+	 for (i=is-nghost; i<=ie+nghost; i++) {
+    		W[i] = Cons1D_to_Prim1D(&U1d[i], &Bxc[i]);
+	  }
+
+  	lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
+
 	
-	/* NOTE: Need to update the ghost zone for Er and Fluxr1. Not suer how now. */
-	/* May call the boundary function  */
+/*------Step 2b: Add source terms to the left and right state--------*/
+	for(i=il+1; i<=ie+1; i++){
 
-/*-----Step 2----------------
- *  Calcualte the left and right state and fluxes */
-	lr_states_cons(pG,U1d,Bxc,pG->dt,pG->dx1,il+1,iu-1,Ul_x1Face,Ur_x1Face,1);
+	/* For left state */
+		pressure = W[i-1].P;
+		temperature = pressure / (U1d[i-1].d * R_ideal);
+		velocity = U1d[i-1].Mx / U1d[i-1].d;
+
+	Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fluxr1/U1d[i-1].d 
+	- (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / (Crat * U1d[i-1].d))	
+	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
+	Source[4] = Source[1] * U1d[i-1].d * velocity * (Gamma - 1.0)
+	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+		- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+		* (U1d[i-1].Fluxr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
+			* temperature /(U1d[i-1].d * R_ideal);
+		if(fabs(SPP * dt * 0.5) > 0.001)
+		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+		else 
+		alpha = 1.0 + 0.25 * SPP * dt;
+		/* In case SPP * dt  is small, use expansion expression */	
+		//Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d;
+		Propa_44 = alpha;
+
+		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+
+	/* For the right state */
 	
+	
+		pressure = W[i].P;
+		temperature = pressure / (U1d[i].d * R_ideal);
+		velocity = U1d[i].Mx / U1d[i].d;
 
-	 for (i=il+1; i<=iu; i++) {
-	    Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[i], &Bxi[i]);
-	    Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[i], &Bxi[i]);
+	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fluxr1/U1d[i].d 
+	- (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / (Crat * U1d[i].d))	
+	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
+	Source[4] = Source[1] * U1d[i].d * velocity * (Gamma - 1.0)
+	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+		* (U1d[i].Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
+			* temperature /(U1d[i].d * R_ideal);
+		if(fabs(SPP * dt * 0.5) > 0.001)
+		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+		else 
+		alpha = 1.0 + 0.25 * SPP * dt;
+		/* In case SPP * dt  is small, use expansion expression */	
+		//Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d;
+		Propa_44 = alpha;
 
-	    rad_fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i],dt);
-  }
+		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
+
+	}
+
+		
+/*---------Step 2c--------------*/ 
+		 for (i=il+1; i<=iu; i++) {
+  		  Ul_x1Face[i] = Prim1D_to_Cons1D(&Wl[i], &Bxi[i]);
+   		  Ur_x1Face[i] = Prim1D_to_Cons1D(&Wr[i], &Bxi[i]);
+		  x1Flux[i].d = dt;
+		/* This is used to take dt to calculate alpha. 
+                * x1Flux[i].d is recovered in the fluxes function by using Wl */
+
+   		 fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
+		
+ 		 }
+
+
+	
 
 /*----Step 3------------------
  * Modified Godunov Corrector Scheme   */
@@ -271,67 +362,67 @@ void integrate_1d_radMHD(DomainS *pD)
 	pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
 			* (Gamma - 1);
 	/* Should include magnetic energy for MHD */
-	temperature = pressure / (U1d[i].d * Ridealgas);
+	temperature = pressure / (U1d[i].d * R_ideal);
 	velocity = U1d[i].Mx / U1d[i].d;
 
 /* The Source term */
-	SEE = 4.0 * Sigmaa * temperature * temperature * temperature * (Gamma - 1.0)/ U1d[i].d;
+	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ U1d[i].d;
 	SErho = SEE * (-U1d[i].E/U1d[i].d + velocity * velocity);	
 	SEm = -SEE * velocity;
 	
-	Matrix_source_Inv[4][0] = -dt * Pratio * Cratio * SErho/(1.0 + dt * Pratio * Cratio * SEE);
-	Matrix_source_Inv[4][1] = -dt * Pratio * Cratio * SEm/(1.0 + dt * Pratio * Cratio * SEE);
-	Matrix_source_Inv[4][4] = 1.0 / (1.0 + dt * Pratio * Cratio * SEE);
+	Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
+	Source_Inv[4][1] = -dt * Prat * Crat * SEm/(1.0 + dt * Prat * Crat * SEE);
+	Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
 	
-	Matrix_source[1] = -Pratio * (-Sigmat * (U1d[i].Fluxr1 - (1.0 + pG->fra1D) * velocity * U1d[i].Er / Cratio)
-	+ Sigmaa * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/Cratio);
-	Matrix_source[4] = -Pratio * Cratio * (Sigmaa * (temperature * temperature * temperature * temperature 
-		- U1d[i].Er) + (Sigmaa - (Sigmat - Sigmaa)) * velocity
-		* (U1d[i].Fluxr1 - (1.0 + pG->fra1D) * velocity * U1d[i].Er / Cratio)/Cratio); 
+	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
+	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/Crat);
+	Source[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+		* (U1d[i].Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
 	pdivFlux = (Real*)&(divFlux);
 	pfluxr = (Real*)&(x1Flux[i+1]);
 	pfluxl = (Real*)&(x1Flux[i]);
 
-	for(m=0; m<NWAVE; m++)
+	for(m=0; m<NVAR-4; m++)
 		pdivFlux[m] = (pfluxr[m] - pfluxl[m]) / dx;
 		
 	
-	for(n=0; n<NWAVE; n++) {
+	for(n=0; n<NVAR-4; n++) {
 		tempguess[n] = 0.0;
-		for(m=0; m<NWAVE; m++){
-		tempguess[n] += dt * Matrix_source_Inv[n][m] * (Matrix_source[m] - pdivFlux[m]);
+		for(m=0; m<NVAR-4; m++){
+		tempguess[n] += dt * Source_Inv[n][m] * (Source[m] - pdivFlux[m]);
 		}
 	}
 	
 	pUguess = (Real*)&(Uguess);
 	pU1d = (Real*)&(U1d[i]);	
 
-	for(m=0; m<NWAVE; m++)
+	for(m=0; m<NVAR-4; m++)
 		pUguess[m]= pU1d[m] + tempguess[m];
 
 
 	pressure = (Uguess.E - 0.5 * Uguess.Mx * Uguess.Mx / Uguess.d )
 			* (Gamma - 1);
 	/* Should include magnetic energy for MHD */
-	temperature = pressure / (Uguess.d * Ridealgas);
+	temperature = pressure / (Uguess.d * R_ideal);
 	velocity = Uguess.Mx / Uguess.d;
 
 
-	Matrix_source_guess[1] = -Pratio * (-Sigmat * (Uguess.Fluxr1 - (1.0 + pG->fra1D) * velocity * Uguess.Er / Cratio)
-	+ Sigmaa * velocity * (temperature * temperature * temperature * temperature - Uguess.Er)/Cratio);
-	Matrix_source_guess[4] = -Pratio * Cratio * (Sigmaa * (temperature * temperature * temperature * temperature 
-		- Uguess.Er) + (Sigmaa - (Sigmat - Sigmaa)) * velocity
-		* (Uguess.Fluxr1 - (1.0 + pG->fra1D) * velocity * Uguess.Er / Cratio)/Cratio); 
+	Source_guess[1] = -Prat * (-Sigma_t * (Uguess.Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)
+	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - Uguess.Er)/Crat);
+	Source_guess[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+		- Uguess.Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+		* (Uguess.Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)/Crat); 
 
-	for(m=0; m<NWAVE; m++)
-		Errort[m] = pU1d[m] + 0.5 * dt * (Matrix_source_guess[m] + Matrix_source[m]) 
+	for(m=0; m<NVAR-4; m++)
+		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) 
 			- dt * pdivFlux[m] - pUguess[m];
 
-	for(m=0; m<NWAVE; m++){
+	for(m=0; m<NVAR-4; m++){
 		tempguess[m]=0.0;
-		for(n=0; n<NWAVE; n++){
-			tempguess[m] += Matrix_source_Inv[m][n] * Errort[n];
+		for(n=0; n<NVAR; n++){
+			tempguess[m] += Source_Inv[m][n] * Errort[n];
 		}
 		pU1d[m] = pUguess[m] + tempguess[m];
 
@@ -339,16 +430,17 @@ void integrate_1d_radMHD(DomainS *pD)
 	
 	/* Update the quantity in the Grids */
 	pUguess = (Real*)&(pG->U[ks][js][i]);
-	for(m=0; m<NWAVE; m++) pUguess[m] = pU1d[m];		
+	for(m=0; m<NVAR-4; m++) pUguess[m] = pU1d[m];	
 
-	/*Apply the boundary condition */
+
+	/*Boundary condition is applied in the main.c function*/
 
 /*-----------Finish---------------------*/
-}	
+	}	
 
   
 	/* Free the temporary variables just used for this grid calculation*/
-	radiation_destruct_1d(Nmatrix);
+	rad_hydro_destruct_1d(Nmatrix);
 	
   return;
 
@@ -366,13 +458,12 @@ void integrate_1d_radMHD(DomainS *pD)
 /*-------------------------------------------------------------------------*/
 /* radiation_init_1d(): function to allocate memory used just for radiation variables */
 /* radiation_destruct_1d(): function to free memory */
-void radiation_init_1d(int Ngrids)
+void rad_hydro_init_1d(int Ngrids)
 {
 
 	int i, j;
 
 	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
-	if ((frad = (Real*)malloc((Ngrids+2)*sizeof(Real))) == NULL) goto on_error;
 	if ((RHSEuler = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
 	if ((Ern1 = (int*)malloc(2*Ngrids*sizeof(int))) == NULL) goto on_error;
 	if ((Ern2 = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
@@ -390,16 +481,15 @@ void radiation_init_1d(int Ngrids)
 
 	on_error:
     	integrate_destruct();
-	radiation_destruct_1d(Ngrids);
+	rad_hydro_destruct_1d(Ngrids);
 	ath_error("[radiation_init_1d]: malloc returned a NULL pointer\n");
 }
 
 
-void radiation_destruct_1d(int Ngrids)
+void rad_hydro_destruct_1d(int Ngrids)
 {
 	int i;
 	if (Cspeeds 	!= NULL) free(Cspeeds);
-	if (frad	!= NULL) free(frad);
 	if (RHSEuler	!= NULL) free(RHSEuler);
 	if (Ern1	!= NULL) free(Ern1);
 	if (Ern2	!= NULL) free(Ern2);

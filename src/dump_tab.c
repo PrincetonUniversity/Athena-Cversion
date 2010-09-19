@@ -210,8 +210,8 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
         }
 #endif
 
-/* write out column headers for radiation hydro */
-#ifdef RADIATION
+/* write out column headers for rad_hydro hydro */
+#ifdef rad_hydro
 	fprintf(pfile," [%d]=Er",col_cnt);
         col_cnt++;
         fprintf(pfile," [%d]=Fluxr1",col_cnt);
@@ -272,7 +272,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
               for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,pG->U[k][j][i].s[n]);
 #endif
 
-#ifdef RADIATION
+#ifdef rad_hydro
 
 	      fprintf(pfile,fmt,pG->U[k][j][i].Er);
               fprintf(pfile,fmt,pG->U[k][j][i].Fluxr1);
@@ -477,9 +477,9 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
         }
 #endif
 
-/* write out column headers for radiation hydro */
+/* write out column headers for rad_hydro hydro */
 
-#ifdef RADIATION
+#ifdef rad_hydro
 	fprintf(pfile," [%d]=Er",col_cnt);
         col_cnt++;
         fprintf(pfile," [%d]=Fluxr1",col_cnt);
@@ -546,7 +546,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
               for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,W.r[n]);
 #endif
 
-#ifdef RADIATION
+#ifdef rad_hydro
 
 	      fprintf(pfile,fmt,pG->U[k][j][i].Er);
               fprintf(pfile,fmt,pG->U[k][j][i].Fluxr1);

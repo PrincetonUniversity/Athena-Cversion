@@ -21,15 +21,16 @@ void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
   int i, j, k, iu, il, ju, jl, ku, kl;
- 
-  
+  int shift;
+
 /* Parse global variables of unit ratio */
 
-  Pratio = par_getd("problem","Pratio");
-  Cratio = par_getd("problem","Cratio");
-  Sigmat = par_getd("Problem","Sigmat");
-  Sigmaa = par_getd("Problem","Sigmaa");
-  Ridealgas = par_getd("Problem","Ridealgas");
+  Prat = par_getd("problem","Pratio");
+  Crat = par_getd("problem","Cratio");
+  Sigma_t = par_getd("problem","Sigma_t");
+  Sigma_a = par_getd("problem","Sigma_a");
+  R_ideal = par_getd("problem","R_ideal");
+	
 
 
 /* Set up the index bounds for initializing the grid */
@@ -62,14 +63,14 @@ void problem(DomainS *pDomain)
         for (i=il; i<=iu; i++) {
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-          pGrid->U[k][j][i].d  = 1.0;
-          pGrid->U[k][j][i].M1 = 2.0;
-          pGrid->U[k][j][i].M2 = 2.0;
-          pGrid->U[k][j][i].M3 = 2.0;
+          pGrid->U[k][j][i].d  = 0.1;
+          pGrid->U[k][j][i].M1 = 0.0;
+          pGrid->U[k][j][i].M2 = 0.0;
+          pGrid->U[k][j][i].M3 = 0.0;
 	
 
 #ifdef ADIABATIC
-          pGrid->U[k][j][i].E = 3.0;
+          pGrid->U[k][j][i].E = 1.55;
 #endif
 
 #ifdef MHD
@@ -80,15 +81,25 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-	  pGrid->U[k][j][i].Er = 3.0;
-	  pGrid->U[k][j][i].Fluxr1 = 4.0;
+	  pGrid->U[k][j][i].Er = 1.0e-20;
+	  pGrid->U[k][j][i].Fluxr1 = 1.0e-20;
 	  pGrid->U[k][j][i].Fluxr2 = 0.0;
 	  pGrid->U[k][j][i].Fluxr3 = 0.0;
 
-	  pGrid->fra1D = 0.33333; /* Set to be a constant in 1D. To be modified later */		
+	  pGrid->U[k][j][i].Edd_11 = 1.0; /* Set to be a constant in 1D. To be modified later */		
         }
       }
     }
+	shift = (int)((iu-il)*2/5);
+
+	 for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+        for (i=il+shift; i<=iu-shift; i++) {
+		pGrid->U[k][j][i].d=1;
+		pGrid->U[k][j][i].E=2.0;
+		}
+	}
+}
 
 
   return;

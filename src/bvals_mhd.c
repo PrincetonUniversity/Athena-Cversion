@@ -19,7 +19,7 @@
  *   similarly for bc_ix2; bc_ox2; bc_ix3; bc_ox3
 
  * NOTE:
- * Radiation is only used for 1, 2, 4 boundary condition now. To be improved later.
+ * rad_hydro is only used for 1, 2, 4 boundary condition now. To be improved later.
  *
  *
  * For case (1) -- PHYSICAL BOUNDARIES
@@ -925,12 +925,12 @@ static void reflect_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
-        pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
+	pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
 #ifdef MHD
         pGrid->U[k][j][is-i].B1c= -pGrid->U[k][j][is-i].B1c;/* reflect 1-fld. */
 #endif
-#ifdef RADIATION
-	pGrid->U[k][j][is-i].Fluxr1 = -pGrid->U[k][j][is-i].Fluxr1; /* reflect 1-radiation flux. */
+#ifdef rad_hydro
+	pGrid->U[k][j][is-i].Fluxr1 = -pGrid->U[k][j][is-i].Fluxr1; /* reflect 1-rad_hydro flux. */
 #endif
       }
     }
@@ -990,7 +990,7 @@ static void reflect_ox1(GridS *pGrid)
 #ifdef MHD
         pGrid->U[k][j][ie+i].B1c= -pGrid->U[k][j][ie+i].B1c;/* reflect 1-fld. */
 #endif
-#ifdef RADIATION
+#ifdef rad_hydro
 	pGrid->U[k][j][ie+i].Fluxr1 = -pGrid->U[k][j][ie+i].Fluxr1; /* reflect 1-mom. */
 #endif
 
@@ -1053,8 +1053,8 @@ static void reflect_ix2(GridS *pGrid)
         pGrid->U[k][js-j][i].B2c= -pGrid->U[k][js-j][i].B2c;/* reflect 2-fld. */
 #endif
 
-#ifdef RADIATION
-	pGrid->U[k][js-j][i].Fluxr2 = -pGrid->U[k][js-j][i].Fluxr2; /* reflect 2-radiation flux. */
+#ifdef rad_hydro
+	pGrid->U[k][js-j][i].Fluxr2 = -pGrid->U[k][js-j][i].Fluxr2; /* reflect 2-rad_hydro flux. */
 #endif
       }
     }
@@ -1116,8 +1116,8 @@ static void reflect_ox2(GridS *pGrid)
 #ifdef MHD
         pGrid->U[k][je+j][i].B2c= -pGrid->U[k][je+j][i].B2c;/* reflect 2-fld. */
 #endif
-#ifdef RADIATION
-	pGrid->U[k][je+j][i].Fluxr2 = -pGrid->U[k][je+j][i].Fluxr2; /* reflect 2-radiation flux. */
+#ifdef rad_hydro
+	pGrid->U[k][je+j][i].Fluxr2 = -pGrid->U[k][je+j][i].Fluxr2; /* reflect 2-rad_hydro flux. */
 #endif
 
       }
@@ -1177,8 +1177,8 @@ static void reflect_ix3(GridS *pGrid)
 #ifdef MHD
         pGrid->U[ks-k][j][i].B3c= -pGrid->U[ks-k][j][i].B3c;/* reflect 3-fld.*/
 #endif
-#ifdef RADIATION
-	pGrid->U[ks-k][j][i].Fluxr3 = -pGrid->U[ks-k][j][i].Fluxr3; /* reflect 3-radiation flux. */
+#ifdef rad_hydro
+	pGrid->U[ks-k][j][i].Fluxr3 = -pGrid->U[ks-k][j][i].Fluxr3; /* reflect 3-rad_hydro flux. */
 #endif
 
       }
@@ -1240,8 +1240,8 @@ static void reflect_ox3(GridS *pGrid)
 #ifdef MHD
         pGrid->U[ke+k][j][i].B3c= -pGrid->U[ke+k][j][i].B3c;/* reflect 3-fld. */
 #endif
-#ifdef RADIATION
-	pGrid->U[ke+k][j][i].Fluxr3 = -pGrid->U[ke+k][j][i].Fluxr3; /* reflect 3-radiation flux. */
+#ifdef rad_hydro
+	pGrid->U[ke+k][j][i].Fluxr3 = -pGrid->U[ke+k][j][i].Fluxr3; /* reflect 3-rad_hydro flux. */
 #endif
 
       }
