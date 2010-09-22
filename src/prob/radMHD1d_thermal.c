@@ -63,14 +63,14 @@ void problem(DomainS *pDomain)
         for (i=il; i<=iu; i++) {
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-          pGrid->U[k][j][i].d  = 1.0e-20;
-          pGrid->U[k][j][i].M1 = 1.0e-20;
+          pGrid->U[k][j][i].d  = 1.0;
+          pGrid->U[k][j][i].M1 = 0.0;
           pGrid->U[k][j][i].M2 = 0.0;
           pGrid->U[k][j][i].M3 = 0.0;
 	
 
 #ifdef ADIABATIC
-          pGrid->U[k][j][i].E = 1.0e-20;
+          pGrid->U[k][j][i].E = 10.0/(Gamma - 1.0);
 #endif
 
 #ifdef MHD
@@ -81,7 +81,7 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-	  pGrid->U[k][j][i].Er = 0.0;
+	  pGrid->U[k][j][i].Er = 1.0;
 	  pGrid->U[k][j][i].Fluxr1 = 0.0;
 	  pGrid->U[k][j][i].Fluxr2 = 0.0;
 	  pGrid->U[k][j][i].Fluxr3 = 0.0;
@@ -90,22 +90,22 @@ void problem(DomainS *pDomain)
         }
       }
     }
-	shift = (int)((iu-il)*2/5);
+/*	shift = (int)((iu-il)*2/5);
 
 	 for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il+shift; i<=iu-shift; i++) {
-/*		pGrid->U[k][j][i].d=1;
+		pGrid->U[k][j][i].d=1;
 		pGrid->U[k][j][i].E=2.0;
 		pGrid->U[k][j][i].M1=0.0;
-*/
+
 		pGrid->U[k][j][i].Er=1;
 		pGrid->U[k][j][i].Fluxr1=1.0;
 
 		}
 	}
 }
-
+*/
 
   return;
 }

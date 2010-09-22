@@ -24,14 +24,14 @@ void problem(DomainS *pDomain)
   int shift;
 
 /* Parse global variables of unit ratio */
-
+#ifdef rad_hydro
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   Sigma_t = par_getd("problem","Sigma_t");
   Sigma_a = par_getd("problem","Sigma_a");
   R_ideal = par_getd("problem","R_ideal");
 	
-
+#endif
 
 /* Set up the index bounds for initializing the grid */
   iu = pGrid->ie + nghost;
@@ -63,15 +63,29 @@ void problem(DomainS *pDomain)
         for (i=il; i<=iu; i++) {
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-          pGrid->U[k][j][i].d  = 1.0e-20;
-          pGrid->U[k][j][i].M1 = 1.0e-20;
+	if(i < il + (iu - il)/2){
+
+          pGrid->U[k][j][i].d  = 1.0;
+          pGrid->U[k][j][i].M1 = 0.0;
           pGrid->U[k][j][i].M2 = 0.0;
           pGrid->U[k][j][i].M3 = 0.0;
-	
-
 #ifdef ADIABATIC
-          pGrid->U[k][j][i].E = 1.0e-20;
+          pGrid->U[k][j][i].E = 1/(Gamma - 1.0);
 #endif
+	}
+	else {
+          pGrid->U[k][j][i].d  = 0.125;
+          pGrid->U[k][j][i].M1 = 0.0;
+          pGrid->U[k][j][i].M2 = 0.0;
+          pGrid->U[k][j][i].M3 = 0.0;
+#ifdef ADIABATIC
+          pGrid->U[k][j][i].E = 0.1/(Gamma - 1.0);
+#endif
+
+	}
+
+
+
 
 #ifdef MHD
           pGrid->B1i[k][j][i] = 0.0;
@@ -81,30 +95,17 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-	  pGrid->U[k][j][i].Er = 0.0;
-	  pGrid->U[k][j][i].Fluxr1 = 0.0;
+#ifdef rad_hydro
+	  pGrid->U[k][j][i].Er = 1.0e-20;
+	  pGrid->U[k][j][i].Fluxr1 = 1.0e-20;
 	  pGrid->U[k][j][i].Fluxr2 = 0.0;
 	  pGrid->U[k][j][i].Fluxr3 = 0.0;
 
 	  pGrid->U[k][j][i].Edd_11 = 1.0; /* Set to be a constant in 1D. To be modified later */		
+#endif
         }
       }
     }
-	shift = (int)((iu-il)*2/5);
-
-	 for (k=kl; k<=ku; k++) {
-      for (j=jl; j<=ju; j++) {
-        for (i=il+shift; i<=iu-shift; i++) {
-/*		pGrid->U[k][j][i].d=1;
-		pGrid->U[k][j][i].E=2.0;
-		pGrid->U[k][j][i].M1=0.0;
-*/
-		pGrid->U[k][j][i].Er=1;
-		pGrid->U[k][j][i].Fluxr1=1.0;
-
-		}
-	}
-}
 
 
   return;

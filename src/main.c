@@ -502,6 +502,13 @@ int main(int argc, char *argv[])
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
 
+	/* For radiation code, backward Euler is done for the whole mesh *
+	 * before the integrator step *
+         */
+#ifdef rad_hydro
+	BackEuler(&Mesh);
+#endif
+
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){

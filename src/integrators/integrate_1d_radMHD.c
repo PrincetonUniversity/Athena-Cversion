@@ -41,18 +41,7 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL;
 
-/* Radiation matter coupled speed */
-static Real *Cspeeds;
-/* The matrix coefficient */
-static Real **MatrixEuler = NULL;
-/* Right hand side of the Matrix equation */
-static Real *RHSEuler = NULL;
-/* Used to store the results from the Matrix solver */
-static int *Ern1 = NULL;
-static Real *Ern2 = NULL;
 
-/* Variables at t^{n+1/2} used for source terms */
-static Real *dhalf = NULL, *phalf = NULL;
 
 /* Variables needed for cylindrical coordinates */
 #ifdef CYLINDRICAL
@@ -89,6 +78,8 @@ void integrate_1d_radMHD(DomainS *pD)
 //, Propa[NVAR][NVAR];
 	Real Source_guess[NVAR], Errort[NVAR];
 
+	Real Sigma_s = Sigma_t - Sigma_a;
+
 	/* Initialize them to be zero */
 	for(i=0; i<NVAR; i++){
 		Source[i] = 0.0;
@@ -110,21 +101,14 @@ void integrate_1d_radMHD(DomainS *pD)
 
 		
 
-/* Allocate memory space for the Matrix calculation, just used for this grids */
-/* Nmatrix is the number of active cells just in this grids */
-/* Matrix size should be 2 * Nmatrix, ghost zones are included*/
-   	Nmatrix = ie - is + 1 ;
-	rad_hydro_init_1d(Nmatrix);
-
+   	
 
 /* In principle, should load a routine to calculate the tensor f */
 
 /* Temperatory variables used to calculate the Matrix  */
   	
-  	Real temp1, temp2;
-  	Real Matrixtheta[6];
-  	Real Matrixphi[6];
-  	Real Sigma_s = Sigma_t - Sigma_a;
+  
+  	
 
 /* Load 1D vector of conserved variables and calculate the source term */
  	for (i=is-nghost; i<=ie+nghost; i++) {
@@ -141,138 +125,8 @@ void integrate_1d_radMHD(DomainS *pD)
 	}
 	
 
-	
-	
-/* *****************************************************/
-/* Step 1 : Use Backward Euler to update the radiation energy density and flux */
+/*----Step 1: Backward Euler is done in the main function for the whole mesh--------*/	
 
-
-/* Step 1a: Calculate the Matrix elements  */
-/* ie-is+1 =size1, otherwise it is wrong */
-
-
-	for(i=is; i<=ie+1; i++){
-	 	Cspeeds[i-is] = (U1d[i].Edd_11 - U1d[i-1].Edd_11) 
-				/ (U1d[i].Edd_11 + U1d[i-1].Edd_11); 		
-	}
-
-
-	for(i=is; i<=ie; i++){
-/* E is the total energy. should subtract the kinetic energy and magnetic energy density */
-    		pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
-			* (Gamma - 1);
-/* if MHD - 0.5 * Bx * Bx   */
-
-    		temperature = pressure / (U1d[i].d * R_ideal);
-      
-
-    		RHSEuler[2*(i-is)]   = U1d[i].Er + Crat * pG->dt * Sigma_a 
-				* temperature * temperature * temperature * temperature;
-    		RHSEuler[2*(i-is)+1] = U1d[i].Fluxr1 + pG->dt *  Sigma_a
-				* temperature * temperature * temperature * temperature * U1d[i].Mx / U1d[i].d;
-	}
-
-		
-
-/*--------------------Note--------------------*.
-/* Should judge the boundary condition. Here just use the perodic boundary condition first */
-
-/* Step 1b: Setup the Matrix */
-		
-
-	for(i=is; i<=ie; i++){
-		velocity = U1d[i].Mx / U1d[i].d; 
-		Matrixtheta[0] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]) * U1d[i-1].Edd_11;
-		Matrixtheta[1] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]);
-		Matrixtheta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Cspeeds[i-is+1]) * U1d[i].Edd_11 
-			+ Crat * hdtodx1 * (1.0 - Cspeeds[i-is]) * U1d[i].Edd_11 + Crat * pG->dt * Sigma_a 
-			+ pG->dt * (Sigma_a - Sigma_s) * (1.0 + U1d[i].Edd_11) * velocity * velocity / Crat;
-		Matrixtheta[3] = Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) 
-				- pG->dt * (Sigma_a - Sigma_s) * velocity;
-		Matrixtheta[4] = -Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]) * U1d[i+1].Edd_11;
-		Matrixtheta[5] = Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]);
-
-		Matrixphi[0]	= Matrixtheta[0];
-		Matrixphi[1]	= Matrixtheta[1] * U1d[i-1].Edd_11;
-		Matrixphi[2]	= Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) * U1d[i].Edd_11 
-				- pG->dt * Sigma_t * (1.0 + U1d[i].Edd_11) * velocity + pG->dt * Sigma_a * velocity;
-		Matrixphi[3]	= 1.0 + Crat * hdtodx1 * (2.0 + Cspeeds[i-is+1] 
-		- Cspeeds[i-is]) * U1d[i].Edd_11 + Crat * pG->dt * Sigma_t;
-		Matrixphi[4]	= -Matrixtheta[4];
-		Matrixphi[5]	= -Matrixtheta[5] * U1d[i+1].Edd_11;
-	
-/* For perodic boundary condition....................*/
-		if(i == is) {
-			MatrixEuler[0][0] = Matrixtheta[2];
-			MatrixEuler[0][1] = Matrixtheta[3];
-			MatrixEuler[0][3] = Matrixtheta[4];
-			MatrixEuler[0][4] = Matrixtheta[5];
-			MatrixEuler[0][2*Nmatrix-2] = Matrixtheta[0];
-			MatrixEuler[0][2*Nmatrix-1] = Matrixtheta[1];
-			MatrixEuler[1][0] = Matrixphi[2];
-			MatrixEuler[1][1] = Matrixphi[3];
-			MatrixEuler[1][3] = Matrixphi[4];
-			MatrixEuler[1][4] = Matrixphi[5];
-			MatrixEuler[1][2*Nmatrix-2] = Matrixphi[0];
-			MatrixEuler[1][2*Nmatrix-1] = Matrixphi[1];
-		}//end if
-		else if(i == ie){
-			MatrixEuler[2*Nmatrix-2][0] = Matrixtheta[4];
-			MatrixEuler[2*Nmatrix-2][1] = Matrixtheta[5];
-			MatrixEuler[2*Nmatrix-2][2*Nmatrix-4] = Matrixtheta[0];
-			MatrixEuler[2*Nmatrix-2][2*Nmatrix-3] = Matrixtheta[1];
-			MatrixEuler[2*Nmatrix-2][2*Nmatrix-2] = Matrixtheta[2];
-			MatrixEuler[2*Nmatrix-2][2*Nmatrix-1] = Matrixtheta[3];
-
-			MatrixEuler[2*Nmatrix-1][0] = Matrixphi[4];
-			MatrixEuler[2*Nmatrix-1][1] = Matrixphi[5];
-			MatrixEuler[2*Nmatrix-1][2*Nmatrix-4] = Matrixphi[0];
-			MatrixEuler[2*Nmatrix-1][2*Nmatrix-3] = Matrixphi[1];
-			MatrixEuler[2*Nmatrix-1][2*Nmatrix-2] = Matrixphi[2];
-			MatrixEuler[2*Nmatrix-1][2*Nmatrix-1] = Matrixphi[3];
-		}// end else if
-		else {
-			for(j=0; j<6; j++){
-			MatrixEuler[2*(i-is)][j+2*(i-is-1)] = Matrixtheta[j];
-			MatrixEuler[2*(i-is)+1][j+2*(i-is-1)] = Matrixphi[j];
-			}// end for j loop
-		}// end else
-	}// end for i loop
-
-
-		
-	
-	
-/* Step 1c: Solve the Matrix equation */
-		ludcmp(MatrixEuler,2*Nmatrix,Ern1,Ern2);
-		
-		lubksb(MatrixEuler,2*Nmatrix,Ern1,RHSEuler);
-		
-		
-	for(i=is;i<=ie;i++){
-		pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)];
-		pG->U[ks][js][i].Fluxr1	= RHSEuler[2*(i-is)+1];
-		U1d[i].Er		= RHSEuler[2*(i-is)];
-		U1d[i].Fluxr1		= RHSEuler[2*(i-is)+1];
-	}
-	/* May need to update Edd_11 */
-
-
-/* Update the ghost zones for Periodic boundary condition to be used later */
-/* Boundary condition for pG grids is applied after this loop is finished */
-
-	 /* Inner boundary condition */
-		U1d[is-1].Er = U1d[ie].Er;
-		U1d[is-1].Fluxr1 = U1d[ie].Fluxr1;
-		U1d[is-2].Er = U1d[ie-1].Er;
-		U1d[is-2].Fluxr1 = U1d[ie-1].Fluxr1;
-
-	/* Outer boundary condition */
-		U1d[ie+1].Er = U1d[is].Er;
-		U1d[ie+1].Fluxr1 = U1d[is].Fluxr1;
-		U1d[ie+2].Er = U1d[is+1].Er;
-		U1d[ie+2].Fluxr1 = U1d[is+1].Fluxr1;
-		
 
 
 /*-----Step 2a----------------
@@ -295,7 +149,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fluxr1/U1d[i-1].d 
 	- (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / (Crat * U1d[i-1].d))	
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
-	Source[4] = Source[1] * U1d[i-1].d * velocity * (Gamma - 1.0)
+	Source[4] = -Source[1] * U1d[i-1].d * velocity * (Gamma - 1.0)
 	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
 		* (U1d[i-1].Fluxr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
@@ -341,6 +195,7 @@ void integrate_1d_radMHD(DomainS *pD)
 
 		
 /*---------Step 2c--------------*/ 
+/* Calculate the flux */
 		 for (i=il+1; i<=iu; i++) {
   		  Ul_x1Face[i] = Prim1D_to_Cons1D(&Wl[i], &Bxi[i]);
    		  Ur_x1Face[i] = Prim1D_to_Cons1D(&Wr[i], &Bxi[i]);
@@ -438,67 +293,16 @@ void integrate_1d_radMHD(DomainS *pD)
 /*-----------Finish---------------------*/
 	}	
 
-  
-	/* Free the temporary variables just used for this grid calculation*/
-	rad_hydro_destruct_1d(Nmatrix);
 	
   return;
 
-	on_error:
-	integrate_destruct();
-	radiation_destruct_1d(Nmatrix);
-	ath_error("[integrate_1d_radMHD]: malloc returned a NULL pointer\n");
-
-
-}
+	}
 
 
 
 
-/*-------------------------------------------------------------------------*/
-/* radiation_init_1d(): function to allocate memory used just for radiation variables */
-/* radiation_destruct_1d(): function to free memory */
-void rad_hydro_init_1d(int Ngrids)
-{
-
-	int i, j;
-
-	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
-	if ((RHSEuler = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
-	if ((Ern1 = (int*)malloc(2*Ngrids*sizeof(int))) == NULL) goto on_error;
-	if ((Ern2 = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
-
-	if ((MatrixEuler = (Real**)malloc(2*Ngrids*sizeof(Real*))) == NULL) goto on_error;
-	for(i=0; i<2*Ngrids; i++)
-		if ((MatrixEuler[i] = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
-
-	 /* Initialize the matrix */
-	for(i=0; i<2*Ngrids; i++)
-		for(j=0; j<2*Ngrids; j++)
-			MatrixEuler[i][j] = 0.0;
-	
-	return;
-
-	on_error:
-    	integrate_destruct();
-	rad_hydro_destruct_1d(Ngrids);
-	ath_error("[radiation_init_1d]: malloc returned a NULL pointer\n");
-}
 
 
-void rad_hydro_destruct_1d(int Ngrids)
-{
-	int i;
-	if (Cspeeds 	!= NULL) free(Cspeeds);
-	if (RHSEuler	!= NULL) free(RHSEuler);
-	if (Ern1	!= NULL) free(Ern1);
-	if (Ern2	!= NULL) free(Ern2);
-	
-	for(i=0; i<2*Ngrids; i++)
-		if (MatrixEuler[i] != NULL) free(MatrixEuler[i]);
-
-	if (MatrixEuler != NULL) free(MatrixEuler);
-}
 
 
 /*----------------------------------------------------------------------------*/
@@ -536,15 +340,8 @@ void integrate_init_1d(MeshS *pM)
   if ((Wl = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wr = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
 
-#ifdef CYLINDRICAL
-  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
-#endif
-  {
-    if ((dhalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
-  }
-  if(CoolingFunc != NULL){
-    if ((phalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
-  }
+
+  
 
 #ifdef CYLINDRICAL
   if ((geom_src = (Real*)calloc_1d_array(size1, sizeof(Real))) == NULL)
@@ -578,9 +375,6 @@ void integrate_destruct_1d(void)
   if (W  != NULL) free(W);
   if (Wl != NULL) free(Wl);
   if (Wr != NULL) free(Wr);
-
-  if (dhalf != NULL) free(dhalf);
-  if (phalf != NULL) free(phalf);
 
 #ifdef CYLINDRICAL
   if (geom_src != NULL) free_1d_array((void*)geom_src);

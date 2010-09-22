@@ -204,6 +204,7 @@ void new_dt(MeshS *pM)
     pM->dt = MIN(2.0*pM->dt, CourNo/max_dti);
   }
 
+
 /* Find minimum timestep over all processors */
 
 #ifdef MPI_PARALLEL

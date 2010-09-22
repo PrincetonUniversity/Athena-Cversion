@@ -19,7 +19,7 @@ void integrate_destruct(void);
 
 /* Only used for rad_hydro integrators */
 #ifdef rad_hydro
-void rad_hydro_init_1d(int Ngrids);
+void rad_hydro_init_1d(int Ngrids, MeshS *pM);
 void rad_hydro_destruct_1d(int Ngrids);
 void ludcmp(Real **a, int n, int *indx, Real *d);
 void lubksb(Real **a, int n, int *indx, Real b[]);
@@ -30,7 +30,11 @@ void integrate_destruct_1d(void);
 void integrate_init_1d(MeshS *pM);
 void integrate_1d_ctu(DomainS *pD);
 void integrate_1d_vl(DomainS *pD);
+
+#ifdef rad_hydro
 void integrate_1d_radMHD(DomainS *pD);
+void BackEuler(MeshS *pM);
+#endif
 
 /* integrate_2d_ctu.c and integrate_2d_vl.c */
 void integrate_destruct_2d(void);

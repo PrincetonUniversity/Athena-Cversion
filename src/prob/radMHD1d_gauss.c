@@ -22,6 +22,7 @@ void problem(DomainS *pDomain)
   GridS *pGrid=(pDomain->Grid);
   int i, j, k, iu, il, ju, jl, ku, kl;
   int shift;
+  Real x1, x2,x3,vari;
 
 /* Parse global variables of unit ratio */
 
@@ -62,15 +63,19 @@ void problem(DomainS *pDomain)
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
 
+	cc_pos(pGrid, i, j,k, &x1, &x2, &x3);
+
+	vari = 20*(x1-0.5);
+
 /* Initialize conserved (and  the primitive) variables in Grid */
-          pGrid->U[k][j][i].d  = 1.0e-20;
-          pGrid->U[k][j][i].M1 = 1.0e-20;
+          pGrid->U[k][j][i].d  = 1.0 + exp(-vari * vari);
+          pGrid->U[k][j][i].M1 = 0.0;
           pGrid->U[k][j][i].M2 = 0.0;
           pGrid->U[k][j][i].M3 = 0.0;
 	
 
 #ifdef ADIABATIC
-          pGrid->U[k][j][i].E = 1.0e-20;
+          pGrid->U[k][j][i].E = 1.55;
 #endif
 
 #ifdef MHD
@@ -81,8 +86,8 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-	  pGrid->U[k][j][i].Er = 0.0;
-	  pGrid->U[k][j][i].Fluxr1 = 0.0;
+	  pGrid->U[k][j][i].Er = 1.0e-20;
+	  pGrid->U[k][j][i].Fluxr1 = 1.0e-20;
 	  pGrid->U[k][j][i].Fluxr2 = 0.0;
 	  pGrid->U[k][j][i].Fluxr3 = 0.0;
 
@@ -90,21 +95,7 @@ void problem(DomainS *pDomain)
         }
       }
     }
-	shift = (int)((iu-il)*2/5);
 
-	 for (k=kl; k<=ku; k++) {
-      for (j=jl; j<=ju; j++) {
-        for (i=il+shift; i<=iu-shift; i++) {
-/*		pGrid->U[k][j][i].d=1;
-		pGrid->U[k][j][i].E=2.0;
-		pGrid->U[k][j][i].M1=0.0;
-*/
-		pGrid->U[k][j][i].Er=1;
-		pGrid->U[k][j][i].Fluxr1=1.0;
-
-		}
-	}
-}
 
 
   return;

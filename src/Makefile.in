@@ -67,7 +67,8 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_1d_radMHD.o \
 		  integrators/integrate_2d_radMHD.o \
 		  integrators/integrate_3d_radMHD.o \
-		  integrators/MatrixSolver/ludcmp.o
+		  integrators/MatrixSolver/ludcmp.o \
+		  integrators/BackEuler.o
 
 GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg.o \
