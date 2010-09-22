@@ -13,6 +13,7 @@
  *  ifield = 2 - uniform Bz
  *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
  *  ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
+ *  ifield = 5 - uniform By
  *
  *  ipert = 1 - random perturbations to P and V [default, used by HGB]
  *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
@@ -54,6 +55,7 @@ Real Lx,Ly,Lz; /* root grid size, global to share with output functions */
 static double ran2(long int *idum);
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k);
+static Real expr_Jsq(const GridS *pG, const int i, const int j, const int k);
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
 static Real hst_rho_dVy2(const GridS *pG,const int i, const int j, const int k);
 #ifdef ADIABATIC
@@ -378,6 +380,7 @@ void problem(DomainS *pDomain)
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
 #ifdef VISCOSITY
   nu_iso = par_getd_def("problem","nu_iso",0.0);
@@ -411,13 +414,14 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 {
 /* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu */
 
-  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","Omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
 
 #ifdef RESISTIVITY
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
 
 #ifdef VISCOSITY
@@ -449,7 +453,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 /* Get_user_expression computes dVy */
 ConsFun_t get_usr_expr(const char *expr)
 {
-  if(strcmp(expr,"dVy")==0) return expr_dV2;
+  if (strcmp(expr,"dVy")==0) return expr_dV2;
+  if (strcmp(expr,"Jsq")==0) return expr_Jsq;
   return NULL;
 }
 
@@ -580,6 +585,24 @@ static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 #else
   return (pG->U[k][j][i].M2/pG->U[k][j][i].d + qshear*Omega_0*x1);
 #endif
+}
+
+/*------------------------------------------------------------------------------
+ * expr_Jsq: computes current density square
+ */
+
+static Real expr_Jsq(const GridS *pG, const int i, const int j, const int k)
+{
+  Real J1,J2,J3;
+
+  J1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
+       (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+  J2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+       (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
+  J3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+       (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+
+  return SQR(J1)+SQR(J2)+SQR(J3);
 }
 
 /*------------------------------------------------------------------------------
