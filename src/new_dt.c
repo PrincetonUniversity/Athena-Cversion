@@ -174,7 +174,8 @@ void new_dt(MeshS *pM)
 /* modify timestep so loop finishes at t=tlim exactly */
 
   tlim = par_getd("time","tlim");
-  if ((tlim - pM->time) < pM->dt) pM->dt = tlim - pM->time;
+  if ((pM->time < tlim) && ((tlim - pM->time) < pM->dt))
+    pM->dt = tlim - pM->time;
 
 /* Spread timestep across all Grid structures in all Domains */
 
