@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: bvals_shear.c
+/*============================================================================*/
+/*! \file bvals_shear.c
+ *  \brief Shearing sheet boundary conditions at ix1 and ox1 for both 2D and 3D
  *
  * PURPOSE: Shearing sheet boundary conditions at ix1 and ox1 for both 2D and 3D
  *   Called by bvals_mhd.  Decomposition of the Domain into MPI grids in X,Y
@@ -15,14 +16,17 @@
  *   this option.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- * ShearingSheet_ix1() - shearing sheet BCs on ix1
- * ShearingSheet_ox1() - shearing sheet BCs on ox1
- * RemapEy_ix1()       - sets Ey at ix1 in integrator to keep <Bz>=const. 
- * RemapEy_ox1()       - sets Ey at ox1 in integrator to keep <Bz>=const. 
- * Fargo()             - implements FARGO algorithm for background flow
- * bvals_shear_init() - allocates memory for arrays used here
- * bvals_shear_destruct() - frees memory for arrays used here
- *============================================================================*/
+ * - ShearingSheet_ix1() - shearing sheet BCs on ix1
+ * - ShearingSheet_ox1() - shearing sheet BCs on ox1
+ * - RemapEy_ix1()       - sets Ey at ix1 in integrator to keep <Bz>=const. 
+ * - RemapEy_ox1()       - sets Ey at ox1 in integrator to keep <Bz>=const. 
+ * - Fargo()             - implements FARGO algorithm for background flow
+ * - bvals_shear_init() - allocates memory for arrays used here
+ * - bvals_shear_destruct() - frees memory for arrays used here		      
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - RemapFlux() - 2nd or 3rd order reconstruction for remap in ghost zones   */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -60,7 +64,9 @@
 #define NVAR_SHARE NVAR
 #endif
 
-/* Define structure which holds variables remapped by shearing sheet BCs */
+/*! \struct Remap
+ *  \brief Define structure which holds variables remapped 
+ *  by shearing sheet BCs */
 typedef struct Remap_s{
   Real U[NREMAP];
 #if (NSCALARS > 0)
@@ -68,7 +74,8 @@ typedef struct Remap_s{
 #endif
 }Remap;
 
-/* Define structure for variables used in FARGO algorithm */
+/*! \struct FConsS
+ *  \brief Define structure for variables used in FARGO algorithm */
 typedef struct FCons_s{
   Real U[NFARGO];
 #if (NSCALARS > 0)
@@ -110,13 +117,16 @@ void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
 #ifdef SHEARING_BOX
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* ShearingSheet_ix1: 3D shearing-sheet BCs in x1.  It applies a remap
+/*! \fn void ShearingSheet_ix1(DomainS *pD)
+ *  \brief 3D shearing-sheet BCs in x1.  
+ *
+ * It applies a remap
  * in Y after the ghost cells have been set by the usual periodic BCs in X and
  * Y implemented in bvals_mhd.c
  *
  * This is a public function which is called by bvals_mhd() inside a
- * SHEARING_BOX macro.
- *----------------------------------------------------------------------------*/
+ * SHEARING_BOX macro.							      */
+/*----------------------------------------------------------------------------*/
 void ShearingSheet_ix1(DomainS *pD)
 {
   GridS *pG = pD->Grid;
@@ -700,13 +710,16 @@ void ShearingSheet_ix1(DomainS *pD)
 
 
 /*----------------------------------------------------------------------------*/
-/* ShearingSheet_ox1: 3D shearing-sheet BCs in x1.  It applies a remap
+/*! \fn void ShearingSheet_ox1(DomainS *pD)
+ *  \brief 3D shearing-sheet BCs in x1.  
+ *
+ * It applies a remap
  * in Y after the ghost cells have been set by the usual periodic BCs in X and
  * Y implemented in bvals_mhd.c
  *
  * This is a public function which is called by bvals_mhd() inside a
- * SHEARING_BOX macro.
- *----------------------------------------------------------------------------*/
+ * SHEARING_BOX macro.							      */
+/*----------------------------------------------------------------------------*/
 
 void ShearingSheet_ox1(DomainS *pD)
 {
@@ -1290,15 +1303,16 @@ void ShearingSheet_ox1(DomainS *pD)
 }
 
 
-/*------------------------------------------------------------------------------
- * RemapEy_ix1() - Remaps Ey at [is] due to background shear, and then
- * averages remapped and original field.  This guarantees the sums of Ey
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
+ *  \brief Remaps Ey at [is] due to background shear, and then
+ *   averages remapped and original field.  This guarantees the sums of Ey
  * along the x1 boundaries at [is] and [ie+1] are identical -- thus net Bz is
  * conserved
  *
  * This is a public function which is called by integrator (inside a
- * SHEARING_BOX macro).
- *----------------------------------------------------------------------------*/
+ * SHEARING_BOX macro).							      */
+/*----------------------------------------------------------------------------*/
 
 #ifdef MHD
 void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
@@ -1618,15 +1632,16 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 #endif /* MHD */
 
 
-/*------------------------------------------------------------------------------
- * RemapEy_ox1() - Remaps Ey at [ie+1] due to background shear, and then
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
+ *  \brief Remaps Ey at [ie+1] due to background shear, and then
  * averages remapped and original field.  This guarantees the sums of Ey
  * along the x1 boundaries at [is] and [ie+1] are identical -- thus net Bz is
  * conserved
  *
  * This is a public function which is called by integrator (inside a
- * SHEARING_BOX macro).
- *----------------------------------------------------------------------------*/
+ * SHEARING_BOX macro).							      */
+/*----------------------------------------------------------------------------*/
 
 #ifdef MHD
 void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
@@ -1948,10 +1963,11 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 #endif /* Shearing Box */
 
 /*----------------------------------------------------------------------------*/
-/* Fargo: implements FARGO algorithm.  Only works in 3D or 2D xy.  Called in
+/*! \fn void Fargo(DomainS *pD)
+ *  \brief Implements FARGO algorithm.  Only works in 3D or 2D xy.  Called in
  * the main loop after the integrator (and before bvals_mhd).
- *  Written in Munich 24-27.4.2008
- *----------------------------------------------------------------------------*/
+ *  Written in Munich 24-27.4.2008					      */
+/*----------------------------------------------------------------------------*/
 
 #ifdef FARGO
 void Fargo(DomainS *pD)
@@ -2327,7 +2343,8 @@ void Fargo(DomainS *pD)
 
 #if defined(SHEARING_BOX) || (defined(CYLINDRICAL) && defined(FARGO))
 /*----------------------------------------------------------------------------*/
-/* bvals_shear_init: allocates memory for temporary arrays/buffers
+/*! \fn void bvals_shear_init(MeshS *pM)
+ *  \brief Allocates memory for temporary arrays/buffers
  */
 
 void bvals_shear_init(MeshS *pM)
@@ -2425,7 +2442,8 @@ void bvals_shear_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* bvals_shear_destruct:  Free temporary arrays
+/*! \fn void bvals_shear_destruct(void)
+ *  \brief Free temporary arrays
  */
 
 void bvals_shear_destruct(void)
@@ -2465,8 +2483,10 @@ void bvals_shear_destruct(void)
  */
 
 #if defined(SECOND_ORDER_CHAR) || defined (SECOND_ORDER_PRIM)
-/*------------------------------------------------------------------------------
- * RemapFlux(): second order reconstruction for conservative remap.
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapFlux(const Real *U, const Real eps,
+ *             const int jinner, const int jouter, Real *Flux)
+ *  \brief Second order reconstruction for conservative remap.
  *   using piecewise linear reconstruction and min/mod limiters
  */
 
@@ -2511,8 +2531,10 @@ void RemapFlux(const Real *U, const Real eps,
 #endif /* SECOND_ORDER */
 
 #if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
-/*------------------------------------------------------------------------------
- * RemapFlux(): third order reconstruction for conservative remap. 
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapFlux(const Real *U, const Real eps,
+ *             const int jinner, const int jouter, Real *Flux)
+ *  \brief third order reconstruction for conservative remap 
  *   using Colella & Sekora extremum preserving algorithm (PPME)
  */
 
