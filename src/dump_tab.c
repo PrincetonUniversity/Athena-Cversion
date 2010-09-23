@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dump_tab.c
+/*============================================================================*/
+/*! \file dump_tab.c
+ *  \brief Functions to write a dump as a formatted table.
  *
  * PURPOSE: Functions to write a dump as a formatted table.  The resulting
  *   output files can be extremely large, so they are realy only useful for 1D
@@ -13,9 +14,9 @@
  *   sub-volume, of 2D or 3D calculations.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   dump_tab_cons - writes conserved variables as formatted table
- *   dump_tab_prim - writes primitive variables as formatted table
- *============================================================================*/
+ * - dump_tab_cons() - writes conserved variables as formatted table
+ * - dump_tab_prim() - writes primitive variables as formatted table	      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <string.h>
@@ -29,7 +30,8 @@
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* dump_tab_cons: output CONSERVED variables  */
+/*! \fn void dump_tab_cons(MeshS *pM, OutputS *pOut)
+ *  \brief Output CONSERVED variables  */
 
 void dump_tab_cons(MeshS *pM, OutputS *pOut)
 {
@@ -273,7 +275,8 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_tab_prim: output PRIMITIVE variables  */
+/*! \fn void dump_tab_prim(MeshS *pM, OutputS *pOut)
+ *  \brief Output PRIMITIVE variables.  */
 
 void dump_tab_prim(MeshS *pM, OutputS *pOut)
 {

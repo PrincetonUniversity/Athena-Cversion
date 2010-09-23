@@ -1,11 +1,12 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: output.c
+/*============================================================================*/
+/*! \file output.c
+ *  \brief Controls output of data.
  *
  * PURPOSE: Controls output of data.  Output is divided into three types:
- *   1. dump_*(): ALL variables are written in * format over WHOLE grid
- *   2. output_*(): ONE variable is written in * format with various options
- *   3. restarts: special form of a dump, includes extra data
+ * - 1. dump_*(): ALL variables are written in * format over WHOLE grid
+ * - 2. output_*(): ONE variable is written in * format with various options
+ * - 3. restarts: special form of a dump, includes extra data
  *   The number and types of outputs are all controlled by <ouputN> blocks in
  *   the input files, parsed by the functions in par.c.  
  *
@@ -14,39 +15,39 @@
  *   N < maxout.  If N > maxout, that <outputN> block is ignored.
  *
  * OPTIONS available in an <outputN> block are:
- *   out       = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2,G
- *   out_fmt   = bin,hst,tab,rst,vtk,pdf,pgm,ppm
- *   dat_fmt   = format string used to write tabular output (e.g. %12.5e)
- *   dt        = problem time between outputs
- *   time      = time of next output (useful for restarts)
- *   id        = any string
- *   dmin/dmax = max/min applied to all outputs
- *   palette   = rainbow,jh_colors,idl1,idl2,step8,step32,heat
- *   x1,x2,x3  = range over which data is averaged or sliced; see parse_slice()
- *   usr_expr_flag = 1 for user-defined expression (defined in problem.c)
- *   level,domain = integer indices of level and domain to be output with SMR
+ * - out       = cons,prim,d,M1,M2,M3,E,B1c,B2c,B3c,ME,V1,V2,V3,P,S,cs2,G
+ * - out_fmt   = bin,hst,tab,rst,vtk,pdf,pgm,ppm
+ * - dat_fmt   = format string used to write tabular output (e.g. %12.5e)
+ * - dt        = problem time between outputs
+ * - time      = time of next output (useful for restarts)
+ * - id        = any string
+ * - dmin/dmax = max/min applied to all outputs
+ * - palette   = rainbow,jh_colors,idl1,idl2,step8,step32,heat
+ * - x1,x2,x3  = range over which data is averaged or sliced; see parse_slice()
+ * - usr_expr_flag = 1 for user-defined expression (defined in problem.c)
+ * - level,domain = integer indices of level and domain to be output with SMR
  *   
  * EXAMPLE of an <outputN> block for a VTK dump:
- *   <output1>
- *   out_fmt = vtk
- *   out_dt  = 0.1
+ * - <output1>
+ * - out_fmt = vtk
+ * - out_dt  = 0.1
  *
  * EXAMPLE of an <outputN> block for a ppm image of a x1-x2 slice with data
  * averaged over 0.5-10 in x3 in ppm format:
- *   <output5>
- *   out_fmt = ppm
- *   dt      = 100.0
- *   out     = d
- *   id      = d
- *   x3      = 0.5:10.0
- *   dmin    = 0.25
- *   dmax    = 2.9
- *   palette = rainbow
+ * - <output5>
+ * - out_fmt = ppm
+ * - dt      = 100.0
+ * - out     = d
+ * - id      = d
+ * - x3      = 0.5:10.0
+ * - dmin    = 0.25
+ * - dmax    = 2.9
+ * - palette = rainbow
  *
  * EXAMPLE of an <outputN> block for restarts:
- *   <ouput3>
- *   out_fmt = rst
- *   out_dt  = 1.0
+ * - <ouput3>
+ * - out_fmt = rst
+ * - out_dt  = 1.0
  *
  * CONTROL of output proceeds as follows:
  *  -init_output(): called by main(), parses the first maxout output blocks.
@@ -64,10 +65,17 @@
  *   the problem definition file.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   init_output() -
- *   data_output() -
- *   data_output_destruct()
- *   OutData1,2,3()   -
+ * - init_output() -
+ * - data_output() -
+ * - data_output_destruct()
+ * - OutData1,2,3()   -
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - expr_*()
+ * - get_expr()
+ * - free_output()
+ * - parse_slice()
+ * - getRGB()
  *
  * VARIABLE TYPE AND STRUCTURE DEFINITIONS: none
  *============================================================================*/
@@ -127,12 +135,26 @@ Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 Real expr_G  (const GridS *pG, const int i, const int j, const int k);
 #endif
 #ifdef PARTICLES
+/*! \fn Real expr_dpar (const GridS *pG, const int i, const int j, const int k)
+ *  \brief Particle density. */
 extern Real expr_dpar (const GridS *pG, const int i, const int j, const int k);
+/*! \fn Real expr_M1par(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Particle 1-momentum */
 extern Real expr_M1par(const GridS *pG, const int i, const int j, const int k);
+/*! \fn Real expr_M2par(const GridS *pG, const int i, const int j, const int k)
+ *  \brief Particle 2-momentum */
 extern Real expr_M2par(const GridS *pG, const int i, const int j, const int k);
+/*! \fn Real expr_M3par(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Particle 3-momentum */
 extern Real expr_M3par(const GridS *pG, const int i, const int j, const int k);
+/*! \fn Real expr_V1par(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Particle 1-velocity */
 extern Real expr_V1par(const GridS *pG, const int i, const int j, const int k);
+/*! \fn Real expr_V2par(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Particle 2-velocity */
 extern Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
+/*! \fn Real expr_V3par(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Particle 3-velocity */
 extern Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 int check_particle_binning(char *out);
 #endif
@@ -143,7 +165,8 @@ float *getRGB(char *name);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* init_output:  */
+/*! \fn void init_output(MeshS *pM)
+ *  \brief Initializes data output. */
 
 void init_output(MeshS *pM)
 {
@@ -464,8 +487,11 @@ Now use the default one.\n");
 }
 
 /*----------------------------------------------------------------------------*/
-/* data_output:  Called by main(), tests whether time for output, and calls
- *   appropriate output functions.  Setting the input argument flag=1 forces a
+/*! \fn void data_output(MeshS *pM, const int flag)
+ *  \brief Called by main(), tests whether time for output, and calls
+ *   appropriate output functions.  
+ *
+ *   Setting the input argument flag=1 forces a
  *   write of all output's.  If the input argument flag=0, then only those
  *   output's whose next output time has passed will be written.        */
 
@@ -543,7 +569,8 @@ void data_output(MeshS *pM, const int flag)
 }
 
 /*----------------------------------------------------------------------------*/
-/* data_output_destruct: free all memory associated with Output, called by
+/*! \fn void data_output_destruct(void) 
+ *  \brief Free all memory associated with Output, called by
  *   main() at end of run */
 
 void data_output_destruct(void)
@@ -599,8 +626,11 @@ void data_output_destruct(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OutData3: creates 3D array of output data with dimensions equal to Grid
+/*! \fn Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, 
+ *                       int *Nx3)
+ *  \brief Creates 3D array of output data with dimensions equal to Grid
  * using output expression (function pointer) stored in Output structure.
+ *
  * Dimensions of array created also returned in arguments. */
 
 Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, int *Nx3)
@@ -657,9 +687,11 @@ Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, int *Nx3)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OutData2: creates 2D array of output data with two dimensions equal to Grid
- * and one dimension reduced according to range stored in x1l/x1u, etc.  Data
- * is computed using output expression (function pointer) stored in Output
+/*! \fn Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
+ *  \brief Creates 2D array of output data with two dimensions equal to Grid
+ * and one dimension reduced according to range stored in x1l/x1u, etc.  
+ *
+ * Data is computed using output expression (function pointer) stored in Output
  * structure.  If slice range lies outside of coordinate range in Grid, the
  * NULL pointer is returned.  Dimensions of array created are also returned in
  * arguments */
@@ -837,9 +869,11 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OutData1: creates 1D array of output data with one dimensions equal to Grid
- * and two dimensions reduced according to range stored in x1l/x1u, etc.  Data
- * is computed using output expression (function pointer) stored in Output
+/*! \fn Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
+ *  \brief Creates 1D array of output data with one dimensions equal to Grid
+ * and two dimensions reduced according to range stored in x1l/x1u, etc.  
+ *
+ * Data is computed using output expression (function pointer) stored in Output 
  * structure.  If slice range lies outside of coordinate range in Grid, the
  * NULL pointer is returned.  Dimension of array created is also returned in
  * arguments. */
@@ -1075,20 +1109,29 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the conserved variables d,M1,M2,M3,E */
-
+/*! \fn Real expr_d(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Density */
 Real expr_d(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].d;
 }
+/*! \fn Real expr_M1(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief 1-component of momentum */ 
 Real expr_M1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1;
 }
+/*! \fn Real expr_M2(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief 2-component of momentum */
 Real expr_M2(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M2;
 }
+/*! \fn Real expr_M3(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief 3-component of momentum */
 Real expr_M3(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3;
 }
 #ifndef BAROTROPIC
+/*! \fn Real expr_E(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Total energy */
 Real expr_E(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].E;
 }
@@ -1098,15 +1141,23 @@ Real expr_E(const GridS *pG, const int i, const int j, const int k) {
 /* expr_*: where * are magnetic field variables: B1c, B2c, B3c, B^2 */
 
 #ifdef MHD
+/*! \fn Real expr_B1c(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief 1-component of cell-centered B-field */
 Real expr_B1c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B1c;
 }
+/*! \fn Real expr_B2c(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief 2-component of cell-centered B-field */
 Real expr_B2c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B2c;
 }
+/*! \fn Real expr_B3c(const GridS *pG, const int i, const int j, const int k)  
+ *  \brief 3-component of cell-centered B-field */
 Real expr_B3c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B3c;
 }
+/*! \fn Real expr_ME(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Magnetic field energy */
 Real expr_ME(const GridS *pG, const int i, const int j, const int k) {
   return 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
 	      pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + 
@@ -1117,16 +1168,24 @@ Real expr_ME(const GridS *pG, const int i, const int j, const int k) {
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the primitive variables */
 
+/*! \fn Real expr_V1(const GridS *pG, const int i, const int j, const int k)  
+ *  \brief 1-velocity */
 Real expr_V1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1/pG->U[k][j][i].d;
 }
+/*! \fn Real expr_V2(const GridS *pG, const int i, const int j, const int k)  
+ *  \brief 2-velocity */
 Real expr_V2(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M2/pG->U[k][j][i].d;
 }
+/*! \fn Real expr_V3(const GridS *pG, const int i, const int j, const int k)  
+ *  \brief 3-velocity */
 Real expr_V3(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3/pG->U[k][j][i].d;
 }
 
+/*! \fn Real expr_P(const GridS *pG, const int i, const int j, const int k) 
+ *  \brief Pressure */
 Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
@@ -1141,7 +1200,8 @@ Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 }
 
 /*--------------------------------------------------------------------------- */
-/* expr_cs2: sound speed squared  */
+/*! \fn Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
+ *  \brief Sound speed squared  */
 
 #ifdef ADIABATIC
 Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
@@ -1156,7 +1216,8 @@ Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 #endif /* ADIABATIC */
 
 /*--------------------------------------------------------------------------- */
-/* expr_S: entropy = P/d^{Gamma}  */
+/*! \fn Real expr_S(const GridS *pG, const int i, const int j, const int k)
+ *  \brief entropy = P/d^{Gamma}  */
 
 #ifdef ADIABATIC
 Real expr_S(const GridS *pG, const int i, const int j, const int k)
@@ -1172,7 +1233,8 @@ Real expr_S(const GridS *pG, const int i, const int j, const int k)
 #endif /* ADIABATIC */
 
 /*--------------------------------------------------------------------------- */
-/* expr_G: gamma = 1/sqrt(1-v^2)  */
+/*! \fn Real expr_G(const GridS *pG, const int i, const int j, const int k)
+ *  \brief gamma = 1/sqrt(1-v^2)  */
 
 #ifdef SPECIAL_RELATIVITY
 Real expr_G(const GridS *pG, const int i, const int j, const int k)
@@ -1184,7 +1246,8 @@ Real expr_G(const GridS *pG, const int i, const int j, const int k)
 #endif /* SPECIAL_RELATIVITY */
 
 /*---------------------------------------------------------------------------_*/
-/* check if particle binning is need */
+/*! \fn int check_particle_binning(char *out)
+ *  \brief Check if particle binning is need */
 #ifdef PARTICLES
 int check_particle_binning(char *out)
 {/* 1: need binning; 0: no */
@@ -1208,7 +1271,9 @@ int check_particle_binning(char *out)
 #endif /* PARTICLES */
 
 /*--------------------------------------------------------------------------- */
-/* getexpr: return a function pointer for a simple expression - no parsing.
+/*! \fn static ConsFun_t getexpr(const int n, const char *expr)
+ *  \brief Return a function pointer for a simple expression - no parsing.
+ *
  *   For a user defined expression, get_usr_expr() in problem.c is used.  */
 
 static ConsFun_t getexpr(const int n, const char *expr)
@@ -1282,7 +1347,10 @@ static ConsFun_t getexpr(const int n, const char *expr)
 }
 
 /*----------------------------------------------------------------------------*/
-/* free_output: free memory associated with Output structure.  Only used when
+/*! \fn static void free_output(OutputS *pOut)
+ *  \brief free memory associated with Output structure.  
+ *
+ *   Only used when
  *   error occurs in adding a new output; this function frees memory and returns
  *   control to calling function */
 
@@ -1296,14 +1364,18 @@ static void free_output(OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* parse_slice: sets the lower and upper bounds of a slice along an axis, 
- *   using values of x1, x2 or x3 in the <output> block.  These are used to
+/*! \fn static void parse_slice(char *block, char *axname, Real *l, Real *u, 
+ *			        int *flag)
+ *  \brief Sets the lower and upper bounds of a slice along an axis, 
+ *   using values of x1, x2 or x3 in the <output> block.  
+ *
+ *   These are used to
  *   slice the data for outputs, averaged between l and u.  Valid formats are:
- *       x1 = 5e3         both l and u set to 5.0e3
- *       x1 = 5.3:10e4    l set to 5.3, u set to 1.0e5
- *       x1 = :           l set to RootMinX, u set to RootMaxX
- *       x1 = 5:          l set to 5.0, u set to RootMaxX
- *       x1 = :10         l set to RootMinX, u set to 10.0
+ *   -   x1 = 5e3         both l and u set to 5.0e3
+ *   -   x1 = 5.3:10e4    l set to 5.3, u set to 1.0e5
+ *   -   x1 = :           l set to RootMinX, u set to RootMaxX
+ *   -   x1 = 5:          l set to 5.0, u set to RootMaxX
+ *   -   x1 = :10         l set to RootMinX, u set to 10.0
  *   If values for x1,x2,x3 are not set in the <output> block, then l and u
  *   are not changed (default values should be set in calling function).
  *
@@ -1346,7 +1418,9 @@ static void parse_slice(char *block, char *axname, Real *l, Real *u, int *flag)
 }
 
 /*----------------------------------------------------------------------------*/
-/* getRGB: function for accessing palettes stored stored in structure RGB.
+/*! \fn float *getRGB(char *name)
+ *  \brief function for accessing palettes stored stored in structure RGB.
+ *
  *   Compares argument with strings (names) of palettes in RGB, and returns 
  *   pointer to first element of matching palette.  */
 

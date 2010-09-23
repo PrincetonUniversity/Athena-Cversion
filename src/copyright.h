@@ -1,4 +1,6 @@
-/*
+/*! \file copyright.h
+ *  \brief Copyright and license information.
+
  ATHENA 
 
  AUTHORS:

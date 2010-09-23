@@ -1,11 +1,10 @@
 #ifndef PROTOTYPES_H
 #define PROTOTYPES_H 
 #include "copyright.h"
-/*==============================================================================
- * FILE: prototypes.h
- *
- * PURPOSE: Prototypes for all public functions from the /src directory,
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions from the /src directory.      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "athena.h"

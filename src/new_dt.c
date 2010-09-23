@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: new_dt.c
+/*============================================================================*/
+/*! \file new_dt.c
+ *  \brief Computes timestep using CFL condition.
  *
  * PURPOSE: Computes timestep using CFL condition on cell-centered velocities
  *   and sound speed, and Alfven speed from face-centered B, across all Grids
@@ -14,8 +15,8 @@
  * defined.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   new_dt() - computes dt
- *============================================================================*/
+ * - new_dt() - computes dt						      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <math.h>
@@ -25,7 +26,8 @@
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* new_dt:  */
+/*! \fn void new_dt(MeshS *pM)
+ *  \brief Computes timestep using CFL condition. */ 
 
 void new_dt(MeshS *pM)
 {

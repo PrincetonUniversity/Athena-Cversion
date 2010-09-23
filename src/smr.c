@@ -1,20 +1,26 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: smr.c
+/*============================================================================*/
+/*! \file smr.c
+ *  \brief Functions to handle static mesh refinement (SMR).
  *
  * PURPOSE: Functions to handle static mesh refinement (SMR).
  *
  * REFERENCES:
- *   G. Toth and P.L. Roe, "Divergence and Curl-preserving prolongation and
+ * - G. Toth and P.L. Roe, "Divergence and Curl-preserving prolongation and
  *   restriction formulas", JCP 180, 736 (2002)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   RestrictCorrect(): restricts (averages) fine Grid solution to coarse, and 
+ * - RestrictCorrect(): restricts (averages) fine Grid solution to coarse, and 
  *    corrects cells at fine/coarse boundaries using restricted fine Grid fluxes
- *   Prolongate(): sets BC on fine Grid by prolongation (interpolation) of
+ * - Prolongate(): sets BC on fine Grid by prolongation (interpolation) of
  *     coarse Grid solution into fine grid ghost zones
- *   SMR_init(): allocates memory for send/receive buffers
- *============================================================================*/
+ * - SMR_init(): allocates memory for send/receive buffers
+ *
+ * PRIVATE FUNCTION PROTOTYPES: 
+ * - ProCon() - prolongates conserved variables
+ * - ProFld() - prolongates face-centered B field using TR formulas
+ * - mcd_slope() - returns monotonized central-difference slope		      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +69,9 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* RestrictCorrect: 
+/*! \fn void RestrictCorrect(MeshS *pM)
+ *  \brief Restricts (averages) fine Grid solution to coarse, and 
+ *    corrects cells at fine/coarse boundaries using restricted fine Grid fluxes
  */
 
 void RestrictCorrect(MeshS *pM)
@@ -1213,9 +1221,9 @@ void RestrictCorrect(MeshS *pM)
 
 /*============================================================================*/
 /*----------------------------------------------------------------------------*/
-/* Prolongate: 
- */
-
+/*! \fn void Prolongate(MeshS *pM)
+ *  \brief Sets BC on fine Grid by prolongation (interpolation) of
+ *     coarse Grid solution into fine grid ghost zones */
 void Prolongate(MeshS *pM)
 {
   GridS *pG;
@@ -1784,7 +1792,8 @@ void Prolongate(MeshS *pM)
 
 /*============================================================================*/
 /*----------------------------------------------------------------------------*/
-/* SMR_init: allocates memory for send/receive buffers
+/*! \fn void SMR_init(MeshS *pM)
+ *  \brief Allocates memory for send/receive buffers
  */
 
 void SMR_init(MeshS *pM)
@@ -1900,7 +1909,10 @@ void SMR_init(MeshS *pM)
 }
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*----------------------------------------------------------------------------*/
-/* ProlongedCons() - prolongates conserved variables in a 2x2x2 cube.
+/*! \fn void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
+ *            const ConsS Ujm1,const ConsS Ujp1,
+ *            const ConsS Ukm1,const ConsS Ukp1, ConsS PCon[][2][2])
+ *  \brief Prolongates conserved variables in a 2x2x2 cube.
  */
 
 void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
@@ -2163,7 +2175,9 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 }
 
 /*----------------------------------------------------------------------------*/
-/* ProFld() - Uses the divergence-preserving prolongation operators of
+/*! \fn void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
+ *            const Real dx1c, const Real dx2c, const Real dx3c)
+ *  \brief Uses the divergence-preserving prolongation operators of
  * Toth & Roe (JCP, 180, 736, 2002) to interpolate the face centered fields
  * in a 3x2x2 block for Bx, 2x3x2 block for By, and 2x2x3 block for Bz.
  */
@@ -2306,7 +2320,8 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 #endif /* MHD */
 
 /*----------------------------------------------------------------------------*/
-/* mcd_slope() - computes monotonized linear slope.
+/*! \fn static Real mcd_slope(const Real vl, const Real vc, const Real vr)
+ *  \brief Computes monotonized linear slope.
  */
 
 #ifndef FIRST_ORDER

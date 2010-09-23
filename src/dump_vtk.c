@@ -1,13 +1,14 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dump_vtk.c
+/*============================================================================*/
+/*! \file dump_vtk.c 
+ *  \brief Function to write a dump in VTK "legacy" format.
  *
  * PURPOSE: Function to write a dump in VTK "legacy" format.  With SMR,
  *   dumps are made for all levels and domains, unless nlevel and ndomain are
  *   specified in <output> block.  Works for BOTH conserved and primitives.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_vtk() - writes VTK dump (all variables).
+ * - dump_vtk() - writes VTK dump (all variables).
  *============================================================================*/
 
 #include <stdio.h>
@@ -21,7 +22,8 @@
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* dump_vtk:   */
+/*! \fn void dump_vtk(MeshS *pM, OutputS *pOut)
+ *  \brief Writes VTK dump (all variables).				      */
 
 void dump_vtk(MeshS *pM, OutputS *pOut)
 {

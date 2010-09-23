@@ -1,15 +1,16 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dump_binary.c
+/*============================================================================*/
+/*! \file dump_binary.c
+ *  \brief Function to write an unformatted dump of the field variables.
  *
  * PURPOSE: Function to write an unformatted dump of the field variables that
  *   can be read, e.g., by IDL scripts.  With SMR, dumps are made for all levels
  *   and domains, unless nlevel and ndomain are specified in <output> block.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_binary - writes either conserved or primitive variables depending
- *                 on value of pOut->out read from input block.
- *============================================================================*/
+ * - dump_binary() - writes either conserved or primitive variables depending
+ *                 on value of pOut->out read from input block.		      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +24,8 @@
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* dump_binary:  */
+/*! \fn void dump_binary(MeshS *pM, OutputS *pOut)
+ *  \brief Function to write an unformatted dump of the field variables. */
 
 void dump_binary(MeshS *pM, OutputS *pOut)
 {

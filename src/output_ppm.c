@@ -1,16 +1,18 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: output_ppm.c
+/*============================================================================*/
+/*! \file output_ppm.c
+ *  \brief Writes single variable as a PPM image with color table.
  *
  * PURPOSE: Writes single variable as a PPM image with color table.  With SMR,
  *   dumps are made for all levels and domains, unless nlevel and ndomain are
  *   specified in <output> block.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   output_ppm()
+ * - output_ppm()
  *
- * VARIABLE TYPE AND STRUCTURE DEFINITIONS:
- *============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - compute_rgb()							      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,8 +34,8 @@ static void compute_rgb(double data, double min, double max, int *pR, int *pG,
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* output_ppm:  output PPM image */
-
+/*! \fn void output_ppm(MeshS *pM, OutputS *pOut) 
+ *  \brief Output PPM image */
 void output_ppm(MeshS *pM, OutputS *pOut)
 {
   GridS *pGrid;
@@ -126,6 +128,9 @@ void output_ppm(MeshS *pM, OutputS *pOut)
 /*----------------------------------------------------------------------------*/
 /* compute_rgb: converts data into RGB values using palette in Output struct  */
 
+/*! \fn static void compute_rgb(double data, double min, double max, int *pR, 
+ *			        int *pG, int *pB, OutputS *p);
+ *  \brief Converts data into RGB values using palette in Output struct  */
 static void compute_rgb(double data, double min, double max,
   int *R, int *G, int *B, OutputS *pOut)
 {

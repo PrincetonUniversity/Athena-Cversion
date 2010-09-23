@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: output_pgm.c
+/*============================================================================*/
+/*! \file output_pgm.c
+ *  \brief Writes Portable Gray Map (PGM) outputs.
  *
  * PURPOSE: Writes Portable Gray Map (PGM) outputs.  These are extremely simple
  *   grayscale 2D images, see e.g. sourceforge for documentation. With SMR,
@@ -8,7 +9,7 @@
  *   specified in <output> block.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   output_pgm() -  outputs 2D PGM images
+ * - output_pgm() -  outputs 2D PGM images
  *============================================================================*/
 
 #include <stdio.h>
@@ -20,7 +21,8 @@
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* output_pgm: output 2D PGM image   */
+/*! \fn void output_pgm(MeshS *pM, OutputS *pOut)
+ *  \brief  Output 2D PGM image   */
 
 void output_pgm(MeshS *pM, OutputS *pOut)
 {

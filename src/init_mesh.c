@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: init_mesh.c
+/*============================================================================*/
+/*! \file init_mesh.c
+ *  \brief General initialization of the nested mesh hierarchy. 
  *
  * PURPOSE: General initialization of the nested mesh hierarchy.  Works for both
  *   nested and uniform meshes, on single and multiple processors.  Each Mesh
@@ -14,27 +15,34 @@
  *   ndomain[nlevel] Domains).
  *
  *   Note for a uniform mesh on a single processor:
- *     # of Mesh levels = # of Domains = # of Grids = 1
+ *   - # of Mesh levels = # of Domains = # of Grids = 1
  *   For a uniform mesh on multiple processors:
- *     # of Mesh levels = # of Domains = 1; # of Grids = # of processors
+ *   - # of Mesh levels = # of Domains = 1; # of Grids = # of processors
  *   For a nested mesh on a single processor:
- *     # of Domains = # of Grids
+ *   - # of Domains = # of Grids
+ *
  *   For a nested mesh on multiple processors, there is no relationship between
  *   these quantaties in general.
  *
  *   This function: 
- *    (1) sets properties of each Domain read from <domain> blocks in input file
- *    (2) allocates and initializes the array of Domains,
- *    (3) divides each Domain into one or more Grids depending on the
+ *  - (1) sets properties of each Domain read from <domain> blocks in input file
+ *  - (2) allocates and initializes the array of Domains,
+ *  - (3) divides each Domain into one or more Grids depending on the
  *        parallelization.
+ *
  *   This function supercedes init_domain() from v3.2.
  *   The init_grid() function initializes the data in each Grid structure in 
  *   each Domain, including finding all child and parent Grids with SMR.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   init_mesh()
- *   get_myGridIndex()
- *============================================================================*/
+ * - init_mesh()
+ * - get_myGridIndex()							      
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - dom_decomp()    - calls auto domain decomposition functions 
+ * - dom_decomp_2d() - finds optimum domain decomposition in 2D 
+ * - dom_decomp_3d() - finds optimum domain decomposition in 3D		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdlib.h>
@@ -50,16 +58,28 @@
  *   dom_decomp_3d() - finds optimum domain decomposition in 3D 
  *============================================================================*/
 #ifdef MPI_PARALLEL
+/*! \fn static int dom_decomp(const int Nx, const int Ny, const int Nz,
+ *                            const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *  \brief calls auto domain decomposition functions */
 static int dom_decomp(const int Nx, const int Ny, const int Nz,const int Np,
   int *pNGx, int *pNGy, int *pNGz);
+
+/*! \fn static int dom_decomp_2d(const int Nx, const int Ny, const int Np,
+ *                               int *pNGx, int *pNGy)
+ *  \brief finds optimum domain decomposition in 2D */
 static int dom_decomp_2d(const int Nx, const int Ny, const int Np,
   int *pNGx, int *pNGy);
+
+/*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, 
+ *				 const int Np, int *pNGx, int *pNGy, int *pNGz) 
+ *  \brief finds optimum domain decomposition in 3D  */
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, const int Np,
   int *pNGx, int *pNGy, int *pNGz);
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* init_mesh:  */
+/*! \fn void init_mesh(MeshS *pM)
+ *  \brief General initialization of the nested mesh hierarchy.		      */
 
 void init_mesh(MeshS *pM)
 {
@@ -833,7 +853,9 @@ printf("WorldID=%d Children_CommID=%d\n",myID_Comm_world,myrank);
 }
 
 /*----------------------------------------------------------------------------*/
-/* get_myGridIndex: searches GData[][][] array to find i,j,k components
+/*! \fn void get_myGridIndex(DomainS *pD, const int myID, int *pi, 
+ *			     int *pj, int *pk)
+ *  \brief Searches GData[][][] array to find i,j,k components
  *   of block being updated on this processor.  */
 
 void get_myGridIndex(DomainS *pD, const int myID,
@@ -856,7 +878,9 @@ void get_myGridIndex(DomainS *pD, const int myID,
 
 #ifdef MPI_PARALLEL
 /*=========================== PRIVATE FUNCTIONS ==============================*/
-/* dom_decomp: calls apropriate 2D or 3D auto decomposition routines
+/*! \fn static int dom_decomp(const int Nx, const int Ny, const int Nz,
+ *                    const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *  \brief Calls apropriate 2D or 3D auto decomposition routines
  *   Functions written by T.A.G., added May 2007 */
 
 static int dom_decomp(const int Nx, const int Ny, const int Nz,
@@ -881,7 +905,11 @@ static int dom_decomp(const int Nx, const int Ny, const int Nz,
 }
 
 /*----------------------------------------------------------------------------*/
-/* dom_decomp_2d: optimizes domain decomposition in 2D.  The TOTAL amount of
+/*! \fn static int dom_decomp_2d(const int Nx, const int Ny,
+ *                               const int Np, int *pNGx, int *pNGy)
+ *  \brief Pptimizes domain decomposition in 2D.  
+ *
+ *    The TOTAL amount of
  *   data communicated (summed over all processes and all INTERNAL boundaries)
  *   divided by 2*nghost (where the 2 is for two messages per internal
  *   interface) is computed and stored in the variable I, the minimum of which
@@ -959,8 +987,11 @@ static int dom_decomp_2d(const int Nx, const int Ny,
 }
 
 /*----------------------------------------------------------------------------*/
-/* dom_decomp_3d: optimizes domain decomposition in 3D.  See the comments for
- *   dom_decomp_2d() for more about the algorithm
+/*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
+ *			         const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *  \brief Optimizes domain decomposition in 3D.
+ *
+ *   See the comments for dom_decomp_2d() for more about the algorithm
  */
 
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,

@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: restart.c
+/*============================================================================*/
+/*! \file restart.c
+ *  \brief Functions for writing and reading restart files.
  *
  * PURPOSE: Functions for writing and reading restart files.  Restart files
  *   begin with the input parameter file (athinput.XX) used to start the run in
@@ -25,10 +26,10 @@
  * processor in one file, written in the default directory for the process.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   restart_grids() - reads nstep,time,dt,ConsS and B from restart file 
- *   dump_restart()  - writes a restart file
- *
- *============================================================================*/
+ * - restart_grids() - reads nstep,time,dt,ConsS and B from restart file 
+ * - dump_restart()  - writes a restart file
+ *									      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -41,8 +42,11 @@
 #include "particles/particle.h"
 
 /*----------------------------------------------------------------------------*/
-/* restart_grids: Reads nstep, time, dt, and arrays of ConsS and interface B
- *   for each of the Grid structures in the restart file.  By the time this
+/*! \fn void restart_grids(char *res_file, MeshS *pM)
+ *  \brief Reads nstep, time, dt, and arrays of ConsS and interface B
+ *   for each of the Grid structures in the restart file.  
+ *
+ *    By the time this
  *   function is called (in Step 6 of main()), the Mesh hierarchy has already
  *   been re-initialized by init_mesh() and init_grid() in Step 4 of main()
  *   using parameters in the athinput file at the start of this restart file,
@@ -419,7 +423,8 @@ void restart_grids(char *res_file, MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_restart: writes a restart file, including problem-specific data from
+/*! \fn void dump_restart(MeshS *pM, OutputS *pout)
+ *  \brief Writes a restart file, including problem-specific data from
  *   a user defined function  */
 
 void dump_restart(MeshS *pM, OutputS *pout)

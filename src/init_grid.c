@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: init_grid.c
+/*============================================================================*/
+/*! \file init_grid.c 
+ *  \brief Initializes most variables in the Grid structure.
  *
  * PURPOSE: Initializes most variables in the Grid structure.  Allocates memory
  *   for 3D arrays of Cons, interface B, etc.  With SMR, finds all overlaps
@@ -8,8 +9,12 @@
  *   flux-correction, and prolongation steps.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   init_grid()
- *============================================================================*/
+ * - init_grid()
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - checkOverlap() - checks for overlap of cubes, and returns overlap coords
+ * - checkOverlapTouch() - same as above, but checks for overlap and/or touch */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -25,12 +30,22 @@
  *  checkOverlapTouch() - same as above, but checks for overlap and/or touch
  *============================================================================*/
 #ifdef STATIC_MESH_REFINEMENT
+/*! \fn int checkOverlap(SideS *pC1, SideS *pC2, SideS *pC3);
+ *  \brief Checks for overlap of cubes, and returns overlap coords */
 int checkOverlap(SideS *pC1, SideS *pC2, SideS *pC3);
+/*! \fn int checkOverlapTouch(SideS *pC1, SideS *pC2, SideS *pC3);
+ *  \brief Same as above, but checks for overlap and/or touch */
 int checkOverlapTouch(SideS *pC1, SideS *pC2, SideS *pC3);
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* init_grid:  */
+/*! \fn void init_grid(MeshS *pM)
+ *  \brief Initializes most variables in the Grid structure.
+ *
+ * PURPOSE: Initializes most variables in the Grid structure.  Allocates memory
+ *   for 3D arrays of Cons, interface B, etc.  With SMR, finds all overlaps
+ *   between child and parent Grids, and initializes data needed for restriction
+ *   flux-correction, and prolongation steps.				      */
 
 void init_grid(MeshS *pM)
 {
@@ -1160,9 +1175,12 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
 #ifdef STATIC_MESH_REFINEMENT
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*----------------------------------------------------------------------------*/
-/* checkOverlap: checks if two cubes are overlapping.
- *   If yes returns true and sides of overlap region in Cube3
- *   If no  returns false and -1 in Cube3
+/*! \fn int checkOverlap(SideS *pC1, SideS *pC2, SideS *pC3)
+ *  \brief Checks if two cubes are overlapping.
+ *
+ *  - If yes returns true and sides of overlap region in Cube3
+ *  - If no  returns false and -1 in Cube3
+ *
  * Arguments are Side structures, containing indices of the 6 sides of cube */
 
 int checkOverlap(SideS *pC1, SideS *pC2, SideS *pC3)
@@ -1193,9 +1211,12 @@ int checkOverlap(SideS *pC1, SideS *pC2, SideS *pC3)
 }
 
 /*----------------------------------------------------------------------------*/
-/* checkOverlapTouch: checks if two cubes are overlapping or touching.
- *   If yes returns true and sides of overlap region in Cube3
- *   If no  returns false and -1 in Cube3
+/*! \fn int checkOverlapTouch(SideS *pC1, SideS *pC2, SideS *pC3)
+ *  \brief Checks if two cubes are overlapping or touching.
+ *
+ *  - If yes returns true and sides of overlap region in Cube3
+ *  - If no  returns false and -1 in Cube3
+ *
  * Arguments are Side structures, containing indices of the 6 sides of cube */
 
 int checkOverlapTouch(SideS *pC1, SideS *pC2, SideS *pC3)
