@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: ath_log.c
+/*============================================================================*/
+/*! \file ath_log.c
+ *  \brief Functions for controlling output to stderr and stdout.
  *
  * PURPOSE: Functions for controlling output to stderr and stdout.  On many
  *   machines, output to stderr and stdout does not scale well (to 10^{4-5}
@@ -10,19 +11,18 @@
  *   files for debugging, is very helpful.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   ath_log_name_init() - initializes log filenames
- *   ath_log_out_open()  - opens out log file
- *   ath_log_err_open()  - opens err log file
- *   ath_log_set_level() - sets logging level from input arguments
- *   ath_log_open()      - calls output/error log file open if lazy == 0
- *   ath_log_close()     - closes output/error log file close
- *   athout_fp()         - returns pointer to out logfile
- *   atherr_fp()         - returns pointer to err logfile
- *   ath_flush_out()     - flushes out log file
- *   ath_flush_err()     - flushes err log file
- *   ath_perr()          - writes to err file
- *   ath_pout()          - writes to out file
- *============================================================================*/
+ * - ath_log_out_open()  - opens out log file
+ * - ath_log_err_open()  - opens err log file
+ * - ath_log_set_level() - sets logging level from input arguments
+ * - ath_log_open()      - calls output/error log file open if lazy == 0
+ * - ath_log_close()     - closes output/error log file close
+ * - athout_fp()         - returns pointer to out logfile
+ * - atherr_fp()         - returns pointer to err logfile
+ * - ath_flush_out()     - flushes out log file
+ * - ath_flush_err()     - flushes err log file
+ * - ath_perr()          - writes to err file
+ * - ath_pout()          - writes to out file				      */
+/*============================================================================*/
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -49,9 +49,9 @@ static char log_mode[2] = "w";
 
 
 /*----------------------------------------------------------------------------*/
-/* ath_log_out_open: opens output log file (containing output to stdout)
+/*! \fn static int ath_log_out_open(void)
+ *  \brief Opens output log file (containing output to stdout).
  */
-
 static int ath_log_out_open(void)
 {
   int iExist=1;
@@ -77,9 +77,9 @@ static int ath_log_out_open(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_log_err_open: opens error log file (containing output to stderr)
+/*! \fn static int ath_log_err_open(void)
+ *  \brief Opens error log file (containing output to stderr).
  */
-
 static int ath_log_err_open(void)
 {
   int iExist=1;
@@ -105,11 +105,12 @@ static int ath_log_err_open(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_log_set_level: sets "output level" and "error level" from input
+/*! \fn void ath_log_set_level(const int out, const int err)
+ *  \brief Sets "output level" and "error level" from input 
  *   arguments, global parameters used by many functions in this file.
+ *
  *   Called from main(), where the parameters are parsed from athinput.
  */
-
 void ath_log_set_level(const int out, const int err)
 {
   out_level = out;
@@ -119,14 +120,16 @@ void ath_log_set_level(const int out, const int err)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_log_open: opens output and error log files if "lazy" flag is false (0).
+/*! \fn void ath_log_open(const char *basename, const int lazy, 
+ *			  const char *mode)
+ *  \brief Opens output and error log files if "lazy" flag is false (0).
+ *
  *   If "lazy" is true, then the ath_log_open() call does not actually open the
  *   files, but rather prepares to open them on the first invocation of either
  *   ath_pout() ath_perr(), athout_fp() or atherr_fp().  This is useful for
  *   parallel jobs where the children, if made sufficiently quiet would
  *   otherwise generate a large number of empty files. -- T. A. Gardiner -- 
  */
-
 void ath_log_open(const char *basename, const int lazy, const char *mode)
 {
   size_t size = strlen(basename) + 5; /* 5 = '.' + 'out' or 'err' + '\0' */
@@ -163,9 +166,9 @@ void ath_log_open(const char *basename, const int lazy, const char *mode)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_log_close: closes output and error log files 
+/*! \fn void ath_log_close(void)
+ *  \brief Closes output and error log files.
  */
-
 void ath_log_close(void)
 {
 /* clear the flags to open the log files */
@@ -183,9 +186,9 @@ void ath_log_close(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* athout_fp: open output file if needed and return a pointer to file
+/*! \fn FILE *athout_fp(void)
+ *  \brief Open output file if needed and return a pointer to file.
  */
-
 FILE *athout_fp(void)
 {
 /* Open the output log file if it needs to be opened */
@@ -196,9 +199,9 @@ FILE *athout_fp(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* atherr_fp: open error file if needed and return a pointer to file
+/*! \fn FILE *atherr_fp(void)
+ *  \brief Open error file if needed and return a pointer to file.
  */
-
 FILE *atherr_fp(void)
 {
 /* Open the error log file if it needs to be opened */
@@ -209,9 +212,9 @@ FILE *atherr_fp(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_flush_out: flush output file buffer
+/*! \fn void ath_flush_out(void)
+ *  \brief Flush output file buffer.
  */
-
 void ath_flush_out(void)
 {
   FILE *fp;
@@ -224,9 +227,9 @@ void ath_flush_out(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_flush_err: flush error file buffer
+/*! \fn void ath_flush_err(void)
+ *  \brief Flush error file buffer.
  */
-
 void ath_flush_err(void)
 {
   FILE *fp;
@@ -239,10 +242,11 @@ void ath_flush_err(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_perr: output variable argument string to "error log file".   Should
- *   be used in place of printf(stderr,...)
+/*! \fn int ath_perr(const int level, const char *fmt, ...)
+ *  \brief Foutput variable argument string to "error log file".   
+ *
+ *  Should be used in place of printf(stderr,...)
  */
-
 int ath_perr(const int level, const char *fmt, ...)
 {
   va_list ap;
@@ -265,10 +269,11 @@ int ath_perr(const int level, const char *fmt, ...)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_pout: output variable argument string to "output log file".   Should
- *   be used in place of printf(stdout,...)
+/*! \fn int ath_pout(const int level, const char *fmt, ...)
+ *  \brief Output variable argument string to "output log file".   
+ *
+ *  Should be used in place of printf(stdout,...)
  */
-
 int ath_pout(const int level, const char *fmt, ...)
 {
   va_list ap;
