@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: baton.c
+/*============================================================================*/
+/*! \file baton.c
+ *  \brief Stage independent processes by passing a baton.
  *
  * PURPOSE: Stage independent processes by passing a baton.  The
  * functions here assume that no MPI communication will proceed
@@ -13,9 +14,9 @@
  * in March, 2008.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   baton_start()
- *   baton_stop()
- *============================================================================*/
+ * - baton_start()
+ * - baton_stop()							      */
+/*============================================================================*/
 #include "defs.h"
 #include "prototypes.h"
 
@@ -24,22 +25,24 @@
 
 /* ========================================================================== */
 
-
-/* NOTES on baton_start() and baton_stop():
-
-   The values for Nb and tag MUST be the same in the call to
-   baton_start() and in baton_stop().
-
-   Nb  -> Number of Batons = max number of ranks in action at a given time.
-   tag -> MPI message tag to use for this baton passing.
-*/
-
-/* This function starts off a "Baton Passing" scheme for regulating
-   the maximum number of processes active at a given moment.  It works
-   by handing out Nb batons to the first (0 -> Nb-1) ranks.  Then
-   ranks (Nb -> 2Nb-1) wait for a signal from the ranks (0 -> Nb-1)
-   which is sent by the baton_stop() function and so the process
-   continues until all of the MPI ranks have completed. */
+/*! \fn void baton_start(const int Nb, const int tag)
+ *  \brief This function starts off a "Baton Passing" scheme for regulating
+ * the maximum number of processes active at a given moment. 
+ *
+ * NOTES on baton_start() and baton_stop():
+ *
+ * The values for Nb and tag MUST be the same in the call to
+ * baton_start() and in baton_stop().
+ *
+ * - Nb  -> Number of Batons = max number of ranks in action at a given time.
+ * - tag -> MPI message tag to use for this baton passing.
+ *
+ * This function starts off a "Baton Passing" scheme for regulating
+ * the maximum number of processes active at a given moment.  It works
+ * by handing out Nb batons to the first (0 -> Nb-1) ranks.  Then
+ * ranks (Nb -> 2Nb-1) wait for a signal from the ranks (0 -> Nb-1)
+ * which is sent by the baton_stop() function and so the process
+ * continues until all of the MPI ranks have completed. */
 void baton_start(const int Nb, const int tag){
 
   MPI_Status stat;
@@ -66,9 +69,10 @@ void baton_start(const int Nb, const int tag){
 /* ========================================================================== */
 
 
-/* This function marks the end of a section of code which is regulated
-   by "Baton Passing".  It signals the next process to start, i.e. it
-   hands off the Baton. */
+/*! \fn void baton_stop(const int Nb, const int tag)
+ *  \brief This function marks the end of a section of code which is regulated
+ * by "Baton Passing".  It signals the next process to start, i.e. it
+ * hands off the Baton. */
 void baton_stop(const int Nb, const int tag){
 
   int status, isig, to_id, my_id, nproc;
