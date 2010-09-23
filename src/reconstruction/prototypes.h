@@ -1,11 +1,10 @@
 #ifndef RECONSTRUCTION_PROTOTYPES_H
 #define RECONSTRUCTION_PROTOTYPES_H 
 #include "../copyright.h"
-/*==============================================================================
- * FILE: prototypes.h
- *
- * PURPOSE: Prototypes for all public functions in the /src/reconstruction dir
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions in the /src/reconstruction dir */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"

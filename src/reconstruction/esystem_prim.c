@@ -1,6 +1,9 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: esystem_prim.c
+/*============================================================================*/
+/*! \file esystem_prim.c
+ *  \brief Functions to evaluate the eigenvalues, and left- and
+ * right-eigenvectors for the linearized system in the 
+ * PRIMITIVE variables.
  *
  * PURPOSE: Functions to evaluate the eigenvalues, and left- and
  * right-eigenvectors for the linearized system in the 
@@ -16,15 +19,15 @@
  * are included, but are commented out.
  *
  * REFERENCES:
- *   J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new
+ * - J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new
  *   code for astrophysical MHD", ApJS, (2008), Appendix A
  *   Equation numbers refer to this paper.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   esys_prim_iso_hyd() - isothermal hydrodynamics
- *   esys_prim_adb_hyd() - adiabatic hydrodynamics
- *   esys_prim_iso_mhd() - isothermal MHD
- *   esys_prim_adb_mhd() - adiabatic MHD
+ * - esys_prim_iso_hyd() - isothermal hydrodynamics
+ * - esys_prim_adb_hyd() - adiabatic hydrodynamics
+ * - esys_prim_iso_mhd() - isothermal MHD
+ * - esys_prim_adb_mhd() - adiabatic MHD
  *============================================================================*/
 
 #include <math.h>
@@ -36,7 +39,10 @@
 #include "../prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* esys_prim_iso_hyd: ISOTHERMAL HYDRO
+/*! \fn void esys_prim_iso_hyd(const Real d, const Real v1, 
+ *  Real eigenvalues[],
+ *  Real right_eigenmatrix[][4], Real left_eigenmatrix[][4])
+ *  \brief ISOTHERMAL HYDRO
  *   Input: d, v1 = primitive variables
  *   Output: eigenvalues[4], right_eigenmatrix[4,4], left_eigenmatrix[4,4];
  */
@@ -102,7 +108,10 @@ void esys_prim_iso_hyd(const Real d, const Real v1,
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* esys_prim_adb_hyd: ADIABATIC HYDRO
+/*! \fn void esys_prim_adb_hyd(const Real d, const Real v1, const Real rho_a2,
+ *  Real eigenvalues[],
+ *  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
+ *  \brief ADIABATIC HYDRO
  *   Input: d, v1, p = primitive variables
  *   Output: eigenvalues[5], right_eigenmatrix[5,5], left_eigenmatrix[5,5];
  */
@@ -191,7 +200,10 @@ void esys_prim_adb_hyd(const Real d, const Real v1, const Real rho_a2,
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* esys_prim_iso_mhd: ISOTHERMAL MHD
+/*! \fn void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1, 
+ *  const Real b2, const Real b3, Real eigenvalues[],
+ *  Real right_eigenmatrix[][6], Real left_eigenmatrix[][6])
+ *  \brief ISOTHERMAL MHD
  *   Input: d, v1, b1, b2, b3 = density, velocities, and B field
  *   Output: eigenvalues[6], right_eigenmatrix[6,6], left_eigenmatrix[6,6];
  */
@@ -364,7 +376,10 @@ void esys_prim_iso_mhd(const Real d, const Real v1, const Real b1,
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* esys_prim_adb_mhd: ADIABATIC MHD
+/*! \fn void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
+ *  const Real b1, const Real b2, const Real b3, Real eigenvalues[],
+ *  Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
+ *  \brief ADIABATIC MHD
  *   Input: d, v1, p, b1, b2, b3 = density, velocities, pressure, and B field
  *   Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
  */

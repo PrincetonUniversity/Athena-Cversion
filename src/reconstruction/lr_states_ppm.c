@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: lr_states_ppm.c
+/*============================================================================*/
+/*! \file lr_states_ppm.c
+ *  \brief Third order (piecewise parabolic) spatial reconstruction using
+ *   characteristic interpolation in the primitive variables.  
  *
  * PURPOSE: Third order (piecewise parabolic) spatial reconstruction using
  *   characteristic interpolation in the primitive variables.  With the CTU
@@ -8,26 +10,26 @@
  *   interpolate interface values to the half time level {n+1/2}
  *
  * NOTATION:
- *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
- *   W_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
+ * - W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
+ * - W_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
  *
  *   The L- and R-states at the left-interface in each cell are indexed i.
- *   W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
- *   W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
+ * - W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
+ * - W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
  *
  *   Internally, in this routine, Wlv and Wrv are the reconstructed values on
  *   the left-and right-side of cell center.  Thus (see Step 18),
- *     W_{L,i-1/2} = Wrv(i-1);  W_{R,i-1/2} = Wlv(i)
+ * -   W_{L,i-1/2} = Wrv(i-1);  W_{R,i-1/2} = Wlv(i)
  *
  * REFERENCE:
  *   P. Colella & P. Woodward, "The piecewise parabolic method (PPM) for
  *   gas-dynamical simulations", JCP, 54, 174 (1984).
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   lr_states()          - computes L/R states
- *   lr_states_init()     - initializes memory for static global arrays
- *   lr_states_destruct() - frees memory for static global arrays
- *============================================================================*/
+ * - lr_states()          - computes L/R states
+ * - lr_states_init()     - initializes memory for static global arrays
+ * - lr_states_destruct() - frees memory for static global arrays	      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -46,16 +48,20 @@
 static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 
 /*----------------------------------------------------------------------------*/
-/* lr_states:
+/*! \fn void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
+ *               const Real dt, const Real dx, const int il, const int iu,
+ *               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+ *  \brief Computes L/R states
+ *
  * Input Arguments:
- *   W = PRIMITIVE variables at cell centers along 1-D slice
- *   Bxc = B in direction of slice at cell center
- *   dtodx = dt/dx
- *   il,iu = lower and upper indices of zone centers in slice
+ * - W = PRIMITIVE variables at cell centers along 1-D slice
+ * - Bxc = B in direction of slice at cell center
+ * - dtodx = dt/dx
+ * - il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-3:iu+3]
  *
  * Output Arguments:
- *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
+ * - Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
@@ -658,7 +664,8 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
 
 
 /*----------------------------------------------------------------------------*/
-/* lr_states_init:  Allocate enough memory for work arrays */
+/*! \fn void lr_states_init(MeshS *pM)
+ *  \brief Allocate enough memory for work arrays */
 
 void lr_states_init(MeshS *pM)
 {
@@ -701,7 +708,8 @@ void lr_states_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* lr_states_destruct:  Free memory used by work arrays */
+/*! \fn void lr_states_destruct(void)
+ *  \breif Free memory used by work arrays */
 
 void lr_states_destruct(void)
 {
