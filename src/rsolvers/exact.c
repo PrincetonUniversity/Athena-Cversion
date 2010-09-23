@@ -1,25 +1,26 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: exact.c
+/*============================================================================*/
+/*! \file exact.c
+ *  \brief Computes 1D fluxes using exact nonlinear Riemann solver.
  *
  * PURPOSE: Computes 1D fluxes using exact nonlinear Riemann solver.
  *   Currently only isothermal hydrodynamics has been implemented.  
  *
  * REFERENCES:
- *   R.J. LeVeque, "Numerical Methods for Conservation Laws", 2nd ed.,
+ * - R.J. LeVeque, "Numerical Methods for Conservation Laws", 2nd ed.,
  *   Birkhauser Verlag, Basel, (1992).
  *
- *   E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
+ * - E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
  *   2nd ed., Springer-Verlag, Berlin, (1999).
  *
  * HISTORY:
- *   dec-2006  Isothermal hydro version written by Nicole Lemaster
- *   mar-2010  Adiabatic hydro version written by Nick Hand
+ * - dec-2006  Isothermal hydro version written by Nicole Lemaster
+ * - mar-2010  Adiabatic hydro version written by Nick Hand
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -51,12 +52,16 @@ static double rtsafe(void (*funcd)(double, double, double, double, double,
 		     double vl, double vr, double dmin, double dmax);
 
 /*----------------------------------------------------------------------------*/
-/* fluxes:
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr,
+ *            const Real Bxi, Cons1DS *pF)
+ *  \brief Calculates fluxes of CONSERVED variables
+ *
  *   Input Arguments:
- *     Bxi = B in direction of slice at cell interface
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *   - Bxi = B in direction of slice at cell interface
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 
@@ -253,7 +258,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   return;
 }
 
-/* Equation to solve iteratively for shock and rarefaction as well
+/*! \fn static void srder(double dm, double vl, double vr, double dmin, 
+ *			  double dmax, double *y, double *dydx)
+ *  \brief Equation to solve iteratively for shock and rarefaction as well
  * as its derivative.  Used by rtsafe() */
 
 static void srder(double dm, double vl, double vr, double dmin, double dmax, 
@@ -265,7 +272,11 @@ static void srder(double dm, double vl, double vr, double dmin, double dmax,
   return;
 }
 
-/* Numerical Recipes function rtsafe modified to use doubles and take
+/*! \fn static double rtsafe(void (*funcd)(double, double, double, double, 
+ *			    double, double *, double *), double x1, double x2, 
+ *			    double xacc, double vl, double vr, double dmin, 
+ *			    double dmax)
+ *  \brief Numerical Recipes function rtsafe modified to use doubles and take
  * extra parameters to pass to the derivative function above */
 
 #define MAXIT 100
@@ -326,12 +337,14 @@ static double rtsafe(void (*funcd)(double, double, double, double, double,
 #elif defined ADIABATIC
 
 /*------------------------------------------------------------------*/
-
+/*! \fn static Real guessP(const Prim1DS Wl, const Prim1DS Wr)
+ *  \brief  Provides a guess value for the pressure in the center region. 
+ *
+ * The choice is made according to the Two-Shock approximate
+ * Riemman solver algorithm. Returns pressure guess value p_0, or 
+ *   TOL if p_0 is less than zero */
+ 
 static Real guessP(const Prim1DS Wl, const Prim1DS Wr)
-/* Provides a guess value for the pressure in the center region. 
-   The choice is made according to the Two-Shock approximate
-   Riemman solver algorithm. Returns pressure guess value p_0, or 
-   TOL if p_0 is less than zero */
 {
  
   Real al = sqrt((double) Gamma*Wl.P/Wl.d);   /* left sound speed */
@@ -358,9 +371,10 @@ static Real guessP(const Prim1DS Wl, const Prim1DS Wr)
 }  
 /*------------------------------------------------------------------*/
 
-static Real PFunc(const Prim1DS W, Real POld)
-/* Evaluates the pressure function (see Toro) for the exact 
+/*! \fn static Real PFunc(const Prim1DS W, Real POld)
+ *  \brief Evaluates the pressure function (see Toro) for the exact 
    riemann solver, given the pressure POld */
+static Real PFunc(const Prim1DS W, Real POld)
 {
   Real f; 
   Real a = sqrt((double) Gamma*W.P/W.d);
@@ -384,9 +398,10 @@ static Real PFunc(const Prim1DS W, Real POld)
    
 /*------------------------------------------------------------------*/
 
+/*! \fn static Real PFuncDeriv(const Prim1DS W, Real POld)
+ *  \brief  evaluate the derivative of the pressure function (see Toro) 
+ * at the pressure value POld */
 static Real PFuncDeriv(const Prim1DS W, Real POld)
-/* evaluate the derivative of the pressure function (see Toro) 
-   at the pressure value POld */
 {
   Real fDer; 
   Real a = sqrt((double) Gamma*W.P/W.d);
@@ -411,10 +426,11 @@ static Real PFuncDeriv(const Prim1DS W, Real POld)
    
 /*------------------------------------------------------------------*/ 
     
+/*! \fn static Real getPC(const Prim1DS Wl, const Prim1DS Wr)
+ *  \brief Uses Newton-Raphson iteration to find the alebraic root of the 
+ * pressure function and determine the pressure solution in the 
+ * center region, Pc. Fails if iteration diverges */
 static Real getPC(const Prim1DS Wl, const Prim1DS Wr)
-/* Uses Newton-Raphson iteration to find the alebraic root of the 
-   pressure function and determine the pressure solution in the 
-   center region, Pc. Fails if iteration diverges */
 {
   Real POld; 
   Real VxDiff = Wr.Vx - Wl.Vx;
@@ -451,12 +467,16 @@ iteration: p = %e\n", p);
   
 }
 /*------------------------------------------------------------------*/
-/* fluxes:
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur, 
+ *	    const Prim1DS Wl, const Prim1DS Wr, 
+ *	    const Real Bxi, Cons1DS *pF)
+ *  \brief Computes fluxes of CONSERVES variables
+ *
  *   Input Arguments:
- *     Bxi = B in direction of slice at cell interface
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *   - Bxi = B in direction of slice at cell interface
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
- *     pF = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pF = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur, 

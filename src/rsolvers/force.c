@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: force.c
+/*============================================================================*/
+/*! \file force.c
+ *  \brief Computes 1D fluxes using a Riemann solver similar, but not
+ *   identical, to Toro's FORCE (First-ORder-CEntred) flux.
  *
  * PURPOSE: Computes 1D fluxes using a Riemann solver similar, but not
  *   identical, to Toro's FORCE (First-ORder-CEntred) flux.  It uses the
@@ -10,13 +12,13 @@
  * HISTORY: -- TAG -- 3/4/2005
  *
  * REFERENCES:
- *   E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
+ * - E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
  *   2nd ed., Springer-Verlag, Berlin, (1999), section 7.4.2.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -29,12 +31,15 @@
 
 #ifdef FORCE_FLUX
 /*----------------------------------------------------------------------------*/
-/* fluxes:
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur, 
+ *            const Prim1DS Wl, const Prim1DS Wr,
+ *            const Real Bxi, Cons1DS *pFlux)
+ *  \brief Computes 1D fluxes
  *   Input Arguments:
- *     Bxi = B in direction of 1D slice at cell interface
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *  -  Bxi = B in direction of 1D slice at cell interface
+ *  -  Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *  -  pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur, 

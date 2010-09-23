@@ -1,23 +1,24 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: hllc.c
+/*============================================================================*/
+/*! \file hllc.c
+ *  \brief Computes 1D fluxes using the HLLC Riemann solver.
  *
  * PURPOSE: Computes 1D fluxes using the HLLC Riemann solver, an extension of
  *   the HLLE fluxes to include the contact wave.  Currently only works for
  *   hydrodynamics.  For an extension to MHD, see hlld.c
  *
  * REFERENCES:
- *   E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
+ * - E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
  *   2nd ed., Springer-Verlag, Berlin, (1999) chpt. 10.
  *
- *   P. Batten, N. Clarke, C. Lambert, and D. M. Causon,
+ * - P. Batten, N. Clarke, C. Lambert, and D. M. Causon,
  *   "On the Choice of Wavespeeds for the HLLC Riemann Solver", 
  *   SIAM J. Sci. & Stat. Comp. 18, 6, 1553-1570, (1997).
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -36,11 +37,14 @@
 #endif /* MHD */
 
 /*----------------------------------------------------------------------------*/
-/* fluxes
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr,
+ *            const Real Bxi, Cons1DS *pFlux)
+ *  \brief Computes 1D fluxes
  *   Input Arguments:
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface 
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface 
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface 
+ *   - pFlux = pointer to fluxes of CONSERVED variables at cell interface 
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,

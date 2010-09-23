@@ -1,23 +1,24 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: roe.c
+/*============================================================================*/
+/*! \file roe.c
+ *  \brief Computes 1D fluxes using Roe's linearization.
  *
  * PURPOSE: Computes 1D fluxes using Roe's linearization.  When Roe's method
  * fails because of negative density or pressure in the intermediate states,
  * the fluxes are computed with the HLLE solver instead.
  *
  * REFERENCES:
- *   P. Roe, "Approximate Riemann solvers, parameter vectors, and difference
+ * - P. Roe, "Approximate Riemann solvers, parameter vectors, and difference
  *   schemes", JCP, 43, 357 (1981).
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   fluxes() - all Riemann solvers in Athena must have this function name and
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
  *              use the same argument list as defined in rsolvers/prototypes.h
- *   HLLE_FUNCTION - since the HLLE solver is requird in conjunction with the
+ * - HLLE_FUNCTION - since the HLLE solver is requird in conjunction with the
  *     Roe solver, the HLLE solver is included from the file hlle.c at the
  *     end of this file, and the HLLE flux function is renamed to be different
- *     than "fluxes" (the name used in Athena for R-solvers).
- *============================================================================*/
+ *     than "fluxes" (the name used in Athena for R-solvers).		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -32,7 +33,10 @@
 Real etah=0.0;
 
 #ifdef ROE_FLUX
-/* Function prototype for HLLE fluxes */
+/*! \fn void flux_hlle(const Cons1DS Ul, const Cons1DS Ur,
+ *               const Prim1DS Wl, const Prim1DS Wr,
+ *               const Real Bxi, Cons1DS *pFlux);
+ *  \brief Function prototype for HLLE fluxes */
 void flux_hlle(const Cons1DS Ul, const Cons1DS Ur,
                const Prim1DS Wl, const Prim1DS Wr,
                const Real Bxi, Cons1DS *pFlux);
@@ -41,12 +45,15 @@ void flux_hlle(const Cons1DS Ul, const Cons1DS Ur,
 #define TEST_INTERMEDIATE_STATES
 
 /*----------------------------------------------------------------------------*/
-/* fluxes
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr,
+ *            const Real Bxi, Cons1DS *pFlux)
+ *  \brief Computes 1D fluxes
  *   Input Arguments:
- *     Bxi = B in direction of slice at cell interface
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *   - Bxi = B in direction of slice at cell interface
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
