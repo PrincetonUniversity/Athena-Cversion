@@ -8,8 +8,8 @@
  *   specified in <output> block.  Works for BOTH conserved and primitives.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- * - dump_vtk() - writes VTK dump (all variables).
- *============================================================================*/
+ * - dump_vtk() - writes VTK dump (all variables).			      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
