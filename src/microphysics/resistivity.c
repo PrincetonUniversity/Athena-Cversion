@@ -492,8 +492,9 @@ void EField_Hall(DomainS *pD)
         Bcor[ks][j][i].x -= 0.5*dtodx2*(emfp[ks][j+1][i  ].z - emfp[ks][j][i].z);
         Bcor[ks][j][i].y += 0.5*dtodx1*(emfp[ks][j  ][i+1].z - emfp[ks][j][i].z);
 
-        Bcor[ks][j][i].z += 0.5*dtodx2*(emfp[ks][j+1][i  ].x - emfp[ks][j][i].x) -
-                            0.5*dtodx1*(emfp[ks][j  ][i+1].y - emfp[ks][j][i].y);
+        Bcor[ks][j][i].z += pG->eta_Hall[ks][j][i]*(
+                            0.5*dtodx2*(emfp[ks][j+1][i  ].x - emfp[ks][j][i].x) -
+                            0.5*dtodx1*(emfp[ks][j  ][i+1].y - emfp[ks][j][i].y));
       }
     }
   }
@@ -599,27 +600,29 @@ void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j-1][i]);
 
       emfs[ks][j][i].x += eta_H*(
-        0.25*((Js[ks][j  ][i].y + Js[ks][j  ][i+1].y)*Bs[ks][j  ][i].z +
-              (Js[ks][j-1][i].y + Js[ks][j-1][i+1].y)*Bs[ks][j-1][i].z) -
-         0.5*((Js[ks][j  ][i].z + Js[ks][j  ][i+1].z)*Bs[ks][j  ][i].y) );
+        0.125*(Js[ks][j  ][i].y + Js[ks][j  ][i+1].y
+             + Js[ks][j-1][i].y + Js[ks][j-1][i+1].y)
+             *(Bs[ks][j  ][i].z + Bs[ks][j-1][i  ].z) -
+         0.5*((Js[ks][j  ][i].z + Js[ks][j  ][i+1].z)*Bs[ks][j  ][i].y));
 
       /* x2 */
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j][i-1]);
 
-      emfs[ks][j][i].y +=  eta_H*(
+      emfs[ks][j][i].y += eta_H*(
          0.5*((Js[ks][j][i  ].z + Js[ks][j+1][i  ].z)*Bs[ks][j][i  ].x) -
-        0.25*((Js[ks][j][i  ].x + Js[ks][j+1][i  ].x)*Bs[ks][j][i  ].z +
-              (Js[ks][j][i-1].x + Js[ks][j+1][i-1].x)*Bs[ks][j][i-1].z) );
+        0.125*(Js[ks][j][i  ].x + Js[ks][j+1][i  ].x
+             + Js[ks][j][i-1].x + Js[ks][j+1][i-1].x)
+             *(Bs[ks][j][i  ].z + Bs[ks][j  ][i-1].z));
     
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[ks][j][i  ] + pG->eta_Hall[ks][j-1][i  ] +
                     pG->eta_Hall[ks][j][i-1] + pG->eta_Hall[ks][j-1][i-1]);
 
       emfs[ks][j][i].z += eta_H*(
-        0.5*(Js[ks][j  ][i  ].x*Bs[ks][j  ][i  ].y +
-             Js[ks][j  ][i-1].x*Bs[ks][j  ][i-1].y) -
-        0.5*(Js[ks][j  ][i  ].y*Bs[ks][j  ][i  ].x +
-             Js[ks][j-1][i  ].y*Bs[ks][j-1][i  ].x) );
+        0.25*(Js[ks][j][i].x + Js[ks][j][i-1].x)
+            *(Bs[ks][j][i].y + Bs[ks][j][i-1].y) -
+        0.25*(Js[ks][j][i].y + Js[ks][i-1][i].y)
+            *(Bs[ks][j][i].x + Bs[ks][j-1][i].x));
     }}
   }
 
@@ -637,31 +640,37 @@ void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
         eta_H = 0.25*(pG->eta_Hall[k][j  ][i] + pG->eta_Hall[k-1][j  ][i] +
                       pG->eta_Hall[k][j-1][i] + pG->eta_Hall[k-1][j-1][i]);
 
-        emfs[k][j][i].x += eta_H*(
-          0.25*((Js[k  ][j  ][i].y + Js[k  ][j  ][i+1].y)*Bs[k  ][j  ][i].z +
-                (Js[k  ][j-1][i].y + Js[k  ][j-1][i+1].y)*Bs[k  ][j-1][i].z)-
-          0.25*((Js[k  ][j  ][i].z + Js[k  ][j  ][i+1].z)*Bs[k  ][j  ][i].y +
-                (Js[k-1][j  ][i].z + Js[k-1][j  ][i+1].z)*Bs[k-1][j  ][i].y) );
+        emfs[k][j][i].x += 0.125*eta_H*(
+                (Js[k  ][j  ][i].y + Js[k  ][j  ][i+1].y
+               + Js[k  ][j-1][i].y + Js[k  ][j-1][i+1].y)
+               *(Bs[k  ][j  ][i].z + Bs[k  ][j-1][i  ].z)-
+                (Js[k  ][j  ][i].z + Js[k  ][j  ][i+1].z
+               + Js[k-1][j  ][i].z + Js[k-1][j  ][i+1].z)
+               *(Bs[k  ][j  ][i].y + Bs[k-1][j  ][i  ].y));
 
         /* x2 */
         eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k-1][j][i  ] +
                       pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k-1][j][i-1]);
 
-        emfs[k][j][i].y += eta_H*(
-          0.25*((Js[k  ][j][i  ].z + Js[k  ][j+1][i  ].z)*Bs[k  ][j][i  ].x +
-                (Js[k-1][j][i  ].z + Js[k-1][j+1][i  ].z)*Bs[k-1][j][i  ].x)-
-          0.25*((Js[k  ][j][i  ].x + Js[k  ][j+1][i  ].x)*Bs[k  ][j][i  ].z +
-                (Js[k  ][j][i-1].x + Js[k  ][j+1][i-1].x)*Bs[k  ][j][i-1].z) );
+        emfs[k][j][i].y += 0.125*eta_H*(
+                (Js[k  ][j][i  ].z + Js[k  ][j+1][i  ].z
+               + Js[k-1][j][i  ].z + Js[k-1][j+1][i  ].z)
+               *(Bs[k  ][j][i  ].x + Bs[k-1][j  ][i  ].x)-
+                (Js[k  ][j][i  ].x + Js[k  ][j+1][i  ].x
+               + Js[k  ][j][i-1].x + Js[k  ][j+1][i-1].x)
+               *(Bs[k  ][j][i  ].z + Bs[k  ][j  ][i-1].z));
 
         /* x3 */
         eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k][j-1][i  ] +
                       pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k][j-1][i-1]);
 
-        emfs[k][j][i].z += eta_H*(
-          0.25*((Js[k][j  ][i  ].x + Js[k+1][j  ][i  ].x)*Bs[k][j  ][i  ].y +
-                (Js[k][j  ][i-1].x + Js[k+1][j  ][i-1].x)*Bs[k][j  ][i-1].y)-
-          0.25*((Js[k][j  ][i  ].y + Js[k+1][j  ][i  ].y)*Bs[k][j  ][i  ].x +
-                (Js[k][j-1][i  ].y + Js[k+1][j-1][i  ].y)*Bs[k][j-1][i  ].x) );
+        emfs[k][j][i].z += 0.125*eta_H*(
+                (Js[k][j  ][i  ].x + Js[k+1][j  ][i  ].x
+               + Js[k][j  ][i-1].x + Js[k+1][j  ][i-1].x)
+               *(Bs[k][j  ][i  ].y + Bs[k  ][j  ][i-1].y)-
+                (Js[k][j  ][i  ].y + Js[k+1][j  ][i  ].y
+               + Js[k][j-1][i  ].y + Js[k+1][j-1][i  ].y)
+               *(Bs[k][j  ][i  ].x + Bs[  k][j-1][i  ].x));
       }
     }}
   }
