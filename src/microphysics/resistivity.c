@@ -156,11 +156,9 @@ void resistivity(DomainS *pD)
 /*--- Step 2.  Call functions to compute resistive EMFs ------------------------
  * including Ohmic dissipation, the Hall effect, and ambipolar diffusion.
  * Current density (J) and emfs are global variables in this file. */
-
   if (eta_Ohm > 0.0)  EField_Ohm(pD);
   if (Q_Hall > 0.0) EField_Hall(pD);
   if (Q_AD > 0.0)   EField_AD(pD);
-
 #ifndef BAROTROPIC
 /*--- Step 3.  Compute energy fluxes -------------------------------------------
  * flux of total energy due to resistive diffusion = B X emf
@@ -454,7 +452,6 @@ void EField_Hall(DomainS *pD)
   }
 
 /* Preliminary: add hyper-diffusion */
-
   hyper_diffusion6(pD);
 
 /* Preliminary: divide eta_Hall by B for convenience */
@@ -492,9 +489,8 @@ void EField_Hall(DomainS *pD)
         Bcor[ks][j][i].x -= 0.5*dtodx2*(emfp[ks][j+1][i  ].z - emfp[ks][j][i].z);
         Bcor[ks][j][i].y += 0.5*dtodx1*(emfp[ks][j  ][i+1].z - emfp[ks][j][i].z);
 
-        Bcor[ks][j][i].z += pG->eta_Hall[ks][j][i]*(
-                            0.5*dtodx2*(emfp[ks][j+1][i  ].x - emfp[ks][j][i].x) -
-                            0.5*dtodx1*(emfp[ks][j  ][i+1].y - emfp[ks][j][i].y));
+        Bcor[ks][j][i].z += 0.5*dtodx2*(emfp[ks][j+1][i  ].x - emfp[ks][j][i].x) -
+                            0.5*dtodx1*(emfp[ks][j  ][i+1].y - emfp[ks][j][i].y);
       }
     }
   }
@@ -613,7 +609,7 @@ void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
         0.125*(Js[ks][j][i  ].x + Js[ks][j+1][i  ].x
              + Js[ks][j][i-1].x + Js[ks][j+1][i-1].x)
              *(Bs[ks][j][i  ].z + Bs[ks][j  ][i-1].z));
-    
+
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[ks][j][i  ] + pG->eta_Hall[ks][j-1][i  ] +
                     pG->eta_Hall[ks][j][i-1] + pG->eta_Hall[ks][j-1][i-1]);
@@ -621,7 +617,7 @@ void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
       emfs[ks][j][i].z += eta_H*(
         0.25*(Js[ks][j][i].x + Js[ks][j][i-1].x)
             *(Bs[ks][j][i].y + Bs[ks][j][i-1].y) -
-        0.25*(Js[ks][j][i].y + Js[ks][i-1][i].y)
+        0.25*(Js[ks][j][i].y + Js[ks][j-1][i].y)
             *(Bs[ks][j][i].x + Bs[ks][j-1][i].x));
     }}
   }
@@ -670,7 +666,7 @@ void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
                *(Bs[k][j  ][i  ].y + Bs[k  ][j  ][i-1].y)-
                 (Js[k][j  ][i  ].y + Js[k+1][j  ][i  ].y
                + Js[k][j-1][i  ].y + Js[k+1][j-1][i  ].y)
-               *(Bs[k][j  ][i  ].x + Bs[  k][j-1][i  ].x));
+               *(Bs[k][j  ][i  ].x + Bs[k  ][j-1][i  ].x));
       }
     }}
   }
@@ -1054,7 +1050,6 @@ void resistivity_init(MeshS *pM)
     if ((emfp = (Real3Vect***)calloc_3d_array(Nx3,Nx2,Nx1,sizeof(Real3Vect)))==NULL)
       goto on_error;
   }
-
   return;
 
   on_error:
