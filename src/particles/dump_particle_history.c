@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: dump_history.c
+/*============================================================================*/
+/*! \file dump_particle_history.c
+ *  \brief Functions to write dumps of particle "history" variables in a
+ *   formatted table.
  *
  * PURPOSE: Functions to write dumps of particle "history" variables in a
  *   formatted table.  "History" dumps are scalars (usually volume averages)
@@ -8,31 +10,31 @@
  *
  *   The particle history dump has two sets. The first set is global, particle
  *   type independent quantities, including the following:
- *     scal[0] = time
- *     scal[1] = maximum particle density
- *     scal[2] = energy dissipation rate from the drag
- *     scal[3] = maximum stiffness parameter
- *     scal[4] = particle mass
- *     scal[5] = particle x1 momentum
- *     scal[6] = particle x2 momentum
- *     scal[7] = particle x3 momentum
- *     scal[8] = particle x1 kinetic energy
- *     scal[9] = particle x2 kinetic energy
- *     scal[10] = particle x3 kinetic energy
+ *   - scal[0] = time
+ *   - scal[1] = maximum particle density
+ *   - scal[2] = energy dissipation rate from the drag
+ *   - scal[3] = maximum stiffness parameter
+ *   - scal[4] = particle mass
+ *   - scal[5] = particle x1 momentum
+ *   - scal[6] = particle x2 momentum
+ *   - scal[7] = particle x3 momentum
+ *   - scal[8] = particle x1 kinetic energy
+ *   - scal[9] = particle x2 kinetic energy
+ *   - scal[10] = particle x3 kinetic energy
  *
  *   The second set is particle type dependent quantities, which contains
- *     array[0] = particle x1 average position
- *     array[1] = particle x2 average position
- *     array[2] = particle x3 average position
- *     array[3] = particle x1 average velocity
- *     array[4] = particle x2 average velocity
- *     array[5] = particle x3 average velocity
- *     array[6] = particle x1 position variation
- *     array[7] = particle x2 position variation
- *     array[8] = particle x3 position variation
- *     array[9] = particle x1 velocity dispersion
- *     array[10]= particle x2 velocity dispersion
- *     array[11]= particle x3 velocity dispersion
+ *   - array[0] = particle x1 average position
+ *   - array[1] = particle x2 average position
+ *   - array[2] = particle x3 average position
+ *   - array[3] = particle x1 average velocity
+ *   - array[4] = particle x2 average velocity
+ *   - array[5] = particle x3 average velocity
+ *   - array[6] = particle x1 position variation
+ *   - array[7] = particle x2 position variation
+ *   - array[8] = particle x3 position variation
+ *   - array[9] = particle x1 velocity dispersion
+ *   - array[10]= particle x2 velocity dispersion
+ *   - array[11]= particle x3 velocity dispersion
  *
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
@@ -41,9 +43,9 @@
  * dump_parhistory_enroll() in the problem generator.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   dump_particle_history()      - Writes variables as formatted table
- *   dump_parhistory_enroll()     - Adds new user-defined history variables
- *============================================================================*/
+ * - dump_particle_history()      - Writes variables as formatted table
+ * - dump_parhistory_enroll()     - Adds new user-defined history variables   */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <math.h>
@@ -80,8 +82,8 @@ extern Real expr_dpar(const Grid *pG, const int i, const int j, const int k);
 /*----------------------------- Public Functions -----------------------------*/
 
 /*----------------------------------------------------------------------------*/
-/* dump_particle_history:  */
-
+/*! \fn void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
+ *  \brief  Writes particle variables as formatted table */
 void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 {
   FILE *fid;
@@ -417,8 +419,9 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* enroll particle history variables
- * set: global variable (0) or particle type dependent variable (1)
+/*! \fn void dump_parhistory_enroll(const Parfun_t pfun, const char *label,
+ *                                               const int  set)
+ *  \brief Set: global variable (0) or particle type dependent variable (1)
  */
 void dump_parhistory_enroll(const Parfun_t pfun, const char *label,
                                                  const int  set)

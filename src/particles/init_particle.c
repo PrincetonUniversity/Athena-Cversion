@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: init_particle.c
+/*===========================================================================*/
+/*! \file init_particle.c
+ *  \brief Initialize particle related structures and functions.
+ *
  * PURPOSE: Initialize particle related structures and functions. Particle
  *   integrator is enrolled by calling integrate_particle_init(int type). In
  *   init_particle(Grid *pG, Domain *pD), all the particle related arrays are
@@ -9,14 +11,14 @@
  *   functions for particle array reallocation and destruction.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   integrate_particle_init();
- *   init_particle();
- *   particle_destruct();
- *   particle_realloc();
+ * - integrate_particle_init();
+ * - init_particle();
+ * - particle_destruct();
+ * - particle_realloc();
  *
  * History:
- *   Written by  Xuening Bai      Apr. 2009
-==============================================================================*/
+ * - Written by  Xuening Bai      Apr. 2009				      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -40,7 +42,9 @@ void grid_limit(Grid *pG, Domain *pD);
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
-/* Initialization for particles
+/*! \fn void init_particle(Grid *pG, Domain *pD)
+ *  \brief Initialization for particles
+ *
  * Allocate memory for the gas velocity/sound speed array, feedback array.
  * Note we enforce that each type has equal number of particles to ensure equal
  * resolution.
@@ -155,7 +159,8 @@ void init_particle(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Finalization for particles
+/*! \fn void particle_destruct(Grid *pG)
+ *  \brief Finalization for particles
  */
 void particle_destruct(Grid *pG)
 {
@@ -172,7 +177,8 @@ void particle_destruct(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Enlarge the particle array
+/*! \fn void particle_realloc(Grid *pG, long n)
+ *  \brief Enlarge the particle array
  */
 void particle_realloc(Grid *pG, long n)
 {
@@ -201,7 +207,9 @@ void particle_realloc(Grid *pG, long n)
 /*----------------------------- Private Functions ----------------------------*/
 
 /*----------------------------------------------------------------------------*/
-/* Calculate the left and right grid limit
+/*! \fn void grid_limit(Grid *pG, Domain *pD)
+ *  \brief Calculate the left and right grid limit
+ *
  * Input: pG: grid;
  * Output: ilp,iup,jlp,jup,klp,kup: grid limit indices;
  *         x1lpar,x1upar,x2lpar,x2upar,x3lpar,x3upar: grid boundary coordinates

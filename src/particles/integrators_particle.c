@@ -1,21 +1,30 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: integrators_particle.c
+/*===========================================================================*/
+/*! \file integrators_particle.c
+ *  \brief Provide three kinds of particle integrators.
  *
  * PURPOSE: provide three kinds of particle integrators, namely, 2nd order
  *   explicit, 2nd order semi-implicit and 2nd order fully implicit.
  * 
  * CONTAINS PUBLIC FUNCTIONS:
- *   Integrate_Particles();
- *   int_par_exp   ()
- *   int_par_semimp()
- *   int_par_fulimp()
- *   feedback_predictor()
- *   feedback_corrector()
+ * - Integrate_Particles();
+ * - int_par_exp   ()
+ * - int_par_semimp()
+ * - int_par_fulimp()
+ * - feedback_predictor()
+ * - feedback_corrector()
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - Delete_Ghost()   - delete ghost particles
+ * - JudgeCrossing()  - judge if the particle cross the grid boundary
+ * - Get_Drag()       - calculate the drag force
+ * - Get_Force()      - calculate forces other than the drag
+ * - Get_Term()       - calculate the termination particle velocity
+ * - Get_ForceDiff()  - calculate the force difference between particle and gas
  * 
  * History:
- *   Written by Xuening Bai, Mar.2009
-==============================================================================*/
+ * - Written by Xuening Bai, Mar.2009					      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -51,7 +60,10 @@ Vector Get_ForceDiff(Grid *pG, Real x1, Real x2, Real x3,
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 
-/*---------------------------------- Main Integrator ---------------------------
+/*---------------------------------- Main Integrator -------------------------*/
+/*! \fn void Integrate_Particles(Grid *pG, Domain *pD)
+ *  \brief Main particle integrator.
+ *
  * Input: Grid which is already evolved in half a time step. Paricles unevolved.
  * Output: particle updated for one full time step; feedback array for corrector
  *         updated.
@@ -175,7 +187,11 @@ void Integrate_Particles(Grid *pG, Domain *pD)
   return;
 }
 
-/* ------------ 2nd order fully implicit particle integrator -------------------
+/* ------------ 2nd order fully implicit particle integrator -----------------*/
+/*! \fn void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1, 
+ *                            Real *dv1, Real *dv2, Real *dv3, Real *ts)
+ *  \brief 2nd order fully implicit particle integrator
+ *
  * Input: 
  *   grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
  * Output:
@@ -291,7 +307,11 @@ void int_par_fulimp(Grid *pG, Grain *curG, Vector cell1,
 }
 
 
-/*--------------- 2nd order semi-implicit particle integrator ------------------
+/*--------------- 2nd order semi-implicit particle integrator ----------------*/
+/*! \fn void int_par_semimp(Grid *pG, Grain *curG, Vector cell1, 
+ *                            Real *dv1, Real *dv2, Real *dv3, Real *ts)
+ *  \brief 2nd order semi-implicit particle integrator 
+ *
  * Input: 
  *   grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
  * Output:
@@ -382,7 +402,11 @@ void int_par_semimp(Grid *pG, Grain *curG, Vector cell1,
 }
 
 
-/*------------------- 2nd order explicit particle integrator -------------------
+/*------------------- 2nd order explicit particle integrator -----------------*/
+/*! \fn void int_par_exp(Grid *pG, Grain *curG, Vector cell1,
+ *                         Real *dv1, Real *dv2, Real *dv3, Real *ts)
+ *  \brief 2nd order explicit particle integrator 
+ *
  * Input: 
  *   grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
  * Output:
@@ -447,8 +471,12 @@ void int_par_exp(Grid *pG, Grain *curG, Vector cell1,
   return;
 }
 
-/*------------------- 2nd order specific particle integrator -------------------
- * This integrator works ONLY in the strong coupling regime (t_stop<h)
+/*------------------- 2nd order specific particle integrator -----------------*/
+/*! \fn void int_par_spec(Grid *pG, Grain *curG, Vector cell1,
+ *                          Real *dv1, Real *dv2, Real *dv3, Real *ts)
+ *  \brief 2nd order specific particle integrator;
+ *  This integrator works ONLY in the strong coupling regime (t_stop<h)
+ *
  * Input:
  *   grid pointer (pG), grain pointer (curG), cell size indicator (cell1)
  * Output:
@@ -490,10 +518,12 @@ void int_par_spec(Grid *pG, Grain *curG, Vector cell1,
 
 #ifdef FEEDBACK
 
-/* Calculate the feedback of the drag force from the particle to the gas
-   Serves for the predictor step. It deals with all the particles.
-   Input: pG: grid with particles
-   Output: pG: the array of drag forces exerted by the particle is updated
+/*! \fn void feedback_predictor(Grid* pG)
+ *  \brief Calculate the feedback of the drag force from the particle to the gas
+ *
+ * Serves for the predictor step. It deals with all the particles.
+ * Input: pG: grid with particles
+ * Output: pG: the array of drag forces exerted by the particle is updated
 */
 void feedback_predictor(Grid* pG)
 {
@@ -600,7 +630,11 @@ void feedback_predictor(Grid* pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Calculate the feedback of the drag force from the particle to the gas
+/*! \fn void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
+ *                                Real dv1, Real dv2, Real dv3, Real ts)
+ *  \brief  Calculate the feedback of the drag force from the particle 
+ *	    to the gas.
+ *
  * Serves for the corrector step. It deals with one particle at a time.
  * Input: pG: grid with particles; gri,grf: initial and final particles;
  *        dv: velocity difference between gri and grf.
@@ -652,7 +686,8 @@ void feedback_corrector(Grid *pG, Grain *gri, Grain *grf, Vector cell1,
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*----------------------------------------------------------------------------*/
-/* Delete ghost particles */
+/*! \fn void Delete_Ghost(Grid *pG)
+ *  \brief Delete ghost particles */
 void Delete_Ghost(Grid *pG)
 {
   long p;
@@ -677,7 +712,8 @@ void Delete_Ghost(Grid *pG)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Judge if the particle is a crossing particle */
+/*! \fn void JudgeCrossing(Grid *pG, Real x1, Real x2, Real x3, Grain *gr)
+ *  \brief Judge if the particle is a crossing particle */
 void JudgeCrossing(Grid *pG, Real x1, Real x2, Real x3, Grain *gr)
 {
 #ifndef FARGO
@@ -698,7 +734,10 @@ void JudgeCrossing(Grid *pG, Real x1, Real x2, Real x3, Grain *gr)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Calcualte the drag force to the particles 
+/*! \fn Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3,
+ *              Real v1, Real v2, Real v3, Vector cell1, Real *tstop1)
+ *  \brief Calculate the drag force to the particles 
+ *
  * Input:
  *   pG: grid;	type: particle type;	cell1: 1/dx1,1/dx2,1/dx3;
  *   x1,x2,x3,v1,v2,v3: particle position and velocity;
@@ -763,7 +802,10 @@ Vector Get_Drag(Grid *pG, int type, Real x1, Real x2, Real x3,
 }
 
 /*--------------------------------------------------------------------------- */
-/* Calculate the forces to the particle other than the gas drag
+/*! \fn Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3,
+ *                         Real v1, Real v2, Real v3)
+ *  \brief Calculate the forces to the particle other than the gas drag
+ *
  * Input:
  *   pG: grid;
  *   x1,x2,x3,v1,v2,v3: particle position and velocity;
@@ -811,7 +853,10 @@ Vector Get_Force(Grid *pG, Real x1, Real x2, Real x3,
   return ft;
 }
 
-/* Calculate the termination velocity of strongly coupled particles
+/*! \fn Vector Get_Term(Grid *pG, int type, Real x1, Real x2, Real x3, 
+ *                      Vector cell1, Real *tstop)
+ *  \brief Calculate the termination velocity of strongly coupled particles
+ *
  * Used for the special integrator
  * Force difference include pressure gradient and momentum feedback
  * Input:
@@ -865,11 +910,15 @@ Vector Get_Term(Grid *pG, int type, Real x1, Real x2, Real x3, Vector cell1,
   return vterm;
 }
 
-/* Calculate the force (density) difference between particles and gas
+/*! \fn Vector Get_ForceDiff(Grid *pG, Real x1, Real x2, Real x3,
+ *                             Real v1, Real v2, Real v3)
+ *  \brief Calculate the force (density) difference between particles and gas
+ *
  * Used ONLY for the special integrator.
  * THIS ROUTINE MUST BE EDITTED BY THE USER!
  * Force differences due to gas pressure gradient and momentum feedback are
  * automatically included. The user must provide other sources.
+ *
  * Input:
  *   pG: grid;
  *   x1,x2,x3,v1,v2,v3: particle position and velocity;

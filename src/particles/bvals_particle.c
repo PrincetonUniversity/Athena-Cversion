@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: set_bvals_particles.c
+/*============================================================================*/
+/*! \file bvals_particle.c
+ *  \brief Sets boundary conditions for particles. 
+ *
  * PURPOSE: Sets boundary conditions for particles. The basic algorithm is
  *   similar to the MHD boundary conditions. In setting B.C., particles are
  *   always packed to the send buffer (for both MPI and non-MPI cases), then
@@ -12,16 +14,30 @@
  *   FARGO is turned on is also included.
  * 
  * CONTAINS PUBLIC FUNCTIONS:
- *   set_bvals_particle()
- *   advect_particles()
- *   set_bvals_particle_init()
- *   set_bvals_particle_fun()
- *   set_bvals_particle_destruct()
+ * - set_bvals_particle()
+ * - advect_particles()
+ * - set_bvals_particle_init()
+ * - set_bvals_particle_fun()
+ * - set_bvals_particle_destruct()
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - realloc_???()            - reallocate send/recv buffer
+ * - update_particle_status() - reset particle status (either ghost or grid)
+ * - reflect_???_particle()   - apply reflecting BCs at boundary ???
+ * - outflow_particle()       - apply outflow BCs at boundary ???
+ * - periodic_???_particle()  - apply periodic BCs at boundary ???
+ * - packing_???_particle()   - pack particles at boundary ???
+ * - shift_packed_particle()  - shift packed particle (v or x) by certain amount
+ * - unpack_particle()        - upack received particles
+ * - shearingbox_???_particle()-shearing box BC at boundary ???
+ * - packing_???_particle_shear()- pack particles for shearing box BC
+ * - packing_particle_fargo() - pack particles for FARGO
+ * - gridshift()              - calculate shift in grid in y for FARGO
  *
  * History:
- *   Created:	Emmanuel Jacquet	May 2008
- *   Rewritten:	Xuening Bai		Feb. 2009
-==============================================================================*/
+ * - Created:	Emmanuel Jacquet	May 2008
+ * - Rewritten:	Xuening Bai		Feb. 2009			      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -127,7 +143,10 @@ static int gridshift(Real shift);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* set_bvals_particle: calls appropriate functions to set particle BCs. The
+/*! \fn void set_bvals_particle(Grid *pG, Domain *pD)
+ *  \brief Calls appropriate functions to set particle BCs. 
+ *
+ *   The
  *   function pointers (*apply_???) are set during initialization by
  *   set_bvals_particle_init() to be either a user-defined function, or one of
  *   the functions corresponding to reflecting, periodic, or outflow.  If the
@@ -898,8 +917,8 @@ void set_bvals_particle(Grid *pG, Domain *pD)
 
 #ifdef FARGO
 /*----------------------------------------------------------------------------*/
-/* Advect particles by qshear*Omega_0*x1*dt for the FARGO algorithm.
-*/
+/*! \fn void advect_particles(Grid *pG, Domain *pD)
+ *  \brief Advect particles by qshear*Omega_0*x1*dt for the FARGO algorithm. */
 void advect_particles(Grid *pG, Domain *pD)
 {
   Grain *cur;
@@ -997,7 +1016,8 @@ void advect_particles(Grid *pG, Domain *pD)
 #endif /* FARGO */
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_init:  sets function pointers for physical boundaries during
+/*! \fn void set_bvals_particle_init(Grid *pG, Domain *pD)
+ *  \brief Sets function pointers for physical boundaries during
  *   initialization, allocates memory for send/receive buffers with MPI
  */
 void set_bvals_particle_init(Grid *pG, Domain *pD)
@@ -1262,7 +1282,8 @@ void set_bvals_particle_init(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* set_bvals_fun:  sets function pointers for user-defined BCs in problem file
+/*! \fn void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc)
+ *  \brief Sets function pointers for user-defined BCs in problem file
  */
 
 void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc)
@@ -1293,7 +1314,8 @@ void set_bvals_particle_fun(enum Direction dir, VBCFun_t prob_bc)
   return;
 }
 
-/* finalize boundary condition */
+/*! \fn void set_bvals_particle_destruct(Grid *pG, Domain *pD)
+ *  \brief Finalize boundary condition */
 void set_bvals_particle_destruct(Grid *pG, Domain *pD)
 {
   apply_ix1 = NULL;
@@ -1325,7 +1347,8 @@ void set_bvals_particle_destruct(Grid *pG, Domain *pD)
  */
 
 /*----------------------------------------------------------------------------*/
-/* reallocate memory to send buffer */
+/*! \fn static void realloc_sendbuf()
+ *  \brief Reallocate memory to send buffer */
 static void realloc_sendbuf()
 {
   send_bufsize += NBUF;
@@ -1338,7 +1361,8 @@ static void realloc_sendbuf()
 }
 
 /*----------------------------------------------------------------------------*/
-/* reallocate memory to receive buffer */
+/*! \fn static void realloc_recvbuf()
+ *  \brief Reallocate memory to receive buffer */
 static void realloc_recvbuf()
 {
   recv_bufsize += NBUF;
@@ -1351,7 +1375,9 @@ static void realloc_recvbuf()
 }
 
 /*----------------------------------------------------------------------------*/
-/* update the status of the particles after applying boundary conditions */
+/*! \fn static void update_particle_status(Grid *pG)
+ *  \brief Update the status of the particles after applying boundary conditions
+ */
 static void update_particle_status(Grid *pG)
 {
   long p;
@@ -1374,9 +1400,8 @@ static void update_particle_status(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1)
- */
-
+/*! \fn static void reflect_ix1_particle(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1) */
 static void reflect_ix1_particle(Grid *pG)
 {
   Real x1b2;	/* 2*(x1 border coordinate of grid cell pG->ie) */
@@ -1405,9 +1430,9 @@ static void reflect_ix1_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x1 boundary (ibc_x1=1)
+/*! \fn static void reflect_ox1_particle(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Outer x1 boundary (ibc_x1=1)
  */
-
 static void reflect_ox1_particle(Grid *pG)
 {
   Real x1b2;	/* 2*(x1 border coordinate of grid cell pG->ie) */
@@ -1436,9 +1461,9 @@ static void reflect_ox1_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1)
+/*! \fn static void reflect_ix2_particle(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1)
  */
-
 static void reflect_ix2_particle(Grid *pG)
 {
   Real x2b2;	/* 2*(x2 border coordinate of grid cell pG->ie) */
@@ -1467,9 +1492,9 @@ static void reflect_ix2_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x2 boundary (ibc_x2=1)
+/*! \fn static void reflect_ox2_particle(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Outer x2 boundary (ibc_x2=1)
  */
-
 static void reflect_ox2_particle(Grid *pG)
 {
   Real x2b2;	/* 2*(x2 border coordinate of grid cell pG->ie) */
@@ -1498,9 +1523,9 @@ static void reflect_ox2_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1)
+/*! \fn static void reflect_ix3_particle(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1)
  */
-
 static void reflect_ix3_particle(Grid *pG)
 {
   Real x3b2;	/* 2*(x3 border coordinate of grid cell pG->ie) */
@@ -1529,9 +1554,9 @@ static void reflect_ix3_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x3 boundary (ibc_x3=1)
+/*! \fn static void reflect_ox3_particle(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Outer x3 boundary (ibc_x3=1)
  */
-
 static void reflect_ox3_particle(Grid *pG)
 {
   Real x3b2;	/* 2*(x3 border coordinate of grid cell pG->ie) */
@@ -1561,22 +1586,24 @@ static void reflect_ox3_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions
+/*! \fn static void outflow_particle(Grid *pG)
+ *  \brief OUTFLOW boundary conditions
+ *
  * For particles, outflow B.C. = No B.C.  We only remove particles in the
  * outermost layer of the ghost cells, which is done in remove_ghost_particle(),
  * see particle.c.
  */
-
 static void outflow_particle(Grid *pG)
 {
   return;
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
+/*! \fn static void periodic_ix1_particle(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
+ *
  * Note: 2D shearing box B.C. is considered here!
  */
-
 static void periodic_ix1_particle(Grid *pG)
 {
   long n = 0;
@@ -1610,10 +1637,11 @@ static void periodic_ix1_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Outer x1 boundary (ibc_x1=4)
+/*! \fn static void periodic_ox1_particle(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Outer x1 boundary (ibc_x1=4)
+ *
  * Note: 2D shearing box B.C. is considered here!
  */
-
 static void periodic_ox1_particle(Grid *pG)
 {
   long n = 0;
@@ -1647,9 +1675,9 @@ static void periodic_ox1_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x2 boundary (ibc_x2=4)
+/*! \fn static void periodic_ix2_particle(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Inner x2 boundary (ibc_x2=4)
  */
-
 static void periodic_ix2_particle(Grid *pG)
 {
   long n = 0;
@@ -1667,9 +1695,9 @@ static void periodic_ix2_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Outer x2 boundary (ibc_x2=4)
+/*! \fn static void periodic_ox2_particle(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Outer x2 boundary (ibc_x2=4)
  */
-
 static void periodic_ox2_particle(Grid *pG)
 {
   long n = 0;
@@ -1687,9 +1715,9 @@ static void periodic_ox2_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x3 boundary (ibc_x3=4)
+/*! \fn static void periodic_ix3_particle(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Inner x3 boundary (ibc_x3=4)
  */
-
 static void periodic_ix3_particle(Grid *pG)
 {
   long n = 0;
@@ -1707,9 +1735,9 @@ static void periodic_ix3_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Outer x3 boundary (ibc_x3=4)
+/*! \fn static void periodic_ox3_particle(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Outer x3 boundary (ibc_x3=4)
  */
-
 static void periodic_ox3_particle(Grid *pG)
 {
   long n = 0;
@@ -1727,7 +1755,9 @@ static void periodic_ox3_particle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the inner x1 boundary
+/*! \fn static long packing_ix1_particle(Grid *pG, int nlayer)
+ *  \brief Packing the particle inside the inner x1 boundary
+ *
  * Input: pG: grid;
  *   nlayer: number of layers to be packed in the boundary
  * Output:
@@ -1772,7 +1802,9 @@ static long packing_ix1_particle(Grid *pG, int nlayer)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the outer x1 boundary
+/*! \fn static long packing_ox1_particle(Grid *pG, int nlayer)
+ *  \brief Packing the particle inside the outer x1 boundary
+ *
  * Input: pG: grid;
  *   nlayer: number of layers to be packed in the boundary
  * Output:
@@ -1815,7 +1847,9 @@ static long packing_ox1_particle(Grid *pG, int nlayer)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the inner x2 boundary
+/*! \fn static long packing_ix2_particle(Grid *pG, int nlayer)
+ *  \brief Packing the particle inside the inner x2 boundary
+ *
  * Input: pG: grid;
  *   nlayer: number of layers to be packed in the boundary
  * Output:
@@ -1858,7 +1892,9 @@ static long packing_ix2_particle(Grid *pG, int nlayer)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the outer x2 boundary
+/*! \fn static long packing_ox2_particle(Grid *pG, int nlayer)
+ *  \brief Packing the particle inside the outer x2 boundary
+ *
  * Input: pG: grid;
  *   nlayer: number of layers to be packed in the boundary
  * Output:
@@ -1901,7 +1937,9 @@ static long packing_ox2_particle(Grid *pG, int nlayer)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the inner x3 boundary
+/*! \fn static long packing_ix3_particle(Grid *pG, int nlayer)
+ *  \brief Packing the particle inside the inner x3 boundary
+ *
  * Input: pG: grid;
  *   nlayer: number of layers to be packed in the boundary
  * Output:
@@ -1943,7 +1981,9 @@ static long packing_ix3_particle(Grid *pG, int nlayer)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the outer x3 boundary
+/*! \fn static long packing_ox3_particle(Grid *pG, int nlayer)
+ *  \brief Packing the particle inside the outer x3 boundary
+ *
  * Input: pG: grid;
  *   nlayer: number of layers to be packed in the boundary
  * Output:
@@ -1984,7 +2024,9 @@ static long packing_ox3_particle(Grid *pG, int nlayer)
 }
 
 /*----------------------------------------------------------------------------*/
-/* subroutine for packing one particle to send buffer
+/*! \fn static void packing_one_particle(Grain *cur, long n, short pos)
+ *  \brief Subroutine for packing one particle to send buffer
+ *
  * Input:
  *   cur: particle pointer;
  *   p: starting index in the buffer
@@ -2018,7 +2060,11 @@ static void packing_one_particle(Grain *cur, long n, short pos)
 }
 
 /*----------------------------------------------------------------------------*/
-/* shift the coordinate/velocity of the packed particles by a constant amount
+/*! \fn static void shift_packed_particle(double *buf, long n, int index, 
+ *					  double shift)
+ *  \brief shift the coordinate/velocity of the packed particles by a constant 
+ *  amount
+ *
  * Input:
  *   buf: buffer;	n: number of particles in the buffer
  *   index: 1: x1; 2: x2; 3: x3; 4: v1; 5: v2; 6: v3;
@@ -2042,7 +2088,8 @@ static void shift_packed_particle(double *buf, long n, int index, double shift)
 }
 
 /*----------------------------------------------------------------------------*/
-/* unpack received particle
+/*! \fn static void unpack_particle(Grid *pG, double *buf, long n)
+ *  \brief Unpack received particle
  * Input:
  *   pG: grid;
  *   buf: received buffer
@@ -2085,7 +2132,9 @@ static void unpack_particle(Grid *pG, double *buf, long n)
 
 #ifdef SHEARING_BOX
 /*----------------------------------------------------------------------------*/
-/* Shearing box boundary condition, Inner x1 boundary (ibc_x1=4)
+/*! \fn static void shearingbox_ix1_particle(Grid *pG, Domain *pD, long numpar)
+ *  \brief Shearing box boundary condition, Inner x1 boundary (ibc_x1=4)
+ *
  * This routine works for only 3D.
  * Input: numpar: for the packing routine, the array index to start with.
  */
@@ -2235,7 +2284,9 @@ static void shearingbox_ix1_particle(Grid *pG, Domain *pD, long numpar)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Shearing box boundary condition, Outer x1 boundary (obc_x1=4)
+/*! \fn static void shearingbox_ox1_particle(Grid *pG, Domain *pD, long numpar)
+ *  \brief Shearing box boundary condition, Outer x1 boundary (obc_x1=4)
+ *
  * This routine works for only 3D.
  * Input: numpar: for the packing routine, the array index to start with.
  */
@@ -2384,7 +2435,9 @@ static void shearingbox_ox1_particle(Grid *pG, Domain *pD, long numpar)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle inside the inner x1 boundary for shearing box
+/*! \fn static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
+ *  \brief Packing the particle inside the inner x1 boundary for shearing box
+ *
  * Input: pG: grid; reg: region, 1 or 2 for mpi case, 0 for non-mpi case
  *        numpar: array index to start with.
  * Return: number of packed particles in the specified region.
@@ -2449,7 +2502,9 @@ static long packing_ix1_particle_shear(Grid *pG, int reg, long numpar)
 }
 
 /*----------------------------------------------------------------------------*/
-/* packing the particle outside the outer x1 boundary for shearing box
+/*! \fn static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
+ *  \brief Packing the particle outside the outer x1 boundary for shearing box
+ *
  * Input: pG: grid; reg: region, 1 or 2 for mpi case, 0 for non-mpi case
  *        numpar: array index to start with.
  * Return: number of packed particles in the specified region.
@@ -2515,7 +2570,9 @@ static long packing_ox1_particle_shear(Grid *pG, int reg, long numpar)
 
 #ifdef FARGO
 /*----------------------------------------------------------------------------*/
-/* packing the particle for FARGO
+/*! \fn static long packing_particle_fargo(Grid *pG, Real yl, Real yu)
+ *  \brief Packing the particle for FARGO
+ *
  * Input: pG: grid; 
  *        yl, yu: lower and upper limit of x2 (y) coordinate for particles to
  *                be packed
@@ -2550,7 +2607,8 @@ static long packing_particle_fargo(Grid *pG, Real yl, Real yu)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Get the number of shift of grid in the y direction */
+/*! \fn static int gridshift(Real shift)
+ *  \brief Get the number of shift of grid in the y direction */
 static int gridshift(Real shift)
 {
   if (shift>0)

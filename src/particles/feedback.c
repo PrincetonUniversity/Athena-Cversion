@@ -1,6 +1,7 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: feedback.c
+/*============================================================================*/
+/*! \file feedback.c
+ *  \brief Exchange particle feedback between boundary cells.
  *
  * PURPOSE: Exchange particle feedback between boundary cells. The procedure is
  *   opposite to setting boundary conditions. Extra feedback forces are exterted
@@ -11,14 +12,22 @@
  *   Currently, for shearing box simulation in 3D, FARGO must be enabled.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   exchange_feedback()
- *   exchange_feedback_init()
- *   exchange_feedback_fun()
- *   exchange_feedback_destruct()
+ * - exchange_feedback()
+ * - exchange_feedback_init()
+ * - exchange_feedback_fun()
+ * - exchange_feedback_destruct()
+ *
+ * PRIVATE FUNCTIONS:
+ * - reflecting_???
+ * - outflow_???
+ * - periodic_???
+ * - send_???
+ * - receive_???
+ * where ???=[ix1,ox1,ix2,ox2,ix3,ox3]
  * 
  * History:
- *   Written by Xuening Bai, Apr. 2009
-==============================================================================*/
+ * - Written by Xuening Bai, Apr. 2009					      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -111,8 +120,11 @@ static void shearingbox_ox1_feedback(Grid *pG, Domain *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* exchange_feedback: calls appropriate functions to copy feedback in the ghost
- *    zones back to the grid.  The function pointers (*apply_???) are set during
+/*! \fn void exchange_feedback(Grid *pG, Domain *pD)
+ *  \brief Calls appropriate functions to copy feedback in the ghost
+ *    zones back to the grid.  
+ *
+ *    The function pointers (*apply_???) are set during
  *    initialization by exchange_feedback_init() to be either a user-defined
  *    function, or one of the functions corresponding to reflecting, periodic,
  *    or outflow.  If the left- or right-Grid ID numbers are >= 1 (neighboring
@@ -335,7 +347,8 @@ void exchange_feedback(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* exchange_feedback_init:  sets function pointers for feedback exchange during
+/*! \fn void exchange_feedback_init(Grid *pG, Domain *pD)
+ *  \brief Sets function pointers for feedback exchange during
  *   initialization, allocates memory for send/receive buffers with MPI
  */
 void exchange_feedback_init(Grid *pG, Domain *pD)
@@ -609,7 +622,8 @@ void exchange_feedback_init(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* exchange_feedback_fun: sets function pointers for user-defined feedback
+/*! \fn void exchange_feedback_fun(enum Direction dir, VBCFun_t prob_bc)
+ *  \brief Sets function pointers for user-defined feedback
  *   exchange in problem file
  */
 
@@ -641,7 +655,8 @@ void exchange_feedback_fun(enum Direction dir, VBCFun_t prob_bc)
   return;
 }
 
-/* finalize feedback exchange */
+/*! \fn void exchange_feedback_destruct(Grid *pG, Domain *pD)
+ *  \brief Finalize feedback exchange */
 void exchange_feedback_destruct(Grid *pG, Domain *pD)
 {
   apply_ix1 = NULL;
@@ -668,7 +683,8 @@ void exchange_feedback_destruct(Grid *pG, Domain *pD)
  */
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1,5)
+/*! \fn static void reflect_ix3_feedback(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1,5)
  */
 
 static void reflect_ix3_feedback(Grid *pG)
@@ -693,7 +709,8 @@ static void reflect_ix3_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x3 boundary (obc_x3=1,5)
+/*! \fn static void reflect_ox3_feedback(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Outer x3 boundary (obc_x3=1,5)
  */
 
 static void reflect_ox3_feedback(Grid *pG)
@@ -718,9 +735,9 @@ static void reflect_ox3_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1,5)
+/*! \fn static void reflect_ix2_feedback(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1,5)
  */
-
 static void reflect_ix2_feedback(Grid *pG)
 {
   int jr;
@@ -743,7 +760,8 @@ static void reflect_ix2_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x2 boundary (obc_x2=1,5)
+/*! \fn static void reflect_ox2_feedback(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Outer x2 boundary (obc_x2=1,5)
  */
 
 static void reflect_ox2_feedback(Grid *pG)
@@ -768,7 +786,8 @@ static void reflect_ox2_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1,5)
+/*! \fn static void reflect_ix1_feedback(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1,5)
  */
 
 static void reflect_ix1_feedback(Grid *pG)
@@ -793,7 +812,8 @@ static void reflect_ix1_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x1 boundary (obc_x1=1,5)
+/*! \fn static void reflect_ox1_feedback(Grid *pG)
+ *  \brief REFLECTING boundary conditions, Outer x1 boundary (obc_x1=1,5)
  */
 
 static void reflect_ox1_feedback(Grid *pG)
@@ -818,7 +838,8 @@ static void reflect_ox1_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* OUTFLOW boundary conditions (ibc=1,5), essentially do nothing
+/*! \fn static void outflow_feedback(Grid *pG)
+ *  \brief OUTFLOW boundary conditions (ibc=1,5), essentially do nothing
  */
 
 static void outflow_feedback(Grid *pG)
@@ -827,9 +848,9 @@ static void outflow_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x3 boundary (ibc_x3=4)
+/*! \fn static void periodic_ix3_feedback(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Inner x3 boundary (ibc_x3=4)
  */
-
 static void periodic_ix3_feedback(Grid *pG)
 {
   int dk = pG->ke - pG->ks + 1;
@@ -851,7 +872,8 @@ static void periodic_ix3_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Outer x3 boundary (obc_x3=4)
+/*! \fn static void periodic_ox3_feedback(Grid *pG) 
+ *  \brief PERIODIC boundary conditions, Outer x3 boundary (obc_x3=4)
  */
 
 static void periodic_ox3_feedback(Grid *pG)
@@ -875,7 +897,8 @@ static void periodic_ox3_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x2 boundary (ibc_x2=4)
+/*! \fn static void periodic_ix2_feedback(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Inner x2 boundary (ibc_x2=4)
  */
 
 static void periodic_ix2_feedback(Grid *pG)
@@ -899,7 +922,8 @@ static void periodic_ix2_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions,Outer x2 boundary (obc_x2=4)
+/*! \fn static void periodic_ox2_feedback(Grid *pG)
+ *  \brief PERIODIC boundary conditions,Outer x2 boundary (obc_x2=4)
  */
 
 static void periodic_ox2_feedback(Grid *pG)
@@ -923,7 +947,8 @@ static void periodic_ox2_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
+/*! \fn static void periodic_ix1_feedback(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
  */
 
 static void periodic_ix1_feedback(Grid *pG)
@@ -947,7 +972,8 @@ static void periodic_ix1_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Outer x1 boundary (obc_x1=4)
+/*! \fn static void periodic_ox1_feedback(Grid *pG)
+ *  \brief PERIODIC boundary conditions, Outer x1 boundary (obc_x1=4)
  */
 
 static void periodic_ox1_feedback(Grid *pG)
@@ -973,7 +999,8 @@ static void periodic_ox1_feedback(Grid *pG)
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs; ~400 lines */
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SEND of boundary conditions, Inner x3 boundary -- send left
+/*! \fn static void send_ix3_feedback(Grid *pG)
+ *  \brief MPI_SEND of boundary conditions, Inner x3 boundary -- send left
  */
 
 static void send_ix3_feedback(Grid *pG)
@@ -1009,7 +1036,8 @@ static void send_ix3_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SEND of boundary conditions, Outer x3 boundary -- send right
+/*! \fn static void send_ox3_feedback(Grid *pG)
+ *  \brief MPI_SEND of boundary conditions, Outer x3 boundary -- send right
  */
 
 static void send_ox3_feedback(Grid *pG)
@@ -1045,7 +1073,8 @@ static void send_ox3_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SEND of boundary conditions, Inner x2 boundary -- send left
+/*! \fn static void send_ix2_feedback(Grid *pG)
+ *  \brief MPI_SEND of boundary conditions, Inner x2 boundary -- send left
  */
 
 static void send_ix2_feedback(Grid *pG)
@@ -1081,7 +1110,8 @@ static void send_ix2_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SEND of boundary conditions, Outer x2 boundary -- send right
+/*! \fn static void send_ox2_feedback(Grid *pG)
+ *  \brief MPI_SEND of boundary conditions, Outer x2 boundary -- send right
  */
 
 static void send_ox2_feedback(Grid *pG)
@@ -1117,7 +1147,8 @@ static void send_ox2_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SEND of boundary conditions, Inner x1 boundary -- send left
+/*! \fn static void send_ix1_feedback(Grid *pG)
+ *  \brief MPI_SEND of boundary conditions, Inner x1 boundary -- send left
  */
 
 static void send_ix1_feedback(Grid *pG)
@@ -1153,7 +1184,8 @@ static void send_ix1_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SEND of boundary conditions, Outer x1 boundary -- send right
+/*! \fn static void send_ox1_feedback(Grid *pG)
+ *  \brief MPI_SEND of boundary conditions, Outer x1 boundary -- send right
  */
 
 static void send_ox1_feedback(Grid *pG)
@@ -1189,7 +1221,8 @@ static void send_ox1_feedback(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_RECEIVE of boundary conditions, Inner x3 boundary -- listen left
+/*! \fn static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
+ *  \brief MPI_RECEIVE of boundary conditions, Inner x3 boundary -- listen left
  */
 
 static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
@@ -1223,7 +1256,8 @@ static void recv_ix3_feedback(Grid *pG, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_RECEIVE of boundary conditions, Outerer x3 boundary -- listen right
+/*! \fn static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
+ *  \brief MPI_RECEIVE of boundary conditions, Outer x3 boundary -- listen right
  */
 
 static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
@@ -1257,7 +1291,8 @@ static void recv_ox3_feedback(Grid *pG, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_RECEIVE of boundary conditions, Inner x2 boundary -- listen left
+/*! \fn static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
+ *  \brief MPI_RECEIVE of boundary conditions, Inner x2 boundary -- listen left
  */
 
 static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
@@ -1291,7 +1326,8 @@ static void recv_ix2_feedback(Grid *pG, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_RECEIVE of boundary conditions, Outer x2 boundary -- listen right
+/*! \fn static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
+ *  \brief MPI_RECEIVE of boundary conditions, Outer x2 boundary -- listen right
  */
 
 static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
@@ -1325,7 +1361,8 @@ static void recv_ox2_feedback(Grid *pG, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_RECEIVE of boundary conditions, Inner x1 boundary -- listen left
+/*! \fn static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
+ *  \brief MPI_RECEIVE of boundary conditions, Inner x1 boundary -- listen left
  */
 
 static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
@@ -1359,7 +1396,8 @@ static void recv_ix1_feedback(Grid *pG, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_RECEIVE of boundary conditions, Outer x1 boundary -- listen right
+/*! \fn static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
+ *  \brief MPI_RECEIVE of boundary conditions, Outer x1 boundary -- listen right
  */
 
 static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
@@ -1397,9 +1435,11 @@ static void recv_ox1_feedback(Grid *pG, MPI_Request *prq)
 #ifdef SHEARING_BOX
 
 /*----------------------------------------------------------------------------*/
-/* exchange feedback for 3D shearing box. Inner x1.
-   Note that here we only need to shear the feedback array by an integer number
-   of cells.
+/*! \fn static void shearingbox_ix1_feedback(Grid *pG, Domain *pD)
+ *  \brief Exchange feedback for 3D shearing box, Inner x1.
+ *
+ * Note that here we only need to shear the feedback array by an integer number
+ * of cells.
  */
 static void shearingbox_ix1_feedback(Grid *pG, Domain *pD)
 {
@@ -1407,9 +1447,11 @@ static void shearingbox_ix1_feedback(Grid *pG, Domain *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* exchange feedback for 3D shearing box. Outer x1.
-   Note that here we only need to shear the feedback array by an integer number
-   of cells.
+/*! \fn static void shearingbox_ox1_feedback(Grid *pG, Domain *pD)
+ *  \brief Exchange feedback for 3D shearing box, Outer x1.
+ *
+ * Note that here we only need to shear the feedback array by an integer number
+ * of cells.
  */
 static void shearingbox_ox1_feedback(Grid *pG, Domain *pD)
 {

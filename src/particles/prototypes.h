@@ -1,11 +1,10 @@
 #ifndef PARTICLES_PROTOTYPES_H
 #define PARTICLES_PROTOTYPES_H 
 #include "../copyright.h"
-/*==============================================================================
- * FILE: prototypes.h
- *
- * PURPOSE: Prototypes for all public functions in the /src/particles dir
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions in the /src/particles dir      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"

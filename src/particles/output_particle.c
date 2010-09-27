@@ -1,11 +1,12 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: output_particle.c
+/*===========================================================================*/
+/*! \file output_particle.c
+ *  \brief Contains routines necessary for outputting particles.
  *
  * PURPOSE: contains routines necessary for outputting particles.
  *   There are two basic formats:
- *    1. Bin particles to the grid, then output particles as a grid.
- *    2. Dump the particle list directly.
+ *  - 1. Bin particles to the grid, then output particles as a grid.
+ *  - 2. Dump the particle list directly.
  *
  *   For particle binning, there can be many choices since particles may have
  *   different properties. We provide a default (and trivial) particle selection
@@ -25,13 +26,13 @@
  *   out how to do visualization.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   particle_to_grid();
- *   dump_particle_binary();
- *   property_all();
+ * - particle_to_grid();
+ * - dump_particle_binary();
+ * - property_all();
  * 
  * History:
- *   Written by Xuening Bai, Mar. 2009
-==============================================================================*/
+ * - Written by Xuening Bai, Mar. 2009					      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -61,7 +62,8 @@ Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
-/* Bin the particles to grid cells
+/*! \fn void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
+ *  \brief Bin the particles to grid cells
  */
 void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 {
@@ -133,7 +135,8 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump unbinned particles in binary format
+/*! \fn void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
+ *  \brief Dump unbinned particles in binary format
  */
 void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 {
@@ -269,7 +272,8 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* default choice for binning particles to the grid: 
+/*! \fn int property_all(const Grain *gr, const GrainAux *grsub)
+ *  \brief Default choice for binning particles to the grid: 
  * All the particles are binned, return true for any value.
  */
 int property_all(const Grain *gr, const GrainAux *grsub)
@@ -282,34 +286,43 @@ int property_all(const Grain *gr, const GrainAux *grsub)
 
 /* expr_*: where * are variables d,M1,M2,M3,V1,V2,V3 for particles */
 
+/*! \fn Real expr_dpar(const Grid *pG, const int i, const int j, const int k) 
+ *  \brief Wrapper for particle density */
 Real expr_dpar(const Grid *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_d;
 }
-
+/*! \fn Real expr_M1par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 1-momentum */
 Real expr_M1par(const Grid *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_v1;
 }
 
+/*! \fn Real expr_M2par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 2-momentum */
 Real expr_M2par(const Grid *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_v2;
 }
-
+/*! \fn Real expr_M3par(const Grid *pG, const int i, const int j, const int k) 
+ *  \brief Wrapper for particle 3-momentum */
 Real expr_M3par(const Grid *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_v3;
 }
-
+/*! \fn Real expr_V1par(const Grid *pG, const int i, const int j, const int k) 
+ *  \brief Wrapper for particle 1-velocity */
 Real expr_V1par(const Grid *pG, const int i, const int j, const int k) {
   if (pG->Coup[k][j][i].grid_d>0.0)
     return pG->Coup[k][j][i].grid_v1/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
-
+/*! \fn Real expr_V2par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 2-velocity */
 Real expr_V2par(const Grid *pG, const int i, const int j, const int k) {
   if (pG->Coup[k][j][i].grid_d>0.0)
     return pG->Coup[k][j][i].grid_v2/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
-
+/*! \fn Real expr_V3par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 3-velocity */
 Real expr_V3par(const Grid *pG, const int i, const int j, const int k) {
   if (pG->Coup[k][j][i].grid_d>0.0)
     return pG->Coup[k][j][i].grid_v3/pG->Coup[k][j][i].grid_d;
