@@ -21,8 +21,14 @@ void integrate_destruct(void);
 #ifdef rad_hydro
 void rad_hydro_init_1d(int Ngrids, MeshS *pM);
 void rad_hydro_destruct_1d(int Ngrids);
+/* General LU decomposition functions */
 void ludcmp(Real **a, int n, int *indx, Real *d);
 void lubksb(Real **a, int n, int *indx, Real b[]);
+/* Matrix solver for band diagnol equations */
+void bandec(Real **a, unsigned long n, int m1, int m2, Real **al,
+	unsigned long indx[], Real *d);
+void banbks(Real **a, unsigned long n, int m1, int m2, Real **al,
+	unsigned long indx[], Real b[]);
 #endif
 
 /* integrate_1d_ctu.c and integrate_1d_vl.c */

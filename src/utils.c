@@ -23,6 +23,7 @@
 #include "defs.h"
 #include "athena.h"
 #include "prototypes.h"
+#include "globals.h"
 
 /*----------------------------------------------------------------------------*/
 /* ath_strdup: this is really strdup(), but strdup is not available in 
@@ -1053,3 +1054,39 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
     }
 }
 #endif /* PARTICLES or CHEMISTRY */
+
+
+
+#ifdef rad_hydro
+/*----------------------------------------------------------------------------*/
+/* 
+ *   Input Arguments:
+ *     W = Primitive variable
+ *    The effective sound speed is calculated as conserved variable formula
+ */
+
+Real eff_sound(const Prim1DS W, Real dt)
+{
+	Real aeff, temperature, SPP, Alpha;
+
+	temperature = W.P / (W.d * R_ideal);
+	
+
+	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a 
+		* temperature * temperature * temperature / (W.d * R_ideal);
+
+	if(fabs(SPP * dt * 0.5) > 0.001)
+	Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+	else 
+	Alpha = 1.0 + 0.25 * SPP * dt;
+	/* In case SPP * dt  is small, use expansion expression */	
+
+
+	aeff = ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
+
+	aeff = sqrt(aeff); 
+
+	return aeff;
+}
+#endif 
+

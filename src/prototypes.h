@@ -72,6 +72,11 @@ void bvals_mhd_init(MeshS *pM);
 void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
 void bvals_mhd(DomainS *pDomain);
 
+/* set boundary condition for radiation variable */
+#ifdef rad_hydro
+void bvals_rad(MeshS *pM);
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* bvals_shear.c  */
 #ifdef SHEARING_BOX

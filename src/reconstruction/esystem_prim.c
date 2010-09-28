@@ -581,7 +581,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
 /* esys_rad_hyd: radiation hydrodynamics
  *   Input: aeff, v = effective sound speed, velocities 
  *   Output: eigenvalues[8], right_eigenmatrix[9,9], left_eigenmatrix[9,9];
- *   The order is rho, Mv1, Mv2, Mv3, E, Er, Fluxr1, Fluxr2, Fluxr3 
+ *   The order is rho, Mv1, Mv2, Mv3, E, Er, Fr1, Fr2, Fr3 
  */
 
 #ifdef rad_hydro
@@ -685,6 +685,10 @@ void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eige
 
 
 }
+
+
+
+
 #endif
 
 

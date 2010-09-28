@@ -402,6 +402,10 @@ int main(int argc, char *argv[])
       }
     }
   }
+   /* set boundary condition for radiation quantities */
+#ifdef rad_hydro   
+	bvals_rad(&Mesh);
+#endif
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */
 #ifdef STATIC_MESH_REFINEMENT
@@ -571,6 +575,11 @@ int main(int argc, char *argv[])
 /*--- Step 9h. ---------------------------------------------------------------*/
 /* Boundary values must be set after time is updated for t-dependent BCs.
  * With SMR, ghost zones at internal fine/coarse boundaries set by Prolongate */
+
+	/* set boundary conditions for radiation quantities */
+#ifdef rad_hydro	
+	bvals_rad(&Mesh);
+#endif
 
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  

@@ -214,11 +214,11 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #ifdef rad_hydro
 	fprintf(pfile," [%d]=Er",col_cnt);
         col_cnt++;
-        fprintf(pfile," [%d]=Fluxr1",col_cnt);
+        fprintf(pfile," [%d]=Fr1",col_cnt);
         col_cnt++;
-        fprintf(pfile," [%d]=Fluxr2",col_cnt);
+        fprintf(pfile," [%d]=Fr2",col_cnt);
         col_cnt++;
-        fprintf(pfile," [%d]=Fluxr3",col_cnt);
+        fprintf(pfile," [%d]=Fr3",col_cnt);
         col_cnt++;
 #endif
 
@@ -275,9 +275,9 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #ifdef rad_hydro
 
 	      fprintf(pfile,fmt,pG->U[k][j][i].Er);
-              fprintf(pfile,fmt,pG->U[k][j][i].Fluxr1);
-              fprintf(pfile,fmt,pG->U[k][j][i].Fluxr2);
-              fprintf(pfile,fmt,pG->U[k][j][i].Fluxr3);
+              fprintf(pfile,fmt,pG->U[k][j][i].Fr1);
+              fprintf(pfile,fmt,pG->U[k][j][i].Fr2);
+              fprintf(pfile,fmt,pG->U[k][j][i].Fr3);
 #endif
 
 
@@ -482,11 +482,11 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
 #ifdef rad_hydro
 	fprintf(pfile," [%d]=Er",col_cnt);
         col_cnt++;
-        fprintf(pfile," [%d]=Fluxr1",col_cnt);
+        fprintf(pfile," [%d]=Fr1",col_cnt);
         col_cnt++;
-        fprintf(pfile," [%d]=Fluxr2",col_cnt);
+        fprintf(pfile," [%d]=Fr2",col_cnt);
         col_cnt++;
-        fprintf(pfile," [%d]=Fluxr3",col_cnt);
+        fprintf(pfile," [%d]=Fr3",col_cnt);
         col_cnt++;
 #endif
 
@@ -549,9 +549,9 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
 #ifdef rad_hydro
 
 	      fprintf(pfile,fmt,pG->U[k][j][i].Er);
-              fprintf(pfile,fmt,pG->U[k][j][i].Fluxr1);
-              fprintf(pfile,fmt,pG->U[k][j][i].Fluxr2);
-              fprintf(pfile,fmt,pG->U[k][j][i].Fluxr3);
+              fprintf(pfile,fmt,pG->U[k][j][i].Fr1);
+              fprintf(pfile,fmt,pG->U[k][j][i].Fr2);
+              fprintf(pfile,fmt,pG->U[k][j][i].Fr3);
 #endif
 
 

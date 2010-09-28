@@ -13,7 +13,7 @@ num_domains     = 1         # number of Domains in Mesh
 out_fmt = tab               # Tabular data dump
 out     = prim              # variables to be output
 dat_fmt = %12.5e            # Optional data format string
-dt      = 0.01              # time increment between outputs
+dt      = 0.005              # time increment between outputs
 
 <output2>
 out_fmt = hst               # History data dump
@@ -22,15 +22,15 @@ dt      = 0.001              # time increment between outputs
 <time>
 cour_no         = 0.5       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000      # cycle limit
-tlim            = 1.0       # time limit
+tlim            = 0.03       # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 256       # Number of zones in X1-direction
+Nx1             = 512       # Number of zones in X1-direction
 x1min           = 0      # minimum value of X1
-x1max           = 1       # maximum value of X1
-bc_ix1          = 4         # boundary condition flag for inner-I (X1)
-bc_ox1          = 4         # boundary condition flag for outer-I (X1)
+x1max           = 2       # maximum value of X1
+bc_ix1          = 1         # boundary condition flag for inner-I (X1)
+bc_ox1          = 3         # boundary condition flag for outer-I (X1)
 
 Nx2             = 1         # Number of zones in X2-direction
 x2min           = 0.0       # minimum value of X2
@@ -75,12 +75,12 @@ kDisp           = 0         # k-displacement measured in cells of this level
 gamma   = 1.666666667       # gamma = C_p/C_v
 
 
-Pratio = 1.0e-20	 	# ratio between radiation pressure unit and gas pressure unit
+Pratio = 1.0e-11	 	# ratio between radiation pressure unit and gas pressure unit
 
-Cratio = 1.0e5			# ratio between speed of light and velocity unit
+Cratio = 1.0e6			# ratio between speed of light and velocity unit
 
-Sigma_t = 1.0			# scattering plus absorption coefficient
+Sigma_t = 10.0		# scattering plus absorption coefficient
 	
-Sigma_a = 1.0			# absorption coefficient
+Sigma_a = 10.0		# absorption coefficient
 
 R_ideal = 1.0			# Value of ideal gas constant under current unit. Used to calculate temperature

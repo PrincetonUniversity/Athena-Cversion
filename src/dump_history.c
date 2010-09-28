@@ -229,11 +229,11 @@ void dump_history(MeshS *pM, OutputS *pOut)
 	      mhst++;
 	      scal[mhst] += dVol*pG->U[k][j][i].Er;
 	      mhst++;
-	      scal[mhst] += dVol*pG->U[k][j][i].Fluxr1;
+	      scal[mhst] += dVol*pG->U[k][j][i].Fr1;
 	      mhst++;
-	      scal[mhst] += dVol*pG->U[k][j][i].Fluxr2;
+	      scal[mhst] += dVol*pG->U[k][j][i].Fr2;
 	      mhst++;
-	      scal[mhst] += dVol*pG->U[k][j][i].Fluxr3;
+	      scal[mhst] += dVol*pG->U[k][j][i].Fr3;
 #endif
 		
 

@@ -118,9 +118,9 @@ void integrate_1d_radMHD(DomainS *pD)
     		U1d[i].Mz = pG->U[ks][js][i].M3;
     		U1d[i].E  = pG->U[ks][js][i].E;
     		U1d[i].Er  = pG->U[ks][js][i].Er;
-    		U1d[i].Fluxr1  = pG->U[ks][js][i].Fluxr1;
-    		U1d[i].Fluxr2  = pG->U[ks][js][i].Fluxr2;
-    		U1d[i].Fluxr3  = pG->U[ks][js][i].Fluxr3;
+    		U1d[i].Fr1  = pG->U[ks][js][i].Fr1;
+    		U1d[i].Fr2  = pG->U[ks][js][i].Fr2;
+    		U1d[i].Fr3  = pG->U[ks][js][i].Fr3;
 		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
 	}
 	
@@ -146,13 +146,13 @@ void integrate_1d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[i-1].d * R_ideal);
 		velocity = U1d[i-1].Mx / U1d[i-1].d;
 
-	Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fluxr1/U1d[i-1].d 
+	Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fr1/U1d[i-1].d 
 	- (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / (Crat * U1d[i-1].d))	
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
 	Source[4] = -Source[1] * U1d[i-1].d * velocity * (Gamma - 1.0)
 	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
-		* (U1d[i-1].Fluxr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
+		* (U1d[i-1].Fr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
 			* temperature /(U1d[i-1].d * R_ideal);
 		if(fabs(SPP * dt * 0.5) > 0.001)
@@ -163,6 +163,7 @@ void integrate_1d_radMHD(DomainS *pD)
 		//Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d;
 		Propa_44 = alpha;
 
+		Wl[i].Vx += dt * Source[1] * 0.5;
 		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
 
 	/* For the right state */
@@ -172,13 +173,13 @@ void integrate_1d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[i].d * R_ideal);
 		velocity = U1d[i].Mx / U1d[i].d;
 
-	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fluxr1/U1d[i].d 
+	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
 	- (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / (Crat * U1d[i].d))	
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
 	Source[4] = Source[1] * U1d[i].d * velocity * (Gamma - 1.0)
 	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
-		* (U1d[i].Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
 			* temperature /(U1d[i].d * R_ideal);
 		if(fabs(SPP * dt * 0.5) > 0.001)
@@ -189,16 +190,21 @@ void integrate_1d_radMHD(DomainS *pD)
 		//Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d;
 		Propa_44 = alpha;
 
+		Wr[i].Vx += dt * Source[1] * 0.5;
 		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
 
 	}
+
 
 		
 /*---------Step 2c--------------*/ 
 /* Calculate the flux */
 		 for (i=il+1; i<=iu; i++) {
+
   		  Ul_x1Face[i] = Prim1D_to_Cons1D(&Wl[i], &Bxi[i]);
    		  Ur_x1Face[i] = Prim1D_to_Cons1D(&Wr[i], &Bxi[i]);
+
+
 		  x1Flux[i].d = dt;
 		/* This is used to take dt to calculate alpha. 
                 * x1Flux[i].d is recovered in the fluxes function by using Wl */
@@ -229,11 +235,11 @@ void integrate_1d_radMHD(DomainS *pD)
 	Source_Inv[4][1] = -dt * Prat * Crat * SEm/(1.0 + dt * Prat * Crat * SEE);
 	Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
 	
-	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
+	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/Crat);
 	Source[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
-		* (U1d[i].Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
 	pdivFlux = (Real*)&(divFlux);
 	pfluxr = (Real*)&(x1Flux[i+1]);
@@ -264,11 +270,11 @@ void integrate_1d_radMHD(DomainS *pD)
 	velocity = Uguess.Mx / Uguess.d;
 
 
-	Source_guess[1] = -Prat * (-Sigma_t * (Uguess.Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)
+	Source_guess[1] = -Prat * (-Sigma_t * (Uguess.Fr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - Uguess.Er)/Crat);
 	Source_guess[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- Uguess.Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
-		* (Uguess.Fluxr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)/Crat); 
+		* (Uguess.Fr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)/Crat); 
 
 	for(m=0; m<NVAR-4; m++)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) 

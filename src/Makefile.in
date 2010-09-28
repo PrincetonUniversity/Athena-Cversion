@@ -36,7 +36,7 @@ CORE_OBJ = ath_array.o \
            show_config.o \
 	   smr.o \
            utils.o \
-	   rad_utils.o
+	   bvals_rad.o
 
 FFT_OBJ =
 ifeq (@FFT_MODE@,FFT_ENABLED)
@@ -67,8 +67,10 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_1d_radMHD.o \
 		  integrators/integrate_2d_radMHD.o \
 		  integrators/integrate_3d_radMHD.o \
-		  integrators/MatrixSolver/ludcmp.o \
-		  integrators/BackEuler.o
+		  integrators/BackEuler.o \
+		  integrators/MatrixSolver/bandec.o \
+		  integrators/MatrixSolver/ludcmp.o 
+		  
 
 GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg.o \
@@ -97,7 +99,8 @@ RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_plm.o \
 		     reconstruction/lr_states_ppm.o \
 		     reconstruction/lr_states_prim2.o \
-		     reconstruction/lr_states_prim3.o 
+		     reconstruction/lr_states_prim3.o  
+		    
 	             
 
 RSOLVERS_OBJ = rsolvers/esystem_roe.o \

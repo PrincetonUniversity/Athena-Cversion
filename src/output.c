@@ -127,11 +127,11 @@ Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 Real expr_G  (const GridS *pG, const int i, const int j, const int k);
 #endif
 
-#ifdef RADIATION
-Real expr_Er	 (const GridS *pG, const int i, const int j, const int k);
-Real expr_Fluxr1 (const GridS *pG, const int i, const int j, const int k);
-Real expr_Fluxr2 (const GridS *pG, const int i, const int j, const int k);
-Real expr_Fluxr3 (const GridS *pG, const int i, const int j, const int k);
+#ifdef rad_hydro
+Real expr_Er  (const GridS *pG, const int i, const int j, const int k);
+Real expr_Fr1 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Fr3 (const GridS *pG, const int i, const int j, const int k);
 #endif
 
 
@@ -1103,18 +1103,18 @@ Real expr_E(const GridS *pG, const int i, const int j, const int k) {
 }
 #endif
 
-#ifdef RADIATION
+#ifdef rad_hydro
 Real expr_Er	 (const GridS *pG, const int i, const int j, const int k) {
 	return pG->U[k][j][i].Er;
 }
-Real expr_Fluxr1 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Fluxr1;
+Real expr_Fr1 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Fr1;
 }
-Real expr_Fluxr2 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Fluxr2;
+Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Fr2;
 }
-Real expr_Fluxr3 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Fluxr3;
+Real expr_Fr3 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Fr3;
 }
 #endif
 

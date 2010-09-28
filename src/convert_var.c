@@ -97,9 +97,9 @@ PrimS Cons_to_Prim(const ConsS *pCons)
 
 #ifdef rad_hydro
   U.Er = pCons->Er;
-  U.Fluxr1 = pCons->Fluxr1;
-  U.Fluxr2 = pCons->Fluxr2;
-  U.Fluxr3 = pCons->Fluxr3;
+  U.Fr1 = pCons->Fr1;
+  U.Fr2 = pCons->Fr2;
+  U.Fr3 = pCons->Fr3;
 #endif
 
 
@@ -122,9 +122,9 @@ PrimS Cons_to_Prim(const ConsS *pCons)
 #endif
 #ifdef rad_hydro
   Prim.Er = W.Er;
-  Prim.Fluxr1 = W.Fluxr1;
-  Prim.Fluxr2 = W.Fluxr2;
-  Prim.Fluxr3 = W.Fluxr3;
+  Prim.Fr1 = W.Fr1;
+  Prim.Fr2 = W.Fr2;
+  Prim.Fr3 = W.Fr3;
 #endif
 
   return Prim;
@@ -158,9 +158,9 @@ ConsS Prim_to_Cons (const PrimS *pW)
 
 #ifdef rad_hydro
   W.Er = pW->Er;
-  W.Fluxr1 = pW->Fluxr1;
-  W.Fluxr2 = pW->Fluxr2;
-  W.Fluxr3 = pW->Fluxr3;
+  W.Fr1 = pW->Fr1;
+  W.Fr2 = pW->Fr2;
+  W.Fr3 = pW->Fr3;
 #endif
  
   U = Prim1D_to_Cons1D(&W, &Bx);
@@ -183,9 +183,9 @@ ConsS Prim_to_Cons (const PrimS *pW)
 
 #ifdef rad_hydro
   Cons.Er = U.Er;
-  Cons.Fluxr1 = U.Fluxr1;
-  Cons.Fluxr2 = U.Fluxr2;
-  Cons.Fluxr3 = U.Fluxr3;
+  Cons.Fr1 = U.Fr1;
+  Cons.Fr2 = U.Fr2;
+  Cons.Fr3 = U.Fr3;
 #endif
 
   return Cons;
@@ -399,9 +399,9 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
 
 #ifdef rad_hydro
   Prim1D.Er = pU->Er;
-  Prim1D.Fluxr1 = pU->Fluxr1;
-  Prim1D.Fluxr2 = pU->Fluxr2;
-  Prim1D.Fluxr3 = pU->Fluxr3;
+  Prim1D.Fr1 = pU->Fr1;
+  Prim1D.Fr2 = pU->Fr2;
+  Prim1D.Fr3 = pU->Fr3;
 #endif
 
   return Prim1D;
@@ -445,9 +445,9 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
 
 #ifdef rad_hydro
   Cons1D.Er = pW->Er;
-  Cons1D.Fluxr1 = pW->Fluxr1;
-  Cons1D.Fluxr2 = pW->Fluxr2;
-  Cons1D.Fluxr3 = pW->Fluxr3;
+  Cons1D.Fr1 = pW->Fr1;
+  Cons1D.Fr2 = pW->Fr2;
+  Cons1D.Fr3 = pW->Fr3;
 #endif
 
 
