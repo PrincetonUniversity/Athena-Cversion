@@ -1,8 +1,7 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: selfg_fft.c
- *
- * PURPOSE: Contains functions to solve Poisson's equation for self-gravity in
+/*============================================================================*/
+/*! \file selfg_fft.c
+ *  \brief Contains functions to solve Poisson's equation for self-gravity in
  *   1D, 2D and 3D using FFTs (actually, the 1D algorithm uses Forward 
  *   Elimination followed by Back Substitution: FEBS).
  *
@@ -11,18 +10,18 @@
  *   The 2D and 3D f'ns use FFTW3.x, and for MPI parallel use Steve Plimpton's
  *   block decomposition routines added by N. Lemaster to /athena/fftsrc.
  *   This means to use these fns the code must be
- *     (1) configured with --with-gravity=fft --enable-fft
- *     (2) compiled with links to FFTW libraries (may need to edit Makeoptions)
+ *   - (1) configured with --with-gravity=fft --enable-fft
+ *   - (2) compiled with links to FFTW libraries (may need to edit Makeoptions)
  *
  *   For NON-PERIODIC BCs, use selfg_multig() functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   selfg_fft_1d() - actually uses FEBS
- *   selfg_fft_2d() - 2D Poisson solver using FFTs
- *   selfg_fft_3d() - 3D Poisson solver using FFTs
- *   selfg_fft_2d_init() - initializes FFT plans for 2D
- *   selfg_fft_3d_init() - initializes FFT plans for 3D
- *============================================================================*/
+ * - selfg_fft_1d() - actually uses FEBS
+ * - selfg_fft_2d() - 2D Poisson solver using FFTs
+ * - selfg_fft_3d() - 3D Poisson solver using FFTs
+ * - selfg_fft_2d_init() - initializes FFT plans for 2D
+ * - selfg_fft_3d_init() - initializes FFT plans for 3D */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -48,9 +47,11 @@ static ath_fft_data *work=NULL;
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_1d:  Actually uses forward elimination - back substituion!!
+/*! \fn void selfg_fft_1d(DomainS *pD)
+ *  \brief  This algorithm taken from pp.35-38 of Hockney & Eastwood
+ *
+ *   Actually uses forward elimination - back substituion!!
  *   Only works for uniform grid, periodic boundary conditions 
- *   This algorithm taken from pp.35-38 of Hockney & Eastwood
  */
 
 void selfg_fft_1d(DomainS *pD)
@@ -97,8 +98,8 @@ void selfg_fft_1d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_2d:
- *   Only works for uniform grid, periodic boundary conditions
+/*! \fn void selfg_fft_2d(DomainS *pD)
+ *  \brief Only works for uniform grid, periodic boundary conditions
  */
 
 void selfg_fft_2d(DomainS *pD)
@@ -178,8 +179,8 @@ void selfg_fft_2d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_3d:
- *   Only works for uniform grid, periodic boundary conditions
+/*! \fn void selfg_fft_3d(DomainS *pD)
+ *  \brief Only works for uniform grid, periodic boundary conditions
  */
 
 void selfg_fft_3d(DomainS *pD)
@@ -280,9 +281,9 @@ void selfg_fft_3d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_2d_init:
- *   Initializes plans for forward/backward FFTs, and allocates memory needed
- *   by FFTW.
+/*! \fn void selfg_fft_2d_init(MeshS *pM)
+ *  \brief Initializes plans for forward/backward FFTs, and allocates memory 
+ *  needed by FFTW.  
  */
 
 void selfg_fft_2d_init(MeshS *pM)
@@ -302,9 +303,9 @@ void selfg_fft_2d_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_3d_init:
- *   Initializes plans for forward/backward FFTs, and allocates memory needed
- *   by FFTW.
+/*! \fn void selfg_fft_3d_init(MeshS *pM)
+ *  \brief Initializes plans for forward/backward FFTs, and allocates memory 
+ *  needed by FFTW.
  */
 
 void selfg_fft_3d_init(MeshS *pM)

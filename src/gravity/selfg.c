@@ -1,13 +1,12 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: selfg.c
- *
- * PURPOSE: Contains functions to control solution of Poisson's equation for
+/*============================================================================*/
+/*! \file selfg.c
+ *  \brief Contains functions to control solution of Poisson's equation for
  *   self-gravity.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   selfg_fc()   - 2nd order flux-corrections for self-gravity terms
- *   selfg_init() - sets pointer to appropriate self-gravity function
+ * - selfg_fc()   - 2nd order flux-corrections for self-gravity terms
+ * - selfg_init() - sets pointer to appropriate self-gravity function
  *============================================================================*/
 
 #include <math.h>
@@ -20,18 +19,21 @@
 
 #ifdef SELF_GRAVITY
 /*----------------------------------------------------------------------------*/
-/* selfg_fc: Adds flux-correction to make the integration algorithms for the
- *   source terms in the momentum and energy equations second-order.  This
+/*! \fn void selfg_fc(DomainS *pD)
+ *  \brief Adds flux-correction to make the integration algorithms for the
+ *   source terms in the momentum and energy equations second-order.  
+ *
+ *   This
  *   requires subtracting 1/2 the source terms computed with the old potential,
  *   and adding 1/2 the source terms computed with the new potential.
  *
  *   The source terms for momentum are computed using the divergence of the
  *   gravitational stress tensor to conserve momentum exactly.
- *     dM/dt = -Div(G);   G = (gg - 0.5g^2)/4\piG;   g=-Grad(Phi);
+ *   - dM/dt = -Div(G);   G = (gg - 0.5g^2)/4\piG;   g=-Grad(Phi);
  *
  *   The source terms for the energy are added using the mass fluxes at cell
  *   faces, to improve conservation.
- *     S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
+ *   - S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
 
 void selfg_fc(DomainS *pD)
@@ -497,7 +499,8 @@ void selfg_fc(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_init: initialize pointer to appropriate self-gravity f'n, 
+/*! \fn VDFun_t selfg_init(MeshS *pM)
+ *  \brief Initialize pointer to appropriate self-gravity f'n, 
  *   allocates memory for dPhi array used for flux correction.
  */
 

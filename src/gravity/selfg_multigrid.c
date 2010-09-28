@@ -1,22 +1,21 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: selfg_multigrid.c
- *
- * PURPOSE: Contains functions to solve Poisson's equation for self-gravity in
+/*============================================================================*/
+/*! \file selfg_multigrid.c
+ *  \brief Contains functions to solve Poisson's equation for self-gravity in
  *   3D using multigrid.
  *
  *   These functions work for non-periodic domains.  A low-order multipole
  *   expansion is used to compute the potential on the boundaries.
  *
  * HISTORY:
- *   june-2007 - 2D and 3D solvers written by Irene Balmes
- *   july-2007 - routines incorporated into Athena by JMS and IB
+ * - june-2007 - 2D and 3D solvers written by Irene Balmes
+ * - july-2007 - routines incorporated into Athena by JMS and IB
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   selfg_by_multig_2d() - 2D Poisson solver using multigrid
- *   selfg_by_multig_3d() - 3D Poisson solver using multigrid
- *   selfg_by_multig_3d_init() - Initializes send/receive buffers for MPI
- *============================================================================*/
+ * - selfg_by_multig_2d() - 2D Poisson solver using multigrid
+ * - selfg_by_multig_3d() - 3D Poisson solver using multigrid
+ * - selfg_by_multig_3d_init() - Initializes send/receive buffers for MPI */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -40,7 +39,8 @@
 static double *send_buf=NULL, *recv_buf=NULL;
 #endif
 
-/* MGrid structure; holds RHS, potential, and information about grid
+/*! \struct MGrid
+ *  \brief Holds RHS, potential, and information about grid
  * size for a given level in the multi-grid hierarchy  */
 typedef struct MGrid_s{
   Real ***rhs,***Phi;  /* RHS of elliptic equation, and solution */
@@ -80,7 +80,8 @@ void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_1d:
+/*! \fn void selfg_multig_1d(DomainS *pD)
+ *  \brief 1-D multigrid gravity
  */
 
 void selfg_multig_1d(DomainS *pD)
@@ -90,7 +91,8 @@ void selfg_multig_1d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_2d:
+/*! \fn void selfg_multig_2d(DomainS *pD)
+ *  \brief 2-D multigrid gravity
  */
 
 void selfg_multig_2d(DomainS *pD)
@@ -100,7 +102,8 @@ void selfg_multig_2d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_3d:  Do not use with periodic BCs, uses multipole expansion
+/*! \fn void selfg_multig_3d(DomainS *pD)
+ *  \brief Do not use with periodic BCs, uses multipole expansion
  *   to compute potential at boundary
  */
 
@@ -288,7 +291,8 @@ void selfg_multig_3d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Functions needed for the multigrid solver in 3D
+/*! \fn void multig_3d(MGrid *pMG)
+ *  \brief Functions needed for the multigrid solver in 3D
  */
 
 void multig_3d(MGrid *pMG)
@@ -367,7 +371,10 @@ void multig_3d(MGrid *pMG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_3d:  Do not use with periodic BCs, uses multipole expansion
+/*! \fn void Jacobi(MGrid *pMG)
+ *  \brief Jacobi iterations. 
+ *
+ *   Do not use with periodic BCs, uses multipole expansion
  *   to compute potential at boundary
  */
 void Jacobi(MGrid *pMG)
@@ -435,7 +442,8 @@ void Jacobi(MGrid *pMG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Restriction_3d: Averages fine grid solution onto coarse
+/*! \fn void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse) 
+ *  \brief Averages fine grid solution onto coarse
  */
 
 void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse)
@@ -482,7 +490,8 @@ void Restriction_3d(MGrid *pMG_fine, MGrid *pMG_coarse)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Prolongation_3d: linear interpolation of coarse grid onto fine  
+/*! \fn void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
+ *  \brief Linear interpolation of coarse grid onto fine  
  */
 void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
 {
@@ -523,7 +532,9 @@ void Prolongation_3d(MGrid *pMG_coarse, MGrid *pMG_fine)
 }
 
 /*----------------------------------------------------------------------------*/
-/* set_mg_bvals:  sets BC for Jacobi iterates for MPI parallel jobs.
+/*! \fn void set_mg_bvals(MGrid *pMG)
+ *  \brief Sets BC for Jacobi iterates for MPI parallel jobs.
+ *
  *   With self-gravity using multigrid, the boundary conditions at the edge of
  *   the Domain are held fixed.  So only ghostzones associated with internal
  *   boundaries between MPI grids need to be passed.
@@ -689,7 +700,9 @@ void set_mg_bvals(MGrid *pMG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SWAP of boundary conditions, Inner x1 boundary
+/*! \fn void swap_mg_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+ *  \brief MPI_SWAP of boundary conditions, Inner x1 boundary
+ *
  *   This function does either a send (swap_flag=0), or receive (swap_flag=1)
  *   Largely copied from set_bvals/send_ix1 and set_bvals/receive_ix1
  */
@@ -745,7 +758,9 @@ void swap_mg_ix1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SWAP of boundary conditions, Outer x1 boundary
+/*! \fn void swap_mg_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+ *  \brief MPI_SWAP of boundary conditions, Outer x1 boundary
+ *
  *   This function does either a send (swap_flag=0), or receive (swap_flag=1)
  *   Largely copied from set_bvals/send_ox1 and set_bvals/receive_ox1
  */
@@ -801,7 +816,9 @@ void swap_mg_ox1(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SWAP of boundary conditions, Inner x2 boundary
+/*! \fn void swap_mg_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+ *  \brief MPI_SWAP of boundary conditions, Inner x2 boundary
+ *
  *   This function does either a send (swap_flag=0), or receive (swap_flag=1)
  *   Largely copied from set_bvals/send_ix2 and set_bvals/receive_ix2
  */
@@ -856,7 +873,9 @@ void swap_mg_ix2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SWAP of boundary conditions, Outer x2 boundary
+/*! \fn void swap_mg_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+ *  \brief MPI_SWAP of boundary conditions, Outer x2 boundary
+ *
  *   This function does either a send (swap_flag=0), or receive (swap_flag=1)
  *   Largely copied from set_bvals/send_ix2 and set_bvals/receive_ix2
  */
@@ -911,7 +930,9 @@ void swap_mg_ox2(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SWAP of boundary conditions, Inner x3 boundary
+/*! \fn void swap_mg_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+ *  \brief MPI_SWAP of boundary conditions, Inner x3 boundary
+ *
  *   This function does either a send (swap_flag=0), or receive (swap_flag=1)
  *   Largely copied from set_bvals/send_ix3 and set_bvals/receive_ix3
  */
@@ -961,7 +982,9 @@ void swap_mg_ix3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 }
 
 /*----------------------------------------------------------------------------*/
-/* MPI_SWAP of boundary conditions, Outer x3 boundary
+/*! \fn void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
+ *  \brief MPI_SWAP of boundary conditions, Outer x3 boundary
+ *
  *   This function does either a send (swap_flag=0), or receive (swap_flag=1)
  *   Largely copied from set_bvals/send_ix1 and set_bvals/receive_ix1
  */
@@ -1012,7 +1035,8 @@ void swap_mg_ox3(MGrid *pMG, int cnt, int swap_flag, MPI_Request *prq)
 #endif /* MPI_PARALLEL */
 
 /*----------------------------------------------------------------------------*/
-/* selfg_by_multig_3d_init: initialize send/receive buffers needed to swap
+/*! \fn void selfg_multig_3d_init(MeshS *pM)
+ *  \brief Initialize send/receive buffers needed to swap
  *   iterates during Jacobi iterations.
  */
 

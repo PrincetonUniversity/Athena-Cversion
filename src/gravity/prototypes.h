@@ -1,11 +1,10 @@
 #ifndef GRAVITY_PROTOTYPES_H
 #define GRAVITY_PROTOTYPES_H 
 #include "../copyright.h"
-/*==============================================================================
- * FILE: prototypes.h (in /src/gravity)
- *
- * PURPOSE: Prototypes for all public functions in the /src/gravity directory
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions in the /src/gravity directory */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"

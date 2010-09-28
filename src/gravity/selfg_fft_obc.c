@@ -1,23 +1,22 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: selfg_fft_obc.c
- *
- * PURPOSE: Contains functions to solve Poisson's equation for self-gravity in
+/*============================================================================*/
+/*! \file selfg_fft_obc.c
+ *  \brief Contains functions to solve Poisson's equation for self-gravity in
  *   3D using FFTs, using OPEN BCs in all three directions 
  *
  *
  *   The function uses FFTW3.x, and for MPI parallel use Steve Plimpton's
  *   block decomposition routines added by N. Lemaster to /athena/fftsrc.
  *   This means to use these fns the code must be
- *     (1) configured with --with-gravity=fft_obc --enable-fft
- *     (2) compiled with links to FFTW libraries (may need to edit Makeoptions)
+ *   - (1) configured with --with-gravity=fft_obc --enable-fft
+ *   - (2) compiled with links to FFTW libraries (may need to edit Makeoptions)
  *
  *   For PERIODIC BCs, use selfg_fft() functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   selfg_fft_obc_3d() - 3D Poisson solver using FFTs
- *   selfg_fft_obc_3d_init() - initializes FFT plans for 3D
- *============================================================================*/
+ * - selfg_fft_obc_3d() - 3D Poisson solver using FFTs
+ * - selfg_fft_obc_3d_init() - initializes FFT plans for 3D */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -44,8 +43,8 @@ static ath_fft_data *work=NULL;
 
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_3d:
- *   Only works for uniform grid, periodic boundary conditions
+/*! \fn void selfg_fft_obc_3d(DomainS *pD)
+ *  \brief Only works for uniform grid, periodic boundary conditions
  */
 
 void selfg_fft_obc_3d(DomainS *pD)
@@ -211,7 +210,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential in real space. */  
+   Add contribution to potential in real space.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -261,7 +260,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -314,7 +313,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -365,7 +364,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.  
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -417,7 +416,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -469,7 +468,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -521,7 +520,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -573,7 +572,7 @@ After these eight terms are done, result is added up and multiplied by
   ath_3d_fft(bplan3d, work);
 /* Multiply by [even or odd] exponential factors for i,j,k and 
    apply constant factor and normalization over total number of cells in Domain.
-   Add contribution to potential, keeping just the real part. */  
+   Add contribution to potential, keeping just the real part.   
  */
   for (k=ks; k<=ke; k++){
    for (j=js; j<=je; j++){
@@ -595,9 +594,9 @@ After these eight terms are done, result is added up and multiplied by
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_fft_3d_init:
- *   Initializes plans for forward/backward FFTs, and allocates memory needed
- *   by FFTW 
+/*! \fn void selfg_fft_3d_init(MeshS *pM)
+ *  \brief Initializes plans for forward/backward FFTs, and allocates memory 
+ *   needed by FFTW 
  *
  *   NOTE: for SMR, allocation of memory for Poisson kernel arrays 
  *      Geee, Gooo, Goee, Geoo, Geoe, Goeo, Geeo, Gooe 

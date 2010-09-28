@@ -1,18 +1,20 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: bvals_grav.c
+/*============================================================================*/
+/*! \file bvals_grav.c
+ *  \brief Sets boundary conditions (quantities in ghost zones) for the
+ *   gravitational potential on each edge of a Grid. 
  *
  * PURPOSE: Sets boundary conditions (quantities in ghost zones) for the
  *   gravitational potential on each edge of a Grid.  See comments at
  *   start of bvals_mhd.c for more details.
  * The only BC functions implemented here are for:
- *  1 = reflecting, 4 = periodic, and MPI boundaries
+ *- 1 = reflecting, 4 = periodic, and MPI boundaries
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   bvals_grav()      - calls appropriate functions to set ghost cells
- *   bvals_grav_init() - sets function pointers used by bvals_grav()
- *   bvals_grav_fun()  - enrolls a pointer to a user-defined BC function
- *============================================================================*/
+ * - bvals_grav()      - calls appropriate functions to set ghost cells
+ * - bvals_grav_init() - sets function pointers used by bvals_grav()
+ * - bvals_grav_fun()  - enrolls a pointer to a user-defined BC function */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,7 +79,10 @@ static void unpack_Phi_ox3(GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* bvals_grav: calls appropriate functions to set ghost zones.  The function
+/*! \fn void bvals_grav(DomainS *pD)
+ *  \brief Calls appropriate functions to set ghost zones.  
+ *
+ *   The function
  *   pointers (*_GBCFun) are set during initialization by bvals_grav_init() to
  *   be one of the functions corresponding to reflecting or periodic.  If the
  *   left- or right-Grid ID numbers are >= 1 (neighboring grids exist), then MPI
@@ -405,7 +410,8 @@ void bvals_grav(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* bvals_grav_init:  sets function pointers for physical boundaries during
+/*! \fn void bvals_grav_init(MeshS *pM) 
+ *  \brief Sets function pointers for physical boundaries during
  *   initialization, allocates memory for send/receive buffers with MPI
  */
 
@@ -761,7 +767,8 @@ void bvals_grav_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* bvals_grav_fun: sets function pointers for user-defined BCs in problem 
+/*! \fn void bvals_grav_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
+ *  \brief Sets function pointers for user-defined BCs in problem 
  */
 
 void bvals_grav_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
@@ -802,7 +809,8 @@ void bvals_grav_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
  */
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1)
+/*! \fn static void reflect_Phi_ix1(GridS *pGrid)
+ *  \brief REFLECTING boundary conditions, Inner x1 boundary (ibc_x1=1)
  */
 
 static void reflect_Phi_ix1(GridS *pGrid)
@@ -824,7 +832,8 @@ static void reflect_Phi_ix1(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x1 boundary (obc_x1=1)
+/*! \fn static void reflect_Phi_ox1(GridS *pGrid)
+ *  \brief REFLECTING boundary conditions, Outer x1 boundary (obc_x1=1)
  */
 
 static void reflect_Phi_ox1(GridS *pGrid)
@@ -846,7 +855,8 @@ static void reflect_Phi_ox1(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1)
+/*! \fn static void reflect_Phi_ix2(GridS *pGrid)
+ *  \brief REFLECTING boundary conditions, Inner x2 boundary (ibc_x2=1)
  */
 
 static void reflect_Phi_ix2(GridS *pGrid)
@@ -868,7 +878,8 @@ static void reflect_Phi_ix2(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x2 boundary (obc_x2=1)
+/*! \fn static void reflect_Phi_ox2(GridS *pGrid)
+ *  \brief REFLECTING boundary conditions, Outer x2 boundary (obc_x2=1)
  */
 
 static void reflect_Phi_ox2(GridS *pGrid)
@@ -890,7 +901,8 @@ static void reflect_Phi_ox2(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1)
+/*! \fn static void reflect_Phi_ix3(GridS *pGrid)
+ *  \brief REFLECTING boundary conditions, Inner x3 boundary (ibc_x3=1)
  */
 
 static void reflect_Phi_ix3(GridS *pGrid)
@@ -912,7 +924,8 @@ static void reflect_Phi_ix3(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* REFLECTING boundary conditions, Outer x3 boundary (obc_x3=1)
+/*! \fn static void reflect_Phi_ox3(GridS *pGrid)
+ *  \brief REFLECTING boundary conditions, Outer x3 boundary (obc_x3=1)
  */
 
 static void reflect_Phi_ox3(GridS *pGrid)
@@ -934,7 +947,8 @@ static void reflect_Phi_ox3(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
+/*! \fn static void periodic_Phi_ix1(GridS *pGrid)
+ *  \brief PERIODIC boundary conditions, Inner x1 boundary (ibc_x1=4)
  */
 
 static void periodic_Phi_ix1(GridS *pGrid)
@@ -956,7 +970,8 @@ static void periodic_Phi_ix1(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Outer x1 boundary (obc_x1=4)
+/*! \fn static void periodic_Phi_ox1(GridS *pGrid)
+ *  \brief PERIODIC boundary conditions (cont), Outer x1 boundary (obc_x1=4)
  */
 
 static void periodic_Phi_ox1(GridS *pGrid)
@@ -978,7 +993,8 @@ static void periodic_Phi_ox1(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Inner x2 boundary (ibc_x2=4)
+/*! \fn static void periodic_Phi_ix2(GridS *pGrid)
+ *  \brief PERIODIC boundary conditions (cont), Inner x2 boundary (ibc_x2=4)
  */
 
 static void periodic_Phi_ix2(GridS *pGrid)
@@ -999,7 +1015,8 @@ static void periodic_Phi_ix2(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Outer x2 boundary (obc_x2=4)
+/*! \fn static void periodic_Phi_ox2(GridS *pGrid)
+ *  \brief PERIODIC boundary conditions (cont), Outer x2 boundary (obc_x2=4)
  */
 
 static void periodic_Phi_ox2(GridS *pGrid)
@@ -1021,7 +1038,8 @@ static void periodic_Phi_ox2(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Inner x3 boundary (ibc_x3=4)
+/*! \fn static void periodic_Phi_ix3(GridS *pGrid)
+ *  \brief PERIODIC boundary conditions (cont), Inner x3 boundary (ibc_x3=4)
  */
 
 static void periodic_Phi_ix3(GridS *pGrid)
@@ -1043,7 +1061,8 @@ static void periodic_Phi_ix3(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PERIODIC boundary conditions (cont), Outer x3 boundary (obc_x3=4)
+/*! \fn static void periodic_Phi_ox3(GridS *pGrid)
+ *  \brief PERIODIC boundary conditions (cont), Outer x3 boundary (obc_x3=4)
  */
 
 static void periodic_Phi_ox3(GridS *pGrid)
@@ -1065,7 +1084,10 @@ static void periodic_Phi_ox3(GridS *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PROLONGATION boundary conditions.  Nothing is actually done here, the
+/*! \fn static void ProlongateLater(GridS *pGrid)
+ *  \brief PROLONGATION boundary conditions.  
+ *
+ * Nothing is actually done here, the
  * prolongation is actually handled in ProlongateGhostZones in main loop, so
  * this is just a NoOp Grid function.  */
 
@@ -1076,7 +1098,8 @@ static void ProlongateLater(GridS *pGrid)
 
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs; ~550 lines */
 /*----------------------------------------------------------------------------*/
-/* PACK boundary conditions for MPI_Isend, Inner x1 boundary */
+/*! \fn static void pack_Phi_ix1(GridS *pG)
+ *  \brief PACK boundary conditions for MPI_Isend, Inner x1 boundary */
 
 static void pack_Phi_ix1(GridS *pG)
 {
@@ -1099,7 +1122,8 @@ static void pack_Phi_ix1(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PACK boundary conditions for MPI_Isend, Outer x1 boundary */
+/*! \fn static void pack_Phi_ox1(GridS *pG)
+ *  \brief PACK boundary conditions for MPI_Isend, Outer x1 boundary */
 
 static void pack_Phi_ox1(GridS *pG)
 {
@@ -1122,7 +1146,8 @@ static void pack_Phi_ox1(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PACK boundary conditions for MPI_Isend, Inner x2 boundary */
+/*! \fn static void pack_Phi_ix2(GridS *pG)
+ *  \brief PACK boundary conditions for MPI_Isend, Inner x2 boundary */
 
 static void pack_Phi_ix2(GridS *pG)
 {
@@ -1145,7 +1170,8 @@ static void pack_Phi_ix2(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PACK boundary conditions for MPI_Isend, Outer x2 boundary */
+/*! \fn static void pack_Phi_ox2(GridS *pG)
+ *  \brief PACK boundary conditions for MPI_Isend, Outer x2 boundary */
 
 static void pack_Phi_ox2(GridS *pG)
 {
@@ -1169,7 +1195,8 @@ static void pack_Phi_ox2(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PACK boundary conditions for MPI_Isend, Inner x3 boundary */
+/*! \fn static void pack_Phi_ix3(GridS *pG)
+ *  \brief PACK boundary conditions for MPI_Isend, Inner x3 boundary */
 
 static void pack_Phi_ix3(GridS *pG)
 {
@@ -1198,7 +1225,8 @@ static void pack_Phi_ix3(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* PACK boundary conditions for MPI_Isend, Outer x3 boundary */
+/*! \fn static void pack_Phi_ox3(GridS *pG)
+ *  \brief PACK boundary conditions for MPI_Isend, Outer x3 boundary */
 
 static void pack_Phi_ox3(GridS *pG)
 {
@@ -1222,7 +1250,8 @@ static void pack_Phi_ox3(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* UNPACK boundary conditions after MPI_Irecv, Inner x1 boundary */
+/*! \fn static void unpack_Phi_ix1(GridS *pG)
+ *  \brief UNPACK boundary conditions after MPI_Irecv, Inner x1 boundary */
 
 static void unpack_Phi_ix1(GridS *pG)
 {
@@ -1246,7 +1275,8 @@ static void unpack_Phi_ix1(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* UNPACK boundary conditions after MPI_Irecv, Outer x1 boundary */
+/*! \fn static void unpack_Phi_ox1(GridS *pG)
+ *  \brief UNPACK boundary conditions after MPI_Irecv, Outer x1 boundary */
 
 static void unpack_Phi_ox1(GridS *pG)
 {
@@ -1270,7 +1300,8 @@ static void unpack_Phi_ox1(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* UNPACK boundary conditions after MPI_Irecv, Inner x2 boundary */
+/*! \fn static void unpack_Phi_ix2(GridS *pG)
+ *  \brief UNPACK boundary conditions after MPI_Irecv, Inner x2 boundary */
 
 static void unpack_Phi_ix2(GridS *pG)
 {
@@ -1294,7 +1325,8 @@ static void unpack_Phi_ix2(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* UNPACK boundary conditions after MPI_Irecv, Outer x2 boundary */
+/*! \fn static void unpack_Phi_ox2(GridS *pG)
+ *  \brief UNPACK boundary conditions after MPI_Irecv, Outer x2 boundary */
 
 static void unpack_Phi_ox2(GridS *pG)
 {
@@ -1318,7 +1350,8 @@ static void unpack_Phi_ox2(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* UNPACK boundary conditions after MPI_Irecv, Inner x3 boundary */
+/*! \fn static void unpack_Phi_ix3(GridS *pG)
+ *  \brief UNPACK boundary conditions after MPI_Irecv, Inner x3 boundary */
 
 static void unpack_Phi_ix3(GridS *pG)
 {
@@ -1342,7 +1375,8 @@ static void unpack_Phi_ix3(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* UNPACK boundary conditions after MPI_Irecv, Outer x3 boundary */
+/*! \fn static void unpack_Phi_ox3(GridS *pG)
+ *  \brief UNPACK boundary conditions after MPI_Irecv, Outer x3 boundary */
 
 static void unpack_Phi_ox3(GridS *pG)
 {
