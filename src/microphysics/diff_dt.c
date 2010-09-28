@@ -1,18 +1,19 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: diff_dt.c
+/*============================================================================*/
+/*! \file diff_dt.c
+ *  \brief Computes diffusion timestep using CFL condition, for all diffusive
+ *   processes currently implemented in code. 
  *
- * PURPOSE: Computes diffusion timestep using CFL condition, for all diffusive
- *   processes currently implemented in code.  These include:
- *     * Ohmic dissipation, Hall effect, ambipolar diffusion
- *     * Navier-Stokes and Braginskii viscosity
- *     * isotropic and anisotropic thermal conduction
+ *  These include:
+ *     - Ohmic dissipation, Hall effect, ambipolar diffusion
+ *     - Navier-Stokes and Braginskii viscosity
+ *     - isotropic and anisotropic thermal conduction
  *   With MPI parallel jobs, finds minimum dt across all processors.
  *   Function returns minimum diffusion dt.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   diff_dt()  - computes dt
- *============================================================================*/
+ * - diff_dt()  - computes dt */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <math.h>
@@ -23,8 +24,8 @@
 #include "../prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* diff_dt:  */
-
+/*! \fn Real diff_dt(MeshS *pM)
+ *  \brief Computes diffusion timestep */
 Real diff_dt(MeshS *pM)
 {
   int irefine, ir;

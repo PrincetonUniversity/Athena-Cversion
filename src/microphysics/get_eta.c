@@ -1,37 +1,37 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: get_eta.c
+/*============================================================================*/
+/*! \file get_eta.c
+ *  \brief Functions to calculate the diffusion coefficients for resistivity.
  *
- * PURPOSE: Functions to calculate the diffusion coefficients for resistivity.
  *   We provide two standard prescriptions, divided into 3 cases:
  *
- *   A. Single ion prescription (eq. 21 of Balbus & Terquem 2001, ApJ):
+ * - A. Single ion prescription (eq. 21 of Balbus & Terquem 2001, ApJ):
  *      E = eta_Ohm*J + (JxB)/(4pi*n_e*e/c) - [(JxB)xB]/(4pi*gamma*rho_i*rho)
  *
- *      CASE 1: eta_Ohm is constant and n_e and rho_i are proportional to gas
+ *   -#   CASE 1: eta_Ohm is constant and n_e and rho_i are proportional to gas
  *   density rho. The user needs to provide eta_Ohm and two proportional
  *   coefficients Q_Hall and Q_AD, which are defined in global.h.
  *
- *      CASE 2: The user provides his/her own function to evaluate the etas,
+ *   -#   CASE 2: The user provides his/her own function to evaluate the etas,
  *   e.g., spatially variable diffussivity, or adopting some chemical model.
  *   The (blank) function is given in the problem generator.
  *
- *   B. Generalized prescription (eq. 25-31 of Wardle 2007, ApSS):
+ *-  B. Generalized prescription (eq. 25-31 of Wardle 2007, ApSS):
  *      E = eta_Ohm*J + eta_Hall*(JxB)/B + eta_AD*J_perp
  *   where eta_Ohm, eta_Hall and eta_AD are determined by sigma_O, sigma_H and
  *   sigma_P.
  *
- *      CASE 3: The user provides his/her own function to calculate the sigmas,
+ *   -#  CASE 3: The user provides his/her own function to calculate the sigmas,
  *   e.g., from non-equilibrium chemistry to evaluate them self-consistently.
  *   The (blank) function is given in the problem generator.
  *
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *  get_eta()          - main function call to get magnetic diffusivities
- *  eta_single_const() - constant diffusivities for single ion prescription
- *  eta_single_user()  - user defined diffusivities for single ion prescription
- *  eta_general_user() - user defined diffusivities for general prescription
- *============================================================================*/
+ *- get_eta()          - main function call to get magnetic diffusivities
+ *- eta_single_const() - constant diffusivities for single ion prescription
+ *- eta_single_user()  - user defined diffusivities for single ion prescription
+ *- eta_general_user() - user defined diffusivities for general prescription */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -57,7 +57,8 @@ void convert_diffusion(Real sigma_O, Real sigma_H, Real sigma_P,
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* Get magnetic diffusivities
+/*! \fn void get_eta(GridS *pG)
+ *  \brief Get magnetic diffusivities
  */
 void get_eta(GridS *pG)
 {
@@ -95,7 +96,10 @@ void get_eta(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Single-ion prescription with constant diffusivities
+/*! \fn void eta_single_const(GridS *pG, int i, int j, int k,
+ *                             Real *eta_O, Real *eta_H, Real *eta_A)
+ *  \brief Single-ion prescription with constant diffusivities
+ *
  * NEED global parameters: eta_Ohm, Q_Hall and Q_AD.
  * ONLY eta_Ohm has the dimension of diffusivity.
  * This correspond to CASE 1.
@@ -122,7 +126,10 @@ void eta_single_const(GridS *pG, int i, int j, int k,
 }
 
 /*----------------------------------------------------------------------------*/
-/* Single-ion prescription with user defined diffusivities
+/*! \fn void eta_single_user(GridS *pG, int i, int j, int k,
+ *                             Real *eta_O, Real *eta_H, Real *eta_A)
+ *  \brief Single-ion prescription with user defined diffusivities
+ *
  * This corresponds to CASE 2.
  */
 
@@ -136,7 +143,10 @@ void eta_single_user(GridS *pG, int i, int j, int k,
 }
 
 /*----------------------------------------------------------------------------*/
-/* Generalized prescription with user defined conductivities
+/*! \fn void eta_general_user(GridS *pG, int i, int j, int k,
+ *                             Real *eta_O, Real *eta_H, Real *eta_A)
+ *  \brief Generalized prescription with user defined conductivities
+ *
  * This corresponds to CASE 3.
  * Note the same get_eta_user() function is used to calculate conductivities
  * rather than diffusivities here.
@@ -156,7 +166,10 @@ void eta_general_user(GridS *pG, int i, int j, int k,
 
 
 /*----------------------------------------------------------------------------*/
-/* Convert conductivities to diffusivities
+/*! \fn void convert_diffusion(Real sigma_O, Real sigma_H, Real sigma_P,
+ *                     Real *eta_O,  Real *eta_H,  Real *eta_A )
+ *  \brief Convert conductivities to diffusivities
+ *
  * NOTE: c^2/4pi factor is NOT included, so (eta x sigma) is dimensionless.
  * The conductivity coefficients should have the right dimension.
  */

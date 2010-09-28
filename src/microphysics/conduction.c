@@ -1,21 +1,25 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: conduction.c
- *
- * PURPOSE: Adds explicit thermal conduction term to the energy equation,
+/*============================================================================*/
+/*! \file conduction.c
+ *  \brief Adds explicit thermal conduction term to the energy equation,
  *      dE/dt = Div(Q)
- *   where Q = kappa_iso Grad(T) + kappa_aniso([b Dot Grad(T)]b) = heat flux
- *         T = (P/d)*(mbar/k_B) = temperature
- *         b = magnetic field unit vector
- *   Here kappa_iso   is the coeffcient for   isotropic conduction
- *        kappa_aniso is the coeffcient for anisotropic conduction
+ *
+ *   where 
+ *    - Q = kappa_iso Grad(T) + kappa_aniso([b Dot Grad(T)]b) = heat flux
+ *    -    T = (P/d)*(mbar/k_B) = temperature
+ *    -    b = magnetic field unit vector
+ *
+ *   Here 
+ *    - kappa_iso   is the coeffcient for   isotropic conduction
+ *    -   kappa_aniso is the coeffcient for anisotropic conduction
+ *
  *   The heat flux Q is calculated by calls to HeatFlux_* functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   conduction() - updates energy equation with thermal conduction
- *   conduction_init() - allocates memory needed
- *   conduction_destruct() - frees memory used
- *============================================================================*/
+ * - conduction() - updates energy equation with thermal conduction
+ * - conduction_init() - allocates memory needed
+ * - conduction_destruct() - frees memory used */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -46,9 +50,9 @@ void HeatFlux_aniso(DomainS *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* conduct:
+/*! \fn void conduction(DomainS *pD)
+ *  \brief Explicit thermal conduction
  */
-
 void conduction(DomainS *pD)
 {
   GridS *pG = (pD->Grid);
@@ -138,7 +142,8 @@ void conduction(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* HeatFlux_iso: calculate heat fluxes with isotropic conduction
+/*! \fn void HeatFlux_iso(DomainS *pD)
+ *  \brief Calculate heat fluxes with isotropic conduction
  */
 
 void HeatFlux_iso(DomainS *pD)
@@ -183,7 +188,8 @@ void HeatFlux_iso(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* HeatFlux_aniso: calculate heat fluxes with anisotropic conduction
+/*! \fn void HeatFlux_aniso(DomainS *pD)
+ *  \brief Calculate heat fluxes with anisotropic conduction
  */
 
 void HeatFlux_aniso(DomainS *pD)
@@ -366,7 +372,8 @@ void HeatFlux_aniso(DomainS *pD)
 
 
 /*----------------------------------------------------------------------------*/
-/* conduction_init: Allocate temporary arrays
+/*! \fn void conduction_init(MeshS *pM) 
+ *  \brief Allocate temporary arrays
  */
 
 void conduction_init(MeshS *pM)
@@ -415,7 +422,8 @@ void conduction_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* conduction_destruct: Free temporary arrays
+/*! \fn void conduction_destruct(void)
+ *  \brief Free temporary arrays
  */
 
 void conduction_destruct(void)

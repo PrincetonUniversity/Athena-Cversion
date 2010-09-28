@@ -1,20 +1,23 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: viscosity.c
+/*============================================================================*/
+/*! \file viscosity.c
+ *  \brief Adds explicit viscosity terms to the momentum and energy equations
  *
  * PURPOSE: Adds explicit viscosity terms to the momentum and energy equations,
- *      dM/dt = Div(T)    
- *      dE/dt = Div(v.T)
- *   where T = nu_iso Grad(V) + T_Brag = TOTAl viscous stress tensor
+ *  -   dM/dt = Div(T)    
+ *  -   dE/dt = Div(v.T)
+ *   where 
+ *  - T = nu_iso Grad(V) + T_Brag = TOTAl viscous stress tensor
+ *
  *   Note T contains contributions from both isotropic (Navier-Stokes) and
  *   anisotropic (Braginskii) viscosity.  These contributions are computed in
  *   calls to ViscStress_* functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *  viscosity() - updates momentum and energy equations with viscous terms
- *  viscosity_init() - allocates memory needed
- *  viscosity_destruct() - frees memory used
- *============================================================================*/
+ *- viscosity() - updates momentum and energy equations with viscous terms
+ *- viscosity_init() - allocates memory needed
+ *- viscosity_destruct() - frees memory used */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -26,7 +29,8 @@
 
 #ifdef VISCOSITY
 
-/* Structure to contain 4-components of the viscous fluxes */
+/*! \struct ViscFluxS
+ *  \brief Structure to contain 4-components of the viscous fluxes */
 typedef struct ViscFlux_t{
   Real Mx;
   Real My;
@@ -51,7 +55,8 @@ void ViscStress_aniso(DomainS *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* viscosity:
+/*! \fn void viscosity(DomainS *pD)
+ *  \brief Adds explicit viscosity terms to the momentum and energy equations
  */
 
 void viscosity(DomainS *pD)
@@ -197,7 +202,8 @@ void viscosity(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ViscStress_iso: calculate viscous stresses with isotropic (NS) viscosity
+/*! \fn void ViscStress_iso(DomainS *pD)
+ *  \brief Calculate viscous stresses with isotropic (NS) viscosity
  */
 
 void ViscStress_iso(DomainS *pD)
@@ -313,7 +319,8 @@ void ViscStress_iso(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ViscStress_aniso: calculate viscous stresses with anisotropic (Braginskii)
+/*! \fn void ViscStress_aniso(DomainS *pD) 
+ *  \brief Calculate viscous stresses with anisotropic (Braginskii)
  *  viscosity */
 
 void ViscStress_aniso(DomainS *pD)
@@ -740,7 +747,8 @@ void ViscStress_aniso(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* viscosity_init: Allocate temporary arrays
+/*! \fn void viscosity_init(MeshS *pM)
+ *  \brief Allocate temporary arrays
  */
 
 void viscosity_init(MeshS *pM)
@@ -797,7 +805,8 @@ void viscosity_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* viscosity_destruct: Free temporary arrays
+/*! \fn void viscosity_destruct(void) 
+ *  \brief Free temporary arrays
  */      
 
 void viscosity_destruct(void)

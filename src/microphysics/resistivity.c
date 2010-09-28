@@ -1,24 +1,26 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: resistivity.c
+/*============================================================================*/
+/*! \file resistivity.c
+ *  \brief Adds explicit resistivity terms to the induction and energy eqns
  *
  * PURPOSE: Adds explicit resistivity terms to the induction and energy eqns,
- *      dB/dt = -Curl(E)
- *      dE/dt = Div(B X E)
- *   where E = eta_Ohm J + eta_Hall(J X B)/B + eta_AD J_perp = (emf) 
- *         J = Curl(B) = current density
- *         eta_Ohm = Ohmic resistivity
- *         eta_Hall = Hall diffusion coefficient
- *         eta_AD = ambipolar diffusion coefficient
+ *  -   dB/dt = -Curl(E)
+ *  -   dE/dt = Div(B X E)
+ *   where 
+ *  -	E = eta_Ohm J + eta_Hall(J X B)/B + eta_AD J_perp = (emf) 
+ *  -      J = Curl(B) = current density
+ *  -      eta_Ohm = Ohmic resistivity
+ *  -      eta_Hall = Hall diffusion coefficient
+ *  -      eta_AD = ambipolar diffusion coefficient
  *   The induction equation is updated using CT to keep div(B)=0.  The total
  *   electric field (resistive EMF) is computed from calls to the EField_*
  *   functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *  resistivity() - updates induction and energy eqns with resistive term.
- *  resistivity_init() - allocates memory needed
- *  resistivity_destruct() - frees memory used
- *============================================================================*/
+ *- resistivity() - updates induction and energy eqns with resistive term.
+ *- resistivity_init() - allocates memory needed
+ *- resistivity_destruct() - frees memory used				      */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -58,7 +60,8 @@ void hyper_diffusion6(DomainS *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* resistivity:
+/*! \fn void resistivity(DomainS *pD)
+ *  \brief Explicit resistivity
  */
 
 void resistivity(DomainS *pD)
@@ -343,7 +346,8 @@ void resistivity(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* EField_Ohm:  Resistive EMF from Ohmic dissipation.   E = \eta_Ohm J
+/*! \fn void EField_Ohm(DomainS *pD)
+ *  \brief Resistive EMF from Ohmic dissipation.   E = \eta_Ohm J
  */
 
 void EField_Ohm(DomainS *pD)
@@ -421,9 +425,9 @@ void EField_Ohm(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* EField_Hall:  Resistive EMF from Hall effect.  E = Q_H (J X B)
+/*! \fn void EField_Hall(DomainS *pD)
+ *  \brief Resistive EMF from Hall effect.  E = Q_H (J X B)
  */
-
 void EField_Hall(DomainS *pD)
 {
   GridS *pG = (pD->Grid);
@@ -555,7 +559,9 @@ void EField_Hall(DomainS *pD)
 
 }
 
-/* Update the Hall emfs (subroutine for the Hall calculation) */
+/*! \fn void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
+ *                                Real3Vect ***emfs, int noff)
+ *  \brief Update the Hall emfs (subroutine for the Hall calculation) */
 void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
                                   Real3Vect ***emfs, int noff)
 {
@@ -675,9 +681,9 @@ void EField_Hall_sub(DomainS *pD, Real3Vect ***Bs, Real3Vect ***Js,
 }
 
 /*----------------------------------------------------------------------------*/
-/* EField_AD:  Resistive EMF from ambipolar diffusion.  E = Q_AD (J X B) X B
+/*! \fn void EField_AD(DomainS *pD)
+ *  \brief Resistive EMF from ambipolar diffusion.  E = Q_AD (J X B) X B
  */
-
 void EField_AD(DomainS *pD)
 {
   GridS *pG = (pD->Grid);
@@ -853,7 +859,8 @@ void EField_AD(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* hyper_diffusion: calculate the higher-order derivatives of J
+/*! \fn void hyper_diffusion6(DomainS *pD)
+ *  \brief Calculate the higher-order derivatives of J -- 6th order diffusion
  */
 
 /* 6th order diffusion */
@@ -977,7 +984,8 @@ void hyper_diffusion6(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* resistivity_init: Allocate temporary arrays
+/*! \fn void resistivity_init(MeshS *pM) 
+ *  \brief Allocate temporary arrays
  */
 
 void resistivity_init(MeshS *pM)
@@ -1059,9 +1067,9 @@ void resistivity_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* resistivity_destruct: Free temporary arrays
+/*! \fn void resistivity_destruct()
+ *  \brief Free temporary arrays
  */
-
 void resistivity_destruct()
 {
   get_myeta = NULL;

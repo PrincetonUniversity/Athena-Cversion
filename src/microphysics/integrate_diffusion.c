@@ -1,15 +1,14 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_diffusion.c
- *
- * PURPOSE: Contains public functions to integrate explicit diffusion terms
+/*============================================================================*/
+/*! \file integrate_diffusion.c
+ *  \brief Contains public functions to integrate explicit diffusion terms
  *   using operator splitting.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_diff() - calls functions for each diffusion operator
- *   integrate_diff_init() - allocates memory for diff functions
- *   integrate_diff_destruct() - frees memory for diff functions
- *============================================================================*/
+ * - integrate_diff() - calls functions for each diffusion operator
+ * - integrate_diff_init() - allocates memory for diff functions
+ * - integrate_diff_destruct() - frees memory for diff functions */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +19,8 @@
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* integrate_diff:  called in main loop, sets timestep and/or orchestrates
+/*! \fn void integrate_diff(MeshS *pM)
+ *  \brief Called in main loop, sets timestep and/or orchestrates
  * subcycling, calls appropriate functions for each diffusion operator
  */
 
@@ -80,7 +80,8 @@ void integrate_diff(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_diff_init: call functions to allocate memory
+/*! \fn void integrate_diff_init(MeshS *pM)
+ *  \brief Call functions to allocate memory
  */
 
 void integrate_diff_init(MeshS *pM)
@@ -110,8 +111,8 @@ void integrate_diff_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct:  Frees memory associated with diffusion funcs  */
-
+/*! \fn void integrate_diff_destruct()
+ *  \brief Frees memory associated with diffusion funcs  */
 void integrate_diff_destruct()
 {
 #ifdef THERMAL_CONDUCTION
