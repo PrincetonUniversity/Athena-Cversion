@@ -1,28 +1,31 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_3d_vl.c
+/*============================================================================*/
+/*! \file integrate_3d_vl.c
+ *  \brief Integrate MHD equations using 3D version of the directionally
+ *   unsplit MUSCL-Hancock (VL) integrator.
  *
  * PURPOSE: Integrate MHD equations using 3D version of the directionally
  *   unsplit MUSCL-Hancock (VL) integrator.  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i, B3i  -- interface magnetic field
+ *    - U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *    - B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, and the H-correction
  *   of Sanders et al.
- *     For adb hydro, requires (9*Cons1DS + 3*Real + 1*ConsS) = 53 3D arrays
- *     For adb mhd, requires   (9*Cons1DS + 9*Real + 1*ConsS) = 80 3D arrays
+ *   - For adb hydro, requires (9*Cons1DS + 3*Real + 1*ConsS) = 53 3D arrays
+ *   - For adb mhd, requires   (9*Cons1DS + 9*Real + 1*ConsS) = 80 3D arrays
  *
- * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
+ * REFERENCE: 
+ * - J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
  *   for multidimensional MHD", NewA 14, 139 (2009)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d_vl()
- *   integrate_destruct_3d()
- *   integrate_init_3d()
- *============================================================================*/
+ * - integrate_3d_vl()
+ * - integrate_destruct_3d()
+ * - integrate_init_3d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -87,9 +90,9 @@ static void FixCell(GridS *pG, Int3Vect);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_3d: 3D van Leer unsplit integrator for MHD. 
+/*! \fn void integrate_3d_vl(DomainS *pD)
+ *  \brief 3D van Leer unsplit integrator for MHD. 
  */
-
 void integrate_3d_vl(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
@@ -1585,8 +1588,8 @@ void integrate_3d_vl(DomainS *pD)
 
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_3d: Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_3d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_3d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,size3=0,nl,nd;
@@ -1702,8 +1705,8 @@ void integrate_init_3d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_3d:  Free temporary integration arrays */
-
+/*! \fn void integrate_destruct_3d(void)
+ *  \brief Free temporary integration arrays */
 void integrate_destruct_3d(void)
 {
 #ifdef MHD
@@ -1763,20 +1766,20 @@ void integrate_destruct_3d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf1_corner()
- * integrate_emf2_corner()
- * integrate_emf3_corner()
- *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
- *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
- *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
- *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
- * first_order_correction() - Added by N. Lemaster to run supersonic turbulence
- */ 
 
 #ifdef MHD
+/*! \fn static void integrate_emf1_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *   Note:
+ *-  x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *-  x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *-  x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *-  x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ *-  x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ *-  x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
+ *- first_order_correction() - Added by N. Lemaster to run supersonic turbulence
+ */
 static void integrate_emf1_corner(const GridS *pG)
 {
   int i,il,iu,j,jl,ju,k,kl,ku;
@@ -1838,7 +1841,18 @@ static void integrate_emf1_corner(const GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-
+/*! \fn static void integrate_emf2_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *   Note:
+ *-  x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *-  x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *-  x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *-  x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ *-  x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ *-  x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
+ *- first_order_correction() - Added by N. Lemaster to run supersonic turbulence
+ */
 static void integrate_emf2_corner(const GridS *pG)
 {
   int i,il,iu,j,jl,ju,k,kl,ku;
@@ -1900,7 +1914,18 @@ static void integrate_emf2_corner(const GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-
+/*! \fn static void integrate_emf3_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *   Note:
+ *-  x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *-  x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *-  x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *-  x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ *-  x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ *-  x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
+ *- first_order_correction() - Added by N. Lemaster to run supersonic turbulence
+ */
 static void integrate_emf3_corner(const GridS *pG)
 {
   int i,il,iu,j,jl,ju,k,kl,ku;
@@ -1964,9 +1989,9 @@ static void integrate_emf3_corner(const GridS *pG)
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*----------------------------------------------------------------------------*/
-/* FixCell() - uses first order fluxes to fix negative d,P or superluminal v
+/*! \fn static void FixCell(GridS *pG, Int3Vect ix)
+ *  \brief Uses first order fluxes to fix negative d,P or superluminal v
  */ 
-
 static void FixCell(GridS *pG, Int3Vect ix)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;

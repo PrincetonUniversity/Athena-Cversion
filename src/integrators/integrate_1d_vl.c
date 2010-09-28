@@ -1,16 +1,18 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_1d_vl.c
+/*============================================================================*/
+/*! \file integrate_1d_vl.c
+ *  \brief Integrate MHD equations using 1D version of MUSCL-Hancock (VL)
+ *   integrator.
  *
  * PURPOSE: Integrate MHD equations using 1D version of MUSCL-Hancock (VL)
  *   integrator.  Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure.
  *   Adds gravitational source terms, self-gravity.
  *        
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_1d_vl()
- *   integrate_init_1d()
- *   integrate_destruct_1d()
- *============================================================================*/
+ * - integrate_1d_vl()
+ * - integrate_init_1d()
+ * - integrate_destruct_1d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -40,7 +42,9 @@ static ConsS *Uhalf=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_1d: 1D version of van Leer unsplit integrator for MHD. 
+/*! \fn void integrate_1d_vl(DomainS *pD)
+ *  \brief 1D version of van Leer unsplit integrator for MHD.  
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
@@ -402,8 +406,8 @@ void integrate_1d_vl(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_1d: Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_1d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_1d(MeshS *pM)
 {
   int size1=0,nl,nd;
@@ -445,8 +449,8 @@ void integrate_init_1d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_1d:  Free temporary integration arrays */
-
+/*! \fn void integrate_destruct_1d(void)
+ *  \brief Free temporary integration arrays */
 void integrate_destruct_1d(void)
 {
   if (Wl_x1Face != NULL) free(Wl_x1Face);

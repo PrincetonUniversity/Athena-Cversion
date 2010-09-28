@@ -1,36 +1,38 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_3d_ctu.c
+/*============================================================================*/
+/*! \file integrate_3d_ctu.c
+ *  \brief Integrate MHD equations using 3D version of the directionally
+ *   unsplit CTU integrator of Colella (1990). 
  *
  * PURPOSE: Integrate MHD equations using 3D version of the directionally
  *   unsplit CTU integrator of Colella (1990).  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i, B3i  -- interface magnetic field
+ *   -  U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *   -  B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically thin cooling,
  *   shearing box source terms, and the H-correction of Sanders et al.
- *     For adb hydro, requires (9*Cons1DS +  3*Real) = 48 3D arrays
- *     For adb mhd, requires   (9*Cons1DS + 10*Real) = 73 3D arrays
+ *   - For adb hydro, requires (9*Cons1DS +  3*Real) = 48 3D arrays
+ *   - For adb mhd, requires   (9*Cons1DS + 10*Real) = 73 3D arrays
  *   The H-correction of Sanders et al. adds another 3 arrays.  
  *
  * REFERENCES:
- *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
+ * - P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ * - T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
  *   constrained transport in three dimensions", JCP, 227, 4123 (2008)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
- *   J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
+ * - J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
  *   178, 137 (2008)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d_ctu()
- *   integrate_init_3d()
- *   integrate_destruct_3d()
- *============================================================================*/
+ * - integrate_3d_ctu()
+ * - integrate_init_3d()
+ * - integrate_destruct_3d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -102,7 +104,8 @@ static void integrate_emf3_corner(const GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
+/*! \fn void integrate_3d_ctu(DomainS *pD)
+ *  \brief 3D CTU integrator for MHD using 6-solve method */
 
 void integrate_3d_ctu(DomainS *pD)
 {
@@ -3365,9 +3368,9 @@ void integrate_3d_ctu(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_3d: Allocate temporary integration arrays 
+/*! \fn void integrate_init_3d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays 
 */
-
 void integrate_init_3d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,size3=0,nl,nd;
@@ -3489,9 +3492,9 @@ void integrate_init_3d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_3d:  Free temporary integration arrays 
+/*! \fn void integrate_destruct_3d(void)
+ *  \brief Free temporary integration arrays 
  */
-
 void integrate_destruct_3d(void)
 {
 
@@ -3549,18 +3552,17 @@ void integrate_destruct_3d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf1_corner
- * integrate_emf2_corner
- * integrate_emf3_corner
- *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
- *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
- *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
- *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+/*! \fn static void integrate_emf1_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *  Note: 
+ * - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ * - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ * - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ * - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ * - x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ * - x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
  */
-
 #ifdef MHD
 static void integrate_emf1_corner(const GridS *pG)
 {
@@ -3620,6 +3622,17 @@ static void integrate_emf1_corner(const GridS *pG)
   return;
 }
 
+/*! \fn static void integrate_emf2_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *  Note: 
+ * - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ * - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ * - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ * - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ * - x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ * - x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+ */
 static void integrate_emf2_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
@@ -3678,6 +3691,17 @@ static void integrate_emf2_corner(const GridS *pG)
   return;
 }
 
+/*! \fn static void integrate_emf3_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *  Note: 
+ * - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ * - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ * - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ * - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ * - x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ * - x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+ */
 static void integrate_emf3_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;

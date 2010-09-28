@@ -1,13 +1,12 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate.c
- *
- * PURPOSE: Contains public functions to set integrator.
+/*============================================================================*/
+/*! \file integrate.c
+ *  \brief Contains public functions to set integrator.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_init()        - set pointer to integrate function based on dim
- *   integrate_destruct()    - call destruct integrate function based on dim
- *============================================================================*/
+ * - integrate_init()        - set pointer to integrate function based on dim
+ * - integrate_destruct()    - call destruct integrate function based on dim */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,8 +19,8 @@
 static int dim=0;
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init: initialize integrator; VGDFun_t defined in athena.h   */
-
+/*! \fn VDFun_t integrate_init(MeshS *pM)
+ *  \brief Initialize integrator; VGDFun_t defined in athena.h   */
 VDFun_t integrate_init(MeshS *pM)
 {
   int i;
@@ -89,8 +88,8 @@ VDFun_t integrate_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct:  */
-
+/*! \fn void integrate_destruct()
+ *  \brief Free memory */
 void integrate_destruct()
 {
   switch(dim){

@@ -1,26 +1,29 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_2d_vl.c
+/*============================================================================*/
+/*! \file integrate_2d_vl.c
+ *  \brief Integrate MHD equations using 2D version of the directionally
+ *   unsplit MUSCL-Hancock (VL) integrator. 
  *
  * PURPOSE: Integrate MHD equations using 2D version of the directionally
  *   unsplit MUSCL-Hancock (VL) integrator.  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i  -- interface magnetic field
+ *   -  U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *   -  B1i, B2i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, and the H-correction
  *   of Sanders et al.
  *
- * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
+ * REFERENCE: 
+ * - J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
  *   for multidimensional MHD", NewA 14, 139 (2009)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensional dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensional dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_2d_vl()
- *   integrate_destruct_2d()
- *   integrate_init_2d()
- *============================================================================*/
+ * - integrate_2d_vl()
+ * - integrate_destruct_2d()
+ * - integrate_init_2d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -79,7 +82,9 @@ static void FixCell(GridS *pG, Int3Vect);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_2d: van Leer unsplit integrator in 2D. 
+/*! \fn void integrate_2d_vl(DomainS *pD)
+ *  \brief Van Leer unsplit integrator in 2D. 
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 2D.
  */
@@ -1040,8 +1045,8 @@ void integrate_2d_vl(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_2d: Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_2d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_2d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,nl,nd;
@@ -1126,8 +1131,8 @@ void integrate_init_2d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_2d:  Free temporary integration arrays */
-
+/*! \fn void integrate_destruct_2d(void) 
+ *  \brief Free temporary integration arrays */
 void integrate_destruct_2d(void)
 {
 #ifdef MHD
@@ -1174,12 +1179,14 @@ void integrate_destruct_2d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf3_corner()
- *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
- *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+/*! \fn static void integrate_emf3_corner(GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.
+ *
+ *   Note:
+ *  - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *  - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *  - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *  - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
  */ 
 
 #ifdef MHD
@@ -1258,9 +1265,9 @@ static void integrate_emf3_corner(GridS *pG)
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*----------------------------------------------------------------------------*/
-/* FixCell() - uses first order fluxes to fix negative d,P or superluminal v
+/*! \fn static void FixCell(GridS *pG, Int3Vect ix)
+ *  \brief Uses first order fluxes to fix negative d,P or superluminal v
  */ 
-
 static void FixCell(GridS *pG, Int3Vect ix)
 {
   int ks=pG->ks;

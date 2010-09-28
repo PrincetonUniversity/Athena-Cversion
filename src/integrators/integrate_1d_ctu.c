@@ -1,6 +1,7 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_1d_ctu.c
+/*============================================================================*/
+/*! \file integrate_1d_ctu.c
+ *  \brief Integrate MHD equations using 1D version of the CTU integrator.
  *
  * PURPOSE: Integrate MHD equations using 1D version of the CTU integrator.
  *   Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure, where U is of type
@@ -8,10 +9,10 @@
  *   cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_1d_ctu()
- *   integrate_init_1d()
- *   integrate_destruct_1d()
- *============================================================================*/
+ * - integrate_1d_ctu()
+ * - integrate_init_1d()
+ * - integrate_destruct_1d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -49,7 +50,9 @@ static Real *geom_src=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_1d: 1D version of CTU unsplit integrator for MHD
+/*! \fn void integrate_1d_ctu(DomainS *pD)
+ *  \brief 1D version of CTU unsplit integrator for MHD
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
@@ -623,8 +626,8 @@ void integrate_1d_ctu(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_1d: Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_1d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_1d(MeshS *pM)
 {
   int size1=0,nl,nd;
@@ -677,8 +680,8 @@ void integrate_init_1d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_1d: Free temporary integration arrays  */
-
+/*! \fn void integrate_destruct_1d(void)
+ *  \brief Free temporary integration arrays  */
 void integrate_destruct_1d(void)
 {
   if (Bxc != NULL) free(Bxc);

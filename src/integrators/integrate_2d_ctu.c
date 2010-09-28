@@ -1,30 +1,32 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_2d_ctu.c
+/*============================================================================*/
+/*! \file integrate_2d_ctu.c
+ *  \brief Integrate MHD equations in 2D using the directionally unsplit CTU
+ *   method of Colella (1990). 
  *
  * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
  *   method of Colella (1990).  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i -- interface magnetic field
+ *   -  U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *   -  B1i, B2i -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically-thin cooling,
  *   and H-correction of Sanders et al.
  *
  * REFERENCES:
- *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
+ * - P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ * - T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
  *   constrained transport", JCP, 205, 509 (2005)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_2d_ctu()
- *   integrate_init_2d()
- *   integrate_destruct_2d()
- *============================================================================*/
+ * - integrate_2d_ctu()
+ * - integrate_init_2d()
+ * - integrate_destruct_2d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -85,7 +87,9 @@ static void integrate_emf3_corner(GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_2d:  CTU integrator in 2D.
+/*! \fn void integrate_2d_ctu(DomainS *pD)
+ *  \brief CTU integrator in 2D.
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 2D.
  */
@@ -1876,8 +1880,8 @@ void integrate_2d_ctu(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_2d:    Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_2d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_2d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,nl,nd;
@@ -1972,8 +1976,8 @@ void integrate_init_2d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_2d:  Free temporary integration arrays */
-
+/*! \fn void integrate_destruct_2d(void)
+ *  \brief Free temporary integration arrays */
 void integrate_destruct_2d(void)
 {
 #ifdef MHD
@@ -2018,8 +2022,8 @@ void integrate_destruct_2d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf3_corner:  */
-
+/*! \fn static void integrate_emf3_corner(GridS *pG)
+ *  \brief Corner EMF terms in the upwind CT method */
 #ifdef MHD
 static void integrate_emf3_corner(GridS *pG)
 {
