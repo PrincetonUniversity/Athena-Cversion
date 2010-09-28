@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cpaw1d.c
+/*============================================================================*/
+/*! \file cpaw1d.c
+ *  \brief Problem generator for 1-D circularly polarized Alfven wave (CPAW) 
+ *  test.
  *
  * PURPOSE: Problem generator for 1-D circularly polarized Alfven wave (CPAW)
  *   test.  Only works in 1D (wavevector in x).  Tests in 2D and 3D are 
@@ -14,8 +16,8 @@
  *   wave periods for this to work.
  *
  * REFERENCE: G. Toth,  "The div(B)=0 constraint in shock capturing MHD codes",
- *   JCP, 161, 605 (2000)
- *============================================================================*/
+ *   JCP, 161, 605 (2000)						      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -192,6 +194,9 @@ VOutFun_t get_usr_out_fun(const char *name){
 }
 
 #ifdef RESISTIVITY
+/*! \fn void get_eta_user(GridS *pG, int i, int j, int k,
+ *                           Real *eta_O, Real *eta_H, Real *eta_A)
+ *  \brief Get user defined resistivity. */
 void get_eta_user(GridS *pG, int i, int j, int k,
                              Real *eta_O, Real *eta_H, Real *eta_A)
 {

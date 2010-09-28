@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: streaming3d.c
+/*============================================================================*/
+/*! \file  streaming3d_single.c
+ *  \brief  Problem generator for streaming instability test in non-stratified
+ *   disks.
  *
  * PURPOSE: Problem generator for streaming instability test in non-stratified
  *   disks. This code works in 3D, with single particle species ONLY. Isothermal
@@ -9,18 +11,18 @@
  *   across the grid, the isothermal sound speed is re-evaluated.
  *
  * Perturbation modes:
- *    ipert = 0: no perturbation, test for the NSH equilibrium, need FARGO
- *    ipert = 1: linA of YJ07 (cold start), need FARGO
- *    ipert = 2: linB of YJ07 (cold start), need FARGO
- *    ipert = 3: random perturbation (warm start), do not need FARGO
+ *  - ipert = 0: no perturbation, test for the NSH equilibrium, need FARGO
+ *  - ipert = 1: linA of YJ07 (cold start), need FARGO
+ *  - ipert = 2: linB of YJ07 (cold start), need FARGO
+ *  - ipert = 3: random perturbation (warm start), do not need FARGO
  *
  *  Must be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is need to establish the NSH equilibrium (ipert=0,1,2).
  *
  * Reference:
- *   Youdin & Johansen, 2007, ApJ, 662, 613
- *   Johansen & Youdin, 2007, ApJ, 662, 627
- *============================================================================*/
+ * - Youdin & Johansen, 2007, ApJ, 662, 613
+ * - Johansen & Youdin, 2007, ApJ, 662, 627 */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -474,7 +476,9 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-/* difd */
+/*! \fn static Real expr_rhodif(const Grid *pG, const int i, const int j, 
+ *			        const int k)
+ *  \brief difd */
 static Real expr_rhodif(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -482,7 +486,9 @@ static Real expr_rhodif(const Grid *pG, const int i, const int j, const int k)
   return pG->U[k][j][i].d - rho0;
 }
 
-/* dVx */
+/*! \fn static Real expr_dVx(const Grid *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief dVx */
 static Real expr_dVx(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -490,7 +496,9 @@ static Real expr_dVx(const Grid *pG, const int i, const int j, const int k)
   return pG->U[k][j][i].M1/pG->U[k][j][i].d - uxNSH;
 }
 
-/* dVy */
+/*! \fn static Real expr_dVy(const Grid *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief dVy */
 static Real expr_dVy(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -502,7 +510,9 @@ static Real expr_dVy(const Grid *pG, const int i, const int j, const int k)
 #endif
 }
 
-/* difdpar */
+/*! \fn static Real expr_rhopardif(const Grid *pG, const int i, const int j, 
+ *				   const int k)
+ *  \brief difdpar */
 static Real expr_rhopardif(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -510,7 +520,9 @@ static Real expr_rhopardif(const Grid *pG, const int i, const int j, const int k
   return pG->Coup[k][j][i].grid_d - rho0*mratio;
 }
 
-/* dVxpar */
+/*! \fn static Real expr_dVxpar(const Grid *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief dVxpar */
 static Real expr_dVxpar(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -518,7 +530,9 @@ static Real expr_dVxpar(const Grid *pG, const int i, const int j, const int k)
   return expr_V1par(pG,i,j,k) - wxNSH;
 }
 
-/* dVypar */
+/*! \fn static Real expr_dVypar(const Grid *pG, const int i, const int j, 
+ *			        const int k)
+ *  \brief dVypar */
 static Real expr_dVypar(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -552,6 +566,9 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
+/*! \fn void gasvshift(const Real x1, const Real x2, const Real x3,
+ *                                  Real *u1, Real *u2, Real *u3)
+ *  \brief Gas velocity shift*/
 void gasvshift(const Real x1, const Real x2, const Real x3,
                                     Real *u1, Real *u2, Real *u3)
 {
@@ -585,7 +602,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* ShearingBoxPot */
+/*! \fn static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+ *  \brief shearing box tidal gravitational potential */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
@@ -595,19 +613,22 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/* even perturbation mode */
+/*! \fn static Real pert_even(Real fR, Real fI, Real x, Real z, Real t)
+ *  \brief even perturbation mode */
 static Real pert_even(Real fR, Real fI, Real x, Real z, Real t)
 {
   return (fR*cos(kx*x-omg*t)-fI*sin(kx*x-omg*t))*cos(kz*z)*exp(s*t);
 }
 
-/* odd perturbation mode */
+/*! \fn static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t)
+ *  \brief odd perturbation mode */
 static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t)
 {
   return -(fR*sin(kx*x-omg*t)+fI*cos(kx*x-omg*t))*sin(kz*z)*exp(s*t);
 }
 
-/* user defined particle selection function (1: true; 0: false) */
+/*! \fn static int property_mybin(const Grain *gr, const GrainAux *grsub)
+ *  \brief user defined particle selection function (1: true; 0: false) */
 static int property_mybin(const Grain *gr, const GrainAux *grsub)
 {
   long a,b,c,d,e,ds,sp;
@@ -629,7 +650,8 @@ static int property_mybin(const Grain *gr, const GrainAux *grsub)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Output function */
+/*! \fn void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
+ *  \brief output the perturbation amplitude */
 void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
 {
   FILE *fid;
@@ -681,8 +703,6 @@ void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
 
 
 /*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
  */
 
 #define IM1 2147483563
@@ -699,7 +719,11 @@ void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;

@@ -1,34 +1,42 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cpaw3d.c
+/*============================================================================*/
+/*! \file cpaw3d.c
+ *  \brief Problem generator for circularly polarized Alfven wave (CPAW) in 3D
+ *   test.  
  *
  * PURPOSE: Problem generator for circularly polarized Alfven wave (CPAW) in 3D
  *   test.  The angles the wave propagates to the grid is automatically computed
  *   to be alpha12 = tan^{-1} (Y/X) and alpha23 = tan^{-1} (Z/Y). 
  *
  * The wave is defined with reference to a coordinate system (x,y,z) with
- * transformation rules to the code coordinate system (x1,x2,x3)
+ *  transformation rules to the code coordinate system (x1,x2,x3)
+ *
  *   First rotate about the y axis:
- *     x' = x*cos(ang_2) - z*sin(ang_2)
- *     y' = y
- *     z' = x*sin(ang_2) + z*cos(ang_2)
+ *   - x' = x*cos(ang_2) - z*sin(ang_2)
+ *   - y' = y
+ *   - z' = x*sin(ang_2) + z*cos(ang_2) 
+ *
  *   Next rotate about the z' axis:
- *     x = x'*cos(ang_3) - y'*sin(ang_3)
- *     y = x'*sin(ang_3) + y'*cos(ang_3)
- *     z = z'
+ *   - x = x'*cos(ang_3) - y'*sin(ang_3)
+ *   - y = x'*sin(ang_3) + y'*cos(ang_3)
+ *   - z = z' 
+ *
  *   Expanding this out we get:
- *     x1 = x*cos(ang_2)*cos(ang_3) - y*sin(ang_3) - z*sin(ang_2)*cos(ang_3)
- *     x2 = x*cos(ang_2)*sin(ang_3) - y*cos(ang_3) - z*sin(ang_2)*sin(ang_3)
- *     x3 = x*sin(ang_2)                           + z*cos(ang_2)
+ *   - x1 = x*cos(ang_2)*cos(ang_3) - y*sin(ang_3) - z*sin(ang_2)*cos(ang_3)
+ *   - x2 = x*cos(ang_2)*sin(ang_3) - y*cos(ang_3) - z*sin(ang_2)*sin(ang_3)
+ *   - x3 = x*sin(ang_2)                           + z*cos(ang_2)
+ *
  *   This inverts to:
- *     x =  x1*cos(ang_2)*cos(ang_3) + x2*cos(ang_2)*sin(ang_3) + x3*sin(ang_2)
- *     y = -x1*sin(ang_3)            + x2*cos(ang_3)
- *     z = -x1*sin(ang_2)*cos(ang_3) - x2*sin(ang_2)*sin(ang_3) + x3*cos(ang_2)
+ *   - x =  x1*cos(ang_2)*cos(ang_3) + x2*cos(ang_2)*sin(ang_3) + x3*sin(ang_2)
+ *   - y = -x1*sin(ang_3)            + x2*cos(ang_3)
+ *   - z = -x1*sin(ang_2)*cos(ang_3) - x2*sin(ang_2)*sin(ang_3) + x3*cos(ang_2)
+ *
  *   The magnetic field is given by:
- *     B_x = b_par
- *     B_y = b_perp*cos(k*x)
- *     B_z = b_perp*sin(k*x)
+ *   - B_x = b_par
+ *   - B_y = b_perp*cos(k*x)
+ *   - B_z = b_perp*sin(k*x)
  *   where k = 2.0*PI/lambda
+ *
  * Note these transformations are the same used in linear_wave3d.c
  *
  * Can be used for either standing (problem/v_par=1.0) or travelling
@@ -38,9 +46,14 @@
  *   to initial conditions.  Problem must be evolved for an integer number of
  *   wave periods for this to work.
  *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - A1() - 1-component of vector potential for initial conditions
+ * - A2() - 2-component of vector potential for initial conditions
+ * - A3() - 3-component of vector potential for initial conditions
+ *
  * REFERENCE: G. Toth,  "The div(B)=0 constraint in shock capturing MHD codes",
- *   JCP, 161, 605 (2000)
- *============================================================================*/
+ *   JCP, 161, 605 (2000)						      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -513,8 +526,9 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
   
-/*-----------------------------------------------------------------------------
- * A1: 1-component of vector potential, using a gauge such that Ax = 0,
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real A1(const Real x1, const Real x2, const Real x3)
+ *  \brief A1: 1-component of vector potential, using a gauge such that Ax = 0,
  * and Ay, Az are functions of x and y alone.
  */
 
@@ -532,8 +546,9 @@ static Real A1(const Real x1, const Real x2, const Real x3)
   return -Ay*sin_a3 - Az*sin_a2*cos_a3;
 }
 
-/*-----------------------------------------------------------------------------
- * A2: 2-component of vector potential
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real A2(const Real x1, const Real x2, const Real x3)
+ *  \brief A2: 2-component of vector potential
  */
 
 static Real A2(const Real x1, const Real x2, const Real x3)
@@ -550,8 +565,9 @@ static Real A2(const Real x1, const Real x2, const Real x3)
   return Ay*cos_a3 - Az*sin_a2*sin_a3;
 }
 
-/*-----------------------------------------------------------------------------
- * A3: 3-component of vector potential
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real A3(const Real x1, const Real x2, const Real x3)
+ *  \brief A3: 3-component of vector potential
  */
 
 static Real A3(const Real x1, const Real x2, const Real x3)

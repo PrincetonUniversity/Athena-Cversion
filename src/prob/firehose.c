@@ -1,13 +1,17 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: firehose.c
+/*============================================================================*/
+/*! \file firehose.c
+ *  \brief Problem generator for firehose test of Braginskii viscosity.
  *
  * PURPOSE: Problem generator for firehose test of Braginskii viscosity.
- *   iprob=1: vortex test suggested by Steve Cowley, developed by Greg Hammett
- *   iprob=2: shear test from Appendix C.3.4 in Prateek Sharma's thesis.
+ * - iprob=1: vortex test suggested by Steve Cowley, developed by Greg Hammett
+ * - iprob=2: shear test from Appendix C.3.4 in Prateek Sharma's thesis.
  *
- * REFERENCE: 
- *============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - ran2()    - random number generator from NR
+ * - pbc_ix1() - sets BCs on L-x1 (left edge) of grid used in shear test
+ * - pbc_ox1() - sets BCs on R-x1 (right edge) of grid used in shear test */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -209,10 +213,7 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 {
 }
 
-/*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
- */
+/*----------------------------------------------------------------------------*/
 
 #define IM1 2147483563
 #define IM2 2147483399
@@ -228,7 +229,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ * 
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;
@@ -287,7 +292,8 @@ double ran2(long int *idum)
 #undef RNMX
 
 /*----------------------------------------------------------------------------*/
-/* special PERIODIC boundary conditions, Inner x1 boundary
+/*! \fn static void pbc_ix1(Grid *pGrid)
+ *  \brief Special PERIODIC boundary conditions, Inner x1 boundary
  */
 
 static void pbc_ix1(Grid *pGrid)
@@ -349,7 +355,8 @@ static void pbc_ix1(Grid *pGrid)
 }
 
 /*----------------------------------------------------------------------------*/
-/* special PERIODIC boundary conditions, Outer x1 boundary
+/*! \fn static void pbc_ox1(Grid *pGrid)
+ *  \brief Special PERIODIC boundary conditions, Outer x1 boundary
  */
 
 static void pbc_ox1(Grid *pGrid)

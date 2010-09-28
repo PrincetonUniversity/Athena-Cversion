@@ -1,11 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cyladvect.c
- *
- * A simple density-pulse advection test in cylindrical coordinates with
+/*============================================================================*/
+/*! \file cyladvect.c
+ *  \brief A simple density-pulse advection test in cylindrical coordinates with
  * no pressure or tension forces.
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -193,6 +192,8 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn Real d(const Real x1, const Real x2, const Real x3) {
+ *  \brief Density */
 Real d(const Real x1, const Real x2, const Real x3) {
   Real x,y,z,x0,y0,r;
 
@@ -209,20 +210,27 @@ Real d(const Real x1, const Real x2, const Real x3) {
   return rho0;
 }
 
+/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
+ *  \brief 2-component of momentum  */
 Real M2(const Real x1, const Real x2, const Real x3) {
   return d(x1,x2,x3)*omega0*x1;
 }
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return 0.5*SQR(x1*omega0);
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   return x1*SQR(omega0);
 }
 
 /*----------------------------------------------------------------------------*/
-/* cylbr_ix1:  Inner-R boundary conditions.  d, M2, B1, B1i, and P are all
+/*! \fn void cyladvect_ix1(GridS *pG)
+ *  \brief Inner-R boundary conditions.  d, M2, B1, B1i, and P are all
  *   functions of R, phi, and t.
  */
 
@@ -264,7 +272,8 @@ void cyladvect_ix1(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* B_R = B_0/R boundary conditions, Outer x1 boundary
+/*! \fn void cyladvect_ox1(GridS *pG)
+ *  \brief B_R = B_0/R boundary conditions, Outer x1 boundary
  */
 
 void cyladvect_ox1(GridS *pG)

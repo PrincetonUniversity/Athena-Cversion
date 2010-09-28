@@ -1,13 +1,21 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: noh.c
+/*============================================================================*/
+/*! \file noh.c
+ *  \brief Spherical Noh implosion problem, from Liska & Wendroff, section 4.5
+ *   (figure 4.7).
  *
  * PURPOSE: Spherical Noh implosion problem, from Liska & Wendroff, section 4.5
  *   (figure 4.7).  Tests code on VERY strong shock, also sensitive to 
  *   carbuncle instability.
  *
- * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)
- *============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - void noh3d_oib() - sets BCs on R-x1 boundary
+ * - void noh3d_ojb() - sets BCs on R-x2 boundary
+ * - void noh3d_okb() - sets BCs on R-x3 boundary
+ * - void scat_plot() - makes scatter plot of density
+ *
+ * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)    */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdlib.h>
@@ -114,10 +122,10 @@ void Userwork_after_loop(MeshS *pM)
 }
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
-/*-----------------------------------------------------------------------------
- * Function noh3d_oib
+/*----------------------------------------------------------------------------*/
+/*! \fn void noh3d_oib(GridS *pGrid)
+ *  \brief Sets boundary condition on right X1 boundary (oib) for noh3d test
  *
- * sets boundary condition on right X1 boundary (oib) for noh3d test
  * Note quantities at this boundary are held fixed at the time-dependent
  * upstream state
  */
@@ -165,10 +173,10 @@ void noh3d_oib(GridS *pGrid)
   }
 }
 
-/*-----------------------------------------------------------------------------
- * Function noh3d_ojb
- *
- * sets boundary condition on right X2 boundary (ojb) for noh3d test
+/*----------------------------------------------------------------------------*/
+/*! \fn void noh3d_ojb(GridS *pGrid)
+ *  \brief Sets boundary condition on right X2 boundary (ojb) for noh3d test
+ * 
  * Note quantities at this boundary are held fixed at the time-dependent
  * upstream state
  */
@@ -216,10 +224,10 @@ void noh3d_ojb(GridS *pGrid)
   }
 }
 
-/*-----------------------------------------------------------------------------
- * Function noh3d_okb
- *
- * sets boundary condition on right X3 boundary (okb) for noh3d test
+/*---------------------------------------------------------------------------*/
+/*! \fn void noh3d_okb(GridS *pGrid) 
+ *  \brief Sets boundary condition on right X3 boundary (okb) for noh3d test
+ * 
  * Note quantities at this boundary are held fixed at the time-dependent
  * upstream state
  */

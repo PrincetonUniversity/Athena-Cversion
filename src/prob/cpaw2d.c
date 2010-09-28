@@ -1,18 +1,20 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cpaw2d.c
+/*============================================================================*/
+/*! \file cpaw2d.c
+ *  \brief Problem generator for 2-D circularly polarized Alfven wave (CPAW) 
+ *  test.
  *
  * PURPOSE: Problem generator for 2-D circularly polarized Alfven wave (CPAW)
  *   test.  Works for any arbitrary wavevector in the x1-x2 plane.  The wave is
  *   defined with reference to a coordinate system (x,y,z) with transformation
  *   rules to the code coordinate system (x1,x2,x3)
- *      x =  x1*cos(alpha) + x2*sin(alpha)
- *      y = -x1*sin(alpha) + x2*cos(alpha)
- *      z = x3
+ *   -  x =  x1*cos(alpha) + x2*sin(alpha)
+ *   -  y = -x1*sin(alpha) + x2*cos(alpha)
+ *   -  z = x3
  *   The magnetic field is given by:
- *     B_x = b_par
- *     B_y = b_perp*sin(k*x)
- *     B_z = b_perp*cos(k*x)   where k = 2.0*PI/lambda
+ *   - B_x = b_par
+ *   - B_y = b_perp*sin(k*x)
+ *   - B_z = b_perp*cos(k*x)   where k = 2.0*PI/lambda
  *
  *   Can be used for either standing (problem/v_par=1.0) or travelling
  *   (problem/v_par=0.0) waves.
@@ -22,8 +24,8 @@
  *   wave periods for this to work.
  *
  * REFERENCE: G. Toth,  "The div(B)=0 constraint in shock capturing MHD codes",
- *   JCP, 161, 605 (2000)
- *============================================================================*/
+ *   JCP, 161, 605 (2000)						      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -412,10 +414,11 @@ void Userwork_after_loop(MeshS *pM)
   return;
 }
 
-/*---------------------------------------------------------------------------
- * A3: Define a scalar potential A3 such that:
- *     B_x = - $\partial A3 / \partial y$
- *     B_y =   $\partial A3 / \partial x$
+/*---------------------------------------------------------------------------*/
+/*! \fn static Real A3(const Real x1, const Real x2)
+ *  \brief Define a scalar potential A3 such that:
+ *   - B_x = - $\partial A3 / \partial y$
+ *   - B_y =   $\partial A3 / \partial x$
  *   Then A3 is given in the function below.  */
 
 static Real A3(const Real x1, const Real x2)

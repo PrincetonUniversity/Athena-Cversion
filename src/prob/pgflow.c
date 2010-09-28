@@ -1,16 +1,26 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: pgflow.c
+/*============================================================================*/
+/*! \file pgflow.c
+ *  \brief Problem generator for steady planar gravitational flow in a simple
+ *   1D gravitational field
  *
  * PURPOSE: Problem generator for steady planar gravitational flow in a simple
  *   1D gravitational field: g = grav*cos(k_par*x) with periodic boundary
  *   conditions.  The 1D flow can be initialized in a 3D (x1,x2,x3) domain
  *   using the following transformation rules:
- *      x =  x1*cos(alpha) + x2*sin(alpha)
- *      y = -x1*sin(alpha) + x2*cos(alpha)
- *      z = x3
+ *   -  x =  x1*cos(alpha) + x2*sin(alpha)
+ *   -  y = -x1*sin(alpha) + x2*cos(alpha)
+ *   -  z = x3
+ *
  *   This problem is a good test of the source terms in a static grav potential.
- *============================================================================*/
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - rtbis()          - finds roots via bisection
+ * - grav_pot()       - gravitational potential
+ * - Bfunc()          - computes Bernoilli function
+ * - expr_drho()      - computes difference d-d0
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -223,10 +233,14 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*-----------------------------------------------------------------------------
- * rtbis: Using bisection, find the root of a function "pfun" known to lie
+/*----------------------------------------------------------------------------*/
+/*! \fn int rtbis(double (*pfun)(double), const double x1, const double x2,
+ *		  const double xacc, const int imax, double *prt)
+ *  \brief  Using bisection, find the root of a function "pfun" known to lie
  * between x1 and x2 to an accuracy <= "xacc", but do not exceed
- * "imax" bisections.  The root is returned through the pointer "prt".
+ * "imax" bisections.  
+ *
+ * The root is returned through the pointer "prt".
  * RETURN VALUE: 0 on Success, 1 on Error
  * ASSUMPTIONS: This routine assumes that a first order zero lies
  * between x1 and x2, i.e. the function is continuous between x1 and
@@ -285,8 +299,9 @@ int rtbis(double (*pfun)(double), const double x1, const double x2,
   return 1;
 }
 
-/*------------------------------------------------------------------------------
- * grav_pot: Gravitational potential
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational potential
  */
 
 static Real grav_pot(const Real x1, const Real x2, const Real x3)
@@ -294,8 +309,9 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3)
   return -grav*sin((double)k_par*(x1*cos_a + x2*sin_a))/k_par;
 }
 
-/*------------------------------------------------------------------------------
- * Bfunc: computes Bernoulli function
+/*----------------------------------------------------------------------------*/
+/*! \file static double Bfunc(double rho)
+ *  \brief Computes Bernoulli function
  */
 
 static double Bfunc(double rho){
@@ -303,8 +319,10 @@ static double Bfunc(double rho){
 	  - (Gamma*S/Gamma_1)*pow((double)rho,(double)Gamma_1));
 }
 
-/*------------------------------------------------------------------------------
- * expr_drho: computes d-d0 (density - initial value)
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_drho(const Grid *pG,const int i,const int j,
+ *			      const int k)
+ *  \brief Computes d-d0 (density - initial value)
  */
 
 static Real expr_drho(const Grid *pG, const int i, const int j, const int k)

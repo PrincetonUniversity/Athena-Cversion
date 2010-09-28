@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: linear_wave1d.c
+/*============================================================================*/
+/*! \file linear_wave1d.c
+ *  \brief Problem generator for plane-parallel, grid-aligned linear wave tests.
  *
  * PURPOSE: Problem generator for plane-parallel, grid-aligned linear wave
  *   tests.  If wavevector is in x2 (x3) direction, then the grid must be
@@ -19,8 +20,8 @@
  *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
- *   wave periods for this to work (only works for ideal MHD).
- *============================================================================*/
+ *   wave periods for this to work (only works for ideal MHD).		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -373,6 +374,9 @@ VOutFun_t get_usr_out_fun(const char *name){
 }
 
 #ifdef RESISTIVITY
+/*! \fn void get_eta_user(GridS *pG, int i, int j, int k,
+ *                           Real *eta_O, Real *eta_H, Real *eta_A)
+ *  \brief Get user defined resistivity. */
 void get_eta_user(GridS *pG, int i, int j, int k,
                              Real *eta_O, Real *eta_H, Real *eta_A)
 {

@@ -1,17 +1,18 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_collision.c
+/*============================================================================*/
+/*! \file par_collision.c
+ *  \brief Problem generator for particle feedback test in 2D. 
  *
  * PURPOSE: Problem generator for particle feedback test in 2D. The particles
  *   and gas are initialized to have the same total momentum in the opposite
  *   direction. Both have uniform density. One test particle is picked up for
  *   precision test.
  *
- *   Configure --with-particle=feedback --with-eos=isothermal
+ * - Configure --with-particle=feedback --with-eos=isothermal
  *
  * USERWORK_IN_LOOP function is used to output particle positions.
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -342,7 +343,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* Compute particle trajectory */
+/*! \fn static Vector ParticleTroj(Real t)
+ *  \brief Compute particle trajectory */
 static Vector ParticleTroj(Real t)
 {
   Vector pos;
@@ -361,7 +363,8 @@ static Vector ParticleTroj(Real t)
   return pos;
 }
 
-/* Compute particle velocity */
+/*! \fn static Vector ParticleVel(Real t)
+ *  \brief Compute particle velocity */
 static Vector ParticleVel(Real t)
 {
   Vector vel;

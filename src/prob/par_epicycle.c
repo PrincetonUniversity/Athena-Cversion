@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_epecycle.c
+/*============================================================================*/
+/*! \file par_epicycle.c
+ *  \brief Problem generator for particle epicycle trajectory presicion test.
  *
  * PURPOSE: Problem generator for particle epicycle trajectory presicion test.
  *   This code works for both 2D and 3D. No gas is involved, but gas has to be
@@ -9,8 +10,8 @@
  *
  *  Should be configured using --enable-shearing-box and --with-eos=isothermal.
  *  Optional choices are --enable-fargo and --enable-mpi
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -280,7 +281,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
  
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* ShearingBoxPot */
+/*! \fn static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+ *  \brief shearing box tidal gravitational potential*/
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
@@ -290,7 +292,8 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/* Calculate the particle position */
+/*! \fn static Vector ParticlePosition(const Real t)
+ *  \brief Calculate the particle position */
 static Vector ParticlePosition(const Real t)
 {
   Real x,y;
@@ -308,7 +311,8 @@ static Vector ParticlePosition(const Real t)
   return pos;
 }
 
-/* Calculate the particle velocity */
+/*! \fn static Vector ParticleVelocity(const Vector pos, const Real t)
+ *  \brief Calculate the particle velocity */
 static Vector ParticleVelocity(const Vector pos, const Real t)
 {
   Real vx,vy;
@@ -326,7 +330,8 @@ static Vector ParticleVelocity(const Vector pos, const Real t)
   return vel;
 }
 
-/* Judge if the particle is in this cpu */
+/*! \fn static int ParticleLocator(const Vector pos)
+ *  \brief Judge if the particle is in this cpu */
 static int ParticleLocator(const Vector pos)
 {
   if ((pos.x1<x1upar) && (pos.x1>=x1lpar) && (pos.x2<x2upar)

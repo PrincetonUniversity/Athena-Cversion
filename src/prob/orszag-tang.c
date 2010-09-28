@@ -1,12 +1,11 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: orszag-tang.c
- *
- * PURPOSE: Problem generator for Orszag-Tang vortex problem.
+/*============================================================================*/
+/*! \file orszag-tang.c
+ *  \brief Problem generator for Orszag-Tang vortex problem.
  *
  * REFERENCE: For example, see: G. Toth,  "The div(B)=0 constraint in shock
- *   capturing MHD codes", JCP, 161, 605 (2000)
- *============================================================================*/
+ *   capturing MHD codes", JCP, 161, 605 (2000)				      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

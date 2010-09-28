@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: shkset2d.c
+/*============================================================================*/
+/*! \file shkset2d.c
+ *  \brief Sets up shock at angle to grid to test multidimensional algorithm.
  *
  * PURPOSE: Sets up shock at angle to grid to test multidimensional algorithm.
  *   The grid angle atan(Ly/Lx) is fixed to be atan(0.5), or atan(1), and 
@@ -9,14 +10,21 @@
  *   that Nx1>32, using special function pointers.  The shock is initialized
  *   with reference to a coordinate system (x,y,z) with transformation rules to
  *   the code coordinate system (x1,x2,x3)
- *      x =  x1*cos(alpha) + x2*sin(alpha)
- *      y = -x1*sin(alpha) + x2*cos(alpha)
- *      z = x3
+ *   -  x =  x1*cos(alpha) + x2*sin(alpha)
+ *   -  y = -x1*sin(alpha) + x2*cos(alpha)
+ *   -  z = x3
+
  *   This inverts to:
- *      x1 = x*cos(alpha) - y*sin(alpha)
- *      x2 = x*sin(alpha) + y*cos(alpha)
- *      x3 = z
- *============================================================================*/
+ *   -  x1 = x*cos(alpha) - y*sin(alpha)
+ *   -  x2 = x*sin(alpha) + y*cos(alpha)
+ *   -  x3 = z								  
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - shkset2d_iib() - sets BCs on L-x1 (left edge) of grid.
+ * - shkset2d_oib() - sets BCs on R-x1 (right edge) of grid.
+ * - shkset2d_ijb() - sets BCs on L-x2 (bottom edge) of grid.
+ * - shkset2d_ojb() - sets BCs on R-x2 (top edge) of grid.		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -361,8 +369,9 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*-----------------------------------------------------------------------------
- * Function shkset2d_iib: sets ghost zones using the nearest computational grid
+/*----------------------------------------------------------------------------*/
+/*! \fn void shkset2d_iib(GridS *pGrid)
+ *  \brief Sets ghost zones using the nearest computational grid
  * cells implied by the size of the unit cell (r1xr2).
  */
 
@@ -402,8 +411,10 @@ void shkset2d_iib(GridS *pGrid)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * Function shkset2d_oib: same for oib
+/*----------------------------------------------------------------------------*/
+/*! \fn void shkset2d_oib(GridS *pGrid)
+ *  \brief Sets ghost zones using the nearest computational grid
+ * cells implied by the size of the unit cell (r1xr2).
  */
 
 void shkset2d_oib(GridS *pGrid)
@@ -444,8 +455,10 @@ void shkset2d_oib(GridS *pGrid)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * Function shkset2d_ijb: same for ijb
+/*----------------------------------------------------------------------------*/
+/*! \fn void shkset2d_ijb(GridS *pGrid)
+ *  \brief Sets ghost zones using the nearest computational grid
+ * cells implied by the size of the unit cell (r1xr2).
  */
 
 void shkset2d_ijb(GridS *pGrid)
@@ -479,8 +492,10 @@ void shkset2d_ijb(GridS *pGrid)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * Function shkset2d_ojb: same for ojb
+/*----------------------------------------------------------------------------*/
+/*! \fn void shkset2d_ojb(GridS *pGrid)
+ *  \brief Sets ghost zones using the nearest computational grid
+ * cells implied by the size of the unit cell (r1xr2).
  */
 
 void shkset2d_ojb(GridS *pGrid)

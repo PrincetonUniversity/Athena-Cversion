@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: linear_wave2d.c
+/*============================================================================*/
+/*! \file linear_wave2d.c
+ *  \brief Problem generator for linear wave convergence tests in 2D. 
  *
  * PURPOSE: Problem generator for linear wave convergence tests in 2D.  In 2D,
  *   the angle the wave propagates to the grid is automatically computed
@@ -356,6 +357,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 #if (NSCALARS > 0)
+/*! \fn static Real color(const GridS *pG, const int i, const int j,const int k)
+ *  \brief returns first passively advected scalar s[0] */
+
 static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;

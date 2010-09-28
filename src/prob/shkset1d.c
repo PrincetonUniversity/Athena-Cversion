@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: shkset1d.c
+/*============================================================================*/
+/*! \file shkset1d.c 
+ *  \brief Problem generator for 1-D Riemann problems.  
  *
  * PURPOSE: Problem generator for 1-D Riemann problems.  Initial discontinuity
  *   is located so there are equal numbers of cells to the left and right (at

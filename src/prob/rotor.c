@@ -1,14 +1,15 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: rotor.c
+/*============================================================================*/
+/*! \file rotor.c
+ *  \brief Sets up 2D rotor test problem.
  *
  * PURPOSE: Sets up 2D rotor test problem.  The center of the grid is assumed to
  *   have coordinates (x1,x2) = [0,0]; the grid initialization must be
  *   consistent with this
  *
  * REFERENCE: G. Toth, "The div(B)=0 constraint in shock-capturing MHD codes",
- *   JCP, 161, 605 (2000)
- *============================================================================*/
+ *   JCP, 161, 605 (2000)						      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

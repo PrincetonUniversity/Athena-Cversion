@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: rt.c
+/*============================================================================*/
+/*! \file rt.c
+ *  \brief Problem generator for RT instabilty.
  *
  * PURPOSE: Problem generator for RT instabilty.  Gravitational pot. is
  *   hardwired to be 0.1z. Density difference is hardwired to be 2.0 in 2D, and
@@ -23,8 +24,17 @@
  *   added in x3 to improve hydrostatic eqm (prevents launching of weak waves)
  * Atwood number A = (d2-d1)/(d2+d1) = 1/2
  *
- * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)
- *============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - ran2() - random number generator from NR
+ * - reflect_ix2() - sets BCs on L-x2 (left edge) of grid used in 2D
+ * - reflect_ox2() - sets BCs on R-x2 (right edge) of grid used in 2D
+ * - reflect_ix3() - sets BCs on L-x3 (left edge) of grid used in 3D
+ * - reflect_ox3() - sets BCs on R-x3 (right edge) of grid used in 3D
+ * - grav_pot2() - gravitational potential for 2D problem (accn in Y)
+ * - grav_pot3() - gravitational potential for 3D problem (accn in Z)
+ *
+ * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)    */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -333,10 +343,7 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
- */
+/*----------------------------------------------------------------------------*/
 
 #define IM1 2147483563
 #define IM2 2147483399
@@ -352,7 +359,12 @@ void Userwork_after_loop(MeshS *pM)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief  Extracted from the Numerical Recipes in C (version 2) code.  
+ *   Modified to use doubles instead of floats. - T. A. Gardiner - Aug. 12, 2003
+ *   
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;
@@ -410,8 +422,9 @@ double ran2(long int *idum)
 #undef NDIV
 #undef RNMX
 
-/*------------------------------------------------------------------------------
- * reflect_ix2: special reflecting boundary functions in x2 for 2D sims
+/*----------------------------------------------------------------------------*/
+/*! \fn static void reflect_ix2(GridS *pGrid)
+ *  \brief Special reflecting boundary functions in x2 for 2D sims
  */
 
 static void reflect_ix2(GridS *pGrid)
@@ -464,8 +477,9 @@ static void reflect_ix2(GridS *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * reflect_ox2: special reflecting boundary functions in x2 for 2D sims
+/*----------------------------------------------------------------------------*/
+/*! \fn static void reflect_ox2(GridS *pGrid)
+ *  \brief Special reflecting boundary functions in x2 for 2D sims
  */
 
 static void reflect_ox2(GridS *pGrid)
@@ -527,8 +541,9 @@ static void reflect_ox2(GridS *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * reflect_ix3: special reflecting boundary functions in x3 for 2D sims
+/*----------------------------------------------------------------------------*/
+/*! \fn static void reflect_ix3(GridS *pGrid)
+ *  \brief Special reflecting boundary functions in x3 for 2D sims
  */
 
 static void reflect_ix3(GridS *pGrid)
@@ -585,8 +600,9 @@ static void reflect_ix3(GridS *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * reflect_ox3: special reflecting boundary functions in x3 for 3D sims
+/*----------------------------------------------------------------------------*/
+/*! \fn static void reflect_ox3(GridS *pGrid)
+ *  \brief Special reflecting boundary functions in x3 for 3D sims
  */
 
 static void reflect_ox3(GridS *pGrid)
@@ -644,14 +660,18 @@ static void reflect_ox3(GridS *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * grav_pot: Gravitational potentials  g = 0.1
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real grav_pot2(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational potential; g = 0.1
  */
 
 static Real grav_pot2(const Real x1, const Real x2, const Real x3)
 {
   return 0.1*x2;
 }
+/*! \fn static Real grav_pot3(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational potential; g = 0.1
+ */
 static Real grav_pot3(const Real x1, const Real x2, const Real x3)
 {
   return 0.1*x3;

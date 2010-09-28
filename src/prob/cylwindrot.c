@@ -1,11 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylwindrot.c
- *
- * The cylindrical analogue of the Bondi accretion (Parker wind) problem with
- * rotation.  Hydrodynamic, axisymmetric.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylwindrot.c
+ *  \brief The cylindrical analogue of the Bondi accretion (Parker wind) 
+ *  problem with rotation.  Hydrodynamic, axisymmetric. 
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -186,20 +185,23 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return -SQR(c_infty)/x1;
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3)
+  * \brief Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   return SQR(c_infty/x1);
 }
 
-/*------------------------------------------------------------------------------
- *  FUNCTION myfunc
- *
- * This function is used to calculate v as a function of x, gamma, and lambda 
- * using the bisection method.  
- *----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+/*! \fn Real myfunc(Real x, Real v) 
+ * \brief This function is used to calculate v as a function of x, gamma, and 
+ *  lambda  using the bisection method.   */
+/*----------------------------------------------------------------------------*/
 Real myfunc(Real x, Real v) 
 {
   return Gamma_1*(1/x + 1/Gamma_1 - 0.5*(SQR(v/c_infty)+SQR(ang_mom/x)))*pow(v*x/c_infty,Gamma_1) - pow(lambda_s,Gamma_1);

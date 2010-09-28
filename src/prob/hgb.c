@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: hgb.c
+/*============================================================================*/
+/*! \file hgb.c
+ *  \brief Problem generator for 3D shearing sheet.
  *
  * PURPOSE:  Problem generator for 3D shearing sheet.  Based on the initial
  *   conditions described in "Local Three-dimensional Magnetohydrodynamic
@@ -8,20 +9,20 @@
  *
  * Several different field configurations and perturbations are possible:
  *
- *  ifield = 0 - uses field set by choice of ipert flag
- *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
- *  ifield = 2 - uniform Bz
- *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
- *  ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
- *  ifield = 5 - uniform By
+ *- ifield = 0 - uses field set by choice of ipert flag
+ *- ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
+ *- ifield = 2 - uniform Bz
+ *- ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ *- ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
+ *- ifield = 5 - uniform By
  *
- *  ipert = 1 - random perturbations to P and V [default, used by HGB]
- *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
- *  ipert = 3 - J&G vortical shwave (hydro test)
- *  ipert = 4 - nonlinear density wave test of Fromang & Papaloizou
- *  ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
- *  ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
- *  ipert = 7 - nonlinear shearing wave test of Heinemann & Papaloizou (2008)
+ *- ipert = 1 - random perturbations to P and V [default, used by HGB]
+ *- ipert = 2 - uniform Vx=amp (epicyclic wave test)
+ *- ipert = 3 - J&G vortical shwave (hydro test)
+ *- ipert = 4 - nonlinear density wave test of Fromang & Papaloizou
+ *- ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
+ *- ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
+ *- ipert = 7 - nonlinear shearing wave test of Heinemann & Papaloizou (2008)
  *
  * To run simulations of stratified disks (including vertical gravity), use the
  * strat.c problem generator.
@@ -29,8 +30,8 @@
  * Code must be configured using --enable-shearing-box
  *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
- *            Johnson, Guan, & Gammie, ApJSupp, (2008)
- *============================================================================*/
+ *            Johnson, Guan, & Gammie, ApJSupp, (2008)			      */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -559,10 +560,10 @@ double ran2(long int *idum)
 #undef NDIV
 #undef RNMX
 
-/*------------------------------------------------------------------------------
- * UnstratifiedDisk:
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
+ *  \brief tidal potential in 3D shearing box
  */
-
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
@@ -572,10 +573,11 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/*------------------------------------------------------------------------------
- * expr_dV2: computes delta(Vy) 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_dV2(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes delta(Vy) 
  */
-
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -587,10 +589,11 @@ static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 #endif
 }
 
-/*------------------------------------------------------------------------------
- * expr_Jsq: computes current density square
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_Jsq(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes current density square
  */
-
 static Real expr_Jsq(const GridS *pG, const int i, const int j, const int k)
 {
   Real J1,J2,J3;
@@ -612,6 +615,9 @@ static Real expr_Jsq(const GridS *pG, const int i, const int j, const int k)
  * hst_E_total: total energy (including tidal potential).
  */
 
+/*! \fn static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, 
+ *				   const int k)
+ *  \brief Reynolds stress, added as history variable.*/
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 {
   Real x1,x2,x3;
@@ -624,6 +630,9 @@ static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 #endif
 }
 
+/*! \fn static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, 
+ *				 const int k)
+ *  \brief KE in y-velocity fluctuations */
 static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy;
@@ -637,6 +646,9 @@ static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 }
 
 #ifdef ADIABATIC
+/*! \fn static Real hst_E_total(const GridS *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief total energy (including tidal potential). */
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
@@ -653,21 +665,30 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
  */
 
 #ifdef MHD
+/*! \fn static Real hst_Bx(const GridS *pG, const int i,const int j,const int k)
+ *  \brief x-component of B-field */
 static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B1c;
 }
 
+/*! \fn static Real hst_By(const GridS *pG, const int i,const int j,const int k)
+ *  \brief y-component of B-field */
 static Real hst_By(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B2c;
 }
 
+/*! \fn static Real hst_Bz(const GridS *pG, const int i,const int j,const int k)
+ *  \brief z-component of B-field */
 static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B3c;
 }
 
+/*! \fn static Real hst_BxBy(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Maxwell stress */
 static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;

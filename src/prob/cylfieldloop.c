@@ -1,19 +1,21 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylfieldloop.c
+/*============================================================================*/
+/*! \file cylfieldloop.c
+ *  \brief Problem generator for advection of a field loop test in cylindrical
+ *   coordinates. 
  *
  * PURPOSE: Problem generator for advection of a field loop test in cylindrical
  *   coordinates.  Can only be run in 2D or 3D.  Input parameters are:
- *      problem/r0     = radial coordinate of loop center
- *      problem/phi0   = angular coordinate of loop center
- *      problem/rad    = radius of field loop
- *      problem/amp    = amplitude of vector potential (and therefore B)
- *      problem/omega0 = flow angular velocity
- *      problem/vz0    = flow vertical velocity
+ *   -  problem/r0     = radial coordinate of loop center
+ *   -  problem/phi0   = angular coordinate of loop center
+ *   -  problem/rad    = radius of field loop
+ *   -  problem/amp    = amplitude of vector potential (and therefore B)
+ *   -  problem/omega0 = flow angular velocity
+ *   -  problem/vz0    = flow vertical velocity
  *
  * REFERENCE: T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD
- *   via constrined transport", JCP, 205, 509 (2005)
- *============================================================================*/
+ *   via constrined transport", JCP, 205, 509 (2005) */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -190,18 +192,26 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitatioinal potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return 0.5*SQR(x1*omega0);
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational acceleration  */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   return x1*SQR(omega0);
 }
 
+/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
+ *  \brief 2-component of momentum */
 Real M2(const Real x1, const Real x2, const Real x3) {
   return rho0*omega0*x1;
 }
 
+/*! \fn Real A3(const Real x1, const Real x2, const Real x3) 
+ *  \brief 3-component of vector potential */
 Real A3(const Real x1, const Real x2, const Real x3) {
   Real X0,X,Y0,Y,dist;
 

@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_strat3d.c
+/*============================================================================*/
+/*! \file par_strat3d.c
+ *  \brief Problem generator for non-linear streaming instability in stratified
+ *   disks.
  *
  * PURPOSE: Problem generator for non-linear streaming instability in stratified
  *   disks. This code works in 3D ONLY. Isothermal eos is assumed, and the value
@@ -8,17 +10,17 @@
  *   not in z.
  *
  * Perturbation modes:
- *    ipert = 0: multi-nsh equilibtium
- *    ipert = 1: white noise within the entire grid
- *    ipert = 2: non-nsh velocity
+ * -  ipert = 0: multi-nsh equilibtium
+ * -  ipert = 1: white noise within the entire grid
+ * -  ipert = 2: non-nsh velocity
  *
  *  Should be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is recommended.
  *
  * Reference:
- *   Johansen & Youdin, 2007, ApJ, 662, 627
- *   Bai & Stone, 2009, in preparation
- *============================================================================*/
+ * - Johansen & Youdin, 2007, ApJ, 662, 627
+ * - Bai & Stone, 2009, in preparation */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -529,7 +531,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* ShearingBoxPot */
+/*! \fn static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+ *  \brief shearing box tidal gravitational potential */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real z,z0,phi=0.0;
@@ -556,7 +559,8 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
+/*! \fn static int property_limit(const Grain *gr, const GrainAux *grsub)
+ *  \brief user defined particle selection function (1: true; 0: false) */
 static int property_limit(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<nlis))
@@ -565,7 +569,8 @@ static int property_limit(const Grain *gr, const GrainAux *grsub)
     return 0;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
+/*! \fn static int property_trace(const Grain *gr, const GrainAux *grsub)
+ *  \brief user defined particle selection function (1: true; 0: false) */
 static int property_trace(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<ntrack))
@@ -574,7 +579,8 @@ static int property_trace(const Grain *gr, const GrainAux *grsub)
     return 0;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
+/*! \fn static int property_type(const Grain *gr, const GrainAux *grsub)
+ *  \brief user defined particle selection function (1: true; 0: false) */
 static int property_type(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->property == mytype))
@@ -583,7 +589,8 @@ static int property_type(const Grain *gr, const GrainAux *grsub)
     return 0;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
+/*! \fn static int property_dense(const Grain *gr, const GrainAux *grsub)
+ *  \brief user defined particle selection function (1: true; 0: false) */
 static int property_dense(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (grsub->dpar > dpar_thresh))
@@ -593,7 +600,10 @@ static int property_dense(const Grain *gr, const GrainAux *grsub)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Multi-species NSH equilibrium
+/*! \fn void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
+ *                   Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH)
+ *  \brief Multi-species NSH equilibrium 
+ *
  * Input: # of particle types (n), dust stopping time and mass ratio array, and 
  *        drift speed etavk.
  * Output: gas NSH equlibrium velocity (u), and dust NSH equilibrium velocity
@@ -654,8 +664,6 @@ void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
 }
 
 /*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
  */
 
 #define IM1 2147483563
@@ -672,7 +680,11 @@ void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;
@@ -717,7 +729,8 @@ double ran2(long int *idum)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Normal distribution random number generator */
+/*! \fn double Normal(long int *idum)
+ *  \brief Normal distribution random number generator */
 double Normal(long int *idum)
 {
   double Y,X1,X2;
@@ -731,7 +744,8 @@ double Normal(long int *idum)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Error function  */
+/*! \fn Real Erf(Real z)
+ *  \brief Error function  */
 Real Erf(Real z)
 {
   /* arrays of the error function y=erf(x) */

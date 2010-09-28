@@ -1,16 +1,16 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylwind.c
+/*============================================================================*/
+/*! \file cylwind.c
+ * \brief The cylindrical analogue of the Bondi accretion (Parker wind) problem.
  *
- * The cylindrical analogue of the Bondi accretion (Parker wind) problem.
  * Hydrodynamic, rotationless, axisymmetric.
  *
- * REFERENCE: F. Shu, "The Physics of Astrophysics, Vol. II:  Gas Dynamics",
+ * - REFERENCE: F. Shu, "The Physics of Astrophysics, Vol. II:  Gas Dynamics",
  *   1992.  ISBN 0935702652
- * REFERENCE: L. Spitzer, "Physical Processes in the Interstellar Medium",
+ * - REFERENCE: L. Spitzer, "Physical Processes in the Interstellar Medium",
  *   1998.  ISBN 0471293350
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -178,21 +178,25 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential  */
 Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return -1.0/x1;
 }
 
+/*! \fn Real grav_acc(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational acceleration */
 Real grav_acc(const Real x1, const Real x2, const Real x3) {
   return 1.0/SQR(x1);
 }
 
-/*------------------------------------------------------------------------------
- *  FUNCTION myfunc
- *
- *  This funciton is used to calculate velocity v as a function of position x
+/*----------------------------------------------------------------------------*/
+/*! \fn Real myfunc(const Real x, const Real v)
+ *  \brief This funciton is used to calculate velocity v as a function of 
+ *  position x
  *  using lambda_c, the critical value of the dimensionless mass wind/accretion
- *  rate.  Standard bisection is used to find the root(s).
- *----------------------------------------------------------------------------*/
+ *  rate.  Standard bisection is used to find the root(s). */
+/*----------------------------------------------------------------------------*/
 Real myfunc(const Real x, const Real v)
 {
   return Gamma_1*(1/x + 1/Gamma_1 - 0.5*SQR(v))*pow(v*x,Gamma_1)

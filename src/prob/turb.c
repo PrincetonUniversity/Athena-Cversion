@@ -1,27 +1,28 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: turb.c
+/*============================================================================*/
+/*! \file turb.c
+ *  \brief Problem generator for driven and decaying turbulence.
  *
  * PURPOSE: Problem generator for driven and decaying turbulence. Only works
  *   in 3D with periodic BC.  Arbitrary power spectrum specified using ispect:
- *     ispect=1: power law - original form
- *     ispect=2: form from Gammie&Ostriker
+ *  -  ispect=1: power law - original form
+ *  -  ispect=2: form from Gammie&Ostriker
  *  Driving specified using idrive
- *     idrive=0: driven turbulence (de=dedt*dt before each time step,
+ *  -  idrive=0: driven turbulence (de=dedt*dt before each time step,
  *                                     unless IMPULSIVE_DRIVING enabled)
- *     idrive=1: decaying turbulence (de=dedt before first time step ONLY;
+ *  -  idrive=1: decaying turbulence (de=dedt before first time step ONLY;
  *                                     this mode uses less memory!)
  *
  *  HISTORY:
- *    Original ZEUS version (gmc.f) written by J. Stone, 24 Jan 1996
- *    First Athena version written by J. Stone, 9 June 2004
- *    Major rewrite to add MPI and use FFTW by Nicole Lemaster, 28 Sept 2006
+ *  - Original ZEUS version (gmc.f) written by J. Stone, 24 Jan 1996
+ *  - First Athena version written by J. Stone, 9 June 2004
+ *  - Major rewrite to add MPI and use FFTW by Nicole Lemaster, 28 Sept 2006
  *
- *  Last updated May 11, 2007
+ *  - Last updated May 11, 2007
  *
  *  REFERENCE: "Dissipation in Compressible MHD Turbulence", by J. Stone,
- *    E. Ostriker, & C. Gammie, ApJ 508, L99 (1998)
- *============================================================================*/
+ *    E. Ostriker, & C. Gammie, ApJ 508, L99 (1998)			      */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -118,19 +119,19 @@ static double ran2(long int *idum);
 
 /* ========================================================================== */
 
-/*
- *  Function pspect -- computes component of velocity with specific power
+/*! \fn static void pspect(ath_fft_data *ampl)
+ *  \brief computes component of velocity with specific power
  *  spectrum in Fourier space determined by ispect
  *
  *  Velocity power spectrum returned in ampl
- *    klow   = multiple of 2 pi/L for cut-off at low  wavenumbers
- *    khigh  = multiple of 2 pi/L for cut-off at high wavenumbers
- *    expo   = exponent of power law
- *    ispect = integer flag which specifies spectrum
+ *  - klow   = multiple of 2 pi/L for cut-off at low  wavenumbers
+ *  - khigh  = multiple of 2 pi/L for cut-off at high wavenumbers
+ *  - expo   = exponent of power law
+ *  - ispect = integer flag which specifies spectrum
+ *
  *  Note that the fourier amplitudes are stored in an array with no
  *  ghost zones
  */
-
 static void pspect(ath_fft_data *ampl)
 {
   int i,j,k;
@@ -186,12 +187,9 @@ static void pspect(ath_fft_data *ampl)
 
 /* ========================================================================== */
 
-/*
- *  Function project
- *
- *  Makes velocity perturbations divergence free
+/*! \fn static void project()
+ *  \brief Makes velocity perturbations divergence free
  */
-
 static void project()
 {
   int i,j,k,m,ind;
@@ -234,12 +232,9 @@ static void project()
 
 /* ========================================================================== */
 
-/*
- *  Function transform
- *
- *  Generate velocities from fourier transform
+/*! \fn static inline void transform()
+ *  \brief Generate velocities from fourier transform
  */
-
 static inline void transform()
 {
   /* Transform velocities from k space to physical space */
@@ -256,12 +251,9 @@ static inline void transform()
 
 /* ========================================================================== */
 
-/*
- *  Function generate
- *
- *  Generate the velocity perturbations
+/*! \fn static inline void generate()
+ *  \brief Generate the velocity perturbations
  */
-
 static inline void generate()
 {
   /* Generate new perturbations following appropriate power spectrum */
@@ -281,13 +273,10 @@ static inline void generate()
 
 /* ========================================================================== */
 
-/*
- *  Function perturb
- *
- *  Shifts velocities so no net momentum change, normalizes to keep
+/*! \fn static void perturb(Grid *pGrid, Real dt)
+ *  \brief  Shifts velocities so no net momentum change, normalizes to keep
  *  dedt fixed, and then sets velocities
  */
-
 static void perturb(Grid *pGrid, Real dt)
 {
   int i, is=pGrid->is, ie = pGrid->ie;
@@ -417,12 +406,8 @@ static void perturb(Grid *pGrid, Real dt)
 }
 
 /* ========================================================================== */
-/*
- *  Function initialize
- *
- *  Allocate memory and initialize FFT plans
- */
-
+/*! \fn static void initialize(Grid *pGrid, Domain *pD)
+ *  \brief  Allocate memory and initialize FFT plans */
 static void initialize(Grid *pGrid, Domain *pD)
 {
   int i, is=pGrid->is, ie = pGrid->ie;
@@ -685,7 +670,8 @@ VGFunout_t get_usr_out_fun(const char *name){
  *  Dumps to history file
  */
 
-/* Dump kinetic energy in perturbations */
+/*! \fn static Real hst_dEk(const Grid *pG, const int i,const int j,const int k)
+ *  \brief Dump kinetic energy in perturbations */
 static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
 { /* The kinetic energy in perturbations is 0.5*d*V^2 */
   return 0.5*(pG->U[k][j][i].M1*pG->U[k][j][i].M1 +
@@ -693,7 +679,8 @@ static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
 	      pG->U[k][j][i].M3*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
 }
 
-/* Dump magnetic energy in perturbations */
+/*! \fn static Real hst_dEb(const Grid *pG, const int i,const int j,const int k)
+ *  \brief Dump magnetic energy in perturbations */
 static Real hst_dEb(const Grid *pG, const int i, const int j, const int k)
 { /* The magnetic energy in perturbations is 0.5*B^2 - 0.5*B0^2 */
 #ifdef MHD
@@ -721,17 +708,20 @@ static Real hst_dEb(const Grid *pG, const int i, const int j, const int k)
 #define RNMX (1.0-DBL_EPSILON)
 #define NTAB 32
 
-/* The routine ran2() is extracted from the Numerical Recipes in C
-   (version 2) code.  I've modified it to use doubles instead of
-   floats. -- T. A. Gardiner -- Aug. 12, 2003 */
-
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
-   with Bays-Durham shuffle and added safeguards.  Returns a uniform
-   random deviate between 0.0 and 1.0 (exclusive of the endpoint
-   values).  Call with idum = a negative integer to initialize;
-   thereafter, do not alter idum between successive deviates in a
-   sequence.  RNMX should appriximate the largest floating point value
-   that is less than 1. */
+/*! \fn double ran2(long int *idum){
+ *  \brief The routine ran2() is extracted from the Numerical Recipes in C 
+ *
+ * The routine ran2() is extracted from the Numerical Recipes in C
+ * (version 2) code.  I've modified it to use doubles instead of
+ * floats. -- T. A. Gardiner -- Aug. 12, 2003 
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+ * with Bays-Durham shuffle and added safeguards.  Returns a uniform
+ * random deviate between 0.0 and 1.0 (exclusive of the endpoint
+ * values).  Call with idum = a negative integer to initialize;
+ * thereafter, do not alter idum between successive deviates in a
+ * sequence.  RNMX should appriximate the largest floating point value
+ * that is less than 1. */
 
 double ran2(long int *idum){
   int j;

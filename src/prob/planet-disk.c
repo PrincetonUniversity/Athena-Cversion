@@ -1,12 +1,11 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: planet-disk.c
- *
- * PURPOSE:  Problem generator for planet embedded in a disk, using the
+/*============================================================================*/
+/*! \file planet-disk.c
+ *  \brief Problem generator for planet embedded in a disk, using the
  *   shearing sheet approximation.
  *
- * Code must be configured using --enable-shearing-box
- *============================================================================*/
+ * Code must be configured using --enable-shearing-box */
+/*============================================================================*/
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -227,7 +226,8 @@ void Userwork_after_loop(MeshS *pM)
 /*------------------------------------------------------------------------------
  * PlanetPot:
  */
-
+/*! \fn static Real PlanetPot(const Real x1, const Real x2, const Real x3)
+ *  \brief static gravitational potential of planet */
 static Real PlanetPot(const Real x1, const Real x2, const Real x3)
 {
   Real rad,phi=0.0;
@@ -237,7 +237,8 @@ static Real PlanetPot(const Real x1, const Real x2, const Real x3)
 }
 
 /*------------------------------------------------------------------------------
- * UnstratifiedDisk:
+ *! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
+ *  \brief tidal potential in shearing box
  */
 
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
@@ -251,8 +252,10 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/*------------------------------------------------------------------------------
- * expr_dV2: computes delta(Vy) 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_dV2(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes delta(Vy) 
  */
 
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
@@ -268,13 +271,16 @@ static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 #endif
 }
 
-/*------------------------------------------------------------------------------
- * Hydro history variables:
+/*---------------------------------------------------------------------------*/
+/* Hydro history variables:
  * hst_rho_Vx_dVy: Reynolds stress, added as history variable.
  * hst_rho_dVy2: KE in y-velocity fluctuations
  * hst_E_total: total energy (including tidal potential).
  */
 
+/*! \fn static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, 
+ *				   const int k)
+ *  \brief Reynolds stress, added as history variable.*/
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 {
   Real x1,x2,x3;
@@ -289,6 +295,9 @@ static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 #endif
 }
 
+/*! \fn static Real hst_rho_dVy2(const GridS *pG, const int i, const int j,  
+ *				const int k)
+ *  \brief KE in y-velocity fluctuations */
 static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy;
@@ -304,6 +313,9 @@ static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 }
 
 #ifdef ADIABATIC
+/*! \fn static Real hst_E_total(const GridS *pG, const int i, const int j, 
+ *			        const int k)
+ *  \brief total energy (including tidal potential). */
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
@@ -314,8 +326,9 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 }
 #endif /* ADIABATIC */
 
-/*-----------------------------------------------------------------------------
- * constant_iib: sets boundary condition on left X boundary (iib) to constant
+/*---------------------------------------------------------------------------*/
+/*! \fn void constant_iib(GridS *pGrid)
+ *  \brief Sets boundary condition on left X boundary (iib) to constant
  * state (initial values).
  */
 
@@ -354,8 +367,9 @@ void constant_iib(GridS *pGrid)
   } 
 }
 
-/*-----------------------------------------------------------------------------
- * constant_oib: sets boundary condition on right X boundary (oib) to constant
+/*---------------------------------------------------------------------------*/
+/*! \fn void constant_oib(GridS *pGrid)
+ *  \brief  Sets boundary condition on right X boundary (oib) to constant
  * state (initial values).
  */
 

@@ -1,13 +1,14 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_shwave2d.c
+/*============================================================================*/
+/*! \file par_shwave2d.c
+ *  \brief Problem generator shear wave test with Lagrangian particles.
  *
  * PURPOSE: Problem generator shear wave test with Lagrangian particles.
  *   Must work in 3D, and the wavevector is in x2 direction. Particles can be
  *   initialized either with uniform density or with density profile same as the
  *   gas. SHEARING_BOX must be turned on, FARGO is optional.
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -221,17 +222,25 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 #if (NSCALARS > 0)
+/*! \fn static Real ScalarDen(const Grid *pG, const int i, const int j, 
+ *			      const int k)
+ *  \brief Scalar density */
 static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]-1.0;
 }
 #endif
 
+/*! \fn static Real diffd(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Density - 1. */
 static Real diffd(const Grid *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].d-1.0;
 }
 
+/*! \fn static Real expr_dV2(const Grid *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief 2-component velocity difference */
 static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -244,11 +253,17 @@ static Real expr_dV2(const Grid *pG, const int i, const int j, const int k)
 }
 
 #ifdef PARTICLES
-static Real diffdpar(const Grid *pG, const int i, const int j, const int k)
+/*! \fn static Real diffdpar(const Grid *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief particle density difference 
+static Real diffdpar(const Grid *pG, const int i, const int j, const int k) */
 {
   return pG->Coup[k][j][i].grid_d-1.0;
 }
 
+/*! \fn static Real expr_dV2par(const Grid *pG, const int i, const int j, 
+ *			        const int k)
+ *  \brief 2-component particle velocity difference */
 static Real expr_dV2par(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,v2par;
@@ -365,7 +380,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 /*--------------------------------------------------------------------------- */
 /* ShearingBoxPot:
  */
-
+/*! \fn static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+ *  \brief Shearing box tidal potential */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
@@ -376,6 +392,8 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 }
 
 #ifdef PARTICLES
+/*! \fn int GetPosition(Grain *gr)
+ *  \brief  Get particle status (grid/crossing) */
 int GetPosition(Grain *gr)
 {
   if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar)                       || (gr->x3>=x3upar) || (gr->x3<x3lpar))
@@ -384,7 +402,10 @@ int GetPosition(Grain *gr)
     return 1;  /* grid particle */
 }
 
-/* user defined particle selection function (1: true; 0: false) */
+
+/*! \fn static int property_mybin(const Grain *gr, const GrainAux *grsub)
+ *  \brief Particle selection function for output
+ *   User defined particle selection function (1: true; 0: false) */
 static int property_mybin(const Grain *gr, const GrainAux *grsub)
 {
   if ((gr->my_id<Nx12) && (gr->pos == 1))

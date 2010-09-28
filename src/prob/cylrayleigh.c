@@ -1,12 +1,11 @@
 #define SEED 661979
 
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylrayleigh.c
- *
- *  A test of the Rayleigh instability using omega(R) = omega_0/R^q.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylrayleigh.c
+ *  \brief A test of the Rayleigh instability using omega(R) = omega_0/R^q.
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -157,6 +156,8 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   if (q == 1.0) {
     return SQR(omega0)*log(x1);
@@ -167,11 +168,15 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   }
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3) {
+ *  \brief Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   Real omega = omega0/pow(x1,q);
   return x1*SQR(omega);
 }
 
+/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
+ *  \brief 2-component of momentum */
 Real M2(const Real x1, const Real x2, const Real x3) {
   return rho0*omega0*pow(x1,1.0-q);
 }

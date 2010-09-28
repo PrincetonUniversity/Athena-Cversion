@@ -1,17 +1,18 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_friction.c
+/*============================================================================*/
+/*! \file par_friction.c
+ *  \brief Problem generator for particle code test, works for 2D and 3D.
  *
  * PURPOSE: Problem generator for particle code test, works for 2D and 3D. The
  *   fluid is set to be at rest. One test particle with initial velocity v0 is
  *   then stopped by the gas. This problem is used to test particle integrator
  *   performance in weak coupling regime.
  *
- *   Configure --with-particle=passive --with-eos=isothermal
+ * - Configure --with-particle=passive --with-eos=isothermal
  *
  * USERWORK_IN_LOOP function is used to output particle positions.
- *   
- *============================================================================*/
+ */ 
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -250,7 +251,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* Compute particle trajectory */
+/*! \fn static Vector ParticleTroj(Real t)
+ *  \brief Compute particle trajectory */
 static Vector ParticleTroj(Real t)
 {
   Vector pos;
@@ -269,7 +271,8 @@ static Vector ParticleTroj(Real t)
   return pos;
 }
 
-/* Compute particle velocity */
+/*! \fn static Vector ParticleVel(Real t)
+ *  \brief Compute particle velocity */
 static Vector ParticleVel(Real t)
 {
   Vector vel;
@@ -281,7 +284,8 @@ static Vector ParticleVel(Real t)
   return vel;
 }
 
-/* Judge if the particle is in this cpu */
+/*! \fn static int ParticleLocator(Real x1, Real x2, Real x3)
+ *  \brief Judge if the particle is in this cpu */
 static int ParticleLocator(Real x1, Real x2, Real x3)
 {
   if ((x1<x1upar) && (x1>=x1lpar) && (x2<x2upar) && (x2>=x2lpar) &&(x3<x3upar) && (x3>=x3lpar))

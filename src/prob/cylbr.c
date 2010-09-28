@@ -1,11 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylbr.c
- *
- * A dynamic test of force balance using a B_R-only, time-dependent,
+/*============================================================================*/
+/*! \file cylbr.c
+ *  \brief A dynamic test of force balance using a B_R-only, time-dependent,
  * non-axisymmetric magnetic field.
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -162,36 +161,51 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return 0.5*SQR(x1*omega0) - 0.5*SQR(br0)/SQR(x1);
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational acceleration. */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   return x1*SQR(omega0) + SQR(br0)/pow(x1,3);
 }
 
+/*! \fn Real d(const Real x1, const Real x2, const Real x3) 
+ *  \brief Density */
 Real d(const Real x1, const Real x2, const Real x3) {
   return rho0 + SQR(sin(a*x2-phi0));
 }
 
+/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
+ *  \brief 2-component of momentum */
 Real M2(const Real x1, const Real x2, const Real x3) {
   return (rho0 + SQR(sin(a*x2-phi0)))*omega0*x1;
 }
 
+/*! \fn Real B1(const Real x1, const Real x2, const Real x3)
+ *  \brief 1-component of B field */
 Real B1(const Real x1, const Real x2, const Real x3) {
   return br0*(cos(a*x2-phi0))/x1;
 }
 
+/*! \fn Real B1i(const Real x2) 
+ *  \brief 1-component of B field at interface */
 Real B1i(const Real x2) {
   return B1(x1save,x2,x3save);
 }
 
+/*! \fn Real Pgas(const Real x1, const Real x2, const Real x3) 
+ *  \brief gas pressure */
 Real Pgas(const Real x1, const Real x2, const Real x3) {
   return pgas0 + 0.5*SQR(br0)*(rho0 + SQR(sin(a*x2-phi0)))/SQR(x1);
 }
 
 /*----------------------------------------------------------------------------*/
-/* cylbr_ix1:  Inner-R boundary conditions.  d, M2, B1, B1i, and P are all
+/*! \fn void cylbr_ix1(GridS *pG)
+ *  \brief  Inner-R boundary conditions.  d, M2, B1, B1i, and P are all
  *   functions of R, phi, and t.
  */
 
@@ -233,9 +247,9 @@ void cylbr_ix1(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* B_R = B_0/R boundary conditions, Outer x1 boundary
+/*! \fn void cylbr_ox1(GridS *pG)
+ *  \brief B_R = B_0/R boundary conditions, Outer x1 boundary
  */
-
 void cylbr_ox1(GridS *pG)
 {
   int ie = pG->ie;

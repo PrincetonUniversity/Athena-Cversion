@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: hb3.c
+/*============================================================================*/
+/*! \file hb3.c
+ *  \brief Problem generator for 2D MRI simulations using the shearing sheet
+ *   based on "A powerful local shear instability in weakly magnetized disks.
  *
  * PURPOSE: Problem generator for 2D MRI simulations using the shearing sheet
  *   based on "A powerful local shear instability in weakly magnetized disks.
@@ -8,16 +10,28 @@
  *   is the third of the HB papers on the MRI, thus hb3.
  *
  * Several different perturbations and field configurations are possible:
- *  ipert = 1 - isentropic perturbations to P & d [default]
- *  ipert = 2 - uniform Vx=amp, sinusoidal density
- *  ipert = 3 - random perturbations to P [used by HB]
- *  ipert = 4 - sinusoidal perturbation to Vx in z
+ * - ipert = 1 - isentropic perturbations to P & d [default]
+ * - ipert = 2 - uniform Vx=amp, sinusoidal density
+ * - ipert = 3 - random perturbations to P [used by HB]
+ * - ipert = 4 - sinusoidal perturbation to Vx in z
  *
- *  ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
- *  ifield = 2 - uniform Bz
+ * - ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
+ * - ifield = 2 - uniform Bz
  *
- * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
- *============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - ran2() - random number generator from NR
+ * - UnstratifiedDisk() - tidal potential in 2D shearing box
+ * - expr_dV3() - computes delta(Vy)
+ * - hst_rho_Vx_dVy () - new history variable
+ * - hst_E_total() - new history variable
+ * - hst_dEk() - new history variable
+ * - hst_Bx()  - new history variable
+ * - hst_By()  - new history variable
+ * - hst_Bz()  - new history variable
+ * - hst_BxBy() - new history variable
+ *
+ * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).*/
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -299,10 +313,7 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
- */
+/*----------------------------------------------------------------------------*/
 
 #define IM1 2147483563
 #define IM2 2147483399
@@ -318,7 +329,11 @@ void Userwork_after_loop(MeshS *pM)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ * 
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;
@@ -376,10 +391,10 @@ double ran2(long int *idum)
 #undef NDIV
 #undef RNMX
 
-/*------------------------------------------------------------------------------
- * ShearingBoxPot: 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
+ *  \brief  ShearingBoxPot 
  */
-
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3){
   Real phi=0.0;
 #ifndef FARGO
@@ -388,10 +403,11 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3){
   return phi;
 }
 
-/*------------------------------------------------------------------------------
- * expr_dV3: computes delta(Vy) 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_dV3(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes delta(Vy) 
  */
-
 static Real expr_dV3(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -403,10 +419,11 @@ static Real expr_dV3(const GridS *pG, const int i, const int j, const int k)
 #endif
 }
 
-/*------------------------------------------------------------------------------
- * hst_rho_Vx_dVy: Reynolds stress, added as history variable.
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real hst_rho_Vx_dVy(const GridS *pG, const int i, const int j, 
+ *				   const int k)
+ *  \brief Reynolds stress, added as history variable.
  */
-
 static Real hst_rho_Vx_dVy(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -418,11 +435,11 @@ static Real hst_rho_Vx_dVy(const GridS *pG, const int i, const int j, const int 
 #endif
 }
 
-/*------------------------------------------------------------------------------
- * hst_dEk: computes 0.5*(Vx^2 + 4(\delta Vy)^2), which for epicyclic motion
- *   is a constant, added as history variable 
- */
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real hst_dEk(const GridS *pG, const int i, const int j, 
+ *			    const int k)
+ *  \brief computes 0.5*(Vx^2 + 4(\delta Vy)^2), which for epicyclic motion
+ *   is a constant, added as history variable */
 static Real hst_dEk(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -442,6 +459,9 @@ static Real hst_dEk(const GridS *pG, const int i, const int j, const int k)
  * hst_E_total: total energy (including tidal potential).
  */
 
+/*! \fn static Real hst_E_total(const GridS *pG, const int i, const int j, 
+ *			        const int k)
+ *  \brief Total energy, including tidal potential */
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
 #ifdef ADIABATIC
@@ -460,21 +480,30 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
  */
 
 #ifdef MHD
+/*! \fn static Real hst_Bx(const GridS *pG, const int i,const int j,const int k)
+ *  \brief x-component of magnetic field */
 static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][pG->is].B1c;
 }
 
+/*! \fn static Real hst_By(const GridS *pG, const int i,const int j,const int k)
+ *  \brief y-component of the magnetic field */
 static Real hst_By(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][pG->js][i].B2c;
 }
 
+/*! \fn static Real hst_Bz(const GridS *pG, const int i,const int j,const int k)
+ *  \brief z-component of the magnetic field */
 static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[pG->ks][j][i].B3c;
 }
 
+/*! \fn static Real hst_BxBy(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Maxwell stress */
 static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;

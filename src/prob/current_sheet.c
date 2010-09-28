@@ -1,12 +1,13 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: current_sheet.c
+/*============================================================================*/
+/*! \file current_sheet.c
+ *  \brief Problem generator for current sheet test. 
  *
  * PURPOSE: Problem generator for current sheet test.  This version only allows
  *   current sheet in X-Y plane, with Bz=0.  
  *
- * REFERENCE:
- *============================================================================*/
+ * REFERENCE: */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

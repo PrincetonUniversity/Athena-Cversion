@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: strat.c
+/*============================================================================*/
+/*! \file strat.c
+ *  \brief Problem generator for stratified 3D shearing sheet.
  *
  * PURPOSE:  Problem generator for stratified 3D shearing sheet.  Based on the 
  *   initial conditions described in "Three-dimensional Magnetohydrodynamic
@@ -8,18 +9,18 @@
  *   Gammie & Balbus.
  *
  * Several different field configurations and perturbations are possible:
- *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
- *  ifield = 2 - uniform Bz
- *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
- *  ifield = 4 - uniform By, but only for |z|<2
+ * -  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
+ * -  ifield = 2 - uniform Bz
+ * -  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ * -  ifield = 4 - uniform By, but only for |z|<2
  *
- *  ipert = 1 - random perturbations to P and V [default, used by HGB]
+ * - ipert = 1 - random perturbations to P and V [default, used by HGB]
  *
  * Code must be configured using --enable-shearing-box
  *
  * REFERENCE: Stone, J., Hawley, J. & Balbus, S. A., ApJ 463, 656-673 (1996)
- *            Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992)
- *============================================================================*/
+ *            Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992)	      */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -338,8 +339,6 @@ void Userwork_after_loop(MeshS *pM)
 }
 
 /*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
  */
 
 #define IM1 2147483563
@@ -356,7 +355,11 @@ void Userwork_after_loop(MeshS *pM)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003 
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;
@@ -414,9 +417,9 @@ double ran2(long int *idum)
 #undef NDIV
 #undef RNMX
 
-/*------------------------------------------------------------------------------
- * UnstratifiedDisk */
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
+ *  \brief tidal potential in 3D shearing box */
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
@@ -426,9 +429,9 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/*------------------------------------------------------------------------------
- * VertGrav */
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real VertGrav(const Real x1, const Real x2, const Real x3)
+ *  \brief potential for vertical component of gravity */
 static Real VertGrav(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0,z;
@@ -447,10 +450,11 @@ static Real VertGrav(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/*------------------------------------------------------------------------------
- * expr_dV2: computes delta(Vy) 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_dV2(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes delta(Vy) 
  */
-
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -462,10 +466,11 @@ static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 #endif
 }
 
-/*------------------------------------------------------------------------------
- * expr_beta: computes beta=P/(B^2/8pi)  
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_beta(const GridS *pG, const int i, const int j, 
+ *			      const int k)
+ *  \brief Computes beta=P/(B^2/8pi)  
  */
-
 static Real expr_beta(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,B2;
@@ -486,10 +491,11 @@ static Real expr_beta(const GridS *pG, const int i, const int j, const int k)
 #endif /* MHD */
 }
 
-/*------------------------------------------------------------------------------
- * expr_ME: computes B^2/8pi
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_ME(const GridS *pG, const int i, const int j, 
+ *			    const int k)
+ *  \brief  Computes B^2/8pi
  */
-
 static Real expr_ME(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,B2;
@@ -503,10 +509,11 @@ static Real expr_ME(const GridS *pG, const int i, const int j, const int k)
   return NULL;
 #endif
 }
-/*------------------------------------------------------------------------------
- * expr_KE: computes dens*(Vx^2+Vy^2+Vz^2)/2
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_KE(const GridS *pG, const int i, const int j, 
+ *			    const int k)
+ *  \brief Computes dens*(Vx^2+Vy^2+Vz^2)/2
  */
-
 static Real expr_KE(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,Vy,Vx,Vz;
@@ -529,7 +536,9 @@ static Real expr_KE(const GridS *pG, const int i, const int j, const int k)
  * hst_rho_dVy2: KE in y-velocity fluctuations
  * hst_E_total: total energy (including tidal potential).
  */
-
+/*! \fn static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, 
+ *				  const int k)
+ *  \brief Reynolds stress, added as history variable. */
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 {
   Real x1,x2,x3;
@@ -542,6 +551,9 @@ static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 #endif
 }
 
+/*! \fn static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief KE in y-velocity fluctuations */
 static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy;
@@ -555,6 +567,9 @@ static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 }
 
 #ifdef ADIABATIC
+/*! \fn static Real hst_E_total(const GridS *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief total energy (including tidal potential). */
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
@@ -571,21 +586,31 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
  */
 
 #ifdef MHD
+/*! \fn static Real hst_Bx(const GridS *pG, const int i,const int j,const int k)
+ *  \brief x-component of magnetic field */
 static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B1c;
 }
 
+/*! \fn static Real hst_By(const GridS *pG,const int i,const int j,const int k) 
+ *  \brief y-component of magnetic field */
 static Real hst_By(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B2c;
 }
 
+/*! \fn static Real hst_Bz(const GridS *pG, const int i, const int j, 
+ *			  const int k)
+ *  \brief z-component of magnetic field */
 static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B3c;
 }
 
+/*! \fn static Real hst_BxBy(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Maxwell stress */
 static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;

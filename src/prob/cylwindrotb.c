@@ -1,11 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylwindrotb.c
- *
- * The cylindrical analogue of the Bondi accretion (Parker wind) problem with
- * rotation and magnetic field.  Axisymmetric.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylwindrotb.c
+ *  \brief The cylindrical analogue of the Bondi accretion (Parker wind) 
+ *  problem with rotation and magnetic field.  Axisymmetric.
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -236,19 +235,22 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return -GM/x1;
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   return GM/SQR(x1);
 }
 
-/*-----------------------------------------------------------------------------
- * Function func
- *
- * This function is used to calculate y (ie. rho) as a function of x (ie. R),
- * gamma, eta, theta, omega, and E using the bisection method.
+/*----------------------------------------------------------------------------*/
+/*! \fn Real myfunc(const Real x, const Real y) 
+ *  \brief This function is used to calculate y (ie. rho) as a function of x 
+ *  (ie. R), gamma, eta, theta, omega, and E using the bisection method.
  *
  */
 

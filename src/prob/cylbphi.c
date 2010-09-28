@@ -1,11 +1,9 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylbphi.c
- *
- * A simple magnetostatic test of pressure balance using a B-field with uniform
- * phi-component.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylbphi.c
+ *  \brief A simple magnetostatic test of pressure balance using a B-field with 
+ *  uniform phi-component. */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -168,6 +166,8 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief  Gravitational potential. */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   switch (iprob) {
     case 1:   return 0.5*SQR(x1*omega0) - (SQR(bphi0)/rho0)*log(x1);
@@ -178,6 +178,8 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   }
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3) 
+ *  \brief  Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   switch (iprob) {
     case 1:   return x1*SQR(omega0) - SQR(bphi0)/(rho0*x1);
@@ -188,6 +190,8 @@ static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   }
 }
 
+/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
+ *  \brief 2-component of momentum  */
 Real M2(const Real x1, const Real x2, const Real x3) {
   return rho0*omega0*x1;
 }

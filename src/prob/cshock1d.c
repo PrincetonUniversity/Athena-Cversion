@@ -1,13 +1,14 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cshock1d.c
+/*============================================================================*/
+/*! \file cshock1d.c
+ *  \brief Problem generator for 1-D standing C-type shock test.
  *
  * PURPOSE: Problem generator for 1-D standing C-type shock test. Only works for
  *   grid-aligned shock, the shock is along the x1 direction.
  *
  * REFERENCE: Mac Low, M-M et al., "Incorporation of Ambipolar Diffusion into
- *   the Zeus Magnetohydrodynamics Code", 1995, ApJ, 442, 726
- *============================================================================*/
+ *   the Zeus Magnetohydrodynamics Code", 1995, ApJ, 442, 726		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -254,7 +255,8 @@ void Userwork_after_loop(MeshS *pM)
 /*----------------------------------------------------------------------------*/
 /* Semi-analytical C-shock solution */
 
-/* 4th order Runge-Kutta integrator */
+/*! \fn Real RK4(Real D, Real A, Real M, Real theta, Real h)
+ *  \brief 4th order Runge-Kutta integrator */
 Real RK4(Real D, Real A, Real M, Real theta, Real h)
 {
   Real k1, k2, k3, k4;
@@ -268,7 +270,8 @@ Real RK4(Real D, Real A, Real M, Real theta, Real h)
 
 }
 
-/* dD/dt */
+/*! \fn Real Dprime(Real D, Real A, Real M, Real theta)
+ *  \brief dD/dt */
 Real Dprime(Real D, Real A, Real M, Real theta)
 {
   Real sintheta, costheta, sintheta2, costheta2;

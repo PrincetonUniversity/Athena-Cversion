@@ -1,11 +1,12 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: lw_implode.c
+/*============================================================================*/
+/*! \file lw_implode.c
+ *  \brief Problem generator for square implosion problem.
  *
  * PURPOSE: Problem generator for square implosion problem.
  *
- * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)
- *============================================================================*/
+ * REFERENCE: R. Liska & B. Wendroff, SIAM J. Sci. Comput., 25, 995 (2003)    */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdlib.h>
@@ -120,7 +121,9 @@ void Userwork_in_loop(MeshS *pM)
 void Userwork_after_loop(MeshS *pM)
 {
 }
-
+/*! \fn static Real expr_diff_d(const GridS *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief computes difference d{i,j}-d{j,i} to test if solution is symmetric */
 static Real expr_diff_d(const GridS *pG, const int i, const int j, const int k)
 {
  return (pG->U[k][j][i].d - pG->U[k][i][j].d);

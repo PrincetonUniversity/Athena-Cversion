@@ -1,10 +1,9 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylunif.c
- *
- * A test of conservation using uniform initial conditions.  
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylunif.c
+ *  \brief A test of conservation using uniform initial conditions.  
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -20,6 +19,8 @@ static Real br, bphi, omega, rho, pgas;
 static int iprob;
 
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   switch(iprob) {
     case 0:
@@ -42,6 +43,8 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   }
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   switch(iprob) {
     case 0:

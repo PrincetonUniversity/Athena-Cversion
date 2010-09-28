@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_linearwave1d.c
+/*============================================================================*/
+/*! \file par_linearwave1d.c
+ *  \brief Problem generator for plane-parallel, grid-aligned linear wave tests
+ *   with Lagrangian particles.
  *
  * PURPOSE: Problem generator for plane-parallel, grid-aligned linear wave tests
  *   with Lagrangian particles. Works only for 2D grid and with wavevector
@@ -9,8 +11,8 @@
  *
  *  Can be used for either standing (problem/vflow=1.0) or travelling
  *  (problem/vflow=0.0) waves.
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -237,6 +239,9 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 #if (NSCALARS > 0)
+/*! \fn static Real ScalarDen(const Grid *pG, const int i, const int j, 
+ *			      const int k)
+ *  \brief Scalar density */
 static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0];
@@ -244,6 +249,8 @@ static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 #endif
 
 #ifdef PARTICLES
+/*! \fn static Real dratio(const Grid *pG, const int i, const int j,const int k)
+ *  \brief Density ratio */
 static Real dratio(const Grid *pG, const int i, const int j, const int k)
 {
 #if (NSCALARS > 0)
@@ -405,6 +412,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
 
+/*! \fn int GetPosition(Grain *gr)
+ *  \brief get particle status (grid/crossing) */
 int GetPosition(Grain *gr)
 {
   if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar) || (gr->x3>=x3upar) || (gr->x3<x3lpar))

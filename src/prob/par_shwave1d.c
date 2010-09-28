@@ -1,8 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_epiwave1d.c
+/*============================================================================*/
+/*! \file par_shwave1d.c
+ *  \brief Problem generator radial epicyclic wave test with Lagrangian
+ *   particles.
  *
- * PURPOSE: Problem generator raadial epicyclic wave test with Lagrangian
+ * PURPOSE: Problem generator radial epicyclic wave test with Lagrangian
  *   particles.
  *
  *   Only works for 2D, and the wavevector is in x1 direction. Particles can be
@@ -11,8 +13,8 @@
  *   ipert: 1 for linear wave; 2 for non-linear wave from Fromang & Papaloizou.
  *
  * Reference: Fromang & Papaloizou, A&A, 468, 1-18 (2007).
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -267,6 +269,9 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
 }
 
 #if (NSCALARS > 0)
+/*! \fn static Real ScalarDen(const Grid *pG,const int i,
+ *			      const int j,const int k)
+ *  \brief Scalar density */
 static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0];
@@ -274,6 +279,8 @@ static Real ScalarDen(const Grid *pG, const int i, const int j, const int k)
 #endif
 
 #ifdef PARTICLES
+/*! \fn static Real dratio(const Grid *pG, const int i, const int j,const int k)
+ *  \brief Density ratio */
 static Real dratio(const Grid *pG, const int i, const int j, const int k)
 {
 #if (NSCALARS > 0)
@@ -284,6 +291,8 @@ static Real dratio(const Grid *pG, const int i, const int j, const int k)
 }
 #endif
 
+/*! \fn static Real expr_dV3(const Grid *pG,const int i,const int j,const int k)
+ *  \brief 3-component of velocity */
 static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -296,6 +305,9 @@ static Real expr_dV3(const Grid *pG, const int i, const int j, const int k)
 }
 
 #ifdef PARTICLES
+/*! \fn static Real expr_dV3par(const Grid *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief 3-component of particle velocity */
 static Real expr_dV3par(const Grid *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -440,6 +452,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 /*--------------------------------------------------------------------------- */
 
 #ifdef PARTICLES
+/*! \fn int GetPosition(Grain *gr)
+ *  \brief Get particle status (grid/crossing) */
 int GetPosition(Grain *gr)
 {
   if ((gr->x1>=x1upar) || (gr->x1<x1lpar) || (gr->x2>=x2upar) || (gr->x2<x2lpar) || (gr->x3>=x3upar) || (gr->x3<x3lpar))
@@ -453,6 +467,8 @@ int GetPosition(Grain *gr)
  * ShearingBoxPot: 
  */
 
+/*! \fn static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+ *  \brief shearing box tidal potential */
 static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;

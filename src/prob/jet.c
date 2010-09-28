@@ -1,9 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: jet.c
- *
- * PURPOSE: Sets up a jet introduced through L-x1 boundary (left edge)
- *============================================================================*/
+/*============================================================================*/
+/*! \file jet.c
+ *  \brief Sets up a jet introduced through L-x1 boundary (left edge) */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -194,10 +193,11 @@ void Userwork_after_loop(MeshS *pM)
 
 /*===================== PRIVATE FUNCTIONS ====================================*/
 
-/*******************************************************************************
- * FUNCTION: jet_iib: sets ghost zones to either outflow BC or
- * if cell is within jet radius, to jet values
- ******************************************************************************/
+/******************************************************************************/
+/*! \fn void jet_iib(GridS *pGrid) 
+ *  \brief Sets ghost zones to either outflow BC or
+ * if cell is within jet radius, to jet values */
+/******************************************************************************/
 
 void jet_iib(GridS *pGrid){
   int i, is = pGrid->is;

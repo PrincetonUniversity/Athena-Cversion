@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: jeans.c
+/*============================================================================*/
+/*! \file jeans.c
+ *  \brief Problem generator for simple self-gravity test.  
  *
  * PURPOSE: Problem generator for simple self-gravity test.  
  *
@@ -8,8 +9,8 @@
  *               and for fft method, --enable-fft   
  *
  * B-field (when present) lies along direction perpendicular to wavevector.
- * Wavevector is along chosen direction (1, 2, or 3).
- *============================================================================*/
+ * Wavevector is along chosen direction (1, 2, or 3). */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -202,6 +203,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 #if (NSCALARS > 0)
+/*! \fn static Real color(const GridS *pG, const int i, const int j,const int k)
+ *  \brief returns first passively advected scalar s[0] */
 static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;

@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_circ.c
+/*============================================================================*/
+/*! \file par_circ.c
+ *  \brief Problem generator for particle code test, works for 2D or 3D.
  *
  * PURPOSE: Problem generator for particle code test, works for 2D or 3D. The 
  *   gas is set tobe steady state, with a circular motion around the center of
@@ -13,8 +14,8 @@
  *   Configure --with-particle=passive --with-eos=isothermal
  *   
  * USERWORK_IN_LOOP function is used to output particle positions.
- *   
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -257,6 +258,9 @@ PropFun_t get_usr_par_prop(const char *name)
   return NULL;
 }
 
+/*! \fn void gasvshift(const Real x1, const Real x2, const Real x3,
+ *                                           Real *u1, Real *u2, Real *u3)
+ *  \brief Gas velocity shift */
 void gasvshift(const Real x1, const Real x2, const Real x3,
                                              Real *u1, Real *u2, Real *u3)
 {
@@ -269,6 +273,9 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
   return;
 }
 
+/*! \fn void Userforce_particle(Vector *ft, const Real x1, const Real x2, 
+ *		      const Real x3,
+ *  \brief User-supplied particle force */
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
                                     const Real v1, const Real v2, const Real v3)
 {
@@ -326,7 +333,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
 
-/* Compute particle trajectory */
+/*! \fn static Vector ParticleTroj(Real t)
+ *  \brief Compute particle trajectory */
 static Vector ParticleTroj(Real t)
 {
   Vector pos;
@@ -342,7 +350,8 @@ static Vector ParticleTroj(Real t)
   return pos;
 }
 
-/* Compute particle velocity */
+/*! \fn static Vector ParticleVel(Vector pos)
+ *  \brief Compute particle velocity */
 static Vector ParticleVel(Vector pos)
 {
   Vector vel;
@@ -356,7 +365,8 @@ static Vector ParticleVel(Vector pos)
   return vel;
 }
 
-/* Judge if the particle is in this cpu */
+/*! \fn static int ParticleLocator(Real x1, Real x2, Real x3)
+ *  \brief Judge if the particle is in this cpu */
 static int ParticleLocator(Real x1, Real x2, Real x3)
 {
   if ((x1<x1upar) && (x1>=x1lpar) && (x2<x2upar) && (x2>=x2lpar) &&(x3<x3upar) && (x3>=x3lpar))
@@ -365,10 +375,7 @@ static int ParticleLocator(Real x1, Real x2, Real x3)
     return 0;	/* no */
 }
 
-/*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
- */
+/*----------------------------------------------------------------------------*/
 
 #define DBL_EPSILON 1.0e-16
 #define IM1 2147483563
@@ -385,7 +392,11 @@ static int ParticleLocator(Real x1, Real x2, Real x3)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ * 
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;

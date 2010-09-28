@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: ti.c
+/*============================================================================*/
+/*! \file ti.c
+ *  \brief Problem generator for thermal instability.
  *
  *  PURPOSE: Problem generator for thermal instability.  Setup to use the 
  *   Koyama & Inutsuka cooling function, so must use cgs units for calculations
@@ -12,14 +13,14 @@
  *   The coefficient of Spitzer Coulombic conductivity should be given.
  *
  *  Various test cases are possible
- *  (iprob=1) : TI test w/ isotropic conduction in 1D - sinusoidal fluctuations
- *  (iprob=2) : TI test w/ isotropic conduction in 2D
- *                       with sinusoidal fluctuations along the diagonal          
- *  (iprob=3) : TI test w/ conduction in 2D with random pressure purtubation
+ *- (iprob=1) : TI test w/ isotropic conduction in 1D - sinusoidal fluctuations
+ *- (iprob=2) : TI test w/ isotropic conduction in 2D
+ *                       with sinusoidal fluctuations along the diagonal        
+ *- (iprob=3) : TI test w/ conduction in 2D with random pressure purtubation
  *              in case of anisotropic conduction : mhd - Diagonal field line
- *  (iprob=4) : TI test w/ conduction in 2D with random pressure purtubation
- *              in case of anisotropic conduction : mhd - Tangled field line
- *============================================================================*/
+ *- (iprob=4) : TI test w/ conduction in 2D with random pressure purtubation
+ *              in case of anisotropic conduction : mhd - Tangled field line  */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -493,6 +494,8 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
+/*! \fn static Real logd(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Log10 of density */
 static Real logd(const Grid *pG, const int i, const int j, const int k)
 {
   return log10(pG->U[k][j][i].d);
@@ -521,8 +524,6 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
  */
 
 #define IM1 2147483563
@@ -539,7 +540,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum){
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;

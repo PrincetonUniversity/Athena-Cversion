@@ -1,11 +1,12 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: kh.c
+/*============================================================================*/
+/*! \file kh.c
+ *  \brief Problem generator for KH instability. 
  *
  * PURPOSE: Problem generator for KH instability.  Sets up two versions:
- *  iprob=1: slip surface with random perturbations
- *  iprob=2: tanh profile at interface, with single-mode perturbation
- *============================================================================*/
+ * - iprob=1: slip surface with random perturbations
+ * - iprob=2: tanh profile at interface, with single-mode perturbation	      */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -171,6 +172,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 #if (NSCALARS > 0)
+/*! \fn static Real color(const GridS *pG, const int i, const int j,const int k)
+ *  \brief Returns first passively advected scalar s[0] */
 static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
@@ -201,8 +204,6 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
  */
 
 #define IM1 2147483563
@@ -219,7 +220,11 @@ void Userwork_after_loop(MeshS *pM)
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief  Extracted from the Numerical Recipes in C (version 2) code. Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;

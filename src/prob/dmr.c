@@ -1,13 +1,14 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dmr.c
+/*============================================================================*/
+/*! \file dmr.c
+ *  \brief Problem generator for double Mach reflection test.
  *
  * PURPOSE: Problem generator for double Mach reflection test.  Only works for
  *   genuinely 2D problems in X1-X2 plane.
  *
  * REFERENCE: P. Woodward & P. Colella, "The numerical simulation of 
- *   two-dimensional fluid flow with strong shocks", JCP, 54, 115, sect. IVc.
- *============================================================================*/
+ *   two-dimensional fluid flow with strong shocks", JCP, 54, 115, sect. IVc. */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -129,8 +130,10 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*-----------------------------------------------------------------------------
- * dmrbv_iib: sets boundary condition on left X boundary (iib) for dmr test
+/*----------------------------------------------------------------------------*/
+/*! \fn void dmrbv_iib(GridS *pGrid)
+ *  \brief Sets boundary condition on left X boundary (iib) for dmr test
+ *
  * Note quantities at this boundary are held fixed at the downstream state
  */
 
@@ -161,8 +164,10 @@ Real d0,e0,u0,v0;
   }
 }
 
-/*-----------------------------------------------------------------------------
- * dmrbv_ijb: sets boundary condition on lower Y boundary (ijb) for dmr test
+/*----------------------------------------------------------------------------*/
+/*! \fn void dmrbv_ijb(GridS *pGrid)
+ *  \brief  Sets boundary condition on lower Y boundary (ijb) for dmr test.
+ *
  * Note quantaties at this boundary are held fixed at the downstream state for
  * x1 < 0.16666666, and are reflected for x1 > 0.16666666
  */
@@ -204,9 +209,12 @@ Real d0,e0,u0,v0,x1,x2,x3;
   }
 }
 
-/*-----------------------------------------------------------------------------
- * dmrbv_ojb: sets TIME-DEPENDENT boundary condition on upper Y boundary (ojb)
- * for dmr test.  Quantaties at this boundary are held fixed at the downstream
+/*----------------------------------------------------------------------------*/
+/*! \fn void dmrbv_ojb(GridS *pGrid)
+ *  \brief Sets TIME-DEPENDENT boundary condition on upper Y boundary (ojb)
+ * for dmr test.  
+ *
+ * Quantaties at this boundary are held fixed at the downstream
  * state for x1 < 0.16666666+v1_shock*time, and at the upstream state for
  * x1 > 0.16666666+v1_shock*time
  */
