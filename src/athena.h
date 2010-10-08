@@ -92,7 +92,12 @@ typedef struct Cons_s{
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;
   Real Fr3;
-  Real Edd_11;			/* Edding factor f, the first element */
+  Real Edd_11;			/* Edding factor f, it is symmetric */
+  Real Edd_21;
+  Real Edd_22;
+  Real Edd_31;
+  Real Edd_32;
+  Real Edd_33;
 #endif
 }ConsS;
 
@@ -122,7 +127,12 @@ typedef struct Prim_s{
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;			/* Conserved variables and primitive variables are the same */
   Real Fr3;
-  Real Edd_11;
+  Real Edd_11;			/* Edding factor f, it is symmetric */
+  Real Edd_21;
+  Real Edd_22;
+  Real Edd_31;
+  Real Edd_32;
+  Real Edd_33;
 #endif
 }PrimS;
 
@@ -154,7 +164,12 @@ typedef struct Cons1D_s{
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;
   Real Fr3;
-  Real Edd_11;
+  Real Edd_11;			/* Edding factor f, it is symmetric */
+  Real Edd_21;
+  Real Edd_22;
+  Real Edd_31;
+  Real Edd_32;
+  Real Edd_33;
 #endif
 }Cons1DS;
 
@@ -183,7 +198,12 @@ typedef struct Prim1D_s{
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;			/* Conserved variables and primitive variables are the same */
   Real Fr3;
-  Real Edd_11;
+  Real Edd_11;			/* Edding factor f, it is symmetric */
+  Real Edd_21;
+  Real Edd_22;
+  Real Edd_31;
+  Real Edd_32;
+  Real Edd_33;
 #endif
 }Prim1DS;
 

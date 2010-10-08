@@ -59,7 +59,7 @@ void problem(DomainS *pDomain)
 /* Initialize the grid including the ghost cells.  */
 	Real d0, u0, T0, x1, x2, x3, temperature;
 	d0 = 1.0;
-	u0 = -20.0;
+	u0 = -66.6;
 	T0 = 1.0;
 
 
@@ -116,7 +116,7 @@ void radMHD_inflow(GridS *pGrid)
 
 	Real d0, u0, T0;
 	d0 = 1.0;
-	u0 = -20.0;
+	u0 = -66.6;
 	T0 = 1.0 + 7.5;
  
     for (i=1;  i<=nghost;  i++) {

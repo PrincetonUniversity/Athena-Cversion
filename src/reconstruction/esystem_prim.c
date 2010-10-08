@@ -590,8 +590,8 @@ void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eige
 {
 	 eigenvalues[0] = v1 - aeff;
   	 eigenvalues[1] = v1;
- 	 eigenvalues[2] = 0.0;
- 	 eigenvalues[3] = 0.0;
+ 	 eigenvalues[2] = v1;
+ 	 eigenvalues[3] = v1;
  	 eigenvalues[4] = v1 + aeff;
 	 eigenvalues[5] = 0.0;
  	 eigenvalues[6] = 0.0;

@@ -63,7 +63,7 @@ static Cons1DS *U1d=NULL;
 /*---------1D right now. To be improved later----------*/
 
 
-void BackEuler(MeshS *pM)
+void BackEuler_1d(MeshS *pM)
 {
 /* Right now, only work for one domain. Modified later for SMR */
 
@@ -115,7 +115,6 @@ void BackEuler(MeshS *pM)
 
 /* Temperatory variables used to calculate the Matrix  */
   	
-  	
 
 /* Load 1D vector of conserved variables and calculate the source term */
  	for (i=is-nghost; i<=ie+nghost; i++) {
@@ -128,9 +127,8 @@ void BackEuler(MeshS *pM)
     		U1d[i].Fr1  = pG->U[ks][js][i].Fr1;
     		U1d[i].Fr2  = pG->U[ks][js][i].Fr2;
     		U1d[i].Fr3  = pG->U[ks][js][i].Fr3;
-		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
+		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;		
 	}
-	
 	
 	
 /* *****************************************************/
@@ -142,8 +140,8 @@ void BackEuler(MeshS *pM)
 
 
 	for(i=is; i<=ie+1; i++){
-	 	Cspeeds[i-is] = (U1d[i].Edd_11 - U1d[i-1].Edd_11) 
-				/ (U1d[i].Edd_11 + U1d[i-1].Edd_11); 		
+	 	Cspeeds[i-is] = (sqrt(U1d[i].Edd_11) - sqrt(U1d[i-1].Edd_11)) 
+				/ (sqrt(U1d[i].Edd_11) + sqrt(U1d[i-1].Edd_11)); 		
 	}
 
 
@@ -241,7 +239,7 @@ void BackEuler(MeshS *pM)
 				Euler[1][5] = theta[4] - theta[2];
 				Euler[2][3] = phi[2] + phi[0];
 				Euler[2][4] = phi[3] - phi[1];
-			}// inflow boundary condition
+			}// reflecting boundary condition
 			else if(ix1 == 3) ;//inflow boundary condition, do nothing
 			else
 			goto on_error;			

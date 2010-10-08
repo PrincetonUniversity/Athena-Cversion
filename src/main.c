@@ -404,6 +404,11 @@ int main(int argc, char *argv[])
   }
    /* set boundary condition for radiation quantities */
 #ifdef rad_hydro   
+	int DIM;
+	DIM = 0;
+ 	/* Judge the dimension to choose the right backeuler method */
+	for (i=0; i<3; i++) if(Mesh.Nx[i] > 1) DIM++;
+	
 	bvals_rad(&Mesh);
 #endif
 
@@ -510,7 +515,18 @@ int main(int argc, char *argv[])
 	 * before the integrator step *
          */
 #ifdef rad_hydro
-	BackEuler(&Mesh);
+	switch(DIM){
+	case 1:
+	BackEuler_1d(&Mesh);
+	break;
+	case 2:
+	BackEuler_2d(&Mesh);
+	break;
+	
+	default:
+	ath_error("[main_BackEuler]: BackEuler not ready for this dimension now!");
+
+	}
 #endif
 
     for (nl=0; nl<(Mesh.NLevels); nl++){ 

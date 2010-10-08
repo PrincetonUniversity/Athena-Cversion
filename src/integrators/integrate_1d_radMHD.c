@@ -64,14 +64,13 @@ void integrate_1d_radMHD(DomainS *pD)
   	int i, j, m, n;
 	int js = pG->js;
 	int ks = pG->ks;
-	int Nmatrix;
 	Cons1DS Uguess, divFlux;
 	Real *pUguess, *pdivFlux, *pfluxl, *pfluxr, *pU1d;
 
 
 	Real SEE, SErho, SEm;
 	Real SPP, alpha;
-	Real temperature, velocity, pressure, Sigmas;
+	Real temperature, velocity, pressure;
 
 	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Source[NVAR];
 	Real Propa_44;
@@ -100,7 +99,7 @@ void integrate_1d_radMHD(DomainS *pD)
   	 iu = ie + 1;
 
 		
-
+	
    	
 
 /* In principle, should load a routine to calculate the tensor f */
@@ -110,7 +109,7 @@ void integrate_1d_radMHD(DomainS *pD)
   
   	
 
-/* Load 1D vector of conserved variables and calculate the source term */
+/* Load 1D vector of conserved variables */
  	for (i=is-nghost; i<=ie+nghost; i++) {
     		U1d[i].d  = pG->U[ks][js][i].d;
     		U1d[i].Mx = pG->U[ks][js][i].M1;
@@ -124,6 +123,8 @@ void integrate_1d_radMHD(DomainS *pD)
 		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
 	}
 	
+	
+
 
 /*----Step 1: Backward Euler is done in the main function for the whole mesh--------*/	
 
@@ -176,7 +177,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
 	- (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / (Crat * U1d[i].d))	
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
-	Source[4] = Source[1] * U1d[i].d * velocity * (Gamma - 1.0)
+	Source[4] = -Source[1] * U1d[i].d * velocity * (Gamma - 1.0)
 	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
@@ -218,6 +219,7 @@ void integrate_1d_radMHD(DomainS *pD)
 
 /*----Step 3------------------
  * Modified Godunov Corrector Scheme   */
+/*----------Radiation quantities are not updated in the modified Godunov corrector step */
 	for(i=il+1; i<=iu-1; i++) {
 
 	pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
@@ -227,7 +229,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	velocity = U1d[i].Mx / U1d[i].d;
 
 /* The Source term */
-	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ U1d[i].d;
+	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (U1d[i].d * R_ideal);
 	SErho = SEE * (-U1d[i].E/U1d[i].d + velocity * velocity);	
 	SEm = -SEE * velocity;
 	
@@ -248,7 +250,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	for(m=0; m<NVAR-4; m++)
 		pdivFlux[m] = (pfluxr[m] - pfluxl[m]) / dx;
 		
-	
+	/* ATTENTION: May not be correct when magnetic field is included */
 	for(n=0; n<NVAR-4; n++) {
 		tempguess[n] = 0.0;
 		for(m=0; m<NVAR-4; m++){
@@ -269,16 +271,25 @@ void integrate_1d_radMHD(DomainS *pD)
 	temperature = pressure / (Uguess.d * R_ideal);
 	velocity = Uguess.Mx / Uguess.d;
 
-
-	Source_guess[1] = -Prat * (-Sigma_t * (Uguess.Fr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)
-	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - Uguess.Er)/Crat);
+	/* Guess solution doesn't include Er and Fr1, Er and Fr1 are in U1d */
+	Source_guess[1] = -Prat * (-Sigma_t * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
+	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/Crat);
 	Source_guess[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
-		- Uguess.Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
-		* (Uguess.Fr1 - (1.0 + U1d[i].Edd_11) * velocity * Uguess.Er / Crat)/Crat); 
+		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
 	for(m=0; m<NVAR-4; m++)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) 
 			- dt * pdivFlux[m] - pUguess[m];
+	/* (I - dt Div_U S(U))^-1 for the guess solution */
+	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (Uguess.d * R_ideal);
+	SErho = SEE * (-Uguess.E/Uguess.d + velocity * velocity);	
+	SEm = -SEE * velocity;
+	
+	Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
+	Source_Inv[4][1] = -dt * Prat * Crat * SEm/(1.0 + dt * Prat * Crat * SEE);
+	Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+
 
 	for(m=0; m<NVAR-4; m++){
 		tempguess[m]=0.0;
@@ -294,12 +305,13 @@ void integrate_1d_radMHD(DomainS *pD)
 	for(m=0; m<NVAR-4; m++) pUguess[m] = pU1d[m];	
 
 
+
 	/*Boundary condition is applied in the main.c function*/
 
 /*-----------Finish---------------------*/
-	}	
-
+	} // End big loop i	
 	
+
   return;
 
 	}

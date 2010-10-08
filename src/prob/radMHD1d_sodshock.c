@@ -71,6 +71,8 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].M3 = 0.0;
 #ifdef ADIABATIC
           pGrid->U[k][j][i].E = 1/(Gamma - 1.0);
+	  pGrid->U[k][j][i].Er = 1.0;
+	  pGrid->U[k][j][i].Fr1 = 1.0;
 #endif
 	}
 	else {
@@ -81,6 +83,8 @@ void problem(DomainS *pDomain)
 #ifdef ADIABATIC
           pGrid->U[k][j][i].E = 0.1/(Gamma - 1.0);
 #endif
+	  pGrid->U[k][j][i].Er = 0.1 * 0.1 * 0.1 * 0.1;
+	  pGrid->U[k][j][i].Fr1 = 0.1;
 
 	}
 
@@ -96,11 +100,11 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
 #ifdef rad_hydro
-	  pGrid->U[k][j][i].Er = 1.0e-20;
-	  pGrid->U[k][j][i].Fr1 = 1.0e-20;
+/*	  pGrid->U[k][j][i].Er = 1.0;
+	  pGrid->U[k][j][i].Fr1 = 0.0;
 	  pGrid->U[k][j][i].Fr2 = 0.0;
 	  pGrid->U[k][j][i].Fr3 = 0.0;
-
+*/
 	  pGrid->U[k][j][i].Edd_11 = 1.0; /* Set to be a constant in 1D. To be modified later */		
 #endif
         }

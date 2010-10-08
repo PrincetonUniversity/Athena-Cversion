@@ -7,7 +7,7 @@
 # Makefile will be created (overwriting the last) from this template.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = bandec.o ludcmp.o
+CORE_OBJ = bandec.o ludcmp.o mgmres.o
 
 
 OBJ = $(CORE_OBJ)
