@@ -201,7 +201,8 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* take max/min of Roe eigenvalues and L/R state wave speeds */
 #ifdef rad_hydro
   ar = MAX(ev[4],(Wr.Vx + cfr));
-#else// radiation code v+aeff is ev[4], not ev[NWAVE-1]
+#else
+/* radiation code v+aeff is ev[4], not ev[NWAVE-1] */
   ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
 #endif
   al = MIN(ev[0]      ,(Wl.Vx - cfl));

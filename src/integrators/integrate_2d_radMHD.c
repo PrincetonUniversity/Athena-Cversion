@@ -199,7 +199,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
 		/* In case SPP * dt  is small, use expansion expression */	
-		//Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d;
+		/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
 		Propa_44 = alpha;
 
 		Wl[i].Vx += dt * Source[1] * 0.5;
@@ -232,7 +232,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
 		/* In case SPP * dt  is small, use expansion expression */	
-		//Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d;
+		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
 
 		Wr[i].Vx += dt * Source[1] * 0.5;
@@ -260,9 +260,9 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		fluxes(Ul_x1Face[j][i],Ur_x1Face[j][i],Wl[i],Wr[i],Bx,&x1Flux[j][i]);
 
-	} // End to get the fluxes
+	} /* End to get the fluxes */
 
-		}// End big loop j
+		}/* End big loop j */
 
 
 /*=== STEP 3: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
@@ -313,70 +313,70 @@ void integrate_2d_radMHD(DomainS *pD)
 	for (j=jl+1; j<=ju; j++) {
 
 	/* For left state */
-		pressure = W[i-1].P;
-		temperature = pressure / (U1d[i-1].d * R_ideal);
-		velocity_x = U1d[i-1].Mz / U1d[i-1].d;
-		velocity_y = U1d[i-1].Mx / U1d[i-1].d;
+		pressure = W[j-1].P;
+		temperature = pressure / (U1d[j-1].d * R_ideal);
+		velocity_x = U1d[j-1].Mz / U1d[j-1].d;
+		velocity_y = U1d[j-1].Mx / U1d[j-1].d;
 
-		Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fr1/U1d[i-1].d 
-			- ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y)* U1d[i-1].Er / (Crat * U1d[i-1].d))	
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
-		Source[2] = -Prat * (-Sigma_t * (U1d[i-1].Fr2/U1d[i-1].d 
-			- ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x)* U1d[i-1].Er / (Crat * U1d[i-1].d))	
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
+		Source[1] = -Prat * (-Sigma_t * (U1d[j-1].Fr1/U1d[j-1].d 
+			- ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y)* U1d[j-1].Er / (Crat * U1d[j-1].d))	
+			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[j-1].Er)/(Crat*U1d[j-1].d));
+		Source[2] = -Prat * (-Sigma_t * (U1d[j-1].Fr2/U1d[j-1].d 
+			- ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x)* U1d[j-1].Er / (Crat * U1d[j-1].d))	
+			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[j-1].Er)/(Crat*U1d[j-1].d));
 		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
-			- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
-			* (U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y) * U1d[i-1].Er / Crat)
+			- U1d[j-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
+			* (U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y) * U1d[j-1].Er / Crat)
 			+ velocity_y
-			* (U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x) * U1d[i-1].Er / Crat))/Crat); 
+			* (U1d[j-1].Fr2 - ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x) * U1d[j-1].Er / Crat))/Crat); 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[i-1].d * R_ideal);
+			* temperature /(U1d[j-1].d * R_ideal);
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
 		/* In case SPP * dt  is small, use expansion expression */	
-		//Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d;
+		/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
 		Propa_44 = alpha;
 
-		/* "Vx" is actually vy, "vy" is actually vx; We stay with the correct meaning in source terms */
-		Wl[i].Vx += dt * Source[2] * 0.5;
-		Wl[i].Vy += dt * Source[1] * 0.5;
-		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+		/* "Vx" is actually vy, "vz" is actually vx; We stay with the correct meaning in source terms */
+		Wl[j].Vx += dt * Source[2] * 0.5;
+		Wl[j].Vz += dt * Source[1] * 0.5;
+		Wl[j].P += dt * Propa_44 * Source[4] * 0.5;
 
 	/* For the right state */
 	
 	
-		pressure = W[i].P;
-		temperature = pressure / (U1d[i].d * R_ideal);
-		velocity_x = U1d[i].Mz / U1d[i].d;
-		velocity_y = U1d[i].Mx / U1d[i].d;
+		pressure = W[j].P;
+		temperature = pressure / (U1d[j].d * R_ideal);
+		velocity_x = U1d[j].Mz / U1d[j].d;
+		velocity_y = U1d[j].Mx / U1d[j].d;
 
-		Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
-			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y)* U1d[i].Er / (Crat * U1d[i].d))	
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
-		Source[2] = -Prat * (-Sigma_t * (U1d[i].Fr2/U1d[i].d 
-			- ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x)* U1d[i].Er / (Crat * U1d[i].d))	
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
+		Source[1] = -Prat * (-Sigma_t * (U1d[j].Fr1/U1d[j].d 
+			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y)* U1d[j].Er / (Crat * U1d[j].d))	
+			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[j].Er)/(Crat*U1d[j].d));
+		Source[2] = -Prat * (-Sigma_t * (U1d[j].Fr2/U1d[j].d 
+			- ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x)* U1d[j].Er / (Crat * U1d[j].d))	
+			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[j].Er)/(Crat*U1d[j].d));
 		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
-			- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
-			* (U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y) * U1d[i].Er / Crat)
+			- U1d[j].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
+			* (U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y) * U1d[j].Er / Crat)
 			+ velocity_y
-			* (U1d[i].Fr2 - ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x) * U1d[i].Er / Crat))/Crat); 
+			* (U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x) * U1d[j].Er / Crat))/Crat); 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[i].d * R_ideal);
+			* temperature /(U1d[j].d * R_ideal);
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
 		/* In case SPP * dt  is small, use expansion expression */	
-		//Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d;
+		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
 
 		/* "vx" is actually vy, "vy" is actually vx */
-		Wr[i].Vx += dt * Source[2] * 0.5;
-		Wr[i].Vy += dt * Source[1] * 0.5;
-		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
+		Wr[j].Vx += dt * Source[2] * 0.5;
+		Wr[j].Vz += dt * Source[1] * 0.5;
+		Wr[j].P += dt * Propa_44 * Source[4] * 0.5;
 
 	}
 
@@ -393,9 +393,9 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		/* Note that x2Flux[][].Mx is actually momentum flux for vy ----
 		-------------x2Flux[][].Mz is the actualy momentum flux for vx */
-    	}// End loop j to calculate the flux
+    	}/* End loop j to calculate the flux */
 
-		}// End big loop i
+		}/*  End big loop i */
 /*=== STEP 6: Correct x1-interface states with transverse flux gradients =====*/
 
 /*--- Step 6a ------------------------------------------------------------------
@@ -417,7 +417,8 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ul_x1Face[j][i].d  -= hdtodx2*(x2Flux[j+1][i-1].d  - x2Flux[j][i-1].d );
       		Ul_x1Face[j][i].Mx -= hdtodx2*(x2Flux[j+1][i-1].Mz - x2Flux[j][i-1].Mz);
       		Ul_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
-      		Ul_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
+      		Ul_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i-1].My - x2Flux[j][i-1].My);
+		Ul_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
 #ifdef MHD
       		Ul_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i-1].By - x2Flux[j][i-1].By);
 #endif
@@ -425,13 +426,22 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ur_x1Face[j][i].d  -= hdtodx2*(x2Flux[j+1][i  ].d  - x2Flux[j][i  ].d );
       		Ur_x1Face[j][i].Mx -= hdtodx2*(x2Flux[j+1][i  ].Mz - x2Flux[j][i  ].Mz);
       		Ur_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
-      		Ur_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i  ].E  - x2Flux[j][i  ].E );
+      		Ur_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
+		Ur_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
 #ifdef MHD
       		Ur_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
 #endif
 
     		}
   	}
+
+
+/*-------step 6b------------------------------*/
+/* Correct x1 interface with x2 source gradient */
+		
+
+
+
 
 /*----Need extra flux gradient for self-gravity and gravitational source that is included as flux 
  * but not included in the Riemann problem---------*/
@@ -446,6 +456,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ul_x2Face[j][i].d  -= hdtodx1*(x1Flux[j-1][i+1].d  - x1Flux[j-1][i].d );
       		Ul_x2Face[j][i].Mx -= hdtodx1*(x1Flux[j-1][i+1].My - x1Flux[j-1][i].My);
       		Ul_x2Face[j][i].My -= hdtodx1*(x1Flux[j-1][i+1].Mz - x1Flux[j-1][i].Mz);
+      		Ul_x2Face[j][i].Mz -= hdtodx1*(x1Flux[j-1][i+1].Mx - x1Flux[j-1][i].Mx);
       		Ul_x2Face[j][i].E  -= hdtodx1*(x1Flux[j-1][i+1].E  - x1Flux[j-1][i].E );
 
 #ifdef MHD
@@ -455,6 +466,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ur_x2Face[j][i].d  -= hdtodx1*(x1Flux[j  ][i+1].d  - x1Flux[j  ][i].d );
       		Ur_x2Face[j][i].Mx -= hdtodx1*(x1Flux[j  ][i+1].My - x1Flux[j  ][i].My);
       		Ur_x2Face[j][i].My -= hdtodx1*(x1Flux[j  ][i+1].Mz - x1Flux[j  ][i].Mz);
+      		Ur_x2Face[j][i].Mz -= hdtodx1*(x1Flux[j  ][i+1].Mx - x1Flux[j  ][i].Mx);
       		Ur_x2Face[j][i].E  -= hdtodx1*(x1Flux[j  ][i+1].E  - x1Flux[j  ][i].E );
 
 #ifdef MHD
@@ -463,6 +475,15 @@ void integrate_2d_radMHD(DomainS *pD)
 
     }
   }
+
+
+
+
+
+/*---------step 7b---------------*/
+/* Correct x2 interface with x1 source gradient */
+
+
 
 
 /*=== STEP 8: Compute 2D x1-Flux, x2-Flux ====================================*/
@@ -500,10 +521,13 @@ void integrate_2d_radMHD(DomainS *pD)
 #ifdef MHD
       		Bx = B2_x2Face[j][i];
 #endif
-      		Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Bx);
-      		Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Bx);
+      		Wl[j] = Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Bx);
+      		Wr[j] = Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Bx);
 
-      		fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],Bx,&x2Flux[j][i]);
+		/* take dt to calculate effective sound speed */
+		x2Flux[j][i].d = dt;
+
+      		fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],Bx,&x2Flux[j][i]);
     }
   }
 
@@ -632,8 +656,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		pG->U[ks][j][i].E = Uguess[4] + tempguess[4];		
 	
 
-		}// End big loop i
-	}// End big loop j
+		}/* End big loop i */
+	}/* End big loop j */
 		
 	/* Boundary condition is applied in the main function */
   return;

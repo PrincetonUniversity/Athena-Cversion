@@ -150,15 +150,15 @@ void BackEuler_2d(MeshS *pM)
 			Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
 				/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
 			
-			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0);
-			phi[1]	= theta[1] * sqrt(pG->U[ks][j][i-1].Edd_11);
+			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
+			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
 			phi[2]	= theta[2] * sqrt(pG->U[ks][j][i-1].Edd_11);
-			psi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * pG->U[ks][j][i-1].Edd_21;
-			psi[2] = phi[2];
-			RHSEuler[3*(j-js)*Nx + 3*(i-is)] -= (theta[1] * pG->U[ks][j][i-1].Er + theta[2] * pG->U[ks][j][i-1].Fr1);
-			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 1] -= (phi[1] * pG->U[ks][j][i-1].Er + phi[2] * pG->U[ks][j][i-1].Fr1);
-			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 2] -= (psi[1] * pG->U[ks][j][i-1].Er + psi[2] * pG->U[ks][j][i-1].Fr2);
+			phi[3]	= theta[3] * sqrt(pG->U[ks][j][i-1].Edd_11);
+			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pG->U[ks][j][i-1].Edd_21;
+			psi[3] = phi[3];
+			RHSEuler[3*(j-js)*Nx + 3*(i-is)] -= (theta[2] * pG->U[ks][j][i-1].Er + theta[3] * pG->U[ks][j][i-1].Fr1);
+			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 1] -= (phi[2] * pG->U[ks][j][i-1].Er + phi[3] * pG->U[ks][j][i-1].Fr1);
+			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 2] -= (psi[2] * pG->U[ks][j][i-1].Er + psi[3] * pG->U[ks][j][i-1].Fr2);
 			
 		}
 
@@ -166,14 +166,14 @@ void BackEuler_2d(MeshS *pM)
 			Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
 				/ (sqrt(pG->U[ks][j][i+1].Edd_11) + sqrt(pG->U[ks][j][i].Edd_11));
 
-			theta[6] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
-			theta[7] = Crat * hdtodx1 * (1.0 - Ci1);
-			phi[6]	= -theta[6] * sqrt(pG->U[ks][j][i+1].Edd_11);
-			phi[7]	= -theta[7] * sqrt(pG->U[ks][j][i+1].Edd_11);
+			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
+			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
+			phi[6]	= -theta[7] * sqrt(pG->U[ks][j][i+1].Edd_11);
+			phi[7]	= -theta[8] * sqrt(pG->U[ks][j][i+1].Edd_11);
 			psi[6]	= Crat * hdtodx1 * (1.0 - Ci1) * pG->U[ks][j][i+1].Edd_21;
 			psi[7]	= phi[7];
 
-			RHSEuler[3*(j-js)*Nx + 3*(i-is)] -= (theta[6] * pG->U[ks][j][i+1].Er + theta[7] * pG->U[ks][j][i+1].Fr1);
+			RHSEuler[3*(j-js)*Nx + 3*(i-is)] -= (theta[7] * pG->U[ks][j][i+1].Er + theta[8] * pG->U[ks][j][i+1].Fr1);
 			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 1] -= (phi[6] * pG->U[ks][j][i+1].Er + phi[7] * pG->U[ks][j][i+1].Fr1);
 			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 2] -= (psi[6] * pG->U[ks][j][i+1].Er + psi[7] * pG->U[ks][j][i+1].Fr2);
 					
@@ -185,16 +185,16 @@ void BackEuler_2d(MeshS *pM)
 			Cj0 = (sqrt(pG->U[ks][j][i].Edd_22) - sqrt(pG->U[ks][j-1][i].Edd_22)) 
 				/ (sqrt(pG->U[ks][j][i].Edd_22) + sqrt(pG->U[ks][j-1][i].Edd_22));
 			
-			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pG->U[ks][j-1][i].Edd_22);
-			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0);
-			phi[1]	= -Crat * hdtodx2 * (1.0 + Cj0) * pG->U[ks][j-1][i].Edd_21;
-			phi[2]	= theta[2] * sqrt(pG->U[ks][j-1][i].Edd_22);
-			psi[1] = theta[1] * sqrt(pG->U[ks][j-1][i].Edd_22);
-			psi[2] = phi[2];
+			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pG->U[ks][j-1][i].Edd_22);
+			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
+			phi[0]	= -Crat * hdtodx2 * (1.0 + Cj0) * pG->U[ks][j-1][i].Edd_21;
+			phi[1]	= theta[1] * sqrt(pG->U[ks][j-1][i].Edd_22);
+			psi[0] = theta[0] * sqrt(pG->U[ks][j-1][i].Edd_22);
+			psi[1] = phi[1];
 
-			RHSEuler[3*(j-js)*Nx] -= (theta[1] * pG->U[ks][j-1][i].Er + theta[2] * pG->U[ks][j-1][i].Fr2);
-			RHSEuler[3*(j-js)*Nx + 1] -= (phi[1] * pG->U[ks][j-1][i].Er + phi[2] * pG->U[ks][j-1][i].Fr1);
-			RHSEuler[3*(j-js)*Nx + 2] -= (psi[1] * pG->U[ks][j-1][i].Er + psi[2] * pG->U[ks][j-1][i].Fr2);
+			RHSEuler[3*(j-js)*Nx] -= (theta[0] * pG->U[ks][j-1][i].Er + theta[1] * pG->U[ks][j-1][i].Fr2);
+			RHSEuler[3*(j-js)*Nx + 1] -= (phi[0] * pG->U[ks][j-1][i].Er + phi[1] * pG->U[ks][j-1][i].Fr1);
+			RHSEuler[3*(j-js)*Nx + 2] -= (psi[0] * pG->U[ks][j-1][i].Er + psi[1] * pG->U[ks][j-1][i].Fr2);
 				
 		}
 
@@ -202,16 +202,16 @@ void BackEuler_2d(MeshS *pM)
 			Cj1 =  (sqrt(pG->U[ks][j+1][i].Edd_22) - sqrt(pG->U[ks][j][i].Edd_22)) 
 				/ (sqrt(pG->U[ks][j+1][i].Edd_22) + sqrt(pG->U[ks][j][i].Edd_22));
 
-			theta[6] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
-			theta[7] = Crat * hdtodx2 * (1.0 - Cj1);
-			phi[6]	= theta[7] * pG->U[ks][j+1][i].Edd_21;
-			phi[7]	= -theta[7] * sqrt(pG->U[ks][j+1][i].Edd_22);
-			psi[6]	= -theta[6] * sqrt(pG->U[ks][j+1][i].Edd_22);
-			psi[7]	= phi[7];
+			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
+			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
+			phi[8]	= theta[10] * pG->U[ks][j+1][i].Edd_21;
+			phi[9]	= -theta[10] * sqrt(pG->U[ks][j+1][i].Edd_22);
+			psi[8]	= -theta[9] * sqrt(pG->U[ks][j+1][i].Edd_22);
+			psi[9]	= phi[9];
 
-			RHSEuler[3*(j-js)*Nx + 3*(i-is)] -= (theta[6] * pG->U[ks][j+1][i].Er + theta[7] * pG->U[ks][j+1][i].Fr2);
-			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 1] -= (phi[6] * pG->U[ks][j+1][i].Er + phi[7] * pG->U[ks][j+1][i].Fr1);
-			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 2] -= (psi[6] * pG->U[ks][j+1][i].Er + psi[7] * pG->U[ks][j+1][i].Fr2);
+			RHSEuler[3*(j-js)*Nx + 3*(i-is)] -= (theta[9] * pG->U[ks][j+1][i].Er + theta[10] * pG->U[ks][j+1][i].Fr2);
+			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 1] -= (phi[8] * pG->U[ks][j+1][i].Er + phi[9] * pG->U[ks][j+1][i].Fr1);
+			RHSEuler[3*(j-js)*Nx + 3*(i-is) + 2] -= (psi[8] * pG->U[ks][j+1][i].Er + psi[9] * pG->U[ks][j+1][i].Fr2);
 			
 		}
 				
@@ -227,9 +227,9 @@ void BackEuler_2d(MeshS *pM)
  	/* First, setup the guess solution. Guess solution is the solution from last time step */
 	for(j=js; j<=je; j++){
 		for(i=is; i<=ie; i++){
-			INIguess[3*(j-js)*Nx + 3*(i-is)] = pG->U[ks][j+1][i].Er;
-			INIguess[3*(j-js)*Nx + 3*(i-is)+1] = pG->U[ks][j+1][i].Fr1;
-			INIguess[3*(j-js)*Nx + 3*(i-is)+2] = pG->U[ks][j+1][i].Fr2;
+			INIguess[3*(j-js)*Nx + 3*(i-is)] = pG->U[ks][j][i].Er;
+			INIguess[3*(j-js)*Nx + 3*(i-is)+1] = pG->U[ks][j][i].Fr1;
+			INIguess[3*(j-js)*Nx + 3*(i-is)+2] = pG->U[ks][j][i].Fr2;
 		}
 	}	
 
@@ -442,7 +442,7 @@ void BackEuler_2d(MeshS *pM)
 					Euler[NoFr2+1]  = psi[5];
 				}
 				
-			}// End i == is
+			}/* End i == is */
 			else if(i == ie){
 				/* Common elements for different boundary conditions */				
 
@@ -582,7 +582,7 @@ void BackEuler_2d(MeshS *pM)
 					Euler[NoFr2]    = psi[4];
 					Euler[NoFr2+1]  = psi[5];
 				}
-			}// End i == ie
+			}/* End i == ie */
 			else{
 
 				for(m=0; m<7; m++){
@@ -617,7 +617,7 @@ void BackEuler_2d(MeshS *pM)
 				IEuler[NoFr2+1] = 3*(j-js)*Nx + 3*(i-is) + 2;
 				IEuler[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is) + 3;				
 				IEuler[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is) + 5;				
-			}// End i!= is && i!= ie
+			}/* End i!= is && i!= ie */
 
 /*-----------------------------------------------------------------------------------------------*/
 
@@ -691,7 +691,7 @@ void BackEuler_2d(MeshS *pM)
 
 					}
 					else if(ix2 == 3){
-						// Do nothing
+						/* Do nothing*/
 					}
 					else
 						{goto on_error;}
@@ -721,8 +721,8 @@ void BackEuler_2d(MeshS *pM)
 					IEuler[NoFr2-3] = 3*(je-js)*Nx + 3*(i-is) + 2;
 					JEuler[NoFr2-4] = 3*(j-js)*Nx + 3*(i-is) + 2;
   					JEuler[NoFr2-3] = 3*(j-js)*Nx + 3*(i-is) + 2;
-				}// End periodic boundary condition
-			}// End j==js
+				}/* End periodic boundary condition */
+			}/* End j==js */
 			else if(j == je){
 				Euler[NoEr-4]  = theta[0];
 				Euler[NoEr-3]  = theta[1];
@@ -746,7 +746,7 @@ void BackEuler_2d(MeshS *pM)
 				JEuler[NoFr2-4] = 3*(j-js)*Nx + 3*(i-is) + 2;
   				JEuler[NoFr2-3] = 3*(j-js)*Nx + 3*(i-is) + 2;
 
-				/* judge boundary condition for ix2 */
+				/* judge boundary condition for ox2 */
 				if(ox2 != 4){
 					/* non-periodic boundary condition */
 					Euler[NoEr+5]  = 0.0;
@@ -793,19 +793,19 @@ void BackEuler_2d(MeshS *pM)
 
 					}
 					else if(ox2 == 3){
-						// Do nothing
+						/* Do nothing*/
 					}
 					else
 						{goto on_error;}
 				}
 				else{
 					/* for periodic boundary condition */
-					Euler[NoEr+5]  = theta[0];
-					Euler[NoEr+6]  = theta[1];
-					Euler[NoFr1+4] = phi[0];
-					Euler[NoFr1+5] = phi[1];
-					Euler[NoFr2+4] = psi[0];
-					Euler[NoFr2+5] = psi[1];
+					Euler[NoEr+5]  = theta[9];
+					Euler[NoEr+6]  = theta[10];
+					Euler[NoFr1+4] = phi[8];
+					Euler[NoFr1+5] = phi[9];
+					Euler[NoFr2+4] = psi[8];
+					Euler[NoFr2+5] = psi[9];
 
 					/* Here, we assume je-js>1 , otherwise it is wrong */
 
@@ -823,8 +823,8 @@ void BackEuler_2d(MeshS *pM)
 					IEuler[NoFr2+5] = 3*(i-is) + 2;
 					JEuler[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is) + 2;
   					JEuler[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is) + 2;
-				}// End periodic boundary condition 
-			}// End j==je
+				}/* End periodic boundary condition */ 
+			}/* End j==je */
 			else{
 				Euler[NoEr-4]  = theta[0];
 				Euler[NoEr-3]  = theta[1];
@@ -869,25 +869,27 @@ void BackEuler_2d(MeshS *pM)
 				IEuler[NoFr2+5] = 3*(j-js+1)*Nx + 3*(i-is) + 2;
 				JEuler[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is) + 2;
   				JEuler[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is) + 2;
-			}// End j!= js && j!= je
-		}// End loop i
-	}// End loop j
+			}/* End j!= js && j!= je*/
+		}/* End loop i */
+	}/* End loop j */
 
 		/* Solve the matrix equation with retarded GMRES method */
 		/* solution is input in INIguess */
 		/* ITR_MAX, the maximum number of (outer) iterations to take.
     		 * MR, the maximum number of (inner) iterations to take.    MR must be less than N.*/
 
-		int ITR_max = 3*Nmatrix;
-		int MR = 3*Nmatrix/2;
+		int ITR_max = 20;
+		int MR;
 		double tol_abs = 1.0E-08;
     		double tol_rel = 1.0E-08;
+		if(Nmatrix < 10) MR = Nmatrix - 1;
+		else MR = 10;
 
 		mgmres_st ( 3*Nmatrix, NZ_NUM, IEuler, JEuler, Euler, INIguess, RHSEuler, ITR_max, MR, tol_abs,  tol_rel );	
 
 		
 	/* update the radiation quantities in the mesh */	
-	for(j=is;j<=ie;j++){
+	for(j=js;j<=je;j++){
 		for(i=is; i<=ie; i++){
 		pG->U[ks][j][i].Er	= INIguess[3*(j-js)*Nx + 3*(i-is)];
 		pG->U[ks][j][i].Fr1	= INIguess[3*(j-js)*Nx + 3*(i-is)+1];

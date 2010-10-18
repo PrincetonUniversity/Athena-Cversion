@@ -25,6 +25,8 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
+#ifdef rad_hydro
+
 void bandec(Real **a, unsigned long n, int m1, int m2, Real **al,
 	unsigned long indx[], Real *d)
 {
@@ -94,4 +96,6 @@ void banbks(Real **a, unsigned long n, int m1, int m2, Real **al,
 	}
 }
 #undef SWAP
+
+#endif
 

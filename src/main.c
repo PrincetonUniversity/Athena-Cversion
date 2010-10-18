@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
 
 /* Force output of everything (by passing last argument of data_output = 1) */
 
-  if (ires==0) data_output(&Mesh, 1);
+  if (ires==0) 	data_output(&Mesh, 1);
 
   ath_pout(0,"\nSetup complete, entering main loop...\n\n");
   ath_pout(0,"cycle=%i time=%e next dt=%e\n",Mesh.nstep, Mesh.time, Mesh.dt);
@@ -515,18 +515,18 @@ int main(int argc, char *argv[])
 	 * before the integrator step *
          */
 #ifdef rad_hydro
-	switch(DIM){
-	case 1:
-	BackEuler_1d(&Mesh);
-	break;
-	case 2:
-	BackEuler_2d(&Mesh);
-	break;
-	
-	default:
-	ath_error("[main_BackEuler]: BackEuler not ready for this dimension now!");
-
-	}
+ 	switch(DIM){
+ 	case 1:
+ 	BackEuler_1d(&Mesh);
+ 	break;
+ 	case 2:
+ 	BackEuler_2d(&Mesh);
+ 	break;
+ 	
+ 	default:
+ 	ath_error("[main_BackEuler]: BackEuler not ready for this dimension now!");
+ 
+ 	}
 #endif
 
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -592,10 +592,6 @@ int main(int argc, char *argv[])
 /* Boundary values must be set after time is updated for t-dependent BCs.
  * With SMR, ghost zones at internal fine/coarse boundaries set by Prolongate */
 
-	/* set boundary conditions for radiation quantities */
-#ifdef rad_hydro	
-	bvals_rad(&Mesh);
-#endif
 
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
@@ -607,6 +603,14 @@ int main(int argc, char *argv[])
         }
       }
     }
+
+	/* set boundary conditions for radiation quantities */
+#ifdef rad_hydro	
+	bvals_rad(&Mesh);
+#endif
+
+
+	
 
 #ifdef STATIC_MESH_REFINEMENT
     Prolongate(&Mesh);

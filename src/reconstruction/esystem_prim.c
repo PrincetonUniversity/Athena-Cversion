@@ -621,8 +621,26 @@ void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eige
 	/*right_eigenmatrix[7][1] = 0.0; */
 	/*right_eigenmatrix[8][1] = 0.0; */
 	
-	/*right_eigenmatrix[i][2] = 0.0; */
-	/*right_eigenmatrix[i][3] = 0.0; */
+	/*right_eigenmatrix[0][2] = 0.0; */
+        /*right_eigenmatrix[1][2] = 0.0; */
+	right_eigenmatrix[2][2] = 1.0; 
+	/*right_eigenmatrix[3][2] = 0.0; */
+	/*right_eigenmatrix[4][2] = 0.0; */
+	/*right_eigenmatrix[5][2] = 0.0; */
+	/*right_eigenmatrix[6][2] = 0.0; */
+	/*right_eigenmatrix[7][2] = 0.0; */
+	/*right_eigenmatrix[8][2] = 0.0; */
+
+
+	/*right_eigenmatrix[0][2] = 0.0; */
+        /*right_eigenmatrix[1][2] = 0.0; */
+	/*right_eigenmatrix[2][2] = 0.0; */ 
+	right_eigenmatrix[3][3] = 1.0; 
+	/*right_eigenmatrix[4][2] = 0.0; */
+	/*right_eigenmatrix[5][2] = 0.0; */
+	/*right_eigenmatrix[6][2] = 0.0; */
+	/*right_eigenmatrix[7][2] = 0.0; */
+	/*right_eigenmatrix[8][2] = 0.0; */
 	
 	
 	right_eigenmatrix[0][4] = 1.0;
@@ -664,8 +682,25 @@ void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eige
 	/*left_eigenmatrix[1][7] = 0.0; */
 	/*left_eigenmatrix[1][8] = 0.0; */
 
-	/*left_eigenmatrix[2][i] = 0.0; */
+	/*left_eigenmatrix[2][0] = 0.0; */
+	/*left_eigenmatrix[2][1] = 0.0; */
+	left_eigenmatrix[2][2] = 1.0;
+	/*left_eigenmatrix[2][3] = 0.0; */
+	/*left_eigenmatrix[2][4] = 0.0; */ 
+	/*left_eigenmatrix[2][5] = 0.0; */
+	/*left_eigenmatrix[2][6] = 0.0; */
+	/*left_eigenmatrix[2][7] = 0.0; */
+	/*left_eigenmatrix[2][8] = 0.0; */
+
+	/*left_eigenmatrix[3][0] = 0.0; */
 	/*left_eigenmatrix[3][1] = 0.0; */
+	/*left_eigenmatrix[3][2] = 0.0; */
+	left_eigenmatrix[3][3] = 1.0; 
+	/*left_eigenmatrix[3][4] = 0.0; */ 
+	/*left_eigenmatrix[3][5] = 0.0; */
+	/*left_eigenmatrix[3][6] = 0.0; */
+	/*left_eigenmatrix[3][7] = 0.0; */
+	/*left_eigenmatrix[3][8] = 0.0; */
 
 
 	/*left_eigenmatrix[4][0] = 0.0; */

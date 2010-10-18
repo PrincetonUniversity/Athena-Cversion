@@ -14,6 +14,8 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
+#ifdef rad_hydro
+
 void ludcmp(Real **a, int n, int *indx, Real *d)
 {
 	int i,imax,j,k;
@@ -95,4 +97,6 @@ void lubksb(Real **a, int n, int *indx, Real b[])
 		b[i]=sum/a[i][i];
 	}
 }
+
+#endif
 

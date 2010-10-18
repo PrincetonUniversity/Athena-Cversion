@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: radMHD1d.c
+ * FILE: radMHD2d.c
  *
  * PURPOSE: Problem generator to test the radiation MHD code. 
  *  Development is underway. To be modified later 
@@ -16,27 +16,26 @@
 
 /*----------------------------------------------------------------------------*/
 /* problem:    */
-void radMHD_inflow(GridS *pGrid);
 
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
   int i, j, k, iu, il, ju, jl, ku, kl;
-  int shift;
+  int shifti, shiftj;
 
 /* Parse global variables of unit ratio */
-#ifdef rad_hydro
+
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   Sigma_t = par_getd("problem","Sigma_t");
   Sigma_a = par_getd("problem","Sigma_a");
   R_ideal = par_getd("problem","R_ideal");
 	
-#endif
+
 
 /* Set up the index bounds for initializing the grid */
-  iu = pGrid->ie;
-  il = pGrid->is;
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
 
   if (pGrid->Nx[1] > 1) {
     ju = pGrid->je + nghost;
@@ -57,29 +56,22 @@ void problem(DomainS *pDomain)
   }
 
 /* Initialize the grid including the ghost cells.  */
-	Real d0, u0, T0, x1, x2, x3, temperature;
-	d0 = 1.0;
-	u0 = -600;
-	T0 = 1.0;
 
 
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
 
-	cc_pos(pGrid, i, j,k, &x1, &x2, &x3);
-
 /* Initialize conserved (and  the primitive) variables in Grid */
-	
-	  temperature = T0 + 7.5 * x1 / 2.0;
-          pGrid->U[k][j][i].d  = d0;
-          pGrid->U[k][j][i].M1 = d0 * u0;
+          pGrid->U[k][j][i].d  = 0.1;
+          pGrid->U[k][j][i].M1 = 0.0;
           pGrid->U[k][j][i].M2 = 0.0;
           pGrid->U[k][j][i].M3 = 0.0;
+	
 
-          pGrid->U[k][j][i].E = 0.5 * d0 * u0 * u0 + d0 * temperature /(Gamma - 1.0);
-
-	 pGrid->U[k][j][i].Edd_11 = 0.33333333; /* Set to be a constant in 1D. To be modified later */
+#ifdef ADIABATIC
+          pGrid->U[k][j][i].E = 1.0/(Gamma - 1.0);
+#endif
 
 #ifdef MHD
           pGrid->B1i[k][j][i] = 0.0;
@@ -89,42 +81,37 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-#ifdef rad_hydro
-	  pGrid->U[k][j][i].Er = temperature * temperature * temperature * temperature ;
-	  pGrid->U[k][j][i].Fr1 = -30.0 * pGrid->U[k][j][i].Edd_11 * temperature * temperature * temperature/Sigma_t;
+	  pGrid->U[k][j][i].Er = 0.0;
+	  pGrid->U[k][j][i].Fr1 = 0.0;
 	  pGrid->U[k][j][i].Fr2 = 0.0;
 	  pGrid->U[k][j][i].Fr3 = 0.0;
 
-	 		
-#endif
+	  pGrid->U[k][j][i].Edd_11 = 1.0; 
+	  pGrid->U[k][j][i].Edd_22 = 1.0;	
+	  pGrid->U[k][j][i].Edd_21 = 0.0;
+	 	
         }
       }
     }
+	shifti = (int)((iu-il)*2/5);
+	shiftj = (int)((ju-jl)*2/5);
 
-	bvals_mhd_fun(pDomain, right_x1, radMHD_inflow);
+	 for (k=kl; k<=ku; k++) {
+      for (j=jl+shiftj; j<=ju-shiftj; j++) {
+        for (i=il+shifti; i<=iu-shifti; i++) {
+/*		pGrid->U[k][j][i].d=1; 
+		pGrid->U[k][j][i].E=0.0;
+		pGrid->U[k][j][i].M1=0.0;
+*/
+		pGrid->U[k][j][i].Er=1;
+		pGrid->U[k][j][i].Fr1=0.0;
 
-  return;
+		}
+	}
 }
 
-void radMHD_inflow(GridS *pGrid)
-{
-  	int i, ie;
-	int ks, js;
-	ie = pGrid->ie;
-  	ks = pGrid->ks;
-	js = pGrid->js;
 
-	Real d0, u0, T0;
-	d0 = 1.0;
-	u0 = -600;
-	T0 = 1.0 + 7.5;
- 
-    for (i=1;  i<=nghost;  i++) {
-      pGrid->U[ks][js][ie+i].d  = d0;
-      pGrid->U[ks][js][ie+i].M1 = d0 * u0;
-      pGrid->U[ks][js][ie+i].E  = 0.5 * d0 * u0 * u0 + d0 * T0/(Gamma - 1.0);
-    }
-  
+  return;
 }
 
 /*==============================================================================
@@ -140,27 +127,11 @@ void radMHD_inflow(GridS *pGrid)
 
 void problem_write_restart(MeshS *pM, FILE *fp)
 {
-	fprintf(fp,"%5.3e\n",Gamma);
-	fprintf(fp,"%5.3e\n",Prat);
-	fprintf(fp,"%5.3e\n",Crat);
-	fprintf(fp,"%5.3e\n",Sigma_t);
-	fprintf(fp,"%5.3e\n",Sigma_a);
-	fprintf(fp,"%5.3e\n",R_ideal);
   return;
 }
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
-
-	bvals_mhd_fun(&(pM->Domain[0][0]), right_x1, radMHD_inflow);
-	fscanf(fp,"%lf",&Gamma);
-	fscanf(fp,"%lf\n",&Prat);
-	fscanf(fp,"%lf\n",&Crat);
-	fscanf(fp,"%lf\n",&Sigma_t);
-	fscanf(fp,"%lf\n",&Sigma_a);
-	fscanf(fp,"%lf\n",&R_ideal);
-
-
   return;
 }
 

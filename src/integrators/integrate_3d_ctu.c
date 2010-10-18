@@ -2580,7 +2580,7 @@ void integrate_3d_ctu(DomainS *pD)
   }
 #endif /* CYLINDRICAL + !Fargo */
 
-// Add source terms using Heun's method for cylindrical fargo
+/* Add source terms using Heun's method for cylindrical fargo */
 #if defined(CYLINDRICAL) && defined(FARGO)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {

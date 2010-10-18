@@ -190,6 +190,152 @@ void restart_grids(char *res_file, MeshS *pM)
       }
 #endif
 
+#ifdef rad_hydro
+/* Read radiation energy density */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"radENERGY",9) != 0)
+        ath_error("[restart_grids]: Expected radENERGY, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Er),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+
+/* Read the 1-radiation flux */
+
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"1-radFLUX",9) != 0)
+        ath_error("[restart_grids]: Expected 1-radFLUX, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Fr1),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the 2-radiation Flux */
+
+     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"2-radFLUX",9) != 0)
+        ath_error("[restart_grids]: Expected 2-radFLUX, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Fr2),sizeof(Real),1,fp);
+          }
+        }
+      }
+/* Read the 3-radiation Flux */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"3-radFLUX",9) != 0)
+        ath_error("[restart_grids]: Expected 3-radFLUX, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Fr3),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the Eddington tensor 11 */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"11-Eddtensor",12) != 0)
+        ath_error("[restart_grids]: Expected 11-Eddtensor, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Edd_11),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the Eddington tensor 21 */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"21-Eddtensor",12) != 0)
+        ath_error("[restart_grids]: Expected 21-Eddtensor, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Edd_21),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the Eddington tensor 22 */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"22-Eddtensor",12) != 0)
+        ath_error("[restart_grids]: Expected 22-Eddtensor, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Edd_22),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the Eddington tensor 31 */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"31-Eddtensor",12) != 0)
+        ath_error("[restart_grids]: Expected 31-Eddtensor, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Edd_31),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+
+/* Read the Eddington tensor 32 */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"32-Eddtensor",12) != 0)
+        ath_error("[restart_grids]: Expected 32-Eddtensor, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Edd_32),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+
+/* Read the Eddington tensor 11 */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"33-Eddtensor",12) != 0)
+        ath_error("[restart_grids]: Expected 33-Eddtensor, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Edd_33),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+#endif 
+/* End read radiation quantity */
+
 #ifdef MHD
 /* if there is more than one cell in each dimension, need to read one more
  * face-centered field component than the number of cells.  [ijk]b is
@@ -615,6 +761,204 @@ void dump_restart(MeshS *pM, OutputS *pout)
         nbuf = 0;
       }
 #endif
+
+#ifdef rad_hydro
+
+/* Write radiation energy density Er */
+
+      fprintf(fp,"\nradENERGY\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Er;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+
+/* Write the x1-radFlux */
+
+      fprintf(fp,"\n1-radFLUX\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Fr1;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the x2-radFlux */
+
+      fprintf(fp,"\n2-radFLUX\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Fr2;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+    
+/* Write the x3-radFlux */
+
+      fprintf(fp,"\n3-radFLUX\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Fr3;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the Eddington tensor 11 */
+
+      fprintf(fp,"\n11-Eddtensor\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Edd_11;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the Eddington tensor 21 */
+
+      fprintf(fp,"\n21-Eddtensor\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Edd_21;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the Eddington tensor 22 */
+
+      fprintf(fp,"\n22-Eddtensor\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Edd_22;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the Eddington tensor 31 */
+
+      fprintf(fp,"\n31-Eddtensor\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Edd_31;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the Eddington tensor 32 */
+
+      fprintf(fp,"\n32-Eddtensor\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Edd_32;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+
+/* Write the Eddington tensor 33 */
+
+      fprintf(fp,"\n33-Eddtensor\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Edd_33;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+
+#endif
+/* Finish output radiation quantity */
 
 #ifdef MHD
 /* see comments in restart_grid_block() for use of [ijk]b */

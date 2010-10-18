@@ -1255,6 +1255,17 @@ static ConsFun_t getexpr(const int n, const char *expr)
   else if (strcmp(expr,"E")==0)
     return expr_E;
 #endif /* BAROTROPIC */
+#ifdef rad_hydro
+  else if (strcmp(expr,"Er")==0)
+    return expr_Er;
+  else if (strcmp(expr,"Fr1")==0)
+    return expr_Fr1;
+  else if (strcmp(expr,"Fr2")==0)
+    return expr_Fr2;
+  else if (strcmp(expr,"Fr3")==0)
+    return expr_Fr3;
+#endif
+
 #ifdef MHD
   else if (strcmp(expr,"B1c")==0)
     return expr_B1c;

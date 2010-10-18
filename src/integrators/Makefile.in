@@ -24,11 +24,14 @@ CORE_OBJ = integrate.o \
 	   BackEuler_2d.o
 
 
+
 OBJ = $(CORE_OBJ)
 
 #-------------------  macro definitions  ---------------------------------------
 
 SRC = $(OBJ:.o=.c)
+
+
 
 include ../../Makeoptions
 
@@ -56,7 +59,7 @@ help:
 
 .PHONY: clean
 clean:
-	rm -f *.o *.a Makedepend
+	rm -f *.o *.a Makedepend *~
 
 depend: Makedepend
 

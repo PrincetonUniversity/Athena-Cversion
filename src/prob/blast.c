@@ -41,6 +41,15 @@ void problem(DomainS *pDomain)
   theta = (PI/180.0)*par_getd("problem","angle");
 #endif
 
+#ifdef rad_hydro
+  Prat = par_getd("problem","Pratio");
+  Crat = par_getd("problem","Cratio");
+  Sigma_t = par_getd("problem","Sigma_t");
+  Sigma_a = par_getd("problem","Sigma_a");
+  R_ideal = par_getd("problem","R_ideal");
+#endif
+
+
 /* setup uniform ambient medium with spherical over-pressured region */
 
   W.d = da;
@@ -71,6 +80,15 @@ void problem(DomainS *pDomain)
 	pGrid->U[k][j][i].M1 = U1d.Mx;
 	pGrid->U[k][j][i].M2 = U1d.My;
 	pGrid->U[k][j][i].M3 = U1d.Mz;
+#ifdef rad_hydro
+	pGrid->U[k][j][i].Er = 0.0;
+	pGrid->U[k][j][i].Fr1 = 0.0;
+	pGrid->U[k][j][i].Fr2 = 0.0;
+	pGrid->U[k][j][i].Edd_11 = 1.0;
+	pGrid->U[k][j][i].Edd_21 = 1.0;
+	pGrid->U[k][j][i].Edd_22 = 1.0;
+#endif
+
 #ifndef ISOTHERMAL
 	pGrid->U[k][j][i].E  = U1d.E;
 #endif

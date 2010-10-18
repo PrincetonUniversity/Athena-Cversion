@@ -126,6 +126,7 @@ BIN = ${EXEDIR}athena
 EXEDIR = ../bin/
 SRC = $(ALL_OBJ:.o=.c)
 
+
 include ../Makeoptions
 
 #--------------------  implicit rules  -----------------------------------------
@@ -141,7 +142,7 @@ all:	compile
 compile: ${BIN}
 
 ${BIN}: ${ALL_OBJ}
-	${LDR} $(OPT) -o ${EXEDIR}athena ${ALL_OBJ} ${LIB}
+	${LDR} $(OPT) ${CFLAGS} -o ${EXEDIR}athena ${ALL_OBJ} ${LIB}
 
 help:
 	@echo This is the Athena Makefile
@@ -151,7 +152,7 @@ help:
 
 .PHONY: clean
 clean:
-	rm -f *.o Makedepend $(BIN)
+	rm -f *.o Makedepend $(BIN) *~
 
 depend: Makedepend
 

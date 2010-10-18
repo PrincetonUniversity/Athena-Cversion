@@ -21,6 +21,7 @@ OBJ = $(CORE_OBJ)
 
 SRC = $(OBJ:.o=.c)
 
+
 include ../../Makeoptions
 
 BLOCKINC =
@@ -47,7 +48,7 @@ help:
 
 .PHONY: clean
 clean:
-	rm -f *.o *.a Makedepend
+	rm -f *.o *.a Makedepend *~
 
 depend: Makedepend
 

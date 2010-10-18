@@ -56,6 +56,7 @@ void bvals_rad(MeshS *pM)
 
 	 /* Inner boundary condition */
 	/*reflecting boundary condition */
+	if(pGrid->Nx[0] > 1) {
 	if(ix1 == 1) {
 		for (k=ks; k<=ke; k++) {
    			 for (j=js; j<=je; j++) {
@@ -78,6 +79,13 @@ void bvals_rad(MeshS *pM)
       				}
     			}
   		}	
+	}
+	/* Inflow boundary condition */
+	else if(ix1 == 3) {
+		if(pM->Domain[0][0].rad_ix1_BCFun == NULL)
+			goto on_error;
+		else
+			(*(pM->Domain[0][0].rad_ix1_BCFun))(pGrid);
 	}
 	/* periodic boundary condition */
 	else if(ix1 == 4) {
@@ -120,14 +128,10 @@ void bvals_rad(MeshS *pM)
   		}
 	}
 	else if(ox1 == 3) {
-		for (k=ks; k<=ke; k++) {
-    			for (j=js; j<=je; j++) {
-      				for (i=1; i<=nghost; i++) {
-        			pGrid->U[k][j][ie+i].Er = 8.5 * 8.5 * 8.5 * 8.5;
-				pGrid->U[k][j][ie+i].Fr1 = -30.0*0.333333*8.5*8.5*8.5/Sigma_t;
-      				}
-    			}
-  		}
+		if(pM->Domain[0][0].rad_ox1_BCFun == NULL)
+			goto on_error;
+		else
+			(*(pM->Domain[0][0].rad_ox1_BCFun))(pGrid);
 	}
 	else if(ox1 == 4) {
 		for (k=ks; k<=ke; k++) {
@@ -142,10 +146,12 @@ void bvals_rad(MeshS *pM)
 	}
 	else
 	goto on_error;	
+	}
 
 	/* Boundary condition for y direction */
 	/*------------------------------------------------------------*/
 	/*reflecting boundary condition */
+	if(pGrid->Nx[1] > 1){
 	if(ix2 == 1) {
 		for (k=ks; k<=ke; k++) {
     			for (j=1; j<=nghost; j++) {
@@ -168,6 +174,13 @@ void bvals_rad(MeshS *pM)
       				}
     			}
   		}	
+	}
+	/* inflow boundary condition */
+	else if(ix2 == 3) {
+		if(pM->Domain[0][0].rad_ix2_BCFun == NULL)
+			goto on_error;
+		else
+			(*(pM->Domain[0][0].rad_ix2_BCFun))(pGrid);
 	}
 	/* periodic boundary condition */
 	else if(ix2 == 4) {
@@ -208,6 +221,13 @@ void bvals_rad(MeshS *pM)
     			}
   		}	
 	}
+	/* inflow boundary condition */
+	else if(ox2 == 3) {
+	if(pM->Domain[0][0].rad_ox2_BCFun == NULL)
+			goto on_error;
+		else
+			(*(pM->Domain[0][0].rad_ox2_BCFun))(pGrid);
+	}
 	/* periodic boundary condition */
 	else if(ox2 == 4) {
 		for (k=ks; k<=ke; k++) {
@@ -222,6 +242,7 @@ void bvals_rad(MeshS *pM)
 	}
 	else 
 	goto on_error;
+	}
 
 
   	return;

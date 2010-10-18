@@ -42,7 +42,7 @@ help:
 
 .PHONY: clean
 clean:
-	rm -f *.o *.a Makedepend
+	rm -f *.o *.a Makedepend *~
 
 depend: Makedepend
 

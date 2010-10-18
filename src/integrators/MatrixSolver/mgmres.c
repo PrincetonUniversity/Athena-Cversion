@@ -14,6 +14,8 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
+#ifdef rad_hydro
+
 void mgmres_st ( int n, int nz_num, int ia[], int ja[], double a[], 
   double x[], double rhs[], int itr_max, int mr, double tol_abs, 
   double tol_rel )
@@ -545,4 +547,6 @@ void mult_givens ( double c, double s, int k, double *g )
   return;
 }
 /******************************************************************************/
+
+#endif
 

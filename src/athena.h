@@ -382,6 +382,12 @@ typedef struct Domain_s{
   VGFun_t ix2_BCFun, ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix3_BCFun, ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
 
+#ifdef rad_hydro
+  VGFun_t rad_ix1_BCFun, rad_ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
+  VGFun_t rad_ix2_BCFun, rad_ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
+  VGFun_t rad_ix3_BCFun, rad_ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
+#endif
+
 #ifdef MPI_PARALLEL
   MPI_Comm Comm_Domain;        /* MPI communicator between Grids on this Dom */
   MPI_Group Group_Domain;      /* MPI group for Domain communicator */

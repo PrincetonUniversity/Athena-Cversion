@@ -17,6 +17,7 @@
 /*----------------------------------------------------------------------------*/
 /* problem:    */
 void radMHD_inflow(GridS *pGrid);
+void radMHD_rad_inflow(GridS *pGrid);
 
 void problem(DomainS *pDomain)
 {
@@ -59,7 +60,7 @@ void problem(DomainS *pDomain)
 /* Initialize the grid including the ghost cells.  */
 	Real d0, u0, T0, x1, x2, x3, temperature;
 	d0 = 1.0;
-	u0 = -600;
+	u0 = 0.0;
 	T0 = 1.0;
 
 
@@ -71,7 +72,7 @@ void problem(DomainS *pDomain)
 
 /* Initialize conserved (and  the primitive) variables in Grid */
 	
-	  temperature = T0 + 7.5 * x1 / 2.0;
+	  temperature = T0;
           pGrid->U[k][j][i].d  = d0;
           pGrid->U[k][j][i].M1 = d0 * u0;
           pGrid->U[k][j][i].M2 = 0.0;
@@ -91,7 +92,7 @@ void problem(DomainS *pDomain)
 #endif
 #ifdef rad_hydro
 	  pGrid->U[k][j][i].Er = temperature * temperature * temperature * temperature ;
-	  pGrid->U[k][j][i].Fr1 = -30.0 * pGrid->U[k][j][i].Edd_11 * temperature * temperature * temperature/Sigma_t;
+	  pGrid->U[k][j][i].Fr1 = 0.0;
 	  pGrid->U[k][j][i].Fr2 = 0.0;
 	  pGrid->U[k][j][i].Fr3 = 0.0;
 
@@ -101,28 +102,57 @@ void problem(DomainS *pDomain)
       }
     }
 
-	bvals_mhd_fun(pDomain, right_x1, radMHD_inflow);
+	bvals_mhd_fun(pDomain, left_x1, radMHD_inflow);
+	bvals_rad_fun(pDomain, left_x1, radMHD_rad_inflow);
 
   return;
 }
 
 void radMHD_inflow(GridS *pGrid)
 {
-  	int i, ie;
+  	int i, is;
 	int ks, js;
-	ie = pGrid->ie;
+	is = pGrid->is;
   	ks = pGrid->ks;
 	js = pGrid->js;
 
-	Real d0, u0, T0;
-	d0 = 1.0;
-	u0 = -600;
-	T0 = 1.0 + 7.5;
+	double t=pGrid->time;
+	
+
+	Real vamp, omega;
+	Real temp;
+	
+	vamp = 1.e-3;
+	omega = 2.0 * 3.1415926;
  
     for (i=1;  i<=nghost;  i++) {
-      pGrid->U[ks][js][ie+i].d  = d0;
-      pGrid->U[ks][js][ie+i].M1 = d0 * u0;
-      pGrid->U[ks][js][ie+i].E  = 0.5 * d0 * u0 * u0 + d0 * T0/(Gamma - 1.0);
+      pGrid->U[ks][js][is-i].d  = 1.0;
+      pGrid->U[ks][js][is-i].M1 =vamp * cos(omega * t);
+      temp = cos(omega*t);
+      pGrid->U[ks][js][is-i].E  = 0.5 * vamp * vamp * cos(omega * t) * cos(omega * t) + 1.0/(Gamma - 1.0);
+    }
+  
+}
+
+void radMHD_rad_inflow(GridS *pGrid)
+{
+  	int i, is;
+	int ks, js;
+	is = pGrid->is;
+  	ks = pGrid->ks;
+	js = pGrid->js;
+
+	double t=pGrid->time;
+	
+
+	Real Eramp, omega;
+	
+	Eramp = 1.e-3;
+	omega = 2.0 * 3.1415926;
+ 
+    for (i=1;  i<=nghost;  i++) {
+      pGrid->U[ks][js][is-i].Er  = 1.0 + Eramp * cos(omega * t);
+      pGrid->U[ks][js][is-i].Fr1 = 0.0;
     }
   
 }

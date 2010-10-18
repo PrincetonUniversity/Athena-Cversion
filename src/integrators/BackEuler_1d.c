@@ -233,14 +233,14 @@ void BackEuler_1d(MeshS *pM)
 				Euler[1][5] = theta[4] + theta[2];
 				Euler[2][3] = phi[2] + phi[0];
 				Euler[2][4] = phi[3] + phi[1];
-			}// outflow boundary condition
+			}/* outflow boundary condition */
 			else if(ix1 == 1) {
 				Euler[1][4] = theta[3] + theta[1];
 				Euler[1][5] = theta[4] - theta[2];
 				Euler[2][3] = phi[2] + phi[0];
 				Euler[2][4] = phi[3] - phi[1];
-			}// reflecting boundary condition
-			else if(ix1 == 3) ;//inflow boundary condition, do nothing
+			}/* reflecting boundary condition */
+			else if(ix1 == 3) ;/*inflow boundary condition, do nothing */
 			else
 			goto on_error;			
 		}
@@ -257,14 +257,14 @@ void BackEuler_1d(MeshS *pM)
 				Euler[2*Nmatrix-1][5] = theta[4] + theta[6];
 				Euler[2*Nmatrix][3] = phi[2] + phi[4];
 				Euler[2*Nmatrix][4] = phi[3] + phi[5];
-			}// outflow boundary condition
+			}/* outflow boundary condition */
 			else if(ox1 == 1) {
 				Euler[2*Nmatrix-1][4] = theta[3] + theta[5];
 				Euler[2*Nmatrix-1][5] = theta[4] - theta[6];
 				Euler[2*Nmatrix][3] = phi[2] + phi[4];
 				Euler[2*Nmatrix][4] = phi[3] - phi[5];
-			}// reflecting boundary condition
-			else if(ox1 == 3) ;//inflow boundary condition, do nothing
+			}/* reflecting boundary condition */
+			else if(ox1 == 3) ;/* inflow boundary condition, do nothing*/
 			else
 			goto on_error;	
 		}
@@ -282,7 +282,7 @@ void BackEuler_1d(MeshS *pM)
 			EulerLU[1][2*Nmatrix]   = theta[2];
 			EulerLU[2][2*Nmatrix-1] = phi[0];
 			EulerLU[2][2*Nmatrix]   = phi[1];			
-		}// end i==is
+		}/* end i==is */
 		else if (i == ie) {
 			EulerLU[2*Nmatrix-1][1] = theta[5];
 			EulerLU[2*Nmatrix-1][2]   = theta[6];
@@ -292,7 +292,7 @@ void BackEuler_1d(MeshS *pM)
 				EulerLU[2*Nmatrix-1][2*Nmatrix-j] = theta[4-j];
 				EulerLU[2*Nmatrix][2*Nmatrix-j] = phi[3-j];
 			}
-		}// end i==ie
+		}/* end i==ie */
 		else {
 
 			for(j=1; j<=6; j++) {
@@ -302,7 +302,7 @@ void BackEuler_1d(MeshS *pM)
 		}
 	}
 	/* End for periodic boundary condition */	
-	}// end for i loop
+	}/* end for i loop */
 
 	
 	

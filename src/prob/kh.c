@@ -49,6 +49,14 @@ void problem(DomainS *pDomain)
   b0  = par_getd("problem","b0");
 #endif
 
+#ifdef rad_hydro
+  Prat = par_getd("problem","Pratio");
+  Crat = par_getd("problem","Cratio");
+  Sigma_t = par_getd("problem","Sigma_t");
+  Sigma_a = par_getd("problem","Sigma_a");
+  R_ideal = par_getd("problem","R_ideal");
+#endif
+
 /* iprob=1.  Two uniform streams moving at +/- vflow, random perturbations */
 
   if (iprob == 1) {
@@ -78,6 +86,15 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].E += 0.5*b0*b0;
 #endif /* BAROTROPIC */
 #endif /* MHD */
+#ifdef rad_hydro
+	pGrid->U[k][j][i].Er = 0.0;
+	pGrid->U[k][j][i].Fr1 = 0.0;
+	pGrid->U[k][j][i].Fr2 = 0.0;
+	pGrid->U[k][j][i].Edd_11 = 1.0;
+	pGrid->U[k][j][i].Edd_21 = 1.0;
+	pGrid->U[k][j][i].Edd_22 = 1.0;
+#endif
+
         }
 #ifdef MHD
       pGrid->B1i[k][j][ie+1] = b0;
@@ -118,7 +135,16 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].s[0] = 0.0;
           if (x2 > 0) pGrid->U[k][j][i].s[0] = 1.0;
 #endif
-        }
+       
+#ifdef rad_hydro
+	pGrid->U[k][j][i].Er = 0.0;
+	pGrid->U[k][j][i].Fr1 = 0.0;
+	pGrid->U[k][j][i].Fr2 = 0.0;
+	pGrid->U[k][j][i].Edd_11 = 1.0;
+	pGrid->U[k][j][i].Edd_21 = 1.0;
+	pGrid->U[k][j][i].Edd_22 = 1.0;
+#endif
+	}
 #ifdef MHD
       pGrid->B1i[k][j][ie+1] = b0;
 #endif

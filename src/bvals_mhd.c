@@ -47,6 +47,7 @@
  *   bvals_mhd()      - calls appropriate functions to set ghost cells
  *   bvals_mhd_init() - sets function pointers used by bvals_mhd()
  *   bvals_mhd_fun()  - enrolls a pointer to a user-defined BC function
+ *   bvals_rad_fun()  - enrolls a pointer to a user-defined BC function for radiation quantities
  *============================================================================*/
 
 #include <stdio.h>
@@ -898,6 +899,40 @@ void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
   return;
 }
 
+
+/*----------------------------------------------------------------------------*/
+/* bvals_rad_fun:  sets function ptrs for user-defined BCs for radiation quantities
+ */
+#ifdef rad_hydro
+void bvals_rad_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
+{
+  switch(dir){
+  case left_x1:
+    pD->rad_ix1_BCFun = prob_bc;
+    break;
+  case right_x1:
+    pD->rad_ox1_BCFun = prob_bc;
+    break;
+  case left_x2:
+    pD->rad_ix2_BCFun = prob_bc;
+    break;
+  case right_x2:
+    pD->rad_ox2_BCFun = prob_bc;
+    break;
+  case left_x3:
+    pD->rad_ix3_BCFun = prob_bc;
+    break;
+  case right_x3:
+    pD->rad_ox3_BCFun = prob_bc;
+    break;
+  default:
+    ath_perr(-1,"[bvals_fun]: Unknown direction = %d\n",dir);
+    exit(EXIT_FAILURE);
+  }
+  return;
+}
+#endif
+
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /* Following are the functions:
  *   reflecting_???:   where ???=[ix1,ox1,ix2,ox2,ix3,ox3]
@@ -924,8 +959,12 @@ static void reflect_ix1(GridS *pGrid)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
+	/* Notice that the radiation quantities are also copied here */
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
 	pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
+#ifdef rad_hydro
+	pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is-i].Fr1; /* reflect 1-rad Flux. */
+#endif
 #ifdef MHD
         pGrid->U[k][j][is-i].B1c= -pGrid->U[k][j][is-i].B1c;/* reflect 1-fld. */
 #endif
@@ -985,6 +1024,9 @@ static void reflect_ox1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i]    =  pGrid->U[k][j][ie-(i-1)];
         pGrid->U[k][j][ie+i].M1 = -pGrid->U[k][j][ie+i].M1; /* reflect 1-mom. */
+#ifdef rad_hydro
+	pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie+i].Fr1; /* reflect 1-rad Flux */
+#endif
 #ifdef MHD
         pGrid->U[k][j][ie+i].B1c= -pGrid->U[k][j][ie+i].B1c;/* reflect 1-fld. */
 #endif
@@ -1045,6 +1087,9 @@ static void reflect_ix2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i]    =  pGrid->U[k][js+(j-1)][i];
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
+#ifdef rad_hydro
+	pGrid->U[k][js-j][i].Fr2 = -pGrid->U[k][js-j][i].Fr2; /* reflect 2 radFlux */
+#endif
 #ifdef MHD
         pGrid->U[k][js-j][i].B2c= -pGrid->U[k][js-j][i].B2c;/* reflect 2-fld. */
 #endif
@@ -1106,6 +1151,9 @@ static void reflect_ox2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
         pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
+#ifdef rad_hydro
+	pGrid->U[k][je+j][i].Fr2 = -pGrid->U[k][je+j][i].Fr2; /* reflect 2-rad Flux. */
+#endif
 #ifdef MHD
         pGrid->U[k][je+j][i].B2c= -pGrid->U[k][je+j][i].B2c;/* reflect 2-fld. */
 #endif
@@ -1164,6 +1212,9 @@ static void reflect_ix3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
         pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
+#ifdef rad_hydro
+	pGrid->U[ks-k][j][i].Fr3 = -pGrid->U[ks-k][j][i].Fr3; /* reflect 3-rad Flux. */
+#endif
 #ifdef MHD
         pGrid->U[ks-k][j][i].B3c= -pGrid->U[ks-k][j][i].B3c;/* reflect 3-fld.*/
 #endif
@@ -1225,6 +1276,9 @@ static void reflect_ox3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
         pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
+#ifdef rad_hydro
+	pGrid->U[ke+k][j][i].Fr3 = -pGrid->U[ke+k][j][i].Fr3; /* reflect 3-rad Flux. */
+#endif
 #ifdef MHD
         pGrid->U[ke+k][j][i].B3c= -pGrid->U[ke+k][j][i].B3c;/* reflect 3-fld. */
 #endif

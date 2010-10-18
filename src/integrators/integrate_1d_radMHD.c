@@ -58,7 +58,7 @@ static Real *geom_src=NULL;
 void integrate_1d_radMHD(DomainS *pD)
 {
   	GridS *pG=(pD->Grid);
-	Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;
+	/*Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1; */
 	Real dt=pG->dt, dx=pG->dx1;
 	int il,iu, is = pG->is, ie = pG->ie;
   	int i, j, m, n;
@@ -74,10 +74,9 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Source[NVAR];
 	Real Propa_44;
-//, Propa[NVAR][NVAR];
 	Real Source_guess[NVAR], Errort[NVAR];
 
-	Real Sigma_s = Sigma_t - Sigma_a;
+	/* Real Sigma_s = Sigma_t - Sigma_a; */
 
 	/* Initialize them to be zero */
 	for(i=0; i<NVAR; i++){
@@ -161,7 +160,7 @@ void integrate_1d_radMHD(DomainS *pD)
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
 		/* In case SPP * dt  is small, use expansion expression */	
-		//Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d;
+
 		Propa_44 = alpha;
 
 		Wl[i].Vx += dt * Source[1] * 0.5;
@@ -188,7 +187,7 @@ void integrate_1d_radMHD(DomainS *pD)
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
 		/* In case SPP * dt  is small, use expansion expression */	
-		//Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d;
+		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
 
 		Wr[i].Vx += dt * Source[1] * 0.5;
@@ -309,7 +308,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	/*Boundary condition is applied in the main.c function*/
 
 /*-----------Finish---------------------*/
-	} // End big loop i	
+	} /* End big loop i */	
 	
 
   return;
@@ -328,7 +327,7 @@ void integrate_1d_radMHD(DomainS *pD)
 
 void integrate_init_1d(MeshS *pM)
 {
-  int size1=0,nl,nd, i;
+  int size1=0,nl,nd;
 
 /* Cycle over all Grids on this processor to find maximum Nx1 */
   for (nl=0; nl<(pM->NLevels); nl++){
