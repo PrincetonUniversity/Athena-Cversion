@@ -98,6 +98,8 @@ typedef struct Cons_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
+  Real Sigma_t;
+  Real Sigma_a;
 #endif
 }ConsS;
 
@@ -133,6 +135,8 @@ typedef struct Prim_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
+  Real Sigma_t;
+  Real Sigma_a;
 #endif
 }PrimS;
 
@@ -170,6 +174,8 @@ typedef struct Cons1D_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
+  Real Sigma_t;
+  Real Sigma_a;
 #endif
 }Cons1DS;
 
@@ -204,6 +210,8 @@ typedef struct Prim1D_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
+  Real Sigma_t;
+  Real Sigma_a;
 #endif
 }Prim1DS;
 
@@ -505,6 +513,11 @@ typedef void (*WeightFun_t)(GridS *pG, Real x1, Real x2, Real x3,
   Real3Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
 typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 #endif /* PARTICLES */
+
+/* Define user provided opacity function to give absorption and total reaction coefficient */
+#ifdef rad_hydro
+typedef void (*OpacityFun_t)(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a);
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* Directions for the set_bvals_fun() function */

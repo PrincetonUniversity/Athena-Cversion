@@ -88,7 +88,7 @@ void BackEuler_2d(MeshS *pM)
   	Real theta[11];
   	Real phi[11];
 	Real psi[11];
-  	Real Sigma_s = Sigma_t - Sigma_a;
+  	Real Sigma_s, Sigma_t, Sigma_a;
 
 
 	/* Boundary condition flag */
@@ -137,6 +137,7 @@ void BackEuler_2d(MeshS *pM)
 /* if MHD - 0.5 * Bx * Bx   */
     		temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
 		/* RHSEuler[0...N-1]  */
+		Sigma_a = pG->U[ks][j][i].Sigma_a;
 		
     		RHSEuler[3*(j-js)*Nx + 3*(i-is)]   = pG->U[ks][j][i].Er + Crat * dt * Sigma_a 
 				* temperature * temperature * temperature * temperature;
@@ -240,6 +241,9 @@ void BackEuler_2d(MeshS *pM)
 		for(i=is; i<=ie; i++){
 			velocity_x = pG->U[ks][j][i].M1 / pG->U[ks][j][i].d;
 			velocity_y = pG->U[ks][j][i].M2 / pG->U[ks][j][i].d;
+			Sigma_a = pG->U[ks][j][i].Sigma_a;
+			Sigma_t = pG->U[ks][j][i].Sigma_t;
+			Sigma_s = Sigma_t - Sigma_a;
 			Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
 				/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
 			Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
@@ -885,13 +889,18 @@ void BackEuler_2d(MeshS *pM)
 		if(Nmatrix < 10) MR = Nmatrix - 1;
 		else MR = 10;
 
-		mgmres_st ( 3*Nmatrix, NZ_NUM, IEuler, JEuler, Euler, INIguess, RHSEuler, ITR_max, MR, tol_abs,  tol_rel );	
+		/* Note that in the C subroutine, J and I are actually I and J used in Athena */
+
+		mgmres_st ( 3*Nmatrix, NZ_NUM, JEuler, IEuler, Euler, INIguess, RHSEuler, ITR_max, MR, tol_abs,  tol_rel );	
 
 		
 	/* update the radiation quantities in the mesh */	
 	for(j=js;j<=je;j++){
 		for(i=is; i<=ie; i++){
 		pG->U[ks][j][i].Er	= INIguess[3*(j-js)*Nx + 3*(i-is)];
+		if(pG->U[ks][j][i].Er < 0.0)
+			fprintf(stderr,"[BackEuler_2d]: Negative Radiation energy: %e\n",pG->U[ks][j][i].Er);
+
 		pG->U[ks][j][i].Fr1	= INIguess[3*(j-js)*Nx + 3*(i-is)+1];
 		pG->U[ks][j][i].Fr2	= INIguess[3*(j-js)*Nx + 3*(i-is)+2];		
 		}

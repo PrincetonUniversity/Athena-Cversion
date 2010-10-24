@@ -319,7 +319,7 @@ void restart_grids(char *res_file, MeshS *pM)
       }
 
 
-/* Read the Eddington tensor 11 */
+/* Read the Eddington tensor 33 */
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
@@ -329,6 +329,35 @@ void restart_grids(char *res_file, MeshS *pM)
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
             fread(&(pG->U[k][j][i].Edd_33),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the total reaction coefficient Sigma_t */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"Sigma_t",12) != 0)
+        ath_error("[restart_grids]: Expected Sigma_t, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Sigma_t),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+
+/* Read the absorption coefficient Sigma_a */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"Sigma_a",12) != 0)
+        ath_error("[restart_grids]: Expected Sigma_a, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Sigma_a),sizeof(Real),1,fp);
           }
         }
       }
@@ -944,6 +973,44 @@ void dump_restart(MeshS *pM, OutputS *pout)
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
             buf[nbuf++] = pG->U[k][j][i].Edd_33;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write the total reaction coefficient Sigma_t */
+
+      fprintf(fp,"\nSigma_t\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Sigma_t;
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write absorption coefficient Sigma_a */
+
+      fprintf(fp,"\nSigma_a\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Sigma_a;
             if ((nbuf+1) > bufsize) {
               fwrite(buf,sizeof(Real),nbuf,fp);
               nbuf = 0;

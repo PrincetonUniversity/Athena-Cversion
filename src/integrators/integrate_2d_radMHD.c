@@ -100,6 +100,7 @@ void integrate_2d_radMHD(DomainS *pD)
 #endif
 
 	Real temperature, velocity_x, velocity_y, pressure, density;
+	Real Sigma_t, Sigma_a;
 	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy;
 
 	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR];
@@ -180,6 +181,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[i-1].d * R_ideal);
 		velocity_x = U1d[i-1].Mx / U1d[i-1].d;
 		velocity_y = U1d[i-1].My / U1d[i-1].d;
+		Sigma_t    = pG->U[ks][j][i-1].Sigma_t;
+		Sigma_a	   = pG->U[ks][j][i-1].Sigma_a;
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fr1/U1d[i-1].d 
 			- ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y)* U1d[i-1].Er / (Crat * U1d[i-1].d))	
@@ -213,6 +216,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[i].d * R_ideal);
 		velocity_x = U1d[i].Mx / U1d[i].d;
 		velocity_y = U1d[i].My / U1d[i].d;
+		Sigma_t    = pG->U[ks][j][i].Sigma_t;
+		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
 			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y)* U1d[i].Er / (Crat * U1d[i].d))	
@@ -262,7 +267,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	} /* End to get the fluxes */
 
-		}/* End big loop j */
+	}/* End big loop j */
 
 
 /*=== STEP 3: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
@@ -317,6 +322,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[j-1].d * R_ideal);
 		velocity_x = U1d[j-1].Mz / U1d[j-1].d;
 		velocity_y = U1d[j-1].Mx / U1d[j-1].d;
+		Sigma_t    = pG->U[ks][j-1][i].Sigma_t;
+		Sigma_a	   = pG->U[ks][j-1][i].Sigma_a;
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[j-1].Fr1/U1d[j-1].d 
 			- ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y)* U1d[j-1].Er / (Crat * U1d[j-1].d))	
@@ -351,6 +358,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[j].d * R_ideal);
 		velocity_x = U1d[j].Mz / U1d[j].d;
 		velocity_y = U1d[j].Mx / U1d[j].d;
+		Sigma_t    = pG->U[ks][j][i].Sigma_t;
+		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[j].Fr1/U1d[j].d 
 			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y)* U1d[j].Er / (Crat * U1d[j].d))	
@@ -427,7 +436,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ur_x1Face[j][i].Mx -= hdtodx2*(x2Flux[j+1][i  ].Mz - x2Flux[j][i  ].Mz);
       		Ur_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
       		Ur_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
-		Ur_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
+		Ur_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i  ].E -  x2Flux[j][i  ].E );
 #ifdef MHD
       		Ur_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
 #endif
@@ -544,6 +553,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		temperature = pressure / (density * R_ideal);
 		velocity_x = pG->U[ks][j][i].M1 / density;
 		velocity_y = pG->U[ks][j][i].M2 / density;
+		Sigma_t    = pG->U[ks][j][i].Sigma_t;
+		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
 	/* The Source term */
 		SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (density * R_ideal);
@@ -606,6 +617,11 @@ void integrate_2d_radMHD(DomainS *pD)
 				+ Uguess[2] * Uguess[2]) / density) * (Gamma - 1);
 		/* Should include magnetic energy for MHD */
 		temperature = pressure / (density * R_ideal);
+
+		if(Opacity != NULL)
+			Opacity(density,temperature, &Sigma_t, &Sigma_a);
+
+
 		velocity_x = Uguess[1] / density;
 		velocity_y = Uguess[2] / density;
 
@@ -660,6 +676,26 @@ void integrate_2d_radMHD(DomainS *pD)
 	}/* End big loop j */
 		
 	/* Boundary condition is applied in the main function */
+
+	/* Update the opacity if Opacity function is set in the problem generator */
+	if(Opacity != NULL){
+
+		for (j=js; j<=je; j++) {
+    			for (i=is; i<=ie; i++){
+				
+				density = pG->U[ks][j][i].d;
+				
+				pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
+				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2) / density )	* (Gamma - 1);
+			/* Should include magnetic energy for MHD */
+				temperature = pressure / (density * R_ideal);
+			
+			Opacity(density,temperature,&(pG->U[ks][j][i].Sigma_t), &(pG->U[ks][j][i].Sigma_a));
+
+			}
+		}
+	}
+
   return;
 
  

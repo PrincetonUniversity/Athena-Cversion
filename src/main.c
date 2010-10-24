@@ -527,6 +527,8 @@ int main(int argc, char *argv[])
  	ath_error("[main_BackEuler]: BackEuler not ready for this dimension now!");
  
  	}
+		
+
 #endif
 
     for (nl=0; nl<(Mesh.NLevels); nl++){ 

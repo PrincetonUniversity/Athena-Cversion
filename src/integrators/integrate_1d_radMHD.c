@@ -76,7 +76,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	Real Propa_44;
 	Real Source_guess[NVAR], Errort[NVAR];
 
-	/* Real Sigma_s = Sigma_t - Sigma_a; */
+	Real Sigma_t, Sigma_a;
 
 	/* Initialize them to be zero */
 	for(i=0; i<NVAR; i++){
@@ -145,6 +145,10 @@ void integrate_1d_radMHD(DomainS *pD)
 		pressure = W[i-1].P;
 		temperature = pressure / (U1d[i-1].d * R_ideal);
 		velocity = U1d[i-1].Mx / U1d[i-1].d;
+		
+		Sigma_t = pG->U[ks][js][i-1].Sigma_t;
+		Sigma_a = pG->U[ks][js][i-1].Sigma_a;
+
 
 	Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fr1/U1d[i-1].d 
 	- (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / (Crat * U1d[i-1].d))	
@@ -172,6 +176,10 @@ void integrate_1d_radMHD(DomainS *pD)
 		pressure = W[i].P;
 		temperature = pressure / (U1d[i].d * R_ideal);
 		velocity = U1d[i].Mx / U1d[i].d;
+
+		Sigma_t = pG->U[ks][js][i].Sigma_t;
+		Sigma_a = pG->U[ks][js][i].Sigma_a;
+
 
 	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
 	- (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / (Crat * U1d[i].d))	
@@ -227,6 +235,10 @@ void integrate_1d_radMHD(DomainS *pD)
 	temperature = pressure / (U1d[i].d * R_ideal);
 	velocity = U1d[i].Mx / U1d[i].d;
 
+	Sigma_t = pG->U[ks][js][i].Sigma_t;
+	Sigma_a = pG->U[ks][js][i].Sigma_a;
+
+
 /* The Source term */
 	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (U1d[i].d * R_ideal);
 	SErho = SEE * (-U1d[i].E/U1d[i].d + velocity * velocity);	
@@ -270,6 +282,11 @@ void integrate_1d_radMHD(DomainS *pD)
 	temperature = pressure / (Uguess.d * R_ideal);
 	velocity = Uguess.Mx / Uguess.d;
 
+	/* Use the updated opacity due to the change of temperature and density */
+	if(Opacity != NULL)
+		Opacity(Uguess.d, temperature, &Sigma_t, &Sigma_a);
+
+
 	/* Guess solution doesn't include Er and Fr1, Er and Fr1 are in U1d */
 	Source_guess[1] = -Prat * (-Sigma_t * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
 	+ Sigma_a * velocity * (temperature * temperature * temperature * temperature - U1d[i].Er)/Crat);
@@ -309,11 +326,29 @@ void integrate_1d_radMHD(DomainS *pD)
 
 /*-----------Finish---------------------*/
 	} /* End big loop i */	
+
+
+	/* Now update the reaction coefficient Sigma_t and Sigma_a in the conserved variable 
+	 * If function Opacity is set in the problem generator 
+	 *
+	 */ 
+
+	if(Opacity != NULL){
+		for(i=il+1; i<=iu-1; i++) {
+			pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1 / pG->U[ks][js][i].d )
+				* (Gamma - 1);
+		/* Should include magnetic energy for MHD */
+			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
 	
+
+			Opacity(pG->U[ks][js][i].d, temperature,&(pG->U[ks][js][i].Sigma_t), &(pG->U[ks][js][i].Sigma_a));
+		}
+	}
+
 
   return;
 
-	}
+}
 
 
 

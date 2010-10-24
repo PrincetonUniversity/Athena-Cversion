@@ -100,6 +100,14 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   U.Fr1 = pCons->Fr1;
   U.Fr2 = pCons->Fr2;
   U.Fr3 = pCons->Fr3;
+  U.Edd_11 = pCons->Edd_11;
+  U.Edd_21 = pCons->Edd_21;
+  U.Edd_22 = pCons->Edd_22;
+  U.Edd_31 = pCons->Edd_31;
+  U.Edd_32 = pCons->Edd_32;
+  U.Edd_33 = pCons->Edd_33;
+  U.Sigma_t = pCons->Sigma_t;
+  U.Sigma_a = pCons->Sigma_a;
 #endif
 
 
@@ -125,6 +133,14 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   Prim.Fr1 = W.Fr1;
   Prim.Fr2 = W.Fr2;
   Prim.Fr3 = W.Fr3;
+  Prim.Edd_11 = W.Edd_11;
+  Prim.Edd_21 = W.Edd_21;
+  Prim.Edd_22 = W.Edd_22;
+  Prim.Edd_31 = W.Edd_31;
+  Prim.Edd_32 = W.Edd_32;
+  Prim.Edd_33 = W.Edd_33;
+  Prim.Sigma_t = W.Sigma_t;
+  Prim.Sigma_a = W.Sigma_a;
 #endif
 
   return Prim;
@@ -161,6 +177,14 @@ ConsS Prim_to_Cons (const PrimS *pW)
   W.Fr1 = pW->Fr1;
   W.Fr2 = pW->Fr2;
   W.Fr3 = pW->Fr3;
+  W.Edd_11 = pW->Edd_11;
+  W.Edd_21 = pW->Edd_21;
+  W.Edd_22 = pW->Edd_22;
+  W.Edd_31 = pW->Edd_31;
+  W.Edd_32 = pW->Edd_32;
+  W.Edd_33 = pW->Edd_33;
+  W.Sigma_t = pW->Sigma_t;
+  W.Sigma_a = pW->Sigma_a;
 #endif
  
   U = Prim1D_to_Cons1D(&W, &Bx);
@@ -186,6 +210,14 @@ ConsS Prim_to_Cons (const PrimS *pW)
   Cons.Fr1 = U.Fr1;
   Cons.Fr2 = U.Fr2;
   Cons.Fr3 = U.Fr3;
+  Cons.Edd_11 = U.Edd_11;
+  Cons.Edd_21 = U.Edd_21;
+  Cons.Edd_22 = U.Edd_22;
+  Cons.Edd_31 = U.Edd_31;
+  Cons.Edd_32 = U.Edd_32;
+  Cons.Edd_33 = U.Edd_33;
+  Cons.Sigma_t = U.Sigma_t;
+  Cons.Sigma_a = U.Sigma_a;
 #endif
 
   return Cons;
@@ -402,6 +434,14 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
   Prim1D.Fr1 = pU->Fr1;
   Prim1D.Fr2 = pU->Fr2;
   Prim1D.Fr3 = pU->Fr3;
+  Prim1D.Edd_11 = pU->Edd_11;
+  Prim1D.Edd_21 = pU->Edd_21;
+  Prim1D.Edd_22 = pU->Edd_22;
+  Prim1D.Edd_31 = pU->Edd_31;
+  Prim1D.Edd_32 = pU->Edd_32;
+  Prim1D.Edd_33 = pU->Edd_33;
+  Prim1D.Sigma_t = pU->Sigma_t;
+  Prim1D.Sigma_a = pU->Sigma_a;  
 #endif
 
   return Prim1D;
@@ -448,6 +488,14 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
   Cons1D.Fr1 = pW->Fr1;
   Cons1D.Fr2 = pW->Fr2;
   Cons1D.Fr3 = pW->Fr3;
+  Cons1D.Edd_11 = pW->Edd_11;
+  Cons1D.Edd_21 = pW->Edd_21;
+  Cons1D.Edd_22 = pW->Edd_22;
+  Cons1D.Edd_31 = pW->Edd_31;
+  Cons1D.Edd_32 = pW->Edd_32;
+  Cons1D.Edd_33 = pW->Edd_33;
+  Cons1D.Sigma_t = pW->Sigma_t;
+  Cons1D.Sigma_a = pW->Sigma_a;  
 #endif
 
 

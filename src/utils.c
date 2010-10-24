@@ -1072,7 +1072,7 @@ Real eff_sound(const Prim1DS W, Real dt)
 	temperature = W.P / (W.d * R_ideal);
 	
 
-	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a 
+	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma_a 
 		* temperature * temperature * temperature / (W.d * R_ideal);
 
 	if(fabs(SPP * dt * 0.5) > 0.001)

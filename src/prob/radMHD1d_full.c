@@ -17,6 +17,8 @@
 /*----------------------------------------------------------------------------*/
 /* problem:    */
 void radMHD_inflow(GridS *pGrid);
+void radMHD_rad_inflow(GridS *pGrid);
+
 
 void problem(DomainS *pDomain)
 {
@@ -28,8 +30,6 @@ void problem(DomainS *pDomain)
 #ifdef rad_hydro
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
-  Sigma_t = par_getd("problem","Sigma_t");
-  Sigma_a = par_getd("problem","Sigma_a");
   R_ideal = par_getd("problem","R_ideal");
 	
 #endif
@@ -59,7 +59,7 @@ void problem(DomainS *pDomain)
 /* Initialize the grid including the ghost cells.  */
 	Real d0, u0, T0, x1, x2, x3, temperature;
 	d0 = 1.0;
-	u0 = -600;
+	u0 = -20.0;
 	T0 = 1.0;
 
 
@@ -80,6 +80,8 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].E = 0.5 * d0 * u0 * u0 + d0 * temperature /(Gamma - 1.0);
 
 	 pGrid->U[k][j][i].Edd_11 = 0.33333333; /* Set to be a constant in 1D. To be modified later */
+	  pGrid->U[k][j][i].Sigma_t = 10.0;
+	 pGrid->U[k][j][i].Sigma_a = 10.0;
 
 #ifdef MHD
           pGrid->B1i[k][j][i] = 0.0;
@@ -91,7 +93,7 @@ void problem(DomainS *pDomain)
 #endif
 #ifdef rad_hydro
 	  pGrid->U[k][j][i].Er = temperature * temperature * temperature * temperature ;
-	  pGrid->U[k][j][i].Fr1 = -30.0 * pGrid->U[k][j][i].Edd_11 * temperature * temperature * temperature/Sigma_t;
+	  pGrid->U[k][j][i].Fr1 = -30.0 * pGrid->U[k][j][i].Edd_11 * temperature * temperature * temperature/pGrid->U[k][j][i].Sigma_t;
 	  pGrid->U[k][j][i].Fr2 = 0.0;
 	  pGrid->U[k][j][i].Fr3 = 0.0;
 
@@ -102,6 +104,7 @@ void problem(DomainS *pDomain)
     }
 
 	bvals_mhd_fun(pDomain, right_x1, radMHD_inflow);
+	bvals_rad_fun(pDomain, right_x1, radMHD_rad_inflow);
 
   return;
 }
@@ -116,7 +119,7 @@ void radMHD_inflow(GridS *pGrid)
 
 	Real d0, u0, T0;
 	d0 = 1.0;
-	u0 = -600;
+	u0 = -20.0;
 	T0 = 1.0 + 7.5;
  
     for (i=1;  i<=nghost;  i++) {
@@ -124,6 +127,27 @@ void radMHD_inflow(GridS *pGrid)
       pGrid->U[ks][js][ie+i].M1 = d0 * u0;
       pGrid->U[ks][js][ie+i].E  = 0.5 * d0 * u0 * u0 + d0 * T0/(Gamma - 1.0);
     }
+  
+}
+
+
+void radMHD_rad_inflow(GridS *pGrid)
+{
+  	int i, ie;
+	int ks, js;
+	ie = pGrid->ie;
+  	ks = pGrid->ks;
+	js = pGrid->js;
+
+	for (i=1;  i<=nghost;  i++) {
+      	pGrid->U[ks][js][ie+i].Er  = 8.8 * 8.5 * 8.5 * 8.5;
+	pGrid->U[ks][js][ie+i].Sigma_t = 10.0;
+	pGrid->U[ks][js][ie+i].Sigma_a = 10.0;
+	pGrid->U[ks][js][ie+i].Edd_11 = 10.0;
+      	pGrid->U[ks][js][ie+i].Fr1 = - 30.0 * 0.3333333 * 8.5 * 8.5 * 8.5 / pGrid->U[ks][js][ie+i].Sigma_t;
+    }
+	
+
   
 }
 
@@ -143,8 +167,6 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 	fprintf(fp,"%5.3e\n",Gamma);
 	fprintf(fp,"%5.3e\n",Prat);
 	fprintf(fp,"%5.3e\n",Crat);
-	fprintf(fp,"%5.3e\n",Sigma_t);
-	fprintf(fp,"%5.3e\n",Sigma_a);
 	fprintf(fp,"%5.3e\n",R_ideal);
   return;
 }
@@ -156,8 +178,6 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	fscanf(fp,"%lf",&Gamma);
 	fscanf(fp,"%lf\n",&Prat);
 	fscanf(fp,"%lf\n",&Crat);
-	fscanf(fp,"%lf\n",&Sigma_t);
-	fscanf(fp,"%lf\n",&Sigma_a);
 	fscanf(fp,"%lf\n",&R_ideal);
 
 

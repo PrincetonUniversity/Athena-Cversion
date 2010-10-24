@@ -84,7 +84,7 @@ void BackEuler_1d(MeshS *pM)
 	Real temp1, temp2;
   	Real theta[7];
   	Real phi[7];
-  	Real Sigma_s = Sigma_t - Sigma_a;
+  	Real Sigma_s, Sigma_t, Sigma_a;
 
 	/* Boundary condition flag */
 	int ix1, ox1, ix2, ox2, ix3, ox3;
@@ -152,6 +152,7 @@ void BackEuler_1d(MeshS *pM)
 /* if MHD - 0.5 * Bx * Bx   */
 
     		temperature = pressure / (U1d[i].d * R_ideal);
+		Sigma_a = pG->U[ks][js][i].Sigma_a;
       
 
 		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
@@ -192,6 +193,9 @@ void BackEuler_1d(MeshS *pM)
 	/* theta and phi are written according to the compact matrix form, not the order in the paper */
 	for(i=is; i<=ie; i++){
 		velocity = U1d[i].Mx / U1d[i].d;
+		Sigma_a = pG->U[ks][js][i].Sigma_a;
+		Sigma_t = pG->U[ks][js][i].Sigma_t;
+		Sigma_s = Sigma_t - Sigma_a;
 		theta[0] = 0.0; 
 		theta[1] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]) * sqrt(U1d[i-1].Edd_11);
 		theta[2] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]);
