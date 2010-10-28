@@ -84,10 +84,10 @@ void problem(DomainS *pDomain)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int ixs,jxs,kxs,i,j,k,ipert,ifield;
+  int ixs,jxs,kxs,i,j,k,ipert,ifield,Bdir;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax;
-  Real den = 1.0, pres = 1.0, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
+  Real den = 1.0, pres = 1.0, dir_sgn, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
   Real beta=1.0,B0,kx,ky,kz,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
@@ -104,6 +104,12 @@ void problem(DomainS *pDomain)
 #ifdef MHD
   beta = par_getd("problem","beta");
   ifield = par_geti_def("problem","ifield", 1);
+  /* For net-flux calculation, provide the direction of the B field */
+  Bdir = par_getd_def("problem","Bdir",1);
+  if (Bdir > 0)
+    dir_sgn = 1.0;
+  else
+    dir_sgn = -1.0;
 #endif
   ipert = par_geti_def("problem","ipert", 1);
 
@@ -305,10 +311,10 @@ void problem(DomainS *pDomain)
       if (ifield == 2) {
         pGrid->B1i[k][j][i] = 0.0;
         pGrid->B2i[k][j][i] = 0.0;
-        pGrid->B3i[k][j][i] = B0;
+        pGrid->B3i[k][j][i] = B0*dir_sgn;
         if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
         if (j==je) pGrid->B2i[k][je+1][i] = 0.0;
-        if (k==ke) pGrid->B3i[ke+1][j][i] = B0;
+        if (k==ke) pGrid->B3i[ke+1][j][i] = B0*dir_sgn;
       }
       if (ifield == 3) {
         pGrid->B1i[k][j][i] = 0.0;

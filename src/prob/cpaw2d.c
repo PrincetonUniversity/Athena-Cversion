@@ -98,7 +98,6 @@ void problem(DomainS *pDomain)
     sin_a = 0.0;
     cos_a = 1.0;
     lambda = x1size;
-ath_pout(0,"Yes!\n");
   }
   else if (angle == 90.0) {
     sin_a = 1.0;

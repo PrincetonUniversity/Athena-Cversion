@@ -30,10 +30,10 @@ Real diff_dt(MeshS *pM);
 void get_eta(GridS *pG);
 void eta_single_const(GridS *pG, int i, int j, int k,
                       Real *eta_O, Real *eta_H, Real *eta_A);
-void eta_single_user(GridS *pG, int i, int j, int k,
+void eta_general     (GridS *pG, int i, int j, int k,
                       Real *eta_O, Real *eta_H, Real *eta_A);
-void eta_general_user(GridS *pG, int i, int j, int k,
-                      Real *eta_O, Real *eta_H, Real *eta_A);
+void convert_diffusion(Real sigma_O, Real sigma_H, Real sigma_P,
+                       Real *eta_O,  Real *eta_H,  Real *eta_A );
 #endif
 
 /* integrate_diffusion.c */
