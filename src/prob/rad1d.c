@@ -200,6 +200,7 @@ static Real const_opacity(const GridS *pG, const int ifr, const int i, const int
   
 }
 
+
 static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n)
 {
 
@@ -212,10 +213,9 @@ static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n)
   xm = 0.5 * (x2 + x1);
   xl = 0.5 * (x2 - x1);
 
-  z1 = cos(PI * ((Real)i - 0.25) / ((Real)n + 0.5)) + 2.0 * eps;
   for (i=1; i<=m; i++) {
     z = cos(PI * ((Real)i - 0.25) / ((Real)n + 0.5));
-    while(fabs(z - z1) > eps) {
+    do {
       p1=1.0;
       p2=0.0;
       for(j=1; j<=n; j++) {
@@ -226,7 +226,7 @@ static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n)
       pp = (Real)n * (z * p1 - p2) / (z * z - 1.0);
       z1 = z;
       z = z1 - p1 / pp;
-    }
+    }  while(fabs(z - z1) > eps);
     x[i-1] = xm - xl * z;
     x[n-i] = xm + xl * z;
     w[i-1] = 2.0 * xl / ((1.0 - z * z) * pp * pp);
@@ -234,4 +234,3 @@ static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n)
   }
 
 }
-

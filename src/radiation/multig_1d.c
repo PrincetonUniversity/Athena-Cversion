@@ -32,12 +32,12 @@ static int it0 = 1;
  *   prolongate_1d()  - 1d implementation of prolongation (coarse-to-fine)
  *   formal_solution_mg_1d_psi() - computes psi matrix for each grid in multigrid
  *============================================================================*/
-void multigrid_1d(RadGridS *mG);
+void multigrid_1d(RadGridS *mG, Real *dSrmax);
 static void restrict_1d(RadGridS *fmG, RadGridS *cmG);
 static void prolongate_1d(RadGridS *cmG, RadGridS *fmG);
 static void formal_solution_mg_1d_psi(RadGridS *pRG);
 
-void formal_solution_mg_1d(RadGridS *pRG)
+void formal_solution_mg_1d(RadGridS *pRG, Real *dSrmax)
 {
   //RadGridS *pRG=(pD->RadGrid);
   int i;
@@ -45,10 +45,10 @@ void formal_solution_mg_1d(RadGridS *pRG)
   //for(i=0; i < 0; i++) 
   //  formal_solution_1d(pRG);
 
-  multigrid_1d(pRG);
+  multigrid_1d(pRG,dSrmax);
 
   for(i=0; i < 40; i++) {
-    formal_solution_1d(pRG);
+    formal_solution_1d(pRG,dSrmax);
     bvals_rad(pRG);
     //output_mean_intensity_1d(pRG,it0);
     it0++;
@@ -57,7 +57,7 @@ void formal_solution_mg_1d(RadGridS *pRG)
   return;
 }
 
-void multigrid_1d(RadGridS *mG)
+void multigrid_1d(RadGridS *mG, Real *dSrmax)
 {
   RadGridS cmG;
   int i, j, k;
@@ -66,7 +66,7 @@ void multigrid_1d(RadGridS *mG)
 
   if (mG->Nx[0] <= 16) {
     for(i=0; i < nfsf; i++) {
-      formal_solution_1d(mG);
+      formal_solution_1d(mG,dSrmax);
       bvals_rad(mG);
       //output_mean_intensity_1d(mG,it0);
       it0++;
@@ -74,7 +74,7 @@ void multigrid_1d(RadGridS *mG)
   } else {
     
     for(i=0; i < nfs; i++) {
-      formal_solution_1d(mG);
+      formal_solution_1d(mG,dSrmax);
       bvals_rad(mG);
       //output_mean_intensity_1d(mG,it0);
       it0++;
@@ -128,7 +128,7 @@ void multigrid_1d(RadGridS *mG)
     prolongate_1d(&cmG, mG);
   
     for(i=0; i < nfs; i++) {
-      formal_solution_1d(mG);
+      formal_solution_1d(mG,dSrmax);
       bvals_rad(mG);
       //      output_mean_intensity_1d(mG,it0);
       it0++;

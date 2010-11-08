@@ -37,7 +37,7 @@ static Real ****psiint = NULL;
 #endif
 static Real *****imuo = NULL;
 static Real *mu1 = NULL, *gamma1 = NULL, **am0 = NULL;
-static Real sorw, dsrold, dsrmax;
+static Real sorw, dsrold, dSrmx;
 static int isor;
 
 /*==============================================================================
@@ -56,7 +56,7 @@ static void set_bvals_imu_y_j(RadGridS *pRG, int j, int sy);
 static void update_bvals_imu_y(RadGridS *pRG, int sy);
 static void update_bvals_imu_y_j(RadGridS *pRG, int j, int sx, int sy);
 
-void formal_solution_2d(RadGridS *pRG)
+void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
 {
   int i, j, l, m;
   int nmu = pRG->nmu, nmu2 = pRG->nmu / 2;
@@ -66,8 +66,8 @@ void formal_solution_2d(RadGridS *pRG)
   int ks = pRG->ks; 
   int ifr, nf = pRG->nf;
 
-/* Initialize dsrmax */
-  dsrmax = 0.0;
+/* Initialize dSrmx */
+  dSrmx = 0.0;
 
 /* initialize mean intensities at all depths to zero */
   for(j=js-1; j<je+1; j++)
@@ -127,11 +127,13 @@ void formal_solution_2d(RadGridS *pRG)
   update_bvals_imu_y(pRG, -1);
 
 /* Evaluate relative change if SOR */
-  if ((dsrmax < 0.03) && (isor == 1) ) {
-    sorw = 2.0 / (1.0 + sqrt(1.0 - dsrmax/dsrold));
+  if ((dSrmx < 0.03) && (isor == 1) ) {
+    sorw = 2.0 / (1.0 + sqrt(1.0 - dSrmx/dsrold));
     isor = 0;
   }
-  dsrold = dsrmax;
+  dsrold = dSrmx;
+/* Return maximum relative change to test convergence*/
+  (*dSrmax) = dSrmx;
 
   return;
 }
@@ -291,10 +293,10 @@ static void update_sfunc(RadS *R, Real *deltas)
   snew = (1.0 - R->eps) * R->J + R->eps;
 
   (*deltas) = (snew - R->S) / (1.0 - (1.0 - R->eps) * R->lamstr);
-  deltasr = fabs(*deltas) / R->S;
+  deltasr = fabs((*deltas) / R->S);
   (*deltas) *= sorw;
   R->S += (*deltas);
-  if (deltasr > dsrmax) dsrmax = deltasr; 
+  if (deltasr > dSrmx) dSrmx = deltasr; 
   return;
 }
 

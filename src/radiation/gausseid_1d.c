@@ -35,7 +35,7 @@ static Real **psiint = NULL;
 #endif
 static Real *mu1 = NULL;
 static Real ***imuo = NULL;
-static Real sorw, dsrold, dsrmax;
+static Real sorw, dsrold, dsrmx;
 static int isor;
 
 /*==============================================================================
@@ -46,7 +46,7 @@ static int isor;
 static void sweep_1d(RadGridS *pRG, int sz);
 static void update_sfunc(RadS *R, Real *deltas);
 
-void formal_solution_1d(RadGridS *pRG)
+void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
 {
   int i, l;
   int nmu = pRG->nmu, nmu2 = pRG->nmu / 2;
@@ -55,8 +55,8 @@ void formal_solution_1d(RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie; 
   int ifr, nf = pRG->nf;
 
-/* Initialize dsrmax */
-  dsrmax = 0.0;
+/* Initialize dsrmx */
+  dsrmx = 0.0;
 
 /* initialize mean intensities at all depths to zero */
   for(i=is-1; i<ie+1; i++)
@@ -96,11 +96,12 @@ void formal_solution_1d(RadGridS *pRG)
       pRG->l1imu[ks][js][ifr][l][0] = imuo[ifr][l][0];
 
 /* Evaluate relative change if SOR */
-  if ((dsrmax < 0.03) && (isor == 1) ) {
-    sorw = 2.0 / (1.0 + sqrt(1.0 - dsrmax/dsrold));
+  if ((dsrmx < 0.03) && (isor == 1) ) {
+    sorw = 2.0 / (1.0 + sqrt(1.0 - dsrmx/dsrold));
     isor = 0;
   }
-  dsrold = dsrmax;
+  dsrold = dsrmx;
+  (*dSrmax) = dsrmx;
 
   return;
 }
@@ -182,7 +183,7 @@ static void update_sfunc(RadS *R, Real *deltas)
   (*deltas) *= sorw;
   R->S += (*deltas);
 
-  if (deltasr > dsrmax) dsrmax = deltasr; 
+  if (deltasr > dsrmx) dsrmx = deltasr; 
   return;
 }
 

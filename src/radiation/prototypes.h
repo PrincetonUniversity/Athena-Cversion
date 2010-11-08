@@ -42,10 +42,16 @@ void get_weights_parabolic(Real dtaum, Real dtaup, Real *edtau,
 
 void get_weights_linear(Real dtaum, Real *edtau, Real *a0, Real *a1);
 
-/* all formal solutions algorithms contain the following functions */
-void formal_solution_1d(RadGridS *pRG);
+/* all 1D formal solutions algorithms contain the following functions */
+void formal_solution_1d(RadGridS *pRG, Real *dSrmax);
 void formal_solution_1d_init(RadGridS *pRG);
 void formal_solution_1d_destruct(void);
+
+/* all 2D formal solutions algorithms contain the following functions */
+void formal_solution_2d(RadGridS *pRG, Real *dSrmax);
+void formal_solution_2d_init(RadGridS *pRG);
+void formal_solution_2d_destruct(void);
+
 
 #ifdef RAD_MULTIG
 /* gausseid_1d.c */
@@ -58,7 +64,7 @@ void jacobi_pass_pointers_to_mg_1d(Real *******psi0, Real **mu10);
 void formal_solution_mg_1d(RadGridS *pRG);
 
 /* multigrid_2d */
-void formal_solution_mg_2d(RadGridS *pRG);
+void formal_solution_mg_2d(RadGridS *pRG, Real *dSrmax);
 
 #endif /* RAD_MULTIG */
 

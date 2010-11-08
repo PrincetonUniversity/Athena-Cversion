@@ -38,9 +38,9 @@ static Real ***imuo = NULL;
  *   update_sfunc() - updates source function after compute of mean intensity
  *============================================================================*/
 static void sweep_1d(RadGridS *pRG, int sx);
-static void update_sfunc(RadS *R);
+static void update_sfunc(RadS *R, Real *dSr);
 
-void formal_solution_1d(RadGridS *pRG)
+void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
 {
   int i, l;
   int nmu = pRG->nmu, nmu2 = pRG->nmu / 2;
@@ -48,6 +48,7 @@ void formal_solution_1d(RadGridS *pRG)
   int ks = pRG->ks, js = pRG->js;
   int is = pRG->is, ie = pRG->ie; 
   int ifr, nf = pRG->nf;
+  Real dSr;
 
 /* initialize mean intensities at all depths to zero */
   for(i=is-1; i<=ie+1; i++)
@@ -87,10 +88,12 @@ void formal_solution_1d(RadGridS *pRG)
       pRG->l1imu[ks][js][ifr][l][0] = imuo[ifr][l][0];
 
 /* update source function */
+  (*dSrmax) = 0.0;
   for(i=is; i<=ie; i++) 
-    for(ifr=0; ifr<nf; ifr++)
-      update_sfunc(&(pRG->R[ks][js][i][ifr]));
-
+    for(ifr=0; ifr<nf; ifr++) {
+      update_sfunc(&(pRG->R[ks][js][i][ifr]),&dSr);
+      if( dSr > (*dSrmax)) (*dSrmax) = dSr;
+    }
   return;
 }
 
@@ -145,13 +148,14 @@ static void sweep_1d(RadGridS *pRG, int sx)
   return;
 }
 
-static void update_sfunc(RadS *R)
+static void update_sfunc(RadS *R, Real *dSr)
 {
-  Real snew, deltas;
+  Real Snew, deltaS;
   
-  snew = (1.0 - R->eps) * R->J + R->eps * R->B;
-  deltas = (snew - R->S) / (1.0 - (1.0 - R->eps) * R->lamstr);
-  R->S += deltas;
+  Snew = (1.0 - R->eps) * R->J + R->eps * R->B;
+  deltaS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * R->lamstr);
+  if (R->S > 0.0) (*dSr) = fabs(deltaS/R->S);
+  R->S += deltaS;
   return;
 }
 

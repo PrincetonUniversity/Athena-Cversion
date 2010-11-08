@@ -43,13 +43,13 @@ static Real *mu1 = NULL, *gamma1 = NULL, **am0 = NULL;
  *   update_bvals_imu_y_j() - update outgoing radiation at horizontal boundary
  *============================================================================*/
 static void sweep_2d(RadGridS *pRG, int j, int sx, int sy);
-static void update_sfunc(RadS *R);
+static void update_sfunc(RadS *R, Real *dSr);
 static void set_bvals_imu_y(RadGridS *pRG, int sy);
 static void set_bvals_imu_y_j(RadGridS *pRG, int j, int sy);
 static void update_bvals_imu_y(RadGridS *pRG, int sy);
 static void update_bvals_imu_y_j(RadGridS *pRG, int j, int sx, int sy);
 
-void formal_solution_2d(RadGridS *pRG)
+void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
 {
   int i, j, l, m;
   int nmu = pRG->nmu, nmu2 = pRG->nmu / 2;
@@ -57,7 +57,8 @@ void formal_solution_2d(RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie; 
   int js = pRG->js, je = pRG->je; 
   int ks = pRG->ks; 
-  int ifr, nf = pRG->nf;
+  int ifr, nf = pRG->nf;  
+  Real dSr;
 
 /* initialize mean intensities at all depths to zero */
   for(j=js-1; j<+je+1; j++)
@@ -118,10 +119,12 @@ void formal_solution_2d(RadGridS *pRG)
   update_bvals_imu_y(pRG, -1);
 
 /* Update source function */
+  (*dSrmax) = 0.0;
   for(j=js; j<=je; j++) 
     for(i=is; i<=ie; i++) 
       for(ifr=0; ifr<nf; ifr++) {
-	update_sfunc(&(pRG->R[ks][j][i][ifr]));
+	update_sfunc(&(pRG->R[ks][j][i][ifr]),&dSr);
+	if( dSr > (*dSrmax)) (*dSrmax) = dSr;
       }
 
   return;
@@ -250,14 +253,15 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
   return;
 }
 
-static void update_sfunc(RadS *R)
+static void update_sfunc(RadS *R, Real *dSr)
 {
-  Real snew, deltas;
+  Real Snew, deltaS;
   
-  snew = (1.0 - R->eps) * R->J + R->eps;
-  deltas = (snew - R->S) / (1.0 - (1.0 - R->eps) * R->lamstr);
-  R->S += deltas;
- 
+  Snew = (1.0 - R->eps) * R->J + R->eps;
+  deltaS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * R->lamstr);
+  if (R->S > 0.0) (*dSr) = fabs(deltaS/R->S);
+  R->S += deltaS;
+
   return;
 }
 

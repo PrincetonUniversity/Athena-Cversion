@@ -68,14 +68,14 @@ void hydro_to_rad(DomainS *pD)
       }
     }
   }
-  //output_rad_1d(pRG);
+
   return;
 }
 
 /*----------------------------------------------------------------------------*/
 /* rad_to_hydro:  */
 
-void rad_to_hyrdo(DomainS *pD)
+void rad_to_hydro(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   RadGridS *pRG=(pD->RadGrid);

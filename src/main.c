@@ -505,6 +505,7 @@ int main(int argc, char *argv[])
 /* Loop over all Domains, solve radiative transfer, and perform an
  * operator split update of the hydro energy equation with radiation
  * source term */
+
 #ifdef RADIATION
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
