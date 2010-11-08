@@ -158,12 +158,11 @@ void init_radiation(MeshS *pM)
       }
 
       if (pRG->Nx[1] > 1) {
-	pRG->r2imu = (Real *****)calloc_5d_array(pRG->Nx[2]+2,pRG->Nx[0]+2,
-          pRG->nf,pRG->nmu,pRG->ng,sizeof(Real));
+	pRG->r2imu = (Real ******)calloc_6d_array(pRG->Nx[2]+2,pRG->Nx[0]+2,
+	  pRG->nf,pRG->nmu,pRG->ng,2,sizeof(Real));
 	if (pRG->r2imu == NULL) goto on_error7;
-
-	pRG->l2imu = (Real *****)calloc_5d_array(pRG->Nx[2]+2,pRG->Nx[0]+2,
-          pRG->nf,pRG->nmu,pRG->ng,sizeof(Real));
+	pRG->l2imu = (Real ******)calloc_6d_array(pRG->Nx[2]+2,pRG->Nx[0]+2,
+	  pRG->nf,pRG->nmu,pRG->ng,2,sizeof(Real));
 	if (pRG->l2imu == NULL) goto on_error8;
       }
 
@@ -231,9 +230,9 @@ void init_radiation(MeshS *pM)
  on_error9:
   if (pRG->Nx[2] > 1) free_5d_array(pRG->r3imu);
  on_error8:
-  if (pRG->Nx[1] > 1) free_5d_array(pRG->l2imu);
+  if (pRG->Nx[1] > 1) free_6d_array(pRG->l2imu);
  on_error7:
-  if (pRG->Nx[1] > 1) free_5d_array(pRG->r2imu);
+  if (pRG->Nx[1] > 1) free_6d_array(pRG->r2imu);
  on_error6:
   if (pRG->Nx[0] > 1) free_5d_array(pRG->l1imu);
  on_error5:
@@ -265,8 +264,10 @@ void radiation_temp_array_init(DomainS *pD)
 
   case 1:
     formal_solution_1d_alloc(pRG);
+    break;
   case 2:
     formal_solution_2d_alloc(pRG);
+    break;
     }*/
 
   return;
@@ -297,8 +298,8 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->gamma != NULL) free(pRG->gamma);
   if (pRG->r3imu != NULL) free_5d_array(pRG->r3imu);
   if (pRG->l3imu != NULL) free_5d_array(pRG->l3imu);
-  if (pRG->r2imu != NULL) free_5d_array(pRG->r2imu);
-  if (pRG->l2imu != NULL) free_5d_array(pRG->l2imu);
+  if (pRG->r2imu != NULL) free_6d_array(pRG->r2imu);
+  if (pRG->l2imu != NULL) free_6d_array(pRG->l2imu);
   if (pRG->r1imu != NULL) free_5d_array(pRG->r1imu);
   if (pRG->l1imu != NULL) free_5d_array(pRG->l1imu);
 

@@ -20,11 +20,18 @@
 #include "globals.h"
 #include "prototypes.h"
 
+static Real eps0;
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * gauleg()           - gauss-legendre quadrature from NR
  *============================================================================*/
 static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n);
+static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
+		    const int k);
+static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
+		      const int k);
+static Real const_opacity(const GridS *pG, const int ifr, const int i, const int j, 
+			  const int k);
 
 void problem(DomainS *pDomain)
 {
@@ -36,7 +43,7 @@ void problem(DomainS *pDomain)
   int nmu = pRG->nmu, nf=pRG->nf;
   int i, j, k, ifr;
   int iang;
-  Real x1, x2, x3;  
+  Real x1, xtop, xbtm;  
   Real den = 1.0;
   Real wedd[2] = {0.5, 0.5};
   Real muedd[2] = {-1.0 / sqrt(3.0), 1.0 / sqrt(3.0)};
@@ -45,28 +52,34 @@ void problem(DomainS *pDomain)
 /* Read problem parameters. */
 
   iang = par_geti_def("problem","iang", 1);
-
+  eps0 = par_getd("problem","eps");
 /* Setup density structure */ 
 /* tau is used to initialize density grid */
-  if ((tau = (Real *)calloc_1d_array(pG->Nx[0]+nghost+1,sizeof(Real))) == NULL) {
+  if ((tau = (Real *)calloc_1d_array(pG->Nx[0]+nghost+2,sizeof(Real))) == NULL) {
     ath_error("[problem]: Error allocating memory");
   }
 
-  for(i=pG->is; i<=pG->ie+1; i++) 
-    tau[i] = pow(10.0,-3.0 + pG->dx1 * (Real)(i-pG->is-0.5) * 10.0);
+  xtop = pDomain->RootMaxX[0];
+  xbtm = pDomain->RootMinX[0];
 
-  for (k=ks; k<=ke; k++) {
-  for (j=js; j<=je; j++) {
-    for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].d  = (tau[i+1] - tau[i]) / pG->dx1;
-    }
+  for(i=pG->is; i<=pG->ie+2; i++) {
+    x1 = pG->MinX[0] + (Real)(i-is)*pG->dx1;
+    tau[i] = pow(10.0,-3.0 + 10.0 * ((x1-xbtm)/(xtop-xbtm)));
   }
+
+  //for(i=pG->is; i<=pG->ie+1; i++) 
+  //  tau[i] = pow(10.0,-3.0 + pG->dx1 * (Real)(i-pG->is-0.5) * 10.0);
+
+  for (i=is-1; i<=ie+1; i++) {
+    pG->U[ks][js][i].d  = (tau[i+1] - tau[i]) / pG->dx1;
   }
 
 /* Initialize arrays of angles and weights for angular quadrature */
-
+  pRG->ng=1;
+  pRG->r1ms=0; pRG->r1me=0; pRG->l1ms=0; pRG->l1me=0;
   if (iang == 1) { 
 /* angles and weight determined by gauss-legendre */
+    pRG->r1ls=nmu/2; pRG->r1le=nmu-1; pRG->l1ls=0; pRG->l1le=nmu/2-1;
 
     if ((mul = (Real *)calloc_1d_array(nmu/2,sizeof(Real))) == NULL) {
       ath_error("[rad1d]: Error allocating memory");
@@ -91,6 +104,8 @@ void problem(DomainS *pDomain)
      
   } else if (iang == 2) {
 /* Angles reproduce Eddington approximation */
+    nmu = pRG->nmu = 2;
+    pRG->r1ls=1; pRG->r1le=1; pRG->l1ls=0; pRG->l1le=0;
     for(i=0; i<nmu; i++) {
       pRG->mu[i] = muedd[i];   
       pRG->w[i][0] = wedd[i];  
@@ -111,8 +126,12 @@ void problem(DomainS *pDomain)
     for(ifr=0; ifr<nf; ifr++) 
       pRG->r1imu[pRG->ks][pRG->js][ifr][j][0] = 1.0;
 
-/* Free up memory */
+/* enroll radiation specification functions */
+get_thermal_source = const_B;
+get_thermal_fraction = const_eps;
+get_total_opacity = const_opacity;
 
+/* Free up memory */
   free_1d_array(tau);
 
   return;
@@ -157,6 +176,28 @@ void Userwork_in_loop(MeshS *pM)
 void Userwork_after_loop(MeshS *pM)
 {
   return;
+}
+
+static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
+		    const int k)
+{
+  return 1.0;
+}
+
+static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
+		      const int k)
+{
+
+  return eps0;
+  
+}
+
+static Real const_opacity(const GridS *pG, const int ifr, const int i, const int j, 
+			  const int k)
+{
+
+  return pG->U[k][j][i].d;
+  
 }
 
 static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n)

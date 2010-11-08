@@ -1,6 +1,6 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: rad_trans.c
+ * FILE: formal_solution.c
  *
  * PURPOSE: Called from main loop before integrator.  Identifies and calls
  *          the appropriate formal solution algorithm.  If non-LTE will
@@ -8,7 +8,7 @@
  *          is met.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   rad_trans()  - interate formal solution until convergence
+ *   formal_solution()  - interate formal solution until convergence
  *============================================================================*/
 
 #include <stdlib.h>
@@ -30,7 +30,7 @@ void output_diag(Real *dsarr, int *isarr, int ns);
 char *construct_filename(char *basename,char *key,int dump,char *ext);
 void output_mean_intensity_2d(RadGridS *pRG, int itr);
 
-void rad_trans(DomainS *pD)
+void formal_solution(DomainS *pD)
 {
 
   RadGridS *pRG=(pD->RadGrid);
@@ -52,18 +52,18 @@ void rad_trans(DomainS *pD)
 /* maximum number of iterations */
   niter = par_geti("problem","niter");
 
-/* compute formal solution */
   if (ndim == 1) {
     get_solution_1d(pRG);
-    bvals_rad_1d_init(pRG);
+/* compute formal solution with 1D method*/
     formal_solution_1d_init(pRG);
-
     for(i=0; i<niter; i++) {
+      bvals_rad(pD);
 #ifdef RAD_MULTIG
       formal_solution_mg_1d(pRG);
 #else
       formal_solution_1d(pRG);
 #endif
+/* temporary output for debugging purpose */
       max_dev(pRG,&dsm,&ism);
       dsmax[i] = dsm;
       isarr[i] = ism;
@@ -71,21 +71,21 @@ void rad_trans(DomainS *pD)
     formal_solution_1d_destruct();
   } else if (ndim == 2) {
     get_solution_2d(pRG);
-    bvals_rad_2d_init(pRG);
+/* compute formal solution with 2D method*/
     formal_solution_2d_init(pRG);
-
     for(i=0; i<niter; i++) {
+      bvals_rad(pD);
 #ifdef RAD_MULTIG
       formal_solution_mg_2d(pRG);
 #else
       formal_solution_2d(pRG);
 #endif
-      bvals_rad_2d(pRG);
+/* temporary output for debugging purpose */
       max_dev(pRG,&dsm,&ism);
       dsmax[i] = dsm;
       isarr[i] = ism;
     }
-    output_mean_intensity_2d(pRG,0);
+    //output_mean_intensity_2d(pRG,0);
     formal_solution_2d_destruct();
   }
 
@@ -139,9 +139,9 @@ void get_solution_2d(RadGridS *pRG)
     ath_error("[get_solution]: Error allocating memory\n");
   }
 
-  tau=0.0;
+  tau=0.5 * pRG->dx2 * pRG->R[0][pRG->js-1][1][0].chi;
   for(j=pRG->js; j<=pRG->je; j++) {
-     dtau= 0.5 * pRG->dx2 * (pRG->R[0][j-1][1][0].chi + 
+    dtau= 0.5 * pRG->dx2 * (pRG->R[0][j-1][1][0].chi + 
 			    pRG->R[0][j  ][1][0].chi);
     tau += dtau;
     //    tau = pow(10.0,-3.0 + pRG->dx3 * (Real)(i-pRG->ks-0.5) * 10.0);
@@ -206,11 +206,12 @@ void output_mean_intensity_2d(RadGridS *pRG, int itr)
     ath_error("## Error opening imean.out\n");
   }
 
-  tau = 0.0;
-  for(i=pRG->js; i<=pRG->je; i++) {
+  //tau = 0.0;
+  tau=0.5 * pRG->dx2 * pRG->R[0][pRG->js-1][1][0].chi;
+  for(j=pRG->js; j<=pRG->je; j++) {
     //tau = pow(10.0,-3.0 + pRG->dx3 * (Real)(i-1) * 10.0);
-    dtau= 0.5 * pRG->dx1 * (pRG->R[0][i-1][0][0].chi + 
-			    pRG->R[0][i  ][0][0].chi);
+    dtau= 0.5 * pRG->dx2 * (pRG->R[pRG->ks][j-1][pRG->is][0].chi + 
+			    pRG->R[pRG->ks][j  ][pRG->is][0].chi);
     tau += dtau;
     fprintf(fp,"%g %g %g\n",tau,pRG->R[pRG->ks][i][pRG->is][0].J,
 	                        pRG->R[pRG->ks][i][pRG->is][0].S);

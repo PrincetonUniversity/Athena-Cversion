@@ -57,18 +57,23 @@ void formal_solution_1d(RadGridS *pRG)
 /* Compute formal solution for all downward going rays in 
  * each vertical gridzone */
 
-/* Account for upper boundary condition */
+/* Account for ix1 boundary condition */
   for(ifr=0; ifr<nf; ifr++)
     for(l=nmu2; l<nmu; l++) 
       imuo[ifr][l][0] = pRG->l1imu[ks][js][ifr][l][0];
 
-/* sweep downward z */
+/* sweep forward in x1 */
   sweep_1d(pRG, 1);
+
+/* update outward emission at ox1 boundary */
+  for(ifr=0; ifr<nf; ifr++)
+    for(l=nmu2; l<nmu; l++) 
+      pRG->r1imu[ks][js][ifr][l][0] = imuo[ifr][l][0];
 
 /* Compute formal solution for all upward going rays in 
  * each vertical gridzone */
 
-/* Account for lower boundary condition */
+/* Account for ox1 boundary condition */
   for(ifr=0; ifr<nf; ifr++)
     for(l=0; l<nmu2; l++) 
       imuo[ifr][l][0] = pRG->r1imu[ks][js][ifr][l][0];
@@ -76,7 +81,7 @@ void formal_solution_1d(RadGridS *pRG)
 /* sweep upward */
   sweep_1d(pRG, -1);
   
-/* update outward emission at lower boundary */
+/* update outward emission at ix1 boundary */
   for(ifr=0; ifr<nf; ifr++)
     for(l=0; l<nmu2; l++) 
       pRG->l1imu[ks][js][ifr][l][0] = imuo[ifr][l][0];

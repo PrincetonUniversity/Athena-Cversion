@@ -254,9 +254,17 @@ typedef struct RadGrid_s {
   RadS ****R;        /* array of radiation variables */
 
   Real *****r1imu;   /* intensity on R side in x1-dir  */
+  int r1ls, r1le;
+  int r1ms, r1me;
   Real *****l1imu;   /* intensity on L side in x1-dir  */
-  Real *****r2imu;   /* intensity on R side in x2-dir  */
-  Real *****l2imu;   /* intensity on L side in x2-dir  */
+  int l1ls, l1le;
+  int l1ms, l1me;
+  Real ******r2imu;   /* intensity on R side in x2-dir  */
+  int r2ls, r2le;
+  int r2ms, r2me;
+  Real ******l2imu;   /* intensity on L side in x2-dir  */
+  int l2ls, l2le;
+  int l2ms, l2me;
   Real *****r3imu;   /* intensity on R side in x3-dir  */
   Real *****l3imu;   /* intensity on L side in x3-dir  */
 
@@ -272,8 +280,17 @@ typedef struct RadGrid_s {
   int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
   int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
   int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
+  
+  void (*ix1_RBCFun)(struct RadGrid_s *pRG);
+  void (*ox1_RBCFun)(struct RadGrid_s *pRG);
+  void (*ix2_RBCFun)(struct RadGrid_s *pRG);
+  void (*ox2_RBCFun)(struct RadGrid_s *pRG);
+  void (*ix3_RBCFun)(struct RadGrid_s *pRG);
+  void (*ox3_RBCFun)(struct RadGrid_s *pRG);
 
 } RadGridS;
+
+typedef void (*VRGFun_t)(RadGridS *pRG);    /* generic void function of RadGrid */
 
 #endif /* RADIATION */
 
@@ -387,7 +404,11 @@ typedef struct Domain_s{
   VGFun_t ix1_BCFun, ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix2_BCFun, ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix3_BCFun, ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
-
+#ifdef RADIATION
+  VRGFun_t ix1_RBCFun, ox1_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
+  VRGFun_t ix2_RBCFun, ox2_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
+  VRGFun_t ix3_RBCFun, ox3_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
+#endif /* RADIATION */
 #ifdef MPI_PARALLEL
   MPI_Comm Comm_Domain;        /* MPI communicator between Grids on this Dom */
   MPI_Group Group_Domain;      /* MPI group for Domain communicator */
@@ -399,7 +420,7 @@ typedef struct Domain_s{
 #endif /* MPI_PARALLEL */
 #ifdef RADIATION
   RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
-#endif
+#endif /* RADIATION */
 }DomainS;
 
 typedef void (*VDFun_t)(DomainS *pD);  /* generic void function of Domain */
@@ -418,6 +439,11 @@ typedef struct Mesh_s{
   int BCFlag_ix1, BCFlag_ox1;  /* BC flag on root domain for inner/outer x1 */
   int BCFlag_ix2, BCFlag_ox2;  /* BC flag on root domain for inner/outer x2 */
   int BCFlag_ix3, BCFlag_ox3;  /* BC flag on root domain for inner/outer x3 */
+#ifdef RADIATION
+  int RBCFlag_ix1, RBCFlag_ox1;  /* rad BC flag on root domain for inner/outer x1 */
+  int RBCFlag_ix2, RBCFlag_ox2;  /* rad BC flag on root domain for inner/outer x2 */
+  int RBCFlag_ix3, RBCFlag_ox3;  /* rad BC flag on root domain for inner/outer x3 */
+#endif /* RADIATION */
   int NLevels;               /* overall number of refinement levels in mesh */
   int *DomainsPerLevel;      /* number of Domains per level (DPL) */
   DomainS **Domain;          /* array of Domains, indexed over levels and DPL */
@@ -505,6 +531,10 @@ typedef void (*WeightFun_t)(GridS *pG, Real x1, Real x2, Real x3,
 typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 #endif /* PARTICLES */
 
+#ifdef RADIATION
+typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
+			     const int j, const int k);
+#endif /* RADIATION */
 /*----------------------------------------------------------------------------*/
 /* Directions for the set_bvals_fun() function */
 enum BCDirection {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};

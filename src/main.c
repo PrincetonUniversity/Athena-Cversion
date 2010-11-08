@@ -383,7 +383,9 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #endif
-
+#ifdef RADIATION
+  bvals_rad_init(&Mesh);
+#endif
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -510,7 +512,8 @@ int main(int argc, char *argv[])
 /* compute radiation variables from conserved variables */
 	  hydro_to_rad(&(Mesh.Domain[nl][nd]));  
 /* solve radiative transfer */
-	  rad_trans(&(Mesh.Domain[nl][nd]));
+	  formal_solution(&(Mesh.Domain[nl][nd]));
+	  rad_to_hydro(&(Mesh.Domain[nl][nd])); 
 	}        
       }}
 #endif /* RADIATION */
@@ -521,7 +524,7 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
-	  /*  (*Integrate)(&(Mesh.Domain[nl][nd]));*/
+	  (*Integrate)(&(Mesh.Domain[nl][nd]));
 
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));

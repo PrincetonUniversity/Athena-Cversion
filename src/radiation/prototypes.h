@@ -24,18 +24,18 @@ void radgrid_destruct(RadGridS *pRG);
 /* hydro_to_rad.c */
 
 void hydro_to_rad(DomainS *pD);
+void rad_to_hydro(DomainS *pD);
 
 /* bvals_rad.c */
-void bvals_rad_1d_init(RadGridS *pRG);
-void bvals_rad_2d_init(RadGridS *pRG);
-void bvals_rad_2d(RadGridS *pRG);
+void bvals_rad(DomainS *pD);
+void bvals_rad_init(MeshS *pM);
 
-/* rad_trans.c */
-void rad_trans(DomainS *pD);
+/* formal_solution.c */
+void formal_solution(DomainS *pD);
 #ifdef RAD_MULTIG
-void rad_trans_multigrid(DomainS *pD);
 void output_mean_intensity_2d(RadGridS *pRG, int itr);
 #endif
+
 /* utils_rad.c */
 void get_weights_parabolic(Real dtaum, Real dtaup, Real *edtau,
                            Real *a0, Real *a1, Real *a2);

@@ -40,17 +40,18 @@ static void formal_solution_mg_2d_psi(RadGridS *pRG);
 
 void formal_solution_mg_2d(RadGridS *pRG)
 {
+  //RadGridS *pRG=(pD->RadGrid);
   int i;
 
   //for(i=0; i < 0; i++) {
   //  formal_solution_2d(pRG);
-  //    bvals_rad_2d(pRG);
+  //    bvals_rad(pRG);
   //}
   multigrid_2d(pRG);
 
   for(i=0; i < 30; i++) {
     formal_solution_2d(pRG);
-    bvals_rad_2d(pRG);
+    bvals_rad(pRG);
 #ifdef OUT_DIAG
     output_mean_intensity_2d(pRG,it0);
     //dumpvtk2d(pRG,it0);
@@ -70,7 +71,7 @@ static void multigrid_2d(RadGridS *mG)
   if (mG->Nx[1] <= 16) {
     for(i=0; i < nfsf; i++) {
       formal_solution_2d(mG);
-      bvals_rad_2d(mG);
+      bvals_rad(mG);
 #ifdef OUT_DIAG
       output_mean_intensity_2d(mG,it0);
       it0++;
@@ -80,7 +81,7 @@ static void multigrid_2d(RadGridS *mG)
     
     for(i=0; i < nfs; i++) {
       formal_solution_2d(mG);
-      bvals_rad_2d(mG);
+      bvals_rad(mG);
 #ifdef OUT_DIAG
       output_mean_intensity_2d(mG,it0);
       it0++;
@@ -105,6 +106,14 @@ static void multigrid_2d(RadGridS *mG)
     cmG.gamma = NULL;  
     cmG.r3imu = NULL;
     cmG.l3imu = NULL;
+    cmG.ix1_RBCFun = mG->ix1_RBCFun;
+    cmG.ox1_RBCFun = mG->ox1_RBCFun;
+    cmG.ix2_RBCFun = mG->ix2_RBCFun;
+    cmG.ox2_RBCFun = mG->ox2_RBCFun;
+    cmG.rx1_id = mG->rx1_id;
+    cmG.lx1_id = mG->lx1_id;
+    cmG.rx2_id = mG->rx2_id;
+    cmG.lx2_id = mG->lx2_id;
 
     if ((cmG.R = (RadS ****)calloc_4d_array(1,cmG.Nx[1]+2,cmG.Nx[0]+2,nf,sizeof(RadS))) == NULL)
       ath_error("[multig_2d]: Error allocating memory for multigrid radiation.\n");
@@ -112,10 +121,10 @@ static void multigrid_2d(RadGridS *mG)
     if ((cmG.w = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
       ath_error("[multig_2d]: Error allocating memory for w.\n");
 
-    if ((cmG.r2imu = (Real *****)calloc_5d_array(1,cmG.Nx[0]+2,nf,nmu,ng,sizeof(Real))) == NULL)
+    if ((cmG.r2imu = (Real ******)calloc_6d_array(1,cmG.Nx[0]+2,nf,nmu,ng,2,sizeof(Real))) == NULL)
       ath_error("[multig_2d]: Error allocating memory for r2imu.\n");
 
-    if ((cmG.l2imu = (Real *****)calloc_5d_array(1,cmG.Nx[0]+2,nf,nmu,ng,sizeof(Real))) == NULL)
+    if ((cmG.l2imu = (Real ******)calloc_6d_array(1,cmG.Nx[0]+2,nf,nmu,ng,2,sizeof(Real))) == NULL)
       ath_error("[multig_2d]: Error allocating memory for l2imu.\n");
 
     if ((cmG.l1imu = (Real *****)calloc_5d_array(1,cmG.Nx[1]+2,nf,nmu,ng,sizeof(Real))) == NULL)
@@ -135,7 +144,7 @@ static void multigrid_2d(RadGridS *mG)
 
     for(i=0; i < 1; i++) {
       formal_solution_2d(mG);
-      bvals_rad_2d(mG);
+      bvals_rad(mG);
 #ifdef OUT_DIAG
       output_mean_intensity_2d(mG,it0);
       //dumpvtk2d(mG,it0);
@@ -149,7 +158,7 @@ static void multigrid_2d(RadGridS *mG)
 
 static void restrict_2d(RadGridS *fmG, RadGridS *cmG) 
 {
-  int i, j, l, m;
+  int i, j, l, m, n;
   int ifr = 0;
   int isc = cmG->is, iec = cmG->ie;
   int isf = fmG->is, ief = fmG->ie;
@@ -185,30 +194,30 @@ static void restrict_2d(RadGridS *fmG, RadGridS *cmG)
 	0.125  * (fmG->R[ks][2*j-1][2*i  ][ifr].chi + fmG->R[ks][2*j-1][2*i-2][ifr].chi +
                   fmG->R[ks][2*j  ][2*i-1][ifr].chi + fmG->R[ks][2*j-2][2*i-1][ifr].chi) +
 	0.25   *  fmG->R[ks][2*j-1][2*i-1][ifr].chi;
-  }
+    }
   for (i=isc; i<=iec; i++) {
-   cmG->R[ks][jsc-1][i][ifr].B   =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].B +
-     0.25 * (fmG->R[ks][jsf-1][2*i][ifr].B   + fmG->R[ks][jsf-1][2*i-2][ifr].B);
-   cmG->R[ks][jsc-1][i][ifr].S   =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].S +
-     0.25 * (fmG->R[ks][jsf-1][2*i][ifr].S   + fmG->R[ks][jsf-1][2*i-2][ifr].S);
-   cmG->R[ks][jsc-1][i][ifr].eps =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].eps +
-     0.25 * (fmG->R[ks][jsf-1][2*i][ifr].eps + fmG->R[ks][jsf-1][2*i-2][ifr].eps);
-   cmG->R[ks][jsc-1][i][ifr].chi =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].chi +
-     0.25 * (fmG->R[ks][jsf-1][2*i][ifr].chi + fmG->R[ks][jsf-1][2*i-2][ifr].chi);
-   cmG->R[ks][jec+1][i][ifr].B   =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].B +
-     0.25 * (fmG->R[ks][jef+1][2*i][ifr].B   + fmG->R[ks][jef+1][2*i-2][ifr].B);
-   cmG->R[ks][jec+1][i][ifr].S   =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].S +
-     0.25 * (fmG->R[ks][jef+1][2*i][ifr].S   + fmG->R[ks][jef+1][2*i-2][ifr].S);
-   cmG->R[ks][jec+1][i][ifr].eps =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].eps +
-     0.25 * (fmG->R[ks][jef+1][2*i][ifr].eps + fmG->R[ks][jef+1][2*i-2][ifr].eps);
-   cmG->R[ks][jec+1][i][ifr].chi =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].chi +
-     0.25 * (fmG->R[ks][jef+1][2*i][ifr].chi + fmG->R[ks][jef+1][2*i-2][ifr].chi);
-   for(l=0; l<fmG->nmu; l++) 
-     for(m=0; m<fmG->ng; m++) {
-       cmG->r2imu[ks][i][ifr][l][m] =       0.5 * fmG->r2imu[ks][2*i-1][ifr][l][m] +
-	 0.25 * (fmG->r2imu[ks][2*i][ifr][l][m] + fmG->r2imu[ks][2*i-2][ifr][l][m]);
-       cmG->l2imu[ks][i][ifr][l][m] =       0.5 * fmG->l2imu[ks][2*i-1][ifr][l][m] +
-	 0.25 * (fmG->l2imu[ks][2*i][ifr][l][m] + fmG->l2imu[ks][2*i-2][ifr][l][m]);
+    cmG->R[ks][jsc-1][i][ifr].B   =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].B +
+      0.25 * (fmG->R[ks][jsf-1][2*i][ifr].B   + fmG->R[ks][jsf-1][2*i-2][ifr].B);
+    cmG->R[ks][jsc-1][i][ifr].S   =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].S +
+      0.25 * (fmG->R[ks][jsf-1][2*i][ifr].S   + fmG->R[ks][jsf-1][2*i-2][ifr].S);
+    cmG->R[ks][jsc-1][i][ifr].eps =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].eps +
+      0.25 * (fmG->R[ks][jsf-1][2*i][ifr].eps + fmG->R[ks][jsf-1][2*i-2][ifr].eps);
+    cmG->R[ks][jsc-1][i][ifr].chi =       0.5 * fmG->R[ks][jsf-1][2*i-1][ifr].chi +
+      0.25 * (fmG->R[ks][jsf-1][2*i][ifr].chi + fmG->R[ks][jsf-1][2*i-2][ifr].chi);
+    cmG->R[ks][jec+1][i][ifr].B   =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].B +
+      0.25 * (fmG->R[ks][jef+1][2*i][ifr].B   + fmG->R[ks][jef+1][2*i-2][ifr].B);
+    cmG->R[ks][jec+1][i][ifr].S   =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].S +
+      0.25 * (fmG->R[ks][jef+1][2*i][ifr].S   + fmG->R[ks][jef+1][2*i-2][ifr].S);
+    cmG->R[ks][jec+1][i][ifr].eps =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].eps +
+      0.25 * (fmG->R[ks][jef+1][2*i][ifr].eps + fmG->R[ks][jef+1][2*i-2][ifr].eps);
+    cmG->R[ks][jec+1][i][ifr].chi =       0.5 * fmG->R[ks][jef+1][2*i-1][ifr].chi +
+      0.25 * (fmG->R[ks][jef+1][2*i][ifr].chi + fmG->R[ks][jef+1][2*i-2][ifr].chi);
+    for(l=0; l<fmG->nmu; l++) 
+      for(m=0; m<fmG->ng; m++) {
+	cmG->r2imu[ks][i][ifr][l][m][n] =       0.5 * fmG->r2imu[ks][2*i-1][ifr][l][m][n] +
+	  0.25 * (fmG->r2imu[ks][2*i][ifr][l][m][n] + fmG->r2imu[ks][2*i-2][ifr][l][m][n]);
+	cmG->l2imu[ks][i][ifr][l][m][n] =       0.5 * fmG->l2imu[ks][2*i-1][ifr][l][m][n] +
+	  0.25 * (fmG->l2imu[ks][2*i][ifr][l][m][n] + fmG->l2imu[ks][2*i-2][ifr][l][m][n]);
      }
   }
   for (j=cmG->is; j<=cmG->ie; j++) {

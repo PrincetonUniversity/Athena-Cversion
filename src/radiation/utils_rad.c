@@ -29,6 +29,7 @@ void get_weights_parabolic(Real dtaum, Real dtaup, Real *edtau, Real *a0,
   dtausum = dtaum + dtaup;
   (*edtau) = exp(-dtaum);
 
+  //printf("%g %g\n",dtaum,dtaup);
   c0 = 1.0 - (*edtau);
   c1 = dtaum - c0;
   c2 = dtaum * dtaum - 2.0 * c1;

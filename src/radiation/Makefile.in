@@ -9,7 +9,7 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = init_radiation.o\
 	   hydro_to_rad.o\
-	   rad_trans.o\
+	   formal_solution.o\
            utils_rad.o\
 	   bvals_rad.o\
 	   jacobi_1d.o\

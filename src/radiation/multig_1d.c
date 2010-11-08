@@ -39,6 +39,7 @@ static void formal_solution_mg_1d_psi(RadGridS *pRG);
 
 void formal_solution_mg_1d(RadGridS *pRG)
 {
+  //RadGridS *pRG=(pD->RadGrid);
   int i;
   
   //for(i=0; i < 0; i++) 
@@ -48,6 +49,7 @@ void formal_solution_mg_1d(RadGridS *pRG)
 
   for(i=0; i < 40; i++) {
     formal_solution_1d(pRG);
+    bvals_rad(pRG);
     //output_mean_intensity_1d(pRG,it0);
     it0++;
   }
@@ -65,6 +67,7 @@ void multigrid_1d(RadGridS *mG)
   if (mG->Nx[0] <= 16) {
     for(i=0; i < nfsf; i++) {
       formal_solution_1d(mG);
+      bvals_rad(mG);
       //output_mean_intensity_1d(mG,it0);
       it0++;
     }
@@ -72,6 +75,7 @@ void multigrid_1d(RadGridS *mG)
     
     for(i=0; i < nfs; i++) {
       formal_solution_1d(mG);
+      bvals_rad(mG);
       //output_mean_intensity_1d(mG,it0);
       it0++;
     }
@@ -93,6 +97,10 @@ void multigrid_1d(RadGridS *mG)
     cmG.l3imu = NULL;
     cmG.r2imu = NULL;
     cmG.l2imu = NULL;
+    cmG.ix1_RBCFun = mG->ix1_RBCFun;
+    cmG.ox1_RBCFun = mG->ox1_RBCFun;
+    cmG.rx1_id = mG->rx1_id;
+    cmG.lx1_id = mG->lx1_id;
 
     js = cmG.js; ks = cmG.ks;
 
@@ -121,6 +129,7 @@ void multigrid_1d(RadGridS *mG)
   
     for(i=0; i < nfs; i++) {
       formal_solution_1d(mG);
+      bvals_rad(mG);
       //      output_mean_intensity_1d(mG,it0);
       it0++;
     }

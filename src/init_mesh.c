@@ -196,6 +196,16 @@ printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
       pM->BCFlag_ox1 = par_geti_def(block,"bc_ox1",0);
       pM->BCFlag_ox2 = par_geti_def(block,"bc_ox2",0);
       pM->BCFlag_ox3 = par_geti_def(block,"bc_ox3",0);
+
+#ifdef RADIATION
+/* Set radiation BC flags on root domain */
+      pM->RBCFlag_ix1 = par_geti_def(block,"rbc_ix1",0);
+      pM->RBCFlag_ix2 = par_geti_def(block,"rbc_ix2",0);
+      pM->RBCFlag_ix3 = par_geti_def(block,"rbc_ix3",0);
+      pM->RBCFlag_ox1 = par_geti_def(block,"rbc_ox1",0);
+      pM->RBCFlag_ox2 = par_geti_def(block,"rbc_ox2",0);
+      pM->RBCFlag_ox3 = par_geti_def(block,"rbc_ox3",0);
+#endif
     }
   }
 
