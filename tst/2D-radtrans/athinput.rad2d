@@ -3,7 +3,7 @@
 problem = Simple 2d test problem for debugging purposes
 author  = 
 journal =
-config  = -with-problem=rad2d --enable-mpi --with-radiation=jacobi
+config  = --with-problem=rad2d --enable-mpi --with-radiation_transfer=jacobi
 
 <job>
 

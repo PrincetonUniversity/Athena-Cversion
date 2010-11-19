@@ -24,7 +24,7 @@
 #include "../globals.h"
 #include "../prototypes.h"
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 
 #ifdef MPI_PARALLEL
 /* MPI send and receive buffers */
@@ -682,19 +682,21 @@ static void periodic_ix1_rad(RadGridS *pRG)
 	  }
       }}}
 
-  for (k=kl; k<=ku; k++){
-    for (ifr=0; ifr<nf; ifr++) {
-      for(l=r2ls; l<=r2le; l++)
-	for(m=r2ms; m<=r2me; m++) 
-	  pRG->l2imu[k][il][ifr][l][m] = pRG->l2imu[k][ie][ifr][l][m];
-    }}
+  if (pRG->Nx[2] > 1) { 
+    for (k=kl; k<=ku; k++){
+      for (ifr=0; ifr<nf; ifr++) {
+	for(l=r2ls; l<=r2le; l++)
+	  for(m=r2ms; m<=r2me; m++) 
+	    pRG->l2imu[k][il][ifr][l][m] = pRG->l2imu[k][ie][ifr][l][m];
+      }}
 
-  for (k=kl; k<=ku; k++){
-    for (ifr=0; ifr<nf; ifr++) {
-      for(l=l2ls; l<=l2le; l++)
-	for(m=l2ms; m<=l2me; m++)
-	  pRG->r2imu[k][il][ifr][l][m] = pRG->r2imu[k][ie][ifr][l][m];
-	  }}
+    for (k=kl; k<=ku; k++){
+      for (ifr=0; ifr<nf; ifr++) {
+	for(l=l2ls; l<=l2le; l++)
+	  for(m=l2ms; m<=l2me; m++)
+	    pRG->r2imu[k][il][ifr][l][m] = pRG->r2imu[k][ie][ifr][l][m];
+      }}
+  }
 
   return;
 }
@@ -730,20 +732,21 @@ static void periodic_ox1_rad(RadGridS *pRG)
 	    pRG->r1imu[k][j][ifr][l][m] = pRG->l1imu[k][j][ifr][l][m];
       }}}
 
-  for (k=kl; k<=ku; k++){
-    for (ifr=0; ifr<nf; ifr++) {
-      for(l=r2ls; l<=r2le; l++)
-	for(m=r2ms; m<=r2me; m++) 
-	  pRG->l2imu[k][iu][ifr][l][m] = pRG->l2imu[k][is][ifr][l][m];
-    }}
+  if (pRG->Nx[2] > 1) { 
+    for (k=kl; k<=ku; k++){
+      for (ifr=0; ifr<nf; ifr++) {
+	for(l=r2ls; l<=r2le; l++)
+	  for(m=r2ms; m<=r2me; m++) 
+	    pRG->l2imu[k][iu][ifr][l][m] = pRG->l2imu[k][is][ifr][l][m];
+      }}
 
-  for (k=kl; k<=ku; k++){
-    for (ifr=0; ifr<nf; ifr++) {
-      for(l=l2ls; l<=l2le; l++)
-	for(m=l2ms; m<=l2me; m++)
-	  pRG->r2imu[k][iu][ifr][l][m] = pRG->r2imu[k][is][ifr][l][m];
-	  }}
-
+    for (k=kl; k<=ku; k++){
+      for (ifr=0; ifr<nf; ifr++) {
+	for(l=l2ls; l<=l2le; l++)
+	  for(m=l2ms; m<=l2me; m++)
+	    pRG->r2imu[k][iu][ifr][l][m] = pRG->r2imu[k][is][ifr][l][m];
+      }}
+  }
   return;
 }
 
@@ -1443,4 +1446,4 @@ static void unpack_ox3_rad(RadGridS *pRG)
 }
 #endif /* MPI_PARALLEL */
 
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

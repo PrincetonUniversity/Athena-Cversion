@@ -85,7 +85,7 @@ void show_config(void)
   ath_pout(0," Particles:               OFF\n");
 #endif
 
-#if defined(RADIATION)
+#if defined(RADIATION_TRANSFER)
   #if defined(JACOBI)
     ath_pout(0," Formal solution:         Jacobi\n");
   #elif defined(GAUSSEID)

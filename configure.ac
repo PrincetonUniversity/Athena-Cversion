@@ -23,7 +23,7 @@
 #   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #   --with-particles=[feedback,passive]              (dust particle integration)
 #   --with-coord=[cartesian,cylindrical]                     (coordinate system)
-#   --with-radiation=[jacobi,gausseid]                      (radiative transfer)
+#   --with-radiation_transfer=[jacobi,gausseid]             (radiative transfer)
 #
 # PHYSICS "features":
 #   --enable-special-relativity              (special relativistic hydro or MHD)
@@ -282,29 +282,30 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: radiation
-#   --with-radiation=[jacobi,gausseid]
+# PHYSICS PACKAGE: radiation_transfer
+#   --with-radiation_transfer=[jacobi,gausseid]
 
-AC_SUBST(RADIATION_ALGORITHM)
-AC_SUBST(RADIATION_DEFINE)
-AC_ARG_WITH(radiation, [  --with-radiation=RADIATION_ALGORITHM  radiative transfer algorithm 
-		       (jacobi, gausseid)], radiation_algorithm=$withval,
-		       radiation_algorithm=none)
+AC_SUBST(RADIATION_TRANSFER_ALGORITHM)
+AC_SUBST(RADIATION_TRANSFER_DEFINE)
+AC_ARG_WITH(radiation_transfer, [  --with-radiation_transfer=RADIATION_TRANSFER_ALGORITHM  
+				radiative transfer algorithm (jacobi, gausseid)], 
+				radiation_transfer_algorithm=$withval,
+		       		radiation_transfer_algorithm=none)
 
-if test "$radiation_algorithm" = "jacobi"; then
-  RADIATION_DEFINE="RADIATION"
-  RADIATION_USER="jacobi"
-  RADIATION_ALGORITHM="JACOBI"
-elif test "$radiation_algorithm" = "gausseid"; then
-  RADIATION_DEFINE="RADIATION"
-  RADIATION_USER="gausseid"
-  RADIATION_ALGORITHM="GAUSSEID"
-elif test "$radiation_algorithm" = "none"; then
-  RADIATION_DEFINE="NO_RADIATION"
-  RADIATION_USER="OFF"
-  RADIATION_ALGORITHM="RADIATION_NONE"
+if test "$radiation_transfer_algorithm" = "jacobi"; then
+  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="jacobi"
+  RADIATION_TRANSFER_ALGORITHM="JACOBI"
+elif test "$radiation_transfer_algorithm" = "gausseid"; then
+  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="gausseid"
+  RADIATION_TRANSFER_ALGORITHM="GAUSSEID"
+elif test "$radiation_transfer_algorithm" = "none"; then
+  RADIATION_TRANSFER_DEFINE="NO_RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="OFF"
+  RADIATION_TRANSFER_ALGORITHM="RADIATION_TRANSFER_NONE"
 else
-  AC_MSG_ERROR([expected --with-radiation=jacobi or gausseid])
+  AC_MSG_ERROR([expected --with-radiation_transfer=jacobi or gausseid])
 fi
 
 #-------------------------------------------------------------------------------
@@ -594,10 +595,10 @@ fi
 AC_SUBST(RAD_MULTIG_MODE)
 AC_ARG_ENABLE(multig, [  --enable-multig           enable multigrid R.T.], ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
-if test "$with_radiation" = "jacobi"; then
+if test "$with_radiation_transfer" = "jacobi"; then
   RAD_MULTIG_MODE="RAD_MULTIG"
   RAD_MULTIG_USER="ON"
-elif test "$with_radiation" = "gausseid"; then
+elif test "$with_radiation_transfer" = "gausseid"; then
   RAD_MULTIG_MODE="RAD_MULTIG"
   RAD_MULTIG_USER="ON"
 else
@@ -651,7 +652,7 @@ echo "Resistivity:             $RESISTIVITY_USER"
 echo "Viscosity:               $VISCOSITY_USER"
 echo "Thermal conduction:      $CONDUCTION_USER"
 echo "Particles:               $PARTICLES_USER"
-echo "Radiation:               $RADIATION_USER"
+echo "Radiation transfer:      $RADIATION_TRANSFER_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
 echo "--- Algorithm Options ----"

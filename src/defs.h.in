@@ -59,8 +59,8 @@
 #define @CONDUCTION_ALGORITHM@
 
 /* Radiation */
-#define @RADIATION_DEFINE@
-#define @RADIATION_ALGORITHM@
+#define @RADIATION_TRANSFER_DEFINE@
+#define @RADIATION_TRANSFER_ALGORITHM@
 
 /* special relativity */
 #define @SPECIAL_RELATIVITY_MODE@

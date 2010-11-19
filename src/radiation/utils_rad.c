@@ -15,7 +15,7 @@
 #include "../prototypes.h"
 
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 
 /*----------------------------------------------------------------------------*/
 /* get weights using parabolic interpolation of source function
@@ -58,4 +58,4 @@ void get_weights_linear(Real dtaum, Real *edtau, Real *a0, Real *a1)
 
 }
 
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

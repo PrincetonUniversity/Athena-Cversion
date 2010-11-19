@@ -22,7 +22,7 @@
 #include "../prototypes.h"
 #define INTERP_2D
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 #ifdef JACOBI
 
 #ifdef RAD_MULTIG
@@ -32,6 +32,7 @@ static Real ******psi = NULL;
 #endif
 static Real *****imuo = NULL;
 static Real *mu1 = NULL, *gamma1 = NULL, **am0 = NULL;
+static Real *mu2 = NULL, *gamma2 = NULL, **mugam = NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -65,6 +66,9 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
     for(i=is-1; i<=ie+1; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	pRG->R[ks][j][i][ifr].J = 0.0;
+	pRG->R[ks][j][i][ifr].K[0][0] = 0.0;
+	pRG->R[ks][j][i][ifr].K[0][1] = 0.0;
+	pRG->R[ks][j][i][ifr].K[1][1] = 0.0;
       }
 
 /* Compute formal solution for all upward going rays in 
@@ -238,8 +242,11 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
 	         psi[j][i][ifr][l][m][2] * pRG->R[ks][j][i][ifr].S +
 	         psi[j][i][ifr][l][m][3] * S2;	
 #endif
-	   /* Add to mean intensity and save for next iteration */
+	   /* Add to radiation moments and save for next iteration */
 	   pRG->R[ks][j][i][ifr].J += pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[0][0] += mu2[l] * pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[0][1] += mugam[l][m] * pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[1][1] += gamma2[m] * pRG->w[l][m] * imu;
 
 	   /* Update intensity workspace */
 #ifdef INTERP_2D
@@ -282,6 +289,9 @@ void formal_solution_2d_destruct(void)
   if (mu1 != NULL) free(mu1);
   if (gamma1 != NULL) free(gamma1);
   if (am0 != NULL) free_2d_array(am0);
+  if (mu2 != NULL) free(mu2);
+  if (gamma2 != NULL) free(gamma2);
+  if (mugam != NULL) free_2d_array(mugam);
 
   return;
 }
@@ -314,16 +324,31 @@ void formal_solution_2d_init(RadGridS *pRG)
   if ((am0 = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
     goto on_error;
 
-  for(i=0; i<nmu; i++) 
+  if ((mu2 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((gamma2 = (Real *)calloc(ng,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((mugam = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
+    goto on_error;
+
+  for(i=0; i<nmu; i++)  {
     mu1[i] = fabs(1.0 / pRG->mu[i]);
+    mu2[i] = pRG->mu[i] * pRG->mu[i];
+  }
 
-  for(i=0; i<ng; i++) 
+  for(i=0; i<ng; i++) {
     gamma1[i] = fabs(1.0 / pRG->gamma[i]);
+    gamma2[i] = pRG->gamma[i] * pRG->gamma[i];
+  }
 
   for(i=0; i<nmu; i++) 
-    for(j=0; j<ng; j++) 
+    for(j=0; j<ng; j++) {
       am0[i][j] = fabs(dy * mu1[i] / (dx * gamma1[j]));
-    
+      mugam[i][j] = pRG->mu[i] * pRG->gamma[j];
+    }
+
 #ifdef RAD_MULTIG
   if ((psi = (Real *******)calloc(nmgrid,sizeof(Real******))) == NULL) 
     goto on_error;
@@ -586,4 +611,4 @@ static void update_bvals_imu_y(RadGridS *pRG, int sy)
 }
 
 #endif /* JACOBI */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

@@ -319,7 +319,7 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   init_particle(&Mesh);
 #endif
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
   init_radiation(&Mesh);
 #endif
 
@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #endif
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
   bvals_rad_init(&Mesh);
 #endif
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
 #ifdef EXPLICIT_DIFFUSION
   integrate_diff_init(&Mesh);
 #endif
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
  * operator split update of the hydro energy equation with radiation
  * source term */
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
@@ -517,7 +517,7 @@ int main(int argc, char *argv[])
 	  rad_to_hydro(&(Mesh.Domain[nl][nd])); 
 	}        
       }}
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
@@ -713,7 +713,7 @@ int main(int argc, char *argv[])
   integrate_diff_destruct();
 #endif
   par_close();
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
  radiation_destruct(&Mesh);
 #endif
 

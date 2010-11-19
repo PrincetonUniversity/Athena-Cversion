@@ -19,7 +19,7 @@
 #include "../prototypes.h"
 
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 void output_rad_1d(RadGridS *pRG);
 static char *construct_filename(char *basename,char *key,int dump,char *ext);
 
@@ -107,7 +107,7 @@ void rad_to_hydro(DomainS *pD)
 	esource=0.0;
 	for(ifr=0; ifr<nf; ifr++) {
 	  kappa = pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi;
-	  // add frequency weights
+	  // Must add frequency weights
 	  esource += kappa * (pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B);
 	}
 	/*printf("%d %g %g %g %g %g %g\n",i,4.0*PI*esource,pG->U[kg][jg][ig].E-0.9,
@@ -163,4 +163,4 @@ static char *construct_filename(char *basename,char *key,int dump,char *ext)
   return fname;
 }
 
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

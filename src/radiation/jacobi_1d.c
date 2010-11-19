@@ -21,7 +21,7 @@
 #include "../globals.h"
 #include "../prototypes.h"
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 #ifdef JACOBI
 
 #ifdef RAD_MULTIG
@@ -29,7 +29,7 @@ static Real ******psi = NULL;
 #else
 static Real *****psi = NULL;
 #endif
-static Real *mu1 = NULL;
+static Real *mu1 = NULL, *mu2 = NULL;
 static Real ***imuo = NULL;
 
 /*==============================================================================
@@ -52,8 +52,10 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
 
 /* initialize mean intensities at all depths to zero */
   for(i=is-1; i<=ie+1; i++)
-    for(ifr=0; ifr<nf; ifr++)
+    for(ifr=0; ifr<nf; ifr++) {
       pRG->R[ks][js][i][ifr].J = 0.0;
+      pRG->R[ks][js][i][ifr].K[0][0] = 0.0;
+    }
 
 /* Compute formal solution for all downward going rays in 
  * each vertical gridzone */
@@ -141,6 +143,8 @@ static void sweep_1d(RadGridS *pRG, int sx)
 #endif 
 /* Add to mean intensity and save for next iteration */
 	 pRG->R[ks][js][i][ifr].J += pRG->w[l][0] * imu;
+	 pRG->R[ks][js][i][ifr].K[0][0] += mu2[l] * pRG->w[l][0] * imu;
+
 	 imuo[ifr][l][0] = imu;
        }
      }
@@ -175,6 +179,7 @@ void formal_solution_1d_destruct(void)
 #endif
   if (imuo != NULL) free_3d_array(imuo);
   if (mu1 != NULL) free(mu1);
+  if (mu2 != NULL) free(mu2);
 
   return;
 }
@@ -198,8 +203,13 @@ void formal_solution_1d_init(RadGridS *pRG)
   if ((mu1 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
     goto on_error;
 
-  for(l=0; l<nmu; l++) 
+  if ((mu2 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
+    goto on_error;
+
+  for(l=0; l<nmu; l++) {
     mu1[l] = fabs(1.0 / pRG->mu[l]);
+    mu2[l] = pRG->mu[l] * pRG->mu[l];
+  }
 
 #ifdef RAD_MULTIG
 
@@ -279,4 +289,4 @@ void jacobi_pass_pointers_to_mg_1d(Real *******psi0, Real **mu10)
 #endif /* RAD_MULTIG */
 
 #endif /* JACOBI */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

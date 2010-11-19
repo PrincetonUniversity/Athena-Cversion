@@ -197,7 +197,7 @@ printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
       pM->BCFlag_ox2 = par_geti_def(block,"bc_ox2",0);
       pM->BCFlag_ox3 = par_geti_def(block,"bc_ox3",0);
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 /* Set radiation BC flags on root domain */
       pM->RBCFlag_ix1 = par_geti_def(block,"rbc_ix1",0);
       pM->RBCFlag_ix2 = par_geti_def(block,"rbc_ix2",0);
@@ -631,7 +631,7 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
       sprintf(block,"domain%d",pD->InputBlock);
       pD->Grid = NULL;
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
       pD->RadGrid = NULL;
 #endif
 
@@ -644,7 +644,7 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
         if (pD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
           if ((pD->Grid = (GridS*)malloc(sizeof(GridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a Grid for %s\n",block);
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
           if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
 #endif

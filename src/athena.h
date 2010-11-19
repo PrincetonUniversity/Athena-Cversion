@@ -221,7 +221,7 @@ typedef struct GPCouple_s{
 
 #endif /* PARTICLES */
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 
 /*----------------------------------------------------------------------------*/
 /* RadS: basic radiation quantities for single zone and frequency */
@@ -229,6 +229,7 @@ typedef struct GPCouple_s{
 typedef struct Rad_s {
   Real S;                       /* total source function */
   Real J;                       /* mean intensity */
+  Real K[3][3];                 /* 2nd moment */
   Real B;                       /* thermal source function */
   Real eps;                     /* thermalization coeff */
   Real chi;                     /* total opacity */
@@ -292,7 +293,7 @@ typedef struct RadGrid_s {
 
 typedef void (*VRGFun_t)(RadGridS *pRG);    /* generic void function of RadGrid */
 
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 
 /*----------------------------------------------------------------------------*/
 /* GridOvrlpS: contains information about Grid overlaps, used for SMR
@@ -404,11 +405,11 @@ typedef struct Domain_s{
   VGFun_t ix1_BCFun, ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix2_BCFun, ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix3_BCFun, ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
   VRGFun_t ix1_RBCFun, ox1_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
   VRGFun_t ix2_RBCFun, ox2_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
   VRGFun_t ix3_RBCFun, ox3_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 #ifdef MPI_PARALLEL
   MPI_Comm Comm_Domain;        /* MPI communicator between Grids on this Dom */
   MPI_Group Group_Domain;      /* MPI group for Domain communicator */
@@ -418,9 +419,9 @@ typedef struct Domain_s{
   MPI_Group Group_Children;    /* MPI group for Children communicator */
 #endif /* STATIC_MESH_REFINEMENT */
 #endif /* MPI_PARALLEL */
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
   RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 }DomainS;
 
 typedef void (*VDFun_t)(DomainS *pD);  /* generic void function of Domain */
@@ -439,11 +440,11 @@ typedef struct Mesh_s{
   int BCFlag_ix1, BCFlag_ox1;  /* BC flag on root domain for inner/outer x1 */
   int BCFlag_ix2, BCFlag_ox2;  /* BC flag on root domain for inner/outer x2 */
   int BCFlag_ix3, BCFlag_ox3;  /* BC flag on root domain for inner/outer x3 */
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
   int RBCFlag_ix1, RBCFlag_ox1;  /* rad BC flag on root domain for inner/outer x1 */
   int RBCFlag_ix2, RBCFlag_ox2;  /* rad BC flag on root domain for inner/outer x2 */
   int RBCFlag_ix3, RBCFlag_ox3;  /* rad BC flag on root domain for inner/outer x3 */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
   int NLevels;               /* overall number of refinement levels in mesh */
   int *DomainsPerLevel;      /* number of Domains per level (DPL) */
   DomainS **Domain;          /* array of Domains, indexed over levels and DPL */
@@ -531,10 +532,10 @@ typedef void (*WeightFun_t)(GridS *pG, Real x1, Real x2, Real x3,
 typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 #endif /* PARTICLES */
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
 			     const int j, const int k);
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 /*----------------------------------------------------------------------------*/
 /* Directions for the set_bvals_fun() function */
 enum BCDirection {left_x1, right_x1, left_x2, right_x2, left_x3, right_x3};

@@ -112,7 +112,7 @@ Real x3cc(const Grid* pGrid, const int k)
 
 #endif /* PARTICLES */
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 /*----------------------------------------------------------------------------*/
 /* ccr_pos:  */
 
@@ -124,4 +124,4 @@ void ccr_pos(const RadGridS *pRG, const int i, const int j,const int k,
   *px3 = pRG->MinX[2] + ((Real)(k - pRG->ks) + 0.5)*pRG->dx3;
   return;
 }
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

@@ -41,7 +41,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
   Real x1,x2,x3;
   char zone_fmt[20], fmt[80];
   int col_cnt, nmax;
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
   RadGridS *pRG;
   int ifr,nf;
   int io,jo,ko;
@@ -98,7 +98,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
         nmax =  pG->Nx[0] > pG->Nx[1]  ? pG->Nx[0] : pG->Nx[1];
         nmax = (pG->Nx[2] > nmax ? pG->Nx[2] : nmax);
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 	pRG = pM->Domain[nl][nd].RadGrid;
 	nf = pRG->nf;
 	if (pG->Nx[0] > 1) io = 1 - nghost; else io = 0;
@@ -216,14 +216,14 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #endif
 
 /* write out column headers for particles */
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 #ifndef WRITE_GHOST_CELLS
 	for (ifr=0; ifr<nf; ifr++) {
 	  fprintf(pfile," [%d]=J%d",col_cnt,ifr);
           col_cnt++;
 	}
 #endif /* WRITE_GHOST_CELLS */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 
 /* write out column headers for passive scalars */
 #if (NSCALARS > 0)
@@ -278,13 +278,13 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
               }
 #endif
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 #ifndef WRITE_GHOST_CELLS
 	      for (ifr=0; ifr<nf; ifr++) {
 		fprintf(pfile,fmt,pRG->R[k+ko][j+jo][i+io][ifr].J);
 	      }
 #endif /* WRITE_GHOST_CELLS */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
 
 #if (NSCALARS > 0)
               for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,pG->U[k][j][i].s[n]);

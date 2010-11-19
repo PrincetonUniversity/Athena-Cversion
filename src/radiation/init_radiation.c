@@ -22,7 +22,7 @@
 #include "../globals.h"
 #include "../prototypes.h"
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 
 /*----------------------------------------------------------------------------*/
 /* init_radiation:  */
@@ -306,4 +306,4 @@ void radgrid_destruct(RadGridS *pRG)
   return;
 }
 
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

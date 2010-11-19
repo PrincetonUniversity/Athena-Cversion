@@ -19,7 +19,7 @@
 #include "../globals.h"
 #include "../prototypes.h"
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 
 Real ***sol;
 
@@ -109,8 +109,9 @@ void formal_solution(DomainS *pD)
     //output_mean_intensity_2d(pRG,0);
     formal_solution_2d_destruct();
   }
-    if((i == niter) && (myID_Comm_world == 0)) 
-      printf("Maximum number of iterations: niter=%d exceeded.\n",niter);
+  if (myID_Comm_world == 0) printf("iterations: %d, dSrmax: %g\n",i,dSrmax);
+  if((i == niter) && (myID_Comm_world == 0)) 
+    printf("Maximum number of iterations: niter=%d exceeded.\n",niter);
 
   //  Used for testing purposes in old version of code
   //output_diag(dSmax,isarr,niter);
@@ -265,4 +266,4 @@ char *construct_filename(char *basename,char *key,int dump,char *ext)
 }
 
 
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */

@@ -1,5 +1,5 @@
-#ifndef RADIATION_PROTOTYPES_H
-#define RADIATION_PROTOTYPES_H 
+#ifndef RADIATION_TRANSFER_PROTOTYPES_H
+#define RADIATION_TRANSFER_PROTOTYPES_H 
 #include "../copyright.h"
 /*==============================================================================
  * FILE: prototypes.h
@@ -12,7 +12,7 @@
 #include "../defs.h"
 #include "../config.h"
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 
 /* init_radiation.c */
 
@@ -68,5 +68,5 @@ void formal_solution_mg_2d(RadGridS *pRG, Real *dSrmax);
 
 #endif /* RAD_MULTIG */
 
-#endif /* RADIATION */
-#endif /* RADIATION_PROTOTYPES_H */
+#endif /* RADIATION_TRANSFER */
+#endif /* RADIATION_TRANSFER_PROTOTYPES_H */

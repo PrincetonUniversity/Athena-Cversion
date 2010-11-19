@@ -52,7 +52,7 @@ ShearFun_t ShearProfile = NULL;
 #endif
 #endif
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 RadInitFun_t get_thermal_source = NULL;
 RadInitFun_t get_thermal_fraction = NULL;
 RadInitFun_t get_total_opacity = NULL;
@@ -107,7 +107,7 @@ extern ShearFun_t ShearProfile;
 #endif
 #endif
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 extern RadInitFun_t get_thermal_source;
 extern RadInitFun_t get_thermal_fraction;
 extern RadInitFun_t get_total_opacity;

@@ -21,7 +21,7 @@
 #include "../prototypes.h"
 #define OUT_DIAG
 
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 #ifdef RAD_MULTIG
 
 static int it0 = 1;
@@ -404,4 +404,4 @@ static void formal_solution_mg_2d_psi(RadGridS *pRG)
 }
 
 #endif /* RAD_MULTIG */
-#endif /* RADIATION */
+#endif /* RADIATION_TRANSFER */
