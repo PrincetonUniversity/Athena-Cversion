@@ -217,7 +217,7 @@ void show_config_par(void)
   par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
 #endif
 
-#if defined(RESISTIVTY)
+#if defined(RESISTIVITY)
   par_sets("configure","resistivity","ON","resistivity algorithm");
 #else
   par_sets("configure","resistivity","OFF","resistivity algorithm");
