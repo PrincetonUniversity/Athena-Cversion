@@ -229,7 +229,7 @@ typedef struct GPCouple_s{
 typedef struct Rad_s {
   Real S;                       /* total source function */
   Real J;                       /* mean intensity */
-  Real K[3][3];                 /* 2nd moment */
+  Real K[6];                    /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
   Real B;                       /* thermal source function */
   Real eps;                     /* thermalization coeff */
   Real chi;                     /* total opacity */

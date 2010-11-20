@@ -75,9 +75,9 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
     for(i=is-1; i<ie+1; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	pRG->R[ks][j][i][ifr].J = 0.0;
-	pRG->R[ks][j][i][ifr].K[0][0] = 0.0;
-	pRG->R[ks][j][i][ifr].K[0][1] = 0.0;
-	pRG->R[ks][j][i][ifr].K[1][1] = 0.0;
+	pRG->R[ks][j][i][ifr].K[0] = 0.0;
+	pRG->R[ks][j][i][ifr].K[1] = 0.0;
+	pRG->R[ks][j][i][ifr].K[2] = 0.0;
       }
 /* Compute formal solution for all upward going rays in 
  * each vertical gridzone */
@@ -254,9 +254,9 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
 #endif	   
 /* Add to radiation moments and save for next iteration */
 	   pRG->R[ks][j][i][ifr].J += pRG->w[l][m] * imu;
-	   pRG->R[ks][j][i][ifr].K[0][0] += mu2[l] * pRG->w[l][m] * imu;
-	   pRG->R[ks][j][i][ifr].K[0][1] += mugam[l][m] * pRG->w[l][m] * imu;
-	   pRG->R[ks][j][i][ifr].K[1][1] += gamma2[m] * pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[0] += mu2[l] * pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[1] += mugam[l][m] * pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[2] += gamma2[m] * pRG->w[l][m] * imu;
 /* Update intensity workspace */
 #ifdef INTERP_2D
 	   imuo[i][ifr][l][m][2] = imuo[i][ifr][l][m][1];

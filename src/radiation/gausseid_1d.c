@@ -62,7 +62,7 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
   for(i=is-1; i<ie+1; i++)
     for(ifr=0; ifr<nf; ifr++) {
       pRG->R[ks][js][i][ifr].J = 0.0;
-      pRG->R[ks][js][i][ifr].K[0][0] = 0.0;
+      pRG->R[ks][js][i][ifr].K[0] = 0.0;
     }
 /* Compute formal solution for all downward going rays in 
  *  each vertical gridzone */
@@ -151,7 +151,7 @@ static void sweep_1d(RadGridS *pRG, int sx)
 #endif      
 /* Add imu to mean intensity and save for next iteration */
 	 pRG->R[ks][js][i][ifr].J += pRG->w[l][0] * imu;
-	 pRG->R[ks][js][i][ifr].K[0][0] += mu2[l] * pRG->w[l][0] * imu;
+	 pRG->R[ks][js][i][ifr].K[0] += mu2[l] * pRG->w[l][0] * imu;
 
 	 imuo[ifr][l][0] = imu;
        }

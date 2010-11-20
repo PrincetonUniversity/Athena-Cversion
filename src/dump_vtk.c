@@ -324,7 +324,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	for (k=krl; k<=kru; k++) {
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].K[0][0];
+	      data[i-irl] = (float)pRG->R[k][j][i][0].K[0];
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);
@@ -335,7 +335,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	for (k=krl; k<=kru; k++) {
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].K[0][1];
+	      data[i-irl] = (float)pRG->R[k][j][i][0].K[1];
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);
@@ -346,7 +346,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	for (k=krl; k<=kru; k++) {
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].K[1][1];
+	      data[i-irl] = (float)pRG->R[k][j][i][0].K[2];
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);
