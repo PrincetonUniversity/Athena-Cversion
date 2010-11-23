@@ -228,8 +228,8 @@ void problem(DomainS *pDomain)
 #endif /* MHD */
 
 /* With viscosity and/or resistivity, read eta_Ohm and nu_V */
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0); 
 #endif
 #ifdef NAVIER_STOKES
   nu_V = par_getd("problem","nu");
@@ -329,6 +329,17 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                            Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {
