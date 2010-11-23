@@ -14,7 +14,7 @@
 #
 # PHYSICS "packages":
 #   --with-problem='name'                 (use prob/name.c as problem generator)
-#   --with-gas=[hydro,mhd,rad_hydro] (hydro or mhd or radiation HD algorithm)
+#   --with-gas=[hydro,mhd,rad_hydro,rad_MHD] (hydro or mhd or radiation HD, MHD algorithm)
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,fft_obc,multigrid]                        (self-gravity)
@@ -80,7 +80,7 @@ fi
 
 AC_SUBST(GAS)
 AC_ARG_WITH(gas,
-	[--with-gas=GAS  Gas properties (mhd,hydro,rad_hydro)],
+	[--with-gas=GAS  Gas properties (mhd,hydro,rad_hydro,rad_MHD)],
 	with_gas=$withval, with_gas="mhd")
 if test   "$with_gas" = "hydro"; then
   GAS="HYDRO"
@@ -93,12 +93,17 @@ elif test "$with_gas" = "mhd";   then
   integrator_default="ctu"
   order_default="2"
 elif test "$with_gas" = "rad_hydro"; then
-  GAS="rad_hydro"
+  GAS="RADIATION_HYDRO"
   flux_default="hlle"
-  integrator_default="radMHD"
+  integrator_default="RADIATIONMHD"
+  order_default="2p"
+elif test "$with_gas" = "rad_MHD"; then
+  GAS="RADIATION_MHD"
+  flux_default="hlle"
+  integrator_default="RADIATIONMHD"
   order_default="2p"
 else
-  AC_MSG_ERROR([expected --with-gas=mhd or hydro or rad_hydro])
+  AC_MSG_ERROR([expected --with-gas=mhd or hydro or rad_hydro or rad_MHD])
 fi
 
 #-------------------------------------------------------------------------------
@@ -343,8 +348,8 @@ if test   "$with_integrator" = "ctu"; then
   INTEGRATOR_DEF="CTU_INTEGRATOR"
 elif test "$with_integrator" = "vl"; then
   INTEGRATOR_DEF="VL_INTEGRATOR"
-elif test "$with_integrator" = "radMHD"; then
-  INTEGRATOR_DEF="radMHD_INTEGRATOR"
+elif test "$with_integrator" = "RADIATIONMHD"; then
+  INTEGRATOR_DEF="RADIATIONMHD_INTEGRATOR"
 else
   AC_MSG_ERROR([expected --with-integrator=ctu or vl])
 fi

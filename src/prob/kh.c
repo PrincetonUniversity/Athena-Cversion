@@ -49,7 +49,7 @@ void problem(DomainS *pDomain)
   b0  = par_getd("problem","b0");
 #endif
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   Sigma_t = par_getd("problem","Sigma_t");
@@ -86,7 +86,7 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].E += 0.5*b0*b0;
 #endif /* BAROTROPIC */
 #endif /* MHD */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[k][j][i].Er = 0.0;
 	pGrid->U[k][j][i].Fr1 = 0.0;
 	pGrid->U[k][j][i].Fr2 = 0.0;
@@ -136,7 +136,7 @@ void problem(DomainS *pDomain)
           if (x2 > 0) pGrid->U[k][j][i].s[0] = 1.0;
 #endif
        
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[k][j][i].Er = 0.0;
 	pGrid->U[k][j][i].Fr1 = 0.0;
 	pGrid->U[k][j][i].Fr2 = 0.0;

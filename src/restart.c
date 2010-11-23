@@ -190,7 +190,7 @@ void restart_grids(char *res_file, MeshS *pM)
       }
 #endif
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 /* Read radiation energy density */
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
@@ -337,7 +337,7 @@ void restart_grids(char *res_file, MeshS *pM)
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Sigma_t",12) != 0)
+      if(strncmp(line,"Sigma_t",7) != 0)
         ath_error("[restart_grids]: Expected Sigma_t, found %s",line);
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
@@ -352,7 +352,7 @@ void restart_grids(char *res_file, MeshS *pM)
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Sigma_a",12) != 0)
+      if(strncmp(line,"Sigma_a",7) != 0)
         ath_error("[restart_grids]: Expected Sigma_a, found %s",line);
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
@@ -791,7 +791,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
       }
 #endif
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 
 /* Write radiation energy density Er */
 

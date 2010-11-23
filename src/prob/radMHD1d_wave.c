@@ -26,7 +26,7 @@ void problem(DomainS *pDomain)
   int shift;
 
 /* Parse global variables of unit ratio */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   Sigma_t = par_getd("problem","Sigma_t");
@@ -90,7 +90,7 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	  pGrid->U[k][j][i].Er = temperature * temperature * temperature * temperature ;
 	  pGrid->U[k][j][i].Fr1 = 0.0;
 	  pGrid->U[k][j][i].Fr2 = 0.0;

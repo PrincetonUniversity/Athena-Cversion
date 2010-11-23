@@ -14,7 +14,7 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
 void mgmres_st ( int n, int nz_num, int ia[], int ja[], double a[], 
   double x[], double rhs[], int itr_max, int mr, double tol_abs, 

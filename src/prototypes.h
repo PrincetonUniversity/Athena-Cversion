@@ -70,13 +70,13 @@ void baton_stop(const int Nb, const int tag);
 /* bvals_mhd.c  */
 void bvals_mhd_init(MeshS *pM);
 void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void bvals_rad_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
 #endif
 void bvals_mhd(DomainS *pDomain);
 
 /* set boundary condition for radiation variable */
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void bvals_rad(MeshS *pM);
 #endif
 
@@ -264,7 +264,7 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
 /*------------------------------------------------*/
 /* rad_utils.c */
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 Real eff_sound(const Prim1DS W, Real dt);
 #endif
 

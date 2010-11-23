@@ -27,7 +27,7 @@
 #include "../particles/particle.h"
 #endif
 
-#if defined(radMHD_INTEGRATOR)
+#if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
 #error : The radiation MHD integrator cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
@@ -120,6 +120,8 @@ void integrate_1d_radMHD(DomainS *pD)
     		U1d[i].Fr2  = pG->U[ks][js][i].Fr2;
     		U1d[i].Fr3  = pG->U[ks][js][i].Fr3;
 		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
+		U1d[i].Sigma_a  = pG->U[ks][js][i].Sigma_a;
+		U1d[i].Sigma_t  = pG->U[ks][js][i].Sigma_t;
 	}
 	
 	

@@ -28,8 +28,6 @@ void problem(DomainS *pDomain)
 
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
-  Sigma_t = par_getd("problem","Sigma_t");
-  Sigma_a = par_getd("problem","Sigma_a");
   R_ideal = par_getd("problem","R_ideal");
 	
 
@@ -86,12 +84,14 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].B2c = 0.0;
           pGrid->U[k][j][i].B3c = 0.0;
 #endif
-	  pGrid->U[k][j][i].Er = 1.0e-20;
-	  pGrid->U[k][j][i].Fr1 = 1.0e-20;
+	  pGrid->U[k][j][i].Er = exp(-vari * vari);
+	  pGrid->U[k][j][i].Sigma_t = 0.0;
+	  pGrid->U[k][j][i].Sigma_a = 0.0;
+	  pGrid->U[k][j][i].Fr1 = 0.0;
 	  pGrid->U[k][j][i].Fr2 = 0.0;
 	  pGrid->U[k][j][i].Fr3 = 0.0;
 
-	  pGrid->U[k][j][i].Edd_11 = 1.0; /* Set to be a constant in 1D. To be modified later */		
+	  pGrid->U[k][j][i].Edd_11 = 0.3333333; /* Set to be a constant in 1D. To be modified later */		
         }
       }
     }

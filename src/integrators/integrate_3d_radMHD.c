@@ -45,7 +45,7 @@
 #include "../particles/particle.h"
 #endif
 
-#if defined(radMHD_INTEGRATOR)
+#if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
 #error : The CTU integrator cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */

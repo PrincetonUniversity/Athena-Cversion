@@ -647,7 +647,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 #endif
 
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
   const Real pressure,
   Real eigenvalues[],

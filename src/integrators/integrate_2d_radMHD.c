@@ -39,7 +39,7 @@
 #include "../particles/particle.h"
 #endif
 
-#if defined(radMHD_INTEGRATOR)
+#if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
 #error : The CTU integrator cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
@@ -153,6 +153,9 @@ void integrate_2d_radMHD(DomainS *pD)
 			U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
 			U1d[i].Edd_21  = pG->U[ks][js][i].Edd_21;
 			U1d[i].Edd_22  = pG->U[ks][js][i].Edd_22;
+			U1d[i].Sigma_a  = pG->U[ks][js][i].Sigma_a;
+                        U1d[i].Sigma_t  = pG->U[ks][js][i].Sigma_t;
+
 #ifdef MHD
       			U1d[i].By = pG->U[ks][j][i].B2c;
       			U1d[i].Bz = pG->U[ks][j][i].B3c;
@@ -291,6 +294,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			U1d[j].Edd_11  = pG->U[ks][js][i].Edd_11;
 			U1d[j].Edd_21  = pG->U[ks][js][i].Edd_21;
 			U1d[j].Edd_22  = pG->U[ks][js][i].Edd_22;
+			U1d[j].Sigma_a  = pG->U[ks][js][i].Sigma_a;
+                        U1d[j].Sigma_t  = pG->U[ks][js][i].Sigma_t;
 #ifdef MHD
       			U1d[j].By = pG->U[ks][j][i].B3c;
       			U1d[j].Bz = pG->U[ks][j][i].B1c;

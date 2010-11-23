@@ -71,7 +71,9 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real dtodx = dt/dx;
+#ifdef RADIATION_HYDRO
   Real aeff;
+#endif
   
 
 /* Set pointer to primitive variables */
@@ -88,7 +90,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 #endif
 
 
-#if defined(CTU_INTEGRATOR) || defined(radMHD_INTEGRATOR)
+#if defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR)
  /* zero eigenmatrices if using CTU integrator */
  /* We also use eigen vectors for radiation code */
   for (n=0; n<NWAVE; n++) {
@@ -206,7 +208,8 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 #endif /* special relativity */
 
-#if  defined(CTU_INTEGRATOR) || defined(radMHD_INTEGRATOR) /* only include steps below if CTU integrator */
+#if  defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR) 
+/* only include steps below if CTU integrator */
 
 /*--- Step 5. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
@@ -219,7 +222,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
   aeff = eff_sound(W[i],dt);
   esys_prim_rad_hyd(aeff, W[i].Vx, W[i].d, ev,rem,lem);
 #endif
@@ -243,7 +246,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       dW[n] = Wrv[n] - Wlv[n];
     }
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
     qx = 0.5*MAX(ev[NWAVE-5],0.0)*dtodx;
 #else
     qx = 0.5*MAX(ev[NWAVE-1],0.0)*dtodx;
@@ -269,9 +272,9 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       if (ev[n] > 0.) {
 	qa  = 0.0;
 	for (m=0; m<NWAVE; m++) {
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	  qa += lem[n][m]*0.5*dtodx*(ev[NWAVE-5]-ev[n])*dW[m];
-#else// for radiation, v+aeff is ev[4], not ev[NWAVE-1]
+#else/* for radiation, v+aeff is ev[4], not ev[NWAVE-1]*/
 	  qa += lem[n][m]*0.5*dtodx*(ev[NWAVE-1]-ev[n])*dW[m];
 #endif
 	}
@@ -298,9 +301,9 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 #if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
 	qa  = 0.0;
 	for (m=0; m<NWAVE; m++) {
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	  qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-5])*dW[m];
-#else// for radiation, ev[4]=v+aeff, not ev[NWAVE-1]
+#else/* for radiation, ev[4]=v+aeff, not ev[NWAVE-1]*/
 	  qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
 #endif
 	}
@@ -312,7 +315,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /* Wave subtraction for advected quantities */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pWl[n] += 0.5*dtodx*(ev[NWAVE-5]-W[i].Vx)*dW[n];
 #else
         pWl[n] += 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx)*dW[n];

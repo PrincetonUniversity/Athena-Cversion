@@ -584,7 +584,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
  *   The order is rho, Mv1, Mv2, Mv3, E, Er, Fr1, Fr2, Fr3 
  */
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eigenvalues[],
   Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE])
 {

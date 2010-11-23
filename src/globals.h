@@ -58,7 +58,7 @@ ShearFun_t ShearProfile = NULL;
 #endif
 
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 Real Prat;		/* Pratio=a_rT^4/rho a^2; The ratio between the pressure unit for radiation and gas */ 
 Real Crat;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
 Real R_ideal;		/* Value of ideal gas constant under current unit. Used to calculate the temperature */
@@ -116,8 +116,9 @@ extern ShearFun_t ShearProfile;
 #endif
 #endif
 
-#ifdef rad_hydro
-extern Real Prat, Crat;
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+extern Real Prat;
+extern Real Crat;
 extern OpacityFun_t Opacity;
 extern Real R_ideal;		 	
 #endif

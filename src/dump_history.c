@@ -69,7 +69,7 @@
 #include "prototypes.h"
 
 /* Maximum Number of default history dump columns. */
-/* With rad_hydro HD, four extra variables are calculated */
+/* With RADIATION_HYDRO HD, four extra variables are calculated */
 #define NSCAL 18
 
 /* Maximum number of history dump columns that the user routine can add. */
@@ -116,7 +116,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #endif
 
 /* Add extra four columns for Er, Fluxr1, Fluxr2, Fluxr3 */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
   total_hst_cnt += 4;
 #endif
 
@@ -225,7 +225,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
               scal[mhst] += dVol*(x1*pG->U[k][j][i].M2);
 #endif
 
-#ifdef	rad_hydro
+#ifdef	RADIATION_HYDRO
 	      mhst++;
 	      scal[mhst] += dVol*pG->U[k][j][i].Er;
 	      mhst++;
@@ -421,7 +421,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
             fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
 #endif
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	    mhst++;
             fprintf(pfile,"   [%i]=Er   ",mhst);
 	    mhst++;

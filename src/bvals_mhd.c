@@ -903,7 +903,7 @@ void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
 /*----------------------------------------------------------------------------*/
 /* bvals_rad_fun:  sets function ptrs for user-defined BCs for radiation quantities
  */
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void bvals_rad_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
 {
   switch(dir){
@@ -962,7 +962,7 @@ static void reflect_ix1(GridS *pGrid)
 	/* Notice that the radiation quantities are also copied here */
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
 	pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is-i].Fr1; /* reflect 1-rad Flux. */
 #endif
 #ifdef MHD
@@ -1024,7 +1024,7 @@ static void reflect_ox1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i]    =  pGrid->U[k][j][ie-(i-1)];
         pGrid->U[k][j][ie+i].M1 = -pGrid->U[k][j][ie+i].M1; /* reflect 1-mom. */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie+i].Fr1; /* reflect 1-rad Flux */
 #endif
 #ifdef MHD
@@ -1087,7 +1087,7 @@ static void reflect_ix2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i]    =  pGrid->U[k][js+(j-1)][i];
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[k][js-j][i].Fr2 = -pGrid->U[k][js-j][i].Fr2; /* reflect 2 radFlux */
 #endif
 #ifdef MHD
@@ -1151,7 +1151,7 @@ static void reflect_ox2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
         pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[k][je+j][i].Fr2 = -pGrid->U[k][je+j][i].Fr2; /* reflect 2-rad Flux. */
 #endif
 #ifdef MHD
@@ -1212,7 +1212,7 @@ static void reflect_ix3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
         pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[ks-k][j][i].Fr3 = -pGrid->U[ks-k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
 #ifdef MHD
@@ -1276,7 +1276,7 @@ static void reflect_ox3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
         pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	pGrid->U[ke+k][j][i].Fr3 = -pGrid->U[ke+k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
 #ifdef MHD

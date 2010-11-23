@@ -43,7 +43,7 @@ VDFun_t integrate_init(MeshS *pM)
     if (cfl > 0.5)
       ath_error("<time>cour_no=%e, must be <= 0.5 with 1D VL integrator\n",cfl);
     return integrate_1d_vl;
-#elif defined(radMHD_INTEGRATOR)
+#elif defined(RADIATIONMHD_INTEGRATOR)
     return integrate_1d_radMHD;
 #else
     ath_err("[integrate_init]: Invalid integrator defined for 1D problem");
@@ -54,7 +54,7 @@ VDFun_t integrate_init(MeshS *pM)
     integrate_init_2d(pM);
 #if defined(CTU_INTEGRATOR)
     return integrate_2d_ctu;
-#elif defined(radMHD_INTEGRATOR)
+#elif defined(RADIATIONMHD_INTEGRATOR)
     return integrate_2d_radMHD;
 #elif defined(VL_INTEGRATOR)
     cfl = par_getd("time","cour_no");
@@ -77,7 +77,7 @@ VDFun_t integrate_init(MeshS *pM)
     if (cfl > 0.5)
       ath_error("<time>cour_no=%e, must be <= 0.5 with 3D VL integrator\n",cfl);
     return integrate_3d_vl;
-#elif defined(radMHD_INTEGRATOR)
+#elif defined(RADIATIONMHD_INTEGRATOR)
     cfl = par_getd("time","cour_no");
     if (cfl > 0.5)
       ath_error("<time>cour_no=%e, must be <= 0.5 with 3D CTU integrator\n",cfl);

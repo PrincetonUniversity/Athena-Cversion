@@ -27,7 +27,7 @@
 #include "../particles/particle.h"
 #endif
 
-#if defined(radMHD_INTEGRATOR)
+#if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
 #error : The radiation MHD integrator cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
@@ -40,14 +40,24 @@ static Real *Cspeeds;
 /* The matrix coefficient */
 static Real **Euler = NULL;
 
-static Real **EulerLU = NULL;
-/* Used for general LU decomposition */
+static Real *EulerLU = NULL;
+static int *IEuler = NULL;
+static int *JEuler = NULL;
+static Real *INIguess = NULL;
+/* Used for initial guess solution, also return the correct solution */
+/* Used for restarted GMRES method for periodic boundary condition */
 
 static Real **lEuler = NULL;
 /* Used to store the lower trianglular system in LU decompsion */
 
 /* Right hand side of the Matrix equation */
 static Real *RHSEuler = NULL;
+static Real *RHSEulerp = NULL;
+/* RHSEulerp is used for periodic boundary condition.
+ * GMRES routine starts from 0.
+ * RHSEulerp = &(RHSEuler[1])
+ */
+
 /* Used to store the results from the Matrix solver */
 static unsigned long *Ern1 = NULL;
 static int *Ern1p = NULL;
@@ -75,7 +85,7 @@ void BackEuler_1d(MeshS *pM)
   	int i, j, m, n;
 	int js = pG->js;
 	int ks = pG->ks;
-	int Nmatrix;
+	int Nmatrix, NZ_NUM, NoEr, NoFr;
 	
 
 	Real SEE, SErho, SEm;
@@ -101,6 +111,7 @@ void BackEuler_1d(MeshS *pM)
 /* Nmatrix is the number of active cells just in this grids */
 /* Matrix size should be 2 * Nmatrix, ghost zones are included*/
    	Nmatrix = ie - is + 1 ;
+	NZ_NUM = 12 * Nmatrix;
 	
 	rad_hydro_init_1d(Nmatrix,pM);
 
@@ -183,9 +194,19 @@ void BackEuler_1d(MeshS *pM)
 	
 	}
 
+	/* For periodic boundary condition, we use GMRES, which starts from 0 */
+	if((ix1 == 4) && (ox1 == 4)) {
+		RHSEulerp = &(RHSEuler[1]);
+
+		for(i=is; i<=ie; i++){
+			INIguess[2*(i-is)] = pG->U[ks][js][i].Er;
+			INIguess[2*(i-is)+1] = pG->U[ks][js][i].Fr1;
+		}
+		
+
+	}
 	
-/*--------------------Note--------------------*.
-/* Should judge the boundary condition. Here just use the perodic boundary condition first */
+
 
 /* Step 1b: Setup the Matrix */
 		
@@ -277,33 +298,39 @@ void BackEuler_1d(MeshS *pM)
 	/* EulerLU is already initialized for zeros */
 	if((ix1 == 4) && (ox1 == 4)) {
 
+		NoEr = 12*(i-is) + 2;
+		NoFr = 12*(i-is) + 8;
+
+		for(j=0; j<6; j++){
+			EulerLU[NoEr-2+j] = theta[j+1];
+			EulerLU[NoFr-2+j] = phi[j];
+			IEuler[NoEr-2+j]   = 2*(i-is)+j-2;
+			JEuler[NoEr-2+j]   = 2*(i-is);
+			IEuler[NoFr-2+j]   = 2*(i-is)+j-2;
+			JEuler[NoFr-2+j]   = 2*(i-is)+1;		
+		}
+
 		if(i == is) {
-			for(j=1; j<= 4; j++) {
-				EulerLU[1][j] = theta[j+2];
-				EulerLU[2][j] = phi[j+1];		
-			}
-			EulerLU[1][2*Nmatrix-1] = theta[1];
-			EulerLU[1][2*Nmatrix]   = theta[2];
-			EulerLU[2][2*Nmatrix-1] = phi[0];
-			EulerLU[2][2*Nmatrix]   = phi[1];			
+			IEuler[NoEr-2]   = 2*(ie-is);
+			JEuler[NoEr-2]   = 0;
+			IEuler[NoFr-2]   = 2*(ie-is);
+			JEuler[NoFr-2]   = 1;
+			IEuler[NoEr-1]   = 2*(ie-is)+1;
+			JEuler[NoEr-1]   = 0;
+			IEuler[NoFr-1]   = 2*(ie-is)+1;
+			JEuler[NoFr-1]   = 1;
 		}/* end i==is */
 		else if (i == ie) {
-			EulerLU[2*Nmatrix-1][1] = theta[5];
-			EulerLU[2*Nmatrix-1][2]   = theta[6];
-			EulerLU[2*Nmatrix][1] = phi[4];
-			EulerLU[2*Nmatrix][2]   = phi[5];
-			for(j=0; j<4; j++) {
-				EulerLU[2*Nmatrix-1][2*Nmatrix-j] = theta[4-j];
-				EulerLU[2*Nmatrix][2*Nmatrix-j] = phi[3-j];
-			}
+			IEuler[NoEr+2]   = 0;
+			JEuler[NoEr+2]   = 2*(ie-is);
+			IEuler[NoFr+2]   = 0;
+			JEuler[NoFr+2]   = 2*(ie-is)+1;
+			IEuler[NoEr+3]   = 1;
+			JEuler[NoEr+3]   = 2*(ie-is);
+			IEuler[NoFr+3]   = 1;
+			JEuler[NoFr+3]   = 2*(ie-is)+1;
 		}/* end i==ie */
-		else {
-
-			for(j=1; j<=6; j++) {
-				EulerLU[2*(i-is)+1][2*(i-is-1)+j] = theta[j];
-				EulerLU[2*(i-is)+2][2*(i-is-1)+j] = phi[j-1];
-			}
-		}
+		
 	}
 	/* End for periodic boundary condition */	
 	}/* end for i loop */
@@ -318,18 +345,31 @@ void BackEuler_1d(MeshS *pM)
 
 	}
 	else {
-		ludcmp(EulerLU, 2*Nmatrix, Ern1p, Ern2);
-		lubksb(EulerLU, 2*Nmatrix, Ern1p, RHSEuler);
+		int ITR_max = 100;
+		int MR;
+		double tol_abs = 1.0E-12;
+    		double tol_rel = 1.0E-12;
+		if(Nmatrix < 50) MR = Nmatrix - 1;
+		else MR = 50;
+		mgmres_st ( 2*Nmatrix, NZ_NUM, JEuler, IEuler, EulerLU, INIguess, RHSEulerp, ITR_max, MR, tol_abs,  tol_rel );	
 	}
 	
 
 		
 		
 	for(i=is;i<=ie;i++){
-		pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)+1];
-		pG->U[ks][js][i].Fr1	= RHSEuler[2*(i-is)+2];
-		U1d[i].Er		= RHSEuler[2*(i-is)+1];
-		U1d[i].Fr1		= RHSEuler[2*(i-is)+2];
+		if((ix1==4)&&(ox1==4)){
+			pG->U[ks][js][i].Er	= INIguess[2*(i-is)];
+			pG->U[ks][js][i].Fr1	= INIguess[2*(i-is)+1];
+			U1d[i].Er		= INIguess[2*(i-is)];
+			U1d[i].Fr1		= INIguess[2*(i-is)+1];
+		}
+		else{
+			pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)+1];
+			pG->U[ks][js][i].Fr1	= RHSEuler[2*(i-is)+2];
+			U1d[i].Er		= RHSEuler[2*(i-is)+1];
+			U1d[i].Fr1		= RHSEuler[2*(i-is)+2];
+		}
 	}
 	/* May need to update Edd_11 */
 
@@ -382,17 +422,19 @@ void rad_hydro_init_1d(int Ngrids, MeshS *pM)
 
 	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 	if ((RHSEuler = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
+	if ((INIguess = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
 	if ((Ern1 = (unsigned long *)malloc((2*Ngrids+1)*sizeof(unsigned long))) == NULL) goto on_error;
 	if ((Ern1p = (int *)malloc((2*Ngrids+1)*sizeof(int))) == NULL) goto on_error;
 	if ((Ern2 = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 
 	if ((Euler = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
-	if ((EulerLU = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
+	if ((EulerLU = (Real*)malloc((12*Ngrids)*sizeof(Real))) == NULL) goto on_error;
+	if ((IEuler = (int*)malloc(Ngrids*12*sizeof(int ))) == NULL) goto on_error;
+	if ((JEuler = (int*)malloc(Ngrids*12*sizeof(int ))) == NULL) goto on_error;
 	if ((lEuler = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
 	for(i=0; i<(2*Ngrids+1); i++) {
 		if ((Euler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;
-		if ((lEuler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;
-		if ((EulerLU[i] = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
+		if ((lEuler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;		
 	}
 
 	 /* Initialize the matrix */
@@ -402,9 +444,11 @@ void rad_hydro_init_1d(int Ngrids, MeshS *pM)
 			lEuler[i][j] = 0.0;
 		}
 
-	for(i=0; i<(2*Ngrids+1); i++)
-		for(j=0; j<(2*Ngrids+1); j++)
-			EulerLU[i][j] = 0.0;
+	for(i=0; i<(12*Ngrids); i++){
+		EulerLU[i] = 0.0;
+		IEuler[i] = 0.0;
+		JEuler[i] = 0.0;
+	}
 	return;
 
 	on_error:
@@ -418,6 +462,7 @@ void rad_hydro_destruct_1d(int Ngrids)
 	int i;
 	if (Cspeeds 	!= NULL) free(Cspeeds);
 	if (RHSEuler	!= NULL) free(RHSEuler);
+	if (INIguess	!= NULL) free(INIguess);
 	if (Ern1	!= NULL) free(Ern1);
 	if (Ern1p	!= NULL) free(Ern1p);
 	if (Ern2	!= NULL) free(Ern2);
@@ -425,13 +470,14 @@ void rad_hydro_destruct_1d(int Ngrids)
 	
 	for(i=0; i<(2*Ngrids+1); i++) {
 		if (Euler[i] != NULL) free(Euler[i]);
-		if (lEuler[i] != NULL) free(lEuler[i]);
-		if (EulerLU[i] != NULL) free(EulerLU[i]);
+		if (lEuler[i] != NULL) free(lEuler[i]);		
 	}
 
 	if (Euler != NULL) free(Euler);
 	if (lEuler != NULL) free(lEuler);
 	if (EulerLU != NULL) free(EulerLU);
+	if (IEuler != NULL) free(IEuler);
+	if (JEuler != NULL) free(JEuler);
 }
 
 

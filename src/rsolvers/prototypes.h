@@ -32,7 +32,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
   const Real x, const Real y, Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
   const Real pressure,

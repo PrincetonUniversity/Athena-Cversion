@@ -18,7 +18,7 @@ VDFun_t integrate_init(MeshS *pM);
 void integrate_destruct(void);
 
 /* Only used for rad_hydro integrators */
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void rad_hydro_init_1d(int Ngrids, MeshS *pM);
 void rad_hydro_init_2d(int Ngrids);
 void rad_hydro_destruct_1d(int Ngrids);
@@ -54,7 +54,7 @@ void integrate_init_1d(MeshS *pM);
 void integrate_1d_ctu(DomainS *pD);
 void integrate_1d_vl(DomainS *pD);
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void integrate_1d_radMHD(DomainS *pD);
 void BackEuler_1d(MeshS *pM);
 void BackEuler_2d(MeshS *pM);

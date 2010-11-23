@@ -27,7 +27,7 @@
 #include "../particles/particle.h"
 #endif
 
-#if defined(radMHD_INTEGRATOR)
+#if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
 #error : The radiation MHD integrator cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
@@ -882,12 +882,12 @@ void BackEuler_2d(MeshS *pM)
 		/* ITR_MAX, the maximum number of (outer) iterations to take.
     		 * MR, the maximum number of (inner) iterations to take.    MR must be less than N.*/
 
-		int ITR_max = 20;
+		int ITR_max = 50;
 		int MR;
-		double tol_abs = 1.0E-08;
-    		double tol_rel = 1.0E-08;
-		if(Nmatrix < 10) MR = Nmatrix - 1;
-		else MR = 10;
+		double tol_abs = 1.0E-12;
+    		double tol_rel = 1.0E-12;
+		if(Nmatrix < 20) MR = Nmatrix - 1;
+		else MR = 20;
 
 		/* Note that in the C subroutine, J and I are actually I and J used in Athena */
 

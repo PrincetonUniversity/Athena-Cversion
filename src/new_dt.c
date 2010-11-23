@@ -48,7 +48,7 @@ void new_dt(MeshS *pM)
   double dt, my_dt;
   int ierr;
 #endif
-#ifdef rad_hydro 
+#ifdef RADIATION_HYDRO 
  Real aeff = 0.0;
  Prim1DS Waeff; 
  Real Bx=0;
@@ -80,13 +80,15 @@ void new_dt(MeshS *pM)
         v3 = pGrid->U[k][j][i].M3*di;
         qsq = v1*v1 + v2*v2 + v3*v3;
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	Waeff.d = 1.0/di;
 	Waeff.Vx = v1;
 	Waeff.Vy = v2;
 	Waeff.Vz = v3;
 	Waeff.P = (Gamma - 1.0) *  (pGrid->U[k][j][i].E - 0.5 * Waeff.d * (v1 * v1 + v2 * v2 + v3 * v3));
 	/* For MHD, should include magnetic field */
+	Waeff.Sigma_a = pGrid->U[k][j][i].Sigma_a;
+	Waeff.Sigma_t = pGrid->U[k][j][i].Sigma_t;
 #endif
 
 
@@ -132,7 +134,7 @@ void new_dt(MeshS *pM)
 
 #endif /* MHD */
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	/* First step, pGrid->dt=0 */
 	if(pGrid->dt <= TINY_NUMBER)
 	aeff = sqrt(Gamma * Waeff.P/Waeff.d);
@@ -142,7 +144,7 @@ void new_dt(MeshS *pM)
 
 /* compute maximum cfl velocity (corresponding to minimum dt) */
         if (pGrid->Nx[0] > 1) {
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	   max_v1 = MAX(max_v1,fabs(v1)+aeff);
 #else
 	   max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
@@ -153,7 +155,7 @@ void new_dt(MeshS *pM)
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
           max_v2 = MAX(max_v2,(fabs(v2)+sqrt((double)cf2sq))/x1);
 #else
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 	  max_v2 = MAX(max_v2,fabs(v2)+aeff);
 #else
           max_v2 = MAX(max_v2,fabs(v2)+sqrt((double)cf2sq));
@@ -163,7 +165,7 @@ void new_dt(MeshS *pM)
 #endif
 	}
         if (pGrid->Nx[2] > 1) {
-#ifdef	rad_hydro
+#ifdef	RADIATION_HYDRO
 	  max_v3 = MAX(max_v3,fabs(v3)+aeff);
 #else
           max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));

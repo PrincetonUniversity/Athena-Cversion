@@ -127,7 +127,7 @@ Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 Real expr_G  (const GridS *pG, const int i, const int j, const int k);
 #endif
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 Real expr_Er  (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr1 (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k);
@@ -1103,7 +1103,7 @@ Real expr_E(const GridS *pG, const int i, const int j, const int k) {
 }
 #endif
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 Real expr_Er	 (const GridS *pG, const int i, const int j, const int k) {
 	return pG->U[k][j][i].Er;
 }
@@ -1255,7 +1255,7 @@ static ConsFun_t getexpr(const int n, const char *expr)
   else if (strcmp(expr,"E")==0)
     return expr_E;
 #endif /* BAROTROPIC */
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
   else if (strcmp(expr,"Er")==0)
     return expr_Er;
   else if (strcmp(expr,"Fr1")==0)

@@ -76,7 +76,7 @@ typedef struct Cons_s{
 #ifndef BAROTROPIC
   Real E;			/* total energy density */
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined (MHD) || defined (RADIATION_MHD)
   Real B1c;			/* cell centered magnetic fields in 1,2,3 */
   Real B2c;
   Real B3c;
@@ -87,7 +87,7 @@ typedef struct Cons_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   Real Er;			/* Radiation Energy density */
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;
@@ -116,7 +116,7 @@ typedef struct Prim_s{
 #ifndef BAROTROPIC
   Real P;			/* pressure */
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined (MHD) || defined (RADIATION_MHD)
   Real B1c;                     /* cell centered magnetic fields in 1,2,3 */
   Real B2c;
   Real B3c;
@@ -124,7 +124,7 @@ typedef struct Prim_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   Real Er;			/* Radiation Energy density */
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;			/* Conserved variables and primitive variables are the same */
@@ -153,7 +153,7 @@ typedef struct Cons1D_s{
 #ifndef BAROTROPIC
   Real E;			/* total energy density */
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined (MHD) || defined (RADIATION_MHD)
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
@@ -163,7 +163,7 @@ typedef struct Cons1D_s{
 #ifdef CYLINDRICAL
   Real Pflux;	 		/* pressure component of flux */
 #endif
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   Real Er;			/* Radiation Energy density */
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;
@@ -192,14 +192,14 @@ typedef struct Prim1D_s{
 #ifndef BAROTROPIC
   Real P;			/* pressure */
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined (MHD) || defined (RADIATION_MHD)
   Real By;			/* cell centered magnetic fields in Y,Z */
   Real Bz;
 #endif /* MHD */
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /* density-normalized advected scalars */
 #endif
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   Real Er;			/* Radiation Energy density */
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
   Real Fr2;			/* Conserved variables and primitive variables are the same */
@@ -390,7 +390,7 @@ typedef struct Domain_s{
   VGFun_t ix2_BCFun, ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix3_BCFun, ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   VGFun_t rad_ix1_BCFun, rad_ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
   VGFun_t rad_ix2_BCFun, rad_ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
   VGFun_t rad_ix3_BCFun, rad_ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
@@ -515,7 +515,7 @@ typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 #endif /* PARTICLES */
 
 /* Define user provided opacity function to give absorption and total reaction coefficient */
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 typedef void (*OpacityFun_t)(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a);
 #endif
 

@@ -25,7 +25,7 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
 void bandec(Real **a, unsigned long n, int m1, int m2, Real **al,
 	unsigned long indx[], Real *d)

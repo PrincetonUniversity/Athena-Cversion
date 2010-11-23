@@ -39,10 +39,10 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
 #endif
 
 
-#ifdef rad_hydro
+#ifdef RADIATION_HYDRO
 void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eigenvalues[],
   Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE]);
-#endif /* rad_hydro */
+#endif /* RADIATION_HYDRO */
 
 /*  All of the lr_states_*.c files in this directory contain the same function
  *  names below */

@@ -1057,7 +1057,7 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 
 
 
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (rad_MHD)
 /*----------------------------------------------------------------------------*/
 /* 
  *   Input Arguments:

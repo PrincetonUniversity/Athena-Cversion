@@ -403,7 +403,7 @@ int main(int argc, char *argv[])
     }
   }
    /* set boundary condition for radiation quantities */
-#ifdef rad_hydro   
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
 	int DIM;
 	DIM = 0;
  	/* Judge the dimension to choose the right backeuler method */
@@ -514,7 +514,7 @@ int main(int argc, char *argv[])
 	/* For radiation code, backward Euler is done for the whole mesh *
 	 * before the integrator step *
          */
-#ifdef rad_hydro
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
  	switch(DIM){
  	case 1:
  	BackEuler_1d(&Mesh);
@@ -607,7 +607,7 @@ int main(int argc, char *argv[])
     }
 
 	/* set boundary conditions for radiation quantities */
-#ifdef rad_hydro	
+#ifdef RADIATION_HYDRO	
 	bvals_rad(&Mesh);
 #endif
 

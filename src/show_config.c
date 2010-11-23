@@ -28,8 +28,10 @@ void show_config(void)
   ath_pout(0," Gas properties:          HYDRO\n");
 #elif defined(MHD)
   ath_pout(0," Gas properties:          MHD\n");
-#elif defined(rad_hydro)
-  ath_pout(0," Gas properties:          rad_hydro\n");  
+#elif defined(RADIATION_HYDRO)
+  ath_pout(0," Gas properties:          RADIATION_HYDRO\n");  
+#elif defined(RADIATION_MHD)
+  ath_pout(0," Gas properties:          RADIATION_MHD\n");  
 #endif
 
 #if defined(ADIABATIC)
@@ -125,8 +127,8 @@ void show_config(void)
   ath_pout(0," Unsplit integrator:      ctu\n");
 #elif defined(VL_INTEGRATOR)
   ath_pout(0," Unsplit integrator:      vl\n");
-#elif defined(radMHD_INTEGRATOR)
-  ath_pout(0," Unsplit integrator:	radMHD\n");
+#elif defined(RADIATIONMHD_INTEGRATOR)
+  ath_pout(0," Unsplit integrator:	RADIATIONMHD\n");
 #endif
 
 #if defined(SINGLE_PREC)

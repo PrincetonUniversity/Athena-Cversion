@@ -76,11 +76,15 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],W6[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real dtodx = dt/dx;
+#ifdef RADIATION_HYDRO
+  Real aeff;
+#endif
 
 /* Set pointer to primitive variables */
   for (i=il-3; i<=iu+3; i++) pW[i] = (Real*)&(W[i]);
 
-#ifdef CTU_INTEGRATOR /* zero eigenmatrices if using CTU integrator */
+#if defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR)
+ /* zero eigenmatrices if using CTU integrator */
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
       rem[n][m] = 0.0;
@@ -223,7 +227,8 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       pWr[n] = Wlv[n];
     }
 
-#ifdef CTU_INTEGRATOR /* only include steps below if CTU integrator */
+#if defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR) 
+/* only include steps below if CTU integrator */
 
 /*--- Step 6. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
@@ -235,6 +240,11 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     esys_prim_adb_hyd(W[i].d,W[i].Vx,Gamma*W[i].P,ev,rem,lem);
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
+
+#ifdef RADIATION_HYDRO
+  aeff = eff_sound(W[i],dt);
+  esys_prim_rad_hyd(aeff, W[i].Vx, W[i].d, ev,rem,lem);
+#endif
 
 #ifdef MHD
 #ifdef ISOTHERMAL
@@ -258,8 +268,11 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue (CW eqn 1.12)
  */
-
+#ifdef RADIATION_HYDRO
+    qx = TWO_3RDS*MAX(ev[NWAVE-5],0.0)*dtodx;
+#else
     qx = TWO_3RDS*MAX(ev[NWAVE-1],0.0)*dtodx;
+#endif
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] -= 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
     }
@@ -278,8 +291,13 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     for (n=0; n<NWAVE; n++) {
       if (ev[n] > 0.) {
 	qa  = 0.0;
+#ifdef RADIATION_HYDRO
+	qb = 0.5*dtodx*(ev[NWAVE-5]-ev[n]);
+	qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-5]*ev[NWAVE-5] - ev[n]*ev[n]);
+#else
         qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
         qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
+#endif
 	for (m=0; m<NWAVE; m++) {
 	  qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
 	}
@@ -310,8 +328,13 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /* For HLL fluxes, subtract wave moving away from interface as well. */
 #if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
         qa = 0.0;
-        qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
+#ifdef RADIATION_HYDRO
+        qb = 0.5*dtodx*(ev[NWAVE-5]-ev[n]);
+        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-5]*ev[NWAVE-5] - ev[n]*ev[n]);
+#else
+	qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
         qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
+#endif
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
         }
@@ -324,8 +347,13 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /* Wave subtraction for advected quantities */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
-        qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
+#ifdef RADIATION_HYDRO
+        qb = 0.5*dtodx*(ev[NWAVE-5]-W[i].Vx);
+        qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-5]) - SQR(W[i].Vx));
+#else
+	qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
         qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-1]) - SQR(W[i].Vx));
+#endif
         pWl[n] += qb*(dW[m]-W6[m]) + qc*W6[m];
       } else if (W[i].Vx < 0.) {
         qb = 0.5*dtodx*(ev[0]-W[i].Vx);

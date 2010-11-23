@@ -31,9 +31,9 @@
 #ifdef HLLC_FLUX
 #ifndef SPECIAL_RELATIVITY
 
-#ifdef MHD
+#if defined (MHD) || defined (RADIATIO_MHD)
 #error : The HLLC flux only works for hydro.
-#endif /* MHD */
+#endif /* MHD or RADIATIO_MHD */
 
 /*----------------------------------------------------------------------------*/
 /* fluxes
@@ -51,6 +51,12 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #ifndef BAROTROPIC
   Real hroe;
 #endif
+/* dt is passed for RADIATIO_HYDRO code */
+#ifdef RADIATIO_HYDRO
+  Real dt=pFlux->d;
+  Real Proe, aeff;
+#endif
+
   Real ev[NWAVE];
   Real *pFl, *pFr, *pF;
   Cons1DS Fl,Fr;
@@ -81,6 +87,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   v2roe = (sqrtdl*Wl.Vy + sqrtdr*Wr.Vy)*isdlpdr;
   v3roe = (sqrtdl*Wl.Vz + sqrtdr*Wr.Vz)*isdlpdr;
 
+#ifdef RADIATIO_HYDRO
+  Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
+#endif
+
 /*
  * Following Roe(1981), the enthalpy H=(E+P)/d is averaged for adiabatic flows,
  * rather than E or P directly.  sqrtdl*hl = sqrtdl*(el+pl)/dl = (el+pl)/sqrtdl
@@ -93,25 +103,41 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /*--- Step 3. ------------------------------------------------------------------
  * Compute eigenvalues using Roe-averaged values
  */
-
+#ifdef HYDRO
 #ifdef ISOTHERMAL
   esys_roe_iso_hyd(v1roe, v2roe, v3roe, ev, NULL, NULL);
 #else
   esys_roe_adb_hyd(v1roe, v2roe, v3roe, hroe, ev, NULL, NULL);
 #endif /* ISOTHERMAL */
+#endif/* HYDRO */
+
+#ifdef RADIATIO_HYDRO
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, ev, NULL, NULL);
+#endif
+
 
 /*--- Step 4. ------------------------------------------------------------------
  * Compute the max and min wave speeds
  */
-
+#ifndef RADIATIO_HYDRO
 #ifdef ISOTHERMAL
   cfl = cfr = Iso_csound;
 #else
   cfl = sqrt((double)(Gamma*Wl.P/Wl.d));
   cfr = sqrt((double)(Gamma*Wr.P/Wr.d));
 #endif
-
+#else
+  aeff = eff_sound(Wl,dt);
+  cfl = aeff;
+  aeff = eff_sound(Wr,dt);	
+  cfr = aeff;
+#endif
+/* For radiation code, the maximum eigen value is at ev[4], not ev[NWAVE-1] */
+#ifdef RADIATIO_HYDRO
+  ar = MAX(ev[4],(Wr.Vx + cfr));
+#else
   ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
+#endif
   al = MIN(ev[0]      ,(Wl.Vx - cfl));
 
   bp = ar > 0.0 ? ar : 0.0;
