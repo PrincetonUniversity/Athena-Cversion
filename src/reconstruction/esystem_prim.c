@@ -479,10 +479,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   right_eigenmatrix[3][2] = -qf*bet3;
 /*right_eigenmatrix[3][3] = 0.0; */
   right_eigenmatrix[3][4] = -right_eigenmatrix[3][2];
-  right_eigenmatrix[3][5] = -bet2;/* esys_prim_adb_mhd: ADIABATIC MHD
- *   Input: d, v1, p, b1, b2, b3 = density, velocities, pressure, and B field
- *   Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
- */
+  right_eigenmatrix[3][5] = -bet2;
   right_eigenmatrix[3][6] = -right_eigenmatrix[3][0];
 
   right_eigenmatrix[4][0] = d*asq*alpha_f;
@@ -494,8 +491,7 @@ void esys_prim_adb_mhd(const Real d, const Real v1, const Real rho_a2,
   right_eigenmatrix[4][6] = right_eigenmatrix[4][0];
 
   right_eigenmatrix[5][0] = as*bet2;
-  right_eigenmatrix[5][1] = -bet3*s*sqrtd;Real eigenvalues[],
-  Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
+  right_eigenmatrix[5][1] = -bet3*s*sqrtd;
   right_eigenmatrix[5][2] = -af*bet2;
 /*right_eigenmatrix[5][3] = 0.0; */
   right_eigenmatrix[5][4] = right_eigenmatrix[5][2];

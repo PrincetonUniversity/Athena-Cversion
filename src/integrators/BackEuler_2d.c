@@ -909,7 +909,7 @@ void BackEuler_2d(MeshS *pM)
 
 
 /* Update the ghost zones for different boundary condition to be used later */
-		bvals_rad(pM);
+		bvals_radMHD(pM);
 
 
 /*-----------Finish---------------------*/

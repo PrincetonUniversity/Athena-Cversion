@@ -13,7 +13,10 @@ CORE_OBJ = conduction.o \
 	   integrate_diffusion.o \
            get_eta.o \
            resistivity.o \
-           viscosity.o
+           viscosity.o \
+	   anisotropic_conduction.o \
+	   isotropic_conduction.o \
+	   braginskii.o \
 
 OBJ = $(CORE_OBJ)
 

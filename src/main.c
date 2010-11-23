@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
  	/* Judge the dimension to choose the right backeuler method */
 	for (i=0; i<3; i++) if(Mesh.Nx[i] > 1) DIM++;
 	
-	bvals_rad(&Mesh);
+	bvals_radMHD(&Mesh);
 #endif
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */
@@ -640,7 +640,7 @@ int main(int argc, char *argv[])
 
 	/* set boundary conditions for radiation quantities */
 #ifdef RADIATION_HYDRO	
-	bvals_rad(&Mesh);
+	bvals_radMHD(&Mesh);
 #endif
 
 

@@ -91,7 +91,7 @@ void bvals_mhd(DomainS *pDomain);
 
 /* set boundary condition for radiation variable */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-void bvals_rad(MeshS *pM);
+void bvals_radMHD(MeshS *pM);
 #endif
 
 /*----------------------------------------------------------------------------*/
