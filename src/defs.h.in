@@ -59,6 +59,10 @@
 #define @VISCOSITY_MODE@
 #define @CONDUCTION_MODE@
 
+/* Radiation */
+#define @RADIATION_TRANSFER_DEFINE@
+#define @RADIATION_TRANSFER_ALGORITHM@
+
 /* special relativity */
 #define @SPECIAL_RELATIVITY_MODE@
 
@@ -108,6 +112,9 @@
 /* First order flux correction in VL integrator:
  * FIRST_ORDER_FLUX_CORRECTION or NO_FIRST_ORDER_FLUX_CORRECTION */
 #define @FOFC_MODE@
+
+/* multigrid radiative transfer */
+#define @RAD_MULTIG_MODE@
 
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */

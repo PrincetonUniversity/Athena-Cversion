@@ -15,6 +15,7 @@
  * CONTAINS PUBLIC FUNCTIONS: 
  *   cc_pos() - given i,j,k returns cell-centered x1,x2,x3
  *   fc_pos() - given i,j,k returns face-centered x1,x2,x3
+ *   ccr_pos() - given i,j,k returns cell-centered x1,x2,x3 for RadGridS
  *   x1cc - given i, returns cell-centered x1. Same for x2cc and x3cc
  *   celli - given x, returns containing cell first index. Same holds for cellj  *and cellk
  *============================================================================*/
@@ -110,3 +111,17 @@ Real x3cc(const Grid* pGrid, const int k)
 }
 
 #endif /* PARTICLES */
+
+#ifdef RADIATION_TRANSFER
+/*----------------------------------------------------------------------------*/
+/* ccr_pos:  */
+
+void ccr_pos(const RadGridS *pRG, const int i, const int j,const int k,
+	    Real *px1, Real *px2, Real *px3)
+{
+  *px1 = pRG->MinX[0] + ((Real)(i - pRG->is) + 0.5)*pRG->dx1;
+  *px2 = pRG->MinX[1] + ((Real)(j - pRG->js) + 0.5)*pRG->dx2;
+  *px3 = pRG->MinX[2] + ((Real)(k - pRG->ks) + 0.5)*pRG->dx3;
+  return;
+}
+#endif /* RADIATION_TRANSFER */

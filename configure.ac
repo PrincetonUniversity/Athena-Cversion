@@ -18,8 +18,12 @@
 #   --with-eos=[isothermal, adiabatic]                       (equation of state)
 #   --with-nscalars=n                               (number of advected scalars)
 #   --with-gravity=[fft,fft_obc,multigrid]                        (self-gravity)
+#   --with-resistivity=[ohmic,hall]                       (explicit resistivity)
+#   --with-viscosity=[ns,braginskii]                        (explicit viscosity)
+#   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #   --with-particles=[feedback,passive]              (dust particle integration)
 #   --with-coord=[cartesian,cylindrical]                     (coordinate system)
+#   --with-radiation_transfer=[jacobi,gausseid]             (radiative transfer)
 #
 # PHYSICS "features":
 #   --enable-conduction                            (explicit thermal conduction)
@@ -29,8 +33,7 @@
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
-#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]
-#								 (flux function)
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]   (flux function)
 #   --with-integrator=[ctu,vl]           (unsplit integration algorithm)
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
 #
@@ -45,6 +48,7 @@
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
 #   --enable-smr                                        (static mesh refinement)
+#   --enable-multig                (use multigrid method for radiative transfer)
 #
 #-------------------------------------------------------------------------------
 # generic things
@@ -169,6 +173,80 @@ else
   AC_MSG_ERROR([expected --with-gravity=fft, fft_obc, or multigrid])
 fi
 
+# PHYSICS PACKAGE: resistivity
+#   --with-resistivity=[ohmic,hall]
+
+# default for difusivities macro is none.  If any of resistivity, viscosity, or
+# thermal conduction is enabled below, diffusivities will be defined
+AC_SUBST(DIFFUSIVITIES_DEFINE)
+DIFFUSIVITIES_DEFINE="NO_EXPLICIT_DIFFUSION"
+
+AC_SUBST(RESISTIVITY_ALGORITHM)
+AC_ARG_WITH(resistivity, [  --with-resistivity=RESISTIVITY_ALGORITHM  Type of resistivity (ohmic,hall)],
+                resistivity_algorithm=$withval, resistivity_algorithm=none)
+
+if test "$resistivity_algorithm" = "ohmic"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  RESISTIVITY_USER="Ohmic"
+  RESISTIVITY_ALGORITHM="OHMIC"
+elif test "$resistivity_algorithm" = "hall"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  RESISTIVITY_USER="Hall"
+  RESISTIVITY_ALGORITHM="HALL_MHD"
+elif test "$resistivity_algorithm" = "none"; then
+  RESISTIVITY_USER="OFF"
+  RESISTIVITY_ALGORITHM="NO_RESISTIVITY"
+else
+  AC_MSG_ERROR([expected --with-resistivity=ohmic or hall])
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS PACKAGE: viscosity
+#   --with-viscosity=[ns,braginskii]
+
+AC_SUBST(VISCOSITY_ALGORITHM)
+AC_ARG_WITH(viscosity, [  --with-viscosity=VISCOSITY_ALGORITHM  Type of viscosity (ns,braginskii)],
+                viscosity_algorithm=$withval, viscosity_algorithm=none)
+
+if test "$viscosity_algorithm" = "ns"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  VISCOSITY_USER="Navier-Stokes"
+  VISCOSITY_ALGORITHM="NAVIER_STOKES"
+elif test "$viscosity_algorithm" = "braginskii"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  VISCOSITY_USER="Braginskii"
+  VISCOSITY_ALGORITHM="BRAGINSKII"
+elif test "$viscosity_algorithm" = "none"; then
+  VISCOSITY_USER="OFF"
+  VISCOSITY_ALGORITHM="NO_VISCOSITY"
+else
+  AC_MSG_ERROR([expected --with-viscosity=ns or braginskii])
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS PACKAGE: thermal conduction
+#   --with-conduction=[isotropic,anisotropic]
+
+AC_SUBST(CONDUCTION_ALGORITHM)
+AC_ARG_WITH(conduction, [  --with-conduction=CONDUCTION_ALGORITHM  Type of conduction (isotropic,anisotropic)],
+                conduction_algorithm=$withval, conduction_algorithm=none)
+
+if test "$conduction_algorithm" = "isotropic"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  CONDUCTION_USER="isotropic"
+  CONDUCTION_ALGORITHM="ISOTROPIC_CONDUCTION"
+elif test "$conduction_algorithm" = "anisotropic"; then
+  DIFFUSIVITIES_DEFINE="EXPLICIT_DIFFUSION"
+  CONDUCTION_USER="anisotropic"
+  CONDUCTION_ALGORITHM="ANISOTROPIC_CONDUCTION"
+elif test "$conduction_algorithm" = "none"; then
+  CONDUCTION_USER="OFF"
+  CONDUCTION_ALGORITHM="NO_CONDUCTION"
+else
+  AC_MSG_ERROR([expected --with-conduction=isotropic or anisotropic])
+fi
+
+
 #-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: particles
 #   --with-particles=[feedback,passive]
@@ -212,6 +290,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+
 # PHYSICS FEATURE: explicit thermal conduction
 #  --enable-conduction
   
@@ -241,6 +320,33 @@ if test "$ok" = "yes"; then
 else
   RESISTIVITY_MODE="NO_RESISTIVITY"
   RESISTIVITY_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS PACKAGE: radiation_transfer
+#   --with-radiation_transfer=[jacobi,gausseid]
+
+AC_SUBST(RADIATION_TRANSFER_ALGORITHM)
+AC_SUBST(RADIATION_TRANSFER_DEFINE)
+AC_ARG_WITH(radiation_transfer, [  --with-radiation_transfer=RADIATION_TRANSFER_ALGORITHM  
+				radiative transfer algorithm (jacobi, gausseid)], 
+				radiation_transfer_algorithm=$withval,
+		       		radiation_transfer_algorithm=none)
+
+if test "$radiation_transfer_algorithm" = "jacobi"; then
+  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="jacobi"
+  RADIATION_TRANSFER_ALGORITHM="JACOBI"
+elif test "$radiation_transfer_algorithm" = "gausseid"; then
+  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="gausseid"
+  RADIATION_TRANSFER_ALGORITHM="GAUSSEID"
+elif test "$radiation_transfer_algorithm" = "none"; then
+  RADIATION_TRANSFER_DEFINE="NO_RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="OFF"
+  RADIATION_TRANSFER_ALGORITHM="RADIATION_TRANSFER_NONE"
+else
+  AC_MSG_ERROR([expected --with-radiation_transfer=jacobi or gausseid])
 fi
 
 #-------------------------------------------------------------------------------
@@ -580,6 +686,29 @@ if test "$with_coord" = "cylindrical"; then
 fi
 
 #-------------------------------------------------------------------------------
+
+# ALGORITHM FEATURE: multigrid solution of radiative transfer
+#   --enable-multig (default is no multigrid)
+
+AC_SUBST(RAD_MULTIG_MODE)
+AC_ARG_ENABLE(multig, [  --enable-multig           enable multigrid R.T.], ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+if test "$with_radiation_transfer" = "jacobi"; then
+  RAD_MULTIG_MODE="RAD_MULTIG"
+  RAD_MULTIG_USER="ON"
+elif test "$with_radiation_transfer" = "gausseid"; then
+  RAD_MULTIG_MODE="RAD_MULTIG"
+  RAD_MULTIG_USER="ON"
+else
+  AC_MSG_ERROR([multigrid only works with jacobi or gausseid])
+fi
+else
+  RAD_MULTIG_MODE="NO_RAD_MULTIG"
+  RAD_MULTIG_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+
 # check for various library functions
 
 AC_PROG_GCC_TRADITIONAL
@@ -600,7 +729,8 @@ AC_SUBST(WARNING2)
 WARNING1="WARNING! This file has been automatically generated by configure."
 WARNING2="Any changes to it will be overwritten the next time configure is run."
 
-AC_CONFIG_FILES(Makefile Makeoptions src/Makefile src/defs.h src/fftsrc/Makefile src/gravity/Makefile src/integrators/Makefile src/integrators/MatrixSolver/Makefile src/microphysics/Makefile src/reconstruction/Makefile src/rsolvers/Makefile src/particles/Makefile)
+AC_CONFIG_FILES(Makefile Makeoptions src/Makefile src/defs.h src/fftsrc/Makefile src/gravity/Makefile src/integrators/Makefile src/integrators/MatrixSolver/Makefile src/microphysics/Makefile src/reconstruction/Makefile src/rsolvers/Makefile src/particles/Makefile src/radiation/Makefile)
+
 AC_OUTPUT
 
 echo ""
@@ -622,6 +752,7 @@ echo "Resistivity:             $RESISTIVITY_MODE_USER"
 echo "Viscosity:               $VISCOSITY_MODE_USER"
 echo "Thermal conduction:      $CONDUCTION_MODE_USER"
 echo "Particles:               $PARTICLES_USER"
+echo "Radiation transfer:      $RADIATION_TRANSFER_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
 echo "--- Algorithm Options ----"
@@ -640,4 +771,4 @@ echo "FARGO:                   $FARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
-
+echo "multigrid transfer:      $RAD_MULTIG_USER"

@@ -65,6 +65,19 @@ Real R_ideal;		/* Value of ideal gas constant under current unit. Used to calcul
 OpacityFun_t Opacity = NULL;
 #endif
 
+
+#ifdef RADIATION_TRANSFER
+RadInitFun_t get_thermal_source = NULL;
+RadInitFun_t get_thermal_fraction = NULL;
+RadInitFun_t get_total_opacity = NULL;
+#endif
+
+#ifdef RAD_MULTIG
+int img = 0;
+int nmgrid;
+#endif
+
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -116,11 +129,25 @@ extern ShearFun_t ShearProfile;
 #endif
 #endif
 
+
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 extern Real Prat;
 extern Real Crat;
 extern OpacityFun_t Opacity;
 extern Real R_ideal;		 	
+#endif
+
+
+=======
+#ifdef RADIATION_TRANSFER
+extern RadInitFun_t get_thermal_source;
+extern RadInitFun_t get_thermal_fraction;
+extern RadInitFun_t get_total_opacity;
+#endif
+
+#ifdef RAD_MULTIG
+extern int img;
+extern int nmgrid;
 #endif
 
 

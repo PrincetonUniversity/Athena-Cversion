@@ -96,6 +96,18 @@ PARTICLES_OBJ = particles/dump_particle_history.o\
 	        particles/bvals_particle.o \
 	        particles/utils_particle.o
 
+RADIATION_OBJ = radiation/init_radiation.o\
+		radiation/hydro_to_rad.o\
+		radiation/formal_solution.o\
+		radiation/utils_rad.o\
+		radiation/bvals_rad.o\
+		radiation/jacobi_1d.o\
+		radiation/gausseid_1d.o\
+		radiation/multig_1d.o\
+		radiation/jacobi_2d.o\
+		radiation/gausseid_2d.o\
+		radiation/multig_2d.o
+
 RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \
 		     reconstruction/lr_states_plm.o \
@@ -118,7 +130,7 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/two_shock.o 
 	      
 
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 

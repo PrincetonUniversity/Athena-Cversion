@@ -36,6 +36,11 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
   int ndata0,ndata1,ndata2;
   float *data;   /* points to 3*ndata0 allocated floats */
   double x1, x2, x3;
+#ifdef RADIATION_TRANSFER
+  RadGridS *pRG;
+  int ifr,nf;
+  int irl,iru,jrl,jru,krl,kru;
+#endif
 #if (NSCALARS > 0)
   int n;
 #endif
@@ -54,6 +59,14 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
         il = pGrid->is, iu = pGrid->ie;
         jl = pGrid->js, ju = pGrid->je;
         kl = pGrid->ks, ku = pGrid->ke;
+
+#ifdef RADIATION_TRANSFER
+	pRG = pM->Domain[nl][nd].RadGrid;
+	nf = pRG->nf;
+        irl = pRG->is, iru = pRG->ie;
+        jrl = pRG->js, jru = pRG->je;
+        krl = pRG->ks, kru = pRG->ke;
+#endif
 
 #ifdef WRITE_GHOST_CELLS
         iu = pGrid->ie + nghost;
@@ -286,6 +299,61 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
           }
         }
 #endif
+
+
+#ifdef RADIATION_TRANSFER
+#ifndef WRITE_GHOST_CELLS
+/* Write mean intensities for each frequency */
+	fprintf(pfile,"\nSCALARS mean_intensity float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+	      data[i-irl] = (float)pRG->R[k][j][i][0].J;
+	      //for (ifr=0; ifr<nf; ifr++) {
+	      //data[nf*(i-irl)+ifr] = (float)pRG->R[k][j][i][ifr].J;
+	      //}
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
+/* Write components of 2nd moment for each frequency */
+	fprintf(pfile,"\nSCALARS second_mom_00 float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+	      data[i-irl] = (float)pRG->R[k][j][i][0].K[0];
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
+	fprintf(pfile,"\nSCALARS second_mom_01 float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+	      data[i-irl] = (float)pRG->R[k][j][i][0].K[1];
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
+	fprintf(pfile,"\nSCALARS second_mom_11 float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+	      data[i-irl] = (float)pRG->R[k][j][i][0].K[2];
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
+#endif /* WRITE_GHOST_CELLS */
+#endif /* RADIATION_TRANSFER */
 
 /* Write passive scalars */
 

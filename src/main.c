@@ -320,6 +320,9 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   init_particle(&Mesh);
 #endif
+#ifdef RADIATION_TRANSFER
+  init_radiation(&Mesh);
+#endif
 
 /*--- Step 5. ----------------------------------------------------------------*/
 /* Set initial conditions, either by reading from restart or calling problem
@@ -388,7 +391,9 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #endif
-
+#ifdef RADIATION_TRANSFER
+  bvals_rad_init(&Mesh);
+#endif
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -442,6 +447,14 @@ int main(int argc, char *argv[])
 #endif
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_init(&Mesh);
+#endif
+#ifdef RADIATION_TRANSFER
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+	  radiation_temp_array_init(&(Mesh.Domain[nl][nd]));
+	}        
+      }}
 #endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
@@ -508,6 +521,23 @@ int main(int argc, char *argv[])
     }
 #endif
 
+/* Loop over all Domains, solve radiative transfer, and perform an
+ * operator split update of the hydro energy equation with radiation
+ * source term */
+
+#ifdef RADIATION_TRANSFER
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+/* compute radiation variables from conserved variables */
+	  hydro_to_rad(&(Mesh.Domain[nl][nd]));  
+/* solve radiative transfer */
+	  formal_solution(&(Mesh.Domain[nl][nd]));
+	  rad_to_hydro(&(Mesh.Domain[nl][nd])); 
+	}        
+      }}
+#endif /* RADIATION_TRANSFER */
+
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
 
@@ -534,7 +564,7 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
-          (*Integrate)(&(Mesh.Domain[nl][nd]));
+	  (*Integrate)(&(Mesh.Domain[nl][nd]));
 
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));
@@ -542,9 +572,11 @@ int main(int argc, char *argv[])
           advect_particles(&level0_Grid, &level0_Domain);
 #endif
 #endif /* FARGO */
+
         }
       }
     }
+
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
@@ -729,6 +761,10 @@ int main(int argc, char *argv[])
   integrate_diff_destruct();
 #endif
   par_close();
+#ifdef RADIATION_TRANSFER
+ radiation_destruct(&Mesh);
+#endif
+
 
 #ifdef MPI_PARALLEL
   MPI_Finalize();

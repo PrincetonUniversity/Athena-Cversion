@@ -196,6 +196,16 @@ printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
       pM->BCFlag_ox1 = par_geti_def(block,"bc_ox1",0);
       pM->BCFlag_ox2 = par_geti_def(block,"bc_ox2",0);
       pM->BCFlag_ox3 = par_geti_def(block,"bc_ox3",0);
+
+#ifdef RADIATION_TRANSFER
+/* Set radiation BC flags on root domain */
+      pM->RBCFlag_ix1 = par_geti_def(block,"rbc_ix1",0);
+      pM->RBCFlag_ix2 = par_geti_def(block,"rbc_ix2",0);
+      pM->RBCFlag_ix3 = par_geti_def(block,"rbc_ix3",0);
+      pM->RBCFlag_ox1 = par_geti_def(block,"rbc_ox1",0);
+      pM->RBCFlag_ox2 = par_geti_def(block,"rbc_ox2",0);
+      pM->RBCFlag_ox3 = par_geti_def(block,"rbc_ox3",0);
+#endif
     }
   }
 
@@ -627,6 +637,9 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
       sprintf(block,"domain%d",pD->InputBlock);
       pD->Grid = NULL;
+#ifdef RADIATION_TRANSFER
+      pD->RadGrid = NULL;
+#endif
 
 /* Loop over GData array, and if there is a Grid assigned to this proc, 
  * allocate it */
@@ -637,6 +650,10 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
         if (pD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
           if ((pD->Grid = (GridS*)malloc(sizeof(GridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a Grid for %s\n",block);
+#ifdef RADIATION_TRANSFER
+          if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+            ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+#endif
         }
       }}}
     }
