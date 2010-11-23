@@ -31,7 +31,7 @@
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
 
-void bvals_rad(MeshS *pM)
+void bvals_radMHD(MeshS *pM)
 {
 	GridS *pGrid=(pM->Domain[0][0].Grid);
 	int is = pGrid->is, ie = pGrid->ie;
