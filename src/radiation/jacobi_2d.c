@@ -215,7 +215,7 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
                   bm1 * pRG->R[ks][j   ][i+sx][ifr].S;
 
 #ifdef INTERP_2D /* Use parabolic interpolation for intensity */
-	     w0 = 0.5 * bm1 * (1.0 + bm1);  // Modify to compute only once
+	     w0 = 0.5 * bm1 * (1.0 + bm1);  /* Modify to compute only once */
 	     w1 = bm * (1.0 + bm1);
 	     w2 = -0.5 * bm * bm1;
 
@@ -525,10 +525,12 @@ static void set_bvals_imu_y_j(RadGridS *pRG, int j, int sy)
       for(m=0; m<ng; m++) {
 /* set ix1/ox1 boundary conditions*/
 #ifdef INTERP_2D
-	//	if ((j >= pRG->js+1) && (j <= pRG->je-1)) {
+	/*	if ((j >= pRG->js+1) && (j <= pRG->je-1)) {
+	*/
 	  imuo[is-1][ifr][l][m][2] = imuo[is-1][ifr][l][m][1];
 	  imuo[ie+1][ifr][l][m][2] = imuo[ie+1][ifr][l][m][1];
-	  //}
+	 /* }
+	*/
 #endif
 	imuo[is-1][ifr][l][m][1] = imuo[is-1][ifr][l][m][0];
 	imuo[ie+1][ifr][l][m][1] = imuo[ie+1][ifr][l][m][0];

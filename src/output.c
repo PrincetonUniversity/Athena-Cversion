@@ -132,6 +132,12 @@ Real expr_Er  (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr1 (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr3 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Edd11 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Edd21 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Edd22 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Edd31 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Edd32 (const GridS *pG, const int i, const int j, const int k);
+Real expr_Edd33 (const GridS *pG, const int i, const int j, const int k);
 #endif
 
 
@@ -345,6 +351,49 @@ Now use the default one.\n");
           block,fmt);
       }
     }
+
+/* Next handle output the six components of Eddington factor .
+*  This is only used for RADIATION_HYDRO and RADIATION_MHD
+*/
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+    
+    if(strcmp(new_out.out,"Edd") == 0){
+/* check for valid data dump: dump format = {bin, tab, vtk} */
+      if(par_exist(block,"name")){
+        /* The output function is user defined - get its name */
+        char *name = par_gets(block,"name");
+        /* Get a pointer to the output function via its name */
+        new_out.out_fun = get_usr_out_fun(name);
+        if(new_out.out_fun == NULL){
+          free_output(&new_out);
+          ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
+                    name,block,fmt);
+        }
+        free(name);  name = NULL;
+        goto add_it;
+      }
+      else if (strcmp(fmt,"bin")==0){
+        new_out.out_fun = dump_binary;
+        goto add_it;
+      }
+      else if (strcmp(fmt,"tab")==0){
+        new_out.out_fun = dump_tab_Edd;
+#ifdef PARTICLES
+        new_out.out_pargrid = 1; /* bin particles */
+#endif
+        goto add_it;
+      }
+      else if (strcmp(fmt,"vtk")==0){
+        new_out.out_fun = dump_vtk;
+        goto add_it;
+      }
+      else{    /* Unknown data dump (fatal error) */
+        ath_error("Unsupported dump mode for %s/out_fmt=%s for out=Edd\n",
+          block,fmt);
+      }
+    }
+#endif
+
 
 /* Now handle data outputs (ouput of SINGLE variable).  There are lots more
  * options for outputs than dumps.  Need to choose variable, format, size
@@ -1116,6 +1165,24 @@ Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k) {
 Real expr_Fr3 (const GridS *pG, const int i, const int j, const int k) {
 	return pG->U[k][j][i].Fr3;
 }
+Real expr_Edd11 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Edd_11;
+}
+Real expr_Edd21 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Edd_21;
+}
+Real expr_Edd22 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Edd_22;
+}
+Real expr_Edd31 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Edd_31;
+}
+Real expr_Edd32 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Edd_32;
+}
+Real expr_Edd33 (const GridS *pG, const int i, const int j, const int k) {
+	return pG->U[k][j][i].Edd_33;
+}
 #endif
 
 
@@ -1264,6 +1331,18 @@ static ConsFun_t getexpr(const int n, const char *expr)
     return expr_Fr2;
   else if (strcmp(expr,"Fr3")==0)
     return expr_Fr3;
+  else if (strcmp(expr,"Edd11")==0)
+    return expr_Edd11;
+  else if (strcmp(expr,"Edd21")==0)
+    return expr_Edd21;
+  else if (strcmp(expr,"Edd22")==0)
+    return expr_Edd22;
+  else if (strcmp(expr,"Edd31")==0)
+    return expr_Edd31;
+  else if (strcmp(expr,"Edd32")==0)
+    return expr_Edd32;
+  else if (strcmp(expr,"Edd33")==0)
+    return expr_Edd33;
 #endif
 
 #ifdef MHD

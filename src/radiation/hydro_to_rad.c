@@ -107,7 +107,7 @@ void rad_to_hydro(DomainS *pD)
 	esource=0.0;
 	for(ifr=0; ifr<nf; ifr++) {
 	  kappa = pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi;
-	  // Must add frequency weights
+	  /* Must add frequency weights */
 	  esource += kappa * (pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B);
 	}
 	/*printf("%d %g %g %g %g %g %g\n",i,4.0*PI*esource,pG->U[kg][jg][ig].E-0.9,

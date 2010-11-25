@@ -131,7 +131,7 @@ Real x2cc(const GridS *pGrid, const int j);
 int cellk(const GridS *pGrid, const Real z, const Real dx3_1, int *k, Real *c);
 Real x3cc(const GridS *pGrid, const int k);
 #endif
-#ifdef RADIATION
+#ifdef RADIATION_TRANSFER
 void ccr_pos(const RadGridS *pRG, const int i, const int j,const int k,
             Real *px1, Real *px2, Real *px3);
 #endif
@@ -188,6 +188,9 @@ void dump_binary  (MeshS *pM, OutputS *pOut);
 void dump_history (MeshS *pM, OutputS *pOut);
 void dump_tab_cons(MeshS *pM, OutputS *pOut);
 void dump_tab_prim(MeshS *pM, OutputS *pOut);
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+void dump_tab_Edd (MeshS *pM, OutputS *pOut);
+#endif
 void dump_vtk     (MeshS *pM, OutputS *pOut);
 
 /*----------------------------------------------------------------------------*/
@@ -283,6 +286,12 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 Real eff_sound(const Prim1DS W, Real dt);
+#ifdef RADIATION_TARNSFER
+/* Function to calculate Eddington tensor */
+
+void Eddington_FUN(GridS *pG, RadGridS *pRG);
+
+#endif
 #endif
 
 #endif /* PROTOTYPES_H */

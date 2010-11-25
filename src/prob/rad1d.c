@@ -67,9 +67,9 @@ void problem(DomainS *pDomain)
     tau[i] = pow(10.0,-3.0 + 10.0 * ((x1-xbtm)/(xtop-xbtm)));
   }
 
-  //for(i=pG->is; i<=pG->ie+1; i++) 
-  //  tau[i] = pow(10.0,-3.0 + pG->dx1 * (Real)(i-pG->is-0.5) * 10.0);
-
+  /*for(i=pG->is; i<=pG->ie+1; i++)  
+  *  tau[i] = pow(10.0,-3.0 + pG->dx1 * (Real)(i-pG->is-0.5) * 10.0);
+   */	
   for (i=is-1; i<=ie+1; i++) {
     pG->U[ks][js][i].d  = (tau[i+1] - tau[i]) / pG->dx1;
   }

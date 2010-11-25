@@ -310,9 +310,10 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
 	      data[i-irl] = (float)pRG->R[k][j][i][0].J;
-	      //for (ifr=0; ifr<nf; ifr++) {
-	      //data[nf*(i-irl)+ifr] = (float)pRG->R[k][j][i][ifr].J;
-	      //}
+	      /*for (ifr=0; ifr<nf; ifr++) {
+	       *data[nf*(i-irl)+ifr] = (float)pRG->R[k][j][i][ifr].J;
+	      *}
+		*/
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);

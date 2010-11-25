@@ -138,7 +138,6 @@ extern Real R_ideal;
 #endif
 
 
-
 #ifdef RADIATION_TRANSFER
 extern RadInitFun_t get_thermal_source;
 extern RadInitFun_t get_thermal_fraction;

@@ -1057,7 +1057,7 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 
 
 
-#if defined (RADIATION_HYDRO) || defined (rad_MHD)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 /*----------------------------------------------------------------------------*/
 /* 
  *   Input Arguments:
@@ -1088,5 +1088,90 @@ Real eff_sound(const Prim1DS W, Real dt)
 
 	return aeff;
 }
+
+
+
+#ifdef RADIATION_TRANSFER 
+/* Function to calculate the eddington tensor.
+*  Only used when radiation_transfer module is defined
+* Only work for 1 frequency now 
+*/
+
+void Eddington_FUN (const GridS *pG, const RadGridS *pRG)
+{
+	int i, j, k, DIM;
+	int is, ie, js, je, ks, ke;
+	int ri, rj, rk;
+	Real J;
+	DIM = 0;
+	is = pG->is;
+	ie = pG->ie;
+	js = pG->js;
+	je = pG->je;
+	ks = pG->ks;
+	ke = pG->ke;
+
+	/* Note that in pRG, is = 1, ie = is + Nx *
+ 	 * that is, for radiation_transfer, there is only one ghost zone
+	 * for hydro ,there is 4 ghost zone
+	 */
+ 
+
+	for (i=0; i<3; i++) if(pG->Nx[i] > 1) ++DIM;
+
+	
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+				if(DIM == 1){
+					rj = j;
+					rk = k;
+					ri = i -nghost + 1;					
+				}
+				else if(DIM == 2){		
+					rk = k;						
+					ri = i - nghost + 1;
+					rj = j - nghost + 1;
+				}
+				else{		
+					ri = i - nghost + 1;
+					rj = j - nghost + 1;
+					rk = k - nghost + 1;
+				}
+
+
+
+				J = pRG->R[rk][rj][ri][0].J;
+				if(fabs(J) < TINY_NUMBER)
+					ath_error("[Eddington_FUN]: Zeroth momentum of specific intensity is zero at i: %d  j:  %d  k:  %d\n",i,j,k);
+
+				if(DIM == 1)
+					pG->U[k][j][i].Edd_11 = pRG->R[rk][rj][ri][0].K[0]/J;
+				else if(DIM == 2){
+					pG->U[k][j][i].Edd_11 = pRG->R[rk][rj][ri][0].K[0]/J;
+					pG->U[k][j][i].Edd_21 = pRG->R[rk][rj][ri][0].K[1]/J;
+					pG->U[k][j][i].Edd_22 = pRG->R[rk][rj][ri][0].K[2]/J;
+				}
+				else if(DIM == 3){
+					pG->U[k][j][i].Edd_11 = pRG->R[rk][rj][ri][0].K[0]/J;
+					pG->U[k][j][i].Edd_21 = pRG->R[rk][rj][ri][0].K[1]/J;
+					pG->U[k][j][i].Edd_22 = pRG->R[rk][rj][ri][0].K[2]/J;
+					pG->U[k][j][i].Edd_31 = pRG->R[rk][rj][ri][0].K[3]/J;
+					pG->U[k][j][i].Edd_32 = pRG->R[rk][rj][ri][0].K[4]/J;
+					pG->U[k][j][i].Edd_33 = pRG->R[rk][rj][ri][0].K[5]/J;
+				}
+				else
+					ath_error("Dimension is not right!\n");
+	}
+
+}
+
+#endif
+
+/* end radiation_transfer*/
+
+
 #endif 
+/* end radiation_hydro or radiation_MHD */
 

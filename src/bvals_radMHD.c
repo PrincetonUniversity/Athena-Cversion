@@ -66,6 +66,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is+(i-1)].Fr1; /* reflect 1-flux. */
 				pGrid->U[k][j][is-i].Sigma_a  =  pGrid->U[k][j][is+(i-1)].Sigma_a;
 				pGrid->U[k][j][is-i].Sigma_t  =  pGrid->U[k][j][is+(i-1)].Sigma_t;
+				pGrid->U[k][j][is-i].Edd_11  =  pGrid->U[k][j][is+(i-1)].Edd_11;
+				pGrid->U[k][j][is-i].Edd_21  =  pGrid->U[k][j][is+(i-1)].Edd_21;
+				pGrid->U[k][j][is-i].Edd_22  =  pGrid->U[k][j][is+(i-1)].Edd_22;
+				pGrid->U[k][j][is-i].Edd_31  =  pGrid->U[k][j][is+(i-1)].Edd_31;
+				pGrid->U[k][j][is-i].Edd_32  =  pGrid->U[k][j][is+(i-1)].Edd_32;
+				pGrid->U[k][j][is-i].Edd_33  =  pGrid->U[k][j][is+(i-1)].Edd_33;
 			      }
     			}
   		}
@@ -80,6 +86,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][j][is-i].Fr1 = pGrid->U[k][j][is].Fr1;
 				pGrid->U[k][j][is-i].Sigma_a  =  pGrid->U[k][j][is].Sigma_a;
 				pGrid->U[k][j][is-i].Sigma_t  =  pGrid->U[k][j][is].Sigma_t;
+				pGrid->U[k][j][is-i].Edd_11  =  pGrid->U[k][j][is].Edd_11;
+				pGrid->U[k][j][is-i].Edd_21  =  pGrid->U[k][j][is].Edd_21;
+				pGrid->U[k][j][is-i].Edd_22  =  pGrid->U[k][j][is].Edd_22;
+				pGrid->U[k][j][is-i].Edd_31  =  pGrid->U[k][j][is].Edd_31;
+				pGrid->U[k][j][is-i].Edd_32  =  pGrid->U[k][j][is].Edd_32;
+				pGrid->U[k][j][is-i].Edd_33  =  pGrid->U[k][j][is].Edd_33;
       				}
     			}
   		}	
@@ -101,6 +113,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][j][is-i].Fr1 = pGrid->U[k][j][ie-(i-1)].Fr1;
 				pGrid->U[k][j][is-i].Sigma_a = pGrid->U[k][j][ie-(i-1)].Sigma_a;
 				pGrid->U[k][j][is-i].Sigma_t = pGrid->U[k][j][ie-(i-1)].Sigma_t;
+				pGrid->U[k][j][is-i].Edd_11  =  pGrid->U[k][j][ie-(i-1)].Edd_11;
+				pGrid->U[k][j][is-i].Edd_21  =  pGrid->U[k][j][ie-(i-1)].Edd_21;
+				pGrid->U[k][j][is-i].Edd_22  =  pGrid->U[k][j][ie-(i-1)].Edd_22;
+				pGrid->U[k][j][is-i].Edd_31  =  pGrid->U[k][j][ie-(i-1)].Edd_31;
+				pGrid->U[k][j][is-i].Edd_32  =  pGrid->U[k][j][ie-(i-1)].Edd_32;
+				pGrid->U[k][j][is-i].Edd_33  =  pGrid->U[k][j][ie-(i-1)].Edd_33;
       				}
     			}
   		}	
@@ -119,6 +137,12 @@ void bvals_radMHD(MeshS *pM)
         			pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie-(i-1)].Fr1; /* reflect 1-flux. */
 				pGrid->U[k][j][ie+i].Sigma_a    =  pGrid->U[k][j][ie-(i-1)].Sigma_a;
 				pGrid->U[k][j][ie+i].Sigma_t    =  pGrid->U[k][j][ie-(i-1)].Sigma_t;
+				pGrid->U[k][j][ie+i].Edd_11  =  pGrid->U[k][j][ie-(i-1)].Edd_11;
+				pGrid->U[k][j][ie+i].Edd_21  =  pGrid->U[k][j][ie-(i-1)].Edd_21;
+				pGrid->U[k][j][ie+i].Edd_22  =  pGrid->U[k][j][ie-(i-1)].Edd_22;
+				pGrid->U[k][j][ie+i].Edd_31  =  pGrid->U[k][j][ie-(i-1)].Edd_31;
+				pGrid->U[k][j][ie+i].Edd_32  =  pGrid->U[k][j][ie-(i-1)].Edd_32;
+				pGrid->U[k][j][ie+i].Edd_33  =  pGrid->U[k][j][ie-(i-1)].Edd_33;
       				}
     			}
   		}		
@@ -133,6 +157,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][j][ie+i].Fr1 = pGrid->U[k][j][ie].Fr1;
 				pGrid->U[k][j][ie+i].Sigma_a = pGrid->U[k][j][ie].Sigma_a;
 				pGrid->U[k][j][ie+i].Sigma_t = pGrid->U[k][j][ie].Sigma_t;
+				pGrid->U[k][j][ie+i].Edd_11  =  pGrid->U[k][j][ie].Edd_11;
+				pGrid->U[k][j][ie+i].Edd_21  =  pGrid->U[k][j][ie].Edd_21;
+				pGrid->U[k][j][ie+i].Edd_22  =  pGrid->U[k][j][ie].Edd_22;
+				pGrid->U[k][j][ie+i].Edd_31  =  pGrid->U[k][j][ie].Edd_31;
+				pGrid->U[k][j][ie+i].Edd_32  =  pGrid->U[k][j][ie].Edd_32;
+				pGrid->U[k][j][ie+i].Edd_33  =  pGrid->U[k][j][ie].Edd_33;
       				}
     			}
   		}
@@ -152,6 +182,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][j][ie+i].Fr1 = pGrid->U[k][j][is+(i-1)].Fr1;
 				pGrid->U[k][j][ie+i].Sigma_a = pGrid->U[k][j][is+(i-1)].Sigma_a;
 				pGrid->U[k][j][ie+i].Sigma_t = pGrid->U[k][j][is+(i-1)].Sigma_t;
+				pGrid->U[k][j][ie+i].Edd_11  =  pGrid->U[k][j][is+(i-1)].Edd_11;
+				pGrid->U[k][j][ie+i].Edd_21  =  pGrid->U[k][j][is+(i-1)].Edd_21;
+				pGrid->U[k][j][ie+i].Edd_22  =  pGrid->U[k][j][is+(i-1)].Edd_22;
+				pGrid->U[k][j][ie+i].Edd_31  =  pGrid->U[k][j][is+(i-1)].Edd_31;
+				pGrid->U[k][j][ie+i].Edd_32  =  pGrid->U[k][j][is+(i-1)].Edd_32;
+				pGrid->U[k][j][ie+i].Edd_33  =  pGrid->U[k][j][is+(i-1)].Edd_33;
       				}
     			}
   		}
@@ -173,6 +209,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][js-j][i].Fr1  =  pGrid->U[k][js+(j-1)][i].Fr1; /* reflect 1-flux. */
 				pGrid->U[k][js-j][i].Sigma_a  = -pGrid->U[k][js+(j-1)][i].Sigma_a;
 				pGrid->U[k][js-j][i].Sigma_t  = -pGrid->U[k][js+(j-1)][i].Sigma_t;
+				pGrid->U[k][js-j][i].Edd_11  =  pGrid->U[k][js+(j-1)][i].Edd_11;
+				pGrid->U[k][js-j][i].Edd_21  =  pGrid->U[k][js+(j-1)][i].Edd_21;
+				pGrid->U[k][js-j][i].Edd_22  =  pGrid->U[k][js+(j-1)][i].Edd_22;
+				pGrid->U[k][js-j][i].Edd_31  =  pGrid->U[k][js+(j-1)][i].Edd_31;
+				pGrid->U[k][js-j][i].Edd_32  =  pGrid->U[k][js+(j-1)][i].Edd_32;
+				pGrid->U[k][js-j][i].Edd_33  =  pGrid->U[k][js+(j-1)][i].Edd_33;
 			      }
     			}
   		}
@@ -187,6 +229,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][js-j][i].Fr1 = pGrid->U[k][js][i].Fr1;
 				pGrid->U[k][js-j][i].Sigma_a = pGrid->U[k][js][i].Sigma_a;
 				pGrid->U[k][js-j][i].Sigma_t = pGrid->U[k][js][i].Sigma_t;
+				pGrid->U[k][js-j][i].Edd_11  =  pGrid->U[k][js][i].Edd_11;
+				pGrid->U[k][js-j][i].Edd_21  =  pGrid->U[k][js][i].Edd_21;
+				pGrid->U[k][js-j][i].Edd_22  =  pGrid->U[k][js][i].Edd_22;
+				pGrid->U[k][js-j][i].Edd_31  =  pGrid->U[k][js][i].Edd_31;
+				pGrid->U[k][js-j][i].Edd_32  =  pGrid->U[k][js][i].Edd_32;
+				pGrid->U[k][js-j][i].Edd_33  =  pGrid->U[k][js][i].Edd_33;
       				}
     			}
   		}	
@@ -208,6 +256,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][js-j][i].Fr2 = pGrid->U[k][je-(j-1)][i].Fr2;
 				pGrid->U[k][js-j][i].Sigma_a = pGrid->U[k][je-(j-1)][i].Sigma_a;
 				pGrid->U[k][js-j][i].Sigma_t = pGrid->U[k][je-(j-1)][i].Sigma_t;
+				pGrid->U[k][js-j][i].Edd_11  =  pGrid->U[k][je-(j-1)][i].Edd_11;
+				pGrid->U[k][js-j][i].Edd_21  =  pGrid->U[k][je-(j-1)][i].Edd_21;
+				pGrid->U[k][js-j][i].Edd_22  =  pGrid->U[k][je-(j-1)][i].Edd_22;
+				pGrid->U[k][js-j][i].Edd_31  =  pGrid->U[k][je-(j-1)][i].Edd_31;
+				pGrid->U[k][js-j][i].Edd_32  =  pGrid->U[k][je-(j-1)][i].Edd_32;
+				pGrid->U[k][js-j][i].Edd_33  =  pGrid->U[k][je-(j-1)][i].Edd_33;
       				}
     			}
   		}	
@@ -225,6 +279,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][je+j][i].Fr1  =  pGrid->U[k][je-(j-1)][i].Fr1; /* reflect 1-flux. */
 				pGrid->U[k][je+j][i].Sigma_a  = -pGrid->U[k][je-(j-1)][i].Sigma_a;
 				pGrid->U[k][je+j][i].Sigma_t  = -pGrid->U[k][je-(j-1)][i].Sigma_t;
+				pGrid->U[k][je+j][i].Edd_11  =  pGrid->U[k][je-(j-1)][i].Edd_11;
+				pGrid->U[k][je+j][i].Edd_21  =  pGrid->U[k][je-(j-1)][i].Edd_21;
+				pGrid->U[k][je+j][i].Edd_22  =  pGrid->U[k][je-(j-1)][i].Edd_22;
+				pGrid->U[k][je+j][i].Edd_31  =  pGrid->U[k][je-(j-1)][i].Edd_31;
+				pGrid->U[k][je+j][i].Edd_32  =  pGrid->U[k][je-(j-1)][i].Edd_32;
+				pGrid->U[k][je+j][i].Edd_33  =  pGrid->U[k][je-(j-1)][i].Edd_33;
 			      }
     			}
   		}
@@ -239,6 +299,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][je+j][i].Fr1 = pGrid->U[k][je][i].Fr1;
 				pGrid->U[k][je+j][i].Sigma_a = pGrid->U[k][je][i].Sigma_a;
 				pGrid->U[k][je+j][i].Sigma_t = pGrid->U[k][je][i].Sigma_t;
+				pGrid->U[k][je+j][i].Edd_11  =  pGrid->U[k][je][i].Edd_11;
+				pGrid->U[k][je+j][i].Edd_21  =  pGrid->U[k][je][i].Edd_21;
+				pGrid->U[k][je+j][i].Edd_22  =  pGrid->U[k][je][i].Edd_22;
+				pGrid->U[k][je+j][i].Edd_31  =  pGrid->U[k][je][i].Edd_31;
+				pGrid->U[k][je+j][i].Edd_32  =  pGrid->U[k][je][i].Edd_32;
+				pGrid->U[k][je+j][i].Edd_33  =  pGrid->U[k][je][i].Edd_33;
       				}
     			}
   		}	
@@ -260,6 +326,12 @@ void bvals_radMHD(MeshS *pM)
 				pGrid->U[k][je+j][i].Fr2 = pGrid->U[k][js+(j-1)][i].Fr2;
 				pGrid->U[k][je+j][i].Sigma_a = pGrid->U[k][js+(j-1)][i].Sigma_a;
 				pGrid->U[k][je+j][i].Sigma_t = pGrid->U[k][js+(j-1)][i].Sigma_t;
+				pGrid->U[k][je+j][i].Edd_11  =  pGrid->U[k][js+(j-1)][i].Edd_11;
+				pGrid->U[k][je+j][i].Edd_21  =  pGrid->U[k][js+(j-1)][i].Edd_21;
+				pGrid->U[k][je+j][i].Edd_22  =  pGrid->U[k][js+(j-1)][i].Edd_22;
+				pGrid->U[k][je+j][i].Edd_31  =  pGrid->U[k][js+(j-1)][i].Edd_31;
+				pGrid->U[k][je+j][i].Edd_32  =  pGrid->U[k][js+(j-1)][i].Edd_32;
+				pGrid->U[k][je+j][i].Edd_33  =  pGrid->U[k][js+(j-1)][i].Edd_33;
       				}
     			}
   		}	

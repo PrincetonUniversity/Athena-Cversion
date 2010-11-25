@@ -350,6 +350,22 @@ int main(int argc, char *argv[])
   four_pi_G = -1.0;
 #endif
   
+/*-----------------------------------------------------------------------*/
+/* This is moved here so that we can call radiation_transfer routine from problem generator */
+
+#ifdef RADIATION_TRANSFER
+    /* initialize the boundary condition function pointer */
+    bvals_rad_init(&Mesh);
+
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+	  radiation_temp_array_init(&(Mesh.Domain[nl][nd]));
+	}        
+      }}
+#endif
+
+/*-----------------------------------------------------------------------*/
 
   if(ires) {
     restart_grids(res_file, &Mesh);  /*  Restart */
@@ -391,9 +407,7 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #endif
-#ifdef RADIATION_TRANSFER
-  bvals_rad_init(&Mesh);
-#endif
+
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -407,14 +421,19 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+
    /* set boundary condition for radiation quantities */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
 	int DIM;
 	DIM = 0;
  	/* Judge the dimension to choose the right backeuler method */
 	for (i=0; i<3; i++) if(Mesh.Nx[i] > 1) DIM++;
-	
+
 	bvals_radMHD(&Mesh);
+	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
+	* routine is updated. Initial output needs to update the boundary conditino.  
+	*/
 #endif
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */
@@ -445,17 +464,12 @@ int main(int argc, char *argv[])
     }
   }
 #endif
+
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_init(&Mesh);
 #endif
-#ifdef RADIATION_TRANSFER
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
-	  radiation_temp_array_init(&(Mesh.Domain[nl][nd]));
-	}        
-      }}
-#endif
+
+
 
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
@@ -525,6 +539,12 @@ int main(int argc, char *argv[])
  * operator split update of the hydro energy equation with radiation
  * source term */
 
+/* radiative transfer must be done before radiaton_hydro or radiation_mhd!
+ * If the initial condition requires Eddington tensor to calculate the 
+ * radiative flux, after the first step  we calculate the Eddington tensor, 
+ * we have to update the initial condition with the corrected Eddington tensor 
+ */
+
 #ifdef RADIATION_TRANSFER
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
@@ -533,10 +553,25 @@ int main(int argc, char *argv[])
 	  hydro_to_rad(&(Mesh.Domain[nl][nd]));  
 /* solve radiative transfer */
 	  formal_solution(&(Mesh.Domain[nl][nd]));
-	  rad_to_hydro(&(Mesh.Domain[nl][nd])); 
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+	 Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
+#else
+	  rad_to_hydro(&(Mesh.Domain[nl][nd]));
+#endif
+/* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
+*/
+ 
 	}        
-      }}
+      }
+}
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+	bvals_radMHD(&Mesh);
+#endif
+	/* Update boundary condition for Eddington tensor */
 #endif /* RADIATION_TRANSFER */
+
+	
 
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */

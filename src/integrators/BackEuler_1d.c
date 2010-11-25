@@ -345,12 +345,12 @@ void BackEuler_1d(MeshS *pM)
 
 	}
 	else {
-		int ITR_max = 100;
+		int ITR_max = 300;
 		int MR;
 		double tol_abs = 1.0E-12;
     		double tol_rel = 1.0E-12;
-		if(Nmatrix < 50) MR = Nmatrix - 1;
-		else MR = 50;
+		if(Nmatrix < 100) MR = Nmatrix - 1;
+		else MR = 100;
 		mgmres_st ( 2*Nmatrix, NZ_NUM, JEuler, IEuler, EulerLU, INIguess, RHSEulerp, ITR_max, MR, tol_abs,  tol_rel );	
 	}
 	

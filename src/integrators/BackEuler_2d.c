@@ -193,9 +193,9 @@ void BackEuler_2d(MeshS *pM)
 			psi[0] = theta[0] * sqrt(pG->U[ks][j-1][i].Edd_22);
 			psi[1] = phi[1];
 
-			RHSEuler[3*(j-js)*Nx] -= (theta[0] * pG->U[ks][j-1][i].Er + theta[1] * pG->U[ks][j-1][i].Fr2);
-			RHSEuler[3*(j-js)*Nx + 1] -= (phi[0] * pG->U[ks][j-1][i].Er + phi[1] * pG->U[ks][j-1][i].Fr1);
-			RHSEuler[3*(j-js)*Nx + 2] -= (psi[0] * pG->U[ks][j-1][i].Er + psi[1] * pG->U[ks][j-1][i].Fr2);
+			RHSEuler[3*(j-js)*Nx + 3 * (i - is)] -= (theta[0] * pG->U[ks][j-1][i].Er + theta[1] * pG->U[ks][j-1][i].Fr2);
+			RHSEuler[3*(j-js)*Nx + 3 * (i - is) + 1] -= (phi[0] * pG->U[ks][j-1][i].Er + phi[1] * pG->U[ks][j-1][i].Fr1);
+			RHSEuler[3*(j-js)*Nx + 3 * (i - is) + 2] -= (psi[0] * pG->U[ks][j-1][i].Er + psi[1] * pG->U[ks][j-1][i].Fr2);
 				
 		}
 
