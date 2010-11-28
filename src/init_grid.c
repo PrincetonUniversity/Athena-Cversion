@@ -208,6 +208,16 @@ void init_grid(MeshS *pM)
       pG->Phi_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->Phi_old == NULL) goto on_error10;
 
+#ifdef CONS_GRAVITY
+	
+      pG->dphidt = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->dphidt == NULL) goto on_error16;
+
+      pG->dphidt_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->dphidt_old == NULL) goto on_error17;
+
+#endif
+
       pG->x1MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->x1MassFlux == NULL) goto on_error11;
 
@@ -1150,7 +1160,14 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
     free_3d_array(pG->Phi_old);
   on_error9:
     free_3d_array(pG->Phi);
+#ifdef CONS_GRAVITY
+  on_error16:
+    free_3d_array(pG->dphidt);
+  on_error17:
+    free_3d_array(pG->dphidt_old);
 #endif
+#endif
+
 #ifdef RESISTIVITY
   on_error7:
     free_3d_array(pG->eta_AD);

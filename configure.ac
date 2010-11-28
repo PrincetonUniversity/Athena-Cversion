@@ -44,7 +44,7 @@
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
 #   --enable-smr                                        (static mesh refinement)
-#
+#   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
 #-------------------------------------------------------------------------------
 # generic things
 
@@ -495,6 +495,25 @@ else
   SMR_MODE_USER="OFF"
 fi
 
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: self-gravity with conserved total energy and momentum
+#   --enable-cons_gravity (default is no this algorithm)
+
+AC_SUBST(CONS_GRAVITY)
+AC_ARG_ENABLE(cons_gravity,
+	[--enable-cons_gravity  self-gravity with conserved method (default is no this algorithm)], 
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  CONS_GRAVITY="CONS_GRAVITY"
+  CONSGRAVITY_MODE_USER="ON"
+else
+  CONS_GRAVITY="NO_CONS_GRAVITY"
+  CONSGRAVITY_MODE_USER="OFF"
+fi
+
+
+
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: turn on all-wave integration for HLL fluxes
 #   --enable-hllallwaves
@@ -619,4 +638,5 @@ echo "FARGO:                   $FARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
+echo "Conserved self_gravity:  $CONSGRAVITY_MODE_USER"
 

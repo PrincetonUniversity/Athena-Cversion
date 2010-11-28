@@ -34,6 +34,9 @@
  *   The source terms for the energy are added using the mass fluxes at cell
  *   faces, to improve conservation.
  *   - S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
+ *   For conservative algorithm of self-gravity, 
+ *   we use the gravitational energy flux:
+ *   (\pih Grav(d\phi/dt)-d\phi/dt Grav(\phi)) 
  */
 
 void selfg_fc(DomainS *pD)
@@ -49,6 +52,11 @@ void selfg_fc(DomainS *pD)
   Real phic,phil,phir,phil_old,phir_old,dphic,dphil,dphir;
   Real gxl,gxr,gyl,gyr,gzl,gzr;
   Real flx_m1r,flx_m1l,flx_m2r,flx_m2l,flx_m3r,flx_m3l;
+#ifdef CONS_GRAVITY
+  Real dotphil,dotphir,dotphil_old,dotphir_old;
+  Real dotgxl,dotgxr,dotgyl,dotgyr,dotgzl,dotgzr;
+  Real flx_E1r,flx_E1l,flx_E2r,flx_E2l,flx_E3r,flx_E3l;
+#endif
   
 /* Calculate the dimensions  */
   if(pG->Nx[0] > 1) dim++;
@@ -77,12 +85,33 @@ void selfg_fc(DomainS *pD)
       dphil = phil - phil_old;
       dphir = phir - phir_old;
 
+#ifdef CONS_GRAVITY
+      dotphil = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);
+      dotphir = 0.5*(pG->dphidt[ks][js][i  ] + pG->dphidt[ks][js][i+1]);
+      dotphil_old = 0.5*(pG->dphidt_old[ks][js][i-1] + pG->dphidt_old[ks][js][i  ]);
+      dotphir_old = 0.5*(pG->dphidt_old[ks][js][i  ] + pG->dphidt_old[ks][js][i+1]);
+#endif
+
+
 /* momentum fluxes in x1.  gx centered at L and R x1-faces */
       gxl = (pG->Phi[ks][js][i-1] - pG->Phi[ks][js][i  ])/(pG->dx1);
       gxr = (pG->Phi[ks][js][i  ] - pG->Phi[ks][js][i+1])/(pG->dx1);
 
       flx_m1l = 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil;
       flx_m1r = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
+
+/* For the gravitational energy flux, NOTICE a minus sign here */
+#ifdef CONS_GRAVITY
+      dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);
+      dotgxr = (pG->dphidt[ks][js][i  ] - pG->dphidt[ks][js][i+1])/(pG->dx1);
+/*
+      flx_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G - 0.5 * grav_mean_rho*dotphil;
+      flx_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G - 0.5 * grav_mean_rho*dotphir;
+*/
+      flx_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G;
+      flx_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G;
+#endif
+
 
 /*  subtract off momentum fluxes from old potential */
       gxl = (pG->Phi_old[ks][js][i-1] - pG->Phi_old[ks][js][i  ])/(pG->dx1);
@@ -91,12 +120,32 @@ void selfg_fc(DomainS *pD)
       flx_m1l -= 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil_old;
       flx_m1r -= 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir_old;
 
+#ifdef CONS_GRAVITY
+      dotgxl = (pG->dphidt_old[ks][js][i-1] - pG->dphidt_old[ks][js][i  ])/(pG->dx1);
+      dotgxr = (pG->dphidt_old[ks][js][i  ] - pG->dphidt_old[ks][js][i+1])/(pG->dx1);
+
+/*
+      flx_E1l -= -0.5*(phil_old*dotgxl-dotphil_old*gxl)/four_pi_G - 0.5 * grav_mean_rho*dotphil_old;
+      flx_E1r -= -0.5*(phir_old*dotgxr-dotphir_old*gxr)/four_pi_G - 0.5 * grav_mean_rho*dotphir_old;
+*/
+      flx_E1l -= -0.5*(phil_old*dotgxl-dotphil_old*gxl)/four_pi_G;
+      flx_E1r -= -0.5*(phir_old*dotgxr-dotphir_old*gxr)/four_pi_G;
+#endif
+
+
 /* Update momenta and energy with d/dx1 terms  */
       pG->U[ks][js][i].M1 -= 0.5*dtodx1*(flx_m1r-flx_m1l);
+
 #ifndef ISOTHERMAL
+/* Note that gravitational potential is not changed. */
+#ifdef CONS_GRAVITY
+      pG->U[ks][js][i].E -= 0.5*dtodx1*(flx_E1r-flx_E1l);
+
+#else
       pG->U[ks][js][i].E -=
          0.5*dtodx1*(pG->x1MassFlux[ks][js][i  ]*(dphic - dphil) +
                      pG->x1MassFlux[ks][js][i+1]*(dphir - dphic));
+#endif
 #endif
     }
     break;

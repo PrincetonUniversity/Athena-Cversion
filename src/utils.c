@@ -528,8 +528,9 @@ int sign_change(Real (*func)(const Real,const Real), const Real a0,
       fk = fkp1;
     }
   }
-//   ath_error("[sign_change]: No sign change was detected in (%f,%f) for x=%f!\n",a0,b0,x);
-  return 0;
+/*   ath_error("[sign_change]: No sign change was detected in (%f,%f) for x=%f!\n",a0,b0,x);
+*/ 
+ return 0;
 } 
 
 
@@ -556,11 +557,12 @@ int bisection(Real (*func)(const Real,const Real), const Real a0, const Real b0,
     *root = b;
     return 1;
   }
-// printf("fa = %f, fb = %f\n", fa, fb);
-
+/* printf("fa = %f, fb = %f\n", fa, fb);
+*/
   for (i = 0; i < maxiter; i++) {
     c = 0.5*(a+b);
-// printf("x = %f, a = %f, b = %f, c = %f\n", x,a,b,c);
+/* printf("x = %f, a = %f, b = %f, c = %f\n", x,a,b,c);
+*/
 #ifdef MYDEBUG
     printf("c = %f\n", c);
 #endif

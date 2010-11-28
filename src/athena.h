@@ -271,6 +271,9 @@ typedef struct Grid_s{
 #endif /* MHD */
 #ifdef SELF_GRAVITY
   Real ***Phi, ***Phi_old;      /*!< gravitational potential */
+#ifdef CONS_GRAVITY
+  Real ***dphidt, ***dphidt_old; /*!<derivative of gravitational potential over time */
+#endif
   Real ***x1MassFlux;           /*!< x1 mass flux for source term correction */
   Real ***x2MassFlux;           /*!< x2 mass flux for source term correction */
   Real ***x3MassFlux;           /*!< x3 mass flux for source term correction */

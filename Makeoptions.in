@@ -29,8 +29,8 @@ CUSTLIBS = -ldl -lm
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
   BLOCKINC = -I fftsrc
-  FFTWLIB = -L/usr/lib -lfftw3
-  FFTWINC = -I/usr/include
+  FFTWLIB = -L/u/yanfei/Goodman/code/fftw3/lib -lfftw3
+  FFTWINC = -I/u/yanfei/Goodman/code/fftw3/include
 endif
 
 ifeq (@MPI_MODE@,MPI_PARALLEL)
@@ -47,8 +47,8 @@ ifeq ($(MACHINE),ophir)
   CC = /usr/peyton/intel/10.0/cce/bin/icc
   LDR = /usr/peyton/intel/10.0/cce/bin/icc
   OPT = -O3 -xW -ipo -i-static
-  FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
-  FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
+  FFTWLIB = -L/u/yanfei/Goodman/code/fftw3/lib -lfftw3
+  FFTWINC = -I/u/yanfei/Goodman/code/fftw3/include
 else
 ifeq ($(MACHINE),peyton-mpi)
   CC  = /usr/peyton/openmpi/bin/mpicc
@@ -56,8 +56,8 @@ ifeq ($(MACHINE),peyton-mpi)
   OPT = -O3 -g
   MPIINC = -I/usr/peyton/openmpi/include
   MPILIB = -L/usr/peyton/openmpi/lib -lmpi
-  FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
-  FFTWINC = -I/scr0/lemaster/fftw-3.1.2/include
+  FFTWLIB = -L/u/yanfei/Goodman/code/fftw3/lib -lfftw3
+  FFTWINC = -I/u/yanfei/Goodman/code/fftw3/include
 else
 ifeq ($(MACHINE),artemis)
   CC  = mpicc

@@ -1,75 +1,69 @@
 #include "copyright.h"
-/*============================================================================*/
-/*! \file dump_history.c
- *  \brief Functions to write dumps of scalar "history" variables in a
- *  formatted table.
+/*==============================================================================
+ * FILE: dump_history.c
  *
  * PURPOSE: Functions to write dumps of scalar "history" variables in a
- *   formatted table.  "History" variables are mostly VOLUME AVERAGES, e.g.
- *   - S = \Sum_{ijk} q[k][j][i]*dx1[i]*dx2[j]*dx3[k] /
- *             \Sum_{ijk} dx1[i]*dx2[j]*dx3[k],
- *
- *   although other quantities like time and dt are also output.  To compute
- *   TOTAL, VOLUME INTEGRATED quantities, just multiply by the Domain volume,
- *   which is output in the first line of the history file.  History data is
- *   written periodically, giving the time-evolution of that quantitity.
+ *   formatted table.  "History" variables are usually volume integrals: for
+ *   example S = \Sum_{ijk} q[k][j][i]*dx1[i]*dx2[j]*dx3[k], although other
+ *   quantities like time and dt are also output.  Note history variables are
+ *   TOTAL, VOLUME INTEGRATED quantities, NOT volume averages (just divide by
+ *   the Domain volume to compute the latter).  History data is written
+ *   periodically, giving the time-evolution of that quantitity.
  *   Default (hardwired) values are:
- *   - scal[0] = time
- *   - scal[1] = dt
- *   - scal[2] = mass
- *   - scal[3] = total energy
- *   - scal[4] = d*v1
- *   - scal[5] = d*v2
- *   - scal[6] = d*v3
- *   - scal[7] = 0.5*d*v1**2
- *   - scal[8] = 0.5*d*v2**2
- *   - scal[9] = 0.5*d*v3**2
- *   - scal[10] = 0.5*b1**2
- *   - scal[11] = 0.5*b2**2
- *   - scal[12] = 0.5*b3**2
- *   - scal[13] = d*Phi
- *   - scal[14+NSCALARS] = passively advected scalars
- *   - scal[15+NSCALARS] = angular momentum
- *
+ *     scal[0] = time
+ *     scal[1] = dt
+ *     scal[2] = mass
+ *     scal[3] = total energy
+ *     scal[4] = d*v1
+ *     scal[5] = d*v2
+ *     scal[6] = d*v3
+ *     scal[7] = 0.5*d*v1**2
+ *     scal[8] = 0.5*d*v2**2
+ *     scal[9] = 0.5*d*v3**2
+ *     scal[10] = 0.5*b1**2
+ *     scal[11] = 0.5*b2**2
+ *     scal[12] = 0.5*b3**2
+ *     scal[13] = d*Phi
+ *     scal[14+NSCALARS] = passively advected scalars
+ *     scal[15+NSCALARS] = angular momentum
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
  * Alternatively, up to MAX_USR_H_COUNT new history variables can be added using
  * dump_history_enroll() in the problem generator.
  *
- * With SMR, data is averaged over each Domain separately, and dumped to
+ * With SMR, data is integrated over each Domain separately, and dumped to
  * separate files with the level and domain number encoded in the filename.
  * Dumps are always made for all levels and domains, and are written in lev#
- * directories of the root (rank=0) process FOR THAT DOMAIN COMMUNICATOR.
+ * directories of root (rank=0) process.
  *
  * With SR, the default (hardwired) variables are:
- *   - scal[0] = time
- *   - scal[1] = dt
- *   - scal[2] = mass
- *   - scal[3] = total energy
- *   - scal[4] = x1-mom
- *   - scal[5] = x2-mom
- *   - scal[6] = x3-mom
- *   - scal[7] = (U^t)**2
- *   - scal[8] = (U^x)**2
- *   - scal[9] = (U^y)**2
- *   - scal[10] = (U^z)**2
- *   - scal[11] = (b^t)**2
- *   - scal[12] = (b^x)**2
- *   - scal[13] = (b^y)**2
- *   - scal[14] = (b^z)**2
- *   - scal[15] = |b|**2
- *   - scal[16] = T^00_EM
+ *     scal[0] = time
+ *     scal[1] = dt
+ *     scal[2] = mass
+ *     scal[3] = total energy
+ *     scal[4] = x1-mom
+ *     scal[5] = x2-mom
+ *     scal[6] = x3-mom
+ *     scal[7] = (U^t)**2
+ *     scal[8] = (U^x)**2
+ *     scal[9] = (U^y)**2
+ *     scal[10] = (U^z)**2
+ *     scal[11] = (b^t)**2
+ *     scal[12] = (b^x)**2
+ *     scal[13] = (b^y)**2
+ *     scal[14] = (b^z)**2
+ *     scal[15] = |b|**2
+ *     scal[16] = T^00_EM
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- * - dump_history()        - Writes variables as formatted table
- * - dump_history_enroll() - Adds new user-defined history variables	      */
-/*============================================================================*/
+ *   dump_history()        - Writes variables as formatted table
+ *   dump_history_enroll() - Adds new user-defined history variables
+ *============================================================================*/
 
 #include <stdio.h>
 #include "defs.h"
 #include "athena.h"
-#include "globals.h"
 #include "prototypes.h"
 
 /* Maximum Number of default history dump columns. */
@@ -87,9 +81,7 @@ static ConsFun_t phst_fun[MAX_USR_H_COUNT];
 static int usr_hst_cnt = 0; /* User History Counter <= MAX_USR_H_COUNT */
 
 /*----------------------------------------------------------------------------*/
-/*! \fn void dump_history(MeshS *pM, OutputS *pOut)
- *  \brief Function to write dumps of scalar "history" variables in a
- *  formatted table. */
+/* dump_history:  */
 
 void dump_history(MeshS *pM, OutputS *pOut)
 {
@@ -100,10 +92,10 @@ void dump_history(MeshS *pM, OutputS *pOut)
   FILE *pfile;
   char *fname,*plev=NULL,*pdom=NULL,*pdir=NULL,fmt[80];
   char levstr[8],domstr[8],dirstr[20];
-  int n, total_hst_cnt, mhst, myID_Comm_Domain=1;
+  int n, total_hst_cnt, mhst;
 #ifdef MPI_PARALLEL
   double my_scal[NSCAL + NSCALARS + MAX_USR_H_COUNT]; /* My Volume averages */
-  int ierr;
+  int ierr, myID_Comm_Domain;
 #endif
 #ifdef CYLINDRICAL
   Real x1,x2,x3;
@@ -157,7 +149,9 @@ void dump_history(MeshS *pM, OutputS *pOut)
 
       if (pM->Domain[nl][nd].Grid != NULL){
         pG = pM->Domain[nl][nd].Grid;
+#ifdef MPI_PARALLEL
         pD = (DomainS*)&(pM->Domain[nl][nd]);
+#endif
         is = pG->is, ie = pG->ie;
         js = pG->js, je = pG->je;
         ks = pG->ks, ke = pG->ke;
@@ -303,164 +297,150 @@ void dump_history(MeshS *pM, OutputS *pOut)
           MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
 #endif
 
-/* Only the parent (rank=0) process computes the average and writes output.
- * For single-processor jobs, myID_Comm_world is always zero. */
-
+/* Only the parent (rank=0) process computes the average and writes output. */
 #ifdef MPI_PARALLEL
         ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
+        if(myID_Comm_Domain == 0){ /* I'm the parent */
 #endif
-        if((myID_Comm_Domain==0) || (myID_Comm_world==0)){  /* I'm the parent */
-
-/* Compute volume averages */
-
-          dVol = pD->MaxX[0] - pD->MinX[0];
-#ifdef CYLINDRICAL
-          dVol = (pD->MaxX[0]*pD->MaxX[0]) - (pD->MinX[0]*pD->MinX[0]);
-#endif
-          if (pD->Nx[1] > 1) dVol *= (pD->MaxX[1] - pD->MinX[1]);
-          if (pD->Nx[2] > 1) dVol *= (pD->MaxX[2] - pD->MinX[2]);
-          for(i=2; i<total_hst_cnt; i++){
-            scal[i] /= dVol;
-          }
 
 /* Create filename and open file.  History files are always written in lev#
  * directories of root process (rank=0 in MPI_COMM_WORLD) */
 #ifdef MPI_PARALLEL
-          if (nl>0) {
-            plev = &levstr[0];
-            sprintf(plev,"lev%d",nl);
-            pdir = &dirstr[0];
-            sprintf(pdir,"../id0/lev%d",nl);
-          }
+        if (nl>0) {
+          plev = &levstr[0];
+          sprintf(plev,"lev%d",nl);
+          pdir = &dirstr[0];
+          sprintf(pdir,"../id0/lev%d",nl);
+        }
 #else
-          if (nl>0) {
-            plev = &levstr[0];
-            sprintf(plev,"lev%d",nl);
-            pdir = &dirstr[0];
-            sprintf(pdir,"lev%d",nl);
-          }
+        if (nl>0) {
+          plev = &levstr[0];
+          sprintf(plev,"lev%d",nl);
+          pdir = &dirstr[0];
+          sprintf(pdir,"lev%d",nl);
+        }
 #endif
 
-          if (nd>0) {
-            pdom = &domstr[0];
-            sprintf(pdom,"dom%d",nd);
-          }
+        if (nd>0) {
+          pdom = &domstr[0];
+          sprintf(pdom,"dom%d",nd);
+        }
 
-          fname = ath_fname(pdir,pM->outfilename,plev,pdom,0,0,NULL,"hst");
-          if(fname == NULL){
-            ath_perr(-1,"[dump_history]: Unable to create history filename\n");
-          }
-          pfile = fopen(fname,"a");
-          if(pfile == NULL){
-            ath_perr(-1,"[dump_history]: Unable to open the history file\n");
-          }
+        fname = ath_fname(pdir,pM->outfilename,plev,pdom,0,0,NULL,"hst");
+        if(fname == NULL){
+          ath_perr(-1,"[dump_history]: Unable to create history filename\n");
+        }
+        pfile = fopen(fname,"a");
+        if(pfile == NULL){
+          ath_perr(-1,"[dump_history]: Unable to open the history file\n");
+        }
 
-/* Write out column headers, but only for first dump */
+/* Write out column headers */
 
-          mhst = 0;
-          if(pOut->num == 0){
-            fprintf(pfile,
-         "# Athena history dump for level=%i domain=%i volume=%e\n",nl,nd,dVol);
-            mhst++;
-            fprintf(pfile,"#   [%i]=time   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=dt      ",mhst);
+        mhst = 0;
+        if(pOut->num == 0){
+          mhst++;
+          fprintf(pfile,"#   [%i]=time   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=dt      ",mhst);
 #ifndef SPECIAL_RELATIVITY
-            mhst++;
-            fprintf(pfile,"   [%i]=mass    ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=mass    ",mhst);
 #ifdef ADIABATIC
-            mhst++;
-            fprintf(pfile,"   [%i]=total E ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=total E ",mhst);
 #endif
-            mhst++;
-            fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x3 Mom. ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x1-KE   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x2-KE   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x3-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-KE   ",mhst);
 #ifdef MHD
-            mhst++;
-            fprintf(pfile,"   [%i]=x1-ME   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x2-ME   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x3-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-ME   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-ME   ",mhst);
 #endif
 #ifdef SELF_GRAVITY
-            mhst++;
-            fprintf(pfile,"   [%i]=grav PE ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=grav PE ",mhst);
 #endif
 #if (NSCALARS > 0)
-            for(n=0; n<NSCALARS; n++){
-              mhst++;
-              fprintf(pfile,"  [%i]=scalar %i",mhst,n);
-            }
+          for(n=0; n<NSCALARS; n++){
+            mhst++;
+            fprintf(pfile,"  [%i]=scalar %i",mhst,n);
+          }
 #endif
 
 #ifdef CYLINDRICAL
-            mhst++;
-            fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
 #endif
 
 #else /* SPECIAL_RELATIVITY */
-            mhst++;
-            fprintf(pfile,"   [%i]=mass    ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=total E ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x3 Mom." ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=Gamma   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x1-KE   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x2-KE   ",mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x3-KE  " ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=Press  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=mass    ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=total E ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2 Mom. ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3 Mom." ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=Gamma   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-KE   ",mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-KE  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=Press  " ,mhst);
 #ifdef MHD
-            mhst++;
-            fprintf(pfile,"   [%i]=x0-ME  " ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x1-ME  " ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x2-ME  " ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=x3-ME  " ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=bsq    " ,mhst);
-            mhst++;
-            fprintf(pfile,"   [%i]=T^00_EM" ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x0-ME  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x1-ME  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x2-ME  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=x3-ME  " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=bsq    " ,mhst);
+          mhst++;
+          fprintf(pfile,"   [%i]=T^00_EM" ,mhst);
 #endif
 #endif /* SPECIAL_RELATIVITY */
 
-            for(n=0; n<usr_hst_cnt; n++){
-              mhst++;
-              fprintf(pfile,"  [%i]=%s",mhst,usr_label[n]);
-            }
-            fprintf(pfile,"\n#\n");
+          for(n=0; n<usr_hst_cnt; n++){
+            mhst++;
+            fprintf(pfile,"  [%i]=%s",mhst,usr_label[n]);
           }
+          fprintf(pfile,"\n#\n");
+        }
 
 /* Write out data, and close file */
 
-          for (i=0; i<total_hst_cnt; i++) {
-            fprintf(pfile,fmt,scal[i]);
-          }
-          fprintf(pfile,"\n");
-          fclose(pfile);
-  
+        for (i=0; i<total_hst_cnt; i++) {
+          fprintf(pfile,fmt,scal[i]);
         }
+        fprintf(pfile,"\n");
+        fclose(pfile);
+
+#ifdef MPI_PARALLEL
+        }
+#endif
       }
     }
   }
@@ -469,8 +449,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn void dump_history_enroll(const ConsFun_t pfun, const char *label)
- *  \brief Adds new user-defined history variables	      */
+/* dump_history_enroll:  */
 
 void dump_history_enroll(const ConsFun_t pfun, const char *label){
 

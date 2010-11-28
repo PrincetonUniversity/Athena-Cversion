@@ -188,6 +188,10 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #ifdef SELF_GRAVITY
         fprintf(pfile," [%d]=Phi",col_cnt);
         col_cnt++;
+#ifdef CONS_GRAVITY
+	fprintf(pfile," [%d]=dPhi/dt",col_cnt);
+        col_cnt++;
+#endif
 #endif
 
 /* write out column headers for particles */
@@ -246,6 +250,9 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 
 #ifdef SELF_GRAVITY
               fprintf(pfile,fmt,pG->Phi[k][j][i]);
+#ifdef CONS_GRAVITY
+	      fprintf(pfile,fmt,pG->dphidt[k][j][i]);	
+#endif
 #endif
 
 #ifdef PARTICLES
@@ -433,6 +440,10 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
 #ifdef SELF_GRAVITY
         fprintf(pfile," [%d]=Phi",col_cnt);
         col_cnt++;
+#ifdef CONS_GRAVITY
+	fprintf(pfile," [%d]=dPhi/dt",col_cnt);
+        col_cnt++;
+#endif
 #endif
 
 /* write out column headers for particles */
@@ -492,6 +503,9 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
 
 #ifdef SELF_GRAVITY
               fprintf(pfile,fmt,pG->Phi[k][j][i]);
+#ifdef CONS_GRAVITY
+	      fprintf(pfile,fmt,pG->dphidt[k][j][i]);	
+#endif
 #endif
 
 #ifdef PARTICLES

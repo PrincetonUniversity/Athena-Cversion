@@ -62,6 +62,10 @@ void selfg_fft_1d(DomainS *pD)
   int ks = pG->ks;
   Real total_Phi=0.0,drho,dx_sq = (pG->dx1*pG->dx1);
 
+#ifdef CONS_GRAVITY
+  Real divrhov;
+#endif
+
 /* Copy current potential into old */
 
   for (i=is-nghost; i<=ie+nghost; i++){
@@ -95,6 +99,54 @@ void selfg_fft_1d(DomainS *pD)
   for (i=is; i<=ie; i++) {
     pG->Phi[ks][js][i] -= total_Phi;
   }
+
+/*****************************************/
+/* Now calculate dphi/dt from momentum */
+/******************************************/
+#ifdef CONS_GRAVITY
+
+  for (i=is-nghost; i<=ie+nghost; i++){
+    pG->dphidt_old[ks][js][i] = pG->dphidt[ks][js][i];
+  }
+
+/* Compute new potential */
+
+  pG->dphidt[ks][js][is]=0.0;
+
+  for (i=is; i<=ie; i++) {
+	divrhov = - 0.5 * (pG->U[ks][js][i+1].M1 - pG->U[ks][js][i-1].M1)/pG->dx1;
+    	pG->dphidt[ks][js][is] += ((float)(i-is+1))*four_pi_G*dx_sq*divrhov;
+  }
+
+  pG->dphidt[ks][js][is] /= (float)(pG->Nx[0]);
+
+  divrhov = - 0.5 * (pG->U[ks][js][is+1].M1 - pG->U[ks][js][is-1].M1)/pG->dx1;
+  pG->dphidt[ks][js][is+1] = 2.0*pG->dphidt[ks][js][is] + four_pi_G*dx_sq*divrhov;
+
+
+  for (i=is+2; i<=ie; i++) {
+	divrhov = - 0.5 * (pG->U[ks][js][i].M1 - pG->U[ks][js][i-2].M1)/pG->dx1;
+
+    	pG->dphidt[ks][js][i] = four_pi_G*dx_sq*divrhov 
+      		+ 2.0*pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i-2];
+
+  }
+
+/* Normalize so mean dphidt is zero */
+   total_Phi = 0.0;
+
+  for (i=is; i<=ie; i++) {
+    total_Phi += pG->dphidt[ks][js][i];
+  }
+  total_Phi /= (float)(pG->Nx[0]);
+
+  for (i=is; i<=ie; i++) {
+    pG->dphidt[ks][js][i] -= total_Phi;
+  }
+
+#endif
+
+
 }
 
 /*----------------------------------------------------------------------------*/
@@ -110,6 +162,11 @@ void selfg_fft_2d(DomainS *pD)
   int ks = pG->ks;
   Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2);
   Real dkx,dky,pcoeff;
+
+#ifdef CONS_GRAVITY
+  Real divrhov;
+#endif
+
 
 /* Copy current potential into old */
 
@@ -175,6 +232,77 @@ void selfg_fft_2d(DomainS *pD)
     }
   }
 
+
+/*****************************************/
+/* Now calculate dphi/dt from momentum */
+/******************************************/
+#ifdef CONS_GRAVITY
+
+  for (j=js-nghost; j<=je+nghost; j++){
+    for (i=is-nghost; i<=ie+nghost; i++){
+      pG->dphidt_old[ks][j][i] = pG->dphidt[ks][j][i];
+    }
+  }
+
+/* Forward FFT of -4\piG Div(M) */
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+	divrhov = - 0.5 * (pG->U[ks][j][i+1].M1 - pG->U[ks][j][i-1].M1)/pG->dx1
+		- 0.5 * (pG->U[ks][j+1][i].M2 - pG->U[ks][j-1][i].M2)/pG->dx2;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] = four_pi_G*divrhov;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] = 0.0;
+    }
+  }
+
+  ath_2d_fft(fplan2d, work);
+
+/* Compute potential in Fourier space.  Multiple loops are used to avoid divide
+ * by zero at i=is,j=js, and to avoid if statement in loop   */
+/* To compute kx,ky note that indices relative to whole Domain are needed */
+
+  dkx = 2.0*PI/(double)(pD->Nx[0]);
+  dky = 2.0*PI/(double)(pD->Nx[1]);
+
+  if ((pG->Disp[1])==0 && (pG->Disp[0])==0) {
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][0] = 0.0;
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][1] = 0.0;
+  } else {
+    pcoeff = 1.0/(((2.0*cos((pG->Disp[0])*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq));
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
+  }
+
+  for (j=js+1; j<=je; j++){
+    pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+    work[F2DI(0,j-js,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+    work[F2DI(0,j-js,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
+  }
+
+  for (i=is+1; i<=ie; i++){
+    for (j=js; j<=je; j++){
+      pcoeff = 1.0/(((2.0*cos(( (i-is)+pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
+    }
+  }
+
+/* Backward FFT  */
+
+  ath_2d_fft(bplan2d, work);
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+      pG->dphidt[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]/
+        bplan2d->gcnt;
+    }
+  }
+
+#endif
+
   return;
 }
 
@@ -191,6 +319,10 @@ void selfg_fft_3d(DomainS *pD)
   int k, ks = pG->ks, ke = pG->ke;
   Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2),dx3sq=(pG->dx3*pG->dx3);
   Real dkx,dky,dkz,pcoeff;
+
+#ifdef CONS_GRAVITY
+  Real divrhov;
+#endif
 
 /* Copy current potential into old */
 
@@ -276,6 +408,105 @@ void selfg_fft_3d(DomainS *pD)
         / bplan3d->gcnt;
     }
   }}
+
+
+
+/*****************************************/
+/* Now calculate dphi/dt from momentum */
+/******************************************/
+
+#ifdef CONS_GRAVITY
+
+/* Copy current potential into old */
+
+  for (k=ks-nghost; k<=ke+nghost; k++){
+  for (j=js-nghost; j<=je+nghost; j++){
+    for (i=is-nghost; i<=ie+nghost; i++){
+      pG->dphidt_old[k][j][i] = pG->dphidt[k][j][i];
+    }
+  }}
+
+/* Forward FFT of -4\piG Div(M) */
+
+  for (k=ks; k<=ke; k++){
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+	divrhov = - 0.5 * (pG->U[k][j][i+1].M1 - pG->U[k][j][i-1].M1)/pG->dx1
+		- 0.5 * (pG->U[k][j+1][i].M2 - pG->U[k][j-1][i].M2)/pG->dx2
+		- 0.5 * (pG->U[k+1][j][i].M3 - pG->U[k-1][j][i].M3)/pG->dx3;
+
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = four_pi_G*divrhov;
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
+    }
+  }
+}
+
+  ath_3d_fft(fplan3d, work);
+
+/* Compute potential in Fourier space.  Multiple loops are used to avoid divide
+ * by zero at i=is,j=js,k=ks, and to avoid if statement in loop   */
+/* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
+
+  dkx = 2.0*PI/(double)(pD->Nx[0]);
+  dky = 2.0*PI/(double)(pD->Nx[1]);
+  dkz = 2.0*PI/(double)(pD->Nx[2]);
+
+  if ((pG->Disp[2])==0 && (pG->Disp[1])==0 && (pG->Disp[0])==0) {
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 0.0;
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
+  } else {
+    pcoeff = 1.0/(((2.0*cos((pG->Disp[0])*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq) +
+                  ((2.0*cos((pG->Disp[2])*dkz)-2.0)/dx3sq));
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+    work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
+  }
+
+
+  for (k=ks+1; k<=ke; k++){
+    pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((        pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                  ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+    work[F3DI(0,0,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+    work[F3DI(0,0,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
+  }
+
+  for (j=js+1; j<=je; j++){
+    for (k=ks; k<=ke; k++){
+      pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                    ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+      work[F3DI(0,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+      work[F3DI(0,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
+    }
+  }
+
+  for (i=is+1; i<=ie; i++){
+  for (j=js; j<=je; j++){
+    for (k=ks; k<=ke; k++){
+      pcoeff = 1.0/(((2.0*cos(( (i-is)+pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                    ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
+    }
+  }}
+
+/* Backward FFT and set potential in real space.  Normalization of Phi is over
+ * total number of cells in Domain */
+
+  ath_3d_fft(bplan3d, work);
+
+  for (k=ks; k<=ke; k++){
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+      pG->dphidt[k][j][i] = 
+        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+        / bplan3d->gcnt;
+    }
+  }}
+
+#endif
 
   return;
 }

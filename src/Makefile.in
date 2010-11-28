@@ -138,7 +138,7 @@ help:
 
 .PHONY: clean
 clean:
-	rm -f *.o Makedepend $(BIN)
+	rm -f *.o Makedepend $(BIN) *~
 
 depend: Makedepend
 

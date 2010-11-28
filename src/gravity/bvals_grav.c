@@ -824,6 +824,10 @@ static void reflect_Phi_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->Phi[k][j][is-i] = pGrid->Phi[k][j][is+(i-1)];
+#ifdef CONS_GRAVITY
+	/* Momentum changes a sign in reflected boundary condition */
+	pGrid->dphidt[k][j][is-i] = -pGrid->dphidt[k][j][is+(i-1)];
+#endif
       }
     }
   }
@@ -847,6 +851,9 @@ static void reflect_Phi_ox1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->Phi[k][j][ie+i] = pGrid->Phi[k][j][ie-(i-1)];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][j][ie+i] = -pGrid->dphidt[k][j][ie-(i-1)];
+#endif
       }
     }
   }
@@ -870,6 +877,9 @@ static void reflect_Phi_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[k][js-j][i]    =  pGrid->Phi[k][js+(j-1)][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][js-j][i]    =  -pGrid->dphidt[k][js+(j-1)][i];
+#endif
       }
     }
   }
@@ -893,6 +903,9 @@ static void reflect_Phi_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[k][je+j][i] = pGrid->Phi[k][je-(j-1)][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][je+j][i] = -pGrid->dphidt[k][je-(j-1)][i];
+#endif
       }
     }
   }
@@ -916,6 +929,9 @@ static void reflect_Phi_ix3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[ks-k][j][i] = pGrid->Phi[ks+(k-1)][j][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[ks-k][j][i] = -pGrid->dphidt[ks+(k-1)][j][i];
+#endif
       }
     }
   }
@@ -939,6 +955,9 @@ static void reflect_Phi_ox3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[ke+k][j][i] = pGrid->Phi[ke-(k-1)][j][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[ke+k][j][i] = -pGrid->dphidt[ke-(k-1)][j][i];
+#endif
       }
     }
   }
@@ -962,6 +981,9 @@ static void periodic_Phi_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->Phi[k][j][is-i] = pGrid->Phi[k][j][ie-(i-1)];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][j][is-i] = pGrid->dphidt[k][j][ie-(i-1)];
+#endif
       }
     }
   }
@@ -985,6 +1007,9 @@ static void periodic_Phi_ox1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->Phi[k][j][ie+i] = pGrid->Phi[k][j][is+(i-1)];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][j][ie+i] = pGrid->dphidt[k][j][is+(i-1)];
+#endif
       }
     }
   }
@@ -1008,6 +1033,9 @@ static void periodic_Phi_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[k][js-j][i] = pGrid->Phi[k][je-(j-1)][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][js-j][i] = pGrid->dphidt[k][je-(j-1)][i];
+#endif
       }
     }
   }
@@ -1030,6 +1058,9 @@ static void periodic_Phi_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[k][je+j][i] = pGrid->Phi[k][js+(j-1)][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[k][je+j][i] = pGrid->dphidt[k][js+(j-1)][i];
+#endif
       }
     }
   }
@@ -1053,6 +1084,9 @@ static void periodic_Phi_ix3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[ks-k][j][i] = pGrid->Phi[ke-(k-1)][j][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[ks-k][j][i] = pGrid->dphidt[ke-(k-1)][j][i];
+#endif
       }
     }
   }
@@ -1076,6 +1110,9 @@ static void periodic_Phi_ox3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->Phi[ke+k][j][i] = pGrid->Phi[ks+(k-1)][j][i];
+#ifdef CONS_GRAVITY
+	pGrid->dphidt[ke+k][j][i] = pGrid->dphidt[ks+(k-1)][j][i];
+#endif
       }
     }
   }
@@ -1114,6 +1151,9 @@ static void pack_Phi_ix1(GridS *pG)
     for (j=js; j<=je; j++){
       for (i=is; i<=is+(nghost-1); i++){
         *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	*(pSnd++) = pG->dphidt[k][j][i];
+#endif
       }
     }
   }
@@ -1138,6 +1178,9 @@ static void pack_Phi_ox1(GridS *pG)
     for (j=js; j<=je; j++){
       for (i=ie-(nghost-1); i<=ie; i++){
         *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	*(pSnd++) = pG->dphidt[k][j][i];
+#endif
       }
     }
   }
@@ -1162,6 +1205,9 @@ static void pack_Phi_ix2(GridS *pG)
     for (j=js; j<=js+(nghost-1); j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	*(pSnd++) = pG->dphidt[k][j][i];
+#endif
       }
     }
   }
@@ -1187,6 +1233,9 @@ static void pack_Phi_ox2(GridS *pG)
     for (j=je-(nghost-1); j<=je; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	*(pSnd++) = pG->dphidt[k][j][i];
+#endif
       }
     }
   }
@@ -1212,6 +1261,9 @@ static void pack_Phi_ix3(GridS *pG)
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	*(pSnd++) = pG->dphidt[k][j][i];
+#endif
       }
     }
   }
@@ -1242,6 +1294,9 @@ static void pack_Phi_ox3(GridS *pG)
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	*(pSnd++) = pG->dphidt[k][j][i];
+#endif
       }
     }
   }
@@ -1267,6 +1322,9 @@ static void unpack_Phi_ix1(GridS *pG)
     for (j=js; j<=js; j++){
       for (i=is-nghost; i<=is-1; i++){
         pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+	pG->dphidt[k][j][i] = *(pRcv++);
+#endif
       }
     }
   }
@@ -1292,6 +1350,9 @@ static void unpack_Phi_ox1(GridS *pG)
     for (j=js; j<=je; j++){
       for (i=ie+1; i<=ie+nghost; i++){
         pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+	pG->dphidt[k][j][i] = *(pRcv++);
+#endif
       }
     }
   }
@@ -1317,6 +1378,9 @@ static void unpack_Phi_ix2(GridS *pG)
     for (j=js-nghost; j<=js-1; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+	pG->dphidt[k][j][i] = *(pRcv++);
+#endif
       }
     }
   }
@@ -1342,6 +1406,9 @@ static void unpack_Phi_ox2(GridS *pG)
     for (j=je+1; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+	pG->dphidt[k][j][i] = *(pRcv++);
+#endif
       }
     }
   }
@@ -1367,6 +1434,9 @@ static void unpack_Phi_ix3(GridS *pG)
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+	pG->dphidt[k][j][i] = *(pRcv++);
+#endif
       }
     }
   }
@@ -1392,6 +1462,9 @@ static void unpack_Phi_ox3(GridS *pG)
     for (j=js-nghost; j<=je+nghost; j++){
       for (i=is-nghost; i<=ie+nghost; i++){
         pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+	pG->dphidt[k][j][i] = *(pRcv++);
+#endif
       }
     }
   }

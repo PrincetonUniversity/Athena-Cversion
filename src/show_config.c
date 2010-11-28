@@ -52,6 +52,10 @@ void show_config(void)
 #else
   ath_pout(0," Self-gravity:            OFF\n");
 #endif
+  ath_pout(0," Self-gravity:            conserved method\n");
+#ifdef CONS_GRAVITY
+ 
+#endif
 
 #if defined(RESISTIVITY)
   ath_pout(0," Resistivity:             ON\n");

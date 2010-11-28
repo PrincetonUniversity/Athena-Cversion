@@ -47,6 +47,7 @@
 /* Self-gravity */
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
+#define @CONS_GRAVITY@
 
 /* Particles */
 #define @PARTICLES_ALGORITHM@
