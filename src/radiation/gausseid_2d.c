@@ -242,15 +242,18 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
 	}
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
 #ifdef RAD_MULTIG
-	   imu = psi[img][j][i][ifr][l][m][0] * imu0 + 
-	         psi[img][j][i][ifr][l][m][1] * S0 +
+	   imu = psi[img][j][i][ifr][l][m][1] * S0 +
 	         psi[img][j][i][ifr][l][m][2] * pRG->R[ks][j][i][ifr].S +
-	         psi[img][j][i][ifr][l][m][3] * S2;	
+	         psi[img][j][i][ifr][l][m][3] * S2;
+	   if (imu < 0.0) imu=0.0;
+	   imu += psi[img][j][i][ifr][l][m][0] * imu0;
+
 #else
-	   imu = psi[j][i][ifr][l][m][0] * imu0 + 
-	         psi[j][i][ifr][l][m][1] * S0 +
+	   imu = psi[j][i][ifr][l][m][1] * S0 +
 	         psi[j][i][ifr][l][m][2] * pRG->R[ks][j][i][ifr].S +
 	         psi[j][i][ifr][l][m][3] * S2;	
+	   if (imu < 0.0) imu=0.0;
+	   imu += psi[j][i][ifr][l][m][0] * imu0;
 #endif	   
 /* Add to radiation moments and save for next iteration */
 	   pRG->R[ks][j][i][ifr].J += pRG->w[l][m] * imu;
@@ -297,7 +300,7 @@ static void update_sfunc(RadS *R, Real *deltas)
 {
   Real snew, deltasr;
   
-  snew = (1.0 - R->eps) * R->J + R->eps;
+  snew = (1.0 - R->eps) * R->J + R->eps * R->B;
 
   (*deltas) = (snew - R->S) / (1.0 - (1.0 - R->eps) * R->lamstr);
   deltasr = fabs((*deltas) / R->S);

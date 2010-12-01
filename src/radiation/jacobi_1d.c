@@ -131,15 +131,17 @@ static void sweep_1d(RadGridS *pRG, int sx)
 	 S2 = pRG->R[ks][js][i+sx][ifr].S;
 
 #ifdef RAD_MULTIG
-	 imu = psi[img][i][ifr][l][0][0] * imuo[ifr][l][0] + 
-	       psi[img][i][ifr][l][0][1] * S0 +
+	 imu = psi[img][i][ifr][l][0][1] * S0 +
 	       psi[img][i][ifr][l][0][2] * pRG->R[ks][js][i][ifr].S +
 	       psi[img][i][ifr][l][0][3] * S2;
+	 if (imu < 0.0) imu=0.0;
+	 imu += psi[img][i][ifr][l][0][0] * imuo[ifr][l][0]; 
 #else
-	 imu = psi[i][ifr][l][0][0] * imuo[ifr][l][0] + 
-	       psi[i][ifr][l][0][1] * S0 +
+	 imu = psi[i][ifr][l][0][1] * S0 +
 	       psi[i][ifr][l][0][2] * pRG->R[ks][js][i][ifr].S +
 	       psi[i][ifr][l][0][3] * S2;
+	 if (imu < 0.0) imu=0.0;
+	 imu += psi[i][ifr][l][0][0] * imuo[ifr][l][0];	
 #endif 
 /* Add to mean intensity and save for next iteration */
 	 pRG->R[ks][js][i][ifr].J += pRG->w[l][0] * imu;
