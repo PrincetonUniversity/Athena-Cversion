@@ -52,12 +52,7 @@ void selfg_fc(DomainS *pD)
   Real phic,phil,phir,phil_old,phir_old,dphic,dphil,dphir;
   Real gxl,gxr,gyl,gyr,gzl,gzr;
   Real flx_m1r,flx_m1l,flx_m2r,flx_m2l,flx_m3r,flx_m3l;
-#ifdef CONS_GRAVITY
-  Real dotphil,dotphir,dotphil_old,dotphir_old;
-  Real dotgxl,dotgxr,dotgyl,dotgyr,dotgzl,dotgzr;
-  Real flx_E1r,flx_E1l,flx_E2r,flx_E2l,flx_E3r,flx_E3l;
-  Real ddotphic;
-#endif
+
   
 /* Calculate the dimensions  */
   if(pG->Nx[0] > 1) dim++;
@@ -86,13 +81,7 @@ void selfg_fc(DomainS *pD)
       dphil = phil - phil_old;
       dphir = phir - phir_old;
 
-#ifdef CONS_GRAVITY
-      ddotphic = pG->dphidt[ks][js][i] - pG->dphidt_old[ks][js][i];
-      dotphil = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);
-      dotphir = 0.5*(pG->dphidt[ks][js][i  ] + pG->dphidt[ks][js][i+1]);
-      dotphil_old = 0.5*(pG->dphidt_old[ks][js][i-1] + pG->dphidt_old[ks][js][i  ]);
-      dotphir_old = 0.5*(pG->dphidt_old[ks][js][i  ] + pG->dphidt_old[ks][js][i+1]);
-#endif
+
 
 
 /* momentum fluxes in x1.  gx centered at L and R x1-faces */
@@ -103,16 +92,6 @@ void selfg_fc(DomainS *pD)
       flx_m1r = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
 
 /* For the gravitational energy flux, NOTICE a minus sign here for flux*/
-#ifdef CONS_GRAVITY
-      dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);
-      dotgxr = (pG->dphidt[ks][js][i  ] - pG->dphidt[ks][js][i+1])/(pG->dx1);
-/*
-      flx_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G - 0.5 * grav_mean_rho*dotphil;
-      flx_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G - 0.5 * grav_mean_rho*dotphir;
-*/
-      flx_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G+pG->x1MassFlux[ks][js][i]*phil;
-      flx_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G+pG->x1MassFlux[ks][js][i+1]*phir;
-#endif
 
 
 /*  subtract off momentum fluxes from old potential */
@@ -122,17 +101,6 @@ void selfg_fc(DomainS *pD)
       flx_m1l -= 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil_old;
       flx_m1r -= 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir_old;
 
-#ifdef CONS_GRAVITY
-      dotgxl = (pG->dphidt_old[ks][js][i-1] - pG->dphidt_old[ks][js][i  ])/(pG->dx1);
-      dotgxr = (pG->dphidt_old[ks][js][i  ] - pG->dphidt_old[ks][js][i+1])/(pG->dx1);
-
-/*
-      flx_E1l -= -0.5*(phil_old*dotgxl-dotphil_old*gxl)/four_pi_G - 0.5 * grav_mean_rho*dotphil_old;
-      flx_E1r -= -0.5*(phir_old*dotgxr-dotphir_old*gxr)/four_pi_G - 0.5 * grav_mean_rho*dotphir_old;
-*/
-      flx_E1l -= -0.5*(phil_old*dotgxl-dotphil_old*gxl)/four_pi_G+pG->x1MassFlux[ks][js][i]*phil_old;
-      flx_E1r -= -0.5*(phir_old*dotgxr-dotphir_old*gxr)/four_pi_G+pG->x1MassFlux[ks][js][i+1]*phir_old;
-#endif
 
 
 /* Update momenta and energy with d/dx1 terms  */
@@ -140,10 +108,8 @@ void selfg_fc(DomainS *pD)
 
 #ifndef ISOTHERMAL
 /* Note that gravitational potential is not changed. */
-#ifdef CONS_GRAVITY
-      pG->U[ks][js][i].E -= 0.5*dtodx1*(flx_E1r-flx_E1l)-0.25*ddotphic*grav_mean_rho*pG->dt;
-
-#else
+#ifndef CONS_GRAVITY
+  /* Only needed with no-conservative algorithm */  
       pG->U[ks][js][i].E -=
          0.5*dtodx1*(pG->x1MassFlux[ks][js][i  ]*(dphic - dphil) +
                      pG->x1MassFlux[ks][js][i+1]*(dphir - dphic));

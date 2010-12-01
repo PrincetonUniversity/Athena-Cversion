@@ -105,25 +105,22 @@ void selfg_fft_1d(DomainS *pD)
 /******************************************/
 #ifdef CONS_GRAVITY
 
-  
-
-/* Compute new potential */
 
   pG->dphidt[ks][js][is]=0.0;
 
   for (i=is; i<=ie; i++) {
-	divrhov = - 0.5 * (pG->U[ks][js][i+1].M1 - pG->U[ks][js][i-1].M1)/pG->dx1;
+	divrhov = - (pG->x1MassFlux[ks][js][i+1] - pG->x1MassFlux[ks][js][i])/pG->dx1;
     	pG->dphidt[ks][js][is] += ((float)(i-is+1))*four_pi_G*dx_sq*divrhov;
   }
 
   pG->dphidt[ks][js][is] /= (float)(pG->Nx[0]);
 
-  divrhov = - 0.5 * (pG->U[ks][js][is+1].M1 - pG->U[ks][js][is-1].M1)/pG->dx1;
+  divrhov = - (pG->x1MassFlux[ks][js][is+1] - pG->x1MassFlux[ks][js][is])/pG->dx1;
   pG->dphidt[ks][js][is+1] = 2.0*pG->dphidt[ks][js][is] + four_pi_G*dx_sq*divrhov;
 
 
   for (i=is+2; i<=ie; i++) {
-	divrhov = - 0.5 * (pG->U[ks][js][i].M1 - pG->U[ks][js][i-2].M1)/pG->dx1;
+	 divrhov = - (pG->x1MassFlux[ks][js][i] - pG->x1MassFlux[ks][js][i-1])/pG->dx1;
 
     	pG->dphidt[ks][js][i] = four_pi_G*dx_sq*divrhov 
       		+ 2.0*pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i-2];

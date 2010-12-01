@@ -13,7 +13,7 @@ num_domains     = 1          # number of Domains in Mesh
 out_fmt = tab               # Tabular data dump
 out     = prim              # variables to be output
 dat_fmt = %16.13e            # Optional data format string
-dt      = .0017099               # time increment between outputs
+dt      = .017099               # time increment between outputs
 
 <output2>
 out_fmt = hst               # History data dump

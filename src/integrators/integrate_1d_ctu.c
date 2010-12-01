@@ -496,37 +496,11 @@ void integrate_1d_ctu(DomainS *pD)
 
       pG->U[ks][js][i].M1 -= dtodx1*(flux_m1r - flux_m1l);
 #ifndef BAROTROPIC
-#ifdef CONS_GRAVITY
-/* use conservative algorithm */
+#ifndef CONS_GRAVITY
 
-   
-      dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);
-      dotgxr = (pG->dphidt[ks][js][i  ] - pG->dphidt[ks][js][i+1])/(pG->dx1); 
-      dotphil = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);
-      dotphir = 0.5*(pG->dphidt[ks][js][i  ] + pG->dphidt[ks][js][i+1]);
-
-/* 1-energy flux.  2nd term is needed only if Jean's swindle used */
-/* Note that gdphix is -Grad(\dot{phi}). There is minus sign here */
-	/*
-      flux_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G - 0.5*grav_mean_rho*dotphil;
-      flux_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G - 0.5*grav_mean_rho*dotphir;
-	*/
-	flux_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[i].d*phil;
-	flux_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G + x1Flux[i+1].d*phir;
-/* Store the gravitational flux here. *
- * Do not update total energy with this flux in case this is large and E is small
- * Energy E will be updated when the new density is calculated 
- */
-     /* x1Flux_grav[i] = dtodx1*(flux_E1r - flux_E1l) - 0.5*grav_mean_rho*pG->dphidt[ks][js][i]*pG->dt;
-	*/
- 	/* A term -0.5*pG->U[ks][js][i].d*pG->dphidt[ks][js][i]*pG->dt is missing here because it is not calculated yet */
-	x1Flux_grav[i] = -phic*hdtodx1*(x1Flux[i+1].d-x1Flux[i].d)+dtodx1*(x1Flux[i+1].d*phir-x1Flux[i].d*phil);
-
-#else
-/* use normal method for energy part */
+/* use normal method for energy part, otherwise energy flux will be updated later */
       pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                    x1Flux[i+1].d*(phir - phic));
-
+                                   x1Flux[i+1].d*(phir - phic));
 #endif
 
 #endif
@@ -604,15 +578,25 @@ void integrate_1d_ctu(DomainS *pD)
 #ifdef CONS_GRAVITY
 /* we have to updated the potential inside the integrator 
  */
+	
+    
+
 	bvals_mhd(pD);
     	(*SelfGrav_cons)(pD);
     	bvals_grav(pD);
-  	for (i=is; i<=ie; i++) {
+  	for (i=is; i<=ie+1; i++) {
+		phil = 0.25*(pG->Phi[ks][js][i-1]+pG->Phi_old[ks][js][i]+pG->Phi[ks][js][i-1]+pG->Phi[ks][js][i]);
+		gxl = 0.5 * (pG->Phi[ks][js][i-1] + pG->Phi_old[ks][js][i-1]  - pG->Phi[ks][js][i  ] - pG->Phi_old[ks][js][i  ])/(pG->dx1);
+		dotphil  = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);		
+		dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);
 
-		x1Flux_grav[i] += -0.5*pG->U[ks][js][i].d*pG->dphidt[ks][js][i]*pG->dt ;
+		x1Flux_grav[i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[i].d*phil;
+    		
+	}
 
-    		pG->U[ks][js][i].E += (0.5*density_old[i]*pG->Phi_old[ks][js][i]-0.5*pG->U[ks][js][i].d*pG->Phi[ks][js][i]
-				      -x1Flux_grav[i]);
+	for(i=is;i<=ie;i++){
+		pG->U[ks][js][i].E += (0.5*(density_old[i]-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi[ks][js][i]
+				      -dtodx1 * (x1Flux_grav[i+1] - x1Flux_grav[i]));
 	}
 
 #endif
@@ -716,7 +700,7 @@ void integrate_init_1d(MeshS *pM)
   if ((x1Flux    =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
 
 #ifdef CONS_GRAVITY
-  if ((x1Flux_grav =(Real*)malloc(size1*sizeof(Real)))==NULL) goto on_error;
+  if ((x1Flux_grav =(Real*)malloc((size1+1)*sizeof(Real)))==NULL) goto on_error;
   if ((density_old =(Real*)malloc(size1*sizeof(Real)))==NULL) goto on_error;
 #endif
 

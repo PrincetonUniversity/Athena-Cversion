@@ -562,15 +562,6 @@ int main(int argc, char *argv[])
           bvals_grav(&(Mesh.Domain[nl][nd]));
 #endif
           selfg_fc(&(Mesh.Domain[nl][nd]));
-    
-#ifdef CONS_GRAVITY
-	 /* We need to update d\phi\dt here because Momentum is changed */
-	/* Here we should only update d\phi\dt, but do not update phi */
-	/* We use x1MassFlux to calculate dphidt now. Do not need to update dphidt */	 
-/*	  (*SelfGrav)(&(Mesh.Domain[nl][nd]));
-          bvals_grav(&(Mesh.Domain[nl][nd]));
-*/	   
-#endif
 
         }
       }
