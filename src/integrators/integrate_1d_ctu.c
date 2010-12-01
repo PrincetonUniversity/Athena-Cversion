@@ -511,13 +511,16 @@ void integrate_1d_ctu(DomainS *pD)
       flux_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G - 0.5*grav_mean_rho*dotphil;
       flux_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G - 0.5*grav_mean_rho*dotphir;
 	*/
-	flux_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G;
-	flux_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G;
+	flux_E1l = -0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[i].d*phil;
+	flux_E1r = -0.5*(phir*dotgxr-dotphir*gxr)/four_pi_G + x1Flux[i+1].d*phir;
 /* Store the gravitational flux here. *
  * Do not update total energy with this flux in case this is large and E is small
  * Energy E will be updated when the new density is calculated 
  */
-      x1Flux_grav[i] = dtodx1*(flux_E1r - flux_E1l);
+     /* x1Flux_grav[i] = dtodx1*(flux_E1r - flux_E1l) - 0.5*grav_mean_rho*pG->dphidt[ks][js][i]*pG->dt;
+	*/
+ 	/* A term -0.5*pG->U[ks][js][i].d*pG->dphidt[ks][js][i]*pG->dt is missing here because it is not calculated yet */
+	x1Flux_grav[i] = -phic*hdtodx1*(x1Flux[i+1].d-x1Flux[i].d)+dtodx1*(x1Flux[i+1].d*phir-x1Flux[i].d*phil);
 
 #else
 /* use normal method for energy part */
@@ -605,6 +608,8 @@ void integrate_1d_ctu(DomainS *pD)
     	(*SelfGrav_cons)(pD);
     	bvals_grav(pD);
   	for (i=is; i<=ie; i++) {
+
+		x1Flux_grav[i] += -0.5*pG->U[ks][js][i].d*pG->dphidt[ks][js][i]*pG->dt ;
 
     		pG->U[ks][js][i].E += (0.5*density_old[i]*pG->Phi_old[ks][js][i]-0.5*pG->U[ks][js][i].d*pG->Phi[ks][js][i]
 				      -x1Flux_grav[i]);

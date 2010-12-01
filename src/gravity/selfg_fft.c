@@ -105,9 +105,7 @@ void selfg_fft_1d(DomainS *pD)
 /******************************************/
 #ifdef CONS_GRAVITY
 
-  for (i=is-nghost; i<=ie+nghost; i++){
-    pG->dphidt_old[ks][js][i] = pG->dphidt[ks][js][i];
-  }
+  
 
 /* Compute new potential */
 
@@ -142,6 +140,10 @@ void selfg_fft_1d(DomainS *pD)
 
   for (i=is; i<=ie; i++) {
     pG->dphidt[ks][js][i] -= total_Phi;
+  }
+/* Actually dphidt only have one value at n+1/2 */
+  for (i=is-nghost; i<=ie+nghost; i++){
+    pG->dphidt_old[ks][js][i] = pG->dphidt[ks][js][i];
   }
 
 #endif

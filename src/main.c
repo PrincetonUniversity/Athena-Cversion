@@ -556,6 +556,8 @@ int main(int argc, char *argv[])
 		   
 #ifndef CONS_GRAVITY
 /* for CONS_GRAVITY, the following two steps are done in the integrator */
+	/* It seems that we need to apply boundary condition here */
+	  bvals_mhd(&(Mesh.Domain[nl][nd]));
           (*SelfGrav)(&(Mesh.Domain[nl][nd]));
           bvals_grav(&(Mesh.Domain[nl][nd]));
 #endif
@@ -564,10 +566,10 @@ int main(int argc, char *argv[])
 #ifdef CONS_GRAVITY
 	 /* We need to update d\phi\dt here because Momentum is changed */
 	/* Here we should only update d\phi\dt, but do not update phi */
-
-	 
-	  (*SelfGrav)(&(Mesh.Domain[nl][nd]));
+	/* We use x1MassFlux to calculate dphidt now. Do not need to update dphidt */	 
+/*	  (*SelfGrav)(&(Mesh.Domain[nl][nd]));
           bvals_grav(&(Mesh.Domain[nl][nd]));
+*/	   
 #endif
 
         }

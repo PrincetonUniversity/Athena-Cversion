@@ -55,15 +55,18 @@ void problem(DomainS *pDomain)
 	u0 = 0.0;
 	P0 = 1.0;
 
-	four_pi_G = 1.0;
+	four_pi_G = 100.;
 	grav_mean_rho = d0;
 	t = pGrid->time;
 	Real flag = 1.0;
-	Real factor = 1.e-3;
+	Real factor = 300.;
 
 	wavenumber = 2.0 * PI;
-	omega = sqrt(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0);
-
+	if(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0 > 0){
+	  omega = sqrt(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0);
+	} else {
+	  omega = sqrt(-(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0));	  
+	}
 
 
     for (k=kl; k<=ku; k++) {
@@ -73,10 +76,14 @@ void problem(DomainS *pDomain)
 	cc_pos(pGrid, i, j,k, &x1, &x2, &x3);
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-	theta = -wavenumber * x1 + omega * t;	
+	theta = wavenumber * x1 - omega * t;	
 
           pGrid->U[k][j][i].d  = 1.0 + flag * factor * 1.e-3 * cos(theta);
+	if(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0 > 0){
           pGrid->U[k][j][i].M1 = flag * factor * omega * 1.0e-3 * cos(theta)/wavenumber;
+	} else {
+	  pGrid->U[k][j][i].M1 = -flag * factor * omega * 1.0e-3 * sin(theta)/wavenumber;
+	}
           pGrid->U[k][j][i].M2 = 0.0;
           pGrid->U[k][j][i].M3 = 0.0;
 
