@@ -13,22 +13,22 @@ num_domains     = 1          # number of Domains in Mesh
 out_fmt = tab               # Tabular data dump
 out     = prim              # variables to be output
 dat_fmt = %16.13e            # Optional data format string
-dt      = .017099               # time increment between outputs
+dt      = .000001               # time increment between outputs
 
 <output2>
 out_fmt = hst               # History data dump
-dt      = 0.01              # time increment between outputs
+dt      = 0.000001              # time increment between outputs
 
 <time>
-cour_no         = 0.5       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.1       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 10000000    # cycle limit
-tlim            = .51297       # time limit
+tlim            = 0.0001       # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 512      # Number of zones in X1-direction
-x1min           = 0.0       # minimum value of X1
-x1max           = 1.0       # maximum value of X1
+Nx1             = 1024      # Number of zones in X1-direction
+x1min           = -2       # minimum value of X1
+x1max           = 2.0       # maximum value of X1
 bc_ix1          = 4         # boundary condition flag for inner-I (X1)
 bc_ox1          = 4         # boundary condition flag for outer-I (X1)
 

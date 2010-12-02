@@ -237,18 +237,14 @@ void selfg_fft_2d(DomainS *pD)
 /******************************************/
 #ifdef CONS_GRAVITY
 
-  for (j=js-nghost; j<=je+nghost; j++){
-    for (i=is-nghost; i<=ie+nghost; i++){
-      pG->dphidt_old[ks][j][i] = pG->dphidt[ks][j][i];
-    }
-  }
 
 /* Forward FFT of -4\piG Div(M) */
 
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-	divrhov = - 0.5 * (pG->U[ks][j][i+1].M1 - pG->U[ks][j][i-1].M1)/pG->dx1
-		- 0.5 * (pG->U[ks][j+1][i].M2 - pG->U[ks][j-1][i].M2)/pG->dx2;
+	divrhov = - (pG->x1MassFlux[ks][j][i+1] - pG->x1MassFlux[ks][j][i])/pG->dx1
+		-(pG->x2MassFlux[ks][j+1][i] - pG->x2MassFlux[ks][j][i])/pG->dx2;
+
       work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] = four_pi_G*divrhov;
       work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] = 0.0;
     }
@@ -297,6 +293,12 @@ void selfg_fft_2d(DomainS *pD)
     for (i=is; i<=ie; i++){
       pG->dphidt[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]/
         bplan2d->gcnt;
+    }
+  }
+
+   for (j=js-nghost; j<=je+nghost; j++){
+    for (i=is-nghost; i<=ie+nghost; i++){
+      pG->dphidt_old[ks][j][i] = pG->dphidt[ks][j][i];
     }
   }
 
@@ -416,23 +418,16 @@ void selfg_fft_3d(DomainS *pD)
 
 #ifdef CONS_GRAVITY
 
-/* Copy current potential into old */
 
-  for (k=ks-nghost; k<=ke+nghost; k++){
-  for (j=js-nghost; j<=je+nghost; j++){
-    for (i=is-nghost; i<=ie+nghost; i++){
-      pG->dphidt_old[k][j][i] = pG->dphidt[k][j][i];
-    }
-  }}
 
 /* Forward FFT of -4\piG Div(M) */
 
-  for (k=ks; k<=ke; k++){
+ for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-	divrhov = - 0.5 * (pG->U[k][j][i+1].M1 - pG->U[k][j][i-1].M1)/pG->dx1
-		- 0.5 * (pG->U[k][j+1][i].M2 - pG->U[k][j-1][i].M2)/pG->dx2
-		- 0.5 * (pG->U[k+1][j][i].M3 - pG->U[k-1][j][i].M3)/pG->dx3;
+	divrhov = - (pG->x1MassFlux[ks][j][i+1] - pG->x1MassFlux[ks][j][i])/pG->dx1
+		-(pG->x2MassFlux[ks][j+1][i] - pG->x2MassFlux[ks][j][i])/pG->dx2
+		-(pG->x3MassFlux[k+1][j][i] - pG->x3MassFlux[k][j][i])/pG->dx3;
 
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = four_pi_G*divrhov;
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
@@ -505,6 +500,14 @@ void selfg_fft_3d(DomainS *pD)
     }
   }}
 
+  /* Copy current potential into old */
+
+  for (k=ks-nghost; k<=ke+nghost; k++){
+  for (j=js-nghost; j<=je+nghost; j++){
+    for (i=is-nghost; i<=ie+nghost; i++){
+       pG->dphidt_old[k][j][i] = pG->dphidt[k][j][i];  
+    }
+  }}
 #endif
 
   return;

@@ -585,7 +585,7 @@ void integrate_1d_ctu(DomainS *pD)
     	(*SelfGrav_cons)(pD);
     	bvals_grav(pD);
   	for (i=is; i<=ie+1; i++) {
-		phil = 0.25*(pG->Phi[ks][js][i-1]+pG->Phi_old[ks][js][i]+pG->Phi[ks][js][i-1]+pG->Phi[ks][js][i]);
+		phil = 0.25*(pG->Phi[ks][js][i-1]+pG->Phi_old[ks][js][i]+pG->Phi_old[ks][js][i-1]+pG->Phi[ks][js][i]);
 		gxl = 0.5 * (pG->Phi[ks][js][i-1] + pG->Phi_old[ks][js][i-1]  - pG->Phi[ks][js][i  ] - pG->Phi_old[ks][js][i  ])/(pG->dx1);
 		dotphil  = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);		
 		dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);

@@ -175,9 +175,11 @@ void selfg_fc(DomainS *pD)
         pG->U[ks][j][i].M1 -= 0.5*dtodx1*(flx_m1r - flx_m1l);
         pG->U[ks][j][i].M2 -= 0.5*dtodx1*(flx_m2r - flx_m2l);
 #ifndef ISOTHERMAL
+#ifndef CONS_GRAVITY
         pG->U[ks][j][i].E -=
            0.5*dtodx1*(pG->x1MassFlux[ks][j][i  ]*(dphic - dphil) +
                        pG->x1MassFlux[ks][j][i+1]*(dphir - dphic));
+#endif /* cons_gravity */
 #endif
       }
     }
@@ -236,9 +238,11 @@ void selfg_fc(DomainS *pD)
         pG->U[ks][j][i].M1 -= 0.5*dtodx2*(flx_m1r - flx_m1l);
         pG->U[ks][j][i].M2 -= 0.5*dtodx2*(flx_m2r - flx_m2l);
 #ifndef ISOTHERMAL
+#ifndef CONS_GRAVITY
         pG->U[ks][j][i].E -=
            0.5*dtodx2*(pG->x2MassFlux[ks][j  ][i]*(dphic - dphil) +
                        pG->x2MassFlux[ks][j+1][i]*(dphir - dphic));
+#endif
 #endif
       }
     }
@@ -327,9 +331,11 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M2 -= 0.5*dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx1*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx1*
           (pG->x1MassFlux[k][j][i  ]*(dphic - dphil) +
            pG->x1MassFlux[k][j][i+1]*(dphir - dphic));
+#endif
 #endif /* ADIABATIC */
       }
     }}
@@ -414,9 +420,11 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M2 -= 0.5*dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx2*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx2*
           (pG->x2MassFlux[k][j  ][i]*(dphic - dphil) +
            pG->x2MassFlux[k][j+1][i]*(dphir - dphic));
+#endif
 #endif /* ADIABATIC */
       }
     }}
@@ -501,9 +509,11 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M2 -= 0.5*dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx3*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx3*
           (pG->x3MassFlux[k  ][j][i]*(dphic - dphil) +
            pG->x3MassFlux[k+1][j][i]*(dphir - dphic));
+#endif
 #endif /* ADIABATIC */
       }
     }}
