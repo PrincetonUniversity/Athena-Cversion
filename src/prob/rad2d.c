@@ -47,6 +47,7 @@ void problem(DomainS *pDomain)
   Real den = 1.0;
   Real wedd[2] = {0.5, 0.5};
   Real muedd[2] = {-1.0 / sqrt(3.0), 1.0 / sqrt(3.0)};
+  Real stheta;
   Real *mul = NULL, *wl = NULL, *tau = NULL, *gl = NULL, *wgl = NULL;
 
 /* Read problem parameters. */
@@ -89,34 +90,32 @@ void problem(DomainS *pDomain)
       free_1d_array(mul);
       ath_error("[rad1d]: Error allocating memory");
     }
-    if ((gl = (Real *)calloc_1d_array(ng/2,sizeof(Real))) == NULL) {
+    if ((gl = (Real *)calloc_1d_array(ng,sizeof(Real))) == NULL) {
       ath_error("[rad1d]: Error allocating memory");
     }
-    if ((wgl = (Real *)calloc_1d_array(ng/2,sizeof(Real))) == NULL) {
+    if ((wgl = (Real *)calloc_1d_array(ng,sizeof(Real))) == NULL) {
       free_1d_array(mul);
       ath_error("[rad1d]: Error allocating memory");
     }
     gauleg(0.0, 1.0, mul, wl, nmu/2);
-    gauleg(0.0, 1.0, gl, wgl, ng/2);
+    gauleg(0.0, 2.0 * PI, gl, wgl, ng);
 
     for(i=0; i<nmu/2; i++) {
-      pRG->mu[i] = -mul[nmu/2-i-1];   
-      for(j=0; j<ng/2; j++)
-	pRG->w[i][j] = 0.25 * wl[nmu/2-i-1] * wgl[ng/2-j-1];  
-      for(j=ng/2; j<ng; j++)
-	pRG->w[i][j] = 0.25 * wl[nmu/2-i-1] * wgl[j-ng/2];  
+      pRG->mu[i] = -mul[nmu/2-i-1];
+      stheta = sqrt(1.0 - pRG->mu[i] * pRG->mu[i]);
+      for(j=0; j<ng; j++) {
+	pRG->w[i][j] = 0.25 * wl[nmu/2-i-1] * wgl[j] / PI; 
+	pRG->gamma[i][j] = cos(gl[j]) * stheta;  
+      } 
     }
     for(i=nmu/2; i<nmu; i++) {
       pRG->mu[i] = mul[i-nmu/2];   
-      for(j=0; j<ng/2; j++)
-	pRG->w[i][j] = 0.25 * wl[i-nmu/2] * wgl[ng/2-j-1];  
-      for(j=ng/2; j<ng; j++)
-	pRG->w[i][j] = 0.25 * wl[i-nmu/2] * wgl[j-ng/2]; 
+      stheta = sqrt(1.0 - pRG->mu[i] * pRG->mu[i]);
+      for(j=0; j<ng; j++) {
+	pRG->w[i][j] = 0.25 * wl[i-nmu/2] * wgl[j] / PI; 
+	pRG->gamma[i][j] = cos(gl[j]) * stheta; 
+      } 
     }
-    for(i=0; i<ng/2; i++)
-      pRG->gamma[i] = -gl[ng/2-i-1];  
-    for(i=ng/2; i<ng; i++) 
-      pRG->gamma[i] = gl[i-ng/2];  
 
 /* free up memory */
     free_1d_array(mul);
@@ -131,12 +130,12 @@ void problem(DomainS *pDomain)
     pRG->r2ls=1; pRG->r2le=1; pRG->l2ls=0; pRG->l2le=0;
     pRG->r2ms=0; pRG->r2me=1; pRG->l2ms=0; pRG->l2me=1;
     for(i=0; i<nmu; i++) {
-      pRG->mu[i] = muedd[i];   
-      for(j=0; j<ng; j++)
+      pRG->mu[i] = muedd[i];
+      for(j=0; j<ng; j++) {
 	pRG->w[i][j] = wedd[i] * wedd[j];
+	pRG->gamma[i][j] = muedd[j];
+      }
     }
-    for(i=0; i<ng; i++) 
-      pRG->gamma[i] = muedd[i];
   }
 /* ------- Initialize boundary emission ---------------------------------- */
 
@@ -147,26 +146,30 @@ void problem(DomainS *pDomain)
 	pRG->l1imu[pRG->ks][0][ifr][j][k] = 0.0;
       }
 
-  for(j=pRG->js; j<=pRG->je+1; j++) 
-    for(i=0; i<nmu; i++) 
-      for(k=0; k<ng; k++) 
-	for(ifr=0; ifr<nf; ifr++) {
-	  pRG->r1imu[pRG->ks][j][ifr][i][k] = 1.0;
+  for(j=pRG->js; j<=pRG->je+1; j++) {
+    for(i=pRG->r1ls; i<=pRG->r1le; i++) 
+      for(k=pRG->r1ms; k<=pRG->r1me; k++)
+	for(ifr=0; ifr<nf; ifr++)
 	  pRG->l1imu[pRG->ks][j][ifr][i][k] = 1.0;
-	}
+
+    for(i=pRG->l1ls; i<=pRG->l1le; i++) 
+      for(k=pRG->l1ms; k<=pRG->l1me; k++) 
+	for(ifr=0; ifr<nf; ifr++)
+	  pRG->r1imu[pRG->ks][j][ifr][i][k] = 1.0;
+  }
 
   for(i=pRG->is-1; i<=pRG->ie+1; i++) {
-/* incident radiation at lower (iz=0)  boundary */
-    for(j=nmu/2; j<nmu; j++) 
-      for(k=0; k<ng; k++)
+/* incident radiation at lower boundary */
+    for(j=pRG->r2ls; j<=pRG->r2le; j++) 
+      for(k=pRG->r2ms; k<=pRG->r2me; k++)
 	for(ifr=0; ifr<nf; ifr++)
 	  for(l=0; l<2; l++)
 /* lower boundary is tau=0, no irradiation */
 	    pRG->l2imu[pRG->ks][i][ifr][j][k][l] = 0.0;
 
-/* incident radiation at upper (iz=nx) boundary */
-    for(j=0; j<nmu/2; j++) 
-      for(k=0; k<ng; k++) 
+/* incident radiation at upper boundary */
+    for(j=pRG->l2ls; j<=pRG->l2le; j++) 
+      for(k=pRG->l2ms; k<=pRG->l2me; k++) 
 	for(ifr=0; ifr<nf; ifr++)
 	  for(l=0; l<2; l++)
 /* upper boundary is large tau, eps=1 */

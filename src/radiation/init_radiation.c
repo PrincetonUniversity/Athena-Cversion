@@ -141,8 +141,8 @@ void init_radiation(MeshS *pM)
       if (pRG->w ==NULL) goto on_error3;
 
       if(nDim > 1) {
-	pRG->gamma = (Real *)calloc_1d_array(pRG->ng,sizeof(Real));
-	if (pRG->gamma ==NULL) goto on_error4;
+	pRG->gamma = (Real **)calloc_2d_array(pRG->nmu,pRG->ng,sizeof(Real));
+	if (pRG->gamma == NULL) goto on_error4;
       }
 
 /* Allocate memory for intensity at boundaries */
@@ -238,7 +238,7 @@ void init_radiation(MeshS *pM)
  on_error5:
   if (pRG->Nx[0] > 1) free_5d_array(pRG->r1imu);
  on_error4:
-  if(nDim > 1) free_1d_array(pRG->gamma);
+  if(nDim > 1) free_2d_array(pRG->gamma);
  on_error3:
   free_2d_array(pRG->w);
  on_error2:
@@ -295,7 +295,7 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->R != NULL) free_4d_array(pRG->R);  
   if (pRG->w != NULL) free_2d_array(pRG->w);
   if (pRG->mu != NULL) free(pRG->mu);
-  if (pRG->gamma != NULL) free(pRG->gamma);
+  if (pRG->gamma != NULL) free_2d_array(pRG->gamma);
   if (pRG->r3imu != NULL) free_5d_array(pRG->r3imu);
   if (pRG->l3imu != NULL) free_5d_array(pRG->l3imu);
   if (pRG->r2imu != NULL) free_6d_array(pRG->r2imu);

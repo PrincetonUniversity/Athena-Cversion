@@ -306,7 +306,7 @@ typedef struct RadGrid_s {
 
   Real **w;          /* angular quadrature weights */
   Real *mu;          /* polar angle array */
-  Real *gamma;       /* azimutha angle array */
+  Real **gamma;       /* azimutha angle array */
 
   RadS ****R;        /* array of radiation variables */
 

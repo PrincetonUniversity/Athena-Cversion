@@ -31,8 +31,8 @@ static Real *******psi = NULL;
 static Real ******psi = NULL;
 #endif
 static Real *****imuo = NULL;
-static Real *mu1 = NULL, *gamma1 = NULL, **am0 = NULL;
-static Real *mu2 = NULL, *gamma2 = NULL, **mugam = NULL;
+static Real *mu1 = NULL, **gamma1 = NULL, **am0 = NULL;
+static Real *mu2 = NULL, **gamma2 = NULL, **mugam = NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -138,8 +138,6 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
 static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
 {
   int i0, i, l, m;
-  int nmu = pRG->nmu, nmu2 = pRG->nmu/2;
-  int ng = pRG->ng, ng2 = pRG->ng/2;
   int is = pRG->is, ie = pRG->ie;
   int ks = pRG->ks; 
   int ifr = 0, nf = pRG->nf;
@@ -150,22 +148,23 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
   Real mus, mue, gs, ge;
   Real maxint, minint;
 
+
   if (sy == 1) {
-    mus = nmu2;
-    mue = nmu-1;
+    mus = pRG->r2ls;
+    mue = pRG->r2le;
   } else {
     sy = -1;
-    mus = 0;
-    mue = nmu2-1;
+    mus = pRG->l2ls;
+    mue = pRG->l2le;
   }
 
   if (sx == 1) {
-    gs = ng2;
-    ge = ng-1;
+    gs = pRG->r1ms;
+    ge = pRG->r1me;
   } else {
     sx = -1;
-    gs = 0;
-    ge = ng2-1;
+    gs = pRG->l1ms;
+    ge = pRG->l1me;
   }
 
   for(i0=is; i0<=ie; i0++) {
@@ -249,7 +248,7 @@ static void sweep_2d(RadGridS *pRG, int j, int sx, int sy)
 	   pRG->R[ks][j][i][ifr].J += pRG->w[l][m] * imu;
 	   pRG->R[ks][j][i][ifr].K[0] += mu2[l] * pRG->w[l][m] * imu;
 	   pRG->R[ks][j][i][ifr].K[1] += mugam[l][m] * pRG->w[l][m] * imu;
-	   pRG->R[ks][j][i][ifr].K[2] += gamma2[m] * pRG->w[l][m] * imu;
+	   pRG->R[ks][j][i][ifr].K[2] += gamma2[l][m] * pRG->w[l][m] * imu;
 
 	   /* Update intensity workspace */
 #ifdef INTERP_2D
@@ -290,10 +289,10 @@ void formal_solution_2d_destruct(void)
 #endif
   if (imuo != NULL) free_5d_array(imuo);
   if (mu1 != NULL) free(mu1);
-  if (gamma1 != NULL) free(gamma1);
+  if (gamma1 != NULL) free_2d_array(gamma1);
   if (am0 != NULL) free_2d_array(am0);
   if (mu2 != NULL) free(mu2);
-  if (gamma2 != NULL) free(gamma2);
+  if (gamma2 != NULL) free_2d_array(gamma2);
   if (mugam != NULL) free_2d_array(mugam);
 
   return;
@@ -321,7 +320,7 @@ void formal_solution_2d_init(RadGridS *pRG)
   if ((mu1 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((gamma1 = (Real *)calloc(ng,sizeof(Real))) == NULL)
+  if ((gamma1 = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
     goto on_error;
 
   if ((am0 = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
@@ -330,7 +329,7 @@ void formal_solution_2d_init(RadGridS *pRG)
   if ((mu2 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((gamma2 = (Real *)calloc(ng,sizeof(Real))) == NULL)
+  if ((gamma2 = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
     goto on_error;
 
   if ((mugam = (Real **)calloc_2d_array(nmu,ng,sizeof(Real))) == NULL)
@@ -341,15 +340,12 @@ void formal_solution_2d_init(RadGridS *pRG)
     mu2[i] = pRG->mu[i] * pRG->mu[i];
   }
 
-  for(i=0; i<ng; i++) {
-    gamma1[i] = fabs(1.0 / pRG->gamma[i]);
-    gamma2[i] = pRG->gamma[i] * pRG->gamma[i];
-  }
-
   for(i=0; i<nmu; i++) 
     for(j=0; j<ng; j++) {
-      am0[i][j] = fabs(dy * mu1[i] / (dx * gamma1[j]));
-      mugam[i][j] = pRG->mu[i] * pRG->gamma[j];
+      gamma1[i][j] = fabs(1.0 / pRG->gamma[i][j]);
+      gamma2[i][j] = pRG->gamma[i][j] * pRG->gamma[i][j];
+      am0[i][j]    = fabs(dy * mu1[i] / (dx * gamma1[i][j]));
+      mugam[i][j]  = pRG->mu[i] * pRG->gamma[i][j];
     }
 
 #ifdef RAD_MULTIG
@@ -386,8 +382,8 @@ void formal_solution_2d_init(RadGridS *pRG)
 	             bm1 * pRG->R[ks][j   ][i-sx][ifr].chi;
 	      chi2 = bm  * pRG->R[ks][j+sy][i+sx][ifr].chi +
                      bm1 * pRG->R[ks][j   ][i+sx][ifr].chi;
-	      dtaum = 0.5 * (chi0 + chi1) * dx * gamma1[m]; 
-	      dtaup = 0.5 * (chi2 + chi1) * dx * gamma1[m]; 
+	      dtaum = 0.5 * (chi0 + chi1) * dx * gamma1[l][m]; 
+	      dtaup = 0.5 * (chi2 + chi1) * dx * gamma1[l][m]; 
 	    }
 	    get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);
 	    psi[0][j][i][ifr][l][m][0] = edtau;
@@ -428,8 +424,8 @@ void formal_solution_2d_init(RadGridS *pRG)
 	             bm1 * pRG->R[ks][j   ][i-sx][ifr].chi;
 	      chi2 = bm  * pRG->R[ks][j+sy][i+sx][ifr].chi +
                      bm1 * pRG->R[ks][j   ][i+sx][ifr].chi;
-	      dtaum = 0.5 * (chi0 + chi1) * dx * gamma1[m]; 
-	      dtaup = 0.5 * (chi2 + chi1) * dx * gamma1[m]; 
+	      dtaum = 0.5 * (chi0 + chi1) * dx * gamma1[l][m]; 
+	      dtaup = 0.5 * (chi2 + chi1) * dx * gamma1[l][m]; 
 	    }
 
 	    get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);
@@ -455,7 +451,7 @@ void formal_solution_2d_init(RadGridS *pRG)
 
 #ifdef RAD_MULTIG
 void jacobi_pass_pointers_to_mg_2d(Real ********psi0, Real **mu10,
-				   Real **gamma10, Real ***am00)
+				   Real ***gamma10, Real ***am00)
 {
   *psi0 = psi;
   *mu10 = mu1;
