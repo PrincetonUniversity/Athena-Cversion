@@ -94,7 +94,7 @@ void selfg_fft_1d(DomainS *pD)
   for (i=is; i<=ie; i++) {
     total_Phi += pG->Phi[ks][js][i];
   }
-  total_Phi /= (float)(pG->Nx[0]);
+  total_Phi /= (double)(pG->Nx[0]);
 
   for (i=is; i<=ie; i++) {
     pG->Phi[ks][js][i] -= total_Phi;
@@ -133,7 +133,7 @@ void selfg_fft_1d(DomainS *pD)
   for (i=is; i<=ie; i++) {
     total_Phi += pG->dphidt[ks][js][i];
   }
-  total_Phi /= (float)(pG->Nx[0]);
+  total_Phi /= (double)(pG->Nx[0]);
 
   for (i=is; i<=ie; i++) {
     pG->dphidt[ks][js][i] -= total_Phi;
@@ -164,6 +164,8 @@ void selfg_fft_2d(DomainS *pD)
 
 #ifdef CONS_GRAVITY
   Real divrhov;
+  Real tot_Phi = 0.0;
+  Real tot_dphidt = 0.0;
 #endif
 
 
@@ -289,7 +291,7 @@ void selfg_fft_2d(DomainS *pD)
 
   ath_2d_fft(bplan2d, work);
 
-  for (j=js; j<=je; j++){
+ for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
       pG->dphidt[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]/
         bplan2d->gcnt;
@@ -302,9 +304,29 @@ void selfg_fft_2d(DomainS *pD)
     }
   }
 
+
+/* Normalize phi and dphidt */
+	tot_Phi = 0.0;
+	tot_dphidt = 0.0;
+for(j=js; j<=je; j++){
+ for (i=is; i<=ie; i++) {
+    tot_Phi += pG->Phi[ks][j][i];
+    tot_dphidt += pG->dphidt[ks][j][i];
+  }
+}
+  tot_Phi /= (double)(pG->Nx[0]*pG->Nx[1]);
+  tot_dphidt /= (double)(pG->Nx[0]*pG->Nx[1]);
+
+for(j=js; j<=je; j++){
+  for (i=is; i<=ie; i++) {
+    pG->Phi[ks][j][i] -= tot_Phi;
+    pG->dphidt[ks][js][i] -= tot_dphidt;
+  }
+}
+
 #endif
 
-  return;
+return;
 }
 
 /*----------------------------------------------------------------------------*/

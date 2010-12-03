@@ -55,7 +55,7 @@ void problem(DomainS *pDomain)
 	u0 = 0.0;
 	P0 = 1.0;
 
-	four_pi_G = 100.;
+	four_pi_G = 300.;
 	grav_mean_rho = d0;
 	t = pGrid->time;
 	Real flag = 1.0;

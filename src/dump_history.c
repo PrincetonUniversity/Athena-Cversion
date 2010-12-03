@@ -116,6 +116,9 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #endif
 #ifdef SELF_GRAVITY
   total_hst_cnt += 1;
+#ifdef CONS_GRAVITY
+  total_hst_cnt += 1;
+#endif
 #endif
 #ifdef CYLINDRICAL
   total_hst_cnt++;  /* for angular momentum */
@@ -205,6 +208,10 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef SELF_GRAVITY
               mhst++;
               scal[mhst] += dVol*pG->U[k][j][i].d*pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+	      mhst++;
+	      scal[mhst] += dVol*(0.5*pG->U[k][j][i].d*pG->Phi[k][j][i]+pG->U[k][j][i].E);
+#endif
 #endif
 #if (NSCALARS > 0)
               for(n=0; n<NSCALARS; n++){
@@ -373,6 +380,10 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef SELF_GRAVITY
           mhst++;
           fprintf(pfile,"   [%i]=grav PE ",mhst);
+#ifdef CONS_GRAVITY
+          mhst++;
+          fprintf(pfile,"   [%i]=grav+total E ",mhst);
+#endif
 #endif
 #if (NSCALARS > 0)
           for(n=0; n<NSCALARS; n++){

@@ -1733,14 +1733,14 @@ void integrate_2d_ctu(DomainS *pD)
 	dotphil  = 0.5*(pG->dphidt[ks][j][i-1] + pG->dphidt[ks][j][i  ]);		
 	dotgxl = (pG->dphidt[ks][j][i-1] - pG->dphidt[ks][j][i  ])/(pG->dx1);
 
-	x1Flux_grav[i][j] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[i][j].d*phil;
+	x1Flux_grav[j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[j][i].d*phil;
 
 	phil = 0.25*(pG->Phi[ks][j-1][i]+pG->Phi_old[ks][j-1][i]+pG->Phi_old[ks][j][i]+pG->Phi[ks][j][i]);
 	gxl = 0.5 * (pG->Phi[ks][j-1][i] + pG->Phi_old[ks][j-1][i]  - pG->Phi[ks][j][i  ] - pG->Phi_old[ks][j][i  ])/(pG->dx2);
 	dotphil  = 0.5*(pG->dphidt[ks][j-1][i] + pG->dphidt[ks][j][i  ]);		
 	dotgxl = (pG->dphidt[ks][j-1][i] - pG->dphidt[ks][j][i  ])/(pG->dx2);
 
-	x2Flux_grav[i][j] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[i][j].d*phil;
+	x2Flux_grav[j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[j][i].d*phil;
 
     		
 	}
