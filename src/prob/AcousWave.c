@@ -61,9 +61,11 @@ void problem(DomainS *pDomain)
 	Real flag = 1.0;
 	Real factor = 300.;
 
-	Real costheta, sintheta;
-	sintheta = 0.4472136;
-	costheta = 2.0 * sintheta;
+	Real costheta, sintheta, sinphi, cosphi;
+	sintheta = 0.5;
+	costheta = 0.8660254;
+	sinphi = 0.5;
+	cosphi = 0.8660254;
 
 	wavenumber = 2.0 * PI;
 	if(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0 > 0){
@@ -80,7 +82,7 @@ void problem(DomainS *pDomain)
 	cc_pos(pGrid, i, j,k, &x1, &x2, &x3);
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-	theta = wavenumber * (costheta * x1 + sintheta * x2) - omega * t;	
+	theta = wavenumber * (sintheta * cosphi * x1 + sintheta * sinphi * x2 + costheta * x3) - omega * t;	
 
           pGrid->U[k][j][i].d  = 1.0 + flag * factor * 1.e-3 * cos(theta);
 	if(Gamma * P0 * wavenumber * wavenumber/d0 - four_pi_G * d0 > 0){

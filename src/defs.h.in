@@ -182,7 +182,8 @@ enum {LtoR_tag,
       remapEy_tag,
       fargo_tag,
       ch_rundir0_tag,
-      ch_rundir1_tag
+      ch_rundir1_tag,
+      bval_grav_tag
 };
 #endif /* MPI_PARALLEL */
 

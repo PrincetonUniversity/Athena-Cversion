@@ -58,6 +58,14 @@ static Cons1DS ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
 static Cons1DS ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
 Cons1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
+#ifdef CONS_GRAVITY
+static Real ***x1Flux_grav=NULL;
+static Real ***x2Flux_grav=NULL;
+static Real ***x3Flux_grav=NULL;
+static Real ***density_old=NULL;
+Real dotphil, dotgxl;
+#endif
+
 /* The interface magnetic fields and emfs */
 #ifdef MHD
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
@@ -2825,9 +2833,12 @@ void integrate_3d_ctu(DomainS *pD)
         pG->U[k][j][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx1*(flx_m3r - flx_m3l);
+
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
                                     x1Flux[k][j][i+1].d*(phir - phic));
+#endif
 #endif /* BAROTROPIC */
       }
     }
@@ -2871,8 +2882,10 @@ void integrate_3d_ctu(DomainS *pD)
         pG->U[k][j][i].M2 -= dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx2*(flx_m3r - flx_m3l);
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                     x2Flux[k][j+1][i].d*(phir - phic));
+#endif
 #endif /* BAROTROPIC */
       }
     }
@@ -2915,9 +2928,12 @@ void integrate_3d_ctu(DomainS *pD)
         pG->U[k][j][i].M1 -= dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx3*(flx_m3r - flx_m3l);
+
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                     x3Flux[k+1][j][i].d*(phir - phic));
+#endif
 #endif /* BAROTROPIC */
       }
     }
@@ -2984,6 +3000,9 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
+#ifdef CONS_GRAVITY
+	density_old[k][j][i] = pG->U[k][j][i].d;
+#endif
         pG->U[k][j][i].d  -= dtodx1*(rsf*x1Flux[k][j][i+1].d -lsf*x1Flux[k][j][i].d );
         pG->U[k][j][i].M1 -= dtodx1*(rsf*x1Flux[k][j][i+1].Mx-lsf*x1Flux[k][j][i].Mx);
         pG->U[k][j][i].M2 -= dtodx1*(SQR(rsf)*x1Flux[k][j][i+1].My-SQR(lsf)*x1Flux[k][j][i].My);
@@ -3048,6 +3067,55 @@ void integrate_3d_ctu(DomainS *pD)
       }
     }
   }
+
+
+
+#ifdef CONS_GRAVITY
+	bvals_mhd(pD);
+    	(*SelfGrav_cons)(pD);
+    	bvals_grav(pD);
+/* update energy with x1 flux  */
+for(k=ks; k<=ke+1; k++){
+  for(j=js; j<=je+1;j++){	
+	for (i=is; i<=ie+1; i++) {
+	phil = 0.25*(pG->Phi[k][j][i-1]+pG->Phi_old[k][j][i]+pG->Phi_old[k][j][i-1]+pG->Phi[k][j][i]);
+	gxl = 0.5 * (pG->Phi[k][j][i-1] + pG->Phi_old[k][j][i-1]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx1);
+	dotphil  = 0.5*(pG->dphidt[k][j][i-1] + pG->dphidt[k][j][i  ]);		
+	dotgxl = (pG->dphidt[k][j][i-1] - pG->dphidt[k][j][i  ])/(pG->dx1);
+
+	x1Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[k][j][i].d*phil;
+
+	phil = 0.25*(pG->Phi[k][j-1][i]+pG->Phi_old[k][j-1][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
+	gxl = 0.5 * (pG->Phi[k][j-1][i] + pG->Phi_old[k][j-1][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx2);
+	dotphil  = 0.5*(pG->dphidt[k][j-1][i] + pG->dphidt[k][j][i  ]);		
+	dotgxl = (pG->dphidt[k][j-1][i] - pG->dphidt[k][j][i  ])/(pG->dx2);
+
+	x2Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[k][j][i].d*phil;
+
+	phil = 0.25*(pG->Phi[k-1][j][i]+pG->Phi_old[k-1][j][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
+	gxl = 0.5 * (pG->Phi[k-1][j][i] + pG->Phi_old[k-1][j][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx3);
+	dotphil  = 0.5*(pG->dphidt[k-1][j][i] + pG->dphidt[k][j][i  ]);		
+	dotgxl = (pG->dphidt[k-1][j][i] - pG->dphidt[k][j][i  ])/(pG->dx3);
+
+	x3Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x3Flux[k][j][i].d*phil;		
+	}
+ }
+}
+
+for(k=ks; k<=ke; k++){
+ for(j=js; j<=je; j++){
+	for(i=is;i<=ie;i++){
+	pG->U[k][j][i].E += (0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi[k][j][i]
+				      -dtodx1 * (x1Flux_grav[k][j][i+1] - x1Flux_grav[k][j][i])
+				      -dtodx2 * (x2Flux_grav[k][j+1][i] - x2Flux_grav[k][j][i])
+				      -dtodx3 * (x3Flux_grav[k+1][j][i] - x3Flux_grav[k][j][i]));
+	}
+}
+}
+#endif
+
+
+
 
 /*--- Step 12d -----------------------------------------------------------------
  * Set cell centered magnetic fields to average of updated face centered fields.
@@ -3457,6 +3525,17 @@ void integrate_init_3d(MeshS *pM)
   if ((x3Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
 
+#ifdef CONS_GRAVITY
+  if ((x1Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((x2Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((x3Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((density_old   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    ==NULL)  goto on_error;
+#endif
+
 #ifdef CYLINDRICAL
 #ifndef MHD
 #ifndef PARTICLES
@@ -3539,6 +3618,12 @@ void integrate_destruct_3d(void)
 #ifdef SHEARING_BOX
   if (remapEyiib != NULL) free_2d_array(remapEyiib);
   if (remapEyoib != NULL) free_2d_array(remapEyoib);
+#endif
+#ifdef CONS_GRAVITY
+  if (x1Flux_grav    != NULL) free_3d_array(x1Flux_grav);
+  if (x2Flux_grav    != NULL) free_3d_array(x2Flux_grav);
+  if (x3Flux_grav    != NULL) free_3d_array(x3Flux_grav);
+  if (density_old    != NULL) free_3d_array(density_old);
 #endif
 
   /* DATA STRUCTURES FOR CYLINDRICAL COORDINATES */

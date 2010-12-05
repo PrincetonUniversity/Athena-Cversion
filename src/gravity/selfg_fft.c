@@ -320,7 +320,7 @@ for(j=js; j<=je; j++){
 for(j=js; j<=je; j++){
   for (i=is; i<=ie; i++) {
     pG->Phi[ks][j][i] -= tot_Phi;
-    pG->dphidt[ks][js][i] -= tot_dphidt;
+    pG->dphidt[ks][j][i] -= tot_dphidt;
   }
 }
 
@@ -345,6 +345,8 @@ void selfg_fft_3d(DomainS *pD)
 
 #ifdef CONS_GRAVITY
   Real divrhov;
+  Real tot_Phi = 0.0;
+  Real tot_dphidt = 0.0;
 #endif
 
 /* Copy current potential into old */
@@ -447,8 +449,8 @@ void selfg_fft_3d(DomainS *pD)
  for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-	divrhov = - (pG->x1MassFlux[ks][j][i+1] - pG->x1MassFlux[ks][j][i])/pG->dx1
-		-(pG->x2MassFlux[ks][j+1][i] - pG->x2MassFlux[ks][j][i])/pG->dx2
+	divrhov = -(pG->x1MassFlux[k][j][i+1] - pG->x1MassFlux[k][j][i])/pG->dx1
+		-(pG->x2MassFlux[k][j+1][i] - pG->x2MassFlux[k][j][i])/pG->dx2
 		-(pG->x3MassFlux[k+1][j][i] - pG->x3MassFlux[k][j][i])/pG->dx3;
 
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = four_pi_G*divrhov;
@@ -521,6 +523,30 @@ void selfg_fft_3d(DomainS *pD)
         / bplan3d->gcnt;
     }
   }}
+
+
+/* Normalize phi and dphidt */
+	tot_Phi = 0.0;
+	tot_dphidt = 0.0;
+for(k=ks;k<=ke;k++){
+for(j=js; j<=je; j++){
+ for (i=is; i<=ie; i++) {
+    tot_Phi += pG->Phi[k][j][i];
+    tot_dphidt += pG->dphidt[k][j][i];
+  }
+}
+}
+  tot_Phi /= (double)(pG->Nx[0]*pG->Nx[1]*pG->Nx[2]);
+  tot_dphidt /= (double)(pG->Nx[0]*pG->Nx[1]*pG->Nx[2]);
+
+for(k=ks; k<=ke; k++){
+for(j=js; j<=je; j++){
+  for (i=is; i<=ie; i++) {
+    pG->Phi[k][j][i] -= tot_Phi;
+    pG->dphidt[k][j][i] -= tot_dphidt;
+  }
+}
+}
 
   /* Copy current potential into old */
 
