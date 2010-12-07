@@ -109,6 +109,9 @@ void problem(DomainS *pDomain)
 
 
 /* Initialize the grid including the ghost cells.  */
+ /* Notice that ghost zones must be updated here. 
+  * radiation transfer part need to use one zone 
+  */
 
 	d0 = 1.0;
 	u0 = -20.0;
@@ -195,14 +198,14 @@ void problem(DomainS *pDomain)
   /* lower boundary is tau=0, no irradiation */
   	for(j=nmu/2; j<nmu; j++) 
     	for(ifr=0; ifr<nf; ifr++) 
-    		pRG->l1imu[pRG->ks][pRG->js][ifr][j][0] = Thermal_B(pGrid, ifr, pGrid->is, pGrid->js, pGrid->ks); 
+    		pRG->l1imu[pRG->ks][pRG->js][ifr][j][0] = Thermal_B(pGrid, ifr, pGrid->is-1, pGrid->js, pGrid->ks); 
 
   /* incident radiation at upper (iz=nx) boundary */
   /* upper boundary is large tau, eps=1 */
 /* Should use reflected boundary condition */
   	for(j=0; j<nmu/2; j++) 
     	for(ifr=0; ifr<nf; ifr++) 
-      		pRG->r1imu[pRG->ks][pRG->js][ifr][j][0] = Thermal_B(pGrid, ifr, pGrid->ie, pGrid->js, pGrid->ks);
+      		pRG->r1imu[pRG->ks][pRG->js][ifr][j][0] = Thermal_B(pGrid, ifr, pGrid->ie+1, pGrid->js, pGrid->ks);
 
 /* enroll radiation specification functions */
 	get_thermal_source = Thermal_B;
@@ -214,7 +217,7 @@ void problem(DomainS *pDomain)
 
 
 	/* Third, initialize Eddington tensor by calling Shane's function */
-
+	/* hydro_to_rad initialize the source function and B */
 	hydro_to_rad(pDomain);  
 /* solve radiative transfer */
 	formal_solution(pDomain);

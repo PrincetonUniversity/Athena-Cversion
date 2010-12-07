@@ -37,7 +37,7 @@ void new_dt(MeshS *pM)
 #ifdef ADIABATIC
   Real p;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined (RADIATION_MHD)
   Real b1,b2,b3,bsq,tsum,tdif;
 #endif /* MHD */
 #ifdef PARTICLES
@@ -48,11 +48,11 @@ void new_dt(MeshS *pM)
   double dt, my_dt;
   int ierr;
 #endif
-#ifdef RADIATION_HYDRO 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD) 
  Real aeff = 0.0;
  Prim1DS Waeff; 
  Real Bx=0;
-#endif/* radiation hydro, effective sound speed */
+#endif/* radiation hydro and MHD, effective sound speed */
 
   int nl,nd;
   Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
@@ -80,18 +80,6 @@ void new_dt(MeshS *pM)
         v3 = pGrid->U[k][j][i].M3*di;
         qsq = v1*v1 + v2*v2 + v3*v3;
 
-#ifdef RADIATION_HYDRO
-	Waeff.d = 1.0/di;
-	Waeff.Vx = v1;
-	Waeff.Vy = v2;
-	Waeff.Vz = v3;
-	Waeff.P = (Gamma - 1.0) *  (pGrid->U[k][j][i].E - 0.5 * Waeff.d * (v1 * v1 + v2 * v2 + v3 * v3));
-	/* For MHD, should include magnetic field */
-	Waeff.Sigma_a = pGrid->U[k][j][i].Sigma_a;
-	Waeff.Sigma_t = pGrid->U[k][j][i].Sigma_t;
-#endif
-
-
 #ifdef MHD
 
 /* Use maximum of face-centered fields (always larger than cell-centered B) */
@@ -106,6 +94,7 @@ void new_dt(MeshS *pM)
 #ifdef ADIABATIC
         p = MAX(Gamma_1*(pGrid->U[k][j][i].E - 0.5*pGrid->U[k][j][i].d*qsq
                 - 0.5*bsq), TINY_NUMBER);
+
         asq = Gamma*p*di;
 #elif defined ISOTHERMAL
         asq = Iso_csound2;
@@ -134,42 +123,81 @@ void new_dt(MeshS *pM)
 
 #endif /* MHD */
 
-#ifdef RADIATION_HYDRO
+
+/****************************************
+ * radiation hdyro and MHD part 	*
+ ****************************************/
+
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	Waeff.d = 1.0/di;
+	Waeff.Vx = v1;
+	Waeff.Vy = v2;
+	Waeff.Vz = v3;
+	Waeff.Sigma_a = pGrid->U[k][j][i].Sigma_a;
+	Waeff.Sigma_t = pGrid->U[k][j][i].Sigma_t;
+	/* For MHD, pressure is recalculated below */
+
+#ifdef RADIATION_MHD
+/* recalculate pressure for MHD */
+	/* Use maximum of face-centered fields (always larger than cell-centered B) */
+        b1 = pGrid->U[k][j][i].B1c 
+          + fabs((double)(pGrid->B1i[k][j][i] - pGrid->U[k][j][i].B1c));
+        b2 = pGrid->U[k][j][i].B2c 
+          + fabs((double)(pGrid->B2i[k][j][i] - pGrid->U[k][j][i].B2c));
+        b3 = pGrid->U[k][j][i].B3c 
+          + fabs((double)(pGrid->B3i[k][j][i] - pGrid->U[k][j][i].B3c));
+        bsq = b1*b1 + b2*b2 + b3*b3;
+	Waeff.P = MAX(Gamma_1*(pGrid->U[k][j][i].E - 0.5*pGrid->U[k][j][i].d*qsq
+                - 0.5*bsq), TINY_NUMBER);
+#else
+	Waeff.P = MAX((Gamma - 1.0) *  (pGrid->U[k][j][i].E - 0.5 * Waeff.d * (v1 * v1 + v2 * v2 + v3 * v3)),TINY_NUMBER);
+
+#endif /* end radiation mhd */
+
 	/* First step, pGrid->dt=0 */
 	if(pGrid->dt <= TINY_NUMBER)
 	aeff = sqrt(Gamma * Waeff.P/Waeff.d);
 	else
         aeff = eff_sound(Waeff, pGrid->dt);
-#endif
+
+	asq = aeff * aeff;
+
+#ifdef RADIATION_MHD
+	tsum = bsq*di + asq;
+        tdif = bsq*di - asq;
+        cf1sq = 0.5*(tsum + sqrt(tdif*tdif + 4.0*asq*(b2*b2+b3*b3)*di));
+        cf2sq = 0.5*(tsum + sqrt(tdif*tdif + 4.0*asq*(b1*b1+b3*b3)*di));
+        cf3sq = 0.5*(tsum + sqrt(tdif*tdif + 4.0*asq*(b1*b1+b2*b2)*di));
+#else /* radiation hydro */
+	cf1sq = aeff * aeff;
+	cf2sq = aeff * aeff;
+	cf3sq = aeff * aeff;
+#endif /* End radiation MHD */
+
+
+#endif /* end radiation hydro and mhd */
+
+
+/******************************************************************/
+
+
 
 /* compute maximum cfl velocity (corresponding to minimum dt) */
         if (pGrid->Nx[0] > 1) {
-#ifdef RADIATION_HYDRO
-	   max_v1 = MAX(max_v1,fabs(v1)+aeff);
-#else
 	   max_v1 = MAX(max_v1,fabs(v1)+sqrt((double)cf1sq));
-#endif
 	}
         if (pGrid->Nx[1] > 1) {
 #ifdef CYLINDRICAL
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
           max_v2 = MAX(max_v2,(fabs(v2)+sqrt((double)cf2sq))/x1);
 #else
-#ifdef RADIATION_HYDRO
-	  max_v2 = MAX(max_v2,fabs(v2)+aeff);
-#else
           max_v2 = MAX(max_v2,fabs(v2)+sqrt((double)cf2sq));
-
-#endif
 
 #endif
 	}
         if (pGrid->Nx[2] > 1) {
-#ifdef	RADIATION_HYDRO
-	  max_v3 = MAX(max_v3,fabs(v3)+aeff);
-#else
           max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
-#endif
 	}  
       }
     }}

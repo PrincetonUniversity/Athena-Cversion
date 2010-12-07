@@ -60,6 +60,7 @@ void integrate_1d_radMHD(DomainS *pD)
   	GridS *pG=(pD->Grid);
 	/*Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1; */
 	Real dt=pG->dt, dx=pG->dx1;
+	Real dtodx1 = dt / dx;
 	int il,iu, is = pG->is, ie = pG->ie;
   	int i, j, m, n;
 	int js = pG->js;
@@ -68,23 +69,26 @@ void integrate_1d_radMHD(DomainS *pD)
 	Real *pUguess, *pdivFlux, *pfluxl, *pfluxr, *pU1d;
 
 
+
 	Real SEE, SErho, SEm;
 	Real SPP, alpha;
 	Real temperature, velocity, pressure;
 
-	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Source[NVAR];
+	/* magnetic field is not included in guess and predict step.
+	 * So these variables have fixed size */
+	Real Source_Inv[5][5], tempguess[5], Source[5];
 	Real Propa_44;
-	Real Source_guess[NVAR], Errort[NVAR];
+	Real Source_guess[5], Errort[5];
 
 	Real Sigma_t, Sigma_a;
 
 	/* Initialize them to be zero */
-	for(i=0; i<NVAR; i++){
+	for(i=0; i<5; i++){
 		Source[i] = 0.0;
 		Source_guess[i] = 0.0;
 		Errort[i] = 0.0;
 		tempguess[i] = 0.0;
-		for(j=0; j<NVAR; j++) {
+		for(j=0; j<5; j++) {
 			Source_Inv[i][j] = 0.0;			
 		if(i==j) {
 		 Source_Inv[i][j] = 1.0;
@@ -99,10 +103,6 @@ void integrate_1d_radMHD(DomainS *pD)
 
 		
 	
-   	
-
-/* In principle, should load a routine to calculate the tensor f */
-
 /* Temperatory variables used to calculate the Matrix  */
   	
   
@@ -122,6 +122,13 @@ void integrate_1d_radMHD(DomainS *pD)
 		U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
 		U1d[i].Sigma_a  = pG->U[ks][js][i].Sigma_a;
 		U1d[i].Sigma_t  = pG->U[ks][js][i].Sigma_t;
+#ifdef RADIATION_MHD
+		U1d[i].By = pG->U[ks][js][i].B2c;
+		U1d[i].Bz = pG->U[ks][js][i].B3c;
+		Bxc[i] = pG->U[ks][js][i].B1c;
+		Bxi[i] = pG->B1i[ks][js][i];
+
+#endif
 	}
 	
 	
@@ -171,6 +178,9 @@ void integrate_1d_radMHD(DomainS *pD)
 
 		Wl[i].Vx += dt * Source[1] * 0.5;
 		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+	
+		Wl[i].Sigma_a = Sigma_a;
+		Wl[i].Sigma_t = Sigma_t;
 
 	/* For the right state */
 	
@@ -203,6 +213,9 @@ void integrate_1d_radMHD(DomainS *pD)
 		Wr[i].Vx += dt * Source[1] * 0.5;
 		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
 
+		Wr[i].Sigma_a = Sigma_a;
+		Wr[i].Sigma_t = Sigma_t;
+
 	}
 
 
@@ -232,7 +245,10 @@ void integrate_1d_radMHD(DomainS *pD)
 	for(i=il+1; i<=iu-1; i++) {
 
 	pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
-			* (Gamma - 1);
+			* (Gamma - 1.0);
+#ifdef  RADIATION_MHD 
+	pressure -= (Gamma - 1.0) * 0.5 * (Bxc[i] * Bxc[i] + U1d[i].By * U1d[i].By + U1d[i].Bz * U1d[i].Bz);
+#endif
 	/* Should include magnetic energy for MHD */
 	temperature = pressure / (U1d[i].d * R_ideal);
 	velocity = U1d[i].Mx / U1d[i].d;
@@ -260,13 +276,13 @@ void integrate_1d_radMHD(DomainS *pD)
 	pfluxr = (Real*)&(x1Flux[i+1]);
 	pfluxl = (Real*)&(x1Flux[i]);
 
-	for(m=0; m<NVAR-4; m++)
+	for(m=0; m<5; m++)
 		pdivFlux[m] = (pfluxr[m] - pfluxl[m]) / dx;
 		
-	/* ATTENTION: May not be correct when magnetic field is included */
-	for(n=0; n<NVAR-4; n++) {
+	/* ATTENTION: magnetic field is not included in this predict and correction step */
+	for(n=0; n<5; n++) {
 		tempguess[n] = 0.0;
-		for(m=0; m<NVAR-4; m++){
+		for(m=0; m<5; m++){
 		tempguess[n] += dt * Source_Inv[n][m] * (Source[m] - pdivFlux[m]);
 		}
 	}
@@ -274,13 +290,17 @@ void integrate_1d_radMHD(DomainS *pD)
 	pUguess = (Real*)&(Uguess);
 	pU1d = (Real*)&(U1d[i]);	
 
-	for(m=0; m<NVAR-4; m++)
+	for(m=0; m<5; m++)
 		pUguess[m]= pU1d[m] + tempguess[m];
 
 
 	pressure = (Uguess.E - 0.5 * Uguess.Mx * Uguess.Mx / Uguess.d )
 			* (Gamma - 1);
 	/* Should include magnetic energy for MHD */
+#ifdef  RADIATION_MHD 
+	pressure -= (Gamma - 1.0) * 0.5 * (Bxc[i] * Bxc[i] + U1d[i].By * U1d[i].By + U1d[i].Bz * U1d[i].Bz);
+#endif
+
 	temperature = pressure / (Uguess.d * R_ideal);
 	velocity = Uguess.Mx / Uguess.d;
 
@@ -296,7 +316,7 @@ void integrate_1d_radMHD(DomainS *pD)
 		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
-	for(m=0; m<NVAR-4; m++)
+	for(m=0; m<5; m++)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) 
 			- dt * pdivFlux[m] - pUguess[m];
 	/* (I - dt Div_U S(U))^-1 for the guess solution */
@@ -309,9 +329,9 @@ void integrate_1d_radMHD(DomainS *pD)
 	Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
 
 
-	for(m=0; m<NVAR-4; m++){
+	for(m=0; m<5; m++){
 		tempguess[m]=0.0;
-		for(n=0; n<NVAR; n++){
+		for(n=0; n<5; n++){
 			tempguess[m] += Source_Inv[m][n] * Errort[n];
 		}
 		pU1d[m] = pUguess[m] + tempguess[m];
@@ -320,7 +340,17 @@ void integrate_1d_radMHD(DomainS *pD)
 	
 	/* Update the quantity in the Grids */
 	pUguess = (Real*)&(pG->U[ks][js][i]);
-	for(m=0; m<NVAR-4; m++) pUguess[m] = pU1d[m];	
+	for(m=0; m<5; m++) pUguess[m] = pU1d[m];	
+
+#ifdef RADIATION_MHD
+/* magnetic field is independent of modified Godunov method */
+	pG->U[ks][js][i].B2c -= dtodx1*(x1Flux[i+1].By - x1Flux[i].By);
+    	pG->U[ks][js][i].B3c -= dtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
+/* For consistency, set B2i and B3i to cell-centered values.  */
+    	pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
+    	pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
+
+#endif
 
 
 

@@ -55,7 +55,7 @@ void restart_grids(char *res_file, MeshS *pM)
   FILE *fp;
   char line[MAXLEN];
   int i,j,k,is,ie,js,je,ks,ke,nl,nd;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ib=0,jb=0,kb=0;
 #endif
 #if (NSCALARS > 0)
@@ -190,7 +190,7 @@ void restart_grids(char *res_file, MeshS *pM)
       }
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 /* Read radiation energy density */
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
@@ -365,7 +365,7 @@ void restart_grids(char *res_file, MeshS *pM)
 #endif 
 /* End read radiation quantity */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* if there is more than one cell in each dimension, need to read one more
  * face-centered field component than the number of cells.  [ijk]b is
  * the number of extra cells to be read  */
@@ -603,7 +603,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
   FILE *fp;
   char *fname;
   int i,j,k,is,ie,js,je,ks,ke,nl,nd;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ib=0,jb=0,kb=0;
 #endif
 #if (NSCALARS > 0)
@@ -791,7 +791,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
       }
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
 /* Write radiation energy density Er */
 
@@ -1027,7 +1027,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
 #endif
 /* Finish output radiation quantity */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* see comments in restart_grid_block() for use of [ijk]b */
 
   if (ie > is) ib = 1;

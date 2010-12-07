@@ -35,9 +35,17 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
 #ifdef RADIATION_HYDRO
 
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
-  const Real pressure,
+  const Real pressure, const Real Sigma_a,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5]);
+#endif
+
+#ifdef RADIATION_MHD
+void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3, const Real dt, 
+  const Real pressure, const Real Sigma_a,
+  const Real h, const Real b1, const Real b2, const Real b3, 
+  Real eigenvalues[],
+  Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
 #endif
 
 /* All of the Riemann solvers in this directory contain the same function name

@@ -1,13 +1,13 @@
 
 #include "copyright.h"
 /*==============================================================================
- * FILE: bvals_mhd.c
+ * FILE: bvals_radMHD.c
  *
  * PURPOSE: Sets boundary conditions (quantities in ghost zones) for radiation 
  * energy density and radiation flux.  
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   bvals_rad()      - calls appropriate functions to set ghost cells
+ *   bvals_radMHD()      - calls appropriate functions to set ghost cells
  *  
  *============================================================================*/
 
@@ -30,7 +30,7 @@
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
-
+/* Notice that boundary condition for magnetic field is set in bvals_mhd */
 void bvals_radMHD(MeshS *pM)
 {
 	GridS *pGrid=(pM->Domain[0][0].Grid);

@@ -44,6 +44,12 @@ void esys_prim_rad_hyd(const Real aeff, const Real v1, const Real rho, Real eige
   Real right_eigenmatrix[][NWAVE], Real left_eigenmatrix[][NWAVE]);
 #endif /* RADIATION_HYDRO */
 
+#ifdef RADIATION_MHD
+void esys_prim_rad_mhd(const Real d, const Real v1,  const Real aeff, 
+  const Real b1, const Real b2, const Real b3, Real eigenvalues[],
+  Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);
+#endif
+
 /*  All of the lr_states_*.c files in this directory contain the same function
  *  names below */
 void lr_states_destruct(void);

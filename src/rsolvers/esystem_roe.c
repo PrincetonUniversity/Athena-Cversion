@@ -649,11 +649,12 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 
 #ifdef RADIATION_HYDRO
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
-  const Real pressure,
+  const Real pressure, const Real Sigma_a,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
 {
-	
+  /* Notice that the left and right eigen vectors are given for primitive variabes */
+   /* We actually do not use the eigen vectors */	
   Real vsq,aeff,rho;
   Real asq,na,qa;
   Prim1DS W;
@@ -663,6 +664,7 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   rho = pressure / rho;
   W.P = pressure;
   W.d = rho;
+  W.Sigma_a = Sigma_a;
 
   aeff = eff_sound(W, dt);
 
@@ -674,25 +676,27 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   eigenvalues[3] = v1;
   eigenvalues[4] = v1 + aeff;
   if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
+  else ath_error("[esys_roe_rad_hydro:] Eigenvectors are not written yet!\n");
 
 /* Right-eigenvectors, stored as COLUMNS (eq. B3) */
-
+/*
   right_eigenmatrix[0][0] = 1.0;
   right_eigenmatrix[1][0] = v1 - aeff;
   right_eigenmatrix[2][0] = v2;
   right_eigenmatrix[3][0] = v3;
   right_eigenmatrix[4][0] = h - v1*aeff;
-
+*/
 /*right_eigenmatrix[0][1] = 0.0; */
 /*right_eigenmatrix[1][1] = 0.0; */
-  right_eigenmatrix[2][1] = 1.0;
+/*  right_eigenmatrix[2][1] = 1.0;
+*/
 /*right_eigenmatrix[3][1] = 0.0; */
-  right_eigenmatrix[4][1] = v2;
-
+/*  right_eigenmatrix[4][1] = v2;
+*/
 /*right_eigenmatrix[0][2] = 0.0; */
 /*right_eigenmatrix[1][2] = 0.0; */
 /*right_eigenmatrix[2][2] = 0.0; */
-  right_eigenmatrix[3][2] = 1.0;
+/*  right_eigenmatrix[3][2] = 1.0;
   right_eigenmatrix[4][2] = v3;
 
   right_eigenmatrix[0][3] = 1.0;
@@ -706,9 +710,9 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   right_eigenmatrix[2][4] = v2;
   right_eigenmatrix[3][4] = v3;
   right_eigenmatrix[4][4] = h + v1*aeff;
-
+*/
 /* Left-eigenvectors, stored as ROWS (eq. B4) */
-
+/*
   na = 0.5/asq;
   left_eigenmatrix[0][0] = na*(0.5*Gamma_1*vsq + v1*aeff);
   left_eigenmatrix[0][1] = -na*(Gamma_1*v1 + aeff);
@@ -717,17 +721,21 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   left_eigenmatrix[0][4] = na*Gamma_1;
 
   left_eigenmatrix[1][0] = -v2;
+*/
 /*left_eigenmatrix[1][1] = 0.0; */
-  left_eigenmatrix[1][2] = 1.0;
+/*  left_eigenmatrix[1][2] = 1.0;
+*/
 /*left_eigenmatrix[1][3] = 0.0; */
 /*left_eigenmatrix[1][4] = 0.0; */
-
+/*
   left_eigenmatrix[2][0] = -v3;
+*/
 /*left_eigenmatrix[2][1] = 0.0; */
 /*left_eigenmatrix[2][2] = 0.0; */
-  left_eigenmatrix[2][3] = 1.0;
+ /* left_eigenmatrix[2][3] = 1.0;
+*/
 /*left_eigenmatrix[2][4] = 0.0; */
-
+/*
   qa = Gamma_1/asq;
   left_eigenmatrix[3][0] = 1.0 - na*Gamma_1*vsq;
   left_eigenmatrix[3][1] = qa*v1;
@@ -740,9 +748,66 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   left_eigenmatrix[4][2] = left_eigenmatrix[0][2];
   left_eigenmatrix[4][3] = left_eigenmatrix[0][3];
   left_eigenmatrix[4][4] = left_eigenmatrix[0][4];
-
-
+*/
 
 }
 #endif
+
+
+
+#ifdef RADIATION_MHD
+void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3, const Real dt, 
+  const Real pressure, const Real Sigma_a,
+  const Real h, const Real b1, const Real b2, const Real b3, 
+  Real eigenvalues[],
+  Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
+{
+ /* Note that the eigen vectors are given for primitive variables */
+
+  Real aeff, aeffsq, vf, vs, vfsq, vssq, vax, vaxsq, di, vsq, vasq, btsq;
+  Prim1DS W;
+ 
+  di = 1.0/d;
+  vsq = v1*v1 + v2*v2 + v3*v3;
+  btsq = b2*b2 + b3*b3;
+
+  vaxsq = b1*b1*di;
+  /* Input enthalpy is p gamma/(gamma-1)+0.5\rho v^2 + B^2 */ 
+  
+ /* Only the three components will be used for W */
+  W.P = pressure;
+  W.d = d;
+  W.Sigma_a = Sigma_a;
+
+  /* calculate effective sound speed */
+  aeff = eff_sound(W, dt);
+  aeffsq = aeff * aeff;
+
+/* Compute fast- and slow-magnetosonic speeds (eq. A10) */
+
+ /* Alfven speed */
+  vasq = vaxsq + btsq * di;
+  vfsq = 0.5 * (aeffsq + aeffsq + sqrt((aeffsq + aeffsq) * (aeffsq + aeffsq) - 4.0 * aeffsq * vaxsq));
+  vssq = 0.5 * (aeffsq + aeffsq - sqrt((aeffsq + aeffsq) * (aeffsq + aeffsq) - 4.0 * aeffsq * vaxsq));
+ 
+
+/* Compute eigenvalues (eq. B17) */
+
+  vax = sqrt(vaxsq);
+  vf = sqrt((double)vfsq);
+  vs = sqrt((double)vssq); 
+
+  eigenvalues[0] = v1 - vf;
+  eigenvalues[1] = v1 - vax;
+  eigenvalues[2] = v1 - vs;
+  eigenvalues[3] = v1;
+  eigenvalues[4] = v1 + vs;
+  eigenvalues[5] = v1 + vax;
+  eigenvalues[6] = v1 + vf;
+  if (right_eigenmatrix == NULL || left_eigenmatrix == NULL) return;
+  else ath_error("[esys_rho_rad_mhd:] Eigenvectors are not written yet!\n");
+
+}
+#endif
+/* radiation MHD */
 

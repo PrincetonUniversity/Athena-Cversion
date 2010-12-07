@@ -79,19 +79,17 @@ void BackEuler_1d(MeshS *pM)
 
 
   	GridS *pG=(pM->Domain[0][0].Grid);
-	Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;
-	Real dt=pG->dt, dx=pG->dx1;
+	Real hdtodx1 = 0.5*pG->dt/pG->dx1;
 	int il,iu, is = pG->is, ie = pG->ie;
-  	int i, j, m, n;
+  	int i, j;
 	int js = pG->js;
 	int ks = pG->ks;
 	int Nmatrix, NZ_NUM, NoEr, NoFr;
 	
 
-	Real SEE, SErho, SEm;
+
 	Real temperature, velocity, pressure, Sigmas;
 
-	Real temp1, temp2;
   	Real theta[7];
   	Real phi[7];
   	Real Sigma_s, Sigma_t, Sigma_a;

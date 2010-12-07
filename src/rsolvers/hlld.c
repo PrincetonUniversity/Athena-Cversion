@@ -36,7 +36,9 @@
 #define SMALL_NUMBER 1e-8
 
 #ifndef MHD
+#ifndef RADIATION_MHD
 #error : The HLLD flux only works for mhd.
+#endif /* RADIATION MHD */
 #endif /* MHD */
 
 #ifndef ISOTHERMAL
@@ -74,6 +76,11 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   int n;
 #endif
 
+#ifdef RADIATION_MHD
+ /* dt is passed with pFlux->d for radiation_mhd code */
+ Real dt = pFlux->d;
+ Real aeff;
+#endif
 
 
 /*--- Step 1. ------------------------------------------------------------------
@@ -91,8 +98,20 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
   pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
   pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
+
+/* For RADIATION_MHD, we should use effective pressure */
+#ifdef RADIATION_MHD
+ /* left state */
+  aeff = eff_sound(Wl, dt);
+  gpl = Wl.d * aeff * aeff;
+ /* right state */
+  aeff = eff_sound(Wr, dt);
+  gpr = Wr.d * aeff * aeff;
+#else
   gpl  = Gamma * Wl.P;
   gpr  = Gamma * Wr.P;
+#endif
+ /*include magnetic pressure */
   gpbl = gpl + 2.0*pbl;
   gpbr = gpr + 2.0*pbr;
 
@@ -194,15 +213,16 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* Ul* */
   /* eqn (39) of M&K */
   Ulst.Mx = Ulst.d * spd[2];
-//   if((fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) ||
-//      (fabs(spd[2])/fabs(spd[0]) <= SMALL_NUMBER &&
-//       fabs(Wl.Vx)/fabs(spd[0]) <= SMALL_NUMBER)) {
-//     Ulst.My = Ulst.d * Wl.Vy;
-//     Ulst.Mz = Ulst.d * Wl.Vz;
-// 
-//     Ulst.By = Ul.By;
-//     Ulst.Bz = Ul.Bz;
+/*   if((fabs(spd[2]/Wl.Vx-1.0)<SMALL_NUMBER) ||
+/      (fabs(spd[2])/fabs(spd[0]) <= SMALL_NUMBER &&
+/       fabs(Wl.Vx)/fabs(spd[0]) <= SMALL_NUMBER)) {
+/     Ulst.My = Ulst.d * Wl.Vy;
+/     Ulst.Mz = Ulst.d * Wl.Vz;
+/ 
+/     Ulst.By = Ul.By;
+/     Ulst.Bz = Ul.Bz;
 //   }
+*/
   if (fabs(Ul.d*sdl*sdml/Bxsq-1.0) < SMALL_NUMBER) {
     /* Degenerate case */
     Ulst.My = Ulst.d * Wl.Vy;
@@ -216,17 +236,17 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     tmp = Bxi*(sdl-sdml)/(Ul.d*sdl*sdml-Bxsq);
     Ulst.My = Ulst.d * (Wl.Vy - Ul.By*tmp);
     Ulst.Mz = Ulst.d * (Wl.Vz - Ul.Bz*tmp);
-//     if(Ul.By == 0.0 && Ul.Bz == 0.0) {
-//       Ulst.By = 0.0;
-//       Ulst.Bz = 0.0;
-//     }
-//     else {
-//       /* eqns (45) and (47) of M&K */
-//       tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
-//       Ulst.By = Ul.By * tmp;
-//       Ulst.Bz = Ul.Bz * tmp;
-//     }
-
+/*     if(Ul.By == 0.0 && Ul.Bz == 0.0) {
+/       Ulst.By = 0.0;
+/       Ulst.Bz = 0.0;
+/     }
+/     else {
+*/       /* eqns (45) and (47) of M&K */
+/*       tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
+/       Ulst.By = Ul.By * tmp;
+/       Ulst.Bz = Ul.Bz * tmp;
+/     }
+*/
     /* eqns (45) and (47) of M&K */
     tmp = (Ul.d*SQR(sdl)-Bxsq)/(Ul.d*sdl*sdml - Bxsq);
     Ulst.By = Ul.By * tmp;
@@ -242,7 +262,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* Ur* */
   /* eqn (39) of M&K */
   Urst.Mx = Urst.d * spd[2];
-//   if((fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) ||
+/*   if((fabs(spd[2]/Wr.Vx-1.0)<SMALL_NUMBER) ||
 //      (fabs(spd[2])/fabs(spd[4]) <= SMALL_NUMBER &&
 //       fabs(Wr.Vx)/fabs(spd[4]) <= SMALL_NUMBER)) {
 //     Urst.My = Urst.d * Wr.Vy;
@@ -251,6 +271,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 //     Urst.By = Ur.By;
 //     Urst.Bz = Ur.Bz;
 //   }
+*/
   if (fabs(Ur.d*sdr*sdmr/Bxsq-1.0) < SMALL_NUMBER) {
     /* Degenerate case */
     Urst.My = Urst.d * Wr.Vy;
@@ -265,17 +286,17 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Urst.My = Urst.d * (Wr.Vy - Ur.By*tmp);
     Urst.Mz = Urst.d * (Wr.Vz - Ur.Bz*tmp);
 
-//     if(Ur.By == 0.0 && Ur.Bz == 0.0) {
+/*     if(Ur.By == 0.0 && Ur.Bz == 0.0) {
 //       Urst.By = 0.0;
 //       Urst.Bz = 0.0;
 //     }
 //     else {
-//       /* eqns (45) and (47) of M&K */
-//       tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
+*/       /* eqns (45) and (47) of M&K */
+/*       tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
 //       Urst.By = Ur.By * tmp;
 //       Urst.Bz = Ur.Bz * tmp;
 //     }
-
+*/
     /* eqns (45) and (47) of M&K */
     tmp = (Ur.d*SQR(sdr)-Bxsq)/(Ur.d*sdr*sdmr - Bxsq);
     Urst.By = Ur.By * tmp;
@@ -289,7 +310,8 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 
 /* Ul** and Ur** - if Bx is zero, same as *-states */
-//   if(Bxi == 0.0) {
+/*   if(Bxi == 0.0) {
+*/
   if(0.5*Bxsq/MIN(pbl,pbr) < SQR(SMALL_NUMBER)) {
     Uldst = Ulst;
     Urdst = Urst;

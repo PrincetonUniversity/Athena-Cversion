@@ -26,7 +26,9 @@
 #include "prototypes.h"
 
 #ifndef MHD
+#ifndef RADIATION_MHD
 #error : The cpaw1d test only works for mhd.
+#endif
 #endif
 
 /* Initial solution, shared with Userwork_after_loop to compute L1 error */

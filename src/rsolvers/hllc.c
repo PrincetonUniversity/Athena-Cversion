@@ -31,9 +31,9 @@
 #ifdef HLLC_FLUX
 #ifndef SPECIAL_RELATIVITY
 
-#if defined (MHD) || defined (RADIATIO_MHD)
+#if defined (MHD) || defined (RADIATION_MHD)
 #error : The HLLC flux only works for hydro.
-#endif /* MHD or RADIATIO_MHD */
+#endif /* MHD or RADIATION_MHD */
 
 /*----------------------------------------------------------------------------*/
 /* fluxes
@@ -51,10 +51,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #ifndef BAROTROPIC
   Real hroe;
 #endif
-/* dt is passed for RADIATIO_HYDRO code */
-#ifdef RADIATIO_HYDRO
+/* dt is passed for RADIATION_HYDRO code */
+#ifdef RADIATION_HYDRO
   Real dt=pFlux->d;
-  Real Proe, aeff;
+  Real Proe, aeff, Sigma_rho;
 #endif
 
   Real ev[NWAVE];
@@ -87,8 +87,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   v2roe = (sqrtdl*Wl.Vy + sqrtdr*Wr.Vy)*isdlpdr;
   v3roe = (sqrtdl*Wl.Vz + sqrtdr*Wr.Vz)*isdlpdr;
 
-#ifdef RADIATIO_HYDRO
+#ifdef RADIATION_HYDRO
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
+  Sigma_rho = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
 #endif
 
 /*
@@ -111,15 +112,15 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #endif /* ISOTHERMAL */
 #endif/* HYDRO */
 
-#ifdef RADIATIO_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, ev, NULL, NULL);
+#ifdef RADIATION_HYDRO
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Sigma_rho, ev, NULL, NULL);
 #endif
 
 
 /*--- Step 4. ------------------------------------------------------------------
  * Compute the max and min wave speeds
  */
-#ifndef RADIATIO_HYDRO
+#ifndef RADIATION_HYDRO
 #ifdef ISOTHERMAL
   cfl = cfr = Iso_csound;
 #else
@@ -132,12 +133,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   aeff = eff_sound(Wr,dt);	
   cfr = aeff;
 #endif
+
 /* For radiation code, the maximum eigen value is at ev[4], not ev[NWAVE-1] */
-#ifdef RADIATIO_HYDRO
-  ar = MAX(ev[4],(Wr.Vx + cfr));
-#else
+
   ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
-#endif
   al = MIN(ev[0]      ,(Wl.Vx - cfl));
 
   bp = ar > 0.0 ? ar : 0.0;

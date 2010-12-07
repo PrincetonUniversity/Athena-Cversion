@@ -211,6 +211,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wl[i].Vx += dt * Source[1] * 0.5;
 		Wl[i].Vy += dt * Source[2] * 0.5;
 		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+	
+		Wl[i].Sigma_a = Sigma_a;
+		Wr[i].Sigma_t = Sigma_t;
 
 	/* For the right state */
 	
@@ -246,6 +249,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wr[i].Vx += dt * Source[1] * 0.5;
 		Wr[i].Vy += dt * Source[2] * 0.5;
 		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
+
+		Wr[i].Sigma_a = Sigma_a;
+		Wr[i].Sigma_t = Sigma_t;
 
 	}
 	
@@ -356,6 +362,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wl[j].Vz += dt * Source[1] * 0.5;
 		Wl[j].P += dt * Propa_44 * Source[4] * 0.5;
 
+		Wl[j].Sigma_a = Sigma_a;
+		Wl[j].Sigma_t = Sigma_t;
+
 	/* For the right state */
 	
 	
@@ -391,6 +400,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wr[j].Vx += dt * Source[2] * 0.5;
 		Wr[j].Vz += dt * Source[1] * 0.5;
 		Wr[j].P += dt * Propa_44 * Source[4] * 0.5;
+
+		Wr[j].Sigma_a = Sigma_a;
+		Wr[j].Sigma_t = Sigma_t;
 
 	}
 

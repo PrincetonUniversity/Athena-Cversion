@@ -98,12 +98,12 @@ elif test "$with_gas" = "mhd";   then
   order_default="2"
 elif test "$with_gas" = "rad_hydro"; then
   GAS="RADIATION_HYDRO"
-  flux_default="hlle"
+  flux_default="hllc"
   integrator_default="RADIATIONMHD"
   order_default="2p"
 elif test "$with_gas" = "rad_MHD"; then
   GAS="RADIATION_MHD"
-  flux_default="hlle"
+  flux_default="hlld"
   integrator_default="RADIATIONMHD"
   order_default="2p"
 else

@@ -239,7 +239,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 /* Write cell centered B */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         fprintf(pfile,"\nVECTORS cell_centered_B float\n");
         for (k=kl; k<=ku; k++) {
           for (j=jl; j<=ju; j++) {
@@ -252,6 +252,57 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
             fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
           }
         }
+#endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	fprintf(pfile,"SCALARS radiation energy density float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+        for (k=kl; k<=ku; k++) {
+          for (j=jl; j<=ju; j++) {
+            for (i=il; i<=iu; i++) {
+              if (strcmp(pOut->out,"cons") == 0){
+                data[i-il] = (float)pGrid->U[k][j][i].Er;
+              } else if(strcmp(pOut->out,"prim") == 0) {
+                data[i-il] = (float)W[k-kl][j-jl][i-il].Er;
+              }
+            }
+            if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+          }
+        }
+
+
+
+	fprintf(pfile,"\nVECTORS radiation flux float\n");
+        for (k=kl; k<=ku; k++) {
+          for (j=jl; j<=ju; j++) {
+            for (i=il; i<=iu; i++) {
+              data[3*(i-il)] = (float)pGrid->U[k][j][i].Fr1;
+              data[3*(i-il)+1] = (float)pGrid->U[k][j][i].Fr2;
+              data[3*(i-il)+2] = (float)pGrid->U[k][j][i].Fr3;
+            }
+            if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
+            fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+          }
+        }
+
+#ifdef RADIATION_TRANSFER
+	fprintf(pfile,"\nVECTORS Eddington tensor float\n");
+        for (k=kl; k<=ku; k++) {
+          for (j=jl; j<=ju; j++) {
+            for (i=il; i<=iu; i++) {
+              data[3*(i-il)] = (float)pGrid->U[k][j][i].Edd_11;
+              data[3*(i-il)+1] = (float)pGrid->U[k][j][i].Edd_22;
+              data[3*(i-il)+2] = (float)pGrid->U[k][j][i].Edd_33;
+            }
+            if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
+            fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+          }
+        }
+
+#endif
+
+
 #endif
 
 /* Write gravitational potential */

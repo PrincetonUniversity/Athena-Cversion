@@ -186,7 +186,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #endif /* BAROTROPIC */
 
 /* write out magnetic field component column headers, if mhd */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         fprintf(pfile," [%d]=B1c",col_cnt);
         col_cnt++;
         fprintf(pfile," [%d]=B2c",col_cnt);
@@ -234,7 +234,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #endif
 
 /* write out column headers for RADIATION_HYDRO hydro */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	fprintf(pfile," [%d]=Er",col_cnt);
         col_cnt++;
         fprintf(pfile," [%d]=Fr1",col_cnt);
@@ -272,7 +272,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
               fprintf(pfile,fmt,pG->U[k][j][i].E);
 #endif /* BAROTROPIC */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
               fprintf(pfile,fmt,pG->U[k][j][i].B1c);
               fprintf(pfile,fmt,pG->U[k][j][i].B2c);
               fprintf(pfile,fmt,pG->U[k][j][i].B3c);
@@ -303,7 +303,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
               for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,pG->U[k][j][i].s[n]);
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
 	      fprintf(pfile,fmt,pG->U[k][j][i].Er);
               fprintf(pfile,fmt,pG->U[k][j][i].Fr1);
@@ -471,7 +471,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
 #endif /* BAROTROPIC */
 
 /* write out magnetic field component column headers, if mhd */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         fprintf(pfile," [%d]=B1c",col_cnt);
         col_cnt++;
         fprintf(pfile," [%d]=B2c",col_cnt);
@@ -510,7 +510,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
 
 /* write out column headers for RADIATION_HYDRO hydro */
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	fprintf(pfile," [%d]=Er",col_cnt);
         col_cnt++;
         fprintf(pfile," [%d]=Fr1",col_cnt);
@@ -550,7 +550,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
               fprintf(pfile,fmt,W.P);
 #endif /* BAROTROPIC */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
               fprintf(pfile,fmt,W.B1c);
               fprintf(pfile,fmt,W.B2c);
               fprintf(pfile,fmt,W.B3c);
@@ -577,7 +577,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
               for (n=0; n<NSCALARS; n++) fprintf(pfile,fmt,W.r[n]);
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
 	      fprintf(pfile,fmt,pG->U[k][j][i].Er);
               fprintf(pfile,fmt,pG->U[k][j][i].Fr1);

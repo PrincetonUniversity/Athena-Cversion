@@ -92,7 +92,7 @@
 #include "prototypes.h"
 #include "particles/prototypes.h"
 
-#define MAXOUT_DEFAULT     10
+#define MAXOUT_DEFAULT     14
 
 static int out_count = 0;           /* Number of elements in the OutArray */
 static OutputS *OutArray = NULL;    /* Array of Output modes */
@@ -127,7 +127,7 @@ Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 Real expr_G  (const GridS *pG, const int i, const int j, const int k);
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 Real expr_Er  (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr1 (const GridS *pG, const int i, const int j, const int k);
 Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k);
@@ -1152,7 +1152,7 @@ Real expr_E(const GridS *pG, const int i, const int j, const int k) {
 }
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 Real expr_Er	 (const GridS *pG, const int i, const int j, const int k) {
 	return pG->U[k][j][i].Er;
 }
@@ -1190,7 +1190,7 @@ Real expr_Edd33 (const GridS *pG, const int i, const int j, const int k) {
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are magnetic field variables: B1c, B2c, B3c, B^2 */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 Real expr_B1c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B1c;
 }
@@ -1226,7 +1226,7 @@ Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #else
   ConsS *gp = &(pG->U[k][j][i]);
   return Gamma_1*(gp->E 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 		  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
 		  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
@@ -1241,7 +1241,7 @@ Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 {
   ConsS *gp = &(pG->U[k][j][i]);
   return (Gamma*Gamma_1*(gp->E 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 	  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
 	  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d)/gp->d);
@@ -1256,7 +1256,7 @@ Real expr_S(const GridS *pG, const int i, const int j, const int k)
 {
   ConsS *gp = &(pG->U[k][j][i]);
   Real P = Gamma_1*(gp->E 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 		   - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
 		   - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
@@ -1322,7 +1322,7 @@ static ConsFun_t getexpr(const int n, const char *expr)
   else if (strcmp(expr,"E")==0)
     return expr_E;
 #endif /* BAROTROPIC */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   else if (strcmp(expr,"Er")==0)
     return expr_Er;
   else if (strcmp(expr,"Fr1")==0)
@@ -1345,7 +1345,7 @@ static ConsFun_t getexpr(const int n, const char *expr)
     return expr_Edd33;
 #endif
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   else if (strcmp(expr,"B1c")==0)
     return expr_B1c;
   else if (strcmp(expr,"B2c")==0)

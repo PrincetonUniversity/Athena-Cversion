@@ -161,32 +161,23 @@ enum {
 
 /*----------------------------------------------------------------------------*/
 /* computed macros based on above choices (never modified) */
+/* NOTICE that radiation quantities are calculated seperately.* 
+ * NWAVE and NVAR are still the same for the hydro part */
 
 #ifdef BAROTROPIC /* BAROTROPIC EOS */
-#ifdef HYDRO
+#if defined(HYDRO) || defined(RADIATION_HYDRO)
  enum {NWAVE = 4, NVAR = 4 + NSCALARS};
 #endif
-#ifdef RADIATION_HYDRO
- enum {NWAVE = 8, NVAR = 8 + NSCALARS};
-#endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
  enum {NWAVE = 6, NVAR = 7 + NSCALARS};
 #endif
-#ifdef RADIATION_MHD
- enum {NWAVE = 10, NVAR = 11 + NSCALARS};
-#endif
 #else /* ADIABATIC or other EOS */
-#ifdef HYDRO
+#if defined(HYDRO) || defined(RADIATION_HYDRO)
  enum {NWAVE = 5, NVAR = 5 + NSCALARS};
 #endif
-#ifdef RADIATION_HYDRO
- enum {NWAVE = 9, NVAR = 9 + NSCALARS};
-#endif
-#ifdef MHD
+
+#if defined(MHD) || defined(RADIATION_MHD)
  enum {NWAVE = 7, NVAR = 8 + NSCALARS};
-#endif
-#ifdef RADIATION_MHD
- enum {NWAVE = 11, NVAR = 12 + NSCALARS};
 #endif
 #endif /* EOS */
 

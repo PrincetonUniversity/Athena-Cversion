@@ -380,7 +380,7 @@ typedef struct GridOvrlp_s{
 
 typedef struct Grid_s{
   ConsS ***U;                /* conserved variables */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Real ***B1i,***B2i,***B3i;    /* interface magnetic fields */
 #ifdef RESISTIVITY
   Real ***eta_Ohm,***eta_Hall,***eta_AD; /* magnetic diffusivities */ 

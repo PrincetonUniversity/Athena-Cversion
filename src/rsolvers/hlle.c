@@ -67,9 +67,9 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #ifdef MHD
   Real b2roe,b3roe,x,y;
 #endif
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Real dt=pFlux->d;
-  Real Proe;
+  Real Proe, Sigma_rho;
 #endif
 
   Real ev[NWAVE],al,ar;
@@ -100,13 +100,14 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   v2roe = (sqrtdl*Wl.Vy + sqrtdr*Wr.Vy)*isdlpdr;
   v3roe = (sqrtdl*Wl.Vz + sqrtdr*Wr.Vz)*isdlpdr;
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
+  Sigma_rho = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
 #endif
 
 /* The Roe average of the magnetic field is defined differently.  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   b2roe = (sqrtdr*Wl.By + sqrtdl*Wr.By)*isdlpdr;
   b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
   x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))/(SQR(sqrtdl + sqrtdr));
@@ -144,8 +145,17 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
+/****************************
+ radiation hydro and radiation mhd 
+ *****************************/
+
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Sigma_rho, ev, NULL, NULL);
+#endif
+
+#ifdef RADIATION_MHD
+ esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Sigma_rho,
+  hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
 #endif
 
 /*--- Step 4. ------------------------------------------------------------------
@@ -153,20 +163,23 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
  */
 
 /* left state */
-#ifndef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  
+  asq = eff_sound(Wl,dt);
+  asq = asq * asq;
+
+#else 
+
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
   asq = Gamma*Wl.P/Wl.d;
 #endif
-#endif
 
-#ifdef RADIATION_HYDRO
-  asq = eff_sound(Wl,dt);
-  asq = asq * asq;
-#endif
+#endif /* radiation hydro and mhd */
 
-#ifdef MHD
+
+#if defined(MHD) || defined(RADIATION_MHD)
   vaxsq = Bxi*Bxi/Wl.d;
   ct2 = (Ul.By*Ul.By + Ul.Bz*Ul.Bz)/Wl.d;
 #endif
@@ -176,20 +189,24 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   cfl = sqrt((double)cfsq);
 
 /* right state */
-#ifndef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  
+  asq = eff_sound(Wr,dt);
+  asq = asq * asq;
+
+#else
+
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
   asq = Gamma*Wr.P/Wr.d; 
 #endif
-#endif
 
-#ifdef RADIATION_HYDRO
-  asq = eff_sound(Wr,dt);
-  asq = asq * asq;
-#endif
+#endif /* radiation hydro and mhd */
 
-#ifdef MHD
+
+
+#if defined(MHD) || defined(RADIATION_MHD)
   vaxsq = Bxi*Bxi/Wr.d;
   ct2 = (Ur.By*Ur.By + Ur.Bz*Ur.Bz)/Wr.d;
 #endif
@@ -199,12 +216,8 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   cfr = sqrt((double)cfsq);
 
 /* take max/min of Roe eigenvalues and L/R state wave speeds */
-#ifdef RADIATION_HYDRO
-  ar = MAX(ev[4],(Wr.Vx + cfr));
-#else
-/* radiation code v+aeff is ev[4], not ev[NWAVE-1] */
+
   ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
-#endif
   al = MIN(ev[0]      ,(Wl.Vx - cfl));
 
   bp = MAX(ar, 0.0);
@@ -237,7 +250,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   Fr.E  = Ur.E*(Wr.Vx - bp) + Wr.P*Wr.Vx;
 #endif /* ISOTHERMAL */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Fl.Mx -= 0.5*(Bxi*Bxi - SQR(Wl.By) - SQR(Wl.Bz));
   Fr.Mx -= 0.5*(Bxi*Bxi - SQR(Wr.By) - SQR(Wr.Bz));
 
@@ -270,7 +283,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #ifndef ISOTHERMAL
   Fl.Pflux = Wl.P;
   Fr.Pflux = Wr.P;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Fl.Pflux += pbl;
   Fr.Pflux += pbr;
 #endif /* MHD */

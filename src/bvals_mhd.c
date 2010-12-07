@@ -149,7 +149,7 @@ void bvals_mhd(DomainS *pD)
 
 #ifdef MPI_PARALLEL
     cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2])*(NVAR);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     cnt2 = (pGrid->Nx[1] > 1) ? (pGrid->Nx[1] + 1) : 1;
     cnt3 = (pGrid->Nx[2] > 1) ? (pGrid->Nx[2] + 1) : 1;
     cnt += (nghost-1)*(pGrid->Nx[1])*(pGrid->Nx[2]);
@@ -252,7 +252,7 @@ void bvals_mhd(DomainS *pD)
 
 #ifdef MPI_PARALLEL
     cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2])*(NVAR);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     cnt3 = (pGrid->Nx[2] > 1) ? (pGrid->Nx[2] + 1) : 1;
     cnt += (pGrid->Nx[0] + 2*nghost - 1)*nghost*(pGrid->Nx[2]);
     cnt += (pGrid->Nx[0] + 2*nghost)*(nghost-1)*(pGrid->Nx[2]);
@@ -369,7 +369,7 @@ void bvals_mhd(DomainS *pD)
 
 #ifdef MPI_PARALLEL
     cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost*(NVAR);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     cnt += (pGrid->Nx[0] + 2*nghost - 1)*(pGrid->Nx[1] + 2*nghost)*nghost;
     cnt += (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost - 1)*nghost;
     cnt += (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*(nghost-1);
@@ -843,7 +843,7 @@ void bvals_mhd_init(MeshS *pM)
   size = x1cnt > x2cnt ? x1cnt : x2cnt;
   size = x3cnt >  size ? x3cnt : size;
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   size *= nghost*((NVAR)+3);
 #else
   size *= nghost*(NVAR);
@@ -952,7 +952,7 @@ static void reflect_ix1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju,ku; /* j-upper, k-upper */
 #endif
 
@@ -962,10 +962,10 @@ static void reflect_ix1(GridS *pGrid)
 	/* Notice that the radiation quantities are also copied here */
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
 	pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is-i].Fr1; /* reflect 1-rad Flux. */
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][j][is-i].B1c= -pGrid->U[k][j][is-i].B1c;/* reflect 1-fld. */
 #endif
 
@@ -973,7 +973,7 @@ static void reflect_ix1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* reflect normal component of B field, B1i not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1015,7 +1015,7 @@ static void reflect_ox1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju,ku; /* j-upper, k-upper */
 #endif
 
@@ -1024,10 +1024,10 @@ static void reflect_ox1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i]    =  pGrid->U[k][j][ie-(i-1)];
         pGrid->U[k][j][ie+i].M1 = -pGrid->U[k][j][ie+i].M1; /* reflect 1-mom. */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie+i].Fr1; /* reflect 1-rad Flux */
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][j][ie+i].B1c= -pGrid->U[k][j][ie+i].B1c;/* reflect 1-fld. */
 #endif
 
@@ -1036,7 +1036,7 @@ static void reflect_ox1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* reflect normal component of B field */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1078,7 +1078,7 @@ static void reflect_ix2(GridS *pGrid)
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -1087,10 +1087,10 @@ static void reflect_ix2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i]    =  pGrid->U[k][js+(j-1)][i];
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][js-j][i].Fr2 = -pGrid->U[k][js-j][i].Fr2; /* reflect 2 radFlux */
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][js-j][i].B2c= -pGrid->U[k][js-j][i].B2c;/* reflect 2-fld. */
 #endif
 
@@ -1098,7 +1098,7 @@ static void reflect_ix2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1142,7 +1142,7 @@ static void reflect_ox2(GridS *pGrid)
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -1151,10 +1151,10 @@ static void reflect_ox2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
         pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][je+j][i].Fr2 = -pGrid->U[k][je+j][i].Fr2; /* reflect 2-rad Flux. */
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][je+j][i].B2c= -pGrid->U[k][je+j][i].B2c;/* reflect 2-fld. */
 #endif
 
@@ -1162,7 +1162,7 @@ static void reflect_ox2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1212,10 +1212,10 @@ static void reflect_ix3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
         pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[ks-k][j][i].Fr3 = -pGrid->U[ks-k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[ks-k][j][i].B3c= -pGrid->U[ks-k][j][i].B3c;/* reflect 3-fld.*/
 #endif
 
@@ -1224,7 +1224,7 @@ static void reflect_ix3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1276,10 +1276,10 @@ static void reflect_ox3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
         pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[ke+k][j][i].Fr3 = -pGrid->U[ke+k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[ke+k][j][i].B3c= -pGrid->U[ke+k][j][i].B3c;/* reflect 3-fld. */
 #endif
 
@@ -1287,7 +1287,7 @@ static void reflect_ox3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1333,7 +1333,7 @@ static void outflow_ix1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 
@@ -1345,7 +1345,7 @@ static void outflow_ix1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1386,7 +1386,7 @@ static void outflow_ox1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 
@@ -1398,7 +1398,7 @@ static void outflow_ox1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* i=ie+1 is not a boundary condition for the interface field B1i */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1439,7 +1439,7 @@ static void outflow_ix2(GridS *pGrid)
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -1451,7 +1451,7 @@ static void outflow_ix2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1492,7 +1492,7 @@ static void outflow_ox2(GridS *pGrid)
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -1504,7 +1504,7 @@ static void outflow_ox2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1554,7 +1554,7 @@ static void outflow_ix3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1604,7 +1604,7 @@ static void outflow_ox3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1645,7 +1645,7 @@ static void periodic_ix1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 
@@ -1657,7 +1657,7 @@ static void periodic_ix1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1698,7 +1698,7 @@ static void periodic_ox1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 
@@ -1710,7 +1710,7 @@ static void periodic_ox1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=ie+1 */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1751,7 +1751,7 @@ static void periodic_ix2(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -1763,7 +1763,7 @@ static void periodic_ix2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1804,7 +1804,7 @@ static void periodic_ox2(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -1816,7 +1816,7 @@ static void periodic_ox2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1866,7 +1866,7 @@ static void periodic_ix3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1916,7 +1916,7 @@ static void periodic_ox3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1957,7 +1957,7 @@ static void conduct_ix1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju,ku; /* j-upper, k-upper */
 #endif
 
@@ -1966,7 +1966,7 @@ static void conduct_ix1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i]    =  pGrid->U[k][j][is+(i-1)];
         pGrid->U[k][j][is-i].M1 = -pGrid->U[k][j][is-i].M1; /* reflect 1-mom. */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][j][is-i].B2c= -pGrid->U[k][j][is-i].B2c;/* reflect fld */
         pGrid->U[k][j][is-i].B3c= -pGrid->U[k][j][is-i].B3c;
 #endif
@@ -1976,7 +1976,7 @@ static void conduct_ix1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2017,7 +2017,7 @@ static void conduct_ox1(GridS *pGrid)
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju,ku; /* j-upper, k-upper */
 #endif
 
@@ -2026,7 +2026,7 @@ static void conduct_ox1(GridS *pGrid)
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i]    =  pGrid->U[k][j][ie-(i-1)];
         pGrid->U[k][j][ie+i].M1 = -pGrid->U[k][j][ie+i].M1; /* reflect 1-mom. */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][j][ie+i].B2c= -pGrid->U[k][j][ie+i].B2c;/* reflect fld */
         pGrid->U[k][j][ie+i].B3c= -pGrid->U[k][j][ie+i].B3c;
 #endif
@@ -2034,7 +2034,7 @@ static void conduct_ox1(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* i=ie+1 is not set for the interface field B1i */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2075,7 +2075,7 @@ static void conduct_ix2(GridS *pGrid)
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -2084,7 +2084,7 @@ static void conduct_ix2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i]    =  pGrid->U[k][js+(j-1)][i];
         pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js-j][i].M2; /* reflect 2-mom. */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][js-j][i].B1c= -pGrid->U[k][js-j][i].B1c;/* reflect fld */
         pGrid->U[k][js-j][i].B3c= -pGrid->U[k][js-j][i].B3c;
 #endif
@@ -2092,7 +2092,7 @@ static void conduct_ix2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -2133,7 +2133,7 @@ static void conduct_ox2(GridS *pGrid)
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 
@@ -2142,7 +2142,7 @@ static void conduct_ox2(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i]    =  pGrid->U[k][je-(j-1)][i];
         pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je+j][i].M2; /* reflect 2-mom. */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][je+j][i].B1c= -pGrid->U[k][je+j][i].B1c;/* reflect fld */
         pGrid->U[k][je+j][i].B3c= -pGrid->U[k][je+j][i].B3c;
 #endif
@@ -2150,7 +2150,7 @@ static void conduct_ox2(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -2197,7 +2197,7 @@ static void conduct_ix3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
         pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[ks-k][j][i].B1c= -pGrid->U[ks-k][j][i].B1c;/* reflect fld */
         pGrid->U[ks-k][j][i].B2c= -pGrid->U[ks-k][j][i].B2c;
 #endif
@@ -2205,7 +2205,7 @@ static void conduct_ix3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2252,7 +2252,7 @@ static void conduct_ox3(GridS *pGrid)
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
         pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[ke+k][j][i].B1c= -pGrid->U[ke+k][j][i].B1c;/* reflect fld */
         pGrid->U[ke+k][j][i].B2c= -pGrid->U[ke+k][j][i].B2c;
 #endif
@@ -2260,7 +2260,7 @@ static void conduct_ox3(GridS *pGrid)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2312,7 +2312,7 @@ static void pack_ix1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2331,7 +2331,7 @@ static void pack_ix1(GridS *pG)
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c;
@@ -2343,7 +2343,7 @@ static void pack_ix1(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i at i=is maps to B1i at i=ie+1 and is not passed */
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
@@ -2384,7 +2384,7 @@ static void pack_ox1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2403,7 +2403,7 @@ static void pack_ox1(GridS *pG)
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c;
@@ -2415,7 +2415,7 @@ static void pack_ox1(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i at i=ie-(nghost-1) maps to B1i at i=is-nghost and is not passed */
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
@@ -2455,7 +2455,7 @@ static void pack_ix2(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2474,7 +2474,7 @@ static void pack_ix2(GridS *pG)
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c;
@@ -2486,7 +2486,7 @@ static void pack_ix2(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=js+(nghost-1); j++) {
@@ -2527,7 +2527,7 @@ static void pack_ox2(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2546,7 +2546,7 @@ static void pack_ox2(GridS *pG)
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c;
@@ -2558,7 +2558,7 @@ static void pack_ox2(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=je-(nghost-1); j<=je; j++){
@@ -2615,7 +2615,7 @@ static void pack_ix3(GridS *pG)
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c;
@@ -2627,7 +2627,7 @@ static void pack_ix3(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ks+(nghost-1); k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2684,7 +2684,7 @@ static void pack_ox3(GridS *pG)
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c;
@@ -2696,7 +2696,7 @@ static void pack_ox3(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ke-(nghost-1); k<=ke; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -2737,7 +2737,7 @@ static void unpack_ix1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2756,7 +2756,7 @@ static void unpack_ix1(GridS *pG)
 #ifndef BAROTROPIC
         pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][i].B1c = *(pRcv++);
         pG->U[k][j][i].B2c = *(pRcv++);
         pG->U[k][j][i].B3c = *(pRcv++);
@@ -2768,7 +2768,7 @@ static void unpack_ix1(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2809,7 +2809,7 @@ static void unpack_ox1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2828,7 +2828,7 @@ static void unpack_ox1(GridS *pG)
 #ifndef BAROTROPIC
         pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][i].B1c = *(pRcv++);
         pG->U[k][j][i].B2c = *(pRcv++);
         pG->U[k][j][i].B3c = *(pRcv++);
@@ -2840,7 +2840,7 @@ static void unpack_ox1(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=ie+1 */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2881,7 +2881,7 @@ static void unpack_ix2(GridS *pG)
   int js = pG->js;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2900,7 +2900,7 @@ static void unpack_ix2(GridS *pG)
 #ifndef BAROTROPIC
         pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][i].B1c = *(pRcv++);
         pG->U[k][j][i].B2c = *(pRcv++);
         pG->U[k][j][i].B3c = *(pRcv++);
@@ -2912,7 +2912,7 @@ static void unpack_ix2(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=js-nghost; j<=js-1; j++) {
@@ -2953,7 +2953,7 @@ static void unpack_ox2(GridS *pG)
   int je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ku; /* k-upper */
 #endif
 #if (NSCALARS > 0)
@@ -2972,7 +2972,7 @@ static void unpack_ox2(GridS *pG)
 #ifndef BAROTROPIC
         pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][i].B1c = *(pRcv++);
         pG->U[k][j][i].B2c = *(pRcv++);
         pG->U[k][j][i].B3c = *(pRcv++);
@@ -2984,7 +2984,7 @@ static void unpack_ox2(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks; k<=ke; k++) {
     for (j=je+1; j<=je+nghost; j++) {
@@ -3041,7 +3041,7 @@ static void unpack_ix3(GridS *pG)
 #ifndef BAROTROPIC
         pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][i].B1c = *(pRcv++);
         pG->U[k][j][i].B2c = *(pRcv++);
         pG->U[k][j][i].B3c = *(pRcv++);
@@ -3053,7 +3053,7 @@ static void unpack_ix3(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ks-nghost; k<=ks-1; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -3110,7 +3110,7 @@ static void unpack_ox3(GridS *pG)
 #ifndef BAROTROPIC
         pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][i].B1c = *(pRcv++);
         pG->U[k][j][i].B2c = *(pRcv++);
         pG->U[k][j][i].B3c = *(pRcv++);
@@ -3122,7 +3122,7 @@ static void unpack_ox3(GridS *pG)
     }
   }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* B1i is not set at i=is-nghost */
   for (k=ke+1; k<=ke+nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {

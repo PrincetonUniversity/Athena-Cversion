@@ -116,11 +116,11 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #endif
 
 /* Add extra four columns for Er, Fluxr1, Fluxr2, Fluxr3 */
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   total_hst_cnt += 4;
 #endif
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   total_hst_cnt += 3;
 #endif
 #ifdef SELF_GRAVITY
@@ -131,7 +131,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #endif
 #ifdef SPECIAL_RELATIVITY
   total_hst_cnt = 12 + usr_hst_cnt;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
    total_hst_cnt += 6;
 #endif
 #endif
@@ -201,7 +201,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
               scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M2)*d1;
               mhst++;
               scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].M3)*d1;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
               mhst++;
               scal[mhst] += dVol*0.5*SQR(pG->U[k][j][i].B1c);
               mhst++;
@@ -225,7 +225,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
               scal[mhst] += dVol*(x1*pG->U[k][j][i].M2);
 #endif
 
-#ifdef	RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	      mhst++;
 	      scal[mhst] += dVol*pG->U[k][j][i].Er;
 	      mhst++;
@@ -269,7 +269,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 	      mhst++;
 	      scal[mhst] += dVol*W.P;
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 
               vB = W.V1*pG->U[k][j][i].B1c + W.V2*W.B2c + W.V3*W.B3c;
               Bmag2 = SQR(pG->U[k][j][i].B1c) + SQR(W.B2c) + SQR(W.B3c);
@@ -397,7 +397,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
             fprintf(pfile,"   [%i]=x2-KE   ",mhst);
             mhst++;
             fprintf(pfile,"   [%i]=x3-KE   ",mhst);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             mhst++;
             fprintf(pfile,"   [%i]=x1-ME   ",mhst);
             mhst++;
@@ -421,7 +421,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
             fprintf(pfile,"   [%i]=Ang.Mom.",mhst);
 #endif
 
-#ifdef RADIATION_HYDRO
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	    mhst++;
             fprintf(pfile,"   [%i]=Er   ",mhst);
 	    mhst++;
@@ -454,7 +454,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
             fprintf(pfile,"   [%i]=x3-KE  " ,mhst);
             mhst++;
             fprintf(pfile,"   [%i]=Press  " ,mhst);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             mhst++;
             fprintf(pfile,"   [%i]=x0-ME  " ,mhst);
             mhst++;
