@@ -580,19 +580,19 @@ int main(int argc, char *argv[])
 	 * before the integrator step *
          */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
- 	switch(DIM){
+/* 	switch(DIM){
  	case 1:
  	BackEuler_1d(&Mesh);
  	break;
  	case 2:
  	BackEuler_2d(&Mesh);
  	break;
- 	
+	
  	default:
  	ath_error("[main_BackEuler]: BackEuler not ready for this dimension now!");
  
  	}
-		
+*/		
 
 #endif
 

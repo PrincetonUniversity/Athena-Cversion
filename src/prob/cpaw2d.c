@@ -34,7 +34,9 @@
 #include "prototypes.h"
 
 #ifndef MHD
+#ifndef RADIATION_MHD
 #error : The cpaw2d test only works for MHD.
+#endif
 #endif
 
 
@@ -137,6 +139,12 @@ void problem(DomainS *pDomain)
   pres = par_getd("problem","pres");
   v_par = par_getd("problem","v_par");
 
+#ifdef RADIATION_MHD
+  Prat = par_getd("problem","Pratio");
+  Crat = par_getd("problem","Cratio");
+  R_ideal = par_getd("problem","R_ideal");	
+#endif
+
 /* Use the vector potential to initialize the interface magnetic fields
  * The iterface fields are located at the left grid cell face normal */
 
@@ -198,6 +206,17 @@ void problem(DomainS *pDomain)
                  SQR(pGrid->U[k][j][i].M3) )/den;
         pGrid->U[k][j][i].E = Soln[j][i].E;
 #endif
+
+#ifdef RADIATION_MHD
+    pGrid->U[ks][js][i].Er = 1.0;
+    pGrid->U[ks][js][i].Fr1 = 0.0;
+    pGrid->U[ks][js][i].Fr2 = 0.0;
+    pGrid->U[ks][js][i].Fr3 = 0.0;
+    pGrid->U[ks][js][i].Edd_11 = 1.0;
+    pGrid->U[ks][js][i].Edd_22 = 1.0;
+    pGrid->U[ks][js][i].Sigma_a = 0.0;
+    pGrid->U[ks][js][i].Sigma_t = 0.0;	
+#endif
       }
     }
   }
@@ -214,7 +233,7 @@ void problem(DomainS *pDomain)
 #ifndef ISOTHERMAL
       RootSoln[j][i].E  = Soln[j][i].E ;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
       RootSoln[j][i].B1c = Soln[j][i].B1c;
       RootSoln[j][i].B2c = Soln[j][i].B2c;
       RootSoln[j][i].B3c = Soln[j][i].B3c;

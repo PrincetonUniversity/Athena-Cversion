@@ -50,7 +50,7 @@ static Cons1DS **Ul_x2Face=NULL, **Ur_x2Face=NULL;
 static Cons1DS **x1Flux=NULL, **x2Flux=NULL;
 
 /* The interface magnetic fields and emfs */
-#ifdef MHD
+#ifdef RADIATION_MHD
 static Real **B1_x1Face=NULL, **B2_x2Face=NULL;
 static Real **emf3=NULL, **emf3_cc=NULL;
 #endif /* MHD */
@@ -69,7 +69,7 @@ static Real **dhalf = NULL,**phalf = NULL;
  *   integrate_emf3_corner() - the upwind CT method in Gardiner & Stone (2005) 
  *============================================================================*/
 
-#ifdef MHD
+#ifdef RADIATION_MHD
 static void integrate_emf3_corner(GridS *pG);
 #endif
 
@@ -92,9 +92,10 @@ void integrate_2d_radMHD(DomainS *pD)
   	int ks=pG->ks, k, m, n;
 
 	Real Bx = 0.0;
+	Real M1h, M2h, M3h;
   	
 
-#ifdef MHD
+#ifdef RADIATION_MHD
   	Real MHD_src,dbx,dby,B1,B2,B3,V3;
   	Real B1ch, B2ch, B3ch;
 #endif
@@ -156,7 +157,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			U1d[i].Sigma_a  = pG->U[ks][js][i].Sigma_a;
                         U1d[i].Sigma_t  = pG->U[ks][js][i].Sigma_t;
 
-#ifdef MHD
+#ifdef RADIATION_MHD
       			U1d[i].By = pG->U[ks][j][i].B2c;
       			U1d[i].Bz = pG->U[ks][j][i].B3c;
       			Bxc[i] = pG->U[ks][j][i].B1c;
@@ -176,6 +177,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
 
 /*------Step 2c: Add source terms to the left and right state for 0.5*dt--------*/
+
 
 	for (i=il+1; i<=iu; i++) {
 
@@ -254,6 +256,24 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wr[i].Sigma_t = Sigma_t;
 
 	}
+
+/* For radiation_mhd, source temr due to magnetic field part is also added */
+#ifdef RADIATION_MHD
+	for(i=il+1;i<iu;i++){
+		MHD_src = (pG->U[ks][j][i-1].M2/pG->U[ks][j][i-1].d)*
+               		(pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1])/pG->dx1;
+      		Wl[i].By += hdt*MHD_src;
+
+		 MHD_src = (pG->U[ks][j][i].M2/pG->U[ks][j][i].d)*
+               		(pG->B1i[ks][j][i+1] - pG->B1i[ks][j][i])/pG->dx1;
+      		Wr[i].By += hdt*MHD_src;
+	}
+#endif /* for radMHd */
+
+
+
+
+
 	
 /*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 2D array
@@ -264,7 +284,7 @@ void integrate_2d_radMHD(DomainS *pD)
      		Ul_x1Face[j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
       		Ur_x1Face[j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
 
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Bx = B1_x1Face[j][i];
 #endif
 
@@ -302,7 +322,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			U1d[j].Edd_22  = pG->U[ks][js][i].Edd_22;
 			U1d[j].Sigma_a  = pG->U[ks][js][i].Sigma_a;
                         U1d[j].Sigma_t  = pG->U[ks][js][i].Sigma_t;
-#ifdef MHD
+#ifdef RADIATION_MHD
       			U1d[j].By = pG->U[ks][j][i].B3c;
       			U1d[j].Bz = pG->U[ks][j][i].B1c;
       			Bxc[j] = pG->U[ks][j][i].B2c;
@@ -406,10 +426,29 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	}
 
+
+/********************************************
+ * Add source term due to magnetic field */
+/* notice that variables in y direction are rotated. "Bz" is actually Bx here */
+#ifdef RADIATION_MHD
+	for (j=jl+1; j<=ju; j++) {
+      		MHD_src = (pG->U[ks][j-1][i].M1/pG->U[ks][j-1][i].d)*
+        		(pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i])/dx2;
+      		Wl[j].Bz += hdt*MHD_src;
+
+      		MHD_src = (pG->U[ks][j][i].M1/pG->U[ks][j][i].d)*
+        		(pG->B2i[ks][j+1][i] - pG->B2i[ks][j][i])/dx2;
+      		Wr[j].Bz += hdt*MHD_src;
+    }
+
+#endif
+
+
+
 	for (j=jl+1; j<=ju; j++) {
       		Ul_x2Face[j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
       		Ur_x2Face[j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Bx = B2_x2Face[j][i];
 #endif
 		x2Flux[j][i].d = dt;
@@ -422,6 +461,38 @@ void integrate_2d_radMHD(DomainS *pD)
     	}/* End loop j to calculate the flux */
 
 		}/*  End big loop i */
+
+
+
+/******For magnetic field, calculate cell centered value of emf_3 at t and integrate to corner */
+#ifdef RADIATION_MHD
+	for (j=jl; j<=ju; j++) {
+    	for (i=il; i<=iu; i++) {
+      	emf3_cc[j][i] =
+	(pG->U[ks][j][i].B1c*pG->U[ks][j][i].M2 -
+	 pG->U[ks][j][i].B2c*pG->U[ks][j][i].M1 )/pG->U[ks][j][i].d;
+    }
+  }
+  integrate_emf3_corner(pG);
+/* update interface magnetic field */
+	
+  	for (j=jl+1; j<=ju-1; j++) {
+    	for (i=il+1; i<=iu-1; i++) {
+
+      	B1_x1Face[j][i] -= hdtodx2*(emf3[j+1][i  ] - emf3[j][i]);
+      	B2_x2Face[j][i] += hdtodx1*(emf3[j  ][i+1] - emf3[j][i]);
+    }
+    	B1_x1Face[j][iu] -= hdtodx2*(emf3[j+1][iu] - emf3[j][iu]);
+  }
+  	for (i=il+1; i<=iu-1; i++) {
+    	B2_x2Face[ju][i] += hdtodx1*(emf3[ju][i+1] - emf3[ju][i]);
+  }
+
+#endif /* end MHD part */
+
+
+
+
 /*=== STEP 6: Correct x1-interface states with transverse flux gradients =====*/
 
 /*--- Step 6a ------------------------------------------------------------------
@@ -445,7 +516,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ul_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i-1].Mx - x2Flux[j][i-1].Mx);
       		Ul_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i-1].My - x2Flux[j][i-1].My);
 		Ul_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i-1].E  - x2Flux[j][i-1].E );
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Ul_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i-1].By - x2Flux[j][i-1].By);
 #endif
 
@@ -454,7 +525,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ur_x1Face[j][i].My -= hdtodx2*(x2Flux[j+1][i  ].Mx - x2Flux[j][i  ].Mx);
       		Ur_x1Face[j][i].Mz -= hdtodx2*(x2Flux[j+1][i  ].My - x2Flux[j][i  ].My);
 		Ur_x1Face[j][i].E  -= hdtodx2*(x2Flux[j+1][i  ].E -  x2Flux[j][i  ].E );
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Ur_x1Face[j][i].Bz -= hdtodx2*(x2Flux[j+1][i  ].By - x2Flux[j][i  ].By);
 #endif
 
@@ -464,7 +535,44 @@ void integrate_2d_radMHD(DomainS *pD)
 
 /*-------step 6b------------------------------*/
 /* Correct x1 interface with x2 source gradient */
-		
+/* Add MHD source terms from x2 flux gradient to the conservative variable on x1Face */
+#ifdef RADIATION_MHD
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu; i++) {
+/* The left state */
+      dbx = pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1];
+
+      B1 = pG->U[ks][j][i-1].B1c;
+      B2 = pG->U[ks][j][i-1].B2c;
+      B3 = pG->U[ks][j][i-1].B3c;
+      V3 = pG->U[ks][j][i-1].M3/pG->U[ks][j][i-1].d;
+
+      Ul_x1Face[j][i].Mx += hdtodx1*B1*dbx;
+      Ul_x1Face[j][i].My += hdtodx1*B2*dbx;
+      Ul_x1Face[j][i].Mz += hdtodx1*B3*dbx;
+      Ul_x1Face[j][i].Bz += hdtodx1*V3*dbx;
+
+      Ul_x1Face[j][i].E  += hdtodx1*B3*V3*dbx;
+
+/* the right state */
+      dbx = pG->B1i[ks][j][i+1] - pG->B1i[ks][j][i];
+
+      B1 = pG->U[ks][j][i].B1c;
+      B2 = pG->U[ks][j][i].B2c;
+      B3 = pG->U[ks][j][i].B3c;
+      V3 = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
+
+      Ur_x1Face[j][i].Mx += hdtodx1*B1*dbx;
+      Ur_x1Face[j][i].My += hdtodx1*B2*dbx;
+      Ur_x1Face[j][i].Mz += hdtodx1*B3*dbx;
+      Ur_x1Face[j][i].Bz += hdtodx1*V3*dbx;
+
+      Ur_x1Face[j][i].E  += hdtodx1*B3*V3*dbx;
+
+    }
+  }
+
+#endif		
 
 
 
@@ -485,7 +593,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ul_x2Face[j][i].Mz -= hdtodx1*(x1Flux[j-1][i+1].Mx - x1Flux[j-1][i].Mx);
       		Ul_x2Face[j][i].E  -= hdtodx1*(x1Flux[j-1][i+1].E  - x1Flux[j-1][i].E );
 
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Ul_x2Face[j][i].By -= hdtodx1*(x1Flux[j-1][i+1].Bz - x1Flux[j-1][i].Bz);
 #endif
 
@@ -495,7 +603,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		Ur_x2Face[j][i].Mz -= hdtodx1*(x1Flux[j  ][i+1].Mx - x1Flux[j  ][i].Mx);
       		Ur_x2Face[j][i].E  -= hdtodx1*(x1Flux[j  ][i+1].E  - x1Flux[j  ][i].E );
 
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Ur_x2Face[j][i].By -= hdtodx1*(x1Flux[j  ][i+1].Bz - x1Flux[j  ][i].Bz);
 #endif
 
@@ -503,14 +611,100 @@ void integrate_2d_radMHD(DomainS *pD)
   }
 
 
-
-
-
 /*---------step 7b---------------*/
 /* Correct x2 interface with x1 source gradient */
+/* Add magnetic field source  term from x1-flux gradients */
+#ifdef RADIATION_MHD
 
+  for (j=jl+1; j<=ju; j++) {
+    for (i=il+1; i<=iu-1; i++) {
+/* for the left state */
+      dby = pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i];
+      B1 = pG->U[ks][j-1][i].B1c;
+      B2 = pG->U[ks][j-1][i].B2c;
+      B3 = pG->U[ks][j-1][i].B3c;
+      V3 = pG->U[ks][j-1][i].M3/pG->U[ks][j-1][i].d;
 
+      Ul_x2Face[j][i].Mz += hdtodx2*B1*dby;
+      Ul_x2Face[j][i].Mx += hdtodx2*B2*dby;
+      Ul_x2Face[j][i].My += hdtodx2*B3*dby;
+      Ul_x2Face[j][i].By += hdtodx2*V3*dby;
 
+      Ul_x2Face[j][i].E  += hdtodx2*B3*V3*dby;
+/* for the right state */
+
+      dby = pG->B2i[ks][j+1][i] - pG->B2i[ks][j][i];
+      B1 = pG->U[ks][j][i].B1c;
+      B2 = pG->U[ks][j][i].B2c;
+      B3 = pG->U[ks][j][i].B3c;
+      V3 = pG->U[ks][j][i].M3/pG->U[ks][j][i].d;
+
+      Ur_x2Face[j][i].Mz += hdtodx2*B1*dby;
+      Ur_x2Face[j][i].Mx += hdtodx2*B2*dby;
+      Ur_x2Face[j][i].My += hdtodx2*B3*dby;
+      Ur_x2Face[j][i].By += hdtodx2*V3*dby;
+
+      Ur_x2Face[j][i].E  += hdtodx2*B3*V3*dby;
+
+    }
+  }
+
+#endif
+
+/************************************************************/
+/* calculate d^{n+1/2}, this is needed to calculate emf3_cc^{n+1/2} */
+#ifdef RADIATION_MHD
+ for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
+
+        dhalf[j][i] = pG->U[ks][j][i].d
+          - hdtodx1*(x1Flux[j  ][i+1].d - x1Flux[j][i].d)
+          - hdtodx2*(    x2Flux[j+1][i  ].d -     x2Flux[j][i].d);
+
+      }
+    }
+
+/* Now calculate cell centered emf3_cc^{n+1/2} */
+      for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu-1; i++) {
+
+      M1h = pG->U[ks][j][i].M1
+        - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+        - hdtodx2*(    x2Flux[j+1][i].Mz -     x2Flux[j][i].Mz);
+
+      M2h = pG->U[ks][j][i].M2
+        - hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
+        - hdtodx2*(         x2Flux[j+1][i].Mx -          x2Flux[j][i].Mx);
+
+      M3h = pG->U[ks][j][i].M3
+        - hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz)
+        - hdtodx2*(    x2Flux[j+1][i].My -     x2Flux[j][i].My);
+/*
+      Eh = pG->U[ks][j][i].E
+        - hdtodx1*(x1Flux[j][i+1].E - x1Flux[j][i].E)
+        - hdtodx2*(    x2Flux[j+1][i].E -     x2Flux[j][i].E);
+*/
+
+/* phalf is the gas pressure at half step, we do not calculate here. */
+/* phalf is needed for cooling only */
+/*
+      phalf[j][i] = Eh - 0.5*(M1h*M1h + M2h*M2h + M3h*M3h)/dhalf[j][i];
+*/
+      B1ch = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
+      B2ch = 0.5*(    B2_x2Face[j][i] +     B2_x2Face[j+1][i]);
+      B3ch = pG->U[ks][j][i].B3c 
+        - hdtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz)
+        - hdtodx2*(    x2Flux[j+1][i].By -     x2Flux[j][i].By);
+      emf3_cc[j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[j][i];
+
+/*
+      phalf[j][i] -= 0.5*(B1ch*B1ch + B2ch*B2ch + B3ch*B3ch);
+      phalf[j][i] *= Gamma_1;
+*/
+	}
+     }
+
+#endif
 
 /*=== STEP 8: Compute 2D x1-Flux, x2-Flux ====================================*/
 
@@ -522,7 +716,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	 for (j=js-1; j<=je+1; j++) {
     		for (i=is; i<=ie+1; i++) {
 
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Bx = B1_x1Face[j][i];
 #endif
       		Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[j][i],&Bx);
@@ -544,7 +738,7 @@ void integrate_2d_radMHD(DomainS *pD)
   	for (j=js; j<=je+1; j++) {
     		for (i=is-1; i<=ie+1; i++) {
 
-#ifdef MHD
+#ifdef RADIATION_MHD
       		Bx = B2_x2Face[j][i];
 #endif
       		Wl[j] = Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Bx);
@@ -556,6 +750,32 @@ void integrate_2d_radMHD(DomainS *pD)
       		fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],Bx,&x2Flux[j][i]);
     }
   }
+
+
+/******************************************/
+/* integrate emf*^{n+1/2} to the grid cell corners */
+#ifdef RADIATION_MHD
+  integrate_emf3_corner(pG);
+
+/*--- Step 10b -----------------------------------------------------------------
+ * Update the interface magnetic fields using CT for a full time step.
+ */
+
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pG->B1i[ks][j][i] -= dtodx2*(emf3[j+1][i  ] - emf3[j][i]);
+      pG->B2i[ks][j][i] += dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
+    }
+
+    pG->B1i[ks][j][ie+1] -= dtodx2*(emf3[j+1][ie+1] - emf3[j][ie+1]);
+  }
+  for (i=is; i<=ie; i++) {
+    pG->B2i[ks][je+1][i] += dtodx1*(emf3[je+1][i+1] - emf3[je+1][i]);
+  }
+
+#endif /* end mhd part */
+
+
 
 
 /*-------Step 9: Predict and correct step after we get the flux------------- */
@@ -686,11 +906,51 @@ void integrate_2d_radMHD(DomainS *pD)
 		pG->U[ks][j][i].d = Uguess[0] + tempguess[0];
 		pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
 		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];
-		pG->U[ks][j][i].E = Uguess[4] + tempguess[4];		
+		pG->U[ks][j][i].E = Uguess[4] + tempguess[4];	
+
+		/*========================================================*/
+		/* In 2D version , we always assume Fr_3 = 0. So we do not need source term for M3.*/
+		/* otherwise, we have to go to 3D version of matrix to solve Fr_3 */
+		pG->U[ks][j][i].M3 -= dtodx1 * (x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
+		pG->U[ks][j][i].M3 -= dtodx2 * (x2Flux[j+1][i].My - x2Flux[j][i].My); 	
 	
 
 		}/* End big loop i */
 	}/* End big loop j */
+
+
+
+/* update the magnetic field */
+/* magnetic field is independent of predict and correct step */
+#ifdef RADIATION_MHD
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+	/* due to x1 flux */
+	pG->U[ks][j][i].B2c -= dtodx1*(x1Flux[j][i+1].By - x1Flux[j][i].By);
+      	pG->U[ks][j][i].B3c -= dtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+
+
+	/* due to x2 flux */
+	pG->U[ks][j][i].B3c -= dtodx2*(x2Flux[j+1][i].By - x2Flux[j][i].By);
+      	pG->U[ks][j][i].B1c -= dtodx2*(x2Flux[j+1][i].Bz - x2Flux[j][i].Bz);
+    }
+  }
+
+/* set cell centered magnetic field to average of updated face centered field */
+ for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+
+      pG->U[ks][j][i].B1c =0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j][i+1]);
+      pG->U[ks][j][i].B2c =0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
+/* Set the 3-interface magnetic field equal to the cell center field. */
+      pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
+    }
+  }
+
+
+#endif /* radiation MHD part */
+
+
 		
 	/* Boundary condition is applied in the main function */
 
@@ -743,7 +1003,7 @@ void integrate_init_2d(MeshS *pM)
   size2 = size2 + 2*nghost;
   nmax = MAX(size1,size2);
 
-#ifdef MHD
+#ifdef RADIATION_MHD
   if ((emf3 = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
     goto on_error;
   if ((emf3_cc = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
@@ -754,7 +1014,7 @@ void integrate_init_2d(MeshS *pM)
   if ((Bxc = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
   if ((Bxi = (Real*)malloc(nmax*sizeof(Real))) == NULL) goto on_error;
 
-#ifdef MHD
+#ifdef RADIATION_MHD
   if ((B1_x1Face = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
     goto on_error;
   if ((B2_x2Face = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
@@ -782,20 +1042,10 @@ void integrate_init_2d(MeshS *pM)
   if ((x2Flux   =(Cons1DS**)calloc_2d_array(size2,size1,sizeof(Cons1DS)))==NULL)
     goto on_error;
 
-#ifndef CYLINDRICAL
-#ifndef MHD
-#ifndef PARTICLES
-  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
-#endif
-#endif
-#endif
-  {
   if ((dhalf = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
     goto on_error;
   if ((phalf = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL)
     goto on_error;
-  }
-
 
 
   return;
@@ -811,14 +1061,14 @@ void integrate_init_2d(MeshS *pM)
 
 void integrate_destruct_2d(void)
 {
-#ifdef MHD
+#ifdef RADIATION_MHD
   if (emf3    != NULL) free_2d_array(emf3);
   if (emf3_cc != NULL) free_2d_array(emf3_cc);
 #endif /* MHD */
 
   if (Bxc != NULL) free(Bxc);
   if (Bxi != NULL) free(Bxi);
-#ifdef MHD
+#ifdef RADIATION_MHD
   if (B1_x1Face != NULL) free_2d_array(B1_x1Face);
   if (B2_x2Face != NULL) free_2d_array(B2_x2Face);
 #endif /* MHD */
@@ -849,7 +1099,7 @@ void integrate_destruct_2d(void)
 /*----------------------------------------------------------------------------*/
 /* integrate_emf3_corner:  */
 
-#ifdef MHD
+#ifdef RADIATION_MHD
 static void integrate_emf3_corner(GridS *pG)
 {
   int i,is,ie,j,js,je;
@@ -925,6 +1175,9 @@ static void integrate_emf3_corner(GridS *pG)
 
   return;
 }
+
+
 #endif /* MHD */
+
 
 #endif /* radMHD_INTEGRATOR */

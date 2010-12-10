@@ -160,7 +160,7 @@ void init_grid(MeshS *pM)
     
 /* Build 3D arrays to hold interface field */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
       pG->B1i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->B1i == NULL) goto on_error2;
 
@@ -349,7 +349,7 @@ void init_grid(MeshS *pM)
         for (ncg=0; ncg<pG->NCGrid; ncg++){
           for (dim=0; dim<6; dim++) {
             pG->CGrid[ncg].myFlx[dim] = NULL;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             pG->CGrid[ncg].myEMF1[dim] = NULL;
             pG->CGrid[ncg].myEMF2[dim] = NULL;
             pG->CGrid[ncg].myEMF3[dim] = NULL;
@@ -430,7 +430,7 @@ void init_grid(MeshS *pM)
 if(myID_Comm_world==0){
 printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
 }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
               if (nDim==3) {
                 pG->CGrid[ncg].nWordsRC += 
                   (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
@@ -494,7 +494,7 @@ printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
 if(myID_Comm_world==0){
 printf("Allocated %d x %d array for ixb CGrid.myFlx\n",n2z,n1z);
 }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
                   pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
                   if (pG->Nx[1] > 1 && dim != 2) {
@@ -598,7 +598,7 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z,n1z+1);
 if(myID_Comm_world==0){
 printf("Allocated %d x %d array for oxb CGrid.myFlx\n",n2z,n1z);
 }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
                   pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
                   if (pG->Nx[1] > 1 && dim != 2) {
@@ -769,7 +769,7 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
         for (npg=0; npg<pG->NPGrid; npg++){
           for (dim=0; dim<6; dim++) {
             pG->PGrid[npg].myFlx[dim] = NULL;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             pG->PGrid[npg].myEMF1[dim] = NULL;
             pG->PGrid[npg].myEMF2[dim] = NULL;
             pG->PGrid[npg].myEMF3[dim] = NULL;
@@ -848,7 +848,7 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
 */
               pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->PGrid[npg].nWordsP  = 0;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
               if (pG->Nx[2]>1) {
                 pG->PGrid[npg].nWordsRC += 
                   (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
@@ -916,7 +916,7 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
 if(myID_Comm_world==0){
 printf("Allocated %d x %d array for ixb PGrid.myFlx\n",n2z,n1z);
 }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
                     pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
@@ -1024,7 +1024,7 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z,n1z+1);
 if(myID_Comm_world==0){
 printf("Allocated %d x %d array for oxb PGrid.myFlx\n",n2z,n1z);
 }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
                     pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
@@ -1144,7 +1144,7 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
   on_error5:
     free_3d_array(pG->eta_Ohm);
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   on_error4:
     free_3d_array(pG->B3i);
   on_error3:

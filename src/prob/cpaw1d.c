@@ -72,6 +72,13 @@ void problem(DomainS *pDomain)
   pres = par_getd("problem","pres");
   v_par = par_getd("problem","v_par");
 
+/* Parse global variables of unit ratio */
+#ifdef RADIATION_MHD
+  Prat = par_getd("problem","Pratio");
+  Crat = par_getd("problem","Cratio");
+  R_ideal = par_getd("problem","R_ideal");	
+#endif
+
 /* Setup circularily polarized AW solution  */
 
   for (i=is; i<=ie+1; i++) {
@@ -109,6 +116,15 @@ void problem(DomainS *pDomain)
     pGrid->U[ks][js][i].B3c = pGrid->B3i[ks][js][i] = Soln[i].B3c;
 #ifndef ISOTHERMAL
     pGrid->U[ks][js][i].E = Soln[i].E;
+#endif
+
+#ifdef RADIATION_MHD
+    pGrid->U[ks][js][i].Er = 1.0;
+    pGrid->U[ks][js][i].Fr1 = 0.0;
+    pGrid->U[ks][js][i].Fr2 = 0.0;
+    pGrid->U[ks][js][i].Edd_11 = 1.0;
+    pGrid->U[ks][js][i].Sigma_a = 0.0;
+    pGrid->U[ks][js][i].Sigma_t = 0.0;	
 #endif
   }
 

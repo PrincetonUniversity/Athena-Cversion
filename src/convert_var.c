@@ -86,7 +86,7 @@ PrimS Cons_to_Prim(const ConsS *pCons)
 #ifndef ISOTHERMAL
   U.E  = pCons->E;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Bx = pCons->B1c;
   U.By = pCons->B2c;
   U.Bz = pCons->B3c;
@@ -120,7 +120,7 @@ PrimS Cons_to_Prim(const ConsS *pCons)
 #ifndef ISOTHERMAL
   Prim.P = W.P;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Prim.B1c = Bx;
   Prim.B2c = W.By;
   Prim.B3c = W.Bz;
@@ -163,7 +163,7 @@ ConsS Prim_to_Cons (const PrimS *pW)
 #ifndef ISOTHERMAL
   W.P  = pW->P;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Bx = pW->B1c;
   W.By = pW->B2c;
   W.Bz = pW->B3c;
@@ -196,7 +196,7 @@ ConsS Prim_to_Cons (const PrimS *pW)
 #ifndef ISOTHERMAL
   Cons.E = U.E;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Cons.B1c = Bx;
   Cons.B2c = U.By;
   Cons.B3c = U.Bz;
@@ -224,7 +224,7 @@ ConsS Prim_to_Cons (const PrimS *pW)
 }
 
 #ifdef SPECIAL_RELATIVITY /* special relativity only */
-#ifdef MHD /* MHD only */
+#if defined(MHD) || defined(RADIATION_MHD) /* MHD only */
 /*----------------------------------------------------------------------------*/
 /* fix_vsq: wrapper for the fix_vsq1D function, works 
  *          only for SPECIAL_RELATIVITY && MHD only
@@ -248,7 +248,7 @@ PrimS fix_vsq (const ConsS *pCons)
 #ifndef ISOTHERMAL
   U.E  = pCons->E;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Bx = pCons->B1c;
   U.By = pCons->B2c;
   U.Bz = pCons->B3c;
@@ -266,7 +266,7 @@ PrimS fix_vsq (const ConsS *pCons)
 #ifndef ISOTHERMAL
   Prim.P = W.P;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Prim.B1c = Bx;
   Prim.B2c = W.By;
   Prim.B3c = W.Bz;
@@ -301,7 +301,7 @@ PrimS entropy_fix (const ConsS *pCons, const Real *ent)
 #ifndef ISOTHERMAL
   U.E  = pCons->E;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Bx = pCons->B1c;
   U.By = pCons->B2c;
   U.Bz = pCons->B3c;
@@ -319,7 +319,7 @@ PrimS entropy_fix (const ConsS *pCons, const Real *ent)
 #ifndef ISOTHERMAL
   Prim.P = W.P;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Prim.B1c = Bx;
   Prim.B2c = W.By;
   Prim.B3c = W.Bz;
@@ -355,7 +355,7 @@ PrimS check_Prim(const ConsS *pCons)
 #ifndef ISOTHERMAL
   U.E  = pCons->E;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Bx = pCons->B1c;
   U.By = pCons->B2c;
   U.Bz = pCons->B3c;
@@ -364,7 +364,7 @@ PrimS check_Prim(const ConsS *pCons)
   for (n=0; n<NSCALARS; n++) U.s[n] = pCons->s[n];
 #endif
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   W = check_Prim1D(&U, &Bx);
 #else
   W = Cons1D_to_Prim1D(&U, &Bx);
@@ -377,7 +377,7 @@ PrimS check_Prim(const ConsS *pCons)
 #ifndef ISOTHERMAL
   Prim.P = W.P;
 #endif /* ISOTHERMAL */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Prim.B1c = Bx;
   Prim.B2c = W.By;
   Prim.B3c = W.Bz;
@@ -413,14 +413,14 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
 
 #ifndef ISOTHERMAL
   Prim1D.P = pU->E - 0.5*(SQR(pU->Mx)+SQR(pU->My)+SQR(pU->Mz))*di;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Prim1D.P -= 0.5*(SQR(*pBx) + SQR(pU->By) + SQR(pU->Bz));
 #endif /* MHD */
   Prim1D.P *= Gamma_1;
   Prim1D.P = MAX(Prim1D.P,TINY_NUMBER);
 #endif /* ISOTHERMAL */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Prim1D.By = pU->By;
   Prim1D.Bz = pU->Bz;
 #endif /* MHD */
@@ -468,12 +468,12 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
 
 #ifndef ISOTHERMAL
   Cons1D.E = pW->P/Gamma_1 + 0.5*pW->d*(SQR(pW->Vx) +SQR(pW->Vy) +SQR(pW->Vz));
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Cons1D.E += 0.5*(SQR(*pBx) + SQR(pW->By) + SQR(pW->Bz));
 #endif /* MHD */
 #endif /* ISOTHERMAL */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Cons1D.By = pW->By;
   Cons1D.Bz = pW->Bz;
 #endif /* MHD */
@@ -513,14 +513,14 @@ Real cfast(const Cons1DS *U, const Real *Bx)
 #ifndef ISOTHERMAL
   Real p,pb=0.0;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Real ctsq,casq,tmp,cfsq;
 #endif
 
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   pb = 0.5*(SQR(*Bx) + SQR(U->By) + SQR(U->Bz));
 #endif /* MHD */
   p = Gamma_1*(U->E - pb - 0.5*(SQR(U->Mx)+SQR(U->My)+SQR(U->Mz))/U->d);
@@ -994,7 +994,7 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *W, const Real *Bx)
   vsq = SQR(W->Vx) + SQR(W->Vy) + SQR(W->Vz);
   U0 = 1.0 / (1.0 - vsq);
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Bsq = (*Bx)*(*Bx) + SQR(W->By) + SQR(W->Bz);
   vDotB = (*Bx)*W->Vx + W->By*W->Vy + W->Bz*W->Vz;
 #endif
@@ -1008,7 +1008,7 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *W, const Real *Bx)
 
   Cons1D.E  = wU0sq - W->P;
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Cons1D.Mx += Bsq*W->Vx - vDotB*(*Bx);
   Cons1D.My += Bsq*W->Vy - vDotB*W->By;
   Cons1D.Mz += Bsq*W->Vz - vDotB*W->Bz;

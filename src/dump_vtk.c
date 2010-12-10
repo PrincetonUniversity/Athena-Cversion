@@ -255,7 +255,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	fprintf(pfile,"SCALARS radiation energy density float\n");
+	fprintf(pfile,"\nSCALARS rad_energy float\n");
         fprintf(pfile,"LOOKUP_TABLE default\n");
         for (k=kl; k<=ku; k++) {
           for (j=jl; j<=ju; j++) {
@@ -273,7 +273,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 
 
-	fprintf(pfile,"\nVECTORS radiation flux float\n");
+	fprintf(pfile,"\nVECTORS rad_flux float\n");
         for (k=kl; k<=ku; k++) {
           for (j=jl; j<=ju; j++) {
             for (i=il; i<=iu; i++) {
@@ -287,7 +287,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
         }
 
 #ifdef RADIATION_TRANSFER
-	fprintf(pfile,"\nVECTORS Eddington tensor float\n");
+	fprintf(pfile,"\nVECTORS Edd_tensor float\n");
         for (k=kl; k<=ku; k++) {
           for (j=jl; j<=ju; j++) {
             for (i=il; i<=iu; i++) {
