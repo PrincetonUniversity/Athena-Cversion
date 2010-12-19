@@ -91,6 +91,9 @@ void integrate_2d_radMHD(DomainS *pD)
   	int j,jl,ju,js=pG->js, je=pG->je;
   	int ks=pG->ks, k, m, n;
 
+/* For static gravitational potential */
+	Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
+
 	Real Bx = 0.0;
 	Real M1h, M2h, M3h;
   	
@@ -270,7 +273,21 @@ void integrate_2d_radMHD(DomainS *pD)
 	}
 #endif /* for radMHd */
 
+	
+ /* Add source terms from static gravitational potential for 0.5*dt to L/R states
+ */
+	 if (StaticGravPot != NULL){
+      		for (i=il+1; i<=iu; i++) {
+        	cc_pos(pG,i,j,ks,&x1,&x2,&x3);
 
+	        phicr = (*StaticGravPot)( x1             ,x2,x3);
+        	phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
+        	phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+        	Wl[i].Vx -= dtodx1*(phifc - phicl);
+        	Wr[i].Vx -= dtodx1*(phicr - phifc);
+      }
+    }
 
 
 
@@ -443,6 +460,24 @@ void integrate_2d_radMHD(DomainS *pD)
 
 #endif
 
+/*
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
+ */
+		
+
+	 if (StaticGravPot != NULL){
+      		for (j=jl+1; j<=ju; j++) {
+        		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        		phicr = (*StaticGravPot)(x1, x2             ,x3);
+        		phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
+        		phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+
+        		Wl[j].Vx -= dtodx2*(phifc - phicl);
+        		Wr[j].Vx -= dtodx2*(phicr - phifc);
+      		}
+    	}
+
+
 
 
 	for (j=jl+1; j<=ju; j++) {
@@ -575,10 +610,47 @@ void integrate_2d_radMHD(DomainS *pD)
 #endif		
 
 
-
-
 /*----Need extra flux gradient for self-gravity and gravitational source that is included as flux 
  * but not included in the Riemann problem---------*/
+
+/*
+ * Add source terms for a static gravitational potential arising from x2-Flux
+ * gradients.  To improve conservation of total energy, average
+ * the energy source term computed at cell faces.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
+ */
+
+  if (StaticGravPot != NULL){
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phic = (*StaticGravPot)(x1, x2             ,x3);
+        phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+
+        Ur_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+
+        Ur_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i  ].d*(phic - phil) +
+                                      x2Flux[j+1][i  ].d*(phir - phic));
+
+        phic = (*StaticGravPot)((x1-pG->dx1), x2             ,x3);
+        phir = (*StaticGravPot)((x1-pG->dx1),(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)((x1-pG->dx1),(x2-0.5*pG->dx2),x3);
+
+
+        Ul_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i-1].d;
+
+        Ul_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i-1].d*(phic - phil) +
+                                      x2Flux[j+1][i-1].d*(phir - phic));
+
+      }
+    }
+  }
+
+
+
+
+
 
 /*=== STEP 7: Correct x2-interface states with transverse flux gradients =====*/
 
@@ -651,9 +723,49 @@ void integrate_2d_radMHD(DomainS *pD)
 
 #endif
 
+/*-
+ * Add source terms for a static gravitational potential arising from x1-Flux
+ * gradients. To improve conservation of total energy, average the energy
+ * source term computed at cell faces.
+ *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
+ */
+
+  if (StaticGravPot != NULL){
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phic = (*StaticGravPot)((x1            ),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+
+        Ur_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+
+        Ur_x2Face[j][i].E -= hdtodx1*(x1Flux[j  ][i  ].d*(phic - phil) +
+                                      x1Flux[j  ][i+1].d*(phir - phic));
+
+
+        phic = (*StaticGravPot)((x1            ),(x2-pG->dx2),x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
+
+
+        Ul_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j-1][i].d;
+
+        Ul_x2Face[j][i].E -= hdtodx1*(x1Flux[j-1][i  ].d*(phic - phil) +
+                                      x1Flux[j-1][i+1].d*(phir - phic));
+
+      }
+    }
+  }
+
+
+
+
+
 /************************************************************/
 /* calculate d^{n+1/2}, this is needed to calculate emf3_cc^{n+1/2} */
-#ifdef RADIATION_MHD
+
  for (j=jl+1; j<=ju-1; j++) {
       for (i=il+1; i<=iu-1; i++) {
 
@@ -664,6 +776,7 @@ void integrate_2d_radMHD(DomainS *pD)
       }
     }
 
+#ifdef RADIATION_MHD
 /* Now calculate cell centered emf3_cc^{n+1/2} */
       for (j=jl+1; j<=ju-1; j++) {
     for (i=il+1; i<=iu-1; i++) {
@@ -679,6 +792,20 @@ void integrate_2d_radMHD(DomainS *pD)
       M3h = pG->U[ks][j][i].M3
         - hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz)
         - hdtodx2*(    x2Flux[j+1][i].My -     x2Flux[j][i].My);
+
+/* Add source terms for fixed gravitational potential */
+        if (StaticGravPot != NULL){
+        	cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+
+        	phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        	phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        	M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+
+        	phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        	phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+        	M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+      	}
+
 /*
       Eh = pG->U[ks][j][i].E
         - hdtodx1*(x1Flux[j][i+1].E - x1Flux[j][i].E)
@@ -955,6 +1082,38 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 #endif /* radiation MHD part */
+
+/*=========================================================*/
+/* Add non-stiff source term due to static gravity */
+
+
+  if (StaticGravPot != NULL){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phic = (*StaticGravPot)((x1            ),x2,x3);
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+
+        pG->U[ks][j][i].M1 -= dtodx1*dhalf[j][i]*(phir-phil);
+
+
+        pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
+				 	x1Flux[j][i+1].d*(phir - phic));
+			
+        phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+
+        pG->U[ks][j][i].M2 -= dtodx2*dhalf[j][i]*(phir-phil);
+
+
+        pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
+                                     x2Flux[j+1][i].d*(phir - phic));
+
+      }
+    }
+  }
 
 
 		

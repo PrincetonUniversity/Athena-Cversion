@@ -16,6 +16,8 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+
 /* dimension of calculation (determined at runtime) */
 static int dim=0;
 static int ie, is, je, js, ke, ks;
@@ -83,3 +85,6 @@ void BackEuler_destruct()
 
   ath_error("[integrate_destruct]: Grid dimension = %d\n",dim);
 }
+
+
+#endif

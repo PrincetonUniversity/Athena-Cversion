@@ -28,13 +28,15 @@
 #endif
 
 
-
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 /*================================*/
 /* For the matrix solver */
 /* we use lis library now */
 #include <lis.h>
 
 /*===============================*/
+
+#endif
 
 #if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY

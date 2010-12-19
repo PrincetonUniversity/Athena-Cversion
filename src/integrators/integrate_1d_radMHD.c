@@ -41,6 +41,7 @@ static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL;
 
+static Real *dhalf = NULL;
 
 
 /* Variables needed for cylindrical coordinates */
@@ -59,7 +60,7 @@ void integrate_1d_radMHD(DomainS *pD)
 {
   	GridS *pG=(pD->Grid);
 	/*Real dtodx1 = pG->dt/pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1; */
-	Real dt=pG->dt, dx=pG->dx1;
+	Real dt=pG->dt, dx=pG->dx1, hdtodx1 = 0.5*pG->dt/pG->dx1;;
 	Real dtodx1 = dt / dx;
 	int il,iu, is = pG->is, ie = pG->ie;
   	int i, j, m, n;
@@ -67,6 +68,8 @@ void integrate_1d_radMHD(DomainS *pD)
 	int ks = pG->ks;
 	Cons1DS Uguess, divFlux;
 	Real *pUguess, *pdivFlux, *pfluxl, *pfluxr, *pU1d;
+
+	Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 
 
 
@@ -218,6 +221,24 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	}
 
+/*-----------------------
+ * Add source terms from static gravitational potential for 0.5*dt to L/R states
+ */
+	
+  	if (StaticGravPot != NULL){
+    		for (i=il+1; i<=iu; i++) {
+      		cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+
+		phicr = (*StaticGravPot)( x1             ,x2,x3);
+      		phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
+      		phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+      		Wl[i].Vx -= dtodx1*(phifc - phicl);
+      		Wr[i].Vx -= dtodx1*(phicr - phifc);
+
+    		}
+  	}
+
 
 		
 /*---------Step 2c--------------*/ 
@@ -236,7 +257,16 @@ void integrate_1d_radMHD(DomainS *pD)
 		
  		 }
 
-
+/*---
+ * Calculate d^{n+1/2} (needed with static potential, or cooling)
+ */
+		
+  		if ((StaticGravPot != NULL))
+  		{
+    			for (i=il+1; i<=iu-1; i++) {
+      			dhalf[i] = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
+    			}
+  		}
 	
 
 /*----Step 3------------------
@@ -360,6 +390,28 @@ void integrate_1d_radMHD(DomainS *pD)
 	} /* End big loop i */	
 
 
+ /* Add gravitational source terms as a Static Potential.
+ *   The energy source terms computed at cell faces are averaged to improve
+ * conservation of total energy.
+ *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
+ */
+
+	  if (StaticGravPot != NULL){
+    		for (i=is; i<=ie; i++) {
+      		cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+      		phic = (*StaticGravPot)((x1            ),x2,x3);
+      		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+      		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+	        pG->U[ks][js][i].M1 -= dtodx1*dhalf[i]*(phir-phil);
+
+
+      		pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
+                                    x1Flux[i+1].d*(phir - phic));
+    		}
+  	}
+
+
 	/* Now update the reaction coefficient Sigma_t and Sigma_a in the conserved variable 
 	 * If function Opacity is set in the problem generator 
 	 *
@@ -428,7 +480,10 @@ void integrate_init_1d(MeshS *pM)
   if ((Wl = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wr = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
 
-
+  if((StaticGravPot != NULL) || (CoolingFunc != NULL))
+  {
+    if ((dhalf  = (Real*)malloc(size1*sizeof(Real))) == NULL) goto on_error;
+  }
   
 
 #ifdef CYLINDRICAL
@@ -463,6 +518,8 @@ void integrate_destruct_1d(void)
   if (W  != NULL) free(W);
   if (Wl != NULL) free(Wl);
   if (Wr != NULL) free(Wr);
+
+  if (dhalf != NULL) free(dhalf);
 
 #ifdef CYLINDRICAL
   if (geom_src != NULL) free_1d_array((void*)geom_src);
