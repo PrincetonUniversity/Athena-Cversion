@@ -517,6 +517,10 @@ typedef struct Mesh_s{
   char *outfilename;           /* basename for output files containing -id#  */
 }MeshS;
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+typedef void (*VMFun_t)(MeshS *pM); /* Generic void function of Mesh, used for BackEuler */
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* OutputS: everything for outputs */
   

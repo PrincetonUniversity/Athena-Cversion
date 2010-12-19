@@ -26,12 +26,34 @@ FFTWINC =
 BLOCKINC = 
 BLOCKLIB = 
 CUSTLIBS = -ldl -lm
+MATRIXLIB = 
+MATRIXINC = 
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
   BLOCKINC = -I fftsrc
   FFTWLIB = -L/usr/lib -lfftw3
   FFTWINC = -I/usr/include
 endif
+
+ifeq (@GAS@,RADIATION_HYDRO) 
+  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis/include
+ifeq (@DEBUG_MODE@,DEBUG)
+  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+endif
+endif
+
+ifeq (@GAS@,RADIATION_MHD) 
+  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis/include
+ifeq (@DEBUG_MODE@,DEBUG)
+  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+endif
+endif
+
+
 
 ifeq (@MPI_MODE@,MPI_PARALLEL)
   CC = mpicc 
@@ -106,5 +128,5 @@ ifeq (@FFT_MODE@,NO_FFT)
   FFTWLIB = 
 endif
 
-CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC)
-LIB = $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS)
+CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(MATRIXINC)
+LIB = $(MATRIXLIB) $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) 

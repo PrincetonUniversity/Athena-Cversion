@@ -27,7 +27,7 @@ dt      = 0.005              # time increment between outputs
 
 <time>
 cour_no         = 0.5       # The Courant, Friedrichs, & Lewy (CFL) Number
-nlim            = 1      # cycle limit
+nlim            = 100000      # cycle limit
 tlim            = 0.03       # time limit
 
 <domain1>

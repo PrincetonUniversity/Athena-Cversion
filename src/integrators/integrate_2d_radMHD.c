@@ -785,8 +785,11 @@ void integrate_2d_radMHD(DomainS *pD)
 		density = pG->U[ks][j][i].d;
 				
 		pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
-				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2) / density )	* (Gamma - 1);
+				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2) / density )	* (Gamma - 1.0);
 		/* Should include magnetic energy for MHD */
+#ifdef RADIATION_MHD
+		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+#endif
 		temperature = pressure / (density * R_ideal);
 		velocity_x = pG->U[ks][j][i].M1 / density;
 		velocity_y = pG->U[ks][j][i].M2 / density;
@@ -851,8 +854,11 @@ void integrate_2d_radMHD(DomainS *pD)
 		
 		density = Uguess[0];
 		pressure = (Uguess[4] - 0.5 * (Uguess[1] * Uguess[1] 
-				+ Uguess[2] * Uguess[2]) / density) * (Gamma - 1);
+				+ Uguess[2] * Uguess[2]) / density) * (Gamma - 1.0);
 		/* Should include magnetic energy for MHD */
+#ifdef RADIATION_MHD
+		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+#endif
 		temperature = pressure / (density * R_ideal);
 
 		if(Opacity != NULL)
@@ -965,6 +971,9 @@ void integrate_2d_radMHD(DomainS *pD)
 				pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
 				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2) / density )	* (Gamma - 1);
 			/* Should include magnetic energy for MHD */
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+#endif
 				temperature = pressure / (density * R_ideal);
 			
 			Opacity(density,temperature,&(pG->U[ks][j][i].Sigma_t), &(pG->U[ks][j][i].Sigma_a));

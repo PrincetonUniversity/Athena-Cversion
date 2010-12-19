@@ -26,6 +26,12 @@
 #ifdef PARTICLES
 #include "../particles/particle.h"
 #endif
+/*================================*/
+/* For the matrix solver */
+/* we use lis library now */
+#include <lis.h>
+
+/*===============================*/
 
 #if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
@@ -40,10 +46,11 @@ static Real *Cspeeds;
 /* The matrix coefficient */
 static Real **Euler = NULL;
 
-static Real *EulerLU = NULL;
-static int *IEuler = NULL;
-static int *JEuler = NULL;
-static Real *INIguess = NULL;
+
+
+static LIS_MATRIX EulerLU;
+static LIS_VECTOR INIguess;
+static LIS_SOLVER solver;
 /* Used for initial guess solution, also return the correct solution */
 /* Used for restarted GMRES method for periodic boundary condition */
 
@@ -52,7 +59,8 @@ static Real **lEuler = NULL;
 
 /* Right hand side of the Matrix equation */
 static Real *RHSEuler = NULL;
-static Real *RHSEulerp = NULL;
+
+static LIS_VECTOR RHSEulerp;
 /* RHSEulerp is used for periodic boundary condition.
  * GMRES routine starts from 0.
  * RHSEulerp = &(RHSEuler[1])
@@ -84,11 +92,11 @@ void BackEuler_1d(MeshS *pM)
   	int i, j;
 	int js = pG->js;
 	int ks = pG->ks;
-	int Nmatrix, NZ_NUM, NoEr, NoFr;
+	int Nmatrix, NoEr, NoFr;
 	
 
 
-	Real temperature, velocity, pressure, Sigmas;
+	Real temperature, velocity, pressure;
 
   	Real theta[7];
   	Real phi[7];
@@ -109,10 +117,12 @@ void BackEuler_1d(MeshS *pM)
 /* Nmatrix is the number of active cells just in this grids */
 /* Matrix size should be 2 * Nmatrix, ghost zones are included*/
    	Nmatrix = ie - is + 1 ;
-	NZ_NUM = 12 * Nmatrix;
-	
-	rad_hydro_init_1d(Nmatrix,pM);
 
+
+	/* This is done before the main loop */	
+/*	rad_hydro_init_1d(Nmatrix,pM)
+
+*/
 
  	 il = is - 1;
   	 iu = ie + 1;
@@ -159,6 +169,9 @@ void BackEuler_1d(MeshS *pM)
     		pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
 			* (Gamma - 1);
 /* if MHD - 0.5 * Bx * Bx   */
+#ifdef RADIATION_MHD
+		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
+#endif
 
     		temperature = pressure / (U1d[i].d * R_ideal);
 		Sigma_a = pG->U[ks][js][i].Sigma_a;
@@ -192,18 +205,6 @@ void BackEuler_1d(MeshS *pM)
 	
 	}
 
-	/* For periodic boundary condition, we use GMRES, which starts from 0 */
-	if((ix1 == 4) && (ox1 == 4)) {
-		RHSEulerp = &(RHSEuler[1]);
-
-		for(i=is; i<=ie; i++){
-			INIguess[2*(i-is)] = pG->U[ks][js][i].Er;
-			INIguess[2*(i-is)+1] = pG->U[ks][js][i].Fr1;
-		}
-		
-
-	}
-	
 
 
 /* Step 1b: Setup the Matrix */
@@ -257,12 +258,12 @@ void BackEuler_1d(MeshS *pM)
 				Euler[2][3] = phi[2] + phi[0];
 				Euler[2][4] = phi[3] + phi[1];
 			}/* outflow boundary condition */
-			else if(ix1 == 1) {
+			else if(ix1 == 1 || ix1 == 5) {
 				Euler[1][4] = theta[3] + theta[1];
 				Euler[1][5] = theta[4] - theta[2];
 				Euler[2][3] = phi[2] + phi[0];
 				Euler[2][4] = phi[3] - phi[1];
-			}/* reflecting boundary condition */
+			}/* reflecting boundary condition and conducting boundary condition*/
 			else if(ix1 == 3) ;/*inflow boundary condition, do nothing */
 			else
 			goto on_error;			
@@ -281,12 +282,12 @@ void BackEuler_1d(MeshS *pM)
 				Euler[2*Nmatrix][3] = phi[2] + phi[4];
 				Euler[2*Nmatrix][4] = phi[3] + phi[5];
 			}/* outflow boundary condition */
-			else if(ox1 == 1) {
+			else if(ox1 == 1 || ox1 == 5) {
 				Euler[2*Nmatrix-1][4] = theta[3] + theta[5];
 				Euler[2*Nmatrix-1][5] = theta[4] - theta[6];
 				Euler[2*Nmatrix][3] = phi[2] + phi[4];
 				Euler[2*Nmatrix][4] = phi[3] - phi[5];
-			}/* reflecting boundary condition */
+			}/* reflecting boundary condition and conducting bounary condition */
 			else if(ox1 == 3) ;/* inflow boundary condition, do nothing*/
 			else
 			goto on_error;	
@@ -298,17 +299,33 @@ void BackEuler_1d(MeshS *pM)
 
 		NoEr = 12*(i-is) + 2;
 		NoFr = 12*(i-is) + 8;
-
+		if(i!=is && i!=ie){
 		for(j=0; j<6; j++){
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(i-is)+j-2,theta[j+1],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(i-is)+j-2,phi[j],EulerLU);
+
+		/*
 			EulerLU[NoEr-2+j] = theta[j+1];
 			EulerLU[NoFr-2+j] = phi[j];
 			IEuler[NoEr-2+j]   = 2*(i-is)+j-2;
 			JEuler[NoEr-2+j]   = 2*(i-is);
 			IEuler[NoFr-2+j]   = 2*(i-is)+j-2;
-			JEuler[NoFr-2+j]   = 2*(i-is)+1;		
+			JEuler[NoFr-2+j]   = 2*(i-is)+1;
+		*/		
 		}
+		}
+		else if(i == is) {
 
-		if(i == is) {
+			for(j=2; j<6; j++){
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(i-is)+j-2,theta[j+1],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(i-is)+j-2,phi[j],EulerLU);
+			}
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(ie-is),theta[1],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(ie-is),phi[0],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(ie-is)+1,theta[2],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(ie-is)+1,phi[1],EulerLU);
+			/*
+			
 			IEuler[NoEr-2]   = 2*(ie-is);
 			JEuler[NoEr-2]   = 0;
 			IEuler[NoFr-2]   = 2*(ie-is);
@@ -317,8 +334,19 @@ void BackEuler_1d(MeshS *pM)
 			JEuler[NoEr-1]   = 0;
 			IEuler[NoFr-1]   = 2*(ie-is)+1;
 			JEuler[NoFr-1]   = 1;
+			*/			
 		}/* end i==is */
 		else if (i == ie) {
+			for(j=0; j<4; j++){
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(i-is)+j-2,theta[j+1],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(i-is)+j-2,phi[j],EulerLU);
+			}
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),0,theta[5],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,0,phi[4],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),1,theta[6],EulerLU);
+			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,1,phi[5],EulerLU);
+
+			/*
 			IEuler[NoEr+2]   = 0;
 			JEuler[NoEr+2]   = 2*(ie-is);
 			IEuler[NoFr+2]   = 0;
@@ -327,29 +355,46 @@ void BackEuler_1d(MeshS *pM)
 			JEuler[NoEr+3]   = 2*(ie-is);
 			IEuler[NoFr+3]   = 1;
 			JEuler[NoFr+3]   = 2*(ie-is)+1;
+			*/
 		}/* end i==ie */
 		
 	}
 	/* End for periodic boundary condition */	
 	}/* end for i loop */
 
+
+	
+	/* For periodic boundary condition, we use GMRES, which starts from 0 */
+	if((ix1 == 4) && (ox1 == 4)) {
+		lis_matrix_set_type(EulerLU,LIS_MATRIX_CRS);
+		lis_matrix_assemble(EulerLU);
+
+		lis_vector_duplicate(EulerLU,&RHSEulerp);
+		lis_vector_duplicate(EulerLU,&INIguess);		
+
+		for(i=is; i<=ie; i++){
+			lis_vector_set_value(LIS_INS_VALUE,2*(i-is),pG->U[ks][js][i].Er,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,pG->U[ks][js][i].Fr1,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,2*(i-is),RHSEuler[2*(i-is)+1],RHSEulerp);
+			lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,RHSEuler[2*(i-is)+2],RHSEulerp);
+		}
+		
+	}
 	
 	
 	
-/* Step 1c: Solve the Matrix equation for band diaagnoal system */
+/* Step 1c: Solve the Matrix equation for band diagnoal system */
 	if((ix1 != 4) && (ox1 !=4)){
 		bandec(Euler, (unsigned long) (2*Nmatrix), 3, 3, lEuler, Ern1, Ern2);
 		banbks(Euler, (unsigned long) (2*Nmatrix), 3, 3, lEuler, Ern1, RHSEuler);
 
 	}
 	else {
-		int ITR_max = 300;
-		int MR;
-		double tol_abs = 1.0E-12;
-    		double tol_rel = 1.0E-12;
-		if(Nmatrix < 100) MR = Nmatrix - 1;
-		else MR = 100;
-		mgmres_st ( 2*Nmatrix, NZ_NUM, JEuler, IEuler, EulerLU, INIguess, RHSEulerp, ITR_max, MR, tol_abs,  tol_rel );	
+		
+		lis_solver_set_option("-i gmres -p none",solver);
+		lis_solver_set_option("-tol 1.0e-12",solver);
+		lis_solve(EulerLU,RHSEulerp,INIguess,solver);
+		
 	}
 	
 
@@ -357,10 +402,11 @@ void BackEuler_1d(MeshS *pM)
 		
 	for(i=is;i<=ie;i++){
 		if((ix1==4)&&(ox1==4)){
-			pG->U[ks][js][i].Er	= INIguess[2*(i-is)];
-			pG->U[ks][js][i].Fr1	= INIguess[2*(i-is)+1];
-			U1d[i].Er		= INIguess[2*(i-is)];
-			U1d[i].Fr1		= INIguess[2*(i-is)+1];
+			lis_vector_get_value(INIguess,2*(i-is),&(pG->U[ks][js][i].Er));
+			lis_vector_get_value(INIguess,2*(i-is)+1,&(pG->U[ks][js][i].Fr1));
+			
+			U1d[i].Er = pG->U[ks][js][i].Er;
+			U1d[i].Fr1 = pG->U[ks][js][i].Fr1;
 		}
 		else{
 			pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)+1];
@@ -379,15 +425,20 @@ void BackEuler_1d(MeshS *pM)
 /*-----------Finish---------------------*/
 
   
-	/* Free the temporary variables just used for this grid calculation*/
-	rad_hydro_destruct_1d(Nmatrix);
+	/* This is done after main loop */
+/*	rad_hydro_destruct_1d(Nmatrix);
+*/	
+
+	lis_vector_destroy(RHSEulerp);
+	lis_vector_destroy(INIguess);
+	lis_finalize();
 	
   return;	
 
 
 	on_error:
 	
-	rad_hydro_destruct_1d(Nmatrix);
+	BackEuler_destruct_1d(Nmatrix);
 	ath_error("[BackEuler]: Boundary condition not allowed now!\n");
 
 }
@@ -398,7 +449,7 @@ void BackEuler_1d(MeshS *pM)
 /*-------------------------------------------------------------------------*/
 /* rad_hydro_init_1d: function to allocate memory used just for radiation variables */
 /* rad_hydro_destruct_1d(): function to free memory */
-void rad_hydro_init_1d(int Ngrids, MeshS *pM)
+void BackEuler_init_1d(int Ngrids, MeshS *pM)
 {
 /* The matrix Euler is stored as a compact form. See $2.4 of numerical recipes */
 
@@ -420,15 +471,13 @@ void rad_hydro_init_1d(int Ngrids, MeshS *pM)
 
 	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 	if ((RHSEuler = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
-	if ((INIguess = (Real*)malloc(2*Ngrids*sizeof(Real))) == NULL) goto on_error;
+
 	if ((Ern1 = (unsigned long *)malloc((2*Ngrids+1)*sizeof(unsigned long))) == NULL) goto on_error;
 	if ((Ern1p = (int *)malloc((2*Ngrids+1)*sizeof(int))) == NULL) goto on_error;
 	if ((Ern2 = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 
 	if ((Euler = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
-	if ((EulerLU = (Real*)malloc((12*Ngrids)*sizeof(Real))) == NULL) goto on_error;
-	if ((IEuler = (int*)malloc(Ngrids*12*sizeof(int ))) == NULL) goto on_error;
-	if ((JEuler = (int*)malloc(Ngrids*12*sizeof(int ))) == NULL) goto on_error;
+
 	if ((lEuler = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
 	for(i=0; i<(2*Ngrids+1); i++) {
 		if ((Euler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;
@@ -442,25 +491,28 @@ void rad_hydro_init_1d(int Ngrids, MeshS *pM)
 			lEuler[i][j] = 0.0;
 		}
 
-	for(i=0; i<(12*Ngrids); i++){
-		EulerLU[i] = 0.0;
-		IEuler[i] = 0.0;
-		JEuler[i] = 0.0;
-	}
+	/* setting for LIS library. Now this is noly for serial case. Need to change for parallal case */
+/*	lis_initialize(0,0);
+*/
+	lis_matrix_create(0,&EulerLU);	
+	lis_matrix_set_size(EulerLU,0,2*Ngrids);
+	lis_solver_create(&solver);
+
+	
 	return;
 
 	on_error:
-    	rad_hydro_destruct_1d(Ngrids);
+    	BackEuler_destruct_1d(Ngrids);
 	ath_error("[BackEuler]: malloc returned a NULL pointer\n");
 }
 
 
-void rad_hydro_destruct_1d(int Ngrids)
+void BackEuler_destruct_1d(int Ngrids)
 {
 	int i;
 	if (Cspeeds 	!= NULL) free(Cspeeds);
 	if (RHSEuler	!= NULL) free(RHSEuler);
-	if (INIguess	!= NULL) free(INIguess);
+	
 	if (Ern1	!= NULL) free(Ern1);
 	if (Ern1p	!= NULL) free(Ern1p);
 	if (Ern2	!= NULL) free(Ern2);
@@ -473,9 +525,11 @@ void rad_hydro_destruct_1d(int Ngrids)
 
 	if (Euler != NULL) free(Euler);
 	if (lEuler != NULL) free(lEuler);
-	if (EulerLU != NULL) free(EulerLU);
-	if (IEuler != NULL) free(IEuler);
-	if (JEuler != NULL) free(JEuler);
+
+	
+	lis_matrix_destroy(EulerLU);
+	lis_solver_destroy(solver);	
+
 }
 
 

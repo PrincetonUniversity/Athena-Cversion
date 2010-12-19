@@ -121,7 +121,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 /* Allocate memory for temporary array of floats */
 
-        if((data = (float *)malloc(3*ndata0*sizeof(float))) == NULL){
+        if((data = (float *)malloc(9*ndata0*sizeof(float))) == NULL){
           ath_error("[dump_vtk]: malloc failed for temporary array\n");
           return;
         }
@@ -287,16 +287,22 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
         }
 
 #ifdef RADIATION_TRANSFER
-	fprintf(pfile,"\nVECTORS Edd_tensor float\n");
+	fprintf(pfile,"\nTENSORS Edd_tensor float\n");
         for (k=kl; k<=ku; k++) {
           for (j=jl; j<=ju; j++) {
             for (i=il; i<=iu; i++) {
-              data[3*(i-il)] = (float)pGrid->U[k][j][i].Edd_11;
-              data[3*(i-il)+1] = (float)pGrid->U[k][j][i].Edd_22;
-              data[3*(i-il)+2] = (float)pGrid->U[k][j][i].Edd_33;
+              data[9*(i-il)] = (float)pGrid->U[k][j][i].Edd_11;
+              data[9*(i-il)+1] = (float)pGrid->U[k][j][i].Edd_21;
+              data[9*(i-il)+2] = (float)pGrid->U[k][j][i].Edd_31;
+	      data[9*(i-il)+3] = (float)pGrid->U[k][j][i].Edd_21;
+              data[9*(i-il)+4] = (float)pGrid->U[k][j][i].Edd_22;
+              data[9*(i-il)+5] = (float)pGrid->U[k][j][i].Edd_32;
+	      data[9*(i-il)+6] = (float)pGrid->U[k][j][i].Edd_31;
+              data[9*(i-il)+7] = (float)pGrid->U[k][j][i].Edd_32;
+              data[9*(i-il)+8] = (float)pGrid->U[k][j][i].Edd_33;
             }
-            if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
-            fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+            if(!big_end) ath_bswap(data,sizeof(float),9*(iu-il+1));
+            fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
           }
         }
 

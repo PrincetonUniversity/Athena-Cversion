@@ -19,10 +19,11 @@ void integrate_destruct(void);
 
 /* Only used for rad_hydro integrators */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-void rad_hydro_init_1d(int Ngrids, MeshS *pM);
-void rad_hydro_init_2d(int Ngrids);
-void rad_hydro_destruct_1d(int Ngrids);
-void rad_hydro_destruct_2d(int Ngrids);
+void BackEuler_init_1d(int Ngrids, MeshS *pM);
+void BackEuler_init_2d(int Ngrids);
+void BackEuler_destruct_1d(int Ngrids);
+void BackEuler_destruct_2d();
+VMFun_t BackEuler_init(MeshS *pM);
 /* General LU decomposition functions */
 void ludcmp(Real **a, int n, int *indx, Real *d);
 void lubksb(Real **a, int n, int *indx, Real b[]);

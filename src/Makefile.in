@@ -69,6 +69,7 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/integrate_3d_radMHD.o \
 		  integrators/BackEuler_1d.o \
 		  integrators/BackEuler_2d.o \
+		  integrators/BackEuler.o \
 		  integrators/MatrixSolver/bandec.o \
 		  integrators/MatrixSolver/ludcmp.o \
 		  integrators/MatrixSolver/mgmres.o

@@ -57,7 +57,7 @@ void bvals_radMHD(MeshS *pM)
 	 /* Inner boundary condition */
 	/*reflecting boundary condition */
 	if(pGrid->Nx[0] > 1) {
-	if(ix1 == 1) {
+	if(ix1 == 1 || ix1 == 5) {
 		for (k=ks; k<=ke; k++) {
    			 for (j=js; j<=je; j++) {
       				for (i=1; i<=nghost; i++) {
@@ -127,7 +127,7 @@ void bvals_radMHD(MeshS *pM)
 	goto on_error;
 
 	/* Outer boundary condition */
-	if(ox1 == 1) {
+	if(ox1 == 1 || ox1 == 5) {
 
 		for (k=ks; k<=ke; k++) {
     			for (j=js; j<=je; j++) {
@@ -200,7 +200,7 @@ void bvals_radMHD(MeshS *pM)
 	/*------------------------------------------------------------*/
 	/*reflecting boundary condition */
 	if(pGrid->Nx[1] > 1){
-	if(ix2 == 1) {
+	if(ix2 == 1 || ix2 == 5) {
 		for (k=ks; k<=ke; k++) {
     			for (j=1; j<=nghost; j++) {
       				for (i=is-nghost; i<=ie+nghost; i++) {
@@ -270,7 +270,7 @@ void bvals_radMHD(MeshS *pM)
 	goto on_error;
 
 	/* Outer boundary condition */
-	if(ox2 == 1) {
+	if(ox2 == 1 || ox2 == 5) {
 		for (k=ks; k<=ke; k++) {
     			for (j=1; j<=nghost; j++) {
       				for (i=is-nghost; i<=ie+nghost; i++) {

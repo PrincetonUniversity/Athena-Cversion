@@ -535,7 +535,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ix1_BCFun = reflect_ix1;
+              pD->ix1_BCFun = conduct_ix1;
             break;
 
             default:
@@ -582,7 +582,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ox1_BCFun = reflect_ox1;
+              pD->ox1_BCFun = conduct_ox1;
             break;
 
             default:
@@ -635,7 +635,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
   
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ix2_BCFun = reflect_ix2;
+              pD->ix2_BCFun = conduct_ix2;
             break;
 
             default:
@@ -681,7 +681,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ox2_BCFun = reflect_ox2;
+              pD->ox2_BCFun = conduct_ox2;
             break;
 
             default:
@@ -733,7 +733,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ix3_BCFun = reflect_ix3;
+              pD->ix3_BCFun = conduct_ix3;
             break;
 
             default:
@@ -779,7 +779,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ox3_BCFun = reflect_ox3;
+              pD->ox3_BCFun = conduct_ox3;
             break;
 
             default:
@@ -1970,6 +1970,9 @@ static void conduct_ix1(GridS *pGrid)
         pGrid->U[k][j][is-i].B2c= -pGrid->U[k][j][is-i].B2c;/* reflect fld */
         pGrid->U[k][j][is-i].B3c= -pGrid->U[k][j][is-i].B3c;
 #endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is-i].Fr1; /* reflect 1-rad Flux. */
+#endif
 
 
       }
@@ -2030,6 +2033,10 @@ static void conduct_ox1(GridS *pGrid)
         pGrid->U[k][j][ie+i].B2c= -pGrid->U[k][j][ie+i].B2c;/* reflect fld */
         pGrid->U[k][j][ie+i].B3c= -pGrid->U[k][j][ie+i].B3c;
 #endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie+i].Fr1; /* reflect 1-rad Flux */
+#endif
+
       }
     }
   }
@@ -2087,6 +2094,9 @@ static void conduct_ix2(GridS *pGrid)
 #if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][js-j][i].B1c= -pGrid->U[k][js-j][i].B1c;/* reflect fld */
         pGrid->U[k][js-j][i].B3c= -pGrid->U[k][js-j][i].B3c;
+#endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	pGrid->U[k][js-j][i].Fr2 = -pGrid->U[k][js-j][i].Fr2; /* reflect 2 radFlux */
 #endif
       }
     }
@@ -2146,6 +2156,9 @@ static void conduct_ox2(GridS *pGrid)
         pGrid->U[k][je+j][i].B1c= -pGrid->U[k][je+j][i].B1c;/* reflect fld */
         pGrid->U[k][je+j][i].B3c= -pGrid->U[k][je+j][i].B3c;
 #endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	pGrid->U[k][je+j][i].Fr2 = -pGrid->U[k][je+j][i].Fr2; /* reflect 2-rad Flux. */
+#endif
       }
     }
   }
@@ -2201,6 +2214,9 @@ static void conduct_ix3(GridS *pGrid)
         pGrid->U[ks-k][j][i].B1c= -pGrid->U[ks-k][j][i].B1c;/* reflect fld */
         pGrid->U[ks-k][j][i].B2c= -pGrid->U[ks-k][j][i].B2c;
 #endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	pGrid->U[ks-k][j][i].Fr3 = -pGrid->U[ks-k][j][i].Fr3; /* reflect 3-rad Flux. */
+#endif
       }
     }
   }
@@ -2255,6 +2271,9 @@ static void conduct_ox3(GridS *pGrid)
 #if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[ke+k][j][i].B1c= -pGrid->U[ke+k][j][i].B1c;/* reflect fld */
         pGrid->U[ke+k][j][i].B2c= -pGrid->U[ke+k][j][i].B2c;
+#endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	pGrid->U[ke+k][j][i].Fr3 = -pGrid->U[ke+k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
       }
     }

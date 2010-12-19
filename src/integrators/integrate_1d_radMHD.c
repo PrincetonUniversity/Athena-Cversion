@@ -369,7 +369,11 @@ void integrate_1d_radMHD(DomainS *pD)
 		for(i=il+1; i<=iu-1; i++) {
 			pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1 / pG->U[ks][js][i].d )
 				* (Gamma - 1);
-		/* Should include magnetic energy for MHD */
+/* Should include magnetic energy for MHD */
+#ifdef RADIATION_MHD
+		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
+#endif
+		
 			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
 	
 

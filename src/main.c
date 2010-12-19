@@ -425,14 +425,13 @@ int main(int argc, char *argv[])
 
    /* set boundary condition for radiation quantities */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
-	int DIM;
-	DIM = 0;
- 	/* Judge the dimension to choose the right backeuler method */
-	for (i=0; i<3; i++) if(Mesh.Nx[i] > 1) DIM++;
+	VMFun_t BackEuler;
+
+	BackEuler = BackEuler_init(&Mesh);
 
 	bvals_radMHD(&Mesh);
 	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
-	* routine is updated. Initial output needs to update the boundary conditino.  
+	* routine is updated. Initial output needs to update the boundary condition.  
 	*/
 #endif
 
@@ -580,19 +579,8 @@ int main(int argc, char *argv[])
 	 * before the integrator step *
          */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-/* 	switch(DIM){
- 	case 1:
- 	BackEuler_1d(&Mesh);
- 	break;
- 	case 2:
- 	BackEuler_2d(&Mesh);
- 	break;
-	
- 	default:
- 	ath_error("[main_BackEuler]: BackEuler not ready for this dimension now!");
  
- 	}
-*/		
+	(*BackEuler)(&Mesh);
 
 #endif
 
@@ -798,6 +786,10 @@ int main(int argc, char *argv[])
   par_close();
 #ifdef RADIATION_TRANSFER
  radiation_destruct(&Mesh);
+#endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	BackEuler_destruct();
 #endif
 
 
