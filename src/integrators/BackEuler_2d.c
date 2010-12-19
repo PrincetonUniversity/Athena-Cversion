@@ -570,7 +570,7 @@ void BackEuler_2d(MeshS *pM)
 
 					/* Do nothing */
 				}
-				else {
+				else if(ix1 != 4){
 					goto on_error;
 				}
 				
@@ -601,7 +601,7 @@ void BackEuler_2d(MeshS *pM)
 
 					/* Do nothing */
 				}
-				else {
+				else if(ix2 != 4){
 					goto on_error;
 				}
 				
@@ -1101,7 +1101,7 @@ void BackEuler_2d(MeshS *pM)
 
 					/* Do nothing */
 				}
-				else {
+				else if(ix1 != 4){
 					goto on_error;
 				}
 
@@ -1263,8 +1263,8 @@ void BackEuler_2d(MeshS *pM)
 					Value[NoEr+7] = theta[9];
 					Value[NoEr+8] = theta[10];
 				
-					indexValue[NoEr] = 3*(j-js)*Nx+3*(ie-is);
-					indexValue[NoEr+1] = 3*(j-js)*Nx+3*(ie-is)+1;
+					indexValue[NoEr] = 3*(j-js)*Nx;
+					indexValue[NoEr+1] = 3*(j-js)*Nx+1;
 					indexValue[NoEr+2] = 3*(j-js)*Nx+3*(i-is-1);
 					indexValue[NoEr+3] = 3*(j-js)*Nx+3*(i-is-1)+1;
 
@@ -1275,8 +1275,8 @@ void BackEuler_2d(MeshS *pM)
 					indexValue[NoEr+8] = 3*(j-js+1)*Nx+3*(i-is)+2;
 
 					/* For Fr1 */
-					Value[NoFr1+1] = phi[6];
-					Value[NoFr1+2] = phi[7];
+					Value[NoFr1] = phi[6];
+					Value[NoFr1+1] = phi[7];
 
 					for(m=0; m<4; m++)
 						Value[NoFr1+m+2] = phi[2+m];
@@ -1284,8 +1284,8 @@ void BackEuler_2d(MeshS *pM)
 					Value[NoFr1+6] = phi[8];
 					Value[NoFr1+7] = phi[9];
 				
-					indexValue[NoFr1] = 3*(j-js)*Nx+3*(ie-is);
-					indexValue[NoFr1+1] = 3*(j-js)*Nx+3*(ie-is)+1;
+					indexValue[NoFr1] = 3*(j-js)*Nx;
+					indexValue[NoFr1+1] = 3*(j-js)*Nx+1;
 					indexValue[NoFr1+2] = 3*(j-js)*Nx+3*(i-is-1);
 					indexValue[NoFr1+3] = 3*(j-js)*Nx+3*(i-is-1)+1;
 
@@ -1297,8 +1297,8 @@ void BackEuler_2d(MeshS *pM)
 
 					/* For Fr2 */
 
-					Value[NoFr2+1] = psi[6];
-					Value[NoFr2+2] = psi[7];
+					Value[NoFr2] = psi[6];
+					Value[NoFr2+1] = psi[7];
 
 					for(m=0; m<4; m++)
 						Value[NoFr2+m+2] = psi[2+m];
@@ -1306,8 +1306,8 @@ void BackEuler_2d(MeshS *pM)
 					Value[NoFr2+6] = psi[8];
 					Value[NoFr2+7] = psi[9];
 				
-					indexValue[NoFr2] = 3*(j-js)*Nx+3*(ie-is);
-					indexValue[NoFr2+1] = 3*(j-js)*Nx+3*(ie-is)+2;
+					indexValue[NoFr2] = 3*(j-js)*Nx;
+					indexValue[NoFr2+1] = 3*(j-js)*Nx+2;
 					indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is-1);
 					indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is-1)+2;
 					indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is);
@@ -1329,14 +1329,14 @@ void BackEuler_2d(MeshS *pM)
 						Value[NoFr1+8] = phi[0];
 						Value[NoFr1+9] = phi[1];
 
-						indexValue[NoEr+8] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is)+1;
+						indexValue[NoFr1+8] = 3*(je-js)*Nx+3*(i-is);
+						indexValue[NoFr1+9] = 3*(je-js)*Nx+3*(i-is)+1;
 				
 						Value[NoFr2+8] = psi[0];
 						Value[NoFr2+9] = psi[1];
 
-						indexValue[NoEr+8] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is)+2;				
+						indexValue[NoFr2+8] = 3*(je-js)*Nx+3*(i-is);
+						indexValue[NoFr2+9] = 3*(je-js)*Nx+3*(i-is)+2;				
 
 
 					}
@@ -1399,7 +1399,7 @@ void BackEuler_2d(MeshS *pM)
 
 					/* Do nothing */
 				}
-				else {
+				else if(ox1 != 4){
 					goto on_error;
 				}
 			} /* End j==js */
@@ -1565,8 +1565,8 @@ void BackEuler_2d(MeshS *pM)
 						indexValue[NoEr] = 3*(j-js-1)*Nx+3*(i-is);
 						indexValue[NoEr+1] = 3*(j-js-1)*Nx+3*(i-is)+2;
 
-						indexValue[NoEr+2] = 3*(j-js)*Nx+3*(ie-is);
-						indexValue[NoEr+3] = 3*(j-js)*Nx+3*(ie-is)+1;
+						indexValue[NoEr+2] = 3*(j-js)*Nx;
+						indexValue[NoEr+3] = 3*(j-js)*Nx+1;
 
 						indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is-1);
 						indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is-1)+1;
@@ -1589,8 +1589,8 @@ void BackEuler_2d(MeshS *pM)
 						indexValue[NoFr1] = 3*(j-js-1)*Nx+3*(i-is);
 						indexValue[NoFr1+1] = 3*(j-js-1)*Nx+3*(i-is)+1;
 
-						indexValue[NoFr1+2] = 3*(j-js)*Nx+3*(ie-is);
-						indexValue[NoFr1+3] = 3*(j-js)*Nx+3*(ie-is)+1;
+						indexValue[NoFr1+2] = 3*(j-js)*Nx;
+						indexValue[NoFr1+3] = 3*(j-js)*Nx+1;
 
 						indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is-1);
 						indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is-1)+1;
@@ -1612,8 +1612,8 @@ void BackEuler_2d(MeshS *pM)
 						indexValue[NoFr2] = 3*(j-js-1)*Nx+3*(i-is);
 						indexValue[NoFr2+1] = 3*(j-js-1)*Nx+3*(i-is)+2;
 
-						indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(ie-is);
-						indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(ie-is)+2;
+						indexValue[NoFr2+2] = 3*(j-js)*Nx;
+						indexValue[NoFr2+3] = 3*(j-js)*Nx+2;
 
 						indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is-1);
 						indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is-1)+2;
@@ -1769,18 +1769,18 @@ void BackEuler_2d(MeshS *pM)
 						indexValue[NoEr] = 3*(i-is);
 						indexValue[NoEr+1] = 3*(i-is)+2;
 				
-						indexValue[NoEr+1] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoEr+2] = 3*(j-js-1)*Nx+3*(i-is)+2;
+						indexValue[NoEr+2] = 3*(j-js-1)*Nx+3*(i-is);
+						indexValue[NoEr+3] = 3*(j-js-1)*Nx+3*(i-is)+2;
 
-						indexValue[NoEr+3] = 3*(j-js)*Nx+3*(ie-is);
-						indexValue[NoEr+4] = 3*(j-js)*Nx+3*(ie-is)+1;
+						indexValue[NoEr+4] = 3*(j-js)*Nx;
+						indexValue[NoEr+5] = 3*(j-js)*Nx+1;
 
-						indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is-1)+1;
+						indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is-1);
+						indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is-1)+1;
 
-						indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is)+1;
-						indexValue[NoEr+9] = 3*(j-js)*Nx+3*(i-is)+2;				
+						indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is);
+						indexValue[NoEr+9] = 3*(j-js)*Nx+3*(i-is)+1;
+						indexValue[NoEr+10] = 3*(j-js)*Nx+3*(i-is)+2;				
 
 						/* For Fr1 */
 						Value[NoFr1] = phi[8];
@@ -1801,8 +1801,8 @@ void BackEuler_2d(MeshS *pM)
 						indexValue[NoFr1+2] = 3*(j-js-1)*Nx+3*(i-is);
 						indexValue[NoFr1+3] = 3*(j-js-1)*Nx+3*(i-is)+1;
 
-						indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(ie-is);
-						indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(ie-is)+1;
+						indexValue[NoFr1+4] = 3*(j-js)*Nx;
+						indexValue[NoFr1+5] = 3*(j-js)*Nx+1;
 
 						indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is-1);
 						indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is-1)+1;
@@ -1830,8 +1830,8 @@ void BackEuler_2d(MeshS *pM)
 						indexValue[NoFr2+2] = 3*(j-js-1)*Nx+3*(i-is);
 						indexValue[NoFr2+3] = 3*(j-js-1)*Nx+3*(i-is)+2;
 
-						indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(ie-is);
-						indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(ie-is)+2;
+						indexValue[NoFr2+4] = 3*(j-js)*Nx;
+						indexValue[NoFr2+5] = 3*(j-js)*Nx+2;
 
 						indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is-1);
 						indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is-1)+2;
@@ -2137,8 +2137,8 @@ void BackEuler_2d(MeshS *pM)
 					indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is);
 					indexValue[NoEr+10] = 3*(je-js)*Nx+3*(i-is)+2;
 			
-					Value[NoFr1+8] = psi[0];
-					Value[NoFr1+9] = psi[1];
+					Value[NoFr1+8] = phi[0];
+					Value[NoFr1+9] = phi[1];
 
 					indexValue[NoFr1+8] = 3*(je-js)*Nx+3*(i-is);
 					indexValue[NoFr1+9] = 3*(je-js)*Nx+3*(i-is)+1;
@@ -2450,6 +2450,7 @@ void BackEuler_2d(MeshS *pM)
 		
 		lis_solver_set_option("-i gmres -p none",solver);
 		lis_solver_set_option("-tol 1.0e-12",solver);
+		lis_solver_set_option("-maxiter 2000",solver);
 		lis_solve(Euler,RHSEuler,INIguess,solver);
 		
 		/* check the iteration step to make sure 1.0e-12 is reached */
