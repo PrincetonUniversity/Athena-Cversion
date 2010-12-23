@@ -63,12 +63,12 @@ struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
   int gnx3 = pD->Nx[2];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pD->Disp[0];
-  int gie = pD->Disp[0] + pGrid->Nx[0];
-  int gjs = pD->Disp[1];
-  int gje = pD->Disp[1] + pGrid->Nx[1];
-  int gks = pD->Disp[2];
-  int gke = pD->Disp[2] + pGrid->Nx[2];
+  int gis = pGrid->Disp[0];
+  int gie = pGrid->Disp[0] + pGrid->Nx[0] - 1;
+  int gjs = pGrid->Disp[1];
+  int gje = pGrid->Disp[1] + pGrid->Nx[1] - 1;
+  int gks = pGrid->Disp[2];
+  int gke = pGrid->Disp[2] + pGrid->Nx[2] - 1;
 
   /* Create the plan using a more generic function.
    * If the data hasn't already been allocated, it will now */
@@ -225,10 +225,10 @@ struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
   int gnx2 = pD->Nx[1];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pD->Disp[0];
-  int gie = pD->Disp[0] + pGrid->Nx[0];
-  int gjs = pD->Disp[1];
-  int gje = pD->Disp[1] + pGrid->Nx[1];
+  int gis = pGrid->Disp[0];
+  int gie = pGrid->Disp[0] + pGrid->Nx[0] - 1;
+  int gjs = pGrid->Disp[1];
+  int gje = pGrid->Disp[1] + pGrid->Nx[1] - 1;
 
   /* Create the plan using a more generic function
    * If the data hasn't already been allocated, it will now */
