@@ -612,7 +612,7 @@ void dump_tab_Edd(MeshS *pM, OutputS *pOut)
   FILE *pfile;
   char *fname,*plev=NULL,*pdom=NULL;
   char levstr[8],domstr[8];
-  Real x1,x2,x3,d1;
+  Real x1,x2,x3;
   char zone_fmt[20], fmt[80];
   int col_cnt, nmax;
 #if (NSCALARS > 0)

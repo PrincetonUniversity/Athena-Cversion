@@ -656,7 +656,6 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   /* Notice that the left and right eigen vectors are given for primitive variabes */
    /* We actually do not use the eigen vectors */	
   Real vsq,aeff,rho;
-  Real asq,na,qa;
   Prim1DS W;
   vsq = v1*v1 + v2*v2 + v3*v3;
 

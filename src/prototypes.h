@@ -285,7 +285,11 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
 /* rad_utils.c */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-Real eff_sound(const Prim1DS W, Real dt);
+Real eff_sound(const Prim1DS W, Real dt); /* calculate effective sound speed */
+
+void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz);
+/* function to calculate derivative of source function over conserved variables */
+
 #ifdef RADIATION_TARNSFER
 /* Function to calculate Eddington tensor */
 

@@ -74,7 +74,11 @@ void integrate_1d_radMHD(DomainS *pD)
 
 
 	Real SEE, SErho, SEm;
-	Real SPP, alpha;
+	Real SPP, alpha, dSigmadP;
+	Real dSigma[4];
+	/*
+	 dSigma[0] = dsigma_t/d\rho, dSigma[1] = dsigma_a/d\rho, dSigma[2] = dsigma_t/dT, , dSigma[3] = dsigma_a/dT 
+	*/
 	Real temperature, velocity, pressure;
 
 	/* magnetic field is not included in guess and predict step.
@@ -99,6 +103,9 @@ void integrate_1d_radMHD(DomainS *pD)
 		}
 	}
 	}
+
+	for(i=0; i<4; i++)
+		dSigma[i] = 0.0;
 
 
  	 il = is - 1;
@@ -169,8 +176,16 @@ void integrate_1d_radMHD(DomainS *pD)
 	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
 		* (U1d[i-1].Fr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
+
+		if(Opacity != NULL) Opacity(U1d[i-1].d, temperature, NULL, NULL, dSigma);
+		
+		dSigmadP =  dSigma[3] / (U1d[i-1].d * R_ideal); 
+
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[i-1].d * R_ideal);
+			* temperature /(U1d[i-1].d * R_ideal)
+		      -(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[i-1].Er) * dSigmadP
+		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * velocity * (U1d[i-1].Fr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er/Crat);
+
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -203,8 +218,17 @@ void integrate_1d_radMHD(DomainS *pD)
 	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
 		- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+
+		if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, NULL, dSigma);
+		
+		dSigmadP =  dSigma[3] / (U1d[i].d * R_ideal); 
+
+		/* We keep v/c term */
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[i].d * R_ideal);
+			* temperature /(U1d[i].d * R_ideal)
+		      -(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[i].Er) * dSigmadP
+		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er/Crat);
+
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -286,11 +310,11 @@ void integrate_1d_radMHD(DomainS *pD)
 	Sigma_t = pG->U[ks][js][i].Sigma_t;
 	Sigma_a = pG->U[ks][js][i].Sigma_a;
 
+	
+
 
 /* The Source term */
-	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (U1d[i].d * R_ideal);
-	SErho = SEE * (-U1d[i].E/U1d[i].d + velocity * velocity);	
-	SEm = -SEE * velocity;
+	dSource(U1d[i], Bxc[i], &SEE, &SErho, &SEm, NULL, NULL);
 	
 	Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
 	Source_Inv[4][1] = -dt * Prat * Crat * SEm/(1.0 + dt * Prat * Crat * SEE);
@@ -317,6 +341,9 @@ void integrate_1d_radMHD(DomainS *pD)
 		}
 	}
 	
+	/* copy U1d to Uguess, some of the variables will be updated here */
+	Uguess = U1d[i];
+
 	pUguess = (Real*)&(Uguess);
 	pU1d = (Real*)&(U1d[i]);	
 
@@ -336,8 +363,12 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	/* Use the updated opacity due to the change of temperature and density */
 	if(Opacity != NULL)
-		Opacity(Uguess.d, temperature, &Sigma_t, &Sigma_a);
+		Opacity(Uguess.d, temperature, &Sigma_t, &Sigma_a, NULL);
 
+	Uguess.Sigma_t = Sigma_t;
+	Uguess.Sigma_a = Sigma_a;
+
+	dSource(Uguess, Bxc[i], &SEE, &SErho, &SEm, NULL, NULL);
 
 	/* Guess solution doesn't include Er and Fr1, Er and Fr1 are in U1d */
 	Source_guess[1] = -Prat * (-Sigma_t * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
@@ -350,9 +381,6 @@ void integrate_1d_radMHD(DomainS *pD)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) 
 			- dt * pdivFlux[m] - pUguess[m];
 	/* (I - dt Div_U S(U))^-1 for the guess solution */
-	SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (Uguess.d * R_ideal);
-	SErho = SEE * (-Uguess.E/Uguess.d + velocity * velocity);	
-	SEm = -SEE * velocity;
 	
 	Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
 	Source_Inv[4][1] = -dt * Prat * Crat * SEm/(1.0 + dt * Prat * Crat * SEE);
@@ -428,8 +456,8 @@ void integrate_1d_radMHD(DomainS *pD)
 		
 			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
 	
-
-			Opacity(pG->U[ks][js][i].d, temperature,&(pG->U[ks][js][i].Sigma_t), &(pG->U[ks][js][i].Sigma_a));
+			/* We do not need to calculate dSigma here */
+			Opacity(pG->U[ks][js][i].d, temperature,&(pG->U[ks][js][i].Sigma_t), &(pG->U[ks][js][i].Sigma_a), NULL);
 		}
 	}
 

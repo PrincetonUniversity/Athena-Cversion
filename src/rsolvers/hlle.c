@@ -64,7 +64,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #ifndef ISOTHERMAL
   Real hroe;
 #endif
-#ifdef MHD
+#if  defined(MHD) || defined(RADIATION_MHD)
   Real b2roe,b3roe,x,y;
 #endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)

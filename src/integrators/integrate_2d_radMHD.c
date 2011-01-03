@@ -105,17 +105,25 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	Real temperature, velocity_x, velocity_y, pressure, density;
 	Real Sigma_t, Sigma_a;
-	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy;
+	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy, dSigmadP;
+	Real dSigma[4];
+	Cons1DS Usource;
+	/* for source term */
 
-	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR];
+
+	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
 	Real divFlux1[NVAR], divFlux2[NVAR];
 	
+	/* SourceFlux is used to calculate flux due to other non-stiff source terms, such as static gravitational potential */
 
 	/* Initialize them to be zero */
 	for(i=0; i<NVAR; i++){
 		Source[i] = 0.0;
+		SourceFlux[i] = 0.0;
 		Source_guess[i] = 0.0;
 		Errort[i] = 0.0;
+		divFlux1[i] = 0.0;
+		divFlux2[i] = 0.0;
 		tempguess[i] = 0.0;
 		for(j=0; j<NVAR; j++) {
 			Source_Inv[i][j] = 0.0;			
@@ -125,6 +133,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		}
 		}
 	}
+	for(i=0; i<4; i++)
+		dSigma[i] = 0.0;
 
 	il = is - 2;
   	iu = ie + 2;
@@ -150,15 +160,15 @@ void integrate_2d_radMHD(DomainS *pD)
       			U1d[i].My = pG->U[ks][j][i].M2;
       			U1d[i].Mz = pG->U[ks][j][i].M3;
       			U1d[i].E  = pG->U[ks][j][i].E;
-			U1d[i].Er  = pG->U[ks][js][i].Er;
-    			U1d[i].Fr1  = pG->U[ks][js][i].Fr1;
-    			U1d[i].Fr2  = pG->U[ks][js][i].Fr2;
-    			U1d[i].Fr3  = pG->U[ks][js][i].Fr3;
-			U1d[i].Edd_11  = pG->U[ks][js][i].Edd_11;
-			U1d[i].Edd_21  = pG->U[ks][js][i].Edd_21;
-			U1d[i].Edd_22  = pG->U[ks][js][i].Edd_22;
-			U1d[i].Sigma_a  = pG->U[ks][js][i].Sigma_a;
-                        U1d[i].Sigma_t  = pG->U[ks][js][i].Sigma_t;
+			U1d[i].Er  = pG->U[ks][j][i].Er;
+    			U1d[i].Fr1  = pG->U[ks][j][i].Fr1;
+    			U1d[i].Fr2  = pG->U[ks][j][i].Fr2;
+    			U1d[i].Fr3  = pG->U[ks][j][i].Fr3;
+			U1d[i].Edd_11  = pG->U[ks][j][i].Edd_11;
+			U1d[i].Edd_21  = pG->U[ks][j][i].Edd_21;
+			U1d[i].Edd_22  = pG->U[ks][j][i].Edd_22;
+			U1d[i].Sigma_a  = pG->U[ks][j][i].Sigma_a;
+                        U1d[i].Sigma_t  = pG->U[ks][j][i].Sigma_t;
 
 #ifdef RADIATION_MHD
       			U1d[i].By = pG->U[ks][j][i].B2c;
@@ -203,8 +213,19 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y) * U1d[i-1].Er / Crat)
 			+ velocity_y
 			* (U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x) * U1d[i-1].Er / Crat))/Crat); 
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[i-1].d * R_ideal);
+
+		if(Opacity != NULL) Opacity(U1d[i-1].d, temperature, NULL, NULL, dSigma);
+		
+		dSigmadP =  dSigma[3] / (U1d[i-1].d * R_ideal); 
+
+
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 	* temperature /(U1d[i-1].d * R_ideal)
+			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[i-1].Er) * dSigmadP
+		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
+			velocity_x * (U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y) * U1d[i-1].Er/Crat)
+			+ velocity_y * (U1d[i-1].Fr2 - (U1d[i-1].Edd_21 * velocity_x + (1.0 + U1d[i-1].Edd_22) * velocity_y) * U1d[i-1].Er/Crat)
+			);
+
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -218,7 +239,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
 	
 		Wl[i].Sigma_a = Sigma_a;
-		Wr[i].Sigma_t = Sigma_t;
+		Wl[i].Sigma_t = Sigma_t;
 
 	/* For the right state */
 	
@@ -241,8 +262,19 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y) * U1d[i].Er / Crat)
 			+ velocity_y
 			* (U1d[i].Fr2 - ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x) * U1d[i].Er / Crat))/Crat); 
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[i].d * R_ideal);
+				
+		if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, NULL, dSigma);
+		
+		dSigmadP =  dSigma[3] / (U1d[i].d * R_ideal);
+
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature	* temperature /(U1d[i].d * R_ideal)
+			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[i].Er) * dSigmadP
+		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
+			velocity_x * (U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y) * U1d[i].Er/Crat)
+			+ velocity_y * (U1d[i].Fr2 - (U1d[i].Edd_21 * velocity_x + (1.0 + U1d[i].Edd_22) * velocity_y) * U1d[i].Er/Crat)
+			);
+
+
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -256,7 +288,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
 
 		Wr[i].Sigma_a = Sigma_a;
-		Wr[i].Sigma_t = Sigma_t;
+		Wr[i].Sigma_t = Sigma_t;	
+
+		
 
 	}
 
@@ -330,15 +364,15 @@ void integrate_2d_radMHD(DomainS *pD)
       			U1d[j].My = pG->U[ks][j][i].M3;
       			U1d[j].Mz = pG->U[ks][j][i].M1;
       			U1d[j].E  = pG->U[ks][j][i].E;
-			U1d[j].Er  = pG->U[ks][js][i].Er;
-    			U1d[j].Fr1  = pG->U[ks][js][i].Fr1;
-    			U1d[j].Fr2  = pG->U[ks][js][i].Fr2;
-    			U1d[j].Fr3  = pG->U[ks][js][i].Fr3;
-			U1d[j].Edd_11  = pG->U[ks][js][i].Edd_11;
-			U1d[j].Edd_21  = pG->U[ks][js][i].Edd_21;
-			U1d[j].Edd_22  = pG->U[ks][js][i].Edd_22;
-			U1d[j].Sigma_a  = pG->U[ks][js][i].Sigma_a;
-                        U1d[j].Sigma_t  = pG->U[ks][js][i].Sigma_t;
+			U1d[j].Er  = pG->U[ks][j][i].Er;
+    			U1d[j].Fr1  = pG->U[ks][j][i].Fr1;
+    			U1d[j].Fr2  = pG->U[ks][j][i].Fr2;
+    			U1d[j].Fr3  = pG->U[ks][j][i].Fr3;
+			U1d[j].Edd_11  = pG->U[ks][j][i].Edd_11;
+			U1d[j].Edd_21  = pG->U[ks][j][i].Edd_21;
+			U1d[j].Edd_22  = pG->U[ks][j][i].Edd_22;
+			U1d[j].Sigma_a  = pG->U[ks][j][i].Sigma_a;
+                        U1d[j].Sigma_t  = pG->U[ks][j][i].Sigma_t;
 #ifdef RADIATION_MHD
       			U1d[j].By = pG->U[ks][j][i].B3c;
       			U1d[j].Bz = pG->U[ks][j][i].B1c;
@@ -384,8 +418,20 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y) * U1d[j-1].Er / Crat)
 			+ velocity_y
 			* (U1d[j-1].Fr2 - ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x) * U1d[j-1].Er / Crat))/Crat); 
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[j-1].d * R_ideal);
+
+
+		if(Opacity != NULL) Opacity(U1d[j-1].d, temperature, NULL, NULL, dSigma);
+		
+		dSigmadP =  dSigma[3] / (U1d[j-1].d * R_ideal); 
+
+
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature * temperature /(U1d[j-1].d * R_ideal)
+			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[j-1].Er) * dSigmadP
+		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
+			velocity_x * (U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y) * U1d[j-1].Er/Crat)
+			+ velocity_y * (U1d[j-1].Fr2 - (U1d[j-1].Edd_21 * velocity_x + (1.0 + U1d[j-1].Edd_22) * velocity_y) * U1d[j-1].Er/Crat)
+			);
+
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -423,8 +469,19 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y) * U1d[j].Er / Crat)
 			+ velocity_y
 			* (U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x) * U1d[j].Er / Crat))/Crat); 
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 
-			* temperature /(U1d[j].d * R_ideal);
+	
+		if(Opacity != NULL) Opacity(U1d[j].d, temperature, NULL, NULL, dSigma);
+		
+		dSigmadP =  dSigma[3] / (U1d[j].d * R_ideal); 
+
+
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature * temperature /(U1d[j].d * R_ideal)
+			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[j].Er) * dSigmadP
+		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
+			velocity_x * (U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y) * U1d[j].Er/Crat)
+			+ velocity_y * (U1d[j].Fr2 - (U1d[j].Edd_21 * velocity_x + (1.0 + U1d[j].Edd_22) * velocity_y) * U1d[j].Er/Crat)
+			);
+
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -440,6 +497,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		Wr[j].Sigma_a = Sigma_a;
 		Wr[j].Sigma_t = Sigma_t;
+
 
 	}
 
@@ -907,8 +965,36 @@ void integrate_2d_radMHD(DomainS *pD)
 
 /*-------Step 9: Predict and correct step after we get the flux------------- */
 /*----------Radiation quantities are not updated in the modified Godunov corrector step */
+/*-----------NOTE that x1flux and x2flux are flux from Remann problem. If there is extra-----* 
+ *----------source terms, flux due to those source terms should also be added in the-------*
+ *---------- modified Godunov method -------------------------------------*/
 	for (j=js; j<=je; j++) {
-    		for (i=is; i<=ie; i++) {	
+    		for (i=is; i<=ie; i++) {
+		/* Load 1D vector */
+			Usource.d  = pG->U[ks][j][i].d;
+      			Usource.Mx = pG->U[ks][j][i].M1;
+      			Usource.My = pG->U[ks][j][i].M2;
+      			Usource.Mz = pG->U[ks][j][i].M3;
+      			Usource.E  = pG->U[ks][j][i].E;
+			Usource.Er  = pG->U[ks][j][i].Er;
+    			Usource.Fr1  = pG->U[ks][j][i].Fr1;
+    			Usource.Fr2  = pG->U[ks][j][i].Fr2;
+    			Usource.Fr3  = pG->U[ks][j][i].Fr3;
+			Usource.Edd_11  = pG->U[ks][j][i].Edd_11;
+			Usource.Edd_21  = pG->U[ks][j][i].Edd_21;
+			Usource.Edd_22  = pG->U[ks][j][i].Edd_22;
+			Usource.Sigma_a  = pG->U[ks][j][i].Sigma_a;
+                        Usource.Sigma_t  = pG->U[ks][j][i].Sigma_t;
+
+#ifdef RADIATION_MHD
+      			Usource.By = pG->U[ks][j][i].B2c;
+      			Usource.Bz = pG->U[ks][j][i].B3c;
+			Bx = pG->U[ks][j][i].B1c;
+#else
+			Bx = 0.0;
+#endif /* MHD */
+
+	
 		density = pG->U[ks][j][i].d;
 				
 		pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
@@ -924,10 +1010,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
 	/* The Source term */
-		SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (density * R_ideal);
-		SErho = SEE * (-pG->U[ks][j][i].E / density + velocity_x * velocity_x + velocity_y * velocity_y);	
-		SEmx = -SEE * velocity_x;
-		SEmy = -SEE * velocity_y;
+		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
 	
 		Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
 		Source_Inv[4][1] = -dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE);
@@ -961,6 +1044,37 @@ void integrate_2d_radMHD(DomainS *pD)
 		divFlux2[2] = (x2Flux[j+1][i].Mx - x2Flux[j][i].Mx) / dx2;
 		divFlux2[4] = (x2Flux[j+1][i].E  - x2Flux[j][i].E ) / dx2; 
 
+	/*------Flux due to static gravitational potential ---------*/
+
+		if (StaticGravPot != NULL){
+    			cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        		phic = (*StaticGravPot)((x1            ),x2,x3);
+        		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+			SourceFlux[1] = dhalf[j][i]*(phir-phil)/dx1;
+        		SourceFlux[4]= (x1Flux[j][i  ].d*(phic - phil) +
+				 	x1Flux[j][i+1].d*(phir - phic))/dx1;
+
+			divFlux1[1] += SourceFlux[1];
+			divFlux1[4] += SourceFlux[4];
+			
+        		phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+        		phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+
+        		SourceFlux[2] = dhalf[j][i]*(phir-phil)/dx2;
+
+        		SourceFlux[4] = (x2Flux[j  ][i].d*(phic - phil) +
+                                	     x2Flux[j+1][i].d*(phir - phic))/dx2;
+			divFlux2[2] += SourceFlux[2];
+			divFlux2[4] += SourceFlux[4];      			
+  		}
+
+	/*================== End static gravitational flux ================*/
+
+
+
+
 		for(n=0; n<5; n++) {
 			tempguess[n] = 0.0;
 			for(m=0; m<5; m++) {
@@ -975,6 +1089,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 	/*  Uguess[0] = d; Uguess[1]=Mx; Uguess[2]=My; Uguess[4]=E */
+	
 
 	/* Now calculate the source term due to the guess solution */
 
@@ -989,17 +1104,21 @@ void integrate_2d_radMHD(DomainS *pD)
 		temperature = pressure / (density * R_ideal);
 
 		if(Opacity != NULL)
-			Opacity(density,temperature, &Sigma_t, &Sigma_a);
+			Opacity(density,temperature, &Sigma_t, &Sigma_a, NULL);
 
+		/* update source term */
+		Usource.d = Uguess[0];
+		Usource.Mx = Uguess[1];
+		Usource.My = Uguess[2];
+		Usource.E = Uguess[4];
+		Usource.Sigma_a = Sigma_a;
+		Usource.Sigma_t = Sigma_t;
 
 		velocity_x = Uguess[1] / density;
 		velocity_y = Uguess[2] / density;
 
 	/* The Source term */
-		SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (density * R_ideal);
-		SErho = SEE * (-Uguess[4] / density + velocity_x * velocity_x + velocity_y * velocity_y);	
-		SEmx = -SEE * velocity_x;
-		SEmy = -SEE * velocity_y;
+		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
 	
 		Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
 		Source_Inv[4][1] = -dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE);
@@ -1085,7 +1204,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 /*=========================================================*/
 /* Add non-stiff source term due to static gravity */
-
+/*
 
   if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
@@ -1114,7 +1233,7 @@ void integrate_2d_radMHD(DomainS *pD)
       }
     }
   }
-
+*/
 
 		
 	/* Boundary condition is applied in the main function */
@@ -1135,7 +1254,7 @@ void integrate_2d_radMHD(DomainS *pD)
 #endif
 				temperature = pressure / (density * R_ideal);
 			
-			Opacity(density,temperature,&(pG->U[ks][j][i].Sigma_t), &(pG->U[ks][j][i].Sigma_a));
+			Opacity(density,temperature,&(pG->U[ks][j][i].Sigma_t), &(pG->U[ks][j][i].Sigma_a),NULL);
 
 			}
 		}

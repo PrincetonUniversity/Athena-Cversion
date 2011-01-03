@@ -416,6 +416,8 @@ typedef struct Grid_s{
   GPCouple ***Coup;          /* array of gas-particle coupling */
 #endif /* PARTICLES */
 
+
+
 #ifdef STATIC_MESH_REFINEMENT
   int NCGrid;         /* # of child  Grids that overlap this Grid */
   int NPGrid;         /* # of parent Grids that this Grid overlaps */
@@ -609,8 +611,11 @@ typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 
 /* Define user provided opacity function to give absorption and total reaction coefficient */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-typedef void (*OpacityFun_t)(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a);
+typedef void (*OpacityFun_t)(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a, Real dSigma[4]);
 #endif
+/* dSigma[0] = dsigma_t/d\rho, dSigma[1] = dsigma_a/d\rho, dSigma[2] = dsigma_t/dT, , dSigma[3] = dsigma_a/dT 
+   dSigma can be set to be NULL, then we do not set dSigma when the function is called 
+ */
 
 
 #ifdef RADIATION_TRANSFER

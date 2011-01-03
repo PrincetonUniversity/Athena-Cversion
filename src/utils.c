@@ -1067,13 +1067,30 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 
 Real eff_sound(const Prim1DS W, Real dt)
 {
-	Real aeff, temperature, SPP, Alpha;
+	/* All rad hydro components of W should be updated before this function is called */
+	Real aeff, temperature, SPP, Alpha, dSigmadP;
+	Real dSigma[4];
+	Real velocity_x, velocity_y, velocity_z;
+	int i;
+	for(i=0; i<4; i++)
+		dSigma[i] = 0.0;
 
 	temperature = W.P / (W.d * R_ideal);
+	velocity_x = W.Vx;
+	velocity_y = W.Vy;
+	velocity_z = W.Vz;
 	
+	if(Opacity != NULL) Opacity(W.d, temperature, NULL, NULL, dSigma);
+		
+	dSigmadP =  dSigma[3] / (W.d * R_ideal); 
 
-	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma_a 
-		* temperature * temperature * temperature / (W.d * R_ideal);
+	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma_a * temperature * temperature * temperature / (W.d * R_ideal)
+		-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - W.Er) * dSigmadP
+		-(Gamma - 1.0) * Prat * 2.0 * dSigmadP * ( 
+			velocity_x * (W.Fr1 - ((1.0 + W.Edd_11) * velocity_x + W.Edd_21 * velocity_y + W.Edd_31 * velocity_z) * W.Er/Crat)
+	     	+  velocity_y * (W.Fr2 - (W.Edd_21 * velocity_x + (1.0 + W.Edd_22) * velocity_y + W.Edd_32 * velocity_z) * W.Er/Crat)
+	     	+  velocity_z * (W.Fr3 - (W.Edd_31 * velocity_x + W.Edd_32 * velocity_y + (1.0 + W.Edd_33) * velocity_z) * W.Er/Crat)
+		);
 
 	if(fabs(SPP * dt * 0.5) > 0.001)
 	Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
@@ -1087,6 +1104,93 @@ Real eff_sound(const Prim1DS W, Real dt)
 	aeff = sqrt(aeff); 
 
 	return aeff;
+}
+
+/* function to calculate derivative of source function over conserved variables */
+void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz)
+{
+	/* NOTE that SEmy and SEmz can be NULL, which depends on dimension of the problem */
+	Real pressure, temperature, velocity_x, velocity_y, velocity_z;
+	Real dSigma[4];
+	Real dSigmaE, dSigmaE_t, dSigmarho, dSigmarho_t, dSigmavx, dSigmavy, dSigmavz;
+	Real Sigma_a, Sigma_t;
+
+	int i;
+	for(i=0; i<4; i++)
+		dSigma[i] = 0.0;
+
+	
+	Sigma_a = U.Sigma_a;
+	Sigma_t = U.Sigma_t;
+
+	pressure = (U.E - 0.5 * (U.Mx * U.Mx + U.My * U.My + U.Mz * U.Mz) / U.d ) * (Gamma - 1.0);
+#ifdef  RADIATION_MHD 
+	pressure -= (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz);
+#endif
+	/* Should include magnetic energy for MHD */
+	temperature = pressure / (U.d * R_ideal);
+	velocity_x = U.Mx / U.d;
+	velocity_y = U.My / U.d;
+	velocity_z = U.Mz / U.d;
+
+	
+
+	if(Opacity != NULL) Opacity(U.d, temperature, NULL, NULL, dSigma);
+
+	dSigmaE = dSigma[3] * (Gamma - 1.0)/(U.d * R_ideal);
+	dSigmaE_t = dSigma[1] * (Gamma - 1.0)/(U.d * R_ideal);
+
+	dSigmavx = -dSigma[3] * velocity_x * (Gamma - 1.0) /(U.d * R_ideal);
+	dSigmavy = -dSigma[3] * velocity_y * (Gamma - 1.0) /(U.d * R_ideal);
+	dSigmavz = -dSigma[3] * velocity_z * (Gamma - 1.0) /(U.d * R_ideal);
+
+	dSigmarho = dSigma[1] - dSigma[3] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
+#ifdef RADIATION_MHD
+	dSigmarho += dSigma[3] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
+#endif
+
+	dSigmarho = dSigma[0] - dSigma[2] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
+#ifdef RADIATION_MHD
+	dSigmarho += dSigma[2] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
+#endif
+
+
+	/* We keep another v/c term here */
+	*SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
+	     + dSigmaE * (pow(temperature, 4.0) - U.Er)
+	     + (dSigmaE - (dSigmaE_t - dSigmaE)) * (
+		velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_y + U.Edd_31 * velocity_z) * U.Er/Crat)
+	     +  velocity_y * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_y + U.Edd_32 * velocity_z) * U.Er/Crat)
+	     +  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_y + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
+		)/Crat;
+
+	*SErho = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
+		+ dSigmarho * (pow(temperature, 4.0) - U.Er)	
+		+ (dSigmarho - (dSigmarho_t - dSigmarho) - (Sigma_a - (Sigma_t - Sigma_a)) / U.d) * (
+			velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_y + U.Edd_31 * velocity_z) * U.Er/Crat)
+	     	+  velocity_y * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_y + U.Edd_32 * velocity_z) * U.Er/Crat)
+	     	+  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_y + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
+			)/Crat;
+
+#ifdef RADIATION_MHD
+	*SErho += 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz)/(U.d * U.d * R_ideal);
+#endif	
+
+	*SEmx = -4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal)
+	      + dSigmavx * (pow(temperature, 4.0) - U.Er);
+	
+	if(SEmy != NULL)
+		*SEmy = -4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal)
+	      + dSigmavy * (pow(temperature, 4.0) - U.Er);
+
+	if(SEmz != NULL)
+		*SEmz = -4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal)
+	      + dSigmavz * (pow(temperature, 4.0) - U.Er);	
+
+
+	return;
+
+
 }
 
 

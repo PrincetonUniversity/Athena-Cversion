@@ -433,6 +433,7 @@ int main(int argc, char *argv[])
 	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
 	* routine is updated. Initial output needs to update the boundary condition.  
 	*/
+	
 #endif
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */

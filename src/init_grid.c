@@ -203,6 +203,7 @@ void init_grid(MeshS *pM)
       if (pG->x3MassFlux == NULL) goto on_error13;
 #endif /* SELF_GRAVITY */
 
+
 /* Allocate and initialize cylindrical scaling factors */
 #ifdef CYLINDRICAL
       pG->r = (Real*)calloc_1d_array(n1z, sizeof(Real));

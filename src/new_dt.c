@@ -136,6 +136,17 @@ void new_dt(MeshS *pM)
 	Waeff.Vz = v3;
 	Waeff.Sigma_a = pGrid->U[k][j][i].Sigma_a;
 	Waeff.Sigma_t = pGrid->U[k][j][i].Sigma_t;
+	Waeff.Er = pGrid->U[k][j][i].Er;
+	Waeff.Fr1 = pGrid->U[k][j][i].Fr1;
+	Waeff.Fr2 = pGrid->U[k][j][i].Fr2;
+	Waeff.Fr3 = pGrid->U[k][j][i].Fr3;
+	Waeff.Edd_11 = pGrid->U[k][j][i].Edd_11;
+        Waeff.Edd_21 = pGrid->U[k][j][i].Edd_21; 
+        Waeff.Edd_22 = pGrid->U[k][j][i].Edd_22;
+	Waeff.Edd_31 = pGrid->U[k][j][i].Edd_31;
+        Waeff.Edd_32 = pGrid->U[k][j][i].Edd_32; 
+        Waeff.Edd_33 = pGrid->U[k][j][i].Edd_33; 
+
 	/* For MHD, pressure is recalculated below */
 
 #ifdef RADIATION_MHD

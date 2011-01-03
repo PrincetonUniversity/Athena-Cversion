@@ -27,24 +27,20 @@
 #include "../particles/particle.h"
 #endif
 
+#if defined(RADIATIONMHD_INTEGRATOR)
+#ifdef SPECIAL_RELATIVITY
+#error : The radiation MHD integrator cannot be used for special relativity.
+#endif /* SPECIAL_RELATIVITY */
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 /*================================*/
 /* For the matrix solver */
 /* we use lis library now */
 #include <lis.h>
 
-
 /*===============================*/
 
-
 #endif
-
-#if defined(RADIATIONMHD_INTEGRATOR)
-#ifdef SPECIAL_RELATIVITY
-#error : The radiation MHD integrator cannot be used for special relativity.
-#endif /* SPECIAL_RELATIVITY */
-
-
 
 
 /* Radiation matter coupled speed */
@@ -53,10 +49,6 @@ static Real *Cspeeds;
 static Real **Euler = NULL;
 
 
-
-static LIS_MATRIX EulerLU;
-static LIS_VECTOR INIguess;
-static LIS_SOLVER solver;
 /* Used for initial guess solution, also return the correct solution */
 /* Used for restarted GMRES method for periodic boundary condition */
 
@@ -66,11 +58,7 @@ static Real **lEuler = NULL;
 /* Right hand side of the Matrix equation */
 static Real *RHSEuler = NULL;
 
-static LIS_VECTOR RHSEulerp;
-/* RHSEulerp is used for periodic boundary condition.
- * GMRES routine starts from 0.
- * RHSEulerp = &(RHSEuler[1])
- */
+
 
 /* Used to store the results from the Matrix solver */
 static unsigned long *Ern1 = NULL;
@@ -78,6 +66,24 @@ static int *Ern1p = NULL;
 static Real *Ern2 = NULL;
 
 static Cons1DS *U1d=NULL;
+
+/*========= variables used for periodic boundary condition =========*/
+/* We use Lis library for periodic boundary condtion, similar to 2D case  */
+
+/*Store the index of all non-zero elements */
+/* The matrix coefficient, this is oneD in GMRES solver */
+static LIS_MATRIX Eulerp;
+
+static LIS_SOLVER solver;
+/* Right hand side of the Matrix equation */
+static LIS_VECTOR RHSEulerp;
+/* RHSEuler is 0-------3*Nx*Ny-1; only for GMRES method */ 
+static LIS_VECTOR INIguess;
+/* Used for initial guess solution, also return the correct solution */
+
+static LIS_SCALAR *Value;
+static int *indexValue;
+static int *ptr;
 
 
 
@@ -98,7 +104,9 @@ void BackEuler_1d(MeshS *pM)
   	int i, j;
 	int js = pG->js;
 	int ks = pG->ks;
-	int Nmatrix, NoEr, NoFr;
+	int Nmatrix, NZ_NUM, NoEr, NoFr, lines, count;
+	int index, Matrixiter;
+	Real tempvalue;
 	
 
 
@@ -122,13 +130,17 @@ void BackEuler_1d(MeshS *pM)
 /* Allocate memory space for the Matrix calculation, just used for this grids */
 /* Nmatrix is the number of active cells just in this grids */
 /* Matrix size should be 2 * Nmatrix, ghost zones are included*/
+
+/* We keep similar form as 2D case , not all variables are necessary */
    	Nmatrix = ie - is + 1 ;
+	NZ_NUM = 12 * Nmatrix;
+	lines = 2 * Nmatrix;
+	count = 0;
+	NoEr = 0;
+	NoFr = 0;
 
+	
 
-	/* This is done before the main loop */	
-/*	rad_hydro_init_1d(Nmatrix,pM)
-
-*/
 
  	 il = is - 1;
   	 iu = ie + 1;
@@ -211,6 +223,24 @@ void BackEuler_1d(MeshS *pM)
 	
 	}
 
+	/* For periodic boundary condition, we use Lis library */
+	if((ix1 == 4) && (ox1 == 4)) {
+		for(i=is; i<=ie; i++){
+			index = 2 * (i-is);
+			tempvalue = RHSEuler[2*(i-is)+1];
+			lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEulerp);
+
+			++index;
+			tempvalue = RHSEuler[2*(i-is)+2];
+			lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEulerp);
+
+			lis_vector_set_value(LIS_INS_VALUE,2*(i-is),U1d[i].Er,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,U1d[i].Fr1,INIguess);
+		}
+		
+
+	}
+	
 
 
 /* Step 1b: Setup the Matrix */
@@ -303,104 +333,129 @@ void BackEuler_1d(MeshS *pM)
 	/* EulerLU is already initialized for zeros */
 	if((ix1 == 4) && (ox1 == 4)) {
 
-		NoEr = 12*(i-is) + 2;
-		NoFr = 12*(i-is) + 8;
-		if(i!=is && i!=ie){
-		for(j=0; j<6; j++){
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(i-is)+j-2,theta[j+1],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(i-is)+j-2,phi[j],EulerLU);
+		NoEr = count;
+		NoFr = count + 6;
+		count += 12;
 
-		/*
-			EulerLU[NoEr-2+j] = theta[j+1];
-			EulerLU[NoFr-2+j] = phi[j];
-			IEuler[NoEr-2+j]   = 2*(i-is)+j-2;
-			JEuler[NoEr-2+j]   = 2*(i-is);
-			IEuler[NoFr-2+j]   = 2*(i-is)+j-2;
-			JEuler[NoFr-2+j]   = 2*(i-is)+1;
-		*/		
-		}
-		}
-		else if(i == is) {
+		ptr[2*(i-is)] = NoEr;
+		ptr[2*(i-is)+1] = NoFr;
+		
+		if(i == is){			
 
-			for(j=2; j<6; j++){
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(i-is)+j-2,theta[j+1],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(i-is)+j-2,phi[j],EulerLU);
-			}
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(ie-is),theta[1],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(ie-is),phi[0],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(ie-is)+1,theta[2],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(ie-is)+1,phi[1],EulerLU);
-			/*
+			/* For Er */
+			for(j=0; j<4; j++)
+				Value[NoEr+j] = theta[3+j];
+
+			/* For Fr */
+			for(j=0; j<4; j++)
+				Value[NoFr+j] = phi[2+j];
+
+			/* For Er */
+			for(j=0; j<4; j++)
+				indexValue[NoEr+j] = j;
+
+			/* For Fr */
+			for(j=0; j<4; j++)
+				indexValue[NoFr+j] = j;
 			
-			IEuler[NoEr-2]   = 2*(ie-is);
-			JEuler[NoEr-2]   = 0;
-			IEuler[NoFr-2]   = 2*(ie-is);
-			JEuler[NoFr-2]   = 1;
-			IEuler[NoEr-1]   = 2*(ie-is)+1;
-			JEuler[NoEr-1]   = 0;
-			IEuler[NoFr-1]   = 2*(ie-is)+1;
-			JEuler[NoFr-1]   = 1;
-			*/			
-		}/* end i==is */
-		else if (i == ie) {
-			for(j=0; j<4; j++){
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),2*(i-is)+j-2,theta[j+1],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,2*(i-is)+j-2,phi[j],EulerLU);
-			}
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),0,theta[5],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,0,phi[4],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is),1,theta[6],EulerLU);
-			lis_matrix_set_value(LIS_INS_VALUE,2*(i-is)+1,1,phi[5],EulerLU);
+			/* For Er */
+			Value[NoEr + 4] = theta[1];
+			Value[NoEr + 5] = theta[2];
 
-			/*
-			IEuler[NoEr+2]   = 0;
-			JEuler[NoEr+2]   = 2*(ie-is);
-			IEuler[NoFr+2]   = 0;
-			JEuler[NoFr+2]   = 2*(ie-is)+1;
-			IEuler[NoEr+3]   = 1;
-			JEuler[NoEr+3]   = 2*(ie-is);
-			IEuler[NoFr+3]   = 1;
-			JEuler[NoFr+3]   = 2*(ie-is)+1;
-			*/
-		}/* end i==ie */
+			indexValue[NoEr + 4] = 2 * (ie - is);
+			indexValue[NoEr + 5] = 2 * (ie - is) + 1;
+
+			/* For Fr */
+
+			Value[NoFr + 4] = phi[0];
+			Value[NoFr + 5] = phi[1];
+
+			indexValue[NoFr + 4] = 2 * (ie - is);
+			indexValue[NoFr + 5] = 2 * (ie - is) + 1;
+		} /* End i == is */
+		else if(i == ie){
+			/* For Er */
+			Value[NoEr] = theta[5];
+			Value[NoEr + 1] = theta[6];
+
+			indexValue[NoEr] = 0;
+			indexValue[NoEr + 1] = 1;
+
+			/* For Fr */
+
+			Value[NoFr] = phi[4];
+			Value[NoFr + 1] = phi[5];
+
+			indexValue[NoFr] = 0;
+			indexValue[NoFr + 1] = 1;
+
+
+
+			/* For Er */
+			for(j=2; j<6; j++)
+				Value[NoEr+j] = theta[j-1];
+
+			/* For Fr */
+			for(j=2; j<6; j++)
+				Value[NoFr+j] = phi[j-2];
+
+			/* For Er */
+			for(j=2; j<6; j++)
+				indexValue[NoEr+j] = 2 * (i - is - 1) + j - 2;
+
+			/* For Fr */
+			for(j=2; j<6; j++)
+				indexValue[NoFr+j] = 2 * (i - is - 1) + j - 2;
+
+		}/* End i == ie */
+		else{
+			/* For Er */
+			for(j=0; j<6; j++)
+				Value[NoEr+j] = theta[1+j];
+
+			/* For Fr */
+			for(j=0; j<6; j++)
+				Value[NoFr+j] = phi[j];
+
+			/* For Er */
+			for(j=0; j<6; j++)
+				indexValue[NoEr+j] = 2 * (i - is - 1) + j;
+
+			/* For Fr */
+			for(j=0; j<6; j++)
+				indexValue[NoFr+j] = 2 * (i - is - 1) + j;
+
+		}
 		
 	}
 	/* End for periodic boundary condition */	
 	}/* end for i loop */
 
-
-	
-	/* For periodic boundary condition, we use GMRES, which starts from 0 */
-	if((ix1 == 4) && (ox1 == 4)) {
-		lis_matrix_set_type(EulerLU,LIS_MATRIX_CRS);
-		lis_matrix_assemble(EulerLU);
-
-		lis_vector_duplicate(EulerLU,&RHSEulerp);
-		lis_vector_duplicate(EulerLU,&INIguess);		
-
-		for(i=is; i<=ie; i++){
-			lis_vector_set_value(LIS_INS_VALUE,2*(i-is),pG->U[ks][js][i].Er,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,pG->U[ks][js][i].Fr1,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,2*(i-is),RHSEuler[2*(i-is)+1],RHSEulerp);
-			lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,RHSEuler[2*(i-is)+2],RHSEulerp);
-		}
-		
-	}
 	
 	
 	
-/* Step 1c: Solve the Matrix equation for band diagnoal system */
+/* Step 1c: Solve the Matrix equation for band diaagnoal system */
 	if((ix1 != 4) && (ox1 !=4)){
 		bandec(Euler, (unsigned long) (2*Nmatrix), 3, 3, lEuler, Ern1, Ern2);
 		banbks(Euler, (unsigned long) (2*Nmatrix), 3, 3, lEuler, Ern1, RHSEuler);
 
 	}
 	else {
+		ptr[lines] = NZ_NUM;
+		/* Assemble the matrix and solve the matrix */
+		lis_matrix_set_crs(NZ_NUM,ptr,indexValue,Value,Eulerp);
+		lis_matrix_assemble(Eulerp);
+
 		
 		lis_solver_set_option("-i gmres -p none",solver);
 		lis_solver_set_option("-tol 1.0e-12",solver);
-		lis_solve(EulerLU,RHSEulerp,INIguess,solver);
+		lis_solver_set_option("-maxiter 2000",solver);
+		lis_solve(Eulerp,RHSEulerp,INIguess,solver);
 		
+		/* check the iteration step to make sure 1.0e-12 is reached */
+		lis_solver_get_iters(solver,&Matrixiter);
+
+		ath_pout(0,"Matrix Iteration steps: %d\n",Matrixiter);
 	}
 	
 
@@ -410,9 +465,8 @@ void BackEuler_1d(MeshS *pM)
 		if((ix1==4)&&(ox1==4)){
 			lis_vector_get_value(INIguess,2*(i-is),&(pG->U[ks][js][i].Er));
 			lis_vector_get_value(INIguess,2*(i-is)+1,&(pG->U[ks][js][i].Fr1));
-			
-			U1d[i].Er = pG->U[ks][js][i].Er;
-			U1d[i].Fr1 = pG->U[ks][js][i].Fr1;
+			U1d[i].Er		= pG->U[ks][js][i].Er;
+			U1d[i].Fr1		= pG->U[ks][js][i].Fr1;
 		}
 		else{
 			pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)+1];
@@ -430,14 +484,7 @@ void BackEuler_1d(MeshS *pM)
 
 /*-----------Finish---------------------*/
 
-  
-	/* This is done after main loop */
-/*	rad_hydro_destruct_1d(Nmatrix);
-*/	
 
-	lis_vector_destroy(RHSEulerp);
-	lis_vector_destroy(INIguess);
-	lis_finalize();
 	
   return;	
 
@@ -453,11 +500,12 @@ void BackEuler_1d(MeshS *pM)
 
 
 /*-------------------------------------------------------------------------*/
-/* rad_hydro_init_1d: function to allocate memory used just for radiation variables */
-/* rad_hydro_destruct_1d(): function to free memory */
+/* BackEuler_init_1d: function to allocate memory used just for radiation variables */
+/* BackEuler_destruct_1d(): function to free memory */
 void BackEuler_init_1d(int Ngrids, MeshS *pM)
 {
 /* The matrix Euler is stored as a compact form. See $2.4 of numerical recipes */
+/* Ngrids = ie - is + 1; */
 
 	int size1=0,nl,nd, i, j;
 
@@ -477,13 +525,13 @@ void BackEuler_init_1d(int Ngrids, MeshS *pM)
 
 	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 	if ((RHSEuler = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
-
+	
 	if ((Ern1 = (unsigned long *)malloc((2*Ngrids+1)*sizeof(unsigned long))) == NULL) goto on_error;
 	if ((Ern1p = (int *)malloc((2*Ngrids+1)*sizeof(int))) == NULL) goto on_error;
 	if ((Ern2 = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 
 	if ((Euler = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
-
+	
 	if ((lEuler = (Real**)malloc((2*Ngrids+1)*sizeof(Real*))) == NULL) goto on_error;
 	for(i=0; i<(2*Ngrids+1); i++) {
 		if ((Euler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;
@@ -497,12 +545,31 @@ void BackEuler_init_1d(int Ngrids, MeshS *pM)
 			lEuler[i][j] = 0.0;
 		}
 
-	/* setting for LIS library. Now this is noly for serial case. Need to change for parallal case */
-/*	lis_initialize(0,0);
-*/
-	lis_matrix_create(0,&EulerLU);	
-	lis_matrix_set_size(EulerLU,0,2*Ngrids);
+
+/* ====== For Lis vectors and matrix ========*/
+	int lines;
+	lines = 2 * Ngrids;
+
+	lis_matrix_create(0,&Eulerp);	
+	lis_matrix_set_size(Eulerp,0,lines);
+
+	lis_vector_duplicate(Eulerp,&RHSEulerp);
+	lis_vector_duplicate(Eulerp,&INIguess);
+
 	lis_solver_create(&solver);
+
+	/* Allocate value and index array */
+/*
+	if ((Value = (Real*)malloc(Nelements*sizeof(Real))) == NULL) 
+	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+*/
+	Value = (LIS_SCALAR *)malloc(12*Ngrids*sizeof(LIS_SCALAR));
+
+	if ((indexValue = (int*)malloc(12*Ngrids*sizeof(int))) == NULL) 
+	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+
+	if ((ptr = (int*)malloc((lines+1)*sizeof(int))) == NULL) 
+	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 
 	
 	return;
@@ -518,7 +585,6 @@ void BackEuler_destruct_1d(int Ngrids)
 	int i;
 	if (Cspeeds 	!= NULL) free(Cspeeds);
 	if (RHSEuler	!= NULL) free(RHSEuler);
-	
 	if (Ern1	!= NULL) free(Ern1);
 	if (Ern1p	!= NULL) free(Ern1p);
 	if (Ern2	!= NULL) free(Ern2);
@@ -532,12 +598,18 @@ void BackEuler_destruct_1d(int Ngrids)
 	if (Euler != NULL) free(Euler);
 	if (lEuler != NULL) free(lEuler);
 
+/* For Lis library */
 	
-	lis_matrix_destroy(EulerLU);
+	lis_matrix_destroy(Euler);
 	lis_solver_destroy(solver);	
+	lis_vector_destroy(RHSEuler);
+	lis_vector_destroy(INIguess);
+	
+	if(Value != NULL) free(Value);
+	if(indexValue != NULL) free(indexValue);
+	if(ptr != NULL) free(ptr);
 
 }
 
 
 #endif /* radMHD_INTEGRATOR */
-
