@@ -334,6 +334,7 @@ void ViscStress_aniso(DomainS *pD)
   Real dVxdx,dVydx,dVzdx,dVxdy,dVydy,dVzdy,dVxdz,dVydz,dVzdz;
 
   if (pD->Nx[1] == 1) return;  /* problem must be at least 2D */
+#ifdef MHD
 
 /* Compute viscous fluxes in 1-direction, centered at x1-Faces --------------- */
 
@@ -742,6 +743,7 @@ void ViscStress_aniso(DomainS *pD)
       }
     }}
   }
+#endif /* MHD */
 
   return;
 }
