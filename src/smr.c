@@ -1236,7 +1236,7 @@ void Prolongate(MeshS *pM)
   GridOvrlpS *pCO, *pPO;
   ConsS ProlongedC[2][2][2];
 #if (NSCALARS > 0)
-  int n;
+  int ns;
 #endif
 #ifdef MHD
   Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
@@ -1352,8 +1352,8 @@ void Prolongate(MeshS *pM)
             *(pSnd++) = pG->B3i[k][j][i];
 #endif
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) {
-               *(pSnd++) = pG->U[k][j][i].s[n];
+            for (ns=0; ns<NSCALARS; ns++) {
+               *(pSnd++) = pG->U[k][j][i].s[ns];
             }
 #endif
           }}}
@@ -1497,8 +1497,8 @@ void Prolongate(MeshS *pM)
             BFld[id][k][j][i].z = *(pRcv++);
 #endif
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) {
-              GZ[id][k][j][i].s[n] = *(pRcv++);
+            for (ns=0; ns<NSCALARS; ns++) {
+              GZ[id][k][j][i].s[ns] = *(pRcv++);
             }
 #endif
           }}}
