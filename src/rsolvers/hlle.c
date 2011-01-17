@@ -59,7 +59,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
                    const Prim1DS Wl, const Prim1DS Wr,
                    const Real Bxi, Cons1DS *pFlux)
 {
-  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
+ Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
 #ifndef ISOTHERMAL
   Real hroe;
@@ -69,7 +69,8 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Real dt=pFlux->d;
-  Real Proe, Sigma_rho;
+  Real Proe, Sigma_roe, Sigmat_roe;
+  Real Erroe, Frroe[3], Edd[6];
 #endif
 
   Real ev[NWAVE],al,ar;
@@ -102,7 +103,18 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
-  Sigma_rho = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
+  Sigma_roe = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
+  Sigmat_roe = (sqrtdl*Wl.Sigma_t + sqrtdr*Wr.Sigma_t)*isdlpdr;
+  Erroe = (sqrtdl*Wl.Er + sqrtdr*Wr.Er)*isdlpdr;
+  Frroe[0] = (sqrtdl*Wl.Fr1 + sqrtdr*Wr.Fr1)*isdlpdr;
+  Frroe[1] = (sqrtdl*Wl.Fr2 + sqrtdr*Wr.Fr2)*isdlpdr;
+  Frroe[2] = (sqrtdl*Wl.Fr3 + sqrtdr*Wr.Fr3)*isdlpdr;
+  Edd[0] = (sqrtdl*Wl.Edd_11 + sqrtdr*Wr.Edd_11)*isdlpdr;
+  Edd[1] = (sqrtdl*Wl.Edd_21 + sqrtdr*Wr.Edd_21)*isdlpdr;
+  Edd[2] = (sqrtdl*Wl.Edd_22 + sqrtdr*Wr.Edd_22)*isdlpdr;
+  Edd[3] = (sqrtdl*Wl.Edd_31 + sqrtdr*Wr.Edd_31)*isdlpdr;
+  Edd[4] = (sqrtdl*Wl.Edd_32 + sqrtdr*Wr.Edd_32)*isdlpdr;
+  Edd[5] = (sqrtdl*Wl.Edd_33 + sqrtdr*Wr.Edd_33)*isdlpdr;
 #endif
 
 /* The Roe average of the magnetic field is defined differently.  */
@@ -150,11 +162,11 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
  *****************************/
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Sigma_rho, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 0, ev, NULL, NULL);
 #endif
 
 #ifdef RADIATION_MHD
- esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Sigma_rho,
+ esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 0,  
   hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
 #endif
 
@@ -165,7 +177,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* left state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   
-  asq = eff_sound(Wl,dt);
+  asq = eff_sound(Wl,dt,0);
   asq = asq * asq;
 
 #else 
@@ -191,7 +203,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* right state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   
-  asq = eff_sound(Wr,dt);
+  asq = eff_sound(Wr,dt,0);
   asq = asq * asq;
 
 #else
@@ -309,6 +321,309 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 
   return;
 }
+
+
+
+/* HLLE flux used in total conservative form *
+ * density is still the same *
+ * momentum is rho v + Prat * Fr / Crat *
+ * Energy is P/(gamma-1) + 0.5 * rho * v * v + 0.5 * B^2 + Prat * Er  *
+ */
+/* NOTICE that Ul Wl and Ur, Wr have different Er, Fr parts */
+
+void hlle_thick(const Cons1DS Ul, const Cons1DS Ur,
+                   const Prim1DS Wl, const Prim1DS Wr,
+                   const Real Bxi, Cons1DS *pFlux)
+{
+  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
+  Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
+#ifndef ISOTHERMAL
+  Real hroe;
+#endif
+#if  defined(MHD) || defined(RADIATION_MHD)
+  Real b2roe,b3roe,x,y;
+#endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  Real dt=pFlux->d;
+  Real Proe, Sigma_roe, Sigmat_roe;
+  Real Erroe, Frroe[3], Edd[6];
+#endif
+
+  Real ev[NWAVE],al,ar;
+  Real *pFl, *pFr, *pF;
+  Cons1DS Fl,Fr;
+  int n;
+
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Convert left- and right- states in conserved to primitive variables.
+ */
+
+/*
+  pbl = Cons1D_to_Prim1D(&Ul,&Wl,&Bxi);
+  pbr = Cons1D_to_Prim1D(&Ur,&Wr,&Bxi);
+*/
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Compute Roe-averaged data from left- and right-states
+ */
+
+  sqrtdl = sqrt((double)Wl.d);
+  sqrtdr = sqrt((double)Wr.d);
+  isdlpdr = 1.0/(sqrtdl + sqrtdr);
+
+  droe  = sqrtdl*sqrtdr;
+  v1roe = (sqrtdl*Wl.Vx + sqrtdr*Wr.Vx)*isdlpdr;
+  v2roe = (sqrtdl*Wl.Vy + sqrtdr*Wr.Vy)*isdlpdr;
+  v3roe = (sqrtdl*Wl.Vz + sqrtdr*Wr.Vz)*isdlpdr;
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
+  Sigma_roe = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
+  Sigmat_roe = (sqrtdl*Wl.Sigma_t + sqrtdr*Wr.Sigma_t)*isdlpdr;
+  Erroe = (sqrtdl*Wl.Er + sqrtdr*Wr.Er)*isdlpdr;
+  Frroe[0] = (sqrtdl*Wl.Fr1 + sqrtdr*Wr.Fr1)*isdlpdr;
+  Frroe[1] = (sqrtdl*Wl.Fr2 + sqrtdr*Wr.Fr2)*isdlpdr;
+  Frroe[2] = (sqrtdl*Wl.Fr3 + sqrtdr*Wr.Fr3)*isdlpdr;
+  Edd[0] = (sqrtdl*Wl.Edd_11 + sqrtdr*Wr.Edd_11)*isdlpdr;
+  Edd[1] = (sqrtdl*Wl.Edd_21 + sqrtdr*Wr.Edd_21)*isdlpdr;
+  Edd[2] = (sqrtdl*Wl.Edd_22 + sqrtdr*Wr.Edd_22)*isdlpdr;
+  Edd[3] = (sqrtdl*Wl.Edd_31 + sqrtdr*Wr.Edd_31)*isdlpdr;
+  Edd[4] = (sqrtdl*Wl.Edd_32 + sqrtdr*Wr.Edd_32)*isdlpdr;
+  Edd[5] = (sqrtdl*Wl.Edd_33 + sqrtdr*Wr.Edd_33)*isdlpdr;
+#endif
+
+/* The Roe average of the magnetic field is defined differently.  */
+
+#if defined(MHD) || defined(RADIATION_MHD)
+  b2roe = (sqrtdr*Wl.By + sqrtdl*Wr.By)*isdlpdr;
+  b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
+  x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))/(SQR(sqrtdl + sqrtdr));
+  y = 0.5*(Wl.d + Wr.d)/droe;
+  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
+#endif
+
+/*
+ * Following Roe(1981), the enthalpy H=(E+P)/d is averaged for adiabatic flows,
+ * rather than E or P directly.  sqrtdl*hl = sqrtdl*(el+pl)/dl = (el+pl)/sqrtdl
+ */
+
+#ifndef ISOTHERMAL
+  hroe  = ((Ul.E + Wl.P + pbl)/sqrtdl + (Ur.E + Wr.P + pbr)/sqrtdr)*isdlpdr;
+#endif
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Compute eigenvalues using Roe-averaged values, needed in step 4.
+ */
+
+#ifdef HYDRO
+#ifdef ISOTHERMAL
+  esys_roe_iso_hyd(v1roe, v2roe, v3roe,       ev, NULL, NULL);
+#else
+  esys_roe_adb_hyd(v1roe, v2roe, v3roe, hroe, ev, NULL, NULL);
+#endif /* ISOTHERMAL */
+#endif /* HYDRO */
+
+#ifdef MHD
+#ifdef ISOTHERMAL
+ esys_roe_iso_mhd(droe,v1roe,v2roe,v3roe,     Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
+#else
+ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
+#endif /* ISOTHERMAL */
+#endif /* MHD */
+
+/****************************
+ radiation hydro and radiation mhd 
+ *****************************/
+
+#ifdef RADIATION_HYDRO
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 1, ev, NULL, NULL);
+#endif
+
+#ifdef RADIATION_MHD
+ esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 1, 
+  hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
+#endif
+
+/*--- Step 4. ------------------------------------------------------------------
+ * Compute the max and min wave speeds
+ */
+
+/* left state */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  
+  asq = eff_sound(Wl,dt,1);
+  asq = asq * asq;
+
+#else 
+
+#ifdef ISOTHERMAL
+  asq = Iso_csound2;
+#else
+  asq = Gamma*Wl.P/Wl.d;
+#endif
+
+#endif /* radiation hydro and mhd */
+
+
+#if defined(MHD) || defined(RADIATION_MHD)
+  vaxsq = Bxi*Bxi/Wl.d;
+  ct2 = (Ul.By*Ul.By + Ul.Bz*Ul.Bz)/Wl.d;
+#endif
+  qsq = vaxsq + ct2 + asq;
+  tmp = vaxsq + ct2 - asq;
+  cfsq = 0.5*(qsq + sqrt((double)(tmp*tmp + 4.0*asq*ct2)));
+  cfl = sqrt((double)cfsq);
+
+/* right state */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  
+  asq = eff_sound(Wr,dt,1);
+  asq = asq * asq;
+
+#else
+
+#ifdef ISOTHERMAL
+  asq = Iso_csound2;
+#else
+  asq = Gamma*Wr.P/Wr.d; 
+#endif
+
+#endif /* radiation hydro and mhd */
+
+
+
+#if defined(MHD) || defined(RADIATION_MHD)
+  vaxsq = Bxi*Bxi/Wr.d;
+  ct2 = (Ur.By*Ur.By + Ur.Bz*Ur.Bz)/Wr.d;
+#endif
+  qsq = vaxsq + ct2 + asq;
+  tmp = vaxsq + ct2 - asq;
+  cfsq = 0.5*(qsq + sqrt((double)(tmp*tmp + 4.0*asq*ct2)));
+  cfr = sqrt((double)cfsq);
+
+/* take max/min of Roe eigenvalues and L/R state wave speeds */
+
+  ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
+  al = MIN(ev[0]      ,(Wl.Vx - cfl));
+
+  bp = MAX(ar, 0.0);
+  bm = MIN(al, 0.0);
+
+/*--- Step 5. ------------------------------------------------------------------
+ * Compute L/R fluxes along the lines bm/bp: F_{L}-S_{L}U_{L}; F_{R}-S_{R}U_{R}
+ */
+ /* Flux for total conservative formula */
+/* First update Ul and Ur to total conservative form */
+  
+
+  Fl.d  = Ul.Mx - bm*Ul.d;
+  Fr.d  = Ur.Mx - bp*Ur.d;
+
+  Fl.Mx = Ul.Mx*(Wl.Vx - bm) - bm * Prat * Wl.Fr1 / Crat;
+  Fr.Mx = Ur.Mx*(Wr.Vx - bp) - bp * Prat * Wr.Fr1 / Crat;
+
+  Fl.Mx += Wl.P + Prat * Wl.Edd_11 * Ul.Er;
+  Fr.Mx += Wr.P + Prat * Wr.Edd_11 * Ur.Er;
+
+  Fl.My = Ul.My*(Wl.Vx - bm) - bm * Prat * Wl.Fr2 / Crat;
+  Fr.My = Ur.My*(Wr.Vx - bp) - bp * Prat * Wr.Fr2 / Crat;
+
+  Fl.My += Prat * Wl.Edd_21 * Ul.Er;
+  Fr.My += Prat * Wr.Edd_21 * Ur.Er;
+
+  Fl.Mz = Ul.Mz*(Wl.Vx - bm) - bm * Prat * Wl.Fr3 / Crat;
+  Fr.Mz = Ur.Mz*(Wr.Vx - bp) - bp * Prat * Wr.Fr3 / Crat;
+
+  Fl.Mz += Prat * Wl.Edd_31 * Ul.Er;
+  Fr.Mz += Prat * Wr.Edd_31 * Ur.Er;
+
+/* Need to rotate flux in 2D to be consistent with velocity */
+  Fl.E  = Ul.E*(Wl.Vx - bm) + Wl.P*Wl.Vx + Prat * Crat * Ul.Fr1 - bm * Prat * Wl.Er;
+  Fr.E  = Ur.E*(Wr.Vx - bp) + Wr.P*Wr.Vx + Prat * Crat * Ur.Fr1 - bp * Prat * Wr.Er;
+
+
+#if defined(MHD) || defined(RADIATION_MHD)
+  Fl.Mx -= 0.5*(Bxi*Bxi - SQR(Wl.By) - SQR(Wl.Bz));
+  Fr.Mx -= 0.5*(Bxi*Bxi - SQR(Wr.By) - SQR(Wr.Bz));
+
+  Fl.My -= Bxi*Wl.By;
+  Fr.My -= Bxi*Wr.By;
+    
+  Fl.Mz -= Bxi*Wl.Bz;
+  Fr.Mz -= Bxi*Wr.Bz;
+
+#ifndef ISOTHERMAL
+  Fl.E += (pbl*Wl.Vx - Bxi*(Bxi*Wl.Vx + Wl.By*Wl.Vy + Wl.Bz*Wl.Vz));
+  Fr.E += (pbr*Wr.Vx - Bxi*(Bxi*Wr.Vx + Wr.By*Wr.Vy + Wr.Bz*Wr.Vz));
+#endif /* ISOTHERMAL */
+
+  Fl.By = Wl.By*(Wl.Vx - bm) - Bxi*Wl.Vy;
+  Fr.By = Wr.By*(Wr.Vx - bp) - Bxi*Wr.Vy;
+
+  Fl.Bz = Wl.Bz*(Wl.Vx - bm) - Bxi*Wl.Vz;
+  Fr.Bz = Wr.Bz*(Wr.Vx - bp) - Bxi*Wr.Vz;
+#endif /* MHD */
+
+/* For Er and Fr */
+  Fl.Er = 0.0;
+  Fr.Er = 0.0;
+
+/* Should rotate Edd and Fr for 2D and 3D */
+  Fl.Fr1 = Crat * Wl.Edd_11 * Ul.Er - bm * Wl.Fr1;
+  Fr.Fr1 = Crat * Wr.Edd_11 * Ur.Er - bp * Wr.Fr1;
+
+  Fl.Fr2 = Crat * Wl.Edd_21 * Ul.Er - bm * Wl.Fr2;
+  Fr.Fr2 = Crat * Wr.Edd_21 * Ur.Er - bp * Wr.Fr2;
+
+  Fl.Fr3 = Crat * Wl.Edd_31 * Ul.Er - bm * Wl.Fr3;
+  Fr.Fr3 = Crat * Wr.Edd_31 * Ur.Er - bp * Wr.Fr3;
+
+	
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
+  }
+#endif
+
+#ifdef CYLINDRICAL
+#ifndef ISOTHERMAL
+  Fl.Pflux = Wl.P;
+  Fr.Pflux = Wr.P;
+#if defined(MHD) || defined(RADIATION_MHD)
+  Fl.Pflux += pbl;
+  Fr.Pflux += pbr;
+#endif /* MHD */
+#endif /* ISOTHERMAL */
+#endif /* CYLINDRICAL */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Compute the HLLE flux at interface.
+ */
+
+  pFl = (Real *)&(Fl);
+  pFr = (Real *)&(Fr);
+  pF  = (Real *)pFlux;
+  tmp = 0.5*(bp + bm)/(bp - bm);
+  for (n=0; n<(NWAVE+NSCALARS+4); n++){
+    pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
+  }
+
+#ifdef CYLINDRICAL
+  n = NWAVE+NSCALARS;
+  pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
+#endif 
+
+  return;
+}
+
+
+
+
+
 #endif /* HLLE_FLUX */
 #endif
 

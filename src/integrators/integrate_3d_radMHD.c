@@ -110,6 +110,12 @@ void integrate_3d_radMHD(DomainS *pD)
   return;
 }
 
+void integrate_3d_radMHD_thick(DomainS *pD)
+{
+  
+  return;
+}
+
 /*----------------------------------------------------------------------------*/
 /* integrate_init_3d: Allocate temporary integration arrays 
 */

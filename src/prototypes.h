@@ -285,10 +285,21 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);
 /* rad_utils.c */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-Real eff_sound(const Prim1DS W, Real dt); /* calculate effective sound speed */
+Real eff_sound(const Prim1DS W, Real dt, int flag); /* calculate effective sound speed */
+
+Real eff_sound_thick(const Prim1DS W, Real dt); /* !< Used to limit time step in optical thick regime */
 
 void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz);
 /* function to calculate derivative of source function over conserved variables */
+
+double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,
+	double xacc, double coef1, double coef2, double coef3);
+
+void GetTguess(MeshS *pM); /* Calculate guess temperature from energy conservation */
+
+Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
+
+VDFun_t ChooseMethod(MeshS *pM);
 
 #ifdef RADIATION_TARNSFER
 /* Function to calculate Eddington tensor */

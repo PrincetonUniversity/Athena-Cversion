@@ -54,7 +54,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* dt is passed for RADIATION_HYDRO code */
 #ifdef RADIATION_HYDRO
   Real dt=pFlux->d;
-  Real Proe, aeff, Sigma_rho;
+  Real aeff;
+  Real Proe, Sigma_roe, Sigmat_roe;
+  Real Erroe, Frroe[3], Edd[6];
 #endif
 
   Real ev[NWAVE];
@@ -89,7 +91,18 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 #ifdef RADIATION_HYDRO
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
-  Sigma_rho = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
+  Sigma_roe = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
+  Sigmat_roe = (sqrtdl*Wl.Sigma_t + sqrtdr*Wr.Sigma_t)*isdlpdr;
+  Erroe = (sqrtdl*Wl.Er + sqrtdr*Wr.Er)*isdlpdr;
+  Frroe[0] = (sqrtdl*Wl.Fr1 + sqrtdr*Wr.Fr1)*isdlpdr;
+  Frroe[1] = (sqrtdl*Wl.Fr2 + sqrtdr*Wr.Fr2)*isdlpdr;
+  Frroe[2] = (sqrtdl*Wl.Fr3 + sqrtdr*Wr.Fr3)*isdlpdr;
+  Edd[0] = (sqrtdl*Wl.Edd_11 + sqrtdr*Wr.Edd_11)*isdlpdr;
+  Edd[1] = (sqrtdl*Wl.Edd_21 + sqrtdr*Wr.Edd_21)*isdlpdr;
+  Edd[2] = (sqrtdl*Wl.Edd_22 + sqrtdr*Wr.Edd_22)*isdlpdr;
+  Edd[3] = (sqrtdl*Wl.Edd_31 + sqrtdr*Wr.Edd_31)*isdlpdr;
+  Edd[4] = (sqrtdl*Wl.Edd_32 + sqrtdr*Wr.Edd_32)*isdlpdr;
+  Edd[5] = (sqrtdl*Wl.Edd_33 + sqrtdr*Wr.Edd_33)*isdlpdr;
 #endif
 
 /*
@@ -113,7 +126,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #endif/* HYDRO */
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Sigma_rho, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 0, ev, NULL, NULL);
 #endif
 
 
@@ -128,9 +141,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   cfr = sqrt((double)(Gamma*Wr.P/Wr.d));
 #endif
 #else
-  aeff = eff_sound(Wl,dt);
+  aeff = eff_sound(Wl,dt,0);
   cfl = aeff;
-  aeff = eff_sound(Wr,dt);	
+  aeff = eff_sound(Wr,dt,0);	
   cfr = aeff;
 #endif
 

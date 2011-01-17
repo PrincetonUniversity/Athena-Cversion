@@ -61,6 +61,8 @@ int main(int argc, char *argv[])
 {
   MeshS Mesh;             /* the entire mesh hierarchy, see athena.h */
   VDFun_t Integrate;      /* function pointer to integrator, set at runtime */
+  VDFun_t Integrate_thick;
+
 #ifdef SELF_GRAVITY
   VDFun_t SelfGrav;      /* function pointer to self-gravity, set at runtime */
 #endif
@@ -427,6 +429,8 @@ int main(int argc, char *argv[])
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
 	VMFun_t BackEuler;
 
+	Integrate_thick = ChooseMethod(&Mesh);  /*!< Decide whether optical thick or thin for each cell */
+
 	BackEuler = BackEuler_init(&Mesh);
 
 	bvals_radMHD(&Mesh);
@@ -580,6 +584,15 @@ int main(int argc, char *argv[])
 	 * before the integrator step *
          */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+
+	/* First, do the optical thick part */
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+	  (*Integrate_thick)(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
  
 	(*BackEuler)(&Mesh);
 

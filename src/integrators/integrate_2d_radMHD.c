@@ -187,7 +187,7 @@ void integrate_2d_radMHD(DomainS *pD)
       		W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
     	}
 
-	lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
+	lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,0);
 
 /*------Step 2c: Add source terms to the left and right state for 0.5*dt--------*/
 
@@ -1264,6 +1264,21 @@ void integrate_2d_radMHD(DomainS *pD)
 
  
 }
+
+
+
+void integrate_2d_radMHD_thick(DomainS *pD)
+{
+
+
+
+
+
+
+
+}
+
+
 
 /*----------------------------------------------------------------------------*/
 /* integrate_init_2d:    Allocate temporary integration arrays */

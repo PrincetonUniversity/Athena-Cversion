@@ -1065,7 +1065,7 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
  *    The effective sound speed is calculated as conserved variable formula
  */
 
-Real eff_sound(const Prim1DS W, Real dt)
+Real eff_sound(const Prim1DS W, Real dt, int flag)
 {
 	/* All rad hydro components of W should be updated before this function is called */
 	Real aeff, temperature, SPP, Alpha, dSigmadP;
@@ -1074,6 +1074,8 @@ Real eff_sound(const Prim1DS W, Real dt)
 	int i;
 	for(i=0; i<4; i++)
 		dSigma[i] = 0.0;
+	
+	if(!(flag)){
 
 	temperature = W.P / (W.d * R_ideal);
 	velocity_x = W.Vx;
@@ -1103,7 +1105,66 @@ Real eff_sound(const Prim1DS W, Real dt)
 
 	aeff = sqrt(aeff); 
 
+	}
+	else{
+	/* If optical thick regime */
+	/* Eddington factor is 1/3 in optical thick regime */
+
+	aeff = sqrt(Gamma * W.P / W.d + 4.0 * Prat * W.Er / (9.0 * W.d));
+
+	}
+
 	return aeff;
+}
+
+/* This is used to limit the time step to make modified Godunov step stable */ 
+Real eff_sound_thick(const Prim1DS W, Real dt)
+{
+
+	Real aeff1, aeff2, SFFr, Edd;
+	Real alpha, DetT, DetTrho, DetTE, temperature;
+	Real root1, root2;
+	Real coefa, coefb, coefc, coefd, coefe, coefh, coefr;
+
+	SFFr = -Crat * W.Sigma_t;
+
+	/* Find the maximum Eddington factor to make it safe on either direction*/
+	Edd = W.Edd_11;
+	if(W.Edd_22 > Edd) Edd = W.Edd_22;
+	else if(W.Edd_33 > Edd) Edd = W.Edd_33;
+
+	alpha = (exp(SFFr * dt * 0.5) - 1.0)/(SFFr * dt * 0.5);
+
+	temperature = W.P / (W.d * R_ideal);
+
+	DetT = 1.0 + 4.0 * Prat * pow(temperature, 3.0) * (Gamma - 1.0) / (W.d * R_ideal);
+
+	DetTrho = -W.P / (W.d * W.d * R_ideal * DetT);
+
+	DetTE = (Gamma - 1.0) / (W.d * R_ideal * DetT);
+
+	coefa = 4.0 * Prat * pow(temperature, 3.0) * (Edd + 1.0 - Gamma) * DetTrho;
+
+	coefb = Gamma - 1.0 + 4.0 * Prat * pow(temperature, 3.0) * (Edd + 1.0 - Gamma) * DetTE;
+
+	coefr = -Prat / Crat;
+
+	coefc = Gamma * W.P * alpha / ((Gamma - 1.0) * W.d);
+
+	coefd = Prat * Crat * alpha;
+
+	coefe = 4.0 * Crat * Edd * pow(temperature, 3.0) * DetTrho;
+
+	coefh = 4.0 * Crat * Edd * pow(temperature, 3.0) * DetTE;
+
+	root1 = coefa + coefb * coefc + coefd * coefh + coefe * coefr + coefc * coefh * coefr;
+	root2 = sqrt(4.0 * coefd * (coefb * coefe - coefa * coefh) + pow(root1 ,2.0));
+
+	aeff1 = sqrt(root1 - root2) / sqrt(2.0);
+	aeff2 = sqrt(root1 + root2) / sqrt(2.0);
+	
+	return aeff2;
+
 }
 
 /* function to calculate derivative of source function over conserved variables */
@@ -1275,6 +1336,270 @@ void Eddington_FUN (const GridS *pG, const RadGridS *pRG)
 
 /* end radiation_transfer*/
 
+/* Newton method to find root, which is taken from numerical recipes */
+
+double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,
+	double xacc, double coef1, double coef2, double coef3)
+{
+	int j;
+	double df,dx,dxold,f,fh,fl;
+	double temp,xh,xl,rts;
+
+	int maxit = 400;
+
+	(*funcd)(x1,coef1, coef2, coef3,&fl,&df);
+	(*funcd)(x2,coef1, coef2, coef3,&fh,&df);
+	if ((fl > 0.0 && fh > 0.0) || (fl < 0.0 && fh < 0.0))
+		ath_error("[rtsafe]:Root must be bracketed in rtsafe: Tl: %13.6e Th: %13.6e\n fl: %13.6e\n fh: %13.6e\n",x1, x2, fl, fh);
+	if (fl == 0.0) return x1;
+	if (fh == 0.0) return x2;
+	if (fl < 0.0) {
+		xl=x1;
+		xh=x2;
+	} else {
+		xh=x1;
+		xl=x2;
+	}
+	rts=0.5*(x1+x2);
+	dxold=fabs(x2-x1);
+	dx=dxold;
+	(*funcd)(rts,coef1, coef2, coef3,&f,&df);
+	for (j=1;j<=maxit;j++) {
+		if ((((rts-xh)*df-f)*((rts-xl)*df-f) > 0.0)
+			|| (fabs(2.0*f) > fabs(dxold*df))) {
+			dxold=dx;
+			dx=0.5*(xh-xl);
+			rts=xl+dx;
+			if (xl == rts) return rts;
+		} else {
+			dxold=dx;
+			dx=f/df;
+			temp=rts;
+			rts -= dx;
+			if (temp == rts) return rts;
+		}
+		if (fabs(dx) < xacc) return rts;
+		(*funcd)(rts,coef1, coef2, coef3,&f,&df);
+		if (f < 0.0)
+			xl=rts;
+		else
+			xh=rts;
+	}
+	ath_error("[rtsafe]:Maximum number of iterations exceeded in rtsafe");
+	return 0.0;
+}
+
+
+
+/* Function to calculate Tguess for source term T^4 - Er */
+void GetTguess(MeshS *pM)
+{
+
+	void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
+
+
+	GridS *pG=(pM->Domain[0][0].Grid);
+	int i, j, k;
+	int ie = pG->ie, is = pG->is;
+	int je = pG->je, js = pG->js;
+	int ke = pG->ke, ks = pG->ks;
+	int jl, ju, kl, ku;
+
+	if (pG->Nx[1] > 1) {
+    		ju = pG->je + nghost;
+    		jl = pG->js - nghost;
+  	}
+  	else {
+    		ju = pG->je;
+    		jl = pG->js;
+  	}
+
+  	if (pG->Nx[2] > 1) {
+    		ku = pG->ke + nghost;
+    		kl = pG->ks - nghost;
+  	}
+  	else {
+    		ku = pG->ke;
+    		kl = pG->ks;
+  	}
+
+	Real pressure, Sigma_a, Sigma_t, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr;
+	Real sign1, sign2, coef1, coef2, coef3;
+
+	Real dt, Terr, Ererr;
+	dt = pG->dt;
+	
+	for(k=kl; k<=ku; k++)
+		for(j=jl; j<=ju; j++)
+			for(i=is-nghost; i<=ie+nghost; i++){
+
+				pressure = (pG->U[k][j][i].E - (0.5 * pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + 0.5 * pG->U[k][j][i].M2 * pG->U[k][j][i].M2 
+					+ 0.5 * pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d ) * (Gamma - 1.0);
+/* if MHD - 0.5 * Bx * Bx   */
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+#endif
+
+    				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
+				Sigma_a = pG->U[k][j][i].Sigma_a;
+				Ern =  pG->U[k][j][i].Er;
+
+
+				/* For source term T^4-Er */
+				ETsource = Crat * Sigma_a * (pow(temperature,4.0) - Ern);
+
+				Det = 1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_a * pow(temperature,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_a;
+				Erguess = Ern + dt * ETsource / Det;
+
+				Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
+		
+				/*		Tguess = temperature - dt * (Gamma - 1.0) * Prat * ETsource / (Det * U1d[i].d * R_ideal);
+*/	
+				Ererr = Ern + dt * 0.5 * (ETsource + Crat * Sigma_a * (pow(Tguess,4.0) - Erguess)) - Erguess;
+				Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * Sigma_a * (pow(Tguess,4.0) - Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess; 
+
+				Det =  1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_a * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_a;
+				Ern =  (1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_a * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal)) * Ererr / Det 
+					+ 4.0 * Crat * Sigma_a * pow(Tguess,3.0) * dt * Terr / Det;
+				Erguess += Ern;
+
+				Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
+	
+
+
+		
+
+				sign1 =  pG->U[k][j][i].Er - pow(temperature,4.0);
+				sign2 = Erguess - pow(Tguess, 4.0);
+
+				/* In case overshooting makes relative values of Er and T^4 changed. */  
+				if(sign1 * sign2 < 0.0){
+		
+					/* In case U1d[i].Er is a little negative */
+					if( pG->U[k][j][i].Er < 0.0) pG->U[k][j][i].Er = 0.0;
+
+					coef1 = Prat;
+					coef2 =  pG->U[k][j][i].d * R_ideal / (Gamma - 1.0);
+					coef3 = -pressure/(Gamma - 1.0) - Prat *  pG->U[k][j][i].Er;
+			
+					TEr = pow( pG->U[k][j][i].Er, 0.25);
+					if(temperature > TEr){			
+						Tguess = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+				
+					}
+					else{
+						Tguess = rtsafe(Tequilibrium, temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+			
+					}			
+				}
+
+				pG->Tguess[k][j][i] = Tguess;
+
+			}
+}
+
+/* Function to get the thermal equilibrium radiation 
+ * energy density and gas temperature *
+ * Input: density, thermal + radiation energy density , Er in last step *
+ * Output: equilibrium temperature 
+ */
+Real EquState(const Real density, const Real sum, const Real Er0)
+{
+
+	void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
+
+
+
+
+	Real temperature, TEr, Tguess;
+	Real coef1, coef2, coef3;
+
+
+			coef1 = Prat;
+			coef2 =  density * R_ideal / (Gamma - 1.0);
+			coef3 = -sum;
+		
+			temperature = (sum - Prat * Er0) / (density * R_ideal);
+			if(temperature < 0.0) temperature = 0.0;		
+			TEr = pow(Er0, 0.25);
+
+			if(temperature > TEr){			
+				Tguess = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+				
+			}
+			else{
+				Tguess = rtsafe(Tequilibrium, temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+			}
+
+	return Tguess;		
+}
+
+
+/* Function to find the equilibrium state */
+void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval)
+{
+
+	/* function is 
+	*  coef1 * T^4 + coef2 * T + coef3 == 0 *
+	*/
+
+	*fval = coef1 * pow(T, 4.0) + coef2 * T + coef3;
+	*dfval = 4.0 * coef1 * pow(T, 3.0) + coef2;
+
+	return;
+}
+
+/* set the flag to decide whehter in optical thick regime or not */
+VDFun_t ChooseMethod(MeshS *pM)
+{
+	GridS *pG=(pM->Domain[0][0].Grid);
+	int i, j, k;
+	int ie = pG->ie, is = pG->is;
+	
+	int jl, ju, kl, ku;
+
+	int Dim = 0;
+	for (i=0; i<3; i++) if(pM->Nx[i] > 1) Dim++;
+
+	if (pG->Nx[1] > 1) {
+    		ju = pG->je + nghost;
+    		jl = pG->js - nghost;
+  	}
+  	else {
+    		ju = pG->je;
+    		jl = pG->js;
+  	}
+
+  	if (pG->Nx[2] > 1) {
+    		ku = pG->ke + nghost;
+    		kl = pG->ks - nghost;
+  	}
+  	else {
+    		ku = pG->ke;
+    		kl = pG->ks;
+  	}
+
+	/* Need to add criterian */
+	for(k=kl; k<=ku; k++)
+		for(j=jl; j<=ju; j++)
+			for(i=is-nghost; i<=ie+nghost; i++){
+				pG->U_old[k][j][i] = pG->U[k][j][i];  /*!< save conserved  variables to U_old */ 				
+				pG->Flagtau[k][j][i] = 1; /*!< 1 for optical thick, 0 for optical thin */
+			
+	}
+	
+	switch(Dim){
+	case 1:
+		return integrate_1d_radMHD_thick;
+	case 2:
+		return integrate_2d_radMHD_thick;
+	case 3:
+		return integrate_3d_radMHD_thick;
+	}
+
+	return NULL;
+
+}
 
 #endif 
 /* end radiation_hydro or radiation_MHD */

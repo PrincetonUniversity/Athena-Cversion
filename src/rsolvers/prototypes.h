@@ -35,14 +35,18 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2,
 #ifdef RADIATION_HYDRO
 
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
-  const Real pressure, const Real Sigma_a,
+  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma_a, const Real Sigma_t, const int flag,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5]);
+
+void hlle_thick(const Cons1DS Ul, const Cons1DS Ur,
+                   const Prim1DS Wl, const Prim1DS Wr,
+                   const Real Bxi, Cons1DS *pFlux);
 #endif
 
 #ifdef RADIATION_MHD
 void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3, const Real dt, 
-  const Real pressure, const Real Sigma_a,
+  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma_a, const Real Sigma_t, const int flag,
   const Real h, const Real b1, const Real b2, const Real b3, 
   Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7]);

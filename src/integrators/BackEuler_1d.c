@@ -98,8 +98,11 @@ void BackEuler_1d(MeshS *pM)
 /* Right now, only work for one domain. Modified later for SMR */
 
 
+	
+
   	GridS *pG=(pM->Domain[0][0].Grid);
 	Real hdtodx1 = 0.5*pG->dt/pG->dx1;
+	Real dt = pG->dt;
 	int il,iu, is = pG->is, ie = pG->ie;
   	int i, j;
 	int js = pG->js;
@@ -108,8 +111,7 @@ void BackEuler_1d(MeshS *pM)
 	int index, Matrixiter;
 	Real tempvalue;
 	
-
-
+	
 	Real temperature, velocity, pressure;
 
   	Real theta[7];
@@ -171,6 +173,8 @@ void BackEuler_1d(MeshS *pM)
 /* *****************************************************/
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
 
+	/* calculate the guess temperature */
+	GetTguess(pM);
 
 /* Step 1a: Calculate the Matrix elements  */
 /* ie-is+1 =size1, otherwise it is wrong */
@@ -183,21 +187,14 @@ void BackEuler_1d(MeshS *pM)
 
 
 	for(i=is; i<=ie; i++){
-/* E is the total energy. should subtract the kinetic energy and magnetic energy density */
-    		pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
-			* (Gamma - 1);
-/* if MHD - 0.5 * Bx * Bx   */
-#ifdef RADIATION_MHD
-		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
-#endif
 
-    		temperature = pressure / (U1d[i].d * R_ideal);
+    		temperature = pG->Tguess[ks][js][i];
 		Sigma_a = pG->U[ks][js][i].Sigma_a;
-      
+	
 
 		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
-    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + Crat * pG->dt * Sigma_a 
-				* temperature * temperature * temperature * temperature;
+
+    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + Crat * pG->dt * Sigma_a * pow(temperature,4.0);
     		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + pG->dt *  Sigma_a
 				* temperature * temperature * temperature * temperature * U1d[i].Mx / U1d[i].d;
 
@@ -458,15 +455,15 @@ void BackEuler_1d(MeshS *pM)
 		ath_pout(0,"Matrix Iteration steps: %d\n",Matrixiter);
 	}
 	
+			
+	for(i=is;i<=ie;i++){		
 
-		
-		
-	for(i=is;i<=ie;i++){
 		if((ix1==4)&&(ox1==4)){
 			lis_vector_get_value(INIguess,2*(i-is),&(pG->U[ks][js][i].Er));
 			lis_vector_get_value(INIguess,2*(i-is)+1,&(pG->U[ks][js][i].Fr1));
 			U1d[i].Er		= pG->U[ks][js][i].Er;
-			U1d[i].Fr1		= pG->U[ks][js][i].Fr1;
+			U1d[i].Fr1		= pG->U[ks][js][i].Fr1;			
+
 		}
 		else{
 			pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)+1];
@@ -477,9 +474,9 @@ void BackEuler_1d(MeshS *pM)
 	}
 	/* May need to update Edd_11 */
 
-
+	
 /* Update the ghost zones for different boundary condition to be used later */
-		bvals_radMHD(pM);
+		bvals_radMHD(pM);	
 
 
 /*-----------Finish---------------------*/
@@ -600,16 +597,19 @@ void BackEuler_destruct_1d(int Ngrids)
 
 /* For Lis library */
 	
-	lis_matrix_destroy(Euler);
+	lis_matrix_destroy(Eulerp);
 	lis_solver_destroy(solver);	
-	lis_vector_destroy(RHSEuler);
+	lis_vector_destroy(RHSEulerp);
 	lis_vector_destroy(INIguess);
 	
-	if(Value != NULL) free(Value);
+/*	if(Value != NULL) free(Value);
+
 	if(indexValue != NULL) free(indexValue);
 	if(ptr != NULL) free(ptr);
-
+*/
 }
+
+
 
 
 #endif /* radMHD_INTEGRATOR */

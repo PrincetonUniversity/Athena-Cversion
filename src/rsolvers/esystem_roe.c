@@ -649,7 +649,7 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 
 #ifdef RADIATION_HYDRO
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
-  const Real pressure, const Real Sigma_a,
+  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma_a, const Real Sigma_t, const int flag,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
 {
@@ -663,9 +663,24 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   rho = pressure / rho;
   W.P = pressure;
   W.d = rho;
+  W.Vx = v1;
+  W.Vy = v2;
+  W.Vz = v3;
   W.Sigma_a = Sigma_a;
+  W.Sigma_t = Sigma_t;
+  W.Er = Er;
+  W.Fr1 = Fr[0];
+  W.Fr2 = Fr[1];
+  W.Fr3 = Fr[2];
+  W.Edd_11 = Edd[0];
+  W.Edd_21 = Edd[1];
+  W.Edd_22 = Edd[2];
+  W.Edd_31 = Edd[3];
+  W.Edd_32 = Edd[4];
+  W.Edd_33 = Edd[5];
+  
 
-  aeff = eff_sound(W, dt);
+  aeff = eff_sound(W, dt,flag);
 
 /* Compute eigenvalues (eq. B2) */
 
@@ -756,7 +771,7 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
 
 #ifdef RADIATION_MHD
 void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3, const Real dt, 
-  const Real pressure, const Real Sigma_a,
+  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma_a, const Real Sigma_t, const int flag,
   const Real h, const Real b1, const Real b2, const Real b3, 
   Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
@@ -773,13 +788,27 @@ void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   vaxsq = b1*b1*di;
   /* Input enthalpy is p gamma/(gamma-1)+0.5\rho v^2 + B^2 */ 
   
- /* Only the three components will be used for W */
+ /* All components of W will be used */
   W.P = pressure;
-  W.d = d;
+  W.d = rho;
+  W.Vx = v1;
+  W.Vy = v2;
+  W.Vz = v3;
   W.Sigma_a = Sigma_a;
+  W.Sigma_t = Sigma_t;
+  W.Er = Er;
+  W.Fr1 = Fr[0];
+  W.Fr2 = Fr[1];
+  W.Fr3 = Fr[2];
+  W.Edd_11 = Edd[0];
+  W.Edd_21 = Edd[1];
+  W.Edd_22 = Edd[2];
+  W.Edd_31 = Edd[3];
+  W.Edd_32 = Edd[4];
+  W.Edd_33 = Edd[5];
 
   /* calculate effective sound speed */
-  aeff = eff_sound(W, dt);
+  aeff = eff_sound(W, dt,flag);
   aeffsq = aeff * aeff;
 
 /* Compute fast- and slow-magnetosonic speeds (eq. A10) */

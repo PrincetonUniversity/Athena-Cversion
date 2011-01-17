@@ -147,6 +147,8 @@ void BackEuler_2d(MeshS *pM)
 	
 	/* *****************************************************/
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
+	/* calculate the guess temperature */
+	GetTguess(pM);
 
 
 /* Step 1a: Calculate the Matrix elements  */
@@ -169,6 +171,9 @@ void BackEuler_2d(MeshS *pM)
 #endif
 
     		temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
+
+		temperature = pG->Tguess[ks][j][i];
+
 		/* RHSEuler[0...N-1]  */
 		Sigma_a = pG->U[ks][j][i].Sigma_a;
 

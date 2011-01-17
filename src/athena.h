@@ -406,6 +406,16 @@ typedef struct Grid_s{
   int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
   int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+
+  Real ***Tguess;  /* guess temperature from energy conservation */
+  
+  int ***Flagtau;  /* Flag to choose different integrator in optical thick regime */
+
+  ConsS ***U_old; /* Used to save variables from last time step */
+
+#endif
+
 #ifdef PARTICLES
   int partypes;              /* number of particle types */
   Grain_Property *grproperty;/* array of particle properties of all types */

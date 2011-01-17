@@ -203,6 +203,17 @@ void init_grid(MeshS *pM)
       if (pG->x3MassFlux == NULL) goto on_error13;
 #endif /* SELF_GRAVITY */
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+      pG->Flagtau = (int***)calloc_3d_array(n3z, n2z, n1z, sizeof(int));
+      if (pG->Flagtau == NULL) goto on_error16;
+
+      pG->Tguess = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->Tguess == NULL) goto on_error17;
+
+      pG->U_old = (ConsS***)calloc_3d_array(n3z, n2z, n1z, sizeof(ConsS));
+      if (pG->U_old == NULL) goto on_error18;
+#endif
+
 
 /* Allocate and initialize cylindrical scaling factors */
 #ifdef CYLINDRICAL
@@ -1118,6 +1129,17 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
   return;
 
 /*--- Error messages ---------------------------------------------------------*/
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+   on_error18:
+    free_3d_array(pG->U_old);
+
+   on_error17:
+    free_3d_array(pG->Tguess);
+   
+   on_error16:
+    free_3d_array(pG->Flagtau);
+#endif
+
 
 #ifdef CYLINDRICAL
   on_error15:

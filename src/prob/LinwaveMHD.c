@@ -94,8 +94,8 @@ void problem(DomainS *pDomain)
 	Real flag = 1.0;
 	Real factor = 1.e-3;
 
-	Omegareal = 7.94937;
-	Omegaimg = 0.587018;
+	Omegareal = 418.87;
+	Omegaimg = 6.57626;
 
 	tlim = 2.0 * PI / Omegareal;
 
@@ -111,16 +111,16 @@ void problem(DomainS *pDomain)
 
 	  temperature = T0;
           pGrid->U[k][j][i].d  = rho0 + flag * factor * (1.0e-3 * cos(theta) + 0.0000 * sin(theta));
-          pGrid->U[k][j][i].M1 = flag * factor * 1.0 * (1.2651809667779195e-3 * cos(theta) - 9.342678338278762e-5 * sin(theta));
-          pGrid->U[k][j][i].M2 = flag * factor * 0.0 * (1.2651809667779195e-3 * cos(theta) - 9.342678338278762e-5 * sin(theta));
+          pGrid->U[k][j][i].M1 = flag * factor * 1.0 * (6.666525236328867e-2 * cos(theta) - 1.0466436819689656e-3 * sin(theta));
+          pGrid->U[k][j][i].M2 = flag * factor * 0.0 * (6.666525236328867e-2 * cos(theta) - 1.0466436819689656e-3 * sin(theta));
           pGrid->U[k][j][i].M3 = 0.0;
 
-          pGrid->U[k][j][i].E = E0 + flag * factor * (2.387826854962222e-3 * cos(theta) - 3.545635964979445e-4 * sin(theta));
+          pGrid->U[k][j][i].E = E0 + flag * factor * (1.9997721119694055e-3 * cos(theta) - 1.5702329900518402e-5 * sin(theta));
 
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; /* Set to be a constant in 1D. To be modified later */
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
-	 pGrid->U[k][j][i].Sigma_t = 10.0;
-	 pGrid->U[k][j][i].Sigma_a = 10.0;
+	 pGrid->U[k][j][i].Sigma_t = 1.e4;
+	 pGrid->U[k][j][i].Sigma_a = 1.e4;
 
 #ifdef RADIATION_MHD
 	 /* interface magnetic field */
@@ -132,9 +132,9 @@ void problem(DomainS *pDomain)
           pGrid->B3i[k][j][i] = 0.0;
         
 #endif
-	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (2.0922674468559182e-3 * cos(theta) - 8.35518866314462e-4 * sin(theta));
-	  pGrid->U[k][j][i].Fr1 = flag * factor * 1.0 * (-1.7478816069974772e-4 * cos(theta) - 4.3823239331717244e-4 * sin(theta));
-	  pGrid->U[k][j][i].Fr2 = flag * factor * 0.0 * (-1.7478816069974772e-4 * cos(theta) - 4.3823239331717244e-4 * sin(theta));
+	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (1.3327256319151269e-3 * cos(theta) - 4.1872879525081944e-5 * sin(theta));
+	  pGrid->U[k][j][i].Fr1 = flag * factor * 1.0 * (8.879932817257297e-6 * cos(theta) - 4.1864072608532865e-7 * sin(theta));
+	  pGrid->U[k][j][i].Fr2 = flag * factor * 0.0 * (8.879932817257297e-6 * cos(theta) - 4.1864072608532865e-7 * sin(theta));
 	  pGrid->U[k][j][i].Fr3 = 0.0;	
         }
       }
