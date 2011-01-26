@@ -2011,6 +2011,8 @@ void Fargo(DomainS *pD)
         pG->U[k][jj][i].E -= qom_dt*pG->U[k][jj][i].B1c*
          (pG->U[k][jj][i].B2c - (qom_dt/2.)*pG->U[k][jj][i].B1c);
 #endif /* MHD */
+	pG->U[k][jj][i].E += qom_dt*pG->U[k][jj][i].M1*
+	  pG->U[k][jj][i].M2/pG->U[k][jj][i].d;
         FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;
 #endif /* ADIABATIC */
 /* Only store Bz and Bx in that order.  This is to match order in FargoFlx:
@@ -2142,7 +2144,7 @@ void Fargo(DomainS *pD)
       yshear = -qshear*Omega_0*x1*pG->dt;
 #endif
 #ifdef CYLINDRICAL
-			yshear = ((*OrbitalProfile)(x1))*pG->dt;
+      yshear = ((*OrbitalProfile)(x1))*pG->dt;
 #endif
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
@@ -2214,7 +2216,7 @@ void Fargo(DomainS *pD)
       yshear = -qshear*Omega_0*(x1 - 0.5*pG->dx1)*pG->dt;
 #endif
 #ifdef CYLINDRICAL
-			yshear = ((*OrbitalProfile)(ri[i]))*pG->dt;
+      yshear = ((*OrbitalProfile)(ri[i]))*pG->dt;
 #endif
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
