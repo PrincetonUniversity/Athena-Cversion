@@ -284,7 +284,8 @@ typedef struct GPCouple_s{
 
 typedef struct Rad_s {
   Real S;                       /* total source function */
-  Real J;                       /* mean intensity */
+  Real J;                       /* 0th moment: mean intensity */
+  Real H[3];                    /* 1st moment: flux */
   Real K[6];                    /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
   Real B;                       /* thermal source function */
   Real eps;                     /* thermalization coeff */
@@ -300,28 +301,20 @@ typedef struct Rad_s {
 
 typedef struct RadGrid_s {
 
-  int nmu;           /* # of polar angles */
-  int ng;            /* # of azimuthal angles */
+  int nmu;          /* # of polar angles/quadrant */
+  int noct;          /* # of octants in use: 2, 4, or 8 */
+  int nang;          /* # of angles/quadrant (nang = nmuv*(nmuv+1)/2)*/
   int nf;            /* # of frequencies */
 
-  Real **w;          /* angular quadrature weights */
-  Real *mu;          /* polar angle array */
-  Real **gamma;       /* azimutha angle array */
+  Real ***mu;       /* direction cosine relative to x1, x2, x3 axis */
+  Real *wmu;         /* weights for angular quad. */
 
   RadS ****R;        /* array of radiation variables */
 
   Real *****r1imu;   /* intensity on R side in x1-dir  */
-  int r1ls, r1le;
-  int r1ms, r1me;
   Real *****l1imu;   /* intensity on L side in x1-dir  */
-  int l1ls, l1le;
-  int l1ms, l1me;
-  Real ******r2imu;   /* intensity on R side in x2-dir  */
-  int r2ls, r2le;
-  int r2ms, r2me;
-  Real ******l2imu;   /* intensity on L side in x2-dir  */
-  int l2ls, l2le;
-  int l2ms, l2me;
+  Real *****r2imu;  /* intensity on R side in x2-dir  */
+  Real *****l2imu;  /* intensity on L side in x2-dir  */
   Real *****r3imu;   /* intensity on R side in x3-dir  */
   Real *****l3imu;   /* intensity on L side in x3-dir  */
 

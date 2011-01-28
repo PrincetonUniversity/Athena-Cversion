@@ -42,6 +42,8 @@ void get_weights_parabolic(Real dtaum, Real dtaup, Real *edtau,
 
 void get_weights_linear(Real dtaum, Real *edtau, Real *a0, Real *a1);
 
+int permutation(int i, int j, int k, int **pl, int np);
+
 /* all 1D formal solutions algorithms contain the following functions */
 void formal_solution_1d(RadGridS *pRG, Real *dSrmax);
 void formal_solution_1d_init(RadGridS *pRG);

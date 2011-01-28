@@ -1,9 +1,9 @@
 #include "copyright.h"
 
 /*==============================================================================
- * FILE: rad1d.c
+ * FILE: rad2d.c
  *
- * PURPOSE:  Problem generator for a 1D test of radiative transfer routine
+ * PURPOSE:  Problem generator for a 2D test of radiative transfer routine
  *
  * Initial conditions available:
  *  iang = 1 - use Gauss-Legendre quadrature
@@ -20,17 +20,18 @@
 #include "globals.h"
 #include "prototypes.h"
 
-static Real eps0;
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * gauleg()           - gauss-legendre quadrature from NR
  *============================================================================*/
+
 static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k);
 static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
 		      const int k);
 static Real const_opacity(const GridS *pG, const int ifr, const int i, const int j, 
 			  const int k);
+Real chi0;
 
 void problem(DomainS *pDomain)
 {
@@ -40,50 +41,52 @@ void problem(DomainS *pDomain)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int nf=pRG->nf, nang=pRG->nang;
-  int ifr, i, m;
-  Real x1, xtop, xbtm;  
-  Real den = 1.0;
-  Real *tau = NULL;
+  int i, j, k, ifr, l, m;
+  Real tau0;
+  int iang, ihor1, ihor2;
 
 /* Read problem parameters. */
 
-  eps0 = par_getd("problem","eps");
+  tau0 = par_getd("problem","tau0");
+  iang = par_geti("problem","iang");
+  ihor1 = par_geti("problem","ihor1");
+  ihor2 = par_geti("problem","ihor2");
+  printf("beam1: %g %g\n",pRG->mu[0][iang][0],pRG->mu[0][iang][1]);
+  printf("beam2: %g %g\n",pRG->mu[1][iang][0],pRG->mu[1][iang][1]);
+  chi0 = tau0 / pG->dx2;
 
 /* Setup density structure */ 
-/* tau is used to initialize density grid */
-  if ((tau = (Real *)calloc_1d_array(pG->Nx[0]+nghost+2,sizeof(Real))) == NULL) {
-    ath_error("[problem]: Error allocating memory");
-  }
 
-  xtop = pDomain->RootMaxX[0];
-  xbtm = pDomain->RootMinX[0];
-
-  for(i=pG->is; i<=pG->ie+2; i++) {
-    x1 = pG->MinX[0] + (Real)(i-is)*pG->dx1;
-    tau[i] = pow(10.0,-3.0 + 10.0 * ((x1-xbtm)/(xtop-xbtm)));
-  }
-
-  for (i=is-1; i<=ie+1; i++) {
-    pG->U[ks][js][i].d  = (tau[i+1] - tau[i]) / pG->dx1;
-  }
-/* Free up memory */
-  free_1d_array(tau);
-
-/* Initialize mean intensity */
-  for(ifr=0; ifr<nf; ifr++)
-    for(i=pRG->is; i<=pRG->ie+1; i++)
-      pRG->R[0][js][i][ifr].J = 1;
-
-/* Initialize boundary emission */
-
-  for(ifr=0; ifr<nf; ifr++) 
-    for(m=0; m<=nang; m++) {
-/* lower boundary is tau=0, no irradiation */
-      pRG->l1imu[ifr][pRG->ks][pRG->js][0][m] = 0.0; 
-/* upper boundary is large tau, eps=1 */
-      pRG->r1imu[ifr][pRG->ks][pRG->js][1][m] = 1.0;
+  for (j=js-1; j<=je+1; j++) {
+    for (i=is-1; i<=ie+1; i++) {
+      pG->U[ks][j][i].d  = 1.0;
     }
+  }
 
+/* Initialize source function */
+  for(ifr=0; ifr<nf; ifr++)
+    for (j=js; j<=je+1; j++)
+      for(i=is-1; i<=ie+1; i++)
+	pRG->R[0][j][i][ifr].S = 0.;
+
+/* ------- Initialize boundary emission ---------------------------------- */
+
+  for(ifr=0; ifr<nf; ifr++) {
+    for(j=pRG->js-1; j<=pRG->je+1; j++)
+      for(l=0; l<4; l++) 
+	for(m=0; m<nang; m++) {
+	  pRG->r1imu[ifr][pRG->ks][j][l][m] = 0.0;
+	  pRG->l1imu[ifr][pRG->ks][j][l][m] = 0.0;
+	}
+    for(i=pRG->is-1; i<=pRG->ie+1; i++)
+      for(l=0; l<4; l++) 
+	for(m=0; m<nang; m++) {
+	  pRG->r2imu[ifr][pRG->ks][i][l][m] = 0.0;
+	  pRG->l2imu[ifr][pRG->ks][i][l][m] = 0.0;
+	}
+    pRG->l2imu[ifr][pRG->ks][ihor1][0][iang] = 1.0;
+    pRG->l2imu[ifr][pRG->ks][ihor2][1][iang] = 1.0;
+  }
 /* enroll radiation specification functions */
 get_thermal_source = const_B;
 get_thermal_fraction = const_eps;
@@ -136,14 +139,14 @@ void Userwork_after_loop(MeshS *pM)
 static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k)
 {
-  return 1.0;
+  return 0.0;
 }
 
 static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
 		      const int k)
 {
 
-  return eps0;
+  return 0.0;
   
 }
 
@@ -151,8 +154,6 @@ static Real const_opacity(const GridS *pG, const int ifr, const int i, const int
 			  const int k)
 {
 
-  return pG->U[k][j][i].d;
+  return chi0;
   
 }
-
-

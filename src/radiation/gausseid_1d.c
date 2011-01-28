@@ -14,7 +14,6 @@
  *   gausseid_pass_pointers_to_mg_1d()
  *============================================================================*/
 
-
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
@@ -26,75 +25,70 @@
 #ifdef RADIATION_TRANSFER
 #ifdef GAUSSEID
 
-#ifdef RAD_MULTIG
-static Real ******psi = NULL;
-static Real ***psiint = NULL;
-#else
 static Real *****psi = NULL;
 static Real **psiint = NULL;
-#endif
-static Real *mu1 = NULL, *mu2 = NULL;
+static Real *muinv = NULL, *mu2 = NULL;
 static Real ***imuo = NULL;
 static Real sorw, dsrold, dsrmx;
 static int isor;
+static int svwght, frstit;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   sweep_1d()     - computes a single sweep in one direction (up or down)
  *   update_sfunc() - updates source function after compute of mean intensity
  *============================================================================*/
-static void sweep_1d(RadGridS *pRG, int sz);
+static void sweep_1d(RadGridS *pRG, int sx);
 static void update_sfunc(RadS *R, Real *deltas);
 
 void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
 {
-  int i, l;
-  int nmu = pRG->nmu, nmu2 = pRG->nmu / 2;
-  int ng = pRG->ng, ng2 = pRG->ng / 2;
+  int i, m;
   int ks = pRG->ks, js = pRG->js;
   int is = pRG->is, ie = pRG->ie; 
-  int ifr, nf = pRG->nf;
+  int ifr, nf = pRG->nf, nang = pRG->nang;
 
 /* Initialize dsrmx */
   dsrmx = 0.0;
 
 /* initialize mean intensities at all depths to zero */
-  for(i=is-1; i<ie+1; i++)
+  for(i=is-1; i<=ie+1; i++)
     for(ifr=0; ifr<nf; ifr++) {
       pRG->R[ks][js][i][ifr].J = 0.0;
       pRG->R[ks][js][i][ifr].K[0] = 0.0;
     }
+
 /* Compute formal solution for all downward going rays in 
- *  each vertical gridzone */
+ * each vertical gridzone */
 
 /* Account for ix1 boundary condition */
   for(ifr=0; ifr<nf; ifr++)
-    for(l=nmu2; l<nmu; l++) 
-      imuo[ifr][l][0] = pRG->l1imu[ks][js][ifr][l][0];
+    for(m=0; m<nang; m++) 
+      imuo[ifr][0][m] = pRG->l1imu[ifr][ks][js][0][m];
 
-/* sweep downward z */
+/* sweep forward in x1 */
   sweep_1d(pRG, 1);
 
 /* update outward emission at ox1 boundary */
   for(ifr=0; ifr<nf; ifr++)
-    for(l=nmu2; l<nmu; l++) 
-      pRG->r1imu[ks][js][ifr][l][0] = imuo[ifr][l][0];
+    for(m=0; m<nang; m++) 
+      pRG->r1imu[ifr][ks][js][0][m] = imuo[ifr][0][m];
 
 /* Compute formal solution for all upward going rays in 
  * each vertical gridzone */
 
 /* Account for ox1 boundary condition */
   for(ifr=0; ifr<nf; ifr++)
-    for(l=0; l<nmu2; l++) 
-      imuo[ifr][l][0] = pRG->r1imu[ks][js][ifr][l][0];
+    for(m=0; m<nang; m++) 
+      imuo[ifr][1][m] = pRG->r1imu[ifr][ks][js][1][m];
 
 /* sweep upward */
   sweep_1d(pRG, -1);
   
 /* update outward emission at ix1 boundary */
   for(ifr=0; ifr<nf; ifr++)
-    for(l=0; l<nmu2; l++) 
-      pRG->l1imu[ks][js][ifr][l][0] = imuo[ifr][l][0];
+    for(m=0; m<nang; m++) 
+      pRG->l1imu[ifr][ks][js][1][m] = imuo[ifr][1][m];
 
 /* Evaluate relative change if SOR */
   if ((dsrmx < 0.03) && (isor == 1) ) {
@@ -104,28 +98,25 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
   dsrold = dsrmx;
   (*dSrmax) = dsrmx;
 
+/* flag for storing lamstr on first iteration */
+  if(svwght == 0) frstit = 0;
+
   return;
 }
 
-
 static void sweep_1d(RadGridS *pRG, int sx)
 {
-  int it0, i, l;
-  int nmu = pRG->nmu, nmu2 = pRG->nmu/2;
-  int ng = pRG->ng, ng2 = pRG->ng/2;
+  int it0, ifr, i, l, m;
   int js = pRG->js, ks = pRG->ks;
   int is = pRG->is, ie = pRG->ie;
-  int ifr, nf = pRG->nf;
-  Real imu, S0, S2;
-  Real am, am1, bm, bm1;
-  Real mus, mue, gs, ge;
+  int nf = pRG->nf, nang = pRG->nang;
+  Real imu, wimu, S0, S2;
   Real deltas;
+  Real chio, chim, chip;
+  Real dtaum, dtaup, dx = pRG->dx1;
+  Real edtau, a0, a1, a2, a3;
 
-  if (sx == 1) {
-    mus = nmu2; mue = nmu-1;
-  } else {
-    mus = 0; mue = nmu2-1;
-  }
+  if (sx == 1) l = 0; else l = 1;
 
   for(it0=is; it0<=ie; it0++) {
      if (sx == 1) 
@@ -134,43 +125,53 @@ static void sweep_1d(RadGridS *pRG, int sx)
        i = ie + is - it0;
 
      for(ifr=0; ifr<nf; ifr++) {
-       for(l=mus; l<=mue; l++) {
+       S0 = pRG->R[ks][js][i-sx][ifr].S;
+       S2 = pRG->R[ks][js][i+sx][ifr].S;
+       if(svwght == 0) chio = pRG->R[ks][js][i][ifr].chi;
+       for(m=0; m<nang; m++) {
+	 if(svwght == 1) {
+	   imu = psi[i][ifr][l][m][1] * S0 +
+	         psi[i][ifr][l][m][2] * pRG->R[ks][js][i][ifr].S +
+	         psi[i][ifr][l][m][3] * S2;
+	   if (imu < 0.0) imu=0.0;
+	   imu += psi[i][ifr][l][m][0] * imuo[ifr][l][m];	
+	 } else {
+	    chim = pRG->R[ks][js][i-sx][ifr].chi;
+	    chip = pRG->R[ks][js][i+sx][ifr].chi;
+	    
+	    dtaum = 0.5 * (chim + chio) * dx * muinv[m]; 
+	    dtaup = 0.5 * (chip + chio) * dx * muinv[m]; 
+	    get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);	
 
-	 S0 = pRG->R[ks][js][i-sx][ifr].S;
-	 S2 = pRG->R[ks][js][i+sx][ifr].S;
-#ifdef RAD_MULTIG
-	 imu = psi[img][i][ifr][l][0][1] * S0 +
-	       psi[img][i][ifr][l][0][2] * pRG->R[ks][js][i][ifr].S +
-	       psi[img][i][ifr][l][0][3] * S2;
-	 if (imu < 0.0) imu=0.0;
-	 imu += psi[img][i][ifr][l][0][0] * imuo[ifr][l][0]; 
-#else
-	 imu = psi[i][ifr][l][0][1] * S0 +
-	       psi[i][ifr][l][0][2] * pRG->R[ks][js][i][ifr].S +
-	       psi[i][ifr][l][0][3] * S2;
-	 if (imu < 0.0) imu=0.0;
-	 imu += psi[i][ifr][l][0][0] * imuo[ifr][l][0];	
-#endif      
-/* Add imu to mean intensity and save for next iteration */
-	 pRG->R[ks][js][i][ifr].J += pRG->w[l][0] * imu;
-	 pRG->R[ks][js][i][ifr].K[0] += mu2[l] * pRG->w[l][0] * imu;
+	    imu = a0 * S0 + a1 * pRG->R[ks][js][i][ifr].S + a2 * S2;
+	    if (imu < 0.0) imu=0.0;
+	    imu += edtau * imuo[ifr][l][m];
+/* only compute lamstr and psiint on first iteration */
+	    if(frstit == 1) {
+	      pRG->R[ks][js][i][ifr].lamstr += pRG->wmu[m] * a1;
+	      if (sx == 1) psiint[i][ifr] += pRG->wmu[m] * a2; 
+	    }
+	 }
+/* Add to mean intensity and save for next iteration */
+	 wimu = pRG->wmu[m] * imu;
+	 pRG->R[ks][js][i][ifr].J += wimu;
+	 pRG->R[ks][js][i][ifr].K[0] += mu2[m] * wimu;
 
-	 imuo[ifr][l][0] = imu;
+	 imuo[ifr][l][m] = imu;
        }
 
-       if (sx == -1) {
+      if (sx == -1) {
 	 update_sfunc(&(pRG->R[ks][js][i][ifr]), &deltas);
-#ifdef RAD_MULTIG
-	 for(l=mus; l<=mue; l++)
-	   imuo[ifr][l][0] += deltas * pRG->w[l][0] * 
-	     psi[img][i][ifr][l][0][2];       
-	 pRG->R[ks][js][i-1][ifr].J += deltas * psiint[img][i-1][ifr];
-#else
-	 for(l=mus; l<=mue; l++)
-	   imuo[ifr][l][0] += deltas * pRG->w[l][0] * 
-	     psi[i][ifr][l][0][2];       
+	 if(svwght == 1) {
+	   for(m=0; m<nang; m++) {
+	     imuo[ifr][l][m] += deltas * pRG->wmu[m] *
+	       psi[i][ifr][l][m][2];       
+	   }
+	 } else {
+	   for(m=0; m<nang; m++) 
+	     imuo[ifr][l][m] += deltas * pRG->wmu[m] * a0;	   
+	 }
 	 pRG->R[ks][js][i-1][ifr].J += deltas * psiint[i-1][ifr];
-#endif
        }
      }
   }
@@ -192,29 +193,15 @@ static void update_sfunc(RadS *R, Real *deltas)
   return;
 }
 
-
 void formal_solution_1d_destruct(void)
 {
 
   int i;
 
-#ifdef RAD_MULTIG
-  if (psi != NULL) {
-    for(i=0; i<nmgrid; i++)
-      if (psi[i] != NULL) free_5d_array(psi[i]);
-    free(psi);
-  }
-  if (psiint != NULL) {
-    for(i=0; i<nmgrid; i++)
-      if (psiint[i] != NULL) free_2d_array(psiint[i]);
-    free(psiint);
-  }
-#else
   if (psi != NULL) free_5d_array(psi);
   if (psiint != NULL) free_2d_array(psiint);
-#endif
   if (imuo != NULL) free_3d_array(imuo);
-  if (mu1 != NULL) free(mu1);
+  if (muinv != NULL) free(muinv);
   if (mu2 != NULL) free(mu2);
 
   return;
@@ -223,121 +210,85 @@ void formal_solution_1d_destruct(void)
 void formal_solution_1d_init(RadGridS *pRG)
 {
   int nx1 = pRG->Nx[0];
-  int nmu = pRG->nmu, nmu2 = pRG->nmu/2, ng = pRG->ng;
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, ks = pRG->ks;
-  int ifr, nf = pRG->nf;
-  int i, l;
+  int nf = pRG->nf, nang = pRG->nang;
+  int ifr, i, l, m;
   int sx;
   Real dx = pRG->dx1;
   Real edtau, a0, a1, a2;
   Real chim, chio, chip, dtaum, dtaup;
 
+  svwght = par_geti("radiation","svwght");
+  if (svwght == 0) frstit = 1;
+
 /* Initialize variables for sor*/
-  isor = par_geti_def("problem","isor",0);
+  isor = par_geti_def("radiation","isor",0);
   sorw = 1.0;
   dsrold = 0.0;
 
-  if ((mu1 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
+  if ((imuo = (Real ***)calloc_3d_array(nf,2,nang,sizeof(Real))) == NULL) 
     goto on_error;
 
-  if ((mu2 = (Real *)calloc(nmu,sizeof(Real))) == NULL)
+  if ((muinv = (Real *)calloc(nang,sizeof(Real))) == NULL)
     goto on_error;
 
-  for(l=0; l<nmu; l++) {
-    mu1[l] = fabs(1.0 / pRG->mu[l]);
-    mu2[l] = pRG->mu[l] * pRG->mu[l];
+  if ((mu2 = (Real *)calloc(nang,sizeof(Real))) == NULL)
+    goto on_error;
+
+  for(m=0; m<nang; m++) {
+    muinv[m] = fabs(1.0 / pRG->mu[0][m][0]);
+    mu2[m] = pRG->mu[0][m][0] * pRG->mu[0][m][0];
   }
-
-#ifdef RAD_MULTIG
-  if ((psi = (Real ******)calloc(nmgrid,sizeof(Real*****))) == NULL) 
-    goto on_error;
-  for(i=0; i<nmgrid; i++)
-    psi[i] = NULL;
-
-  if ((psiint = (Real ***)calloc(nmgrid,sizeof(Real**))) == NULL) 
-    goto on_error;
-  for(i=0; i<nmgrid; i++)
-    psiint[i] = NULL;
-
-  if ((psi[0] = (Real *****)calloc_5d_array(nx1+2,nf,nmu,ng,4,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if ((psiint[0] = (Real **)calloc_2d_array(nx1+2,nf,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  for(i=is; i<=ie; i++) 
-    for(ifr=0; ifr<nf; ifr++) {
-      chio = pRG->R[ks][js][i][ifr].chi;
-      for(l=0; l<nmu; l++) {
-	if(l < nmu2) sx = -1; else sx = 1;
-
-	chim = pRG->R[ks][js][i-sx][ifr].chi;
-	chip = pRG->R[ks][js][i+sx][ifr].chi;
-      
-	dtaum = 0.5 * (chim + chio) * dx * mu1[l]; 
-	dtaup = 0.5 * (chip + chio) * dx * mu1[l]; 
-	get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);	
-    
-	psi[0][i][ifr][l][0][0] = edtau;
-	psi[0][i][ifr][l][0][1] = a0;
-	psi[0][i][ifr][l][0][2] = a1;
-	psi[0][i][ifr][l][0][3] = a2;
-	pRG->R[ks][js][i][ifr].lamstr += pRG->w[l][0] * a1;
-	if (sx == 1) 
-	  psiint[0][i][ifr] += pRG->w[l][0] * a2;
-      }
-    }
-#else
-  if ((psi = (Real *****)calloc_5d_array(nx1+2,nf,nmu,ng,4,sizeof(Real))) == NULL) 
-    goto on_error;
 
   if ((psiint = (Real **)calloc_2d_array(nx1+2,nf,sizeof(Real))) == NULL) 
     goto on_error;
 
-  for(i=is; i<=ie; i++) 
-    for(ifr=0; ifr<nf; ifr++) {
-      chio = pRG->R[ks][js][i][ifr].chi;
-      for(l=0; l<nmu; l++) {
-	if(l < nmu2) sx = -1; else sx = 1;
+  if(svwght == 1) {
+/* compute weights once and save for next iteration */
+    if ((psi = (Real *****)calloc_5d_array(nx1+2,nf,2,nang,4,sizeof(Real))) == NULL) 
+      goto on_error;
 
-	chim = pRG->R[ks][js][i-sx][ifr].chi;
-	chip = pRG->R[ks][js][i+sx][ifr].chi;
-      
-	dtaum = 0.5 * (chim + chio) * dx * mu1[l]; 
-	dtaup = 0.5 * (chip + chio) * dx * mu1[l]; 
-	get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);	
-    
-	psi[i][ifr][l][0][0] = edtau;
-	psi[i][ifr][l][0][1] = a0;
-	psi[i][ifr][l][0][2] = a1;
-	psi[i][ifr][l][0][3] = a2;
-	pRG->R[ks][js][i][ifr].lamstr += pRG->w[l][0] * a1;
-	if (sx == 1) 
-	  psiint[i][ifr] += pRG->w[l][0] * a2; 
+    for(i=is; i<=ie; i++) 
+      for(ifr=0; ifr<nf; ifr++) {
+	chio = pRG->R[ks][js][i][ifr].chi;
+	for(l=0; l<2; l++) {
+	  if(l == 0) sx = 1; else sx = -1;
+	  for(m=0; m<nang; m++) { 
+	    chim = pRG->R[ks][js][i-sx][ifr].chi;
+	    chip = pRG->R[ks][js][i+sx][ifr].chi;
+	    
+	    dtaum = 0.5 * (chim + chio) * dx * muinv[m]; 
+	    dtaup = 0.5 * (chip + chio) * dx * muinv[m]; 
+	    get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);	
+	    
+	    psi[i][ifr][l][m][0] = edtau;
+	    psi[i][ifr][l][m][1] = a0;
+	    psi[i][ifr][l][m][2] = a1;
+	    psi[i][ifr][l][m][3] = a2;
+	    pRG->R[ks][js][i][ifr].lamstr += pRG->wmu[m] * a1;
+	    if (sx == 1) 
+	      psiint[i][ifr] += pRG->wmu[m] * a2; 
+	  }
+	}
       }
-    }
-#endif
-
-  if ((imuo = (Real ***)calloc_3d_array(nf,nmu,ng,sizeof(Real))) == NULL) 
-    goto on_error;
-
+  }
+  
   return;
 
   on_error:
   formal_solution_1d_destruct();
-  ath_error("[formal_solution_1d_init]: Error allocating memory\n");
+  ath_error("[formal_solution__1d_init]: Error allocating memory\n");
   return;
 
 }
 
 #ifdef RAD_MULTIG
-void gs_pass_pointers_to_mg_1d(Real *******psi0, Real **mu10, Real ****psiint0)
+void gausseid_pass_pointers_to_mg_1d(Real *******psi0, Real **muinv0, Real ****psiint0)
 {
   *psi0 = psi;
-  *mu10 = mu1;
+  *muinv0 = muinv;
   *psiint0 = psiint;
-
   return;
 }
 #endif /* RAD_MULTIG */

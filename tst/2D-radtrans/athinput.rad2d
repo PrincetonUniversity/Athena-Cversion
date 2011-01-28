@@ -35,23 +35,23 @@ tlim            = 1e5  # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 128        # Number of zones in X-direction
+Nx1             = 64	    # Number of zones in X-direction
 x1min           = 0.0       # minimum value of X
-x1max           = 1.0       # maximum value of X
+x1max           = 1.0	    # maximum value of X
 bc_ix1          = 4         # boundary condition flag for inner-I (X1)
 bc_ox1          = 4         # boundary condition flag for outer-I (X1)
 rbc_ix1         = 1         # rad boundary condition flag for inner-I (X1)
 rbc_ox1         = 1         # rad boundary condition flag for outer-I (X1)
-NGrid_x1        = 8         # with MPI, number of Grids in X1 coordinate
+NGrid_x1        = 2         # with MPI, number of Grids in X1 coordinate
 
-Nx2             = 128         # Number of zones in Y-direction
+Nx2             = 64         # Number of zones in Y-direction
 x2min           = 0.0       # minimum value of Y
 x2max           = 1.0       # maximum value of Y
 bc_ix2          = 2         # boundary condition flag for inner-J (X2)
 bc_ox2          = 2         # boundary condition flag for outer-J (X2)
 rbc_ix2         = 2         # rad boundary condition flag for inner-J (X2)
 rbc_ox2         = 2         # rad boundary condition flag for outer-J (X2)
-NGrid_x2        = 8         # with MPI, number of Grids in X2 coordinate
+NGrid_x2        = 2         # with MPI, number of Grids in X2 coordinate
 
 
 Nx3             = 1         # Number of zones in X3-direction
@@ -63,16 +63,18 @@ rbc_ix3         = 2         # rad boundary condition flag for inner-K (X3)
 rbc_ox3         = 2         # rad boundary condition flag for outer-K (X3)
 NGrid_x3        = 1         # with MPI, number of Grids in X3 coordinate
 
+<radiation>
+lte             = 0	     # lte = 0 -- iterate S; 1 -- iterate J
+niter		= 100	     # maximum number of rad trans iterations
+dScnv		= 1.0e-8     # relative change in S (or J) required for conv.
+nf		= 1	     # number of frequencies
+nmu		= 2	     # number of polar angles/quadrant (1<= nmu <= 6)
+svwght          = 0          # 0 save integration weight; 1 compute each iter
+
 <problem>
 iso_csound      = 0.00408    # Isothermal sound speed squared
 gamma           = 1.6666666666666667    # gamma = C_p/C_v
-iang		= 1	     # 1 for GL quad., 2 for Edd. approx
-eps		= 1.0e-6     # thermalization parameter
-niter		= 800	     # maximum number of rad trans iterations
-dScnv		= 1.0e-4     # relative change in S required for conv.
-nf		= 1	     # number of frequencies
-nmu		= 4	     # number of polar angles
-ng              = 4	     # number of azimuthal angles
-           
+eps		= 1.0e-6    # thermalization parameter
+                      
 <log>
 child_out_level=-1
