@@ -442,9 +442,6 @@ void init_grid(MeshS *pM)
               n3z = pG->CGrid[ncg].ijke[2] - pG->CGrid[ncg].ijks[2] + 1;
               pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->CGrid[ncg].nWordsP  = 0;
-if(myID_Comm_world==0){
-printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
-}
 #ifdef MHD
               if (nDim==3) {
                 pG->CGrid[ncg].nWordsRC += 
@@ -506,9 +503,6 @@ printf("\nCGrid overlap is %d x %d x %d\n",n1z,n2z,n3z);
                     n2z,n1z, sizeof(ConsS));
                   if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
                    "[init_grid]:failed to allocate CGrid ixb myFlx\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb CGrid.myFlx\n",n2z,n1z);
-}
 #ifdef MHD
                   pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
@@ -518,9 +512,6 @@ printf("Allocated %d x %d array for ixb CGrid.myFlx\n",n2z,n1z);
                       n2z,n1z+1, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF3[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid ixb myEMF3\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb CGrid.myEMF3\n",n2z,n1z+1);
-}
                   }
 
                   if (pG->Nx[2] > 1  && dim == 0) {
@@ -529,9 +520,6 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF3\n",n2z,n1z+1);
                       n2z+1,n1z, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF2[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid ixb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z+1,n1z);
-}
                   }
 
                   if (pG->Nx[2] > 1  && dim == 1) {
@@ -540,9 +528,6 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z+1,n1z);
                       n2z+1,n1z, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF1[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid ixb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb CGrid.myEMF1\n",n2z+1,n1z);
-}
                   }
 
                   if (pG->Nx[2] > 1  && dim == 2) {
@@ -551,16 +536,10 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF1\n",n2z+1,n1z);
                       n2z+1,n1z, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF1[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid ixb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb CGrid.myEMF1\n",n2z+1,n1z);
-}
                     pG->CGrid[ncg].myEMF2[2*dim] = (Real**)calloc_2d_array(
                       n2z,n1z+1, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF2[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid ixb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z,n1z+1);
-}
                   }
 #endif /* MHD */
 
@@ -610,9 +589,6 @@ printf("Allocated %d x %d array for ixb CGrid.myEMF2\n",n2z,n1z+1);
                     n2z,n1z, sizeof(ConsS));
                   if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
                     "[init_grid]:failed to allocate CGrid oxb myFlx\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb CGrid.myFlx\n",n2z,n1z);
-}
 #ifdef MHD
                   pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
@@ -622,9 +598,6 @@ printf("Allocated %d x %d array for oxb CGrid.myFlx\n",n2z,n1z);
                       n2z,n1z+1, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF3[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myEMF3\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb CGrid.myEMF3\n",n2z,n1z+1);
-}
                   }
 
                   if (pG->Nx[2] > 1  && dim == 0) {
@@ -633,9 +606,6 @@ printf("Allocated %d x %d array for oxb CGrid.myEMF3\n",n2z,n1z+1);
                       n2z+1,n1z, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb CGrid.myEMF2\n",n2z+1,n1z);
-}
                   }
 
                   if (pG->Nx[2] > 1  && dim == 1) {
@@ -644,9 +614,6 @@ printf("Allocated %d x %d array for oxb CGrid.myEMF2\n",n2z+1,n1z);
                       n2z+1,n1z, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF1[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb CGrid.myEMF1\n",n2z+1,n1z);
-}
                   }
 
                   if (pG->Nx[2] > 1  && dim == 2) {
@@ -655,16 +622,10 @@ printf("Allocated %d x %d array for oxb CGrid.myEMF1\n",n2z+1,n1z);
                       n2z+1,n1z, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF1[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb CGrid.myEMF1\n",n2z+1,n1z);
-}
                     pG->CGrid[ncg].myEMF2[(2*dim)+1] =(Real**)calloc_2d_array(
                       n2z,n1z+1, sizeof(Real));
                     if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb CGrid.myEMF2\n",n2z,n1z+1);
-}
                   }
 #endif /* MHD */
 
@@ -679,27 +640,26 @@ printf("Allocated %d x %d array for oxb CGrid.myEMF2\n",n2z,n1z+1);
   }} /* end loops over all levels and domains per level */
 
 
-/************************************/
-for (nl=0; nl<(pM->NLevels); nl++){
-for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-  if (pM->Domain[nl][nd].Grid != NULL) {
-  pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
+/* output grid geometry if out_level >= 1 */
 
-printf("\nProcID=%d level=%d Domain=%d NCgrid=%d NmyCGrid=%d\n",
-  myID_Comm_world,nl,nd,pG->NCGrid,pG->NmyCGrid);
-for (i=0;i<pG->NCGrid; i++){
-printf("CGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
-  pG->CGrid[i].ijks[0],pG->CGrid[i].ijke[0],
-  pG->CGrid[i].ijks[1],pG->CGrid[i].ijke[1],
-  pG->CGrid[i].ijks[2],pG->CGrid[i].ijke[2]);
-printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
-  pG->CGrid[i].ID,pG->CGrid[i].DomN,pG->CGrid[i].nWordsRC,
-  pG->CGrid[i].nWordsP);
-}
+  for (nl=0; nl<(pM->NLevels); nl++){
+  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+    if (pM->Domain[nl][nd].Grid != NULL) {
+      pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
 
-}}}
-/************************************/
-
+      ath_pout(1,"\nProcID=%d level=%d Domain=%d NCgrid=%d NmyCGrid=%d\n",
+        myID_Comm_world,nl,nd,pG->NCGrid,pG->NmyCGrid);
+      for (i=0;i<pG->NCGrid; i++){
+        ath_pout(1,"CGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
+          pG->CGrid[i].ijks[0],pG->CGrid[i].ijke[0],
+          pG->CGrid[i].ijks[1],pG->CGrid[i].ijke[1],
+          pG->CGrid[i].ijks[2],pG->CGrid[i].ijke[2]);
+        ath_pout(1,"Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
+          pG->CGrid[i].ID,pG->CGrid[i].DomN,pG->CGrid[i].nWordsRC,
+          pG->CGrid[i].nWordsP);
+      }
+    }
+  }}
 
 /*--------------- Count number of parent Grids, and boundaries ---------------*/
 /* Now we have to count the number of parent Grids, and fine/coarse boundaries
@@ -928,9 +888,6 @@ printf("Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
                       n2z,n1z, sizeof(ConsS));
                     if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid ixb myFlx\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb PGrid.myFlx\n",n2z,n1z);
-}
 #ifdef MHD
                     pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
@@ -940,9 +897,6 @@ printf("Allocated %d x %d array for ixb PGrid.myFlx\n",n2z,n1z);
                         n2z,n1z+1, sizeof(Real));
                       if(pG->PGrid[npg].myEMF3[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF3\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb PGrid.myEMF3\n",n2z,n1z+1);
-}
                     }
 
                     if (pG->Nx[2] > 1  && dim == 0) {
@@ -951,9 +905,6 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF3\n",n2z,n1z+1);
                         n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF2[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z+1,n1z);
-}
                     }
 
                     if (pG->Nx[2] > 1  && dim == 1) {
@@ -962,9 +913,6 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z+1,n1z);
                         n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb PGrid.myEMF1\n",n2z+1,n1z);
-}
                     }
 
                     if (pG->Nx[2] > 1  && dim == 2) {
@@ -974,16 +922,10 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF1\n",n2z+1,n1z);
                         n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb PGrid.myEMF1\n",n2z+1,n1z);
-}
                       pG->PGrid[npg].myEMF2[2*dim] = (Real**)calloc_2d_array(
                         n2z,n1z+1, sizeof(Real));
                       if(pG->PGrid[npg].myEMF2[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z,n1z+1);
-}
                     }
 #endif /* MHD */
 
@@ -1036,9 +978,6 @@ printf("Allocated %d x %d array for ixb PGrid.myEMF2\n",n2z,n1z+1);
                       (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
                     if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid oxb myFlx\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb PGrid.myFlx\n",n2z,n1z);
-}
 #ifdef MHD
                     pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
 
@@ -1048,9 +987,6 @@ printf("Allocated %d x %d array for oxb PGrid.myFlx\n",n2z,n1z);
                         n2z,n1z+1, sizeof(Real));
                       if(pG->PGrid[npg].myEMF3[(2*dim)+1]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid oxb myEMF3\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb PGrid.myEMF3\n",n2z,n1z+1);
-}
                     }
 
                     if (pG->Nx[2] > 1  && dim == 0) {
@@ -1059,9 +995,6 @@ printf("Allocated %d x %d array for oxb PGrid.myEMF3\n",n2z,n1z+1);
                         n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF2[(2*dim)+1]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid oxb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb PGrid.myEMF2\n",n2z+1,n1z);
-}
                     }
 
                     if (pG->Nx[2] > 1  && dim == 1) {
@@ -1070,9 +1003,6 @@ printf("Allocated %d x %d array for oxb PGrid.myEMF2\n",n2z+1,n1z);
                         n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF1[(2*dim)+1]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid oxb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb PGrid.myEMF1\n",n2z+1,n1z);
-}
                     }
 
                     if (pG->Nx[2] > 1  && dim == 2) {
@@ -1082,16 +1012,10 @@ printf("Allocated %d x %d array for oxb PGrid.myEMF1\n",n2z+1,n1z);
                         n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF1[(2*dim)+1]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid oxb myEMF1\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb PGrid.myEMF1\n",n2z+1,n1z);
-}
                       pG->PGrid[npg].myEMF2[(2*dim)+1] =(Real**)calloc_2d_array(
                         n2z,n1z+1, sizeof(Real));
                       if(pG->PGrid[npg].myEMF2[(2*dim)+1]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid oxb myEMF2\n");
-if(myID_Comm_world==0){
-printf("Allocated %d x %d array for oxb PGrid.myEMF2\n",n2z,n1z+1);
-}
                     }
 #endif /* MHD */
 
@@ -1105,27 +1029,26 @@ printf("Allocated %d x %d array for oxb PGrid.myEMF2\n",n2z,n1z+1);
     } /* end if Grid on this processor */
   }} /* end loops over all levels and domains per level */
 
-/************************************/
-for (nl=0; nl<(pM->NLevels); nl++){
-for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-  if (pM->Domain[nl][nd].Grid != NULL) {
-  pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
+/* output grid geometry if out_level >= 1 */
 
-printf("\nProcID=%d level=%d Domain=%d NPgrid=%d NmyPGrid=%d\n",
-  myID_Comm_world,nl,nd,pG->NPGrid,pG->NmyPGrid);
-for (i=0;i<pG->NPGrid; i++){
-printf("PGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
-  pG->PGrid[i].ijks[0],pG->PGrid[i].ijke[0],
-  pG->PGrid[i].ijks[1],pG->PGrid[i].ijke[1],
-  pG->PGrid[i].ijks[2],pG->PGrid[i].ijke[2]);
-printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
-  pG->PGrid[i].ID,pG->PGrid[i].DomN,pG->PGrid[i].nWordsRC,
-  pG->PGrid[i].nWordsP);
-}
+  for (nl=0; nl<(pM->NLevels); nl++){
+  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+    if (pM->Domain[nl][nd].Grid != NULL) {
+      pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
 
-}}}
-/************************************/
-
+      ath_pout(1,"\nProcID=%d level=%d Domain=%d NPgrid=%d NmyPGrid=%d\n",
+        myID_Comm_world,nl,nd,pG->NPGrid,pG->NmyPGrid);
+      for (i=0;i<pG->NPGrid; i++){
+        ath_pout(1,"PGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
+          pG->PGrid[i].ijks[0],pG->PGrid[i].ijke[0],
+          pG->PGrid[i].ijks[1],pG->PGrid[i].ijke[1],
+          pG->PGrid[i].ijks[2],pG->PGrid[i].ijke[2]);
+        ath_pout(1,"Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
+          pG->PGrid[i].ID,pG->PGrid[i].DomN,pG->PGrid[i].nWordsRC,
+          pG->PGrid[i].nWordsP);
+      }
+    } 
+  }}
 
 #endif /* STATIC_MESH_REFINEMENT */
 

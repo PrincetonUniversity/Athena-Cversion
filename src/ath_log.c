@@ -8,7 +8,15 @@
  *   processors).  However, having output from all MPI processes can be useful
  *   for debugging.  Thus, some kind of runtime control that allows output to
  *   stderr and stdout be turned off for production runs, or redirected to
- *   files for debugging, is very helpful.
+ *   files for debugging, is very helpful.  To use these functions, replace
+ *   calls to printf() with ath_perr() and ath_pout(), with first argument:
+ *     -1 : all processes write output
+ *      0 : only root process writes output
+ *      1 : neither root nor child processes write output
+ *   The above is based on the default values (0) of the out_level and err_level
+ *   parameters in the <log> block.  To make the code more verbose (or quieter),
+ *   these parameters can be changed at run time in the input file.  For example
+ *   setting them to 1 will cause all processes to generate output.
  *
  * CONTAINS PUBLIC FUNCTIONS:
  * - ath_log_out_open()  - opens out log file
@@ -245,7 +253,10 @@ void ath_flush_err(void)
 /*! \fn int ath_perr(const int level, const char *fmt, ...)
  *  \brief Foutput variable argument string to "error log file".   
  *
- *  Should be used in place of printf(stderr,...)
+ *  Should be used in place of printf(stderr,...). The first argument should be:
+ *     -1 : all processes write output
+ *      0 : only root process writes output
+ *      1 : neither root nor child processes write output
  */
 int ath_perr(const int level, const char *fmt, ...)
 {
@@ -272,7 +283,10 @@ int ath_perr(const int level, const char *fmt, ...)
 /*! \fn int ath_pout(const int level, const char *fmt, ...)
  *  \brief Output variable argument string to "output log file".   
  *
- *  Should be used in place of printf(stdout,...)
+ *  Should be used in place of printf(stdout,...). The first argument should be:
+ *     -1 : all processes write output
+ *      0 : only root process writes output
+ *      1 : neither root nor child processes write output
  */
 int ath_pout(const int level, const char *fmt, ...)
 {

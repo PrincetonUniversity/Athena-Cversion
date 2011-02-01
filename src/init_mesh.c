@@ -149,9 +149,6 @@ void init_mesh(MeshS *pM)
     } else {
       pM->DomainsPerLevel[nl] = nd_this_level;
     }
-if (myID_Comm_world==0){
-printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
-}
   }
 
 /*--- Step 2: Set up root level.  --------------------------------------------*/
@@ -252,10 +249,6 @@ printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
  * to the order it appears in input */
 
     nl = par_geti(block,"level");
-if(myID_Comm_world==0){
-printf("level=%d next_domainid=%d pM->DomainsPerLevel=%d\n",
-nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
-}
     if (next_domainid[nl] > (pM->DomainsPerLevel[nl])-1)
       ath_error("[init_mesh]: Exceeded available domain ids on level %d\n",nl);
     nd = next_domainid[nl];
@@ -700,20 +693,9 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
 
 /* Create a new group for this Domain; use it to create a new communicator */
 
-printf("Domain_Comm ProcID=%d Nranks=%d ranks=",myID_Comm_world,Nranks);
-for (i=0; i<Nranks; i++) printf("%d ",ranks[i]);
-printf("\n");
     ierr = MPI_Group_incl(world_group,Nranks,ranks,&(pD->Group_Domain));
     ierr = MPI_Comm_create(MPI_COMM_WORLD,pD->Group_Domain,&(pD->Comm_Domain));
 
-/*
-int myrank=0;
-for (i=0; i<Nranks; i++){
-if (myID_Comm_world == ranks[i]){
-ierr = MPI_Comm_rank(pD->Comm_Domain, &myrank);
-printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
-}}
-*/
   }}
 
   free_1d_array(ranks);
@@ -811,21 +793,10 @@ printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
  * a child was found */
 
     if (child_found == 1) {
-printf("Children_Comm ProcID=%d Nranks=%d ranks=",myID_Comm_world,Nranks);
-for (i=0; i<Nranks; i++) printf("%d ",ranks[i]);
-printf("\n");
       ierr = MPI_Group_incl(world_group, Nranks, ranks, &(pD->Group_Children));
       ierr = MPI_Comm_create(MPI_COMM_WORLD,pD->Group_Children,
         &pD->Comm_Children);
 
-/*
-int myrank=0;
-for (i=0; i<Nranks; i++){
-if (myID_Comm_world == ranks[i]){
-ierr = MPI_Comm_rank(pD->Comm_Children, &myrank);
-printf("WorldID=%d Children_CommID=%d\n",myID_Comm_world,myrank);
-}}
-*/
 /* Loop over children to set Comm_Parent communicators */
 
       for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
@@ -940,8 +911,6 @@ static int dom_decomp_2d(const int Nx, const int Ny,
   }
   else rx_min = 1;
 
-  /* printf("rx_min = %d, rx_max = %d\n",rx_min, rx_max); */
-
   /* Constrain rxs to fall in this domain */
   rxs = rxs > rx_min ? rxs : rx_min;
   rxs = rxs < rx_max ? rxs : rx_max;
@@ -977,9 +946,6 @@ static int dom_decomp_2d(const int Nx, const int Ny,
 
   if(init) return 1; /* Error locating a solution */
 
-  /* printf("Minimum messaging decomposition has: rx = %d, ry = %d, I = %d\n",
-     rx0, ry0, I0); */
-
   *pNGx = rx0;
   *pNGy = ry0;
 
@@ -1013,8 +979,6 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
   }
   else rx_min = 1;
 
-  /* printf("rx_min = %d, rx_max = %d\n",rx_min, rx_max); */
-
   for(rx = rx_min; rx <= rx_max; rx++){
     dv = div(Np, rx);
     if(dv.rem == 0){
@@ -1027,7 +991,6 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 	  + (rz - 1)*(Nx + 2*nghost*rx)*(Ny + 2*nghost*ry);
 
 	if(I < 0){ /* Integer Overflow */
-	  /* printf("[3d new] I = %d\n",I); */
 	  continue;
 	}
 
@@ -1037,7 +1000,6 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 	  rz0 = rz;
 	  I0  = I;
 	  init = 0;
-	  /* printf("I(rx = %d, ry = %d, rz = %d) = %d\n",rx,ry,rz,I); */
 	}
       }
     }
