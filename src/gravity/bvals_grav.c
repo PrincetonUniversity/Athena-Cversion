@@ -108,8 +108,8 @@ void bvals_grav(DomainS *pD)
   if (pGrid->Nx[0] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt2 = pGrid->Nx2 > 1 ? pGrid->Nx2 + 1 : 1;
-    cnt3 = pGrid->Nx3 > 1 ? pGrid->Nx3 + 1 : 1;
+    cnt2 = pGrid->Nx[1] > 1 ? pGrid->Nx[1] + 1 : 1;
+    cnt3 = pGrid->Nx[2] > 1 ? pGrid->Nx[2] + 1 : 1;
     cnt = nghost*cnt2*cnt3;
 
 /* MPI blocks to both left and right */
