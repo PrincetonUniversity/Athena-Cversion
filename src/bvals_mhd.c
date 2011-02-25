@@ -575,7 +575,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ix1_BCFun = reflect_ix1;
+              pD->ix1_BCFun = conduct_ix1;
             break;
 
             default:
@@ -622,7 +622,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ox1_BCFun = reflect_ox1;
+              pD->ox1_BCFun = conduct_ox1;
             break;
 
             default:
@@ -675,7 +675,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
   
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ix2_BCFun = reflect_ix2;
+              pD->ix2_BCFun = conduct_ix2;
             break;
 
             default:
@@ -721,7 +721,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ox2_BCFun = reflect_ox2;
+              pD->ox2_BCFun = conduct_ox2;
             break;
 
             default:
@@ -773,7 +773,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ix3_BCFun = reflect_ix3;
+              pD->ix3_BCFun = conduct_ix3;
             break;
 
             default:
@@ -819,7 +819,7 @@ void bvals_mhd_init(MeshS *pM)
             break;
 
             case 5: /* Reflecting, B_normal!=0 */
-              pD->ox3_BCFun = reflect_ox3;
+              pD->ox3_BCFun = conduct_ox3;
             break;
 
             default:
