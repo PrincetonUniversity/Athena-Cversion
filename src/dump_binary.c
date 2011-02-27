@@ -252,6 +252,67 @@ void dump_binary(MeshS *pM, OutputS *pOut)
         }
 #endif
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	for (n=0;n<4; n++) {
+          for (k=0; k<ndata[2]; k++) {
+          for (j=0; j<ndata[1]; j++) {
+            for (i=0; i<ndata[0]; i++) {
+
+              if (strcmp(pOut->out,"cons") == 0){
+                pData = ((Real*)&(pGrid->U[k+kl][j+jl][i+il])) + n + NVAR;
+              } else if(strcmp(pOut->out,"prim") == 0) {
+                pData = ((Real*)&(W[k][j][i])) + n + NVAR;
+              }
+              datax[i] = (float)(*pData);
+            }
+            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+
+          }}
+        }
+
+
+
+/*!< If radiation transfer module is used, dump Eddington tensor */
+#ifdef RADIATION_TRANSFER
+	for (n=0;n<6; n++) {
+          for (k=0; k<ndata[2]; k++) {
+          for (j=0; j<ndata[1]; j++) {
+            for (i=0; i<ndata[0]; i++) {
+
+              if (strcmp(pOut->out,"cons") == 0){
+                pData = ((Real*)&(pGrid->U[k+kl][j+jl][i+il])) + n + NVAR + 4;
+              } else if(strcmp(pOut->out,"prim") == 0) {
+                pData = ((Real*)&(W[k][j][i])) + n + NVAR + 4;
+              }
+              datax[i] = (float)(*pData);
+            }
+            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+
+          }}
+        }
+
+#endif
+
+	/* dump opacity for each cell */
+	for (n=0;n<2; n++) {
+          for (k=0; k<ndata[2]; k++) {
+          for (j=0; j<ndata[1]; j++) {
+            for (i=0; i<ndata[0]; i++) {
+
+              if (strcmp(pOut->out,"cons") == 0){
+                pData = ((Real*)&(pGrid->U[k+kl][j+jl][i+il])) + n + NVAR + 10;
+              } else if(strcmp(pOut->out,"prim") == 0) {
+                pData = ((Real*)&(W[k][j][i])) + n + NVAR + 10;
+              }
+              datax[i] = (float)(*pData);
+            }
+            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+
+          }}
+        }
+
+#endif
+
 /* close file and free memory */
         fclose(p_binfile); 
         free(datax); 

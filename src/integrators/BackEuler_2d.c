@@ -45,7 +45,45 @@
 
 
 
+/*===========================================================
+ * Private functions used for different boundary conditions *
+ * and MPI case *
+ */
 
+void i_j(int i, int j);
+
+void i_je_phy(int i);
+void i_je_MPI(int i);
+void i_js_phy(int i);
+void i_js_MPI(int i);
+
+void ie_j_phy(int j);
+void ie_j_MPI(int j);
+
+void ie_je_phy_phy();
+void ie_je_MPI_phy();
+void ie_je_phy_MPI();
+void ie_je_MPI_MPI();
+
+void ie_js_phy_phy();
+void ie_js_MPI_phy();
+void ie_js_phy_MPI();
+void ie_js_MPI_MPI();
+
+void is_j_phy(int j);
+void is_j_MPI(int j);
+
+void is_je_phy_phy();
+void is_je_MPI_phy();
+void is_je_phy_MPI();
+void is_je_MPI_MPI();
+
+void is_js_phy_phy();
+void is_js_MPI_phy();
+void is_js_phy_MPI();
+void is_js_MPI_MPI();
+
+/*===========================================================*/
 
 
 
@@ -65,50 +103,85 @@ static int *indexValue;
 static int *ptr;
 
 
+/* parameters used to setup the matrix elements */
+static int NoEr;
+static int NoFr1;
+static int NoFr2;
+static int is;
+static int ie;
+static int js;
+static int je;
+static Real *theta;
+static Real *phi;
+static Real *psi;
 
+/* boundary flag */
+static int ix1;
+static int ox1;
+static int ix2;
+static int ox2;
+static int ix3;
+static int ox3;
+
+static int NGx; /* Number of Grid in x direction */
+static int NGy; /* Number of Grid in y direction */
+static int Nx; /* Number of zones in x direction of each Grid */
+static int Ny; /* Number of Zones in y direction of each Grid */
+static int count_Grids;
+static int ID;
+static int lx1;
+static int rx1;
+static int lx2;
+static int rx2;
+
+
+static int MPIcount1;
+static int MPIcount2; 
+/* Used for MPI periodic boundary condition */
 
 
 
 /********Public function****************/
 /*-------BackEuler_2d(): Use back euler method to update E_r and Fluxr-----------*/
-/* we may need to use variables to represent the indices to simplify the code */
-
+/* Only work with SMR now. So there is only one Domain in the Mesh */
 
 
 void BackEuler_2d(MeshS *pM)
 {
-/* Right now, only work for one domain. Modified later for SMR */
+/* Cell number in root domain is Nx[0,1,2] */
+ 
 
 
-  	GridS *pG=(pM->Domain[0][0].Grid);
+	DomainS *pD;
+	pD= &(pM->Domain[0][0]);
+	
+	GridS *pG=pD->Grid;
 	Real hdtodx1 = 0.5*pG->dt/pG->dx1;
 	Real hdtodx2 = 0.5 * pG->dt/pG->dx2;
 	Real dt = pG->dt;
-	int is = pG->is, ie = pG->ie;
-  	int i, j, m, NoEr, NoFr1, NoFr2;
-	int js = pG->js, je = pG->je;
+	
+	int i, j;
+	is = pG->is;
+	ie = pG->ie;
+	js = pG->js;
+	je = pG->je;
 	int ks = pG->ks;
-	int Nx, Ny, Nmatrix, NZ_NUM, lines, count;
+	int Nmatrix, NZ_NUM, lines, count;
 	
 	/* NZ_NUM is the number of non-zero elements in Matrix. It may change if periodic boundary condition is applied */
-	/* lines is the size of the matrix */
+	/* lines is the size of the partial matrix */
 	/* count is the number of total non-zeros before that row */
-
-	
+	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
 	Real temperature, velocity_x, velocity_y, pressure;
-
 	Real Ci0, Ci1, Cj0, Cj1;
 	/* This is equivilent to Cspeeds[] in 1D */
 
-	
-  	Real theta[11];
-  	Real phi[11];
-	Real psi[11];
+
   	Real Sigma_s, Sigma_t, Sigma_a;
 
 
 	/* Boundary condition flag */
-	int ix1, ox1, ix2, ox2, ix3, ox3;
+	
 	ix1 = pM->BCFlag_ix1;
 	ox1 = pM->BCFlag_ox1;
 	ix2 = pM->BCFlag_ix2;
@@ -120,24 +193,60 @@ void BackEuler_2d(MeshS *pM)
 
 /* Allocate memory space for the Matrix calculation, just used for this grids */
 /* Nmatrix is the number of active cells just in this grids */
-/* Matrix size should be 3 * Nmatrix, ghost zones are included*/
+/* Matrix size should be 3 * Nmatrix, ghost zones are not included*/
 	Nx = ie - is + 1;
 	Ny = je - js + 1;
    	Nmatrix = Ny * Nx;
+	lines  = 3 * Nmatrix; 
+	/* total number of lines in the grid. This is also the same for every grid */
 
-	lines  = 3 * Nmatrix;
+	/* For the matrix solver */
+	/* The three vectors will be destroyed when destroy LIS matrix Euler */
+	Value = (LIS_SCALAR *)malloc(31*Nmatrix*sizeof(LIS_SCALAR));
 
+	if ((indexValue = (int*)malloc(31*Nmatrix*sizeof(int))) == NULL) 
+	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+
+	if ((ptr = (int*)malloc((lines+1)*sizeof(int))) == NULL) 
+	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+
+
+
+
+	/* ID of this grid */
+#ifdef MPI_PARALLEL
+	ID = myID_Comm_world;
+	lx1 = pG->lx1_id;
+	rx1 = pG->rx1_id;
+	lx2 = pG->lx2_id;
+	rx2 = pG->rx2_id;
+#else
+	ID = 0;
+	lx1 = 0;
+	rx1 = 0;
+	lx2 = 0;
+	rx2 = 0;
+#endif	
+
+	/* total number of lines before this grids. This is also the starting line for this grid */ 
+	count_Grids = ID * lines;
+
+	/* NGx and NGy are initialized in initialization function */
+/*	NGx = pD->NGrid[0];
+	NGy = pD->NGrid[1];
+*/
 	NZ_NUM = 31 * Nmatrix; 
 	
-	NoEr = 0;/* Position of first non-zero element in row Er */
-	NoFr1 = 0;/* Position of first non-zero element in row Fr1 */
-	NoFr2 = 0;/* POsition of first non-zero element in row Fr2 */
+	/* Number of non-zero elements is the same for both periodic 
+	 * boundary condition and MPI boundary. 
+	 * It is just that index will be different *
+	 */
+	
+	NoEr = 0;	/* Position of first non-zero element in row Er */
+	NoFr1 = 0;	/* Position of first non-zero element in row Fr1 */
+	NoFr2 = 0;	/* POsition of first non-zero element in row Fr2 */
 	count = 0;
 	/* For non-periodic boundary condition, this number will change */
-	
-/* setting for LIS library. Now this is noly for serial case. Need to change for parallal case */
-/*	lis_initialize(0,0);
-*/
 	
 
 	/* For temporary use only */
@@ -147,8 +256,6 @@ void BackEuler_2d(MeshS *pM)
 	
 	/* *****************************************************/
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
-	/* calculate the guess temperature */
-	GetTguess(pM);
 
 
 /* Step 1a: Calculate the Matrix elements  */
@@ -163,24 +270,29 @@ void BackEuler_2d(MeshS *pM)
 	for(j=js; j<=je; j++) {
 		for(i=is; i<=ie; i++){
 /* E is the total energy. should subtract the kinetic energy and magnetic energy density */
-    		pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
+/*    		pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
 			+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2)/pG->U[ks][j][i].d) * (Gamma - 1.0);
+*/
 /* if MHD - 0.5 * Bx * Bx   */
+/*
 #ifdef RADIATION_MHD
+
 		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
 #endif
 
     		temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
-
+*/
+		/* Guess temperature is updated in the main loop */
 		temperature = pG->Tguess[ks][j][i];
 
 		/* RHSEuler[0...N-1]  */
 		Sigma_a = pG->U[ks][j][i].Sigma_a;
 
-		/*-----------------------------*/		
+		/*-----------------------------*/	
+		/* index of the vector should be the global vector, not the partial vector */	
     		tempvalue   = pG->U[ks][j][i].Er + Crat * dt * Sigma_a 
 				* temperature * temperature * temperature * temperature;
-		index = 3*(j-js)*Nx + 3*(i-is);
+		index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 
 		/*----------------------------*/
@@ -209,7 +321,7 @@ void BackEuler_2d(MeshS *pM)
 
 			/* Subtract some value */
 			tempvalue = -(theta[2] * pG->U[ks][j][i-1].Er + theta[3] * pG->U[ks][j][i-1].Fr1);
-			index = 3*(j-js)*Nx + 3*(i-is);
+			index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 			lis_vector_set_value(LIS_ADD_VALUE,index,tempvalue,RHSEuler);
 
 
@@ -235,7 +347,7 @@ void BackEuler_2d(MeshS *pM)
 			psi[7]	= phi[7];
 
 			tempvalue = -(theta[7] * pG->U[ks][j][i+1].Er + theta[8] * pG->U[ks][j][i+1].Fr1);
-			index = 3*(j-js)*Nx + 3*(i-is);
+			index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 			lis_vector_set_value(LIS_ADD_VALUE,index,tempvalue,RHSEuler);
 
 			tempvalue = -(phi[6] * pG->U[ks][j][i+1].Er + phi[7] * pG->U[ks][j][i+1].Fr1);
@@ -262,7 +374,7 @@ void BackEuler_2d(MeshS *pM)
 			psi[1] = phi[1];
 
 			tempvalue = -(theta[0] * pG->U[ks][j-1][i].Er + theta[1] * pG->U[ks][j-1][i].Fr2);
-			index = 3*(j-js)*Nx + 3 * (i - is);
+			index = 3*(j-js)*Nx + 3 * (i - is) + count_Grids;
 			lis_vector_set_value(LIS_ADD_VALUE,index,tempvalue,RHSEuler);
 
 
@@ -289,7 +401,7 @@ void BackEuler_2d(MeshS *pM)
 			psi[9]	= phi[9];
 
 			tempvalue = -(theta[9] * pG->U[ks][j+1][i].Er + theta[10] * pG->U[ks][j+1][i].Fr2);
-			index = 3*(j-js)*Nx + 3*(i-is);
+			index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 			lis_vector_set_value(LIS_ADD_VALUE,index,tempvalue,RHSEuler);
 
 			tempvalue = -(phi[8] * pG->U[ks][j+1][i].Er + phi[9] * pG->U[ks][j+1][i].Fr1);
@@ -315,9 +427,9 @@ void BackEuler_2d(MeshS *pM)
  	/* First, setup the guess solution. Guess solution is the solution from last time step */
 	for(j=js; j<=je; j++){
 		for(i=is; i<=ie; i++){
-			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is),pG->U[ks][j][i].Er,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is)+1,pG->U[ks][j][i].Fr1,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is)+2,pG->U[ks][j][i].Fr2,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + count_Grids, pG->U[ks][j][i].Er,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids, pG->U[ks][j][i].Fr1,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids, pG->U[ks][j][i].Fr2,INIguess);
 			
 		}
 	}
@@ -393,8 +505,9 @@ void BackEuler_2d(MeshS *pM)
 
 		if(i == is){
 			if(j == js){
-				if(ix1 != 4){						
-					if(ix2 !=4){
+				if((ix1 != 4) && (pG->lx1_id < 0)){
+				/* physical boundary on the left */						
+					if((ix2 !=4) && (pG->lx2_id < 0)){
 						NZ_NUM -= 12;
 						NoEr = count;
 						NoFr1 = count + 7;
@@ -407,10 +520,10 @@ void BackEuler_2d(MeshS *pM)
 						NoFr1 = count + 9;
 						NoFr2 = count + 17;
 						count += 25;
-					}
+					} /* either periodic or MPI boundary condition */
 				}/* Non periodic for x1 */
 				else{
-					if(ix2 !=4){
+					if((ix2 !=4) && (pG->lx2_id < 0)){
 						NZ_NUM -= 6;
 						NoEr = count;
 						NoFr1 = count + 9;
@@ -423,197 +536,26 @@ void BackEuler_2d(MeshS *pM)
 						NoFr2 = count + 21;
 						count += 31;
 					}
-				}/* periodic for x1 */
+				}/* either periodic for x1 or MPI boundary condition */
 
 				ptr[3*(j-js)*Nx+3*(i-is)] = NoEr;
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
-				/* For Er */
-				for(m=0; m<5; m++)
-					Value[NoEr+m] = theta[4+m];
-				
-				for(m=0;m<5;m++)
-					indexValue[NoEr+m] = m;
-				
-				if(ix1 != 4){
-						
-					Value[NoEr+5]	= theta[9];
-					Value[NoEr+6]	= theta[10];
-					indexValue[NoEr+5] = 3 * Nx;
-					indexValue[NoEr+6] = 3 * Nx + 2;
-					
-					if(ix2 == 4){
-						Value[NoEr+7] = theta[0];
-						Value[NoEr+8] = theta[1];
-						indexValue[NoEr+7] = 3*(je-js)*Nx;
-						indexValue[NoEr+8] = 3*(je-js)*Nx + 2;
-					}
-				}
-				else {
-					Value[NoEr+5]	= theta[2];
-					Value[NoEr+6]	= theta[3];
-					Value[NoEr+7]	= theta[9];
-					Value[NoEr+8]	= theta[10];
-					indexValue[NoEr+5] = 3 * (ie - is);
-					indexValue[NoEr+6] = 3 * (ie - is) + 1;
-					indexValue[NoEr+7] = 3 * Nx;
-					indexValue[NoEr+8] = 3 * Nx + 2;
-					
-					if(ix2 == 4){
-						Value[NoEr+9] = theta[0];
-						Value[NoEr+10] = theta[1];
-						indexValue[NoEr+9] = 3*(je-js)*Nx;
-						indexValue[NoEr+10] = 3*(je-js)*Nx + 2;
-					}
-				}
 
-				
-						
-				/* For Fr1 */
-				for(m=0; m<4; m++)
-					Value[NoFr1+m] = phi[4+m];
-
-				indexValue[NoFr1+0] = 0;
-				indexValue[NoFr1+1] = 1;
-				indexValue[NoFr1+2] = 3;
-				indexValue[NoFr1+3] = 4;
-				
-				if(ix1 != 4){
-					Value[NoFr1+4]	= phi[8];
-					Value[NoFr1+5]	= phi[9];
-					indexValue[NoFr1+4] = 3 * Nx;
-					indexValue[NoFr1+5] = 3 * Nx + 1;
-					if(ix2 == 4){
-						Value[NoFr1+6] = phi[0];
-						Value[NoFr1+7] = phi[1];
-						indexValue[NoFr1+6] = 3*(je-js)*Nx;
-						indexValue[NoFr1+7] = 3*(je-js)*Nx + 1;
-					}
-				}
-				else{
-					Value[NoFr1+4]	= phi[2];
-					Value[NoFr1+5]	= phi[3];
-					Value[NoFr1+6]	= phi[8];
-					Value[NoFr1+7]	= phi[9];
-					indexValue[NoFr1+4] = 3 * (ie - is);
-					indexValue[NoFr1+5] = 3 * (ie - is) + 1;
-					indexValue[NoFr1+6] = 3 * Nx;
-					indexValue[NoFr1+7] = 3 * Nx + 1;
-					if(ix2 == 4){
-						Value[NoFr1+8] = phi[0];
-						Value[NoFr1+9] = phi[1];
-						indexValue[NoFr1+8] = 3*(je-js)*Nx;
-						indexValue[NoFr1+9] = 3*(je-js)*Nx + 1;
-					}
-				}				
-
-					
-
-				/* For Fr2 */
-					
-				for(m=0; m<4; m++)
-					Value[NoFr2+m] = psi[4+m];
-
-				indexValue[NoFr2+0] = 0;
-				indexValue[NoFr2+1] = 2;
-				indexValue[NoFr2+2] = 3;
-				indexValue[NoFr2+3] = 5;
-				
-				if(ix1 != 4){
-					Value[NoFr2+4]	= psi[8];
-					Value[NoFr2+5]	= psi[9];
-					indexValue[NoFr2+4] = 3 * Nx;
-					indexValue[NoFr2+5] = 3 * Nx + 2;
-					if(ix2 == 4){
-						Value[NoFr2+6] = psi[0];
-						Value[NoFr2+7] = psi[1];
-						indexValue[NoFr2+6] = 3*(je-js)*Nx;
-						indexValue[NoFr2+7] = 3*(je-js)*Nx + 2;
-					}
-				}
-				else{
-					Value[NoFr2+4]	= psi[2];
-					Value[NoFr2+5]	= psi[3];
-					Value[NoFr2+6]	= psi[8];
-					Value[NoFr2+7]	= psi[9];
-					indexValue[NoFr2+4] = 3 * (ie - is);
-					indexValue[NoFr2+5] = 3 * (ie - is) + 2;
-					indexValue[NoFr2+6] = 3 * Nx;
-					indexValue[NoFr2+7] = 3 * Nx + 2;
-					if(ix2 == 4){
-						Value[NoFr2+8] = psi[0];
-						Value[NoFr2+9] = psi[1];
-						indexValue[NoFr2+8] = 3*(je-js)*Nx;
-						indexValue[NoFr2+9] = 3*(je-js)*Nx + 2;
-					}
-				}
-
-
-				/* other ix1 boundary condition */
-				if(ix1 == 1 || ix1 == 5){
-					
-					Value[NoEr+0] += theta[2];
-					Value[NoEr+1] -= theta[3];
-			
-					Value[NoFr1+0]+= phi[2];
-					Value[NoFr1+1]-= phi[3];
-				
-					Value[NoFr2+0]+= psi[2];
-					Value[NoFr2+1]+= psi[3];
-				}
-				else if(ix1 == 2){
-					Value[NoEr+0] += theta[2];
-					Value[NoEr+1] += theta[3];
-			
-					Value[NoFr1+0]+= phi[2];
-					Value[NoFr1+1]+= phi[3];
-				
-					Value[NoFr2+0]+= psi[2];
-					Value[NoFr2+1]+= psi[3];
-				}
-				else if(ix1 == 3){
-
-					/* Do nothing */
-				}
-				else if(ix1 != 4){
-					goto on_error;
-				}
-				
-				/* other ix2 boundary condition */	
-
-				if(ix2 == 1 || ix2 == 5){
-					
-					Value[NoEr+0] += theta[0];
-					Value[NoEr+2] -= theta[1];
-			
-					Value[NoFr1+0]+= phi[0];
-					Value[NoFr1+1]+= phi[1];
-				
-					Value[NoFr2+0]+= psi[0];
-					Value[NoFr2+1]-= psi[1];
-				}
-				else if(ix2 == 2){
-					Value[NoEr+0] += theta[0];
-					Value[NoEr+2] += theta[1];
-			
-					Value[NoFr1+0]+= phi[0];
-					Value[NoFr1+1]+= phi[1];
-				
-					Value[NoFr2+0]+= psi[0];
-					Value[NoFr2+1]+= psi[1];
-				}
-				else if(ix2 == 3){
-
-					/* Do nothing */
-				}
-				else if(ix2 != 4){
-					goto on_error;
-				}
-				
+				/* judge MPI or physical boundary condition */
+				if((pG->lx1_id<0) && (pG->lx2_id<0))
+					is_js_phy_phy();
+				else if((pG->lx1_id<0) && (pG->lx2_id>=0))
+					is_js_phy_MPI();
+				else if((pG->lx1_id>=0) && (pG->lx2_id<0))
+					is_js_MPI_phy();
+				else
+					is_js_MPI_MPI();
+	
 			}/* End j == js */
 			else if(j == je){
-				if(ix1 != 4){						
-					if(ox2 !=4){
+				if((ix1 != 4) && (pG->lx1_id < 0)){						
+					if((ox2 !=4) && (pG->rx2_id < 0)){
 						NZ_NUM -= 12;
 						NoEr = count;
 						NoFr1 = count + 7;
@@ -629,7 +571,7 @@ void BackEuler_2d(MeshS *pM)
 					}
 				}/* Non periodic for x1 */
 				else{
-					if(ox2 !=4){
+					if((ox2 !=4) && (pG->rx2_id < 0)){
 						NZ_NUM -= 6;
 						NoEr = count;
 						NoFr1 = count + 9;
@@ -648,281 +590,19 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 				
-				
-				/* Now the important thing is ox2, which determines the first non-zero element */
-				
-				
-				if(ox2 != 4){
-					/* The following is true no matter ix1 == 4 or not */
-
-					/* For Er */
-					Value[NoEr] = theta[0];
-					Value[NoEr+1] = theta[1];
-							
-					indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2;
-
-					/* For Fr1 */
-
-					Value[NoFr1] = phi[0];
-					Value[NoFr1+1] = phi[1];
-							
-					indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1;
-
-					/* For Fr2 */
-					
-					Value[NoFr2] = psi[0];
-					Value[NoFr2+1] = psi[1];
-							
-					indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2;
-
-					
-					/* for Er */
-					for(m=0; m<5; m++){
-						Value[NoEr+2+m] = theta[4+m];
-						indexValue[NoEr+2+m] = 3*(j-js)*Nx + 3*(i-is) + m;
-					}
-
-					/* For Fr1 */
-					Value[NoFr1+2] = phi[4];
-					Value[NoFr1+3] = phi[5];
-					Value[NoFr1+4] = phi[6];
-					Value[NoFr1+5] = phi[7];
-
-					indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is) + 1;
-					indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is) + 3;
-					indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is) + 4;
-
-					/* For Fr2 */
-					Value[NoFr2+2] = psi[4];
-					Value[NoFr2+3] = psi[5];
-					Value[NoFr2+4] = psi[6];
-					Value[NoFr2+5] = psi[7];
-
-					indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is) + 2;
-					indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is) + 3;
-					indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is) + 5;				
-
-					
-					if (ix1 == 4) {
-
-						
-						/* For Er */
-						Value[NoEr+7] = theta[2];
-						Value[NoEr+8] = theta[3];
-							
-						indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(ie-is);
-						indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(ie-is) + 1;
-
-						/* For Fr1 */
-
-						Value[NoFr1+6] = phi[2];
-						Value[NoFr1+7] = phi[3];
-							
-						indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(ie-is);
-						indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(ie-is) + 1;
-
-						/* For Fr2 */
-					
-						Value[NoFr2+6] = psi[2];
-						Value[NoFr2+7] = psi[3];
-							
-						indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(ie-is);
-						indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(ie-is) + 2;
-
-					} /* for periodic boundary condition */
-					else if(ix1 == 1 || ix1 == 5){
-					
-						Value[NoEr+2] += theta[2];
-						Value[NoEr+3] -= theta[3];
+				/* judge MPI or physical boundary condition */
+				if((pG->lx1_id<0) && (pG->rx2_id<0))
+					is_je_phy_phy();
+				else if((pG->lx1_id<0) && (pG->rx2_id>=0))
+					is_je_phy_MPI();
+				else if((pG->lx1_id>=0) && (pG->rx2_id<0))
+					is_je_MPI_phy();
+				else
+					is_je_MPI_MPI();				
 			
-						Value[NoFr1+2]+= phi[2];
-						Value[NoFr1+3]-= phi[3];
-				
-						Value[NoFr2+2]+= psi[2];
-						Value[NoFr2+3]+= psi[3];
-					}
-					else if(ix1 == 2){
-						Value[NoEr+2] += theta[2];
-						Value[NoEr+3] += theta[3];
-			
-						Value[NoFr1+2]+= phi[2];
-						Value[NoFr1+3]+= phi[3];
-				
-						Value[NoFr2+2]+= psi[2];
-						Value[NoFr2+3]+= psi[3];
-					}
-					else if(ix1 == 3){
-
-						/* Do nothing */
-					}
-					else {
-						goto on_error;
-					}
-
-
-					/* other ox2 boundary condition */
-					if(ox2 == 1 || ox2 == 5){
-					
-						Value[NoEr+2] += theta[9];
-						Value[NoEr+4] -= theta[10];
-			
-						Value[NoFr1+2]+= phi[8];
-						Value[NoFr1+3]+= phi[9];
-				
-						Value[NoFr2+2]+= psi[8];
-						Value[NoFr2+3]-= psi[9];
-					}
-					else if(ox2 == 2){
-						Value[NoEr+2] += theta[9];
-						Value[NoEr+4] += theta[10];
-			
-						Value[NoFr1+2]+= phi[8];
-						Value[NoFr1+3]+= phi[9];
-				
-						Value[NoFr2+2]+= psi[8];
-						Value[NoFr2+3]+= psi[9];
-					}
-					else if(ox2 == 3){
-
-						/* Do nothing */
-					}
-					else {
-						goto on_error;
-					}
-				}/* Non-periodic for x2 */
-				else{
-
-					/* The following is true no matter ix1 == 4 or not */
-					/* For Er */
-					Value[NoEr] = theta[9];
-					Value[NoEr+1] = theta[10];
-					Value[NoEr+2] = theta[0];
-					Value[NoEr+3] = theta[1];
-					
-					indexValue[NoEr] = 3*(i-is);
-					indexValue[NoEr+1] =3*(i-is) + 2;		
-					indexValue[NoEr+2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoEr+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2;
-
-					/* For Fr1 */
-					
-					Value[NoFr1] = phi[8];
-					Value[NoFr1+1] = phi[9];
-					Value[NoFr1+2] = phi[0];
-					Value[NoFr1+3] = phi[1];
-					
-					indexValue[NoFr1] = 3*(i-is);
-					indexValue[NoFr1+1] = 3*(i-is) + 1;		
-					indexValue[NoFr1+2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr1+3] = 3*(j-js-1)*Nx + 3*(i-is) + 1;
-
-					/* For Fr2 */
-					
-					Value[NoFr2] = psi[8];
-					Value[NoFr2+1] = psi[9];
-					Value[NoFr2+2] = psi[0];
-					Value[NoFr2+3] = psi[1];
-					
-					indexValue[NoFr2] = 3*(i-is);
-					indexValue[NoFr2+1] = 3*(i-is) + 2;		
-					indexValue[NoFr2+2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr2+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2;
-
-					
-					/* for Er */
-					for(m=0; m<5; m++){
-						Value[NoEr+4+m] = theta[4+m];
-						indexValue[NoEr+4+m] = 3*(j-js)*Nx + 3*(i-is) + m;
-					}
-
-					/* For Fr1 */
-					Value[NoFr1+4] = phi[4];
-					Value[NoFr1+5] = phi[5];
-					Value[NoFr1+6] = phi[6];
-					Value[NoFr1+7] = phi[7];
-
-					indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is) + 1;
-					indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is) + 3;
-					indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is) + 4;
-
-					/* For Fr2 */
-					Value[NoFr2+4] = psi[4];
-					Value[NoFr2+5] = psi[5];
-					Value[NoFr2+6] = psi[6];
-					Value[NoFr2+7] = psi[7];
-
-					indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is) + 2;
-					indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is) + 3;
-					indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is) + 5;				
-
-					
-					if (ix1 == 4) {
-
-						
-						/* For Er */
-						Value[NoEr+9] = theta[2];
-						Value[NoEr+10] = theta[3];
-							
-						indexValue[NoEr+9] = 3*(j-js)*Nx + 3*(ie-is);
-						indexValue[NoEr+10] = 3*(j-js)*Nx + 3*(ie-is) + 1;
-
-						/* For Fr1 */
-
-						Value[NoFr1+8] = phi[2];
-						Value[NoFr1+9] = phi[3];
-							
-						indexValue[NoFr1+8] = 3*(j-js)*Nx + 3*(ie-is);
-						indexValue[NoFr1+9] = 3*(j-js)*Nx + 3*(ie-is) + 1;
-
-						/* For Fr2 */
-					
-						Value[NoFr2+8] = psi[2];
-						Value[NoFr2+9] = psi[3];
-							
-						indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(ie-is);
-						indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(ie-is) + 2;
-
-					} /* for periodic boundary condition */
-					else if(ix1 == 1 || ix1 == 5){
-					
-						Value[NoEr+4] += theta[2];
-						Value[NoEr+5] -= theta[3];
-			
-						Value[NoFr1+4]+= phi[2];
-						Value[NoFr1+5]-= phi[3];
-				
-						Value[NoFr2+4]+= psi[2];
-						Value[NoFr2+5]+= psi[3];
-					}
-					else if(ix1 == 2){
-						Value[NoEr+4] += theta[2];
-						Value[NoEr+5] += theta[3];
-			
-						Value[NoFr1+4]+= phi[2];
-						Value[NoFr1+5]+= phi[3];
-				
-						Value[NoFr2+4]+= psi[2];
-						Value[NoFr2+5]+= psi[3];
-					}
-					else if(ix1 == 3){
-
-						/* Do nothing */
-					}
-					else {
-						goto on_error;
-					}
-
-				}/* periodic for x2 */
 			} /* End j == je */
 			else {
-				if(ix1 != 4){						
+				if((ix1 != 4) && (pG->lx1_id < 0)){						
 					NZ_NUM -= 6;
 					NoEr = count;
 					NoFr1 = count + 9;
@@ -943,179 +623,18 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 
-				/* The following is true no matter ix1== 4 or not */
-
-				/* For Er */
-
-				Value[NoEr] = theta[0];
-				Value[NoEr+1] = theta[1];
-
-				Value[NoEr+2] = theta[4];
-				Value[NoEr+3] = theta[5];
-				Value[NoEr+4] = theta[6];
-				Value[NoEr+5] = theta[7];
-				Value[NoEr+6] = theta[8];
-
-				indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is);
-				indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-				indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is);
-				indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is)+1;
-				indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is)+2;
-				indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+3;
-				indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+4;
-
-				/* For Fr1 */			
-				
-				Value[NoFr1] = phi[0];
-				Value[NoFr1+1] = phi[1];
-
-				Value[NoFr1+2] = phi[4];
-				Value[NoFr1+3] = phi[5];
-				Value[NoFr1+4] = phi[6];
-				Value[NoFr1+5] = phi[7];
-
-				indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is);
-				indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1;
-
-				indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is);
-				indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is)+1;
-				indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is)+3;
-				indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+4;
-
-				/* For Fr2 */
-
-				Value[NoFr2] = psi[0];
-				Value[NoFr2+1] = psi[1];
-
-				Value[NoFr2+2] = psi[4];
-				Value[NoFr2+3] = psi[5];
-				Value[NoFr2+4] = psi[6];
-				Value[NoFr2+5] = psi[7];
-
-				indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is);
-				indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-				indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is);
-				indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is)+2;
-				indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is)+3;
-				indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+5;
-
-
-				if(ix1 != 4){
-					
-					/* For Er */
-					
-					Value[NoEr+7] = theta[9];
-					Value[NoEr+8] = theta[10];
-
-					
-					
-					indexValue[NoEr+7] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoEr+8] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-
-					/* For Fr1 */
-					
-					Value[NoFr1+6] = phi[8];
-					Value[NoFr1+7] = phi[9];					
-										
-					indexValue[NoFr1+6] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr1+7] = 3*(j-js+1)*Nx + 3*(i-is)+1;
-
-					/* For Fr2 */
-		
-					Value[NoFr2+6] = psi[8];
-					Value[NoFr2+7] = psi[9];					
-										
-					indexValue[NoFr2+6] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr2+7] = 3*(j-js+1)*Nx + 3*(i-is)+2;			
-
-
-				}/* no periodic boundary condition */
-				else {
-					/* For Er */
-					
-					Value[NoEr+7] = theta[2];
-					Value[NoEr+8] = theta[3];
-					Value[NoEr+9] = theta[9];
-					Value[NoEr+10] = theta[10];
-					
-					
-					indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(ie-is);
-					indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(ie-is)+1;
-					indexValue[NoEr+9] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoEr+10] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-
-
-					/* For Fr1 */
-					
-					Value[NoFr1+6] = phi[2];
-					Value[NoFr1+7] = phi[3];	
-					Value[NoFr1+8] = phi[8];
-					Value[NoFr1+9] = phi[9];						
-										
-					indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(ie-is);
-					indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(ie-is)+1;
-					indexValue[NoFr1+8] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr1+9] = 3*(j-js+1)*Nx + 3*(i-is)+1;
-
-					/* For Fr2 */
-		
-					Value[NoFr2+6] = psi[2];
-					Value[NoFr2+7] = psi[3];
-					Value[NoFr2+8] = psi[8];
-					Value[NoFr2+9] = psi[9];						
-										
-					indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(ie-is);
-					indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(ie-is)+2;
-					indexValue[NoFr2+8] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr2+9] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-
-				}/* For periodic boundary condition */
-
-
-
-				
-				/* other ix1 boundary condition */
-
-				if(ix1 == 1 || ix1 == 5){
-					
-					Value[NoEr+2] += theta[2];
-					Value[NoEr+3] -= theta[3];
-			
-					Value[NoFr1+2]+= phi[2];
-					Value[NoFr1+3]-= phi[3];
-				
-					Value[NoFr2+2]+= psi[2];
-					Value[NoFr2+3]+= psi[3];
-				}
-				else if(ix1 == 2){
-					Value[NoEr+2] += theta[2];
-					Value[NoEr+3] += theta[3];
-			
-					Value[NoFr1+2]+= phi[2];
-					Value[NoFr1+3]+= phi[3];
-				
-					Value[NoFr2+2]+= psi[2];
-					Value[NoFr2+3]+= psi[3];
-					}
-				else if(ix1 == 3){
-
-					/* Do nothing */
-				}
-				else if(ix1 != 4){
-					goto on_error;
-				}
+				/* judge MPI or physical boundary condition */
+				if(pG->lx1_id<0)
+					is_j_phy(j);				
+				else
+					is_j_MPI(j);						
 
 			} /* End j!= js & j != je */
 		}/* End i==is */
 		else if (i == ie){
 			if(j == js){
-				if(ox1 != 4){						
-					if(ix2 !=4){
+				if((ox1 != 4) && (pG->rx1_id <0)){						
+					if((ix2 !=4) && (pG->lx2_id < 0)){
 						NZ_NUM -= 12;
 						NoEr = count;
 						NoFr1 = count + 7;
@@ -1131,7 +650,7 @@ void BackEuler_2d(MeshS *pM)
 					}
 				}/* Non periodic for x1 */
 				else{
-					if(ix2 !=4){
+					if((ix2 !=4) && (pG->lx2_id < 0)){
 						NZ_NUM -= 6;
 						NoEr = count;
 						NoFr1 = count + 9;
@@ -1150,267 +669,20 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 
-
-				if(ox1 !=4 ){
-	
-					/* For Er */
-					for(m=0; m<5; m++)
-						Value[NoEr+m] = theta[2+m];
-
-					Value[NoEr+5] = theta[9];
-					Value[NoEr+6] = theta[10];
+				/* judge MPI or physical boundary condition */
+				if((pG->rx1_id<0) && (pG->lx2_id<0))
+					ie_js_phy_phy();
+				else if((pG->rx1_id<0) && (pG->lx2_id>=0))
+					ie_js_phy_MPI();
+				else if((pG->rx1_id>=0) && (pG->lx2_id<0))
+					ie_js_MPI_phy();
+				else
+					ie_js_MPI_MPI();	
 				
-					indexValue[NoEr] = 3*(j-js)*Nx+3*(i-is-1);
-					indexValue[NoEr+1] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-					for(m=0; m<3; m++)
-						indexValue[NoEr+2+m] = 3*(j-js)*Nx+3*(i-is)+m;
-
-					indexValue[NoEr+5] = 3*(j-js+1)*Nx+3*(i-is);
-					indexValue[NoEr+6] = 3*(j-js+1)*Nx+3*(i-is)+2;
-
-					/* For Fr1 */
-
-					for(m=0; m<4; m++)
-						Value[NoFr1+m] = phi[2+m];
-
-					Value[NoFr1+4] = phi[8];
-					Value[NoFr1+5] = phi[9];
-				
-					indexValue[NoFr1] = 3*(j-js)*Nx+3*(i-is-1);
-					indexValue[NoFr1+1] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-					for(m=0; m<2; m++)
-						indexValue[NoFr1+2+m] = 3*(j-js)*Nx+3*(i-is)+m;
-
-					indexValue[NoFr1+4] = 3*(j-js+1)*Nx+3*(i-is);
-					indexValue[NoFr1+5] = 3*(j-js+1)*Nx+3*(i-is)+1;
-
-					/* For Fr2 */
-
-					for(m=0; m<4; m++)
-						Value[NoFr2+m] = psi[2+m];
-
-					Value[NoFr2+4] = psi[8];
-					Value[NoFr2+5] = psi[9];
-				
-					indexValue[NoFr2] = 3*(j-js)*Nx+3*(i-is-1);
-					indexValue[NoFr2+1] = 3*(j-js)*Nx+3*(i-is-1)+2;
-					indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is);
-					indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is)+2;					
-
-					indexValue[NoFr2+4] = 3*(j-js+1)*Nx+3*(i-is);
-					indexValue[NoFr2+5] = 3*(j-js+1)*Nx+3*(i-is)+2;		
-
-					/* ix2 boundary condition */
-					if(ix2 == 4){
-	
-						Value[NoEr+7] = theta[0];
-						Value[NoEr+8] = theta[1];
-					
-						indexValue[NoEr+7] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoEr+8] = 3*(je-js)*Nx+3*(i-is)+2;
-			
-						Value[NoFr1+6] = phi[0];
-						Value[NoFr1+7] = phi[1];
-
-						indexValue[NoFr1+6] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoFr1+7] = 3*(je-js)*Nx+3*(i-is)+1;
-				
-						Value[NoFr2+6] = psi[0];
-						Value[NoFr2+7] = psi[1];
-
-						indexValue[NoFr2+6] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoFr2+7] = 3*(je-js)*Nx+3*(i-is)+2;				
-
-
-					}
-					else if(ix2 == 1 || ix2 == 5){
-					
-						Value[NoEr+2] += theta[0];
-						Value[NoEr+4] -= theta[1];
-			
-						Value[NoFr1+2]+= phi[0];
-						Value[NoFr1+3]+= phi[1];
-				
-						Value[NoFr2+2]+= psi[0];
-						Value[NoFr2+3]-= psi[1];
-					}
-					else if(ix2 == 2){
-						Value[NoEr+2] += theta[0];
-						Value[NoEr+4] += theta[1];
-			
-						Value[NoFr1+2]+= phi[0];
-						Value[NoFr1+3]+= phi[1];
-				
-						Value[NoFr2+2]+= psi[0];
-						Value[NoFr2+3]+= psi[1];
-					}
-					else if(ix2 == 3){
-
-						/* Do nothing */
-					}
-					else {
-						goto on_error;
-					}
-
-
-
-				}/* Non periodic boundary condition */
-				else {
-					/* For Er */
-					Value[NoEr] = theta[7];
-					Value[NoEr+1] = theta[8];
-
-					for(m=0; m<5; m++)
-						Value[NoEr+m+2] = theta[2+m];
-
-					Value[NoEr+7] = theta[9];
-					Value[NoEr+8] = theta[10];
-				
-					indexValue[NoEr] = 3*(j-js)*Nx;
-					indexValue[NoEr+1] = 3*(j-js)*Nx+1;
-					indexValue[NoEr+2] = 3*(j-js)*Nx+3*(i-is-1);
-					indexValue[NoEr+3] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-					for(m=0; m<3; m++)
-						indexValue[NoEr+4+m] = 3*(j-js)*Nx+3*(i-is)+m;
-
-					indexValue[NoEr+7] = 3*(j-js+1)*Nx+3*(i-is);
-					indexValue[NoEr+8] = 3*(j-js+1)*Nx+3*(i-is)+2;
-
-					/* For Fr1 */
-					Value[NoFr1] = phi[6];
-					Value[NoFr1+1] = phi[7];
-
-					for(m=0; m<4; m++)
-						Value[NoFr1+m+2] = phi[2+m];
-
-					Value[NoFr1+6] = phi[8];
-					Value[NoFr1+7] = phi[9];
-				
-					indexValue[NoFr1] = 3*(j-js)*Nx;
-					indexValue[NoFr1+1] = 3*(j-js)*Nx+1;
-					indexValue[NoFr1+2] = 3*(j-js)*Nx+3*(i-is-1);
-					indexValue[NoFr1+3] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-					for(m=0; m<2; m++)
-						indexValue[NoFr1+4+m] = 3*(j-js)*Nx+3*(i-is)+m;
-
-					indexValue[NoFr1+6] = 3*(j-js+1)*Nx+3*(i-is);
-					indexValue[NoFr1+7] = 3*(j-js+1)*Nx+3*(i-is)+1;
-
-					/* For Fr2 */
-
-					Value[NoFr2] = psi[6];
-					Value[NoFr2+1] = psi[7];
-
-					for(m=0; m<4; m++)
-						Value[NoFr2+m+2] = psi[2+m];
-
-					Value[NoFr2+6] = psi[8];
-					Value[NoFr2+7] = psi[9];
-				
-					indexValue[NoFr2] = 3*(j-js)*Nx;
-					indexValue[NoFr2+1] = 3*(j-js)*Nx+2;
-					indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is-1);
-					indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is-1)+2;
-					indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is);
-					indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is)+2;			
-
-					indexValue[NoFr2+6] = 3*(j-js+1)*Nx+3*(i-is);
-					indexValue[NoFr2+7] = 3*(j-js+1)*Nx+3*(i-is)+2;
-
-
-					/* ix2 boundary condition */
-					if(ix2 == 4){
-	
-						Value[NoEr+9] = theta[0];
-						Value[NoEr+10] = theta[1];
-					
-						indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoEr+10] = 3*(je-js)*Nx+3*(i-is)+2;
-			
-						Value[NoFr1+8] = phi[0];
-						Value[NoFr1+9] = phi[1];
-
-						indexValue[NoFr1+8] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoFr1+9] = 3*(je-js)*Nx+3*(i-is)+1;
-				
-						Value[NoFr2+8] = psi[0];
-						Value[NoFr2+9] = psi[1];
-
-						indexValue[NoFr2+8] = 3*(je-js)*Nx+3*(i-is);
-						indexValue[NoFr2+9] = 3*(je-js)*Nx+3*(i-is)+2;				
-
-
-					}
-					else if(ix2 == 1 || ix2 == 5){
-					
-						Value[NoEr+4] += theta[0];
-						Value[NoEr+6] -= theta[1];
-			
-						Value[NoFr1+4]+= phi[0];
-						Value[NoFr1+5]+= phi[1];
-				
-						Value[NoFr2+4]+= psi[0];
-						Value[NoFr2+5]-= psi[1];
-					}
-					else if(ix2 == 2){
-						Value[NoEr+4] += theta[0];
-						Value[NoEr+6] += theta[1];
-			
-						Value[NoFr1+4]+= phi[0];
-						Value[NoFr1+5]+= phi[1];
-				
-						Value[NoFr2+4]+= psi[0];
-						Value[NoFr2+5]+= psi[1];
-					}
-					else if(ix2 == 3){
-
-						/* Do nothing */
-					}
-					else {
-						goto on_error;
-					}
-
-					
-				}/* Periodic boundary condition */
-
-
-				/* other ox1 boundary condition */
-				if(ox1 == 1 || ox1 == 5){
-					
-					Value[NoEr+2] += theta[7];
-					Value[NoEr+3] -= theta[8];
-			
-					Value[NoFr1+2]+= phi[6];
-					Value[NoFr1+3]-= phi[7];
-				
-					Value[NoFr2+2]+= psi[6];
-					Value[NoFr2+3]+= psi[7];
-				}
-				else if(ox1 == 2){
-					Value[NoEr+2] += theta[7];
-					Value[NoEr+3] += theta[8];
-			
-					Value[NoFr1+2]+= phi[6];
-					Value[NoFr1+3]+= phi[7];
-				
-					Value[NoFr2+2]+= psi[6];
-					Value[NoFr2+3]+= psi[7];
-				}
-				else if(ox1 == 3){
-
-					/* Do nothing */
-				}
-				else if(ox1 != 4){
-					goto on_error;
-				}
 			} /* End j==js */
 			else if(j == je){
-				if(ox1 != 4){						
-					if(ox2 !=4){
+				if((ox1 != 4) && (pG->rx1_id < 0)){						
+					if((ox2 !=4) && (pG->rx2_id < 0)){
 						NZ_NUM -= 12;
 						NoEr = count;
 						NoFr1 = count + 7;
@@ -1426,7 +698,7 @@ void BackEuler_2d(MeshS *pM)
 					}
 				}/* Non periodic for x1 */
 				else{
-					if(ox2 !=4){
+					if((ox2 !=4) && (pG->rx2_id < 0)){
 						NZ_NUM -= 6;
 						NoEr = count;
 						NoFr1 = count + 9;
@@ -1446,409 +718,20 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 				
 				
-				/* Now the important thing is ox2, which determines the first non-zero element */
-				
-				
-				if(ox2 != 4){
-					if(ox1 != 4){					
-						/* For Er */
-						for(m=0; m<7; m++)
-							Value[NoEr+m] = theta[m];
-				
-						indexValue[NoEr] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoEr+1] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoEr+2] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoEr+3] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is)+1;
-						indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is)+2;				
-
-						/* For Fr1 */
-
-						for(m=0; m<6; m++)
-							Value[NoFr1+m] = phi[m];
-				
-						indexValue[NoFr1] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr1+1] = 3*(j-js-1)*Nx+3*(i-is)+1;
-
-						indexValue[NoFr1+2] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr1+3] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is)+1;
-						
-						/* For Fr2 */
-
-						for(m=0; m<6; m++)
-							Value[NoFr2+m] = psi[m];
-				
-						indexValue[NoFr2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr2+1] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is-1)+2;
-
-						indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is)+2;
-
-
-						/* other ox1 boundary condition */
-						if(ox1 == 1 || ox1 == 5){
-					
-							Value[NoEr+4] += theta[7];
-							Value[NoEr+5] -= theta[8];
+				/* judge MPI or physical boundary condition */
+				if((pG->rx1_id<0) && (pG->rx2_id<0))
+					ie_je_phy_phy();
+				else if((pG->rx1_id<0) && (pG->rx2_id>=0))
+					ie_je_phy_MPI();
+				else if((pG->rx1_id>=0) && (pG->rx2_id<0))
+					ie_je_MPI_phy();
+				else
+					ie_je_MPI_MPI();	
 			
-							Value[NoFr1+4]+= phi[6];
-							Value[NoFr1+5]-= phi[7];
 				
-							Value[NoFr2+4]+= psi[6];
-							Value[NoFr2+5]+= psi[7];
-						}
-						else if(ox1 == 2){
-							Value[NoEr+4] += theta[7];
-							Value[NoEr+5] += theta[8];
-			
-							Value[NoFr1+4]+= phi[6];
-							Value[NoFr1+5]+= phi[7];
-				
-							Value[NoFr2+4]+= psi[6];
-							Value[NoFr2+5]+= psi[7];
-						}
-						else if(ox1 == 3){
-
-							/* Do nothing */
-						}
-						else {
-							goto on_error;
-						}
-
-						/* other x2 boundary condition */
-						if(ox2 == 1 || ox2 == 5){
-					
-							Value[NoEr+4] += theta[9];
-							Value[NoEr+6] -= theta[10];
-			
-							Value[NoFr1+4]+= phi[8];
-							Value[NoFr1+5]+= phi[9];
-				
-							Value[NoFr2+4]+= psi[8];
-							Value[NoFr2+5]-= psi[9];
-						}
-						else if(ox2 == 2){
-							Value[NoEr+4] += theta[9];
-							Value[NoEr+6] += theta[10];
-			
-							Value[NoFr1+4]+= phi[8];
-							Value[NoFr1+5]+= phi[9];
-				
-							Value[NoFr2+4]+= psi[9];
-							Value[NoFr2+5]+= psi[10];
-						}
-						else if(ox2 == 3){
-
-							/* Do nothing */
-						}
-						else {
-							goto on_error;
-						}
-
-
-					}/* non periodic for x1 */
-					else{
-						/* for Er */
-						Value[NoEr] = theta[0];
-						Value[NoEr+1] = theta[1];
-
-						Value[NoEr+2] = theta[7];
-						Value[NoEr+3] = theta[8];
-
-						for(m=0; m<5; m++)
-							Value[NoEr+4+m] = theta[2+m];
-				
-						indexValue[NoEr] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoEr+1] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoEr+2] = 3*(j-js)*Nx;
-						indexValue[NoEr+3] = 3*(j-js)*Nx+1;
-
-						indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is)+1;
-						indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is)+2;				
-
-						/* For Fr1 */
-
-						Value[NoFr1] = phi[0];
-						Value[NoFr1+1] = phi[1];
-
-						Value[NoFr1+2] = phi[6];
-						Value[NoFr1+3] = phi[7];
-
-						for(m=0; m<4; m++)
-							Value[NoFr1+4+m] = phi[2+m];
-				
-						indexValue[NoFr1] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr1+1] = 3*(j-js-1)*Nx+3*(i-is)+1;
-
-						indexValue[NoFr1+2] = 3*(j-js)*Nx;
-						indexValue[NoFr1+3] = 3*(j-js)*Nx+1;
-
-						indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is)+1;
-						
-						
-						/* For Fr2 */
-						Value[NoFr2] = psi[0];
-						Value[NoFr2+1] = psi[1];
-
-						Value[NoFr2+2] = psi[6];
-						Value[NoFr2+3] = psi[7];
-
-						for(m=0; m<4; m++)
-							Value[NoFr2+4+m] = psi[2+m];
-				
-						indexValue[NoFr2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr2+1] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoFr2+2] = 3*(j-js)*Nx;
-						indexValue[NoFr2+3] = 3*(j-js)*Nx+2;
-
-						indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is-1)+2;
-
-						indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is)+2;
-
-						/* other x2 boundary condition */
-						if(ox2 == 1 || ox2 == 5){
-					
-							Value[NoEr+6] += theta[9];
-							Value[NoEr+8] -= theta[10];
-			
-							Value[NoFr1+6]+= phi[8];
-							Value[NoFr1+7]+= phi[9];
-				
-							Value[NoFr2+6]+= psi[8];
-							Value[NoFr2+7]-= psi[9];
-						}
-						else if(ox2 == 2){
-							Value[NoEr+6] += theta[9];
-							Value[NoEr+8] += theta[10];
-			
-							Value[NoFr1+6]+= phi[8];
-							Value[NoFr1+7]+= phi[9];
-				
-							Value[NoFr2+6]+= psi[8];
-							Value[NoFr2+7]+= psi[9];
-						}
-						else if(ox2 == 3){
-
-							/* Do nothing */
-						}
-						else {
-							goto on_error;
-						}
-
-
-					}/* periodic for x1 */				
-
-				}/* Non-periodic for x2 */
-				else{
-					if(ox1 != 4){					
-						/* For Er */
-						Value[NoEr] = theta[9];
-						Value[NoEr+1] = theta[10];
-
-						for(m=0; m<7; m++)
-							Value[NoEr+m+2] = theta[m];
-
-						indexValue[NoEr] = 3*(i-is);
-						indexValue[NoEr+1] = 3*(i-is)+2;
-				
-						indexValue[NoEr+2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoEr+3] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is)+1;
-						indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is)+2;				
-
-						/* For Fr1 */
-
-						Value[NoFr1] = phi[8];
-						Value[NoFr1+1] = phi[9];
-
-						for(m=0; m<6; m++)
-							Value[NoFr1+m+2] = phi[m];
-
-						indexValue[NoFr1] = 3*(i-is);
-						indexValue[NoFr1+1] = 3*(i-is)+1;
-				
-						indexValue[NoFr1+2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr1+3] = 3*(j-js-1)*Nx+3*(i-is)+1;
-
-						indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is)+1;
-						
-						/* For Fr2 */
-	
-						Value[NoFr2] = psi[8];
-						Value[NoFr2+1] = psi[9];
-
-						for(m=0; m<6; m++)
-							Value[NoFr2+m+2] = psi[m];
-
-						indexValue[NoFr2] = 3*(i-is);
-						indexValue[NoFr2+1] = 3*(i-is)+2;
-				
-						indexValue[NoFr2+2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr2+3] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is-1)+2;
-
-						indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is)+2;
-
-
-						/* other ox1 boundary condition */
-						if(ox1 == 1 || ox1 == 5){
-					
-							Value[NoEr+6] += theta[7];
-							Value[NoEr+7] -= theta[8];
-			
-							Value[NoFr1+6]+= phi[6];
-							Value[NoFr1+7]-= phi[7];
-				
-							Value[NoFr2+6]+= psi[6];
-							Value[NoFr2+7]+= psi[7];
-						}
-						else if(ox1 == 2){
-							Value[NoEr+6] += theta[7];
-							Value[NoEr+7] += theta[8];
-			
-							Value[NoFr1+6]+= phi[6];
-							Value[NoFr1+7]+= phi[7];
-				
-							Value[NoFr2+6]+= psi[6];
-							Value[NoFr2+7]+= psi[7];
-						}
-						else if(ox1 == 3){
-
-							/* Do nothing */
-						}
-						else {
-							goto on_error;
-						}
-
-						
-
-
-					}/* non periodic for x1 */
-					else{
-						/* for Er */
-						Value[NoEr] = theta[9];
-						Value[NoEr+1] = theta[10];
-
-						Value[NoEr+2] = theta[0];
-						Value[NoEr+3] = theta[1];
-
-						Value[NoEr+4] = theta[7];
-						Value[NoEr+5] = theta[8];
-
-						for(m=0; m<5; m++)
-							Value[NoEr+6+m] = theta[2+m];
-
-						indexValue[NoEr] = 3*(i-is);
-						indexValue[NoEr+1] = 3*(i-is)+2;
-				
-						indexValue[NoEr+2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoEr+3] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoEr+4] = 3*(j-js)*Nx;
-						indexValue[NoEr+5] = 3*(j-js)*Nx+1;
-
-						indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoEr+9] = 3*(j-js)*Nx+3*(i-is)+1;
-						indexValue[NoEr+10] = 3*(j-js)*Nx+3*(i-is)+2;				
-
-						/* For Fr1 */
-						Value[NoFr1] = phi[8];
-						Value[NoFr1+1] = phi[9];
-
-						Value[NoFr1+2] = phi[0];
-						Value[NoFr1+3] = phi[1];
-
-						Value[NoFr1+4] = phi[6];
-						Value[NoFr1+5] = phi[7];
-
-						for(m=0; m<4; m++)
-							Value[NoFr1+6+m] = phi[2+m];
-
-						indexValue[NoFr1] = 3*(i-is);
-						indexValue[NoFr1+1] = 3*(i-is)+1;
-				
-						indexValue[NoFr1+2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr1+3] = 3*(j-js-1)*Nx+3*(i-is)+1;
-
-						indexValue[NoFr1+4] = 3*(j-js)*Nx;
-						indexValue[NoFr1+5] = 3*(j-js)*Nx+1;
-
-						indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is-1)+1;
-
-						indexValue[NoFr1+8] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr1+9] = 3*(j-js)*Nx+3*(i-is)+1;
-						
-						
-						/* For Fr2 */
-						Value[NoFr2] = psi[8];
-						Value[NoFr2+1] = psi[9];
-
-						Value[NoFr2+2] = psi[0];
-						Value[NoFr2+3] = psi[1];
-
-						Value[NoFr2+4] = psi[6];
-						Value[NoFr2+5] = psi[7];
-
-						for(m=0; m<4; m++)
-							Value[NoFr2+6+m] = psi[2+m];
-
-						indexValue[NoFr2] = 3*(i-is);
-						indexValue[NoFr2+1] = 3*(i-is)+2;
-				
-						indexValue[NoFr2+2] = 3*(j-js-1)*Nx+3*(i-is);
-						indexValue[NoFr2+3] = 3*(j-js-1)*Nx+3*(i-is)+2;
-
-						indexValue[NoFr2+4] = 3*(j-js)*Nx;
-						indexValue[NoFr2+5] = 3*(j-js)*Nx+2;
-
-						indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is-1);
-						indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is-1)+2;
-
-						indexValue[NoFr2+8] = 3*(j-js)*Nx+3*(i-is);
-						indexValue[NoFr2+9] = 3*(j-js)*Nx+3*(i-is)+2;					
-
-					}/* periodic for x1 */	
-				}/* periodic for x2 */
 			} /* End j==je */
 			else {
-				if(ox1 != 4){						
+				if((ox1 != 4) && (pG->rx1_id < 0)){						
 					NZ_NUM -= 6;
 					NoEr = count;
 					NoFr1 = count + 9;
@@ -1869,204 +752,18 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 
-				if(ox1 == 4){
+				/* judge MPI or physical boundary condition */
+				if(pG->rx1_id<0)
+					ie_j_phy(j);				
+				else
+					ie_j_MPI(j);
 
-					/* For Er */
-					Value[NoEr] = theta[0];
-					Value[NoEr+1] =theta[1];
-
-					Value[NoEr+2] = theta[7];
-					Value[NoEr+3] = theta[8];
-
-					for(m=0; m<5; m++)
-						Value[NoEr+4+m] = theta[2+m];
-
-					Value[NoEr+9] = theta[9];
-					Value[NoEr+10] =theta[10];
-
-					indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-					indexValue[NoEr+2] = 3*(j-js)*Nx;
-					indexValue[NoEr+3] = 3*(j-js)*Nx +1;
-
-					indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is)+1;
-					indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is)+2;
-					
-					indexValue[NoEr+9] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoEr+10] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-					/* For Fr1 */
-
-					Value[NoFr1] = phi[0];
-					Value[NoFr1+1] =phi[1];
-
-					Value[NoFr1+2] = phi[6];
-					Value[NoFr1+3] = phi[7];
-
-					for(m=0; m<4; m++)
-						Value[NoFr1+4+m] = phi[2+m];
-
-					Value[NoFr1+8] = phi[8];
-					Value[NoFr1+9] =phi[9];
-
-					indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1;
-
-					indexValue[NoFr1+2] = 3*(j-js)*Nx;
-					indexValue[NoFr1+3] = 3*(j-js)*Nx +1;
-
-					indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is)+1;
-					
-					indexValue[NoFr1+8] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr1+9] = 3*(j-js+1)*Nx + 3*(i-is)+1;
-
-					/* For Fr2 */
-
-					Value[NoFr2] = psi[0];
-					Value[NoFr2+1] =psi[1];
-
-					Value[NoFr2+2] = psi[6];
-					Value[NoFr2+3] = psi[7];
-
-					for(m=0; m<4; m++)
-						Value[NoFr2+4+m] = psi[2+m];
-
-					Value[NoFr2+8] = psi[8];
-					Value[NoFr2+9] =psi[9];
-
-					indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-					indexValue[NoFr2+2] = 3*(j-js)*Nx;
-					indexValue[NoFr2+3] = 3*(j-js)*Nx +2;
-
-					indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is-1)+2;
-
-					indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is)+2;
-					
-					indexValue[NoFr2+8] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr2+9] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-
-				}/* Periodic boundary condition */
-				else{
-					/* For Er */
-					Value[NoEr] = theta[0];
-					Value[NoEr+1] =theta[1];
-
-					for(m=0; m<5; m++)
-						Value[NoEr+2+m] = theta[2+m];
-
-					Value[NoEr+7] = theta[9];
-					Value[NoEr+8] =theta[10];
-
-					indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-					indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+1;
-					indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+2;
-					
-					indexValue[NoEr+7] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoEr+8] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-					/* For Fr1 */
-
-					Value[NoFr1] = phi[0];
-					Value[NoFr1+1] =phi[1];
-
-					for(m=0; m<4; m++)
-						Value[NoFr1+2+m] = phi[2+m];
-
-					Value[NoFr1+6] = phi[8];
-					Value[NoFr1+7] =phi[9];
-
-					indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1;
-
-					indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+1;
-					
-					indexValue[NoFr1+6] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr1+7] = 3*(j-js+1)*Nx + 3*(i-is)+1;
-
-					/* For Fr2 */
-
-					Value[NoFr2] = psi[0];
-					Value[NoFr2+1] =psi[1];
-
-
-					for(m=0; m<4; m++)
-						Value[NoFr2+2+m] = psi[2+m];
-
-					Value[NoFr2+6] = psi[8];
-					Value[NoFr2+7] =psi[9];
-
-					indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-					indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is-1)+2;
-
-					indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+2;
-					
-					indexValue[NoFr2+6] = 3*(j-js+1)*Nx + 3*(i-is);
-					indexValue[NoFr2+7] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-					/* other ox1 boundary condition */
-					if(ox1 == 1 || ox1 == 5){
-					
-						Value[NoEr+4] += theta[7];
-						Value[NoEr+5] -= theta[8];
-			
-						Value[NoFr1+4]+= phi[6];
-						Value[NoFr1+5]-= phi[7];
 				
-						Value[NoFr2+4]+= psi[6];
-						Value[NoFr2+5]+= psi[7];
-					}
-					else if(ox1 == 2){
-						Value[NoEr+4] += theta[7];
-						Value[NoEr+5] += theta[8];
-		
-						Value[NoFr1+4]+= phi[6];
-						Value[NoFr1+5]+= phi[7];
-				
-						Value[NoFr2+4]+= psi[6];
-						Value[NoFr2+5]+= psi[7];
-						}
-						else if(ox1 == 3){
-
-							/* Do nothing */
-						}
-						else {
-							goto on_error;
-						}
-
-				}/* non-periodic boundary condition */
 			} /* End j!=js & j!= je*/
 		}/* End i==ie */
 		else {
 			if(j == js){
-				if(ix2 != 4){						
+				if((ix2 != 4) && (pG->lx2_id<0)){						
 					NZ_NUM -= 6;
 					NoEr = count;
 					NoFr1 = count + 9;
@@ -2087,108 +784,17 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 
-			/* The following is true no matter ix2==4 or not */
-				/* For Er */
-				for(m=0; m<9; m++)
-					Value[NoEr+m] = theta[2+m];
-
-				indexValue[NoEr] = 3*(i-is-1);
-				indexValue[NoEr+1] = 3*(i-is-1) + 1;
-		
-				for(m=0; m<5; m++)
-					indexValue[NoEr+2+m] = 3*(i-is)+m;
-
-				indexValue[NoEr+7] = 3*(j-js+1)*Nx + 3*(i-is);
-				indexValue[NoEr+8] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-				/* For Fr1 */
-				for(m=0; m<8; m++)
-					Value[NoFr1+m] = phi[2+m];
-
-				indexValue[NoFr1] = 3*(i-is-1);
-				indexValue[NoFr1+1] = 3*(i-is-1) + 1;
-
-				indexValue[NoFr1+2] = 3*(i-is);
-				indexValue[NoFr1+3] = 3*(i-is) + 1;
-
-				indexValue[NoFr1+4] = 3*(i-is)+3;
-				indexValue[NoFr1+5] = 3*(i-is)+4;
-				
-				indexValue[NoFr1+6] = 3*(j-js+1)*Nx + 3*(i-is);
-				indexValue[NoFr1+7] = 3*(j-js+1)*Nx + 3*(i-is)+1;
-
-				/* For Fr2 */
-
-				for(m=0; m<8; m++)
-					Value[NoFr2+m] = psi[2+m];
-
-				indexValue[NoFr2] = 3*(i-is-1);
-				indexValue[NoFr2+1] = 3*(i-is-1) + 2;
-
-				indexValue[NoFr2+2] = 3*(i-is);
-				indexValue[NoFr2+3] = 3*(i-is) + 2;
-
-				indexValue[NoFr2+4] = 3*(i-is)+3;
-				indexValue[NoFr2+5] = 3*(i-is)+5;
-				
-				indexValue[NoFr2+6] = 3*(j-js+1)*Nx + 3*(i-is);
-				indexValue[NoFr2+7] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-				if(ix2 == 4){
-	
-					Value[NoEr+9] = theta[0];
-					Value[NoEr+10] = theta[1];
-					
-					indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is);
-					indexValue[NoEr+10] = 3*(je-js)*Nx+3*(i-is)+2;
+				/* judge MPI or physical boundary condition */
+				if(pG->lx2_id<0)
+					i_js_phy(i);				
+				else
+					i_js_MPI(i);
 			
-					Value[NoFr1+8] = phi[0];
-					Value[NoFr1+9] = phi[1];
-
-					indexValue[NoFr1+8] = 3*(je-js)*Nx+3*(i-is);
-					indexValue[NoFr1+9] = 3*(je-js)*Nx+3*(i-is)+1;
-				
-					Value[NoFr2+8] = psi[0];
-					Value[NoFr2+9] = psi[1];
-
-					indexValue[NoFr2+8] = 3*(je-js)*Nx+3*(i-is);
-					indexValue[NoFr2+9] = 3*(je-js)*Nx+3*(i-is)+2;				
-
-
-				}
-				else if(ix2 == 1 || ix2 == 5){
-					
-					Value[NoEr+2] += theta[0];
-					Value[NoEr+4] -= theta[1];
-			
-					Value[NoFr1+2]+= phi[0];
-					Value[NoFr1+3]+= phi[1];
-				
-					Value[NoFr2+2]+= psi[0];
-					Value[NoFr2+3]-= psi[1];
-				}
-				else if(ix2 == 2){
-					Value[NoEr+2] += theta[0];
-					Value[NoEr+4] += theta[1];
-			
-					Value[NoFr1+2]+= phi[0];
-					Value[NoFr1+3]+= phi[1];
-				
-					Value[NoFr2+2]+= psi[0];
-					Value[NoFr2+3]+= psi[1];
-				}
-				else if(ix2 == 3){
-
-					/* Do nothing */
-				}
-				else {
-					goto on_error;
-				}
 				
 			}
 			else if(j == je){
 
-				if(ox2 != 4){						
+				if((ox2 != 4) && (pG->rx2_id < 0)){						
 					NZ_NUM -= 6;
 					NoEr = count;
 					NoFr1 = count + 9;
@@ -2209,163 +815,13 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 
-				if(ox2 == 4){
-					/* For Er */
-					Value[NoEr] = theta[9];
-					Value[NoEr+1] = theta[10];
-					
-					for(m=0; m<9; m++)
-						Value[NoEr+2+m] = theta[m];
+				/* judge MPI or physical boundary condition */
+				if(pG->rx2_id<0)
+					i_je_phy(i);				
+				else
+					i_je_MPI(i);
 
-					indexValue[NoEr] = 3*(i-is);
-					indexValue[NoEr+1] = 3*(i-is) + 2;
-
-					indexValue[NoEr+2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoEr+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2;		
-
-					indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is)+1;
-					indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is)+2;
-
-					indexValue[NoEr+9] = 3*(j-js)*Nx + 3*(i-is+1);
-					indexValue[NoEr+10] = 3*(j-js)*Nx + 3*(i-is+1)+1;
-
-					/* For Fr1 */
-
-					Value[NoFr1] = phi[8];
-					Value[NoFr1+1] = phi[9];
-					
-					for(m=0; m<8; m++)
-						Value[NoFr1+2+m] = phi[m];
-
-					indexValue[NoFr1] = 3*(i-is);
-					indexValue[NoFr1+1] = 3*(i-is) + 1;
-
-					indexValue[NoFr1+2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr1+3] = 3*(j-js-1)*Nx + 3*(i-is) + 1;		
-
-					indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is)+1;
-					
-					indexValue[NoFr1+8] = 3*(j-js)*Nx + 3*(i-is+1);
-					indexValue[NoFr1+9] = 3*(j-js)*Nx + 3*(i-is+1)+1;
-
-					/* For Fr2 */
-
-					Value[NoFr2] = psi[8];
-					Value[NoFr2+1] = psi[9];
-					
-					for(m=0; m<8; m++)
-						Value[NoFr2+2+m] = psi[m];
-
-					indexValue[NoFr2] = 3*(i-is);
-					indexValue[NoFr2+1] = 3*(i-is) + 2;
-
-					indexValue[NoFr2+2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr2+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2;		
-
-					indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is-1)+2;
-
-					indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is)+2;
-					
-					indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(i-is+1);
-					indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(i-is+1)+2;
-				}/* End periodic of x2 */
-				else{
-					/* For Er */
-					
-					for(m=0; m<9; m++)
-						Value[NoEr+m] = theta[m];
-
-					indexValue[NoEr+0] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2;		
-
-					indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+1;
-					indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+2;
-
-					indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is+1);
-					indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is+1)+1;
-
-					/* For Fr1 */
-
-					
-					for(m=0; m<8; m++)
-						Value[NoFr1+m] = phi[m];
-
-
-					indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1;		
-
-					indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-					indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+1;
-					
-					indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is+1);
-					indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is+1)+1;
-
-					/* For Fr2 */
-
-					
-					for(m=0; m<8; m++)
-						Value[NoFr2+m] = psi[m];
-
-					indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is);
-					indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2;		
-
-					indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is-1);
-					indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is-1)+2;
-
-					indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is);
-					indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+2;
-					
-					indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is+1);
-					indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is+1)+2;
-
-					/* other x2 boundary condition */
-					if(ox2 == 1 || ox2 == 5){
-					
-						Value[NoEr+4] += theta[9];
-						Value[NoEr+6] -= theta[10];
-			
-						Value[NoFr1+4]+= phi[8];
-						Value[NoFr1+5]+= phi[9];
 				
-						Value[NoFr2+4]+= psi[8];
-						Value[NoFr2+5]-= psi[9];
-					}
-					else if(ox2 == 2){
-						Value[NoEr+4] += theta[9];
-						Value[NoEr+6] += theta[10];
-			
-						Value[NoFr1+4]+= phi[8];
-						Value[NoFr1+5]+= phi[9];
-				
-						Value[NoFr2+4]+= psi[8];
-						Value[NoFr2+5]+= psi[9];
-					}
-					else if(ox2 == 3){
-
-						/* Do nothing */
-					}
-					else {
-						goto on_error;
-					}
-
-				}/* End non-periodic of x2 */
 			}
 			else {
 				/* no boundary cells on either direction */
@@ -2379,65 +835,9 @@ void BackEuler_2d(MeshS *pM)
 				ptr[3*(j-js)*Nx+3*(i-is)+1] = NoFr1;
 				ptr[3*(j-js)*Nx+3*(i-is)+2] = NoFr2;
 
-				/* for Er */
-				for(m=0; m<11; m++)
-					Value[NoEr+m] = theta[m];
+				/* no boundary */
+				i_j(i,j);
 
-				indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is);
-				indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-				indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is-1);
-				indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-				indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is);
-				indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+1;
-				indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+2;
-
-				indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is+1);
-				indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is+1)+1;
-
-				indexValue[NoEr+9] = 3*(j-js+1)*Nx + 3*(i-is);
-				indexValue[NoEr+10] = 3*(j-js+1)*Nx + 3*(i-is)+2;
-
-				/* For Fr1 */
-	
-				for(m=0; m<10; m++)
-					Value[NoFr1+m] = phi[m];
-
-				indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is);
-				indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1;
-
-				indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is-1);
-				indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is-1)+1;
-
-				indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is);
-				indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+1;
-				
-				indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is+1);
-				indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is+1)+1;
-
-				indexValue[NoFr1+8] = 3*(j-js+1)*Nx + 3*(i-is);
-				indexValue[NoFr1+9] = 3*(j-js+1)*Nx + 3*(i-is)+1;
-
-				/* For Fr2 */
-
-				for(m=0; m<10; m++)
-					Value[NoFr2+m] = psi[m];
-
-				indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is);
-				indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2;
-
-				indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is-1);
-				indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is-1)+2;
-
-				indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is);
-				indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+2;
-				
-				indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is+1);
-				indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is+1)+2;
-
-				indexValue[NoFr2+8] = 3*(j-js+1)*Nx + 3*(i-is);
-				indexValue[NoFr2+9] = 3*(j-js+1)*Nx + 3*(i-is)+2;
 				
 			}
 		}/* End i!=is & i!=ie */
@@ -2447,13 +847,23 @@ void BackEuler_2d(MeshS *pM)
 		/* The last element of ptr */
 		ptr[lines] = NZ_NUM;
 
+		/* We have to create Euler every time. Otherwise the matrix solver will be wrong */
+#ifdef MPI_PARALLEL
+		lis_matrix_create(MPI_COMM_WORLD,&Euler);
+#else
+		lis_matrix_create(0,&Euler);
+#endif	
+		lis_matrix_set_size(Euler,lines,0);
+
+
+		
 
 		/* Assemble the matrix and solve the matrix */
 		lis_matrix_set_crs(NZ_NUM,ptr,indexValue,Value,Euler);
 		lis_matrix_assemble(Euler);
 
 		
-		lis_solver_set_option("-i gmres -p none",solver);
+		lis_solver_set_option("-i gmres -p ilu",solver);
 		lis_solver_set_option("-tol 1.0e-12",solver);
 		lis_solver_set_option("-maxiter 2000",solver);
 		lis_solve(Euler,RHSEuler,INIguess,solver);
@@ -2468,12 +878,13 @@ void BackEuler_2d(MeshS *pM)
 	for(j=js;j<=je;j++){
 		for(i=is; i<=ie; i++){
 
-		lis_vector_get_value(INIguess,3*(j-js)*Nx + 3*(i-is),&(pG->U[ks][j][i].Er));
-		lis_vector_get_value(INIguess,3*(j-js)*Nx + 3*(i-is)+1,&(pG->U[ks][j][i].Fr1));
-		lis_vector_get_value(INIguess,3*(j-js)*Nx + 3*(i-is)+2,&(pG->U[ks][j][i].Fr2));
-
+		lis_vector_get_value(INIguess,3*(j-js)*Nx + 3*(i-is) + count_Grids,&(pG->U[ks][j][i].Er));
+		lis_vector_get_value(INIguess,3*(j-js)*Nx + 3*(i-is)+1+count_Grids,&(pG->U[ks][j][i].Fr1));
+		lis_vector_get_value(INIguess,3*(j-js)*Nx + 3*(i-is)+2+count_Grids,&(pG->U[ks][j][i].Fr2));
+/*
 		if(pG->U[ks][j][i].Er < 0.0)
 			fprintf(stderr,"[BackEuler_2d]: Negative Radiation energy: %e\n",pG->U[ks][j][i].Er);
+*/
 		}
 	
 		
@@ -2482,27 +893,21 @@ void BackEuler_2d(MeshS *pM)
 
 
 /* Update the ghost zones for different boundary condition to be used later */
-		bvals_radMHD(pM);
+	for (i=0; i<pM->NLevels; i++){ 
+            for (j=0; j<pM->DomainsPerLevel[i]; j++){  
+        	if (pM->Domain[i][j].Grid != NULL){
+  			bvals_radMHD(&(pM->Domain[i][j]));
 
+        	}
+      	     }
+    	}
 
-/*-----------Finish---------------------*/
+		/* Destroy the matrix, Value, indexValue  and ptr are also destroyed here */
+		lis_matrix_destroy(Euler);
 
-  
-	/* Free the temporary variables just used for this grid calculation*/
-	/* This is done after main loop */
-/*	rad_hydro_destruct_2d(Nmatrix);
-
-*/
-	
-	lis_finalize();
 	
   return;	
-
-
-	on_error:
 	
-	BackEuler_destruct_2d(31*Nmatrix);
-	ath_error("[BackEuler]: Boundary condition not allowed now!\n");
 
 }
 
@@ -2511,20 +916,30 @@ void BackEuler_2d(MeshS *pM)
 /*-------------------------------------------------------------------------*/
 /* BackEuler_init_2d: function to allocate memory used just for radiation variables */
 /* BackEuler_destruct_2d(): function to free memory */
-void BackEuler_init_2d(int Nelements)
+void BackEuler_init_2d(int Nelements, int NGridx, int NGridy)
 {
 
-/* Nelements = 31*(je-js+1)*(ie-is+1) */
-	int lines;
-	lines = 3*Nelements/31;
+/* Nelements = (je-js+1)*(ie-is+1) */
+	int line;
+	line = 3*Nelements;
+
+/* Number of Grids in each direction */
+	NGx = NGridx;
+	NGy = NGridy;
 
 /* The matrix Euler is stored as a compact form.  */
 	/*FOR LIS LIBRARY */
-	lis_matrix_create(0,&Euler);	
-	lis_matrix_set_size(Euler,0,lines);
+#ifdef MPI_PARALLEL
+	lis_vector_create(MPI_COMM_WORLD,&RHSEuler);
+	lis_vector_create(MPI_COMM_WORLD,&INIguess);
+#else
+	lis_matrix_create(0,&RHSEuler);
+	lis_matrix_create(0,&INIguess);
+#endif	
+	
+	lis_vector_set_size(RHSEuler,line,0);
+	lis_vector_set_size(INIguess,line,0);	
 
-	lis_vector_duplicate(Euler,&RHSEuler);
-	lis_vector_duplicate(Euler,&INIguess);
 
 	lis_solver_create(&solver);
 
@@ -2533,14 +948,17 @@ void BackEuler_init_2d(int Nelements)
 	if ((Value = (Real*)malloc(Nelements*sizeof(Real))) == NULL) 
 	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 */
-	Value = (LIS_SCALAR *)malloc(Nelements*sizeof(LIS_SCALAR));
+	
 
-	if ((indexValue = (int*)malloc(Nelements*sizeof(int))) == NULL) 
+/* For temporary vector theta, phi, psi */
+	if ((theta = (Real*)malloc(11*sizeof(Real))) == NULL) 
 	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 
-	if ((ptr = (int*)malloc((lines+1)*sizeof(int))) == NULL) 
+	if ((phi = (Real*)malloc(11*sizeof(Real))) == NULL) 
 	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 
+	if ((psi = (Real*)malloc(11*sizeof(Real))) == NULL) 
+	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 
 	
 	return;
@@ -2551,15 +969,4557 @@ void BackEuler_init_2d(int Nelements)
 void BackEuler_destruct_2d()
 {
 
-	lis_matrix_destroy(Euler);
+
 	lis_solver_destroy(solver);	
 	lis_vector_destroy(RHSEuler);
 	lis_vector_destroy(INIguess);
-	
+
+/* For temporary vector theta, phi, psi */
+	if(theta != NULL) free(theta);
+	if(phi != NULL) free(phi);
+	if(psi != NULL) free(psi);
+
+/* Memory for Value, indexValue, ptr are already freed when destroy Euler matrix */
+/*	
 	if(Value != NULL) free(Value);
 	if(indexValue != NULL) free(indexValue);
 	if(ptr != NULL) free(ptr);
+*/
 }
+
+/*********************************************************************************/
+/* ========= Private Function =====================*/
+/* ===============================================*/
+/* Function to assign values of the vectors and matrix for different 
+ * boundary condition. Judge whether physical boundary or MPI boundary */
+
+/*--------------------------------*/
+/*------ is and js --------------*/
+/*--------------------------------------*/
+void is_js_MPI_MPI()
+{
+	int m;
+	int shiftx, shifty, index1, index2, index;
+	int MPIcount1x, MPIcount1y;
+	int MPIcount2x, MPIcount2y;
+	int MPIcount2xF, MPIcount2yF;
+
+	
+	if(lx1 > ID){ 
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount2x = 7;
+		MPIcount2xF = 6;
+		MPIcount1x = 0;
+	}
+	else {  
+		shiftx = 3 * Nx * Ny;
+		MPIcount2x = 0;
+		MPIcount2xF = 0;
+		MPIcount1x = 2;
+	}
+
+
+	if(lx2 > ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount2y = 9;
+		MPIcount2yF = 8;
+		MPIcount1y = 0; 
+	}
+	else{ 
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount2y = 0;
+		MPIcount2yF = 0;
+		MPIcount1y = 2;
+
+	}
+
+	/* For MPI part */
+	/* For Er */
+	index2 = NoEr + MPIcount2y;
+	index1 = NoEr + MPIcount2x + MPIcount1y;
+
+	Value[index2] = theta[0];
+	Value[index2+1] = theta[1];
+
+	indexValue[index2] = 3*(je-js)*Nx + count_Grids - shifty;
+	indexValue[index2+1] = indexValue[index2] + 2;	
+
+
+	Value[index1] = theta[2];
+	Value[index1+1] = theta[3];
+	
+	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1; 
+
+	
+	/* For Fr1 */
+	index2 = NoFr1 + MPIcount2yF;
+	index1 = NoFr1 + MPIcount2xF + MPIcount1y;
+
+	Value[index2] = phi[0];
+	Value[index2+1] = phi[1];
+
+	indexValue[index2] = 3*(je-js)*Nx + count_Grids - shifty;
+	indexValue[index2+1] = indexValue[index2] + 1;		
+
+	Value[index1] = phi[2];
+	Value[index1+1] = phi[3];	
+
+	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1; 
+
+	
+
+
+	/* For Fr2 */
+	index2 = NoFr2 + MPIcount2yF;
+	index1 = NoFr2 + MPIcount2xF + MPIcount1y;
+
+	Value[index2] = psi[0];
+	Value[index2+1] = psi[1];
+
+	indexValue[index2] = 3*(je-js)*Nx + count_Grids - shifty;
+	indexValue[index2+1] = indexValue[index2] + 2;		
+
+
+	Value[index1] = psi[2];
+	Value[index1+1] = psi[3];	
+
+	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index1+1] = indexValue[index1] + 2; 
+
+	
+
+	/* Er */
+	index = NoEr + MPIcount1x + MPIcount1y;
+	for(m=0; m<7; m++)
+		Value[index+m] = theta[m+4];
+
+	for(m=0;m<5;m++)
+		indexValue[index+m] = m + count_Grids;
+		
+	indexValue[index+5] = 3 * Nx + count_Grids;
+	indexValue[index+6] = 3 * Nx + 2 + count_Grids;
+				
+					
+						
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1x + MPIcount1y;
+	for(m=0; m<6; m++)
+		Value[index+m] = phi[m+4];
+
+		indexValue[index] = 0 + count_Grids;
+		indexValue[index+1] = 1 + count_Grids;
+		indexValue[index+2] = 3 + count_Grids;
+		indexValue[index+3] = 4 + count_Grids;
+
+		indexValue[index+4] = 3 * Nx + count_Grids;
+		indexValue[index+5] = 3 * Nx + 1 + count_Grids;
+				
+					
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1x + MPIcount1y;			
+	for(m=0; m<6; m++)
+		Value[index+m] = psi[m+4];
+
+		indexValue[index] = 0 + count_Grids;
+		indexValue[index+1] = 2 + count_Grids;
+		indexValue[index+2] = 3 + count_Grids;
+		indexValue[index+3] = 5 + count_Grids;
+
+		indexValue[index+4] = 3 * Nx + count_Grids;
+		indexValue[index+5] = 3 * Nx + 2 + count_Grids;
+				
+
+	return;
+} /* MPI boundary for both x and y direction */
+
+
+void is_js_phy_MPI()
+{
+	int m;
+	int shifty;
+	int index;
+	int MPIcount2F;
+	
+
+	if(lx2 > ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount1 = 0;
+		if(ix1 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else{ 
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		}
+		
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+
+	}
+	/* For Er */
+	index = NoEr+MPIcount2;
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+
+	indexValue[index] = 3*(je-js)*Nx + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 2;	
+
+	index = NoEr + MPIcount1;
+	for(m=0; m<5; m++)
+		Value[index+m] = theta[4+m];
+	for(m=0;m<5;m++)
+		indexValue[index+m] = m + count_Grids;
+				
+	index += 5;
+		if(ix1 != 4){
+						
+			Value[index]	= theta[9];
+			Value[index+1]	= theta[10];
+			indexValue[index] = 3 * Nx + count_Grids;
+			indexValue[index+1] = 3 * Nx + 2 + count_Grids;
+			
+		}
+		else {
+			Value[index]	= theta[2];
+			Value[index+1]	= theta[3];			
+			indexValue[index] = 3 * (ie - is) + count_Grids;
+			indexValue[index+1] = 3 * (ie - is) + 1 + count_Grids;
+
+			
+			Value[index+2]	= theta[9];
+			Value[index+3]	= theta[10];
+			indexValue[index+2] = 3 * Nx + count_Grids;
+			indexValue[index+3] = 3 * Nx + 2 + count_Grids;
+		}
+
+	
+		
+						
+	/* For Fr1 */	
+	index = NoFr1 + MPIcount2F;
+
+
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];
+
+	indexValue[index] = 3*(je-js)*Nx + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 1;	
+	
+	index = NoFr1 + MPIcount1;
+	for(m=0; m<4; m++)
+		Value[index+m] = phi[4+m];
+
+		indexValue[index] = 0 + count_Grids;
+		indexValue[index+1] = 1 + count_Grids;
+		indexValue[index+2] = 3 + count_Grids;
+		indexValue[index+3] = 4 + count_Grids;
+				
+	index += 4;
+		if(ix1 != 4){
+			Value[index]	= phi[8];
+			Value[index+1]	= phi[9];
+			indexValue[index] = 3 * Nx + count_Grids;
+			indexValue[index+1] = 3 * Nx + 1 + count_Grids;
+			
+		}
+		else{
+			Value[index]	= phi[2];
+			Value[index+1]	= phi[3];			
+			indexValue[index] = 3 * (ie - is) + count_Grids;
+			indexValue[index+1] = 3 * (ie - is) + 1 + count_Grids;
+
+			
+			Value[index+2]	= phi[8];
+			Value[index+3]	= phi[9];
+			indexValue[index+2] = 3 * Nx + count_Grids;
+			indexValue[index+3] = 3 * Nx + 1 + count_Grids;
+		}				
+
+					
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount2F;
+		
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+
+	indexValue[index] = 3*(je-js)*Nx + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 2;	
+
+	index = NoFr2 + MPIcount1;
+	for(m=0; m<4; m++)
+		Value[m+index] = psi[4+m];
+
+		indexValue[index] = 0 + count_Grids;
+		indexValue[index+1] = 2 + count_Grids;
+		indexValue[index+2] = 3 + count_Grids;
+		indexValue[index+3] = 5 + count_Grids;
+
+	index += 4;
+				
+		if(ix1 != 4){
+			Value[index]	= psi[8];
+			Value[index+1]	= psi[9];
+			indexValue[index] = 3 * Nx + count_Grids;
+			indexValue[index+1] = 3 * Nx + 2 + count_Grids;
+			
+		}
+		else{
+			Value[index]	= psi[2];
+			Value[index+1]	= psi[3];			
+			indexValue[index] = 3 * (ie - is) + count_Grids;
+			indexValue[index+1] = 3 * (ie - is) + 2 + count_Grids;
+
+			
+
+			Value[index+2]	= psi[8];
+			Value[index+3]	= psi[9];
+			indexValue[index+2] = 3 * Nx + count_Grids;
+			indexValue[index+3] = 3 * Nx + 2 + count_Grids;
+		}				
+
+
+		
+
+		/* other ix1 boundary condition */
+		if(ix1 == 1 || ix1 == 5){
+				
+			Value[NoEr+MPIcount1] += theta[2];
+			Value[NoEr+MPIcount1+1] -= theta[3];
+		
+			Value[NoFr1+MPIcount1]+= phi[2];
+			Value[NoFr1+MPIcount1+1]-= phi[3];
+				
+			Value[NoFr2+MPIcount1]+= psi[2];
+			Value[NoFr2+MPIcount1+1]+= psi[3];
+		}
+		else if(ix1 == 2){
+			Value[NoEr+MPIcount1] += theta[2];
+			Value[NoEr+MPIcount1+1] += theta[3];
+	
+			Value[NoFr1+MPIcount1]+= phi[2];
+			Value[NoFr1+MPIcount1+1]+= phi[3];
+				
+			Value[NoFr2+MPIcount1]+= psi[2];
+			Value[NoFr2+MPIcount1+1]+= psi[3];
+		}
+		else if(ix1 == 3){
+
+			/* Do nothing */
+		}
+
+	return;
+} /* physical for x direction and MPI for y direction */
+
+
+/* MPIcount2 is for MPI part */
+/* MPIcount1 is for nonMPI part */
+
+
+void is_js_MPI_phy()
+{
+	int m;
+	int shiftx, index;
+	int MPIcount2F;
+
+	if(lx1 > ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount1 = 0;
+		if(ix2 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else {
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		}
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+	}
+
+	/* for MPI part */
+	/* NoEr */
+	index = NoEr+MPIcount2;
+	Value[index] = theta[2];
+	Value[index+1] = theta[3];
+
+	indexValue[index] = 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* NoFr1 */
+	index = NoFr1 + MPIcount2F;	
+
+	Value[index] = phi[2];
+	Value[index+1] = phi[3];
+
+	indexValue[index  ] = 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index ] + 1;
+
+	/* NoFr2 */
+	index = NoFr2 + MPIcount2F;		
+
+	Value[index] = psi[2];
+	Value[index+1] = psi[3];
+
+	indexValue[index  ] = 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index ] + 2;
+
+
+
+	/* For Er */
+	
+	index = NoEr + MPIcount1;
+	for(m=0; m<7; m++)
+		Value[index+m] = theta[4+m];	
+
+	
+	for(m=0;m<5;m++)
+		indexValue[index+m] = m + count_Grids;
+
+	indexValue[index+5] = 3 * Nx + count_Grids;
+	indexValue[index+6] = 3 * Nx + 2 + count_Grids;
+	
+				
+						
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;
+	for(m=0; m<6; m++)
+		Value[index+m] = phi[4+m];
+
+
+	indexValue[index] = 0 + count_Grids;
+	indexValue[index+1] = 1 + count_Grids;
+	
+	indexValue[index+2] = 3 + count_Grids;
+	indexValue[index+3] = 4 + count_Grids;
+
+	indexValue[index+4] = 3 * Nx + count_Grids;
+	indexValue[index+5] = 3 * Nx + 1 + count_Grids;
+
+	/* For Fr2 */
+			
+	index = NoFr2 + MPIcount1;
+	for(m=0; m<6; m++)
+		Value[index+m] = psi[4+m];
+
+	
+	indexValue[index] = 0 + count_Grids;
+	indexValue[index+1] = 2 + count_Grids;
+	
+	indexValue[index+2] = 3 + count_Grids;
+	indexValue[index+3] = 5 + count_Grids;
+
+	indexValue[index+4] = 3 * Nx + count_Grids;
+	indexValue[index+5] = 3 * Nx + 2 + count_Grids;
+
+
+
+	/* ix2 boundary condition */
+	if(ix2 == 1 || ix2 == 5){
+					
+		Value[NoEr+MPIcount1] += theta[0];
+		Value[NoEr+MPIcount1+2] -= theta[1];
+			
+		Value[NoFr1+MPIcount1]+= phi[0];
+		Value[NoFr1+MPIcount1+1]+= phi[1];
+				
+		Value[NoFr2+MPIcount1]+= psi[0];
+		Value[NoFr2+MPIcount1+2]-= psi[1];
+	}
+	else if(ix2 == 2){
+		Value[NoEr+MPIcount1] += theta[0];
+		Value[NoEr+MPIcount1+2] += theta[1];
+			
+		Value[NoFr1+MPIcount1]+= phi[0];
+		Value[NoFr1+MPIcount1+1]+= phi[1];
+				
+		Value[NoFr2+MPIcount1]+= psi[0];
+		Value[NoFr2+MPIcount1+1]+= psi[1];
+	}
+	else if(ix2 == 3){
+
+		/* Do nothing */
+	}
+	else if(ix2 == 4){
+		index = NoEr+MPIcount1+7;
+		Value[index] = theta[0];
+		Value[index+1] = theta[1];
+
+		indexValue[index] = 3*(je-js)*Nx + count_Grids;
+		indexValue[index+1] = 3*(je-js)*Nx + 2 + count_Grids;
+
+		/* NoFr1 */
+		index = NoFr1 + MPIcount1 + 6;
+
+		Value[index] = phi[0];
+		Value[index+1] = phi[1];
+	
+		indexValue[index] = 3*(je-js)*Nx + count_Grids;
+		indexValue[index+1] = 3*(je-js)*Nx + 1 + count_Grids;
+
+		/* NoFr2 */
+		index = NoFr2 + MPIcount1 + 6;
+
+		Value[index] = psi[0];
+		Value[index+1] = psi[1];
+
+		indexValue[index] = 3*(je-js)*Nx + count_Grids;
+		indexValue[index+1] = 3*(je-js)*Nx + 2 + count_Grids;
+		
+	}
+		
+		
+	return;
+} /* MPI for x direction and MPI for y direction */
+
+
+void is_js_phy_phy()
+{
+	int m;
+
+/* For Er */
+	for(m=0; m<5; m++)
+		Value[NoEr+m] = theta[4+m];
+		for(m=0;m<5;m++)
+			indexValue[NoEr+m] = m + count_Grids;
+				
+		if(ix1 != 4){
+						
+			Value[NoEr+5]	= theta[9];
+			Value[NoEr+6]	= theta[10];
+			indexValue[NoEr+5] = 3 * Nx + count_Grids;
+			indexValue[NoEr+6] = 3 * Nx + 2 + count_Grids;
+					
+			if(ix2 == 4){
+				Value[NoEr+7] = theta[0];
+				Value[NoEr+8] = theta[1];
+				indexValue[NoEr+7] = 3*(je-js)*Nx + count_Grids;
+				indexValue[NoEr+8] = 3*(je-js)*Nx + 2 + count_Grids;
+			}
+		}
+		else {
+			Value[NoEr+5]	= theta[2];
+			Value[NoEr+6]	= theta[3];
+			Value[NoEr+7]	= theta[9];
+			Value[NoEr+8]	= theta[10];
+			indexValue[NoEr+5] = 3 * (ie - is) + count_Grids;
+			indexValue[NoEr+6] = 3 * (ie - is) + 1 + count_Grids;
+			indexValue[NoEr+7] = 3 * Nx + count_Grids;
+			indexValue[NoEr+8] = 3 * Nx + 2 + count_Grids;
+				
+			if(ix2 == 4){
+				Value[NoEr+9] = theta[0];
+				Value[NoEr+10] = theta[1];
+				indexValue[NoEr+9] = 3*(je-js)*Nx + count_Grids;
+				indexValue[NoEr+10] = 3*(je-js)*Nx + 2 + count_Grids;
+			}
+		}
+
+				
+						
+		/* For Fr1 */
+	for(m=0; m<4; m++)
+		Value[NoFr1+m] = phi[4+m];
+
+		indexValue[NoFr1+0] = 0 + count_Grids;
+		indexValue[NoFr1+1] = 1 + count_Grids;
+		indexValue[NoFr1+2] = 3 + count_Grids;
+		indexValue[NoFr1+3] = 4 + count_Grids;
+				
+		if(ix1 != 4){
+			Value[NoFr1+4]	= phi[8];
+			Value[NoFr1+5]	= phi[9];
+			indexValue[NoFr1+4] = 3 * Nx + count_Grids;
+			indexValue[NoFr1+5] = 3 * Nx + 1 + count_Grids;
+			if(ix2 == 4){
+				Value[NoFr1+6] = phi[0];
+				Value[NoFr1+7] = phi[1];
+				indexValue[NoFr1+6] = 3*(je-js)*Nx + count_Grids;
+				indexValue[NoFr1+7] = 3*(je-js)*Nx + 1 + count_Grids;
+			}
+		}
+		else{
+			Value[NoFr1+4]	= phi[2];
+			Value[NoFr1+5]	= phi[3];
+			Value[NoFr1+6]	= phi[8];
+			Value[NoFr1+7]	= phi[9];
+			indexValue[NoFr1+4] = 3 * (ie - is) + count_Grids;
+			indexValue[NoFr1+5] = 3 * (ie - is) + 1 + count_Grids;
+			indexValue[NoFr1+6] = 3 * Nx + count_Grids;
+			indexValue[NoFr1+7] = 3 * Nx + 1 + count_Grids;
+			if(ix2 == 4){
+				Value[NoFr1+8] = phi[0];
+				Value[NoFr1+9] = phi[1];
+				indexValue[NoFr1+8] = 3*(je-js)*Nx + count_Grids;
+				indexValue[NoFr1+9] = 3*(je-js)*Nx + 1 + count_Grids;
+			}
+		}				
+
+					
+
+	/* For Fr2 */
+			
+	for(m=0; m<4; m++)
+		Value[NoFr2+m] = psi[4+m];
+
+	indexValue[NoFr2+0] = 0 + count_Grids;
+	indexValue[NoFr2+1] = 2 + count_Grids;
+	indexValue[NoFr2+2] = 3 + count_Grids;
+	indexValue[NoFr2+3] = 5 + count_Grids;
+				
+	if(ix1 != 4){
+		Value[NoFr2+4]	= psi[8];
+		Value[NoFr2+5]	= psi[9];
+		indexValue[NoFr2+4] = 3 * Nx + count_Grids;
+		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;
+	
+		if(ix2 == 4){
+			Value[NoFr2+6] = psi[0];
+			Value[NoFr2+7] = psi[1];
+			indexValue[NoFr2+6] = 3*(je-js)*Nx + count_Grids;
+			indexValue[NoFr2+7] = 3*(je-js)*Nx + 2 + count_Grids;
+			}
+		}
+		else{
+			Value[NoFr2+4]	= psi[2];
+			Value[NoFr2+5]	= psi[3];
+			Value[NoFr2+6]	= psi[8];
+			Value[NoFr2+7]	= psi[9];
+			indexValue[NoFr2+4] = 3 * (ie - is) + count_Grids;
+			indexValue[NoFr2+5] = 3 * (ie - is) + 2 + count_Grids;
+			indexValue[NoFr2+6] = 3 * Nx + count_Grids;
+			indexValue[NoFr2+7] = 3 * Nx + 2 + count_Grids;
+		
+			if(ix2 == 4){
+				Value[NoFr2+8] = psi[0];
+				Value[NoFr2+9] = psi[1];
+				indexValue[NoFr2+8] = 3*(je-js)*Nx + count_Grids;
+				indexValue[NoFr2+9] = 3*(je-js)*Nx + 2 + count_Grids;
+			}
+		}
+
+
+		/* other ix1 boundary condition */
+		if(ix1 == 1 || ix1 == 5){
+				
+			Value[NoEr+0] += theta[2];
+			Value[NoEr+1] -= theta[3];
+		
+			Value[NoFr1+0]+= phi[2];
+			Value[NoFr1+1]-= phi[3];
+				
+			Value[NoFr2+0]+= psi[2];
+			Value[NoFr2+1]+= psi[3];
+		}
+		else if(ix1 == 2){
+			Value[NoEr+0] += theta[2];
+			Value[NoEr+1] += theta[3];
+	
+			Value[NoFr1+0]+= phi[2];
+			Value[NoFr1+1]+= phi[3];
+				
+			Value[NoFr2+0]+= psi[2];
+			Value[NoFr2+1]+= psi[3];
+		}
+		else if(ix1 == 3){
+
+			/* Do nothing */
+		}
+		
+				
+		/* other ix2 boundary condition */	
+
+		if(ix2 == 1 || ix2 == 5){
+					
+			Value[NoEr+0] += theta[0];
+			Value[NoEr+2] -= theta[1];
+			
+			Value[NoFr1+0]+= phi[0];
+			Value[NoFr1+1]+= phi[1];
+				
+			Value[NoFr2+0]+= psi[0];
+			Value[NoFr2+1]-= psi[1];
+		}
+		else if(ix2 == 2){
+			Value[NoEr+0] += theta[0];
+			Value[NoEr+2] += theta[1];
+			
+			Value[NoFr1+0]+= phi[0];
+			Value[NoFr1+1]+= phi[1];
+				
+			Value[NoFr2+0]+= psi[0];
+			Value[NoFr2+1]+= psi[1];
+		}
+		else if(ix2 == 3){
+
+			/* Do nothing */
+		}
+		
+
+	return;
+} /* physical for x and y direction */
+
+
+
+
+/*-----------------------------------*/
+/*------is and je -------------------*/ 
+/*-----------------------------------*/
+
+void is_je_MPI_MPI()
+{
+	int m;
+	int shiftx, shifty, index1, index2, index;
+	int MPIcount1x, MPIcount1y;
+	int MPIcount2x, MPIcount2y;
+	int MPIcount2xF, MPIcount2yF;
+
+	if(lx1 > ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount2x = 7;
+		MPIcount2xF = 6;
+		MPIcount1x = 0;
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount2x = 0;
+		MPIcount1x = 2;
+		MPIcount2xF = 0;
+	}
+
+
+	if(rx2 < ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount2y = 0;
+		MPIcount1y = 2;
+		MPIcount2yF = 0;
+
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount2y = 9;
+		MPIcount1y = 0;
+		MPIcount2yF = 8;
+	}
+
+
+	/* First , the MPI part */
+	/* For Er */
+	index1 = NoEr + MPIcount2x + MPIcount1y;
+	index2 = NoEr + MPIcount2y;
+
+	Value[index1] = theta[2];
+	Value[index1+1] = theta[3];
+
+	indexValue[index1] = 3*(je-js) * Nx + 3 * (ie-is) + count_Grids - shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1;
+	
+	Value[index2] = theta[9];
+	Value[index2+1] = theta[10];	
+
+	indexValue[index2] = count_Grids + shifty;
+	indexValue[index2+1] = indexValue[index2] + 2;
+
+	/* For Fr1 */
+	index1 = NoFr1 + MPIcount2xF + MPIcount1y;
+	index2 = NoFr1 + MPIcount2yF;
+
+	Value[index1] = phi[2];
+	Value[index1+1] = phi[3];
+
+	indexValue[index1] = 3*(je-js) * Nx + 3 * (ie-is) + count_Grids - shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1;
+
+	Value[index2] = phi[8];
+	Value[index2+1] = phi[9];
+
+	indexValue[index2] = count_Grids + shifty; 
+	indexValue[index2+1] = indexValue[index2] + 1;
+	
+	/* For Fr2 */
+	index1 = NoFr2 + MPIcount2xF + MPIcount1y;
+	index2 = NoFr2 + MPIcount2yF;
+
+	Value[index1] = psi[2];
+	Value[index1+1] = psi[3];
+
+	indexValue[index1] = 3*(je-js) * Nx + 3 * (ie-is) + count_Grids - shiftx;
+	indexValue[index1+1] = indexValue[index1] + 2;
+
+	Value[index2] = psi[8];
+	Value[index2+1] = psi[9];
+
+	indexValue[index2] = count_Grids + shifty; 
+	indexValue[index2+1] = indexValue[index2] + 2;
+
+/* For Er */
+	
+	index = NoEr + MPIcount1x + MPIcount1y;
+ 
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+
+	for(m=0; m<5; m++)
+		Value[index+2+m] = theta[m+4];
+
+	indexValue[index] = 3*(je-js-1)* Nx + count_Grids;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	for(m=0;m<5;m++)
+		indexValue[index+m+2] = 3*(je-js)*Nx + m + count_Grids;
+
+	
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1x + MPIcount1y;
+
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];	
+
+	for(m=0; m<4; m++)
+		Value[index+2+m] = phi[m+4];
+
+
+	indexValue[index] = 3*(je-js-1)* Nx + count_Grids;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	indexValue[index+2] = 3*(je-js)*Nx + count_Grids;
+	indexValue[index+3] = 3*(je-js)*Nx + 1 + count_Grids;
+	indexValue[index+4] = 3*(je-js)*Nx + 3 + count_Grids;
+	indexValue[index+5] = 3*(je-js)*Nx + 4 + count_Grids;
+
+	
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1x + MPIcount1y;
+	
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+
+	for(m=0; m<4; m++)
+		Value[index+2+m] = psi[m+4];
+
+	
+
+	indexValue[index] = 3*(je-js-1)* Nx + count_Grids;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	indexValue[index+2] = 3*(je-js)*Nx + count_Grids;
+	indexValue[index+3] = 3*(je-js)*Nx + 2 + count_Grids;
+	indexValue[index+4] = 3*(je-js)*Nx + 3 + count_Grids;
+	indexValue[index+5] = 3*(je-js)*Nx + 5 + count_Grids;
+
+	
+		
+
+	return;
+} /* MPI boundary for both x and y direction */
+
+
+void is_je_phy_MPI()
+{
+	int m, i, j;
+	i = is;
+	j = je;
+	
+	int shifty, index;
+	int MPIcount2F;
+
+
+	if(rx2 < ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount1 = 0;
+		if(ix1 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else{
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		}
+	}
+
+
+
+
+
+	/* The following is true no matter ix1 == 4 or not */
+
+	/* For Er */
+	index = NoEr + MPIcount1;
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+							
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];
+							
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1;				
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+							
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+					
+	/* for Er */
+	index = NoEr + MPIcount1 +2;
+	for(m=0; m<5; m++){
+		Value[index+m] = theta[4+m];
+		indexValue[index+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+	}
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1 + 2;
+	Value[index] = phi[4];
+	Value[index+1] = phi[5];
+	Value[index+2] = phi[6];
+	Value[index+3] = phi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1 + 2;
+	Value[index] = psi[4];
+	Value[index+1] = psi[5];
+	Value[index+2] = psi[6];
+	Value[index+3] = psi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;	
+
+
+	/* for MPI part */
+	/* The following is true no matter ix1 == 4 or not becuase MPIcount2 will change accordingly */
+	/* Er */
+	index = NoEr + MPIcount2;
+	Value[index] = theta[9];
+	Value[index+1] = theta[10];
+
+	indexValue[index] = count_Grids + shifty;
+	indexValue[index+1] = indexValue[index] + 2;	
+
+	/* Fr1 */
+	index = NoFr1 + MPIcount2F;
+
+	Value[index] = phi[8];
+	Value[index+1] = phi[9];		
+
+	indexValue[index] = count_Grids + shifty;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* Fr2 */
+	index = NoFr2 + MPIcount2F;
+
+	Value[index] = psi[8];
+	Value[index+1] = psi[9];
+
+	indexValue[index] = count_Grids + shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+
+					
+	if (ix1 == 4) {
+
+						
+	/* For Er */
+	index = NoEr + MPIcount1 + 7;
+	Value[index] = theta[2];
+	Value[index+1] = theta[3];
+							
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(ie-is) + 1 + count_Grids;
+
+	/* For Fr1 */
+
+	index = NoFr1 + MPIcount1 + 6;
+	Value[index] = phi[2];
+	Value[index+1] = phi[3];
+							
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(ie-is) + 1 + count_Grids;
+	
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1 + 6;				
+	Value[index] = psi[2];
+	Value[index+1] = psi[3];
+							
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(ie-is) + 2 + count_Grids;
+
+	
+	} /* for periodic boundary condition */
+	else if(ix1 == 1 || ix1 == 5){
+					
+		Value[NoEr+2+MPIcount1] += theta[2];
+		Value[NoEr+3+MPIcount1] -= theta[3];
+			
+		Value[NoFr1+2+MPIcount1]+= phi[2];
+		Value[NoFr1+3+MPIcount1]-= phi[3];
+				
+		Value[NoFr2+2+MPIcount1]+= psi[2];
+		Value[NoFr2+3+MPIcount1]+= psi[3];
+	}
+	else if(ix1 == 2){
+		Value[NoEr+2+MPIcount1] += theta[2];
+		Value[NoEr+3+MPIcount1] += theta[3];
+			
+		Value[NoFr1+2+MPIcount1]+= phi[2];
+		Value[NoFr1+3+MPIcount1]+= phi[3];
+				
+		Value[NoFr2+2+MPIcount1]+= psi[2];
+		Value[NoFr2+3+MPIcount1]+= psi[3];
+	}
+	else if(ix1 == 3){
+
+		/* Do nothing */
+	}
+	
+
+	return;
+} /* physical for x direction and MPI for y direction */
+
+
+
+void is_je_MPI_phy()
+{	
+	int m, i, j;
+	int shiftx, index;
+	int MPIcount2F;
+
+	if(lx1 > ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount1 = 0;
+		if(ox2 == 4) {
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else {
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		}
+	}
+	else{	
+		shiftx = 3 * Nx * Ny;
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+
+	}
+
+
+	i = is;
+	j = je;
+
+	/* The following is true no matter ox2==4 or not */
+	/* For Er */
+	index = NoEr + MPIcount2;
+	Value[index] = theta[2];
+	Value[index+1] = theta[3];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* Fr1*/
+	index = NoFr1 + MPIcount2F;
+	
+ 
+	Value[index] = phi[2];
+	Value[index+1] = phi[3];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* Fr2 */
+	index = NoFr2 + MPIcount2F;
+	
+
+	Value[index] = psi[2];
+	Value[index+1] = psi[3];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 2;
+	
+	if(ox2 != 4){
+	index = NoEr + MPIcount1;	
+
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+
+	
+							
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];
+							
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+	index = index + MPIcount1;				
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+							
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+					
+	/* for Er */
+	index = NoEr+MPIcount1 +2;
+	for(m=0; m<5; m++){
+		Value[index+m] = theta[4+m];
+		indexValue[index+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+	}
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1 + 2;
+	Value[index] = phi[4];
+	Value[index+1] = phi[5];
+	Value[index+2] = phi[6];
+	Value[index+3] = phi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1 + 2;
+	Value[index] = psi[4];
+	Value[index+1] = psi[5];
+	Value[index+2] = psi[6];
+	Value[index+3] = psi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;				
+
+
+	/* other ox2 boundary condition */
+	if(ox2 == 1 || ox2 == 5){
+					
+		Value[NoEr+MPIcount1+2] += theta[9];
+		Value[NoEr+MPIcount1+4] -= theta[10];
+			
+		Value[NoFr1+MPIcount1+2]+= phi[8];
+		Value[NoFr1+MPIcount1+3]+= phi[9];
+				
+		Value[NoFr2+MPIcount1+2]+= psi[8];
+		Value[NoFr2+MPIcount1+3]-= psi[9];
+	}
+	else if(ox2 == 2){
+		Value[NoEr+MPIcount1+2] += theta[9];
+		Value[NoEr+MPIcount1+3] += theta[10];
+			
+		Value[NoFr1+MPIcount1+2]+= phi[8];
+		Value[NoFr1+MPIcount1+3]+= phi[9];
+				
+		Value[NoFr2+MPIcount1+2]+= psi[8];
+		Value[NoFr2+MPIcount1+3]+= psi[9];
+	}
+	else if(ox2 == 3){
+
+		/* Do nothing */
+	}
+	
+	}/* Non-periodic for x2 */
+	else{
+
+	/* For Er */
+	index = NoEr + MPIcount1;
+	Value[index] = theta[9];
+	Value[index+1] = theta[10];
+	Value[index+2] = theta[0];
+	Value[index+3] = theta[1];
+					
+	indexValue[index] = 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(i-is) + 2 + count_Grids;		
+	indexValue[index+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;				
+	Value[index] = phi[8];
+	Value[index+1] = phi[9];
+	Value[index+2] = phi[0];
+	Value[index+3] = phi[1];
+					
+	indexValue[index] = 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(i-is) + 1 + count_Grids;		
+	indexValue[index+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1;				
+	Value[index] = psi[8];
+	Value[index+1] = psi[9];
+	Value[index+2] = psi[0];
+	Value[index+3] = psi[1];
+					
+	indexValue[index] = 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(i-is) + 2 + count_Grids;		
+	indexValue[index+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+					
+	/* for Er */
+	index = NoEr + MPIcount1 + 4;
+	for(m=0; m<5; m++){
+		Value[index+m] = theta[4+m];
+		indexValue[index+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+	}
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1 + 4;
+	Value[index] = phi[4];
+	Value[index+1] = phi[5];
+	Value[index+2] = phi[6];
+	Value[index+3] = phi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1 + 4;
+	Value[index] = psi[4];
+	Value[index+1] = psi[5];
+	Value[index+2] = psi[6];
+	Value[index+3] = psi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;				
+	
+
+	}/* periodic for x2 */
+
+
+	return;
+} /* MPI for x direction and MPI for y direction */
+
+
+void is_je_phy_phy()
+{
+	int m, i, j;
+	i = is;
+	j = je;
+
+	if(ox2 != 4){
+	/* The following is true no matter ix1 == 4 or not */
+
+	/* For Er */
+	Value[NoEr] = theta[0];
+	Value[NoEr+1] = theta[1];
+							
+	indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+	/* For Fr1 */
+
+	Value[NoFr1] = phi[0];
+	Value[NoFr1+1] = phi[1];
+							
+	indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+					
+	Value[NoFr2] = psi[0];
+	Value[NoFr2+1] = psi[1];
+							
+	indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+					
+	/* for Er */
+	for(m=0; m<5; m++){
+		Value[NoEr+2+m] = theta[4+m];
+		indexValue[NoEr+2+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+	}
+
+	/* For Fr1 */
+	Value[NoFr1+2] = phi[4];
+	Value[NoFr1+3] = phi[5];
+	Value[NoFr1+4] = phi[6];
+	Value[NoFr1+5] = phi[7];
+
+	indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+	indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+
+	/* For Fr2 */
+	Value[NoFr2+2] = psi[4];
+	Value[NoFr2+3] = psi[5];
+	Value[NoFr2+4] = psi[6];
+	Value[NoFr2+5] = psi[7];
+
+	indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+	indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;				
+
+					
+	if (ix1 == 4) {
+
+						
+	/* For Er */
+	Value[NoEr+7] = theta[2];
+	Value[NoEr+8] = theta[3];
+							
+	indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(ie-is) + 1 + count_Grids;
+
+	/* For Fr1 */
+
+	Value[NoFr1+6] = phi[2];
+	Value[NoFr1+7] = phi[3];
+							
+	indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(ie-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+					
+	Value[NoFr2+6] = psi[2];
+	Value[NoFr2+7] = psi[3];
+							
+	indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(ie-is) + 2 + count_Grids;
+
+	} /* for periodic boundary condition */
+	else if(ix1 == 1 || ix1 == 5){
+					
+		Value[NoEr+2] += theta[2];
+		Value[NoEr+3] -= theta[3];
+			
+		Value[NoFr1+2]+= phi[2];
+		Value[NoFr1+3]-= phi[3];
+				
+		Value[NoFr2+2]+= psi[2];
+		Value[NoFr2+3]+= psi[3];
+	}
+	else if(ix1 == 2){
+		Value[NoEr+2] += theta[2];
+		Value[NoEr+3] += theta[3];
+			
+		Value[NoFr1+2]+= phi[2];
+		Value[NoFr1+3]+= phi[3];
+				
+		Value[NoFr2+2]+= psi[2];
+		Value[NoFr2+3]+= psi[3];
+	}
+	else if(ix1 == 3){
+
+		/* Do nothing */
+	}
+	
+
+
+	/* other ox2 boundary condition */
+	if(ox2 == 1 || ox2 == 5){
+					
+		Value[NoEr+2] += theta[9];
+		Value[NoEr+4] -= theta[10];
+			
+		Value[NoFr1+2]+= phi[8];
+		Value[NoFr1+3]+= phi[9];
+				
+		Value[NoFr2+2]+= psi[8];
+		Value[NoFr2+3]-= psi[9];
+	}
+	else if(ox2 == 2){
+		Value[NoEr+2] += theta[9];
+		Value[NoEr+4] += theta[10];
+			
+		Value[NoFr1+2]+= phi[8];
+		Value[NoFr1+3]+= phi[9];
+				
+		Value[NoFr2+2]+= psi[8];
+		Value[NoFr2+3]+= psi[9];
+	}
+	else if(ox2 == 3){
+
+		/* Do nothing */
+	}
+	
+	}/* Non-periodic for x2 */
+	else{
+
+	/* The following is true no matter ix1 == 4 or not */
+	/* For Er */
+	Value[NoEr] = theta[9];
+	Value[NoEr+1] = theta[10];
+	Value[NoEr+2] = theta[0];
+	Value[NoEr+3] = theta[1];
+					
+	indexValue[NoEr] = 3*(i-is) + count_Grids;
+	indexValue[NoEr+1] =3*(i-is) + 2 + count_Grids;		
+	indexValue[NoEr+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoEr+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+	/* For Fr1 */
+					
+	Value[NoFr1] = phi[8];
+	Value[NoFr1+1] = phi[9];
+	Value[NoFr1+2] = phi[0];
+	Value[NoFr1+3] = phi[1];
+					
+	indexValue[NoFr1] = 3*(i-is) + count_Grids;
+	indexValue[NoFr1+1] = 3*(i-is) + 1 + count_Grids;		
+	indexValue[NoFr1+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr1+3] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+					
+	Value[NoFr2] = psi[8];
+	Value[NoFr2+1] = psi[9];
+	Value[NoFr2+2] = psi[0];
+	Value[NoFr2+3] = psi[1];
+					
+	indexValue[NoFr2] = 3*(i-is) + count_Grids;
+	indexValue[NoFr2+1] = 3*(i-is) + 2 + count_Grids;		
+	indexValue[NoFr2+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr2+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+
+					
+	/* for Er */
+	for(m=0; m<5; m++){
+		Value[NoEr+4+m] = theta[4+m];
+		indexValue[NoEr+4+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+	}
+
+	/* For Fr1 */
+	Value[NoFr1+4] = phi[4];
+	Value[NoFr1+5] = phi[5];
+	Value[NoFr1+6] = phi[6];
+	Value[NoFr1+7] = phi[7];
+
+	indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+	indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+
+	/* For Fr2 */
+	Value[NoFr2+4] = psi[4];
+	Value[NoFr2+5] = psi[5];
+	Value[NoFr2+6] = psi[6];
+	Value[NoFr2+7] = psi[7];
+
+	indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+	indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+	indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;				
+
+					
+	if (ix1 == 4) {
+
+						
+	/* For Er */
+	Value[NoEr+9] = theta[2];
+	Value[NoEr+10] = theta[3];
+							
+	indexValue[NoEr+9] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[NoEr+10] = 3*(j-js)*Nx + 3*(ie-is) + 1 + count_Grids;
+
+	/* For Fr1 */
+
+	Value[NoFr1+8] = phi[2];
+	Value[NoFr1+9] = phi[3];
+							
+	indexValue[NoFr1+8] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[NoFr1+9] = 3*(j-js)*Nx + 3*(ie-is) + 1 + count_Grids;
+
+	/* For Fr2 */
+					
+	Value[NoFr2+8] = psi[2];
+	Value[NoFr2+9] = psi[3];
+							
+	indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
+	indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(ie-is) + 2 + count_Grids;
+
+	} /* for periodic boundary condition */
+	else if(ix1 == 1 || ix1 == 5){
+					
+		Value[NoEr+4] += theta[2];
+		Value[NoEr+5] -= theta[3];
+			
+		Value[NoFr1+4]+= phi[2];
+		Value[NoFr1+5]-= phi[3];
+				
+		Value[NoFr2+4]+= psi[2];
+		Value[NoFr2+5]+= psi[3];
+	}
+	else if(ix1 == 2){
+		Value[NoEr+4] += theta[2];
+		Value[NoEr+5] += theta[3];
+			
+		Value[NoFr1+4]+= phi[2];
+		Value[NoFr1+5]+= phi[3];
+				
+		Value[NoFr2+4]+= psi[2];
+		Value[NoFr2+5]+= psi[3];
+	}
+	else if(ix1 == 3){
+
+		/* Do nothing */
+	}
+	
+
+	}/* periodic for x2 */
+
+	return;
+} /* physical for x and y direction */
+
+
+
+/*-----------------------------------*/
+/*------is and j -------------------*/ 
+/*-----------------------------------*/
+
+void is_j_MPI(int j)
+{
+
+	int i;
+	i = is;
+	int shiftx;
+	int MPIcount2F, index;
+
+	if(lx1 > ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount1 = 0;
+		MPIcount2 = 9;
+		MPIcount2F = 8;
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+
+	}
+
+	/* For MPI part */
+	/* Er */
+	index = NoEr + MPIcount2;
+	
+	Value[index] = theta[2];
+	Value[index+1] = theta[3];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* Fr1 */
+	index = NoFr1 + MPIcount2F;
+	Value[index] = phi[2];
+	Value[index+1] = phi[3];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+
+	/* Fr2 */
+	index = NoFr2 + MPIcount2F;
+	Value[index] = psi[2];
+	Value[index+1] = psi[3];
+
+	indexValue[index] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids - shiftx;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	
+	/* Er */
+
+	index = NoEr + MPIcount1;
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+
+	Value[index+2] = theta[4];
+	Value[index+3] = theta[5];
+	Value[index+4] = theta[6];
+	Value[index+5] = theta[7];
+	Value[index+6] = theta[8];
+	
+	Value[index+7] = theta[9];
+	Value[index+8] = theta[10];
+
+	
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is)+2 + count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is)+1 + count_Grids;
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+2 + count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+3 + count_Grids;
+	indexValue[index+6] = 3*(j-js)*Nx + 3*(i-is)+4 + count_Grids;
+
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+8] = indexValue[index+7] + 2;
+
+
+	/* For Fr1 */
+
+	index = NoFr1 + MPIcount1;
+
+
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];
+
+	Value[index+2] = phi[4];
+	Value[index+3] = phi[5];
+	Value[index+4] = phi[6];
+	Value[index+5] = phi[7];
+
+	Value[index+6] = phi[8];
+	Value[index+7] = phi[9];
+
+	
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is)+1 + count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is)+1 + count_Grids;
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+3 + count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+4 + count_Grids;
+
+	indexValue[index+6] =3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+7] = indexValue[index+6] + 1;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1;
+	
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+
+	Value[index+2] = psi[4];
+	Value[index+3] = psi[5];
+	Value[index+4] = psi[6];
+	Value[index+5] = psi[7];
+
+	Value[index+6] = psi[8];
+	Value[index+7] = psi[9];
+
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is)+2 + count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is)+2 + count_Grids;
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+3 + count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+5 + count_Grids;
+
+	indexValue[index+6] =3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[index+7] = indexValue[index+6] + 2;
+
+
+	return;
+} /* MPI boundary condition for x */
+
+
+void is_j_phy(int j)
+{
+	int i;
+	i = is;
+	/* For Er */
+
+	Value[NoEr] = theta[0];
+	Value[NoEr+1] = theta[1];
+
+	Value[NoEr+2] = theta[4];
+	Value[NoEr+3] = theta[5];
+	Value[NoEr+4] = theta[6];
+	Value[NoEr+5] = theta[7];
+	Value[NoEr+6] = theta[8];
+
+	indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2 + count_Grids;
+
+	indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is)+1 + count_Grids;
+	indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is)+2 + count_Grids;
+	indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+3 + count_Grids;
+	indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+4 + count_Grids;
+
+	/* For Fr1 */			
+				
+	Value[NoFr1] = phi[0];
+	Value[NoFr1+1] = phi[1];
+
+	Value[NoFr1+2] = phi[4];
+	Value[NoFr1+3] = phi[5];
+	Value[NoFr1+4] = phi[6];
+	Value[NoFr1+5] = phi[7];
+
+	indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1 + count_Grids;
+
+	indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is)+1 + count_Grids;
+	indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is)+3 + count_Grids;
+	indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+4 + count_Grids;
+
+	/* For Fr2 */
+
+	Value[NoFr2] = psi[0];
+	Value[NoFr2+1] = psi[1];
+
+	Value[NoFr2+2] = psi[4];
+	Value[NoFr2+3] = psi[5];
+	Value[NoFr2+4] = psi[6];
+	Value[NoFr2+5] = psi[7];
+
+	indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2 + count_Grids;
+
+	indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is)+2 + count_Grids;
+	indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is)+3 + count_Grids;
+	indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+5 + count_Grids;
+
+
+	if(ix1 != 4){
+					
+	/* For Er */
+					
+	Value[NoEr+7] = theta[9];
+	Value[NoEr+8] = theta[10];
+
+					
+					
+	indexValue[NoEr+7] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoEr+8] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+
+	/* For Fr1 */
+					
+	Value[NoFr1+6] = phi[8];
+	Value[NoFr1+7] = phi[9];					
+										
+	indexValue[NoFr1+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+7] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+		
+	Value[NoFr2+6] = psi[8];
+	Value[NoFr2+7] = psi[9];					
+										
+	indexValue[NoFr2+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+7] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;			
+
+
+	}/* no periodic boundary condition */
+	else {
+	/* For Er */
+					
+	Value[NoEr+7] = theta[2];
+	Value[NoEr+8] = theta[3];
+	Value[NoEr+9] = theta[9];
+	Value[NoEr+10] = theta[10];
+					
+					
+	indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(ie-is)+ count_Grids;
+	indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(ie-is)+1+ count_Grids;
+	indexValue[NoEr+9] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoEr+10] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+
+
+	/* For Fr1 */
+					
+	Value[NoFr1+6] = phi[2];
+	Value[NoFr1+7] = phi[3];	
+	Value[NoFr1+8] = phi[8];
+	Value[NoFr1+9] = phi[9];						
+										
+	indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(ie-is)+ count_Grids;
+	indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(ie-is)+1+ count_Grids;
+	indexValue[NoFr1+8] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+9] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+		
+	Value[NoFr2+6] = psi[2];
+	Value[NoFr2+7] = psi[3];
+	Value[NoFr2+8] = psi[8];
+	Value[NoFr2+9] = psi[9];						
+										
+	indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(ie-is)+ count_Grids;
+	indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(ie-is)+2+ count_Grids;
+	indexValue[NoFr2+8] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+9] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+
+	}/* For periodic boundary condition */
+
+
+
+				
+	/* other ix1 boundary condition */
+
+	if(ix1 == 1 || ix1 == 5){
+					
+		Value[NoEr+2] += theta[2];
+		Value[NoEr+3] -= theta[3];
+	
+		Value[NoFr1+2]+= phi[2];
+		Value[NoFr1+3]-= phi[3];
+				
+		Value[NoFr2+2]+= psi[2];
+		Value[NoFr2+3]+= psi[3];
+	}
+	else if(ix1 == 2){
+		Value[NoEr+2] += theta[2];
+		Value[NoEr+3] += theta[3];
+			
+		Value[NoFr1+2]+= phi[2];
+		Value[NoFr1+3]+= phi[3];
+				
+		Value[NoFr2+2]+= psi[2];
+		Value[NoFr2+3]+= psi[3];
+	}
+	else if(ix1 == 3){
+	/* Do nothing */
+	}
+	
+	return;
+} /* physical boundary for x */
+
+
+
+/*-----------------------------------*/
+/*------ie and js -------------------*/ 
+/*-----------------------------------*/
+
+void ie_js_MPI_MPI()
+{
+	int m, i, j;
+	i = ie;
+	j = js;
+	int shiftx, shifty;
+
+	int index1, index2, index;
+	int MPIcount1x, MPIcount1y;
+	int MPIcount2x, MPIcount2y;
+	int MPIcount2xF, MPIcount2yF;
+
+	if(rx1 < ID){
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount2x = 0;
+		MPIcount2xF = 0;
+		MPIcount1x = 2;
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount2x = 7;
+		MPIcount2xF = 6;
+		MPIcount1x = 0;
+	}
+
+
+	if(lx2 > ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount2y = 9;
+		MPIcount2yF = 8;
+		MPIcount1y = 0;
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount2y = 0;
+		MPIcount1y = 2;
+		MPIcount2yF = 0;
+	}
+
+
+
+	/* For Er */
+	index = NoEr + MPIcount1x + MPIcount1y;
+	for(m=0; m<5; m++)
+		Value[index+m] = theta[2+m];
+
+	Value[index+5] = theta[9];
+	Value[index+6] = theta[10];
+				
+	indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+	for(m=0; m<3; m++)
+		indexValue[index+2+m] = 3*(j-js)*Nx+3*(i-is)+m+ count_Grids;
+
+	indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+6] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1x + MPIcount1y;
+	for(m=0; m<4; m++)
+		Value[index+m] = phi[2+m];
+
+	Value[index+4] = phi[8];
+	Value[index+5] = phi[9];
+				
+	indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+	for(m=0; m<2; m++)
+		indexValue[index+2+m] = 3*(j-js) * Nx + 3*(i-is) + m + count_Grids;
+
+	indexValue[index+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1x + MPIcount1y;
+	for(m=0; m<4; m++)
+		Value[index+m] = psi[2+m];
+
+	Value[index+4] = psi[8];
+	Value[index+5] = psi[9];
+				
+	indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+	indexValue[index+2] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+	indexValue[index+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;	
+
+
+	/* MPI part */
+
+	/* Er */
+	index1 = NoEr + MPIcount2x  + MPIcount1y;
+	index2 = NoEr + MPIcount2y;
+
+	Value[index1] = theta[7];
+	Value[index1+1] = theta[8];
+
+	indexValue[index1] =  count_Grids + shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1;
+
+	Value[index2] = theta[0];
+	Value[index2+1] = theta[1];
+
+	indexValue[index2] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
+	indexValue[index2+1] = indexValue[index2] + 2;
+
+	/* Fr1 */
+	index1 = NoFr1 + MPIcount2xF  + MPIcount1y;
+	index2 = NoFr1 + MPIcount2yF;
+
+	Value[index1] = phi[6];
+	Value[index1+1] = phi[7];
+
+	indexValue[index1] = count_Grids + shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1;
+
+	Value[index2] = phi[0];
+	Value[index2+1] = phi[1];
+
+	indexValue[index2] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
+	indexValue[index2+1] = indexValue[index2] + 1;
+
+
+	/* Fr2 */
+	index1 = NoFr2 + MPIcount2xF  + MPIcount1y;
+	index2 = NoFr2 + MPIcount2yF;
+	
+	Value[index1] = psi[6];
+	Value[index1+1] = psi[7];
+
+	indexValue[index1] = count_Grids + shiftx;
+	indexValue[index1+1] = indexValue[index1] + 2;
+
+	Value[index2] = psi[0];
+	Value[index2+1] = psi[1];
+
+	indexValue[index2] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
+	indexValue[index2+1] = indexValue[index2] + 1;
+
+
+	
+	return;
+} /* MPI boundary for both x and y direction */
+
+
+void ie_js_phy_MPI()
+{
+	int m, i, j;
+	i = ie;
+	j = js;
+	int shifty, index;
+	int MPIcount2F;
+
+
+	if(lx2 > ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount1 = 0;
+		if(ox1 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else{
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		} 
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;	
+	}
+
+	/* First do the MPI part */
+	index = NoEr + MPIcount2;
+
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+
+	indexValue[index] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	
+	index = NoFr1 + MPIcount2F;
+	
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];
+
+	indexValue[index] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	index = NoFr2 + MPIcount2F;
+	
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+
+	indexValue[index] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	if(ox1 !=4 ){
+	
+	/* For Er */
+		index = NoEr + MPIcount1;
+		for(m=0; m<5; m++)
+			Value[index+m] = theta[2+m];
+
+		Value[index+5] = theta[9];
+		Value[index+6] = theta[10];
+				
+		indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		for(m=0; m<3; m++)
+			indexValue[index+2+m] = 3*(j-js)*Nx+3*(i-is)+m+ count_Grids;
+
+		indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+6] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+		/* For Fr1 */
+		index = NoFr1 + MPIcount1;
+		for(m=0; m<4; m++)
+			Value[index+m] = phi[2+m];
+
+		Value[index+4] = phi[8];
+		Value[index+5] = phi[9];
+				
+		indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		for(m=0; m<2; m++)
+			indexValue[index+2+m] = 3*(j-js)*Nx+3*(i-is)+m + count_Grids;
+
+		indexValue[index+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+		index = NoFr2 + MPIcount1;
+		for(m=0; m<4; m++)
+			Value[index+m] = psi[2+m];
+
+		Value[index+4] = psi[8];
+		Value[index+5] = psi[9];
+				
+		indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+		indexValue[index+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;		
+
+
+	}/* Non periodic boundary condition */
+	else {
+	/* For Er */
+		index =  NoEr + MPIcount1;
+		Value[index] = theta[7];
+		Value[index+1] = theta[8];
+
+		for(m=0; m<5; m++)
+			Value[index+2+m] = theta[2+m];
+
+		Value[index+7] = theta[9];
+		Value[index+8] = theta[10];
+				
+		indexValue[index] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[index+1] = 3*(j-js)*Nx+1+ count_Grids;
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+		
+		for(m=0; m<3; m++)
+			indexValue[index+4+m] = 3*(j-js)*Nx+3*(i-is)+m + count_Grids;
+
+		indexValue[index+7] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+8] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+		/* For Fr1 */
+		index = NoFr1 + MPIcount1;
+		Value[index] = phi[6];
+		Value[index+1] = phi[7];
+
+		for(m=0; m<4; m++)
+			Value[index+2+m] = phi[2+m];
+
+		Value[index+6] = phi[8];
+		Value[index+7] = phi[9];
+				
+		indexValue[index] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[index+1] = 3*(j-js)*Nx+1+ count_Grids;
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		for(m=0; m<2; m++)
+			indexValue[index+4+m] = 3*(j-js)*Nx+3*(i-is)+m+ count_Grids;
+
+		indexValue[index+6] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+7] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
+
+		/* For Fr2 */
+		index = NoFr2 + MPIcount1;
+		Value[index] = psi[6];
+		Value[index+1] = psi[7];
+
+		for(m=0; m<4; m++)
+			Value[index+m+2] = psi[2+m];
+
+		Value[index+6] = psi[8];
+		Value[index+7] = psi[9];
+				
+		indexValue[index] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[index+1] = 3*(j-js)*Nx+2+ count_Grids;
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;			
+
+		indexValue[index+6] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+7] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+				
+	}/* Periodic boundary condition */
+
+
+	/* other ox1 boundary condition */
+	if(ox1 == 1 || ox1 == 5){
+					
+		Value[NoEr+2+MPIcount1] += theta[7];
+		Value[NoEr+3+MPIcount1] -= theta[8];
+			
+		Value[NoFr1+2+MPIcount1]+= phi[6];
+		Value[NoFr1+3+MPIcount1]-= phi[7];
+			
+		Value[NoFr2+2+MPIcount1]+= psi[6];
+		Value[NoFr2+3+MPIcount1]+= psi[7];
+	}
+	else if(ox1 == 2){
+		Value[NoEr+2+MPIcount1] += theta[7];
+		Value[NoEr+3+MPIcount1] += theta[8];
+			
+		Value[NoFr1+2+MPIcount1]+= phi[6];
+		Value[NoFr1+3+MPIcount1]+= phi[7];
+				
+		Value[NoFr2+2+MPIcount1]+= psi[6];
+		Value[NoFr2+3+MPIcount1]+= psi[7];
+	}
+	else if(ox1 == 3){
+
+		/* Do nothing */
+	}
+
+
+	return;
+} /* physical for x direction and MPI for y direction */
+
+
+
+void ie_js_MPI_phy()
+{
+	int m, i, j;
+	i = ie;
+	j = js;
+	int shiftx, index;
+	int MPIcount2F;
+
+
+	if(rx1 < ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;		
+
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount1 = 0;
+		if(ix2 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else{
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		}
+	}
+
+	/* For MPI part */
+	index = NoEr + MPIcount2;
+	
+			
+	Value[index] = theta[7];
+	Value[index+1] = theta[8];
+
+	indexValue[index] = count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* For Fr1 */
+
+	index = NoFr1 + MPIcount2F;	
+	Value[index] = phi[6];
+	Value[index+1] = phi[7];
+
+	indexValue[index] = count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* For Fr2 */
+		
+	index = NoFr2 + MPIcount2F;		
+	Value[index] = psi[6];
+	Value[index+1] = psi[7];
+
+	indexValue[index] = count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 2;
+
+
+
+
+	/* For Er */
+	index = NoEr + MPIcount1;
+
+	for(m=0; m<5; m++)
+		Value[index+m] = theta[2+m];
+
+	indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+	for(m=0; m<3; m++)
+		indexValue[index+2+m] = 3*(j-js)*Nx+3*(i-is)+m + count_Grids;
+
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;
+	
+	for(m=0; m<4; m++)
+		Value[index+m] = phi[2+m];
+
+	indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+		
+	for(m=0; m<2; m++)
+		indexValue[index+2+m] = 3*(j-js)*Nx+3*(i-is)+m + count_Grids;
+
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1;
+	for(m=0; m<4; m++)
+		Value[index+m] = psi[2+m];
+
+	indexValue[index] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+		
+	
+	indexValue[index+2] = 3*(j-js)*Nx+3*(i-is) + count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx+3*(i-is) + 2 + count_Grids;
+
+
+
+
+	/* Er */
+	index = NoEr + MPIcount1;
+
+	Value[index+5] = theta[9];
+	Value[index+6] = theta[10];
+		
+					
+	indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+6] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+		
+				
+	/* Fr1 */
+	index = NoFr1 + MPIcount1;
+
+	Value[index+4] = phi[8];
+	Value[index+5] = phi[9];
+
+	indexValue[index+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
+
+	/* Fr2 */
+	index = NoFr2 + MPIcount1;
+
+	Value[index+4] = psi[8];
+	Value[index+5] = psi[9];
+
+	indexValue[index+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;	
+	
+	
+
+
+
+	/* ix2 boundary condition */
+	if(ix2 == 4){
+	
+		/* Er */
+		index = NoEr + MPIcount1;
+
+	
+		Value[index+7] = theta[0];
+		Value[index+8] = theta[1];
+					
+		indexValue[index+7] = 3*(je-js) * Nx + 3*(i-is) + count_Grids;
+		indexValue[index+8] = indexValue[index+7] + 2;				
+				
+		/* Fr1 */
+		index = NoFr1 + MPIcount1;
+
+		Value[index+6] = phi[0];
+		Value[index+7] = phi[1];
+
+		indexValue[index+6] = 3*(je-js) * Nx + 3*(i-is) + count_Grids;
+		indexValue[index+7] = indexValue[index+6] + 1;
+				
+		/* Fr2 */
+		index = NoFr2 + MPIcount1;
+
+
+		Value[index+6] = psi[0];
+		Value[index+7] = psi[1];
+
+		indexValue[index+6] = 3*(je-js) * Nx + 3*(i-is) + count_Grids;
+		indexValue[index+7] = indexValue[index+6] + 2;		
+
+
+	}
+	else if(ix2 == 1 || ix2 == 5){
+					
+		Value[NoEr+MPIcount1+2] += theta[0];
+		Value[NoEr+MPIcount1+4] -= theta[1];
+			
+		Value[NoFr1+MPIcount1+2]+= phi[0];
+		Value[NoFr1+MPIcount1+3]+= phi[1];
+				
+		Value[NoFr2+MPIcount1+2]+= psi[0];
+		Value[NoFr2+MPIcount1+3]-= psi[1];
+	}
+	else if(ix2 == 2){
+		Value[NoEr+MPIcount1+2] += theta[0];
+		Value[NoEr+MPIcount1+4] += theta[1];
+		
+		Value[NoFr1+MPIcount1+2]+= phi[0];
+		Value[NoFr1+MPIcount1+3]+= phi[1];
+				
+		Value[NoFr2+MPIcount1+2]+= psi[0];
+		Value[NoFr2+MPIcount1+3]+= psi[1];
+	}
+	else if(ix2 == 3){
+		/* Do nothing */
+	}
+
+
+	return;
+} /* MPI for x direction and MPI for y direction */
+
+
+void ie_js_phy_phy()
+{
+	int m, i, j;
+	i = ie;
+	j = js;
+
+	if(ox1 !=4 ){
+	
+	/* For Er */
+		for(m=0; m<5; m++)
+			Value[NoEr+m] = theta[2+m];
+
+		Value[NoEr+5] = theta[9];
+		Value[NoEr+6] = theta[10];
+				
+		indexValue[NoEr] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[NoEr+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		for(m=0; m<3; m++)
+			indexValue[NoEr+2+m] = 3*(j-js)*Nx+3*(i-is)+m+ count_Grids;
+
+		indexValue[NoEr+5] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoEr+6] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+		/* For Fr1 */
+
+		for(m=0; m<4; m++)
+			Value[NoFr1+m] = phi[2+m];
+
+		Value[NoFr1+4] = phi[8];
+		Value[NoFr1+5] = phi[9];
+				
+		indexValue[NoFr1] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[NoFr1+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		for(m=0; m<2; m++)
+			indexValue[NoFr1+2+m] = 3*(j-js)*Nx+3*(i-is)+m;
+
+		indexValue[NoFr1+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr1+5] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+
+		for(m=0; m<4; m++)
+			Value[NoFr2+m] = psi[2+m];
+
+		Value[NoFr2+4] = psi[8];
+		Value[NoFr2+5] = psi[9];
+				
+		indexValue[NoFr2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[NoFr2+1] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+		indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+		indexValue[NoFr2+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr2+5] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;		
+
+	/* ix2 boundary condition */
+		if(ix2 == 4){
+	
+			Value[NoEr+7] = theta[0];
+			Value[NoEr+8] = theta[1];
+			
+			indexValue[NoEr+7] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+8] = 3*(je-js)*Nx+3*(i-is)+2+ count_Grids;
+		
+			Value[NoFr1+6] = phi[0];
+			Value[NoFr1+7] = phi[1];
+
+			indexValue[NoFr1+6] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+7] = 3*(je-js)*Nx+3*(i-is)+1+ count_Grids;
+				
+			Value[NoFr2+6] = psi[0];
+			Value[NoFr2+7] = psi[1];
+
+			indexValue[NoFr2+6] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+7] = 3*(je-js)*Nx+3*(i-is)+2+ count_Grids;			
+
+
+		}
+		else if(ix2 == 1 || ix2 == 5){
+			
+			Value[NoEr+2] += theta[0];
+			Value[NoEr+4] -= theta[1];
+			
+			Value[NoFr1+2]+= phi[0];
+			Value[NoFr1+3]+= phi[1];
+				
+			Value[NoFr2+2]+= psi[0];
+			Value[NoFr2+3]-= psi[1];
+		}
+		else if(ix2 == 2){
+			Value[NoEr+2] += theta[0];
+			Value[NoEr+4] += theta[1];
+			
+			Value[NoFr1+2]+= phi[0];
+			Value[NoFr1+3]+= phi[1];
+				
+			Value[NoFr2+2]+= psi[0];
+			Value[NoFr2+3]+= psi[1];
+		}
+		else if(ix2 == 3){
+
+			/* Do nothing */
+		}
+					
+
+	}/* Non periodic boundary condition */
+	else {
+	/* For Er */
+		Value[NoEr] = theta[7];
+		Value[NoEr+1] = theta[8];
+
+		for(m=0; m<5; m++)
+			Value[NoEr+m+2] = theta[2+m];
+
+		Value[NoEr+7] = theta[9];
+		Value[NoEr+8] = theta[10];
+				
+		indexValue[NoEr] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[NoEr+1] = 3*(j-js)*Nx+1+ count_Grids;
+		indexValue[NoEr+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[NoEr+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+		
+		for(m=0; m<3; m++)
+			indexValue[NoEr+4+m] = 3*(j-js)*Nx+3*(i-is)+m;
+
+		indexValue[NoEr+7] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoEr+8] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+		/* For Fr1 */
+		Value[NoFr1] = phi[6];
+		Value[NoFr1+1] = phi[7];
+
+		for(m=0; m<4; m++)
+			Value[NoFr1+m+2] = phi[2+m];
+
+		Value[NoFr1+6] = phi[8];
+		Value[NoFr1+7] = phi[9];
+				
+		indexValue[NoFr1] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[NoFr1+1] = 3*(j-js)*Nx+1+ count_Grids;
+		indexValue[NoFr1+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[NoFr1+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		for(m=0; m<2; m++)
+			indexValue[NoFr1+4+m] = 3*(j-js)*Nx+3*(i-is)+m+ count_Grids;
+
+		indexValue[NoFr1+6] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr1+7] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
+
+		/* For Fr2 */
+
+		Value[NoFr2] = psi[6];
+		Value[NoFr2+1] = psi[7];
+
+		for(m=0; m<4; m++)
+			Value[NoFr2+m+2] = psi[2+m];
+
+		Value[NoFr2+6] = psi[8];
+		Value[NoFr2+7] = psi[9];
+				
+		indexValue[NoFr2] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[NoFr2+1] = 3*(j-js)*Nx+2+ count_Grids;
+		indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+		indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;			
+
+		indexValue[NoFr2+6] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr2+7] = 3*(j-js+1)*Nx+3*(i-is)+2+ count_Grids;
+
+
+		/* ix2 boundary condition */
+		if(ix2 == 4){
+	
+			Value[NoEr+9] = theta[0];
+			Value[NoEr+10] = theta[1];
+					
+			indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+10] = 3*(je-js)*Nx+3*(i-is)+2+ count_Grids;
+			
+			Value[NoFr1+8] = phi[0];
+			Value[NoFr1+9] = phi[1];
+
+			indexValue[NoFr1+8] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+9] = 3*(je-js)*Nx+3*(i-is)+1+ count_Grids;
+				
+			Value[NoFr2+8] = psi[0];
+			Value[NoFr2+9] = psi[1];
+
+			indexValue[NoFr2+8] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+9] = 3*(je-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+
+		}
+		else if(ix2 == 1 || ix2 == 5){
+					
+			Value[NoEr+4] += theta[0];
+			Value[NoEr+6] -= theta[1];
+			
+			Value[NoFr1+4]+= phi[0];
+			Value[NoFr1+5]+= phi[1];
+				
+			Value[NoFr2+4]+= psi[0];
+			Value[NoFr2+5]-= psi[1];
+		}
+		else if(ix2 == 2){
+			Value[NoEr+4] += theta[0];
+			Value[NoEr+6] += theta[1];
+		
+			Value[NoFr1+4]+= phi[0];
+			Value[NoFr1+5]+= phi[1];
+				
+			Value[NoFr2+4]+= psi[0];
+			Value[NoFr2+5]+= psi[1];
+		}
+		else if(ix2 == 3){
+			/* Do nothing */
+		}
+					
+	}/* Periodic boundary condition */
+
+
+	/* other ox1 boundary condition */
+	if(ox1 == 1 || ox1 == 5){
+					
+		Value[NoEr+2] += theta[7];
+		Value[NoEr+3] -= theta[8];
+			
+		Value[NoFr1+2]+= phi[6];
+		Value[NoFr1+3]-= phi[7];
+			
+		Value[NoFr2+2]+= psi[6];
+		Value[NoFr2+3]+= psi[7];
+	}
+	else if(ox1 == 2){
+		Value[NoEr+2] += theta[7];
+		Value[NoEr+3] += theta[8];
+			
+		Value[NoFr1+2]+= phi[6];
+		Value[NoFr1+3]+= phi[7];
+				
+		Value[NoFr2+2]+= psi[6];
+		Value[NoFr2+3]+= psi[7];
+	}
+	else if(ox1 == 3){
+
+		/* Do nothing */
+	}
+		
+	return;
+} /* physical for x and y direction */
+
+
+
+/*-----------------------------------*/
+/*------ie and je -------------------*/ 
+/*-----------------------------------*/
+
+void ie_je_MPI_MPI()
+{
+	int m, i, j;
+	i = ie;
+	j = je;
+	int shiftx, shifty;
+	int index1, index2, index;
+	int MPIcount1x, MPIcount1y;
+	int MPIcount2x, MPIcount2y;
+	int MPIcount2xF, MPIcount2yF;
+
+
+	if(rx1 < ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount2x = 0;
+		MPIcount2xF = 0;
+		MPIcount1x = 2;
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount2x = 7;
+		MPIcount2xF = 6;
+		MPIcount1x = 0;
+	}
+
+
+	if(rx2 < ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount2y = 0;
+		MPIcount2yF = 0;
+		MPIcount1y = 2;
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount2y = 9;
+		MPIcount2yF = 8;
+		MPIcount1y = 0;
+	}
+
+	/* For MPI part */
+	/* Er */
+	index1 = NoEr + MPIcount2x + MPIcount1y;
+	index2 = NoEr + MPIcount2y;
+
+	Value[index1] = theta[7];
+	Value[index1+1] = theta[8];
+
+	indexValue[index1] = 3*(je-js)*Nx + count_Grids + shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1;
+
+	Value[index2] = theta[9];
+	Value[index2+1] = theta[10];		
+
+	indexValue[index2] = 3*(ie-is) + count_Grids + shifty;
+	indexValue[index2+1] = indexValue[index2] + 2;
+
+	/* Fr1 */
+	index1 = NoFr1 + MPIcount2xF + MPIcount1y;
+	index2 = NoFr1 + MPIcount2yF;	
+
+	Value[index1] = phi[6];
+	Value[index1+1] = phi[7];
+
+	indexValue[index1] = 3*(je-js)*Nx + count_Grids + shiftx;
+	indexValue[index1+1] = indexValue[index1] + 1;		
+
+	Value[index2] = phi[8];
+	Value[index2+1] = phi[9];
+	
+	indexValue[index2] = 3*(ie-is) + count_Grids + shifty;
+	indexValue[index2+1] = indexValue[index2] + 1;
+
+	/* Fr2 */
+	index1 = NoFr2 + MPIcount2xF + MPIcount1y;
+	index2 = NoFr2 + MPIcount2yF;	
+			
+	Value[index1] = psi[6];
+	Value[index1+1] = psi[7];
+
+	indexValue[index1] = 3*(je-js)*Nx + count_Grids + shiftx;
+	indexValue[index1+1] = indexValue[index1] + 2;		
+
+
+	Value[index2] = psi[8];
+	Value[index2+1] = psi[9];
+	
+	indexValue[index2] = 3*(ie-is) + count_Grids + shifty;
+	indexValue[index2+1] = indexValue[index2] + 2;							
+		
+		
+	/* For Er */
+	index = NoEr + MPIcount1x + MPIcount1y;
+	for(m=0; m<7; m++)
+		Value[index+m] = theta[m];
+				
+	indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+	indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+	
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1x + MPIcount1y;
+	for(m=0; m<6; m++)
+		Value[index+m] = phi[m];
+				
+	indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+
+				
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1x + MPIcount1y;
+
+	for(m=0; m<6; m++)
+		Value[index+m] = psi[m];
+				
+	indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+
+
+	return;
+
+} /* MPI boundary for both x and y direction */
+
+
+void ie_je_phy_MPI()
+{
+	int m, i, j;
+	i = ie;
+	j = je;
+	int shifty, index;
+	int MPIcount2F;
+
+	if(rx2 < ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+		
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount1 = 0;
+		if(ox1 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else{ 
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		} 
+
+	}
+
+	/* First do the MPI part, which is true no matter ox1 == 4 or not */
+
+		index = NoEr + MPIcount2;
+		Value[index] = theta[9];
+		Value[index+1] = theta[10];
+
+		indexValue[index] = 3*(ie-is) + count_Grids + shifty;
+		indexValue[index+1] = indexValue[index] + 2;
+
+	
+		index = NoFr1 + MPIcount2F;
+		
+		Value[index] = phi[8];
+		Value[index+1] = phi[9];
+
+		indexValue[index] = 3*(ie-is) + count_Grids + shifty;
+		indexValue[index+1] = indexValue[index] + 1;	
+
+	
+		index = NoFr2 + MPIcount2F;
+		
+		Value[index] = psi[8];
+		Value[index+1] = psi[9];
+
+		indexValue[index] = 3*(ie-is) + count_Grids + shifty;
+		indexValue[index+1] = indexValue[index] + 2;			
+						
+
+		if(ox1 != 4){					
+			/* For Er */
+			index = NoEr + MPIcount1;
+			for(m=0; m<7; m++)
+				Value[index+m] = theta[m];
+				
+			indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+			indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+				
+
+			/* For Fr1 */
+			index = NoFr1 + MPIcount1;
+			for(m=0; m<6; m++)
+				Value[index+m] = phi[m];
+				
+			indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+			indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+
+			
+						
+			/* For Fr2 */
+			index = NoFr2 + MPIcount1;
+			for(m=0; m<6; m++)
+				Value[index+m] = psi[m];
+				
+			indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+			indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+									
+
+
+			/* other ox1 boundary condition */
+			if(ox1 == 1 || ox1 == 5){
+					
+				Value[NoEr+4+MPIcount1] += theta[7];
+				Value[NoEr+5+MPIcount1] -= theta[8];
+			
+				Value[NoFr1+4+MPIcount1]+= phi[6];
+				Value[NoFr1+5+MPIcount1]-= phi[7];
+		
+				Value[NoFr2+4+MPIcount1]+= psi[6];
+				Value[NoFr2+5+MPIcount1]+= psi[7];
+			}
+			else if(ox1 == 2){
+				Value[NoEr+4+MPIcount1] += theta[7];
+				Value[NoEr+5+MPIcount1] += theta[8];
+			
+				Value[NoFr1+4+MPIcount1]+= phi[6];
+				Value[NoFr1+5+MPIcount1]+= phi[7];
+				
+				Value[NoFr2+4+MPIcount1]+= psi[6];
+				Value[NoFr2+5+MPIcount1]+= psi[7];
+			}
+			else if(ox1 == 3){
+
+				/* Do nothing */
+			}
+			
+		
+		}/* non periodic for x1 */
+		else{
+			/* for Er */
+			index = NoEr + MPIcount1;
+			Value[index] = theta[0];
+			Value[index+1] = theta[1];
+
+			Value[index+2] = theta[7];
+			Value[index+3] = theta[8];
+
+			for(m=0; m<5; m++)
+				Value[index+4+m] = theta[2+m];
+			
+			indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[index+2] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[index+3] = 3*(j-js)*Nx+1+ count_Grids;
+
+			indexValue[index+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[index+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+			indexValue[index+8] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+						
+				
+
+			/* For Fr1 */
+			index = NoFr1 + MPIcount1;
+			Value[index] = phi[0];
+			Value[index+1] = phi[1];
+
+			Value[index+2] = phi[6];
+			Value[index+3] = phi[7];
+
+			for(m=0; m<4; m++)
+				Value[index+4+m] = phi[2+m];
+				
+			indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+			indexValue[index+2] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[index+3] = 3*(j-js)*Nx+1+ count_Grids;
+
+			indexValue[index+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[index+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+
+					
+						
+						
+			/* For Fr2 */
+			index = NoFr2 + MPIcount1;
+			Value[index] = psi[0];
+			Value[index+1] = psi[1];
+
+			Value[index+2] = psi[6];
+			Value[index+3] = psi[7];
+
+			for(m=0; m<4; m++)
+				Value[index+4+m] = psi[2+m];
+				
+			indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[index+2] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[index+3] = 3*(j-js)*Nx+2+ count_Grids;
+
+			indexValue[index+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[index+5] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+			indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[index+7] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+			
+	
+
+		}/* periodic for x1 */				
+
+
+	return;
+} /* physical for x direction and MPI for y direction */
+
+
+
+void ie_je_MPI_phy()
+{
+	int m, i, j;
+	i = ie;
+	j = je;
+	int shiftx, index;
+	int MPIcount2F;
+	
+
+	if(rx1 < ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount1 = 0;
+		if(ox2 == 4){
+			MPIcount2 = 9;
+			MPIcount2F = 8;
+		}
+		else{
+			MPIcount2 = 7;
+			MPIcount2F = 6;
+		}
+
+	}
+	
+	/* First, MPI part */
+	/* Er */
+	index = NoEr + MPIcount2;
+	Value[index] = theta[7];
+	Value[index+1] = theta[8];
+
+	indexValue[index] = 3*(je-js)*Nx + count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+		
+	/* Fr1 */
+	index = NoFr1 + MPIcount2F;
+	Value[index] = phi[6];
+	Value[index+1] = phi[7];
+
+	indexValue[index] = 3*(je-js)*Nx + count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 1;			
+
+	/* Fr2 */
+	index = NoFr2 + MPIcount2F;
+	Value[index] = psi[6];
+	Value[index+1] = psi[7];
+
+	indexValue[index] = 3*(je-js)*Nx + count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 2;		
+
+	if(ox2 != 4){
+					
+	/* For Er */
+		index = NoEr + MPIcount1;
+		for(m=0; m<7; m++)
+			Value[index+m] = theta[m];
+				
+		indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+		indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+			
+
+		/* For Fr1 */
+		index = NoFr1 + MPIcount1;
+		for(m=0; m<6; m++)
+			Value[index+m] = phi[m];
+				
+		indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+
+		
+						
+		/* For Fr2 */
+		index = NoFr2 + MPIcount1;
+		for(m=0; m<6; m++)
+			Value[index+m] = psi[m];
+				
+		indexValue[index] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+		indexValue[index+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+3] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+		
+		
+			
+		/* other x2 boundary condition */
+		if(ox2 == 1 || ox2 == 5){
+				
+			Value[NoEr+MPIcount1+4] += theta[9];
+			Value[NoEr+MPIcount1+6] -= theta[10];
+		
+			Value[NoFr1+MPIcount1+4]+= phi[8];
+			Value[NoFr1+MPIcount1+5]+= phi[9];
+				
+			Value[NoFr2+MPIcount1+4]+= psi[8];
+			Value[NoFr2+MPIcount1+5]-= psi[9];
+		}
+		else if(ox2 == 2){
+			Value[NoEr+MPIcount1+4] += theta[9];
+			Value[NoEr+MPIcount1+6] += theta[10];
+			
+			Value[NoFr1+MPIcount1+4]+= phi[8];
+			Value[NoFr1+MPIcount1+5]+= phi[9];
+				
+			Value[NoFr2+MPIcount1+4]+= psi[9];
+			Value[NoFr2+MPIcount1+5]+= psi[10];
+		}
+		else if(ox2 == 3){
+
+			/* Do nothing */
+		}	
+		
+
+	}/* Non-periodic for x2 */
+	else{
+				
+		/* For Er */
+		index = NoEr + MPIcount1;
+		Value[index] = theta[9];
+		Value[index+1] = theta[10];
+
+		for(m=0; m<7; m++)
+			Value[index+m+2] = theta[m];
+
+		indexValue[index] = 3*(i-is)+ count_Grids;
+		indexValue[index+1] = 3*(i-is)+2+ count_Grids;
+			
+		indexValue[index+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+3] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+		indexValue[index+8] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;		
+
+
+		/* For Fr1 */
+		index = NoFr1 + MPIcount1;
+		Value[index] = phi[8];
+		Value[index+1] = phi[9];
+
+		for(m=0; m<6; m++)
+			Value[index+m+2] = phi[m];
+
+		indexValue[index] = 3*(i-is)+ count_Grids;
+		indexValue[index+1] = 3*(i-is)+1+ count_Grids;
+				
+		indexValue[index+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+3] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+		indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+
+	
+		/* For Fr2 */
+		index = NoFr2 + MPIcount1;
+		Value[index] = psi[8];
+		Value[index+1] = psi[9];
+
+		for(m=0; m<6; m++)
+			Value[index+m+2] = psi[m];
+
+		indexValue[index] = 3*(i-is)+ count_Grids;
+		indexValue[index+1] = 3*(i-is)+2+ count_Grids;
+			
+		indexValue[index+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+3] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+		indexValue[index+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+		indexValue[index+5] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+		indexValue[index+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[index+7] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+
+	}/* periodic for x2 */
+
+	return;
+} /* MPI for x direction and physics for y direction */
+
+
+void ie_je_phy_phy()
+{
+	int m, i, j;
+	i = ie;
+	j = je;
+
+	if(ox2 != 4){
+		if(ox1 != 4){					
+			/* For Er */
+			for(m=0; m<7; m++)
+				Value[NoEr+m] = theta[m];
+				
+			indexValue[NoEr] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoEr+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoEr+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+			indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;			
+
+			/* For Fr1 */
+
+			for(m=0; m<6; m++)
+			Value[NoFr1+m] = phi[m];
+				
+			indexValue[NoFr1] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+1] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+			indexValue[NoFr1+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr1+3] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+						
+			/* For Fr2 */
+
+			for(m=0; m<6; m++)
+				Value[NoFr2+m] = psi[m];
+				
+			indexValue[NoFr2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoFr2+2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr2+3] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+			indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+
+			/* other ox1 boundary condition */
+			if(ox1 == 1 || ox1 == 5){
+					
+				Value[NoEr+4] += theta[7];
+				Value[NoEr+5] -= theta[8];
+			
+				Value[NoFr1+4]+= phi[6];
+				Value[NoFr1+5]-= phi[7];
+		
+				Value[NoFr2+4]+= psi[6];
+				Value[NoFr2+5]+= psi[7];
+			}
+			else if(ox1 == 2){
+				Value[NoEr+4] += theta[7];
+				Value[NoEr+5] += theta[8];
+			
+				Value[NoFr1+4]+= phi[6];
+				Value[NoFr1+5]+= phi[7];
+				
+				Value[NoFr2+4]+= psi[6];
+				Value[NoFr2+5]+= psi[7];
+			}
+			else if(ox1 == 3){
+
+				/* Do nothing */
+			}
+			
+			/* other x2 boundary condition */
+			if(ox2 == 1 || ox2 == 5){
+				
+				Value[NoEr+4] += theta[9];
+				Value[NoEr+6] -= theta[10];
+			
+				Value[NoFr1+4]+= phi[8];
+				Value[NoFr1+5]+= phi[9];
+				
+				Value[NoFr2+4]+= psi[8];
+				Value[NoFr2+5]-= psi[9];
+			}
+			else if(ox2 == 2){
+				Value[NoEr+4] += theta[9];
+				Value[NoEr+6] += theta[10];
+			
+				Value[NoFr1+4]+= phi[8];
+				Value[NoFr1+5]+= phi[9];
+				
+				Value[NoFr2+4]+= psi[9];
+				Value[NoFr2+5]+= psi[10];
+			}
+			else if(ox2 == 3){
+
+				/* Do nothing */
+			}
+			
+		}/* non periodic for x1 */
+		else{
+			/* for Er */
+			Value[NoEr] = theta[0];
+			Value[NoEr+1] = theta[1];
+
+			Value[NoEr+2] = theta[7];
+			Value[NoEr+3] = theta[8];
+
+			for(m=0; m<5; m++)
+				Value[NoEr+4+m] = theta[2+m];
+			
+			indexValue[NoEr] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoEr+2] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[NoEr+3] = 3*(j-js)*Nx+1+ count_Grids;
+
+			indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+			indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+			/* For Fr1 */
+
+			Value[NoFr1] = phi[0];
+			Value[NoFr1+1] = phi[1];
+
+			Value[NoFr1+2] = phi[6];
+			Value[NoFr1+3] = phi[7];
+
+			for(m=0; m<4; m++)
+				Value[NoFr1+4+m] = phi[2+m];
+				
+			indexValue[NoFr1] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+1] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+			indexValue[NoFr1+2] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[NoFr1+3] = 3*(j-js)*Nx+1+ count_Grids;
+
+			indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+						
+						
+			/* For Fr2 */
+			Value[NoFr2] = psi[0];
+			Value[NoFr2+1] = psi[1];
+
+			Value[NoFr2+2] = psi[6];
+			Value[NoFr2+3] = psi[7];
+
+			for(m=0; m<4; m++)
+				Value[NoFr2+4+m] = psi[2+m];
+				
+			indexValue[NoFr2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+1] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoFr2+2] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[NoFr2+3] = 3*(j-js)*Nx+2+ count_Grids;
+
+			indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+			indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+			/* other x2 boundary condition */
+			if(ox2 == 1 || ox2 == 5){
+					
+				Value[NoEr+6] += theta[9];
+				Value[NoEr+8] -= theta[10];
+			
+				Value[NoFr1+6]+= phi[8];
+				Value[NoFr1+7]+= phi[9];
+				
+				Value[NoFr2+6]+= psi[8];
+				Value[NoFr2+7]-= psi[9];
+			}
+			else if(ox2 == 2){
+				Value[NoEr+6] += theta[9];
+				Value[NoEr+8] += theta[10];
+			
+				Value[NoFr1+6]+= phi[8];
+				Value[NoFr1+7]+= phi[9];
+				
+				Value[NoFr2+6]+= psi[8];
+				Value[NoFr2+7]+= psi[9];
+			}
+			else if(ox2 == 3){
+
+				/* Do nothing */
+			}
+
+		}/* periodic for x1 */				
+
+		}/* Non-periodic for x2 */
+	else{
+		if(ox1 != 4){					
+			/* For Er */
+			Value[NoEr] = theta[9];
+			Value[NoEr+1] = theta[10];
+
+			for(m=0; m<7; m++)
+				Value[NoEr+m+2] = theta[m];
+
+			indexValue[NoEr] = 3*(i-is)+ count_Grids;
+			indexValue[NoEr+1] = 3*(i-is)+2+ count_Grids;
+				
+			indexValue[NoEr+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+3] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoEr+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoEr+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+			indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;			
+
+			/* For Fr1 */
+
+			Value[NoFr1] = phi[8];
+			Value[NoFr1+1] = phi[9];
+
+			for(m=0; m<6; m++)
+				Value[NoFr1+m+2] = phi[m];
+
+			indexValue[NoFr1] = 3*(i-is)+ count_Grids;
+			indexValue[NoFr1+1] = 3*(i-is)+1+ count_Grids;
+				
+			indexValue[NoFr1+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+3] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+			indexValue[NoFr1+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr1+5] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+						
+			/* For Fr2 */
+	
+			Value[NoFr2] = psi[8];
+			Value[NoFr2+1] = psi[9];
+
+			for(m=0; m<6; m++)
+				Value[NoFr2+m+2] = psi[m];
+
+			indexValue[NoFr2] = 3*(i-is)+ count_Grids;
+			indexValue[NoFr2+1] = 3*(i-is)+2+ count_Grids;
+			
+			indexValue[NoFr2+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+3] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoFr2+4] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr2+5] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+			indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
+
+
+			/* other ox1 boundary condition */
+			if(ox1 == 1 || ox1 == 5){
+			
+				Value[NoEr+6] += theta[7];
+				Value[NoEr+7] -= theta[8];
+			
+				Value[NoFr1+6]+= phi[6];
+				Value[NoFr1+7]-= phi[7];
+			
+				Value[NoFr2+6]+= psi[6];
+				Value[NoFr2+7]+= psi[7];
+			}
+			else if(ox1 == 2){
+				Value[NoEr+6] += theta[7];
+				Value[NoEr+7] += theta[8];
+			
+				Value[NoFr1+6]+= phi[6];
+				Value[NoFr1+7]+= phi[7];
+				
+				Value[NoFr2+6]+= psi[6];
+				Value[NoFr2+7]+= psi[7];
+			}
+			else if(ox1 == 3){
+
+				/* Do nothing */
+			}
+		
+
+
+		}/* non periodic for x1 */
+		else{
+			/* for Er */
+			Value[NoEr] = theta[9];
+			Value[NoEr+1] = theta[10];
+
+			Value[NoEr+2] = theta[0];
+			Value[NoEr+3] = theta[1];
+
+			Value[NoEr+4] = theta[7];
+			Value[NoEr+5] = theta[8];
+
+			for(m=0; m<5; m++)
+				Value[NoEr+6+m] = theta[2+m];
+
+			indexValue[NoEr] = 3*(i-is)+ count_Grids;
+			indexValue[NoEr+1] = 3*(i-is)+2+ count_Grids;
+			
+			indexValue[NoEr+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+3] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoEr+4] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[NoEr+5] = 3*(j-js)*Nx+1+ count_Grids;
+
+			indexValue[NoEr+6] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoEr+7] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoEr+8] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoEr+9] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+			indexValue[NoEr+10] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+			/* For Fr1 */
+			Value[NoFr1] = phi[8];
+			Value[NoFr1+1] = phi[9];
+
+			Value[NoFr1+2] = phi[0];
+			Value[NoFr1+3] = phi[1];
+
+			Value[NoFr1+4] = phi[6];
+			Value[NoFr1+5] = phi[7];
+
+			for(m=0; m<4; m++)
+				Value[NoFr1+6+m] = phi[2+m];
+
+			indexValue[NoFr1] = 3*(i-is)+ count_Grids;
+			indexValue[NoFr1+1] = 3*(i-is)+1+ count_Grids;
+				
+			indexValue[NoFr1+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+3] = 3*(j-js-1)*Nx+3*(i-is)+1+ count_Grids;
+
+			indexValue[NoFr1+4] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[NoFr1+5] = 3*(j-js)*Nx+1+ count_Grids;
+
+			indexValue[NoFr1+6] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr1+7] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
+
+			indexValue[NoFr1+8] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr1+9] = 3*(j-js)*Nx+3*(i-is)+1+ count_Grids;
+						
+						
+			/* For Fr2 */
+			Value[NoFr2] = psi[8];
+			Value[NoFr2+1] = psi[9];
+
+			Value[NoFr2+2] = psi[0];
+			Value[NoFr2+3] = psi[1];
+
+			Value[NoFr2+4] = psi[6];
+			Value[NoFr2+5] = psi[7];
+
+			for(m=0; m<4; m++)
+				Value[NoFr2+6+m] = psi[2+m];
+
+			indexValue[NoFr2] = 3*(i-is)+ count_Grids;
+			indexValue[NoFr2+1] = 3*(i-is)+2+ count_Grids;
+				
+			indexValue[NoFr2+2] = 3*(j-js-1)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+3] = 3*(j-js-1)*Nx+3*(i-is)+2+ count_Grids;
+
+			indexValue[NoFr2+4] = 3*(j-js)*Nx+ count_Grids;
+			indexValue[NoFr2+5] = 3*(j-js)*Nx+2+ count_Grids;
+
+			indexValue[NoFr2+6] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+			indexValue[NoFr2+7] = 3*(j-js)*Nx+3*(i-is-1)+2+ count_Grids;
+
+			indexValue[NoFr2+8] = 3*(j-js)*Nx+3*(i-is)+ count_Grids;
+			indexValue[NoFr2+9] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;			
+
+		}/* periodic for x1 */	
+	}/* periodic for x2 */
+
+	return;
+} /* physical for x and y direction */
+
+
+
+/*-----------------------------------*/
+/*------ie and j -------------------*/ 
+/*-----------------------------------*/
+
+void ie_j_MPI(int j)
+{
+	int m, i;
+	i = ie;
+	int shiftx, index;
+	int MPIcount2F;
+
+
+	if(rx1 < ID){	
+		shiftx = -3 * Ny * Nx * (NGx - 1);
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+	}
+	else{
+		shiftx = 3 * Nx * Ny;
+		MPIcount1 = 0;
+		MPIcount2 = 9;
+		MPIcount2F = 8;
+	}
+
+	/* For MPI part */
+	/* Er */
+	index = NoEr + MPIcount2;
+	Value[index] = theta[7];
+	Value[index+1] = theta[8];
+
+	indexValue[index] = 3*(j-js)*Nx + count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* Fr1 */
+	index = NoFr1 + MPIcount2F;
+	Value[index] = phi[6];
+	Value[index+1] = phi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 1;
+
+	/* Fr2 */
+	index = NoFr2 + MPIcount2F;
+	Value[index] = psi[6];
+	Value[index+1] = psi[7];
+
+	indexValue[index] = 3*(j-js)*Nx + count_Grids + shiftx;
+	indexValue[index+1] = indexValue[index] + 2;	
+
+	
+	/* For Er */
+	index = NoEr + MPIcount1;
+	Value[index] = theta[0];
+	Value[index+1] =theta[1];
+
+	for(m=0; m<5; m++)
+		Value[index+2+m] = theta[2+m];
+
+	Value[index+7] = theta[9];
+	Value[index+8] =theta[10];
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+	indexValue[index+6] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+8] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;
+	Value[index] = phi[0];
+	Value[index+1] =phi[1];
+
+	for(m=0; m<4; m++)
+		Value[index+2+m] = phi[2+m];
+
+	Value[index+6] = phi[8];
+	Value[index+7] = phi[9];
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+					
+	indexValue[index+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1;
+	Value[index] = psi[0];
+	Value[index+1] =psi[1];
+
+	for(m=0; m<4; m++)
+		Value[index+2+m] = psi[2+m];
+
+	Value[index+6] = psi[8];
+	Value[index+7] = psi[9];
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+	indexValue[index+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+
+	return;
+} /* MPI boundary condition for x */
+
+
+void ie_j_phy(int j)
+{
+	int m, i;
+	i = ie;
+	if(ox1 == 4){
+
+		/* For Er */
+		Value[NoEr] = theta[0];
+		Value[NoEr+1] =theta[1];
+
+		Value[NoEr+2] = theta[7];
+		Value[NoEr+3] = theta[8];
+
+		for(m=0; m<5; m++)
+			Value[NoEr+4+m] = theta[2+m];
+
+		Value[NoEr+9] = theta[9];
+		Value[NoEr+10] =theta[10];
+
+		indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		indexValue[NoEr+2] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[NoEr+3] = 3*(j-js)*Nx +1+ count_Grids;
+
+		indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+		indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+		indexValue[NoEr+9] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+10] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		/* For Fr1 */
+
+		Value[NoFr1] = phi[0];
+		Value[NoFr1+1] =phi[1];
+
+		Value[NoFr1+2] = phi[6];
+		Value[NoFr1+3] = phi[7];
+
+		for(m=0; m<4; m++)
+			Value[NoFr1+4+m] = phi[2+m];
+
+		Value[NoFr1+8] = phi[8];
+		Value[NoFr1+9] =phi[9];
+
+		indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1+ count_Grids;
+
+		indexValue[NoFr1+2] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[NoFr1+3] = 3*(j-js)*Nx +1+ count_Grids;
+
+		indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+			
+		indexValue[NoFr1+8] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+9] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+		/* For Fr2 */
+
+		Value[NoFr2] = psi[0];
+		Value[NoFr2+1] =psi[1];
+
+		Value[NoFr2+2] = psi[6];
+		Value[NoFr2+3] = psi[7];
+
+		for(m=0; m<4; m++)
+			Value[NoFr2+4+m] = psi[2+m];
+
+		Value[NoFr2+8] = psi[8];
+		Value[NoFr2+9] =psi[9];
+
+		indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		indexValue[NoFr2+2] = 3*(j-js)*Nx+ count_Grids;
+		indexValue[NoFr2+3] = 3*(j-js)*Nx +2+ count_Grids;
+
+		indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+		indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+		
+		indexValue[NoFr2+8] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+9] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+
+	}/* Periodic boundary condition */
+	else{
+		/* For Er */
+		Value[NoEr] = theta[0];
+		Value[NoEr+1] =theta[1];
+
+		for(m=0; m<5; m++)
+			Value[NoEr+2+m] = theta[2+m];
+
+		Value[NoEr+7] = theta[9];
+		Value[NoEr+8] =theta[10];
+
+		indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+		indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+		indexValue[NoEr+7] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+8] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		/* For Fr1 */
+
+		Value[NoFr1] = phi[0];
+		Value[NoFr1+1] =phi[1];
+
+		for(m=0; m<4; m++)
+			Value[NoFr1+2+m] = phi[2+m];
+
+		Value[NoFr1+6] = phi[8];
+		Value[NoFr1+7] =phi[9];
+
+		indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1+ count_Grids;
+
+		indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+					
+		indexValue[NoFr1+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+7] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+		/* For Fr2 */
+
+		Value[NoFr2] = psi[0];
+		Value[NoFr2+1] =psi[1];
+
+
+		for(m=0; m<4; m++)
+			Value[NoFr2+2+m] = psi[2+m];
+
+		Value[NoFr2+6] = psi[8];
+		Value[NoFr2+7] =psi[9];
+
+		indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+		indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+		indexValue[NoFr2+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+7] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+		/* other ox1 boundary condition */
+		if(ox1 == 1 || ox1 == 5){
+					
+			Value[NoEr+4] += theta[7];
+			Value[NoEr+5] -= theta[8];
+			
+			Value[NoFr1+4]+= phi[6];
+			Value[NoFr1+5]-= phi[7];
+		
+			Value[NoFr2+4]+= psi[6];
+			Value[NoFr2+5]+= psi[7];
+		}
+		else if(ox1 == 2){
+			Value[NoEr+4] += theta[7];
+			Value[NoEr+5] += theta[8];
+		
+			Value[NoFr1+4]+= phi[6];
+			Value[NoFr1+5]+= phi[7];
+			
+			Value[NoFr2+4]+= psi[6];
+			Value[NoFr2+5]+= psi[7];
+		}
+		else if(ox1 == 3){
+
+				/* Do nothing */
+		}
+		
+
+	}/* non-periodic boundary condition */
+
+	return;
+} /* physical boundary for x */
+
+
+/*-----------------------------------*/
+/*------i and js -------------------*/ 
+/*-----------------------------------*/
+
+void i_js_MPI(int i)
+{
+	int m, j;
+	j = js;
+	int shifty, index;
+	int MPIcount2F;
+	
+	if(lx2 > ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount1 = 0;
+		MPIcount2 = 9;
+		MPIcount2F = 8;
+
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+	}
+	
+	/* MPI part */
+	/* Er */
+	index = NoEr + MPIcount2;
+	Value[index] = theta[0];
+	Value[index+1] = theta[1];
+
+	indexValue[index] = 3*(je-js)*Nx + 3*(i-is) + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	/* Fr1 */
+	index = NoFr1  + MPIcount2F;
+	
+	Value[index] = phi[0];
+	Value[index+1] = phi[1];
+
+	indexValue[index] = 3*(je-js)*Nx + 3*(i-is) + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 1;
+	
+
+	/* Fr2 */
+	index = NoFr2  + MPIcount2F;
+	
+	Value[index] = psi[0];
+	Value[index+1] = psi[1];
+
+	indexValue[index] = 3*(je-js)*Nx + 3*(i-is) + count_Grids - shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+
+
+
+	/* For Er */
+	index = NoEr + MPIcount1;
+	for(m=0; m<9; m++)
+		Value[index+m] = theta[m+2];
+
+	indexValue[index] = 3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(i-is-1) + 1+ count_Grids;
+	
+	for(m=0; m<5; m++)
+		indexValue[index+2+m] = 3*(i-is)+m+ count_Grids;
+
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+8] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	
+
+	/* For Fr1 */
+	index = NoFr1 + MPIcount1;
+	for(m=0; m<8; m++)
+		Value[index+m] = phi[m+2];
+
+	
+	indexValue[index] = 3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(i-is-1) + 1+ count_Grids;
+
+	indexValue[index+2] = 3*(i-is)+ count_Grids;
+	indexValue[index+3] = 3*(i-is) + 1+ count_Grids;
+
+	indexValue[index+4] = 3*(i-is)+3+ count_Grids;
+	indexValue[index+5] = 3*(i-is)+4+ count_Grids;
+				
+	indexValue[index+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	
+
+
+	/* For Fr2 */
+	index = NoFr2 + MPIcount1;
+	for(m=0; m<8; m++)
+		Value[index+m] = psi[m+2];
+
+
+	indexValue[index] = 3*(i-is-1)+ count_Grids;
+	indexValue[index+1] = 3*(i-is-1) + 2+ count_Grids;
+
+	indexValue[index+2] = 3*(i-is)+ count_Grids;
+	indexValue[index+3] = 3*(i-is) + 2+ count_Grids;
+
+	indexValue[index+4] = 3*(i-is)+3+ count_Grids;
+	indexValue[index+5] = 3*(i-is)+5+ count_Grids;
+				
+	indexValue[index+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	
+
+
+	return;
+} /* MPI boundary condition for y */
+
+
+void i_js_phy(int i)
+{
+	int m, j;
+	j = js;
+	/* The following is true no matter ix2==4 or not */
+	/* For Er */
+	for(m=0; m<9; m++)
+		Value[NoEr+m] = theta[2+m];
+
+	indexValue[NoEr] = 3*(i-is-1)+ count_Grids;
+	indexValue[NoEr+1] = 3*(i-is-1) + 1+ count_Grids;
+	
+	for(m=0; m<5; m++)
+		indexValue[NoEr+2+m] = 3*(i-is)+m+ count_Grids;
+
+	indexValue[NoEr+7] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoEr+8] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	/* For Fr1 */
+	for(m=0; m<8; m++)
+		Value[NoFr1+m] = phi[2+m];
+
+	indexValue[NoFr1] = 3*(i-is-1)+ count_Grids;
+	indexValue[NoFr1+1] = 3*(i-is-1) + 1+ count_Grids;
+
+	indexValue[NoFr1+2] = 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+3] = 3*(i-is) + 1+ count_Grids;
+
+	indexValue[NoFr1+4] = 3*(i-is)+3+ count_Grids;
+	indexValue[NoFr1+5] = 3*(i-is)+4+ count_Grids;
+				
+	indexValue[NoFr1+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+7] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+
+	for(m=0; m<8; m++)
+		Value[NoFr2+m] = psi[2+m];
+
+	indexValue[NoFr2] = 3*(i-is-1)+ count_Grids;
+	indexValue[NoFr2+1] = 3*(i-is-1) + 2+ count_Grids;
+
+	indexValue[NoFr2+2] = 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+3] = 3*(i-is) + 2+ count_Grids;
+
+	indexValue[NoFr2+4] = 3*(i-is)+3+ count_Grids;
+	indexValue[NoFr2+5] = 3*(i-is)+5+ count_Grids;
+				
+	indexValue[NoFr2+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+7] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	if(ix2 == 4){
+	
+		Value[NoEr+9] = theta[0];
+		Value[NoEr+10] = theta[1];
+					
+		indexValue[NoEr+9] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoEr+10] = 3*(je-js)*Nx+3*(i-is)+2+ count_Grids;
+			
+		Value[NoFr1+8] = phi[0];
+		Value[NoFr1+9] = phi[1];
+
+		indexValue[NoFr1+8] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr1+9] = 3*(je-js)*Nx+3*(i-is)+1+ count_Grids;
+				
+		Value[NoFr2+8] = psi[0];
+		Value[NoFr2+9] = psi[1];
+
+		indexValue[NoFr2+8] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+		indexValue[NoFr2+9] = 3*(je-js)*Nx+3*(i-is)+2+ count_Grids;				
+
+
+	}
+	else if(ix2 == 1 || ix2 == 5){
+					
+		Value[NoEr+2] += theta[0];
+		Value[NoEr+4] -= theta[1];
+			
+		Value[NoFr1+2]+= phi[0];
+		Value[NoFr1+3]+= phi[1];
+				
+		Value[NoFr2+2]+= psi[0];
+		Value[NoFr2+3]-= psi[1];
+	}
+	else if(ix2 == 2){
+		Value[NoEr+2] += theta[0];
+		Value[NoEr+4] += theta[1];
+			
+		Value[NoFr1+2]+= phi[0];
+		Value[NoFr1+3]+= phi[1];
+				
+		Value[NoFr2+2]+= psi[0];
+		Value[NoFr2+3]+= psi[1];
+	}
+	else if(ix2 == 3){
+
+		/* Do nothing */
+	}
+				
+
+	return;
+} /* physical boundary for y */
+
+
+
+/*-----------------------------------*/
+/*------i and je- -------------------*/ 
+/*-----------------------------------*/
+
+void i_je_MPI(int i)
+{
+	int m, j;
+	j = je;
+	int shifty, index;
+	int MPIcount2F;
+	
+	if(rx2 < ID){	
+		shifty = -3 * Ny * Nx * NGx * (NGy - 1);
+		MPIcount1 = 2;
+		MPIcount2 = 0;
+		MPIcount2F = 0;
+	}
+	else{
+		shifty = 3 * Nx * Ny * NGx;
+		MPIcount1 = 0;
+		MPIcount2 = 9;
+		MPIcount2F = 8;
+	}
+
+	/* For MPI part */
+	/* Er */
+	index = NoEr + MPIcount2;
+	Value[index] = theta[9];
+	Value[index+1] = theta[10];
+
+	indexValue[index] = 3*(i-is) + count_Grids + shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+
+	/* Fr1 */
+	index = NoFr1 + MPIcount2F;
+
+
+	Value[index] = phi[8];
+	Value[index+1] = phi[9];
+
+	indexValue[index] = 3*(i-is) + count_Grids + shifty;
+	indexValue[index+1] = indexValue[index] + 1;
+	
+	/* Fr2 */
+
+	index = NoFr2 + MPIcount2F;
+
+
+	Value[index] = psi[8];
+	Value[index+1] = psi[9];
+
+	indexValue[index] = 3*(i-is) + count_Grids + shifty;
+	indexValue[index+1] = indexValue[index] + 2;
+	
+	
+	
+	/* For Er */
+	index = NoEr + MPIcount1;	
+	for(m=0; m<9; m++)
+		Value[index+m] = theta[m];
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2+ count_Grids;		
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+	indexValue[index+6] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+
+	indexValue[index+7] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+	indexValue[index+8] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+	
+	/* For Fr1 */
+
+	index = NoFr1 + MPIcount1;				
+	for(m=0; m<8; m++)
+		Value[index+m] = phi[m];
+
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1+ count_Grids;		
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+					
+	indexValue[index+6] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+	indexValue[index+7] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+
+	/* For Fr2 */
+
+	index = NoFr2 + MPIcount1;				
+	for(m=0; m<8; m++)
+		Value[index+m] = psi[m];
+
+	indexValue[index] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2+ count_Grids;		
+
+	indexValue[index+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[index+3] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+	indexValue[index+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[index+5] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+	indexValue[index+6] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+	indexValue[index+7] = 3*(j-js)*Nx + 3*(i-is+1)+2+ count_Grids;
+
+
+	
+	return;
+} /* MPI boundary condition for y */
+
+
+void i_je_phy(int i)
+{
+	int m, j;
+	j = je;
+
+	if(ox2 == 4){
+		/* For Er */
+		Value[NoEr] = theta[9];
+		Value[NoEr+1] = theta[10];
+					
+		for(m=0; m<9; m++)
+			Value[NoEr+2+m] = theta[m];
+
+		indexValue[NoEr] = 3*(i-is)+ count_Grids;
+		indexValue[NoEr+1] = 3*(i-is) + 2+ count_Grids;
+
+		indexValue[NoEr+2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2+ count_Grids;		
+
+		indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+		indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+
+		indexValue[NoEr+9] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+		indexValue[NoEr+10] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+		/* For Fr1 */
+
+		Value[NoFr1] = phi[8];
+		Value[NoFr1+1] = phi[9];
+					
+		for(m=0; m<8; m++)
+			Value[NoFr1+2+m] = phi[m];
+
+		indexValue[NoFr1] = 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+1] = 3*(i-is) + 1+ count_Grids;
+
+		indexValue[NoFr1+2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+3] = 3*(j-js-1)*Nx + 3*(i-is) + 1+ count_Grids;		
+
+		indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+					
+		indexValue[NoFr1+8] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+		indexValue[NoFr1+9] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+		/* For Fr2 */
+
+		Value[NoFr2] = psi[8];
+		Value[NoFr2+1] = psi[9];
+					
+		for(m=0; m<8; m++)
+			Value[NoFr2+2+m] = psi[m];
+
+		indexValue[NoFr2] = 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+1] = 3*(i-is) + 2+ count_Grids;
+
+		indexValue[NoFr2+2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2+ count_Grids;		
+
+		indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+		indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+		indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+		indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(i-is+1)+2+ count_Grids;
+	}/* End periodic of x2 */
+	else{
+		/* For Er */
+			
+		for(m=0; m<9; m++)
+			Value[NoEr+m] = theta[m];
+
+		indexValue[NoEr+0] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2+ count_Grids;		
+
+		indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+		indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+
+		indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+		indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+		/* For Fr1 */
+
+					
+		for(m=0; m<8; m++)
+			Value[NoFr1+m] = phi[m];
+
+
+		indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1+ count_Grids;		
+
+		indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+		indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+					
+		indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+		indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+		/* For Fr2 */
+
+					
+		for(m=0; m<8; m++)
+			Value[NoFr2+m] = psi[m];
+
+		indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + 2+ count_Grids;		
+
+		indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+		indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+		indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+		indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+					
+		indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+		indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is+1)+2+ count_Grids;
+
+		/* other x2 boundary condition */
+		if(ox2 == 1 || ox2 == 5){
+					
+			Value[NoEr+4] += theta[9];
+			Value[NoEr+6] -= theta[10];
+			
+			Value[NoFr1+4]+= phi[8];
+			Value[NoFr1+5]+= phi[9];
+				
+			Value[NoFr2+4]+= psi[8];
+			Value[NoFr2+5]-= psi[9];
+		}
+		else if(ox2 == 2){
+			Value[NoEr+4] += theta[9];
+			Value[NoEr+6] += theta[10];
+			
+			Value[NoFr1+4]+= phi[8];
+			Value[NoFr1+5]+= phi[9];
+				
+			Value[NoFr2+4]+= psi[8];
+			Value[NoFr2+5]+= psi[9];
+		}
+		else if(ox2 == 3){
+			/* Do nothing */
+		}
+		
+
+		}/* End non-periodic of x2 */
+
+	return;
+} /* physical boundary for y */
+
+
+
+/*-----------------------------------*/
+/*------i and j ---------------------*/ 
+/*-----------------------------------*/
+
+void i_j(int i, int j)
+{
+	int m;
+	/* for Er */
+	for(m=0; m<11; m++)
+		Value[NoEr+m] = theta[m];
+
+	indexValue[NoEr] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoEr+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	indexValue[NoEr+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[NoEr+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+	indexValue[NoEr+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoEr+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+	indexValue[NoEr+6] = 3*(j-js)*Nx + 3*(i-is)+2 + count_Grids;
+
+	indexValue[NoEr+7] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+	indexValue[NoEr+8] = 3*(j-js)*Nx + 3*(i-is+1) + 1 + count_Grids;
+
+	indexValue[NoEr+9] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoEr+10] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	/* For Fr1 */
+	
+	for(m=0; m<10; m++)
+		Value[NoFr1+m] = phi[m];
+
+	indexValue[NoFr1] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+1] = 3*(j-js-1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	indexValue[NoFr1+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[NoFr1+3] = 3*(j-js)*Nx + 3*(i-is-1)+1+ count_Grids;
+
+	indexValue[NoFr1+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+5] = 3*(j-js)*Nx + 3*(i-is)+1+ count_Grids;
+				
+	indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+	indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is+1)+1+ count_Grids;
+
+	indexValue[NoFr1+8] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr1+9] = 3*(j-js+1)*Nx + 3*(i-is)+1+ count_Grids;
+
+	/* For Fr2 */
+
+	for(m=0; m<10; m++)
+		Value[NoFr2+m] = psi[m];
+
+	indexValue[NoFr2] = 3*(j-js-1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+1] = 3*(j-js-1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	indexValue[NoFr2+2] = 3*(j-js)*Nx + 3*(i-is-1)+ count_Grids;
+	indexValue[NoFr2+3] = 3*(j-js)*Nx + 3*(i-is-1)+2+ count_Grids;
+
+	indexValue[NoFr2+4] = 3*(j-js)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+5] = 3*(j-js)*Nx + 3*(i-is)+2+ count_Grids;
+		
+	indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is+1)+ count_Grids;
+	indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is+1)+2+ count_Grids;
+
+	indexValue[NoFr2+8] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	indexValue[NoFr2+9] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+
+	return;
+} /* no boundary condition for either direction */
+
+
 
 
 #endif /* radMHD_INTEGRATOR */

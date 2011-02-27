@@ -20,7 +20,7 @@ void integrate_destruct(void);
 /* Only used for rad_hydro integrators */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void BackEuler_init_1d(int Ngrids, MeshS *pM);
-void BackEuler_init_2d(int Ngrids);
+void BackEuler_init_2d(int Ngrids, int NGridx, int NGridy);
 void BackEuler_destruct_1d(int Ngrids);
 void BackEuler_destruct_2d();
 VMFun_t BackEuler_init(MeshS *pM);
@@ -60,9 +60,6 @@ void integrate_1d_radMHD(DomainS *pD);
 void integrate_2d_radMHD(DomainS *pD);
 void integrate_3d_radMHD(DomainS *pD);
 
-void integrate_1d_radMHD_thick(DomainS *pD);
-void integrate_2d_radMHD_thick(DomainS *pD);
-void integrate_3d_radMHD_thick(DomainS *pD);
 void BackEuler_1d(MeshS *pM);
 void BackEuler_2d(MeshS *pM);
 #endif

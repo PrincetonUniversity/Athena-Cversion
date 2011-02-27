@@ -18,8 +18,6 @@
  *       bc_ox1 = Boundary Condition for Outer x1 (at i=ie)
  *   similarly for bc_ix2; bc_ox2; bc_ix3; bc_ox3
 
- * NOTE:
- * boundary conditions for radiation variables are set in bvals_rad().
  *
  *
  * For case (1) -- PHYSICAL BOUNDARIES
@@ -47,7 +45,6 @@
  *   bvals_mhd()      - calls appropriate functions to set ghost cells
  *   bvals_mhd_init() - sets function pointers used by bvals_mhd()
  *   bvals_mhd_fun()  - enrolls a pointer to a user-defined BC function
- *   bvals_rad_fun()  - enrolls a pointer to a user-defined BC function for radiation quantities
  *============================================================================*/
 
 #include <stdio.h>
@@ -899,39 +896,6 @@ void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
   return;
 }
 
-
-/*----------------------------------------------------------------------------*/
-/* bvals_rad_fun:  sets function ptrs for user-defined BCs for radiation quantities
- */
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-void bvals_rad_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
-{
-  switch(dir){
-  case left_x1:
-    pD->rad_ix1_BCFun = prob_bc;
-    break;
-  case right_x1:
-    pD->rad_ox1_BCFun = prob_bc;
-    break;
-  case left_x2:
-    pD->rad_ix2_BCFun = prob_bc;
-    break;
-  case right_x2:
-    pD->rad_ox2_BCFun = prob_bc;
-    break;
-  case left_x3:
-    pD->rad_ix3_BCFun = prob_bc;
-    break;
-  case right_x3:
-    pD->rad_ox3_BCFun = prob_bc;
-    break;
-  default:
-    ath_perr(-1,"[bvals_fun]: Unknown direction = %d\n",dir);
-    exit(EXIT_FAILURE);
-  }
-  return;
-}
-#endif
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /* Following are the functions:

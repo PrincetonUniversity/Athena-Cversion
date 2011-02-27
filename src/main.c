@@ -61,7 +61,6 @@ int main(int argc, char *argv[])
 {
   MeshS Mesh;             /* the entire mesh hierarchy, see athena.h */
   VDFun_t Integrate;      /* function pointer to integrator, set at runtime */
-  VDFun_t Integrate_thick;
 
 #ifdef SELF_GRAVITY
   VDFun_t SelfGrav;      /* function pointer to self-gravity, set at runtime */
@@ -398,6 +397,10 @@ int main(int argc, char *argv[])
 
   bvals_mhd_init(&Mesh);
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  bvals_radMHD_init(&Mesh);
+#endif
+
    
 
 #ifdef SELF_GRAVITY
@@ -420,6 +423,11 @@ int main(int argc, char *argv[])
         exchange_feedback_init(&(Mesh.Domain[nl][nd]));
 #endif
 #endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif
+
       }
     }
   }
@@ -429,11 +437,12 @@ int main(int argc, char *argv[])
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
 	VMFun_t BackEuler;
 
-	Integrate_thick = ChooseMethod(&Mesh);  /*!< Decide whether optical thick or thin for each cell */
+	/* Initialize LIS library */
+	lis_initialize(&argc, &argv);
+
 
 	BackEuler = BackEuler_init(&Mesh);
 
-	bvals_radMHD(&Mesh);
 	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
 	* routine is updated. Initial output needs to update the boundary condition.  
 	*/
@@ -528,6 +537,8 @@ int main(int argc, char *argv[])
 /* operator-split explicit diffusion: thermal conduction, viscosity, resistivity
  * Done first since CFL constraint is applied which may change dt  */
 
+	
+
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
     integrate_diff(&Mesh);
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -565,13 +576,14 @@ int main(int argc, char *argv[])
 #endif
 /* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
 */
- 
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif 
 	}        
       }
 }
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	bvals_radMHD(&Mesh);
-#endif
+
 	/* Update boundary condition for Eddington tensor */
 #endif /* RADIATION_TRANSFER */
 
@@ -585,15 +597,9 @@ int main(int argc, char *argv[])
          */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
-	/* First, do the optical thick part */
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].Grid != NULL){
-	  (*Integrate_thick)(&(Mesh.Domain[nl][nd]));
-        }
-      }
-    }
- 
+	/* calculate the guess temperature */
+	GetTguess(&(Mesh));
+
 	(*BackEuler)(&Mesh);
 
 #endif
@@ -671,14 +677,16 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
           bvals_particle(&level0_Grid, &level0_Domain);
 #endif
+
+	/* set boundary conditions for radiation quantities */
+#if defined(ADIATION_HYDRO) || defined(RADIATION_MHD)	
+	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif
+
         }
       }
     }
 
-	/* set boundary conditions for radiation quantities */
-#ifdef RADIATION_HYDRO	
-	bvals_radMHD(&Mesh);
-#endif
 
 
 	
@@ -804,6 +812,9 @@ int main(int argc, char *argv[])
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	BackEuler_destruct();
+	
+	/* Finalize LIS library */
+	lis_finalize();
 #endif
 
 

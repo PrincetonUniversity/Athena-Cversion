@@ -54,7 +54,7 @@ void new_dt(MeshS *pM)
  Real Bx=0;
 #endif/* radiation hydro and MHD, effective sound speed */
  	
-  Real vratio = 1.0; /*!< Used to limit time step in optical thick regime */ 
+
 	
   int nl,nd;
   Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
@@ -172,14 +172,11 @@ void new_dt(MeshS *pM)
 	if(pGrid->dt <= TINY_NUMBER)
 	{
 		aeff = sqrt(Gamma * Waeff.P / Waeff.d + 4.0 * Prat * Waeff.Er / (9.0 * Waeff.d));
-		vratio = 1.0;
-
+		
 	}
 	else
 	{
-        	aeff = eff_sound(Waeff, pGrid->dt,pGrid->Flagtau[k][j][i]);
-		if(pGrid->Flagtau[k][j][i])
-			vratio = eff_sound_thick(Waeff,pGrid->dt) / aeff;
+        	aeff = eff_sound(Waeff, pGrid->dt,0);
 	}
 
 	asq = aeff * aeff;
@@ -239,11 +236,11 @@ void new_dt(MeshS *pM)
 
 /* compute maximum inverse of dt (corresponding to minimum dt) */
     if (pGrid->Nx[0] > 1)
-      max_dti = MAX(max_dti, vratio * max_v1/pGrid->dx1);
+      max_dti = MAX(max_dti, max_v1/pGrid->dx1);
     if (pGrid->Nx[1] > 1)
-      max_dti = MAX(max_dti, vratio * max_v2/pGrid->dx2);
+      max_dti = MAX(max_dti, max_v2/pGrid->dx2);
     if (pGrid->Nx[2] > 1)
-      max_dti = MAX(max_dti, vratio * max_v3/pGrid->dx3);
+      max_dti = MAX(max_dti, max_v3/pGrid->dx3);
 
   }}} /*--- End loop over Domains --------------------------------------------*/
 

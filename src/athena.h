@@ -402,10 +402,6 @@ typedef struct Grid_s{
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
   Real ***Tguess;  /* guess temperature from energy conservation */
-  
-  int ***Flagtau;  /* Flag to choose different integrator in optical thick regime */
-
-  ConsS ***U_old; /* Used to save variables from last time step */
 
 #endif
 

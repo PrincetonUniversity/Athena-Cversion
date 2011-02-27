@@ -86,12 +86,13 @@ void bvals_mhd_init(MeshS *pM);
 void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void bvals_rad_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
+void bvals_radMHD_init(MeshS *pM);
 #endif
 void bvals_mhd(DomainS *pDomain);
 
 /* set boundary condition for radiation variable */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-void bvals_radMHD(MeshS *pM);
+void bvals_radMHD(DomainS *pD);
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -299,7 +300,6 @@ void GetTguess(MeshS *pM); /* Calculate guess temperature from energy conservati
 
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
 
-VDFun_t ChooseMethod(MeshS *pM);
 
 #ifdef RADIATION_TARNSFER
 /* Function to calculate Eddington tensor */

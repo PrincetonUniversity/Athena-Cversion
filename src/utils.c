@@ -1068,14 +1068,16 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 Real eff_sound(const Prim1DS W, Real dt, int flag)
 {
 	/* All rad hydro components of W should be updated before this function is called */
+	/* Flag is not used anymore */
+
 	Real aeff, temperature, SPP, Alpha, dSigmadP;
+	Real SVV, beta;
 	Real dSigma[4];
-	Real velocity_x, velocity_y, velocity_z;
+	Real velocity_x, velocity_y, velocity_z, velocity;
 	int i;
 	for(i=0; i<4; i++)
 		dSigma[i] = 0.0;
 	
-	if(!(flag)){
 
 	temperature = W.P / (W.d * R_ideal);
 	velocity_x = W.Vx;
@@ -1100,24 +1102,29 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	Alpha = 1.0 + 0.25 * SPP * dt;
 	/* In case SPP * dt  is small, use expansion expression */	
 
+	/* In case velocity is close to speed of light or very large optical depth. 
+	 * It is important to include momentum stiff source term 
+	 */
+	velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+	/* optical depth regime, Eddington tensor is close to 1/3 */
+	SVV = -Prat * W.Sigma_t * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
 
-	aeff = ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
+	if(fabs(SVV * dt * 0.5) > 0.001)
+	beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
+	else 
+	beta = 1.0 + 0.25 * SVV * dt;
+	/* In case SPP * dt  is small, use expansion expression */		
+
+	aeff = beta * ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
 
 	aeff = sqrt(aeff); 
-
-	}
-	else{
-	/* If optical thick regime */
-	/* Eddington factor is 1/3 in optical thick regime */
-
-	aeff = sqrt(Gamma * W.P / W.d + 4.0 * Prat * W.Er / (9.0 * W.d));
-
-	}
+	
 
 	return aeff;
 }
 
 /* This is used to limit the time step to make modified Godunov step stable */ 
+/* This function is not used right now. Only left here for future reference */
 Real eff_sound_thick(const Prim1DS W, Real dt)
 {
 
@@ -1158,12 +1165,20 @@ Real eff_sound_thick(const Prim1DS W, Real dt)
 	coefh = 4.0 * Crat * Edd * pow(temperature, 3.0) * DetTE;
 
 	root1 = coefa + coefb * coefc + coefd * coefh + coefe * coefr + coefc * coefh * coefr;
-	root2 = sqrt(4.0 * coefd * (coefb * coefe - coefa * coefh) + pow(root1 ,2.0));
+	root2 = 4.0 * coefd * (coefb * coefe - coefa * coefh) + pow(root1 ,2.0);
+	if(root2 > 0.0) root2 = sqrt(root2);
 
-	aeff1 = sqrt(root1 - root2) / sqrt(2.0);
-	aeff2 = sqrt(root1 + root2) / sqrt(2.0);
+	aeff1 = (root1 - root2) / 2.0;
+	aeff2 = (root1 + root2) / 2.0;
 	
-	return aeff2;
+	/* times a safe factor 1.2 when Prat is small */
+	if(aeff1 > 0.0) aeff1 = sqrt(aeff1);	
+	else	aeff1 = 1.2 * sqrt(Gamma * W.P / W.d); 
+	if(aeff2 > 0.0) aeff2 = sqrt(aeff2);
+	else	aeff2 = 1.2 * sqrt(Gamma * W.P / W.d);
+
+	if(aeff2 > aeff1) return aeff2;
+	else 	return aeff1;
 
 }
 
@@ -1398,12 +1413,32 @@ void GetTguess(MeshS *pM)
 	void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
 
 
-	GridS *pG=(pM->Domain[0][0].Grid);
+	GridS *pG;
 	int i, j, k;
-	int ie = pG->ie, is = pG->is;
-	int je = pG->je, js = pG->js;
-	int ke = pG->ke, ks = pG->ks;
+	int ie, is;
+	int je, js;
+	int ke, ks;
 	int jl, ju, kl, ku;
+
+	Real pressure, Sigma_a, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr;
+	Real sign1, sign2, coef1, coef2, coef3;
+
+	Real dt, Terr, Ererr;
+
+	int nl, nd;
+
+    for (nl=0; nl<(pM->NLevels); nl++){ 
+      for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){  
+        if (pM->Domain[nl][nd].Grid != NULL){
+	    pG = pM->Domain[nl][nd].Grid;
+
+	ie = pG->ie;
+	is = pG->is;
+	je = pG->je;
+	js = pG->js;
+	ke = pG->ke;
+	ks = pG->ks;
+
 
 	if (pG->Nx[1] > 1) {
     		ju = pG->je + nghost;
@@ -1423,16 +1458,14 @@ void GetTguess(MeshS *pM)
     		kl = pG->ks;
   	}
 
-	Real pressure, Sigma_a, Sigma_t, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr;
-	Real sign1, sign2, coef1, coef2, coef3;
-
-	Real dt, Terr, Ererr;
+	
 	dt = pG->dt;
 	
 	for(k=kl; k<=ku; k++)
 		for(j=jl; j<=ju; j++)
-			for(i=is-nghost; i<=ie+nghost; i++){
-
+			for(i=is-nghost; i<=ie+nghost; i++)
+			{
+			
 				pressure = (pG->U[k][j][i].E - (0.5 * pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + 0.5 * pG->U[k][j][i].M2 * pG->U[k][j][i].M2 
 					+ 0.5 * pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d ) * (Gamma - 1.0);
 /* if MHD - 0.5 * Bx * Bx   */
@@ -1464,10 +1497,6 @@ void GetTguess(MeshS *pM)
 				Erguess += Ern;
 
 				Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
-	
-
-
-		
 
 				sign1 =  pG->U[k][j][i].Er - pow(temperature,4.0);
 				sign2 = Erguess - pow(Tguess, 4.0);
@@ -1492,10 +1521,15 @@ void GetTguess(MeshS *pM)
 			
 					}			
 				}
+							
 
 				pG->Tguess[k][j][i] = Tguess;
 
 			}
+
+			}
+		}
+	} /* End Grid in each domain and each level */
 }
 
 /* Function to get the thermal equilibrium radiation 
@@ -1549,57 +1583,10 @@ void Tequilibrium(double T, double coef1, double coef2, double coef3, double * f
 	return;
 }
 
-/* set the flag to decide whehter in optical thick regime or not */
-VDFun_t ChooseMethod(MeshS *pM)
-{
-	GridS *pG=(pM->Domain[0][0].Grid);
-	int i, j, k;
-	int ie = pG->ie, is = pG->is;
-	
-	int jl, ju, kl, ku;
 
-	int Dim = 0;
-	for (i=0; i<3; i++) if(pM->Nx[i] > 1) Dim++;
 
-	if (pG->Nx[1] > 1) {
-    		ju = pG->je + nghost;
-    		jl = pG->js - nghost;
-  	}
-  	else {
-    		ju = pG->je;
-    		jl = pG->js;
-  	}
 
-  	if (pG->Nx[2] > 1) {
-    		ku = pG->ke + nghost;
-    		kl = pG->ks - nghost;
-  	}
-  	else {
-    		ku = pG->ke;
-    		kl = pG->ks;
-  	}
 
-	/* Need to add criterian */
-	for(k=kl; k<=ku; k++)
-		for(j=jl; j<=ju; j++)
-			for(i=is-nghost; i<=ie+nghost; i++){
-				pG->U_old[k][j][i] = pG->U[k][j][i];  /*!< save conserved  variables to U_old */ 				
-				pG->Flagtau[k][j][i] = 1; /*!< 1 for optical thick, 0 for optical thin */
-			
-	}
-	
-	switch(Dim){
-	case 1:
-		return integrate_1d_radMHD_thick;
-	case 2:
-		return integrate_2d_radMHD_thick;
-	case 3:
-		return integrate_3d_radMHD_thick;
-	}
-
-	return NULL;
-
-}
 
 #endif 
 /* end radiation_hydro or radiation_MHD */

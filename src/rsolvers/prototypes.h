@@ -39,9 +39,6 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5]);
 
-void hlle_thick(const Cons1DS Ul, const Cons1DS Ur,
-                   const Prim1DS Wl, const Prim1DS Wr,
-                   const Real Bxi, Cons1DS *pFlux);
 #endif
 
 #ifdef RADIATION_MHD

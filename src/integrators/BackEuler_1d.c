@@ -112,7 +112,7 @@ void BackEuler_1d(MeshS *pM)
 	Real tempvalue;
 	
 	
-	Real temperature, velocity, pressure;
+	Real temperature, velocity;
 
   	Real theta[7];
   	Real phi[7];
@@ -444,7 +444,7 @@ void BackEuler_1d(MeshS *pM)
 		lis_matrix_assemble(Eulerp);
 
 		
-		lis_solver_set_option("-i gmres -p none",solver);
+		lis_solver_set_option("-i gmres -p ilu",solver);
 		lis_solver_set_option("-tol 1.0e-12",solver);
 		lis_solver_set_option("-maxiter 2000",solver);
 		lis_solve(Eulerp,RHSEulerp,INIguess,solver);
@@ -476,7 +476,15 @@ void BackEuler_1d(MeshS *pM)
 
 	
 /* Update the ghost zones for different boundary condition to be used later */
-		bvals_radMHD(pM);	
+
+	for (i=0; i<pM->NLevels; i++){ 
+            for (j=0; j<pM->DomainsPerLevel[i]; j++){  
+        	if (pM->Domain[i][j].Grid != NULL){
+  			bvals_radMHD(&(pM->Domain[i][j]));
+
+        	}
+      	     }
+    	}
 
 
 /*-----------Finish---------------------*/

@@ -790,7 +790,7 @@ void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   
  /* All components of W will be used */
   W.P = pressure;
-  W.d = rho;
+  W.d = d;
   W.Vx = v1;
   W.Vy = v2;
   W.Vz = v3;

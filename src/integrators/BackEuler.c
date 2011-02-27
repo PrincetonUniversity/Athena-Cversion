@@ -33,6 +33,12 @@ VMFun_t BackEuler_init(MeshS *pM)
   dim = 0;
   for (i=0; i<3; i++) if(pM->Nx[i] > 1) dim++;
 
+/* Get number of grids in each direction */
+  int NGridx, NGridy, NGridz;
+  NGridx = pM->Domain[0][0].NGrid[0];
+  NGridy = pM->Domain[0][0].NGrid[1];
+  NGridz = pM->Domain[0][0].NGrid[2];
+
 /* set function pointer to appropriate integrator based on dimensions */
   switch(dim){
 
@@ -51,7 +57,7 @@ VMFun_t BackEuler_init(MeshS *pM)
     je = pM->Domain[0][0].Grid->je;
     js = pM->Domain[0][0].Grid->js;
 
-    BackEuler_init_2d(31*(je-js+1)*(ie-is+1));
+    BackEuler_init_2d((je-js+1)*(ie-is+1),NGridx,NGridy);
 
     return BackEuler_2d;	
 

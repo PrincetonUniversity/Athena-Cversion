@@ -25,7 +25,6 @@ void radMHD_rad_inflow2(GridS *pGrid);
 static ConsS ***RootSoln=NULL;
 
 
-
 void problem(DomainS *pDomain)
 {
   GridS *pGrid=(pDomain->Grid);
@@ -34,10 +33,11 @@ void problem(DomainS *pDomain)
   int shift;
 
 /* Parse global variables of unit ratio */
-#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
+#ifdef RADIATION_MHD
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   R_ideal = par_getd("problem","R_ideal");
+	
 #endif
  is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
@@ -77,26 +77,22 @@ void problem(DomainS *pDomain)
 
 
 /* Initialize the grid including the ghost cells.  */
-	Real d0, u0, T0, x1, x2, x3, temperature, t, theta, Omegareal,Omegaimg, rho0, P0, E0, B0, angle, thetaB, tlim;
+	Real d0, u0, T0, x1, x2, x3, temperature, t, theta, Omegaimg, Omegareal, rho0, P0, E0, B0, angle, thetaB, tlim;
 	d0 = 1.0;
 	u0 = 0.0;
 	T0 = 1.0;
 	rho0 = 1.0;
 	P0 = 1.0;
-	E0 = P0/(Gamma - 1.0)+d0*u0*u0/2.0;
-#ifdef RADIATION_MHD
 	B0 = sqrt(10.0/3.0);
-	E0 += B0*B0/2.0;
+	E0 = P0/(Gamma - 1.0)+d0*u0*u0/2.0+B0*B0/2.0;
 	angle=45.0*PI/180.0;
-#endif
 
 	t = pGrid->time;
 	Real flag = 1.0;
 	Real factor = 1.e-3;
 
-	Omegareal = 418.87;
-	Omegaimg = 6.57626;
-
+	Omegareal = 4.1039;
+	Omegaimg = 2.40105e-4;
 	tlim = 2.0 * PI / Omegareal;
 
 
@@ -107,20 +103,20 @@ void problem(DomainS *pDomain)
 	cc_pos(pGrid, i, j,k, &x1, &x2, &x3);
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-	theta = - 2.0 * PI * x1  + Omegareal * t;		
+	theta = -2.0 * PI  * x1 + Omegareal * t;	
 
 	  temperature = T0;
           pGrid->U[k][j][i].d  = rho0 + flag * factor * (1.0e-3 * cos(theta) + 0.0000 * sin(theta));
-          pGrid->U[k][j][i].M1 = flag * factor * 1.0 * (6.666525236328867e-2 * cos(theta) - 1.0466436819689656e-3 * sin(theta));
-          pGrid->U[k][j][i].M2 = flag * factor * 0.0 * (6.666525236328867e-2 * cos(theta) - 1.0466436819689656e-3 * sin(theta));
+          pGrid->U[k][j][i].M1 = flag * factor * (6.531565926932978e-4 * cos(theta) - 3.821385473778102e-8 * sin(theta));
+          pGrid->U[k][j][i].M2 = flag * factor * (8.778632852880766e-4 * cos(theta) - 7.743758725282931e-8 * sin(theta));
           pGrid->U[k][j][i].M3 = 0.0;
 
-          pGrid->U[k][j][i].E = E0 + flag * factor * (1.9997721119694055e-3 * cos(theta) - 1.5702329900518402e-5 * sin(theta));
+          pGrid->U[k][j][i].E = E0 + flag * factor * (9.266135388224801e-4 * cos(theta) - 8.735712774317244e-8 * sin(theta));
 
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; /* Set to be a constant in 1D. To be modified later */
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
-	 pGrid->U[k][j][i].Sigma_t = 1.e4;
-	 pGrid->U[k][j][i].Sigma_a = 1.e4;
+	 pGrid->U[k][j][i].Sigma_t = 1.e-4;
+	 pGrid->U[k][j][i].Sigma_a = 1.e-4;
 
 #ifdef RADIATION_MHD
 	 /* interface magnetic field */
@@ -128,13 +124,13 @@ void problem(DomainS *pDomain)
 */
 	  thetaB = theta;
           pGrid->B1i[k][j][i] = B0*cos(angle);
-          pGrid->B2i[k][j][i] = B0 * sin(angle) + flag*factor*(-7.97878e-4*cos(thetaB)+1.98765e-8*sin(thetaB));
+          pGrid->B2i[k][j][i] = B0 * sin(angle) + flag*factor*(-4.441432543872252e-4*cos(thetaB)+5.154230318779746e-8*sin(thetaB));
           pGrid->B3i[k][j][i] = 0.0;
         
 #endif
-	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (1.3327256319151269e-3 * cos(theta) - 4.1872879525081944e-5 * sin(theta));
-	  pGrid->U[k][j][i].Fr1 = flag * factor * 1.0 * (8.879932817257297e-6 * cos(theta) - 4.1864072608532865e-7 * sin(theta));
-	  pGrid->U[k][j][i].Fr2 = flag * factor * 0.0 * (8.879932817257297e-6 * cos(theta) - 4.1864072608532865e-7 * sin(theta));
+	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (-1.523074867174326e-15 * cos(theta) - 4.158435973341095e-12 * sin(theta));
+	  pGrid->U[k][j][i].Fr1 = flag * factor *  (-6.531566005232594e-12 * cos(theta) - 8.946670642203074e-16 * sin(theta));
+	  pGrid->U[k][j][i].Fr2 = flag * factor *  (6.5612419265046645e-9 * cos(theta) + 2.692284566463311e-8  * sin(theta));
 	  pGrid->U[k][j][i].Fr3 = 0.0;	
         }
       }
@@ -169,8 +165,8 @@ void problem(DomainS *pDomain)
       RootSoln[k][j][i].E  = exp(-Omegaimg * tlim) * (pGrid->U[k][j][i].E - E0) + E0;
 #endif /* ISOTHERMAL */
 #ifdef RADIATION_MHD
-      RootSoln[k][j][i].B1c = exp(-Omegaimg * tlim) * pGrid->U[k][j][i].B1c;
-      RootSoln[k][j][i].B2c = exp(-Omegaimg * tlim) * pGrid->U[k][j][i].B2c;
+      RootSoln[k][j][i].B1c = exp(-Omegaimg * tlim) * (pGrid->U[k][j][i].B1c-B0*cos(angle)) + B0*cos(angle);
+      RootSoln[k][j][i].B2c = exp(-Omegaimg * tlim) * (pGrid->U[k][j][i].B2c - B0 * sin(angle)) + B0 * sin(angle);
       RootSoln[k][j][i].B3c = exp(-Omegaimg * tlim) * pGrid->U[k][j][i].B3c;
 #endif
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
@@ -183,7 +179,6 @@ void problem(DomainS *pDomain)
 
     }}}
   }
-
 /*
 	bvals_mhd_fun(pDomain, left_x1, radMHD_inflow);
 	bvals_rad_fun(pDomain, left_x1, radMHD_rad_inflow);
@@ -349,10 +344,9 @@ void Userwork_after_loop(MeshS *pM)
 {
   GridS *pGrid;
   int i=0,j=0,k=0;
- 
 
   int is,ie,js,je,ks,ke;
-  Real rms_error=0.0, t;
+  Real rms_error=0.0;
   ConsS error,total_error;
   FILE *fp;
   char *fname;
@@ -384,8 +378,6 @@ void Userwork_after_loop(MeshS *pM)
 
   pGrid=pM->Domain[0][0].Grid;
   if (pGrid == NULL) return;
-
-  t = pGrid->time;
 
 /* compute L1 error in each variable, and rms total error */
 
@@ -425,7 +417,7 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
       error.E   += fabs(pGrid->U[k][j][i].E   - RootSoln[k][j][i].E );
 #endif /* ISOTHERMAL */
-      error.Er += fabs(pGrid->U[k][j][i].Er -   RootSoln[k][j][i].Er);
+      error.Er += fabs(pGrid->U[k][j][i].E - RootSoln[k][j][i].E);
       error.Fr1 += fabs(pGrid->U[k][j][i].Fr1 - RootSoln[k][j][i].Fr1);
       error.Fr2 += fabs(pGrid->U[k][j][i].Fr2 - RootSoln[k][j][i].Fr2);
       error.Fr3 += fabs(pGrid->U[k][j][i].Fr3 - RootSoln[k][j][i].Fr3);

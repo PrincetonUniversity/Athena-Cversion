@@ -89,7 +89,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	Real hdt = 0.5*pG->dt, dt = pG->dt;
   	int i,il,iu,is=pG->is, ie=pG->ie;
   	int j,jl,ju,js=pG->js, je=pG->je;
-  	int ks=pG->ks, k, m, n;
+  	int ks=pG->ks, m, n;
 
 /* For static gravitational potential */
 	Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
@@ -103,12 +103,15 @@ void integrate_2d_radMHD(DomainS *pD)
   	Real B1ch, B2ch, B3ch;
 #endif
 
-	Real temperature, velocity_x, velocity_y, pressure, density;
+	Real temperature, velocity_x, velocity_y, pressure, density, Tguess;
 	Real Sigma_t, Sigma_a;
 	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy, dSigmadP;
 	Real dSigma[4];
 	Cons1DS Usource;
 	/* for source term */
+
+	/* In case momentum becomes stiff */
+	Real SFmx, SFmy, SVVx, SVVy, betax, betay;
 
 
 	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
@@ -197,6 +200,11 @@ void integrate_2d_radMHD(DomainS *pD)
 	/* For left state */
 		pressure = W[i-1].P;
 		temperature = pressure / (U1d[i-1].d * R_ideal);
+/*
+		Tguess = pG->Tguess[ks][j][i-1];
+*/
+		Tguess = temperature;
+
 		velocity_x = U1d[i-1].Mx / U1d[i-1].d;
 		velocity_y = U1d[i-1].My / U1d[i-1].d;
 		Sigma_t    = pG->U[ks][j][i-1].Sigma_t;
@@ -204,11 +212,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fr1/U1d[i-1].d 
 			- ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y)* U1d[i-1].Er / (Crat * U1d[i-1].d))	
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
+			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - U1d[i-1].Er)/(Crat*U1d[i-1].d));
 		Source[2] = -Prat * (-Sigma_t * (U1d[i-1].Fr2/U1d[i-1].d 
 			- ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x)* U1d[i-1].Er / (Crat * U1d[i-1].d))	
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[i-1].Er)/(Crat*U1d[i-1].d));
-		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+			+ Sigma_a * velocity_y * (pow(Tguess, 4.0) - U1d[i-1].Er)/(Crat*U1d[i-1].d));
+		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (pow(Tguess, 4.0)
 			- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y) * U1d[i-1].Er / Crat)
 			+ velocity_y
@@ -220,12 +228,28 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature 	* temperature /(U1d[i-1].d * R_ideal)
-			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[i-1].Er) * dSigmadP
+			-(Gamma - 1.0) * Prat * Crat * (pow(Tguess, 4.0) - U1d[i-1].Er) * dSigmadP
 		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
 			velocity_x * (U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y) * U1d[i-1].Er/Crat)
 			+ velocity_y * (U1d[i-1].Fr2 - (U1d[i-1].Edd_21 * velocity_x + (1.0 + U1d[i-1].Edd_22) * velocity_y) * U1d[i-1].Er/Crat)
 			);
+		/*===================================================================*/
+		/* In case velocity is large, momentum source term is also stiff */
+		SVVx = -Prat * Sigma_t * (1.0 + W[i-1].Edd_11) * W[i-1].Er / (W[i-1].d * Crat);
+		
+		if(fabs(SVVx * dt * 0.5) > 0.001)
+		betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+		else 
+		betax = 1.0 + 0.25 * SVVx * dt;
 
+		SVVy = -Prat * Sigma_t * (1.0 + W[i-1].Edd_22) * W[i-1].Er / (W[i-1].d * Crat);
+		
+		if(fabs(SVVy * dt * 0.5) > 0.001)
+		betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+		else 
+		betay = 1.0 + 0.25 * SVVy * dt;
+		/*===========================================================================*/
+	
 		if(fabs(SPP * dt * 0.5) > 0.001)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
@@ -234,18 +258,29 @@ void integrate_2d_radMHD(DomainS *pD)
 		/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
 		Propa_44 = alpha;
 
-		Wl[i].Vx += dt * Source[1] * 0.5;
-		Wl[i].Vy += dt * Source[2] * 0.5;
+		Wl[i].Vx += dt * Source[1] * 0.5 * betax;
+		Wl[i].Vy += dt * Source[2] * 0.5 * betay;
 		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
 	
 		Wl[i].Sigma_a = Sigma_a;
 		Wl[i].Sigma_t = Sigma_t;
+		Wl[i].Edd_11 = W[i-1].Edd_11;
+		Wl[i].Edd_21 = W[i-1].Edd_21;
+		Wl[i].Edd_22 = W[i-1].Edd_22;
+		Wl[i].Edd_31 = W[i-1].Edd_31;
+		Wl[i].Edd_32 = W[i-1].Edd_32;
+		Wl[i].Edd_33 = W[i-1].Edd_33;
 
 	/* For the right state */
 	
 	
 		pressure = W[i].P;
 		temperature = pressure / (U1d[i].d * R_ideal);
+/*
+		Tguess = pG->Tguess[ks][j][i];
+*/
+		Tguess = temperature;
+
 		velocity_x = U1d[i].Mx / U1d[i].d;
 		velocity_y = U1d[i].My / U1d[i].d;
 		Sigma_t    = pG->U[ks][j][i].Sigma_t;
@@ -253,11 +288,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
 			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y)* U1d[i].Er / (Crat * U1d[i].d))	
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
+			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - U1d[i].Er)/(Crat*U1d[i].d));
 		Source[2] = -Prat * (-Sigma_t * (U1d[i].Fr2/U1d[i].d 
 			- ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x)* U1d[i].Er / (Crat * U1d[i].d))	
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[i].Er)/(Crat*U1d[i].d));
-		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+			+ Sigma_a * velocity_y * (pow(Tguess, 4.0) - U1d[i].Er)/(Crat*U1d[i].d));
+		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (pow(Tguess, 4.0) 
 			- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y) * U1d[i].Er / Crat)
 			+ velocity_y
@@ -268,11 +303,29 @@ void integrate_2d_radMHD(DomainS *pD)
 		dSigmadP =  dSigma[3] / (U1d[i].d * R_ideal);
 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature	* temperature /(U1d[i].d * R_ideal)
-			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[i].Er) * dSigmadP
+			-(Gamma - 1.0) * Prat * Crat * (pow(Tguess, 4.0) - U1d[i].Er) * dSigmadP
 		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
 			velocity_x * (U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y) * U1d[i].Er/Crat)
 			+ velocity_y * (U1d[i].Fr2 - (U1d[i].Edd_21 * velocity_x + (1.0 + U1d[i].Edd_22) * velocity_y) * U1d[i].Er/Crat)
 			);
+	
+		/*===================================================================*/
+		/* In case velocity is large, momentum source term is also stiff */
+		SVVx = -Prat * Sigma_t * (1.0 + W[i].Edd_11) * W[i].Er / (W[i].d * Crat);
+		
+		if(fabs(SVVx * dt * 0.5) > 0.001)
+		betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+		else 
+		betax = 1.0 + 0.25 * SVVx * dt;
+
+		SVVy = -Prat * Sigma_t * (1.0 + W[i].Edd_22) * W[i].Er / (W[i].d * Crat);
+		
+		if(fabs(SVVy * dt * 0.5) > 0.001)
+		betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+		else 
+		betay = 1.0 + 0.25 * SVVy * dt;
+		/*===========================================================================*/
+	
 
 
 		if(fabs(SPP * dt * 0.5) > 0.001)
@@ -283,14 +336,18 @@ void integrate_2d_radMHD(DomainS *pD)
 		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
 
-		Wr[i].Vx += dt * Source[1] * 0.5;
-		Wr[i].Vy += dt * Source[2] * 0.5;
+		Wr[i].Vx += dt * Source[1] * 0.5 * betax;
+		Wr[i].Vy += dt * Source[2] * 0.5 * betay;
 		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
 
 		Wr[i].Sigma_a = Sigma_a;
 		Wr[i].Sigma_t = Sigma_t;	
-
-		
+		Wr[i].Edd_11 = W[i].Edd_11;
+		Wr[i].Edd_21 = W[i].Edd_21;
+		Wr[i].Edd_22 = W[i].Edd_22;
+		Wr[i].Edd_31 = W[i].Edd_31;
+		Wr[i].Edd_32 = W[i].Edd_32;
+		Wr[i].Edd_33 = W[i].Edd_33;		
 
 	}
 
@@ -355,6 +412,7 @@ void integrate_2d_radMHD(DomainS *pD)
 /*--- Step 3a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
+ * NOTICE that momentum is rotated but flux and Eddington tensor are not *
  */
 
 	for (i=il; i<=iu; i++) {
@@ -392,7 +450,7 @@ void integrate_2d_radMHD(DomainS *pD)
       			W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
     			}
 
-    		lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,2);
+    		lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,0);
 
 
 /*---------Add source terms----------------*/
@@ -402,6 +460,10 @@ void integrate_2d_radMHD(DomainS *pD)
 	/* For left state */
 		pressure = W[j-1].P;
 		temperature = pressure / (U1d[j-1].d * R_ideal);
+/*
+		Tguess = pG->Tguess[ks][j-1][i];
+*/
+		Tguess = temperature;
 		velocity_x = U1d[j-1].Mz / U1d[j-1].d;
 		velocity_y = U1d[j-1].Mx / U1d[j-1].d;
 		Sigma_t    = pG->U[ks][j-1][i].Sigma_t;
@@ -409,11 +471,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[j-1].Fr1/U1d[j-1].d 
 			- ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y)* U1d[j-1].Er / (Crat * U1d[j-1].d))	
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[j-1].Er)/(Crat*U1d[j-1].d));
+			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - U1d[j-1].Er)/(Crat*U1d[j-1].d));
 		Source[2] = -Prat * (-Sigma_t * (U1d[j-1].Fr2/U1d[j-1].d 
 			- ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x)* U1d[j-1].Er / (Crat * U1d[j-1].d))	
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[j-1].Er)/(Crat*U1d[j-1].d));
-		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+			+ Sigma_a * velocity_y * (pow(Tguess, 4.0) - U1d[j-1].Er)/(Crat*U1d[j-1].d));
+		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (pow(Tguess, 4.0)
 			- U1d[j-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y) * U1d[j-1].Er / Crat)
 			+ velocity_y
@@ -426,7 +488,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature * temperature /(U1d[j-1].d * R_ideal)
-			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[j-1].Er) * dSigmadP
+			-(Gamma - 1.0) * Prat * Crat * (pow(Tguess, 4.0) - U1d[j-1].Er) * dSigmadP
 		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
 			velocity_x * (U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y) * U1d[j-1].Er/Crat)
 			+ velocity_y * (U1d[j-1].Fr2 - (U1d[j-1].Edd_21 * velocity_x + (1.0 + U1d[j-1].Edd_22) * velocity_y) * U1d[j-1].Er/Crat)
@@ -436,23 +498,54 @@ void integrate_2d_radMHD(DomainS *pD)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
-		/* In case SPP * dt  is small, use expansion expression */	
+		/* In case SPP * dt  is small, use expansion expression */
+
+
+		/*===================================================================*/
+		/* In case velocity is large, momentum source term is also stiff */
+		SVVx = -Prat * Sigma_t * (1.0 + W[j-1].Edd_11) * W[j-1].Er / (W[j-1].d * Crat);
+		
+		if(fabs(SVVx * dt * 0.5) > 0.001)
+		betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+		else 
+		betax = 1.0 + 0.25 * SVVx * dt;
+
+		SVVy = -Prat * Sigma_t * (1.0 + W[j-1].Edd_22) * W[j-1].Er / (W[j-1].d * Crat);
+		
+		if(fabs(SVVy * dt * 0.5) > 0.001)
+		betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+		else 
+		betay = 1.0 + 0.25 * SVVy * dt;
+		/*===========================================================================*/
+
+
+	
 		/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
 		Propa_44 = alpha;
 
 		/* "Vx" is actually vy, "vz" is actually vx; We stay with the correct meaning in source terms */
-		Wl[j].Vx += dt * Source[2] * 0.5;
-		Wl[j].Vz += dt * Source[1] * 0.5;
+		Wl[j].Vx += dt * Source[2] * 0.5 * betay;
+		Wl[j].Vz += dt * Source[1] * 0.5 * betax;
 		Wl[j].P += dt * Propa_44 * Source[4] * 0.5;
 
 		Wl[j].Sigma_a = Sigma_a;
 		Wl[j].Sigma_t = Sigma_t;
+		Wl[j].Edd_11 = W[j-1].Edd_11;
+		Wl[j].Edd_21 = W[j-1].Edd_21;
+		Wl[j].Edd_22 = W[j-1].Edd_22;
+		Wl[j].Edd_31 = W[j-1].Edd_31;
+		Wl[j].Edd_32 = W[j-1].Edd_32;
+		Wl[j].Edd_33 = W[j-1].Edd_33;
 
 	/* For the right state */
 	
 	
 		pressure = W[j].P;
 		temperature = pressure / (U1d[j].d * R_ideal);
+/*
+		Tguess = pG->Tguess[ks][j][i];
+*/
+		Tguess = temperature;
 		velocity_x = U1d[j].Mz / U1d[j].d;
 		velocity_y = U1d[j].Mx / U1d[j].d;
 		Sigma_t    = pG->U[ks][j][i].Sigma_t;
@@ -460,11 +553,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[j].Fr1/U1d[j].d 
 			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y)* U1d[j].Er / (Crat * U1d[j].d))	
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - U1d[j].Er)/(Crat*U1d[j].d));
+			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - U1d[j].Er)/(Crat*U1d[j].d));
 		Source[2] = -Prat * (-Sigma_t * (U1d[j].Fr2/U1d[j].d 
 			- ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x)* U1d[j].Er / (Crat * U1d[j].d))	
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - U1d[j].Er)/(Crat*U1d[j].d));
-		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature 
+			+ Sigma_a * velocity_y * (pow(Tguess, 4.0) - U1d[j].Er)/(Crat*U1d[j].d));
+		Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * (pow(Tguess, 4.0) 
 			- U1d[j].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y) * U1d[j].Er / Crat)
 			+ velocity_y
@@ -476,7 +569,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * temperature * temperature * temperature /(U1d[j].d * R_ideal)
-			-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - U1d[j].Er) * dSigmadP
+			-(Gamma - 1.0) * Prat * Crat * (pow(Tguess,4.0) - U1d[j].Er) * dSigmadP
 		      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (
 			velocity_x * (U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y) * U1d[j].Er/Crat)
 			+ velocity_y * (U1d[j].Fr2 - (U1d[j].Edd_21 * velocity_x + (1.0 + U1d[j].Edd_22) * velocity_y) * U1d[j].Er/Crat)
@@ -486,17 +579,42 @@ void integrate_2d_radMHD(DomainS *pD)
 		alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 		else 
 		alpha = 1.0 + 0.25 * SPP * dt;
-		/* In case SPP * dt  is small, use expansion expression */	
+		/* In case SPP * dt  is small, use expansion expression */
+
+		/*===================================================================*/
+		/* In case velocity is large, momentum source term is also stiff */
+		SVVx = -Prat * Sigma_t * (1.0 + W[j].Edd_11) * W[j].Er / (W[j].d * Crat);
+		
+		if(fabs(SVVx * dt * 0.5) > 0.001)
+		betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+		else 
+		betax = 1.0 + 0.25 * SVVx * dt;
+
+		SVVy = -Prat * Sigma_t * (1.0 + W[j].Edd_22) * W[j].Er / (W[j].d * Crat);
+		
+		if(fabs(SVVy * dt * 0.5) > 0.001)
+		betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+		else 
+		betay = 1.0 + 0.25 * SVVy * dt;
+		/*===========================================================================*/
+
+	
 		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
 
 		/* "vx" is actually vy, "vy" is actually vx */
-		Wr[j].Vx += dt * Source[2] * 0.5;
-		Wr[j].Vz += dt * Source[1] * 0.5;
+		Wr[j].Vx += dt * Source[2] * 0.5 * betay;
+		Wr[j].Vz += dt * Source[1] * 0.5 * betax;
 		Wr[j].P += dt * Propa_44 * Source[4] * 0.5;
 
 		Wr[j].Sigma_a = Sigma_a;
 		Wr[j].Sigma_t = Sigma_t;
+		Wr[j].Edd_11 = W[j].Edd_11;
+		Wr[j].Edd_21 = W[j].Edd_21;
+		Wr[j].Edd_22 = W[j].Edd_22;
+		Wr[j].Edd_31 = W[j].Edd_31;
+		Wr[j].Edd_32 = W[j].Edd_32;
+		Wr[j].Edd_33 = W[j].Edd_33;
 
 
 	}
@@ -983,6 +1101,9 @@ void integrate_2d_radMHD(DomainS *pD)
 			Usource.Edd_11  = pG->U[ks][j][i].Edd_11;
 			Usource.Edd_21  = pG->U[ks][j][i].Edd_21;
 			Usource.Edd_22  = pG->U[ks][j][i].Edd_22;
+			Usource.Edd_31	= pG->U[ks][j][i].Edd_31;
+			Usource.Edd_32	= pG->U[ks][j][i].Edd_32;
+			Usource.Edd_33	= pG->U[ks][j][i].Edd_33;
 			Usource.Sigma_a  = pG->U[ks][j][i].Sigma_a;
                         Usource.Sigma_t  = pG->U[ks][j][i].Sigma_t;
 
@@ -1004,6 +1125,12 @@ void integrate_2d_radMHD(DomainS *pD)
 		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
 #endif
 		temperature = pressure / (density * R_ideal);
+		/* Tguess is uesed for source term T^4 - Er */
+/*
+		Tguess = pG->Tguess[ks][j][i];
+*/
+		Tguess = temperature;
+
 		velocity_x = pG->U[ks][j][i].M1 / density;
 		velocity_y = pG->U[ks][j][i].M2 / density;
 		Sigma_t    = pG->U[ks][j][i].Sigma_t;
@@ -1011,19 +1138,32 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	/* The Source term */
 		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
+
+		/*=========================================================*/
+		/* In case velocity is large and momentum source is stiff */
+		SFmx = Sigma_t * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
+			+ Sigma_a * (pow(Tguess, 4.0) - Usource.Er) / (density * Crat);	
+
+		SFmy = Sigma_t * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
+			+ Sigma_a * (pow(Tguess, 4.0) - Usource.Er) / (density * Crat);	
+
+		Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
+		Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
+
+		/*=========================================================*/
 	
 		Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
-		Source_Inv[4][1] = -dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE);
-		Source_Inv[4][2] = -dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE);
+		Source_Inv[4][1] = (-dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[1][1];
+		Source_Inv[4][2] = (-dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[2][2];
 		Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
 	
 		Source[1] = -Prat * (-Sigma_t * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - pG->U[ks][j][i].Er)/Crat);
+			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - pG->U[ks][j][i].Er)/Crat);
 		Source[2] = -Prat * (-Sigma_t * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - pG->U[ks][j][i].Er)/Crat);
-		Source[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature - pG->U[ks][j][i].Er) 
+			+ Sigma_a * velocity_y * (pow(Tguess, 4.0) - pG->U[ks][j][i].Er)/Crat);
+		Source[4] = -Prat * Crat * (Sigma_a * (pow(Tguess, 4.0) - pG->U[ks][j][i].Er) 
 			+ (Sigma_a - (Sigma_t - Sigma_a)) * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
@@ -1102,6 +1242,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
 #endif
 		temperature = pressure / (density * R_ideal);
+		Tguess = temperature;
 
 		if(Opacity != NULL)
 			Opacity(density,temperature, &Sigma_t, &Sigma_a, NULL);
@@ -1119,19 +1260,36 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	/* The Source term */
 		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
-	
+
+
+		/*=========================================================*/
+		/* In case velocity is large and momentum source is stiff */
+		SFmx = Sigma_t * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
+			+ Sigma_a * (pow(Tguess, 4.0) - Usource.Er) / (density * Crat);	
+
+		SFmy = Sigma_t * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
+			+ Sigma_a * (pow(Tguess, 4.0) - Usource.Er) / (density * Crat);	
+
+		Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
+		Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
+
+		/*=========================================================*/
+
+
+
 		Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
-		Source_Inv[4][1] = -dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE);
-		Source_Inv[4][2] = -dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE);
+		Source_Inv[4][1] = (-dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[1][1];
+		Source_Inv[4][2] = (-dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[2][2];
 		Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+
 	
 		Source_guess[1] = -Prat * (-Sigma_t * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)
-			+ Sigma_a * velocity_x * (temperature * temperature * temperature * temperature - pG->U[ks][j][i].Er)/Crat);
+			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - pG->U[ks][j][i].Er)/Crat);
 		Source_guess[2] = -Prat * (-Sigma_t * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)
-			+ Sigma_a * velocity_y * (temperature * temperature * temperature * temperature - pG->U[ks][j][i].Er)/Crat);
-		Source_guess[4] = -Prat * Crat * (Sigma_a * (temperature * temperature * temperature * temperature - pG->U[ks][j][i].Er) 
+			+ Sigma_a * velocity_y * (pow(Tguess, 4.0) - pG->U[ks][j][i].Er)/Crat);
+		Source_guess[4] = -Prat * Crat * (Sigma_a * (pow(Tguess, 4.0) - pG->U[ks][j][i].Er) 
 			+ (Sigma_a - (Sigma_t - Sigma_a)) * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
@@ -1140,10 +1298,10 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
 
 	/* Calculate the error term */
-		Errort[0] = pG->U[ks][j][i].d + hdt * (Source[0] + Source_guess[0]) - dt * (divFlux1[0] + divFlux2[0]) - Uguess[0];
+		Errort[0] = pG->U[ks][j][i].d  + hdt * (Source[0] + Source_guess[0]) - dt * (divFlux1[0] + divFlux2[0]) - Uguess[0];
 		Errort[1] = pG->U[ks][j][i].M1 + hdt * (Source[1] + Source_guess[1]) - dt * (divFlux1[1] + divFlux2[1]) - Uguess[1];
 		Errort[2] = pG->U[ks][j][i].M2 + hdt * (Source[2] + Source_guess[2]) - dt * (divFlux1[2] + divFlux2[2]) - Uguess[2];
-		Errort[4] = pG->U[ks][j][i].E + hdt * (Source[4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4]) - Uguess[4];
+		Errort[4] = pG->U[ks][j][i].E  + hdt * (Source[4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4]) - Uguess[4];
 
 	/* Calculate the correction */
 		for(n=0; n<5; n++) {
@@ -1265,18 +1423,9 @@ void integrate_2d_radMHD(DomainS *pD)
  
 }
 
-
-
-void integrate_2d_radMHD_thick(DomainS *pD)
-{
-
-
-
-
-
-
-
-}
+/* ============================================================================================ *
+ * ============================================================================================ *
+ */
 
 
 

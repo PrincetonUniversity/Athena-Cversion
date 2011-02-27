@@ -42,6 +42,10 @@ ifeq (@DEBUG_MODE@,DEBUG)
   MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
   MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
 endif
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+  MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis_MPI/include
+endif
 endif
 
 ifeq (@GAS@,RADIATION_MHD) 
@@ -50,6 +54,10 @@ ifeq (@GAS@,RADIATION_MHD)
 ifeq (@DEBUG_MODE@,DEBUG)
   MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
   MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+endif
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+  MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis_MPI/include
 endif
 endif
 
@@ -68,7 +76,7 @@ endif
 ifeq ($(MACHINE),ophir)
   CC = /usr/peyton/intel/10.0/cce/bin/icc
   LDR = /usr/peyton/intel/10.0/cce/bin/icc
-  OPT = -O3 -xW -ipo -i-static
+  OPT = -O3 -xW -ipo -i-static -g
   FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
 else
@@ -85,6 +93,15 @@ ifeq ($(MACHINE),artemis)
   CC  = mpicc
   LDR = mpicc
   OPT = -O3 -xW -ipo -i-static
+  MPIINC =
+  MPILIB = -lmpi
+  FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
+  FFTWINC = -I/opt/fftw3/include
+else
+ifeq ($(MACHINE),adroit)
+  CC  = mpicc
+  LDR = mpicc
+  OPT = -O3 -xW -ipo -i-static -g
   MPIINC =
   MPILIB = -lmpi
   FFTWLIB = -L/opt/fftw3/lib64 -lfftw3
@@ -112,6 +129,7 @@ ifeq ($(MACHINE),sunnyvale)
   MPILIB = -lmpi
 else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif
