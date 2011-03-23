@@ -92,14 +92,16 @@ Real diff_dt(MeshS *pM)
         for (i=il; i<=iu; i++) {
 
           if (eta_Ohm > 0.0){
-            dtmin_diffusion = MIN(dtmin_diffusion,(qb/pG->eta_Ohm[k][j][i]));
+            dtmin_diffusion = MIN(dtmin_diffusion,
+                                    (qb/(pG->eta_Ohm[k][j][i]+TINY_NUMBER)));
           }
           if (Q_Hall > 0.0)
             dtmin_diffusion = MIN(dtmin_diffusion,
-                                         (0.5*fac*qb/pG->eta_Hall[k][j][i]));
+                           (0.5*fac*qb/(pG->eta_Hall[k][j][i]+TINY_NUMBER)));
 
           if (Q_AD > 0.0)
-            dtmin_diffusion = MIN(dtmin_diffusion, (qb/pG->eta_AD[k][j][i]));
+            dtmin_diffusion = MIN(dtmin_diffusion,
+                                     (qb/(pG->eta_AD[k][j][i]+TINY_NUMBER)));
         }}}
       }
     }

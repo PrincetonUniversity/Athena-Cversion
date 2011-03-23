@@ -51,12 +51,17 @@ static Real **remapEyiib=NULL, **remapEyoib=NULL;
  *   EField_Ohm  - computes electric field due to Ohmic dissipation
  *   EField_Hall - computes electric field due to Hall effect
  *   EField_AD   - computes electric field due to ambipolar diffusion
+ *   minmod      - min-mod limiter
+ *   MClim       - monotonized central limiter
  *   hyper_diffusion? - add hyper-resistivity to help stabilize the Hall term
  *============================================================================*/
 
 void EField_Ohm(DomainS *pD);
 void EField_Hall(DomainS *pD);
 void EField_AD(DomainS *pD);
+
+Real minmod(Real a, Real b);
+Real MClim (Real a, Real b);
 
 void hyper_diffusion4(DomainS *pD, Real prefac);
 void hyper_diffusion6(DomainS *pD, Real prefac);
@@ -531,7 +536,7 @@ void EField_Hall(DomainS *pD)
 
 /* Preliminary: hyper-diffusion */
 
-  hyper_diffusion6(pD, 0.01);
+//  hyper_diffusion6(pD, 0.01);
 
 /* Preliminary: divide eta_Hall by B for convenience */
   for (k=kl; k<=ku; k++) {
@@ -855,7 +860,7 @@ void EField_AD(DomainS *pD)
       intBy = 0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c);
       intBz = 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c);
 
-      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = J[ks][js][i].y*intBy + J[ks][js][i].z*intBz;
 
       emf[ks][js][i].y += eta_A*(J[ks][js][i].y - JdotB*intBy/Bsq);
@@ -884,7 +889,7 @@ void EField_AD(DomainS *pD)
       intBy = pG->B2i[ks][j][i];
       intBz = 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c);
 
-      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
       emf[ks][j][i].x += eta_A*(J[ks][j][i].x - JdotB*intBx/Bsq);
@@ -901,7 +906,7 @@ void EField_AD(DomainS *pD)
       intBy = 0.5*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c);
       intBz = 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c);
 
-      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
       emf[ks][j][i].y += eta_A*(J[ks][j][i].y - JdotB*intBy/Bsq);
@@ -919,7 +924,7 @@ void EField_AD(DomainS *pD)
       intBz = 0.25*(pG->U[ks][j  ][i].B3c + pG->U[ks][j  ][i-1].B3c
                   + pG->U[ks][j-1][i].B3c + pG->U[ks][j-1][i-1].B3c);
 
-      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+      Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
       emf[ks][j][i].z += eta_A*(J[ks][j][i].z - JdotB*intBz/Bsq);
@@ -952,7 +957,7 @@ void EField_AD(DomainS *pD)
         intBy = 0.5*(pG->B2i[k][j][i] + pG->B2i[k-1][j][i]);
         intBz = 0.5*(pG->B3i[k][j][i] + pG->B3i[k][j-1][i]);
 
-        Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+        Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
         emf[k][j][i].x += eta_A*(J[k][j][i].x - JdotB*intBx/Bsq);
@@ -972,7 +977,7 @@ void EField_AD(DomainS *pD)
                       pG->U[k][j][i-1].B2c + pG->U[k-1][j][i-1].B2c);
         intBz = 0.5*(pG->B3i[k][j][i] + pG->B3i[k][j][i-1]);
 
-        Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+        Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
         emf[k][j][i].y += eta_A*(J[k][j][i].y - JdotB*intBy/Bsq);
@@ -992,10 +997,11 @@ void EField_AD(DomainS *pD)
         intBz = 0.25*(pG->U[k][j  ][i].B3c + pG->U[k][j  ][i-1].B3c +
                       pG->U[k][j-1][i].B3c + pG->U[k][j-1][i-1].B3c);
 
-        Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz);
+        Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
         emf[k][j][i].z += eta_A*(J[k][j][i].z - JdotB*intBz/Bsq);
+fprintf(stderr,"i=%2d,j=%2d,k=%2d,ex=%e,ey=%e,ez=%e\n",i,j,k,emf[k][j][i].x,emf[k][j][i].y,emf[k][j][i].z);
       }
     }}
   }
@@ -1239,6 +1245,26 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
   }
 
   return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* min-mod limiter
+ */
+Real minmod(Real a, Real b)
+{
+  if (a*b <= 0.0) return 0.0;
+
+  return SIGN(a)*MIN(fabs(a),fabs(b));
+}
+
+/*----------------------------------------------------------------------------*/
+/* monotonized central limiter
+ */
+Real MClim(Real a, Real b)
+{
+  if (a*b <= 0.0) return 0.0;
+
+  return SIGN(a)*MIN(2.0*MIN(fabs(a),fabs(b)),0.5*fabs(a+b));
 }
 
 /*----------------------------------------------------------------------------*/
