@@ -383,7 +383,7 @@ static Real divB(const GridS *pG, const int i, const int j, const int k)
 
 #if (NSCALARS > 0)
 /*! \fn static Real color(const GridS *pG, const int i, const int j,const int k)
- *  \brief returns first passively advected scalar s[0]
+ *  \brief returns first passively advected scalar s[0] */
 static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
