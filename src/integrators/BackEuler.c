@@ -57,13 +57,21 @@ VMFun_t BackEuler_init(MeshS *pM)
     je = pM->Domain[0][0].Grid->je;
     js = pM->Domain[0][0].Grid->js;
 
-    BackEuler_init_2d((je-js+1)*(ie-is+1),NGridx,NGridy);
+    BackEuler_init_2d(ie-is+1,je-js+1,NGridx,NGridy);
 
     return BackEuler_2d;	
 
   case 3:
-    
-    ath_error("[BackEuler_init]: 3D Matrix solver not ready now!\n");
+    ie = pM->Domain[0][0].Grid->ie;
+    is = pM->Domain[0][0].Grid->is;
+    je = pM->Domain[0][0].Grid->je;
+    js = pM->Domain[0][0].Grid->js;
+    ke = pM->Domain[0][0].Grid->ke;
+    ks = pM->Domain[0][0].Grid->ks;	
+
+    BackEuler_init_3d(ie-is+1,je-js+1,ke-ks+1,NGridx,NGridy,NGridz);
+
+    return BackEuler_3d;
 
   }
 
@@ -85,7 +93,7 @@ void BackEuler_destruct()
     BackEuler_destruct_2d();
     return;
   case 3:
-    ath_error("[BackEuler_init]: 3D Matrix solver not ready now!\n");
+    BackEuler_destruct_3d();
     return;
   }
 

@@ -115,6 +115,13 @@ static Real *theta;
 static Real *phi;
 static Real *psi;
 
+/* subtract background state, which is initial condition */
+static Real ***Er_t0;
+static Real ***dErdx_t0;
+static Real ***dErdy_t0;
+static Real ***Fr1_t0;
+static Real ***Fr2_t0;
+
 /* boundary flag */
 static int ix1;
 static int ox1;
@@ -172,12 +179,38 @@ void BackEuler_2d(MeshS *pM)
 	/* lines is the size of the partial matrix */
 	/* count is the number of total non-zeros before that row */
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
-	Real temperature, velocity_x, velocity_y, pressure;
+	Real temperature, velocity_x, velocity_y, pressure, T4, Fr0x, Fr0y;
 	Real Ci0, Ci1, Cj0, Cj1;
 	/* This is equivilent to Cspeeds[] in 1D */
 
 
   	Real Sigma_s, Sigma_t, Sigma_a;
+
+/* variables used to subtract background state */
+/* NOTICE Here we assume background state grad E_r = -Sigma_t Fr, a uniform flux and background velocity is zero */
+/* We assume the background state, Eddington tensor is 1/3 */
+
+	int bgflag;		/* used to subtract whether subtract background or not */
+	static int t0flag = 1; /* used to judge if this is the first time call this function or not */  
+
+	bgflag = 0;	/* 1 means subtract background, 0 means not. Default is not */
+	
+	if(bgflag){
+		if(t0flag){
+		/* If this the first time, save the background state, including boundary condition */
+			for(j=js-nghost; j<=je+nghost; j++){
+				for(i=is-nghost; i<=ie+nghost; i++){
+					Er_t0[ks][j][i] = pG->U[ks][j][i].Er;
+					Fr1_t0[ks][j][i] = pG->U[ks][j][i].Fr1;
+					Fr2_t0[ks][j][i] = pG->U[ks][j][i].Fr2;
+					
+					dErdx_t0[ks][j][i] = -pG->U[ks][j][i].Sigma_t * pG->U[ks][j][i].Fr1;
+					dErdy_t0[ks][j][i] = -pG->U[ks][j][i].Sigma_t * pG->U[ks][j][i].Fr2;
+				}
+			}	
+			t0flag = 0;
+		}
+	}
 
 
 	/* Boundary condition flag */
@@ -252,7 +285,19 @@ void BackEuler_2d(MeshS *pM)
 	/* For temporary use only */
 	int index,Matrixiter;
 	Real tempvalue;
-	
+
+	if(bgflag){
+	/* subtract the background state */
+		for(j=js-nghost; j<=je+nghost; j++){
+			for(i=is-nghost; i<=ie+nghost; i++){
+				pG->U[ks][j][i].Er -= Er_t0[ks][j][i];
+				pG->U[ks][j][i].Fr1 -= Fr1_t0[ks][j][i];
+				pG->U[ks][j][i].Fr2 -= Fr2_t0[ks][j][i];				
+
+			}
+		}
+
+	}	
 	
 	/* *****************************************************/
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
@@ -284,31 +329,60 @@ void BackEuler_2d(MeshS *pM)
 */
 		/* Guess temperature is updated in the main loop */
 		temperature = pG->Tguess[ks][j][i];
+		T4 = pow(temperature, 4.0);
+
+		if(bgflag){
+			T4 -= Er_t0[ks][j][i];
+		}
 
 		/* RHSEuler[0...N-1]  */
 		Sigma_a = pG->U[ks][j][i].Sigma_a;
+		Sigma_t = pG->U[ks][j][i].Sigma_t;
+		Sigma_s = Sigma_t - Sigma_a;
+
+		velocity_x = pG->U[ks][j][i].M1 /pG->U[ks][j][i].d;
+		velocity_y = pG->U[ks][j][i].M2 / pG->U[ks][j][i].d;
 
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
-    		tempvalue   = pG->U[ks][j][i].Er + Crat * dt * Sigma_a 
-				* temperature * temperature * temperature * temperature;
+    		tempvalue = pG->U[ks][j][i].Er + Crat * dt * Sigma_a * T4;
+		
+		if(bgflag){
+			Fr0x = Fr1_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;
+			Fr0y = Fr2_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
+
+			tempvalue += dt * (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y);
+		}	
+
 		index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 
 		/*----------------------------*/
-    		tempvalue = pG->U[ks][j][i].Fr1 + dt * Sigma_a
-				* temperature * temperature * temperature * temperature * pG->U[ks][j][i].M1 / pG->U[ks][j][i].d;
+    		tempvalue = pG->U[ks][j][i].Fr1 + dt * Sigma_a * T4 * velocity_x;
+		
+		if(bgflag){
+			Fr0x =Fr1_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;		
+			tempvalue += (-dt * Crat * (dErdx_t0[ks][j][i] * 3.0 * pG->U[ks][j][i].Edd_11 + Sigma_t * Fr0x));
+			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
+		}
+
 		++index;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 		
 		/*-------------------------*/
-		tempvalue = pG->U[ks][j][i].Fr2 + dt * Sigma_a
-				* temperature * temperature * temperature * temperature * pG->U[ks][j][i].M2 / pG->U[ks][j][i].d;
+		tempvalue = pG->U[ks][j][i].Fr2 + dt * Sigma_a * T4 * velocity_y;
+		
+		if(bgflag){
+			Fr0y = Fr2_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
+			tempvalue += (-dt * Crat * (dErdy_t0[ks][j][i] * 3.0 * pG->U[ks][j][i].Edd_22 + Sigma_t * Fr0y));
+			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
+		}
+
 		++index;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 
 		/* For inflow boundary condition along x direction*/
-		if((i == is) && (ix1 == 3)) {
+		if((i == is) && (ix1 == 3) && (lx1 < 0)) {
 			Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
 				/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
 			
@@ -335,7 +409,7 @@ void BackEuler_2d(MeshS *pM)
 			
 		}
 
-		if((i == ie) && (ox1 == 3)) {
+		if((i == ie) && (ox1 == 3) && (rx1 < 0)) {
 			Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
 				/ (sqrt(pG->U[ks][j][i+1].Edd_11) + sqrt(pG->U[ks][j][i].Edd_11));
 
@@ -362,7 +436,7 @@ void BackEuler_2d(MeshS *pM)
 		
 
 		/* For inflow boundary condition along y direction*/
-		if((j == js) && (ix2 == 3)) {
+		if((j == js) && (ix2 == 3) && (lx2 < 0)) {
 			Cj0 = (sqrt(pG->U[ks][j][i].Edd_22) - sqrt(pG->U[ks][j-1][i].Edd_22)) 
 				/ (sqrt(pG->U[ks][j][i].Edd_22) + sqrt(pG->U[ks][j-1][i].Edd_22));
 			
@@ -389,7 +463,7 @@ void BackEuler_2d(MeshS *pM)
 				
 		}
 
-		if((j == je) && (ox2 == 3)) {
+		if((j == je) && (ox2 == 3) && (rx2 < 0)) {
 			Cj1 =  (sqrt(pG->U[ks][j+1][i].Edd_22) - sqrt(pG->U[ks][j][i].Edd_22)) 
 				/ (sqrt(pG->U[ks][j+1][i].Edd_22) + sqrt(pG->U[ks][j][i].Edd_22));
 
@@ -891,6 +965,19 @@ void BackEuler_2d(MeshS *pM)
 	}
 	/* Eddington factor is updated in the integrator  */
 
+	/* Add back the background state */
+	if(bgflag){
+		for(j=js-nghost; j<=je+nghost; j++){
+			for(i=is-nghost; i<=ie+nghost; i++){
+				
+				pG->U[ks][j][i].Er += Er_t0[ks][j][i];
+				pG->U[ks][j][i].Fr1 += Fr1_t0[ks][j][i];
+				pG->U[ks][j][i].Fr2 += Fr2_t0[ks][j][i];
+
+			}
+		}
+	}
+
 
 /* Update the ghost zones for different boundary condition to be used later */
 	for (i=0; i<pM->NLevels; i++){ 
@@ -916,12 +1003,16 @@ void BackEuler_2d(MeshS *pM)
 /*-------------------------------------------------------------------------*/
 /* BackEuler_init_2d: function to allocate memory used just for radiation variables */
 /* BackEuler_destruct_2d(): function to free memory */
-void BackEuler_init_2d(int Nelements, int NGridx, int NGridy)
+void BackEuler_init_2d(const int Nx, const int Ny, const int NGridx, const int NGridy)
 {
 
 /* Nelements = (je-js+1)*(ie-is+1) */
+/* Nx = ie-is+1 */
+/* Ny = je-js+1 */
+
 	int line;
-	line = 3*Nelements;
+	line = 3*Nx*Ny;
+	
 
 /* Number of Grids in each direction */
 	NGx = NGridx;
@@ -948,7 +1039,19 @@ void BackEuler_init_2d(int Nelements, int NGridx, int NGridy)
 	if ((Value = (Real*)malloc(Nelements*sizeof(Real))) == NULL) 
 	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 */
-	
+	/* to save Er and Fr at time t0, which are used to subtract the background state */
+	if((Er_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((dErdx_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((dErdy_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((Fr1_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((Fr2_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+
+
 
 /* For temporary vector theta, phi, psi */
 	if ((theta = (Real*)malloc(11*sizeof(Real))) == NULL) 
@@ -978,6 +1081,15 @@ void BackEuler_destruct_2d()
 	if(theta != NULL) free(theta);
 	if(phi != NULL) free(phi);
 	if(psi != NULL) free(psi);
+
+/* variables used to subtract background state */
+	free_3d_array(Er_t0);
+	free_3d_array(dErdx_t0);
+	free_3d_array(dErdy_t0);	
+	free_3d_array(Fr1_t0);
+	free_3d_array(Fr2_t0);
+
+
 
 /* Memory for Value, indexValue, ptr are already freed when destroy Euler matrix */
 /*	
@@ -1436,7 +1548,7 @@ void is_js_MPI_phy()
 		Value[NoFr1+MPIcount1+1]+= phi[1];
 				
 		Value[NoFr2+MPIcount1]+= psi[0];
-		Value[NoFr2+MPIcount1+2]-= psi[1];
+		Value[NoFr2+MPIcount1+1]-= psi[1];
 	}
 	else if(ix2 == 2){
 		Value[NoEr+MPIcount1] += theta[0];
@@ -2089,7 +2201,7 @@ void is_je_MPI_phy()
 	indexValue[index+1] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
 
 	/* For Fr2 */
-	index = index + MPIcount1;				
+	index = NoFr2 + MPIcount1;				
 	Value[index] = psi[0];
 	Value[index+1] = psi[1];
 							
@@ -2143,7 +2255,7 @@ void is_je_MPI_phy()
 	}
 	else if(ox2 == 2){
 		Value[NoEr+MPIcount1+2] += theta[9];
-		Value[NoEr+MPIcount1+3] += theta[10];
+		Value[NoEr+MPIcount1+4] += theta[10];
 			
 		Value[NoFr1+MPIcount1+2]+= phi[8];
 		Value[NoFr1+MPIcount1+3]+= phi[9];
@@ -4140,8 +4252,8 @@ void ie_je_MPI_phy()
 			Value[NoFr1+MPIcount1+4]+= phi[8];
 			Value[NoFr1+MPIcount1+5]+= phi[9];
 				
-			Value[NoFr2+MPIcount1+4]+= psi[9];
-			Value[NoFr2+MPIcount1+5]+= psi[10];
+			Value[NoFr2+MPIcount1+4]+= psi[8];
+			Value[NoFr2+MPIcount1+5]+= psi[9];
 		}
 		else if(ox2 == 3){
 
@@ -4319,8 +4431,8 @@ void ie_je_phy_phy()
 				Value[NoFr1+4]+= phi[8];
 				Value[NoFr1+5]+= phi[9];
 				
-				Value[NoFr2+4]+= psi[9];
-				Value[NoFr2+5]+= psi[10];
+				Value[NoFr2+4]+= psi[8];
+				Value[NoFr2+5]+= psi[9];
 			}
 			else if(ox2 == 3){
 

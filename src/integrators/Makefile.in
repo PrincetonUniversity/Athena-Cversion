@@ -22,6 +22,7 @@ CORE_OBJ = integrate.o \
 	   integrate_3d_radMHD.o \
 	   BackEuler_1d.o	\
 	   BackEuler_2d.o	\
+	   BackEuler_3d.o	\
 	   BackEuler.o
 
 

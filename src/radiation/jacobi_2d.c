@@ -59,7 +59,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
 
 /* if LTE then store J values from previous iteration */
   if(lte != 0)
-    for(j=js; j<+je; j++)
+    for(j=js; j<=je; j++)
       for(i=is; i<=ie; i++) 
 	for(ifr=0; ifr<nf; ifr++) 
 	  Jold[j][i][ifr] = pRG->R[ks][j][i][ifr].J;
@@ -98,7 +98,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
     for(j=js; j<=je; j++)
       for(i=is; i<=ie; i++) 
 	for(ifr=0; ifr<nf; ifr++) {
-	  dJ = pRG->R[ks][j][i][ifr].J - Jold[j][i][ifr];
+	  dJ = fabs(pRG->R[ks][j][i][ifr].J - Jold[j][i][ifr]);
 	  if(dJ > dJmax) dJmax = dJ;
 	  if (Jold[j][i][ifr] > 0.0)
 	    dSr = dJ / Jold[j][i][ifr];

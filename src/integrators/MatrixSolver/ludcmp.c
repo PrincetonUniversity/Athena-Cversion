@@ -15,6 +15,7 @@
 #include "../../prototypes.h"
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+#ifndef RADIATION_TRANSFER
 
 void ludcmp(Real **a, int n, int *indx, Real *d)
 {
@@ -97,6 +98,7 @@ void lubksb(Real **a, int n, int *indx, Real b[])
 		b[i]=sum/a[i][i];
 	}
 }
+#endif
 
 #endif
 

@@ -72,7 +72,7 @@ void formal_solution(DomainS *pD)
     }
     formal_solution_1d_destruct();
   } else if (ndim == 2) {
-    /*get_solution_2d(pRG); //used for testing */
+    /*get_solution_2d(pRG); used for testing */
 /* compute formal solution with 2D method*/
     formal_solution_2d_init(pRG);
     for(i=0; i<niter; i++) {
@@ -125,7 +125,8 @@ void max_dev(RadGridS *pRG, Real *dsm, int *ism)
       for(i=pRG->is; i<=pRG->ie; i++) {
 	dst = fabs(pRG->R[k][j][i][0].S - sol[k-pRG->ks][j-pRG->js][i-pRG->is]) / 
 	  sol[k-pRG->ks][j-pRG->js][i-pRG->is];
-	//printf("%d %d %g %g\n",i,j,pRG->R[k][j][i][0].S,sol[k-pRG->ks][j-pRG->js][i-pRG->is]);
+	/*printf("%d %d %g %g\n",i,j,pRG->R[k][j][i][0].S,sol[k-pRG->ks][j-pRG->js][i-pRG->is]);
+	*/
 	if (dst > ds) {ds = dst; ixmax = i; iymax = j; izmax = k;}
       }
 
@@ -150,13 +151,15 @@ void get_solution_2d(RadGridS *pRG)
     dtau= 0.5 * pRG->dx2 * (pRG->R[0][j-1][1][0].chi + 
 			    pRG->R[0][j  ][1][0].chi);
     tau += dtau;
-    //    tau = pow(10.0,-3.0 + pRG->dx3 * (Real)(i-pRG->ks-0.5) * 10.0);
+    /*    tau = pow(10.0,-3.0 + pRG->dx3 * (Real)(i-pRG->ks-0.5) * 10.0);
+    */
     jmean = 1.0 - sqrt(3.0) * exp(-sqrt(3.0 * eps) * tau) /
       (sqrt(3.0) + sqrt(3.0 * eps));
      for(k=pRG->ks; k<=pRG->ke; k++)
       for(i=pRG->is; i<=pRG->ie; i++) 
 	sol[k-pRG->ks][j-pRG->js][i-pRG->is] = eps + (1.0-eps) * jmean;
-    //sol[pRG->nx3-2-i][j-1] = eps + (1.0-eps) * jmean;
+    /*sol[pRG->nx3-2-i][j-1] = eps + (1.0-eps) * jmean;
+    */
   }
 
   return;

@@ -628,7 +628,7 @@ void bvals_rad_init(MeshS *pM)
   size = x3cnt >  size ? x3cnt : size;
 
 
-  size *= pRG->nf * (1 + 3.0 * pRG->noct * pRG->nang);
+  size *= pRG->nf * (2.0 + 3.0 * pRG->noct * pRG->nang);
 
   if (size > 0) {
     if((send_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)
@@ -663,26 +663,29 @@ static void periodic_ix1_rad(RadGridS *pRG)
 
   for (k=kl; k<=ku; k++)
     for (j=jl; j<=ju; j++)
-      for (ifr=0; ifr<nf; ifr++)
-	pRG->R[k][j][il][ifr].S = pRG->R[k][j][ie][ifr].S;
-
+      for (ifr=0; ifr<nf; ifr++) {
+	pRG->R[k][j][il][ifr].S    = pRG->R[k][j][ie][ifr].S;
+	pRG->R[k][j][il][ifr].H[0] = pRG->R[k][j][ie][ifr].H[0];
+      }
+  /* if (pRG->Nx[1] > 1) { jl--; ju++; } */
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (j=jl-1; j<=ju+1; j++)
-	for(m=0; m<nang; m++) {
-	    pRG->l1imu[ifr][k][j][0][m] = pRG->r1imu[ifr][k][j][0][m];
-	    pRG->l1imu[ifr][k][j][2][m] = pRG->r1imu[ifr][k][j][2][m];
-	  }
+      for (j=jl; j<=ju; j++)
+	for (m=0; m<nang; m++) {
+	  pRG->l1imu[ifr][k][j][0][m] = pRG->r1imu[ifr][k][j][0][m];
+	  pRG->l1imu[ifr][k][j][2][m] = pRG->r1imu[ifr][k][j][2][m];
+	}
 
-  if (pRG->Nx[1] > 1)
+  if (pRG->Nx[1] > 1) {
     for (ifr=0; ifr<nf; ifr++)
       for (k=kl; k<=ku; k++)
-	for(m=0; m<nang; m++) {
+	for (m=0; m<nang; m++) {
 	  pRG->l2imu[ifr][k][il][0][m] = pRG->l2imu[ifr][k][ie][0][m];
 	  pRG->l2imu[ifr][k][il][1][m] = pRG->l2imu[ifr][k][ie][1][m];
 	  pRG->r2imu[ifr][k][il][2][m] = pRG->r2imu[ifr][k][ie][2][m];
 	  pRG->r2imu[ifr][k][il][3][m] = pRG->r2imu[ifr][k][ie][3][m];
 	}
+  }
 
   return;
 }
@@ -700,12 +703,15 @@ static void periodic_ox1_rad(RadGridS *pRG)
 
   for (k=kl; k<=ku; k++)
     for (j=jl; j<=ju; j++)
-      for (ifr=0; ifr<nf; ifr++)
+      for (ifr=0; ifr<nf; ifr++) {
 	pRG->R[k][j][iu][ifr].S = pRG->R[k][j][is][ifr].S;
+	pRG->R[k][j][iu][ifr].H[0] = pRG->R[k][j][is][ifr].H[0];
+      }
 
+  /*if (pRG->Nx[1] > 1) { jl--; ju++; } */
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (j=jl-1; j<=ju+1; j++)
+      for (j=jl; j<=ju; j++)
 	for(m=0; m<nang; m++) {
 	  pRG->r1imu[ifr][k][j][1][m] = pRG->l1imu[ifr][k][j][1][m];
 	  pRG->r1imu[ifr][k][j][3][m] = pRG->l1imu[ifr][k][j][3][m];
@@ -743,7 +749,7 @@ static void periodic_ix2_rad(RadGridS *pRG)
 
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (i=il; i<=iu; i++)
+      for (i=il+1; i<=iu-1; i++)
 	for(m=0; m<nang; m++) {
 	  pRG->l2imu[ifr][k][i][0][m] = pRG->r2imu[ifr][k][i][0][m];
 	  pRG->l2imu[ifr][k][i][1][m] = pRG->r2imu[ifr][k][i][1][m];
@@ -781,7 +787,7 @@ static void periodic_ox2_rad(RadGridS *pRG)
 
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (i=il; i<=iu; i++)
+      for (i=il+1; i<=iu-1; i++)
 	for(m=0; m<nang; m++) {
 	  pRG->r2imu[ifr][k][i][2][m] = pRG->l2imu[ifr][k][i][2][m];
 	  pRG->r2imu[ifr][k][i][3][m] = pRG->l2imu[ifr][k][i][3][m];
@@ -880,9 +886,10 @@ static void pack_ix1_rad(RadGridS *pRG)
       for (ifr=0; ifr<nf; ifr++)
 	*(pSnd++) = pRG->R[k][j][is][ifr].S;      
 
+  /*if (pRG->Nx[1] > 1) { jl--; ju++; }*/
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (j=jl-1; j<=ju+1; j++)      
+      for (j=jl; j<=ju; j++)      
 	  for(m=0; m<nang; m++) {
 	    *(pSnd++) = pRG->l1imu[ifr][k][j][1][m];
 	    *(pSnd++) = pRG->l1imu[ifr][k][j][3][m];	
@@ -921,9 +928,10 @@ static void pack_ox1_rad(RadGridS *pRG)
       for (ifr=0; ifr<nf; ifr++)
 	*(pSnd++) = pRG->R[k][j][ie][ifr].S;
 
+  /*if (pRG->Nx[1] > 1) { jl--; ju++; } */
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (j=jl-1; j<=ju+1; j++)      
+      for (j=jl; j<=ju; j++)      
 	for(m=0; m<nang; m++) {
 	  *(pSnd++) = pRG->r1imu[ifr][k][j][0][m];
 	  *(pSnd++) = pRG->r1imu[ifr][k][j][2][m];
@@ -962,7 +970,7 @@ static void pack_ix2_rad(RadGridS *pRG)
 
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (i=il; i<=iu; i++)
+      for (i=il+1; i<=iu-1; i++)
 	for(m=0; m<nang; m++) {
 	  *(pSnd++) = pRG->l2imu[ifr][k][i][2][m];
 	  *(pSnd++) = pRG->l2imu[ifr][k][i][3][m];
@@ -998,11 +1006,9 @@ static void pack_ox2_rad(RadGridS *pRG)
       for (ifr=0; ifr<nf; ifr++)
 	*(pSnd++) = pRG->R[k][je][i][ifr].S;
 
-  //if (pRG->Nx[2] > 1) {kl--; ku++;}
-
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (i=il; i<=iu; i++)
+      for (i=il+1; i<=iu-1; i++)
 	for(m=0; m<nang; m++) {
 	  *(pSnd++) = pRG->r2imu[ifr][k][i][0][m];
 	  *(pSnd++) = pRG->r2imu[ifr][k][i][1][m];
@@ -1081,9 +1087,10 @@ static void unpack_ix1_rad(RadGridS *pRG)
       for (ifr=0; ifr<nf; ifr++)
 	pRG->R[k][j][il][ifr].S = *(pRcv++);
 
+  /*if (pRG->Nx[1] > 1) { jl--; ju++; }*/
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (j=jl-1; j<=ju+1; j++)
+      for (j=jl; j<=ju; j++)
 	for(m=0; m<nang; m++) {
 	  pRG->l1imu[ifr][k][j][0][m] = *(pRcv++);
 	  pRG->l1imu[ifr][k][j][2][m] = *(pRcv++);
@@ -1122,9 +1129,11 @@ static void unpack_ox1_rad(RadGridS *pRG)
       for (ifr=0; ifr<nf; ifr++)
 	pRG->R[k][j][iu][ifr].S = *(pRcv++);
 
+
+  /*if (pRG->Nx[1] > 1) { jl--; ju++; }*/
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (j=jl-1; j<=ju+1; j++)
+      for (j=jl; j<=ju; j++)
 	for(m=0; m<nang; m++) {
 	  pRG->r1imu[ifr][k][j][1][m] = *(pRcv++);
 	  pRG->r1imu[ifr][k][j][3][m] = *(pRcv++);
@@ -1164,7 +1173,7 @@ static void unpack_ix2_rad(RadGridS *pRG)
 
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (i=il; i<=iu; i++)
+      for (i=il+1; i<=iu-1; i++)
 	for(m=0; m<nang; m++) {
 	  pRG->l2imu[ifr][k][i][0][m] = *(pRcv++);
 	  pRG->l2imu[ifr][k][i][1][m] = *(pRcv++);
@@ -1202,10 +1211,9 @@ static void unpack_ox2_rad(RadGridS *pRG)
       for (ifr=0; ifr<nf; ifr++)
 	pRG->R[k][ju][i][ifr].S = *(pRcv++);
 
-  //  if (pRG->Nx[2] > 1) {kl--; ku++;}
   for (ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
-      for (i=il; i<=iu; i++)
+      for (i=il+1; i<=iu-1; i++)
 	for(m=0; m<nang; m++) {
 	  pRG->r2imu[ifr][k][i][2][m] = *(pRcv++);
 	  pRG->r2imu[ifr][k][i][3][m] = *(pRcv++);

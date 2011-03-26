@@ -220,7 +220,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			- U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y) * U1d[i-1].Er / Crat)
 			+ velocity_y
-			* (U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x) * U1d[i-1].Er / Crat))/Crat); 
+			* (U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x) * U1d[i-1].Er / Crat))/Crat)
+			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[i-1].d; 
 
 		if(Opacity != NULL) Opacity(U1d[i-1].d, temperature, NULL, NULL, dSigma);
 		
@@ -296,7 +297,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			- U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y) * U1d[i].Er / Crat)
 			+ velocity_y
-			* (U1d[i].Fr2 - ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x) * U1d[i].Er / Crat))/Crat); 
+			* (U1d[i].Fr2 - ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x) * U1d[i].Er / Crat))/Crat)
+			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[i].d; 
 				
 		if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, NULL, dSigma);
 		
@@ -351,7 +353,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	}
 
-/* For radiation_mhd, source temr due to magnetic field part is also added */
+/* For radiation_mhd, source term due to magnetic field part is also added */
 #ifdef RADIATION_MHD
 	for(i=il+1;i<iu;i++){
 		MHD_src = (pG->U[ks][j][i-1].M2/pG->U[ks][j][i-1].d)*
@@ -479,7 +481,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			- U1d[j-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y) * U1d[j-1].Er / Crat)
 			+ velocity_y
-			* (U1d[j-1].Fr2 - ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x) * U1d[j-1].Er / Crat))/Crat); 
+			* (U1d[j-1].Fr2 - ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x) * U1d[j-1].Er / Crat))/Crat)
+			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[j-1].d; 
 
 
 		if(Opacity != NULL) Opacity(U1d[j-1].d, temperature, NULL, NULL, dSigma);
@@ -552,7 +555,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
 		Source[1] = -Prat * (-Sigma_t * (U1d[j].Fr1/U1d[j].d 
-			- ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y)* U1d[j].Er / (Crat * U1d[j].d))	
+			- ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y)* U1d[j].Er / (Crat * U1d[j].d))	
 			+ Sigma_a * velocity_x * (pow(Tguess, 4.0) - U1d[j].Er)/(Crat*U1d[j].d));
 		Source[2] = -Prat * (-Sigma_t * (U1d[j].Fr2/U1d[j].d 
 			- ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x)* U1d[j].Er / (Crat * U1d[j].d))	
@@ -561,7 +564,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			- U1d[j].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * (velocity_x
 			* (U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y) * U1d[j].Er / Crat)
 			+ velocity_y
-			* (U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x) * U1d[j].Er / Crat))/Crat); 
+			* (U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x) * U1d[j].Er / Crat))/Crat)
+			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[j].d; 
 	
 		if(Opacity != NULL) Opacity(U1d[j].d, temperature, NULL, NULL, dSigma);
 		
@@ -1044,13 +1048,13 @@ void integrate_2d_radMHD(DomainS *pD)
 #ifdef RADIATION_MHD
       		Bx = B2_x2Face[j][i];
 #endif
-      		Wl[j] = Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Bx);
-      		Wr[j] = Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Bx);
+      		Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[j][i],&Bx);
+      		Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[j][i],&Bx);
 
 		/* take dt to calculate effective sound speed */
 		x2Flux[j][i].d = dt;
 
-      		fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[j],Wr[j],Bx,&x2Flux[j][i]);
+      		fluxes(Ul_x2Face[j][i],Ur_x2Face[j][i],Wl[i],Wr[i],Bx,&x2Flux[j][i]);
     }
   }
 

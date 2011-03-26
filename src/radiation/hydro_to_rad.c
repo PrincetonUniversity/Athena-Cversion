@@ -57,10 +57,10 @@ void hydro_to_rad(DomainS *pD)
 	ig = i + ioff;
 	for(ifr=0; ifr<nf; ifr++) {
 	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
-	  //pRG->R[k][j][i][ifr].J = 0.0;
+	  /*pRG->R[k][j][i][ifr].J = 0.0;*/
 	  pRG->R[k][j][i][ifr].B = get_thermal_source(pG,ifr,ig,jg,kg);
 	  pRG->R[k][j][i][ifr].eps = eps;
-	  //pRG->R[k][j][i][ifr].S = 1;
+	  /*pRG->R[k][j][i][ifr].S = 1;*/
 	  pRG->R[k][j][i][ifr].S = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
 	                                  eps  * pRG->R[k][j][i][ifr].B;
 	  pRG->R[k][j][i][ifr].chi = get_total_opacity(pG,ifr,ig,jg,kg);

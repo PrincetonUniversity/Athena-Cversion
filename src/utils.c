@@ -1225,9 +1225,9 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	dSigmarho += dSigma[3] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
 #endif
 
-	dSigmarho = dSigma[0] - dSigma[2] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
+	dSigmarho_t = dSigma[0] - dSigma[2] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
 #ifdef RADIATION_MHD
-	dSigmarho += dSigma[2] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
+	dSigmarho_t += dSigma[2] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
 #endif
 
 
@@ -1477,6 +1477,12 @@ void GetTguess(MeshS *pM)
 				Sigma_a = pG->U[k][j][i].Sigma_a;
 				Ern =  pG->U[k][j][i].Er;
 
+				if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
+					
+					pG->Tguess[k][j][i] = temperature;
+				}
+				else{
+
 
 				/* For source term T^4-Er */
 				ETsource = Crat * Sigma_a * (pow(temperature,4.0) - Ern);
@@ -1514,16 +1520,23 @@ void GetTguess(MeshS *pM)
 					TEr = pow( pG->U[k][j][i].Er, 0.25);
 					if(temperature > TEr){			
 						Tguess = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+						Erguess = pow(Tguess, 4.0);
 				
 					}
 					else{
 						Tguess = rtsafe(Tequilibrium, temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+						Erguess = pow(Tguess, 4.0);
 			
 					}			
 				}
 							
-
+				/*
 				pG->Tguess[k][j][i] = Tguess;
+				*/
+				pG->Tguess[k][j][i] = pow(Erguess, 0.25);
+				
+
+				}
 
 			}
 

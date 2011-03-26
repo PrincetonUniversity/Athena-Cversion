@@ -33,7 +33,7 @@ void problem(DomainS *pDomain)
   int shift;
 
 /* Parse global variables of unit ratio */
-#ifdef RADIATION_MHD
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   R_ideal = par_getd("problem","R_ideal");
@@ -84,7 +84,10 @@ void problem(DomainS *pDomain)
 	rho0 = 1.0;
 	P0 = 1.0;
 	B0 = sqrt(10.0/3.0);
-	E0 = P0/(Gamma - 1.0)+d0*u0*u0/2.0+B0*B0/2.0;
+	E0 = P0/(Gamma - 1.0)+d0*u0*u0/2.0;
+#ifdef RADIATION_MHD
+	E0 += B0*B0/2.0;
+#endif
 	angle=45.0*PI/180.0;
 
 	t = pGrid->time;
@@ -115,6 +118,7 @@ void problem(DomainS *pDomain)
 
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; /* Set to be a constant in 1D. To be modified later */
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
+	 pGrid->U[k][j][i].Edd_33 = 1.0/3.0;
 	 pGrid->U[k][j][i].Sigma_t = 1.e-4;
 	 pGrid->U[k][j][i].Sigma_a = 1.e-4;
 

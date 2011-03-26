@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#combile the code first 
+gcc -Wall -W -o join_vtk join_vtk.c -lm
+
+for num in {0..77}
+do
+number=$(echo $num)
+printf -v filename "%04i" $number
+./join_vtk -o "rad2D.$filename.vtk" ./id0/"rad2D.$filename.vtk" ./id1/"rad2D-id1.$filename.vtk" ./id2/"rad2D-id2.$filename.vtk" ./id3/"rad2D-id3.$filename.vtk"
+echo $filename
+done
+
+
+
+
+
