@@ -663,6 +663,7 @@ void init_mesh(MeshS *pM)
   max_rank = 0;
   for (nl=0; nl<=maxlevel; nl++){
   for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
     Nranks = (pD->NGrid[0])*(pD->NGrid[1])*(pD->NGrid[2]);
     max_rank = MAX(max_rank, Nranks);
   }}
