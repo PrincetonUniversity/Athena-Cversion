@@ -186,7 +186,7 @@ void RestrictCorrect(MeshS *pM)
       kcs = pCO->ijks[2];
       kce = pCO->ijke[2];
 
-/*--- Step 1b. Set conserved variables on parent Grid ------------------------*/
+/*--- Step 1b. Restrict conserved variables on parent Grid -------------------*/
 
       for (k=kcs; k<=kce; k++) {
         for (j=jcs; j<=jce; j++) {
@@ -211,7 +211,7 @@ void RestrictCorrect(MeshS *pM)
       }
 
 #ifdef MHD
-/*--- Step 1c. Set face-centered fields. -------------------------------------*/
+/*--- Step 1c. Restrict face-centered fields. --------------------------------*/
 /* Also recompute cell-centered fields based on new face-centered values.
  * Do not set face-centered fields on fine/coarse boundaries (e.g. ics and ice+1
  * for B1i), but use the flux-correction step below to do that */
@@ -225,7 +225,7 @@ void RestrictCorrect(MeshS *pM)
       } else {
 
         if (nDim == 2){  /* 2D problem */
-/* Correct B1i */
+/* Restrict B1i */
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics+1; i<=ice; i++) {
             /* Set B1i at ics if no flux correction will be made.  Increment
@@ -245,7 +245,7 @@ void RestrictCorrect(MeshS *pM)
             }
           }}
 
-/* Correct B2i */
+/* Restrict B2i */
           /* Set B2i at jcs if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
           for (i=ics; i<=ice; i++) {
@@ -274,7 +274,7 @@ void RestrictCorrect(MeshS *pM)
           }}
 
         } else { /* 3D problem */
-/* Correct B1i */
+/* Restrict B1i */
           for (k=kcs  ; k<=kce; k++) {
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics+1; i<=ice; i++) {
@@ -296,7 +296,7 @@ void RestrictCorrect(MeshS *pM)
 
           }}}
 
-/* Correct B2i */
+/* Restrict B2i */
           for (k=kcs  ; k<=kce; k++) {
             /* Set B2i at jcs if no flux correction will be made.  Increment
              * pointer even if value in Rcv pointer is ignored. */
@@ -318,7 +318,7 @@ void RestrictCorrect(MeshS *pM)
             }
           }
 
-/* Correct B3i */
+/* Restrict B3i */
           /* Set B3i at kcs if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
           for (j=jcs; j<=jce; j++) {
@@ -470,18 +470,25 @@ void RestrictCorrect(MeshS *pM)
             q3 = -(pG->dt/pG->dx3);
           }
 
+/**************
+printf("ID= %i ics,ice = %i %i i = %i ib = %i\n",myID_Comm_world,ics,ice,i,ib);
+printf("ks,ke = %i %i kcs/kce = %i %i\n",pG->ks,pG->ke,kcs,kce);
+printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
+***************/
+
           for (k=kcs, kk=0; k<=kce  ; k++, kk++) {
             for (j=jcs, jj=0; j<=jce; j++, jj++) {
               SMRemf3[kk][jj] = *(pRcv++);
               pG->B2i[k][j][i]+= q1*(pCO->myEMF3[dim][kk][jj] -SMRemf3[kk][jj]);
             }
-           /* only update B2i[jce+1] if ox2 [dim=3] boundary is at edge of child
-            * Domain (so ox2 boundary is between fine/coarse Grids), or at edge
-            * of this Grid. Otherwise ox2 boundary is between MPI Grids on child
-            * Domain, and it will be updated as B2i[jcs] by other child Grid */
+           /* Correct B2i[jce+1] if ox2 [dim=3] boundary is between fine/coarse
+            * Grids, OR at outer-x2 edge of this Grid, OR if x1-boundary only
+            * involves flux-corrections.  Otherwise ox2 boundary is between MPI
+            * Grids on child Domain, and it will be corrected as B2i[jcs] by
+            * other child Grid */
             jj = jce-jcs+1;
             SMRemf3[kk][jj] = *(pRcv++);
-            if((pCO->myEMF3[3] != NULL) || (jce==pG->je)){
+            if((pCO->myEMF3[3] != NULL) || (jce==pG->je) || (ice<ics)){
               pG->B2i[k][jce+1][i] +=
                 q1*(pCO->myEMF3[dim][kk][jj] - SMRemf3[kk][jj]);
             }
@@ -494,6 +501,17 @@ void RestrictCorrect(MeshS *pM)
               q2*(pCO->myEMF3[dim][kk][jj  ] - SMRemf3[kk][jj  ]);
           }}
 
+/* If x1-boundary involves only flux corrections, correct B1i[jcs-1] and
+ * B1i[jce+1].  Normally this is done as correction at x2-boundary */
+          if (ice < ics) {
+            for (k=kcs, kk=0; k<=kce; k++, kk++) {
+              pG->B1i[k][jcs-1][ib] -=
+                q2*(pCO->myEMF3[dim][kk][0] - SMRemf3[kk][0]);
+              pG->B1i[k][jce+1][ib] +=
+                q2*(pCO->myEMF3[dim][kk][jce-jcs+1] - SMRemf3[kk][jce-jcs+1]);
+            }
+          }
+
           if (nDim == 3){ /* 3D problem */
 
             for (k=kcs, kk=0; k<=kce; k++, kk++) {
@@ -501,14 +519,15 @@ void RestrictCorrect(MeshS *pM)
               SMRemf2[kk][jj] = *(pRcv++);
               pG->B3i[k][j][i] -= q1*(pCO->myEMF2[dim][kk][jj]-SMRemf2[kk][jj]);
             }}
-           /* only update B3i[kce+1] if ox3 [dim=5] boundary is at edge of child
-            * Domain (so ox3 boundary is between fine/coarse Grids), or at edge
-            * of this Grid. Otherwise ox3 boundary is between MPI Grids on child
-            * Domain, and it will be updated as B3i[kcs] by other child Grid */
+           /* Correct B3i[kce+1] if ox3 [dim=5] boundary is between fine/coarse
+            * Grids, OR at outer-x3 edge of this Grid, OR if x1-boundary only
+            * involves flux-corrections.  Otherwise ox3 boundary is between MPI
+            * Grids on child Domain, and it will be corrected as B3i[kcs] by
+            * other child Grid */
             kk = kce-kcs+1;
             for (j=jcs, jj=0; j<=jce  ; j++, jj++) {
               SMRemf2[kk][jj] = *(pRcv++); 
-              if((pCO->myEMF2[5] != NULL) || (kce==pG->ke)){
+              if((pCO->myEMF2[5] != NULL) || (kce==pG->ke) || (ice<ics)){
                 pG->B3i[kce+1][j][i] -= 
                   q1*(pCO->myEMF2[dim][kk][jj] - SMRemf2[kk][jj]);
               }
@@ -520,6 +539,17 @@ void RestrictCorrect(MeshS *pM)
                 q3*(pCO->myEMF2[dim][kk+1][jj] - SMRemf2[kk+1][jj]) -
                 q3*(pCO->myEMF2[dim][kk  ][jj] - SMRemf2[kk  ][jj]);
             }}
+
+/* If x1-boundary involves only flux corrections, correct B1i[kcs-1] and
+ * B1i[kce+1].  Normally this is done as correction at x3-boundary */
+            if (ice < ics) {
+              for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                pG->B1i[kcs-1][j][ib] +=
+                  q3*(pCO->myEMF2[dim][0][jj] - SMRemf2[0][jj]);
+                pG->B1i[kce+1][j][ib] -=
+                  q3*(pCO->myEMF2[dim][kce-kcs+1][jj] - SMRemf2[kce-kcs+1][jj]);
+              }
+            }
 
             for (k=kcs-1; k<=kce+1; k++) {
             for (j=jcs; j<=jce; j++) {
@@ -562,13 +592,14 @@ void RestrictCorrect(MeshS *pM)
               SMRemf3[kk][ii] = *(pRcv++);
               pG->B1i[k][j][i]-= q2*(pCO->myEMF3[dim][kk][ii] -SMRemf3[kk][ii]);
             }
-           /* only update B1i[ice+1] if ox1 [dim=1] boundary is at edge of child
-            * Domain (so ox1 boundary is between fine/coarse Grids), or at edge
-            * of this Grid. Otherwise ox1 boundary is between MPI Grids on child
-            * Domain, and it will be updated as B1i[ics] by other child Grid */
+           /* Correct B1i[ice+1] if ox1 [dim=1] boundary is between fine/coarse
+            * Grids, OR at outer-x1 edge of this Grid, OR if x2-boundary only
+            * involves flux-corrections.  Otherwise ox1 boundary is between MPI
+            * Grids on child Domain, and it will be corrected as B1i[ics] by
+            * other child Grid */
             ii = ice-ics+1;
             SMRemf3[kk][ii] = *(pRcv++);
-            if ((pCO->myEMF3[1] != NULL) || (ice==pG->ie)){
+            if ((pCO->myEMF3[1] != NULL) || (ice==pG->ie) || (jce<jcs)){
               pG->B1i[k][j][ice+1] -=
                 q2*(pCO->myEMF3[dim][kk][ii] - SMRemf3[kk][ii]);
             }
@@ -580,6 +611,17 @@ void RestrictCorrect(MeshS *pM)
               q1*(pCO->myEMF3[dim][kk][ii  ] - SMRemf3[kk][ii  ]);
           }}
 
+/* If x2-boundary involves only flux corrections, correct B2i[ics-1] and
+ * B2i[ice+1].  Normally this is done as correction at x1-boundary */
+          if (jce < jcs) {
+            for (k=kcs, kk=0; k<=kce; k++, kk++) {
+              pG->B2i[k][jb][ics-1] += 
+                q1*(pCO->myEMF3[dim][kk][0] - SMRemf3[kk][0]);
+              pG->B2i[k][jb][ice+1] -= 
+                q1*(pCO->myEMF3[dim][kk][ice-ics+1] - SMRemf3[kk][ice-ics+1]);
+            }
+          }
+
           if (nDim == 3){ /* 3D problem */
 
             for (k=kcs, kk=0; k<=kce; k++, kk++) {
@@ -587,14 +629,15 @@ void RestrictCorrect(MeshS *pM)
               SMRemf1[kk][ii] = *(pRcv++);
               pG->B3i[k][j][i] += q2*(pCO->myEMF1[dim][kk][ii]-SMRemf1[kk][ii]);
             }}
-           /* only update B3i[kce+1] if ox3 [dim=5] boundary is at edge of child
-            * Domain (so ox3 boundary is between fine/coarse Grids), or at edge
-            * of this Grid. Otherwise ox3 boundary is between MPI Grids on child
-            * Domain, and it will be updated as B3i[kcs] by other child Grid */
+           /* Correct B3i[kce+1] if ox3 [dim=5] boundary is between fine/coarse
+            * Grids, OR at outer-x3 edge of this Grid, OR if x2-boundary only
+            * involves flux-corrections.  Otherwise ox3 boundary is between MPI
+            * Grids on child Domain, and it will be corrected as B3i[kcs] by
+            * other child Grid */
             kk = kce-kcs+1;
             for (i=ics, ii=0; i<=ice  ; i++, ii++) {
               SMRemf1[kk][ii] = *(pRcv++);
-              if((pCO->myEMF1[5] != NULL) || (kce==pG->ke)){
+              if((pCO->myEMF1[5] != NULL) || (kce==pG->ke) || (jce<jcs)){
                 pG->B3i[kce+1][j][i] +=
                   q2*(pCO->myEMF1[dim][kk][ii] - SMRemf1[kk][ii]);
               }
@@ -606,6 +649,17 @@ void RestrictCorrect(MeshS *pM)
                 q3*(pCO->myEMF1[dim][kk+1][ii] - SMRemf1[kk+1][ii]) -
                 q3*(pCO->myEMF1[dim][kk  ][ii] - SMRemf1[kk  ][ii]);
             }}
+
+/* If x2-boundary involves only flux corrections, correct B2i[kcs-1] and
+ * B2i[kce+1].  Normally this is done as correction at x3-boundary */
+            if (jce < jcs) {
+              for (i=ics, ii=0; i<=ice; i++, ii++) {
+                pG->B2i[kcs-1][jb][i] -= 
+                  q3*(pCO->myEMF1[dim][0][ii] - SMRemf1[0][ii]);
+                pG->B2i[kce+1][jb][i] += 
+                  q3*(pCO->myEMF1[dim][kce-kcs+1][ii] - SMRemf1[kce-kcs+1][ii]);
+              }
+            }
 
             for (k=kcs-1; k<=kce+1; k++) {
             for (i=ics; i<=ice; i++) {
@@ -648,14 +702,15 @@ void RestrictCorrect(MeshS *pM)
             SMRemf1[jj][ii] = *(pRcv++);
             pG->B2i[k][j][i] -= q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
           }}
-         /* only update B2i[jce+1] if ox2 [dim=3] boundary is at edge of child
-          * Domain (so ox2 boundary is between fine/coarse Grids), or at edge
-          * of this Grid. Otherwise ox2 boundary is between MPI Grids on child
-          * Domain, and it will be updated as B2i[jcs] by other child Grid */
+         /* Correct B2i[jce+1] if ox2 [dim=3] boundary is between fine/coarse
+          * Grids, OR at outer-x2 edge of this Grid, OR if x3-boundary only
+          * involves flux-corrections.  Otherwise ox2 boundary is between MPI
+          * Grids on child Domain, and it will be corrected as B2i[jcs] by
+          * other child Grid */
           jj = jce-jcs+1;
           for (i=ics, ii=0; i<=ice  ; i++, ii++) {
             SMRemf1[jj][ii] = *(pRcv++);
-            if((pCO->myEMF1[3] != NULL) || (jce==pG->je)){
+            if((pCO->myEMF1[3] != NULL) || (jce==pG->je) || (kce<kcs)){
               pG->B2i[k][jce+1][i] -=
                 q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
             }
@@ -666,13 +721,14 @@ void RestrictCorrect(MeshS *pM)
               SMRemf2[jj][ii] = *(pRcv++);
               pG->B1i[k][j][i]+= q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
             }
-           /* only update B1i[ice+1] if ox1 [dim=1] boundary is at edge of child
-            * Domain (so ox1 boundary is between fine/coarse Grids), or at edge
-            * of this Grid. Otherwise ox1 boundary is between MPI Grids on child
-            * Domain, and it will be updated as B1i[ics] by other child Grid */
+           /* Correct B1i[ice+1] if ox1 [dim=1] boundary is between fine/coarse
+            * Grids, OR at outer-x1 edge of this Grid, OR if x3-boundary only
+            * involves flux-corrections.  Otherwise ox1 boundary is between MPI
+            * Grids on child Domain, and it will be corrected as B1i[ics] by
+            * other child Grid */
             ii = ice-ics+1;
             SMRemf2[jj][ii] = *(pRcv++);
-            if ((pCO->myEMF2[1] != NULL) || (ice==pG->ie)){
+            if ((pCO->myEMF2[1] != NULL) || (ice==pG->ie) || (kce<kcs)){
               pG->B1i[k][j][ice+1] +=
                 q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
             }
@@ -686,6 +742,24 @@ void RestrictCorrect(MeshS *pM)
               q1*(pCO->myEMF2[dim][jj  ][ii+1] - SMRemf2[jj  ][ii+1]) +
               q1*(pCO->myEMF2[dim][jj  ][ii  ] - SMRemf2[jj  ][ii  ]);
           }}
+
+/* If x3-boundary involves only flux corrections, correct B3i[ics-1],B3i[ice+1]
+ * and B3i[jcs-1],B3i[jce+1].  Normally these are done as corrections at
+ * x1- and x2-boundaries */
+          if (kce < kcs) {
+            for (j=jcs, jj=0; j<=jce; j++, jj++) {
+              pG->B3i[kb][j][ics-1] -=
+                q1*(pCO->myEMF2[dim][jj][0] - SMRemf2[jj][0]);
+              pG->B3i[kb][j][ice+1] +=
+                q1*(pCO->myEMF2[dim][jj][ice-ics+1] - SMRemf2[jj][ice-ics+1]);
+            }
+            for (i=ics, ii=0; i<=ice; i++, ii++) {
+              pG->B3i[kb][jcs-1][i] +=
+                q2*(pCO->myEMF1[dim][0][ii] - SMRemf1[0][ii]);
+              pG->B3i[kb][jce+1][i] -=
+                q2*(pCO->myEMF1[dim][jce-jcs+1][ii] - SMRemf1[jce-jcs+1][ii]);
+            }
+          }
 
           for (j=jcs; j<=jce; j++) {
           for (i=ics-1; i<=ice+1; i++) {
@@ -726,6 +800,7 @@ void RestrictCorrect(MeshS *pM)
     for (npg=0; npg<(pG->NPGrid); npg++){
       pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
       cnt = 0;
+      nFld = 0;
 
 /* Get coordinates ON THIS GRID of overlap region of parent Grid */
 
@@ -841,41 +916,51 @@ void RestrictCorrect(MeshS *pM)
 
       if (nDim == 3) { /* 3D problem, restrict B1i,B2i,B3i */
 
-        for (k=kps; k<=kpe  ; k+=2) {
-        for (j=jps; j<=jpe  ; j+=2) {
-        for (i=ips; i<=ipe+1; i+=2) {
-          *(pSnd++) = 0.25*(pG->B1i[k  ][j][i] + pG->B1i[k  ][j+1][i]
-                         +  pG->B1i[k+1][j][i] + pG->B1i[k+1][j+1][i]);
-        }}}
-        for (k=kps; k<=kpe  ; k+=2) {
-        for (j=jps; j<=jpe+1; j+=2) {
-        for (i=ips; i<=ipe  ; i+=2) {
-          *(pSnd++) = 0.25*(pG->B2i[k  ][j][i] + pG->B2i[k  ][j][i+1]
-                          + pG->B2i[k+1][j][i] + pG->B2i[k+1][j][i+1]);
-        }}}
-        for (k=kps; k<=kpe+1; k+=2) {
-        for (j=jps; j<=jpe  ; j+=2) {
-        for (i=ips; i<=ipe  ; i+=2) {
-          *(pSnd++) = 0.25*(pG->B3i[k][j  ][i] + pG->B3i[k][j  ][i+1]
-                          + pG->B3i[k][j+1][i] + pG->B3i[k][j+1][i+1]);
-        }}}
-        nFld = ((kpe-kps+1)/2    )*((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
-               ((kpe-kps+1)/2    )*((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    ) +
-               ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2    )*((ipe-ips+1)/2    );
+        if (ips < ipe) { /* No restriction, only flux correction */
+          for (k=kps; k<=kpe  ; k+=2) {
+          for (j=jps; j<=jpe  ; j+=2) {
+          for (i=ips; i<=ipe+1; i+=2) {
+            *(pSnd++) = 0.25*(pG->B1i[k  ][j][i] + pG->B1i[k  ][j+1][i]
+                           +  pG->B1i[k+1][j][i] + pG->B1i[k+1][j+1][i]);
+          }}}
+          nFld += ((kpe-kps+1)/2)*((jpe-jps+1)/2)*((ipe-ips+1)/2 + 1);
+        }
+        if (jps < jpe) { /* No restriction, only flux correction */
+          for (k=kps; k<=kpe  ; k+=2) {
+          for (j=jps; j<=jpe+1; j+=2) {
+          for (i=ips; i<=ipe  ; i+=2) {
+            *(pSnd++) = 0.25*(pG->B2i[k  ][j][i] + pG->B2i[k  ][j][i+1]
+                            + pG->B2i[k+1][j][i] + pG->B2i[k+1][j][i+1]);
+          }}}
+          nFld += ((kpe-kps+1)/2)*((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
+        }
+        if (kps < kpe) { /* No restriction, only flux correction */
+          for (k=kps; k<=kpe+1; k+=2) {
+          for (j=jps; j<=jpe  ; j+=2) {
+          for (i=ips; i<=ipe  ; i+=2) {
+            *(pSnd++) = 0.25*(pG->B3i[k][j  ][i] + pG->B3i[k][j  ][i+1]
+                            + pG->B3i[k][j+1][i] + pG->B3i[k][j+1][i+1]);
+          }}}
+          nFld += ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2)*((ipe-ips+1)/2);
+        }
 
       } else {
 
         if (nDim == 2) { /* 2D problem, restrict B1i,B2i */
-          for (j=jps; j<=jpe  ; j+=2) {
-          for (i=ips; i<=ipe+1; i+=2) {
-            *(pSnd++) = 0.5*(pG->B1i[kps][j][i] + pG->B1i[kps][j+1][i]);
-          }}
-          for (j=jps; j<=jpe+1; j+=2) {
-          for (i=ips; i<=ipe  ; i+=2) {
-            *(pSnd++) = 0.5*(pG->B2i[kps][j][i] + pG->B2i[kps][j][i+1]);
-          }}
-          nFld = ((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
-                 ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    );
+          if (ips < ipe) { /* No restriction, only flux correction */
+            for (j=jps; j<=jpe  ; j+=2) {
+            for (i=ips; i<=ipe+1; i+=2) {
+              *(pSnd++) = 0.5*(pG->B1i[kps][j][i] + pG->B1i[kps][j+1][i]);
+            }}
+            nFld += ((jpe-jps+1)/2)*((ipe-ips+1)/2 + 1);
+          }
+          if (jps < jpe) { /* No restriction, only flux correction */
+            for (j=jps; j<=jpe+1; j+=2) {
+            for (i=ips; i<=ipe  ; i+=2) {
+              *(pSnd++) = 0.5*(pG->B2i[kps][j][i] + pG->B2i[kps][j][i+1]);
+            }}
+            nFld = ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
+          }
         }
 
       }
@@ -1112,6 +1197,7 @@ void RestrictCorrect(MeshS *pM)
             for (j=0; j<=(jpe-jps)+1; j+=2) {
               *(pSnd++) = pPO->myEMF3[dim][k][j];
             }}
+            cnt += ((kpe-kps+1)/2)*((jpe-jps+1)/2 + 1);
 
           } else {  
 
@@ -1126,6 +1212,8 @@ void RestrictCorrect(MeshS *pM)
             for (j=0; j<=(jpe-jps)  ; j+=2) {
               *(pSnd++) = 0.5*(pPO->myEMF2[dim][k][j]+pPO->myEMF2[dim][k][j+1]);
             }}
+            cnt += ((kpe-kps+1)/2    )*((jpe-jps+1)/2 + 1) +
+                   ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2    );
           }
         }
       }
@@ -1142,6 +1230,7 @@ void RestrictCorrect(MeshS *pM)
             for (i=0; i<=(ipe-ips)+1; i+=2) {
               *(pSnd++) = pPO->myEMF3[dim][k][i];
             }}
+            cnt += ((kpe-kps+1)/2)*((ipe-ips+1)/2 + 1);
 
           } else {
 
@@ -1156,6 +1245,8 @@ void RestrictCorrect(MeshS *pM)
             for (i=0; i<=(ipe-ips)  ; i+=2) {
               *(pSnd++) = 0.5*(pPO->myEMF1[dim][k][i]+pPO->myEMF1[dim][k][i+1]);
             }}
+            cnt += ((kpe-kps+1)/2    )*((ipe-ips+1)/2 + 1) +
+                   ((kpe-kps+1)/2 + 1)*((ipe-ips+1)/2    );
           }
         }
       }
@@ -1177,10 +1268,15 @@ void RestrictCorrect(MeshS *pM)
           for (i=0; i<=(ipe-ips)+1; i+=2) {
             *(pSnd++) = 0.5*(pPO->myEMF2[dim][j][i] + pPO->myEMF2[dim][j+1][i]);
           }}
+          cnt += ((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
+                 ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    );
         }
       }
-
 #endif
+/*****************************
+printf("cnt = %i\n", cnt);
+*****************************/
+
 
 #ifdef MPI_PARALLEL
 /*--- Step 3e. Send rectricted soln and fluxes -------------------------------*/
@@ -1227,7 +1323,7 @@ void RestrictCorrect(MeshS *pM)
 void Prolongate(MeshS *pM)
 {
   GridS *pG;
-  int nDim,nl,nd,ncg,dim,npg,rbufN,id,l,m,n,mend,nend;
+  int nDim,nl,nd,ncg,dim,npg,rbufN,id,l,m,n,mend,nend,nZeroP;
   int i,ii,ics,ice,ips,ipe,igzs,igze;
   int j,jj,jcs,jce,jps,jpe,jgzs,jgze;
   int k,kk,kcs,kce,kps,kpe,kgzs,kgze;
@@ -1268,17 +1364,26 @@ void Prolongate(MeshS *pM)
  * index alternates between 0 and 1 for even/odd values of nl, since if
  * there are Grids on multiple levels there may be 2 receives posted at once */
 
+        nZeroP = 0;
         mAddress = 0;
         rbufN = ((nl+1) % 2);
         if (pG->NmyPGrid > 0) mAddress = pG->PGrid[0].nWordsP;
 
         for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
-          mIndex = npg - pG->NmyPGrid;
-          ierr = MPI_Irecv(&(recv_bufP[rbufN][nd][mAddress]),
-            pG->PGrid[npg].nWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
-            pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
-            &(recv_rq[nl+1][nd][mIndex]));
-          mAddress += pG->PGrid[npg].nWordsP;
+
+/* Skip if no prolongation needed for this child (only flux correction) */
+          if (pG->PGrid[npg].nWordsP == 0) { 
+            nZeroP += 1;
+          } else {
+
+            mIndex = npg - pG->NmyPGrid - nZeroP;
+            ierr = MPI_Irecv(&(recv_bufP[rbufN][nd][mAddress]),
+              pG->PGrid[npg].nWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
+              pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
+              &(recv_rq[nl+1][nd][mIndex]));
+            mAddress += pG->PGrid[npg].nWordsP;
+          }
+
         }
 
       }
@@ -1294,8 +1399,15 @@ void Prolongate(MeshS *pM)
   if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
     pG=pM->Domain[nl][nd].Grid;
     for(i=0; i<maxND; i++) start_addrP[i] = 0;
+    nZeroP = 0;
 
     for (ncg=0; ncg<(pG->NCGrid); ncg++){
+
+/* Skip if no prolongation needed for this child (only flux correction) */
+    if (pG->CGrid[ncg].nWordsP == 0) { 
+      nZeroP += 1;
+    } else {
+
       pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
 
 /* index send_buf with DomN of child, since could be multiple child Domains on
@@ -1364,7 +1476,7 @@ void Prolongate(MeshS *pM)
 /* non-blocking send of data to child, using Domain number as tag. */
 #ifdef MPI_PARALLEL
       if (ncg >= pG->NmyCGrid) {
-        mIndex = ncg - pG->NmyCGrid;
+        mIndex = ncg - pG->NmyCGrid - nZeroP;
         ierr = MPI_Isend(&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]),
           pG->CGrid[ncg].nWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
           pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
@@ -1373,6 +1485,7 @@ void Prolongate(MeshS *pM)
 
       start_addrP[pCO->DomN] += pG->CGrid[ncg].nWordsP;
 
+    } /* end if/else on nWordsP */ 
     } /* end loop over child grids */
   }} /* end loop over Domains */
 
@@ -1387,7 +1500,11 @@ void Prolongate(MeshS *pM)
     pG=pM->Domain[nl][nd].Grid;          /* set pointer to Grid */
     rbufN = (nl % 2);
 
-    for (npg=0; npg<(pG->NPGrid); npg++){
+/* Loop over number of parent grids with non-zero-size prolongation data */
+    nZeroP = 0;
+    for (i=0; i < pG->NPGrid; i++) if (pG->PGrid[i].nWordsP == 0) nZeroP++;
+
+    for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
 
 /* If parent Grid is on this processor, data is at start of recv buffer */
 
@@ -1400,17 +1517,20 @@ void Prolongate(MeshS *pM)
 /* Check non-blocking receives posted above for data in ghost zone from parent
  * Grids, sent in Step 1.  Accept messages in any order. */
 
-        mCount = pG->NPGrid - pG->NmyPGrid;
+        mCount = pG->NPGrid - pG->NmyPGrid - nZeroP;
         ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
         if(mIndex == MPI_UNDEFINED){
           ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl,nd);
         }
 
 /* Recv buffer is addressed from PGrid[0].nWordsP for first MPI message
- * if NmyPGrid>0 */
+ * if NmyPGrid>0.  Also must remove zero size messages from index. */
+
+        mIndex += pG->NmyPGrid;
+        for (i=pG->NmyPGrid; i <= mIndex; i++) 
+          if (pG->PGrid[i].nWordsP == 0) mIndex++;
 
         mAddress = 0;
-        mIndex += pG->NmyPGrid;
         for (i=0; i<mIndex; i++) mAddress += pG->PGrid[i].nWordsP;
         pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]); 
         pRcv = (double*)&(recv_bufP[rbufN][nd][mAddress]);
@@ -1779,8 +1899,11 @@ void Prolongate(MeshS *pM)
     if (pM->Domain[nl][nd].Grid != NULL) {
       pG=pM->Domain[nl][nd].Grid;
 
+      nZeroP = 0;
+      for (i=0; i < pG->NCGrid; i++) if (pG->CGrid[i].nWordsP == 0) nZeroP++;
+
       if (pG->NCGrid > pG->NmyCGrid) {
-        mCount = pG->NCGrid - pG->NmyCGrid;
+        mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
         ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
       }
     }
@@ -1818,8 +1941,8 @@ void SMR_init(MeshS *pM)
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       sendRC=0;
       recvRC=0;
-      sendP =0;
-      recvP =0;
+      sendP =1;
+      recvP =1;
 
       if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this proc */
         pG=pM->Domain[nl][nd].Grid;          /* set pointer to Grid */
@@ -2169,7 +2292,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   Vfail = 0;
   fail = 0;
 
-#endif SPECIAL_RELATIVITY
+#endif /* SPECIAL_RELATIVITY */
 
 #endif /* FIRST_ORDER */
 }
