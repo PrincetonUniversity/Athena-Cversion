@@ -1118,8 +1118,9 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	aeff = beta * ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
 
 	aeff = sqrt(aeff); 
-	
 
+	aeff = sqrt(Gamma * W.P / W.d);
+	
 	return aeff;
 }
 

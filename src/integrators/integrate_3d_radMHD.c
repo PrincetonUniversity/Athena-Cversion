@@ -195,6 +195,7 @@ void integrate_3d_radMHD(DomainS *pD)
 			U1d[i].Edd_33  = pG->U[k][j][i].Edd_33;
 			U1d[i].Sigma_a  = pG->U[k][j][i].Sigma_a;
                         U1d[i].Sigma_t  = pG->U[k][j][i].Sigma_t;
+			
 
 #ifdef RADIATION_MHD
       			U1d[i].By = pG->U[k][j][i].B2c;

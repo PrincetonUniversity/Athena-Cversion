@@ -254,13 +254,16 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /* Radiation hydro and mhd part */
 #ifdef RADIATION_HYDRO
   aeff = eff_sound(W[i],dt,dir);
+
   esys_prim_rad_hyd(aeff, W[i].Vx, W[i].d, ev,rem,lem);
 #endif
 
 
 #ifdef RADIATION_MHD
+
   aeff = eff_sound(W[i],dt,dir);
-  esys_prim_rad_mhd(W[i].d, W[i].Vx, aeff, Bxc[i], W[i].By, W[i].Bz, ev, rem, lem);
+
+   esys_prim_rad_mhd(W[i].d, W[i].Vx, aeff, Bxc[i], W[i].By, W[i].Bz, ev, rem, lem);
 #endif
 
 /********************************/

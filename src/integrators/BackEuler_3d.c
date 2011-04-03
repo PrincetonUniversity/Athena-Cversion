@@ -528,17 +528,16 @@ void BackEuler_3d(MeshS *pM)
 		for(j=js; j<=je; j++) {
 			for(i=is; i<=ie; i++){
 /* E is the total energy. should subtract the kinetic energy and magnetic energy density */
-  /*  		pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
-			+ pG->U[k][j][i].M2 * pG->U[k][j][i].M2)/pG->U[k][j][i].d) * (Gamma - 1.0);
-*/
-/* if MHD - 0.5 * Bx * Bx   */
-/*
+/*    		pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
+			+ pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3)/pG->U[k][j][i].d) * (Gamma - 1.0);
+
+
 #ifdef RADIATION_MHD
 
 		pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
 
-    		temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
+    		temperature = pressure / (pG->U[k][j][i].d * R_ideal);
 */
 		/* Guess temperature is updated in the main loop */
 		temperature = pG->Tguess[k][j][i];
@@ -3621,7 +3620,7 @@ void i_j_ke_MPI(const int i, const int j)
 		indexiFr3 = NoFr3 + 6 + MPIcount1;
 		coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
-		indexi1Er  = NoEr + 8 + MPIcount1;
+		indexi1Er  = NoEr + 10 + MPIcount1;
 		indexi1Fr1 = NoFr1 + 8 + MPIcount1;
 		indexi1Fr2 = NoFr2 + 8 + MPIcount1;
 		indexi1Fr3 = NoFr3 + 8 + MPIcount1;
@@ -4195,10 +4194,10 @@ void ie_j_k_phy(const int j, const int k)
 	colk0 = 4 * (k - ks - 1) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 
-	indexj0Er  = NoEr + 2 + count1;
-	indexj0Fr1 = NoFr1 + 2 + count1;
-	indexj0Fr2 = NoFr2 + 2 + count1;
-	indexj0Fr3 = NoFr3 + 2 + count1;
+	indexj0Er  = NoEr + 2;
+	indexj0Fr1 = NoFr1 + 2;
+	indexj0Fr2 = NoFr2 + 2;
+	indexj0Fr3 = NoFr3 + 2;
 	colj0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js - 1) * Nx + 4 * (i - is) + count_Grids;
 	
 
@@ -4216,10 +4215,10 @@ void ie_j_k_phy(const int j, const int k)
 	coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 	if(ix1 == 4){	
-		indexi1Er  = NoEr + 2;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
+		indexi1Er  = NoEr + 4;
+		indexi1Fr1 = NoFr1 + 4;
+		indexi1Fr2 = NoFr2 + 4;
+		indexi1Fr3 = NoFr3 + 4;
 		coli1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids;
 	}
 		/* other x2 boundary condition */
@@ -5356,7 +5355,7 @@ void i_je_ks_phy_phy(const int i)
 		indexj1Fr1 = NoFr1;
 		indexj1Fr2 = NoFr2;
 		indexj1Fr3 = NoFr3;
-		colj1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js + 1) * Nx + 4 * (i - is) + count_Grids;
+		colj1 = 4 * (k - ks) * Nx * Ny + 4 * (js - js) * Nx + 4 * (i - is) + count_Grids;
 	}
 	else if(ox2 == 1 || ox2 == 5){
 					
@@ -6072,7 +6071,7 @@ void i_je_ke_phy_MPI(const int i)
 		varphi[6] += varphi[10];
 		varphi[7] += varphi[11];
 	}
-	else if(ix2 == 2){
+	else if(ox2 == 2){
 		theta[6] += theta[12];
 		theta[8] += theta[13];
 			
@@ -6085,7 +6084,7 @@ void i_je_ke_phy_MPI(const int i)
 		varphi[6] += varphi[10];
 		varphi[7] += varphi[11];
 	}
-	else if(ix2 == 3){
+	else if(ox2 == 3){
 			/* Do nothing */
 	}	
 
@@ -7100,7 +7099,7 @@ void is_j_ke_MPI_MPI(const int j)
 	
 	/***************************/
 	/* for x boundary, MPI part */
-	indexi0Er  = NoEr + MPIcount1z + MPIcount2;
+	indexi0Er  = NoEr + MPIcount1z + MPIcount2x;
 	indexi0Fr1 = NoFr1 + MPIcount1z + MPIcount2Fx;
 	indexi0Fr2 = NoFr2 + MPIcount1z + MPIcount2Fx;
 	indexi0Fr3 = NoFr3 + MPIcount1z + MPIcount2Fx;
@@ -7284,7 +7283,7 @@ void ie_j_ks_MPI_phy(const int j)
 	
    	shiftx = 4 * Ny * Nx * Nz * (rx1 - ID);
 
-	if(rx2 < ID){	
+	if(rx1 < ID){	
 		
 		MPIcount1 = 2;
 		MPIcount2 = 0;
@@ -7487,7 +7486,7 @@ void ie_j_ks_phy_MPI(const int j)
 		varphi[6] += varphi[8];
 		varphi[7] += varphi[9];
 	}
-	else if(ox2 == 3){
+	else if(ox1 == 3){
 			/* Do nothing */
 	}	
 
@@ -7958,7 +7957,7 @@ void ie_j_ke_phy_MPI(const int j)
 		varphi[6] += varphi[8];
 		varphi[7] += varphi[9];
 	}
-	else if(ix1 == 2){
+	else if(ox1 == 2){
 		theta[6] += theta[10];
 		theta[7] += theta[11];
 			
@@ -7971,7 +7970,7 @@ void ie_j_ke_phy_MPI(const int j)
 		varphi[6] += varphi[8];
 		varphi[7] += varphi[9];
 	}
-	else if(ix1 == 3){
+	else if(ox1 == 3){
 			/* Do nothing */
 	}	
 
@@ -8208,7 +8207,7 @@ void is_js_k_phy_phy(const int k)
 		varphi[6] += varphi[4];
 		varphi[7] += varphi[5];
 	}
-	else if(ix2 == 3){
+	else if(ix1 == 3){
 			/* Do nothing */
 	}	
 
@@ -8276,7 +8275,7 @@ void is_js_k_MPI_phy(const int k)
 	indexk0Fr1 = NoFr1 + MPIcount1;
 	indexk0Fr2 = NoFr2 + MPIcount1;
 	indexk0Fr3 = NoFr3 + MPIcount1;
-	colk0 = 4 * (ke - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
+	colk0 = 4 * (k - ks - 1) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 	
 
 	if(ix2 == 4){
@@ -8704,7 +8703,7 @@ void is_je_k_phy_phy(const int k)
 	indexk1Fr1 = NoFr1 + 8 + count1y + count1x;
 	indexk1Fr2 = NoFr2 + 8 + count1y + count1x;
 	indexk1Fr3 = NoFr3 + 8 + count1y + count1x;
-	colk1 = 4 * (ks - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
+	colk1 = 4 * (k - ks + 1) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 
 	return;
@@ -8839,7 +8838,7 @@ void is_je_k_phy_MPI(const int k)
 	else	count1x = 0;
 
 	
-	shifty = 4 * Ny * Nx * Nz * (rx3 - ID);
+	shifty = 4 * Ny * Nx * Nz * (rx2 - ID);
 
 	if(rx2 < ID){	
 		
@@ -8925,7 +8924,7 @@ void is_je_k_phy_MPI(const int k)
 	coli1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is + 1) + count_Grids;
 
 	/***************************/
-	/* for z boundary, MPI part */
+	/* for y boundary, MPI part */
 
 	indexj1Er  = NoEr + MPIcount2;
 	indexj1Fr1 = NoFr1 + MPIcount2F;
@@ -9010,7 +9009,7 @@ void is_je_k_MPI_MPI(const int k)
 	
 	/***************************/
 	/* for x boundary, MPI part */
-	indexi0Er  = NoEr + MPIcount1y + MPIcount2;
+	indexi0Er  = NoEr + MPIcount1y + MPIcount2x;
 	indexi0Fr1 = NoFr1 + MPIcount1y + MPIcount2Fx;
 	indexi0Fr2 = NoFr2 + MPIcount1y + MPIcount2Fx;
 	indexi0Fr3 = NoFr3 + MPIcount1y + MPIcount2Fx;
@@ -9406,7 +9405,7 @@ void ie_js_k_phy_MPI(const int k)
 		varphi[6] += varphi[8];
 		varphi[7] += varphi[9];
 	}
-	else if(ox2 == 3){
+	else if(ox1 == 3){
 			/* Do nothing */
 	}	
 
@@ -9878,7 +9877,7 @@ void ie_je_k_phy_MPI(const int k)
 		varphi[6] += varphi[8];
 		varphi[7] += varphi[9];
 	}
-	else if(ix1 == 2){
+	else if(ox1 == 2){
 		theta[6] += theta[10];
 		theta[7] += theta[11];
 			
@@ -9891,7 +9890,7 @@ void ie_je_k_phy_MPI(const int k)
 		varphi[6] += varphi[8];
 		varphi[7] += varphi[9];
 	}
-	else if(ix1 == 3){
+	else if(ox1 == 3){
 			/* Do nothing */
 	}	
 
@@ -9986,12 +9985,12 @@ void ie_je_k_MPI_MPI(const int k)
 	coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 	/***************************/
-	/* for y boundary, MPI part */
+	/* for x boundary, MPI part */
 
 	indexi1Er  = NoEr + MPIcount1y + MPIcount2x;
-	indexi1Fr1 = NoFr1 + MPIcount1y + MPIcount2Fy;
-	indexi1Fr2 = NoFr2 + MPIcount1y + MPIcount2Fy;
-	indexi1Fr3 = NoFr3 + MPIcount1y + MPIcount2Fy;
+	indexi1Fr1 = NoFr1 + MPIcount1y + MPIcount2Fx;
+	indexi1Fr2 = NoFr2 + MPIcount1y + MPIcount2Fx;
+	indexi1Fr3 = NoFr3 + MPIcount1y + MPIcount2Fx;
 	coli1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + shiftx;
 	/******************************/
 	
@@ -10014,7 +10013,7 @@ void ie_je_k_MPI_MPI(const int k)
 	indexk1Fr1 = NoFr1 + 8 + MPIcount1y + MPIcount1x;
 	indexk1Fr2 = NoFr2 + 8 + MPIcount1y + MPIcount1x;
 	indexk1Fr3 = NoFr3 + 8 + MPIcount1y + MPIcount1x;
-	colk1 = 4 * (k - ks - 1) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids ;
+	colk1 = 4 * (k - ks + 1) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids ;
 
 
 
@@ -10647,13 +10646,13 @@ void is_js_ks_phy_phy_MPI()
 	if(lx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -11791,13 +11790,13 @@ void ie_js_ks_phy_phy_MPI()
 	if(lx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -12946,13 +12945,13 @@ void is_je_ks_phy_phy_MPI()
 	if(lx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -13142,10 +13141,10 @@ void is_je_ks_MPI_phy_MPI()
 	
 	/***************************/
 	/* for x boundary, MPI part */
-	indexi0Er  = NoEr + MPIcount2x + MPIcount1z + count1y;
-	indexi0Fr1 = NoFr1 + MPIcount2Fx + MPIcount1z + count1y;
-	indexi0Fr2 = NoFr2 + MPIcount2Fx + MPIcount1z + count1y;
-	indexi0Fr3 = NoFr3 + MPIcount2Fx + MPIcount1z + count1y;
+	indexi0Er  = NoEr + MPIcount2x + MPIcount1z;
+	indexi0Fr1 = NoFr1 + MPIcount2Fx + MPIcount1z;
+	indexi0Fr2 = NoFr2 + MPIcount2Fx + MPIcount1z;
+	indexi0Fr3 = NoFr3 + MPIcount2Fx + MPIcount1z;
 	coli0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + shiftx;
 	/******************************/
 
@@ -13780,7 +13779,7 @@ void ie_je_ks_MPI_phy_phy()
 		varphi[6] += varphi[10];
 		varphi[7] += varphi[11];
 	}
-	else if(ox3 == 3){
+	else if(ox2 == 3){
 			/* Do nothing */
 	}	
 
@@ -14113,13 +14112,13 @@ void ie_je_ks_phy_phy_MPI()
 	if(lx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -14150,10 +14149,10 @@ void ie_je_ks_phy_phy_MPI()
 	coli0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is - 1) + count_Grids;
 	
 
-	indexiEr  = NoEr + 4 + MPIcount1 + count1x;
-	indexiFr1 = NoFr1 + 4 + MPIcount1 + count1x;
-	indexiFr2 = NoFr2 + 4 + MPIcount1 + count1x;
-	indexiFr3 = NoFr3 + 4 + MPIcount1 + count1x;
+	indexiEr  = NoEr + 4 + MPIcount1 + count1x + count1y;
+	indexiFr1 = NoFr1 + 4 + MPIcount1 + count1x + count1y;
+	indexiFr2 = NoFr2 + 4 + MPIcount1 + count1x + count1y;
+	indexiFr3 = NoFr3 + 4 + MPIcount1 + count1x + count1y;
 	coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 	if(ox1 == 4){
@@ -14512,10 +14511,10 @@ void ie_je_ks_phy_MPI_MPI()
 	
 	/******************************/
 
-	indexk1Er  = NoEr + 8 + MPIcount1z + MPIcount1y;
-	indexk1Fr1 = NoFr1 + 6 + MPIcount1z + MPIcount1y;
-	indexk1Fr2 = NoFr2 + 6 + MPIcount1z + MPIcount1y;
-	indexk1Fr3 = NoFr3 + 6 + MPIcount1z + MPIcount1y;
+	indexk1Er  = NoEr + 8 + MPIcount1z + MPIcount1y + count1x;
+	indexk1Fr1 = NoFr1 + 6 + MPIcount1z + MPIcount1y + count1x;
+	indexk1Fr2 = NoFr2 + 6 + MPIcount1z + MPIcount1y + count1x;
+	indexk1Fr3 = NoFr3 + 6 + MPIcount1z + MPIcount1y + count1x;
 	colk1 = 4 * (k - ks + 1) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 	return;
@@ -14893,7 +14892,7 @@ void is_js_ke_MPI_phy_phy()
 		varphi[6] += varphi[2];
 		varphi[7] += varphi[3];
 	}
-	else if(ix3 == 3){
+	else if(ix2 == 3){
 			/* Do nothing */
 	}	
 	
@@ -15283,13 +15282,13 @@ void is_js_ke_phy_phy_MPI()
 	if(rx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -15307,10 +15306,10 @@ void is_js_ke_phy_phy_MPI()
 	/***************************/
 	/* for y boundary */
 	if(ix2 == 4){
-		indexj0Er  = NoEr + 8 + MPIcount1 + count1x;
-		indexj0Fr1 = NoFr1 + 6 + MPIcount1 + count1x;
-		indexj0Fr2 = NoFr2 + 6 + MPIcount1 + count1x;
-		indexj0Fr3 = NoFr3 + 6 + MPIcount1 + count1x;
+		indexj0Er  = NoEr + 10 + MPIcount1 + count1x;
+		indexj0Fr1 = NoFr1 + 8 + MPIcount1 + count1x;
+		indexj0Fr2 = NoFr2 + 8 + MPIcount1 + count1x;
+		indexj0Fr3 = NoFr3 + 8 + MPIcount1 + count1x;
 		colj0 = 4 * (k - ks) * Nx * Ny + 4 * (je - js) * Nx + 4 * (i - is) + count_Grids;
 	}
 	else if(ix2 == 1 || ix2 == 5){
@@ -15345,10 +15344,10 @@ void is_js_ke_phy_phy_MPI()
 	}	
 
 	if(ix1 == 4){
-		indexi0Er  = NoEr + 10 + MPIcount1;
-		indexi0Fr1 = NoFr1 + 8 + MPIcount1;
-		indexi0Fr2 = NoFr2 + 8 + MPIcount1;
-		indexi0Fr3 = NoFr3 + 8 + MPIcount1;
+		indexi0Er  = NoEr + 8 + MPIcount1;
+		indexi0Fr1 = NoFr1 + 6 + MPIcount1;
+		indexi0Fr2 = NoFr2 + 6 + MPIcount1;
+		indexi0Fr3 = NoFr3 + 6 + MPIcount1;
 		coli0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids;
 	}/* periodic for z direction */
 	else if(ix1 == 1 || ix1 == 5){
@@ -15962,7 +15961,7 @@ void ie_js_ke_phy_phy_phy()
 		varphi[6] += varphi[12];
 		varphi[7] -= varphi[13];
 	}
-	else if(ix3 == 2){
+	else if(ox3 == 2){
 		theta[6] += theta[14];
 		theta[9] += theta[15];
 			
@@ -15975,7 +15974,7 @@ void ie_js_ke_phy_phy_phy()
 		varphi[6] += varphi[12];
 		varphi[7] += varphi[13];
 	}
-	else if(ix3 == 3){
+	else if(ox3 == 3){
 			/* Do nothing */
 	}	
 
@@ -16059,7 +16058,7 @@ void ie_js_ke_MPI_phy_phy()
 		varphi[6] += varphi[2];
 		varphi[7] += varphi[3];
 	}
-	else if(ix3 == 3){
+	else if(ix2 == 3){
 			/* Do nothing */
 	}	
 	
@@ -16365,7 +16364,7 @@ void ie_js_ke_MPI_MPI_phy()
 	
 
 
-	indexiEr  = NoEr + 6 + MPIcount1x + MPIcount1y + count1z;
+	indexiEr  = NoEr + 4 + MPIcount1x + MPIcount1y + count1z;
 	indexiFr1 = NoFr1 + 4 + MPIcount1x + MPIcount1y + count1z;
 	indexiFr2 = NoFr2 + 4 + MPIcount1x + MPIcount1y + count1z;
 	indexiFr3 = NoFr3 + 4 + MPIcount1x + MPIcount1y + count1z;
@@ -16453,13 +16452,13 @@ void ie_js_ke_phy_phy_MPI()
 	if(rx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -17541,16 +17540,16 @@ void is_je_ke_MPI_MPI_phy()
 	/******************************/
 
 
-	indexiEr  = NoEr + 4 + MPIcount1x + MPIcount1y;
-	indexiFr1 = NoFr1 + 4 + MPIcount1x + MPIcount1y;
-	indexiFr2 = NoFr2 + 4 + MPIcount1x + MPIcount1y;
-	indexiFr3 = NoFr3 + 4 + MPIcount1x + MPIcount1y;
+	indexiEr  = NoEr + 4 + MPIcount1x + MPIcount1y + count1z;
+	indexiFr1 = NoFr1 + 4 + MPIcount1x + MPIcount1y + count1z;
+	indexiFr2 = NoFr2 + 4 + MPIcount1x + MPIcount1y + count1z;
+	indexiFr3 = NoFr3 + 4 + MPIcount1x + MPIcount1y + count1z;
 	coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
-	indexi1Er  = NoEr + 8 + MPIcount1x + MPIcount1y;
-	indexi1Fr1 = NoFr1 + 6 + MPIcount1x + MPIcount1y;
-	indexi1Fr2 = NoFr2 + 6 + MPIcount1x + MPIcount1y;
-	indexi1Fr3 = NoFr3 + 6 + MPIcount1x + MPIcount1y;
+	indexi1Er  = NoEr + 8 + MPIcount1x + MPIcount1y + count1z;
+	indexi1Fr1 = NoFr1 + 6 + MPIcount1x + MPIcount1y + count1z;
+	indexi1Fr2 = NoFr2 + 6 + MPIcount1x + MPIcount1y + count1z;
+	indexi1Fr3 = NoFr3 + 6 + MPIcount1x + MPIcount1y + count1z;
 	coli1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is + 1) + count_Grids;
 
 	/***************************/
@@ -17566,10 +17565,10 @@ void is_je_ke_MPI_MPI_phy()
 
 	
 	if(ox3 == 4){
-		indexk1Er  = NoEr + 8 + MPIcount1x + MPIcount1y;
-		indexk1Fr1 = NoFr1 + 6 + MPIcount1x + MPIcount1y;
-		indexk1Fr2 = NoFr2 + 6 + MPIcount1x + MPIcount1y;
-		indexk1Fr3 = NoFr3 + 6 + MPIcount1x + MPIcount1y;
+		indexk1Er  = NoEr + MPIcount1x + MPIcount1y;
+		indexk1Fr1 = NoFr1 + MPIcount1x + MPIcount1y;
+		indexk1Fr2 = NoFr2 + MPIcount1x + MPIcount1y;
+		indexk1Fr3 = NoFr3 + MPIcount1x + MPIcount1y;
 		colk1 = 4 * (ks - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 	}/* periodic for z direction */
 	else if(ox3 == 1 || ox3 == 5){
@@ -17630,13 +17629,13 @@ void is_je_ke_phy_phy_MPI()
 	if(rx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -17826,10 +17825,10 @@ void is_je_ke_MPI_phy_MPI()
 	
 	/***************************/
 	/* for x boundary, MPI part */
-	indexi0Er  = NoEr + MPIcount2x + MPIcount1z + count1y;
-	indexi0Fr1 = NoFr1 + MPIcount2Fx + MPIcount1z + count1y;
-	indexi0Fr2 = NoFr2 + MPIcount2Fx + MPIcount1z + count1y;
-	indexi0Fr3 = NoFr3 + MPIcount2Fx + MPIcount1z + count1y;
+	indexi0Er  = NoEr + MPIcount2x + MPIcount1z;
+	indexi0Fr1 = NoFr1 + MPIcount2Fx + MPIcount1z;
+	indexi0Fr2 = NoFr2 + MPIcount2Fx + MPIcount1z;
+	indexi0Fr3 = NoFr3 + MPIcount2Fx + MPIcount1z;
 	coli0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + shiftx;
 	/******************************/
 
@@ -18401,10 +18400,10 @@ void ie_je_ke_MPI_phy_phy()
 	coli0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is - 1) + count_Grids;
 	
 
-	indexiEr  = NoEr + 6 + MPIcount1 + count1y;
-	indexiFr1 = NoFr1 + 6 + MPIcount1 + count1y;
-	indexiFr2 = NoFr2 + 6 + MPIcount1 + count1y;
-	indexiFr3 = NoFr3 + 6 + MPIcount1 + count1y;
+	indexiEr  = NoEr + 6 + MPIcount1 + count1y + count1z;
+	indexiFr1 = NoFr1 + 6 + MPIcount1 + count1y + count1z;
+	indexiFr2 = NoFr2 + 6 + MPIcount1 + count1y + count1z;
+	indexiFr3 = NoFr3 + 6 + MPIcount1 + count1y + count1z;
 	coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 	/***************************/
@@ -18452,7 +18451,7 @@ void ie_je_ke_MPI_phy_phy()
 		varphi[6] += varphi[10];
 		varphi[7] += varphi[11];
 	}
-	else if(ox3 == 3){
+	else if(ox2 == 3){
 			/* Do nothing */
 	}	
 
@@ -18568,10 +18567,10 @@ void ie_je_ke_phy_MPI_phy()
 
 
 	if(ox1 == 4){
-		indexi1Er  = NoEr + 2 + MPIcount1 + count1z;
-		indexi1Fr1 = NoFr1 + 2 + MPIcount1 + count1z;
-		indexi1Fr2 = NoFr2 + 2 + MPIcount1 + count1z;
-		indexi1Fr3 = NoFr3 + 2 + MPIcount1 + count1z;
+		indexi1Er  = NoEr + 4 + MPIcount1 + count1z;
+		indexi1Fr1 = NoFr1 + 4 + MPIcount1 + count1z;
+		indexi1Fr2 = NoFr2 + 4 + MPIcount1 + count1z;
+		indexi1Fr3 = NoFr3 + 4 + MPIcount1 + count1z;
 		coli1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids;
 	}/* periodic for z direction */
 	else if(ox1 == 1 || ox1 == 5){
@@ -18822,13 +18821,13 @@ void ie_je_ke_phy_phy_MPI()
 	if(rx3 < ID){	
 		
 		MPIcount1 = 2;
-		MPIcount2F = 0;
+		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
 	else{
 		
 		MPIcount1 = 0;
-		MPIcount2F = 10 + count1y + count1x;
+		MPIcount2 = 10 + count1y + count1x;
 		MPIcount2F = 8 + count1y + count1x;
 	}
 
@@ -18859,10 +18858,10 @@ void ie_je_ke_phy_phy_MPI()
 	coli0 = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is - 1) + count_Grids;
 	
 
-	indexiEr  = NoEr + 6 + MPIcount1 + count1x;
-	indexiFr1 = NoFr1 + 6 + MPIcount1 + count1x;
-	indexiFr2 = NoFr2 + 6 + MPIcount1 + count1x;
-	indexiFr3 = NoFr3 + 6 + MPIcount1 + count1x;
+	indexiEr  = NoEr + 6 + MPIcount1 + count1x + count1y;
+	indexiFr1 = NoFr1 + 6 + MPIcount1 + count1x + count1y;
+	indexiFr2 = NoFr2 + 6 + MPIcount1 + count1x + count1y;
+	indexiFr3 = NoFr3 + 6 + MPIcount1 + count1x + count1y;
 	coli = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (i - is) + count_Grids;
 
 	if(ox1 == 4){

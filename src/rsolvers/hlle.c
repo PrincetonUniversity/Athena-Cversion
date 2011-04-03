@@ -177,7 +177,9 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* left state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   
-  asq = eff_sound(Wl,dt,0);
+ /* asq = eff_sound(Wl,dt,0);
+ */
+  asq = sqrt(Gamma * Wl.P / Wl.d);
   asq = asq * asq;
 
 #else 
@@ -203,7 +205,9 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* right state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   
-  asq = eff_sound(Wr,dt,0);
+ /* asq = eff_sound(Wr,dt,0);
+*/
+  asq = sqrt(Gamma * Wr.P / Wr.d);	
   asq = asq * asq;
 
 #else

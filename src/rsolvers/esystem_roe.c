@@ -679,9 +679,10 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   W.Edd_32 = Edd[4];
   W.Edd_33 = Edd[5];
   
-
+/*
   aeff = eff_sound(W, dt,flag);
-
+*/
+  aeff = sqrt(Gamma * W.P / W.d);
 /* Compute eigenvalues (eq. B2) */
 
   eigenvalues[0] = v1 - aeff;
@@ -808,7 +809,9 @@ void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   W.Edd_33 = Edd[5];
 
   /* calculate effective sound speed */
-  aeff = eff_sound(W, dt,flag);
+ /* aeff = eff_sound(W, dt,flag);
+*/
+   aeff = sqrt(Gamma * W.P / W.d);
   aeffsq = aeff * aeff;
 
 /* Compute fast- and slow-magnetosonic speeds (eq. A10) */
