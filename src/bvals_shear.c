@@ -18,9 +18,12 @@
  * CONTAINS PUBLIC FUNCTIONS:
  * - ShearingSheet_ix1() - shearing sheet BCs on ix1
  * - ShearingSheet_ox1() - shearing sheet BCs on ox1
+ * - ShearingSheet_grav_ix1() - shearing sheet BCs for grav. pot. on ix1
+ * - ShearingSheet_grav_ox1() - shearing sheet BCs for grav. pot. on ox1
  * - RemapEy_ix1()       - sets Ey at ix1 in integrator to keep <Bz>=const. 
  * - RemapEy_ox1()       - sets Ey at ox1 in integrator to keep <Bz>=const. 
  * - Fargo()             - implements FARGO algorithm for background flow
+ * - RemapVar()          - remaps variable to the nearest periodic point. 
  * - bvals_shear_init() - allocates memory for arrays used here
  * - bvals_shear_destruct() - frees memory for arrays used here		      
  *
@@ -72,6 +75,9 @@ typedef struct Remap_s{
 #if (NSCALARS > 0)
   Real s[NSCALARS];
 #endif
+#ifdef SELF_GRAVITY
+  Real Phi;
+#endif
 }Remap;
 
 /*! \struct FConsS
@@ -103,6 +109,9 @@ static double *send_buf = NULL, *recv_buf = NULL;
 #ifdef FARGO
 int nfghost;
 static FConsS ***FargoVars=NULL, ***FargoFlx=NULL;
+#endif
+#if defined(SELF_GRAVITY) || defined(FFT_ENABLED)
+static Real ***RemapVarBuf=NULL, ***RemapFlx=NULL;
 #endif
 
 /*==============================================================================
@@ -1302,6 +1311,697 @@ void ShearingSheet_ox1(DomainS *pD)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn void ShearingSheet_grav_ix1(DomainS *pD)
+ *  \brief 3D shearing-sheet BCs for gravitational potential in x1.  
+ *
+ * It applies a remap
+ * in Y after the ghost cells have been set by the usual periodic BCs in X and
+ * Y implemented in bvals_mhd.c
+ *
+ * This is a public function which is called by bvals_grav() inside a
+ * SHEARING_BOX and SELF-GRAVITY macro.					      */
+/*----------------------------------------------------------------------------*/
+
+#ifdef SELF_GRAVITY
+void ShearingSheet_grav_ix1(DomainS *pD)
+{
+  GridS *pG = pD->Grid;
+  int is = pG->is, ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int i,ii,j,k,ku,n,joffset,jremap;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
+#ifdef MPI_PARALLEL
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
+  int ierr,sendto_id,getfrom_id;
+  double *pSnd,*pRcv;
+  Remap *pRemap;
+  MPI_Request rq;
+#endif
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Compute the distance the computational domain has sheared in y */
+
+  xmin = pD->RootMinX[0];
+  xmax = pD->RootMaxX[0];
+  Lx = xmax - xmin;
+
+  xmin = pD->RootMinX[1];
+  xmax = pD->RootMaxX[1];
+  Ly = xmax - xmin;
+
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*(pG->time);
+
+/* Split this into integer and fractional peices of the Domain in y.  Ignore
+ * the integer piece because the Grid is periodic in y */
+
+  deltay = fmod(yshear, Ly);
+
+/* further decompose the fractional peice into integer and fractional pieces of
+ * a grid cell.  Note 0.0 <= epsi < 1.0.  If Domain has MPI decomposition in Y,
+ * then it is possible that:  pD->Nx2 > joffset > pG->Nx2   */
+
+  joffset = (int)(deltay/pG->dx2);
+  epsi = (fmod(deltay,pG->dx2))/pG->dx2;
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Copy data into GhstZns array.  Note i and j indices are switched.
+ * Steps 2-10 are for 3D or 2D xy runs.  Step 11 handles 2D xz separately */
+
+  if (pG->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
+
+  if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
+  for(k=ks; k<=ku; k++) {
+    for(j=js-nghost; j<=je+nghost; j++){
+      for(i=0; i<nghost; i++){
+        ii = is-nghost+i;
+        GhstZns[k][i][j].Phi = pG->Phi[k][j][ii];
+      }
+    }
+  }
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Copy GhstZns into buffer, at the same time apply a conservative remap of
+ * solution over the fractional part of grid cell */
+
+  for(k=ks; k<=ku; k++) {
+    for(i=0; i<nghost; i++){
+
+      for (j=js-nghost; j<=je+nghost; j++) U[j] = GhstZns[k][i][j].Phi;
+      RemapFlux(U,epsi,js,je+1,Flx);
+      for(j=js; j<=je; j++){
+        GhstZnsBuf[k][i][j].Phi = GhstZns[k][i][j].Phi - (Flx[j+1]-Flx[j]);
+      }
+    }
+  }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * If no MPI decomposition in Y, apply shift over integer number of
+ * grid cells during copy from buffer back into GhstZns.  */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ku; k++) {
+      for(j=js; j<=je; j++){
+        jremap = j - joffset;
+        if (jremap < (int)js) jremap += pG->Nx[1];
+
+        for(i=0; i<nghost; i++){
+          GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+        }
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 5. ------------------------------------------------------------------
+ * If Domain contains MPI decomposition in Y, then MPI calls are required for
+ * the cyclic shift needed to apply shift over integer number of grid cells
+ * during copy from buffer back into GhstZns.  */
+
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
+/* Find integer and fractional number of grids over which offset extends.
+ * This assumes every grid has same number of cells in x2-direction! */
+    Ngrids = (int)(joffset/pG->Nx[1]);
+    joverlap = joffset - Ngrids*pG->Nx[1];
+
+/*--- Step 5a. -----------------------------------------------------------------
+ * Find ids of processors that data in [je-(joverlap-1):je] is sent to, and
+ * data in [js:js+(joverlap-1)] is received from.  Only execute if joverlap>0  */
+
+    if (joverlap != 0) {
+
+      jproc = my_jproc + (Ngrids + 1);
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1]; 
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc - (Ngrids + 1);
+      if (jproc < 0) jproc += pD->NGrid[1]; 
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+/*--- Step 5b. -----------------------------------------------------------------
+ * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
+
+      cnt = nghost*joverlap*(ku-ks+1);
+/* Post a non-blocking receive for the input data */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=je-(joverlap-1); j<=je; j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZnsBuf[k][i][j]);
+            *(pSnd++) = pRemap->Phi;
+          }
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                   shearing_sheet_grav_ix1_tag, pD->Comm_Domain);
+
+/*--- Step 5c. -----------------------------------------------------------------
+ * unpack data sent from [je-(joverlap-1):je], and remap into cells in
+ * [js:js+(joverlap-1)] in GhstZns */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=js+(joverlap-1); j++) {
+          for(i=0; i<nghost; i++){
+            pRemap = &(GhstZns[k][i][j]);
+            pRemap->Phi = *(pRcv++);
+          }
+        }
+      }
+
+    }
+
+/*--- Step 5d. -----------------------------------------------------------------
+ * If shear is less one full Grid, remap cells which remain on same processor
+ * from GhstZnsBuf into GhstZns.  Cells in [js:je-joverlap] are shifted by
+ * joverlap into [js+joverlap:je] */
+
+    if (Ngrids == 0) {
+
+      for(k=ks; k<=ku; k++) {
+        for(j=js+joverlap; j<=je; j++){
+          jremap = j-joverlap;
+          for(i=0; i<nghost; i++){
+            GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+          }
+        }
+      }
+
+/*--- Step 5e. -----------------------------------------------------------------
+ * If shear is more than one Grid, pack and send data from [js:je-joverlap]
+ * from GhstZnsBuf (this step replaces 5d) */
+
+    } else {
+
+/* index of sendto and getfrom processors in GridArray are -/+1 from Step 5a */
+
+      jproc = my_jproc + Ngrids;
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc - Ngrids;
+      if (jproc < 0) jproc += pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      cnt = nghost*(pG->Nx[1]-joverlap)*(ku-ks+1);
+/* Post a non-blocking receive for the input data from the left grid */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=je-joverlap; j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZnsBuf[k][i][j]);
+            *(pSnd++) = pRemap->Phi;
+          }
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     shearing_sheet_grav_ix1_tag, pD->Comm_Domain);
+
+/* unpack data sent from [js:je-overlap], and remap into cells in
+ * [js+joverlap:je] in GhstZns */
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js+joverlap; j<=je; j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZns[k][i][j]);
+            pRemap->Phi = *(pRcv++);
+          }
+        }
+      }
+    } /* end of step 5e - shear is more than one Grid */
+
+#endif /* MPI_PARALLEL */
+  } /* end of step 5 - MPI decomposition in Y */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Now copy remapped variables back into ghost cells */
+
+  for(k=ks; k<=ke; k++) {
+    for(j=js; j<=je; j++){
+      for(i=0; i<nghost; i++){
+        pG->Phi[k][j][is-nghost+i] = GhstZns[k][i][j].Phi;
+      }
+    }
+  }
+
+/*--- Step 8. ------------------------------------------------------------------
+ * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
+ * periodic_ix2() and periodic_ox2() in set_bavls_mhd.c) */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ke; k++) {
+      for(j=1; j<=nghost; j++){
+        for(i=is-nghost; i<is; i++){
+          pG->Phi[k][js-j][i] = pG->Phi[k][je-(j-1)][i];
+          pG->Phi[k][je+j][i] = pG->Phi[k][js+(j-1)][i];
+        }
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 9. ------------------------------------------------------------------
+ * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
+
+
+/* Post a non-blocking receive for the input data from the left grid */
+    cnt = nghost*nghost*(ku-ks+1);
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=je-nghost+1; j<=je; j++){
+        for (i=is-nghost; i<is; i++){
+          *(pSnd++) = pG->Phi[k][j][i];
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   shearing_sheet_grav_ix1_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=js-nghost; j<=js-1; j++){
+        for (i=is-nghost; i<is; i++){
+          pG->Phi[k][j][i] = *(pRcv++);
+        }
+      }
+    }
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=js; j<=js+nghost-1; j++){
+        for (i=is-nghost; i<is; i++){
+          *(pSnd++) = pG->Phi[k][j][i];
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   shearing_sheet_grav_ix1_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=je+1; j<=je+nghost; j++){
+        for (i=is-nghost; i<is; i++){
+          pG->Phi[k][j][i] = *(pRcv++);
+        }
+      }
+    }
+#endif /* MPI_PARALLEL */
+
+  } /* end of step 9 - periodic BC in Y with MPI */
+
+  } /* end of if */
+
+  return;
+}
+
+#endif /* SELF_GRAVITY */
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void ShearingSheet_grav_ox1(DomainS *pD)
+ *  \brief 3D shearing-sheet BCs for gravitational potential in x1.  
+ *
+ * It applies a remap
+ * in Y after the ghost cells have been set by the usual periodic BCs in X and
+ * Y implemented in bvals_mhd.c
+ *
+ * This is a public function which is called by bvals_grav() inside a
+ * SHEARING_BOX and SELF-GRAVITY macro.					      */
+/*----------------------------------------------------------------------------*/
+
+#ifdef SELF_GRAVITY
+void ShearingSheet_grav_ox1(DomainS *pD)
+{
+  GridS *pG = pD->Grid;
+  int is = pG->is, ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int i,ii,j,k,ku,n,joffset,jremap;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
+#ifdef MPI_PARALLEL
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
+  int ierr,sendto_id,getfrom_id;
+  double *pSnd,*pRcv;
+  Remap *pRemap;
+  MPI_Request rq;
+#endif
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Compute the distance the computational domain has sheared in y */
+
+  xmin = pD->RootMinX[0];
+  xmax = pD->RootMaxX[0];
+  Lx = xmax - xmin;
+
+  xmin = pD->RootMinX[1];
+  xmax = pD->RootMaxX[1];
+  Ly = xmax - xmin;
+
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*(pG->time);
+
+/* Split this into integer and fractional peices of the Domain in y.  Ignore
+ * the integer piece because the Grid is periodic in y */
+
+  deltay = fmod(yshear, Ly);
+
+/* further decompose the fractional peice into integer and fractional pieces of
+ * a grid cell.  Note 0.0 <= epsi < 1.0.  If Domain has MPI decomposition in Y,
+ * then it is possible that:  pD->Nx2 > joffset > pG->Nx2   */
+
+  joffset = (int)(deltay/pG->dx2);
+  epso = -(fmod(deltay,pG->dx2))/pG->dx2;
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Copy data into GhstZns array.  Note i and j indices are switched.
+ * Steps 2-10 are for 3D runs.  Step 11 handles 2D separately */
+
+  if (pG->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
+
+  if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
+
+  for(k=ks; k<=ku; k++) {
+    for(j=js-nghost; j<=je+nghost; j++){
+      for(i=0; i<nghost; i++){
+        ii = ie+1+i;
+        GhstZns[k][i][j].Phi = pG->Phi[k][j][ii];
+      }
+    }
+  }
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Copy GhstZns into buffer, at the same time apply a conservative remap of
+ * solution over the fractional part of grid cell */
+
+  for(k=ks; k<=ku; k++) {
+    for(i=0; i<nghost; i++){
+      for (j=js-nghost; j<=je+nghost; j++) U[j] = GhstZns[k][i][j].Phi;
+        RemapFlux(U,epso,js,je+1,Flx);
+      for(j=js; j<=je; j++){
+        GhstZnsBuf[k][i][j].Phi = GhstZns[k][i][j].Phi - (Flx[j+1]-Flx[j]);
+      }
+    }
+  }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * If no MPI decomposition in Y, apply shift over integer number of
+ * grid cells during copy from buffer back into GhstZns.  */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ku; k++) {
+      for(j=js; j<=je; j++){
+        jremap = j + joffset;
+        if (jremap > (int)je) jremap -= pG->Nx[1];
+
+        for(i=0; i<nghost; i++){
+          GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+        }
+
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 5. ------------------------------------------------------------------
+ * If Domain contains MPI decomposition in Y, then MPI calls are required for
+ * the cyclic shift needed to apply shift over integer number of grid cells
+ * during copy from buffer back into GhstZns.  */
+
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
+/* Find integer and fractional number of grids over which offset extends.
+ * This assumes every grid has same number of cells in x2-direction! */
+    Ngrids = (int)(joffset/pG->Nx[1]);
+    joverlap = joffset - Ngrids*pG->Nx[1];
+
+/*--- Step 5a. -----------------------------------------------------------------
+ * Find ids of processors that data in [js:js+(joverlap-1)] is sent to, and
+ * data in [je-(overlap-1):je] is received from.  Only execute if joverlap>0  */
+
+    if (joverlap != 0) {
+
+      jproc = my_jproc - (Ngrids + 1);
+      if (jproc < 0) jproc += pD->NGrid[1]; 
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc + (Ngrids + 1);
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1]; 
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+/*--- Step 5b. -----------------------------------------------------------------
+ * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
+
+      cnt = nghost*joverlap*(ku-ks+1);
+/* Post a non-blocking receive for the input data */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=js+(joverlap-1); j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZnsBuf[k][i][j]);
+            *(pSnd++) = pRemap->Phi;
+          }
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                   shearing_sheet_grav_ox1_tag, pD->Comm_Domain);
+
+
+/*--- Step 5c. -----------------------------------------------------------------
+ * unpack data sent from [js:js+(joverlap-1)], and remap into cells in
+ * [je-(joverlap-1):je] in GhstZns
+ */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=je-(joverlap-1); j<=je; j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZns[k][i][j]);
+            pRemap->Phi = *(pRcv++);
+          }
+        }
+      }
+
+    }
+
+/*--- Step 5d. -----------------------------------------------------------------
+ * If shear is less one full Grid, remap cells which remain on same processor
+ * from GhstZnsBuf into GhstZns.  Cells in [js+joverlap:je] are shifted by
+ * joverlap into [js:je-joverlap] */
+
+    if (Ngrids == 0) {
+
+      for(k=ks; k<=ku; k++) {
+        for(j=js; j<=je-joverlap; j++){
+          jremap = j+joverlap;
+          for(i=0; i<nghost; i++){
+            GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+          }
+        }
+      }
+
+/*--- Step 5e. -----------------------------------------------------------------
+ * If shear is more than one Grid, pack and send data from [js+joverlap:je]
+ * from GhstZnsBuf (this step replaces 5d) */
+
+    } else {
+
+/* index of sendto and getfrom processors in GridArray are -/+1 from Step 5a */
+
+      jproc = my_jproc - Ngrids;
+      if (jproc < 0) jproc += pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc + Ngrids;
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      cnt = nghost*(pG->Nx[1]-joverlap)*(ku-ks+1);
+/* Post a non-blocking receive for the input data from the left grid */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js+joverlap; j<=je; j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZnsBuf[k][i][j]);
+            *(pSnd++) = pRemap->Phi;
+          }
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                   shearing_sheet_grav_ox1_tag, pD->Comm_Domain);
+
+/* unpack data sent from [js+joverlap:je], and remap into cells in
+ * [js:je-joverlap] in GhstZns */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=je-joverlap; j++) {
+          for(i=0; i<nghost; i++){
+            /* Get a pointer to the Remap structure */
+            pRemap = &(GhstZns[k][i][j]);
+            pRemap->Phi = *(pRcv++);
+          }
+        }
+      }
+    } /* end of step 5e - shear is more than one Grid */
+
+#endif /* MPI_PARALLEL */
+  } /* end of step 5 - MPI decomposition in Y */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Now copy remapped variables back into ghost cells, except B1i[ie+1] */
+
+  for(k=ks; k<=ke; k++) {
+    for(j=js; j<=je; j++){
+      for(i=0; i<nghost; i++){
+        pG->Phi[k][j][ie+1+i] = GhstZns[k][i][j].Phi;
+      }
+    }
+  }
+
+/*--- Step 8. ------------------------------------------------------------------
+ * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
+ * periodic_ix2() and periodic_ox2() in set_bavls_mhd.c) */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ke; k++) {
+      for(j=1; j<=nghost; j++){
+        for(i=ie+1; i<=ie+nghost; i++){
+          pG->Phi[k][js-j][i] = pG->Phi[k][je-(j-1)][i];
+          pG->Phi[k][je+j][i] = pG->Phi[k][js+(j-1)][i];
+        }
+      }
+    }
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 9. ------------------------------------------------------------------
+ * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in set_bvals_mhd.c */
+
+
+/* Post a non-blocking receive for the input data from the left grid */
+    cnt = nghost*nghost*(ku-ks + 1);
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=je-nghost+1; j<=je; j++){
+        for (i=ie+1; i<=ie+nghost; i++){
+          *(pSnd++) = pG->Phi[k][j][i];
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   shearing_sheet_grav_ox1_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=js-nghost; j<=js-1; j++){
+        for (i=ie+1; i<=ie+nghost; i++){
+          pG->Phi[k][j][i] = *(pRcv++);
+        }
+      }
+    }
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=js; j<=js+nghost-1; j++){
+        for (i=ie+1; i<=ie+nghost; i++){
+          *(pSnd++) = pG->Phi[k][j][i];
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   shearing_sheet_grav_ox1_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ku; k++){
+      for (j=je+1; j<=je+nghost; j++){
+        for (i=ie+1; i<=ie+nghost; i++){
+          pG->Phi[k][j][i] = *(pRcv++);
+        }
+      }
+    }
+#endif /* MPI_PARALLEL */
+
+  } /* end of step 9 - periodic BC in Y with MPI */
+
+  } /* end of if */
+
+  return;
+}
+
+#endif /* SELF_GRAVITY */
+
+
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
@@ -1960,6 +2660,195 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 }
 #endif /* MHD */
 
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
+ *  \brief Remaps variable (density or potential) to the nearest periodic point.
+ *   MPI decompostion in Y-dir. is not allowed.
+ *
+ * This is a public function called in the selfg_fft() or selfg_fft_disk() 
+ * (inside a SHEARING_BOX macro).					      
+ * Written by C.-G. Kim 						      */
+/*----------------------------------------------------------------------------*/
+
+#if defined(SELF_GRAVITY) && defined(FFT_ENABLED)
+/* Remapping variable similarly with shearing BC. */
+void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
+{
+  GridS *pG = pD->Grid;
+  int is = pG->is, ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int i,j,k,ku,jj,n,joffset,jremap;
+  Real x1,x2,x3,yshear,eps;
+
+#ifdef MPI_PARALLEL
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
+  int ierr,sendto_id,getfrom_id;
+  double *pSnd,*pRcv;
+  Remap *pRemap;
+  Real *pRemapVar;
+  MPI_Request rq;
+#endif
+
+
+
+/*--- Step 1. ------------------------------------------------------------------
+ * With no MPI decomposition in Y, apply periodic BCs in Y to RemapVar array
+ */
+
+  if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
+
+  if (pD->NGrid[1] == 1) {
+
+  for(k=ks; k<=ku; k++) {
+    for(i=is; i<=ie+1; i++){
+      for(j=1; j<=nghost; j++){
+        RemapVar[k][i][js-j] = RemapVar[k][i][je-(j-1)];
+        RemapVar[k][i][je+j] = RemapVar[k][i][js+(j-1)];
+      }
+    }
+  }
+
+#ifdef MPI_PARALLEL
+  } else {
+/*--- Step 2. ------------------------------------------------------------------
+ * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
+ * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_mhd.c */
+
+/* Post a non-blocking receive for the input data from the left grid */
+    cnt = (pG->Nx[0]+1)*nghost*(ku-ks+1);
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    rollvar_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ku; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=je-nghost+1; j<=je; j++){
+          /* Get a pointer to the RemapVar cell */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *(pSnd++) = *pRemapVar;
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   rollvar_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ku; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=js-nghost; j<=js-1; j++){
+          /* Get a pointer to the RemapVar cell */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *pRemapVar = *(pRcv++);
+        }
+      }
+    }
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    rollvar_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ku; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=js; j<=js+nghost-1; j++){
+          /* Get a pointer to the RemapVar cell */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *(pSnd++) = *pRemapVar;
+        }
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   rollvar_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ku; k++){
+      for (i=is; i<=ie+1; i++){
+        for (j=je+1; j<=je+nghost; j++){
+          /* Get a pointer to the RemapVar cell */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *pRemapVar = *(pRcv++);
+        }
+      }
+    }
+#endif /* MPI_PARALLEL */
+  }
+
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Compute fluxes for the fractional part of grid cell
+ */
+
+  for(k=ks; k<=ku; k++) {
+    for(i=is; i<=ie+1; i++){
+
+/* Compute integer and fractional pieces of a cell covered by shear */
+      cc_pos(pG, i, js, ks, &x1,&x2,&x3);
+/* Find the nearest periodic point */
+      yshear = -qshear*Omega_0*x1*dt;
+      eps = (fmod(yshear,pG->dx2))/pG->dx2;
+
+/* Compute fluxes of hydro variables  */
+      for (j=js-nghost; j<=je+nghost; j++) U[j] = RemapVar[k][i][j];
+        RemapFlux(U,eps,js,je+1,Flx);
+
+      for(j=js; j<=je; j++){
+        RemapVarBuf[k][i][j] = RemapVar[k][i][j] - (Flx[j+1]-Flx[j]);
+      }
+    }
+  }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * If no MPI decomposition in Y, apply shift over integer number of
+ * grid cells during copy from buffer back into GhstZns.  
+ * Remap for the integer part of grid cell
+ */
+
+  if (pD->NGrid[1] == 1) {
+
+  for(k=ks; k<=ku; k++) {
+    for(i=is; i<=ie+1; i++){
+      for(j=js; j<=je; j++){
+
+/* Compute integer and fractional peices of a cell covered by shear */
+      cc_pos(pG, i, js, ks, &x1,&x2,&x3);
+/* Find the nearest periodic point */
+      yshear = -qshear*Omega_0*x1*dt;
+      joffset = (int)(yshear/pG->dx2);
+
+      jremap = j - joffset;
+      if (jremap < (int)js) jremap += pG->Nx[1];
+      if (jremap > (int)je) jremap -= pG->Nx[1];
+
+      RemapVar[k][i][j]  = RemapVarBuf[k][i][jremap];
+
+      }
+    }
+  }
+
+#ifdef MPI_PARALLEL
+  } else {
+// need work
+#endif /* MPI_PARALLEL */
+  } /* end of step 5 - MPI decomposition in Y */
+
+
+  return;
+}
+
+#endif /* Self_Gravity  and FFT*/
+
+
 #endif /* Shearing Box */
 
 /*----------------------------------------------------------------------------*/
@@ -2388,6 +3277,13 @@ void bvals_shear_init(MeshS *pM)
   if((GhstZnsBuf=(Remap***)calloc_3d_array(max3,nghost,max2,sizeof(Remap))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
+#if defined(SELF_GRAVITY_USING_FFT) || defined(SELF_GRAVITY_USING_FFT_OBC)
+  if((RemapVarBuf=(Real***)calloc_3d_array(max3,max1,max2,sizeof(Real)))==NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+  if((RemapFlx=(Real***)calloc_3d_array(max3,max1,max2,sizeof(Real)))==NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+#endif
+
 #ifdef MHD
   if ((tEyBuf=(Real**)calloc_2d_array(max3,max2,sizeof(Real))) == NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
@@ -2452,6 +3348,10 @@ void bvals_shear_destruct(void)
 {
   if (GhstZns    != NULL) free_3d_array(GhstZns);
   if (GhstZnsBuf != NULL) free_3d_array(GhstZnsBuf);
+#if defined(SELF_GRAVITY_USING_FFT) || defined(SELF_GRAVITY_USING_FFT_OBC)
+  if (RemapVarBuf   != NULL) free_3d_array(RemapVarBuf);
+  if (RemapFlx   != NULL) free_3d_array(RemapFlx);
+#endif
 #ifdef MHD
   if (tEyBuf != NULL) free_2d_array(tEyBuf);
 #endif

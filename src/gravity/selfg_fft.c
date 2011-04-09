@@ -192,22 +192,62 @@ void selfg_fft_3d(DomainS *pD)
   Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2),dx3sq=(pG->dx3*pG->dx3);
   Real dkx,dky,dkz,pcoeff;
 
+#ifdef SHEARING_BOX
+  Real qomt,Lx,Ly,dt;
+  Real kxtdx;
+  Real xmin,xmax;
+  int ip,jp;
+  int nx3=pG->Nx[2]+2*nghost;
+  int nx2=pG->Nx[1]+2*nghost;
+  int nx1=pG->Nx[0]+2*nghost;
+  Real ***RollDen, ***UnRollPhi;
+
+  if((RollDen=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+  if((UnRollPhi=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+
+  xmin = pD->RootMinX[0];
+  xmax = pD->RootMaxX[0];
+  Lx = xmax - xmin;
+
+  xmin = pD->RootMinX[1];
+  xmax = pD->RootMaxX[1];
+  Ly = xmax - xmin;
+
+  dt = pG->time-((int)(qshear*Omega_0*pG->time*Lx/Ly))*Ly/(qshear*Omega_0*Lx);
+  qomt = qshear*Omega_0*dt;
+#endif
+
+
 /* Copy current potential into old */
 
   for (k=ks-nghost; k<=ke+nghost; k++){
   for (j=js-nghost; j<=je+nghost; j++){
     for (i=is-nghost; i<=ie+nghost; i++){
       pG->Phi_old[k][j][i] = pG->Phi[k][j][i];
+#ifdef SHEARING_BOX
+      RollDen[k][i][j] = pG->U[k][j][i].d;
+#endif
     }
   }}
 
 /* Forward FFT of 4\piG*(d-d0) */
 
+/* For shearing-box, need to roll density to the nearest periodic point */
+#ifdef SHEARING_BOX
+  RemapVar(pD,RollDen,-dt);
+#endif
+
   for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
+#ifdef SHEARING_BOX
+        four_pi_G*(RollDen[k][i][j] - grav_mean_rho);
+#else
         four_pi_G*(pG->U[k][j][i].d - grav_mean_rho);
+#endif
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
     }
   }}
@@ -222,31 +262,57 @@ void selfg_fft_3d(DomainS *pD)
   dky = 2.0*PI/(double)(pD->Nx[1]);
   dkz = 2.0*PI/(double)(pD->Nx[2]);
 
+#ifdef SHEARING_BOX
+  ip=KCOMP(0,pG->Disp[0],pD->Nx[0]);
+  jp=KCOMP(0,pG->Disp[1],pD->Nx[1]);
+  kxtdx  = (ip+qomt*Lx/Ly*jp)*dkx;
+#endif
+
   if ((pG->Disp[2])==0 && (pG->Disp[1])==0 && (pG->Disp[0])==0) {
     work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 0.0;
     work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
   } else {
+#ifdef SHEARING_BOX
+    pcoeff = 1.0/(((2.0*cos( kxtdx           )-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq) +
+                  ((2.0*cos((pG->Disp[2])*dkz)-2.0)/dx3sq));
+#else
     pcoeff = 1.0/(((2.0*cos((pG->Disp[0])*dkx)-2.0)/dx1sq) +
                   ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq) +
                   ((2.0*cos((pG->Disp[2])*dkz)-2.0)/dx3sq));
+#endif
     work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
     work[F3DI(0,0,0,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
   }
 
 
   for (k=ks+1; k<=ke; k++){
+#ifdef SHEARING_BOX
+    pcoeff = 1.0/(((2.0*cos( kxtdx                    )-2.0)/dx1sq) +
+                  ((2.0*cos((        pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                  ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+#else
     pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
                   ((2.0*cos((        pG->Disp[1] )*dky)-2.0)/dx2sq) +
                   ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+#endif
     work[F3DI(0,0,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
     work[F3DI(0,0,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
   }
 
   for (j=js+1; j<=je; j++){
     for (k=ks; k<=ke; k++){
+#ifdef SHEARING_BOX
+      jp=KCOMP(j-js ,pG->Disp[1],pD->Nx[1]);
+      kxtdx  = (ip+qomt*Lx/Ly*jp)*dkx;
+      pcoeff = 1.0/(((2.0*cos( kxtdx                    )-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                    ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+#else
       pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
                     ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
                     ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+#endif
       work[F3DI(0,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
       work[F3DI(0,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
     }
@@ -255,9 +321,18 @@ void selfg_fft_3d(DomainS *pD)
   for (i=is+1; i<=ie; i++){
   for (j=js; j<=je; j++){
     for (k=ks; k<=ke; k++){
+#ifdef SHEARING_BOX
+      ip=KCOMP(i-is ,pG->Disp[0],pD->Nx[0]);
+      jp=KCOMP(j-js ,pG->Disp[1],pD->Nx[1]);
+      kxtdx  = (ip+qomt*Lx/Ly*jp)*dkx;
+      pcoeff = 1.0/(((2.0*cos( kxtdx                    )-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
+                    ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+#else
       pcoeff = 1.0/(((2.0*cos(( (i-is)+pG->Disp[0] )*dkx)-2.0)/dx1sq) +
                     ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq) +
                     ((2.0*cos(( (k-ks)+pG->Disp[2] )*dkz)-2.0)/dx3sq));
+#endif
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= pcoeff;
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *= pcoeff;
     }
@@ -271,11 +346,33 @@ void selfg_fft_3d(DomainS *pD)
   for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
+      UnRollPhi[k][i][j] = 
+        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+        / bplan3d->gcnt;
+#else
       pG->Phi[k][j][i] = 
         work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
         / bplan3d->gcnt;
+#endif
+
     }
   }}
+
+#ifdef SHEARING_BOX
+  RemapVar(pD,UnRollPhi,dt);
+
+  for (k=ks; k<=ke; k++){
+    for (j=js; j<=je; j++){
+      for (i=is; i<=ie; i++){
+         pG->Phi[k][j][i] = UnRollPhi[k][i][j];
+      }
+    }
+  }
+
+  free_3d_array(RollDen);
+  free_3d_array(UnRollPhi);
+#endif
 
   return;
 }

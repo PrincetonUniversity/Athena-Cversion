@@ -298,11 +298,11 @@ void bvals_grav(DomainS *pD)
 /* shearing sheet BCs; function defined in problem generator */
 #ifdef SHEARING_BOX
     get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
-    if (my_iproc == 0) {
-      ShearingSheet_grav_ix1(pGrid, pDomain);
+    if (myL == 0) {
+      ShearingSheet_grav_ix1(pD);
     }
-    if (my_iproc == (pDomain->NGrid_x1-1)) {
-      ShearingSheet_grav_ox1(pGrid, pDomain);
+    if (myL == (pD->NGrid[0]-1)) {
+      ShearingSheet_grav_ox1(pD);
     }
 #endif
 

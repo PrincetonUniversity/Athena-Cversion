@@ -83,6 +83,13 @@ void bvals_shear_destruct(void);
 #ifdef FARGO
 void Fargo(DomainS *pD);
 #endif
+#ifdef SELF_GRAVITY
+void ShearingSheet_grav_ix1(DomainS *pD);
+void ShearingSheet_grav_ox1(DomainS *pD);
+#ifdef FFT_ENABLED
+void RemapVar(DomainS *pD, Real ***RemapVar, Real dt);
+#endif
+#endif
 #endif /* SHEARING_BOX */
 
 #if defined (FARGO) && defined (CYLINDRICAL)

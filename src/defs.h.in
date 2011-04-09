@@ -178,6 +178,11 @@ enum {LtoR_tag,
       boundary_particle_tag,
       shearing_sheet_ix1_tag,
       shearing_sheet_ox1_tag,
+#ifdef SELF_GRAVITY
+      shearing_sheet_grav_ix1_tag,
+      shearing_sheet_grav_ox1_tag,
+      remapvar_tag,
+#endif
       remapEy_tag,
       fargo_tag,
       ch_rundir0_tag,
