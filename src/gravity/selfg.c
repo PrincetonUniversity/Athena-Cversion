@@ -543,6 +543,19 @@ VDFun_t selfg_init(MeshS *pM)
     selfg_fft_3d_init(pM);
     return selfg_fft_3d;
 #endif
+
+/* for gravity using FFTs in Disk Geometry, also initialize plans and data for FFTW */
+#ifdef SELF_GRAVITY_USING_FFT
+  case 1:
+    return selfg_fft_disk_1d;
+  case 2:
+    selfg_fft_2d_disk_init(pM);
+    return selfg_fft_disk_2d;
+  case 3:
+    selfg_fft_3d_disk_init(pM);
+    return selfg_fft_disk_3d;
+#endif
+
 /* for gravity using FFTs with open BC, also initialize plans and data for FFTW */
 #ifdef SELF_GRAVITY_USING_FFT_OBC
   case 1:
@@ -553,8 +566,6 @@ VDFun_t selfg_init(MeshS *pM)
     selfg_fft_obc_3d_init(pM);
     return selfg_fft_obc_3d;
 #endif
-
-
 
   }
 

@@ -3277,7 +3277,7 @@ void bvals_shear_init(MeshS *pM)
   if((GhstZnsBuf=(Remap***)calloc_3d_array(max3,nghost,max2,sizeof(Remap))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
-#if defined(SELF_GRAVITY_USING_FFT) || defined(SELF_GRAVITY_USING_FFT_OBC)
+#if defined(SELF_GRAVITY) || defined(FFT_ENABLED)
   if((RemapVarBuf=(Real***)calloc_3d_array(max3,max1,max2,sizeof(Real)))==NULL)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
   if((RemapFlx=(Real***)calloc_3d_array(max3,max1,max2,sizeof(Real)))==NULL)
@@ -3348,7 +3348,7 @@ void bvals_shear_destruct(void)
 {
   if (GhstZns    != NULL) free_3d_array(GhstZns);
   if (GhstZnsBuf != NULL) free_3d_array(GhstZnsBuf);
-#if defined(SELF_GRAVITY_USING_FFT) || defined(SELF_GRAVITY_USING_FFT_OBC)
+#if defined(SELF_GRAVITY) || defined(FFT_ENABLED)
   if (RemapVarBuf   != NULL) free_3d_array(RemapVarBuf);
   if (RemapFlx   != NULL) free_3d_array(RemapFlx);
 #endif

@@ -10,6 +10,7 @@
 CORE_OBJ = bvals_grav.o \
 	   selfg.o \
 	   selfg_fft.o \
+	   selfg_fft_disk.o \
 	   selfg_fft_obc.o \
 	   selfg_multigrid.o
 

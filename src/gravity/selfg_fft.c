@@ -203,9 +203,9 @@ void selfg_fft_3d(DomainS *pD)
   Real ***RollDen, ***UnRollPhi;
 
   if((RollDen=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[selfg_fft_3d]: malloc returned a NULL pointer\n");
   if((UnRollPhi=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
-    ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
+    ath_error("[selfg_fft_3d]: malloc returned a NULL pointer\n");
 
   xmin = pD->RootMinX[0];
   xmax = pD->RootMaxX[0];

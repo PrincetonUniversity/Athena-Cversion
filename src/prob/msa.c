@@ -96,9 +96,9 @@ void problem(DomainS *pDomain)
 
 #ifdef SELF_GRAVITY
   Gcons = nJ*cs2;
-//#ifndef SELF_GRAVITY_USING_FFT_DISK
+#ifndef SELF_GRAVITY_USING_FFT_DISK
   grav_mean_rho = 1.0;
-//#endif
+#endif
 
 /* Set gravity constant*/
   four_pi_G = 4.0*PI*Gcons;
@@ -261,9 +261,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 #ifdef SELF_GRAVITY
   Gcons = nJ*cs2;
-//#ifndef SELF_GRAVITY_USING_FFT_DISK
+#ifndef SELF_GRAVITY_USING_FFT_DISK
   grav_mean_rho = 1.0;
-//#endif
+#endif
 
 /* Set gravity constant*/
   four_pi_G = 4.0*PI*Gcons;
