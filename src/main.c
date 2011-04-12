@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
   struct tms tbuf;
   clock_t time0,time1, have_times;
   struct timeval tvs, tve;
-  Real dt_done;
+  Real dt_done, dt_rad;
 
 #ifdef MPI_PARALLEL
   char *pc, *suffix, new_name[MAXLEN];
@@ -565,14 +565,19 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
 /* compute radiation variables from conserved variables */
-	  hydro_to_rad(&(Mesh.Domain[nl][nd]));  
+	  hydro_to_rad(&(Mesh.Domain[nl][nd]));
 /* solve radiative transfer */
 	  formal_solution(&(Mesh.Domain[nl][nd]));
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 	 Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
 #else
-	  rad_to_hydro(&(Mesh.Domain[nl][nd]));
+/* modify timestep if necessary */
+	 dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
+	 Mesh.dt = MIN(Mesh.dt, dt_rad);
+	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
+/* operator split update of total energy equation */
+	 rad_to_hydro(&(Mesh.Domain[nl][nd]));
 #endif
 /* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
 */

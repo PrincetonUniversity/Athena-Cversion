@@ -17,7 +17,7 @@
 #include "../athena.h"
 #include "../globals.h"
 #include "../prototypes.h"
-
+#define BFRAC 1.0E2
 
 #ifdef RADIATION_TRANSFER
 void output_rad_1d(RadGridS *pRG);
@@ -37,6 +37,7 @@ void hydro_to_rad(DomainS *pD)
   int nf = pRG->nf;
   int ig,jg,kg,ioff,joff,koff;
   Real eps;
+  Real etherm, ekin, B, d;
 
   if (pG->Nx[0] > 1) {
     ioff = nghost - 1; il--; iu++;
@@ -55,12 +56,20 @@ void hydro_to_rad(DomainS *pD)
       jg = j + joff;
       for (i=il; i<=iu; i++) {
 	ig = i + ioff;
+
+	/* Comput gas temperature and store for later use */
+	d = pG->U[kg][jg][ig].d;
+	ekin =  pG->U[kg][jg][ig].M1 * pG->U[kg][jg][ig].M1;
+	ekin += pG->U[kg][jg][ig].M2 * pG->U[kg][jg][ig].M2;
+	ekin += pG->U[kg][jg][ig].M3 * pG->U[kg][jg][ig].M3;
+	ekin *= 0.5 / d;
+	etherm=pG->U[kg][jg][ig].E - ekin;
+	pG->tgas[kg][jg][ig] = etherm * Gamma_1 / (d * R_ideal);
+	
 	for(ifr=0; ifr<nf; ifr++) {
 	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
-	  /*pRG->R[k][j][i][ifr].J = 0.0;*/
 	  pRG->R[k][j][i][ifr].B = get_thermal_source(pG,ifr,ig,jg,kg);
 	  pRG->R[k][j][i][ifr].eps = eps;
-	  /*pRG->R[k][j][i][ifr].S = 1;*/
 	  pRG->R[k][j][i][ifr].S = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
 	                                  eps  * pRG->R[k][j][i][ifr].B;
 	  pRG->R[k][j][i][ifr].chi = get_total_opacity(pG,ifr,ig,jg,kg);
@@ -86,6 +95,8 @@ void rad_to_hydro(DomainS *pD)
   int nf = pRG->nf;
   int ig,jg,kg,ioff,joff,koff;
   Real esource, kappa;
+  Real Delta, kDelta;
+  Real dx = pRG->dx1;
 
   if (pG->Nx[0] > 1) {
     ioff = nghost - 1;
@@ -108,13 +119,22 @@ void rad_to_hydro(DomainS *pD)
 	for(ifr=0; ifr<nf; ifr++) {
 	  kappa = pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi;
 	  /* Must add frequency weights */
-	  esource += kappa * (pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B);
+	  Delta = pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B;
+	  /* if (fabs(Delta/pRG->R[k][j][i][ifr].B) >= BFRAC) { */
+	  esource += kappa * Delta;
+	  
+	  /*if(i == il) 
+	    esource += (pRG->R[k][j][i][ifr].H[0]-pRG->R[k][j][i+1][ifr].H[0])/dx; 
+	  else if(i == iu)
+	    esource += (pRG->R[k][j][i-1][ifr].H[0]-pRG->R[k][j][i][ifr].H[0])/dx;
+	  else
+	  esource += 0.5*(pRG->R[k][j][i-1][ifr].H[0]-pRG->R[k][j][i+1][ifr].H[0])/dx;*/
+
+	  /* esource += kappa * (B00 - pRG->R[k][j][i][ifr].B) * (1.0 - kappa/(2.0*PI) * 
+	     atan((2.0 * PI)/kappa)); */
+
 	}
-	/*printf("%d %g %g %g %g %g %g\n",i,4.0*PI*esource,pG->U[kg][jg][ig].E-0.9,
-	       (pG->U[kg][jg][ig].E-0.9)/(4.0*PI*esource),
-	       pRG->R[k][j][i][0].J-1.0,pRG->R[k][j][i][0].B-1.0,kappa*
-	       (pRG->R[k][j][i][0].B-1.0)*4.0*PI);*/
-	pG->U[kg][jg][ig].E += pG->dt*4.0*PI*esource;
+	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource;
       }
     }
   }

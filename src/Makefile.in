@@ -100,9 +100,11 @@ PARTICLES_OBJ = particles/dump_particle_history.o\
 
 RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/hydro_to_rad.o\
+		radiation/radtrans_dt.o\
 		radiation/formal_solution.o\
 		radiation/utils_rad.o\
 		radiation/bvals_rad.o\
+		radiation/dump_intensity_vtk.o\
 		radiation/jacobi_1d.o\
 		radiation/gausseid_1d.o\
 		radiation/multig_1d.o\

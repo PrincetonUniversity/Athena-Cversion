@@ -62,13 +62,16 @@ void formal_solution(DomainS *pD)
 #else
       formal_solution_1d(pRG,&dSrmax);
 #endif
-   
+  
 /* Check whether convergence criterion is met. */
 #ifdef MPI_PARALLEL
       MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
       dSrmax=gdSrmax;
 #endif
-      if(dSrmax <= dScnv) break;
+      if(dSrmax <= dScnv) {
+	i++;
+	break;
+      }
     }
     formal_solution_1d_destruct();
   } else if (ndim == 2) {
@@ -83,14 +86,15 @@ void formal_solution(DomainS *pD)
       formal_solution_2d(pRG,&dSrmax);
 #endif
 
-
 /* Check whether convergence criterion is met. */
 #ifdef MPI_PARALLEL
       MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
       dSrmax=gdSrmax;
 #endif
-      if(dSrmax <= dScnv) break;
-
+      if(dSrmax <= dScnv) {
+	i++;
+	break;
+      }
 /* temporary output for debugging purpose */
 /*      max_dev(pRG,&dsm,&ism);
       dSmax[i] = dsm;
@@ -105,7 +109,10 @@ void formal_solution(DomainS *pD)
   /*  Used for testing purposes in old version of code */
   /*output_diag(dSmax,isarr,niter);
     if (sol != NULL) free_3d_array(sol); */
-   
+
+  /* free up memory */
+  free(dSmax);
+  free(isarr);
 
   return;
 }

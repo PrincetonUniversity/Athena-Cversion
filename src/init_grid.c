@@ -222,6 +222,10 @@ void init_grid(MeshS *pM)
       }
 #endif /* CYLINDRICAL */
 
+#ifdef RADIATION_TRANSFER
+      pG->tgas = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->tgas == NULL) goto on_error17;
+#endif /* RADIATION_TRANSFER */
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
@@ -1123,12 +1127,15 @@ printf("Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
   return;
 
 /*--- Error messages ---------------------------------------------------------*/
+
+#ifdef RADIATION_TRANSFER
+ on_error17:
+    free_3d_array(pG->tgas);
+#endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
    on_error16:
     free_3d_array(pG->Tguess);
 #endif
-
-
 #ifdef CYLINDRICAL
   on_error15:
     free_1d_array(pG->ri);

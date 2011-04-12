@@ -376,6 +376,18 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 	  }
 	}
+/* Write components of 1st moment for each frequency */
+	fprintf(pfile,"\nSCALARS first_mom_0 float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+	      data[i-irl] = (float)pRG->R[k][j][i][0].H[0];
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
 /* Write components of 2nd moment for each frequency */
 	fprintf(pfile,"\nSCALARS second_mom_00 float\n");
         fprintf(pfile,"LOOKUP_TABLE default\n");

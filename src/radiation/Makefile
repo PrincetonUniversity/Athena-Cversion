@@ -9,9 +9,11 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = init_radiation.o\
 	   hydro_to_rad.o\
+	   radtrans_dt.o\
 	   formal_solution.o\
            utils_rad.o\
 	   bvals_rad.o\
+	   dump_intensity_vtk.o\
 	   jacobi_1d.o\
 	   gausseid_1d.o\
 	   multig_1d.o\

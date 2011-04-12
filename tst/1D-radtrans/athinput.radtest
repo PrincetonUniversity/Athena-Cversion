@@ -3,12 +3,12 @@
 problem = Simple 1d test problem for debugging purposes
 author  = 
 journal =
-config  = -with-problem=rad1d --enable-mpi --with-radiation=jacobi
+config  = -with-problem=radtest --with-radiation-transfer =jacobi
 
 <job>
 
-problem_id      = Rad1D  # problem ID: basename of output filenames
-maxout          = 4   # Output blocks number from 1 -> maxout
+problem_id      = RadTest  # problem ID: basename of output filenames
+maxout          = 3   # Output blocks number from 1 -> maxout
 num_domains     = 1          # number of Domains in Mesh
 
 <output1>
@@ -24,34 +24,40 @@ out_fmt = vtk                # VTK data dump
 dt      = 1.                 # time increment between outputs
 
 <output4>
-out_fmt = tab                # Tabular dump
+out	= ix1
+out_fmt = vtk	             # VTK intensity dump
+dt      = 1.                 # time increment between outputs
+
+<output5>
+out	= ix2
+out_fmt = vtk	             # VTK intensity dump
 dt      = 1.                 # time increment between outputs
 
 <time>
 
-cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 1.0e-5       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 1    # cycle limit
 tlim            = 1e5  # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 64        # Number of zones in X-direction
+Nx1             = 128        # Number of zones in X-direction
 x1min           = 0.0      # minimum value of X
 x1max           = 1.0       # maximum value of X
 bc_ix1          = 2         # boundary condition flag for inner-I (X1)
 bc_ox1          = 2         # boundary condition flag for outer-I (X1)
 rbc_ix1         = 2         # rad boundary condition flag for inner-I (X1)
 rbc_ox1         = 2         # rad boundary condition flag for outer-I (X1)
-NGrid_x1        = 2         # with MPI, number of Grids in X1 coordinate
+NGrid_x1        = 4         # with MPI, number of Grids in X1 coordinate
 
-Nx2             = 1         # Number of zones in Y-direction
+Nx2             = 128         # Number of zones in Y-direction
 x2min           = 0.0       # minimum value of Y
 x2max           = 1.0       # maximum value of Y
-bc_ix2          = 4         # boundary condition flag for inner-J (X2)
-bc_ox2          = 4         # boundary condition flag for outer-J (X2)
-rbc_ix2         = 2         # rad boundary condition flag for inner-J (X2)
-rbc_ox2         = 2         # rad boundary condition flag for outer-J (X2)
-NGrid_x2        = 1         # with MPI, number of Grids in X2 coordinate
+bc_ix2          = 2         # boundary condition flag for inner-J (X2)
+bc_ox2          = 2         # boundary condition flag for outer-J (X2)
+rbc_ix2         = 1         # rad boundary condition flag for inner-J (X2)
+rbc_ox2         = 1         # rad boundary condition flag for outer-J (X2)
+NGrid_x2        = 4         # with MPI, number of Grids in X2 coordinate
 
 Nx3             = 1         # Number of zones in X3-direction
 x3min           = 0.0       # minimum value of X3
@@ -68,13 +74,16 @@ lte             = 0	     # lte = 0 -- iterate S; 1 -- iterate J
 niter		= 1000	     # maximum number of rad trans iterations
 dScnv		= 1.0e-8     # relative change in S (or J) required for conv.
 nf		= 1	     # number of frequencies
-nmu		= 2	     # number of polar angles/quadrant (1 <= nmu <= 6)
+nmu		= 3	     # number of polar angles/quadrant (1 <= nmu <= 6)
 isor            = 0          # 0 no SOR, 1 SOR for gauss-seidel (SOR with 1D only!) 
-svwght          = 0          # 0 save integration weight; 1 compute each iter
+svwght          = 0          # 1 save integration weight; 0 compute each iter
 
 <problem>
 gamma           = 1.6666666666666667    # gamma = C_p/C_v
-eps		= 1.0e-6     # thermalization parameter
-           
+eps		= 1.0e-8     # thermalization parameter
+vert_dir	= 1          # direction of variation (1,2,3)
+taumin		= -4.0       # log tau at lower boundary
+taumax		= 7.0        # log tau at upper boundary
+
 <log>
 child_out_level=-1

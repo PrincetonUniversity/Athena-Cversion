@@ -91,6 +91,7 @@
 #include "palette.h"
 #include "prototypes.h"
 #include "particles/prototypes.h"
+#include "radiation/prototypes.h"
 
 #define MAXOUT_DEFAULT     14
 
@@ -394,6 +395,17 @@ Now use the default one.\n");
     }
 #endif
 
+/* If solving radiative transfer check for outputs of boundary intensities */ 
+#ifdef RADIATION_TRANSFER
+    if (strcmp(new_out.out,"ix1") == 0){
+      new_out.out_fun = dump_ix1_vtk;
+      goto add_it;
+    }
+    if (strcmp(new_out.out,"ix2") == 0){
+      new_out.out_fun = dump_ix2_vtk;
+      goto add_it;
+    }
+#endif
 
 /* Now handle data outputs (ouput of SINGLE variable).  There are lots more
  * options for outputs than dumps.  Need to choose variable, format, size

@@ -291,8 +291,6 @@ typedef struct Rad_s {
   Real eps;                     /* thermalization coeff */
   Real chi;                     /* total opacity */
 
-  Real lamstr;                  /* diagnal component of Lambda matrix */
-
 } RadS;
 
 /*----------------------------------------------------------------------------*/
@@ -303,7 +301,7 @@ typedef struct RadGrid_s {
 
   int nmu;          /* # of polar angles/quadrant */
   int noct;          /* # of octants in use: 2, 4, or 8 */
-  int nang;          /* # of angles/quadrant (nang = nmuv*(nmuv+1)/2)*/
+  int nang;          /* # of angles/octant (nang = nmuv*(nmuv+1)/2)*/
   int nf;            /* # of frequencies */
 
   Real ***mu;       /* direction cosine relative to x1, x2, x3 axis */
@@ -415,7 +413,9 @@ typedef struct Grid_s{
   GPCouple ***Coup;          /* array of gas-particle coupling */
 #endif /* PARTICLES */
 
-
+#ifdef RADIATION_TRANSFER
+  Real ***tgas;   /* gas temp stored to prevent multiple recomp. in rad. transfer */
+#endif
 
 #ifdef STATIC_MESH_REFINEMENT
   int NCGrid;         /* # of child  Grids that overlap this Grid */
