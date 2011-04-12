@@ -402,7 +402,7 @@ void bvals_rad_init(MeshS *pM)
       } else {                    
 	switch(pM->RBCFlag_ix1){
 
-	case 1: /* Periodic. Handle with MPI calls for parallel jobs. */
+	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ix1_RBCFun = periodic_ix1_rad;
 #ifdef MPI_PARALLEL
 	  if(pRG->lx1_id < 0 && pD->NGrid[0] > 1){
@@ -432,7 +432,7 @@ void bvals_rad_init(MeshS *pM)
       } else {
 	switch(pM->RBCFlag_ox1){
 
-	case 1: /* Periodic. Handle with MPI calls for parallel jobs. */
+	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ox1_RBCFun = periodic_ox1_rad;
 #ifdef MPI_PARALLEL
 	  if(pRG->rx1_id < 0 && pD->NGrid[0] > 1){
@@ -463,7 +463,7 @@ void bvals_rad_init(MeshS *pM)
       } else {                    
 	switch(pM->RBCFlag_ix2){
 
-	case 1: /* Periodic. Handle with MPI calls for parallel jobs. */
+	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ix2_RBCFun = periodic_ix2_rad;
 #ifdef MPI_PARALLEL
 	  if(pRG->lx2_id < 0 && pD->NGrid[1] > 1){
@@ -494,7 +494,7 @@ void bvals_rad_init(MeshS *pM)
       } else {
 	switch(pM->RBCFlag_ox2){
 
-	case 1: /* Periodic. Handle with MPI calls for parallel jobs. */
+	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ox2_RBCFun = periodic_ox2_rad;
 #ifdef MPI_PARALLEL
 	  if(pRG->rx2_id < 0 && pD->NGrid[1] > 1){
@@ -526,7 +526,7 @@ void bvals_rad_init(MeshS *pM)
       } else {                    
 	switch(pM->RBCFlag_ix3){
 
-	case 1: /* Periodic. Handle with MPI calls for parallel jobs. */
+	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ix3_RBCFun = periodic_ix3_rad;
 #ifdef MPI_PARALLEL
 	  if(pRG->lx3_id < 0 && pD->NGrid[2] > 1){
@@ -556,7 +556,7 @@ void bvals_rad_init(MeshS *pM)
       } else {
 	switch(pM->RBCFlag_ox3){
 
-	case 1: /* Periodic. Handle with MPI calls for parallel jobs. */
+	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ox3_RBCFun = periodic_ox3_rad;
 #ifdef MPI_PARALLEL
 	  if(pRG->rx3_id < 0 && pD->NGrid[2] > 1){
