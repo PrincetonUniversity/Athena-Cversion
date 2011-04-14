@@ -1001,7 +1001,6 @@ void EField_AD(DomainS *pD)
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
         emf[k][j][i].z += eta_A*(J[k][j][i].z - JdotB*intBz/Bsq);
-fprintf(stderr,"i=%2d,j=%2d,k=%2d,ex=%e,ey=%e,ez=%e\n",i,j,k,emf[k][j][i].x,emf[k][j][i].y,emf[k][j][i].z);
       }
     }}
   }
