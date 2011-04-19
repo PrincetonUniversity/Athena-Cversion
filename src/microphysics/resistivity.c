@@ -205,20 +205,16 @@ void resistivity(DomainS *pD)
     get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* compute remapped Ey from opposite side of grid */
+    for(k=ks; k<=ke+1; k++) {
+    for(j=js; j<=je; j++)   {
+      emf2[k][j][is]   = emf[k][j][is].y;
+      emf2[k][j][ie+1] = emf[k][j][ie+1].y;
+    }}
 
     if (my_iproc == 0) {
-      for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je; j++)   {
-        emf2[k][j][is]  = emf[k][j][is].y;
-      }}
       RemapEy_ix1(pD, emf2, remapEyiib);
     }
-
     if (my_iproc == (pD->NGrid[0]-1)) {
-      for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je; j++)   {
-        emf2[k][j][ie+1]  = emf[k][j][ie+1].y;
-      }}
       RemapEy_ox1(pD, emf2, remapEyoib);
     }
 
