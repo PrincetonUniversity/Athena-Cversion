@@ -87,9 +87,9 @@ void conduction(DomainS *pD)
   for (j=jl; j<=ju; j++) {
   for (i=is-1; i<=ie+1; i++) {
 
-    Q[k][j][i].x = 0.0;
-    Q[k][j][i].y = 0.0;
-    Q[k][j][i].z = 0.0;
+    Q[k][j][i].x1 = 0.0;
+    Q[k][j][i].x2 = 0.0;
+    Q[k][j][i].x3 = 0.0;
 
     Temp[k][j][i] = pG->U[k][j][i].E - (0.5/pG->U[k][j][i].d)*
       (SQR(pG->U[k][j][i].M1) +SQR(pG->U[k][j][i].M2) +SQR(pG->U[k][j][i].M3));
@@ -112,7 +112,7 @@ void conduction(DomainS *pD)
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].E += dtodx1*(Q[k][j][i+1].x - Q[k][j][i].x);
+      pG->U[k][j][i].E += dtodx1*(Q[k][j][i+1].x1 - Q[k][j][i].x1);
     }
   }}
 
@@ -122,7 +122,7 @@ void conduction(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx2*(Q[k][j+1][i].y - Q[k][j][i].y);
+        pG->U[k][j][i].E += dtodx2*(Q[k][j+1][i].x2 - Q[k][j][i].x2);
       }
     }}
   }
@@ -133,7 +133,7 @@ void conduction(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx3*(Q[k+1][j][i].z - Q[k][j][i].z);
+        pG->U[k][j][i].E += dtodx3*(Q[k+1][j][i].x3 - Q[k][j][i].x3);
       }
     }}
   }
@@ -158,7 +158,7 @@ void HeatFlux_iso(DomainS *pD)
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      Q[k][j][i].x += kappa_iso*(Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
+      Q[k][j][i].x1 += kappa_iso*(Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
     }
   }}
 
@@ -168,7 +168,7 @@ void HeatFlux_iso(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        Q[k][j][i].y += kappa_iso*(Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
+        Q[k][j][i].x2 += kappa_iso*(Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
       }
     }}
   }
@@ -179,7 +179,7 @@ void HeatFlux_iso(DomainS *pD)
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        Q[k][j][i].z += kappa_iso*(Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
+        Q[k][j][i].x3 += kappa_iso*(Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
       }
     }}
   }
@@ -245,7 +245,7 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B1i[k][j][i]*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1
            + By*dTdy;
-        Q[k][j][i].x += kappa_aniso*(pG->B1i[k][j][i]*bDotGradT)/B02;
+        Q[k][j][i].x1 += kappa_aniso*(pG->B1i[k][j][i]*bDotGradT)/B02;
 
 /* Add flux at x1-interface, 3D PROBLEM */
 
@@ -256,7 +256,7 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B1i[k][j][i]*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1
            + By*dTdy + Bz*dTdz;
-        Q[k][j][i].x += kappa_aniso*(pG->B1i[k][j][i]*bDotGradT)/B02;
+        Q[k][j][i].x1 += kappa_aniso*(pG->B1i[k][j][i]*bDotGradT)/B02;
       }
     }
   }}
@@ -304,7 +304,7 @@ void HeatFlux_aniso(DomainS *pD)
 
         bDotGradT = pG->B2i[k][j][i]*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2
            + Bx*dTdx;
-        Q[k][j][i].y += kappa_aniso*(pG->B2i[k][j][i]*bDotGradT)/B02;
+        Q[k][j][i].x2 += kappa_aniso*(pG->B2i[k][j][i]*bDotGradT)/B02;
 
 /* Add flux at x2-interface, 3D PROBLEM */
 
@@ -315,7 +315,7 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B2i[k][j][i]*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2
            + Bx*dTdx + Bz*dTdz;
-        Q[k][j][i].y += kappa_aniso*(pG->B2i[k][j][i]*bDotGradT)/B02;
+        Q[k][j][i].x2 += kappa_aniso*(pG->B2i[k][j][i]*bDotGradT)/B02;
       }
     }
   }}
@@ -361,7 +361,7 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B3i[k][j][i]*(Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3
            + Bx*dTdx + By*dTdy;
-        Q[k][j][i].z += kappa_aniso*(pG->B3i[k][j][i]*bDotGradT)/B02;
+        Q[k][j][i].x3 += kappa_aniso*(pG->B3i[k][j][i]*bDotGradT)/B02;
       }
     }}
   }

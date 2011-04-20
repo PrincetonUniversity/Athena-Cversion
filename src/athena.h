@@ -40,7 +40,7 @@ typedef double Real;
  *  \brief General 3-vectors of Reals.
  */
 typedef struct Real3Vect_s{
-  Real x, y, z;
+  Real x1, x2, x3;
 }Real3Vect;
 /*! \struct Int3Vect
  *  \brief General 3-vectors of ints.
@@ -294,7 +294,7 @@ typedef struct Grid_s{
   Grain_Property *grproperty;/*!< array of particle properties of all types */
   long nparticle;            /*!< number of particles */
   long arrsize;              /*!< size of the particle array */
-  Grain *particle;           /*!< array of all particles */
+  GrainS *particle;          /*!< array of all particles */
   GrainAux *parsub;          /*!< supplemental particle information */
   GPCouple ***Coup;          /*!< array of gas-particle coupling */
 #endif /* PARTICLES */
@@ -400,11 +400,11 @@ typedef void (*VResFun_t)(MeshS *pM, struct Output_s *pout);
  *  \brief Pointer to expression that computes quant for output.*/
 typedef Real (*ConsFun_t)(const GridS *pG, const int i,const int j,const int k);
 #ifdef PARTICLES
-/*! \fn int (*PropFun_t)(const Grain *gr, const GrainAux *grsub)
+/*! \fn int (*PropFun_t)(const GrainS *gr, const GrainAux *grsub)
  *  \brief Particle property selection function */
-typedef int (*PropFun_t)(const Grain *gr, const GrainAux *grsub);
-typedef Real (*Parfun_t)(const Grid *pG, const Grain *gr);
-typedef Real (*Parfun_t)(const Grid *pG, const Grain *gr);
+typedef int (*PropFun_t)(const GrainS *gr, const GrainAux *grsub);
+typedef Real (*Parfun_t)(const GridS *pG, const GrainS *gr);
+typedef Real (*Parfun_t)(const GridS *pG, const GrainS *gr);
 #endif
 
 /*! \struct OutputS

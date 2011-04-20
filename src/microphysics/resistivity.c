@@ -107,9 +107,9 @@ void resistivity(DomainS *pD)
   for (k=kl; k<=ku; k++) {
   for (j=jl; j<=ju; j++) {
     for (i=is-4; i<=ie+4; i++) {
-      emf[k][j][i].x = 0.0;
-      emf[k][j][i].y = 0.0;
-      emf[k][j][i].z = 0.0;
+      emf[k][j][i].x1 = 0.0;
+      emf[k][j][i].x2 = 0.0;
+      emf[k][j][i].x3 = 0.0;
     }
   }}
 
@@ -117,12 +117,12 @@ void resistivity(DomainS *pD)
     for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=is-4; i<=ie+4; i++) {
-        emfh[k][j][i].x = 0.0;
-        emfh[k][j][i].y = 0.0;
-        emfh[k][j][i].z = 0.0;
-        Bcor[k][j][i].x = pG->B1i[k][j][i];
-        Bcor[k][j][i].y = pG->B2i[k][j][i];
-        Bcor[k][j][i].z = pG->B3i[k][j][i];
+        emfh[k][j][i].x1 = 0.0;
+        emfh[k][j][i].x2 = 0.0;
+        emfh[k][j][i].x3 = 0.0;
+        Bcor[k][j][i].x1 = pG->B1i[k][j][i];
+        Bcor[k][j][i].x2 = pG->B2i[k][j][i];
+        Bcor[k][j][i].x3 = pG->B3i[k][j][i];
       }
     }}
   }
@@ -135,28 +135,28 @@ void resistivity(DomainS *pD)
 /* 1D PROBLEM */
   if (ndim == 1){
     for (i=is-3; i<=ie+4; i++) {
-      J[ks][js][i].x = 0.0;
-      J[ks][js][i].y = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
-      J[ks][js][i].z =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
+      J[ks][js][i].x1 = 0.0;
+      J[ks][js][i].x2 = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
+      J[ks][js][i].x3 =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
     }
-    J[ks][js][0].x = 0.0;
+    J[ks][js][0].x1 = 0.0;
   }
 
 /* 2D PROBLEM */
   if (ndim == 2){
     for (j=js-3; j<=je+4; j++) {
       for (i=is-3; i<=ie+4; i++) {
-        J[ks][j][i].x=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
-        J[ks][j][i].y= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
-        J[ks][j][i].z=  (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
+        J[ks][j][i].x1=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
+        J[ks][j][i].x2= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
+        J[ks][j][i].x3=  (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
                         (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
       }
       i = is-4;
-      J[ks][j][i].x=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
+      J[ks][j][i].x1=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
     }
     j = js-4;
     for (i=is-3; i<=ie+4; i++) {
-      J[ks][j][i].y= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
+      J[ks][j][i].x2= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
     }
   }
 
@@ -165,27 +165,27 @@ void resistivity(DomainS *pD)
     for (k=ks-3; k<=ke+4; k++) {
      for (j=js-3; j<=je+4; j++) {
       for (i=is-3; i<=ie+4; i++) {
-        J[k][j][i].x = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
+        J[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
                        (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
-        J[k][j][i].y = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+        J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
                        (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
-        J[k][j][i].z = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+        J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
                        (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
       }
       i = is-4;
-      J[k][j][i].x = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
+      J[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
                      (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
      }
      j = js-4;
      for (i=is-3; i<=ie+4; i++) {
-        J[k][j][i].y = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+        J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
                        (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
      }
     }
     k = ks-4;
     for (j=js-3; j<=je+4; j++) {
     for (i=is-3; i<=ie+4; i++) {
-      J[k][j][i].z = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+      J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
                      (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
     }}
   }
@@ -207,8 +207,8 @@ void resistivity(DomainS *pD)
 /* compute remapped Ey from opposite side of grid */
     for(k=ks; k<=ke+1; k++) {
     for(j=js; j<=je; j++)   {
-      emf2[k][j][is]   = emf[k][j][is].y;
-      emf2[k][j][ie+1] = emf[k][j][ie+1].y;
+      emf2[k][j][is]   = emf[k][j][is].x2;
+      emf2[k][j][ie+1] = emf[k][j][ie+1].x2;
     }}
 
     if (my_iproc == 0) {
@@ -223,7 +223,7 @@ void resistivity(DomainS *pD)
     if (my_iproc == 0) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++){
-          emf[k][j][is].y  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+          emf[k][j][is].x2  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
         }
       }
     }
@@ -231,7 +231,7 @@ void resistivity(DomainS *pD)
     if (my_iproc == (pD->NGrid[0]-1)) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++){
-          emf[k][j][ie+1].y  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+          emf[k][j][ie+1].x2  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
         }
       }
     }
@@ -249,9 +249,9 @@ void resistivity(DomainS *pD)
 /* 1D PROBLEM */
   if (ndim == 1){
     for (i=is; i<=ie+1; i++) {
-      EnerFlux[ks][js][i].x =
-         0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c)*emf[ks][js][i].z
-       - 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c)*emf[ks][js][i].y;
+      EnerFlux[ks][js][i].x1 =
+         0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c)*emf[ks][js][i].x3
+       - 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c)*emf[ks][js][i].x2;
     }
   } 
       
@@ -259,17 +259,17 @@ void resistivity(DomainS *pD)
   if (ndim == 2){
     for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      EnerFlux[ks][j][i].x = 0.25*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c)*
-                            (emf[ks][j][i].z + emf[ks][j+1][i].z)
-         - 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c)*emf[ks][j][i].y;
+      EnerFlux[ks][j][i].x1 = 0.25*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c)*
+                            (emf[ks][j][i].x3 + emf[ks][j+1][i].x3)
+         - 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c)*emf[ks][j][i].x2;
     }}
     
     for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie; i++) {
-      EnerFlux[ks][j][i].y =
-         0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x
+      EnerFlux[ks][j][i].x2 =
+         0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x1
        - 0.25*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c)*
-                (emf[ks][j][i].z + emf[ks][j][i+1].z);
+                (emf[ks][j][i].x3 + emf[ks][j][i+1].x3);
     }}
   }   
 
@@ -278,30 +278,30 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie+1; i++) {
-        EnerFlux[k][j][i].x = 0.25*(pG->U[k][j][i].B2c + pG->U[k][j][i-1].B2c)*
-                             (emf[k][j][i].z + emf[k][j+1][i].z)
+        EnerFlux[k][j][i].x1 = 0.25*(pG->U[k][j][i].B2c + pG->U[k][j][i-1].B2c)*
+                             (emf[k][j][i].x3 + emf[k][j+1][i].x3)
                             - 0.25*(pG->U[k][j][i].B3c + pG->U[k][j][i-1].B3c)*
-                             (emf[k][j][i].y + emf[k+1][j][i].y);
+                             (emf[k][j][i].x2 + emf[k+1][j][i].x2);
       }
     }}
 
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        EnerFlux[k][j][i].y = 0.25*(pG->U[k][j][i].B3c + pG->U[k][j-1][i].B3c)*
-                             (emf[k][j][i].x + emf[k+1][j][i].x)
+        EnerFlux[k][j][i].x2 = 0.25*(pG->U[k][j][i].B3c + pG->U[k][j-1][i].B3c)*
+                             (emf[k][j][i].x1 + emf[k+1][j][i].x1)
                             - 0.25*(pG->U[k][j][i].B1c + pG->U[k][j-1][i].B1c)*
-                             (emf[k][j][i].z + emf[k][j][i+1].z);
+                             (emf[k][j][i].x3 + emf[k][j][i+1].x3);
       }
     }}
 
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        EnerFlux[k][j][i].z = 0.25*(pG->U[k][j][i].B1c + pG->U[k-1][j][i].B1c)*
-                             (emf[k][j][i].y + emf[k][j][i+1].y)
+        EnerFlux[k][j][i].x3 = 0.25*(pG->U[k][j][i].B1c + pG->U[k-1][j][i].B1c)*
+                             (emf[k][j][i].x2 + emf[k][j][i+1].x2)
                             - 0.25*(pG->U[k][j][i].B2c + pG->U[k-1][j][i].B2c)*
-                             (emf[k][j][i].x + emf[k][j+1][i].x);
+                             (emf[k][j][i].x1 + emf[k][j+1][i].x1);
       }
     }}
   }
@@ -312,7 +312,7 @@ void resistivity(DomainS *pD)
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].E += dtodx1*(EnerFlux[k][j][i+1].x - EnerFlux[k][j][i].x);
+      pG->U[k][j][i].E += dtodx1*(EnerFlux[k][j][i+1].x1 - EnerFlux[k][j][i].x1);
     }
   }}
 
@@ -322,7 +322,7 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx2*(EnerFlux[k][j+1][i].y -EnerFlux[k][j][i].y);
+        pG->U[k][j][i].E += dtodx2*(EnerFlux[k][j+1][i].x2 -EnerFlux[k][j][i].x2);
       }
     }}
   }
@@ -333,7 +333,7 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx3*(EnerFlux[k+1][j][i].z -EnerFlux[k][j][i].z);
+        pG->U[k][j][i].E += dtodx3*(EnerFlux[k+1][j][i].x3 -EnerFlux[k][j][i].x3);
       }
     }}
   }
@@ -346,8 +346,8 @@ void resistivity(DomainS *pD)
 /* 1D PROBLEM: centered differences for B2c and B3c */
   if (ndim == 1){
     for (i=is; i<=ie; i++) {
-      pG->U[ks][js][i].B2c += dtodx1*(emf[ks][js][i+1].z - emf[ks][js][i].z);
-      pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].y - emf[ks][js][i].y);
+      pG->U[ks][js][i].B2c += dtodx1*(emf[ks][js][i+1].x3 - emf[ks][js][i].x3);
+      pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].x2 - emf[ks][js][i].x2);
 /* For consistency, set B2i and B3i to cell-centered values. */
       pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
       pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
@@ -358,16 +358,16 @@ void resistivity(DomainS *pD)
   if (ndim == 2){
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].z - emf[ks][j][i].z);
-        pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].z - emf[ks][j][i].z);
+        pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].x3 - emf[ks][j][i].x3);
+        pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].x3 - emf[ks][j][i].x3);
 
-        pG->U[ks][j][i].B3c += dtodx2*(emf[ks][j+1][i  ].x - emf[ks][j][i].x) -
-                               dtodx1*(emf[ks][j  ][i+1].y - emf[ks][j][i].y);
+        pG->U[ks][j][i].B3c += dtodx2*(emf[ks][j+1][i  ].x1 - emf[ks][j][i].x1) -
+                               dtodx1*(emf[ks][j  ][i+1].x2 - emf[ks][j][i].x2);
       }
-      pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].z -emf[ks][j][ie+1].z);
+      pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].x3 -emf[ks][j][ie+1].x3);
     }
     for (i=is; i<=ie; i++) {
-      pG->B2i[ks][je+1][i] += dtodx1*(emf[ks][je+1][i+1].z -emf[ks][je+1][i].z);
+      pG->B2i[ks][je+1][i] += dtodx1*(emf[ks][je+1][i+1].x3 -emf[ks][je+1][i].x3);
     } 
 /* Set cell centered magnetic fields to average of face centered */
     for (j=js; j<=je; j++) {
@@ -385,28 +385,28 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
-          pG->B1i[k][j][i] += dtodx3*(emf[k+1][j  ][i  ].y - emf[k][j][i].y) -
-                              dtodx2*(emf[k  ][j+1][i  ].z - emf[k][j][i].z);
-          pG->B2i[k][j][i] += dtodx1*(emf[k  ][j  ][i+1].z - emf[k][j][i].z) -
-                              dtodx3*(emf[k+1][j  ][i  ].x - emf[k][j][i].x);
-          pG->B3i[k][j][i] += dtodx2*(emf[k  ][j+1][i  ].x - emf[k][j][i].x) -
-                              dtodx1*(emf[k  ][j  ][i+1].y - emf[k][j][i].y);
+          pG->B1i[k][j][i] += dtodx3*(emf[k+1][j  ][i  ].x2 - emf[k][j][i].x2) -
+                              dtodx2*(emf[k  ][j+1][i  ].x3 - emf[k][j][i].x3);
+          pG->B2i[k][j][i] += dtodx1*(emf[k  ][j  ][i+1].x3 - emf[k][j][i].x3) -
+                              dtodx3*(emf[k+1][j  ][i  ].x1 - emf[k][j][i].x1);
+          pG->B3i[k][j][i] += dtodx2*(emf[k  ][j+1][i  ].x1 - emf[k][j][i].x1) -
+                              dtodx1*(emf[k  ][j  ][i+1].x2 - emf[k][j][i].x2);
         }
         pG->B1i[k][j][ie+1] +=
-          dtodx3*(emf[k+1][j  ][ie+1].y - emf[k][j][ie+1].y) -
-          dtodx2*(emf[k  ][j+1][ie+1].z - emf[k][j][ie+1].z);
+          dtodx3*(emf[k+1][j  ][ie+1].x2 - emf[k][j][ie+1].x2) -
+          dtodx2*(emf[k  ][j+1][ie+1].x3 - emf[k][j][ie+1].x3);
       }
       for (i=is; i<=ie; i++) {
         pG->B2i[k][je+1][i] +=
-          dtodx1*(emf[k  ][je+1][i+1].z - emf[k][je+1][i].z) -
-          dtodx3*(emf[k+1][je+1][i  ].x - emf[k][je+1][i].x);
+          dtodx1*(emf[k  ][je+1][i+1].x3 - emf[k][je+1][i].x3) -
+          dtodx3*(emf[k+1][je+1][i  ].x1 - emf[k][je+1][i].x1);
       }
     }
     for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
       pG->B3i[ke+1][j][i] +=
-        dtodx2*(emf[ke+1][j+1][i  ].x - emf[ke+1][j][i].x) -
-        dtodx1*(emf[ke+1][j  ][i+1].y - emf[ke+1][j][i].y);
+        dtodx2*(emf[ke+1][j+1][i  ].x1 - emf[ke+1][j][i].x1) -
+        dtodx1*(emf[ke+1][j  ][i+1].x2 - emf[ke+1][j][i].x2);
     }}
 /* Set cell centered magnetic fields to average of face centered */
     for (k=ks; k<=ke; k++) {
@@ -445,8 +445,8 @@ void EField_Ohm(DomainS *pD)
 
       eta_O = 0.5*(pG->eta_Ohm[ks][js][i] + pG->eta_Ohm[ks][js][i-1]);
 
-      emf[ks][js][i].y += eta_O * J[ks][js][i].y;
-      emf[ks][js][i].z += eta_O * J[ks][js][i].z;
+      emf[ks][js][i].x2 += eta_O * J[ks][js][i].x2;
+      emf[ks][js][i].x3 += eta_O * J[ks][js][i].x3;
     }
   }
 
@@ -457,16 +457,16 @@ void EField_Ohm(DomainS *pD)
 
       eta_O = 0.5*(pG->eta_Ohm[ks][j][i] + pG->eta_Ohm[ks][j-1][i]);
 
-      emf[ks][j][i].x += eta_O * J[ks][j][i].x;
+      emf[ks][j][i].x1 += eta_O * J[ks][j][i].x1;
 
       eta_O = 0.5*(pG->eta_Ohm[ks][j][i] + pG->eta_Ohm[ks][j][i-1]);
 
-      emf[ks][j][i].y += eta_O * J[ks][j][i].y; 
+      emf[ks][j][i].x2 += eta_O * J[ks][j][i].x2; 
 
       eta_O = 0.25*(pG->eta_Ohm[ks][j][i  ] + pG->eta_Ohm[ks][j-1][i  ] +
                     pG->eta_Ohm[ks][j][i-1] + pG->eta_Ohm[ks][j-1][i-1]);
 
-      emf[ks][j][i].z += eta_O * J[ks][j][i].z;
+      emf[ks][j][i].x3 += eta_O * J[ks][j][i].x3;
     }}
   }
 
@@ -481,17 +481,17 @@ void EField_Ohm(DomainS *pD)
         eta_O = 0.25*(pG->eta_Ohm[k][j  ][i] + pG->eta_Ohm[k-1][j  ][i] +
                       pG->eta_Ohm[k][j-1][i] + pG->eta_Ohm[k-1][j-1][i]);
 
-        emf[k][j][i].x += eta_O * J[k][j][i].x;
+        emf[k][j][i].x1 += eta_O * J[k][j][i].x1;
 
         eta_O = 0.25*(pG->eta_Ohm[k][j][i  ] + pG->eta_Ohm[k-1][j][i  ] +
                       pG->eta_Ohm[k][j][i-1] + pG->eta_Ohm[k-1][j][i-1]);
 
-        emf[k][j][i].y += eta_O * J[k][j][i].y;
+        emf[k][j][i].x2 += eta_O * J[k][j][i].x2;
 
         eta_O = 0.25*(pG->eta_Ohm[k][j][i  ] + pG->eta_Ohm[k][j-1][i  ] +
                       pG->eta_Ohm[k][j][i-1] + pG->eta_Ohm[k][j-1][i-1]);
 
-        emf[k][j][i].z += eta_O * J[k][j][i].z;
+        emf[k][j][i].x3 += eta_O * J[k][j][i].x3;
       }
     }}
   }
@@ -555,30 +555,30 @@ void EField_Hall(DomainS *pD)
     for (i=is-2; i<=ie+3; i++) {
       eta_H = 0.5*(pG->eta_Hall[ks][js][i] + pG->eta_Hall[ks][js][i-1]);
 
-      emfh[ks][js][i].y = eta_H*J[ks][js][i].z * pG->B1i[ks][js][i];
+      emfh[ks][js][i].x2 = eta_H*J[ks][js][i].x3 * pG->B1i[ks][js][i];
     }
 
     /* update magnetic field */
     for (i=is-2; i<=ie+2; i++) {
-      Bcor[ks][js][i].z -= dtodx1*(emfh[ks][js][i+1].y - emfh[ks][js][i].y);
+      Bcor[ks][js][i].x3 -= dtodx1*(emfh[ks][js][i+1].x2 - emfh[ks][js][i].x2);
     }
 
     /* update current */
     for (i=is-1; i<=ie+2; i++) {
-      Jcor[ks][js][i].y = -(Bcor[ks][js][i].z - Bcor[ks][js][i-1].z)/pG->dx1;
+      Jcor[ks][js][i].x2 = -(Bcor[ks][js][i].x3 - Bcor[ks][js][i-1].x3)/pG->dx1;
     }
 
     /* x3-sweep */
     for (i=is-1; i<=ie+2; i++) {
       eta_H = 0.5*(pG->eta_Hall[ks][js][i] + pG->eta_Hall[ks][js][i-1]);
 
-      emfh[ks][js][i].z = -eta_H*Jcor[ks][js][i].y * pG->B1i[ks][js][i];
+      emfh[ks][js][i].x3 = -eta_H*Jcor[ks][js][i].x2 * pG->B1i[ks][js][i];
     }
 
     /* update global emf */
     for (i=is-1; i<=ie+1; i++) {
-      emf[ks][js][i].y += emfh[ks][js][i].y;
-      emf[ks][js][i].z += emfh[ks][js][i].z;
+      emf[ks][js][i].x2 += emfh[ks][js][i].x2;
+      emf[ks][js][i].x3 += emfh[ks][js][i].x3;
     }
 
   }
@@ -595,32 +595,32 @@ void EField_Hall(DomainS *pD)
       /* x1-sweep */
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j-1][i]);
 
-      emfh[ks][j][i].x  = eta_H*(
-        0.125*(   J[ks][j  ][i].y +    J[ks][j  ][i+1].y
-             +    J[ks][j-1][i].y +    J[ks][j-1][i+1].y)
-             *(Bcor[ks][j  ][i].z + Bcor[ks][j-1][i  ].z) -
-         0.5*((   J[ks][j  ][i].z +    J[ks][j  ][i+1].z)*Bcor[ks][j][i].y));
+      emfh[ks][j][i].x1  = eta_H*(
+        0.125*(   J[ks][j  ][i].x2 +    J[ks][j  ][i+1].x2
+             +    J[ks][j-1][i].x2 +    J[ks][j-1][i+1].x2)
+             *(Bcor[ks][j  ][i].x3 + Bcor[ks][j-1][i  ].x3) -
+         0.5*((   J[ks][j  ][i].x3 +    J[ks][j  ][i+1].x3)*Bcor[ks][j][i].x2));
       }}
 
     /* update the magnetic field */
     for (j=js-3; j<=je+3; j++) {
     for (i=is-3; i<=ie+3; i++) {
-        Bcor[ks][j][i].z += dtodx2*(emfh[ks][j+1][i].x - emfh[ks][j][i].x);
+        Bcor[ks][j][i].x3 += dtodx2*(emfh[ks][j+1][i].x1 - emfh[ks][j][i].x1);
     }}
 
     /* update the current density */
     for (j=js-2; j<=je+3; j++) {
       for (i=is-2; i<=ie+3; i++) {
-        Jcor[ks][j][i].x=  (Bcor[ks][j][i].z - Bcor[ks][j-1][i  ].z)/pG->dx2;
-        Jcor[ks][j][i].y= -(Bcor[ks][j][i].z - Bcor[ks][j  ][i-1].z)/pG->dx1;
-        Jcor[ks][j][i].z=  J[ks][j][i].z;
+        Jcor[ks][j][i].x1=  (Bcor[ks][j][i].x3 - Bcor[ks][j-1][i  ].x3)/pG->dx2;
+        Jcor[ks][j][i].x2= -(Bcor[ks][j][i].x3 - Bcor[ks][j  ][i-1].x3)/pG->dx1;
+        Jcor[ks][j][i].x3=  J[ks][j][i].x3;
       }
       i = is-3;
-      Jcor[ks][j][i].x=  (Bcor[ks][j][i].z - Bcor[ks][j-1][i  ].z)/pG->dx2;
+      Jcor[ks][j][i].x1=  (Bcor[ks][j][i].x3 - Bcor[ks][j-1][i  ].x3)/pG->dx2;
     }
     j = js-3;
     for (i=is-2; i<=ie+3; i++) {
-      Jcor[ks][j][i].y= -(Bcor[ks][j][i].z - Bcor[ks][j  ][i-1].z)/pG->dx1;
+      Jcor[ks][j][i].x2= -(Bcor[ks][j][i].x3 - Bcor[ks][j  ][i-1].x3)/pG->dx1;
     }
 
     /* x2-sweep */
@@ -628,31 +628,31 @@ void EField_Hall(DomainS *pD)
     for (i=is-2; i<=ie+3; i++) {
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j][i-1]);
 
-      emfh[ks][j][i].y = eta_H*(
-         0.5*((Jcor[ks][j][i  ].z + Jcor[ks][j+1][i  ].z)*Bcor[ks][j][i].x) -
-        0.125*(Jcor[ks][j][i  ].x + Jcor[ks][j+1][i  ].x
-             + Jcor[ks][j][i-1].x + Jcor[ks][j+1][i-1].x)
-             *(Bcor[ks][j][i  ].z + Bcor[ks][j  ][i-1].z));
+      emfh[ks][j][i].x2 = eta_H*(
+         0.5*((Jcor[ks][j][i  ].x3 + Jcor[ks][j+1][i  ].x3)*Bcor[ks][j][i].x1) -
+        0.125*(Jcor[ks][j][i  ].x1 + Jcor[ks][j+1][i  ].x1
+             + Jcor[ks][j][i-1].x1 + Jcor[ks][j+1][i-1].x1)
+             *(Bcor[ks][j][i  ].x3 + Bcor[ks][j  ][i-1].x3));
     }}
 
     /* update the magnetic field */
     for (j=js-2; j<=je+2; j++) {
     for (i=is-2; i<=ie+2; i++) {
-      Bcor[ks][j][i].z -= dtodx1*(emfh[ks][j][i+1].y - emfh[ks][j][i].y);
+      Bcor[ks][j][i].x3 -= dtodx1*(emfh[ks][j][i+1].x2 - emfh[ks][j][i].x2);
     }}
 
     /* update the current density */
     for (j=js-1; j<=je+2; j++) {
       for (i=is-1; i<=ie+2; i++) {
-        Jcor[ks][j][i].x=  (Bcor[ks][j][i].z - Bcor[ks][j-1][i  ].z)/pG->dx2;
-        Jcor[ks][j][i].y= -(Bcor[ks][j][i].z - Bcor[ks][j  ][i-1].z)/pG->dx1;
+        Jcor[ks][j][i].x1=  (Bcor[ks][j][i].x3 - Bcor[ks][j-1][i  ].x3)/pG->dx2;
+        Jcor[ks][j][i].x2= -(Bcor[ks][j][i].x3 - Bcor[ks][j  ][i-1].x3)/pG->dx1;
       }
       i = is-2;
-      Jcor[ks][j][i].x=  (Bcor[ks][j][i].z - Bcor[ks][j-1][i  ].z)/pG->dx2;
+      Jcor[ks][j][i].x1=  (Bcor[ks][j][i].x3 - Bcor[ks][j-1][i  ].x3)/pG->dx2;
     }
     j = js-2;
     for (i=is-1; i<=ie+2; i++) {
-      Jcor[ks][j][i].y= -(Bcor[ks][j][i].z - Bcor[ks][j  ][i-1].z)/pG->dx1;
+      Jcor[ks][j][i].x2= -(Bcor[ks][j][i].x3 - Bcor[ks][j  ][i-1].x3)/pG->dx1;
     }
 
     /* x3-sweep */
@@ -661,19 +661,19 @@ void EField_Hall(DomainS *pD)
       eta_H = 0.25*(pG->eta_Hall[ks][j][i  ] + pG->eta_Hall[ks][j-1][i  ] +
                     pG->eta_Hall[ks][j][i-1] + pG->eta_Hall[ks][j-1][i-1]);
 
-      emfh[ks][j][i].z = eta_H*(
-        0.25*(Jcor[ks][j][i].x + Jcor[ks][j][i-1].x)
-            *(Bcor[ks][j][i].y + Bcor[ks][j][i-1].y) -
-        0.25*(Jcor[ks][j][i].y + Jcor[ks][j-1][i].y)
-            *(Bcor[ks][j][i].x + Bcor[ks][j-1][i].x));
+      emfh[ks][j][i].x3 = eta_H*(
+        0.25*(Jcor[ks][j][i].x1 + Jcor[ks][j][i-1].x1)
+            *(Bcor[ks][j][i].x2 + Bcor[ks][j][i-1].x2) -
+        0.25*(Jcor[ks][j][i].x2 + Jcor[ks][j-1][i].x2)
+            *(Bcor[ks][j][i].x1 + Bcor[ks][j-1][i].x1));
     }}
 
     /* update the global emf */
     for (j=js-1; j<=je+1; j++) {
     for (i=is-1; i<=ie+1; i++) { 
-      emf[ks][j][i].x += emfh[ks][j][i].x;
-      emf[ks][j][i].y += emfh[ks][j][i].y;
-      emf[ks][j][i].z += emfh[ks][j][i].z;
+      emf[ks][j][i].x1 += emfh[ks][j][i].x1;
+      emf[ks][j][i].x2 += emfh[ks][j][i].x2;
+      emf[ks][j][i].x3 += emfh[ks][j][i].x3;
     }}
 
   }
@@ -693,13 +693,13 @@ void EField_Hall(DomainS *pD)
         eta_H = 0.25*(pG->eta_Hall[k][j  ][i] + pG->eta_Hall[k-1][j  ][i] +
                       pG->eta_Hall[k][j-1][i] + pG->eta_Hall[k-1][j-1][i]);
 
-        emfh[k][j][i].x = 0.125*eta_H*(
-                (J[k  ][j  ][i].y    + J[k  ][j  ][i+1].y
-               + J[k  ][j-1][i].y    + J[k  ][j-1][i+1].y)
-               *(Bcor[k  ][j  ][i].z + Bcor[k  ][j-1][i  ].z)-
-                (J[k  ][j  ][i].z    + J[k  ][j  ][i+1].z
-               + J[k-1][j  ][i].z    + J[k-1][j  ][i+1].z)
-               *(Bcor[k  ][j  ][i].y + Bcor[k-1][j  ][i  ].y));
+        emfh[k][j][i].x1 = 0.125*eta_H*(
+                (J[k  ][j  ][i].x2    + J[k  ][j  ][i+1].x2
+               + J[k  ][j-1][i].x2    + J[k  ][j-1][i+1].x2)
+               *(Bcor[k  ][j  ][i].x3 + Bcor[k  ][j-1][i  ].x3)-
+                (J[k  ][j  ][i].x3    + J[k  ][j  ][i+1].x3
+               + J[k-1][j  ][i].x3    + J[k-1][j  ][i+1].x3)
+               *(Bcor[k  ][j  ][i].x2 + Bcor[k-1][j  ][i  ].x2));
       }
     }}
 
@@ -707,8 +707,8 @@ void EField_Hall(DomainS *pD)
     for (k=ks-3; k<=ke+3; k++) {
     for (j=js-3; j<=je+3; j++) {
       for (i=is-3; i<=ie+3; i++) {
-        Bcor[k][j][i].y -= dtodx3*(emfh[k+1][j  ][i  ].x - emfh[k][j][i].x);
-        Bcor[k][j][i].z += dtodx2*(emfh[k  ][j+1][i  ].x - emfh[k][j][i].x);
+        Bcor[k][j][i].x2 -= dtodx3*(emfh[k+1][j  ][i  ].x1 - emfh[k][j][i].x1);
+        Bcor[k][j][i].x3 += dtodx2*(emfh[k  ][j+1][i  ].x1 - emfh[k][j][i].x1);
       }
     }}
 
@@ -716,28 +716,28 @@ void EField_Hall(DomainS *pD)
     for (k=ks-2; k<=ke+3; k++) {
       for (j=js-2; j<=je+3; j++) {
         for (i=is-2; i<=ie+3; i++) {
-          Jcor[k][j][i].x = (Bcor[k][j][i].z - Bcor[k  ][j-1][i  ].z)/pG->dx2 -
-                            (Bcor[k][j][i].y - Bcor[k-1][j  ][i  ].y)/pG->dx3;
-          Jcor[k][j][i].y = (Bcor[k][j][i].x - Bcor[k-1][j  ][i  ].x)/pG->dx3 -
-                            (Bcor[k][j][i].z - Bcor[k  ][j  ][i-1].z)/pG->dx1;
-          Jcor[k][j][i].z = (Bcor[k][j][i].y - Bcor[k  ][j  ][i-1].y)/pG->dx1 -
-                            (Bcor[k][j][i].x - Bcor[k  ][j-1][i  ].x)/pG->dx2;
+          Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
+                            (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
+          Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
+                            (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
+          Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
+                            (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
         }
         i = is-3;
-        Jcor[k][j][i].x = (Bcor[k][j][i].z - Bcor[k  ][j-1][i  ].z)/pG->dx2 -
-                          (Bcor[k][j][i].y - Bcor[k-1][j  ][i  ].y)/pG->dx3;
+        Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
+                          (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
       }
       j = js-3;
       for (i=is-2; i<=ie+3; i++) {
-        Jcor[k][j][i].y = (Bcor[k][j][i].x - Bcor[k-1][j  ][i  ].x)/pG->dx3 -
-                          (Bcor[k][j][i].z - Bcor[k  ][j  ][i-1].z)/pG->dx1;
+        Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
+                          (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
       }
     }
     k = ks-3;
     for (j=js-2; j<=je+3; j++) {
     for (i=is-2; i<=ie+3; i++) {
-      Jcor[k][j][i].z = (Bcor[k][j][i].y - Bcor[k  ][j  ][i-1].y)/pG->dx1 -
-                        (Bcor[k][j][i].x - Bcor[k  ][j-1][i  ].x)/pG->dx2;
+      Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
+                        (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
     }}
 
     /* x2-sweep */
@@ -747,13 +747,13 @@ void EField_Hall(DomainS *pD)
         eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k-1][j][i  ] +
                       pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k-1][j][i-1]);
 
-        emfh[k][j][i].y += 0.125*eta_H*(
-                (Jcor[k  ][j][i  ].z + Jcor[k  ][j+1][i  ].z
-               + Jcor[k-1][j][i  ].z + Jcor[k-1][j+1][i  ].z)
-               *(Bcor[k  ][j][i  ].x + Bcor[k-1][j  ][i  ].x)-
-                (Jcor[k  ][j][i  ].x + Jcor[k  ][j+1][i  ].x
-               + Jcor[k  ][j][i-1].x + Jcor[k  ][j+1][i-1].x)
-               *(Bcor[k  ][j][i  ].z + Bcor[k  ][j  ][i-1].z));
+        emfh[k][j][i].x2 += 0.125*eta_H*(
+                (Jcor[k  ][j][i  ].x3 + Jcor[k  ][j+1][i  ].x3
+               + Jcor[k-1][j][i  ].x3 + Jcor[k-1][j+1][i  ].x3)
+               *(Bcor[k  ][j][i  ].x1 + Bcor[k-1][j  ][i  ].x1)-
+                (Jcor[k  ][j][i  ].x1 + Jcor[k  ][j+1][i  ].x1
+               + Jcor[k  ][j][i-1].x1 + Jcor[k  ][j+1][i-1].x1)
+               *(Bcor[k  ][j][i  ].x3 + Bcor[k  ][j  ][i-1].x3));
       }
     }}
 
@@ -761,8 +761,8 @@ void EField_Hall(DomainS *pD)
     for (k=ks-2; k<=ke+2; k++) {
     for (j=js-2; j<=je+2; j++) {
       for (i=is-2; i<=ie+2; i++) {
-        Bcor[k][j][i].x += dtodx3*(emfh[k+1][j  ][i  ].y - emfh[k][j][i].y);
-        Bcor[k][j][i].z -= dtodx1*(emfh[k  ][j  ][i+1].y - emfh[k][j][i].y);
+        Bcor[k][j][i].x1 += dtodx3*(emfh[k+1][j  ][i  ].x2 - emfh[k][j][i].x2);
+        Bcor[k][j][i].x3 -= dtodx1*(emfh[k  ][j  ][i+1].x2 - emfh[k][j][i].x2);
       }
     }}
 
@@ -770,28 +770,28 @@ void EField_Hall(DomainS *pD)
     for (k=ks-1; k<=ke+2; k++) {
       for (j=js-1; j<=je+2; j++) {
         for (i=is-1; i<=ie+2; i++) {
-          Jcor[k][j][i].x = (Bcor[k][j][i].z - Bcor[k  ][j-1][i  ].z)/pG->dx2 -
-                            (Bcor[k][j][i].y - Bcor[k-1][j  ][i  ].y)/pG->dx3;
-          Jcor[k][j][i].y = (Bcor[k][j][i].x - Bcor[k-1][j  ][i  ].x)/pG->dx3 -
-                            (Bcor[k][j][i].z - Bcor[k  ][j  ][i-1].z)/pG->dx1;
-          Jcor[k][j][i].z = (Bcor[k][j][i].y - Bcor[k  ][j  ][i-1].y)/pG->dx1 -
-                            (Bcor[k][j][i].x - Bcor[k  ][j-1][i  ].x)/pG->dx2;
+          Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
+                            (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
+          Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
+                            (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
+          Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
+                            (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
         }
         i = is-2;
-        Jcor[k][j][i].x = (Bcor[k][j][i].z - Bcor[k  ][j-1][i  ].z)/pG->dx2 -
-                          (Bcor[k][j][i].y - Bcor[k-1][j  ][i  ].y)/pG->dx3;
+        Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
+                          (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
       }
       j = js-2;
       for (i=is-1; i<=ie+2; i++) {
-        Jcor[k][j][i].y = (Bcor[k][j][i].x - Bcor[k-1][j  ][i  ].x)/pG->dx3 -
-                          (Bcor[k][j][i].z - Bcor[k  ][j  ][i-1].z)/pG->dx1;
+        Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
+                          (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
       }
     }
     k = ks-2;
     for (j=js-1; j<=je+2; j++) {
     for (i=is-1; i<=ie+2; i++) {
-      Jcor[k][j][i].z = (Bcor[k][j][i].y - Bcor[k  ][j  ][i-1].y)/pG->dx1 -
-                        (Bcor[k][j][i].x - Bcor[k  ][j-1][i  ].x)/pG->dx2;
+      Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
+                        (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
     }}
 
     /* x3-sweep */
@@ -801,13 +801,13 @@ void EField_Hall(DomainS *pD)
         eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k][j-1][i  ] +
                       pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k][j-1][i-1]);
 
-        emfh[k][j][i].z = 0.125*eta_H*(
-                (Jcor[k][j  ][i  ].x + Jcor[k+1][j  ][i  ].x
-               + Jcor[k][j  ][i-1].x + Jcor[k+1][j  ][i-1].x)
-               *(Bcor[k][j  ][i  ].y + Bcor[k  ][j  ][i-1].y)-
-                (Jcor[k][j  ][i  ].y + Jcor[k+1][j  ][i  ].y
-               + Jcor[k][j-1][i  ].y + Jcor[k+1][j-1][i  ].y)
-               *(Bcor[k][j  ][i  ].x + Bcor[k  ][j-1][i  ].x));
+        emfh[k][j][i].x3 = 0.125*eta_H*(
+                (Jcor[k][j  ][i  ].x1 + Jcor[k+1][j  ][i  ].x1
+               + Jcor[k][j  ][i-1].x1 + Jcor[k+1][j  ][i-1].x1)
+               *(Bcor[k][j  ][i  ].x2 + Bcor[k  ][j  ][i-1].x2)-
+                (Jcor[k][j  ][i  ].x2 + Jcor[k+1][j  ][i  ].x2
+               + Jcor[k][j-1][i  ].x2 + Jcor[k+1][j-1][i  ].x2)
+               *(Bcor[k][j  ][i  ].x1 + Bcor[k  ][j-1][i  ].x1));
       }
     }}
 
@@ -815,9 +815,9 @@ void EField_Hall(DomainS *pD)
     for (k=ks-1; k<=ke+1; k++) {
     for (j=js-1; j<=je+1; j++) {
       for (i=is-1; i<=ie+1; i++) {
-        emf[k][j][i].x += emfh[k][j][i].x;
-        emf[k][j][i].y += emfh[k][j][i].y;
-        emf[k][j][i].z += emfh[k][j][i].z;
+        emf[k][j][i].x1 += emfh[k][j][i].x1;
+        emf[k][j][i].x2 += emfh[k][j][i].x2;
+        emf[k][j][i].x3 += emfh[k][j][i].x3;
       }
     }}
 
@@ -857,10 +857,10 @@ void EField_AD(DomainS *pD)
       intBz = 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c);
 
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
-      JdotB = J[ks][js][i].y*intBy + J[ks][js][i].z*intBz;
+      JdotB = J[ks][js][i].x2*intBy + J[ks][js][i].x3*intBz;
 
-      emf[ks][js][i].y += eta_A*(J[ks][js][i].y - JdotB*intBy/Bsq);
-      emf[ks][js][i].z += eta_A*(J[ks][js][i].z - JdotB*intBz/Bsq);
+      emf[ks][js][i].x2 += eta_A*(J[ks][js][i].x2 - JdotB*intBy/Bsq);
+      emf[ks][js][i].x3 += eta_A*(J[ks][js][i].x3 - JdotB*intBz/Bsq);
     }
   }
 
@@ -876,10 +876,10 @@ void EField_AD(DomainS *pD)
       /* emf.x */
       eta_A = 0.5*(pG->eta_AD[ks][j][i] + pG->eta_AD[ks][j-1][i]);
 
-      intJx = J[ks][j][i].x;
-      intJy = 0.25*(J[ks][j  ][i].y + J[ks][j  ][i+1].y
-                  + J[ks][j-1][i].y + J[ks][j-1][i+1].y);
-      intJz = 0.5 *(J[ks][j][i].z   + J[ks][j][i+1].z);
+      intJx = J[ks][j][i].x1;
+      intJy = 0.25*(J[ks][j  ][i].x2 + J[ks][j  ][i+1].x2
+                  + J[ks][j-1][i].x2 + J[ks][j-1][i+1].x2);
+      intJz = 0.5 *(J[ks][j][i].x3   + J[ks][j][i+1].x3);
 
       intBx = 0.5*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c);
       intBy = pG->B2i[ks][j][i];
@@ -888,15 +888,15 @@ void EField_AD(DomainS *pD)
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
-      emf[ks][j][i].x += eta_A*(J[ks][j][i].x - JdotB*intBx/Bsq);
+      emf[ks][j][i].x1 += eta_A*(J[ks][j][i].x1 - JdotB*intBx/Bsq);
 
       /* emf.y */
       eta_A = 0.5*(pG->eta_AD[ks][j][i] + pG->eta_AD[ks][j][i-1]);
 
-      intJx = 0.25*(J[ks][j][i  ].x + J[ks][j+1][i  ].x
-                  + J[ks][j][i-1].x + J[ks][j+1][i-1].x);
-      intJy = J[ks][j][i].y;
-      intJz = 0.5 *(J[ks][j][i].z   + J[ks][j+1][i].z);
+      intJx = 0.25*(J[ks][j][i  ].x1 + J[ks][j+1][i  ].x1
+                  + J[ks][j][i-1].x1 + J[ks][j+1][i-1].x1);
+      intJy = J[ks][j][i].x2;
+      intJz = 0.5 *(J[ks][j][i].x3   + J[ks][j+1][i].x3);
 
       intBx = pG->B1i[ks][j][i];
       intBy = 0.5*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c);
@@ -905,15 +905,15 @@ void EField_AD(DomainS *pD)
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
-      emf[ks][j][i].y += eta_A*(J[ks][j][i].y - JdotB*intBy/Bsq);
+      emf[ks][j][i].x2 += eta_A*(J[ks][j][i].x2 - JdotB*intBy/Bsq);
 
      /* emf.z */
       eta_A = 0.25*(pG->eta_AD[ks][j  ][i] + pG->eta_AD[ks][j  ][i-1]
                   + pG->eta_AD[ks][j-1][i] + pG->eta_AD[ks][j-1][i-1]);
 
-      intJx = 0.5*(J[ks][j][i].x + J[ks][j][i-1].x);
-      intJy = 0.5*(J[ks][j][i].y + J[ks][j-1][i].y);
-      intJz = J[ks][j][i].z;
+      intJx = 0.5*(J[ks][j][i].x1 + J[ks][j][i-1].x1);
+      intJy = 0.5*(J[ks][j][i].x2 + J[ks][j-1][i].x2);
+      intJz = J[ks][j][i].x3;
 
       intBx = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j-1][i]);
       intBy = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j][i-1]);
@@ -923,7 +923,7 @@ void EField_AD(DomainS *pD)
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
-      emf[ks][j][i].z += eta_A*(J[ks][j][i].z - JdotB*intBz/Bsq);
+      emf[ks][j][i].x3 += eta_A*(J[ks][j][i].x3 - JdotB*intBz/Bsq);
 
     }}
   }
@@ -942,11 +942,11 @@ void EField_AD(DomainS *pD)
         eta_A = 0.25*(pG->eta_AD[k][j  ][i] + pG->eta_AD[k-1][j  ][i] +
                       pG->eta_AD[k][j-1][i] + pG->eta_AD[k-1][j-1][i]);
 
-        intJx = J[k][j][i].x;
-        intJy = 0.25*(J[k][j  ][i].y + J[k][j  ][i+1].y
-                    + J[k][j-1][i].y + J[k][j-1][i+1].y);
-        intJz = 0.25*(J[k  ][j][i].z + J[k  ][j][i+1].z
-                    + J[k-1][j][i].z + J[k-1][j][i+1].z);
+        intJx = J[k][j][i].x1;
+        intJy = 0.25*(J[k][j  ][i].x2 + J[k][j  ][i+1].x2
+                    + J[k][j-1][i].x2 + J[k][j-1][i+1].x2);
+        intJz = 0.25*(J[k  ][j][i].x3 + J[k  ][j][i+1].x3
+                    + J[k-1][j][i].x3 + J[k-1][j][i+1].x3);
 
         intBx = 0.25*(pG->U[k][j  ][i].B1c + pG->U[k-1][j  ][i].B1c +
                       pG->U[k][j-1][i].B1c + pG->U[k-1][j-1][i].B1c);
@@ -956,17 +956,17 @@ void EField_AD(DomainS *pD)
         Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
-        emf[k][j][i].x += eta_A*(J[k][j][i].x - JdotB*intBx/Bsq);
+        emf[k][j][i].x1 += eta_A*(J[k][j][i].x1 - JdotB*intBx/Bsq);
 
         /* emf.y */
         eta_A = 0.25*(pG->eta_AD[k][j][i  ] + pG->eta_AD[k-1][j][i  ] +
                       pG->eta_AD[k][j][i-1] + pG->eta_AD[k-1][j][i-1]);
 
-        intJx = 0.25*(J[k][j][i  ].x + J[k][j+1][i  ].x
-                    + J[k][j][i-1].x + J[k][j+1][i-1].x);;
-        intJy = J[k][j][i].y;
-        intJz = 0.25*(J[k  ][j][i].z + J[k  ][j+1][i].z
-                    + J[k-1][j][i].z + J[k-1][j+1][i].z);
+        intJx = 0.25*(J[k][j][i  ].x1 + J[k][j+1][i  ].x1
+                    + J[k][j][i-1].x1 + J[k][j+1][i-1].x1);;
+        intJy = J[k][j][i].x2;
+        intJz = 0.25*(J[k  ][j][i].x3 + J[k  ][j+1][i].x3
+                    + J[k-1][j][i].x3 + J[k-1][j+1][i].x3);
 
         intBx = 0.5*(pG->B1i[k][j][i] + pG->B1i[k-1][j][i]);
         intBy = 0.25*(pG->U[k][j][i  ].B2c + pG->U[k-1][j][i  ].B2c +
@@ -976,17 +976,17 @@ void EField_AD(DomainS *pD)
         Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
-        emf[k][j][i].y += eta_A*(J[k][j][i].y - JdotB*intBy/Bsq);
+        emf[k][j][i].x2 += eta_A*(J[k][j][i].x2 - JdotB*intBy/Bsq);
 
         /* emf.z */
         eta_A = 0.25*(pG->eta_AD[k][j][i  ] + pG->eta_AD[k][j-1][i  ] +
                       pG->eta_AD[k][j][i-1] + pG->eta_AD[k][j-1][i-1]);
 
-        intJx = 0.25*(J[k][j][i  ].x + J[k+1][j][i  ].x
-                    + J[k][j][i-1].x + J[k+1][j][i-1].x);;
-        intJy = 0.25*(J[k][j  ][i].y + J[k+1][j  ][i].y
-                    + J[k][j-1][i].y + J[k+1][j-1][i].y);
-        intJz = J[k][j][i].z;
+        intJx = 0.25*(J[k][j][i  ].x1 + J[k+1][j][i  ].x1
+                    + J[k][j][i-1].x1 + J[k+1][j][i-1].x1);;
+        intJy = 0.25*(J[k][j  ][i].x2 + J[k+1][j  ][i].x2
+                    + J[k][j-1][i].x2 + J[k+1][j-1][i].x2);
+        intJz = J[k][j][i].x3;
 
         intBx = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j-1][i]);
         intBy = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j][i-1]);
@@ -996,7 +996,7 @@ void EField_AD(DomainS *pD)
         Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
-        emf[k][j][i].z += eta_A*(J[k][j][i].z - JdotB*intBz/Bsq);
+        emf[k][j][i].x3 += eta_A*(J[k][j][i].x3 - JdotB*intBz/Bsq);
       }
     }}
   }
@@ -1034,10 +1034,10 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
       eta_H = 0.5*(pG->eta_Hall[ks][js][i] + pG->eta_Hall[ks][js][i-1]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[ks][js][i].y -= eta_4 * (J[ks][js][i-1].y - 2.0*J[ks][js][i].y
-                                 + J[ks][js][i+1].y) * dx21;
-      emf[ks][js][i].z -= eta_4 * (J[ks][js][i-1].z - 2.0*J[ks][js][i].z
-                                 + J[ks][js][i+1].z) * dx21;
+      emf[ks][js][i].x2 -= eta_4 * (J[ks][js][i-1].x2 - 2.0*J[ks][js][i].x2
+                                 + J[ks][js][i+1].x2) * dx21;
+      emf[ks][js][i].x3 -= eta_4 * (J[ks][js][i-1].x3 - 2.0*J[ks][js][i].x3
+                                 + J[ks][js][i+1].x3) * dx21;
     }
   }
 
@@ -1050,29 +1050,29 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j-1][i]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[ks][j][i].x -= eta_4 * ((J[ks][j][i-1].x - 2.0*J[ks][j][i].x
-                                 + J[ks][j][i+1].x) * dx21
-                                 +(J[ks][j-1][i].x - 2.0*J[ks][j][i].x
-                                 + J[ks][j+1][i].x) * dy21);
+      emf[ks][j][i].x1 -= eta_4 * ((J[ks][j][i-1].x1 - 2.0*J[ks][j][i].x1
+                                 + J[ks][j][i+1].x1) * dx21
+                                 +(J[ks][j-1][i].x1 - 2.0*J[ks][j][i].x1
+                                 + J[ks][j+1][i].x1) * dy21);
 
       /* x2 */
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j][i-1]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[ks][j][i].y -= eta_4 * ((J[ks][j][i-1].y - 2.0*J[ks][j][i].y
-                                 + J[ks][j][i+1].y) * dx21
-                                 +(J[ks][j-1][i].y - 2.0*J[ks][j][i].y
-                                 + J[ks][j+1][i].y) * dy21);
+      emf[ks][j][i].x2 -= eta_4 * ((J[ks][j][i-1].x2 - 2.0*J[ks][j][i].x2
+                                 + J[ks][j][i+1].x2) * dx21
+                                 +(J[ks][j-1][i].x2 - 2.0*J[ks][j][i].x2
+                                 + J[ks][j+1][i].x2) * dy21);
 
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[ks][j][i  ] + pG->eta_Hall[ks][j-1][i  ] +
                     pG->eta_Hall[ks][j][i-1] + pG->eta_Hall[ks][j-1][i-1]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[ks][j][i].z -= eta_4 * ((J[ks][j][i-1].z - 2.0*J[ks][j][i].z
-                                 + J[ks][j][i+1].z) * dx21
-                                 +(J[ks][j-1][i].z - 2.0*J[ks][j][i].z
-                                 + J[ks][j+1][i].z) * dy21);
+      emf[ks][j][i].x3 -= eta_4 * ((J[ks][j][i-1].x3 - 2.0*J[ks][j][i].x3
+                                 + J[ks][j][i+1].x3) * dx21
+                                 +(J[ks][j-1][i].x3 - 2.0*J[ks][j][i].x3
+                                 + J[ks][j+1][i].x3) * dy21);
     }}
   }
 
@@ -1087,36 +1087,36 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
                     pG->eta_Hall[k][j-1][i] + pG->eta_Hall[k-1][j-1][i]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[k][j][i].x -= eta_4 * ((J[k][j][i-1].x - 2.0*J[k][j][i].x
-                                + J[k][j][i+1].x) * dx21
-                                +(J[k][j-1][i].x - 2.0*J[k][j][i].x
-                                + J[k][j+1][i].x) * dy21
-                                +(J[k-1][j][i].x - 2.0*J[k][j][i].x
-                                + J[k+1][j][i].x) * dz21);
+      emf[k][j][i].x1 -= eta_4 * ((J[k][j][i-1].x1 - 2.0*J[k][j][i].x1
+                                + J[k][j][i+1].x1) * dx21
+                                +(J[k][j-1][i].x1 - 2.0*J[k][j][i].x1
+                                + J[k][j+1][i].x1) * dy21
+                                +(J[k-1][j][i].x1 - 2.0*J[k][j][i].x1
+                                + J[k+1][j][i].x1) * dz21);
 
       /* x2 */
       eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k-1][j][i  ] +
                     pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k-1][j][i-1]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[k][j][i].y -= eta_4 * ((J[k][j][i-1].y - 2.0*J[k][j][i].y
-                                + J[k][j][i+1].y) * dx21
-                                +(J[k][j-1][i].y - 2.0*J[k][j][i].y
-                                + J[k][j+1][i].y) * dy21
-                                +(J[k-1][j][i].y - 2.0*J[k][j][i].y
-                                + J[k+1][j][i].y) * dz21);
+      emf[k][j][i].x2 -= eta_4 * ((J[k][j][i-1].x2 - 2.0*J[k][j][i].x2
+                                + J[k][j][i+1].x2) * dx21
+                                +(J[k][j-1][i].x2 - 2.0*J[k][j][i].x2
+                                + J[k][j+1][i].x2) * dy21
+                                +(J[k-1][j][i].x2 - 2.0*J[k][j][i].x2
+                                + J[k+1][j][i].x2) * dz21);
 
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k][j-1][i  ] +
                     pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k][j-1][i-1]);
       eta_4 = prefac * SQR(eta_H) * pG->dt;
 
-      emf[k][j][i].z -= eta_4 * ((J[k][j][i-1].z - 2.0*J[k][j][i].z
-                                + J[k][j][i+1].z) * dx21
-                                +(J[k][j-1][i].z - 2.0*J[k][j][i].z
-                                + J[k][j+1][i].z) * dy21
-                                +(J[k-1][j][i].z - 2.0*J[k][j][i].z
-                                + J[k+1][j][i].z) * dz21);
+      emf[k][j][i].x3 -= eta_4 * ((J[k][j][i-1].x3 - 2.0*J[k][j][i].x3
+                                + J[k][j][i+1].x3) * dx21
+                                +(J[k][j-1][i].x3 - 2.0*J[k][j][i].x3
+                                + J[k][j+1][i].x3) * dy21
+                                +(J[k-1][j][i].x3 - 2.0*J[k][j][i].x3
+                                + J[k+1][j][i].x3) * dz21);
     }}}
   }
 
@@ -1154,10 +1154,10 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
       eta_H = 0.5*(pG->eta_Hall[ks][js][i] + pG->eta_Hall[ks][js][i-1]);
       eta_6 = SQR(SQR(eta_H)) * fac;
 
-      emf[ks][js][i].y += eta_6 *  (J[ks][js][i-2].y - 4.0*J[ks][js][i-1].y
-         + 6.0*J[ks][js][i].y - 4.0*J[ks][js][i+1].y + J[ks][js][i+2].y) * dx41;
-      emf[ks][js][i].z += eta_6 *  (J[ks][js][i-2].z - 4.0*J[ks][js][i-1].z
-         + 6.0*J[ks][js][i].z - 4.0*J[ks][js][i+1].z + J[ks][js][i+2].z) * dx41;
+      emf[ks][js][i].x2 += eta_6 *  (J[ks][js][i-2].x2 - 4.0*J[ks][js][i-1].x2
+         + 6.0*J[ks][js][i].x2 - 4.0*J[ks][js][i+1].x2 + J[ks][js][i+2].x2) * dx41;
+      emf[ks][js][i].x3 += eta_6 *  (J[ks][js][i-2].x3 - 4.0*J[ks][js][i-1].x3
+         + 6.0*J[ks][js][i].x3 - 4.0*J[ks][js][i+1].x3 + J[ks][js][i+2].x3) * dx41;
     }
   }
 
@@ -1170,29 +1170,29 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j-1][i]);
       eta_6 = SQR(SQR(eta_H)) * fac;
 
-      emf[ks][j][i].x += eta_6 * ((J[ks][j][i-2].x - 4.0*J[ks][j][i-1].x
-         + 6.0*J[ks][j][i].x - 4.0*J[ks][j][i+1].x + J[ks][j][i+2].x)*dx41
-                         + fac2 * (J[ks][j-2][i].x - 4.0*J[ks][j-1][i].x
-         + 6.0*J[ks][j][i].x - 4.0*J[ks][j+1][i].x + J[ks][j+2][i].x) * dy41);
+      emf[ks][j][i].x1 += eta_6 * ((J[ks][j][i-2].x1 - 4.0*J[ks][j][i-1].x1
+         + 6.0*J[ks][j][i].x1 - 4.0*J[ks][j][i+1].x1 + J[ks][j][i+2].x1)*dx41
+                         + fac2 * (J[ks][j-2][i].x1 - 4.0*J[ks][j-1][i].x1
+         + 6.0*J[ks][j][i].x1 - 4.0*J[ks][j+1][i].x1 + J[ks][j+2][i].x1) * dy41);
 
       /* x2 */
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j][i-1]);
       eta_6 = SQR(SQR(eta_H)) * fac;
 
-      emf[ks][j][i].y += eta_6 * ((J[ks][j][i-2].y - 4.0*J[ks][j][i-1].y
-         + 6.0*J[ks][j][i].y - 4.0*J[ks][j][i+1].y + J[ks][j][i+2].y) * dx41
-                         + fac2 * (J[ks][j-2][i].y - 4.0*J[ks][j-1][i].y
-         + 6.0*J[ks][j][i].y - 4.0*J[ks][j+1][i].y + J[ks][j+2][i].y) * dy41);
+      emf[ks][j][i].x2 += eta_6 * ((J[ks][j][i-2].x2 - 4.0*J[ks][j][i-1].x2
+         + 6.0*J[ks][j][i].x2 - 4.0*J[ks][j][i+1].x2 + J[ks][j][i+2].x2) * dx41
+                         + fac2 * (J[ks][j-2][i].x2 - 4.0*J[ks][j-1][i].x2
+         + 6.0*J[ks][j][i].x2 - 4.0*J[ks][j+1][i].x2 + J[ks][j+2][i].x2) * dy41);
 
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[ks][j][i  ] + pG->eta_Hall[ks][j-1][i  ] +
                     pG->eta_Hall[ks][j][i-1] + pG->eta_Hall[ks][j-1][i-1]);
       eta_6 = SQR(SQR(eta_H)) * fac;
 
-      emf[ks][j][i].z += eta_6 * ((J[ks][j][i-2].z - 4.0*J[ks][j][i-1].z
-         + 6.0*J[ks][j][i].z - 4.0*J[ks][j][i+1].z + J[ks][j][i+2].z) * dx41
-                         + fac2 * (J[ks][j-2][i].z - 4.0*J[ks][j-1][i].z
-         + 6.0*J[ks][j][i].z - 4.0*J[ks][j+1][i].z + J[ks][j+2][i].z) * dy41);
+      emf[ks][j][i].x3 += eta_6 * ((J[ks][j][i-2].x3 - 4.0*J[ks][j][i-1].x3
+         + 6.0*J[ks][j][i].x3 - 4.0*J[ks][j][i+1].x3 + J[ks][j][i+2].x3) * dx41
+                         + fac2 * (J[ks][j-2][i].x3 - 4.0*J[ks][j-1][i].x3
+         + 6.0*J[ks][j][i].x3 - 4.0*J[ks][j+1][i].x3 + J[ks][j+2][i].x3) * dy41);
     }}
   }
 
@@ -1206,36 +1206,36 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
       eta_H = 0.25*(pG->eta_Hall[k][j  ][i] + pG->eta_Hall[k-1][j  ][i] +
                     pG->eta_Hall[k][j-1][i] + pG->eta_Hall[k-1][j-1][i]);
       eta_6 = SQR(SQR(eta_H)) * fac;
-      emf[k][j][i].x += eta_6 * ((J[k][j][i-2].x - 4.0*J[k][j][i-1].x
-         + 6.0*J[k][j][i].x - 4.0*J[k][j][i+1].x + J[k][j][i+2].x) * dx41
-                        + fac2 * (J[k][j-2][i].x - 4.0*J[k][j-1][i].x
-         + 6.0*J[k][j][i].x - 4.0*J[k][j+1][i].x + J[k][j+2][i].x) * dy41
-                        + fac3 * (J[k-2][j][i].x - 4.0*J[k-1][j][i].x
-         + 6.0*J[k][j][i].x - 4.0*J[k+1][j][i].x + J[k+2][j][i].x) * dz41);
+      emf[k][j][i].x1 += eta_6 * ((J[k][j][i-2].x1 - 4.0*J[k][j][i-1].x1
+         + 6.0*J[k][j][i].x1 - 4.0*J[k][j][i+1].x1 + J[k][j][i+2].x1) * dx41
+                        + fac2 * (J[k][j-2][i].x1 - 4.0*J[k][j-1][i].x1
+         + 6.0*J[k][j][i].x1 - 4.0*J[k][j+1][i].x1 + J[k][j+2][i].x1) * dy41
+                        + fac3 * (J[k-2][j][i].x1 - 4.0*J[k-1][j][i].x1
+         + 6.0*J[k][j][i].x1 - 4.0*J[k+1][j][i].x1 + J[k+2][j][i].x1) * dz41);
 
       /* x2 */
       eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k-1][j][i  ] +
                     pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k-1][j][i-1]);
       eta_6 = SQR(SQR(eta_H)) * fac;
 
-      emf[k][j][i].y += eta_6 * ((J[k][j][i-2].y - 4.0*J[k][j][i-1].y
-         + 6.0*J[k][j][i].y - 4.0*J[k][j][i+1].y + J[k][j][i+2].y) * dx41
-                        + fac2 * (J[k][j-2][i].y - 4.0*J[k][j-1][i].y
-         + 6.0*J[k][j][i].y - 4.0*J[k][j+1][i].y + J[k][j+2][i].y) * dy41
-                        + fac3 * (J[k-2][j][i].y - 4.0*J[k-1][j][i].y
-         + 6.0*J[k][j][i].y - 4.0*J[k+1][j][i].y + J[k+2][j][i].y) * dz41);
+      emf[k][j][i].x2 += eta_6 * ((J[k][j][i-2].x2 - 4.0*J[k][j][i-1].x2
+         + 6.0*J[k][j][i].x2 - 4.0*J[k][j][i+1].x2 + J[k][j][i+2].x2) * dx41
+                        + fac2 * (J[k][j-2][i].x2 - 4.0*J[k][j-1][i].x2
+         + 6.0*J[k][j][i].x2 - 4.0*J[k][j+1][i].x2 + J[k][j+2][i].x2) * dy41
+                        + fac3 * (J[k-2][j][i].x2 - 4.0*J[k-1][j][i].x2
+         + 6.0*J[k][j][i].x2 - 4.0*J[k+1][j][i].x2 + J[k+2][j][i].x2) * dz41);
 
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k][j-1][i  ] +
                     pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k][j-1][i-1]);
       eta_6 = SQR(SQR(eta_H)) * fac;
 
-      emf[k][j][i].z += eta_6 * ((J[k][j][i-2].z - 4.0*J[k][j][i-1].z
-         + 6.0*J[k][j][i].z - 4.0*J[k][j][i+1].z + J[k][j][i+2].z) * dx41
-                        + fac2 * (J[k][j-2][i].z - 4.0*J[k][j-1][i].z
-         + 6.0*J[k][j][i].z - 4.0*J[k][j+1][i].z + J[k][j+2][i].z) * dy41
-                        + fac3 * (J[k-2][j][i].z - 4.0*J[k-1][j][i].z
-         + 6.0*J[k][j][i].z - 4.0*J[k+1][j][i].z + J[k+2][j][i].z) * dz41);
+      emf[k][j][i].x3 += eta_6 * ((J[k][j][i-2].x3 - 4.0*J[k][j][i-1].x3
+         + 6.0*J[k][j][i].x3 - 4.0*J[k][j][i+1].x3 + J[k][j][i+2].x3) * dx41
+                        + fac2 * (J[k][j-2][i].x3 - 4.0*J[k][j-1][i].x3
+         + 6.0*J[k][j][i].x3 - 4.0*J[k][j+1][i].x3 + J[k][j+2][i].x3) * dy41
+                        + fac3 * (J[k-2][j][i].x3 - 4.0*J[k-1][j][i].x3
+         + 6.0*J[k][j][i].x3 - 4.0*J[k+1][j][i].x3 + J[k+2][j][i].x3) * dz41);
     }}}
   }
 
