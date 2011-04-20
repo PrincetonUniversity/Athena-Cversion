@@ -800,7 +800,9 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
     for (npg=0; npg<(pG->NPGrid); npg++){
       pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
       cnt = 0;
+#ifdef MHD
       nFld = 0;
+#endif
 
 /* Get coordinates ON THIS GRID of overlap region of parent Grid */
 
@@ -1612,9 +1614,9 @@ void Prolongate(MeshS *pM)
             GZ[id][k][j][i].B1c = *(pRcv++);
             GZ[id][k][j][i].B2c = *(pRcv++);
             GZ[id][k][j][i].B3c = *(pRcv++);
-            BFld[id][k][j][i].x = *(pRcv++);
-            BFld[id][k][j][i].y = *(pRcv++);
-            BFld[id][k][j][i].z = *(pRcv++);
+            BFld[id][k][j][i].x1 = *(pRcv++);
+            BFld[id][k][j][i].x2 = *(pRcv++);
+            BFld[id][k][j][i].x3 = *(pRcv++);
 #endif
 #if (NSCALARS > 0)
             for (ns=0; ns<NSCALARS; ns++) {
@@ -1723,9 +1725,9 @@ void Prolongate(MeshS *pM)
               for (n=0; n<3; n++) {
               for (m=0; m<3; m++) {
               for (l=0; l<3; l++) {
-                ProlongedF[n][m][l].x = 0.0;
-                ProlongedF[n][m][l].y = 0.0;
-                ProlongedF[n][m][l].z = 0.0;
+                ProlongedF[n][m][l].x1 = 0.0;
+                ProlongedF[n][m][l].x2 = 0.0;
+                ProlongedF[n][m][l].x3 = 0.0;
               }}}
             }
 
@@ -1735,9 +1737,9 @@ void Prolongate(MeshS *pM)
               for (n=0; n<3; n++) {
               for (m=0; m<3; m++) {
               for (l=0; l<3; l++) {
-                BGZ[n][m][l].x = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x;
-                BGZ[n][m][l].y = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].y;
-                BGZ[n][m][l].z = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].z;
+                BGZ[n][m][l].x1 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x1;
+                BGZ[n][m][l].x2 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x2;
+                BGZ[n][m][l].x3 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x3;
               }}}
 
 /* If edge of cell touches fine/coarse boundary, use fine grid fields for the
@@ -1750,15 +1752,15 @@ void Prolongate(MeshS *pM)
                   (i == (ipe-1)) &&
                   ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
                   ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[0][0][2].x = pG->B1i[k][j  ][i+2];
-                ProlongedF[0][1][2].x = pG->B1i[k][j+1][i+2];
-                ProlongedF[1][0][2].x = pG->B1i[k][j  ][i+2];
-                ProlongedF[1][1][2].x = pG->B1i[k][j+1][i+2];
+                ProlongedF[0][0][2].x1 = pG->B1i[k][j  ][i+2];
+                ProlongedF[0][1][2].x1 = pG->B1i[k][j+1][i+2];
+                ProlongedF[1][0][2].x1 = pG->B1i[k][j  ][i+2];
+                ProlongedF[1][1][2].x1 = pG->B1i[k][j+1][i+2];
                 if ((nDim == 3) &&
                     ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
                     ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][0][2].x = pG->B1i[k+1][j  ][i+2];
-                  ProlongedF[1][1][2].x = pG->B1i[k+1][j+1][i+2];
+                  ProlongedF[1][0][2].x1 = pG->B1i[k+1][j  ][i+2];
+                  ProlongedF[1][1][2].x1 = pG->B1i[k+1][j+1][i+2];
                 }
               }
 
@@ -1767,15 +1769,15 @@ void Prolongate(MeshS *pM)
                   (i == ips) &&
                   ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
                   ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[0][0][0].x = pG->B1i[k][j  ][i];
-                ProlongedF[0][1][0].x = pG->B1i[k][j+1][i];
-                ProlongedF[1][0][0].x = pG->B1i[k][j  ][i];
-                ProlongedF[1][1][0].x = pG->B1i[k][j+1][i];
+                ProlongedF[0][0][0].x1 = pG->B1i[k][j  ][i];
+                ProlongedF[0][1][0].x1 = pG->B1i[k][j+1][i];
+                ProlongedF[1][0][0].x1 = pG->B1i[k][j  ][i];
+                ProlongedF[1][1][0].x1 = pG->B1i[k][j+1][i];
                 if ((nDim == 3) &&
                     ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
                     ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][0][0].x = pG->B1i[k+1][j  ][i];
-                  ProlongedF[1][1][0].x = pG->B1i[k+1][j+1][i];
+                  ProlongedF[1][0][0].x1 = pG->B1i[k+1][j  ][i];
+                  ProlongedF[1][1][0].x1 = pG->B1i[k+1][j+1][i];
                 }
               }
 
@@ -1784,15 +1786,15 @@ void Prolongate(MeshS *pM)
                   (j == (jpe-1)) &&
                   ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
                   ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
-                ProlongedF[0][2][0].y = pG->B2i[k][j+2][i  ];
-                ProlongedF[0][2][1].y = pG->B2i[k][j+2][i+1];
-                ProlongedF[1][2][0].y = pG->B2i[k][j+2][i  ];
-                ProlongedF[1][2][1].y = pG->B2i[k][j+2][i+1];
+                ProlongedF[0][2][0].x2 = pG->B2i[k][j+2][i  ];
+                ProlongedF[0][2][1].x2 = pG->B2i[k][j+2][i+1];
+                ProlongedF[1][2][0].x2 = pG->B2i[k][j+2][i  ];
+                ProlongedF[1][2][1].x2 = pG->B2i[k][j+2][i+1];
                 if ((nDim == 3) &&
                     ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
                     ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][2][0].y = pG->B2i[k+1][j+2][i  ];
-                  ProlongedF[1][2][1].y = pG->B2i[k+1][j+2][i+1];
+                  ProlongedF[1][2][0].x2 = pG->B2i[k+1][j+2][i  ];
+                  ProlongedF[1][2][1].x2 = pG->B2i[k+1][j+2][i+1];
                 }
               }
 
@@ -1801,15 +1803,15 @@ void Prolongate(MeshS *pM)
                   (j == jps) &&
                   ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
                   ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
-                ProlongedF[0][0][0].y = pG->B2i[k][j][i  ];
-                ProlongedF[0][0][1].y = pG->B2i[k][j][i+1];
-                ProlongedF[1][0][0].y = pG->B2i[k][j][i  ];
-                ProlongedF[1][0][1].y = pG->B2i[k][j][i+1];
+                ProlongedF[0][0][0].x2 = pG->B2i[k][j][i  ];
+                ProlongedF[0][0][1].x2 = pG->B2i[k][j][i+1];
+                ProlongedF[1][0][0].x2 = pG->B2i[k][j][i  ];
+                ProlongedF[1][0][1].x2 = pG->B2i[k][j][i+1];
                 if ((nDim == 3) &&
                     ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
                     ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][0][0].y = pG->B2i[k+1][j][i  ];
-                  ProlongedF[1][0][1].y = pG->B2i[k+1][j][i+1];
+                  ProlongedF[1][0][0].x2 = pG->B2i[k+1][j][i  ];
+                  ProlongedF[1][0][1].x2 = pG->B2i[k+1][j][i+1];
                 }
               }
 
@@ -1820,10 +1822,10 @@ void Prolongate(MeshS *pM)
                   ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
                   ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
                   ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[2][0][0].z = pG->B3i[k+2][j  ][i  ];
-                ProlongedF[2][0][1].z = pG->B3i[k+2][j  ][i+1];
-                ProlongedF[2][1][0].z = pG->B3i[k+2][j+1][i  ];
-                ProlongedF[2][1][1].z = pG->B3i[k+2][j+1][i+1];
+                ProlongedF[2][0][0].x3 = pG->B3i[k+2][j  ][i  ];
+                ProlongedF[2][0][1].x3 = pG->B3i[k+2][j  ][i+1];
+                ProlongedF[2][1][0].x3 = pG->B3i[k+2][j+1][i  ];
+                ProlongedF[2][1][1].x3 = pG->B3i[k+2][j+1][i+1];
               }
 
 /* outer x3 boundary */
@@ -1833,10 +1835,10 @@ void Prolongate(MeshS *pM)
                   ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
                   ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
                   ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[0][0][0].z = pG->B3i[k][j  ][i  ];
-                ProlongedF[0][0][1].z = pG->B3i[k][j  ][i+1];
-                ProlongedF[0][1][0].z = pG->B3i[k][j+1][i  ];
-                ProlongedF[0][1][1].z = pG->B3i[k][j+1][i+1];
+                ProlongedF[0][0][0].x3 = pG->B3i[k][j  ][i  ];
+                ProlongedF[0][0][1].x3 = pG->B3i[k][j  ][i+1];
+                ProlongedF[0][1][0].x3 = pG->B3i[k][j+1][i  ];
+                ProlongedF[0][1][1].x3 = pG->B3i[k][j+1][i+1];
               }
 
               ProFld(BGZ, ProlongedF, pG->dx1, pG->dx2, pG->dx3);
@@ -1845,18 +1847,18 @@ void Prolongate(MeshS *pM)
               for (m=0; m<=mend; m++) {
               for (l=0; l<=1; l++) {
                 if (dim != 1 || (i+l) != ips)
-                  pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x;
+                  pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x1;
                 if (dim != 3 || (j+m) != jps)
-                  pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].y;
+                  pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].x2;
                 if (dim != 5 || (k+n) != kps)
-                  pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].z;
+                  pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].x3;
 
                 pG->U[k+n][j+m][i+l].B1c = 
-                  0.5*(ProlongedF[n][m][l].x + ProlongedF[n][m][l+1].x);
+                  0.5*(ProlongedF[n][m][l].x1 + ProlongedF[n][m][l+1].x1);
                 pG->U[k+n][j+m][i+l].B2c = 
-                  0.5*(ProlongedF[n][m][l].y + ProlongedF[n][m+1][l].y);
+                  0.5*(ProlongedF[n][m][l].x2 + ProlongedF[n][m+1][l].x2);
                 pG->U[k+n][j+m][i+l].B3c = 
-                  0.5*(ProlongedF[n][m][l].z + ProlongedF[n+1][m][l].z);
+                  0.5*(ProlongedF[n][m][l].x3 + ProlongedF[n+1][m][l].x3);
               }}}
             }
 
@@ -2314,74 +2316,74 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 
 /* initialize Bx on left-x1 boundry, if not set already */
 
-  if (PFld[0][0][0].x == 0.0) {
-    dBdy = mcd_slope(BGZ[1][0][1].x, BGZ[1][1][1].x, BGZ[1][2][1].x);
-    dBdz = mcd_slope(BGZ[0][1][1].x, BGZ[1][1][1].x, BGZ[2][1][1].x);
+  if (PFld[0][0][0].x1 == 0.0) {
+    dBdy = mcd_slope(BGZ[1][0][1].x1, BGZ[1][1][1].x1, BGZ[1][2][1].x1);
+    dBdz = mcd_slope(BGZ[0][1][1].x1, BGZ[1][1][1].x1, BGZ[2][1][1].x1);
 
-    PFld[0][0][0].x = BGZ[1][1][1].x - 0.25*dBdy - 0.25*dBdz;
-    PFld[0][1][0].x = BGZ[1][1][1].x + 0.25*dBdy - 0.25*dBdz;
-    PFld[1][0][0].x = BGZ[1][1][1].x - 0.25*dBdy + 0.25*dBdz;
-    PFld[1][1][0].x = BGZ[1][1][1].x + 0.25*dBdy + 0.25*dBdz;
+    PFld[0][0][0].x1 = BGZ[1][1][1].x1 - 0.25*dBdy - 0.25*dBdz;
+    PFld[0][1][0].x1 = BGZ[1][1][1].x1 + 0.25*dBdy - 0.25*dBdz;
+    PFld[1][0][0].x1 = BGZ[1][1][1].x1 - 0.25*dBdy + 0.25*dBdz;
+    PFld[1][1][0].x1 = BGZ[1][1][1].x1 + 0.25*dBdy + 0.25*dBdz;
   }
 
 /* initialize Bx on right-x1 boundry, if not set already */
 
-  if (PFld[0][0][2].x == 0.0) {
-    dBdy = mcd_slope(BGZ[1][0][2].x, BGZ[1][1][2].x, BGZ[1][2][2].x);
-    dBdz = mcd_slope(BGZ[0][1][2].x, BGZ[1][1][2].x, BGZ[2][1][2].x);
+  if (PFld[0][0][2].x1 == 0.0) {
+    dBdy = mcd_slope(BGZ[1][0][2].x1, BGZ[1][1][2].x1, BGZ[1][2][2].x1);
+    dBdz = mcd_slope(BGZ[0][1][2].x1, BGZ[1][1][2].x1, BGZ[2][1][2].x1);
 
-    PFld[0][0][2].x = BGZ[1][1][2].x - 0.25*dBdy - 0.25*dBdz;
-    PFld[0][1][2].x = BGZ[1][1][2].x + 0.25*dBdy - 0.25*dBdz;
-    PFld[1][0][2].x = BGZ[1][1][2].x - 0.25*dBdy + 0.25*dBdz;
-    PFld[1][1][2].x = BGZ[1][1][2].x + 0.25*dBdy + 0.25*dBdz;
+    PFld[0][0][2].x1 = BGZ[1][1][2].x1 - 0.25*dBdy - 0.25*dBdz;
+    PFld[0][1][2].x1 = BGZ[1][1][2].x1 + 0.25*dBdy - 0.25*dBdz;
+    PFld[1][0][2].x1 = BGZ[1][1][2].x1 - 0.25*dBdy + 0.25*dBdz;
+    PFld[1][1][2].x1 = BGZ[1][1][2].x1 + 0.25*dBdy + 0.25*dBdz;
   }
 
 /* initialize By on left-x2 boundry, if not set already */
 
-  if (PFld[0][0][0].y == 0.0) {
-    dBdx = mcd_slope(BGZ[1][1][0].y, BGZ[1][1][1].y, BGZ[1][1][2].y);
-    dBdz = mcd_slope(BGZ[0][1][1].y, BGZ[1][1][1].y, BGZ[2][1][1].y);
+  if (PFld[0][0][0].x2 == 0.0) {
+    dBdx = mcd_slope(BGZ[1][1][0].x2, BGZ[1][1][1].x2, BGZ[1][1][2].x2);
+    dBdz = mcd_slope(BGZ[0][1][1].x2, BGZ[1][1][1].x2, BGZ[2][1][1].x2);
 
-    PFld[0][0][0].y = BGZ[1][1][1].y - 0.25*dBdx - 0.25*dBdz;
-    PFld[0][0][1].y = BGZ[1][1][1].y + 0.25*dBdx - 0.25*dBdz;
-    PFld[1][0][0].y = BGZ[1][1][1].y - 0.25*dBdx + 0.25*dBdz;
-    PFld[1][0][1].y = BGZ[1][1][1].y + 0.25*dBdx + 0.25*dBdz;
+    PFld[0][0][0].x2 = BGZ[1][1][1].x2 - 0.25*dBdx - 0.25*dBdz;
+    PFld[0][0][1].x2 = BGZ[1][1][1].x2 + 0.25*dBdx - 0.25*dBdz;
+    PFld[1][0][0].x2 = BGZ[1][1][1].x2 - 0.25*dBdx + 0.25*dBdz;
+    PFld[1][0][1].x2 = BGZ[1][1][1].x2 + 0.25*dBdx + 0.25*dBdz;
   }
 
 /* initialize By on right-x2 boundry, if not set already */
 
-  if (PFld[0][2][0].y == 0.0) {
-    dBdx = mcd_slope(BGZ[1][2][0].y, BGZ[1][2][1].y, BGZ[1][2][2].y);
-    dBdz = mcd_slope(BGZ[0][2][1].y, BGZ[1][2][1].y, BGZ[2][2][1].y);
+  if (PFld[0][2][0].x2 == 0.0) {
+    dBdx = mcd_slope(BGZ[1][2][0].x2, BGZ[1][2][1].x2, BGZ[1][2][2].x2);
+    dBdz = mcd_slope(BGZ[0][2][1].x2, BGZ[1][2][1].x2, BGZ[2][2][1].x2);
 
-    PFld[0][2][0].y = BGZ[1][2][1].y - 0.25*dBdx - 0.25*dBdz;
-    PFld[0][2][1].y = BGZ[1][2][1].y + 0.25*dBdx - 0.25*dBdz;
-    PFld[1][2][0].y = BGZ[1][2][1].y - 0.25*dBdx + 0.25*dBdz;
-    PFld[1][2][1].y = BGZ[1][2][1].y + 0.25*dBdx + 0.25*dBdz;
+    PFld[0][2][0].x2 = BGZ[1][2][1].x2 - 0.25*dBdx - 0.25*dBdz;
+    PFld[0][2][1].x2 = BGZ[1][2][1].x2 + 0.25*dBdx - 0.25*dBdz;
+    PFld[1][2][0].x2 = BGZ[1][2][1].x2 - 0.25*dBdx + 0.25*dBdz;
+    PFld[1][2][1].x2 = BGZ[1][2][1].x2 + 0.25*dBdx + 0.25*dBdz;
   }
 
 /* initialize Bz on left-x3 boundry, if not set already */
 
-  if (PFld[0][0][0].z == 0.0) {
-    dBdx = mcd_slope(BGZ[1][1][0].z, BGZ[1][1][1].z, BGZ[1][1][2].z);
-    dBdy = mcd_slope(BGZ[1][0][1].z, BGZ[1][1][1].z, BGZ[1][2][1].z);
+  if (PFld[0][0][0].x3 == 0.0) {
+    dBdx = mcd_slope(BGZ[1][1][0].x3, BGZ[1][1][1].x3, BGZ[1][1][2].x3);
+    dBdy = mcd_slope(BGZ[1][0][1].x3, BGZ[1][1][1].x3, BGZ[1][2][1].x3);
 
-    PFld[0][0][0].z = BGZ[1][1][1].z - 0.25*dBdx - 0.25*dBdy;
-    PFld[0][0][1].z = BGZ[1][1][1].z + 0.25*dBdx - 0.25*dBdy;
-    PFld[0][1][0].z = BGZ[1][1][1].z - 0.25*dBdx + 0.25*dBdy;
-    PFld[0][1][1].z = BGZ[1][1][1].z + 0.25*dBdx + 0.25*dBdy;
+    PFld[0][0][0].x3 = BGZ[1][1][1].x3 - 0.25*dBdx - 0.25*dBdy;
+    PFld[0][0][1].x3 = BGZ[1][1][1].x3 + 0.25*dBdx - 0.25*dBdy;
+    PFld[0][1][0].x3 = BGZ[1][1][1].x3 - 0.25*dBdx + 0.25*dBdy;
+    PFld[0][1][1].x3 = BGZ[1][1][1].x3 + 0.25*dBdx + 0.25*dBdy;
   }
 
 /* initialize Bz on right-x3 boundry, if not set already */
 
-  if (PFld[2][0][0].z == 0.0) {
-    dBdx = mcd_slope(BGZ[2][1][0].z, BGZ[2][1][1].z, BGZ[2][1][2].z);
-    dBdy = mcd_slope(BGZ[2][0][1].z, BGZ[2][1][1].z, BGZ[2][2][1].z);
+  if (PFld[2][0][0].x3 == 0.0) {
+    dBdx = mcd_slope(BGZ[2][1][0].x3, BGZ[2][1][1].x3, BGZ[2][1][2].x3);
+    dBdy = mcd_slope(BGZ[2][0][1].x3, BGZ[2][1][1].x3, BGZ[2][2][1].x3);
 
-    PFld[2][0][0].z = BGZ[2][1][1].z - 0.25*dBdx - 0.25*dBdy;
-    PFld[2][0][1].z = BGZ[2][1][1].z + 0.25*dBdx - 0.25*dBdy;
-    PFld[2][1][0].z = BGZ[2][1][1].z - 0.25*dBdx + 0.25*dBdy;
-    PFld[2][1][1].z = BGZ[2][1][1].z + 0.25*dBdx + 0.25*dBdy;
+    PFld[2][0][0].x3 = BGZ[2][1][1].x3 - 0.25*dBdx - 0.25*dBdy;
+    PFld[2][0][1].x3 = BGZ[2][1][1].x3 + 0.25*dBdx - 0.25*dBdy;
+    PFld[2][1][0].x3 = BGZ[2][1][1].x3 - 0.25*dBdx + 0.25*dBdy;
+    PFld[2][1][1].x3 = BGZ[2][1][1].x3 + 0.25*dBdx + 0.25*dBdy;
   }
 
 /* Fill in the face-centered fields in the interior of the cell using the
@@ -2392,18 +2394,18 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
   Uxyz = Vxyz = Wxyz = 0.0;
   for(j=0; j<2; j++){
   for(i=0; i<2; i++){
-    Uxx += (2*i-1)*((2*j-1)*dx3c*(PFld[0][2*j][i].y + PFld[1][2*j][i].y) +
-                            dx2c*(PFld[2][j  ][i].z - PFld[0][j  ][i].z) );
+    Uxx += (2*i-1)*((2*j-1)*dx3c*(PFld[0][2*j][i].x2 + PFld[1][2*j][i].x2) +
+                            dx2c*(PFld[2][j  ][i].x3 - PFld[0][j  ][i].x3) );
 
-    Vyy += (2*j-1)*(        dx1c*(PFld[2][j][i  ].z - PFld[0][j][i  ].z) +
-                    (2*i-1)*dx3c*(PFld[0][j][2*i].x + PFld[1][j][2*i].x) );
+    Vyy += (2*j-1)*(        dx1c*(PFld[2][j][i  ].x3 - PFld[0][j][i  ].x3) +
+                    (2*i-1)*dx3c*(PFld[0][j][2*i].x1 + PFld[1][j][2*i].x1) );
 
-    Wzz += ((2*i-1)*dx2c*(PFld[1][j][2*i].x - PFld[0][j][2*i].x) +
-            (2*j-1)*dx1c*(PFld[1][2*j][i].y - PFld[0][2*j][i].y) );
+    Wzz += ((2*i-1)*dx2c*(PFld[1][j][2*i].x1 - PFld[0][j][2*i].x1) +
+            (2*j-1)*dx1c*(PFld[1][2*j][i].x2 - PFld[0][2*j][i].x2) );
 
-    Uxyz += (2*i-1)*(2*j-1)*(PFld[1][j][2*i].x - PFld[0][j][2*i].x);
-    Vxyz += (2*i-1)*(2*j-1)*(PFld[1][2*j][i].y - PFld[0][2*j][i].y);
-    Wxyz += (2*i-1)*(2*j-1)*(PFld[2][j][i].z - PFld[0][j][i].z);
+    Uxyz += (2*i-1)*(2*j-1)*(PFld[1][j][2*i].x1 - PFld[0][j][2*i].x1);
+    Vxyz += (2*i-1)*(2*j-1)*(PFld[1][2*j][i].x2 - PFld[0][2*j][i].x2);
+    Wxyz += (2*i-1)*(2*j-1)*(PFld[2][j][i].x3 - PFld[0][j][i].x3);
   }}
 
 /* Multiply through by some common factors */
@@ -2419,7 +2421,7 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 
   for(k=0; k<2; k++){
   for(j=0; j<2; j++){
-    PFld[k][j][1].x = 0.5*(PFld[k][j][0].x + PFld[k][j][2].x) + Uxx/(dx2c*dx3c)
+    PFld[k][j][1].x1 =0.5*(PFld[k][j][0].x1 + PFld[k][j][2].x1) +Uxx/(dx2c*dx3c)
        + (2*k-1)*(dx3c/dx2c)*Vxyz + (2*j-1)*(dx2c/dx3c)*Wxyz;
   }}
 
@@ -2427,7 +2429,7 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 
   for(k=0; k<2; k++){
   for(i=0; i<2; i++){
-    PFld[k][1][i].y = 0.5*(PFld[k][0][i].y + PFld[k][2][i].y) + Vyy/(dx3c*dx1c)
+    PFld[k][1][i].x2 =0.5*(PFld[k][0][i].x2 + PFld[k][2][i].x2) +Vyy/(dx3c*dx1c)
       + (2*i-1)*(dx1c/dx3c)*Wxyz + (2*k-1)*(dx3c/dx1c)*Uxyz;
   }}
 
@@ -2435,7 +2437,7 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 
   for(j=0; j<2; j++){
   for(i=0; i<2; i++){
-    PFld[1][j][i].z = 0.5*(PFld[0][j][i].z + PFld[2][j][i].z) + Wzz/(dx1c*dx2c)
+    PFld[1][j][i].x3 =0.5*(PFld[0][j][i].x3 + PFld[2][j][i].x3) +Wzz/(dx1c*dx2c)
       + (2*j-1)*(dx2c/dx1c)*Uxyz + (2*i-1)*(dx1c/dx2c)*Vxyz;
   }}
 
