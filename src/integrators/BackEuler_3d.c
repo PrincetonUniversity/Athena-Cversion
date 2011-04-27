@@ -379,7 +379,7 @@ void BackEuler_3d(MeshS *pM)
 	if(bgflag){
 		if(t0flag){
 		/* If this the first time, save the background state, including boundary condition */
-			for(ks-nghost; k<=ke+nghost;k++){
+			for(k=ks-nghost; k<=ke+nghost;k++){
 				for(j=js-nghost; j<=je+nghost; j++){
 					for(i=is-nghost; i<=ie+nghost; i++){
 						Er_t0[k][j][i] = pG->U[k][j][i].Er;

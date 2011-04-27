@@ -1887,24 +1887,151 @@ void integrate_3d_radMHD(DomainS *pD)
  */
 
 #ifdef RADIATION_MHD
+/* Update momentum for half time step. We also need to add radiation source term * 
+ * using modified Godunov method */
+
   	for (k=kl+1; k<=ku-1; k++) {
     		for (j=jl+1; j<=ju-1; j++) {
       			for (i=il+1; i<=iu-1; i++) {
 
-        		M1h = pG->U[k][j][i].M1
-           			- hdtodx1 * (    x1Flux[k  ][j  ][i+1].Mx - x1Flux[k][j][i].Mx)
-           			- hdtodx2 * (    x2Flux[k  ][j+1][i  ].Mz - x2Flux[k][j][i].Mz)
-           			- hdtodx3 * (    x3Flux[k+1][j  ][i  ].My - x3Flux[k][j][i].My);
+		/* load 1D vector */
+			Usource.d  = pG->U[k][j][i].d;
+      			Usource.Mx = pG->U[k][j][i].M1;
+      			Usource.My = pG->U[k][j][i].M2;
+      			Usource.Mz = pG->U[k][j][i].M3;
+      			Usource.E  = pG->U[k][j][i].E;
+			Usource.Er  = pG->U[k][j][i].Er;
+    			Usource.Fr1  = pG->U[k][j][i].Fr1;
+    			Usource.Fr2  = pG->U[k][j][i].Fr2;
+    			Usource.Fr3  = pG->U[k][j][i].Fr3;
+			Usource.Edd_11  = pG->U[k][j][i].Edd_11;
+			Usource.Edd_21  = pG->U[k][j][i].Edd_21;
+			Usource.Edd_22  = pG->U[k][j][i].Edd_22;
+			Usource.Edd_31	= pG->U[k][j][i].Edd_31;
+			Usource.Edd_32	= pG->U[k][j][i].Edd_32;
+			Usource.Edd_33	= pG->U[k][j][i].Edd_33;
+			Usource.Sigma_a  = pG->U[k][j][i].Sigma_a;
+                        Usource.Sigma_t  = pG->U[k][j][i].Sigma_t;
+      			Usource.By = pG->U[k][j][i].B2c;
+      			Usource.Bz = pG->U[k][j][i].B3c;
+			Bx = pG->U[k][j][i].B1c;
+			
+			density = Usource.d;
+			velocity_x = Usource.Mx / density;
+			velocity_y = Usource.My / density;
+			velocity_z = Usource.Mz / density;
 
-        		M2h = pG->U[k][j][i].M2
-           			- hdtodx1 * (     x1Flux[k  ][j  ][i+1].My - x1Flux[k][j][i].My)
-           			- hdtodx2 * (     x2Flux[k  ][j+1][i  ].Mx - x2Flux[k][j][i].Mx)
-           			- hdtodx3 * (     x3Flux[k+1][j  ][i  ].Mz - x3Flux[k][j][i].Mz);
+			velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+				
+			pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
+		/* Should include magnetic energy for MHD */
 
-        		M3h = pG->U[k][j][i].M3
-           			- hdtodx1 * (    x1Flux[k  ][j  ][i+1].Mz -  x1Flux[k][j][i].Mz)
-           			- hdtodx2 * (    x2Flux[k  ][j+1][i  ].My -  x2Flux[k][j][i].My)
-           			- hdtodx3 * (    x3Flux[k+1][j  ][i  ].Mx -  x3Flux[k][j][i].Mx);
+			pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+	
+			temperature = pressure / (density * R_ideal);
+
+			diffTEr = pow(temperature, 4.0) - pG->U[k][j][i].Er;
+		
+
+			Sigma_t    = pG->U[k][j][i].Sigma_t;
+			Sigma_a	   = pG->U[k][j][i].Sigma_a;
+
+			/* The Source term */
+			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz);
+
+		/*=========================================================*/
+		/* In case velocity is large and momentum source is stiff */
+			SFmx = Sigma_t * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
+				+ Sigma_a * diffTEr / (density * Crat);	
+
+			SFmy = Sigma_t * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
+				+ Sigma_a * diffTEr / (density * Crat);
+
+			SFmz = Sigma_t * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat) 
+				+ Sigma_a * diffTEr / (density * Crat);	
+
+
+			Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
+			Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
+			Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
+
+		/*=========================================================*/
+
+
+			/* co-moving flux */
+			Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
+			Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
+			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
+
+			/* Source term for momentum, not velocity*/
+			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
+			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
+			
+
+			/* Now calculate flux gradient */
+
+			divFlux1[1] = (x1Flux[k][j][i+1].Mx - x1Flux[k][j][i].Mx) / dx1;
+			divFlux1[2] = (x1Flux[k][j][i+1].My - x1Flux[k][j][i].My) / dx1;
+			divFlux1[3] = (x1Flux[k][j][i+1].Mz - x1Flux[k][j][i].Mz) / dx1;
+			
+			divFlux2[1] = (x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz) / dx2;
+			divFlux2[2] = (x2Flux[k][j+1][i].Mx - x2Flux[k][j][i].Mx) / dx2;
+			divFlux2[3] = (x2Flux[k][j+1][i].My - x2Flux[k][j][i].My) / dx2;
+			
+			divFlux3[1] = (x3Flux[k+1][j][i].My - x3Flux[k][j][i].My) / dx3;
+			divFlux3[2] = (x3Flux[k+1][j][i].Mz - x3Flux[k][j][i].Mz) / dx3;
+			divFlux3[3] = (x3Flux[k+1][j][i].Mx - x3Flux[k][j][i].Mx) / dx3;
+		
+			
+/* Add source terms for fixed gravitational potential */
+        		if (StaticGravPot != NULL){
+          			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+
+          			phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          			phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+          			divFlux1[1] += (phir-phil)*pG->U[k][j][i].d/dx1;
+
+
+          			phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          			phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+          			divFlux2[2] += (phir-phil)*pG->U[k][j][i].d/dx2;
+
+          			phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
+          			phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+          			divFlux3[3] += (phir-phil)*pG->U[k][j][i].d/dx3;
+        		}
+
+
+			/* Guess solution */
+			Uguess[1] = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+			Uguess[2] = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+			Uguess[3] = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+
+			/* Guess the source temrm */
+			velocity_x = Uguess[1] / density;
+			velocity_y = Uguess[2] / density;
+			velocity_z = Uguess[3] / density;
+			
+	
+			Source_guess[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+			Source_guess[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
+			Source_guess[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
+
+
+
+
+			/* do the predict step */
+			Errort[1] = pG->U[k][j][i].M1 + 0.5 * hdt * (Source[1] + Source_guess[1]) - hdt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) - Uguess[1];
+			Errort[2] = pG->U[k][j][i].M2 + 0.5 * hdt * (Source[2] + Source_guess[2]) - hdt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) - Uguess[2];
+			Errort[3] = pG->U[k][j][i].M3 + 0.5 * hdt * (Source[3] + Source_guess[3]) - hdt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) - Uguess[3];
+
+
+
+        		M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
+			M2h = Uguess[2] + Source_Inv[2][2] * Errort[2];
+			M3h = Uguess[3] + Source_Inv[3][3] * Errort[3];			
 
 /*
         		Eh = pG->U[k][j][i].E
@@ -1913,24 +2040,7 @@ void integrate_3d_radMHD(DomainS *pD)
            			- q3*(    x3Flux[k+1][j  ][i  ].E -     x3Flux[k][j][i].E);
 
 */
-/* Add source terms for fixed gravitational potential */
-        		if (StaticGravPot != NULL){
-          			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-
-          			phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-          			phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-          			M1h -= hdtodx1 *(phir-phil)*pG->U[k][j][i].d;
-
-
-          			phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-          			phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-          			M2h -= hdtodx2 * (phir-phil)*pG->U[k][j][i].d;
-
-          			phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-          			phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
-          			M3h -= hdtodx3 * (phir-phil)*pG->U[k][j][i].d;
-        		}
 
 
         		B1ch = 0.5*(    B1_x1Face[k][j][i] +     B1_x1Face[k  ][j  ][i+1]);

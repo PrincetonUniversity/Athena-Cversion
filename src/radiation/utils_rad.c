@@ -35,7 +35,8 @@ void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
   chimin = MIN(chi0,chi1);
   /* use standard interp if chimin < chic < chimax */
   if ((chic >= chimin) && (chic <= chimax)) {
-    //(*chi)= (0.4166666666666667 * chi0 + 0.6666666666666666 * chi1 -  0.0833333333333333 * chi2);
+    /*(*chi)= (0.4166666666666667 * chi0 + 0.6666666666666666 * chi1 -  0.0833333333333333 * chi2);
+*/
       (*chi)= (5.0 * chi0 + 8.0 * chi1 - chi2) / 12.0;
   /* chic = chi0 if chi1 is an extremum */
   /*} else if (dchip * dchim < 0.0) {
@@ -72,7 +73,8 @@ void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
   dSp = S2 - S1;
 
   (*edtau) = exp(-dtaum);
-  //(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  //testing
+  /*(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  /testing
+*/
   c0 = 1.0 - (*edtau);
   c1 = dtaum - c0;
   c2 = dtaum2 - 2.0 * c1;

@@ -76,14 +76,14 @@ endif
 ifeq ($(MACHINE),ophir)
   CC = /usr/peyton/intel/10.0/cce/bin/icc
   LDR = /usr/peyton/intel/10.0/cce/bin/icc
-  OPT = -O3 -xW -ipo -i-static -g
+  OPT = -O3 -xW -ipo -i-static 
   FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
 else
 ifeq ($(MACHINE),peyton-mpi)
   CC  = /usr/peyton/openmpi/bin/mpicc
   LDR = /usr/peyton/openmpi/bin/mpicc
-  OPT = -O3 -g
+  OPT = -O3 
   MPIINC = -I/usr/peyton/openmpi/include
   MPILIB = -L/usr/peyton/openmpi/lib -lmpi
   FFTWLIB = -L/scr0/lemaster/fftw-3.1.2/lib -lfftw3
@@ -101,7 +101,7 @@ else
 ifeq ($(MACHINE),adroit)
   CC  = mpicc
   LDR = mpicc
-  OPT = -O3 -xW -ipo -i-static -g
+  OPT = -O3 -xW -ipo -i-static 
   MPIINC =
   MPILIB = -lmpi
   FFTWLIB = -L/opt/fftw3/lib64 -lfftw3

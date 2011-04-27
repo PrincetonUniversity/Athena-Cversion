@@ -174,7 +174,9 @@ void BackEuler_1d(MeshS *pM)
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
 
 	/* calculate the guess temperature */
-	GetTguess(pM);
+	/* Guess temperature is calculated in the main function */
+/*	GetTguess(pM);
+*/
 
 /* Step 1a: Calculate the Matrix elements  */
 /* ie-is+1 =size1, otherwise it is wrong */

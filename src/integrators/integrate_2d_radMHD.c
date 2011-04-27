@@ -103,7 +103,7 @@ void integrate_2d_radMHD(DomainS *pD)
   	Real B1ch, B2ch, B3ch;
 #endif
 
-	Real temperature, velocity_x, velocity_y, pressure, density, Tguess;
+	Real temperature, velocity_x, velocity_y, pressure, density, Tguess, Fr0x, Fr0y, diffTEr, velocity;
 	Real Sigma_t, Sigma_a;
 	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy, dSigmadP;
 	Real dSigma[4];
@@ -355,7 +355,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 /* For radiation_mhd, source term due to magnetic field part is also added */
 #ifdef RADIATION_MHD
-	for(i=il+1;i<iu;i++){
+	for(i=il+1;i<=iu;i++){
 		MHD_src = (pG->U[ks][j][i-1].M2/pG->U[ks][j][i-1].d)*
                		(pG->B1i[ks][j][i] - pG->B1i[ks][j][i-1])/pG->dx1;
       		Wl[i].By += hdt*MHD_src;
@@ -961,17 +961,14 @@ void integrate_2d_radMHD(DomainS *pD)
       for (j=jl+1; j<=ju-1; j++) {
     for (i=il+1; i<=iu-1; i++) {
 
-      M1h = pG->U[ks][j][i].M1
-        - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
-        - hdtodx2*(    x2Flux[j+1][i].Mz -     x2Flux[j][i].Mz);
 
-      M2h = pG->U[ks][j][i].M2
-        - hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My)
-        - hdtodx2*(         x2Flux[j+1][i].Mx -          x2Flux[j][i].Mx);
+	/**************************************************/
+	/* Update momentum using modified Godunov method **/
+	divFlux1[1] = (x1Flux[j][i+1].Mx - x1Flux[j][i].Mx) / dx1;
+	divFlux1[2] = (x1Flux[j][i+1].My - x1Flux[j][i].My) / dx1;
 
-      M3h = pG->U[ks][j][i].M3
-        - hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz)
-        - hdtodx2*(    x2Flux[j+1][i].My -     x2Flux[j][i].My);
+	divFlux2[1] = (x2Flux[j+1][i].Mz - x2Flux[j][i].Mz) / dx2;
+	divFlux2[2] = (x2Flux[j+1][i].Mx - x2Flux[j][i].Mx) / dx2;
 
 /* Add source terms for fixed gravitational potential */
         if (StaticGravPot != NULL){
@@ -979,12 +976,112 @@ void integrate_2d_radMHD(DomainS *pD)
 
         	phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         	phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-        	M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+		divFlux1[1] += (phir-phil)*pG->U[ks][j][i].d/dx1;
+
 
         	phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         	phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-        	M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+
+		divFlux2[2] += (phir-phil)*pG->U[ks][j][i].d/dx2; 	
       	}
+
+
+/*****************************************************************
+ * Add source  term from radiation *******************************/
+/* We only need momentum source terms, not energy source  term */
+	Usource.d  = pG->U[ks][j][i].d;
+      	Usource.Mx = pG->U[ks][j][i].M1;
+      	Usource.My = pG->U[ks][j][i].M2;
+      	Usource.Mz = pG->U[ks][j][i].M3;
+      	Usource.E  = pG->U[ks][j][i].E;
+	Usource.Er  = pG->U[ks][j][i].Er;
+    	Usource.Fr1  = pG->U[ks][j][i].Fr1;
+    	Usource.Fr2  = pG->U[ks][j][i].Fr2;
+    	Usource.Fr3  = pG->U[ks][j][i].Fr3;
+	Usource.Edd_11  = pG->U[ks][j][i].Edd_11;
+	Usource.Edd_21  = pG->U[ks][j][i].Edd_21;
+	Usource.Edd_22  = pG->U[ks][j][i].Edd_22;
+	Usource.Edd_31	= pG->U[ks][j][i].Edd_31;
+	Usource.Edd_32	= pG->U[ks][j][i].Edd_32;
+	Usource.Edd_33	= pG->U[ks][j][i].Edd_33;
+	Usource.Sigma_a  = pG->U[ks][j][i].Sigma_a;
+        Usource.Sigma_t  = pG->U[ks][j][i].Sigma_t;
+	Usource.By = pG->U[ks][j][i].B2c;
+      	Usource.Bz = pG->U[ks][j][i].B3c;
+	Bx = pG->U[ks][j][i].B1c;
+
+
+	density = Usource.d;
+	velocity_x = Usource.Mx / density;
+	velocity_y = Usource.My / density;
+	
+
+	velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y);
+		
+	pressure = (Usource.E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
+		/* Should include magnetic energy for MHD */
+
+	pressure -= 0.5 * (Bx * Bx + Usource.By * Usource.By + Usource.Bz * Usource.Bz) * (Gamma - 1.0);
+
+	temperature = pressure / (density * R_ideal);
+	
+	diffTEr = pow(temperature, 4.0) - Usource.Er;
+		
+
+	Sigma_t    = Usource.Sigma_t;
+	Sigma_a	   = Usource.Sigma_a;
+
+	/* The Source term */
+	dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
+
+	/*=========================================================*/
+	/* In case velocity is large and momentum source is stiff */
+	SFmx = Sigma_t * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
+		+ Sigma_a * diffTEr / (density * Crat);	
+
+	SFmy = Sigma_t * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
+		+ Sigma_a * diffTEr / (density * Crat);
+
+	
+	Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
+	Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
+	
+	/*=========================================================*/
+
+	/* co-moving flux */
+	Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y) * Usource.Er / Crat;
+	Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x) * Usource.Er / Crat;
+	
+
+	/* Source term for momentum, not velocity*/
+	Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+	Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
+
+
+	/* Now we have source term and flux, update the momentum */
+	/* Update momentum for half time step */
+	Uguess[1] = pG->U[ks][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1]);
+	Uguess[2] = pG->U[ks][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2]);
+
+	/* Now guess source */
+	/* To the order of v/c, we do not need to worry about change of E_r - T^4 */
+
+	velocity_x = Uguess[1] / density;
+	velocity_y = Uguess[2] / density;
+	
+	Source_guess[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+	Source_guess[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
+
+
+	/* do the predict step */
+	Errort[1] = pG->U[ks][j][i].M1 + 0.5 * hdt * (Source[1] + Source_guess[1]) - hdt * (divFlux1[1] + divFlux2[1]) - Uguess[1];
+	Errort[2] = pG->U[ks][j][i].M2 + 0.5 * hdt * (Source[2] + Source_guess[2]) - hdt * (divFlux1[2] + divFlux2[2]) - Uguess[2];
+
+	M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
+	M2h = Uguess[2] + Source_Inv[2][2] * Errort[2];
+
+  /****************************************************************/
+
 
 /*
       Eh = pG->U[ks][j][i].E

@@ -407,7 +407,7 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
  *   Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
  */
 
-#if defined(ADIABATIC) && defined(MHD)
+#if defined(ADIABATIC) && (defined(MHD) || defined(RADIATION_MHD))
 void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   const Real h, const Real b1, const Real b2, const Real b3, 
   const Real x, const Real y,

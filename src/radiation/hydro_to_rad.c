@@ -22,6 +22,7 @@
 #ifdef RADIATION_TRANSFER
 void output_rad_1d(RadGridS *pRG);
 static char *construct_filename(char *basename,char *key,int dump,char *ext);
+static int lte;
 
 /*----------------------------------------------------------------------------*/
 /* hydro_to_rad:  */
@@ -38,6 +39,8 @@ void hydro_to_rad(DomainS *pD)
   int ig,jg,kg,ioff,joff,koff;
   Real eps;
   Real etherm, ekin, B, d;
+
+  lte = par_geti("radiation","lte");
 
   if (pG->Nx[0] > 1) {
     ioff = nghost - 1; il--; iu++;
@@ -65,13 +68,23 @@ void hydro_to_rad(DomainS *pD)
 	ekin *= 0.5 / d;
 	etherm=pG->U[kg][jg][ig].E - ekin;
 	pG->tgas[kg][jg][ig] = etherm * Gamma_1 / (d * R_ideal);
-	
+
 	for(ifr=0; ifr<nf; ifr++) {
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	  if (lte == 1) 
+	    pRG->R[k][j][i][ifr].J = pG->U[kg][jg][ig].Er / (4.0 * PI);
+	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
+	  pRG->R[k][j][i][ifr].B = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
+	    eps  * get_thermal_source(pG,ifr,ig,jg,kg);
+	  pRG->R[k][j][i][ifr].eps = 1.0;
+	  pRG->R[k][j][i][ifr].S = pRG->R[k][j][i][ifr].B;
+#else
 	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
 	  pRG->R[k][j][i][ifr].B = get_thermal_source(pG,ifr,ig,jg,kg);
 	  pRG->R[k][j][i][ifr].eps = eps;
 	  pRG->R[k][j][i][ifr].S = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
 	                                  eps  * pRG->R[k][j][i][ifr].B;
+#endif
 	  pRG->R[k][j][i][ifr].chi = get_total_opacity(pG,ifr,ig,jg,kg);
 	}
       }

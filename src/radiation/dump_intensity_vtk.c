@@ -53,7 +53,8 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 	nang = pRG->nang;
 	noct = pRG->noct;
 	ntot = nf * noct * nang;
-	//#ifdef WRITE_GHOST_CELLS
+	/*#ifdef WRITE_GHOST_CELLS
+	*/
 	iu += 1;  il -= 1;
 	if(pRG->Nx[1] > 1) {
 	  jl -= 1; ju += 1;
@@ -61,7 +62,8 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 	if(pRG->Nx[2] > 1) {
 	  kl -= 1; ku += 1;
         }
-	//#endif /* WRITE_GHOST_CELLS */
+	/*#endif /* WRITE_GHOST_CELLS */
+	
 
 	ndata0 = iu-il+1;
 	ndata1 = ju-jl+1;
@@ -204,7 +206,8 @@ void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
 	nang = pRG->nang;
 	noct = pRG->noct;
 	ntot = nf * noct * nang;
-	//#ifdef WRITE_GHOST_CELLS
+	/*#ifdef WRITE_GHOST_CELLS
+	*/
 	il -= 1;  iu += 1;
 	if(pRG->Nx[1] > 1) {
 	  jl -= 1; ju += 1;
@@ -212,7 +215,8 @@ void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
 	if(pRG->Nx[2] > 1) {
 	  kl -= 1; ku += 1;
         }
-	//#endif /* WRITE_GHOST_CELLS */
+	/*#endif /* WRITE_GHOST_CELLS */
+	
 
 	ndata0 = iu-il+1;
 	ndata1 = ju-jl+1;

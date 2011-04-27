@@ -25,6 +25,7 @@ void BackEuler_init_3d(const int Nx, const int Ny, const int Nz,const int NGridx
 void BackEuler_destruct_1d(int Ngrids);
 void BackEuler_destruct_2d();
 void BackEuler_destruct_3d();
+void BackEuler_destruct();
 VMFun_t BackEuler_init(MeshS *pM);
 /* General LU decomposition functions */
 void ludcmp(Real **a, int n, int *indx, Real *d);
