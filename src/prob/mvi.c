@@ -601,7 +601,7 @@ static Real hst_Visc_flx(const GridS *pG, const int i, const int j, const int k)
 
   BBdV = hst_BBdV(pG, i, j, k);
 
-  nud = nu_aniso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+  nud = nu_aniso*pG->U[k][j][i].d;
   qa = nud*(BBdV - ONE_3RD*divV);
   return qa*(3.0*By*Bx/B02);
 }
