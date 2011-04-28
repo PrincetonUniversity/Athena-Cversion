@@ -447,7 +447,7 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain boundary is in interior of root */
         if(pD->Disp[0] != 0) {
-          pD->ix1_BCFun = ProlongateLater;
+          pD->ix1_GBCFun = ProlongateLater;
 
 /* Domain is at L-edge of root Domain */
         } else {
@@ -487,7 +487,7 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain boundary is in interior of root */
         if((pD->Disp[0] + pD->Nx[0])/irefine != pM->Nx[0]) {
-          pD->ox1_BCFun = ProlongateLater;
+          pD->ox1_GBCFun = ProlongateLater;
 
 /* Domain is at R-edge of root Domain */
         } else {
@@ -532,7 +532,7 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain boundary is in interior of root */
         if(pD->Disp[1] != 0) {
-          pD->ix2_BCFun = ProlongateLater;
+          pD->ix2_GBCFun = ProlongateLater;
 
 /* Domain is at L-edge of root Domain */
         } else {
@@ -572,7 +572,7 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain boundary is in interior of root */
         if((pD->Disp[1] + pD->Nx[1])/irefine != pM->Nx[1]) {
-          pD->ox2_BCFun = ProlongateLater;
+          pD->ox2_GBCFun = ProlongateLater;
 
 /* Domain is at R-edge of root Domain */
         } else {
@@ -617,7 +617,7 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain boundary is in interior of root */
         if(pD->Disp[2] != 0) {
-          pD->ix3_BCFun = ProlongateLater;
+          pD->ix3_GBCFun = ProlongateLater;
 
 /* Domain is at L-edge of root Domain */
         } else {
@@ -657,7 +657,7 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain boundary is in interior of root */
         if((pD->Disp[2] + pD->Nx[2])/irefine != pM->Nx[2]) {
-          pD->ox3_BCFun = ProlongateLater;
+          pD->ox3_GBCFun = ProlongateLater;
 
 /* Domain is at R-edge of root Domain */
         } else {
