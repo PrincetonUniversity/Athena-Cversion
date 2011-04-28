@@ -42,6 +42,7 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+#include "particles/particle.h"
 
 Real Lx,Ly,Lz; /* root grid size, global to share with output functions */
 
@@ -92,6 +93,13 @@ void problem(DomainS *pDomain)
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
+#ifdef PARTICLES
+  Real L1,L2,L3,x1min,x2min,x3min,x1p,x2p,x3p;
+  Real tsmin, tsmax, tscrit;
+  Real mratio,pwind,ep,epsum;
+  long p,q,Npar;
+  int  n,tsmode;
+#endif
 
   if (pGrid->Nx[1] == 1){
     ath_error("[problem]: HGB only works on a 2D or 3D grid\n");
@@ -359,6 +367,99 @@ void problem(DomainS *pDomain)
   }
 #endif /* MHD */
 
+#ifdef PARTICLES
+/* insert dust particles */
+
+  /* get grid size */
+  x1min = pGrid->MinX[0];
+  L1    = pGrid->MaxX[0] - x1min;
+
+  x2min = pGrid->MinX[1];
+  L2    = pGrid->MaxX[1] - x2min;
+
+  x3min = pGrid->MinX[2];
+  L3    = pGrid->MaxX[2] - x3min;
+
+  /* get particle number */
+  Npar  = (long)(par_geti("particle","parnumgrid"));
+
+  pGrid->nparticle = Npar*npartypes;
+  for (i=0; i<npartypes; i++)
+    grproperty[i].num = Npar;
+
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
+
+  /* get particle stopping time */
+  tsmode = par_geti("particle","tsmode");
+  if (tsmode == 3) {/* fixed stopping time */
+    tsmin = par_getd("problem","tsmin"); /* in code unit */
+    tsmax = par_getd("problem","tsmax");
+    tscrit= par_getd("problem","tscrit");
+
+    for (i=0; i<npartypes; i++) {
+      tstop0[i] = tsmin*exp(i*log(tsmax/tsmin)/MAX(npartypes-1,1.0));
+      grproperty[i].rad = tstop0[i];
+      /* use fully implicit integrator for well coupled particles */
+      if (tstop0[i] < tscrit) grproperty[i].integrator = 3;
+    }
+  }
+  else {
+     ath_error("[problem]: Requires constant stopping time (tsmode=3)!\n");
+  }
+
+#ifdef FEEDBACK
+  /* get particle mass */
+  mratio = par_getd_def("problem","mratio",0.0); /* total mass fraction */
+  pwind  = par_getd_def("problem","pwind",0.0);   /* power law index */
+  if (mratio < 0.0)
+    ath_error("[problem]: mratio must be positive!\n");
+
+  epsum = 0.0;
+  for (i=0; i<npartypes; i++)
+  {
+    ep = pow(grproperty[i].rad,pwind);
+    epsum += ep;
+  }
+
+  for (i=0; i<npartypes; i++)
+  {
+    ep = mratio*pow(grproperty[i].rad,pwind)/epsum;
+    grproperty[i].m = ep*den*pGrid->Nx[0]*pGrid->Nx[1]*pGrid->Nx[2]/Npar;
+  }
+#endif
+
+ /* set initial conditions for the particles */
+  p = 0;
+  for (n=0; n<npartypes; n++)
+    for (q=0; q<Npar; q++)
+    {
+      x1p = x1min + L1*ran2(&iseed);
+      x2p = x2min + L2*ran2(&iseed);
+      x3p = x3min + L3*ran2(&iseed);
+
+      pGrid->particle[p].property = n;
+      pGrid->particle[p].x1 = x1p;
+      pGrid->particle[p].x2 = x2p;
+      pGrid->particle[p].x3 = x3p;
+
+      pGrid->particle[p].v1 = 0.0;
+#ifdef FARGO
+      pGrid->particle[p].v2 = 0.0;
+#else
+      pGrid->particle[p].v2 = -qshear*Omega*x1p;
+#endif
+      pGrid->particle[p].v3 = 0.0;
+
+      pGrid->particle[p].pos = 1; /* grid particle */
+      pGrid->particle[p].my_id = p;
+#ifdef MPI_PARALLEL
+      pGrid->particle[p].init_id = myID_Comm_world;
+#endif
+      p += 1;
+    }
+#endif /* PARTICLES */
+
 /* enroll gravitational potential function */
 
   ShearingBoxPot = UnstratifiedDisk;
@@ -477,6 +578,25 @@ void get_eta_user(GridS *pG, int i, int j, int k,
   *eta_H = 0.0;
   *eta_A = 0.0;
 
+  return;
+}
+#endif
+
+#ifdef PARTICLES
+PropFun_t get_usr_par_prop(const char *name)
+{
+  return NULL;
+}
+
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
+{
+  return;
+}
+
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2, const Real x3,
+                                    const Real v1, const Real v2, const Real v3)
+{
   return;
 }
 #endif

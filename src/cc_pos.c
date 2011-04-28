@@ -68,8 +68,6 @@ Real x1vc(const GridS* pG, const int i)
 #ifdef PARTICLES
 /*============================================================================
 cell-location functions 
-Created: Emmanuel Jacquet, Mar. 2008
-Modified: Xuening Bai, Dec. 2008
 ============================================================================*/
 
 /*----------------------------------------------------------------------------*/
@@ -80,58 +78,58 @@ Modified: Xuening Bai, Dec. 2008
  *         1: x is on the right of the ith cell;
  */
 
-/*! \fn int celli(const GridS* pGrid, const Real x, const Real dx1_1, 
+/*! \fn int celli(const GridS* pG, const Real x, const Real dx1_1, 
  *		  int *i, Real *a)
  *  \brief given x, returns containing cell first index.  */
-int celli(const GridS* pGrid, const Real x, const Real dx1_1, int *i, Real *a)
+int celli(const GridS* pG, const Real x, const Real dx1_1, int *i, Real *a)
 {
-  *a = (x - pGrid->x1_0) * dx1_1 - pGrid->idisp;
+  *a = (x - pG->MinX[0]) * dx1_1 + pG->is;
   *i = (int)(*a);
   if (((*a)-(*i)) < 0.5) return 0;	/* in the left half of the cell*/
   else return 1;			/* in the right half of the cell*/
 }
 
-/*! \fn Real x1cc(const Grid* pGrid, const int i)
+/*! \fn Real x1cc(const GridS* pG, const int i)
  *  \brief given i, returns cell-centered x1. */
-Real x1cc(const Grid* pGrid, const int i)
+Real x1cc(const GridS* pG, const int i)
 {
-  return (pGrid->x1_0 + (i + pGrid->idisp + 0.5) * pGrid->dx1);
+  return (pG->MinX[0] + ((Real)(i - pG->is) + 0.5) * pG->dx1);
 }
 
-/*! \fn cellj(const Grid* pGrid, const Real y, const Real dx2_1, 
+/*! \fn cellj(const GridS* pG, const Real y, const Real dx2_1, 
  *	      int *j, Real *b)
  *  \brief given y, returns containing cell first index.  */
-int cellj(const Grid* pGrid, const Real y, const Real dx2_1, int *j, Real *b)
+int cellj(const GridS* pG, const Real y, const Real dx2_1, int *j, Real *b)
 {
-  *b = (y - pGrid->x2_0) * dx2_1 - pGrid->jdisp;
+  *b = (y - pG->MinX[1]) * dx2_1 + pG->js;
   *j = (int)(*b);
   if (((*b)-(*j)) < 0.5) return 0;	/* in the left half of the cell*/
   else return 1;			/* in the right half of the cell*/
 }
 
-/*! \fn Real x2cc(const Grid* pGrid, const int j)
+/*! \fn Real x2cc(const GridS* pG, const int j)
  *  \brief given j, returns cell-centered x2. */
-Real x2cc(const Grid* pGrid, const int j)
+Real x2cc(const GridS* pG, const int j)
 {
-  return (pGrid->x2_0 + (j + pGrid->jdisp + 0.5) * pGrid->dx2);
+  return (pG->MinX[1] + ((Real)(j - pG->js) + 0.5) * pG->dx2);
 }
 
-/*! \fn int cellk(const Grid* pGrid, const Real z, const Real dx3_1, 
+/*! \fn int cellk(const GridS* pG, const Real z, const Real dx3_1, 
  *                int *k, Real *c)
  *  \brief given z, returns containing cell first index.  */ 
-int cellk(const Grid* pGrid, const Real z, const Real dx3_1, int *k, Real *c)
+int cellk(const GridS* pG, const Real z, const Real dx3_1, int *k, Real *c)
 {
-  *c = (z - pGrid->x3_0) * dx3_1 - pGrid->kdisp;
+  *c = (z - pG->MinX[2]) * dx3_1 + pG->ks;
   *k = (int)(*c);
   if (((*c)-(*k)) < 0.5) return 0;	/* in the left half of the cell*/
   else return 1;			/* in the right half of the cell*/
 }
 
-/*! \fn Real x3cc(const Grid* pGrid, const int k)
+/*! \fn Real x3cc(const GridS* pG, const int k)
  *  \brief given k, returns cell-centered x3. */
-Real x3cc(const Grid* pGrid, const int k)
+Real x3cc(const GridS* pG, const int k)
 {
-  return (pGrid->x3_0 + (k + pGrid->kdisp + 0.5) * pGrid->dx3);
+  return (pG->MinX[2] + ((Real)(k - pG->ks) + 0.5) * pG->dx3);
 }
 
 #endif /* PARTICLES */

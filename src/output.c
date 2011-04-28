@@ -135,26 +135,12 @@ Real expr_S  (const GridS *pG, const int i, const int j, const int k);
 Real expr_G  (const GridS *pG, const int i, const int j, const int k);
 #endif
 #ifdef PARTICLES
-/*! \fn Real expr_dpar (const GridS *pG, const int i, const int j, const int k)
- *  \brief Particle density. */
 extern Real expr_dpar (const GridS *pG, const int i, const int j, const int k);
-/*! \fn Real expr_M1par(const GridS *pG, const int i, const int j, const int k) 
- *  \brief Particle 1-momentum */
 extern Real expr_M1par(const GridS *pG, const int i, const int j, const int k);
-/*! \fn Real expr_M2par(const GridS *pG, const int i, const int j, const int k)
- *  \brief Particle 2-momentum */
 extern Real expr_M2par(const GridS *pG, const int i, const int j, const int k);
-/*! \fn Real expr_M3par(const GridS *pG, const int i, const int j, const int k) 
- *  \brief Particle 3-momentum */
 extern Real expr_M3par(const GridS *pG, const int i, const int j, const int k);
-/*! \fn Real expr_V1par(const GridS *pG, const int i, const int j, const int k) 
- *  \brief Particle 1-velocity */
 extern Real expr_V1par(const GridS *pG, const int i, const int j, const int k);
-/*! \fn Real expr_V2par(const GridS *pG, const int i, const int j, const int k) 
- *  \brief Particle 2-velocity */
 extern Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
-/*! \fn Real expr_V3par(const GridS *pG, const int i, const int j, const int k) 
- *  \brief Particle 3-velocity */
 extern Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 int check_particle_binning(char *out);
 #endif
@@ -233,8 +219,7 @@ void init_output(MeshS *pM)
     new_out.out_pargrid = par_geti_def(block,"pargrid",
                                        check_particle_binning(new_out.out));
     if ((new_out.out_pargrid < 0) || (new_out.out_pargrid >1)) {
-      ath_perr(-1,"[init_output]: %s/pargrid must be 0 or 1\n",
-	       block, block);
+      ath_perr(-1,"[init_output]: %s/pargrid must be 0 or 1\n", block);
       continue;
     }
 
@@ -274,9 +259,6 @@ Now use the default one.\n");
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
-#ifdef PARTICLES
-        new_out.out_pargrid = 1; /* bin particles */
-#endif
 	goto add_it;
       }
       else if (strcmp(fmt,"hst")==0){
@@ -285,8 +267,8 @@ Now use the default one.\n");
       }
 #ifdef PARTICLES
       else if (strcmp(fmt,"phst")==0){
-        new_out.fun = dump_particle_history;/* do not bin particles (default) */
-        goto add_it;
+        new_out.out_fun = dump_particle_history;
+        goto add_it; /* by default do not bin particles */
       }
 #endif
       else if (strcmp(fmt,"tab")==0){
@@ -312,8 +294,8 @@ Now use the default one.\n");
       }
 #ifdef PARTICLES
       else if (strcmp(fmt,"lis")==0){ /* dump particle list */
-	new_out.fun = dump_particle_binary; /* do not bin particles (default) */
-	goto add_it;
+	new_out.out_fun = dump_particle_binary; 
+	goto add_it; /* by default do not bin particles */
       }
 #endif
       else{    /* Unknown data dump (fatal error) */
@@ -497,6 +479,9 @@ Now use the default one.\n");
 
 void data_output(MeshS *pM, const int flag)
 {
+#ifdef PARTICLES
+  GridS *pG = pM->Domain[0][0].Grid;
+#endif
   int n;
   int dump_flag[MAXOUT_DEFAULT+1];
   char block[80];
@@ -556,7 +541,7 @@ void data_output(MeshS *pM, const int flag)
 
 #ifdef PARTICLES
       if (OutArray[n].out_pargrid == 1)      /* binned particles are output */
-        particle_to_grid(pM, OutArray[n].par_prop);
+        particle_to_grid(pG, OutArray[n].par_prop);
 #endif
       (*OutArray[n].out_fun)(pM,&(OutArray[n]));
 

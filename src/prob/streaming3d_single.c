@@ -70,48 +70,49 @@ char name[50];
  * property_mybin()  - particle property selection function
  *============================================================================*/
 double ran2(long int *idum);
-void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut);
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
+void OutputModeAmplitude(MeshS *pM, OutputS *pOut);
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 static Real pert_even(Real fR, Real fI, Real x, Real z, Real t);
 static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t);
-static int property_mybin(const Grain *gr, const GrainAux *grsub);
-extern Real expr_V3(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
+static int property_mybin(const GrainS *gr, const GrainAux *grsub);
+extern Real expr_V3(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V1par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 
 /*=========================== PUBLIC FUNCTIONS =================================
  *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i,j,k,ip,jp,kp,interp;
   long p;
   Real x1,x2,x3,t,x1l,x1u,x2l,x2u,x3l,x3u,x1p,x2p,x3p,paramp,factor2,reduct;
   Real x1min,x1max,x2min,x2max,x3min,x3max,Lx,Ly,Lz;
-  Real rhog,cs,u1,u2,u3,w1,w2,w3,Kxn,Kzn,denorm1,interval;
+  Real rhog,cs,u1,u2,u3,w1,w2,w3,Kxn,Kzn,denorm1;
   long int iseed = -1; /* Initialize on the first call to ran2 */
 
-  if (par_geti("grid","Nx3") == 1) {
+  if (pDomain->Nx[2] == 1) {
     ath_error("[streaming3d]: streaming3D only works for 3D problem.\n");
   }
 
 /* Initialize boxsize */
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
+  x1min = pDomain->RootMinX[0];
+  x1max = pDomain->RootMaxX[0];
   Lx = x1max - x1min;
 
-  x2min = par_getd("grid","x2min");
-  x2max = par_getd("grid","x2max");
+  x2min = pDomain->RootMinX[1];
+  x2max = pDomain->RootMaxX[1];
   Ly = x2max - x2min;
 
-  x3min = par_getd("grid","x3min");
-  x3max = par_getd("grid","x3max");
+  x3min = pDomain->RootMinX[2];
+  x3max = pDomain->RootMaxX[2];
   Lz = x3max - x3min;
 
-  Nx = par_getd("grid","Nx1"); /* used for particle selection function */
+  Nx = pDomain->Nx[0]; /* used for particle selection function */
 
 /* Read initial conditions */
   rho0 = 1.0;
@@ -122,14 +123,14 @@ void problem(Grid *pGrid, Domain *pDomain)
   etavk = par_getd_def("problem","etavk",0.05);/* in unit of iso_sound (N.B.) */
 
   /* particle number */
-  if (par_geti("particle","partypes") != 1)
+  if (npartypes != 1)
     ath_error("[streaming3d]: This test only allows ONE particle species!\n");
 
   Npar  = (int)(pow(par_geti("particle","parnumcell"),1.0/3.0));
   Npar3 = Npar*SQR(Npar);
 
-  pGrid->nparticle         = Npar3*pGrid->Nx1*pGrid->Nx2*pGrid->Nx3;
-  pGrid->grproperty[0].num = pGrid->nparticle;
+  pGrid->nparticle         = Npar3*pGrid->Nx[0]*pGrid->Nx[1]*pGrid->Nx[2];
+  grproperty[0].num = pGrid->nparticle;
 
   if (pGrid->nparticle+2 > pGrid->arrsize)
     particle_realloc(pGrid, pGrid->nparticle+2);
@@ -206,7 +207,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 
 #ifdef FEEDBACK
-  pGrid->grproperty[0].m = rho0*mratio/Npar3;
+  grproperty[0].m = rho0*mratio/Npar3;
 #endif
 
   /* Adjust code units */ 
@@ -282,56 +283,51 @@ void problem(Grid *pGrid, Domain *pDomain)
 
     pGrid->U[k][j][i].M3 = rhog * u3;
 #ifndef FARGO
-    pGrid->U[k][j][i].M2 -= qshear*rhog*Omega*x1;
+    pGrid->U[k][j][i].M2 -= qshear*rhog*Omega_0*x1;
 #endif
 
   }}}
 
 /* Now set initial conditions for the particles */
   p = 0;
-  Lx = pGrid->Nx1*pGrid->dx1;
-  x1min = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
+  Lx = pGrid->Nx[0]*pGrid->dx1;
+  x1min = pGrid->MinX[0];
 
-  Ly = pGrid->Nx2*pGrid->dx2;
-  x2min = pGrid->x2_0 + (pGrid->js + pGrid->jdisp)*pGrid->dx2;
+  Ly = pGrid->Nx[1]*pGrid->dx2;
+  x2min = pGrid->MinX[1];
 
-  Lz = pGrid->Nx3*pGrid->dx3;
-  x3min = pGrid->x3_0 + (pGrid->ks + pGrid->kdisp)*pGrid->dx3;
+  Lz = pGrid->Nx[2]*pGrid->dx3;
+  x3min = pGrid->MinX[2];
 
   for (k=pGrid->ks; k<=pGrid->ke; k++)
   {
-    x3l = pGrid->x3_0 + (k+pGrid->kdisp)*pGrid->dx3;
-    x3u = pGrid->x3_0 + ((k+pGrid->kdisp)+1.0)*pGrid->dx3;
+    x3l = pGrid->MinX[2] + (k-pGrid->ks)*pGrid->dx3;
+    x3u = pGrid->MinX[2] + (k-pGrid->ks+1.0)*pGrid->dx3;
 
     for (j=pGrid->js; j<=pGrid->je; j++)
     {
-      x2l = pGrid->x2_0 + (j+pGrid->jdisp)*pGrid->dx2;
-      x2u = pGrid->x2_0 + ((j+pGrid->jdisp)+1.0)*pGrid->dx2;
+      x2l = pGrid->MinX[1] + (j-pGrid->js)*pGrid->dx2;
+      x2u = pGrid->MinX[1] + (j-pGrid->js+1.0)*pGrid->dx2;
 
       for (i=pGrid->is; i<=pGrid->ie; i++)
       {
-        x1l = pGrid->x1_0 + (i + pGrid->idisp)*pGrid->dx1;
-        x1u = pGrid->x1_0 + ((i + pGrid->idisp) + 1.0)*pGrid->dx1;
+        x1l = pGrid->MinX[0] + (i-pGrid->is)*pGrid->dx1;
+        x1u = pGrid->MinX[0] + (i-pGrid->is+1.0)*pGrid->dx1;
 
         for (ip=0;ip<Npar;ip++)
         {
 
           if (ipert != 3) /* quasi-uniform distribution */
             x1p = x1l+pGrid->dx1/Npar*(ip+0.5);
-//          else
-//            x1p = x1l + pGrid->dx1*ran2(&iseed);
 
           for (jp=0;jp<Npar;jp++)
           {
             if (ipert != 3) /* quasi-uniform distribution */
               x2p = x2l+pGrid->dx2/Npar*(jp+0.5);
-//            else
-//              x2p = x2l + pGrid->dx2*ran2(&iseed);
 
             for (kp=0;kp<Npar;kp++)
             {
               if (ipert == 3){ /* ramdom particle position in the grid */
-//                x3p = x3l + pGrid->dx3*(ran2(&iseed)-0.5);
                 x1p = x1min + Lx*ran2(&iseed);
                 x2p = x2min + Ly*ran2(&iseed);
                 x3p = x3min + Lz*ran2(&iseed);
@@ -361,12 +357,12 @@ void problem(Grid *pGrid, Domain *pDomain)
 
               pGrid->particle[p].v3 = w3;
 #ifndef FARGO
-              pGrid->particle[p].v2 -= qshear*Omega*x1p;
+              pGrid->particle[p].v2 -= qshear*Omega_0*x1p;
 #endif
               pGrid->particle[p].pos = 1; /* grid particle */
               pGrid->particle[p].my_id = p;
 #ifdef MPI_PARALLEL
-              pGrid->particle[p].init_id = pGrid->my_id;
+              pGrid->particle[p].init_id = myID_Comm_world;
 #endif
               p += 1;
             }
@@ -377,22 +373,17 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 
 /* enroll gravitational potential function, shearing sheet BC functions */
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = UnstratifiedDisk;
 
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world == 0) {
     /* flush output file */
-    sprintf(name, "%s_%d_%d.dat", pGrid->outfilename,Nx,ipert);
+    sprintf(name, "%s_%d_%d.dat", "Streaming3d", Nx,ipert);
     FILE *fid = fopen(name,"w");
     fclose(fid);
 #ifdef MPI_PARALLEL
-    sprintf(name, "../%s_%d_%d.dat", pGrid->outfilename,Nx,ipert);
+    sprintf(name, "../%s_%d_%d.dat", "Streaming3d", Nx,ipert);
 #endif
   }
-
-/* enroll output function */
-  interval = par_getd_def("problem","interval",0.01/Omega_0);
-  data_output_enroll(pGrid->time,interval,0,OutputModeAmplitude,
-                                 NULL,NULL,0,0.0,0.0,0,0,1,property_all);
 
   return;
 }
@@ -407,7 +398,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   fwrite(&rho0, sizeof(Real),1,fp);  fwrite(&mratio, sizeof(Real),1,fp);
   fwrite(&etavk, sizeof(Real),1,fp);
@@ -428,18 +419,16 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
-  Real interval;
-
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = UnstratifiedDisk;
 
   Omega_0 = par_getd("problem","omega");
   qshear = par_getd_def("problem","qshear",1.5);
   amp = par_getd_def("problem","amp",0.0);
   ipert = par_geti_def("problem","ipert", 1);
 
-  Nx = par_getd("grid","Nx1"); /* used for particle selection function */
+  Nx = pM->Nx[0]; /* used for particle selection function */
   Npar  = (int)(sqrt(par_geti("particle","parnumcell")));
   Npar3 = SQR(Npar)*Npar;
   downsamp = par_geti_def("problem","downsamp",Npar3);
@@ -461,45 +450,40 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
     fread(&kx, sizeof(Real),1,fp);   fread(&kz, sizeof(Real),1,fp);
   }
 
-  if (pG->my_id == 0)
+  if (myID_Comm_world == 0)
 #ifdef MPI_PARALLEL
-    sprintf(name, "../%s_%d_%d.dat", pG->outfilename,Nx,ipert);
+    sprintf(name, "../%s_%d_%d.dat", "Streaming3d",Nx,ipert);
 #else
-    sprintf(name, "%s_%d_%d.dat", pG->outfilename,Nx,ipert);
+    sprintf(name, "%s_%d_%d.dat", "Streaming3d",Nx,ipert);
 #endif
-
-/* enroll output function */
-  interval = par_getd_def("problem","interval",0.01/Omega_0);
-  data_output_enroll(pG->time,interval,0,OutputModeAmplitude,
-                              NULL,NULL,0,0.0,0.0,0,0,1,property_all);
 
   return;
 }
 
-/*! \fn static Real expr_rhodif(const Grid *pG, const int i, const int j, 
+/*! \fn static Real expr_rhodif(const GridS *pG, const int i, const int j, 
  *			        const int k)
  *  \brief difd */
-static Real expr_rhodif(const Grid *pG, const int i, const int j, const int k)
+static Real expr_rhodif(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   return pG->U[k][j][i].d - rho0;
 }
 
-/*! \fn static Real expr_dVx(const Grid *pG, const int i, const int j, 
+/*! \fn static Real expr_dVx(const GridS *pG, const int i, const int j, 
  *			     const int k)
  *  \brief dVx */
-static Real expr_dVx(const Grid *pG, const int i, const int j, const int k)
+static Real expr_dVx(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   return pG->U[k][j][i].M1/pG->U[k][j][i].d - uxNSH;
 }
 
-/*! \fn static Real expr_dVy(const Grid *pG, const int i, const int j, 
+/*! \fn static Real expr_dVy(const GridS *pG, const int i, const int j, 
  *			     const int k)
  *  \brief dVy */
-static Real expr_dVy(const Grid *pG, const int i, const int j, const int k)
+static Real expr_dVy(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -510,41 +494,41 @@ static Real expr_dVy(const Grid *pG, const int i, const int j, const int k)
 #endif
 }
 
-/*! \fn static Real expr_rhopardif(const Grid *pG, const int i, const int j, 
+/*! \fn static Real expr_rhopardif(const GridS *pG, const int i, const int j, 
  *				   const int k)
  *  \brief difdpar */
-static Real expr_rhopardif(const Grid *pG, const int i, const int j, const int k)
+static Real expr_rhopardif(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
-  return pG->Coup[k][j][i].grid_d - rho0*mratio;
+return pG->Coup[k][j][i].grid_d - rho0*mratio;
 }
 
-/*! \fn static Real expr_dVxpar(const Grid *pG, const int i, const int j, 
+/*! \fn static Real expr_dVxpar(const GridS *pG, const int i, const int j, 
  *				const int k)
  *  \brief dVxpar */
-static Real expr_dVxpar(const Grid *pG, const int i, const int j, const int k)
+static Real expr_dVxpar(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   return expr_V1par(pG,i,j,k) - wxNSH;
 }
 
-/*! \fn static Real expr_dVypar(const Grid *pG, const int i, const int j, 
+/*! \fn static Real expr_dVypar(const GridS *pG, const int i, const int j, 
  *			        const int k)
  *  \brief dVypar */
-static Real expr_dVypar(const Grid *pG, const int i, const int j, const int k)
+static Real expr_dVypar(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef FARGO
   return expr_V2par(pG,i,j,k) - wyNSH;
 #else
-  return expr_V2par(pG,i,j,k) - wyNSH + qshear*Omega_0*x1);
+  return expr_V2par(pG,i,j,k) - wyNSH + qshear*Omega_0*x1;
 #endif
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"difd")==0) return expr_rhodif;
   if(strcmp(expr,"dVx")==0) return expr_dVx;
@@ -555,7 +539,9 @@ Gasfun_t get_usr_expr(const char *expr)
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name)
+{
+  if(strcmp(name,"amp")==0) return OutputModeAmplitude;
   return NULL;
 }
 
@@ -575,7 +561,7 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2, const Real x3,
                                     const Real v1, const Real v2, const Real v3)
 {
   ft->x1 -= 2.0*etavk*Omega_0;
@@ -583,7 +569,7 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
 }
 #endif
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
@@ -594,7 +580,7 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
@@ -602,9 +588,9 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/*! \fn static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
  *  \brief shearing box tidal gravitational potential */
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
 #ifndef FARGO
@@ -629,7 +615,7 @@ static Real pert_odd(Real fR, Real fI, Real x, Real z, Real t)
 
 /*! \fn static int property_mybin(const Grain *gr, const GrainAux *grsub)
  *  \brief user defined particle selection function (1: true; 0: false) */
-static int property_mybin(const Grain *gr, const GrainAux *grsub)
+static int property_mybin(const GrainS *gr, const GrainAux *grsub)
 {
   long a,b,c,d,e,ds,sp;
 
@@ -650,13 +636,18 @@ static int property_mybin(const Grain *gr, const GrainAux *grsub)
 }
 
 /*--------------------------------------------------------------------------- */
-/*! \fn void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
+/*! \fn void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, OutputS *pOut)
  *  \brief output the perturbation amplitude */
-void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
+void OutputModeAmplitude(MeshS *pM, OutputS *pOut)
 {
+  DomainS *pDomain = (DomainS*)&(pM->Domain[0][0]);
+  GridS *pGrid = pDomain->Grid;
+
   FILE *fid;
   int i,j,k;
   Real dm,dparm,uxm,uym,uzm,wxm,wym,wzm;
+
+  particle_to_grid(pGrid, property_all);
 
   dm=0.0; dparm=0.0; uxm=0.0; uym=0.0; uzm=0.0; wxm=0.0; wym=0.0; wzm=0.0;
 
@@ -684,7 +675,7 @@ void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
   err = MPI_Reduce(sendbuf,recvbuf,8,MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
   if(err) ath_error("[streaming3d]: MPI_Reduce returned error code %d\n",err);
 
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world == 0) {
     dm=recvbuf[0];	dparm=recvbuf[1];
     uxm=recvbuf[2];	wxm=recvbuf[3];
     uym=recvbuf[4];	wym=recvbuf[5];
@@ -692,9 +683,10 @@ void OutputModeAmplitude(Grid *pGrid, Domain *pDomain, Output *pOut)
   }
 #endif
 
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world  == 0) {
     fid = fopen(name,"a+");
-    fprintf(fid,"%e   %e      %e      %e      %e      %e      %e      %e      %e\n",pGrid->time,dm,dparm,uxm,wxm,uym,wym,uzm,wzm);
+    fprintf(fid,"%e %e %e %e %e %e %e %e %e\n",
+                pGrid->time,dm,dparm,uxm,wxm,uym,wym,uzm,wzm);
     fclose(fid);
   }
 

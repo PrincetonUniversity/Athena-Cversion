@@ -2079,6 +2079,7 @@ void integrate_3d_ctu(DomainS *pD)
 		}
 	}
 #endif /* Cylindrical + Fargo */
+
 /*--- Step 7d (cont) -----------------------------------------------------------
  * ADD THE GEOMETRIC SOURCE-TERM IN THE X1-DIRECTION TO THE CORRECTED L/R 
  * STATES ON X3-FACES.  S_{M_R} = -(\rho V_\phi^2 - B_\phi^2)/R
@@ -2283,9 +2284,9 @@ void integrate_3d_ctu(DomainS *pD)
 /*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
 
 #ifdef PARTICLES
-  Integrate_Particles(pG,pD);
+  Integrate_Particles(pD);
 #ifdef FEEDBACK
-  exchange_feedback(pG, pD);
+  exchange_feedback(pD);
 #endif
 #endif
 
@@ -2527,7 +2528,6 @@ void integrate_3d_ctu(DomainS *pD)
 #endif /* MHD */
 
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
-
 /*--- Step 11a -----------------------------------------------------------------
  * ADD GEOMETRIC SOURCE TERMS.
  */
@@ -2583,7 +2583,7 @@ void integrate_3d_ctu(DomainS *pD)
   }
 #endif /* CYLINDRICAL + !Fargo */
 
-// Add source terms using Heun's method for cylindrical fargo
+/* Add source terms using Heun's method for cylindrical fargo */
 #if defined(CYLINDRICAL) && defined(FARGO)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2735,7 +2735,6 @@ void integrate_3d_ctu(DomainS *pD)
       }
     }
   }
-
 #endif /* SHEARING_BOX */
 
   if (StaticGravPot != NULL){

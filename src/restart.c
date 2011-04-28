@@ -289,20 +289,24 @@ void restart_grids(char *res_file, MeshS *pM)
       if(strncmp(line,"PARTICLE LIST",13) != 0)
         ath_error("[restart_grids]: Expected PARTICLE LIST, found %s",line);
       fread(&(pG->nparticle),sizeof(long),1,fp);
-      fread(&(pG->partypes),sizeof(int),1,fp);
-      for (i=0; i<pG->partypes; i++) {          /* particle property list */
+
+      if (pG->nparticle > pG->arrsize-2)
+        particle_realloc(pG, pG->nparticle+2);
+
+      fread(&(npartypes),sizeof(int),1,fp);
+      for (i=0; i<npartypes; i++) {          /* particle property list */
 #ifdef FEEDBACK
-        fread(&(pG->grproperty[i].m),sizeof(Real),1,fp);
+        fread(&(grproperty[i].m),sizeof(Real),1,fp);
 #endif
-        fread(&(pG->grproperty[i].rad),sizeof(Real),1,fp);
-        fread(&(pG->grproperty[i].rho),sizeof(Real),1,fp);
+        fread(&(grproperty[i].rad),sizeof(Real),1,fp);
+        fread(&(grproperty[i].rho),sizeof(Real),1,fp);
         fread(&(tstop0[i]),sizeof(Real),1,fp);
         fread(&(grrhoa[i]),sizeof(Real),1,fp);
       }
       fread(&(alamcoeff),sizeof(Real),1,fp);  /* coef to calc Reynolds number */
 
-      for (i=0; i<pG->partypes; i++)
-        fread(&(pG->grproperty[i].integrator),sizeof(short),1,fp);
+      for (i=0; i<npartypes; i++)
+        fread(&(grproperty[i].integrator),sizeof(short),1,fp);
 
 /* Read the x1-positions */
 
@@ -399,10 +403,10 @@ void restart_grids(char *res_file, MeshS *pM)
 
 /* count the number of particles with different types */
 
-      for (i=0; i<pG->partypes; i++)
-        pG->grproperty[i].num = 0;
+      for (i=0; i<npartypes; i++)
+        grproperty[i].num = 0;
       for (p=0; p<pG->nparticle; p++)
-        pG->grproperty[pG->particle[p].property].num += 1;
+        grproperty[pG->particle[p].property].num += 1;
 
 #endif /* PARTICLES */
 
@@ -725,13 +729,13 @@ void dump_restart(MeshS *pM, OutputS *pout)
 #else
       nprop = 4;
 #endif
-      fwrite(&(pG->partypes),sizeof(int),1,fp); /* number of particle types */
-      for (i=0; i<pG->partypes; i++) {          /* particle property list */
+      fwrite(&(npartypes),sizeof(int),1,fp); /* number of particle types */
+      for (i=0; i<npartypes; i++) {          /* particle property list */
 #ifdef FEEDBACK
-        buf[nbuf++] = pG->grproperty[i].m;
+        buf[nbuf++] = grproperty[i].m;
 #endif
-        buf[nbuf++] = pG->grproperty[i].rad;
-        buf[nbuf++] = pG->grproperty[i].rho;
+        buf[nbuf++] = grproperty[i].rad;
+        buf[nbuf++] = grproperty[i].rho;
         buf[nbuf++] = tstop0[i];
         buf[nbuf++] = grrhoa[i];
         if ((nbuf+nprop) > bufsize) {
@@ -745,8 +749,8 @@ void dump_restart(MeshS *pM, OutputS *pout)
       }
       fwrite(&(alamcoeff),sizeof(Real),1,fp);  /* coef for Reynolds number */
     
-      for (i=0; i<pG->partypes; i++) {         /* particle integrator type */
-        sbuf[nsbuf++] = pG->grproperty[i].integrator;
+      for (i=0; i<npartypes; i++) {         /* particle integrator type */
+        sbuf[nsbuf++] = grproperty[i].integrator;
         if ((nsbuf+1) > sbufsize) {
           fwrite(sbuf,sizeof(short),nsbuf,fp);
           nsbuf = 0;

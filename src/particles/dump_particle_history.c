@@ -51,6 +51,7 @@
 #include <math.h>
 #include "../defs.h"
 #include "../athena.h"
+#include "../globals.h"
 #include "../prototypes.h"
 #include "prototypes.h"
 #include "particle.h"
@@ -76,45 +77,51 @@ static Parfun_t phst_arayfun[MAX_USR_ARAY];
 static int usr_scal_cnt = 0; /* User History Counter <= MAX_USR_SCAL */
 static int usr_aray_cnt = 0; /* User History Counter <= MAX_USR_ARAY */
 
-extern Real expr_dpar(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_dpar(const GridS *pG, const int i, const int j, const int k);
 
 /*============================================================================*/
 /*----------------------------- Public Functions -----------------------------*/
 
 /*----------------------------------------------------------------------------*/
-/*! \fn void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
+/*! \fn void dump_particle_history(MeshS *pM, OutputS *pOut)
  *  \brief  Writes particle variables as formatted table */
-void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
+void dump_particle_history(MeshS *pM, OutputS *pOut)
 {
   FILE *fid;
+  DomainS *pD;
+  GridS   *pG;
   int i,j,k,n,prp,mhst;
   long p,vol_rat,*npar;
   int tot_scal_cnt,tot_aray_cnt;
   Real scal[NSCAL+MAX_USR_SCAL],**array,rho,dvol;
-  char fmt[20];
-  Grain *gr;
+  char fmt[20], *fname;
+  GrainS *gr;
+
 #ifdef MPI_PARALLEL
   Real my_scal[NSCAL+MAX_USR_SCAL],*sendbuf,*recvbuf;
   int err;
   long *my_npar;
 
-  my_npar = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
-  sendbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes,
-                                                             sizeof(Real));
-  recvbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*pGrid->partypes,
-                                                             sizeof(Real));
+  my_npar = (long*)calloc_1d_array(npartypes, sizeof(long));
+  sendbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*npartypes,
+                                                          sizeof(Real));
+  recvbuf = (Real*)calloc_1d_array( (NARAY+MAX_USR_ARAY)*npartypes,
+                                                          sizeof(Real));
 #endif
 
-  npar  = (long*)calloc_1d_array(pGrid->partypes, sizeof(long));
-  array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, pGrid->partypes,
-                                                             sizeof(Real));
+  npar  = (long*)calloc_1d_array(npartypes, sizeof(long));
+  array = (Real**)calloc_2d_array(NARAY+MAX_USR_ARAY, npartypes,
+                                                          sizeof(Real));
 
   tot_scal_cnt = 11 + usr_scal_cnt;
   tot_aray_cnt = 12 + usr_aray_cnt;
 
-  particle_to_grid(pGrid, pD, property_all);
+  scal[0] = pM->time;
+  for (i=1; i<tot_scal_cnt; i++) {
+    scal[i] = 0.0;
+  }
 
-/* Add a white space to the format */
+  /* Add a white space to the format */
   if(pOut->dat_fmt == NULL){
     sprintf(fmt," %%13.5e"); /* Use a default format */
   }
@@ -122,37 +129,35 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
     sprintf(fmt," %s",pOut->dat_fmt);
   }
 
-  for (i=1; i<tot_scal_cnt; i++) {
-    scal[i] = 0.0;
-  }
+  pD = (DomainS*)&(pM->Domain[0][0]);  /* set ptr to Domain */
+  pG = pM->Domain[0][0].Grid;          /* set ptr to Grid */
+
+  /* bin particles to the grid */
+  particle_to_grid(pG,property_all);
 
 /*--------------------- Compute scalar history variables ---------------------*/
-  scal[0] = pGrid->time;
 
   /* Maximum density and energy dissipation rate */
-  scal[1] = 0.0;
-  scal[2] = 0.0;
-  scal[3] = 0.0;
-  for (k=pGrid->ks; k<=pGrid->ke; k++)
-  for (j=pGrid->js; j<=pGrid->je; j++)
-  for (i=pGrid->is; i<=pGrid->ie; i++)
+  for (k=pG->ks; k<=pG->ke; k++)
+  for (j=pG->js; j<=pG->je; j++)
+  for (i=pG->is; i<=pG->ie; i++)
   {
-    scal[1] = MAX(scal[1],expr_dpar(pGrid,i,j,k));
+    scal[1] = MAX(scal[1],expr_dpar(pG,i,j,k));
 #ifdef FEEDBACK
-    scal[2] = MAX(scal[2],pGrid->Coup[k][j][i].FBstiff);
-    scal[3]+= pGrid->Coup[k][j][i].Eloss;
+    scal[2] = MAX(scal[2],pG->Coup[k][j][i].FBstiff);
+    scal[3]+= pG->Coup[k][j][i].Eloss;
 #endif
   }
 
   /* particle mass, momentum and kinetic energy */
-  for(p=0; p<pGrid->nparticle; p++) {
-    gr = &(pGrid->particle[p]);
+  for(p=0; p<pG->nparticle; p++) {
+    gr = &(pG->particle[p]);
     if (gr->pos == 1) /* grid particle */
     {
 #ifdef FEEDBACK
-      rho = pGrid->grproperty[gr->property].m;/* contribution to total mass */
+      rho = grproperty[gr->property].m;    /* contribution to total mass */
 #else
-      rho = 1.0;                              /* contribution to total number */
+      rho = 1.0;                           /* contribution to total number */
 #endif
       mhst = 4;
       scal[mhst] += rho;
@@ -172,7 +177,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
       /* Calculate the user defined history variables */
       for(n=0; n<usr_scal_cnt; n++){
         mhst++;
-        scal[mhst] += (*phst_scalfun[n])(pGrid, gr);
+        scal[mhst] += (*phst_scalfun[n])(pG, gr);
       }
     }
   }
@@ -188,10 +193,9 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 #endif
 
   /* Average the sums */
-  vol_rat = (pD->ide - pD->ids + 1)*(pD->jde - pD->jds + 1)*
-            (pD->kde - pD->kds + 1);
+  vol_rat = pD->Nx[0]*pD->Nx[1]*pD->Nx[2];
 
-  if(pGrid->my_id == 0){ /* I'm the parent */
+  if(myID_Comm_world == 0){ /* I'm the parent */
 
     dvol = 1.0/(double)vol_rat;
 
@@ -203,7 +207,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 
   mhst = 0;
 
-  for (i=0; i<pGrid->partypes; i++)
+  for (i=0; i<npartypes; i++)
   {
     npar[i] = 0;
 
@@ -212,9 +216,9 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
   /* average position and velocity */
-  for (p=0; p<pGrid->nparticle; p++)
+  for (p=0; p<pG->nparticle; p++)
   {
-    gr = &(pGrid->particle[p]);
+    gr = &(pG->particle[p]);
     if (gr->pos == 1)
     {
       prp = gr->property;
@@ -229,38 +233,38 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
   }
 
 #ifdef MPI_PARALLEL
-  for (i=0; i<pGrid->partypes; i++)
+  for (i=0; i<npartypes; i++)
     my_npar[i] = npar[i];
 
   for (j=0; j<6; j++)
   {
-    n = j*pGrid->partypes;
-    for (i=0; i<pGrid->partypes; i++)
+    n = j*npartypes;
+    for (i=0; i<npartypes; i++)
       sendbuf[n+i] = array[j][i];
   }
 
-  err = MPI_Allreduce(my_npar, npar,  pGrid->partypes,
+  err = MPI_Allreduce(my_npar, npar,  npartypes,
                                       MPI_LONG,  MPI_SUM,MPI_COMM_WORLD);
-  err = MPI_Allreduce(sendbuf,recvbuf,6*pGrid->partypes,
+  err = MPI_Allreduce(sendbuf,recvbuf,6*npartypes,
                                       MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
   for (j=0; j<6; j++)
   {
-    n = j*pGrid->partypes;
-    for (i=0; i<pGrid->partypes; i++)
+    n = j*npartypes;
+    for (i=0; i<npartypes; i++)
       array[j][i] = recvbuf[n+i];
   }
 #endif
 
   for (j=0; j<6; j++) {
-  for (i=0; i<pGrid->partypes; i++) {
+  for (i=0; i<npartypes; i++) {
     array[j][i] = array[j][i]/MAX(1,npar[i]);
   }}
 
   /* position scatter, velocity dispersion, and user defined work */
-  for (p=0; p<pGrid->nparticle; p++)
+  for (p=0; p<pG->nparticle; p++)
   {
-    gr = &(pGrid->particle[p]);
+    gr = &(pG->particle[p]);
     if (gr->pos == 1)
     {
       prp = gr->property;
@@ -273,7 +277,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
       mhst = 11;
       for (n=0; n<usr_aray_cnt; n++){
         mhst++;
-        array[mhst][prp] += (*phst_arayfun[n])(pGrid, gr);
+        array[mhst][prp] += (*phst_arayfun[n])(pG, gr);
       }
     }
   }
@@ -281,29 +285,29 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 #ifdef MPI_PARALLEL
   for (j=6; j<tot_aray_cnt; j++)
   {
-    n = (j-6)*pGrid->partypes;
-    for (i=0; i<pGrid->partypes; i++)
+    n = (j-6)*npartypes;
+    for (i=0; i<npartypes; i++)
       sendbuf[n+i] = array[j][i];
   }
 
-  err = MPI_Reduce(sendbuf,recvbuf,(tot_aray_cnt-6)*pGrid->partypes,
+  err = MPI_Reduce(sendbuf,recvbuf,(tot_aray_cnt-6)*npartypes,
                                    MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
 
-  if (pGrid->my_id == 0)
+  if (myID_Comm_world == 0)
   {
     for (j=6; j<tot_aray_cnt; j++)
     {
-      n = (j-6)*pGrid->partypes;
-      for (i=0; i<pGrid->partypes; i++)
+      n = (j-6)*npartypes;
+      for (i=0; i<npartypes; i++)
         array[j][i] = recvbuf[n+i];
     }
 
   }
 #endif
 
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world == 0) {
 
-    for (i=0; i<pGrid->partypes; i++) {
+    for (i=0; i<npartypes; i++) {
       for (j=6; j<12; j++)
         array[j][i] = sqrt(array[j][i]/MAX(1,npar[i]-1));
 
@@ -315,13 +319,14 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
 
 /*------------------------ Output particle history file ----------------------*/
 
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world == 0) {
 
 #ifdef MPI_PARALLEL
-    fid = ath_fopen("../",pGrid->outfilename,0,0,NULL,"phst","a");
+    fname = ath_fname("../",pM->outfilename,NULL,NULL,0,0,NULL,"phst");
 #else
-    fid = ath_fopen(NULL,pGrid->outfilename,0,0,NULL,"phst","a");
+    fname = ath_fname(NULL,pM->outfilename,NULL,NULL,0,0,NULL,"phst");
 #endif
+    fid = fopen(fname, "a");
     if(fid == NULL){
       ath_perr(-1,"[dump_particle_history]: Unable to open the history file\n");
       return;
@@ -396,8 +401,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
     }
     fprintf(fid,"\n");
 
-    for (j=0; j<pGrid->partypes; j++) {
-//      fprintf(fid,"%2d:",j);
+    for (j=0; j<npartypes; j++) {
       for (i=0; i<tot_aray_cnt; i++)
         fprintf(fid,fmt,array[i][j]);
       fprintf(fid,"\n");
@@ -405,6 +409,7 @@ void dump_particle_history(Grid *pGrid, Domain *pD, Output *pOut)
    fprintf(fid,"\n");
 
     fclose(fid);
+    free(fname);
   }
 
   free(npar);

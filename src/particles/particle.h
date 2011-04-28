@@ -17,6 +17,10 @@
 /*----------------------------------------------------------------------------*/
 #ifdef PARTICLES
 
+/*---------------------------- Particle Properties ---------------------------*/
+int npartypes;               /*!< number of particle types */
+Grain_Property *grproperty;  /*!< array of particle properties of all types */
+
 /*--------------------------- grid limit quantities -----------------------==-*/
 /* left and right limit of grid indices */
 int ilp,iup, jlp,jup, klp,kup;

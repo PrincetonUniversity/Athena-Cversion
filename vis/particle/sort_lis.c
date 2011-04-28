@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
     for (p=0; p<n; p++)
     {
       fwrite(data[order[p]],sizeof(float),7,fid);
-      fwrite(&property[p],sizeof(int),1,fid);
+      fwrite(&property[order[p]],sizeof(int),1,fid);
       fwrite(&pid[order[p]],sizeof(long),1,fid);
       fwrite(&cpuid[order[p]],sizeof(int),1,fid);
     }

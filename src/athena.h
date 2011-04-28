@@ -290,8 +290,6 @@ typedef struct Grid_s{
   int rx3_id, lx3_id;  /*!< ID of Grid to R/L in x3-dir (default=-1; no Grid) */
 
 #ifdef PARTICLES
-  int partypes;              /*!< number of particle types */
-  Grain_Property *grproperty;/*!< array of particle properties of all types */
   long nparticle;            /*!< number of particles */
   long arrsize;              /*!< size of the particle array */
   GrainS *particle;          /*!< array of all particles */
@@ -404,7 +402,6 @@ typedef Real (*ConsFun_t)(const GridS *pG, const int i,const int j,const int k);
  *  \brief Particle property selection function */
 typedef int (*PropFun_t)(const GrainS *gr, const GrainAux *grsub);
 typedef Real (*Parfun_t)(const GridS *pG, const GrainS *gr);
-typedef Real (*Parfun_t)(const GridS *pG, const GrainS *gr);
 #endif
 
 /*! \struct OutputS
@@ -493,7 +490,7 @@ typedef void (*EtaFun_t)(GridS *pG, int i, int j, int k,
   Real3Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
  *  \brief Interpolation scheme for particles. */
 typedef void (*WeightFun_t)(GridS *pG, Real x1, Real x2, Real x3,
-  Real3Vector cell1, Real weight[3][3][3], int *is, int *js, int *ks);
+  Real3Vect cell1, Real weight[3][3][3], int *is, int *js, int *ks);
 /*! \fn Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd)
  *  \brief Stopping time function for particles. */
 typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);

@@ -44,6 +44,7 @@ static char *athena_version = "version 4.0 - 01-Jul-2010";
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+#include "particles/prototypes.h"
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -399,6 +400,9 @@ int main(int argc, char *argv[])
 #endif
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
+#ifdef FEEDBACK
+  exchange_feedback_init(&Mesh);
+#endif
 #endif
 
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -407,9 +411,6 @@ int main(int argc, char *argv[])
         bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
         bvals_particle(&(Mesh.Domain[nl][nd]));
-#ifdef FEEDBACK
-        exchange_feedback_init(&(Mesh.Domain[nl][nd]));
-#endif
 #endif
       }
     }
@@ -500,6 +501,7 @@ int main(int argc, char *argv[])
 
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
     integrate_diff(&Mesh);
+
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -507,6 +509,7 @@ int main(int argc, char *argv[])
         }
       }
     }
+
 #endif
 
 /*--- Step 9c. ---------------------------------------------------------------*/
@@ -516,11 +519,10 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
           (*Integrate)(&(Mesh.Domain[nl][nd]));
-
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-          advect_particles(&level0_Grid, &level0_Domain);
+          advect_particles(&(Mesh.Domain[nl][nd]));
 #endif
 #endif /* FARGO */
         }
@@ -569,6 +571,7 @@ int main(int argc, char *argv[])
     }
 
     dt_done = Mesh.dt;
+
     new_dt(&Mesh);
 
 /*--- Step 9h. ---------------------------------------------------------------*/
@@ -580,7 +583,7 @@ int main(int argc, char *argv[])
         if (Mesh.Domain[nl][nd].Grid != NULL){
           bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-          bvals_particle(&level0_Grid, &level0_Domain);
+          bvals_particle(&(Mesh.Domain[nl][nd]));
 #endif
         }
       }
@@ -691,8 +694,8 @@ int main(int argc, char *argv[])
   integrate_destruct();
   data_output_destruct();
 #ifdef PARTICLES
-  particle_destruct(&level0_Grid);
-  bvals_particle_destruct(&level0_Grid);
+  particle_destruct(&Mesh);
+  bvals_particle_destruct(&Mesh);
 #endif
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();

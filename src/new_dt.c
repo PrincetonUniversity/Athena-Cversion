@@ -93,6 +93,7 @@ void new_dt(MeshS *pM)
 #elif defined ISOTHERMAL
         asq = Iso_csound2;
 #endif /* EOS */
+
 /* compute fast magnetosonic speed squared in each direction */
         tsum = bsq*di + asq;
         tdif = bsq*di - asq;
@@ -129,7 +130,7 @@ void new_dt(MeshS *pM)
 #endif
         if (pGrid->Nx[2] > 1)
           max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
-  
+ 
       }
     }}
 

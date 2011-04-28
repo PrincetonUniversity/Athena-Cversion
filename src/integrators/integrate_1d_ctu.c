@@ -385,9 +385,9 @@ void integrate_1d_ctu(DomainS *pD)
 /*=== STEP 8.5: Integrate the particles, compute the feedback ================*/
 
 #ifdef PARTICLES
-  Integrate_Particles(pG,pD);
+  Integrate_Particles(pD);
 #ifdef FEEDBACK
-  exchange_feedback(pG, pD);
+  exchange_feedback(pD);
 #endif
 #endif
 
