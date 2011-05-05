@@ -23,7 +23,7 @@
 #   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #   --with-particles=[feedback,passive]              (dust particle integration)
 #   --with-coord=[cartesian,cylindrical]                     (coordinate system)
-#   --with-radiation_transfer=[jacobi,gausseid]             (radiative transfer)
+#   --with-radiation_transfer=[jacobi,gausseid,jacobi_linear] (radiative transfer)
 #
 # PHYSICS "features":
 #   --enable-conduction                            (explicit thermal conduction)
@@ -324,7 +324,7 @@ fi
 
 #-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: radiation_transfer
-#   --with-radiation_transfer=[jacobi,gausseid]
+#   --with-radiation_transfer=[jacobi,gausseid,jacobi_linear]
 
 AC_SUBST(RADIATION_TRANSFER_ALGORITHM)
 AC_SUBST(RADIATION_TRANSFER_DEFINE)
@@ -341,12 +341,16 @@ elif test "$radiation_transfer_algorithm" = "gausseid"; then
   RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
   RADIATION_TRANSFER_USER="gausseid"
   RADIATION_TRANSFER_ALGORITHM="GAUSSEID"
+elif test "$radiation_transfer_algorithm" = "jacobi_linear"; then
+  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
+  RADIATION_TRANSFER_USER="jacobi_linear"
+  RADIATION_TRANSFER_ALGORITHM="JACOBI_LINEAR"
 elif test "$radiation_transfer_algorithm" = "none"; then
   RADIATION_TRANSFER_DEFINE="NO_RADIATION_TRANSFER"
   RADIATION_TRANSFER_USER="OFF"
   RADIATION_TRANSFER_ALGORITHM="RADIATION_TRANSFER_NONE"
 else
-  AC_MSG_ERROR([expected --with-radiation_transfer=jacobi or gausseid])
+  AC_MSG_ERROR([expected --with-radiation_transfer=jacobi or gausseid or jacobi_linear])
 fi
 
 #-------------------------------------------------------------------------------

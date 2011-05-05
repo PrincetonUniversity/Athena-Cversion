@@ -66,6 +66,11 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax);
 void formal_solution_2d_init(RadGridS *pRG);
 void formal_solution_2d_destruct(void);
 
+/* all 3D formal solutions algorithms contain the following functions */
+void formal_solution_3d(RadGridS *pRG, Real *dSrmax);
+void formal_solution_3d_init(RadGridS *pRG);
+void formal_solution_3d_destruct(void);
+
 #ifdef RAD_MULTIG
 /* gausseid_1d.c */
 void gs_pass_pointers_to_mg_1d(Real *******psi0, Real **mu10, 

@@ -128,7 +128,7 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
           }
         }
         fprintf(pfile,"ORIGIN %e %e %e \n",x2,x3,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx2,pRG->dx3,pRG->dx2);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx2,pRG->dx3,1.0);
 
 /*  5. Data  */
 

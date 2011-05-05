@@ -19,7 +19,9 @@ CORE_OBJ = init_radiation.o\
 	   multig_1d.o\
 	   jacobi_2d.o\
 	   gausseid_2d.o\
-	   multig_2d.o
+	   jacobi_2d_linear.o\
+	   multig_2d.o\
+	   jacobi_3d_linear.o
 
 OBJ = $(CORE_OBJ)
 

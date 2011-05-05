@@ -45,6 +45,9 @@ void init_radiation(MeshS *pM)
   Real **pmat = NULL, **pinv = NULL, *wpf = NULL;
   int **pl = NULL, *plab = NULL;
 
+/* initialize radiative transfer control paramters */
+  lte = par_geti("radiation","lte");
+
 /* number of dimensions in Grid. */
   nDim=1;
   for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;
@@ -168,17 +171,18 @@ void init_radiation(MeshS *pM)
 
       if(nDim == 1) {
 /* 1D  compute angles using gaussian quadarature */
-	mutmp1d = (Real *)calloc_1d_array(nmu,sizeof(Real));
+	mutmp1d = (Real *)calloc_1d_array(2.0*nmu,sizeof(Real));
 	if (mutmp1d == NULL) goto on_error4; 
-	wtmp = (Real *)calloc_1d_array(nmu,sizeof(Real));
+	wtmp = (Real *)calloc_1d_array(2.0*nmu,sizeof(Real));
 	if (wtmp == NULL) goto on_error5; 
 
-	gauleg(0.0, 1.0, mutmp1d, wtmp, nmu);
+	gauleg(-1.0, 1.0, mutmp1d, wtmp, 2*nmu);
 
-	for(i=0; i<nmu; i++) {
-	  pRG->wmu[i] = 0.5 * wtmp[i];
-	  pRG->mu[0][i][0] = mutmp1d[i];
-	  pRG->mu[1][i][0] = -mutmp1d[i];
+	for(i=nmu; i<2*nmu; i++) {
+	  pRG->wmu[i-nmu] = 0.5 * wtmp[i];
+	  pRG->mu[0][i-nmu][0] = mutmp1d[i];
+	  printf("%d %g %g\n",i,pRG->wmu[i-nmu],pRG->mu[0][i-nmu][0]);
+	  pRG->mu[1][i-nmu][0] = -mutmp1d[i];
 	}
 	free_1d_array(wtmp);
 	free_1d_array(mutmp1d);
@@ -309,8 +313,8 @@ void init_radiation(MeshS *pM)
 		    pRG->mu[m][i][2] = -mutmp[i][2];	      
 		}
 	      }
-	      pRG->wmu[i] *= 0.125;
 	    }
+	    pRG->wmu[i] *= 0.125;	    
 	  }
 	}
 

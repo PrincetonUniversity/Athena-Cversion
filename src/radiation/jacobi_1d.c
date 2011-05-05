@@ -22,14 +22,13 @@
 #include "../prototypes.h"
 
 #ifdef RADIATION_TRANSFER
-#ifdef JACOBI
+#if defined(JACOBI) || defined(JACOBI_LINEAR)
 
 static Real *****psi = NULL;
 static Real **lamstr = NULL;
 static Real *muinv = NULL, *mu2 = NULL;
 static Real ***imuo = NULL;
 static Real **Jold = NULL;
-static int lte;
 static int svwght;
 
 /*==============================================================================
@@ -150,7 +149,7 @@ static void sweep_1d(RadGridS *pRG, int sx)
 	 chim = pRG->R[ks][js][i-sx][ifr].chi;
 	 chip = pRG->R[ks][js][i+sx][ifr].chi;
 	 /*dtaum = 0.5 * (chim + chio) * dx * muinv[m]; 
-	   dtaup = 0.5 * (chip + chio) * dx * muinv[m]; */
+	   dtaup = 0.5 * (chip + chio) * dx * muinv[m]; */ 
 	 interp_quad_chi(chim,chio,chip,&dtaum);
 	 interp_quad_chi(chip,chio,chim,&dtaup);
 	 dtaum *= dx; 
@@ -223,7 +222,6 @@ void formal_solution_1d_init(RadGridS *pRG)
   Real S0, S2;
 
   svwght = par_geti("radiation","svwght");
-  lte = par_geti("radiation","lte");
 
   if ((imuo = (Real ***)calloc_3d_array(nf,2,nang,sizeof(Real))) == NULL) 
     goto on_error;

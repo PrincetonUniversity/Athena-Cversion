@@ -659,33 +659,65 @@ static void periodic_ix1_rad(RadGridS *pRG)
   int jl = pRG->js  , ju = pRG->je;
   int kl = pRG->ks  , ku = pRG->ke;
   int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
   int j, k, m, n, ifr;
 
-  for (k=kl; k<=ku; k++)
-    for (j=jl; j<=ju; j++)
-      for (ifr=0; ifr<nf; ifr++) {
-	pRG->R[k][j][il][ifr].S    = pRG->R[k][j][ie][ifr].S;
-	pRG->R[k][j][il][ifr].H[0] = pRG->R[k][j][ie][ifr].H[0];
-      }
-  /* if (pRG->Nx[1] > 1) { jl--; ju++; } */
-  for (ifr=0; ifr<nf; ifr++)
-    for (k=kl; k<=ku; k++)
-      for (j=jl; j<=ju; j++)
+  /* if LTE pass the source functions */
+  if (lte == 0) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][j][il][ifr].S    = pRG->R[k][j][ie][ifr].S;
+	}}}
+  }
+  /* update l1imu using r1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
 	for (m=0; m<nang; m++) {
 	  pRG->l1imu[ifr][k][j][0][m] = pRG->r1imu[ifr][k][j][0][m];
-	  pRG->l1imu[ifr][k][j][2][m] = pRG->r1imu[ifr][k][j][2][m];
-	}
-
-  /*if (pRG->Nx[1] > 1) {
-    for (ifr=0; ifr<nf; ifr++)
-      for (k=kl; k<=ku; k++)
+	  if(noct > 2) {
+	    pRG->l1imu[ifr][k][j][2][m] = pRG->r1imu[ifr][k][j][2][m];
+	    if(noct == 8) {
+	      pRG->l1imu[ifr][k][j][4][m] = pRG->r1imu[ifr][k][j][4][m];
+	      pRG->l1imu[ifr][k][j][6][m] = pRG->r1imu[ifr][k][j][6][m];
+	    }
+	  }
+	}}}}
+  /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
+   * l=0,2,4,6 are passed using r1imu */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
 	for (m=0; m<nang; m++) {
-	  pRG->l2imu[ifr][k][il][0][m] = pRG->l2imu[ifr][k][ie][0][m];
-	  pRG->l2imu[ifr][k][il][1][m] = pRG->l2imu[ifr][k][ie][1][m];
-	  pRG->r2imu[ifr][k][il][2][m] = pRG->r2imu[ifr][k][ie][2][m];
-	  pRG->r2imu[ifr][k][il][3][m] = pRG->r2imu[ifr][k][ie][3][m];
-	}
-	}*/
+	  pRG->l2imu[ifr][k][il][2][m] = pRG->r1imu[ifr][k][jl][2][m];
+	  pRG->l2imu[ifr][k][il][3][m] = pRG->l2imu[ifr][k][ie][3][m];
+	  pRG->r2imu[ifr][k][il][0][m] = pRG->r1imu[ifr][k][ju][0][m];
+	  pRG->r2imu[ifr][k][il][1][m] = pRG->r2imu[ifr][k][ie][1][m];
+	    if(noct == 8) {
+	      pRG->l2imu[ifr][k][il][6][m] = pRG->r1imu[ifr][k][jl][6][m];
+	      pRG->l2imu[ifr][k][il][7][m] = pRG->l2imu[ifr][k][ie][7][m];
+	      pRG->r2imu[ifr][k][il][4][m] = pRG->r1imu[ifr][k][ju][4][m];
+	      pRG->r2imu[ifr][k][il][5][m] = pRG->r2imu[ifr][k][ie][5][m];
+	    }
+	    }}}
+  }
+  /* pass l3imu/r3imu on the edges.  Note that values
+   * l=0,2,4,6 are passed using r1imu */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for (m=0; m<nang; m++) {
+	  pRG->l3imu[ifr][j][il][4][m] = pRG->r1imu[ifr][kl][j ][4][m];
+	  pRG->l3imu[ifr][j][il][5][m] = pRG->l3imu[ifr][j ][ie][5][m];
+	  pRG->l3imu[ifr][j][il][6][m] = pRG->r1imu[ifr][kl][j ][6][m];
+	  pRG->l3imu[ifr][j][il][7][m] = pRG->l3imu[ifr][j ][ie][7][m];
+	  pRG->r3imu[ifr][j][il][0][m] = pRG->r1imu[ifr][ku][j ][0][m];
+	  pRG->r3imu[ifr][j][il][1][m] = pRG->r3imu[ifr][j ][ie][1][m];
+	  pRG->r3imu[ifr][j][il][2][m] = pRG->r1imu[ifr][ku][j ][2][m];
+	  pRG->r3imu[ifr][j][il][3][m] = pRG->r3imu[ifr][j ][ie][3][m];	   
+	}}}
+  }
 
   return;
 }
@@ -699,34 +731,65 @@ static void periodic_ox1_rad(RadGridS *pRG)
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
   int j, k, m, n, ifr;
 
-  for (k=kl; k<=ku; k++)
-    for (j=jl; j<=ju; j++)
-      for (ifr=0; ifr<nf; ifr++) {
-	pRG->R[k][j][iu][ifr].S = pRG->R[k][j][is][ifr].S;
-	pRG->R[k][j][iu][ifr].H[0] = pRG->R[k][j][is][ifr].H[0];
-      }
-
-  /*if (pRG->Nx[1] > 1) { jl--; ju++; } */
-  for (ifr=0; ifr<nf; ifr++)
-    for (k=kl; k<=ku; k++)
-      for (j=jl; j<=ju; j++)
+  /* if LTE pass the source functions */
+  if (lte == 0) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][j][iu][ifr].S = pRG->R[k][j][is][ifr].S;
+	}}}
+  }
+  /* update r1imu using l1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
 	for(m=0; m<nang; m++) {
 	  pRG->r1imu[ifr][k][j][1][m] = pRG->l1imu[ifr][k][j][1][m];
-	  pRG->r1imu[ifr][k][j][3][m] = pRG->l1imu[ifr][k][j][3][m];
-	}
-
-  /*if (pRG->Nx[1] > 1)
-    for (ifr=0; ifr<nf; ifr++)
-      for (k=kl; k<=ku; k++)
-	for(m=0; m<nang; m++) {
-	  pRG->l2imu[ifr][k][iu][0][m] = pRG->l2imu[ifr][k][is][0][m];
-	  pRG->l2imu[ifr][k][iu][1][m] = pRG->l2imu[ifr][k][is][1][m];
-	  pRG->r2imu[ifr][k][iu][2][m] = pRG->r2imu[ifr][k][is][2][m];
-	  pRG->r2imu[ifr][k][iu][3][m] = pRG->r2imu[ifr][k][is][3][m];
-	  }*/
-
+	  if(noct > 2) {
+	    pRG->r1imu[ifr][k][j][3][m] = pRG->l1imu[ifr][k][j][3][m];
+	    if(noct == 8) {
+	      pRG->r1imu[ifr][k][j][5][m] = pRG->l1imu[ifr][k][j][5][m];
+	      pRG->r1imu[ifr][k][j][7][m] = pRG->l1imu[ifr][k][j][7][m];
+	    }
+	  }
+	}}}}
+  /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
+   * l=1,3,5,7 are passed using l1imu */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for (m=0; m<nang; m++) {
+	  pRG->l2imu[ifr][k][iu][2][m] = pRG->l2imu[ifr][k][is][2][m];
+	  pRG->l2imu[ifr][k][iu][3][m] = pRG->l1imu[ifr][k][jl][3][m];
+	  pRG->r2imu[ifr][k][iu][0][m] = pRG->r2imu[ifr][k][is][0][m];
+	  pRG->r2imu[ifr][k][iu][1][m] = pRG->l1imu[ifr][k][ju][1][m];
+	    if(noct == 8) {
+	      pRG->l2imu[ifr][k][iu][6][m] = pRG->l2imu[ifr][k][is][6][m];
+	      pRG->l2imu[ifr][k][iu][7][m] = pRG->l1imu[ifr][k][jl][7][m];
+	      pRG->r2imu[ifr][k][iu][4][m] = pRG->r2imu[ifr][k][is][4][m];
+	      pRG->r2imu[ifr][k][iu][5][m] = pRG->l1imu[ifr][k][ju][5][m];
+	    }
+	}}}
+  }
+ /* pass l3imu/r3imu on the edges.  Note that values
+   * l=1,3,5,7 are passed using r1imu */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for (m=0; m<nang; m++) {
+	  pRG->l3imu[ifr][j][iu][4][m] = pRG->l3imu[ifr][j ][is][4][m];
+	  pRG->l3imu[ifr][j][iu][5][m] = pRG->l1imu[ifr][kl][j ][5][m];
+	  pRG->l3imu[ifr][j][iu][6][m] = pRG->l3imu[ifr][j ][is][6][m];
+	  pRG->l3imu[ifr][j][iu][7][m] = pRG->l1imu[ifr][kl][j ][7][m];
+	  pRG->r3imu[ifr][j][iu][0][m] = pRG->r3imu[ifr][j ][is][0][m];
+	  pRG->r3imu[ifr][j][iu][1][m] = pRG->l1imu[ifr][ku][j ][1][m];
+	  pRG->r3imu[ifr][j][iu][2][m] = pRG->r3imu[ifr][j ][is][2][m];	  
+	  pRG->r3imu[ifr][j][iu][3][m] = pRG->l1imu[ifr][ku][j ][3][m];
+	}}}
+  }
   return;
 }
 
@@ -740,31 +803,63 @@ static void periodic_ix2_rad(RadGridS *pRG)
   int jl = pRG->js-1, je = pRG->je;
   int kl = pRG->ks  , ku = pRG->ke;
   int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
   int i, k, m, n, ifr;
 
-  for (k=kl; k<=ku; k++)
-    for (i=il; i<=iu; i++)
-      for (ifr=0; ifr<nf; ifr++)
-	pRG->R[k][jl][i][ifr].S = pRG->R[k][je][i][ifr].S;
-
-  for (ifr=0; ifr<nf; ifr++)
-    for (k=kl; k<=ku; k++)
-      for (i=il+1; i<=iu-1; i++)
+  /* if LTE pass the source functions */
+  if (lte == 0) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][jl][i][ifr].S = pRG->R[k][je][i][ifr].S;
+	}}}
+  }
+  /* update l2imu using r2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones.  r2imu on the
+   * corners/edges has already been updated (if necessary) by
+   * x1 boundary routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
 	for(m=0; m<nang; m++) {
 	  pRG->l2imu[ifr][k][i][0][m] = pRG->r2imu[ifr][k][i][0][m];
 	  pRG->l2imu[ifr][k][i][1][m] = pRG->r2imu[ifr][k][i][1][m];
-	}
-
-  for (ifr=0; ifr<nf; ifr++)
-    for (k=kl; k<=ku; k++)
+	  if (noct == 8) {
+	    pRG->l2imu[ifr][k][i][4][m] = pRG->r2imu[ifr][k][i][4][m];
+	    pRG->l2imu[ifr][k][i][5][m] = pRG->r2imu[ifr][k][i][5][m];	    
+	  }
+	}}}}
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	pRG->l1imu[ifr][k][jl][0][m] = pRG->l1imu[ifr][k][je][0][m];
 	pRG->l1imu[ifr][k][jl][2][m] = pRG->l1imu[ifr][k][je][2][m];
 	pRG->r1imu[ifr][k][jl][1][m] = pRG->r1imu[ifr][k][je][1][m];
 	pRG->r1imu[ifr][k][jl][3][m] = pRG->r1imu[ifr][k][je][3][m];
+	if (noct == 8) {
+	  pRG->l1imu[ifr][k][jl][4][m] = pRG->l1imu[ifr][k][je][4][m];
+	  pRG->l1imu[ifr][k][jl][6][m] = pRG->l1imu[ifr][k][je][6][m];
+	  pRG->r1imu[ifr][k][jl][5][m] = pRG->r1imu[ifr][k][je][5][m];
+	  pRG->r1imu[ifr][k][jl][7][m] = pRG->r1imu[ifr][k][je][7][m];
 	}
-
-
+      }}}
+  /* pass l3imu/r3imu on the edges.  Note that values
+   * l=0,1,4,5 are passed using r2imu */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for (m=0; m<nang; m++) {
+	  pRG->l3imu[ifr][jl][i][4][m] = pRG->r2imu[ifr][kl][i][4][m];
+	  pRG->l3imu[ifr][jl][i][5][m] = pRG->r2imu[ifr][kl][i][5][m];
+	  pRG->l3imu[ifr][jl][i][6][m] = pRG->l3imu[ifr][je][i][6][m];
+	  pRG->l3imu[ifr][jl][i][7][m] = pRG->l3imu[ifr][je][i][7][m];
+	  pRG->r3imu[ifr][jl][i][0][m] = pRG->r2imu[ifr][ku][i][0][m];
+	  pRG->r3imu[ifr][jl][i][1][m] = pRG->r2imu[ifr][ku][i][1][m];
+	  pRG->r3imu[ifr][jl][i][2][m] = pRG->r3imu[ifr][je][i][2][m];
+	  pRG->r3imu[ifr][jl][i][3][m] = pRG->r3imu[ifr][je][i][3][m];
+	}}}
+  }
   return;
 }
 
@@ -778,30 +873,63 @@ static void periodic_ox2_rad(RadGridS *pRG)
   int js = pRG->js  , ju = pRG->je+1;
   int kl = pRG->ks  , ku = pRG->ke;
   int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
   int i, k, m, n, ifr;
 
-  for (k=kl; k<=ku; k++)
-    for (i=il; i<=iu; i++)
-      for (ifr=0; ifr<nf; ifr++)
-	pRG->R[k][ju][i][ifr].S = pRG->R[k][js][i][ifr].S;
-
-  for (ifr=0; ifr<nf; ifr++)
-    for (k=kl; k<=ku; k++)
-      for (i=il+1; i<=iu-1; i++)
+  /* if LTE pass the source functions */
+  if (lte == 0) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][ju][i][ifr].S = pRG->R[k][js][i][ifr].S;
+	}}}
+  }
+  /* update r2imu using l2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones.  l2imu on the
+   * corners/edges has already been updated (if necessary) by
+   * x1 boundary routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
 	for(m=0; m<nang; m++) {
 	  pRG->r2imu[ifr][k][i][2][m] = pRG->l2imu[ifr][k][i][2][m];
 	  pRG->r2imu[ifr][k][i][3][m] = pRG->l2imu[ifr][k][i][3][m];
-	}
-
-  for (ifr=0; ifr<nf; ifr++)
-    for (k=kl; k<=ku; k++)
+	  if (noct == 8) {
+	    pRG->r2imu[ifr][k][i][6][m] = pRG->l2imu[ifr][k][i][6][m];
+	    pRG->r2imu[ifr][k][i][7][m] = pRG->l2imu[ifr][k][i][7][m];
+	  }
+	}}}}
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	pRG->l1imu[ifr][k][ju][0][m] = pRG->l1imu[ifr][k][js][0][m];
 	pRG->l1imu[ifr][k][ju][2][m] = pRG->l1imu[ifr][k][js][2][m];
 	pRG->r1imu[ifr][k][ju][1][m] = pRG->r1imu[ifr][k][js][1][m];
 	pRG->r1imu[ifr][k][ju][3][m] = pRG->r1imu[ifr][k][js][3][m];
-      }
-
+	if (noct == 8) {
+	  pRG->l1imu[ifr][k][ju][4][m] = pRG->l1imu[ifr][k][js][4][m];
+	  pRG->l1imu[ifr][k][ju][6][m] = pRG->l1imu[ifr][k][js][6][m];
+	  pRG->r1imu[ifr][k][ju][5][m] = pRG->r1imu[ifr][k][js][5][m];
+	  pRG->r1imu[ifr][k][ju][7][m] = pRG->r1imu[ifr][k][js][7][m];
+	}
+      }}}
+  /* pass l3imu/r3imu on the edges.  Note that values
+   * l=2,3,6,7 are passed using l2imu */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for (m=0; m<nang; m++) {
+	  pRG->l3imu[ifr][ju][i][4][m] = pRG->l3imu[ifr][js][i][4][m];
+	  pRG->l3imu[ifr][ju][i][5][m] = pRG->l3imu[ifr][js][i][5][m];
+	  pRG->l3imu[ifr][ju][i][6][m] = pRG->l2imu[ifr][kl][i][6][m];
+	  pRG->l3imu[ifr][ju][i][7][m] = pRG->l2imu[ifr][kl][i][7][m];
+	  pRG->r3imu[ifr][ju][i][0][m] = pRG->r3imu[ifr][js][i][0][m];
+	  pRG->r3imu[ifr][ju][i][1][m] = pRG->r3imu[ifr][js][i][1][m];
+	  pRG->r3imu[ifr][ju][i][2][m] = pRG->l2imu[ifr][ku][i][2][m];
+	  pRG->r3imu[ifr][ju][i][3][m] = pRG->l2imu[ifr][ku][i][3][m];
+	}}}
+  }
   return;
 }
 
@@ -811,16 +939,59 @@ static void periodic_ox2_rad(RadGridS *pRG)
 
 static void periodic_ix3_rad(RadGridS *pRG)
 {
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks, ke = pRG->ke;
-  int nf = pRG->nf;
+
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int kl = pRG->ks-1, ke = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
   int i, j, l, m, ifr;
 
-  for (j=js-1; j<=je+1; j++)
-    for (i=is-1; i<=ie+1; i++) 
-      for (ifr=0; ifr<nf; ifr++)
-	pRG->R[ks-1][j][i][ifr].S = pRG->R[ke][j][i][ifr].S;
+  /* if LTE pass the source functions */
+  if (lte == 0) {
+    for (j=jl; j<=ju; j++) { 
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[kl][j][i][ifr].S = pRG->R[ke][j][i][ifr].S;
+	}}}
+  }
+  /* update l3imu using r3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones.  r3imu on the
+   * edges has already been updated (if necessary) by x1 and x2 boundary
+   * routines */
+ 
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<=3; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][j][i][l][m] = pRG->r3imu[ifr][j][i][l][m];
+	  }}}}}
+ /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for(m=0; m<nang; m++) {	
+	pRG->l1imu[ifr][kl][j][0][m] = pRG->l1imu[ifr][ke][j][0][m];
+	pRG->l1imu[ifr][kl][j][2][m] = pRG->l1imu[ifr][ke][j][2][m];
+	pRG->l1imu[ifr][kl][j][4][m] = pRG->l1imu[ifr][ke][j][4][m];
+	pRG->l1imu[ifr][kl][j][6][m] = pRG->l1imu[ifr][ke][j][6][m];
+	pRG->r1imu[ifr][kl][j][1][m] = pRG->r1imu[ifr][ke][j][1][m];
+	pRG->r1imu[ifr][kl][j][3][m] = pRG->r1imu[ifr][ke][j][3][m];
+	pRG->r1imu[ifr][kl][j][5][m] = pRG->r1imu[ifr][ke][j][5][m];
+	pRG->r1imu[ifr][kl][j][7][m] = pRG->r1imu[ifr][ke][j][7][m];
+      }}}
+ /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for(m=0; m<nang; m++) {	
+	pRG->l2imu[ifr][kl][i][0][m] = pRG->l2imu[ifr][ke][i][0][m];
+	pRG->l2imu[ifr][kl][i][1][m] = pRG->l2imu[ifr][ke][i][1][m];
+	pRG->l2imu[ifr][kl][i][4][m] = pRG->l2imu[ifr][ke][i][4][m];
+	pRG->l2imu[ifr][kl][i][5][m] = pRG->l2imu[ifr][ke][i][5][m];
+	pRG->r2imu[ifr][kl][i][2][m] = pRG->r2imu[ifr][ke][i][2][m];
+	pRG->r2imu[ifr][kl][i][3][m] = pRG->r2imu[ifr][ke][i][3][m];
+	pRG->r2imu[ifr][kl][i][6][m] = pRG->r2imu[ifr][ke][i][6][m];
+	pRG->r2imu[ifr][kl][i][7][m] = pRG->r2imu[ifr][ke][i][7][m];
+      }}}
 
   return;
 }
@@ -831,16 +1002,58 @@ static void periodic_ix3_rad(RadGridS *pRG)
 
 static void periodic_ox3_rad(RadGridS *pRG)
 {
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks, ke = pRG->ke;
-  int nf = pRG->nf;
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int ks = pRG->ks, ku = pRG->ke+1;
+  int nf = pRG->nf, nang = pRG->nang;
   int i, j, l, m, ifr;
 
-  for (j=js-1; j<=je+1; j++)
-    for (i=is-1; i<=ie+1; i++) 
-      for (ifr=0; ifr<nf; ifr++)
-	pRG->R[ke+1][j][i][ifr].S = pRG->R[ks][j][i][ifr].S;
+  /* if LTE pass the source functions */
+  if (lte == 0) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) { 
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[ku][j][i][ifr].S = pRG->R[ks][j][i][ifr].S;
+	}}}
+  }
+ /* update r3imu using l3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones.  l3imu on the
+   * edges has already been updated (if necessary) by x1 and x2 boundary
+   * routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=4; l<=7; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->r3imu[ifr][j][i][l][m] = pRG->l3imu[ifr][j][i][l][m];
+	  }}}}}
+/* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for(m=0; m<nang; m++) {	
+	pRG->l1imu[ifr][ku][j][0][m] = pRG->l1imu[ifr][ks][j][0][m];
+	pRG->l1imu[ifr][ku][j][2][m] = pRG->l1imu[ifr][ks][j][2][m];
+	pRG->l1imu[ifr][ku][j][4][m] = pRG->l1imu[ifr][ks][j][4][m];
+	pRG->l1imu[ifr][ku][j][6][m] = pRG->l1imu[ifr][ks][j][6][m];
+	pRG->r1imu[ifr][ku][j][1][m] = pRG->r1imu[ifr][ks][j][1][m];
+	pRG->r1imu[ifr][ku][j][3][m] = pRG->r1imu[ifr][ks][j][3][m];
+	pRG->r1imu[ifr][ku][j][5][m] = pRG->r1imu[ifr][ks][j][5][m];
+	pRG->r1imu[ifr][ku][j][7][m] = pRG->r1imu[ifr][ks][j][7][m];
+      }}}
+ /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for(m=0; m<nang; m++) {	
+	pRG->l2imu[ifr][ku][i][0][m] = pRG->l2imu[ifr][ks][i][0][m];
+	pRG->l2imu[ifr][ku][i][1][m] = pRG->l2imu[ifr][ks][i][1][m];
+	pRG->l2imu[ifr][ku][i][4][m] = pRG->l2imu[ifr][ks][i][4][m];
+	pRG->l2imu[ifr][ku][i][5][m] = pRG->l2imu[ifr][ks][i][5][m];
+	pRG->r2imu[ifr][ku][i][2][m] = pRG->r2imu[ifr][ks][i][2][m];
+	pRG->r2imu[ifr][ku][i][3][m] = pRG->r2imu[ifr][ks][i][3][m];
+	pRG->r2imu[ifr][ku][i][6][m] = pRG->r2imu[ifr][ks][i][6][m];
+	pRG->r2imu[ifr][ku][i][7][m] = pRG->r2imu[ifr][ks][i][7][m];
+      }}}
+
 
   return;
 }

@@ -31,7 +31,7 @@ static Real ***lamstr = NULL;
 static Real *****imux = NULL, *****imuy = NULL;
 static Real **muinv = NULL, *am0 = NULL, ***mu2 = NULL;
 static Real ***Jold = NULL;
-static int ntot, lte;
+static int ntot;
 static int svwght;
 
 /*==============================================================================
@@ -59,7 +59,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
   int ismx, jsmx;
   Real dSr, dJ, dJmax;
 
-  /*for(ifr=0; ifr<nf; ifr++) 
+  /* for(ifr=0; ifr<nf; ifr++) 
     for(m=0; m<pRG->nang; m++) {
       pRG->l2imu[ifr][ks][is-1][0][m] = pRG->l1imu[ifr][ks][js-1][0][m];
       pRG->l2imu[ifr][ks][is-1][0][m] = pRG->l1imu[ifr][ks][js-1][0][m];
@@ -435,7 +435,7 @@ static void sweep_2d_backward(RadGridS *pRG)
 	      imux[ifr][j-1][1][m][0] = pRG->l2imu[ifr][ks][i+1][1][m];
 	      imux[ifr][j-1][3][m][0] = pRG->l2imu[ifr][ks][i+1][3][m];
 	    }
-	    /*if(j == je) { */
+	    /* if(j == je) { */
 	    if((j == je) && (i != ie)) {
 	      imux[ifr][j+1][1][m][1] = pRG->r2imu[ifr][ks][i+1][1][m];
 	      imux[ifr][j+1][3][m][1] = pRG->r2imu[ifr][ks][i+1][3][m];
@@ -519,7 +519,6 @@ void formal_solution_2d_init(RadGridS *pRG)
   Real am, am1, bm, bm1;
 
   svwght = par_geti("radiation","svwght");
-  lte = par_geti("radiation","lte");
 
   ntot = je + ie - (js + is) + 1;
 

@@ -43,6 +43,7 @@ void problem(DomainS *pDomain)
   int jl = pG->js, ju = pG->je;
   int kl = pG->ks, ku = pG->ke;
   int nf=pRG->nf, nang=pRG->nang;
+  int noct = pRG->noct;
   int i, j, k, ifr, l, m;
   int vdir;
   Real y, ytop, ybtm;  
@@ -119,7 +120,7 @@ void problem(DomainS *pDomain)
     if ((tau = (Real *)calloc_1d_array(pG->Nx[2]+2*nghost,sizeof(Real))) == NULL) {
       ath_error("[problem]: Error allocating memory");
     }
-    for(k=kl; k<=ku+2; j++) {
+    for(k=kl; k<=ku+2; k++) {
       y = pG->MinX[2] + (Real)(k-kl)*pG->dx3;
       tau[k] = pow(10.0,taumin + (taumax-taumin) * ((y-ybtm)/(ytop-ybtm)));
     }
@@ -146,96 +147,288 @@ void problem(DomainS *pDomain)
   il = pRG->is-1, iu = pRG->ie+1;
   jl = pRG->js,   ju = pRG->je;
   kl = pRG->ks,   ku = pRG->ke;
-  if (pRG->Nx[1] > 1) {
-    jl -= 1; ju += 1;
-  } else if (pRG->Nx[2] > 1) {
-    kl -= 1; ku += 1;
-  }
+  if (pRG->Nx[1] > 1) { jl -= 1; ju += 1; }
+  if (pRG->Nx[2] > 1) { kl -= 1; ku += 1; }
 
 /* Initialize mean intensity */
   for(ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
       for (j=jl; j<=ju; j++)
 	for(i=il; i<=iu; i++)
-	  pRG->R[0][j][i][ifr].J = 1;
+	  pRG->R[k][j][i][ifr].J = 1;
 
 /* ------- Initialize boundary emission ---------------------------------- */
 
   switch(vdir) {
 
   case 1:
-/* Initialize boundary intensity in x1 directions */
+/* Density gradient aligned with i3 */
     for(ifr=0; ifr<nf; ifr++) {
+      /* Initialize boundary intensity in x1 direction */
       for(k=kl; k<=ku; k++) {
 	for(j=jl; j<=ju; j++) {
-	/* incident radiation at upper and lower boundaries */
 	  for(m=0; m<nang; m++) {
 	    /* lower boundary is tau=0, no irradiation */
 	    pRG->l1imu[ifr][k][j][0][m] = 0.0;
-	    pRG->l1imu[ifr][k][j][2][m] = 0.0;
+	    if (noct > 2) {
+	      pRG->l1imu[ifr][k][j][2][m] = 0.0;
+	      if (noct == 8) {
+		pRG->l1imu[ifr][k][j][4][m] = 0.0;
+		pRG->l1imu[ifr][k][j][6][m] = 0.0;
+	      }
+	    }
 	    /* upper boundary is large tau, eps=1 */
 	    pRG->r1imu[ifr][k][j][1][m] = 1.0;
-	    pRG->r1imu[ifr][k][j][3][m] = 1.0;
+	    if (noct > 2) {
+	      pRG->r1imu[ifr][k][j][3][m] = 1.0;
+	      if (noct == 8) {
+		pRG->r1imu[ifr][k][j][5][m] = 1.0;
+		pRG->r1imu[ifr][k][j][7][m] = 1.0;
+	      }
+	    }
 	  }}
 
-	if (pRG->Nx[1] > 1) {
-/* Initialize boundary intensity in x2 directions */
-	  for(l=0; l<4; l++) 
+	if (noct > 2) {
+/* Initialize boundary intensity in x2 direction */
+	  /* lower boundary is tau=0, no irradiation */
+	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      pRG->r2imu[ifr][k][il][l][m] = 0.0; /* REDESIGN SO THAT R(L)2IMU[0,N] NEVER USED!!!*/ 
+	      pRG->r2imu[ifr][k][il][l][m] = 0.0; 
 	      pRG->l2imu[ifr][k][il][l][m] = 0.0;
-	    }
-	  for(i=il+1; i<=iu; i++) {  /* REDESIGN SO THAT R(L)2IMU[0,N] NEVER USED!!!*/
-	  /* incident radiation at left boundary */
+	    }}
+	  for(i=il+1; i<=iu-1; i++) {
+	    /* periodic radiation at left boundary */
 	    for(m=0; m<nang; m++) {
 	      pRG->l2imu[ifr][k][i][0][m] = 1.0;
 	      pRG->l2imu[ifr][k][i][1][m] = 1.0;
+	      if (noct == 8) {
+		pRG->l2imu[ifr][k][i][4][m] = 1.0;
+		pRG->l2imu[ifr][k][i][5][m] = 1.0;
+	      }
 	    }
-	    /* incident radiation at right boundary */
+	    /* periodic radiation at right boundary */
 	    for(m=0; m<=nang; m++) {
 	      pRG->r2imu[ifr][k][i][2][m] = 1.0;
 	      pRG->r2imu[ifr][k][i][3][m] = 1.0;
+	      if (noct == 8) {
+		pRG->r2imu[ifr][k][i][6][m] = 1.0;
+		pRG->r2imu[ifr][k][i][7][m] = 1.0;
+	      }
 	    }
 	  }
+	  /* upper boundary is large tau, eps=1 */
+	  for(l=0; l<noct; l++) {
+	    for(m=0; m<nang; m++) {
+	      pRG->r2imu[ifr][k][iu][l][m] = 1.0; 
+	      pRG->l2imu[ifr][k][iu][l][m] = 1.0;
+	    }}
 	}
-      }}
+      }
+/* Initialize boundary intensity in x3 direction */
+      if (noct == 8) {
+	for(j=jl; j<=ju; j++) {
+	  /* lower boundary is tau=0, no irradiation */
+	  for(l=0; l<noct; l++) { 
+	    for(m=0; m<nang; m++) {
+	      pRG->r3imu[ifr][j][il][l][m] = 0.0; 
+	      pRG->l3imu[ifr][j][il][l][m] = 0.0;
+	    }}
+	  for(i=il+1; i<=iu-1; i++) {
+	    for(m=0; m<nang; m++) {
+	      /* periodic radiation at left boundary */
+	      pRG->l3imu[ifr][j][i][0][m] = 1.0;
+	      pRG->l3imu[ifr][j][i][1][m] = 1.0;
+	      pRG->l3imu[ifr][j][i][2][m] = 1.0;
+	      pRG->l3imu[ifr][j][i][3][m] = 1.0;
+	      /* periodic radiation at right boundary */
+	      pRG->r3imu[ifr][j][i][4][m] = 1.0;
+	      pRG->r3imu[ifr][j][i][5][m] = 1.0;
+	      pRG->r3imu[ifr][j][i][6][m] = 1.0;
+	      pRG->r3imu[ifr][j][i][7][m] = 1.0;
+	    }}
+	  /* upper boundary is large tau, eps=1 */
+	  for(l=0; l<noct; l++) { 
+	    for(m=0; m<nang; m++) {
+	      pRG->r3imu[ifr][j][iu][l][m] = 1.0; 
+	      pRG->l3imu[ifr][j][iu][l][m] = 1.0;
+	    }}
+	}
+      }
+    }
     break;
 
   case 2:
-/* Initialize boundary intensity in x1 directions */
+/* Density gradient aligned with i2 */
     for(ifr=0; ifr<nf; ifr++) {
+/* Initialize boundary intensity in x1 direction */
       for(k=kl; k<=ku; k++) {
-	for(l=0; l<4; l++) 
+	/* lower boundary is tau=0, no irradiation */
+	for(l=0; l<noct; l++) 
 	  for(m=0; m<nang; m++) {
-	    pRG->r1imu[ifr][k][0][l][m] = 0.0;
-	    pRG->l1imu[ifr][k][0][l][m] = 0.0;
+	    pRG->r1imu[ifr][k][jl][l][m] = 0.0;
+	    pRG->l1imu[ifr][k][jl][l][m] = 0.0;
 	  }
-	for(j=jl+1; j<=ju; j++) {
-	  /* incident radiation at left boundary */
+	for(j=jl+1; j<=ju-1; j++) {
+	  /* periodic radiation at left boundary */
 	  for(m=0; m<nang; m++) {
 	    pRG->l1imu[ifr][k][j][0][m] = 1.0;
 	    pRG->l1imu[ifr][k][j][2][m] = 1.0;
+	    if (noct == 8) {
+	      pRG->l1imu[ifr][k][j][4][m] = 1.0;
+	      pRG->l1imu[ifr][k][j][6][m] = 1.0;
+	    }
 	  }
-	  /* incident radiation at right boundary */
+	  /* periodic radiation at right boundary */
 	  for(m=0; m<=nang; m++) {
 	    pRG->r1imu[ifr][k][j][1][m] = 1.0;
 	    pRG->r1imu[ifr][k][j][3][m] = 1.0;
+	    if (noct == 8) {
+	      pRG->r1imu[ifr][k][j][5][m] = 1.0;
+	      pRG->r1imu[ifr][k][j][7][m] = 1.0;
+	    }
 	  }
 	}
-      
-/* Initialize boundary intensity in x2 directions */
-	for(i=il; i<=iu; i++) { /* REDESIGN SO THAT R(L)2IMU[0,N] NEVER USED!!!*/
-      /* incident radiation at upper and lower boundaries */
+	/* upper boundary is large tau, eps=1 */
+      	for(l=0; l<noct; l++) 
+	  for(m=0; m<nang; m++) {
+	    pRG->r1imu[ifr][k][ju][l][m] = 1.0;
+	    pRG->l1imu[ifr][k][ju][l][m] = 1.0;
+	  }
+
+/* Initialize boundary intensity in x2 direction */
+	for(i=il; i<=iu; i++) { 
 	  for(m=0; m<nang; m++) {
 	    /* lower boundary is tau=0, no irradiation */
 	    pRG->l2imu[ifr][k][i][0][m] = 0.0;
 	    pRG->l2imu[ifr][k][i][1][m] = 0.0;
+	    if (noct == 8) {
+	      pRG->l2imu[ifr][k][i][4][m] = 0.0;
+	      pRG->l2imu[ifr][k][i][5][m] = 0.0;
+	    }
 	    /* upper boundary is large tau, eps=1 */
 	    pRG->r2imu[ifr][k][i][2][m] = 1.0;
 	    pRG->r2imu[ifr][k][i][3][m] = 1.0;
+	    if (noct == 8) {
+	      pRG->r2imu[ifr][k][i][6][m] = 1.0;
+	      pRG->r2imu[ifr][k][i][7][m] = 1.0;
+	    }
 	  }
 	}
-      }}
+      }
+/* Initialize boundary intensity in x3 direction */
+      if (noct == 8) {
+	for(i=il; i<=iu; i++) {
+	  /* lower boundary is tau=0, no irradiation */
+	  for(l=0; l<noct; l++) { 
+	    for(m=0; m<nang; m++) {
+	      pRG->r3imu[ifr][jl][i][l][m] = 0.0; 
+	      pRG->l3imu[ifr][jl][i][l][m] = 0.0;
+	    }}}
+	for(j=jl+1; j<=ju-1; j++) {
+	  for(i=il; i<=iu; i++) {
+	    for(m=0; m<nang; m++) {
+	      /* periodic radiation at left boundary */
+	      pRG->l3imu[ifr][j][i][0][m] = 1.0;
+	      pRG->l3imu[ifr][j][i][1][m] = 1.0;
+	      pRG->l3imu[ifr][j][i][2][m] = 1.0;
+	      pRG->l3imu[ifr][j][i][3][m] = 1.0;
+	      /* periodic radiation at right boundary */
+	      pRG->r3imu[ifr][j][i][4][m] = 1.0;
+	      pRG->r3imu[ifr][j][i][5][m] = 1.0;
+	      pRG->r3imu[ifr][j][i][6][m] = 1.0;
+	      pRG->r3imu[ifr][j][i][7][m] = 1.0;
+	    }}}
+	for(i=il; i<=iu; i++) {
+	  /* upper boundary is large tau, eps=1 */
+	  for(l=0; l<noct; l++) { 
+	    for(m=0; m<nang; m++) {
+	      pRG->r3imu[ifr][ju][i][l][m] = 1.0; 
+	      pRG->l3imu[ifr][ju][i][l][m] = 1.0;
+	    }}}
+      }
+    }
+    break;
+
+ case 3:
+/* Density gradient aligned with i3 */
+   for(ifr=0; ifr<nf; ifr++) {
+     /* Initialize boundary intensity in x1 direction */
+     /* lower boundary is tau=0, no irradiation */
+     for(j=jl; j<=ju; j++) {
+       for(l=0; l<8; l++) { 
+	 for(m=0; m<nang; m++) {
+	   pRG->r1imu[ifr][kl][j][l][m] = 0.0;
+	   pRG->l1imu[ifr][kl][j][l][m] = 0.0;
+	 }}}
+     for(k=kl+1; k<=ku-1; k++) {
+       for(j=jl; j<=ju; j++) {
+	 for(m=0; m<nang; m++) {
+	   /* periodic radiation at left boundary */
+	   pRG->l1imu[ifr][k][j][0][m] = 1.0;
+	   pRG->l1imu[ifr][k][j][2][m] = 1.0;
+	   pRG->l1imu[ifr][k][j][4][m] = 1.0;
+	   pRG->l1imu[ifr][k][j][6][m] = 1.0;
+	   /* periodic radiation at right boundary */
+	   pRG->r1imu[ifr][k][j][1][m] = 1.0;
+	   pRG->r1imu[ifr][k][j][3][m] = 1.0;
+	   pRG->r1imu[ifr][k][j][5][m] = 1.0;
+	   pRG->r1imu[ifr][k][j][7][m] = 1.0;
+	 }}}
+     /* upper boundary is large tau, eps=1 */
+     for(j=jl; j<=ju; j++) {
+       for(l=0; l<8; l++) { 
+	 for(m=0; m<nang; m++) {
+	   pRG->r1imu[ifr][ku][j][l][m] = 1.0;
+	   pRG->l1imu[ifr][ku][j][l][m] = 1.0;
+	 }}}
+
+     /* Initialize boundary intensity in x2 direction */
+     /* lower boundary is tau=0, no irradiation */
+     for(i=il; i<=iu; i++) {
+       for(l=0; l<8; l++) { 
+	 for(m=0; m<nang; m++) {
+	   pRG->r2imu[ifr][kl][i][l][m] = 0.0;
+	   pRG->l2imu[ifr][kl][i][l][m] = 0.0;
+	 }}}
+     for(k=kl+1; k<=ku-1; k++) {
+       for(i=il; i<=iu; i++) { 
+	 for(m=0; m<nang; m++) {
+	   /* periodic radiation at left boundary */     
+	   pRG->l2imu[ifr][k][i][0][m] = 1.0;
+	   pRG->l2imu[ifr][k][i][1][m] = 1.0;
+	   pRG->l2imu[ifr][k][i][4][m] = 1.0;
+	   pRG->l2imu[ifr][k][i][5][m] = 1.0;
+	   /* periodic radiation at right boundary */
+	   pRG->r2imu[ifr][k][i][2][m] = 1.0;
+	   pRG->r2imu[ifr][k][i][3][m] = 1.0;
+	   pRG->r2imu[ifr][k][i][6][m] = 1.0;
+	   pRG->r2imu[ifr][k][i][7][m] = 1.0;
+	 }}}
+     /* upper boundary is large tau, eps=1 */
+     for(i=il; i<=iu; i++) {
+       for(l=0; l<8; l++) { 
+	 for(m=0; m<nang; m++) {
+	   pRG->r2imu[ifr][ku][i][l][m] = 1.0;
+	   pRG->l2imu[ifr][ku][i][l][m] = 1.0;
+	 }}}
+
+     /* Initialize boundary intensity in x3 direction */
+     for(j=jl; j<=ju; j++) {
+       for(i=il; i<=iu; i++) {
+	  for(m=0; m<nang; m++) {
+	    /* lower boundary is tau=0, no irradiation */
+	    pRG->l3imu[ifr][j][i][0][m] = 0.0;
+	    pRG->l3imu[ifr][j][i][1][m] = 0.0;
+	    pRG->l3imu[ifr][j][i][2][m] = 0.0;
+	    pRG->l3imu[ifr][j][i][3][m] = 0.0;
+	    /* upper boundary is large tau, eps=1 */
+	    pRG->r3imu[ifr][j][i][4][m] = 1.0;
+	    pRG->r3imu[ifr][j][i][5][m] = 1.0;
+	    pRG->r3imu[ifr][j][i][6][m] = 1.0;
+	    pRG->r3imu[ifr][j][i][7][m] = 1.0;
+	  }
+       }}
+    }
     break;
 
   }

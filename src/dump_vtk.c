@@ -422,6 +422,18 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 	  }
 	}
+	fprintf(pfile,"\nVECTORS first_moment float\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+              data[3*(i-irl)  ] = (float)pRG->R[k][j][i][0].H[0];
+              data[3*(i-irl)+1] = (float)pRG->R[k][j][i][0].H[1];
+              data[3*(i-irl)+2] = (float)pRG->R[k][j][i][0].H[2];
+            }
+            if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
+            fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+          }
+        }
 #endif /* WRITE_GHOST_CELLS */
 #endif /* RADIATION_TRANSFER */
 

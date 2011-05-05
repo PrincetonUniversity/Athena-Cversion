@@ -48,7 +48,6 @@ void formal_solution(DomainS *pD)
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) ndim++;
 
 /* maximum number of iterations and convergence criteria */
-  lte   = par_geti("radiation","lte");
   niter = par_geti("radiation","niter");
   dScnv = par_getd("radiation","dScnv");
 
@@ -101,6 +100,24 @@ void formal_solution(DomainS *pD)
       isarr[i] = ism;*/
     }
     formal_solution_2d_destruct();
+  } else if (ndim == 3) {
+/* compute formal solution with 3D method*/
+    formal_solution_3d_init(pRG);
+    for(i=0; i<niter; i++) {
+      if(i > 0) bvals_rad(pD);
+      formal_solution_3d(pRG,&dSrmax);
+
+/* Check whether convergence criterion is met. */
+#ifdef MPI_PARALLEL
+      MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      dSrmax=gdSrmax;
+#endif
+      if(dSrmax <= dScnv) {
+	i++;
+	break;
+      }
+    }
+    formal_solution_3d_destruct();
   }
   if (myID_Comm_world == 0) printf("iterations: %d, dSrmax: %g\n",i,dSrmax);
   if((i == niter) && (myID_Comm_world == 0)) 
