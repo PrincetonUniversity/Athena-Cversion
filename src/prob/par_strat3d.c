@@ -186,7 +186,7 @@ void problem(DomainS *pDomain)
     for (i=0; i<npartypes; i++)
       grproperty[i].rad = amin*exp(i*log(amax/amin)/MAX(npartypes-1,1.0));
 
-    if (tsmode >= 2) {/* Epstein/General regime */
+    if (tsmode <= 2) {/* Epstein/General regime */
       /* conversion factor for rhoa */
       rhoaconv = par_getd_def("problem","rhoaconv",1.0);
 
@@ -194,7 +194,7 @@ void problem(DomainS *pDomain)
         grrhoa[i]=grproperty[i].rad*rhoaconv;
     }
 
-    if (tsmode == 3)  /* General drag formula */
+    if (tsmode == 1)  /* General drag formula */
       alamcoeff = par_getd("problem","alamcoeff");
   }
 

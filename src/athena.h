@@ -184,9 +184,6 @@ typedef struct Grain_s{
 #ifdef MPI_PARALLEL
   int init_id;          /*!< particle's initial host processor id */
 #endif
-#ifdef FARGO
-  Real shift;           /*!< amount of shift in x2 direction */
-#endif
 }GrainS;
 
 /*! \struct GrainAux
@@ -414,7 +411,7 @@ typedef struct Output_s{
   char *out;      /*!< variable (or user fun) to be output */
   char *id;       /*!< filename is of the form <basename>[.idump][.id].<ext> */
 #ifdef PARTICLES
-  int out_pargrid;    /*!< output grid binned particles (=1) or not (=0) */
+  int out_pargrid;    /*!< bin particles to grid (=1) or not (=0) */
   PropFun_t par_prop; /*!< particle property selection function */
 #endif
 

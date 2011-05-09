@@ -172,8 +172,8 @@ void bvals_particle(DomainS *pD)
 /*--- Step 1. ------------------------------------------------------------------
  * shuffle if necessary */
 
-  /* shuffle every NShuffle steps */
-  /* if NShuffle is not positive, don't shuffle */
+  /* shuffle every time interval TShuffle */
+  /* if TShuffle is not positive, don't shuffle */
   if ((TShuffle>0) && (fmod(pG->time, TShuffle)<pG->dt))
     shuffle(pG);
 
