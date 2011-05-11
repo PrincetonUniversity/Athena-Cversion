@@ -545,14 +545,14 @@ VDFun_t selfg_init(MeshS *pM)
 #endif
 
 /* for gravity using FFTs in Disk Geometry, also initialize plans and data for FFTW */
-#ifdef SELF_GRAVITY_USING_FFT
+#ifdef SELF_GRAVITY_USING_FFT_DISK
   case 1:
     return selfg_fft_disk_1d;
   case 2:
-    selfg_fft_2d_disk_init(pM);
+    selfg_fft_disk_2d_init(pM);
     return selfg_fft_disk_2d;
   case 3:
-    selfg_fft_3d_disk_init(pM);
+    selfg_fft_disk_3d_init(pM);
     return selfg_fft_disk_3d;
 #endif
 

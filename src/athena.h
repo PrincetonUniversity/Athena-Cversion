@@ -345,6 +345,12 @@ typedef struct Domain_s{
   VGFun_t ix2_BCFun, ox2_BCFun;/*!< ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix3_BCFun, ox3_BCFun;/*!< ix1/ox1 BC function pointers for this Dom */
 
+#ifdef SELF_GRAVITY
+  VGFun_t ix1_GBCFun, ox1_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
+  VGFun_t ix2_GBCFun, ox2_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
+  VGFun_t ix3_GBCFun, ox3_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
+#endif
+
 #ifdef MPI_PARALLEL
   MPI_Comm Comm_Domain;      /*!< MPI communicator between Grids on this Dom */
   MPI_Group Group_Domain;    /*!< MPI group for Domain communicator */

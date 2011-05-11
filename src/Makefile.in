@@ -68,6 +68,7 @@ GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg.o \
               gravity/selfg_fft.o \
               gravity/selfg_fft_obc.o \
+              gravity/selfg_fft_disk.o \
               gravity/selfg_multigrid.o
 
 MICROPHYS_OBJ = microphysics/conduction.o \

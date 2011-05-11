@@ -33,11 +33,6 @@ static double **send_buf = NULL, **recv_buf = NULL;
 static MPI_Request *recv_rq, *send_rq;
 #endif /* MPI_PARALLEL */
 
-/* gravity boundary condition function pointers, local to this file */
-static VGFun_t ix1_GBCFun = NULL, ox1_GBCFun = NULL;
-static VGFun_t ix2_GBCFun = NULL, ox2_GBCFun = NULL;
-static VGFun_t ix3_GBCFun = NULL, ox3_GBCFun = NULL;
-
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   reflect_Phi_???()  - apply reflecting BCs at boundary ???
@@ -156,7 +151,7 @@ void bvals_grav(DomainS *pD)
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
-      (*(ix1_GBCFun))(pGrid);
+      (*(pD->ix1_GBCFun))(pGrid);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
@@ -180,7 +175,7 @@ void bvals_grav(DomainS *pD)
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
-      (*(ox1_GBCFun))(pGrid);
+      (*(pD->ox1_GBCFun))(pGrid);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
@@ -194,8 +189,8 @@ void bvals_grav(DomainS *pD)
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx1_id < 0 && pGrid->lx1_id < 0) {
-      (*(ix1_GBCFun))(pGrid);
-      (*(ox1_GBCFun))(pGrid);
+      (*(pD->ix1_GBCFun))(pGrid);
+      (*(pD->ox1_GBCFun))(pGrid);
     }
 
   }
@@ -253,7 +248,7 @@ void bvals_grav(DomainS *pD)
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
-      (*(ix2_GBCFun))(pGrid);
+      (*(pD->ix2_GBCFun))(pGrid);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
@@ -277,7 +272,7 @@ void bvals_grav(DomainS *pD)
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
-      (*(ox2_GBCFun))(pGrid);
+      (*(pD->ox2_GBCFun))(pGrid);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
@@ -291,8 +286,8 @@ void bvals_grav(DomainS *pD)
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx2_id < 0 && pGrid->lx2_id < 0) {
-      (*(ix2_GBCFun))(pGrid);
-      (*(ox2_GBCFun))(pGrid);
+      (*(pD->ix2_GBCFun))(pGrid);
+      (*(pD->ox2_GBCFun))(pGrid);
     }
 
 /* shearing sheet BCs; function defined in problem generator */
@@ -361,7 +356,7 @@ void bvals_grav(DomainS *pD)
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
-      (*(ix3_GBCFun))(pGrid);
+      (*(pD->ix3_GBCFun))(pGrid);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
@@ -385,7 +380,7 @@ void bvals_grav(DomainS *pD)
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
-      (*(ox3_GBCFun))(pGrid);
+      (*(pD->ox3_GBCFun))(pGrid);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
@@ -398,8 +393,8 @@ void bvals_grav(DomainS *pD)
 
 /* Physical boundaries on both left and right */
     if (pGrid->rx3_id < 0 && pGrid->lx3_id < 0) {
-      (*(ix3_GBCFun))(pGrid);
-      (*(ox3_GBCFun))(pGrid);
+      (*(pD->ix3_GBCFun))(pGrid);
+      (*(pD->ox3_GBCFun))(pGrid);
     }
 
   }
@@ -443,7 +438,7 @@ void bvals_grav_init(MeshS *pM)
 
 /*---- ix1 boundary ----------------------------------------------------------*/
 
-      if(ix1_GBCFun == NULL){
+      if(pD->ix1_GBCFun == NULL){
 
 /* Domain boundary is in interior of root */
         if(pD->Disp[0] != 0) {
@@ -454,7 +449,7 @@ void bvals_grav_init(MeshS *pM)
           switch(pM->BCFlag_ix1){
 
           case 1: /* Reflecting */
-            ix1_GBCFun = reflect_Phi_ix1;
+            pD->ix1_GBCFun = reflect_Phi_ix1;
           break;
 
           case 2: /* Outflow */
@@ -462,7 +457,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 4: /* Periodic */
-            ix1_GBCFun = periodic_Phi_ix1;
+            pD->ix1_GBCFun = periodic_Phi_ix1;
 #ifdef MPI_PARALLEL
             if(pG->lx1_id < 0 && pD->NGrid[0] > 1){
               pG->lx1_id = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
@@ -471,7 +466,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 5: /* Reflecting, B_normal!=0 */
-            ix1_GBCFun = reflect_Phi_ix1;
+            pD->ix1_GBCFun = reflect_Phi_ix1;
           break;
 
           default:
@@ -483,7 +478,7 @@ void bvals_grav_init(MeshS *pM)
 
 /*---- ox1 boundary ----------------------------------------------------------*/
 
-      if(ox1_GBCFun == NULL){
+      if(pD->ox1_GBCFun == NULL){
 
 /* Domain boundary is in interior of root */
         if((pD->Disp[0] + pD->Nx[0])/irefine != pM->Nx[0]) {
@@ -494,7 +489,7 @@ void bvals_grav_init(MeshS *pM)
           switch(pM->BCFlag_ox1){
 
           case 1: /* Reflecting */
-            ox1_GBCFun = reflect_Phi_ox1;
+            pD->ox1_GBCFun = reflect_Phi_ox1;
           break;
 
           case 2: /* Outflow */
@@ -502,7 +497,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 4: /* Periodic */
-            ox1_GBCFun = periodic_Phi_ox1;
+            pD->ox1_GBCFun = periodic_Phi_ox1;
 #ifdef MPI_PARALLEL
             if(pG->rx1_id < 0 && pD->NGrid[0] > 1){
               pG->rx1_id = pD->GData[myN][myM][0].ID_Comm_Domain;
@@ -511,7 +506,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 5: /* Reflecting, B_normal!=0 */
-            ox1_GBCFun = reflect_Phi_ox1;
+            pD->ox1_GBCFun = reflect_Phi_ox1;
           break;
 
           default:
@@ -528,7 +523,7 @@ void bvals_grav_init(MeshS *pM)
 
 /*---- ix2 boundary ----------------------------------------------------------*/
 
-      if(ix2_GBCFun == NULL){
+      if(pD->ix2_GBCFun == NULL){
 
 /* Domain boundary is in interior of root */
         if(pD->Disp[1] != 0) {
@@ -539,7 +534,7 @@ void bvals_grav_init(MeshS *pM)
           switch(pM->BCFlag_ix2){
 
           case 1: /* Reflecting */
-            ix2_GBCFun = reflect_Phi_ix2;
+            pD->ix2_GBCFun = reflect_Phi_ix2;
           break;
 
           case 2: /* Outflow */
@@ -547,7 +542,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 4: /* Periodic */
-            ix2_GBCFun = periodic_Phi_ix2;
+            pD->ix2_GBCFun = periodic_Phi_ix2;
 #ifdef MPI_PARALLEL
             if(pG->lx2_id < 0 && pD->NGrid[1] > 1){
               pG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
@@ -556,7 +551,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 5: /* Reflecting, B_normal!=0 */
-            ix2_GBCFun = reflect_Phi_ix2;
+            pD->ix2_GBCFun = reflect_Phi_ix2;
           break;
 
           default:
@@ -568,7 +563,7 @@ void bvals_grav_init(MeshS *pM)
 
 /*---- ox2 boundary ----------------------------------------------------------*/
 
-    if(ox2_GBCFun == NULL){
+    if(pD->ox2_GBCFun == NULL){
 
 /* Domain boundary is in interior of root */
         if((pD->Disp[1] + pD->Nx[1])/irefine != pM->Nx[1]) {
@@ -579,7 +574,7 @@ void bvals_grav_init(MeshS *pM)
           switch(pM->BCFlag_ox2){
 
           case 1: /* Reflecting */
-            ox2_GBCFun = reflect_Phi_ox2;
+            pD->ox2_GBCFun = reflect_Phi_ox2;
           break;
 
           case 2: /* Outflow */
@@ -587,7 +582,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 4: /* Periodic */
-            ox2_GBCFun = periodic_Phi_ox2;
+            pD->ox2_GBCFun = periodic_Phi_ox2;
 #ifdef MPI_PARALLEL
             if(pG->rx2_id < 0 && pD->NGrid[1] > 1){
               pG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
@@ -596,7 +591,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 5: /* Reflecting, B_normal!=0 */
-            ox2_GBCFun = reflect_Phi_ox2;
+            pD->ox2_GBCFun = reflect_Phi_ox2;
           break;
 
           default:
@@ -613,7 +608,7 @@ void bvals_grav_init(MeshS *pM)
 
 /*---- ix3 boundary ----------------------------------------------------------*/
 
-      if(ix3_GBCFun == NULL){
+      if(pD->ix3_GBCFun == NULL){
 
 /* Domain boundary is in interior of root */
         if(pD->Disp[2] != 0) {
@@ -624,7 +619,7 @@ void bvals_grav_init(MeshS *pM)
           switch(pM->BCFlag_ix3){
 
           case 1: /* Reflecting */
-            ix3_GBCFun = reflect_Phi_ix3;
+            pD->ix3_GBCFun = reflect_Phi_ix3;
           break;
 
           case 2: /* Outflow */
@@ -632,7 +627,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 4: /* Periodic */
-            ix3_GBCFun = periodic_Phi_ix3;
+            pD->ix3_GBCFun = periodic_Phi_ix3;
 #ifdef MPI_PARALLEL
             if(pG->lx3_id < 0 && pD->NGrid[2] > 1){
               pG->lx3_id = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
@@ -641,7 +636,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 5: /* Reflecting, B_normal!=0 */
-            ix3_GBCFun = reflect_Phi_ix3;
+            pD->ix3_GBCFun = reflect_Phi_ix3;
           break;
 
           default:
@@ -653,7 +648,7 @@ void bvals_grav_init(MeshS *pM)
 
 /*---- ox3 boundary ----------------------------------------------------------*/
 
-    if(ox3_GBCFun == NULL){
+    if(pD->ox3_GBCFun == NULL){
 
 /* Domain boundary is in interior of root */
         if((pD->Disp[2] + pD->Nx[2])/irefine != pM->Nx[2]) {
@@ -664,7 +659,7 @@ void bvals_grav_init(MeshS *pM)
           switch(pM->BCFlag_ox3){
 
           case 1: /* Reflecting */
-            ox3_GBCFun = reflect_Phi_ox3;
+            pD->ox3_GBCFun = reflect_Phi_ox3;
           break;
 
           case 2: /* Outflow */
@@ -672,7 +667,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 4: /* Periodic */
-            ox3_GBCFun = periodic_Phi_ox3;
+            pD->ox3_GBCFun = periodic_Phi_ox3;
 #ifdef MPI_PARALLEL
             if(pG->rx3_id < 0 && pD->NGrid[2] > 1){
               pG->rx3_id = pD->GData[0][myM][myL].ID_Comm_Domain;
@@ -681,7 +676,7 @@ void bvals_grav_init(MeshS *pM)
           break;
 
           case 5: /* Reflecting, B_normal!=0 */
-            ox3_GBCFun = reflect_Phi_ox3;
+            pD->ox3_GBCFun = reflect_Phi_ox3;
           break;
 
           default:
@@ -773,22 +768,22 @@ void bvals_grav_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc)
 {
   switch(dir){
   case left_x1:
-    ix1_GBCFun = prob_bc;
+    pD->ix1_GBCFun = prob_bc;
     break;
   case right_x1:
-    ox1_GBCFun = prob_bc;
+    pD->ox1_GBCFun = prob_bc;
     break;
   case left_x2:
-    ix2_GBCFun = prob_bc;
+    pD->ix2_GBCFun = prob_bc;
     break;
   case right_x2:
-    ox2_GBCFun = prob_bc;
+    pD->ox2_GBCFun = prob_bc;
     break;
   case left_x3:
-    ix3_GBCFun = prob_bc;
+    pD->ix3_GBCFun = prob_bc;
     break;
   case right_x3:
-    ox3_GBCFun = prob_bc;
+    pD->ox3_GBCFun = prob_bc;
     break;
   default:
     ath_perr(-1,"[bvals_grav_fun]: Unknown direction = %d\n",dir);
