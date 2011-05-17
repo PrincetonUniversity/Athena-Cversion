@@ -1113,10 +1113,12 @@ void ShearingSheet_ox1(DomainS *pD)
       }
     }
 #ifdef MHD
-    for (j=1; j<=nghost; j++) {
-      for (i=ie+1; i<=ie+nghost; i++) {
-        pG->B3i[ke+1][js-j][i] = pG->B3i[ke+1][je-(j-1)][i];
-        pG->B3i[ke+1][je+j][i] = pG->B3i[ke+1][js+(j-1)][i];
+    if (pG->Nx[2] > 1) {
+      for (j=1; j<=nghost; j++) {
+        for (i=ie+1; i<=ie+nghost; i++) {
+          pG->B3i[ke+1][js-j][i] = pG->B3i[ke+1][je-(j-1)][i];
+          pG->B3i[ke+1][je+j][i] = pG->B3i[ke+1][js+(j-1)][i];
+        }
       }
     }
 #endif /* MHD */
@@ -3037,7 +3039,7 @@ void Fargo(DomainS *pD)
 #endif
       joffset = (int)(yshear/pG->dx2);
       if (abs(joffset) > (jfs-js))
-        ath_error("[bvals_shear]: FARGO offset exceeded # of gh zns\n");
+        ath_error("[bvals_shear]: FARGO offset exceeded # of gh zns joffset=%d jfs-js=%d\n",joffset,jfs-js);
       eps = (fmod(yshear,pG->dx2))/pG->dx2;
 
 /* Compute fluxes of hydro variables  */
@@ -3294,7 +3296,7 @@ void bvals_shear_init(MeshS *pM)
   xmin = pM->RootMinX[0];
   xmax = pM->RootMaxX[0];
 #ifdef SHEARING_BOX
-  nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 1);
+  nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 2);
 #endif
 #ifdef CYLINDRICAL
   MachKep = MAX( xmin*(*OrbitalProfile)(xmin), xmax*(*OrbitalProfile)(xmax) )/Iso_csound;

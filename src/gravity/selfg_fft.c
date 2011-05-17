@@ -98,6 +98,173 @@ void selfg_fft_1d(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
+/*! \fn void selfg_fft_2d_xy(DomainS *pD)
+ *  \brief Only works for uniform grid, periodic boundary conditions, ShBoxCoord=xy
+ */
+
+void selfg_fft_2d_xy(DomainS *pD)
+{
+  GridS *pG = (pD->Grid);
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int ks = pG->ks;
+  Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2);
+  Real dkx,dky,pcoeff;
+
+#ifdef SHEARING_BOX
+  Real qomt,Lx,Ly,dt;
+  Real kxtdx;
+  Real xmin,xmax;
+  int ip,jp;
+  int nx3=pG->Nx[2];
+  int nx2=pG->Nx[1]+2*nghost;
+  int nx1=pG->Nx[0]+2*nghost;
+  Real ***RollDen, ***UnRollPhi;
+
+  if((RollDen=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_2d]: malloc returned a NULL pointer\n");
+  if((UnRollPhi=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_2d]: malloc returned a NULL pointer\n");
+
+  xmin = pD->RootMinX[0];
+  xmax = pD->RootMaxX[0];
+  Lx = xmax - xmin;
+
+  xmin = pD->RootMinX[1];
+  xmax = pD->RootMaxX[1];
+  Ly = xmax - xmin;
+
+  dt = pG->time-((int)(qshear*Omega_0*pG->time*Lx/Ly))*Ly/(qshear*Omega_0*Lx);
+  qomt = qshear*Omega_0*dt;
+#endif
+
+
+/* Copy current potential into old */
+
+  for (j=js-nghost; j<=je+nghost; j++){
+    for (i=is-nghost; i<=ie+nghost; i++){
+      pG->Phi_old[ks][j][i] = pG->Phi[ks][j][i];
+#ifdef SHEARING_BOX
+      RollDen[ks][i][j] = pG->U[ks][j][i].d;
+#endif
+    }
+  }
+
+/* Forward FFT of 4\piG*(d-d0) */
+
+/* For shearing-box, need to roll density to the nearest periodic point */
+#ifdef SHEARING_BOX
+  RemapVar(pD,RollDen,-dt);
+#endif
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] =
+#ifdef SHEARING_BOX
+        four_pi_G*(RollDen[ks][i][j] - grav_mean_rho);
+#else
+        four_pi_G*(pG->U[ks][j][i].d - grav_mean_rho);
+#endif
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] = 0.0;
+    }
+  }
+
+  ath_2d_fft(fplan2d, work);
+
+/* Compute potential in Fourier space.  Multiple loops are used to avoid divide
+ * by zero at i=is,j=js, and to avoid if statement in loop   */
+/* To compute kx,ky note that indices relative to whole Domain are needed */
+
+  dkx = 2.0*PI/(double)(pD->Nx[0]);
+  dky = 2.0*PI/(double)(pD->Nx[1]);
+
+#ifdef SHEARING_BOX
+  ip=KCOMP(0,pG->Disp[0],pD->Nx[0]);
+  jp=KCOMP(0,pG->Disp[1],pD->Nx[1]);
+  kxtdx  = (ip+qomt*Lx/Ly*jp)*dkx;
+#endif
+
+  if ((pG->Disp[1])==0 && (pG->Disp[0])==0) {
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][0] = 0.0;
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][1] = 0.0;
+  } else {
+#ifdef SHEARING_BOX
+    pcoeff = 1.0/(((2.0*cos( kxtdx           )-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq));
+#else
+    pcoeff = 1.0/(((2.0*cos((pG->Disp[0])*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos((pG->Disp[1])*dky)-2.0)/dx2sq));
+#endif
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+    work[F2DI(0,0,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
+  }
+
+  for (j=js+1; j<=je; j++){
+#ifdef SHEARING_BOX
+    jp=KCOMP(j-js ,pG->Disp[1],pD->Nx[1]);
+    kxtdx  = (ip+qomt*Lx/Ly*jp)*dkx;
+    pcoeff = 1.0/(((2.0*cos( kxtdx                    )-2.0)/dx1sq) +
+                  ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+#else
+    pcoeff = 1.0/(((2.0*cos((        pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                  ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+#endif
+    work[F2DI(0,j-js,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+    work[F2DI(0,j-js,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
+  }
+
+  for (i=is+1; i<=ie; i++){
+    for (j=js; j<=je; j++){
+#ifdef SHEARING_BOX
+      ip=KCOMP(i-is ,pG->Disp[0],pD->Nx[0]);
+      jp=KCOMP(j-js ,pG->Disp[1],pD->Nx[1]);
+      kxtdx  = (ip+qomt*Lx/Ly*jp)*dkx;
+      pcoeff = 1.0/(((2.0*cos( kxtdx                    )-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+#else
+      pcoeff = 1.0/(((2.0*cos(( (i-is)+pG->Disp[0] )*dkx)-2.0)/dx1sq) +
+                    ((2.0*cos(( (j-js)+pG->Disp[1] )*dky)-2.0)/dx2sq));
+#endif
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *= pcoeff;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *= pcoeff;
+    }
+  }
+
+/* Backward FFT and set potential in real space */
+
+  ath_2d_fft(bplan2d, work);
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
+      UnRollPhi[ks][i][j] = 
+        work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]
+        / bplan2d->gcnt;
+#else
+      pG->Phi[ks][j][i] = work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]/
+        bplan2d->gcnt;
+#endif
+    }
+  }
+
+#ifdef SHEARING_BOX
+  RemapVar(pD,UnRollPhi,dt);
+
+  for (j=js; j<=je; j++){
+    for (i=is; i<=ie; i++){
+       pG->Phi[ks][j][i] = UnRollPhi[ks][i][j];
+    }
+  }
+
+  free_3d_array(RollDen);
+  free_3d_array(UnRollPhi);
+#endif
+
+  return;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /*! \fn void selfg_fft_2d(DomainS *pD)
  *  \brief Only works for uniform grid, periodic boundary conditions
  */

@@ -32,12 +32,12 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 static Real hst_sigma(const GridS *pG, const int i, const int j, const int k);
 static Real hst_ux(const GridS *pG, const int i, const int j, const int k);
 static Real hst_uy(const GridS *pG, const int i, const int j, const int k);
-static Real hst_m1(const GridS *pG, const int i, const int j, const int k);
-static Real hst_m2(const GridS *pG, const int i, const int j, const int k);
 static Real hst_dSigma(const GridS *pG, const int i, const int j, const int k);
 static Real hst_Vx(const GridS *pG, const int i, const int j, const int k);
 static Real hst_dVy(const GridS *pG, const int i, const int j, const int k);
 #ifdef MHD
+static Real hst_m1(const GridS *pG, const int i, const int j, const int k);
+static Real hst_m2(const GridS *pG, const int i, const int j, const int k);
 static Real hst_Bx(const GridS *pG, const int i, const int j, const int k);
 static Real hst_dBy(const GridS *pG, const int i, const int j, const int k);
 #endif
@@ -77,6 +77,8 @@ void problem(DomainS *pDomain)
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
 
+  if(pG->Nx[2] == 1) ShBoxCoord = xy; /* 2D xy-plane */
+
 /* Read problem parameters. */
   Omega_0 = par_getd("problem","omega");
   qshear = par_getd("problem","qshear");
@@ -96,8 +98,9 @@ void problem(DomainS *pDomain)
 
 #ifdef SELF_GRAVITY
   Gcons = nJ*cs2;
-#ifndef SELF_GRAVITY_USING_FFT_DISK
   grav_mean_rho = 1.0;
+#ifndef SELF_GRAVITY_USING_FFT_DISK
+  if(pG->Nx[2] >1) grav_mean_rho = 1.0;
 #endif
 
 /* Set gravity constant*/
@@ -168,7 +171,7 @@ void problem(DomainS *pDomain)
         rby = -amp*nwx*cos(kx*x1+ky*(x2-0.5*pG->dx2));
         if (i==ie) pG->B1i[k][j][ie+1] = rbx;
         if (j==je) pG->B2i[k][je+1][i] = B0+rby;
-        if (k==ke) pG->B3i[ke+1][j][i] = 0.0;
+        if (pG->Nx[2] > 1 && k==ke) pG->B3i[ke+1][j][i] = 0.0;
 #endif /* MHD */
     }
   }}
@@ -178,7 +181,7 @@ void problem(DomainS *pDomain)
       for (i=is; i<=ie; i++) {
         pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i]+pG->B1i[k][j][i+1]);
         pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i]+pG->B2i[k][j+1][i]);
-        pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+        if (pG->Nx[2] >1) pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]); else pG->U[k][j][i].B3c =pG->B3i[k][j][i];
 #ifdef ADIABATIC
         pG->U[k][j][i].E += 0.5*(SQR(pG->U[k][j][i].B1c)
          + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c));
@@ -200,8 +203,10 @@ void problem(DomainS *pDomain)
   dump_history_enroll(hst_sigma, "<sigma>");
   dump_history_enroll(hst_ux, "<ux>");
   dump_history_enroll(hst_uy, "<uy>");
+#ifdef MHD
   dump_history_enroll(hst_m1, "<m1>");
   dump_history_enroll(hst_m2, "<m2>");
+#endif
 
 /* history dump for peturbed quantities at a specific grid point */
   dump_history_enroll(hst_dSigma, "<dSigma>");
@@ -219,6 +224,8 @@ void problem(DomainS *pDomain)
 #ifdef ADIABATIC
   dump_history_enroll(hst_dE, "<dE>");
 #endif
+  
+  printf("=== end of problem setting ===\n");
   return;
 }
 
@@ -261,8 +268,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 #ifdef SELF_GRAVITY
   Gcons = nJ*cs2;
-#ifndef SELF_GRAVITY_USING_FFT_DISK
   grav_mean_rho = 1.0;
+#ifndef SELF_GRAVITY_USING_FFT_DISK
+  if(pM->Nx[2] >1) grav_mean_rho = 1.0;
 #endif
 
 /* Set gravity constant*/
@@ -277,8 +285,10 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   dump_history_enroll(hst_sigma, "<sigma>");
   dump_history_enroll(hst_ux, "<ux>");
   dump_history_enroll(hst_uy, "<uy>");
+#ifdef MHD
   dump_history_enroll(hst_m1, "<m1>");
   dump_history_enroll(hst_m2, "<m2>");
+#endif
 
 
 /* history dump for peturbed quantities at a specific grid point */
@@ -385,6 +395,7 @@ static Real hst_uy(const GridS *pG, const int i, const int j, const int k)
   return (pG->U[k][j][i].M2/pG->U[k][j][i].d-1)/sin(kxt*x1+ky*x2);
 }
 
+#ifdef MHD
 static Real hst_m1(const GridS *pG, const int i, const int j, const int k)
 {
   Real kx,kxt,ky;
@@ -436,12 +447,14 @@ static Real hst_m2(const GridS *pG, const int i, const int j, const int k)
   kxt = kx+qshear*ky*pG->time;
   return -(pG->U[k][j][i].B2c-B0)/kxt/B0/cos(kxt*x1+ky*x2);
 }
+#endif
 
 static Real hst_dSigma(const GridS *pG, const int i, const int j, const int k)
 {
   Real dSigma=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
-  if((ii == 58) && (jj == 16) && (kk == 4)) dSigma=pG->U[kk][jj][ii].d-1.0;
+  int ks = pG->ks, ke = pG->ke;
+  if((ii == 58) && (jj == 16) && (kk == ks)) dSigma=pG->U[kk][jj][ii].d-1.0;
   return dSigma*dVol;
 }
 
@@ -449,7 +462,8 @@ static Real hst_Vx(const GridS *pG, const int i, const int j, const int k)
 {
   Real Vx=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
-  if(ii == 58 && jj == 16 && kk == 4) Vx=pG->U[kk][jj][ii].M1/pG->U[kk][jj][ii].d;
+  int ks = pG->ks, ke = pG->ke;
+  if(ii == 58 && jj == 16 && kk == ks) Vx=pG->U[kk][jj][ii].M1/pG->U[kk][jj][ii].d;
   return Vx*dVol;
 }
 
@@ -457,7 +471,8 @@ static Real hst_dVy(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
-  if(ii == 58 && jj == 16 && kk == 4){
+  int ks = pG->ks, ke = pG->ke;
+  if(ii == 58 && jj == 16 && kk == ks){
     cc_pos(pG,ii,jj,kk,&x1,&x2,&x3);
 #ifndef FARGO
     dVy = (pG->U[kk][jj][ii].M2/pG->U[kk][jj][ii].d + qshear*Omega_0*x1);
@@ -473,7 +488,8 @@ static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   Real B1c=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
-  if(ii == 58 && jj == 16 && kk == 4) B1c= pG->U[kk][jj][ii].B1c;
+  int ks = pG->ks, ke = pG->ke;
+  if(ii == 58 && jj == 16 && kk == ks) B1c= pG->U[kk][jj][ii].B1c;
   return B1c*dVol;
 }
 
@@ -481,6 +497,7 @@ static Real hst_dBy(const GridS *pG, const int i, const int j, const int k)
 {
   Real nJ,Q,beta,cs,B0,dBy=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
+  int ks = pG->ks, ke = pG->ke;
   nJ = par_getd("problem","nJ");
   Q = par_getd("problem","Q");
   beta = par_getd("problem","beta");
@@ -488,7 +505,7 @@ static Real hst_dBy(const GridS *pG, const int i, const int j, const int k)
   cs = sqrt(4.0-2.0*qshear)/PI/nJ/Q;
   B0 = cs/sqrt(beta);
 
-  if(ii == 58 && jj == 16 && kk == 4) dBy = pG->U[kk][jj][ii].B2c - B0;
+  if(ii == 58 && jj == 16 && kk == ks) dBy = pG->U[kk][jj][ii].B2c - B0;
 
   return dBy*dVol;
 }
@@ -499,7 +516,8 @@ static Real hst_Phi(const GridS *pG, const int i, const int j, const int k)
 {
   Real Phi=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
-  if(ii == 58 && jj == 16 && kk == 4) Phi=pG->Phi[kk][jj][ii];
+  int ks = pG->ks, ke = pG->ke;
+  if(ii == 58 && jj == 16 && kk == ks) Phi=pG->Phi[kk][jj][ii];
   return Phi*dVol;
 }
 
@@ -510,6 +528,7 @@ static Real hst_dPhi(const GridS *pG, const int i, const int j, const int k)
   Real kx,kxt,ky,k2,k20;
   Real x1,x2,x3,zmax;
   int nwx,nwy;
+  int ks = pG->ks, ke = pG->ke;
 
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
@@ -543,6 +562,7 @@ static Real hst_dE(const GridS *pG, const int i, const int j, const int k)
 {
   Real nJ,Q,cs,cs2,E0,dE=0.;
   int ii=i-pG->Disp[0],jj=j-pG->Disp[1],kk=k-pG->Disp[2];
+  int ks = pG->ks, ke = pG->ke;
 
   nJ = par_getd("problem","nJ");
   Q = par_getd("problem","Q");
@@ -550,7 +570,7 @@ static Real hst_dE(const GridS *pG, const int i, const int j, const int k)
   cs = sqrt(4.0-2.0*qshear)/(PI*nJ*Q);
   cs2 = SQR(cs);
   E0 = cs2/Gamma/Gamma_1;
-  if(ii == 58 && jj == 16 && kk == 4) {
+  if(ii == 58 && jj == 16 && kk == ks) {
   dE = pG->U[kk][jj][ii].E 
        - 0.5*(SQR(pG->U[kk][jj][ii].M1) + SQR(pG->U[kk][jj][ii].M2) 
          + SQR(pG->U[kk][jj][ii].M3))/pG->U[kk][jj][ii].d;

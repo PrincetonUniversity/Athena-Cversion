@@ -38,6 +38,7 @@ void selfg_multig_3d_init(MeshS *pM);
 #if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT)
 void selfg_fft_1d(DomainS *pD);
 void selfg_fft_2d(DomainS *pD);
+void selfg_fft_2d_xy(DomainS *pD);
 void selfg_fft_3d(DomainS *pD);
 void selfg_fft_2d_init(MeshS *pM);
 void selfg_fft_3d_init(MeshS *pM);

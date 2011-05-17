@@ -538,6 +538,9 @@ VDFun_t selfg_init(MeshS *pM)
     return selfg_fft_1d;
   case 2:
     selfg_fft_2d_init(pM);
+#ifdef SHEARING_BOX
+    if (ShBoxCoord == xy) return selfg_fft_2d_xy;
+#endif
     return selfg_fft_2d;
   case 3:
     selfg_fft_3d_init(pM);

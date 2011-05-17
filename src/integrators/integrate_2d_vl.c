@@ -108,6 +108,13 @@ void integrate_2d_vl(DomainS *pD)
 #ifdef H_CORRECTION
   Real cfr,cfl,lambdar,lambdal;
 #endif
+#ifdef SHEARING_BOX
+  Real M1n, dM2n, dM3n;   /* M1, dM2/3=(My+d*q*Omega_0*x) at time n */
+  Real M1e, dM2e, dM3e;   /* M1, dM2/3 evolved by dt/2  */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2;
+  Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
+  Real fact, qom, om_dt = Omega_0*pG->dt;
+#endif /* SHEARING_BOX */
 #ifdef STATIC_MESH_REFINEMENT
   int ncg,npg,dim;
   int ii,ics,ice,jj,jcs,jce,ips,ipe,jps,jpe;
@@ -416,6 +423,68 @@ void integrate_2d_vl(DomainS *pD)
   }
 #endif /* SELF_GRAVITY */
 
+/*--- Step 6c -----------------------------------------------------------
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+ * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
+ */
+
+#ifdef SHEARING_BOX
+  if (ShearingBoxPot != NULL){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phic = (*ShearingBoxPot)((x1            ),x2,x3);
+        phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+
+        Uhalf[j][i].M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef BAROTROPIC
+        Uhalf[j][i].E -= hdtodx1*(x1Flux[j][i  ].d*(phic - phil)
+                                + x1Flux[j][i+1].d*(phir - phic));
+#endif
+        phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+
+        Uhalf[j][i].M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef BAROTROPIC
+        Uhalf[j][i].E -= hdtodx2*(x2Flux[j  ][i].d*(phic - phil)
+                                + x2Flux[j+1][i].d*(phir - phic));
+#endif
+      }
+    }
+  }
+
+  if (ShBoxCoord == xz){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        Uhalf[j][i].M1 += pG->dt*Omega_0*pG->U[ks][j][i].M3;
+#ifdef FARGO
+        Uhalf[j][i].M3 += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+#else
+        Uhalf[j][i].M3 -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+#endif
+      }
+    }
+  }
+
+  if (ShBoxCoord == xy){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        Uhalf[j][i].M1 += pG->dt*Omega_0*pG->U[ks][j][i].M2;
+#ifdef FARGO
+        Uhalf[j][i].M2 += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+#else
+        Uhalf[j][i].M2 -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
+#endif
+      }
+    }
+  }
+#endif /* SHEARING_BOX */
+
+
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
 
 /*--- Step 7a ------------------------------------------------------------------
@@ -678,11 +747,112 @@ void integrate_2d_vl(DomainS *pD)
 /*=== STEP 12: Add source terms for a full timestep using n+1/2 states =======*/
        
 /*--- Step 12a -----------------------------------------------------------------
- * Add gravitational source terms due to a Static Potential
- * To improve conservation of total energy, we average the energy
- * source term computed at cell faces.
+ * Add gravitational (or shearing box) source terms as a Static Potential.
+ *   A Crank-Nicholson update is used for shearing box terms.
+ *   The energy source terms computed at cell faces are averaged to improve
+ * conservation of total energy.
  *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
+
+#ifdef SHEARING_BOX
+  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+  qom = qshear*Omega_0;
+  for(j=js; j<=je; j++) {
+    for(i=is; i<=ie; i++) {
+      cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+
+/* Store the current state */
+      M1n  = pG->U[ks][j][i].M1;
+#ifdef FARGO
+      if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2;
+      if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3;
+#else
+      if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2 + qom*x1*pG->U[ks][j][i].d;
+      if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3 + qom*x1*pG->U[ks][j][i].d;
+#endif
+
+/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
+      if (ShBoxCoord==xy){
+        frx1_dM2 = x1Flux[j][i+1].My;
+        flx1_dM2 = x1Flux[j][i  ].My;
+        frx2_dM2 = x2Flux[j+1][i].Mx;
+        flx2_dM2 = x2Flux[j  ][i].Mx;
+      }
+      if (ShBoxCoord==xz){
+        frx1_dM3 = x1Flux[j][i+1].Mz;
+        flx1_dM3 = x1Flux[j][i  ].Mz;
+        frx2_dM3 = x2Flux[j+1][i].My;
+        flx2_dM3 = x2Flux[j  ][i].My;
+      }
+#ifndef FARGO
+      if (ShBoxCoord==xy){
+        frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+        flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+        frx2_dM2 += qom*(x1            )*x2Flux[j+1][i].d;
+        flx2_dM2 += qom*(x1            )*x2Flux[j  ][i].d;
+      }
+      if (ShBoxCoord==xz){
+        frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+        flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+        frx2_dM3 += qom*(x1            )*x2Flux[j+1][i].d;
+        flx2_dM3 += qom*(x1            )*x2Flux[j  ][i].d;
+      }
+#endif
+
+/* evolve M1n and dM3n by dt/2 using flux gradients */
+      M1e = M1n - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+                - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+
+      if (ShBoxCoord==xy){
+        dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
+                    - hdtodx2*(frx2_dM2 - flx2_dM2);
+      }
+      if (ShBoxCoord==xz){
+        dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
+                    - hdtodx2*(frx2_dM3 - flx2_dM3);
+      }
+
+
+/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
+ * for the Coriolis and tidal potential source terms using a Crank-Nicholson
+ * discretization for the momentum fluctuation equation. */
+
+      if (ShBoxCoord==xy){
+        pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+        pG->U[ks][j][i].M2 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+      }
+      if (ShBoxCoord==xz){
+        pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+        pG->U[ks][j][i].M3 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+      }
+
+/* Update the energy for a fixed potential.
+ * This update is identical to non-SHEARING_BOX below  */
+
+      phic = (*ShearingBoxPot)((x1            ),x2,x3);
+      phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+      phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+#ifndef BAROTROPIC
+      pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
+                                   x1Flux[j][i+1].d*(phir - phic));
+#endif
+
+      phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+      phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+#ifndef BAROTROPIC
+      pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
+                                   x2Flux[j+1][i].d*(phir - phic));
+#endif
+    }
+  }
+#endif /* SHEARING_BOX */
+
 
   if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
@@ -788,8 +958,8 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie+1; i++) {
-      pG->x1MassFlux[j][i] = x1Flux[j][i].d;
-      pG->x2MassFlux[j][i] = x2Flux[j][i].d;
+      pG->x1MassFlux[ks][j][i] = x1Flux[j][i].d;
+      pG->x2MassFlux[ks][j][i] = x2Flux[j][i].d;
     }
   }
 #endif /* SELF_GRAVITY */
