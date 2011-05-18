@@ -3,7 +3,7 @@
 problem = Simple 1d test problem for debugging purposes
 author  = 
 journal =
-config  = -with-problem=radtest --with-radiation-transfer =jacobi
+config  = --with-problem=radtest --with-radiation-transfer=jacobi
 
 <job>
 
@@ -55,8 +55,8 @@ x2min           = 0.0       # minimum value of Y
 x2max           = 1.0       # maximum value of Y
 bc_ix2          = 2         # boundary condition flag for inner-J (X2)
 bc_ox2          = 2         # boundary condition flag for outer-J (X2)
-rbc_ix2         = 1         # rad boundary condition flag for inner-J (X2)
-rbc_ox2         = 1         # rad boundary condition flag for outer-J (X2)
+rbc_ix2         = 4         # rad boundary condition flag for inner-J (X2)
+rbc_ox2         = 4         # rad boundary condition flag for outer-J (X2)
 NGrid_x2        = 4         # with MPI, number of Grids in X2 coordinate
 
 Nx3             = 1         # Number of zones in X3-direction

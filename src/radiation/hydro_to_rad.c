@@ -39,6 +39,9 @@ void hydro_to_rad(DomainS *pD)
   Real eps;
   Real etherm, ekin, B, d;
 
+/* Assumes ghost zone conserved variables have been set by
+ * bvals routines.  These values are used to set B, chi, eps,
+ * etc. so loops include RadGrid ghost zones*/
   if (pG->Nx[0] > 1) {
     ioff = nghost - 1; il--; iu++;
   } else ioff = 0;
@@ -70,11 +73,12 @@ void hydro_to_rad(DomainS *pD)
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	  if (lte == 1) {
 	    pRG->R[k][j][i][ifr].J = pG->U[kg][jg][ig].Er / (4.0 * PI);
-	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
+	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);	   
 	    pRG->R[k][j][i][ifr].B = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
 	      eps  * get_thermal_source(pG,ifr,ig,jg,kg);
 	    pRG->R[k][j][i][ifr].eps = 1.0;
 	    pRG->R[k][j][i][ifr].S = pRG->R[k][j][i][ifr].B;
+	    
 	  } else {
 	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
 	    pRG->R[k][j][i][ifr].B = get_thermal_source(pG,ifr,ig,jg,kg);
@@ -90,7 +94,6 @@ void hydro_to_rad(DomainS *pD)
 	                                  eps  * pRG->R[k][j][i][ifr].B;
 #endif
 	  pRG->R[k][j][i][ifr].chi = get_total_opacity(pG,ifr,ig,jg,kg);
-
 	}
       }
     }

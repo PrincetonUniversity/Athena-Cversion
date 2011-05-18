@@ -31,7 +31,7 @@ void hydro_to_rad(DomainS *pD);
 void rad_to_hydro(DomainS *pD);
 
 /* bvals_rad.c */
-void bvals_rad(DomainS *pD);
+void bvals_rad(DomainS *pD, int sflag);
 void bvals_rad_init(MeshS *pM);
 
 /* dump_intensity_vtk.c */

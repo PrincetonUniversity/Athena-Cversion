@@ -148,8 +148,8 @@ static void sweep_1d(RadGridS *pRG, int sx)
 	 chio = pRG->R[ks][js][i][ifr].chi;
 	 chim = pRG->R[ks][js][i-sx][ifr].chi;
 	 chip = pRG->R[ks][js][i+sx][ifr].chi;
-	 /*dtaum = 0.5 * (chim + chio) * dx * muinv[m]; 
-	   dtaup = 0.5 * (chip + chio) * dx * muinv[m]; */ 
+	 /*dtaum = 0.5 * (chim + chio);
+	   dtaup = 0.5 * (chip + chio);*/
 	 interp_quad_chi(chim,chio,chip,&dtaum);
 	 interp_quad_chi(chip,chio,chim,&dtaup);
 	 dtaum *= dx; 

@@ -329,16 +329,16 @@ typedef struct RadGrid_s {
   int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
   int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
   
-  void (*ix1_RBCFun)(struct RadGrid_s *pRG);
-  void (*ox1_RBCFun)(struct RadGrid_s *pRG);
-  void (*ix2_RBCFun)(struct RadGrid_s *pRG);
-  void (*ox2_RBCFun)(struct RadGrid_s *pRG);
-  void (*ix3_RBCFun)(struct RadGrid_s *pRG);
-  void (*ox3_RBCFun)(struct RadGrid_s *pRG);
+  void (*ix1_RBCFun)(struct RadGrid_s *pRG, int sflag);
+  void (*ox1_RBCFun)(struct RadGrid_s *pRG, int sflag);
+  void (*ix2_RBCFun)(struct RadGrid_s *pRG, int sflag);
+  void (*ox2_RBCFun)(struct RadGrid_s *pRG, int sflag);
+  void (*ix3_RBCFun)(struct RadGrid_s *pRG, int sflag);
+  void (*ox3_RBCFun)(struct RadGrid_s *pRG, int sflag);
 
 } RadGridS;
 
-typedef void (*VRGFun_t)(RadGridS *pRG);    /* generic void function of RadGrid */
+typedef void (*VRGIFun_t)(RadGridS *pRG, int sflag);    /* generic void function of RadGrid */
 
 #endif /* RADIATION_TRANSFER */
 
@@ -467,9 +467,9 @@ typedef struct Domain_s{
   VGFun_t ix2_BCFun, ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
   VGFun_t ix3_BCFun, ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom */
 #ifdef RADIATION_TRANSFER
-  VRGFun_t ix1_RBCFun, ox1_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
-  VRGFun_t ix2_RBCFun, ox2_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
-  VRGFun_t ix3_RBCFun, ox3_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
+  VRGIFun_t ix1_RBCFun, ox1_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
+  VRGIFun_t ix2_RBCFun, ox2_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
+  VRGIFun_t ix3_RBCFun, ox3_RBCFun;  /* ix1/ox1 rad BC func pointers for this Dom */
 #endif /* RADIATION_TRANSFER */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   VGFun_t rad_ix1_BCFun, rad_ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/

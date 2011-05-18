@@ -30,9 +30,9 @@ void formal_solution(DomainS *pD)
 {
 
   RadGridS *pRG=(pD->RadGrid);
-  int i, niter, ndim, lte;
+  int i, niter, ndim;
   Real *dSmax, dsm, dSmin, dScnv, dSrmax;
-  int  *isarr, ism;
+  int  *isarr, ism, sflag;
 #ifdef MPI_PARALLEL
   Real gdSrmax;
 #endif
@@ -42,7 +42,7 @@ void formal_solution(DomainS *pD)
   if ((isarr = (int *)calloc(10000,sizeof(int))) == NULL) {
     ath_error("[get_solution]: Error allocating memory\n");
   }
-
+  if(lte == 0) sflag = 1; else sflag = 0;
 /* number of dimensions in Grid. */
   ndim=1;
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) ndim++;
@@ -55,7 +55,7 @@ void formal_solution(DomainS *pD)
 /* compute formal solution with 1D method*/
     formal_solution_1d_init(pRG);
     for(i=0; i<niter; i++) {
-      if(i > 0) bvals_rad(pD);
+      if(i > 0) bvals_rad(pD,sflag);
 #ifdef RAD_MULTIG
       formal_solution_mg_1d(pRG,&dSrmax);
 #else
@@ -78,7 +78,7 @@ void formal_solution(DomainS *pD)
 /* compute formal solution with 2D method*/
     formal_solution_2d_init(pRG);
     for(i=0; i<niter; i++) {
-      if(i > 0) bvals_rad(pD);
+      if(i > 0) bvals_rad(pD,sflag);
 #ifdef RAD_MULTIG
       formal_solution_mg_2d(pRG,&dSrmax);
 #else
@@ -104,7 +104,7 @@ void formal_solution(DomainS *pD)
 /* compute formal solution with 3D method*/
     formal_solution_3d_init(pRG);
     for(i=0; i<niter; i++) {
-      if(i > 0) bvals_rad(pD);
+      if(i > 0) bvals_rad(pD,sflag);
       formal_solution_3d(pRG,&dSrmax);
 
 /* Check whether convergence criterion is met. */

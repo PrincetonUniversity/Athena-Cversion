@@ -23,7 +23,7 @@
 
 
 #ifdef RADIATION_TRANSFER
-#ifdef JACOBI_LINEAR
+#if defined(JACOBI) || defined(JACOBI_LINEAR) || defined(GAUSSEID)
 
 static Real ****lamstr = NULL;
 static Real ******imuo = NULL;
@@ -56,8 +56,8 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
   int ifr, nf = pRG->nf;
   int ismx, jsmx, ksmx;
   Real dSr, dJ, dJmax;
-
-  /*for (m=0;m<pRG->nang;m++) {
+  /*if(myID_Comm_world == 0) {
+  for (m=0;m<pRG->nang;m++) {
     printf("0: %d %g %g %g \n",m,pRG->l1imu[0][ks-1][js-1][0][m],
 	   pRG->l2imu[0][ks-1][is-1][0][m], pRG->l3imu[0][js-1][is-1][0][m]);
     printf("1: %d %g %g %g \n",m,pRG->r1imu[0][ks-1][js-1][1][m],
@@ -76,7 +76,8 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
 	   pRG->r2imu[0][ke+1][ie+1][7][m], pRG->r3imu[0][je+1][ie+1][7][m]);
     printf("---\n");
   }
-  printf("\n");*/
+  printf("*************\n");
+  }*/
 /* if LTE then store J values from previous iteration */
   if(lte != 0) {
     for(k=ks; k<=ke; k++) 
@@ -119,6 +120,7 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
 	      (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
 	    }
 	  }
+    /*printf("%d %d %d %g\n",ismx,jsmx,ksmx,*dSrmax);*/
   } else {
 /* Use delta J / J as convergence criterion */
     (*dSrmax) = 0.0;
@@ -137,6 +139,7 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
 	      (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
 	    }	 
 	  }
+    /*printf("%d %d %d %g\n",ismx,jsmx,ksmx,*dSrmax);*/
     if(((*dSrmax) == 0.0) && (dJmax > 0.0)) (*dSrmax) = 1.0;
   }
 
@@ -471,8 +474,8 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
 
 
   for(ifr=0; ifr<nf; ifr++) {
+    chi1 = pRG->R[k][j][i][ifr].chi;
     for(m=0; m<nang; m++) {
-      chi1 = pRG->R[k][j][i][ifr].chi;
 /* --------- Interpolate intensity and source functions at endpoints --------- 
  * --------- of characteristics                                      --------- */
       if (face[m] == 0) {
@@ -538,16 +541,9 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
 	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].S +
 	     coeff[m][3] * pRG->R[kp][j ][ip][ifr].S;	
       imu0 = coeff[m][0] * imuo[ifr][j ][i ][l][m][0] +
-	     coeff[m][1] * imuo[ifr][jm][i ][l][m][0] +
-	     coeff[m][2] * imuo[ifr][jm][im][l][m][0] +
-	     coeff[m][3] * imuo[ifr][j ][im][l][m][0];
-      /*if((l ==6) || (l ==7)) {
-	if((m == 0) && (j == pRG->je) && (i == pRG->ie) && (k == pRG->ks)) {
-	  printf("%d %d %d %d %d %d\n",km,k,jm,j,im,i);
-	  printf("%g %g %g %g\n",imuo[ifr][j ][i ][l][m][0],imuo[ifr][jm][i ][l][m][0],
-		 imuo[ifr][jm][im][l][m][0],imuo[ifr][j ][im][l][m][0]);
-	  //	  printf("%g %g\n",pRG->r1imu[ifr][k][jm][l][m],pRG->r1imu[ifr][k][j][l][m]);
-	  }}*/
+	     coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
+	     coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+	     coeff[m][3] * imuo[ifr][j ][im][l][m][1];
       chi0 = coeff[m][0] * pRG->R[km][j ][i ][ifr].chi +
 	     coeff[m][1] * pRG->R[km][jm][i ][ifr].chi +
 	     coeff[m][2] * pRG->R[km][jm][im][ifr].chi +
@@ -559,7 +555,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
         interp_quad_chi(chi0,chi1,chi2,&dtaum);
 	interp_quad_chi(chi2,chi1,chi0,&dtaup);
 	dtaum *= dz * muinv[m][2]; 
-	dtaup *= dz * muinv[m][2]; 
+	dtaup *= dz * muinv[m][2];
       }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
       interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
@@ -570,16 +566,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
 /* Add to radiation moments and save for next iteration */
       wimu = pRG->wmu[m] * imu;
       pRG->R[k][j][i][ifr].J += wimu;
-      //printf("%d %d %d %d %d %g %g %g %g\n",k,j,i,l,m,imu0,imu,wimu,pRG->R[k][j][i][ifr].J);
-      /*if((l ==6) || (l ==7)) {
-	if((j == pRG->je) && (i == pRG->ie) && (k == pRG->ks)) {
-	  printf("%d %d %g %g %g %g\n",l,m,imu0,imu,wimu,pRG->R[k][j][i][ifr].J);
-	  printf("%d %d %g %g\n",l,m,pRG->r1imu[ifr][k][j][6][m],pRG->r1imu[ifr][k][j][7][m]);
-	
-	  printf("%d %d %g %g\n",l,m,pRG->r1imu[ifr][k][j][6][m],pRG->l1imu[ifr][k][j][6][m]);
-	  printf("%d %d %g %g\n",l,m,pRG->r1imu[ifr][k][j][7][m],pRG->l1imu[ifr][k][j][7][m]);
-	  }}*/
-      pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
+       pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
       pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
       pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
       pRG->R[k][j][i][ifr].K[3] += mu2[l][m][3] * wimu;
@@ -597,7 +584,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
 static void update_sfunc(RadS *R, Real *dSr, Real lam)
 {
   Real Snew, dS;
-  
+
   Snew = (1.0 - R->eps) * R->J + R->eps * R->B;
   dS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * lam);
   if (R->S > 0.0) (*dSr) = fabs(dS / R->S);
@@ -672,7 +659,12 @@ void formal_solution_3d_init(RadGridS *pRG)
     } else {
       face[i]=0;
       am = lmin/ly; bm = lmin/lz;
-    }      
+    }
+    /*if (myID_Comm_world == 0) {
+      printf("face: %d %d\n",i,face[i]);
+      printf("%d %g %g %g\n",i,dx,dy,dz);
+      printf("%d %g %g %g %g\n",i,lmin,lx,ly,lz);
+      }*/
     coeff[i][0] = (1.0 - am)*(1.0 - bm);
     coeff[i][1] = (1.0 - am)*       bm;
     coeff[i][2] =        am *       bm;

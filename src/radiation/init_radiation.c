@@ -47,7 +47,6 @@ void init_radiation(MeshS *pM)
 
 /* initialize radiative transfer control paramters */
   lte = par_geti("radiation","lte");
-
 /* number of dimensions in Grid. */
   nDim=1;
   for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;

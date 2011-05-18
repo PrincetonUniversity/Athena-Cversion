@@ -18,7 +18,7 @@ MACHINE = default
 CC  = @CC@
 LDR = @CC@
 OPT = @COMPILER_OPTS@
-CUSTLIBS =
+CUSTLIBS = 
 MPIINC =
 MPILIB =
 FFTWLIB =
@@ -36,11 +36,11 @@ ifeq (@FFT_MODE@,FFT_ENABLED)
 endif
 
 ifeq (@GAS@,RADIATION_HYDRO) 
-  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis/include
+  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
+  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
 ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
+  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
 endif
 ifeq (@MPI_MODE@,MPI_PARALLEL)
   MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
@@ -49,11 +49,11 @@ endif
 endif
 
 ifeq (@GAS@,RADIATION_MHD) 
-  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis/include
+  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
+  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
 ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
+  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
 endif
 ifeq (@MPI_MODE@,MPI_PARALLEL)
   MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis

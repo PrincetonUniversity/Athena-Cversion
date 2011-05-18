@@ -37,10 +37,8 @@ void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
   if ((chic >= chimin) && (chic <= chimax)) {
     /*(*chi)= (0.4166666666666667 * chi0 + 0.6666666666666666 * chi1 -  0.0833333333333333 * chi2);
 */
-      (*chi)= (5.0 * chi0 + 8.0 * chi1 - chi2) / 12.0;
-  /* chic = chi0 if chi1 is an extremum */
-  /*} else if (dchip * dchim < 0.0) {
-  /* chic = chi1 if chi1 is not an extremum */  
+    (*chi)= (5.0 * chi0 + 8.0 * chi1 - chi2) / 12.0;
+  /* chic = chi1 */  
   } else {
     (*chi) = (chi0 + 2.0 * chi1) / 3.0;
   }
@@ -56,7 +54,7 @@ void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
  * terms are positive.
  */
 
-void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
+void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
 			Real *a1, Real *a2, Real S0, Real S1, Real S2)
 {
   Real c0, c1, c2;
@@ -73,7 +71,7 @@ void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
   dSp = S2 - S1;
 
   (*edtau) = exp(-dtaum);
-  /*(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  /testing
+  /*(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  //testing
 */
   c0 = 1.0 - (*edtau);
   c1 = dtaum - c0;
@@ -105,6 +103,34 @@ void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
     (*a1) = c1 / dtaum;
     (*a2) = 0.0;
     }*/
+}
+
+void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
+			Real *a1, Real *a2, Real S0, Real S1, Real S2)
+{
+  Real c0, c1, c2;
+  Real dtaus, dtausp, dtausm, dtaum2;
+  Real Sc, Smax, Smin;
+  Real dSp, dSm;
+
+  dtaus  = dtaum + dtaup;
+  dtausp = dtaus * dtaup;
+  dtausm = dtaus * dtaum;
+  dtaum2 = dtaum * dtaum;
+
+  dSm = S1 - S0;
+  dSp = S2 - S1;
+
+  (*edtau) = exp(-dtaum);
+  /*(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  //testing
+*/
+  c0 = 1.0 - (*edtau);
+  c1 = dtaum - c0;
+  c2 = dtaum2 - 2.0 * c1;
+
+  (*a0) = c0 + (c2 - (dtaup + 2.0 * dtaum) * c1) / dtausm;
+  (*a1) = (dtaus * c1 - c2) / (dtaum * dtaup);
+  (*a2) = (c2 - dtaum * c1) / dtausp;
 }
 
 /*----------------------------------------------------------------------------*/

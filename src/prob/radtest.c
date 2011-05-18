@@ -154,9 +154,10 @@ void problem(DomainS *pDomain)
   for(ifr=0; ifr<nf; ifr++)
     for (k=kl; k<=ku; k++)
       for (j=jl; j<=ju; j++)
-	for(i=il; i<=iu; i++)
-	  pRG->R[k][j][i][ifr].J = 1;
-
+	for(i=il; i<=iu; i++) {
+	  pRG->R[k][j][i][ifr].J = 1.0;
+	}
+ 
 /* ------- Initialize boundary emission ---------------------------------- */
 
   switch(vdir) {

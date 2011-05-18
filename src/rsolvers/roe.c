@@ -57,7 +57,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #ifndef ISOTHERMAL
   Real hroe;
 #endif /* ISOTHERMAL */
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
   Real b2roe,b3roe,x,y;
 #endif
   Real coeff[NWAVE];
@@ -107,7 +107,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 /* The Roe average of the magnetic field is defined differently  */
 
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
   b2roe = (sqrtdr*Wl.By + sqrtdl*Wr.By)*isdlpdr;
   b3roe = (sqrtdr*Wl.Bz + sqrtdl*Wr.Bz)*isdlpdr;
   x = 0.5*(SQR(Wl.By - Wr.By) + SQR(Wl.Bz - Wr.Bz))/(SQR(sqrtdl + sqrtdr));
@@ -137,7 +137,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
 
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
 #ifdef ISOTHERMAL
   esys_roe_iso_mhd(droe,v1roe,v2roe,v3roe,     Bxi,b2roe,b3roe,x,y,ev,rem,lem);
 #else
@@ -172,7 +172,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Fr.E  = (Ur.E + Wr.P)*Wr.Vx;
 #endif /* ISOTHERMAL */
 
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
   Fl.Mx -= 0.5*(Bxi*Bxi - SQR(Wl.By) - SQR(Wl.Bz));
   Fr.Mx -= 0.5*(Bxi*Bxi - SQR(Wr.By) - SQR(Wr.Bz));
 
@@ -209,7 +209,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     *pFlux = Fl;
 #if defined(CYLINDRICAL) && !defined(BAROTROPIC)
     pFlux->Pflux = Wl.P;
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
     pFlux->Pflux += pbl;
 #endif /* MHD */
 #endif /* CYLINDRICAL && NOT BAROTROPIC */
@@ -220,7 +220,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     *pFlux = Fr;
 #if defined(CYLINDRICAL) && !defined(BAROTROPIC)
     pFlux->Pflux = Wl.P;
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
     pFlux->Pflux += pbr;
 #endif /* MHD */
 #endif /* CYLINDRICAL && NOT BAROTROPIC */
@@ -260,7 +260,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #ifdef ADIABATIC
       p_inter = u_inter[4] - 0.5*
 	(SQR(u_inter[1])+SQR(u_inter[2])+SQR(u_inter[3]))/u_inter[0];
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
       p_inter -= 0.5*(SQR(u_inter[NWAVE-2])+SQR(u_inter[NWAVE-1])+SQR(Bxi));
 #endif
       if (p_inter < 0.0) {
@@ -316,7 +316,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #if defined(CYLINDRICAL) && !defined(BAROTROPIC)
 /* "TOTAL PRESSURE FLUX" COMPUTED FROM AVERAGED STAR-STATES */
   Emag = 0.0;
-#if defind(MHD) || defined(RADIATION_MHD)
+#if defined(MHD) || defined(RADIATION_MHD)
   Emag = 0.5*(SQR(u_inter[NWAVE-2])+SQR(u_inter[NWAVE-1])+SQR(Bxi));
 #endif /* MHD */
   Ekin = 0.5*(SQR(u_inter[1])+SQR(u_inter[2])+SQR(u_inter[3]))/u_inter[0];
