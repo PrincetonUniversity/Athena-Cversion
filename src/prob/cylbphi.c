@@ -17,16 +17,11 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * grav_pot() - gravitational potential
- * grav_acc() - gravitational acceleration
- * M2()       - phi-momentum
- * A3()       - magnetic vector potential
  *============================================================================*/
 
-static Real omega0,rho0;
+static Real omega0,rho0,bphi0;
 static int iprob;
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
-Real M2(const Real x1, const Real x2, const Real x3);
 static ConsS ***RootSoln=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -71,39 +66,39 @@ void problem(DomainS *pDomain)
   iprob  = par_geti("problem", "iprob");
 
 
-  /* ALLOCATE MEMORY FOR SOLUTION */
+  /* Allocate memory for solution */
   if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylbphi]: Error allocating memory for solution!\n");
 
 
-  /* SET DENSITY, MOMENTUM, AND MAGNETIC FIELDS
-     iprob = 1, CONSTANT B-PHI, CONSTANT PRESSURE
-     iprob = 2, B-PHI GOES AS 1/R, CONSTANT PRESSURE
+  /* Set density, momentum, and magnetic fields
+     iprob = 1, constant b-phi, constant pressure
+     iprob = 2, B-phi goes as 1/R, constant pressure
   */
 
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        memset(&(pG->U[k][j][i]),0.0,sizeof(Gas));
+        memset(&(pG->U[k][j][i]),0.0,sizeof(ConsS));
 
         pG->U[k][j][i].d  = rho0;
         pG->U[k][j][i].M1 = 0.0;
-        pG->U[k][j][i].M2 = avg1d(M2,pG,i,j,k);
+        pG->U[k][j][i].M2 = rho0*omega0*x1;
         pG->U[k][j][i].M3 = pG->U[k][j][i].d*vz0;
         switch (iprob) {
-          case 1:   // CONSTANT B_phi
+          case 1:   // Constant B_phi
                     pG->B2i[k][j][i]   = bphi0;
                     pG->U[k][j][i].B2c = bphi0;
                     break;
-          case 2:   // B_phi GOES AS 1/R
+          case 2:   // B_phi goes as 1/R
                     pG->B2i[k][j][i]   = bphi0/x1;
                     pG->U[k][j][i].B2c = bphi0/x1;
                     break;
           default:  printf("[cylbphi]:  Not an accepted problem number\n");
         }
 
-        /* INITIALIZE TOTAL ENERGY */
+        /* Initialize total energy */
         Eint = pgas0/Gamma_1;
         Emag = 0.5*(SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c)
                   + SQR(pG->U[k][j][i].B3c));
@@ -111,14 +106,13 @@ void problem(DomainS *pDomain)
                   + SQR(pG->U[k][j][i].M3))/pG->U[k][j][i].d;
         pG->U[k][j][i].E = Eint + Emag + Ekin;
 
-        /* SAVE SOLUTION */
+        /* Save solution */
         RootSoln[k][j][i] = pG->U[ks][j][i];
       }
     }
   }
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
   bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
@@ -176,22 +170,4 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
               break;
     default:  return 0.0;
   }
-}
-
-/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3) 
- *  \brief  Gravitational acceleration */
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  switch (iprob) {
-    case 1:   return x1*SQR(omega0) - SQR(bphi0)/(rho0*x1);
-              break;
-    case 2:   return x1*SQR(omega0);
-              break;
-    default:  return 0.0;
-  }
-}
-
-/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
- *  \brief 2-component of momentum  */
-Real M2(const Real x1, const Real x2, const Real x3) {
-  return rho0*omega0*x1;
 }

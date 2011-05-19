@@ -24,14 +24,12 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * grav_pot() - gravitational potential
- * grav_acc() - gravitational acceleration
  * myfunc()   - used to compute transonic solution
  *============================================================================*/
 
 static Real b0,lambda_s;
 static int iprob;
 Real grav_pot(const Real x1, const Real x2, const Real x3);
-Real grav_acc(const Real x1, const Real x2, const Real x3);
 Real myfunc(const Real x, const Real v);
 static ConsS ***RootSoln=NULL;
 
@@ -66,7 +64,7 @@ void problem(DomainS *pDomain)
     ath_error("[cylwind]: Only (R,phi) can be used in 2D!\n");
   }
 
-  if ((Soln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
+  if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylwind]: Error allocating memory for solution\n");
 
   b0    = par_getd("problem","b0");
@@ -83,17 +81,21 @@ void problem(DomainS *pDomain)
     memset(&(pG->U[ks][js][i]),0.0,sizeof(ConsS));
 
     switch(iprob) {
-      case 1: /* PARKER WIND */
-              if (x1 < xs)
+      case 1: /* Parker wind */
+              if (x1 < xs) {
                 a = TINY_NUMBER;  b = vs;
-              else
+              }
+              else {
                 a = vs;           b = HUGE_NUMBER;
+              }
               break;
-      case 2: /* BONDI ACCRETION */
-              if (x1 < xs)
+      case 2: /* Bondi accretion */
+              if (x1 < xs) {
                 a = vs;           b = HUGE_NUMBER;
-              else
+              }
+              else {
                 a = TINY_NUMBER;  b = vs;
+              }
               break;
       default:  ath_error("[cylwind]:  Not an accepted problem number!\n");
     }
@@ -111,7 +113,7 @@ void problem(DomainS *pDomain)
     pG->B1i[ks][js][i]   = b0/(x1-0.5*pG->dx1);
 #endif /* MHD */
 
-    /* INITIALIZE TOTAL ENERGY */
+    /* Initialize total energy */
 #ifndef ISOTHERMAL
     pgas0 = 1.0/Gamma;
     pgas = pgas0*pow(pG->U[ks][js][i].d,Gamma);
@@ -119,7 +121,7 @@ void problem(DomainS *pDomain)
 #endif /* ISOTHERMAL */
   }
 
-  /* COPY 1D SOLUTION AND SAVE */
+  /* Copy 1D solution and save */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
@@ -130,7 +132,6 @@ void problem(DomainS *pDomain)
   }
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
   bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
@@ -172,7 +173,7 @@ void Userwork_in_loop(MeshS *pM)
 
 void Userwork_after_loop(MeshS *pM)
 {
-  compute_l1_error("CylWind", pM, RootSoln, 1);
+  compute_l1_error("CylWind", pM, RootSoln, 0);
 }
 
 
@@ -182,12 +183,6 @@ void Userwork_after_loop(MeshS *pM)
  *  \brief Gravitational potential  */
 Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return -1.0/x1;
-}
-
-/*! \fn Real grav_acc(const Real x1, const Real x2, const Real x3) 
- *  \brief Gravitational acceleration */
-Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return 1.0/SQR(x1);
 }
 
 /*----------------------------------------------------------------------------*/

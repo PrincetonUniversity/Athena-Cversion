@@ -18,7 +18,6 @@
 
 static Real rho0,omega0,q;
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -26,11 +25,12 @@ static Real grav_acc(const Real x1, const Real x2, const Real x3);
 void problem(DomainS *pDomain)
 {
   GridS *pG = pDomain->Grid;
+  int myID_Comm_world = 0;
   int i,j,k;
   int is,ie,il,iu,js,je,jl,ju,ks,ke,kl,ku;
-  int nx1,nx2,nx3,myid=0;
-  Real x1,x2,x3,R1,R2;
-  Real r,noise,omega,bphi0,pgas0,noise_level;
+  int nx1,nx2,nx3;
+  Real x1,x2,x3;
+  Real randnum,noise,omega,bphi0,pgas0,noise_level;
   Real Eint,Emag,Ekin;
 
   is = pG->is;  ie = pG->ie;  nx1 = ie-is+1;
@@ -52,8 +52,13 @@ void problem(DomainS *pDomain)
     ath_error("[cylrayleigh]: Only (R,phi) can be used in 2D!\n");
   }
 
-  /* SEED THE RANDOM NUMBER GENERATOR */
-  srand(SEED + pG->my_id);
+#ifdef MPI_PARALLEL
+  if(MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &myID_Comm_world))
+    ath_error("[cylrayleigh]: Error on calling MPI_Comm_rank\n");
+#endif
+
+  /* Seed the random number generator */
+  srand(SEED + myID_Comm_world);
 
   omega0      = par_getd("problem", "omega0");
   bphi0       = par_getd("problem", "bphi0");
@@ -67,18 +72,16 @@ void problem(DomainS *pDomain)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        memset(&(pG->U[k][j][i]),0.0,sizeof(Gas));
-        R1 = x1 - 0.5*pG->dx1;
-        R2 = x1 + 0.5*pG->dx1;
+        memset(&(pG->U[k][j][i]),0.0,sizeof(ConsS));
 
-        // RANDOM NUMBER BETWEEN 0 AND 1
-        r = ((double) rand()/((double)RAND_MAX + 1.0));
-        // RANDOM NUMBER BETWEEN +/- noise_level
-        noise = noise_level*(2.0*r-1.0);
+        // Random number between 0 and 1
+        randnum = ((double) rand()/((double)RAND_MAX + 1.0));
+        // Random number between +/- noise_level
+        noise = noise_level*(2.0*randnum-1.0);
 
         pG->U[k][j][i].d  = rho0;
-        pG->U[k][j][i].M2 = avg1d(M2,pG,i,j,k);
-        // NOW PERTURB v_phi
+        pG->U[k][j][i].M2 = rho0*omega0*pow(x1,1.0-q);
+        // Now perturb v_phi
         if ((i>=is) && (i<=ie)) {
           pG->U[k][j][i].M2 *= (1.0 + noise);
         }
@@ -102,7 +105,6 @@ void problem(DomainS *pDomain)
   }
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
   bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
@@ -126,14 +128,6 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
-  rho0   = par_getd("problem","rho0");
-  omega0 = par_getd("problem","omega0");
-  q      = par_getd("problem","q");
-
-  StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
-  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
-  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
   return;
 }
 
@@ -166,17 +160,4 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
     Real omega = omega0/pow(x1,q);
     return 0.5*SQR(x1*omega)/(1.0-q);
   }
-}
-
-/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3) {
- *  \brief Gravitational acceleration */
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  Real omega = omega0/pow(x1,q);
-  return x1*SQR(omega);
-}
-
-/*! \fn Real M2(const Real x1, const Real x2, const Real x3) 
- *  \brief 2-component of momentum */
-Real M2(const Real x1, const Real x2, const Real x3) {
-  return rho0*omega0*pow(x1,1.0-q);
 }

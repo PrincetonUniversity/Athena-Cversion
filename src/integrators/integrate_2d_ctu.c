@@ -71,7 +71,7 @@ extern Real etah;
 static Real **eta1=NULL, **eta2=NULL;
 #endif
 
-/* VARIABLES NEEDED FOR CYLINDRICAL COORDINATES */
+/* variables needed for cylindrical coordinates */
 #ifdef CYLINDRICAL
 static Real **geom_src=NULL;
 #endif
@@ -111,6 +111,7 @@ void integrate_2d_ctu(DomainS *pD)
   Real MHD_src,dbx,dby,B1,B2,B3,V3;
   Real B1ch, B2ch, B3ch;
 #endif
+  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2;
 #ifdef H_CORRECTION
   Real cfr,cfl,lambdar,lambdal;
 #endif
@@ -142,11 +143,19 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef ISOTHERMAL
   Real Pavgh;
 #endif
-  Real g,gl,gr,rinv;
-  Real geom_src_d,geom_src_Vx,geom_src_Vy,geom_src_P,geom_src_By,geom_src_Bz;
+  Real rinv,geom_src_d,geom_src_Vx,geom_src_Vy,geom_src_P,geom_src_By,geom_src_Bz;
   const Real *r=pG->r, *ri=pG->ri;
+#ifdef FARGO
+  Real Om, qshear, Mrn, Mpn, Mre, Mpe, Mrav, Mpav;
+#endif
 #endif /* CYLINDRICAL */
+  Real g,gl,gr;
   Real lsf=1.0, rsf=1.0;
+
+#if defined(CYLINDRICAL) && defined(FARGO)
+  if (OrbitalProfile==NULL || ShearProfile==NULL)
+    ath_error("[integrate_2d_ctu]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
+#endif
 
 /* With particles, one more ghost cell must be updated in predict step */
 #ifdef PARTICLES
@@ -205,9 +214,9 @@ void integrate_2d_ctu(DomainS *pD)
     for (i=is-nghost; i<=ie+nghost; i++) {
       W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
 
-      /* CALCULATE THE CELL-CENTERED GEOMETRIC SOURCE VECTOR NOW USING U^{n}
-      * THIS WILL BE USED AT THE END OF THE INTEGRATION STEP AS A SOURCE TERM
-      * FOR THE CELL-CENTERED CONSERVED VARIABLES (STEPS 6D,8B) */
+      /* Calculate the cell-centered geometric source vector now using U^{n}
+      * This will be used at the end of the integration step as a source term
+      * for the cell-centered conserved variables (steps 6D,8B) */
 #ifdef CYLINDRICAL 
       geom_src[j][i]  = W[i].d*SQR(W[i].Vy);
 #ifdef MHD
@@ -218,7 +227,7 @@ void integrate_2d_ctu(DomainS *pD)
 #else
       geom_src[j][i] += W[i].P;
 #endif
-      geom_src[j][i] /= x1vc(pG,i);
+      geom_src[j][i] /= r[i];
 #endif /* CYLINDRICAL */
     }
 
@@ -230,17 +239,18 @@ void integrate_2d_ctu(DomainS *pD)
       rsf = ri[i]/r[i-1];  lsf = ri[i-1]/r[i-1];
 #endif
       MHD_src = (pG->U[ks][j][i-1].M2/pG->U[ks][j][i-1].d)*
-               (rsf*pG->B1i[ks][j][i] - lsf*pG->B1i[ks][j][i-1])/pG->dx1;
+                (rsf*pG->B1i[ks][j][i] - lsf*pG->B1i[ks][j][i-1])*dx1i;
       Wl[i].By += hdt*MHD_src;
 
 #ifdef CYLINDRICAL
       rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
       MHD_src = (pG->U[ks][j][i].M2/pG->U[ks][j][i].d)*
-               (rsf*pG->B1i[ks][j][i+1] - lsf*pG->B1i[ks][j][i])/pG->dx1;
+               (rsf*pG->B1i[ks][j][i+1] - lsf*pG->B1i[ks][j][i])*dx1i;
       Wr[i].By += hdt*MHD_src;
     }
 #endif /* MHD */
+
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
@@ -249,21 +259,20 @@ void integrate_2d_ctu(DomainS *pD)
     if (StaticGravPot != NULL){
       for (i=il+1; i<=iu; i++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-#ifdef CYLINDRICAL
-        gl = (*x1GravAcc)(x1vc(pG,i-1),x2,x3);
-        gr = (*x1GravAcc)(x1vc(pG,i),x2,x3);
 
-        /* APPLY GRAV. SOURCE TERMS TO VELOCITY USING ACCELERATION FOR (dt/2) */
-        Wl[i].Vx -= hdt*gl;
-        Wr[i].Vx -= hdt*gr;
-#else
         phicr = (*StaticGravPot)( x1             ,x2,x3);
         phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
         phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-        Wl[i].Vx -= dtodx1*(phifc - phicl);
-        Wr[i].Vx -= dtodx1*(phicr - phifc);
+        gl = 2.0*(phifc - phicl)*dx1i;
+        gr = 2.0*(phicr - phifc)*dx1i;
+#if defined(CYLINDRICAL) && defined(FARGO)
+        gl -= r[i-1]*SQR((*OrbitalProfile)(r[i-1]));
+        gr -= r[i  ]*SQR((*OrbitalProfile)(r[i  ]));
 #endif
+
+        Wl[i].Vx -= hdt*gl;
+        Wr[i].Vx -= hdt*gr;
       }
     }
 
@@ -345,6 +354,21 @@ void integrate_2d_ctu(DomainS *pD)
     }
 #endif /* SHEARING_BOX */
 
+#if defined(CYLINDRICAL) && defined(FARGO)
+    for (i=il+1; i<=iu; i++) {
+      Om = (*OrbitalProfile)(r[i-1]);
+      qshear = (*ShearProfile)(r[i-1]);
+      Wl[i].Vx += (pG->dt)*Om*W[i-1].Vy;
+      Wl[i].Vy += hdt*(qshear - 2.0)*Om*W[i-1].Vx;
+
+      Om = (*OrbitalProfile)(r[i]);
+      qshear = (*ShearProfile)(r[i]);
+      Wr[i].Vx += (pG->dt)*Om*W[i].Vy;
+      Wr[i].Vy += hdt*(qshear - 2.0)*Om*W[i].Vx;
+    }
+#endif
+
+
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for particle feedback for 0.5*dt to L/R states
  */
@@ -369,14 +393,14 @@ void integrate_2d_ctu(DomainS *pD)
 #endif /* FEEDBACK */
 
 /*--- Step 1c (cont) -----------------------------------------------------------
- * ADD THE GEOMETRIC SOURCE-TERMS NOW USING CELL-CENTERED PRIMITIVE
- * VARIABLES AT TIME t^n
+ * Add the geometric source-terms now using cell-centered primitive
+ * variables at time t^n
  */
 #ifdef CYLINDRICAL
       for (i=il+1; i<=iu; i++) {
 
-        // LEFT STATE GEOMETRIC SOURCE TERM (USES W[i-1])
-        rinv = 1.0/x1vc(pG,i-1);
+        /* left state geometric source term (uses W[i-1]) */
+        rinv = 1.0/r[i-1];
         geom_src_d  = -W[i-1].d*W[i-1].Vx*rinv;
         geom_src_Vx =  SQR(W[i-1].Vy);
         geom_src_Vy = -W[i-1].Vx*W[i-1].Vy;
@@ -392,7 +416,7 @@ void integrate_2d_ctu(DomainS *pD)
         geom_src_P  = -Gamma*W[i-1].P*W[i-1].Vx*rinv;
 #endif /* ISOTHERMAL */
 
-        // ADD SOURCE TERM TO LEFT STATE
+        /* add source term to left state */
         Wl[i].d  += hdt*geom_src_d;
         Wl[i].Vx += hdt*geom_src_Vx;
         Wl[i].Vy += hdt*geom_src_Vy;
@@ -404,8 +428,8 @@ void integrate_2d_ctu(DomainS *pD)
         Wl[i].P  += hdt*geom_src_P;
 #endif /* ISOTHERMAL */
 
-        // RIGHT STATE GEOMETRIC SOURCE TERM (USES W[i])
-        rinv = 1.0/x1vc(pG,i);
+        /* right state geometric source term (uses W[i]) */
+        rinv = 1.0/r[i];
         geom_src_d  = -W[i].d*W[i].Vx*rinv;
         geom_src_Vx =  SQR(W[i].Vy);
         geom_src_Vy = -W[i].Vx*W[i].Vy;
@@ -421,7 +445,7 @@ void integrate_2d_ctu(DomainS *pD)
         geom_src_P  = -Gamma*W[i].P*W[i].Vx*rinv;
 #endif /* ISOTHERMAL */
 
-        // ADD SOURCE TERM TO RIGHT STATE
+        /* add source term to right state */
         Wr[i].d  += hdt*geom_src_d;
         Wr[i].Vx += hdt*geom_src_Vx;
         Wr[i].Vy += hdt*geom_src_Vy;
@@ -508,7 +532,7 @@ void integrate_2d_ctu(DomainS *pD)
 /*--- Step 2c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
  */
-  
+
     if (StaticGravPot != NULL){
       for (j=jl+1; j<=ju; j++) {
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
@@ -598,10 +622,11 @@ void integrate_2d_ctu(DomainS *pD)
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
       emf3_cc[j][i] =
-	(pG->U[ks][j][i].B1c*pG->U[ks][j][i].M2 -
-	 pG->U[ks][j][i].B2c*pG->U[ks][j][i].M1 )/pG->U[ks][j][i].d;
+        (pG->U[ks][j][i].B1c*pG->U[ks][j][i].M2 -
+         pG->U[ks][j][i].B2c*pG->U[ks][j][i].M1 )/pG->U[ks][j][i].d;
     }
   }
+
   integrate_emf3_corner(pG);
 
 /*--- Step 4b ------------------------------------------------------------------
@@ -894,28 +919,31 @@ void integrate_2d_ctu(DomainS *pD)
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
+        /* correct right states; x1 gradients */
 #ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        Ur_x2Face[j][i].Mz -= hdt*pG->U[ks][j][i].d*g;
-#else
-        Ur_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
 #endif
+        g = (phir-phil)*dx1i;
+#if defined(CYLINDRICAL) && defined(FARGO)
+        g -= r[i]*SQR((*OrbitalProfile)(r[i])); 
+#endif
+        Ur_x2Face[j][i].Mz -= hdt*pG->U[ks][j][i].d*g;
+
 #ifndef BAROTROPIC
         Ur_x2Face[j][i].E -= hdtodx1*(lsf*x1Flux[j  ][i  ].d*(phic - phil) +
                                       rsf*x1Flux[j  ][i+1].d*(phir - phic));
 #endif
 
+        /* correct left states; x1 gradients */
         phic = (*StaticGravPot)((x1            ),(x2-pG->dx2),x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 
-#ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),(x2-pG->dx2),x3);
-        Ul_x2Face[j][i].Mz -= hdt*pG->U[ks][j-1][i].d*g;
-#else
-        Ul_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j-1][i].d;
+        g = (phir-phil)*dx1i;
+#if defined(CYLINDRICAL) && defined(FARGO)
+        g -= r[i]*SQR((*OrbitalProfile)(r[i])); 
 #endif
+        Ul_x2Face[j][i].Mz -= hdt*pG->U[ks][j-1][i].d*g;
 #ifndef BAROTROPIC
         Ul_x2Face[j][i].E -= hdtodx1*(lsf*x1Flux[j-1][i  ].d*(phic - phil) +
                                       rsf*x1Flux[j-1][i+1].d*(phir - phic));
@@ -932,6 +960,7 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef SELF_GRAVITY
   for (j=jl+1; j<=ju; j++) {
     for (i=il+1; i<=iu-1; i++) {
+      /* correct right states; x1 gradients */
       phic = pG->Phi[ks][j][i];
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
@@ -942,6 +971,7 @@ void integrate_2d_ctu(DomainS *pD)
                                     x1Flux[j  ][i+1].d*(phir - phic));
 #endif
 
+      /* correct left states; x1 gradients */
       phic = pG->Phi[ks][j-1][i];
       phir = 0.5*(pG->Phi[ks][j-1][i] + pG->Phi[ks][j-1][i+1]);
       phil = 0.5*(pG->Phi[ks][j-1][i] + pG->Phi[ks][j-1][i-1]);
@@ -1026,8 +1056,24 @@ void integrate_2d_ctu(DomainS *pD)
   }
 #endif /* SHEARING_BOX */
 
+#if defined(CYLINDRICAL) && defined(FARGO)
+  for (j=jl+1; j<=ju; j++) {
+    for (i=il+1; i<=iu-1; i++) {
+      Om = (*OrbitalProfile)(r[i]);
+      qshear = (*ShearProfile)(r[i]);
+
+      Ur_x2Face[j][i].Mz += pG->dt*Om*pG->U[ks][j][i].M2;
+      Ur_x2Face[j][i].Mx += hdt*(qshear-2.0)*Om*pG->U[ks][j][i].M1;
+
+      Ul_x2Face[j][i].Mz += pG->dt*Om*pG->U[ks][j-1][i].M2;
+      Ul_x2Face[j][i].Mx += hdt*(qshear-2.0)*Om*pG->U[ks][j-1][i].M1;
+    }
+  }
+#endif
+
+
 /*--- Step 6d (cont) -----------------------------------------------------------
- * ADD THE GEOMETRIC SOURCE TERMS IN THE x1-DIRECTION FOR dt/2
+ * add the geometric source terms in the x1-direction for dt/2
  */
 #ifdef CYLINDRICAL
   for (j=js-1; j<=ju; j++) {
@@ -1102,23 +1148,24 @@ void integrate_2d_ctu(DomainS *pD)
         - hdtodx2*(    x2Flux[j+1][i].E -     x2Flux[j][i].E);
 #endif
 
-/* Add source terms for fixed gravitational potential */
+      /* Add source terms for fixed gravitational potential */
       if (StaticGravPot != NULL){
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-#ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
-        M1h -= hdt*pG->U[ks][j][i].d*g;
-#else
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-        M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+
+        g = (phir-phil)*dx1i;
+#if defined(CYLINDRICAL) && defined(FARGO)
+        g -= r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
+        M1h -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
         M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
       }
 
-/* Add source terms due to self-gravity  */
+      /* Add source terms due to self-gravity  */
 #ifdef SELF_GRAVITY
       phir = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i+1]);
       phil = 0.5*(pG->Phi[ks][j][i] + pG->Phi[ks][j][i-1]);
@@ -1129,7 +1176,7 @@ void integrate_2d_ctu(DomainS *pD)
       M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
 #endif /* SELF_GRAVITY */
 
-/* Add the tidal gravity and Coriolis terms for shearing box. */
+      /* Add the tidal gravity and Coriolis terms for shearing box. */
 #ifdef SHEARING_BOX
       if (ShearingBoxPot != NULL){
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
@@ -1152,8 +1199,14 @@ void integrate_2d_ctu(DomainS *pD)
       if (ShBoxCoord == xz) M3h -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
 #endif
 #endif /* SHEARING_BOX */
+#if defined(CYLINDRICAL) && defined(FARGO)
+      Om = (*OrbitalProfile)(r[i]);
+      qshear = (*ShearProfile)(r[i]);
+      M1h += hdt*2.0*Om*pG->U[ks][j][i].M2;
+      M2h += hdt*Om*(qshear-2.0)*pG->U[ks][j][i].M1;
+#endif
 
-/* Add the particle feedback terms */
+      /* Add the particle feedback terms */
 #ifdef FEEDBACK
       M1h -= pG->Coup[ks][j][i].fb1;
       M2h -= pG->Coup[ks][j][i].fb2;
@@ -1161,7 +1214,7 @@ void integrate_2d_ctu(DomainS *pD)
 #endif /* FEEDBACK */
 
 
-/* Add the geometric source term */
+      /* Add the geometric source term */
 #ifdef CYLINDRICAL
       M1h += hdt*geom_src[j][i];
 #endif
@@ -1266,6 +1319,7 @@ void integrate_2d_ctu(DomainS *pD)
     }
   }
 
+
 /*--- Step 9c ------------------------------------------------------------------
  * Compute 2D x2-fluxes from corrected L/R states.
  */
@@ -1322,26 +1376,59 @@ void integrate_2d_ctu(DomainS *pD)
 /*=== STEP 11: Add source terms for a full timestep using n+1/2 states =======*/
 
 /*--- Step 11a -----------------------------------------------------------------
- * ADD GEOMETRIC SOURCE TERMS.
+ * Add geometric source terms
  */
-
 #ifdef CYLINDRICAL
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
       rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
       hdtodx2 = hdt/(r[i]*pG->dx2);
 
-      /* CALCULATE d AT TIME n+1/2 */
+      /* Calculate d at time n+1/2 */
       dhalf[j][i] = pG->U[ks][j][i].d
         - hdtodx1*(rsf*x1Flux[j  ][i+1].d - lsf*x1Flux[j][i].d)
         - hdtodx2*(    x2Flux[j+1][i  ].d -     x2Flux[j][i].d);
 
-      /* CALCULATE M2 AT TIME n+1/2 */
+      /* Calculate m2 at time n+1/2 */
       M2h = pG->U[ks][j][i].M2
         - hdtodx1*(SQR(rsf)*x1Flux[j][i+1].My - SQR(lsf)*x1Flux[j][i].My)
         - hdtodx2*(         x2Flux[j+1][i].Mx -          x2Flux[j][i].Mx);
 
-      /* ADD SOURCE TERM FOR FIXED GRAVITATIONAL POTENTIAL FOR 0.5*dt */
+#ifdef FARGO
+      /* Save current R/phi momenta */
+      Mrn = pG->U[ks][j][i].M1;
+      Mpn = pG->U[ks][j][i].M2;
+
+      Om = (*OrbitalProfile)(r[i]);
+      qshear = (*ShearProfile)(r[i]);
+
+      if (StaticGravPot != NULL){
+        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        g = (phir-phil)*dx1i;
+      }
+
+      g -= r[i]*SQR((*OrbitalProfile)(r[i]));
+
+      /* Use forward euler to approximate R/phi momenta at t^{n+1} */
+      Mre = Mrn
+              - dtodx1*(     rsf*x1Flux[j][i+1].Mx -      lsf*x1Flux[j][i].Mx)
+              - dtodx2*(SQR(rsf)*x2Flux[j+1][i].Mz - SQR(lsf)*x2Flux[j][i].Mz);
+      Mre += pG->dt*( 2.0*Om*Mpn + geom_src[j][i] - pG->U[ks][j][i].d*g);
+
+      Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
+        - dtodx1*(SQR(rsf)*x1Flux[j ][i+1].My - SQR(lsf)*x1Flux[j][i].My)
+         - (dtodx2/r[i])*( x2Flux[j+1][i ].Mx - x2Flux[j][i].Mx);
+
+      /* Average forward euler and current values to approximate at t^{n+1/2} */
+      Mrav = 0.5*(Mrn+Mre);
+      Mpav = 0.5*(Mpn+Mpe);
+
+      /* Compute source terms at t^{n+1/2} */
+      geom_src[j][i] = SQR(Mpav)/dhalf[j][i];
+#else /* FARGO */
+
+      /* Add source term for fixed gravitational potential for 0.5*dt */
       if (StaticGravPot != NULL){
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
@@ -1349,8 +1436,10 @@ void integrate_2d_ctu(DomainS *pD)
         M2h -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
       }
 
-      /* COMPUTE GEOMETRIC SOURCE TERM AT TIME n+1/2 */
+      /* compute geometric source term at time n+1/2 */
       geom_src[j][i] = SQR(M2h)/dhalf[j][i];
+#endif /* FARGO */
+
 #ifdef MHD
       B2ch = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
       geom_src[j][i] -= SQR(B2ch);
@@ -1368,10 +1457,16 @@ void integrate_2d_ctu(DomainS *pD)
       Pavgh = 0.5*(lsf*x1Flux[j][i].Pflux + rsf*x1Flux[j][i+1].Pflux);
       geom_src[j][i] += Pavgh;
 #endif
-      geom_src[j][i] /= x1vc(pG,i);
+      geom_src[j][i] /= r[i];
 
-      /* ADD TIME-CENTERED GEOMETRIC SOURCE TERM FOR FULL dt */
+#ifdef FARGO
+      /* Use average values to apply source terms for full time-step */
+      pG->U[ks][j][i].M1 += pG->dt*( 2.0*Om*Mpav + geom_src[j][i]);
+      pG->U[ks][j][i].M2 += pG->dt*( Om*(qshear-2.0)*Mrav);
+#else
+      /* add time-centered geometric source term for full dt */
       pG->U[ks][j][i].M1 += pG->dt*geom_src[j][i];
+#endif /* FARGO */
     }
   }
 #endif /* CYLINDRICAL */
@@ -1499,13 +1594,14 @@ void integrate_2d_ctu(DomainS *pD)
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
 #ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
         dtodx2 = pG->dt/(r[i]*pG->dx2);
-        pG->U[ks][j][i].M1 -= pG->dt*dhalf[j][i]*g;
-#else
-        pG->U[ks][j][i].M1 -= dtodx1*dhalf[j][i]*(phir-phil);
 #endif
+        g = (phir-phil)*dx1i;
+#if defined(CYLINDRICAL) && defined(FARGO)
+        g -= r[i]*SQR((*OrbitalProfile)(r[i]));
+#endif
+        pG->U[ks][j][i].M1 -= pG->dt*dhalf[j][i]*g;
 
 #ifndef BAROTROPIC
         pG->U[ks][j][i].E -= dtodx1*(lsf*x1Flux[j][i  ].d*(phic - phil) +
@@ -1713,7 +1809,7 @@ void integrate_2d_ctu(DomainS *pD)
 #endif
       pG->U[ks][j][i].B1c =0.5*(lsf*pG->B1i[ks][j][i] + rsf*pG->B1i[ks][j][i+1]);
       pG->U[ks][j][i].B2c =0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
-/* Set the 3-interface magnetic field equal to the cell center field. */
+      /* Set the 3-interface magnetic field equal to the cell center field. */
       pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
     }
   }
@@ -1962,7 +2058,7 @@ void integrate_init_2d(MeshS *pM)
     goto on_error;
   }
 
-  /* DATA STRUCTURES FOR CYLINDRICAL COORDINATES */
+  /* data structures for cylindrical coordinates */
 #ifdef CYLINDRICAL
   if ((geom_src = (Real**)calloc_2d_array(size2, size1, sizeof(Real))) == NULL) 
     goto on_error;
@@ -2011,7 +2107,7 @@ void integrate_destruct_2d(void)
   if (dhalf     != NULL) free_2d_array(dhalf);
   if (phalf     != NULL) free_2d_array(phalf);
 
-  /* DATA STRUCTURES FOR CYLINDRICAL COORDINATES */
+  /* data structures for cylindrical coordinates */
 #ifdef CYLINDRICAL
   if (geom_src  != NULL) free_2d_array(geom_src);
 #endif
