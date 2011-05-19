@@ -13,4 +13,6 @@ if (grid.coordsys == -2)
     [Xbdry,Ybdry] = pol2cart(Ybdry,Xbdry);
 end;
 
+hold on;
 plot(Xbdry,Ybdry,'k');
+hold off;

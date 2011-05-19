@@ -41,15 +41,15 @@ end;
 switch (dir)
     case 1
         [X,Y] = meshgrid(y,z);
-        Z = squeeze(var(i,:,:))';
+        Z = squeeze(var(i,:,:));
         if (onfacei && interp)
-            Z = 0.5*(Z+squeeze(var(i+1,:,:))');
+            Z = 0.5*(Z+squeeze(var(i+1,:,:)));
         end;
     case 2
         [X,Y] = meshgrid(x,z);
-        Z = squeeze(var(:,j,:))';
+        Z = squeeze(var(:,j,:));
         if (onfacej && interp)
-            Z = 0.5*(Z+squeeze(var(:,j+1,:))');
+            Z = 0.5*(Z+squeeze(var(:,j+1,:)));
         end;
     case 3
         if ((Grid.coordsys == -2) && transform) % CYLINDRICAL
@@ -58,9 +58,9 @@ switch (dir)
         else
             [X,Y] = meshgrid(x,y);
         end;
-        Z = squeeze(var(:,:,k))';
+        Z = squeeze(var(:,:,k));
         if (onfacek && interp)
-            Z = 0.5*(Z+squeeze(var(:,:,k+1))');
+            Z = 0.5*(Z+squeeze(var(:,:,k+1)));
         end;
 end;
 

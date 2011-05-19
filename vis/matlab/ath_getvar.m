@@ -11,18 +11,22 @@
 %       'M1','M2','M3'  - momentum components
 %       'E'             - total energy
 %       'B1','B2','B3'  - magnetic field components
+%       'Er'            - radiation energy density
+%       'F1','F2','F3'  - radiation energy flux
+%       'Phi'           - self-gravitational potential
 %       'V1','V2','V3'  - velocity components
 %       'M','V'         - momentum/velocity magnitude
 %       'Emag'          - magnetic energy density (pressure)
 %       'Ekin'          - kinetic energy density
 %       'SpecEkin'      - specific kinetic energy density
+%       'RadForce'      - radiation force density magnitude (rho*kappa*F/c)
 %       'Eint'          - internal energy density
 %       'P'             - pressure
 %       'Mach'          - Mach number (V/c_s)
 %       'A2','A3'       - Magnetic vector potential components
 %
 %   AUTHOR:  Aaron Skinner
-%   LAST MODIFIED:  2/1/2010
+%   LAST MODIFIED:  11/17/2010
 function [time,dt,var,status] = ath_getvar(Grid,filename,varname)
 
 status = 0;
@@ -31,7 +35,7 @@ dt = 0.0;
 var = [];
 
 switch(varname)
-    case {'d','M1','M2','M3','E','B1','B2','B3'}
+    case {'d','M1','M2','M3','E','B1','B2','B3','Er','F1','F2','F3','Phi'}
         [time,dt,var,status] = ath_readbin(Grid,filename,varname);
         return;
     case {'V1','V2','V3'}
@@ -44,7 +48,7 @@ switch(varname)
         end;
         tmp = var;
         [time,dt,var,status] = ath_readbin(Grid,filename,'d');
-        var = tmp./d;
+        var = tmp./var;
         return;
     case 'Emag'
         if (Grid.mhd)
@@ -77,13 +81,21 @@ switch(varname)
             tmp = var;
             [time,dt,var,status] = ath_getvar(Grid,filename,'Ekin');
             tmp = tmp - var;
-            [time,dt,var,status] = ath_getvar(Grid,filename,'Emag');
-            tmp = tmp - var;
+            if (Grid.mhd)
+                [time,dt,var,status] = ath_getvar(Grid,filename,'Emag');
+                tmp = tmp - var;
+            end;
             if (strcmp(varname,'P'))
                 tmp = tmp*Grid.gamma_1;
             end;
             var = tmp;
             return;
+        else
+            if (strcmp(varname,'P'))
+                [time,dt,var,status] = ath_readbin(Grid,filename,'d');
+                var = var*(Grid.iso_csound)^2;
+                return;
+            end;
         end;
     case {'M','V'}
         [time,dt,var,status] = ath_getvar(Grid,filename,'Ekin');
@@ -98,8 +110,24 @@ switch(varname)
     case 'Mach'
         if (Grid.adiabatic)
             [time,dt,var,status] = ath_getvar(Grid,filename,'Ekin');
-            tmp = 2.0*var/Grid.gamma_1;
+            tmp = 2.0*var/(Grid.gamma_1+1.0);
             [time,dt,var,status] = ath_getvar(Grid,filename,'P');
+            var = sqrt(tmp./var);
+            return;
+        end;
+    case 'T'
+        if (Grid.adiabatic)
+            [time,dt,var,status] = ath_getvar(Grid,filename,'P');
+            tmp = var;
+            [time,dt,var,status] = ath_getvar(Grid,filename,'d');
+            var = tmp./var;
+            return;
+        end;
+    case 'cs'
+        if (Grid.adiabatic)
+            [time,dt,var,status] = ath_getvar(Grid,filename,'P');
+            tmp = (Grid.gamma_1+1)*var;
+            [time,dt,var,status] = ath_getvar(Grid,filename,'d');
             var = sqrt(tmp./var);
             return;
         end;
@@ -179,6 +207,29 @@ switch(varname)
             
             return;
         end;
+    case {'F','f'}
+        [time,dt,var,status] = ath_readbin(Grid,filename,'F1');
+        tmp = var.^2;
+        [time,dt,var,status] = ath_readbin(Grid,filename,'F2');
+        tmp = tmp + var.^2;
+        [time,dt,var,status] = ath_readbin(Grid,filename,'F3');
+        tmp = sqrt(tmp + var.^2);
+        if (strcmp(varname,'f'))
+            [time,dt,var,status] = ath_readbin(Grid,filename,'Er');
+            eps2 = 0.0000000001;
+            c = 3.0e5
+            var = max(c*var,eps2);
+            tmp = tmp./var;
+%             tmp = tmp.*(tmp<=1.0) + (tmp>1.0);
+        end;
+        var = tmp;
+        return;
+%     case 'RadForce'
+%         [time,dt,var,status] = ath_getvar(Grid,filename,'F');
+%         tmp = var;
+%         [time,dt,var,status] = ath_readbin(Grid,filename,'d');
+%         tmp = var;
+        
 end;
 
 status = -1;
