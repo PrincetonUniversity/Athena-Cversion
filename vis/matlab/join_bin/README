@@ -6,7 +6,8 @@
  *   a memory hog, as it loads all data into memory before writing out the 
  *   joined file.
  *
- * NOTE:  The user *must* specify by hand what the Real data type is!
+ * NOTE:  The user *must* specify by hand what the Real data type is!  Do this
+ *   by modifying the typedef statement in join_bin.c
  *
  * COMPILE USING:  gcc -Wall -W -o join_bin join_bin.c -lm
  *
@@ -44,7 +45,8 @@
  *   number of processors--this is determined automatically.  3) The separate
  *   dump files from each processor reside in subdirectories, but the joined
  *   files are written to the parent directory, which is also where the script
- *   must be executed.  4) A path to the join_bin.c file *must* be specified!
+ *   must be executed.  4) A path to the join_bin.c file *must* be specified
+ *   in the join_bin.sh script!
  *
  * WRITTEN BY: Aaron Skinner, May 2011
  *============================================================================*/

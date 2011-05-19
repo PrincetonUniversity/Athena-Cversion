@@ -1,0 +1,6 @@
+A User's Guide for this MATLAB visualization code is forthcoming.  For now, one
+may type 'help <whatever>.m' (where <whatever> is some file beginning with ath_)
+to see a brief explanation of the purpose and syntax.  NOTE:  Two files contain
+information on the type of the binary data (single or double precision) and 
+currently must be modified by hand.  (The default is type double.  To change to
+type single, modify the variable realtype in ath_init_grid.m and ath_readbin.m)

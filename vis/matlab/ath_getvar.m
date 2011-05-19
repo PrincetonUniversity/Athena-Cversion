@@ -217,7 +217,7 @@ switch(varname)
         if (strcmp(varname,'f'))
             [time,dt,var,status] = ath_readbin(Grid,filename,'Er');
             eps2 = 0.0000000001;
-            c = 3.0e5
+            c = 3.0e5  % FIX THIS!!!
             var = max(c*var,eps2);
             tmp = tmp./var;
 %             tmp = tmp.*(tmp<=1.0) + (tmp>1.0);

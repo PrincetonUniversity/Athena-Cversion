@@ -14,6 +14,6 @@ function [X,Y,Z,status] = ath_slice_ijk(Grid,var,i,j,k)
 
 [x,y,z] = ath_ijk_to_xyz(Grid,i,j,k);
 
-[X,Y,Z,status = ath_slice_xyz(Grid,var,x,y,z);
+[X,Y,Z,status] = ath_slice_xyz(Grid,var,x,y,z);
 
 return;
