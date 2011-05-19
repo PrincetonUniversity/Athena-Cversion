@@ -52,7 +52,7 @@ NGrid_x3        = 1
 gamma           = 1.66666666666667  # gamma = C_p/C_v
 omega0          = 0.78539816339745  # uniform background angular velocity (=2*pi)
 rho0            = 1.0               # uniform background gas density
-bz0             = 0.0               # uniform background B-field strength
+bz0             = 1.0               # uniform background B-field strength
 vz0             = 0.0               # uniform background z-velocity
 Pgas0           = 1.0               # uniform gas pressure
 amp             = 0.1               # amplitude of the pulse
