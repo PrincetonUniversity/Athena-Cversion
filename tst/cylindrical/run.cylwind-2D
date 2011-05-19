@@ -1,5 +1,5 @@
 #! /bin/csh
-# Script for running 3D cylindrical rotating MHD wind tests
+# Script for running 2D cylindrical hydrodynamic wind tests without rotation
 #
 # If logfile=1, it redirects all output to a log file
 #
@@ -12,7 +12,7 @@
 set basedir=~/svnathena_r1317
 set bindir=$basedir/bin
 set inputdir=$basedir/tst/cylindrical
-set outputdir=$basedir/data/3D/cylwindrotb
+set outputdir=$basedir/data/2D/cylwind
 set logfile=0
 
 if (! -d $outputdir) then 
@@ -20,6 +20,6 @@ if (! -d $outputdir) then
 endif
 
 foreach nx1 (64 128 256 512 1024 2048)
-    $bindir/athena -i $inputdir/athinput.cylwindrotb-3D log/file_open=$logfile domain1/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
+    $bindir/athena -i $inputdir/athinput.cylwind-2D log/file_open=$logfile domain1/Nx1=$nx1 job/problem_id=CylWind_$nx1 -d $outputdir
     echo 'Finished '{$nx1}'' problem
 end

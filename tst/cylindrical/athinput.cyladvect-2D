@@ -11,7 +11,7 @@ out_level       = 0                 # sets output level (default=0)
 <job>
 num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylAdvect         # problem ID: basename of output filenames
-maxout          = 2                 # Output blocks number from 1 -> maxout
+maxout          = 1                 # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt         = bin               # Binary data dump
@@ -44,8 +44,8 @@ Nx3             = 1                 # Number of zones in Z-direction
 x3min           = 0.0               # minimum value of Z
 x3max           = 0.0               # maximum value of Z
 
-NGrid_x1        = 2
-NGrid_x2        = 2
+NGrid_x1        = 1
+NGrid_x2        = 1
 NGrid_x3        = 1
 
 <problem>
@@ -55,12 +55,12 @@ rho0            = 1.0               # uniform background gas density
 bz0             = 0.0               # uniform background B-field strength
 vz0             = 0.0               # uniform background z-velocity
 Pgas0           = 1.0               # uniform gas pressure
-amp             = 0.1 #1.0               # amplitude of the pulse
+amp             = 0.1               # amplitude of the pulse
 rad             = 0.1               # size of the pulse
 R0              = 1.5               # (R0,phi0,z0) is the center of the pulse
 phi0            = 0.0               # (R0,phi0,z0) is the center of the pulse
 z0              = 0.0               # (R0,phi0,z0) is the center of the pulse
-iprob           = 3                 # problem number:  1=SQUARE PULSE
+iprob           = 1                 # problem number:  1=SQUARE PULSE
                                     #                  2=SINUSOIDAL IN PHI
                                     #                  3=GAUSSIAN PULSE
 

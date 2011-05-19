@@ -1,7 +1,5 @@
 #! /bin/csh
-# Script for running 2D rotating cylindrical MHD wind tests.
-#
-# It creates a temporary run directory cylwindrotb
+# Script for running 2D cylindrical rotating MHD wind tests
 #
 # If logfile=1, it redirects all output to a log file
 #
@@ -11,20 +9,17 @@
 #
 # It redirects all output to outputdir
 
-set basedir=/n/a2/askinner/svnathena
+set basedir=~/svnathena_r1317
 set bindir=$basedir/bin
 set inputdir=$basedir/tst/cylindrical
-set outputdir=$basedir/bin/cylwindrotb
+set outputdir=$basedir/data/2D/cylwindrotb
 set logfile=0
 
 if (! -d $outputdir) then 
   mkdir $outputdir
 endif
 
-cd $bindir
-
-#foreach nx1 (128 256 512 1024 2048)
-foreach nx1 (32)
-    ./athena -i $inputdir/athinput.cylwindrotb-2D log/file_open=$logfile domain1/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
+foreach nx1 (64 128 256 512 1024 2048)
+    $bindir/athena -i $inputdir/athinput.cylwindrotb-2D log/file_open=$logfile domain1/Nx1=$nx1 job/problem_id=CylWindRotB_$nx1 -d $outputdir
     echo 'Finished '{$nx1}'' problem
 end
