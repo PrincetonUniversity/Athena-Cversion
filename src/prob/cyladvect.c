@@ -230,7 +230,7 @@ void cyladvect_ix1(GridS *pG)
         pG->U[k][j][is-i].M3  = pG->U[k][j][is-i].d*vz0;
 #ifdef MHD
         pG->U[k][j][is-i].B3c = bz0;
-        pG->B3c[k][j][is-i]   = bz0;
+        pG->B3i[k][j][is-i]   = bz0;
 #endif
 
 #ifndef ISOTHERMAL
@@ -274,7 +274,7 @@ void cyladvect_ox1(GridS *pG)
         pG->U[k][j][ie+i].M3  = pG->U[k][j][ie+i].d*vz0;
 #ifdef MHD
         pG->U[k][j][ie+i].B3c = bz0;
-        pG->B3c[k][j][ie+i]   = bz0;
+        pG->B3i[k][j][ie+i]   = bz0;
 #endif
 
 #ifndef ISOTHERMAL
