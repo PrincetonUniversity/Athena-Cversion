@@ -462,7 +462,7 @@ void integrate_2d_vl(DomainS *pD)
       for (i=il; i<=iu; i++) {
         Uhalf[j][i].M1 += pG->dt*Omega_0*pG->U[ks][j][i].M3;
 #ifdef FARGO
-        Uhalf[j][i].M3 += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+        Uhalf[j][i].M3 += 0.5*pG->dt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
 #else
         Uhalf[j][i].M3 -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
 #endif
@@ -475,7 +475,7 @@ void integrate_2d_vl(DomainS *pD)
       for (i=il; i<=iu; i++) {
         Uhalf[j][i].M1 += pG->dt*Omega_0*pG->U[ks][j][i].M2;
 #ifdef FARGO
-        Uhalf[j][i].M2 += hdt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
+        Uhalf[j][i].M2 += 0.5*pG->dt*(qshear-2.)*Omega_0*pG->U[ks][j][i].M1;
 #else
         Uhalf[j][i].M2 -= pG->dt*Omega_0*pG->U[ks][j][i].M1;
 #endif

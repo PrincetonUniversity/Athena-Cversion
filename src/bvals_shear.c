@@ -2720,7 +2720,7 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = (pG->Nx[0]+1)*nghost*(ku-ks+1);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                    rollvar_tag, pD->Comm_Domain, &rq);
+                    remapvar_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ku; k++){
@@ -2735,7 +2735,7 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                   rollvar_tag, pD->Comm_Domain);
+                   remapvar_tag, pD->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -2753,7 +2753,7 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 
 /* Post a non-blocking receive for the input data from the right grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                    rollvar_tag, pD->Comm_Domain, &rq);
+                    remapvar_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ku; k++){
@@ -2768,7 +2768,7 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                   rollvar_tag, pD->Comm_Domain);
+                   remapvar_tag, pD->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
