@@ -2687,7 +2687,6 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
   int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
-  Remap *pRemap;
   Real *pRemapVar;
   MPI_Request rq;
 #endif
@@ -2697,6 +2696,8 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 /*--- Step 1. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y to RemapVar array
  */
+
+  if (pG->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
 
   if (pG->Nx[2] > 1) ku=ke+1; else ku=ke;
 
@@ -2785,6 +2786,7 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
     }
 #endif /* MPI_PARALLEL */
   }
+  }
 
 
 /*--- Step 3. ------------------------------------------------------------------
@@ -2802,11 +2804,10 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 
 /* Compute fluxes of hydro variables  */
       for (j=js-nghost; j<=je+nghost; j++) U[j] = RemapVar[k][i][j];
-        RemapFlux(U,eps,js,je+1,Flx);
 
-      for(j=js; j<=je; j++){
-        RemapVarBuf[k][i][j] = RemapVar[k][i][j] - (Flx[j+1]-Flx[j]);
-      }
+      RemapFlux(U,eps,js,je+1,Flx);
+
+      for(j=js; j<=je; j++) RemapVarBuf[k][i][j] = RemapVar[k][i][j] - (Flx[j+1]-Flx[j]);
     }
   }
 
@@ -2820,7 +2821,6 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
 
   for(k=ks; k<=ku; k++) {
     for(i=is; i<=ie+1; i++){
-      for(j=js; j<=je; j++){
 
 /* Compute integer and fractional peices of a cell covered by shear */
       cc_pos(pG, i, js, ks, &x1,&x2,&x3);
@@ -2828,19 +2828,274 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)
       yshear = -qshear*Omega_0*x1*dt;
       joffset = (int)(yshear/pG->dx2);
 
-      jremap = j - joffset;
-      if (jremap < (int)js) jremap += pG->Nx[1];
-      if (jremap > (int)je) jremap -= pG->Nx[1];
-
-      RemapVar[k][i][j]  = RemapVarBuf[k][i][jremap];
-
+      for(j=js; j<=je; j++){
+ 
+        jremap = j - joffset;
+        if (jremap < (int)js) jremap += pG->Nx[1];
+        if (jremap > (int)je) jremap -= pG->Nx[1];
+ 
+        RemapVar[k][i][j]  = RemapVarBuf[k][i][jremap];
       }
     }
   }
 
 #ifdef MPI_PARALLEL
   } else {
-// need work
+/* need work
+ * If Domain contains MPI decomposition in Y, then MPI calls are required for
+ * the cyclic shift needed to apply shift over integer number of grid cells
+ * during copy from buffer back into GhstZns.  */
+  get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
+  for(i=is; i<=ie+1; i++){
+
+/* Compute integer and fractional peices of a cell covered by shear */
+    cc_pos(pG, i, js, ks, &x1,&x2,&x3);
+/* Find the nearest periodic point */
+    yshear = -qshear*Omega_0*x1*dt;
+    joffset = (int)(yshear/pG->dx2);
+
+    if(joffset > 0){
+/* Find integer and fractional number of grids over which offset extends.
+ * This assumes every grid has same number of cells in x2-direction! */
+    Ngrids = (int)(joffset/pG->Nx[1]);
+    joverlap = joffset - Ngrids*pG->Nx[1];
+
+/*--- Step 5a. -----------------------------------------------------------------
+ * Find ids of processors that data in [je-(joverlap-1):je] is sent to, and
+ * data in [js:js+(joverlap-1)] is received from.  Only execute if joverlap>0 */
+/* This can result in send/receive to self -- we rely on MPI to handle this
+ * properly */
+
+    if (joverlap != 0) {
+      jproc = my_jproc + (Ngrids + 1);
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1]; 
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc - (Ngrids + 1);
+      if (jproc < 0) jproc += pD->NGrid[1]; 
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+/*--- Step 5b. -----------------------------------------------------------------
+ * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
+
+      cnt = joverlap*(ku-ks+1);
+/* Post a non-blocking receive for the input data */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                       remapvar_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=je-(joverlap-1); j<=je; j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVarBuf[k][i][j]);
+          *(pSnd++) = *pRemapVar;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapvar_tag, pD->Comm_Domain);
+
+/*--- Step 5c. -----------------------------------------------------------------
+ * unpack data sent from [je-(joverlap-1):je], and remap into cells in
+ * [js:js+(joverlap-1)] in GhstZns */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=js+(joverlap-1); j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *pRemapVar = *(pRcv++);
+        }
+      }
+    }
+
+/*--- Step 5d. -----------------------------------------------------------------
+ * If shear is less one full Grid, remap cells which remain on same processor
+ * from GhstZnsBuf into GhstZns.  Cells in [js:je-joverlap] are shifted by
+ * joverlap into [js+joverlap:je] */
+
+    if (Ngrids == 0) {
+
+      for(k=ks; k<=ku; k++) {
+        for(j=js+joverlap; j<=je; j++){
+          jremap = j-joverlap;
+          RemapVar[k][i][j]  = RemapVarBuf[k][i][jremap];
+        }
+      }
+
+/*--- Step 5e. -----------------------------------------------------------------
+ * If shear is more than one Grid, pack and send data from [js:je-joverlap]
+ * from GhstZnsBuf (this step replaces 5d) */
+
+    } else {
+
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
+
+      jproc = my_jproc + Ngrids;
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc - Ngrids;
+      if (jproc < 0) jproc += pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      cnt = (pG->Nx[1]-joverlap)*(ku-ks+1);
+/* Post a non-blocking receive for the input data from the left grid */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                       remapvar_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=je-joverlap; j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVarBuf[k][i][j]);
+          *(pSnd++) = *pRemapVar;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                      remapvar_tag, pD->Comm_Domain);
+
+/* unpack data sent from [js:je-overlap], and remap into cells in
+ * [js+joverlap:je] in GhstZns */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js+joverlap; j<=je; j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *pRemapVar = *(pRcv++);
+        }
+      }
+    } /* end of step 5e - shear is more than one Grid */
+    } else { /* end of joffset > 0 */
+/* Find integer and fractional number of grids over which offset extends.
+ * This assumes every grid has same number of cells in x2-direction! */
+    joffset *= -1;
+
+    Ngrids = (int)(joffset/pG->Nx[1]);
+    joverlap = joffset - Ngrids*pG->Nx[1];
+
+/*--- Step 5a. -----------------------------------------------------------------
+ * Find ids of processors that data in [js:js+(joverlap-1)] is sent to, and
+ * data in [je-(overlap-1):je] is received from.  Only execute if joverlap>0  */
+/* This can result in send/receive to self -- we rely on MPI to handle this
+ * properly */
+
+    if (joverlap != 0) {
+
+      jproc = my_jproc - (Ngrids + 1);
+      if (jproc < 0) jproc += pD->NGrid[1]; 
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc + (Ngrids + 1);
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1]; 
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+/*--- Step 5b. -----------------------------------------------------------------
+ * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
+
+      cnt = joverlap*(ku-ks+1);
+/* Post a non-blocking receive for the input data */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      remapvar_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=js+(joverlap-1); j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVarBuf[k][i][j]);
+          *(pSnd++) = *pRemapVar;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapvar_tag, pD->Comm_Domain);
+
+
+/*--- Step 5c. -----------------------------------------------------------------
+ * unpack data sent from [js:js+(joverlap-1)], and remap into cells in
+ * [je-(joverlap-1):je] in GhstZns
+ */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=je-(joverlap-1); j<=je; j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *pRemapVar = *(pRcv++);
+        }
+      }
+
+    }
+
+/*--- Step 5d. -----------------------------------------------------------------
+ * If shear is less one full Grid, remap cells which remain on same processor
+ * from GhstZnsBuf into GhstZns.  Cells in [js+joverlap:je] are shifted by
+ * joverlap into [js:je-joverlap] */
+
+    if (Ngrids == 0) {
+
+      for(k=ks; k<=ku; k++) {
+        for(j=js; j<=je-joverlap; j++){
+          jremap = j+joverlap;
+          RemapVar[k][i][j]  = RemapVarBuf[k][i][jremap];
+        }
+      }
+
+/*--- Step 5e. -----------------------------------------------------------------
+ * If shear is more than one Grid, pack and send data from [js+joverlap:je]
+ * from GhstZnsBuf (this step replaces 5d) */
+
+    } else {
+
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
+
+      jproc = my_jproc - Ngrids;
+      if (jproc < 0) jproc += pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc + Ngrids;
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      cnt = (pG->Nx[1]-joverlap)*(ku-ks+1);
+/* Post a non-blocking receive for the input data from the left grid */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      remapvar_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js+joverlap; j<=je; j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVarBuf[k][i][j]);
+          *(pSnd++) = *pRemapVar;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapvar_tag, pD->Comm_Domain);
+
+/* unpack data sent from [js+joverlap:je], and remap into cells in
+ * [js:je-joverlap] in GhstZns */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++) {
+        for (j=js; j<=je-joverlap; j++) {
+          /* Get a pointer to the Remap structure */
+          pRemapVar = &(RemapVar[k][i][j]);
+          *pRemapVar = *(pRcv++);
+        }
+      }
+    } /* end of step 5e - shear is more than one Grid */
+    }/* end of joffset <= 0 */
+  } /* end of loop i */
+
 #endif /* MPI_PARALLEL */
   } /* end of step 5 - MPI decomposition in Y */
 
