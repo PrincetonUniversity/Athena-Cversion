@@ -259,6 +259,15 @@ void init_grid(MeshS *pM)
       if(myN <(pD->NGrid[2])-1)
         pG->rx3_id = pD->GData[myN+1][myM][myL].ID_Comm_Domain;
       else pG->rx3_id = -1;
+
+#ifdef SELF_GRAVITY
+      pG->lx1_Gid=pG->lx1_id;
+      pG->rx1_Gid=pG->rx1_id;
+      pG->lx2_Gid=pG->lx2_id;
+      pG->rx2_Gid=pG->rx2_id;
+      pG->lx3_Gid=pG->lx3_id;
+      pG->rx3_Gid=pG->rx3_id;
+#endif
    
 #ifdef STATIC_MESH_REFINEMENT
 /*---------------------- Initialize variables for SMR ------------------------*/
