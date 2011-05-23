@@ -108,21 +108,21 @@ void bvals_grav(DomainS *pD)
     cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2]);
 
 /* MPI blocks to both left and right */
-    if (pGrid->rx1_id >= 0 && pGrid->lx1_id >= 0) {
+    if (pGrid->rx1_Gid >= 0 && pGrid->lx1_Gid >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, LtoR_tag,
+      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, RtoL_tag,
+      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_Phi_ix1(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, RtoL_tag,
+      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_Phi_ox1(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, LtoR_tag,
+      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
@@ -139,15 +139,15 @@ void bvals_grav(DomainS *pD)
     }
 
 /* Physical boundary on left, MPI block on right */
-    if (pGrid->rx1_id >= 0 && pGrid->lx1_id < 0) {
+    if (pGrid->rx1_Gid >= 0 && pGrid->lx1_Gid < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, RtoL_tag,
+      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_Phi_ox1(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_id, LtoR_tag,
+      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
@@ -163,15 +163,15 @@ void bvals_grav(DomainS *pD)
     }
 
 /* MPI block on left, Physical boundary on right */
-    if (pGrid->rx1_id < 0 && pGrid->lx1_id >= 0) {
+    if (pGrid->rx1_Gid < 0 && pGrid->lx1_Gid >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, LtoR_tag,
+      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_Phi_ix1(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_id, RtoL_tag,
+      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
@@ -188,7 +188,7 @@ void bvals_grav(DomainS *pD)
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
-    if (pGrid->rx1_id < 0 && pGrid->lx1_id < 0) {
+    if (pGrid->rx1_Gid < 0 && pGrid->lx1_Gid < 0) {
       (*(pD->ix1_GBCFun))(pGrid);
       (*(pD->ox1_GBCFun))(pGrid);
     }
@@ -205,21 +205,21 @@ void bvals_grav(DomainS *pD)
     cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2]);
 
 /* MPI blocks to both left and right */
-    if (pGrid->rx2_id >= 0 && pGrid->lx2_id >= 0) {
+    if (pGrid->rx2_Gid >= 0 && pGrid->lx2_Gid >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, LtoR_tag,
+      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, RtoL_tag,
+      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_Phi_ix2(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, RtoL_tag,
+      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_Phi_ox2(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, LtoR_tag,
+      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
@@ -236,15 +236,15 @@ void bvals_grav(DomainS *pD)
     }
 
 /* Physical boundary on left, MPI block on right */
-    if (pGrid->rx2_id >= 0 && pGrid->lx2_id < 0) {
+    if (pGrid->rx2_Gid >= 0 && pGrid->lx2_Gid < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, RtoL_tag,
+      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_Phi_ox2(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_id, LtoR_tag,
+      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
@@ -260,15 +260,15 @@ void bvals_grav(DomainS *pD)
     }
 
 /* MPI block on left, Physical boundary on right */
-    if (pGrid->rx2_id < 0 && pGrid->lx2_id >= 0) {
+    if (pGrid->rx2_Gid < 0 && pGrid->lx2_Gid >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, LtoR_tag,
+      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_Phi_ix2(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_id, RtoL_tag,
+      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
@@ -285,7 +285,7 @@ void bvals_grav(DomainS *pD)
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
-    if (pGrid->rx2_id < 0 && pGrid->lx2_id < 0) {
+    if (pGrid->rx2_Gid < 0 && pGrid->lx2_Gid < 0) {
       (*(pD->ix2_GBCFun))(pGrid);
       (*(pD->ox2_GBCFun))(pGrid);
     }
@@ -313,21 +313,21 @@ void bvals_grav(DomainS *pD)
     cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost;
 
 /* MPI blocks to both left and right */
-    if (pGrid->rx3_id >= 0 && pGrid->lx3_id >= 0) {
+    if (pGrid->rx3_Gid >= 0 && pGrid->lx3_Gid >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, LtoR_tag,
+      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, RtoL_tag,
+      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_Phi_ix3(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, RtoL_tag,
+      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_Phi_ox3(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, LtoR_tag,
+      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
@@ -344,15 +344,15 @@ void bvals_grav(DomainS *pD)
     }
 
 /* Physical boundary on left, MPI block on right */
-    if (pGrid->rx3_id >= 0 && pGrid->lx3_id < 0) {
+    if (pGrid->rx3_Gid >= 0 && pGrid->lx3_Gid < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, RtoL_tag,
+      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_Phi_ox3(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_id, LtoR_tag,
+      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
@@ -368,15 +368,15 @@ void bvals_grav(DomainS *pD)
     }
 
 /* MPI block on left, Physical boundary on right */
-    if (pGrid->rx3_id < 0 && pGrid->lx3_id >= 0) {
+    if (pGrid->rx3_Gid < 0 && pGrid->lx3_Gid >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, LtoR_tag,
+      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_Phi_ix3(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_id, RtoL_tag,
+      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
@@ -392,7 +392,7 @@ void bvals_grav(DomainS *pD)
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
-    if (pGrid->rx3_id < 0 && pGrid->lx3_id < 0) {
+    if (pGrid->rx3_Gid < 0 && pGrid->lx3_Gid < 0) {
       (*(pD->ix3_GBCFun))(pGrid);
       (*(pD->ox3_GBCFun))(pGrid);
     }
@@ -459,8 +459,8 @@ void bvals_grav_init(MeshS *pM)
           case 4: /* Periodic */
             pD->ix1_GBCFun = periodic_Phi_ix1;
 #ifdef MPI_PARALLEL
-            if(pG->lx1_id < 0 && pD->NGrid[0] > 1){
-              pG->lx1_id = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
+            if(pG->lx1_Gid < 0 && pD->NGrid[0] > 1){
+              pG->lx1_Gid = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
 	    }
 #endif /* MPI_PARALLEL */
           break;
@@ -499,8 +499,8 @@ void bvals_grav_init(MeshS *pM)
           case 4: /* Periodic */
             pD->ox1_GBCFun = periodic_Phi_ox1;
 #ifdef MPI_PARALLEL
-            if(pG->rx1_id < 0 && pD->NGrid[0] > 1){
-              pG->rx1_id = pD->GData[myN][myM][0].ID_Comm_Domain;
+            if(pG->rx1_Gid < 0 && pD->NGrid[0] > 1){
+              pG->rx1_Gid = pD->GData[myN][myM][0].ID_Comm_Domain;
             }
 #endif /* MPI_PARALLEL */
           break;
@@ -544,8 +544,8 @@ void bvals_grav_init(MeshS *pM)
           case 4: /* Periodic */
             pD->ix2_GBCFun = periodic_Phi_ix2;
 #ifdef MPI_PARALLEL
-            if(pG->lx2_id < 0 && pD->NGrid[1] > 1){
-              pG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
+            if(pG->lx2_Gid < 0 && pD->NGrid[1] > 1){
+              pG->lx2_Gid = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
             }
 #endif /* MPI_PARALLEL */
           break;
@@ -584,8 +584,8 @@ void bvals_grav_init(MeshS *pM)
           case 4: /* Periodic */
             pD->ox2_GBCFun = periodic_Phi_ox2;
 #ifdef MPI_PARALLEL
-            if(pG->rx2_id < 0 && pD->NGrid[1] > 1){
-              pG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
+            if(pG->rx2_Gid < 0 && pD->NGrid[1] > 1){
+              pG->rx2_Gid = pD->GData[myN][0][myL].ID_Comm_Domain;
             }
 #endif /* MPI_PARALLEL */
           break;
@@ -629,8 +629,8 @@ void bvals_grav_init(MeshS *pM)
           case 4: /* Periodic */
             pD->ix3_GBCFun = periodic_Phi_ix3;
 #ifdef MPI_PARALLEL
-            if(pG->lx3_id < 0 && pD->NGrid[2] > 1){
-              pG->lx3_id = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
+            if(pG->lx3_Gid < 0 && pD->NGrid[2] > 1){
+              pG->lx3_Gid = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
             }
 #endif /* MPI_PARALLEL */
           break;
@@ -669,8 +669,8 @@ void bvals_grav_init(MeshS *pM)
           case 4: /* Periodic */
             pD->ox3_GBCFun = periodic_Phi_ox3;
 #ifdef MPI_PARALLEL
-            if(pG->rx3_id < 0 && pD->NGrid[2] > 1){
-              pG->rx3_id = pD->GData[0][myM][myL].ID_Comm_Domain;
+            if(pG->rx3_Gid < 0 && pD->NGrid[2] > 1){
+              pG->rx3_Gid = pD->GData[0][myM][myL].ID_Comm_Domain;
             }
 #endif /* MPI_PARALLEL */
           break;
@@ -1211,7 +1211,7 @@ static void pack_Phi_ix3(GridS *pG)
 
 /* send contents of buffer to the neighboring grid on L-x3 */
 /*
-  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_id,
+  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_Gid,
 		  boundary_cells_tag, MPI_COMM_WORLD);
 */
   return;

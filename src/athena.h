@@ -286,6 +286,12 @@ typedef struct Grid_s{
   int rx2_id, lx2_id;  /*!< ID of Grid to R/L in x2-dir (default=-1; no Grid) */
   int rx3_id, lx3_id;  /*!< ID of Grid to R/L in x3-dir (default=-1; no Grid) */
 
+#ifdef SELF_GRAVITY
+  int rx1_Gid, lx1_Gid;  /*!< ID of Grid to R/L in x1-dir (default=-1; no Grid) */
+  int rx2_Gid, lx2_Gid;  /*!< ID of Grid to R/L in x2-dir (default=-1; no Grid) */
+  int rx3_Gid, lx3_Gid;  /*!< ID of Grid to R/L in x3-dir (default=-1; no Grid) */
+#endif
+
 #ifdef PARTICLES
   long nparticle;            /*!< number of particles */
   long arrsize;              /*!< size of the particle array */
