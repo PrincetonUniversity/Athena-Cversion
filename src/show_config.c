@@ -215,6 +215,8 @@ void show_config_par(void)
   par_sets("configure","self-gravity","FFT","Self-gravity algorithm");
 #elif defined(SELF_GRAVITY_USING_FFT_OBC)
   par_sets("configure","self-gravity","FFT_OBC","Self-gravity algorithm");
+#elif defined(SELF_GRAVITY_USING_FFT_DISK)
+  par_sets("configure","self-gravity","FFT_DISK","Self-gravity algorithm");
 #else
   par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
 #endif
