@@ -49,6 +49,8 @@ void show_config(void)
   ath_pout(0," Self-gravity:            using FFTs\n");
 #elif defined(SELF_GRAVITY_USING_FFT_OBC)
   ath_pout(0," Self-gravity:            using FFT_OBC\n");
+#elif defined(SELF_GRAVITY_USING_FFT_DISK)
+  ath_pout(0," Self-gravity:            using FFT_DISK\n");
 #else
   ath_pout(0," Self-gravity:            OFF\n");
 #endif
