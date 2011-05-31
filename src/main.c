@@ -561,6 +561,7 @@ int main(int argc, char *argv[])
  */
 
 #ifdef RADIATION_TRANSFER
+#ifndef VL_INTEGRATOR
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
@@ -577,7 +578,9 @@ int main(int argc, char *argv[])
 	 Mesh.dt = MIN(Mesh.dt, dt_rad);
 	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
 /* operator split update of total energy equation */
+
 	 rad_to_hydro(&(Mesh.Domain[nl][nd]));
+#endif
 #endif
 /* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
 */

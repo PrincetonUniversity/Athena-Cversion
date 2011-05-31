@@ -299,29 +299,32 @@ typedef struct Rad_s {
 
 typedef struct RadGrid_s {
 
-  int nmu;          /* # of polar angles/quadrant */
+  int nmu;           /* # of polar angles/quadrant */
   int noct;          /* # of octants in use: 2, 4, or 8 */
   int nang;          /* # of angles/octant (nang = nmuv*(nmuv+1)/2)*/
   int nf;            /* # of frequencies */
 
-  Real ***mu;       /* direction cosine relative to x1, x2, x3 axis */
+  Real ***mu;        /* direction cosine relative to x1, x2, x3 axis */
   Real *wmu;         /* weights for angular quad. */
+
+  Real *nu;          /* array of frequencies */
+  Real *wnu;         /* weights for freq. quad. */
 
   RadS ****R;        /* array of radiation variables */
 
   Real *****r1imu;   /* intensity on R side in x1-dir  */
   Real *****l1imu;   /* intensity on L side in x1-dir  */
-  Real *****r2imu;  /* intensity on R side in x2-dir  */
-  Real *****l2imu;  /* intensity on L side in x2-dir  */
+  Real *****r2imu;   /* intensity on R side in x2-dir  */
+  Real *****l2imu;   /* intensity on L side in x2-dir  */
   Real *****r3imu;   /* intensity on R side in x3-dir  */
   Real *****l3imu;   /* intensity on L side in x3-dir  */
 
   Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
-  Real dx1,dx2,dx3;        /* cell size on this Grid */
-  int is,ie;		   /* start/end cell index in x1 direction */
-  int js,je;		   /* start/end cell index in x2 direction */
-  int ks,ke;		   /* start/end cell index in x3 direction */
+  Real dx1,dx2,dx3;     /* cell size on this Grid */
+  int is,ie;		/* start/end cell index in x1 direction */
+  int js,je;		/* start/end cell index in x2 direction */
+  int ks,ke;		/* start/end cell index in x3 direction */
   int Nx[3];       /* # of zones in each dir on Grid [0,1,2]=[x1,x2,x3] */
   int Disp[3];     /* i,j,k displacements of Grid from origin [0,1,2]=[i,j,k] */
 
@@ -338,7 +341,7 @@ typedef struct RadGrid_s {
 
 } RadGridS;
 
-typedef void (*VRGIFun_t)(RadGridS *pRG, int sflag);    /* generic void function of RadGrid */
+typedef void (*VRGIFun_t)(RadGridS *pRG, int sflag);    /* void function of RadGrid, int */
 
 #endif /* RADIATION_TRANSFER */
 

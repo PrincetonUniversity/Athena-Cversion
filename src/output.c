@@ -401,8 +401,24 @@ Now use the default one.\n");
       new_out.out_fun = dump_ix1_vtk;
       goto add_it;
     }
+    if (strcmp(new_out.out,"ox1") == 0){
+      new_out.out_fun = dump_ox1_vtk;
+      goto add_it;
+    }
     if (strcmp(new_out.out,"ix2") == 0){
       new_out.out_fun = dump_ix2_vtk;
+      goto add_it;
+    }
+    if (strcmp(new_out.out,"ox2") == 0){
+      new_out.out_fun = dump_ox2_vtk;
+      goto add_it;
+    }
+    if (strcmp(new_out.out,"ix3") == 0){
+      new_out.out_fun = dump_ix3_vtk;
+      goto add_it;
+    }
+    if (strcmp(new_out.out,"ox3") == 0){
+      new_out.out_fun = dump_ox3_vtk;
       goto add_it;
     }
 #endif

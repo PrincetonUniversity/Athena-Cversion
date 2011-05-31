@@ -215,7 +215,7 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
       dtaum *= dx * muinv[m][0]; 
       dtaup *= dx * muinv[m][0]; 
     }
-    interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+    interp_quad_source_slope_lim((dtaum, dtaup, &edtau, &a0, &a1, &a2,
     S0, pRG->R[k][j][i][ifr].S, S2);
 
     imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2;

@@ -36,7 +36,11 @@ void bvals_rad_init(MeshS *pM);
 
 /* dump_intensity_vtk.c */
 void dump_ix1_vtk(MeshS *pM, OutputS *pOut);
+void dump_ox1_vtk(MeshS *pM, OutputS *pOut);
 void dump_ix2_vtk(MeshS *pM, OutputS *pOut);
+void dump_ox2_vtk(MeshS *pM, OutputS *pOut);
+void dump_ix3_vtk(MeshS *pM, OutputS *pOut);
+void dump_ox3_vtk(MeshS *pM, OutputS *pOut);
 
 /* formal_solution.c */
 void formal_solution(DomainS *pD);
@@ -48,7 +52,8 @@ void output_mean_intensity_2d(RadGridS *pRG, int itr);
 void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi);
 void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
 			Real *a1, Real *a2, Real S0, Real S1, Real S2);
-
+void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
+				  Real *a1, Real *a2, Real S0, Real S1, Real S2);
 void get_weights_parabolic(Real dtaum, Real dtaup, Real *edtau,
                            Real *a0, Real *a1, Real *a2);
 

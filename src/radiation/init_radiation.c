@@ -47,6 +47,8 @@ void init_radiation(MeshS *pM)
 
 /* initialize radiative transfer control paramters */
   lte = par_geti("radiation","lte");
+  niter = par_geti("radiation","niter");
+  dScnv = par_getd("radiation","dScnv");
 /* number of dimensions in Grid. */
   nDim=1;
   for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;
@@ -375,6 +377,14 @@ void init_radiation(MeshS *pM)
 	pRG->l3imu = NULL;	
       }
 
+/* Allocate memory for frequency and quadrature arrays */ 
+      pRG->nu = (Real *)calloc_1d_array(pRG->nf,sizeof(Real));
+      if (pRG->nu == NULL) goto on_error21;
+
+      pRG->wnu = (Real *)calloc_1d_array(pRG->nf,sizeof(Real));
+      if (pRG->wnu == NULL) goto on_error22;
+/* initialize wnu to unity if nf=1 */
+      if (pRG->nf == 1) pRG->wnu[0] = 1.0;
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
@@ -424,7 +434,11 @@ void init_radiation(MeshS *pM)
   return;
 
 /*--- Error messages ---------------------------------------------------------*/
-
+ 
+ on_error22:
+  free_1d_array(pRG->wnu);  
+ on_error21:
+  free_1d_array(pRG->nu);
  on_error20:
   if (pRG->Nx[2] > 1) free_5d_array(pRG->l3imu);
  on_error19:

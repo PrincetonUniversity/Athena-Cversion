@@ -473,6 +473,40 @@ static void read_write_vector(FILE *fp_out){
 /* ========================================================================== */
 
 
+static void read_write_tensor(FILE *fp_out){
+
+  FILE *fp;
+  int i, j, k, ig, jg, kg, nread;
+  float ftens[9];
+
+
+  for(kg=0; kg<NGrid_z; kg++){
+    for(k=0; k<domain_3d[kg][0][0].Nz; k++){
+      for(jg=0; jg<NGrid_y; jg++){
+	for(j=0; j<domain_3d[0][jg][0].Ny; j++){
+	  for(ig=0; ig<NGrid_x; ig++){
+	    for(i=0; i<domain_3d[0][0][ig].Nx; i++){
+
+	      fp = domain_3d[kg][jg][ig].fp;
+
+	      if((nread = fread(ftens, sizeof(float), 9, fp)) != 9)
+		join_error("read_write_tensor error\n");
+
+	      fwrite(ftens, sizeof(float), 9, fp_out);
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  return;
+}
+
+
+/* ========================================================================== */
+
+
 static void write_joined_vtk(const char *out_name){
   FILE *fp_out;
   int nxt, nyt, nzt; /* Total number of grid cells in each dir. */
@@ -599,6 +633,9 @@ static void write_joined_vtk(const char *out_name){
     }
     else if(strcmp(type, "VECTORS") == 0){
       read_write_vector(fp_out);
+    }
+   else if(strcmp(type, "TENSORS") == 0){
+      read_write_tensor(fp_out);
     }
     else
       join_error("Input type = \"%s\"\n",type);

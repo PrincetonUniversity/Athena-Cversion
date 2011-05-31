@@ -40,6 +40,10 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
   RadGridS *pRG;
   int ifr,nf;
   int irl,iru,jrl,jru,krl,kru;
+#ifdef WRITE_GHOST_CELLS
+  int inkloop, injloop, iniloop;
+  int ir,jr,kr;
+#endif
 #endif
 #if (NSCALARS > 0)
   int n;
@@ -87,6 +91,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
         ndata1 = ju-jl+1;
         ndata2 = ku-kl+1;
 
+
 /* calculate primitive variables, if needed */
 
         if(strcmp(pOut->out,"prim") == 0) {
@@ -121,7 +126,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 /* Allocate memory for temporary array of floats */
 
-        if((data = (float *)malloc(9*ndata0*sizeof(float))) == NULL){
+        if((data = (float *)malloc(20*ndata0*sizeof(float))) == NULL){
           ath_error("[dump_vtk]: malloc failed for temporary array\n");
           return;
         }
@@ -359,81 +364,175 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 
 #ifdef RADIATION_TRANSFER
-#ifndef WRITE_GHOST_CELLS
-/* Write mean intensities for each frequency */
-	fprintf(pfile,"\nSCALARS mean_intensity float\n");
+#ifdef WRITE_GHOST_CELLS
+/* Grid has more ghost cells than RadGrid so these need to be accounted for */ 
+	irl=il+nghost-1;
+	iru=iu-nghost+1;
+	jrl=jl;
+	jru=ju;
+	krl=kl;
+	kru=ku;
+	if(pGrid->Nx[1] > 1) {
+	  jrl += nghost-1;
+	  jru -= nghost-1;
+	}
+	if(pGrid->Nx[2] > 1) {
+	  krl += nghost-1;
+	  kru -= nghost-1;
+	}
+/* Write frequency integrated moments of the intensities */
+/* Write 0th moment integrated over frequency */
+	fprintf(pfile,"\nSCALARS rad_J float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=kl; k<=ku; k++) {
+	  inkloop = (k >= krl) && (k <= kru);
+	  kr = k - krl;
+	  for (j=jl; j<=ju; j++) {
+	    injloop = (j >= jrl) && (j <= jru);
+	    jr = j - jrl;
+	    for (i=il; i<=iu; i++) {
+	      iniloop = (i >= irl) && (i <= iru);
+	      ir = i - irl;
+	      data[i-il] = 0.0;
+	      if(inkloop && injloop && iniloop) {
+		for (ifr=0; ifr<nf; ifr++) {
+		  data[i-il] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].J);
+		}
+	      }
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
+/* Write components of 1st moment integrated over frequency */
+	fprintf(pfile,"\nVECTORS rad_H float\n");
+	for (k=kl; k<=ku; k++) {
+	  inkloop = (k >= krl) && (k <= kru);
+	  kr = k - krl;
+	  for (j=jl; j<=ju; j++) {
+	    injloop = (j >= jrl) && (j <= jru);
+	    jr = j - jrl;
+	    for (i=il; i<=iu; i++) {
+	      iniloop = (i >= irl) && (i <= iru);
+	      ir = i - irl;
+	      data[3*(i-il)  ] = 0.0;
+	      data[3*(i-il)+1] = 0.0;
+	      data[3*(i-il)+2] = 0.0;
+	      if(inkloop && injloop && iniloop) {
+		for (ifr=0; ifr<nf; ifr++) {		
+		  data[3*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].H[0]);
+		  data[3*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].H[1]);
+		  data[3*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].H[2]);
+		}
+	      }
+	    }
+	    if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
+	    fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+	  }
+	}
+/* Write components of 2nd moment integrated over frequency */
+	fprintf(pfile,"\nTENSORS rad_K float\n");
+	for (k=kl; k<=ku; k++) {
+	  inkloop = (k >= krl) && (k <= kru);
+	  kr = k - krl;
+	  for (j=jl; j<=ju; j++) {
+	    injloop = (j >= jrl) && (j <= jru);
+	    jr = j - jrl;
+	    for (i=il; i<=iu; i++) {
+	      iniloop = (i >= irl) && (i <= iru);
+	      ir = i - irl;
+	      data[9*(i-il)  ] = 0.0;
+	      data[9*(i-il)+1] = 0.0;
+	      data[9*(i-il)+2] = 0.0;
+	      data[9*(i-il)+3] = 0.0;
+	      data[9*(i-il)+4] = 0.0;
+	      data[9*(i-il)+5] = 0.0;
+	      data[9*(i-il)+6] = 0.0;
+	      data[9*(i-il)+7] = 0.0;
+	      data[9*(i-il)+8] = 0.0;
+	      if(inkloop && injloop && iniloop) {
+		for (ifr=0; ifr<nf; ifr++) {
+		  data[9*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[0]);
+		  data[9*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[1]);
+		  data[9*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[3]);
+		  data[9*(i-il)+3] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[1]);
+		  data[9*(i-il)+4] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[2]);
+		  data[9*(i-il)+5] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[4]);
+		  data[9*(i-il)+6] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[3]);
+		  data[9*(i-il)+7] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[4]);
+		  data[9*(i-il)+8] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[5]);
+		}
+	      }
+	    }
+	    if(!big_end) ath_bswap(data,sizeof(float),9*(iu-il+1));
+	    fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
+	  }
+	}
+#else
+/* Write frequency integrated moments of the intensities */
+/* Write 0th moment integrated over frequency */
+	fprintf(pfile,"\nSCALARS rad_J float\n");
         fprintf(pfile,"LOOKUP_TABLE default\n");
 	for (k=krl; k<=kru; k++) {
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].J;
-	      /*for (ifr=0; ifr<nf; ifr++) {
-	       *data[nf*(i-irl)+ifr] = (float)pRG->R[k][j][i][ifr].J;
-	      *}
-		*/
+	      data[i-irl] = 0.0;
+	      for (ifr=0; ifr<nf; ifr++) {
+		data[i-irl] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].J);
+	      }
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
             fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 	  }
 	}
-/* Write components of 1st moment for each frequency */
-	fprintf(pfile,"\nSCALARS first_mom_0 float\n");
-        fprintf(pfile,"LOOKUP_TABLE default\n");
+/* Write components of 1st moment integrated over frequency */
+	fprintf(pfile,"\nVECTORS rad_H float\n");
 	for (k=krl; k<=kru; k++) {
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].H[0];
+	      data[3*(i-irl)  ] = 0.0;
+	      data[3*(i-irl)+1] = 0.0;
+	      data[3*(i-irl)+2] = 0.0;
+	      for (ifr=0; ifr<nf; ifr++) {		
+		data[3*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].H[0]);
+		data[3*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].H[1]);
+		data[3*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].H[2]);
+	      }
 	    }
-            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
-            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	    if(!big_end) ath_bswap(data,sizeof(float),3*(iru-irl+1));
+	    fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
 	  }
 	}
-/* Write components of 2nd moment for each frequency */
-	fprintf(pfile,"\nSCALARS second_mom_00 float\n");
-        fprintf(pfile,"LOOKUP_TABLE default\n");
+/* Write components of 2nd moment integrated over frequency */
+	fprintf(pfile,"\nTENSORS rad_K float\n");
 	for (k=krl; k<=kru; k++) {
 	  for (j=jrl; j<=jru; j++) {
 	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].K[0];
+	      data[9*(i-irl)  ] = 0.0;
+	      data[9*(i-irl)+1] = 0.0;
+	      data[9*(i-irl)+2] = 0.0;
+	      data[9*(i-irl)+3] = 0.0;
+	      data[9*(i-irl)+4] = 0.0;
+	      data[9*(i-irl)+5] = 0.0;
+	      data[9*(i-irl)+6] = 0.0;
+	      data[9*(i-irl)+7] = 0.0;
+	      data[9*(i-irl)+8] = 0.0;
+	      for (ifr=0; ifr<nf; ifr++) {
+		data[9*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[0]);
+		data[9*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[1]);
+		data[9*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[3]);
+		data[9*(i-irl)+3] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[1]);
+		data[9*(i-irl)+4] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[2]);
+		data[9*(i-irl)+5] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[4]);
+		data[9*(i-irl)+6] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[3]);
+		data[9*(i-irl)+7] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[4]);
+		data[9*(i-irl)+8] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[5]);
+	      }
 	    }
-            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
-            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	    if(!big_end) ath_bswap(data,sizeof(float),9*(iru-irl+1));
+	    fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
 	  }
 	}
-	fprintf(pfile,"\nSCALARS second_mom_01 float\n");
-        fprintf(pfile,"LOOKUP_TABLE default\n");
-	for (k=krl; k<=kru; k++) {
-	  for (j=jrl; j<=jru; j++) {
-	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].K[1];
-	    }
-            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
-            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
-	  }
-	}
-	fprintf(pfile,"\nSCALARS second_mom_11 float\n");
-        fprintf(pfile,"LOOKUP_TABLE default\n");
-	for (k=krl; k<=kru; k++) {
-	  for (j=jrl; j<=jru; j++) {
-	    for (i=irl; i<=iru; i++) {
-	      data[i-irl] = (float)pRG->R[k][j][i][0].K[2];
-	    }
-            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
-            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
-	  }
-	}
-	fprintf(pfile,"\nVECTORS first_moment float\n");
-	for (k=krl; k<=kru; k++) {
-	  for (j=jrl; j<=jru; j++) {
-	    for (i=irl; i<=iru; i++) {
-              data[3*(i-irl)  ] = (float)pRG->R[k][j][i][0].H[0];
-              data[3*(i-irl)+1] = (float)pRG->R[k][j][i][0].H[1];
-              data[3*(i-irl)+2] = (float)pRG->R[k][j][i][0].H[2];
-            }
-            if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
-            fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
-          }
-        }
 #endif /* WRITE_GHOST_CELLS */
 #endif /* RADIATION_TRANSFER */
 

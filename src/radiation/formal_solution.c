@@ -30,8 +30,8 @@ void formal_solution(DomainS *pD)
 {
 
   RadGridS *pRG=(pD->RadGrid);
-  int i, niter, ndim;
-  Real *dSmax, dsm, dSmin, dScnv, dSrmax;
+  int i, ndim;
+  Real *dSmax, dsm, dSmin, dSrmax;
   int  *isarr, ism, sflag;
 #ifdef MPI_PARALLEL
   Real gdSrmax;
@@ -46,10 +46,6 @@ void formal_solution(DomainS *pD)
 /* number of dimensions in Grid. */
   ndim=1;
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) ndim++;
-
-/* maximum number of iterations and convergence criteria */
-  niter = par_geti("radiation","niter");
-  dScnv = par_getd("radiation","dScnv");
 
   if (ndim == 1) {
 /* compute formal solution with 1D method*/

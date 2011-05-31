@@ -106,6 +106,8 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
     for(i=is-1; i<=ie+1; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	pRG->R[ks][j][i][ifr].J = 0.0;
+	pRG->R[ks][j][i][ifr].H[0] = 0.0;
+	pRG->R[ks][j][i][ifr].H[1] = 0.0;
 	pRG->R[ks][j][i][ifr].K[0] = 0.0;
 	pRG->R[ks][j][i][ifr].K[1] = 0.0;
 	pRG->R[ks][j][i][ifr].K[2] = 0.0;
@@ -508,7 +510,7 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int k, int j, int i, int 
 	  dtaum *= dx * muinv[m][0]; 
 	  dtaup *= dx * muinv[m][0]; 
 	}
-	interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+	interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 			   S0, pRG->R[k][j][i][ifr].S, S2);
 	imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
 	lamstr[j][i][ifr] += pRG->wmu[m] * a1;
@@ -615,7 +617,7 @@ static void update_cell_alt(RadGridS *pRG, Real *****imuo, int k, int j, int i, 
 	  dtaum *= dx * muinv[m][0]; 
 	  dtaup *= dx * muinv[m][0]; 
 	}
-	interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+	interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 			   S0, pRG->R[k][j][i][ifr].S, S2);
 	imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
 	lamstr[j][i][ifr] += pRG->wmu[m] * a1;
@@ -624,6 +626,8 @@ static void update_cell_alt(RadGridS *pRG, Real *****imuo, int k, int j, int i, 
 /* Add to radiation moments and save for next iteration */
       wimu = pRG->wmu[m] * imu;
       pRG->R[k][j][i][ifr].J += wimu;
+      pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
+      pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
       pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
       pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
       pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;

@@ -93,6 +93,9 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
       for(i=is-1; i<=ie+1; i++) 
 	for(ifr=0; ifr<nf; ifr++) {
 	  pRG->R[k][j][i][ifr].J = 0.0;
+	  pRG->R[k][j][i][ifr].H[0] = 0.0;
+	  pRG->R[k][j][i][ifr].H[1] = 0.0;
+	  pRG->R[k][j][i][ifr].H[2] = 0.0;
 	  pRG->R[k][j][i][ifr].K[0] = 0.0;
 	  pRG->R[k][j][i][ifr].K[1] = 0.0;
 	  pRG->R[k][j][i][ifr].K[2] = 0.0;
@@ -423,7 +426,6 @@ static void sweep_3d_backward(RadGridS *pRG)
   return;
 }
 
-
 static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int l)
 
 {
@@ -472,6 +474,173 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
     ip = i - 1;  im = i + 1;
   }  
 
+  for(ifr=0; ifr<nf; ifr++) {
+    chi1 = pRG->R[k][j][i][ifr].chi;
+    for(m=0; m<nang; m++) {
+/* --------- Interpolate intensity and source functions at endpoints --------- 
+ * --------- of characteristics                                      --------- */
+      if (face[m] == 0) {
+	/* interpolation in x2-x3 plane */
+
+	S0    = coeff[m][0] * pRG->R[k ][j ][im][ifr].S;
+	chi0  = coeff[m][0] * pRG->R[k ][j ][im][ifr].chi;
+	S0   += coeff[m][1] * pRG->R[km][j ][im][ifr].S;
+	chi0 += coeff[m][1] * pRG->R[km][j ][im][ifr].chi;
+	S0   += coeff[m][2] * pRG->R[km][jm][im][ifr].S;
+	chi0 += coeff[m][2] * pRG->R[km][jm][im][ifr].chi;
+	S0   += coeff[m][3] * pRG->R[k ][jm][im][ifr].S;
+	chi0 += coeff[m][3] * pRG->R[k ][jm][im][ifr].chi;
+
+	S2    = coeff[m][0] * pRG->R[k ][j ][ip][ifr].S;
+	chi2  = coeff[m][0] * pRG->R[k ][j ][ip][ifr].chi;
+	S2   += coeff[m][1] * pRG->R[kp][j ][ip][ifr].S;
+	chi2 += coeff[m][1] * pRG->R[kp][j ][ip][ifr].chi;
+	S2   += coeff[m][2] * pRG->R[kp][jp][ip][ifr].S;
+	chi2 += coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi;
+	S2   += coeff[m][3] * pRG->R[k ][jp][ip][ifr].S;
+	chi2 += coeff[m][3] * pRG->R[k ][jp][ip][ifr].chi;
+
+	imu0  = coeff[m][0] * imuo[ifr][j ][im][l][m][0] +
+	        coeff[m][1] * imuo[ifr][j ][im][l][m][1] +
+	        coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+	        coeff[m][3] * imuo[ifr][jm][im][l][m][0];
+ 
+        interp_quad_chi(chi0,chi1,chi2,&dtaum);
+	interp_quad_chi(chi2,chi1,chi0,&dtaup);
+	dtaum *= dx * muinv[m][0]; 
+	dtaup *= dx * muinv[m][0]; 
+      } else if(face[m] == 1) {
+	/* interpolation in x1-x3 plane */
+	S0    = coeff[m][0] * pRG->R[k ][jm][i ][ifr].S;
+	chi0  = coeff[m][0] * pRG->R[k ][jm][i ][ifr].chi;
+	S0   += coeff[m][1] * pRG->R[km][jm][i ][ifr].S;
+	chi0 += coeff[m][1] * pRG->R[km][jm][i ][ifr].chi;
+	S0   += coeff[m][2] * pRG->R[km][jm][im][ifr].S;
+	chi0 += coeff[m][2] * pRG->R[km][jm][im][ifr].chi;
+	S0   += coeff[m][3] * pRG->R[k ][jm][im][ifr].S;
+	chi0 += coeff[m][3] * pRG->R[k ][jm][im][ifr].chi;
+
+	S2    = coeff[m][0] * pRG->R[k ][jp][i ][ifr].S;
+	chi2  = coeff[m][0] * pRG->R[k ][jp][i ][ifr].chi;
+	S2   += coeff[m][1] * pRG->R[kp][jp][i ][ifr].S;
+	chi2 += coeff[m][1] * pRG->R[kp][jp][i ][ifr].chi;
+	S2   += coeff[m][2] * pRG->R[kp][jp][ip][ifr].S;
+	chi2 += coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi;
+	S2   += coeff[m][3] * pRG->R[k ][jp][ip][ifr].S;
+	chi2 += coeff[m][3] * pRG->R[k ][jp][ip][ifr].chi;
+
+	imu0  = coeff[m][0] * imuo[ifr][jm][i ][l][m][0] +
+	        coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
+	        coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+	        coeff[m][3] * imuo[ifr][jm][im][l][m][0];
+
+        interp_quad_chi(chi0,chi1,chi2,&dtaum);
+	interp_quad_chi(chi2,chi1,chi0,&dtaup);
+	dtaum *= dy * muinv[m][1]; 
+	dtaup *= dy * muinv[m][1]; 
+      } else  {
+	/* interpolation in x1-x2 plane */
+	S0    = coeff[m][0] * pRG->R[km][j ][i ][ifr].S;
+	chi0  = coeff[m][0] * pRG->R[km][j ][i ][ifr].chi;
+	S0   += coeff[m][1] * pRG->R[km][jm][i ][ifr].S;
+	chi0 += coeff[m][1] * pRG->R[km][jm][i ][ifr].chi;
+	S0   += coeff[m][2] * pRG->R[km][jm][im][ifr].S;
+	chi0 += coeff[m][2] * pRG->R[km][jm][im][ifr].chi;
+	S0   += coeff[m][3] * pRG->R[km][j ][im][ifr].S;
+	chi0 += coeff[m][3] * pRG->R[km][j ][im][ifr].chi;
+
+	S2    = coeff[m][0] * pRG->R[kp][j ][i ][ifr].S;
+	chi2  = coeff[m][0] * pRG->R[kp][j ][i ][ifr].chi;
+	S2   += coeff[m][1] * pRG->R[kp][jp][i ][ifr].S;
+	chi2 += coeff[m][1] * pRG->R[kp][jp][i ][ifr].chi;
+	S2   += coeff[m][2] * pRG->R[kp][jp][ip][ifr].S;
+	chi2 += coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi;
+	S2   += coeff[m][3] * pRG->R[kp][j ][ip][ifr].S;	
+	chi2 += coeff[m][3] * pRG->R[kp][j ][ip][ifr].chi;
+
+	imu0  = coeff[m][0] * imuo[ifr][j ][i ][l][m][0] +
+	        coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
+	        coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+	        coeff[m][3] * imuo[ifr][j ][im][l][m][1];
+
+        interp_quad_chi(chi0,chi1,chi2,&dtaum);
+	interp_quad_chi(chi2,chi1,chi0,&dtaup);
+	dtaum *= dz * muinv[m][2]; 
+	dtaup *= dz * muinv[m][2];
+      }
+/* ---------  compute intensity at grid center and add to mean intensity ------- */
+      interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+			 S0, pRG->R[k][j][i][ifr].S, S2);
+      imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
+      lamstr[k][j][i][ifr] += pRG->wmu[m] * a1;
+    
+/* Add to radiation moments and save for next iteration */
+      wimu = pRG->wmu[m] * imu;
+      pRG->R[k][j][i][ifr].J += wimu;
+      pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
+      pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
+      pRG->R[k][j][i][ifr].H[2] += pRG->mu[l][m][2] * wimu;
+      pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
+      pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
+      pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
+      pRG->R[k][j][i][ifr].K[3] += mu2[l][m][3] * wimu;
+      pRG->R[k][j][i][ifr].K[4] += mu2[l][m][4] * wimu;
+      pRG->R[k][j][i][ifr].K[5] += mu2[l][m][5] * wimu;
+/* Update intensity workspace */
+      imuo[ifr][j][i][l][m][1] = imuo[ifr][j][i][l][m][0];
+      imuo[ifr][j][i][l][m][0] = imu;
+    }}
+  
+  return;
+}
+
+static void update_cell_old(RadGridS *pRG, Real ******imuo, int k, int j, int i, int l)
+
+{
+
+  int im, ip, jm, jp, km, kp;
+  int ifr, m, nf = pRG->nf, nang = pRG->nang;
+  Real imu, imu0, wimu;
+  Real S0, S2;
+  Real w0, w1, w2;
+  Real dx = pRG->dx1, dy = pRG->dx2, dz = pRG->dx3;
+  Real chi0, chi1, chi2, dtaum, dtaup;
+  Real edtau, a0, a1, a2;
+
+/* initialize stencil base on quadrant*/  
+  if(l == 0) {
+    kp = k + 1;  km = k - 1;
+    jp = j + 1;  jm = j - 1;
+    ip = i + 1;  im = i - 1;
+  } else if (l == 1) {
+    kp = k + 1;  km = k - 1;
+    jp = j + 1;  jm = j - 1;
+    ip = i - 1;  im = i + 1;
+  } else if (l == 2) {
+    kp = k + 1;  km = k - 1;
+    jp = j - 1;  jm = j + 1;
+    ip = i + 1;  im = i - 1;
+  } else if (l == 3) {
+    kp = k + 1;  km = k - 1;
+    jp = j - 1;  jm = j + 1;
+    ip = i - 1;  im = i + 1;
+  } else if (l == 4) {
+    kp = k - 1;  km = k + 1;
+    jp = j + 1;  jm = j - 1;
+    ip = i + 1;  im = i - 1;
+  } else if (l == 5) {
+    kp = k - 1;  km = k + 1;
+    jp = j + 1;  jm = j - 1;
+    ip = i - 1;  im = i + 1;
+  } else if (l == 6) {
+    kp = k - 1;  km = k + 1;
+    jp = j - 1;  jm = j + 1;
+    ip = i + 1;  im = i - 1;
+  } else {
+    kp = k - 1;  km = k + 1;
+    jp = j - 1;  jm = j + 1;
+    ip = i - 1;  im = i + 1;
+  }  
 
   for(ifr=0; ifr<nf; ifr++) {
     chi1 = pRG->R[k][j][i][ifr].chi;
@@ -558,7 +727,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
 	dtaup *= dz * muinv[m][2];
       }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
-      interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+      interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 			 S0, pRG->R[k][j][i][ifr].S, S2);
       imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
       lamstr[k][j][i][ifr] += pRG->wmu[m] * a1;
@@ -566,7 +735,10 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
 /* Add to radiation moments and save for next iteration */
       wimu = pRG->wmu[m] * imu;
       pRG->R[k][j][i][ifr].J += wimu;
-       pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
+      pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
+      pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
+      pRG->R[k][j][i][ifr].H[2] += pRG->mu[l][m][2] * wimu;
+      pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
       pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
       pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
       pRG->R[k][j][i][ifr].K[3] += mu2[l][m][3] * wimu;

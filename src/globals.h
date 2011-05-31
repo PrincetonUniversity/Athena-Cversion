@@ -72,7 +72,8 @@ Real R_ideal;		/* Value of ideal gas constant under current unit. Used to calcul
 RadInitFun_t get_thermal_source = NULL;
 RadInitFun_t get_thermal_fraction = NULL;
 RadInitFun_t get_total_opacity = NULL;
-int lte;
+int lte, niter;
+Real dScnv;
 Real B00;
 #endif
 
@@ -149,7 +150,8 @@ extern Real R_ideal;
 extern RadInitFun_t get_thermal_source;
 extern RadInitFun_t get_thermal_fraction;
 extern RadInitFun_t get_total_opacity;
-extern int lte;
+extern int lte, niter;
+extern Real dScnv;
 extern Real B00;
 #endif
 

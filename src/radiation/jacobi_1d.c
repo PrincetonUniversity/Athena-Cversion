@@ -163,7 +163,7 @@ static void sweep_1d(RadGridS *pRG, int sx)
 	   if (imu < 0.0) imu=0.0;
 	   imu += psi[i][ifr][l][m][0] * imuo[ifr][l][m];	
 	 } else {
-	    interp_quad_source(dtaum*muinv[m],dtaup*muinv[m], &edtau, &a0, &a1, &a2,
+	    interp_quad_source_slope_lim(dtaum*muinv[m],dtaup*muinv[m], &edtau, &a0, &a1, &a2,
 	    		       S0, pRG->R[ks][js][i][ifr].S, S2);
 	    imu = a0 * S0 + a1 * pRG->R[ks][js][i][ifr].S + a2 * S2;
 	    imu += edtau * imuo[ifr][l][m];

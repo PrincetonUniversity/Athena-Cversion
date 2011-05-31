@@ -147,7 +147,7 @@ static void sweep_1d(RadGridS *pRG, int sx)
 	    interp_quad_chi(chip,chio,chim,&dtaup);
 	    dtaum *= dx * muinv[m]; 
 	    dtaup *= dx * muinv[m];
-	    interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+	    interp_quad_source_slope_lim((dtaum, dtaup, &edtau, &a0, &a1, &a2,
 	    		       S0, pRG->R[ks][js][i][ifr].S, S2);
 	    imu = a0 * S0 + a1 * pRG->R[ks][js][i][ifr].S + a2 * S2;
 	    imu += edtau * imuo[ifr][l][m];
