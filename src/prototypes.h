@@ -107,6 +107,14 @@ void bvals_shear_destruct(void);
 #ifdef FARGO
 void Fargo(DomainS *pD);
 #endif
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+void ShearingSheet_radMHD_ix1(DomainS *pD);
+void ShearingSheet_radMHD_ox1(DomainS *pD);
+void bvals_radMHD_shear_init(MeshS *pM);
+void bvals_radMHD_shear_destruct(void);
+#endif
+
 #endif /* SHEARING_BOX */
 
 #if defined (FARGO) && defined (CYLINDRICAL)

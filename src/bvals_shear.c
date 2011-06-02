@@ -46,15 +46,15 @@
  enum {NREMAP = 8, NFARGO = 6};
 #endif
 #else /* ADIABATIC or other EOS */
-#ifdef HYDRO
+#if defined(HYDRO) || defined(RADIATION_HYDRO)
  enum {NREMAP = 5, NFARGO = 5};
 #endif
-#ifdef MHD
+#if defined(MHD) || defined (RADIATION_MHD)
  enum {NREMAP = 9, NFARGO = 7};
 #endif
 #endif /* EOS */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 #define NVAR_SHARE (NVAR + 3)
 #else
 #define NVAR_SHARE NVAR
@@ -82,7 +82,7 @@ static Remap ***GhstZns=NULL, ***GhstZnsBuf=NULL;
 /* 1D vectors for reconstruction in conservative remap step */
 static Real *U=NULL, *Flx=NULL;
 /* Arrays of Ey remapped at ix1/ox1 edges of Domain */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 static Real **tEyBuf=NULL;
 #endif
 /* temporary vector needed for 3rd order reconstruction in ghost zones */
@@ -183,7 +183,7 @@ void ShearingSheet_ix1(DomainS *pD)
         GhstZns[k][i][j].U[4] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
           (SQR(GhstZns[k][i][j].U[2]) - SQR(pG->U[k][j][ii].M2));
 #endif /* ADIABATIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         GhstZns[k][i][j].U[NREMAP-4] = pG->U[k][j][ii].B1c;
         GhstZns[k][i][j].U[NREMAP-3] = pG->B1i[k][j][ii];
         GhstZns[k][i][j].U[NREMAP-2] = pG->B2i[k][j][ii];
@@ -424,7 +424,7 @@ void ShearingSheet_ix1(DomainS *pD)
 #ifdef ADIABATIC
         pG->U[k][j][is-nghost+i].E  = GhstZns[k][i][j].U[4];
 #endif /* ADIABATIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][is-nghost+i].B1c = GhstZns[k][i][j].U[NREMAP-4];
         pG->B1i[k][j][is-nghost+i] = GhstZns[k][i][j].U[NREMAP-3];
         pG->B2i[k][j][is-nghost+i] = GhstZns[k][i][j].U[NREMAP-2];
@@ -440,7 +440,7 @@ void ShearingSheet_ix1(DomainS *pD)
   }
 
 /* Copy the face-centered B3 component of the field at k=ke+1 in 3D */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   if (pG->Nx[2] > 1) {
     for(j=js; j<=je; j++){
       for(i=0; i<nghost; i++){
@@ -455,7 +455,7 @@ void ShearingSheet_ix1(DomainS *pD)
  * The value of B2c at j=je is incorrect since B2i[je+1] not yet set -- fix in
  * step 10 below */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for(i=is-nghost; i<is; i++){
@@ -485,7 +485,7 @@ void ShearingSheet_ix1(DomainS *pD)
         for(i=is-nghost; i<is; i++){
           pG->U[k][js-j][i] = pG->U[k][je-(j-1)][i];
           pG->U[k][je+j][i] = pG->U[k][js+(j-1)][i];
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           pG->B1i[k][js-j][i] = pG->B1i[k][je-(j-1)][i];
           pG->B2i[k][js-j][i] = pG->B2i[k][je-(j-1)][i];
           pG->B3i[k][js-j][i] = pG->B3i[k][je-(j-1)][i];
@@ -497,7 +497,7 @@ void ShearingSheet_ix1(DomainS *pD)
         }
       }
     }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     if (pG->Nx[2] > 1) {
       for (j=1; j<=nghost; j++) {
         for (i=is-nghost; i<is; i++) {
@@ -535,7 +535,7 @@ void ShearingSheet_ix1(DomainS *pD)
 #ifndef BAROTROPIC
           *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) = pCons->B1c;
           *(pSnd++) = pCons->B2c;
           *(pSnd++) = pCons->B3c;
@@ -571,7 +571,7 @@ void ShearingSheet_ix1(DomainS *pD)
 #ifndef BAROTROPIC
           pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           pCons->B1c = *(pRcv++);
           pCons->B2c = *(pRcv++);
           pCons->B3c = *(pRcv++);
@@ -604,7 +604,7 @@ void ShearingSheet_ix1(DomainS *pD)
 #ifndef BAROTROPIC
           *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) = pCons->B1c;
           *(pSnd++) = pCons->B2c;
           *(pSnd++) = pCons->B3c;
@@ -640,7 +640,7 @@ void ShearingSheet_ix1(DomainS *pD)
 #ifndef BAROTROPIC
           pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           pCons->B1c = *(pRcv++);
           pCons->B2c = *(pRcv++);
           pCons->B3c = *(pRcv++);
@@ -661,7 +661,7 @@ void ShearingSheet_ix1(DomainS *pD)
 /*--- Step 10 ------------------------------------------------------------------
  * Fix B2c at j=je,js-1, now that B2i[je+1] has been set properly  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   for (k=ks; k<=ke; k++) {
     for(i=is-nghost; i<is; i++){
       pG->U[k][je  ][i].B2c = 0.5*(pG->B2i[k][je+1][i]+pG->B2i[k][je][i]);
@@ -774,7 +774,7 @@ void ShearingSheet_ox1(DomainS *pD)
         GhstZns[k][i][j].U[4] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
           (SQR(GhstZns[k][i][j].U[2]) - SQR(pG->U[k][j][ii].M2));
 #endif /* ADIABATIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         GhstZns[k][i][j].U[NREMAP-4] = pG->U[k][j][ii].B1c;
         GhstZns[k][i][j].U[NREMAP-3] = pG->B1i[k][j][ii];
         GhstZns[k][i][j].U[NREMAP-2] = pG->B2i[k][j][ii];
@@ -1017,7 +1017,7 @@ void ShearingSheet_ox1(DomainS *pD)
 #ifdef ADIABATIC
         pG->U[k][j][ie+1+i].E  = GhstZns[k][i][j].U[4];
 #endif /* ADIABATIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][ie+1+i].B1c = GhstZns[k][i][j].U[NREMAP-4];
         if(i>0) pG->B1i[k][j][ie+1+i] = GhstZns[k][i][j].U[NREMAP-3];
         pG->B2i[k][j][ie+1+i] = GhstZns[k][i][j].U[NREMAP-2];
@@ -1033,7 +1033,7 @@ void ShearingSheet_ox1(DomainS *pD)
   }
 
 /* Copy the face-centered B3 component of the field at k=ke+1 in 3D */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   if (pG->Nx[2] > 1) {
     for(j=js; j<=je; j++){
       for(i=0; i<nghost; i++){
@@ -1048,7 +1048,7 @@ void ShearingSheet_ox1(DomainS *pD)
  * The value of B2c at j=je is incorrect since B2i[je+1] not yet set -- fix in
  * step 10 below */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for(i=ie+1; i<=ie+nghost; i++){
@@ -1078,7 +1078,7 @@ void ShearingSheet_ox1(DomainS *pD)
         for(i=ie+1; i<=ie+nghost; i++){
           pG->U[k][js-j][i] = pG->U[k][je-(j-1)][i];
           pG->U[k][je+j][i] = pG->U[k][js+(j-1)][i];
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           pG->B1i[k][js-j][i] = pG->B1i[k][je-(j-1)][i];
           pG->B2i[k][js-j][i] = pG->B2i[k][je-(j-1)][i];
           pG->B3i[k][js-j][i] = pG->B3i[k][je-(j-1)][i];
@@ -1090,7 +1090,7 @@ void ShearingSheet_ox1(DomainS *pD)
         }
       }
     }
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     for (j=1; j<=nghost; j++) {
       for (i=ie+1; i<=ie+nghost; i++) {
         pG->B3i[ke+1][js-j][i] = pG->B3i[ke+1][je-(j-1)][i];
@@ -1126,7 +1126,7 @@ void ShearingSheet_ox1(DomainS *pD)
 #ifndef BAROTROPIC
           *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) = pCons->B1c;
           *(pSnd++) = pCons->B2c;
           *(pSnd++) = pCons->B3c;
@@ -1162,7 +1162,7 @@ void ShearingSheet_ox1(DomainS *pD)
 #ifndef BAROTROPIC
           pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           pCons->B1c = *(pRcv++);
           pCons->B2c = *(pRcv++);
           pCons->B3c = *(pRcv++);
@@ -1195,7 +1195,7 @@ void ShearingSheet_ox1(DomainS *pD)
 #ifndef BAROTROPIC
           *(pSnd++) = pCons->E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) = pCons->B1c;
           *(pSnd++) = pCons->B2c;
           *(pSnd++) = pCons->B3c;
@@ -1231,7 +1231,7 @@ void ShearingSheet_ox1(DomainS *pD)
 #ifndef BAROTROPIC
           pCons->E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           pCons->B1c = *(pRcv++);
           pCons->B2c = *(pRcv++);
           pCons->B3c = *(pRcv++);
@@ -1252,7 +1252,7 @@ void ShearingSheet_ox1(DomainS *pD)
 /*--- Step 10 ------------------------------------------------------------------
  * Fix B2c at j=je,js-1, now that B2i[je+1] has been set properly  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   for (k=ks; k<=ke; k++) {
     for (i=ie+1; i<=ie+nghost; i++){
       pG->U[k][je  ][i].B2c = 0.5*(pG->B2i[k][je+1][i]+pG->B2i[k][je][i]);
@@ -1300,7 +1300,7 @@ void ShearingSheet_ox1(DomainS *pD)
  * SHEARING_BOX macro).
  *----------------------------------------------------------------------------*/
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 {
   GridS *pG = pD->Grid;
@@ -1628,7 +1628,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
  * SHEARING_BOX macro).
  *----------------------------------------------------------------------------*/
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 {
   GridS *pG = pD->Grid;
@@ -1990,7 +1990,7 @@ void Fargo(DomainS *pD)
         FargoVars[k][i][j].U[2] = pG->U[k][jj][i].M2;
         FargoVars[k][i][j].U[3] = pG->U[k][jj][i].M3;
 #if defined(ADIABATIC) && defined(SHEARING_BOX)
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* Add energy equation source term in MHD */
         pG->U[k][jj][i].E -= qom_dt*pG->U[k][jj][i].B1c*
          (pG->U[k][jj][i].B2c - (qom_dt/2.)*pG->U[k][jj][i].B1c);
@@ -2000,7 +2000,7 @@ void Fargo(DomainS *pD)
 /* Only store Bz and Bx in that order.  This is to match order in FargoFlx:
  *  FargoFlx.U[NFARGO-2] = emfx = -Vy*Bz
  *  FargoFlx.U[NFARGO-1] = emfy = Vy*Bx  */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         FargoVars[k][i][j].U[NFARGO-2] = pG->B3i[k][jj][i];
         FargoVars[k][i][j].U[NFARGO-1] = pG->B1i[k][jj][i];
 #endif /* MHD */
@@ -2134,7 +2134,7 @@ void Fargo(DomainS *pD)
       eps = (fmod(yshear,pG->dx2))/pG->dx2;
 
 /* Compute fluxes of hydro variables  */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
       for (n=0; n<(NFARGO-2); n++) {
 #else
       for (n=0; n<(NFARGO); n++) {
@@ -2175,7 +2175,7 @@ void Fargo(DomainS *pD)
       }
 #endif
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* Compute emfx = -VyBz, which is at cell-center in x1-direction */
 
       for (j=jfs-nfghost; j<=jfe+nfghost; j++) {
@@ -2251,7 +2251,7 @@ void Fargo(DomainS *pD)
  *  FargoFlx.U[NFARGO-2] = emfx
  *  FargoFlx.U[NFARGO-1] = emfz  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   if (pG->Nx[2]==1) ath_error("[Fargo] only works in 3D with MHD\n");
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -2304,7 +2304,7 @@ void Fargo(DomainS *pD)
 /*--- Step 7. ------------------------------------------------------------------
  * compute cell-centered B  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for(i=is; i<=ie; i++){
@@ -2369,7 +2369,7 @@ void bvals_shear_init(MeshS *pM)
   if((GhstZnsBuf=(Remap***)calloc_3d_array(max3,nghost,max2,sizeof(Remap))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   if ((tEyBuf=(Real**)calloc_2d_array(max3,max2,sizeof(Real))) == NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif /* MHD */
@@ -2432,7 +2432,7 @@ void bvals_shear_destruct(void)
 {
   if (GhstZns    != NULL) free_3d_array(GhstZns);
   if (GhstZnsBuf != NULL) free_3d_array(GhstZnsBuf);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   if (tEyBuf != NULL) free_2d_array(tEyBuf);
 #endif
 #if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)

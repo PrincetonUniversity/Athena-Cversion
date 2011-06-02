@@ -141,13 +141,15 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   cfr = sqrt((double)(Gamma*Wr.P/Wr.d));
 #endif
 #else
- /* aeff = eff_sound(Wl,dt,0);
-*/
+  aeff = eff_sound(Wl,dt,0);
+/*
    aeff = sqrt(Gamma * Wl.P / Wl.d);
-  cfl = aeff;
- /* aeff = eff_sound(Wr,dt,0);
 */
-   aeff = sqrt(Gamma * Wr.P / Wr.d);	
+  cfl = aeff;
+  aeff = eff_sound(Wr,dt,0);
+/*
+   aeff = sqrt(Gamma * Wr.P / Wr.d);
+*/	
   cfr = aeff;
 #endif
 

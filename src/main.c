@@ -407,8 +407,14 @@ int main(int argc, char *argv[])
   bvals_grav_init(&Mesh);
 #endif
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
-  bvals_shear_init(&Mesh);
-#endif
+  bvals_shear_init(&Mesh);	
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	bvals_radMHD_shear_init(&Mesh);
+#endif /* END RADIATION HYDRO OR RADIATION MHD */
+	
+#endif /* END SHEARING_BOX */
+	
+	
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #endif
@@ -446,6 +452,25 @@ int main(int argc, char *argv[])
 	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
 	* routine is updated. Initial output needs to update the boundary condition.  
 	*/
+
+#ifdef RADIATION_TRANSFER
+  for (nl=0; nl<(Mesh.NLevels); nl++){ 
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+      if (Mesh.Domain[nl][nd].Grid != NULL){
+	hydro_to_rad(&(Mesh.Domain[nl][nd]));  
+
+	formal_solution(&(Mesh.Domain[nl][nd]));
+
+ 	Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);
+
+	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+
+      }
+    }
+  }
+
+	
+#endif
 	
 #endif
 
@@ -561,7 +586,6 @@ int main(int argc, char *argv[])
  */
 
 #ifdef RADIATION_TRANSFER
-#ifndef VL_INTEGRATOR
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
@@ -578,9 +602,7 @@ int main(int argc, char *argv[])
 	 Mesh.dt = MIN(Mesh.dt, dt_rad);
 	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
 /* operator split update of total energy equation */
-
 	 rad_to_hydro(&(Mesh.Domain[nl][nd]));
-#endif
 #endif
 /* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
 */
@@ -809,6 +831,10 @@ int main(int argc, char *argv[])
 #endif
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	bvals_radMHD_shear_destruct();
+#endif
+	
 #endif
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_destruct();

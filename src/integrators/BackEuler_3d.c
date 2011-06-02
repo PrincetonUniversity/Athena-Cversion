@@ -360,6 +360,10 @@ void BackEuler_3d(MeshS *pM)
 	Real temperature, velocity_x, velocity_y, velocity_z, pressure, T4, Fr0x, Fr0y, Fr0z;
 	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
 	/* This is equivilent to Cspeeds[] in 1D */
+#ifdef RADIATION_TRANSFER
+	Real fluxi0, fluxi1, fluxj0, fluxj1, fluxk0, fluxk1;
+
+#endif
 
 
   	Real Sigma_s, Sigma_t, Sigma_a;
@@ -395,6 +399,101 @@ void BackEuler_3d(MeshS *pM)
 			}	
 			t0flag = 0;
 		}
+
+/* For variable Eddington tensor */
+/*
+#ifdef RADIATION_TRANSFER
+		for(k=ks; k<=ke; k++){
+			for(j=js; j<=je; j++){
+				for(i=is; i<=ie; i++){
+					Ci0 = (sqrt(pG->U[k][j][i].Edd_11) - sqrt(pG->U[k][j][i-1].Edd_11)) 
+						/ (sqrt(pG->U[k][j][i].Edd_11) + sqrt(pG->U[k][j][i-1].Edd_11));
+					Ci1 =  (sqrt(pG->U[k][j][i+1].Edd_11) - sqrt(pG->U[k][j][i].Edd_11)) 
+						/ (sqrt(pG->U[k][j][i+1].Edd_11) + sqrt(pG->U[k][j][i].Edd_11));
+					Cj0 = (sqrt(pG->U[k][j][i].Edd_22) - sqrt(pG->U[k][j-1][i].Edd_22)) 
+						/ (sqrt(pG->U[k][j][i].Edd_22) + sqrt(pG->U[k][j-1][i].Edd_22));
+					Cj1 =  (sqrt(pG->U[k][j+1][i].Edd_22) - sqrt(pG->U[k][j][i].Edd_22)) 
+						/ (sqrt(pG->U[k][j+1][i].Edd_22) + sqrt(pG->U[k][j][i].Edd_22));
+
+					Ck0 = (sqrt(pG->U[k][j][i].Edd_33) - sqrt(pG->U[k-1][j][i].Edd_33)) 
+						/ (sqrt(pG->U[k][j][i].Edd_33) + sqrt(pG->U[k-1][j][i].Edd_33));
+
+					Ck1 =  (sqrt(pG->U[k+1][j][i].Edd_33) - sqrt(pG->U[k][j][i].Edd_33)) 
+						/ (sqrt(pG->U[k+1][j][i].Edd_33) + sqrt(pG->U[k][j][i].Edd_33));
+									
+
+					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[k][j][i].Edd_11 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_11) * Fr1_t0[k][j][i])
+							+ (1.0 - Ci1) * (pG->U[k][j][i+1].Edd_11 * Er_t0[k][j][i+1] - sqrt(pG->U[k][j][i+1].Edd_11) * Fr1_t0[k][j][i+1]));
+					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[k][j][i-1].Edd_11 * Er_t0[k][j][i-1] + sqrt(pG->U[k][j][i-1].Edd_11) * Fr1_t0[k][j][i-1])
+							+ (1.0 - Ci0) * (pG->U[k][j][i].Edd_11 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_11) * Fr1_t0[k][j][i]));
+
+					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[k][j][i].Edd_21 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_22) * Fr1_t0[k][j][i])
+							+ (1.0 - Cj1) * (pG->U[k][j+1][i].Edd_21 * Er_t0[k][j+1][i] - sqrt(pG->U[k][j+1][i].Edd_22) * Fr1_t0[k][j+1][i]));
+
+					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[k][j-1][i].Edd_21 * Er_t0[k][j-1][i] + sqrt(pG->U[k][j-1][i].Edd_22) * Fr1_t0[k][j-1][i])
+							+ (1.0 - Cj0) * (pG->U[k][j][i].Edd_21 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_22) * Fr1_t0[k][j][i]));
+
+					fluxk1 = 0.5 * ((1.0 + Ck1) * (pG->U[k][j][i].Edd_31 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_33) * Fr1_t0[k][j][i])
+							+ (1.0 - Ck1) * (pG->U[k+1][j][i].Edd_31 * Er_t0[k+1][j][i] - sqrt(pG->U[k+1][j][i].Edd_33) * Fr1_t0[k+1][j][i]));
+
+					fluxk0 = 0.5 * ((1.0 + Ck0) * (pG->U[k-1][j][i].Edd_31 * Er_t0[k-1][j][i] + sqrt(pG->U[k-1][j][i].Edd_33) * Fr1_t0[k-1][j][i])
+							+ (1.0 - Ck0) * (pG->U[k][j][i].Edd_31 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_33) * Fr1_t0[k][j][i]));
+
+
+					dErdx_t0[k][j][i] = (fluxi1 - fluxi0) / pG->dx1 + (fluxj1 - fluxj0) / pG->dx2 + (fluxk1 - fluxk0) / pG->dx3;
+
+					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[k][j][i].Edd_21 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_11) * Fr2_t0[k][j][i])
+							+ (1.0 - Ci1) * (pG->U[k][j][i+1].Edd_21 * Er_t0[k][j][i+1] - sqrt(pG->U[k][j][i+1].Edd_11) * Fr2_t0[k][j][i+1]));
+					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[k][j][i-1].Edd_21 * Er_t0[k][j][i-1] + sqrt(pG->U[k][j][i-1].Edd_11) * Fr2_t0[k][j][i-1])
+							+ (1.0 - Ci0) * (pG->U[k][j][i].Edd_21 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_11) * Fr2_t0[k][j][i]));
+
+
+					
+
+					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[k][j][i].Edd_22 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_22) * Fr2_t0[k][j][i])
+							+ (1.0 - Cj1) * (pG->U[k][j+1][i].Edd_22 * Er_t0[k][j+1][i] - sqrt(pG->U[k][j+1][i].Edd_22) * Fr2_t0[k][j+1][i]));
+					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[k][j-1][i].Edd_22 * Er_t0[k][j-1][i] + sqrt(pG->U[k][j-1][i].Edd_22) * Fr2_t0[k][j-1][i])
+							+ (1.0 - Cj0) * (pG->U[k][j][i].Edd_22 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_22) * Fr2_t0[k][j][i]));
+
+					fluxk1 = 0.5 * ((1.0 + Ck1) * (pG->U[k][j][i].Edd_32 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_33) * Fr2_t0[k][j][i])
+							+ (1.0 - Ck1) * (pG->U[k+1][j][i].Edd_32 * Er_t0[k+1][j][i] - sqrt(pG->U[k+1][j][i].Edd_33) * Fr2_t0[k+1][j][i]));
+
+					fluxk0 = 0.5 * ((1.0 + Ck0) * (pG->U[k-1][j][i].Edd_32 * Er_t0[k-1][j][i] + sqrt(pG->U[k-1][j][i].Edd_33) * Fr2_t0[k-1][j][i])
+							+ (1.0 - Ck0) * (pG->U[k][j][i].Edd_32 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_33) * Fr2_t0[k][j][i]));
+
+
+
+					dErdy_t0[k][j][i] = (fluxi1 - fluxi0)/pG->dx1 + (fluxj1 - fluxj0)/pG->dx2 + (fluxk1 - fluxk0) / pG->dx3;
+
+					
+					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[k][j][i].Edd_31 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_11) * Fr3_t0[k][j][i])
+							+ (1.0 - Ci1) * (pG->U[k][j][i+1].Edd_31 * Er_t0[k][j][i+1] - sqrt(pG->U[k][j][i+1].Edd_11) * Fr3_t0[k][j][i+1]));
+					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[k][j][i-1].Edd_31 * Er_t0[k][j][i-1] + sqrt(pG->U[k][j][i-1].Edd_11) * Fr3_t0[k][j][i-1])
+							+ (1.0 - Ci0) * (pG->U[k][j][i].Edd_31 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_11) * Fr3_t0[k][j][i]));
+
+
+					
+
+					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[k][j][i].Edd_32 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_22) * Fr3_t0[k][j][i])
+							+ (1.0 - Cj1) * (pG->U[k][j+1][i].Edd_32 * Er_t0[k][j+1][i] - sqrt(pG->U[k][j+1][i].Edd_22) * Fr3_t0[k][j+1][i]));
+					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[k][j-1][i].Edd_32 * Er_t0[k][j-1][i] + sqrt(pG->U[k][j-1][i].Edd_22) * Fr3_t0[k][j-1][i])
+							+ (1.0 - Cj0) * (pG->U[k][j][i].Edd_32 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_22) * Fr3_t0[k][j][i]));
+
+					fluxk1 = 0.5 * ((1.0 + Ck1) * (pG->U[k][j][i].Edd_33 * Er_t0[k][j][i] + sqrt(pG->U[k][j][i].Edd_33) * Fr3_t0[k][j][i])
+							+ (1.0 - Ck1) * (pG->U[k+1][j][i].Edd_33 * Er_t0[k+1][j][i] - sqrt(pG->U[k+1][j][i].Edd_33) * Fr3_t0[k+1][j][i]));
+
+					fluxk0 = 0.5 * ((1.0 + Ck0) * (pG->U[k-1][j][i].Edd_33 * Er_t0[k-1][j][i] + sqrt(pG->U[k-1][j][i].Edd_33) * Fr3_t0[k-1][j][i])
+							+ (1.0 - Ck0) * (pG->U[k][j][i].Edd_33 * Er_t0[k][j][i] - sqrt(pG->U[k][j][i].Edd_33) * Fr3_t0[k][j][i]));
+
+
+
+					dErdy_t0[k][j][i] = (fluxi1 - fluxi0)/pG->dx1 + (fluxj1 - fluxj0)/pG->dx2 + (fluxk1 - fluxk0) / pG->dx3;
+				}
+			}
+		}
+#endif
+*/
+
 	}
 
 
@@ -582,7 +681,7 @@ void BackEuler_3d(MeshS *pM)
 			Fr0x = Fr1_t0[k][j][i] - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y
 							+ pG->U[k][j][i].Edd_31 * velocity_z) * Er_t0[k][j][i]/Crat;
 
-			tempvalue += (-dt * Crat * (dErdx_t0[k][j][i] * 3.0 * pG->U[k][j][i].Edd_11 + Sigma_t * Fr0x));
+			tempvalue += (-dt * Crat * (dErdx_t0[k][j][i] + Sigma_t * Fr0x));
 			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
 		}
 
@@ -596,7 +695,7 @@ void BackEuler_3d(MeshS *pM)
 			Fr0y = Fr2_t0[k][j][i] - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x
 							+ pG->U[k][j][i].Edd_32 * velocity_z) * Er_t0[k][j][i]/Crat;
 
-			tempvalue += (-dt * Crat * (dErdy_t0[k][j][i] * 3.0 * pG->U[k][j][i].Edd_22 + Sigma_t * Fr0y));
+			tempvalue += (-dt * Crat * (dErdy_t0[k][j][i] + Sigma_t * Fr0y));
 			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
 		}
 
@@ -610,7 +709,7 @@ void BackEuler_3d(MeshS *pM)
 			Fr0z = Fr3_t0[k][j][i] - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x
 							+ pG->U[k][j][i].Edd_32 * velocity_y) * Er_t0[k][j][i]/Crat;
 
-			tempvalue += (-dt * Crat * (dErdz_t0[k][j][i] * 3.0 * pG->U[k][j][i].Edd_33 + Sigma_t * Fr0z));
+			tempvalue += (-dt * Crat * (dErdz_t0[k][j][i] + Sigma_t * Fr0z));
 			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
 		}
 			

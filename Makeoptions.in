@@ -18,7 +18,7 @@ MACHINE = default
 CC  = @CC@
 LDR = @CC@
 OPT = @COMPILER_OPTS@
-CUSTLIBS = 
+CUSTLIBS =
 MPIINC =
 MPILIB =
 FFTWLIB =
@@ -36,11 +36,11 @@ ifeq (@FFT_MODE@,FFT_ENABLED)
 endif
 
 ifeq (@GAS@,RADIATION_HYDRO) 
-  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
-  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
+  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis/include
 ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
-  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
+  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
 endif
 ifeq (@MPI_MODE@,MPI_PARALLEL)
   MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
@@ -49,11 +49,11 @@ endif
 endif
 
 ifeq (@GAS@,RADIATION_MHD) 
-  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
-  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
+  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis/include
 ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = -L/cita/d/raid-cita/swd/lib/lib -llis
-  MATRIXINC = -I/cita/d/raid-cita/swd/lib/include
+  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
+  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
 endif
 ifeq (@MPI_MODE@,MPI_PARALLEL)
   MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
@@ -76,7 +76,7 @@ endif
 ifeq ($(MACHINE),ophir)
   CC = /usr/peyton/intel/10.0/cce/bin/icc
   LDR = /usr/peyton/intel/10.0/cce/bin/icc
-  OPT = -O3 -xW -ipo -i-static 
+  OPT = @COMPILER_OPTS@ 
   FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
 else

@@ -341,15 +341,16 @@ void bvals_radMHD(DomainS *pD)
 /* shearing sheet BCs; function defined in problem generator.
  * Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
  * level grid is specified by the <domain1> block in the input file */
+/* This is done after periodic boundary condition has been applied */
 #ifdef SHEARING_BOX
     BCFlag = par_geti_def("domain1","bc_ix1",0);
     get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
     if (myL == 0 && BCFlag == 4) {
-      ShearingSheet_ix1(pD);
+      ShearingSheet_radMHD_ix1(pD);
     }
     BCFlag = par_geti_def("domain1","bc_ox1",0);
     if (myL == ((pD->NGrid[0])-1) && BCFlag == 4) {
-      ShearingSheet_ox1(pD);
+      ShearingSheet_radMHD_ox1(pD);
     }
 #endif
 

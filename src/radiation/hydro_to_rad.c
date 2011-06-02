@@ -67,6 +67,9 @@ void hydro_to_rad(DomainS *pD)
 	ekin += pG->U[kg][jg][ig].M3 * pG->U[kg][jg][ig].M3;
 	ekin *= 0.5 / d;
 	etherm=pG->U[kg][jg][ig].E - ekin;
+#if defined(MHD) || defined(RADIATION_MHD)
+	etherm -= 0.5 * (pG->U[kg][jg][ig].B1c * pG->U[kg][jg][ig].B1c + pG->U[kg][jg][ig].B2c * pG->U[kg][jg][ig].B2c + pG->U[kg][jg][ig].B3c * pG->U[kg][jg][ig].B3c);
+#endif
 	pG->tgas[kg][jg][ig] = etherm * Gamma_1 / (d * R_ideal);
 
 	for(ifr=0; ifr<nf; ifr++) {

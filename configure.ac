@@ -586,6 +586,9 @@ if test "$ok" = "yes"; then
 if test "$with_integrator" = "ctu"; then
   SHEARING_BOX_MODE="SHEARING_BOX"
   SHEARING_BOX_MODE_USER="ON"
+elif test "$with_integrator" == "RADIATIONMHD"; then
+  SHEARING_BOX_MODE="SHEARING_BOX"
+  SHEARING_BOX_MODE_USER="ON"
 else
   AC_MSG_ERROR([shearing-box only works with CTU+CT integrator])
 fi

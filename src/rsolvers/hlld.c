@@ -102,14 +102,16 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* For RADIATION_MHD, we should use effective pressure */
 #ifdef RADIATION_MHD
  /* left state */
- /* aeff = eff_sound(Wl, dt,0);
-*/
+ aeff = eff_sound(Wl, dt,0);
+/*
    aeff = sqrt(Gamma * Wl.P / Wl.d);
+*/
   gpl = Wl.d * aeff * aeff;
  /* right state */
- /* aeff = eff_sound(Wr, dt,0);
-*/
+  aeff = eff_sound(Wr, dt,0);
+/*
    aeff = sqrt(Gamma * Wr.P / Wr.d);
+*/
   gpr = Wr.d * aeff * aeff;
 #else
   gpl  = Gamma * Wl.P;

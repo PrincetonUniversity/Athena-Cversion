@@ -6,6 +6,15 @@
  * First set up the matrix
  * Then solve the matrix equations.
  * We need the flag for boundary condition.
+ * In Shearing box, the boundary flag is still 4, 
+ * But we need special treatment of the ghost cells
+ *
+ * Here we assume the shearing is always in the x-y plane
+ * shearing boundary condition is only for x direction
+ * For shearing acse, we only need to worry about 
+ * theta_2, theta_3, theta_7, theta_8
+  * and so on
+ * 
  *
  * Backward Euler should be used for the whole mesh
  *
@@ -141,6 +150,18 @@ static int rx1;
 static int lx2;
 static int rx2;
 
+/* for shearing box boundary condition */
+#ifdef SHEARING_BOX
+static int joffset; /* total sheared j cells */
+static int jshearing; /* j index in the sheared position with respect to the whole matrix*/
+static int ishearing; /* i index in the sheared position */
+static int shearing_grid; /* number of grids along y direction from the bottom */
+static int col_compare1; /* relative position of different elements may change with time */
+static int col_compare2;
+static int col_shear;
+
+#endif
+
 
 static int MPIcount1;
 static int MPIcount2; 
@@ -175,12 +196,87 @@ void BackEuler_2d(MeshS *pM)
 	int ks = pG->ks;
 	int Nmatrix, NZ_NUM, lines, count;
 	
+	/* Nmatrix is the number of active cells just in this grids */
+	/* Matrix size should be 3 * Nmatrix, ghost zones are not included*/
+	Nx = ie - is + 1;
+	Ny = je - js + 1;
+   	Nmatrix = Ny * Nx;
+	lines  = 3 * Nmatrix; 
+	/* total number of lines in the grid. This is also the same for every grid */
+	
+	
+	/* ID of this grid */
+#ifdef MPI_PARALLEL
+	ID = myID_Comm_world;
+	lx1 = pG->lx1_id;
+	rx1 = pG->rx1_id;
+	lx2 = pG->lx2_id;
+	rx2 = pG->rx2_id;
+#else
+	ID = 0;
+	lx1 = 0;
+	rx1 = 0;
+	lx2 = 0;
+	rx2 = 0;
+#endif	
+	
+	
+	/* Boundary condition flag */
+	
+	ix1 = pM->BCFlag_ix1;
+	ox1 = pM->BCFlag_ox1;
+	ix2 = pM->BCFlag_ix2;
+	ox2 = pM->BCFlag_ox2;
+	ix3 = pM->BCFlag_ix3;
+	ox3 = pM->BCFlag_ox3;
+	
+/* For shearing box boundary condition */
+#ifdef SHEARING_BOX
+	Real xmin, xmax, Lx, Ly, yshear, deltay, qomL, dFrycoef;
+	xmin = pD->RootMinX[0];
+	xmax = pD->RootMaxX[0];
+	Lx = xmax - xmin;
+	
+	xmin = pD->RootMinX[1];
+	xmax = pD->RootMaxX[1];
+	Ly = xmax - xmin;
+	
+	qomL = qshear*Omega_0*Lx;
+	yshear = qomL*pG->time;
+	
+	
+	/* Split this into integer and fractional peices of the Domain in y.  Ignore
+	 * the integer piece because the Grid is periodic in y */
+	
+	deltay = fmod(yshear, Ly);
+	
+	joffset = (int)(deltay/pG->dx2);
+
+
+	shearing_grid = (int)(ID/NGx);
+	
+	
+	/* check the boundary flag is correct */
+	if((ix1 != 4) || (ix2 !=4) || (ox1 != 4) || (ox2 != 4))
+		ath_error("[BackEuler_2d]: Shearing box must have boundary flag 4 on both directions!\n");
+	
+
+	/* the value of joffset changes from 0 to Ny-1 */
+	/* joffset can go to different CPUs in MPI case */
+	
+#endif
+	
 	/* NZ_NUM is the number of non-zero elements in Matrix. It may change if periodic boundary condition is applied */
 	/* lines is the size of the partial matrix */
 	/* count is the number of total non-zeros before that row */
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
 	Real temperature, velocity_x, velocity_y, pressure, T4, Fr0x, Fr0y;
 	Real Ci0, Ci1, Cj0, Cj1;
+#ifdef RADIATION_TRANSFER
+	Real fluxi0, fluxi1, fluxj0, fluxj1;
+
+#endif
+
 	/* This is equivilent to Cspeeds[] in 1D */
 
 
@@ -210,28 +306,62 @@ void BackEuler_2d(MeshS *pM)
 			}	
 			t0flag = 0;
 		}
+	/* For variable Eddington tensor */
+/*
+#ifdef RADIATION_TRANSFER
+	for(j=js; j<=je; j++){
+				for(i=is; i<=ie; i++){
+					Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
+						/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
+					Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
+						/ (sqrt(pG->U[ks][j][i+1].Edd_11) + sqrt(pG->U[ks][j][i].Edd_11));
+					Cj0 = (sqrt(pG->U[ks][j][i].Edd_22) - sqrt(pG->U[ks][j-1][i].Edd_22)) 
+						/ (sqrt(pG->U[ks][j][i].Edd_22) + sqrt(pG->U[ks][j-1][i].Edd_22));
+					Cj1 =  (sqrt(pG->U[ks][j+1][i].Edd_22) - sqrt(pG->U[ks][j][i].Edd_22)) 
+						/ (sqrt(pG->U[ks][j+1][i].Edd_22) + sqrt(pG->U[ks][j][i].Edd_22));
+									
+
+					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[ks][j][i].Edd_11 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_11) * Fr1_t0[ks][j][i])
+							+ (1.0 - Ci1) * (pG->U[ks][j][i+1].Edd_11 * Er_t0[ks][j][i+1] - sqrt(pG->U[ks][j][i+1].Edd_11) * Fr1_t0[ks][j][i+1]));
+					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[ks][j][i-1].Edd_11 * Er_t0[ks][j][i-1] + sqrt(pG->U[ks][j][i-1].Edd_11) * Fr1_t0[ks][j][i-1])
+							+ (1.0 - Ci0) * (pG->U[ks][j][i].Edd_11 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_11) * Fr1_t0[ks][j][i]));
+
+
+					
+
+					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_22) * Fr1_t0[ks][j][i])
+							+ (1.0 - Cj1) * (pG->U[ks][j+1][i].Edd_21 * Er_t0[ks][j+1][i] - sqrt(pG->U[ks][j+1][i].Edd_22) * Fr1_t0[ks][j+1][i]));
+					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[ks][j-1][i].Edd_21 * Er_t0[ks][j-1][i] + sqrt(pG->U[ks][j-1][i].Edd_22) * Fr1_t0[ks][j-1][i])
+							+ (1.0 - Cj0) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_22) * Fr1_t0[ks][j][i]));
+
+					dErdx_t0[ks][j][i] = (fluxi1 - fluxi0)/pG->dx1 + (fluxj1 - fluxj0)/pG->dx2;
+
+					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_11) * Fr2_t0[ks][j][i])
+							+ (1.0 - Ci1) * (pG->U[ks][j][i+1].Edd_21 * Er_t0[ks][j][i+1] - sqrt(pG->U[ks][j][i+1].Edd_11) * Fr2_t0[ks][j][i+1]));
+					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[ks][j][i-1].Edd_21 * Er_t0[ks][j][i-1] + sqrt(pG->U[ks][j][i-1].Edd_11) * Fr2_t0[ks][j][i-1])
+							+ (1.0 - Ci0) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_11) * Fr2_t0[ks][j][i]));
+
+
+					
+
+					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[ks][j][i].Edd_22 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_22) * Fr2_t0[ks][j][i])
+							+ (1.0 - Cj1) * (pG->U[ks][j+1][i].Edd_22 * Er_t0[ks][j+1][i] - sqrt(pG->U[ks][j+1][i].Edd_22) * Fr2_t0[ks][j+1][i]));
+					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[ks][j-1][i].Edd_22 * Er_t0[ks][j-1][i] + sqrt(pG->U[ks][j-1][i].Edd_22) * Fr2_t0[ks][j-1][i])
+							+ (1.0 - Cj0) * (pG->U[ks][j][i].Edd_22 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_22) * Fr2_t0[ks][j][i]));
+
+
+					dErdy_t0[ks][j][i] = (fluxi1 - fluxi0)/pG->dx1 + (fluxj1 - fluxj0)/pG->dx2;
+				}
+			}
+#endif
+*/
+
+
 	}
 
 
-	/* Boundary condition flag */
-	
-	ix1 = pM->BCFlag_ix1;
-	ox1 = pM->BCFlag_ox1;
-	ix2 = pM->BCFlag_ix2;
-	ox2 = pM->BCFlag_ox2;
-	ix3 = pM->BCFlag_ix3;
-	ox3 = pM->BCFlag_ox3;
-	
-
-
 /* Allocate memory space for the Matrix calculation, just used for this grids */
-/* Nmatrix is the number of active cells just in this grids */
-/* Matrix size should be 3 * Nmatrix, ghost zones are not included*/
-	Nx = ie - is + 1;
-	Ny = je - js + 1;
-   	Nmatrix = Ny * Nx;
-	lines  = 3 * Nmatrix; 
-	/* total number of lines in the grid. This is also the same for every grid */
+
 
 	/* For the matrix solver */
 	/* The three vectors will be destroyed when destroy LIS matrix Euler */
@@ -246,20 +376,7 @@ void BackEuler_2d(MeshS *pM)
 
 
 
-	/* ID of this grid */
-#ifdef MPI_PARALLEL
-	ID = myID_Comm_world;
-	lx1 = pG->lx1_id;
-	rx1 = pG->rx1_id;
-	lx2 = pG->lx2_id;
-	rx2 = pG->rx2_id;
-#else
-	ID = 0;
-	lx1 = 0;
-	rx1 = 0;
-	lx2 = 0;
-	rx2 = 0;
-#endif	
+
 
 	/* total number of lines before this grids. This is also the starting line for this grid */ 
 	count_Grids = ID * lines;
@@ -362,7 +479,7 @@ void BackEuler_2d(MeshS *pM)
 		
 		if(bgflag){
 			Fr0x =Fr1_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;		
-			tempvalue += (-dt * Crat * (dErdx_t0[ks][j][i] * 3.0 * pG->U[ks][j][i].Edd_11 + Sigma_t * Fr0x));
+			tempvalue += (-dt * Crat * (dErdx_t0[ks][j][i] + Sigma_t * Fr0x));
 			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
 		}
 
@@ -374,7 +491,7 @@ void BackEuler_2d(MeshS *pM)
 		
 		if(bgflag){
 			Fr0y = Fr2_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
-			tempvalue += (-dt * Crat * (dErdy_t0[ks][j][i] * 3.0 * pG->U[ks][j][i].Edd_22 + Sigma_t * Fr0y));
+			tempvalue += (-dt * Crat * (dErdy_t0[ks][j][i] + Sigma_t * Fr0y));
 			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
 		}
 
@@ -575,7 +692,24 @@ void BackEuler_2d(MeshS *pM)
 			psi[7] = theta[7];
 			psi[8] = theta[10] * pG->U[ks][j+1][i].Edd_22;
 			psi[9] = theta[9];
-
+	
+			/* Need to modify the matrix elements for shearing box boundary conditoin */
+			/* Eddington tensor in the ghost zone is already set by boundary condition */
+			/* Eddington tensor is assumed to be a constant tduring this step. It is explicit */
+	
+			
+#ifdef SHEARING_BOX
+			if((i == is) && ((pG->lx1_id < 0) || (pG->lx1_id > ID))){
+				dFrycoef = (1.0 + pG->U[ks][j][i-1].Edd_22) * qomL / Crat;
+				psi[2] += psi[3] * dFrycoef;
+				
+			}else if((i == ie) && ((pG->rx1_id < 0) || (pG->rx1_id > ID))){
+				dFrycoef = (1.0 + pG->U[ks][j][i+1].Edd_22) * qomL / Crat;
+				psi[6] += psi[7] * dFrycoef;				
+				
+			}			
+#endif
+			
 
 		if(i == is){
 			if(j == js){
@@ -1115,6 +1249,17 @@ void is_js_MPI_MPI()
 	int MPIcount1x, MPIcount1y;
 	int MPIcount2x, MPIcount2y;
 	int MPIcount2xF, MPIcount2yF;
+	
+#ifdef SHEARING_BOX
+	jshearing = Ny * shearing_grid + js - joffset;
+		
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	ishearing = ie - is + (NGx - 1) * Nx;
+	
+#endif
 
 	
 	if(lx1 > ID){ 
@@ -1160,7 +1305,11 @@ void is_js_MPI_MPI()
 	Value[index1] = theta[2];
 	Value[index1+1] = theta[3];
 	
+#ifdef SHEARING_BOX
+	indexValue[index1] = 3 * jshearing * Nx + 3 * ishearing;
+#else
 	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
+#endif
 	indexValue[index1+1] = indexValue[index1] + 1; 
 
 	
@@ -1177,7 +1326,11 @@ void is_js_MPI_MPI()
 	Value[index1] = phi[2];
 	Value[index1+1] = phi[3];	
 
+#ifdef SHEARING_BOX
+	indexValue[index1] = 3 * jshearing * Nx + 3 * ishearing;
+#else	
 	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
+#endif
 	indexValue[index1+1] = indexValue[index1] + 1; 
 
 	
@@ -1197,7 +1350,11 @@ void is_js_MPI_MPI()
 	Value[index1] = psi[2];
 	Value[index1+1] = psi[3];	
 
+#ifdef SHEARING_BOX
+	indexValue[index1] = 3 * jshearing * Nx + 3 * ishearing;
+#else
 	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
+#endif
 	indexValue[index1+1] = indexValue[index1] + 2; 
 
 	
@@ -1600,6 +1757,21 @@ void is_js_MPI_phy()
 void is_js_phy_phy()
 {
 	int m;
+	int j = js;
+#ifdef SHEARING_BOX
+	jshearing = Ny * shearing_grid + (j - js) - joffset;
+	
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	ishearing = ie - is + (NGx - 1) * Nx;
+	
+	
+	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	
+#endif
 
 /* For Er */
 	for(m=0; m<5; m++)
@@ -1622,6 +1794,7 @@ void is_js_phy_phy()
 			}
 		}
 		else {
+
 			Value[NoEr+5]	= theta[2];
 			Value[NoEr+6]	= theta[3];
 			Value[NoEr+7]	= theta[9];
@@ -1638,6 +1811,50 @@ void is_js_phy_phy()
 				indexValue[NoEr+10] = 3*(je-js)*Nx + 2 + count_Grids;
 			}
 		}
+	
+#ifdef SHEARING_BOX
+	col_compare1 =  3*(j-js+1) * Nx + count_Grids;
+	col_compare2 = 3*(je-js)*Nx + count_Grids;
+	
+	if(col_shear > col_compare1){
+		Value[NoEr+5]	= theta[9];
+		Value[NoEr+6]	= theta[10];
+		Value[NoEr+7]	= theta[2];
+		Value[NoEr+8]	= theta[3];
+		Value[NoEr+9] = theta[0];
+		Value[NoEr+10] = theta[1];
+		
+		indexValue[NoEr+5] = 3 * Nx + count_Grids;
+		indexValue[NoEr+6] = 3 * Nx + 2 + count_Grids;
+		indexValue[NoEr+7] = col_shear;
+		indexValue[NoEr+8] = col_shear + 1;
+		indexValue[NoEr+9] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoEr+10] = 3*(je-js)*Nx + 2 + count_Grids;
+	}
+	else if(col_shear > col_compare2) {
+		
+		Value[NoEr+5]	= theta[9];
+		Value[NoEr+6]	= theta[10];				
+		Value[NoEr+7] = theta[0];
+		Value[NoEr+8] = theta[1];
+		Value[NoEr+9]	= theta[2];
+		Value[NoEr+10]	= theta[3];							
+		
+		indexValue[NoEr+5] = 3 * Nx + count_Grids;
+		indexValue[NoEr+6] = 3 * Nx + 2 + count_Grids;
+		indexValue[NoEr+7] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoEr+8] = 3*(je-js)*Nx + 2 + count_Grids;
+		indexValue[NoEr+9] = col_shear;
+		indexValue[NoEr+10] = col_shear + 1;
+		
+	}
+	else {
+		indexValue[NoEr+5] = col_shear;
+		indexValue[NoEr+6] = col_shear + 1;
+	}
+
+	
+#endif	
 
 				
 						
@@ -1663,6 +1880,8 @@ void is_js_phy_phy()
 			}
 		}
 		else{
+
+		
 			Value[NoFr1+4]	= phi[2];
 			Value[NoFr1+5]	= phi[3];
 			Value[NoFr1+6]	= phi[8];
@@ -1671,13 +1890,62 @@ void is_js_phy_phy()
 			indexValue[NoFr1+5] = 3 * (ie - is) + 1 + count_Grids;
 			indexValue[NoFr1+6] = 3 * Nx + count_Grids;
 			indexValue[NoFr1+7] = 3 * Nx + 1 + count_Grids;
+			
 			if(ix2 == 4){
 				Value[NoFr1+8] = phi[0];
 				Value[NoFr1+9] = phi[1];
 				indexValue[NoFr1+8] = 3*(je-js)*Nx + count_Grids;
 				indexValue[NoFr1+9] = 3*(je-js)*Nx + 1 + count_Grids;
-			}
-		}				
+			}		
+		
+		}	
+	
+	
+#ifdef SHEARING_BOX
+	col_compare1 =  3*(j-js+1) * Nx + count_Grids;
+	col_compare2 = 3*(je-js)*Nx + count_Grids;	
+	
+	if(col_shear > col_compare1){
+		Value[NoFr1+4]	= phi[8];
+		Value[NoFr1+5]	= phi[9];
+		Value[NoFr1+6]	= phi[2];
+		Value[NoFr1+7]	= phi[3];
+		Value[NoFr1+8] = phi[0];
+		Value[NoFr1+9] = phi[1];
+		
+		
+		indexValue[NoFr1+4] = 3 * Nx + count_Grids;
+		indexValue[NoFr1+5] = 3 * Nx + 1 + count_Grids;
+		indexValue[NoFr1+6] = col_shear;
+		indexValue[NoFr1+7] = col_shear + 1;
+		indexValue[NoFr1+8] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr1+9] = 3*(je-js)*Nx + 1 + count_Grids;
+		
+	}
+	else if(col_shear > col_compare2) {
+		
+		Value[NoFr1+4]	= phi[8];
+		Value[NoFr1+5]	= phi[9];				
+		Value[NoFr1+6] = phi[0];
+		Value[NoFr1+7] = phi[1];
+		Value[NoFr1+8]	= phi[2];
+		Value[NoFr1+9]	= phi[3];				
+		
+		indexValue[NoFr1+4] = 3 * Nx + count_Grids;
+		indexValue[NoFr1+5] = 3 * Nx + 1 + count_Grids;				
+		indexValue[NoFr1+6] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr1+7] = 3*(je-js)*Nx + 1 + count_Grids;
+		indexValue[NoFr1+8] = col_shear;
+		indexValue[NoFr1+9] = col_shear + 1;
+		
+	}
+	else {
+		indexValue[NoFr1+4] = col_shear;
+		indexValue[NoFr1+5] = col_shear + 1;
+	}
+	
+	
+#endif	
 
 					
 
@@ -1705,6 +1973,7 @@ void is_js_phy_phy()
 			}
 		}
 		else{
+			
 			Value[NoFr2+4]	= psi[2];
 			Value[NoFr2+5]	= psi[3];
 			Value[NoFr2+6]	= psi[8];
@@ -1720,8 +1989,55 @@ void is_js_phy_phy()
 				indexValue[NoFr2+8] = 3*(je-js)*Nx + count_Grids;
 				indexValue[NoFr2+9] = 3*(je-js)*Nx + 2 + count_Grids;
 			}
+
 		}
 
+	
+#ifdef SHEARING_BOX
+	col_compare1 =  3*(j-js+1) * Nx + count_Grids;
+	col_compare2 = 3*(je-js)*Nx + count_Grids;		
+	
+	if(col_shear > col_compare1){
+		Value[NoFr2+4]	= psi[8];
+		Value[NoFr2+5]	= psi[9];
+		Value[NoFr2+6]	= psi[2];
+		Value[NoFr2+7]	= psi[3];
+		Value[NoFr2+8] = psi[0];
+		Value[NoFr2+9] = psi[1];
+		
+
+		indexValue[NoFr2+4] = 3 * Nx + count_Grids;
+		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;
+		indexValue[NoFr2+6] = col_shear;
+		indexValue[NoFr2+7] = col_shear + 2;
+		indexValue[NoFr2+8] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr2+9] = 3*(je-js)*Nx + 2 + count_Grids;
+		
+	}
+	else if(col_shear > col_compare2){
+		
+		Value[NoFr2+4]	= psi[8];
+		Value[NoFr2+5]	= psi[9];				
+		Value[NoFr2+6] = psi[0];
+		Value[NoFr2+7] = psi[1];
+		Value[NoFr2+8]	= psi[2];
+		Value[NoFr2+9]	= psi[3];				
+		
+		indexValue[NoFr2+4] = 3 * Nx + count_Grids;
+		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;				
+		indexValue[NoFr2+6] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr2+7] = 3*(je-js)*Nx + 2 + count_Grids;
+		indexValue[NoFr2+8] = col_shear;
+		indexValue[NoFr2+9] = col_shear + 2;
+		
+	}	
+	else {
+		indexValue[NoFr2+4] = col_shear;
+		indexValue[NoFr2+5] = col_shear + +2;
+	}
+	
+	
+#endif	
 
 		/* other ix1 boundary condition */
 		if(ix1 == 1 || ix1 == 5){
@@ -2352,6 +2668,21 @@ void is_je_phy_phy()
 	int m, i, j;
 	i = is;
 	j = je;
+	
+#ifdef SHEARING_BOX
+	jshearing = Ny * shearing_grid + (j - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	ishearing = ie - is + (NGx - 1) * Nx;
+	
+	
+	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	
+#endif
+	
 
 	if(ox2 != 4){
 	/* The following is true no matter ix1 == 4 or not */
@@ -2585,6 +2916,7 @@ void is_je_phy_phy()
 							
 	indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(ie-is) + count_Grids;
 	indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(ie-is) + 2 + count_Grids;
+			
 
 	} /* for periodic boundary condition */
 	else if(ix1 == 1 || ix1 == 5){
@@ -2612,8 +2944,193 @@ void is_je_phy_phy()
 
 		/* Do nothing */
 	}
-	
+		
+#ifdef SHEARING_BOX
+		col_compare1 = 	3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		col_compare2 = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		if(col_shear < col_compare1){
+			
+			/* For Er */
+						
+			
+			Value[NoEr] = theta[9];
+			Value[NoEr+1] = theta[10];
+			Value[NoEr+2] = theta[2];
+			Value[NoEr+3] = theta[3];		
+			Value[NoEr+4] = theta[0];
+			Value[NoEr+5] = theta[1];
+			
+			indexValue[NoEr] = 3*(i-is) + count_Grids;
+			indexValue[NoEr+1] =3*(i-is) + 2 + count_Grids;
+			indexValue[NoEr+2] = col_shear;
+			indexValue[NoEr+3] = col_shear + 1;			
+			indexValue[NoEr+4] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoEr+5] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+			
+			/* For Fr1 */
+			
+			Value[NoFr1] = phi[8];
+			Value[NoFr1+1] = phi[9];
+			Value[NoFr1+2] = phi[2];
+			Value[NoFr1+3] = phi[3];
+			Value[NoFr1+4] = phi[0];
+			Value[NoFr1+5] = phi[1];
+			
+			indexValue[NoFr1] = 3*(i-is) + count_Grids;
+			indexValue[NoFr1+1] = 3*(i-is) + 1 + count_Grids;		
+			indexValue[NoFr1+2] = col_shear;
+			indexValue[NoFr1+3] = col_shear + 1;
+			indexValue[NoFr1+4] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr1+5] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+			
+			/* For Fr2 */
+			
+			Value[NoFr2] = psi[8];
+			Value[NoFr2+1] = psi[9];
+			Value[NoFr2+2] = psi[2];
+			Value[NoFr2+3] = psi[3];
+			Value[NoFr2+4] = psi[0];
+			Value[NoFr2+5] = psi[1];
+			
+			indexValue[NoFr2] = 3*(i-is) + count_Grids;
+			indexValue[NoFr2+1] = 3*(i-is) + 2 + count_Grids;	
+			indexValue[NoFr2+2] = col_shear;
+			indexValue[NoFr2+3] = col_shear + 2;
+			indexValue[NoFr2+4] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr2+5] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+			
+			
+			/* for Er */
+			for(m=0; m<5; m++){
+				Value[NoEr+6+m] = theta[4+m];
+				indexValue[NoEr+6+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+			}
+			
+			/* For Fr1 */
+			Value[NoFr1+6] = phi[4];
+			Value[NoFr1+7] = phi[5];
+			Value[NoFr1+8] = phi[6];
+			Value[NoFr1+9] = phi[7];
+			
+			indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+			indexValue[NoFr1+8] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+			indexValue[NoFr1+9] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+			
+			/* For Fr2 */
+			Value[NoFr2+6] = psi[4];
+			Value[NoFr2+7] = psi[5];
+			Value[NoFr2+8] = psi[6];
+			Value[NoFr2+9] = psi[7];
+			
+			indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+			indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+			indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;				
+					
+		}
+		else if((col_shear > col_compare1) && (col_shear < col_compare2)){
+			/* For Er */
+			
+			
+			Value[NoEr] = theta[9];
+			Value[NoEr+1] = theta[10];
+			Value[NoEr+2] = theta[0];
+			Value[NoEr+3] = theta[1];		
+			Value[NoEr+4] = theta[2];
+			Value[NoEr+5] = theta[3];
+			
+			indexValue[NoEr] = 3*(i-is) + count_Grids;
+			indexValue[NoEr+1] =3*(i-is) + 2 + count_Grids;
+			indexValue[NoEr+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoEr+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+			indexValue[NoEr+4] = col_shear;
+			indexValue[NoEr+5] = col_shear + 1;	
+			
+			/* For Fr1 */			
+			
+			Value[NoFr1] = phi[8];
+			Value[NoFr1+1] = phi[9];
+			Value[NoFr1+2] = phi[0];
+			Value[NoFr1+3] = phi[1];
+			Value[NoFr1+4] = phi[2];
+			Value[NoFr1+5] = phi[3];
 
+			
+			indexValue[NoFr1] = 3*(i-is) + count_Grids;
+			indexValue[NoFr1+1] = 3*(i-is) + 1 + count_Grids;	
+			indexValue[NoFr1+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr1+3] = 3*(j-js-1)*Nx + 3*(i-is) + 1 + count_Grids;
+			indexValue[NoFr1+4] = col_shear;
+			indexValue[NoFr1+5] = col_shear + 1;
+			
+			/* For Fr2 */
+			
+			Value[NoFr2] = psi[8];
+			Value[NoFr2+1] = psi[9];
+			Value[NoFr2+2] = psi[0];
+			Value[NoFr2+3] = psi[1];
+			Value[NoFr2+4] = psi[2];
+			Value[NoFr2+5] = psi[3];
+			
+			indexValue[NoFr2] = 3*(i-is) + count_Grids;
+			indexValue[NoFr2+1] = 3*(i-is) + 2 + count_Grids;	
+			indexValue[NoFr2+2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr2+3] = 3*(j-js-1)*Nx + 3*(i-is) + 2 + count_Grids;
+			indexValue[NoFr2+4] = col_shear;
+			indexValue[NoFr2+5] = col_shear + 2;
+			
+			
+			/* for Er */
+			for(m=0; m<5; m++){
+				Value[NoEr+6+m] = theta[4+m];
+				indexValue[NoEr+6+m] = 3*(j-js)*Nx + 3*(i-is) + m + count_Grids;
+			}
+			
+			/* For Fr1 */
+			Value[NoFr1+6] = phi[4];
+			Value[NoFr1+7] = phi[5];
+			Value[NoFr1+8] = phi[6];
+			Value[NoFr1+9] = phi[7];
+			
+			indexValue[NoFr1+6] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr1+7] = 3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids;
+			indexValue[NoFr1+8] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+			indexValue[NoFr1+9] = 3*(j-js)*Nx + 3*(i-is) + 4 + count_Grids;
+			
+			/* For Fr2 */
+			Value[NoFr2+6] = psi[4];
+			Value[NoFr2+7] = psi[5];
+			Value[NoFr2+8] = psi[6];
+			Value[NoFr2+9] = psi[7];
+			
+			indexValue[NoFr2+6] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+			indexValue[NoFr2+7] = 3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids;
+			indexValue[NoFr2+8] = 3*(j-js)*Nx + 3*(i-is) + 3 + count_Grids;
+			indexValue[NoFr2+9] = 3*(j-js)*Nx + 3*(i-is) + 5 + count_Grids;			
+			
+			
+			
+			
+		}
+		else{
+				
+			indexValue[NoEr+9] = col_shear;
+			indexValue[NoEr+10] = col_shear + 1;
+			
+			/* For Fr1 */
+			
+	
+			indexValue[NoFr1+8] = col_shear;
+			indexValue[NoFr1+9] = col_shear + 1;
+			
+			/* For Fr2 */
+			
+			indexValue[NoFr2+8] = col_shear;
+			indexValue[NoFr2+9] = col_shear + 2;			
+			
+		}
+#endif
 	}/* periodic for x2 */
 
 	return;
@@ -2770,6 +3287,28 @@ void is_j_phy(int j)
 	int i;
 	i = is;
 	/* For Er */
+	
+	
+#ifdef SHEARING_BOX
+	int col_compare3;
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	jshearing = Ny * shearing_grid + (j-js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	ishearing = ie - is + (NGx - 1) * Nx;
+	
+	
+	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	
+#endif
 
 	Value[NoEr] = theta[0];
 	Value[NoEr+1] = theta[1];
@@ -2929,6 +3468,216 @@ void is_j_phy(int j)
 	else if(ix1 == 3){
 	/* Do nothing */
 	}
+	
+#ifdef SHEARING_BOX
+	col_compare1 =  3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	col_compare2 = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	col_compare3 = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	
+	if(col_shear < col_compare1){
+		indexj0Er = NoEr + 2;
+		indexj0Fr1 = NoFr1 + 2;
+		indexj0Fr2 = NoFr2 + 2;
+		
+		indexi0Er = NoEr;
+		indexi0Fr1 = NoFr1;
+		indexi0Fr2 = NoFr2;
+		
+		indexiEr = NoEr + 4;
+		indexiFr1 = NoFr1 + 4;
+		indexiFr2 = NoFr2 + 4;
+		
+		indexi1Er = NoEr + 7;
+		indexi1Fr1 = NoFr1 + 6;
+		indexi1Fr2 = NoFr2 + 6;
+		
+		indexj1Er = NoEr + 9;
+		indexj1Fr1  = NoFr1 + 8;
+		indexj1Fr2 = NoFr2 + 8;
+		
+	}
+	else if((col_shear > col_compare1) && (col_shear < col_compare2)){
+		indexj0Er = NoEr + 0;
+		indexj0Fr1 = NoFr1 + 0;
+		indexj0Fr2 = NoFr2 + 0;
+		
+		indexi0Er = NoEr + 2;
+		indexi0Fr1 = NoFr1 + 2;
+		indexi0Fr2 = NoFr2 + 2;
+		
+		indexiEr = NoEr + 4;
+		indexiFr1 = NoFr1 + 4;
+		indexiFr2 = NoFr2 + 4;
+		
+		indexi1Er = NoEr + 7;
+		indexi1Fr1 = NoFr1 + 6;
+		indexi1Fr2 = NoFr2 + 6;
+		
+		indexj1Er = NoEr + 9;
+		indexj1Fr1  = NoFr1 + 8;
+		indexj1Fr2 = NoFr2 + 8;	
+	}
+	else if((col_shear > col_compare2) && (col_shear < col_compare3)){
+		
+		indexj0Er = NoEr + 0;
+		indexj0Fr1 = NoFr1 + 0;
+		indexj0Fr2 = NoFr2 + 0;
+		
+		indexi0Er = NoEr + 7;
+		indexi0Fr1 = NoFr1 + 6;
+		indexi0Fr2 = NoFr2 + 6;
+		
+		indexiEr = NoEr + 2;
+		indexiFr1 = NoFr1 + 2;
+		indexiFr2 = NoFr2 + 2;
+		
+		indexi1Er = NoEr + 5;
+		indexi1Fr1 = NoFr1 + 4;
+		indexi1Fr2 = NoFr2 + 4;
+		
+		indexj1Er = NoEr + 9;
+		indexj1Fr1  = NoFr1 + 8;
+		indexj1Fr2 = NoFr2 + 8;			
+		
+	}
+	else{
+		indexj0Er = NoEr + 0;
+		indexj0Fr1 = NoFr1 + 0;
+		indexj0Fr2 = NoFr2 + 0;
+		
+		indexi0Er = NoEr + 9;
+		indexi0Fr1 = NoFr1 + 8;
+		indexi0Fr2 = NoFr2 + 8;
+		
+		indexiEr = NoEr + 2;
+		indexiFr1 = NoFr1 + 2;
+		indexiFr2 = NoFr2 + 2;
+		
+		indexi1Er = NoEr + 5;
+		indexi1Fr1 = NoFr1 + 4;
+		indexi1Fr2 = NoFr2 + 4;
+		
+		indexj1Er = NoEr + 7;
+		indexj1Fr1  = NoFr1 + 6;
+		indexj1Fr2 = NoFr2 + 6;		
+		
+	}
+	
+	/* Er */
+	Value[indexj0Er] = theta[0];
+	Value[indexj0Er+1] = theta[1];
+	
+	Value[indexi0Er] = theta[2];
+	Value[indexi0Er+1] = theta[3];
+	
+	Value[indexiEr] = theta[4];
+	Value[indexiEr+1] = theta[5];
+	Value[indexiEr+2] = theta[6];
+	
+	Value[indexi1Er] = theta[7];
+	Value[indexi1Er+1] = theta[8];
+	
+	Value[indexj1Er] = theta[9];
+	Value[indexj1Er+1] = theta[10];
+	
+	
+	
+	indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Er] = col_shear;
+	indexValue[indexi0Er+1] = col_shear + 1;
+	
+	indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+
+	indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+	indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+	
+	
+	indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	/* Fr1 */
+	
+	Value[indexj0Fr1] = phi[0];
+	Value[indexj0Fr1+1] = phi[1];
+	
+	Value[indexi0Fr1] = phi[2];
+	Value[indexi0Fr1+1] = phi[3];
+	
+	Value[indexiFr1] = phi[4];
+	Value[indexiFr1+1] = phi[5];
+	
+	Value[indexi1Fr1] = phi[6];
+	Value[indexi1Fr1+1] = phi[7];
+	
+	Value[indexj1Fr1] = phi[8];
+	Value[indexj1Fr1+1] = phi[9];
+	
+	
+	indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	
+	indexValue[indexi0Fr1] = col_shear;
+	indexValue[indexi0Fr1+1] = col_shear + 1;
+	
+	indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+
+	
+	indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+	indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+	
+	
+	indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	/* Fr2 */
+	Value[indexj0Fr2] = psi[0];
+	Value[indexj0Fr2+1] = psi[1];
+	
+	Value[indexi0Fr2] = psi[2];
+	Value[indexi0Fr2+1] = psi[3];
+	
+	Value[indexiFr2] = psi[4];
+	Value[indexiFr2+1] = psi[5];
+	
+	Value[indexi1Fr2] = psi[6];
+	Value[indexi1Fr2+1] = psi[7];
+	
+	Value[indexj1Fr2] = psi[8];
+	Value[indexj1Fr2+1] = psi[9];
+	
+	
+	indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Fr2] = col_shear;
+	indexValue[indexi0Fr2+1] = col_shear + 2;
+	
+	indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+	indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+	
+	
+	indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+	
+	
+#endif
 	
 	return;
 } /* physical boundary for x */
@@ -3503,6 +4252,28 @@ void ie_js_phy_phy()
 	int m, i, j;
 	i = ie;
 	j = js;
+	
+	
+#ifdef SHEARING_BOX
+	jshearing = Ny * shearing_grid + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	ishearing = 0.0;
+	
+	
+	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+#endif
+	
 
 	if(ox1 !=4 ){
 	
@@ -3748,6 +4519,191 @@ void ie_js_phy_phy()
 
 		/* Do nothing */
 	}
+	
+	
+	
+#ifdef SHEARING_BOX
+	col_compare1 = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	col_compare2 = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
+/*	
+    This is not changed by shearing boundary condition 
+	indexj0Er = NoEr + 9;
+	indexj0Fr1 = NoFr1 + 8;
+	indexj0Fr2 = NoFr2 + 8;
+*/	
+	if(col_shear < col_compare1){
+
+		indexi0Er = NoEr + 2;
+		indexi0Fr1 = NoFr1 + 2;
+		indexi0Fr2 = NoFr2 + 2;
+		
+		indexiEr = NoEr + 4;
+		indexiFr1 = NoFr1 + 4;
+		indexiFr2 = NoFr2 + 4;
+		
+		indexi1Er = NoEr;
+		indexi1Fr1 = NoFr1;
+		indexi1Fr2 = NoFr2;
+		
+		indexj1Er = NoEr + 7;
+		indexj1Fr1  = NoFr1 + 6;
+		indexj1Fr2 = NoFr2 + 6;
+		
+	}
+	else if((col_shear > col_compare1) && (col_shear < col_compare2)){
+		
+		indexi0Er = NoEr;
+		indexi0Fr1 = NoFr1;
+		indexi0Fr2 = NoFr2;
+		
+		indexiEr = NoEr + 2;
+		indexiFr1 = NoFr1 + 2;
+		indexiFr2 = NoFr2 + 2;
+		
+		indexi1Er = NoEr + 5;
+		indexi1Fr1 = NoFr1 + 4;
+		indexi1Fr2 = NoFr2 + 4;
+		
+		indexj1Er = NoEr + 7;
+		indexj1Fr1  = NoFr1 + 6;
+		indexj1Fr2 = NoFr2 + 6;	
+	}
+	else {
+				
+		indexi0Er = NoEr;
+		indexi0Fr1 = NoFr1;
+		indexi0Fr2 = NoFr2;
+		
+		indexiEr = NoEr + 2;
+		indexiFr1 = NoFr1 + 2;
+		indexiFr2 = NoFr2 + 2;
+		
+		indexi1Er = NoEr + 7;
+		indexi1Fr1 = NoFr1 + 6;
+		indexi1Fr2 = NoFr2 + 6;
+		
+		indexj1Er = NoEr + 5;
+		indexj1Fr1  = NoFr1 + 4;
+		indexj1Fr2 = NoFr2 + 4;			
+		
+	}
+	
+	
+	/* Er */
+/*	Value[indexj0Er] = theta[0];
+	Value[indexj0Er+1] = theta[1];
+*/	
+	Value[indexi0Er] = theta[2];
+	Value[indexi0Er+1] = theta[3];
+	
+	Value[indexiEr] = theta[4];
+	Value[indexiEr+1] = theta[5];
+	Value[indexiEr+2] = theta[6];
+	
+	Value[indexi1Er] = theta[7];
+	Value[indexi1Er+1] = theta[8];
+	
+	Value[indexj1Er] = theta[9];
+	Value[indexj1Er+1] = theta[10];
+	
+	
+/*	
+	indexValue[indexj0Er] = 3*(je-js)*Nx+3*(i-is)+ count_Grids;
+	indexValue[indexj0Er+1] = 3*(je-js)*Nx+3*(i-is)+ count_Grids + 2;
+*/	
+	
+	
+	indexValue[indexi0Er] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[indexi0Er+1] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids + 1;
+	
+	indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	indexValue[indexi1Er] = col_shear;
+	indexValue[indexi1Er+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	/* Fr1 */
+	
+/*	Value[indexj0Fr1] = phi[0];
+	Value[indexj0Fr1+1] = phi[1];
+*/	
+	Value[indexi0Fr1] = phi[2];
+	Value[indexi0Fr1+1] = phi[3];
+	
+	Value[indexiFr1] = phi[4];
+	Value[indexiFr1+1] = phi[5];
+	
+	Value[indexi1Fr1] = phi[6];
+	Value[indexi1Fr1+1] = phi[7];
+	
+	Value[indexj1Fr1] = phi[8];
+	Value[indexj1Fr1+1] = phi[9];
+	
+/*	
+	indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+*/	
+	
+	
+	indexValue[indexi0Fr1] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[indexi0Fr1+1] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids + 1;
+	
+	indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	indexValue[indexi1Fr1] = col_shear;
+	indexValue[indexi1Fr1+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+
+	
+	/* Fr2 */
+/*	Value[indexj0Fr2] = psi[0];
+	Value[indexj0Fr2+1] = psi[1];
+*/	
+	Value[indexi0Fr2] = psi[2];
+	Value[indexi0Fr2+1] = psi[3];
+	
+	Value[indexiFr2] = psi[4];
+	Value[indexiFr2+1] = psi[5];
+	
+	Value[indexi1Fr2] = psi[6];
+	Value[indexi1Fr2+1] = psi[7];
+	
+	Value[indexj1Fr2] = psi[8];
+	Value[indexj1Fr2+1] = psi[9];
+	
+/*	
+	indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+*/	
+	
+	
+	indexValue[indexi0Fr2] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids;
+	indexValue[indexi0Fr2+1] = 3*(j-js)*Nx+3*(i-is-1)+ count_Grids + 2;
+	
+	indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	indexValue[indexi1Fr2] = col_shear;
+	indexValue[indexi1Fr2+1] = col_shear + 2;
+	
+	
+	indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+	
+#endif
 		
 	return;
 } /* physical for x and y direction */
@@ -4339,6 +5295,29 @@ void ie_je_phy_phy()
 	int m, i, j;
 	i = ie;
 	j = je;
+	
+#ifdef SHEARING_BOX
+	int col_compare3;
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	jshearing = Ny * shearing_grid + (j - js) + joffset;
+	
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	ishearing = 0.0;
+	
+	
+	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	
+#endif
 
 	if(ox2 != 4){
 		if(ox1 != 4){					
@@ -4722,6 +5701,198 @@ void ie_je_phy_phy()
 
 		}/* periodic for x1 */	
 	}/* periodic for x2 */
+	
+#ifdef SHEARING_BOX
+	col_compare1 =  3*(js-js)*Nx + 3*(i-is) + count_Grids;
+	col_compare2 = 3*(j-js-1)*Nx + 3*(i-is-1) + count_Grids;
+
+
+	
+	if(col_shear < col_compare1){
+		indexj0Er = NoEr + 4;
+		indexj0Fr1 = NoFr1 + 4;
+		indexj0Fr2 = NoFr2 + 4;
+		
+		indexi0Er = NoEr + 6;
+		indexi0Fr1 = NoFr1 + 6;
+		indexi0Fr2 = NoFr2 + 6;
+		
+		indexiEr = NoEr + 8;
+		indexiFr1 = NoFr1 + 8;
+		indexiFr2 = NoFr2 + 8;
+		
+		indexi1Er = NoEr;
+		indexi1Fr1 = NoFr1;
+		indexi1Fr2 = NoFr2;
+		
+		indexj1Er = NoEr + 2;
+		indexj1Fr1  = NoFr1 + 2;
+		indexj1Fr2 = NoFr2 + 2;
+		
+	}
+	else if((col_shear > col_compare1) && (col_shear < col_compare2)){
+		indexj0Er = NoEr + 4;
+		indexj0Fr1 = NoFr1 + 4;
+		indexj0Fr2 = NoFr2 + 4;
+		
+		indexi0Er = NoEr + 6;
+		indexi0Fr1 = NoFr1 + 6;
+		indexi0Fr2 = NoFr2 + 6;
+		
+		indexiEr = NoEr + 8;
+		indexiFr1 = NoFr1 + 8;
+		indexiFr2 = NoFr2 + 8;
+		
+		indexi1Er = NoEr + 2;
+		indexi1Fr1 = NoFr1 + 2;
+		indexi1Fr2 = NoFr2 + 2;
+		 
+		indexj1Er = NoEr;
+		indexj1Fr1  = NoFr1;
+		indexj1Fr2 = NoFr2;
+	}
+	else{
+		
+		indexj0Er = NoEr + 2;
+		indexj0Fr1 = NoFr1 + 2;
+		indexj0Fr2 = NoFr2 + 2;
+		
+		indexi0Er = NoEr + 6;
+		indexi0Fr1 = NoFr1 + 6;
+		indexi0Fr2 = NoFr2 + 6;
+		
+		indexiEr = NoEr + 8;
+		indexiFr1 = NoFr1 + 8;
+		indexiFr2 = NoFr2 + 8;
+		
+		indexi1Er = NoEr + 4;
+		indexi1Fr1 = NoFr1 + 4;
+		indexi1Fr2 = NoFr2 + 4;
+		
+		indexj1Er = NoEr;
+		indexj1Fr1  = NoFr1;
+		indexj1Fr2 = NoFr2;			
+		
+	}
+	
+	/* Er */
+	Value[indexj0Er] = theta[0];
+	Value[indexj0Er+1] = theta[1];
+	
+	Value[indexi0Er] = theta[2];
+	Value[indexi0Er+1] = theta[3];
+	
+	Value[indexiEr] = theta[4];
+	Value[indexiEr+1] = theta[5];
+	Value[indexiEr+2] = theta[6];
+	
+	Value[indexi1Er] = theta[7];
+	Value[indexi1Er+1] = theta[8];
+	
+	Value[indexj1Er] = theta[9];
+	Value[indexj1Er+1] = theta[10];
+	
+	
+	
+	indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is -1) + count_Grids;
+	indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is -1) + count_Grids + 1;
+	
+	
+	indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	indexValue[indexi1Er] = col_shear;
+	indexValue[indexi1Er+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Er] = 3*(js-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Er+1] = 3*(js-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	/* Fr1 */
+	
+	Value[indexj0Fr1] = phi[0];
+	Value[indexj0Fr1+1] = phi[1];
+	
+	Value[indexi0Fr1] = phi[2];
+	Value[indexi0Fr1+1] = phi[3];
+	
+	Value[indexiFr1] = phi[4];
+	Value[indexiFr1+1] = phi[5];
+	
+	Value[indexi1Fr1] = phi[6];
+	Value[indexi1Fr1+1] = phi[7];
+	
+	Value[indexj1Fr1] = phi[8];
+	Value[indexj1Fr1+1] = phi[9];
+	
+	
+	indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	
+	indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is - 1) + count_Grids;
+	indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is - 1) + count_Grids + 1;
+	
+	indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	indexValue[indexi1Fr1] = col_shear;
+	indexValue[indexi1Fr1+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Fr1] = 3*(js-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr1+1] = 3*(js-js)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	/* Fr2 */
+	Value[indexj0Fr2] = psi[0];
+	Value[indexj0Fr2+1] = psi[1];
+	
+	Value[indexi0Fr2] = psi[2];
+	Value[indexi0Fr2+1] = psi[3];
+	
+	Value[indexiFr2] = psi[4];
+	Value[indexiFr2+1] = psi[5];
+	
+	Value[indexi1Fr2] = psi[6];
+	Value[indexi1Fr2+1] = psi[7];
+	
+	Value[indexj1Fr2] = psi[8];
+	Value[indexj1Fr2+1] = psi[9];
+	
+	
+	indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+	
+	indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	indexValue[indexi1Fr2] = col_shear;
+	indexValue[indexi1Fr2+1] = col_shear + 2;
+	
+	
+	indexValue[indexj1Fr2] = 3*(js-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr2+1] = 3*(js-js)*Nx + 3*(i-is) + count_Grids + 2;		
+	
+	
+#endif
+	
+	
 
 	return;
 } /* physical for x and y direction */
@@ -4859,6 +6030,30 @@ void ie_j_phy(int j)
 {
 	int m, i;
 	i = ie;
+	
+#ifdef SHEARING_BOX
+	int col_compare3;
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	jshearing = Ny * shearing_grid + (j-js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	ishearing = 0.0;
+	
+	
+	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	
+#endif
+	
+	
 	if(ox1 == 4){
 
 		/* For Er */
@@ -5050,6 +6245,218 @@ void ie_j_phy(int j)
 		
 
 	}/* non-periodic boundary condition */
+	
+	
+	
+#ifdef SHEARING_BOX
+	col_compare1 =  3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	col_compare2 = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	col_compare3 = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
+	
+	if(col_shear < col_compare1){
+		indexj0Er = NoEr + 2;
+		indexj0Fr1 = NoFr1 + 2;
+		indexj0Fr2 = NoFr2 + 2;
+		
+		indexi0Er = NoEr + 4;
+		indexi0Fr1 = NoFr1 + 4;
+		indexi0Fr2 = NoFr2 + 4;
+		
+		indexiEr = NoEr + 6;
+		indexiFr1 = NoFr1 + 6;
+		indexiFr2 = NoFr2 + 6;
+		
+		indexi1Er = NoEr;
+		indexi1Fr1 = NoFr1;
+		indexi1Fr2 = NoFr2;
+		
+		indexj1Er = NoEr + 9;
+		indexj1Fr1  = NoFr1 + 8;
+		indexj1Fr2 = NoFr2 + 8;
+		
+	}
+	else if((col_shear > col_compare1) && (col_shear < col_compare2)){
+		indexj0Er = NoEr;
+		indexj0Fr1 = NoFr1;
+		indexj0Fr2 = NoFr2;
+		
+		indexi0Er = NoEr + 4;
+		indexi0Fr1 = NoFr1 + 4;
+		indexi0Fr2 = NoFr2 + 4;
+		
+		indexiEr = NoEr + 6;
+		indexiFr1 = NoFr1 + 6;
+		indexiFr2 = NoFr2 + 6;
+		
+		indexi1Er = NoEr + 2;
+		indexi1Fr1 = NoFr1 + 2;
+		indexi1Fr2 = NoFr2 + 2;
+		
+		indexj1Er = NoEr + 9;
+		indexj1Fr1  = NoFr1 + 8;
+		indexj1Fr2 = NoFr2 + 8;
+	}
+	else if((col_shear > col_compare2) && (col_shear < col_compare3)){
+		
+		indexj0Er = NoEr;
+		indexj0Fr1 = NoFr1;
+		indexj0Fr2 = NoFr2;
+		
+		indexi0Er = NoEr + 2;
+		indexi0Fr1 = NoFr1 + 2;
+		indexi0Fr2 = NoFr2 + 2;
+		
+		indexiEr = NoEr + 4;
+		indexiFr1 = NoFr1 + 4;
+		indexiFr2 = NoFr2 + 4;
+		
+		indexi1Er = NoEr + 7;
+		indexi1Fr1 = NoFr1 + 6;
+		indexi1Fr2 = NoFr2 + 6;
+		
+		indexj1Er = NoEr + 9;
+		indexj1Fr1  = NoFr1 + 8;
+		indexj1Fr2 = NoFr2 + 8;			
+		
+	}
+	else{
+		indexj0Er = NoEr;
+		indexj0Fr1 = NoFr1;
+		indexj0Fr2 = NoFr2;
+		
+		indexi0Er = NoEr + 2;
+		indexi0Fr1 = NoFr1 + 2;
+		indexi0Fr2 = NoFr2 + 2;
+		
+		indexiEr = NoEr + 4;
+		indexiFr1 = NoFr1 + 4;
+		indexiFr2 = NoFr2 + 4;
+		
+		indexi1Er = NoEr + 9;
+		indexi1Fr1 = NoFr1 + 8;
+		indexi1Fr2 = NoFr2 + 8;
+		
+		indexj1Er = NoEr + 7;
+		indexj1Fr1  = NoFr1 + 6;
+		indexj1Fr2 = NoFr2 + 6;				
+	}
+	
+	/* Er */
+	Value[indexj0Er] = theta[0];
+	Value[indexj0Er+1] = theta[1];
+	
+	Value[indexi0Er] = theta[2];
+	Value[indexi0Er+1] = theta[3];
+	
+	Value[indexiEr] = theta[4];
+	Value[indexiEr+1] = theta[5];
+	Value[indexiEr+2] = theta[6];
+	
+	Value[indexi1Er] = theta[7];
+	Value[indexi1Er+1] = theta[8];
+	
+	Value[indexj1Er] = theta[9];
+	Value[indexj1Er+1] = theta[10];
+	
+	
+	
+	indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is -1) + count_Grids;
+	indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is -1) + count_Grids + 1;
+	
+	
+	indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	indexValue[indexi1Er] = col_shear;
+	indexValue[indexi1Er+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	/* Fr1 */
+	
+	Value[indexj0Fr1] = phi[0];
+	Value[indexj0Fr1+1] = phi[1];
+	
+	Value[indexi0Fr1] = phi[2];
+	Value[indexi0Fr1+1] = phi[3];
+	
+	Value[indexiFr1] = phi[4];
+	Value[indexiFr1+1] = phi[5];
+	
+	Value[indexi1Fr1] = phi[6];
+	Value[indexi1Fr1+1] = phi[7];
+	
+	Value[indexj1Fr1] = phi[8];
+	Value[indexj1Fr1+1] = phi[9];
+	
+	
+	indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	
+	indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is - 1) + count_Grids;
+	indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is - 1) + count_Grids + 1;
+	
+	indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	indexValue[indexi1Fr1] = col_shear;
+	indexValue[indexi1Fr1+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	/* Fr2 */
+	Value[indexj0Fr2] = psi[0];
+	Value[indexj0Fr2+1] = psi[1];
+	
+	Value[indexi0Fr2] = psi[2];
+	Value[indexi0Fr2+1] = psi[3];
+	
+	Value[indexiFr2] = psi[4];
+	Value[indexiFr2+1] = psi[5];
+	
+	Value[indexi1Fr2] = psi[6];
+	Value[indexi1Fr2+1] = psi[7];
+	
+	Value[indexj1Fr2] = psi[8];
+	Value[indexj1Fr2+1] = psi[9];
+	
+	
+	indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+	
+	indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	indexValue[indexi1Fr2] = col_shear;
+	indexValue[indexi1Fr2+1] = col_shear + 2;
+	
+	
+	indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;		
+	
+	
+#endif
 
 	return;
 } /* physical boundary for x */

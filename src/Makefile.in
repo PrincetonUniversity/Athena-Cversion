@@ -36,7 +36,8 @@ CORE_OBJ = ath_array.o \
            show_config.o \
 	   smr.o \
            utils.o \
-	   bvals_radMHD.o
+	   bvals_radMHD.o \
+	   bvals_radMHD_shear.o
 
 FFT_OBJ =
 ifeq (@FFT_MODE@,FFT_ENABLED)
