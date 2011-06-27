@@ -78,13 +78,9 @@ void problem(Grid *pGrid, Domain *pDomain)
 //  b0    = par_getd("problem","b0");
 	b0 = sqrt(2.0*P_k*kb/beta);
 #endif
-#ifdef ISOTROPIC_CONDUCTION
-  kappa = par_getd("problem","kappa");
-  kappa_T = (mbar/kb)*kappa;
-#endif
-#ifdef ANISOTROPIC_CONDUCTION
-  chi = par_getd("problem","chi");
-  chi_C = (mbar/kb)*chi;
+#ifdef THERMAL_CONDUCTION
+  kappa_iso = par_getd_def("problem","kappa_iso",0.0);
+  kappa_aniso = par_getd_def("problem","kappa_aniso",0.0);
 #endif
 
 

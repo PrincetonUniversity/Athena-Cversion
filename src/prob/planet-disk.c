@@ -116,9 +116,10 @@ void problem(DomainS *pDomain)
     frst = 0;
   }
 
-/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+/* With viscosity and/or resistivity, read diffusion coeffs */
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
@@ -171,8 +172,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   Rsoft   = par_getd_def("problem","Rsoft",0.1);
   ramp_time = 0.0;
   insert_time = par_getd_def("problem","insert_time",0.0);
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* enroll gravitational potential of planet & shearing-box potential fns */

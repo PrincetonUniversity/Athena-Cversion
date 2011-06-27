@@ -110,16 +110,16 @@ void problem(Grid *pGrid, Domain *pDomain)
   set_bvals_mhd_fun(left_x3,  outflow_ix3);
   set_bvals_mhd_fun(right_x3, outflow_ox3);
 
-/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
+/* With viscosity and/or resistivity, read diffusion coeffs */
 
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
-#endif
-#ifdef BRAGINSKII
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
   return;

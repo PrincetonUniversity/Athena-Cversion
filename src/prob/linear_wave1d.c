@@ -296,8 +296,9 @@ void problem(DomainS *pDomain)
   Q_AD    = par_getd_def("problem","Q_AD",0.0);
   d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* save solution on root grid */
@@ -358,8 +359,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
   return;
 }

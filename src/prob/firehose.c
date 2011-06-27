@@ -54,8 +54,9 @@ void problem(Grid *pGrid, Domain *pDomain)
   p0 = 1.0;
   B0 = par_getd("problem","B0");
   v0 = par_getd("problem","v0");
-#ifdef BRAGINSKII
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
   amp = par_getd("problem","amp");
   kp =  par_getd("problem","kp");

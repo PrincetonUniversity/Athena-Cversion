@@ -83,14 +83,14 @@ void problem(DomainS *pDomain)
   vflow = par_getd("problem","vflow");
   drat = par_getd_def("problem","drat",1.0);
   iprob = par_getd("problem","iprob");
-#ifdef OHMIC
-  eta_R = par_getd("problem","eta");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
-#ifdef ISOTROPIC_CONDUCTION
-  kappa_T = par_getd("problem","kappa");
-#endif
-#ifdef ANISOTROPIC_CONDUCTION
-  chi_C = par_getd("problem","chi");
+#ifdef THERMAL_CONDUCTION
+  kappa_iso = par_getd_def("problem","kappa_iso",0.0);
+  kappa_aniso = par_getd_def("problem","kappa_aniso",0.0);
 #endif
 
 /* For (iprob=4) -- rotated cylinder in 3D -- set up rotation angle and
