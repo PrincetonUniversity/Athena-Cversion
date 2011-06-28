@@ -50,7 +50,7 @@ void new_dt(MeshS *pM)
   int ierr;
 #endif
   int nl,nd;
-  Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
+  Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0,max_dti_diff=0.0;
   Real x1,x2,x3;
 
 /* Loop over all Domains with a Grid on this processor -----------------------*/
@@ -157,6 +157,12 @@ void new_dt(MeshS *pM)
       max_dti = MAX(max_dti, max_v3/pGrid->dx3);
 
   }}} /*--- End loop over Domains --------------------------------------------*/
+
+/* When explicit diffusion is included, compute stability constriant */
+#if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
+  max_dti_diff = new_dt_diff(pM);
+  max_dti = MAX(max_dti,max_dti_diff);
+#endif
 
 /* new timestep.  Limit increase to 2x old value */
 

@@ -22,9 +22,6 @@ void conduction_destruct(void);
 /* cool.c */
 Real KoyInut(const Real dens, const Real Press, const Real dt);
 
-/* diff_dt.c */
-Real diff_dt(MeshS *pM);
-
 /* get_eta.c */
 #ifdef RESISTIVITY
 void get_eta(GridS *pG);
@@ -40,6 +37,9 @@ void convert_diffusion(Real sigma_O, Real sigma_H, Real sigma_P,
 void integrate_diff(MeshS *pM);
 void integrate_diff_init(MeshS *pM);
 void integrate_diff_destruct(void);
+
+/* new_dt_diff.c */
+Real new_dt_diff(MeshS *pM);
 
 /* resistivity.c */
 #ifdef RESISTIVITY

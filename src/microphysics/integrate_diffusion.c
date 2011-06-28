@@ -28,7 +28,6 @@ void integrate_diff(MeshS *pM)
 {
   GridS *pG;
   int nl,nd;
-  Real dtmin_expl;
 
 /* Calculate the magnetic diffusivity array
  */
@@ -45,21 +44,13 @@ void integrate_diff(MeshS *pM)
   }
 #endif
 
-  dtmin_expl = diff_dt(pM);
-
-/* Limit timestep by minimum for explicit update of diffusion operators.
- * Currently, subcycling is not implemented!! */
-
-  pM->dt = MIN(pM->dt, dtmin_expl);;
+/* Call diffusion operators across Mesh hierarchy.
+ * Conduction must be called first to avoid an extra call to bval_mhd().  */
 
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       if (pM->Domain[nl][nd].Grid != NULL) {
         pG=pM->Domain[nl][nd].Grid;
-        pG->dt = pM->dt;
-
-/* Call diffusion operators across Mesh hierarchy.
- * Conduction must be called first to avoid an extra call to bval_mhd().  */
 
 #ifdef THERMAL_CONDUCTION
         conduction(&(pM->Domain[nl][nd]));
@@ -72,6 +63,7 @@ void integrate_diff(MeshS *pM)
 #ifdef VISCOSITY
         viscosity(&(pM->Domain[nl][nd]));
 #endif
+
       }
     }
   }
@@ -90,20 +82,20 @@ void integrate_diff_init(MeshS *pM)
  * allocation routines.  */
 
 #ifdef THERMAL_CONDUCTION
-  if ((kappa_iso + kappa_aniso) <= 0.0) 
-    ath_error("[diff_init] coefficents of thermal conduction not set\n");
+  if ((kappa_iso+kappa_aniso)==0.0 || kappa_iso<0.0 || kappa_aniso<0.0) 
+    ath_error("[diff_init] problem with coefficents of thermal conduction\n");
   conduction_init(pM);
 #endif
 
 #ifdef VISCOSITY
-  if ((nu_iso + nu_aniso) <= 0.0) 
-    ath_error("[diff_init] coefficents of viscosity not set\n");
+  if ((nu_iso+nu_aniso)==0.0 || nu_iso<0.0 || nu_aniso<0.0) 
+    ath_error("[diff_init] problem with coefficents of viscosity\n");
   viscosity_init(pM);
 #endif
 
 #ifdef RESISTIVITY
-  if ((eta_Ohm + Q_Hall + Q_AD) <= 0.0) 
-    ath_error("[diff_init] coefficents of resistivity not set\n");
+  if ((eta_Ohm+Q_Hall+Q_AD)==0.0 || eta_Ohm<0.0 || Q_Hall<0.0 || Q_AD<0.0) 
+    ath_error("[diff_init] problem with coefficents of resistivity\n");
   resistivity_init(pM);
 #endif
 
