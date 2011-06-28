@@ -448,9 +448,9 @@ void ViscStress_aniso(DomainS *pD)
 
       } else {
         BBdV =
-          Bx*(Bx*(Vel[k][j][i].x1-Vel[k][j][i-1].x1)/pG->dx1 +By*dVxdy +Bz*dVxdz)+
-          By*(Bx*(Vel[k][j][i].x2-Vel[k][j][i-1].x2)/pG->dx1 +By*dVydy +Bz*dVydz)+
-          Bz*(Bx*(Vel[k][j][i].x3-Vel[k][j][i-1].x3)/pG->dx1 +By*dVzdy +Bz*dVzdz);
+          Bx*(Bx*(Vel[k][j][i].x1-Vel[k][j][i-1].x1)/pG->dx1+By*dVxdy+Bz*dVxdz)+
+          By*(Bx*(Vel[k][j][i].x2-Vel[k][j][i-1].x2)/pG->dx1+By*dVydy+Bz*dVydz)+
+          Bz*(Bx*(Vel[k][j][i].x3-Vel[k][j][i-1].x3)/pG->dx1+By*dVzdy+Bz*dVzdz);
         BBdV /= B02;
 
         divV = (Vel[k][j][i].x1-Vel[k][j][i-1].x1)/pG->dx1 + dVydy + dVzdz;
@@ -589,9 +589,9 @@ void ViscStress_aniso(DomainS *pD)
 
       } else {
         BBdV =
-          Bx*(Bx*dVxdx +By*(Vel[k][j][i].x1-Vel[k][j-1][i].x1)/pG->dx2 +Bz*dVxdz)+
-          By*(Bx*dVydx +By*(Vel[k][j][i].x2-Vel[k][j-1][i].x2)/pG->dx2 +Bz*dVydz)+
-          Bz*(Bx*dVzdx +By*(Vel[k][j][i].x3-Vel[k][j-1][i].x3)/pG->dx2 +Bz*dVzdz);
+          Bx*(Bx*dVxdx+By*(Vel[k][j][i].x1-Vel[k][j-1][i].x1)/pG->dx2+Bz*dVxdz)+
+          By*(Bx*dVydx+By*(Vel[k][j][i].x2-Vel[k][j-1][i].x2)/pG->dx2+Bz*dVydz)+
+          Bz*(Bx*dVzdx+By*(Vel[k][j][i].x3-Vel[k][j-1][i].x3)/pG->dx2+Bz*dVzdz);
         BBdV /= B02;
 
         divV = dVxdx + (Vel[k][j][i].x2-Vel[k][j-1][i].x2)/pG->dx2 + dVzdz;
@@ -715,9 +715,9 @@ void ViscStress_aniso(DomainS *pD)
 /* compute BBdV and div(V) */
 
         BBdV =
-          Bx*(Bx*dVxdx +By*dVxdy +Bz*(Vel[k][j][i].x1-Vel[k-1][j][i].x1)/pG->dx3)+
-          By*(Bx*dVydx +By*dVydy +Bz*(Vel[k][j][i].x2-Vel[k-1][j][i].x2)/pG->dx3)+
-          Bz*(Bx*dVzdx +By*dVzdy +Bz*(Vel[k][j][i].x3-Vel[k-1][j][i].x3)/pG->dx3);
+          Bx*(Bx*dVxdx+By*dVxdy+Bz*(Vel[k][j][i].x1-Vel[k-1][j][i].x1)/pG->dx3)+
+          By*(Bx*dVydx+By*dVydy+Bz*(Vel[k][j][i].x2-Vel[k-1][j][i].x2)/pG->dx3)+
+          Bz*(Bx*dVzdx+By*dVzdy+Bz*(Vel[k][j][i].x3-Vel[k-1][j][i].x3)/pG->dx3);
         BBdV /= B02;
 
         divV = dVxdx + dVydy + (Vel[k][j][i].x3-Vel[k-1][j][i].x3)/pG->dx3;
