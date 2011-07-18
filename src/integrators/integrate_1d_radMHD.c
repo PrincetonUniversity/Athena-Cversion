@@ -159,7 +159,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	  }
 
 	/* for radiation hydro and MHD, the last dir represents optical thin (0) or thick (1) */
-  	lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,0);
+  	lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
 
 	
 /*------Step 2b: Add source terms to the left and right state--------*/
@@ -193,7 +193,7 @@ void integrate_1d_radMHD(DomainS *pD)
 		beta = 1.0 + 0.25 * SVV * dt;
 	/* In case SPP * dt  is small, use expansion expression */		
 
-		aeff = eff_sound(W[i-1],dt,0);
+		aeff = eff_sound(W[i-1],dt,1);
 
 		alpha = ((aeff * aeff * W[i-1].d /( W[i-1].P * beta)) - 1.0) / (Gamma - 1.0);
 
@@ -243,7 +243,7 @@ void integrate_1d_radMHD(DomainS *pD)
 		beta = 1.0 + 0.25 * SVV * dt;
 
 
-		aeff = eff_sound(W[i],dt,0);
+		aeff = eff_sound(W[i],dt,1);
 
 		alpha = ((aeff * aeff * W[i].d /(W[i].P * beta)) - 1.0) / (Gamma - 1.0);
 
@@ -293,8 +293,11 @@ void integrate_1d_radMHD(DomainS *pD)
 
 
 		  x1Flux[i].d = dt;
+		  x1Flux[i].Mx = 1;
 		/* This is used to take dt to calculate alpha. 
-                * x1Flux[i].d is recovered in the fluxes function by using Wl */
+		 * x1Flux[i].d is recovered in the fluxes function by using Wl 
+		 * x1Flux[i].M1 = 1 means one dimension 
+		 */
 
    		 fluxes(Ul_x1Face[i],Ur_x1Face[i],Wl[i],Wr[i],Bxi[i],&x1Flux[i]);
 		

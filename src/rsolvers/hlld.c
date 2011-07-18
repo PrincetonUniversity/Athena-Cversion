@@ -79,6 +79,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #ifdef RADIATION_MHD
  /* dt is passed with pFlux->d for radiation_mhd code */
  Real dt = pFlux->d;
+	int DIM = (int) pFlux->Mx;
  Real aeff;
 #endif
 
@@ -102,13 +103,13 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* For RADIATION_MHD, we should use effective pressure */
 #ifdef RADIATION_MHD
  /* left state */
- aeff = eff_sound(Wl, dt,0);
+ aeff = eff_sound(Wl, dt,DIM);
 /*
    aeff = sqrt(Gamma * Wl.P / Wl.d);
 */
   gpl = Wl.d * aeff * aeff;
  /* right state */
-  aeff = eff_sound(Wr, dt,0);
+  aeff = eff_sound(Wr, dt,DIM);
 /*
    aeff = sqrt(Gamma * Wr.P / Wr.d);
 */

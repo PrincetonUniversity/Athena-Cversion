@@ -1068,7 +1068,10 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 Real eff_sound(const Prim1DS W, Real dt, int flag)
 {
 	/* All rad hydro components of W should be updated before this function is called */
-	/* Flag is not used anymore */
+	/* flag is used to decide whether 1D or multi-D. *
+	 * In 1D, we use effective sound speed. *
+	 * In multi-D, we use adiabatic sound speed *
+	 */
 
 	Real aeff, temperature, SPP, Alpha, dSigmadP;
 	Real SVV, beta;
@@ -1079,7 +1082,7 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 		dSigma[i] = 0.0;
 	
 
-/*	temperature = W.P / (W.d * R_ideal);
+	temperature = W.P / (W.d * R_ideal);
 	velocity_x = W.Vx;
 	velocity_y = W.Vy;
 	velocity_z = W.Vz;
@@ -1100,30 +1103,39 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 	else 
 	Alpha = 1.0 + 0.25 * SPP * dt;
-*/
+
 	/* In case SPP * dt  is small, use expansion expression */	
 
 	/* In case velocity is close to speed of light or very large optical depth. 
 	 * It is important to include momentum stiff source term 
 	 */
+
 /*	velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 */
-	/* optical depth regime, Eddington tensor is close to 1/3 */
-/*	SVV = -Prat * W.Sigma_t * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
+	
+	/* Eddington tensor is assumed 1/3 here for simplicity */
+	
+	SVV = -Prat * W.Sigma_t * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
 
 	if(fabs(SVV * dt * 0.5) > 0.001)
 	beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
 	else 
 	beta = 1.0 + 0.25 * SVV * dt;
-*/
+
 	/* In case SPP * dt  is small, use expansion expression */		
 
-/*	aeff = beta * ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
+	if(flag == 1){
+		
+		aeff = beta * ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
 
-	aeff = sqrt(aeff); 
-*/
-	aeff = sqrt(Gamma * W.P / W.d);
+		aeff = sqrt(aeff); 
+
+	}
+	else{
+		
+		aeff = sqrt(Gamma * W.P / W.d);
 	
+	}
 	return aeff;
 }
 

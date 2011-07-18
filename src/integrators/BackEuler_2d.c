@@ -113,6 +113,7 @@ static int *ptr;
 
 
 /* parameters used to setup the matrix elements */
+static int lines;
 static int NoEr;
 static int NoFr1;
 static int NoFr2;
@@ -154,11 +155,13 @@ static int rx2;
 #ifdef SHEARING_BOX
 static int joffset; /* total sheared j cells */
 static int jshearing; /* j index in the sheared position with respect to the whole matrix*/
-static int ishearing; /* i index in the sheared position */
 static int shearing_grid; /* number of grids along y direction from the bottom */
 static int col_compare1; /* relative position of different elements may change with time */
 static int col_compare2;
 static int col_shear;
+static int iproc;
+static int jproc;
+static int kproc;
 
 #endif
 
@@ -194,7 +197,7 @@ void BackEuler_2d(MeshS *pM)
 	js = pG->js;
 	je = pG->je;
 	int ks = pG->ks;
-	int Nmatrix, NZ_NUM, lines, count;
+	int Nmatrix, NZ_NUM, count;
 	
 	/* Nmatrix is the number of active cells just in this grids */
 	/* Matrix size should be 3 * Nmatrix, ghost zones are not included*/
@@ -214,10 +217,10 @@ void BackEuler_2d(MeshS *pM)
 	rx2 = pG->rx2_id;
 #else
 	ID = 0;
-	lx1 = 0;
-	rx1 = 0;
-	lx2 = 0;
-	rx2 = 0;
+	lx1 = -1;
+	rx1 = -1;
+	lx2 = -1;
+	rx2 = -1;
 #endif	
 	
 	
@@ -229,6 +232,7 @@ void BackEuler_2d(MeshS *pM)
 	ox2 = pM->BCFlag_ox2;
 	ix3 = pM->BCFlag_ix3;
 	ox3 = pM->BCFlag_ox3;
+
 	
 /* For shearing box boundary condition */
 #ifdef SHEARING_BOX
@@ -251,10 +255,22 @@ void BackEuler_2d(MeshS *pM)
 	deltay = fmod(yshear, Ly);
 	
 	joffset = (int)(deltay/pG->dx2);
-
-
-	shearing_grid = (int)(ID/NGx);
 	
+	if((deltay - joffset * pG->dx2) > 0.5 * pG->dx2)
+		joffset += 1;
+	
+	if(joffset >= NGy * Ny)
+		joffset -= NGy * Ny;
+	
+#ifdef MPI_PARALLEL
+	get_myGridIndex(pD, myID_Comm_world, &iproc, &jproc, &kproc);
+
+#else
+	iproc = 0;
+	jproc = 0;
+	kproc = 0;
+	
+#endif /* End MPI_ parallel */	
 	
 	/* check the boundary flag is correct */
 	if((ix1 != 4) || (ix2 !=4) || (ox1 != 4) || (ox2 != 4))
@@ -703,9 +719,9 @@ void BackEuler_2d(MeshS *pM)
 				dFrycoef = (1.0 + pG->U[ks][j][i-1].Edd_22) * qomL / Crat;
 				psi[2] += psi[3] * dFrycoef;
 				
-			}else if((i == ie) && ((pG->rx1_id < 0) || (pG->rx1_id > ID))){
+			}else if((i == ie) && ((pG->rx1_id < 0) || (pG->rx1_id < ID))){
 				dFrycoef = (1.0 + pG->U[ks][j][i+1].Edd_22) * qomL / Crat;
-				psi[6] += psi[7] * dFrycoef;				
+				psi[6] -= psi[7] * dFrycoef;				
 				
 			}			
 #endif
@@ -1073,7 +1089,7 @@ void BackEuler_2d(MeshS *pM)
 		
 		lis_solver_set_option("-i gmres -p ilu",solver);
 		lis_solver_set_option("-tol 1.0e-12",solver);
-		lis_solver_set_option("-maxiter 2000",solver);
+		lis_solver_set_option("-maxiter 4000",solver);
 		lis_solve(Euler,RHSEuler,INIguess,solver);
 		
 		/* check the iteration step to make sure 1.0e-12 is reached */
@@ -1249,24 +1265,15 @@ void is_js_MPI_MPI()
 	int MPIcount1x, MPIcount1y;
 	int MPIcount2x, MPIcount2y;
 	int MPIcount2xF, MPIcount2yF;
-	
-#ifdef SHEARING_BOX
-	jshearing = Ny * shearing_grid + js - joffset;
-		
-	if(jshearing < 0) {
-		jshearing += NGy * Ny;
-	}		
-	
-	ishearing = ie - is + (NGx - 1) * Nx;
-	
-#endif
+
 
 	
 	if(lx1 > ID){ 
 		shiftx = -3 * Ny * Nx * (NGx - 1);
 		MPIcount2x = 7;
 		MPIcount2xF = 6;
-		MPIcount1x = 0;
+		MPIcount1x = 0;	
+
 	}
 	else {  
 		shiftx = 3 * Nx * Ny;
@@ -1289,11 +1296,48 @@ void is_js_MPI_MPI()
 		MPIcount1y = 2;
 
 	}
+#ifdef SHEARING_BOX
+	
 
+
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+		
+	int col_compare3;
+	int i = is;
+	int j = js;
+	
+	jshearing = Ny * jproc + (js - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + (lx1 - ID) * lines;
+	col_compare1 = count_Grids;
+	col_compare2 = 3*(js-js+1)*Nx + count_Grids;
+	col_compare3 = 3*(je-js)*Nx + count_Grids - shifty;
+	
+	
+#endif
+	
+	
+	
 	/* For MPI part */
 	/* For Er */
 	index2 = NoEr + MPIcount2y;
 	index1 = NoEr + MPIcount2x + MPIcount1y;
+	
 
 	Value[index2] = theta[0];
 	Value[index2+1] = theta[1];
@@ -1305,11 +1349,7 @@ void is_js_MPI_MPI()
 	Value[index1] = theta[2];
 	Value[index1+1] = theta[3];
 	
-#ifdef SHEARING_BOX
-	indexValue[index1] = 3 * jshearing * Nx + 3 * ishearing;
-#else
 	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
-#endif
 	indexValue[index1+1] = indexValue[index1] + 1; 
 
 	
@@ -1326,11 +1366,8 @@ void is_js_MPI_MPI()
 	Value[index1] = phi[2];
 	Value[index1+1] = phi[3];	
 
-#ifdef SHEARING_BOX
-	indexValue[index1] = 3 * jshearing * Nx + 3 * ishearing;
-#else	
+
 	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
-#endif
 	indexValue[index1+1] = indexValue[index1] + 1; 
 
 	
@@ -1350,11 +1387,8 @@ void is_js_MPI_MPI()
 	Value[index1] = psi[2];
 	Value[index1+1] = psi[3];	
 
-#ifdef SHEARING_BOX
-	indexValue[index1] = 3 * jshearing * Nx + 3 * ishearing;
-#else
+
 	indexValue[index1] = 3*(ie-is) + count_Grids - shiftx;
-#endif
 	indexValue[index1+1] = indexValue[index1] + 2; 
 
 	
@@ -1399,6 +1433,297 @@ void is_js_MPI_MPI()
 
 		indexValue[index+4] = 3 * Nx + count_Grids;
 		indexValue[index+5] = 3 * Nx + 2 + count_Grids;
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+	if(lx1 > ID){
+		
+		if(col_compare3 < col_compare1){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+			
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;
+			
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 5;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 6;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 4;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 7;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 6;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 6;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 4;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare3;
+		indexValue[indexj0Er+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare3;
+		indexValue[indexj0Fr1+1] = col_compare3 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare3;
+		indexValue[indexj0Fr2+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+		
+			
+	}
+	
+#endif
+	
 				
 
 	return;
@@ -1433,6 +1758,46 @@ void is_js_phy_MPI()
 		MPIcount2F = 0;
 
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+		
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	int i = is;
+	int j = js;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (js - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+
+	col_compare1 = count_Grids;
+	col_compare2 = 3*(j-js+1)*Nx + count_Grids;
+	col_compare3 = 3*(je-js)*Nx + count_Grids - shifty;
+	
+	
+#endif	
+	
+	
 	/* For Er */
 	index = NoEr+MPIcount2;
 	Value[index] = theta[0];
@@ -1532,7 +1897,7 @@ void is_js_phy_MPI()
 		indexValue[index+2] = 3 + count_Grids;
 		indexValue[index+3] = 5 + count_Grids;
 
-	index += 4;
+		index += 4;
 				
 		if(ix1 != 4){
 			Value[index]	= psi[8];
@@ -1584,6 +1949,295 @@ void is_js_phy_MPI()
 
 			/* Do nothing */
 		}
+	
+	
+	
+#ifdef SHEARING_BOX
+/* It is on the left bounary. Shearing boundary condition must apply */
+
+		
+		if(col_compare3 < col_compare1){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 5;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 6;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 4;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 7;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 6;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 6;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 4;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare3;
+		indexValue[indexj0Er+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare3;
+		indexValue[indexj0Fr1+1] = col_compare3 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare3;
+		indexValue[indexj0Fr2+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+		
+	
+#endif
+		
 
 	return;
 } /* physical for x direction and MPI for y direction */
@@ -1617,6 +2271,44 @@ void is_js_MPI_phy()
 		MPIcount2 = 0;
 		MPIcount2F = 0;
 	}
+	
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	int i = is;
+	int j = js;
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (js - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + (lx1 - ID) * lines;
+	col_compare1 = count_Grids;
+	col_compare2 = 3*(j-js+1)*Nx + count_Grids;
+	col_compare3 = 3*(je-js)*Nx + count_Grids + 3 * Ny * Nx * NGx * (NGy - 1);
+	
+	
+#endif	
+	
 
 	/* for MPI part */
 	/* NoEr */
@@ -1748,6 +2440,216 @@ void is_js_MPI_phy()
 		indexValue[index+1] = 3*(je-js)*Nx + 2 + count_Grids;
 		
 	}
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+	if(lx1 > ID){
+		
+
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 5;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 6;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 4;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 7;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr;
+				indexi1Er = NoEr + 3;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 6;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 6;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 4;				
+				
+			}
+			
+	
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare3;
+		indexValue[indexj0Er+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare3;
+		indexValue[indexj0Fr1+1] = col_compare3 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare3;
+		indexValue[indexj0Fr2+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+		
+		
+	}
+	
+#endif
+	
 		
 		
 	return;
@@ -1759,17 +2661,16 @@ void is_js_phy_phy()
 	int m;
 	int j = js;
 #ifdef SHEARING_BOX
-	jshearing = Ny * shearing_grid + (j - js) - joffset;
+	jshearing = (j - js) - joffset;
 	
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
-	ishearing = ie - is + (NGx - 1) * Nx;
 	
 	
-	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids;
 	
 #endif
 
@@ -1816,43 +2717,66 @@ void is_js_phy_phy()
 	col_compare1 =  3*(j-js+1) * Nx + count_Grids;
 	col_compare2 = 3*(je-js)*Nx + count_Grids;
 	
-	if(col_shear > col_compare1){
+	if(col_shear < col_compare1){
+		Value[NoEr+5]	= theta[2];
+		Value[NoEr+6]	= theta[3];
+		Value[NoEr+7]	= theta[9];
+		Value[NoEr+8]	= theta[10];
+		Value[NoEr+9] = theta[0];
+		Value[NoEr+10] = theta[1];
+		
+		indexValue[NoEr+5] = col_shear;
+		indexValue[NoEr+6] = col_shear + 1;		
+		indexValue[NoEr+7] = 3 * Nx + count_Grids;
+		indexValue[NoEr+8] = 3 * Nx + 2 + count_Grids;
+		
+		indexValue[NoEr+9] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoEr+10] = 3*(je-js)*Nx + 2 + count_Grids;
+	}
+	else if(col_shear < col_compare2) {
+		
 		Value[NoEr+5]	= theta[9];
-		Value[NoEr+6]	= theta[10];
+		Value[NoEr+6]	= theta[10];				
+		
 		Value[NoEr+7]	= theta[2];
-		Value[NoEr+8]	= theta[3];
+		Value[NoEr+8]	= theta[3];		
+		
 		Value[NoEr+9] = theta[0];
 		Value[NoEr+10] = theta[1];
 		
 		indexValue[NoEr+5] = 3 * Nx + count_Grids;
 		indexValue[NoEr+6] = 3 * Nx + 2 + count_Grids;
+		
 		indexValue[NoEr+7] = col_shear;
 		indexValue[NoEr+8] = col_shear + 1;
+		
 		indexValue[NoEr+9] = 3*(je-js)*Nx + count_Grids;
 		indexValue[NoEr+10] = 3*(je-js)*Nx + 2 + count_Grids;
-	}
-	else if(col_shear > col_compare2) {
-		
-		Value[NoEr+5]	= theta[9];
-		Value[NoEr+6]	= theta[10];				
-		Value[NoEr+7] = theta[0];
-		Value[NoEr+8] = theta[1];
-		Value[NoEr+9]	= theta[2];
-		Value[NoEr+10]	= theta[3];							
-		
-		indexValue[NoEr+5] = 3 * Nx + count_Grids;
-		indexValue[NoEr+6] = 3 * Nx + 2 + count_Grids;
-		indexValue[NoEr+7] = 3*(je-js)*Nx + count_Grids;
-		indexValue[NoEr+8] = 3*(je-js)*Nx + 2 + count_Grids;
-		indexValue[NoEr+9] = col_shear;
-		indexValue[NoEr+10] = col_shear + 1;
 		
 	}
 	else {
-		indexValue[NoEr+5] = col_shear;
-		indexValue[NoEr+6] = col_shear + 1;
+		Value[NoEr+5]	= theta[9];
+		Value[NoEr+6]	= theta[10];				
+		
+		
+		
+		Value[NoEr+7] = theta[0];
+		Value[NoEr+8] = theta[1];
+		
+		Value[NoEr+9]	= theta[2];
+		Value[NoEr+10]	= theta[3];		
+		
+		indexValue[NoEr+5] = 3 * Nx + count_Grids;
+		indexValue[NoEr+6] = 3 * Nx + 2 + count_Grids;
+		
+		
+		indexValue[NoEr+7] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoEr+8] = 3*(je-js)*Nx + 2 + count_Grids;
+		
+		
+		indexValue[NoEr+9] = col_shear;
+		indexValue[NoEr+10] = col_shear + 1;
 	}
-
 	
 #endif	
 
@@ -1905,45 +2829,71 @@ void is_js_phy_phy()
 	col_compare1 =  3*(j-js+1) * Nx + count_Grids;
 	col_compare2 = 3*(je-js)*Nx + count_Grids;	
 	
-	if(col_shear > col_compare1){
+	if(col_shear < col_compare1){
+		Value[NoFr1+4]	= phi[2];
+		Value[NoFr1+5]	= phi[3];
+		
+		Value[NoFr1+6]	= phi[8];
+		Value[NoFr1+7]	= phi[9];
+		
+		Value[NoFr1+8] = phi[0];
+		Value[NoFr1+9] = phi[1];
+		
+		
+		indexValue[NoFr1+4] = col_shear;
+		indexValue[NoFr1+5] = col_shear + 1;
+		
+		indexValue[NoFr1+6] = 3 * Nx + count_Grids;
+		indexValue[NoFr1+7] = 3 * Nx + 1 + count_Grids;
+		
+		indexValue[NoFr1+8] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr1+9] = 3*(je-js)*Nx + 1 + count_Grids;
+		
+	}
+	else if(col_shear < col_compare2) {
+		
 		Value[NoFr1+4]	= phi[8];
-		Value[NoFr1+5]	= phi[9];
+		Value[NoFr1+5]	= phi[9];		
+		
 		Value[NoFr1+6]	= phi[2];
 		Value[NoFr1+7]	= phi[3];
+		
 		Value[NoFr1+8] = phi[0];
 		Value[NoFr1+9] = phi[1];
 		
 		
 		indexValue[NoFr1+4] = 3 * Nx + count_Grids;
-		indexValue[NoFr1+5] = 3 * Nx + 1 + count_Grids;
+		indexValue[NoFr1+5] = 3 * Nx + 1 + count_Grids;				
+		
 		indexValue[NoFr1+6] = col_shear;
 		indexValue[NoFr1+7] = col_shear + 1;
+		
 		indexValue[NoFr1+8] = 3*(je-js)*Nx + count_Grids;
 		indexValue[NoFr1+9] = 3*(je-js)*Nx + 1 + count_Grids;
 		
 	}
-	else if(col_shear > col_compare2) {
-		
+	else {
 		Value[NoFr1+4]	= phi[8];
-		Value[NoFr1+5]	= phi[9];				
+		Value[NoFr1+5]	= phi[9];		
+		
 		Value[NoFr1+6] = phi[0];
 		Value[NoFr1+7] = phi[1];
+		
+		
 		Value[NoFr1+8]	= phi[2];
-		Value[NoFr1+9]	= phi[3];				
+		Value[NoFr1+9]	= phi[3];
+		
 		
 		indexValue[NoFr1+4] = 3 * Nx + count_Grids;
 		indexValue[NoFr1+5] = 3 * Nx + 1 + count_Grids;				
+		
+		
 		indexValue[NoFr1+6] = 3*(je-js)*Nx + count_Grids;
 		indexValue[NoFr1+7] = 3*(je-js)*Nx + 1 + count_Grids;
+		
 		indexValue[NoFr1+8] = col_shear;
 		indexValue[NoFr1+9] = col_shear + 1;
-		
 	}
-	else {
-		indexValue[NoFr1+4] = col_shear;
-		indexValue[NoFr1+5] = col_shear + 1;
-	}
-	
 	
 #endif	
 
@@ -1997,45 +2947,72 @@ void is_js_phy_phy()
 	col_compare1 =  3*(j-js+1) * Nx + count_Grids;
 	col_compare2 = 3*(je-js)*Nx + count_Grids;		
 	
-	if(col_shear > col_compare1){
-		Value[NoFr2+4]	= psi[8];
-		Value[NoFr2+5]	= psi[9];
-		Value[NoFr2+6]	= psi[2];
-		Value[NoFr2+7]	= psi[3];
+	if(col_shear < col_compare1){
+		Value[NoFr2+4]	= psi[2];
+		Value[NoFr2+5]	= psi[3];
+		
+		Value[NoFr2+6]	= psi[8];
+		Value[NoFr2+7]	= psi[9];
+		
 		Value[NoFr2+8] = psi[0];
 		Value[NoFr2+9] = psi[1];
 		
-
-		indexValue[NoFr2+4] = 3 * Nx + count_Grids;
-		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;
-		indexValue[NoFr2+6] = col_shear;
-		indexValue[NoFr2+7] = col_shear + 2;
+		
+		indexValue[NoFr2+4] = col_shear;
+		indexValue[NoFr2+5] = col_shear + 2;
+		
+		indexValue[NoFr2+6] = 3 * Nx + count_Grids;
+		indexValue[NoFr2+7] = 3 * Nx + 2 + count_Grids;
+		
 		indexValue[NoFr2+8] = 3*(je-js)*Nx + count_Grids;
 		indexValue[NoFr2+9] = 3*(je-js)*Nx + 2 + count_Grids;
 		
 	}
-	else if(col_shear > col_compare2){
+	else if(col_shear < col_compare2){
 		
 		Value[NoFr2+4]	= psi[8];
-		Value[NoFr2+5]	= psi[9];				
-		Value[NoFr2+6] = psi[0];
-		Value[NoFr2+7] = psi[1];
-		Value[NoFr2+8]	= psi[2];
-		Value[NoFr2+9]	= psi[3];				
+		Value[NoFr2+5]	= psi[9];
+		
+		Value[NoFr2+6]	= psi[2];
+		Value[NoFr2+7]	= psi[3];
+		
+		Value[NoFr2+8] = psi[0];
+		Value[NoFr2+9] = psi[1];
+		
 		
 		indexValue[NoFr2+4] = 3 * Nx + count_Grids;
-		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;				
-		indexValue[NoFr2+6] = 3*(je-js)*Nx + count_Grids;
-		indexValue[NoFr2+7] = 3*(je-js)*Nx + 2 + count_Grids;
-		indexValue[NoFr2+8] = col_shear;
-		indexValue[NoFr2+9] = col_shear + 2;
+		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;			
+		
+		indexValue[NoFr2+6] = col_shear;
+		indexValue[NoFr2+7] = col_shear + 2;
+		
+		indexValue[NoFr2+8] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr2+9] = 3*(je-js)*Nx + 2 + count_Grids;
+		
 		
 	}	
 	else {
-		indexValue[NoFr2+4] = col_shear;
-		indexValue[NoFr2+5] = col_shear + +2;
+		Value[NoFr2+4]	= psi[8];
+		Value[NoFr2+5]	= psi[9];
+		
+		
+		Value[NoFr2+6] = psi[0];
+		Value[NoFr2+7] = psi[1];
+		
+		Value[NoFr2+8]	= psi[2];
+		Value[NoFr2+9]	= psi[3];
+		
+		
+		indexValue[NoFr2+4] = 3 * Nx + count_Grids;
+		indexValue[NoFr2+5] = 3 * Nx + 2 + count_Grids;			
+		
+		
+		indexValue[NoFr2+6] = 3*(je-js)*Nx + count_Grids;
+		indexValue[NoFr2+7] = 3*(je-js)*Nx + 2 + count_Grids;
+		
+		indexValue[NoFr2+8] = col_shear;
+		indexValue[NoFr2+9] = col_shear + 2;
 	}
-	
 	
 #endif	
 
@@ -2142,6 +3119,40 @@ void is_je_MPI_MPI()
 		MPIcount2yF = 8;
 	}
 
+#ifdef SHEARING_BOX
+	
+	int j = je;
+	int i = is;
+
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_compare1 = 3*(j-js)*Nx + count_Grids;
+	col_compare2 = 3*(j-js-1)*Nx + count_Grids;
+	col_compare3 = 3*(js-js)*Nx + count_Grids + shifty;
+	
+	
+#endif
 
 	/* First , the MPI part */
 	/* For Er */
@@ -2247,6 +3258,295 @@ void is_je_MPI_MPI()
 	indexValue[index+4] = 3*(je-js)*Nx + 3 + count_Grids;
 	indexValue[index+5] = 3*(je-js)*Nx + 5 + count_Grids;
 
+
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+	if(lx1 > ID){
+		
+		if(col_compare3 < col_compare2){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 2;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 2;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 2;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare2){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare2;
+		indexValue[indexj0Er+1] = col_compare2 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = col_compare3;
+		indexValue[indexj1Er+1] = col_compare3 + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare2;
+		indexValue[indexj0Fr1+1] = col_compare2 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = col_compare3;
+		indexValue[indexj1Fr1+1] = col_compare3 + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare2;
+		indexValue[indexj0Fr2+1] = col_compare2 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = col_compare3;
+		indexValue[indexj1Fr2+1] = col_compare3 + 2;	
+		
+		
+	}
+	
+#endif
 	
 		
 
@@ -2284,7 +3584,39 @@ void is_je_phy_MPI()
 	}
 
 
+	
+#ifdef SHEARING_BOX
 
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	col_compare1 = 3*(j-js)*Nx + count_Grids;
+	col_compare2 = 3*(j-js-1)*Nx + count_Grids;
+	col_compare3 = 3*(js-js)*Nx + count_Grids + shifty;
+	
+	
+#endif
 
 
 	/* The following is true no matter ix1 == 4 or not */
@@ -2432,6 +3764,296 @@ void is_je_phy_MPI()
 		/* Do nothing */
 	}
 	
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+
+		
+		if(col_compare3 < col_compare2){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 2;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 2;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 2;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare2){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare2;
+		indexValue[indexj0Er+1] = col_compare2 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = col_compare3;
+		indexValue[indexj1Er+1] = col_compare3 + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare2;
+		indexValue[indexj0Fr1+1] = col_compare2 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = col_compare3;
+		indexValue[indexj1Fr1+1] = col_compare3 + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare2;
+		indexValue[indexj0Fr2+1] = col_compare2 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = col_compare3;
+		indexValue[indexj1Fr2+1] = col_compare3 + 2;	
+		
+	
+	
+#endif
+	
 
 	return;
 } /* physical for x direction and MPI for y direction */
@@ -2441,6 +4063,10 @@ void is_je_phy_MPI()
 void is_je_MPI_phy()
 {	
 	int m, i, j;
+	
+	j = je;
+	i = is;
+	
 	int shiftx, index;
 	int MPIcount2F;
 
@@ -2464,9 +4090,38 @@ void is_je_MPI_phy()
 
 	}
 
+	
+#ifdef SHEARING_BOX
 
-	i = is;
-	j = je;
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	jshearing = Ny * jproc + (j - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_compare1 = 3*(j-js)*Nx + count_Grids;
+	col_compare2 = 3*(j-js-1)*Nx + count_Grids;
+	col_compare3 = 3*(js-js)*Nx + count_Grids;
+	
+	
+#endif
+
 
 	/* The following is true no matter ox2==4 or not */
 	/* For Er */
@@ -2657,6 +4312,216 @@ void is_je_MPI_phy()
 	
 
 	}/* periodic for x2 */
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+	if(lx1 > ID){
+		
+		
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 2;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 2;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 2;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2;				
+				
+			}
+		
+
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare2;
+		indexValue[indexj0Er+1] = col_compare2 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = col_compare3;
+		indexValue[indexj1Er+1] = col_compare3 + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare2;
+		indexValue[indexj0Fr1+1] = col_compare2 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = col_compare3;
+		indexValue[indexj1Fr1+1] = col_compare3 + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare2;
+		indexValue[indexj0Fr2+1] = col_compare2 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = col_compare3;
+		indexValue[indexj1Fr2+1] = col_compare3 + 2;	
+		
+		
+	}
+	
+#endif
+	
 
 
 	return;
@@ -2670,16 +4535,15 @@ void is_je_phy_phy()
 	j = je;
 	
 #ifdef SHEARING_BOX
-	jshearing = Ny * shearing_grid + (j - js) - joffset;
+	jshearing = (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
+
 	
-	ishearing = ie - is + (NGx - 1) * Nx;
 	
-	
-	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids;
 	
 #endif
 	
@@ -3163,6 +5027,43 @@ void is_j_MPI(int j)
 		MPIcount2F = 0;
 
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) - joffset;
+	
+	if(jshearing < 0) {
+		jshearing += NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + (lx1 - ID) * lines;
+	
+	col_compare1 = 3*(j-js-1)*Nx + count_Grids;
+	col_compare2 = 3*(j-js)*Nx + count_Grids;
+	col_compare3 = 3*(j-js+1)*Nx + count_Grids;
+	
+	
+#endif
+	
 
 	/* For MPI part */
 	/* Er */
@@ -3276,6 +5177,217 @@ void is_j_MPI(int j)
 
 	indexValue[index+6] =3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
 	indexValue[index+7] = indexValue[index+6] + 2;
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+	if(lx1 > ID){
+		
+
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 7;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 9;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 8;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 8;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+	
+		
+			
+		
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare1;
+		indexValue[indexj0Er+1] = col_compare1 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = col_shear;
+		indexValue[indexi0Er+1] = col_shear + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Er+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare1;
+		indexValue[indexj0Fr1+1] = col_compare1 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = col_shear;
+		indexValue[indexi0Fr1+1] = col_shear + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr1+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 1;
+		
+		
+		indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare1;
+		indexValue[indexj0Fr2+1] = col_compare1 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = col_shear;
+		indexValue[indexi0Fr2+1] = col_shear + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids;
+		indexValue[indexi1Fr2+1] = 3*(j-js)*Nx + 3*(i-is+1) + count_Grids + 2;
+		
+		
+		indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+		
+		
+	}
+	
+#endif
 
 
 	return;
@@ -3297,16 +5409,14 @@ void is_j_phy(int j)
 	int indexi1Er, indexi1Fr1, indexi1Fr2;
 	int indexj1Er, indexj1Fr1, indexj1Fr2;
 	
-	jshearing = Ny * shearing_grid + (j-js) - joffset;
+	jshearing = (j-js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
-	ishearing = ie - is + (NGx - 1) * Nx;
-	
-	
-	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+
+	col_shear = 3 * jshearing * Nx + 3 * (ie - is) + count_Grids;
 	
 #endif
 
@@ -3726,6 +5836,42 @@ void ie_js_MPI_MPI()
 		MPIcount1y = 2;
 		MPIcount2yF = 0;
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines + (rx1 - ID) * lines;
+	
+	col_compare1 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js+1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (je-js) * Nx + 3 * (i-is) + count_Grids - shifty;
+	
+	
+#endif
 
 
 
@@ -3830,6 +5976,297 @@ void ie_js_MPI_MPI()
 
 	indexValue[index2] = 3*(je-js)*Nx + 3*(ie-is) + count_Grids - shifty;
 	indexValue[index2+1] = indexValue[index2] + 1;
+	
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on right physical boundary */
+	if(rx1 < ID){
+		
+		if(col_compare3 < col_compare1){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 6;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 4;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 7;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 6;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 6;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 4;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare3;
+		indexValue[indexj0Er+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = col_shear;
+		indexValue[indexi1Er+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare3;
+		indexValue[indexj0Fr1+1] = col_compare3 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = col_shear;
+		indexValue[indexi1Fr1+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare3;
+		indexValue[indexj0Fr2+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = col_shear;
+		indexValue[indexi1Fr2+1] = col_shear + 2;
+		
+		
+		indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+		
+		
+	}
+	
+#endif
 
 
 	
@@ -3864,6 +6301,42 @@ void ie_js_phy_MPI()
 		MPIcount2 = 0;
 		MPIcount2F = 0;	
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	col_compare1 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js+1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (je-js) * Nx + 3 * (i-is) + count_Grids - shifty;
+	
+	
+#endif
 
 	/* First do the MPI part */
 	index = NoEr + MPIcount2;
@@ -4041,6 +6514,298 @@ void ie_js_phy_MPI()
 
 		/* Do nothing */
 	}
+	
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on right physical boundary */
+	
+		
+		if(col_compare3 < col_compare1){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 6;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 5;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2 + 6;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr + 9;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 8;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 8;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 4;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 7;
+				indexi0Er = NoEr;
+				indexiEr = NoEr + 2;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 5;
+				
+				indexj0Fr1 = NoFr1 + 6;
+				indexi0Fr1 = NoFr1;
+				indexiFr1 = NoFr1 + 2;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 4;
+				
+				indexj0Fr2 = NoFr2 + 6;
+				indexi0Fr2 = NoFr2;
+				indexiFr2 = NoFr2 + 2;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 4;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = col_compare3;
+		indexValue[indexj0Er+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = col_shear;
+		indexValue[indexi1Er+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = col_compare3;
+		indexValue[indexj0Fr1+1] = col_compare3 + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = col_shear;
+		indexValue[indexi1Fr1+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = col_compare3;
+		indexValue[indexj0Fr2+1] = col_compare3 + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = col_shear;
+		indexValue[indexi1Fr2+1] = col_shear + 2;
+		
+		
+		indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+		
+		
+	
+	
+#endif
+	
 
 
 	return;
@@ -4076,6 +6841,43 @@ void ie_js_MPI_phy()
 			MPIcount2F = 6;
 		}
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines + (rx1 - ID) * lines;
+	
+	col_compare1 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js+1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (je-js) * Nx + 3 * (i-is) + count_Grids + 3 * Ny * Nx * NGx * (NGy - 1);
+	
+	
+#endif
+	
 
 	/* For MPI part */
 	index = NoEr + MPIcount2;
@@ -4241,8 +7043,215 @@ void ie_js_MPI_phy()
 	else if(ix2 == 3){
 		/* Do nothing */
 	}
-
-
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on right physical boundary */
+if(rx1 < ID){	
+	
+		if(col_shear < col_compare1){
+			indexj0Er = NoEr + 9;
+			indexi0Er = NoEr + 2;
+			indexiEr = NoEr + 4;
+			indexi1Er = NoEr;
+			indexj1Er = NoEr + 7;
+			
+			indexj0Fr1 = NoFr1 + 8;
+			indexi0Fr1 = NoFr1 + 2;
+			indexiFr1 = NoFr1 + 4;
+			indexi1Fr1 = NoFr1;
+			indexj1Fr1 = NoFr1 + 6;
+			
+			indexj0Fr2 = NoFr2 + 8;
+			indexi0Fr2 = NoFr2 + 2;
+			indexiFr2 = NoFr2 + 4;
+			indexi1Fr2 = NoFr2;
+			indexj1Fr2 = NoFr2 + 6;
+			
+		}
+		else if(col_shear < col_compare2){
+			indexj0Er = NoEr + 9;
+			indexi0Er = NoEr;
+			indexiEr = NoEr + 2;
+			indexi1Er = NoEr + 5;
+			indexj1Er = NoEr + 7;
+			
+			indexj0Fr1 = NoFr1 + 8;
+			indexi0Fr1 = NoFr1;
+			indexiFr1 = NoFr1 + 2;
+			indexi1Fr1 = NoFr1 + 4;
+			indexj1Fr1 = NoFr1 + 6;
+			
+			indexj0Fr2 = NoFr2 + 8;
+			indexi0Fr2 = NoFr2;
+			indexiFr2 = NoFr2 + 2;
+			indexi1Fr2 = NoFr2 + 4;
+			indexj1Fr2 = NoFr2 + 6;				
+		}
+		else if(col_shear < col_compare3){
+			indexj0Er = NoEr + 9;
+			indexi0Er = NoEr;
+			indexiEr = NoEr + 2;
+			indexi1Er = NoEr + 7;
+			indexj1Er = NoEr + 5;
+			
+			indexj0Fr1 = NoFr1 + 8;
+			indexi0Fr1 = NoFr1;
+			indexiFr1 = NoFr1 + 2;
+			indexi1Fr1 = NoFr1 + 6;
+			indexj1Fr1 = NoFr1 + 4;
+			
+			indexj0Fr2 = NoFr2 + 8;
+			indexi0Fr2 = NoFr2;
+			indexiFr2 = NoFr2 + 2;
+			indexi1Fr2 = NoFr2 + 6;
+			indexj1Fr2 = NoFr2 + 4;					
+			
+		}
+		else{
+			indexj0Er = NoEr + 7;
+			indexi0Er = NoEr;
+			indexiEr = NoEr + 2;
+			indexi1Er = NoEr + 9;
+			indexj1Er = NoEr + 5;
+			
+			indexj0Fr1 = NoFr1 + 6;
+			indexi0Fr1 = NoFr1;
+			indexiFr1 = NoFr1 + 2;
+			indexi1Fr1 = NoFr1 + 8;
+			indexj1Fr1 = NoFr1 + 4;
+			
+			indexj0Fr2 = NoFr2 + 6;
+			indexi0Fr2 = NoFr2;
+			indexiFr2 = NoFr2 + 2;
+			indexi1Fr2 = NoFr2 + 8;
+			indexj1Fr2 = NoFr2 + 4;				
+			
+		}
+		
+	
+	
+	/* After we get the indices, we need to assign the elements */
+	
+	/* Er */
+	Value[indexj0Er] = theta[0];
+	Value[indexj0Er+1] = theta[1];
+	
+	Value[indexi0Er] = theta[2];
+	Value[indexi0Er+1] = theta[3];
+	
+	Value[indexiEr] = theta[4];
+	Value[indexiEr+1] = theta[5];
+	Value[indexiEr+2] = theta[6];
+	
+	Value[indexi1Er] = theta[7];
+	Value[indexi1Er+1] = theta[8];
+	
+	Value[indexj1Er] = theta[9];
+	Value[indexj1Er+1] = theta[10];
+	
+	
+	
+	indexValue[indexj0Er] = col_compare3;
+	indexValue[indexj0Er+1] = col_compare3 + 2;
+	
+	
+	
+	indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+	
+	indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	indexValue[indexi1Er] = col_shear;
+	indexValue[indexi1Er+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	/* Fr1 */
+	
+	Value[indexj0Fr1] = phi[0];
+	Value[indexj0Fr1+1] = phi[1];
+	
+	Value[indexi0Fr1] = phi[2];
+	Value[indexi0Fr1+1] = phi[3];
+	
+	Value[indexiFr1] = phi[4];
+	Value[indexiFr1+1] = phi[5];
+	
+	Value[indexi1Fr1] = phi[6];
+	Value[indexi1Fr1+1] = phi[7];
+	
+	Value[indexj1Fr1] = phi[8];
+	Value[indexj1Fr1+1] = phi[9];
+	
+	
+	indexValue[indexj0Fr1] = col_compare3;
+	indexValue[indexj0Fr1+1] = col_compare3 + 1;
+	
+	
+	
+	indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+	
+	indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	indexValue[indexi1Fr1] = col_shear;
+	indexValue[indexi1Fr1+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	/* Fr2 */
+	Value[indexj0Fr2] = psi[0];
+	Value[indexj0Fr2+1] = psi[1];
+	
+	Value[indexi0Fr2] = psi[2];
+	Value[indexi0Fr2+1] = psi[3];
+	
+	Value[indexiFr2] = psi[4];
+	Value[indexiFr2+1] = psi[5];
+	
+	Value[indexi1Fr2] = psi[6];
+	Value[indexi1Fr2+1] = psi[7];
+	
+	Value[indexj1Fr2] = psi[8];
+	Value[indexj1Fr2+1] = psi[9];
+	
+	
+	indexValue[indexj0Fr2] = col_compare3;
+	indexValue[indexj0Fr2+1] = col_compare3 + 2;
+	
+	
+	
+	indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+	
+	indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	indexValue[indexi1Fr2] = col_shear;
+	indexValue[indexi1Fr2+1] = col_shear + 2;
+	
+	
+	indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+	
+}	
+	
+	
+#endif
+	
 	return;
 } /* MPI for x direction and MPI for y direction */
 
@@ -4255,16 +7264,16 @@ void ie_js_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = Ny * shearing_grid + (j - js) + joffset;
+	jshearing = (j - js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
 	
-	ishearing = 0.0;
+
 	
 	
-	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	col_shear = 3 * jshearing * Nx + 3 * 0 + count_Grids;
 	
 	int indexj0Er, indexj0Fr1, indexj0Fr2;
 	int indexi0Er, indexi0Fr1, indexi0Fr2;
@@ -4305,7 +7314,7 @@ void ie_js_phy_phy()
 		indexValue[NoFr1+1] = 3*(j-js)*Nx+3*(i-is-1)+1+ count_Grids;
 
 		for(m=0; m<2; m++)
-			indexValue[NoFr1+2+m] = 3*(j-js)*Nx+3*(i-is)+m;
+			indexValue[NoFr1+2+m] = 3*(j-js)*Nx+3*(i-is)+m + count_Grids;
 
 		indexValue[NoFr1+4] = 3*(j-js+1)*Nx+3*(i-is)+ count_Grids;
 		indexValue[NoFr1+5] = 3*(j-js+1)*Nx+3*(i-is)+1+ count_Grids;
@@ -4752,6 +7761,43 @@ void ie_je_MPI_MPI()
 		MPIcount2yF = 8;
 		MPIcount1y = 0;
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines + (rx1 - ID) * lines;
+	
+	col_compare1 = 3 * (j-js-1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (js-js) * Nx + 3 * (i-is) + count_Grids + shifty;
+	
+	
+#endif
+	
 
 	/* For MPI part */
 	/* Er */
@@ -4852,6 +7898,295 @@ void ie_je_MPI_MPI()
 	indexValue[index+5] = 3*(j-js)*Nx+3*(i-is)+2+ count_Grids;
 
 
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on right physical boundary */
+	if(rx1 < ID){
+		
+		if(col_compare3 < col_compare1){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 2;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 2;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 2;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr + 4;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = col_shear;
+		indexValue[indexi1Er+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Er] = col_compare3;
+		indexValue[indexj1Er+1] = col_compare3 + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = col_shear;
+		indexValue[indexi1Fr1+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Fr1] = col_compare3;
+		indexValue[indexj1Fr1+1] = col_compare3 + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = col_shear;
+		indexValue[indexi1Fr2+1] = col_shear + 2;
+		
+		
+		indexValue[indexj1Fr2] = col_compare3;
+		indexValue[indexj1Fr2+1] = col_compare3 + 2;	
+		
+		
+	}
+	
+#endif
 
 	return;
 
@@ -4886,6 +8221,42 @@ void ie_je_phy_MPI()
 		} 
 
 	}
+	
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	col_compare1 = 3 * (j-js-1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (js-js) * Nx + 3 * (i-is) + count_Grids + shifty;
+	
+	
+#endif
 
 	/* First do the MPI part, which is true no matter ox1 == 4 or not */
 
@@ -5075,7 +8446,297 @@ void ie_je_phy_MPI()
 			
 	
 
-		}/* periodic for x1 */				
+		}/* periodic for x1 */	
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on right physical boundary */
+	
+		
+		if(col_compare3 < col_compare1){
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 2;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 2;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 2;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr + 4;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;				
+				
+			}
+		}
+		else {
+			if(col_shear < col_compare1){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 8;
+				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2 + 8;				
+			}
+			else if(col_shear < col_compare3){
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 7;
+				indexj1Er = NoEr + 9;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 6;
+				indexj1Fr1 = NoFr1 + 8;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 6;
+				indexj1Fr2 = NoFr2 + 8;					
+				
+			}
+			else{
+				indexj0Er = NoEr;
+				indexi0Er = NoEr + 2;
+				indexiEr = NoEr + 4;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr + 7;
+				
+				indexj0Fr1 = NoFr1;
+				indexi0Fr1 = NoFr1 + 2;
+				indexiFr1 = NoFr1 + 4;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1 + 6;
+				
+				indexj0Fr2 = NoFr2;
+				indexi0Fr2 = NoFr2 + 2;
+				indexiFr2 = NoFr2 + 4;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2 + 6;				
+				
+			}
+			
+		}
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = col_shear;
+		indexValue[indexi1Er+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Er] = col_compare3;
+		indexValue[indexj1Er+1] = col_compare3 + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = col_shear;
+		indexValue[indexi1Fr1+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Fr1] = col_compare3;
+		indexValue[indexj1Fr1+1] = col_compare3 + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = col_shear;
+		indexValue[indexi1Fr2+1] = col_shear + 2;
+		
+		
+		indexValue[indexj1Fr2] = col_compare3;
+		indexValue[indexj1Fr2+1] = col_compare3 + 2;	
+		
+		
+	
+#endif
+	
 
 
 	return;
@@ -5111,6 +8772,41 @@ void ie_je_MPI_phy()
 		}
 
 	}
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines + (rx1 - ID) * lines;
+	
+	col_compare1 = 3 * (j-js-1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (js-js) * Nx + 3 * (i-is) + count_Grids - 3 * Ny * Nx * NGx * (NGy - 1);
+	
+	
+#endif
 	
 	/* First, MPI part */
 	/* Er */
@@ -5285,6 +8981,216 @@ void ie_je_MPI_phy()
 
 
 	}/* periodic for x2 */
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on right physical boundary */
+	if(rx1 < ID){
+		
+		
+			if(col_shear < col_compare3){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr;
+				indexj1Er = NoEr + 2;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1;
+				indexj1Fr1 = NoFr1 + 2;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2;
+				indexj1Fr2 = NoFr2 + 2;
+				
+			}
+			else if(col_shear < col_compare1){
+				indexj0Er = NoEr + 4;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr + 2;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 4;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1 + 2;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 4;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2 + 2;
+				indexj1Fr2 = NoFr2;				
+			}
+			else if(col_shear < col_compare2){
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 6;
+				indexiEr = NoEr + 8;
+				indexi1Er = NoEr + 4;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 6;
+				indexiFr1 = NoFr1 + 8;
+				indexi1Fr1 = NoFr1 + 4;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 6;
+				indexiFr2 = NoFr2 + 8;
+				indexi1Fr2 = NoFr2 + 4;
+				indexj1Fr2 = NoFr2;					
+				
+			}
+			else{
+				indexj0Er = NoEr + 2;
+				indexi0Er = NoEr + 4;
+				indexiEr = NoEr + 6;
+				indexi1Er = NoEr + 9;
+				indexj1Er = NoEr;
+				
+				indexj0Fr1 = NoFr1 + 2;
+				indexi0Fr1 = NoFr1 + 4;
+				indexiFr1 = NoFr1 + 6;
+				indexi1Fr1 = NoFr1 + 8;
+				indexj1Fr1 = NoFr1;
+				
+				indexj0Fr2 = NoFr2 + 2;
+				indexi0Fr2 = NoFr2 + 4;
+				indexiFr2 = NoFr2 + 6;
+				indexi1Fr2 = NoFr2 + 8;
+				indexj1Fr2 = NoFr2;				
+				
+			}
+		
+		
+		
+		/* After we get the indices, we need to assign the elements */
+		
+		/* Er */
+		Value[indexj0Er] = theta[0];
+		Value[indexj0Er+1] = theta[1];
+		
+		Value[indexi0Er] = theta[2];
+		Value[indexi0Er+1] = theta[3];
+		
+		Value[indexiEr] = theta[4];
+		Value[indexiEr+1] = theta[5];
+		Value[indexiEr+2] = theta[6];
+		
+		Value[indexi1Er] = theta[7];
+		Value[indexi1Er+1] = theta[8];
+		
+		Value[indexj1Er] = theta[9];
+		Value[indexj1Er+1] = theta[10];
+		
+		
+		
+		indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		indexValue[indexi1Er] = col_shear;
+		indexValue[indexi1Er+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Er] = col_compare3;
+		indexValue[indexj1Er+1] = col_compare3 + 2;
+		
+		
+		
+		/* Fr1 */
+		
+		Value[indexj0Fr1] = phi[0];
+		Value[indexj0Fr1+1] = phi[1];
+		
+		Value[indexi0Fr1] = phi[2];
+		Value[indexi0Fr1+1] = phi[3];
+		
+		Value[indexiFr1] = phi[4];
+		Value[indexiFr1+1] = phi[5];
+		
+		Value[indexi1Fr1] = phi[6];
+		Value[indexi1Fr1+1] = phi[7];
+		
+		Value[indexj1Fr1] = phi[8];
+		Value[indexj1Fr1+1] = phi[9];
+		
+		
+		indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		
+		indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+		
+		indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+		
+		
+		indexValue[indexi1Fr1] = col_shear;
+		indexValue[indexi1Fr1+1] = col_shear + 1;
+		
+		
+		indexValue[indexj1Fr1] = col_compare3;
+		indexValue[indexj1Fr1+1] = col_compare3 + 1;
+		
+		/* Fr2 */
+		Value[indexj0Fr2] = psi[0];
+		Value[indexj0Fr2+1] = psi[1];
+		
+		Value[indexi0Fr2] = psi[2];
+		Value[indexi0Fr2+1] = psi[3];
+		
+		Value[indexiFr2] = psi[4];
+		Value[indexiFr2+1] = psi[5];
+		
+		Value[indexi1Fr2] = psi[6];
+		Value[indexi1Fr2+1] = psi[7];
+		
+		Value[indexj1Fr2] = psi[8];
+		Value[indexj1Fr2+1] = psi[9];
+		
+		
+		indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		
+		indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+		indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+		
+		indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+		indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+		
+		
+		indexValue[indexi1Fr2] = col_shear;
+		indexValue[indexi1Fr2+1] = col_shear + 2;
+		
+		
+		indexValue[indexj1Fr2] = col_compare3;
+		indexValue[indexj1Fr2+1] = col_compare3 + 2;	
+		
+		
+	}
+	
+#endif
+	
 
 	return;
 } /* MPI for x direction and physics for y direction */
@@ -5305,17 +9211,17 @@ void ie_je_phy_phy()
 	int indexj1Er, indexj1Fr1, indexj1Fr2;
 	
 	
-	jshearing = Ny * shearing_grid + (j - js) + joffset;
+	jshearing = (j - js) + joffset;
 	
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
 	
-	ishearing = 0.0;
+
 	
 	
-	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	col_shear = 3 * jshearing * Nx + 3 * 0 + count_Grids;
 	
 #endif
 
@@ -5923,6 +9829,40 @@ void ie_j_MPI(int j)
 		MPIcount2 = 9;
 		MPIcount2F = 8;
 	}
+	
+#ifdef SHEARING_BOX
+	
+	
+	
+	int indexj0Er, indexj0Fr1, indexj0Fr2;
+	int indexi0Er, indexi0Fr1, indexi0Fr2;
+	int indexiEr, indexiFr1, indexiFr2;
+	int indexi1Er, indexi1Fr1, indexi1Fr2;
+	int indexj1Er, indexj1Fr1, indexj1Fr2;
+	
+	
+	int col_compare3;
+	
+	jshearing = Ny * jproc + (j - js) + joffset;
+	
+	if(jshearing >= NGy * Ny) {
+		jshearing -= NGy * Ny;
+	}		
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = shearing_grid * NGx + iproc;
+	
+	col_shear = 3 * jshearing * Nx + 3 * (is - is) + count_Grids + (shearing_grid - ID) * lines + (rx1 - ID) * lines;
+	
+	col_compare1 = 3 * (j-js-1) * Nx + 3 * (i-is) + count_Grids;
+	col_compare2 = 3 * (j-js) * Nx + 3 * (i-is) + count_Grids;
+	col_compare3 = 3 * (j-js+1) * Nx + 3 * (i-is) + count_Grids;	
+	
+#endif
 
 	/* For MPI part */
 	/* Er */
@@ -6020,7 +9960,217 @@ void ie_j_MPI(int j)
 					
 	indexValue[index+6] = 3*(j-js+1)*Nx + 3*(i-is)+ count_Grids;
 	indexValue[index+7] = 3*(j-js+1)*Nx + 3*(i-is)+2+ count_Grids;
+	
+	
+	
+#ifdef SHEARING_BOX
+	/* Only apply this if it is on left boundary */
+	if(rx1 < ID){
+		
+		
+		if(col_shear < col_compare1){
+			indexj0Er = NoEr + 2;
+			indexi0Er = NoEr + 4;
+			indexiEr = NoEr + 6;
+			indexi1Er = NoEr;
+			indexj1Er = NoEr + 9;
+			
+			indexj0Fr1 = NoFr1 + 2;
+			indexi0Fr1 = NoFr1 + 4;
+			indexiFr1 = NoFr1 + 6;
+			indexi1Fr1 = NoFr1;
+			indexj1Fr1 = NoFr1 + 8;
+			
+			indexj0Fr2 = NoFr2 + 2;
+			indexi0Fr2 = NoFr2 + 4;
+			indexiFr2 = NoFr2 + 6;
+			indexi1Fr2 = NoFr2;
+			indexj1Fr2 = NoFr2 + 8;
+			
+		}
+		else if(col_shear < col_compare2){
+			indexj0Er = NoEr;
+			indexi0Er = NoEr + 4;
+			indexiEr = NoEr + 6;
+			indexi1Er = NoEr + 2;
+			indexj1Er = NoEr + 9;
+			
+			indexj0Fr1 = NoFr1;
+			indexi0Fr1 = NoFr1 + 4;
+			indexiFr1 = NoFr1 + 6;
+			indexi1Fr1 = NoFr1 + 2;
+			indexj1Fr1 = NoFr1 + 8;
+			
+			indexj0Fr2 = NoFr2;
+			indexi0Fr2 = NoFr2 + 4;
+			indexiFr2 = NoFr2 + 6;
+			indexi1Fr2 = NoFr2 + 2;
+			indexj1Fr2 = NoFr2 + 8;				
+		}
+		else if(col_shear < col_compare3){
+			indexj0Er = NoEr;
+			indexi0Er = NoEr + 2;
+			indexiEr = NoEr + 4;
+			indexi1Er = NoEr + 7;
+			indexj1Er = NoEr + 9;
+			
+			indexj0Fr1 = NoFr1;
+			indexi0Fr1 = NoFr1 + 2;
+			indexiFr1 = NoFr1 + 4;
+			indexi1Fr1 = NoFr1 + 6;
+			indexj1Fr1 = NoFr1 + 8;
+			
+			indexj0Fr2 = NoFr2;
+			indexi0Fr2 = NoFr2 + 2;
+			indexiFr2 = NoFr2 + 4;
+			indexi1Fr2 = NoFr2 + 6;
+			indexj1Fr2 = NoFr2 + 8;					
+			
+		}
+		else{
+			indexj0Er = NoEr;
+			indexi0Er = NoEr + 2;
+			indexiEr = NoEr + 4;
+			indexi1Er = NoEr + 9;
+			indexj1Er = NoEr + 7;
+			
+			indexj0Fr1 = NoFr1;
+			indexi0Fr1 = NoFr1 + 2;
+			indexiFr1 = NoFr1 + 4;
+			indexi1Fr1 = NoFr1 + 8;
+			indexj1Fr1 = NoFr1 + 6;
+			
+			indexj0Fr2 = NoFr2;
+			indexi0Fr2 = NoFr2 + 2;
+			indexiFr2 = NoFr2 + 4;
+			indexi1Fr2 = NoFr2 + 8;
+			indexj1Fr2 = NoFr2 + 6;				
+			
+		}
+		
+		
+		
+	
+	
+	/* After we get the indices, we need to assign the elements */
+	
+	/* Er */
+	Value[indexj0Er] = theta[0];
+	Value[indexj0Er+1] = theta[1];
+	
+	Value[indexi0Er] = theta[2];
+	Value[indexi0Er+1] = theta[3];
+	
+	Value[indexiEr] = theta[4];
+	Value[indexiEr+1] = theta[5];
+	Value[indexiEr+2] = theta[6];
+	
+	Value[indexi1Er] = theta[7];
+	Value[indexi1Er+1] = theta[8];
+	
+	Value[indexj1Er] = theta[9];
+	Value[indexj1Er+1] = theta[10];
+	
+	
+	
+	indexValue[indexj0Er] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Er+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Er] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Er+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+	
+	indexValue[indexiEr] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiEr+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	indexValue[indexiEr+2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	indexValue[indexi1Er] = col_shear;
+	indexValue[indexi1Er+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Er] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Er+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	/* Fr1 */
+	
+	Value[indexj0Fr1] = phi[0];
+	Value[indexj0Fr1+1] = phi[1];
+	
+	Value[indexi0Fr1] = phi[2];
+	Value[indexi0Fr1+1] = phi[3];
+	
+	Value[indexiFr1] = phi[4];
+	Value[indexiFr1+1] = phi[5];
+	
+	Value[indexi1Fr1] = phi[6];
+	Value[indexi1Fr1+1] = phi[7];
+	
+	Value[indexj1Fr1] = phi[8];
+	Value[indexj1Fr1+1] = phi[9];
+	
+	
+	indexValue[indexj0Fr1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr1+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	
+	indexValue[indexi0Fr1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Fr1+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 1;
+	
+	indexValue[indexiFr1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr1+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	
+	indexValue[indexi1Fr1] = col_shear;
+	indexValue[indexi1Fr1+1] = col_shear + 1;
+	
+	
+	indexValue[indexj1Fr1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr1+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 1;
+	
+	/* Fr2 */
+	Value[indexj0Fr2] = psi[0];
+	Value[indexj0Fr2+1] = psi[1];
+	
+	Value[indexi0Fr2] = psi[2];
+	Value[indexi0Fr2+1] = psi[3];
+	
+	Value[indexiFr2] = psi[4];
+	Value[indexiFr2+1] = psi[5];
+	
+	Value[indexi1Fr2] = psi[6];
+	Value[indexi1Fr2+1] = psi[7];
+	
+	Value[indexj1Fr2] = psi[8];
+	Value[indexj1Fr2+1] = psi[9];
+	
+	
+	indexValue[indexj0Fr2] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj0Fr2+1] = 3*(j-js-1)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	
+	indexValue[indexi0Fr2] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids;
+	indexValue[indexi0Fr2+1] = 3*(j-js)*Nx + 3*(i-is-1) + count_Grids + 2;
+	
+	indexValue[indexiFr2] = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexiFr2+1] = 3*(j-js)*Nx + 3*(i-is) + count_Grids + 2;
+	
+	
+	indexValue[indexi1Fr2] = col_shear;
+	indexValue[indexi1Fr2+1] = col_shear + 2;
+	
+	
+	indexValue[indexj1Fr2] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids;
+	indexValue[indexj1Fr2+1] = 3*(j-js+1)*Nx + 3*(i-is) + count_Grids + 2;	
+	
+	
+}
 
+#endif
 
 	return;
 } /* MPI boundary condition for x */
@@ -6040,16 +10190,15 @@ void ie_j_phy(int j)
 	int indexj1Er, indexj1Fr1, indexj1Fr2;
 	
 	
-	jshearing = Ny * shearing_grid + (j-js) + joffset;
+	jshearing = (j-js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
+
 	
-	ishearing = 0.0;
 	
-	
-	col_shear = 3 * jshearing * Nx + 3 * ishearing;
+	col_shear = 3 * jshearing * Nx + 3 * 0 + count_Grids;
 	
 #endif
 	

@@ -52,7 +52,14 @@ void new_dt(MeshS *pM)
  Real aeff = 0.0;
  Prim1DS Waeff; 
  Real Bx=0;
-#endif/* radiation hydro and MHD, effective sound speed */
+ int DIM = 0;
+	
+	/* Judge the dimension for effective sound speed */
+	
+	for(i=0;i<3;i++) 
+		if(pM->Nx[i] > 1) DIM++;
+#endif
+	/* radiation hydro and MHD, effective sound speed */
  	
 
 	
@@ -176,7 +183,7 @@ void new_dt(MeshS *pM)
 	}
 	else
 	{
-        	aeff = eff_sound(Waeff, pGrid->dt,0);
+        	aeff = eff_sound(Waeff, pGrid->dt,DIM);
 	}
 
 	asq = aeff * aeff;

@@ -71,6 +71,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   Real dt=pFlux->d;
   Real Proe, Sigma_roe, Sigmat_roe;
   Real Erroe, Frroe[3], Edd[6];
+	int DIM = (int)pFlux->Mx;
 #endif
 
   Real ev[NWAVE],al,ar;
@@ -162,11 +163,11 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
  *****************************/
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 0, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, DIM, ev, NULL, NULL);
 #endif
 
 #ifdef RADIATION_MHD
- esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 0,  
+ esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, DIM,  
   hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
 #endif
 
@@ -177,7 +178,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* left state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   
- asq = eff_sound(Wl,dt,0);
+ asq = eff_sound(Wl,dt,DIM);
 /*
   asq = sqrt(Gamma * Wl.P / Wl.d);
 */
@@ -206,7 +207,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 /* right state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   
- asq = eff_sound(Wr,dt,0);
+ asq = eff_sound(Wr,dt,DIM);
 /*
   asq = sqrt(Gamma * Wr.P / Wr.d);
 */	

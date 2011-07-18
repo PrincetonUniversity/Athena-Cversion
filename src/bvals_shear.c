@@ -1091,12 +1091,14 @@ void ShearingSheet_ox1(DomainS *pD)
       }
     }
 #if defined(MHD) || defined(RADIATION_MHD)
+	 if (pG->Nx[2] > 1) {
     for (j=1; j<=nghost; j++) {
       for (i=ie+1; i<=ie+nghost; i++) {
         pG->B3i[ke+1][js-j][i] = pG->B3i[ke+1][je-(j-1)][i];
         pG->B3i[ke+1][je+j][i] = pG->B3i[ke+1][js+(j-1)][i];
       }
     }
+	 }
 #endif /* MHD */
 
 #ifdef MPI_PARALLEL

@@ -54,6 +54,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /* dt is passed for RADIATION_HYDRO code */
 #ifdef RADIATION_HYDRO
   Real dt=pFlux->d;
+  int DIM = (int) pFlux->Mx;
   Real aeff;
   Real Proe, Sigma_roe, Sigmat_roe;
   Real Erroe, Frroe[3], Edd[6];
@@ -126,7 +127,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #endif/* HYDRO */
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, 0, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, DIM, ev, NULL, NULL);
 #endif
 
 
@@ -141,19 +142,18 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   cfr = sqrt((double)(Gamma*Wr.P/Wr.d));
 #endif
 #else
-  aeff = eff_sound(Wl,dt,0);
+  aeff = eff_sound(Wl,dt,DIM);
 /*
    aeff = sqrt(Gamma * Wl.P / Wl.d);
 */
   cfl = aeff;
-  aeff = eff_sound(Wr,dt,0);
+  aeff = eff_sound(Wr,dt,DIM);
 /*
    aeff = sqrt(Gamma * Wr.P / Wr.d);
 */	
   cfr = aeff;
 #endif
 
-/* For radiation code, the maximum eigen value is at ev[4], not ev[NWAVE-1] */
 
   ar = MAX(ev[NWAVE-1],(Wr.Vx + cfr));
   al = MIN(ev[0]      ,(Wl.Vx - cfl));

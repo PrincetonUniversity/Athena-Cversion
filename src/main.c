@@ -709,7 +709,7 @@ int main(int argc, char *argv[])
 #endif
 
 	/* set boundary conditions for radiation quantities */
-#if defined(ADIATION_HYDRO) || defined(RADIATION_MHD)	
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
 

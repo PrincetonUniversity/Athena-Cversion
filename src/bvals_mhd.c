@@ -1612,11 +1612,30 @@ static void periodic_ix1(GridS *pGrid)
 #if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
+	
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
+	Real temp[12];
+	Real *pRad; /* pointer to radiation quantities */
+	int m;
+	/* Do not update radiation quantities for shearing boundary condition case */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)	
+		  pRad = &(pGrid->U[k][j][is-i].Er);
+		  for(m=0;m<12;m++)
+			  temp[m]=pRad[m];
+
+#endif
         pGrid->U[k][j][is-i] = pGrid->U[k][j][ie-(i-1)];
+		  
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)		  
+		  for(m=0;m<12;m++)
+			  pRad[m]=temp[m];
+#endif		  
+		  
       }
     }
   }
@@ -1665,11 +1684,30 @@ static void periodic_ox1(GridS *pGrid)
 #if defined(MHD) || defined(RADIATION_MHD)
   int ju, ku; /* j-upper, k-upper */
 #endif
+	
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
+	Real temp[12];
+	Real *pRad; /* pointer to radiation quantities */
+	int m;
+	/* Do not update radiation quantities for shearing boundary condition case */
+#endif
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
-      for (i=1; i<=nghost; i++) {
+		for (i=1; i<=nghost; i++) {
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)	
+			pRad = &(pGrid->U[k][j][ie+i].Er);
+			for(m=0;m<12;m++)
+				temp[m]=pRad[m];
+			
+#endif
+			
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][is+(i-1)];
+			
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)		  
+			for(m=0;m<12;m++)
+				pRad[m]=temp[m];
+#endif	
       }
     }
   }

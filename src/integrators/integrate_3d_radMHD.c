@@ -56,6 +56,11 @@ static Cons1DS ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
 static Cons1DS ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
 Cons1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
+/* variables needed to conserve net Bz in shearing box */
+#ifdef SHEARING_BOX
+static Real **remapEyiib=NULL, **remapEyoib=NULL;
+#endif
+
 /* The interface magnetic fields and emfs */
 #ifdef RADIATION_MHD
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
@@ -115,6 +120,19 @@ void integrate_3d_radMHD(DomainS *pD)
 #if defined(RADIATION_MHD) || defined(SELF_GRAVITY)
   	Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
 #endif
+	
+/* Variables for shearing box */	
+	
+#ifdef SHEARING_BOX
+	int my_iproc,my_jproc,my_kproc;
+	Real M1n, dM2n; /* M1, dM2=(My+d*q*Omega_0*x) at time n */
+	Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
+	Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
+	Real fact, qom, om_dt = Omega_0*pG->dt;
+/*	Real ShearingSource_M1, ShearingSource_M2, ShearingSource_M3, ShearingSource_E;
+	Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
+ */
+#endif /* SHEARING_BOX */
 
 	Real temperature, velocity_x, velocity_y, velocity_z, velocity, pressure, density;
 	Real Fr0x, Fr0y, Fr0z, diffTEr; /* co-moving flux, Fr-vf E_r/C , diffTEr = T^4 - Er*/
@@ -215,7 +233,7 @@ void integrate_3d_radMHD(DomainS *pD)
       				W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
     			}
 
-			lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,0);
+			lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,3);
 
 
 /*------Step 2c: Add radiation source terms to the left and right state for 0.5*dt--------*/
@@ -473,6 +491,41 @@ void integrate_3d_radMHD(DomainS *pD)
 
         		}
       		}
+			
+/* Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
+ * starting with tidal gravity terms added through the ShearingBoxPot
+ *    Vx source term = (dt/2)*( 2 Omega_0 Vy)
+ *    Vy source term = (dt/2)*(-2 Omega_0 Vx)
+ *    Vy source term = (dt/2)*((q-2) Omega_0 Vx) (with FARGO)
+ * (x1,x2,x3) in code = (X,Z,Y) in 2D shearing sheet
+ */		
+				
+#ifdef SHEARING_BOX
+		if (ShearingBoxPot != NULL){
+			for (i=il+1; i<=iu; i++) {
+						cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+						phicr = (*ShearingBoxPot)( x1             ,x2,x3);
+						phicl = (*ShearingBoxPot)((x1-    pG->dx1),x2,x3);
+						phifc = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+						
+						Wl[i].Vx -= dtodx1*(phifc - phicl);
+						Wr[i].Vx -= dtodx1*(phicr - phifc);
+					}
+				}
+			
+		for (i=il+1; i<=iu; i++) {
+				Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy;
+				Wr[i].Vx += pG->dt*Omega_0*W[i].Vy;
+#ifdef FARGO
+				Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
+				Wr[i].Vy += hdt*(qshear-2.)*Omega_0*W[i].Vx;
+#else
+				Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
+				Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx;
+#endif
+		}
+			
+#endif /* SHEARING_BOX */				
 
 
 /*--- Step 2d ------------------------------------------------------------------
@@ -487,6 +540,7 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 			/* take the time step with x1Flux */
 			x1Flux[k][j][i].d = dt;	
+				x1Flux[k][j][i].Mx = 3;
 
         		fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
       		}
@@ -537,7 +591,7 @@ void integrate_3d_radMHD(DomainS *pD)
         		W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
       		}
 
-      		lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,2);
+      		lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,3);
 
 /*------Step 3b: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
@@ -808,6 +862,7 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 			/* Take the time step with x2Flux[][][].d */
 			x2Flux[k][j][i].d = dt;
+			x2Flux[k][j][i].Mx = 3;
 			
         		fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,&x2Flux[k][j][i]);
       		}
@@ -1129,6 +1184,7 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 			/* Take the time step with x3Flux[][][].d */
 			x3Flux[k][j][i].d = dt;
+			x3Flux[k][j][i].Mx = 3;
 			
         		fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,&x3Flux[k][j][i]);
       		}
@@ -1634,7 +1690,83 @@ void integrate_3d_radMHD(DomainS *pD)
   		}
 	}
 
+/*========================Shearing box source term gradient *===============*/	
+	
+/* Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+* x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
+*    Vx source term is (dt/2)( 2 Omega_0 Vy)
+*    Vy source term is (dt/2)(-2 Omega_0 Vx)
+*    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
+*/
+		
+#ifdef SHEARING_BOX
+		if (ShearingBoxPot != NULL){
+			for (k=kl+1; k<=ku-1; k++) {
+				for (j=jl+1; j<=ju; j++) {
+					for (i=il+1; i<=iu-1; i++) {
+						cc_pos(pG,i,j,k,&x1,&x2,&x3);
+						phic = (*ShearingBoxPot)((x1            ),x2,x3);
+						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+						
+						/* correct right states; x1 and x3 gradients */
+						Ur_x2Face[k][j][i].Mz -= hdtodx1*(phir-phil)*pG->U[k][j][i].d;
+#ifndef BAROTROPIC
+						Ur_x2Face[k][j][i].E -= hdtodx1*(x1Flux[k][j  ][i  ].d*(phic - phil)
+													+ x1Flux[k][j  ][i+1].d*(phir - phic));
+#endif
+						
+						phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+						phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+						
+						Ur_x2Face[k][j][i].My -= hdtodx3*(phir-phil)*pG->U[k][j][i].d;
+#ifndef BAROTROPIC
+						Ur_x2Face[k][j][i].E -= hdtodx3*(x3Flux[k  ][j  ][i].d*(phic - phil)
+													+ x3Flux[k+1][j  ][i].d*(phir - phic));
+#endif
+						
+						/* correct left states; x1 and x3 gradients */
+						phic = (*ShearingBoxPot)((x1            ),(x2-pG->dx2),x3);
+						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
+						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
+						
+						Ul_x2Face[k][j][i].Mz -= hdtodx1*(phir-phil)*pG->U[k][j-1][i].d;
+#ifndef BAROTROPIC
+						Ul_x2Face[k][j][i].E -= hdtodx1*(x1Flux[k][j-1][i  ].d*(phic - phil)
+													+ x1Flux[k][j-1][i+1].d*(phir - phic));
+#endif
+						phir = (*ShearingBoxPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
+						phil = (*ShearingBoxPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
+						
+						Ul_x2Face[k][j][i].My -= hdtodx3*(phir-phil)*pG->U[k][j-1][i].d;
+#ifndef BAROTROPIC
+						Ul_x2Face[k][j][i].E -= hdtodx3*(x3Flux[k  ][j-1][i].d*(phic - phil)
+													+ x3Flux[k+1][j-1][i].d*(phir - phic));
+#endif
+					}
+				}
+			}
+		}
+	
+	for (k=kl+1; k<=ku-1; k++) {
+		for (j=jl+1; j<=ju; j++) {
+			for (i=il+1; i<=iu-1; i++) {
+				Ur_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j][i].M2;
+				Ul_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j-1][i].M2;
+#ifdef FARGO
+				Ur_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
+				Ul_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j-1][i].M1;
+#else
+				Ur_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j][i].M1;
+				Ul_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j-1][i].M1;
+#endif
+			}
+		}
+	}
 
+#endif /* SHEARING_BOX */
+	
+/*========================Shearing box source term gradient *===============*/	
 	
 /*=== STEP 8: Correct x3-interface states with transverse flux gradients =====*/
 
@@ -1859,6 +1991,93 @@ void integrate_3d_radMHD(DomainS *pD)
     					}
   				}
 			}
+	
+/*=============== Shearing box source terms ================*/
+	
+	/*--- Step 7d (cont) -----------------------------------------------------------
+	 * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+	 * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
+	 *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+	 *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+	 *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
+	 */
+	
+#ifdef SHEARING_BOX
+	if (ShearingBoxPot != NULL){
+		for (k=kl+1; k<=ku; k++) {
+			for (j=jl+1; j<=ju-1; j++) {
+				for (i=il+1; i<=iu-1; i++) {
+					cc_pos(pG,i,j,k,&x1,&x2,&x3);
+					phic = (*ShearingBoxPot)((x1            ),x2,x3);
+					phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+					phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+					
+					/* correct right states; x1 and x2 gradients */
+					Ur_x3Face[k][j][i].My -= hdtodx1*(phir-phil)*pG->U[k][j][i].d;
+#ifndef BAROTROPIC
+					Ur_x3Face[k][j][i].E -= hdtodx1*(x1Flux[k  ][j][i  ].d*(phic - phil)
+												+ x1Flux[k  ][j][i+1].d*(phir - phic));
+#endif
+					
+					phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+					phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+					
+					Ur_x3Face[k][j][i].Mz -= hdtodx2*(phir-phil)*pG->U[k][j][i].d;
+#ifndef BAROTROPIC
+					Ur_x3Face[k][j][i].E -= hdtodx2*(x2Flux[k  ][j  ][i].d*(phic - phil)
+												+ x2Flux[k  ][j+1][i].d*(phir - phic));
+#endif
+					
+					/* correct left states; x1 and x2 gradients */
+					phic = (*ShearingBoxPot)((x1            ),x2,(x3-pG->dx3));
+					phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
+					phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
+					
+					Ul_x3Face[k][j][i].My -= hdtodx1*(phir-phil)*pG->U[k-1][j][i].d;
+#ifndef BAROTROPIC
+					Ul_x3Face[k][j][i].E -= hdtodx1*(x1Flux[k-1][j][i  ].d*(phic - phil)
+												+ x1Flux[k-1][j][i+1].d*(phir - phic));
+#endif
+					
+					phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
+					phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
+					
+					Ul_x3Face[k][j][i].Mz -= hdtodx2*(phir-phil)*pG->U[k-1][j][i].d;
+#ifndef BAROTROPIC
+					Ul_x3Face[k][j][i].E -= hdtodx2*(x2Flux[k-1][j  ][i].d*(phic - phil)
+												+ x2Flux[k-1][j+1][i].d*(phir - phic));
+#endif
+				}
+			}
+		}
+	}
+	
+	for (k=kl+1; k<=ku; k++) {
+		for (j=jl+1; j<=ju-1; j++) {
+			for (i=il+1; i<=iu-1; i++) {
+				Ur_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k][j][i].M2;
+				Ul_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k-1][j][i].M2;
+#ifdef FARGO
+				Ur_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
+				Ul_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k-1][j][i].M1;
+#else
+				Ur_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k][j][i].M1;
+				Ul_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k-1][j][i].M1;
+#endif
+			}
+		}
+	}
+#endif /* SHEARING_BOX */	
+	
+	
+	
+	
+	
+	
+	
+	
+/*===========================================================*/
+	
 
 
 
@@ -2029,7 +2248,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
 
-        		M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
+       		M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
 			M2h = Uguess[2] + Source_Inv[2][2] * Errort[2];
 			M3h = Uguess[3] + Source_Inv[3][3] * Errort[3];			
 
@@ -2040,6 +2259,33 @@ void integrate_3d_radMHD(DomainS *pD)
            			- q3*(    x3Flux[k+1][j  ][i  ].E -     x3Flux[k][j][i].E);
 
 */
+					
+					
+					
+/* Add shearing box source term */
+#ifdef SHEARING_BOX
+					if (ShearingBoxPot != NULL){
+						cc_pos(pG,i,j,k,&x1,&x2,&x3);
+						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+						M1h -= hdtodx1*(phir-phil)*pG->U[k][j][i].d;
+						
+						phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+						phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+						M2h -= hdtodx2*(phir-phil)*pG->U[k][j][i].d;
+						
+						phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+						phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+						M3h -= hdtodx3*(phir-phil)*pG->U[k][j][i].d;
+					}
+					
+					M1h += pG->dt*Omega_0*pG->U[k][j][i].M2;
+#ifdef FARGO
+					M2h += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
+#else
+					M2h -= pG->dt*Omega_0*pG->U[k][j][i].M1;
+#endif
+#endif /* SHEARING_BOX */				
 
 
 
@@ -2078,6 +2324,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			/* Need parameter dt in radiation Riemann solver */
 			x1Flux[k][j][i].d = dt;
+			x1Flux[k][j][i].Mx = 3;
 
         		fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
       			}
@@ -2100,6 +2347,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			/* Need parameter dt in radiation Riemann solver */
 			x2Flux[k][j][i].d = dt;
+			x2Flux[k][j][i].Mx = 3;
 
         		fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],Bx, &x2Flux[k][j][i]);
       			}
@@ -2122,6 +2370,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			/* Need parameter dt in radiation Riemann solver */
 			x3Flux[k][j][i].d = dt;
+			x3Flux[k][j][i].Mx = 3;
 			
         		fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],Bx, &x3Flux[k][j][i]);
       			}
@@ -2140,6 +2389,41 @@ void integrate_3d_radMHD(DomainS *pD)
   	integrate_emf1_corner(pG);
   	integrate_emf2_corner(pG);
   	integrate_emf3_corner(pG);
+	
+	
+	
+	/* Remap Ey at is and ie+1 to conserve Bz in shearing box */
+#ifdef SHEARING_BOX
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+	
+	/* compute remapped Ey from opposite side of grid */
+	
+    if (my_iproc == 0) {
+		RemapEy_ix1(pD, emf2, remapEyiib);
+    }
+    if (my_iproc == (pD->NGrid[0]-1)) {
+		RemapEy_ox1(pD, emf2, remapEyoib);
+    }
+	
+	/* Now average Ey and remapped Ey */
+	
+    if (my_iproc == 0) {
+		for(k=ks; k<=ke+1; k++) {
+			for(j=js; j<=je; j++){
+				emf2[k][j][is]  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+			}
+		}
+    }
+	
+    if (my_iproc == (pD->NGrid[0]-1)) {
+		for(k=ks; k<=ke+1; k++) {
+			for(j=js; j<=je; j++){
+				emf2[k][j][ie+1]  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+			}
+		}
+    }
+#endif /* SHEARING_BOX */	
+	
 
 /*--- Step 10b -----------------------------------------------------------------
  * Update the interface magnetic fields using CT for a full time step.
@@ -2182,6 +2466,102 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
 /*-------Step 11: Predict and correct step after we get the flux------------- */
+	
+	/* Add shearinb box source term first */
+	
+/* Add gravitational (or shearing box) source terms as a Static Potential.
+*   A Crank-Nicholson update is used for shearing box terms.
+*   The energy source terms computed at cell faces are averaged to improve
+* conservation of total energy.
+*    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
+*/
+	
+#ifdef SHEARING_BOX
+	fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+	qom = qshear*Omega_0;
+	for(k=ks; k<=ke; k++) {
+		for(j=js; j<=je; j++) {
+			for(i=is; i<=ie; i++) {
+				cc_pos(pG,i,j,k,&x1,&x2,&x3);
+				
+				/* Store the current state */
+				M1n  = pG->U[k][j][i].M1;
+#ifdef FARGO
+				dM2n = pG->U[k][j][i].M2;
+#else
+				dM2n = pG->U[k][j][i].M2 + qom*x1*pG->U[k][j][i].d;
+#endif
+				
+				/* Calculate the flux for the y-momentum fluctuation */
+				frx1_dM2 = x1Flux[k][j][i+1].My;
+				flx1_dM2 = x1Flux[k][j][i  ].My;
+				frx2_dM2 = x2Flux[k][j+1][i].Mx;
+				flx2_dM2 = x2Flux[k][j  ][i].Mx;
+				frx3_dM2 = x3Flux[k+1][j][i].Mz;
+				flx3_dM2 = x3Flux[k  ][j][i].Mz;
+#ifndef FARGO
+				frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
+				flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
+				frx2_dM2 += qom*(x1            )*x2Flux[k][j+1][i].d;
+				flx2_dM2 += qom*(x1            )*x2Flux[k][j  ][i].d;
+				frx3_dM2 += qom*(x1            )*x3Flux[k+1][j][i].d;
+				flx3_dM2 += qom*(x1            )*x3Flux[k  ][j][i].d;
+#endif
+				
+				/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
+				M1e = M1n - hdtodx1*(x1Flux[k][j][i+1].Mx - x1Flux[k][j][i].Mx)
+				- hdtodx2*(x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz)
+				- hdtodx3*(x3Flux[k+1][j][i].My - x3Flux[k][j][i].My);
+				
+				dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
+	            - hdtodx2*(frx2_dM2 - flx2_dM2) 
+				- hdtodx3*(frx3_dM2 - flx3_dM2);
+
+				
+				/* Update the 1- and 2-momentum for the Coriolis and tidal
+				 * potential momentum source terms using a Crank-Nicholson
+				 * discretization for the momentum fluctuation equation. */
+				
+				pG->U[k][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+				pG->U[k][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+				
+#ifndef FARGO
+				pG->U[k][j][i].M2 -= 0.5*qshear*om_dt*
+				(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
+#endif
+				
+				/* Update the energy for a fixed potential.
+				 * This update is identical to non-SHEARING_BOX below  */
+				
+				phic = (*ShearingBoxPot)((x1            ),x2,x3);
+				phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+				phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+#ifndef BAROTROPIC
+				pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
+											x1Flux[k][j][i+1].d*(phir - phic));
+#endif
+				
+				phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+				phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+#ifndef BAROTROPIC
+				pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
+											x2Flux[k][j+1][i].d*(phir - phic));
+#endif
+				
+				phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+				phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+#ifndef BAROTROPIC
+				pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
+											x3Flux[k+1][j][i].d*(phir - phic));
+#endif
+			}
+		}
+	}
+	
+#endif /* SHEARING_BOX */
+	
+	
+		
 /*----------Radiation quantities are not updated in the modified Godunov corrector step */
 /*-----------NOTE that x1flux, x2flux, x3flux are flux from Remann problem. If there is extra-----* 
  *----------source terms, flux due to those source terms should also be added in the-------*
@@ -2616,6 +2996,13 @@ void integrate_init_3d(MeshS *pM)
   if ((phalf = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
     goto on_error;
 
+	
+#ifdef SHEARING_BOX
+	if ((remapEyiib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+		goto on_error;
+	if ((remapEyoib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+		goto on_error;
+#endif /* End SHEARING_BOX */
 
   return;
 
@@ -2669,7 +3056,10 @@ void integrate_destruct_3d(void)
   if (dhalf     != NULL) free_3d_array(dhalf);
   if (phalf     != NULL) free_3d_array(phalf);
 
-
+#ifdef SHEARING_BOX
+	if (remapEyiib != NULL) free_2d_array(remapEyiib);
+	if (remapEyoib != NULL) free_2d_array(remapEyoib);
+#endif
 
   return;
 }
