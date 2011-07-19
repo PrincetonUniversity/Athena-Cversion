@@ -58,5 +58,5 @@ phi0            = 0.0              # position of center of loop (angle)
 amp             = 1.0e-3           # Amplitude of B in loop
 rad             = 0.3              # Radius of loop
 rho0            = 1.0              # background density
-omega0          = 0.0 #1.33333333333333 # angular velocity of flow
-vz0             = 0.0 #1.0              # background z-velocity
+omega0          = 1.33333333333333 # angular velocity of flow
+vz0             = 1.0              # background z-velocity
