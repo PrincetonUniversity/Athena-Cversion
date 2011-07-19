@@ -166,8 +166,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   q           = par_getd("problem", "q");
 
   StaticGravPot = grav_pot;
-  bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
-  bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
+//   bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
+//   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
   return;
 }
 
