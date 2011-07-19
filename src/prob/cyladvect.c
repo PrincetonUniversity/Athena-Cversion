@@ -32,6 +32,10 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3);
 void cyladvect_ix1(GridS *pG);
 void cyladvect_ox1(GridS *pG);
 static ConsS ***RootSoln=NULL;
+#ifdef FARGO
+static Real Omega(const Real R) {return omega0;}
+static Real Shear(const Real R) {return 0.0;}
+#endif /* Fargo */
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -99,7 +103,11 @@ void problem(DomainS *pDomain)
           case 1:
                   mask = (int)((x1>=R0-rad) && (x1<=R0+rad) && (x2>=phi0-rad/R0) && (x2<=phi0+rad/R0));
                   pG->U[k][j][i].d  = rho0*(1.0 + amp*mask);
+#ifndef FARGO
                   pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega0;
+#else
+                  pG->U[k][j][i].M2 = 0;
+#endif
 #ifdef MHD
                   pG->U[k][j][i].B3c = bz0*mask;
                   pG->B3i[k][j][i]   = bz0*mask;
@@ -107,14 +115,22 @@ void problem(DomainS *pDomain)
                   break;
           case 2:
                   pG->U[k][j][i].d  = rho0*(1.0 + amp*sin(alpha*x2-phi0));
+#ifndef FARGO
                   pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega0;
+#else
+                  pG->U[k][j][i].M2 = 0;
+#endif
                   break;
           case 3:
                   x  = x1*cos(x2);    y  = x1*sin(x2);    z  = x3;
                   x0 = R0*cos(phi0);  y0 = R0*sin(phi0);
                   r = sqrt(SQR(x-x0) + SQR(y-y0) + SQR(z-z0));
                   pG->U[k][j][i].d  = rho0*(1.0 + exp(-0.5*SQR(3.0*r/rad)));
+#ifndef FARGO
                   pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega0;
+#else
+                  pG->U[k][j][i].M2 = 0;
+#endif
 #ifdef MHD
                   pG->U[k][j][i].B3c = bz0;
                   pG->B3i[k][j][i]   = bz0;
@@ -152,6 +168,10 @@ void problem(DomainS *pDomain)
     bvals_mhd_fun(pDomain, left_x1,  do_nothing_bc);
     bvals_mhd_fun(pDomain, right_x1, do_nothing_bc);
   }
+#ifdef FARGO
+  OrbitalProfile = Omega;
+  ShearProfile = Shear;
+#endif
 
   return;
 }
@@ -226,7 +246,11 @@ void cyladvect_ix1(GridS *pG)
       for (i=1; i<=nghost; i++) {
         cc_pos(pG,is-i,j,k,&x1,&x2,&x3);
         pG->U[k][j][is-i].d   = rho0*(1.0 + amp*sin(alpha*x2-phi0));
+#ifndef FARGO
         pG->U[k][j][is-i].M2  = pG->U[k][j][is-i].d*x1*omega0;
+#else
+        pG->U[k][j][is-i].M2  = 0.0;
+#endif
         pG->U[k][j][is-i].M3  = pG->U[k][j][is-i].d*vz0;
 #ifdef MHD
         pG->U[k][j][is-i].B3c = bz0;
@@ -270,7 +294,11 @@ void cyladvect_ox1(GridS *pG)
       for (i=1; i<=nghost; i++) {
         cc_pos(pG,ie+i,j,k,&x1,&x2,&x3);
         pG->U[k][j][ie+i].d   = rho0*(1.0 + amp*sin(alpha*x2-phi0));
+#ifndef FARGO
         pG->U[k][j][ie+i].M2  = pG->U[k][j][ie+i].d*x1*omega0;
+#else
+        pG->U[k][j][ie+i].M2  = 0.0;
+#endif
         pG->U[k][j][ie+i].M3  = pG->U[k][j][ie+i].d*vz0;
 #ifdef MHD
         pG->U[k][j][ie+i].B3c = bz0;

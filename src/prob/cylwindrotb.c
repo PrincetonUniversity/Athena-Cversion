@@ -169,8 +169,8 @@ void problem(DomainS *pDomain)
     }
 
     pG->B1i[ks][js][i]   = Wind[i].B1c;
-    pG->B2i[ks][js][i]   = Wind[i].B2c;
-    pG->B3i[ks][js][i]   = Wind[i].B3c;
+    pG->B2i[ks][js][i]   = 0.5*(lsf*Wind[i].B2c + rsf*Wind[i+1].B2c);
+    pG->B3i[ks][js][i]   = 0.5*(lsf*Wind[i].B3c + rsf*Wind[i+1].B3c);
   }
 
   /* Copy 1D solution across the grid and save */

@@ -418,7 +418,9 @@ ConsFun_t get_usr_expr(const char *expr)
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
 #endif
+#ifndef BAROTROPIC
   if(strcmp(expr,"Temperature")==0) return Temperature;
+#endif
   return NULL;
 }
 
@@ -428,6 +430,7 @@ VOutFun_t get_usr_out_fun(const char *name){
 
 void Userwork_in_loop(MeshS *pM)
 {
+  ath_pout(0,"Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
 }
 
 void Userwork_after_loop(MeshS *pM)
