@@ -26,7 +26,7 @@
 
 #ifndef SPECIAL_RELATIVITY
 
-#if defined(VL_INTEGRATOR) && defined(CARTESIAN)
+#if defined(VL_INTEGRATOR)
 
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1DS *Wl_x1Face=NULL, *Wr_x1Face=NULL;
@@ -68,6 +68,12 @@ void integrate_1d_vl(DomainS *pD)
 #endif
 
   int il=is-(nghost-1), iu=ie+(nghost-1);
+
+#ifdef CYLINDRICAL
+  Real hdt = 0.5*pG->dt,Ekin,Emag,Ptot,B2sq;
+  const Real *r=pG->r, *ri=pG->ri;
+#endif /* CYLINDRICAL */
+  Real lsf=1.0, rsf=1.0;
 
   for (i=is-nghost; i<=ie+nghost; i++) {
     Uhalf[i] = pG->U[ks][js][i];
@@ -134,20 +140,23 @@ void integrate_1d_vl(DomainS *pD)
  */
 
   for (i=il; i<=iu; i++) {
-    Uhalf[i].d   -= hdtodx1*(x1Flux[i+1].d  - x1Flux[i].d );
-    Uhalf[i].M1  -= hdtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
-    Uhalf[i].M2  -= hdtodx1*(x1Flux[i+1].My - x1Flux[i].My);
-    Uhalf[i].M3  -= hdtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
+#ifdef CYLINDRICAL
+    rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+    Uhalf[i].d   -= hdtodx1*(rsf*x1Flux[i+1].d  - lsf*x1Flux[i].d );
+    Uhalf[i].M1  -= hdtodx1*(rsf*x1Flux[i+1].Mx - lsf*x1Flux[i].Mx);
+    Uhalf[i].M2  -= hdtodx1*(SQR(rsf)*x1Flux[i+1].My - SQR(lsf)*x1Flux[i].My);
+    Uhalf[i].M3  -= hdtodx1*(rsf*x1Flux[i+1].Mz - lsf*x1Flux[i].Mz);
 #ifndef BAROTROPIC
-    Uhalf[i].E   -= hdtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
+    Uhalf[i].E   -= hdtodx1*(rsf*x1Flux[i+1].E  - lsf*x1Flux[i].E );
 #endif /* BAROTROPIC */
 #ifdef MHD
     Uhalf[i].B2c -= hdtodx1*(x1Flux[i+1].By - x1Flux[i].By);
-    Uhalf[i].B3c -= hdtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
+    Uhalf[i].B3c -= hdtodx1*(rsf*x1Flux[i+1].Bz - lsf*x1Flux[i].Bz);
 #endif /* MHD */
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
-      Uhalf[i].s[n] -= hdtodx1*(x1Flux[i+1].s[n] - x1Flux[i].s[n]);
+      Uhalf[i].s[n] -= hdtodx1*(rsf*x1Flux[i+1].s[n] - lsf*x1Flux[i].s[n]);
 #endif
   }
 
@@ -167,10 +176,13 @@ void integrate_1d_vl(DomainS *pD)
       phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
       phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
       Uhalf[i].M1 -= hdtodx1*pG->U[ks][js][i].d*(phir-phil);
 #ifndef BAROTROPIC
-      Uhalf[i].E -= hdtodx1*(x1Flux[i  ].d*(phic - phil) +
-                             x1Flux[i+1].d*(phir - phic));
+      Uhalf[i].E -= hdtodx1*(lsf*x1Flux[i  ].d*(phic - phil) +
+                             rsf*x1Flux[i+1].d*(phir - phic));
 #endif
     }
   }
@@ -186,13 +198,48 @@ void integrate_1d_vl(DomainS *pD)
     phir = 0.5*(pG->Phi[ks][js][i] + pG->Phi[ks][js][i+1]);
     phil = 0.5*(pG->Phi[ks][js][i] + pG->Phi[ks][js][i-1]);
 
+#ifdef CYLINDRICAL
+    rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
     Uhalf[i].M1 -= hdtodx1*pG->U[ks][js][i].d*(phir-phil);
 #ifndef BAROTROPIC
-    Uhalf[i].E -= hdtodx1*(x1Flux[i  ].d*(phic - phil) +
-                           x1Flux[i+1].d*(phir - phic));
+    Uhalf[i].E -= hdtodx1*(lsf*x1Flux[i  ].d*(phic - phil) +
+                           rsf*x1Flux[i+1].d*(phir - phic));
 #endif
   }
 #endif /* SELF_GRAVITY */
+
+/*--- Step 6c (NOT NEEDED IN 1D) ---------------------------------------------*/
+
+/*--- Step 6d ------------------------------------------------------------------
+ * Add the geometric source-term now using cell-centered conserved variables
+ *   at time t^n 
+ */
+
+#ifdef CYLINDRICAL
+  for (i=il; i<=iu; i++) {
+
+    Ekin = 0.5*(SQR(pG->U[ks][js][i].M1)+SQR(pG->U[ks][js][i].M2)+SQR(pG->U[ks][js][i].M3))/pG->U[ks][js][i].d;
+#ifdef MHD
+    B2sq = SQR(pG->U[ks][js][i].B2c);
+    Emag = 0.5*(SQR(pG->U[ks][js][i].B1c) + B2sq + SQR(pG->U[ks][js][i].B3c));
+#else
+    B2sq = 0.0;
+    Emag = 0.0;
+#endif
+
+#ifdef ISOTHERMAL
+    Ptot = Iso_csound2*pG->U[ks][js][i].d;
+#else
+    Ptot = Gamma_1*(pG->U[ks][js][i].E - Ekin - Emag);
+#endif
+    Ptot = MAX(Ptot,TINY_NUMBER);
+    Ptot += Emag;
+
+    Uhalf[i].M1 += hdt*(SQR(pG->U[ks][js][i].M2)/pG->U[ks][js][i].d - B2sq + Ptot)/r[i];
+  }
+#endif /* CYLINDRICAL */
+
 
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
 
@@ -267,10 +314,13 @@ void integrate_1d_vl(DomainS *pD)
       phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
       phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
       pG->U[ks][js][i].M1 -= dtodx1*Uhalf[i].d*(phir-phil);
 #ifndef BAROTROPIC
-      pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                    x1Flux[i+1].d*(phir - phic));
+      pG->U[ks][js][i].E -= dtodx1*(lsf*x1Flux[i  ].d*(phic - phil) +
+                                    rsf*x1Flux[i+1].d*(phir - phic));
 #endif
     }
   }
@@ -298,10 +348,13 @@ void integrate_1d_vl(DomainS *pD)
     flx_m1r = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
 
 /* Update momenta and energy with d/dx1 terms  */
+#ifdef CYLINDRICAL
+    rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
     pG->U[ks][js][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
 #ifndef BAROTROPIC
-    pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                  x1Flux[i+1].d*(phir - phic));
+    pG->U[ks][js][i].E -= dtodx1*(lsf*x1Flux[i  ].d*(phic - phil) +
+                                  rsf*x1Flux[i+1].d*(phir - phic));
 #endif /* BAROTROPIC */
   }
 
@@ -312,6 +365,36 @@ void integrate_1d_vl(DomainS *pD)
   }
 #endif /* SELF_GRAVITY */
 
+/*--- Step 12c -----------------------------------------------------------------
+ * Add the geometric source-term now using cell-centered conserved variables
+ *   at time t^{n+1/2}
+ */
+
+#ifdef CYLINDRICAL
+  for (i=is; i<=ie; i++) {
+
+    Ekin = 0.5*(SQR(Uhalf[i].M1)+SQR(Uhalf[i].M2)+SQR(Uhalf[i].M3))/Uhalf[i].d;
+#ifdef MHD
+    B2sq = SQR(Uhalf[i].B2c);
+    Emag = 0.5*(SQR(Uhalf[i].B1c) + B2sq + SQR(Uhalf[i].B3c));
+#else
+    B2sq = 0.0;
+    Emag = 0.0;
+#endif
+
+#ifdef ISOTHERMAL
+    Ptot = Iso_csound2*Uhalf[i].d;
+#else
+    Ptot = Gamma_1*(Uhalf[i].E - Ekin - Emag);
+#endif
+    Ptot = MAX(Ptot,TINY_NUMBER);
+    Ptot += Emag;
+
+    pG->U[ks][js][i].M1 += pG->dt*(SQR(Uhalf[i].M2)/Uhalf[i].d - B2sq + Ptot)/r[i];
+  }
+#endif /* CYLINDRICAL */
+
+
 /*=== STEP 13: Update cell-centered values for a full timestep ===============*/
 
 /*--- Step 13a -----------------------------------------------------------------
@@ -319,23 +402,26 @@ void integrate_1d_vl(DomainS *pD)
  */
 
   for (i=is; i<=ie; i++) {
-    pG->U[ks][js][i].d  -= dtodx1*(x1Flux[i+1].d  - x1Flux[i].d );
-    pG->U[ks][js][i].M1 -= dtodx1*(x1Flux[i+1].Mx - x1Flux[i].Mx);
-    pG->U[ks][js][i].M2 -= dtodx1*(x1Flux[i+1].My - x1Flux[i].My);
-    pG->U[ks][js][i].M3 -= dtodx1*(x1Flux[i+1].Mz - x1Flux[i].Mz);
+#ifdef CYLINDRICAL
+    rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+    pG->U[ks][js][i].d  -= dtodx1*(rsf*x1Flux[i+1].d  - lsf*x1Flux[i].d );
+    pG->U[ks][js][i].M1 -= dtodx1*(rsf*x1Flux[i+1].Mx - lsf*x1Flux[i].Mx);
+    pG->U[ks][js][i].M2 -= dtodx1*(SQR(rsf)*x1Flux[i+1].My - SQR(lsf)*x1Flux[i].My);
+    pG->U[ks][js][i].M3 -= dtodx1*(rsf*x1Flux[i+1].Mz - lsf*x1Flux[i].Mz);
 #ifndef BAROTROPIC
-    pG->U[ks][js][i].E  -= dtodx1*(x1Flux[i+1].E  - x1Flux[i].E );
+    pG->U[ks][js][i].E  -= dtodx1*(rsf*x1Flux[i+1].E  - lsf*x1Flux[i].E );
 #endif /* BAROTROPIC */
 #ifdef MHD
     pG->U[ks][js][i].B2c -= dtodx1*(x1Flux[i+1].By - x1Flux[i].By);
-    pG->U[ks][js][i].B3c -= dtodx1*(x1Flux[i+1].Bz - x1Flux[i].Bz);
+    pG->U[ks][js][i].B3c -= dtodx1*(rsf*x1Flux[i+1].Bz - lsf*x1Flux[i].Bz);
 /* For consistency, set B2i and B3i to cell-centered values.  */
     pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
     pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++)
-      pG->U[ks][js][i].s[n] -= dtodx1*(x1Flux[i+1].s[n] - x1Flux[i].s[n]);
+      pG->U[ks][js][i].s[n] -= dtodx1*(rsf*x1Flux[i+1].s[n] - lsf*x1Flux[i].s[n]);
 #endif
   }
 

@@ -1593,14 +1593,14 @@ void integrate_2d_ctu(DomainS *pD)
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
+        g = (phir-phil)*dx1i;
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
         dtodx2 = pG->dt/(r[i]*pG->dx2);
-#endif
-        g = (phir-phil)*dx1i;
-#if defined(CYLINDRICAL) && defined(FARGO)
+#ifdef FARGO
         g -= r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
+#endif /* CYLINDRICAL */
         pG->U[ks][j][i].M1 -= pG->dt*dhalf[j][i]*g;
 
 #ifndef BAROTROPIC
@@ -2137,57 +2137,57 @@ static void integrate_emf3_corner(GridS *pG)
       rsf = pG->ri[i]/pG->r[i];  lsf = pG->ri[i]/pG->r[i-1];
 #endif
       if (x1Flux[j-1][i].d > 0.0) {
-	emf_l2 = -x1Flux[j-1][i].By
-	  + (x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1])*lsf;
+        emf_l2 = -x1Flux[j-1][i].By
+          + (x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1])*lsf;
       }
       else if (x1Flux[j-1][i].d < 0.0) {
-	emf_l2 = -x1Flux[j-1][i].By
-	  + (x2Flux[j][i].Bz - emf3_cc[j-1][i])*rsf;
+        emf_l2 = -x1Flux[j-1][i].By
+          + (x2Flux[j][i].Bz - emf3_cc[j-1][i])*rsf;
 
       } else {
-	emf_l2 = -x1Flux[j-1][i].By
-	  + 0.5*((x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1])*lsf + 
-		 (x2Flux[j][i  ].Bz - emf3_cc[j-1][i  ])*rsf );
+        emf_l2 = -x1Flux[j-1][i].By
+          + 0.5*((x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1])*lsf +
+                 (x2Flux[j][i  ].Bz - emf3_cc[j-1][i  ])*rsf );
       }
 
       if (x1Flux[j][i].d > 0.0) {
-	emf_r2 = -x1Flux[j][i].By 
-	  + (x2Flux[j][i-1].Bz - emf3_cc[j][i-1])*lsf;
+        emf_r2 = -x1Flux[j][i].By
+          + (x2Flux[j][i-1].Bz - emf3_cc[j][i-1])*lsf;
       }
       else if (x1Flux[j][i].d < 0.0) {
-	emf_r2 = -x1Flux[j][i].By 
-	  + (x2Flux[j][i].Bz - emf3_cc[j][i])*rsf;
+        emf_r2 = -x1Flux[j][i].By
+          + (x2Flux[j][i].Bz - emf3_cc[j][i])*rsf;
 
       } else {
-	emf_r2 = -x1Flux[j][i].By 
-	  + 0.5*((x2Flux[j][i-1].Bz - emf3_cc[j][i-1])*lsf + 
-		 (x2Flux[j][i  ].Bz - emf3_cc[j][i  ])*rsf );
+        emf_r2 = -x1Flux[j][i].By
+          + 0.5*((x2Flux[j][i-1].Bz - emf3_cc[j][i-1])*lsf +
+                 (x2Flux[j][i  ].Bz - emf3_cc[j][i  ])*rsf );
       }
 
       if (x2Flux[j][i-1].d > 0.0) {
-	emf_l1 = x2Flux[j][i-1].Bz
-	  + (-x1Flux[j-1][i].By - emf3_cc[j-1][i-1]);
+        emf_l1 = x2Flux[j][i-1].Bz
+          + (-x1Flux[j-1][i].By - emf3_cc[j-1][i-1]);
       }
       else if (x2Flux[j][i-1].d < 0.0) {
-	emf_l1 = x2Flux[j][i-1].Bz 
+        emf_l1 = x2Flux[j][i-1].Bz
           + (-x1Flux[j][i].By - emf3_cc[j][i-1]);
       } else {
-	emf_l1 = x2Flux[j][i-1].Bz
-	  + 0.5*(-x1Flux[j-1][i].By - emf3_cc[j-1][i-1]
-		 -x1Flux[j  ][i].By - emf3_cc[j  ][i-1] );
+        emf_l1 = x2Flux[j][i-1].Bz
+          + 0.5*(-x1Flux[j-1][i].By - emf3_cc[j-1][i-1]
+                 -x1Flux[j  ][i].By - emf3_cc[j  ][i-1] );
       }
 
       if (x2Flux[j][i].d > 0.0) {
-	emf_r1 = x2Flux[j][i].Bz
-	  + (-x1Flux[j-1][i].By - emf3_cc[j-1][i]);
+        emf_r1 = x2Flux[j][i].Bz
+          + (-x1Flux[j-1][i].By - emf3_cc[j-1][i]);
       }
       else if (x2Flux[j][i].d < 0.0) {
-	emf_r1 = x2Flux[j][i].Bz
-	  + (-x1Flux[j][i].By - emf3_cc[j][i]);
+        emf_r1 = x2Flux[j][i].Bz
+          + (-x1Flux[j][i].By - emf3_cc[j][i]);
       } else {
-	emf_r1 = x2Flux[j][i].Bz
-	  + 0.5*(-x1Flux[j-1][i].By - emf3_cc[j-1][i]
-		 -x1Flux[j  ][i].By - emf3_cc[j  ][i] );
+        emf_r1 = x2Flux[j][i].Bz
+          + 0.5*(-x1Flux[j-1][i].By - emf3_cc[j-1][i]
+                 -x1Flux[j  ][i].By - emf3_cc[j  ][i] );
       }
 
       emf3[j][i] = 0.25*(emf_l1 + emf_r1 + emf_l2 + emf_r2);

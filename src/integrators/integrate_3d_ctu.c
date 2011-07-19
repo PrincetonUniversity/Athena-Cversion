@@ -952,11 +952,11 @@ ath_pout(5,"STEP 2A\n");
       q2 = hdt/(ri[iu]*pG->dx2);
 #endif
       B1_x1Face[k][j][iu] += q3*(emf2[k+1][j  ][iu]-emf2[k][j][iu]) -
-                               q2*(emf3[k  ][j+1][iu]-emf3[k][j][iu]);
+                             q2*(emf3[k  ][j+1][iu]-emf3[k][j][iu]);
     }
     for (i=il+1; i<=iu-1; i++) {
       B2_x2Face[k][ju][i] += q1*(emf3[k  ][ju][i+1]-emf3[k][ju][i]) -
-                               q3*(emf1[k+1][ju][i  ]-emf1[k][ju][i]);
+                             q3*(emf1[k+1][ju][i  ]-emf1[k][ju][i]);
     }
   }
   for (j=jl+1; j<=ju-1; j++) {
@@ -3695,7 +3695,7 @@ static void integrate_emf3_corner(const GridS *pG)
 	else if (x1Flux[k][j-1][i].d < 0.0)
 	  de3_l2 = (x2Flux[k][j][i].Bz - emf3_cc[k][j-1][i])*rsf;
 	else {
-	  de3_l2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf + 
+	  de3_l2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf +
 			(x2Flux[k][j][i  ].Bz - emf3_cc[k][j-1][i  ])*rsf );
 	}
 
@@ -3704,7 +3704,7 @@ static void integrate_emf3_corner(const GridS *pG)
 	else if (x1Flux[k][j][i].d < 0.0)
 	  de3_r2 = (x2Flux[k][j][i].Bz - emf3_cc[k][j][i])*rsf;
 	else {
-	  de3_r2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf + 
+	  de3_r2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf +
 			(x2Flux[k][j][i  ].Bz - emf3_cc[k][j][i  ])*rsf );
 	}
 
