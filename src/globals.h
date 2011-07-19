@@ -51,7 +51,7 @@ Real nu_iso=0.0, nu_aniso=0.0;               /*!< coeff of viscosity */
 #endif
 
 #ifdef CYLINDRICAL
-StaticGravAcc_t x1GravAcc = NULL;
+// StaticGravAcc_t x1GravAcc = NULL;
 Real *r=NULL, *ri=NULL;
 #ifdef FARGO
 OrbitalFun_t OrbitalProfile = NULL;
@@ -103,7 +103,7 @@ extern Real nu_iso, nu_aniso;
 #endif
 
 #ifdef CYLINDRICAL
-extern StaticGravAcc_t x1GravAcc;
+// extern StaticGravAcc_t x1GravAcc;
 extern Real *r, *ri;
 #ifdef FARGO
 extern OrbitalFun_t OrbitalProfile;

@@ -3137,6 +3137,12 @@ void Fargo(DomainS *pD)
   FConsS *pFCons;
   MPI_Request rq;
 #endif
+  Real lsf=1.0, rsf=1.0;
+
+#if defined(CYLINDRICAL) && defined(FARGO)
+  if (OrbitalProfile==NULL || ShearProfile==NULL)
+    ath_error("[Fargo]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
+#endif
 
 /*--- Step 1. ------------------------------------------------------------------
  * Copy data into FargoVars array.  Note i and j indices are switched.
@@ -3284,7 +3290,7 @@ void Fargo(DomainS *pD)
   for(k=ks; k<=ku; k++) {
     for(i=is; i<=ie+1; i++){
 
-/* Compute integer and fractional peices of a cell covered by shear */
+/* Compute integer and fractional pieces of a cell covered by shear */
       cc_pos(pG, i, js, ks, &x1,&x2,&x3);
 #ifdef SHEARING_BOX
       yshear = -qshear*Omega_0*x1*pG->dt;
@@ -3416,51 +3422,84 @@ void Fargo(DomainS *pD)
  *  FargoFlx.U[NFARGO-1] = emfz  */
 
 #ifdef MHD
-  if (pG->Nx[2]==1) ath_error("[Fargo] only works in 3D with MHD\n");
-  for (k=ks; k<=ke; k++) {
+//   if (pG->Nx[2]==1) ath_error("[Fargo] only works in 3D with MHD\n");
+  if (pG->Nx[2]==1) {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        jj = j-js+jfs;
+        for (i=is; i<=ie; i++) {
+          pG->B1i[k][j][i] -=
+            (FargoFlx[k][i][jj+1].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+#ifdef SHEARING_BOX
+          pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
+            (FargoFlx[k][i+1][jj].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+#endif
+#ifdef CYLINDRICAL
+          pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
+                    (ri[i+1]*FargoFlx[k][i+1][jj].U[NFARGO-1] - ri[i]*FargoFlx[k][i][jj].U[NFARGO-1]);
+#endif
+        }
+        pG->B1i[k][j][ie+1] -=
+          (FargoFlx[k][ie+1][jj+1].U[NFARGO-1]-FargoFlx[k][ie+1][jj].U[NFARGO-1]);
+      }
+      for (i=is; i<=ie; i++) {
+#ifdef SHEARING_BOX
+        pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)*
+          (FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-FargoFlx[k][i][jfe+1].U[NFARGO-1]);
+#endif
+#ifdef CYLINDRICAL
+        pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)*
+          (ri[i+1]*FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-ri[i]*FargoFlx[k][i][jfe+1].U[NFARGO-1]);
+#endif
+      }
+    }
+  }
+  else {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        jj = j-js+jfs;
+        for (i=is; i<=ie; i++) {
+          pG->B1i[k][j][i] -=
+            (FargoFlx[k][i][jj+1].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+#ifdef SHEARING_BOX
+          pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
+            (FargoFlx[k][i+1][jj].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
+          pG->B2i[k][j][i] -= (pG->dx2/pG->dx3)*
+            (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+#endif
+#ifdef CYLINDRICAL
+          pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
+                    (ri[i+1]*FargoFlx[k][i+1][jj].U[NFARGO-1] - ri[i]*FargoFlx[k][i][jj].U[NFARGO-1]);
+          pG->B2i[k][j][i] -= (r[i]*pG->dx2/pG->dx3)*
+            (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+#endif
+          pG->B3i[k][j][i] +=
+            (FargoFlx[k][i][jj+1].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+        }
+        pG->B1i[k][j][ie+1] -=
+          (FargoFlx[k][ie+1][jj+1].U[NFARGO-1]-FargoFlx[k][ie+1][jj].U[NFARGO-1]);
+      }
+      for (i=is; i<=ie; i++) {
+#ifdef SHEARING_BOX
+        pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)*
+          (FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-FargoFlx[k][i][jfe+1].U[NFARGO-1]);
+        pG->B2i[k][je+1][i] -= (pG->dx2/pG->dx3)*
+          (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
+#endif
+#ifdef CYLINDRICAL
+        pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)*
+          (ri[i+1]*FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-ri[i]*FargoFlx[k][i][jfe+1].U[NFARGO-1]);
+        pG->B2i[k][je+1][i] -= (r[i]*pG->dx2/pG->dx3)*
+          (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
+#endif
+      }
+    }
     for (j=js; j<=je; j++) {
       jj = j-js+jfs;
       for (i=is; i<=ie; i++) {
-        pG->B1i[k][j][i] -= 
-          (FargoFlx[k][i][jj+1].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
-#ifdef SHEARING_BOX
-        pG->B2i[k][j][i] += (pG->dx2/pG->dx1)* 
-          (FargoFlx[k][i+1][jj].U[NFARGO-1] - FargoFlx[k][i][jj].U[NFARGO-1]);
-        pG->B2i[k][j][i] -= (pG->dx2/pG->dx3)* 
-          (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
-#endif 
-#ifdef CYLINDRICAL
-        pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
-                  (ri[i+1]*FargoFlx[k][i+1][jj].U[NFARGO-1] - ri[i]*FargoFlx[k][i][jj].U[NFARGO-1]);
-        pG->B2i[k][j][i] -= (r[i]*pG->dx2/pG->dx3)*
-          (FargoFlx[k+1][i][jj].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
-#endif
-        pG->B3i[k][j][i] += 
-          (FargoFlx[k][i][jj+1].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
+        pG->B3i[ke+1][j][i] +=
+          (FargoFlx[ke+1][i][jj+1].U[NFARGO-2]-FargoFlx[ke+1][i][jj].U[NFARGO-2]);
       }
-      pG->B1i[k][j][ie+1] -= 
-        (FargoFlx[k][ie+1][jj+1].U[NFARGO-1]-FargoFlx[k][ie+1][jj].U[NFARGO-1]);
-    }
-    for (i=is; i<=ie; i++) {
-#ifdef SHEARING_BOX
-      pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)* 
-        (FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-FargoFlx[k][i][jfe+1].U[NFARGO-1]);
-      pG->B2i[k][je+1][i] -= (pG->dx2/pG->dx3)* 
-        (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
-#endif
-#ifdef CYLINDRICAL
-      pG->B2i[k][je+1][i] += (pG->dx2/pG->dx1)*
-        (ri[i+1]*FargoFlx[k][i+1][jfe+1].U[NFARGO-1]-ri[i]*FargoFlx[k][i][jfe+1].U[NFARGO-1]);
-      pG->B2i[k][je+1][i] -= (r[i]*pG->dx2/pG->dx3)*
-        (FargoFlx[k+1][i][jfe+1].U[NFARGO-2]-FargoFlx[k][i][jfe+1].U[NFARGO-2]);
-#endif
-    }
-  }
-  for (j=js; j<=je; j++) {
-    jj = j-js+jfs;
-    for (i=is; i<=ie; i++) {
-      pG->B3i[ke+1][j][i] += 
-        (FargoFlx[ke+1][i][jj+1].U[NFARGO-2]-FargoFlx[ke+1][i][jj].U[NFARGO-2]);
     }
   }
 #endif /* MHD */
@@ -3472,14 +3511,14 @@ void Fargo(DomainS *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for(i=is; i<=ie; i++){
-#ifdef SHEARING_BOX
-        pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i]+pG->B1i[k][j][i+1]);
-#endif
 #ifdef CYLINDRICAL
-        pG->U[k][j][i].B1c = 0.5*(1.0/r[i])*(ri[i]*pG->B1i[k][j][i] + ri[i+1]*pG->B1i[k][j][i+1]);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
-        pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i]+pG->B2i[k][j+1][i]);
-        pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i]+pG->B3i[k+1][j][i]);
+        pG->U[k][j][i].B1c = 0.5*(lsf*pG->B1i[k][j][i] + rsf*pG->B1i[k][j][i+1]);
+        pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
+        if (pG->Nx[2]>1) {
+          pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
+        }
       }
     }
   }
@@ -3507,6 +3546,11 @@ void bvals_shear_init(MeshS *pM)
 #endif
 #ifdef CYLINDRICAL
 	Real MachKep;
+#endif
+
+#if defined(CYLINDRICAL) && defined(FARGO)
+  if (OrbitalProfile==NULL)
+    ath_error("[bvals_shear_init]:  OrbitalProfile() *must* be defined.\n");
 #endif
 
 /* Loop over all Grids on this processor to find maximum size of arrays */
@@ -3554,7 +3598,9 @@ void bvals_shear_init(MeshS *pM)
   nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 2);
 #endif
 #ifdef CYLINDRICAL
+#ifdef ISOTHERMAL
   MachKep = MAX( xmin*(*OrbitalProfile)(xmin), xmax*(*OrbitalProfile)(xmax) )/Iso_csound;
+#endif
   nfghost = nghost + 1 + ((int)(CourNo*MachKep));
 #endif
   max2 = max2 + 2*nfghost;

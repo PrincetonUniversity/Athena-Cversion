@@ -469,19 +469,14 @@ typedef struct Output_s{
 /*! \fn Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3)
  *  \brief Gravitational potential function. */
 typedef Real (*GravPotFun_t)(const Real x1, const Real x2, const Real x3);
-#ifdef CYLINDRICAL
-/*! \fn Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3)
- *  \brief Static gravitational acceleration. */
-typedef Real (*StaticGravAcc_t)(const Real x1, const Real x2, const Real x3);
-#ifdef FARGO
+#if defined(CYLINDRICAL) && defined(FARGO)
 /*! \fn Real (*OrbitalFun_t)(const Real x1)
  *  \brief Orbital function for FARGO */
 typedef Real (*OrbitalFun_t)(const Real x1);
 /*! \fn Real (*ShearFun_t)(const Real x1)
  *  \brief Shear function for FARGO */
 typedef Real (*ShearFun_t)(const Real x1);
-#endif
-#endif /* Cylindrical */
+#endif /* Cylindrical + FARGO */
 /*! \fn Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
  *  \brief Cooling function. */
 typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
