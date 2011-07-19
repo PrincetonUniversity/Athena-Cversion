@@ -50,6 +50,7 @@ NGrid_x3        = 1
 
 <problem>
 gamma           = 1.66666666666667  # gamma = C_p/C_v
+iso_csound      = 1.0               # isothermal sound speed
 omega0          = 0.78539816339745  # uniform background angular velocity (=2*pi)
 rho0            = 1.0               # uniform background gas density
 bz0             = 1.0               # uniform background B-field strength

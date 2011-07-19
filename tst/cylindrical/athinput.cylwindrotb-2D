@@ -34,7 +34,7 @@ x1max           = 1.8             # maximum value of R
 bc_ix1          = 3               # inner-I (R) boundary flag
 bc_ox1          = 3               # outer-I (R) boundary flag
 
-Nx2             = 2               # Number of zones in PHI-direction
+Nx2             = 4               # Number of zones in PHI-direction
 x2min           = -0.005          # minimum value of PHI
 x2max           = 0.005           # maximum value of PHI
 bc_ix2          = 4               # inner-J (PHI) boundary flag
@@ -44,7 +44,7 @@ Nx3             = 1               # Number of zones in Z-direction
 x3min           = 0.0             # minimum value of Z
 x3max           = 0.0             # maximum value of Z
 
-NGrid_x1        = 1
+NGrid_x1        = 4
 NGrid_x2        = 1
 NGrid_x3        = 1
 
