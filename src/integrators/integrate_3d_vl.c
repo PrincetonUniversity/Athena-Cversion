@@ -2385,7 +2385,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
   x1FD_ip1.d = x1Flux[ix.k][ix.j][ix.i+1].d - x1FluxP[ix.k][ix.j][ix.i+1].d;
   x2FD_jp1.d = x2Flux[ix.k][ix.j+1][ix.i].d - x2FluxP[ix.k][ix.j+1][ix.i].d;
-  x3FD_kp1.d = x2Flux[ix.k+1][ix.j][ix.i].d - x3FluxP[ix.k+1][ix.j][ix.i].d;
+  x3FD_kp1.d = x3Flux[ix.k+1][ix.j][ix.i].d - x3FluxP[ix.k+1][ix.j][ix.i].d;
 
   x1FD_i.Mx = x1Flux[ix.k][ix.j][ix.i].Mx - x1FluxP[ix.k][ix.j][ix.i].Mx;
   x2FD_j.Mx = x2Flux[ix.k][ix.j][ix.i].Mx - x2FluxP[ix.k][ix.j][ix.i].Mx;
@@ -2393,7 +2393,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
   x1FD_ip1.Mx = x1Flux[ix.k][ix.j][ix.i+1].Mx - x1FluxP[ix.k][ix.j][ix.i+1].Mx;
   x2FD_jp1.Mx = x2Flux[ix.k][ix.j+1][ix.i].Mx - x2FluxP[ix.k][ix.j+1][ix.i].Mx;
-  x3FD_kp1.Mx = x2Flux[ix.k+1][ix.j][ix.i].Mx - x3FluxP[ix.k+1][ix.j][ix.i].Mx;
+  x3FD_kp1.Mx = x3Flux[ix.k+1][ix.j][ix.i].Mx - x3FluxP[ix.k+1][ix.j][ix.i].Mx;
 
   x1FD_i.My = x1Flux[ix.k][ix.j][ix.i].My - x1FluxP[ix.k][ix.j][ix.i].My;
   x2FD_j.My = x2Flux[ix.k][ix.j][ix.i].My - x2FluxP[ix.k][ix.j][ix.i].My;
@@ -2401,7 +2401,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
   x1FD_ip1.My = x1Flux[ix.k][ix.j][ix.i+1].My - x1FluxP[ix.k][ix.j][ix.i+1].My;
   x2FD_jp1.My = x2Flux[ix.k][ix.j+1][ix.i].My - x2FluxP[ix.k][ix.j+1][ix.i].My;
-  x3FD_kp1.My = x2Flux[ix.k+1][ix.j][ix.i].My - x3FluxP[ix.k+1][ix.j][ix.i].My;
+  x3FD_kp1.My = x3Flux[ix.k+1][ix.j][ix.i].My - x3FluxP[ix.k+1][ix.j][ix.i].My;
 
   x1FD_i.Mz = x1Flux[ix.k][ix.j][ix.i].Mz - x1FluxP[ix.k][ix.j][ix.i].Mz;
   x2FD_j.Mz = x2Flux[ix.k][ix.j][ix.i].Mz - x2FluxP[ix.k][ix.j][ix.i].Mz;
@@ -2409,7 +2409,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
   x1FD_ip1.Mz = x1Flux[ix.k][ix.j][ix.i+1].Mz - x1FluxP[ix.k][ix.j][ix.i+1].Mz;
   x2FD_jp1.Mz = x2Flux[ix.k][ix.j+1][ix.i].Mz - x2FluxP[ix.k][ix.j+1][ix.i].Mz;
-  x3FD_kp1.Mz = x2Flux[ix.k+1][ix.j][ix.i].Mz - x3FluxP[ix.k+1][ix.j][ix.i].Mz;
+  x3FD_kp1.Mz = x3Flux[ix.k+1][ix.j][ix.i].Mz - x3FluxP[ix.k+1][ix.j][ix.i].Mz;
 
 #ifndef BAROTROPIC
   x1FD_i.E = x1Flux[ix.k][ix.j][ix.i].E - x1FluxP[ix.k][ix.j][ix.i].E;
@@ -2418,7 +2418,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
   x1FD_ip1.E = x1Flux[ix.k][ix.j][ix.i+1].E - x1FluxP[ix.k][ix.j][ix.i+1].E;
   x2FD_jp1.E = x2Flux[ix.k][ix.j+1][ix.i].E - x2FluxP[ix.k][ix.j+1][ix.i].E;
-  x3FD_kp1.E = x2Flux[ix.k+1][ix.j][ix.i].E - x3FluxP[ix.k+1][ix.j][ix.i].E;
+  x3FD_kp1.E = x3Flux[ix.k+1][ix.j][ix.i].E - x3FluxP[ix.k+1][ix.j][ix.i].E;
 #endif /* BAROTROPIC */
 
 #ifdef MHD
@@ -2575,66 +2575,66 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
 /* Use emf differences to correct face-centered fields around bad cell */
   if (ix.i > pG->is) {
-    pG->B2i[ix.k  ][ix.j  ][ix.i-1] += dtodx1*(emf3D_ji);
-    pG->B2i[ix.k  ][ix.j+1][ix.i-1] += dtodx1*(emf3D_jp1i);
+    pG->B2i[ix.k  ][ix.j  ][ix.i-1] -= dtodx1*(emf3D_ji);
+    pG->B2i[ix.k  ][ix.j+1][ix.i-1] -= dtodx1*(emf3D_jp1i);
 #ifdef CYLINDRICAL
     rsf = pG->ri[ix.i]/pG->r[ix.i-1];
 #endif
-    pG->B3i[ix.k  ][ix.j  ][ix.i-1] -= dtodx1*(rsf*emf2D_ki);
-    pG->B3i[ix.k+1][ix.j  ][ix.i-1] -= dtodx1*(rsf*emf2D_kp1i);
+    pG->B3i[ix.k  ][ix.j  ][ix.i-1] += dtodx1*(rsf*emf2D_ki);
+    pG->B3i[ix.k+1][ix.j  ][ix.i-1] += dtodx1*(rsf*emf2D_kp1i);
   }
   if (ix.i < pG->ie) {
-    pG->B2i[ix.k  ][ix.j  ][ix.i+1] -= dtodx1*(emf3D_jip1);
-    pG->B2i[ix.k  ][ix.j+1][ix.i+1] -= dtodx1*(emf3D_jp1ip1);
+    pG->B2i[ix.k  ][ix.j  ][ix.i+1] += dtodx1*(emf3D_jip1);
+    pG->B2i[ix.k  ][ix.j+1][ix.i+1] += dtodx1*(emf3D_jp1ip1);
 #ifdef CYLINDRICAL
     lsf = pG->ri[ix.i+1]/pG->r[ix.i+1];
 #endif
-    pG->B3i[ix.k  ][ix.j  ][ix.i+1] += dtodx1*(lsf*emf2D_kip1);
-    pG->B3i[ix.k+1][ix.j  ][ix.i+1] += dtodx1*(lsf*emf2D_kp1ip1);
+    pG->B3i[ix.k  ][ix.j  ][ix.i+1] -= dtodx1*(lsf*emf2D_kip1);
+    pG->B3i[ix.k+1][ix.j  ][ix.i+1] -= dtodx1*(lsf*emf2D_kp1ip1);
   }
 
   if (ix.j > pG->js) {
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->r[ix.i]*pG->dx2);
 #endif
-    pG->B3i[ix.k  ][ix.j-1][ix.i  ] += dtodx2*(emf1D_kj);
-    pG->B3i[ix.k+1][ix.j-1][ix.i  ] += dtodx2*(emf1D_kp1j);
+    pG->B3i[ix.k  ][ix.j-1][ix.i  ] -= dtodx2*(emf1D_kj);
+    pG->B3i[ix.k+1][ix.j-1][ix.i  ] -= dtodx2*(emf1D_kp1j);
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
 #endif
-    pG->B1i[ix.k  ][ix.j-1][ix.i  ] -= dtodx2*(emf3D_ji);
+    pG->B1i[ix.k  ][ix.j-1][ix.i  ] += dtodx2*(emf3D_ji);
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
 #endif
-    pG->B1i[ix.k  ][ix.j-1][ix.i+1] -= dtodx2*(emf3D_jip1);
+    pG->B1i[ix.k  ][ix.j-1][ix.i+1] += dtodx2*(emf3D_jip1);
   }
   if (ix.j < pG->je) {
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->r[ix.i]*pG->dx2);
 #endif
-    pG->B3i[ix.k  ][ix.j+1][ix.i  ] -= dtodx2*(emf1D_kjp1);
-    pG->B3i[ix.k+1][ix.j+1][ix.i  ] -= dtodx2*(emf1D_kp1jp1);
+    pG->B3i[ix.k  ][ix.j+1][ix.i  ] += dtodx2*(emf1D_kjp1);
+    pG->B3i[ix.k+1][ix.j+1][ix.i  ] += dtodx2*(emf1D_kp1jp1);
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
 #endif
-    pG->B1i[ix.k  ][ix.j+1][ix.i  ] += dtodx2*(emf3D_jp1i);
+    pG->B1i[ix.k  ][ix.j+1][ix.i  ] -= dtodx2*(emf3D_jp1i);
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
 #endif
-    pG->B1i[ix.k  ][ix.j+1][ix.i+1] += dtodx2*(emf3D_jp1ip1);
+    pG->B1i[ix.k  ][ix.j+1][ix.i+1] -= dtodx2*(emf3D_jp1ip1);
   }
 
   if (ix.k > pG->ks) {
-    pG->B1i[ix.k-1][ix.j  ][ix.i  ] += dtodx3*(emf2D_ki);
-    pG->B1i[ix.k-1][ix.j  ][ix.i+1] += dtodx3*(emf2D_kip1);
-    pG->B2i[ix.k-1][ix.j  ][ix.i  ] -= dtodx3*(emf1D_kj);
-    pG->B2i[ix.k-1][ix.j+1][ix.i  ] -= dtodx3*(emf1D_kjp1);
+    pG->B1i[ix.k-1][ix.j  ][ix.i  ] -= dtodx3*(emf2D_ki);
+    pG->B1i[ix.k-1][ix.j  ][ix.i+1] -= dtodx3*(emf2D_kip1);
+    pG->B2i[ix.k-1][ix.j  ][ix.i  ] += dtodx3*(emf1D_kj);
+    pG->B2i[ix.k-1][ix.j+1][ix.i  ] += dtodx3*(emf1D_kjp1);
   }
   if (ix.k < pG->ke) {
-    pG->B1i[ix.k+1][ix.j  ][ix.i  ] -= dtodx3*(emf2D_kp1i);
-    pG->B1i[ix.k+1][ix.j  ][ix.i+1] -= dtodx3*(emf2D_kp1ip1);
-    pG->B2i[ix.k+1][ix.j  ][ix.i  ] += dtodx3*(emf1D_kp1j);
-    pG->B2i[ix.k+1][ix.j+1][ix.i  ] += dtodx3*(emf1D_kp1jp1);
+    pG->B1i[ix.k+1][ix.j  ][ix.i  ] += dtodx3*(emf2D_kp1i);
+    pG->B1i[ix.k+1][ix.j  ][ix.i+1] += dtodx3*(emf2D_kp1ip1);
+    pG->B2i[ix.k+1][ix.j  ][ix.i  ] -= dtodx3*(emf1D_kp1j);
+    pG->B2i[ix.k+1][ix.j+1][ix.i  ] -= dtodx3*(emf1D_kp1jp1);
   }
 
 /* Compute new cell-centered fields */
@@ -2650,14 +2650,38 @@ static void FixCell(GridS *pG, Int3Vect ix)
   }}}
 #endif /* MHD */
 
-/* With SMR, replace higher-order fluxes with predict fluxes in case they are
- * used at fine/coarse grid boundaries */
-#ifdef STATIC_MESH_REFINEMENT
-  x1Flux[ix.k][ix.j][ix.i] = x1FluxP[ix.k][ix.j][ix.i];
-  x2Flux[ix.k][ix.j][ix.i] = x2FluxP[ix.k][ix.j][ix.i];
-  x3Flux[ix.k][ix.j][ix.i] = x3FluxP[ix.k][ix.j][ix.i];
-#endif /* STATIC_MESH_REFINEMENT */
+// /* With SMR, replace higher-order fluxes with predict fluxes in case they are
+//  * used at fine/coarse grid boundaries */
+// #ifdef STATIC_MESH_REFINEMENT
+//   x1Flux[ix.k][ix.j][ix.i] = x1FluxP[ix.k][ix.j][ix.i];
+//   x2Flux[ix.k][ix.j][ix.i] = x2FluxP[ix.k][ix.j][ix.i];
+//   x3Flux[ix.k][ix.j][ix.i] = x3FluxP[ix.k][ix.j][ix.i];
+// #endif /* STATIC_MESH_REFINEMENT */
 
+/* Must replace higher-order fluxes/emfs with predict fluxes/emfs in case two
+ * adjacent cells are corrected.  Otherwise, flux/emf differences may get
+ * corrected more than once.  By overwriting the higher-order fluxes/emfs,
+ * the second time through, the differences will be zero. */
+  x1Flux[ix.k  ][ix.j  ][ix.i  ] = x1FluxP[ix.k  ][ix.j  ][ix.i  ];
+  x2Flux[ix.k  ][ix.j  ][ix.i  ] = x2FluxP[ix.k  ][ix.j  ][ix.i  ];
+  x3Flux[ix.k  ][ix.j  ][ix.i  ] = x3FluxP[ix.k  ][ix.j  ][ix.i  ];
+  x1Flux[ix.k  ][ix.j  ][ix.i+1] = x1FluxP[ix.k  ][ix.j  ][ix.i+1];
+  x2Flux[ix.k  ][ix.j+1][ix.i  ] = x2FluxP[ix.k  ][ix.j+1][ix.i  ];
+  x3Flux[ix.k+1][ix.j  ][ix.i  ] = x3FluxP[ix.k+1][ix.j  ][ix.i  ];
+#ifdef MHD
+  emf1[ix.k  ][ix.j  ][ix.i  ] = emf1P[ix.k  ][ix.j  ][ix.i  ];
+  emf1[ix.k  ][ix.j+1][ix.i  ] = emf1P[ix.k  ][ix.j+1][ix.i  ];
+  emf1[ix.k+1][ix.j  ][ix.i  ] = emf1P[ix.k+1][ix.j  ][ix.i  ];
+  emf1[ix.k+1][ix.j+1][ix.i  ] = emf1P[ix.k+1][ix.j+1][ix.i  ];
+  emf2[ix.k  ][ix.j  ][ix.i  ] = emf2P[ix.k  ][ix.j  ][ix.i  ];
+  emf2[ix.k  ][ix.j  ][ix.i+1] = emf2P[ix.k  ][ix.j  ][ix.i+1];
+  emf2[ix.k+1][ix.j  ][ix.i  ] = emf2P[ix.k+1][ix.j  ][ix.i  ];
+  emf2[ix.k+1][ix.j  ][ix.i+1] = emf2P[ix.k+1][ix.j  ][ix.i+1];
+  emf3[ix.k  ][ix.j  ][ix.i  ] = emf3P[ix.k  ][ix.j  ][ix.i  ];
+  emf3[ix.k  ][ix.j  ][ix.i+1] = emf3P[ix.k  ][ix.j  ][ix.i+1];
+  emf3[ix.k  ][ix.j+1][ix.i  ] = emf3P[ix.k  ][ix.j+1][ix.i  ];
+  emf3[ix.k  ][ix.j+1][ix.i+1] = emf3P[ix.k  ][ix.j+1][ix.i+1];
+#endif
 }
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 

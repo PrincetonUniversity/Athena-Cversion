@@ -2154,7 +2154,6 @@ static void FixCell(GridS *pG, Int3Vect ix)
 #endif
     }
 
-
 #ifdef SELF_GRAVITY
     phic = pG->Phi[ks][ix.j][ix.i];
     phil = 0.5*(pG->Phi[ks][ix.j-1][ix.i] + pG->Phi[ks][ix.j  ][ix.i]);
@@ -2189,30 +2188,30 @@ static void FixCell(GridS *pG, Int3Vect ix)
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
 #endif
-    pG->B1i[ks][ix.j-1][ix.i  ] -= dtodx2*(emf3D_ji);
+    pG->B1i[ks][ix.j-1][ix.i  ] += dtodx2*(emf3D_ji);
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
 #endif
-    pG->B1i[ks][ix.j-1][ix.i+1] -= dtodx2*(emf3D_jip1);
+    pG->B1i[ks][ix.j-1][ix.i+1] += dtodx2*(emf3D_jip1);
   }
   if (ix.j < pG->je) {
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
 #endif
-    pG->B1i[ks][ix.j+1][ix.i  ] += dtodx2*(emf3D_jp1i);
+    pG->B1i[ks][ix.j+1][ix.i  ] -= dtodx2*(emf3D_jp1i);
 #ifdef CYLINDRICAL
     dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
 #endif
-    pG->B1i[ks][ix.j+1][ix.i+1] += dtodx2*(emf3D_jp1ip1);
+    pG->B1i[ks][ix.j+1][ix.i+1] -= dtodx2*(emf3D_jp1ip1);
   }
 
   if (ix.i > pG->is) {
-    pG->B2i[ks][ix.j  ][ix.i-1] += dtodx1*(emf3D_ji);
-    pG->B2i[ks][ix.j+1][ix.i-1] += dtodx1*(emf3D_jp1i);
+    pG->B2i[ks][ix.j  ][ix.i-1] -= dtodx1*(emf3D_ji);
+    pG->B2i[ks][ix.j+1][ix.i-1] -= dtodx1*(emf3D_jp1i);
   }
   if (ix.i < pG->ie) {
-    pG->B2i[ks][ix.j  ][ix.i+1] -= dtodx1*(emf3D_jip1);
-    pG->B2i[ks][ix.j+1][ix.i+1] -= dtodx1*(emf3D_jp1ip1);
+    pG->B2i[ks][ix.j  ][ix.i+1] += dtodx1*(emf3D_jip1);
+    pG->B2i[ks][ix.j+1][ix.i+1] += dtodx1*(emf3D_jp1ip1);
   }
 
 /* compute new cell-centered fields */
@@ -2223,17 +2222,32 @@ static void FixCell(GridS *pG, Int3Vect ix)
 #endif
     pG->U[ks][j][i].B1c = 0.5*(lsf*pG->B1i[ks][j][i] + rsf*pG->B1i[ks][j][i+1]);
     pG->U[ks][j][i].B2c = 0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
+    pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;  /* for completeness */
   }}
 #endif /* MHD */
 
-#ifdef STATIC_MESH_REFINEMENT
-/* With SMR, replace higher-order fluxes with predict fluxes in case they are
- * used at fine/coarse grid boundaries */ 
+// #ifdef STATIC_MESH_REFINEMENT
+// /* With SMR, replace higher-order fluxes with predict fluxes in case they are
+//  * used at fine/coarse grid boundaries */ 
+// 
+//   x1Flux[ix.j][ix.i] = x1FluxP[ix.j][ix.i];
+//   x2Flux[ix.j][ix.i] = x2FluxP[ix.j][ix.i];
+// #endif /* STATIC_MESH_REFINEMENT */
 
-  x1Flux[ix.j][ix.i] = x1FluxP[ix.j][ix.i];
-  x2Flux[ix.j][ix.i] = x2FluxP[ix.j][ix.i];
-#endif /* STATIC_MESH_REFINEMENT */
-
+/* Must replace higher-order fluxes/emfs with predict fluxes/emfs in case two
+ * adjacent cells are corrected.  Otherwise, flux/emf differences may get
+ * corrected more than once.  By overwriting the higher-order fluxes/emfs,
+ * the second time through, the differences will be zero. */
+  x1Flux[ix.j  ][ix.i  ] = x1FluxP[ix.j  ][ix.i  ];
+  x2Flux[ix.j  ][ix.i  ] = x2FluxP[ix.j  ][ix.i  ];
+  x1Flux[ix.j  ][ix.i+1] = x1FluxP[ix.j  ][ix.i+1];
+  x2Flux[ix.j+1][ix.i  ] = x2FluxP[ix.j+1][ix.i  ];
+#ifdef MHD
+  emf3[ix.j  ][ix.i  ] = emf3P[ix.j  ][ix.i  ];
+  emf3[ix.j  ][ix.i+1] = emf3P[ix.j  ][ix.i+1];
+  emf3[ix.j+1][ix.i  ] = emf3P[ix.j+1][ix.i  ];
+  emf3[ix.j+1][ix.i+1] = emf3P[ix.j+1][ix.i+1];
+#endif
 }
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
