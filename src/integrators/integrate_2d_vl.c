@@ -47,6 +47,10 @@ static Cons1DS **x1Flux=NULL, **x2Flux=NULL;
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static Cons1DS **x1FluxP=NULL, **x2FluxP=NULL;
 static Real **emf3P=NULL;
+static Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1;
+#ifdef MHD
+static Real emf3D_ji, emf3D_jip1, emf3D_jp1i, emf3D_jp1ip1;
+#endif
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -79,6 +83,8 @@ static void integrate_emf3_corner(GridS *pG);
 #endif
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static void FixCell(GridS *pG, Int3Vect);
+static void ApplyCorr(GridS *pG, int i, int j,
+                      int lx1, int rx1, int lx2, int rx2);
 #endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -1187,7 +1193,6 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.i = i;
         BadCell.j = j;
         BadCell.k = ks;
-        negd++;
       }
 #ifndef ISOTHERMAL
       if (W.P < 0.0) {
@@ -1195,7 +1200,6 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.i = i;
         BadCell.j = j;
         BadCell.k = ks;
-        negP++;
       }
 #endif
       if (flag_cell != 0) {
@@ -1606,21 +1610,8 @@ static void integrate_emf3_corner(GridS *pG)
 static void FixCell(GridS *pG, Int3Vect ix)
 {
   int ks=pG->ks;
-  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
-  Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1;
-  Real x1,x2,x3;
-#ifdef SHEARING_BOX
-  Real dM1, dM2, dM3;
-  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2;
-  Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
-  Real fact, qom, om_dt = Omega_0*pG->dt;
-  Real hdtodx1 = 0.5*pG->dt/pG->dx1;
-  Real hdtodx2 = 0.5*pG->dt/pG->dx2;
-#endif /* SHEARING_BOX */
-  Real phic, phil, phir;
 #ifdef MHD
   int i,j;
-  Real emf3D_ji, emf3D_jip1, emf3D_jp1i, emf3D_jp1ip1;
 #endif
   Real rsf=1.0,lsf=1.0;
 
@@ -1673,547 +1664,27 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
 /* Use flux differences to correct bad cell-centered quantities */
 
-#ifdef CYLINDRICAL
-  rsf = pG->ri[ix.i+1]/pG->r[ix.i];  lsf = pG->ri[ix.i]/pG->r[ix.i];
-  dtodx2 = pG->dt/(pG->r[ix.i]*pG->dx2);
-#endif
-  pG->U[ks][ix.j][ix.i].d  += dtodx1*(rsf*x1FD_ip1.d  - lsf*x1FD_i.d );
-  pG->U[ks][ix.j][ix.i].M1 += dtodx1*(rsf*x1FD_ip1.Mx - lsf*x1FD_i.Mx);
-  pG->U[ks][ix.j][ix.i].M2 += dtodx1*(SQR(rsf)*x1FD_ip1.My - SQR(lsf)*x1FD_i.My);
-  pG->U[ks][ix.j][ix.i].M3 += dtodx1*(rsf*x1FD_ip1.Mz - lsf*x1FD_i.Mz);
-#ifndef BAROTROPIC
-  pG->U[ks][ix.j][ix.i].E  += dtodx1*(rsf*x1FD_ip1.E  - lsf*x1FD_i.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-  pG->U[ks][ix.j][ix.i].B3c += dtodx1*(rsf*x1FD_ip1.Bz - lsf*x1FD_i.Bz);
-#endif /* MHD */
-
-  pG->U[ks][ix.j][ix.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
-  pG->U[ks][ix.j][ix.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
-  pG->U[ks][ix.j][ix.i].M2 += dtodx2*(x2FD_jp1.Mx - x2FD_j.Mx);
-  pG->U[ks][ix.j][ix.i].M3 += dtodx2*(x2FD_jp1.My - x2FD_j.My);
-#ifndef BAROTROPIC
-  pG->U[ks][ix.j][ix.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-  pG->U[ks][ix.j][ix.i].B3c += dtodx2*(x2FD_jp1.By - x2FD_j.By);
-#endif /* MHD */
-
-#ifdef SHEARING_BOX
-  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
-  qom = qshear*Omega_0;
-
-  cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-
-/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
-  if (ShBoxCoord==xy){
-    frx1_dM2 = x1FD_ip1.My;
-    flx1_dM2 = x1FD_i.My;
-    frx2_dM2 = x2FD_jp1.Mx;
-    flx2_dM2 = x2FD_j.Mx;
-  }
-  if (ShBoxCoord==xz){
-    frx1_dM3 = x1FD_ip1.Mz;
-    flx1_dM3 = x1FD_i.Mz;
-    frx2_dM3 = x2FD_jp1.My;
-    flx2_dM3 = x2FD_j.My;
-  }
-#ifndef FARGO
-  if (ShBoxCoord==xy){
-    frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1FD_ip1.d;
-    flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1FD_i.d;
-    frx2_dM2 += qom*(x1            )*x2FD_jp1.d;
-    flx2_dM2 += qom*(x1            )*x2FD_j.d;
-  }
-  if (ShBoxCoord==xz){
-    frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1FD_ip1.d;
-    flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1FD_i.d;
-    frx2_dM3 += qom*(x1            )*x2FD_jp1.d;
-    flx2_dM3 += qom*(x1            )*x2FD_j.d;
-  }
-#endif
-
-/* difference of momentum fluctuation from 1st-order flux to 2nd-order flux */
-  dM1 = hdtodx1*(x1FD_ip1.Mx - x1FD_i.Mx)
-      + hdtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
-
-  if (ShBoxCoord==xy){
-    dM2 = hdtodx1*(frx1_dM2 - flx1_dM2)
-        + hdtodx2*(frx2_dM2 - flx2_dM2);
-  }
-  if (ShBoxCoord==xz){
-    dM3 = hdtodx1*(frx1_dM3 - flx1_dM3)
-        + hdtodx2*(frx2_dM3 - flx2_dM3);
-  }
-
-
-/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
- * for the Coriolis and tidal potential source terms using a Crank-Nicholson
- * discretization for the momentum fluctuation equation. */
-
-  if (ShBoxCoord==xy){
-    pG->U[ks][ix.j][ix.i].M1 += (4.0*dM2 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-    pG->U[ks][ix.j][ix.i].M2 += 2.0*(qshear-2.)*(dM1 + om_dt*dM2)*fact;
-#ifndef FARGO
-    pG->U[ks][ix.j][ix.i].M2 += 0.5*qshear*om_dt*(x1FD_i.d+x1FD_ip1.d);
-#endif
-  }
-
-  if (ShBoxCoord==xz){
-    pG->U[ks][ix.j][ix.i].M1 += (4.0*dM3 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-    pG->U[ks][ix.j][ix.i].M3 += 2.0*(qshear-2.)*(dM1 + om_dt*dM3)*fact;
-#ifndef FARGO
-    pG->U[ks][ix.j][ix.i].M3 +=0.5*qshear*om_dt*(x1FD_i.d+x1FD_ip1.d);
-#endif
-  }
-
-/* Update the energy for a fixed potential.
- * This update is identical to non-SHEARING_BOX below  */
-
-  if (StaticGravPot != NULL){
-    phic = (*ShearingBoxPot)((x1            ),x2,x3);
-    phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-    phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+  ApplyCorr(pG,ix.i,ix.j,1,1,1,1);
  
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i].E += dtodx1*(x1FD_i.d*(phic - phil) + x1FD_ip1.d*(phir - phic));
-#endif
- 
-    phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-    phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
- 
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i].E += dtodx2*(x2FD_j.d*(phic - phil) + x2FD_jp1.d*(phir - phic));
-#endif
-  }
-
-#endif /* SHEARING_BOX */
-
-  if (StaticGravPot != NULL){
-    cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-    phic = (*StaticGravPot)( x1,             x2,x3);
-    phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-    phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i].E += dtodx1*(lsf*x1FD_i.d*(phic - phil) + rsf*x1FD_ip1.d*(phir - phic));
-#endif
-    phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-    phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i].E += dtodx2*(x2FD_j.d*(phic - phil) + x2FD_jp1.d*(phir - phic));
-#endif
-  }
-
 #ifdef SELF_GRAVITY
-  phic = pG->Phi[ks][ix.j][ix.i];
-  phil = 0.5*(pG->Phi[ks][ix.j][ix.i-1] + pG->Phi[ks][ix.j][ix.i  ]);
-  phir = 0.5*(pG->Phi[ks][ix.j][ix.i  ] + pG->Phi[ks][ix.j][ix.i+1]);
-
-#ifndef BAROTROPIC
-  pG->U[ks][ix.j][ix.i].E += dtodx1*(x1FD_i.d*(phic - phil) + x1FD_ip1.d*(phir - phic));
-#endif /* BAROTROPIC */
-
-  phil = 0.5*(pG->Phi[ks][ix.j-1][ix.i] + pG->Phi[ks][ix.j  ][ix.i]);
-  phir = 0.5*(pG->Phi[ks][ix.j  ][ix.i] + pG->Phi[ks][ix.j+1][ix.i]);
-
-#ifndef BAROTROPIC
-  pG->U[ks][ix.j][ix.i].E += dtodx2*(x2FD_j.d*(phic - phil) + x2FD_jp1.d*(phir - phic));
-#endif /* BAROTROPIC */
-
 /* Save mass fluxes in Grid structure for source term correction in main loop */
-
   pG->x1MassFlux[ks][ix.j][ix.i] = x1FluxP[ix.j][ix.i].d;
   pG->x2MassFlux[ks][ix.j][ix.i] = x2FluxP[ix.j][ix.i].d;
-  pG->x1MassFlux[ks][ix.j+1][ix.i] = x1FluxP[ix.j+1][ix.i].d;
-  pG->x2MassFlux[ks][ix.j+1][ix.i] = x2FluxP[ix.j+1][ix.i].d;
   pG->x1MassFlux[ks][ix.j][ix.i+1] = x1FluxP[ix.j][ix.i+1].d;
-  pG->x2MassFlux[ks][ix.j][ix.i+1] = x2FluxP[ix.j][ix.i+1].d;
+  pG->x2MassFlux[ks][ix.j+1][ix.i] = x2FluxP[ix.j+1][ix.i].d;
 #endif /* SELF_GRAVITY */
 
- 
 /* Use flux differences to correct cell-centered values at i-1 and i+1 */
 
-  if (ix.i > pG->is) {
-#ifdef CYLINDRICAL
-    rsf = pG->ri[ix.i]/pG->r[ix.i-1];
-#endif
-    pG->U[ks][ix.j][ix.i-1].d  += dtodx1*(rsf*x1FD_i.d );
-    pG->U[ks][ix.j][ix.i-1].M1 += dtodx1*(rsf*x1FD_i.Mx);
-    pG->U[ks][ix.j][ix.i-1].M2 += dtodx1*(SQR(rsf)*x1FD_i.My);
-    pG->U[ks][ix.j][ix.i-1].M3 += dtodx1*(rsf*x1FD_i.Mz);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i-1].E  += dtodx1*(rsf*x1FD_i.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-    pG->U[ks][ix.j][ix.i-1].B3c += dtodx1*(rsf*x1FD_i.Bz);
-#endif /* MHD */
-
-#ifdef SHEARING_BOX
-    cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-/* difference of momentum fluctuation from 1st-order flux to 2nd-order flux */
-    dM1 = hdtodx1*(x1FD_i.Mx);
-
-    if (ShBoxCoord==xy){
-      dM2 = hdtodx1*(flx1_dM2);
-    }
-    if (ShBoxCoord==xz){
-      dM3 = hdtodx1*(flx1_dM3);
-    }
-
-/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
- * for the Coriolis and tidal potential source terms using a Crank-Nicholson
- * discretization for the momentum fluctuation equation. */
-
-    if (ShBoxCoord==xy){
-      pG->U[ks][ix.j][ix.i-1].M1 += (4.0*dM2 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j][ix.i-1].M2 += 2.0*(qshear-2.)*(dM1 + om_dt*dM2)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j][ix.i-1].M2 += 0.5*qshear*om_dt*(x1FD_i.d);
-#endif
-    }
-
-    if (ShBoxCoord==xz){
-      pG->U[ks][ix.j][ix.i-1].M1 += (4.0*dM3 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j][ix.i-1].M3 += 2.0*(qshear-2.)*(dM1 + om_dt*dM3)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j][ix.i-1].M3 +=0.5*qshear*om_dt*(x1FD_i.d);
-#endif /* FARGO */
-    }
-
-/* Update the energy for a fixed potential.
- * This update is identical to non-SHEARING_BOX below  */
-
-    phic = (*ShearingBoxPot)((x1            ),x2,x3);
-    phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-    phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i-1].E += dtodx1*(x1FD_i.d*(phic - phil));
-#endif
-
-#endif /* SHEARING_BOX */
-
-    if (StaticGravPot != NULL){
-      cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-      phic = (*StaticGravPot)( x1,             x2,x3);
-      phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-      phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-
-#ifndef BAROTROPIC
-      pG->U[ks][ix.j][ix.i-1].E += dtodx1*(rsf*x1FD_i.d*(phic - phil));
-#endif
-    }
-
-#ifdef SELF_GRAVITY
-    phic = pG->Phi[ks][ix.j][ix.i];
-    phil = 0.5*(pG->Phi[ks][ix.j][ix.i-1] + pG->Phi[ks][ix.j][ix.i  ]);
-    phir = 0.5*(pG->Phi[ks][ix.j][ix.i  ] + pG->Phi[ks][ix.j][ix.i+1]);
-
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i-1].E += dtodx1*(x1FD_i.d*(phic - phil));
-#endif /* BAROTROPIC */
-
-#endif /* SELF_GRAVITY */
-  }
-
-  if (ix.i < pG->ie) {
-#ifdef CYLINDRICAL
-    lsf = pG->ri[ix.i+1]/pG->r[ix.i+1];
-#endif
-    pG->U[ks][ix.j][ix.i+1].d  -= dtodx1*(lsf*x1FD_ip1.d );
-    pG->U[ks][ix.j][ix.i+1].M1 -= dtodx1*(lsf*x1FD_ip1.Mx);
-    pG->U[ks][ix.j][ix.i+1].M2 -= dtodx1*(SQR(lsf)*x1FD_ip1.My);
-    pG->U[ks][ix.j][ix.i+1].M3 -= dtodx1*(lsf*x1FD_ip1.Mz);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i+1].E  -= dtodx1*(lsf*x1FD_ip1.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-    pG->U[ks][ix.j][ix.i+1].B3c -= dtodx1*(lsf*x1FD_ip1.Bz);
-#endif /* MHD */
-
-#ifdef SHEARING_BOX
-    cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-/* difference of momentum fluctuation from 1st-order flux to 2nd-order flux */
-    dM1 = - hdtodx1*(x1FD_ip1.Mx);
-
-    if (ShBoxCoord==xy){
-      dM2 = - hdtodx1*(frx1_dM2);
-    }
-    if (ShBoxCoord==xz){
-      dM3 = - hdtodx1*(frx1_dM3);
-    }
-
-/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
- * for the Coriolis and tidal potential source terms using a Crank-Nicholson
- * discretization for the momentum fluctuation equation. */
-
-    if (ShBoxCoord==xy){
-      pG->U[ks][ix.j][ix.i+1].M1 += (4.0*dM2 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j][ix.i+1].M2 += 2.0*(qshear-2.)*(dM1 + om_dt*dM2)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j][ix.i+1].M2 += 0.5*qshear*om_dt*(x1FD_ip1.d);
-#endif
-    }
-
-    if (ShBoxCoord==xz){
-      pG->U[ks][ix.j][ix.i+1].M1 += (4.0*dM3 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j][ix.i+1].M3 += 2.0*(qshear-2.)*(dM1 + om_dt*dM3)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j][ix.i+1].M3 +=0.5*qshear*om_dt*(x1FD_ip1.d);
-#endif /* FARGO */
-    }
-
-/* Update the energy for a fixed potential.
- * This update is identical to non-SHEARING_BOX below  */
-
-    phic = (*ShearingBoxPot)((x1            ),x2,x3);
-    phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-    phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i+1].E += dtodx1*(x1FD_ip1.d*(phir - phic));
-#endif
-
-#endif /* SHEARING_BOX */
-
-    if (StaticGravPot != NULL){
-      cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-      phic = (*StaticGravPot)( x1,             x2,x3);
-      phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-      phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-
-#ifndef BAROTROPIC
-      pG->U[ks][ix.j][ix.i+1].E += dtodx1*(lsf*x1FD_ip1.d*(phir - phic));
-#endif
-    }
-
-#ifdef SELF_GRAVITY
-    phic = pG->Phi[ks][ix.j][ix.i];
-    phil = 0.5*(pG->Phi[ks][ix.j][ix.i-1] + pG->Phi[ks][ix.j][ix.i  ]);
-    phir = 0.5*(pG->Phi[ks][ix.j][ix.i  ] + pG->Phi[ks][ix.j][ix.i+1]);
-
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i+1].E += dtodx1*(x1FD_ip1.d*(phir - phic));
-#endif /* BAROTROPIC */
-
-/* Save mass fluxes in Grid structure for source term correction in main loop */
-
-    pG->x1MassFlux[ks][ix.j][ix.i+1] = x1FluxP[ix.j][ix.i+1].d;
-    pG->x2MassFlux[ks][ix.j][ix.i+1] = x2FluxP[ix.j][ix.i+1].d;
-#endif /* SELF_GRAVITY */
-
-
-  }
+  if (ix.i > pG->is) ApplyCorr(pG,ix.i-1,ix.j,-1,0,0,0);
+  if (ix.i < pG->ie) ApplyCorr(pG,ix.i+1,ix.j,0,-1,0,0);
 
 /* Use flux differences to correct cell-centered values at j-1 and j+1 */
 
-  if (ix.j > pG->js) {
-    pG->U[ks][ix.j-1][ix.i].d  += dtodx2*(x2FD_j.d );
-    pG->U[ks][ix.j-1][ix.i].M1 += dtodx2*(x2FD_j.Mz);
-    pG->U[ks][ix.j-1][ix.i].M2 += dtodx2*(x2FD_j.Mx);
-    pG->U[ks][ix.j-1][ix.i].M3 += dtodx2*(x2FD_j.My);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j-1][ix.i].E  += dtodx2*(x2FD_j.E );
-#endif /* BAROTROPIC */
+  if (ix.j > pG->js) ApplyCorr(pG,ix.i,ix.j-1,0,0,-1,0);
+  if (ix.j < pG->je) ApplyCorr(pG,ix.i,ix.j+1,0,0,0,-1);
+
 #ifdef MHD
-    pG->U[ks][ix.j-1][ix.i].B3c += dtodx2*(x2FD_j.By);
-#endif /* MHD */
-
-#ifdef SHEARING_BOX
-    cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-/* difference of momentum fluctuation from 1st-order flux to 2nd-order flux */
-    dM1 = hdtodx2*(x2FD_j.Mz);
-
-    if (ShBoxCoord==xy){
-      dM2 = hdtodx2*(flx2_dM2);
-    }
-    if (ShBoxCoord==xz){
-      dM3 = hdtodx2*(flx2_dM3);
-    }
-
-/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
- * for the Coriolis and tidal potential source terms using a Crank-Nicholson
- * discretization for the momentum fluctuation equation. */
-
-    if (ShBoxCoord==xy){
-      pG->U[ks][ix.j-1][ix.i].M1 += (4.0*dM2 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j-1][ix.i].M2 += 2.0*(qshear-2.)*(dM1 + om_dt*dM2)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j-1][ix.i].M2 += 0.5*qshear*om_dt*(x2FD_j.d);
-#endif
-    }
-
-    if (ShBoxCoord==xz){
-      pG->U[ks][ix.j-1][ix.i].M1 += (4.0*dM3 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j-1][ix.i].M3 += 2.0*(qshear-2.)*(dM1 + om_dt*dM3)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j-1][ix.i].M3 +=0.5*qshear*om_dt*(x2FD_j.d);
-#endif /* FARGO */
-    }
-
-/* Update the energy for a fixed potential.
- * This update is identical to non-SHEARING_BOX below  */
-
-    phic = (*ShearingBoxPot)((x1            ),x2,x3);
-    phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-    phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j-1][ix.i].E += dtodx2*(x2FD_j.d*(phic - phil));
-#endif
-
-#endif /* SHEARING_BOX */
-
-    if (StaticGravPot != NULL){
-      cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-      phic = (*StaticGravPot)( x1,             x2,x3);
-      phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-      phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-
-#ifndef BAROTROPIC
-      pG->U[ks][ix.j-1][ix.i].E += dtodx2*(x2FD_j.d*(phic - phil));
-#endif
-    }
-
-#ifdef SELF_GRAVITY
-    phic = pG->Phi[ks][ix.j][ix.i];
-    phil = 0.5*(pG->Phi[ks][ix.j-1][ix.i] + pG->Phi[ks][ix.j  ][ix.i]);
-    phir = 0.5*(pG->Phi[ks][ix.j  ][ix.i] + pG->Phi[ks][ix.j+1][ix.i]);
-
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j-1][ix.i].E += dtodx2*(x2FD_j.d*(phic - phil));
-#endif /* BAROTROPIC */
-
-#endif /* SELF_GRAVITY */
-
-  }
-
-  if (ix.j < pG->je) {
-    pG->U[ks][ix.j+1][ix.i].d  -= dtodx2*(x2FD_jp1.d );
-    pG->U[ks][ix.j+1][ix.i].M1 -= dtodx2*(x2FD_jp1.Mz);
-    pG->U[ks][ix.j+1][ix.i].M2 -= dtodx2*(x2FD_jp1.Mx);
-    pG->U[ks][ix.j+1][ix.i].M3 -= dtodx2*(x2FD_jp1.My);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j+1][ix.i].E  -= dtodx2*(x2FD_jp1.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-    pG->U[ks][ix.j+1][ix.i].B3c -= dtodx2*(x2FD_jp1.By);
-#endif /* MHD */
-
-#ifdef SHEARING_BOX
-    cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-/* difference of momentum fluctuation from 1st-order flux to 2nd-order flux */
-    dM1 = - hdtodx2*(x2FD_jp1.Mz);
-
-    if (ShBoxCoord==xy){
-      dM2 = - hdtodx2*(frx2_dM2);
-    }
-    if (ShBoxCoord==xz){
-      dM3 = - hdtodx2*(frx2_dM3);
-    }
-
-/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
- * for the Coriolis and tidal potential source terms using a Crank-Nicholson
- * discretization for the momentum fluctuation equation. */
-
-    if (ShBoxCoord==xy){
-      pG->U[ks][ix.j+1][ix.i].M1 += (4.0*dM2 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j+1][ix.i].M2 += 2.0*(qshear-2.)*(dM1 + om_dt*dM2)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j+1][ix.i].M2 += 0.5*qshear*om_dt*(x2FD_jp1.d);
-#endif
-    }
-
-    if (ShBoxCoord==xz){
-      pG->U[ks][ix.j+1][ix.i].M1 += (4.0*dM3 + 2.0*(qshear-2.)*om_dt*dM1)*fact;
-      pG->U[ks][ix.j+1][ix.i].M3 += 2.0*(qshear-2.)*(dM1 + om_dt*dM3)*fact;
-#ifndef FARGO
-      pG->U[ks][ix.j+1][ix.i].M3 +=0.5*qshear*om_dt*(x2FD_jp1.d);
-#endif /* FARGO */
-    }
-
-/* Update the energy for a fixed potential.
- * This update is identical to non-SHEARING_BOX below  */
-
-    phic = (*ShearingBoxPot)((x1            ),x2,x3);
-    phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-    phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j+1][ix.i].E += dtodx2*(x2FD_jp1.d*(phir - phic));
-#endif
-
-#endif /* SHEARING_BOX */
-
-    if (StaticGravPot != NULL){
-      cc_pos(pG,ix.i,ix.j,ks,&x1,&x2,&x3);
-      phic = (*StaticGravPot)( x1,             x2,x3);
-      phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-      phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-
-#ifndef BAROTROPIC
-      pG->U[ks][ix.j+1][ix.i].E += dtodx2*(x2FD_jp1.d*(phir - phic));
-#endif
-    }
-
-#ifdef SELF_GRAVITY
-    phic = pG->Phi[ks][ix.j][ix.i];
-    phil = 0.5*(pG->Phi[ks][ix.j-1][ix.i] + pG->Phi[ks][ix.j  ][ix.i]);
-    phir = 0.5*(pG->Phi[ks][ix.j  ][ix.i] + pG->Phi[ks][ix.j+1][ix.i]);
-
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j+1][ix.i].E += dtodx2*(x2FD_jp1.d*(phir - phic));
-#endif /* BAROTROPIC */
-/* Save mass fluxes in Grid structure for source term correction in main loop */
-
-    pG->x1MassFlux[ks][ix.j+1][ix.i] = x1FluxP[ix.j+1][ix.i].d;
-    pG->x2MassFlux[ks][ix.j+1][ix.i] = x2FluxP[ix.j+1][ix.i].d;
-#endif /* SELF_GRAVITY */
-
-  }
-
-/* Use emf3 difference to correct face-centered fields on edges of bad cell */
-#ifdef MHD
-#ifdef CYLINDRICAL
-  dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
-#endif
-  pG->B1i[ks][ix.j][ix.i  ] += dtodx2*(emf3D_jp1i   - emf3D_ji);
-#ifdef CYLINDRICAL
-  dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
-#endif
-  pG->B1i[ks][ix.j][ix.i+1] += dtodx2*(emf3D_jp1ip1 - emf3D_jip1);
-  pG->B2i[ks][ix.j  ][ix.i] -= dtodx1*(emf3D_jip1   - emf3D_ji);
-  pG->B2i[ks][ix.j+1][ix.i] -= dtodx1*(emf3D_jp1ip1 - emf3D_jp1i);
-
-/* Use emf3 difference to correct face-centered fields around bad cell */
-  if (ix.j > pG->js) {
-#ifdef CYLINDRICAL
-    dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
-#endif
-    pG->B1i[ks][ix.j-1][ix.i  ] += dtodx2*(emf3D_ji);
-#ifdef CYLINDRICAL
-    dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
-#endif
-    pG->B1i[ks][ix.j-1][ix.i+1] += dtodx2*(emf3D_jip1);
-  }
-  if (ix.j < pG->je) {
-#ifdef CYLINDRICAL
-    dtodx2 = pG->dt/(pG->ri[ix.i]*pG->dx2);
-#endif
-    pG->B1i[ks][ix.j+1][ix.i  ] -= dtodx2*(emf3D_jp1i);
-#ifdef CYLINDRICAL
-    dtodx2 = pG->dt/(pG->ri[ix.i+1]*pG->dx2);
-#endif
-    pG->B1i[ks][ix.j+1][ix.i+1] -= dtodx2*(emf3D_jp1ip1);
-  }
-
-  if (ix.i > pG->is) {
-    pG->B2i[ks][ix.j  ][ix.i-1] -= dtodx1*(emf3D_ji);
-    pG->B2i[ks][ix.j+1][ix.i-1] -= dtodx1*(emf3D_jp1i);
-  }
-  if (ix.i < pG->ie) {
-    pG->B2i[ks][ix.j  ][ix.i+1] += dtodx1*(emf3D_jip1);
-    pG->B2i[ks][ix.j+1][ix.i+1] += dtodx1*(emf3D_jp1ip1);
-  }
-
 /* compute new cell-centered fields */
   for (j=(ix.j-1); j<=(ix.j+1); j++) {
   for (i=(ix.i-1); i<=(ix.i+1); i++) {
@@ -2248,6 +1719,199 @@ static void FixCell(GridS *pG, Int3Vect ix)
   emf3[ix.j+1][ix.i  ] = emf3P[ix.j+1][ix.i  ];
   emf3[ix.j+1][ix.i+1] = emf3P[ix.j+1][ix.i+1];
 #endif
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void ApplyCorr(GridS *pG, int i, int j, int lx1, int rx1, int lx2, int rx2)
+ *  \brief Uses first order fluxes to fix negative d,P or superluminal v
+ */ 
+static void ApplyCorr(GridS *pG, int i, int j,
+                      int lx1, int rx1, int lx2, int rx2)
+{
+  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
+  Real x1,x2,x3,phil,phir,phic;
+
+  int ks = pG->ks;
+#ifdef SHEARING_BOX
+  Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
+  Real M1e, dM2e, dM3e; /* M1, dM2 evolved by dt/2 */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2;
+  Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
+  Real fact, qom, om_dt = Omega_0*pG->dt;
+#endif /* SHEARING_BOX */
+  Real rsf=1.0,lsf=1.0;
+
+#ifdef CYLINDRICAL
+  rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
+  dtodx2 = pG->dt/(pG->r[i]*pG->dx2);
+#endif
+
+  pG->U[ks][j][i].d  += dtodx1*(rsf*rx1*x1FD_ip1.d  - lsf*lx1*x1FD_i.d );
+  pG->U[ks][j][i].M1 += dtodx1*(rsf*rx1*x1FD_ip1.Mx - lsf*lx1*x1FD_i.Mx);
+  pG->U[ks][j][i].M2 += dtodx1*(SQR(rsf)*rx1*x1FD_ip1.My - SQR(lsf)*lx1*x1FD_i.My);
+  pG->U[ks][j][i].M3 += dtodx1*(rsf*rx1*x1FD_ip1.Mz - lsf*lx1*x1FD_i.Mz);
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E  += dtodx1*(rsf*rx1*x1FD_ip1.E  - lsf*lx1*x1FD_i.E );
+#endif /* BAROTROPIC */
+#ifdef MHD
+  pG->U[ks][j][i].B3c += dtodx1*(rx1*x1FD_ip1.Bz - lx1*x1FD_i.Bz);
+#endif /* MHD */
+
+
+  pG->U[ks][j][i].d  += dtodx2*(rx2*x2FD_jp1.d  - lx2*x2FD_j.d );
+  pG->U[ks][j][i].M1 += dtodx2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz);
+  pG->U[ks][j][i].M2 += dtodx2*(rx2*x2FD_jp1.Mx - lx2*x2FD_j.Mx);
+  pG->U[ks][j][i].M3 += dtodx2*(rx2*x2FD_jp1.My - lx2*x2FD_j.My);
+#ifndef BAROTROPIC                                   
+  pG->U[ks][j][i].E  += dtodx2*(rx2*x2FD_jp1.E  - lx2*x2FD_j.E );
+#endif /* BAROTROPIC */
+#ifdef MHD
+  pG->U[ks][j][i].B3c += dtodx2*(rx2*x2FD_jp1.By - lx2*x2FD_j.By);
+#endif /* MHD */
+
+
+#ifdef SHEARING_BOX
+  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+  qom = qshear*Omega_0;
+
+  cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+
+/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
+  if (ShBoxCoord==xy){
+    frx1_dM2 = x1FD_ip1.My;
+    flx1_dM2 = x1FD_i.My;
+    frx2_dM2 = x2FD_jp1.Mx;
+    flx2_dM2 = x2FD_j.Mx;
+  }
+  if (ShBoxCoord==xz){
+    frx1_dM3 = x1FD_ip1.Mz;
+    flx1_dM3 = x1FD_i.Mz;
+    frx2_dM3 = x2FD_jp1.My;
+    flx2_dM3 = x2FD_j.My;
+  }
+#ifndef FARGO
+  if (ShBoxCoord==xy){
+    frx1_dM2 += qom*(x1+rx1*0.5*pG->dx1)*x1FD_ip1.d;
+    flx1_dM2 += qom*(x1-lx1*0.5*pG->dx1)*x1FD_i.d;
+    frx2_dM2 += qom*(x1            )*x2FD_jp1.d;
+    flx2_dM2 += qom*(x1            )*x2FD_j.d;
+  }
+  if (ShBoxCoord==xz){
+    frx1_dM3 += qom*(x1+rx1*0.5*pG->dx1)*x1FD_ip1.d;
+    flx1_dM3 += qom*(x1-lx1*0.5*pG->dx1)*x1FD_i.d;
+    frx2_dM3 += qom*(x1            )*x2FD_jp1.d;
+    flx2_dM3 += qom*(x1            )*x2FD_j.d;
+  }
+#endif
+
+
+/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
+  M1e = q1*(rx1*x1FD_ip1.Mx - lx1*x1FD_i.Mx)
+      + q2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz);
+
+  if (ShBoxCoord==xy){
+    dM2e = q1*(rx1*frx1_dM2 - lx1*flx1_dM2)
+         + q2*(rx2*frx2_dM2 - lx2*flx2_dM2);
+  }
+  if (ShBoxCoord==xz){
+    dM3e = q1*(rx1*frx1_dM3 - lx1*flx1_dM3)
+         + q2*(rx2*frx2_dM3 - lx2*flx2_dM3);
+  }
+
+/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
+ * for the Coriolis and tidal potential source terms using a Crank-Nicholson
+ * discretization for the momentum fluctuation equation. */
+
+  if (ShBoxCoord==xy){
+    pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+    pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+    pG->U[ks][j][i].M2 += 0.5*qshear*om_dt*(ABS(lx1)*x1FD_i.d+ABS(rx1)*x1FD_ip1.d);
+#endif
+  }
+
+  if (ShBoxCoord==xz){
+    pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+    pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+    pG->U[ks][j][i].M3 += 0.5*qshear*om_dt*(ABS(lx1)*x1FD_i.d+ABS(rx1)*x1FD_ip1.d);
+#endif
+  }
+
+/* Update the energy for a fixed potential.
+ * This update is identical to non-SHEARING_BOX below  */
+
+  phic = (*ShearingBoxPot)((x1            ),x2,x3);
+  phir = (*ShearingBoxPot)((x1+rx1*0.5*pG->dx1),x2,x3);
+  phil = (*ShearingBoxPot)((x1-lx1*0.5*pG->dx1),x2,x3);
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx1*(lx1*x1FD_i.d*(phic - phil) +
+                               rx1*x1FD_ip1.d*(phir - phic));
+#endif
+
+  phir = (*ShearingBoxPot)(x1,(x2+rx2*0.5*pG->dx2),x3);
+  phil = (*ShearingBoxPot)(x1,(x2-lx2*0.5*pG->dx2),x3);
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx2*(lx2*x2FD_j.d*(phic - phil) +
+                               rx2*x2FD_jp1.d*(phir - phic));
+#endif
+#endif /* SHEARING_BOX */
+
+  if (StaticGravPot != NULL){
+    cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+    phic = (*StaticGravPot)(x1,x2,x3);
+    phir = (*StaticGravPot)((x1+rx1*0.5*pG->dx1),x2,x3);
+    phil = (*StaticGravPot)((x1-lx1*0.5*pG->dx1),x2,x3);
+
+#ifndef BAROTROPIC
+    pG->U[ks][j][i].E += dtodx1*(lsf*lx1*x1FD_i.d*(phic - phil) +
+                                 rsf*rx1*x1FD_ip1.d*(phir - phic));
+#endif
+
+    phir = (*StaticGravPot)(x1,(x2+rx2*0.5*pG->dx2),x3);
+    phil = (*StaticGravPot)(x1,(x2-lx2*0.5*pG->dx2),x3);
+
+#ifndef BAROTROPIC
+    pG->U[ks][j][i].E += dtodx2*(lx2*x2FD_j.d*(phic - phil) +
+                                 rx2*x2FD_jp1.d*(phir - phic));
+#endif
+  }
+
+#ifdef SELF_GRAVITY
+  phic = pG->Phi[ks][j][i];
+  phil = 0.5*(pG->Phi[ks][j][i-lx1] + pG->Phi[ks][j][i  ]);
+  phir = 0.5*(pG->Phi[ks][j][i  ] + pG->Phi[ks][j][i+rx1]);
+
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx1*(lx1*x1FD_i.d*(phic - phil) +
+                               rx1*x1FD_ip1.d*(phir - phic));
+#endif
+
+  phil = 0.5*(pG->Phi[ks][j-lx2][i] + pG->Phi[ks][j  ][i]);
+  phir = 0.5*(pG->Phi[ks][j  ][i] + pG->Phi[ks][j+rx2][i]);
+
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx2*(lx2*x2FD_j.d*(phic - phil) +
+                               rx2*x2FD_jp1.d*(phir - phic));
+#endif
+
+#endif /* SELF_GRAVITY */
+
+
+/* Use emf differences to correct face-centered fields on edges of bad cell */
+#ifdef MHD
+#ifdef CYLINDRICAL
+  dtodx2 = pG->dt/(pG->ri[i]*pG->dx2);
+#endif
+  pG->B1i[ks][j][i  ] += dtodx2*(rx2*emf3D_jp1i   - lx2*emf3D_ji);
+#ifdef CYLINDRICAL
+  dtodx2 = pG->dt/(pG->ri[i+1]*pG->dx2);
+#endif
+  pG->B1i[ks][j][i+1] += dtodx2*(rx2*emf3D_jp1ip1 - lx2*emf3D_jip1);
+  pG->B2i[ks][j  ][i] -= dtodx1*(rx1*emf3D_jip1   - lx1*emf3D_ji);
+  pG->B2i[ks][j+1][i] -= dtodx1*(rx1*emf3D_jp1ip1 - lx1*emf3D_jp1i);
+#endif 
+
 }
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
