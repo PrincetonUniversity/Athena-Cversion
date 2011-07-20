@@ -1,6 +1,6 @@
 #include "../copyright.h"
 
-// #define PM_CIC
+/* #define PM_CIC */
 #define PM_TSC
 
 /*============================================================================*/

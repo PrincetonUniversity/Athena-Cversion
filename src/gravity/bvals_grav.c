@@ -111,18 +111,18 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx1_Gid >= 0 && pGrid->lx1_Gid >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_Gid,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_Gid,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_Phi_ix1(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_Gid,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_Phi_ox1(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_Gid,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
@@ -142,12 +142,12 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx1_Gid >= 0 && pGrid->lx1_Gid < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_Gid,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_Phi_ox1(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx1_Gid, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx1_Gid,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
@@ -166,12 +166,12 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx1_Gid < 0 && pGrid->lx1_Gid >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_Gid,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_Phi_ix1(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx1_Gid, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx1_Gid,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
@@ -208,18 +208,18 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx2_Gid >= 0 && pGrid->lx2_Gid >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_Gid,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_Gid,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_Phi_ix2(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_Gid,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_Phi_ox2(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_Gid,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
@@ -239,12 +239,12 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx2_Gid >= 0 && pGrid->lx2_Gid < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_Gid,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_Phi_ox2(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx2_Gid, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx2_Gid,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
@@ -263,12 +263,12 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx2_Gid < 0 && pGrid->lx2_Gid >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_Gid,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_Phi_ix2(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx2_Gid, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx2_Gid,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
@@ -316,18 +316,18 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx3_Gid >= 0 && pGrid->lx3_Gid >= 0) {
 
       /* Post non-blocking receives for data from L and R Grids */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_Gid,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_Gid,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_Phi_ix3(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_Gid,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       pack_Phi_ox3(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_Gid,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
@@ -347,12 +347,12 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx3_Gid >= 0 && pGrid->lx3_Gid < 0) {
 
       /* Post non-blocking receive for data from R Grid */
-      ierr = MPI_Irecv(recv_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, RtoL_tag,
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_Gid,RtoL_tag,
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_Phi_ox3(pGrid);
-      ierr = MPI_Isend(send_buf[1], cnt, MPI_DOUBLE, pGrid->rx3_Gid, LtoR_tag,
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pGrid->rx3_Gid,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
@@ -371,12 +371,12 @@ void bvals_grav(DomainS *pD)
     if (pGrid->rx3_Gid < 0 && pGrid->lx3_Gid >= 0) {
 
       /* Post non-blocking receive for data from L grid */
-      ierr = MPI_Irecv(recv_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, LtoR_tag,
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_Gid,LtoR_tag,
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_Phi_ix3(pGrid);
-      ierr = MPI_Isend(send_buf[0], cnt, MPI_DOUBLE, pGrid->lx3_Gid, RtoL_tag,
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pGrid->lx3_Gid,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
@@ -1100,7 +1100,8 @@ static void pack_Phi_ix1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pSnd = send_buf[0];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
 
 /* Pack only Phi into send buffer */
   for (k=ks; k<=ke; k++){
@@ -1124,7 +1125,8 @@ static void pack_Phi_ox1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pSnd = send_buf[1];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
 
 /* Pack only Phi into send buffer */
   for (k=ks; k<=ke; k++){
@@ -1148,7 +1150,8 @@ static void pack_Phi_ix2(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pSnd = send_buf[0];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
 
 /* Pack only Phi into send buffer */
   for (k=ks; k<=ke; k++){
@@ -1172,7 +1175,8 @@ static void pack_Phi_ox2(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pSnd = send_buf[1];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
 
 /* Pack only Phi into send buffer */
 
@@ -1197,7 +1201,8 @@ static void pack_Phi_ix3(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pSnd = send_buf[0];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
 
 /* Pack only Phi into send buffer */
 
@@ -1209,11 +1214,6 @@ static void pack_Phi_ix3(GridS *pG)
     }
   }
 
-/* send contents of buffer to the neighboring grid on L-x3 */
-/*
-  ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx3_Gid,
-		  boundary_cells_tag, MPI_COMM_WORLD);
-*/
   return;
 }
 
@@ -1227,7 +1227,8 @@ static void pack_Phi_ox3(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pSnd = send_buf[1];
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
 
 /* Pack only Phi into send buffer */
 
@@ -1252,7 +1253,8 @@ static void unpack_Phi_ix1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pRcv = recv_buf[0];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[0][0]);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -1279,7 +1281,8 @@ static void unpack_Phi_ox1(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pRcv = recv_buf[1];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[1][0]);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -1304,7 +1307,8 @@ static void unpack_Phi_ix2(GridS *pG)
   int js = pG->js;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pRcv = recv_buf[0];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[0][0]);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -1329,7 +1333,8 @@ static void unpack_Phi_ox2(GridS *pG)
   int je = pG->je;
   int ks = pG->ks, ke = pG->ke;
   int i,j,k;
-  double *pRcv = recv_buf[1];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[1][0]);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -1354,7 +1359,8 @@ static void unpack_Phi_ix3(GridS *pG)
   int js = pG->js, je = pG->je;
   int ks = pG->ks;
   int i,j,k;
-  double *pRcv = recv_buf[0];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[0][0]);
 
 /* Manually unpack the data from the receive buffer */
 
@@ -1379,7 +1385,8 @@ static void unpack_Phi_ox3(GridS *pG)
   int js = pG->js, je = pG->je;
   int ke = pG->ke;
   int i,j,k;
-  double *pRcv = recv_buf[1];
+  double *pRcv;
+  pRcv = (double*)&(recv_buf[1][0]);
 
 /* Manually unpack the data from the receive buffer */
 
