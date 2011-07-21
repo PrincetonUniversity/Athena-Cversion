@@ -1193,6 +1193,7 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.i = i;
         BadCell.j = j;
         BadCell.k = ks;
+        negd++;
       }
 #ifndef ISOTHERMAL
       if (W.P < 0.0) {
@@ -1200,6 +1201,7 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.i = i;
         BadCell.j = j;
         BadCell.k = ks;
+        negP++;
       }
 #endif
       if (flag_cell != 0) {
@@ -1753,7 +1755,8 @@ static void ApplyCorr(GridS *pG, int i, int j,
   Real rsf=1.0,lsf=1.0;
 
 #ifdef CYLINDRICAL
-  rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
+  rsf = (rx1>0) ? pG->ri[i+1]/pG->r[i] : pG->ri[i  ]/pG->r[i];
+  lsf = (lx1>0) ? pG->ri[i  ]/pG->r[i] : pG->ri[i+1]/pG->r[i];
   dtodx2 = pG->dt/(pG->r[i]*pG->dx2);
 #endif
 

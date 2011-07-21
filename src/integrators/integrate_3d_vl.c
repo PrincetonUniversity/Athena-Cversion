@@ -2579,7 +2579,8 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
   Real lsf=1.0,rsf=1.0;
 
 #ifdef CYLINDRICAL
-  rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
+  rsf = (rx1>0) ? pG->ri[i+1]/pG->r[i] : pG->ri[i  ]/pG->r[i];
+  lsf = (lx1>0) ? pG->ri[i  ]/pG->r[i] : pG->ri[i+1]/pG->r[i];
   dtodx2 = pG->dt/(pG->r[i]*pG->dx2);
 #endif
   pG->U[k][j][i].d  += dtodx1*(rsf*rx1*x1FD_ip1.d  - lsf*lx1*x1FD_i.d );
@@ -2760,7 +2761,8 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
   pG->B2i[k][j+1][i] -= dtodx1*(rx1*emf3D_jp1ip1 - lx1*emf3D_jp1i) -
                         dtodx3*(rx3*emf1D_kp1jp1 - lx3*emf1D_kjp1);
 #ifdef CYLINDRICAL
-  rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
+  rsf = (rx1>0) ? pG->ri[i+1]/pG->r[i] : pG->ri[i  ]/pG->r[i];
+  lsf = (lx1>0) ? pG->ri[i  ]/pG->r[i] : pG->ri[i+1]/pG->r[i];
   dtodx2 = pG->dt/(pG->r[i]*pG->dx2);
 #endif
   pG->B3i[k  ][j][i] -= dtodx2*(rx2*emf1D_kjp1   - lx2*emf1D_kj) -
