@@ -4299,133 +4299,94 @@ void is_j_k_phy(const int j, const int k)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
 
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
-
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
-	
-	if(col_shear < colj0){
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
-		indexj1Er  = NoEr + 12;
-		indexj1Fr1 = NoFr1 + 10;
-		indexj1Fr2 = NoFr2 + 10;
-		indexj1Fr3 = NoFr3 + 10;
+	if(col_shear < colk0){
+		sheark0 = 2;
+		shearj0 = 2;
+		sheari0 = 2;
+		sheari = 2;
+		sheari1 = 2;
+		shearj1 = 2;
+		sheark1 = 2;
+	}
+	else if(col_shear < colj0){
+		sheari0 = 2;
+		shearj0 = 2;
+		sheari = 2;
+		sheari1 = 2;
+		shearj1 = 2;
+		sheark1 = 2;
 	}
 	else if(col_shear < coli){
-
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
-		indexj1Er  = NoEr + 12;
-		indexj1Fr1 = NoFr1 + 10;
-		indexj1Fr2 = NoFr2 + 10;
-		indexj1Fr3 = NoFr3 + 10;
+		sheari0 = 2;
+		sheari = 2;
+		sheari1 = 2;
+		shearj1 = 2;
+		sheark1 = 2;
 	}
 	else if(col_shear < colj1){
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexi0Er  = NoEr  + 10;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
-		indexj1Er  = NoEr + 12;
-		indexj1Fr1 = NoFr1 + 10;
-		indexj1Fr2 = NoFr2 + 10;
-		indexj1Fr3 = NoFr3 + 10;
-		
+		shearj1 = 2;
+		sheark1 = 2;
 	}
-	else {
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
-		indexi0Er  = NoEr  + 12;
-		indexi0Fr1 = NoFr1 + 10;
-		indexi0Fr2 = NoFr2 + 10;
-		indexi0Fr3 = NoFr3 + 10;
-		
+	else if(col_shear < colk1){
+		sheark1 = 2;
 	}
+	
+	indexk0Er  = NoEr  + sheark0;
+	indexk0Fr1 = NoFr1 + sheark0;
+	indexk0Fr2 = NoFr2 + sheark0;
+	indexk0Fr3 = NoFr3 + sheark0;
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	
+	indexj0Er  = NoEr  + 2 + shearj0;
+	indexj0Fr1 = NoFr1 + 2 + shearj0;
+	indexj0Fr2 = NoFr2 + 2 + shearj0;
+	indexj0Fr3 = NoFr3 + 2 + shearj0;
+	
+	indexiEr  = NoEr + 4 + sheari;
+	indexiFr1 = NoFr1 + 4 + sheari;
+	indexiFr2 = NoFr2 + 4 + sheari;
+	indexiFr3 = NoFr3 + 4 + sheari;
+	
+	
+	indexi1Er  = NoEr + 8 + sheari;
+	indexi1Fr1 = NoFr1 + 6 + sheari;
+	indexi1Fr2 = NoFr2 + 6 + sheari;
+	indexi1Fr3 = NoFr3 + 6 + sheari;
+	
+	indexj1Er  = NoEr + 10 + shearj1;
+	indexj1Fr1 = NoFr1 + 8 + shearj1;
+	indexj1Fr2 = NoFr2 + 8 + shearj1;
+	indexj1Fr3 = NoFr3 + 8 + shearj1;
+	
+	indexk1Er = NoEr + 12 + sheark1;
+	indexk1Fr1 = NoFr1 + 10 + sheark1;
+	indexk1Fr2 = NoFr2 + 10 + sheark1;
+	indexk1Fr3 = NoFr3 + 10 + sheark1;
 	
 	
 #endif
@@ -4528,7 +4489,7 @@ if(lx1 > ID){
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 
 	
 	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
@@ -4707,137 +4668,93 @@ void ie_j_k_phy(const int j, const int k)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
 	
-
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
-
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
-	
-	if(col_shear < colj0){
-	
-		indexi1Er  = NoEr + 2;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		indexi0Er  = NoEr  + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-		indexj1Er  = NoEr + 12;
-		indexj1Fr1 = NoFr1 + 10;
-		indexj1Fr2 = NoFr2 + 10;
-		indexj1Fr3 = NoFr3 + 10;
+	if(col_shear < colk0){
+		sheark0 = 2;
+		shearj0 = 2;
+		sheari0 = 2;
+		sheari = 2;
+		sheari1 = 2;
+		shearj1 = 2;
+		sheark1 = 2;
+	}
+	else if(col_shear < colj0){
+		shearj0 = 2;
+		sheari0 = 2;
+		sheari = 2;
+		sheari1 = 2;
+		shearj1 = 2;
+		sheark1 = 2;
 	}
 	else if(col_shear < coli){
-		
-
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexi1Er  = NoEr + 4;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		indexi0Er  = NoEr  + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-		indexj1Er  = NoEr + 12;
-		indexj1Fr1 = NoFr1 + 10;
-		indexj1Fr2 = NoFr2 + 10;
-		indexj1Fr3 = NoFr3 + 10;
+		sheari0 = 2;
+		sheari = 2;
+		sheari1 = 2;
+		shearj1 = 2;
+		sheark1 = 2;
 	}
 	else if(col_shear < colj1){
 		
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
-		indexj1Er  = NoEr + 12;
-		indexj1Fr1 = NoFr1 + 10;
-		indexj1Fr2 = NoFr2 + 10;
-		indexj1Fr3 = NoFr3 + 10;
-		
+		shearj1 = 2;
+		sheark1 = 2;
 	}
-	else {
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
-		indexi1Er  = NoEr + 12;
-		indexi1Fr1 = NoFr1 + 10;
-		indexi1Fr2 = NoFr2 + 10;
-		indexi1Fr3 = NoFr3 + 10;
-		
+	else if(col_shear < colk1){
+		sheark1 = 2;
 	}
 	
+	indexk0Er  = NoEr  + sheark0;
+	indexk0Fr1 = NoFr1 + sheark0;
+	indexk0Fr2 = NoFr2 + sheark0;
+	indexk0Fr3 = NoFr3 + sheark0;
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	
+	indexj0Er  = NoEr  + 2 + shearj0;
+	indexj0Fr1 = NoFr1 + 2 + shearj0;
+	indexj0Fr2 = NoFr2 + 2 + shearj0;
+	indexj0Fr3 = NoFr3 + 2 + shearj0;
+	
+	indexi0Er  = NoEr + 4 + sheari;
+	indexi0Fr1 = NoFr1 + 4 + sheari;
+	indexi0Fr2 = NoFr2 + 4 + sheari;
+	indexi0Fr3 = NoFr3 + 4 + sheari;
+	
+	indexiEr  = NoEr + 6 + sheari;
+	indexiFr1 = NoFr1 + 6 + sheari;
+	indexiFr2 = NoFr2 + 6 + sheari;
+	indexiFr3 = NoFr3 + 6 + sheari;
+	
+	indexj1Er  = NoEr + 10 + shearj1;
+	indexj1Fr1 = NoFr1 + 8 + shearj1;
+	indexj1Fr2 = NoFr2 + 8 + shearj1;
+	indexj1Fr3 = NoFr3 + 8 + shearj1;
+	
+	indexk1Er = NoEr + 12 + sheark1;
+	indexk1Fr1 = NoFr1 + 10 + sheark1;
+	indexk1Fr2 = NoFr2 + 10 + sheark1;
+	indexk1Fr3 = NoFr3 + 10 + sheark1;	
 	
 #endif
 
@@ -4945,7 +4862,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
@@ -7011,132 +6928,77 @@ void is_j_ks_phy_phy(const int j)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
+	jshearing = jshearing - shearing_grid * Ny;
 	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
 	
-	if(col_shear < colj0){
-		indexi0Er  = NoEr;
-		indexi0Fr1 = NoFr1;
-		indexi0Fr2 = NoFr2;
-		indexi0Fr3 = NoFr3;
+	if(ix3 == 4){
+		if(col_shear < colk0)	sheark0 = 2;
 		
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < coli){
-		
-		indexj0Er  = NoEr;
-		indexj0Fr1 = NoFr1;
-		indexj0Fr2 = NoFr2;
-		indexj0Fr3 = NoFr3;
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < colj1){
-		
-		indexj0Er  = NoEr;
-		indexj0Fr1 = NoFr1;
-		indexj0Fr2 = NoFr2;
-		indexj0Fr3 = NoFr3;
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		indexi0Er  = NoEr  + 8;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
+		indexk0Er  = NoEr  + 12 + sheark0;
+		indexk0Fr1 = NoFr1 + 10 + sheark0;
+		indexk0Fr2 = NoFr2 + 10 + sheark0;
+		indexk0Fr3 = NoFr3 + 10 + sheark0;
 	}
 	else {
-		indexj0Er  = NoEr;
-		indexj0Fr1 = NoFr1;
-		indexj0Fr2 = NoFr2;
-		indexj0Fr3 = NoFr3;
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		indexi0Er  = NoEr  + 10;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
+		sheark0 = 2;
 	}
+	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexj0Er  = NoEr  + shearj0;
+	indexj0Fr1 = NoFr1 + shearj0;
+	indexj0Fr2 = NoFr2 + shearj0;
+	indexj0Fr3 = NoFr3 + shearj0;
+	
+	indexiEr  = NoEr + 2 + sheari;
+	indexiFr1 = NoFr1 + 2 + sheari;
+	indexiFr2 = NoFr2 + 2 + sheari;
+	indexiFr3 = NoFr3 + 2 + sheari;
+	
+	
+	indexi1Er  = NoEr + 6 + sheari;
+	indexi1Fr1 = NoFr1 + 4 + sheari;
+	indexi1Fr2 = NoFr2 + 4 + sheari;
+	indexi1Fr3 = NoFr3 + 4 + sheari;
+	
+	indexj1Er  = NoEr + 8 + shearj1;
+	indexj1Fr1 = NoFr1 + 6 + shearj1;
+	indexj1Fr2 = NoFr2 + 6 + shearj1;
+	indexj1Fr3 = NoFr3 + 6 + shearj1;
+	
+	indexk1Er = NoEr + 10 + sheark1;
+	indexk1Fr1 = NoFr1 + 8 + sheark1;
+	indexk1Fr2 = NoFr2 + 8 + sheark1;
+	indexk1Fr3 = NoFr3 + 8 + sheark1;
 	
 	
 #endif
@@ -7274,7 +7136,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 
 	
@@ -7474,7 +7336,7 @@ void is_j_ks_phy_MPI(const int j)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	
@@ -7656,7 +7518,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -7673,48 +7535,48 @@ if(lx1 > ID)
 	
 	if(lx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
 	
 	
-	indexk0Er  = NoEr  + MPIcount2 + sheark0;
-	indexk0Fr1 = NoFr1 + MPIcount2F + sheark0;
-	indexk0Fr2 = NoFr2 + MPIcount2F + sheark0;
-	indexk0Fr3 = NoFr3 + MPIcount2F + sheark0;
+	indexk0Er  = NoEr  + MPIcount2z + sheark0;
+	indexk0Fr1 = NoFr1 + MPIcount2Fz + sheark0;
+	indexk0Fr2 = NoFr2 + MPIcount2Fz + sheark0;
+	indexk0Fr3 = NoFr3 + MPIcount2Fz + sheark0;
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexj0Er  = NoEr  + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr  + shearj0 + MPIcount1z;
+	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1z;
+	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1z;
+	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1z;
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1z;
 	
 	
-	indexi1Er  = NoEr + 6 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 6 + sheari + MPIcount1z;
+	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1z;
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1z;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1z;
 	
 	
 
@@ -7859,137 +7721,78 @@ void is_j_ke_phy_phy(const int j)
 
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
-
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
-
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
+	
 	coli0 = col_shear;
 	
-	if(col_shear < colj0){
-		indexi0Er  = NoEr  + 2 + count1z;
-		indexi0Fr1 = NoFr1 + 2 + count1z;
-		indexi0Fr2 = NoFr2 + 2 + count1z;
-		indexi0Fr3 = NoFr3 + 2 + count1z;
+	if(ox3 == 4){
+		if(col_shear < colk1)	sheark1 = 2;
 		
-		
-		indexj0Er  = NoEr  + 4 + count1z;
-		indexj0Fr1 = NoFr1 + 4 + count1z;
-		indexj0Fr2 = NoFr2 + 4 + count1z;
-		indexj0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexiEr  = NoEr + 6 + count1z;
-		indexiFr1 = NoFr1 + 6 + count1z;
-		indexiFr2 = NoFr2 + 6 + count1z;
-		indexiFr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi1Er  = NoEr + 10 + count1z;
-		indexi1Fr1 = NoFr1 + 8 + count1z;
-		indexi1Fr2 = NoFr2 + 8 + count1z;
-		indexi1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj1Er  = NoEr + 12 + count1z;
-		indexj1Fr1 = NoFr1 + 10 + count1z;
-		indexj1Fr2 = NoFr2 + 10 + count1z;
-		indexj1Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < coli){
-		
-		
-		indexj0Er  = NoEr  + 2 + count1z;
-		indexj0Fr1 = NoFr1 + 2 + count1z;
-		indexj0Fr2 = NoFr2 + 2 + count1z;
-		indexj0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexi0Er  = NoEr  + 4 + count1z;
-		indexi0Fr1 = NoFr1 + 4 + count1z;
-		indexi0Fr2 = NoFr2 + 4 + count1z;
-		indexi0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexiEr  = NoEr + 6 + count1z;
-		indexiFr1 = NoFr1 + 6 + count1z;
-		indexiFr2 = NoFr2 + 6 + count1z;
-		indexiFr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi1Er  = NoEr + 10 + count1z;
-		indexi1Fr1 = NoFr1 + 8 + count1z;
-		indexi1Fr2 = NoFr2 + 8 + count1z;
-		indexi1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj1Er  = NoEr + 12 + count1z;
-		indexj1Fr1 = NoFr1 + 10 + count1z;
-		indexj1Fr2 = NoFr2 + 10 + count1z;
-		indexj1Fr3 = NoFr3 + 10 + count1z;
-	
-	}
-	else if(col_shear < colj1){
-		
-		indexj0Er  = NoEr  + 2 + count1z;
-		indexj0Fr1 = NoFr1 + 2 + count1z;
-		indexj0Fr2 = NoFr2 + 2 + count1z;
-		indexj0Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexiEr  = NoEr + 4 + count1z;
-		indexiFr1 = NoFr1 + 4 + count1z;
-		indexiFr2 = NoFr2 + 4 + count1z;
-		indexiFr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexi1Er  = NoEr + 8 + count1z;
-		indexi1Fr1 = NoFr1 + 6 + count1z;
-		indexi1Fr2 = NoFr2 + 6 + count1z;
-		indexi1Fr3 = NoFr3 + 6 + count1z;
-		
-		indexi0Er  = NoEr  + 10 + count1z;
-		indexi0Fr1 = NoFr1 + 8 + count1z;
-		indexi0Fr2 = NoFr2 + 8 + count1z;
-		indexi0Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj1Er  = NoEr + 12 + count1z;
-		indexj1Fr1 = NoFr1 + 10 + count1z;
-		indexj1Fr2 = NoFr2 + 10 + count1z;
-		indexj1Fr3 = NoFr3 + 10 + count1z;
-		
+		indexk1Er  = NoEr  + sheark1;
+		indexk1Fr1 = NoFr1 + sheark1;
+		indexk1Fr2 = NoFr2 + sheark1;
+		indexk1Fr3 = NoFr3 + sheark1;
 	}
 	else {
-		
-		indexj0Er  = NoEr  + 2 + count1z;
-		indexj0Fr1 = NoFr1 + 2 + count1z;
-		indexj0Fr2 = NoFr2 + 2 + count1z;
-		indexj0Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexiEr  = NoEr + 4 + count1z;
-		indexiFr1 = NoFr1 + 4 + count1z;
-		indexiFr2 = NoFr2 + 4 + count1z;
-		indexiFr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexi1Er  = NoEr + 8 + count1z;
-		indexi1Fr1 = NoFr1 + 6 + count1z;
-		indexi1Fr2 = NoFr2 + 6 + count1z;
-		indexi1Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexj1Er  = NoEr + 10 + count1z;
-		indexj1Fr1 = NoFr1 + 8 + count1z;
-		indexj1Fr2 = NoFr2 + 8 + count1z;
-		indexj1Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi0Er  = NoEr  + 12 + count1z;
-		indexi0Fr1 = NoFr1 + 10 + count1z;
-		indexi0Fr2 = NoFr2 + 10 + count1z;
-		indexi0Fr3 = NoFr3 + 10 + count1z;
-		
+		sheark1 = 2;
 	}
+	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexk0Er = NoEr + sheark0 + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + count1z;
+	
+	indexj0Er  = NoEr  + 2 + shearj0 + count1z;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + count1z;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + count1z;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + count1z;
+	
+	indexiEr  = NoEr + 4 + sheari + count1z;
+	indexiFr1 = NoFr1 + 4 + sheari + count1z;
+	indexiFr2 = NoFr2 + 4 + sheari + count1z;
+	indexiFr3 = NoFr3 + 4 + sheari + count1z;
+	
+	
+	indexi1Er  = NoEr + 8 + sheari + count1z;
+	indexi1Fr1 = NoFr1 + 6 + sheari + count1z;
+	indexi1Fr2 = NoFr2 + 6 + sheari + count1z;
+	indexi1Fr3 = NoFr3 + 6 + sheari + count1z;
+	
+	indexj1Er  = NoEr + 10 + shearj1 + count1z;
+	indexj1Fr1 = NoFr1 + 8 + shearj1 + count1z;
+	indexj1Fr2 = NoFr2 + 8 + shearj1 + count1z;
+	indexj1Fr3 = NoFr3 + 8 + shearj1 + count1z;
+	
 	
 	
 #endif
@@ -8132,7 +7935,7 @@ void is_j_ke_MPI_phy(const int j)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -8330,7 +8133,7 @@ void is_j_ke_phy_MPI(const int j)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	
@@ -8512,7 +8315,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -8529,49 +8332,49 @@ if(lx1 > ID)
 	
 	if(rx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
 	
 	
-	indexk0Er  = NoEr  + MPIcount1 + sheark0;
-	indexk0Fr1 = NoFr1 + MPIcount1 + sheark0;
-	indexk0Fr2 = NoFr2 + MPIcount1 + sheark0;
-	indexk0Fr3 = NoFr3 + MPIcount1 + sheark0;
+	indexk0Er  = NoEr  + MPIcount1z + sheark0;
+	indexk0Fr1 = NoFr1 + MPIcount1z + sheark0;
+	indexk0Fr2 = NoFr2 + MPIcount1z + sheark0;
+	indexk0Fr3 = NoFr3 + MPIcount1z + sheark0;
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexj0Er  = NoEr  + 2 + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr  + 2 + shearj0 + MPIcount1z;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1z;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1z;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1z;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
-	
-	
-	indexi1Er  = NoEr + 8 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1;
-	
-	indexj1Er  = NoEr + 10 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 8 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 8 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 8 + shearj1 + MPIcount1;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
 	
-	indexk1Er  = NoEr  + MPIcount2 + sheark1;
-	indexk1Fr1 = NoFr1 + MPIcount2F + sheark1;
-	indexk1Fr2 = NoFr2 + MPIcount2F + sheark1;
-	indexk1Fr3 = NoFr3 + MPIcount2F + sheark1;
+	indexi1Er  = NoEr + 8 + sheari + MPIcount1z;
+	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1z;
+	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1z;
+	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1z;
+	
+	indexj1Er  = NoEr + 10 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 8 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 8 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 8 + shearj1 + MPIcount1z;
+	
+	
+	indexk1Er  = NoEr  + MPIcount2z + sheark1;
+	indexk1Fr1 = NoFr1 + MPIcount2Fz + sheark1;
+	indexk1Fr2 = NoFr2 + MPIcount2Fz + sheark1;
+	indexk1Fr3 = NoFr3 + MPIcount2Fz + sheark1;
 	
 }	
 	
@@ -8715,137 +8518,77 @@ void ie_j_ks_phy_phy(const int j)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
-
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < colj0){
+	if(ix3 == 4){
+		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexi1Er  = NoEr;
-		indexi1Fr1 = NoFr1;
-		indexi1Fr2 = NoFr2;
-		indexi1Fr3 = NoFr3;
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < coli){
-		
-		
-		
-		indexj0Er  = NoEr;
-		indexj0Fr1 = NoFr1;
-		indexj0Fr2 = NoFr2;
-		indexj0Fr3 = NoFr3;
-		
-		indexi1Er  = NoEr + 2;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < colj1){
-		
-		
-		indexj0Er  = NoEr;
-		indexj0Fr1 = NoFr1;
-		indexj0Fr2 = NoFr2;
-		indexj0Fr3 = NoFr3;
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
+		indexk0Er  = NoEr  + 12 + sheark0;
+		indexk0Fr1 = NoFr1 + 10 + sheark0;
+		indexk0Fr2 = NoFr2 + 10 + sheark0;
+		indexk0Fr3 = NoFr3 + 10 + sheark0;
 	}
 	else {
-		indexj0Er  = NoEr;
-		indexj0Fr1 = NoFr1;
-		indexj0Fr2 = NoFr2;
-		indexj0Fr3 = NoFr3;
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
+		sheark0 = 2;
 	}
 	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
 	
+	
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexj0Er  = NoEr  + shearj0;
+	indexj0Fr1 = NoFr1 + shearj0;
+	indexj0Fr2 = NoFr2 + shearj0;
+	indexj0Fr3 = NoFr3 + shearj0;
+	
+	
+	indexi0Er  = NoEr + 2 + sheari;
+	indexi0Fr1 = NoFr1 + 2 + sheari;
+	indexi0Fr2 = NoFr2 + 2 + sheari;
+	indexi0Fr3 = NoFr3 + 2 + sheari;
+	
+	indexiEr  = NoEr + 4 + sheari;
+	indexiFr1 = NoFr1 + 4 + sheari;
+	indexiFr2 = NoFr2 + 4 + sheari;
+	indexiFr3 = NoFr3 + 4 + sheari;
+	
+	indexj1Er  = NoEr + 8 + shearj1;
+	indexj1Fr1 = NoFr1 + 6 + shearj1;
+	indexj1Fr2 = NoFr2 + 6 + shearj1;
+	indexj1Fr3 = NoFr3 + 6 + shearj1;
+	
+	indexk1Er = NoEr + 10 + sheark1;
+	indexk1Fr1 = NoFr1 + 8 + sheark1;
+	indexk1Fr2 = NoFr2 + 8 + sheark1;
+	indexk1Fr3 = NoFr3 + 8 + sheark1;
 #endif
 		
 
@@ -8984,7 +8727,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -9187,7 +8930,7 @@ void ie_j_ks_phy_MPI(const int j)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 		
 		
 		
@@ -9371,7 +9114,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -9381,8 +9124,8 @@ if(rx1 < ID)
 	
 	if(lx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	if(col_shear < colk0)	sheark0 = 2;
@@ -9394,41 +9137,41 @@ if(rx1 < ID)
 	
 	
 	
-	indexk0Er  = NoEr  + MPIcount2 + sheark0;
-	indexk0Fr1 = NoFr1 + MPIcount2F + sheark0;
-	indexk0Fr2 = NoFr2 + MPIcount2F + sheark0;
-	indexk0Fr3 = NoFr3 + MPIcount2F + sheark0;
+	indexk0Er  = NoEr  + MPIcount2z + sheark0;
+	indexk0Fr1 = NoFr1 + MPIcount2Fz + sheark0;
+	indexk0Fr2 = NoFr2 + MPIcount2Fz + sheark0;
+	indexk0Fr3 = NoFr3 + MPIcount2Fz + sheark0;
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexj0Er  = NoEr  + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1; 
-	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr  + shearj0 + MPIcount1z;
+	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1z;
+	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1z; 
+	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1z;
 	
 	
-	indexi0Er  = NoEr + 2 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 2 + sheari + MPIcount1z;
+	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1z;
+	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1z;
+	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1z;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1; 
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1z; 
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1z;
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1z;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1z;
 	
 }
 	
@@ -9576,137 +9319,77 @@ void ie_j_ke_phy_phy(const int j)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
-	
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
- 
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < colj0){
+	if(ox3 == 4){
+		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexi1Er  = NoEr + 2 + count1z;
-		indexi1Fr1 = NoFr1 + 2 + count1z;
-		indexi1Fr2 = NoFr2 + 2 + count1z;
-		indexi1Fr3 = NoFr3 + 2 + count1z;
-		
-		indexj0Er  = NoEr  + 4 + count1z;
-		indexj0Fr1 = NoFr1 + 4 + count1z;
-		indexj0Fr2 = NoFr2 + 4 + count1z;
-		indexj0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexi0Er  = NoEr  + 6 + count1z;
-		indexi0Fr1 = NoFr1 + 6 + count1z;
-		indexi0Fr2 = NoFr2 + 6 + count1z;
-		indexi0Fr3 = NoFr3 + 6 + count1z;
-		
-		indexiEr  = NoEr + 8 + count1z;
-		indexiFr1 = NoFr1 + 8 + count1z;
-		indexiFr2 = NoFr2 + 8 + count1z;
-		indexiFr3 = NoFr3 + 8 + count1z;
-		
-		indexj1Er  = NoEr + 12 + count1z;
-		indexj1Fr1 = NoFr1 + 10 + count1z;
-		indexj1Fr2 = NoFr2 + 10 + count1z;
-		indexj1Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < coli){
-		
-		
-		indexj0Er  = NoEr  + 2 + count1z;
-		indexj0Fr1 = NoFr1 + 2 + count1z;
-		indexj0Fr2 = NoFr2 + 2 + count1z;
-		indexj0Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexi1Er  = NoEr + 4 + count1z;
-		indexi1Fr1 = NoFr1 + 4 + count1z;
-		indexi1Fr2 = NoFr2 + 4 + count1z;
-		indexi1Fr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexi0Er  = NoEr  + 6 + count1z;
-		indexi0Fr1 = NoFr1 + 6 + count1z;
-		indexi0Fr2 = NoFr2 + 6 + count1z;
-		indexi0Fr3 = NoFr3 + 6 + count1z;
-		
-		indexiEr  = NoEr + 8 + count1z;
-		indexiFr1 = NoFr1 + 8 + count1z;
-		indexiFr2 = NoFr2 + 8 + count1z;
-		indexiFr3 = NoFr3 + 8 + count1z;
-		
-		indexj1Er  = NoEr + 12 + count1z;
-		indexj1Fr1 = NoFr1 + 10 + count1z;
-		indexj1Fr2 = NoFr2 + 10 + count1z;
-		indexj1Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < colj1){
-		
-		
-		indexj0Er  = NoEr  + 2 + count1z;
-		indexj0Fr1 = NoFr1 + 2 + count1z;
-		indexj0Fr2 = NoFr2 + 2 + count1z;
-		indexj0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexi0Er  = NoEr  + 4 + count1z;
-		indexi0Fr1 = NoFr1 + 4 + count1z;
-		indexi0Fr2 = NoFr2 + 4 + count1z;
-		indexi0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexiEr  = NoEr + 6 + count1z;
-		indexiFr1 = NoFr1 + 6 + count1z;
-		indexiFr2 = NoFr2 + 6 + count1z;
-		indexiFr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi1Er  = NoEr + 10 + count1z;
-		indexi1Fr1 = NoFr1 + 8 + count1z;
-		indexi1Fr2 = NoFr2 + 8 + count1z;
-		indexi1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj1Er  = NoEr + 12 + count1z;
-		indexj1Fr1 = NoFr1 + 10 + count1z;
-		indexj1Fr2 = NoFr2 + 10 + count1z;
-		indexj1Fr3 = NoFr3 + 10 + count1z;
-		
+		indexk1Er  = NoEr  + sheark1;
+		indexk1Fr1 = NoFr1 + sheark1;
+		indexk1Fr2 = NoFr2 + sheark1;
+		indexk1Fr3 = NoFr3 + sheark1;
 	}
 	else {
-
-		indexj0Er  = NoEr  + 2 + count1z;
-		indexj0Fr1 = NoFr1 + 2 + count1z;
-		indexj0Fr2 = NoFr2 + 2 + count1z;
-		indexj0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexi0Er  = NoEr  + 4 + count1z;
-		indexi0Fr1 = NoFr1 + 4 + count1z;
-		indexi0Fr2 = NoFr2 + 4 + count1z;
-		indexi0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexiEr  = NoEr + 6 + count1z;
-		indexiFr1 = NoFr1 + 6 + count1z;
-		indexiFr2 = NoFr2 + 6 + count1z;
-		indexiFr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexj1Er  = NoEr + 10 + count1z;
-		indexj1Fr1 = NoFr1 + 8 + count1z;
-		indexj1Fr2 = NoFr2 + 8 + count1z;
-		indexj1Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi1Er  = NoEr + 12 + count1z;
-		indexi1Fr1 = NoFr1 + 10 + count1z;
-		indexi1Fr2 = NoFr2 + 10 + count1z;
-		indexi1Fr3 = NoFr3 + 10 + count1z;
-		
+		sheark1 = 2;
 	}
 	
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
+	
+	
+	
+	indexk0Er = NoEr + sheark0 + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + count1z;
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexj0Er  = NoEr  + 2 + shearj0 + count1z;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + count1z;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + count1z;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + count1z;
+	
+	
+	indexi0Er  = NoEr + 4 + sheari + count1z;
+	indexi0Fr1 = NoFr1 + 4 + sheari + count1z;
+	indexi0Fr2 = NoFr2 + 4 + sheari + count1z;
+	indexi0Fr3 = NoFr3 + 4 + sheari + count1z;
+	
+	indexiEr  = NoEr + 6 + sheari + count1z;
+	indexiFr1 = NoFr1 + 6 + sheari + count1z;
+	indexiFr2 = NoFr2 + 6 + sheari + count1z;
+	indexiFr3 = NoFr3 + 6 + sheari + count1z;
+	
+	indexj1Er  = NoEr + 10 + shearj1 + count1z;
+	indexj1Fr1 = NoFr1 + 8 + shearj1 + count1z;
+	indexj1Fr2 = NoFr2 + 8 + shearj1 + count1z;
+	indexj1Fr3 = NoFr3 + 8 + shearj1 + count1z;
 	
 #endif
 
@@ -9850,7 +9533,7 @@ void ie_j_ke_MPI_phy(const int j)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -10053,7 +9736,7 @@ void ie_j_ke_phy_MPI(const int j)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 		
 		
 		
@@ -10243,7 +9926,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -10253,8 +9936,8 @@ if(rx1 < ID)
 	
 	if(rx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -10267,41 +9950,41 @@ if(rx1 < ID)
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1z;
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexj0Er  = NoEr  + 2 + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr  + 2 + shearj0 + MPIcount1z;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1z;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1z;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1z;
 	
 	
-	indexi0Er  = NoEr + 4 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 4 + sheari + MPIcount1z;
+	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
-	indexiEr  = NoEr + 6 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1;
+	indexiEr  = NoEr + 6 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1z;
 	
-	indexj1Er  = NoEr + 10 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 8 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 8 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 8 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 10 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 8 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 8 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 8 + shearj1 + MPIcount1z;
 	
-	indexk1Er = NoEr + sheark1 + MPIcount2;
-	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2F;
-	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2F;
-	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2F;
+	indexk1Er = NoEr + sheark1 + MPIcount2z;
+	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2Fz;
+	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2Fz;
+	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2Fz;
 	
 }		
 	
@@ -10449,145 +10132,73 @@ void is_js_k_phy_phy(const int k)
 	
 	
 #ifdef SHEARING_BOX
-	/* Shearing boundary condition doesn't change the value of k */
-	
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
+	jshearing = jshearing - shearing_grid * Ny;
 	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
+	/* y direction is periodic */
 	
-	if(col_shear < coli){
-		indexi0Er  = NoEr + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
-		
-		indexj0Er  = NoEr  + 12;
-		indexj0Fr1 = NoFr1 + 10;
-		indexj0Fr2 = NoFr2 + 10;
-		indexj0Fr3 = NoFr3 + 10;
-		
-	}
-	else if(col_shear < colj1){
-			
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		
-		indexi0Er  = NoEr + 8;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
-		
-		indexj0Er  = NoEr  + 12;
-		indexj0Fr1 = NoFr1 + 10;
-		indexj0Fr2 = NoFr2 + 10;
-		indexj0Fr3 = NoFr3 + 10;
-	}
-	else if(col_shear < colj0){
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		
-		indexi0Er  = NoEr + 10;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
-		indexj0Er  = NoEr  + 12;
-		indexj0Fr1 = NoFr1 + 10;
-		indexj0Fr2 = NoFr2 + 10;
-		indexj0Fr3 = NoFr3 + 10;
-		
-	}
-	else {
-
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-		
-		
-		indexi0Er  = NoEr + 12;
-		indexi0Fr1 = NoFr1 + 10;
-		indexi0Fr2 = NoFr2 + 10;
-		indexi0Fr3 = NoFr3 + 10;
-		
-	}
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexk0Er = NoEr + sheark0;
+	indexk0Fr1 = NoFr1 + sheark0;
+	indexk0Fr2 = NoFr2 + sheark0;
+	indexk0Fr3 = NoFr3 + sheark0;
+	
+	
+	indexiEr  = NoEr + 2 + sheari;
+	indexiFr1 = NoFr1 + 2 + sheari;
+	indexiFr2 = NoFr2 + 2 + sheari;
+	indexiFr3 = NoFr3 + 2 + sheari;
+	
+	
+	indexi1Er  = NoEr + 6 + sheari;
+	indexi1Fr1 = NoFr1 + 4 + sheari;
+	indexi1Fr2 = NoFr2 + 4 + sheari;
+	indexi1Fr3 = NoFr3 + 4 + sheari;
+	
+	indexj1Er  = NoEr + 8 + shearj1;
+	indexj1Fr1 = NoFr1 + 6 + shearj1;
+	indexj1Fr2 = NoFr2 + 6 + shearj1;
+	indexj1Fr3 = NoFr3 + 6 + shearj1;
+	
+	indexj0Er  = NoEr  + 10 + shearj0;
+	indexj0Fr1 = NoFr1 + 8 + shearj0;
+	indexj0Fr2 = NoFr2 + 8 + shearj0;
+	indexj0Fr3 = NoFr3 + 8 + shearj0;
+	
+	indexk1Er = NoEr + 12 + sheark1;
+	indexk1Fr1 = NoFr1 + 10 + sheark1;
+	indexk1Fr2 = NoFr2 + 10 + sheark1;
+	indexk1Fr3 = NoFr3 + 10 + sheark1;
 	
 	
 #endif
@@ -10727,7 +10338,7 @@ if(lx1 > ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -10921,7 +10532,7 @@ void is_js_k_phy_MPI(const int k)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	
@@ -11104,7 +10715,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -11121,17 +10732,17 @@ if(lx1 > ID)
 	
 	if(lx2 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2y = 12;
+		MPIcount2Fy = 10;
 	}
 	
 	
 	
 	
-	indexk0Er  = NoEr  + MPIcount1 + sheark0;
-	indexk0Fr1 = NoFr1 + MPIcount1 + sheark0;
-	indexk0Fr2 = NoFr2 + MPIcount1 + sheark0;
-	indexk0Fr3 = NoFr3 + MPIcount1 + sheark0;
+	indexk0Er  = NoEr  + MPIcount1y + sheark0;
+	indexk0Fr1 = NoFr1 + MPIcount1y + sheark0;
+	indexk0Fr2 = NoFr2 + MPIcount1y + sheark0;
+	indexk0Fr3 = NoFr3 + MPIcount1y + sheark0;
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
@@ -11139,31 +10750,31 @@ if(lx1 > ID)
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
 	
-	indexj0Er  = NoEr  + MPIcount2 + shearj0;
-	indexj0Fr1 = NoFr1 + MPIcount2F + shearj0;
-	indexj0Fr2 = NoFr2 + MPIcount2F + shearj0;
-	indexj0Fr3 = NoFr3 + MPIcount2F + shearj0;
+	indexj0Er  = NoEr  + MPIcount2y + shearj0;
+	indexj0Fr1 = NoFr1 + MPIcount2Fy + shearj0;
+	indexj0Fr2 = NoFr2 + MPIcount2Fy + shearj0;
+	indexj0Fr3 = NoFr3 + MPIcount2Fy + shearj0;
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1y;
 	
 	
-	indexi1Er  = NoEr + 6 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 6 + sheari + MPIcount1y;
+	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1y;
+	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1y;
+	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1y;
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1y;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1y;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1y;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1y;
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1y;
 	
 }	
 	
@@ -11309,149 +10920,73 @@ void is_je_k_phy_phy(const int k)
 	
 	
 #ifdef SHEARING_BOX
-	/* Shearing boundary condition doesn't change the value of k */
-	
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
-
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
+	jshearing = jshearing - shearing_grid * Ny;
 	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
+	/* y direction is periodic */
 	
-	if(col_shear < colj1){
-		/* Impossible to reach here. But put here for complete */
-		
-		indexi0Er  = NoEr + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		indexj1Er  = NoEr + 4;
-		indexj1Fr1 = NoFr1 + 4;
-		indexj1Fr2 = NoFr2 + 4;
-		indexj1Fr3 = NoFr3 + 4;
-		
-		indexj0Er  = NoEr  + 6;
-		indexj0Fr1 = NoFr1 + 6;
-		indexj0Fr2 = NoFr2 + 6;
-		indexj0Fr3 = NoFr3 + 6;
-		
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-		
-		indexi1Er  = NoEr + 12;
-		indexi1Fr1 = NoFr1 + 10;
-		indexi1Fr2 = NoFr2 + 10;
-		indexi1Fr3 = NoFr3 + 10;
-				
-	}
-	else if(col_shear < colj0){
-		
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-		
-		indexi0Er  = NoEr + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		
-		indexj0Er  = NoEr  + 6;
-		indexj0Fr1 = NoFr1 + 6;
-		indexj0Fr2 = NoFr2 + 6;
-		indexj0Fr3 = NoFr3 + 6;
-		
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-		
-		indexi1Er  = NoEr + 12;
-		indexi1Fr1 = NoFr1 + 10;
-		indexi1Fr2 = NoFr2 + 10;
-		indexi1Fr3 = NoFr3 + 10;
-	}
-	else if(col_shear < coli){
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
 	
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		
-		
-		indexi0Er  = NoEr + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-		
-		indexi1Er  = NoEr + 12;
-		indexi1Fr1 = NoFr1 + 10;
-		indexi1Fr2 = NoFr2 + 10;
-		indexi1Fr3 = NoFr3 + 10;
-		
-	}
-	else {
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
-		
-		indexi0Er  = NoEr + 12;
-		indexi0Fr1 = NoFr1 + 10;
-		indexi0Fr2 = NoFr2 + 10;
-		indexi0Fr3 = NoFr3 + 10;
-		
-	}
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexk0Er = NoEr + sheark0;
+	indexk0Fr1 = NoFr1 + sheark0;
+	indexk0Fr2 = NoFr2 + sheark0;
+	indexk0Fr3 = NoFr3 + sheark0;
+	
+	indexj1Er  = NoEr + 2 + shearj1;
+	indexj1Fr1 = NoFr1 + 2 + shearj1;
+	indexj1Fr2 = NoFr2 + 2 + shearj1;
+	indexj1Fr3 = NoFr3 + 2 + shearj1;
+	
+	indexj0Er  = NoEr  + 4 + shearj0;
+	indexj0Fr1 = NoFr1 + 4 + shearj0;
+	indexj0Fr2 = NoFr2 + 4 + shearj0;
+	indexj0Fr3 = NoFr3 + 4 + shearj0;
+	
+	
+	indexiEr  = NoEr + 6 + sheari;
+	indexiFr1 = NoFr1 + 6 + sheari;
+	indexiFr2 = NoFr2 + 6 + sheari;
+	indexiFr3 = NoFr3 + 6 + sheari;
+	
+	
+	indexi1Er  = NoEr + 10 + sheari;
+	indexi1Fr1 = NoFr1 + 8 + sheari;
+	indexi1Fr2 = NoFr2 + 8 + sheari;
+	indexi1Fr3 = NoFr3 + 8 + sheari;
+	
+	indexk1Er = NoEr + 12 + sheark1;
+	indexk1Fr1 = NoFr1 + 10 + sheark1;
+	indexk1Fr2 = NoFr2 + 10 + sheark1;
+	indexk1Fr3 = NoFr3 + 10 + sheark1;
 	
 	
 #endif
@@ -11593,7 +11128,7 @@ if(lx1 > ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -11790,7 +11325,7 @@ void is_je_k_phy_MPI(const int k)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	
@@ -11962,7 +11497,7 @@ void is_je_k_MPI_MPI(const int k)
 	
 	
 #ifdef SHEARING_BOX
-if(lx1 < ID)	
+if(lx1 > ID)	
 {	
 	jshearing = Ny * jproc + (j - js) - joffset;
 	
@@ -11977,7 +11512,7 @@ if(lx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -11994,17 +11529,17 @@ if(lx1 < ID)
 	
 	if(rx2 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2y = 12;
+		MPIcount2Fy = 10;
 	}
 	
 	
 	
 	
-	indexk0Er  = NoEr  + MPIcount1 + sheark0;
-	indexk0Fr1 = NoFr1 + MPIcount1 + sheark0;
-	indexk0Fr2 = NoFr2 + MPIcount1 + sheark0;
-	indexk0Fr3 = NoFr3 + MPIcount1 + sheark0;
+	indexk0Er  = NoEr  + MPIcount1y + sheark0;
+	indexk0Fr1 = NoFr1 + MPIcount1y + sheark0;
+	indexk0Fr2 = NoFr2 + MPIcount1y + sheark0;
+	indexk0Fr3 = NoFr3 + MPIcount1y + sheark0;
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
@@ -12012,33 +11547,33 @@ if(lx1 < ID)
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
 	
-	indexj0Er  = NoEr + 2 + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr + 2 + shearj0 + MPIcount1y;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1y;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1y;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1y;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
-	
-	
-	indexi1Er  = NoEr + 8 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1y;
 	
 	
+	indexi1Er  = NoEr + 8 + sheari + MPIcount1y;
+	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1y;
+	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1y;
+	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1y;
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
 	
-	indexj1Er  = NoEr  + MPIcount2 + shearj1;
-	indexj1Fr1 = NoFr1 + MPIcount2F + shearj1;
-	indexj1Fr2 = NoFr2 + MPIcount2F + shearj1;
-	indexj1Fr3 = NoFr3 + MPIcount2F + shearj1;
+	
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1y;
+	
+	indexj1Er  = NoEr  + MPIcount2y + shearj1;
+	indexj1Fr1 = NoFr1 + MPIcount2Fy + shearj1;
+	indexj1Fr2 = NoFr2 + MPIcount2Fy + shearj1;
+	indexj1Fr3 = NoFr3 + MPIcount2Fy + shearj1;
 	
 }	
 	
@@ -12182,137 +11717,70 @@ void ie_js_k_phy_phy(const int k)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
+	jshearing = jshearing - shearing_grid * Ny;
 	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < coli){
-		
-		indexi1Er  = NoEr + 2;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
-		indexj0Er  = NoEr  + 12;
-		indexj0Fr1 = NoFr1 + 10;
-		indexj0Fr2 = NoFr2 + 10;
-		indexj0Fr3 = NoFr3 + 10;
-	}
-	else if(col_shear < colj1){
-
-		
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj1Er  = NoEr + 10;
-		indexj1Fr1 = NoFr1 + 8;
-		indexj1Fr2 = NoFr2 + 8;
-		indexj1Fr3 = NoFr3 + 8;
-		
-		indexj0Er  = NoEr  + 12;
-		indexj0Fr1 = NoFr1 + 10;
-		indexj0Fr2 = NoFr2 + 10;
-		indexj0Fr3 = NoFr3 + 10;
-	}
-	else if(col_shear < colj0){
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
-		indexj0Er  = NoEr  + 12;
-		indexj0Fr1 = NoFr1 + 10;
-		indexj0Fr2 = NoFr2 + 10;
-		indexj0Fr3 = NoFr3 + 10;
-		
-	}
-	else {
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-		
-		
-		indexi1Er  = NoEr + 12;
-		indexi1Fr1 = NoFr1 + 10;
-		indexi1Fr2 = NoFr2 + 10;
-		indexi1Fr3 = NoFr3 + 10;
-		
-	}
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
+	
+	
+	indexk0Er = NoEr + sheark0;
+	indexk0Fr1 = NoFr1 + sheark0;
+	indexk0Fr2 = NoFr2 + sheark0;
+	indexk0Fr3 = NoFr3 + sheark0;
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	
+	indexi0Er  = NoEr + 2 + sheari;
+	indexi0Fr1 = NoFr1 + 2 + sheari;
+	indexi0Fr2 = NoFr2 + 2 + sheari;
+	indexi0Fr3 = NoFr3 + 2 + sheari;
+	
+	indexiEr  = NoEr + 4 + sheari;
+	indexiFr1 = NoFr1 + 4 + sheari;
+	indexiFr2 = NoFr2 + 4 + sheari;
+	indexiFr3 = NoFr3 + 4 + sheari;
+	
+	indexj1Er  = NoEr + 8 + shearj1;
+	indexj1Fr1 = NoFr1 + 6 + shearj1;
+	indexj1Fr2 = NoFr2 + 6 + shearj1;
+	indexj1Fr3 = NoFr3 + 6 + shearj1;
+	
+	indexj0Er  = NoEr  + 10 + shearj0;
+	indexj0Fr1 = NoFr1 + 8 + shearj0;
+	indexj0Fr2 = NoFr2 + 8 + shearj0;
+	indexj0Fr3 = NoFr3 + 8 + shearj0;
+	
+	indexk1Er = NoEr + 12 + sheark1;
+	indexk1Fr1 = NoFr1 + 10 + sheark1;
+	indexk1Fr2 = NoFr2 + 10 + sheark1;
+	indexk1Fr3 = NoFr3 + 10 + sheark1;
 	
 	
 #endif
@@ -12455,7 +11923,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -12650,7 +12118,7 @@ void ie_js_k_phy_MPI(const int k)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 		
 		
 		
@@ -12835,7 +12303,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -12845,8 +12313,8 @@ if(rx1 < ID)
 	
 	if(lx2 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2y = 12;
+		MPIcount2Fy = 10;
 	}
 	
 	if(col_shear < colk0)	sheark0 = 2;
@@ -12857,10 +12325,10 @@ if(rx1 < ID)
 	if(col_shear < coli)	sheari1 = 2;
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1y;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1y;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1y;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1y;
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
@@ -12868,30 +12336,30 @@ if(rx1 < ID)
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
 	
-	indexi0Er  = NoEr + 2 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 2 + sheari + MPIcount1y;
+	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1y;
+	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1y;
+	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1y;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1y;
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1; 
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1y;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1y;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1y; 
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1y;
 	
-	indexj0Er  = NoEr  + MPIcount2 + shearj0;
-	indexj0Fr1 = NoFr1 + MPIcount2F + shearj0;
-	indexj0Fr2 = NoFr2 + MPIcount2F + shearj0;
-	indexj0Fr3 = NoFr3 + MPIcount2F + shearj0;
+	indexj0Er  = NoEr  + MPIcount2y + shearj0;
+	indexj0Fr1 = NoFr1 + MPIcount2Fy + shearj0;
+	indexj0Fr2 = NoFr2 + MPIcount2Fy + shearj0;
+	indexj0Fr3 = NoFr3 + MPIcount2Fy + shearj0;
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1y;
 	
 }
 		
@@ -13036,140 +12504,71 @@ void ie_je_k_phy_phy(const int k)
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
 	if(jshearing >= NGy * Ny) {
 		jshearing -= NGy * Ny;
 	}		
-		
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
- 
+	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * shearing_grid * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < colj1){
-		
-		indexi1Er  = NoEr + 2;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexj1Er  = NoEr + 4;
-		indexj1Fr1 = NoFr1 + 4;
-		indexj1Fr2 = NoFr2 + 4;
-		indexj1Fr3 = NoFr3 + 4;
-		
-		indexj0Er  = NoEr  + 6;
-		indexj0Fr1 = NoFr1 + 6;
-		indexj0Fr2 = NoFr2 + 6;
-		indexj0Fr3 = NoFr3 + 6;
-		
-		
-		indexi0Er  = NoEr  + 8;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
-		indexiEr  = NoEr + 10;
-		indexiFr1 = NoFr1 + 10;
-		indexiFr2 = NoFr2 + 10;
-		indexiFr3 = NoFr3 + 10;
-		
-	}
-	else if(col_shear < colj0){
-		
-
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-		indexi1Er  = NoEr + 4;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		indexj0Er  = NoEr  + 6;
-		indexj0Fr1 = NoFr1 + 6;
-		indexj0Fr2 = NoFr2 + 6;
-		indexj0Fr3 = NoFr3 + 6;
-		
-		
-		indexi0Er  = NoEr  + 8;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
-		indexiEr  = NoEr + 10;
-		indexiFr1 = NoFr1 + 10;
-		indexiFr2 = NoFr2 + 10;
-		indexiFr3 = NoFr3 + 10;
-	}
-	else if(col_shear < coli){
-		
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		
-		indexi0Er  = NoEr  + 8;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
-		indexiEr  = NoEr + 10;
-		indexiFr1 = NoFr1 + 10;
-		indexiFr2 = NoFr2 + 10;
-		indexiFr3 = NoFr3 + 10;
-		
-	}
-	else {
-		
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-		
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
 	
-		
-		indexi0Er  = NoEr  + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-		indexi1Er  = NoEr + 12;
-		indexi1Fr1 = NoFr1 + 10;
-		indexi1Fr2 = NoFr2 + 10;
-		indexi1Fr3 = NoFr3 + 10;
-		
-	}
+	
+	indexk0Er = NoEr + sheark0;
+	indexk0Fr1 = NoFr1 + sheark0;
+	indexk0Fr2 = NoFr2 + sheark0;
+	indexk0Fr3 = NoFr3 + sheark0;
+	
+	indexj1Er  = NoEr + 2 + shearj1;
+	indexj1Fr1 = NoFr1 + 2 + shearj1;
+	indexj1Fr2 = NoFr2 + 2 + shearj1;
+	indexj1Fr3 = NoFr3 + 2 + shearj1;
+	
+	indexj0Er  = NoEr  + 4 + shearj0;
+	indexj0Fr1 = NoFr1 + 4 + shearj0;
+	indexj0Fr2 = NoFr2 + 4 + shearj0;
+	indexj0Fr3 = NoFr3 + 4 + shearj0;
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	
+	indexi0Er  = NoEr + 6 + sheari;
+	indexi0Fr1 = NoFr1 + 6 + sheari;
+	indexi0Fr2 = NoFr2 + 6 + sheari;
+	indexi0Fr3 = NoFr3 + 6 + sheari;
+	
+	indexiEr  = NoEr + 8 + sheari;
+	indexiFr1 = NoFr1 + 8 + sheari;
+	indexiFr2 = NoFr2 + 8 + sheari;
+	indexiFr3 = NoFr3 + 8 + sheari;
+	
+	
+	indexk1Er = NoEr + 12 + sheark1;
+	indexk1Fr1 = NoFr1 + 10 + sheark1;
+	indexk1Fr2 = NoFr2 + 10 + sheark1;
+	indexk1Fr3 = NoFr3 + 10 + sheark1;
 	
 	
 #endif
@@ -13257,7 +12656,7 @@ void ie_je_k_MPI_phy(const int k)
 		indexj1Fr1 = NoFr1 + 2 + MPIcount1;
 		indexj1Fr2 = NoFr2 + 2 + MPIcount1;
 		indexj1Fr3 = NoFr3 + 2 + MPIcount1;
-		colj1 = 4 * (k - ks) * Nx * Ny + 4 * (j - js + 1) * Nx + 4 * (i - is) + count_Grids;
+		colj1 = 4 * (k - ks) * Nx * Ny + 4 * (js - js) * Nx + 4 * (i - is) + count_Grids;
 	}/* periodic for z direction */
 	else if(ox2 == 1 || ox2 == 5){
 					
@@ -13316,7 +12715,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * shearing_grid * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -13358,7 +12757,7 @@ if(rx1 < ID)
 		indexi0Fr2 = NoFr2 + 6 + sheari;
 		indexi0Fr3 = NoFr3 + 6 + sheari;
 		
-		indexiEr  = NoEr + 10 + sheari;
+		indexiEr  = NoEr + 8 + sheari;
 		indexiFr1 = NoFr1 + 8 + sheari;
 		indexiFr2 = NoFr2 + 8 + sheari;
 		indexiFr3 = NoFr3 + 8 + sheari;
@@ -13510,7 +12909,7 @@ void ie_je_k_phy_MPI(const int k)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * shearing_grid * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 		
 		
 		
@@ -13700,7 +13099,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	
@@ -13710,8 +13109,8 @@ if(rx1 < ID)
 	
 	if(rx2 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2y = 12;
+		MPIcount2Fy = 10;
 	}
 	
 	
@@ -13723,17 +13122,17 @@ if(rx1 < ID)
 	if(col_shear < coli)	sheari1 = 2;
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1y;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1y;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1y;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1y;
 	
 	
 	
-	indexj0Er  = NoEr  + 2 + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr  + 2 + shearj0 + MPIcount1y;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1y;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1y;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1y;
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
@@ -13741,27 +13140,27 @@ if(rx1 < ID)
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
 	
-	indexi0Er  = NoEr + 4 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 4 + sheari + MPIcount1y;
+	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1y;
+	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1y;
+	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1y;
 	
-	indexiEr  = NoEr + 6 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1;
-	
-	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexiEr  = NoEr + 6 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1y;
 	
 	
-	indexj1Er  = NoEr + MPIcount2 + shearj1;
-	indexj1Fr1 = NoFr1 + MPIcount2F + shearj1;
-	indexj1Fr2 = NoFr2 + MPIcount2F + shearj1;
-	indexj1Fr3 = NoFr3 + MPIcount2F + shearj1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1y;
+	
+	
+	indexj1Er  = NoEr + MPIcount2y + shearj1;
+	indexj1Fr1 = NoFr1 + MPIcount2Fy + shearj1;
+	indexj1Fr2 = NoFr2 + MPIcount2Fy + shearj1;
+	indexj1Fr3 = NoFr3 + MPIcount2Fy + shearj1;
 	
 }
 	
@@ -13942,141 +13341,77 @@ void is_js_ks_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	/* Shearing boundary condition doesn't change the value of k */
-	
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
-
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
 	
-	if(col_shear < coli){
+	if(ix3 == 4){
+		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexi0Er  = NoEr;
-		indexi0Fr1 = NoFr1;
-		indexi0Fr2 = NoFr2;
-		indexi0Fr3 = NoFr3;
-		
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-		
-	}
-	else if(col_shear < colj1){
-		
-		
-		indexiEr  = NoEr;
-		indexiFr1 = NoFr1;
-		indexiFr2 = NoFr2;
-		indexiFr3 = NoFr3;
-		
-		
-		indexi1Er  = NoEr + 4;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexi0Er  = NoEr + 6;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < colj0){
-		
-		indexiEr  = NoEr;
-		indexiFr1 = NoFr1;
-		indexiFr2 = NoFr2;
-		indexiFr3 = NoFr3;
-		
-		
-		indexi1Er  = NoEr + 4;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexj1Er  = NoEr + 6;
-		indexj1Fr1 = NoFr1 + 4;
-		indexj1Fr2 = NoFr2 + 4;
-		indexj1Fr3 = NoFr3 + 4;
-		
-		indexi0Er  = NoEr + 8;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-		
+		indexk0Er  = NoEr  + 12 + sheark0;
+		indexk0Fr1 = NoFr1 + 10 + sheark0;
+		indexk0Fr2 = NoFr2 + 10 + sheark0;
+		indexk0Fr3 = NoFr3 + 10 + sheark0;
 	}
 	else {
-		
-		indexiEr  = NoEr;
-		indexiFr1 = NoFr1;
-		indexiFr2 = NoFr2;
-		indexiFr3 = NoFr3;
-		
-		
-		indexi1Er  = NoEr + 4;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexj1Er  = NoEr + 6;
-		indexj1Fr1 = NoFr1 + 4;
-		indexj1Fr2 = NoFr2 + 4;
-		indexj1Fr3 = NoFr3 + 4;
-		
-		
-		indexj0Er  = NoEr  + 8;
-		indexj0Fr1 = NoFr1 + 6;
-		indexj0Fr2 = NoFr2 + 6;
-		indexj0Fr3 = NoFr3 + 6;
-		
-		indexi0Er  = NoEr + 10;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
+		sheark0 = 2;
 	}
+	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexiEr  = NoEr + sheari;
+	indexiFr1 = NoFr1 + sheari;
+	indexiFr2 = NoFr2 + sheari;
+	indexiFr3 = NoFr3 + sheari;
+	
+	
+	indexi1Er  = NoEr + 4 + sheari;
+	indexi1Fr1 = NoFr1 + 2 + sheari;
+	indexi1Fr2 = NoFr2 + 2 + sheari;
+	indexi1Fr3 = NoFr3 + 2 + sheari;
+	
+	indexj1Er  = NoEr + 6 + shearj1;
+	indexj1Fr1 = NoFr1 + 4 + shearj1;
+	indexj1Fr2 = NoFr2 + 4+ shearj1;
+	indexj1Fr3 = NoFr3 + 4 + shearj1;
+	
+	indexj0Er  = NoEr  + 8 + shearj0;
+	indexj0Fr1 = NoFr1 + 6 + shearj0;
+	indexj0Fr2 = NoFr2 + 6 + shearj0;
+	indexj0Fr3 = NoFr3 + 6 + shearj0;
+	
+	indexk1Er = NoEr + 10 + sheark1;
+	indexk1Fr1 = NoFr1 + 8 + sheark1;
+	indexk1Fr2 = NoFr2 + 8 + sheark1;
+	indexk1Fr3 = NoFr3 + 8 + sheark1;
 	
 	
 #endif
@@ -14247,7 +13582,7 @@ if(lx1 > ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -14482,7 +13817,7 @@ void is_js_ks_phy_MPI_phy()
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 		
 		
 		if(lx2 > ID){
@@ -14704,13 +14039,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -14722,10 +14057,10 @@ if(lx1 > ID)
 	if(ix3 == 4){
 		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1;
-		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1;
-		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1;
-		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1;
+		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1y;
+		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1y;
 	}
 	else {
 		sheark0 = 2;
@@ -14737,10 +14072,10 @@ if(lx1 > ID)
 	if(col_shear < colk1)	sheark1 = 2;
 	if(col_shear < coli)	sheari0 = 2;
 	
-	indexj0Er  = NoEr  + MPIcount2 + shearj0;
-	indexj0Fr1 = NoFr1 + MPIcount2F + shearj0;
-	indexj0Fr2 = NoFr2 + MPIcount2F + shearj0;
-	indexj0Fr3 = NoFr3 + MPIcount2F + shearj0;
+	indexj0Er  = NoEr  + MPIcount2y + shearj0;
+	indexj0Fr1 = NoFr1 + MPIcount2Fy + shearj0;
+	indexj0Fr2 = NoFr2 + MPIcount2Fy + shearj0;
+	indexj0Fr3 = NoFr3 + MPIcount2Fy + shearj0;
 	
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
@@ -14748,28 +14083,28 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + sheari + MPIcount1;
+	indexiEr  = NoEr + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + sheari + MPIcount1y;
 	
 	
-	indexi1Er  = NoEr + 4 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 4 + sheari + MPIcount1y;
+	indexi1Fr1 = NoFr1 + 2 + sheari + MPIcount1y;
+	indexi1Fr2 = NoFr2 + 2 + sheari + MPIcount1y;
+	indexi1Fr3 = NoFr3 + 2 + sheari + MPIcount1y;
 	
-	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 4+ shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1y;
+	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1y;
+	indexj1Fr2 = NoFr2 + 4+ shearj1 + MPIcount1y;
+	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1y;
 	
 	
 	
-	indexk1Er = NoEr + 8 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 8 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1y;
 	
 }	
 #endif
@@ -14939,7 +14274,7 @@ void is_js_ks_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -15155,13 +14490,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -15178,10 +14513,10 @@ if(lx1 > ID)
 	if(col_shear < colk1)	sheark1 = 2;
 	if(col_shear < coli)	sheari0 = 2;
 	
-	indexk0Er  = NoEr  + sheark0 + MPIcount2;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2F;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2F;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2F;
+	indexk0Er  = NoEr  + sheark0 + MPIcount2z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2Fz;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2Fz;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2Fz;
 	
 	
 	
@@ -15190,32 +14525,32 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + sheari + MPIcount1;
+	indexiEr  = NoEr + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + sheari + MPIcount1z;
 	
 	
-	indexi1Er  = NoEr + 4 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 4 + sheari + MPIcount1z;
+	indexi1Fr1 = NoFr1 + 2 + sheari + MPIcount1z;
+	indexi1Fr2 = NoFr2 + 2 + sheari + MPIcount1z;
+	indexi1Fr3 = NoFr3 + 2 + sheari + MPIcount1z;
 	
-	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 4+ shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 4+ shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1z;
 	
-	indexj0Er  = NoEr  + 8 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 6 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 6 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 6 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 8 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 6 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 6 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 6 + MPIcount1z + shearj0;
 	
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1z;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1z;
 	
 }	
 #endif
@@ -15374,7 +14709,7 @@ void is_js_ks_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -15581,7 +14916,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
@@ -15826,137 +15161,78 @@ void ie_js_ks_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
-	if(jshearing >= NGy * Ny) {
+	if(jshearing >= NGy * Ny ) {
 		jshearing -= NGy * Ny;
-	}				
+	}		
 	
-
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < coli){
+	if(ix3 == 4){
+		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexi1Er  = NoEr;
-		indexi1Fr1 = NoFr1;
-		indexi1Fr2 = NoFr2;
-		indexi1Fr3 = NoFr3;
-		
-		
-		indexi0Er  = NoEr  + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < colj1){
-		
-		
-		
-		indexi0Er  = NoEr;
-		indexi0Fr1 = NoFr1;
-		indexi0Fr2 = NoFr2;
-		indexi0Fr3 = NoFr3;
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexi1Er  = NoEr + 6;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		indexj1Er  = NoEr + 8;
-		indexj1Fr1 = NoFr1 + 6;
-		indexj1Fr2 = NoFr2 + 6;
-		indexj1Fr3 = NoFr3 + 6;
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < colj0){
-		
-		indexi0Er  = NoEr;
-		indexi0Fr1 = NoFr1;
-		indexi0Fr2 = NoFr2;
-		indexi0Fr3 = NoFr3;
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexj1Er  = NoEr + 6;
-		indexj1Fr1 = NoFr1 + 4;
-		indexj1Fr2 = NoFr2 + 4;
-		indexj1Fr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		indexj0Er  = NoEr  + 10;
-		indexj0Fr1 = NoFr1 + 8;
-		indexj0Fr2 = NoFr2 + 8;
-		indexj0Fr3 = NoFr3 + 8;
-		
+		indexk0Er  = NoEr  + 12 + sheark0;
+		indexk0Fr1 = NoFr1 + 10 + sheark0;
+		indexk0Fr2 = NoFr2 + 10 + sheark0;
+		indexk0Fr3 = NoFr3 + 10 + sheark0;
 	}
 	else {
-		
-		indexi0Er  = NoEr;
-		indexi0Fr1 = NoFr1;
-		indexi0Fr2 = NoFr2;
-		indexi0Fr3 = NoFr3;
-		
-		indexiEr  = NoEr + 2;
-		indexiFr1 = NoFr1 + 2;
-		indexiFr2 = NoFr2 + 2;
-		indexiFr3 = NoFr3 + 2;
-		
-		
-		indexj1Er  = NoEr + 6;
-		indexj1Fr1 = NoFr1 + 4;
-		indexj1Fr2 = NoFr2 + 4;
-		indexj1Fr3 = NoFr3 + 4;
-		
-		
-		indexj0Er  = NoEr  + 8;
-		indexj0Fr1 = NoFr1 + 6;
-		indexj0Fr2 = NoFr2 + 6;
-		indexj0Fr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
+		sheark0 = 2;
 	}
+	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli0)	sheari0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
+	
+	
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexi0Er  = NoEr + sheari;
+	indexi0Fr1 = NoFr1 + sheari;
+	indexi0Fr2 = NoFr2 + sheari;
+	indexi0Fr3 = NoFr3 + sheari;
+	
+	indexiEr  = NoEr + 2 + sheari;
+	indexiFr1 = NoFr1 + 2 + sheari;
+	indexiFr2 = NoFr2 + 2 + sheari;
+	indexiFr3 = NoFr3 + 2 + sheari;
+	
+	
+	indexj1Er  = NoEr + 6 + shearj1;
+	indexj1Fr1 = NoFr1 + 4 + shearj1;
+	indexj1Fr2 = NoFr2 + 4+ shearj1;
+	indexj1Fr3 = NoFr3 + 4 + shearj1;
+	
+	indexj0Er  = NoEr  + 8 + shearj0;
+	indexj0Fr1 = NoFr1 + 6 + shearj0;
+	indexj0Fr2 = NoFr2 + 6 + shearj0;
+	indexj0Fr3 = NoFr3 + 6 + shearj0;
+	
+	indexk1Er = NoEr + 10 + sheark1;
+	indexk1Fr1 = NoFr1 + 8 + sheark1;
+	indexk1Fr2 = NoFr2 + 8 + sheark1;
+	indexk1Fr3 = NoFr3 + 8 + sheark1;
 	
 
 #endif
@@ -16129,7 +15405,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -16368,7 +15644,7 @@ void ie_js_ks_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx2 > ID){
@@ -16597,13 +15873,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -16615,10 +15891,10 @@ if(rx1 < ID)
 	if(ix3 == 4){
 		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1;
-		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1;
-		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1;
-		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1;
+		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1y;
+		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1y;
 	}
 	else {
 		sheark0 = 2;
@@ -16631,10 +15907,10 @@ if(rx1 < ID)
 	if(col_shear < colk1)	sheark1 = 2;
 	if(col_shear < coli)	sheari1 = 2;
 	
-	indexj0Er  = NoEr  + MPIcount2 + shearj0;
-	indexj0Fr1 = NoFr1 + MPIcount2F + shearj0;
-	indexj0Fr2 = NoFr2 + MPIcount2F + shearj0;
-	indexj0Fr3 = NoFr3 + MPIcount2F + shearj0;
+	indexj0Er  = NoEr  + MPIcount2y + shearj0;
+	indexj0Fr1 = NoFr1 + MPIcount2Fy + shearj0;
+	indexj0Fr2 = NoFr2 + MPIcount2Fy + shearj0;
+	indexj0Fr3 = NoFr3 + MPIcount2Fy + shearj0;
 	
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
@@ -16642,30 +15918,30 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + sheari + MPIcount1;
+	indexi0Er  = NoEr + sheari + MPIcount1y;
+	indexi0Fr1 = NoFr1 + sheari + MPIcount1y;
+	indexi0Fr2 = NoFr2 + sheari + MPIcount1y;
+	indexi0Fr3 = NoFr3 + sheari + MPIcount1y;
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1;
-	
-	
-	
-	
-	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 4 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1y;
 	
 	
 	
-	indexk1Er = NoEr + 8 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1;
+	
+	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1y;
+	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1y;
+	indexj1Fr2 = NoFr2 + 4 + shearj1 + MPIcount1y;
+	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1y;
+	
+	
+	
+	indexk1Er = NoEr + 8 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1y;
 	
 }	
 #endif
@@ -16837,7 +16113,7 @@ void ie_js_ks_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -17062,13 +16338,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -17089,10 +16365,10 @@ if(rx1 < ID)
 	
 	
 	
-	indexk0Er  = NoEr  + sheark0 + MPIcount2;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2F;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2F;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2F;
+	indexk0Er  = NoEr  + sheark0 + MPIcount2z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2Fz;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2Fz;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2Fz;
 	
 	
 	
@@ -17102,36 +16378,36 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + sheari + MPIcount1;
+	indexi0Er  = NoEr + sheari + MPIcount1z;
+	indexi0Fr1 = NoFr1 + sheari + MPIcount1z;
+	indexi0Fr2 = NoFr2 + sheari + MPIcount1z;
+	indexi0Fr3 = NoFr3 + sheari + MPIcount1z;
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1;
-	
-	
-	
-	
-	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 4+ shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1;
-	
-	
-	indexj0Er  = NoEr  + 8 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 6 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 6 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 6 + MPIcount1 + shearj0;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1z;
 	
 	
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	
+	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 4+ shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 4 + shearj1 + MPIcount1z;
+	
+	
+	indexj0Er  = NoEr  + 8 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 6 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 6 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 6 + MPIcount1z + shearj0;
+	
+	
+	
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1z;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1z;
 	
 }	
 #endif
@@ -17295,7 +16571,7 @@ void ie_js_ks_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -17503,7 +16779,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
@@ -17549,15 +16825,15 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + sheari + MPIcount1z + MPIcount1y;
-	indexiFr1 = NoFr1 + sheari + MPIcount1z + MPIcount1y;
-	indexiFr2 = NoFr2 + sheari + MPIcount1z + MPIcount1y;
-	indexiFr3 = NoFr3 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Er  = NoEr + sheari + MPIcount1z + MPIcount1y;
+	indexi0Fr1 = NoFr1 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Fr2 = NoFr2 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Fr3 = NoFr3 + sheari + MPIcount1z + MPIcount1y;
 	
-	indexi0Er  = NoEr + 4 + sheari + MPIcount1y + MPIcount1z;
-	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1y + MPIcount1z;
-	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1y + MPIcount1z;
-	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1y + MPIcount1z;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1y + MPIcount1z;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1y + MPIcount1z;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1y + MPIcount1z;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1y + MPIcount1z;
 	
 	indexj1Er  = NoEr + 6 + shearj1 + MPIcount1y + MPIcount1z;
 	indexj1Fr1 = NoFr1 + 4 + shearj1 + MPIcount1y + MPIcount1z;
@@ -17747,151 +17023,83 @@ void is_je_ks_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	/* Shearing boundary condition doesn't change the value of k */
-	
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
-
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
 	
-	if(col_shear < colj1){
+	if(ix3 == 4){
+		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexi0Er  = NoEr;
-		indexi0Fr1 = NoFr1;
-		indexi0Fr2 = NoFr2;
-		indexi0Fr3 = NoFr3;
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
-		
-	}
-	else if(col_shear < colj0){
-		
-		
-		indexj1Er  = NoEr;
-		indexj1Fr1 = NoFr1;
-		indexj1Fr2 = NoFr2;
-		indexj1Fr3 = NoFr3;
-		
-		
-		indexi0Er  = NoEr + 2;
-		indexi0Fr1 = NoFr1 + 2;
-		indexi0Fr2 = NoFr2 + 2;
-		indexi0Fr3 = NoFr3 + 2;
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-	}
-	else if(col_shear < coli){
-		
-		
-		indexj1Er  = NoEr;
-		indexj1Fr1 = NoFr1;
-		indexj1Fr2 = NoFr2;
-		indexj1Fr3 = NoFr3;
-		
-
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		
-		indexi0Er  = NoEr + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		
-		indexiEr  = NoEr + 6;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
+		indexk0Er  = NoEr  + 12 + sheark0;
+		indexk0Fr1 = NoFr1 + 10 + sheark0;
+		indexk0Fr2 = NoFr2 + 10 + sheark0;
+		indexk0Fr3 = NoFr3 + 10 + sheark0;
 	}
 	else {
-		
-		
-		indexj1Er  = NoEr;
-		indexj1Fr1 = NoFr1;
-		indexj1Fr2 = NoFr2;
-		indexj1Fr3 = NoFr3;
-		
-		
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexiEr  = NoEr + 4;
-		indexiFr1 = NoFr1 + 4;
-		indexiFr2 = NoFr2 + 4;
-		indexiFr3 = NoFr3 + 4;
-		
-		
-		indexi1Er  = NoEr + 8;
-		indexi1Fr1 = NoFr1 + 6;
-		indexi1Fr2 = NoFr2 + 6;
-		indexi1Fr3 = NoFr3 + 6;
-		
-		
-		
-		indexi0Er  = NoEr + 10;
-		indexi0Fr1 = NoFr1 + 8;
-		indexi0Fr2 = NoFr2 + 8;
-		indexi0Fr3 = NoFr3 + 8;
-		
-		
+		sheark0 = 2;
 	}
+	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	indexj1Er  = NoEr + shearj1;
+	indexj1Fr1 = NoFr1 + shearj1;
+	indexj1Fr2 = NoFr2 + shearj1;
+	indexj1Fr3 = NoFr3 + shearj1;
+	
+	
+	indexj0Er  = NoEr  + 2 + shearj0;
+	indexj0Fr1 = NoFr1 + 2 + shearj0;
+	indexj0Fr2 = NoFr2 + 2 + shearj0;
+	indexj0Fr3 = NoFr3 + 2 + shearj0;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexiEr  = NoEr + 4 + sheari;
+	indexiFr1 = NoFr1 + 4 + sheari;
+	indexiFr2 = NoFr2 + 4 + sheari;
+	indexiFr3 = NoFr3 + 4 + sheari;
+	
+	
+	indexi1Er  = NoEr + 8 + sheari;
+	indexi1Fr1 = NoFr1 + 6 + sheari;
+	indexi1Fr2 = NoFr2 + 6 + sheari;
+	indexi1Fr3 = NoFr3 + 6 + sheari;
+	
+	
+	
+	indexk1Er = NoEr + 10 + sheark1;
+	indexk1Fr1 = NoFr1 + 8 + sheark1;
+	indexk1Fr2 = NoFr2 + 8 + sheark1;
+	indexk1Fr3 = NoFr3 + 8 + sheark1;
+	
+	
 	
 	
 #endif
@@ -18065,7 +17273,7 @@ if(lx1 > ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -18307,7 +17515,7 @@ void is_je_ks_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx2 > ID){
@@ -18534,13 +17742,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -18552,10 +17760,10 @@ if(lx1 > ID)
 	if(ix3 == 4){
 		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1;
-		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1;
-		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1;
-		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1;
+		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1y;
+		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1y;
 	}
 	else {
 		sheark0 = 2;
@@ -18569,10 +17777,10 @@ if(lx1 > ID)
 	
 	
 	
-	indexj0Er  = NoEr + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr + shearj0 + MPIcount1y;
+	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1y;
+	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1y;
+	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1y;
 	
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
@@ -18580,28 +17788,28 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1y;
 	
 	
-	indexi1Er  = NoEr + 6 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 6 + sheari + MPIcount1y;
+	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1y;
+	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1y;
+	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1y;
 	
 	
-	indexj1Er  = NoEr  + MPIcount2 + shearj1;
-	indexj1Fr1 = NoFr1 + MPIcount2F + shearj1;
-	indexj1Fr2 = NoFr2 + MPIcount2F + shearj1;
-	indexj1Fr3 = NoFr3 + MPIcount2F + shearj1;
+	indexj1Er  = NoEr  + MPIcount2y + shearj1;
+	indexj1Fr1 = NoFr1 + MPIcount2Fy + shearj1;
+	indexj1Fr2 = NoFr2 + MPIcount2Fy + shearj1;
+	indexj1Fr3 = NoFr3 + MPIcount2Fy + shearj1;
 	
 	
-	indexk1Er = NoEr + 8 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 8 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1y;
 	
 }	
 #endif
@@ -18774,7 +17982,7 @@ void is_je_ks_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -18996,13 +18204,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -19019,23 +18227,23 @@ if(lx1 > ID)
 	if(col_shear < colk1)	sheark1 = 2;
 	if(col_shear < coli)	sheari0 = 2;
 	
-	indexk0Er  = NoEr  + sheark0 + MPIcount2;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2F;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2F;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2F;
+	indexk0Er  = NoEr  + sheark0 + MPIcount2z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2Fz;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2Fz;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2Fz;
 	
 	
-	indexj1Er  = NoEr + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + shearj1 + MPIcount1z;
 	
 	
 	
-	indexj0Er  = NoEr  + 2 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 2 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 2 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 2 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 2 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 2 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 2 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 2 + MPIcount1z + shearj0;
 	
 	
 	
@@ -19044,22 +18252,22 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
 	
-	indexi1Er  = NoEr + 8 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 8 + sheari + MPIcount1z;
+	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1z;
+	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1z;
+	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1z;
 	
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1z;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1z;
 	
 }
 #endif
@@ -19224,7 +18432,7 @@ void is_je_ks_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -19233,7 +18441,7 @@ void is_je_ks_phy_MPI_MPI()
 		MPIcount2Fz = 10;
 	}
 	
-	if(lx2 > ID){
+	if(rx2 > ID){
 		
 		MPIcount2y = 10;
 		MPIcount2Fy = 8;
@@ -19442,7 +18650,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
@@ -19451,7 +18659,7 @@ if(lx1 > ID)
 		MPIcount2Fz = 10;
 	}
 	
-	if(lx2 > ID){
+	if(rx2 > ID){
 		
 		MPIcount2y = 10;
 		MPIcount2Fy = 8;
@@ -19696,141 +18904,80 @@ void ie_je_ks_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
-	if(jshearing >= NGy * Ny) {
+	if(jshearing >= NGy * Ny ) {
 		jshearing -= NGy * Ny;
 	}		
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < colj1){
+	if(ix3 == 4){
+		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexi1Er  = NoEr;
-		indexi1Fr1 = NoFr1;
-		indexi1Fr2 = NoFr2;
-		indexi1Fr3 = NoFr3;
-		
-		indexj1Er  = NoEr + 2;
-		indexj1Fr1 = NoFr1 + 2;
-		indexj1Fr2 = NoFr2 + 2;
-		indexj1Fr3 = NoFr3 + 2;
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		
-		indexi0Er  = NoEr  + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
-	}
-	else if(col_shear < colj0){
-		
-		
-		
-		indexj1Er  = NoEr;
-		indexj1Fr1 = NoFr1;
-		indexj1Fr2 = NoFr2;
-		indexj1Fr3 = NoFr3;
-		
-		indexi1Er  = NoEr + 2;
-		indexi1Fr1 = NoFr1 + 2;
-		indexi1Fr2 = NoFr2 + 2;
-		indexi1Fr3 = NoFr3 + 2;
-		
-		indexj0Er  = NoEr  + 4;
-		indexj0Fr1 = NoFr1 + 4;
-		indexj0Fr2 = NoFr2 + 4;
-		indexj0Fr3 = NoFr3 + 4;
-		
-		
-		indexi0Er  = NoEr  + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-	}
-	else if(col_shear < coli){
-		
-		
-		indexj1Er  = NoEr;
-		indexj1Fr1 = NoFr1;
-		indexj1Fr2 = NoFr2;
-		indexj1Fr3 = NoFr3;
-		
-		
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		indexi1Er  = NoEr + 4;
-		indexi1Fr1 = NoFr1 + 4;
-		indexi1Fr2 = NoFr2 + 4;
-		indexi1Fr3 = NoFr3 + 4;
-		
-		
-		indexi0Er  = NoEr  + 6;
-		indexi0Fr1 = NoFr1 + 6;
-		indexi0Fr2 = NoFr2 + 6;
-		indexi0Fr3 = NoFr3 + 6;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 8;
-		indexiFr2 = NoFr2 + 8;
-		indexiFr3 = NoFr3 + 8;
-		
+		indexk0Er  = NoEr  + 12 + sheark0;
+		indexk0Fr1 = NoFr1 + 10 + sheark0;
+		indexk0Fr2 = NoFr2 + 10 + sheark0;
+		indexk0Fr3 = NoFr3 + 10 + sheark0;
 	}
 	else {
-		
-		
-		indexj1Er  = NoEr;
-		indexj1Fr1 = NoFr1;
-		indexj1Fr2 = NoFr2;
-		indexj1Fr3 = NoFr3;
-		
-		
-		
-		indexj0Er  = NoEr  + 2;
-		indexj0Fr1 = NoFr1 + 2;
-		indexj0Fr2 = NoFr2 + 2;
-		indexj0Fr3 = NoFr3 + 2;
-		
-		
-		indexi0Er  = NoEr  + 4;
-		indexi0Fr1 = NoFr1 + 4;
-		indexi0Fr2 = NoFr2 + 4;
-		indexi0Fr3 = NoFr3 + 4;
-		
-		indexiEr  = NoEr + 8;
-		indexiFr1 = NoFr1 + 6;
-		indexiFr2 = NoFr2 + 6;
-		indexiFr3 = NoFr3 + 6;
-		
-		indexi1Er  = NoEr + 10;
-		indexi1Fr1 = NoFr1 + 8;
-		indexi1Fr2 = NoFr2 + 8;
-		indexi1Fr3 = NoFr3 + 8;
-		
+		sheark0 = 2;
 	}
 	
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli0)	sheari0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
+	
+	
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexj1Er  = NoEr + shearj1;
+	indexj1Fr1 = NoFr1 + shearj1;
+	indexj1Fr2 = NoFr2 + shearj1;
+	indexj1Fr3 = NoFr3 + shearj1;
+	
+	indexj0Er  = NoEr  + 2 + shearj0;
+	indexj0Fr1 = NoFr1 + 2 + shearj0;
+	indexj0Fr2 = NoFr2 + 2 + shearj0;
+	indexj0Fr3 = NoFr3 + 2 + shearj0;
+	
+	indexi0Er  = NoEr + 4 + sheari;
+	indexi0Fr1 = NoFr1 + 4 + sheari;
+	indexi0Fr2 = NoFr2 + 4 + sheari;
+	indexi0Fr3 = NoFr3 + 4 + sheari;
+	
+	indexiEr  = NoEr + 6 + sheari;
+	indexiFr1 = NoFr1 + 6 + sheari;
+	indexiFr2 = NoFr2 + 6 + sheari;
+	indexiFr3 = NoFr3 + 6 + sheari;
+	
+	
+	
+	
+	indexk1Er = NoEr + 10 + sheark1;
+	indexk1Fr1 = NoFr1 + 8 + sheark1;
+	indexk1Fr2 = NoFr2 + 8 + sheark1;
+	indexk1Fr3 = NoFr3 + 8 + sheark1;
 	
 #endif
 	
@@ -20007,7 +19154,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -20247,7 +19394,7 @@ void ie_je_ks_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx2 > ID){
@@ -20479,13 +19626,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -20497,10 +19644,10 @@ if(rx1 < ID)
 	if(ix3 == 4){
 		if(col_shear < colk0)	sheark0 = 2;
 		
-		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1;
-		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1;
-		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1;
-		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1;
+		indexk0Er  = NoEr  + 10 + sheark0 + MPIcount1y;
+		indexk0Fr1 = NoFr1 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr2 = NoFr2 + 8 + sheark0 + MPIcount1y;
+		indexk0Fr3 = NoFr3 + 8 + sheark0 + MPIcount1y;
 	}
 	else {
 		sheark0 = 2;
@@ -20514,16 +19661,16 @@ if(rx1 < ID)
 	if(col_shear < coli)	sheari1 = 2;
 	
 	
-	indexj1Er  = NoEr  + MPIcount2 + shearj1;
-	indexj1Fr1 = NoFr1 + MPIcount2F + shearj1;
-	indexj1Fr2 = NoFr2 + MPIcount2F + shearj1;
-	indexj1Fr3 = NoFr3 + MPIcount2F + shearj1;
+	indexj1Er  = NoEr  + MPIcount2y + shearj1;
+	indexj1Fr1 = NoFr1 + MPIcount2Fy + shearj1;
+	indexj1Fr2 = NoFr2 + MPIcount2Fy + shearj1;
+	indexj1Fr3 = NoFr3 + MPIcount2Fy + shearj1;
 	
 	
-	indexj0Er  = NoEr + shearj0 + MPIcount1;
-	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1;
-	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1;
-	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1;
+	indexj0Er  = NoEr + shearj0 + MPIcount1y;
+	indexj0Fr1 = NoFr1 + shearj0 + MPIcount1y;
+	indexj0Fr2 = NoFr2 + shearj0 + MPIcount1y;
+	indexj0Fr3 = NoFr3 + shearj0 + MPIcount1y;
 	
 	
 	
@@ -20532,21 +19679,21 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + 2 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 2 + sheari + MPIcount1y;
+	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1y;
+	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1y;
+	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1y;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1y;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1y;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1y;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1y;
 	
 	
-	indexk1Er = NoEr + 8 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 8 + sheark1 + MPIcount1y;
+	indexk1Fr1 = NoFr1 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr2 = NoFr2 + 6 + sheark1 + MPIcount1y;
+	indexk1Fr3 = NoFr3 + 6 + sheark1 + MPIcount1y;
 	
 }	
 #endif
@@ -20720,7 +19867,7 @@ void ie_je_ks_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -20944,13 +20091,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -20971,22 +20118,22 @@ if(rx1 < ID)
 	
 	
 	
-	indexk0Er  = NoEr  + sheark0 + MPIcount2;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2F;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2F;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2F;
+	indexk0Er  = NoEr  + sheark0 + MPIcount2z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount2Fz;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount2Fz;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount2Fz;
 	
 	
-	indexj1Er  = NoEr + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + shearj1 + MPIcount1z;
 	
 	
-	indexj0Er  = NoEr  + 2 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 2 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 2 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 2 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 2 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 2 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 2 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 2 + MPIcount1z + shearj0;
 	
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
@@ -20994,21 +20141,21 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + 4 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 4 + sheari + MPIcount1z;
+	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
-	indexiEr  = NoEr + 6 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1;
+	indexiEr  = NoEr + 6 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1z;
 	
 	
-	indexk1Er = NoEr + 10 + sheark1 + MPIcount1;
-	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1;
-	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1;
-	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1;
+	indexk1Er = NoEr + 10 + sheark1 + MPIcount1z;
+	indexk1Fr1 = NoFr1 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr2 = NoFr2 + 8 + sheark1 + MPIcount1z;
+	indexk1Fr3 = NoFr3 + 8 + sheark1 + MPIcount1z;
 	
 }	
 #endif	
@@ -21173,7 +20320,7 @@ void ie_je_ks_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx3 > ID){
@@ -21384,7 +20531,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx3 > ID){
@@ -21435,15 +20582,15 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1z + MPIcount1y;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1z + MPIcount1y;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1z + MPIcount1y;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Er  = NoEr + 2 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1z + MPIcount1y;
+	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1z + MPIcount1y;
 	
-	indexi0Er  = NoEr + 6 + sheari + MPIcount1y + MPIcount1z;
-	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1y + MPIcount1z;
-	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1y + MPIcount1z;
-	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1y + MPIcount1z;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1y + MPIcount1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1y + MPIcount1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1y + MPIcount1z;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1y + MPIcount1z;
 	
 	
 	indexk1Er = NoEr + 8 + sheark1 + MPIcount1y + MPIcount1z;
@@ -21632,146 +20779,77 @@ void is_js_ke_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	/* Shearing boundary condition doesn't change the value of k */
-	
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
-		
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
+	
 	coli0 = col_shear;
 	
-	if(col_shear < coli){
+	if(ox3 == 4){
+		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexi0Er  = NoEr + 2 + count1z;
-		indexi0Fr1 = NoFr1 + 2 + count1z;
-		indexi0Fr2 = NoFr2 + 2 + count1z;
-		indexi0Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexiEr  = NoEr + 4 + count1z;
-		indexiFr1 = NoFr1 + 4 + count1z;
-		indexiFr2 = NoFr2 + 4 + count1z;
-		indexiFr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexi1Er  = NoEr + 8 + count1z;
-		indexi1Fr1 = NoFr1 + 6 + count1z;
-		indexi1Fr2 = NoFr2 + 6 + count1z;
-		indexi1Fr3 = NoFr3 + 6 + count1z;
-		
-		indexj1Er  = NoEr + 10 + count1z;
-		indexj1Fr1 = NoFr1 + 8 + count1z;
-		indexj1Fr2 = NoFr2 + 8 + count1z;
-		indexj1Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexj0Er  = NoEr + 12 + count1z;
-		indexj0Fr1 = NoFr1 + 10 + count1z;
-		indexj0Fr2 = NoFr2 + 10 + count1z;
-		indexj0Fr3 = NoFr3 + 10 + count1z;
-		
-	}
-	else if(col_shear < colj1){
-
-		
-		indexiEr  = NoEr + 2 + count1z;
-		indexiFr1 = NoFr1 + 2 + count1z;
-		indexiFr2 = NoFr2 + 2 + count1z;
-		indexiFr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexi1Er  = NoEr + 6 + count1z;
-		indexi1Fr1 = NoFr1 + 4 + count1z;
-		indexi1Fr2 = NoFr2 + 4 + count1z;
-		indexi1Fr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexi0Er  = NoEr + 8 + count1z;
-		indexi0Fr1 = NoFr1 + 6 + count1z;
-		indexi0Fr2 = NoFr2 + 6 + count1z;
-		indexi0Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexj1Er  = NoEr + 10 + count1z;
-		indexj1Fr1 = NoFr1 + 8 + count1z;
-		indexj1Fr2 = NoFr2 + 8 + count1z;
-		indexj1Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexj0Er  = NoEr + 12 + count1z;
-		indexj0Fr1 = NoFr1 + 10 + count1z;
-		indexj0Fr2 = NoFr2 + 10 + count1z;
-		indexj0Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < colj0){
-		
-		indexiEr  = NoEr + 2 + count1z;
-		indexiFr1 = NoFr1 + 2 + count1z;
-		indexiFr2 = NoFr2 + 2 + count1z;
-		indexiFr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexi1Er  = NoEr + 6 + count1z;
-		indexi1Fr1 = NoFr1 + 4 + count1z;
-		indexi1Fr2 = NoFr2 + 4 + count1z;
-		indexi1Fr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexj1Er  = NoEr + 8 + count1z;
-		indexj1Fr1 = NoFr1 + 6 + count1z;
-		indexj1Fr2 = NoFr2 + 6 + count1z;
-		indexj1Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi0Er  = NoEr + 10 + count1z;
-		indexi0Fr1 = NoFr1 + 8 + count1z;
-		indexi0Fr2 = NoFr2 + 8 + count1z;
-		indexi0Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexj0Er  = NoEr + 12 + count1z;
-		indexj0Fr1 = NoFr1 + 10 + count1z;
-		indexj0Fr2 = NoFr2 + 10 + count1z;
-		indexj0Fr3 = NoFr3 + 10 + count1z;
-		
+		indexk1Er  = NoEr  + sheark1;
+		indexk1Fr1 = NoFr1 + sheark1;
+		indexk1Fr2 = NoFr2 + sheark1;
+		indexk1Fr3 = NoFr3 + sheark1;
 	}
 	else {
-		
-		indexiEr  = NoEr + 2 + count1z;
-		indexiFr1 = NoFr1 + 2 + count1z;
-		indexiFr2 = NoFr2 + 2 + count1z;
-		indexiFr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexi1Er  = NoEr + 6 + count1z;
-		indexi1Fr1 = NoFr1 + 4 + count1z;
-		indexi1Fr2 = NoFr2 + 4 + count1z;
-		indexi1Fr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexj1Er  = NoEr + 8 + count1z;
-		indexj1Fr1 = NoFr1 + 6 + count1z;
-		indexj1Fr2 = NoFr2 + 6 + count1z;
-		indexj1Fr3 = NoFr3 + 6 + count1z;
-		
-		indexj0Er  = NoEr + 10 + count1z;
-		indexj0Fr1 = NoFr1 + 8 + count1z;
-		indexj0Fr2 = NoFr2 + 8 + count1z;
-		indexj0Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi0Er  = NoEr + 12 + count1z;
-		indexi0Fr1 = NoFr1 + 10 + count1z;
-		indexi0Fr2 = NoFr2 + 10 + count1z;
-		indexi0Fr3 = NoFr3 + 10 + count1z;
-		
+		sheark1 = 2;
 	}
 	
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexk0Er = NoEr + sheark0 + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + count1z;
+	
+	indexiEr  = NoEr + 2 + sheari + count1z;
+	indexiFr1 = NoFr1 + 2 + sheari + count1z;
+	indexiFr2 = NoFr2 + 2 + sheari + count1z;
+	indexiFr3 = NoFr3 + 2 + sheari + count1z;
+	
+	
+	indexi1Er  = NoEr + 6 + sheari + count1z;
+	indexi1Fr1 = NoFr1 + 4 + sheari + count1z;
+	indexi1Fr2 = NoFr2 + 4 + sheari + count1z;
+	indexi1Fr3 = NoFr3 + 4 + sheari + count1z;
+	
+	indexj1Er  = NoEr + 8 + shearj1 + count1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + count1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + count1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + count1z;
+	
+	indexj0Er  = NoEr  + 10 + shearj0 + count1z;
+	indexj0Fr1 = NoFr1 + 8 + shearj0 + count1z;
+	indexj0Fr2 = NoFr2 + 8 + shearj0 + count1z;
+	indexj0Fr3 = NoFr3 + 8 + shearj0 + count1z;
 	
 #endif
 
@@ -21943,7 +21021,7 @@ if(lx1 > ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -22177,7 +21255,7 @@ void is_js_ke_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx2 > ID){
@@ -22409,13 +21487,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -22427,10 +21505,10 @@ if(lx1 > ID)
 	if(ox3 == 4){
 		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexk1Er  = NoEr  + sheark1 + MPIcount1;
-		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1;
-		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1;
-		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1;
+		indexk1Er  = NoEr  + sheark1 + MPIcount1y;
+		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1y;
+		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1y;
+		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1y;
 	}
 	else {
 		sheark1 = 2;
@@ -22445,16 +21523,16 @@ if(lx1 > ID)
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1 + count1z;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1 + count1z;
+	indexk0Er = NoEr + sheark0 + MPIcount1y + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1y + count1z;
 	
 	
-	indexj0Er  = NoEr  + MPIcount2 + shearj0;
-	indexj0Fr1 = NoFr1 + MPIcount2F + shearj0;
-	indexj0Fr2 = NoFr2 + MPIcount2F + shearj0;
-	indexj0Fr3 = NoFr3 + MPIcount2F + shearj0;
+	indexj0Er  = NoEr  + MPIcount2y + shearj0;
+	indexj0Fr1 = NoFr1 + MPIcount2Fy + shearj0;
+	indexj0Fr2 = NoFr2 + MPIcount2Fy + shearj0;
+	indexj0Fr3 = NoFr3 + MPIcount2Fy + shearj0;
 	
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
@@ -22462,21 +21540,21 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1 + count1z;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1 + count1z;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1 + count1z;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1 + count1z;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1y + count1z;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1y + count1z;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1y + count1z;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1y + count1z;
 	
 	
-	indexi1Er  = NoEr + 6 + sheari + MPIcount1 + count1z;
-	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1 + count1z;
-	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1 + count1z;
-	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1 + count1z;
+	indexi1Er  = NoEr + 6 + sheari + MPIcount1y + count1z;
+	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1y + count1z;
+	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1y + count1z;
+	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1y + count1z;
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1 + count1z;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1 + count1z;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1 + count1z;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1 + count1z;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1y + count1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1y + count1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1y + count1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1y + count1z;
 	
 }
 	
@@ -22650,7 +21728,7 @@ void is_js_ke_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -22874,13 +21952,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -22900,17 +21978,17 @@ if(lx1 > ID)
 	
 	
 	
-	indexk1Er  = NoEr  + sheark1 + MPIcount2;
-	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2F;
-	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2F;
-	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2F;
+	indexk1Er  = NoEr  + sheark1 + MPIcount2z;
+	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2Fz;
+	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2Fz;
+	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2Fz;
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1z;
 	
 	
 	
@@ -22919,26 +21997,26 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 2 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexiEr  = NoEr + 2 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 2 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 2 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 2 + sheari + MPIcount1z;
 	
 	
-	indexi1Er  = NoEr + 6 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 6 + sheari + MPIcount1z;
+	indexi1Fr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexi1Fr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexi1Fr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1z;
 	
-	indexj0Er  = NoEr  + 10 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 8 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 8 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 8 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 10 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 8 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 8 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 8 + MPIcount1z + shearj0;
 	
 	
 }	
@@ -23105,7 +22183,7 @@ void is_js_ke_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -23315,7 +22393,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
@@ -23567,134 +22645,80 @@ void ie_js_ke_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
-	if(jshearing >= NGy * Ny) {
+	if(jshearing >= NGy * Ny ) {
 		jshearing -= NGy * Ny;
 	}		
-
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
-
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
+	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < coli){
+	if(ox3 == 4){
+		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexi1Er  = NoEr + 2 + count1z;
-		indexi1Fr1 = NoFr1 + 2 + count1z;
-		indexi1Fr2 = NoFr2 + 2 + count1z;
-		indexi1Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexi0Er  = NoEr  + 4 + count1z;
-		indexi0Fr1 = NoFr1 + 4 + count1z;
-		indexi0Fr2 = NoFr2 + 4 + count1z;
-		indexi0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexiEr  = NoEr + 6 + count1z;
-		indexiFr1 = NoFr1 + 6 + count1z;
-		indexiFr2 = NoFr2 + 6 + count1z;
-		indexiFr3 = NoFr3 + 6 + count1z;
-		
-		indexj1Er  = NoEr + 10 + count1z;
-		indexj1Fr1 = NoFr1 + 8 + count1z;
-		indexj1Fr2 = NoFr2 + 8 + count1z;
-		indexj1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj0Er  = NoEr  + 12 + count1z;
-		indexj0Fr1 = NoFr1 + 10 + count1z;
-		indexj0Fr2 = NoFr2 + 10 + count1z;
-		indexj0Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < colj1){
-				
-		
-		indexi0Er  = NoEr  + 2 + count1z;
-		indexi0Fr1 = NoFr1 + 2 + count1z;
-		indexi0Fr2 = NoFr2 + 2 + count1z;
-		indexi0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexiEr  = NoEr + 4 + count1z;
-		indexiFr1 = NoFr1 + 4 + count1z;
-		indexiFr2 = NoFr2 + 4 + count1z;
-		indexiFr3 = NoFr3 + 4 + count1z;
-		
-		
-		indexi1Er  = NoEr + 8 + count1z;
-		indexi1Fr1 = NoFr1 + 6 + count1z;
-		indexi1Fr2 = NoFr2 + 6 + count1z;
-		indexi1Fr3 = NoFr3 + 6 + count1z;
-		
-		indexj1Er  = NoEr + 10 + count1z;
-		indexj1Fr1 = NoFr1 + 8 + count1z;
-		indexj1Fr2 = NoFr2 + 8 + count1z;
-		indexj1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj0Er  = NoEr  + 12 + count1z;
-		indexj0Fr1 = NoFr1 + 10 + count1z;
-		indexj0Fr2 = NoFr2 + 10 + count1z;
-		indexj0Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < colj0){
-		
-		indexi0Er  = NoEr  + 2 + count1z;
-		indexi0Fr1 = NoFr1 + 2 + count1z;
-		indexi0Fr2 = NoFr2 + 2 + count1z;
-		indexi0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexiEr  = NoEr + 4 + count1z;
-		indexiFr1 = NoFr1 + 4 + count1z;
-		indexiFr2 = NoFr2 + 4 + count1z;
-		indexiFr3 = NoFr3 + 4 + count1z;
-		
-		indexj1Er  = NoEr + 8 + count1z;
-		indexj1Fr1 = NoFr1 + 6 + count1z;
-		indexj1Fr2 = NoFr2 + 6 + count1z;
-		indexj1Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi1Er  = NoEr + 10 + count1z;
-		indexi1Fr1 = NoFr1 + 8 + count1z;
-		indexi1Fr2 = NoFr2 + 8 + count1z;
-		indexi1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexj0Er  = NoEr  + 12 + count1z;
-		indexj0Fr1 = NoFr1 + 10 + count1z;
-		indexj0Fr2 = NoFr2 + 10 + count1z;
-		indexj0Fr3 = NoFr3 + 10 + count1z;
-		
+		indexk1Er  = NoEr  + sheark1;
+		indexk1Fr1 = NoFr1 + sheark1;
+		indexk1Fr2 = NoFr2 + sheark1;
+		indexk1Fr3 = NoFr3 + sheark1;
 	}
 	else {
-		
-		indexi0Er  = NoEr  + 2 + count1z;
-		indexi0Fr1 = NoFr1 + 2 + count1z;
-		indexi0Fr2 = NoFr2 + 2 + count1z;
-		indexi0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexiEr  = NoEr + 4 + count1z;
-		indexiFr1 = NoFr1 + 4 + count1z;
-		indexiFr2 = NoFr2 + 4 + count1z;
-		indexiFr3 = NoFr3 + 4 + count1z;
-		
-		indexj1Er  = NoEr + 8 + count1z;
-		indexj1Fr1 = NoFr1 + 6 + count1z;
-		indexj1Fr2 = NoFr2 + 6 + count1z;
-		indexj1Fr3 = NoFr3 + 6 + count1z;
-		
-		indexj0Er  = NoEr  + 10 + count1z;
-		indexj0Fr1 = NoFr1 + 8 + count1z;
-		indexj0Fr2 = NoFr2 + 8 + count1z;
-		indexj0Fr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi1Er  = NoEr + 12 + count1z;
-		indexi1Fr1 = NoFr1 + 10 + count1z;
-		indexi1Fr2 = NoFr2 + 10 + count1z;
-		indexi1Fr3 = NoFr3 + 10 + count1z;
-		
+		sheark1 = 2;
 	}
 	
+	
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli0)	sheari0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < coli)	sheari1 = 2;
+	
+	
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	
+	indexk0Er = NoEr + sheark0 + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + count1z;
+	
+	indexi0Er  = NoEr + 2 + sheari + count1z;
+	indexi0Fr1 = NoFr1 + 2 + sheari + count1z;
+	indexi0Fr2 = NoFr2 + 2 + sheari + count1z;
+	indexi0Fr3 = NoFr3 + 2 + sheari + count1z;
+	
+	indexiEr  = NoEr + 4 + sheari + count1z;
+	indexiFr1 = NoFr1 + 4 + sheari + count1z;
+	indexiFr2 = NoFr2 + 4 + sheari + count1z;
+	indexiFr3 = NoFr3 + 4 + sheari + count1z;
+	
+	
+	indexj1Er  = NoEr + 8 + shearj1 + count1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + count1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + count1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + count1z;
+	
+	indexj0Er  = NoEr  + 10 + shearj0 + count1z;
+	indexj0Fr1 = NoFr1 + 8 + shearj0 + count1z;
+	indexj0Fr2 = NoFr2 + 8 + shearj0 + count1z;
+	indexj0Fr3 = NoFr3 + 8 + shearj0 + count1z;	
 	
 #endif
 	
@@ -23871,7 +22895,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -23891,11 +22915,12 @@ if(rx1 < ID)
 			sheark1 = 2;
 		}
 		
+	
+		if(col_shear < colk0)	sheark0 = 2;
 		if(col_shear < colj0)	shearj0 = 2;
 		if(col_shear < coli0)	sheari0 = 2;
 		if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
 		if(col_shear < colj1)	shearj1 = 2;
-		if(col_shear < colk1)	sheark1 = 2;
 		if(col_shear < coli)	sheari1 = 2;
 		
 		
@@ -24111,7 +23136,7 @@ void ie_js_ke_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(lx2 > ID){
@@ -24138,11 +23163,11 @@ void ie_js_ke_phy_MPI_phy()
 		sheark1 = 2;
 	}
 	
+	if(col_shear < colk0)	sheark0 = 2;
 	if(col_shear < colj0)	shearj0 = 2;
 	if(col_shear < coli0)	sheari0 = 2;
 	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
-	if(col_shear < colj1)	shearj1 = 2;
-	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < colj1)	shearj1 = 2;	
 	if(col_shear < coli)	sheari1 = 2;
 	
 	indexj0Er  = NoEr  + MPIcount2 + shearj0;
@@ -24344,13 +23369,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(lx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -24362,33 +23387,33 @@ if(rx1 < ID)
 	if(ox3 == 4){
 		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexk1Er  = NoEr  + sheark1 + MPIcount1;
-		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1;
-		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1;
-		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1;
+		indexk1Er  = NoEr  + sheark1 + MPIcount1y;
+		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1y;
+		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1y;
+		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1y;
 	}
 	else {
 		sheark1 = 2;
 	}
 	
+	if(col_shear < colk0)	sheark0 = 2;
 	if(col_shear < colj0)	shearj0 = 2;
 	if(col_shear < coli0)	sheari0 = 2;
 	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
 	if(col_shear < colj1)	shearj1 = 2;
-	if(col_shear < colk1)	sheark1 = 2;
 	if(col_shear < coli)	sheari1 = 2;
 	
-	indexj0Er  = NoEr  + MPIcount2 + shearj0 + count1z;
-	indexj0Fr1 = NoFr1 + MPIcount2F + shearj0 + count1z;
-	indexj0Fr2 = NoFr2 + MPIcount2F + shearj0 + count1z;
-	indexj0Fr3 = NoFr3 + MPIcount2F + shearj0 + count1z;
+	indexj0Er  = NoEr  + MPIcount2y + shearj0;
+	indexj0Fr1 = NoFr1 + MPIcount2Fy + shearj0;
+	indexj0Fr2 = NoFr2 + MPIcount2Fy + shearj0;
+	indexj0Fr3 = NoFr3 + MPIcount2Fy + shearj0;
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1 + count1z;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1 + count1z;
+	indexk0Er = NoEr + sheark0 + MPIcount1y + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1y + count1z;
 	
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
@@ -24396,23 +23421,23 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + 2 + sheari + MPIcount1 + count1z;
-	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1 + count1z;
-	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1 + count1z;
-	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1 + count1z;
+	indexi0Er  = NoEr + 2 + sheari + MPIcount1y + count1z;
+	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1y + count1z;
+	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1y + count1z;
+	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1y + count1z;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1 + count1z;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1 + count1z;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1 + count1z;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1 + count1z;
-	
-	
+	indexiEr  = NoEr + 4 + sheari + MPIcount1y + count1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1y + count1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1y + count1z;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1y + count1z;
 	
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1 + count1z;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1 + count1z;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1 + count1z;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1 + count1z;
+	
+	
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1y + count1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1y + count1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1y + count1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1y + count1z;
 	
 	
 }	
@@ -24592,7 +23617,7 @@ void ie_js_ke_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -24820,13 +23845,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -24846,16 +23871,16 @@ if(rx1 < ID)
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1z;
 	
 	
-	indexk1Er  = NoEr  + sheark1 + MPIcount2;
-	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2F;
-	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2F;
-	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2F;
+	indexk1Er  = NoEr  + sheark1 + MPIcount2z;
+	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2Fz;
+	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2Fz;
+	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2Fz;
 	
 	
 	
@@ -24865,29 +23890,29 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + 2 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 2 + sheari + MPIcount1z;
+	indexi0Fr1 = NoFr1 + 2 + sheari + MPIcount1z;
+	indexi0Fr2 = NoFr2 + 2 + sheari + MPIcount1z;
+	indexi0Fr3 = NoFr3 + 2 + sheari + MPIcount1z;
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
-	
-	
+	indexiEr  = NoEr + 4 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1z;
 	
 	
-	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1;
 	
 	
-	indexj0Er  = NoEr  + 10 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 8 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 8 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 8 + MPIcount1 + shearj0;
+	indexj1Er  = NoEr + 8 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 6 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 6 + shearj1 + MPIcount1z;
+	
+	
+	indexj0Er  = NoEr  + 10 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 8 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 8 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 8 + MPIcount1z + shearj0;
 	
 }	
 	
@@ -25054,7 +24079,7 @@ void ie_js_ke_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -25269,7 +24294,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
@@ -25521,144 +24546,78 @@ void is_je_ke_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	/* Shearing boundary condition doesn't change the value of k */
-	
-	jshearing = (j - js) - joffset;
+	jshearing = Ny * jproc + (j - js) - joffset;
 	
 	if(jshearing < 0) {
 		jshearing += NGy * Ny;
 	}		
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids;
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli0 = col_shear;
 	
-	if(col_shear < colj1){
+	if(ox3 == 4){
+		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexi0Er  = NoEr + 2 + count1z;
-		indexi0Fr1 = NoFr1 + 2 + count1z;
-		indexi0Fr2 = NoFr2 + 2 + count1z;
-		indexi0Fr3 = NoFr3 + 2 + count1z;
-		
-		indexj1Er  = NoEr + 4 + count1z;
-		indexj1Fr1 = NoFr1 + 4 + count1z;
-		indexj1Fr2 = NoFr2 + 4 + count1z;
-		indexj1Fr3 = NoFr3 + 4 + count1z;
-		
-		indexj0Er  = NoEr + 6 + count1z;
-		indexj0Fr1 = NoFr1 + 6 + count1z;
-		indexj0Fr2 = NoFr2 + 6 + count1z;
-		indexj0Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexiEr  = NoEr + 8 + count1z;
-		indexiFr1 = NoFr1 + 8 + count1z;
-		indexiFr2 = NoFr2 + 8 + count1z;
-		indexiFr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi1Er  = NoEr + 12 + count1z;
-		indexi1Fr1 = NoFr1 + 10 + count1z;
-		indexi1Fr2 = NoFr2 + 10 + count1z;
-		indexi1Fr3 = NoFr3 + 10 + count1z;
-		
-		
-	}
-	else if(col_shear < colj0){
-		
-
-		
-		indexj1Er  = NoEr + 2 + count1z;
-		indexj1Fr1 = NoFr1 + 2 + count1z;
-		indexj1Fr2 = NoFr2 + 2 + count1z;
-		indexj1Fr3 = NoFr3 + 2 + count1z;
-		
-		indexi0Er  = NoEr + 4 + count1z;
-		indexi0Fr1 = NoFr1 + 4 + count1z;
-		indexi0Fr2 = NoFr2 + 4 + count1z;
-		indexi0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexj0Er  = NoEr + 6 + count1z;
-		indexj0Fr1 = NoFr1 + 6 + count1z;
-		indexj0Fr2 = NoFr2 + 6 + count1z;
-		indexj0Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexiEr  = NoEr + 8 + count1z;
-		indexiFr1 = NoFr1 + 8 + count1z;
-		indexiFr2 = NoFr2 + 8 + count1z;
-		indexiFr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi1Er  = NoEr + 12 + count1z;
-		indexi1Fr1 = NoFr1 + 10 + count1z;
-		indexi1Fr2 = NoFr2 + 10 + count1z;
-		indexi1Fr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < coli){
-		
-
-		indexj1Er  = NoEr + 2 + count1z;
-		indexj1Fr1 = NoFr1 + 2 + count1z;
-		indexj1Fr2 = NoFr2 + 2 + count1z;
-		indexj1Fr3 = NoFr3 + 2 + count1z;
-	
-		
-		indexj0Er  = NoEr + 4 + count1z;
-		indexj0Fr1 = NoFr1 + 4 + count1z;
-		indexj0Fr2 = NoFr2 + 4 + count1z;
-		indexj0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexi0Er  = NoEr + 6 + count1z;
-		indexi0Fr1 = NoFr1 + 6 + count1z;
-		indexi0Fr2 = NoFr2 + 6 + count1z;
-		indexi0Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexiEr  = NoEr + 8 + count1z;
-		indexiFr1 = NoFr1 + 8 + count1z;
-		indexiFr2 = NoFr2 + 8 + count1z;
-		indexiFr3 = NoFr3 + 8 + count1z;
-		
-		
-		indexi1Er  = NoEr + 12 + count1z;
-		indexi1Fr1 = NoFr1 + 10 + count1z;
-		indexi1Fr2 = NoFr2 + 10 + count1z;
-		indexi1Fr3 = NoFr3 + 10 + count1z;
-		
+		indexk1Er  = NoEr  + sheark1;
+		indexk1Fr1 = NoFr1 + sheark1;
+		indexk1Fr2 = NoFr2 + sheark1;
+		indexk1Fr3 = NoFr3 + sheark1;
 	}
 	else {
-		
-		indexj1Er  = NoEr + 2 + count1z;
-		indexj1Fr1 = NoFr1 + 2 + count1z;
-		indexj1Fr2 = NoFr2 + 2 + count1z;
-		indexj1Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexj0Er  = NoEr + 4 + count1z;
-		indexj0Fr1 = NoFr1 + 4 + count1z;
-		indexj0Fr2 = NoFr2 + 4 + count1z;
-		indexj0Fr3 = NoFr3 + 4 + count1z;
-		
-		indexiEr  = NoEr + 6 + count1z;
-		indexiFr1 = NoFr1 + 6 + count1z;
-		indexiFr2 = NoFr2 + 6 + count1z;
-		indexiFr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi1Er  = NoEr + 10 + count1z;
-		indexi1Fr1 = NoFr1 + 8 + count1z;
-		indexi1Fr2 = NoFr2 + 8 + count1z;
-		indexi1Fr3 = NoFr3 + 8 + count1z;
-		
-		indexi0Er  = NoEr + 12 + count1z;
-		indexi0Fr1 = NoFr1 + 10 + count1z;
-		indexi0Fr2 = NoFr2 + 10 + count1z;
-		indexi0Fr3 = NoFr3 + 10 + count1z;
-		
-		
+		sheark1 = 2;
 	}
+	
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari1 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;
+	if(col_shear < coli)	sheari0 = 2;
+	
+	
+	
+	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	indexk0Er = NoEr + sheark0 + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + count1z;
+	
+	
+	indexj1Er  = NoEr + 2 + shearj1 + count1z;
+	indexj1Fr1 = NoFr1 + 2 + shearj1 + count1z;
+	indexj1Fr2 = NoFr2 + 2 + shearj1 + count1z;
+	indexj1Fr3 = NoFr3 + 2 + shearj1 + count1z;
+	
+	indexj0Er  = NoEr  + 4 + shearj0 + count1z;
+	indexj0Fr1 = NoFr1 + 4 + shearj0 + count1z;
+	indexj0Fr2 = NoFr2 + 4 + shearj0 + count1z;
+	indexj0Fr3 = NoFr3 + 4 + shearj0 + count1z;
+	
+	indexiEr  = NoEr + 6 + sheari + count1z;
+	indexiFr1 = NoFr1 + 6 + sheari + count1z;
+	indexiFr2 = NoFr2 + 6 + sheari + count1z;
+	indexiFr3 = NoFr3 + 6 + sheari + count1z;
+	
+	
+	indexi1Er  = NoEr + 10 + sheari + count1z;
+	indexi1Fr1 = NoFr1 + 8 + sheari + count1z;
+	indexi1Fr2 = NoFr2 + 8 + sheari + count1z;
+	indexi1Fr3 = NoFr3 + 8 + sheari + count1z;
 	
 	
 #endif
@@ -25835,7 +24794,7 @@ if(lx1 > ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -26072,7 +25031,7 @@ void is_je_ke_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx2 > ID){
@@ -26303,13 +25262,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -26321,10 +25280,10 @@ if(lx1 > ID)
 	if(ox3 == 4){
 		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexk1Er  = NoEr  + sheark1 + MPIcount1;
-		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1;
-		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1;
-		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1;
+		indexk1Er  = NoEr  + sheark1 + MPIcount1y;
+		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1y;
+		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1y;
+		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1y;
 	}
 	else {
 		sheark1 = 2;
@@ -26339,15 +25298,15 @@ if(lx1 > ID)
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1 + count1z;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1 + count1z;
+	indexk0Er = NoEr + sheark0 + MPIcount1y + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1y + count1z;
 	
-	indexj0Er  = NoEr + 2 + shearj0 + MPIcount1 + count1z;
-	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1 + count1z;
-	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1 + count1z;
-	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1 + count1z;
+	indexj0Er  = NoEr + 2 + shearj0 + MPIcount1y + count1z;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1y + count1z;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1y + count1z;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1y + count1z;
 	
 	
 	indexi0Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari0 + 2 * sheari + shearj1 + sheark1);
@@ -26355,22 +25314,22 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1 + count1z;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1 + count1z;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1 + count1z;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1 + count1z;
+	indexiEr  = NoEr + 4 + sheari + MPIcount1y + count1z;
+	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1y + count1z;
+	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1y + count1z;
+	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1y + count1z;
 	
 	
-	indexi1Er  = NoEr + 8 + sheari + MPIcount1 + count1z;
-	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1 + count1z;
-	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1 + count1z;
-	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1 + count1z;
+	indexi1Er  = NoEr + 8 + sheari + MPIcount1y + count1z;
+	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1y + count1z;
+	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1y + count1z;
+	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1y + count1z;
 	
 	
-	indexj1Er  = NoEr  + MPIcount2 + shearj1;
-	indexj1Fr1 = NoFr1 + MPIcount2F + shearj1;
-	indexj1Fr2 = NoFr2 + MPIcount2F + shearj1;
-	indexj1Fr3 = NoFr3 + MPIcount2F + shearj1;
+	indexj1Er  = NoEr  + MPIcount2y + shearj1;
+	indexj1Fr1 = NoFr1 + MPIcount2Fy + shearj1;
+	indexj1Fr2 = NoFr2 + MPIcount2Fy + shearj1;
+	indexj1Fr3 = NoFr3 + MPIcount2Fy + shearj1;
 	
 	
 }	
@@ -26549,7 +25508,7 @@ void is_je_ke_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -26587,15 +25546,15 @@ void is_je_ke_phy_phy_MPI()
 	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
 	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
 	
-	indexj1Er  = NoEr + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 2 + shearj1 + MPIcount1;
+	indexj1Fr1 = NoFr1 + 2 + shearj1 + MPIcount1;
+	indexj1Fr2 = NoFr2 + 2 + shearj1 + MPIcount1;
+	indexj1Fr3 = NoFr3 + 2 + shearj1 + MPIcount1;
 	
-	indexj0Er  = NoEr  + 2 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 2 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 2 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 2 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 4 + MPIcount1 + shearj0;
+	indexj0Fr1 = NoFr1 + 4 + MPIcount1 + shearj0;
+	indexj0Fr2 = NoFr2 + 4 + MPIcount1 + shearj0;
+	indexj0Fr3 = NoFr3 + 4 + MPIcount1 + shearj0;
 	
 	
 	
@@ -26604,18 +25563,16 @@ void is_je_ke_phy_phy_MPI()
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexiEr  = NoEr + 6 + sheari + MPIcount1;
+	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1;
+	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1;
+	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1;
 	
 	
-	indexi1Er  = NoEr + 8 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1;
-	
-
+	indexi1Er  = NoEr + 10 + sheari + MPIcount1;
+	indexi1Fr1 = NoFr1 + 8 + sheari + MPIcount1;
+	indexi1Fr2 = NoFr2 + 8 + sheari + MPIcount1;
+	indexi1Fr3 = NoFr3 + 8 + sheari + MPIcount1;
 	
 	
 	
@@ -26776,13 +25733,13 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -26802,27 +25759,27 @@ if(lx1 > ID)
 	
 	
 	
-	indexk1Er  = NoEr  + sheark1 + MPIcount2;
-	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2F;
-	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2F;
-	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2F;
+	indexk1Er  = NoEr  + sheark1 + MPIcount2z;
+	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2Fz;
+	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2Fz;
+	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2Fz;
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1z;
 	
-	indexj1Er  = NoEr + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 2 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 2 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 2 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 2 + shearj1 + MPIcount1z;
 	
-	indexj0Er  = NoEr  + 2 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 2 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 2 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 2 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 4 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 4 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 4 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 4 + MPIcount1z + shearj0;
 	
 	
 	
@@ -26831,16 +25788,16 @@ if(lx1 > ID)
 	indexi0Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi0Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexiEr  = NoEr + 4 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 4 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 4 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 4 + sheari + MPIcount1;
+	indexiEr  = NoEr + 6 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1z;
 	
 	
-	indexi1Er  = NoEr + 8 + sheari + MPIcount1;
-	indexi1Fr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexi1Fr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexi1Fr3 = NoFr3 + 6 + sheari + MPIcount1;
+	indexi1Er  = NoEr + 10 + sheari + MPIcount1z;
+	indexi1Fr1 = NoFr1 + 8 + sheari + MPIcount1z;
+	indexi1Fr2 = NoFr2 + 8 + sheari + MPIcount1z;
+	indexi1Fr3 = NoFr3 + 8 + sheari + MPIcount1z;
 	
 	
 }	
@@ -27006,7 +25963,7 @@ void is_je_ke_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -27223,7 +26180,7 @@ if(lx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (ie - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
@@ -27479,138 +26436,81 @@ void ie_je_ke_phy_phy_phy()
 	
 	
 #ifdef SHEARING_BOX
-	jshearing = (j - js) + joffset;
+	jshearing = Ny * jproc + (j - js) + joffset;
 	
-	if(jshearing >= NGy * Ny) {
+	if(jshearing >= NGy * Ny ) {
 		jshearing -= NGy * Ny;
 	}		
 	
+	shearing_grid = (int)(jshearing/Ny); /* The integer part of grid */
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids;
+	jshearing = jshearing - shearing_grid * Ny;
+	
+	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
+	
+	
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	
+	
+	
+	sheark0 = 0; shearj0 = 0; sheari0 = 0; sheari = 0; sheari1 = 0; shearj1 = 0; sheark1 = 0;
 	
 	coli1 = col_shear;
 	
-	if(col_shear < colj1){
+	if(ox3 == 4){
+		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexi1Er  = NoEr + 2 + count1z;
-		indexi1Fr1 = NoFr1 + 2 + count1z;
-		indexi1Fr2 = NoFr2 + 2 + count1z;
-		indexi1Fr3 = NoFr3 + 2 + count1z;
-		
-		indexj1Er  = NoEr + 4 + count1z;
-		indexj1Fr1 = NoFr1 + 4 + count1z;
-		indexj1Fr2 = NoFr2 + 4 + count1z;
-		indexj1Fr3 = NoFr3 + 4 + count1z;
-		
-		indexj0Er  = NoEr + 6 + count1z;
-		indexj0Fr1 = NoFr1 + 6 + count1z;
-		indexj0Fr2 = NoFr2 + 6 + count1z;
-		indexj0Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi0Er  = NoEr + 8 + count1z;
-		indexi0Fr1 = NoFr1 + 8 + count1z;
-		indexi0Fr2 = NoFr2 + 8 + count1z;
-		indexi0Fr3 = NoFr3 + 8 + count1z;
-		
-		indexiEr  = NoEr + 10 + count1z;
-		indexiFr1 = NoFr1 + 10 + count1z;
-		indexiFr2 = NoFr2 + 10 + count1z;
-		indexiFr3 = NoFr3 + 10 + count1z;
-		
-	}
-	else if(col_shear < colj0){
-		
-		
-		indexj1Er  = NoEr + 2 + count1z;
-		indexj1Fr1 = NoFr1 + 2 + count1z;
-		indexj1Fr2 = NoFr2 + 2 + count1z;
-		indexj1Fr3 = NoFr3 + 2 + count1z;
-		
-		
-		indexi1Er  = NoEr + 4 + count1z;
-		indexi1Fr1 = NoFr1 + 4 + count1z;
-		indexi1Fr2 = NoFr2 + 4 + count1z;
-		indexi1Fr3 = NoFr3 + 4 + count1z;
-		
-		indexj0Er  = NoEr + 6 + count1z;
-		indexj0Fr1 = NoFr1 + 6 + count1z;
-		indexj0Fr2 = NoFr2 + 6 + count1z;
-		indexj0Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi0Er  = NoEr + 8 + count1z;
-		indexi0Fr1 = NoFr1 + 8 + count1z;
-		indexi0Fr2 = NoFr2 + 8 + count1z;
-		indexi0Fr3 = NoFr3 + 8 + count1z;
-		
-		indexiEr  = NoEr + 10 + count1z;
-		indexiFr1 = NoFr1 + 10 + count1z;
-		indexiFr2 = NoFr2 + 10 + count1z;
-		indexiFr3 = NoFr3 + 10 + count1z;
-	}
-	else if(col_shear < coli){
-		
-		
-		indexj1Er  = NoEr + 2 + count1z;
-		indexj1Fr1 = NoFr1 + 2 + count1z;
-		indexj1Fr2 = NoFr2 + 2 + count1z;
-		indexj1Fr3 = NoFr3 + 2 + count1z;
-		
-		indexj0Er  = NoEr + 4 + count1z;
-		indexj0Fr1 = NoFr1 + 4 + count1z;
-		indexj0Fr2 = NoFr2 + 4 + count1z;
-		indexj0Fr3 = NoFr3 + 4 + count1z;
-		
-		
-		
-		indexi1Er  = NoEr + 6 + count1z;
-		indexi1Fr1 = NoFr1 + 6 + count1z;
-		indexi1Fr2 = NoFr2 + 6 + count1z;
-		indexi1Fr3 = NoFr3 + 6 + count1z;
-		
-		
-		indexi0Er  = NoEr + 8 + count1z;
-		indexi0Fr1 = NoFr1 + 8 + count1z;
-		indexi0Fr2 = NoFr2 + 8 + count1z;
-		indexi0Fr3 = NoFr3 + 8 + count1z;
-		
-		indexiEr  = NoEr + 10 + count1z;
-		indexiFr1 = NoFr1 + 10 + count1z;
-		indexiFr2 = NoFr2 + 10 + count1z;
-		indexiFr3 = NoFr3 + 10 + count1z;
-		
+		indexk1Er  = NoEr  + sheark1;
+		indexk1Fr1 = NoFr1 + sheark1;
+		indexk1Fr2 = NoFr2 + sheark1;
+		indexk1Fr3 = NoFr3 + sheark1;
 	}
 	else {
-		
-		indexj1Er  = NoEr + 2 + count1z;
-		indexj1Fr1 = NoFr1 + 2 + count1z;
-		indexj1Fr2 = NoFr2 + 2 + count1z;
-		indexj1Fr3 = NoFr3 + 2 + count1z;
-		
-		indexj0Er  = NoEr + 4 + count1z;
-		indexj0Fr1 = NoFr1 + 4 + count1z;
-		indexj0Fr2 = NoFr2 + 4 + count1z;
-		indexj0Fr3 = NoFr3 + 4 + count1z;
-			
-		indexi0Er  = NoEr + 6 + count1z;
-		indexi0Fr1 = NoFr1 + 6 + count1z;
-		indexi0Fr2 = NoFr2 + 6 + count1z;
-		indexi0Fr3 = NoFr3 + 6 + count1z;
-		
-		indexiEr  = NoEr + 8 + count1z;
-		indexiFr1 = NoFr1 + 8 + count1z;
-		indexiFr2 = NoFr2 + 8 + count1z;
-		indexiFr3 = NoFr3 + 8 + count1z;
-		
-		
-		
-		indexi1Er  = NoEr + 12 + count1z;
-		indexi1Fr1 = NoFr1 + 10 + count1z;
-		indexi1Fr2 = NoFr2 + 10 + count1z;
-		indexi1Fr3 = NoFr3 + 10 + count1z;
-		
+		sheark1 = 2;
 	}
+	
+	
+	if(col_shear < colk0)	sheark0 = 2;
+	if(col_shear < colj0)	shearj0 = 2;
+	if(col_shear < coli0)	sheari0 = 2;
+	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
+	if(col_shear < colj1)	shearj1 = 2;		
+	if(col_shear < coli)	sheari1 = 2;
+	
+	
+	
+	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
+	
+	
+	indexk0Er = NoEr + sheark0 + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + count1z;
+	
+	
+	indexj1Er  = NoEr + 2 + shearj1 + count1z;
+	indexj1Fr1 = NoFr1 + 2 + shearj1 + count1z;
+	indexj1Fr2 = NoFr2 + 2 + shearj1 + count1z;
+	indexj1Fr3 = NoFr3 + 2 + shearj1 + count1z;
+	
+	indexj0Er  = NoEr  + 4 + shearj0 + count1z;
+	indexj0Fr1 = NoFr1 + 4 + shearj0 + count1z;
+	indexj0Fr2 = NoFr2 + 4 + shearj0 + count1z;
+	indexj0Fr3 = NoFr3 + 4 + shearj0 + count1z;
+	
+	
+	indexi0Er  = NoEr + 6 + sheari + count1z;
+	indexi0Fr1 = NoFr1 + 6 + sheari + count1z;
+	indexi0Fr2 = NoFr2 + 6 + sheari + count1z;
+	indexi0Fr3 = NoFr3 + 6 + sheari + count1z;
+	
+	indexiEr  = NoEr + 8 + sheari + count1z;
+	indexiFr1 = NoFr1 + 8 + sheari + count1z;
+	indexiFr2 = NoFr2 + 8 + sheari + count1z;
+	indexiFr3 = NoFr3 + 8 + sheari + count1z;
 	
 	
 #endif
@@ -27790,7 +26690,7 @@ if(rx1 < ID)
 		shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 		
 		
-		col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+		col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 		
 		
 		
@@ -27809,12 +26709,13 @@ if(rx1 < ID)
 		else {
 			sheark1 = 2;
 		}
+	
 		
+		if(col_shear < colk0)	sheark0 = 2;
 		if(col_shear < colj0)	shearj0 = 2;
 		if(col_shear < coli0)	sheari0 = 2;
 		if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
-		if(col_shear < colj1)	shearj1 = 2;
-		if(col_shear < colk1)	sheark1 = 2;
+		if(col_shear < colj1)	shearj1 = 2;		
 		if(col_shear < coli)	sheari1 = 2;
 		
 		
@@ -27847,7 +26748,7 @@ if(rx1 < ID)
 		indexi0Fr2 = NoFr2 + 6 + sheari + count1z;
 		indexi0Fr3 = NoFr3 + 6 + sheari + count1z;
 		
-		indexiEr  = NoEr + 10 + sheari + count1z;
+		indexiEr  = NoEr + 8 + sheari + count1z;
 		indexiFr1 = NoFr1 + 8 + sheari + count1z;
 		indexiFr2 = NoFr2 + 8 + sheari + count1z;
 		indexiFr3 = NoFr3 + 8 + sheari + count1z;
@@ -28033,7 +26934,7 @@ void ie_je_ke_phy_MPI_phy()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx2 > ID){
@@ -28060,11 +26961,11 @@ void ie_je_ke_phy_MPI_phy()
 		sheark1 = 2;
 	}
 	
+	if(col_shear < colk0)	sheark0 = 2;
 	if(col_shear < colj0)	shearj0 = 2;
 	if(col_shear < coli0)	sheari0 = 2;
 	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
 	if(col_shear < colj1)	shearj1 = 2;
-	if(col_shear < colk1)	sheark1 = 2;
 	if(col_shear < coli)	sheari1 = 2;
 	
 
@@ -28254,7 +27155,7 @@ void ie_je_ke_MPI_MPI_phy()
 	
 #ifdef SHEARING_BOX
 	
-if(rx1 > ID)
+if(rx1 < ID)
 {	
 	jshearing = Ny * jproc + (j - js) + joffset;
 	
@@ -28269,13 +27170,13 @@ if(rx1 > ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx2 > ID){
 		
-		MPIcount2 = 10 + count1z;
-		MPIcount2F = 8 + count1z;
+		MPIcount2y = 10 + count1z;
+		MPIcount2Fy = 8 + count1z;
 	}
 	
 	
@@ -28287,56 +27188,56 @@ if(rx1 > ID)
 	if(ox3 == 4){
 		if(col_shear < colk1)	sheark1 = 2;
 		
-		indexk1Er  = NoEr  + sheark1 + MPIcount1;
-		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1;
-		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1;
-		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1;
+		indexk1Er  = NoEr  + sheark1 + MPIcount1y;
+		indexk1Fr1 = NoFr1 + sheark1 + MPIcount1y;
+		indexk1Fr2 = NoFr2 + sheark1 + MPIcount1y;
+		indexk1Fr3 = NoFr3 + sheark1 + MPIcount1y;
 	}
 	else {
 		sheark1 = 2;
 	}
 	
+	if(col_shear < colk0)	sheark0 = 2;
 	if(col_shear < colj0)	shearj0 = 2;
 	if(col_shear < coli0)	sheari0 = 2;
 	if(col_shear < coli)	{sheari = 2; sheari0 = 2;}
-	if(col_shear < colj1)	shearj1 = 2;
-	if(col_shear < colk1)	sheark1 = 2;
+	if(col_shear < colj1)	shearj1 = 2;	
 	if(col_shear < coli)	sheari1 = 2;
 	
 	
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1 + count1z;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1 + count1z;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1 + count1z;
+	indexk0Er = NoEr + sheark0 + MPIcount1y + count1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1y + count1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1y + count1z;
 	
 	
-	indexj0Er  = NoEr + 2 + shearj0 + MPIcount1 + count1z;
-	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1 + count1z;
-	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1 + count1z;
-	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1 + count1z;
+	indexj0Er  = NoEr + 2 + shearj0 + MPIcount1y + count1z;
+	indexj0Fr1 = NoFr1 + 2 + shearj0 + MPIcount1y + count1z;
+	indexj0Fr2 = NoFr2 + 2 + shearj0 + MPIcount1y + count1z;
+	indexj0Fr3 = NoFr3 + 2 + shearj0 + MPIcount1y + count1z;
 	
 	indexi1Er  = NoEr  + 14 - (sheark0 + shearj0 + sheari1 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr1 = NoFr1 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + 4 + sheari + MPIcount1 + count1z;
-	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1 + count1z;
-	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1 + count1z;
-	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1 + count1z;
+	indexi0Er  = NoEr + 4 + sheari + MPIcount1y + count1z;
+	indexi0Fr1 = NoFr1 + 4 + sheari + MPIcount1y + count1z;
+	indexi0Fr2 = NoFr2 + 4 + sheari + MPIcount1y + count1z;
+	indexi0Fr3 = NoFr3 + 4 + sheari + MPIcount1y + count1z;
 	
-	indexiEr  = NoEr + 6 + sheari + MPIcount1 + count1z;
-	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1 + count1z;
-	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1 + count1z;
-	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1 + count1z;
+	indexiEr  = NoEr + 6 + sheari + MPIcount1y + count1z;
+	indexiFr1 = NoFr1 + 6 + sheari + MPIcount1y + count1z;
+	indexiFr2 = NoFr2 + 6 + sheari + MPIcount1y + count1z;
+	indexiFr3 = NoFr3 + 6 + sheari + MPIcount1y + count1z;
 	
-	indexj1Er  = NoEr  + MPIcount2 + shearj1;
-	indexj1Fr1 = NoFr1 + MPIcount2F + shearj1;
-	indexj1Fr2 = NoFr2 + MPIcount2F + shearj1;
-	indexj1Fr3 = NoFr3 + MPIcount2F + shearj1;
+	indexj1Er  = NoEr  + MPIcount2y + shearj1;
+	indexj1Fr1 = NoFr1 + MPIcount2Fy + shearj1;
+	indexj1Fr2 = NoFr2 + MPIcount2Fy + shearj1;
+	indexj1Fr3 = NoFr3 + MPIcount2Fy + shearj1;
 	
 }	
 #endif
@@ -28512,7 +27413,7 @@ void ie_je_ke_phy_phy_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -28575,7 +27476,7 @@ void ie_je_ke_phy_phy_MPI()
 	indexi0Fr2 = NoFr2 + 6 + sheari + MPIcount1;
 	indexi0Fr3 = NoFr3 + 6 + sheari + MPIcount1;
 	
-	indexiEr  = NoEr + 10 + sheari + MPIcount1;
+	indexiEr  = NoEr + 8 + sheari + MPIcount1;
 	indexiFr1 = NoFr1 + 8 + sheari + MPIcount1;
 	indexiFr2 = NoFr2 + 8 + sheari + MPIcount1;
 	indexiFr3 = NoFr3 + 8 + sheari + MPIcount1;
@@ -28745,13 +27646,13 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
 		
-		MPIcount2 = 12;
-		MPIcount2F = 10;
+		MPIcount2z = 12;
+		MPIcount2Fz = 10;
 	}
 	
 	
@@ -28771,30 +27672,30 @@ if(rx1 < ID)
 	
 	
 	
-	indexk0Er = NoEr + sheark0 + MPIcount1;
-	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1;
-	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1;
-	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1;
+	indexk0Er = NoEr + sheark0 + MPIcount1z;
+	indexk0Fr1 = NoFr1 + sheark0 + MPIcount1z;
+	indexk0Fr2 = NoFr2 + sheark0 + MPIcount1z;
+	indexk0Fr3 = NoFr3 + sheark0 + MPIcount1z;
 	
 	
-	indexk1Er  = NoEr  + sheark1 + MPIcount2;
-	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2F;
-	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2F;
-	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2F;
+	indexk1Er  = NoEr  + sheark1 + MPIcount2z;
+	indexk1Fr1 = NoFr1 + sheark1 + MPIcount2Fz;
+	indexk1Fr2 = NoFr2 + sheark1 + MPIcount2Fz;
+	indexk1Fr3 = NoFr3 + sheark1 + MPIcount2Fz;
 	
 	
 	
 	
-	indexj1Er  = NoEr + 2 + shearj1 + MPIcount1;
-	indexj1Fr1 = NoFr1 + 2 + shearj1 + MPIcount1;
-	indexj1Fr2 = NoFr2 + 2 + shearj1 + MPIcount1;
-	indexj1Fr3 = NoFr3 + 2 + shearj1 + MPIcount1;
+	indexj1Er  = NoEr + 2 + shearj1 + MPIcount1z;
+	indexj1Fr1 = NoFr1 + 2 + shearj1 + MPIcount1z;
+	indexj1Fr2 = NoFr2 + 2 + shearj1 + MPIcount1z;
+	indexj1Fr3 = NoFr3 + 2 + shearj1 + MPIcount1z;
 	
 	
-	indexj0Er  = NoEr  + 4 + MPIcount1 + shearj0;
-	indexj0Fr1 = NoFr1 + 4 + MPIcount1 + shearj0;
-	indexj0Fr2 = NoFr2 + 4 + MPIcount1 + shearj0;
-	indexj0Fr3 = NoFr3 + 4 + MPIcount1 + shearj0;
+	indexj0Er  = NoEr  + 4 + MPIcount1z + shearj0;
+	indexj0Fr1 = NoFr1 + 4 + MPIcount1z + shearj0;
+	indexj0Fr2 = NoFr2 + 4 + MPIcount1z + shearj0;
+	indexj0Fr3 = NoFr3 + 4 + MPIcount1z + shearj0;
 	
 	
 	
@@ -28803,15 +27704,15 @@ if(rx1 < ID)
 	indexi1Fr2 = NoFr2 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	indexi1Fr3 = NoFr3 + 12 - (sheark0 + shearj0 + 2 * sheari + shearj1 + sheark1);
 	
-	indexi0Er  = NoEr + 6 + sheari + MPIcount1;
-	indexi0Fr1 = NoFr1 + 6 + sheari + MPIcount1;
-	indexi0Fr2 = NoFr2 + 6 + sheari + MPIcount1;
-	indexi0Fr3 = NoFr3 + 6 + sheari + MPIcount1;
+	indexi0Er  = NoEr + 6 + sheari + MPIcount1z;
+	indexi0Fr1 = NoFr1 + 6 + sheari + MPIcount1z;
+	indexi0Fr2 = NoFr2 + 6 + sheari + MPIcount1z;
+	indexi0Fr3 = NoFr3 + 6 + sheari + MPIcount1z;
 	
-	indexiEr  = NoEr + 10 + sheari + MPIcount1;
-	indexiFr1 = NoFr1 + 8 + sheari + MPIcount1;
-	indexiFr2 = NoFr2 + 8 + sheari + MPIcount1;
-	indexiFr3 = NoFr3 + 8 + sheari + MPIcount1;
+	indexiEr  = NoEr + 8 + sheari + MPIcount1z;
+	indexiFr1 = NoFr1 + 8 + sheari + MPIcount1z;
+	indexiFr2 = NoFr2 + 8 + sheari + MPIcount1z;
+	indexiFr3 = NoFr3 + 8 + sheari + MPIcount1z;
 	
 }
 		
@@ -28981,7 +27882,7 @@ void ie_je_ke_phy_MPI_MPI()
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines;
 	
 	
 	if(rx3 > ID){
@@ -29198,7 +28099,7 @@ if(rx1 < ID)
 	shearing_grid = kproc * NGx * NGy + shearing_grid * NGx + iproc;
 	
 	
-	col_shear = 4 * (k - ks) * Nx * Ny + 4 * (j - js) * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
+	col_shear = 4 * (k - ks) * Nx * Ny + 4 * jshearing * Nx + 4 * (is - is) + count_Grids + (shearing_grid - ID) * lines + shiftx;
 	
 	
 	if(rx3 > ID){
@@ -29280,3 +28181,4 @@ if(rx1 < ID)
 
 
 #endif /* radMHD_INTEGRATOR */
+
