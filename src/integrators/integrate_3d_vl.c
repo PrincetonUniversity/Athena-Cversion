@@ -2408,6 +2408,7 @@ static void integrate_emf3_corner(const GridS *pG)
  */ 
 static void FixCell(GridS *pG, Int3Vect ix)
 {
+  int n;
 #ifdef MHD
   int i,j,k;
 #endif
@@ -2457,6 +2458,17 @@ static void FixCell(GridS *pG, Int3Vect ix)
   x3FD_kp1.E = x3Flux[ix.k+1][ix.j][ix.i].E - x3FluxP[ix.k+1][ix.j][ix.i].E;
 #endif /* BAROTROPIC */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++){
+    x1FD_i.s[n] = x1Flux[ix.k][ix.j][ix.i].s[n] - x1FluxP[ix.k][ix.j][ix.i].s[n];
+    x2FD_j.s[n] = x2Flux[ix.k][ix.j][ix.i].s[n] - x2FluxP[ix.k][ix.j][ix.i].s[n];
+    x3FD_k.s[n] = x3Flux[ix.k][ix.j][ix.i].s[n] - x3FluxP[ix.k][ix.j][ix.i].s[n];
+    x1FD_ip1.s[n] = x1Flux[ix.k][ix.j][ix.i+1].s[n] - x1FluxP[ix.k][ix.j][ix.i+1].s[n];
+    x2FD_jp1.s[n] = x2Flux[ix.k][ix.j+1][ix.i].s[n] - x2FluxP[ix.k][ix.j+1][ix.i].s[n];
+    x3FD_kp1.s[n] = x3Flux[ix.k+1][ix.j][ix.i].s[n] - x3FluxP[ix.k+1][ix.j][ix.i].s[n];
+  }
+#endif
+
 #ifdef MHD
   emf1D_kj     = emf1[ix.k  ][ix.j  ][ix.i] - emf1P[ix.k  ][ix.j  ][ix.i];
   emf1D_kjp1   = emf1[ix.k  ][ix.j+1][ix.i] - emf1P[ix.k  ][ix.j+1][ix.i];
@@ -2476,6 +2488,17 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
 /* Use flux differences to correct bad cell-centered quantities */
   ApplyCorr(pG,ix.i,ix.j,ix.k,1,1,1,1,1,1);
+
+#ifdef SELF_GRAVITY
+/* Save mass fluxes in Grid structure for source term correction in main loop */
+  pG->x1MassFlux[ix.k  ][ix.j  ][ix.i  ] = x1FluxP[ix.k  ][ix.j  ][ix.i  ].d;
+  pG->x2MassFlux[ix.k  ][ix.j  ][ix.i  ] = x2FluxP[ix.k  ][ix.j  ][ix.i  ].d;
+  pG->x3MassFlux[ix.k  ][ix.j  ][ix.i  ] = x3FluxP[ix.k  ][ix.j  ][ix.i  ].d;
+  pG->x1MassFlux[ix.k  ][ix.j  ][ix.i+1] = x1FluxP[ix.k  ][ix.j  ][ix.i+1].d;
+  pG->x2MassFlux[ix.k  ][ix.j+1][ix.i  ] = x2FluxP[ix.k  ][ix.j+1][ix.i  ].d;
+  pG->x3MassFlux[ix.k+1][ix.j  ][ix.i  ] = x3FluxP[ix.k+1][ix.j  ][ix.i  ].d;
+#endif /* SELF_GRAVITY */
+
 
 /* Use flux differences to correct cell-centered values at i-1 and i+1 */
   
@@ -2545,6 +2568,7 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real x1,x2,x3,phil,phir,phic;
+  int n;
 #ifdef SHEARING_BOX
   int my_iproc,my_jproc,my_kproc;
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
@@ -2565,6 +2589,10 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
 #ifndef BAROTROPIC
   pG->U[k][j][i].E  += dtodx1*(rsf*rx1*x1FD_ip1.E  - lsf*lx1*x1FD_i.E );
 #endif /* BAROTROPIC */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[k][j][i].s[n] += dtodx1*(rsf*rx1*x1FD_ip1.s[n] - lsf*lx1*x1FD_i.s[n]);
+#endif
 
   pG->U[k][j][i].d  += dtodx2*(rx2*x2FD_jp1.d  - lx2*x2FD_j.d );
   pG->U[k][j][i].M1 += dtodx2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz);
@@ -2573,14 +2601,22 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
 #ifndef BAROTROPIC                                   
   pG->U[k][j][i].E  += dtodx2*(rx2*x2FD_jp1.E  - lx2*x2FD_j.E );
 #endif /* BAROTROPIC */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[k][j][i].s[n] += dtodx2*(rx2*x2FD_jp1.s[n] - lx2*x2FD_j.s[n]);
+#endif
 
   pG->U[k][j][i].d  += dtodx3*(rx3*x3FD_kp1.d  - lx3*x3FD_k.d );
-  pG->U[k][j][i].M1 += dtodx3*(rx3*x3FD_kp1.Mz - lx3*x3FD_k.Mz);
-  pG->U[k][j][i].M2 += dtodx3*(rx3*x3FD_kp1.Mx - lx3*x3FD_k.Mx);
-  pG->U[k][j][i].M3 += dtodx3*(rx3*x3FD_kp1.My - lx3*x3FD_k.My);
+  pG->U[k][j][i].M1 += dtodx3*(rx3*x3FD_kp1.My - lx3*x3FD_k.My);
+  pG->U[k][j][i].M2 += dtodx3*(rx3*x3FD_kp1.Mz - lx3*x3FD_k.Mz);
+  pG->U[k][j][i].M3 += dtodx3*(rx3*x3FD_kp1.Mx - lx3*x3FD_k.Mx);
 #ifndef BAROTROPIC                                   
   pG->U[k][j][i].E  += dtodx3*(rx3*x3FD_kp1.E  - lx3*x3FD_k.E );
 #endif /* BAROTROPIC */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[k][j][i].s[n] += dtodx3*(rx3*x3FD_kp1.s[n] - lx3*x3FD_k.s[n]);
+#endif
 
 #ifdef SHEARING_BOX
   fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);

@@ -1610,6 +1610,7 @@ static void integrate_emf3_corner(GridS *pG)
 static void FixCell(GridS *pG, Int3Vect ix)
 {
   int ks=pG->ks;
+  int n;
 #ifdef MHD
   int i,j;
 #endif
@@ -1648,6 +1649,15 @@ static void FixCell(GridS *pG, Int3Vect ix)
   x1FD_ip1.E = x1Flux[ix.j][ix.i+1].E - x1FluxP[ix.j][ix.i+1].E;
   x2FD_jp1.E = x2Flux[ix.j+1][ix.i].E - x2FluxP[ix.j+1][ix.i].E;
 #endif /* BAROTROPIC */
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++){
+    x1FD_i.s[n] = x1Flux[ix.j][ix.i].s[n] - x1FluxP[ix.j][ix.i].s[n];
+    x2FD_j.s[n] = x2Flux[ix.j][ix.i].s[n] - x2FluxP[ix.j][ix.i].s[n];
+    x1FD_ip1.s[n] = x1Flux[ix.j][ix.i+1].s[n] - x1FluxP[ix.j][ix.i+1].s[n];
+    x2FD_jp1.s[n] = x2Flux[ix.j+1][ix.i].s[n] - x2FluxP[ix.j+1][ix.i].s[n];
+  }
+#endif
 
 #ifdef MHD
   x1FD_i.Bz = x1Flux[ix.j][ix.i].Bz - x1FluxP[ix.j][ix.i].Bz;
@@ -1732,6 +1742,7 @@ static void ApplyCorr(GridS *pG, int i, int j,
   Real x1,x2,x3,phil,phir,phic;
 
   int ks = pG->ks;
+  int n;
 #ifdef SHEARING_BOX
   Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
   Real M1e, dM2e, dM3e; /* M1, dM2 evolved by dt/2 */
@@ -1754,9 +1765,12 @@ static void ApplyCorr(GridS *pG, int i, int j,
   pG->U[ks][j][i].E  += dtodx1*(rsf*rx1*x1FD_ip1.E  - lsf*lx1*x1FD_i.E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-  pG->U[ks][j][i].B3c += dtodx1*(rx1*x1FD_ip1.Bz - lx1*x1FD_i.Bz);
+  pG->U[ks][j][i].B3c += dtodx1*(rsf*rx1*x1FD_ip1.Bz - lsf*lx1*x1FD_i.Bz);
 #endif /* MHD */
-
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[ks][j][i].s[n] += dtodx1*(rsf*rx1*x1FD_ip1.s[n] - lsf*lx1*x1FD_i.s[n]);
+#endif
 
   pG->U[ks][j][i].d  += dtodx2*(rx2*x2FD_jp1.d  - lx2*x2FD_j.d );
   pG->U[ks][j][i].M1 += dtodx2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz);
@@ -1768,7 +1782,10 @@ static void ApplyCorr(GridS *pG, int i, int j,
 #ifdef MHD
   pG->U[ks][j][i].B3c += dtodx2*(rx2*x2FD_jp1.By - lx2*x2FD_j.By);
 #endif /* MHD */
-
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[ks][j][i].s[n] += dtodx2*(rx2*x2FD_jp1.s[n] - lx2*x2FD_j.s[n]);
+#endif
 
 #ifdef SHEARING_BOX
   fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
