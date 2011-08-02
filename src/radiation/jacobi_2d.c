@@ -1,4 +1,4 @@
- #include "../copyright.h"
+#include "../copyright.h"
 /*==============================================================================
  * FILE: jacobi_2d.c
  *
@@ -20,18 +20,16 @@
 #include "../athena.h"
 #include "../globals.h"
 #include "../prototypes.h"
-#define INTERP_2D
+
 
 #ifdef RADIATION_TRANSFER
 #ifdef JACOBI
 
-
 static Real ******psi = NULL;
 static Real ***lamstr = NULL;
-static Real *****imux = NULL, *****imuy = NULL;
+static Real *****imuo = NULL;
 static Real **muinv = NULL, *am0 = NULL, ***mu2 = NULL;
 static Real ***Jold = NULL;
-static int ntot;
 static int svwght;
 
 /*==============================================================================
@@ -45,9 +43,12 @@ static int svwght;
  *============================================================================*/
 
 static void update_sfunc(RadS *R, Real *dSr, Real lamstr);
-static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l, int m);
-static void sweep_2d_forward(RadGridS *pRG);
-static void sweep_2d_backward(RadGridS *pRG);
+static void sweep_2d_forward_y(RadGridS *pRG);
+static void sweep_2d_backward_y(RadGridS *pRG);
+static void sweep_2d_forward_x(RadGridS *pRG);
+static void sweep_2d_backward_x(RadGridS *pRG);
+static void update_cell_x(RadGridS *pRG, Real *****imuo, int k, int j, int i, int l);
+static void update_cell_y(RadGridS *pRG, Real *****imuo, int k, int j, int i, int l);
 
 void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
 {
@@ -59,44 +60,34 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
   int ismx, jsmx;
   Real dSr, dJ, dJmax;
 
-  /* for(ifr=0; ifr<nf; ifr++) 
-    for(m=0; m<pRG->nang; m++) {
-      pRG->l2imu[ifr][ks][is-1][0][m] = pRG->l1imu[ifr][ks][js-1][0][m];
-      pRG->l2imu[ifr][ks][is-1][0][m] = pRG->l1imu[ifr][ks][js-1][0][m];
-      pRG->l2imu[ifr][ks][ie+1][1][m] = pRG->r1imu[ifr][ks][js-1][1][m];
-      pRG->l2imu[ifr][ks][ie+1][1][m] = pRG->r1imu[ifr][ks][js-1][1][m];
-
-      pRG->r2imu[ifr][ks][is-1][2][m] = pRG->l1imu[ifr][ks][je+1][2][m];
-      pRG->r2imu[ifr][ks][is-1][2][m] = pRG->l1imu[ifr][ks][je+1][2][m];
-      pRG->r2imu[ifr][ks][ie+1][3][m] = pRG->r1imu[ifr][ks][je+1][3][m];
-      pRG->r2imu[ifr][ks][ie+1][3][m] = pRG->r1imu[ifr][ks][je+1][3][m];
-      }*/
-
 /* if LTE then store J values from previous iteration */
-  if(lte != 0)
+  if(lte != 0) {
     for(j=js; j<=je; j++)
       for(i=is; i<=ie; i++) 
 	for(ifr=0; ifr<nf; ifr++) 
 	  Jold[j][i][ifr] = pRG->R[ks][j][i][ifr].J;
+  }
 
 /* initialize mean intensities at all depths to zero */
-  for(j=js-1; j<=je+1; j++)
-    for(i=is-1; i<=ie+1; i++) 
+  for(j=js; j<=je; j++)
+    for(i=is; i<=ie; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	pRG->R[ks][j][i][ifr].J = 0.0;
+	pRG->R[ks][j][i][ifr].H[0] = 0.0;
+	pRG->R[ks][j][i][ifr].H[1] = 0.0;
 	pRG->R[ks][j][i][ifr].K[0] = 0.0;
 	pRG->R[ks][j][i][ifr].K[1] = 0.0;
 	pRG->R[ks][j][i][ifr].K[2] = 0.0;
 	if (svwght == 0) lamstr[j][i][ifr] = 0.0;
       }
 
-/* Compute formal solution for all upward and rightward going rays in 
- * each gridzone */
-  sweep_2d_forward(pRG);
+/* Compute formal solution and for all rays in each gridzone and 
+ * update boundary emission*/
+  sweep_2d_forward_x(pRG);
+  sweep_2d_forward_y(pRG);
 
-/* Compute formal solution for all downward and leftward going rays in 
- * each vertical gridzone */
-  sweep_2d_backward(pRG);
+  sweep_2d_backward_x(pRG);
+  sweep_2d_backward_y(pRG);
 
   if(lte == 0) {
 /* Update source function */
@@ -129,13 +120,304 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
     if(((*dSrmax) == 0.0) && (dJmax > 0.0)) (*dSrmax) = 1.0;
   }
 
+
   return;
 }
 
-static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l, int m)
+static void sweep_2d_forward_y(RadGridS *pRG)
+{
+  int ifr, i, j, l, m;
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks;   
+  int nf = pRG->nf, nang = pRG->nang;
+
+/* Account for ix2 boundary intensities */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=0; l<=1; l++)  {
+	for(m=0; m<nang; m++) {
+	  if(am0[m] <= 1.0) {
+	    imuo[ifr][i][l][m][0] = pRG->l2imu[ifr][ks][i][l][m];
+	  }
+	}}}
+  }
+  /* sweep forward in x2 */
+  for(j=js; j<=je; j++) {
+
+    /* Account for ix1 boundary intensities */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++) {
+	/* ix1/ox1 boundary conditions*/
+	  if(am0[m] <= 1.0) {
+	    imuo[ifr][is-1][0][m][1] = imuo[ifr][is-1][0][m][0];
+	    imuo[ifr][ie+1][1][m][1] = imuo[ifr][ie+1][1][m][0];
+	    imuo[ifr][is-1][0][m][0] = pRG->l1imu[ifr][ks][j][0][m];
+	    imuo[ifr][ie+1][1][m][0] = pRG->r1imu[ifr][ks][j][1][m];
+	  }
+      }}
+
+    /* Sweep forward in x1 */
+    for(i=is; i<=ie; i++) 
+      update_cell_y(pRG,imuo,ks,j,i,0);
+
+    /* Update intensity at the ox1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	  if(am0[m] <= 1.0) {
+	    pRG->r1imu[ifr][ks][j][0][m] = imuo[ifr][ie][0][m][0];
+	  }
+      }}
+
+    /* Sweep backward in x1 */
+    for(i=ie; i>=is; i--) 
+      update_cell_y(pRG,imuo,ks,j,i,1);
+
+    /* Update intensity at the ix1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	if(am0[m] <= 1.0) {
+	  pRG->l1imu[ifr][ks][j][1][m] = imuo[ifr][is][1][m][0];
+	}
+      }}
+  }
+  /* Update intensity at the ox2 boundary */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(i=is; i<=ie; i++) { 
+      for(l=0; l<=1; l++) { 
+	for(m=0; m<nang; m++) { 
+	  if(am0[m] <= 1.0) {
+	    pRG->r2imu[ifr][ks][i][l][m] = imuo[ifr][i][l][m][0];
+	  }
+	}}}
+  }
+
+  return;
+}
+
+
+static void sweep_2d_backward_y(RadGridS *pRG)
+{
+  int ifr, i, j, l, m;
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks;   
+  int nf = pRG->nf, nang = pRG->nang;
+
+/* Account for ox2 boundary intensities */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=2; l<=3; l++)  {
+	for(m=0; m<nang; m++) {
+	  if(am0[m] <= 1.0) {
+	    imuo[ifr][i][l][m][0] = pRG->r2imu[ifr][ks][i][l][m];
+	  }
+	}}}
+  }
+  /* sweep backward in x2 */
+  for(j=je; j>=js; j--) {
+
+    /* Account for ix1 boundary intensities */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++) {
+	/* ix1/ox1 boundary conditions*/
+	if(am0[m] <= 1.0) {
+	  imuo[ifr][is-1][2][m][1] = imuo[ifr][is-1][2][m][0];
+	  imuo[ifr][ie+1][3][m][1] = imuo[ifr][ie+1][3][m][0];
+	  imuo[ifr][is-1][2][m][0] = pRG->l1imu[ifr][ks][j][2][m];
+	  imuo[ifr][ie+1][3][m][0] = pRG->r1imu[ifr][ks][j][3][m];
+	}
+      }}
+
+    /* Sweep forward in x1 */
+    for(i=is; i<=ie; i++) 
+      update_cell_y(pRG,imuo,ks,j,i,2);
+
+    /* Update intensity at the ox1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	if(am0[m] <= 1.0) {
+	  pRG->r1imu[ifr][ks][j][2][m] = imuo[ifr][ie][2][m][0];
+	}
+      }}
+
+    /* Sweep backward in x1 */
+    for(i=ie; i>=is; i--) 
+      update_cell_y(pRG,imuo,ks,j,i,3);
+
+    /* Update intensity at the ix1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	if(am0[m] <= 1.0) {
+	  pRG->l1imu[ifr][ks][j][3][m] = imuo[ifr][is][3][m][0];
+	}
+      }}
+  }
+
+  /* Update intensity at the ix2 boundary */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(i=is; i<=ie; i++) { 
+      for(l=2; l<=3; l++) { 
+	for(m=0; m<nang; m++) { 
+	  if(am0[m] <= 1.0) {
+	    pRG->l2imu[ifr][ks][i][l][m] = imuo[ifr][i][l][m][0];
+	  }
+	}}}
+  }
+
+  return;
+}
+
+
+static void sweep_2d_forward_x(RadGridS *pRG)
+{
+  int ifr, i, j, l, m;
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks;   
+  int nf = pRG->nf, nang = pRG->nang;
+
+/* Account for ix1 boundary intensities */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(j=js-1; j<=je+1; j++) {
+      for(m=0; m<nang; m++) {
+	if(am0[m] > 1.0) {
+	  imuo[ifr][j][0][m][0] = pRG->l1imu[ifr][ks][j][0][m];
+	  imuo[ifr][j][2][m][0] = pRG->l1imu[ifr][ks][j][2][m];
+	}
+      }}}
+
+  /* sweep forward in x1 */
+  for(i=is; i<=ie; i++) {
+
+    /* Account for ix2 boundary intensities */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++) {
+	/* ix2/ox2 boundary conditions*/
+	  if(am0[m] > 1.0) {
+	    imuo[ifr][js-1][0][m][1] = imuo[ifr][js-1][0][m][0];
+	    imuo[ifr][je+1][2][m][1] = imuo[ifr][je+1][2][m][0];
+	    imuo[ifr][js-1][0][m][0] = pRG->l2imu[ifr][ks][i][0][m];
+	    imuo[ifr][je+1][2][m][0] = pRG->r2imu[ifr][ks][i][2][m];
+	  }
+      }}
+
+    /* Sweep forward in x2 */
+    for(j=js; j<=je; j++) 
+      update_cell_x(pRG,imuo,ks,j,i,0);
+
+    /* Update intensity at the ox2 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	  if(am0[m] > 1.0) {
+	    pRG->r2imu[ifr][ks][i][0][m] = imuo[ifr][je][0][m][0];
+	  }
+      }}
+
+    /* Sweep backward in x2 */
+    for(j=je; j>=js; j--) 
+      update_cell_x(pRG,imuo,ks,j,i,2);
+
+    /* Update intensity at the ix2 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	if(am0[m] > 1.0) {
+	  pRG->l2imu[ifr][ks][i][2][m] = imuo[ifr][js][2][m][0];
+	}
+      }}
+  }
+  /* Update intensity at the ox1 boundary */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(j=js; j<=je; j++) { 
+      for(m=0; m<nang; m++) { 
+	if(am0[m] > 1.0) {
+	  pRG->r1imu[ifr][ks][j][0][m] = imuo[ifr][j][0][m][0];
+	  pRG->r1imu[ifr][ks][j][2][m] = imuo[ifr][j][2][m][0];
+	}
+      }}}
+
+  return;
+}
+
+
+static void sweep_2d_backward_x(RadGridS *pRG)
+{
+  int ifr, i, j, l, m;
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks;   
+  int nf = pRG->nf, nang = pRG->nang;
+
+/* Account for ox1 boundary intensities */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(j=js-1; j<=je+1; j++) {
+      for(m=0; m<nang; m++) {
+	if(am0[m] > 1.0) {
+	  imuo[ifr][j][1][m][0] = pRG->r1imu[ifr][ks][j][1][m];
+	  imuo[ifr][j][3][m][0] = pRG->r1imu[ifr][ks][j][3][m];
+	}
+      }}}
+
+  /* sweep backward in x1 */
+  for(i=ie; i>=is; i--) {
+
+    /* Account for ix2 boundary intensities */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++) {
+	/* ix2/ox2 boundary conditions*/
+	if(am0[m] > 1.0) {
+	  imuo[ifr][js-1][1][m][1] = imuo[ifr][js-1][1][m][0];
+	  imuo[ifr][je+1][3][m][1] = imuo[ifr][je+1][3][m][0];
+	  imuo[ifr][js-1][1][m][0] = pRG->l2imu[ifr][ks][i][1][m];
+	  imuo[ifr][je+1][3][m][0] = pRG->r2imu[ifr][ks][i][3][m];
+	}
+      }}
+
+    /* Sweep forward in x2 */
+    for(j=js; j<=je; j++) 
+      update_cell_x(pRG,imuo,ks,j,i,1);
+
+    /* Update intensity at the ox2 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	if(am0[m] > 1.0) {
+	  pRG->r2imu[ifr][ks][i][1][m] = imuo[ifr][je][1][m][0];
+	}
+      }}
+
+    /* Sweep backward in x2 */
+    for(j=je; j>=js; j--) 
+      update_cell_x(pRG,imuo,ks,j,i,3);
+
+    /* Update intensity at the ix2 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	if(am0[m] > 1.0) {
+	  pRG->l2imu[ifr][ks][i][3][m] = imuo[ifr][js][3][m][0];
+	}
+      }}
+  }
+
+  /* Update intensity at the ix1 boundary */
+  for(ifr=0; ifr<nf; ifr++) {
+    for(j=js; j<=je; j++) { 
+      for(m=0; m<nang; m++) { 
+	if(am0[m] > 1.0) {
+	  pRG->l1imu[ifr][ks][j][1][m] = imuo[ifr][j][1][m][0];
+	  pRG->l1imu[ifr][ks][j][3][m] = imuo[ifr][j][3][m][0];
+	}
+      }}}
+
+  return;
+}
+
+
+static void update_cell_y(RadGridS *pRG, Real *****imuo, int k, int j, int i, int l)
+
 {
 
-  int im, ip, jm, jp, imm, imp;
+  int im, ip, jm, jp;
+  int ifr, m, nf = pRG->nf, nang = pRG->nang;
   Real imu, imu0, wimu;
   Real S0, S2;
   Real am, am1, bm, bm1;
@@ -149,329 +431,174 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
   if(l == 0) {
     jp = j + 1;  jm = j - 1;
     ip = i + 1;  im = i - 1;
-    imm = 1; imp = 0;
   } else if (l == 1) {
     jp = j + 1;  jm = j - 1;
     ip = i - 1;  im = i + 1;
-    imm = 0; imp = 1;
   } else if (l == 2) {
     jp = j - 1;  jm = j + 1;
     ip = i + 1;  im = i - 1;
-    imm = 0; imp = 1;
   } else {
     jp = j - 1;  jm = j + 1;
     ip = i - 1;  im = i + 1;
-    imm = 1; imp = 0;
   }  
 
-  if(svwght == 0) chi1 = pRG->R[k][j][i][ifr].chi;
+  for(ifr=0; ifr<nf; ifr++) {
+    for(m=0; m<nang; m++) {
+      if(svwght == 0) chi1 = pRG->R[k][j][i][ifr].chi;
 /* --------- Interpolate intensity and source functions at endpoints --------- 
  * --------- of characteristics                                      --------- */
-  am = am0[m];
-  if (am <= 1.0) {
-    am1 = 1.0 - am;
-    /* Use linear interpolation for source functions */
-    S0 = am  * pRG->R[k][jm][im][ifr].S +
-         am1 * pRG->R[k][jm][i ][ifr].S;
-    S2 = am  * pRG->R[k][jp][ip][ifr].S +
-         am1 * pRG->R[k][jp][i ][ifr].S;
+      am = am0[m];
+      if (am <= 1.0) {
+	am1 = 1.0 - am;
+	/* Use linear interpolation for source functions */
+	S0 = am  * pRG->R[k][jm][im][ifr].S +
+	     am1 * pRG->R[k][jm][i ][ifr].S;
+	S2 = am  * pRG->R[k][jp][ip][ifr].S +
+	     am1 * pRG->R[k][jp][i ][ifr].S;
+	/* Use quadratic interpolation for intensity */
+	//imu0 = am  * imuo[ifr][im][l][m][1] + am1 * imuo[ifr][i][l][m][0];
+	w0 = 0.5 * am * (1.0 + am);
+	w1 = am1 * (1.0 + am);
+	w2 = -0.5 * am * am1;
+	imu0 = w0 * imuo[ifr][im][l][m][1] + w1 * imuo[ifr][i][l][m][0] +
+	  w2 * imuo[ifr][ip][l][m][0];
+	maxint = MAX(imuo[ifr][im][l][m][1],imuo[ifr][i][l][m][0]);
+	minint = MIN(imuo[ifr][im][l][m][1],imuo[ifr][i][l][m][0]);
+	if(imu0 > maxint) imu0 = maxint;
+	if(imu0 < minint) imu0 = minint;
 
-#ifdef INTERP_2D /* Use parabolic interpolation for intensity */
-    w0 = 0.5 * am * (1.0 + am);
-    w1 = am1 * (1.0 + am);
-    w2 = -0.5 * am * am1;
-    imu0 = w0 * imuo[ifr][im][l][m][imm] + w1 * imuo[ifr][i][l][m][0] +
-           w2 * imuo[ifr][ip][l][m][imp];
-    maxint = MAX(imuo[ifr][im][l][m][imm],imuo[ifr][i][l][m][0]);
-    minint = MIN(imuo[ifr][im][l][m][imm],imuo[ifr][i][l][m][0]);
-    if(imu0 > maxint) imu0 = maxint;
-    if(imu0 < minint) imu0 = minint;
-#else     /* Use linear interpolation for intensity */
-    imu0 = am  * imuo[ifr][im][l][m][imm] + am1 * imuo[ifr][i][l][m][0];
-#endif
-  } else {
-    bm = 1.0 / am;
-    bm1 = 1.0 - bm;
-
-    /* Use linear interpolation for source functions */
-    S0 = bm  * pRG->R[k][jm][im][ifr].S +
-         bm1 * pRG->R[k][j ][im][ifr].S;
-    S2 = bm  * pRG->R[k][jp][ip][ifr].S +
-         bm1 * pRG->R[k][j ][ip][ifr].S;
-
-#ifdef INTERP_2D /* Use parabolic interpolation for intensity */
-    w0 = 0.5 * bm1 * (1.0 + bm1);  /* Modify to compute only once? */
-    w1 = bm * (1.0 + bm1);
-    w2 = -0.5 * bm * bm1;
-
-    imu0 = w0 * imuo[ifr][jm][l][m][imm] + w1 * imuo[ifr][j][l][m][0] +
-           w2 * imuo[ifr][jp][l][m][imp];
-    maxint = MAX(imuo[ifr][jm][l][m][imm],imuo[ifr][j][l][m][0]);
-    minint = MIN(imuo[ifr][jm][l][m][imm],imuo[ifr][j][l][m][0]);
-    if(imu0 > maxint) imu0 = maxint;
-    if(imu0 < minint) imu0 = minint;
-#else     /* Use linear interpolation for intensity */
-    imu0 = bm  * imuo[ifr][jm][l][m][imm] + bm1 * imuo[ifr][j][l][m][0];
-#endif
-  }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
-  if(svwght == 1) {
-    imu = psi[j][i][ifr][l][m][1] * S0 +
-          psi[j][i][ifr][l][m][2] * pRG->R[k][j][i][ifr].S +
-          psi[j][i][ifr][l][m][3] * S2;	
-    if (imu < 0.0) imu=0.0;
-    imu += psi[j][i][ifr][l][m][0] * imu0;
-  } else {
-    if (am <= 1.0) {
-      chi0 = am  * pRG->R[k][jm][im][ifr].chi + 
-	     am1 * pRG->R[k][jm][i ][ifr].chi;
-      chi2 = am  * pRG->R[k][jp][ip][ifr].chi + 
-	     am1 * pRG->R[k][jp][i ][ifr].chi;
-      /*dtaum = 0.5 * (chi0 + chi1) * dy * muinv[m][1]; 
-	dtaup = 0.5 * (chi2 + chi1) * dy * muinv[m][1];*/
-      interp_quad_chi(chi0,chi1,chi2,&dtaum);
-      interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dy * muinv[m][1]; 
-      dtaup *= dy * muinv[m][1]; 
-    } else {
-      chi0 = bm  * pRG->R[k][jm][im][ifr].chi + 
-	     bm1 * pRG->R[k][j ][im][ifr].chi;
-      chi2 = bm  * pRG->R[k][jp][ip][ifr].chi +
-	     bm1 * pRG->R[k][j ][ip][ifr].chi;
-      /*dtaum = 0.5 * (chi0 + chi1) * dx * muinv[m][0]; 
-	dtaup = 0.5 * (chi2 + chi1) * dx * muinv[m][0];*/
-      interp_quad_chi(chi0,chi1,chi2,&dtaum);
-      interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dx * muinv[m][0]; 
-      dtaup *= dx * muinv[m][0]; 
-    }
-    interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-    		       S0, pRG->R[k][j][i][ifr].S, S2);
-    imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2;
-    imu += edtau * imu0;
-    lamstr[j][i][ifr] += pRG->wmu[m] * a1;
-  }
+	if(svwght == 1) {
+	  imu = psi[j][i][ifr][l][m][1] * S0 +
+                psi[j][i][ifr][l][m][2] * pRG->R[k][j][i][ifr].S +
+                psi[j][i][ifr][l][m][3] * S2 +	
+	        psi[j][i][ifr][l][m][0] * imu0;
+	} else {
+	  chi0 = am  * pRG->R[k][jm][im][ifr].chi + 
+	         am1 * pRG->R[k][jm][i ][ifr].chi;
+	  chi2 = am  * pRG->R[k][jp][ip][ifr].chi + 
+	         am1 * pRG->R[k][jp][i ][ifr].chi;
+	  /*dtaum = 0.5 * (chi0 + chi1);
+	    dtaup = 0.5 * (chi2 + chi1); */
+	  interp_quad_chi(chi0,chi1,chi2,&dtaum);
+	  interp_quad_chi(chi2,chi1,chi0,&dtaup);
+	  dtaum *= dy * muinv[m][1]; 
+	  dtaup *= dy * muinv[m][1]; 
+
+	  interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+				       S0, pRG->R[k][j][i][ifr].S, S2);
+	  imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
+	  lamstr[j][i][ifr] += pRG->wmu[m] * a1;
+	}
 /* Add to radiation moments and save for next iteration */
-  wimu = pRG->wmu[m] * imu;
-  pRG->R[k][j][i][ifr].J += wimu;
-  pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
-  pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
-  pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
-/* Update intensity workspace */
-  if (am <= 1.0) {
-    imuo[ifr][i][l][m][1] = imuo[ifr][i][l][m][0];
-    imuo[ifr][i][l][m][0] = imu;
+	wimu = pRG->wmu[m] * imu;
+	pRG->R[k][j][i][ifr].J += wimu;
+	pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
+	pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
+	pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
+	pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
+	pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
+	/* Update intensity workspace */
+	imuo[ifr][i][l][m][1] = imuo[ifr][i][l][m][0];
+	imuo[ifr][i][l][m][0] = imu;
+      }
+    }}
+  return;
+}
+
+static void update_cell_x(RadGridS *pRG, Real *****imuo, int k, int j, int i, int l)
+
+{
+
+  int im, ip, jm, jp;
+  int ifr, m, nf = pRG->nf, nang = pRG->nang;
+  Real imu, imu0, wimu;
+  Real S0, S2;
+  Real am, am1, bm, bm1;
+  Real w0, w1, w2;
+  Real maxint, minint;
+  Real dx = pRG->dx1, dy = pRG->dx2;
+  Real chi0, chi1, chi2, dtaum, dtaup;
+  Real edtau, a0, a1, a2;
+
+/* initialize stencil base on quadrant*/  
+  if(l == 0) {
+    jp = j + 1;  jm = j - 1;
+    ip = i + 1;  im = i - 1;
+  } else if (l == 1) {
+    jp = j + 1;  jm = j - 1;
+    ip = i - 1;  im = i + 1;
+  } else if (l == 2) {
+    jp = j - 1;  jm = j + 1;
+    ip = i + 1;  im = i - 1;
   } else {
-    imuo[ifr][j][l][m][1] = imuo[ifr][j][l][m][0];
-    imuo[ifr][j][l][m][0] = imu;
-  }
-  return;
-}
+    jp = j - 1;  jm = j + 1;
+    ip = i - 1;  im = i + 1;
+  }  
 
-static void sweep_2d_forward(RadGridS *pRG)
-{
-  int ifr, l, m, n;
-  int itot;
-  int i, il, iu;
-  int j, jl, ju;
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks;   
-  int nf = pRG->nf, nang = pRG->nang;
+  for(ifr=0; ifr<nf; ifr++) {
+    for(m=0; m<nang; m++) {
+      if(svwght == 0) chi1 = pRG->R[k][j][i][ifr].chi;
+/* --------- Interpolate intensity and source functions at endpoints --------- 
+ * --------- of characteristics                                      --------- */
+      am = am0[m];
+      if (am > 1.0) {
+	bm = 1.0 / am;
+	bm1 = 1.0 - bm;
+	/* Use linear interpolation for source functions */
+	S0 = bm  * pRG->R[k][jm][im][ifr].S +
+             bm1 * pRG->R[k][j ][im][ifr].S;
+	S2 = bm  * pRG->R[k][jp][ip][ifr].S +
+             bm1 * pRG->R[k][j ][ip][ifr].S;
+	/* Use linear interpolation for intensity */
+	//imu0 = bm  * imuo[ifr][jm][l][m][1] + bm1 * imuo[ifr][j][l][m][0];
+      	w0 = 0.5 * bm * (1.0 + bm);
+	w1 = bm1 * (1.0 + bm);
+	w2 = -0.5 * bm * bm1;
+	imu0 = w0 * imuo[ifr][jm][l][m][1] + w1 * imuo[ifr][j][l][m][0] +
+	  w2 * imuo[ifr][jp][l][m][0];
+	maxint = MAX(imuo[ifr][jm][l][m][1],imuo[ifr][j][l][m][0]);
+	minint = MIN(imuo[ifr][jm][l][m][1],imuo[ifr][j][l][m][0]);
+	if(imu0 > maxint) imu0 = maxint;
+	if(imu0 < minint) imu0 = minint;
+/* ---------  compute intensity at grid center and add to mean intensity ------- */
+	if(svwght == 1) {
+	  imu = psi[j][i][ifr][l][m][1] * S0 +
+                psi[j][i][ifr][l][m][2] * pRG->R[k][j][i][ifr].S +
+                psi[j][i][ifr][l][m][3] * S2 +	
+	        psi[j][i][ifr][l][m][0] * imu0;
+	} else {
 
-
-  for(ifr=0; ifr<nf; ifr++)  {
-/* Account for ix2 boundary condition */
-    for(i=is; i<=ie; i++)  
-      for(m=0; m<nang; m++) 
-	for(n=0; n<2; n++) {
-	  imuy[ifr][i][0][m][n] = pRG->l2imu[ifr][ks][i][0][m];
-	  imuy[ifr][i][1][m][n] = pRG->l2imu[ifr][ks][i][1][m];
+	  chi0 = bm  * pRG->R[k][jm][im][ifr].chi + 
+	         bm1 * pRG->R[k][j ][im][ifr].chi;
+	  chi2 = bm  * pRG->R[k][jp][ip][ifr].chi +
+	         bm1 * pRG->R[k][j ][ip][ifr].chi;
+	  /*dtaum = 0.5 * (chi0 + chi1);
+	    dtaup = 0.5 * (chi2 + chi1); */
+	  interp_quad_chi(chi0,chi1,chi2,&dtaum);
+	  interp_quad_chi(chi2,chi1,chi0,&dtaup);
+	  dtaum *= dx * muinv[m][0]; 
+	  dtaup *= dx * muinv[m][0]; 
+	
+	  interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+				       S0, pRG->R[k][j][i][ifr].S, S2);
+	  imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
+	  lamstr[j][i][ifr] += pRG->wmu[m] * a1;
 	}
-/* Account for ix1 boundary condition */
-    for(j=js-1; j<=je+1; j++)
-      for(m=0; m<nang; m++)
-	for(n=0; n<2; n++) {
-	  imux[ifr][j][0][m][n] = pRG->l1imu[ifr][ks][j][0][m];
-	  imux[ifr][j][2][m][n] = pRG->l1imu[ifr][ks][j][2][m];
-	}
-/* Peform diagonal sweep through 2D grid */
-    il = is; iu = is;  jl = js; ju = js;
-    for(itot=0; itot < ntot; itot++) {
-      j = jl;  i = iu;
-      while ((j <= ju) && (i >= il)) {
-	for(m=0; m<nang; m++)
-	  if(am0[m] <= 1.0) {
-/* modify imuy to include left and right boundary intensity */
-	    if(i == is) {
-	      imuy[ifr][i-1][0][m][1] = pRG->l1imu[ifr][ks][j-1][0][m];
-	      imuy[ifr][i-1][1][m][1] = pRG->l1imu[ifr][ks][j-1][1][m];
-	    }
-	    if(i == ie) {
-	      imuy[ifr][i+1][0][m][0] = pRG->r1imu[ifr][ks][j-1][0][m];
-	      imuy[ifr][i+1][1][m][0] = pRG->r1imu[ifr][ks][j-1][1][m];
-	    }
-/* compute imu in current cell */
-	    update_cell(pRG,imuy,ifr,ks,j,i,0,m);
-	    update_cell(pRG,imuy,ifr,ks,j,i,1,m);
-/* update left and right boundary intensity */
-	    if(i == is)
-	      pRG->l1imu[ifr][ks][j][1][m] = imuy[ifr][i][1][m][0];	    
-	    if(i == ie)
-	      pRG->r1imu[ifr][ks][j][0][m] = imuy[ifr][i][0][m][0];	    
-	  }
-	j++; i--;
+/* Add to radiation moments and save for next iteration */
+	wimu = pRG->wmu[m] * imu;
+	pRG->R[k][j][i][ifr].J += wimu;
+	pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
+	pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
+	pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
+	pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
+	pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
+ /* Update intensity workspace */
+	imuo[ifr][j][l][m][1] = imuo[ifr][j][l][m][0];
+	imuo[ifr][j][l][m][0] = imu;
       }
-      j = ju;  i = il;
-      while ((j >= jl) && (i <= iu)) {
-	for(m=0; m<nang; m++)
-	  if(am0[m] > 1.0) {
-/* modify imux to include top and boundar boundary intensity */
-	    /*if(j == js) { */
-	    if((j == js) && (i != is)) {
-	      imux[ifr][j-1][0][m][1] = pRG->l2imu[ifr][ks][i-1][0][m];
-	      imux[ifr][j-1][2][m][1] = pRG->l2imu[ifr][ks][i-1][2][m];
-	    }
-	    /*if(j == je) { */
-	    if((j == je) && (i != is)) {
-	      imux[ifr][j+1][0][m][0] = pRG->r2imu[ifr][ks][i-1][0][m];
-	      imux[ifr][j+1][2][m][0] = pRG->r2imu[ifr][ks][i-1][2][m];
-	    }
-/* compute imu in current cell */
-	    update_cell(pRG,imux,ifr,ks,j,i,0,m);
-	    update_cell(pRG,imux,ifr,ks,j,i,2,m);
-/* update top and bottom boundary intensity */
-	    if(j == js)
-	      pRG->l2imu[ifr][ks][i][2][m] = imux[ifr][j][2][m][0];
-	    if(j == je)
-	      pRG->r2imu[ifr][ks][i][0][m] = imux[ifr][j][0][m][0];
-	  }
-	j--; i++;
-      }
-      if(iu == ie) jl++;
-      if(ju == je) il++;      
-      if(iu < ie) iu++;
-      if(ju < je) ju++;
-    }
-
-/* Update ox2 boundary condition */
-    for(i=is; i<=ie; i++)
-      for(m=0; m<nang; m++)
-	if(am0[m] <= 1.0) {
-	  pRG->r2imu[ifr][ks][i][0][m] = imuy[ifr][i][0][m][0];
-	  pRG->r2imu[ifr][ks][i][1][m] = imuy[ifr][i][1][m][0];
-	}
-
-/* Update ox1 boundary condition */
-    for(j=js; j<=je; j++)
-      for(m=0; m<nang; m++) 
-	if(am0[m] > 1.0) {
-	  pRG->r1imu[ifr][ks][j][0][m] = imux[ifr][j][0][m][0];
-	  pRG->r1imu[ifr][ks][j][2][m] = imux[ifr][j][2][m][0];
-	}    
-  }
-
-  return;
-}
-
-static void sweep_2d_backward(RadGridS *pRG)
-{
-  int ifr, l, m, n;
-  int itot;
-  int i, il, iu;
-  int j, jl, ju;
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks;   
-  int nf = pRG->nf, nang = pRG->nang;
-
-  for(ifr=0; ifr<nf; ifr++)  {
-/* Account for ox2 boundary condition */
-    for(i=is; i<=ie; i++)
-      for(m=0; m<nang; m++) {
-	imuy[ifr][i][2][m][0] = pRG->r2imu[ifr][ks][i][2][m];
-	imuy[ifr][i][3][m][0] = pRG->r2imu[ifr][ks][i][3][m];
-      }
-/* Account for ox1 boundary condition */
-    for(j=js-1; j<=je+1; j++)
-      for(m=0; m<nang; m++) {
-	imux[ifr][j][1][m][0] = pRG->r1imu[ifr][ks][j][1][m];
-	imux[ifr][j][3][m][0] = pRG->r1imu[ifr][ks][j][3][m];
-      }
-/* Peform diagonal sweep through 2D grid */
-    il = ie; iu = ie;  jl = je; ju = je;
-    for(itot=0; itot < ntot; itot++) {
-      j = ju;  i = il;
-      while ((j >= jl) && (i <= iu)) {
-	for(m=0; m<nang; m++)
-	  if(am0[m] <= 1.0) {	    
-/* modify imuy to include left and right boundary intensity */
-	    if(i == is) {
-	      imuy[ifr][i-1][2][m][0] = pRG->l1imu[ifr][ks][j+1][2][m];
-	      imuy[ifr][i-1][3][m][0] = pRG->l1imu[ifr][ks][j+1][3][m];
-	    }
-	    if(i == ie) {
-	      imuy[ifr][i+1][2][m][1] = pRG->r1imu[ifr][ks][j+1][2][m];
-	      imuy[ifr][i+1][3][m][1] = pRG->r1imu[ifr][ks][j+1][3][m];
-	    }
-/* compute imu in current cell */
-	    update_cell(pRG,imuy,ifr,ks,j,i,2,m);
-	    update_cell(pRG,imuy,ifr,ks,j,i,3,m);
-/* update left and right boundary intensity */
-	    if(i == is)
-	      pRG->l1imu[ifr][ks][j][3][m] = imuy[ifr][i][3][m][0];	    
-	    if(i == ie)
-	      pRG->r1imu[ifr][ks][j][2][m] = imuy[ifr][i][2][m][0];	    
-	  }
-	j--; i++;
-      }
-      j = jl;  i = iu;
-      while ((j <= ju) && (i >= il)) {
-	for(m=0; m<nang; m++)
-	  if(am0[m] > 1.0) {
-/* modify imux to include top and boundar boundary intensity */
-	    /* if(j == js) { */
-	    if((j == js) && (i != ie)) {
-	      imux[ifr][j-1][1][m][0] = pRG->l2imu[ifr][ks][i+1][1][m];
-	      imux[ifr][j-1][3][m][0] = pRG->l2imu[ifr][ks][i+1][3][m];
-	    }
-	    /* if(j == je) { */
-	    if((j == je) && (i != ie)) {
-	      imux[ifr][j+1][1][m][1] = pRG->r2imu[ifr][ks][i+1][1][m];
-	      imux[ifr][j+1][3][m][1] = pRG->r2imu[ifr][ks][i+1][3][m];
-	    }
-/* compute imu in current cell */
-	    update_cell(pRG,imux,ifr,ks,j,i,1,m);
-	    update_cell(pRG,imux,ifr,ks,j,i,3,m);
-/* update top and bottom boundary intensity */
-	    if(j == js)
-	      pRG->l2imu[ifr][ks][i][3][m] = imux[ifr][j][3][m][0];
-	    if(j == je)
-	      pRG->r2imu[ifr][ks][i][1][m] = imux[ifr][j][1][m][0];
-	  }
-	j++; i--;
-      }
-      if(il == is) ju--;
-      if(jl == js) iu--;  
-      if(il > is) il--;
-      if(jl > js) jl--;
-    }    
-/* Update ix2 boundary condition */
-    for(i=is; i<=ie; i++)
-      for(m=0; m<nang; m++)
-	if(am0[m] <= 1.0) {
-	  pRG->l2imu[ifr][ks][i][2][m] = imuy[ifr][i][2][m][0];
-	  pRG->l2imu[ifr][ks][i][3][m] = imuy[ifr][i][3][m][0];
-	}
-/* Update ix1 boundary condition */
-    for(j=js; j<=je; j++)
-      for(m=0; m<nang; m++) 
-	if(am0[m] > 1.0) {
-	  pRG->l1imu[ifr][ks][j][1][m] = imux[ifr][j][1][m][0];
-	  pRG->l1imu[ifr][ks][j][3][m] = imux[ifr][j][3][m][0];
-	}    
-  }
-
+    }}
+  
   return;
 }
 
@@ -494,8 +621,7 @@ void formal_solution_2d_destruct(void)
 
   if (psi    != NULL) free_6d_array(psi);
   if (lamstr != NULL) free_3d_array(lamstr);
-  if (imux   != NULL) free_5d_array(imux);
-  if (imuy   != NULL) free_5d_array(imuy);
+  if (imuo   != NULL) free_5d_array(imuo);
   if (muinv  != NULL) free_2d_array(muinv);
   if (am0    != NULL) free_1d_array(am0);
   if (mu2    != NULL) free_3d_array(mu2);
@@ -514,18 +640,15 @@ void formal_solution_2d_init(RadGridS *pRG)
   Real dx = pRG->dx1, dy = pRG->dx2;
   int ifr, i, j, l, m;
   int sy, sx;
+  int nmx;
   Real chi0, chi1, chi2, dtaum, dtaup;
   Real edtau, a0, a1, a2;
   Real am, am1, bm, bm1;
 
   svwght = par_geti("radiation","svwght");
 
-  ntot = je + ie - (js + is) + 1;
-
-  if ((imux = (Real *****)calloc_5d_array(nf,nx2+2,4,nang,2,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((imuy = (Real *****)calloc_5d_array(nf,nx1+2,4,nang,2,sizeof(Real))) == NULL)
+  nmx = MAX(nx1,nx2);
+  if ((imuo = (Real *****)calloc_5d_array(nf,nmx+2,4,nang,2,sizeof(Real))) == NULL)
     goto on_error;
 
   if ((muinv = (Real **)calloc_2d_array(nang,2,sizeof(Real))) == NULL)
@@ -609,15 +732,5 @@ void formal_solution_2d_init(RadGridS *pRG)
 
 }
 
-#ifdef RAD_MULTIG
-void jacobi_pass_pointers_to_mg_2d(Real ********psi0, Real **muinv0, Real **am00)
-{
-  *psi0 = psi;
-  *muinv0 = muinv;
-  *am00 = am0;
-  return;
-}
-#endif /* RAD_MULTIG */
-
-#endif /* JACOBI */
+#endif /* JACOBI_LINEAR */
 #endif /* RADIATION_TRANSFER */

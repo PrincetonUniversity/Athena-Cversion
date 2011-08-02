@@ -241,7 +241,9 @@ PropFun_t get_usr_par_prop(const char *name);
 void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, const Real v1, const Real v2, const Real v3);
 #endif
-
+#ifdef RADIATION_TRANSFER
+void Userwork_in_formal_solution(DomainS *pD);
+#endif
 /*----------------------------------------------------------------------------*/
 /* restart.c  */
 void dump_restart(MeshS *pM, OutputS *pout);

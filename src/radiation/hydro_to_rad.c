@@ -13,11 +13,11 @@
  *============================================================================*/
 
 #include <stdlib.h>
+#include <math.h>
 #include "../defs.h"
 #include "../athena.h"
 #include "../globals.h"
 #include "../prototypes.h"
-#define BFRAC 1.0E2
 
 #ifdef RADIATION_TRANSFER
 void output_rad_1d(RadGridS *pRG);
@@ -62,13 +62,11 @@ void hydro_to_rad(DomainS *pD)
 
 	/* Compute gas temperature and store for later use */
 	d = pG->U[kg][jg][ig].d;
-	ekin =  pG->U[kg][jg][ig].M1 * pG->U[kg][jg][ig].M1;
-	ekin += pG->U[kg][jg][ig].M2 * pG->U[kg][jg][ig].M2;
-	ekin += pG->U[kg][jg][ig].M3 * pG->U[kg][jg][ig].M3;
-	ekin *= 0.5 / d;
-	etherm=pG->U[kg][jg][ig].E - ekin;
+	etherm = pG->U[kg][jg][ig].E - (0.5/d)*
+	  (SQR(pG->U[kg][jg][ig].M1) +SQR(pG->U[kg][jg][ig].M2) +SQR(pG->U[kg][jg][ig].M3));
 #if defined(MHD) || defined(RADIATION_MHD)
-	etherm -= 0.5 * (pG->U[kg][jg][ig].B1c * pG->U[kg][jg][ig].B1c + pG->U[kg][jg][ig].B2c * pG->U[kg][jg][ig].B2c + pG->U[kg][jg][ig].B3c * pG->U[kg][jg][ig].B3c);
+	etherm -= 0.5 * (SQR(pG->U[kg][jg][ig].B1c) + 
+			 SQR(pG->U[kg][jg][ig].B2c) + SQR(pG->U[kg][jg][ig].B3c));
 #endif
 	pG->tgas[kg][jg][ig] = etherm * Gamma_1 / (d * R_ideal);
 
@@ -117,19 +115,26 @@ void rad_to_hydro(DomainS *pD)
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   int nf = pRG->nf;
+  int nDim;
   int ig,jg,kg,ioff,joff,koff;
   Real esource, kappa;
-  Real Delta, kDelta;
-  Real dx = pRG->dx1;
+  Real dx1=0.5/pRG->dx1, dx2=0.5/pRG->dx2, dx3=0.5/pRG->dx3;
+  Real dxmin;
+  int flag = 0;
 
-  if (pG->Nx[0] > 1) {
-    ioff = nghost - 1;
-  } else ioff = 0;
+  dxmin = pD->dx[0];
+  if (pD->Nx[1] > 1) dxmin = MIN( dxmin, (pD->dx[1]) );
+  if (pD->Nx[2] > 1) dxmin = MIN( dxmin, (pD->dx[2]) );
+
+  ioff = nghost - 1;
+  nDim = 1;
   if (pG->Nx[1] > 1) {
-    joff = nghost - 1; 
+    joff = nghost - 1;
+    nDim = 2;
   } else joff = 0; 
   if (pG->Nx[2] > 1) {
     koff = nghost - 1;
+    nDim = 3;
   } else koff = 0;
 
 /* Update thermal energy */
@@ -139,29 +144,34 @@ void rad_to_hydro(DomainS *pD)
       jg = j + joff;
       for (i=il; i<=iu; i++) {
 	ig = i + ioff;
-	esource=0.0;
+	esource = 0.0;
 	for(ifr=0; ifr<nf; ifr++) {
-	  kappa = pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi;
-	  /* Must add frequency weights */
-	  Delta = pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B;
-	  /* if (fabs(Delta/pRG->R[k][j][i][ifr].B) >= BFRAC) { */
-	  esource += kappa * Delta;
-	  /*if(i == il) 
-	    esource += (pRG->R[k][j][i][ifr].H[0]-pRG->R[k][j][i+1][ifr].H[0])/dx; 
-	  else if(i == iu)
-	    esource += (pRG->R[k][j][i-1][ifr].H[0]-pRG->R[k][j][i][ifr].H[0])/dx;
-	  else
-	  esource += 0.5*(pRG->R[k][j][i-1][ifr].H[0]-pRG->R[k][j][i+1][ifr].H[0])/dx;*/
+	  if(pRG->R[k][j][i][ifr].chi*dxmin <= 1.0) {	    
+	    //flag = 2;
+	    esource += pRG->wnu[ifr] * pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi *
+	               (pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B);
+	  } else {
+	    //flag = 1;
+	    esource += pRG->wnu[ifr] * dx1 * (pRG->R[k][j][i-1][ifr].H[0] - 
+                                              pRG->R[k][j][i+1][ifr].H[0]);
+	    if (nDim > 1) {
+	      esource += pRG->wnu[ifr] * dx2 * (pRG->R[k][j-1][i][ifr].H[1] -
+                                                pRG->R[k][j+1][i][ifr].H[1]);
+	      if (nDim == 3) {
+		esource += pRG->wnu[ifr] * dx3 * (pRG->R[k-1][j][i][ifr].H[2] -
+						  pRG->R[k+1][j][i][ifr].H[2]);
+	      }
+	    }
+	  }
 
-	  /* esource += kappa * (B00 - pRG->R[k][j][i][ifr].B) * (1.0 - kappa/(2.0*PI) * 
-	     atan((2.0 * PI)/kappa)); */
-
+	  /*kappa = pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi;
+	  esource = pRG->wnu[ifr] * kappa * (B00 - pRG->R[k][j][i][ifr].B) * 
+	  (1.0 - kappa/(2.0*PI) * atan((2.0 * PI)/kappa));*/
+	  
 	}
 	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource;
-      }
-    }
-  }
-
+      }}}
+  //printf("energey source flag: %d\n",flag);
   return;
 }
 

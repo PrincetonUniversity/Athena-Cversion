@@ -88,9 +88,9 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
   }
 
 /* initialize mean intensities at all depths to zero */
-  for(k=ks-1; k<=ke+1; k++) 
-    for(j=js-1; j<=je+1; j++)
-      for(i=is-1; i<=ie+1; i++) 
+  for(k=ks; k<=ke; k++) 
+    for(j=js; j<=je; j++)
+      for(i=is; i<=ie; i++) 
 	for(ifr=0; ifr<nf; ifr++) {
 	  pRG->R[k][j][i][ifr].J = 0.0;
 	  pRG->R[k][j][i][ifr].H[0] = 0.0;

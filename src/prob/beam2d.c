@@ -104,6 +104,7 @@ get_total_opacity = const_opacity;
  * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * Userwork_in_formal_solution  - problem specific work in formal solution loop
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
@@ -124,6 +125,11 @@ ConsFun_t get_usr_expr(const char *expr)
 
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
+}
+
+void Userwork_in_formal_solution(DomainS *pD)
+{
+  return;
 }
 
 void Userwork_in_loop(MeshS *pM)

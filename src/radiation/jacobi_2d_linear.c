@@ -60,38 +60,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
   int ismx, jsmx;
   Real dSr, dJ, dJmax;
 
-  /*  if(myID_Comm_world == 0) {
-    for(m=0; m<pRG->nang; m++) {
-      printf("11 l1 %d %g %g\n",m,pRG->l1imu[ifr][ks][js-1][0][m],pRG->l1imu[ifr][ks][js-1][2][m]);
-      printf("11 l2 %d %g %g\n",m,pRG->l2imu[ifr][ks][is-1][0][m],pRG->l2imu[ifr][ks][is-1][1][m]);
-    }
-    for(m=0; m<pRG->nang; m++) {
-      printf("12 l1 %d %g %g\n",m,pRG->l1imu[ifr][ks][je+1][0][m],pRG->l1imu[ifr][ks][je+1][2][m]);
-      printf("12 r2 %d %g %g\n",m,pRG->r2imu[ifr][ks][is-1][2][m],pRG->r2imu[ifr][ks][is-1][3][m]);
-    }
-    for(m=0; m<pRG->nang; m++) {
-      printf("22 r1 %d %g %g\n",m,pRG->r1imu[ifr][ks][je+1][1][m],pRG->r1imu[ifr][ks][je+1][3][m]);
-      printf("22 r2 %d %g %g\n",m,pRG->r2imu[ifr][ks][ie+1][2][m],pRG->r2imu[ifr][ks][ie+1][3][m]);
-    }
-    for(m=0; m<pRG->nang; m++) {
-      printf("21 r1 %d %g %g\n",m,pRG->r1imu[ifr][ks][js-1][1][m],pRG->r1imu[ifr][ks][js-1][3][m]);
-      printf("21 l2 %d %g %g\n",m,pRG->l2imu[ifr][ks][ie+1][0][m],pRG->l2imu[ifr][ks][ie+1][1][m]);
-    }
-    printf("\n");
-    }*/
-
-  /* for(ifr=0; ifr<nf; ifr++) 
-    for(m=0; m<pRG->nang; m++) {
-      pRG->l2imu[ifr][ks][is-1][0][m] = pRG->l1imu[ifr][ks][js-1][0][m];
-      pRG->l2imu[ifr][ks][is-1][0][m] = pRG->l1imu[ifr][ks][js-1][0][m];
-      pRG->l2imu[ifr][ks][ie+1][1][m] = pRG->r1imu[ifr][ks][js-1][1][m];
-      pRG->l2imu[ifr][ks][ie+1][1][m] = pRG->r1imu[ifr][ks][js-1][1][m];
-
-      pRG->r2imu[ifr][ks][is-1][2][m] = pRG->l1imu[ifr][ks][je+1][2][m];
-      pRG->r2imu[ifr][ks][is-1][2][m] = pRG->l1imu[ifr][ks][je+1][2][m];
-      pRG->r2imu[ifr][ks][ie+1][3][m] = pRG->r1imu[ifr][ks][je+1][3][m];
-      pRG->r2imu[ifr][ks][ie+1][3][m] = pRG->r1imu[ifr][ks][je+1][3][m];
-      }*/
+ 
 
 /* if LTE then store J values from previous iteration */
   if(lte != 0) {
@@ -102,8 +71,8 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
   }
 
 /* initialize mean intensities at all depths to zero */
-  for(j=js-1; j<=je+1; j++)
-    for(i=is-1; i<=ie+1; i++) 
+  for(j=js; j<=je; j++)
+    for(i=is; i<=ie; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	pRG->R[ks][j][i][ifr].J = 0.0;
 	pRG->R[ks][j][i][ifr].H[0] = 0.0;
@@ -153,24 +122,6 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
     if(((*dSrmax) == 0.0) && (dJmax > 0.0)) (*dSrmax) = 1.0;
   }
 
-  /*ifr=0;
-    for(m=0; m<pRG->nang; m++) {
-      printf("11 l1 %d %g %g\n",m,pRG->l1imu[ifr][ks][js][1][m],pRG->l1imu[ifr][ks][js][3][m]);
-      printf("11 l2 %d %g %g\n",m,pRG->l2imu[ifr][ks][is][2][m],pRG->l2imu[ifr][ks][is][3][m]);
-    }
-    for(m=0; m<pRG->nang; m++) {
-      printf("12 l1 %d %g %g\n",m,pRG->l1imu[ifr][ks][je][1][m],pRG->l1imu[ifr][ks][je][3][m]);
-      printf("12 r2 %d %g %g\n",m,pRG->r2imu[ifr][ks][is][0][m],pRG->r2imu[ifr][ks][is][1][m]);
-    }
-    for(m=0; m<pRG->nang; m++) {
-      printf("22 r1 %d %g %g\n",m,pRG->r1imu[ifr][ks][je][0][m],pRG->r1imu[ifr][ks][je][2][m]);
-      printf("22 r2 %d %g %g\n",m,pRG->r2imu[ifr][ks][ie][0][m],pRG->r2imu[ifr][ks][ie][1][m]);
-    }
-    for(m=0; m<pRG->nang; m++) {
-      printf("21 r1 %d %g %g\n",m,pRG->r1imu[ifr][ks][js][0][m],pRG->r1imu[ifr][ks][js][2][m]);
-      printf("21 l2 %d %g %g\n",m,pRG->l2imu[ifr][ks][ie][2][m],pRG->l2imu[ifr][ks][ie][3][m]);
-    }
-    printf("\n");*/
 
   return;
 }
@@ -519,6 +470,8 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int k, int j, int i, int 
 /* Add to radiation moments and save for next iteration */
       wimu = pRG->wmu[m] * imu;
       pRG->R[k][j][i][ifr].J += wimu;
+      pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
+      pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
       pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
       pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
       pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;

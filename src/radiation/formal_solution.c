@@ -42,7 +42,8 @@ void formal_solution(DomainS *pD)
   if ((isarr = (int *)calloc(10000,sizeof(int))) == NULL) {
     ath_error("[get_solution]: Error allocating memory\n");
   }
-  if(lte == 0) sflag = 1; else sflag = 0;
+  //if(lte == 0) sflag = 1; else sflag = 0;
+  sflag = 1;
 /* number of dimensions in Grid. */
   ndim=1;
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) ndim++;
@@ -57,7 +58,10 @@ void formal_solution(DomainS *pD)
 #else
       formal_solution_1d(pRG,&dSrmax);
 #endif
-  
+
+/* User work (defined in problem()) */
+    Userwork_in_formal_solution(pD);
+   
 /* Check whether convergence criterion is met. */
 #ifdef MPI_PARALLEL
       MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
@@ -81,6 +85,9 @@ void formal_solution(DomainS *pD)
       formal_solution_2d(pRG,&dSrmax);
 #endif
 
+/* User work (defined in problem()) */
+    Userwork_in_formal_solution(pD);
+
 /* Check whether convergence criterion is met. */
 #ifdef MPI_PARALLEL
       MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
@@ -103,6 +110,9 @@ void formal_solution(DomainS *pD)
       if(i > 0) bvals_rad(pD,sflag);
       formal_solution_3d(pRG,&dSrmax);
 
+/* User work (defined in problem()) */
+    Userwork_in_formal_solution(pD);
+
 /* Check whether convergence criterion is met. */
 #ifdef MPI_PARALLEL
       MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
@@ -115,6 +125,7 @@ void formal_solution(DomainS *pD)
     }
     formal_solution_3d_destruct();
   }
+
   if (myID_Comm_world == 0) printf("iterations: %d, dSrmax: %g\n",i,dSrmax);
   if((i == niter) && (myID_Comm_world == 0)) 
     printf("Maximum number of iterations: niter=%d exceeded.\n",niter);

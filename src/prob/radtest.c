@@ -24,6 +24,11 @@
 #include "prototypes.h"
 
 static Real eps0;
+static Real ***sol = NULL;
+static int iter = 0;
+static int vdir;
+static int frstflag = 1;
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *============================================================================*/
@@ -45,7 +50,7 @@ void problem(DomainS *pDomain)
   int nf=pRG->nf, nang=pRG->nang;
   int noct = pRG->noct;
   int i, j, k, ifr, l, m;
-  int vdir;
+
   Real y, ytop, ybtm;  
   Real den = 1.0;
   Real *tau = NULL, taumax, taumin;
@@ -58,10 +63,17 @@ void problem(DomainS *pDomain)
   taumin = par_getd("problem","taumin");
   R_ideal = 1.0;
 
-/* ---------- Initialize Grid ------------ */
+/* Allocate memory for solution array */
+
+  if ((sol = (Real ***)calloc_3d_array(pRG->Nx[2]+2,pRG->Nx[1]+2,pRG->Nx[0]+2,
+				       sizeof(Real))) == NULL) {
+    ath_error("[problem]: Error allocating memory\n");
+  }
+
+/* ---------- Initialize Grid and Solution array ------------ */
 
 /* Setup density structure */ 
-/* tau il used to initialize density grid */
+/* tau is used to initialize density grid */
 
   switch(vdir) {
   
@@ -71,6 +83,9 @@ void problem(DomainS *pDomain)
     if ((tau = (Real *)calloc_1d_array(pG->Nx[0]+2*nghost,sizeof(Real))) == NULL) {
       ath_error("[problem]: Error allocating memory");
     }
+    //if ((tau0 = (Real *)calloc_1d_array(pG->Nx[0]+2*nghost,sizeof(Real))) == NULL) {
+    //  ath_error("[problem]: Error allocating memory");
+    //}
     for(i=il; i<=iu+2; i++) {
       y = pG->MinX[0] + (Real)(i-il)*pG->dx1;
       tau[i] = pow(10.0,taumin + (taumax-taumin) * ((y-ybtm)/(ytop-ybtm)));
@@ -139,6 +154,7 @@ void problem(DomainS *pDomain)
     ath_error("[rad2d]: direction vert_dir must be 1-3\n");
     break;
   }
+
 /* Free up memory */
   free_1d_array(tau);
 
@@ -165,6 +181,12 @@ void problem(DomainS *pDomain)
   case 1:
 /* Density gradient aligned with i3 */
     for(ifr=0; ifr<nf; ifr++) {
+
+      /* Initialize J to zero in the top boundary gridzones */
+      for(k=kl; k<=ku; k++) {
+	for(j=jl; j<=ju; j++) {
+	  pRG->R[k][j][0][ifr].J = 0.0;
+	}}
       /* Initialize boundary intensity in x1 direction */
       for(k=kl; k<=ku; k++) {
 	for(j=jl; j<=ju; j++) {
@@ -261,6 +283,12 @@ void problem(DomainS *pDomain)
   case 2:
 /* Density gradient aligned with i2 */
     for(ifr=0; ifr<nf; ifr++) {
+/* Initialize J to zero in the top boundary gridzones */
+      for(k=kl; k<=ku; k++) {
+	for(i=il; i<=iu; i++) {
+	  pRG->R[k][0][i][ifr].J = 0.0;
+	}}
+
 /* Initialize boundary intensity in x1 direction */
       for(k=kl; k<=ku; k++) {
 	/* lower boundary is tau=0, no irradiation */
@@ -353,6 +381,11 @@ void problem(DomainS *pDomain)
  case 3:
 /* Density gradient aligned with i3 */
    for(ifr=0; ifr<nf; ifr++) {
+/* Initialize J to zero in the top boundary gridzones */
+     for(j=jl; j<=ju; j++) {
+       for(i=il; i<=iu; i++) {
+	 pRG->R[0][j][i][ifr].J = 0.0;
+       }}     
      /* Initialize boundary intensity in x1 direction */
      /* lower boundary is tau=0, no irradiation */
      for(j=jl; j<=ju; j++) {
@@ -450,13 +483,13 @@ get_total_opacity = const_opacity;
  * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * Userwork_in_formal_solution  - problem specific work in formal solution loop
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
-
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
@@ -472,6 +505,176 @@ VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
+void Userwork_in_formal_solution(DomainS *pD)
+{
+
+  RadGridS *pRG=(pD->RadGrid);
+  int i,j,k;
+  int is=pRG->is, ie=pRG->ie;
+  int js=pRG->js, je=pRG->je;
+  int ks=pRG->ks, ke=pRG->ke;
+  int ixmax, iymax, izmax;
+  Real ds;
+  static Real ***dst = NULL, *tau0 = NULL;
+  Real jsol, chio, chim, chip, dtaum, dtaup;
+  FILE *fp;
+  char *fname;
+
+  if (frstflag == 1) {
+    if ((dst = (Real ***)calloc_3d_array(pRG->Nx[2]+2,pRG->Nx[1]+2,pRG->Nx[0]+2,
+					 sizeof(Real))) == NULL) {
+      ath_error("[Userwork_in_formal_solution]: Error allocating memory\n");
+    }
+ 
+    switch(vdir) {
+
+    case 1:
+      if ((tau0 = (Real *)calloc_1d_array(pRG->Nx[0]+2,sizeof(Real))) == NULL) {
+	ath_error("[problem]: Error allocating memory");
+      }
+      tau0[0]= 0.0;
+      for (i=is; i<=ie; i++) {
+	chio = pRG->R[ks][js][i  ][0].chi;
+	chim = pRG->R[ks][js][i-1][0].chi;
+	chip = pRG->R[ks][js][i+1][0].chi;
+	dtaum = 0.5 * (chim + chio);
+	/*dtaup = 0.5 * (chip + chio);*/
+	/*interp_quad_chi(chim,chio,chip,&dtaum);
+	  interp_quad_chi(chip,chio,chim,&dtaup);*/
+	dtaum *= pRG->dx1; 
+	/*dtaup *= pRG->dx1;*/
+	tau0[i] = tau0[i-1] + dtaum;
+      }
+      for(k=ks; k<=ke; k++) {
+	for(j=js; j<=je; j++) {
+	  for(i=is; i<=ie; i++) {
+	    jsol = 1.0 - exp(-sqrt(3.0 * eps0) * tau0[i]) / (1.0 + sqrt(eps0));
+	    sol[k-ks][j-js][i-is] = eps0 + (1.0-eps0) * jsol;
+	  }}}
+      break;
+
+    case 2:
+      if ((tau0 = (Real *)calloc_1d_array(pRG->Nx[1]+2,sizeof(Real))) == NULL) {
+	ath_error("[problem]: Error allocating memory");
+      }
+      tau0[0]= 0.0;
+      for (j=js; j<=je; j++) {
+	chio = pRG->R[ks][j  ][is][0].chi;
+	chim = pRG->R[ks][j-1][is][0].chi;
+	chip = pRG->R[ks][j+1][is][0].chi;
+	dtaum = 0.5 * (chim + chio);
+	/*dtaup = 0.5 * (chip + chio);*/
+	/*interp_quad_chi(chim,chio,chip,&dtaum);
+	 interp_quad_chi(chip,chio,chim,&dtaup);*/
+	dtaum *= pRG->dx2; 
+	/*dtaup *= pRG->dx2;*/
+	tau0[j] = tau0[j-1] + dtaum;
+      }
+      for(k=ks; k<=ke; k++) {
+	for(j=js; j<=je; j++) {
+	  for(i=is; i<=ie; i++) {
+	    jsol = 1.0 - exp(-sqrt(3.0 * eps0) * tau0[j]) / (1.0 + sqrt(eps0));
+	    sol[k-ks][j-js][i-is] = eps0 + (1.0-eps0) * jsol;
+	  }}}
+      break;
+      
+    case 3:
+      if ((tau0 = (Real *)calloc_1d_array(pRG->Nx[2]+2,sizeof(Real))) == NULL) {
+	ath_error("[problem]: Error allocating memory");
+      }
+      tau0[0]= 0.0;
+      for (k=ks; k<=ke; k++) {
+	chio = pRG->R[k  ][js][is][0].chi;
+	chim = pRG->R[k-1][js][is][0].chi;
+	chip = pRG->R[k+1][js][is][0].chi;
+	dtaum = 0.5 * (chim + chio);
+	/*dtaup = 0.5 * (chip + chio);*/
+	/*interp_quad_chi(chim,chio,chip,&dtaum);
+	  interp_quad_chi(chip,chio,chim,&dtaup);*/
+	dtaum *= pRG->dx3; 
+	/*dtaup *= pRG->dx3;*/
+	tau0[k] = tau0[k-1] + dtaum;
+      }
+      for(k=ks; k<=ke; k++) {
+	for(j=js; j<=je; j++) {
+	  for(i=is; i<=ie; i++) {
+	    jsol = 1.0 - exp(-sqrt(3.0 * eps0) * tau0[k]) / (1.0 + sqrt(eps0));
+	    sol[k-ks][j-js][i-is] = eps0 + (1.0-eps0) * jsol;
+	  }}}
+      break;
+
+    }
+      frstflag = 0;
+  }
+
+  iter++;
+  printf("Iteration # %d \n",iter);
+  ds = 0;
+  for(k=ks; k<=ke; k++) {
+    for(j=js; j<=je; j++) {
+      for(i=is; i<=ie; i++) {
+	dst[k][j][i] = fabs(pRG->R[k][j][i][0].S - sol[k-ks][j-js][i-is]) / 
+	  sol[k-ks][j-js][i-is];
+	if (dst[k][j][i] > ds) {ds = dst[k][j][i]; ixmax = i; iymax = j; izmax = k;}
+      }}}
+
+/* Print error to file "Radtest-diag.0.dat"  */
+
+  fname = ath_fname(NULL,"RadTest-diag",NULL,NULL,1,0,NULL,"dat");
+/* The file exists -- reopen the file in append mode */
+  if((fp=fopen(fname,"r")) != NULL){
+    if((fp = freopen(fname,"a",fp)) == NULL){
+      ath_error("[Userwork_in_formal_solution]: Unable to reopen file.\n");
+      return;
+    }
+  }
+/* The file does not exist -- open the file in write mode */
+  else{
+    if((fp = fopen(fname,"w")) == NULL){
+      ath_error("[Userwork_in_formal_solution]: Unable to open file.\n");
+      return;
+    }
+/* Now write out some header information */
+    fprintf(fp,"#  dSmax  ixmax  iymax  izmax\n");
+  }
+ 
+  fprintf(fp,"%d %g %d %d %d\n",iter,ds,ixmax,iymax,izmax);
+  fclose(fp);
+
+/* Print error to file "Radtest-error.0.dat"  */
+  fname = ath_fname(NULL,"RadTest-error",NULL,NULL,1,0,NULL,"dat");
+  if((fp=fopen(fname,"w")) != NULL){
+    switch(vdir) {
+  
+    case 1:
+      fprintf(fp,"%d %d\n",vdir,pRG->Nx[0]);
+      for(i=pRG->is; i<=pRG->ie; i++) {    
+	    fprintf(fp,"%g %g %g %g\n",tau0[i],dst[ks][js][i],pRG->R[ks][js][i][0].S,sol[0][0][i-is]);
+      }
+      break;
+      
+    case 2:
+      fprintf(fp,"%d %d\n",vdir,pRG->Nx[1]);
+      for(j=pRG->js; j<=pRG->je; j++) {    
+	    fprintf(fp,"%g %g %g %g\n",tau0[j],dst[ks][j][is],pRG->R[ks][j][is][0].S,sol[0][j-js][0]);
+      }
+      break;
+
+    case 3:
+      fprintf(fp,"%d %d\n",vdir,pRG->Nx[2]);
+      for(k=pRG->ks; k<=pRG->ke; k++) {    
+	    fprintf(fp,"%g %g %g %g\n",tau0[k],dst[k][js][is],pRG->R[k][js][is][0].S,sol[k-ks][0][0]);
+      }
+      break;
+    }
+
+    fclose(fp);
+  }
+
+ 
+  return;
+}
+
 void Userwork_in_loop(MeshS *pM)
 {
   return;
@@ -479,13 +682,27 @@ void Userwork_in_loop(MeshS *pM)
 
 void Userwork_after_loop(MeshS *pM)
 {
+  
   return;
 }
 
 static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k)
 {
-  return 1.0;
+  Real B;
+
+  if ((vdir == 1) && (i < pG->is))
+    B = 0.0;
+  else if ((vdir == 2) && (j < pG->js))
+    B = 0.0;
+  else if ((vdir == 3) && (k < pG->ks))
+    B = 0.0;
+  else
+  B = 1.0;
+
+  //B = 1.0;
+
+  return B;
 }
 
 static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
@@ -499,7 +716,19 @@ static Real const_eps(const GridS *pG, const int ifr, const int i, const int j,
 static Real const_opacity(const GridS *pG, const int ifr, const int i, const int j, 
 			  const int k)
 {
+  Real chi;
 
-  return pG->U[k][j][i].d;
+  /*if ((vdir == 1) && (i < pG->is))
+    chi = 0.0;
+  else if ((vdir == 2) && (j < pG->js))
+    chi = 0.0;
+  else if ((vdir == 3) && (k < pG->ks))
+    chi = 0.0;
+  else
+  chi = pG->U[k][j][i].d;*/
+
+  chi = pG->U[k][j][i].d;
+
+  return chi;
   
 }
