@@ -300,7 +300,7 @@ Real eff_sound(const Prim1DS W, Real dt, int flag); /* calculate effective sound
 
 Real eff_sound_thick(const Prim1DS W, Real dt); /* !< Used to limit time step in optical thick regime */
 
-void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz);
+void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz, const Real x1);
 /* function to calculate derivative of source function over conserved variables */
 
 double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,

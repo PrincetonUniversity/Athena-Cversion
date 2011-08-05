@@ -55,15 +55,17 @@ void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
 
   chic = chi1 - 0.25 * (chi2 - chi0);
 
-  //chimax = MAX(chi0,chi1);
-  //chimin = MIN(chi0,chi1);
-
+  /*chimax = MAX(chi0,chi1);
+  chimin = MIN(chi0,chi1);
+*/
   /* use standard interp if chimin < chic < chimax */
-  //  if ((chic >= chimin) && (chic <= chimax)) {
-  if ((chi0-chic)*(chi1-chic) <= 0.0) {
+  /*  if ((chic >= chimin) && (chic <= chimax)) {
+ */
+   if ((chi0-chic)*(chi1-chic) <= 0.0) {
    (*chi) = 0.4166666666666667 * chi0 + 0.6666666666666667 * chi1 -  0.0833333333333333 * chi2;
-    //(*chi)= (5.0 * chi0 + 8.0 * chi1 - chi2) / 12.0;
-  /* chic = chi1 */  
+    /*(*chi)= (5.0 * chi0 + 8.0 * chi1 - chi2) / 12.0;
+  */
+	 /* chic = chi1 */  
   } else {
     (*chi) = 0.3333333333333333 * chi0 + 0.6666666666666667 * chi1;
   }
@@ -107,11 +109,13 @@ void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
 
   /*Sc = S1 - 0.5 * (dtaup  * dSm / dtaus + dtaum2 * dSp / dtausp);*/
   Sc = S1 - 0.5 * (dtaup  * (S1 - S0) * dtaus1 + dtaum2 * (S2 - S1) * dtausp1);
-  //Smax = MAX(S0,S1);
+  /*/Smax = MAX(S0,S1);
   //Smin = MIN(S0,S1);
-  /* use standard interp if Smin < Sc < smax */
-  //if ((Sc >= Smin) && (Sc <= Smax)) {
-  if ((S0-Sc)*(S1-Sc) <= 0.0) {
+  */
+   /* use standard interp if Smin < Sc < smax */
+  /*if ((Sc >= Smin) && (Sc <= Smax)) {
+  */
+   if ((S0-Sc)*(S1-Sc) <= 0.0) {
     (*a0) = c0 + (c2 - (dtaus + dtaum) * c1) * dtaum1 * dtaus1;
     (*a1) = (dtaus * c1 - c2) * dtaum1 * dtaup1;
     (*a2) = (c2 - dtaum * c1) * dtausp1;

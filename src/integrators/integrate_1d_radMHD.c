@@ -343,7 +343,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	
 
 /* The Source term */
-	dSource(U1d[i], Bxc[i], &SEE, &SErho, &SEm, NULL, NULL);
+	dSource(U1d[i], Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
 
 	SFm = U1d[i].Sigma_t * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (U1d[i].d * Crat) 
 		+ U1d[i].Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) / (U1d[i].d * Crat);	
@@ -410,7 +410,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	Uguess.Sigma_t = Sigma_t;
 	Uguess.Sigma_a = Sigma_a;
 
-	dSource(Uguess, Bxc[i], &SEE, &SErho, &SEm, NULL, NULL);
+	dSource(Uguess, Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
 	Det = 1.0 + dt * Prat * Crat * SEE;
 	SFm = Uguess.Sigma_t * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (Uguess.d * Crat) 
 		+ U1d[i].Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) / (Uguess.d * Crat);	
@@ -608,3 +608,5 @@ void integrate_destruct_1d(void)
   return;
 }
 #endif /* radMHD_INTEGRATOR */
+
+

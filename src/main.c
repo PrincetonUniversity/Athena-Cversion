@@ -711,9 +711,16 @@ int main(int argc, char *argv[])
 #endif
 
 	/* set boundary conditions for radiation quantities */
+			/* Boundary condition for radiation quantities 
+			 * are set in BackEuler_*
+			 * Do not do it twice, especially for 
+			 * shearing boundary condition 
+			 */
+	/*
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
+	 */
 
         }
       }

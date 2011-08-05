@@ -472,9 +472,14 @@ void BackEuler_3d(MeshS *pM)
 	if((ix1 != 4) || (ix2 !=4)  || (ox1 != 4) || (ox2 != 4) )
 		ath_error("[BackEuler_3d]: Shearing box must have boundary flag 4 along three directions!\n");
 	
+
+	/* For FARGO algorithm */
+#ifdef FARGO
 	
-	/* the value of joffset changes from 0 to Ny-1 */
-	/* joffset can go to different CPUs in MPI case */
+	Real qom, x1, x2, x3;
+	qom = qshear * Omega_0;
+	
+#endif
 	
 #endif /* End shearing box */
 	
@@ -747,6 +752,15 @@ void BackEuler_3d(MeshS *pM)
 		velocity_x = pG->U[k][j][i].M1 /pG->U[k][j][i].d;
 		velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
 		velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+				
+#ifdef FARGO
+				
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i,j,k,&x1,&x2,&x3);
+		velocity_y -= qom * x1;			
+				
+#endif				
+				
 
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
@@ -1044,6 +1058,15 @@ void BackEuler_3d(MeshS *pM)
 			velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
 			velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
 			velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+				
+#ifdef FARGO
+				
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			velocity_y -= qom * x1;			
+				
+#endif				
+				
 			Sigma_a = pG->U[k][j][i].Sigma_a;
 			Sigma_t = pG->U[k][j][i].Sigma_t;
 			Sigma_s = Sigma_t - Sigma_a;

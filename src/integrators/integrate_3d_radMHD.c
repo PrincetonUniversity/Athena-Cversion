@@ -129,6 +129,8 @@ void integrate_3d_radMHD(DomainS *pD)
 	Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
 	Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
 	Real fact, qom, om_dt = Omega_0*pG->dt;
+	qom = qshear*Omega_0;
+	
 /*	Real ShearingSource_M1, ShearingSource_M2, ShearingSource_M3, ShearingSource_E;
 	Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
  */
@@ -197,14 +199,22 @@ void integrate_3d_radMHD(DomainS *pD)
     			for (i=is-nghost; i<=ie+nghost; i++) {
       			
 			U1d[i].d  = pG->U[k][j][i].d;
-      			U1d[i].Mx = pG->U[k][j][i].M1;
-      			U1d[i].My = pG->U[k][j][i].M2;
-      			U1d[i].Mz = pG->U[k][j][i].M3;
-      			U1d[i].E  = pG->U[k][j][i].E;
+			U1d[i].Mx = pG->U[k][j][i].M1;
+			U1d[i].My = pG->U[k][j][i].M2;
+			U1d[i].Mz = pG->U[k][j][i].M3;
+			U1d[i].E  = pG->U[k][j][i].E;
+#ifdef RADIATION_MHD
+			U1d[i].By = pG->U[k][j][i].B2c;
+			U1d[i].Bz = pG->U[k][j][i].B3c;
+			Bxc[i] = pG->U[k][j][i].B1c;
+			Bxi[i] = pG->B1i[k][j][i];
+			B1_x1Face[k][j][i] = pG->B1i[k][j][i];
+#endif /* MHD */	
+					
 			U1d[i].Er  = pG->U[k][j][i].Er;
-    			U1d[i].Fr1  = pG->U[k][j][i].Fr1;
-    			U1d[i].Fr2  = pG->U[k][j][i].Fr2;
-    			U1d[i].Fr3  = pG->U[k][j][i].Fr3;
+			U1d[i].Fr1  = pG->U[k][j][i].Fr1;
+			U1d[i].Fr2  = pG->U[k][j][i].Fr2;
+			U1d[i].Fr3  = pG->U[k][j][i].Fr3;
 			U1d[i].Edd_11  = pG->U[k][j][i].Edd_11;
 			U1d[i].Edd_21  = pG->U[k][j][i].Edd_21;
 			U1d[i].Edd_22  = pG->U[k][j][i].Edd_22;
@@ -215,13 +225,7 @@ void integrate_3d_radMHD(DomainS *pD)
                         U1d[i].Sigma_t  = pG->U[k][j][i].Sigma_t;
 			
 
-#ifdef RADIATION_MHD
-      			U1d[i].By = pG->U[k][j][i].B2c;
-      			U1d[i].Bz = pG->U[k][j][i].B3c;
-      			Bxc[i] = pG->U[k][j][i].B1c;
-      			Bxi[i] = pG->B1i[k][j][i];
-      			B1_x1Face[k][j][i] = pG->B1i[k][j][i];
-#endif /* MHD */
+
 			}
 
 
@@ -250,6 +254,12 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_x = U1d[i-1].Mx / U1d[i-1].d;
 			velocity_y = U1d[i-1].My / U1d[i-1].d;
 			velocity_z = U1d[i-1].Mz / U1d[i-1].d;
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
+			velocity_y -= qom * x1;		
+#endif
+			
 			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 			Sigma_t    = pG->U[k][j][i-1].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i-1].Sigma_a;
@@ -337,7 +347,16 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_x = U1d[i].Mx / U1d[i].d;
 			velocity_y = U1d[i].My / U1d[i].d;
 			velocity_z = U1d[i].Mz / U1d[i].d;
+			
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			velocity_y -= qom * x1;		
+#endif		
+			
 			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+		
+			
 			Sigma_t    = pG->U[k][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i].Sigma_a;
 			Sigma_s	   = Sigma_t - Sigma_a;
@@ -503,7 +522,7 @@ void integrate_3d_radMHD(DomainS *pD)
 #ifdef SHEARING_BOX
 		if (ShearingBoxPot != NULL){
 			for (i=il+1; i<=iu; i++) {
-						cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+						cc_pos(pG,i,j,k,&x1,&x2,&x3);
 						phicr = (*ShearingBoxPot)( x1             ,x2,x3);
 						phicl = (*ShearingBoxPot)((x1-    pG->dx1),x2,x3);
 						phifc = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
@@ -608,6 +627,14 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_x = U1d[j-1].Mz / U1d[j-1].d;
 			velocity_y = U1d[j-1].Mx / U1d[j-1].d;
 			velocity_z = U1d[j-1].My / U1d[j-1].d;
+			
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
+			velocity_y -= qom * x1;		
+#endif		
+			
+			
 			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 			Sigma_t    = pG->U[k][j-1][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j-1][i].Sigma_a;
@@ -698,6 +725,12 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_x = U1d[j].Mz / U1d[j].d;
 			velocity_y = U1d[j].Mx / U1d[j].d;
 			velocity_z = U1d[j].My / U1d[j].d;
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
+			velocity_y -= qom * x1;		
+#endif					
+			
 			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 			Sigma_t    = pG->U[k][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i].Sigma_a;
@@ -930,6 +963,14 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_x = U1d[k-1].My / U1d[k-1].d;
 			velocity_y = U1d[k-1].Mz / U1d[k-1].d;
 			velocity_z = U1d[k-1].Mx / U1d[k-1].d;
+			
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
+			velocity_y -= qom * x1;		
+#endif
+			
+			
 			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 			Sigma_t    = pG->U[k-1][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k-1][j][i].Sigma_a;
@@ -1020,6 +1061,13 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_x = U1d[k].My / U1d[k].d;
 			velocity_y = U1d[k].Mz / U1d[k].d;
 			velocity_z = U1d[k].Mx / U1d[k].d;
+			
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			velocity_y -= qom * x1;		
+#endif		
+			
 			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 			Sigma_t    = pG->U[k][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i].Sigma_a;
@@ -2154,9 +2202,19 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			Sigma_t    = pG->U[k][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i].Sigma_a;
+					
+#ifdef FARGO
+					/* With FARGO, we should add background shearing to the source terms */
+					
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			/* Include background shearing in Usource, which is only used in dSource */
+					
+			velocity_y -= qom * x1;		
+					
+#endif	
 
 			/* The Source term */
-			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz);
+			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
 
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
@@ -2223,15 +2281,28 @@ void integrate_3d_radMHD(DomainS *pD)
         		}
 
 
+			M1h = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+			M2h = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+			M3h = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+					
 			/* Guess solution */
-			Uguess[1] = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+					
+					
+/*			Uguess[1] = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
 			Uguess[2] = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
 			Uguess[3] = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
 
-			/* Guess the source temrm */
+			 Guess the source temrm /
 			velocity_x = Uguess[1] / density;
 			velocity_y = Uguess[2] / density;
 			velocity_z = Uguess[3] / density;
+					
+#ifdef FARGO
+					 With FARGO, we should add background shearing to the source terms 
+					cc_pos(pG,i,j,k,&x1,&x2,&x3);
+					velocity_y -= qom * x1;		
+#endif
+					
 			
 	
 			Source_guess[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
@@ -2241,7 +2312,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
 
-			/* do the predict step */
+			 do the predict step 
 			Errort[1] = pG->U[k][j][i].M1 + 0.5 * hdt * (Source[1] + Source_guess[1]) - hdt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) - Uguess[1];
 			Errort[2] = pG->U[k][j][i].M2 + 0.5 * hdt * (Source[2] + Source_guess[2]) - hdt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) - Uguess[2];
 			Errort[3] = pG->U[k][j][i].M3 + 0.5 * hdt * (Source[3] + Source_guess[3]) - hdt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) - Uguess[3];
@@ -2250,7 +2321,9 @@ void integrate_3d_radMHD(DomainS *pD)
 
        		M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
 			M2h = Uguess[2] + Source_Inv[2][2] * Errort[2];
-			M3h = Uguess[3] + Source_Inv[3][3] * Errort[3];			
+			M3h = Uguess[3] + Source_Inv[3][3] * Errort[3];		
+					
+					*/
 
 /*
         		Eh = pG->U[k][j][i].E
@@ -2617,9 +2690,19 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			Sigma_t    = pG->U[k][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i].Sigma_a;
+					
+#ifdef FARGO
+					/* With FARGO, we should add background shearing to the source terms */
+					
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			/* Include background shearing in Usource, which is only used in dSource */
+
+			velocity_y -= qom * x1;						
+					
+#endif			
 
 			/* The Source term */
-			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz);
+			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
 
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
@@ -2683,7 +2766,7 @@ void integrate_3d_radMHD(DomainS *pD)
 	/*------Flux due to static gravitational potential ---------*/
 
 		if (StaticGravPot != NULL){
-    			cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+    			cc_pos(pG,i,j,k,&x1,&x2,&x3);
         		phic = (*StaticGravPot)((x1            ),x2,x3);
         		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
@@ -2774,9 +2857,19 @@ void integrate_3d_radMHD(DomainS *pD)
 		Usource.E  = Uguess[4];
 		Usource.Sigma_a = Sigma_a;
 		Usource.Sigma_t = Sigma_t;
+					
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+					
+		cc_pos(pG,i,j,k,&x1,&x2,&x3);
+		/* Include background shearing in Usource, which is only used in dSource */
+					
+		velocity_y -= qom * x1;	
+					
+#endif	
 
 		/* The Source term */
-		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz);
+		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
 	
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */

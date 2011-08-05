@@ -1078,6 +1078,8 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	Real dSigma[4];
 	Real velocity_x, velocity_y, velocity_z, velocity;
 	int i;
+	if(flag == 1){
+	
 	for(i=0; i<4; i++)
 		dSigma[i] = 0.0;
 	
@@ -1124,7 +1126,7 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 
 	/* In case SPP * dt  is small, use expansion expression */		
 
-	if(flag == 1){
+	
 		
 		aeff = beta * ((Gamma - 1.0) * Alpha + 1.0) * W.P / W.d;
 
@@ -1199,10 +1201,13 @@ Real eff_sound_thick(const Prim1DS W, Real dt)
 }
 
 /* function to calculate derivative of source function over conserved variables */
-void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz)
+void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz, const Real x1)
 {
 	/* NOTE that SEmy and SEmz can be NULL, which depends on dimension of the problem */
-	Real pressure, temperature, velocity_x, velocity_y, velocity_z;
+	/* In FARGO, the independent variables are perturbed quantities. 
+	 * But in source terms, especially the co-moving flux, should include background shearing */
+	 
+	Real pressure, temperature, velocity_x, velocity_y, velocity_z, velocity_fargo;
 	Real dSigma[4];
 	Real dSigmaE, dSigmaE_t, dSigmarho, dSigmarho_t, dSigmavx, dSigmavy, dSigmavz;
 	Real Sigma_a, Sigma_t;
@@ -1224,7 +1229,13 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	velocity_x = U.Mx / U.d;
 	velocity_y = U.My / U.d;
 	velocity_z = U.Mz / U.d;
-
+	velocity_fargo = velocity_y;
+	
+#ifdef FARGO
+	velocity_fargo = velocity_y - qshear * Omega_0 * x1;
+	
+#endif	
+	
 	
 
 	if(Opacity != NULL) Opacity(U.d, temperature, NULL, NULL, dSigma);
@@ -1251,17 +1262,17 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	*SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
 	     + dSigmaE * (pow(temperature, 4.0) - U.Er)
 	     + (dSigmaE - (dSigmaE_t - dSigmaE)) * (
-		velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_y + U.Edd_31 * velocity_z) * U.Er/Crat)
-	     +  velocity_y * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_y + U.Edd_32 * velocity_z) * U.Er/Crat)
-	     +  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_y + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
+		velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
+	     +  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
+	     +  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 		)/Crat;
 
 	*SErho = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
 		+ dSigmarho * (pow(temperature, 4.0) - U.Er)	
 		+ (dSigmarho - (dSigmarho_t - dSigmarho) - (Sigma_a - (Sigma_t - Sigma_a)) / U.d) * (
-			velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_y + U.Edd_31 * velocity_z) * U.Er/Crat)
-	     	+  velocity_y * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_y + U.Edd_32 * velocity_z) * U.Er/Crat)
-	     	+  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_y + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
+			velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
+	     	+  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
+	     	+  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 			)/Crat;
 
 #ifdef RADIATION_MHD

@@ -120,6 +120,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
 */
 	Real fact, qom, om_dt = Omega_0*pG->dt;
+	qom = qshear * Omega_0;
 #endif /* SHEARING_BOX */
 	
 	
@@ -228,6 +229,14 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		velocity_x = U1d[i-1].Mx / U1d[i-1].d;
 		velocity_y = U1d[i-1].My / U1d[i-1].d;
+		
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i-1,j,ks,&x1,&x2,&x3);
+		velocity_y -= qom * x1;		
+#endif
+		
+		
 		Sigma_t    = pG->U[ks][j][i-1].Sigma_t;
 		Sigma_a	   = pG->U[ks][j][i-1].Sigma_a;
 
@@ -305,6 +314,13 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		velocity_x = U1d[i].Mx / U1d[i].d;
 		velocity_y = U1d[i].My / U1d[i].d;
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+		velocity_y -= qom * x1;		
+#endif
+		
+		
 		Sigma_t    = pG->U[ks][j][i].Sigma_t;
 		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
@@ -541,6 +557,12 @@ void integrate_2d_radMHD(DomainS *pD)
 		Tguess = temperature;
 		velocity_x = U1d[j-1].Mz / U1d[j-1].d;
 		velocity_y = U1d[j-1].Mx / U1d[j-1].d;
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i,j-1,ks,&x1,&x2,&x3);
+		velocity_y -= qom * x1;		
+#endif		
+		
 		Sigma_t    = pG->U[ks][j-1][i].Sigma_t;
 		Sigma_a	   = pG->U[ks][j-1][i].Sigma_a;
 
@@ -624,6 +646,13 @@ void integrate_2d_radMHD(DomainS *pD)
 		Tguess = temperature;
 		velocity_x = U1d[j].Mz / U1d[j].d;
 		velocity_y = U1d[j].Mx / U1d[j].d;
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+		velocity_y -= qom * x1;		
+#endif
+		
+		
 		Sigma_t    = pG->U[ks][j][i].Sigma_t;
 		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
@@ -1177,12 +1206,23 @@ void integrate_2d_radMHD(DomainS *pD)
 	
 	diffTEr = pow(temperature, 4.0) - Usource.Er;
 		
+	/*************************************************/
+	/* Note that we need to add background shearing after temperature is calculated */
+		
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+		/* Include background shearing in Usource, which is used in dSource */
+		velocity_y -= qom * x1;	
+
+#endif
+			
 
 	Sigma_t    = Usource.Sigma_t;
 	Sigma_a	   = Usource.Sigma_a;
 
 	/* The Source term */
-	dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
+	dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL, x1);
 
 	/*=========================================================*/
 	/* In case velocity is large and momentum source is stiff */
@@ -1218,6 +1258,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	velocity_x = Uguess[1] / density;
 	velocity_y = Uguess[2] / density;
+		
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		velocity_y -= qom * x1;		
+#endif
 	
 	Source_guess[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
 	Source_guess[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
@@ -1535,11 +1580,21 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		velocity_x = pG->U[ks][j][i].M1 / density;
 		velocity_y = pG->U[ks][j][i].M2 / density;
+#ifdef FARGO
+	/* With FARGO, we should add background shearing to the source terms */
+
+		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+		/* Include background shearing in Usource, which is only used in dSource */
+				
+		velocity_y -= qom * x1;				
+	
+#endif				
+				
 		Sigma_t    = pG->U[ks][j][i].Sigma_t;
 		Sigma_a	   = pG->U[ks][j][i].Sigma_a;
 
 	/* The Source term */
-		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
+		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL, x1);
 
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
@@ -1658,9 +1713,15 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		velocity_x = Uguess[1] / density;
 		velocity_y = Uguess[2] / density;
+				
+#ifdef FARGO
+		/* With FARGO, we should add background shearing to the source terms */
+		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+		velocity_y -= qom * x1;		
+#endif
 
 	/* The Source term */
-		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL);
+		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL, x1);
 
 
 		/*=========================================================*/
