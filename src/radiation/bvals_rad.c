@@ -31,7 +31,9 @@ static double **send_buf = NULL, **recv_buf = NULL;
 static MPI_Request *recv_rq, *send_rq;
 static  int x1cnt=0, x2cnt=0, x3cnt=0; /* Number of words passed in x1/x2/x3-dir. */
 #endif /* MPI_PARALLEL */
-
+#ifdef SHEARING_BOX
+extern Real *****GhstZnsIntl, *****GhstZnsIntr;
+#endif
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *   periodic_??_rad?() - periodic BCs at boundary ???
@@ -67,6 +69,9 @@ static void unpack_ox3_rad(RadGridS *pRG, int sflag);
 void bvals_rad(DomainS *pD, int sflag)
 {
   RadGridS *pRG=(pD->RadGrid);
+#ifdef SHEARING_BOX
+  int myL,myM,myN,BCFlag;
+#endif
 #ifdef MPI_PARALLEL
   int cnt, ierr, mIndex;
   int cnt0 = pRG->nf * (1 + pRG->noct * pRG->nang);
@@ -74,7 +79,6 @@ void bvals_rad(DomainS *pD, int sflag)
 #endif /* MPI_PARALLEL */
   int l;
 
-  
 /*--- Step 1. ------------------------------------------------------------------
  * Boundary Conditions in x1-direction */
 
@@ -260,7 +264,21 @@ void bvals_rad(DomainS *pD, int sflag)
       (*(pD->ox2_RBCFun))(pRG,sflag);
     } 
  
+/* shearing sheet BCs; function defined in problem generator.
+ * Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
+ * level grid is specified by the <domain1> block in the input file */
 
+#ifdef SHEARING_BOX 
+    BCFlag = par_geti_def("domain1","rbc_ix1",0);
+    get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
+    if (myL == 0 && BCFlag == 4) {
+      ShearingSheet_Rad_ix1(pD);
+      } 
+    BCFlag = par_geti_def("domain1","rbc_ox1",0);
+    if (myL == ((pD->NGrid[0])-1) && BCFlag == 4) {
+      ShearingSheet_Rad_ox1(pD);
+      }
+#endif
 
   }
 
@@ -597,9 +615,18 @@ void bvals_rad_init(MeshS *pM)
 	  nx2t = pD->GData[n][m][l].Nx[1];
 	  nx3t = pD->GData[n][m][l].Nx[2];
 	  xcnt =  nx2t * nx3t;
+#ifdef SHEARING_BOX
+	  xcnt += nx2t * nx3t * 2;
+#endif
+#ifdef JACOBI
+	  if (noct == 4) xcnt += 2 * nx3t;
+	  if (noct == 8) xcnt += 2 * nx2t;
+	  xcnt *= noct * nang;
+#else
 	  if (noct == 4) xcnt += nx3t;
 	  if (noct == 8) xcnt += nx2t;
 	  xcnt *= noct * nang / 2;
+#endif
 	  xcnt += (nDim + 1) * nx2t * nx3t;	  
 	  xcnt *= nf;
           if(xcnt > x1cnt) x1cnt = xcnt;
@@ -610,8 +637,16 @@ void bvals_rad_init(MeshS *pM)
 	  nx1t = pD->GData[n][m][l].Nx[0] + 2;
 	  nx3t = pD->GData[n][m][l].Nx[2];
 	  xcnt = nx3t * (nx1t + 2);
+#ifdef SHEARING_BOX
+	  xcnt +=  nx3t * 4; 
+#endif
+#ifdef JACOBI
+	  if (noct == 8) xcnt += 2 * nx1t;
+	  xcnt *= noct * nang;
+#else
 	  if (noct == 8) xcnt += nx1t;
 	  xcnt *= noct * nang / 2;
+#endif
 	  xcnt += (nDim + 1) * nx3t * nx1t;
 	  xcnt *= nf;
           if(xcnt > x2cnt) x2cnt = xcnt;
@@ -622,7 +657,11 @@ void bvals_rad_init(MeshS *pM)
 	  nx1t = pD->GData[n][m][l].Nx[0] + 2;
 	  nx2t = pD->GData[n][m][l].Nx[1] + 2;
 	  xcnt = nx1t * nx2t + 2 * (nx1t + nx2t);
+#ifdef JACOBI
+	  xcnt *= noct * nang;
+#else
 	  xcnt *= noct * nang / 2;
+#endif
 	  xcnt += (nDim + 1) * nx2t * nx1t;
 	  xcnt *= nf;
           if(xcnt > x3cnt) x3cnt = xcnt;
@@ -660,6 +699,380 @@ void bvals_rad_init(MeshS *pM)
   return;
 }
 
+#ifdef JACOBI
+/*----------------------------------------------------------------------------*/
+/* PERIODIC boundary conditions, Inner x1 boundary (rbc_ix1=1) */
+
+static void periodic_ix1_rad(RadGridS *pRG, int sflag)
+{
+
+  int il = pRG->is-1, ie = pRG->ie;
+  int jl = pRG->js  , ju = pRG->je;
+  int kl = pRG->ks  , ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][j][il][ifr].S = pRG->R[k][j][ie][ifr].S;
+	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][j][il][ifr].H[l] = pRG->R[k][j][ie][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l1imu using r1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->Ghstl1i[ifr][k][j][l][m] = pRG->r1imu[ifr][k][j][l][m];
+	  }}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for(k=kl; k<=ku; k++) {
+      for(j=jl; j<=ju; j++){
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    GhstZnsIntl[ifr][k][j][l][m] = pRG->r1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
+  /* pass l2imu/r2imu on the corngers[2D]/edge[3D] */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l2imu[ifr][k][il][l][m] = pRG->Ghstl1i[ifr][k][jl][l][m];
+	    pRG->r2imu[ifr][k][il][l][m] = pRG->Ghstl1i[ifr][k][ju][l][m];
+	  }}}}
+  }
+  /* pass l3imu/r3imu on the edges.*/
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][j][il][l][m] = pRG->Ghstl1i[ifr][kl][j][l][m];
+	    pRG->r3imu[ifr][j][il][l][m] = pRG->Ghstl1i[ifr][ku][j][l][m];
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PERIODIC boundary conditions (cont), Outer x1 boundary (rbc_ox1=1) */
+
+static void periodic_ox1_rad(RadGridS *pRG, int sflag)
+{
+  int is = pRG->is, iu = pRG->ie+1;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][j][iu][ifr].S = pRG->R[k][j][is][ifr].S;
+	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][j][iu][ifr].H[l] = pRG->R[k][j][is][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update r1imu using l1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstr1i[ifr][k][j][l][m] = pRG->l1imu[ifr][k][j][l][m];
+	  }}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for(k=kl; k<=ku; k++) {
+      for(j=jl; j<=ju; j++){
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    GhstZnsIntr[ifr][k][j][l][m] = pRG->l1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
+ /* pass l2imu/r2imu on the corngers[2D]/edge[3D] */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l2imu[ifr][k][iu][l][m] = pRG->Ghstr1i[ifr][k][jl][l][m];
+	    pRG->r2imu[ifr][k][iu][l][m] = pRG->Ghstr1i[ifr][k][ju][l][m];
+	  }}}}
+  }
+  /* pass l3imu/r3imu on the edges.*/
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][j][iu][l][m] = pRG->Ghstr1i[ifr][kl][j][l][m];
+	    pRG->r3imu[ifr][j][iu][l][m] = pRG->Ghstr1i[ifr][ku][j][l][m];
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PERIODIC boundary conditions (cont), Inner x2 boundary (rbc_ix2=1) */
+
+static void periodic_ix2_rad(RadGridS *pRG, int sflag)
+{
+
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, je = pRG->je;
+  int kl = pRG->ks  , ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][jl][i][ifr].S = pRG->R[k][je][i][ifr].S;
+	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][jl][i][ifr].H[l] = pRG->R[k][je][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l2imu using r2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones.  r2imu on the
+   * corners/edges has already been updated (if necessary) by
+   * x1 boundary routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+       for (i=il; i<=iu; i++) {
+	 for (l=0; l<noct; l++) {
+	   for(m=0; m<nang; m++) {
+	     pRG->Ghstl2i[ifr][k][i][l][m] = pRG->r2imu[ifr][k][i][l][m];
+	   }}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][jl][l][m] = GhstZnsIntl[ifr][k][je][l][m];
+	  GhstZnsIntr[ifr][k][jl][l][m] = GhstZnsIntr[ifr][k][je][l][m];
+	}}}} 
+#endif
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][k][jl][l][m] = pRG->Ghstl1i[ifr][k][je][l][m];
+	  pRG->Ghstr1i[ifr][k][jl][l][m] = pRG->Ghstr1i[ifr][k][je][l][m];
+	}}}}
+  /* pass l3imu/r3imu on the edges. */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][jl][i][l][m] = pRG->Ghstl2i[ifr][kl][i][l][m];
+	    pRG->r3imu[ifr][jl][i][l][m] = pRG->Ghstl2i[ifr][ku][i][l][m];
+	  }}}}
+  }
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PERIODIC boundary conditions (cont), Outer x2 boundary (rbc_ox2=1) */
+
+static void periodic_ox2_rad(RadGridS *pRG, int sflag)
+{
+
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int js = pRG->js  , ju = pRG->je+1;
+  int kl = pRG->ks  , ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][ju][i][ifr].S = pRG->R[k][js][i][ifr].S;
+	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][ju][i][ifr].H[l] = pRG->R[k][js][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update r2imu using l2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones.  l2imu on the
+   * corners/edges has already been updated (if necessary) by
+   * x1 boundary routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstr2i[ifr][k][i][l][m] = pRG->l2imu[ifr][k][i][l][m];
+	  }}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][ju][l][m] = GhstZnsIntl[ifr][k][js][l][m];
+	  GhstZnsIntr[ifr][k][ju][l][m] = GhstZnsIntr[ifr][k][js][l][m];
+	}}}} 
+#endif
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][k][ju][l][m] = pRG->Ghstl1i[ifr][k][js][l][m];
+	  pRG->Ghstr1i[ifr][k][ju][l][m] = pRG->Ghstr1i[ifr][k][js][l][m];
+	}}}}
+  /* pass l3imu/r3imu on the edges. */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][ju][i][l][m] = pRG->Ghstr2i[ifr][kl][i][l][m];
+	    pRG->r3imu[ifr][ju][i][l][m] = pRG->Ghstr2i[ifr][ku][i][l][m];
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PERIODIC boundary conditions (cont), Inner x3 boundary (rbc_ix3=1) */
+/* MUST BE MODIFIED TO INCLUDE RADIATION ONCE 3D RAD IS IMPLEMENTED */
+
+static void periodic_ix3_rad(RadGridS *pRG, int sflag)
+{
+
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int kl = pRG->ks-1, ke = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, j, l, m, ifr;
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (j=jl; j<=ju; j++) { 
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[kl][j][i][ifr].S = pRG->R[ke][j][i][ifr].S;
+	  for(l=0; l < nDim; l++) {
+	    pRG->R[kl][j][i][ifr].H[l] = pRG->R[ke][j][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l3imu using r3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones.  r3imu on the
+   * edges has already been updated (if necessary) by x1 and x2 boundary
+   * routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl3i[ifr][j][i][l][m] = pRG->r3imu[ifr][j][i][l][m];
+	  }}}}}
+  /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][kl][j][l][m] = pRG->Ghstl1i[ifr][ke][j][l][m];
+	  pRG->Ghstr1i[ifr][kl][j][l][m] = pRG->Ghstr1i[ifr][ke][j][l][m];
+	}}}}
+  /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl2i[ifr][kl][i][l][m] = pRG->Ghstl2i[ifr][ke][i][l][m];
+	  pRG->Ghstr2i[ifr][kl][i][l][m] = pRG->Ghstr2i[ifr][ke][i][l][m];
+	}}}}
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PERIODIC boundary conditions (cont), Outer x3 boundary (rbc_ox3=1) */
+/* MUST BE MODIFIED TO INCLUDE RADIATION ONCE 3D RAD IS IMPLEMENTED */
+
+static void periodic_ox3_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int ks = pRG->ks, ku = pRG->ke+1;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, j, l, m, ifr;
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) { 
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[ku][j][i][ifr].S = pRG->R[ks][j][i][ifr].S;
+	  for(l=0; l < nDim; l++) {
+	    pRG->R[ku][j][i][ifr].H[l] = pRG->R[ks][j][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update r3imu using l3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones.  l3imu on the
+   * edges has already been updated (if necessary) by x1 and x2 boundary
+   * routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl3i[ifr][j][i][l][m] = pRG->l3imu[ifr][j][i][l][m];
+	  }}}}}
+  /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][ku][j][l][m] = pRG->Ghstl1i[ifr][ks][j][l][m];
+	  pRG->Ghstr1i[ifr][ku][j][l][m] = pRG->Ghstr1i[ifr][ks][j][l][m];
+	}}}}
+  /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl2i[ifr][ku][i][l][m] = pRG->Ghstl2i[ifr][ks][i][l][m];
+	  pRG->Ghstr2i[ifr][ku][i][l][m] = pRG->Ghstr2i[ifr][ks][i][l][m];
+	}}}}
+
+  return;
+}
+#else
 /*----------------------------------------------------------------------------*/
 /* PERIODIC boundary conditions, Inner x1 boundary (rbc_ix1=1) */
 
@@ -698,6 +1111,17 @@ static void periodic_ix1_rad(RadGridS *pRG, int sflag)
 	    }
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for(k=kl; k<=ku; k++) {
+      for(j=jl; j<=ju; j++){
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    GhstZnsIntl[ifr][k][j][l][m] = pRG->r1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
   /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
    * l=0,2,4,6 are passed using r1imu */
   if (noct > 2) {
@@ -773,6 +1197,17 @@ static void periodic_ox1_rad(RadGridS *pRG, int sflag)
 	    }
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for(k=kl; k<=ku; k++) {
+      for(j=jl; j<=ju; j++){
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    GhstZnsIntr[ifr][k][j][l][m] = pRG->l1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
   /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
    * l=1,3,5,7 are passed using l1imu */
   if (noct > 2) {
@@ -849,6 +1284,15 @@ static void periodic_ix2_rad(RadGridS *pRG, int sflag)
 	    pRG->l2imu[ifr][k][i][5][m] = pRG->r2imu[ifr][k][i][5][m];	    
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][jl][l][m] = GhstZnsIntl[ifr][k][je][l][m];
+	  GhstZnsIntr[ifr][k][jl][l][m] = GhstZnsIntr[ifr][k][je][l][m];
+	}}}} 
+#endif
   /* update r1imu/l1imu on corners[2d]/edges[3d] */
   for (ifr=0; ifr<nf; ifr++) {
     for (k=kl; k<=ku; k++) {
@@ -919,9 +1363,18 @@ static void periodic_ox2_rad(RadGridS *pRG, int sflag)
 	  pRG->r2imu[ifr][k][i][3][m] = pRG->l2imu[ifr][k][i][3][m];
 	  if (noct == 8) {
 	    pRG->r2imu[ifr][k][i][6][m] = pRG->l2imu[ifr][k][i][6][m];
-	    pRG->r2imu[ifr][k][i][7][m] = pRG->l2imu[ifr][k][i][7][m];
+	    pRG->r2imu[ifr][k][i][7][m] = pRG->l2imu[ifr][k][i][7][m];	    
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][ju][l][m] = GhstZnsIntl[ifr][k][js][l][m];
+	  GhstZnsIntr[ifr][k][ju][l][m] = GhstZnsIntr[ifr][k][js][l][m];
+	}}}} 
+#endif
   /* update r1imu/l1imu on corners[2d]/edges[3d] */
   for (ifr=0; ifr<nf; ifr++) {
     for (k=kl; k<=ku; k++) {
@@ -1085,7 +1538,7 @@ static void periodic_ox3_rad(RadGridS *pRG, int sflag)
 
   return;
 }
-
+#endif /* JACOBI */
 
 /*----------------------------------------------------------------------------*/
 /* PROLONGATION boundary conditions.  Nothing is actually done here, the
@@ -1108,6 +1561,758 @@ static void const_incident_rad(RadGridS *pRG, int sflag)
 }
 
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs */
+#ifdef JACOBI
+/*----------------------------------------------------------------------------*/
+/* PACK boundary conditions for MPI_Isend, Inner x1 boundary */
+
+static void pack_ix1_rad(RadGridS *pRG, int sflag)
+{
+  int is = pRG->is;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  double *pSnd;
+  
+  pSnd = (double*)&(send_buf[0][0]);
+  /* if LTE send the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  *(pSnd++) = pRG->R[k][j][is][ifr].S;  
+    	  for(l=0; l < nDim; l++) {
+	    *(pSnd++) = pRG->R[k][j][is][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l1imu using r1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->l1imu[ifr][k][j][l][m];
+	  }}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->l1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
+ /* pass l2imu/r2imu on the corngers[2D]/edge[3D] */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstr1i[ifr][k][jl][l][m];
+	    *(pSnd++) = pRG->Ghstr1i[ifr][k][ju][l][m];
+	  }}}}
+  }
+  /* pass l3imu/r3imu on the edges.*/
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstr1i[ifr][kl][j][l][m];
+	    *(pSnd++) = pRG->Ghstr1i[ifr][ku][j][l][m];
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PACK boundary conditions for MPI_Isend, Outer x1 boundary */
+
+static void pack_ox1_rad(RadGridS *pRG, int sflag)
+{
+  int ie = pRG->ie;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  double *pSnd;
+
+  pSnd = (double*)&(send_buf[1][0]);
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  *(pSnd++) = pRG->R[k][j][ie][ifr].S;
+    	  for(l=0; l < nDim; l++) {
+	    *(pSnd++) = pRG->R[k][j][ie][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l1imu using r1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->r1imu[ifr][k][j][l][m];
+	  }}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->r1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
+  /* pass l2imu/r2imu on the corngers[2D]/edge[3D] */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstl1i[ifr][k][jl][l][m];
+	    *(pSnd++) = pRG->Ghstl1i[ifr][k][ju][l][m];
+	  }}}}
+  }
+  /* pass l3imu/r3imu on the edges.*/
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstl1i[ifr][kl][j][l][m];
+	    *(pSnd++) = pRG->Ghstl1i[ifr][ku][j][l][m];
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PACK boundary conditions for MPI_Isend, Inner x2 boundary */
+
+static void pack_ix2_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int js = pRG->js;
+  int kl = pRG->ks,   ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+  double *pSnd;
+  pSnd = (double*)&(send_buf[0][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  *(pSnd++) = pRG->R[k][js][i][ifr].S;
+    	  for(l=0; l < nDim; l++) {
+	    *(pSnd++) = pRG->R[k][js][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update r2imu using l2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones. */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->l2imu[ifr][k][i][l][m];
+	  }}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  *(pSnd++) = GhstZnsIntl[ifr][k][js][l][m];
+	  *(pSnd++) = GhstZnsIntr[ifr][k][js][l][m];
+	}}}} 
+#endif
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  *(pSnd++) = pRG->Ghstl1i[ifr][k][js][l][m];
+	  *(pSnd++) = pRG->Ghstr1i[ifr][k][js][l][m];
+	}}}}
+  /* pass l3imu/r3imu on the edges. */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstr2i[ifr][kl][i][l][m];
+	    *(pSnd++) = pRG->Ghstr2i[ifr][ku][i][l][m];
+	  }}}}
+  }
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PACK boundary conditions for MPI_Isend, Outer x2 boundary */
+
+static void pack_ox2_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int je = pRG->je;
+  int kl = pRG->ks,   ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+  double *pSnd;
+  pSnd = (double*)&(send_buf[1][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  *(pSnd++) = pRG->R[k][je][i][ifr].S;
+    	  for(l=0; l < nDim; l++) {
+	    *(pSnd++) = pRG->R[k][je][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l2imu using r2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones. */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+       for (i=il; i<=iu; i++) {
+	 for (l=0; l<noct; l++) {
+	   for(m=0; m<nang; m++) {
+	     *(pSnd++) = pRG->r2imu[ifr][k][i][l][m];
+	   }}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  *(pSnd++) = GhstZnsIntl[ifr][k][je][l][m];
+	  *(pSnd++) = GhstZnsIntr[ifr][k][je][l][m];
+	}}}} 
+#endif
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  *(pSnd++) = pRG->Ghstl1i[ifr][k][je][l][m];
+	  *(pSnd++) = pRG->Ghstr1i[ifr][k][je][l][m];
+	}}}}
+  /* pass l3imu/r3imu on the edges. */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstl2i[ifr][kl][i][l][m];
+	    *(pSnd++) = pRG->Ghstl2i[ifr][ku][i][l][m];
+	  }}}}
+  }
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PACK boundary conditions for MPI_Isend, Inner x3 boundary */
+
+static void pack_ix3_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int ks = pRG->ks;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, j, l, m, ifr;
+  double *pSnd;
+
+  pSnd = (double*)&(send_buf[0][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) { 
+	for (ifr=0; ifr<nf; ifr++) {
+	  *(pSnd++) = pRG->R[ks][j][i][ifr].S;
+    	  for(l=0; l < nDim; l++) {
+	    *(pSnd++) = pRG->R[ks][j][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update r3imu using l3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones. */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->l3imu[ifr][j][i][l][m];
+	  }}}}}
+  /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  *(pSnd++) = pRG->Ghstl1i[ifr][ks][j][l][m];
+	  *(pSnd++) = pRG->Ghstr1i[ifr][ks][j][l][m];
+	}}}}
+  /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  *(pSnd++) = pRG->Ghstl2i[ifr][ks][i][l][m];
+	  *(pSnd++) = pRG->Ghstr2i[ifr][ks][i][l][m];
+	}}}}
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PACK boundary conditions for MPI_Isend, Outer x3 boundary */
+
+static void pack_ox3_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int ke = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, j, l, m, ifr;
+  double *pSnd;
+
+  pSnd = (double*)&(send_buf[1][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (j=jl; j<=ju; j++) { 
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  *(pSnd++) = pRG->R[ke][j][i][ifr].S;
+    	  for(l=0; l < nDim; l++) {
+	    *(pSnd++) = pRG->R[ke][j][i][ifr].H[l];
+	  }
+	}}}
+  }
+  /* update l3imu using r3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones. */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->r3imu[ifr][j][i][l][m];
+	  }}}}}
+  /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  *(pSnd++) = pRG->Ghstl1i[ifr][ke][j][l][m];
+	  *(pSnd++) = pRG->Ghstr1i[ifr][ke][j][l][m];
+	}}}}
+  /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  *(pSnd++) = pRG->Ghstl2i[ifr][ke][i][l][m];
+	  *(pSnd++) = pRG->Ghstr2i[ifr][ke][i][l][m];
+	}}}}
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* UNPACK boundary conditions after MPI_Irecv, Inner x1 boundary */
+
+static void unpack_ix1_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  double *pRcv;
+
+  pRcv = (double*)&(recv_buf[0][0]);
+  /* if LTE receive the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][j][il][ifr].S = *(pRcv++);
+    	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][j][il][ifr].H[l] = *(pRcv++);
+	  }
+	}}}
+  }
+  /* update l1imu using r1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl1i[ifr][k][j][l][m] = *(pRcv++);
+	  }}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    GhstZnsIntl[ifr][k][j][l][m]= *(pRcv++);
+	  }}}}}
+#endif
+ /* pass l2imu/r2imu on the corngers[2D]/edge[3D] */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l2imu[ifr][k][il][l][m] = *(pRcv++);
+	    pRG->r2imu[ifr][k][il][l][m] = *(pRcv++);
+	  }}}}
+  }
+  /* pass l3imu/r3imu on the edges.*/
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][j][il][l][m] = *(pRcv++);
+	    pRG->r3imu[ifr][j][il][l][m] = *(pRcv++);
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* UNPACK boundary conditions after MPI_Irecv, Outer x1 boundary */
+
+static void unpack_ox1_rad(RadGridS *pRG, int sflag)
+{
+  int iu = pRG->ie+1;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  double *pRcv;
+
+  pRcv = (double*)&(recv_buf[1][0]);
+  /* if LTE receive the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][j][iu][ifr].S = *(pRcv++);
+    	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][j][iu][ifr].H[l] = *(pRcv++);
+	  }
+	}}}
+  }
+  /* update r1imu using l1imu */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for (l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstr1i[ifr][k][j][l][m] = *(pRcv++);
+	  }}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    GhstZnsIntr[ifr][k][j][l][m]= *(pRcv++);
+	  }}}}}
+#endif
+ /* pass l2imu/r2imu on the corngers[2D]/edge[3D] */
+  if (noct > 2) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (k=kl; k<=ku; k++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l2imu[ifr][k][iu][l][m] = *(pRcv++);
+	    pRG->r2imu[ifr][k][iu][l][m] = *(pRcv++);
+	  }}}}
+  }
+  /* pass l3imu/r3imu on the edges.*/
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][j][iu][l][m] = *(pRcv++);
+	    pRG->r3imu[ifr][j][iu][l][m] = *(pRcv++);
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* UNPACK boundary conditions after MPI_Irecv, Inner x2 boundary */
+
+static void unpack_ix2_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1;
+  int kl = pRG->ks,   ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+  double *pRcv;
+
+  pRcv = (double*)&(recv_buf[0][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][jl][i][ifr].S = *(pRcv++);
+    	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][jl][i][ifr].H[l] = *(pRcv++);
+	  }
+	}}}
+  }
+  /* update l2imu using r2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones. */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+       for (i=il; i<=iu; i++) {
+	 for (l=0; l<noct; l++) {
+	   for(m=0; m<nang; m++) {
+	     pRG->Ghstl2i[ifr][k][i][l][m] = *(pRcv++);
+	   }}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][jl][l][m] = *(pRcv++);
+	  GhstZnsIntr[ifr][k][jl][l][m] = *(pRcv++);
+	}}}} 
+#endif
+  /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][k][jl][l][m] = *(pRcv++);
+	  pRG->Ghstr1i[ifr][k][jl][l][m] = *(pRcv++);
+	}}}}
+  /* pass l3imu/r3imu on the edges. */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][jl][i][l][m] = *(pRcv++);
+	    pRG->r3imu[ifr][jl][i][l][m] = *(pRcv++);
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* UNPACK boundary conditions after MPI_Irecv, Outer x2 boundary */
+
+static void unpack_ox2_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int ju = pRG->je+1;
+  int kl = pRG->ks,   ku = pRG->ke;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+  double *pRcv;
+
+  pRcv = (double*)&(recv_buf[1][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[k][ju][i][ifr].S = *(pRcv++);
+    	  for(l=0; l < nDim; l++) {
+	    pRG->R[k][ju][i][ifr].H[l] = *(pRcv++);
+	  }
+	}}}
+  }
+  /* update r2imu using l2imu. Note that i runs from
+   * is-1 to ie+1 so loop includes ghost zones. */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	for (l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstr2i[ifr][k][i][l][m] = *(pRcv++);
+	  }}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][ju][l][m] = *(pRcv++);
+	  GhstZnsIntr[ifr][k][ju][l][m] = *(pRcv++);
+	}}}} 
+#endif
+   /* update r1imu/l1imu on corners[2d]/edges[3d] */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][k][ju][l][m] = *(pRcv++);
+	  pRG->Ghstr1i[ifr][k][ju][l][m] = *(pRcv++);
+	}}}}
+  /* pass l3imu/r3imu on the edges. */
+  if (noct == 8) {
+    for (ifr=0; ifr<nf; ifr++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][ju][i][l][m] = *(pRcv++);
+	    pRG->r3imu[ifr][ju][i][l][m] = *(pRcv++);
+	  }}}}
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* UNPACK boundary conditions after MPI_Irecv, Inner x3 boundary */
+
+static void unpack_ix3_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int kl = pRG->ks-1;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, j, l, m, ifr;
+  double *pRcv;
+
+  pRcv = (double*)&(recv_buf[0][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (j=jl; j<=ju; j++) { 
+      for (i=il; i<=iu; i++) {
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[kl][j][i][ifr].S = *(pRcv++);
+    	  for(l=0; l < nDim; l++) {
+	    pRG->R[kl][j][i][ifr].H[l] = *(pRcv++);
+	  }
+	}}}
+  }
+  /* update l3imu using r3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones.  r3imu on the
+   * edges has already been updated (if necessary) by x1 and x2 boundary
+   * routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl3i[ifr][j][i][l][m] = *(pRcv++);
+	  }}}}}
+  /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][kl][j][l][m] = *(pRcv++);
+	  pRG->Ghstr1i[ifr][kl][j][l][m] = *(pRcv++);
+	}}}}
+  /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl2i[ifr][kl][i][l][m] = *(pRcv++);
+	  pRG->Ghstr2i[ifr][kl][i][l][m] = *(pRcv++);
+	}}}}
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* UNPACK boundary conditions after MPI_Irecv, Outer x3 boundary */
+
+static void unpack_ox3_rad(RadGridS *pRG, int sflag)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int ku = pRG->ke+1;
+  int nf = pRG->nf, nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, j, l, m, ifr;
+  double *pRcv;
+
+  pRcv = (double*)&(recv_buf[1][0]);
+
+  /* if LTE pass the source functions */
+  if (sflag == 1) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) { 
+	for (ifr=0; ifr<nf; ifr++) {
+	  pRG->R[ku][j][i][ifr].S = *(pRcv++);
+    	  for(l=0; l < nDim; l++) {
+	    pRG->R[ku][j][i][ifr].H[l] = *(pRcv++);
+	  }
+	}}}
+  }
+  /* update r3imu using l3imu. Note that i runs from  is-1 to ie+1 and 
+   * j runs from js-1 to je+1 so loop includes ghost zones.  l3imu on the
+   * edges has already been updated (if necessary) by x1 and x2 boundary
+   * routines */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl3i[ifr][j][i][l][m] = *(pRcv++);
+	  }}}}}
+  /* update r1imu/l1imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (j=jl; j<=ju; j++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl1i[ifr][ku][j][l][m] = *(pRcv++);
+	  pRG->Ghstr1i[ifr][ku][j][l][m] = *(pRcv++);
+	}}}}
+  /* update r2imu/l2imu on edges */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (i=il; i<=iu; i++) {
+      for (l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {	
+	  pRG->Ghstl2i[ifr][ku][i][l][m] = *(pRcv++);
+	  pRG->Ghstr2i[ifr][ku][i][l][m] = *(pRcv++);
+	}}}}
+  return;
+}
+#else
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Inner x1 boundary */
 
@@ -1148,6 +2353,17 @@ static void pack_ix1_rad(RadGridS *pRG, int sflag)
 	    }
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->l1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
   /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
    * l=1,3,5,7 are passed using l1imu and set in unpack routine */
   if (noct > 2) {
@@ -1217,6 +2433,17 @@ static void pack_ox1_rad(RadGridS *pRG, int sflag)
 	    }
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->r1imu[ifr][k][j][l][m];
+	  }}}}}
+#endif
   /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
    * l=0,2,4,6 are passed using r1imu and set in unpack routine */
   if (noct > 2) {
@@ -1285,6 +2512,15 @@ static void pack_ix2_rad(RadGridS *pRG, int sflag)
 	    *(pSnd++) = pRG->l2imu[ifr][k][i][7][m];
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  *(pSnd++) = GhstZnsIntl[ifr][k][js][l][m];
+	  *(pSnd++) = GhstZnsIntr[ifr][k][js][l][m];
+	}}}} 
+#endif
   /* update r1imu/l1imu on corners[2d]/edges[3d] */
   for (ifr=0; ifr<nf; ifr++) {
     for (k=kl; k<=ku; k++) {
@@ -1354,6 +2590,15 @@ static void pack_ox2_rad(RadGridS *pRG, int sflag)
 	    *(pSnd++) = pRG->r2imu[ifr][k][i][5][m];	    
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  *(pSnd++) = GhstZnsIntl[ifr][k][je][l][m];
+	  *(pSnd++) = GhstZnsIntr[ifr][k][je][l][m];
+	}}}} 
+#endif
   /* update r1imu/l1imu on corners[2d]/edges[3d] */
   for (ifr=0; ifr<nf; ifr++) {
     for (k=kl; k<=ku; k++) {
@@ -1552,6 +2797,17 @@ static void unpack_ix1_rad(RadGridS *pRG, int sflag)
 	    }
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    GhstZnsIntl[ifr][k][j][l][m]= *(pRcv++);
+	  }}}}}
+#endif
   /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
    * l=0,2,4,6 are passed using r1imu and handled below */
   if (noct > 2) {
@@ -1644,6 +2900,17 @@ static void unpack_ox1_rad(RadGridS *pRG, int sflag)
 	    }
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  /* If shearing periodic pass all intensities, which are needed to set l2imu/r2imu
+     in corners/edges after remapping */
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    GhstZnsIntr[ifr][k][j][l][m]= *(pRcv++);
+	  }}}}}
+#endif
   /* pass l2imu/r2imu on the corngers[2D]/edge[3D].  Note that values
    * l=1,3,5,7 are updated using r1imu below */
   if (noct > 2) {
@@ -1736,6 +3003,15 @@ static void unpack_ix2_rad(RadGridS *pRG, int sflag)
 	    pRG->l2imu[ifr][k][i][5][m] = *(pRcv++);
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][jl][l][m] = *(pRcv++);
+	  GhstZnsIntr[ifr][k][jl][l][m] = *(pRcv++);
+	}}}} 
+#endif
   /* update r1imu/l1imu on corners[2d]/edges[3d] */
   for (ifr=0; ifr<nf; ifr++) {
     for (k=kl; k<=ku; k++) {
@@ -1816,6 +3092,15 @@ static void unpack_ox2_rad(RadGridS *pRG, int sflag)
 	    pRG->r2imu[ifr][k][i][7][m] = *(pRcv++);
 	  }
 	}}}}
+#ifdef SHEARING_BOX
+  for (ifr=0; ifr<nf; ifr++) {
+    for (k=kl; k<=ku; k++) {
+      for(l=0; l<noct; l++) {
+	for(m=0; m<nang; m++) {
+	  GhstZnsIntl[ifr][k][ju][l][m] = *(pRcv++);
+	  GhstZnsIntr[ifr][k][ju][l][m] = *(pRcv++);
+	}}}} 
+#endif
   /* update r1imu/l1imu on corners[2d]/edges[3d] */
   for (ifr=0; ifr<nf; ifr++) {
     for (k=kl; k<=ku; k++) {
@@ -1986,6 +3271,7 @@ static void unpack_ox3_rad(RadGridS *pRG, int sflag)
 
   return;
 }
+#endif /* JACOBI */
 #endif /* MPI_PARALLEL */
 
 #endif /* RADIATION_TRANSFER */

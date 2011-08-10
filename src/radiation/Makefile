@@ -21,8 +21,8 @@ CORE_OBJ = init_radiation.o\
 	   gausseid_2d.o\
 	   jacobi_2d_linear.o\
 	   multig_2d.o\
-	   jacobi_3d_linear.o
-
+	   jacobi_3d_linear.o\
+	   bvals_rad_shear.o
 OBJ = $(CORE_OBJ)
 
 #-------------------  macro definitions  ---------------------------------------

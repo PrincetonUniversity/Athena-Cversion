@@ -156,8 +156,19 @@ static void sweep_2d_forward(RadGridS *pRG)
       }}
 
     /* Sweep forward in x1 */
+#ifdef SHEARING_BOX
+    update_cell(pRG,imuo,ks,j,is,0);
+    /* Update intensity at the ix1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	pRG->l1imu[ifr][ks][j][0][m] = imuo[ifr][is][0][m][0];
+      }}
+    for(i=is+1; i<=ie; i++) 
+      update_cell(pRG,imuo,ks,j,i,0);
+#else
     for(i=is; i<=ie; i++) 
       update_cell(pRG,imuo,ks,j,i,0);
+#endif
 
     /* Update intensity at the ox1 boundary */
     for(ifr=0; ifr<nf; ifr++) {
@@ -166,9 +177,19 @@ static void sweep_2d_forward(RadGridS *pRG)
       }}
 
     /* Sweep backward in x1 */
+#ifdef SHEARING_BOX
+    update_cell(pRG,imuo,ks,j,ie,1);
+    /* Update intensity at the ox1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	pRG->r1imu[ifr][ks][j][1][m] = imuo[ifr][ie][1][m][0];
+      }}
+    for(i=ie-1; i>=is; i--) 
+      update_cell(pRG,imuo,ks,j,i,1);
+#else
     for(i=ie; i>=is; i--) 
       update_cell(pRG,imuo,ks,j,i,1);
-
+#endif
     /* Update intensity at the ix1 boundary */
     for(ifr=0; ifr<nf; ifr++) {
       for(m=0; m<nang; m++)  {
@@ -218,8 +239,19 @@ static void sweep_2d_backward(RadGridS *pRG)
       }}
 
     /* Sweep forward in x1 */
+#ifdef SHEARING_BOX
+    update_cell(pRG,imuo,ks,j,is,2);
+    /* Update intensity at the ix1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	pRG->l1imu[ifr][ks][j][2][m] = imuo[ifr][is][2][m][0];
+      }}
+    for(i=is+1; i<=ie; i++) 
+      update_cell(pRG,imuo,ks,j,i,2);
+#else
     for(i=is; i<=ie; i++) 
       update_cell(pRG,imuo,ks,j,i,2);
+#endif
 
     /* Update intensity at the ox1 boundary */
     for(ifr=0; ifr<nf; ifr++) {
@@ -228,9 +260,19 @@ static void sweep_2d_backward(RadGridS *pRG)
       }}
 
     /* Sweep backward in x1 */
+#ifdef SHEARING_BOX
+    update_cell(pRG,imuo,ks,j,ie,3);
+    /* Update intensity at the ox1 boundary */
+    for(ifr=0; ifr<nf; ifr++) {
+      for(m=0; m<nang; m++)  {
+	pRG->r1imu[ifr][ks][j][3][m] = imuo[ifr][ie][3][m][0];
+      }}
+    for(i=ie-1; i>=is; i--) 
+      update_cell(pRG,imuo,ks,j,i,3);
+#else
     for(i=ie; i>=is; i--) 
       update_cell(pRG,imuo,ks,j,i,3);
-
+#endif
     /* Update intensity at the ix1 boundary */
     for(ifr=0; ifr<nf; ifr++) {
       for(m=0; m<nang; m++)  {

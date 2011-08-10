@@ -95,6 +95,7 @@ void hydro_to_rad(DomainS *pD)
 	                                  eps  * pRG->R[k][j][i][ifr].B;
 #endif
 	  pRG->R[k][j][i][ifr].chi = get_total_opacity(pG,ifr,ig,jg,kg);
+
 	}
       }
     }

@@ -318,10 +318,18 @@ typedef struct RadGrid_s {
   Real *****l2imu;   /* intensity on L side in x2-dir  */
   Real *****r3imu;   /* intensity on R side in x3-dir  */
   Real *****l3imu;   /* intensity on L side in x3-dir  */
-
+#ifdef JACOBI
+  Real *****Ghstr1i;   /* Ghost zone on R side in x1-dir  */
+  Real *****Ghstl1i;   /* Ghost zone on L side in x1-dir  */
+  Real *****Ghstr2i;   /* Ghost zone on R side in x2-dir  */
+  Real *****Ghstl2i;   /* Ghost zone on L side in x2-dir  */
+  Real *****Ghstr3i;   /* Ghost zone on R side in x3-dir  */
+  Real *****Ghstl3i;   /* Ghost zone on L side in x3-dir  */
+#endif
   Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real dx1,dx2,dx3;     /* cell size on this Grid */
+  Real time;           /* current time */
   int is,ie;		/* start/end cell index in x1 direction */
   int js,je;		/* start/end cell index in x2 direction */
   int ks,ke;		/* start/end cell index in x3 direction */

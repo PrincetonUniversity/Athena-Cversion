@@ -72,7 +72,8 @@ void init_radiation(MeshS *pM)
 	pRG->nang =  pRG->nmu * (pRG->nmu + 1) / 2;
 	pRG->noct = 8;
       }
-      
+
+      pRG->time = pM->time;  
 /* get (l,m,n) coordinates of Grid being updated on this processor */
 
       get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
@@ -386,6 +387,46 @@ void init_radiation(MeshS *pM)
 /* initialize wnu to unity if nf=1 */
       if (pRG->nf == 1) pRG->wnu[0] = 1.0;
 
+#ifdef JACOBI
+/* Allocate memory for intensity Ghost Zones */ 
+      if (pRG->Nx[0] > 1) {
+	pRG->Ghstr1i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[1]+2,
+          noct,nang,sizeof(Real));
+	if (pRG->Ghstr1i == NULL) goto on_error23;
+
+	pRG->Ghstl1i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[1]+2,
+	  noct,nang,sizeof(Real));
+	if (pRG->Ghstl1i == NULL) goto on_error24;
+      } else {
+	pRG->Ghstr1i = NULL;
+	pRG->Ghstl1i = NULL;	
+      }
+
+      if (pRG->Nx[1] > 1) {
+	pRG->Ghstr2i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[0]+2,
+	  noct,nang,sizeof(Real));
+	if (pRG->Ghstr2i == NULL) goto on_error25;
+	pRG->Ghstl2i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[0]+2,
+	  noct,nang,sizeof(Real));
+	if (pRG->Ghstl2i == NULL) goto on_error26;
+      } else {
+	pRG->Ghstr2i = NULL;
+	pRG->Ghstl2i = NULL;	
+      }
+
+      if (pRG->Nx[2] > 1) {
+	pRG->Ghstr3i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[1]+2,pRG->Nx[0]+2,
+          noct,nang,sizeof(Real));
+	if (pRG->Ghstr3i == NULL) goto on_error27;
+
+	pRG->Ghstl3i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[1]+2,pRG->Nx[0]+2,
+          noct,nang,sizeof(Real));
+	if (pRG->Ghstl3i == NULL) goto on_error28;
+      } else {
+	pRG->Ghstr3i = NULL;
+	pRG->Ghstl3i = NULL;	
+      }
+#endif
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
  * or an internal boundary between fine/coarse grids), then ID is set to -1
@@ -434,7 +475,20 @@ void init_radiation(MeshS *pM)
   return;
 
 /*--- Error messages ---------------------------------------------------------*/
- 
+#ifdef JACOBI
+ on_error28:
+  if (pRG->Nx[2] > 1) free_5d_array(pRG->Ghstl3i);
+ on_error27:
+  if (pRG->Nx[2] > 1) free_5d_array(pRG->Ghstr3i);
+ on_error26:
+  if (pRG->Nx[1] > 1) free_5d_array(pRG->Ghstl2i);
+ on_error25:
+  if (pRG->Nx[1] > 1) free_5d_array(pRG->Ghstr2i);
+ on_error24:
+  if (pRG->Nx[0] > 1) free_5d_array(pRG->Ghstl1i);
+ on_error23:
+  if (pRG->Nx[0] > 1) free_5d_array(pRG->Ghstr1i);
+#endif
  on_error22:
   free_1d_array(pRG->wnu);  
  on_error21:
@@ -515,7 +569,7 @@ void radiation_destruct(MeshS *pM)
 
   for (nl=0; nl<pM->NLevels; nl++){
   for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
+    if (pM->Domain[nl][nd].RadGrid != NULL) {
       pRG = pM->Domain[nl][nd].RadGrid;          /* set ptr to RadGrid */
       radgrid_destruct(pRG);
     }
@@ -525,7 +579,6 @@ void radiation_destruct(MeshS *pM)
 
 void radgrid_destruct(RadGridS *pRG)
 {
- 
   if (pRG->R != NULL) free_4d_array(pRG->R);  
   if (pRG->wmu != NULL) free_1d_array(pRG->wmu);
   if (pRG->mu != NULL) free_3d_array(pRG->mu);
@@ -535,7 +588,14 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->l2imu != NULL) free_5d_array(pRG->l2imu);
   if (pRG->r1imu != NULL) free_5d_array(pRG->r1imu);
   if (pRG->l1imu != NULL) free_5d_array(pRG->l1imu);
-
+#ifdef JACOBI
+  if (pRG->Ghstr3i != NULL) free_5d_array(pRG->Ghstr3i);
+  if (pRG->Ghstl3i != NULL) free_5d_array(pRG->Ghstl3i);
+  if (pRG->Ghstr2i != NULL) free_5d_array(pRG->Ghstr2i);
+  if (pRG->Ghstl2i != NULL) free_5d_array(pRG->Ghstl2i);
+  if (pRG->Ghstr1i != NULL) free_5d_array(pRG->Ghstr1i);
+  if (pRG->Ghstl1i != NULL) free_5d_array(pRG->Ghstl1i);
+#endif
   return;
 }
 

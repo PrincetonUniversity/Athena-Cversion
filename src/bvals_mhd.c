@@ -356,7 +356,6 @@ void bvals_mhd(DomainS *pD)
       ShearingSheet_ox1(pD);
     }
 #endif
-
   }
 
 /*--- Step 3. ------------------------------------------------------------------

@@ -406,15 +406,18 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   bvals_grav_init(&Mesh);
 #endif
+
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
-  bvals_shear_init(&Mesh);	
+  bvals_shear_init(&Mesh);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	bvals_radMHD_shear_init(&Mesh);
 #endif /* END RADIATION HYDRO OR RADIATION MHD */
-	
+#ifdef RADIATION_TRANSFER
+	bvals_rad_shear_init(&Mesh);
+#endif /* RADIATION_TRANSFER */	
 #endif /* END SHEARING_BOX */
 	
-	
+
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #endif
@@ -437,7 +440,6 @@ int main(int argc, char *argv[])
       }
     }
   }
-
 
    /* set boundary condition for radiation quantities */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
@@ -508,7 +510,6 @@ int main(int argc, char *argv[])
 #endif
 
 
-
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
 
@@ -563,7 +564,6 @@ int main(int argc, char *argv[])
  * Done first since CFL constraint is applied which may change dt  */
 
 	
-
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
     integrate_diff(&Mesh);
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -635,7 +635,6 @@ int main(int argc, char *argv[])
 	(*BackEuler)(&Mesh);
 
 #endif
-
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -651,7 +650,6 @@ int main(int argc, char *argv[])
         }
       }
     }
-
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
@@ -725,8 +723,6 @@ int main(int argc, char *argv[])
         }
       }
     }
-
-
 
 	
 
@@ -830,7 +826,7 @@ int main(int argc, char *argv[])
   data_output(&Mesh, 1);
 
 /* Free all memory */
-
+ 
   lr_states_destruct();
   integrate_destruct();
   data_output_destruct();
@@ -841,9 +837,11 @@ int main(int argc, char *argv[])
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	bvals_radMHD_shear_destruct();
+  bvals_radMHD_shear_destruct();
 #endif
-	
+#ifdef RADIATION_TRANSFER
+  bvals_rad_shear_destruct();
+#endif	
 #endif
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_destruct();
