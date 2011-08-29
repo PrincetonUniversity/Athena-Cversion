@@ -3,15 +3,6 @@
 /*! \file cylspiral.c
  *  \brief A test of Global Spiral Shocks in a Galactic Disk.              
  */
-// This test routine involves a time-dependent spiral potential.  Since the     
-// current version of Athena uses in integrators the "StaticGravPot" function
-// that is independent of time, the user is recommended to  
-// 1) define a variable (atime) in # globals.h as
-//    Real atime;
-//    extern Real atime;
-// 2) assign the time to 'atime' in main.c by writing
-//    atime = Mesh.time;
-// right after Mesh.time is assigned in Step 9g.
 /*============================================================================*/
 
 #include <math.h>
@@ -24,6 +15,7 @@
 #include "prototypes.h"
 
 static Real rho0,vcir,vt;
+static Real atime;
 static Real n_arm,i_pitch,omega_p,F_arm,ephi,mtani;
 static Real taper_i,taper_o,t_arm;
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
@@ -90,6 +82,7 @@ void problem(DomainS *pDomain)
   t_arm       = par_getd("problem", "t_arm");
   omega_p     = par_getd("problem", "omega_p");
 
+  atime = 0.0;
   mtani = n_arm/tan(i_pitch*PI/180.);
   ephi  = F_arm*SQR(vcir)/mtani; 
 
@@ -178,6 +171,7 @@ VOutFun_t get_usr_out_fun(const char *name){
 
 void Userwork_in_loop(MeshS *pM)
 {
+ atime = pM->time;
 }
 
 void Userwork_after_loop(MeshS *pM)

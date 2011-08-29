@@ -4,18 +4,6 @@ author  = W.-T. Kim
 journal = unpublished
 config  = --with-gas=hydro --with-eos=isothermal --with-integrator=vl --enable-fofc --with-flux=roe --with-coord=cylindrical --enable-fargo   
 
-# Importance Notice :=========================================================
-# This test routine involves a time-dependent spiral potential.  Since the 
-# current version of Athena uses in integrators the "StaticGravPot" function 
-# that is independent of time, the user is recommended to 
-# 1) define a variable (atime) in # globals.h as
-#    Real atime;
-#    extern Real atime;
-# 2) assign the time to 'atime' in main.c by writing 
-#    atime = Mesh.time;
-# right after Mesh.time is assigned in Step 9g. 
-#==============================================================================
-
 <log>
 file_open       = 0             # write to .out file?  otherwise, writes to stdout
 out_level       = 0             # sets output level (default=0)
