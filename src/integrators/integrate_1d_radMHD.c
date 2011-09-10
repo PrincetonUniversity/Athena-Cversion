@@ -339,8 +339,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	Sigma_t = U1d[i].Sigma_t;
 	Sigma_a = U1d[i].Sigma_a;
 
-	
-	
+
 
 /* The Source term */
 	dSource(U1d[i], Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
@@ -608,5 +607,3 @@ void integrate_destruct_1d(void)
   return;
 }
 #endif /* radMHD_INTEGRATOR */
-
-

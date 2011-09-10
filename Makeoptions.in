@@ -28,6 +28,8 @@ BLOCKLIB =
 CUSTLIBS = -ldl -lm
 MATRIXLIB = 
 MATRIXINC = 
+HYPRELIB = 
+HYPREINC =
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
   BLOCKINC = -I fftsrc
@@ -36,28 +38,40 @@ ifeq (@FFT_MODE@,FFT_ENABLED)
 endif
 
 ifeq (@GAS@,RADIATION_HYDRO) 
-  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis/include
+  MATRIXLIB = 
+  MATRIXINC = 
+  HYPRELIB = 
+  HYPREINC = 
 ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+  MATRIXLIB = 
+  MATRIXINC = 
+  HYPRELIB = 
+  HYPREINC = 
 endif
 ifeq (@MPI_MODE@,MPI_PARALLEL)
-  MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis_MPI/include
+  MATRIXLIB = 
+  MATRIXINC = 
+  HYPRELIB = 
+  HYPREINC = 
 endif
 endif
 
 ifeq (@GAS@,RADIATION_MHD) 
-  MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis/include
+  MATRIXLIB =  
+  MATRIXINC = 
+  HYPRELIB = 
+  HYPREINC = 
 ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = -L/u/yanfei/Tools/Lis_debug/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis_debug/include
+  MATRIXLIB =
+  MATRIXINC = 
+  HYPRELIB = 
+  HYPREINC = 
 endif
 ifeq (@MPI_MODE@,MPI_PARALLEL)
-  MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
-  MATRIXINC = -I/u/yanfei/Tools/Lis_MPI/include
+  MATRIXLIB = 
+  MATRIXINC = 
+  HYPRELIB = 
+  HYPREINC = 
 endif
 endif
 
@@ -146,5 +160,5 @@ ifeq (@FFT_MODE@,NO_FFT)
   FFTWLIB = 
 endif
 
-CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(MATRIXINC)
-LIB = $(MATRIXLIB) $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) 
+CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(MATRIXINC) $(HYPREINC)
+LIB = $(MATRIXLIB) $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) $(HYPRELIB)

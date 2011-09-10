@@ -449,6 +449,65 @@ typedef struct Grid_s{
 
 typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+
+
+
+typedef struct RadMHD_s {
+  Real Er;                       /* total source function */
+  Real Fr1;                       /* 0th moment: mean intensity */
+  Real Fr2;                    /* 1st moment: flux */
+  Real Fr3;                    /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
+  Real V1;                       /* thermal source function */
+  Real V2;                     /* thermalization coeff */
+  Real V3;                     /* total opacity */
+  Real T4;
+  Real Edd_11;
+  Real Edd_21;
+  Real Edd_22;
+  Real Edd_31;
+  Real Edd_32;
+  Real Edd_33;
+  Real Sigma_a;
+  Real Sigma_t;
+
+} RadMHDS;
+
+typedef struct Matrix_s{
+RadMHDS ***U;
+Real ****RHS;		/* Used to store right hand side. This is needed in recursive step */
+Real dx1,dx2,dx3;        /* cell size on this Grid */
+Real time, dt;           /* current time and timestep  */
+Real Lx, Ly, Lz;	/* Size of simulation box in the root domain */
+
+int is,ie;		   /* start/end cell index in x1 direction */
+int js,je;		   /* start/end cell index in x2 direction */
+int ks,ke;		   /* start/end cell index in x3 direction */
+int Nx[3];			/* Number of cells in this part of Matrix */
+int RootNx[3];			/* Number of cells in the top level Matrix */
+int NGrid[3];			/* Number of Grids in this domain */
+
+/* MPI processor coordinate (L,M, N) */
+int ID;
+int my_iproc, my_jproc, my_kproc;
+
+int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
+int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
+int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
+
+
+
+int BCFlag_ix1, BCFlag_ox1;  /* BC flag on root domain for inner/outer x1 */
+int BCFlag_ix2, BCFlag_ox2;  /* BC flag on root domain for inner/outer x2 */
+int BCFlag_ix3, BCFlag_ox3;  /* BC flag on root domain for inner/outer x3 */
+
+
+}MatrixS;
+
+typedef void (*VMatFun_t)(MatrixS *pMat);
+
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* DomainS: information about one region of Mesh at some particular level.
  *
@@ -529,9 +588,7 @@ typedef struct Mesh_s{
   char *outfilename;           /* basename for output files containing -id#  */
 }MeshS;
 
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-typedef void (*VMFun_t)(MeshS *pM); /* Generic void function of Mesh, used for BackEuler */
-#endif
+typedef void (*VMFun_t)(MeshS *pM);
 
 /*----------------------------------------------------------------------------*/
 /* OutputS: everything for outputs */

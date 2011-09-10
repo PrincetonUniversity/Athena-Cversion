@@ -1510,6 +1510,9 @@ void GetTguess(MeshS *pM)
 					
 					pG->Tguess[k][j][i] = temperature;
 				}
+				else if(pressure < TINY_NUMBER || pressure != pressure){
+					 pG->Tguess[k][j][i] = TINY_NUMBER;
+				}
 				else{
 
 
@@ -1567,6 +1570,7 @@ void GetTguess(MeshS *pM)
 
 				}
 
+				
 			}
 
 			}

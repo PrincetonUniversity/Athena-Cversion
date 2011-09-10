@@ -62,6 +62,8 @@ ShearFun_t ShearProfile = NULL;
 Real Prat;		/* Pratio=a_rT^4/rho a^2; The ratio between the pressure unit for radiation and gas */ 
 Real Crat;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
 OpacityFun_t Opacity = NULL;
+int Ncycle = 10;	/* Numbers of relaxation cycles to do in multigrid-matrix solver */
+Real TOL = 1.e-8;  /* relative residual level used in matrix convergent criterian */
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)
@@ -140,6 +142,8 @@ extern ShearFun_t ShearProfile;
 extern Real Prat;
 extern Real Crat;
 extern OpacityFun_t Opacity;
+extern int Ncycle;	/* Numbers of relaxation cycles to do in multigrid-matrix solver */
+extern Real TOL;  /* relative residual level used in matrix convergent criterian */
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)

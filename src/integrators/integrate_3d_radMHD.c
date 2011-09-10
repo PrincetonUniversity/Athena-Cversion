@@ -72,6 +72,9 @@ static Real ***emf1_cc=NULL, ***emf2_cc=NULL, ***emf3_cc=NULL;
 static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
 static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
+static Real ****Source=NULL;
+static Real ***Alpha = NULL;
+static Real ****Beta = NULL;
 
 /* density and Pressure at t^{n+1/2} needed by MHD, cooling, and gravity */
 static Real ***dhalf = NULL, ***phalf=NULL;
@@ -89,6 +92,8 @@ static void integrate_emf1_corner(const GridS *pG);
 static void integrate_emf2_corner(const GridS *pG);
 static void integrate_emf3_corner(const GridS *pG);
 #endif /* MHD */
+
+void updatesource(GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -129,8 +134,9 @@ void integrate_3d_radMHD(DomainS *pD)
 	Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
 	Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
 	Real fact, qom, om_dt = Omega_0*pG->dt;
+	fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
 	qom = qshear*Omega_0;
-	
+	Real ShearSource[4];
 /*	Real ShearingSource_M1, ShearingSource_M2, ShearingSource_M3, ShearingSource_E;
 	Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
  */
@@ -148,7 +154,8 @@ void integrate_3d_radMHD(DomainS *pD)
 	Real SFmx, SFmy, SFmz, SVVx, SVVy, SVVz, betax, betay, betaz;
 
 
-	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
+	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
+	Real Psource;
 	Real divFlux1[NVAR], divFlux2[NVAR], divFlux3[NVAR];
 
 	/* SourceFlux is used to calculate flux due to non-stiff source terms, such as gravity */
@@ -156,7 +163,6 @@ void integrate_3d_radMHD(DomainS *pD)
 	/* Initialize them to be zero */
 	/* NVAR is the same as normal hydro code. Rad variables are not included here */
 	for(i=0; i<NVAR; i++){
-		Source[i] = 0.0;
 		SourceFlux[i] = 0.0;
 		Source_guess[i] = 0.0;
 		Errort[i] = 0.0;
@@ -187,6 +193,9 @@ void integrate_3d_radMHD(DomainS *pD)
 
 /*=== Step 1: Backward Euler is done in the main function for the whole mesh ===*/
 	
+	/* First, calculate the source term */
+	updatesource(pG);
+
 	
 /*=== STEP 2: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
@@ -245,90 +254,39 @@ void integrate_3d_radMHD(DomainS *pD)
 		for (i=il+1; i<=iu; i++) {
 		/* NOTICE that we use primitive variables as left and right states to calculate flux */
 		/* For left state */
-			pressure = W[i-1].P;
-			temperature = pressure / (U1d[i-1].d * R_ideal);
 			
-			diffTEr = pow(temperature, 4.0) - U1d[i-1].Er;	
-
+			Propa_44 = Alpha[k][j][i-1];
 
 			velocity_x = U1d[i-1].Mx / U1d[i-1].d;
 			velocity_y = U1d[i-1].My / U1d[i-1].d;
 			velocity_z = U1d[i-1].Mz / U1d[i-1].d;
+
+			
 #ifdef FARGO
 			/* With FARGO, we should add background shearing to the source terms */
 			cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
 			velocity_y -= qom * x1;		
 #endif
+
+			/* The velocity here is the perturbed velocity */
+			/* We do not need to add background shearing in */
+
+			Psource =  (Gamma - 1.0) * Source[k][j][i-1][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i-1][1] + velocity_y * Source[k][j][i-1][2] + velocity_z * Source[k][j][i-1][3]);
+
+			if(Wl[i].P > TINY_NUMBER){
+
+				Wl[i].Vx += dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
+				Wl[i].Vy += dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
+				Wl[i].Vz += dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
+				Wl[i].P += dt * Propa_44 * Psource * 0.5;
+			}
+			else{
+				Wl[i].P = TINY_NUMBER;
+			}
 			
-			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-			Sigma_t    = pG->U[k][j][i-1].Sigma_t;
-			Sigma_a	   = pG->U[k][j][i-1].Sigma_a;
-			Sigma_s	   = Sigma_t - Sigma_a;
-
-			/* co-moving flux */
-			Fr0x = U1d[i-1].Fr1 - ((1.0 + U1d[i-1].Edd_11) * velocity_x + U1d[i-1].Edd_21 * velocity_y + U1d[i-1].Edd_31 * velocity_z) * U1d[i-1].Er / Crat;
-			Fr0y = U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x + U1d[i-1].Edd_32 * velocity_z) * U1d[i-1].Er / Crat;
-			Fr0z = U1d[i-1].Fr3 - ((1.0 + U1d[i-1].Edd_33) * velocity_z + U1d[i-1].Edd_31 * velocity_x + U1d[i-1].Edd_32 * velocity_y) * U1d[i-1].Er / Crat;
-
-			/* Source term for velocity , not momentum*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat) / U1d[i-1].d;
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat) / U1d[i-1].d;
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat) / U1d[i-1].d;
-			
-			/* Source term for pressure */
-			Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat)
-					-(Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2] + velocity_z * Source[3]) * U1d[i-1].d;			
-
-
-			if(Opacity != NULL) Opacity(U1d[i-1].d, temperature, NULL, NULL, dSigma);
-
-			/* dSigma[0] = dSigmt/drho, dSigma[1] = dSigma/drho, dSigma[2]=dSigmat/dT, dsigma[3]=dSigmaa/dT */
-		
-			dSigmadP =  dSigma[3] / (U1d[i-1].d * R_ideal); 
-			
-			
-			SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity * velocity/(Crat * Crat)) /(U1d[i-1].d * R_ideal)
-				-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity * velocity/(Crat * Crat))
-			      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-		/*===================================================================*/
-		/* In case velocity is large, momentum source term is also stiff */
-			SVVx = -Prat * (Sigma_t * (1.0 + W[i-1].Edd_11) * W[i-1].Er + Sigma_a * diffTEr) / (W[i-1].d * Crat);
-		
-			if(fabs(SVVx * dt * 0.5) > 0.001)
-			betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-			else 
-			betax = 1.0 + 0.25 * SVVx * dt;
-
-			SVVy = -Prat * (Sigma_t * (1.0 + W[i-1].Edd_22) * W[i-1].Er + Sigma_a * diffTEr) / (W[i-1].d * Crat);
-		
-			if(fabs(SVVy * dt * 0.5) > 0.001)
-			betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-			else 
-			betay = 1.0 + 0.25 * SVVy * dt;
-
-			SVVz = -Prat * (Sigma_t * (1.0 + W[i-1].Edd_33) * W[i-1].Er + Sigma_a * diffTEr) / (W[i-1].d * Crat);
-		
-			if(fabs(SVVz * dt * 0.5) > 0.001)
-			betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-			else 
-			betaz = 1.0 + 0.25 * SVVz * dt;
-		/*===========================================================================*/
 	
-			if(fabs(SPP * dt * 0.5) > 0.001)
-			alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-			else 
-			alpha = 1.0 + 0.25 * SPP * dt;
-			/* In case SPP * dt  is small, use expansion expression */	
-			/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
-			Propa_44 = alpha;
-
-			Wl[i].Vx += dt * Source[1] * 0.5 * betax;
-			Wl[i].Vy += dt * Source[2] * 0.5 * betay;
-			Wl[i].Vz += dt * Source[3] * 0.5 * betaz;
-			Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
-	
-			Wl[i].Sigma_a = Sigma_a;
-			Wl[i].Sigma_t = Sigma_t;
+			Wl[i].Sigma_a = U1d[i-1].Sigma_a;
+			Wl[i].Sigma_t = U1d[i-1].Sigma_t;
 			Wl[i].Edd_11 = W[i-1].Edd_11;
 			Wl[i].Edd_21 = W[i-1].Edd_21;
 			Wl[i].Edd_22 = W[i-1].Edd_22;
@@ -339,93 +297,34 @@ void integrate_3d_radMHD(DomainS *pD)
 		/* For the right state */
 	
 	
-			pressure = W[i].P;
-			temperature = pressure / (U1d[i].d * R_ideal);
-
-			diffTEr = pow(temperature, 4.0) - U1d[i].Er;	
+			Propa_44 = alpha;
 
 			velocity_x = U1d[i].Mx / U1d[i].d;
 			velocity_y = U1d[i].My / U1d[i].d;
 			velocity_z = U1d[i].Mz / U1d[i].d;
+
 			
 #ifdef FARGO
 			/* With FARGO, we should add background shearing to the source terms */
 			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 			velocity_y -= qom * x1;		
-#endif		
+#endif
 			
-			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-		
-			
-			Sigma_t    = pG->U[k][j][i].Sigma_t;
-			Sigma_a	   = pG->U[k][j][i].Sigma_a;
-			Sigma_s	   = Sigma_t - Sigma_a;
+			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-
-			/* co-moving flux */
-			Fr0x = U1d[i].Fr1 - ((1.0 + U1d[i].Edd_11) * velocity_x + U1d[i].Edd_21 * velocity_y + U1d[i].Edd_31 * velocity_z) * U1d[i].Er / Crat;
-			Fr0y = U1d[i].Fr2 - ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x + U1d[i].Edd_32 * velocity_z) * U1d[i].Er / Crat;
-			Fr0z = U1d[i].Fr3 - ((1.0 + U1d[i].Edd_33) * velocity_z + U1d[i].Edd_31 * velocity_x + U1d[i].Edd_32 * velocity_y) * U1d[i].Er / Crat;
-
-			/* Source term for velocity , not momentum*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat) / U1d[i].d;
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat) / U1d[i].d;
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat) / U1d[i].d;
-			
-			/* Source term for pressure */
-			Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat)
-					-(Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2] + velocity_z * Source[3]) * U1d[i].d;			
-
-			
-			if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, NULL, dSigma);
-		
-			dSigmadP =  dSigma[3] / (U1d[i].d * R_ideal);
-
-			SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity * velocity/(Crat * Crat)) /(U1d[i].d * R_ideal)
-				-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity * velocity/(Crat * Crat))
-			      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-	
-			/*===================================================================*/
-			/* In case velocity is large, momentum source term is also stiff */
-			SVVx = -Prat * (Sigma_t * (1.0 + W[i].Edd_11) * W[i].Er + Sigma_a * diffTEr) / (W[i].d * Crat);
-		
-			if(fabs(SVVx * dt * 0.5) > 0.001)
-			betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-			else 
-			betax = 1.0 + 0.25 * SVVx * dt;
-
-			SVVy = -Prat * (Sigma_t * (1.0 + W[i].Edd_22) * W[i].Er + Sigma_a * diffTEr) / (W[i].d * Crat);
-		
-			if(fabs(SVVy * dt * 0.5) > 0.001)
-			betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-			else 
-			betay = 1.0 + 0.25 * SVVy * dt;
-
-			SVVz = -Prat * (Sigma_t * (1.0 + W[i].Edd_33) * W[i].Er + Sigma_a * diffTEr) / (W[i].d * Crat);
-		
-			if(fabs(SVVz * dt * 0.5) > 0.001)
-			betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-			else 
-			betaz = 1.0 + 0.25 * SVVz * dt;
-			/*===========================================================================*/
+			if(Wr[i].P > TINY_NUMBER){
+				Wr[i].Vx += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
+				Wr[i].Vy += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
+				Wr[i].Vz += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
+				Wr[i].P += dt * Propa_44 * Psource * 0.5;
+			}
+			else{
+				Wr[i].P = TINY_NUMBER;
+			}
 	
 
-
-			if(fabs(SPP * dt * 0.5) > 0.001)
-			alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-			else 
-			alpha = 1.0 + 0.25 * SPP * dt;
-			/* In case SPP * dt  is small, use expansion expression */	
-			/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
-			Propa_44 = alpha;
-
-			Wr[i].Vx += dt * Source[1] * 0.5 * betax;
-			Wr[i].Vy += dt * Source[2] * 0.5 * betay;
-			Wr[i].Vz += dt * Source[3] * 0.5 * betaz;
-			Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
-
-			Wr[i].Sigma_a = Sigma_a;
-			Wr[i].Sigma_t = Sigma_t;	
+			Wr[i].Sigma_a = U1d[i].Sigma_a;
+			Wr[i].Sigma_t = U1d[i].Sigma_t;	
 			Wr[i].Edd_11 = W[i].Edd_11;
 			Wr[i].Edd_21 = W[i].Edd_21;
 			Wr[i].Edd_22 = W[i].Edd_22;
@@ -618,95 +517,33 @@ void integrate_3d_radMHD(DomainS *pD)
 		for (j=jl+1; j<=ju; j++) {
 		/* NOTICE that we use primitive variables as left and right states to calculate flux */
 		/* For left state */
-			pressure = W[j-1].P;
-			temperature = pressure / (U1d[j-1].d * R_ideal);
-			
-			diffTEr = pow(temperature, 4.0) - U1d[j-1].Er;	
-
+			Propa_44 = Alpha[k][j-1][i];
 
 			velocity_x = U1d[j-1].Mz / U1d[j-1].d;
 			velocity_y = U1d[j-1].Mx / U1d[j-1].d;
 			velocity_z = U1d[j-1].My / U1d[j-1].d;
+
 			
 #ifdef FARGO
 			/* With FARGO, we should add background shearing to the source terms */
 			cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
 			velocity_y -= qom * x1;		
-#endif		
-			
-			
-			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-			Sigma_t    = pG->U[k][j-1][i].Sigma_t;
-			Sigma_a	   = pG->U[k][j-1][i].Sigma_a;
-			Sigma_s	   = Sigma_t - Sigma_a;
+#endif
 
-			/* co-moving flux */
-			Fr0x = U1d[j-1].Fr1 - ((1.0 + U1d[j-1].Edd_11) * velocity_x + U1d[j-1].Edd_21 * velocity_y + U1d[j-1].Edd_31 * velocity_z) * U1d[j-1].Er / Crat;
-			Fr0y = U1d[j-1].Fr2 - ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x + U1d[j-1].Edd_32 * velocity_z) * U1d[j-1].Er / Crat;
-			Fr0z = U1d[j-1].Fr3 - ((1.0 + U1d[j-1].Edd_33) * velocity_z + U1d[j-1].Edd_31 * velocity_x + U1d[j-1].Edd_32 * velocity_y) * U1d[j-1].Er / Crat;
+			Psource =  (Gamma - 1.0) * Source[k][j-1][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j-1][i][1] + velocity_y * Source[k][j-1][i][2] + velocity_z * Source[k][j-1][i][3]);
 
-			/* Source term for velocity , not momentum*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat) / U1d[j-1].d;
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat) / U1d[j-1].d;
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat) / U1d[j-1].d;
-			
-			/* Source term for pressure */
-			Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat)
-			-(Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2] + velocity_z * Source[3]) * U1d[j-1].d;			
+			if(Wl[j].P > TINY_NUMBER){
+				Wl[j].Vx += dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
+				Wl[j].Vy += dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
+				Wl[j].Vz += dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
+				Wl[j].P += dt * Propa_44 * Psource * 0.5;
+			}
+			else{
+			   Wl[j].P = TINY_NUMBER;
+			}
 
-
-			if(Opacity != NULL) Opacity(U1d[j-1].d, temperature, NULL, NULL, dSigma);
-
-			/* dSigma[0] = dSigmt/drho, dSigma[1] = dSigma/drho, dSigma[2]=dSigmat/dT, dsigma[3]=dSigmaa/dT */
-		
-			dSigmadP =  dSigma[3] / (U1d[j-1].d * R_ideal); 
-			
-			
-			SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity * velocity/(Crat * Crat)) /(U1d[j-1].d * R_ideal)
-				-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity * velocity/(Crat * Crat))
-			      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-		/*===================================================================*/
-		/* In case velocity is large, momentum source term is also stiff */
-			SVVx = -Prat * (Sigma_t * (1.0 + W[j-1].Edd_11) * W[j-1].Er + Sigma_a * diffTEr) / (W[j-1].d * Crat);
-		
-			if(fabs(SVVx * dt * 0.5) > 0.001)
-			betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-			else 
-			betax = 1.0 + 0.25 * SVVx * dt;
-
-			SVVy = -Prat * (Sigma_t * (1.0 + W[j-1].Edd_22) * W[j-1].Er + Sigma_a * diffTEr) / (W[j-1].d * Crat);
-		
-			if(fabs(SVVy * dt * 0.5) > 0.001)
-			betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-			else 
-			betay = 1.0 + 0.25 * SVVy * dt;
-
-			SVVz = -Prat * (Sigma_t * (1.0 + W[j-1].Edd_33) * W[j-1].Er + Sigma_a * diffTEr) / (W[j-1].d * Crat);
-		
-			if(fabs(SVVz * dt * 0.5) > 0.001)
-			betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-			else 
-			betaz = 1.0 + 0.25 * SVVz * dt;
-		/*===========================================================================*/
-	
-			if(fabs(SPP * dt * 0.5) > 0.001)
-			alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-			else 
-			alpha = 1.0 + 0.25 * SPP * dt;
-			/* In case SPP * dt  is small, use expansion expression */	
-			/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
-			Propa_44 = alpha;
-
-			/* "Vx" is actually vy, "vz" is actually vx and "vy" is actually vz. */
-			/* We stay with the correct meaning in source terms */
-
-			Wl[j].Vx += dt * Source[2] * 0.5 * betay;
-			Wl[j].Vy += dt * Source[3] * 0.5 * betaz;
-			Wl[j].Vz += dt * Source[1] * 0.5 * betax;
-			Wl[j].P += dt * Propa_44 * Source[4] * 0.5;
-	
-			Wl[j].Sigma_a = Sigma_a;
-			Wl[j].Sigma_t = Sigma_t;
+			Wl[j].Sigma_a = U1d[j-1].Sigma_a;
+			Wl[j].Sigma_t = U1d[j-1].Sigma_t;
 			Wl[j].Edd_11 = W[j-1].Edd_11;
 			Wl[j].Edd_21 = W[j-1].Edd_21;
 			Wl[j].Edd_22 = W[j-1].Edd_22;
@@ -714,93 +551,38 @@ void integrate_3d_radMHD(DomainS *pD)
 			Wl[j].Edd_32 = W[j-1].Edd_32;
 			Wl[j].Edd_33 = W[j-1].Edd_33;
 
+
+
 		/* For the right state */
 	
 	
-			pressure = W[j].P;
-			temperature = pressure / (U1d[j].d * R_ideal);
-
-			diffTEr = pow(temperature, 4.0) - U1d[j].Er;	
+			Propa_44 = Alpha[k][j][i];
 
 			velocity_x = U1d[j].Mz / U1d[j].d;
 			velocity_y = U1d[j].Mx / U1d[j].d;
 			velocity_z = U1d[j].My / U1d[j].d;
+
+			
 #ifdef FARGO
 			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 			velocity_y -= qom * x1;		
-#endif					
-			
-			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-			Sigma_t    = pG->U[k][j][i].Sigma_t;
-			Sigma_a	   = pG->U[k][j][i].Sigma_a;
-			Sigma_s	   = Sigma_t - Sigma_a;
+#endif
 
+			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-			/* co-moving flux */
-			Fr0x = U1d[j].Fr1 - ((1.0 + U1d[j].Edd_11) * velocity_x + U1d[j].Edd_21 * velocity_y + U1d[j].Edd_31 * velocity_z) * U1d[j].Er / Crat;
-			Fr0y = U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x + U1d[j].Edd_32 * velocity_z) * U1d[j].Er / Crat;
-			Fr0z = U1d[j].Fr3 - ((1.0 + U1d[j].Edd_33) * velocity_z + U1d[j].Edd_31 * velocity_x + U1d[j].Edd_32 * velocity_y) * U1d[j].Er / Crat;
+			if(Wr[j].P > TINY_NUMBER){
+				Wr[j].Vx += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
+				Wr[j].Vy += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
+				Wr[j].Vz += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
+				Wr[j].P += dt * Propa_44 * Psource * 0.5;
+			}
+			else{
+				Wr[j].P = TINY_NUMBER;
+			}
 
-			/* Source term for velocity , not momentum*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat) / U1d[j].d;
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat) / U1d[j].d;
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat) / U1d[j].d;
-			
-			/* Source term for pressure */
-			Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat)
-			-(Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2] + velocity_z * Source[3]) * U1d[j].d;			
-
-			
-			if(Opacity != NULL) Opacity(U1d[j].d, temperature, NULL, NULL, dSigma);
-		
-			dSigmadP =  dSigma[3] / (U1d[j].d * R_ideal);
-
-			SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity * velocity/(Crat * Crat)) /(U1d[j].d * R_ideal)
-				-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity * velocity/(Crat * Crat))
-			      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-	
-			/*===================================================================*/
-			/* In case velocity is large, momentum source term is also stiff */
-			SVVx = -Prat * (Sigma_t * (1.0 + W[j].Edd_11) * W[j].Er + Sigma_a * diffTEr) / (W[j].d * Crat);
-		
-			if(fabs(SVVx * dt * 0.5) > 0.001)
-			betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-			else 
-			betax = 1.0 + 0.25 * SVVx * dt;
-
-			SVVy = -Prat * (Sigma_t * (1.0 + W[j].Edd_22) * W[j].Er + Sigma_a * diffTEr) / (W[j].d * Crat);
-		
-			if(fabs(SVVy * dt * 0.5) > 0.001)
-			betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-			else 
-			betay = 1.0 + 0.25 * SVVy * dt;
-
-			SVVz = -Prat * (Sigma_t * (1.0 + W[j].Edd_33) * W[j].Er + Sigma_a * diffTEr) / (W[j].d * Crat);
-		
-			if(fabs(SVVz * dt * 0.5) > 0.001)
-			betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-			else 
-			betaz = 1.0 + 0.25 * SVVz * dt;
-			/*===========================================================================*/
-	
-
-
-			if(fabs(SPP * dt * 0.5) > 0.001)
-			alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-			else 
-			alpha = 1.0 + 0.25 * SPP * dt;
-			/* In case SPP * dt  is small, use expansion expression */	
-			/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
-			Propa_44 = alpha;
-
-			Wr[j].Vx += dt * Source[2] * 0.5 * betay;
-			Wr[j].Vy += dt * Source[3] * 0.5 * betaz;
-			Wr[j].Vz += dt * Source[1] * 0.5 * betax;
-			Wr[j].P += dt * Propa_44 * Source[4] * 0.5;
-
-			Wr[j].Sigma_a = Sigma_a;
-			Wr[j].Sigma_t = Sigma_t;	
+			Wr[j].Sigma_a = U1d[j].Sigma_a;
+			Wr[j].Sigma_t = U1d[j].Sigma_t;	
 			Wr[j].Edd_11 = W[j].Edd_11;
 			Wr[j].Edd_21 = W[j].Edd_21;
 			Wr[j].Edd_22 = W[j].Edd_22;
@@ -954,95 +736,34 @@ void integrate_3d_radMHD(DomainS *pD)
 		for (k=kl+1; k<=ku; k++) {
 		/* NOTICE that we use primitive variables as left and right states to calculate flux */
 		/* For left state */
-			pressure = W[k-1].P;
-			temperature = pressure / (U1d[k-1].d * R_ideal);
-			
-			diffTEr = pow(temperature, 4.0) - U1d[k-1].Er;	
-
+			Propa_44 = Alpha[k-1][j][i];
 
 			velocity_x = U1d[k-1].My / U1d[k-1].d;
 			velocity_y = U1d[k-1].Mz / U1d[k-1].d;
 			velocity_z = U1d[k-1].Mx / U1d[k-1].d;
+
 			
 #ifdef FARGO
 			/* With FARGO, we should add background shearing to the source terms */
 			cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
 			velocity_y -= qom * x1;		
 #endif
+
+			Psource =  (Gamma - 1.0) * Source[k-1][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k-1][j][i][1] + velocity_y * Source[k-1][j][i][2] + velocity_z * Source[k-1][j][i][3]);
+
+			if(Wl[k].P > TINY_NUMBER){
+				Wl[k].Vx += dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
+				Wl[k].Vy += dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
+				Wl[k].Vz += dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
+				Wl[k].P += dt * Propa_44 * Psource * 0.5;
+			}
+			else{
+				Wl[k].P = TINY_NUMBER;
+			}
 			
-			
-			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-			Sigma_t    = pG->U[k-1][j][i].Sigma_t;
-			Sigma_a	   = pG->U[k-1][j][i].Sigma_a;
-			Sigma_s	   = Sigma_t - Sigma_a;
-
-			/* co-moving flux */
-			Fr0x = U1d[k-1].Fr1 - ((1.0 + U1d[k-1].Edd_11) * velocity_x + U1d[k-1].Edd_21 * velocity_y + U1d[k-1].Edd_31 * velocity_z) * U1d[k-1].Er / Crat;
-			Fr0y = U1d[k-1].Fr2 - ((1.0 + U1d[k-1].Edd_22) * velocity_y + U1d[k-1].Edd_21 * velocity_x + U1d[k-1].Edd_32 * velocity_z) * U1d[k-1].Er / Crat;
-			Fr0z = U1d[k-1].Fr3 - ((1.0 + U1d[k-1].Edd_33) * velocity_z + U1d[k-1].Edd_31 * velocity_x + U1d[k-1].Edd_32 * velocity_y) * U1d[k-1].Er / Crat;
-
-			/* Source term for velocity , not momentum*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat) / U1d[k-1].d;
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat) / U1d[k-1].d;
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat) / U1d[k-1].d;
-			
-			/* Source term for pressure */
-			Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat)
-			-(Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2] + velocity_z * Source[3]) * U1d[k-1].d;			
-
-
-			if(Opacity != NULL) Opacity(U1d[k-1].d, temperature, NULL, NULL, dSigma);
-
-			/* dSigma[0] = dSigmt/drho, dSigma[1] = dSigma/drho, dSigma[2]=dSigmat/dT, dsigma[3]=dSigmaa/dT */
-		
-			dSigmadP =  dSigma[3] / (U1d[k-1].d * R_ideal); 
-			
-			
-			SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity * velocity/(Crat * Crat)) /(U1d[k-1].d * R_ideal)
-				-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity * velocity/(Crat * Crat))
-			      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-		/*===================================================================*/
-		/* In case velocity is large, momentum source term is also stiff */
-			SVVx = -Prat * (Sigma_t * (1.0 + W[k-1].Edd_11) * W[k-1].Er + Sigma_a * diffTEr) / (W[k-1].d * Crat);
-		
-			if(fabs(SVVx * dt * 0.5) > 0.001)
-			betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-			else 
-			betax = 1.0 + 0.25 * SVVx * dt;
-
-			SVVy = -Prat * (Sigma_t * (1.0 + W[k-1].Edd_22) * W[k-1].Er + Sigma_a * diffTEr) / (W[k-1].d * Crat);
-		
-			if(fabs(SVVy * dt * 0.5) > 0.001)
-			betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-			else 
-			betay = 1.0 + 0.25 * SVVy * dt;
-
-			SVVz = -Prat * (Sigma_t * (1.0 + W[k-1].Edd_33) * W[k-1].Er + Sigma_a * diffTEr) / (W[k-1].d * Crat);
-		
-			if(fabs(SVVz * dt * 0.5) > 0.001)
-			betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-			else 
-			betaz = 1.0 + 0.25 * SVVz * dt;
-		/*===========================================================================*/
 	
-			if(fabs(SPP * dt * 0.5) > 0.001)
-			alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-			else 
-			alpha = 1.0 + 0.25 * SPP * dt;
-			/* In case SPP * dt  is small, use expansion expression */	
-			/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
-			Propa_44 = alpha;
-
-			/* "Vx" is actually vz, "vz" is actually vy and "vy" is actually vx. */
-			/* We stay with the correct meaning in source terms */
-
-			Wl[k].Vx += dt * Source[3] * 0.5 * betaz;
-			Wl[k].Vy += dt * Source[1] * 0.5 * betax;
-			Wl[k].Vz += dt * Source[2] * 0.5 * betay;
-			Wl[k].P += dt * Propa_44 * Source[4] * 0.5;
-	
-			Wl[k].Sigma_a = Sigma_a;
-			Wl[k].Sigma_t = Sigma_t;
+			Wl[k].Sigma_a = U1d[k-1].Sigma_a;
+			Wl[k].Sigma_t = U1d[k-1].Sigma_t;
 			Wl[k].Edd_11 = W[k-1].Edd_11;
 			Wl[k].Edd_21 = W[k-1].Edd_21;
 			Wl[k].Edd_22 = W[k-1].Edd_22;
@@ -1053,88 +774,31 @@ void integrate_3d_radMHD(DomainS *pD)
 		/* For the right state */
 	
 	
-			pressure = W[k].P;
-			temperature = pressure / (U1d[k].d * R_ideal);
-
-			diffTEr = pow(temperature, 4.0) - U1d[k].Er;	
+			
+			Propa_44 = Alpha[k][j][i];
 
 			velocity_x = U1d[k].My / U1d[k].d;
 			velocity_y = U1d[k].Mz / U1d[k].d;
 			velocity_z = U1d[k].Mx / U1d[k].d;
+
 			
 #ifdef FARGO
 			/* With FARGO, we should add background shearing to the source terms */
 			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 			velocity_y -= qom * x1;		
-#endif		
-			
-			velocity   = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-			Sigma_t    = pG->U[k][j][i].Sigma_t;
-			Sigma_a	   = pG->U[k][j][i].Sigma_a;
-			Sigma_s	   = Sigma_t - Sigma_a;
+#endif
 
+			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-			/* co-moving flux */
-			Fr0x = U1d[k].Fr1 - ((1.0 + U1d[k].Edd_11) * velocity_x + U1d[k].Edd_21 * velocity_y + U1d[k].Edd_31 * velocity_z) * U1d[k].Er / Crat;
-			Fr0y = U1d[k].Fr2 - ((1.0 + U1d[k].Edd_22) * velocity_y + U1d[k].Edd_21 * velocity_x + U1d[k].Edd_32 * velocity_z) * U1d[k].Er / Crat;
-			Fr0z = U1d[k].Fr3 - ((1.0 + U1d[k].Edd_33) * velocity_z + U1d[k].Edd_31 * velocity_x + U1d[k].Edd_32 * velocity_y) * U1d[k].Er / Crat;
-
-			/* Source term for velocity , not momentum*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat) / U1d[k].d;
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat) / U1d[k].d;
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat) / U1d[k].d;
-			
-			/* Source term for pressure */
-			Source[4] = -(Gamma - 1.0) * Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat)
-			-(Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2] + velocity_z * Source[3]) * U1d[k].d;			
-
-			
-			if(Opacity != NULL) Opacity(U1d[k].d, temperature, NULL, NULL, dSigma);
-		
-			dSigmadP =  dSigma[3] / (U1d[k].d * R_ideal);
-
-			SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity * velocity/(Crat * Crat)) /(U1d[k].d * R_ideal)
-				-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity * velocity/(Crat * Crat))
-			      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-	
-			/*===================================================================*/
-			/* In case velocity is large, momentum source term is also stiff */
-			SVVx = -Prat * (Sigma_t * (1.0 + W[k].Edd_11) * W[k].Er + Sigma_a * diffTEr) / (W[k].d * Crat);
-		
-			if(fabs(SVVx * dt * 0.5) > 0.001)
-			betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-			else 
-			betax = 1.0 + 0.25 * SVVx * dt;
-
-			SVVy = -Prat * (Sigma_t * (1.0 + W[k].Edd_22) * W[k].Er + Sigma_a * diffTEr) / (W[k].d * Crat);
-		
-			if(fabs(SVVy * dt * 0.5) > 0.001)
-			betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-			else 
-			betay = 1.0 + 0.25 * SVVy * dt;
-
-			SVVz = -Prat * (Sigma_t * (1.0 + W[k].Edd_33) * W[k].Er + Sigma_a * diffTEr) / (W[k].d * Crat);
-		
-			if(fabs(SVVz * dt * 0.5) > 0.001)
-			betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-			else 
-			betaz = 1.0 + 0.25 * SVVz * dt;
-			/*===========================================================================*/
-	
-
-
-			if(fabs(SPP * dt * 0.5) > 0.001)
-			alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-			else 
-			alpha = 1.0 + 0.25 * SPP * dt;
-			/* In case SPP * dt  is small, use expansion expression */	
-			/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
-			Propa_44 = alpha;
-
-			Wr[k].Vx += dt * Source[3] * 0.5 * betaz;
-			Wr[k].Vy += dt * Source[1] * 0.5 * betax;
-			Wr[k].Vz += dt * Source[2] * 0.5 * betay;
-			Wr[k].P += dt * Propa_44 * Source[4] * 0.5;
+			if(Wr[k].P > TINY_NUMBER){
+				Wr[k].Vx += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
+				Wr[k].Vy += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
+				Wr[k].Vz += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
+				Wr[k].P += dt * Propa_44 * Psource * 0.5;
+			}
+			else{
+				Wr[k].P = TINY_NUMBER;
+			}
 
 			Wr[k].Sigma_a = Sigma_a;
 			Wr[k].Sigma_t = Sigma_t;	
@@ -1523,7 +1187,95 @@ void integrate_3d_radMHD(DomainS *pD)
   		}
 	}
 
+/*============================================================================*/
+/*== Add radiation momentum source terms along the perpendicular direction */
+/*
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	for (k=kl+1; k<=ku-1; k++) {
+    		for (j=jl+1; j<=ju-1; j++) {
+      			for (i=il+1; i<=iu; i++) {
 
+
+				
+				density = pG->U[k][j][i].d;
+				velocity_x = pG->U[k][j][i].M1 / density;
+				velocity_y = pG->U[k][j][i].M2 / density;
+				velocity_z = pG->U[k][j][i].M3 / density;
+
+				
+				Sigma_t    = pG->U[k][j][i].Sigma_t;
+				Sigma_a	   = pG->U[k][j][i].Sigma_a;
+					
+#ifdef FARGO
+
+					
+				cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+			
+				
+				Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er / Crat;
+				Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er / Crat;
+
+
+				
+				Source[2] = -Prat * (-Sigma_t * Fr0y );
+				Source[3] = -Prat * (-Sigma_t * Fr0z);
+
+
+				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_y * Fr0y * velocity_z * Fr0z)/Crat);
+
+				Ur_x1Face[k][j][i].My += hdt * Source[2];
+				Ur_x1Face[k][j][i].Mz += hdt * Source[3];
+				
+				Ur_x1Face[k][j][i].E  += hdt * Source[4];
+
+
+
+				
+				density = pG->U[k][j][i-1].d;
+				velocity_x = pG->U[k][j][i-1].M1 / density;
+				velocity_y = pG->U[k][j][i-1].M2 / density;
+				velocity_z = pG->U[k][j][i-1].M3 / density;
+
+				
+				Sigma_t    = pG->U[k][j][i-1].Sigma_t;
+				Sigma_a	   = pG->U[k][j][i-1].Sigma_a;
+					
+#ifdef FARGO
+			
+					
+				cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
+		
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+				
+				Fr0y = pG->U[k][j][i-1].Fr2 - ((1.0 + pG->U[k][j][i-1].Edd_22) * velocity_y + pG->U[k][j][i-1].Edd_21 * velocity_x + pG->U[k][j][i-1].Edd_32 * velocity_z) * pG->U[k][j][i-1].Er / Crat;
+				Fr0z = pG->U[k][j][i-1].Fr3 - ((1.0 + pG->U[k][j][i-1].Edd_33) * velocity_z + pG->U[k][j][i-1].Edd_31 * velocity_x + pG->U[k][j][i-1].Edd_32 * velocity_y) * pG->U[k][j][i-1].Er / Crat;
+
+
+				
+				Source[2] = -Prat * (-Sigma_t * Fr0y);
+				Source[3] = -Prat * (-Sigma_t * Fr0z);
+
+				
+				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_y * Fr0y * velocity_z * Fr0z)/Crat);
+
+				Ul_x1Face[k][j][i].My += hdt * Source[2];
+				Ul_x1Face[k][j][i].Mz += hdt * Source[3];
+				
+				Ul_x1Face[k][j][i].E  += hdt * Source[4];
+
+			}
+		}
+	}
+#endif
+
+*/
 /*===========================================================================*/
 /*=== STEP 7A: Correct x2-interface states with transverse flux gradients =====*/
 
@@ -1815,6 +1567,95 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif /* SHEARING_BOX */
 	
 /*========================Shearing box source term gradient *===============*/	
+
+
+/*============================================================================*/
+/*== Add radiation momentum source terms along the perpendicular direction */
+/*
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	for (k=kl+1; k<=ku-1; k++) {
+    		for (j=jl+1; j<=ju-1; j++) {
+      			for (i=il+1; i<=iu; i++) {
+
+				density = pG->U[k][j][i].d;
+				velocity_x = pG->U[k][j][i].M1 / density;
+				velocity_y = pG->U[k][j][i].M2 / density;
+				velocity_z = pG->U[k][j][i].M3 / density;
+
+				
+				Sigma_t    = pG->U[k][j][i].Sigma_t;
+				Sigma_a	   = pG->U[k][j][i].Sigma_a;
+					
+#ifdef FARGO
+				
+				cc_pos(pG,i,j,k,&x1,&x2,&x3);
+	
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+				
+				
+				Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er / Crat;
+				Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er / Crat;
+
+
+				
+				Source[1] = -Prat * (-Sigma_t * Fr0x);
+				Source[3] = -Prat * (-Sigma_t * Fr0z);
+
+				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_z * Fr0z)/Crat);
+
+				Ur_x1Face[k][j][i].Mz += hdt * Source[1];
+				Ur_x1Face[k][j][i].My += hdt * Source[3];
+				
+				Ur_x1Face[k][j][i].E  += hdt * Source[4];
+
+
+		
+				
+				density = pG->U[k][j-1][i].d;
+				velocity_x = pG->U[k][j-1][i].M1 / density;
+				velocity_y = pG->U[k][j-1][i].M2 / density;
+				velocity_z = pG->U[k][j-1][i].M3 / density;
+
+				
+				Sigma_t    = pG->U[k][j-1][i].Sigma_t;
+				Sigma_a	   = pG->U[k][j-1][i].Sigma_a;
+					
+#ifdef FARGO
+			
+					
+				cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
+		
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+			
+				Fr0x = pG->U[k][j-1][i].Fr1 - ((1.0 + pG->U[k][j-1][i].Edd_11) * velocity_x + pG->U[k][j-1][i].Edd_21 * velocity_y + pG->U[k][j-1][i].Edd_31 * velocity_z) * pG->U[k][j-1][i].Er / Crat;
+				Fr0z = pG->U[k][j-1][i].Fr3 - ((1.0 + pG->U[k][j-1][i].Edd_33) * velocity_z + pG->U[k][j-1][i].Edd_31 * velocity_x + pG->U[k][j-1][i].Edd_32 * velocity_y) * pG->U[k][j-1][i].Er / Crat;
+
+
+				
+				Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+				Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
+
+	
+				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_z * Fr0z)/Crat);
+
+				Ur_x1Face[k][j-1][i].Mz += hdt * Source[1];
+				Ur_x1Face[k][j-1][i].My += hdt * Source[3];
+				
+				Ur_x1Face[k][j-1][i].E  += hdt * Source[4];
+
+
+			}
+		}
+	}
+#endif
+
+*/
 	
 /*=== STEP 8: Correct x3-interface states with transverse flux gradients =====*/
 
@@ -2117,15 +1958,103 @@ void integrate_3d_radMHD(DomainS *pD)
 	}
 #endif /* SHEARING_BOX */	
 	
-	
-	
-	
-	
-	
-	
-	
+
+
 /*===========================================================*/
-	
+
+
+
+/*============================================================================*/
+/*== Add radiation momentum source terms along the perpendicular direction */
+
+/*
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	for (k=kl+1; k<=ku-1; k++) {
+    		for (j=jl+1; j<=ju-1; j++) {
+      			for (i=il+1; i<=iu; i++) {
+
+				
+				
+				density = pG->U[k][j][i].d;
+				velocity_x = pG->U[k][j][i].M1 / density;
+				velocity_y = pG->U[k][j][i].M2 / density;
+				velocity_z = pG->U[k][j][i].M3 / density;
+
+				
+				Sigma_t    = pG->U[k][j][i].Sigma_t;
+				Sigma_a	   = pG->U[k][j][i].Sigma_a;
+					
+#ifdef FARGO
+				
+					
+				cc_pos(pG,i,j,k,&x1,&x2,&x3);
+				
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+				
+				
+				Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er / Crat;
+				Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er / Crat;
+
+
+				
+				Source[1] = -Prat * (-Sigma_t * Fr0x);
+				Source[2] = -Prat * (-Sigma_t * Fr0y);
+
+				
+				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_y * Fr0y)/Crat);
+
+				Ur_x1Face[k][j][i].My += hdt * Source[1];
+				Ur_x1Face[k][j][i].Mz += hdt * Source[2];
+				
+				Ur_x1Face[k][j][i].E  += hdt * Source[4];
+
+
+				
+				density = pG->U[k-1][j][i].d;
+				velocity_x = pG->U[k-1][j][i].M1 / density;
+				velocity_y = pG->U[k-1][j][i].M2 / density;
+				velocity_z = pG->U[k-1][j][i].M3 / density;
+
+				
+				Sigma_t    = pG->U[k-1][j][i].Sigma_t;
+				Sigma_a	   = pG->U[k-1][j][i].Sigma_a;
+					
+#ifdef FARGO
+			
+					
+				cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
+			
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+			
+				
+				Fr0x = pG->U[k-1][j][i].Fr1 - ((1.0 + pG->U[k-1][j][i].Edd_11) * velocity_x + pG->U[k-1][j][i].Edd_21 * velocity_y + pG->U[k-1][j][i].Edd_31 * velocity_z) * pG->U[k-1][j][i].Er / Crat;
+				Fr0y = pG->U[k-1][j][i].Fr2 - ((1.0 + pG->U[k-1][j][i].Edd_22) * velocity_y + pG->U[k-1][j][i].Edd_21 * velocity_x + pG->U[k-1][j][i].Edd_32 * velocity_z) * pG->U[k-1][j][i].Er / Crat;
+
+
+				
+				Source[1] = -Prat * (-Sigma_t * Fr0x);
+				Source[2] = -Prat * (-Sigma_t * Fr0y);
+
+		
+				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_y * Fr0y)/Crat);
+
+				Ur_x1Face[k-1][j][i].My += hdt * Source[1];
+				Ur_x1Face[k-1][j][i].Mz += hdt * Source[2];
+				
+				Ur_x1Face[k-1][j][i].E  += hdt * Source[4];
+
+			}
+		}
+	}
+#endif
+*/
+/* End adding radiation source terms */	
 
 
 
@@ -2233,18 +2162,7 @@ void integrate_3d_radMHD(DomainS *pD)
 			Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
 
 		/*=========================================================*/
-
-
-			/* co-moving flux */
-			Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
-			Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
-			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
-
-			/* Source term for momentum, not velocity*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
-			
+		
 
 			/* Now calculate flux gradient */
 
@@ -2281,9 +2199,9 @@ void integrate_3d_radMHD(DomainS *pD)
         		}
 
 
-			M1h = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
-			M2h = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
-			M3h = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+			M1h = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[k][j][i][1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+			M2h = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+			M3h = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
 					
 			/* Guess solution */
 					
@@ -2540,100 +2458,6 @@ void integrate_3d_radMHD(DomainS *pD)
 
 /*-------Step 11: Predict and correct step after we get the flux------------- */
 	
-	/* Add shearinb box source term first */
-	
-/* Add gravitational (or shearing box) source terms as a Static Potential.
-*   A Crank-Nicholson update is used for shearing box terms.
-*   The energy source terms computed at cell faces are averaged to improve
-* conservation of total energy.
-*    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
-*/
-	
-#ifdef SHEARING_BOX
-	fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
-	qom = qshear*Omega_0;
-	for(k=ks; k<=ke; k++) {
-		for(j=js; j<=je; j++) {
-			for(i=is; i<=ie; i++) {
-				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-				
-				/* Store the current state */
-				M1n  = pG->U[k][j][i].M1;
-#ifdef FARGO
-				dM2n = pG->U[k][j][i].M2;
-#else
-				dM2n = pG->U[k][j][i].M2 + qom*x1*pG->U[k][j][i].d;
-#endif
-				
-				/* Calculate the flux for the y-momentum fluctuation */
-				frx1_dM2 = x1Flux[k][j][i+1].My;
-				flx1_dM2 = x1Flux[k][j][i  ].My;
-				frx2_dM2 = x2Flux[k][j+1][i].Mx;
-				flx2_dM2 = x2Flux[k][j  ][i].Mx;
-				frx3_dM2 = x3Flux[k+1][j][i].Mz;
-				flx3_dM2 = x3Flux[k  ][j][i].Mz;
-#ifndef FARGO
-				frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
-				flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
-				frx2_dM2 += qom*(x1            )*x2Flux[k][j+1][i].d;
-				flx2_dM2 += qom*(x1            )*x2Flux[k][j  ][i].d;
-				frx3_dM2 += qom*(x1            )*x3Flux[k+1][j][i].d;
-				flx3_dM2 += qom*(x1            )*x3Flux[k  ][j][i].d;
-#endif
-				
-				/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
-				M1e = M1n - hdtodx1*(x1Flux[k][j][i+1].Mx - x1Flux[k][j][i].Mx)
-				- hdtodx2*(x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz)
-				- hdtodx3*(x3Flux[k+1][j][i].My - x3Flux[k][j][i].My);
-				
-				dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
-	            - hdtodx2*(frx2_dM2 - flx2_dM2) 
-				- hdtodx3*(frx3_dM2 - flx3_dM2);
-
-				
-				/* Update the 1- and 2-momentum for the Coriolis and tidal
-				 * potential momentum source terms using a Crank-Nicholson
-				 * discretization for the momentum fluctuation equation. */
-				
-				pG->U[k][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
-				pG->U[k][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
-				
-#ifndef FARGO
-				pG->U[k][j][i].M2 -= 0.5*qshear*om_dt*
-				(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
-#endif
-				
-				/* Update the energy for a fixed potential.
-				 * This update is identical to non-SHEARING_BOX below  */
-				
-				phic = (*ShearingBoxPot)((x1            ),x2,x3);
-				phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-				phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-#ifndef BAROTROPIC
-				pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
-											x1Flux[k][j][i+1].d*(phir - phic));
-#endif
-				
-				phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-				phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
-#ifndef BAROTROPIC
-				pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
-											x2Flux[k][j+1][i].d*(phir - phic));
-#endif
-				
-				phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
-				phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
-#ifndef BAROTROPIC
-				pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
-											x3Flux[k+1][j][i].d*(phir - phic));
-#endif
-			}
-		}
-	}
-	
-#endif /* SHEARING_BOX */
-	
-	
 		
 /*----------Radiation quantities are not updated in the modified Godunov corrector step */
 /*-----------NOTE that x1flux, x2flux, x3flux are flux from Remann problem. If there is extra-----* 
@@ -2644,6 +2468,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		for (j=js; j<=je; j++) {
     			for (i=is; i<=ie; i++) {
 
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 			/* Load 1D vector */
 			Usource.d  = pG->U[k][j][i].d;
       			Usource.Mx = pG->U[k][j][i].M1;
@@ -2671,6 +2496,18 @@ void integrate_3d_radMHD(DomainS *pD)
 			Bx = 0.0;
 #endif /* MHD */
 			
+			/* Initialize source to be zero */
+			/* Because this is also used in other place */
+
+		
+#ifdef SHEARING_BOX
+			for(m=0; m<4; m++)
+				ShearSource[m] = 0.0;
+#endif
+
+
+
+
 			density = Usource.d;
 			velocity_x = Usource.Mx / density;
 			velocity_y = Usource.My / density;
@@ -2685,24 +2522,36 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 			temperature = pressure / (density * R_ideal);
 
-			diffTEr = pow(temperature, 4.0) - pG->U[k][j][i].Er;
-		
+			if(pressure > TINY_NUMBER){
+				diffTEr = pow(temperature, 4.0) - pG->U[k][j][i].Er;
+			}
+			else{
+				diffTEr = 0.0;
+			}
 
 			Sigma_t    = pG->U[k][j][i].Sigma_t;
 			Sigma_a	   = pG->U[k][j][i].Sigma_a;
 					
 #ifdef FARGO
-					/* With FARGO, we should add background shearing to the source terms */
-					
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			
 			/* Include background shearing in Usource, which is only used in dSource */
 
 			velocity_y -= qom * x1;						
 					
 #endif			
-
+			if(pressure > TINY_NUMBER)
+			{
 			/* The Source term */
-			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+				dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+			}
+			else{
+
+				SEE = 0.0;
+				SErho = 0.0;
+				SEmx = 0.0;
+				SEmy = 0.0;
+				SEmz = 0.0;
+			}
 
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
@@ -2730,19 +2579,6 @@ void integrate_3d_radMHD(DomainS *pD)
 	
 
 
-			/* co-moving flux */
-			Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
-			Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
-			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
-
-			/* Source term for momentum, not velocity*/
-			Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
-			Source[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
-			Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
-			
-			/* Source term for energy */
-			Source[4] = -Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat);
-
 			/*--------Calculate the guess solution-------------*/
 	
 			divFlux1[0] = (x1Flux[k][j][i+1].d  - x1Flux[k][j][i].d ) / dx1;
@@ -2766,7 +2602,7 @@ void integrate_3d_radMHD(DomainS *pD)
 	/*------Flux due to static gravitational potential ---------*/
 
 		if (StaticGravPot != NULL){
-    			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+    			
         		phic = (*StaticGravPot)((x1            ),x2,x3);
         		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
@@ -2811,7 +2647,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		for(n=0; n<5; n++) {
 			tempguess[n] = 0.0;
 			for(m=0; m<5; m++) {
-				tempguess[n] += dt * Source_Inv[n][m] * (Source[m] - divFlux1[m] - divFlux2[m] - divFlux3[m]);
+				tempguess[n] += dt * Source_Inv[n][m] * (Source[k][j][i][m] - divFlux1[m] - divFlux2[m] - divFlux3[m]);
 			}
 		}
 
@@ -2826,7 +2662,74 @@ void integrate_3d_radMHD(DomainS *pD)
 		/* Now calculate the source term due to the guess solution */
 		/* Flux is not changed during the correction step */
 
+/*================================================================*/
+/* Guess solution also needs to add shearing_box source term */
+/* Just use forward Euler to add the shearing source term in guess solution */
+					
+#ifdef SHEARING_BOX
+		phic = (*ShearingBoxPot)((x1            ),x2,x3);
+		phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+		phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
 
+		ShearSource[3] -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
+				x1Flux[k][j][i+1].d*(phir - phic));
+					
+		phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+		phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+
+		ShearSource[3] -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
+				x2Flux[k][j+1][i].d*(phir - phic));
+
+							
+		phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+		phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+
+		ShearSource[3] -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
+				x3Flux[k+1][j][i].d*(phir - phic));
+
+		/* Use Crank Nichson but do not include radiation source term for guess solution */
+		/* Store the current state */
+		M1n  = pG->U[k][j][i].M1;
+#ifdef FARGO
+		dM2n = pG->U[k][j][i].M2;
+#else
+		dM2n = pG->U[k][j][i].M2 + qom*x1*pG->U[k][j][i].d;
+#endif
+					
+
+#ifndef FARGO
+		frx1_dM2 = qom*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
+		flx1_dM2 = qom*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
+		frx2_dM2 = qom*(x1            )*x2Flux[k][j+1][i].d;
+		flx2_dM2 = qom*(x1            )*x2Flux[k][j  ][i].d;
+		frx3_dM2 = qom*(x1            )*x3Flux[k+1][j][i].d;
+		flx3_dM2 = qom*(x1            )*x3Flux[k  ][j][i].d;
+#endif
+/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
+		M1e  = M1n + 0.5 * tempguess[1];
+		dM2e = dM2n + 0.5 * tempguess[2];
+#ifndef FARGO
+		dM2e -= hdtodx1*(frx1_dM2 - flx1_dM2)
+			- hdtodx2*(frx2_dM2 - flx2_dM2) 
+			- hdtodx3*(frx3_dM2 - flx3_dM2);
+#endif
+
+		ShearSource[0] = (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact; 
+		ShearSource[1] = 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+		ShearSource[1] -= 0.5*qshear*om_dt*(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
+#endif		
+		/* Now add the source term to guess solution */
+
+
+		Uguess[1] += ShearSource[0];
+		Uguess[2] += ShearSource[1];
+		Uguess[3] += ShearSource[2];
+		Uguess[4] += ShearSource[3];
+				
+#endif
+/* End SHEARING_BOX */
+/*==========================================================*/
 		
 		density    = Uguess[0];
 		velocity_x = Uguess[1] / density;
@@ -2843,11 +2746,19 @@ void integrate_3d_radMHD(DomainS *pD)
 		pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
 		temperature = pressure / (density * R_ideal);
+		
+		if(pressure > TINY_NUMBER){
 
-		diffTEr = pow(temperature, 4.0) - pG->U[k][j][i].Er;
+			diffTEr = pow(temperature, 4.0) - pG->U[k][j][i].Er;
 
 		if(Opacity != NULL)
 			Opacity(density,temperature, &Sigma_t, &Sigma_a, NULL);
+		
+		}
+		else{
+
+			diffTEr = 0.0;
+		}
 
 		/* update source term */
 		Usource.d  = Uguess[0];
@@ -2861,7 +2772,6 @@ void integrate_3d_radMHD(DomainS *pD)
 #ifdef FARGO
 		/* With FARGO, we should add background shearing to the source terms */
 					
-		cc_pos(pG,i,j,k,&x1,&x2,&x3);
 		/* Include background shearing in Usource, which is only used in dSource */
 					
 		velocity_y -= qom * x1;	
@@ -2869,7 +2779,19 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif	
 
 		/* The Source term */
-		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+		if(pressure > TINY_NUMBER)
+		{
+			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+
+		}
+		else{
+
+			SEE = 0.0;
+			SErho = 0.0;
+			SEmx = 0.0;
+			SEmy = 0.0;
+			SEmz = 0.0;
+		}
 	
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
@@ -2912,16 +2834,25 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
 			/* Calculate the error term */
-			Errort[0] = pG->U[k][j][i].d  + hdt * (Source[0] + Source_guess[0]) 
+			/* Error term should include shearing source term as Guess solution include shearing source term */
+			Errort[0] = pG->U[k][j][i].d  + hdt * (Source[k][j][i][0] + Source_guess[0]) 
 					- dt * (divFlux1[0] + divFlux2[0] + divFlux3[0]) - Uguess[0];
-			Errort[1] = pG->U[k][j][i].M1 + hdt * (Source[1] + Source_guess[1]) 
+			Errort[1] = pG->U[k][j][i].M1 + hdt * (Source[k][j][i][1] + Source_guess[1]) 
 					- dt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) - Uguess[1];
-			Errort[2] = pG->U[k][j][i].M2 + hdt * (Source[2] + Source_guess[2]) 
+			Errort[2] = pG->U[k][j][i].M2 + hdt * (Source[k][j][i][2] + Source_guess[2]) 
 					- dt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) - Uguess[2];
-			Errort[3] = pG->U[k][j][i].M3 + hdt * (Source[3] + Source_guess[3]) 
+			Errort[3] = pG->U[k][j][i].M3 + hdt * (Source[k][j][i][3] + Source_guess[3]) 
 					- dt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) - Uguess[3];
-			Errort[4] = pG->U[k][j][i].E  + hdt * (Source[4] + Source_guess[4]) 
+			Errort[4] = pG->U[k][j][i].E  + hdt * (Source[k][j][i][4] + Source_guess[4]) 
 					- dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]) - Uguess[4];
+
+		/* substract shearing source term */
+#ifdef SHEARING_BOX
+			Errort[1] += ShearSource[0];
+			Errort[2] += ShearSource[1];
+			Errort[4] += ShearSource[3];
+#endif
+
 
 			/* Calculate the correction */
 			for(n=0; n<5; n++) {
@@ -2931,8 +2862,9 @@ void integrate_3d_radMHD(DomainS *pD)
 				}
 			}
 
-
+				
 			/* Apply the correction */
+					
 		
 			pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
 			pG->U[k][j][i].M1 = Uguess[1] + tempguess[1];
@@ -2960,6 +2892,7 @@ void integrate_3d_radMHD(DomainS *pD)
         			pG->U[k][j][i].B1c = 0.5*(    pG->B1i[k][j][i] +     pG->B1i[k][j][i+1]);
         			pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
         			pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
+					
       			}
     		}
   	}
@@ -2984,9 +2917,12 @@ void integrate_3d_radMHD(DomainS *pD)
 				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
 				temperature = pressure / (density * R_ideal);
-			
-			Opacity(density,temperature,&(pG->U[k][j][i].Sigma_t), &(pG->U[k][j][i].Sigma_a),NULL);
 
+			if(pressure > TINY_NUMBER){
+			
+				Opacity(density,temperature,&(pG->U[k][j][i].Sigma_t), &(pG->U[k][j][i].Sigma_a),NULL);
+
+			}
 				}
 			}
 		}
@@ -3088,6 +3024,16 @@ void integrate_init_3d(MeshS *pM)
     goto on_error;
   if ((phalf = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
     goto on_error;
+  
+	/* For source term */
+  if ((Source = (Real****)calloc_4d_array(size3, size2, size1,5, sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((Alpha = (Real***)calloc_3d_array(size3, size2, size1,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((Beta = (Real****)calloc_4d_array(size3, size2, size1,3,sizeof(Real))) == NULL)
+    goto on_error;
 
 	
 #ifdef SHEARING_BOX
@@ -3148,6 +3094,12 @@ void integrate_destruct_3d(void)
   if (x3Flux    != NULL) free_3d_array(x3Flux);
   if (dhalf     != NULL) free_3d_array(dhalf);
   if (phalf     != NULL) free_3d_array(phalf);
+
+  if(Source	!= NULL) free_4d_array(Source);
+
+  if(Alpha	!= NULL) free_3d_array(Alpha);
+
+  if(Beta	!= NULL) free_4d_array(Beta);
 
 #ifdef SHEARING_BOX
 	if (remapEyiib != NULL) free_2d_array(remapEyiib);
@@ -3351,5 +3303,200 @@ static void integrate_emf3_corner(const GridS *pG)
   return;
 }
 #endif /* RADIATION MHD */
+
+
+/*========================================*/
+/* Private function to calculate the source term */
+/* We only need to calculate the source term once */
+/* This is source term for momentum and energy */
+/* When used for velocity and pressure, should change */
+void updatesource(GridS *pG)
+{
+
+	int i,il,iu,is=pG->is, ie=pG->ie;
+  	int j,jl,ju,js=pG->js, je=pG->je;
+  	int k, kl, ku, ks=pG->ks, ke=pG->ke;
+	double x1, x2, x3;
+	double dt = pG->dt;
+
+	double density, velocity_x, velocity_y, velocity_z, velocity, pressure, temperature;
+	double Sigma_t, Sigma_a, Sigma_s, Bx, Fr0x, Fr0y, Fr0z;
+	Real SPP, SEE, SErho, SEmx, SEmy, SEmz, dSigmadP, diffTEr;
+	Real dSigma[4];
+#ifdef SHEARING_BOX
+	Real qom = qshear*Omega_0;
+#endif
+	Cons1DS Usource;
+	/* for source term */
+
+	/* In case momentum becomes stiff */
+	Real SVVx, SVVy, SVVz, betax, betay, betaz, alpha;
+ 
+	il = is - 2;
+  	iu = ie + 2;
+  	jl = js - 2;
+  	ju = je + 2;
+  	kl = ks - 2;
+  	ku = ke + 2;
+
+
+	for(k=kl; k<=ku; k++){
+		for(j=jl; j<=ju; j++){
+			for(i=il; i<=iu; i++){
+	
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+	/* Load 1D vector */
+			Usource.d  = pG->U[k][j][i].d;
+      			Usource.Mx = pG->U[k][j][i].M1;
+      			Usource.My = pG->U[k][j][i].M2;
+      			Usource.Mz = pG->U[k][j][i].M3;
+      			Usource.E  = pG->U[k][j][i].E;
+			Usource.Er  = pG->U[k][j][i].Er;
+    			Usource.Fr1  = pG->U[k][j][i].Fr1;
+    			Usource.Fr2  = pG->U[k][j][i].Fr2;
+    			Usource.Fr3  = pG->U[k][j][i].Fr3;
+			Usource.Edd_11  = pG->U[k][j][i].Edd_11;
+			Usource.Edd_21  = pG->U[k][j][i].Edd_21;
+			Usource.Edd_22  = pG->U[k][j][i].Edd_22;
+			Usource.Edd_31	= pG->U[k][j][i].Edd_31;
+			Usource.Edd_32	= pG->U[k][j][i].Edd_32;
+			Usource.Edd_33	= pG->U[k][j][i].Edd_33;
+			Usource.Sigma_a  = pG->U[k][j][i].Sigma_a;
+                        Usource.Sigma_t  = pG->U[k][j][i].Sigma_t;
+
+#ifdef RADIATION_MHD
+      			Usource.By = pG->U[k][j][i].B2c;
+      			Usource.Bz = pG->U[k][j][i].B3c;
+			Bx = pG->U[k][j][i].B1c;
+#else
+			Bx = 0.0;
+#endif /* MHD */
+			
+
+			density = Usource.d;
+			velocity_x = Usource.Mx / density;
+			velocity_y = Usource.My / density;
+			velocity_z = Usource.Mz / density;
+
+			velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+				
+			pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
+		/* Should include magnetic energy for MHD */
+#ifdef RADIATION_MHD
+			pressure -= 0.5 * (Bx * Bx + Usource.By * Usource.By + Usource.Bz * Usource.Bz) * (Gamma - 1.0);
+#endif
+			/* in case pressure is negative */
+
+			if(pressure > TINY_NUMBER){
+
+				temperature = pressure / (density * R_ideal);
+
+				diffTEr = pow(temperature, 4.0) - pG->U[k][j][i].Er;
+		
+
+				Sigma_t    = pG->U[k][j][i].Sigma_t;
+				Sigma_a	   = pG->U[k][j][i].Sigma_a;
+					
+#ifdef FARGO
+					/* With FARGO, we should add background shearing to the source terms */
+				/* Include background shearing in Usource, which is only used in dSource */
+
+				velocity_y -= qom * x1;						
+					
+#endif			
+
+				/* co-moving flux */
+				Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
+				Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
+				Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
+
+			/* Source term for momentum, not velocity*/
+				Source[k][j][i][0] = 0.0;
+				Source[k][j][i][1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+				Source[k][j][i][2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
+				Source[k][j][i][3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
+			
+			/* Source term for energy */
+				Source[k][j][i][4] = -Prat * Crat * (Sigma_a * diffTEr + (Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat);
+
+			
+
+				if(Opacity != NULL) Opacity(density, temperature, NULL, NULL, dSigma);
+
+				/* dSigma[0] = dSigmt/drho, dSigma[1] = dSigma/drho, dSigma[2]=dSigmat/dT, dsigma[3]=dSigmaa/dT */
+		
+
+				dSigmadP =  dSigma[3] / (density * R_ideal); 
+
+				/* The velocity used to convert primitive variable and conservative variables are not the same as velocity in source term */
+
+
+				velocity = velocity_x * velocity_x + velocity_z * velocity_z + velocity_y * velocity_y;
+
+
+		
+				SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_a * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal)
+					-(Gamma - 1.0) * Prat * Crat * diffTEr * dSigmadP * (1.0 - velocity/(Crat * Crat))
+				      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+
+		/*===================================================================*/
+		/* In case velocity is large, momentum source term is also stiff */
+				SVVx = -Prat * (Sigma_t * (1.0 + Usource.Edd_11) * Usource.Er + Sigma_a * diffTEr) / (density * Crat);
+		
+				if(fabs(SVVx * dt * 0.5) > 0.001)
+				betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+				else 
+				betax = 1.0 + 0.25 * SVVx * dt;
+
+				SVVy = -Prat * (Sigma_t * (1.0 + Usource.Edd_22) * Usource.Er + Sigma_a * diffTEr) / (density * Crat);
+		
+				if(fabs(SVVy * dt * 0.5) > 0.001)
+				betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+				else 
+				betay = 1.0 + 0.25 * SVVy * dt;
+
+				SVVz = -Prat * (Sigma_t * (1.0 + Usource.Edd_33) * Usource.Er + Sigma_a * diffTEr) / (density * Crat);
+		
+				if(fabs(SVVz * dt * 0.5) > 0.001)
+				betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
+				else 	
+				betaz = 1.0 + 0.25 * SVVz * dt;
+		/*===========================================================================*/
+	
+				if(fabs(SPP * dt * 0.5) > 0.001)
+				alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+				else 
+				alpha = 1.0 + 0.25 * SPP * dt;
+
+
+				Alpha[k][j][i] = alpha;
+				Beta[k][j][i][0] = betax;
+				Beta[k][j][i][1] = betay;
+				Beta[k][j][i][2] = betaz;
+
+			}
+			else{
+	
+				/* If pressure becomes negative, we do not add radiation source term */
+				Source[k][j][i][0] = 0.0;
+				Source[k][j][i][1] = 0.0;
+				Source[k][j][i][2] = 0.0;
+				Source[k][j][i][3] = 0.0;
+				Source[k][j][i][4] = 0.0;
+
+				Alpha[k][j][i] = 1.0;
+				Beta[k][j][i][0] = 1.0;
+				Beta[k][j][i][1] = 1.0;
+				Beta[k][j][i][2] = 1.0;
+
+			}
+
+			} /* End i */
+		} /* End j */
+	} /* End k */
+
+}
+
 
 #endif /* CTU_INTEGRATOR */

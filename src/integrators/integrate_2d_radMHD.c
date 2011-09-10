@@ -119,8 +119,10 @@ void integrate_2d_radMHD(DomainS *pD)
 	Real ShearingSource_M1, ShearingSource_M2, ShearingSource_M3, ShearingSource_E;
 	Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
 */
-	Real fact, qom, om_dt = Omega_0*pG->dt;
+	Real qom, om_dt = Omega_0*pG->dt;
 	qom = qshear * Omega_0;
+	Real fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+
 #endif /* SHEARING_BOX */
 	
 	
@@ -1418,108 +1420,6 @@ void integrate_2d_radMHD(DomainS *pD)
 	
 	/*===============Add shearing box source term at the beginning ==========*/
 	
-#ifdef SHEARING_BOX
-	fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
-	qom = qshear*Omega_0;
-	for(j=js; j<=je; j++) {
-		for(i=is; i<=ie; i++) {
-			cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-			
-			/* Store the current state */
-			M1n  = pG->U[ks][j][i].M1;
-#ifdef FARGO
-			if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2;
-			if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3;
-#else
-			if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2 + qom*x1*pG->U[ks][j][i].d;
-			if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3 + qom*x1*pG->U[ks][j][i].d;
-#endif
-			
-			/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
-			if (ShBoxCoord==xy){
-				frx1_dM2 = x1Flux[j][i+1].My;
-				flx1_dM2 = x1Flux[j][i  ].My;
-				frx2_dM2 = x2Flux[j+1][i].Mx;
-				flx2_dM2 = x2Flux[j  ][i].Mx;
-			}
-			if (ShBoxCoord==xz){
-				frx1_dM3 = x1Flux[j][i+1].Mz;
-				flx1_dM3 = x1Flux[j][i  ].Mz;
-				frx2_dM3 = x2Flux[j+1][i].My;
-				flx2_dM3 = x2Flux[j  ][i].My;
-			}
-#ifndef FARGO
-			if (ShBoxCoord==xy){
-				frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
-				flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
-				frx2_dM2 += qom*(x1            )*x2Flux[j+1][i].d;
-				flx2_dM2 += qom*(x1            )*x2Flux[j  ][i].d;
-			}
-			if (ShBoxCoord==xz){
-				frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
-				flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
-				frx2_dM3 += qom*(x1            )*x2Flux[j+1][i].d;
-				flx2_dM3 += qom*(x1            )*x2Flux[j  ][i].d;
-			}
-#endif
-			
-			/* evolve M1n and dM3n by dt/2 using flux gradients */
-			M1e = M1n - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
-			- hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
-			
-			if (ShBoxCoord==xy){
-				dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
-				- hdtodx2*(frx2_dM2 - flx2_dM2);
-			}
-			if (ShBoxCoord==xz){
-				dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
-				- hdtodx2*(frx2_dM3 - flx2_dM3);
-			}
-			
-
-			
-			/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
-			 * for the Coriolis and tidal potential source terms using a Crank-Nicholson
-			 * discretization for the momentum fluctuation equation. */
-			
-			if (ShBoxCoord==xy){
-				pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
-				pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
-#ifndef FARGO
-				pG->U[ks][j][i].M2 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
-#endif
-			}
-			if (ShBoxCoord==xz){
-				pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
-				pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
-#ifndef FARGO
-				pG->U[ks][j][i].M3 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
-#endif
-			}
-			
-			/* Update the energy for a fixed potential.
-			 * This update is identical to non-SHEARING_BOX below  */
-			
-			phic = (*ShearingBoxPot)((x1            ),x2,x3);
-			phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-			phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-#ifndef BAROTROPIC
-			pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
-										 x1Flux[j][i+1].d*(phir - phic));
-#endif
-			
-			phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-			phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
-#ifndef BAROTROPIC
-			pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
-										 x2Flux[j+1][i].d*(phir - phic));
-#endif
-		}
-	}
-	
-#endif /* SHEARING_BOX */		
-	
-	
 	
 	/*=============== End shearing box source term ==================*/
 	
@@ -1780,12 +1680,131 @@ void integrate_2d_radMHD(DomainS *pD)
 			}
 		}
 
+
+
+		/* change due to radiation source term */
+		/* This is used for shearing-box */
+		Source[0] = Uguess[0] + tempguess[0] - pG->U[ks][j][i].d;
+		Source[1] = Uguess[1] + tempguess[1] - pG->U[ks][j][i].M1;
+		Source[2] = Uguess[2] + tempguess[2] - pG->U[ks][j][i].M2;
+		/*Source[3] = Uguess[3] + tempguess[3] - pG->U[k][j][i].M3;
+		*/
+		Source[4] = Uguess[4] + tempguess[4] - pG->U[ks][j][i].E;
+
+		/*====================================================================*/
+
+#ifdef SHEARING_BOX
+		
+			cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+		/* Store the current state */
+			M1n  = pG->U[ks][j][i].M1;
+#ifdef FARGO
+			if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2;
+			if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3;
+#else
+			if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2 + qom*x1*pG->U[ks][j][i].d;
+			if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3 + qom*x1*pG->U[ks][j][i].d;
+#endif
+			
+			/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
+			if (ShBoxCoord==xy){
+				frx1_dM2 = x1Flux[j][i+1].My;
+				flx1_dM2 = x1Flux[j][i  ].My;
+				frx2_dM2 = x2Flux[j+1][i].Mx;
+				flx2_dM2 = x2Flux[j  ][i].Mx;
+			}
+			if (ShBoxCoord==xz){
+				frx1_dM3 = x1Flux[j][i+1].Mz;
+				flx1_dM3 = x1Flux[j][i  ].Mz;
+				frx2_dM3 = x2Flux[j+1][i].My;
+				flx2_dM3 = x2Flux[j  ][i].My;
+			}
+#ifndef FARGO
+			if (ShBoxCoord==xy){
+				frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+				flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+				frx2_dM2 += qom*(x1            )*x2Flux[j+1][i].d;
+				flx2_dM2 += qom*(x1            )*x2Flux[j  ][i].d;
+			}
+			if (ShBoxCoord==xz){
+				frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+				flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+				frx2_dM3 += qom*(x1            )*x2Flux[j+1][i].d;
+				flx2_dM3 += qom*(x1            )*x2Flux[j  ][i].d;
+			}
+#endif
+			
+			/* evolve M1n and dM3n by dt/2 using flux gradients */
+			M1e = M1n - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+			- hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+			
+			if (ShBoxCoord==xy){
+				dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
+				- hdtodx2*(frx2_dM2 - flx2_dM2);
+			}
+			if (ShBoxCoord==xz){
+				dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
+				- hdtodx2*(frx2_dM3 - flx2_dM3);
+			}
+
+			/* Add radiation source term for half time step */
+			
+			M1e += 0.5 * Source[1];
+			dM2e += 0.5 * Source[2];
+
+			
+
+			
+			/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
+			 * for the Coriolis and tidal potential source terms using a Crank-Nicholson
+			 * discretization for the momentum fluctuation equation. */
+			
+			if (ShBoxCoord==xy){
+				pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+				pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+				pG->U[ks][j][i].M2 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+			}
+			if (ShBoxCoord==xz){
+				pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+				pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+				pG->U[ks][j][i].M3 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+			}
+			
+			/* Update the energy for a fixed potential.
+			 * This update is identical to non-SHEARING_BOX below  */
+			
+			phic = (*ShearingBoxPot)((x1            ),x2,x3);
+			phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+			phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+#ifndef BAROTROPIC
+			pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
+										 x1Flux[j][i+1].d*(phir - phic));
+#endif
+			
+			phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+			phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+#ifndef BAROTROPIC
+			pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
+										 x2Flux[j+1][i].d*(phir - phic));
+#endif
+
+
+#endif
+
+
+
+
+
 	/* Apply the correction */
 		
-		pG->U[ks][j][i].d = Uguess[0] + tempguess[0];
-		pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
-		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];
-		pG->U[ks][j][i].E = Uguess[4] + tempguess[4];	
+		pG->U[ks][j][i].d += Source[0];
+		pG->U[ks][j][i].M1 += Source[1];
+		pG->U[ks][j][i].M2 += Source[2];
+		pG->U[ks][j][i].E += Source[4];	
 
 		/*========================================================*/
 		/* In 2D version , we always assume Fr_3 = 0. So we do not need source term for M3.*/

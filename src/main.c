@@ -315,6 +315,8 @@ int main(int argc, char *argv[])
 
 /*--- Step 4. ----------------------------------------------------------------*/
 /* Initialize nested mesh hierarchy. */
+	
+
 
   init_mesh(&Mesh);
   init_grid(&Mesh);
@@ -445,11 +447,10 @@ int main(int argc, char *argv[])
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
 	VMFun_t BackEuler;
 
-	/* Initialize LIS library */
-	lis_initialize(&argc, &argv);
 
 
 	BackEuler = BackEuler_init(&Mesh);
+
 
 	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
 	* routine is updated. Initial output needs to update the boundary condition.  
@@ -631,6 +632,7 @@ int main(int argc, char *argv[])
 
 	/* calculate the guess temperature */
 	GetTguess(&(Mesh));
+
 
 	(*BackEuler)(&Mesh);
 
@@ -853,9 +855,7 @@ int main(int argc, char *argv[])
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	BackEuler_destruct();
-	
-	/* Finalize LIS library */
-	lis_finalize();
+
 #endif
 
 

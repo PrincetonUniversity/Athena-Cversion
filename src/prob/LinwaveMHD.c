@@ -37,6 +37,8 @@ void problem(DomainS *pDomain)
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   R_ideal = par_getd("problem","R_ideal");
+  Ncycle = par_getd_def("problem","Ncycle",5);
+  TOL  = par_getd_def("problem","TOL",1.e-8);
 	
 #endif
  is = pGrid->is; ie = pGrid->ie;
@@ -77,7 +79,7 @@ void problem(DomainS *pDomain)
 
 
 /* Initialize the grid including the ghost cells.  */
-	Real d0, u0, T0, x1, x2, x3, temperature, t, theta, Omegaimg, Omegareal, rho0, P0, E0, B0, angle, thetaB, tlim;
+	Real d0, u0, T0, x1, x2, x3, x, temperature, t, theta, Omegaimg, Omegareal, rho0, P0, E0, B0, angle, thetaB, tlim;
 	d0 = 1.0;
 	u0 = 0.0;
 	T0 = 1.0;
@@ -92,35 +94,63 @@ void problem(DomainS *pDomain)
 
 	t = pGrid->time;
 	Real flag = 1.0;
-	Real factor = 1.e-3;
+	Real factor = 1.0;
 
-	Omegareal = 4.1039;
-	Omegaimg = 2.40105e-4;
+	Omegareal = 6.28318;
+	Omegaimg = 0.00770911;
 	tlim = 2.0 * PI / Omegareal;
 
+	Real x1size, x2size, x3size, ang_3, sin_a3, cos_a3, ang_2, sin_a2, cos_a2, k_par,lambda;
+  	x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  	x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
+  	x3size = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
 
+	 ang_3 = atan(x1size/x2size);
+  	sin_a3 = sin(ang_3);
+  	cos_a3 = cos(ang_3);
+
+  	ang_2 = atan(0.5*(x1size*cos_a3 + x2size*sin_a3)/x3size);
+  	sin_a2 = sin(ang_2);
+  	cos_a2 = cos(ang_2);
+
+  	x1 = x1size*cos_a2*cos_a3;
+  	x2 = x2size*cos_a2*sin_a3;
+  	x3 = x3size*sin_a2;
+
+/* For lambda choose the smaller of the 3 */
+  	lambda = x1;
+  	lambda = MIN(lambda,x2);
+  	lambda = MIN(lambda,x3);
+
+
+/* Initialize k_parallel */
+  	k_par = 2.0*PI/lambda;
+
+
+	
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
         for (i=il; i<=iu; i++) {
 
 	cc_pos(pGrid, i, j,k, &x1, &x2, &x3);
+	x = cos_a2 * (x1 * cos_a3 + x2 * sin_a3) + x3 * sin_a2;
 
 /* Initialize conserved (and  the primitive) variables in Grid */
-	theta = -2.0 * PI  * x1 + Omegareal * t;	
+	theta = -k_par  * x + Omegareal * t;	
 
 	  temperature = T0;
           pGrid->U[k][j][i].d  = rho0 + flag * factor * (1.0e-3 * cos(theta) + 0.0000 * sin(theta));
-          pGrid->U[k][j][i].M1 = flag * factor * (6.531565926932978e-4 * cos(theta) - 3.821385473778102e-8 * sin(theta));
-          pGrid->U[k][j][i].M2 = flag * factor * (8.778632852880766e-4 * cos(theta) - 7.743758725282931e-8 * sin(theta));
-          pGrid->U[k][j][i].M3 = 0.0;
+          pGrid->U[k][j][i].M1 = flag * factor * cos_a2 * cos_a3 * (1.e-3 * cos(theta) - 1.22694e-6 * sin(theta));
+          pGrid->U[k][j][i].M2 = flag * factor * cos_a2 * sin_a3 * (1.e-3 * cos(theta) - 1.22694e-6 * sin(theta));
+          pGrid->U[k][j][i].M3 =flag * factor * sin_a2 * (1.e-3 * cos(theta) - 1.22694e-6 * sin(theta));
 
-          pGrid->U[k][j][i].E = E0 + flag * factor * (9.266135388224801e-4 * cos(theta) - 8.735712774317244e-8 * sin(theta));
+          pGrid->U[k][j][i].E = E0 + flag * factor * (1.5e-3 * cos(theta) - 2.58994e-7 * sin(theta));
 
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; /* Set to be a constant in 1D. To be modified later */
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
 	 pGrid->U[k][j][i].Edd_33 = 1.0/3.0;
-	 pGrid->U[k][j][i].Sigma_t = 1.e-4;
-	 pGrid->U[k][j][i].Sigma_a = 1.e-4;
+	 pGrid->U[k][j][i].Sigma_t = 10.0;
+	 pGrid->U[k][j][i].Sigma_a = 10.0;
 
 #ifdef RADIATION_MHD
 	 /* interface magnetic field */
@@ -132,10 +162,10 @@ void problem(DomainS *pDomain)
           pGrid->B3i[k][j][i] = 0.0;
         
 #endif
-	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (-1.523074867174326e-15 * cos(theta) - 4.158435973341095e-12 * sin(theta));
-	  pGrid->U[k][j][i].Fr1 = flag * factor *  (-6.531566005232594e-12 * cos(theta) - 8.946670642203074e-16 * sin(theta));
-	  pGrid->U[k][j][i].Fr2 = flag * factor *  (6.5612419265046645e-9 * cos(theta) + 2.692284566463311e-8  * sin(theta));
-	  pGrid->U[k][j][i].Fr3 = 0.0;	
+	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (-5.03552e-10 * cos(theta) - 6.84367e-7 * sin(theta));
+	  pGrid->U[k][j][i].Fr1 = flag * factor * cos_a2 * cos_a3 * (-1.00001e-8 * cos(theta) - 5.87571e-11 * sin(theta));
+	  pGrid->U[k][j][i].Fr2 = flag * factor * cos_a2 * sin_a3 *  (-1.00001e-8 * cos(theta) - 5.87571e-11 * sin(theta));
+	  pGrid->U[k][j][i].Fr3 = flag * factor * sin_a2 *  (-1.00001e-8 * cos(theta) - 5.87571e-11 * sin(theta));
         }
       }
     }
@@ -308,6 +338,31 @@ void radMHD_rad_inflow2(GridS *pGrid)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
+void bvals_mat_fun_ix1(VMatFun_t *Mat_BCFun)
+{
+
+} 
+void bvals_mat_fun_ox1(VMatFun_t *Mat_BCFun)
+{
+
+} 
+void bvals_mat_fun_ix2(VMatFun_t *Mat_BCFun)
+{
+
+} 
+void bvals_mat_fun_ox2(VMatFun_t *Mat_BCFun)
+{
+
+} 
+void bvals_mat_fun_ix3(VMatFun_t *Mat_BCFun)
+{
+
+} 
+void bvals_mat_fun_ox3(VMatFun_t *Mat_BCFun)
+{
+
+} 
+
 void problem_write_restart(MeshS *pM, FILE *fp)
 {
 	fprintf(fp,"%5.3e\n",Gamma);
@@ -479,7 +534,7 @@ void Userwork_after_loop(MeshS *pM)
   err[11] = total_error.Fr3;
 
 /* Sum up the Computed Error */
-  ierr = MPI_Reduce(err,tot_err,(8+NSCALARS),MPI_DOUBLE,MPI_SUM,0,
+  ierr = MPI_Reduce(err,tot_err,(12+NSCALARS),MPI_DOUBLE,MPI_SUM,0,
     pM->Domain[0][0].Comm_Domain);
 
 /* If I'm the parent, copy the sum back to the total_error variable */
@@ -498,6 +553,11 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
     total_error.E   = tot_err[7];
 #endif /* ISOTHERMAL */
+    total_error.Er = tot_err[8];
+    total_error.Fr1 = tot_err[9];
+    total_error.Fr2 = tot_err[10];
+    total_error.Fr3 = tot_err[11];		
+
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) total_error.s[n] = err[8+n];
 #endif

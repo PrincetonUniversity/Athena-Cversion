@@ -122,10 +122,14 @@
 /* nghost = Number of Ghost Cells 
  * num_digit = Number of digits in data dump file
  * MAXLEN = maximum line length in input parameter file
+ * Matghost = Number of ghost zones for Matrix solver. Only 1 ghost zone is needed 
  */
 
 /* Number of ghost cells must be 5 with particles and 3rd order */
 enum {
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  Matghost = 1,
+#endif
 #ifdef PARTICLES 
 #if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   nghost = 5,
@@ -135,7 +139,7 @@ enum {
 #else
   nghost = 4,
 #endif
-  num_digit = 4
+  num_digit = 4 
 };
 #define MAXLEN 256
 
@@ -193,7 +197,9 @@ enum {LtoR_tag,
       remapEy_tag,
       fargo_tag,
       ch_rundir0_tag,
-      ch_rundir1_tag
+      ch_rundir1_tag,
+      MatLtoR_tag,
+      MatRtoL_tag
 };
 #endif /* MPI_PARALLEL */
 

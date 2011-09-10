@@ -19,10 +19,10 @@ void integrate_destruct(void);
 
 /* Only used for rad_hydro integrators */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-void BackEuler_init_1d(int Ngrids, MeshS *pM);
-void BackEuler_init_2d(const int Nx, const int Ny, const int NGridx,const int NGridy);
-void BackEuler_init_3d(const int Nx, const int Ny, const int Nz,const int NGridx,const int NGridy,const int NGridz);
-void BackEuler_destruct_1d(int Ngrids);
+void BackEuler_init_1d(MeshS *pM);
+void BackEuler_init_2d(MeshS *pM);
+void BackEuler_init_3d(MeshS *pM);
+void BackEuler_destruct_1d();
 void BackEuler_destruct_2d();
 void BackEuler_destruct_3d();
 void BackEuler_destruct();

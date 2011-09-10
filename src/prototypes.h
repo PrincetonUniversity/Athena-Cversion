@@ -87,6 +87,14 @@ void bvals_mhd_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 void bvals_rad_fun(DomainS *pD, enum BCDirection dir, VGFun_t prob_bc);
 void bvals_radMHD_init(MeshS *pM);
+void bvals_mat_fun_ix1(VMatFun_t *Mat_BCFun); 
+void bvals_mat_fun_ox1(VMatFun_t *Mat_BCFun); 
+void bvals_mat_fun_ix2(VMatFun_t *Mat_BCFun); 
+void bvals_mat_fun_ox2(VMatFun_t *Mat_BCFun); 
+void bvals_mat_fun_ix3(VMatFun_t *Mat_BCFun); 
+void bvals_mat_fun_ox3(VMatFun_t *Mat_BCFun); 
+/* Function to set boundary function pointer for each level */
+/* must provided in the problem generator */
 #endif
 void bvals_mhd(DomainS *pDomain);
 
@@ -113,6 +121,12 @@ void ShearingSheet_radMHD_ix1(DomainS *pD);
 void ShearingSheet_radMHD_ox1(DomainS *pD);
 void bvals_radMHD_shear_init(MeshS *pM);
 void bvals_radMHD_shear_destruct(void);
+
+void ShearingSheet_Matrix_ix1(MatrixS *pMat);
+void ShearingSheet_Matrix_ox1(MatrixS *pMat);
+void bvals_Matrix_shear_init(MatrixS *pMat);
+void bvals_Matrix_shear_destruct(void);
+
 #endif
 
 #endif /* SHEARING_BOX */
@@ -241,9 +255,7 @@ PropFun_t get_usr_par_prop(const char *name);
 void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
 void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, const Real v1, const Real v2, const Real v3);
 #endif
-#ifdef RADIATION_TRANSFER
-void Userwork_in_formal_solution(DomainS *pD);
-#endif
+
 /*----------------------------------------------------------------------------*/
 /* restart.c  */
 void dump_restart(MeshS *pM, OutputS *pout);

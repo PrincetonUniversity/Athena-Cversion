@@ -74,6 +74,13 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],W6[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real qx1,qx2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	Real aeff;
+#endif
+
+#ifdef RADIATIONMHD_INTEGRATOR
+#define CTU_INTEGRATOR
+#endif
 
   /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
   Real ql,qr,qxx1,qxx2,zc,zr,zl,q1,q2,gamma_curv;
@@ -118,6 +125,22 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
       W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
+
+/*===========================*/
+/* For radiation hydro */
+#ifdef RADIATION_HYDRO
+    aeff = eff_sound(W[i],dt,dir);
+
+   esys_prim_rad_hyd(aeff, W[i].Vx, W[i].d, ev, rem, lem);
+#endif
+
+#ifdef RADIATION_MHD
+  aeff = eff_sound(W[i],dt,dir);
+
+  esys_prim_rad_mhd(W[i].d, W[i].Vx, aeff, Bxc[i], W[i].By, W[i].Bz, ev, rem, lem);
+#endif
+
+/*******************/
 
 /*--- Step 2. ------------------------------------------------------------------
  * Compute centered, L/R, and van Leer differences of primitive variables
@@ -298,6 +321,22 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
       Bxc[i+1],W[i+1].By,W[i+1].Bz,ev_ip1,rem_ip1,lem_ip1);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
+
+/*===========================*/
+/* For radiation hydro */
+#ifdef RADIATION_HYDRO
+    aeff = eff_sound(W[i+1],dt,dir);
+
+   esys_prim_rad_hyd(aeff, W[i+1].Vx, W[i+1].d, ev_ip1, rem_ip1, lem_ip1);
+#endif
+
+#ifdef RADIATION_MHD
+  aeff = eff_sound(W[i+1],dt,dir);
+
+  esys_prim_rad_mhd(W[i+1].d, W[i+1].Vx, aeff, Bxc[i+1], W[i+1].By, W[i+1].Bz, ev_ip1, rem_ip1, lem_ip1);
+#endif
+
+/*******************/
 
 /*--- Step 9. ------------------------------------------------------------------
  * Compute centered, L/R, and van Leer differences of primitive variables */
@@ -493,13 +532,14 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
     pWl = (Real *) &(Wl[i+1]);
     pWr = (Real *) &(Wr[i]);
 
-#ifndef CTU_INTEGRATOR 
+
+
+#ifndef CTU_INTEGRATOR
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n];
       pWr[n] = Wlv[n];
     }
-
 
 #elif defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
     for (n=0; n<NWAVE; n++) {
@@ -651,7 +691,15 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
       }
     }
 
+
+
+
   } /*====================== END BIG LOOP OVER i =========================*/
+
+
+#ifdef RADIATIONMHD_INTEGRATOR
+#undef CTU_INTEGRATOR
+#endif
 
   return;
 }

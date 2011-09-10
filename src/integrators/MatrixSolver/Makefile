@@ -7,7 +7,14 @@
 # Makefile will be created (overwriting the last) from this template.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = bandec.o ludcmp.o mgmres.o
+CORE_OBJ = bandec.o \
+	   ludcmp.o \
+ 	   mgmres.o \
+	   GaussSeidel1D.o \
+	   GaussSeidel2D.o \
+	   GaussSeidel3D.o \
+	   bvals_Matrix.o \
+	   bvals_Matrix_shear.o 
 
 
 OBJ = $(CORE_OBJ)

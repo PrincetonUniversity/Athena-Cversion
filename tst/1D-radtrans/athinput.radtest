@@ -72,7 +72,7 @@ NGrid_x3        = 1         # with MPI, number of Grids in X3 coordinate
 <radiation>
 lte             = 0	     # lte = 0 -- iterate S; 1 -- iterate J
 niter		= 1000	     # maximum number of rad trans iterations
-dScnv		= -1.0e-8     # relative change in S (or J) required for conv.
+dScnv		= 1.0e-8     # relative change in S (or J) required for conv.
 nf		= 1	     # number of frequencies
 nmu		= 3	     # number of polar angles/quadrant (1 <= nmu <= 6)
 isor            = 0          # 0 no SOR, 1 SOR for gauss-seidel (SOR with 1D only!) 
