@@ -39,6 +39,8 @@ CORE_OBJ = ath_array.o \
 	   bvals_radMHD.o \
 	   bvals_radMHD_shear.o
 
+
+
 FFT_OBJ =
 ifeq (@FFT_MODE@,FFT_ENABLED)
 ifeq (@MPI_MODE@,MPI_PARALLEL)
@@ -80,12 +82,29 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/MatrixSolver/GaussSeidel3D.o \
 		  integrators/MatrixSolver/bvals_Matrix.o \
 		  integrators/MatrixSolver/bvals_Matrix_shear.o
+
+
+
+HYPRE_OBJ = 
+ifeq (@MATRIX_LIBRARY@,MATRIX_HYPRE)
+HYPRE_OBJ = integrators/BackEuler_3d_hypre.o	
+
+endif
+
+LIS_OBJ = 
+ifeq (@MATRIX_LIBRARY@,MATRIX_LIS)
+LIS_OBJ =   integrators/BackEuler_1d_lis.o	\
+	    integrators/BackEuler_2d_lis.o	\
+	    integrators/BackEuler_3d_lis.o	
+
+endif
 		  
 
 GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg.o \
               gravity/selfg_fft.o \
               gravity/selfg_fft_obc.o \
+	      gravity/selfg_fft_disk.o \
               gravity/selfg_multigrid.o
 
 MICROPHYS_OBJ = microphysics/conduction.o \
@@ -143,7 +162,7 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/two_shock.o 
 	      
 
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ}
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${HYPRE_OBJ} ${LIS_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 

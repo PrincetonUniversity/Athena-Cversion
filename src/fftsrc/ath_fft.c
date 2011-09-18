@@ -1,5 +1,6 @@
-/*==============================================================================
- * FILE: ath_fft.c
+/*============================================================================*/
+/*! \file ath_fft.c
+ *  \brief Simple wrappers for 2D and 3D FFT functions. 
  *
  * PURPOSE:  Simple wrappers for 2D and 3D FFT functions.  These exist to
  *   hide the differences in function calls needed for single processor vs
@@ -9,19 +10,19 @@
  *   libraries directly.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   ath_3d_fft_quick_plan()   - create a plan for global 3D grid
- *   ath_3d_fft_create_plan()  - create a more flexible plan for 3D FFT
- *   ath_3d_fft_malloc()       - allocate memory for 3D FFT data
- *   ath_3d_fft()              - perform a 3D FFT
- *   ath_3d_fft_free()         - free memory for 3D FFT data
- *   ath_3d_fft_destroy_plan() - free up memory
- *   ath_2d_fft_quick_plan()   - create a plan for global 2D grid (Nx3=1)
- *   ath_2d_fft_create_plan()  - create a more flexible plan for 2D FFT
- *   ath_2d_fft_malloc()       - allocate memory for 2D FFT data
- *   ath_2d_fft()              - perform a 2D FFT
- *   ath_2d_fft_free()         - free memory for 2D FFT data
- *   ath_2d_fft_destroy_plan() - free up memory
- *============================================================================*/
+ * - ath_3d_fft_quick_plan()   - create a plan for global 3D grid
+ * - ath_3d_fft_create_plan()  - create a more flexible plan for 3D FFT
+ * - ath_3d_fft_malloc()       - allocate memory for 3D FFT data
+ * - ath_3d_fft()              - perform a 3D FFT
+ * - ath_3d_fft_free()         - free memory for 3D FFT data
+ * - ath_3d_fft_destroy_plan() - free up memory
+ * - ath_2d_fft_quick_plan()   - create a plan for global 2D grid (Nx3=1)
+ * - ath_2d_fft_create_plan()  - create a more flexible plan for 2D FFT
+ * - ath_2d_fft_malloc()       - allocate memory for 2D FFT data
+ * - ath_2d_fft()              - perform a 2D FFT
+ * - ath_2d_fft_free()         - free memory for 2D FFT data
+ * - ath_2d_fft_destroy_plan() - free up memory				      */
+/*============================================================================*/
 
 #include <stdlib.h>
 #include "../defs.h"
@@ -46,10 +47,9 @@
  *
  **************************************************************************/
 
-/*
- *  Function ath_3d_fft_quick_plan()
- *
- *  Sets up an FFT plan for the entire 3D grid, using
+/*! \fn struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
+ *	ath_fft_data *data, ath_fft_direction dir)
+ *  \brief Sets up an FFT plan for the entire 3D grid, using
  *      ath_3d_fft_create_plan()
  */
 
@@ -63,12 +63,12 @@ struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
   int gnx3 = pD->Nx[2];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pD->Disp[0];
-  int gie = pD->Disp[0] + pGrid->Nx[0];
-  int gjs = pD->Disp[1];
-  int gje = pD->Disp[1] + pGrid->Nx[1];
-  int gks = pD->Disp[2];
-  int gke = pD->Disp[2] + pGrid->Nx[2];
+  int gis = pGrid->Disp[0];
+  int gie = pGrid->Disp[0] + pGrid->Nx[0] - 1;
+  int gjs = pGrid->Disp[1];
+  int gje = pGrid->Disp[1] + pGrid->Nx[1] - 1;
+  int gks = pGrid->Disp[2];
+  int gke = pGrid->Disp[2] + pGrid->Nx[2] - 1;
 
   /* Create the plan using a more generic function.
    * If the data hasn't already been allocated, it will now */
@@ -76,17 +76,19 @@ struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
 				   gis, gie, data, 0, dir);
 }
 
-/*
- *  Function ath_3d_fft_create_plan()
+/*! \fn struct ath_3d_fft_plan *ath_3d_fft_create_plan(int gnx3, int gnx2,
+ *				int gnx1, int gks, int gke, int gjs, int gje,
+ *				int gis, int gie, ath_fft_data *data, int al,
+ *				ath_fft_direction dir)
+ *  \brief Sets up a 3D FFT plan
  *
- *  Sets up a 3D FFT plan
- *  gnx3, gnx2, gnx1 are the dimensions of the GLOBAL data
- *  gks, gke, gjs, gje, gis, gie are the starting and ending indices of
+ *  - gnx3, gnx2, gnx1 are the dimensions of the GLOBAL data
+ *  - gks, gke, gjs, gje, gis, gie are the starting and ending indices of
  *      the LOCAL data in GLOBAL coordinates
- *  data is any array of type ath_fft_data big enough to hold entire
+ *  - data is any array of type ath_fft_data big enough to hold entire
  *      transform, for use in planning (contents will be trashed)
- *  al != 0 means allocate data if it doesn't exist (otherwise temporary)
- *  dir is either ATH_FFT_FOWARD or ATH_FFT_BACKWARD
+ *  - al != 0 means allocate data if it doesn't exist (otherwise temporary)
+ *  - dir is either ATH_FFT_FOWARD or ATH_FFT_BACKWARD
  *  FFTs will be done in place (overwrite data)
  */
 
@@ -144,10 +146,8 @@ struct ath_3d_fft_plan *ath_3d_fft_create_plan(int gnx3, int gnx2,
   return ath_plan;
 }
 
-/*
- *  Function ath_3d_fft_malloc()
- *
- *  Easy allocation of data array needed for particular 3D plan
+/*! \fn ath_fft_data *ath_3d_fft_malloc(struct ath_3d_fft_plan *ath_plan)
+ *  \brief Easy allocation of data array needed for particular 3D plan 
  */
 
 ath_fft_data *ath_3d_fft_malloc(struct ath_3d_fft_plan *ath_plan)
@@ -155,10 +155,8 @@ ath_fft_data *ath_3d_fft_malloc(struct ath_3d_fft_plan *ath_plan)
   return (ath_fft_data *)fftw_malloc(sizeof(ath_fft_data) * ath_plan->cnt);
 }
 
-/*
- *  Function ath_3d_fft()
- *
- *  Performs a 3D FFT in place
+/*! \fn void ath_3d_fft(struct ath_3d_fft_plan *ath_plan, ath_fft_data *data)
+ *  \brief Performs a 3D FFT in place
  */
 
 void ath_3d_fft(struct ath_3d_fft_plan *ath_plan, ath_fft_data *data)
@@ -173,10 +171,8 @@ void ath_3d_fft(struct ath_3d_fft_plan *ath_plan, ath_fft_data *data)
   return;
 }
 
-/*
- *  Function ath_3d_fft_free()
- *
- *  Frees memory used to hold data for 3D FFT
+/*! \fn void ath_3d_fft_free(ath_fft_data *data)
+ *  \brief Frees memory used to hold data for 3D FFT
  */
 
 void ath_3d_fft_free(ath_fft_data *data)
@@ -186,10 +182,8 @@ void ath_3d_fft_free(ath_fft_data *data)
   return;
 }
 
-/*
- *  Function ath_3d_fft_destroy_plan()
- *
- *  Frees a 3D FFT plan
+/*! \fn void ath_3d_fft_destroy_plan(struct ath_3d_fft_plan *ath_plan)
+ *  \brief Frees a 3D FFT plan
  */
 
 void ath_3d_fft_destroy_plan(struct ath_3d_fft_plan *ath_plan)
@@ -212,10 +206,9 @@ void ath_3d_fft_destroy_plan(struct ath_3d_fft_plan *ath_plan)
  *
  **************************************************************************/
 
-/*
- *  Function ath_2d_fft_quick_plan()
- *
- *  Sets up an FFT plan for the entire 2D grid, assuming NX3=1, using
+/*! \fn struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
+ *				ath_fft_data *data, ath_fft_direction dir)
+ *  \brief Sets up an FFT plan for the entire 2D grid, assuming NX3=1, using
  *      ath_2d_fft_create_plan()
  */
 
@@ -232,24 +225,26 @@ struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
   int gnx2 = pD->Nx[1];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pD->Disp[0];
-  int gie = pD->Disp[0] + pGrid->Nx[0];
-  int gjs = pD->Disp[1];
-  int gje = pD->Disp[1] + pGrid->Nx[1];
+  int gis = pGrid->Disp[0];
+  int gie = pGrid->Disp[0] + pGrid->Nx[0] - 1;
+  int gjs = pGrid->Disp[1];
+  int gje = pGrid->Disp[1] + pGrid->Nx[1] - 1;
 
   /* Create the plan using a more generic function
    * If the data hasn't already been allocated, it will now */
   return ath_2d_fft_create_plan(gnx2, gnx1, gjs, gje, gis, gie, data, 0, dir);
 }
 
-/*
- *  Function ath_2d_fft_create_plan()
+/*! \fn struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
+ *				int gjs, int gje, int gis, int gie,
+ *				ath_fft_data *data, int al,
+ *				ath_fft_direction dir)
+ *  \brief Sets up a 2D FFT plan
  *
- *  Sets up a 2D FFT plan
- *  gnx2, gnx1 are the dimensions of the GLOBAL data
- *  gjs, gje, gis, gie are the starting and ending indices of the
+ *  - gnx2, gnx1 are the dimensions of the GLOBAL data
+ *  - gjs, gje, gis, gie are the starting and ending indices of the
  *      LOCAL data in GLOBAL coordinates
- *  dir is either ATH_FFT_FOWARD or ATH_FFT_BACKWARD
+ *  - dir is either ATH_FFT_FOWARD or ATH_FFT_BACKWARD
  *  FFTs will be done in place (overwrite data)
  */
 
@@ -306,10 +301,8 @@ struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
   return ath_plan;
 }
 
-/*
- *  Function ath_2d_fft_malloc()
- *
- *  Easy allocation of data array needed for particular 2D plan
+/*! \fn ath_fft_data *ath_2d_fft_malloc(struct ath_2d_fft_plan *ath_plan)
+ *  \brief Easy allocation of data array needed for particular 2D plan
  */
 
 ath_fft_data *ath_2d_fft_malloc(struct ath_2d_fft_plan *ath_plan)
@@ -317,10 +310,9 @@ ath_fft_data *ath_2d_fft_malloc(struct ath_2d_fft_plan *ath_plan)
   return (ath_fft_data *)fftw_malloc(sizeof(ath_fft_data) * ath_plan->cnt);
 }
 
-/*
- *  Function ath_2d_fft()
- *
- *  Performs a 2D FFT in place
+
+/*! \fn void ath_2d_fft(struct ath_2d_fft_plan *ath_plan, fftw_complex *data)
+ *  \brief Performs a 2D FFT in place
  */
 
 void ath_2d_fft(struct ath_2d_fft_plan *ath_plan, fftw_complex *data)
@@ -335,10 +327,8 @@ void ath_2d_fft(struct ath_2d_fft_plan *ath_plan, fftw_complex *data)
   return;
 }
 
-/*
- *  Function ath_2d_fft_free()
- *
- *  Frees memory used to hold data for 2D FFT
+/*! \fn void ath_2d_fft_free(ath_fft_data *data)
+ *  \brief Frees memory used to hold data for 2D FFT
  */
 
 void ath_2d_fft_free(ath_fft_data *data)
@@ -348,10 +338,8 @@ void ath_2d_fft_free(ath_fft_data *data)
   return;
 }
 
-/*
- *  Function ath_2d_fft_destroy_plan()
- *
- *  Frees a 2D FFT plan
+/*! \fn void ath_2d_fft_destroy_plan(struct ath_2d_fft_plan *ath_plan)
+ *  \brief Frees a 2D FFT plan
  */
 
 void ath_2d_fft_destroy_plan(struct ath_2d_fft_plan *ath_plan)

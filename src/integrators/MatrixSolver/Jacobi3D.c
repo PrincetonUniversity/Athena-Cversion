@@ -17,6 +17,7 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
+#ifdef MATRIX_MULTIGRID 
 
 #if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
@@ -304,3 +305,5 @@ for(n=0; n<Ncycle; n++){
 
 
 #endif /* radMHD_INTEGRATOR */
+
+#endif /* MATRIX-MULTIGRID */

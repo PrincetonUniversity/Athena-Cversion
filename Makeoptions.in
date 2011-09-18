@@ -26,54 +26,35 @@ FFTWINC =
 BLOCKINC = 
 BLOCKLIB = 
 CUSTLIBS = -ldl -lm
-MATRIXLIB = 
-MATRIXINC = 
+
+MATRIXLIB =
+MATRIXINC =
+ifeq (@MATRIX_LIBRARY@,MATRIX_LIS)
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+MATRIXLIB = -L/u/yanfei/Tools/Lis_MPI/lib/ -llis
+MATRIXINC = -I/u/yanfei/Tools/Lis_MPI/include
+else
+MATRIXLIB = -L/u/yanfei/Tools/Lis/lib/ -llis
+MATRIXINC = -I/u/yanfei/Tools/Lis/include
+endif
+endif
+
 HYPRELIB = 
 HYPREINC =
 
+ifeq (@MATRIX_LIBRARY@,MATRIX_HYPRE)
+HYPRELIB = -L/u/yanfei/Tools/Hypre/lib -lHYPRE
+HYPREINC = -I/u/yanfei/Tools/Hypre/include
+endif
+
 ifeq (@FFT_MODE@,FFT_ENABLED)
   BLOCKINC = -I fftsrc
-  FFTWLIB = -L/usr/lib -lfftw3
-  FFTWINC = -I/usr/include
+  FFTWLIB = -L/u/yanfei/Tools/FFTW/fftw-3/lib -lfftw3
+  FFTWINC = -I/u/yanfei/Tools/FFTW/fftw-3/include
 endif
 
-ifeq (@GAS@,RADIATION_HYDRO) 
-  MATRIXLIB = 
-  MATRIXINC = 
-  HYPRELIB = 
-  HYPREINC = 
-ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB = 
-  MATRIXINC = 
-  HYPRELIB = 
-  HYPREINC = 
-endif
-ifeq (@MPI_MODE@,MPI_PARALLEL)
-  MATRIXLIB = 
-  MATRIXINC = 
-  HYPRELIB = 
-  HYPREINC = 
-endif
-endif
 
-ifeq (@GAS@,RADIATION_MHD) 
-  MATRIXLIB =  
-  MATRIXINC = 
-  HYPRELIB = 
-  HYPREINC = 
-ifeq (@DEBUG_MODE@,DEBUG)
-  MATRIXLIB =
-  MATRIXINC = 
-  HYPRELIB = 
-  HYPREINC = 
-endif
-ifeq (@MPI_MODE@,MPI_PARALLEL)
-  MATRIXLIB = 
-  MATRIXINC = 
-  HYPRELIB = 
-  HYPREINC = 
-endif
-endif
+
 
 
 

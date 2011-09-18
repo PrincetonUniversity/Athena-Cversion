@@ -36,6 +36,7 @@
 #   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]   (flux function)
 #   --with-integrator=[ctu,vl]           (unsplit integration algorithm)
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
+#   --with-matrix=[multigrid, hypre, lis]
 #
 # ALGORITHM "features":
 #   --enable-fargo                                      (enable FARGO algorithm)
@@ -49,7 +50,7 @@
 #   --enable-single                                 (double or single precision)
 #   --enable-smr                                        (static mesh refinement)
 #   --enable-multig                (use multigrid method for radiative transfer)
-#
+#   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
 #-------------------------------------------------------------------------------
 # generic things
 
@@ -91,21 +92,25 @@ if test   "$with_gas" = "hydro"; then
   flux_default="hllc"
   integrator_default="ctu"
   order_default="2"
+  matrix_solver="off"
 elif test "$with_gas" = "mhd";   then
   GAS="MHD"
   flux_default="roe"
   integrator_default="ctu"
   order_default="2"
+  matrix_solver="off"
 elif test "$with_gas" = "rad_hydro"; then
   GAS="RADIATION_HYDRO"
   flux_default="hllc"
   integrator_default="RADIATIONMHD"
   order_default="2p"
+  matrix_solver="on"
 elif test "$with_gas" = "rad_MHD"; then
   GAS="RADIATION_MHD"
   flux_default="hlld"
   integrator_default="RADIATIONMHD"
   order_default="2p"
+  matrix_solver="on"
 else
   AC_MSG_ERROR([expected --with-gas=mhd or hydro or rad_hydro or rad_MHD])
 fi
@@ -572,6 +577,31 @@ else
   FFT_MODE_USER="OFF"
 fi
 
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: choose matrix solver library
+#   --with-matrix=[multigrid, hypre, lis]
+
+AC_SUBST(MATRIX_LIBRARY)
+AC_ARG_WITH(matrix,
+	[--with-matrix=MATRIX_LIBRARY  Set matrix solver (multigrid, hypre, lis)],
+	with_matrix=$withval, with_matrix="multigrid")
+if test "$with_matrix" = "multigrid"; then
+  MATRIX_LIBRARY="MATRIX_MULTIGRID"
+  MATRIX_MODE=$matrix_solver
+elif test "$with_matrix" = "hypre"; then
+  MATRIX_LIBRARY="MATRIX_HYPRE"
+  MATRIX_MODEE=$matrix_solver
+elif test "$with_matrix" = "lis"; then
+  MATRIX_LIBRARY="MATRIX_LIS"
+  MATRIX_MODEE=$matrix_solver
+else
+  AC_MSG_ERROR([expected --with-matrix=multigrid, hypre or lis])
+fi
+
+
+
+
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: turn on shearing box evolution
 #   --enable-shearing-box
@@ -628,6 +658,26 @@ else
   MESH_REFINEMENT="NO_MESH_REFINEMENT"
   SMR_MODE_USER="OFF"
 fi
+
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: self-gravity with conserved total energy and momentum
+#   --enable-cons_gravity (default is no this algorithm)
+
+AC_SUBST(CONS_GRAVITY)
+AC_ARG_ENABLE(cons_gravity,
+	[--enable-cons_gravity  self-gravity with conserved method (default is no this algorithm)], 
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  CONS_GRAVITY="CONS_GRAVITY"
+  CONSGRAVITY_MODE_USER="ON"
+else
+  CONS_GRAVITY="NO_CONS_GRAVITY"
+  CONSGRAVITY_MODE_USER="OFF"
+fi
+
+
+
 
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: turn on all-wave integration for HLL fluxes
@@ -768,6 +818,7 @@ echo "Spatial Order:           $ORDER ($ACCURACY)"
 echo "Flux:                    $FLUX_NAME"
 echo "unsplit integrator:      $INTEGRATOR"
 echo "Precision:               $PRECISION"
+echo "Matirx Solver:	         $MATRIX_LIBRARY"
 echo "Compiler options:        $COMPILER_OPTS"
 echo "Ghost cell output:       $WRITE_GHOST_MODE_USER"
 echo "Parallel modes: MPI      $MPI_MODE_USER"
@@ -779,3 +830,5 @@ echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
 echo "multigrid transfer:      $RAD_MULTIG_USER"
+echo "Conserved self_gravity:  $CONSGRAVITY_MODE_USER"
+

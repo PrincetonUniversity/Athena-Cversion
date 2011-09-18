@@ -60,7 +60,7 @@
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
 static MPI_Request *recv_rq, *send_rq;
-static int Nrad = 12;
+static int Nrad = 10 + NOPACITY;
 #endif /* MPI_PARALLEL */
 
 /*==============================================================================
@@ -835,7 +835,7 @@ void bvals_radMHD_init(MeshS *pM)
   size = x3cnt >  size ? x3cnt : size;
  /* Here we only need to send radiation variables *
   * NVAR is the number of hydro variables *
-  * total is Er, Fr???, Sigma_??, Edd_?? 12 variables 
+  * total is Er, Fr???, Sigma_??, Edd_?? 10+NOPACITY variables 
   */
 
   size *= nghost*Nrad;
@@ -909,7 +909,7 @@ static void reflect_ix1(GridS *pGrid)
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -925,9 +925,10 @@ static void reflect_ix1(GridS *pGrid)
 		pGrid->U[k][j][is-i].Edd_31  	=  pGrid->U[k][j][is+(i-1)].Edd_31;
 		pGrid->U[k][j][is-i].Edd_32  	=  pGrid->U[k][j][is+(i-1)].Edd_32;
 		pGrid->U[k][j][is-i].Edd_33  	=  pGrid->U[k][j][is+(i-1)].Edd_33;
-		pGrid->U[k][j][is-i].Sigma_t  	=  pGrid->U[k][j][is+(i-1)].Sigma_t;
-		pGrid->U[k][j][is-i].Sigma_a  	=  pGrid->U[k][j][is+(i-1)].Sigma_a;
-      }
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[k][j][is-i].Sigma[m] = pGrid->U[k][j][is+(i-1)].Sigma[m];
+     		}
+	 }
     }
   }
 
@@ -943,7 +944,7 @@ static void reflect_ox1(GridS *pGrid)
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -959,8 +960,10 @@ static void reflect_ox1(GridS *pGrid)
 		pGrid->U[k][j][ie+i].Edd_31  	=  pGrid->U[k][j][ie-(i-1)].Edd_31;
 		pGrid->U[k][j][ie+i].Edd_32  	=  pGrid->U[k][j][ie-(i-1)].Edd_32;
 		pGrid->U[k][j][ie+i].Edd_33  	=  pGrid->U[k][j][ie-(i-1)].Edd_33;				
-		pGrid->U[k][j][ie+i].Sigma_t    =  pGrid->U[k][j][ie-(i-1)].Sigma_t;
-		pGrid->U[k][j][ie+i].Sigma_a    =  pGrid->U[k][j][ie-(i-1)].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[k][j][ie+i].Sigma[m] = pGrid->U[k][j][ie-(i-1)].Sigma[m];
+		}
+			
 
       }
     }
@@ -978,7 +981,7 @@ static void reflect_ix2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -994,8 +997,10 @@ static void reflect_ix2(GridS *pGrid)
 		pGrid->U[k][js-j][i].Edd_31  	=  pGrid->U[k][js+(j-1)][i].Edd_31;
 		pGrid->U[k][js-j][i].Edd_32  	=  pGrid->U[k][js+(j-1)][i].Edd_32;
 		pGrid->U[k][js-j][i].Edd_33  	=  pGrid->U[k][js+(j-1)][i].Edd_33;
-		pGrid->U[k][js-j][i].Sigma_t  	=  pGrid->U[k][js+(j-1)][i].Sigma_t;
-		pGrid->U[k][js-j][i].Sigma_a  	=  pGrid->U[k][js+(j-1)][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+                        pGrid->U[k][js-j][i].Sigma[m] = pGrid->U[k][js+(j-1)][i].Sigma[m];
+                }
+
 
       }
     }
@@ -1013,7 +1018,7 @@ static void reflect_ox2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1029,9 +1034,11 @@ static void reflect_ox2(GridS *pGrid)
 		pGrid->U[k][je+j][i].Edd_31  	=  pGrid->U[k][je-(j-1)][i].Edd_31;
 		pGrid->U[k][je+j][i].Edd_32  	=  pGrid->U[k][je-(j-1)][i].Edd_32;
 		pGrid->U[k][je+j][i].Edd_33  	=  pGrid->U[k][je-(j-1)][i].Edd_33;
-		pGrid->U[k][je+j][i].Sigma_t  	=  pGrid->U[k][je-(j-1)][i].Sigma_t;
-		pGrid->U[k][je+j][i].Sigma_a  	=  pGrid->U[k][je-(j-1)][i].Sigma_a;
-
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][je+j][i].Sigma[m] = pGrid->U[k][je-(j-1)][i].Sigma[m];
+		}  
+		  
+		
       }
     }
   }
@@ -1047,7 +1054,7 @@ static void reflect_ix3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1062,9 +1069,11 @@ static void reflect_ix3(GridS *pGrid)
 		pGrid->U[ks-k][j][i].Edd_31  	=  pGrid->U[ks+(k-1)][j][i].Edd_31;
 		pGrid->U[ks-k][j][i].Edd_32  	=  pGrid->U[ks+(k-1)][j][i].Edd_32;
 		pGrid->U[ks-k][j][i].Edd_33  	=  pGrid->U[ks+(k-1)][j][i].Edd_33;
-		pGrid->U[ks-k][j][i].Sigma_t  	=  pGrid->U[ks+(k-1)][j][i].Sigma_t;
-		pGrid->U[ks-k][j][i].Sigma_a  	=  pGrid->U[ks+(k-1)][j][i].Sigma_a;
-
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[ks-k][j][i].Sigma[m] = pGrid->U[ks+(k-1)][j][i].Sigma[m];
+		}  
+		  
+	
       }
     }
   }
@@ -1080,7 +1089,7 @@ static void reflect_ox3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1095,8 +1104,9 @@ static void reflect_ox3(GridS *pGrid)
 		pGrid->U[ke+k][j][i].Edd_31  	=  pGrid->U[ke-(k-1)][j][i].Edd_31;
 		pGrid->U[ke+k][j][i].Edd_32  	=  pGrid->U[ke-(k-1)][j][i].Edd_32;
 		pGrid->U[ke+k][j][i].Edd_33  	=  pGrid->U[ke-(k-1)][j][i].Edd_33;
-		pGrid->U[ke+k][j][i].Sigma_t  	=  pGrid->U[ke-(k-1)][j][i].Sigma_t;
-		pGrid->U[ke+k][j][i].Sigma_a  	=  pGrid->U[ke-(k-1)][j][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[ke+k][j][i].Sigma[m] = pGrid->U[ke-(k-1)][j][i].Sigma[m];
+		}  
 
       }
     }
@@ -1114,7 +1124,7 @@ static void outflow_ix1(GridS *pGrid)
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1129,8 +1139,11 @@ static void outflow_ix1(GridS *pGrid)
 		pGrid->U[k][j][is-i].Edd_31  	= pGrid->U[k][j][is].Edd_31;
 		pGrid->U[k][j][is-i].Edd_32  	= pGrid->U[k][j][is].Edd_32;
 		pGrid->U[k][j][is-i].Edd_33  	= pGrid->U[k][j][is].Edd_33;
-		pGrid->U[k][j][is-i].Sigma_t  	= pGrid->U[k][j][is].Sigma_t;
-		pGrid->U[k][j][is-i].Sigma_a  	= pGrid->U[k][j][is].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[k][j][is-i].Sigma[m] = pGrid->U[k][j][is].Sigma[m];
+		}    
+		  
+		
       }
     }
   }
@@ -1148,7 +1161,7 @@ static void outflow_ox1(GridS *pGrid)
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1163,9 +1176,12 @@ static void outflow_ox1(GridS *pGrid)
 		pGrid->U[k][j][ie+i].Edd_31  	= pGrid->U[k][j][ie].Edd_31;
 		pGrid->U[k][j][ie+i].Edd_32  	= pGrid->U[k][j][ie].Edd_32;
 		pGrid->U[k][j][ie+i].Edd_33  	= pGrid->U[k][j][ie].Edd_33;
-		pGrid->U[k][j][ie+i].Sigma_t  	= pGrid->U[k][j][ie].Sigma_t;
-		pGrid->U[k][j][ie+i].Sigma_a  	= pGrid->U[k][j][ie].Sigma_a;
-      }
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][j][ie+i].Sigma[m] = pGrid->U[k][j][ie].Sigma[m];
+		}      
+		  
+		  
+	  }
     }
   }
 
@@ -1180,7 +1196,7 @@ static void outflow_ix2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1196,8 +1212,11 @@ static void outflow_ix2(GridS *pGrid)
 		pGrid->U[k][js-j][i].Edd_31  	=  pGrid->U[k][js][i].Edd_31;
 		pGrid->U[k][js-j][i].Edd_32  	=  pGrid->U[k][js][i].Edd_32;
 		pGrid->U[k][js-j][i].Edd_33 	=  pGrid->U[k][js][i].Edd_33;
-		pGrid->U[k][js-j][i].Sigma_t 	=  pGrid->U[k][js][i].Sigma_t;
-		pGrid->U[k][js-j][i].Sigma_a 	=  pGrid->U[k][js][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][js-j][i].Sigma[m] = pGrid->U[k][js][i].Sigma[m];
+		}    	  
+		  
+
       }
     }
   }
@@ -1214,7 +1233,7 @@ static void outflow_ox2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1230,9 +1249,11 @@ static void outflow_ox2(GridS *pGrid)
 		pGrid->U[k][je+j][i].Edd_31  	=  pGrid->U[k][je][i].Edd_31;
 		pGrid->U[k][je+j][i].Edd_32  	=  pGrid->U[k][je][i].Edd_32;
 		pGrid->U[k][je+j][i].Edd_33 	=  pGrid->U[k][je][i].Edd_33;
-		pGrid->U[k][je+j][i].Sigma_t 	=  pGrid->U[k][je][i].Sigma_t;
-		pGrid->U[k][je+j][i].Sigma_a 	=  pGrid->U[k][je][i].Sigma_a;
-      }
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][je+j][i].Sigma[m] = pGrid->U[k][je][i].Sigma[m];
+		}      
+		  
+	  }
     }
   }
 
@@ -1248,7 +1269,7 @@ static void outflow_ix3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1263,8 +1284,12 @@ static void outflow_ix3(GridS *pGrid)
 		pGrid->U[ks-k][j][i].Edd_31  		=  pGrid->U[ks][j][i].Edd_31;
 		pGrid->U[ks-k][j][i].Edd_32  		=  pGrid->U[ks][j][i].Edd_32;
 		pGrid->U[ks-k][j][i].Edd_33 		=  pGrid->U[ks][j][i].Edd_33;
-		pGrid->U[ks-k][j][i].Sigma_t 		=  pGrid->U[ks][j][i].Sigma_t;
-		pGrid->U[ks-k][j][i].Sigma_a 		=  pGrid->U[ks][j][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[ks-k][j][i].Sigma[m] = pGrid->U[ks][j][i].Sigma[m];
+		}      
+		  
+		  
       }
     }
   }
@@ -1281,7 +1306,7 @@ static void outflow_ox3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1296,8 +1321,11 @@ static void outflow_ox3(GridS *pGrid)
 		pGrid->U[ke+k][j][i].Edd_31  		=  pGrid->U[ke][j][i].Edd_31;
 		pGrid->U[ke+k][j][i].Edd_32  		=  pGrid->U[ke][j][i].Edd_32;
 		pGrid->U[ke+k][j][i].Edd_33 		=  pGrid->U[ke][j][i].Edd_33;
-		pGrid->U[ke+k][j][i].Sigma_t 		=  pGrid->U[ke][j][i].Sigma_t;
-		pGrid->U[ke+k][j][i].Sigma_a 		=  pGrid->U[ke][j][i].Sigma_a;
+		
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[ke+k][j][i].Sigma[m] = pGrid->U[ke][j][i].Sigma[m];
+		}    
+		  
       }
     }
   }
@@ -1314,7 +1342,7 @@ static void periodic_ix1(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1330,8 +1358,11 @@ static void periodic_ix1(GridS *pGrid)
 		pGrid->U[k][j][is-i].Edd_31  	=  pGrid->U[k][j][ie-(i-1)].Edd_31;
 		pGrid->U[k][j][is-i].Edd_32  	=  pGrid->U[k][j][ie-(i-1)].Edd_32;
 		pGrid->U[k][j][is-i].Edd_33  	=  pGrid->U[k][j][ie-(i-1)].Edd_33;
-		pGrid->U[k][j][is-i].Sigma_t 	=  pGrid->U[k][j][ie-(i-1)].Sigma_t;
-		pGrid->U[k][j][is-i].Sigma_a 	=  pGrid->U[k][j][ie-(i-1)].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][j][is-i].Sigma[m] = pGrid->U[k][j][ie-(i-1)].Sigma[m];
+		}    
+		  
       }
     }
   }
@@ -1347,7 +1378,7 @@ static void periodic_ox1(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1363,8 +1394,10 @@ static void periodic_ox1(GridS *pGrid)
 		pGrid->U[k][j][ie+i].Edd_31  	=  pGrid->U[k][j][is+(i-1)].Edd_31;
 		pGrid->U[k][j][ie+i].Edd_32  	=  pGrid->U[k][j][is+(i-1)].Edd_32;
 		pGrid->U[k][j][ie+i].Edd_33  	=  pGrid->U[k][j][is+(i-1)].Edd_33;
-		pGrid->U[k][j][ie+i].Sigma_t 	=  pGrid->U[k][j][is+(i-1)].Sigma_t;
-		pGrid->U[k][j][ie+i].Sigma_a 	=  pGrid->U[k][j][is+(i-1)].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][j][ie+i].Sigma[m] = pGrid->U[k][j][is+(i-1)].Sigma[m];
+		}    
+		  
 		
       }
     }
@@ -1382,7 +1415,7 @@ static void periodic_ix2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1397,8 +1430,11 @@ static void periodic_ix2(GridS *pGrid)
 		pGrid->U[k][js-j][i].Edd_31  	=  pGrid->U[k][je-(j-1)][i].Edd_31;
 		pGrid->U[k][js-j][i].Edd_32  	=  pGrid->U[k][je-(j-1)][i].Edd_32;
 		pGrid->U[k][js-j][i].Edd_33  	=  pGrid->U[k][je-(j-1)][i].Edd_33;
-		pGrid->U[k][js-j][i].Sigma_t 	=  pGrid->U[k][je-(j-1)][i].Sigma_t;
-		pGrid->U[k][js-j][i].Sigma_a 	=  pGrid->U[k][je-(j-1)][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[k][js-j][i].Sigma[m] = pGrid->U[k][je-(j-1)][i].Sigma[m];
+		}    
+		  
+		  
       }
     }
   }
@@ -1415,7 +1451,7 @@ static void periodic_ox2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -1430,8 +1466,11 @@ static void periodic_ox2(GridS *pGrid)
 		pGrid->U[k][je+j][i].Edd_31  	=  pGrid->U[k][js+(j-1)][i].Edd_31;
 		pGrid->U[k][je+j][i].Edd_32  	=  pGrid->U[k][js+(j-1)][i].Edd_32;
 		pGrid->U[k][je+j][i].Edd_33  	=  pGrid->U[k][js+(j-1)][i].Edd_33;
-		pGrid->U[k][je+j][i].Sigma_t 	=  pGrid->U[k][js+(j-1)][i].Sigma_t;
-		pGrid->U[k][je+j][i].Sigma_a 	=  pGrid->U[k][js+(j-1)][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][je+j][i].Sigma[m] = pGrid->U[k][js+(j-1)][i].Sigma[m];
+		}    
+
       }
     }
   }
@@ -1448,7 +1487,7 @@ static void periodic_ix3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1463,8 +1502,11 @@ static void periodic_ix3(GridS *pGrid)
 		pGrid->U[ks-k][j][i].Edd_31  	=  pGrid->U[ke-(k-1)][j][i].Edd_31;
 		pGrid->U[ks-k][j][i].Edd_32  	=  pGrid->U[ke-(k-1)][j][i].Edd_32;
 		pGrid->U[ks-k][j][i].Edd_33  	=  pGrid->U[ke-(k-1)][j][i].Edd_33;
-		pGrid->U[ks-k][j][i].Sigma_t 	=  pGrid->U[ke-(k-1)][j][i].Sigma_t;
-		pGrid->U[ks-k][j][i].Sigma_a 	=  pGrid->U[ke-(k-1)][j][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[ks-k][j][i].Sigma[m] = pGrid->U[ke-(k-1)][j][i].Sigma[m];
+		}    
+
       }
     }
   }
@@ -1481,7 +1523,7 @@ static void periodic_ox3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1496,8 +1538,11 @@ static void periodic_ox3(GridS *pGrid)
 		pGrid->U[ke+k][j][i].Edd_31  	=  pGrid->U[ks+(k-1)][j][i].Edd_31;
 		pGrid->U[ke+k][j][i].Edd_32  	=  pGrid->U[ks+(k-1)][j][i].Edd_32;
 		pGrid->U[ke+k][j][i].Edd_33  	=  pGrid->U[ks+(k-1)][j][i].Edd_33;
-		pGrid->U[ke+k][j][i].Sigma_t 	=  pGrid->U[ks+(k-1)][j][i].Sigma_t;		
-		pGrid->U[ke+k][j][i].Sigma_a 	=  pGrid->U[ks+(k-1)][j][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[ke+k][j][i].Sigma[m] = pGrid->U[ks+(k-1)][j][i].Sigma[m];
+		}      
+
 		
       }
     }
@@ -1518,7 +1563,7 @@ static void conduct_ix1(GridS *pGrid)
   int is = pGrid->is;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1534,8 +1579,11 @@ static void conduct_ix1(GridS *pGrid)
 		pGrid->U[k][j][is-i].Edd_31  	=  pGrid->U[k][j][is+(i-1)].Edd_31;
 		pGrid->U[k][j][is-i].Edd_32  	=  pGrid->U[k][j][is+(i-1)].Edd_32;
 		pGrid->U[k][j][is-i].Edd_33  	=  pGrid->U[k][j][is+(i-1)].Edd_33;
-		pGrid->U[k][j][is-i].Sigma_t  	=  pGrid->U[k][j][is+(i-1)].Sigma_t;
-		pGrid->U[k][j][is-i].Sigma_a  	=  pGrid->U[k][j][is+(i-1)].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][j][is-i].Sigma[m] = pGrid->U[k][j][is+(i-1)].Sigma[m];
+		}      
+
       }
     }
   }
@@ -1552,7 +1600,7 @@ static void conduct_ox1(GridS *pGrid)
   int ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1568,8 +1616,11 @@ static void conduct_ox1(GridS *pGrid)
 		pGrid->U[k][j][ie+i].Edd_31  	=  pGrid->U[k][j][ie-(i-1)].Edd_31;
 		pGrid->U[k][j][ie+i].Edd_32  	=  pGrid->U[k][j][ie-(i-1)].Edd_32;
 		pGrid->U[k][j][ie+i].Edd_33  	=  pGrid->U[k][j][ie-(i-1)].Edd_33;
-		pGrid->U[k][j][ie+i].Sigma_t    =  pGrid->U[k][j][ie-(i-1)].Sigma_t;
-		pGrid->U[k][j][ie+i].Sigma_a    =  pGrid->U[k][j][ie-(i-1)].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[k][j][ie+i].Sigma[m] = pGrid->U[k][j][ie-(i-1)].Sigma[m];
+		}      
+	
 
       }
     }
@@ -1587,7 +1638,7 @@ static void conduct_ix2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1603,8 +1654,12 @@ static void conduct_ix2(GridS *pGrid)
 		pGrid->U[k][js-j][i].Edd_31  	=  pGrid->U[k][js+(j-1)][i].Edd_31;
 		pGrid->U[k][js-j][i].Edd_32  	=  pGrid->U[k][js+(j-1)][i].Edd_32;
 		pGrid->U[k][js-j][i].Edd_33  	=  pGrid->U[k][js+(j-1)][i].Edd_33;
-		pGrid->U[k][js-j][i].Sigma_t  	=  pGrid->U[k][js+(j-1)][i].Sigma_t;
-		pGrid->U[k][js-j][i].Sigma_a  	=  pGrid->U[k][js+(j-1)][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][js-j][i].Sigma[m] = pGrid->U[k][js+(j-1)][i].Sigma[m];
+		}      
+		  
+
       }
     }
   }
@@ -1620,7 +1675,7 @@ static void conduct_ox2(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
 
   for (k=ks; k<=ke; k++) {
@@ -1636,8 +1691,12 @@ static void conduct_ox2(GridS *pGrid)
 		pGrid->U[k][je+j][i].Edd_31  	=  pGrid->U[k][je-(j-1)][i].Edd_31;
 		pGrid->U[k][je+j][i].Edd_32  	=  pGrid->U[k][je-(j-1)][i].Edd_32;
 		pGrid->U[k][je+j][i].Edd_33  	=  pGrid->U[k][je-(j-1)][i].Edd_33;
-		pGrid->U[k][je+j][i].Sigma_t  	=  pGrid->U[k][je-(j-1)][i].Sigma_t;	
-		pGrid->U[k][je+j][i].Sigma_a  	=  pGrid->U[k][je-(j-1)][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[k][je+j][i].Sigma[m] = pGrid->U[k][je-(j-1)][i].Sigma[m];
+		}      
+		  
+
       }
     }
   }
@@ -1653,7 +1712,7 @@ static void conduct_ix3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1668,8 +1727,12 @@ static void conduct_ix3(GridS *pGrid)
 		pGrid->U[ks-k][j][i].Edd_31  	=  pGrid->U[ks+(k-1)][j][i].Edd_31;
 		pGrid->U[ks-k][j][i].Edd_32  	=  pGrid->U[ks+(k-1)][j][i].Edd_32;
 		pGrid->U[ks-k][j][i].Edd_33  	=  pGrid->U[ks+(k-1)][j][i].Edd_33;
-		pGrid->U[ks-k][j][i].Sigma_t  	=  pGrid->U[ks+(k-1)][j][i].Sigma_t;
-		pGrid->U[ks-k][j][i].Sigma_a  	=  pGrid->U[ks+(k-1)][j][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			  pGrid->U[ks-k][j][i].Sigma[m] = pGrid->U[ks+(k-1)][j][i].Sigma[m];
+		}      
+		  
+
       }
     }
   }
@@ -1686,7 +1749,7 @@ static void conduct_ox3(GridS *pGrid)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ke = pGrid->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   for (k=1; k<=nghost; k++) {
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -1701,8 +1764,11 @@ static void conduct_ox3(GridS *pGrid)
 		pGrid->U[ke+k][j][i].Edd_31  	=  pGrid->U[ke-(k-1)][j][i].Edd_31;
 		pGrid->U[ke+k][j][i].Edd_32  	=  pGrid->U[ke-(k-1)][j][i].Edd_32;
 		pGrid->U[ke+k][j][i].Edd_33  	=  pGrid->U[ke-(k-1)][j][i].Edd_33;
-		pGrid->U[ke+k][j][i].Sigma_t  	=  pGrid->U[ke-(k-1)][j][i].Sigma_t;
-		pGrid->U[ke+k][j][i].Sigma_a  	=  pGrid->U[ke-(k-1)][j][i].Sigma_a;
+		  
+		for(m=0;m<NOPACITY;m++){
+			pGrid->U[ke+k][j][i].Sigma[m] = pGrid->U[ke-(k-1)][j][i].Sigma[m];
+		}      
+
       }
     }
   }
@@ -1730,7 +1796,7 @@ static void pack_ix1(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -1748,8 +1814,10 @@ static void pack_ix1(GridS *pG)
         *(pSnd++) = pG->U[k][j][i].Edd_31;
         *(pSnd++) = pG->U[k][j][i].Edd_32;
         *(pSnd++) = pG->U[k][j][i].Edd_33;
-        *(pSnd++) = pG->U[k][j][i].Sigma_t;
-        *(pSnd++) = pG->U[k][j][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			*(pSnd++) = pG->U[k][j][i].Sigma[m];			  
+		}
+
       }
     }
   }
@@ -1766,7 +1834,7 @@ static void pack_ox1(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
 
@@ -1783,8 +1851,9 @@ static void pack_ox1(GridS *pG)
         	*(pSnd++) = pG->U[k][j][i].Edd_31;
         	*(pSnd++) = pG->U[k][j][i].Edd_32;
         	*(pSnd++) = pG->U[k][j][i].Edd_33;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pG->U[k][j][i].Sigma[m];			  
+			}
       }
     }
   }
@@ -1800,7 +1869,7 @@ static void pack_ix2(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -1818,8 +1887,9 @@ static void pack_ix2(GridS *pG)
         	*(pSnd++) = pG->U[k][j][i].Edd_31;
         	*(pSnd++) = pG->U[k][j][i].Edd_32;
         	*(pSnd++) = pG->U[k][j][i].Edd_33;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pG->U[k][j][i].Sigma[m];			  
+			}
 
       }
     }
@@ -1837,7 +1907,7 @@ static void pack_ox2(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -1855,8 +1925,9 @@ static void pack_ox2(GridS *pG)
         	*(pSnd++) = pG->U[k][j][i].Edd_31;
         	*(pSnd++) = pG->U[k][j][i].Edd_32;
         	*(pSnd++) = pG->U[k][j][i].Edd_33;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+			  *(pSnd++) = pG->U[k][j][i].Sigma[m];			  
+			}
 
       }
     }
@@ -1874,7 +1945,7 @@ static void pack_ix3(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -1892,8 +1963,9 @@ static void pack_ix3(GridS *pG)
         	*(pSnd++) = pG->U[k][j][i].Edd_31;
         	*(pSnd++) = pG->U[k][j][i].Edd_32;
         	*(pSnd++) = pG->U[k][j][i].Edd_33;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pG->U[k][j][i].Sigma[m];			  
+			}
       }
     }
   }
@@ -1910,7 +1982,7 @@ static void pack_ox3(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -1928,8 +2000,9 @@ static void pack_ox3(GridS *pG)
         	*(pSnd++) = pG->U[k][j][i].Edd_31;
         	*(pSnd++) = pG->U[k][j][i].Edd_32;
         	*(pSnd++) = pG->U[k][j][i].Edd_33;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pG->U[k][j][i].Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pG->U[k][j][i].Sigma[m];			  
+			}
       }
     }
   }
@@ -1946,7 +2019,7 @@ static void unpack_ix1(GridS *pG)
   int is = pG->is;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -1962,10 +2035,13 @@ static void unpack_ix1(GridS *pG)
         pG->U[k][j][i].Edd_21 	= *(pRcv++);
         pG->U[k][j][i].Edd_22 	= *(pRcv++);
         pG->U[k][j][i].Edd_31 	= *(pRcv++);
-	pG->U[k][j][i].Edd_32 	= *(pRcv++);
-	pG->U[k][j][i].Edd_33 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_a 	= *(pRcv++);
+		pG->U[k][j][i].Edd_32 	= *(pRcv++);
+		pG->U[k][j][i].Edd_33 	= *(pRcv++);
+		  
+		for(m=0;m<NOPACITY;m++){
+			pG->U[k][j][i].Sigma[m] = *(pRcv++);			  
+		}  
+		  
 
       }
     }
@@ -1983,7 +2059,7 @@ static void unpack_ox1(GridS *pG)
   int ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -2001,8 +2077,9 @@ static void unpack_ox1(GridS *pG)
         pG->U[k][j][i].Edd_31 	= *(pRcv++);
 	pG->U[k][j][i].Edd_32 	= *(pRcv++);
 	pG->U[k][j][i].Edd_33 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_a 	= *(pRcv++);
+		  for(m=0;m<NOPACITY;m++){
+			  pG->U[k][j][i].Sigma[m] = *(pRcv++);			  
+		  }  
       }
     }
   }
@@ -2019,7 +2096,7 @@ static void unpack_ix2(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -2037,8 +2114,9 @@ static void unpack_ix2(GridS *pG)
         pG->U[k][j][i].Edd_31 	= *(pRcv++);
 	pG->U[k][j][i].Edd_32 	= *(pRcv++);
 	pG->U[k][j][i].Edd_33 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_a 	= *(pRcv++);
+		  for(m=0;m<NOPACITY;m++){
+			  pG->U[k][j][i].Sigma[m] = *(pRcv++);			  
+		  }  
       }
     }
   }
@@ -2055,7 +2133,7 @@ static void unpack_ox2(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -2073,8 +2151,9 @@ static void unpack_ox2(GridS *pG)
         pG->U[k][j][i].Edd_31 	= *(pRcv++);
 	pG->U[k][j][i].Edd_32 	= *(pRcv++);
 	pG->U[k][j][i].Edd_33 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_a 	= *(pRcv++);
+		  for(m=0;m<NOPACITY;m++){
+			  pG->U[k][j][i].Sigma[m] = *(pRcv++);			  
+		  }  
       }
     }
   }
@@ -2091,7 +2170,7 @@ static void unpack_ix3(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -2109,8 +2188,9 @@ static void unpack_ix3(GridS *pG)
         pG->U[k][j][i].Edd_31 	= *(pRcv++);
 	pG->U[k][j][i].Edd_32 	= *(pRcv++);
 	pG->U[k][j][i].Edd_33 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_a 	= *(pRcv++);
+		  for(m=0;m<NOPACITY;m++){
+			  pG->U[k][j][i].Sigma[m] = *(pRcv++);			  
+		  }  
       }
     }
   }
@@ -2127,7 +2207,7 @@ static void unpack_ox3(GridS *pG)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ke = pG->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -2145,8 +2225,9 @@ static void unpack_ox3(GridS *pG)
         pG->U[k][j][i].Edd_31 	= *(pRcv++);
 	pG->U[k][j][i].Edd_32 	= *(pRcv++);
 	pG->U[k][j][i].Edd_33 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pG->U[k][j][i].Sigma_a 	= *(pRcv++);
+		  for(m=0;m<NOPACITY;m++){
+			  pG->U[k][j][i].Sigma[m] = *(pRcv++);			  
+		  }  
       }
     }
   }

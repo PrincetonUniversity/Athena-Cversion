@@ -14,11 +14,13 @@
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
+#if defined(MATRIX_MULTIGRID) || defined(MATRIX_HYPRE)
+
 #ifdef MPI_PARALLEL
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
 static MPI_Request *recv_rq, *send_rq;
-static int Nrad = 16;
+static int Nrad = 14 + NOPACITY;
 #endif /* MPI_PARALLEL */
 
 /*==============================================================================
@@ -691,7 +693,7 @@ void bvals_Matrix_init(MatrixS *pMat)
   size = x1cnt > x2cnt ? x1cnt : x2cnt;
   size = x3cnt >  size ? x3cnt : size;
  /* Here we only need to send Matrix related variables *
-  * total is Er, Fr???, Sigma_??, Edd_?? V?, T4 16 variables 
+  * total is Er, Fr???, Sigma_??, Edd_?? V?, T4 14+NOPACITY variables 
   */
 
   size *= Matghost*Nrad;
@@ -1376,7 +1378,7 @@ static void pack_ix1(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -1398,8 +1400,11 @@ static void pack_ix1(MatrixS *pMat)
         *(pSnd++) = pMat->U[k][j][i].Edd_31;
         *(pSnd++) = pMat->U[k][j][i].Edd_32;
         *(pSnd++) = pMat->U[k][j][i].Edd_33;
-        *(pSnd++) = pMat->U[k][j][i].Sigma_t;
-        *(pSnd++) = pMat->U[k][j][i].Sigma_a;
+	for(m=0;m<NOPACITY;m++){
+		*(pSnd++) = pMat->U[k][j][i].Sigma[m];
+	}
+
+
       }
     }
   }
@@ -1416,7 +1421,7 @@ static void pack_ox1(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
 
@@ -1437,8 +1442,12 @@ static void pack_ox1(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Edd_31;
         	*(pSnd++) = pMat->U[k][j][i].Edd_32;
         	*(pSnd++) = pMat->U[k][j][i].Edd_33;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_a;
+
+		for(m=0;m<NOPACITY;m++){
+			*(pSnd++) = pMat->U[k][j][i].Sigma[m];
+		}
+
+
       }
     }
   }
@@ -1454,7 +1463,7 @@ static void pack_ix2(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -1476,8 +1485,10 @@ static void pack_ix2(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Edd_31;
         	*(pSnd++) = pMat->U[k][j][i].Edd_32;
         	*(pSnd++) = pMat->U[k][j][i].Edd_33;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			*(pSnd++) = pMat->U[k][j][i].Sigma[m];
+		}
+
 
       }
     }
@@ -1495,7 +1506,7 @@ static void pack_ox2(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -1517,8 +1528,10 @@ static void pack_ox2(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Edd_31;
         	*(pSnd++) = pMat->U[k][j][i].Edd_32;
         	*(pSnd++) = pMat->U[k][j][i].Edd_33;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			*(pSnd++) = pMat->U[k][j][i].Sigma[m];
+		}
+
 
       }
     }
@@ -1536,7 +1549,7 @@ static void pack_ix3(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -1558,8 +1571,11 @@ static void pack_ix3(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Edd_31;
         	*(pSnd++) = pMat->U[k][j][i].Edd_32;
         	*(pSnd++) = pMat->U[k][j][i].Edd_33;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			*(pSnd++) = pMat->U[k][j][i].Sigma[m];
+		}
+
+
       }
     }
   }
@@ -1576,7 +1592,7 @@ static void pack_ox3(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -1598,8 +1614,10 @@ static void pack_ox3(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Edd_31;
         	*(pSnd++) = pMat->U[k][j][i].Edd_32;
         	*(pSnd++) = pMat->U[k][j][i].Edd_33;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_t;
-        	*(pSnd++) = pMat->U[k][j][i].Sigma_a;
+		for(m=0;m<NOPACITY;m++){
+			*(pSnd++) = pMat->U[k][j][i].Sigma[m];
+		}
+
       }
     }
   }
@@ -1616,7 +1634,7 @@ static void unpack_ix1(MatrixS *pMat)
   int is = pMat->is;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -1638,8 +1656,10 @@ static void unpack_ix1(MatrixS *pMat)
         pMat->U[k][j][i].Edd_31 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_32 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_33 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_a 	= *(pRcv++);
+	for(m=0;m<NOPACITY;m++){	
+		pMat->U[k][j][i].Sigma[m]	= *(pRcv++);
+	}
+
 
       }
     }
@@ -1657,7 +1677,7 @@ static void unpack_ox1(MatrixS *pMat)
   int ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -1679,8 +1699,11 @@ static void unpack_ox1(MatrixS *pMat)
         pMat->U[k][j][i].Edd_31 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_32 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_33 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_a 	= *(pRcv++);
+	for(m=0;m<NOPACITY;m++){
+		pMat->U[k][j][i].Sigma[m] = *(pRcv++);
+	}
+
+
       }
     }
   }
@@ -1697,7 +1720,7 @@ static void unpack_ix2(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -1719,8 +1742,9 @@ static void unpack_ix2(MatrixS *pMat)
         pMat->U[k][j][i].Edd_31 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_32 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_33 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_a 	= *(pRcv++);
+	for(m=0;m<NOPACITY;m++){
+		pMat->U[k][j][i].Sigma[m] = *(pRcv++);
+	}
       }
     }
   }
@@ -1737,7 +1761,7 @@ static void unpack_ox2(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -1759,8 +1783,9 @@ static void unpack_ox2(MatrixS *pMat)
         pMat->U[k][j][i].Edd_31 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_32 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_33 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_a 	= *(pRcv++);
+	for(m=0;m<NOPACITY;m++){
+		pMat->U[k][j][i].Sigma[m] = *(pRcv++);
+	}
       }
     }
   }
@@ -1777,7 +1802,7 @@ static void unpack_ix3(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -1799,8 +1824,11 @@ static void unpack_ix3(MatrixS *pMat)
         pMat->U[k][j][i].Edd_31 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_32 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_33 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_a 	= *(pRcv++);
+
+	for(m=0;m<NOPACITY;m++){
+		pMat->U[k][j][i].Sigma[m] = *(pRcv++);
+	}
+
       }
     }
   }
@@ -1817,7 +1845,7 @@ static void unpack_ox3(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ke = pMat->ke;
-  int i,j,k;
+  int i,j,k,m;
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -1839,8 +1867,10 @@ static void unpack_ox3(MatrixS *pMat)
         pMat->U[k][j][i].Edd_31 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_32 	= *(pRcv++);
 	pMat->U[k][j][i].Edd_33 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_t 	= *(pRcv++);
-	pMat->U[k][j][i].Sigma_a 	= *(pRcv++);
+	for(m=0;m<NOPACITY;m++){
+		pMat->U[k][j][i].Sigma[m] = *(pRcv++);
+	}
+
       }
     }
   }
@@ -1849,6 +1879,7 @@ static void unpack_ox3(MatrixS *pMat)
 }
 #endif /* MPI_PARALLEL */
 
+#endif /* MATRIX_MULTIGRID */
 
 #endif /* End radiation hydro and radiation MHD */
 

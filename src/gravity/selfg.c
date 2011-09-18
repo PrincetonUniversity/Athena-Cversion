@@ -1,13 +1,12 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: selfg.c
- *
- * PURPOSE: Contains functions to control solution of Poisson's equation for
+/*============================================================================*/
+/*! \file selfg.c
+ *  \brief Contains functions to control solution of Poisson's equation for
  *   self-gravity.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   selfg_fc()   - 2nd order flux-corrections for self-gravity terms
- *   selfg_init() - sets pointer to appropriate self-gravity function
+ * - selfg_fc()   - 2nd order flux-corrections for self-gravity terms
+ * - selfg_init() - sets pointer to appropriate self-gravity function
  *============================================================================*/
 
 #include <math.h>
@@ -20,18 +19,21 @@
 
 #ifdef SELF_GRAVITY
 /*----------------------------------------------------------------------------*/
-/* selfg_fc: Adds flux-correction to make the integration algorithms for the
- *   source terms in the momentum and energy equations second-order.  This
+/*! \fn void selfg_fc(DomainS *pD)
+ *  \brief Adds flux-correction to make the integration algorithms for the
+ *   source terms in the momentum and energy equations second-order.  
+ *
+ *   This
  *   requires subtracting 1/2 the source terms computed with the old potential,
  *   and adding 1/2 the source terms computed with the new potential.
  *
  *   The source terms for momentum are computed using the divergence of the
  *   gravitational stress tensor to conserve momentum exactly.
- *     dM/dt = -Div(G);   G = (gg - 0.5g^2)/4\piG;   g=-Grad(Phi);
+ *   - dM/dt = -Div(G);   G = (gg - 0.5g^2)/4\piG;   g=-Grad(Phi);
  *
  *   The source terms for the energy are added using the mass fluxes at cell
  *   faces, to improve conservation.
- *     S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
+ *   - S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
 
 void selfg_fc(DomainS *pD)
@@ -92,9 +94,12 @@ void selfg_fc(DomainS *pD)
 /* Update momenta and energy with d/dx1 terms  */
       pG->U[ks][js][i].M1 -= 0.5*dtodx1*(flx_m1r-flx_m1l);
 #ifndef ISOTHERMAL
+#ifndef CONS_GRAVITY
+  /* Only needed with no-conservative algorithm */  
       pG->U[ks][js][i].E -=
          0.5*dtodx1*(pG->x1MassFlux[ks][js][i  ]*(dphic - dphil) +
                      pG->x1MassFlux[ks][js][i+1]*(dphir - dphic));
+#endif
 #endif
     }
     break;
@@ -156,9 +161,11 @@ void selfg_fc(DomainS *pD)
         pG->U[ks][j][i].M1 -= 0.5*dtodx1*(flx_m1r - flx_m1l);
         pG->U[ks][j][i].M2 -= 0.5*dtodx1*(flx_m2r - flx_m2l);
 #ifndef ISOTHERMAL
+#ifndef CONS_GRAVITY
         pG->U[ks][j][i].E -=
            0.5*dtodx1*(pG->x1MassFlux[ks][j][i  ]*(dphic - dphil) +
                        pG->x1MassFlux[ks][j][i+1]*(dphir - dphic));
+#endif /* cons_gravity */
 #endif
       }
     }
@@ -217,9 +224,11 @@ void selfg_fc(DomainS *pD)
         pG->U[ks][j][i].M1 -= 0.5*dtodx2*(flx_m1r - flx_m1l);
         pG->U[ks][j][i].M2 -= 0.5*dtodx2*(flx_m2r - flx_m2l);
 #ifndef ISOTHERMAL
+#ifndef CONS_GRAVITY
         pG->U[ks][j][i].E -=
            0.5*dtodx2*(pG->x2MassFlux[ks][j  ][i]*(dphic - dphil) +
                        pG->x2MassFlux[ks][j+1][i]*(dphir - dphic));
+#endif
 #endif
       }
     }
@@ -308,9 +317,11 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M2 -= 0.5*dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx1*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx1*
           (pG->x1MassFlux[k][j][i  ]*(dphic - dphil) +
            pG->x1MassFlux[k][j][i+1]*(dphir - dphic));
+#endif
 #endif /* ADIABATIC */
       }
     }}
@@ -395,9 +406,11 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M2 -= 0.5*dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx2*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx2*
           (pG->x2MassFlux[k][j  ][i]*(dphic - dphil) +
            pG->x2MassFlux[k][j+1][i]*(dphir - dphic));
+#endif
 #endif /* ADIABATIC */
       }
     }}
@@ -482,9 +495,11 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M2 -= 0.5*dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx3*(flx_m3r - flx_m3l);
 #ifdef ADIABATIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx3*
           (pG->x3MassFlux[k  ][j][i]*(dphic - dphil) +
            pG->x3MassFlux[k+1][j][i]*(dphir - dphic));
+#endif
 #endif /* ADIABATIC */
       }
     }}
@@ -497,7 +512,8 @@ void selfg_fc(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* selfg_init: initialize pointer to appropriate self-gravity f'n, 
+/*! \fn VDFun_t selfg_init(MeshS *pM)
+ *  \brief Initialize pointer to appropriate self-gravity f'n, 
  *   allocates memory for dPhi array used for flux correction.
  */
 
@@ -535,11 +551,27 @@ VDFun_t selfg_init(MeshS *pM)
     return selfg_fft_1d;
   case 2:
     selfg_fft_2d_init(pM);
+#ifdef SHEARING_BOX
+    if (ShBoxCoord == xy) return selfg_fft_2d_xy;
+#endif
     return selfg_fft_2d;
   case 3:
     selfg_fft_3d_init(pM);
     return selfg_fft_3d;
 #endif
+
+/* for gravity using FFTs in Disk Geometry, also initialize plans and data for FFTW */
+#ifdef SELF_GRAVITY_USING_FFT_DISK
+  case 1:
+    return selfg_fft_disk_1d;
+  case 2:
+    selfg_fft_disk_2d_init(pM);
+    return selfg_fft_disk_2d;
+  case 3:
+    selfg_fft_disk_3d_init(pM);
+    return selfg_fft_disk_3d;
+#endif
+
 /* for gravity using FFTs with open BC, also initialize plans and data for FFTW */
 #ifdef SELF_GRAVITY_USING_FFT_OBC
   case 1:
@@ -550,8 +582,6 @@ VDFun_t selfg_init(MeshS *pM)
     selfg_fft_obc_3d_init(pM);
     return selfg_fft_obc_3d;
 #endif
-
-
 
   }
 

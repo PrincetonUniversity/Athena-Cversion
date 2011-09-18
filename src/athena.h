@@ -100,8 +100,9 @@ typedef struct Cons_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
-  Real Sigma_t;
-  Real Sigma_a;
+  Real Sigma[NOPACITY];	
+/* Sigma[0]=flux mean scattering opacity; Sigma[1]=flux mean absorption opacity; 
+Sigma[2] = plank mean absorption opacity; Sigma[3] = Er mean absorption opacity */ 
 #endif
 }ConsS;
 
@@ -137,8 +138,7 @@ typedef struct Prim_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
-  Real Sigma_t;
-  Real Sigma_a;
+  Real Sigma[NOPACITY];	
 #endif
 }PrimS;
 
@@ -176,8 +176,7 @@ typedef struct Cons1D_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
-  Real Sigma_t;
-  Real Sigma_a;
+  Real Sigma[NOPACITY];	
 #endif
 }Cons1DS;
 
@@ -212,8 +211,7 @@ typedef struct Prim1D_s{
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
-  Real Sigma_t;
-  Real Sigma_a;
+  Real Sigma[NOPACITY];	
 #endif
 }Prim1DS;
 
@@ -390,6 +388,9 @@ typedef struct Grid_s{
 #endif /* MHD */
 #ifdef SELF_GRAVITY
   Real ***Phi, ***Phi_old;      /* gravitational potential */
+#ifdef CONS_GRAVITY
+  Real ***dphidt, ***dphidt_old; /*!<derivative of gravitational potential over time */
+#endif
   Real ***x1MassFlux;           /* x1 mass flux for source term correction */
   Real ***x2MassFlux;           /* x2 mass flux for source term correction */
   Real ***x3MassFlux;           /* x3 mass flux for source term correction */
@@ -407,6 +408,12 @@ typedef struct Grid_s{
   int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
   int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
   int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
+
+#ifdef SELF_GRAVITY
+  int rx1_Gid, lx1_Gid;  /*!< ID of Grid to R/L in x1-dir (default=-1; no Grid) */
+  int rx2_Gid, lx2_Gid;  /*!< ID of Grid to R/L in x2-dir (default=-1; no Grid) */
+  int rx3_Gid, lx3_Gid;  /*!< ID of Grid to R/L in x3-dir (default=-1; no Grid) */
+#endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
@@ -468,8 +475,7 @@ typedef struct RadMHD_s {
   Real Edd_31;
   Real Edd_32;
   Real Edd_33;
-  Real Sigma_a;
-  Real Sigma_t;
+  Real Sigma[NOPACITY];	
 
 } RadMHDS;
 
@@ -545,6 +551,12 @@ typedef struct Domain_s{
   VGFun_t rad_ix1_BCFun, rad_ox1_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
   VGFun_t rad_ix2_BCFun, rad_ox2_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
   VGFun_t rad_ix3_BCFun, rad_ox3_BCFun;  /* ix1/ox1 BC function pointers for this Dom for radiation quantities*/
+#endif
+
+#ifdef SELF_GRAVITY
+  VGFun_t ix1_GBCFun, ox1_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
+  VGFun_t ix2_GBCFun, ox2_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
+  VGFun_t ix3_GBCFun, ox3_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
 #endif
 
 #ifdef MPI_PARALLEL
@@ -678,7 +690,7 @@ typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 
 /* Define user provided opacity function to give absorption and total reaction coefficient */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-typedef void (*OpacityFun_t)(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a, Real dSigma[4]);
+typedef void (*OpacityFun_t)(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY]);
 #endif
 /* dSigma[0] = dsigma_t/d\rho, dSigma[1] = dsigma_a/d\rho, dSigma[2] = dsigma_t/dT, , dSigma[3] = dsigma_a/dT 
    dSigma can be set to be NULL, then we do not set dSigma when the function is called 

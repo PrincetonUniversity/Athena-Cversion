@@ -48,6 +48,7 @@
 /* Self-gravity */
 #define @SELF_GRAVITY_DEFINE@
 #define @SELF_GRAVITY_ALGORITHM@
+#define @CONS_GRAVITY@
 
 
 /* Particles */
@@ -62,6 +63,9 @@
 /* Radiation */
 #define @RADIATION_TRANSFER_DEFINE@
 #define @RADIATION_TRANSFER_ALGORITHM@
+
+/* Matrix Solver Library */
+#define @MATRIX_LIBRARY@
 
 /* special relativity */
 #define @SPECIAL_RELATIVITY_MODE@
@@ -122,13 +126,15 @@
 /* nghost = Number of Ghost Cells 
  * num_digit = Number of digits in data dump file
  * MAXLEN = maximum line length in input parameter file
- * Matghost = Number of ghost zones for Matrix solver. Only 1 ghost zone is needed 
+ * Matghost = Number of ghost zones for Matrix solver. Only 1 ghost zone is needed
+ * NOPACITY = total number of different kinds of opacity  
  */
 
 /* Number of ghost cells must be 5 with particles and 3rd order */
 enum {
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Matghost = 1,
+  NOPACITY= 4,
 #endif
 #ifdef PARTICLES 
 #if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
@@ -194,6 +200,11 @@ enum {LtoR_tag,
       boundary_particle_tag,
       shearing_sheet_ix1_tag,
       shearing_sheet_ox1_tag,
+#ifdef SELF_GRAVITY
+      shearing_sheet_grav_ix1_tag,
+      shearing_sheet_grav_ox1_tag,
+      remapvar_tag,
+#endif
       remapEy_tag,
       fargo_tag,
       ch_rundir0_tag,

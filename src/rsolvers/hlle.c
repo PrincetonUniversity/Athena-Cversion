@@ -69,9 +69,10 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Real dt=pFlux->d;
-  Real Proe, Sigma_roe, Sigmat_roe;
+  Real Proe, Sigma_roe[NOPACITY];
   Real Erroe, Frroe[3], Edd[6];
-	int DIM = (int)pFlux->Mx;
+  int DIM = (int)pFlux->Mx;
+  int m;
 #endif
 
   Real ev[NWAVE],al,ar;
@@ -104,8 +105,10 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
-  Sigma_roe = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
-  Sigmat_roe = (sqrtdl*Wl.Sigma_t + sqrtdr*Wr.Sigma_t)*isdlpdr;
+  for(m=0;m<NOPACITY;m++){
+	Sigma_roe[m] = (sqrtdl*Wl.Sigma[m] + sqrtdr*Wr.Sigma[m] )*isdlpdr;
+  }
+
   Erroe = (sqrtdl*Wl.Er + sqrtdr*Wr.Er)*isdlpdr;
   Frroe[0] = (sqrtdl*Wl.Fr1 + sqrtdr*Wr.Fr1)*isdlpdr;
   Frroe[1] = (sqrtdl*Wl.Fr2 + sqrtdr*Wr.Fr2)*isdlpdr;
@@ -163,11 +166,11 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
  *****************************/
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, DIM, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, DIM, ev, NULL, NULL);
 #endif
 
 #ifdef RADIATION_MHD
- esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, DIM,  
+ esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, DIM,  
   hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
 #endif
 

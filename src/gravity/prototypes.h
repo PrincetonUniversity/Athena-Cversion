@@ -1,11 +1,10 @@
 #ifndef GRAVITY_PROTOTYPES_H
 #define GRAVITY_PROTOTYPES_H 
 #include "../copyright.h"
-/*==============================================================================
- * FILE: prototypes.h (in /src/gravity)
- *
- * PURPOSE: Prototypes for all public functions in the /src/gravity directory
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions in the /src/gravity directory */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"
@@ -23,7 +22,7 @@ void bvals_grav(DomainS *pDomain);
 /* selfg.c  */
 #ifdef SELF_GRAVITY
 VDFun_t selfg_init(MeshS *pM);
-void selfg_flux_correction(GridS *pG);
+void selfg_fc(DomainS *pD);
 #endif /* SELF_GRAVITY */
 
 /* selfg_multigrid.c  */
@@ -39,15 +38,22 @@ void selfg_multig_3d_init(MeshS *pM);
 #if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT)
 void selfg_fft_1d(DomainS *pD);
 void selfg_fft_2d(DomainS *pD);
+void selfg_fft_2d_xy(DomainS *pD);
 void selfg_fft_3d(DomainS *pD);
 void selfg_fft_2d_init(MeshS *pM);
 void selfg_fft_3d_init(MeshS *pM);
+#endif /* FFT_ENABLED */
+#if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT_DISK)
+void selfg_fft_disk_1d(DomainS *pD);
+void selfg_fft_disk_2d(DomainS *pD);
+void selfg_fft_disk_3d(DomainS *pD);
+void selfg_fft_disk_2d_init(MeshS *pM);
+void selfg_fft_disk_3d_init(MeshS *pM);
 #endif /* FFT_ENABLED */
 #if defined(FFT_ENABLED) && defined(SELF_GRAVITY_USING_FFT_OBC)
 void selfg_fft_obc_3d(DomainS *pD);
 void selfg_fft_obc_3d_init(MeshS *pM);
 #endif /* FFT_ENABLED SELF_GRAVITY_USING_FFT_OBC */
-
 
 
 #endif /* SELF_GRAVITY */

@@ -1,36 +1,38 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_3d_ctu.c
+/*============================================================================*/
+/*! \file integrate_3d_ctu.c
+ *  \brief Integrate MHD equations using 3D version of the directionally
+ *   unsplit CTU integrator of Colella (1990). 
  *
  * PURPOSE: Integrate MHD equations using 3D version of the directionally
  *   unsplit CTU integrator of Colella (1990).  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i, B3i  -- interface magnetic field
+ *   -  U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *   -  B1i, B2i, B3i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically thin cooling,
  *   shearing box source terms, and the H-correction of Sanders et al.
- *     For adb hydro, requires (9*Cons1DS +  3*Real) = 48 3D arrays
- *     For adb mhd, requires   (9*Cons1DS + 10*Real) = 73 3D arrays
+ *   - For adb hydro, requires (9*Cons1DS +  3*Real) = 48 3D arrays
+ *   - For adb mhd, requires   (9*Cons1DS + 10*Real) = 73 3D arrays
  *   The H-correction of Sanders et al. adds another 3 arrays.  
  *
  * REFERENCES:
- *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
+ * - P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ * - T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
  *   constrained transport in three dimensions", JCP, 227, 4123 (2008)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
- *   J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
+ * - J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
  *   178, 137 (2008)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_3d_ctu()
- *   integrate_init_3d()
- *   integrate_destruct_3d()
- *============================================================================*/
+ * - integrate_3d_ctu()
+ * - integrate_init_3d()
+ * - integrate_destruct_3d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -55,6 +57,14 @@ static Cons1DS ***Ul_x1Face=NULL, ***Ur_x1Face=NULL;
 static Cons1DS ***Ul_x2Face=NULL, ***Ur_x2Face=NULL;
 static Cons1DS ***Ul_x3Face=NULL, ***Ur_x3Face=NULL;
 Cons1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
+
+#ifdef CONS_GRAVITY
+static Real ***x1Flux_grav=NULL;
+static Real ***x2Flux_grav=NULL;
+static Real ***x3Flux_grav=NULL;
+static Real ***density_old=NULL;
+Real dotphil, dotgxl;
+#endif
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
@@ -102,7 +112,8 @@ static void integrate_emf3_corner(const GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_3d: 3D CTU integrator for MHD using 6-solve method */
+/*! \fn void integrate_3d_ctu(DomainS *pD)
+ *  \brief 3D CTU integrator for MHD using 6-solve method */
 
 void integrate_3d_ctu(DomainS *pD)
 {
@@ -2822,9 +2833,12 @@ void integrate_3d_ctu(DomainS *pD)
         pG->U[k][j][i].M1 -= dtodx1*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx1*(flx_m3r - flx_m3l);
+
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
                                     x1Flux[k][j][i+1].d*(phir - phic));
+#endif
 #endif /* BAROTROPIC */
       }
     }
@@ -2868,8 +2882,10 @@ void integrate_3d_ctu(DomainS *pD)
         pG->U[k][j][i].M2 -= dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx2*(flx_m3r - flx_m3l);
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                     x2Flux[k][j+1][i].d*(phir - phic));
+#endif
 #endif /* BAROTROPIC */
       }
     }
@@ -2912,9 +2928,12 @@ void integrate_3d_ctu(DomainS *pD)
         pG->U[k][j][i].M1 -= dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= dtodx3*(flx_m3r - flx_m3l);
+
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
                                     x3Flux[k+1][j][i].d*(phir - phic));
+#endif
 #endif /* BAROTROPIC */
       }
     }
@@ -2981,6 +3000,9 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
+#ifdef CONS_GRAVITY
+	density_old[k][j][i] = pG->U[k][j][i].d;
+#endif
         pG->U[k][j][i].d  -= dtodx1*(rsf*x1Flux[k][j][i+1].d -lsf*x1Flux[k][j][i].d );
         pG->U[k][j][i].M1 -= dtodx1*(rsf*x1Flux[k][j][i+1].Mx-lsf*x1Flux[k][j][i].Mx);
         pG->U[k][j][i].M2 -= dtodx1*(SQR(rsf)*x1Flux[k][j][i+1].My-SQR(lsf)*x1Flux[k][j][i].My);
@@ -3045,6 +3067,56 @@ void integrate_3d_ctu(DomainS *pD)
       }
     }
   }
+
+
+
+#ifdef CONS_GRAVITY
+	bvals_mhd(pD);
+/* calculate dphidt term from the updated momentum flux */
+    	(*SelfGrav_cons)(pD);
+    	bvals_grav(pD);
+/* update energy with x1 flux  */
+for(k=ks; k<=ke+1; k++){
+  for(j=js; j<=je+1;j++){	
+	for (i=is; i<=ie+1; i++) {
+	phil = 0.25*(pG->Phi[k][j][i-1]+pG->Phi_old[k][j][i]+pG->Phi_old[k][j][i-1]+pG->Phi[k][j][i]);
+	gxl = 0.5 * (pG->Phi[k][j][i-1] + pG->Phi_old[k][j][i-1]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx1);
+	dotphil  = 0.5*(pG->dphidt[k][j][i-1] + pG->dphidt[k][j][i  ]);		
+	dotgxl = (pG->dphidt[k][j][i-1] - pG->dphidt[k][j][i  ])/(pG->dx1);
+
+	x1Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[k][j][i].d*phil;
+
+	phil = 0.25*(pG->Phi[k][j-1][i]+pG->Phi_old[k][j-1][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
+	gxl = 0.5 * (pG->Phi[k][j-1][i] + pG->Phi_old[k][j-1][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx2);
+	dotphil  = 0.5*(pG->dphidt[k][j-1][i] + pG->dphidt[k][j][i  ]);		
+	dotgxl = (pG->dphidt[k][j-1][i] - pG->dphidt[k][j][i  ])/(pG->dx2);
+
+	x2Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[k][j][i].d*phil;
+
+	phil = 0.25*(pG->Phi[k-1][j][i]+pG->Phi_old[k-1][j][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
+	gxl = 0.5 * (pG->Phi[k-1][j][i] + pG->Phi_old[k-1][j][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx3);
+	dotphil  = 0.5*(pG->dphidt[k-1][j][i] + pG->dphidt[k][j][i  ]);		
+	dotgxl = (pG->dphidt[k-1][j][i] - pG->dphidt[k][j][i  ])/(pG->dx3);
+
+	x3Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x3Flux[k][j][i].d*phil;		
+	}
+ }
+}
+
+for(k=ks; k<=ke; k++){
+ for(j=js; j<=je; j++){
+	for(i=is;i<=ie;i++){
+	pG->U[k][j][i].E += (0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi[k][j][i]
+				      -dtodx1 * (x1Flux_grav[k][j][i+1] - x1Flux_grav[k][j][i])
+				      -dtodx2 * (x2Flux_grav[k][j+1][i] - x2Flux_grav[k][j][i])
+				      -dtodx3 * (x3Flux_grav[k+1][j][i] - x3Flux_grav[k][j][i]));
+	}
+}
+}
+#endif
+
+
+
 
 /*--- Step 12d -----------------------------------------------------------------
  * Set cell centered magnetic fields to average of updated face centered fields.
@@ -3365,9 +3437,9 @@ void integrate_3d_ctu(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_3d: Allocate temporary integration arrays 
+/*! \fn void integrate_init_3d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays 
 */
-
 void integrate_init_3d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,size3=0,nl,nd;
@@ -3454,6 +3526,17 @@ void integrate_init_3d(MeshS *pM)
   if ((x3Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
     == NULL) goto on_error;
 
+#ifdef CONS_GRAVITY
+  if ((x1Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((x2Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((x3Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    == NULL) goto on_error;
+  if ((density_old   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
+    ==NULL)  goto on_error;
+#endif
+
 #ifdef CYLINDRICAL
 #ifndef MHD
 #ifndef PARTICLES
@@ -3489,9 +3572,9 @@ void integrate_init_3d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_3d:  Free temporary integration arrays 
+/*! \fn void integrate_destruct_3d(void)
+ *  \brief Free temporary integration arrays 
  */
-
 void integrate_destruct_3d(void)
 {
 
@@ -3537,6 +3620,12 @@ void integrate_destruct_3d(void)
   if (remapEyiib != NULL) free_2d_array(remapEyiib);
   if (remapEyoib != NULL) free_2d_array(remapEyoib);
 #endif
+#ifdef CONS_GRAVITY
+  if (x1Flux_grav    != NULL) free_3d_array(x1Flux_grav);
+  if (x2Flux_grav    != NULL) free_3d_array(x2Flux_grav);
+  if (x3Flux_grav    != NULL) free_3d_array(x3Flux_grav);
+  if (density_old    != NULL) free_3d_array(density_old);
+#endif
 
   /* DATA STRUCTURES FOR CYLINDRICAL COORDINATES */
 #ifdef CYLINDRICAL
@@ -3549,18 +3638,17 @@ void integrate_destruct_3d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf1_corner
- * integrate_emf2_corner
- * integrate_emf3_corner
- *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
- *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
- *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
- *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+/*! \fn static void integrate_emf1_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *  Note: 
+ * - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ * - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ * - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ * - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ * - x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ * - x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
  */
-
 #ifdef MHD
 static void integrate_emf1_corner(const GridS *pG)
 {
@@ -3620,6 +3708,17 @@ static void integrate_emf1_corner(const GridS *pG)
   return;
 }
 
+/*! \fn static void integrate_emf2_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *  Note: 
+ * - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ * - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ * - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ * - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ * - x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ * - x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+ */
 static void integrate_emf2_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;
@@ -3678,6 +3777,17 @@ static void integrate_emf2_corner(const GridS *pG)
   return;
 }
 
+/*! \fn static void integrate_emf3_corner(const GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.  
+ *
+ *  Note: 
+ * - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ * - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ * - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ * - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+ * - x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
+ * - x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+ */
 static void integrate_emf3_corner(const GridS *pG)
 {
   int i, is = pG->is, ie = pG->ie;

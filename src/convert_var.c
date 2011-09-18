@@ -106,8 +106,8 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   U.Edd_31 = pCons->Edd_31;
   U.Edd_32 = pCons->Edd_32;
   U.Edd_33 = pCons->Edd_33;
-  U.Sigma_t = pCons->Sigma_t;
-  U.Sigma_a = pCons->Sigma_a;
+  int m;
+  for(m=0; m<NOPACITY; m++) U.Sigma[m] = pCons->Sigma[m];	
 #endif
 
 
@@ -139,8 +139,7 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   Prim.Edd_31 = W.Edd_31;
   Prim.Edd_32 = W.Edd_32;
   Prim.Edd_33 = W.Edd_33;
-  Prim.Sigma_t = W.Sigma_t;
-  Prim.Sigma_a = W.Sigma_a;
+  for(m=0; m<NOPACITY; m++) Prim.Sigma[m] = W.Sigma[m];	
 #endif
 
   return Prim;
@@ -183,8 +182,8 @@ ConsS Prim_to_Cons (const PrimS *pW)
   W.Edd_31 = pW->Edd_31;
   W.Edd_32 = pW->Edd_32;
   W.Edd_33 = pW->Edd_33;
-  W.Sigma_t = pW->Sigma_t;
-  W.Sigma_a = pW->Sigma_a;
+  int m;
+  for(m=0; m<NOPACITY; m++) W.Sigma[m] = pW->Sigma[m];	
 #endif
  
   U = Prim1D_to_Cons1D(&W, &Bx);
@@ -216,8 +215,7 @@ ConsS Prim_to_Cons (const PrimS *pW)
   Cons.Edd_31 = U.Edd_31;
   Cons.Edd_32 = U.Edd_32;
   Cons.Edd_33 = U.Edd_33;
-  Cons.Sigma_t = U.Sigma_t;
-  Cons.Sigma_a = U.Sigma_a;
+  for(m=0; m<NOPACITY; m++) Cons.Sigma[m] = U.Sigma[m];	
 #endif
 
   return Cons;
@@ -440,8 +438,8 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
   Prim1D.Edd_31 = pU->Edd_31;
   Prim1D.Edd_32 = pU->Edd_32;
   Prim1D.Edd_33 = pU->Edd_33;
-  Prim1D.Sigma_t = pU->Sigma_t;
-  Prim1D.Sigma_a = pU->Sigma_a;  
+  int m;
+  for(m=0; m<NOPACITY; m++) Prim1D.Sigma[m] = pU->Sigma[m];	
 #endif
 
   return Prim1D;
@@ -494,8 +492,8 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
   Cons1D.Edd_31 = pW->Edd_31;
   Cons1D.Edd_32 = pW->Edd_32;
   Cons1D.Edd_33 = pW->Edd_33;
-  Cons1D.Sigma_t = pW->Sigma_t;
-  Cons1D.Sigma_a = pW->Sigma_a;  
+  int m;
+  for(m=0; m<NOPACITY; m++) Cons1D.Sigma[m] = pW->Sigma[m];	
 #endif
 
 

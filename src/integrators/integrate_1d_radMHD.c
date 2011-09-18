@@ -36,6 +36,11 @@
 /* x1Flux is Cons1DS type, but it is the flux */
 static Cons1DS *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
 
+#ifdef CONS_GRAVITY
+static Real *x1Flux_grav=NULL;
+static Real *density_old=NULL;
+#endif
+
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
@@ -73,6 +78,16 @@ void integrate_1d_radMHD(DomainS *pD)
 	Real aeff;
 
 
+#ifdef SELF_GRAVITY
+  	Real gxl,gxr,flux_m1l,flux_m1r;
+#ifdef CONS_GRAVITY
+  	Real dotgxl, dotgxr, flux_E1l, flux_E1r;
+  	Real dotphil, dotphir;
+	Real Tempswap;
+#endif/* Finish consver gravity */
+#endif
+
+
 	Real SEE, SErho, SEm;
 	Real alpha;
 
@@ -89,7 +104,8 @@ void integrate_1d_radMHD(DomainS *pD)
 	Real Source_guess[5], Errort[5];
 
 	
-	Real Sigma_t, Sigma_a;
+	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
+	Real Sigma[NOPACITY];
 
 	/* Initialize them to be zero */
 	for(i=0; i<5; i++){
@@ -134,8 +150,11 @@ void integrate_1d_radMHD(DomainS *pD)
 		U1d[i].Edd_31  = pG->U[ks][js][i].Edd_31;
 		U1d[i].Edd_32  = pG->U[ks][js][i].Edd_32;
 		U1d[i].Edd_33  = pG->U[ks][js][i].Edd_33;
-		U1d[i].Sigma_a  = pG->U[ks][js][i].Sigma_a;
-		U1d[i].Sigma_t  = pG->U[ks][js][i].Sigma_t;
+		for(m=0;m<NOPACITY;m++){
+			U1d[i].Sigma[m] = pG->U[ks][js][i].Sigma[m];
+		}
+		
+		
 #ifdef RADIATION_MHD
 		U1d[i].By = pG->U[ks][js][i].B2c;
 		U1d[i].Bz = pG->U[ks][js][i].B3c;
@@ -170,22 +189,24 @@ void integrate_1d_radMHD(DomainS *pD)
 		temperature = pressure / (U1d[i-1].d * R_ideal);
 		velocity = U1d[i-1].Mx / U1d[i-1].d;
 
-		Sigma_t = pG->U[ks][js][i-1].Sigma_t;
-		Sigma_a = pG->U[ks][js][i-1].Sigma_a;
+		Sigma_sF = U1d[i-1].Sigma[0];
+		Sigma_aF = U1d[i-1].Sigma[1];
+		Sigma_aP = U1d[i-1].Sigma[2];
+		Sigma_aE = U1d[i-1].Sigma[3];
 
 /*		Tguess = pG->Tguess[ks][js][i-1];
 */
 		Tguess = temperature;
 
-	Source[1] = -Prat * (-Sigma_t * (U1d[i-1].Fr1/U1d[i-1].d 
+	Source[1] = -Prat * (-(Sigma_aF + Sigma_sF) * (U1d[i-1].Fr1/U1d[i-1].d 
 	- (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / (Crat * U1d[i-1].d))	
-	+ Sigma_a * velocity * (pow(Tguess, 4.0) - U1d[i-1].Er)/(Crat*U1d[i-1].d));
+	+ velocity * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i-1].Er)/(Crat*U1d[i-1].d));
 	Source[4] = -Source[1] * U1d[i-1].d * velocity * (Gamma - 1.0)
-	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (pow(Tguess,4.0) - U1d[i-1].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+	-(Gamma - 1.0) * Prat * Crat * ((Sigma_aP * pow(Tguess,4.0) - Sigma_aE * U1d[i-1].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i-1].Fr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
 
 		/* SVV is used to make the code stable when C is small and Sigma is huge */
-		SVV = -Prat * Sigma_t * (1.0 + W[i-1].Edd_11) * W[i-1].Er / (W[i-1].d * Crat); 
+		SVV = -Prat * (Sigma_aF + Sigma_sF) * (1.0 + W[i-1].Edd_11) * W[i-1].Er / (W[i-1].d * Crat); 
 		
 		if(fabs(SVV * dt * 0.5) > 0.001)
 		beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
@@ -201,9 +222,15 @@ void integrate_1d_radMHD(DomainS *pD)
 
 		Wl[i].Vx += dt * Source[1] * 0.5 * beta;
 		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+
+		if(Wl[i].P < TINY_NUMBER) 
+			Wl[i].P -= dt * Propa_44 * Source[4] * 0.5;
+
 	
-		Wl[i].Sigma_a = Sigma_a;
-		Wl[i].Sigma_t = Sigma_t;
+		for(m=0;m<NOPACITY;m++){
+			Wl[i].Sigma[m] = U1d[i-1].Sigma[m];
+		}
+
 		Wl[i].Edd_11 = W[i-1].Edd_11;
 		Wl[i].Edd_21 = W[i-1].Edd_21;
 		Wl[i].Edd_22 = W[i-1].Edd_22;
@@ -222,20 +249,23 @@ void integrate_1d_radMHD(DomainS *pD)
 */
 		Tguess = temperature;
 		
-		Sigma_t = U1d[i].Sigma_t;
-		Sigma_a = U1d[i].Sigma_a;
+		Sigma_sF = U1d[i].Sigma[0];
+		Sigma_aF = U1d[i].Sigma[1];
+		Sigma_aP = U1d[i].Sigma[2];
+		Sigma_aE = U1d[i].Sigma[3];
 
 
 
-	Source[1] = -Prat * (-Sigma_t * (U1d[i].Fr1/U1d[i].d 
+
+	Source[1] = -Prat * (-(Sigma_aF + Sigma_sF) * (U1d[i].Fr1/U1d[i].d 
 	- (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / (Crat * U1d[i].d))	
-	+ Sigma_a * velocity * (pow(Tguess, 4.0) - U1d[i].Er)/(Crat*U1d[i].d));
+	+ velocity * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er)/(Crat*U1d[i].d));
 	Source[4] = -Source[1] * U1d[i].d * velocity * (Gamma - 1.0)
-	-(Gamma - 1.0) * Prat * Crat * (Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+	-(Gamma - 1.0) * Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
 		
-		SVV = -Prat * Sigma_t * (1.0 + W[i].Edd_11) * W[i].Er / (W[i].d * Crat); 
+		SVV = -Prat * (Sigma_aF + Sigma_sF) * (1.0 + W[i].Edd_11) * W[i].Er / (W[i].d * Crat); 
 		
 		if(fabs(SVV * dt * 0.5) > 0.001)
 		beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
@@ -253,8 +283,13 @@ void integrate_1d_radMHD(DomainS *pD)
 		Wr[i].Vx += dt * Source[1] * 0.5 * beta;
 		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
 
-		Wr[i].Sigma_a = Sigma_a;
-		Wr[i].Sigma_t = Sigma_t;
+		if(Wr[i].P < TINY_NUMBER)
+			Wr[i].P -= dt * Propa_44 * Source[4] * 0.5;
+
+		for(m=0;m<NOPACITY;m++){
+			Wr[i].Sigma[m] = U1d[i].Sigma[m];
+		}
+		
 		Wr[i].Edd_11 = W[i].Edd_11;
 		Wr[i].Edd_21 = W[i].Edd_21;
 		Wr[i].Edd_22 = W[i].Edd_22;
@@ -282,7 +317,13 @@ void integrate_1d_radMHD(DomainS *pD)
     		}
   	}
 
-
+#ifdef SELF_GRAVITY
+  	for (i=il+1; i<=iu; i++) {
+    		Wl[i].Vx -= hdtodx1*(pG->Phi[ks][js][i] - pG->Phi[ks][js][i-1]);
+    		Wr[i].Vx -= hdtodx1*(pG->Phi[ks][js][i] - pG->Phi[ks][js][i-1]);
+/* No source term from self-gravity for pressure in primitive variables */
+  	}
+#endif
 		
 /*---------Step 2c--------------*/ 
 /* Calculate the flux */
@@ -313,12 +354,78 @@ void integrate_1d_radMHD(DomainS *pD)
       			dhalf[i] = U1d[i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
     			}
   		}
+
+
+#ifdef SELF_GRAVITY
+/* Save mass fluxes in Grid structure for source term correction in main loop */
+/* After we get the corrected fluxt */
+
+
+for (i=is; i<=ie+1; i++) {
+      pG->x1MassFlux[ks][js][i] = x1Flux[i].d;
+
+}
+ 
+
+#ifdef CONS_GRAVITY
+
+/* Need to update the density first so that we can calculate the new potential */
+/* There is no source term for density from radiation */
+
+ for (i=is; i<=ie; i++) {
+		/* We need the density at time step n, for radiation source term and  */
+		/* and self-gravity energy flux term */
+	density_old[i] = pG->U[ks][js][i].d;
+	pG->U[ks][js][i].d  -= dtodx1*(x1Flux[i+1].d -x1Flux[i].d);
+		
+
+ }
+    
+  
+	bvals_mhd(pD);
+
+/* With the updated flux, now we can calculate dphidt with Poisson Solver */
+    	(*SelfGrav_cons)(pD);
+	/* Need to apply boundary condition for the new calculated dphidt */
+    	bvals_grav(pD);
+/* Now calculate the energy flux */
+
+  
+	for (i=is; i<=ie+1; i++) {
+		phil = 0.25*(pG->Phi[ks][js][i-1]+pG->Phi_old[ks][js][i]+pG->Phi_old[ks][js][i-1]+pG->Phi[ks][js][i]);
+		gxl = 0.5 * (pG->Phi[ks][js][i-1] + pG->Phi_old[ks][js][i-1]  - pG->Phi[ks][js][i  ] - pG->Phi_old[ks][js][i ])/(pG->dx1);
+		dotphil  = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);		
+		dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);
+
+		x1Flux_grav[i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[i].d*phil;
+
+		    		
+	}
+
+	
+	/*-----------Now swap, desntiy_old actually save the new density  */
+
+      	for (i=is; i<=ie; i++) {
+		/* We need the density at time step n, for radiation source term and  */
+		/* and self-gravity energy flux term */
+		/* We do not need to update ghost zone here */
+		Tempswap = pG->U[ks][js][i].d;
+		pG->U[ks][js][i].d = density_old[i];
+		density_old[i] = Tempswap;
+      	}
+
+  
+
+
+#endif
+
+#endif /* SELF_GRAVITY */	
 	
 
 /*----Step 3------------------
  * Modified Godunov Corrector Scheme   */
 /*----------Radiation quantities are not updated in the modified Godunov corrector step */
-	for(i=il+1; i<=iu-1; i++) {
+for(i=il+1; i<=iu-1; i++) {
 
 	pressure = (U1d[i].E - 0.5 * U1d[i].Mx * U1d[i].Mx / U1d[i].d )
 			* (Gamma - 1.0);
@@ -336,16 +443,18 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	velocity = U1d[i].Mx / U1d[i].d;
 
-	Sigma_t = U1d[i].Sigma_t;
-	Sigma_a = U1d[i].Sigma_a;
+	Sigma_sF = U1d[i].Sigma[0];
+	Sigma_aF = U1d[i].Sigma[1];
+	Sigma_aP = U1d[i].Sigma[2];
+	Sigma_aE = U1d[i].Sigma[3];
 
 
 
 /* The Source term */
 	dSource(U1d[i], Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
 
-	SFm = U1d[i].Sigma_t * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (U1d[i].d * Crat) 
-		+ U1d[i].Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) / (U1d[i].d * Crat);	
+	SFm = (Sigma_aF + Sigma_sF) * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (U1d[i].d * Crat) 
+		+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) / (U1d[i].d * Crat);	
 
 	Det = 1.0 + dt * Prat * Crat * SEE; 
 
@@ -358,9 +467,9 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	/* For term T^4 - Er, we use guess temperature */
 	
-	Source[1] = -(-Sigma_t * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
-	+ Sigma_a * velocity * (pow(Tguess, 4.0) - U1d[i].Er)/Crat);
-	Source[4] = - Crat * (Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
+	Source[1] = -(-(Sigma_aF + Sigma_sF) * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
+	+ velocity * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er)/Crat);
+	Source[4] = - Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
 	pdivFlux = (Real*)&(divFlux);
@@ -369,6 +478,64 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	for(m=0; m<5; m++)
 		pdivFlux[m] = (pfluxr[m] - pfluxl[m]) / dx;
+
+
+/*=================================================================================*/
+/**********Include gravitation flux in the predict-correct step *********/
+/* First, static gravitational flux */
+	if (StaticGravPot != NULL){
+		cc_pos(pG,i,js,ks,&x1,&x2,&x3);
+      		phic = (*StaticGravPot)((x1            ),x2,x3);
+      		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+      		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+
+	        pdivFlux[1] += dhalf[i]*(phir-phil)/dx;
+
+
+      		pdivFlux[4] += (x1Flux[i  ].d*(phic - phil) +
+                                    x1Flux[i+1].d*(phir - phic))/dx;
+	}
+
+/* Now the self-gravity part ********/
+
+#ifdef SELF_GRAVITY
+  	
+      		phic = pG->Phi[ks][js][i];
+      		phil = 0.5*(pG->Phi[ks][js][i-1] + pG->Phi[ks][js][i  ]);
+      		phir = 0.5*(pG->Phi[ks][js][i  ] + pG->Phi[ks][js][i+1]);
+
+      		gxl = (pG->Phi[ks][js][i-1] - pG->Phi[ks][js][i  ])/(pG->dx1);
+      		gxr = (pG->Phi[ks][js][i  ] - pG->Phi[ks][js][i+1])/(pG->dx1);
+
+/* 1-momentum flux.  2nd term is needed only if Jean's swindle used */
+      		flux_m1l = 0.5*(gxl*gxl)/four_pi_G + grav_mean_rho*phil;
+      		flux_m1r = 0.5*(gxr*gxr)/four_pi_G + grav_mean_rho*phir;
+
+      		pdivFlux[1] += (flux_m1r - flux_m1l)/dx;
+
+#ifndef CONS_GRAVITY
+
+/* use normal method for energy part, otherwise energy flux will be updated later */
+      		pdivFlux[4] += (x1Flux[i  ].d*(phic - phil) +
+                                   x1Flux[i+1].d*(phir - phic))/dx;
+
+
+#endif  
+	/* Now the energy flux for self-gravity in consvertive method */
+
+#ifdef CONS_GRAVITY
+		pdivFlux[4] += (x1Flux_grav[i+1] - x1Flux_grav[i]) / dx;
+			
+
+#endif
+
+#endif	/* SELF_GRAVITY */	
+
+/***------------------End gravitational flux -------------------------------****/
+/*====================================================================================*/
+
+
+
 		
 	/* ATTENTION: magnetic field is not included in this predict and correction step */
 	for(n=0; n<5; n++) {
@@ -387,7 +554,11 @@ void integrate_1d_radMHD(DomainS *pD)
 	for(m=0; m<5; m++)
 		pUguess[m]= pU1d[m] + tempguess[m];
 
+#ifdef CONS_GRAVITY
+		/* density_old is now actually the updated density */
+	pUguess[4] += 0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(density_old[i]-grav_mean_rho)*pG->Phi[ks][js][i];
 
+#endif
 
 
 	pressure = (Uguess.E - 0.5 * Uguess.Mx * Uguess.Mx / Uguess.d )
@@ -403,27 +574,42 @@ void integrate_1d_radMHD(DomainS *pD)
 	velocity = Uguess.Mx / Uguess.d;
 
 	/* Use the updated opacity due to the change of temperature and density */
-	if(Opacity != NULL)
-		Opacity(Uguess.d, temperature, &Sigma_t, &Sigma_a, NULL);
+	if(Opacity != NULL){
+		Opacity(Uguess.d, temperature, Sigma, NULL);
+	}
+	else{
+		Sigma[0] = Sigma_sF;
+		Sigma[1] = Sigma_aF;
+		Sigma[2] = Sigma_aP;
+		Sigma[3] = Sigma_aE;
 
-	Uguess.Sigma_t = Sigma_t;
-	Uguess.Sigma_a = Sigma_a;
+	}
+
+
+	for(m=0;m<NOPACITY;m++){
+		Uguess.Sigma[m] = Sigma[m];
+	}
+
 
 	dSource(Uguess, Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
 	Det = 1.0 + dt * Prat * Crat * SEE;
-	SFm = Uguess.Sigma_t * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (Uguess.d * Crat) 
-		+ U1d[i].Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) / (Uguess.d * Crat);	
+	SFm = (Uguess.Sigma[0] + Uguess.Sigma[1]) * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (Uguess.d * Crat) 
+		+ (Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) / (Uguess.d * Crat);	
 
 	/* Guess solution doesn't include Er and Fr1, Er and Fr1 are in U1d */
 	/* NOTICE that we do not include correction from radiation variables, which are always 1st order accuracy */
-	Source_guess[1] = - (-Sigma_t * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
-	+ Sigma_a * velocity * (pow(Tguess, 4.0) - U1d[i].Er)/Crat);
-	Source_guess[4] = - Crat * (Sigma_a * (pow(Tguess, 4.0) - U1d[i].Er) + (Sigma_a - (Sigma_t - Sigma_a)) * velocity
-		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+	Source_guess[1] = - (-(Uguess.Sigma[0] + Uguess.Sigma[1]) * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
+	+ velocity * (Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er)/Crat);
+	Source_guess[4] = - Crat * ((Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) + (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
 	for(m=0; m<5; m++)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) * Prat 
 			- dt * pdivFlux[m] - pUguess[m];
+
+
+#ifdef CONS_GRAVITY
+	Errort[4] += 0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(density_old[i]-grav_mean_rho)*pG->Phi[ks][js][i];
+#endif
 
 
 	/* (I - dt Div_U S(U))^-1 for the guess solution */
@@ -508,7 +694,10 @@ void integrate_1d_radMHD(DomainS *pD)
 			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
 	
 			/* We do not need to calculate dSigma here */
-			Opacity(pG->U[ks][js][i].d, temperature,&(pG->U[ks][js][i].Sigma_t), &(pG->U[ks][js][i].Sigma_a), NULL);
+			Opacity(pG->U[ks][js][i].d, temperature,Sigma, NULL);
+			for(m=0;m<NOPACITY;m++){
+				pG->U[ks][js][i].Sigma[m] = Sigma[m];
+			}
 	
 		}
 	}
@@ -553,6 +742,11 @@ void integrate_init_1d(MeshS *pM)
   if ((Ul_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
   if ((Ur_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
   if ((x1Flux    =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+
+#ifdef CONS_GRAVITY
+  if ((x1Flux_grav =(Real*)malloc((size1+1)*sizeof(Real)))==NULL) goto on_error;
+  if ((density_old =(Real*)malloc(size1*sizeof(Real)))==NULL) goto on_error;
+#endif
  
 
   if ((W  = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
@@ -593,6 +787,12 @@ void integrate_destruct_1d(void)
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);
   if (x1Flux != NULL) free(x1Flux);
+
+#ifdef CONS_GRAVITY
+  if (x1Flux_grav != NULL) free(x1Flux_grav); 
+  if (density_old != NULL) free(density_old); 
+#endif
+
 
   if (W  != NULL) free(W);
   if (Wl != NULL) free(Wl);

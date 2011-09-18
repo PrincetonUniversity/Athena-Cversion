@@ -32,7 +32,7 @@ void new_dt(MeshS *pM)
 {
   GridS *pGrid;
 #ifndef SPECIAL_RELATIVITY
-  int i,j,k;
+  int i,j,k,m;
   Real di,v1,v2,v3,qsq,asq,cf1sq,cf2sq,cf3sq;
 #ifdef ADIABATIC
   Real p;
@@ -143,8 +143,9 @@ void new_dt(MeshS *pM)
 	Waeff.Vx = v1;
 	Waeff.Vy = v2;
 	Waeff.Vz = v3;
-	Waeff.Sigma_a = pGrid->U[k][j][i].Sigma_a;
-	Waeff.Sigma_t = pGrid->U[k][j][i].Sigma_t;
+	for(m=0;m<NOPACITY;m++){
+		Waeff.Sigma[m] = pGrid->U[k][j][i].Sigma[m];
+	}
 	Waeff.Er = pGrid->U[k][j][i].Er;
 	Waeff.Fr1 = pGrid->U[k][j][i].Fr1;
 	Waeff.Fr2 = pGrid->U[k][j][i].Fr2;

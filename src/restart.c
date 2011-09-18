@@ -333,34 +333,63 @@ void restart_grids(char *res_file, MeshS *pM)
         }
       }
 
-/* Read the total reaction coefficient Sigma_t */
+/* Read the Flux mean scattering opacity */
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Sigma_t",7) != 0)
-        ath_error("[restart_grids]: Expected Sigma_t, found %s",line);
+      if(strncmp(line,"Sigma_sF",7) != 0)
+        ath_error("[restart_grids]: Expected Sigma_sF, found %s",line);
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
-            fread(&(pG->U[k][j][i].Sigma_t),sizeof(Real),1,fp);
+            fread(&(pG->U[k][j][i].Sigma[0]),sizeof(Real),1,fp);
           }
         }
       }
 
 
-/* Read the absorption coefficient Sigma_a */
+/* Read the flux mean absorption opacity */
 
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Sigma_a",7) != 0)
-        ath_error("[restart_grids]: Expected Sigma_a, found %s",line);
+      if(strncmp(line,"Sigma_aF",7) != 0)
+        ath_error("[restart_grids]: Expected Sigma_aF, found %s",line);
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
-            fread(&(pG->U[k][j][i].Sigma_a),sizeof(Real),1,fp);
+            fread(&(pG->U[k][j][i].Sigma[1]),sizeof(Real),1,fp);
           }
         }
       }
+
+/* Read the Plank mean absorption opacity */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"Sigma_aP",7) != 0)
+        ath_error("[restart_grids]: Expected Sigma_aP, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Sigma[2]),sizeof(Real),1,fp);
+          }
+        }
+      }
+
+/* Read the Energy mean absorption opacity */
+
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"Sigma_aE",7) != 0)
+        ath_error("[restart_grids]: Expected Sigma_aE, found %s",line);
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            fread(&(pG->U[k][j][i].Sigma[3]),sizeof(Real),1,fp);
+          }
+        }
+      }
+
 
 #endif 
 /* End read radiation quantity */
@@ -985,13 +1014,13 @@ void dump_restart(MeshS *pM, OutputS *pout)
         nbuf = 0;
       }
 
-/* Write the total reaction coefficient Sigma_t */
+/* Write the flux mean scattering opacity */
 
-      fprintf(fp,"\nSigma_t\n");
+      fprintf(fp,"\nSigma_sF\n");
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
-            buf[nbuf++] = pG->U[k][j][i].Sigma_t;
+            buf[nbuf++] = pG->U[k][j][i].Sigma[0];
             if ((nbuf+1) > bufsize) {
               fwrite(buf,sizeof(Real),nbuf,fp);
               nbuf = 0;
@@ -1004,13 +1033,51 @@ void dump_restart(MeshS *pM, OutputS *pout)
         nbuf = 0;
       }
 
-/* Write absorption coefficient Sigma_a */
+/* Write flux mean absorption opacity */
 
-      fprintf(fp,"\nSigma_a\n");
+      fprintf(fp,"\nSigma_aF\n");
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
-            buf[nbuf++] = pG->U[k][j][i].Sigma_a;
+            buf[nbuf++] = pG->U[k][j][i].Sigma[1];
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write Planck mean absorption opacity */
+
+      fprintf(fp,"\nSigma_aP\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Sigma[2];
+            if ((nbuf+1) > bufsize) {
+              fwrite(buf,sizeof(Real),nbuf,fp);
+              nbuf = 0;
+            }
+          }
+        }
+      }
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+/* Write Energy mean absorption opacity */
+
+      fprintf(fp,"\nSigma_aE\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+            buf[nbuf++] = pG->U[k][j][i].Sigma[3];
             if ((nbuf+1) > bufsize) {
               fwrite(buf,sizeof(Real),nbuf,fp);
               nbuf = 0;

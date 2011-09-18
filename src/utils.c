@@ -1073,14 +1073,14 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	 * In multi-D, we use adiabatic sound speed *
 	 */
 
-	Real aeff, temperature, SPP, Alpha, dSigmadP;
+	Real aeff, temperature, SPP, Alpha;
 	Real SVV, beta;
-	Real dSigma[4];
+	Real dSigma[2*NOPACITY],dSigmadP[NOPACITY];
 	Real velocity_x, velocity_y, velocity_z, velocity;
 	int i;
 	if(flag == 1){
 	
-	for(i=0; i<4; i++)
+	for(i=0; i<2*NOPACITY; i++)
 		dSigma[i] = 0.0;
 	
 
@@ -1089,17 +1089,25 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	velocity_y = W.Vy;
 	velocity_z = W.Vz;
 	
-	if(Opacity != NULL) Opacity(W.d, temperature, NULL, NULL, dSigma);
+	if(Opacity != NULL) Opacity(W.d, temperature, NULL, dSigma);
 		
-	dSigmadP =  dSigma[3] / (W.d * R_ideal); 
+	dSigmadP[0] =  dSigma[4] / (W.d * R_ideal); 
+	dSigmadP[1] =  dSigma[5] / (W.d * R_ideal); 
+	dSigmadP[2] =  dSigma[6] / (W.d * R_ideal); 
+	dSigmadP[3] =  dSigma[7] / (W.d * R_ideal); 
 
-	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma_a * temperature * temperature * temperature / (W.d * R_ideal)
-		-(Gamma - 1.0) * Prat * Crat * (pow(temperature,4.0) - W.Er) * dSigmadP
-		-(Gamma - 1.0) * Prat * 2.0 * dSigmadP * ( 
+
+	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma[2] * temperature * temperature * temperature / (W.d * R_ideal)
+		-(Gamma - 1.0) * Prat * Crat * (dSigmadP[2]  * pow(temperature,4.0) - dSigmadP[3] * W.Er) 
+		-(Gamma - 1.0) * Prat * 2.0 * dSigmadP[1] * ( 
 			velocity_x * (W.Fr1 - ((1.0 + W.Edd_11) * velocity_x + W.Edd_21 * velocity_y + W.Edd_31 * velocity_z) * W.Er/Crat)
 	     	+  velocity_y * (W.Fr2 - (W.Edd_21 * velocity_x + (1.0 + W.Edd_22) * velocity_y + W.Edd_32 * velocity_z) * W.Er/Crat)
 	     	+  velocity_z * (W.Fr3 - (W.Edd_31 * velocity_x + W.Edd_32 * velocity_y + (1.0 + W.Edd_33) * velocity_z) * W.Er/Crat)
 		);
+
+	if(SPP > TINY_NUMBER){
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma[2] * temperature * temperature * temperature / (W.d * R_ideal);
+	}
 
 	if(fabs(SPP * dt * 0.5) > 0.001)
 	Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
@@ -1117,7 +1125,7 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	
 	/* Eddington tensor is assumed 1/3 here for simplicity */
 	
-	SVV = -Prat * W.Sigma_t * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
+	SVV = -Prat * (W.Sigma[0] + W.Sigma[1]) * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
 
 	if(fabs(SVV * dt * 0.5) > 0.001)
 	beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
@@ -1151,7 +1159,7 @@ Real eff_sound_thick(const Prim1DS W, Real dt)
 	Real root1, root2;
 	Real coefa, coefb, coefc, coefd, coefe, coefh, coefr;
 
-	SFFr = -Crat * W.Sigma_t;
+	SFFr = -Crat * (W.Sigma[0] + W.Sigma[1]);
 
 	/* Find the maximum Eddington factor to make it safe on either direction*/
 	Edd = W.Edd_11;
@@ -1207,18 +1215,21 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	/* In FARGO, the independent variables are perturbed quantities. 
 	 * But in source terms, especially the co-moving flux, should include background shearing */
 	 
+	/* Opacity is: Sigma[0]=Sigma_sF, Sigma[1] = Sigma_aF, Sigma[2] = Sigma_aP, Sigma[3] = Sigma_aE */
 	Real pressure, temperature, velocity_x, velocity_y, velocity_z, velocity_fargo;
-	Real dSigma[4];
-	Real dSigmaE, dSigmaE_t, dSigmarho, dSigmarho_t, dSigmavx, dSigmavy, dSigmavz;
-	Real Sigma_a, Sigma_t;
+	Real dSigma[2*NOPACITY];
+	/* Derivative of the opacity with respect to the conserved variables */
+	Real dSigmaE[NOPACITY], dSigmarho[NOPACITY], dSigmavx[NOPACITY], dSigmavy[NOPACITY], dSigmavz[NOPACITY];
+	Real Sigma[NOPACITY];
 
-	int i;
-	for(i=0; i<4; i++)
+	int i,m;
+	for(i=0; i<2*NOPACITY; i++)
 		dSigma[i] = 0.0;
 
-	
-	Sigma_a = U.Sigma_a;
-	Sigma_t = U.Sigma_t;
+	for(m=0;m<NOPACITY;m++){
+		Sigma[m] = U.Sigma[m];
+	}
+
 
 	pressure = (U.E - 0.5 * (U.Mx * U.Mx + U.My * U.My + U.Mz * U.Mz) / U.d ) * (Gamma - 1.0);
 #ifdef  RADIATION_MHD 
@@ -1238,57 +1249,59 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	
 	
 
-	if(Opacity != NULL) Opacity(U.d, temperature, NULL, NULL, dSigma);
+	if(Opacity != NULL) Opacity(U.d, temperature, NULL, dSigma);
 
-	dSigmaE = dSigma[3] * (Gamma - 1.0)/(U.d * R_ideal);
-	dSigmaE_t = dSigma[1] * (Gamma - 1.0)/(U.d * R_ideal);
+	for(m=0;m<NOPACITY;m++){
+		dSigmaE[m] = dSigma[4+m] * (Gamma - 1.0)/(U.d * R_ideal);
+		
+		dSigmavx[m] = -dSigma[4+m] * velocity_x * (Gamma - 1.0) /(U.d * R_ideal);
+		dSigmavy[m] = -dSigma[4+m] * velocity_y * (Gamma - 1.0) /(U.d * R_ideal);
+		dSigmavz[m] = -dSigma[4+m] * velocity_z * (Gamma - 1.0) /(U.d * R_ideal);
 
-	dSigmavx = -dSigma[3] * velocity_x * (Gamma - 1.0) /(U.d * R_ideal);
-	dSigmavy = -dSigma[3] * velocity_y * (Gamma - 1.0) /(U.d * R_ideal);
-	dSigmavz = -dSigma[3] * velocity_z * (Gamma - 1.0) /(U.d * R_ideal);
-
-	dSigmarho = dSigma[1] - dSigma[3] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
+		dSigmarho[m] = dSigma[m] - dSigma[4+m] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
 #ifdef RADIATION_MHD
-	dSigmarho += dSigma[3] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
+		dSigmarho[m] += dSigma[4+m] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
 #endif
 
-	dSigmarho_t = dSigma[0] - dSigma[2] * (Gamma - 1.0) * (U.E - (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z) * U.d)/(U.d * U.d * R_ideal);
-#ifdef RADIATION_MHD
-	dSigmarho_t += dSigma[2] * 0.5 * (Gamma - 1.0) * (Bx * Bx + U.By * U.By + U.Bz * U.Bz) / (U.d * U.d * R_ideal);
-#endif
-
+	}
 
 	/* We keep another v/c term here */
-	*SEE = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
-	     + dSigmaE * (pow(temperature, 4.0) - U.Er)
-	     + (dSigmaE - (dSigmaE_t - dSigmaE)) * (
+	/* When opacity depends on density and temperature, this may cause trouble */
+	/* *SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
+	     + (dSigmaE[2] * pow(temperature, 4.0) - dSigmaE[3] * U.Er)
+	     + (dSigmaE[1] - dSigmaE[0]) * (
 		velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
 	     +  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
 	     +  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 		)/Crat;
+	*/
+	/* If *SEE < 0, the code will be unstable */
+	*SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal);
+	
+		
 
-	*SErho = 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
-		+ dSigmarho * (pow(temperature, 4.0) - U.Er)	
-		+ (dSigmarho - (dSigmarho_t - dSigmarho) - (Sigma_a - (Sigma_t - Sigma_a)) / U.d) * (
+	*SErho = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
+		+ (dSigmarho[2] * pow(temperature, 4.0) - dSigmarho[3] * U.Er)	
+		+ ((dSigmarho[1] - dSigmarho[0]) - (Sigma[1] - Sigma[0]) / U.d) * (
 			velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
 	     	+  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
 	     	+  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 			)/Crat;
 
 #ifdef RADIATION_MHD
-	*SErho += 4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz)/(U.d * U.d * R_ideal);
+	*SErho += 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz)/(U.d * U.d * R_ideal);
 #endif	
 
-	*SEmx = -4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal)
-	      + dSigmavx * (pow(temperature, 4.0) - U.Er);
+	*SEmx = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal)
+	      + (dSigmavx[2] * pow(temperature, 4.0) - dSigmavx[3] * U.Er);
 	
 	if(SEmy != NULL)
-		*SEmy = -4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal)
-	      + dSigmavy * (pow(temperature, 4.0) - U.Er);
+		*SEmy = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal)
+	      + (dSigmavy[2] * pow(temperature, 4.0) - dSigmavy[3] * U.Er);
 
 	if(SEmz != NULL)
-		*SEmz = -4.0 * Sigma_a * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal)
-	      + dSigmavz * (pow(temperature, 4.0) - U.Er);	
+		*SEmz = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal)
+	      + (dSigmavz[2] * pow(temperature, 4.0) - dSigmavz[3] * U.Er);	
 
 
 	return;
@@ -1449,7 +1462,7 @@ void GetTguess(MeshS *pM)
 	int ke, ks;
 	int jl, ju, kl, ku;
 
-	Real pressure, Sigma_a, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr;
+	Real pressure, Sigma_aP, Sigma_aE, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr;
 	Real sign1, sign2, coef1, coef2, coef3;
 
 	Real dt, Terr, Ererr;
@@ -1503,7 +1516,8 @@ void GetTguess(MeshS *pM)
 #endif
 
     				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
-				Sigma_a = pG->U[k][j][i].Sigma_a;
+				Sigma_aP = pG->U[k][j][i].Sigma[2];
+				Sigma_aE = pG->U[k][j][i].Sigma[3];
 				Ern =  pG->U[k][j][i].Er;
 
 				if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
@@ -1511,27 +1525,27 @@ void GetTguess(MeshS *pM)
 					pG->Tguess[k][j][i] = temperature;
 				}
 				else if(pressure < TINY_NUMBER || pressure != pressure){
-					 pG->Tguess[k][j][i] = TINY_NUMBER;
+					 pG->Tguess[k][j][i] = pow(Ern, 0.25);
 				}
 				else{
 
 
 				/* For source term T^4-Er */
-				ETsource = Crat * Sigma_a * (pow(temperature,4.0) - Ern);
+				ETsource = Crat * (Sigma_aP * pow(temperature,4.0) - Sigma_aE * Ern);
 
-				Det = 1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_a * pow(temperature,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_a;
+				Det = 1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(temperature,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_aE;
 				Erguess = Ern + dt * ETsource / Det;
 
 				Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
 		
 				/*		Tguess = temperature - dt * (Gamma - 1.0) * Prat * ETsource / (Det * U1d[i].d * R_ideal);
 */	
-				Ererr = Ern + dt * 0.5 * (ETsource + Crat * Sigma_a * (pow(Tguess,4.0) - Erguess)) - Erguess;
-				Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * Sigma_a * (pow(Tguess,4.0) - Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess; 
+				Ererr = Ern + dt * 0.5 * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess)) - Erguess;
+				Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aP * Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess; 
 
-				Det =  1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_a * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_a;
-				Ern =  (1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_a * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal)) * Ererr / Det 
-					+ 4.0 * Crat * Sigma_a * pow(Tguess,3.0) * dt * Terr / Det;
+				Det =  1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_aE;
+				Ern =  (1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal)) * Ererr / Det 
+					+ 4.0 * Crat * Sigma_aP * pow(Tguess,3.0) * dt * Terr / Det;
 				Erguess += Ern;
 
 				Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);

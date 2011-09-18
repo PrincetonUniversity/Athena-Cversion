@@ -496,6 +496,13 @@ int main(int argc, char *argv[])
   Integrate = integrate_init(&Mesh);
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&Mesh);
+
+#ifdef CONS_GRAVITY
+  /* the function is used in the integrators */
+  SelfGrav_cons = SelfGrav;
+#endif
+
+
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -673,8 +680,10 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
+#ifndef CONS_GRAVITY
           (*SelfGrav)(&(Mesh.Domain[nl][nd]));
           bvals_grav(&(Mesh.Domain[nl][nd]));
+#endif
           selfg_fc(&(Mesh.Domain[nl][nd]));
         }
       }
@@ -711,16 +720,12 @@ int main(int argc, char *argv[])
 #endif
 
 	/* set boundary conditions for radiation quantities */
-			/* Boundary condition for radiation quantities 
-			 * are set in BackEuler_*
-			 * Do not do it twice, especially for 
-			 * shearing boundary condition 
-			 */
-	/*
+			
+	
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
-	 */
+	 
 
         }
       }

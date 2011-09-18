@@ -1,30 +1,32 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_2d_ctu.c
+/*============================================================================*/
+/*! \file integrate_2d_ctu.c
+ *  \brief Integrate MHD equations in 2D using the directionally unsplit CTU
+ *   method of Colella (1990). 
  *
  * PURPOSE: Integrate MHD equations in 2D using the directionally unsplit CTU
  *   method of Colella (1990).  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i -- interface magnetic field
+ *   -  U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *   -  B1i, B2i -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, optically-thin cooling,
  *   and H-correction of Sanders et al.
  *
  * REFERENCES:
- *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
+ * - P. Colella, "Multidimensional upwind methods for hyperbolic conservation
  *   laws", JCP, 87, 171 (1990)
  *
- *   T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
+ * - T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD via
  *   constrained transport", JCP, 205, 509 (2005)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensinal dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_2d_ctu()
- *   integrate_init_2d()
- *   integrate_destruct_2d()
- *============================================================================*/
+ * - integrate_2d_ctu()
+ * - integrate_init_2d()
+ * - integrate_destruct_2d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -48,6 +50,13 @@
 static Cons1DS **Ul_x1Face=NULL, **Ur_x1Face=NULL;
 static Cons1DS **Ul_x2Face=NULL, **Ur_x2Face=NULL;
 static Cons1DS **x1Flux=NULL, **x2Flux=NULL;
+
+#ifdef CONS_GRAVITY
+static Real **x1Flux_grav=NULL;
+static Real **x2Flux_grav=NULL;
+static Real **density_old=NULL;
+Real dotphil, dotgxl;
+#endif
 
 /* The interface magnetic fields and emfs */
 #ifdef MHD
@@ -85,7 +94,9 @@ static void integrate_emf3_corner(GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_2d:  CTU integrator in 2D.
+/*! \fn void integrate_2d_ctu(DomainS *pD)
+ *  \brief CTU integrator in 2D.
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 2D.
  */
@@ -581,6 +592,7 @@ void integrate_2d_ctu(DomainS *pD)
     }
   }
 
+
 /*=== STEP 3: Not needed in 2D ===*/
 
 /*=== STEP 4:  Update face-centered B for 0.5*dt =============================*/
@@ -783,6 +795,7 @@ void integrate_2d_ctu(DomainS *pD)
 
       Ul_x1Face[j][i].My -= hdtodx2*(phir-phil)*pG->U[ks][j][i-1].d;
 #ifndef BAROTROPIC
+/* Adding source term still uses non-cnoservative form */
       Ul_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i-1].d*(phic - phil) +
                                     x2Flux[j+1][i-1].d*(phir - phic));
 #endif
@@ -944,8 +957,10 @@ void integrate_2d_ctu(DomainS *pD)
 
       Ul_x2Face[j][i].Mz -= hdtodx1*(phir-phil)*pG->U[ks][j-1][i].d;
 #ifndef BAROTROPIC
+/* Transverse flux correction still uses source term like format */
       Ul_x2Face[j][i].E -= hdtodx1*(x1Flux[j-1][i  ].d*(phic - phil) +
                                     x1Flux[j-1][i+1].d*(phir - phic));
+
 #endif
     }
   }
@@ -1556,8 +1571,10 @@ void integrate_2d_ctu(DomainS *pD)
       pG->U[ks][j][i].M1 -= dtodx1*(flux_m1r - flux_m1l);
       pG->U[ks][j][i].M2 -= dtodx1*(flux_m2r - flux_m2l);
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
       pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
                                    x1Flux[j][i+1].d*(phir - phic));
+#endif
 #endif
     }
   }
@@ -1590,8 +1607,10 @@ void integrate_2d_ctu(DomainS *pD)
       pG->U[ks][j][i].M1 -= dtodx2*(flux_m1r - flux_m1l);
       pG->U[ks][j][i].M2 -= dtodx2*(flux_m2r - flux_m2l);
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
       pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
                                    x2Flux[j+1][i].d*(phir - phic));
+#endif
 #endif
     }
   }
@@ -1649,6 +1668,9 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef CYLINDRICAL
       rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
+#ifdef CONS_GRAVITY
+      density_old[j][i] = pG->U[ks][j][i].d;
+#endif
       pG->U[ks][j][i].d  -= dtodx1*(rsf*x1Flux[j][i+1].d  - lsf*x1Flux[j][i].d );
       pG->U[ks][j][i].M1 -= dtodx1*(rsf*x1Flux[j][i+1].Mx - lsf*x1Flux[j][i].Mx);
       pG->U[ks][j][i].M2 -= dtodx1*(SQR(rsf)*x1Flux[j][i+1].My - SQR(lsf)*x1Flux[j][i].My);
@@ -1666,7 +1688,7 @@ void integrate_2d_ctu(DomainS *pD)
                                       - lsf*x1Flux[j][i  ].s[n]);
 #endif
     }
-  }
+  } 
 
 /*--- Step 12b -----------------------------------------------------------------
  * Update cell-centered variables in pG using 2D x2-fluxes
@@ -1695,6 +1717,45 @@ void integrate_2d_ctu(DomainS *pD)
 #endif
     }
   }
+
+
+
+#ifdef CONS_GRAVITY
+	bvals_mhd(pD);
+    	(*SelfGrav_cons)(pD);
+    	bvals_grav(pD);
+
+/* update energy with x1 flux  */
+  for(j=js; j<=je+1;j++){	
+	for (i=is; i<=ie+1; i++) {
+	phil = 0.25*(pG->Phi[ks][j][i-1]+pG->Phi_old[ks][j][i]+pG->Phi_old[ks][j][i-1]+pG->Phi[ks][j][i]);
+	gxl = 0.5 * (pG->Phi[ks][j][i-1] + pG->Phi_old[ks][j][i-1]  - pG->Phi[ks][j][i  ] - pG->Phi_old[ks][j][i  ])/(pG->dx1);
+	dotphil  = 0.5*(pG->dphidt[ks][j][i-1] + pG->dphidt[ks][j][i  ]);		
+	dotgxl = (pG->dphidt[ks][j][i-1] - pG->dphidt[ks][j][i  ])/(pG->dx1);
+
+	x1Flux_grav[j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[j][i].d*phil;
+
+	phil = 0.25*(pG->Phi[ks][j-1][i]+pG->Phi_old[ks][j-1][i]+pG->Phi_old[ks][j][i]+pG->Phi[ks][j][i]);
+	gxl = 0.5 * (pG->Phi[ks][j-1][i] + pG->Phi_old[ks][j-1][i]  - pG->Phi[ks][j][i  ] - pG->Phi_old[ks][j][i  ])/(pG->dx2);
+	dotphil  = 0.5*(pG->dphidt[ks][j-1][i] + pG->dphidt[ks][j][i  ]);		
+	dotgxl = (pG->dphidt[ks][j-1][i] - pG->dphidt[ks][j][i  ])/(pG->dx2);
+
+	x2Flux_grav[j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[j][i].d*phil;
+
+    		
+	}
+ }
+ for(j=js; j<=je; j++){
+	for(i=is;i<=ie;i++){
+	pG->U[ks][j][i].E += (0.5*(density_old[j][i]-grav_mean_rho)*pG->Phi_old[ks][j][i]-0.5*(pG->U[ks][j][i].d-grav_mean_rho)*pG->Phi[ks][j][i]
+				      -dtodx1 * (x1Flux_grav[j][i+1] - x1Flux_grav[j][i])
+				      -dtodx2 * (x2Flux_grav[j+1][i] - x2Flux_grav[j][i]));
+	}
+}
+#endif
+/* Consverse gravity */
+
+
 
 /*--- Step 12c: Not needed in 2D ---*/
 /*--- Step 12d -----------------------------------------------------------------
@@ -1876,8 +1937,8 @@ void integrate_2d_ctu(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_2d:    Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_2d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_2d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,nl,nd;
@@ -1944,6 +2005,15 @@ void integrate_init_2d(MeshS *pM)
   if ((x2Flux   =(Cons1DS**)calloc_2d_array(size2,size1,sizeof(Cons1DS)))==NULL)
     goto on_error;
 
+#ifdef CONS_GRAVITY
+  if ((x1Flux_grav   =(Real**)calloc_2d_array((size2+1),(size1+1),sizeof(Real)))==NULL)
+    goto on_error;
+  if ((x2Flux_grav   =(Real**)calloc_2d_array((size2+1),(size1+1),sizeof(Real)))==NULL)
+    goto on_error;
+  if ((density_old =(Real**)calloc_2d_array(size2,size1,sizeof(Real)))==NULL)
+    goto on_error;
+#endif
+
 #ifndef CYLINDRICAL
 #ifndef MHD
 #ifndef PARTICLES
@@ -1972,8 +2042,8 @@ void integrate_init_2d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_2d:  Free temporary integration arrays */
-
+/*! \fn void integrate_destruct_2d(void)
+ *  \brief Free temporary integration arrays */
 void integrate_destruct_2d(void)
 {
 #ifdef MHD
@@ -2004,6 +2074,13 @@ void integrate_destruct_2d(void)
   if (Ur_x2Face != NULL) free_2d_array(Ur_x2Face);
   if (x1Flux    != NULL) free_2d_array(x1Flux);
   if (x2Flux    != NULL) free_2d_array(x2Flux);
+#ifdef CONS_GRAVITY
+  if (x1Flux_grav    != NULL) free_2d_array(x1Flux_grav);
+  if (x2Flux_grav    != NULL) free_2d_array(x2Flux_grav);
+  if (density_old    != NULL) free_2d_array(density_old);
+
+#endif
+
   if (dhalf     != NULL) free_2d_array(dhalf);
   if (phalf     != NULL) free_2d_array(phalf);
 
@@ -2018,8 +2095,8 @@ void integrate_destruct_2d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf3_corner:  */
-
+/*! \fn static void integrate_emf3_corner(GridS *pG)
+ *  \brief Corner EMF terms in the upwind CT method */
 #ifdef MHD
 static void integrate_emf3_corner(GridS *pG)
 {

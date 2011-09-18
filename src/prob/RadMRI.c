@@ -75,7 +75,7 @@ static Real kappaes;
 static Real kappaff;
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
-static void Thindiskopacity(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a, Real dSigma[4]);
+static void Thindiskopacity(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY]);
 #endif
 #ifndef SHEARING_BOX
 static Real Omega_0 = 1.0;
@@ -103,7 +103,7 @@ void problem(DomainS *pDomain)
   Real x1,x2,x3,xmin,xmax;
   Real den = 1.0, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
   Real beta=1.0,B0,kx,ky,kz,amp;
-  Real betay, B0z, B0y;
+  Real betay, B0z, B0y, Bamp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
@@ -124,7 +124,7 @@ void problem(DomainS *pDomain)
   qshear  = par_getd_def("problem","qshear",1.5);
 #endif
 
-	betaz=1600.0;
+	betaz=40.0;
 	betay=1.0;
 	pres = 1.0;
 
@@ -132,7 +132,7 @@ void problem(DomainS *pDomain)
   	B0y = 0.0;
 	B0 = sqrt(B0z * B0z + B0y * B0y);	
 
-	kappaes = 0.195393;
+	kappaes = 1953.93;
 	kappaff = 0.105252;
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
@@ -145,8 +145,10 @@ void problem(DomainS *pDomain)
   Lx = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
   Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
   Lz = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
+  kx = 16.0*PI/Lx;
 
-	amp = 0.01;
+	amp = 0.1;
+	Bamp = 1.0;
 
 
 /* Rescale amp to sound speed for ipert 2,3 */
@@ -210,10 +212,10 @@ void problem(DomainS *pDomain)
 #if defined(MHD) || defined(RADIATION_MHD)
 
         pGrid->B1i[k][j][i] = 0.0;
-        pGrid->B2i[k][j][i] = B0y;
+        pGrid->B2i[k][j][i] = 0.0;
         pGrid->B3i[k][j][i] = B0z;
         if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
-        if (j==je) pGrid->B2i[k][je+1][i] = B0y;
+        if (j==je) pGrid->B2i[k][je+1][i] = 0.0;
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0z;
      
 
@@ -226,8 +228,10 @@ void problem(DomainS *pDomain)
 		pGrid->U[k][j][i].Edd_21 = 0.0; /* Set to be a constant in 1D. To be modified later */
 		pGrid->U[k][j][i].Edd_31 = 0.0;
 		pGrid->U[k][j][i].Edd_32 = 0.0;
-		pGrid->U[k][j][i].Sigma_t = kappaes * rd + kappaff * rd * rd * pow(rp/(R_ideal*rd),-3.5);
-		pGrid->U[k][j][i].Sigma_a = kappaff * rd * rd * pow(rp/(rd*R_ideal),-3.5);
+		pGrid->U[k][j][i].Sigma[0] = kappaes * rd;
+		pGrid->U[k][j][i].Sigma[1] = kappaff * rd * rd * pow(rp/(rd*R_ideal),-3.5);
+		pGrid->U[k][j][i].Sigma[2] = kappaff * rd * rd * pow(rp/(R_ideal*rd),-3.5);
+		pGrid->U[k][j][i].Sigma[3] = kappaff * rd * rd * pow(rp/(R_ideal*rd),-3.5);
 		
 		pGrid->U[k][j][i].Er = 1.0;
 		pGrid->U[k][j][i].Fr1 = 0.0;
@@ -359,6 +363,10 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 	fwrite(&betaz,sizeof(Real),1,fp);
 	fwrite(&pres,sizeof(Real),1,fp);
 #endif
+#ifdef MATRIX_MULTIGRID 
+	fwrite(&Ncycle,sizeof(Real),1,fp);
+	fwrite(&TOL,sizeof(Real),1,fp);
+#endif
 	
   return;
 }
@@ -376,6 +384,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)	
 	fread(&Prat,sizeof(Real),1,fp);
+	Prat = 376.255;
 	fread(&Crat,sizeof(Real),1,fp);
 	fread(&R_ideal,sizeof(Real),1,fp);
 	fread(&kappaes,sizeof(Real),1,fp);
@@ -390,6 +399,10 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 #ifdef RADIATION_MHD
 	fread(&betaz,sizeof(Real),1,fp);
 	fread(&pres,sizeof(Real),1,fp);
+#endif
+#ifdef MATRIX_MULTIGRID 
+	fread(&Ncycle,sizeof(Real),1,fp);
+	fread(&TOL,sizeof(Real),1,fp);
 #endif
 
 /* enroll gravitational potential function */
@@ -413,6 +426,12 @@ void problem_read_restart(MeshS *pM, FILE *fp)
     dump_history_enroll(hst_BxBy, "<-Bx By>");
     dump_history_enroll(hst_EB,"<B^2/2>");
 #endif
+
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
+        /* enroll the opacity function */
+        Opacity = Thindiskopacity;
+#endif
+
 	
 	/* Increase the background magnetic field */
 	DomainS *pD;
@@ -426,24 +445,87 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	Real betanew = 5.0;
 	Real diffBz = sqrt((double)(2.0*pres/betanew)) - sqrt((double)(2.0*pres/betaz));
 
+	Real pressure, averageP = 0.0;
+	Real sumP = 0.0;
+	Real Sigma[NOPACITY];
+	int ierr, ID,m;
+	int count = 0;
+	Real x1, x2, x3, velocity_x, velocity_y, velocity_z;
 #ifdef RADIATION_MHD
 	for (k=ks; k<=ke; k++) {
 		for (j=js; j<=je; j++) {
 			for (i=is; i<=ie; i++) {
+				pressure = pGrid->U[k][j][i].E - 0.5 * (pGrid->U[k][j][i].M1 * pGrid->U[k][j][i].M1 + pGrid->U[k][j][i].M2 * pGrid->U[k][j][i].M2 
+						+ pGrid->U[k][j][i].M3 * pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d
+						- 0.5 * (pGrid->U[k][j][i].B1c * pGrid->U[k][j][i].B1c + pGrid->U[k][j][i].B2c * pGrid->U[k][j][i].B2c + pGrid->U[k][j][i].B3c * pGrid->U[k][j][i].B3c);
+				pressure *= (Gamma - 1.0);
+
+				if(pressure < TINY_NUMBER) pressure = TINY_NUMBER;
+
+				averageP += pressure;
+				count++;
+
+			/* Update the opacity */
+				Thindiskopacity(pGrid->U[k][j][i].d, pressure/(pGrid->U[k][j][i].d * R_ideal), Sigma, NULL);
+				for(m=0;m<NOPACITY;m++){
+					pGrid->U[k][j][i].Sigma[m] = Sigma[m];
+				}
+			
+
+
 				pGrid->B3i[k][j][i] += diffBz;
 				if (k==ke) pGrid->B3i[ke+1][j][i] += diffBz;
 				/* Need to update total Energy when magnetic field is modified */
 					
 				pGrid->U[k][j][i].E += 0.5 * (2.0 * pGrid->U[k][j][i].B3c * diffBz + diffBz * diffBz);
 				pGrid->U[k][j][i].B3c += diffBz;
+				
+				
+
 			}
 		}
 	}
-	
+
+				averageP /= count;
 	
 #endif
+
+#ifdef MPI_PARALLEL
+		ierr = MPI_Reduce(&averageP,&sumP,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+		ID = myID_Comm_world;
+		if(ID == 0){
+			sumP /= pD->NGrid[0]*pD->NGrid[1]*pD->NGrid[2];
+		}
+		MPI_Bcast(&sumP,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
+		averageP = sumP;
+#endif
+
+	/* Initialize such that radiation pressure / gas pressure =125 */
 	
-	
+	for (k=ks; k<=ke; k++) {
+                for (j=js; j<=je; j++) {
+	                  for (i=is; i<=ie; i++) {
+				cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+
+				pGrid->U[k][j][i].Er = 125.0 * averageP * 3.0 / Prat;
+				
+				velocity_x = pGrid->U[k][j][i].M1 / pGrid->U[k][j][i].d;
+				velocity_y = pGrid->U[k][j][i].M2 / pGrid->U[k][j][i].d;
+				velocity_z = pGrid->U[k][j][i].M3 / pGrid->U[k][j][i].d;			
+
+#ifdef FARGO
+			      velocity_y -= qshear * Omega_0 * x1;
+
+#endif
+				pGrid->U[k][j][i].Fr1 = velocity_x * (1.0 + pGrid->U[k][j][i].Edd_11) * pGrid->U[k][j][i].Er/Crat;
+				pGrid->U[k][j][i].Fr2 = velocity_y * (1.0 + pGrid->U[k][j][i].Edd_22) * pGrid->U[k][j][i].Er/Crat;
+				pGrid->U[k][j][i].Fr3 = velocity_z * (1.0 + pGrid->U[k][j][i].Edd_33) * pGrid->U[k][j][i].Er/Crat;
+
+
+			}
+		}
+	}
   return;
 }
 
@@ -569,25 +651,35 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 }
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
-void Thindiskopacity(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a, Real dSigma[4])
+void Thindiskopacity(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY])
 {
+/* Sigma[0-NOPACITY] are: Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE respectively */
+/* dSigma[0-2*NOPACITY] are: dSigma_sF/drho, dSigma_aF/drho, dSigma_aP/drho, dSigma_aE/drho */
+/* 			     dSigma_sF/dT,   dSigma_aF/dT,   dSigma_aP/dT,   dSigma_aE/dT */
 	
 	Real Tpower, Tpower1;
 	/* Tpower = T^3.5 , Tpower1 = T^4.5 */
 	Tpower = 1.0 / (T * T * T * sqrt(T));
 	Tpower1 = Tpower / T;
 	
-	if(Sigma_t != NULL)
-		*Sigma_t =  kappaes * rho + kappaff * rho * rho * Tpower;
-	
-	if(Sigma_a != NULL)
-		*Sigma_a = kappaff * rho * rho * Tpower;
+	if(Sigma != NULL){
+		Sigma[0] =  kappaes * rho;
+		Sigma[1] =  kappaff * rho * rho * Tpower;
+		Sigma[2] =  kappaff * rho * rho * Tpower;
+		Sigma[3] =  kappaff * rho * rho * Tpower;
+	}
 	
 	if(dSigma != NULL){
-		dSigma[0] = kappaes + 2.0 * rho * kappaff * Tpower;
-		dSigma[1] = 2.0 * rho * kappaff * Tpower;
-		dSigma[2] = -3.5 *kappaff * rho * rho * Tpower1;
-		dSigma[3] = -3.5 *kappaff * rho * rho * Tpower1;
+		dSigma[0] = kappaes;
+                dSigma[1] = 2.0 * rho * kappaff * Tpower;
+		dSigma[2] = 2.0 * rho * kappaff * Tpower;
+		dSigma[3] = 2.0 * rho * kappaff * Tpower;
+
+                dSigma[4] = 0.0;
+                dSigma[5] = -3.5 *kappaff * rho * rho * Tpower1;
+		dSigma[6] = -3.5 *kappaff * rho * rho * Tpower1;
+                dSigma[7] = -3.5 *kappaff * rho * rho * Tpower1;
+
 		
 	}
 	

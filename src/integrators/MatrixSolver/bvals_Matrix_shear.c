@@ -25,12 +25,15 @@
 
 /* The functions in this file will only work with the shearing box */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+
+#if defined(MATRIX_MULTIGRID) || defined(MATRIX_HYPRE)
+
 #ifdef SHEARING_BOX
 
 /* Define number of variables to be remapped */
 /* We need to remap Er, Fr1, Fr2, Fr3, V1, V2, V3, T4, Edd11, Edd21, Edd22, Edd31, Edd32 */
 /* Edd33, sigma_t, sigma_a */
-#define NREMAP 16
+#define NREMAP (14+NOPACITY)
 #define NVAR_SHARE NVAR
 
 
@@ -82,7 +85,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
   int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,ii,j,k,ku,n,joffset,jremap;
+  int i,ii,j,k,ku,n,joffset,jremap,m;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay, dFry;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
@@ -154,8 +157,10 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 	GhstZns[k][i][j].U[11] = pMat->U[k][j][ii].Edd_31;
 	GhstZns[k][i][j].U[12] = pMat->U[k][j][ii].Edd_32;
 	GhstZns[k][i][j].U[13] = pMat->U[k][j][ii].Edd_33;
-	GhstZns[k][i][j].U[14] = pMat->U[k][j][ii].Sigma_a;
-	GhstZns[k][i][j].U[15] = pMat->U[k][j][ii].Sigma_t;
+	for(m=0;m<NOPACITY;m++){
+		GhstZns[k][i][j].U[14+m] = pMat->U[k][j][ii].Sigma[m];
+	}
+
       }
     }
   }
@@ -376,8 +381,10 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 	pMat->U[k][j][is-Matghost+i].Edd_31 = GhstZns[k][i][j].U[11];
 	pMat->U[k][j][is-Matghost+i].Edd_32 = GhstZns[k][i][j].U[12];
 	pMat->U[k][j][is-Matghost+i].Edd_33 = GhstZns[k][i][j].U[13];
-	pMat->U[k][j][is-Matghost+i].Sigma_a = GhstZns[k][i][j].U[14];
-	pMat->U[k][j][is-Matghost+i].Sigma_t = GhstZns[k][i][j].U[15];
+
+	for(m=0;m<NOPACITY;m++){
+		pMat->U[k][j][is-Matghost+i].Sigma[m] = GhstZns[k][i][j].U[14+m];
+	}
 
 	  }
     }
@@ -413,7 +420,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = Matghost*Matghost*(ku-ks+1)*NREMAP;
+    cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
                     shearing_sheet_ix1_tag, MPI_COMM_WORLD, &rq);
 
@@ -438,8 +445,9 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_a;
-			*(pSnd++) = pCons->Sigma_t;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+			}
 
         }
       }
@@ -473,8 +481,10 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+			}
+
 			
         }
       }
@@ -505,8 +515,10 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 	*(pSnd++) = pCons->Edd_31;
 	*(pSnd++) = pCons->Edd_32;
 	*(pSnd++) = pCons->Edd_33;
-	*(pSnd++) = pCons->Sigma_a;
-	*(pSnd++) = pCons->Sigma_t;
+	for(m=0;m<NOPACITY;m++){
+		*(pSnd++) = pCons->Sigma[m];
+
+	}
 
         }
       }
@@ -540,8 +552,12 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+
+			}
+
+
 			
         }
       }
@@ -580,7 +596,7 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
  int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
-  int i,ii,j,k,ku,n,joffset,jremap;
+  int i,ii,j,k,ku,n,joffset,jremap,m;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay, dFry;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
@@ -652,9 +668,12 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 		  GhstZns[k][i][j].U[11] = pMat->U[k][j][ii].Edd_31;
 		  GhstZns[k][i][j].U[12] = pMat->U[k][j][ii].Edd_32;
 		  GhstZns[k][i][j].U[13] = pMat->U[k][j][ii].Edd_33;
-		  GhstZns[k][i][j].U[14] = pMat->U[k][j][ii].Sigma_a;
-		  GhstZns[k][i][j].U[15] = pMat->U[k][j][ii].Sigma_t;	  
-		  
+		  for(m=0;m<NOPACITY;m++){
+
+			GhstZns[k][i][j].U[14+m] = pMat->U[k][j][ii].Sigma[m];
+		  }
+
+
 		  
       }
     }
@@ -872,8 +891,10 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 		  pMat->U[k][j][ie+1+i].Edd_31 = GhstZns[k][i][j].U[11];
 		  pMat->U[k][j][ie+1+i].Edd_32 = GhstZns[k][i][j].U[12];
 		  pMat->U[k][j][ie+1+i].Edd_33 = GhstZns[k][i][j].U[13];
-		  pMat->U[k][j][ie+1+i].Sigma_a = GhstZns[k][i][j].U[14];
-		  pMat->U[k][j][ie+1+i].Sigma_t = GhstZns[k][i][j].U[15]; 
+		  for(m=0;m<NOPACITY;m++){
+			pMat->U[k][j][ie+1+i].Sigma[m] = GhstZns[k][i][j].U[14+m];
+
+		 }	
 
       }
     }
@@ -913,7 +934,7 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = Matghost*Matghost*(ku-ks+1)*NREMAP;
+    cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
                     shearing_sheet_ox1_tag, MPI_COMM_WORLD, &rq);
 
@@ -938,8 +959,9 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_a;
-			*(pSnd++) = pCons->Sigma_t;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+			}
 			
         }
       }
@@ -973,8 +995,11 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+
+			}
+			
         }
       }
     }
@@ -1004,8 +1029,10 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_a;
-			*(pSnd++) = pCons->Sigma_t;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+			}
+
         }
       }
     }
@@ -1038,8 +1065,11 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+			}
+
+		
         }
       }
     }
@@ -1138,5 +1168,7 @@ void bvals_Matrix_shear_destruct(void)
 }
 
 
-#endif /* END RADIATION HYDRO OR RADIATION MDH */
 #endif /* SHEARING_BOX */
+
+#endif /* MATRIX_MULTIGRID */
+#endif /* END RADIATION HYDRO OR RADIATION MDH */

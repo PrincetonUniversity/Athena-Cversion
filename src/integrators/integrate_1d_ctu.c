@@ -1,6 +1,7 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_1d_ctu.c
+/*============================================================================*/
+/*! \file integrate_1d_ctu.c
+ *  \brief Integrate MHD equations using 1D version of the CTU integrator.
  *
  * PURPOSE: Integrate MHD equations using 1D version of the CTU integrator.
  *   Updates U.[d,M1,M2,M3,E,B2c,B3c,s] in Grid structure, where U is of type
@@ -8,10 +9,10 @@
  *   cooling.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_1d_ctu()
- *   integrate_init_1d()
- *   integrate_destruct_1d()
- *============================================================================*/
+ * - integrate_1d_ctu()
+ * - integrate_init_1d()
+ * - integrate_destruct_1d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -34,6 +35,11 @@
 /* The L/R states of conserved variables and fluxes at each cell face */
 static Cons1DS *Ul_x1Face=NULL, *Ur_x1Face=NULL, *x1Flux=NULL;
 
+#ifdef CONS_GRAVITY
+static Real *x1Flux_grav=NULL;
+static Real *density_old=NULL;
+#endif
+
 /* 1D scratch vectors used by lr_states and flux functions */
 static Real *Bxc=NULL, *Bxi=NULL;
 static Prim1DS *W=NULL, *Wl=NULL, *Wr=NULL;
@@ -49,7 +55,9 @@ static Real *geom_src=NULL;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_1d: 1D version of CTU unsplit integrator for MHD
+/*! \fn void integrate_1d_ctu(DomainS *pD)
+ *  \brief 1D version of CTU unsplit integrator for MHD
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 1D.
  */
@@ -73,7 +81,12 @@ void integrate_1d_ctu(DomainS *pD)
 #endif
 #ifdef SELF_GRAVITY
   Real gxl,gxr,flux_m1l,flux_m1r;
+#ifdef CONS_GRAVITY
+  Real dotgxl, dotgxr, flux_E1l, flux_E1r;
+  Real dotphil, dotphir;
+#endif/* Finish consver gravity */
 #endif
+
 #ifdef FEEDBACK
   Real dt1 = 1.0/pG->dt;
 #endif
@@ -175,6 +188,7 @@ void integrate_1d_ctu(DomainS *pD)
   for (i=il+1; i<=iu; i++) {
     Wl[i].Vx -= hdtodx1*(pG->Phi[ks][js][i] - pG->Phi[ks][js][i-1]);
     Wr[i].Vx -= hdtodx1*(pG->Phi[ks][js][i] - pG->Phi[ks][js][i-1]);
+/* No source term from self-gravity for pressure in primitive variables */
   }
 #endif
 
@@ -482,8 +496,13 @@ void integrate_1d_ctu(DomainS *pD)
 
       pG->U[ks][js][i].M1 -= dtodx1*(flux_m1r - flux_m1l);
 #ifndef BAROTROPIC
+#ifndef CONS_GRAVITY
+
+/* use normal method for energy part, otherwise energy flux will be updated later */
       pG->U[ks][js][i].E -= dtodx1*(x1Flux[i  ].d*(phic - phil) +
-                                    x1Flux[i+1].d*(phir - phic));
+                                   x1Flux[i+1].d*(phir - phic));
+#endif
+
 #endif
   }
 
@@ -532,6 +551,10 @@ void integrate_1d_ctu(DomainS *pD)
 #ifdef CYLINDRICAL
     rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
+#ifdef CONS_GRAVITY
+/* store the density at time step n */
+    density_old[i] = pG->U[ks][js][i].d;
+#endif
     pG->U[ks][js][i].d  -= dtodx1*(rsf*x1Flux[i+1].d  - lsf*x1Flux[i].d );
     pG->U[ks][js][i].M1 -= dtodx1*(rsf*x1Flux[i+1].Mx - lsf*x1Flux[i].Mx);
     pG->U[ks][js][i].M2 -= dtodx1*(SQR(rsf)*x1Flux[i+1].My - SQR(lsf)*x1Flux[i].My);
@@ -551,6 +574,32 @@ void integrate_1d_ctu(DomainS *pD)
       pG->U[ks][js][i].s[n] -= dtodx1*(rsf*x1Flux[i+1].s[n] - lsf*x1Flux[i].s[n]);
 #endif
   }
+
+#ifdef CONS_GRAVITY
+/* we have to updated the potential inside the integrator 
+ */
+	
+    
+
+	bvals_mhd(pD);
+    	(*SelfGrav_cons)(pD);
+    	bvals_grav(pD);
+  	for (i=is; i<=ie+1; i++) {
+		phil = 0.25*(pG->Phi[ks][js][i-1]+pG->Phi_old[ks][js][i]+pG->Phi_old[ks][js][i-1]+pG->Phi[ks][js][i]);
+		gxl = 0.5 * (pG->Phi[ks][js][i-1] + pG->Phi_old[ks][js][i-1]  - pG->Phi[ks][js][i  ] - pG->Phi_old[ks][js][i  ])/(pG->dx1);
+		dotphil  = 0.5*(pG->dphidt[ks][js][i-1] + pG->dphidt[ks][js][i  ]);		
+		dotgxl = (pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i  ])/(pG->dx1);
+
+		x1Flux_grav[i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[i].d*phil;
+    		
+	}
+
+	for(i=is;i<=ie;i++){
+		pG->U[ks][js][i].E += (0.5*(density_old[i]-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi[ks][js][i]
+				      -dtodx1 * (x1Flux_grav[i+1] - x1Flux_grav[i]));
+	}
+
+#endif
 
 /*--- Step 12b: Not needed in 1D ---*/
 /*--- Step 12c: Not needed in 1D ---*/
@@ -623,8 +672,8 @@ void integrate_1d_ctu(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_1d: Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_1d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_1d(MeshS *pM)
 {
   int size1=0,nl,nd;
@@ -649,6 +698,11 @@ void integrate_init_1d(MeshS *pM)
   if ((Ul_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
   if ((Ur_x1Face =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
   if ((x1Flux    =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
+
+#ifdef CONS_GRAVITY
+  if ((x1Flux_grav =(Real*)malloc((size1+1)*sizeof(Real)))==NULL) goto on_error;
+  if ((density_old =(Real*)malloc(size1*sizeof(Real)))==NULL) goto on_error;
+#endif
 
   if ((W  = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
   if ((Wl = (Prim1DS*)malloc(size1*sizeof(Prim1DS))) == NULL) goto on_error;
@@ -677,8 +731,8 @@ void integrate_init_1d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_1d: Free temporary integration arrays  */
-
+/*! \fn void integrate_destruct_1d(void)
+ *  \brief Free temporary integration arrays  */
 void integrate_destruct_1d(void)
 {
   if (Bxc != NULL) free(Bxc);
@@ -688,6 +742,11 @@ void integrate_destruct_1d(void)
   if (Ul_x1Face != NULL) free(Ul_x1Face);
   if (Ur_x1Face != NULL) free(Ur_x1Face);
   if (x1Flux != NULL) free(x1Flux);
+
+#ifdef CONS_GRAVITY
+  if (x1Flux_grav != NULL) free(x1Flux_grav); 
+  if (density_old != NULL) free(density_old); 
+#endif
 
   if (W  != NULL) free(W);
   if (Wl != NULL) free(Wl);

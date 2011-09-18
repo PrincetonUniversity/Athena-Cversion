@@ -28,6 +28,7 @@
 #include "../particles/particle.h"
 #endif
 
+#if defined(MATRIX_MULTIGRID) || defined(MATRIX_HYPRE)
 
 #if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
@@ -85,7 +86,8 @@ void BackEuler_1d(MeshS *pM)
 	pMat->dt = dt;
 	pMat->time = pG->time;
 
-	Real velocity_x, T4, Sigma_a;
+	Real velocity_x, T4;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 
 	Real error;
 	int Wcycle;
@@ -129,7 +131,10 @@ void BackEuler_1d(MeshS *pM)
 
 				
 				T4 = pow(pG->Tguess[ks][js][i], 4.0);	
-				Sigma_a = pG->U[ks][js][i].Sigma_a;
+				Sigma_sF = pG->U[ks][js][i].Sigma[0];
+				Sigma_aF = pG->U[ks][js][i].Sigma[1];
+				Sigma_aP = pG->U[ks][js][i].Sigma[2];
+				Sigma_aE = pG->U[ks][js][i].Sigma[3];
 
 				pMat->U[Matk][Matj][Mati].Er  = pG->U[ks][js][i].Er;
 				pMat->U[Matk][Matj][Mati].Fr1 = pG->U[ks][js][i].Fr1;
@@ -139,12 +144,14 @@ void BackEuler_1d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Edd_11 = pG->U[ks][js][i].Edd_11;
 
 
-				pMat->U[Matk][Matj][Mati].Sigma_a = Sigma_a;
-				pMat->U[Matk][Matj][Mati].Sigma_t = pG->U[ks][js][i].Sigma_t;	
+				pMat->U[Matk][Matj][Mati].Sigma[0] = Sigma_sF;
+				pMat->U[Matk][Matj][Mati].Sigma[1] = Sigma_aF;
+				pMat->U[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
+				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
 		/* Now set the right hand side */
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + Crat * dt * Sigma_a * T4;
-				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][js][i].Fr1 + dt * Sigma_a * T4 * velocity_x;
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + Crat * dt * Sigma_aP * T4;
+				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][js][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 	
 				
 	} /* End i */
@@ -499,7 +506,8 @@ Real CheckResidual(MatrixS *pMat)
 	
 
 	/* Temporary variables to setup the matrix */
-	Real velocity_x, Sigma_a, Sigma_t, Sigma_s, T4;
+	Real velocity_x, T4;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Ci0, Ci1;
 
 
@@ -512,9 +520,11 @@ Real CheckResidual(MatrixS *pMat)
 				
 			/* Assuming the velocity is already the original velocity in case of FARGO */			
 				
-			Sigma_a = pMat->U[ks][js][i].Sigma_a;
-			Sigma_t = pMat->U[ks][js][i].Sigma_t;
-			Sigma_s = Sigma_t - Sigma_a;
+			Sigma_sF = pMat->U[ks][js][i].Sigma[0];
+			Sigma_aF = pMat->U[ks][js][i].Sigma[1];
+			Sigma_aP = pMat->U[ks][js][i].Sigma[2];
+			Sigma_aE = pMat->U[ks][js][i].Sigma[3];
+
 			Ci0 = (sqrt(pMat->U[ks][js][i].Edd_11) - sqrt(pMat->U[ks][js][i-1].Edd_11)) 
 				/ (sqrt(pMat->U[ks][js][i].Edd_11) + sqrt(pMat->U[ks][js][i-1].Edd_11));
 			Ci1 =  (sqrt(pMat->U[ks][js][i+1].Edd_11) - sqrt(pMat->U[ks][js][i].Edd_11)) 
@@ -523,23 +533,23 @@ Real CheckResidual(MatrixS *pMat)
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
-				+ Crat * pMat->dt * Sigma_a 
-				+ pMat->dt * (Sigma_a - Sigma_s) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_a - Sigma_s) * velocity_x;
+				+ Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 			
 			
 			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][js][i-1].Edd_11;
 			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
-			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][js][i].Edd_11
-			      
-			       - pMat->dt * Sigma_t * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x 
-			       + pMat->dt * Sigma_a * velocity_x;
+			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][js][i].Edd_11 
+			       - pMat->dt * (Sigma_aF + Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x 
+			       + pMat->dt * Sigma_aE * velocity_x;
 			phi[3] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
-				     + Crat * pMat->dt * Sigma_t;
+				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
 			phi[4] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][js][i+1].Edd_11;
 			phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
+		
 		
 			
 						
@@ -687,7 +697,8 @@ void Restriction1D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 
 	/* Temporary variables to setup the matrix */
-	Real velocity_x, Sigma_a, Sigma_t, Sigma_s, T4;
+	Real velocity_x, T4;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Ci0, Ci1;
 
 	Real ****error;	
@@ -708,9 +719,10 @@ void Restriction1D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 			T4 = pMat_fine->U[ks][js][i].T4;	
 				
-			Sigma_a = pMat_fine->U[ks][js][i].Sigma_a;
-			Sigma_t = pMat_fine->U[ks][js][i].Sigma_t;
-			Sigma_s = Sigma_t - Sigma_a;
+			Sigma_sF = pMat->U[ks][js][i].Sigma[0];
+			Sigma_aF = pMat->U[ks][js][i].Sigma[1];
+			Sigma_aP = pMat->U[ks][js][i].Sigma[2];
+			Sigma_aE = pMat->U[ks][js][i].Sigma[3];
 
 			Ci0 = (sqrt(pMat_fine->U[ks][js][i].Edd_11) - sqrt(pMat_fine->U[ks][js][i-1].Edd_11)) 
 				/ (sqrt(pMat_fine->U[ks][js][i].Edd_11) + sqrt(pMat_fine->U[ks][js][i-1].Edd_11));
@@ -721,23 +733,23 @@ void Restriction1D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
-				+ Crat * pMat->dt * Sigma_a 
-				+ pMat->dt * (Sigma_a - Sigma_s) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_a - Sigma_s) * velocity_x;
+				+ Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 			
 			
 			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][js][i-1].Edd_11;
 			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
-			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][js][i].Edd_11
-			      
-			       - pMat->dt * Sigma_t * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x 
-			       + pMat->dt * Sigma_a * velocity_x;
+			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][js][i].Edd_11 
+			       - pMat->dt * (Sigma_aF + Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x 
+			       + pMat->dt * Sigma_aE * velocity_x;
 			phi[3] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
-				     + Crat * pMat->dt * Sigma_t;
+				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
 			phi[4] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][js][i+1].Edd_11;
 			phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
+		
 		
 
 
@@ -872,4 +884,7 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 
 
 #endif /* radMHD_INTEGRATOR */
+
+
+#endif /* MATRIX_MULTIGRID */
 

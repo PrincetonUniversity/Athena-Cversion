@@ -649,14 +649,16 @@ void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 
 #ifdef RADIATION_HYDRO
 void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h, const Real dt,
-  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma_a, const Real Sigma_t, const int flag,
+  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma[NOPACITY], const int flag,
   Real eigenvalues[],
   Real right_eigenmatrix[][5], Real left_eigenmatrix[][5])
 {
   /* Notice that the left and right eigen vectors are given for primitive variabes */
-   /* We actually do not use the eigen vectors */	
+   /* We actually do not use the eigen vectors */
+  /* Sigma[0] = Sigma_sF, Sigma[1] = Sigma_aF, Sigma[2] = Sigma_aP, Sigma[3] = Sigma_aE */	
   Real vsq,aeff,rho;
   Prim1DS W;
+  int m;
   vsq = v1*v1 + v2*v2 + v3*v3;
 
   rho = (h - 0.5 * vsq) * (Gamma - 1.0) / Gamma;
@@ -666,8 +668,9 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   W.Vx = v1;
   W.Vy = v2;
   W.Vz = v3;
-  W.Sigma_a = Sigma_a;
-  W.Sigma_t = Sigma_t;
+  for(m=0;m<NOPACITY;m++){
+	W.Sigma[m] = Sigma[m];
+  }
   W.Er = Er;
   W.Fr1 = Fr[0];
   W.Fr2 = Fr[1];
@@ -773,7 +776,7 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
 
 #ifdef RADIATION_MHD
 void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3, const Real dt, 
-  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma_a, const Real Sigma_t, const int flag,
+  const Real pressure, const Real Er, const Real Fr[3], const Real Edd[6], const Real Sigma[NOPACITY], const int flag,
   const Real h, const Real b1, const Real b2, const Real b3, 
   Real eigenvalues[],
   Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
@@ -782,6 +785,7 @@ void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 
   Real aeff, aeffsq, vf, vs, vfsq, vssq, vax, vaxsq, di, vsq, vasq, btsq;
   Prim1DS W;
+  int m;
  
   di = 1.0/d;
   vsq = v1*v1 + v2*v2 + v3*v3;
@@ -796,8 +800,9 @@ void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3,
   W.Vx = v1;
   W.Vy = v2;
   W.Vz = v3;
-  W.Sigma_a = Sigma_a;
-  W.Sigma_t = Sigma_t;
+  for(m=0;m<NOPACITY;m++){
+	W.Sigma[m] = Sigma[m];
+  }
   W.Er = Er;
   W.Fr1 = Fr[0];
   W.Fr2 = Fr[1];

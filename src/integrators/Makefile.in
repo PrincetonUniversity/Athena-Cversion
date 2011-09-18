@@ -25,9 +25,21 @@ CORE_OBJ = integrate.o \
 	   BackEuler_3d.o	\
 	   BackEuler.o
 
+HYPRE_OBJ = 
+ifeq (@MATRIX_LIBRARY@,MATRIX_HYPRE)
+HYPRE_OBJ = BackEuler_3d_hypre.o	
 
+endif
 
-OBJ = $(CORE_OBJ)
+LIS_OBJ = 
+ifeq (@MATRIX_LIBRARY@,MATRIX_LIS)
+LIS_OBJ =   BackEuler_1d_lis.o	\
+	    BackEuler_2d_lis.o	\
+	    BackEuler_3d_lis.o	
+
+endif
+
+OBJ = $(CORE_OBJ) $(HYPRE_OBJ) $(LIS_OBJ)
 
 #-------------------  macro definitions  ---------------------------------------
 

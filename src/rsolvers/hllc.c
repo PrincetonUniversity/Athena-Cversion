@@ -56,8 +56,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real dt=pFlux->d;
   int DIM = (int) pFlux->Mx;
   Real aeff;
-  Real Proe, Sigma_roe, Sigmat_roe;
+  Real Proe;
+  Real Sigma_roe[NOPACITY];
   Real Erroe, Frroe[3], Edd[6];
+  int m;
 #endif
 
   Real ev[NWAVE];
@@ -92,8 +94,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 #ifdef RADIATION_HYDRO
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
-  Sigma_roe = (sqrtdl*Wl.Sigma_a + sqrtdr*Wr.Sigma_a)*isdlpdr;
-  Sigmat_roe = (sqrtdl*Wl.Sigma_t + sqrtdr*Wr.Sigma_t)*isdlpdr;
   Erroe = (sqrtdl*Wl.Er + sqrtdr*Wr.Er)*isdlpdr;
   Frroe[0] = (sqrtdl*Wl.Fr1 + sqrtdr*Wr.Fr1)*isdlpdr;
   Frroe[1] = (sqrtdl*Wl.Fr2 + sqrtdr*Wr.Fr2)*isdlpdr;
@@ -104,6 +104,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Edd[3] = (sqrtdl*Wl.Edd_31 + sqrtdr*Wr.Edd_31)*isdlpdr;
   Edd[4] = (sqrtdl*Wl.Edd_32 + sqrtdr*Wr.Edd_32)*isdlpdr;
   Edd[5] = (sqrtdl*Wl.Edd_33 + sqrtdr*Wr.Edd_33)*isdlpdr;
+  
+  for(m=0;m<NOPACITY;m++){
+	Sigma_roe[m] = (sqrtdl*Wl.Sigma[m] + sqrtdr*Wr.Sigma[m])*isdlpdr;
+  }
 #endif
 
 /*
@@ -127,7 +131,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #endif/* HYDRO */
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, Sigmat_roe, DIM, ev, NULL, NULL);
+ esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe,DIM, ev, NULL, NULL);
 #endif
 
 

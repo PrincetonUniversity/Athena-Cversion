@@ -24,6 +24,11 @@ GravPotFun_t StaticGravPot = NULL;
 CoolingFun_t CoolingFunc = NULL;
 #ifdef SELF_GRAVITY
 Real four_pi_G, grav_mean_rho;    /* 4\pi G and mean density in domain */
+
+#ifdef CONS_GRAVITY
+VDFun_t SelfGrav_cons = NULL;
+#endif
+
 #endif
 
 #ifdef SHEARING_BOX
@@ -103,6 +108,11 @@ extern GravPotFun_t StaticGravPot;
 extern CoolingFun_t CoolingFunc;
 #ifdef SELF_GRAVITY
 extern Real four_pi_G, grav_mean_rho;
+
+#ifdef CONS_GRAVITY
+extern VDFun_t SelfGrav_cons;
+#endif
+
 #endif
 
 #ifdef SHEARING_BOX

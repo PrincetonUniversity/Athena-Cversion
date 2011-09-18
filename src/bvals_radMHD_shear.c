@@ -33,7 +33,7 @@
 
 /* Define number of variables to be remapped */
 /* We only need to remap radiation quantities Er, Fr1, Fr2, Fr3 here */
-#define NREMAP 12
+#define NREMAP (10+NOPACITY)
 #define NVAR_SHARE NVAR
 
 
@@ -86,7 +86,7 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,ii,j,k,ku,n,joffset,jremap;
+  int i,ii,j,k,ku,n,joffset,jremap,m;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay, dFry;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
@@ -153,8 +153,11 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 		GhstZns[k][i][j].U[7] = pG->U[k][j][ii].Edd_31;
 		GhstZns[k][i][j].U[8] = pG->U[k][j][ii].Edd_32;
 		GhstZns[k][i][j].U[9] = pG->U[k][j][ii].Edd_33;
-		GhstZns[k][i][j].U[10] = pG->U[k][j][ii].Sigma_t;
-		GhstZns[k][i][j].U[11] = pG->U[k][j][ii].Sigma_a;
+		  for(m=0;m<NOPACITY;m++){
+			  GhstZns[k][i][j].U[10+m] = pG->U[k][j][ii].Sigma[m];
+			  
+		  }
+		  
       }
     }
   }
@@ -362,8 +365,11 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 		pG->U[k][j][is-nghost+i].Edd_31 = GhstZns[k][i][j].U[7];
 		pG->U[k][j][is-nghost+i].Edd_32 = GhstZns[k][i][j].U[8];
 		pG->U[k][j][is-nghost+i].Edd_33 = GhstZns[k][i][j].U[9];
-		pG->U[k][j][is-nghost+i].Sigma_t = GhstZns[k][i][j].U[10];
-		pG->U[k][j][is-nghost+i].Sigma_a = GhstZns[k][i][j].U[11];
+		  for(m=0;m<NOPACITY;m++){
+			 pG->U[k][j][is-nghost+i].Sigma[m] = GhstZns[k][i][j].U[10+m];
+			  
+		  }  
+		  
 	  }
     }
   }
@@ -398,7 +404,7 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = nghost*nghost*(ku-ks+1)*NREMAP;
+    cnt = nghost*nghost*(ku-ks+1)*(NREMAP);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
 
@@ -419,8 +425,11 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_t;
-			*(pSnd++) = pCons->Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+				
+			}
+			
 
         }
       }
@@ -450,8 +459,11 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+				
+			}
+			
 			
         }
       }
@@ -478,8 +490,11 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_t;
-			*(pSnd++) = pCons->Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+				
+			}
+
 
         }
       }
@@ -509,8 +524,12 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
+			
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+				
+			}
+			
 			
         }
       }
@@ -552,7 +571,7 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
   int is = pG->is, ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int i,ii,j,k,ku,n,joffset,jremap;
+  int i,ii,j,k,ku,n,joffset,jremap,m;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay, dFry;
 #ifdef MPI_PARALLEL
   int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
@@ -616,8 +635,10 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 		  GhstZns[k][i][j].U[7] = pG->U[k][j][ii].Edd_31;
 		  GhstZns[k][i][j].U[8] = pG->U[k][j][ii].Edd_32;
 		  GhstZns[k][i][j].U[9] = pG->U[k][j][ii].Edd_33;
-		  GhstZns[k][i][j].U[10] = pG->U[k][j][ii].Sigma_t;
-		  GhstZns[k][i][j].U[11] = pG->U[k][j][ii].Sigma_a;	  
+		  for(m=0;m<NOPACITY;m++){
+			  GhstZns[k][i][j].U[10+m] = pG->U[k][j][ii].Sigma[m]; 
+		  }
+  
 		  
 		  
       }
@@ -830,8 +851,9 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 		  pG->U[k][j][ie+1+i].Edd_31 = GhstZns[k][i][j].U[7];
 		  pG->U[k][j][ie+1+i].Edd_32 = GhstZns[k][i][j].U[8];
 		  pG->U[k][j][ie+1+i].Edd_33 = GhstZns[k][i][j].U[9];
-		  pG->U[k][j][ie+1+i].Sigma_t = GhstZns[k][i][j].U[10];
-		  pG->U[k][j][ie+1+i].Sigma_a = GhstZns[k][i][j].U[11]; 
+		  for(m=0;m<NOPACITY;m++){
+			  pG->U[k][j][ie+1+i].Sigma[m] =  GhstZns[k][i][j].U[10+m];			  
+		  }
 
       }
     }
@@ -871,7 +893,7 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = nghost*nghost*(ku-ks+1)*NREMAP;
+    cnt = nghost*nghost*(ku-ks+1)*(NREMAP);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
 
@@ -892,8 +914,10 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_t;
-			*(pSnd++) = pCons->Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+			}
+
 			
         }
       }
@@ -923,8 +947,11 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+				
+			}
+			
         }
       }
     }
@@ -950,8 +977,11 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 			*(pSnd++) = pCons->Edd_31;
 			*(pSnd++) = pCons->Edd_32;
 			*(pSnd++) = pCons->Edd_33;
-			*(pSnd++) = pCons->Sigma_t;
-			*(pSnd++) = pCons->Sigma_a;
+			for(m=0;m<NOPACITY;m++){
+				*(pSnd++) = pCons->Sigma[m];
+				
+			}
+
         }
       }
     }
@@ -980,8 +1010,11 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
 			pCons->Edd_31 = *(pRcv++);
 			pCons->Edd_32  = *(pRcv++);
 			pCons->Edd_33 = *(pRcv++);
-			pCons->Sigma_t = *(pRcv++);
-			pCons->Sigma_a = *(pRcv++);
+			for(m=0;m<NOPACITY;m++){
+				pCons->Sigma[m] = *(pRcv++);
+				
+			}
+
         }
       }
     }
