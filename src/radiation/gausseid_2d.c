@@ -52,13 +52,13 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
 static void sweep_2d_forward(RadGridS *pRG);
 static void sweep_2d_backward(RadGridS *pRG);
 
-void formal_solution_2d(RadGridS *pRG, Real *dSrmax)
+void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, j, l, m;
   int is = pRG->is, ie = pRG->ie; 
   int js = pRG->js, je = pRG->je; 
   int ks = pRG->ks; 
-  int ifr, nf = pRG->nf;  
+  int nf = pRG->nf;  
 
   for(ifr=0; ifr<nf; ifr++) 
     for(m=0; m<pRG->nang; m++) {
@@ -450,7 +450,7 @@ static void sweep_2d_backward(RadGridS *pRG)
 	  }
 	}
 /* update source function and relevant quantities for GS integration */
-	update_sfunc(&(pRG->R[ks][j][i][ifr]), &dS, lamstr[j][i][ifr]);
+	update_sfunc(&(pRG->R[ks][j][i]), &dS, lamstr[j][i][ifr]);
 /* correct intensties */
 	if (svwght == 1) {
 	  for(m=0; m<nang; m++) {
@@ -677,16 +677,6 @@ void formal_solution_2d_init(RadGridS *pRG)
   return;
 
 }
-
-#ifdef RAD_MULTIG
-void gs_pass_pointers_to_mg_2d(Real ********psi0, Real **muinv0, Real **am00)
-{
-  *psi0 = psi;
-  *muinv0 = muinv;
-  *am00 = am0;
-  return;
-}
-#endif /* RAD_MULTIG */
 
 #endif /* GAUSSEID */
 #endif /* RADIATION_TRANSFER */

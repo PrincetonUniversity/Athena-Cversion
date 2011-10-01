@@ -84,13 +84,6 @@ Real dScnv;
 Real B00;
 #endif
 
-
-#ifdef RAD_MULTIG
-int img = 0;
-int nmgrid;
-#endif
-
-
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -168,12 +161,6 @@ extern int lte, niter;
 extern Real dScnv;
 extern Real B00;
 #endif
-
-#ifdef RAD_MULTIG
-extern int img;
-extern int nmgrid;
-#endif
-
 
 #endif /* MAIN_C */
 #endif /* GLOBALS_H */

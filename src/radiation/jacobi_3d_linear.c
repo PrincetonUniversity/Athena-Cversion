@@ -23,7 +23,7 @@
 
 
 #ifdef RADIATION_TRANSFER
-#if defined(JACOBI) || defined(JACOBI_LINEAR) || defined(GAUSSEID)
+#if defined(JACOBI) || defined(GAUSSEID)
 
 static Real ****lamstr = NULL;
 static Real ******imuo = NULL;
@@ -43,395 +43,346 @@ static Real ****Jold = NULL;
  *============================================================================*/
 
 static void update_sfunc(RadS *R, Real *dSr, Real lam);
-static void sweep_3d_forward(RadGridS *pRG);
-static void sweep_3d_backward(RadGridS *pRG);
-static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int l);
+static void sweep_3d_forward(RadGridS *pRG, int ifr);
+static void sweep_3d_backward(RadGridS *pRG, int ifr);
+static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, int i, int l);
 
-void formal_solution_3d(RadGridS *pRG, Real *dSrmax)
+void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, j, k, l, m;
   int is = pRG->is, ie = pRG->ie; 
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int ifr, nf = pRG->nf;
+  int nf = pRG->nf;
   int ismx, jsmx, ksmx;
   Real dSr, dJ, dJmax;
-  /*if(myID_Comm_world == 0) {
-  for (m=0;m<pRG->nang;m++) {
-    printf("0: %d %g %g %g \n",m,pRG->l1imu[0][ks-1][js-1][0][m],
-	   pRG->l2imu[0][ks-1][is-1][0][m], pRG->l3imu[0][js-1][is-1][0][m]);
-    printf("1: %d %g %g %g \n",m,pRG->r1imu[0][ks-1][js-1][1][m],
-	   pRG->l2imu[0][ks-1][ie+1][1][m], pRG->l3imu[0][js-1][ie+1][1][m]);
-    printf("2: %d %g %g %g \n",m,pRG->l1imu[0][ks-1][je+1][2][m],
-	   pRG->r2imu[0][ks-1][is-1][2][m], pRG->l3imu[0][je+1][is-1][2][m]);
-    printf("3: %d %g %g %g \n",m,pRG->r1imu[0][ks-1][je+1][3][m],
-	   pRG->r2imu[0][ks-1][ie+1][3][m], pRG->l3imu[0][je+1][ie+1][3][m]);
-    printf("4: %d %g %g %g \n",m,pRG->l1imu[0][ke+1][js-1][4][m],
-	   pRG->l2imu[0][ke+1][is-1][4][m], pRG->r3imu[0][js-1][is-1][4][m]);
-    printf("5: %d %g %g %g \n",m,pRG->r1imu[0][ke+1][js-1][5][m],
-	   pRG->l2imu[0][ke+1][ie+1][5][m], pRG->r3imu[0][js-1][ie+1][5][m]);
-    printf("6: %d %g %g %g \n",m,pRG->l1imu[0][ke+1][je+1][6][m],
-	   pRG->r2imu[0][ke+1][is-1][6][m], pRG->r3imu[0][je+1][is-1][6][m]);
-    printf("7: %d %g %g %g \n",m,pRG->r1imu[0][ke+1][je+1][7][m],
-	   pRG->r2imu[0][ke+1][ie+1][7][m], pRG->r3imu[0][je+1][ie+1][7][m]);
-    printf("---\n");
-  }
-  printf("*************\n");
-  }*/
+
+#ifdef QUADRATIC_INTENSITY
+  ath_error("[jacob_3d_linear.c]: quadratic intensity not currently supported on 3D domains.\n");
+#endif
+
 /* if LTE then store J values from previous iteration */
   if(lte != 0) {
     for(k=ks; k<=ke; k++) 
       for(j=js; j<=je; j++)
 	for(i=is; i<=ie; i++) 
-	  for(ifr=0; ifr<nf; ifr++) 
-	    Jold[k][j][i][ifr] = pRG->R[k][j][i][ifr].J;
+	  Jold[k][j][i][ifr] = pRG->R[ifr][k][j][i].J;
   }
 
 /* initialize mean intensities at all depths to zero */
   for(k=ks; k<=ke; k++) 
     for(j=js; j<=je; j++)
-      for(i=is; i<=ie; i++) 
-	for(ifr=0; ifr<nf; ifr++) {
-	  pRG->R[k][j][i][ifr].J = 0.0;
-	  pRG->R[k][j][i][ifr].H[0] = 0.0;
-	  pRG->R[k][j][i][ifr].H[1] = 0.0;
-	  pRG->R[k][j][i][ifr].H[2] = 0.0;
-	  pRG->R[k][j][i][ifr].K[0] = 0.0;
-	  pRG->R[k][j][i][ifr].K[1] = 0.0;
-	  pRG->R[k][j][i][ifr].K[2] = 0.0;
-	  pRG->R[k][j][i][ifr].K[3] = 0.0;
-	  pRG->R[k][j][i][ifr].K[4] = 0.0;
-	  pRG->R[k][j][i][ifr].K[5] = 0.0;
-	  lamstr[k][j][i][ifr] = 0.0;
-	}
+      for(i=is; i<=ie; i++) {
+	pRG->R[ifr][k][j][i].J = 0.0;
+	pRG->R[ifr][k][j][i].H[0] = 0.0;
+	pRG->R[ifr][k][j][i].H[1] = 0.0;
+	pRG->R[ifr][k][j][i].H[2] = 0.0;
+	pRG->R[ifr][k][j][i].K[0] = 0.0;
+	pRG->R[ifr][k][j][i].K[1] = 0.0;
+	pRG->R[ifr][k][j][i].K[2] = 0.0;
+	pRG->R[ifr][k][j][i].K[3] = 0.0;
+	pRG->R[ifr][k][j][i].K[4] = 0.0;
+	pRG->R[ifr][k][j][i].K[5] = 0.0;
+	lamstr[k][j][i][ifr] = 0.0;
+      }
 
 /* Compute formal solution and for all rays in each gridzone and 
  * update boundary emission*/
-  sweep_3d_forward(pRG);
+  sweep_3d_forward(pRG,ifr);
 
-  sweep_3d_backward(pRG);
+  sweep_3d_backward(pRG,ifr);
 
   if(lte == 0) {
 /* Update source function */
     (*dSrmax) = 0.0;
     for(k=ks; k<=ke; k++) 
       for(j=js; j<=je; j++) 
-	for(i=is; i<=ie; i++) 
-	  for(ifr=0; ifr<nf; ifr++) {
-	    update_sfunc(&(pRG->R[k][j][i][ifr]),&dSr,lamstr[k][j][i][ifr]);
-	    if( dSr > (*dSrmax)) {
-	      (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
-	    }
+	for(i=is; i<=ie; i++) { 
+	  update_sfunc(&(pRG->R[ifr][k][j][i]),&dSr,lamstr[k][j][i][ifr]);
+	  if( dSr > (*dSrmax)) {
+	    (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
 	  }
-    /*printf("%d %d %d %g\n",ismx,jsmx,ksmx,*dSrmax);*/
+	}
   } else {
 /* Use delta J / J as convergence criterion */
     (*dSrmax) = 0.0;
     dJmax = 0.0;
     for(k=ks; k<=ke; k++) 
       for(j=js; j<=je; j++)
-	for(i=is; i<=ie; i++) 
-	  for(ifr=0; ifr<nf; ifr++) {
-	    dJ = fabs(pRG->R[k][j][i][ifr].J - Jold[k][j][i][ifr]);
-	    if(dJ > dJmax) dJmax = dJ;
-	    if (Jold[k][j][i][ifr] > 0.0)
-	      dSr = dJ / Jold[k][j][i][ifr];
-	    else
-	      dSr = 0;
-	    if( dSr > (*dSrmax)) {
-	      (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
-	    }	 
-	  }
-    /*printf("%d %d %d %g\n",ismx,jsmx,ksmx,*dSrmax);*/
+	for(i=is; i<=ie; i++) {
+	  dJ = fabs(pRG->R[ifr][k][j][i].J - Jold[k][j][i][ifr]);
+	  if(dJ > dJmax) dJmax = dJ;
+	  if (Jold[k][j][i][ifr] > 0.0)
+	    dSr = dJ / Jold[k][j][i][ifr];
+	  else
+	    dSr = 0;
+	  if( dSr > (*dSrmax)) {
+	    (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
+	  }	 
+	}
     if(((*dSrmax) == 0.0) && (dJmax > 0.0)) (*dSrmax) = 1.0;
   }
 
   return;
 }
 
-static void sweep_3d_forward(RadGridS *pRG)
+static void sweep_3d_forward(RadGridS *pRG, int ifr)
 {
-  int ifr, i, j, k, l, m;
+  int i, j, k, l, m;
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
   int nf = pRG->nf, nang = pRG->nang;
 
 /* Account for ix3 boundary intensities */
-  for(ifr=0; ifr<nf; ifr++) {
-    for(j=js-1; j<=je+1; j++) {
-      for(i=is-1; i<=ie+1; i++) {
-	for(l=0; l<=3; l++)  {
-	  for(m=0; m<nang; m++) {
-	    imuo[ifr][j][i][l][m][0] = pRG->l3imu[ifr][j][i][l][m];
-	  }}}}}
+  for(j=js-1; j<=je+1; j++) {
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=0; l<=3; l++)  {
+	for(m=0; m<nang; m++) {
+	  imuo[ifr][j][i][l][m][0] = pRG->Ghstl3i[ifr][j][i][l][m];
+	}}}}
 
   /* sweep forward in x3 */
   for(k=ks; k<=ke; k++) {
 
     /* Account for ix2 boundary intensities.  Note that this uses
      * l2imu to initialize imuo on edge */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is-1; i<=ie+1; i++) {
-	for(l=0; l<=1; l++)  {
-	  for(m=0; m<nang; m++) {
-	    imuo[ifr][js-1][i][l][m][1] = imuo[ifr][js-1][i][l][m][0];
-	    imuo[ifr][js-1][i][l][m][0] = pRG->l2imu[ifr][k][i][l][m];
-	  }}}}
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=0; l<=1; l++)  {
+	for(m=0; m<nang; m++) {
+	  imuo[ifr][js-1][i][l][m][1] = imuo[ifr][js-1][i][l][m][0];
+	  imuo[ifr][js-1][i][l][m][0] = pRG->Ghstl2i[ifr][k][i][l][m];
+	}}}
 
     /* Sweep forward in x2 */
     for(j=js; j<=je; j++) {
 
       /* Account for ix1 boundary intensities */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++) {
-	  /* ix1/ox1 boundary conditions*/
-	  imuo[ifr][j][is-1][0][m][1] = imuo[ifr][j][is-1][0][m][0];
-	  imuo[ifr][j][ie+1][1][m][1] = imuo[ifr][j][ie+1][1][m][0];
-	  imuo[ifr][j][is-1][0][m][0] = pRG->l1imu[ifr][k][j][0][m];
-	  imuo[ifr][j][ie+1][1][m][0] = pRG->r1imu[ifr][k][j][1][m];
-	}}
+      for(m=0; m<nang; m++) {
+	/* ix1/ox1 boundary conditions*/
+	imuo[ifr][j][is-1][0][m][1] = imuo[ifr][j][is-1][0][m][0];
+	imuo[ifr][j][ie+1][1][m][1] = imuo[ifr][j][ie+1][1][m][0];
+	imuo[ifr][j][is-1][0][m][0] = pRG->Ghstl1i[ifr][k][j][0][m];
+	imuo[ifr][j][ie+1][1][m][0] = pRG->Ghstr1i[ifr][k][j][1][m];
+      }
 
       /* Sweep forward in x1 */
       for(i=is; i<=ie; i++) 
-	update_cell(pRG,imuo,k,j,i,0);
+	update_cell(pRG,imuo,ifr,k,j,i,0);
 
       /* Update intensity at the ox1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->r1imu[ifr][k][j][0][m] = imuo[ifr][j][ie][0][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->r1imu[ifr][k][j][0][m] = imuo[ifr][j][ie][0][m][0];
+      }
 
       /* Sweep backward in x1 */
       for(i=ie; i>=is; i--) 
-	update_cell(pRG,imuo,k,j,i,1);
+	update_cell(pRG,imuo,ifr,k,j,i,1);
 
       /* Update intensity at the ix1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->l1imu[ifr][k][j][1][m] = imuo[ifr][j][is][1][m][0];
-	}}
-
+      for(m=0; m<nang; m++)  {
+	pRG->l1imu[ifr][k][j][1][m] = imuo[ifr][j][is][1][m][0];
+      }
     }
 
     /* Update intensity at the ox2 boundary */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is; i<=ie; i++) { 
-	for(l=0; l<=1; l++) { 
-	  for(m=0; m<nang; m++) { 
-	    pRG->r2imu[ifr][k][i][l][m] = imuo[ifr][je][i][l][m][0];
-	  }}}}
+    for(i=is; i<=ie; i++) { 
+      for(l=0; l<=1; l++) { 
+	for(m=0; m<nang; m++) { 
+	  pRG->r2imu[ifr][k][i][l][m] = imuo[ifr][je][i][l][m][0];
+	}}}
 
 /* ----------------  Start of reverse sweep ---------------------- */
 
     /* Account for ox2 boundary intensities */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is-1; i<=ie+1; i++) {
-	for(l=2; l<=3; l++)  {
-	  for(m=0; m<nang; m++) {
-	    imuo[ifr][je+1][i][l][m][1] = imuo[ifr][je+1][i][l][m][0];
-	    imuo[ifr][je+1][i][l][m][0] = pRG->r2imu[ifr][k][i][l][m];
-	  }}}}
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=2; l<=3; l++)  {
+	for(m=0; m<nang; m++) {
+	  imuo[ifr][je+1][i][l][m][1] = imuo[ifr][je+1][i][l][m][0];
+	  imuo[ifr][je+1][i][l][m][0] = pRG->Ghstr2i[ifr][k][i][l][m];
+	}}}
 
     /* sweep backward in x2 */
     for(j=je; j>=js; j--) {
 
       /* Account for ix1 boundary intensities */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++) {
-	  /* ix1/ox1 boundary conditions*/
-	  imuo[ifr][j][is-1][2][m][1] = imuo[ifr][j][is-1][2][m][0];
-	  imuo[ifr][j][ie+1][3][m][1] = imuo[ifr][j][ie+1][3][m][0];
-	  imuo[ifr][j][is-1][2][m][0] = pRG->l1imu[ifr][k][j][2][m];
-	  imuo[ifr][j][ie+1][3][m][0] = pRG->r1imu[ifr][k][j][3][m];
-	}}
+      for(m=0; m<nang; m++) {
+	/* ix1/ox1 boundary conditions*/
+	imuo[ifr][j][is-1][2][m][1] = imuo[ifr][j][is-1][2][m][0];
+	imuo[ifr][j][ie+1][3][m][1] = imuo[ifr][j][ie+1][3][m][0];
+	imuo[ifr][j][is-1][2][m][0] = pRG->Ghstl1i[ifr][k][j][2][m];
+	imuo[ifr][j][ie+1][3][m][0] = pRG->Ghstr1i[ifr][k][j][3][m];
+      }
 
       /* Sweep forward in x1 */
       for(i=is; i<=ie; i++) 
-	update_cell(pRG,imuo,k,j,i,2);
+	update_cell(pRG,imuo,ifr,k,j,i,2);
 
       /* Update intensity at the ox1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->r1imu[ifr][k][j][2][m] = imuo[ifr][j][ie][2][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->r1imu[ifr][k][j][2][m] = imuo[ifr][j][ie][2][m][0];
+      }
 
       /* Sweep backward in x1 */
       for(i=ie; i>=is; i--) 
-	update_cell(pRG,imuo,k,j,i,3);
+	update_cell(pRG,imuo,ifr,k,j,i,3);
 
       /* Update intensity at the ix1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->l1imu[ifr][k][j][3][m] = imuo[ifr][j][is][3][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->l1imu[ifr][k][j][3][m] = imuo[ifr][j][is][3][m][0];
+      }
     }
 
     /* Update intensity at the ix2 boundary */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is; i<=ie; i++) { 
-	for(l=2; l<=3; l++) { 
-	  for(m=0; m<nang; m++) { 
-	    pRG->l2imu[ifr][k][i][l][m] = imuo[ifr][js][i][l][m][0];
-	  }}}}
+    for(i=is; i<=ie; i++) { 
+      for(l=2; l<=3; l++) { 
+	for(m=0; m<nang; m++) { 
+	  pRG->l2imu[ifr][k][i][l][m] = imuo[ifr][js][i][l][m][0];
+	}}}
   }
 
    /* Update intensity at the ox3 boundary */
-  for(ifr=0; ifr<nf; ifr++) {
-    for(j=js; j<=je; j++) {
-      for(i=is; i<=ie; i++) { 
-	for(l=0; l<=3; l++) { 
-	  for(m=0; m<nang; m++) { 
-	    pRG->r3imu[ifr][j][i][l][m] = imuo[ifr][j][i][l][m][0];
-	  }}}}}
+  for(j=js; j<=je; j++) {
+    for(i=is; i<=ie; i++) { 
+      for(l=0; l<=3; l++) { 
+	for(m=0; m<nang; m++) { 
+	  pRG->r3imu[ifr][j][i][l][m] = imuo[ifr][j][i][l][m][0];
+	}}}}
 
   return;
 }
 
-static void sweep_3d_backward(RadGridS *pRG)
+static void sweep_3d_backward(RadGridS *pRG, int ifr)
 {
-  int ifr, i, j, k, l, m;
+  int i, j, k, l, m;
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
   int nf = pRG->nf, nang = pRG->nang;
 
 /* Account for ix3 boundary intensities */
-  for(ifr=0; ifr<nf; ifr++) {
-    for(j=js-1; j<=je+1; j++) {
-      for(i=is-1; i<=ie+1; i++) {
-	for(l=4; l<=7; l++)  {
-	  for(m=0; m<nang; m++) {
-	    imuo[ifr][j][i][l][m][0] = pRG->r3imu[ifr][j][i][l][m];
-	  }}}}}
+  for(j=js-1; j<=je+1; j++) {
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=4; l<=7; l++)  {
+	for(m=0; m<nang; m++) {
+	  imuo[ifr][j][i][l][m][0] = pRG->Ghstr3i[ifr][j][i][l][m];
+	}}}}
 
   /* sweep forward in x3 */
   for(k=ke; k>=ks; k--) {
 
     /* Account for ix2 boundary intensities.  Note that this uses
      * l2imu to initialize imuo on edge */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is-1; i<=ie+1; i++) {
-	for(l=4; l<=5; l++)  {
-	  for(m=0; m<nang; m++) {
-	    imuo[ifr][js-1][i][l][m][1] = imuo[ifr][js-1][i][l][m][0];
-	    imuo[ifr][js-1][i][l][m][0] = pRG->l2imu[ifr][k][i][l][m];
-	  }}}}
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=4; l<=5; l++)  {
+	for(m=0; m<nang; m++) {
+	  imuo[ifr][js-1][i][l][m][1] = imuo[ifr][js-1][i][l][m][0];
+	  imuo[ifr][js-1][i][l][m][0] = pRG->Ghstl2i[ifr][k][i][l][m];
+	}}}
 
     /* Sweep forward in x2 */
     for(j=js; j<=je; j++) {
 
       /* Account for ix1 boundary intensities */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++) {
-	  /* ix1/ox1 boundary conditions*/
-	  imuo[ifr][j][is-1][4][m][1] = imuo[ifr][j][is-1][4][m][0];
-	  imuo[ifr][j][ie+1][5][m][1] = imuo[ifr][j][ie+1][5][m][0];
-	  imuo[ifr][j][is-1][4][m][0] = pRG->l1imu[ifr][k][j][4][m];
-	  imuo[ifr][j][ie+1][5][m][0] = pRG->r1imu[ifr][k][j][5][m];
-	}}
+      for(m=0; m<nang; m++) {
+	/* ix1/ox1 boundary conditions*/
+	imuo[ifr][j][is-1][4][m][1] = imuo[ifr][j][is-1][4][m][0];
+	imuo[ifr][j][ie+1][5][m][1] = imuo[ifr][j][ie+1][5][m][0];
+	imuo[ifr][j][is-1][4][m][0] = pRG->Ghstl1i[ifr][k][j][4][m];
+	imuo[ifr][j][ie+1][5][m][0] = pRG->Ghstr1i[ifr][k][j][5][m];
+      }
 
       /* Sweep forward in x1 */
       for(i=is; i<=ie; i++) 
-	update_cell(pRG,imuo,k,j,i,4);
+	update_cell(pRG,imuo,ifr,k,j,i,4);
 
       /* Update intensity at the ox1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->r1imu[ifr][k][j][4][m] = imuo[ifr][j][ie][4][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->r1imu[ifr][k][j][4][m] = imuo[ifr][j][ie][4][m][0];
+      }
 
       /* Sweep backward in x1 */
       for(i=ie; i>=is; i--) 
-	update_cell(pRG,imuo,k,j,i,5);
+	update_cell(pRG,imuo,ifr,k,j,i,5);
 
       /* Update intensity at the ix1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->l1imu[ifr][k][j][5][m] = imuo[ifr][j][is][5][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->l1imu[ifr][k][j][5][m] = imuo[ifr][j][is][5][m][0];
+      }
     }
 
     /* Update intensity at the ox2 boundary */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is; i<=ie; i++) { 
-	for(l=4; l<=5; l++) { 
-	  for(m=0; m<nang; m++) { 
-	    pRG->r2imu[ifr][k][i][l][m] = imuo[ifr][je][i][l][m][0];
-	  }}}}
+    for(i=is; i<=ie; i++) { 
+      for(l=4; l<=5; l++) { 
+	for(m=0; m<nang; m++) { 
+	  pRG->r2imu[ifr][k][i][l][m] = imuo[ifr][je][i][l][m][0];
+	}}}
 
 /* ----------------  Start of reverse sweep ---------------------- */
 
     /* Account for ox2 boundary intensities */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is-1; i<=ie+1; i++) {
-	for(l=6; l<=7; l++)  {
-	  for(m=0; m<nang; m++) {
-	    imuo[ifr][je+1][i][l][m][1] = imuo[ifr][je+1][i][l][m][0];
-	    imuo[ifr][je+1][i][l][m][0] = pRG->r2imu[ifr][k][i][l][m];
-	  }}}}
+    for(i=is-1; i<=ie+1; i++) {
+      for(l=6; l<=7; l++)  {
+	for(m=0; m<nang; m++) {
+	  imuo[ifr][je+1][i][l][m][1] = imuo[ifr][je+1][i][l][m][0];
+	  imuo[ifr][je+1][i][l][m][0] = pRG->Ghstr2i[ifr][k][i][l][m];
+	}}}
 
     /* sweep backward in x2 */
     for(j=je; j>=js; j--) {
 
       /* Account for ix1 boundary intensities */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++) {
-	  /* ix1/ox1 boundary conditions*/
-	  imuo[ifr][j][is-1][6][m][1] = imuo[ifr][j][is-1][6][m][0];
-	  imuo[ifr][j][ie+1][7][m][1] = imuo[ifr][j][ie+1][7][m][0];
-	  imuo[ifr][j][is-1][6][m][0] = pRG->l1imu[ifr][k][j][6][m];
-	  imuo[ifr][j][ie+1][7][m][0] = pRG->r1imu[ifr][k][j][7][m];
-	}}
+      for(m=0; m<nang; m++) {
+	/* ix1/ox1 boundary conditions*/
+	imuo[ifr][j][is-1][6][m][1] = imuo[ifr][j][is-1][6][m][0];
+	imuo[ifr][j][ie+1][7][m][1] = imuo[ifr][j][ie+1][7][m][0];
+	imuo[ifr][j][is-1][6][m][0] = pRG->Ghstl1i[ifr][k][j][6][m];
+	imuo[ifr][j][ie+1][7][m][0] = pRG->Ghstr1i[ifr][k][j][7][m];
+      }
 
       /* Sweep forward in x1 */
       for(i=is; i<=ie; i++) 
-	update_cell(pRG,imuo,k,j,i,6);
+	update_cell(pRG,imuo,ifr,k,j,i,6);
 
       /* Update intensity at the ox1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->r1imu[ifr][k][j][6][m] = imuo[ifr][j][ie][6][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->r1imu[ifr][k][j][6][m] = imuo[ifr][j][ie][6][m][0];
+      }
 
       /* Sweep backward in x1 */
       for(i=ie; i>=is; i--) 
-	update_cell(pRG,imuo,k,j,i,7);
+	update_cell(pRG,imuo,ifr,k,j,i,7);
 
       /* Update intensity at the ix1 boundary */
-      for(ifr=0; ifr<nf; ifr++) {
-	for(m=0; m<nang; m++)  {
-	  pRG->l1imu[ifr][k][j][7][m] = imuo[ifr][j][is][7][m][0];
-	}}
+      for(m=0; m<nang; m++)  {
+	pRG->l1imu[ifr][k][j][7][m] = imuo[ifr][j][is][7][m][0];
+      }
     }
 
     /* Update intensity at the ix2 boundary */
-    for(ifr=0; ifr<nf; ifr++) {
-      for(i=is; i<=ie; i++) { 
-	for(l=6; l<=7; l++) { 
-	  for(m=0; m<nang; m++) { 
-	    pRG->l2imu[ifr][k][i][l][m] = imuo[ifr][js][i][l][m][0];
-	  }}}}
+    for(i=is; i<=ie; i++) { 
+      for(l=6; l<=7; l++) { 
+	for(m=0; m<nang; m++) { 
+	  pRG->l2imu[ifr][k][i][l][m] = imuo[ifr][js][i][l][m][0];
+	}}}
   }
 
    /* Update intensity at the ox3 boundary */
-  for(ifr=0; ifr<nf; ifr++) {
-    for(j=js; j<=je; j++) {
-      for(i=is; i<=ie; i++) { 
-	for(l=4; l<=7; l++) { 
-	  for(m=0; m<nang; m++) { 
-	    pRG->l3imu[ifr][j][i][l][m] = imuo[ifr][j][i][l][m][0];
-	  }}}}}
+  for(j=js; j<=je; j++) {
+    for(i=is; i<=ie; i++) { 
+      for(l=4; l<=7; l++) { 
+	for(m=0; m<nang; m++) { 
+	  pRG->l3imu[ifr][j][i][l][m] = imuo[ifr][j][i][l][m][0];
+	}}}}
 
   return;
 }
 
-static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int l)
-
+static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, int i, int l)
 {
 
   int im, ip, jm, jp, km, kp;
-  int ifr, m, nf = pRG->nf, nang = pRG->nang;
+  int m, nf = pRG->nf, nang = pRG->nang;
   Real imu, imu0, wimu;
   Real S0, S2;
   Real w0, w1, w2;
@@ -474,284 +425,124 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int k, int j, int i, int
     ip = i - 1;  im = i + 1;
   }  
 
-  for(ifr=0; ifr<nf; ifr++) {
-    chi1 = pRG->R[k][j][i][ifr].chi;
-    for(m=0; m<nang; m++) {
+
+  chi1 = pRG->R[ifr][k][j][i].chi;
+  for(m=0; m<nang; m++) {
 /* --------- Interpolate intensity and source functions at endpoints --------- 
  * --------- of characteristics                                      --------- */
-      if (face[m] == 0) {
-	/* interpolation in x2-x3 plane */
+    if (face[m] == 0) {
+      /* interpolation in x2-x3 plane */
 
-	S0    = coeff[m][0] * pRG->R[k ][j ][im][ifr].S;
-	chi0  = coeff[m][0] * pRG->R[k ][j ][im][ifr].chi;
-	S0   += coeff[m][1] * pRG->R[km][j ][im][ifr].S;
-	chi0 += coeff[m][1] * pRG->R[km][j ][im][ifr].chi;
-	S0   += coeff[m][2] * pRG->R[km][jm][im][ifr].S;
-	chi0 += coeff[m][2] * pRG->R[km][jm][im][ifr].chi;
-	S0   += coeff[m][3] * pRG->R[k ][jm][im][ifr].S;
-	chi0 += coeff[m][3] * pRG->R[k ][jm][im][ifr].chi;
+      S0    = coeff[m][0] * pRG->R[ifr][k ][j ][im].S;
+      chi0  = coeff[m][0] * pRG->R[ifr][k ][j ][im].chi;
+      S0   += coeff[m][1] * pRG->R[ifr][km][j ][im].S;
+      chi0 += coeff[m][1] * pRG->R[ifr][km][j ][im].chi;
+      S0   += coeff[m][2] * pRG->R[ifr][km][jm][im].S;
+      chi0 += coeff[m][2] * pRG->R[ifr][km][jm][im].chi;
+      S0   += coeff[m][3] * pRG->R[ifr][k ][jm][im].S;
+      chi0 += coeff[m][3] * pRG->R[ifr][k ][jm][im].chi;
 
-	S2    = coeff[m][0] * pRG->R[k ][j ][ip][ifr].S;
-	chi2  = coeff[m][0] * pRG->R[k ][j ][ip][ifr].chi;
-	S2   += coeff[m][1] * pRG->R[kp][j ][ip][ifr].S;
-	chi2 += coeff[m][1] * pRG->R[kp][j ][ip][ifr].chi;
-	S2   += coeff[m][2] * pRG->R[kp][jp][ip][ifr].S;
-	chi2 += coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi;
-	S2   += coeff[m][3] * pRG->R[k ][jp][ip][ifr].S;
-	chi2 += coeff[m][3] * pRG->R[k ][jp][ip][ifr].chi;
+      S2    = coeff[m][0] * pRG->R[ifr][k ][j ][ip].S;
+      chi2  = coeff[m][0] * pRG->R[ifr][k ][j ][ip].chi;
+      S2   += coeff[m][1] * pRG->R[ifr][kp][j ][ip].S;
+      chi2 += coeff[m][1] * pRG->R[ifr][kp][j ][ip].chi;
+      S2   += coeff[m][2] * pRG->R[ifr][kp][jp][ip].S;
+      chi2 += coeff[m][2] * pRG->R[ifr][kp][jp][ip].chi;
+      S2   += coeff[m][3] * pRG->R[ifr][k ][jp][ip].S;
+      chi2 += coeff[m][3] * pRG->R[ifr][k ][jp][ip].chi;
 
-	imu0  = coeff[m][0] * imuo[ifr][j ][im][l][m][0] +
-	        coeff[m][1] * imuo[ifr][j ][im][l][m][1] +
-	        coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
-	        coeff[m][3] * imuo[ifr][jm][im][l][m][0];
+      imu0  = coeff[m][0] * imuo[ifr][j ][im][l][m][0] +
+              coeff[m][1] * imuo[ifr][j ][im][l][m][1] +
+              coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+              coeff[m][3] * imuo[ifr][jm][im][l][m][0];
  
-        interp_quad_chi(chi0,chi1,chi2,&dtaum);
-	interp_quad_chi(chi2,chi1,chi0,&dtaup);
-	dtaum *= dx * muinv[m][0]; 
-	dtaup *= dx * muinv[m][0]; 
-      } else if(face[m] == 1) {
-	/* interpolation in x1-x3 plane */
-	S0    = coeff[m][0] * pRG->R[k ][jm][i ][ifr].S;
-	chi0  = coeff[m][0] * pRG->R[k ][jm][i ][ifr].chi;
-	S0   += coeff[m][1] * pRG->R[km][jm][i ][ifr].S;
-	chi0 += coeff[m][1] * pRG->R[km][jm][i ][ifr].chi;
-	S0   += coeff[m][2] * pRG->R[km][jm][im][ifr].S;
-	chi0 += coeff[m][2] * pRG->R[km][jm][im][ifr].chi;
-	S0   += coeff[m][3] * pRG->R[k ][jm][im][ifr].S;
-	chi0 += coeff[m][3] * pRG->R[k ][jm][im][ifr].chi;
+      interp_quad_chi(chi0,chi1,chi2,&dtaum);
+      interp_quad_chi(chi2,chi1,chi0,&dtaup);
+      dtaum *= dx * muinv[m][0]; 
+      dtaup *= dx * muinv[m][0]; 
+    } else if(face[m] == 1) {
+      /* interpolation in x1-x3 plane */
+      S0    = coeff[m][0] * pRG->R[ifr][k ][jm][i ].S;
+      chi0  = coeff[m][0] * pRG->R[ifr][k ][jm][i ].chi;
+      S0   += coeff[m][1] * pRG->R[ifr][km][jm][i ].S;
+      chi0 += coeff[m][1] * pRG->R[ifr][km][jm][i ].chi;
+      S0   += coeff[m][2] * pRG->R[ifr][km][jm][im].S;
+      chi0 += coeff[m][2] * pRG->R[ifr][km][jm][im].chi;
+      S0   += coeff[m][3] * pRG->R[ifr][k ][jm][im].S;
+      chi0 += coeff[m][3] * pRG->R[ifr][k ][jm][im].chi;
 
-	S2    = coeff[m][0] * pRG->R[k ][jp][i ][ifr].S;
-	chi2  = coeff[m][0] * pRG->R[k ][jp][i ][ifr].chi;
-	S2   += coeff[m][1] * pRG->R[kp][jp][i ][ifr].S;
-	chi2 += coeff[m][1] * pRG->R[kp][jp][i ][ifr].chi;
-	S2   += coeff[m][2] * pRG->R[kp][jp][ip][ifr].S;
-	chi2 += coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi;
-	S2   += coeff[m][3] * pRG->R[k ][jp][ip][ifr].S;
-	chi2 += coeff[m][3] * pRG->R[k ][jp][ip][ifr].chi;
+      S2    = coeff[m][0] * pRG->R[ifr][k ][jp][i ].S;
+      chi2  = coeff[m][0] * pRG->R[ifr][k ][jp][i ].chi;
+      S2   += coeff[m][1] * pRG->R[ifr][kp][jp][i ].S;
+      chi2 += coeff[m][1] * pRG->R[ifr][kp][jp][i ].chi;
+      S2   += coeff[m][2] * pRG->R[ifr][kp][jp][ip].S;
+      chi2 += coeff[m][2] * pRG->R[ifr][kp][jp][ip].chi;
+      S2   += coeff[m][3] * pRG->R[ifr][k ][jp][ip].S;
+      chi2 += coeff[m][3] * pRG->R[ifr][k ][jp][ip].chi;
 
-	imu0  = coeff[m][0] * imuo[ifr][jm][i ][l][m][0] +
-	        coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
-	        coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
-	        coeff[m][3] * imuo[ifr][jm][im][l][m][0];
+      imu0  = coeff[m][0] * imuo[ifr][jm][i ][l][m][0] +
+              coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
+	      coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+	      coeff[m][3] * imuo[ifr][jm][im][l][m][0];
 
-        interp_quad_chi(chi0,chi1,chi2,&dtaum);
-	interp_quad_chi(chi2,chi1,chi0,&dtaup);
-	dtaum *= dy * muinv[m][1]; 
-	dtaup *= dy * muinv[m][1]; 
-      } else  {
-	/* interpolation in x1-x2 plane */
-	S0    = coeff[m][0] * pRG->R[km][j ][i ][ifr].S;
-	chi0  = coeff[m][0] * pRG->R[km][j ][i ][ifr].chi;
-	S0   += coeff[m][1] * pRG->R[km][jm][i ][ifr].S;
-	chi0 += coeff[m][1] * pRG->R[km][jm][i ][ifr].chi;
-	S0   += coeff[m][2] * pRG->R[km][jm][im][ifr].S;
-	chi0 += coeff[m][2] * pRG->R[km][jm][im][ifr].chi;
-	S0   += coeff[m][3] * pRG->R[km][j ][im][ifr].S;
-	chi0 += coeff[m][3] * pRG->R[km][j ][im][ifr].chi;
+      interp_quad_chi(chi0,chi1,chi2,&dtaum);
+      interp_quad_chi(chi2,chi1,chi0,&dtaup);
+      dtaum *= dy * muinv[m][1]; 
+      dtaup *= dy * muinv[m][1]; 
+    } else  {
+      /* interpolation in x1-x2 plane */
+      S0    = coeff[m][0] * pRG->R[ifr][km][j ][i ].S;
+      chi0  = coeff[m][0] * pRG->R[ifr][km][j ][i ].chi;
+      S0   += coeff[m][1] * pRG->R[ifr][km][jm][i ].S;
+      chi0 += coeff[m][1] * pRG->R[ifr][km][jm][i ].chi;
+      S0   += coeff[m][2] * pRG->R[ifr][km][jm][im].S;
+      chi0 += coeff[m][2] * pRG->R[ifr][km][jm][im].chi;
+      S0   += coeff[m][3] * pRG->R[ifr][km][j ][im].S;
+      chi0 += coeff[m][3] * pRG->R[ifr][km][j ][im].chi;
 
-	S2    = coeff[m][0] * pRG->R[kp][j ][i ][ifr].S;
-	chi2  = coeff[m][0] * pRG->R[kp][j ][i ][ifr].chi;
-	S2   += coeff[m][1] * pRG->R[kp][jp][i ][ifr].S;
-	chi2 += coeff[m][1] * pRG->R[kp][jp][i ][ifr].chi;
-	S2   += coeff[m][2] * pRG->R[kp][jp][ip][ifr].S;
-	chi2 += coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi;
-	S2   += coeff[m][3] * pRG->R[kp][j ][ip][ifr].S;	
-	chi2 += coeff[m][3] * pRG->R[kp][j ][ip][ifr].chi;
+      S2    = coeff[m][0] * pRG->R[ifr][kp][j ][i ].S;
+      chi2  = coeff[m][0] * pRG->R[ifr][kp][j ][i ].chi;
+      S2   += coeff[m][1] * pRG->R[ifr][kp][jp][i ].S;
+      chi2 += coeff[m][1] * pRG->R[ifr][kp][jp][i ].chi;
+      S2   += coeff[m][2] * pRG->R[ifr][kp][jp][ip].S;
+      chi2 += coeff[m][2] * pRG->R[ifr][kp][jp][ip].chi;
+      S2   += coeff[m][3] * pRG->R[ifr][kp][j ][ip].S;	
+      chi2 += coeff[m][3] * pRG->R[ifr][kp][j ][ip].chi;
 
-	imu0  = coeff[m][0] * imuo[ifr][j ][i ][l][m][0] +
-	        coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
-	        coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
-	        coeff[m][3] * imuo[ifr][j ][im][l][m][1];
+      imu0  = coeff[m][0] * imuo[ifr][j ][i ][l][m][0] +
+	      coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
+	      coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
+	      coeff[m][3] * imuo[ifr][j ][im][l][m][1];
 
-        interp_quad_chi(chi0,chi1,chi2,&dtaum);
-	interp_quad_chi(chi2,chi1,chi0,&dtaup);
-	dtaum *= dz * muinv[m][2]; 
-	dtaup *= dz * muinv[m][2];
-      }
+      interp_quad_chi(chi0,chi1,chi2,&dtaum);
+      interp_quad_chi(chi2,chi1,chi0,&dtaup);
+      dtaum *= dz * muinv[m][2]; 
+      dtaup *= dz * muinv[m][2];
+    }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
-      interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-			 S0, pRG->R[k][j][i][ifr].S, S2);
-      imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
-      lamstr[k][j][i][ifr] += pRG->wmu[m] * a1;
-    
+    interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+				 S0, pRG->R[ifr][k][j][i].S, S2);
+    imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
+    lamstr[k][j][i][ifr] += pRG->wmu[m] * a1;    
 /* Add to radiation moments and save for next iteration */
-      wimu = pRG->wmu[m] * imu;
-      pRG->R[k][j][i][ifr].J += wimu;
-      pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
-      pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
-      pRG->R[k][j][i][ifr].H[2] += pRG->mu[l][m][2] * wimu;
-      pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
-      pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
-      pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
-      pRG->R[k][j][i][ifr].K[3] += mu2[l][m][3] * wimu;
-      pRG->R[k][j][i][ifr].K[4] += mu2[l][m][4] * wimu;
-      pRG->R[k][j][i][ifr].K[5] += mu2[l][m][5] * wimu;
+    wimu = pRG->wmu[m] * imu;
+    pRG->R[ifr][k][j][i].J += wimu;
+    pRG->R[ifr][k][j][i].H[0] += pRG->mu[l][m][0] * wimu;
+    pRG->R[ifr][k][j][i].H[1] += pRG->mu[l][m][1] * wimu;
+    pRG->R[ifr][k][j][i].H[2] += pRG->mu[l][m][2] * wimu;
+    pRG->R[ifr][k][j][i].K[0] += mu2[l][m][0] * wimu;
+    pRG->R[ifr][k][j][i].K[1] += mu2[l][m][1] * wimu;
+    pRG->R[ifr][k][j][i].K[2] += mu2[l][m][2] * wimu;
+    pRG->R[ifr][k][j][i].K[3] += mu2[l][m][3] * wimu;
+    pRG->R[ifr][k][j][i].K[4] += mu2[l][m][4] * wimu;
+    pRG->R[ifr][k][j][i].K[5] += mu2[l][m][5] * wimu;
 /* Update intensity workspace */
-      imuo[ifr][j][i][l][m][1] = imuo[ifr][j][i][l][m][0];
-      imuo[ifr][j][i][l][m][0] = imu;
-    }}
+    imuo[ifr][j][i][l][m][1] = imuo[ifr][j][i][l][m][0];
+    imuo[ifr][j][i][l][m][0] = imu;
+  }
   
   return;
 }
-
-static void update_cell_old(RadGridS *pRG, Real ******imuo, int k, int j, int i, int l)
-
-{
-
-  int im, ip, jm, jp, km, kp;
-  int ifr, m, nf = pRG->nf, nang = pRG->nang;
-  Real imu, imu0, wimu;
-  Real S0, S2;
-  Real w0, w1, w2;
-  Real dx = pRG->dx1, dy = pRG->dx2, dz = pRG->dx3;
-  Real chi0, chi1, chi2, dtaum, dtaup;
-  Real edtau, a0, a1, a2;
-
-/* initialize stencil base on quadrant*/  
-  if(l == 0) {
-    kp = k + 1;  km = k - 1;
-    jp = j + 1;  jm = j - 1;
-    ip = i + 1;  im = i - 1;
-  } else if (l == 1) {
-    kp = k + 1;  km = k - 1;
-    jp = j + 1;  jm = j - 1;
-    ip = i - 1;  im = i + 1;
-  } else if (l == 2) {
-    kp = k + 1;  km = k - 1;
-    jp = j - 1;  jm = j + 1;
-    ip = i + 1;  im = i - 1;
-  } else if (l == 3) {
-    kp = k + 1;  km = k - 1;
-    jp = j - 1;  jm = j + 1;
-    ip = i - 1;  im = i + 1;
-  } else if (l == 4) {
-    kp = k - 1;  km = k + 1;
-    jp = j + 1;  jm = j - 1;
-    ip = i + 1;  im = i - 1;
-  } else if (l == 5) {
-    kp = k - 1;  km = k + 1;
-    jp = j + 1;  jm = j - 1;
-    ip = i - 1;  im = i + 1;
-  } else if (l == 6) {
-    kp = k - 1;  km = k + 1;
-    jp = j - 1;  jm = j + 1;
-    ip = i + 1;  im = i - 1;
-  } else {
-    kp = k - 1;  km = k + 1;
-    jp = j - 1;  jm = j + 1;
-    ip = i - 1;  im = i + 1;
-  }  
-
-  for(ifr=0; ifr<nf; ifr++) {
-    chi1 = pRG->R[k][j][i][ifr].chi;
-    for(m=0; m<nang; m++) {
-/* --------- Interpolate intensity and source functions at endpoints --------- 
- * --------- of characteristics                                      --------- */
-      if (face[m] == 0) {
-	/* interpolation in x2-x3 plane */
-	S0 = coeff[m][0] * pRG->R[k ][j ][im][ifr].S +
-	     coeff[m][1] * pRG->R[km][j ][im][ifr].S +
-	     coeff[m][2] * pRG->R[km][jm][im][ifr].S +
-	     coeff[m][3] * pRG->R[k ][jm][im][ifr].S;
-	S2 = coeff[m][0] * pRG->R[k ][j ][ip][ifr].S +
-	     coeff[m][1] * pRG->R[kp][j ][ip][ifr].S +
-	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].S +
-	     coeff[m][3] * pRG->R[k ][jp][ip][ifr].S;
-      imu0 = coeff[m][0] * imuo[ifr][j ][im][l][m][0] +
-	     coeff[m][1] * imuo[ifr][j ][im][l][m][1] +
-	     coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
-	     coeff[m][3] * imuo[ifr][jm][im][l][m][0];
-      chi0 = coeff[m][0] * pRG->R[k ][j ][im][ifr].chi +
-	     coeff[m][1] * pRG->R[km][j ][im][ifr].chi +
-	     coeff[m][2] * pRG->R[km][jm][im][ifr].chi +
-	     coeff[m][3] * pRG->R[k ][jm][im][ifr].chi;
-      chi2 = coeff[m][0] * pRG->R[k ][j ][ip][ifr].chi +
-	     coeff[m][1] * pRG->R[kp][j ][ip][ifr].chi +
-	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi +
-	     coeff[m][3] * pRG->R[k ][jp][ip][ifr].chi;
-        interp_quad_chi(chi0,chi1,chi2,&dtaum);
-	interp_quad_chi(chi2,chi1,chi0,&dtaup);
-	dtaum *= dx * muinv[m][0]; 
-	dtaup *= dx * muinv[m][0]; 
-      } else if(face[m] == 1) {
-	/* interpolation in x1-x3 plane */
-	S0 = coeff[m][0] * pRG->R[k ][jm][i ][ifr].S +
-	     coeff[m][1] * pRG->R[km][jm][i ][ifr].S +
-	     coeff[m][2] * pRG->R[km][jm][im][ifr].S +
-	     coeff[m][3] * pRG->R[k ][jm][im][ifr].S;
-	S2 = coeff[m][0] * pRG->R[k ][jp][i ][ifr].S +
-	     coeff[m][1] * pRG->R[kp][jp][i ][ifr].S +
-	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].S +
-	     coeff[m][3] * pRG->R[k ][jp][ip][ifr].S;
-      imu0 = coeff[m][0] * imuo[ifr][jm][i ][l][m][0] +
-	     coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
-	     coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
-	     coeff[m][3] * imuo[ifr][jm][im][l][m][0];
-      chi0 = coeff[m][0] * pRG->R[k ][jm][i ][ifr].chi +
-	     coeff[m][1] * pRG->R[km][jm][i ][ifr].chi +
-	     coeff[m][2] * pRG->R[km][jm][im][ifr].chi +
-	     coeff[m][3] * pRG->R[k ][jm][im][ifr].chi;
-      chi2 = coeff[m][0] * pRG->R[k ][jp][i ][ifr].chi +
-	     coeff[m][1] * pRG->R[kp][jp][i ][ifr].chi +
-	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi +
-	     coeff[m][3] * pRG->R[k ][jp][ip][ifr].chi;
-        interp_quad_chi(chi0,chi1,chi2,&dtaum);
-	interp_quad_chi(chi2,chi1,chi0,&dtaup);
-	dtaum *= dy * muinv[m][1]; 
-	dtaup *= dy * muinv[m][1]; 
-      } else  {
-	/* interpolation in x1-x2 plane */
-	S0 = coeff[m][0] * pRG->R[km][j ][i ][ifr].S +
-	     coeff[m][1] * pRG->R[km][jm][i ][ifr].S +
-	     coeff[m][2] * pRG->R[km][jm][im][ifr].S +
-	     coeff[m][3] * pRG->R[km][j ][im][ifr].S;
-	S2 = coeff[m][0] * pRG->R[kp][j ][i ][ifr].S +
-	     coeff[m][1] * pRG->R[kp][jp][i ][ifr].S +
-	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].S +
-	     coeff[m][3] * pRG->R[kp][j ][ip][ifr].S;	
-      imu0 = coeff[m][0] * imuo[ifr][j ][i ][l][m][0] +
-	     coeff[m][1] * imuo[ifr][jm][i ][l][m][1] +
-	     coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
-	     coeff[m][3] * imuo[ifr][j ][im][l][m][1];
-      chi0 = coeff[m][0] * pRG->R[km][j ][i ][ifr].chi +
-	     coeff[m][1] * pRG->R[km][jm][i ][ifr].chi +
-	     coeff[m][2] * pRG->R[km][jm][im][ifr].chi +
-	     coeff[m][3] * pRG->R[km][j ][im][ifr].chi;
-      chi2 = coeff[m][0] * pRG->R[kp][j ][i ][ifr].chi +
-	     coeff[m][1] * pRG->R[kp][jp][i ][ifr].chi +
-	     coeff[m][2] * pRG->R[kp][jp][ip][ifr].chi +
-	     coeff[m][3] * pRG->R[kp][j ][ip][ifr].chi;
-        interp_quad_chi(chi0,chi1,chi2,&dtaum);
-	interp_quad_chi(chi2,chi1,chi0,&dtaup);
-	dtaum *= dz * muinv[m][2]; 
-	dtaup *= dz * muinv[m][2];
-      }
-/* ---------  compute intensity at grid center and add to mean intensity ------- */
-      interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-			 S0, pRG->R[k][j][i][ifr].S, S2);
-      imu = a0 * S0 + a1 * pRG->R[k][j][i][ifr].S + a2 * S2 + edtau * imu0;
-      lamstr[k][j][i][ifr] += pRG->wmu[m] * a1;
-    
-/* Add to radiation moments and save for next iteration */
-      wimu = pRG->wmu[m] * imu;
-      pRG->R[k][j][i][ifr].J += wimu;
-      pRG->R[k][j][i][ifr].H[0] += pRG->mu[l][m][0] * wimu;
-      pRG->R[k][j][i][ifr].H[1] += pRG->mu[l][m][1] * wimu;
-      pRG->R[k][j][i][ifr].H[2] += pRG->mu[l][m][2] * wimu;
-      pRG->R[k][j][i][ifr].K[0] += mu2[l][m][0] * wimu;
-      pRG->R[k][j][i][ifr].K[1] += mu2[l][m][1] * wimu;
-      pRG->R[k][j][i][ifr].K[2] += mu2[l][m][2] * wimu;
-      pRG->R[k][j][i][ifr].K[3] += mu2[l][m][3] * wimu;
-      pRG->R[k][j][i][ifr].K[4] += mu2[l][m][4] * wimu;
-      pRG->R[k][j][i][ifr].K[5] += mu2[l][m][5] * wimu;
-/* Update intensity workspace */
-      imuo[ifr][j][i][l][m][1] = imuo[ifr][j][i][l][m][0];
-      imuo[ifr][j][i][l][m][0] = imu;
-    }}
-  
-  return;
-}
-
 
 static void update_sfunc(RadS *R, Real *dSr, Real lam)
 {
@@ -832,11 +623,6 @@ void formal_solution_3d_init(RadGridS *pRG)
       face[i]=0;
       am = lmin/ly; bm = lmin/lz;
     }
-    /*if (myID_Comm_world == 0) {
-      printf("face: %d %d\n",i,face[i]);
-      printf("%d %g %g %g\n",i,dx,dy,dz);
-      printf("%d %g %g %g %g\n",i,lmin,lx,ly,lz);
-      }*/
     coeff[i][0] = (1.0 - am)*(1.0 - bm);
     coeff[i][1] = (1.0 - am)*       bm;
     coeff[i][2] =        am *       bm;
@@ -867,5 +653,5 @@ void formal_solution_3d_init(RadGridS *pRG)
 
 }
 
-#endif /* JACOBI_LINEAR */
+#endif /* JACOBI || GAUSSEID */
 #endif /* RADIATION_TRANSFER */

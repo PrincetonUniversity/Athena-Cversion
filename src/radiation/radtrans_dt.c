@@ -31,6 +31,7 @@ Real radtrans_dt(DomainS *pD)
   Real dxmin;
   int i,j,k,nl,nd;
   int il,iu,jl,ju,kl,ku;
+  int ifr = 0;
   Real nu_rad, chi;
   Real qa;
   Real nu_con;
@@ -76,25 +77,13 @@ Real radtrans_dt(DomainS *pD)
       jg = j + joff;
       for (i=il; i<=iu; i++) {
 	ig = i + ioff;
-	chi = pRG->R[k][j][i][0].chi;
-	nu_rad = nu_con * pRG->R[k][j][i][0].eps * pRG->R[k][j][i][0].B * chi / 
+	chi = pRG->R[ifr][k][j][i].chi;
+	nu_rad = nu_con * pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].B * chi / 
 	         (pG->tgas[kg][jg][ig] * pG->U[kg][jg][ig].d);
 	nu_rad /= (1.0 + qa * chi * chi);
-	/*	if (1.0/nu_rad < mt) {
-	  mt= 1.0/nu_rad;
-	  mrho = pG->U[kg][jg][ig].d;
-	  mtgas = pG->tgas[kg][jg][ig];
-	  mchi = chi * pRG->R[k][j][i][0].eps;
-	  mb = pRG->R[k][j][i][0].B;
-	  mi = i;
-	  mj = j;
-	  mk = k;
-	  printf("%d %d %d %g\n",i-il,j-jl,k-kl,mt);
-	  }*/
 	dtmin_radtrans = MIN(dtmin_radtrans,(CourNo/nu_rad));
 			 
       }}}  
-  //printf("min dt: %g %g %g %g %g %g %d %d %d\n",mt,mrho,mtgas,mchi,mb,dxmin,i-il,j-jl,k-kl);
 /* Find minimum timestep over all processors */
 #ifdef MPI_PARALLEL
   my_dt = dtmin_radtrans;

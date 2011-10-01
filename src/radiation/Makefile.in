@@ -13,16 +13,16 @@ CORE_OBJ = init_radiation.o\
 	   formal_solution.o\
            utils_rad.o\
 	   bvals_rad.o\
+	   bvals_rad_shear.o\
 	   dump_intensity_vtk.o\
+	   output_spec.o\
 	   jacobi_1d.o\
 	   gausseid_1d.o\
-	   multig_1d.o\
 	   jacobi_2d.o\
 	   gausseid_2d.o\
 	   jacobi_2d_linear.o\
-	   multig_2d.o\
-	   jacobi_3d_linear.o\
-	   bvals_rad_shear.o
+	   jacobi_3d_linear.o
+
 OBJ = $(CORE_OBJ)
 
 #-------------------  macro definitions  ---------------------------------------

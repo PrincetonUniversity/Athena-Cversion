@@ -294,7 +294,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 #ifdef RADIATION_TRANSFER
 #ifndef WRITE_GHOST_CELLS
 	      for (ifr=0; ifr<nf; ifr++) {
-		fprintf(pfile,fmt,pRG->R[k+ko][j+jo][i+io][ifr].J);
+		fprintf(pfile,fmt,pRG->R[ifr][k+ko][j+jo][i+io].J);
 	      }
 #endif /* WRITE_GHOST_CELLS */
 #endif /* RADIATION_TRANSFER */

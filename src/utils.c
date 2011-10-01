@@ -1322,6 +1322,7 @@ void Eddington_FUN (const GridS *pG, const RadGridS *pRG)
 	int i, j, k, DIM;
 	int is, ie, js, je, ks, ke;
 	int ri, rj, rk;
+	int ifr = 0;
 	Real J;
 	DIM = 0;
 	is = pG->is;
@@ -1364,24 +1365,24 @@ void Eddington_FUN (const GridS *pG, const RadGridS *pRG)
 
 
 
-				J = pRG->R[rk][rj][ri][0].J;
+				J = pRG->R[ifr][rk][rj][ri].J;
 				if(fabs(J) < TINY_NUMBER)
 					ath_error("[Eddington_FUN]: Zeroth momentum of specific intensity is zero at i: %d  j:  %d  k:  %d\n",i,j,k);
 
 				if(DIM == 1)
-					pG->U[k][j][i].Edd_11 = pRG->R[rk][rj][ri][0].K[0]/J;
+					pG->U[k][j][i].Edd_11 = pRG->R[ifr][rk][rj][ri].K[0]/J;
 				else if(DIM == 2){
-					pG->U[k][j][i].Edd_11 = pRG->R[rk][rj][ri][0].K[0]/J;
-					pG->U[k][j][i].Edd_21 = pRG->R[rk][rj][ri][0].K[1]/J;
-					pG->U[k][j][i].Edd_22 = pRG->R[rk][rj][ri][0].K[2]/J;
+					pG->U[k][j][i].Edd_11 = pRG->R[ifr][rk][rj][ri].K[0]/J;
+					pG->U[k][j][i].Edd_21 = pRG->R[ifr][rk][rj][ri].K[1]/J;
+					pG->U[k][j][i].Edd_22 = pRG->R[ifr][rk][rj][ri].K[2]/J;
 				}
 				else if(DIM == 3){
-					pG->U[k][j][i].Edd_11 = pRG->R[rk][rj][ri][0].K[0]/J;
-					pG->U[k][j][i].Edd_21 = pRG->R[rk][rj][ri][0].K[1]/J;
-					pG->U[k][j][i].Edd_22 = pRG->R[rk][rj][ri][0].K[2]/J;
-					pG->U[k][j][i].Edd_31 = pRG->R[rk][rj][ri][0].K[3]/J;
-					pG->U[k][j][i].Edd_32 = pRG->R[rk][rj][ri][0].K[4]/J;
-					pG->U[k][j][i].Edd_33 = pRG->R[rk][rj][ri][0].K[5]/J;
+					pG->U[k][j][i].Edd_11 = pRG->R[ifr][rk][rj][ri].K[0]/J;
+					pG->U[k][j][i].Edd_21 = pRG->R[ifr][rk][rj][ri].K[1]/J;
+					pG->U[k][j][i].Edd_22 = pRG->R[ifr][rk][rj][ri].K[2]/J;
+					pG->U[k][j][i].Edd_31 = pRG->R[ifr][rk][rj][ri].K[3]/J;
+					pG->U[k][j][i].Edd_32 = pRG->R[ifr][rk][rj][ri].K[4]/J;
+					pG->U[k][j][i].Edd_33 = pRG->R[ifr][rk][rj][ri].K[5]/J;
 				}
 				else
 					ath_error("Dimension is not right!\n");

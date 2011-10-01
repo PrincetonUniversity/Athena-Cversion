@@ -129,16 +129,15 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/formal_solution.o\
 		radiation/utils_rad.o\
 		radiation/bvals_rad.o\
+		radiation/bvals_rad_shear.o\
 		radiation/dump_intensity_vtk.o\
+		radiation/output_spec.o\
 		radiation/jacobi_1d.o\
 		radiation/gausseid_1d.o\
-		radiation/multig_1d.o\
 		radiation/jacobi_2d.o\
 		radiation/jacobi_2d_linear.o\
 		radiation/gausseid_2d.o\
-		radiation/multig_2d.o\
-		radiation/jacobi_3d_linear.o\
-		radiation/bvals_rad_shear.o
+		radiation/jacobi_3d_linear.o
 
 RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \

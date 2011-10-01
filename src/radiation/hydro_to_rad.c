@@ -2,14 +2,15 @@
 /*==============================================================================
  * FILE: hydro_to_rad.c
  *
- * PURPOSE: Computes radiation variables (thermal source function,
- *          thermalization parameter, and total opacity) based on
- *          state of conserved variables after last integration
- *          step.  Currently uses simple constructions for testing
- *          purposes.
+ * PURPOSE:  Contains functions for updating the RadGrid using the conserved 
+ *           variables in Grid (hydro_to_rad) and for computing
+ *           the radiation source term and updating the material energy in 
+ *           Grid (rad_to_hydro).
+ *
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   hydro_to_rad()
+ *   rad_to_hydro()
  *============================================================================*/
 
 #include <stdlib.h>
@@ -20,7 +21,7 @@
 #include "../prototypes.h"
 
 #ifdef RADIATION_TRANSFER
-void output_rad_1d(RadGridS *pRG);
+
 static char *construct_filename(char *basename,char *key,int dump,char *ext);
 
 /*----------------------------------------------------------------------------*/
@@ -73,28 +74,28 @@ void hydro_to_rad(DomainS *pD)
 	for(ifr=0; ifr<nf; ifr++) {
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	  if (lte == 1) {
-	    pRG->R[k][j][i][ifr].J = pG->U[kg][jg][ig].Er / (4.0 * PI);
-	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);	   
-	    pRG->R[k][j][i][ifr].B = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
-	      eps  * get_thermal_source(pG,ifr,ig,jg,kg);
-	    pRG->R[k][j][i][ifr].eps = 1.0;
-	    pRG->R[k][j][i][ifr].S = pRG->R[k][j][i][ifr].B;
+	    pRG->R[ifr][k][j][i].J = pG->U[kg][jg][ig].Er / (4.0 * PI);
+	    eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);	   
+	    pRG->R[ifr][k][j][i].B = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
+	      eps  * get_thermal_source(pG,pRG,ifr,ig,jg,kg);
+	    pRG->R[ifr][k][j][i].eps = 1.0;
+	    pRG->R[ifr][k][j][i].S = pRG->R[ifr][k][j][i].B;
 	    
 	  } else {
-	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
-	    pRG->R[k][j][i][ifr].B = get_thermal_source(pG,ifr,ig,jg,kg);
-	    pRG->R[k][j][i][ifr].eps = eps;
-	    pRG->R[k][j][i][ifr].S = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
-	                                    eps  * pRG->R[k][j][i][ifr].B;
+	    eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);
+	    pRG->R[ifr][k][j][i].B = get_thermal_source(pG,pRG,ifr,ig,jg,kg);
+	    pRG->R[ifr][k][j][i].eps = eps;
+	    pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
+	                                    eps  * pRG->R[ifr][k][j][i].B;
 	  }
 #else
-	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
-	  pRG->R[k][j][i][ifr].B = get_thermal_source(pG,ifr,ig,jg,kg);
-	  pRG->R[k][j][i][ifr].eps = eps;
-	  pRG->R[k][j][i][ifr].S = (1.0 - eps) * pRG->R[k][j][i][ifr].J +
-	                                  eps  * pRG->R[k][j][i][ifr].B;
+	  eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);
+	  pRG->R[ifr][k][j][i].B = get_thermal_source(pG,pRG,ifr,ig,jg,kg);
+	  pRG->R[ifr][k][j][i].eps = eps;
+	  pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
+	                                  eps  * pRG->R[ifr][k][j][i].B;
 #endif
-	  pRG->R[k][j][i][ifr].chi = get_total_opacity(pG,ifr,ig,jg,kg);
+	  pRG->R[ifr][k][j][i].chi = get_total_opacity(pG,pRG,ifr,ig,jg,kg);
 
 	}
       }
@@ -147,54 +148,31 @@ void rad_to_hydro(DomainS *pD)
 	ig = i + ioff;
 	esource = 0.0;
 	for(ifr=0; ifr<nf; ifr++) {
-	  if(pRG->R[k][j][i][ifr].chi*dxmin <= 1.0) {	    
+	  if(pRG->R[ifr][k][j][i].chi*dxmin <= 1.0) {	    
 	    //flag = 2;
-	    esource += pRG->wnu[ifr] * pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi *
-	               (pRG->R[k][j][i][ifr].J - pRG->R[k][j][i][ifr].B);
+	    esource += pRG->wnu[ifr] * pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].chi *
+	               (pRG->R[ifr][k][j][i].J - pRG->R[ifr][k][j][i].B);
 	  } else {
 	    //flag = 1;
-	    esource += pRG->wnu[ifr] * dx1 * (pRG->R[k][j][i-1][ifr].H[0] - 
-                                              pRG->R[k][j][i+1][ifr].H[0]);
+	    esource += pRG->wnu[ifr] * dx1 * (pRG->R[ifr][k][j][i-1].H[0] - 
+                                              pRG->R[ifr][k][j][i+1].H[0]);
 	    if (nDim > 1) {
-	      esource += pRG->wnu[ifr] * dx2 * (pRG->R[k][j-1][i][ifr].H[1] -
-                                                pRG->R[k][j+1][i][ifr].H[1]);
+	      esource += pRG->wnu[ifr] * dx2 * (pRG->R[ifr][k][j-1][i].H[1] -
+                                                pRG->R[ifr][k][j+1][i].H[1]);
 	      if (nDim == 3) {
-		esource += pRG->wnu[ifr] * dx3 * (pRG->R[k-1][j][i][ifr].H[2] -
-						  pRG->R[k+1][j][i][ifr].H[2]);
+		esource += pRG->wnu[ifr] * dx3 * (pRG->R[ifr][k-1][j][i].H[2] -
+						  pRG->R[ifr][k+1][j][i].H[2]);
 	      }
 	    }
 	  }
 
-	  /*kappa = pRG->R[k][j][i][ifr].eps * pRG->R[k][j][i][ifr].chi;
-	  esource = pRG->wnu[ifr] * kappa * (B00 - pRG->R[k][j][i][ifr].B) * 
+	  /*kappa = pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].chi;
+	  esource = pRG->wnu[ifr] * kappa * (B00 - pRG->R[ifr][k][j][i].B) * 
 	  (1.0 - kappa/(2.0*PI) * atan((2.0 * PI)/kappa));*/
 	  
 	}
 	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource;
       }}}
-  //printf("energey source flag: %d\n",flag);
-  return;
-}
-
-void output_rad_1d(RadGridS *pRG)
-{
-  FILE *fp;
-  char *fname;
-  int i,l;
-  static int itr;
-
-  fname = construct_filename("rad", NULL, itr, "out");
-
-  if ((fp = fopen(fname, "w")) == NULL) {
-    ath_error("## Error opening radxxxx.out\n");
-  }
-  for(i=pRG->is; i<=pRG->ie; i++) {
-    fprintf(fp,"%d %g %g %g %g %g\n",i,pRG->R[pRG->ks][pRG->js][i][0].B,
-	    pRG->R[pRG->ks][pRG->js][i][0].J,pRG->R[pRG->ks][pRG->js][i][0].S,
-	    pRG->R[pRG->ks][pRG->js][i][0].eps,pRG->R[pRG->ks][pRG->js][i][0].chi);
-  }
-  itr++;
-  fclose(fp);
   return;
 }
 

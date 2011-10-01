@@ -23,19 +23,20 @@
 #   --with-conduction=[isotropic,anisotropic]      (explicit thermal conduction)
 #   --with-particles=[feedback,passive]              (dust particle integration)
 #   --with-coord=[cartesian,cylindrical]                     (coordinate system)
-#   --with-radiation_transfer=[jacobi,gausseid,jacobi_linear] (radiative transfer)
 #
 # PHYSICS "features":
 #   --enable-conduction                            (explicit thermal conduction)
 #   --enable-resistivity                                  (explicit resistivity)
 #   --enable-special-relativity              (special relativistic hydro or MHD)
 #   --enable-viscosity                                      (explicit viscosity)
+#   --enable-radiation-transfer                             (radiation transfer) 
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
-#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]   (flux function)
-#   --with-integrator=[ctu,vl]           (unsplit integration algorithm)
+#   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]       (flux function)
+#   --with-integrator=[ctu,vl]                   (unsplit integration algorithm)
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
+#   --with-ali=[jacobi,gausseid]       (iterative method for radiative transfer)
 #   --with-matrix=[multigrid, hypre, lis]
 #
 # ALGORITHM "features":
@@ -49,7 +50,7 @@
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
 #   --enable-smr                                        (static mesh refinement)
-#   --enable-multig                (use multigrid method for radiative transfer)
+#   --enable-quadratic_intensity              (order of intensity interpolation)
 #   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
 #-------------------------------------------------------------------------------
 # generic things
@@ -328,37 +329,6 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# PHYSICS PACKAGE: radiation_transfer
-#   --with-radiation_transfer=[jacobi,gausseid,jacobi_linear]
-
-AC_SUBST(RADIATION_TRANSFER_ALGORITHM)
-AC_SUBST(RADIATION_TRANSFER_DEFINE)
-AC_ARG_WITH(radiation_transfer, [  --with-radiation_transfer=RADIATION_TRANSFER_ALGORITHM  
-				radiative transfer algorithm (jacobi, gausseid)], 
-				radiation_transfer_algorithm=$withval,
-		       		radiation_transfer_algorithm=none)
-
-if test "$radiation_transfer_algorithm" = "jacobi"; then
-  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
-  RADIATION_TRANSFER_USER="jacobi"
-  RADIATION_TRANSFER_ALGORITHM="JACOBI"
-elif test "$radiation_transfer_algorithm" = "gausseid"; then
-  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
-  RADIATION_TRANSFER_USER="gausseid"
-  RADIATION_TRANSFER_ALGORITHM="GAUSSEID"
-elif test "$radiation_transfer_algorithm" = "jacobi_linear"; then
-  RADIATION_TRANSFER_DEFINE="RADIATION_TRANSFER"
-  RADIATION_TRANSFER_USER="jacobi_linear"
-  RADIATION_TRANSFER_ALGORITHM="JACOBI_LINEAR"
-elif test "$radiation_transfer_algorithm" = "none"; then
-  RADIATION_TRANSFER_DEFINE="NO_RADIATION_TRANSFER"
-  RADIATION_TRANSFER_USER="OFF"
-  RADIATION_TRANSFER_ALGORITHM="RADIATION_TRANSFER_NONE"
-else
-  AC_MSG_ERROR([expected --with-radiation_transfer=jacobi or gausseid or jacobi_linear])
-fi
-
-#-------------------------------------------------------------------------------
 # PHYSICS FEATURE: special relativistic hydro or MHD
 #  --enable-special-relativity
 
@@ -388,6 +358,22 @@ if test "$ok" = "yes"; then
 else
   VISCOSITY_MODE="NO_VISCOSITY"
   VISCOSITY_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: radiation-transfer
+#   --enable-radiation-transfer
+
+AC_SUBST(RADIATION_TRANSFER_MODE)
+AC_ARG_ENABLE(radiation-transfer,
+	[--enable-radiation-transfer  enable radiation trnasfer (default is no)],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RADIATION_TRANSFER_MODE="RADIATION_TRANSFER"
+  RADIATION_TRANSFER_MODE_USER="ON"
+else
+  RADIATION_TRANSFER_MODE="NO_RADIATION_TRANSFER"
+  RADIATION_TRANSFER_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -469,6 +455,23 @@ else
   AC_MSG_ERROR([expected --with-integrator=ctu or vl])
 fi
 
+#-------------------------------------------------------------------------------
+# ALGORITHM PACKAGE: set compiler options.
+#   --with-ali=[jacobi,gausseid] (default is jacobi)
+
+AC_SUBST(ALI_ALGORITHM)
+AC_ARG_WITH(ali, [  --with-ali=ALI_ALGORITHM  ALI algorithm (jacobi, gausseid)], 
+	    ali_algorithm=$withval, ali_algorithm="jacobi")
+
+if test "$ali_algorithm" = "jacobi"; then
+  ALI_USER="jacobi"
+  ALI_ALGORITHM="JACOBI"
+elif test "$ali_algorithm" = "gausseid"; then
+  ALI_USER="gausseid"
+  ALI_ALGORITHM="GAUSSEID"
+else
+  AC_MSG_ERROR([expected --with-ali=jacobi or gausseid])
+fi
 
 #-------------------------------------------------------------------------------
 # ALGORITHM PACKAGE: set compiler options.
@@ -492,7 +495,6 @@ elif test "$with_debug" = "opt"; then
 else
   AC_MSG_ERROR([expected --with-cflags=opt,debug, or profile])
 fi
-
 
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: precision of floating point arithmetic
@@ -661,6 +663,22 @@ fi
 
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: quadratic intensity interpolation
+#   --enable-quadratic_intensity (default is linear intensity interpolation)
+
+AC_SUBST(INTENSITY_INTERP)
+AC_ARG_ENABLE(quadratic_intensity,
+	[--enable-quadratic_intensity  intensity interpolation (default is linear)], 
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  INTENSITY_INTERP="QUADRATIC_INTENSITY"
+  INTENSITY_MODE_USER="QUADRATIC"
+else
+  INTENSITY_INTERP="LINEAR_INTENSITY"
+  INTENSITY_MODE_USER="LINEAR"
+fi
+
+#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: self-gravity with conserved total energy and momentum
 #   --enable-cons_gravity (default is no this algorithm)
 
@@ -675,9 +693,6 @@ else
   CONS_GRAVITY="NO_CONS_GRAVITY"
   CONSGRAVITY_MODE_USER="OFF"
 fi
-
-
-
 
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: turn on all-wave integration for HLL fluxes
@@ -744,28 +759,6 @@ fi
 
 #-------------------------------------------------------------------------------
 
-# ALGORITHM FEATURE: multigrid solution of radiative transfer
-#   --enable-multig (default is no multigrid)
-
-AC_SUBST(RAD_MULTIG_MODE)
-AC_ARG_ENABLE(multig, [  --enable-multig           enable multigrid R.T.], ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-if test "$with_radiation_transfer" = "jacobi"; then
-  RAD_MULTIG_MODE="RAD_MULTIG"
-  RAD_MULTIG_USER="ON"
-elif test "$with_radiation_transfer" = "gausseid"; then
-  RAD_MULTIG_MODE="RAD_MULTIG"
-  RAD_MULTIG_USER="ON"
-else
-  AC_MSG_ERROR([multigrid only works with jacobi or gausseid])
-fi
-else
-  RAD_MULTIG_MODE="NO_RAD_MULTIG"
-  RAD_MULTIG_USER="OFF"
-fi
-
-#-------------------------------------------------------------------------------
-
 # check for various library functions
 
 AC_PROG_GCC_TRADITIONAL
@@ -809,7 +802,7 @@ echo "Resistivity:             $RESISTIVITY_MODE_USER"
 echo "Viscosity:               $VISCOSITY_MODE_USER"
 echo "Thermal conduction:      $CONDUCTION_MODE_USER"
 echo "Particles:               $PARTICLES_USER"
-echo "Radiation transfer:      $RADIATION_TRANSFER_USER"
+echo "Radiation transfer:      $RADIATION_TRANSFER_MODE_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
 echo "--- Algorithm Options ----"
@@ -828,7 +821,7 @@ echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
+echo "ALI method:              $ALI_USER"
+echo "Intensity Interpolation: $INTENSITY_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
-echo "multigrid transfer:      $RAD_MULTIG_USER"
 echo "Conserved self_gravity:  $CONSGRAVITY_MODE_USER"
-

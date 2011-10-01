@@ -31,8 +31,12 @@ void hydro_to_rad(DomainS *pD);
 void rad_to_hydro(DomainS *pD);
 
 /* bvals_rad.c */
-void bvals_rad(DomainS *pD, int sflag);
+void bvals_rad(DomainS *pD, int ifs, int ife);
 void bvals_rad_init(MeshS *pM);
+
+/* bvals_rad_shear.c */
+void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife);
+void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife);
 
 /* dump_intensity_vtk.c */
 void dump_ix1_vtk(MeshS *pM, OutputS *pOut);
@@ -42,11 +46,11 @@ void dump_ox2_vtk(MeshS *pM, OutputS *pOut);
 void dump_ix3_vtk(MeshS *pM, OutputS *pOut);
 void dump_ox3_vtk(MeshS *pM, OutputS *pOut);
 
+/* output_spec.c */
+void output_spec(MeshS *pM);
+
 /* formal_solution.c */
 void formal_solution(DomainS *pD);
-#ifdef RAD_MULTIG
-void output_mean_intensity_2d(RadGridS *pRG, int itr);
-#endif
 
 /* utils_rad.c */
 void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi);
@@ -62,34 +66,19 @@ void get_weights_linear(Real dtaum, Real *edtau, Real *a0, Real *a1);
 int permutation(int i, int j, int k, int **pl, int np);
 
 /* all 1D formal solutions algorithms contain the following functions */
-void formal_solution_1d(RadGridS *pRG, Real *dSrmax);
+void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr);
 void formal_solution_1d_init(RadGridS *pRG);
 void formal_solution_1d_destruct(void);
 
 /* all 2D formal solutions algorithms contain the following functions */
-void formal_solution_2d(RadGridS *pRG, Real *dSrmax);
+void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr);
 void formal_solution_2d_init(RadGridS *pRG);
 void formal_solution_2d_destruct(void);
 
 /* all 3D formal solutions algorithms contain the following functions */
-void formal_solution_3d(RadGridS *pRG, Real *dSrmax);
+void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr);
 void formal_solution_3d_init(RadGridS *pRG);
 void formal_solution_3d_destruct(void);
-
-#ifdef RAD_MULTIG
-/* gausseid_1d.c */
-void gs_pass_pointers_to_mg_1d(Real *******psi0, Real **mu10, 
-			       Real ****psiint0);
-/* jacobi_1d.c */
-void jacobi_pass_pointers_to_mg_1d(Real *******psi0, Real **mu10);
-
-/* multigrid_1d */
-void formal_solution_mg_1d(RadGridS *pRG);
-
-/* multigrid_2d */
-void formal_solution_mg_2d(RadGridS *pRG, Real *dSrmax);
-
-#endif /* RAD_MULTIG */
 
 #endif /* RADIATION_TRANSFER */
 #endif /* RADIATION_TRANSFER_PROTOTYPES_H */

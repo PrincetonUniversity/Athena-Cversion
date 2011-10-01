@@ -1,13 +1,10 @@
 #include "copyright.h"
 
 /*==============================================================================
- * FILE: rad2d.c
+ * FILE: beam2d.c
  *
- * PURPOSE:  Problem generator for a 2D test of radiative transfer routine
+ * PURPOSE:  Problem generator for a 2D beam test of radiative transfer routine
  *
- * Initial conditions available:
- *  iang = 1 - use Gauss-Legendre quadrature
- *  iang = 2 - use Eddington approximation
  *
  *============================================================================*/
 
@@ -20,20 +17,20 @@
 #include "globals.h"
 #include "prototypes.h"
 
+Real chi0;
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- * gauleg()           - gauss-legendre quadrature from NR
  *============================================================================*/
 #ifdef SHEARING_BOX
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 #endif
-static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
-		    const int k);
-static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
-		      const int k);
-static Real const_opacity(const GridS *pG, const int ifr, const int i, const int j, 
-			  const int k);
-Real chi0;
+static Real const_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+		    const int j, const int k);
+static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+		      const int j, const int k);
+static Real const_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+			  const int j, const int k);
 
 void problem(DomainS *pDomain)
 {
@@ -76,15 +73,9 @@ void problem(DomainS *pDomain)
       pG->U[ks][j][i].E = 1.0/Gamma/Gamma_1;
     }
   }
-
-/* Initialize source function */
-  /*for(ifr=0; ifr<nf; ifr++)
-    for (j=js; j<=je+1; j++)
-      for(i=is-1; i<=ie+1; i++) 
-      pRG->R[0][j][i][ifr].S = 0.;*/
 	
 /* ------- Initialize boundary emission ---------------------------------- */
-#ifdef JACOBI
+
   for(ifr=0; ifr<nf; ifr++) {
     for(j=pRG->js-1; j<=pRG->je+1; j++)
       for(l=0; l<4; l++) 
@@ -112,35 +103,7 @@ void problem(DomainS *pDomain)
 	pRG->Ghstl1i[ifr][pRG->ks][ivert2-pRG->Disp[1]][2][iang] = 1.0;
     }
   }
-#else
-  for(ifr=0; ifr<nf; ifr++) {
-    for(j=pRG->js-1; j<=pRG->je+1; j++)
-      for(l=0; l<4; l++) 
-	for(m=0; m<nang; m++) {
-	  pRG->r1imu[ifr][pRG->ks][j][l][m] = 0.0;
-	  pRG->l1imu[ifr][pRG->ks][j][l][m] = 0.0;
-	}
-    for(i=pRG->is-1; i<=pRG->ie+1; i++)
-      for(l=0; l<4; l++) 
-	for(m=0; m<nang; m++) {
-	  pRG->r2imu[ifr][pRG->ks][i][l][m] = 0.0;
-	  pRG->l2imu[ifr][pRG->ks][i][l][m] = 0.0;
-	}
 
-    if(pRG->Disp[1] == 0) {
-      if((ihor1 > 0) && (ihor1 >= pRG->Disp[0]) && (ihor1 < pRG->Disp[0]+pRG->Nx[0]))
-	pRG->l2imu[ifr][pRG->ks][ihor1-pRG->Disp[0]][0][iang] = 1.0;
-      if((ihor2 > 0) && (ihor2 >= pRG->Disp[0]) && (ihor2 < pRG->Disp[0]+pRG->Nx[0]))
-	pRG->l2imu[ifr][pRG->ks][ihor2-pRG->Disp[0]][1][iang] = 1.0;
-    }
-    if(pRG->Disp[0] == 0) {
-      if((ivert1 > 0) && (ivert1 >= pRG->Disp[1]) && (ivert1 < pRG->Disp[1]+pRG->Nx[1]))
-	pRG->l1imu[ifr][pRG->ks][ivert1-pRG->Disp[1]][0][iang] = 1.0;
-      if((ivert2 > 0) && (ivert2 >= pRG->Disp[1]) && (ivert2 < pRG->Disp[1]+pRG->Nx[1]))
-	pRG->l1imu[ifr][pRG->ks][ivert2-pRG->Disp[1]][2][iang] = 1.0;
-    }
-  }
-#endif
 /* enroll radiation specification functions */
 get_thermal_source = const_B;
 get_thermal_fraction = const_eps;
@@ -218,22 +181,22 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 }
 #endif
 
-static Real const_B(const GridS *pG, const int ifr, const int i, const int j, 
-		    const int k)
+static Real const_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+		    const int j, const int k)
 {
   return 0.0;
 }
 
-static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
-		      const int k)
+static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, 
+		      const int j, const int k)
 {
 
   return 0.0;
   
 }
 
-static Real const_opacity(const GridS *pG, const int ifr, const int i, const int j, 
-			  const int k)
+static Real const_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+			  const int j, const int k)
 {
 
   return chi0;

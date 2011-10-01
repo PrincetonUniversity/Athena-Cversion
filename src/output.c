@@ -624,7 +624,10 @@ void data_output(MeshS *pM, const int flag)
 
     }
   }
-
+/* Output frequency and angular grid data to file */
+#ifdef RADIATION_TRANSFER
+  output_spec(pM);
+#endif
   return;
 }
 

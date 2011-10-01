@@ -30,7 +30,6 @@
 /* The memory for all the arrays below is allocated in bvals_shear_init */
 /* Arrays of ghost zones containing remapped conserved quantities */
 static Real ****GhstZnsMom=NULL, ****GhstZnsMomBuf=NULL;
-Real *****GhstZnsIntl=NULL, *****GhstZnsIntr=NULL;
 static Real *****GhstZnsIntBuf=NULL;
 
 /* 1D vectors for reconstruction in conservative remap step */
@@ -42,7 +41,7 @@ static double *send_buf = NULL, *recv_buf = NULL;
 
 static void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
 
-void ShearingSheet_Rad_ix1(DomainS *pD)
+void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 {
   RadGridS *pRG = pD->RadGrid;
   int il = pRG->is-1;
@@ -92,22 +91,21 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 /* Copy moments to temporary arrays */
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
-      for (ifr=0; ifr<nf; ifr++) {
-	GhstZnsMom[k][j][ifr][0] = pRG->R[k][j][il][ifr].S;
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	GhstZnsMom[k][j][ifr][0] = pRG->R[ifr][k][j][il].S;
 	for(l=0; l<=nDim; l++) {
-	  GhstZnsMom[k][j][ifr][l+1] = pRG->R[k][j][il][ifr].H[l];
+	  GhstZnsMom[k][j][ifr][l+1] = pRG->R[ifr][k][j][il].H[l];
 	}
       }}}
 
-/* Intensities are copied into GhstZnsIntl array in unpack_ix1 fucntion */
-
+/* intensities at all angles are copied into pRG->Ghstl1i array in unpack_ix1 fucntion */
 
 /*--- Step 3. ------------------------------------------------------------------
  * Copy GhstZns into buffer, at the same time apply a conservative remap of
  * solution over the fractional part of grid cell */
 
   for(k=ks; k<=ke; k++) {
-    for (ifr=0; ifr<nf; ifr++) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
       for(l=0; l<=nDim+1; l++) {
 	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[k][j][ifr][l];
 	RemapFlux(U,epsi,js,je+1,Flx);
@@ -116,14 +114,14 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 	    (Flx[j+1]-Flx[j]);
 	}
       }}}
-  for (ifr=0; ifr<nf; ifr++) {
+  for (ifr=ifs; ifr<=ife; ifr++) {
     for(k=ks; k<=ke; k++) {
       for(l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {
-	  for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsIntl[ifr][k][j][l][m];
+	  for (j=js-1; j<=je+1; j++) U[j] =  pRG->Ghstl1i[ifr][k][j][l][m];
 	  RemapFlux(U,epsi,js,je+1,Flx);
 	  for(j=js; j<=je; j++){
-	    GhstZnsIntBuf[ifr][k][j][l][m] = GhstZnsIntl[ifr][k][j][l][m] -
+	    GhstZnsIntBuf[ifr][k][j][l][m] = pRG->Ghstl1i[ifr][k][j][l][m] -
 	      (Flx[j+1]-Flx[j]);
 	  }
 	}}}}
@@ -138,19 +136,19 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
       for(j=js; j<=je; j++){
         jremap = j - joffset;
         if (jremap < (int)js) jremap += pRG->Nx[1];
-	for (ifr=0; ifr<nf; ifr++) {
+	for (ifr=ifs; ifr<=ife; ifr++) {
 	  for(l=0; l<=nDim+1; l++) {
 	    GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	  }}}}
 
-    for (ifr=0; ifr<nf; ifr++) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
       for(k=ks; k<=ke; k++) {
 	for(j=js-1; j<=je+1; j++){
 	  jremap = j - joffset;
 	  if (jremap < (int)js) jremap += pRG->Nx[1];
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      GhstZnsIntl[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
+	      pRG->Ghstl1i[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
 	    }}}}}
 #ifdef MPI_PARALLEL
   } else {
@@ -194,12 +192,12 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=je-(joverlap-1); j<=je; j++) {
 	    for(l=0; l<noct; l++) {
@@ -219,17 +217,17 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=js+(joverlap-1); j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=js; j<=js+(joverlap-1); j++) {	  
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
-		GhstZnsIntl[ifr][k][j][l][m] = *(pRcv++);
+		pRG->Ghstl1i[ifr][k][j][l][m] = *(pRcv++);
 	      }}}}}
 
     }
@@ -244,18 +242,18 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
       for(k=ks; k<=ke; k++) {
 	for(j=js+joverlap; j<=je; j++){
 	  jremap = j-joverlap;
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	    }}}}
       
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(j=js+joverlap; j<=je; j++){
 	    jremap = j-joverlap;
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
-		GhstZnsIntl[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
+		pRG->Ghstl1i[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
 	      }}}}}
 
 /*--- Step 5e. -----------------------------------------------------------------
@@ -282,12 +280,12 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=je-joverlap; j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=js; j<=je-joverlap; j++) {
 	    for(l=0; l<noct; l++) {
@@ -306,17 +304,17 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
 	for (j=js+joverlap; j<=je; j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=js+joverlap; j<=je; j++) {
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
-		GhstZnsIntl[ifr][k][j][l][m] = *(pRcv++);
+		pRG->Ghstl1i[ifr][k][j][l][m] = *(pRcv++);
 	      }}}}}
   
     } /* end of step 5e - shear is more than one Grid */
@@ -329,25 +327,12 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
-      for (ifr=0; ifr<nf; ifr++) {
-	pRG->R[k][j][il][ifr].S = GhstZnsMom[k][j][ifr][0];
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][j][il].S = GhstZnsMom[k][j][ifr][0];
 	for(l=0; l<=nDim; l++) {
-	  pRG->R[k][j][il][ifr].H[l] = GhstZnsMom[k][j][ifr][l+1];
+	  pRG->R[ifr][k][j][il].H[l] = GhstZnsMom[k][j][ifr][l+1];
 	}
       }}}
-
-  for (ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++) {
-      for(j=js; j<=je; j++){
-	  for(m=0; m<nang; m++) {
-	    pRG->l1imu[ifr][k][j][0][m] = GhstZnsIntl[ifr][k][j][0][m];
-	    pRG->l1imu[ifr][k][j][2][m] = GhstZnsIntl[ifr][k][j][2][m];
-	    if(noct == 8) {
-	      pRG->l1imu[ifr][k][j][4][m] = GhstZnsIntl[ifr][k][j][4][m];
-	      pRG->l1imu[ifr][k][j][6][m] = GhstZnsIntl[ifr][k][j][6][m];
-	    }
-	  }}}}
-
 /*--- Step 8. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
  * periodic_ix2() and periodic_ox2() in bvals_mhd.c) */
@@ -355,20 +340,20 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
   if (pD->NGrid[1] == 1) {
 
     for(k=ks; k<=ke; k++) {
-      for (ifr=0; ifr<nf; ifr++) {
-	pRG->R[k][js-1][il][ifr].S = pRG->R[k][je][il][ifr].S;
-	pRG->R[k][je+1][il][ifr].S = pRG->R[k][js][il][ifr].S;
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][js-1][il].S = pRG->R[ifr][k][je][il].S;
+	pRG->R[ifr][k][je+1][il].S = pRG->R[ifr][k][js][il].S;
 	for(l=0; l<=nDim; l++) {
-	  pRG->R[k][js-1][il][ifr].H[l] = pRG->R[k][je][il][ifr].H[l];
-	  pRG->R[k][je+1][il][ifr].H[l] = pRG->R[k][js][il][ifr].H[l];
+	  pRG->R[ifr][k][js-1][il].H[l] = pRG->R[ifr][k][je][il].H[l];
+	  pRG->R[ifr][k][je+1][il].H[l] = pRG->R[ifr][k][js][il].H[l];
 	}
       }}
-    for (ifr=0; ifr<nf; ifr++) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
       for(k=ks; k<=ke; k++) {
 	for(l=0; l<noct; l++) {
 	  for(m=0; m<nang; m++) {
-	    GhstZnsIntl[ifr][k][js-1][l][m] = GhstZnsIntl[ifr][k][je][l][m];
-	    GhstZnsIntl[ifr][k][je+1][l][m] = GhstZnsIntl[ifr][k][js][l][m];
+	    pRG->Ghstl1i[ifr][k][js-1][l][m] = pRG->Ghstl1i[ifr][k][je][l][m];
+	    pRG->Ghstl1i[ifr][k][je+1][l][m] = pRG->Ghstl1i[ifr][k][js][l][m];
 	  }}}}
   
 #ifdef MPI_PARALLEL
@@ -385,17 +370,17 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 		       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  *(pSnd++) = pRG->R[k][je][il][ifr].S;
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  *(pSnd++) = pRG->R[ifr][k][je][il].S;
 	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[k][je][il][ifr].H[l];
+	    *(pSnd++) = pRG->R[ifr][k][je][il].H[l];
 	  }
 	}}      
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = GhstZnsIntl[ifr][k][je][l][m];
+	      *(pSnd++) = pRG->Ghstl1i[ifr][k][je][l][m];
 	    }}}}
     }
 
@@ -405,17 +390,17 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 		      shearing_sheet_ix1_tag, pD->Comm_Domain);
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  pRG->R[k][js-1][il][ifr].S = *(pRcv++);
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  pRG->R[ifr][k][js-1][il].S = *(pRcv++);
 	  for(l=0; l<=nDim; l++) {
-	    pRG->R[k][js-1][il][ifr].H[l] = *(pRcv++);
+	    pRG->R[ifr][k][js-1][il].H[l] = *(pRcv++);
 	  }
 	}}      
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      GhstZnsIntl[ifr][k][js-1][l][m] = *(pRcv++);
+	      pRG->Ghstl1i[ifr][k][js-1][l][m] = *(pRcv++);
 	    }}}}
     }
 
@@ -425,17 +410,17 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 		       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  *(pSnd++) = pRG->R[k][js][il][ifr].S;
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  *(pSnd++) = pRG->R[ifr][k][js][il].S;
 	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[k][js][il][ifr].H[l];
+	    *(pSnd++) = pRG->R[ifr][k][js][il].H[l];
 	  }
 	}}
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = GhstZnsIntl[ifr][k][js][l][m];
+	      *(pSnd++) = pRG->Ghstl1i[ifr][k][js][l][m];
 	    }}}}
     }
 
@@ -446,17 +431,17 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
 		      shearing_sheet_ix1_tag, pD->Comm_Domain);
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  pRG->R[k][je+1][il][ifr].S = *(pRcv++); 
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  pRG->R[ifr][k][je+1][il].S = *(pRcv++); 
 	  for(l=0; l<=nDim; l++) {
-	    pRG->R[k][je+1][il][ifr].H[l] = *(pRcv++);
+	    pRG->R[ifr][k][je+1][il].H[l] = *(pRcv++);
 	  }
 	}}
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      GhstZnsIntl[ifr][k][je+1][l][m] = *(pRcv++);
+	      pRG->Ghstl1i[ifr][k][je+1][l][m] = *(pRcv++);
 	    }}}}
     }
 #endif /* MPI_PARALLEL */
@@ -464,58 +449,44 @@ void ShearingSheet_Rad_ix1(DomainS *pD)
   } /* end of step 9 - periodic BC in Y with MPI */
 
 /*--- Step 10. ------------------------------------------------------------------
-/* Update l/r1imu, l/r2imu, and l/r3imu on corners using the remapped GhstZnsIntl 
+/* Update l/r2imu, and l/r3imu on corners using the remapped Ghstl1i 
  * values. */
-  for (ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++) {
-      for(m=0; m<nang; m++) {
-	pRG->l1imu[ifr][k][js-1][0][m] = GhstZnsIntl[ifr][k][js-1][0][m];
-	pRG->l1imu[ifr][k][je+1][0][m] = GhstZnsIntl[ifr][k][je+1][0][m];
-	pRG->l1imu[ifr][k][js-1][2][m] = GhstZnsIntl[ifr][k][js-1][2][m];
-	pRG->l1imu[ifr][k][je+1][2][m] = GhstZnsIntl[ifr][k][je+1][2][m];
-	if(noct == 8) {
-	  pRG->l1imu[ifr][k][js-1][4][m] = GhstZnsIntl[ifr][k][js-1][4][m];
-	  pRG->l1imu[ifr][k][je+1][4][m] = GhstZnsIntl[ifr][k][je+1][4][m];
-	  pRG->l1imu[ifr][k][js-1][6][m] = GhstZnsIntl[ifr][k][js-1][6][m];
-	  pRG->l1imu[ifr][k][je+1][6][m] = GhstZnsIntl[ifr][k][je+1][6][m];
-	}
-      }}}
-  for (ifr=0; ifr<nf; ifr++) {
+  for (ifr=ifs; ifr<=ife; ifr++) {
     for (k=ks; k<=ke; k++) {
       for (m=0; m<nang; m++) {
-	pRG->l2imu[ifr][k][il][0][m] = GhstZnsIntl[ifr][k][js-1][0][m];
-	pRG->l2imu[ifr][k][il][1][m] = GhstZnsIntl[ifr][k][js-1][1][m];
-	pRG->r2imu[ifr][k][il][2][m] = GhstZnsIntl[ifr][k][je+1][2][m];
-	pRG->r2imu[ifr][k][il][3][m] = GhstZnsIntl[ifr][k][je+1][3][m];
+	pRG->l2imu[ifr][k][il][0][m] = pRG->Ghstl1i[ifr][k][js-1][0][m];
+	pRG->l2imu[ifr][k][il][1][m] = pRG->Ghstl1i[ifr][k][js-1][1][m];
+	pRG->r2imu[ifr][k][il][2][m] = pRG->Ghstl1i[ifr][k][je+1][2][m];
+	pRG->r2imu[ifr][k][il][3][m] = pRG->Ghstl1i[ifr][k][je+1][3][m];
 	if(noct == 8) {
-	  pRG->l2imu[ifr][k][il][4][m] = GhstZnsIntl[ifr][k][js-1][4][m];
-	  pRG->l2imu[ifr][k][il][5][m] = GhstZnsIntl[ifr][k][js-1][5][m];
-	  pRG->r2imu[ifr][k][il][6][m] = GhstZnsIntl[ifr][k][je+1][6][m];
-	  pRG->r2imu[ifr][k][il][7][m] = GhstZnsIntl[ifr][k][je+1][7][m];
+	  pRG->l2imu[ifr][k][il][4][m] = pRG->Ghstl1i[ifr][k][js-1][4][m];
+	  pRG->l2imu[ifr][k][il][5][m] = pRG->Ghstl1i[ifr][k][js-1][5][m];
+	  pRG->r2imu[ifr][k][il][6][m] = pRG->Ghstl1i[ifr][k][je+1][6][m];
+	  pRG->r2imu[ifr][k][il][7][m] = pRG->Ghstl1i[ifr][k][je+1][7][m];
 	}
       }}}
-/* For l/r3imu we reset the top/bottom zones using GhstZnsIntl.  The iteration
+/* For l/r3imu we reset the top/bottom zones using pRG->Ghstl1i.  The iteration
  * over j runs from js-1 to je+1 (differs from "normal" periodic boundary
  * routine) because this function is called after the "normal" radiation
  * boundary condition has already been applied to the x2 face. */
     if (noct == 8) {
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for (j=js-1; j<=je+1; j++) {
 	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][j][il][4][m] = GhstZnsIntl[ifr][ks][j][4][m];
-	    pRG->l3imu[ifr][j][il][5][m] = GhstZnsIntl[ifr][ks][j][5][m];
-	    pRG->l3imu[ifr][j][il][6][m] = GhstZnsIntl[ifr][ks][j][6][m];
-	    pRG->l3imu[ifr][j][il][7][m] = GhstZnsIntl[ifr][ks][j][7][m];
-	    pRG->r3imu[ifr][j][il][0][m] = GhstZnsIntl[ifr][ke][j][0][m];
-	    pRG->r3imu[ifr][j][il][1][m] = GhstZnsIntl[ifr][ke][j][1][m];
-	    pRG->r3imu[ifr][j][il][2][m] = GhstZnsIntl[ifr][ke][j][2][m];
-	    pRG->r3imu[ifr][j][il][3][m] = GhstZnsIntl[ifr][ke][j][3][m];	   
+	    pRG->l3imu[ifr][j][il][4][m] = pRG->Ghstl1i[ifr][ks][j][4][m];
+	    pRG->l3imu[ifr][j][il][5][m] = pRG->Ghstl1i[ifr][ks][j][5][m];
+	    pRG->l3imu[ifr][j][il][6][m] = pRG->Ghstl1i[ifr][ks][j][6][m];
+	    pRG->l3imu[ifr][j][il][7][m] = pRG->Ghstl1i[ifr][ks][j][7][m];
+	    pRG->r3imu[ifr][j][il][0][m] = pRG->Ghstl1i[ifr][ke][j][0][m];
+	    pRG->r3imu[ifr][j][il][1][m] = pRG->Ghstl1i[ifr][ke][j][1][m];
+	    pRG->r3imu[ifr][j][il][2][m] = pRG->Ghstl1i[ifr][ke][j][2][m];
+	    pRG->r3imu[ifr][j][il][3][m] = pRG->Ghstl1i[ifr][ke][j][3][m];	   
 	  }}}
     }
 
 }
 
-void ShearingSheet_Rad_ox1(DomainS *pD)
+void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 {
   RadGridS *pRG = pD->RadGrid;
   int iu = pRG->ie+1;
@@ -565,14 +536,14 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 /* Copy moments to temporary arrays */
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
-      for (ifr=0; ifr<nf; ifr++) {
-	GhstZnsMom[k][j][ifr][0] = pRG->R[k][j][iu][ifr].S;
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	GhstZnsMom[k][j][ifr][0] = pRG->R[ifr][k][j][iu].S;
 	for(l=0; l<=nDim; l++) {
-	  GhstZnsMom[k][j][ifr][l+1] = pRG->R[k][j][iu][ifr].H[l];
+	  GhstZnsMom[k][j][ifr][l+1] = pRG->R[ifr][k][j][iu].H[l];
 	}
       }}}
 
-/* Intensities are copied into GhstZnsIntr array in unpack_ox1 fucntion */
+/* Intensities are copied into pRG->Ghstr1i array in unpack_ox1 fucntion */
 
 
 /*--- Step 3. ------------------------------------------------------------------
@@ -580,7 +551,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
  * solution over the fractional part of grid cell */
 
   for(k=ks; k<=ke; k++) {
-    for (ifr=0; ifr<nf; ifr++) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
       for(l=0; l<=nDim+1; l++) {
 	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[k][j][ifr][l];
 	RemapFlux(U,epso,js,je+1,Flx);
@@ -589,14 +560,14 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 	    (Flx[j+1]-Flx[j]);
 	}
       }}}
-  for (ifr=0; ifr<nf; ifr++) {
+  for (ifr=ifs; ifr<=ife; ifr++) {
     for(k=ks; k<=ke; k++) {
       for(l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {
-	  for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsIntr[ifr][k][j][l][m];
+	  for (j=js-1; j<=je+1; j++) U[j] =  pRG->Ghstr1i[ifr][k][j][l][m];
 	  RemapFlux(U,epso,js,je+1,Flx);
 	  for(j=js; j<=je; j++){
-	    GhstZnsIntBuf[ifr][k][j][l][m] = GhstZnsIntr[ifr][k][j][l][m] -
+	    GhstZnsIntBuf[ifr][k][j][l][m] = pRG->Ghstr1i[ifr][k][j][l][m] -
 	      (Flx[j+1]-Flx[j]);
 	  }
 	}}}}
@@ -611,19 +582,19 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
       for(j=js; j<=je; j++){
 	jremap = j + joffset;
         if (jremap > (int)je) jremap -= pRG->Nx[1];
-	for (ifr=0; ifr<nf; ifr++) {
+	for (ifr=ifs; ifr<=ife; ifr++) {
 	  for(l=0; l<=nDim+1; l++) {
 	    GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	  }}}}
 
-    for (ifr=0; ifr<nf; ifr++) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
       for(k=ks; k<=ke; k++) {
 	for(j=js-1; j<=je+1; j++){
 	  jremap = j + joffset;
 	  if (jremap > (int)je) jremap -= pRG->Nx[1];
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      GhstZnsIntr[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
+	      pRG->Ghstr1i[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
 	    }}}}}
 #ifdef MPI_PARALLEL
   } else {
@@ -667,12 +638,12 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=js+(joverlap-1); j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=js; j<=js+(joverlap-1); j++) {
 	    for(l=0; l<noct; l++) {
@@ -693,17 +664,17 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
 	for (j=je-(joverlap-1); j<=je; j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=je-(joverlap-1); j<=je; j++) {
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
-		GhstZnsIntr[ifr][k][j][l][m] = *(pRcv++);
+		pRG->Ghstr1i[ifr][k][j][l][m] = *(pRcv++);
 	      }}}}}
 
     }
@@ -718,18 +689,18 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
       for(k=ks; k<=ke; k++) {
         for(j=js; j<=je-joverlap; j++){
           jremap = j+joverlap;
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	    }}}}
       
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(j=js; j<=je-joverlap; j++){
 	    jremap = j+joverlap;
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
-		GhstZnsIntr[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
+		pRG->Ghstr1i[ifr][k][j][l][m] = GhstZnsIntBuf[ifr][k][jremap][l][m];
 	      }}}}}
 
 /*--- Step 5e. -----------------------------------------------------------------
@@ -756,12 +727,12 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
         for (j=js+joverlap; j<=je; j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=js; j<=je-joverlap; j++) {
 	    for(l=0; l<noct; l++) {
@@ -780,17 +751,17 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=je-joverlap; j++) {
-	  for (ifr=0; ifr<nf; ifr++) {
+	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<=nDim+1; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for (j=js; j<=je-joverlap; j++) {
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
-		GhstZnsIntr[ifr][k][j][l][m] = *(pRcv++);
+		pRG->Ghstr1i[ifr][k][j][l][m] = *(pRcv++);
 	      }}}}}
   
    } /* end of step 5e - shear is more than one Grid */
@@ -803,24 +774,12 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
-      for (ifr=0; ifr<nf; ifr++) {
-	pRG->R[k][j][iu][ifr].S = GhstZnsMom[k][j][ifr][0];
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][j][iu].S = GhstZnsMom[k][j][ifr][0];
 	for(l=0; l<=nDim; l++) {
-	  pRG->R[k][j][iu][ifr].H[l] = GhstZnsMom[k][j][ifr][l+1];
+	  pRG->R[ifr][k][j][iu].H[l] = GhstZnsMom[k][j][ifr][l+1];
 	}
       }}}
-
-  for (ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++) {
-      for(j=js; j<=je; j++){
-	for(m=0; m<nang; m++) {
-	  pRG->r1imu[ifr][k][j][1][m] = GhstZnsIntr[ifr][k][j][1][m];
-	  pRG->r1imu[ifr][k][j][3][m] = GhstZnsIntr[ifr][k][j][3][m];
-	  if(noct == 8) {
-	    pRG->r1imu[ifr][k][j][5][m] = GhstZnsIntr[ifr][k][j][5][m];
-	    pRG->r1imu[ifr][k][j][7][m] = GhstZnsIntr[ifr][k][j][7][m];
-	  }
-	}}}}
 
 /*--- Step 8. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
@@ -829,20 +788,20 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
   if (pD->NGrid[1] == 1) {
 
     for(k=ks; k<=ke; k++) {
-      for (ifr=0; ifr<nf; ifr++) {
-	pRG->R[k][js-1][iu][ifr].S = pRG->R[k][je][iu][ifr].S;
-	pRG->R[k][je+1][iu][ifr].S = pRG->R[k][js][iu][ifr].S;
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][js-1][iu].S = pRG->R[ifr][k][je][iu].S;
+	pRG->R[ifr][k][je+1][iu].S = pRG->R[ifr][k][js][iu].S;
 	for(l=0; l<=nDim; l++) {
-	  pRG->R[k][js-1][iu][ifr].H[l] = pRG->R[k][je][iu][ifr].H[l];
-	  pRG->R[k][je+1][iu][ifr].H[l] = pRG->R[k][js][iu][ifr].H[l];
+	  pRG->R[ifr][k][js-1][iu].H[l] = pRG->R[ifr][k][je][iu].H[l];
+	  pRG->R[ifr][k][je+1][iu].H[l] = pRG->R[ifr][k][js][iu].H[l];
 	}
       }}
-    for (ifr=0; ifr<nf; ifr++) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
       for(k=ks; k<=ke; k++) {
 	for(l=0; l<noct; l++) {
 	  for(m=0; m<nang; m++) {
-	    GhstZnsIntr[ifr][k][js-1][l][m] = GhstZnsIntr[ifr][k][je][l][m];
-	    GhstZnsIntr[ifr][k][je+1][l][m] = GhstZnsIntr[ifr][k][js][l][m];
+	    pRG->Ghstr1i[ifr][k][js-1][l][m] = pRG->Ghstr1i[ifr][k][je][l][m];
+	    pRG->Ghstr1i[ifr][k][je+1][l][m] = pRG->Ghstr1i[ifr][k][js][l][m];
 	  }}}}
  
 #ifdef MPI_PARALLEL
@@ -859,17 +818,17 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 		       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  *(pSnd++) = pRG->R[k][je][iu][ifr].S;
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  *(pSnd++) = pRG->R[ifr][k][je][iu].S;
 	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[k][je][iu][ifr].H[l];
+	    *(pSnd++) = pRG->R[ifr][k][je][iu].H[l];
 	  }
 	}}      
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = GhstZnsIntr[ifr][k][je][l][m];
+	      *(pSnd++) = pRG->Ghstr1i[ifr][k][je][l][m];
 	    }}}}
     }
 
@@ -879,17 +838,17 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 		      shearing_sheet_ox1_tag, pD->Comm_Domain);
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  pRG->R[k][js-1][iu][ifr].S = *(pRcv++);
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  pRG->R[ifr][k][js-1][iu].S = *(pRcv++);
 	  for(l=0; l<=nDim; l++) {
-	    pRG->R[k][js-1][iu][ifr].H[l] = *(pRcv++);
+	    pRG->R[ifr][k][js-1][iu].H[l] = *(pRcv++);
 	  }
 	}}      
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      GhstZnsIntr[ifr][k][js-1][l][m] = *(pRcv++);
+	      pRG->Ghstr1i[ifr][k][js-1][l][m] = *(pRcv++);
 	    }}}}
     }
 
@@ -899,17 +858,17 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 		       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
       pSnd = send_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  *(pSnd++) = pRG->R[k][js][iu][ifr].S;
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  *(pSnd++) = pRG->R[ifr][k][js][iu].S;
 	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[k][js][iu][ifr].H[l];
+	    *(pSnd++) = pRG->R[ifr][k][js][iu].H[l];
 	  }
 	}}
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = GhstZnsIntr[ifr][k][js][l][m];
+	      *(pSnd++) = pRG->Ghstr1i[ifr][k][js][l][m];
 	    }}}}
     }
 
@@ -920,17 +879,17 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
 		      shearing_sheet_ox1_tag, pD->Comm_Domain);
       pRcv = recv_buf;
       for(k=ks; k<=ke; k++) {
-	for (ifr=0; ifr<nf; ifr++) {
-	  pRG->R[k][je+1][iu][ifr].S = *(pRcv++); 
+	for (ifr=ifs; ifr<=ife; ifr++) {
+	  pRG->R[ifr][k][je+1][iu].S = *(pRcv++); 
 	  for(l=0; l<=nDim; l++) {
-	    pRG->R[k][je+1][iu][ifr].H[l] = *(pRcv++);
+	    pRG->R[ifr][k][je+1][iu].H[l] = *(pRcv++);
 	  }
 	}}
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
 	  for(l=0; l<noct; l++) {
 	    for(m=0; m<nang; m++) {
-	      GhstZnsIntr[ifr][k][je+1][l][m] = *(pRcv++);
+	      pRG->Ghstr1i[ifr][k][je+1][l][m] = *(pRcv++);
 	    }}}}
     }
 #endif /* MPI_PARALLEL */
@@ -938,53 +897,38 @@ void ShearingSheet_Rad_ox1(DomainS *pD)
   } /* end of step 9 - periodic BC in Y with MPI */
 
 /*--- Step 10. ------------------------------------------------------------------
- * Update l/r1imu, l/r2imu, and l/r3imu on corners using the remapped GhstZnsIntr 
+ * Update l/r2imu, and l/r3imu on corners using the remapped Ghstr1i 
  * values. */
-
-   for (ifr=0; ifr<nf; ifr++) {
-      for(k=ks; k<=ke; k++) {
-	for(m=0; m<nang; m++) {
-	  pRG->r1imu[ifr][k][js-1][1][m] = GhstZnsIntr[ifr][k][js-1][1][m];
-	  pRG->r1imu[ifr][k][je+1][1][m] = GhstZnsIntr[ifr][k][je+1][1][m];
-	  pRG->r1imu[ifr][k][js-1][3][m] = GhstZnsIntr[ifr][k][js-1][3][m];
-	  pRG->r1imu[ifr][k][je+1][3][m] = GhstZnsIntr[ifr][k][je+1][3][m];
-	  if(noct == 8) {
-	    pRG->r1imu[ifr][k][js-1][5][m] = GhstZnsIntr[ifr][k][js-1][5][m];
-	    pRG->r1imu[ifr][k][je+1][5][m] = GhstZnsIntr[ifr][k][je+1][5][m];
-	    pRG->r1imu[ifr][k][js-1][7][m] = GhstZnsIntr[ifr][k][js-1][7][m];
-	    pRG->r1imu[ifr][k][je+1][7][m] = GhstZnsIntr[ifr][k][je+1][7][m];
-	  }
-	}}}
-   for (ifr=0; ifr<nf; ifr++) {
+   for (ifr=ifs; ifr<=ife; ifr++) {
      for (k=ks; k<=ke; k++) {
        for (m=0; m<nang; m++) {
-	 pRG->l2imu[ifr][k][iu][0][m] = GhstZnsIntr[ifr][k][js-1][0][m];
-	 pRG->l2imu[ifr][k][iu][1][m] = GhstZnsIntr[ifr][k][js-1][1][m];
-	 pRG->r2imu[ifr][k][iu][2][m] = GhstZnsIntr[ifr][k][je+1][2][m];
-	 pRG->r2imu[ifr][k][iu][3][m] = GhstZnsIntr[ifr][k][je+1][3][m];
+	 pRG->l2imu[ifr][k][iu][0][m] = pRG->Ghstr1i[ifr][k][js-1][0][m];
+	 pRG->l2imu[ifr][k][iu][1][m] = pRG->Ghstr1i[ifr][k][js-1][1][m];
+	 pRG->r2imu[ifr][k][iu][2][m] = pRG->Ghstr1i[ifr][k][je+1][2][m];
+	 pRG->r2imu[ifr][k][iu][3][m] = pRG->Ghstr1i[ifr][k][je+1][3][m];
 	 if(noct == 8) {
-	   pRG->l2imu[ifr][k][iu][4][m] = GhstZnsIntr[ifr][k][js-1][4][m];
-	   pRG->l2imu[ifr][k][iu][5][m] = GhstZnsIntr[ifr][k][js-1][5][m];
-	   pRG->r2imu[ifr][k][iu][6][m] = GhstZnsIntr[ifr][k][je+1][6][m];
-	   pRG->r2imu[ifr][k][iu][7][m] = GhstZnsIntr[ifr][k][je+1][7][m];
+	   pRG->l2imu[ifr][k][iu][4][m] = pRG->Ghstr1i[ifr][k][js-1][4][m];
+	   pRG->l2imu[ifr][k][iu][5][m] = pRG->Ghstr1i[ifr][k][js-1][5][m];
+	   pRG->r2imu[ifr][k][iu][6][m] = pRG->Ghstr1i[ifr][k][je+1][6][m];
+	   pRG->r2imu[ifr][k][iu][7][m] = pRG->Ghstr1i[ifr][k][je+1][7][m];
 	 }
        }}}
-/* For l/r3imu we reset the top/bottom zones using GhstZnsIntr.  The iteration
+/* For l/r3imu we reset the top/bottom zones using pRG->Ghstr1i.  The iteration
  * over j runs from js-1 to je+1 (differs from "normal" periodic boundary
  * routine) because this function is called after the "normal" radiation
  * boundary condition has already been applied to the x2 face. */
     if (noct == 8) {
-      for (ifr=0; ifr<nf; ifr++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
 	for (j=js-1; j<=je+1; j++) {
 	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][j][iu][4][m] = GhstZnsIntr[ifr][ks][j][4][m];
-	    pRG->l3imu[ifr][j][iu][5][m] = GhstZnsIntr[ifr][ks][j][5][m];
-	    pRG->l3imu[ifr][j][iu][6][m] = GhstZnsIntr[ifr][ks][j][6][m];
-	    pRG->l3imu[ifr][j][iu][7][m] = GhstZnsIntr[ifr][ks][j][7][m];
-	    pRG->r3imu[ifr][j][iu][0][m] = GhstZnsIntr[ifr][ke][j][0][m];
-	    pRG->r3imu[ifr][j][iu][1][m] = GhstZnsIntr[ifr][ke][j][1][m];
-	    pRG->r3imu[ifr][j][iu][2][m] = GhstZnsIntr[ifr][ke][j][2][m];
-	    pRG->r3imu[ifr][j][iu][3][m] = GhstZnsIntr[ifr][ke][j][3][m];	   
+	    pRG->l3imu[ifr][j][iu][4][m] = pRG->Ghstr1i[ifr][ks][j][4][m];
+	    pRG->l3imu[ifr][j][iu][5][m] = pRG->Ghstr1i[ifr][ks][j][5][m];
+	    pRG->l3imu[ifr][j][iu][6][m] = pRG->Ghstr1i[ifr][ks][j][6][m];
+	    pRG->l3imu[ifr][j][iu][7][m] = pRG->Ghstr1i[ifr][ks][j][7][m];
+	    pRG->r3imu[ifr][j][iu][0][m] = pRG->Ghstr1i[ifr][ke][j][0][m];
+	    pRG->r3imu[ifr][j][iu][1][m] = pRG->Ghstr1i[ifr][ke][j][1][m];
+	    pRG->r3imu[ifr][j][iu][2][m] = pRG->Ghstr1i[ifr][ke][j][2][m];
+	    pRG->r3imu[ifr][j][iu][3][m] = pRG->Ghstr1i[ifr][ke][j][3][m];	   
 	  }}}
     }
 }
@@ -1037,12 +981,6 @@ void bvals_rad_shear_init(MeshS *pM)
   if((GhstZnsMomBuf=(Real****)calloc_4d_array(max3,max2,maxf,nDim+1,sizeof(Real))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
-  if((GhstZnsIntl=(Real*****)calloc_5d_array(maxf,max3,max2,noct,maxa,sizeof(Real)))==NULL)
-    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
-
-  if((GhstZnsIntr=(Real*****)calloc_5d_array(maxf,max3,max2,noct,maxa,sizeof(Real)))==NULL)
-    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
-
   if((GhstZnsIntBuf=(Real*****)calloc_5d_array(maxf,max3,max2,noct,maxa,sizeof(Real))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
@@ -1076,8 +1014,6 @@ void bvals_rad_shear_destruct(void)
 
   if (GhstZnsMom    != NULL) free_4d_array(GhstZnsMom);
   if (GhstZnsMomBuf != NULL) free_4d_array(GhstZnsMomBuf);
-  if (GhstZnsIntl   != NULL) free_5d_array(GhstZnsIntl);
-  if (GhstZnsIntr   != NULL) free_5d_array(GhstZnsIntr);
   if (GhstZnsIntBuf != NULL) free_5d_array(GhstZnsIntBuf);
 
   if (U   != NULL) free(U);

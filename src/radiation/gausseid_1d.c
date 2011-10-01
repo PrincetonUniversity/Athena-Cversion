@@ -11,7 +11,6 @@
  *   formal_solution_1d.c()
  *   formal_solution_1d_destruct()
  *   formal_solution_1d_init()
- *   gausseid_pass_pointers_to_mg_1d()
  *============================================================================*/
 
 #include <stdlib.h>
@@ -39,61 +38,54 @@ static int svwght;
  *   sweep_1d()     - computes a single sweep in one direction (up or down)
  *   update_sfunc() - updates source function after compute of mean intensity
  *============================================================================*/
-static void sweep_1d(RadGridS *pRG, int sx);
+static void sweep_1d(RadGridS *pRG, int sx, int ifr);
 static void update_sfunc(RadS *R, Real *deltas, Real lamstr);
 
-void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
+void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, m;
   int ks = pRG->ks, js = pRG->js;
   int is = pRG->is, ie = pRG->ie; 
-  int ifr, nf = pRG->nf, nang = pRG->nang;
+  int nf = pRG->nf, nang = pRG->nang;
 
 /* Initialize dsrmx */
   dsrmx = 0.0;
 
 /* initialize mean intensities at all depths to zero */
-  for(i=is-1; i<=ie+1; i++)
-    for(ifr=0; ifr<nf; ifr++) {
-      pRG->R[ks][js][i][ifr].J = 0.0;
-      pRG->R[ks][js][i][ifr].K[0] = 0.0;
-      if (svwght == 0) {
-	lamstr[i][ifr] = 0.0;
-	psiint[i][ifr] = 0.0;
-      }
+  for(i=is-1; i<=ie+1; i++) {
+    pRG->R[ifr][ks][js][i].J = 0.0;
+    pRG->R[ifr][ks][js][i].H[0] = 0.0;
+    pRG->R[ifr][ks][js][i].K[0] = 0.0;
+    if (svwght == 0) {
+      lamstr[i][ifr] = 0.0;
+      psiint[i][ifr] = 0.0;
     }
-
-/* Compute formal solution for all downward going rays in 
- * each vertical gridzone */
+  }
 
 /* Account for ix1 boundary condition */
-  for(ifr=0; ifr<nf; ifr++)
-    for(m=0; m<nang; m++) 
-      imuo[ifr][0][m] = pRG->l1imu[ifr][ks][js][0][m];
+  for(m=0; m<nang; m++) 
+    imuo[ifr][0][m] = pRG->Ghstl1i[ifr][ks][js][0][m];
 
 /* sweep forward in x1 */
-  sweep_1d(pRG, 1);
+  sweep_1d(pRG, 1, ifr);
 
 /* update outward emission at ox1 boundary */
-  for(ifr=0; ifr<nf; ifr++)
-    for(m=0; m<nang; m++) 
-      pRG->r1imu[ifr][ks][js][0][m] = imuo[ifr][0][m];
+  for(m=0; m<nang; m++) 
+    pRG->r1imu[ifr][ks][js][0][m] = imuo[ifr][0][m];
 
 /* Compute formal solution for all upward going rays in 
  * each vertical gridzone */
 
 /* Account for ox1 boundary condition */
-  for(ifr=0; ifr<nf; ifr++)
-    for(m=0; m<nang; m++) 
-      imuo[ifr][1][m] = pRG->r1imu[ifr][ks][js][1][m];
+  for(m=0; m<nang; m++) 
+    imuo[ifr][1][m] = pRG->Ghstr1i[ifr][ks][js][1][m];
 
 /* sweep upward */
-  sweep_1d(pRG, -1);
+  sweep_1d(pRG, -1, ifr);
   
 /* update outward emission at ix1 boundary */
-  for(ifr=0; ifr<nf; ifr++)
-    for(m=0; m<nang; m++) 
-      pRG->l1imu[ifr][ks][js][1][m] = imuo[ifr][1][m];
+  for(m=0; m<nang; m++) 
+    pRG->l1imu[ifr][ks][js][1][m] = imuo[ifr][1][m];
 
 /* Evaluate relative change if SOR */
   if ((dsrmx < 0.03) && (isor == 1) ) {
@@ -106,9 +98,9 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax)
   return;
 }
 
-static void sweep_1d(RadGridS *pRG, int sx)
+static void sweep_1d(RadGridS *pRG, int sx, int ifr)
 {
-  int it0, ifr, i, l, m;
+  int it0, i, l, m;
   int js = pRG->js, ks = pRG->ks;
   int is = pRG->is, ie = pRG->ie;
   int nf = pRG->nf, nang = pRG->nang;
@@ -126,58 +118,54 @@ static void sweep_1d(RadGridS *pRG, int sx)
      else
        i = ie + is - it0;
 
-     for(ifr=0; ifr<nf; ifr++) {
-       S0 = pRG->R[ks][js][i-sx][ifr].S;
-       S2 = pRG->R[ks][js][i+sx][ifr].S;
-       if(svwght == 0) chio = pRG->R[ks][js][i][ifr].chi;
-       for(m=0; m<nang; m++) {
-	 if(svwght == 1) {
-	   imu = psi[i][ifr][l][m][1] * S0 +
-	         psi[i][ifr][l][m][2] * pRG->R[ks][js][i][ifr].S +
-	         psi[i][ifr][l][m][3] * S2;
-	   if (imu < 0.0) imu=0.0;
-	   imu += psi[i][ifr][l][m][0] * imuo[ifr][l][m];	
-	 } else {
-	    chim = pRG->R[ks][js][i-sx][ifr].chi;
-	    chip = pRG->R[ks][js][i+sx][ifr].chi;
-	    
-	    /*dtaum = 0.5 * (chim + chio);
-	      dtaup = 0.5 * (chip + chio);*/
-	    interp_quad_chi(chim,chio,chip,&dtaum);
-	    interp_quad_chi(chip,chio,chim,&dtaup);
-	    dtaum *= dx * muinv[m]; 
-	    dtaup *= dx * muinv[m];
-	    interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-	    		       S0, pRG->R[ks][js][i][ifr].S, S2);
-	    imu = a0 * S0 + a1 * pRG->R[ks][js][i][ifr].S + a2 * S2;
-	    imu += edtau * imuo[ifr][l][m];
-
-	    lamstr[i][ifr] += pRG->wmu[m] * a1;
-	    if (sx == 1) psiint[i][ifr] += pRG->wmu[m] * a2; 
-	 }
+     S0 = pRG->R[ifr][ks][js][i-sx].S;
+     S2 = pRG->R[ifr][ks][js][i+sx].S;
+     if(svwght == 0) chio = pRG->R[ifr][ks][js][i].chi;
+     for(m=0; m<nang; m++) {
+       if(svwght == 1) {
+	 imu = psi[i][ifr][l][m][1] * S0 +
+               psi[i][ifr][l][m][2] * pRG->R[ifr][ks][js][i].S +
+               psi[i][ifr][l][m][3] * S2;
+	 if (imu < 0.0) imu=0.0;
+	 imu += psi[i][ifr][l][m][0] * imuo[ifr][l][m];	
+       } else {
+	 chim = pRG->R[ifr][ks][js][i-sx].chi;
+	 chip = pRG->R[ifr][ks][js][i+sx].chi;
+	 /*dtaum = 0.5 * (chim + chio);
+	   dtaup = 0.5 * (chip + chio);*/
+	 interp_quad_chi(chim,chio,chip,&dtaum);
+	 interp_quad_chi(chip,chio,chim,&dtaup);
+	 dtaum *= dx * muinv[m]; 
+	 dtaup *= dx * muinv[m];
+	 interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+				      S0, pRG->R[ifr][ks][js][i].S, S2);
+	 imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
+	 imu += edtau * imuo[ifr][l][m];
+	 lamstr[i][ifr] += pRG->wmu[m] * a1;
+	 if (sx == 1) psiint[i][ifr] += pRG->wmu[m] * a2; 
+       }
 /* Add to mean intensity and save for next iteration */
-	 wimu = pRG->wmu[m] * imu;
-	 pRG->R[ks][js][i][ifr].J += wimu;
-	 pRG->R[ks][js][i][ifr].K[0] += mu2[m] * wimu;
-
-	 imuo[ifr][l][m] = imu;
-       }
-
-      if (sx == -1) {
-	update_sfunc(&(pRG->R[ks][js][i][ifr]), &deltas, lamstr[i][ifr]);
-	 if(svwght == 1) {
-	   for(m=0; m<nang; m++) {
-	     imuo[ifr][l][m] += deltas * pRG->wmu[m] *
-	       psi[i][ifr][l][m][2];       
-	   }
-	 } else {
-	   for(m=0; m<nang; m++) 
-	     imuo[ifr][l][m] += deltas * pRG->wmu[m] * a0;	   
+       wimu = pRG->wmu[m] * imu;
+       pRG->R[ifr][ks][js][i].J += wimu;
+       pRG->R[ifr][ks][js][i].H[0] += pRG->mu[l][m][0] * wimu;
+       pRG->R[ifr][ks][js][i].K[0] += mu2[m] * wimu;
+       imuo[ifr][l][m] = imu;
+     }
+     if (sx == -1) {
+       update_sfunc(&(pRG->R[ifr][ks][js][i]), &deltas, lamstr[i][ifr]);
+       if(svwght == 1) {
+	 for(m=0; m<nang; m++) {
+	   imuo[ifr][l][m] += deltas * pRG->wmu[m] *
+	     psi[i][ifr][l][m][2];       
 	 }
-	 pRG->R[ks][js][i-1][ifr].J += deltas * psiint[i-1][ifr];
+       } else {
+	 for(m=0; m<nang; m++) 
+	   imuo[ifr][l][m] += deltas * pRG->wmu[m] * a0;	   
        }
+       pRG->R[ifr][ks][js][i-1].J += deltas * psiint[i-1][ifr];
      }
   }
+
   return;
 }
 
@@ -259,14 +247,14 @@ void formal_solution_1d_init(RadGridS *pRG)
     for(i=is; i<=ie; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	lamstr[i][ifr] = 0.0;
-	chio = pRG->R[ks][js][i][ifr].chi;
+	chio = pRG->R[ifr][ks][js][i].chi;
 	for(l=0; l<2; l++) {
 	  if(l == 0) sx = 1; else sx = -1;
-	  S0 = pRG->R[ks][js][i-sx][ifr].S;
-	  S2 = pRG->R[ks][js][i+sx][ifr].S;
+	  S0 = pRG->R[ifr][ks][js][i-sx].S;
+	  S2 = pRG->R[ifr][ks][js][i+sx].S;
 	  for(m=0; m<nang; m++) { 
-	    chim = pRG->R[ks][js][i-sx][ifr].chi;
-	    chip = pRG->R[ks][js][i+sx][ifr].chi;
+	    chim = pRG->R[ifr][ks][js][i-sx].chi;
+	    chip = pRG->R[ifr][ks][js][i+sx].chi;
 	    
 	    /*dtaum = 0.5 * (chim + chio) * dx * muinv[m]; 
 	      dtaup = 0.5 * (chip + chio) * dx * muinv[m];*/
@@ -275,7 +263,7 @@ void formal_solution_1d_init(RadGridS *pRG)
 	    dtaum *= dx * muinv[m]; 
 	    dtaup *= dx * muinv[m];
 	    interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-	    		       S0, pRG->R[ks][js][i][ifr].S, S2);
+	    		       S0, pRG->R[ifr][ks][js][i].S, S2);
 	    
 	    psi[i][ifr][l][m][0] = edtau;
 	    psi[i][ifr][l][m][1] = a0;
@@ -297,16 +285,6 @@ void formal_solution_1d_init(RadGridS *pRG)
   return;
 
 }
-
-#ifdef RAD_MULTIG
-void gausseid_pass_pointers_to_mg_1d(Real *******psi0, Real **muinv0, Real ****psiint0)
-{
-  *psi0 = psi;
-  *muinv0 = muinv;
-  *psiint0 = psiint;
-  return;
-}
-#endif /* RAD_MULTIG */
 
 #endif /* GAUSSEID */
 #endif /* RADIATION_TRANSFER */

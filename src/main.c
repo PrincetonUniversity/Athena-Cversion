@@ -607,7 +607,7 @@ int main(int argc, char *argv[])
 #else
 /* modify timestep if necessary */
 	 dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
-	 printf("timesteps:  %g  %g\n",Mesh.dt, dt_rad);
+	 /*printf("timesteps:  %g  %g\n",Mesh.dt, dt_rad);*/
 	 Mesh.dt = MIN(Mesh.dt, dt_rad);
 	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
 /* operator split update of total energy equation */

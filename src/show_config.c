@@ -193,11 +193,6 @@ void show_config(void)
   ath_pout(0," Static mesh refinement:  OFF\n");
 #endif
 
-#ifdef RAD_MULTIG
-  ath_pout(0," Multigrid rad. trans.:   ON\n");
-#else
-  ath_pout(0," Multigrid rad. trans.:   OFF\n");
-#endif
 }
 
 /*----------------------------------------------------------------------------*/

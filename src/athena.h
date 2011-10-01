@@ -316,14 +316,13 @@ typedef struct RadGrid_s {
   Real *****l2imu;   /* intensity on L side in x2-dir  */
   Real *****r3imu;   /* intensity on R side in x3-dir  */
   Real *****l3imu;   /* intensity on L side in x3-dir  */
-#ifdef JACOBI
   Real *****Ghstr1i;   /* Ghost zone on R side in x1-dir  */
   Real *****Ghstl1i;   /* Ghost zone on L side in x1-dir  */
   Real *****Ghstr2i;   /* Ghost zone on R side in x2-dir  */
   Real *****Ghstl2i;   /* Ghost zone on L side in x2-dir  */
   Real *****Ghstr3i;   /* Ghost zone on R side in x3-dir  */
   Real *****Ghstl3i;   /* Ghost zone on L side in x3-dir  */
-#endif
+
   Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real dx1,dx2,dx3;     /* cell size on this Grid */
@@ -338,16 +337,16 @@ typedef struct RadGrid_s {
   int rx2_id, lx2_id;   /* ID of Grid to R/L in x2-dir (default=-1; no Grid) */
   int rx3_id, lx3_id;   /* ID of Grid to R/L in x3-dir (default=-1; no Grid) */
   
-  void (*ix1_RBCFun)(struct RadGrid_s *pRG, int sflag);
-  void (*ox1_RBCFun)(struct RadGrid_s *pRG, int sflag);
-  void (*ix2_RBCFun)(struct RadGrid_s *pRG, int sflag);
-  void (*ox2_RBCFun)(struct RadGrid_s *pRG, int sflag);
-  void (*ix3_RBCFun)(struct RadGrid_s *pRG, int sflag);
-  void (*ox3_RBCFun)(struct RadGrid_s *pRG, int sflag);
+  void (*ix1_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
+  void (*ox1_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
+  void (*ix2_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
+  void (*ox2_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
+  void (*ix3_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
+  void (*ox3_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
 
 } RadGridS;
 
-typedef void (*VRGIFun_t)(RadGridS *pRG, int sflag);    /* void function of RadGrid, int */
+typedef void (*VRGIFun_t)(RadGridS *pRG, int ifs, int ife);    /* void function of RadGrid, int */
 
 #endif /* RADIATION_TRANSFER */
 
@@ -698,7 +697,7 @@ typedef void (*OpacityFun_t)(const Real rho, const Real T, Real Sigma[NOPACITY],
 
 
 #ifdef RADIATION_TRANSFER
-typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
+typedef Real (*RadInitFun_t)(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
 			     const int j, const int k);
 #endif /* RADIATION_TRANSFER */
 /*----------------------------------------------------------------------------*/

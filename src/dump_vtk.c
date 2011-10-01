@@ -396,7 +396,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[i-il] = 0.0;
 	      if(inkloop && injloop && iniloop) {
 		for (ifr=0; ifr<nf; ifr++) {
-		  data[i-il] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].J);
+		  data[i-il] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].J);
 		}
 	      }
 	    }
@@ -420,9 +420,9 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[3*(i-il)+2] = 0.0;
 	      if(inkloop && injloop && iniloop) {
 		for (ifr=0; ifr<nf; ifr++) {		
-		  data[3*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].H[0]);
-		  data[3*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].H[1]);
-		  data[3*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].H[2]);
+		  data[3*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[0]);
+		  data[3*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[1]);
+		  data[3*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[2]);
 		}
 	      }
 	    }
@@ -452,15 +452,15 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[9*(i-il)+8] = 0.0;
 	      if(inkloop && injloop && iniloop) {
 		for (ifr=0; ifr<nf; ifr++) {
-		  data[9*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[0]);
-		  data[9*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[1]);
-		  data[9*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[3]);
-		  data[9*(i-il)+3] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[1]);
-		  data[9*(i-il)+4] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[2]);
-		  data[9*(i-il)+5] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[4]);
-		  data[9*(i-il)+6] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[3]);
-		  data[9*(i-il)+7] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[4]);
-		  data[9*(i-il)+8] += (float)(pRG->wnu[ifr]*pRG->R[kr][jr][ir][ifr].K[5]);
+		  data[9*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[0]);
+		  data[9*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[1]);
+		  data[9*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[3]);
+		  data[9*(i-il)+3] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[1]);
+		  data[9*(i-il)+4] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[2]);
+		  data[9*(i-il)+5] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[4]);
+		  data[9*(i-il)+6] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[3]);
+		  data[9*(i-il)+7] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[4]);
+		  data[9*(i-il)+8] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[5]);
 		}
 	      }
 	    }
@@ -478,7 +478,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	    for (i=irl; i<=iru; i++) {
 	      data[i-irl] = 0.0;
 	      for (ifr=0; ifr<nf; ifr++) {
-		data[i-irl] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].J);
+		data[i-irl] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].J);
 	      }
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
@@ -494,9 +494,9 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[3*(i-irl)+1] = 0.0;
 	      data[3*(i-irl)+2] = 0.0;
 	      for (ifr=0; ifr<nf; ifr++) {		
-		data[3*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].H[0]);
-		data[3*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].H[1]);
-		data[3*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].H[2]);
+		data[3*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[0]);
+		data[3*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[1]);
+		data[3*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[2]);
 	      }
 	    }
 	    if(!big_end) ath_bswap(data,sizeof(float),3*(iru-irl+1));
@@ -518,15 +518,15 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[9*(i-irl)+7] = 0.0;
 	      data[9*(i-irl)+8] = 0.0;
 	      for (ifr=0; ifr<nf; ifr++) {
-		data[9*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[0]);
-		data[9*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[1]);
-		data[9*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[3]);
-		data[9*(i-irl)+3] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[1]);
-		data[9*(i-irl)+4] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[2]);
-		data[9*(i-irl)+5] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[4]);
-		data[9*(i-irl)+6] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[3]);
-		data[9*(i-irl)+7] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[4]);
-		data[9*(i-irl)+8] += (float)(pRG->wnu[ifr]*pRG->R[k][j][i][ifr].K[5]);
+		data[9*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[0]);
+		data[9*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[1]);
+		data[9*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[3]);
+		data[9*(i-irl)+3] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[1]);
+		data[9*(i-irl)+4] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[2]);
+		data[9*(i-irl)+5] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[4]);
+		data[9*(i-irl)+6] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[3]);
+		data[9*(i-irl)+7] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[4]);
+		data[9*(i-irl)+8] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[5]);
 	      }
 	    }
 	    if(!big_end) ath_bswap(data,sizeof(float),9*(iru-irl+1));

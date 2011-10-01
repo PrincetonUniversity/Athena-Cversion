@@ -153,8 +153,8 @@ void init_radiation(MeshS *pM)
       
 
 /*  Allocate memory for array of RadS */
-      pRG->R = (RadS ****)calloc_4d_array(pRG->Nx[2]+2,pRG->Nx[1]+2,
-        pRG->Nx[0]+2,pRG->nf,sizeof(RadS));
+      pRG->R = (RadS ****)calloc_4d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[1]+2,
+        pRG->Nx[0]+2,sizeof(RadS));
       if (pRG->R == NULL) goto on_error1;
       
 /* Allocate memory for intensities, angles and weights for angular quadratures */
@@ -162,8 +162,6 @@ void init_radiation(MeshS *pM)
       nmu = pRG->nmu;
       nang = pRG->nang;
       noct = pRG->noct;
-
-      if(myID_Comm_world==0) printf("nmu: %d, nang: %d, noct: %d\n",nmu,nang,noct);
 
       pRG->mu = (Real ***)calloc_3d_array(noct,nang,3,sizeof(Real));
       if (pRG->mu == NULL) goto on_error2;
@@ -183,7 +181,6 @@ void init_radiation(MeshS *pM)
 	for(i=nmu; i<2*nmu; i++) {
 	  pRG->wmu[i-nmu] = 0.5 * wtmp[i];
 	  pRG->mu[0][i-nmu][0] = mutmp1d[i];
-	  printf("%d %g %g\n",i,pRG->wmu[i-nmu],pRG->mu[0][i-nmu][0]);
 	  pRG->mu[1][i-nmu][0] = -mutmp1d[i];
 	}
 	free_1d_array(wtmp);
@@ -275,8 +272,6 @@ void init_radiation(MeshS *pM)
 	    pRG->wmu[i] = wpf[plab[i]];
 	} else 
 	  pRG->wmu[0] = 1.0;
-	for(i=0; i<nang; i++)
-	  printf("%d %g %g %g\n",i,mutmp[i][0],mutmp[i][1],mutmp[i][2]);
 /*  assign angles to RadGrid elements */
 	if (nDim == 2) {
 	  for (i=0; i<nang; i++) {
@@ -319,14 +314,6 @@ void init_radiation(MeshS *pM)
 	    pRG->wmu[i] *= 0.125;	    
 	  }
 	}
-
-	if(myID_Comm_world==0){
-	  for (i=0; i<nang; i++) {
-	    for (j=0; j<noct; j++) 
-	      printf("%d %d %g %g %g\n",i,j,
-		     pRG->mu[j][i][0],pRG->mu[j][i][1],pRG->wmu[i]);
-	  }}
-
 /* deallocate temporary arrays */
 	free_1d_array(wpf);
 	free_2d_array(pl);
@@ -387,7 +374,7 @@ void init_radiation(MeshS *pM)
 /* initialize wnu to unity if nf=1 */
       if (pRG->nf == 1) pRG->wnu[0] = 1.0;
 
-#ifdef JACOBI
+
 /* Allocate memory for intensity Ghost Zones */ 
       if (pRG->Nx[0] > 1) {
 	pRG->Ghstr1i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[1]+2,
@@ -426,7 +413,7 @@ void init_radiation(MeshS *pM)
 	pRG->Ghstr3i = NULL;
 	pRG->Ghstl3i = NULL;	
       }
-#endif
+
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
  * or an internal boundary between fine/coarse grids), then ID is set to -1
@@ -459,15 +446,6 @@ void init_radiation(MeshS *pM)
         pRG->rx3_id = pD->GData[myN+1][myM][myL].ID_Comm_Domain;
       else pRG->rx3_id = -1;
 
-#ifdef RAD_MULTIG
-/* set maximum number of multigrid refinements */
-  if(nDim == 1)
-    nmgrid = pRG->Nx[0] / 16;
-  else if(nDim == 2)
-    nmgrid = pRG->Nx[1] / 16;
-#endif
-
-
     }
   }
   }
@@ -475,7 +453,7 @@ void init_radiation(MeshS *pM)
   return;
 
 /*--- Error messages ---------------------------------------------------------*/
-#ifdef JACOBI
+
  on_error28:
   if (pRG->Nx[2] > 1) free_5d_array(pRG->Ghstl3i);
  on_error27:
@@ -488,7 +466,6 @@ void init_radiation(MeshS *pM)
   if (pRG->Nx[0] > 1) free_5d_array(pRG->Ghstl1i);
  on_error23:
   if (pRG->Nx[0] > 1) free_5d_array(pRG->Ghstr1i);
-#endif
  on_error22:
   free_1d_array(pRG->wnu);  
  on_error21:
@@ -588,14 +565,12 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->l2imu != NULL) free_5d_array(pRG->l2imu);
   if (pRG->r1imu != NULL) free_5d_array(pRG->r1imu);
   if (pRG->l1imu != NULL) free_5d_array(pRG->l1imu);
-#ifdef JACOBI
   if (pRG->Ghstr3i != NULL) free_5d_array(pRG->Ghstr3i);
   if (pRG->Ghstl3i != NULL) free_5d_array(pRG->Ghstl3i);
   if (pRG->Ghstr2i != NULL) free_5d_array(pRG->Ghstr2i);
   if (pRG->Ghstl2i != NULL) free_5d_array(pRG->Ghstl2i);
   if (pRG->Ghstr1i != NULL) free_5d_array(pRG->Ghstr1i);
   if (pRG->Ghstl1i != NULL) free_5d_array(pRG->Ghstl1i);
-#endif
   return;
 }
 

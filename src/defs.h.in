@@ -50,7 +50,6 @@
 #define @SELF_GRAVITY_ALGORITHM@
 #define @CONS_GRAVITY@
 
-
 /* Particles */
 #define @PARTICLES_ALGORITHM@
 #define @FEEDBACK_DEFINE@
@@ -60,9 +59,12 @@
 #define @VISCOSITY_MODE@
 #define @CONDUCTION_MODE@
 
-/* Radiation */
-#define @RADIATION_TRANSFER_DEFINE@
-#define @RADIATION_TRANSFER_ALGORITHM@
+/* Radiation Transfer */
+#define @RADIATION_TRANSFER_MODE@
+#define @ALI_ALGORITHM@
+
+/* Interpolation of intensities */
+#define @INTENSITY_INTERP@
 
 /* Matrix Solver Library */
 #define @MATRIX_LIBRARY@
@@ -116,9 +118,6 @@
 /* First order flux correction in VL integrator:
  * FIRST_ORDER_FLUX_CORRECTION or NO_FIRST_ORDER_FLUX_CORRECTION */
 #define @FOFC_MODE@
-
-/* multigrid radiative transfer */
-#define @RAD_MULTIG_MODE@
 
 /*----------------------------------------------------------------------------*/
 /* macros associated with numerical algorithm (rarely modified) */
