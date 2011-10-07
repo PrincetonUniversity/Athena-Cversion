@@ -164,7 +164,7 @@ void integrate_3d_radMHD(DomainS *pD)
 	Real Fr0x, Fr0y, Fr0z, diffTEr; /* co-moving flux, Fr-vf E_r/C , diffTEr = T^4 - Er*/
 	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
 	/* The opacity function is:0-3 Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE */
-	Real alpha, Propa_44, SEE, SErho, SEmx, SEmy, SEmz;
+	Real Propa_44, SEE, SErho, SEmx, SEmy, SEmz;
 	Real dSigma[2*NOPACITY];
 	Real Sigma[NOPACITY];
 	/* dSigma for dSigma?/drho and dSigma?/dT */
@@ -318,7 +318,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		/* For the right state */
 	
 	
-			Propa_44 = alpha;
+			Propa_44 = Alpha[k][j][i];
 
 			velocity_x = U1d[i].Mx / U1d[i].d;
 			velocity_y = U1d[i].My / U1d[i].d;
@@ -855,7 +855,7 @@ void integrate_3d_radMHD(DomainS *pD)
 				Wr[k].P -= dt * Propa_44 * Psource * 0.5;
 
 			for(m=0; m<NOPACITY;m++){
-				Wr[k].Sigma[m] = U1d[i].Sigma[m];
+				Wr[k].Sigma[m] = U1d[k].Sigma[m];
 			}
 	
 			Wr[k].Edd_11 = W[k].Edd_11;
@@ -928,7 +928,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 		
       		if (StaticGravPot != NULL){
-        		for (k=kl+1; k<=ku; j++) {
+        		for (k=kl+1; k<=ku; k++) {
           			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
           			phicr = (*StaticGravPot)(x1,x2, x3             );

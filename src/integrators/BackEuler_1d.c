@@ -38,22 +38,24 @@
 
 
 static MatrixS *pMat;
+static Real ****INIerror;
 
 
-static int Nlim = 8; /* the lim size of the coarsest grid in each CPU*/
-static int Wcyclelim = 20; /* The limit of how many Wcycle we allow */ 
+static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
+static int Wcyclelim = 10; /* The limit of how many Wcycle we allow */ 
 
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
 
 
 /********Private function ************/
-static Real CheckResidual(MatrixS *pMat);
+static Real CheckResidual(MatrixS *pMat, GridS *pG);
 static void RadMHD_multig_1D(MatrixS *pMat);
 static void prolongation1D(MatrixS *pMat_coarse, MatrixS *pMat_fine);
 static void Restriction1D(MatrixS *pMat_fine, MatrixS *pMat_coarse);
 
 static void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat);
+static void RHSResidual1D(MatrixS *pMat, Real ****newRHS);
 
 /* Matrix boundary function */
 extern void bvals_Matrix_init(MatrixS *pMat);
@@ -156,7 +158,17 @@ void BackEuler_1d(MeshS *pM)
 				
 	} /* End i */
 
+	/* calculate the residual */
+	RHSResidual1D(pMat, INIerror);
 
+	for(i=pMat->is-Matghost; i<= pMat->ie+Matghost; i++){
+		pMat->U[ks][js][i].Er = 0.0;
+		pMat->U[ks][js][i].Fr1 = 0.0;
+
+
+		pMat->RHS[ks][j][i][0] = INIerror[ks][j][i][0];	
+		pMat->RHS[ks][j][i][1] = INIerror[ks][j][i][1];	
+	}
 
 		
 	/* Do the multi-grid W cycle */
@@ -170,7 +182,7 @@ void BackEuler_1d(MeshS *pM)
 		RadMHD_multig_1D(pMat);
 
 		/* for parent grid, check residual */
-		error = fabs(CheckResidual(pMat));
+		error = fabs(CheckResidual(pMat,pG));
 	
 		Wcycle++;
 
@@ -264,6 +276,20 @@ void RadMHD_multig_1D(MatrixS *pMat)
 		/* project the data to coarse grid */
 		Restriction1D(pMat, &pMat_coarse);
 
+		bvals_Matrix_init(&pMat_coarse);
+#ifdef SHEARING_BOX
+		bvals_Matrix_shear_init(&pMat_coarse);
+#endif
+		
+		bvals_Matrix(&pMat_coarse);
+		
+#ifdef SHEARING_BOX
+		bvals_Matrix_shear_destruct();
+#endif
+
+
+		bvals_Matrix_destruct(&pMat_coarse);
+
 		/* continue the V or W cycle recursively*/
 
 		RadMHD_multig_1D(&pMat_coarse);
@@ -291,6 +317,9 @@ void RadMHD_multig_1D(MatrixS *pMat)
 		bvals_Matrix_shear_init(pMat);
 #endif
 		
+		/* Update the ghost zones first */
+		bvals_Matrix(pMat);
+
 		GaussSeidel1D(pMat);
 		
 #ifdef SHEARING_BOX
@@ -315,6 +344,23 @@ void RadMHD_multig_1D(MatrixS *pMat)
 			/* project the data to coarse grid */
 			Restriction1D(pMat, &pMat_coarse);
 
+			/* We need to update the ghost zones after restriction */
+			bvals_Matrix_init(&pMat_coarse);
+
+#ifdef SHEARING_BOX
+			bvals_Matrix_shear_init(&pMat_coarse);
+#endif
+		
+			bvals_Matrix(&pMat_coarse);
+		
+#ifdef SHEARING_BOX
+			bvals_Matrix_shear_destruct();
+#endif
+
+
+			bvals_Matrix_destruct(&pMat_coarse);
+
+
 			/* continue the V or W cycle recursively*/
 
 			RadMHD_multig_1D(&pMat_coarse);
@@ -336,6 +382,9 @@ void RadMHD_multig_1D(MatrixS *pMat)
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_init(pMat);
 #endif
+
+			/* Update the ghost zones first */
+			bvals_Matrix(pMat);
 		
 			GaussSeidel1D(pMat);
 		
@@ -382,7 +431,7 @@ void BackEuler_init_1d(MeshS *pM)
 
 	/* Reach bottom first for the side with the smallest size*/
 	Nlevel = Nx;
-	if(Ny < Nx) Nlevel = Ny;
+
 
 
 	Nlevel = (int)(log10(Nlevel)/log10(2.0));
@@ -398,6 +447,9 @@ void BackEuler_init_1d(MeshS *pM)
 	if((pMat->RHS = (Real****)calloc_4d_array(Nz,Ny, Nx+2*Matghost,2,sizeof(Real))) == NULL)
 		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
 
+
+	if((INIerror=(Real****)calloc_4d_array(Nz,Ny,Nx+2*Matghost,2,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_1D]: malloc return a NULL pointer\n");
 
 
 	/* now set the parameters */
@@ -470,6 +522,9 @@ void BackEuler_destruct_1d()
 
 	if(pMat != NULL)
 		free(pMat);
+
+	if(INIerror != NULL)
+		free_4d_array(INIerror);
 }
 
 
@@ -477,7 +532,7 @@ void BackEuler_destruct_1d()
 /*==========================================*/
 /* Check the residual after one cycle */
 /* This is the stop criterian */
-Real CheckResidual(MatrixS *pMat)
+Real CheckResidual(MatrixS *pMat, GridS *pG)
 {
 	Real Residual = 0.0;
 	Real Norm = 0.0;
@@ -497,6 +552,9 @@ Real CheckResidual(MatrixS *pMat)
 
 
 	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
+
+	Real dt = pMat->dt;
+	int diffghost = nghost - Matghost;
 
 
 	/* To store the coefficient */
@@ -554,7 +612,7 @@ Real CheckResidual(MatrixS *pMat)
 			
 						
 
-			Norm += fabs(pMat->RHS[ks][js][i][0]);
+			Norm += fabs(pG->U[ks][js][i+diffghost].Er + Crat * dt * Sigma_aP * T4);
 			Residual += pMat->RHS[ks][js][i][0];
 
 			Residual -= theta[0] * pMat->U[ks][js][i-1].Er;
@@ -567,7 +625,7 @@ Real CheckResidual(MatrixS *pMat)
 
 
 
-			Norm += fabs(pMat->RHS[ks][js][i][1]);
+			Norm += fabs(pG->U[ks][js][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
 			Residual += pMat->RHS[ks][js][i][1];
 
 			Residual -= phi[0] * pMat->U[ks][js][i-1].Er;
@@ -789,7 +847,7 @@ void Restriction1D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 				ptr_fine[1] = &(pMat_fine->U[ks][js][2*i-1].Er);
 
 
-				for(num=0; num<16; num++){
+				for(num=0; num<14+NOPACITY; num++){
 
 					ptr_coarse[num] =  (ptr_fine[0][num] + ptr_fine[1][num]) / 2.0;
 
@@ -878,7 +936,104 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 	return;
 }
 
+void RHSResidual1D(MatrixS *pMat, Real ****newRHS)
+{
 
+	
+	int i;
+	int is, ie, js, ks;
+
+	is = pMat->is;
+	ie = pMat->ie;
+	js = pMat->js;
+	ks = pMat->ks;
+
+	/* To store the coefficient */
+	Real theta[6];
+	Real phi[6];
+
+	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
+
+
+	/* Temporary variables to setup the matrix */
+	Real velocity_x, T4;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	Real Ci0, Ci1;
+
+
+		for(i=is; i<=ie; i++){
+
+
+			velocity_x = pMat->U[ks][js][i].V1;
+
+			T4 = pMat->U[ks][js][i].T4;		
+				
+			/* Assuming the velocity is already the original velocity in case of FARGO */			
+				
+			Sigma_sF = pMat->U[ks][js][i].Sigma[0];
+			Sigma_aF = pMat->U[ks][js][i].Sigma[1];
+			Sigma_aP = pMat->U[ks][js][i].Sigma[2];
+			Sigma_aE = pMat->U[ks][js][i].Sigma[3];
+
+			Ci0 = (sqrt(pMat->U[ks][js][i].Edd_11) - sqrt(pMat->U[ks][js][i-1].Edd_11)) 
+				/ (sqrt(pMat->U[ks][js][i].Edd_11) + sqrt(pMat->U[ks][js][i-1].Edd_11));
+			Ci1 =  (sqrt(pMat->U[ks][js][i+1].Edd_11) - sqrt(pMat->U[ks][js][i].Edd_11)) 
+				/ (sqrt(pMat->U[ks][js][i+1].Edd_11) + sqrt(pMat->U[ks][js][i].Edd_11));
+			
+			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
+			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
+			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
+				+ Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
+			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
+			
+			
+			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][js][i-1].Edd_11;
+			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
+			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][js][i].Edd_11 
+			       - pMat->dt * (Sigma_aF + Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x 
+			       + pMat->dt * Sigma_aE * velocity_x;
+			phi[3] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
+				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
+			phi[4] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][js][i+1].Edd_11;
+			phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
+		
+		
+			
+						
+
+			
+			newRHS[ks][js][i][0] = pMat->RHS[ks][js][i][0];
+
+			newRHS[ks][js][i][0] -= theta[0] * pMat->U[ks][js][i-1].Er;
+			newRHS[ks][js][i][0] -= theta[1] * pMat->U[ks][js][i-1].Fr1;
+			newRHS[ks][js][i][0] -= theta[2] * pMat->U[ks][js][i].Er;
+			newRHS[ks][js][i][0] -= theta[3] * pMat->U[ks][js][i].Fr1;
+			newRHS[ks][js][i][0] -= theta[4] * pMat->U[ks][js][i+1].Er;
+			newRHS[ks][js][i][0] -= theta[5] * pMat->U[ks][js][i+1].Fr1;
+
+
+
+
+			
+			newRHS[ks][js][i][1] = pMat->RHS[ks][js][i][1];
+
+			newRHS[ks][js][i][1] -= phi[0] * pMat->U[ks][js][i-1].Er;
+			newRHS[ks][js][i][1] -= phi[1] * pMat->U[ks][js][i-1].Fr1;
+			newRHS[ks][js][i][1] -= phi[2] * pMat->U[ks][js][i].Er;
+			newRHS[ks][js][i][1] -= phi[3] * pMat->U[ks][js][i].Fr1;
+			newRHS[ks][js][i][1] -= phi[4] * pMat->U[ks][js][i+1].Er;
+			newRHS[ks][js][i][1] -= phi[5] * pMat->U[ks][js][i+1].Fr1;
+
+	}
+
+
+
+	return;
+
+}
 
 
 

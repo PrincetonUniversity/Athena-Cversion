@@ -61,6 +61,10 @@ void GaussSeidel2D(MatrixS *pMat)
 	Real velocity_x, velocity_y, T4;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Ci0, Ci1, Cj0, Cj1;
+	
+			
+	/* Update the boundary cells */
+
 
 /* Hardware to Ncycle */
 for(n=0; n<Ncycle; n++){

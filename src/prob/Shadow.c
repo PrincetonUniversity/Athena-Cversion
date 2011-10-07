@@ -25,7 +25,7 @@ static Real T1;
 static Real d0;
 static Real d1;
 
-void constopa(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a, Real dSigma[4]);
+void constopa(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[8]);
 
 void radMHD_Mat_inflow(MatrixS *pMat);
 
@@ -64,7 +64,7 @@ void problem(DomainS *pDomain)
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   R_ideal = par_getd("problem","R_ideal");
-  Ncycle = par_getd_def("problem","Ncycle",20);
+  Ncycle = par_getd_def("problem","Ncycle",10);
   TOL  = par_getd_def("problem","TOL",1.e-16);
 
   int ixs, jxs, kxs;
@@ -165,8 +165,10 @@ void problem(DomainS *pDomain)
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; 
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
 	 pGrid->U[k][j][i].Edd_21 = 0.0; /* Set to be a constant in 1D. To be modified later */
-	 pGrid->U[k][j][i].Sigma_t = sigma0 * density * density * pow(temperature, -3.5);
-	 pGrid->U[k][j][i].Sigma_a = sigma0 * density * density * pow(temperature, -3.5);
+	 pGrid->U[k][j][i].Sigma[0] = 0.0;
+	 pGrid->U[k][j][i].Sigma[1] = sigma0 * density * density * pow(temperature, -3.5);
+	 pGrid->U[k][j][i].Sigma[2] = sigma0 * density * density * pow(temperature, -3.5);
+         pGrid->U[k][j][i].Sigma[3] = sigma0 * density * density * pow(temperature, -3.5);
 
 
 #ifdef RADIATION_MHD
@@ -353,18 +355,28 @@ get_total_opacity = transfer_opacity;
 
 
 
-void constopa(const Real rho, const Real T, Real *Sigma_t, Real *Sigma_a, Real dSigma[4]){
-	if(Sigma_t != NULL)
-		*Sigma_t = sigma0 * rho * rho * pow(T, -3.5);
+void constopa(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[8]){
 	
-	if(Sigma_a != NULL)
-		*Sigma_a = sigma0 * rho * rho * pow(T, -3.5);
+	if(Sigma != NULL) {
+		
+		Sigma[0] = 0.0;
+		Sigma[1] = sigma0 * rho * rho * pow(T, -3.5);
+		Sigma[2] = sigma0 * rho * rho * pow(T, -3.5);
+		Sigma[3] = sigma0 * rho * rho * pow(T, -3.5);
+
+	}
+
 
 	if(dSigma != NULL){
-		dSigma[0] = 2.0 * sigma0 * rho * pow(T, -3.5);
-		dSigma[1] = 2.0 * sigma0 * rho * pow(T,-3.5);
-		dSigma[2] = -3.5 * sigma0 * rho * rho * pow(T, -4.5);
-		dSigma[3] = -3.5 * sigma0 * rho * rho * pow(T, -4.5);
+		dSigma[0] = 0.0;
+		dSigma[1] = 2.0 * rho * sigma0 * pow(T, -3.5);
+		dSigma[2] = 2.0 * rho * sigma0 * pow(T, -3.5);
+		dSigma[3] = 2.0 * rho * sigma0 * pow(T, -3.5);
+
+		dSigma[4] = 0.0;
+		dSigma[5] = -3.5 * sigma0 * rho * rho * pow(T, -4.5);
+		dSigma[6] = -3.5 * sigma0 * rho * rho * pow(T, -4.5);
+		dSigma[7] = -3.5 * sigma0 * rho * rho * pow(T, -4.5);
 	}
 	
 
@@ -483,8 +495,9 @@ void radMHD_inflow(GridS *pGrid)
 
 #endif
 
-		pGrid->U[ks][j][is-i].Sigma_t = sigma0 * density * density * pow(T0, -3.5);
-		pGrid->U[ks][j][is-i].Sigma_a = sigma0 * density * density * pow(T0, -3.5);
+		pGrid->U[ks][j][is-i].Sigma[1] = sigma0 * density * density * pow(T0, -3.5);
+		pGrid->U[ks][j][is-i].Sigma[2] = sigma0 * density * density * pow(T0, -3.5);
+		pGrid->U[ks][j][is-i].Sigma[3] = sigma0 * density * density * pow(T0, -3.5);
       		
       }
     }
@@ -823,7 +836,7 @@ static Real const_eps(const GridS *pG, const int ifr, const int i, const int j,
 		      const int k)
 {
 	Real eps;
-	eps = pG->U[k][j][i].Sigma_a / pG->U[k][j][i].Sigma_t;
+	eps = pG->U[k][j][i].Sigma[1] / (pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[1]);
 
 	return eps;
   
@@ -833,7 +846,7 @@ static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const 
 			  const int k)
 {
 
-  return (pG->U[k][j][i].Sigma_t);
+  return (pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[1]);
   
 }
 

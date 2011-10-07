@@ -3323,7 +3323,7 @@ void BackEuler_3d(MeshS *pM)
 
 /* debug node */
 		
-		lis_solver_set_option("-i bicgstabl -p ilu -ell 4",solver);
+		lis_solver_set_option("-i gmres -p ilu",solver);
 		lis_solver_set_option("-tol 1.0e-12",solver);
 		lis_solver_set_option("-maxiter 2000",solver);
 		lis_solve(Euler,RHSEuler,INIguess,solver);

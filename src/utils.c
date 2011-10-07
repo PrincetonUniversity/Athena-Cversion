@@ -1267,17 +1267,17 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 
 	/* We keep another v/c term here */
 	/* When opacity depends on density and temperature, this may cause trouble */
-	/* *SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
+	 *SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
 	     + (dSigmaE[2] * pow(temperature, 4.0) - dSigmaE[3] * U.Er)
 	     + (dSigmaE[1] - dSigmaE[0]) * (
 		velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
 	     +  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
 	     +  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 		)/Crat;
-	*/
-	/* If *SEE < 0, the code will be unstable */
-	*SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal);
 	
+	/* If *SEE < 0, the code will be unstable */
+/*	*SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal);
+*/	
 		
 
 	*SErho = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
@@ -1449,7 +1449,7 @@ double rtsafe(void (*funcd)(double, double, double, double, double *, double *),
 
 
 
-/* Function to calculate Tguess for source term T^4 - Er */
+/* Function to calculate  for source term T^4 - Er */
 void GetTguess(MeshS *pM)
 {
 
@@ -1542,7 +1542,7 @@ void GetTguess(MeshS *pM)
 				/*		Tguess = temperature - dt * (Gamma - 1.0) * Prat * ETsource / (Det * U1d[i].d * R_ideal);
 */	
 				Ererr = Ern + dt * 0.5 * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess)) - Erguess;
-				Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aP * Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess; 
+				Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess; 
 
 				Det =  1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_aE;
 				Ern =  (1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal)) * Ererr / Det 

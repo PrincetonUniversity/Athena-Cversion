@@ -56,6 +56,13 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k);
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
 static Real hst_rho_dVy2(const GridS *pG,const int i, const int j, const int k);
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+static Real hst_sigmas(const GridS *pG, const int i, const int j, const int k);
+static Real hst_sigmaaP(const GridS *pG, const int i, const int j, const int k);
+#endif
+
+
 #ifdef ADIABATIC
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k);
 #endif
@@ -70,6 +77,13 @@ static Real hst_EB(const GridS *pG, const int i, const int j, const int k);
 #endif /* MHD */
 static Real hst_T(const GridS *pG, const int i, const int j, const int k);
 
+static Real hst_rho2(const GridS *pG, const int i, const int j, const int k);
+
+static Real hst_T2(const GridS *pG, const int i, const int j, const int k);
+
+/* Integral of the stress over the radial surface */
+static Real hst_stressL(const GridS *pG, const int i, const int j, const int k);
+static Real hst_stressR(const GridS *pG, const int i, const int j, const int k);
 
 static Real kappaes;
 static Real kappaff;
@@ -82,9 +96,9 @@ static Real Omega_0 = 1.0;
 static Real qshear = 1.5;
 #endif
 
-#if defined(RADIATION_MHD) || defined(MHD)
+
 static Real betaz;
-#endif
+
 static Real pres;
 
 /*=========================== PUBLIC FUNCTIONS =================================
@@ -285,6 +299,7 @@ void problem(DomainS *pDomain)
     dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
     dump_history_enroll(hst_rho_dVy2, "<rho dVy^2>");
     dump_history_enroll(hst_T,"<T>");
+    dump_history_enroll(hst_T2,"<T^2>");
 #ifdef ADIABATIC
     dump_history_enroll(hst_E_total, "<E + rho Phi>");
 #endif
@@ -297,6 +312,17 @@ void problem(DomainS *pDomain)
     dump_history_enroll(hst_EB,"<B^2/2>");
 
 #endif /* MHD */
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+   dump_history_enroll(hst_sigmas,"<Sigma_es>");
+   dump_history_enroll(hst_sigmaaP,"<Sigma_aP>");
+#endif
+
+   dump_history_enroll(hst_rho2,"<rho^2>");
+   dump_history_enroll(hst_stressL,"StressL");
+   dump_history_enroll(hst_stressR,"StressR");
+
+
     frst = 0;
   }
 
@@ -314,7 +340,7 @@ void problem(DomainS *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-
+#if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
 void bvals_mat_fun_ix1(VMatFun_t *Mat_BCFun)
 {
 
@@ -339,8 +365,7 @@ void bvals_mat_fun_ox3(VMatFun_t *Mat_BCFun)
 {
 
 } 
-
-
+#endif
 
 void problem_write_restart(MeshS *pM, FILE *fp)
 {
@@ -363,9 +388,12 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 	fwrite(&betaz,sizeof(Real),1,fp);
 	fwrite(&pres,sizeof(Real),1,fp);
 #endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 #ifdef MATRIX_MULTIGRID 
 	fwrite(&Ncycle,sizeof(Real),1,fp);
 	fwrite(&TOL,sizeof(Real),1,fp);
+#endif
 #endif
 	
   return;
@@ -400,9 +428,12 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	fread(&betaz,sizeof(Real),1,fp);
 	fread(&pres,sizeof(Real),1,fp);
 #endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 #ifdef MATRIX_MULTIGRID 
 	fread(&Ncycle,sizeof(Real),1,fp);
 	fread(&TOL,sizeof(Real),1,fp);
+#endif
 #endif
 
 /* enroll gravitational potential function */
@@ -415,6 +446,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
     dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
     dump_history_enroll(hst_rho_dVy2, "<rho dVy^2>");
     dump_history_enroll(hst_T,"<T>");
+    dump_history_enroll(hst_T2,"<T^2>");
 #ifdef ADIABATIC
     dump_history_enroll(hst_E_total, "<E + rho Phi>");
 #endif
@@ -426,6 +458,17 @@ void problem_read_restart(MeshS *pM, FILE *fp)
     dump_history_enroll(hst_BxBy, "<-Bx By>");
     dump_history_enroll(hst_EB,"<B^2/2>");
 #endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+   dump_history_enroll(hst_sigmas,"<Sigma_es>");
+   dump_history_enroll(hst_sigmaaP,"<Sigma_aP>");
+#endif
+
+      dump_history_enroll(hst_rho2,"<rho^2>");
+
+     dump_history_enroll(hst_stressL,"StressL");
+     dump_history_enroll(hst_stressR,"StressR");
+
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
         /* enroll the opacity function */
@@ -447,7 +490,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 	Real pressure, averageP = 0.0;
 	Real sumP = 0.0;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	Real Sigma[NOPACITY];
+#endif
 	int ierr, ID,m;
 	int count = 0;
 	Real x1, x2, x3, velocity_x, velocity_y, velocity_z;
@@ -502,7 +547,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 #endif
 
 	/* Initialize such that radiation pressure / gas pressure =125 */
-	
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	for (k=ks; k<=ke; k++) {
                 for (j=js; j<=je; j++) {
 	                  for (i=is; i<=ie; i++) {
@@ -526,6 +571,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 			}
 		}
 	}
+#endif
   return;
 }
 
@@ -752,13 +798,115 @@ static Real hst_T(const GridS *pG, const int i, const int j, const int k)
 #ifdef ADIABATIC
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
-  Real x1,x2,x3,phi;
+  Real x1,x2,x3,phi, Kvy, Vy0, dVy;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
   phi = UnstratifiedDisk(x1, x2, x3);
+  Vy0 = -qshear * Omega_0 * x1;
+  Kvy = 0.0; 
+  dVy = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+#ifdef FARGO
+  phi -= qshear*Omega_0*Omega_0*x1*x1;
+  Kvy = 0.5 * pG->U[k][j][i].d * (2.0 * dVy * Vy0 + Vy0 * Vy0);
+#endif
 
-  return pG->U[k][j][i].E + pG->U[k][j][i].d*phi;
+  return pG->U[k][j][i].E + pG->U[k][j][i].d*phi + Kvy;
 }
 #endif /* ADIABATIC */
+
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+static Real hst_sigmas(const GridS *pG, const int i, const int j, const int k)
+{
+	return pG->U[k][j][i].Sigma[0];
+}
+
+static Real hst_sigmaaP(const GridS *pG, const int i, const int j, const int k)
+{
+	return pG->U[k][j][i].Sigma[2];
+}
+
+#endif
+
+static Real hst_rho2(const GridS *pG, const int i, const int j, const int k)
+{
+	
+	return (pG->U[k][j][i].d * pG->U[k][j][i].d);
+}
+
+static Real hst_T2(const GridS *pG, const int i, const int j, const int k)
+{
+	Real temperature;
+	temperature = hst_T(pG, i, j, k);
+
+	return temperature * temperature;
+}
+
+static Real hst_stressL(const GridS *pG, const int i, const int j, const int k)
+{
+	Real rhov, BxBy;
+	rhov = 0.0;
+	BxBy = 0.0;
+
+	int ID, lx1_id, rx1_id;
+
+#ifdef MPI_PARALLEL
+	ID = myID_Comm_world;
+	lx1_id = pG->lx1_id;
+	rx1_id = pG->rx1_id;
+#else
+	ID = 0;
+	lx1_id = -1;
+	rx1_id = -1;
+#endif
+
+	/* If it is on the boundary */
+	if(((i == pG->is) && ((lx1_id < 0) || (lx1_id >= ID))))
+	{
+		rhov = hst_rho_Vx_dVy(pG,i,j,k);
+#if defined(MHD) || defined(RADIATION_MHD)
+		BxBy =  hst_BxBy(pG, i, j, k);
+#endif	
+
+		return (qshear*Omega_0*(rhov + BxBy)* pG->dx2 * pG->dx3);
+	}	
+	else
+		return 0.0;
+}
+
+
+static Real hst_stressR(const GridS *pG, const int i, const int j, const int k)
+{
+	Real rhov, BxBy;
+	rhov = 0.0;
+	BxBy = 0.0;
+
+	int ID, lx1_id, rx1_id;
+
+#ifdef MPI_PARALLEL
+	ID = myID_Comm_world;
+	lx1_id = pG->lx1_id;
+	rx1_id = pG->rx1_id;
+#else
+	ID = 0;
+	lx1_id = -1;
+	rx1_id = -1;
+#endif
+
+	/* If it is on the boundary */
+	if(((i == pG->ie) && ((rx1_id < 0) || (rx1_id <= ID))))
+	{
+		rhov = hst_rho_Vx_dVy(pG,i,j,k);
+#if defined(MHD) || defined(RADIATION_MHD)
+		BxBy =  hst_BxBy(pG, i, j, k);
+#endif	
+
+		return (qshear*Omega_0*(rhov + BxBy)* pG->dx2 * pG->dx3);
+
+	}
+	else
+		return 0.0;
+}
+
 
 /*------------------------------------------------------------------------------
  * MHD history variables

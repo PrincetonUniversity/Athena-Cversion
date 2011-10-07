@@ -64,18 +64,13 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qx;
-  int NRad;
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  NRad = 4;
-#else
-  NRad = 0;
-#endif
+
 
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
-  Real dWc[NWAVE+NSCALARS+4],dWl[NWAVE+NSCALARS+4];
-  Real dWr[NWAVE+NSCALARS+4],dWg[NWAVE+NSCALARS+4];
-  Real Wlv[NWAVE+NSCALARS+4],Wrv[NWAVE+NSCALARS+4];
-  Real dW[NWAVE+NSCALARS+4],dWm[NWAVE+NSCALARS+4];
+  Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
+  Real dWr[NWAVE+NSCALARS],dWg[NWAVE+NSCALARS];
+  Real Wlv[NWAVE+NSCALARS],Wrv[NWAVE+NSCALARS];
+  Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real dtodx = dt/dx;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -117,7 +112,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * Compute centered, L/R, and van Leer differences of primitive variables
  * Note we access contiguous array elements by indexing pointers for speed */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dWc[n] = pW[i+1][n] - pW[i-1][n];
       dWl[n] = pW[i][n]   - pW[i-1][n];
       dWr[n] = pW[i+1][n] - pW[i][n];
@@ -130,7 +125,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 /*--- Step 2. ------------------------------------------------------------------
  * Apply monotonicity constraints to differences in primitive vars. */
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dWm[n] = 0.0;
       if (dWl[n]*dWr[n] > 0.0) {
         lim_slope1 = MIN(    fabs(dWl[n]),fabs(dWr[n]));
@@ -142,12 +137,12 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /*--- Step 3. ------------------------------------------------------------------
  * Compute L/R values, ensure they lie between neighboring cell-centered vals */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wlv[n] = pW[i][n] - 0.5*dWm[n];
       Wrv[n] = pW[i][n] + 0.5*dWm[n];
     }
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wlv[n] = MAX(MIN(pW[i][n],pW[i-1][n]),Wlv[n]);
       Wlv[n] = MIN(MAX(pW[i][n],pW[i-1][n]),Wlv[n]);
       Wrv[n] = MAX(MIN(pW[i][n],pW[i+1][n]),Wrv[n]);
@@ -160,7 +155,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     pWl = (Real *) &(Wl[i+1]);
     pWr = (Real *) &(Wr[i]);
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n];
       pWr[n] = Wlv[n];
     }
@@ -263,17 +258,17 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * max(min) eigenvalue
  */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dW[n] = Wrv[n] - Wlv[n];
     }
 
     qx = 0.5*MAX(ev[NWAVE-1],0.0)*dtodx;
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] -= qx*dW[n];
     }
 
     qx = -0.5*MIN(ev[0],0.0)*dtodx;
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWr[n] += qx*dW[n];
     }
 
@@ -322,7 +317,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     }
 
 /* Wave subtraction for advected quantities */
-    for (n=NWAVE; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
         pWl[n] += 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx)*dW[n];
       } else if (W[i].Vx < 0.) {

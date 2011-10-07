@@ -59,6 +59,10 @@ void GaussSeidel1D(MatrixS *pMat)
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Ci0, Ci1;
 
+			
+	/* Update the boundary cells */
+
+
 /* Hardware to Ncycle */
 for(n=0; n<Ncycle; n++){
 

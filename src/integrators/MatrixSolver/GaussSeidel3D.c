@@ -62,6 +62,13 @@ void GaussSeidel3D(MatrixS *pMat)
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
 
+			
+	/* First, Update the boundary cells */
+	/* We do not set ghost zones after prolongation */
+	/* velocity and T4 in the ghost zones are never used */
+	/* We only need Er and Fr in the ghost zones */
+
+
 /* Hardware to Ncycle */
 for(n=0; n<Ncycle; n++){
 

@@ -77,7 +77,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   dSrmx = 0.0;
 
 /* initialize mean intensities at all depths to zero */
-  for(j=js-1; j<+je+1; j++)
+  for(j=js-1; j<je+1; j++)
     for(i=is-1; i<=ie+1; i++) 
       for(ifr=0; ifr<nf; ifr++) {
 	pRG->R[ks][j][i][ifr].J = 0.0;

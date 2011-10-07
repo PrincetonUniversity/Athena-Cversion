@@ -39,21 +39,25 @@
 
 static MatrixS *pMat;
 
+static Real ****INIerror;
 
-static int Nlim = 8; /* the lim size of the coarsest grid in each CPU*/
-static int Wcyclelim = 5; /* The limit of how many Wcycle we allow */ 
+
+static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
+static int Wcyclelim = 10; /* The limit of how many Wcycle we allow */ 
 
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
 
 
 /********Private function ************/
-static Real CheckResidual(MatrixS *pMat);
+static Real CheckResidual(MatrixS *pMat, GridS *pG);
 static void RadMHD_multig_3D(MatrixS *pMat);
 static void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine);
 static void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse);
 
 static void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat);
+
+static void RHSResidual3D(MatrixS *pMat, Real ****newRHS);
 
 /* Matrix boundary function */
 extern void bvals_Matrix_init(MatrixS *pMat);
@@ -186,70 +190,32 @@ void BackEuler_3d(MeshS *pM)
 	}/* End j */
 	}/* End k */
 
-/*=================================================*/
-/* Store the initial state  */
-/*
-	if(bgflag){
-		if(t0flag){
-		
-			for(k=ks-Matghost; k<=ke+Matghost;k++){
-				for(j=js-Matghost; j<=je+Matghost; j++){
-					for(i=is-Matghost; i<=ie+Matghost; i++){
-						Mati = i - (nghost - Matghost);
-						Matj = j - (nghost - Matghost);
-						Matk = k - (nghost - Matghost);
+/* Now calculate the residual */
 
 
-						Er_t0[Matk][Matj][Mati] = pG->U[k][j][i].Er;
-						Fr1_t0[Matk][Matj][Mati] = pG->U[k][j][i].Fr1;
-						Fr2_t0[Matk][Matj][Mati] = pG->U[k][j][i].Fr2;
-						Fr3_t0[Matk][Matj][Mati] = pG->U[k][j][i].Fr3;
-					
-						dErdx_t0[Matk][Matj][Mati] = -pG->U[k][j][i].Sigma_t * pG->U[k][j][i].Fr1;
-						dErdy_t0[Matk][Matj][Mati] = -pG->U[k][j][i].Sigma_t * pG->U[k][j][i].Fr2;
-						dErdz_t0[Matk][Matj][Mati] = -pG->U[k][j][i].Sigma_t * pG->U[k][j][i].Fr3;
-					}
-				}
-			}	
-			t0flag = 0;
+	/* calculate the residual */
+	RHSResidual3D(pMat, INIerror);
+
+	/* Now set the matrix to be the residual */
+	for(k=pMat->ks - Matghost; k<=pMat->ke+Matghost; k++){
+		for(j=pMat->js-Matghost; j<=pMat->je+Matghost; j++){
+			for(i=pMat->is-Matghost; i<= pMat->ie+Matghost; i++){
+				pMat->U[k][j][i].Er = 0.0;
+				pMat->U[k][j][i].Fr1 = 0.0;
+				pMat->U[k][j][i].Fr2 = 0.0;
+				pMat->U[k][j][i].Fr3 = 0.0;
+
+				pMat->RHS[k][j][i][0] = INIerror[k][j][i][0];	
+				pMat->RHS[k][j][i][1] = INIerror[k][j][i][1];	
+				pMat->RHS[k][j][i][2] = INIerror[k][j][i][2];	
+				pMat->RHS[k][j][i][3] = INIerror[k][j][i][3];
+
 			}
-
-		
-			for(k=ks-Matghost;k<=ke+Matghost;k++){
-				for(j=js-Matghost; j<=je+Matghost; j++){
-					for(i=is-Matghost; i<=ie+Matghost; i++){
-						Mati = i - (nghost - Matghost);
-						Matj = j - (nghost - Matghost);
-						Matk = k - (nghost - Matghost);
-
-						pMat->U[Matk][Matj][Mati].Er -= Er_t0[Matk][Matj][Mati];
-						pMat->U[Matk][Matj][Mati].Fr1 -= Fr1_t0[Matk][Matj][Mati];
-						pMat->U[Matk][Matj][Mati].Fr2 -= Fr2_t0[Matk][Matj][Mati];
-						pMat->U[Matk][Matj][Mati].Fr3 -= Fr3_t0[Matk][Matj][Mati];
-
-						pMat->U[Matk][Matj][Mati].T4 -= Er_t0[Matk][Matj][Mati];
-
-						velocity_x = pMat->U[Matk][Matj][Mati].V1;
-						velocity_y = pMat->U[Matk][Matj][Mati].V2;
-						velocity_z = pMat->U[Matk][Matj][Mati].V3;
-
-
-						Fr0x = Fr1_t0[Matk][Matj][Mati] - ((1.0 + pMat->U[Matk][Matj][Mati].Edd_11) * velocity_x + pMat->U[Matk][Matj][Mati].Edd_21 * velocity_y + pMat->U[Matk][Matj][Mati].Edd_31 * velocity_z) * Er_t0[Matk][Matj][Mati]/Crat;
-						Fr0y = Fr2_t0[Matk][Matj][Mati] - ((1.0 + pMat->U[Matk][Matj][Mati].Edd_22) * velocity_y + pMat->U[Matk][Matj][Mati].Edd_21 * velocity_x + pMat->U[Matk][Matj][Mati].Edd_32 * velocity_z) * Er_t0[Matk][Matj][Mati]/Crat;
-						Fr0z = Fr3_t0[Matk][Matj][Mati] - ((1.0 + pMat->U[Matk][Matj][Mati].Edd_33) * velocity_z + pMat->U[Matk][Matj][Mati].Edd_31 * velocity_x + pMat->U[Matk][Matj][Mati].Edd_32 * velocity_y) * Er_t0[Matk][Matj][Mati]/Crat;
-
-						pMat->RHS[Matk][Matj][Mati][0] = pMat->U[Matk][Matj][Mati].Er + Crat * dt * pMat->U[Matk][Matj][Mati].Sigma_a * pMat->U[Matk][Matj][Mati].T4 + dt * (2.0 * pMat->U[Matk][Matj][Mati].Sigma_a - pMat->U[Matk][Matj][Mati].Sigma_t) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-						pMat->RHS[Matk][Matj][Mati][1] = pG->U[k][j][i].Fr1 + dt * Sigma_a * T4 * velocity_x;
-						pMat->RHS[Matk][Matj][Mati][2] = pG->U[k][j][i].Fr2 + dt * Sigma_a * T4 * velocity_y;
-						pMat->RHS[Matk][Matj][Mati][3] = pG->U[k][j][i].Fr3 + dt * Sigma_a * T4 * velocity_z;	
-
-					}
-				}
-			}
-
 		}
-*/
-/*=============================================*/
+	}
+	/* Right hand side in the ghost zones are never used */
+
+
 
 		
 	/* Do the multi-grid W cycle */
@@ -263,7 +229,7 @@ void BackEuler_3d(MeshS *pM)
 		RadMHD_multig_3D(pMat);
 
 		/* for parent grid, check residual */
-		error = fabs(CheckResidual(pMat));
+		error = fabs(CheckResidual(pMat,pG));
 	
 		Wcycle++;
 
@@ -274,7 +240,7 @@ void BackEuler_3d(MeshS *pM)
 			ath_pout(0,"Final residual: %e  Cycle No.: %d\n",error,Wcycle);
 
 		
-	/* copy the data back */
+	/* add the correction back */
 	/* Now copy the data */
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
@@ -285,10 +251,10 @@ void BackEuler_3d(MeshS *pM)
 				Matj = j - (nghost - Matghost);
 				Matk = k - (nghost - Matghost);
 
-				pG->U[k][j][i].Er = pMat->U[Matk][Matj][Mati].Er;
-				pG->U[k][j][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
-				pG->U[k][j][i].Fr2 = pMat->U[Matk][Matj][Mati].Fr2;
-				pG->U[k][j][i].Fr3 = pMat->U[Matk][Matj][Mati].Fr3;
+				pG->U[k][j][i].Er += pMat->U[Matk][Matj][Mati].Er;
+				pG->U[k][j][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
+				pG->U[k][j][i].Fr2 += pMat->U[Matk][Matj][Mati].Fr2;
+				pG->U[k][j][i].Fr3 += pMat->U[Matk][Matj][Mati].Fr3;
 			/*
 				if(pG->U[k][j][i].Er < TINY_NUMBER)
 					pG->U[k][j][i].Er = 1.0;
@@ -365,6 +331,23 @@ void RadMHD_multig_3D(MatrixS *pMat)
 		/* project the data to coarse grid */
 		Restriction3D(pMat, &pMat_coarse);
 
+					/* We need to update the ghost zones after restriction */
+		bvals_Matrix_init(&pMat_coarse);
+#ifdef SHEARING_BOX
+		bvals_Matrix_shear_init(&pMat_coarse);
+#endif
+		
+		bvals_Matrix(&pMat_coarse);
+		
+#ifdef SHEARING_BOX
+		bvals_Matrix_shear_destruct();
+#endif
+
+
+		bvals_Matrix_destruct(&pMat_coarse);
+
+
+
 		/* continue the V or W cycle recursively*/
 
 		RadMHD_multig_3D(&pMat_coarse);
@@ -391,6 +374,9 @@ void RadMHD_multig_3D(MatrixS *pMat)
 #ifdef SHEARING_BOX
 		bvals_Matrix_shear_init(pMat);
 #endif
+
+		/* Update the ghost zones first */
+		bvals_Matrix(pMat);
 		
 		GaussSeidel3D(pMat);
 		
@@ -417,6 +403,22 @@ void RadMHD_multig_3D(MatrixS *pMat)
 			/* project the data to coarse grid */
 			Restriction3D(pMat, &pMat_coarse);
 
+			/* We need to update the ghost zones after restriction */
+			bvals_Matrix_init(&pMat_coarse);
+
+#ifdef SHEARING_BOX
+			bvals_Matrix_shear_init(&pMat_coarse);
+#endif
+		
+			bvals_Matrix(&pMat_coarse);
+		
+#ifdef SHEARING_BOX
+			bvals_Matrix_shear_destruct();
+#endif
+
+
+			bvals_Matrix_destruct(&pMat_coarse);
+
 			/* continue the V or W cycle recursively*/
 
 			RadMHD_multig_3D(&pMat_coarse);
@@ -438,7 +440,9 @@ void RadMHD_multig_3D(MatrixS *pMat)
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_init(pMat);
 #endif
-		
+			/* Update the ghost zones first */
+			bvals_Matrix(pMat);
+
 			GaussSeidel3D(pMat);
 		
 #ifdef SHEARING_BOX
@@ -500,6 +504,8 @@ void BackEuler_init_3d(MeshS *pM)
 	if((pMat->RHS = (Real****)calloc_4d_array(Nz+2*Matghost,Ny+2*Matghost, Nx+2*Matghost,4,sizeof(Real))) == NULL)
 		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
 
+	if((INIerror=(Real****)calloc_4d_array(Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
 
 
 	/* now set the parameters */
@@ -572,6 +578,9 @@ void BackEuler_destruct_3d()
 
 	if(pMat != NULL)
 		free(pMat);
+
+	if(INIerror != NULL)
+		free_4d_array(INIerror);
 }
 
 
@@ -579,7 +588,7 @@ void BackEuler_destruct_3d()
 /*==========================================*/
 /* Check the residual after one cycle */
 /* This is the stop criterian */
-Real CheckResidual(MatrixS *pMat)
+Real CheckResidual(MatrixS *pMat, GridS *pG)
 {
 	Real Residual = 0.0;
 	Real Norm = 0.0;
@@ -604,6 +613,8 @@ Real CheckResidual(MatrixS *pMat)
 	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
 	Real hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
 
+	Real dt = pMat->dt;
+	int diffghost = nghost - Matghost;
 
 	/* To store the coefficient */
 	Real theta[16];
@@ -741,9 +752,9 @@ Real CheckResidual(MatrixS *pMat)
 			varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_33;
 			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
 				
-						
+			/* Relative Residual should be with respect to original right hand side */
 
-			Norm += fabs(pMat->RHS[k][j][i][0]);
+			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Er + Crat * dt * Sigma_aP * T4);
 			Residual += pMat->RHS[k][j][i][0];
 			Residual -= theta[0] * pMat->U[k-1][j][i].Er;
 			Residual -= theta[1] * pMat->U[k-1][j][i].Fr3;
@@ -763,7 +774,7 @@ Real CheckResidual(MatrixS *pMat)
 			Residual -= theta[15] * pMat->U[k+1][j][i].Fr3;
 
 
-			Norm += fabs(pMat->RHS[k][j][i][1]);
+			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
 			Residual += pMat->RHS[k][j][i][1];
 			Residual -= phi[0] * pMat->U[k-1][j][i].Er;
 			Residual -= phi[1] * pMat->U[k-1][j][i].Fr1;
@@ -780,7 +791,7 @@ Real CheckResidual(MatrixS *pMat)
 			Residual -= phi[12] * pMat->U[k+1][j][i].Er;
 			Residual -= phi[13] * pMat->U[k+1][j][i].Fr1;
 
-			Norm += fabs(pMat->RHS[k][j][i][2]);
+			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
 			Residual += pMat->RHS[k][j][i][2];
 			Residual -= psi[0] * pMat->U[k-1][j][i].Er;
 			Residual -= psi[1] * pMat->U[k-1][j][i].Fr2;
@@ -797,7 +808,7 @@ Real CheckResidual(MatrixS *pMat)
 			Residual -= psi[12] * pMat->U[k+1][j][i].Er;
 			Residual -= psi[13] * pMat->U[k+1][j][i].Fr2;
 
-			Norm += fabs(pMat->RHS[k][j][i][3]);
+			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr3 + dt * Sigma_aP * T4 * velocity_z);
 			Residual += pMat->RHS[k][j][i][3];
 			Residual -= varphi[0] * pMat->U[k-1][j][i].Er;
 			Residual -= varphi[1] * pMat->U[k-1][j][i].Fr3;
@@ -934,38 +945,18 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 {
 /* We actually should send the residual to the next level */
 
+/* After restriction step, we do not need to set the boundary values */
+/* values of v, T, sigma in the ghost zones are not used */
+/* Initial guess for Er , Fr1, Fr2, Fr3 are always zero */
+/* Boundary values will be updated in GaussSeidal */
+
 	int i, j, k;
 	int is, ie, js, je, ks, ke;
-
-	is = pMat_fine->is;
-	ie = pMat_fine->ie;
-	js = pMat_fine->js;
-	je = pMat_fine->je;
-	ks = pMat_fine->ks;
-	ke = pMat_fine->ke;
-
-
-	Real hdtodx1 = 0.5 * pMat_fine->dt/pMat_fine->dx1;
-	Real hdtodx2 = 0.5 * pMat_fine->dt/pMat_fine->dx2;
-	Real hdtodx3 = 0.5 * pMat_fine->dt/pMat_fine->dx3;
-
-
-
-	/* To store the coefficient */
-	Real theta[16];
-	Real phi[16];
-	Real psi[16];
-	Real varphi[16];
 
 	/* The right hand size is no-longer the original source terms. It is the residual  */
 	/* But we cannot destroy the right hand size of the fine grid. We need that for the */
 	/* relaxation step when we come back */ 
 
-
-	/* Temporary variables to setup the matrix */
-	Real velocity_x, velocity_y, velocity_z, T4;
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
 
 	Real ****error;	
 	if((error=(Real****)calloc_4d_array(pMat_fine->Nx[2]+2*Matghost,pMat_fine->Nx[1]+2*Matghost,pMat_fine->Nx[0]+2*Matghost,4,sizeof(Real))) == NULL)
@@ -975,200 +966,8 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 	Real *ptr_fine[8];
 	int num;	
 
-	for(k=ks; k<=ke; k++)
-		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){
-
-
-			velocity_x = pMat_fine->U[k][j][i].V1;
-			/* In Fargo, background shearing is already included here */
-			velocity_y = pMat_fine->U[k][j][i].V2;
-			velocity_z = pMat_fine->U[k][j][i].V3;
-			T4 = pMat_fine->U[k][j][i].T4;	
-				
-			Sigma_sF = pMat_fine->U[k][j][i].Sigma[0];
-			Sigma_aF = pMat_fine->U[k][j][i].Sigma[1];
-			Sigma_aP = pMat_fine->U[k][j][i].Sigma[2];
-			Sigma_aE = pMat_fine->U[k][j][i].Sigma[3];
-
-			Ci0 = (sqrt(pMat_fine->U[k][j][i].Edd_11) - sqrt(pMat_fine->U[k][j][i-1].Edd_11)) 
-				/ (sqrt(pMat_fine->U[k][j][i].Edd_11) + sqrt(pMat_fine->U[k][j][i-1].Edd_11));
-			Ci1 =  (sqrt(pMat_fine->U[k][j][i+1].Edd_11) - sqrt(pMat_fine->U[k][j][i].Edd_11)) 
-				/ (sqrt(pMat_fine->U[k][j][i+1].Edd_11) + sqrt(pMat_fine->U[k][j][i].Edd_11));
-			Cj0 = (sqrt(pMat_fine->U[k][j][i].Edd_22) - sqrt(pMat_fine->U[k][j-1][i].Edd_22)) 
-				/ (sqrt(pMat_fine->U[k][j][i].Edd_22) + sqrt(pMat_fine->U[k][j-1][i].Edd_22));
-			Cj1 =  (sqrt(pMat_fine->U[k][j+1][i].Edd_22) - sqrt(pMat_fine->U[k][j][i].Edd_22)) 
-				/ (sqrt(pMat_fine->U[k][j+1][i].Edd_22) + sqrt(pMat_fine->U[k][j][i].Edd_22));
-			Ck0 = (sqrt(pMat_fine->U[k][j][i].Edd_33) - sqrt(pMat_fine->U[k-1][j][i].Edd_33)) 
-				/ (sqrt(pMat_fine->U[k][j][i].Edd_33) + sqrt(pMat_fine->U[k-1][j][i].Edd_33));
-			Ck1 =  (sqrt(pMat_fine->U[k+1][j][i].Edd_33) - sqrt(pMat_fine->U[k][j][i].Edd_33)) 
-				/ (sqrt(pMat_fine->U[k+1][j][i].Edd_33) + sqrt(pMat_fine->U[k][j][i].Edd_33));
-			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat_fine->U[k-1][j][i].Edd_33);
-			theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
-			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat_fine->U[k][j-1][i].Edd_22);
-			theta[3] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat_fine->U[k][j][i-1].Edd_11);
-			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat_fine->U[k][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat_fine->U[k][j][i].Edd_22)
-				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat_fine->U[k][j][i].Edd_33)
-				+ Crat * pMat_fine->dt * Sigma_aE 
-				+ pMat_fine->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat_fine->U[k][j][i].Edd_11) * velocity_x 
-				+ velocity_y * pMat_fine->U[k][j][i].Edd_21 + velocity_z * pMat_fine->U[k][j][i].Edd_31) * velocity_x / Crat
-				+ pMat_fine->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat_fine->U[k][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pMat_fine->U[k][j][i].Edd_21 + velocity_z * pMat_fine->U[k][j][i].Edd_32) * velocity_y / Crat
-				+ pMat_fine->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat_fine->U[k][j][i].Edd_33) * velocity_z 
-				+ velocity_x * pMat_fine->U[k][j][i].Edd_31 + velocity_y * pMat_fine->U[k][j][i].Edd_32) * velocity_z / Crat;
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat_fine->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat_fine->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- pMat_fine->dt * (Sigma_aF - Sigma_sF) * velocity_z;
-			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat_fine->U[k][j][i+1].Edd_11);
-			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat_fine->U[k][j+1][i].Edd_22);
-			theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
-			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat_fine->U[k+1][j][i].Edd_33);
-			theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
-			
-			
-			phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat_fine->U[k-1][j][i].Edd_31;
-			phi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat_fine->U[k-1][j][i].Edd_33);
-			phi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat_fine->U[k][j-1][i].Edd_21;
-			phi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat_fine->U[k][j-1][i].Edd_22);
-			phi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat_fine->U[k][j][i-1].Edd_11;
-			phi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat_fine->U[k][j][i-1].Edd_11);
-			phi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat_fine->U[k][j][i].Edd_11
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat_fine->U[k][j][i].Edd_21   
-			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat_fine->U[k][j][i].Edd_31   
-			       - pMat_fine->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat_fine->U[k][j][i].Edd_11) * velocity_x + pMat_fine->U[k][j][i].Edd_21 * velocity_y + pMat_fine->U[k][j][i].Edd_31 * velocity_z) 
-			       + pMat_fine->dt * Sigma_aE * velocity_x;
-			phi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat_fine->U[k][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat_fine->U[k][j][i].Edd_22) 
-				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat_fine->U[k][j][i].Edd_33)	
-				     + Crat * pMat_fine->dt * (Sigma_aF + Sigma_sF);
-			phi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat_fine->U[k][j][i+1].Edd_11;
-			phi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat_fine->U[k][j][i+1].Edd_11);
-			phi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat_fine->U[k][j+1][i].Edd_21;
-			phi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat_fine->U[k][j+1][i].Edd_22);
-			phi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat_fine->U[k+1][j][i].Edd_31;
-			phi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat_fine->U[k+1][j][i].Edd_33);
-
-
-
-			psi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat_fine->U[k-1][j][i].Edd_32;
-			psi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat_fine->U[k-1][j][i].Edd_33);
-			psi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat_fine->U[k][j-1][i].Edd_22;
-			psi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat_fine->U[k][j-1][i].Edd_22);
-			psi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat_fine->U[k][j][i-1].Edd_21;
-			psi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat_fine->U[k][j][i-1].Edd_11);
-			psi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat_fine->U[k][j][i].Edd_21
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat_fine->U[k][j][i].Edd_22   
-			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat_fine->U[k][j][i].Edd_32   
-			       - pMat_fine->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat_fine->U[k][j][i].Edd_22) * velocity_y + pMat_fine->U[k][j][i].Edd_21 * velocity_x + pMat_fine->U[k][j][i].Edd_32 * velocity_z) 
-			       + pMat_fine->dt * Sigma_aE * velocity_y;
-			psi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat_fine->U[k][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat_fine->U[k][j][i].Edd_22) 
-				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat_fine->U[k][j][i].Edd_33)	
-				     + Crat * pMat_fine->dt * (Sigma_aF + Sigma_sF);
-			psi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat_fine->U[k][j][i+1].Edd_21;
-			psi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat_fine->U[k][j][i+1].Edd_11);
-			psi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat_fine->U[k][j+1][i].Edd_22;
-			psi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat_fine->U[k][j+1][i].Edd_22);
-			psi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat_fine->U[k+1][j][i].Edd_32;
-			psi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat_fine->U[k+1][j][i].Edd_33);
-
-			varphi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat_fine->U[k-1][j][i].Edd_33;
-			varphi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat_fine->U[k-1][j][i].Edd_33);
-			varphi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat_fine->U[k][j-1][i].Edd_32;
-			varphi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat_fine->U[k][j-1][i].Edd_22);
-			varphi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat_fine->U[k][j][i-1].Edd_31;
-			varphi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat_fine->U[k][j][i-1].Edd_11);
-			varphi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat_fine->U[k][j][i].Edd_31
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat_fine->U[k][j][i].Edd_32   
-			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat_fine->U[k][j][i].Edd_33   
-			       - pMat_fine->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat_fine->U[k][j][i].Edd_33) * velocity_z + pMat_fine->U[k][j][i].Edd_31 * velocity_x + pMat_fine->U[k][j][i].Edd_32 * velocity_y) 
-			       + pMat_fine->dt * Sigma_aE * velocity_z;
-			varphi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat_fine->U[k][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat_fine->U[k][j][i].Edd_22) 
-				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat_fine->U[k][j][i].Edd_33)	
-				     + Crat * pMat_fine->dt * (Sigma_aF + Sigma_sF);
-			varphi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat_fine->U[k][j][i+1].Edd_31;
-			varphi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat_fine->U[k][j][i+1].Edd_11);
-			varphi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat_fine->U[k][j+1][i].Edd_32;
-			varphi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat_fine->U[k][j+1][i].Edd_22);
-			varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat_fine->U[k+1][j][i].Edd_33;
-			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat_fine->U[k+1][j][i].Edd_33);
-				
-
-
-
-			error[k][j][i][0] += pMat_fine->RHS[k][j][i][0];
-			error[k][j][i][0] -= theta[0] * pMat_fine->U[k-1][j][i].Er;
-			error[k][j][i][0] -= theta[1] * pMat_fine->U[k-1][j][i].Fr3;
-			error[k][j][i][0] -= theta[2] * pMat_fine->U[k][j-1][i].Er;
-			error[k][j][i][0] -= theta[3] * pMat_fine->U[k][j-1][i].Fr2;
-			error[k][j][i][0] -= theta[4] * pMat_fine->U[k][j][i-1].Er;
-			error[k][j][i][0] -= theta[5] * pMat_fine->U[k][j][i-1].Fr1;
-			error[k][j][i][0] -= theta[6] * pMat_fine->U[k][j][i].Er;
-			error[k][j][i][0] -= theta[7] * pMat_fine->U[k][j][i].Fr1;
-			error[k][j][i][0] -= theta[8] * pMat_fine->U[k][j][i].Fr2;
-			error[k][j][i][0] -= theta[9] * pMat_fine->U[k][j][i].Fr3;
-			error[k][j][i][0] -= theta[10] * pMat_fine->U[k][j][i+1].Er;
-			error[k][j][i][0] -= theta[11] * pMat_fine->U[k][j][i+1].Fr1;
-			error[k][j][i][0] -= theta[12] * pMat_fine->U[k][j+1][i].Er;
-			error[k][j][i][0] -= theta[13] * pMat_fine->U[k][j+1][i].Fr2;
-			error[k][j][i][0] -= theta[14] * pMat_fine->U[k+1][j][i].Er;
-			error[k][j][i][0] -= theta[15] * pMat_fine->U[k+1][j][i].Fr3;
-
-
-			error[k][j][i][1] += pMat_fine->RHS[k][j][i][1];
-			error[k][j][i][1] -= phi[0] * pMat_fine->U[k-1][j][i].Er;
-			error[k][j][i][1] -= phi[1] * pMat_fine->U[k-1][j][i].Fr1;
-			error[k][j][i][1] -= phi[2] * pMat_fine->U[k][j-1][i].Er;
-			error[k][j][i][1] -= phi[3] * pMat_fine->U[k][j-1][i].Fr1;
-			error[k][j][i][1] -= phi[4] * pMat_fine->U[k][j][i-1].Er;
-			error[k][j][i][1] -= phi[5] * pMat_fine->U[k][j][i-1].Fr1;
-			error[k][j][i][1] -= phi[6] * pMat_fine->U[k][j][i].Er;
-			error[k][j][i][1] -= phi[7] * pMat_fine->U[k][j][i].Fr1;
-			error[k][j][i][1] -= phi[8] * pMat_fine->U[k][j][i+1].Er;
-			error[k][j][i][1] -= phi[9] * pMat_fine->U[k][j][i+1].Fr1;
-			error[k][j][i][1] -= phi[10] * pMat_fine->U[k][j+1][i].Er;
-			error[k][j][i][1] -= phi[11] * pMat_fine->U[k][j+1][i].Fr1;
-			error[k][j][i][1] -= phi[12] * pMat_fine->U[k+1][j][i].Er;
-			error[k][j][i][1] -= phi[13] * pMat_fine->U[k+1][j][i].Fr1;
-
-			error[k][j][i][2] += pMat_fine->RHS[k][j][i][2];
-			error[k][j][i][2] -= psi[0] * pMat_fine->U[k-1][j][i].Er;
-			error[k][j][i][2] -= psi[1] * pMat_fine->U[k-1][j][i].Fr2;
-			error[k][j][i][2] -= psi[2] * pMat_fine->U[k][j-1][i].Er;
-			error[k][j][i][2] -= psi[3] * pMat_fine->U[k][j-1][i].Fr2;
-			error[k][j][i][2] -= psi[4] * pMat_fine->U[k][j][i-1].Er;
-			error[k][j][i][2] -= psi[5] * pMat_fine->U[k][j][i-1].Fr2;
-			error[k][j][i][2] -= psi[6] * pMat_fine->U[k][j][i].Er;
-			error[k][j][i][2] -= psi[7] * pMat_fine->U[k][j][i].Fr2;
-			error[k][j][i][2] -= psi[8] * pMat_fine->U[k][j][i+1].Er;
-			error[k][j][i][2] -= psi[9] * pMat_fine->U[k][j][i+1].Fr2;
-			error[k][j][i][2] -= psi[10] * pMat_fine->U[k][j+1][i].Er;
-			error[k][j][i][2] -= psi[11] * pMat_fine->U[k][j+1][i].Fr2;
-			error[k][j][i][2] -= psi[12] * pMat_fine->U[k+1][j][i].Er;
-			error[k][j][i][2] -= psi[13] * pMat_fine->U[k+1][j][i].Fr2;
-
-			error[k][j][i][3] += pMat_fine->RHS[k][j][i][3];
-			error[k][j][i][3] -= varphi[0] * pMat_fine->U[k-1][j][i].Er;
-			error[k][j][i][3] -= varphi[1] * pMat_fine->U[k-1][j][i].Fr3;
-			error[k][j][i][3] -= varphi[2] * pMat_fine->U[k][j-1][i].Er;
-			error[k][j][i][3] -= varphi[3] * pMat_fine->U[k][j-1][i].Fr3;
-			error[k][j][i][3] -= varphi[4] * pMat_fine->U[k][j][i-1].Er;
-			error[k][j][i][3] -= varphi[5] * pMat_fine->U[k][j][i-1].Fr3;
-			error[k][j][i][3] -= varphi[6] * pMat_fine->U[k][j][i].Er;
-			error[k][j][i][3] -= varphi[7] * pMat_fine->U[k][j][i].Fr3;
-			error[k][j][i][3] -= varphi[8] * pMat_fine->U[k][j][i+1].Er;
-			error[k][j][i][3] -= varphi[9] * pMat_fine->U[k][j][i+1].Fr3;
-			error[k][j][i][3] -= varphi[10] * pMat_fine->U[k][j+1][i].Er;
-			error[k][j][i][3] -= varphi[11] * pMat_fine->U[k][j+1][i].Fr3;
-			error[k][j][i][3] -= varphi[12] * pMat_fine->U[k+1][j][i].Er;
-			error[k][j][i][3] -= varphi[13] * pMat_fine->U[k+1][j][i].Fr3;	
-
-	}
+	/* calculate the residual */
+	RHSResidual3D(pMat_fine, error);
 
 		/* error = b - Ax */
 		/* Now restrict to the coarse grid */
@@ -1186,7 +985,7 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 				ptr_fine[6] = &(pMat_fine->U[2*k-1][2*j-1][2*i ].Er);	
 				ptr_fine[7] = &(pMat_fine->U[2*k-1][2*j-1][2*i-1].Er);
 
-				for(num=0; num<16; num++){
+				for(num=0; num<14+NOPACITY; num++){
 
 					ptr_coarse[num] =  (ptr_fine[0][num] + ptr_fine[1][num]
 							 + ptr_fine[2][num] + ptr_fine[3][num]
@@ -1227,6 +1026,8 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 		/* Free the temporary array */
 		free_4d_array(error);
+
+	/* We need to update the Eddington tensor in the ghost zone */
 
 	return;
 }
@@ -1292,6 +1093,244 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 	return;
 }
 
+/*  calculate the residual of right hand side from guess solution */
+/* should allocate memory for newRHS before this function is called */
+void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
+{
+
+	int i, j, k;
+	int is, ie, js, je, ks, ke;
+
+	is = pMat->is;
+	ie = pMat->ie;
+	js = pMat->js;
+	je = pMat->je;
+	ks = pMat->ks;
+	ke = pMat->ke;
+
+
+	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
+	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
+	Real hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
+
+
+
+	/* To store the coefficient */
+	Real theta[16];
+	Real phi[16];
+	Real psi[16];
+	Real varphi[16];
+
+
+
+	/* Temporary variables to setup the matrix */
+	Real velocity_x, velocity_y, velocity_z, T4;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
+
+
+	int num;	
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+
+
+			velocity_x = pMat->U[k][j][i].V1;
+			/* In Fargo, background shearing is already included here */
+			velocity_y = pMat->U[k][j][i].V2;
+			velocity_z = pMat->U[k][j][i].V3;
+			T4 = pMat->U[k][j][i].T4;	
+				
+			Sigma_sF = pMat->U[k][j][i].Sigma[0];
+			Sigma_aF = pMat->U[k][j][i].Sigma[1];
+			Sigma_aP = pMat->U[k][j][i].Sigma[2];
+			Sigma_aE = pMat->U[k][j][i].Sigma[3];
+
+			Ci0 = (sqrt(pMat->U[k][j][i].Edd_11) - sqrt(pMat->U[k][j][i-1].Edd_11)) 
+				/ (sqrt(pMat->U[k][j][i].Edd_11) + sqrt(pMat->U[k][j][i-1].Edd_11));
+			Ci1 =  (sqrt(pMat->U[k][j][i+1].Edd_11) - sqrt(pMat->U[k][j][i].Edd_11)) 
+				/ (sqrt(pMat->U[k][j][i+1].Edd_11) + sqrt(pMat->U[k][j][i].Edd_11));
+			Cj0 = (sqrt(pMat->U[k][j][i].Edd_22) - sqrt(pMat->U[k][j-1][i].Edd_22)) 
+				/ (sqrt(pMat->U[k][j][i].Edd_22) + sqrt(pMat->U[k][j-1][i].Edd_22));
+			Cj1 =  (sqrt(pMat->U[k][j+1][i].Edd_22) - sqrt(pMat->U[k][j][i].Edd_22)) 
+				/ (sqrt(pMat->U[k][j+1][i].Edd_22) + sqrt(pMat->U[k][j][i].Edd_22));
+			Ck0 = (sqrt(pMat->U[k][j][i].Edd_33) - sqrt(pMat->U[k-1][j][i].Edd_33)) 
+				/ (sqrt(pMat->U[k][j][i].Edd_33) + sqrt(pMat->U[k-1][j][i].Edd_33));
+			Ck1 =  (sqrt(pMat->U[k+1][j][i].Edd_33) - sqrt(pMat->U[k][j][i].Edd_33)) 
+				/ (sqrt(pMat->U[k+1][j][i].Edd_33) + sqrt(pMat->U[k][j][i].Edd_33));
+			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
+			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			theta[3] = -Crat * hdtodx2 * (1.0 + Cj0);
+			theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
+			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22)
+				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)
+				+ Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_11) * velocity_x 
+				+ velocity_y * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_31) * velocity_x / Crat
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_22) * velocity_y 
+				+ velocity_x * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_32) * velocity_y / Crat
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z 
+				+ velocity_x * pMat->U[k][j][i].Edd_31 + velocity_y * pMat->U[k][j][i].Edd_32) * velocity_z / Crat;
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;
+			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
+			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
+			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+			theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
+			
+			
+			phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_31;
+			phi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			phi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_21;
+			phi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			phi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_11;
+			phi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			phi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_11
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[k][j][i].Edd_21   
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat->U[k][j][i].Edd_31   
+			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_11) * velocity_x + pMat->U[k][j][i].Edd_21 * velocity_y + pMat->U[k][j][i].Edd_31 * velocity_z) 
+			       + pMat->dt * Sigma_aE * velocity_x;
+			phi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22) 
+				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)	
+				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
+			phi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_11;
+			phi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			phi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_21;
+			phi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			phi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_31;
+			phi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+
+
+
+			psi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_32;
+			psi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			psi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_22;
+			psi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			psi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_21;
+			psi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			psi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_21
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[k][j][i].Edd_22   
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat->U[k][j][i].Edd_32   
+			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_22) * velocity_y + pMat->U[k][j][i].Edd_21 * velocity_x + pMat->U[k][j][i].Edd_32 * velocity_z) 
+			       + pMat->dt * Sigma_aE * velocity_y;
+			psi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22) 
+				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)	
+				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
+			psi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_21;
+			psi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			psi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_22;
+			psi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			psi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_32;
+			psi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+
+			varphi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_33;
+			varphi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			varphi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_32;
+			varphi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			varphi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_31;
+			varphi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			varphi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_31
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[k][j][i].Edd_32   
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat->U[k][j][i].Edd_33   
+			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z + pMat->U[k][j][i].Edd_31 * velocity_x + pMat->U[k][j][i].Edd_32 * velocity_y) 
+			       + pMat->dt * Sigma_aE * velocity_z;
+			varphi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22) 
+				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)	
+				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
+			varphi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_31;
+			varphi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			varphi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_32;
+			varphi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_33;
+			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+				
+
+
+
+			newRHS[k][j][i][0] = pMat->RHS[k][j][i][0];
+			newRHS[k][j][i][0] -= theta[0] * pMat->U[k-1][j][i].Er;
+			newRHS[k][j][i][0] -= theta[1] * pMat->U[k-1][j][i].Fr3;
+			newRHS[k][j][i][0] -= theta[2] * pMat->U[k][j-1][i].Er;
+			newRHS[k][j][i][0] -= theta[3] * pMat->U[k][j-1][i].Fr2;
+			newRHS[k][j][i][0] -= theta[4] * pMat->U[k][j][i-1].Er;
+			newRHS[k][j][i][0] -= theta[5] * pMat->U[k][j][i-1].Fr1;
+			newRHS[k][j][i][0] -= theta[6] * pMat->U[k][j][i].Er;
+			newRHS[k][j][i][0] -= theta[7] * pMat->U[k][j][i].Fr1;
+			newRHS[k][j][i][0] -= theta[8] * pMat->U[k][j][i].Fr2;
+			newRHS[k][j][i][0] -= theta[9] * pMat->U[k][j][i].Fr3;
+			newRHS[k][j][i][0] -= theta[10] * pMat->U[k][j][i+1].Er;
+			newRHS[k][j][i][0] -= theta[11] * pMat->U[k][j][i+1].Fr1;
+			newRHS[k][j][i][0] -= theta[12] * pMat->U[k][j+1][i].Er;
+			newRHS[k][j][i][0] -= theta[13] * pMat->U[k][j+1][i].Fr2;
+			newRHS[k][j][i][0] -= theta[14] * pMat->U[k+1][j][i].Er;
+			newRHS[k][j][i][0] -= theta[15] * pMat->U[k+1][j][i].Fr3;
+
+
+			newRHS[k][j][i][1] = pMat->RHS[k][j][i][1];
+			newRHS[k][j][i][1] -= phi[0] * pMat->U[k-1][j][i].Er;
+			newRHS[k][j][i][1] -= phi[1] * pMat->U[k-1][j][i].Fr1;
+			newRHS[k][j][i][1] -= phi[2] * pMat->U[k][j-1][i].Er;
+			newRHS[k][j][i][1] -= phi[3] * pMat->U[k][j-1][i].Fr1;
+			newRHS[k][j][i][1] -= phi[4] * pMat->U[k][j][i-1].Er;
+			newRHS[k][j][i][1] -= phi[5] * pMat->U[k][j][i-1].Fr1;
+			newRHS[k][j][i][1] -= phi[6] * pMat->U[k][j][i].Er;
+			newRHS[k][j][i][1] -= phi[7] * pMat->U[k][j][i].Fr1;
+			newRHS[k][j][i][1] -= phi[8] * pMat->U[k][j][i+1].Er;
+			newRHS[k][j][i][1] -= phi[9] * pMat->U[k][j][i+1].Fr1;
+			newRHS[k][j][i][1] -= phi[10] * pMat->U[k][j+1][i].Er;
+			newRHS[k][j][i][1] -= phi[11] * pMat->U[k][j+1][i].Fr1;
+			newRHS[k][j][i][1] -= phi[12] * pMat->U[k+1][j][i].Er;
+			newRHS[k][j][i][1] -= phi[13] * pMat->U[k+1][j][i].Fr1;
+
+			newRHS[k][j][i][2] = pMat->RHS[k][j][i][2];
+			newRHS[k][j][i][2] -= psi[0] * pMat->U[k-1][j][i].Er;
+			newRHS[k][j][i][2] -= psi[1] * pMat->U[k-1][j][i].Fr2;
+			newRHS[k][j][i][2] -= psi[2] * pMat->U[k][j-1][i].Er;
+			newRHS[k][j][i][2] -= psi[3] * pMat->U[k][j-1][i].Fr2;
+			newRHS[k][j][i][2] -= psi[4] * pMat->U[k][j][i-1].Er;
+			newRHS[k][j][i][2] -= psi[5] * pMat->U[k][j][i-1].Fr2;
+			newRHS[k][j][i][2] -= psi[6] * pMat->U[k][j][i].Er;
+			newRHS[k][j][i][2] -= psi[7] * pMat->U[k][j][i].Fr2;
+			newRHS[k][j][i][2] -= psi[8] * pMat->U[k][j][i+1].Er;
+			newRHS[k][j][i][2] -= psi[9] * pMat->U[k][j][i+1].Fr2;
+			newRHS[k][j][i][2] -= psi[10] * pMat->U[k][j+1][i].Er;
+			newRHS[k][j][i][2] -= psi[11] * pMat->U[k][j+1][i].Fr2;
+			newRHS[k][j][i][2] -= psi[12] * pMat->U[k+1][j][i].Er;
+			newRHS[k][j][i][2] -= psi[13] * pMat->U[k+1][j][i].Fr2;
+
+			newRHS[k][j][i][3] = pMat->RHS[k][j][i][3];
+			newRHS[k][j][i][3] -= varphi[0] * pMat->U[k-1][j][i].Er;
+			newRHS[k][j][i][3] -= varphi[1] * pMat->U[k-1][j][i].Fr3;
+			newRHS[k][j][i][3] -= varphi[2] * pMat->U[k][j-1][i].Er;
+			newRHS[k][j][i][3] -= varphi[3] * pMat->U[k][j-1][i].Fr3;
+			newRHS[k][j][i][3] -= varphi[4] * pMat->U[k][j][i-1].Er;
+			newRHS[k][j][i][3] -= varphi[5] * pMat->U[k][j][i-1].Fr3;
+			newRHS[k][j][i][3] -= varphi[6] * pMat->U[k][j][i].Er;
+			newRHS[k][j][i][3] -= varphi[7] * pMat->U[k][j][i].Fr3;
+			newRHS[k][j][i][3] -= varphi[8] * pMat->U[k][j][i+1].Er;
+			newRHS[k][j][i][3] -= varphi[9] * pMat->U[k][j][i+1].Fr3;
+			newRHS[k][j][i][3] -= varphi[10] * pMat->U[k][j+1][i].Er;
+			newRHS[k][j][i][3] -= varphi[11] * pMat->U[k][j+1][i].Fr3;
+			newRHS[k][j][i][3] -= varphi[12] * pMat->U[k+1][j][i].Er;
+			newRHS[k][j][i][3] -= varphi[13] * pMat->U[k+1][j][i].Fr3;	
+
+	}
+
+		/* error = b - Ax */
+
+	return;
+
+}
 
 
 

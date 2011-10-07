@@ -149,11 +149,11 @@ void rad_to_hydro(DomainS *pD)
 	esource = 0.0;
 	for(ifr=0; ifr<nf; ifr++) {
 	  if(pRG->R[ifr][k][j][i].chi*dxmin <= 1.0) {	    
-	    //flag = 2;
+	
 	    esource += pRG->wnu[ifr] * pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].chi *
 	               (pRG->R[ifr][k][j][i].J - pRG->R[ifr][k][j][i].B);
 	  } else {
-	    //flag = 1;
+	
 	    esource += pRG->wnu[ifr] * dx1 * (pRG->R[ifr][k][j][i-1].H[0] - 
                                               pRG->R[ifr][k][j][i+1].H[0]);
 	    if (nDim > 1) {
@@ -173,6 +173,7 @@ void rad_to_hydro(DomainS *pD)
 	}
 	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource;
       }}}
+
   return;
 }
 

@@ -69,20 +69,14 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
   int i,n,m;
   Real lim_slope,qa,qb,qc,qx;
 
-  int NRad;
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  NRad = 4;
-#else
-  NRad = 0;
-#endif
 
 
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
-  Real d2Wc[NWAVE+NSCALARS+4],d2Wl[NWAVE+NSCALARS+4];
-  Real d2Wr[NWAVE+NSCALARS+4],d2W [NWAVE+NSCALARS+4];
-  Real d2Wlim[NWAVE+NSCALARS+4];
-  Real Wlv[NWAVE+NSCALARS+4],Wrv[NWAVE+NSCALARS+4];
-  Real dW[NWAVE+NSCALARS+4],W6[NWAVE+NSCALARS+4];
+  Real d2Wc[NWAVE+NSCALARS],d2Wl[NWAVE+NSCALARS];
+  Real d2Wr[NWAVE+NSCALARS],d2W [NWAVE+NSCALARS];
+  Real d2Wlim[NWAVE+NSCALARS];
+  Real Wlv[NWAVE+NSCALARS],Wrv[NWAVE+NSCALARS];
+  Real dW[NWAVE+NSCALARS],W6[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real dtodx = dt/dx;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -108,10 +102,10 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * (interface i-1/2), then Whalf[i] = W[i-1/2]. */
 
   for (i=il-1; i<=iu+2; i++) {
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Whalf[i][n]=(7.0*(pW[i-1][n]+pW[i][n]) - (pW[i-2][n]+pW[i+1][n]))/12.0;
     }
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       d2Wc[n] = 3.0*(pW[i-1][n] - 2.0*Whalf[i][n] + pW[i][n]);
       d2Wl[n] = (pW[i-2][n] - 2.0*pW[i-1][n] + pW[i  ][n]);
       d2Wr[n] = (pW[i-1][n] - 2.0*pW[i  ][n] + pW[i+1][n]);
@@ -124,7 +118,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
         d2Wlim[n] = SIGN(d2Wc[n])*MIN(1.25*lim_slope,fabs(d2Wc[n]));
       }
     }
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Whalf[i][n] = 0.5*((pW[i-1][n]+pW[i][n]) - d2Wlim[n]/3.0);
     }
   }
@@ -138,7 +132,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * Wrv = W at right side of cell-center = W[i+1/2] = a_{j,+} in CS
  */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wlv[n] = Whalf[i  ][n];
       Wrv[n] = Whalf[i+1][n];
     }
@@ -146,7 +140,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /*--- Step 3. ------------------------------------------------------------------
  * Construct parabolic interpolant (CS eqn 16-19) */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
       qb = (pW[i-1][n]-pW[i][n])*(pW[i][n]-pW[i+1][n]);
       if (qa <= 0.0 && qb <= 0.0) {
@@ -204,7 +198,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /* Monotonize again (CW eqn 1.10), ensure they lie between neighboring
  * cell-centered vals */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       qa = (Wrv[n]-pW[i][n])*(pW[i][n]-Wlv[n]);
       qb = Wrv[n]-Wlv[n];
       qc = 6.0*(pW[i][n] - 0.5*(Wlv[n]+Wrv[n]));
@@ -218,7 +212,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       }
     }
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       Wlv[n] = MAX(MIN(pW[i][n],pW[i-1][n]),Wlv[n]);
       Wlv[n] = MIN(MAX(pW[i][n],pW[i-1][n]),Wlv[n]);
       Wrv[n] = MAX(MIN(pW[i][n],pW[i+1][n]),Wrv[n]);
@@ -231,7 +225,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     pWl = (Real *) &(Wl[i+1]);
     pWr = (Real *) &(Wr[i]);
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n];
       pWr[n] = Wlv[n];
     }
@@ -281,7 +275,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 /*--- Step 7. ------------------------------------------------------------------
  * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
 
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       dW[n] = Wrv[n] - Wlv[n];
       W6[n] = 6.0*(pW[i][n] - 0.5*(Wlv[n] + Wrv[n]));
     }
@@ -291,12 +285,12 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * max(min) eigenvalue (CW eqn 1.12)
  */
     qx = TWO_3RDS*MAX(ev[NWAVE-1],0.0)*dtodx;
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] -= 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
     }
 
     qx = -TWO_3RDS*MIN(ev[0],0.0)*dtodx;
-    for (n=0; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWr[n] += 0.75*qx*(dW[n] + (1.0 - qx)*W6[n]);
     }
 
@@ -354,7 +348,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     }
 
 /* Wave subtraction for advected quantities */
-    for (n=NWAVE; n<(NWAVE+NSCALARS+NRad); n++) {
+    for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
 	qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
         qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-1]) - SQR(W[i].Vx));
