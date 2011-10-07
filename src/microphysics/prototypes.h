@@ -1,11 +1,10 @@
 #ifndef MICROPHYS_PROTOTYPES_H
 #define MICROPHYS_PROTOTYPES_H 
 #include "../copyright.h"
-/*==============================================================================
- * FILE: prototypes.h
- *
- * PURPOSE: Prototypes for all public functions in the /src/microphysics dir
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions in the /src/microphysics dir */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"
@@ -23,24 +22,24 @@ void conduction_destruct(void);
 /* cool.c */
 Real KoyInut(const Real dens, const Real Press, const Real dt);
 
-/* diff_dt.c */
-Real diff_dt(MeshS *pM);
-
 /* get_eta.c */
 #ifdef RESISTIVITY
 void get_eta(GridS *pG);
 void eta_single_const(GridS *pG, int i, int j, int k,
                       Real *eta_O, Real *eta_H, Real *eta_A);
-void eta_single_user(GridS *pG, int i, int j, int k,
+void eta_general     (GridS *pG, int i, int j, int k,
                       Real *eta_O, Real *eta_H, Real *eta_A);
-void eta_general_user(GridS *pG, int i, int j, int k,
-                      Real *eta_O, Real *eta_H, Real *eta_A);
+void convert_diffusion(Real sigma_O, Real sigma_H, Real sigma_P,
+                       Real *eta_O,  Real *eta_H,  Real *eta_A );
 #endif
 
 /* integrate_diffusion.c */
 void integrate_diff(MeshS *pM);
 void integrate_diff_init(MeshS *pM);
 void integrate_diff_destruct(void);
+
+/* new_dt_diff.c */
+Real new_dt_diff(MeshS *pM);
 
 /* resistivity.c */
 #ifdef RESISTIVITY

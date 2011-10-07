@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: output_pdf.c
+/*============================================================================*/
+/*! \file output_pdf.c
+ *  \brief Outputs Probability Distribution Functions of selected variables
+ *   in formatted tabular form.  
  *
  * PURPOSE: Outputs Probability Distribution Functions of selected variables
  *   in formatted tabular form.  Fully MPI enabled, which requires passing
@@ -10,7 +12,7 @@
 
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   output_pdf() -
+ * - output_pdf() - output PDFs
  *============================================================================*/
 
 #include <math.h>
@@ -32,7 +34,8 @@ static int *cd_pdf=NULL; /* (non-normalized) complete Domain PDF */
 static char def_fmt[]="%21.15e"; /* A default tabular dump data format */
 
 /*----------------------------------------------------------------------------*/
-/* output_pdf:   */
+/*! \fn void output_pdf(MeshS *pM, OutputS *pOut)
+ *  \brief Outputs PDFs. */
 
 void output_pdf(MeshS *pM, OutputS *pOut)
 {

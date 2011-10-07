@@ -1,11 +1,12 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: output_particle.c
+/*===========================================================================*/
+/*! \file output_particle.c
+ *  \brief Contains routines necessary for outputting particles.
  *
  * PURPOSE: contains routines necessary for outputting particles.
  *   There are two basic formats:
- *    1. Bin particles to the grid, then output particles as a grid.
- *    2. Dump the particle list directly.
+ *  - 1. Bin particles to the grid, then output particles as a grid.
+ *  - 2. Dump the particle list directly.
  *
  *   For particle binning, there can be many choices since particles may have
  *   different properties. We provide a default (and trivial) particle selection
@@ -25,13 +26,11 @@
  *   out how to do visualization.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   particle_to_grid();
- *   dump_particle_binary();
- *   property_all();
+ * - particle_to_grid();
+ * - dump_particle_binary();
+ * - property_all();
  * 
- * History:
- *   Written by Xuening Bai, Mar. 2009
-==============================================================================*/
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -49,39 +48,40 @@
  *   expr_*
  *============================================================================*/
 
-Real expr_dpar (const Grid *pG, const int i, const int j, const int k);
-Real expr_M1par(const Grid *pG, const int i, const int j, const int k);
-Real expr_M2par(const Grid *pG, const int i, const int j, const int k);
-Real expr_M3par(const Grid *pG, const int i, const int j, const int k);
-Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
-Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
-Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
+Real expr_dpar (const GridS *pG, const int i, const int j, const int k);
+Real expr_M1par(const GridS *pG, const int i, const int j, const int k);
+Real expr_M2par(const GridS *pG, const int i, const int j, const int k);
+Real expr_M3par(const GridS *pG, const int i, const int j, const int k);
+Real expr_V1par(const GridS *pG, const int i, const int j, const int k);
+Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
+Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
-/* Bin the particles to grid cells
+/*! \fn void particle_to_grid(Grid *pG, PropFun_t par_prop)
+ *  \brief Bin the particles to grid cells
  */
-void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
+void particle_to_grid(GridS *pG, PropFun_t par_prop)
 {
   int i,j,k, is,js,ks, i0,j0,k0, i1,j1,k1, i2,j2,k2;
   int n0 = ncell-1;
   long p;
   Real drho;
   Real weight[3][3][3];
-  Vector cell1;
-  Grain *gr;
+  Real3Vect cell1;
+  GrainS *gr;
 
   /* Get grid limit related quantities */
-  if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;
-  else              cell1.x1 = 0.0;
+  if (pG->Nx[0] > 1)  cell1.x1 = 1.0/pG->dx1;
+  else                cell1.x1 = 0.0;
 
-  if (pG->Nx2 > 1)  cell1.x2 = 1.0/pG->dx2;
-  else              cell1.x2 = 0.0;
+  if (pG->Nx[1] > 1)  cell1.x2 = 1.0/pG->dx2;
+  else                cell1.x2 = 0.0;
 
-  if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;
-  else              cell1.x3 = 0.0;
+  if (pG->Nx[2] > 1)  cell1.x3 = 1.0/pG->dx3;
+  else                cell1.x3 = 0.0;
 
   /* initialization */
   for (k=klp; k<=kup; k++)
@@ -96,6 +96,7 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
   /* bin the particles */
   for (p=0; p<pG->nparticle; p++) {
     gr = &(pG->particle[p]);
+
     /* judge if the particle should be selected */
     if ((*par_prop)(gr, &(pG->parsub[p]))) {/* 1: true; 0: false */
 
@@ -114,7 +115,7 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
             i0 = i-i1;
             /* interpolate the particles to the grid */
 #ifdef FEEDBACK
-            drho = pG->grproperty[gr->property].m;
+            drho = grproperty[gr->property].m;
 #else
             drho = 1.0;
 #endif
@@ -133,47 +134,48 @@ void particle_to_grid(Grid *pG, Domain *pD, PropFun_t par_prop)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump unbinned particles in binary format
+/*! \fn void dump_particle_binary(MeshS *pM, OutputS *pOut)
+ *  \brief Dump unbinned particles in binary format
  */
-void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
+void dump_particle_binary(MeshS *pM, OutputS *pOut)
 {
+  DomainS *pD = (DomainS*)&(pM->Domain[0][0]);  
+  GridS   *pG = pD->Grid; 
   int dnum = pOut->num;
-  FILE *p_binfile;
+  FILE *pfile;
   char *fname;
   long p, nout, my_id;
   int i,is,js,ks,h,init_id = 0;
   short pos;
-  Vector cell1;
+  Real3Vect cell1;
   Real weight[3][3][3];         /* weight function */
   Real dpar,u1,u2,u3,cs;
 #ifdef FEEDBACK
   Real stiffness;
 #endif
-  Grain *gr;
+  GrainS *gr;
   float fdata[12];  /* coordinate of grid and domain boundary */
 
-  /* open the binary file */
-  if((fname = ath_fname(NULL,pG->outfilename,num_digit,dnum,pOut->id,"lis"))
-     == NULL){
+  if((fname = ath_fname(NULL,pM->outfilename,NULL,NULL,num_digit,
+      pOut->num,pOut->id,"lis")) == NULL){
     ath_error("[dump_particle_binary]: Error constructing filename\n");
-    return;
   }
 
-  if((p_binfile = fopen(fname,"wb")) == NULL){
-    ath_error("[dump_particle_binary]: Unable to open binary dump file\n");
-    return;
+  /* open output file */
+  if((pfile = fopen(fname,"wb")) == NULL){
+    ath_error("[dump_particle_binary]: Unable to open lis file %s\n",fname);
   }
 
   /* bin all the particles to the grid */
-  particle_to_grid(pG, pD, property_all);
+  particle_to_grid(pG, property_all);
 
   /* Get grid limit related quantities */
-  if (pG->Nx1 > 1)  cell1.x1 = 1.0/pG->dx1;
-  else                 cell1.x1 = 0.0;
-  if (pG->Nx2 > 1)  cell1.x2 = 1.0/pG->dx2;
-  else                 cell1.x2 = 0.0;
-  if (pG->Nx3 > 1)  cell1.x3 = 1.0/pG->dx3;
-  else                 cell1.x3 = 0.0;
+  if (pG->Nx[0] > 1)  cell1.x1 = 1.0/pG->dx1;
+  else               cell1.x1 = 0.0;
+  if (pG->Nx[1] > 1)  cell1.x2 = 1.0/pG->dx2;
+  else               cell1.x2 = 0.0;
+  if (pG->Nx[2] > 1)  cell1.x3 = 1.0/pG->dx3;
+  else               cell1.x3 = 0.0;
 
   /* update the particle auxilary array */
   for (p=0; p<pG->nparticle; p++)
@@ -194,45 +196,45 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
   /* find out how many particles is to be output */
   nout = 0;
   for (p=0; p<pG->nparticle; p++)
-    if ((*(pOut->par_prop))(&(pG->particle[p]), &(pG->parsub[p])))
-      nout += 1;
+  if ((*(pOut->par_prop))(&(pG->particle[p]), &(pG->parsub[p])))
+    nout += 1;
 
 /* write the basic information */
 
   /* Write the grid and domain boundary */
-  fdata[0]  = (float)(pG->x1_0 + (pG->is + pG->idisp)*pG->dx1);
-  fdata[1]  = (float)(pG->x1_0 + (pG->ie+1 + pG->idisp)*pG->dx1);
-  fdata[2]  = (float)(pG->x2_0 + (pG->js + pG->jdisp)*pG->dx2);
-  fdata[3]  = (float)(pG->x2_0 + (pG->je+1 + pG->jdisp)*pG->dx2);
-  fdata[4]  = (float)(pG->x3_0 + (pG->ks + pG->kdisp)*pG->dx3);
-  fdata[5]  = (float)(pG->x3_0 + (pG->ke+1 + pG->kdisp)*pG->dx3);
-  fdata[6]  = (float)(par_getd("grid","x1min"));
-  fdata[7]  = (float)(par_getd("grid","x1max"));
-  fdata[8]  = (float)(par_getd("grid","x2min"));
-  fdata[9]  = (float)(par_getd("grid","x2max"));
-  fdata[10] = (float)(par_getd("grid","x3min"));
-  fdata[11] = (float)(par_getd("grid","x3max"));
+  fdata[0]  = (float)(pG->MinX[0]);
+  fdata[1]  = (float)(pG->MaxX[0]);
+  fdata[2]  = (float)(pG->MinX[1]);
+  fdata[3]  = (float)(pG->MaxX[1]);
+  fdata[4]  = (float)(pG->MinX[2]);
+  fdata[5]  = (float)(pG->MaxX[2]);
+  fdata[6]  = (float)(pM->RootMinX[0]);
+  fdata[7]  = (float)(pM->RootMaxX[0]);
+  fdata[8]  = (float)(pM->RootMinX[1]);
+  fdata[9]  = (float)(pM->RootMaxX[1]);
+  fdata[10] = (float)(pM->RootMinX[2]);
+  fdata[11] = (float)(pM->RootMaxX[2]);
 
-  fwrite(fdata,sizeof(float),12,p_binfile);
+  fwrite(fdata,sizeof(float),12,pfile);
 
   /* Write particle property information */
-  fwrite(&(pG->partypes),sizeof(int),1,p_binfile);
+  fwrite(&(npartypes),sizeof(int),1,pfile);
 
-  for (i=0; i<pG->partypes; i++)
+  for (i=0; i<npartypes; i++)
   {
-    fdata[0] = (float)(pG->grproperty[i].rad);
-    fwrite(fdata,sizeof(float),1,p_binfile);
+    fdata[0] = (float)(grproperty[i].rad);
+    fwrite(fdata,sizeof(float),1,pfile);
   }
 
   /* Write time, dt */
   fdata[0] = (float)pG->time;
   fdata[1] = (float)pG->dt;
-  fwrite(fdata,sizeof(float),2,p_binfile);
+  fwrite(fdata,sizeof(float),2,pfile);
 
 /* Write all the selected particles */
 
   /* Write particle number */
-  fwrite(&nout,sizeof(long),1,p_binfile);
+  fwrite(&nout,sizeof(long),1,pfile);
 
   /* Write particle information */
   for (p=0; p<pG->nparticle; p++)
@@ -255,26 +257,30 @@ void dump_particle_binary(Grid *pG, Domain *pD, Output *pOut)
 #endif
       pos = gr->pos;
 
-      fwrite(fdata,sizeof(float),7,p_binfile);
-      fwrite(&(gr->property),sizeof(int),1,p_binfile);
-      fwrite(&(my_id),sizeof(long),1,p_binfile);
-      fwrite(&(init_id),sizeof(int),1,p_binfile);
+      fwrite(fdata,sizeof(float),7,pfile);
+      fwrite(&(gr->property),sizeof(int),1,pfile);
+      fwrite(&(my_id),sizeof(long),1,pfile);
+      fwrite(&(init_id),sizeof(int),1,pfile);
 
     }
   }
 
-  fclose(p_binfile);
+  fclose(pfile);
 
   return;
 }
 
 /*----------------------------------------------------------------------------*/
-/* default choice for binning particles to the grid: 
+/*! \fn int property_all(const Grain *gr, const GrainAux *grsub)
+ *  \brief Default choice for binning particles to the grid: 
  * All the particles are binned, return true for any value.
  */
-int property_all(const Grain *gr, const GrainAux *grsub)
+int property_all(const GrainS *gr, const GrainAux *grsub)
 {
-  return 1;  /* always true */
+//  if (gr->pos == 1)
+    return 1;  /* always true */
+//  else
+//    return 0;
 }
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
@@ -282,35 +288,44 @@ int property_all(const Grain *gr, const GrainAux *grsub)
 
 /* expr_*: where * are variables d,M1,M2,M3,V1,V2,V3 for particles */
 
-Real expr_dpar(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_dpar(const Grid *pG, const int i, const int j, const int k) 
+ *  \brief Wrapper for particle density */
+Real expr_dpar(const GridS *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_d;
 }
-
-Real expr_M1par(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_M1par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 1-momentum */
+Real expr_M1par(const GridS *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_v1;
 }
 
-Real expr_M2par(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_M2par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 2-momentum */
+Real expr_M2par(const GridS *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_v2;
 }
-
-Real expr_M3par(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_M3par(const Grid *pG, const int i, const int j, const int k) 
+ *  \brief Wrapper for particle 3-momentum */
+Real expr_M3par(const GridS *pG, const int i, const int j, const int k) {
   return pG->Coup[k][j][i].grid_v3;
 }
-
-Real expr_V1par(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_V1par(const Grid *pG, const int i, const int j, const int k) 
+ *  \brief Wrapper for particle 1-velocity */
+Real expr_V1par(const GridS *pG, const int i, const int j, const int k) {
   if (pG->Coup[k][j][i].grid_d>0.0)
     return pG->Coup[k][j][i].grid_v1/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
-
-Real expr_V2par(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_V2par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 2-velocity */
+Real expr_V2par(const GridS *pG, const int i, const int j, const int k) {
   if (pG->Coup[k][j][i].grid_d>0.0)
     return pG->Coup[k][j][i].grid_v2/pG->Coup[k][j][i].grid_d;
   else return 0.0;
 }
-
-Real expr_V3par(const Grid *pG, const int i, const int j, const int k) {
+/*! \fn Real expr_V3par(const Grid *pG, const int i, const int j, const int k)
+ *  \brief Wrapper for particle 3-velocity */
+Real expr_V3par(const GridS *pG, const int i, const int j, const int k) {
   if (pG->Coup[k][j][i].grid_d>0.0)
     return pG->Coup[k][j][i].grid_v3/pG->Coup[k][j][i].grid_d;
   else return 0.0;

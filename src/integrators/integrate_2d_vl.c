@@ -1,26 +1,30 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: integrate_2d_vl.c
+
+/*============================================================================*/
+/*! \file integrate_2d_vl.c
+ *  \brief Integrate MHD equations using 2D version of the directionally
+ *   unsplit MUSCL-Hancock (VL) integrator. 
  *
  * PURPOSE: Integrate MHD equations using 2D version of the directionally
  *   unsplit MUSCL-Hancock (VL) integrator.  The variables updated are:
- *      U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
- *      B1i, B2i  -- interface magnetic field
+ *   -  U.[d,M1,M2,M3,E,B1c,B2c,B3c,s] -- where U is of type ConsS
+ *   -  B1i, B2i  -- interface magnetic field
  *   Also adds gravitational source terms, self-gravity, and the H-correction
  *   of Sanders et al.
  *
- * REFERENCE: J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
+ * REFERENCE: 
+ * - J.M Stone & T.A. Gardiner, "A simple, unsplit Godunov method
  *   for multidimensional MHD", NewA 14, 139 (2009)
  *
- *   R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensional dissipation for
+ * - R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensional dissipation for
  *   upwind schemes: stability and applications to gas dynamics", JCP, 145, 511
  *   (1998)
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   integrate_2d_vl()
- *   integrate_destruct_2d()
- *   integrate_init_2d()
- *============================================================================*/
+ * - integrate_2d_vl()
+ * - integrate_destruct_2d()
+ * - integrate_init_2d() */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -34,7 +38,7 @@
 
 #ifndef SPECIAL_RELATIVITY
 
-#if defined(VL_INTEGRATOR) && defined(CARTESIAN)
+#if defined(VL_INTEGRATOR)
 
 /* The L/R states of primitive variables and fluxes at each cell face */
 static Prim1DS **Wl_x1Face=NULL, **Wr_x1Face=NULL;
@@ -43,6 +47,10 @@ static Cons1DS **x1Flux=NULL, **x2Flux=NULL;
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static Cons1DS **x1FluxP=NULL, **x2FluxP=NULL;
 static Real **emf3P=NULL;
+static Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1;
+#ifdef MHD
+static Real emf3D_ji, emf3D_jip1, emf3D_jp1i, emf3D_jp1ip1;
+#endif
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -75,11 +83,15 @@ static void integrate_emf3_corner(GridS *pG);
 #endif
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static void FixCell(GridS *pG, Int3Vect);
+static void ApplyCorr(GridS *pG, int i, int j,
+                      int lx1, int rx1, int lx2, int rx2);
 #endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* integrate_2d: van Leer unsplit integrator in 2D. 
+/*! \fn void integrate_2d_vl(DomainS *pD)
+ *  \brief Van Leer unsplit integrator in 2D. 
+ *
  *   The numbering of steps follows the numbering in the 3D version.
  *   NOT ALL STEPS ARE NEEDED IN 2D.
  */
@@ -90,6 +102,7 @@ void integrate_2d_vl(DomainS *pD)
   PrimS W,Whalf;
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
   Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2;
+  Real hdt=0.5*pG->dt, dx2=pG->dx2;
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
@@ -103,6 +116,13 @@ void integrate_2d_vl(DomainS *pD)
 #ifdef H_CORRECTION
   Real cfr,cfl,lambdar,lambdal;
 #endif
+#ifdef SHEARING_BOX
+  Real M1n, dM2n, dM3n;   /* M1, dM2/3=(My+d*q*Omega_0*x) at time n */
+  Real M1e, dM2e, dM3e;   /* M1, dM2/3 evolved by dt/2  */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2;
+  Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
+  Real fact, qom, om_dt = Omega_0*pG->dt;
+#endif /* SHEARING_BOX */
 #ifdef STATIC_MESH_REFINEMENT
   int ncg,npg,dim;
   int ii,ics,ice,jj,jcs,jce,ips,ipe,jps,jpe;
@@ -115,6 +135,21 @@ void integrate_2d_vl(DomainS *pD)
   int il=is-(nghost-1), iu=ie+(nghost-1);
   int jl=js-(nghost-1), ju=je+(nghost-1);
 
+#ifdef CYLINDRICAL
+  Real Ekin,Emag,Ptot,B2sq;
+  const Real *r=pG->r,*ri=pG->ri;
+#ifdef FARGO
+  Real Om,qshear;
+#endif
+#endif
+  Real lsf=1.0,rsf=1.0,g;
+  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2;
+
+#if defined(CYLINDRICAL) && defined(FARGO)
+  if (OrbitalProfile==NULL || ShearProfile==NULL)
+    ath_error("[integrate_2d_vl]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
+#endif
+
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;
 
@@ -122,8 +157,8 @@ void integrate_2d_vl(DomainS *pD)
     for (i=is-nghost; i<=ie+nghost; i++) {
       Uhalf[j][i] = pG->U[ks][j][i];
 #ifdef MHD
-      B1_x1Face[j][i] = pG->B1i[ks][j][i]; 
-      B2_x2Face[j][i] = pG->B2i[ks][j][i]; 
+      B1_x1Face[j][i] = pG->B1i[ks][j][i];
+      B2_x2Face[j][i] = pG->B2i[ks][j][i];
 #endif /* MHD */
     }
   }
@@ -262,9 +297,15 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
+#ifdef CYLINDRICAL
+      hdtodx2 = hdt/(ri[i]*pG->dx2);
+#endif
       B1_x1Face[j][i] -= hdtodx2*(emf3[j+1][i  ] - emf3[j][i]);
       B2_x2Face[j][i] += hdtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
+#ifdef CYLINDRICAL
+    hdtodx2 = hdt/(ri[iu+1]*pG->dx2);
+#endif
     B1_x1Face[j][iu+1] -= hdtodx2*(emf3[j+1][iu+1]-emf3[j][iu+1]);
   }
   for (i=il; i<=iu; i++) {
@@ -278,8 +319,11 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
-      Uhalf[j][i].B1c = 0.5*(B1_x1Face[j][i] + B1_x1Face[j][i+1]);
-      Uhalf[j][i].B2c = 0.5*(B2_x2Face[j][i] + B2_x2Face[j+1][i]);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      Uhalf[j][i].B1c = 0.5*(lsf*B1_x1Face[j][i] + rsf*B1_x1Face[j][i+1]);
+      Uhalf[j][i].B2c = 0.5*(    B2_x2Face[j][i] +     B2_x2Face[j+1][i]);
     }
   }
 #endif /* MHD */
@@ -292,19 +336,22 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
-      Uhalf[j][i].d   -= hdtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
-      Uhalf[j][i].M1  -= hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
-      Uhalf[j][i].M2  -= hdtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
-      Uhalf[j][i].M3  -= hdtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      Uhalf[j][i].d   -= hdtodx1*(rsf*x1Flux[j][i+1].d  - lsf*x1Flux[j][i].d );
+      Uhalf[j][i].M1  -= hdtodx1*(rsf*x1Flux[j][i+1].Mx - lsf*x1Flux[j][i].Mx);
+      Uhalf[j][i].M2  -= hdtodx1*(SQR(rsf)*x1Flux[j][i+1].My - SQR(lsf)*x1Flux[j][i].My);
+      Uhalf[j][i].M3  -= hdtodx1*(rsf*x1Flux[j][i+1].Mz - lsf*x1Flux[j][i].Mz);
 #ifndef BAROTROPIC
-      Uhalf[j][i].E   -= hdtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
+      Uhalf[j][i].E   -= hdtodx1*(rsf*x1Flux[j][i+1].E  - lsf*x1Flux[j][i].E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-      Uhalf[j][i].B3c -= hdtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+      Uhalf[j][i].B3c -= hdtodx1*(rsf*x1Flux[j][i+1].Bz - lsf*x1Flux[j][i].Bz);
 #endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        Uhalf[j][i].s[n] -= hdtodx1*(x1Flux[j][i+1].s[n] - x1Flux[j][i].s[n]);
+        Uhalf[j][i].s[n] -= hdtodx1*(rsf*x1Flux[j][i+1].s[n] - lsf*x1Flux[j][i].s[n]);
 #endif
     }
   }
@@ -315,6 +362,9 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
+#ifdef CYLINDRICAL
+      hdtodx2 = hdt/(r[i]*pG->dx2);
+#endif
       Uhalf[j][i].d   -= hdtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
       Uhalf[j][i].M1  -= hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
       Uhalf[j][i].M2  -= hdtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
@@ -365,10 +415,18 @@ void integrate_2d_vl(DomainS *pD)
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-        Uhalf[j][i].M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+        g = (phir-phil)*dx1i;
+#ifdef CYLINDRICAL
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        hdtodx2 = hdt/(r[i]*pG->dx2);
+#ifdef FARGO
+        g -= r[i]*SQR((*OrbitalProfile)(r[i]));
+#endif
+#endif /* CYLINDRICAL */
+        Uhalf[j][i].M1 -= hdt*pG->U[ks][j][i].d*g;
 #ifndef BAROTROPIC
-        Uhalf[j][i].E -= hdtodx1*(x1Flux[j][i  ].d*(phic - phil)
-                           + x1Flux[j][i+1].d*(phir - phic));
+        Uhalf[j][i].E -= hdtodx1*(lsf*x1Flux[j][i  ].d*(phic - phil)
+                                + rsf*x1Flux[j][i+1].d*(phir - phic));
 #endif
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -410,6 +468,111 @@ void integrate_2d_vl(DomainS *pD)
     }
   }
 #endif /* SELF_GRAVITY */
+
+/*--- Step 6c -----------------------------------------------------------
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+ * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
+ */
+
+#ifdef SHEARING_BOX
+  if (ShearingBoxPot != NULL){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        phic = (*ShearingBoxPot)((x1            ),x2,x3);
+        phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+
+        Uhalf[j][i].M1 -= hdtodx1*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef BAROTROPIC
+        Uhalf[j][i].E -= hdtodx1*(x1Flux[j][i  ].d*(phic - phil)
+                                + x1Flux[j][i+1].d*(phir - phic));
+#endif
+        phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+
+        Uhalf[j][i].M2 -= hdtodx2*(phir-phil)*pG->U[ks][j][i].d;
+#ifndef BAROTROPIC
+        Uhalf[j][i].E -= hdtodx2*(x2Flux[j  ][i].d*(phic - phil)
+                                + x2Flux[j+1][i].d*(phir - phic));
+#endif
+      }
+    }
+  }
+
+  if (ShBoxCoord == xz){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        Uhalf[j][i].M1 += om_dt*pG->U[ks][j][i].M3;
+#ifdef FARGO
+        Uhalf[j][i].M3 += 0.5*om_dt*(qshear-2.)*pG->U[ks][j][i].M1;
+#else /* FARGO */
+        Uhalf[j][i].M3 -= om_dt*pG->U[ks][j][i].M1;
+#endif /* FARGO */
+      }
+    }
+  }
+
+  if (ShBoxCoord == xy){
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        Uhalf[j][i].M1 += om_dt*pG->U[ks][j][i].M2;
+#ifdef FARGO
+        Uhalf[j][i].M2 += 0.5*om_dt*(qshear-2.)*pG->U[ks][j][i].M1;
+#else /* FARGO */
+        Uhalf[j][i].M2 -= om_dt*pG->U[ks][j][i].M1;
+#endif /* FARGO */
+      }
+    }
+  }
+#endif /* SHEARING_BOX */
+
+#if defined(CYLINDRICAL) && defined(FARGO)
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+      Om = (*OrbitalProfile)(r[i]);
+      qshear = (*ShearProfile)(r[i]);
+      /* This *is* a half-timestep update below (see note above) */
+      Uhalf[j][i].M1 += pG->dt*Om*pG->U[ks][j][i].M2;
+      Uhalf[j][i].M2 += hdt*(qshear - 2.0)*Om*pG->U[ks][j][i].M1;
+    }
+  }
+#endif
+
+/*--- Step 6d ------------------------------------------------------------------
+ * Add the geometric source-term now using cell-centered conserved variables
+ *   at time t^n 
+ */
+
+#ifdef CYLINDRICAL
+  for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+
+      Ekin = 0.5*(SQR(pG->U[ks][j][i].M1)+SQR(pG->U[ks][j][i].M2)+SQR(pG->U[ks][j][i].M3))/pG->U[ks][j][i].d;
+#ifdef MHD
+      B2sq = SQR(pG->U[ks][j][i].B2c);
+      Emag = 0.5*(SQR(pG->U[ks][j][i].B1c) + B2sq + SQR(pG->U[ks][j][i].B3c));
+#else
+      B2sq = 0.0;
+      Emag = 0.0;
+#endif
+
+#ifdef ISOTHERMAL
+      Ptot = Iso_csound2*pG->U[ks][j][i].d;
+#else
+      Ptot = Gamma_1*(pG->U[ks][j][i].E - Ekin - Emag);
+#endif
+      Ptot = MAX(Ptot,TINY_NUMBER);
+      Ptot += Emag;
+
+      Uhalf[j][i].M1 += hdt*(SQR(pG->U[ks][j][i].M2)/pG->U[ks][j][i].d - B2sq + Ptot)/r[i];
+    }
+  }
+#endif /* CYLINDRICAL */
+
 
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
 
@@ -488,7 +651,10 @@ void integrate_2d_vl(DomainS *pD)
       W1d[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
     }
 
-    lr_states(pG,W1d,Bxc,pG->dt,pG->dx2,js,je,Wl,Wr,2);
+#ifdef CYLINDRICAL
+    dx2 = r[i]*pG->dx2;
+#endif
+    lr_states(pG,W1d,Bxc,pG->dt,dx2,js,je,Wl,Wr,2);
 
     for (j=js; j<=je+1; j++) {
       Wl_x2Face[j][i] = Wl[j];
@@ -570,7 +736,6 @@ void integrate_2d_vl(DomainS *pD)
         NaNFlux++;
       }
 #endif
-
     }
   }
 
@@ -611,7 +776,6 @@ void integrate_2d_vl(DomainS *pD)
         NaNFlux++;
       }
 #endif
-
     }
   }
 
@@ -621,10 +785,10 @@ void integrate_2d_vl(DomainS *pD)
     NaNFlux=0;
   }
 #endif
-  
+
 
 /*=== STEP 11: Update face-centered B for a full timestep ====================*/
-        
+
 /*--- Step 11a -----------------------------------------------------------------
  * Calculate the cell centered value of emf1,2,3 at the half-time-step.
  */
@@ -649,9 +813,15 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+      dtodx2 = pG->dt/(ri[i]*pG->dx2);
+#endif
       pG->B1i[ks][j][i] -= dtodx2*(emf3[j+1][i  ] - emf3[j][i]);
       pG->B2i[ks][j][i] += dtodx1*(emf3[j  ][i+1] - emf3[j][i]);
     }
+#ifdef CYLINDRICAL
+    dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
+#endif
     pG->B1i[ks][j][ie+1] -= dtodx2*(emf3[j+1][ie+1] - emf3[j][ie+1]);
   }
   for (i=is; i<=ie; i++) {
@@ -664,8 +834,11 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i]+pG->B1i[ks][j][i+1]);
-      pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i]+pG->B2i[ks][j+1][i]);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      pG->U[ks][j][i].B1c = 0.5*(lsf*pG->B1i[ks][j][i] + rsf*pG->B1i[ks][j][i+1]);
+      pG->U[ks][j][i].B2c = 0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
     }
   }
 #endif /* MHD */
@@ -673,11 +846,112 @@ void integrate_2d_vl(DomainS *pD)
 /*=== STEP 12: Add source terms for a full timestep using n+1/2 states =======*/
        
 /*--- Step 12a -----------------------------------------------------------------
- * Add gravitational source terms due to a Static Potential
- * To improve conservation of total energy, we average the energy
- * source term computed at cell faces.
+ * Add gravitational (or shearing box) source terms as a Static Potential.
+ *   A Crank-Nicholson update is used for shearing box terms.
+ *   The energy source terms computed at cell faces are averaged to improve
+ * conservation of total energy.
  *    S_{M} = -(\rho)^{n+1/2} Grad(Phi);   S_{E} = -(\rho v)^{n+1/2} Grad{Phi}
  */
+
+#ifdef SHEARING_BOX
+  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+  qom = qshear*Omega_0;
+  for(j=js; j<=je; j++) {
+    for(i=is; i<=ie; i++) {
+      cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+
+/* Store the current state */
+      M1n  = pG->U[ks][j][i].M1;
+#ifdef FARGO
+      if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2;
+      if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3;
+#else
+      if (ShBoxCoord==xy) dM2n = pG->U[ks][j][i].M2 + qom*x1*pG->U[ks][j][i].d;
+      if (ShBoxCoord==xz) dM3n = pG->U[ks][j][i].M3 + qom*x1*pG->U[ks][j][i].d;
+#endif
+
+/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
+      if (ShBoxCoord==xy){
+        frx1_dM2 = x1Flux[j][i+1].My;
+        flx1_dM2 = x1Flux[j][i  ].My;
+        frx2_dM2 = x2Flux[j+1][i].Mx;
+        flx2_dM2 = x2Flux[j  ][i].Mx;
+      }
+      if (ShBoxCoord==xz){
+        frx1_dM3 = x1Flux[j][i+1].Mz;
+        flx1_dM3 = x1Flux[j][i  ].Mz;
+        frx2_dM3 = x2Flux[j+1][i].My;
+        flx2_dM3 = x2Flux[j  ][i].My;
+      }
+#ifndef FARGO
+      if (ShBoxCoord==xy){
+        frx1_dM2 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+        flx1_dM2 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+        frx2_dM2 += qom*(x1            )*x2Flux[j+1][i].d;
+        flx2_dM2 += qom*(x1            )*x2Flux[j  ][i].d;
+      }
+      if (ShBoxCoord==xz){
+        frx1_dM3 += qom*(x1+0.5*pG->dx1)*x1Flux[j][i+1].d;
+        flx1_dM3 += qom*(x1-0.5*pG->dx1)*x1Flux[j][i  ].d;
+        frx2_dM3 += qom*(x1            )*x2Flux[j+1][i].d;
+        flx2_dM3 += qom*(x1            )*x2Flux[j  ][i].d;
+      }
+#endif
+
+/* evolve M1n and dM3n by dt/2 using flux gradients */
+      M1e = M1n - hdtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx)
+                - hdtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
+
+      if (ShBoxCoord==xy){
+        dM2e = dM2n - hdtodx1*(frx1_dM2 - flx1_dM2)
+                    - hdtodx2*(frx2_dM2 - flx2_dM2);
+      }
+      if (ShBoxCoord==xz){
+        dM3e = dM3n - hdtodx1*(frx1_dM3 - flx1_dM3)
+                    - hdtodx2*(frx2_dM3 - flx2_dM3);
+      }
+
+
+/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
+ * for the Coriolis and tidal potential source terms using a Crank-Nicholson
+ * discretization for the momentum fluctuation equation. */
+
+      if (ShBoxCoord==xy){
+        pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+        pG->U[ks][j][i].M2 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+      }
+      if (ShBoxCoord==xz){
+        pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+        pG->U[ks][j][i].M3 -=0.5*qshear*om_dt*(x1Flux[j][i].d+x1Flux[j][i+1].d);
+#endif
+      }
+
+/* Update the energy for a fixed potential.
+ * This update is identical to non-SHEARING_BOX below  */
+
+      phic = (*ShearingBoxPot)((x1            ),x2,x3);
+      phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+      phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+#ifndef BAROTROPIC
+      pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil) +
+                                   x1Flux[j][i+1].d*(phir - phic));
+#endif
+
+      phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+      phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+#ifndef BAROTROPIC
+      pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
+                                   x2Flux[j+1][i].d*(phir - phic));
+#endif
+    }
+  }
+#endif /* SHEARING_BOX */
+
 
   if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
@@ -687,10 +961,18 @@ void integrate_2d_vl(DomainS *pD)
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-        pG->U[ks][j][i].M1 -= dtodx1*(phir-phil)*Uhalf[j][i].d;
+        g = (phir-phil)*dx1i;
+#ifdef CYLINDRICAL
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dtodx2 = pG->dt/(r[i]*pG->dx2);
+#ifdef FARGO
+        g -= r[i]*SQR((*OrbitalProfile)(r[i]));
+#endif
+#endif
+        pG->U[ks][j][i].M1 -= pG->dt*Uhalf[j][i].d*g;
 #ifndef BAROTROPIC
-        pG->U[ks][j][i].E -= dtodx1*(x1Flux[j][i  ].d*(phic - phil)
-                                   + x1Flux[j][i+1].d*(phir - phic));
+        pG->U[ks][j][i].E -= dtodx1*(lsf*x1Flux[j][i  ].d*(phic - phil)
+                                   + rsf*x1Flux[j][i+1].d*(phir - phic));
 #endif
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -783,11 +1065,51 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie+1; i++) {
-      pG->x1MassFlux[j][i] = x1Flux[j][i].d;
-      pG->x2MassFlux[j][i] = x2Flux[j][i].d;
+      pG->x1MassFlux[ks][j][i] = x1Flux[j][i].d;
+      pG->x2MassFlux[ks][j][i] = x2Flux[j][i].d;
     }
   }
 #endif /* SELF_GRAVITY */
+
+/*--- Step 12c -----------------------------------------------------------------
+ * Add the geometric source-term now using cell-centered conserved variables
+ *   at time t^{n+1/2}
+ */
+
+#ifdef CYLINDRICAL
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+
+      Ekin = 0.5*(SQR(Uhalf[j][i].M1)+SQR(Uhalf[j][i].M2)+SQR(Uhalf[j][i].M3))/Uhalf[j][i].d;
+#ifdef MHD
+      B2sq = SQR(Uhalf[j][i].B2c);
+      Emag = 0.5*(SQR(Uhalf[j][i].B1c) + B2sq + SQR(Uhalf[j][i].B3c));
+#else
+      B2sq = 0.0;
+      Emag = 0.0;
+#endif
+
+#ifdef ISOTHERMAL
+      Ptot = Iso_csound2*Uhalf[j][i].d;
+#else
+      Ptot = Gamma_1*(Uhalf[j][i].E - Ekin - Emag);
+#endif
+      Ptot = MAX(Ptot,TINY_NUMBER);
+      Ptot += Emag;
+
+      pG->U[ks][j][i].M1 += pG->dt*(SQR(Uhalf[j][i].M2)/Uhalf[j][i].d - B2sq + Ptot)/r[i];
+
+#ifdef FARGO
+      /* Use average values to apply source terms for full time-step */
+      Om = (*OrbitalProfile)(r[i]);
+      qshear = (*ShearProfile)(r[i]);
+      pG->U[ks][j][i].M1 += pG->dt*(2.0*Om*Uhalf[j][i].M2);
+      pG->U[ks][j][i].M2 += pG->dt*(Om*(qshear-2.0)*Uhalf[j][i].M1);
+#endif /* FARGO */
+    }
+  }
+#endif /* CYLINDRICAL */
+
 
 /*=== STEP 13: Update cell-centered values for a full timestep ===============*/
 
@@ -797,20 +1119,23 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[ks][j][i].d   -= dtodx1*(x1Flux[j][i+1].d  - x1Flux[j][i].d );
-      pG->U[ks][j][i].M1  -= dtodx1*(x1Flux[j][i+1].Mx - x1Flux[j][i].Mx);
-      pG->U[ks][j][i].M2  -= dtodx1*(x1Flux[j][i+1].My - x1Flux[j][i].My);
-      pG->U[ks][j][i].M3  -= dtodx1*(x1Flux[j][i+1].Mz - x1Flux[j][i].Mz);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      pG->U[ks][j][i].d   -= dtodx1*(rsf*x1Flux[j][i+1].d  - lsf*x1Flux[j][i].d );
+      pG->U[ks][j][i].M1  -= dtodx1*(rsf*x1Flux[j][i+1].Mx - lsf*x1Flux[j][i].Mx);
+      pG->U[ks][j][i].M2  -= dtodx1*(SQR(rsf)*x1Flux[j][i+1].My - SQR(lsf)*x1Flux[j][i].My);
+      pG->U[ks][j][i].M3  -= dtodx1*(rsf*x1Flux[j][i+1].Mz - lsf*x1Flux[j][i].Mz);
 #ifndef BAROTROPIC
-      pG->U[ks][j][i].E   -= dtodx1*(x1Flux[j][i+1].E  - x1Flux[j][i].E );
+      pG->U[ks][j][i].E   -= dtodx1*(rsf*x1Flux[j][i+1].E  - lsf*x1Flux[j][i].E );
 #endif /* BAROTROPIC */
 #ifdef MHD
-      pG->U[ks][j][i].B3c -= dtodx1*(x1Flux[j][i+1].Bz - x1Flux[j][i].Bz);
+      pG->U[ks][j][i].B3c -= dtodx1*(rsf*x1Flux[j][i+1].Bz - lsf*x1Flux[j][i].Bz);
 #endif /* MHD */
 #if (NSCALARS > 0)
       for (n=0; n<NSCALARS; n++)
-        pG->U[ks][j][i].s[n] -= dtodx1*(x1Flux[j][i+1].s[n]
-                                      - x1Flux[j][i  ].s[n]);
+        pG->U[ks][j][i].s[n] -= dtodx1*(rsf*x1Flux[j][i+1].s[n]
+                                      - lsf*x1Flux[j][i  ].s[n]);
 #endif
     }
   }
@@ -821,6 +1146,9 @@ void integrate_2d_vl(DomainS *pD)
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+      dtodx2 = pG->dt/(r[i]*pG->dx2);
+#endif
       pG->U[ks][j][i].d   -= dtodx2*(x2Flux[j+1][i].d  - x2Flux[j][i].d );
       pG->U[ks][j][i].M1  -= dtodx2*(x2Flux[j+1][i].Mz - x2Flux[j][i].Mz);
       pG->U[ks][j][i].M2  -= dtodx2*(x2Flux[j+1][i].Mx - x2Flux[j][i].Mx);
@@ -839,6 +1167,18 @@ void integrate_2d_vl(DomainS *pD)
     }
   }
 
+/*--- Step 13c -----------------------------------------------------------------
+ * Update interface centered B3 (for completeness)
+ */
+#ifdef MHD
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
+    }
+  }
+#endif /* MHD */
+
+
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*=== STEP 14: First-order flux correction ===================================*/
 
@@ -855,6 +1195,7 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.k = ks;
         negd++;
       }
+#ifndef ISOTHERMAL
       if (W.P < 0.0) {
         flag_cell = 1;
         BadCell.i = i;
@@ -862,6 +1203,7 @@ void integrate_2d_vl(DomainS *pD)
         BadCell.k = ks;
         negP++;
       }
+#endif
       if (flag_cell != 0) {
         FixCell(pG, BadCell);
         flag_cell=0;
@@ -870,7 +1212,7 @@ void integrate_2d_vl(DomainS *pD)
   }
 
   if (negd > 0 || negP > 0)
-    printf("[Step14]: %i cells had d<0; %i cells had P<0\n",negd,negP);
+    printf("[Step14]: at t=%g; %i cells had d<0; %i cells had P<0\n",pG->time,negd,negP);
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -1040,8 +1382,8 @@ void integrate_2d_vl(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_2d: Allocate temporary integration arrays */
-
+/*! \fn void integrate_init_2d(MeshS *pM)
+ *  \brief Allocate temporary integration arrays */
 void integrate_init_2d(MeshS *pM)
 {
   int nmax,size1=0,size2=0,nl,nd;
@@ -1126,8 +1468,8 @@ void integrate_init_2d(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_2d:  Free temporary integration arrays */
-
+/*! \fn void integrate_destruct_2d(void) 
+ *  \brief Free temporary integration arrays */
 void integrate_destruct_2d(void)
 {
 #ifdef MHD
@@ -1174,12 +1516,14 @@ void integrate_destruct_2d(void)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* integrate_emf3_corner()
- *   Integrates face centered B-fluxes to compute corner EMFs.  Note:
- *   x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
- *   x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
- *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
- *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
+/*! \fn static void integrate_emf3_corner(GridS *pG)
+ *  \brief Integrates face centered B-fluxes to compute corner EMFs.
+ *
+ *   Note:
+ *  - x1Flux.By = VxBy - BxVy = v1*b2-b1*v2 = -EMFZ
+ *  - x1Flux.Bz = VxBz - BxVz = v1*b3-b1*v3 = EMFY
+ *  - x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
+ *  - x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
  */ 
 
 #ifdef MHD
@@ -1187,6 +1531,7 @@ static void integrate_emf3_corner(GridS *pG)
 {
   int i,il,iu,j,jl,ju;
   Real emf_l1, emf_r1, emf_l2, emf_r2;
+  Real rsf=1.0,lsf=1.0;
 
   il = pG->is-(nghost-1);   iu = pG->ie+(nghost-1);
   jl = pG->js-(nghost-1);   ju = pG->je+(nghost-1);
@@ -1194,32 +1539,35 @@ static void integrate_emf3_corner(GridS *pG)
 /* NOTE: The x1-Flux of B2 is -E3.  The x2-Flux of B1 is +E3. */
   for (j=jl; j<=ju+1; j++) {
     for (i=il; i<=iu+1; i++) {
+#ifdef CYLINDRICAL
+      rsf = pG->ri[i]/pG->r[i];  lsf = pG->ri[i]/pG->r[i-1];
+#endif
       if (x1Flux[j-1][i].d > 0.0) {
         emf_l2 = -x1Flux[j-1][i].By
-          + (x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1]);
+          + (x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1])*lsf;
       }
       else if (x1Flux[j-1][i].d < 0.0) {
         emf_l2 = -x1Flux[j-1][i].By
-          + (x2Flux[j][i].Bz - emf3_cc[j-1][i]);
+          + (x2Flux[j][i].Bz - emf3_cc[j-1][i])*rsf;
 
       } else {
         emf_l2 = -x1Flux[j-1][i].By
-          + 0.5*(x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1] +
-                 x2Flux[j][i  ].Bz - emf3_cc[j-1][i  ] );
+          + 0.5*((x2Flux[j][i-1].Bz - emf3_cc[j-1][i-1])*lsf +
+                 (x2Flux[j][i  ].Bz - emf3_cc[j-1][i  ])*rsf );
       }
 
       if (x1Flux[j][i].d > 0.0) {
         emf_r2 = -x1Flux[j][i].By
-          + (x2Flux[j][i-1].Bz - emf3_cc[j][i-1]);
+          + (x2Flux[j][i-1].Bz - emf3_cc[j][i-1])*lsf;
       }
       else if (x1Flux[j][i].d < 0.0) {
         emf_r2 = -x1Flux[j][i].By
-          + (x2Flux[j][i].Bz - emf3_cc[j][i]);
+          + (x2Flux[j][i].Bz - emf3_cc[j][i])*rsf;
 
       } else {
         emf_r2 = -x1Flux[j][i].By
-          + 0.5*(x2Flux[j][i-1].Bz - emf3_cc[j][i-1] +
-                 x2Flux[j][i  ].Bz - emf3_cc[j][i  ] );
+          + 0.5*((x2Flux[j][i-1].Bz - emf3_cc[j][i-1])*lsf +
+                 (x2Flux[j][i  ].Bz - emf3_cc[j][i  ])*rsf );
       }
 
       if (x2Flux[j][i-1].d > 0.0) {
@@ -1258,18 +1606,17 @@ static void integrate_emf3_corner(GridS *pG)
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*----------------------------------------------------------------------------*/
-/* FixCell() - uses first order fluxes to fix negative d,P or superluminal v
+/*! \fn static void FixCell(GridS *pG, Int3Vect ix)
+ *  \brief Uses first order fluxes to fix negative d,P or superluminal v
  */ 
-
 static void FixCell(GridS *pG, Int3Vect ix)
 {
   int ks=pG->ks;
-  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2;
-  Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1;
+  int n;
 #ifdef MHD
   int i,j;
-  Real emf3D_ji, emf3D_jip1, emf3D_jp1i, emf3D_jp1ip1;
 #endif
+  Real rsf=1.0,lsf=1.0;
 
 /* Compute difference of predictor and corrector fluxes at cell faces */
 
@@ -1305,6 +1652,15 @@ static void FixCell(GridS *pG, Int3Vect ix)
   x2FD_jp1.E = x2Flux[ix.j+1][ix.i].E - x2FluxP[ix.j+1][ix.i].E;
 #endif /* BAROTROPIC */
 
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++){
+    x1FD_i.s[n] = x1Flux[ix.j][ix.i].s[n] - x1FluxP[ix.j][ix.i].s[n];
+    x2FD_j.s[n] = x2Flux[ix.j][ix.i].s[n] - x2FluxP[ix.j][ix.i].s[n];
+    x1FD_ip1.s[n] = x1Flux[ix.j][ix.i+1].s[n] - x1FluxP[ix.j][ix.i+1].s[n];
+    x2FD_jp1.s[n] = x2Flux[ix.j+1][ix.i].s[n] - x2FluxP[ix.j+1][ix.i].s[n];
+  }
+#endif
+
 #ifdef MHD
   x1FD_i.Bz = x1Flux[ix.j][ix.i].Bz - x1FluxP[ix.j][ix.i].Bz;
   x2FD_j.By = x2Flux[ix.j][ix.i].By - x2FluxP[ix.j][ix.i].By;
@@ -1320,125 +1676,261 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
 /* Use flux differences to correct bad cell-centered quantities */
 
-  pG->U[ks][ix.j][ix.i].d  += dtodx1*(x1FD_ip1.d  - x1FD_i.d );
-  pG->U[ks][ix.j][ix.i].M1 += dtodx1*(x1FD_ip1.Mx - x1FD_i.Mx);
-  pG->U[ks][ix.j][ix.i].M2 += dtodx1*(x1FD_ip1.My - x1FD_i.My);
-  pG->U[ks][ix.j][ix.i].M3 += dtodx1*(x1FD_ip1.Mz - x1FD_i.Mz);
-#ifndef BAROTROPIC
-  pG->U[ks][ix.j][ix.i].E  += dtodx1*(x1FD_ip1.E  - x1FD_i.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-  pG->U[ks][ix.j][ix.i].B3c += dtodx1*(x1FD_ip1.Bz - x1FD_i.Bz);
-#endif /* MHD */
-
-  pG->U[ks][ix.j][ix.i].d  += dtodx2*(x2FD_jp1.d  - x2FD_j.d );
-  pG->U[ks][ix.j][ix.i].M1 += dtodx2*(x2FD_jp1.Mz - x2FD_j.Mz);
-  pG->U[ks][ix.j][ix.i].M2 += dtodx2*(x2FD_jp1.Mx - x2FD_j.Mx);
-  pG->U[ks][ix.j][ix.i].M3 += dtodx2*(x2FD_jp1.My - x2FD_j.My);
-#ifndef BAROTROPIC
-  pG->U[ks][ix.j][ix.i].E  += dtodx2*(x2FD_jp1.E  - x2FD_j.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-  pG->U[ks][ix.j][ix.i].B3c += dtodx2*(x2FD_jp1.By - x2FD_j.By);
-#endif /* MHD */
+  ApplyCorr(pG,ix.i,ix.j,1,1,1,1);
+ 
+#ifdef SELF_GRAVITY
+/* Save mass fluxes in Grid structure for source term correction in main loop */
+  pG->x1MassFlux[ks][ix.j][ix.i] = x1FluxP[ix.j][ix.i].d;
+  pG->x2MassFlux[ks][ix.j][ix.i] = x2FluxP[ix.j][ix.i].d;
+  pG->x1MassFlux[ks][ix.j][ix.i+1] = x1FluxP[ix.j][ix.i+1].d;
+  pG->x2MassFlux[ks][ix.j+1][ix.i] = x2FluxP[ix.j+1][ix.i].d;
+#endif /* SELF_GRAVITY */
 
 /* Use flux differences to correct cell-centered values at i-1 and i+1 */
 
-  if (ix.i > pG->is) {
-    pG->U[ks][ix.j][ix.i-1].d  += dtodx1*(x1FD_i.d );
-    pG->U[ks][ix.j][ix.i-1].M1 += dtodx1*(x1FD_i.Mx);
-    pG->U[ks][ix.j][ix.i-1].M2 += dtodx1*(x1FD_i.My);
-    pG->U[ks][ix.j][ix.i-1].M3 += dtodx1*(x1FD_i.Mz);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i-1].E  += dtodx1*(x1FD_i.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-    pG->U[ks][ix.j][ix.i-1].B3c += dtodx1*(x1FD_i.Bz);
-#endif /* MHD */
-  }
-
-  if (ix.i < pG->ie) {
-    pG->U[ks][ix.j][ix.i+1].d  -= dtodx1*(x1FD_ip1.d );
-    pG->U[ks][ix.j][ix.i+1].M1 -= dtodx1*(x1FD_ip1.Mx);
-    pG->U[ks][ix.j][ix.i+1].M2 -= dtodx1*(x1FD_ip1.My);
-    pG->U[ks][ix.j][ix.i+1].M3 -= dtodx1*(x1FD_ip1.Mz);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j][ix.i+1].E  -= dtodx1*(x1FD_ip1.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-    pG->U[ks][ix.j][ix.i+1].B3c -= dtodx1*(x1FD_ip1.Bz);
-#endif /* MHD */
-  }
+  if (ix.i > pG->is) ApplyCorr(pG,ix.i-1,ix.j,-1,0,0,0);
+  if (ix.i < pG->ie) ApplyCorr(pG,ix.i+1,ix.j,0,-1,0,0);
 
 /* Use flux differences to correct cell-centered values at j-1 and j+1 */
 
-  if (ix.j > pG->js) {
-    pG->U[ks][ix.j-1][ix.i].d  += dtodx2*(x2FD_j.d );
-    pG->U[ks][ix.j-1][ix.i].M1 += dtodx2*(x2FD_j.Mz);
-    pG->U[ks][ix.j-1][ix.i].M2 += dtodx2*(x2FD_j.Mx);
-    pG->U[ks][ix.j-1][ix.i].M3 += dtodx2*(x2FD_j.My);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j-1][ix.i].E  += dtodx2*(x2FD_j.E );
-#endif /* BAROTROPIC */
+  if (ix.j > pG->js) ApplyCorr(pG,ix.i,ix.j-1,0,0,-1,0);
+  if (ix.j < pG->je) ApplyCorr(pG,ix.i,ix.j+1,0,0,0,-1);
+
 #ifdef MHD
-    pG->U[ks][ix.j-1][ix.i].B3c += dtodx2*(x2FD_j.By);
-#endif /* MHD */
-  }
-
-  if (ix.j < pG->je) {
-    pG->U[ks][ix.j+1][ix.i].d  -= dtodx2*(x2FD_jp1.d );
-    pG->U[ks][ix.j+1][ix.i].M1 -= dtodx2*(x2FD_jp1.Mz);
-    pG->U[ks][ix.j+1][ix.i].M2 -= dtodx2*(x2FD_jp1.Mx);
-    pG->U[ks][ix.j+1][ix.i].M3 -= dtodx2*(x2FD_jp1.My);
-#ifndef BAROTROPIC
-    pG->U[ks][ix.j+1][ix.i].E  -= dtodx2*(x2FD_jp1.E );
-#endif /* BAROTROPIC */
-#ifdef MHD
-    pG->U[ks][ix.j+1][ix.i].B3c -= dtodx2*(x2FD_jp1.By);
-#endif /* MHD */
-  }
-
-/* Use emf3 difference to correct face-centered fields on edges of bad cell */
-#ifdef MHD
-  pG->B1i[ks][ix.j][ix.i  ] += dtodx2*(emf3D_jp1i   - emf3D_ji);
-  pG->B1i[ks][ix.j][ix.i+1] += dtodx2*(emf3D_jp1ip1 - emf3D_jip1);
-  pG->B2i[ks][ix.j  ][ix.i] -= dtodx1*(emf3D_jip1   - emf3D_ji);
-  pG->B2i[ks][ix.j+1][ix.i] -= dtodx1*(emf3D_jp1ip1 - emf3D_jp1i);
-
-/* Use emf3 difference to correct face-centered fields around bad cell */
-  if (ix.j > pG->js) {
-    pG->B1i[ks][ix.j-1][ix.i  ] -= dtodx2*(emf3D_ji);
-    pG->B1i[ks][ix.j-1][ix.i+1] -= dtodx2*(emf3D_jip1);
-  }
-  if (ix.j < pG->je) {
-    pG->B1i[ks][ix.j+1][ix.i  ] += dtodx2*(emf3D_jp1i);
-    pG->B1i[ks][ix.j+1][ix.i+1] += dtodx2*(emf3D_jp1ip1);
-  }
-
-  if (ix.i > pG->is) {
-    pG->B2i[ks][ix.j  ][ix.i-1] += dtodx1*(emf3D_ji);
-    pG->B2i[ks][ix.j+1][ix.i-1] += dtodx1*(emf3D_jp1i);
-  }
-  if (ix.i < pG->ie) {
-    pG->B2i[ks][ix.j  ][ix.i+1] -= dtodx1*(emf3D_jip1);
-    pG->B2i[ks][ix.j+1][ix.i+1] -= dtodx1*(emf3D_jp1ip1);
-  }
-
 /* compute new cell-centered fields */
   for (j=(ix.j-1); j<=(ix.j+1); j++) {
   for (i=(ix.i-1); i<=(ix.i+1); i++) {
-    pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j][i+1]);
-    pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j+1][i]);
+#ifdef CYLINDRICAL
+    rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
+#endif
+    pG->U[ks][j][i].B1c = 0.5*(lsf*pG->B1i[ks][j][i] + rsf*pG->B1i[ks][j][i+1]);
+    pG->U[ks][j][i].B2c = 0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
+    pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;  /* for completeness */
   }}
 #endif /* MHD */
 
-#ifdef STATIC_MESH_REFINEMENT
-/* With SMR, replace higher-order fluxes with predict fluxes in case they are
- * used at fine/coarse grid boundaries */ 
+// #ifdef STATIC_MESH_REFINEMENT
+// /* With SMR, replace higher-order fluxes with predict fluxes in case they are
+//  * used at fine/coarse grid boundaries */ 
+// 
+//   x1Flux[ix.j][ix.i] = x1FluxP[ix.j][ix.i];
+//   x2Flux[ix.j][ix.i] = x2FluxP[ix.j][ix.i];
+// #endif /* STATIC_MESH_REFINEMENT */
 
-  x1Flux[ix.j][ix.i] = x1FluxP[ix.j][ix.i];
-  x2Flux[ix.j][ix.i] = x2FluxP[ix.j][ix.i];
-#endif /* STATIC_MESH_REFINEMENT */
+/* Must replace higher-order fluxes/emfs with predict fluxes/emfs in case two
+ * adjacent cells are corrected.  Otherwise, flux/emf differences may get
+ * corrected more than once.  By overwriting the higher-order fluxes/emfs,
+ * the second time through, the differences will be zero. */
+  x1Flux[ix.j  ][ix.i  ] = x1FluxP[ix.j  ][ix.i  ];
+  x2Flux[ix.j  ][ix.i  ] = x2FluxP[ix.j  ][ix.i  ];
+  x1Flux[ix.j  ][ix.i+1] = x1FluxP[ix.j  ][ix.i+1];
+  x2Flux[ix.j+1][ix.i  ] = x2FluxP[ix.j+1][ix.i  ];
+#ifdef MHD
+  emf3[ix.j  ][ix.i  ] = emf3P[ix.j  ][ix.i  ];
+  emf3[ix.j  ][ix.i+1] = emf3P[ix.j  ][ix.i+1];
+  emf3[ix.j+1][ix.i  ] = emf3P[ix.j+1][ix.i  ];
+  emf3[ix.j+1][ix.i+1] = emf3P[ix.j+1][ix.i+1];
+#endif
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void ApplyCorr(GridS *pG, int i, int j, int lx1, int rx1, int lx2, int rx2)
+ *  \brief Uses first order fluxes to fix negative d,P or superluminal v
+ */ 
+static void ApplyCorr(GridS *pG, int i, int j,
+                      int lx1, int rx1, int lx2, int rx2)
+{
+  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
+  Real x1,x2,x3,phil,phir,phic;
+
+  int ks = pG->ks;
+  int n;
+#ifdef SHEARING_BOX
+  Real q1 = 0.5*dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
+  Real M1e, dM2e, dM3e; /* M1, dM2 evolved by dt/2 */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2;
+  Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
+  Real fact, qom, om_dt = Omega_0*pG->dt;
+#endif /* SHEARING_BOX */
+  Real rsf=1.0,lsf=1.0;
+
+#ifdef CYLINDRICAL
+  rsf = (rx1>0) ? pG->ri[i+1]/pG->r[i] : pG->ri[i  ]/pG->r[i];
+  lsf = (lx1>0) ? pG->ri[i  ]/pG->r[i] : pG->ri[i+1]/pG->r[i];
+  dtodx2 = pG->dt/(pG->r[i]*pG->dx2);
+#endif
+
+  pG->U[ks][j][i].d  += dtodx1*(rsf*rx1*x1FD_ip1.d  - lsf*lx1*x1FD_i.d );
+  pG->U[ks][j][i].M1 += dtodx1*(rsf*rx1*x1FD_ip1.Mx - lsf*lx1*x1FD_i.Mx);
+  pG->U[ks][j][i].M2 += dtodx1*(SQR(rsf)*rx1*x1FD_ip1.My - SQR(lsf)*lx1*x1FD_i.My);
+  pG->U[ks][j][i].M3 += dtodx1*(rsf*rx1*x1FD_ip1.Mz - lsf*lx1*x1FD_i.Mz);
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E  += dtodx1*(rsf*rx1*x1FD_ip1.E  - lsf*lx1*x1FD_i.E );
+#endif /* BAROTROPIC */
+#ifdef MHD
+  pG->U[ks][j][i].B3c += dtodx1*(rsf*rx1*x1FD_ip1.Bz - lsf*lx1*x1FD_i.Bz);
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[ks][j][i].s[n] += dtodx1*(rsf*rx1*x1FD_ip1.s[n] - lsf*lx1*x1FD_i.s[n]);
+#endif
+
+  pG->U[ks][j][i].d  += dtodx2*(rx2*x2FD_jp1.d  - lx2*x2FD_j.d );
+  pG->U[ks][j][i].M1 += dtodx2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz);
+  pG->U[ks][j][i].M2 += dtodx2*(rx2*x2FD_jp1.Mx - lx2*x2FD_j.Mx);
+  pG->U[ks][j][i].M3 += dtodx2*(rx2*x2FD_jp1.My - lx2*x2FD_j.My);
+#ifndef BAROTROPIC                                   
+  pG->U[ks][j][i].E  += dtodx2*(rx2*x2FD_jp1.E  - lx2*x2FD_j.E );
+#endif /* BAROTROPIC */
+#ifdef MHD
+  pG->U[ks][j][i].B3c += dtodx2*(rx2*x2FD_jp1.By - lx2*x2FD_j.By);
+#endif /* MHD */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++)
+    pG->U[ks][j][i].s[n] += dtodx2*(rx2*x2FD_jp1.s[n] - lx2*x2FD_j.s[n]);
+#endif
+
+#ifdef SHEARING_BOX
+  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+  qom = qshear*Omega_0;
+
+  cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+
+/* Calculate the flux for the y-momentum fluctuation (M3 in 2D) */
+  if (ShBoxCoord==xy){
+    frx1_dM2 = x1FD_ip1.My;
+    flx1_dM2 = x1FD_i.My;
+    frx2_dM2 = x2FD_jp1.Mx;
+    flx2_dM2 = x2FD_j.Mx;
+  }
+  if (ShBoxCoord==xz){
+    frx1_dM3 = x1FD_ip1.Mz;
+    flx1_dM3 = x1FD_i.Mz;
+    frx2_dM3 = x2FD_jp1.My;
+    flx2_dM3 = x2FD_j.My;
+  }
+#ifndef FARGO
+  if (ShBoxCoord==xy){
+    frx1_dM2 += qom*(x1+rx1*0.5*pG->dx1)*x1FD_ip1.d;
+    flx1_dM2 += qom*(x1-lx1*0.5*pG->dx1)*x1FD_i.d;
+    frx2_dM2 += qom*(x1            )*x2FD_jp1.d;
+    flx2_dM2 += qom*(x1            )*x2FD_j.d;
+  }
+  if (ShBoxCoord==xz){
+    frx1_dM3 += qom*(x1+rx1*0.5*pG->dx1)*x1FD_ip1.d;
+    flx1_dM3 += qom*(x1-lx1*0.5*pG->dx1)*x1FD_i.d;
+    frx2_dM3 += qom*(x1            )*x2FD_jp1.d;
+    flx2_dM3 += qom*(x1            )*x2FD_j.d;
+  }
+#endif
+
+
+/* Now evolve M1n and dM2n by dt/2 using Forward Euler */
+  M1e = q1*(rx1*x1FD_ip1.Mx - lx1*x1FD_i.Mx)
+      + q2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz);
+
+  if (ShBoxCoord==xy){
+    dM2e = q1*(rx1*frx1_dM2 - lx1*flx1_dM2)
+         + q2*(rx2*frx2_dM2 - lx2*flx2_dM2);
+  }
+  if (ShBoxCoord==xz){
+    dM3e = q1*(rx1*frx1_dM3 - lx1*flx1_dM3)
+         + q2*(rx2*frx2_dM3 - lx2*flx2_dM3);
+  }
+
+/* Update the 1- and 2-momentum (or 1- and 3-momentum in XZ 2D shearing box)
+ * for the Coriolis and tidal potential source terms using a Crank-Nicholson
+ * discretization for the momentum fluctuation equation. */
+
+  if (ShBoxCoord==xy){
+    pG->U[ks][j][i].M1 += (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+    pG->U[ks][j][i].M2 += 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+#ifndef FARGO
+    pG->U[ks][j][i].M2 += 0.5*qshear*om_dt*(ABS(lx1)*x1FD_i.d+ABS(rx1)*x1FD_ip1.d);
+#endif
+  }
+
+  if (ShBoxCoord==xz){
+    pG->U[ks][j][i].M1 += (4.0*dM3e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+    pG->U[ks][j][i].M3 += 2.0*(qshear-2.)*(M1e + om_dt*dM3e)*fact;
+#ifndef FARGO
+    pG->U[ks][j][i].M3 += 0.5*qshear*om_dt*(ABS(lx1)*x1FD_i.d+ABS(rx1)*x1FD_ip1.d);
+#endif
+  }
+
+/* Update the energy for a fixed potential.
+ * This update is identical to non-SHEARING_BOX below  */
+
+  phic = (*ShearingBoxPot)((x1            ),x2,x3);
+  phir = (*ShearingBoxPot)((x1+rx1*0.5*pG->dx1),x2,x3);
+  phil = (*ShearingBoxPot)((x1-lx1*0.5*pG->dx1),x2,x3);
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx1*(lx1*x1FD_i.d*(phic - phil) +
+                               rx1*x1FD_ip1.d*(phir - phic));
+#endif
+
+  phir = (*ShearingBoxPot)(x1,(x2+rx2*0.5*pG->dx2),x3);
+  phil = (*ShearingBoxPot)(x1,(x2-lx2*0.5*pG->dx2),x3);
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx2*(lx2*x2FD_j.d*(phic - phil) +
+                               rx2*x2FD_jp1.d*(phir - phic));
+#endif
+#endif /* SHEARING_BOX */
+
+  if (StaticGravPot != NULL){
+    cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+    phic = (*StaticGravPot)(x1,x2,x3);
+    phir = (*StaticGravPot)((x1+rx1*0.5*pG->dx1),x2,x3);
+    phil = (*StaticGravPot)((x1-lx1*0.5*pG->dx1),x2,x3);
+
+#ifndef BAROTROPIC
+    pG->U[ks][j][i].E += dtodx1*(lsf*lx1*x1FD_i.d*(phic - phil) +
+                                 rsf*rx1*x1FD_ip1.d*(phir - phic));
+#endif
+
+    phir = (*StaticGravPot)(x1,(x2+rx2*0.5*pG->dx2),x3);
+    phil = (*StaticGravPot)(x1,(x2-lx2*0.5*pG->dx2),x3);
+
+#ifndef BAROTROPIC
+    pG->U[ks][j][i].E += dtodx2*(lx2*x2FD_j.d*(phic - phil) +
+                                 rx2*x2FD_jp1.d*(phir - phic));
+#endif
+  }
+
+#ifdef SELF_GRAVITY
+  phic = pG->Phi[ks][j][i];
+  phil = 0.5*(pG->Phi[ks][j][i-lx1] + pG->Phi[ks][j][i  ]);
+  phir = 0.5*(pG->Phi[ks][j][i  ] + pG->Phi[ks][j][i+rx1]);
+
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx1*(lx1*x1FD_i.d*(phic - phil) +
+                               rx1*x1FD_ip1.d*(phir - phic));
+#endif
+
+  phil = 0.5*(pG->Phi[ks][j-lx2][i] + pG->Phi[ks][j  ][i]);
+  phir = 0.5*(pG->Phi[ks][j  ][i] + pG->Phi[ks][j+rx2][i]);
+
+#ifndef BAROTROPIC
+  pG->U[ks][j][i].E += dtodx2*(lx2*x2FD_j.d*(phic - phil) +
+                               rx2*x2FD_jp1.d*(phir - phic));
+#endif
+
+#endif /* SELF_GRAVITY */
+
+
+/* Use emf differences to correct face-centered fields on edges of bad cell */
+#ifdef MHD
+#ifdef CYLINDRICAL
+  dtodx2 = pG->dt/(pG->ri[i]*pG->dx2);
+#endif
+  pG->B1i[ks][j][i  ] += dtodx2*(rx2*emf3D_jp1i   - lx2*emf3D_ji);
+#ifdef CYLINDRICAL
+  dtodx2 = pG->dt/(pG->ri[i+1]*pG->dx2);
+#endif
+  pG->B1i[ks][j][i+1] += dtodx2*(rx2*emf3D_jp1ip1 - lx2*emf3D_jip1);
+  pG->B2i[ks][j  ][i] -= dtodx1*(rx1*emf3D_jip1   - lx1*emf3D_ji);
+  pG->B2i[ks][j+1][i] -= dtodx1*(rx1*emf3D_jp1ip1 - lx1*emf3D_jp1i);
+#endif 
 
 }
 #endif /* FIRST_ORDER_FLUX_CORRECTION */

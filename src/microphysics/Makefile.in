@@ -8,10 +8,10 @@
 #
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = conduction.o \
-	   diff_dt.o \
 	   cool.o \
 	   integrate_diffusion.o \
            get_eta.o \
+	   new_dt_diff.o \
            resistivity.o \
            viscosity.o \
 	   anisotropic_conduction.o \

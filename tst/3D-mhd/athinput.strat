@@ -112,5 +112,7 @@ amp             = 0.025      # dP/P <= amp
 ifield          = 4          # 1 for zero-net-flux Bz, 2 for constant Bz
 ipert           = 1          # 1 for random d,P, 2 for uniform Vx
 
+CASE            = 1          # Diffusivity: uniform (1) or user defined (2)
+
 <log>
 child_out_level=-1

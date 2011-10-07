@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: new_dt.c
+/*============================================================================*/
+/*! \file new_dt.c
+ *  \brief Computes timestep using CFL condition.
  *
  * PURPOSE: Computes timestep using CFL condition on cell-centered velocities
  *   and sound speed, and Alfven speed from face-centered B, across all Grids
@@ -15,8 +16,8 @@
  * defined.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   new_dt() - computes dt
- *============================================================================*/
+ * - new_dt() - computes dt						      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <math.h>
@@ -26,7 +27,8 @@
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* new_dt:  */
+/*! \fn void new_dt(MeshS *pM)
+ *  \brief Computes timestep using CFL condition. */ 
 
 void new_dt(MeshS *pM)
 {
@@ -64,7 +66,7 @@ void new_dt(MeshS *pM)
 
 	
   int nl,nd;
-  Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
+  Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0,max_dti_diff=0.0;
   Real x1,x2,x3;
 
 /* Loop over all Domains with a Grid on this processor -----------------------*/
@@ -108,6 +110,7 @@ void new_dt(MeshS *pM)
 #elif defined ISOTHERMAL
         asq = Iso_csound2;
 #endif /* EOS */
+
 /* compute fast magnetosonic speed squared in each direction */
         tsum = bsq*di + asq;
         tdif = bsq*di - asq;
@@ -225,6 +228,7 @@ void new_dt(MeshS *pM)
         if (pGrid->Nx[2] > 1) {
           max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
 	}  
+ 
       }
     }}
 
@@ -252,6 +256,12 @@ void new_dt(MeshS *pM)
 
   }}} /*--- End loop over Domains --------------------------------------------*/
 
+/* When explicit diffusion is included, compute stability constriant */
+#if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
+  max_dti_diff = new_dt_diff(pM);
+  max_dti = MAX(max_dti,max_dti_diff);
+#endif
+
 /* new timestep.  Limit increase to 2x old value */
 
   if (pM->nstep == 0) {
@@ -272,7 +282,8 @@ void new_dt(MeshS *pM)
 /* modify timestep so loop finishes at t=tlim exactly */
 
   tlim = par_getd("time","tlim");
-  if ((tlim - pM->time) < pM->dt) pM->dt = tlim - pM->time;
+  if ((pM->time < tlim) && ((tlim - pM->time) < pM->dt))
+    pM->dt = tlim - pM->time;
 
 /* Spread timestep across all Grid structures in all Domains */
 

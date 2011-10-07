@@ -68,6 +68,7 @@ Real dotphil, dotgxl;
 /* variables needed to conserve net Bz in shearing box */
 #ifdef SHEARING_BOX
 static Real **remapEyiib=NULL, **remapEyoib=NULL;
+static Real **remapx1Fiib=NULL, **remapx1Foib=NULL;
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -2643,13 +2644,23 @@ void integrate_3d_radMHD(DomainS *pD)
     get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 	
 	/* compute remapped Ey from opposite side of grid */
-	
-    if (my_iproc == 0) {
-		RemapEy_ix1(pD, emf2, remapEyiib);
+/* This is the old version of the code, which does not conserve mass */
+/*    if (my_iproc == 0) {
+      RemapEy_ix1(pD, emf2, remapEyiib);
     }
     if (my_iproc == (pD->NGrid[0]-1)) {
-		RemapEy_ox1(pD, emf2, remapEyoib);
+      RemapEy_ox1(pD, emf2, remapEyoib);
     }
+*/
+
+    
+    if (my_iproc == 0) {
+      RemapEyFlux_ix1(pD, emf2, remapEyiib, x1Flux, remapx1Fiib);
+    }
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      RemapEyFlux_ox1(pD, emf2, remapEyoib, x1Flux, remapx1Foib);
+    }
+
 	
 	/* Now average Ey and remapped Ey */
 	
@@ -2657,6 +2668,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		for(k=ks; k<=ke+1; k++) {
 			for(j=js; j<=je; j++){
 				emf2[k][j][is]  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+				x1Flux[k][j][is].d = 0.5*(x1Flux[k][j][is].d + remapx1Fiib[k][j]);
 			}
 		}
     }
@@ -2665,6 +2677,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		for(k=ks; k<=ke+1; k++) {
 			for(j=js; j<=je; j++){
 				emf2[k][j][ie+1]  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+				x1Flux[k][j][ie+1].d = 0.5*(x1Flux[k][j][ie+1].d + remapx1Foib[k][j]);
 			}
 		}
     }
@@ -3613,6 +3626,10 @@ void integrate_init_3d(MeshS *pM)
 		goto on_error;
 	if ((remapEyoib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
 		goto on_error;
+	if ((remapx1Fiib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapx1Foib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
 #endif /* End SHEARING_BOX */
 
   return;
@@ -3676,6 +3693,8 @@ void integrate_destruct_3d(void)
 #ifdef SHEARING_BOX
 	if (remapEyiib != NULL) free_2d_array(remapEyiib);
 	if (remapEyoib != NULL) free_2d_array(remapEyoib);
+	if (remapx1Fiib != NULL) free_2d_array(remapx1Fiib);
+ 	if (remapx1Foib != NULL) free_2d_array(remapx1Foib);
 #endif
 
 #ifdef CONS_GRAVITY

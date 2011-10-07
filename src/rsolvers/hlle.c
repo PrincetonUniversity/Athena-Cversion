@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: hlle.c
+/*============================================================================*/
+/*! \file hlle.c
+ *  \brief Computes 1D fluxes using the Harten-Lax-van Leer (HLLE) Riemann
+ *  solver.
  *
  * PURPOSE: Computes 1D fluxes using the Harten-Lax-van Leer (HLLE) Riemann
  *   solver.  This flux is very diffusive, especially for contacts, and so it
@@ -9,23 +11,23 @@
  *   other approximate solvers fail and/or when extra dissipation is needed.
  *
  * REFERENCES:
- *   E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
+ * - E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
  *   2nd ed., Springer-Verlag, Berlin, (1999) chpt. 10.
  *
- *   Einfeldt et al., "On Godunov-type methods near low densities",
+ * - Einfeldt et al., "On Godunov-type methods near low densities",
  *   JCP, 92, 273 (1991)
  *
- *   A. Harten, P. D. Lax and B. van Leer, "On upstream differencing and
+ * - A. Harten, P. D. Lax and B. van Leer, "On upstream differencing and
  *   Godunov-type schemes for hyperbolic conservation laws",
  *   SIAM Review 25, 35-61 (1983).
  *
- *   B. Einfeldt, "On Godunov-type methods for gas dynamics",
+ * - B. Einfeldt, "On Godunov-type methods for gas dynamics",
  *   SIAM J. Numerical Analysis 25, 294-318 (1988).
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -43,16 +45,21 @@
 
 #if defined(HLLE_FLUX) || defined (ROE_FLUX)
 /*----------------------------------------------------------------------------*/
-/* HLLE_FUNCTION=fluxes if HLLE_FLUX defined
- * HLLE_FUNCTION=hlle_flux if ROE_FLUX defined
+/*! \fn void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
+ *                     const Prim1DS Wl, const Prim1DS Wr,
+ *                   const Real Bxi, Cons1DS *pFlux)
+ *  \brief HLLE flux function wrapper.
+ *
+ * - HLLE_FUNCTION=fluxes if HLLE_FLUX defined
+ * - HLLE_FUNCTION=hlle_flux if ROE_FLUX defined
  *   Input Arguments:
- *     Bxi = B in direction of 1D slice at cell interface
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *  -  Bxi = B in direction of 1D slice at cell interface
+ *  -  Ul,Ur = L/R-states of CONSERVED variables at cell interface
  * NOTE: For radiation code, time step is stored in Ul.My to calculate the 
  * effective sound speed 
  *
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *  -  pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,

@@ -1,32 +1,36 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dump_history.c
+/*============================================================================*/
+/*! \file dump_history.c
+ *  \brief Functions to write dumps of scalar "history" variables in a
+ *  formatted table.
  *
  * PURPOSE: Functions to write dumps of scalar "history" variables in a
  *   formatted table.  "History" variables are mostly VOLUME AVERAGES, e.g.
- *     S = \Sum_{ijk} q[k][j][i]*dx1[i]*dx2[j]*dx3[k] /
+ *   - S = \Sum_{ijk} q[k][j][i]*dx1[i]*dx2[j]*dx3[k] /
  *             \Sum_{ijk} dx1[i]*dx2[j]*dx3[k],
+ *
  *   although other quantities like time and dt are also output.  To compute
  *   TOTAL, VOLUME INTEGRATED quantities, just multiply by the Domain volume,
  *   which is output in the first line of the history file.  History data is
  *   written periodically, giving the time-evolution of that quantitity.
  *   Default (hardwired) values are:
- *     scal[0] = time
- *     scal[1] = dt
- *     scal[2] = mass
- *     scal[3] = total energy
- *     scal[4] = d*v1
- *     scal[5] = d*v2
- *     scal[6] = d*v3
- *     scal[7] = 0.5*d*v1**2
- *     scal[8] = 0.5*d*v2**2
- *     scal[9] = 0.5*d*v3**2
- *     scal[10] = 0.5*b1**2
- *     scal[11] = 0.5*b2**2
- *     scal[12] = 0.5*b3**2
- *     scal[13] = d*Phi
- *     scal[14+NSCALARS] = passively advected scalars
- *     scal[15+NSCALARS] = angular momentum
+ *   - scal[0] = time
+ *   - scal[1] = dt
+ *   - scal[2] = mass
+ *   - scal[3] = total energy
+ *   - scal[4] = d*v1
+ *   - scal[5] = d*v2
+ *   - scal[6] = d*v3
+ *   - scal[7] = 0.5*d*v1**2
+ *   - scal[8] = 0.5*d*v2**2
+ *   - scal[9] = 0.5*d*v3**2
+ *   - scal[10] = 0.5*b1**2
+ *   - scal[11] = 0.5*b2**2
+ *   - scal[12] = 0.5*b3**2
+ *   - scal[13] = d*Phi
+ *   - scal[14+NSCALARS] = passively advected scalars
+ *   - scal[15+NSCALARS] = angular momentum
+ *
  * More variables can be hardwired by increasing NSCAL=number of variables, and
  * adding calculation of desired quantities below.
  *
@@ -39,28 +43,28 @@
  * directories of the root (rank=0) process FOR THAT DOMAIN COMMUNICATOR.
  *
  * With SR, the default (hardwired) variables are:
- *     scal[0] = time
- *     scal[1] = dt
- *     scal[2] = mass
- *     scal[3] = total energy
- *     scal[4] = x1-mom
- *     scal[5] = x2-mom
- *     scal[6] = x3-mom
- *     scal[7] = (U^t)**2
- *     scal[8] = (U^x)**2
- *     scal[9] = (U^y)**2
- *     scal[10] = (U^z)**2
- *     scal[11] = (b^t)**2
- *     scal[12] = (b^x)**2
- *     scal[13] = (b^y)**2
- *     scal[14] = (b^z)**2
- *     scal[15] = |b|**2
- *     scal[16] = T^00_EM
+ *   - scal[0] = time
+ *   - scal[1] = dt
+ *   - scal[2] = mass
+ *   - scal[3] = total energy
+ *   - scal[4] = x1-mom
+ *   - scal[5] = x2-mom
+ *   - scal[6] = x3-mom
+ *   - scal[7] = (U^t)**2
+ *   - scal[8] = (U^x)**2
+ *   - scal[9] = (U^y)**2
+ *   - scal[10] = (U^z)**2
+ *   - scal[11] = (b^t)**2
+ *   - scal[12] = (b^x)**2
+ *   - scal[13] = (b^y)**2
+ *   - scal[14] = (b^z)**2
+ *   - scal[15] = |b|**2
+ *   - scal[16] = T^00_EM
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_history()        - Writes variables as formatted table
- *   dump_history_enroll() - Adds new user-defined history variables
- *============================================================================*/
+ * - dump_history()        - Writes variables as formatted table
+ * - dump_history_enroll() - Adds new user-defined history variables	      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include "defs.h"
@@ -84,7 +88,9 @@ static ConsFun_t phst_fun[MAX_USR_H_COUNT];
 static int usr_hst_cnt = 0; /* User History Counter <= MAX_USR_H_COUNT */
 
 /*----------------------------------------------------------------------------*/
-/* dump_history:  */
+/*! \fn void dump_history(MeshS *pM, OutputS *pOut)
+ *  \brief Function to write dumps of scalar "history" variables in a
+ *  formatted table. */
 
 void dump_history(MeshS *pM, OutputS *pOut)
 {
@@ -498,7 +504,8 @@ void dump_history(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_history_enroll:  */
+/*! \fn void dump_history_enroll(const ConsFun_t pfun, const char *label)
+ *  \brief Adds new user-defined history variables	      */
 
 void dump_history_enroll(const ConsFun_t pfun, const char *label){
 

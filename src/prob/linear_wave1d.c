@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: linear_wave1d.c
+/*============================================================================*/
+/*! \file linear_wave1d.c
+ *  \brief Problem generator for plane-parallel, grid-aligned linear wave tests.
  *
  * PURPOSE: Problem generator for plane-parallel, grid-aligned linear wave
  *   tests.  If wavevector is in x2 (x3) direction, then the grid must be
@@ -14,13 +15,13 @@
  *   Configure --with-gravity=fft to check Jeans stability of plane waves
  *   propagating parallel to grid.
  *
- *   Configure --with-resistivity=ohmic and/or --with-viscosity=ns to check
- *   damping of linear waves by resistivity and/or viscosity
+ *   Configure --enable-resistivity and/or --with-viscosity=ns to check damping
+ *   of linear waves by resistivity/ambipolar diffusion and/or viscosity
  *
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to initial conditions.  Problem must be evolved for an integer number of
- *   wave periods for this to work (only works for ideal MHD).
- *============================================================================*/
+ *   wave periods for this to work (only works for ideal MHD).		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -290,15 +291,14 @@ void problem(DomainS *pDomain)
 
 /* With viscosity and/or resistivity, read eta_R and nu_V */
 
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
-#endif
-#ifdef HALL_MHD
+#ifdef RESISTIVITY
   eta_Ohm = par_getd("problem","eta_O");
-  eta_Hall = par_getd("problem","eta_H");
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* save solution on root grid */
@@ -359,8 +359,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
   return;
 }
@@ -375,6 +376,9 @@ VOutFun_t get_usr_out_fun(const char *name){
 }
 
 #ifdef RESISTIVITY
+/*! \fn void get_eta_user(GridS *pG, int i, int j, int k,
+ *                           Real *eta_O, Real *eta_H, Real *eta_A)
+ *  \brief Get user defined resistivity. */
 void get_eta_user(GridS *pG, int i, int j, int k,
                              Real *eta_O, Real *eta_H, Real *eta_A)
 {

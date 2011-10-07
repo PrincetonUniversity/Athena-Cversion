@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: utils.c
+/*============================================================================*/
+/*! \file utils_particle.c
+ *  \brief Contains most of the utilities for the particle code.
+ *
  * PURPOSE: Contains most of the utilities for the particle code: all the
  *   interpolation functions, stopping time calculation functions, shuffle
  *   algorithms. Also contained are the default (and trivial) gas velocity
@@ -9,22 +11,24 @@
  * 
  * CONTAINS PUBLIC FUNCTIONS:
  * 
- *   getwei_linear()
- *   getwei_TSC   ()
- *   getwei_QP    ()
- *   getvalues()
- *   get_ts_epstein()
- *   get_ts_general()
- *   get_ts_fixed  ()
- *   get_gasinfo()
- *   feedback_clear()
- *   distrFB      ()
- *   void shuffle()
- *   void gasvshift_zero()
+ * - getwei_linear()
+ * - getwei_TSC   ()
+ * - getwei_QP    ()
+ * - getvalues()
+ * - get_ts_epstein()
+ * - get_ts_general()
+ * - get_ts_fixed  ()
+ * - get_gasinfo()
+ * - feedback_clear()
+ * - distrFB      ()
+ * - void shuffle()
+ * - void gasvshift_zero()
  * 
- * History:
- *   Written by Xuening Bai, Apr. 2009
-==============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - compare_gr()         - compare the location of the two particles
+ * - quicksort_particle() - sort the particles using the quicksort
+ *
+/*============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -42,8 +46,8 @@
  *   compare_gr()         - compare the location of the two particles
  *   quicksort_particle() - sort the particles using the quicksort
  *============================================================================*/
-int compare_gr(Grid *pG, Vector cell1, Grain gr1, Grain gr2);
-void quicksort_particle(Grid *pG, Vector cell1, long start, long end);
+int compare_gr(GridS *pG, Real3Vect cell1, GrainS gr1, GrainS gr2);
+void quicksort_particle(GridS *pG, Real3Vect cell1, long start, long end);
 
 
 /*============================== ALL FUNCTIONS ===============================*/
@@ -66,14 +70,17 @@ void quicksort_particle(Grid *pG, Vector cell1, long start, long end);
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* get weight using linear interpolation
+/*! \fn void getwei_linear(GridS *pG, Real x1, Real x2, Real x3,
+ *           Real3Vect cell1, Real weight[3][3][3], int *is, int *js, int *ks)
+ *  \brief Get weight using linear interpolation
+ *
  * Input: pG: grid; x1,x2,x3: global coordinate; cell1: 1 over dx1,dx2,dx3
  * Output: weight: weight function; is,js,ks: starting cell indices in the grid.
  * Note: this interpolation works in any 1-3 dimensions.
  */
 
-void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
-                             Real weight[3][3][3], int *is, int *js, int *ks)
+void getwei_linear(GridS *pG, Real x1, Real x2, Real x3, Real3Vect cell1,
+                              Real weight[3][3][3], int *is, int *js, int *ks)
 {
   int i, j, k, i1, j1, k1;
   Real a, b, c;		/* grid coordinate for the position (x1,x2,x3) */
@@ -129,13 +136,16 @@ void getwei_linear(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
 }
 
 /*----------------------------------------------------------------------------*/
-/* get weight using Triangular Shaped Cloud (TSC) interpolation 
+/*! \fn void getwei_TSC(GridS *pG, Real x1, Real x2, Real x3, Real3Vect cell1,
+ *                      Real weight[3][3][3], int *is, int *js, int *ks)
+ *
+ *  \brief Get weight using Triangular Shaped Cloud (TSC) interpolation 
  * Input: pG: grid; x1,x2,x3: global coordinate; cell1: 1 over dx1,dx2,dx3
  * Output: weight: weight function; is,js,ks: starting cell indices in the grid.
  * Note: this interpolation works in any 1-3 dimensions.
  */
-void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
-                          Real weight[3][3][3], int *is, int *js, int *ks)
+void getwei_TSC(GridS *pG, Real x1, Real x2, Real x3, Real3Vect cell1,
+                           Real weight[3][3][3], int *is, int *js, int *ks)
 {
   int i, j, k, i1, j1, k1;
   Real a, b, c, d;	/* grid coordinate for the position (x1,x2,x3) */
@@ -198,13 +208,16 @@ void getwei_TSC(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
 
 
 /*----------------------------------------------------------------------------*/
-/* get weight using quadratic polynomial interpolation 
+/*! \fn void getwei_QP(GridS *pG, Real x1, Real x2, Real x3, Real3Vect cell1,
+ *                       Real weight[3][3][3], int *is, int *js, int *ks)
+ *  \brief Get weight using quadratic polynomial interpolation 
+ *
  * Input: pG: grid; x1,x2,x3: global coordinate; cell1: 1 over dx1,dx2,dx3
  * Output: weight: weight function; is,js,ks: starting cell indices in the grid.
  * Note: this interpolation works in any 1-3 dimensions.
  */
-void getwei_QP(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
-                         Real weight[3][3][3], int *is, int *js, int *ks)
+void getwei_QP(GridS *pG, Real x1, Real x2, Real x3, Real3Vect cell1,
+                          Real weight[3][3][3], int *is, int *js, int *ks)
 {
   int i, j, k, i1, j1, k1;
   Real a, b, c, d;	/* grid coordinate for the position (x1,x2,x3) */
@@ -266,20 +279,23 @@ void getwei_QP(Grid *pG, Real x1, Real x2, Real x3, Vector cell1,
 }
 
 /*----------------------------------------------------------------------------*/
-/* get interpolated value using the weight
+/*! \fn int getvalues()
+ *  \brief Get interpolated value using the weight
+ *
  * Input:
- *   pG: grid; weight: weight function;
- *   is,js,ks: starting cell indices in the grid.
+ * - pG: grid; weight: weight function;
+ * - is,js,ks: starting cell indices in the grid.
  * Output:
- *   interpolated values of density, velocity and sound speed of the fluid
+ * - interpolated values of density, velocity and sound speed of the fluid
+ *
  * Return: 0: normal exit; -1: particle lie out of the grid, cannot interpolate
  * Note: this interpolation works in any 1-3 dimensions.
  */
-int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks, 
+int getvalues(GridS *pG, Real weight[3][3][3], int is, int js, int ks, 
 #ifndef FEEDBACK
-                        Real *rho, Real *u1, Real *u2, Real *u3, Real *cs
+                         Real *rho, Real *u1, Real *u2, Real *u3, Real *cs
 #else
-             Real *rho, Real *u1,  Real *u2, Real *u3, Real *cs, Real *stiff
+              Real *rho, Real *u1,  Real *u2, Real *u3, Real *cs, Real *stiff
 #endif
 ){
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
@@ -355,12 +371,14 @@ int getvalues(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* Calculate the stopping time for the most general case
+/*! \fn Real get_ts_general(GridS *pG, int type, Real rho, Real cs, Real vd)
+ *  \brief Calculate the stopping time for the most general case
+ *
  * The relavent scale to calculate is: 
- * 1. a/lambda_m == alam
- * 2. rho_s*a in normalized unit == rhoa
+ * - 1. a/lambda_m == alam
+ * - 2. rho_s*a in normalized unit == rhoa
  */
-Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd)
+Real get_ts_general(GridS *pG, int type, Real rho, Real cs, Real vd)
 {
   Real tstop;	/* stopping time */
   Real a, rhos;	/* primitive properties: size, solid density in cgs unit */
@@ -369,8 +387,8 @@ Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd)
   Real Re, CD;	/* Reynolds number and drag coefficient */
 
   /* particle properties */
-  a = pG->grproperty[type].rad;
-  rhos = pG->grproperty[type].rho;
+  a = grproperty[type].rad;
+  rhos = grproperty[type].rho;
   rhoa = grrhoa[type];
 
   /* calculate particle size/gas mean free path */
@@ -398,10 +416,12 @@ Real get_ts_general(Grid *pG, int type, Real rho, Real cs, Real vd)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Calculate the stopping time in the Epstein regime 
+/*! \fn Real get_ts_epstein(GridS *pG, int type, Real rho, Real cs, Real vd)
+ *  \brief Calculate the stopping time in the Epstein regime  
+ *
  * Note grrhoa == rho_s*a in normalized unit
  */
-Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd)
+Real get_ts_epstein(GridS *pG, int type, Real rho, Real cs, Real vd)
 {
   Real tstop = grrhoa[type]/(rho*cs);
 
@@ -412,8 +432,9 @@ Real get_ts_epstein(Grid *pG, int type, Real rho, Real cs, Real vd)
   return tstop;
 }
 
-/* Return the fixed stopping time */
-Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
+/*! \fn Real get_ts_fixed(GridS *pG, int type, Real rho, Real cs, Real vd)
+ *  \brief Return the fixed stopping time */
+Real get_ts_fixed(GridS *pG, int type, Real rho, Real cs, Real vd)
 {
   Real tstop = tstop0[type];
 
@@ -435,12 +456,15 @@ Real get_ts_fixed(Grid *pG, int type, Real rho, Real cs, Real vd)
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* Calculate the gas information from conserved variables for feedback_predictor
+/*! \fn void get_gasinfo(GridS *pG)
+ *  \brief Calculate the gas information from conserved variables for 
+ *  feedback_predictor
+ *
  * Input: pG: grid (not evolved yet).
  * Output: calculate 3D array grid_v/grid_cs in the grid structure.
  *         Calculated are gas velocity and sound speed.
  */
-void get_gasinfo(Grid *pG)
+void get_gasinfo(GridS *pG)
 {
   int i,j,k;
   Real rho1;
@@ -484,8 +508,9 @@ void get_gasinfo(Grid *pG)
 
 #ifdef FEEDBACK
 /*----------------------------------------------------------------------------*/
-/* clean the feedback array */
-void feedback_clear(Grid *pG)
+/*! \fn void feedback_clear(GridS *pG)
+ *  \brief clean the feedback array */
+void feedback_clear(GridS *pG)
 {
   int i,j,k;
   GPCouple *pq;
@@ -506,19 +531,21 @@ void feedback_clear(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Distribute the feedback force to grid cells for the predict step
+/*! \fn void distrFB_pred()
+ *  \brief Distribute the feedback force to grid cells for the predict step
+ *
  * Input: 
- *   pG: grid;   weight: weight function; 
- *   is,js,ks: starting cell indices in the grid.
- *   f1, f2, f3: feedback force from one particle.
+ * - pG: grid;   weight: weight function; 
+ * - is,js,ks: starting cell indices in the grid.
+ * - f1, f2, f3: feedback force from one particle.
  * Output:
- *   pG: feedback array is updated.
+ * - pG: feedback array is updated.
  */
-void distrFB_pred(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
+void distrFB_pred(GridS *pG, Real weight[3][3][3], int is, int js, int ks,
 #ifndef BAROTROPIC
-                       Vector fb, Real stiffness, Real Elosspar
+                       Real3Vect fb, Real stiffness, Real Elosspar
 #else
-                       Vector fb, Real stiffness
+                       Real3Vect fb, Real stiffness
 #endif
 ){
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
@@ -552,16 +579,19 @@ void distrFB_pred(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 }
 
 /*----------------------------------------------------------------------------*/
-/* Distribute the feedback force to grid cells for the correct step
+/*! \fn void distrFB_corr(GridS *pG, Real weight[3][3][3], int is, int js,
+ *                           int ks, Real3Vect fb, Real Elosspar)
+ *  \brief Distribute the feedback force to grid cells for the correct step
+ *
  * Input:
- *   pG: grid;   weight: weight function;
- *   is,js,ks: starting cell indices in the grid.
- *   f1, f2, f3: feedback force from one particle.
+ * - pG: grid;   weight: weight function;
+ * - is,js,ks: starting cell indices in the grid.
+ * - f1, f2, f3: feedback force from one particle.
  * Output:
- *   pG: feedback array is updated.
+ * - pG: feedback array is updated.
  */
-void distrFB_corr(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
-                       Vector fb, Real Elosspar)
+void distrFB_corr(GridS *pG, Real weight[3][3][3], int is, int js, int ks,
+                             Real3Vect fb, Real Elosspar)
 {
   int n0,i,j,k,i0,j0,k0,i1,j1,k1,i2,j2,k2;
   GPCouple *pq;
@@ -603,19 +633,20 @@ void distrFB_corr(Grid *pG, Real weight[3][3][3], int is, int js, int ks,
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* Shuffle the particles
+/*! \fn void shuffle(GridS *pG)
+ *  \brief Shuffle the particles
+ *
  * Input: pG: grid with particles;
  * Output: pG: particles in the linked list are rearranged by the order of their
  *         locations that are consistent with grid cell storage.
  */
-void shuffle(Grid *pG)
+void shuffle(GridS *pG)
 {
-  Grain *cur, *allgr;
-  Vector cell1;
+  Real3Vect cell1;
 
-  if (pG->Nx1 > 1) cell1.x1 = 1.0/pG->dx1;  else  cell1.x1 = 0.0;
-  if (pG->Nx2 > 1) cell1.x2 = 1.0/pG->dx2;  else  cell1.x2 = 0.0;
-  if (pG->Nx3 > 1) cell1.x3 = 1.0/pG->dx3;  else  cell1.x3 = 0.0;
+  if (pG->Nx[0] > 1) cell1.x1 = 1.0/pG->dx1;  else  cell1.x1 = 0.0;
+  if (pG->Nx[1] > 1) cell1.x2 = 1.0/pG->dx2;  else  cell1.x2 = 0.0;
+  if (pG->Nx[2] > 1) cell1.x3 = 1.0/pG->dx3;  else  cell1.x3 = 0.0;
 
   /* output status */
   ath_pout(0, "Resorting particles...\n");
@@ -627,28 +658,31 @@ void shuffle(Grid *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Compare the order of two particles according to their positions in the grid
+/*! \fn int compare_gr(GridS *pG, Real3Vect cell1, GrainS gr1, GrainS gr2)
+ *  \brief Compare the order of two particles according to their positions in 
+ *  the grid
+ *
  * Input: pG: grid; 
- *        cell1: 1/dx1,1/dx2,1/dx3, or 0 if that dimension collapses.
- *        gr1,gr2: pointers of the two particles to be compared.
+ * -      cell1: 1/dx1,1/dx2,1/dx3, or 0 if that dimension collapses.
+ * -      gr1,gr2: pointers of the two particles to be compared.
  * Output: pointer of the particle that should be put in front of the other.
  */
-int compare_gr(Grid *pG, Vector cell1, Grain gr1, Grain gr2)
+int compare_gr(GridS *pG, Real3Vect cell1, GrainS gr1, GrainS gr2)
 {
   int i1,j1,k1, i2,j2,k2;
 
-  k1 = (int)((gr1.x3 - pG->x3_0) * cell1.x3);	/* x3 index of gr1 */
-  k2 = (int)((gr2.x3 - pG->x3_0) * cell1.x3);	/* x3 index of gr2 */
+  k1 = (int)((gr1.x3 - pG->MinX[2]) * cell1.x3);	/* x3 index of gr1 */
+  k2 = (int)((gr2.x3 - pG->MinX[2]) * cell1.x3);	/* x3 index of gr2 */
   if (k1 < k2) return 1;
   if (k1 > k2) return 2;
 
-  j1 = (int)((gr1.x2 - pG->x2_0) * cell1.x2);	/* x2 index of gr1 */
-  j2 = (int)((gr2.x2 - pG->x2_0) * cell1.x2);	/* x2 index of gr2 */
+  j1 = (int)((gr1.x2 - pG->MinX[1]) * cell1.x2);	/* x2 index of gr1 */
+  j2 = (int)((gr2.x2 - pG->MinX[1]) * cell1.x2);	/* x2 index of gr2 */
   if (j1 < j2) return 1;
   if (j1 > j2) return 2;
 
-  i1 = (int)((gr1.x1 - pG->x1_0) * cell1.x1);	/* x1 index of gr1 */
-  i2 = (int)((gr2.x1 - pG->x1_0) * cell1.x1);	/* x1 index of gr2 */
+  i1 = (int)((gr1.x1 - pG->MinX[0]) * cell1.x1);	/* x1 index of gr1 */
+  i2 = (int)((gr2.x1 - pG->MinX[0]) * cell1.x1);	/* x1 index of gr2 */
   if (i1 < i2) return 1;
   if (i1 > i2) return 2;
 
@@ -657,17 +691,19 @@ int compare_gr(Grid *pG, Vector cell1, Grain gr1, Grain gr2)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Quick sort algorithm to shuffle the particles
+/*! \fn void quicksort_particle(Grid *pG, Vector cell1, long start, long end)
+ *  \brief Quick sort algorithm to shuffle the particles
+ *
  * Input: pG, cell1: for compare_gr subroutine only. See above.
  *        head, rear: head and rear of the linked list.
  *          They do not contain data, or equal the pivot in the recursion.
  *        length: length of the linked list (does not contain head or rear).
  * Output: *head: linked list with shuffling finished.
  */
-void quicksort_particle(Grid *pG, Vector cell1, long start, long end)
+void quicksort_particle(GridS *pG, Real3Vect cell1, long start, long end)
 {
   long i, pivot;
-  Grain gr;
+  GrainS gr;
   if (end <= start) return;	/* automatically sorted already */
 
   /* location of the pivot at half chain length */

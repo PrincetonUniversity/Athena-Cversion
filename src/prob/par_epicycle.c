@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_epecycle.c
+/*============================================================================*/
+/*! \file par_epicycle.c
+ *  \brief Problem generator for particle epicycle trajectory presicion test.
  *
  * PURPOSE: Problem generator for particle epicycle trajectory presicion test.
  *   This code works for both 2D and 3D. No gas is involved, but gas has to be
@@ -9,8 +10,8 @@
  *
  *  Should be configured using --enable-shearing-box and --with-eos=isothermal.
  *  Optional choices are --enable-fargo and --enable-mpi
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -38,16 +39,16 @@
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- * ShearingBoxPot()   - shearing box tidal gravitational potential
+ * UnstratifiedDisk()   - shearing box tidal gravitational potential
  * ParticlePosition() - analytical particle trajectory
  * ParticleVelocity() - analytical particle velocity
  * ParticleLocator()  - locate the particles (for mpi)
  *============================================================================*/
 
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
-static Vector ParticlePosition(const Real t);
-static Vector ParticleVelocity(const Vector pos, const Real t);
-static int ParticleLocator(const Vector pos);
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
+static Real3Vect ParticlePosition(const Real t);
+static Real3Vect ParticleVelocity(const Real3Vect pos, const Real t);
+static int ParticleLocator(const Real3Vect pos);
 
 /*------------------------ filewide global variables -------------------------*/
 char name[50];
@@ -60,28 +61,26 @@ Real amp, Lx, Ly, x1min, x1max, x2min, x2max, omg;
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int in,i,j,k;
   Real x1,x2,x3;
   long p;
-  Vector parpos, parvel;
+  Real3Vect parpos, parvel;
 
-  if (par_geti("grid","Nx2") == 1) {
+  if (pGrid->Nx[1] == 1) {
     ath_error("[par_epicycle]: par_epicycle must work in 2D or 3D.\n");
   }
 
 /* Initialize boxsize */
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
+  x1min = pDomain->RootMinX[0];
+  x1max = pDomain->RootMaxX[0];
   Lx = x1max - x1min;
 
-  x2min = par_getd("grid","x2min");
-  x2max = par_getd("grid","x2max");
-  Ly = x2max - x2min;	/* for 3D problem */
-  if (par_geti("grid","Nx3") == 1) {
-    Ly = 0.0;
-  }
+  x2min = pDomain->RootMinX[1];
+  x2max = pDomain->RootMaxX[1];
+  Ly = x2max - x2min; 
 
 /* Read initial conditions */
   Omega_0 = par_getd("problem","omega");
@@ -103,8 +102,8 @@ void problem(Grid *pGrid, Domain *pDomain)
   parvel = ParticleVelocity(parpos, 0.0);
   in = ParticleLocator(parpos);
 
-  pGrid->nparticle         = in;
-  pGrid->grproperty[0].num = in;
+  pGrid->nparticle  = in;
+  grproperty[0].num = in;
 
   if (pGrid->nparticle+2 > pGrid->arrsize)
     particle_realloc(pGrid, pGrid->nparticle+2);
@@ -119,10 +118,7 @@ void problem(Grid *pGrid, Domain *pDomain)
     pGrid->U[k][j][i].M2 = 0.0;
     pGrid->U[k][j][i].M3 = 0.0;
 #ifndef FARGO
-    if (Ly>0.0) /* 3D */
       pGrid->U[k][j][i].M2 -= qshear*Omega_0*x1;
-    else /* 2D */
-      pGrid->U[k][j][i].M3 -= qshear*Omega_0*x1;
 #endif
   }}}
 
@@ -139,22 +135,25 @@ void problem(Grid *pGrid, Domain *pDomain)
     pGrid->particle[p].pos = 1; /* grid particle */
     pGrid->particle[p].my_id = p;
 #ifdef MPI_PARALLEL
-    pGrid->particle[p].init_id = pGrid->my_id;
+    pGrid->particle[p].init_id = myID_Comm_world;
 #endif
   }
 
 /* enroll gravitational potential function, shearing sheet BC functions */
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = UnstratifiedDisk;
 
-  if (pGrid->my_id == 0) {
+  if (pGrid->Nx[2] == 1) /* 2D problem */
+    ShBoxCoord = xy;
+
+  if (myID_Comm_world == 0) {
   /* flush output file */
-    sprintf(name, "%s_Traj.dat", pGrid->outfilename);
+    sprintf(name, "%s_Traj.dat","Par_Epicycle");
     FILE *fid = fopen(name,"w");
     fclose(fid);
 #ifdef MPI_PARALLEL
-    sprintf(name, "../%s_Traj.dat", pGrid->outfilename);
+    sprintf(name, "../%s_Traj.dat", "Par_Epicycle");
 #else
-    sprintf(name, "%s_Traj.dat", pGrid->outfilename);
+    sprintf(name, "%s_Traj.dat", "Par_Epicycle");
 #endif
   }
 
@@ -175,23 +174,26 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   fwrite(name, sizeof(char),50,fp);
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   Omega_0 = par_getd("problem","omega");
   qshear  = par_getd_def("problem","qshear",1.5);
 
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = UnstratifiedDisk;
 
-  Ly = x2max - x2min;	/* for 3D problem */
-  if (par_geti("grid","Nx3") == 1) {
-    Ly = 0.0;
-  }
+  x1min = pM->RootMinX[0];
+  x1max = pM->RootMaxX[0];
+  Lx = x1max - x1min;
+
+  x2min = pM->RootMinX[1];
+  x2max = pM->RootMaxX[1];
+  Ly = x2max - x2min;
 
   amp = par_getd("problem","amp");
   omg = sqrt(2.0*(2.0-qshear))*Omega_0;
@@ -200,12 +202,12 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
@@ -221,19 +223,21 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2, const Real x3,
                                     const Real v1, const Real v2, const Real v3)
 {
   return;
 }
 #endif
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
+  DomainS *pDomain = (DomainS*)&(pM->Domain[0][0]);
+  GridS *pGrid = pM->Domain[0][0].Grid;
   long p;
   Real t, ds, E, vshift;
-  Vector pos0;
-  Grain *gr;
+  Real3Vect pos0;
+  GrainS *gr;
   FILE *fid;
 
   t = pGrid->time+pGrid->dt;
@@ -241,7 +245,7 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
   for (p=0; p<pGrid->nparticle; p++)
   {
     gr = &(pGrid->particle[p]);
-    if (gr->pos == 1) /* grid particle */
+    if ((gr->pos == 1) || (gr->pos == 10)) /* grid particle */
     {
       /* position error */
       ds = sqrt(SQR(gr->x1-pos0.x1)+SQR(gr->x2-pos0.x2)+SQR(gr->x3-pos0.x3));
@@ -253,14 +257,12 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
 #else
       vshift = 0.0;
 #endif
-      if (Ly>0.0)
-        E += 0.5*SQR(gr->v2+vshift);
-      else
-        E += 0.5*SQR(gr->v3+vshift);
+      E += 0.5*SQR(gr->v2+vshift);
 
       /* output */
       fid = fopen(name,"a+");
-      fprintf(fid,"%e	%e	%e	%e	%e	%e	%e	%e	%e\n", t, ds, E, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
+      fprintf(fid,"%e %e %e %e %e %e %e %e %e\n",
+                    t, ds, E, gr->x1, gr->x2, gr->x3, pos0.x1, pos0.x2, pos0.x3);
       fclose(fid);
     }
   }
@@ -273,15 +275,16 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
  
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* ShearingBoxPot */
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
+ *  \brief shearing box tidal gravitational potential*/
+static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
 #ifndef FARGO
@@ -290,44 +293,41 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/* Calculate the particle position */
-static Vector ParticlePosition(const Real t)
+/*! \fn static Real3Vect ParticlePosition(const Real t)
+ *  \brief Calculate the particle position */
+static Real3Vect ParticlePosition(const Real t)
 {
   Real x,y;
-  Vector pos;
+  Real3Vect pos;
   x = amp*cos(omg*t);
   y = -2.0*amp*Omega_0/omg*sin(omg*t);
 
   x = x-floor((x-x1min)/Lx)*Lx;
-  if (Ly > 0.0)
-    y = y-floor((y-x2min)/Ly)*Ly;
-  else
-    y = 0.0;
+  y = y-floor((y-x2min)/Ly)*Ly;
 
   pos.x1 = x;	pos.x2 = y;	pos.x3 = 0.0;
   return pos;
 }
 
-/* Calculate the particle velocity */
-static Vector ParticleVelocity(const Vector pos, const Real t)
+/*! \fn static Real3Vect ParticleVelocity(const Real3Vect pos, const Real t)
+ *  \brief Calculate the particle velocity */
+static Real3Vect ParticleVelocity(const Real3Vect pos, const Real t)
 {
   Real vx,vy;
-  Vector vel;
+  Real3Vect vel;
   vx = -amp*omg*sin(omg*t);
   vy = -2.0*amp*Omega_0*cos(omg*t);
 #ifdef FARGO
   vy = vy + qshear*Omega_0*pos.x1;
 #endif
-  if (Ly>0.0) {
-    vel.x1 = vx;	vel.x2 = vy;	vel.x3 = 0.0;
-  } else {
-    vel.x1 = vx;	vel.x3 = vy;	vel.x2 = 0.0;
-  }
+  vel.x1 = vx;	vel.x2 = vy;	vel.x3 = 0.0;
+
   return vel;
 }
 
-/* Judge if the particle is in this cpu */
-static int ParticleLocator(const Vector pos)
+/*! \fn static int ParticleLocator(const RealVect pos)
+ *  \brief Judge if the particle is in this cpu */
+static int ParticleLocator(const Real3Vect pos)
 {
   if ((pos.x1<x1upar) && (pos.x1>=x1lpar) && (pos.x2<x2upar)
       && (pos.x2>=x2lpar) &&(pos.x3<x3upar) && (pos.x3>=x3lpar))

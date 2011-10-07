@@ -1,30 +1,31 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: field_loop.c
+/*============================================================================*/
+/*! \file field_loop.c
+ *  \brief Problem generator for advection of a field loop test. 
  *
  * PURPOSE: Problem generator for advection of a field loop test.  Can only
  *   be run in 2D or 3D.  Input parameters are:
- *      problem/rad   = radius of field loop
- *      problem/amp   = amplitude of vector potential (and therefore B)
- *      problem/vflow = flow velocity
- *      problem/drat  = density ratio in loop.  Enables density advection and
+ *   -  problem/rad   = radius of field loop
+ *   -  problem/amp   = amplitude of vector potential (and therefore B)
+ *   -  problem/vflow = flow velocity
+ *   -  problem/drat  = density ratio in loop.  Enables density advection and
  *                      thermal conduction tests.
  *   The flow is automatically set to run along the diagonal. 
  *
  *   Various test cases are possible:
- *     (iprob=1): field loop in x1-x2 plane (cylinder in 3D)
- *     (iprob=2): field loop in x2-x3 plane (cylinder in 3D)
- *     (iprob=3): field loop in x3-x1 plane (cylinder in 3D) 
- *     (iprob=4): rotated cylindrical field loop in 3D.
- *     (iprob=5): spherical field loop in rotated plane
+ *   - (iprob=1): field loop in x1-x2 plane (cylinder in 3D)
+ *   - (iprob=2): field loop in x2-x3 plane (cylinder in 3D)
+ *   - (iprob=3): field loop in x3-x1 plane (cylinder in 3D) 
+ *   - (iprob=4): rotated cylindrical field loop in 3D.
+ *   - (iprob=5): spherical field loop in rotated plane
  *
  *   A sphere of passive scalar can be added to test advection of scalars.
  *
  *   The temperature in the loop can be changed using drat to test conduction.
  *
  * REFERENCE: T. Gardiner & J.M. Stone, "An unsplit Godunov method for ideal MHD
- *   via constrined transport", JCP, 205, 509 (2005)
- *============================================================================*/
+ *   via constrined transport", JCP, 205, 509 (2005)			      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -82,14 +83,14 @@ void problem(DomainS *pDomain)
   vflow = par_getd("problem","vflow");
   drat = par_getd_def("problem","drat",1.0);
   iprob = par_getd("problem","iprob");
-#ifdef OHMIC
-  eta_R = par_getd("problem","eta");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
-#ifdef ISOTROPIC_CONDUCTION
-  kappa_T = par_getd("problem","kappa");
-#endif
-#ifdef ANISOTROPIC_CONDUCTION
-  chi_C = par_getd("problem","chi");
+#ifdef THERMAL_CONDUCTION
+  kappa_iso = par_getd_def("problem","kappa_iso",0.0);
+  kappa_aniso = par_getd_def("problem","kappa_aniso",0.0);
 #endif
 
 /* For (iprob=4) -- rotated cylinder in 3D -- set up rotation angle and
@@ -345,18 +346,26 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 }
 
 #ifdef MHD
+/*! \fn static Real current(const GridS *pG, const int i, const int j, const 
+ *			   int k)
+ *  \brief computes x3-component of current
+ */
 static Real current(const GridS *pG, const int i, const int j, const int k)
 {
   return ((pG->B2i[k][j][i]-pG->B2i[k][j][i-1])/pG->dx1 - 
 	  (pG->B1i[k][j][i]-pG->B1i[k][j-1][i])/pG->dx2);
 }
 
+/*! \fn static Real Bp2(const GridS *pG, const int i, const int j, const int k)
+ *  \brief computes magnetic pressure (Bx2 + By2) */
 static Real Bp2(const GridS *pG, const int i, const int j, const int k)
 {
   return (pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
 	  pG->U[k][j][i].B2c*pG->U[k][j][i].B2c);
 }
 
+/*! \fn static Real divB(const GridS *pG, const int i, const int j, const int k)
+ *  \brief  calculates div(B) */
 static Real divB(const GridS *pG, const int i, const int j, const int k)
 {
   Real qa;
@@ -373,6 +382,8 @@ static Real divB(const GridS *pG, const int i, const int j, const int k)
 #endif
 
 #if (NSCALARS > 0)
+/*! \fn static Real color(const GridS *pG, const int i, const int j,const int k)
+ *  \brief returns first passively advected scalar s[0] */
 static Real color(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].s[0]/pG->U[k][j][i].d;
@@ -380,6 +391,9 @@ static Real color(const GridS *pG, const int i, const int j, const int k)
 #endif
 
 #ifndef BAROTROPIC
+/*! \fn static Real Temperature(const GridS *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief returns temperature for conduction tests */
 static Real Temperature(const GridS *pG, const int i, const int j, const int k)
 {
   Real Temp;
@@ -404,7 +418,9 @@ ConsFun_t get_usr_expr(const char *expr)
 #if (NSCALARS > 0)
   if(strcmp(expr,"color")==0) return color;
 #endif
+#ifndef BAROTROPIC
   if(strcmp(expr,"Temperature")==0) return Temperature;
+#endif
   return NULL;
 }
 
@@ -414,6 +430,7 @@ VOutFun_t get_usr_out_fun(const char *name){
 
 void Userwork_in_loop(MeshS *pM)
 {
+  ath_pout(0,"Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
 }
 
 void Userwork_after_loop(MeshS *pM)

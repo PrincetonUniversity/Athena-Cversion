@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: init_mesh.c
+/*============================================================================*/
+/*! \file init_mesh.c
+ *  \brief General initialization of the nested mesh hierarchy. 
  *
  * PURPOSE: General initialization of the nested mesh hierarchy.  Works for both
  *   nested and uniform meshes, on single and multiple processors.  Each Mesh
@@ -14,27 +15,34 @@
  *   ndomain[nlevel] Domains).
  *
  *   Note for a uniform mesh on a single processor:
- *     # of Mesh levels = # of Domains = # of Grids = 1
+ *   - # of Mesh levels = # of Domains = # of Grids = 1
  *   For a uniform mesh on multiple processors:
- *     # of Mesh levels = # of Domains = 1; # of Grids = # of processors
+ *   - # of Mesh levels = # of Domains = 1; # of Grids = # of processors
  *   For a nested mesh on a single processor:
- *     # of Domains = # of Grids
+ *   - # of Domains = # of Grids
+ *
  *   For a nested mesh on multiple processors, there is no relationship between
  *   these quantaties in general.
  *
  *   This function: 
- *    (1) sets properties of each Domain read from <domain> blocks in input file
- *    (2) allocates and initializes the array of Domains,
- *    (3) divides each Domain into one or more Grids depending on the
+ *  - (1) sets properties of each Domain read from <domain> blocks in input file
+ *  - (2) allocates and initializes the array of Domains,
+ *  - (3) divides each Domain into one or more Grids depending on the
  *        parallelization.
+ *
  *   This function supercedes init_domain() from v3.2.
  *   The init_grid() function initializes the data in each Grid structure in 
  *   each Domain, including finding all child and parent Grids with SMR.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   init_mesh()
- *   get_myGridIndex()
- *============================================================================*/
+ * - init_mesh()
+ * - get_myGridIndex()							      
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - dom_decomp()    - calls auto domain decomposition functions 
+ * - dom_decomp_2d() - finds optimum domain decomposition in 2D 
+ * - dom_decomp_3d() - finds optimum domain decomposition in 3D		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdlib.h>
@@ -50,16 +58,28 @@
  *   dom_decomp_3d() - finds optimum domain decomposition in 3D 
  *============================================================================*/
 #ifdef MPI_PARALLEL
+/*! \fn static int dom_decomp(const int Nx, const int Ny, const int Nz,
+ *                            const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *  \brief calls auto domain decomposition functions */
 static int dom_decomp(const int Nx, const int Ny, const int Nz,const int Np,
   int *pNGx, int *pNGy, int *pNGz);
+
+/*! \fn static int dom_decomp_2d(const int Nx, const int Ny, const int Np,
+ *                               int *pNGx, int *pNGy)
+ *  \brief finds optimum domain decomposition in 2D */
 static int dom_decomp_2d(const int Nx, const int Ny, const int Np,
   int *pNGx, int *pNGy);
+
+/*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, 
+ *				 const int Np, int *pNGx, int *pNGy, int *pNGz) 
+ *  \brief finds optimum domain decomposition in 3D  */
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, const int Np,
   int *pNGx, int *pNGy, int *pNGz);
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* init_mesh:  */
+/*! \fn void init_mesh(MeshS *pM)
+ *  \brief General initialization of the nested mesh hierarchy.		      */
 
 void init_mesh(MeshS *pM)
 {
@@ -129,9 +149,6 @@ void init_mesh(MeshS *pM)
     } else {
       pM->DomainsPerLevel[nl] = nd_this_level;
     }
-if (myID_Comm_world==0){
-printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
-}
   }
 
 /*--- Step 2: Set up root level.  --------------------------------------------*/
@@ -242,10 +259,6 @@ printf("level=%d, domains=%d\n",nl,pM->DomainsPerLevel[nl]);
  * to the order it appears in input */
 
     nl = par_geti(block,"level");
-if(myID_Comm_world==0){
-printf("level=%d next_domainid=%d pM->DomainsPerLevel=%d\n",
-nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
-}
     if (next_domainid[nl] > (pM->DomainsPerLevel[nl])-1)
       ath_error("[init_mesh]: Exceeded available domain ids on level %d\n",nl);
     nd = next_domainid[nl];
@@ -667,6 +680,7 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
   max_rank = 0;
   for (nl=0; nl<=maxlevel; nl++){
   for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
     Nranks = (pD->NGrid[0])*(pD->NGrid[1])*(pD->NGrid[2]);
     max_rank = MAX(max_rank, Nranks);
   }}
@@ -697,20 +711,9 @@ nl,next_domainid[nl],pM->DomainsPerLevel[nl]);
 
 /* Create a new group for this Domain; use it to create a new communicator */
 
-printf("Domain_Comm ProcID=%d Nranks=%d ranks=",myID_Comm_world,Nranks);
-for (i=0; i<Nranks; i++) printf("%d ",ranks[i]);
-printf("\n");
     ierr = MPI_Group_incl(world_group,Nranks,ranks,&(pD->Group_Domain));
     ierr = MPI_Comm_create(MPI_COMM_WORLD,pD->Group_Domain,&(pD->Comm_Domain));
 
-/*
-int myrank=0;
-for (i=0; i<Nranks; i++){
-if (myID_Comm_world == ranks[i]){
-ierr = MPI_Comm_rank(pD->Comm_Domain, &myrank);
-printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
-}}
-*/
   }}
 
   free_1d_array(ranks);
@@ -808,21 +811,10 @@ printf("WorldID=%d Domain_CommID=%d\n",myID_Comm_world,myrank);
  * a child was found */
 
     if (child_found == 1) {
-printf("Children_Comm ProcID=%d Nranks=%d ranks=",myID_Comm_world,Nranks);
-for (i=0; i<Nranks; i++) printf("%d ",ranks[i]);
-printf("\n");
       ierr = MPI_Group_incl(world_group, Nranks, ranks, &(pD->Group_Children));
       ierr = MPI_Comm_create(MPI_COMM_WORLD,pD->Group_Children,
         &pD->Comm_Children);
 
-/*
-int myrank=0;
-for (i=0; i<Nranks; i++){
-if (myID_Comm_world == ranks[i]){
-ierr = MPI_Comm_rank(pD->Comm_Children, &myrank);
-printf("WorldID=%d Children_CommID=%d\n",myID_Comm_world,myrank);
-}}
-*/
 /* Loop over children to set Comm_Parent communicators */
 
       for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
@@ -850,7 +842,9 @@ printf("WorldID=%d Children_CommID=%d\n",myID_Comm_world,myrank);
 }
 
 /*----------------------------------------------------------------------------*/
-/* get_myGridIndex: searches GData[][][] array to find i,j,k components
+/*! \fn void get_myGridIndex(DomainS *pD, const int myID, int *pi, 
+ *			     int *pj, int *pk)
+ *  \brief Searches GData[][][] array to find i,j,k components
  *   of block being updated on this processor.  */
 
 void get_myGridIndex(DomainS *pD, const int myID,
@@ -873,7 +867,9 @@ void get_myGridIndex(DomainS *pD, const int myID,
 
 #ifdef MPI_PARALLEL
 /*=========================== PRIVATE FUNCTIONS ==============================*/
-/* dom_decomp: calls apropriate 2D or 3D auto decomposition routines
+/*! \fn static int dom_decomp(const int Nx, const int Ny, const int Nz,
+ *                    const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *  \brief Calls apropriate 2D or 3D auto decomposition routines
  *   Functions written by T.A.G., added May 2007 */
 
 static int dom_decomp(const int Nx, const int Ny, const int Nz,
@@ -898,7 +894,11 @@ static int dom_decomp(const int Nx, const int Ny, const int Nz,
 }
 
 /*----------------------------------------------------------------------------*/
-/* dom_decomp_2d: optimizes domain decomposition in 2D.  The TOTAL amount of
+/*! \fn static int dom_decomp_2d(const int Nx, const int Ny,
+ *                               const int Np, int *pNGx, int *pNGy)
+ *  \brief Pptimizes domain decomposition in 2D.  
+ *
+ *    The TOTAL amount of
  *   data communicated (summed over all processes and all INTERNAL boundaries)
  *   divided by 2*nghost (where the 2 is for two messages per internal
  *   interface) is computed and stored in the variable I, the minimum of which
@@ -928,8 +928,6 @@ static int dom_decomp_2d(const int Nx, const int Ny,
     rx_min = dv.quot + (dv.rem > 0 ? 1 : 0);
   }
   else rx_min = 1;
-
-  /* printf("rx_min = %d, rx_max = %d\n",rx_min, rx_max); */
 
   /* Constrain rxs to fall in this domain */
   rxs = rxs > rx_min ? rxs : rx_min;
@@ -966,9 +964,6 @@ static int dom_decomp_2d(const int Nx, const int Ny,
 
   if(init) return 1; /* Error locating a solution */
 
-  /* printf("Minimum messaging decomposition has: rx = %d, ry = %d, I = %d\n",
-     rx0, ry0, I0); */
-
   *pNGx = rx0;
   *pNGy = ry0;
 
@@ -976,8 +971,11 @@ static int dom_decomp_2d(const int Nx, const int Ny,
 }
 
 /*----------------------------------------------------------------------------*/
-/* dom_decomp_3d: optimizes domain decomposition in 3D.  See the comments for
- *   dom_decomp_2d() for more about the algorithm
+/*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
+ *			         const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *  \brief Optimizes domain decomposition in 3D.
+ *
+ *   See the comments for dom_decomp_2d() for more about the algorithm
  */
 
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
@@ -999,8 +997,6 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
   }
   else rx_min = 1;
 
-  /* printf("rx_min = %d, rx_max = %d\n",rx_min, rx_max); */
-
   for(rx = rx_min; rx <= rx_max; rx++){
     dv = div(Np, rx);
     if(dv.rem == 0){
@@ -1013,7 +1009,6 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 	  + (rz - 1)*(Nx + 2*nghost*rx)*(Ny + 2*nghost*ry);
 
 	if(I < 0){ /* Integer Overflow */
-	  /* printf("[3d new] I = %d\n",I); */
 	  continue;
 	}
 
@@ -1023,7 +1018,6 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 	  rz0 = rz;
 	  I0  = I;
 	  init = 0;
-	  /* printf("I(rx = %d, ry = %d, rz = %d) = %d\n",rx,ry,rz,I); */
 	}
       }
     }

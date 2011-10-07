@@ -39,13 +39,13 @@ lenz = length(z);
 
 if (lenx>1 && leny==1 && lenz==1)
     X = x;
-    Y = squeeze(var(:,j,k));
+    Y = squeeze(var(j,:,k))';
 elseif (lenx==1 && leny>1 && lenz==1)
     X = y;
-    Y = squeeze(var(i,:,k));
+    Y = squeeze(var(:,i,k))';
 elseif (lenx==1 && leny==1 && lenz>1)
     X = z;
-    Y = squeeze(var(i,j,:));
+    Y = squeeze(var(j,i,:))';
 else
     status = -1;
     fprintf(2, ...

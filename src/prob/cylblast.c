@@ -1,19 +1,20 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylblast.c
+/*============================================================================*/
+/*! \file cylblast.c
+ *  \brief Problem generator for blast wave in cylindrical coords.
  *
  * PURPOSE: Problem generator for blast wave in cylindrical coords.  Can only
  *   be run in 2D or 3D.  Input parameters are:
- *      problem/radius = radius of field initial overpressured region
- *      problem/pamb   = ambient pressure
- *      problem/prat   = ratio of interior to ambient pressure
- *      problem/b0     = initial azimuthal magnetic field (units sqrt(Pamb))
- *      problem/rho0   = background density
- *      problem/omega0 = initial azimuthal flow angular velocity
+ *   -  problem/radius = radius of field initial overpressured region
+ *   -  problem/pamb   = ambient pressure
+ *   -  problem/prat   = ratio of interior to ambient pressure
+ *   -  problem/b0     = initial azimuthal magnetic field (units sqrt(Pamb))
+ *   -  problem/rho0   = background density
+ *   -  problem/omega0 = initial azimuthal flow angular velocity
  *
  * REFERENCE: P. Londrillo & L. Del Zanna, "High-order upwind schemes for
- *   multidimensional MHD", ApJ, 530, 508 (2000), and references therein.
- *============================================================================*/
+ *   multidimensional MHD", ApJ, 530, 508 (2000), and references therein. */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -27,14 +28,10 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * grav_pot() - gravitational potential
- * grav_acc() - gravitational acceleration
- * M2()       - phi-momentum
  *============================================================================*/
 
 static Real omega0,rho0;
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
-Real M2(const Real x1, const Real x2, const Real x3);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -69,7 +66,7 @@ void problem(DomainS *pDomain)
     ath_error("[cylblast]: Only (R,phi) can be used in 2D!\n");
   }
 
-  /* READ IN INITIAL CONDITIONS */
+  /* Read in initial conditions */
   radius = par_getd("problem","radius");
   pamb   = par_getd("problem","pamb");
   prat   = par_getd("problem","prat");
@@ -77,18 +74,18 @@ void problem(DomainS *pDomain)
   omega0 = par_getd("problem","omega0");
   b0     = par_getd("problem","b0");
 
-  /* PLACEMENT OF CENTER OF BLAST */
+  /* Placement of center of blast */
   r0   = par_getd("problem","r0");
   phi0 = par_getd("problem","phi0");
   z0   = par_getd("problem","z0");
 
-  /* ORIENTATION OF FIELD W.R.T. POS. X-AXIS */
+  /* Orientation of field w.r.t. pos. x-axis */
   angle = (PI/180.0)*par_getd("problem","angle");
 
   x0 = r0*cos(phi0);
   y0 = r0*sin(phi0);
 
-  /* SET UP UNIFORM AMBIENT MEDIUM WITH CIRCULAR OVER-PRESSURED REGION */
+  /* Set up uniform ambient medium with circular over-pressured region */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
@@ -100,7 +97,7 @@ void problem(DomainS *pDomain)
         pG->U[k][j][i].M2 = pG->U[k][j][i].d*x1*omega0;
         pG->U[k][j][i].M3 = 0.0;
 #ifdef MHD
-        /* SET UP A PLANAR MAGNETIC FIELD IN THE X-Y (R-PHI) PLANE */
+        /* Set up a planar magnetic field in the x-y (r-phi) plane */
         pG->B1i[k][j][i]   = b0*(cos(angle)*cos(x2)+sin(angle)*sin(x2)); 
         pG->B2i[k][j][i]   = b0*(-cos(angle)*sin(x2i)+sin(angle)*cos(x2i));
         pG->B3i[k][j][i]   = 0.0;
@@ -108,12 +105,12 @@ void problem(DomainS *pDomain)
         pG->U[k][j][i].B2c = b0*(-cos(angle)*sin(x2)+sin(angle)*cos(x2));
         pG->U[k][j][i].B3c = 0.0;
 #endif
-        /* CARTESIAN POSITION OF CELL CENTER */
+        /* Cartesian position of cell center */
         x = x1*cos(x2);
         y = x1*sin(x2);
         z = x3;
 
-        /* INITIALIZE TOTAL ENERGY */
+        /* Initialize total energy */
 #ifndef ISOTHERMAL
         Eint = pamb/Gamma_1;
         if (SQR(x-x0) + SQR(y-y0) + SQR(z-z0) < SQR(radius)) {
@@ -132,7 +129,6 @@ void problem(DomainS *pDomain)
 
   /* Enroll the gravitational function and radial BC */
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
   bvals_mhd_fun(pDomain,left_x1, do_nothing_bc);
   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
   bvals_mhd_fun(pDomain,left_x2, do_nothing_bc);
@@ -180,14 +176,9 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) {
+ *  \brief  Gravitational potential*/
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return 0.5*SQR(x1*omega0);
 }
 
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return x1*SQR(omega0);
-}
-
-Real M2(const Real x1, const Real x2, const Real x3) {
-  return rho0*omega0*x1;
-}

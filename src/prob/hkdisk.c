@@ -1,10 +1,9 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: hkdisk.c
- *
- * PURPOSE: Problem generator for Hawley Krolik disk (Specifically, GT4)
- * 
- *============================================================================*/
+/*============================================================================*/
+/*! \file hkdisk.c
+ *  \brief Problem generator for Hawley Krolik disk (Specifically, GT4)
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -22,6 +21,8 @@ static Real q, r0, rhomax, r_in, rho0, e0, dcut, beta, seed;
 // Derived quantities
 static Real f, C, Kbar, n;
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   Real rad;
   rad = sqrt( SQR(x1) + SQR(x3) );
@@ -29,6 +30,8 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3) {
 // return 0.0;
 }
 
+/*! \fn static Real grav_acc(const Real x1, const Real x2, const Real x3)
+ *  \brief Gravitational acceleration */
 static Real grav_acc(const Real x1, const Real x2, const Real x3) {
   Real rad;
   rad = sqrt( SQR(x1) + SQR(x3) );
@@ -37,7 +40,8 @@ static Real grav_acc(const Real x1, const Real x2, const Real x3) {
  
 //Private functions (x1,x2,x3) = (R,p,z)
 
-// Calculates the density at x1, x2, x3
+/*! \fn Real density(Real x1, Real x2, Real x3) 
+ *  \brief Calculates the density at x1, x2, x3*/
 Real density(Real x1, Real x2, Real x3) {
   Real rad, temp, d;
   rad = sqrt( SQR(x1) + SQR(x3));
@@ -49,7 +53,8 @@ Real density(Real x1, Real x2, Real x3) {
   return d;
 }
 
-// Calculates the volume of cell (i,j,k)
+/*! \fn Real Volume(Grid *pG, int i, int j, int k) 
+ *  \brief Calculates the volume of cell (i,j,k) */
 Real Volume(Grid *pG, int i, int j, int k) {
   Real x1,x2,x3;
   cc_pos(pG,i,j,k,&x1,&x2,&x3);

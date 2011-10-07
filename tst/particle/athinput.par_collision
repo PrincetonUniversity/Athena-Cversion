@@ -1,61 +1,57 @@
 <comment>
 
-problem = particle code test: circular flow
-author  =
-journal =
-config  = --with-particles=feedback --with-gas=hydro --with-eos=isothermal --with-problem=par_collision --enable-mpi
-make    = make all MACHINE=peyton-mpi
-run     = /usr/peyton/openmpi/bin/mpirun -np 4 athena -i ../tst/particle/athinput.par_collision
+problem = particle-gas "collision" test
+author  = X.N. Bai & J.M. Stone
+journal = ApJS, 190, 297
+config  = --with-particles=feedback --with-gas=hydro --with-eos=isothermal --with-problem=par_collision 
 
 <job>
 
 problem_id    = collision  # problem ID: basename of output filenames
-maxout        = 0           # Output blocks number from 1 -> maxout
+maxout        = 2          # Output blocks number from 1 -> maxout
+num_domains   = 1          # number of Domains in Mesh
 
 <output1>
-out_fmt = hst               # History data dump
+out_fmt = phst              # particle history data dump
 dt      = 0.05              # time increment between outputs
 
 <output2>
 out_fmt = rst               # Restart data dump
-dt      = 10.0              # time increment between outputs
+dt      = 0.05              # time increment between outputs
 
 <output3>
 out_fmt = lis               # particle list data dump (ONLY for particles)
-dt      = 0.05              # time step between output
+dt      = 0.5               # time step between output
 id      = ds
-
 
 <time>
 
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 200000    # cycle limit
-tlim            = 5.0       # time limit
+tlim            = 10.0       # time limit
 
-<grid>
-
+<domain1>
+level           = 0
 Nx1             = 32        # Number of zones in X-direction
 x1min           = 0.0       # minimum value of X
 x1max           = 4.0       # maximum value of X
-ibc_x1          = 4         # inner-I (X) boundary flag (periodic)
-obc_x1          = 4         # outer-I (X) boundary flag (periodic)
+bc_ix1          = 4         # inner-I (X) boundary flag (periodic)
+bc_ox1          = 4         # outer-I (X) boundary flag (periodic)
+NGrid_x1        = 2
 
 Nx2             = 32        # Number of zones in X2-direction
 x2min           = 0.0       # minimum value of X2
 x2max           = 4.0       # maximum value of X2
-ibc_x2          = 4         # inner-J (Y) boundary flag (periodic)
-obc_x2          = 4         # outer-J (Y) boundary flag (periodic)
+bc_ix2          = 4         # inner-J (Y) boundary flag (periodic)
+bc_ox2          = 4         # outer-J (Y) boundary flag (periodic)
+NGrid_x2        = 2
 
 Nx3             = 1         # Number of zones in X3-direction
 x3min           = 0.0       # minimum value of X3
 x3max           = 0.0       # maximum value of X3
-ibc_x3          = 4         # inner-K (Z) boundary flag (outflow)
-obc_x3          = 4         # outer-K (Z) boundary flag (outflow)
-
-<parallel>
-NGrid_x1 = 2
-NGrid_x2 = 2
-NGrid_x3 = 1
+bc_ix3          = 4         # inner-K (Z) boundary flag (outflow)
+bc_ox3          = 4         # outer-K (Z) boundary flag (outflow)
+NGrid_x3        = 1
 
 <particle>
 
@@ -66,7 +62,7 @@ integrator      = 2         # particle integrator (1: explicit; 2: semi-implicit
 interp          = 2         # interpolation scheme (1: CIC; 2: TSC; 3: QP)
 tsmode          = 3         # stopping time calculation mode (1: General; 2: Epstein; 3: fixed);
 
-nshuf           = 2000       # number of time steps to shuffle the particles
+tshuf           = 100.0     # time interval to shuffle the particles
 
 <problem>
 

@@ -1,10 +1,9 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: bubble.c
- *
- * PURPOSE: Problem generator for bubble in spherical isothermal atmosphere.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file bubble.c
+ *  \brief Problem generator for bubble in spherical isothermal atmosphere.
+ */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -111,16 +110,16 @@ void problem(Grid *pGrid, Domain *pDomain)
   set_bvals_mhd_fun(left_x3,  outflow_ix3);
   set_bvals_mhd_fun(right_x3, outflow_ox3);
 
-/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
+/* With viscosity and/or resistivity, read diffusion coeffs */
 
-#ifdef OHMIC
-  eta_Ohm = par_getd("problem","eta");
+#ifdef RESISTIVITY
+  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  Q_Hall  = par_getd_def("problem","Q_H",0.0);
+  Q_AD    = par_getd_def("problem","Q_AD",0.0);
 #endif
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
-#endif
-#ifdef BRAGINSKII
-  nu_V = par_getd("problem","nu");
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
   return;
@@ -177,7 +176,8 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 }
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
-/* Static gravitational potential */
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3)
+ *  \brief Static gravitational potential */
 
 static Real grav_pot(const Real x1, const Real x2, const Real x3)
 {
@@ -186,8 +186,9 @@ static Real grav_pot(const Real x1, const Real x2, const Real x3)
   return (0.75/Gamma)*log(1.0+r2);
 }
 
-/*------------------------------------------------------------------------------
- * outflow_ix1: special outflow boundary function
+/*----------------------------------------------------------------------------*/
+/*! \fn static void outflow_ix1(Grid *pGrid)
+ *  \brief Special outflow boundary function
  */
 
 static void outflow_ix1(Grid *pGrid)
@@ -258,8 +259,9 @@ static void outflow_ix1(Grid *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * outflow_ox1: special outflow boundary function
+/*----------------------------------------------------------------------------*/
+/*! \fn static void outflow_ox1(Grid *pGrid)
+ *  \brief Special outflow boundary function
  */
 
 static void outflow_ox1(Grid *pGrid)
@@ -331,8 +333,9 @@ static void outflow_ox1(Grid *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * outflow_ox2: special outflow boundary function
+/*----------------------------------------------------------------------------*/
+/*! \fn static void outflow_ox2(Grid *pGrid)
+ *  \brief Special outflow boundary function
  */
 
 static void outflow_ox2(Grid *pGrid)
@@ -410,8 +413,9 @@ static void outflow_ox2(Grid *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * outflow_ix3: special outflow boundary function
+/*----------------------------------------------------------------------------*/
+/*! \fn static void outflow_ix3(Grid *pGrid)
+ *  \brief Special outflow boundary function
  */
 
 static void outflow_ix3(Grid *pGrid)
@@ -490,8 +494,9 @@ static void outflow_ix3(Grid *pGrid)
   return;
 }
 
-/*------------------------------------------------------------------------------
- * outflow_ox3: special outflow boundary function
+/*----------------------------------------------------------------------------*/
+/*! \fn static void outflow_ox3(Grid *pGrid)
+ *  \brief Special outflow boundary function
  */
 
 static void outflow_ox3(Grid *pGrid)

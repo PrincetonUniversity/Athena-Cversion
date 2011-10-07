@@ -1,11 +1,10 @@
 #ifndef INTEGRATORS_PROTOTYPES_H
 #define INTEGRATORS_PROTOTYPES_H 
 #include "../copyright.h"
-/*==============================================================================
- * FILE: prototypes.h
- *
- * PURPOSE: Prototypes for all public functions in the /src/integrators dir
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions in the /src/integrators dir */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "../athena.h"

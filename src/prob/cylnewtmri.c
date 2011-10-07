@@ -1,12 +1,11 @@
 
 #include "copyright.h"
-/*==============================================================================
- * FILE: newtmri.c
- *
- * Test of the evolution/saturation of the MRI in an unstratified/uniform
+/*============================================================================*/
+/*! \file cylnewtmri.c
+ * \brief Test of the evolution/saturation of the MRI in an unstratified/uniform
  * Newtonian disk
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

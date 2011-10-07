@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: carbuncle.c
+/*============================================================================*/
+/*! \file carbuncle.c 
+ *  \brief Problem generator for carbuncle instability.
  *
  * PURPOSE: Problem generator for carbuncle instability.  Sets up a planar shock
  *   propagating in the x1-direction with arbitrary Mach number input from
@@ -12,10 +13,13 @@
  *    shk_flag = 0 - standing shock in middle of grid (obc_x1=2 in input file) 
  *    shk_flag = 1 - flow at Ux=Mach into wall (obc_x1=1 in input file) 
  *        
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - initialize_states() - sets shock jumps given Mach number
+ *
  * REFERENCE: R. Sanders, E. Morano, & M.-C. Druguet, "Multidimensional 
  *   dissipation for upwind schemes: stability and applications to gas dynamics"
- *   JCP, 145, 511 (1998)
- *============================================================================*/
+ *   JCP, 145, 511 (1998)						      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -170,8 +174,9 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*-----------------------------------------------------------------------------
- * initialize_states: Uses Rankine Hugoniot relations for adiabatic gas to
+/*---------------------------------------------------------------------------*/
+/*! \fn static void initialize_states(void)
+ *  \brief Uses Rankine Hugoniot relations for adiabatic gas to
  *   shock jump conditions
  */
 

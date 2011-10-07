@@ -1,21 +1,31 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: conduction.c
- *
- * PURPOSE: Adds explicit thermal conduction term to the energy equation,
+/*============================================================================*/
+/*! \file conduction.c
+ *  \brief Adds explicit thermal conduction term to the energy equation,
  *      dE/dt = Div(Q)
- *   where Q = kappa_iso Grad(T) + kappa_aniso([b Dot Grad(T)]b) = heat flux
- *         T = (P/d)*(mbar/k_B) = temperature
- *         b = magnetic field unit vector
- *   Here kappa_iso   is the coeffcient for   isotropic conduction
- *        kappa_aniso is the coeffcient for anisotropic conduction
- *   The heat flux Q is calculated by calls to HeatFlux_* functions.
+ *
+ *   where 
+ *    - Q = kappa_iso Grad(T) + kappa_aniso([b Dot Grad(T)]b) = heat flux
+ *    - T = (P/d)*(mbar/k_B) = temperature
+ *    - b = magnetic field unit vector
+ *
+ *   Here 
+ *    - kappa_iso   is the   isotropic coefficient of thermal diffusion
+ *    - kappa_aniso is the anisotropic coefficient of thermal diffusion
+ *
+ * Note the kappa's are DIFFUSIVITIES, not CONDUCTIVITIES.  Also note this
+ * version uses "dimensionless units" in that the factor (mbar/k_B) is not
+ * included in calculating the temperature (instead, T=P/d is used).  For cgs
+ * units, kappa must be entered in units of [cm^2/s], and the heat fluxes would
+ * need to be multiplied by (k_B/mbar).
+ *
+ * The heat flux Q is calculated by calls to HeatFlux_* functions.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   conduction() - updates energy equation with thermal conduction
- *   conduction_init() - allocates memory needed
- *   conduction_destruct() - frees memory used
- *============================================================================*/
+ * - conduction() - updates energy equation with thermal conduction
+ * - conduction_init() - allocates memory needed
+ * - conduction_destruct() - frees memory used */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -46,9 +56,9 @@ void HeatFlux_aniso(DomainS *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* conduct:
+/*! \fn void conduction(DomainS *pD)
+ *  \brief Explicit thermal conduction
  */
-
 void conduction(DomainS *pD)
 {
   GridS *pG = (pD->Grid);
@@ -75,17 +85,17 @@ void conduction(DomainS *pD)
   }
 
 /* Zero heat heat flux array; compute temperature at cell centers.  Temperature
- * is dimensionless (in units of [mbar/k_B]).  For cgs units, the value of
- * kappa_iso or kappa_aniso must contain a factor (be multiplied by) mbar/k_B.
+ * includes a factor [k_B/mbar].  For cgs units, the heat flux would have to 
+ * be multiplied by this factor.
  */
 
   for (k=kl; k<=ku; k++) {
   for (j=jl; j<=ju; j++) {
   for (i=is-1; i<=ie+1; i++) {
 
-    Q[k][j][i].x = 0.0;
-    Q[k][j][i].y = 0.0;
-    Q[k][j][i].z = 0.0;
+    Q[k][j][i].x1 = 0.0;
+    Q[k][j][i].x2 = 0.0;
+    Q[k][j][i].x3 = 0.0;
 
     Temp[k][j][i] = pG->U[k][j][i].E - (0.5/pG->U[k][j][i].d)*
       (SQR(pG->U[k][j][i].M1) +SQR(pG->U[k][j][i].M2) +SQR(pG->U[k][j][i].M3));
@@ -108,7 +118,7 @@ void conduction(DomainS *pD)
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].E += dtodx1*(Q[k][j][i+1].x - Q[k][j][i].x);
+      pG->U[k][j][i].E += dtodx1*(Q[k][j][i+1].x1 - Q[k][j][i].x1);
     }
   }}
 
@@ -118,7 +128,7 @@ void conduction(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx2*(Q[k][j+1][i].y - Q[k][j][i].y);
+        pG->U[k][j][i].E += dtodx2*(Q[k][j+1][i].x2 - Q[k][j][i].x2);
       }
     }}
   }
@@ -129,7 +139,7 @@ void conduction(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[k][j][i].E += dtodx3*(Q[k+1][j][i].z - Q[k][j][i].z);
+        pG->U[k][j][i].E += dtodx3*(Q[k+1][j][i].x3 - Q[k][j][i].x3);
       }
     }}
   }
@@ -138,7 +148,8 @@ void conduction(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* HeatFlux_iso: calculate heat fluxes with isotropic conduction
+/*! \fn void HeatFlux_iso(DomainS *pD)
+ *  \brief Calculate heat fluxes with isotropic conduction
  */
 
 void HeatFlux_iso(DomainS *pD)
@@ -147,13 +158,15 @@ void HeatFlux_iso(DomainS *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
+  Real kd;
 
 /* Add heat fluxes in 1-direction */ 
 
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      Q[k][j][i].x += kappa_iso*(Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
+      kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+      Q[k][j][i].x1 += kd*(Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
     }
   }}
 
@@ -163,7 +176,8 @@ void HeatFlux_iso(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        Q[k][j][i].y += kappa_iso*(Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
+        kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
+        Q[k][j][i].x2 += kd*(Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
       }
     }}
   }
@@ -174,7 +188,8 @@ void HeatFlux_iso(DomainS *pD)
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        Q[k][j][i].z += kappa_iso*(Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
+        kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
+        Q[k][j][i].x3 += kd*(Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
       }
     }}
   }
@@ -183,7 +198,8 @@ void HeatFlux_iso(DomainS *pD)
 }
 
 /*----------------------------------------------------------------------------*/
-/* HeatFlux_aniso: calculate heat fluxes with anisotropic conduction
+/*! \fn void HeatFlux_aniso(DomainS *pD)
+ *  \brief Calculate heat fluxes with anisotropic conduction
  */
 
 void HeatFlux_aniso(DomainS *pD)
@@ -192,7 +208,7 @@ void HeatFlux_aniso(DomainS *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
-  Real Bx,By,Bz,B02,dTc,dTl,dTr,lim_slope,dTdx,dTdy,dTdz,bDotGradT;
+  Real Bx,By,Bz,B02,dTc,dTl,dTr,lim_slope,dTdx,dTdy,dTdz,bDotGradT,kd;
 
 #ifdef MHD
   if (pD->Nx[1] == 1) return;  /* problem must be at least 2D */
@@ -239,7 +255,8 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B1i[k][j][i]*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1
            + By*dTdy;
-        Q[k][j][i].x += kappa_aniso*(pG->B1i[k][j][i]*bDotGradT)/B02;
+        kd = kappa_aniso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+        Q[k][j][i].x1 += kd*(pG->B1i[k][j][i]*bDotGradT)/B02;
 
 /* Add flux at x1-interface, 3D PROBLEM */
 
@@ -250,7 +267,8 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B1i[k][j][i]*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1
            + By*dTdy + Bz*dTdz;
-        Q[k][j][i].x += kappa_aniso*(pG->B1i[k][j][i]*bDotGradT)/B02;
+        kd = kappa_aniso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+        Q[k][j][i].x1 += kd*(pG->B1i[k][j][i]*bDotGradT)/B02;
       }
     }
   }}
@@ -298,7 +316,8 @@ void HeatFlux_aniso(DomainS *pD)
 
         bDotGradT = pG->B2i[k][j][i]*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2
            + Bx*dTdx;
-        Q[k][j][i].y += kappa_aniso*(pG->B2i[k][j][i]*bDotGradT)/B02;
+        kd = kappa_aniso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
+        Q[k][j][i].x2 += kd*(pG->B2i[k][j][i]*bDotGradT)/B02;
 
 /* Add flux at x2-interface, 3D PROBLEM */
 
@@ -309,7 +328,8 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B2i[k][j][i]*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2
            + Bx*dTdx + Bz*dTdz;
-        Q[k][j][i].y += kappa_aniso*(pG->B2i[k][j][i]*bDotGradT)/B02;
+        kd = kappa_aniso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
+        Q[k][j][i].x2 += kd*(pG->B2i[k][j][i]*bDotGradT)/B02;
       }
     }
   }}
@@ -355,7 +375,8 @@ void HeatFlux_aniso(DomainS *pD)
         B02 = MAX(B02,TINY_NUMBER); /* limit in case B=0 */
         bDotGradT = pG->B3i[k][j][i]*(Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3
            + Bx*dTdx + By*dTdy;
-        Q[k][j][i].z += kappa_aniso*(pG->B3i[k][j][i]*bDotGradT)/B02;
+        kd = kappa_aniso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
+        Q[k][j][i].x3 += kd*(pG->B3i[k][j][i]*bDotGradT)/B02;
       }
     }}
   }
@@ -366,12 +387,13 @@ void HeatFlux_aniso(DomainS *pD)
 
 
 /*----------------------------------------------------------------------------*/
-/* conduction_init: Allocate temporary arrays
+/*! \fn void conduction_init(MeshS *pM) 
+ *  \brief Allocate temporary arrays
  */
 
 void conduction_init(MeshS *pM)
 {
-  int nl,nd,size1=0,size2=0,size3=0,Nx1,Nx2,Nx3;
+  int nl,nd,size1=1,size2=1,size3=1,Nx1,Nx2,Nx3;
 
 /* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
   for (nl=0; nl<(pM->NLevels); nl++){
@@ -415,7 +437,8 @@ void conduction_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* conduction_destruct: Free temporary arrays
+/*! \fn void conduction_destruct(void)
+ *  \brief Free temporary arrays
  */
 
 void conduction_destruct(void)

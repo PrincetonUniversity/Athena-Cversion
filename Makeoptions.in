@@ -109,6 +109,15 @@ ifeq ($(MACHINE),aether)
   MPIINC = -I~/lam-7.1.4/include
   MPILIB = -L~/lam-7.1.4/lib
 else
+ifeq ($(MACHINE),zenith)
+  CC  = mpicc
+  LDR = mpicc
+  OPT = -O3
+  MPIINC = -I/opt/mpich2/intel/include
+  MPILIB = -L/opt/mpich2/intel/lib -lmpich
+  FFTWLIB = -L/usr/local/fftw3 -lfftw3
+  FFTWINC = -I/usr/local/fftw3
+else
 ifeq ($(MACHINE),macosx)
   CC = gcc
   LDR = gcc
@@ -124,6 +133,7 @@ ifeq ($(MACHINE),sunnyvale)
   MPILIB = -lmpi
 else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif

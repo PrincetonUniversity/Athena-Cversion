@@ -1,17 +1,22 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: ath_array.c
+/*============================================================================*/
+/*! \file ath_array.c
+ *  \brief Functions that construct and destruct 1D, 2D and 3D arrays of any
+ *   type.
  *
  * PURPOSE: Functions that construct and destruct 1D, 2D and 3D arrays of any
  *   type. Elements in these arrays can be accessed in the standard fashion of
  *   array[in][im] (where in = 0 -> nr-1 and im = 0 -> nc-1) as if it
  *   were an array of fixed size at compile time with the statement:
- *      "Type" array[nr][nc];
- *  Equally so for 3D arrys:  array[nt][nr][nc]       -- TAG -- 8/2/2001
+ *   -  "Type" array[nr][nc];
+ *
+ *  Equally so for 3D arrys:  array[nt][nr][nc]       
+ *
+ *  TAG -- 8/2/2001
  *
  * EXAMPLE usage of 3D construct/destruct functions for arrays of type Real:
- *   array = (Real ***)calloc_3d_array(nt,nr,nc,sizeof(Real));
- *   free_3d_array(array);
+ * - array = (Real ***)calloc_3d_array(nt,nr,nc,sizeof(Real));
+ * - free_3d_array(array);
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   calloc_1d_array() - creates 1D array
@@ -34,8 +39,8 @@
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* calloc_1d_array: construct 1D array = array[nc]  */
-
+/*! \fn void* calloc_1d_array(size_t nc, size_t size)
+ *  \brief Construct 1D array = array[nc]  */
 void* calloc_1d_array(size_t nc, size_t size)
 {
   void *array;
@@ -49,8 +54,8 @@ void* calloc_1d_array(size_t nc, size_t size)
 }
 
 /*----------------------------------------------------------------------------*/
-/* calloc_2d_array: construct 2D array = array[nr][nc]  */
-
+/*! \fn void** calloc_2d_array(size_t nr, size_t nc, size_t size)
+ *  \brief Construct 2D array = array[nr][nc]  */
 void** calloc_2d_array(size_t nr, size_t nc, size_t size)
 {
   void **array;
@@ -76,8 +81,8 @@ void** calloc_2d_array(size_t nr, size_t nc, size_t size)
 }
 
 /*----------------------------------------------------------------------------*/
-/* calloc_3d_array: construct 3D array = array[nt][nr][nc]  */
-
+/*! \fn void*** calloc_3d_array(size_t nt, size_t nr, size_t nc, size_t size)
+ *  \brief Construct 3D array = array[nt][nr][nc]  */
 void*** calloc_3d_array(size_t nt, size_t nr, size_t nc, size_t size)
 {
   void ***array;
@@ -1122,14 +1127,15 @@ void******* calloc_7d_array(size_t ni, size_t nj, size_t nk, size_t nl, size_t n
 /*----------------------------------------------------------------------------*/
 /* free_1d_array: free memory used by 1D array  */
 
+
 void free_1d_array(void *array)
 {
   free(array);
 }
 
 /*----------------------------------------------------------------------------*/
-/* free_2d_array: free memory used by 2D array  */
-
+/*! \fn void free_2d_array(void *array)
+ *  \brief Free memory used by 2D array  */
 void free_2d_array(void *array)
 {
   void **ta = (void **)array;
@@ -1139,8 +1145,8 @@ void free_2d_array(void *array)
 }
 
 /*----------------------------------------------------------------------------*/
-/* free_3d_array: free memory used by 3D array  */
-
+/*! \fn void free_3d_array(void *array)
+ *  \brief Free memory used by 3D array  */
 void free_3d_array(void *array)
 {
   void ***ta = (void ***)array;

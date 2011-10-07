@@ -1,13 +1,18 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: output_vtk.c
+/*============================================================================*/
+/*! \file output_vtk.c
+ *  \brief Function to write a single variable in VTK "legacy" format. 
  *
  * PURPOSE: Function to write a single variable in VTK "legacy" format.  With
  *   SMR, dumps are made for all levels and domains, unless nlevel and ndomain
  *   are specified in <output> block.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   output_vtk() - writes VTK file (single variable).
+ * - output_vtk() - writes VTK file (single variable).
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - output_vtk_2d() - write vtk file for 2D data
+ * - output_vtk_3d() - write vtk file for 3D data
  *============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,7 +32,8 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* output_vtk:   */
+/*! \fn void output_vtk(MeshS *pM, OutputS *pOut)
+ *  \brief Writes VTK file (single variable). */
 
 void output_vtk(MeshS *pM, OutputS *pOut)
 {
@@ -58,7 +64,8 @@ void output_vtk(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_vtk_2d: writes 2D data  */
+/*! \fn static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
+ *  \brief Writes 2D data  */
 
 static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {
@@ -166,7 +173,8 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_vtk_3d: writes 3D data  */
+/*! \fn static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
+ *  \brief Writes 3D data  */
 
 static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {

@@ -1,6 +1,8 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_strat2d.c
+/*============================================================================*/
+/*! \file par_strat2d.c
+ *  \brief Problem generator for non-linear streaming instability in
+ *   stratified disks.
  *
  * PURPOSE: Problem generator for non-linear streaming instability in
  *   stratified disks. This code works in 2D ONLY. Isothermal eos is assumed,
@@ -8,17 +10,17 @@
  *   allowed, but not in z.
  *
  * Perturbation modes:
- *    ipert = 0: multi-nsh equilibtium
- *    ipert = 1: white noise within the entire grid
- *    ipert = 2: non-nsh velocity
+ *  - ipert = 0: multi-nsh equilibtium
+ *  - ipert = 1: white noise within the entire grid
+ *  - ipert = 2: non-nsh velocity
  *
  *  Must be configured using --enable-shearing-box and --with-eos=isothermal.
  *  FARGO is recommended.
  *
  * Reference:
  *   Johansen & Youdin, 2007, ApJ, 662, 627
- *   Bai & Stone, 2009, in preparation
- *============================================================================*/
+ *   Bai & Stone, 2009, in preparation					      */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -73,57 +75,56 @@ Real Erf(Real z);
 
 void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
                      Real *uxNSH, Real *uyNSH,  Real *wxNSH, Real *wyNSH);
-static Real hst_rho_Vx_dVy(const Grid *pG,const int i,const int j,const int k);
-static void close_ix2(Grid *pGrid);
-static void close_ox2(Grid *pGrid);
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3);
+static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
+static Real StratifiedDisk(const Real x1, const Real x2, const Real x3);
 
-static int property_limit(const Grain *gr, const GrainAux *grsub);
-static int property_trace(const Grain *gr, const GrainAux *grsub);
-static int property_type(const Grain *gr, const GrainAux *grsub);
-static int property_dense(const Grain *gr, const GrainAux *grsub);
+static int property_limit(const GrainS *gr, const GrainAux *grsub);
+static int property_trace(const GrainS *gr, const GrainAux *grsub);
+static int property_type(const GrainS *gr, const GrainAux *grsub);
+static int property_dense(const GrainS *gr, const GrainAux *grsub);
 
-extern Real expr_dpar(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V1par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V2par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V3par(const Grid *pG, const int i, const int j, const int k);
-extern Real expr_V2(const Grid *pG, const int i, const int j, const int k);
+extern Real expr_dpar(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V1par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V2par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
+extern Real expr_V2(const GridS *pG, const int i, const int j, const int k);
 
 /*=========================== PUBLIC FUNCTIONS =================================
  *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
-  int i,j,js,pt,tsmode,vertical_bc;
+  GridS *pGrid = pDomain->Grid;
+  int i,j,js,pt,tsmode;
   long p,q;
   Real ScaleHg,tsmin,tsmax,tscrit,amin,amax,Hparmin,Hparmax;
   Real *ep,*ScaleHpar,epsum,mratio,pwind,rhoaconv,etavk;
   Real *epsilon,*uxNSH,*uyNSH,**wxNSH,**wyNSH;
   Real rhog,h,x1,x2,x3,t,x1p,x2p,x3p,zmin,zmax,dx2_1,b;
-  long int iseed = -1; /* Initialize on the first call to ran2 */
+  long int iseed = myID_Comm_world; /* Initialize on the first call to ran2 */
 
-  if (par_geti("grid","Nx2") == 1) {
+  if (pDomain->Nx[1] == 1) {
     ath_error("[par_strat2d]: par_strat2d only works for 2D problem.\n");
   }
-  if (par_geti("grid","Nx3") > 1) {
+  if (pDomain->Nx[2] > 1) {
     ath_error("[par_strat2d]: par_strat2d only works for 2D problem.\n");
   }
 #ifdef MPI_PARALLEL
-  if (par_geti("parallel","NGrid_x2") > 2) {
-    ath_error("[par_strat2d]: Domain decomposition in x2 (z) must be no more\
- than 2!\n");
+  if (pDomain->NGrid[1] > 2) {
+    ath_error(
+ "[par_strat2d]: The z-domain can not be decomposed into more than 2 grids\n");
   }
 #endif
 
 /* Initialize boxsize */
-  x1min = pGrid->x1_0 + (pGrid->is + pGrid->idisp)*pGrid->dx1;
-  x1max = pGrid->x1_0 + (pGrid->ie + pGrid->idisp + 1.0)*pGrid->dx1;
+  x1min = pGrid->MinX[0];
+  x1max = pGrid->MaxX[0];
   Lx = x1max - x1min;
 
-  x2min = par_getd("grid","x2min");
-  x2max = par_getd("grid","x2max");
+  x2min = par_getd("domain1","x2min");
+  x2max = par_getd("domain1","x2max");
   Lz = x2max - x2min;
 
   Lg = nghost*pGrid->dx2; /* size of the ghost zone */
@@ -145,21 +146,21 @@ void problem(Grid *pGrid, Domain *pDomain)
   /* particle number */
   Npar  = (long)(par_geti("particle","parnumgrid"));
 
-  pGrid->nparticle = Npar*pGrid->partypes;
-  for (i=0; i<pGrid->partypes; i++)
-    pGrid->grproperty[i].num = Npar;
+  pGrid->nparticle = Npar*npartypes;
+  for (i=0; i<npartypes; i++)
+    grproperty[i].num = Npar;
 
   if (pGrid->nparticle+2 > pGrid->arrsize)
     particle_realloc(pGrid, pGrid->nparticle+2);
 
-  ep = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
-  ScaleHpar = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
+  ep = (Real*)calloc_1d_array(npartypes, sizeof(Real));
+  ScaleHpar = (Real*)calloc_1d_array(npartypes, sizeof(Real));
 
-  epsilon = (Real*)calloc_1d_array(pGrid->partypes, sizeof(Real));
-  wxNSH   = (Real**)calloc_2d_array(pGrid->Nx2+1, pGrid->partypes,sizeof(Real));
-  wyNSH   = (Real**)calloc_2d_array(pGrid->Nx2+1, pGrid->partypes,sizeof(Real));
-  uxNSH   = (Real*)calloc_1d_array(pGrid->Nx2+1, sizeof(Real));
-  uyNSH   = (Real*)calloc_1d_array(pGrid->Nx2+1, sizeof(Real));
+  epsilon = (Real*)calloc_1d_array(npartypes, sizeof(Real));
+  wxNSH   = (Real**)calloc_2d_array(pGrid->Nx[1]+1, npartypes,sizeof(Real));
+  wyNSH   = (Real**)calloc_2d_array(pGrid->Nx[1]+1, npartypes,sizeof(Real));
+  uxNSH   = (Real*)calloc_1d_array(pGrid->Nx[1]+1, sizeof(Real));
+  uyNSH   = (Real*)calloc_1d_array(pGrid->Nx[1]+1, sizeof(Real));
 
   /* particle stopping time */
   tsmode = par_geti("particle","tsmode");
@@ -168,38 +169,38 @@ void problem(Grid *pGrid, Domain *pDomain)
     tsmax = par_getd("problem","tsmax");
     tscrit= par_getd("problem","tscrit");
 
-    for (i=0; i<pGrid->partypes; i++) {
-      tstop0[i] = tsmin*exp(i*log(tsmax/tsmin)/MAX(pGrid->partypes-1,1.0));
-      pGrid->grproperty[i].rad = tstop0[i];
+    for (i=0; i<npartypes; i++) {
+      tstop0[i] = tsmin*exp(i*log(tsmax/tsmin)/MAX(npartypes-1,1.0));
+      grproperty[i].rad = tstop0[i];
       /* use fully implicit integrator for well coupled particles */
-      if (tstop0[i] < tscrit) pGrid->grproperty[i].integrator = 3;
+      if (tstop0[i] < tscrit) grproperty[i].integrator = 3;
     }
   }
   else { 
     amin = par_getd("problem","amin");
     amax = par_getd("problem","amax");
 
-    for (i=0; i<pGrid->partypes; i++)
-      pGrid->grproperty[i].rad = amin*
-                           exp(i*log(amax/amin)/MAX(pGrid->partypes-1,1.0));
+    for (i=0; i<npartypes; i++)
+      grproperty[i].rad = amin*
+                          exp(i*log(amax/amin)/MAX(npartypes-1,1.0));
 
-    if (tsmode >= 2) {/* Epstein/General regime */
+    if (tsmode <= 2) {/* Epstein/General regime */
       /* conversion factor for rhoa */
       rhoaconv = par_getd_def("problem","rhoaconv",1.0);
-      for (i=0; i<pGrid->partypes; i++)
-        grrhoa[i]=pGrid->grproperty[i].rad*rhoaconv;
+      for (i=0; i<npartypes; i++)
+        grrhoa[i]=grproperty[i].rad*rhoaconv;
     }
 
-    if (tsmode == 3)  /* General drag formula */
+    if (tsmode == 1)  /* General drag formula */
       alamcoeff = par_getd("problem","alamcoeff");
   }
 
   /* particle scale height */
   Hparmax = par_getd("problem","hparmax"); /* in unit of gas scale height */
   Hparmin = par_getd("problem","hparmin");
-  for (i=0; i<pGrid->partypes; i++) 
+  for (i=0; i<npartypes; i++) 
     ScaleHpar[i] = Hparmax*
-                   exp(-i*log(Hparmax/Hparmin)/MAX(pGrid->partypes-1,1.0));
+                   exp(-i*log(Hparmax/Hparmin)/MAX(npartypes-1,1.0));
 
 #ifdef FEEDBACK
   mratio = par_getd_def("problem","mratio",0.0); /* total mass fraction */
@@ -208,32 +209,32 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[par_strat2d]: mratio must be positive!\n");
 
   epsum = 0.0;
-  for (i=0; i<pGrid->partypes; i++)
+  for (i=0; i<npartypes; i++)
   {
-    ep[i] = pow(pGrid->grproperty[i].rad,pwind);
+    ep[i] = pow(grproperty[i].rad,pwind);
     epsum += ep[i];
   }
 
-  for (i=0; i<pGrid->partypes; i++)
+  for (i=0; i<npartypes; i++)
   {
     ep[i] = mratio*ep[i]/epsum;
-    pGrid->grproperty[i].m = sqrt(2.0*PI)*ScaleHg/Lz*ep[i]*
-                                                  pGrid->Nx1*pGrid->Nx2/Npar;
+    grproperty[i].m = sqrt(2.0*PI)*ScaleHg/Lz*ep[i]*
+                                   pGrid->Nx[0]*pGrid->Nx[1]/Npar;
   }
 #else
   mratio = 0.0;
-  for (i=0; i<pGrid->partypes; i++)
+  for (i=0; i<npartypes; i++)
     ep[i] = 0.0;
 #endif
 
   /* NSH equilibrium */
   for (j=pGrid->js; j<=pGrid->je+1; j++) {
 
-    h = pGrid->x2_0 + (j+pGrid->jdisp)*pGrid->dx2;
+    h = pGrid->MinX[1] + (j-pGrid->js)*pGrid->dx2;
     q = j - js;
     etavk = fabs(vsc1+vsc2*SQR(h));
 
-    for (i=0; i<pGrid->partypes; i++) {
+    for (i=0; i<npartypes; i++) {
       epsilon[i] = ep[i]/ScaleHpar[i]/erf(Lz/(sqrt(8.0)*ScaleHpar[i]*ScaleHg))*
                    exp(-0.5*SQR(h/ScaleHg)*(SQR(1.0/ScaleHpar[i])-1.0));
 
@@ -241,8 +242,8 @@ void problem(Grid *pGrid, Domain *pDomain)
         tstop0[i] = get_ts(pGrid,i,exp(-0.5*SQR(h/ScaleHg)),Iso_csound,etavk);
     }
 
-    MultiNSH(pGrid->partypes, tstop0, epsilon, etavk,
-                              &uxNSH[q], &uyNSH[q], wxNSH[q], wyNSH[q]);
+    MultiNSH(npartypes, tstop0, epsilon, etavk,
+                        &uxNSH[q], &uyNSH[q], wxNSH[q], wyNSH[q]);
   }
 
 /* Now set initial conditions for the gas */
@@ -263,7 +264,7 @@ void problem(Grid *pGrid, Domain *pDomain)
 
     pGrid->U[pGrid->ks][j][i].M2 = 0.0;
 #ifndef FARGO
-    pGrid->U[pGrid->ks][j][i].M3 -= qshear*rhog*Omega*x1;
+    pGrid->U[pGrid->ks][j][i].M3 -= qshear*rhog*Omega_0*x1;
 #endif
 
   }}
@@ -271,13 +272,13 @@ void problem(Grid *pGrid, Domain *pDomain)
 /* Now set initial conditions for the particles */
   p = 0;
   dx2_1 = 1.0/pGrid->dx2;
-  x3p = pGrid->x3_0 + (pGrid->ks+pGrid->kdisp)*pGrid->dx3;
-  zmin = pGrid->x2_0 + (pGrid->js+pGrid->jdisp)*pGrid->dx2;
-  zmax = pGrid->x2_0 + (pGrid->je+pGrid->jdisp+1.0)*pGrid->dx2;
+  x3p = 0.5*(pGrid->MinX[2]+pGrid->MaxX[2]);
+  zmin = pGrid->MinX[1];
+  zmax = pGrid->MaxX[1];
 
   for (q=0; q<Npar; q++) {
 
-    for (pt=0; pt<pGrid->partypes; pt++) {
+    for (pt=0; pt<npartypes; pt++) {
 
       x1p = x1min + Lx*ran2(&iseed);
       x2p = ScaleHpar[pt]*ScaleHg*Normal(&iseed);
@@ -306,41 +307,34 @@ void problem(Grid *pGrid, Domain *pDomain)
 
       pGrid->particle[p].v2 = 0.0;
 #ifndef FARGO
-      pGrid->particle[p].v3 -= qshear*Omega*x1p;
+      pGrid->particle[p].v3 -= qshear*Omega_0*x1p;
 #endif
 
       pGrid->particle[p].pos = 1; /* grid particle */
       pGrid->particle[p].my_id = p;
 #ifdef MPI_PARALLEL
-      pGrid->particle[p].init_id = pGrid->my_id;
+      pGrid->particle[p].init_id = myID_Comm_world;
 #endif
       p++;
   }}
 
 /* enroll gravitational potential function, shearing sheet BC functions */
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = StratifiedDisk;
+
+  ShBoxCoord = xz;
 
   dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
 
   /* set the # of the particles in list output
    * (by default, output 1 particle per cell)
    */
-  nlis = par_geti_def("problem","nlis",pGrid->Nx1*pGrid->Nx2);
+  nlis = par_geti_def("problem","nlis",pGrid->Nx[0]*pGrid->Nx[1]);
 
   /* set the number of particles to keep track of */
   ntrack = par_geti_def("problem","ntrack",2000);
 
   /* set the threshold particle density */
   dpar_thresh = par_geti_def("problem","dpar_thresh",10.0);
-
-  /* set vertical boundary conditions (by default, periodic) */
-  vertical_bc = par_geti_def("problem","vertical_bc",0);
-
-  if (vertical_bc == 1) /* closed BC */
-  {
-    set_bvals_mhd_fun(left_x2,  close_ix2);
-    set_bvals_mhd_fun(right_x2, close_ox2);
-  }
 
   /* finalize */
   free(ep);  free(ScaleHpar);
@@ -361,26 +355,29 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
+  DomainS *pD = (DomainS*)&(pM->Domain[0][0]);
+  GridS *pG = pD->Grid;
 
-  StaticGravPot = ShearingBoxPot;
+  ShearingBoxPot = StratifiedDisk;
+  ShBoxCoord = xz;
 
   Omega_0 = par_getd("problem","omega");
   qshear = par_getd_def("problem","qshear",1.5);
   ipert = par_geti_def("problem","ipert",1);
 
-  x1min = pG->x1_0 + (pG->is + pG->idisp)*pG->dx1;
-  x1max = pG->x1_0 + (pG->ie + pG->idisp + 1.0)*pG->dx1;
+  x1min = pG->MinX[0];
+  x1max = pG->MaxX[0];
   Lx = x1max - x1min;
 
-  x2min = par_getd("grid","x2min");
-  x2max = par_getd("grid","x2max");
+  x2min = pM->RootMinX[1];
+  x2max = pM->RootMaxX[1];
   Lz = x2max - x2min;
 
   Lg = nghost*pG->dx2; /* size of the ghost zone */
@@ -392,7 +389,7 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   vsc2 = vsc2 * Iso_csound;
 
   Npar  = (int)(sqrt(par_geti("particle","parnumgrid")));
-  nlis = par_geti_def("problem","nlis",pG->Nx1*pG->Nx2);
+  nlis = par_geti_def("problem","nlis",pG->Nx[0]*pG->Nx[1]);
   ntrack = par_geti_def("problem","ntrack",2000);
 
   dump_history_enroll(hst_rho_Vx_dVy, "<rho Vx dVy>");
@@ -400,7 +397,7 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-static Real hst_rho_Vx_dVy(const Grid *pG,
+static Real hst_rho_Vx_dVy(const GridS *pG,
                            const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -413,50 +410,12 @@ static Real hst_rho_Vx_dVy(const Grid *pG,
 #endif
 }
 
-static void close_ix2(Grid *pGrid)
-{
-  int js = pGrid->js;
-  int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu; /* i-lower/upper */
-
-  iu = pGrid->ie + nghost;
-  il = pGrid->is - nghost;
-
-  for (k=ks; k<=ke; k++)
-    for (j=1; j<=nghost; j++)
-      for (i=il; i<=iu; i++) {
-        pGrid->U[k][js-j][i] = pGrid->U[k][js][i];
-        pGrid->U[k][js-j][i].M2 = 0.0;
-      }
-
-  return;
-}
-
-static void close_ox2(Grid *pGrid)
-{
-  int je = pGrid->je;
-  int ks = pGrid->ks, ke = pGrid->ke;
-  int i,j,k,il,iu; /* i-lower/upper */
-
-  iu = pGrid->ie + nghost;
-  il = pGrid->is - nghost;
-
-  for (k=ks; k<=ke; k++)
-    for (j=1; j<=nghost; j++)
-      for (i=il; i<=iu; i++) {
-        pGrid->U[k][je+j][i] = pGrid->U[k][je][i];
-        pGrid->U[k][je+j][i].M2 = 0.0;
-      }
-
-  return;
-}
-
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
@@ -476,7 +435,7 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2, const Real x3,
                                     const Real v1, const Real v2, const Real v3)
 {
   Real z,fac;
@@ -492,13 +451,13 @@ void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
 
   fac = Lg/(0.5*Lz+Lg-fabs(z));
   ft->x2 -= SQR(Omega_0)*z*(1.0-SQR(fac)*fac); /* 3rd order sharp */
-//  *ft.x2 -= SQR(Omega_0)*z*(1.0-SQR(fac));  /* 2nd order sharp */
+//  ft->x2 -= SQR(Omega_0)*z*(1.0-SQR(fac));  /* 2nd order sharp */
 
   return;
 }
 #endif
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
   return;
 }
@@ -509,15 +468,16 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
  
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* ShearingBoxPot */
-static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real StratifiedDisk(const Real x1, const Real x2, const Real x3)
+ *  \brief Shearing box tidal gravitational potential */
+static Real StratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real z,z0,phi=0.0;
 
@@ -543,8 +503,9 @@ static Real ShearingBoxPot(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
-static int property_limit(const Grain *gr, const GrainAux *grsub)
+/*! \fn static int property_limit(const GrainS *gr, const GrainAux *grsub)
+ *  \brief User defined particle selection function (1: true; 0: false) */
+static int property_limit(const GrainS *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<nlis))
     return 1;
@@ -552,8 +513,9 @@ static int property_limit(const Grain *gr, const GrainAux *grsub)
     return 0;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
-static int property_trace(const Grain *gr, const GrainAux *grsub)
+/*! \fn static int property_trace(const GrainS *gr, const GrainAux *grsub)
+ *  \brief User defined particle selection function (1: true; 0: false) */
+static int property_trace(const GrainS *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->my_id<ntrack))
     return 1;
@@ -561,8 +523,9 @@ static int property_trace(const Grain *gr, const GrainAux *grsub)
     return 0;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
-static int property_type(const Grain *gr, const GrainAux *grsub)
+/*! \fn static int property_type(const GrainS *gr, const GrainAux *grsub)
+ *  \brief User defined particle selection function (1: true; 0: false) */
+static int property_type(const GrainS *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (gr->property == mytype))
     return 1;
@@ -570,8 +533,9 @@ static int property_type(const Grain *gr, const GrainAux *grsub)
     return 0;
 }
 
-/* user defined particle selection function (1: true; 0: false) */
-static int property_dense(const Grain *gr, const GrainAux *grsub)
+/*! \fn static int property_dense(const GrainS *gr, const GrainAux *grsub)
+ *  \brief User defined particle selection function (1: true; 0: false) */
+static int property_dense(const GrainS *gr, const GrainAux *grsub)
 {
   if ((gr->pos == 1) && (grsub->dpar > dpar_thresh))
     return 1;
@@ -580,7 +544,10 @@ static int property_dense(const Grain *gr, const GrainAux *grsub)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Multi-species NSH equilibrium
+/*! \fn void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
+ *                   Real *uxNSH, Real *uyNSH, Real *wxNSH, Real *wyNSH)
+ *  \brief Multi-species NSH equilibrium
+ *
  * Input: # of particle types (n), dust stopping time and mass ratio array, and
  *        drift speed etavk.
  * Output: gas NSH equlibrium velocity (u), and dust NSH equilibrium velocity
@@ -641,8 +608,6 @@ void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
 }
 
 /*------------------------------------------------------------------------------
- * ran2: extracted from the Numerical Recipes in C (version 2) code.  Modified
- *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
  */
 
 #define IM1 2147483563
@@ -659,7 +624,11 @@ void MultiNSH(int n, Real *tstop, Real *mratio, Real etavk,
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
-/* Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
+/*! \fn double ran2(long int *idum)
+ *  \brief Extracted from the Numerical Recipes in C (version 2) code.  Modified
+ *   to use doubles instead of floats. -- T. A. Gardiner -- Aug. 12, 2003
+ *
+ * Long period (> 2 x 10^{18}) random number generator of L'Ecuyer
  * with Bays-Durham shuffle and added safeguards.  Returns a uniform
  * random deviate between 0.0 and 1.0 (exclusive of the endpoint
  * values).  Call with idum = a negative integer to initialize;
@@ -704,7 +673,8 @@ double ran2(long int *idum)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Normal distribution random number generator */
+/*! \fn double Normal(long int *idum)
+ *  \brief Normal distribution random number generator */
 double Normal(long int *idum)
 {
   double Y,X1,X2;
@@ -718,7 +688,8 @@ double Normal(long int *idum)
 }
 
 /*--------------------------------------------------------------------------- */
-/* Error function  */
+/*! \fn Real Erf(Real z)
+ *  \brief Error function  */
 Real Erf(Real z)
 {
   /* arrays of the error function y=erf(x) */
@@ -742,23 +713,23 @@ Real Erf(Real z)
         3.434048e+000,  3.567755e+000,  3.706521e+000,  3.850536e+000,  4.000000e+000
   };
   static double y[101]={
-        0.00000000e+000,        4.26907434e-003,        8.69953340e-003,        1.32973284e-002,        1.80686067e-002,        2.30197153e-002,
-        2.81572033e-002,        3.34878242e-002,        3.90185379e-002,        4.47565113e-002,        5.07091186e-002,        5.68839404e-002,
-        6.32887618e-002,        6.99315688e-002,        7.68205444e-002,        8.39640613e-002,        9.13706742e-002,        9.90491090e-002,
-        1.07008250e-001,        1.15257124e-001,        1.23804883e-001,        1.32660778e-001,        1.41834139e-001,        1.51334337e-001,
-        1.61170754e-001,        1.71352743e-001,        1.81889576e-001,        1.92790394e-001,        2.04064148e-001,        2.15719527e-001,
-        2.27764884e-001,        2.40208149e-001,        2.53056730e-001,        2.66317410e-001,        2.79996226e-001,        2.94098338e-001,
-        3.08627885e-001,        3.23587825e-001,        3.38979770e-001,        3.54803790e-001,        3.71058224e-001,        3.87739454e-001,
-        4.04841688e-001,        4.22356710e-001,        4.40273635e-001,        4.58578645e-001,        4.77254725e-001,        4.96281391e-001,
-        5.15634428e-001,        5.35285634e-001,        5.55202571e-001,        5.75348359e-001,        5.95681482e-001,        6.16155658e-001,
-        6.36719759e-001,        6.57317799e-001,        6.77889021e-001,        6.98368078e-001,        7.18685336e-001,        7.38767318e-001,
-        7.58537287e-001,        7.77916009e-001,        7.96822665e-001,        8.15175962e-001,        8.32895397e-001,        8.49902691e-001,
-        8.66123358e-001,        8.81488386e-001,        8.95935967e-001,        9.09413237e-001,        9.21877939e-001,        9.33299942e-001,
-        9.43662512e-001,        9.52963249e-001,        9.61214608e-001,        9.68443923e-001,        9.74692870e-001,        9.80016358e-001,
-        9.84480847e-001,        9.88162149e-001,        9.91142807e-001,        9.93509200e-001,        9.95348535e-001,        9.96745927e-001,
-        9.97781755e-001,        9.98529475e-001,        9.99054014e-001,        9.99410828e-001,        9.99645625e-001,        9.99794704e-001,
-        9.99885782e-001,        9.99939162e-001,        9.99969080e-001,        9.99985060e-001,        9.99993164e-001,        9.99997050e-001,
-        9.99998805e-001,        9.99999548e-001,        9.99999841e-001,        9.99999948e-001,        9.99999985e-001
+        0.00000000e+000,  4.26907434e-003,  8.69953340e-003,  1.32973284e-002,  1.80686067e-002,  2.30197153e-002,
+        2.81572033e-002,  3.34878242e-002,  3.90185379e-002,  4.47565113e-002,  5.07091186e-002,  5.68839404e-002,
+        6.32887618e-002,  6.99315688e-002,  7.68205444e-002,  8.39640613e-002,  9.13706742e-002,  9.90491090e-002,
+        1.07008250e-001,  1.15257124e-001,  1.23804883e-001,  1.32660778e-001,  1.41834139e-001,  1.51334337e-001,
+        1.61170754e-001,  1.71352743e-001,  1.81889576e-001,  1.92790394e-001,  2.04064148e-001,  2.15719527e-001,
+        2.27764884e-001,  2.40208149e-001,  2.53056730e-001,  2.66317410e-001,  2.79996226e-001,  2.94098338e-001,
+        3.08627885e-001,  3.23587825e-001,  3.38979770e-001,  3.54803790e-001,  3.71058224e-001,  3.87739454e-001,
+        4.04841688e-001,  4.22356710e-001,  4.40273635e-001,  4.58578645e-001,  4.77254725e-001,  4.96281391e-001,
+        5.15634428e-001,  5.35285634e-001,  5.55202571e-001,  5.75348359e-001,  5.95681482e-001,  6.16155658e-001,
+        6.36719759e-001,  6.57317799e-001,  6.77889021e-001,  6.98368078e-001,  7.18685336e-001,  7.38767318e-001,
+        7.58537287e-001,  7.77916009e-001,  7.96822665e-001,  8.15175962e-001,  8.32895397e-001,  8.49902691e-001,
+        8.66123358e-001,  8.81488386e-001,  8.95935967e-001,  9.09413237e-001,  9.21877939e-001,  9.33299942e-001,
+        9.43662512e-001,  9.52963249e-001,  9.61214608e-001,  9.68443923e-001,  9.74692870e-001,  9.80016358e-001,
+        9.84480847e-001,  9.88162149e-001,  9.91142807e-001,  9.93509200e-001,  9.95348535e-001,  9.96745927e-001,
+        9.97781755e-001,  9.98529475e-001,  9.99054014e-001,  9.99410828e-001,  9.99645625e-001,  9.99794704e-001,
+        9.99885782e-001,  9.99939162e-001,  9.99969080e-001,  9.99985060e-001,  9.99993164e-001,  9.99997050e-001,
+        9.99998805e-001,  9.99999548e-001,  9.99999841e-001,  9.99999948e-001,  9.99999985e-001
   };
   double z1, g;
   int il, iu, im;

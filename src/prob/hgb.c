@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: hgb.c
+/*============================================================================*/
+/*! \file hgb.c
+ *  \brief Problem generator for 3D shearing sheet.
  *
  * PURPOSE:  Problem generator for 3D shearing sheet.  Based on the initial
  *   conditions described in "Local Three-dimensional Magnetohydrodynamic
@@ -8,19 +9,20 @@
  *
  * Several different field configurations and perturbations are possible:
  *
- *  ifield = 0 - uses field set by choice of ipert flag
- *  ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
- *  ifield = 2 - uniform Bz
- *  ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
- *  ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
+ *- ifield = 0 - uses field set by choice of ipert flag
+ *- ifield = 1 - Bz=B0sin(kx*x1) field with zero-net-flux [default] (kx input)
+ *- ifield = 2 - uniform Bz
+ *- ifield = 3 - B=(0,B0cos(kx*x1),B0sin(kx*x1))= zero-net flux w helicity
+ *- ifield = 4 - B=(0,B0/sqrt(2),B0/sqrt(2))= net toroidal+vertical field
+ *- ifield = 5 - uniform By
  *
- *  ipert = 1 - random perturbations to P and V [default, used by HGB]
- *  ipert = 2 - uniform Vx=amp (epicyclic wave test)
- *  ipert = 3 - J&G vortical shwave (hydro test)
- *  ipert = 4 - nonlinear density wave test of Fromang & Papaloizou
- *  ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
- *  ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
- *  ipert = 7 - nonlinear shearing wave test of Heinemann & Papaloizou (2008)
+ *- ipert = 1 - random perturbations to P and V [default, used by HGB]
+ *- ipert = 2 - uniform Vx=amp (epicyclic wave test)
+ *- ipert = 3 - J&G vortical shwave (hydro test)
+ *- ipert = 4 - nonlinear density wave test of Fromang & Papaloizou
+ *- ipert = 5 - 2nd MHD shwave test of JGG (2008) -- their figure 9
+ *- ipert = 6 - 3rd MHD shwave test of JGG (2008) -- their figure 11
+ *- ipert = 7 - nonlinear shearing wave test of Heinemann & Papaloizou (2008)
  *
  * To run simulations of stratified disks (including vertical gravity), use the
  * strat.c problem generator.
@@ -28,8 +30,8 @@
  * Code must be configured using --enable-shearing-box
  *
  * REFERENCE: Hawley, J. F. & Balbus, S. A., ApJ 400, 595-609 (1992).
- *            Johnson, Guan, & Gammie, ApJSupp, (2008)
- *============================================================================*/
+ *            Johnson, Guan, & Gammie, ApJSupp, (2008)			      */
+/*============================================================================*/
 
 #include <float.h>
 #include <math.h>
@@ -40,6 +42,7 @@
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+#include "particles/particle.h"
 
 Real Lx,Ly,Lz; /* root grid size, global to share with output functions */
 
@@ -54,6 +57,7 @@ Real Lx,Ly,Lz; /* root grid size, global to share with output functions */
 static double ran2(long int *idum);
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k);
+static Real expr_Jsq(const GridS *pG, const int i, const int j, const int k);
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j,const int k);
 static Real hst_rho_dVy2(const GridS *pG,const int i, const int j, const int k);
 #ifdef ADIABATIC
@@ -81,14 +85,21 @@ void problem(DomainS *pDomain)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-  int ixs,jxs,kxs,i,j,k,ipert,ifield;
+  int ixs,jxs,kxs,i,j,k,ipert,ifield,Bdir;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax;
-  Real den = 1.0, pres = 1.0, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
+  Real den = 1.0, pres = 1.0, dir_sgn, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
   Real beta=1.0,B0,kx,ky,kz,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
+#ifdef PARTICLES
+  Real L1,L2,L3,x1min,x2min,x3min,x1p,x2p,x3p;
+  Real tsmin, tsmax, tscrit;
+  Real mratio,pwind,ep,epsum;
+  long p,q,Npar;
+  int  n,tsmode;
+#endif
 
   if (pGrid->Nx[1] == 1){
     ath_error("[problem]: HGB only works on a 2D or 3D grid\n");
@@ -101,6 +112,12 @@ void problem(DomainS *pDomain)
 #ifdef MHD
   beta = par_getd("problem","beta");
   ifield = par_geti_def("problem","ifield", 1);
+  /* For net-flux calculation, provide the direction of the B field */
+  Bdir = par_getd_def("problem","Bdir",1);
+  if (Bdir > 0)
+    dir_sgn = 1.0;
+  else
+    dir_sgn = -1.0;
 #endif
   ipert = par_geti_def("problem","ipert", 1);
 
@@ -302,10 +319,10 @@ void problem(DomainS *pDomain)
       if (ifield == 2) {
         pGrid->B1i[k][j][i] = 0.0;
         pGrid->B2i[k][j][i] = 0.0;
-        pGrid->B3i[k][j][i] = B0;
+        pGrid->B3i[k][j][i] = B0*dir_sgn;
         if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
         if (j==je) pGrid->B2i[k][je+1][i] = 0.0;
-        if (k==ke) pGrid->B3i[ke+1][j][i] = B0;
+        if (k==ke) pGrid->B3i[ke+1][j][i] = B0*dir_sgn;
       }
       if (ifield == 3) {
         pGrid->B1i[k][j][i] = 0.0;
@@ -350,6 +367,99 @@ void problem(DomainS *pDomain)
   }
 #endif /* MHD */
 
+#ifdef PARTICLES
+/* insert dust particles */
+
+  /* get grid size */
+  x1min = pGrid->MinX[0];
+  L1    = pGrid->MaxX[0] - x1min;
+
+  x2min = pGrid->MinX[1];
+  L2    = pGrid->MaxX[1] - x2min;
+
+  x3min = pGrid->MinX[2];
+  L3    = pGrid->MaxX[2] - x3min;
+
+  /* get particle number */
+  Npar  = (long)(par_geti("particle","parnumgrid"));
+
+  pGrid->nparticle = Npar*npartypes;
+  for (i=0; i<npartypes; i++)
+    grproperty[i].num = Npar;
+
+  if (pGrid->nparticle+2 > pGrid->arrsize)
+    particle_realloc(pGrid, pGrid->nparticle+2);
+
+  /* get particle stopping time */
+  tsmode = par_geti("particle","tsmode");
+  if (tsmode == 3) {/* fixed stopping time */
+    tsmin = par_getd("problem","tsmin"); /* in code unit */
+    tsmax = par_getd("problem","tsmax");
+    tscrit= par_getd("problem","tscrit");
+
+    for (i=0; i<npartypes; i++) {
+      tstop0[i] = tsmin*exp(i*log(tsmax/tsmin)/MAX(npartypes-1,1.0));
+      grproperty[i].rad = tstop0[i];
+      /* use fully implicit integrator for well coupled particles */
+      if (tstop0[i] < tscrit) grproperty[i].integrator = 3;
+    }
+  }
+  else {
+     ath_error("[problem]: Requires constant stopping time (tsmode=3)!\n");
+  }
+
+#ifdef FEEDBACK
+  /* get particle mass */
+  mratio = par_getd_def("problem","mratio",0.0); /* total mass fraction */
+  pwind  = par_getd_def("problem","pwind",0.0);   /* power law index */
+  if (mratio < 0.0)
+    ath_error("[problem]: mratio must be positive!\n");
+
+  epsum = 0.0;
+  for (i=0; i<npartypes; i++)
+  {
+    ep = pow(grproperty[i].rad,pwind);
+    epsum += ep;
+  }
+
+  for (i=0; i<npartypes; i++)
+  {
+    ep = mratio*pow(grproperty[i].rad,pwind)/epsum;
+    grproperty[i].m = ep*den*pGrid->Nx[0]*pGrid->Nx[1]*pGrid->Nx[2]/Npar;
+  }
+#endif
+
+ /* set initial conditions for the particles */
+  p = 0;
+  for (n=0; n<npartypes; n++)
+    for (q=0; q<Npar; q++)
+    {
+      x1p = x1min + L1*ran2(&iseed);
+      x2p = x2min + L2*ran2(&iseed);
+      x3p = x3min + L3*ran2(&iseed);
+
+      pGrid->particle[p].property = n;
+      pGrid->particle[p].x1 = x1p;
+      pGrid->particle[p].x2 = x2p;
+      pGrid->particle[p].x3 = x3p;
+
+      pGrid->particle[p].v1 = 0.0;
+#ifdef FARGO
+      pGrid->particle[p].v2 = 0.0;
+#else
+      pGrid->particle[p].v2 = -qshear*Omega*x1p;
+#endif
+      pGrid->particle[p].v3 = 0.0;
+
+      pGrid->particle[p].pos = 1; /* grid particle */
+      pGrid->particle[p].my_id = p;
+#ifdef MPI_PARALLEL
+      pGrid->particle[p].init_id = myID_Comm_world;
+#endif
+      p += 1;
+    }
+#endif /* PARTICLES */
+
 /* enroll gravitational potential function */
 
   ShearingBoxPot = UnstratifiedDisk;
@@ -378,6 +488,7 @@ void problem(DomainS *pDomain)
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
 #ifdef VISCOSITY
   nu_iso = par_getd_def("problem","nu_iso",0.0);
@@ -411,13 +522,14 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 {
 /* Read Omega, and with viscosity and/or resistivity, read eta_Ohm and nu */
 
-  Omega_0 = par_getd_def("problem","omega",1.0e-3);
+  Omega_0 = par_getd_def("problem","Omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
 
 #ifdef RESISTIVITY
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
 #endif
 
 #ifdef VISCOSITY
@@ -449,7 +561,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 /* Get_user_expression computes dVy */
 ConsFun_t get_usr_expr(const char *expr)
 {
-  if(strcmp(expr,"dVy")==0) return expr_dV2;
+  if (strcmp(expr,"dVy")==0) return expr_dV2;
+  if (strcmp(expr,"Jsq")==0) return expr_Jsq;
   return NULL;
 }
 
@@ -465,6 +578,25 @@ void get_eta_user(GridS *pG, int i, int j, int k,
   *eta_H = 0.0;
   *eta_A = 0.0;
 
+  return;
+}
+#endif
+
+#ifdef PARTICLES
+PropFun_t get_usr_par_prop(const char *name)
+{
+  return NULL;
+}
+
+void gasvshift(const Real x1, const Real x2, const Real x3,
+                                    Real *u1, Real *u2, Real *u3)
+{
+  return;
+}
+
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2, const Real x3,
+                                    const Real v1, const Real v2, const Real v3)
+{
   return;
 }
 #endif
@@ -554,10 +686,10 @@ double ran2(long int *idum)
 #undef NDIV
 #undef RNMX
 
-/*------------------------------------------------------------------------------
- * UnstratifiedDisk:
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real UnstratifiedDisk(const Real x1, const Real x2,const Real x3)
+ *  \brief tidal potential in 3D shearing box
  */
-
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 {
   Real phi=0.0;
@@ -567,10 +699,11 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
   return phi;
 }
 
-/*------------------------------------------------------------------------------
- * expr_dV2: computes delta(Vy) 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_dV2(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes delta(Vy) 
  */
-
 static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3;
@@ -582,6 +715,25 @@ static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
 #endif
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn static Real expr_Jsq(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Computes current density square
+ */
+static Real expr_Jsq(const GridS *pG, const int i, const int j, const int k)
+{
+  Real J1,J2,J3;
+
+  J1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
+       (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+  J2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+       (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
+  J3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+       (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+
+  return SQR(J1)+SQR(J2)+SQR(J3);
+}
+
 /*------------------------------------------------------------------------------
  * Hydro history variables:
  * hst_rho_Vx_dVy: Reynolds stress, added as history variable.
@@ -589,6 +741,9 @@ static Real expr_dV2(const GridS *pG, const int i, const int j, const int k)
  * hst_E_total: total energy (including tidal potential).
  */
 
+/*! \fn static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, 
+ *				   const int k)
+ *  \brief Reynolds stress, added as history variable.*/
 static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 {
   Real x1,x2,x3;
@@ -601,6 +756,9 @@ static Real hst_rho_Vx_dVy(const GridS *pG,const int i,const int j, const int k)
 #endif
 }
 
+/*! \fn static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, 
+ *				 const int k)
+ *  \brief KE in y-velocity fluctuations */
 static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,dVy;
@@ -614,6 +772,9 @@ static Real hst_rho_dVy2(const GridS *pG, const int i, const int j, const int k)
 }
 
 #ifdef ADIABATIC
+/*! \fn static Real hst_E_total(const GridS *pG, const int i, const int j, 
+ *				const int k)
+ *  \brief total energy (including tidal potential). */
 static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
 {
   Real x1,x2,x3,phi;
@@ -630,21 +791,30 @@ static Real hst_E_total(const GridS *pG, const int i, const int j, const int k)
  */
 
 #ifdef MHD
+/*! \fn static Real hst_Bx(const GridS *pG, const int i,const int j,const int k)
+ *  \brief x-component of B-field */
 static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B1c;
 }
 
+/*! \fn static Real hst_By(const GridS *pG, const int i,const int j,const int k)
+ *  \brief y-component of B-field */
 static Real hst_By(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B2c;
 }
 
+/*! \fn static Real hst_Bz(const GridS *pG, const int i,const int j,const int k)
+ *  \brief z-component of B-field */
 static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
 {
   return pG->U[k][j][i].B3c;
 }
 
+/*! \fn static Real hst_BxBy(const GridS *pG, const int i, const int j, 
+ *			     const int k)
+ *  \brief Maxwell stress */
 static Real hst_BxBy(const GridS *pG, const int i, const int j, const int k)
 {
   return -pG->U[k][j][i].B1c*pG->U[k][j][i].B2c;

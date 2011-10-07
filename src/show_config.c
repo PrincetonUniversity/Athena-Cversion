@@ -1,12 +1,13 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: show_config.c
+/*============================================================================*/
+/*! \file show_config.c 
+ *  \brief Outputs information on configuration of Athena.
  *
  * PURPOSE: Outputs information on configuration of Athena.
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   show_config     - prints diagnostic message showinf code configuration 
- *   show_config_par - adds configuration information to database used by par
+ * - show_config()     - prints diagnostic message showinf code configuration 
+ * - show_config_par() - adds configuration information to database used by par
  *============================================================================*/
 
 #include <stdio.h>
@@ -14,7 +15,8 @@
 #include "prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* show_config:  the packages and features reported on by this functin should
+/*! \fn void show_config(void)
+ *  \brief The packages and features reported on by this functin should
  *   be kept consistent with the optional packages and features added by the
  *   file configure.ac in the top-level directory   */
 
@@ -51,6 +53,8 @@ void show_config(void)
   ath_pout(0," Self-gravity:            using FFTs\n");
 #elif defined(SELF_GRAVITY_USING_FFT_OBC)
   ath_pout(0," Self-gravity:            using FFT_OBC\n");
+#elif defined(SELF_GRAVITY_USING_FFT_DISK)
+  ath_pout(0," Self-gravity:            using FFT_DISK\n");
 #else
   ath_pout(0," Self-gravity:            OFF\n");
 #endif
@@ -196,7 +200,8 @@ void show_config(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/*  show_config_par:  Add the configure block to the parameter database used
+/*! \fn void show_config_par(void)
+ *  \brief Add the configure block to the parameter database used
  *    by the functions in par.c.  */
 
 void show_config_par(void)
@@ -225,11 +230,13 @@ void show_config_par(void)
   par_sets("configure","self-gravity","FFT","Self-gravity algorithm");
 #elif defined(SELF_GRAVITY_USING_FFT_OBC)
   par_sets("configure","self-gravity","FFT_OBC","Self-gravity algorithm");
+#elif defined(SELF_GRAVITY_USING_FFT_DISK)
+  par_sets("configure","self-gravity","FFT_DISK","Self-gravity algorithm");
 #else
   par_sets("configure","self-gravity","OFF","Self-gravity algorithm");
 #endif
 
-#if defined(RESISTIVTY)
+#if defined(RESISTIVITY)
   par_sets("configure","resistivity","ON","resistivity algorithm");
 #else
   par_sets("configure","resistivity","OFF","resistivity algorithm");

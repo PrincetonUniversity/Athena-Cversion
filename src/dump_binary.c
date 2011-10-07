@@ -1,15 +1,16 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dump_binary.c
+/*============================================================================*/
+/*! \file dump_binary.c
+ *  \brief Function to write an unformatted dump of the field variables.
  *
  * PURPOSE: Function to write an unformatted dump of the field variables that
  *   can be read, e.g., by IDL scripts.  With SMR, dumps are made for all levels
  *   and domains, unless nlevel and ndomain are specified in <output> block.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_binary - writes either conserved or primitive variables depending
- *                 on value of pOut->out read from input block.
- *============================================================================*/
+ * - dump_binary() - writes either conserved or primitive variables depending
+ *                 on value of pOut->out read from input block.		      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +24,8 @@
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* dump_binary:  */
+/*! \fn void dump_binary(MeshS *pM, OutputS *pOut)
+ *  \brief Function to write an unformatted dump of the field variables. */
 
 void dump_binary(MeshS *pM, OutputS *pOut)
 {
@@ -35,7 +37,7 @@ void dump_binary(MeshS *pM, OutputS *pOut)
   int n,ndata[7];
 /* Upper and Lower bounds on i,j,k for data dump */
   int i,j,k,il,iu,jl,ju,kl,ku,nl,nd;
-  float dat[2],*datax,*datay,*dataz;
+  Real dat[2],*datax,*datay,*dataz;
   Real *pData,x1,x2,x3;
   int coordsys = -1;
 
@@ -134,33 +136,33 @@ void dump_binary(MeshS *pM, OutputS *pOut)
 /* Write (gamma-1) and isothermal sound speed */
 
 #ifdef ISOTHERMAL
-        dat[0] = (float)0.0;
-        dat[1] = (float)Iso_csound;
+        dat[0] = (Real)0.0;
+        dat[1] = (Real)Iso_csound;
 #elif defined ADIABATIC
-        dat[0] = (float)Gamma_1 ;
-        dat[1] = (float)0.0;
+        dat[0] = (Real)Gamma_1 ;
+        dat[1] = (Real)0.0;
 #else
         dat[0] = dat[1] = 0.0; /* Anything better to put here? */
 #endif
-        fwrite(dat,sizeof(float),2,p_binfile);
+        fwrite(dat,sizeof(Real),2,p_binfile);
 
 /* Write time, dt */
 
-        dat[0] = (float)pGrid->time;
-        dat[1] = (float)pGrid->dt;
-        fwrite(dat,sizeof(float),2,p_binfile);
+        dat[0] = (Real)pGrid->time;
+        dat[1] = (Real)pGrid->dt;
+        fwrite(dat,sizeof(Real),2,p_binfile);
  
 /* Allocate Memory */
 
-        if((datax = (float *)malloc(ndata[0]*sizeof(float))) == NULL){
+        if((datax = (Real *)malloc(ndata[0]*sizeof(Real))) == NULL){
           ath_error("[dump_binary]: malloc failed for temporary array\n");
           return;
         }
-        if((datay = (float *)malloc(ndata[1]*sizeof(float))) == NULL){
+        if((datay = (Real *)malloc(ndata[1]*sizeof(Real))) == NULL){
           ath_error("[dump_binary]: malloc failed for temporary array\n");
           return;
         }
-        if((dataz = (float *)malloc(ndata[2]*sizeof(float))) == NULL){
+        if((dataz = (Real *)malloc(ndata[2]*sizeof(Real))) == NULL){
           ath_error("[dump_binary]: malloc failed for temporary array\n");
           return;
         }
@@ -170,23 +172,23 @@ void dump_binary(MeshS *pM, OutputS *pOut)
         for (i=il; i<=iu; i++) {
           cc_pos(pGrid,i,jl,kl,&x1,&x2,&x3);
           pData = ((Real *) &(x1));
-          datax[i-il] = (float)(*pData);
+          datax[i-il] = (Real)(*pData);
         }
-        fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+        fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
 
         for (j=jl; j<=ju; j++) {
           cc_pos(pGrid,il,j,kl,&x1,&x2,&x3);
           pData = ((Real *) &(x2));
-          datay[j-jl] = (float)(*pData);
+          datay[j-jl] = (Real)(*pData);
         }
-        fwrite(datay,sizeof(float),(size_t)ndata[1],p_binfile);
+        fwrite(datay,sizeof(Real),(size_t)ndata[1],p_binfile);
 
         for (k=kl; k<=ku; k++) {
           cc_pos(pGrid,il,jl,k,&x1,&x2,&x3);
           pData = ((Real *) &(x3));
-          dataz[k-kl] = (float)(*pData);
+          dataz[k-kl] = (Real)(*pData);
         }
-        fwrite(dataz,sizeof(float),(size_t)ndata[2],p_binfile);
+        fwrite(dataz,sizeof(Real),(size_t)ndata[2],p_binfile);
 
 /* Write cell-centered data (either conserved or primitives) */
 
@@ -200,10 +202,10 @@ void dump_binary(MeshS *pM, OutputS *pOut)
               } else if(strcmp(pOut->out,"prim") == 0) {
                 pData = ((Real*)&(W[k][j][i])) + n;
               }
-              datax[i] = (float)(*pData);
+              datax[i] = (Real)(*pData);
 
             }
-            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+            fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
 
           }}
         }
@@ -213,9 +215,9 @@ void dump_binary(MeshS *pM, OutputS *pOut)
         for (j=0; j<ndata[1]; j++) {
           for (i=0; i<ndata[0]; i++) {
             pData = &(pGrid->Phi[k+kl][j+jl][i+il]);
-            datax[i] = (float)(*pData);
+            datax[i] = (Real)(*pData);
           }
-          fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+          fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
         }}
 #endif
 
@@ -226,28 +228,28 @@ void dump_binary(MeshS *pM, OutputS *pOut)
             for (i=0; i<ndata[0]; i++) {
               datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_d;
             }
-            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+            fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
           }}
           for (k=0; k<ndata[2]; k++) {
           for (j=0; j<ndata[1]; j++) {
             for (i=0; i<ndata[0]; i++) {
               datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_v1;
             }
-            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+            fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
           }}
           for (k=0; k<ndata[2]; k++) {
           for (j=0; j<ndata[1]; j++) {
             for (i=0; i<ndata[0]; i++) {
               datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_v2;
             }
-            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+            fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
           }}
           for (k=0; k<ndata[2]; k++) {
           for (j=0; j<ndata[1]; j++) {
             for (i=0; i<ndata[0]; i++) {
               datax[i] = pGrid->Coup[k+kl][j+jl][i+il].grid_v3;
             }
-            fwrite(datax,sizeof(float),(size_t)ndata[0],p_binfile);
+            fwrite(datax,sizeof(Real),(size_t)ndata[0],p_binfile);
           }}
         }
 #endif

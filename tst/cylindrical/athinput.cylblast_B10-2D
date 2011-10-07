@@ -11,14 +11,14 @@ out_level       = 0             # sets output level (default=0)
 <job>
 num_domains     = 1             # number of Domains in Mesh
 problem_id      = CylBlast_B10  # problem ID: basename of output filenames
-maxout          = 2             # Output blocks number from 1 -> maxout
+maxout          = 1             # Output blocks number from 1 -> maxout
 
 <output1>
-out_fmt         = hst           # History data dump 
+out_fmt         = bin           # Binary data dump
 dt              = 0.005         # time increment between outputs
 
 <output2>
-out_fmt         = bin           # Binary data dump
+out_fmt         = hst           # History data dump 
 dt              = 0.005         # time increment between outputs
 
 <time>
@@ -44,8 +44,8 @@ Nx3             = 1             # Number of zones in X3-direction
 x3min           = 0.0           # minimum value of X3
 x3max           = 0.0           # maximum value of X3
 
-NGrid_x1        = 4
-NGrid_x2        = 4
+NGrid_x1        = 1
+NGrid_x2        = 1
 NGrid_x3        = 1
 
 <problem>

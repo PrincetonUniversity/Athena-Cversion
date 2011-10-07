@@ -1,23 +1,30 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: shk_cloud.c
+/*============================================================================*/
+/*! \file shk_cloud.c
+ *  \brief Problem generator for shock-cloud problem; planar shock impacting
+ *   a single spherical cloud.
  *
  * PURPOSE: Problem generator for shock-cloud problem; planar shock impacting
  *   a single spherical cloud.  Input parameters are:
- *      problem/Mach   = Mach number of incident shock
- *      problem/drat   = density ratio of cloud to ambient
- *      problem/beta   = ratio of Pgas/Pmag
- *      problem/iprob  = integer flag to determine problem
+ *    - problem/Mach   = Mach number of incident shock
+ *    - problem/drat   = density ratio of cloud to ambient
+ *    - problem/beta   = ratio of Pgas/Pmag
+ *    - problem/iprob  = integer flag to determine problem
+ *
  *   The cloud radius is fixed at 1.0.  The center of the coordinate system
  *   defines the center of the cloud, and should be in the middle of the cloud.
  *   The shock is initially at x1=-2.0.  A typical grid domain should span
  *   x1 in [-3.0,7.0] , y and z in [-2.5,2.5] (see input file in /tst)
  *   Various test cases are possible:
- *     (iprob=1): B parallel to shock normal
- *     (iprob=2): B perpendicular to shock normal -- NOT YET IMPLEMENTED
+ *   - (iprob=1): B parallel to shock normal
+ *   - (iprob=2): B perpendicular to shock normal -- NOT YET IMPLEMENTED
+ *
  *   If the code is configured with nscalars>0, the cloud material is labeled
- *   with U[k][j][i].s[0]=1.
- *============================================================================*/
+ *   with U[k][j][i].s[0]=1.						      
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * shk_cloud_iib() - fixes BCs on L-x1 (left edge) of grid to postshock flow. */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -271,8 +278,10 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*-----------------------------------------------------------------------------
- * shk_cloud_iib: sets boundary condition on left X boundary (iib)
+/*----------------------------------------------------------------------------*/
+/*! \fn void shk_cloud_iib(GridS *pGrid)
+ *  \brief Sets boundary condition on left X boundary (iib) 
+ *
  * Note quantities at this boundary are held fixed at the downstream state
  */
 

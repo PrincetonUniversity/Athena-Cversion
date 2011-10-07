@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: ath_signal.c
+/*============================================================================*/
+/*! \file ath_signal.c
+ *  \brief Implements very simple signal handling.
  *
  * PURPOSE: Implements very simple signal handling.  Since signals can
  *   come in at any time, these functions set a static global
@@ -8,11 +9,13 @@
  *
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   ath_sig_init()
- *   ath_sig_act()
+ * - ath_sig_init()
+ * - ath_sig_act()
  *
- * VARIABLE TYPE AND STRUCTURE DEFINITIONS: none.
- *============================================================================*/
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - handler()
+ *									      */
+/*============================================================================*/
 
 #include <signal.h>
 #include <stdio.h>
@@ -24,15 +27,15 @@ static volatile int sig_caught = 0;   /* caught signal */
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- *   handler()
+ * - handler()
  *============================================================================*/
 
 static void handler(int s);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* ath_sig_init:   */
-
+/*! \fn void ath_sig_init(void)
+ *  \brief Defines the signal handler function. */
 void ath_sig_init(void)
 {
   signal(SIGTERM, handler); /* Define the signal handler function */
@@ -40,9 +43,10 @@ void ath_sig_init(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/* ath_sig_act: Handles response to any received signals.  At the moment,
- *   only response to SIGTERM is implemented.   */
-
+/*! \fn int ath_sig_act(int *piquit)
+ *  \brief Handles response to any received signals.  
+ *
+ *  At the moment, only response to SIGTERM is implemented.   */
 int ath_sig_act(int *piquit)
 {
 
@@ -68,8 +72,8 @@ int ath_sig_act(int *piquit)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* handler:  */
-
+/*! \fn static void handler(int s)
+ *  \brief Reinstalls the signal handler function.			      */
 static void handler(int s){
   sig_caught = s;
   signal(s, handler);   /* Reinstall the signal handler function */

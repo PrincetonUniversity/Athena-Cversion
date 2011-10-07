@@ -1,11 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylwindrotb.c
- *
- * The cylindrical analogue of the Bondi accretion (Parker wind) problem with
- * rotation and magnetic field.  Axisymmetric.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylwindrotb.c
+ *  \brief The cylindrical analogue of the Bondi accretion (Parker wind) 
+ *  problem with rotation and magnetic field.  Axisymmetric.
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -19,7 +18,6 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * grav_pot() - gravitational potential
- * grav_acc() - gravitational acceleration
  * myfunc()   - used to compute transonic solution
  *============================================================================*/
 
@@ -28,7 +26,6 @@ const Real rho_A = 1.0;
 const Real R_A   = 1.0;
 const Real GM    = 1.0;
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
 Real myfunc(const Real x, const Real y);
 static ConsS ***RootSoln=NULL;
 
@@ -71,11 +68,11 @@ void problem(DomainS *pDomain)
     ath_error("[cylwindrotb]: Only (R,phi) can be used in 2D!\n");
   }
 
-  /* ALLOCATE MEMORY FOR WIND SOLUTION */
+  /* Allocate memory for wind solution */
   if ((Wind = (ConsS*)calloc_1d_array(nx1+1,sizeof(ConsS))) == NULL)
     ath_error("[cylwindrotb]: Error allocating memory\n");
 
-  /* ALLOCATE MEMORY FOR GRID SOLUTION */
+  /* Allocate memory for grid solution */
   if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylwindrotb]: Error allocating memory\n");
 
@@ -83,8 +80,8 @@ void problem(DomainS *pDomain)
   omega = par_getd("problem","omega");
   vz    = par_getd("problem","vz");
 
-  /* THIS NUMERICAL SOLUTION WAS OBTAINED FROM MATLAB.
-   * IDEALLY, WE REPLACE THIS WITH A NONLINEAR SOLVER... */
+  /* This numerical solution was obtained from MATLAB.
+   * Ideally, we replace this with a nonlinear solver... */
   xslow = 0.5243264128;
   yslow = 2.4985859152;
   xfast = 1.6383327831;
@@ -102,16 +99,16 @@ void problem(DomainS *pDomain)
   printf("xmin = %f,\t ymin = %f,\t xmax = %f,\t ymax = %f\n", xmin,ymin,xmax,ymax);
 
 
-  /* CALCULATE THE 1D WIND SOLUTION AT CELL-INTERFACES */
+  /* Calculate the 1D wind solution at cell-interfaces */
   for (i=il; i<=iu+1; i++) {
     memset(&(Wind[i]),0.0,sizeof(ConsS));
     cc_pos(pG,i,js,ks,&x1,&x2,&x3);
 
-    /* WANT THE SOLUTION AT R-INTERFACES */
+    /* Want the solution at R-interfaces */
     R0 = x1 - 0.5*pG->dx1;
     x = R0/R_A;
 
-    /* LOOK FOR A SIGN CHANGE INTERVAL */
+    /* Look for a sign change interval */
     if (x < xslow) {
       sign_change(myfunc,yslow,10.0*ymax,x,&a,&b);
       sign_change(myfunc,b,10.0*ymax,x,&a,&b);
@@ -127,13 +124,13 @@ void problem(DomainS *pDomain)
       sign_change(myfunc,0.5*ymin,yfast,x,&a,&b);
     }
 
-    /* USE BISECTION TO FIND THE ROOT */
+    /* Use bisection to find the root */
     converged = bisection(myfunc,a,b,x,&y);
     if(!converged) {
       ath_error("[cylwindrotb]:  Bisection did not converge!\n");
     }
 
-    /* CONSTRUCT THE SOLUTION */
+    /* Construct the solution */
     rho = rho_A*y;
     Mdot = sqrt(R_A*SQR(rho_A)*GM*eta);
     Omega = sqrt((GM*omega)/pow(R_A,3));
@@ -157,7 +154,7 @@ void problem(DomainS *pDomain)
       + 0.5*(SQR(Wind[i].M1 ) + SQR(Wind[i].M2 ) + SQR(Wind[i].M3 ))/Wind[i].d;
   }
 
-  /* AVERAGE THE WIND SOLUTION ACROSS THE ZONE FOR CC VARIABLES */
+  /* Average the wind solution across the zone for cc variables */
   for (i=il; i<=iu; i++) {
     memset(&(pG->U[ks][js][i]),0.0,sizeof(ConsS));
     cc_pos(pG,i,js,ks,&x1,&x2,&x3);
@@ -172,22 +169,24 @@ void problem(DomainS *pDomain)
     }
 
     pG->B1i[ks][js][i]   = Wind[i].B1c;
-    pG->B2i[ks][js][i]   = Wind[i].B2c;
-    pG->B3i[ks][js][i]   = Wind[i].B3c;
+    pG->B2i[ks][js][i]   = 0.5*(lsf*Wind[i].B2c + rsf*Wind[i+1].B2c);
+    pG->B3i[ks][js][i]   = 0.5*(lsf*Wind[i].B3c + rsf*Wind[i+1].B3c);
   }
 
-  /* COPY 1D SOLUTION ACROSS THE GRID AND SAVE */
+  /* Copy 1D solution across the grid and save */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         pG->U[k][j][i] = pG->U[ks][js][i];
+        pG->B1i[k][j][i] = pG->B1i[ks][js][i];
+        pG->B2i[k][j][i] = pG->B2i[ks][js][i];
+        pG->B3i[k][j][i] = pG->B3i[ks][js][i];
         RootSoln[k][j][i]  = pG->U[ks][js][i];
       }
     }
   }
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
   bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
@@ -231,24 +230,21 @@ void Userwork_in_loop(MeshS *pM)
 
 void Userwork_after_loop(MeshS *pM)
 {
-  compute_l1_error("CylWindRotB", pM, RootSoln, 1);
+  compute_l1_error("CylWindRotB", pM, RootSoln, 0);
 }
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return -GM/x1;
 }
 
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return GM/SQR(x1);
-}
-
-/*-----------------------------------------------------------------------------
- * Function func
- *
- * This function is used to calculate y (ie. rho) as a function of x (ie. R),
- * gamma, eta, theta, omega, and E using the bisection method.
+/*----------------------------------------------------------------------------*/
+/*! \fn Real myfunc(const Real x, const Real y) 
+ *  \brief This function is used to calculate y (ie. rho) as a function of x 
+ *  (ie. R), gamma, eta, theta, omega, and E using the bisection method.
  *
  */
 

@@ -1,18 +1,20 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cpaw2d.c
+/*============================================================================*/
+/*! \file cpaw2d.c
+ *  \brief Problem generator for 2-D circularly polarized Alfven wave (CPAW) 
+ *  test.
  *
  * PURPOSE: Problem generator for 2-D circularly polarized Alfven wave (CPAW)
  *   test.  Works for any arbitrary wavevector in the x1-x2 plane.  The wave is
  *   defined with reference to a coordinate system (x,y,z) with transformation
  *   rules to the code coordinate system (x1,x2,x3)
- *      x =  x1*cos(alpha) + x2*sin(alpha)
- *      y = -x1*sin(alpha) + x2*cos(alpha)
- *      z = x3
+ *   -  x =  x1*cos(alpha) + x2*sin(alpha)
+ *   -  y = -x1*sin(alpha) + x2*cos(alpha)
+ *   -  z = x3
  *   The magnetic field is given by:
- *     B_x = b_par
- *     B_y = b_perp*sin(k*x)
- *     B_z = b_perp*cos(k*x)   where k = 2.0*PI/lambda
+ *   - B_x = b_par
+ *   - B_y = b_perp*sin(k*x)
+ *   - B_z = b_perp*cos(k*x)   where k = 2.0*PI/lambda
  *
  *   Can be used for either standing (problem/v_par=1.0) or travelling
  *   (problem/v_par=0.0) waves.
@@ -22,8 +24,8 @@
  *   wave periods for this to work.
  *
  * REFERENCE: G. Toth,  "The div(B)=0 constraint in shock capturing MHD codes",
- *   JCP, 161, 605 (2000)
- *============================================================================*/
+ *   JCP, 161, 605 (2000)						      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -46,7 +48,7 @@
  
 static ConsS **RootSoln=NULL;
 static Real A3(const Real x1, const Real x2);
-Real sin_a, cos_a, b_par, b_perp;
+Real fac, sin_a, cos_a, b_par, b_perp;
 Real k_par;
 
 /*----------------------------------------------------------------------------*/
@@ -60,10 +62,14 @@ void problem(DomainS *pDomain)
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
   int nx1, nx2;
+  int dir;
   Real angle;    /* Angle the wave direction makes with the x1-direction */
   Real x1size,x2size,x1,x2,x3,cs,sn;
   Real v_par, v_perp, den, pres;
   Real lambda; /* Wavelength */
+#ifdef RESISTIVITY
+  Real v_A, kva, omega_h, omega_l, omega_r;
+#endif
  
   nx1 = (ie - is + 1) + 2*nghost;
   nx2 = (je - js + 1) + 2*nghost;
@@ -134,6 +140,31 @@ void problem(DomainS *pDomain)
   b_perp = par_getd("problem","b_perp");
   v_perp = b_perp/sqrt((double)den);
 
+  dir    = par_geti_def("problem","dir",1); /* right(1)/left(2) polarization */
+  if (dir == 1) /* right polarization */
+    fac = 1.0;
+  else          /* left polarization */
+    fac = -1.0;
+
+#ifdef RESISTIVITY
+  Q_Hall = par_getd("problem","Q_H");
+  d_ind  = 0.0;
+  v_A    = b_par/sqrt((double)den);
+  if (Q_Hall > 0.0)
+  {
+    kva     = k_par*v_A;
+    omega_h = 1.0/Q_Hall;
+
+    omega_r = 0.5*SQR(kva)/omega_h*(sqrt(1.0+SQR(2.0*omega_h/kva)) + 1.0);
+    omega_l = 0.5*SQR(kva)/omega_h*(sqrt(1.0+SQR(2.0*omega_h/kva)) - 1.0);
+
+    if (dir == 1) /* right polarization (whistler wave) */
+      v_perp = v_perp * kva / omega_r;
+    else          /* left polarization */
+      v_perp = v_perp * kva / omega_l;
+  }
+#endif
+
 /* The gas pressure and parallel velocity are free parameters. */
 
   pres = par_getd("problem","pres");
@@ -180,13 +211,13 @@ void problem(DomainS *pDomain)
       for (i=is; i<=ie; i++) {
         cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-        sn = sin(k_par*(x1*cos_a + x2*sin_a));
+        sn = sin(k_par*(x1*cos_a + x2*sin_a)) * fac;
         cs = cos(k_par*(x1*cos_a + x2*sin_a));
 
         Soln[j][i].d  = den;
-        Soln[j][i].M1 = den*(v_par*cos_a - v_perp*sn*sin_a);
-        Soln[j][i].M2 = den*(v_par*sin_a + v_perp*sn*cos_a);
-        Soln[j][i].M3 = den*v_perp*cs;
+        Soln[j][i].M1 = den*(v_par*cos_a + v_perp*sn*sin_a);
+        Soln[j][i].M2 = den*(v_par*sin_a - v_perp*sn*cos_a);
+        Soln[j][i].M3 = -den*v_perp*cs;
         pGrid->U[k][j][i].d  = Soln[j][i].d;
         pGrid->U[k][j][i].M1 = Soln[j][i].M1;
         pGrid->U[k][j][i].M2 = Soln[j][i].M2;
@@ -278,6 +309,18 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{   
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+  
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {
@@ -389,14 +432,15 @@ void Userwork_after_loop(MeshS *pM)
   return;
 }
 
-/*---------------------------------------------------------------------------
- * A3: Define a scalar potential A3 such that:
- *     B_x = - $\partial A3 / \partial y$
- *     B_y =   $\partial A3 / \partial x$
+/*---------------------------------------------------------------------------*/
+/*! \fn static Real A3(const Real x1, const Real x2)
+ *  \brief Define a scalar potential A3 such that:
+ *   - B_x = - $\partial A3 / \partial y$
+ *   - B_y =   $\partial A3 / \partial x$
  *   Then A3 is given in the function below.  */
 
 static Real A3(const Real x1, const Real x2)
 {
   return b_par*(x1*sin_a - x2*cos_a) 
-     - (b_perp/k_par)*cos(k_par*(x1*cos_a + x2*sin_a));
+     - (fac*b_perp/k_par)*cos(k_par*(x1*cos_a + x2*sin_a));
 }

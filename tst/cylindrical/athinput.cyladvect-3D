@@ -2,7 +2,7 @@
 problem = Advection (CYLINDRICAL)
 author  = A. Skinner
 journal = unpublished
-config  = --with-problem=cyladvect --with-coord=cylindrical --with-gas=hydro --with-flux=hllc
+config  = --with-problem=cyladvect --with-coord=cylindrical
 
 <log>
 file_open       = 0                 # write to .out file?  otherwise, writes to stdout
@@ -11,7 +11,7 @@ out_level       = 0                 # sets output level (default=0)
 <job>
 num_domains     = 1                 # number of Domains in Mesh
 problem_id      = CylAdvect         # problem ID: basename of output filenames
-maxout          = 2                 # Output blocks number from 1 -> maxout
+maxout          = 1                 # Output blocks number from 1 -> maxout
 
 <output1>
 out_fmt         = bin               # Binary data dump
@@ -46,19 +46,23 @@ x3max           = 1.0               # maximum value of Z
 bc_ix3          = 4                 # inner (Z) boundary flag
 bc_ox3          = 4                 # outer (Z) boundary flag
 
-NGrid_x1        = 4
-NGrid_x2        = 4
+NGrid_x1        = 1
+NGrid_x2        = 1
 NGrid_x3        = 1
 
 <problem>
 gamma           = 1.66666666666667  # gamma = C_p/C_v
-omega           = 6.28318530717959  # angular velocity (=2*pi)
-rho0            = 1.0               # background gas density
-bz0             = 0.0               # uniform B-field strength
-vz0             = 0.0               # uniform z-velocity
-ptotal          = 1.0               # total pressure
-amp             = 1.0               # wave amplitude
+omega0          = 0.78539816339745  # uniform background angular velocity (=2*pi)
+rho0            = 1.0               # uniform background gas density
+bz0             = 0.0               # uniform background B-field strength
+vz0             = 0.0               # uniform background z-velocity
+Pgas0           = 1.0               # uniform gas pressure
+amp             = 0.1               # amplitude of the pulse
+rad             = 0.1               # size of the pulse
+R0              = 1.5               # (R0,phi0,z0) is the center of the pulse
+phi0            = 0.0               # (R0,phi0,z0) is the center of the pulse
+z0              = 0.0               # (R0,phi0,z0) is the center of the pulse
 iprob           = 1                 # problem number:  1=SQUARE PULSE
-                                    #                  2=SQUARE PULSE W/UNIF B_z
-                                    #                  3=SINUSOIDAL
+                                    #                  2=SINUSOIDAL IN PHI 
+                                    #                  3=GAUSSIAN PULSE
 

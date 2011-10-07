@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: convert_var.c
+/*============================================================================*/
+/*! \file convert_var.c
+ *  \brief Functions to convert conservative->primitive variables, and <->
  *
  * PURPOSE: Functions to convert conservative->primitive variables, and
  *   vice-versa. Routines for both Newtonian and special relativistic physics
@@ -8,10 +9,11 @@
  *   Newtonian flows only.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   Cons_to_Prim()     - converts Cons type to Prim type
- *   Cons1D_to_Prim1D() - converts 1D vector (Bx passed through arguments)
- *   Prim1D_to_Cons1D() - converts 1D vector (Bx passed through arguments)
- *   cfast()            - computes fast magnetosonic speed
+ * - Cons_to_Prim()     - converts Cons type to Prim type
+ * - Cons1D_to_Prim1D() - converts 1D vector (Bx passed through arguments)
+ * - Prim1D_to_Cons1D() - converts 1D vector (Bx passed through arguments)
+ * - cfast()            - computes fast magnetosonic speed
+ *
  * For special relativity, there are two versions of the Cons1D_to_Prim1D
  * functions, one for HYDRO and one for MHD. There is also a 'check_Prim'
  * and 'check_Prim1D' routine for SRMHD which returns a primitve state
@@ -25,10 +27,10 @@
  *   versus constant adiabatic index", MNRAS, 378, 1118 (2007)
  *
  * HISTORY: (functions for special relativity)
- *   First version written by Kevin Tian, summer 2007.
- *   Rewritten and revised by Jonathan Fulton, Senior Thesis 2009.
- *   Rewritten to use M&McK (2007) by Kris Beckwith, Fall 2009.
- *============================================================================*/
+ * - First version written by Kevin Tian, summer 2007.
+ * - Rewritten and revised by Jonathan Fulton, Senior Thesis 2009.
+ * - Rewritten to use M&McK (2007) by Kris Beckwith, Fall 2009.		      */
+/*============================================================================*/
 
 #include <math.h>
 #include "defs.h"
@@ -40,17 +42,45 @@
 /* prototypes for private functions needed with SR MHD */
 Real Gamma_1overGamma;
 
+/*! \fn Prim1DS vsq1D_fix (const Cons1DS *pU, const Real *pBx) 
+ *  \brief Wrapper for the fix_vsq1D function, works 
+ *          only for SPECIAL_RELATIVITY && MHD only */
 Prim1DS vsq1D_fix (const Cons1DS *pU, const Real *pBx);
+
+/*! \fn Prim1DS entropy_fix1D(const Cons1DS *U, const Real *Bx, 
+ *                             const Real *ent) 
+ *  \brief entropy_fix: SPECIAL RELATIVISTIC MHD VERSION */
 Prim1DS entropy_fix1D (const Cons1DS *pU, const Real *pBx, const Real *ent);
 
+/*! \fn static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, 
+ *                             Real Vsq, Real pgas)
+ *  \brief Evaluate equation A25 for E, rather than E' */
 static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, Real Vsq, Real pgas);
+
+/*! \fn static Real calc_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq, Real d, 
+ *                             Real Vsq, Real Gsq, Real Chi)
+ *  \brief Evaluate A8 for E & Q, rather than E', W' */
 static Real calc_dfunc (Real Q, Real Bsq, Real Msq, Real Ssq, Real d, Real Vsq,
 			Real Gsq, Real Chi);
+
+/*! \fn static Real calc_ent_func(Real rho, Real pgas, Real d, Real ent)
+ *  \brief Evaluate equation A25 for E, rather than E' */
 static Real calc_ent_func (Real rho, Real pgas, Real d, Real ent);
+
+/*! \fn static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
+ *				   Real d, Real Vsq, Real Gsq, Real Chi,
+ *				   Real pgas, Real rho)
+ *  \brief Evaluate A8 for E & Q, rather than E', W' */
 static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
 			   Real d, Real Vsq, Real Gsq, Real Chi,
 			   Real pgas, Real rho);
+
+/*! \fn static Real calc_vsq(Real Bsq, Real Msq, Real Ssq, Real Q)
+ *  \brief Obtain v^2 via eqn. A3 */
 static Real calc_vsq (Real Bsq, Real Msq, Real Ssq, Real Q);
+
+/*! \fn static Real calc_chi (Real d, Real Vsq, Real Gsq, Real Q)
+ *  \brief Evaluate \Chi from eqn. A11 using Q, rathher than Q'*/
 static Real calc_chi (Real d, Real Vsq, Real Gsq, Real Q);
 
 void FUNV2(const Real d, const Real v2, 
@@ -63,10 +93,12 @@ static Real tol=1.0e-10;
 
 
 /*----------------------------------------------------------------------------*/
-/* Cons_to_Prim: wrapper for the Cons1D_to_Prim1D function, works for both
+/*! \fn PrimS Cons_to_Prim(const ConsS *pCons)
+ *  \brief Wrapper for the Cons1D_to_Prim1D function, works for both
  *   NEWTONIAN and SPECIAL_RELATIVITY
- * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
- * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ *
+ * - conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * - primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
  */
 
 PrimS Cons_to_Prim(const ConsS *pCons)
@@ -145,6 +177,14 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   return Prim;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn ConsS Prim_to_Cons(const PrimS *pW)
+ *  \brief Wrapper for the Prim1D_to_Cons1D function, works for both
+ *   NEWTONIAN and SPECIAL_RELATIVITY
+ *
+ * - conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * - primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ */
 ConsS Prim_to_Cons (const PrimS *pW)
 {
   Cons1DS U;
@@ -224,10 +264,12 @@ ConsS Prim_to_Cons (const PrimS *pW)
 #ifdef SPECIAL_RELATIVITY /* special relativity only */
 #if defined(MHD) || defined(RADIATION_MHD) /* MHD only */
 /*----------------------------------------------------------------------------*/
-/* fix_vsq: wrapper for the fix_vsq1D function, works 
+/*! \fn PrimS fix_vsq(const ConsS *pCons)
+ *  \brief Wrapper for the fix_vsq1D function, works 
  *          only for SPECIAL_RELATIVITY && MHD only
- * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
- * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ *
+ * - conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * - primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
  */
 PrimS fix_vsq (const ConsS *pCons)
 {
@@ -277,10 +319,12 @@ PrimS fix_vsq (const ConsS *pCons)
 }
 
 /*----------------------------------------------------------------------------*/
-/* fix_vsq: wrapper for the entropy_fix1D function, works 
+/*! \fn PrimS entropy_fix(const ConsS *pCons, const Real *ent)
+ *  \brief Wrapper for the entropy_fix1D function, works 
  *          only for SPECIAL_RELATIVITY && MHD only
- * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
- * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ *
+ * - conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * - primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
  */
 PrimS entropy_fix (const ConsS *pCons, const Real *ent)
 {
@@ -331,10 +375,12 @@ PrimS entropy_fix (const ConsS *pCons, const Real *ent)
 #endif /* MHD */
 
 /*----------------------------------------------------------------------------*/
-/* check_Prim: wrapper for the check_Prim1D function, works 
+/*! \fn PrimS check_Prim(const ConsS *pCons)
+ *  \brief Wrapper for the check_Prim1D function, works 
  *          only for SPECIAL_RELATIVITY
- * conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
- * primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
+ *
+ * - conserved variables = (d,M1,M2,M3,[E],[B1c,B2c,B3c],[s(n)])
+ * - primitive variables = (d,V1,V2,V3,[P],[B1c,B2c,B3c],[r(n)])
  */
 PrimS check_Prim(const ConsS *pCons)
 {
@@ -390,10 +436,12 @@ PrimS check_Prim(const ConsS *pCons)
 
 #ifndef SPECIAL_RELATIVITY /* Following versions for Newtonian dynamics */
 /*----------------------------------------------------------------------------*/
-/* Cons1D_to_Prim1D: NEWTONIAN VERSION
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz],[r(n)])
- * Bx is passed in through the argument list.
+/*! \fn Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
+ *  \brief Cons1D_to_Prim1D: NEWTONIAN VERSION 
+ *
+ *   - conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
+ *   - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz],[r(n)])
+ *   - Bx is passed in through the argument list.
  */
 
 Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
@@ -446,10 +494,12 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Prim1D_to_Cons1D: NEWTONIAN VERSION
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz],[r(n)])
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
- * Bx is passed in through the argument list.
+/*! \fn Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
+ *  \brief Prim1D_to_Cons1D: NEWTONIAN VERSION
+ *
+ *   - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz],[r(n)])
+ *   - conserved variables = (d,Mx,My,Mz,[E],[By,Bz],[s(n)])
+ *   - Bx is passed in through the argument list.
  */
 
 Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
@@ -501,8 +551,10 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
 }
 
 /*----------------------------------------------------------------------------*/
-/* cfast: returns fast magnetosonic speed given input 1D vector of conserved
- *   variables and Bx.   NEWTONIAN PHYSICS ONLY.
+/*! \fn Real cfast(const Cons1DS *U, const Real *Bx)
+ *
+ *  \brief Returns fast magnetosonic speed given input 1D vector of conserved
+ *   variables and Bx -- NEWTONIAN PHYSICS ONLY.
  */
 
 Real cfast(const Cons1DS *U, const Real *Bx)
@@ -539,10 +591,12 @@ Real cfast(const Cons1DS *U, const Real *Bx)
 
 #if defined(SPECIAL_RELATIVITY) && defined(HYDRO) /* special relativity only */
 /*----------------------------------------------------------------------------*/
-/* Cons1D_to_Prim1D: SPECIAL RELATIVISTIC HYDRODYNAMICS VERSION
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- * Bx is passed in through the argument list.
+/*! \fn Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
+ *  \brief Cons1D_to_Prim1D: SPECIAL RELATIVISTIC HYDRODYNAMICS VERSION
+ *
+ *   - conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *   - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ *   - Bx is passed in through the argument list.
  */
 
 Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
@@ -631,17 +685,19 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
 
 #if defined(SPECIAL_RELATIVITY) && defined(MHD) /* special relativity only */
 /*----------------------------------------------------------------------------*/
-/* Cons1D_to_Prim1D: SPECIAL RELATIVISTIC MHD VERSION 
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- * Bx is passed in through the argument list.
+/*! \fn Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
+ *  \brief Cons1D_to_Prim1D: SPECIAL RELATIVISTIC MHD VERSION 
+ *
+ *   - conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *   - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ *   - Bx is passed in through the argument list.
  *
  * IMPORTANT: This algorithm uses an iterative (Newton-Raphson) root-finding
  * step, which requires an initial guess for W. This is provided by solving
  * a cubic equation for W based on passed values of U->E & U->d and assuming
  * that v^2 = 1, as in Appendix A3 of Mignone & McKinney. Note that the
  * conserved quantity is the total energy, 
- * E = D*h*\gamma - p + 0.5*B^2 + 0.5*(v^2*B^2 - v \dot B)
+ * - E = D*h*\gamma - p + 0.5*B^2 + 0.5*(v^2*B^2 - v \dot B)
  */
 
 Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
@@ -834,17 +890,19 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *U, const Real *Bx)
 }
 
 /*----------------------------------------------------------------------------*/
-/* check_Prim1D: SPECIAL RELATIVISTIC MHD VERSION 
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- * Bx is passed in through the argument list.
+/*! \fn	Prim1DS check_Prim1D(const Cons1DS *U, const Real *Bx) 
+ *  \brief check_Prim1D: SPECIAL RELATIVISTIC MHD VERSION 
+ *
+ *   - conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *   - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ *   - Bx is passed in through the argument list.
  *
  * IMPORTANT: This algorithm uses an iterative (Newton-Raphson) root-finding
  * step, which requires an initial guess for W. This is provided by solving
  * a cubic equation for W based on passed values of U->E & U->d and assuming
  * that v^2 = 1, as in Appendix A3 of Mignone & McKinney. Note that the
  * conserved quantity is the total energy, 
- * E = D*h*\gamma - p + 0.5*B^2 + 0.5*(v^2*B^2 - v \dot B)
+ * - E = D*h*\gamma - p + 0.5*B^2 + 0.5*(v^2*B^2 - v \dot B)
  */
 
 Prim1DS check_Prim1D (const Cons1DS *U, const Real *Bx)
@@ -978,10 +1036,12 @@ Prim1DS check_Prim1D (const Cons1DS *U, const Real *Bx)
 
 #ifdef SPECIAL_RELATIVITY /* special relativity only */
 /*----------------------------------------------------------------------------*/
-/* Prim1D_to_Cons1D: SPECIAL RELATIVITY VERSION
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- * Bx is passed in through the argument list.
+/*! \fn Cons1DS Prim1D_to_Cons1D(const Prim1DS *W, const Real *Bx)
+ *  \brief Prim1D_to_Cons1D: SPECIAL RELATIVITY VERSION
+ *
+ *   - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ *   - conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *   - Bx is passed in through the argument list.
  */
 
 Cons1DS Prim1D_to_Cons1D(const Prim1DS *W, const Real *Bx)
@@ -1025,10 +1085,13 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *W, const Real *Bx)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/* entropy_fix: SPECIAL RELATIVISTIC MHD VERSION 
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- * Bx is passed in through the argument list.
+/*! \fn Prim1DS entropy_fix1D(const Cons1DS *U, const Real *Bx, 
+ *                             const Real *ent) 
+ *  \brief entropy_fix: SPECIAL RELATIVISTIC MHD VERSION 
+ *
+ *  - conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *  - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ *  - Bx is passed in through the argument list.
  */
 
 Prim1DS entropy_fix1D (const Cons1DS *U, const Real *Bx, const Real *ent)
@@ -1146,10 +1209,12 @@ Prim1DS entropy_fix1D (const Cons1DS *U, const Real *Bx, const Real *ent)
 }
 
 /*----------------------------------------------------------------------------*/
-/* vsq1D_fix: SPECIAL RELATIVISTIC MHD VERSION 
- *   conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
- *   primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
- * Bx is passed in through the argument list.
+/*! \fn Prim1DS vsq1D_fix(const Cons1DS *U, const Real *Bx) 
+ *  \brief vsq1D_fix: SPECIAL RELATIVISTIC MHD VERSION  
+ *
+ *  - conserved variables = (d,Mx,My,Mz,[E],[By,Bz])
+ *  - primitive variables = (d,Vx,Vy,Vz,[P],[By,Bz])
+ *  - Bx is passed in through the argument list.
  */
 
 Prim1DS vsq1D_fix (const Cons1DS *U, const Real *Bx)
@@ -1201,6 +1266,10 @@ Prim1DS vsq1D_fix (const Cons1DS *U, const Real *Bx)
   return Prim1D;
 }
 
+/*! \fn static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, 
+ *                             Real Vsq, Real pgas)
+ *  \brief Evaluate equation A25 for E, rather than E'
+ */
 static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, Real Vsq, Real pgas)
 {
   Real tmp1;
@@ -1208,6 +1277,8 @@ static Real calc_func (Real Q, Real E, Real Bsq, Real Ssq, Real Vsq, Real pgas)
   return Q - pgas + 0.5*(1.0+Vsq)*Bsq - (0.5*Ssq/Q/Q) - E;
 }
 
+/*! \fn static Real calc_ent_func(Real rho, Real pgas, Real d, Real ent)
+ *  \brief Evaluate equation A25 for E, rather than E' */
 static Real calc_ent_func (Real rho, Real pgas, Real d, Real ent)
 {
   Real tmp1;
@@ -1216,10 +1287,13 @@ static Real calc_ent_func (Real rho, Real pgas, Real d, Real ent)
   return d*tmp1 - ent;
 }
 
+/*! \fn static Real calc_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq, Real d, 
+ *                             Real Vsq, Real Gsq, Real Chi)
+ *  \brief Evaluate A8 for E & Q, rather than E', W' */
 static Real calc_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq, Real d, Real Vsq,
 		       Real Gsq, Real Chi)
 {
-  /* Evaluate A8 for E & Q, rahter than E', W' */
+  /* Evaluate A8 for E & Q, rather than E', W' */
   Real dp_dQ, dp_dchi, dchi_dQ, dp_drho, drho_dQ, dVsq_dQ;
   Real G, Qsq, Qth, scrh1;
 
@@ -1246,11 +1320,15 @@ static Real calc_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq, Real d, Real Vsq,
   return 1.0 - dp_dQ +0.5*Bsq*dVsq_dQ + Ssq / Qth;
 }
 
+/*! \fn static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
+ *				   Real d, Real Vsq, Real Gsq, Real Chi,
+ *				   Real pgas, Real rho)
+ *  \brief Evaluate A8 for E & Q, rather than E', W' */
 static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
 			   Real d, Real Vsq, Real Gsq, Real Chi,
 			   Real pgas, Real rho)
 {
-  /* Evaluate A8 for E & Q, rahter than E', W' */
+  /* Evaluate A8 for E & Q, rather than E', W' */
   Real dp_dQ, dp_dchi, dchi_dQ, dp_drho, drho_dQ, dVsq_dQ;
   Real G, Qsq, Qth, scrh1;
 
@@ -1277,6 +1355,8 @@ static Real calc_ent_dfunc(Real Q, Real Bsq, Real Msq, Real Ssq,
   return d*pow(rho,-Gamma)*dp_dQ - Gamma*pgas*pow(rho,Gamma+1.0)*drho_dQ;
 }
 
+/*! \fn static Real calc_vsq(Real Bsq, Real Msq, Real Ssq, Real Q)
+ *  \brief Obtain v^2 via eqn. A3 */
 static Real calc_vsq (Real Bsq, Real Msq, Real Ssq, Real Q)
 {
   /* Obtain v^2 via eqn. A3 */
@@ -1287,6 +1367,8 @@ static Real calc_vsq (Real Bsq, Real Msq, Real Ssq, Real Q)
   return (Msq + Ssq_Qsq*(scrh1 + Q))/(scrh1*scrh1);
 }
 
+/*! \fn static Real calc_chi (Real d, Real Vsq, Real Gsq, Real Q)
+ *  \brief Evaluate \Chi from eqn. A11 using Q, rathher than Q' */
 static Real calc_chi (Real d, Real Vsq, Real Gsq, Real Q)
 {
   /* Evaluate \Chi from eqn. A11 using Q, rathher than Q' */

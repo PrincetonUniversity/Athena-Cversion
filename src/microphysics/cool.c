@@ -1,14 +1,15 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: cool.c
+/*============================================================================*/
+/*! \file cool.c
+ *  \brief Implements various optically thin cooling functions.  
  *
- * PURPOSE: Implements various optically thin cooling functions.  These can be
+ *  These can be
  *  enrolled by setting CoolingFunc=NAME in the problem generator, where NAME
  *  is one of the functions in this file.
  *
  *  Each cooling function returns the cooling rate per volume.  The total 
  *  (or equivalently the internal) energy then evolves as
- *       dE/dt = de/dt = - CoolingFunc
+ *   -   dE/dt = de/dt = - CoolingFunc
  *
  *  Some of these cooling functions return the cooling rate per volume in
  *  cgs units [ergs/cm^{3}/s].  Thus, to use these functions, the entire
@@ -19,8 +20,8 @@
  *  src/microphysics/prototypes.h.  Note the argument list must be (d,P,dt).
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *  KoyInut - Koyama & Inutsuka cooling function
- *============================================================================*/
+ * - KoyInut() - Koyama & Inutsuka cooling function */
+/*============================================================================*/
 
 #include <math.h>
 #include <float.h>
@@ -38,8 +39,9 @@ static const Real Tmin = 10;
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* KoyInut: analytic fit to cooling in the diffuse ISM given by eq. (4) in
- *   Koyama & Inutsuka, ApJ 564, L97 (2002).  Returns rate in cgs.
+/*! \fn Real KoyInut(const Real dens, const Real Press, const Real dt)
+ *  \brief Analytic fit to cooling in the diffuse ISM given by eq. (4) in
+ *   Koyama & Inutsuka, ApJ 564, L97 (2002);  Returns rate in cgs.
  */
 
 #ifndef BAROTROPIC

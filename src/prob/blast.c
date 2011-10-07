@@ -1,12 +1,13 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: blast.c
+/*============================================================================*/
+/*! \file blast.c
+ *  \brief Problem generator for spherical blast wave problem.
  *
  * PURPOSE: Problem generator for spherical blast wave problem.
  *
  * REFERENCE: P. Londrillo & L. Del Zanna, "High-order upwind schemes for
- *   multidimensional MHD", ApJ, 530, 508 (2000), and references therein.
- *============================================================================*/
+ *   multidimensional MHD", ApJ, 530, 508 (2000), and references therein.     */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

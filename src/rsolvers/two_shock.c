@@ -1,18 +1,19 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: two_shock.c
+/*============================================================================*/
+/*! \file two_shock.c
+ *  \brief Computes 1D fluxes using simple two-shock Riemann solver.
  *
  * PURPOSE: Computes 1D fluxes using simple two-shock Riemann solver.
  *   Currently only isothermal hydrodynamics has been implemented.  
  *
  * REFERENCES:
- *   E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
+ * - E.F. Toro, "Riemann Solvers and numerical methods for fluid dynamics",
  *   2nd ed., Springer-Verlag, Berlin, (1999).
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -38,12 +39,15 @@
 #endif /* NSCALARS */
 
 /*----------------------------------------------------------------------------*/
-/* fluxes:
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr,
+ *            const Real Bxi, Cons1DS *pFlux)
+ *  \brief Computes 1D fluxes
  *   Input Arguments:
- *     Bxi = B in direction of slice at cell interface
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *   - Bxi = B in direction of slice at cell interface
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,

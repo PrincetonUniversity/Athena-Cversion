@@ -1,14 +1,15 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: dump_vtk.c
+/*============================================================================*/
+/*! \file dump_vtk.c 
+ *  \brief Function to write a dump in VTK "legacy" format.
  *
  * PURPOSE: Function to write a dump in VTK "legacy" format.  With SMR,
  *   dumps are made for all levels and domains, unless nlevel and ndomain are
  *   specified in <output> block.  Works for BOTH conserved and primitives.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_vtk() - writes VTK dump (all variables).
- *============================================================================*/
+ * - dump_vtk() - writes VTK dump (all variables).			      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +22,8 @@
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* dump_vtk:   */
+/*! \fn void dump_vtk(MeshS *pM, OutputS *pOut)
+ *  \brief Writes VTK dump (all variables).				      */
 
 void dump_vtk(MeshS *pM, OutputS *pOut)
 {
@@ -154,9 +156,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 
 /* Set the Grid origin */
 
-        x1 = pGrid->MinX[0];
-        x2 = pGrid->MinX[1];
-        x3 = pGrid->MinX[2];
+        fc_pos(pGrid, il, jl, kl, &x1, &x2, &x3);;
 
         fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
         if (pGrid->Nx[1] == 1) {

@@ -1,6 +1,9 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: esystem_roe.c
+/*============================================================================*/
+/*! \file esystem_roe.c
+ *  \brief Functions to evaluate the eigenvalues, and left- and
+ * right-eigenvectors of "Roe's matrix A" for the linearized system in the 
+ * CONSERVED variables.
  *
  * PURPOSE: Functions to evaluate the eigenvalues, and left- and
  * right-eigenvectors of "Roe's matrix A" for the linearized system in the 
@@ -21,11 +24,11 @@
  * The "Roe-averaging" of the L/R states must be performed in the calling funct
  *
  * REFERENCES:
- *   P. Cargo & G. Gallice, "Roe matrices for ideal MHD and systematic
+ * - P. Cargo & G. Gallice, "Roe matrices for ideal MHD and systematic
  *   construction of Roe matrices for systems of conservation laws",
  *   JCP, 136, 446 (1997)
  *
- *   J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new
+ * - J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new
  *   code for astrophysical MHD", ApJS, (2008), Appendix B
  *   Equation numbers refer to this paper.
  *
@@ -47,9 +50,13 @@
 #include "../prototypes.h"
 
 /*----------------------------------------------------------------------------*/
-/* esys_roe_iso_hyd: ISOTHERMAL HYDRO
- *   Input: v1,v2,v3 = Roe averaged components of velocity
- *   Output: eigenvalues[4],right_eigenmatrix[4,4],left_eigenmatrix[4,4]
+/*! \fn  void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
+ *  Real eigenvalues[],
+ *  Real right_eigenmatrix[][4], Real left_eigenmatrix[][4])
+ *  \brief ISOTHERMAL HYDRO
+ *
+ *  - Input: v1,v2,v3 = Roe averaged components of velocity
+ *  - Output: eigenvalues[4],right_eigenmatrix[4,4],left_eigenmatrix[4,4]
  */
 
 #if defined(ISOTHERMAL) && defined(HYDRO)
@@ -113,9 +120,13 @@ void esys_roe_iso_hyd(const Real v1, const Real v2, const Real v3,
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* esys_roe_iso_hyd:  ADIABATIC HYDRO
- *   Input: v1,v2,v3,h = Roe averaged velocities and enthalpy
- *   Output: eigenvalues[5], right_eigenmatrix[5,5], left_eigenmatrix[5,5];
+/*! \fn void esys_roe_adb_hyd(const Real v1, const Real v2, const Real v3, 
+ *			      const Real h, Real right_eigenmatrix[][5], 
+ *			      Real left_eigenmatrix[][5])
+ *  \brief ADIABATIC HYDRO
+ *
+ * - Input: v1,v2,v3,h = Roe averaged velocities and enthalpy
+ * - Output: eigenvalues[5], right_eigenmatrix[5,5], left_eigenmatrix[5,5];
  */
 
 #if defined(ADIABATIC) && defined(HYDRO)
@@ -206,10 +217,16 @@ void esys_roe_adb_hyd(const Real v1, const Real v2, const Real v3, const Real h,
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* esys_roe_iso_hyd: ISOTHERMAL MHD
- *   Input: d,v1,v2,v3,b1,b2,b3 = Roe averaged density, velocities, and B field
+/*! \fn void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, 
+ *			const Real v3, const Real b1, const Real b2, 
+ *			const Real b3, const Real x, const Real y, 
+ *                      Real eigenvalues[],
+ *			Real right_eigenmatrix[][6], Real left_eigenmatrix[][6])
+ *  \brief ISOTHERMAL MHD
+ *
+ * - Input: d,v1,v2,v3,b1,b2,b3 = Roe averaged density, velocities, and B field
  *          x,y = numerical factors (eqs. )
- *   Output: eigenvalues[6], right_eigenmatrix[6,6], left_eigenmatrix[6,6];
+ * - Output: eigenvalues[6], right_eigenmatrix[6,6], left_eigenmatrix[6,6];
  */
 
 #if defined(ISOTHERMAL) && defined(MHD)
@@ -401,10 +418,15 @@ void esys_roe_iso_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* esys_roe_iso_hyd: ADIABATIC MHD
- *   Input: d,v1,v2,v3,h,b1,b2,b3=Roe averaged density, velocities, enthalpy, B
+/*! \fn void esys_roe_adb_mhd(const Real d, const Real v1, const Real v2, 
+ *			const Real v3, const Real h, const Real b1, 
+ *			const Real b2, const Real b3, Real eigenvalues[], 
+ *			Real right_eigenmatrix[][7], Real left_eigenmatrix[][7])
+ *  \brief ADIABATIC MHD
+ *
+ * - Input: d,v1,v2,v3,h,b1,b2,b3=Roe averaged density, velocities, enthalpy, B
  *          x,y = numerical factors (see eqn XX)
- *   Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
+ * - Output: eigenvalues[7], right_eigenmatrix[7,7], left_eigenmatrix[7,7];
  */
 
 #if defined(ADIABATIC) && (defined(MHD) || defined(RADIATION_MHD))

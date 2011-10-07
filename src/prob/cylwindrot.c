@@ -1,11 +1,10 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: cylwindrot.c
- *
- * The cylindrical analogue of the Bondi accretion (Parker wind) problem with
- * rotation.  Hydrodynamic, axisymmetric.
- *
- *============================================================================*/
+/*============================================================================*/
+/*! \file cylwindrot.c
+ *  \brief The cylindrical analogue of the Bondi accretion (Parker wind) 
+ *  problem with rotation.  Hydrodynamic, axisymmetric. 
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -19,14 +18,12 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * grav_pot() - gravitational potential
- * grav_acc() - gravitational acceleration
  * myfunc()   - used to compute transonic solution
  *============================================================================*/
 
 static Real ang_mom,c_infty,lambda_s,vz0;
 static int iprob;
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
-static Real grav_acc(const Real x1, const Real x2, const Real x3);
 Real myfunc(Real x, Real v);
 static ConsS ***RootSoln=NULL;
 
@@ -65,7 +62,7 @@ void problem(DomainS *pDomain)
     ath_error("[cylwindrot]: Only (R,phi) can be used in 2D!\n");
   }
 
-  /* ALLOCATE MEMORY FOR SOLUTION */
+  /* Allocate memory for solution */
   if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS))) == NULL)
     ath_error("[cylwindrot]: Error allocating memory for solution\n");
 
@@ -82,14 +79,14 @@ void problem(DomainS *pDomain)
   vs = c_infty*pow(lambda_s/xs,0.5*beta);
   printf("xs = %13.10f,\t lambda_s = %13.10f,\t vs = %13.10f\n", xs, lambda_s, vs);
 
-  // COMPUTE 1D WIND/ACCRETION SOLUTION
+  // Compute 1D wind/accretion solution
   for (i=il; i<=iu; i++) {
     cc_pos(pG,i,j,k,&x1,&x2,&x3);
     memset(&(pG->U[ks][js][i]),0.0,sizeof(ConsS));
     vs = pow(lambda_s/x1,0.5*beta);
 
     switch(iprob) {
-      case 1: /* WIND */
+      case 1: /* Wind */
               if (x1 < xs) {
                 a = TINY_NUMBER;  b = vs;
               }
@@ -97,7 +94,7 @@ void problem(DomainS *pDomain)
                 a = vs;           b = HUGE_NUMBER;
               }
               break;
-      case 2: /* ACCRETION */
+      case 2: /* Accretion */
               if (x1 < xs) {
                 a = vs;           b = HUGE_NUMBER;
               }
@@ -118,7 +115,7 @@ void problem(DomainS *pDomain)
     pG->U[ks][js][i].M2  = pG->U[ks][js][i].d*ang_mom/x1;
     pG->U[ks][js][i].M3  = pG->U[ks][js][i].d*vz0;
 
-        /* INITIALIZE TOTAL ENERGY */
+        /* Initialize total energy */
 #ifndef ISOTHERMAL
         pgas0 = 1.0/Gamma;
         pgas = pgas0*pow(pG->U[ks][js][i].d,Gamma);
@@ -127,7 +124,7 @@ void problem(DomainS *pDomain)
 #endif /* ISOTHERMAL */
   }
 
-  /* COPY 1D SOLUTION AND SAVE */
+  /* Copy 1D solution and save */
   for (k=kl; k<=ku; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
@@ -138,7 +135,6 @@ void problem(DomainS *pDomain)
   }
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
   bvals_mhd_fun(pDomain,left_x1,do_nothing_bc);
   bvals_mhd_fun(pDomain,right_x1,do_nothing_bc);
 
@@ -180,26 +176,23 @@ void Userwork_in_loop(MeshS *pM)
 
 void Userwork_after_loop(MeshS *pM)
 {
-  compute_l1_error("CylWindRot", pM, RootSoln, 1);
+  compute_l1_error("CylWindRot", pM, RootSoln, 0);
 }
 
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
+/*! \fn static Real grav_pot(const Real x1, const Real x2, const Real x3) 
+ *  \brief Gravitational potential */
 static Real grav_pot(const Real x1, const Real x2, const Real x3) {
   return -SQR(c_infty)/x1;
 }
 
-static Real grav_acc(const Real x1, const Real x2, const Real x3) {
-  return SQR(c_infty/x1);
-}
-
-/*------------------------------------------------------------------------------
- *  FUNCTION myfunc
- *
- * This function is used to calculate v as a function of x, gamma, and lambda 
- * using the bisection method.  
- *----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+/*! \fn Real myfunc(Real x, Real v) 
+ * \brief This function is used to calculate v as a function of x, gamma, and 
+ *  lambda  using the bisection method.   */
+/*----------------------------------------------------------------------------*/
 Real myfunc(Real x, Real v) 
 {
   return Gamma_1*(1/x + 1/Gamma_1 - 0.5*(SQR(v/c_infty)+SQR(ang_mom/x)))*pow(v*x/c_infty,Gamma_1) - pow(lambda_s,Gamma_1);

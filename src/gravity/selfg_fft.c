@@ -686,6 +686,7 @@ void selfg_fft_3d(DomainS *pD)
     }
   }}
 
+<<<<<<< .working
 #ifdef SHEARING_BOX
   RemapVar(pD,UnRollPhi,dt);
 
@@ -826,6 +827,23 @@ for(j=js; j<=je; j++){
   }}
 #endif
 
+=======
+#ifdef SHEARING_BOX
+  RemapVar(pD,UnRollPhi,dt);
+
+  for (k=ks; k<=ke; k++){
+    for (j=js; j<=je; j++){
+      for (i=is; i<=ie; i++){
+         pG->Phi[k][j][i] = UnRollPhi[k][i][j];
+      }
+    }
+  }
+
+  free_3d_array(RollDen);
+  free_3d_array(UnRollPhi);
+#endif
+
+>>>>>>> .merge-right.r1365
   return;
 }
 

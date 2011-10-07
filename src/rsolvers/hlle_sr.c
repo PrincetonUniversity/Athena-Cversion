@@ -1,18 +1,19 @@
 #include "../copyright.h"
-/*=============================================================================
- * FILE: hlle_sr.c
+/*===========================================================================*/
+/*! \file hlle_sr.c
+ *  \brief Compute 1D fluxes using an HLLE-type relativistic Riemann solver.
  *
  * PURPOSE: Compute 1D fluxes using an HLLE-type relativistic Riemann solver.
  *   Works for both hydro and MHD, but is very diffusive.
  *
  * HISTORY:
- *   First version written by Kevin Tian, 2007
- *   Updated by Jonathan Fulton, February 2009
+ * - First version written by Kevin Tian, 2007
+ * - Updated by Jonathan Fulton, February 2009
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -49,12 +50,15 @@ int CUBIC(Real b, Real c, Real d, Real z[]);
 
 
 /*----------------------------------------------------------------------------*/
-/* hlle_sr
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr, const Real Bx, Cons1DS *pFlux)
+ *  \brief Computes 1D fluxes
+ *
  *   Input Arguments:
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
- *     Bx = B in direction of slice at cell interface
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *   - Bx = B in direction of slice at cell interface
  *   Output Arguments:
- *     pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pFlux = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
@@ -208,6 +212,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   }
 }
 
+/*! \fn void entropy_flux (const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr, const Real Bx, Real *pFlux)
+ *  \brief Compute entropy flux. */
 void entropy_flux (const Cons1DS Ul, const Cons1DS Ur,
             const Prim1DS Wl, const Prim1DS Wr, const Real Bx, Real *pFlux)
 {
@@ -585,15 +592,15 @@ void getVChar_echo(const Prim1DS W, const Real Bx, Real* lm, Real* lp)
 }
 
 /* ******************************************** */
-int QUARTIC (Real b, Real c, Real d, 
-             Real e, Real z[])
-/* 
+/*! \fn int QUARTIC (Real b, Real c, Real d, 
+ *             Real e, Real z[]) 
+ *  \brief Solve a quartic equation.
  *
  * PURPOSE:
  *
  *   Solve a quartic equation in the form 
  *
- *      z^4 + bz^3 + cz^2 + dz + e = 0
+ *  -   z^4 + bz^3 + cz^2 + dz + e = 0
  *
  *   For its purpose, it is assumed that ALL 
  *   roots are real. This makes things faster.
@@ -601,21 +608,23 @@ int QUARTIC (Real b, Real c, Real d,
  *
  * ARGUMENTS
  *
- *   b, c,
- *   d, e  (IN)  = coefficient of the quartic
+ * - b, c,
+ * - d, e  (IN)  = coefficient of the quartic
  *                 z^4 + bz^3 + cz^2 + dz + e = 0
  *
- *   z[]   (OUT) = a vector containing the 
+ * - z[]   (OUT) = a vector containing the 
  *                 (real) roots of the quartic
  *   
  *
  * REFERENCE:
  *
- *   http://www.1728.com/quartic2.htm 
+ * - http://www.1728.com/quartic2.htm 
  * 
  *
- *
- ********************************************** */
+ */
+/********************************************** */
+int QUARTIC (Real b, Real c, Real d, 
+             Real e, Real z[])
 {
   int    n, ifail;
   Real b2, f, g, h;
@@ -683,14 +692,14 @@ int QUARTIC (Real b, Real c, Real d,
   */
 }
 /* *************************************************** */
-int CUBIC(Real b, Real c, Real d, Real z[])
-/* 
+/*! \fn int CUBIC(Real b, Real c, Real d, Real z[])
+ *  \brief Solve a cubic equation.
  *
  * PURPOSE:
  *
  *   Solve a cubic equation in the form 
  *
- *      z^3 + bz^2 + cz + d = 0
+ * -    z^3 + bz^2 + cz + d = 0
  *
  *   For its purpose, it is assumed that ALL 
  *   roots are real. This makes things faster.
@@ -698,10 +707,10 @@ int CUBIC(Real b, Real c, Real d, Real z[])
  *
  * ARGUMENTS
  *
- *   b, c, d (IN)  = coefficient of the cubic
+ * - b, c, d (IN)  = coefficient of the cubic
  *                    z^3 + bz^2 + cz + d = 0
  *
- *   z[]   (OUT)   = a vector containing the 
+ * - z[]   (OUT)   = a vector containing the 
  *                   (real) roots of the cubic.
  *                   Roots should be sorted
  *                   in increasing order.
@@ -709,11 +718,12 @@ int CUBIC(Real b, Real c, Real d, Real z[])
  *
  * REFERENCE:
  *
- *   http://www.1728.com/cubic2.htm 
+ * - http://www.1728.com/cubic2.htm 
  *
  *
- *
- ***************************************************** */
+ */
+/***************************************************** */
+int CUBIC(Real b, Real c, Real d, Real z[])
 {
   Real b2, g2;
   Real f, g, h;

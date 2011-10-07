@@ -1,0 +1,76 @@
+<comment>
+
+problem = MSA test for 3D using Jeans' swindle
+author  = C.-G. Kim
+journal = Kim & Ostriker 2001
+config  = --with-problem=msa --enable-shearing-box --with-gravity=fft --enable-fft
+
+<job>
+
+problem_id      = MSA   # problem ID: basename of output filenames
+maxout          = 3          # Output blocks number from 1 -> maxout
+num_domains     = 1          # number of Domains in Mesh
+
+<log>
+file_open       = 1
+
+<output1>
+out_fmt = hst                # History data dump
+dt      = 0.01               # time increment between outputs
+
+<output2>
+out_fmt = bin                # Binary data dump
+dt      = 1.0                # time increment between outputs
+
+<output3>
+out_fmt = ppm                # Restart data dump
+dt      = 0.1                # time increment between outputs
+type	= slice
+out	= V1
+id	= Vx
+dmin	= -0.001
+dmax	= 0.001
+palette = rainbow
+x3      = 0.0
+
+<time>
+
+cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = -1        # cycle limit
+tlim            = 15.0      # time limit
+
+<domain1>
+level           = 0         # refinement level this Domain (root=0)
+Nx1             = 128        # Number of zones in X-direction
+x1min           = -0.5       # minimum value of X
+x1max           = 0.5        # maximum value of X
+bc_ix1          = 4          # inner-I (X) boundary flag
+bc_ox1          = 4          # outer-I (X) boundary flag
+NGrid_x1        = 1         # with MPI, number of Grids in X1 coordinate
+
+Nx2             = 128        # Number of zones in Y-direction
+x2min           = -0.5       # minimum value of Y
+x2max           = 0.5        # maximum value of Y
+bc_ix2          = 4          # inner-J (Y) boundary flag
+bc_ox2          = 4          # outer-J (Y) boundary flag
+NGrid_x2        = 1         # with MPI, number of Grids in X2 coordinate
+
+Nx3             = 128        # Number of zones in X3-direction
+x3min           = -0.5      # minimum value of X3
+x3max           = 0.5       # maximum value of X3
+bc_ix3          = 4          # inner-K (Z) boundary flag
+bc_ox3          = 4          # outer-K (Z) boundary flag
+NGrid_x3        = 1         # with MPI, number of Grids in X3 coordinate
+AutoWithNProc   = 0         # set to Nproc for auto domain decomposition
+
+<problem>
+
+iso_csound      = 0.0900316 # Isothermal sound speed squared
+gamma           = 1.5        # gamma = C_p/C_v
+beta            = 1          # Plasma beta
+amp             = 1.e-4      # epsilon0
+omega           = 1.0        # Angular speed of galactic rotation
+qshear          = 1.0        # Shear rate
+time0           = 0.0
+Q               = 2.0
+nJ              = 2.5

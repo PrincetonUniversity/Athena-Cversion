@@ -108,10 +108,10 @@ GRAVITY_OBJ = gravity/bvals_grav.o \
               gravity/selfg_multigrid.o
 
 MICROPHYS_OBJ = microphysics/conduction.o \
-	        microphysics/diff_dt.o \
 		microphysics/cool.o \
 		microphysics/integrate_diffusion.o \
 		microphysics/get_eta.o \
+	        microphysics/new_dt_diff.o \
                 microphysics/resistivity.o \
 		microphysics/viscosity.o
 

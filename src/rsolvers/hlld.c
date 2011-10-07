@@ -1,15 +1,16 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: hlld.c
+/*============================================================================*/
+/*! \file hlld.c
+ *  \brief Computes 1D fluxes using the HLLD Riemann solver.
  *
  * PURPOSE: Computes 1D fluxes using the HLLD Riemann solver, an extension of
  *   the HLLE solver to MHD.  Only works for MHD problems.  SEPARATE code
  *   blocks for adiabatic and isothermal equations of state.
  *
  * REFERENCES:
- *   T. Miyoshi & K. Kusano, "A multi-state HLL approximate Riemann solver
+ * - T. Miyoshi & K. Kusano, "A multi-state HLL approximate Riemann solver
  *   for ideal MHD", JCP, 208, 315 (2005)
- *   A. Mignone, "A simple and accurate Riemann solver for isothermal MHD",
+ * - A. Mignone, "A simple and accurate Riemann solver for isothermal MHD",
  *   JPC, 225, 1427 (2007)
  *
  * HISTORY: Adiabatic version written by Brian Biskeborn, May 8, 2006,
@@ -17,9 +18,9 @@
  *          Isothermal version written by Nicole Lemaster, May 1, 2008.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   fluxes() - all Riemann solvers in Athena must have this function name and
- *              use the same argument list as defined in rsolvers/prototypes.h
- *============================================================================*/
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
+ *              use the same argument list as defined in rsolvers/prototypes.h*/
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -44,13 +45,15 @@
 #ifndef ISOTHERMAL
 
 /*----------------------------------------------------------------------------*/
-/* fluxes:
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *           const Prim1DS Wl, const Prim1DS Wr, const Real Bxi, Cons1DS *pFlux)
+ *  \brief Compute 1D fluxes
  * Input Arguments:
- *   Bxi = B in direction of slice at cell interface
- *   Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ * - Bxi = B in direction of slice at cell interface
+ * - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *
  * Output Arguments:
- *   Flux = fluxes of CONSERVED variables at cell interface
+ * - Flux = fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
@@ -425,13 +428,15 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 #else /* ISOTHERMAL */
 
 /*----------------------------------------------------------------------------*/
-/* fluxes:
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *          const Prim1DS Wl, const Prim1DS Wr, const Real Bxi, Cons1DS *pFlux)
+ *  \brief Compute 1D fluxes
  * Input Arguments:
- *   Bxi = B in direction of slice at cell interface
- *   Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ * - Bxi = B in direction of slice at cell interface
+ * - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *
  * Output Arguments:
- *   Flux = fluxes of CONSERVED variables at cell interface
+ * - Flux = fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,

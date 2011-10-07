@@ -1,6 +1,9 @@
 #include "copyright.h"
 #define MAIN_C
-/*==============================================================================
+/*============================================================================*/
+/*! \file main.c
+ *  \brief Athena main program file.
+ *
  * //////////////////////////// ATHENA Main Program \\\\\\\\\\\\\\\\\\\\\\\\\\\
  *
  *  Athena - C version developed by JM Stone, TA Gardiner, & PJ Teuben.
@@ -10,18 +13,21 @@
  *  & JB Simon.
  *
  *  History:
- *   v1.0 [Feb 2003] - 1D adiabatic and isothermal MHD
- *   v1.1 [Sep 2003] - bug fixes in eigensystems
- *   v2.0 [Dec 2004] - 2D adiabatic and isothermal MHD
- *   v3.0 [Feb 2007] - 3D adiabatic and isothermal MHD with MPI
- *   v3.1 [Jan 2008] - multiple species, self-gravity
- *   v3.2 [Sep 2009] - viscosity, resistivity, conduction, particles, special
+ * - v1.0 [Feb 2003] - 1D adiabatic and isothermal MHD
+ * - v1.1 [Sep 2003] - bug fixes in eigensystems
+ * - v2.0 [Dec 2004] - 2D adiabatic and isothermal MHD
+ * - v3.0 [Feb 2007] - 3D adiabatic and isothermal MHD with MPI
+ * - v3.1 [Jan 2008] - multiple species, self-gravity
+ * - v3.2 [Sep 2009] - viscosity, resistivity, conduction, particles, special
  *                     relativity, cylindrical coordinates
- *   v4.0 [Jul 2010] - static mesh refinement with MPI
+ * - v4.0 [Jul 2010] - static mesh refinement with MPI
  *
  * See the GNU General Public License for usage restrictions. 
- *
- *============================================================================*/
+ *									        
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - change_rundir() - creates and outputs data to new directory
+ * - usage()         - outputs help message and terminates execution	      */
+/*============================================================================*/
 static char *athena_version = "version 4.0 - 01-Jul-2010";
 
 #include <stdio.h>
@@ -38,6 +44,7 @@ static char *athena_version = "version 4.0 - 01-Jul-2010";
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
+#include "particles/prototypes.h"
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -55,7 +62,20 @@ static void usage(const char *prog);
 #define MAX_FILE_OP 256
 
 /*----------------------------------------------------------------------------*/
-/* main: Athena main program  */
+/*! \fn int main(int argc, char *argv[]) 
+ *  \brief Athena main program  
+ *
+ * Steps in main:
+ * - 1 - check for command line options and respond
+ * - 2 - read input file and parse command line for changes
+ * - 3 - set up diagnostic log files
+ * - 4 - initialize Mesh, Domains, and Grids
+ * - 5 - set initial conditions
+ * - 6 - set boundary condition function pointers, and use to set BCs
+ * - 7 - set function pointers for desired algorithms and physics
+ * - 8 - write initial conditions to output file(s)
+ * - 9 - main loop
+ * - 10 - finish by writing final output(s), diagnostics, and free memory     */
 
 int main(int argc, char *argv[])
 {
@@ -422,6 +442,9 @@ int main(int argc, char *argv[])
 
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
+#ifdef FEEDBACK
+  exchange_feedback_init(&Mesh);
+#endif
 #endif
 
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -430,9 +453,6 @@ int main(int argc, char *argv[])
         bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
         bvals_particle(&(Mesh.Domain[nl][nd]));
-#ifdef FEEDBACK
-        exchange_feedback_init(&(Mesh.Domain[nl][nd]));
-#endif
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -574,6 +594,7 @@ int main(int argc, char *argv[])
 	
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
     integrate_diff(&Mesh);
+
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -648,11 +669,10 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
 	  (*Integrate)(&(Mesh.Domain[nl][nd]));
-
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-          advect_particles(&level0_Grid, &level0_Domain);
+          advect_particles(&(Mesh.Domain[nl][nd]));
 #endif
 #endif /* FARGO */
 
@@ -704,6 +724,7 @@ int main(int argc, char *argv[])
     }
 
     dt_done = Mesh.dt;
+
     new_dt(&Mesh);
 
 /*--- Step 9h. ---------------------------------------------------------------*/
@@ -716,7 +737,7 @@ int main(int argc, char *argv[])
         if (Mesh.Domain[nl][nd].Grid != NULL){
           bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
-          bvals_particle(&level0_Grid, &level0_Domain);
+          bvals_particle(&(Mesh.Domain[nl][nd]));
 #endif
 
 	/* set boundary conditions for radiation quantities */
@@ -838,8 +859,8 @@ int main(int argc, char *argv[])
   integrate_destruct();
   data_output_destruct();
 #ifdef PARTICLES
-  particle_destruct(&level0_Grid);
-  bvals_particle_destruct(&level0_Grid);
+  particle_destruct(&Mesh);
+  bvals_particle_destruct(&Mesh);
 #endif
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();
@@ -878,7 +899,8 @@ int main(int argc, char *argv[])
 
 /*============================================================================*/
 /*----------------------------------------------------------------------------*/
-/*  change_rundir: change run directory;  create it if it does not exist yet
+/*! \fn void change_rundir(const char *name) 
+ *  \brief Change run directory;  create it if it does not exist yet
  */
 
 void change_rundir(const char *name)
@@ -956,7 +978,9 @@ void change_rundir(const char *name)
 }
 
 /*----------------------------------------------------------------------------*/
-/*  usage: outputs help
+/*! \fn static void usage(const char *prog)
+ *  \brief Outputs help
+ *
  *    athena_version is hardwired at beginning of this file
  *    CONFIGURE_DATE is macro set when configure script runs
  */

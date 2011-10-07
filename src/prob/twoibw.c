@@ -1,12 +1,13 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: twoibw.c
+/*============================================================================*/
+/*! \file twoibw.c
+ *  \brief Problem generator for two interacting blast waves test.
  *
  * PURPOSE: Problem generator for two interacting blast waves test.
  *
  * REFERENCE: P. Woodward & P. Colella, "The numerical simulation of 
- *   two-dimensional fluid flow with strong shocks", JCP, 54, 115, sect. IVa
- *============================================================================*/
+ *   two-dimensional fluid flow with strong shocks", JCP, 54, 115, sect. IVa  */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

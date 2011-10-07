@@ -1,15 +1,21 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: output_tab.c
+/*============================================================================*/
+/*! \file output_tab.c
+ *  \brief Functions for writing output in tabular format.
  *
  * PURPOSE: Functions for writing output in tabular format.  With SMR,
  *   dumps are made for all levels and domains, unless nlevel and ndomain are
  *   specified in <output> blocks.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   output_tab() - opens file and calls appropriate 1D/2D/3D output function
+ * - output_tab() - opens file and calls appropriate 1D/2D/3D output function
  *     Uses OutData1,2,3() to extract appropriate section to be output.
- *============================================================================*/
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - output_tab_1d() - write tab file for 1D slice of data
+ * - output_tab_2d() - write tab file for 2D plane of data
+ * - output_tab_3d() - write tab file for 3D section of data		      */
+/*============================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +37,8 @@ void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
-/* output_tab:  open file, call 1D/2D/3D writer; called by data_ouput  */
+/*! \fn void output_tab(MeshS *pM, OutputS *pOut)
+ *  \brief Open file, call 1D/2D/3D writer; called by data_ouput  */
 
 void output_tab(MeshS *pM, OutputS *pOut)
 {
@@ -62,7 +69,8 @@ void output_tab(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_tab_1d: writes 1D data.  Note x-coordinate is just i-index.  */
+/*! \fn void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd) 
+ *  \brief Writes 1D data.  Note x-coordinate is just i-index.  */
 
 void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {
@@ -126,7 +134,8 @@ void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_tab_2d: writes 2D data.  Note x/y-coordinate is just i/j-index.  */
+/*! \fn void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
+ *  \brief Writes 2D data.  Note x/y-coordinate is just i/j-index.  */
 
 void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {
@@ -199,7 +208,8 @@ void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
 }
 
 /*----------------------------------------------------------------------------*/
-/* output_tab_3d: writes 3D data.  Note x/y/z-coordinate is just i/j/k-index  */
+/*! \fn void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
+ *  \brief Writes 3D data.  Note x/y/z-coordinate is just i/j/k-index  */
 
 void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
 {

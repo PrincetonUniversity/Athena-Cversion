@@ -31,20 +31,20 @@
 %   LAST MODIFIED:  2/1/2010
 function [X,Y,status] = ath_lineout_xyz(Grid,var,x,y,z,interp)
 
-[i,j,k,onfacei,onfacej,onfacek] = xyz_to_ijk(Grid,x,y,z);
+[i,j,k,onfacei,onfacej,onfacek] = ath_xyz_to_ijk(Grid,x,y,z);
 
-[X,Y,status] = lineout_ijk(Grid,var,i,j,k);
+[X,Y,status] = ath_lineout_ijk(Grid,var,i,j,k);
 
 if (interp && onfacei)
-    [X,Y2,status] = lineout_ijk(Grid,var,i+1,j,k);
+    [X,Y2,status] = ath_lineout_ijk(Grid,var,i+1,j,k);
     Y = 0.5*(Y+Y2);
 end;
 if (interp && onfacej)
-    [X,Y2,status] = lineout_ijk(Grid,var,i,j+1,k);
+    [X,Y2,status] = ath_lineout_ijk(Grid,var,i,j+1,k);
     Y = 0.5*(Y+Y2);
 end;
 if (interp && onfacek)
-    [X,Y2,status] = lineout_ijk(Grid,var,i,j,k+1);
+    [X,Y2,status] = ath_lineout_ijk(Grid,var,i,j,k+1);
     Y = 0.5*(Y+Y2);
 end;
 

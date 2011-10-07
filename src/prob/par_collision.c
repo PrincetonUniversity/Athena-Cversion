@@ -1,17 +1,18 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: par_collision.c
+/*============================================================================*/
+/*! \file par_collision.c
+ *  \brief Problem generator for particle feedback test in 2D. 
  *
  * PURPOSE: Problem generator for particle feedback test in 2D. The particles
  *   and gas are initialized to have the same total momentum in the opposite
  *   direction. Both have uniform density. One test particle is picked up for
  *   precision test.
  *
- *   Configure --with-particle=feedback --with-eos=isothermal
+ * - Configure --with-particle=feedback --with-eos=isothermal
  *
  * USERWORK_IN_LOOP function is used to output particle positions.
- *
- *============================================================================*/
+ */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -32,8 +33,8 @@
  * ParticleTroj()   - analytical particle trajectory
  * ParticleVel()    - analytical particle velocity
  *============================================================================*/
-static Vector ParticleTroj(Real t);
-static Vector ParticleVel(Real t);
+static Real3Vect ParticleTroj(Real t);
+static Real3Vect ParticleVel(Real t);
 
 /*------------------------ filewide global variables -------------------------*/
 Real mratio,wx,wy,wz;
@@ -49,24 +50,25 @@ char name[50];
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i,j,ip,jp;
   long p,lab;
   Real x1,x2,x3,x1l,x1u,x2l,x2u,x1p,x2p,x3p,cosphi,sinphi;
   Real vdif_p,vdif_v,w,u,ux,uy,uz;
 
-  if (par_geti("grid","Nx2") == 1) {
+  if (pDomain->Nx[1] == 1) {
     ath_error("[par_collision]: this test only works for 2D problem.\n");
   }
-  if (par_geti("grid","Nx3") > 1) {
+  if (pDomain->Nx[2] > 1) {
     ath_error("[par_collision]: this test only works for 2D problem.\n");
   }
 
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
-  x2min = par_getd("grid","x2min");
-  x2max = par_getd("grid","x2max");
+  x1min = pDomain->RootMinX[0];
+  x1max = pDomain->RootMaxX[0];
+  x2min = pDomain->RootMinX[1];
+  x2max = pDomain->RootMaxX[1];
 
 /* Read the velocity difference */
   vdif_p = par_getd("problem","vdif_p");
@@ -81,8 +83,8 @@ void problem(Grid *pGrid, Domain *pDomain)
     ath_error("[par_collision]: This test only allows ONE particle species!\n");
 
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
-  pGrid->nparticle = Npar*Npar*pGrid->Nx1*pGrid->Nx2;
-  pGrid->grproperty[0].num = pGrid->nparticle;
+  pGrid->nparticle = Npar*Npar*pGrid->Nx[0]*pGrid->Nx[1];
+  grproperty[0].num = pGrid->nparticle;
   if (pGrid->nparticle+2 > pGrid->arrsize)
     particle_realloc(pGrid, pGrid->nparticle+2);
 
@@ -96,7 +98,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   mratio = par_getd_def("problem","mratio",0.0); /* total mass fraction */
   if (mratio < 0.0)
     ath_error("[par_collision]: mratio must be positive!\n");
-  pGrid->grproperty[0].m = mratio/SQR(Npar);
+  grproperty[0].m = mratio/SQR(Npar);
 #else
   mratio = 0.0;
 #endif
@@ -125,17 +127,17 @@ void problem(Grid *pGrid, Domain *pDomain)
 
 /* Now set initial conditions for the particles */
   p = 0;
-  x3p = pGrid->x3_0 + (pGrid->ks+pGrid->kdisp)*pGrid->dx3;
+  x3p = 0.5*(pGrid->MinX[2]+pGrid->MaxX[2]);
 
   for (j=pGrid->js; j<=pGrid->je; j++)
   {
-    x2l = pGrid->x2_0 + (j+pGrid->jdisp)*pGrid->dx2;
-    x2u = pGrid->x2_0 + ((j+pGrid->jdisp)+1.0)*pGrid->dx2;
+    x2l = pGrid->MinX[1] + (j-pGrid->js)*pGrid->dx2;
+    x2u = pGrid->MinX[1] + (j-pGrid->js+1.0)*pGrid->dx2;
 
     for (i=pGrid->is; i<=pGrid->ie; i++)
     {
-      x1l = pGrid->x1_0 + (i + pGrid->idisp)*pGrid->dx1;
-      x1u = pGrid->x1_0 + ((i + pGrid->idisp) + 1.0)*pGrid->dx1;
+      x1l = pGrid->MinX[0] + (i-pGrid->is)*pGrid->dx1;
+      x1u = pGrid->MinX[0] + (i-pGrid->is+1.0)*pGrid->dx1;
 
         for (ip=0;ip<Npar;ip++)
         {
@@ -157,7 +159,7 @@ void problem(Grid *pGrid, Domain *pDomain)
             pGrid->particle[p].pos = 1; /* grid particle */
             pGrid->particle[p].my_id = p;
 #ifdef MPI_PARALLEL
-            pGrid->particle[p].init_id = pGrid->my_id;
+            pGrid->particle[p].init_id = myID_Comm_world;
 #endif
             p += 1;
           }
@@ -166,7 +168,7 @@ void problem(Grid *pGrid, Domain *pDomain)
   }
 
   /* label a test particle */
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world == 0) {
     lab = 0;
     x0[0] = pGrid->particle[lab].x1;
     x0[1] = pGrid->particle[lab].x2;
@@ -175,15 +177,15 @@ void problem(Grid *pGrid, Domain *pDomain)
     cpuid = 0;
   }
 
-  if (pGrid->my_id == 0) {
+  if (myID_Comm_world == 0) {
   /* flush output file */
-    sprintf(name, "%s_partroj.dat", pGrid->outfilename);
+    sprintf(name, "%s_partroj.dat", "parcollision");
     FILE *fid = fopen(name,"w");
     fclose(fid);
 #ifdef MPI_PARALLEL
-    sprintf(name, "../%s_partroj.dat", pGrid->outfilename);
+    sprintf(name, "../%s_partroj.dat", "parcollision");
 #else
-    sprintf(name, "%s_partroj.dat", pGrid->outfilename);
+    sprintf(name, "%s_partroj.dat", "parcollision");
 #endif
   }
 
@@ -207,7 +209,7 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   fwrite(&wx, sizeof(Real),1,fp);
   fwrite(&wy, sizeof(Real),1,fp);
@@ -218,7 +220,7 @@ void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   fread(&wx, sizeof(Real),1,fp);
   fread(&wy, sizeof(Real),1,fp);
@@ -227,10 +229,10 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   fread(&idlab, sizeof(long),1,fp);
   fread(&cpuid, sizeof(int),1,fp);
 
-  x1min = par_getd("grid","x1min");
-  x1max = par_getd("grid","x1max");
-  x2min = par_getd("grid","x2min");
-  x2max = par_getd("grid","x2max");
+  x1min = pM->RootMinX[0];
+  x1max = pM->RootMaxX[0];
+  x2min = pM->RootMinX[1];
+  x2max = pM->RootMaxX[1];
   Npar = (int)(sqrt(par_geti("particle","parnumcell")));
 #ifdef FEEDBACK
   mratio = par_getd_def("problem","mratio",0.0); /* total mass fraction */
@@ -238,16 +240,20 @@ void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
   mratio = 0.0;
 #endif
 
-  sprintf(name, "%s_partroj.dat", pG->outfilename);
+#ifdef MPI_PARALLEL
+  sprintf(name, "../%s_partroj.dat", "parcollision");
+#else
+  sprintf(name, "%s_partroj.dat", "parcollision");
+#endif
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
@@ -263,20 +269,22 @@ void gasvshift(const Real x1, const Real x2, const Real x3,
   return;
 }
 
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3,
-                                    const Real v1, const Real v2, const Real v3)
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2,
+         const Real x3, const Real v1, const Real v2, const Real v3)
 {
   return;
 }
 #endif
 
 /* calculate particle analytical positions and compare */
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
+  DomainS *pDomain = (DomainS*)&(pM->Domain[0][0]);
+  GridS *pGrid = pM->Domain[0][0].Grid;
   long p, lab;
-  Grain *gr;
+  GrainS *gr;
   Real Mg1,Mg2,Mg3,mp,t,s,ds,v,dv,Mtot;
-  Vector pos0, vel0;
+  Real3Vect pos0, vel0;
   FILE *fid;
 
   p = 0;  lab = -1;
@@ -306,7 +314,7 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
     Mg3 = pGrid->U[pGrid->ks][pGrid->js][pGrid->is].M3;
     gr = &(pGrid->particle[lab]);
 #ifdef FEEDBACK
-    mp = pGrid->grproperty[0].m*SQR(Npar);
+    mp = grproperty[0].m*SQR(Npar);
 #else
     mp = SQR(Npar);
 #endif
@@ -334,7 +342,7 @@ void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
  * Must set parameters in input file appropriately so that this is true
  */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
   return;
 }
@@ -342,10 +350,11 @@ void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
-/* Compute particle trajectory */
-static Vector ParticleTroj(Real t)
+/*! \fn static Vector ParticleTroj(Real t)
+ *  \brief Compute particle trajectory */
+static Real3Vect ParticleTroj(Real t)
 {
-  Vector pos;
+  Real3Vect pos;
   Real L1,L2,L3;
   Real factor=tstop0[0]/(1.0+mratio)*(1.0-exp(-(1.0+mratio)*t/tstop0[0]));
 
@@ -361,10 +370,11 @@ static Vector ParticleTroj(Real t)
   return pos;
 }
 
-/* Compute particle velocity */
-static Vector ParticleVel(Real t)
+/*! \fn static Vector ParticleVel(Real t)
+ *  \brief Compute particle velocity */
+static Real3Vect ParticleVel(Real t)
 {
-  Vector vel;
+  Real3Vect vel;
   Real factor = exp(-(1.0+mratio)*t/tstop0[0]);
 
   vel.x1 = wx*factor;

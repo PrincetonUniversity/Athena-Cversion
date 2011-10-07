@@ -1,11 +1,10 @@
 #ifndef PROTOTYPES_H
 #define PROTOTYPES_H 
 #include "copyright.h"
-/*==============================================================================
- * FILE: prototypes.h
- *
- * PURPOSE: Prototypes for all public functions from the /src directory,
- *============================================================================*/
+/*============================================================================*/
+/*! \file prototypes.h
+ *  \brief Prototypes for all public functions from the /src directory.      */
+/*============================================================================*/
 #include <stdio.h>
 #include <stdarg.h>
 #include "athena.h"
@@ -110,6 +109,8 @@ void ShearingSheet_ix1(DomainS *pD);
 void ShearingSheet_ox1(DomainS *pD);
 void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
 void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
+void RemapEyFlux_ix1(DomainS *pD, Real ***emfy, Real **tEy, Cons1DS ***x1f, Real **tx1f);
+void RemapEyFlux_ox1(DomainS *pD, Real ***emfy, Real **tEy, Cons1DS ***x1f, Real **tx1f);
 void bvals_shear_init(MeshS *pM);
 void bvals_shear_destruct(void);
 #ifdef FARGO
@@ -155,12 +156,12 @@ void fc_pos(const GridS *pG, const int i, const int j,const int k,
 Real x1vc(const GridS *pG, const int i);
 #endif
 #ifdef PARTICLES
-int celli(const GridS *pGrid, const Real x, const Real dx1_1, int *i, Real *a);
-Real x1cc(const GridS *pGrid, const int i);
-int cellj(const GridS *pGrid, const Real y, const Real dx2_1, int *j, Real *b);
-Real x2cc(const GridS *pGrid, const int j);
-int cellk(const GridS *pGrid, const Real z, const Real dx3_1, int *k, Real *c);
-Real x3cc(const GridS *pGrid, const int k);
+int celli(const GridS *pG, const Real x, const Real dx1_1, int *i, Real *a);
+Real x1cc(const GridS *pG, const int i);
+int cellj(const GridS *pG, const Real y, const Real dx2_1, int *j, Real *b);
+Real x2cc(const GridS *pG, const int j);
+int cellk(const GridS *pG, const Real z, const Real dx3_1, int *k, Real *c);
+Real x3cc(const GridS *pG, const int k);
 #endif
 #ifdef RADIATION_TRANSFER
 void ccr_pos(const RadGridS *pRG, const int i, const int j,const int k,
@@ -258,10 +259,12 @@ void problem_read_restart(MeshS *pM, FILE *fp);
 void problem_write_restart(MeshS *pM, FILE *fp);
 ConsFun_t get_usr_expr(const char *expr);
 VOutFun_t get_usr_out_fun(const char *name);
+
 #ifdef PARTICLES
 PropFun_t get_usr_par_prop(const char *name);
 void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);
-void Userforce_particle(Vector *ft, const Real x1, const Real x2, const Real x3, const Real v1, const Real v2, const Real v3);
+void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2,
+                  const Real x3, const Real v1, const Real v2, const Real v3);
 #endif
 
 /*----------------------------------------------------------------------------*/

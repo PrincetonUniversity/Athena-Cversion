@@ -1,6 +1,8 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: lr_states_prim2.c
+/*============================================================================*/
+/*! \file lr_states_prim2.c
+ *  \brief Second order (piecewise linear) spatial reconstruction in the
+ *   primitive variables. 
  *
  * PURPOSE: Second order (piecewise linear) spatial reconstruction in the
  *   primitive variables. With the CTU integrator, a time-evolution
@@ -12,22 +14,22 @@
  *   is NOT needed.
  *
  * NOTATION: 
- *   W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
- *   W_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
+ * - W_{L,i-1/2} is reconstructed value on the left-side of interface at i-1/2
+ * - W_{R,i-1/2} is reconstructed value on the right-side of interface at i-1/2
  *
  *   The L- and R-states at the left-interface in each cell are indexed i.
- *   W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
- *   W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
+ * - W_{L,i-1/2} is denoted by Wl[i  ];   W_{R,i-1/2} is denoted by Wr[i  ]
+ * - W_{L,i+1/2} is denoted by Wl[i+1];   W_{R,i+1/2} is denoted by Wr[i+1]
  *
  *   Internally, in this routine, Wlv and Wrv are the reconstructed values on
  *   the left-and right-side of cell center.  Thus (see Step 8),
- *     W_{L,i-1/2} = Wrv(i-1);  W_{R,i-1/2} = Wlv(i)
+ * -   W_{L,i-1/2} = Wrv(i-1);  W_{R,i-1/2} = Wlv(i)
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   lr_states()          - computes L/R states
- *   lr_states_init()     - initializes memory for static global arrays
- *   lr_states_destruct() - frees memory for static global arrays
- *============================================================================*/
+ * - lr_states()          - computes L/R states
+ * - lr_states_init()     - initializes memory for static global arrays
+ * - lr_states_destruct() - frees memory for static global arrays	      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -46,16 +48,19 @@ static Real **vel=NULL;
 #endif
 
 /*----------------------------------------------------------------------------*/
-/* lr_states:
+/*! \fn void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
+ *               const Real dt, const Real dx, const int il, const int iu,
+ *               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+ *  \brief Computes L/R states
  * Input Arguments:
- *   W = PRIMITIVE variables at cell centers along 1-D slice
- *   Bxc = B in direction of slice at cell center
- *   dtodx = dt/dx
- *   il,iu = lower and upper indices of zone centers in slice
+ * - W = PRIMITIVE variables at cell centers along 1-D slice
+ * - Bxc = B in direction of slice at cell center
+ * - dtodx = dt/dx
+ * - il,iu = lower and upper indices of zone centers in slice
  * W and Bxc must be initialized over [il-2:iu+2]
  *
  * Output Arguments:
- *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
+ * - Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
 void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
@@ -333,7 +338,8 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 }
 
 /*----------------------------------------------------------------------------*/
-/* lr_states_init:  Allocate enough memory for work arrays */
+/*! \fn void lr_states_init(MeshS *pM)
+ *  \brief Allocate enough memory for work arrays */
 
 void lr_states_init(MeshS *pM)
 {
@@ -374,7 +380,8 @@ void lr_states_init(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/* lr_states_destruct:  Free memory used by work arrays */
+/*! \fn void lr_states_destruct(void)
+ *  \brief Free memory used by work arrays */
 
 void lr_states_destruct(void)
 {

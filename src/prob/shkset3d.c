@@ -1,6 +1,7 @@
 #include "copyright.h"
-/*==============================================================================
- * FILE: shkset3d.c
+/*============================================================================*/
+/*! \file shkset3d.c
+ *  \brief Sets up shock at angle to grid to test 3D algorithms.
  *
  * PURPOSE: Sets up shock at angle to grid to test 3D algorithms.  Setting up
  *   the initial conditions to minimize grid noise is very complex, so this
@@ -12,22 +13,26 @@
  * problem in the coordinate system (x1,x2,x3).  Two coordinate rotations are
  * applied to obtain a new wave vector in a 3D space in the (x,y,z)
  * coordinate system.
+ *
  *   First rotate about the x2 axis:
- *     x1' = x1*cos(ang_2) - x3*sin(ang_2)
- *     x2' = x2
- *     x3' = x1*sin(ang_2) + x3*cos(ang_2)
+ *  -  x1' = x1*cos(ang_2) - x3*sin(ang_2)
+ *  -  x2' = x2
+ *  -  x3' = x1*sin(ang_2) + x3*cos(ang_2)
+ *
  *   Next rotate about the x3' axis:
- *     x = x1'*cos(ang_3) - x2'*sin(ang_3)
- *     y = x1'*sin(ang_3) + x2'*cos(ang_3)
- *     z = x3'
+ *   - x = x1'*cos(ang_3) - x2'*sin(ang_3)
+ *   - y = x1'*sin(ang_3) + x2'*cos(ang_3)
+ *   - z = x3'
+ *
  *   Expanding this out we get:
- *     x = x1*cos(ang_2)*cos(ang_3) - x2*sin(ang_3) - x3*sin(ang_2)*cos(ang_3)
- *     y = x1*cos(ang_2)*sin(ang_3) + x2*cos(ang_3) - x3*sin(ang_2)*sin(ang_3)
- *     z = x1*sin(ang_2)                            + x3*cos(ang_2)
+ *   - x = x1*cos(ang_2)*cos(ang_3) - x2*sin(ang_3) - x3*sin(ang_2)*cos(ang_3)
+ *   - y = x1*cos(ang_2)*sin(ang_3) + x2*cos(ang_3) - x3*sin(ang_2)*sin(ang_3)
+ *   - z = x1*sin(ang_2)                            + x3*cos(ang_2)
+ *
  *   This inverts to:
- *     x1 =  x*cos(ang_2)*cos(ang_3) + y*cos(ang_2)*sin(ang_3) + z*sin(ang_2)
- *     x2 = -x*sin(ang_3)            + y*cos(ang_3)
- *     x3 = -x*sin(ang_2)*cos(ang_3) - y*sin(ang_2)*sin(ang_3) + z*cos(ang_2)
+ *   - x1 =  x*cos(ang_2)*cos(ang_3) + y*cos(ang_2)*sin(ang_3) + z*sin(ang_2)
+ *   - x2 = -x*sin(ang_3)            + y*cos(ang_3)
+ *   - x3 = -x*sin(ang_2)*cos(ang_3) - y*sin(ang_2)*sin(ang_3) + z*cos(ang_2)
  * Note these transformations are the same used in linear_wave3d and cpaw3d
  *
  * The initial conditions must be translation invariant, i.e. 
@@ -35,31 +40,42 @@
  * x1(x,y,z) = x1(x+tx, y+ty, z+ty).  Inserting this last expression for
  * x1(x,y,z) into the transformation above leads to
  *
- *  tx*cos(ang_2)*cos(ang_3) + ty*cos(ang_2)*sin(ang_3) + tz*sin(ang_2) = 0.
+ * - tx*cos(ang_2)*cos(ang_3) + ty*cos(ang_2)*sin(ang_3) + tz*sin(ang_2) = 0.
  *
  * Now, restrict the translation symmetry to be discrete by inserting
  * (tx, ty, tz) = (nx*dx, ny*dy, nz*dz) where (nx, ny, nz) are integers (not 
  * the number of grid cells in each direction) and (dx, dy, dz) are the grid
  * cell sizes.  With some simplification the translation symmetry becomes
  *
- *   nx + ny*tan(ang_3)*(dy/dx) + nz*(tan(ang_2)/cos(ang_3))*(dz/dx) = 0.
+ * - nx + ny*tan(ang_3)*(dy/dx) + nz*(tan(ang_2)/cos(ang_3))*(dz/dx) = 0.
  *
  * Now, choose an integer unit cell size (rx, ry, rz) where
  *
- *   tan(ang_3)*(dy/dx) = (rx/ry)
+ * - tan(ang_3)*(dy/dx) = (rx/ry)
  *
  * and
  *
- *   (tan(ang_2)/cos(ang_3))*(dz/dx) = (rx/rz).
+ * - (tan(ang_2)/cos(ang_3))*(dz/dx) = (rx/rz).
  *
  * With this choice, or equation for discrete translation symmetry becomes
  *
- *   (nx/rx) + (ny/ry) + (nz/rz) = 0.
+ * - (nx/rx) + (ny/ry) + (nz/rz) = 0.
+ *
+ * PRIVATE FUNCTION PROTOTYPES:
+ * - lx_bc() - use periodicity of "unit cell" to apply BCs to left-x edge
+ * - rx_bc() - use periodicity of "unit cell" to apply BCs to right-x edge
+ * - ly_bc() - use periodicity of "unit cell" to apply BCs to left-y edge
+ * - ry_bc() - use periodicity of "unit cell" to apply BCs to right-y edge
+ * - lz_bc() - use periodicity of "unit cell" to apply BCs to left-z edge
+ * - rz_bc() - use periodicity of "unit cell" to apply BCs to right-z edge
+ * - Ax() - x-component of vector potential for initial conditions
+ * - Ay() - y-component of vector potential for initial conditions
+ * - Az() - z-component of vector potential for initial conditions
  *
  * This is the equation for a set of discrete points which lie in a
  * plane and is a key relation for setting ghost cells in the boundary
- * condition routines below.  --  T. A. Gardiner  --  7/21/2006
- *============================================================================*/
+ * condition routines below.  --  T. A. Gardiner  --  7/21/2006		      */
+/*============================================================================*/
 
 #include <math.h>
 #include <stdio.h>
@@ -747,8 +763,9 @@ void Userwork_after_loop(MeshS *pM)
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
-/*-----------------------------------------------------------------------------
- * lx_bc: apply boundary condition in left-x direction
+/*----------------------------------------------------------------------------*/
+/*! \fn static void lx_bc(GridS *pG)
+ *  \brief Apply boundary condition in left-x direction
  */
 
 static void lx_bc(GridS *pG)
@@ -787,8 +804,9 @@ static void lx_bc(GridS *pG)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * rx_bc: apply boundary condition in right-x direction
+/*----------------------------------------------------------------------------*/
+/*! \fn static void rx_bc(GridS *pG)
+ *  \brief Apply boundary condition in right-x direction
  */
 
 static void rx_bc(GridS *pG)
@@ -827,8 +845,9 @@ static void rx_bc(GridS *pG)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * ly_bc: apply boundary condition in left-y direction
+/*----------------------------------------------------------------------------*/
+/*! \fn static void ly_bc(GridS *pG) 
+ *  \brief Apply boundary condition in left-y direction
  */
 
 static void ly_bc(GridS *pG)
@@ -867,8 +886,9 @@ static void ly_bc(GridS *pG)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * ry_bc: apply boundary condition in right-y direction
+/*----------------------------------------------------------------------------*/
+/*! \fn static void ry_bc(GridS *pG)
+ *  \brief  Apply boundary condition in right-y direction
  */
 
 static void ry_bc(GridS *pG)
@@ -907,8 +927,9 @@ static void ry_bc(GridS *pG)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * lz_bc: apply boundary condition in left-z direction
+/*----------------------------------------------------------------------------*/
+/*! \fn static void lz_bc(GridS *pG)
+ *  \brief Apply boundary condition in left-z direction
  */
 
 static void lz_bc(GridS *pG)
@@ -947,8 +968,9 @@ static void lz_bc(GridS *pG)
   return;
 }
 
-/*-----------------------------------------------------------------------------
- * rz_bc: apply boundary condition in right-z direction
+/*---------------------------------------------------------------------------*/
+/*! \fn static void rz_bc(GridS *pG)
+ *  \brief Apply boundary condition in right-z direction
  */
 
 static void rz_bc(GridS *pG)
@@ -992,6 +1014,8 @@ static void rz_bc(GridS *pG)
  */
 
 #ifdef MHD
+/*! \fn static Real Ax(const Real x, const Real y, const Real z)
+ *  \brief s-component of vector potential */
 static Real Ax(const Real x, const Real y, const Real z)
 {
   Real x1 = x*cos_a2*cos_a3 + y*cos_a2*sin_a3 + z*sin_a2;
@@ -1001,6 +1025,8 @@ static Real Ax(const Real x, const Real y, const Real z)
   return -A2*sin_a3 - A3*sin_a2*cos_a3;
 }
 
+/*! \fn static Real Ay(const Real x, const Real y, const Real z)
+ *  \brief y-component of vector potential */
 static Real Ay(const Real x, const Real y, const Real z)
 {
   Real x1 = x*cos_a2*cos_a3 + y*cos_a2*sin_a3 + z*sin_a2;
@@ -1010,6 +1036,8 @@ static Real Ay(const Real x, const Real y, const Real z)
   return A2*cos_a3 - A3*sin_a2*sin_a3;
 }
 
+/*! \fn static Real Az(const Real x, const Real y, const Real z) 
+ *  \brief z-component of vector potential */
 static Real Az(const Real x, const Real y, const Real z)
 {
   Real x1 = x*cos_a2*cos_a3 + y*cos_a2*sin_a3 + z*sin_a2;

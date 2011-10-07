@@ -1,19 +1,20 @@
 #include "../copyright.h"
-/*==============================================================================
- * FILE: exact.c
+/*============================================================================*/
+/*! \file exact_sr.c
+ *  \brief Computes 1D fluxes using exact special relativistic Riemann solver.
  *
  * PURPOSE: Computes 1D fluxes using exact special relativistic Riemann solver.
  *   currently works only for hydrodynamics
  *
  * REFERENCES:
- *   Rezzolla, Zanotti, and Pons. "An Improved Exact Riemann Solver for
+ * - Rezzolla, Zanotti, and Pons. "An Improved Exact Riemann Solver for
  *   Multidimensional Relativistic Flows." 2002. 
  *
  * HISTORY:
- * April-2010:  Written by Nick Hand. 
+ * - April-2010:  Written by Nick Hand. 
  *
  * CONTAINS PUBLIC FUNCTIONS:
- *   fluxes() - all Riemann solvers in Athena must have this function name and
+ * - fluxes() - all Riemann solvers in Athena must have this function name and
  *              use the same argument list as defined in rsolvers/prototypes.h
  *============================================================================*/
 
@@ -88,12 +89,15 @@ void getVelT_Shock(const Prim1DS Wa, Real P, Real vxb, Real *pVy, Real *pVz);
 void setFluxes(Real vx, Real vy, Real vz, Real P, Real d,Cons1DS *pF );
 
 /*--------------------------------------------------------------------------*/
-/* exact_sr
+/*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
+ *            const Prim1DS Wl, const Prim1DS Wr, const Real Bx, Cons1DS *pF)
+ *  \brief Computes 1D fluxes using exact special relativistic Riemann solver.
+ *
  *   Input Arguments:
- *     Ul,Ur = L/R-states of CONSERVED variables at cell interface
- *     Bx = B in direction of slice at cell interface
+ *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
+ *   - Bx = B in direction of slice at cell interface
  *   Output Arguments:
- *     pF = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pF = pointer to fluxes of CONSERVED variables at cell interface
  *
  *--------------------------------------------------------------------------*/
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
@@ -274,9 +278,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   }
 }
 /*----------------------------------------------------------------------------*/
+/*! \fn Real integrateRaref(const Prim1DS Wa, Real a, Real b)
+ *  \brief Numerically integrate the integral for rarefactions (eq 3.22 in  RZP)
+ * using Gaussian-Legendre quadrature */
 Real integrateRaref(const Prim1DS Wa, Real a, Real b)
-/* Numerically integrate the integral for rarefactions (eq 3.22 in  RZP)
-   using Gaussian-Legendre quadrature */
 {
   
   int i;
@@ -324,8 +329,12 @@ Real integrateRaref(const Prim1DS Wa, Real a, Real b)
 }
 
 /*----------------------------------------------------------------------------*/
-void getShockVars(const Prim1DS Wa, Real Pb, char dir, Real *pJ, Real *pV_s, Real *pD)
-/* determine the mass flux, shock velocity and density across a shock wave */
+/*! \fn void getShockVars(const Prim1DS Wa, Real Pb, char dir, Real *pJ, 
+ *                        Real *pV_s, Real *pD)
+ *  \brief Determine the mass flux, shock velocity and density across a shock 
+ *  wave */
+void getShockVars(const Prim1DS Wa, Real Pb, char dir, Real *pJ, Real *pV_s, 
+                  Real *pD)
 {
   Real sign, ha, Ga;
   Real db, hb;  /* specific enthalpy and density behind wave */
@@ -379,9 +388,9 @@ void getShockVars(const Prim1DS Wa, Real Pb, char dir, Real *pJ, Real *pV_s, Rea
 }
 
 /*----------------------------------------------------------------------------*/
-
+/*! \fn Real getVlim_2R(const Prim1DS Wl, const Prim1DS Wr)
+ *  \brief Determine vlim for two rarefactions (eq. 4.12 in RZP) */
 Real getVlim_2R(const Prim1DS Wl, const Prim1DS Wr)
-/* Determine vlim for two rarefactions (eq. 4.12 in RZP) */
 {
   
   Real vxlc, vxrc;  
@@ -401,8 +410,9 @@ Real getVlim_2R(const Prim1DS Wl, const Prim1DS Wr)
 }
 
 /*----------------------------------------------------------------------------*/
+/*! \fn Real getVlim_RS(const Prim1DS Wl, const Prim1DS Wr)
+ *  \brief Determine vlim for the case of rarefaction-shock (eq 4.10) */
 Real getVlim_RS(const Prim1DS Wl, const Prim1DS Wr)
-/* Determine vlim for the case of rarefaction-shock (eq 4.10) */
 {
  
   Real a, b, integral; 
@@ -428,8 +438,9 @@ Real getVlim_RS(const Prim1DS Wl, const Prim1DS Wr)
 } 
 
 /*--------------------------------------------------------------------------*/
+/*! \fn Real getVlim_2S(const Prim1DS Wl, const Prim1DS Wr)
+ *  \brief Determine vlim for the case of two shocks (eq 4.5) */
 Real getVlim_2S(const Prim1DS Wl, const Prim1DS Wr)
-/* Determine vlim for the case of two shocks (eq 4.5) */
 {  
   if (Wl.P > Wr.P) {
     Real vlc, vrc, vrb; 
@@ -451,8 +462,9 @@ Real getVlim_2S(const Prim1DS Wl, const Prim1DS Wr)
 }
 
 /*----------------------------------------------------------------------------*/       
+/*! \fn Real getDelVRel(const Prim1DS Wl, const Prim1DS Wr, Real p)
+ *  \brief Determine vRel for the wave pattern indicated by wave */
 Real getDelVRel(const Prim1DS Wl, const Prim1DS Wr, Real p)
-/* Determine vRel for the wave pattern indicated by wave */
 {
   Real vRel; 
   Real vRel_0 = (Wl.Vx - Wr.Vx)/(1.0 - Wl.Vx*Wr.Vx); 
@@ -474,8 +486,10 @@ Real getDelVRel(const Prim1DS Wl, const Prim1DS Wr, Real p)
   return -1.0; /* should never reach here*/
 }
 /*----------------------------------------------------------------------------*/
+/*! \fn Real getP(const Prim1DS Wl, const Prim1DS Wr)
+ *  \brief Determine the pressure in the intermediate state using interval 
+ *  bisection */
 Real getP(const Prim1DS Wl, const Prim1DS Wr)
-/* Determine the pressure in the intermediate state using interval bisection */
 {
   Real vRel, vRS, vSS, vRR; 
   Real pmin, pmax;  /* brackets for pressure */ 
@@ -529,8 +543,9 @@ Real getP(const Prim1DS Wl, const Prim1DS Wr)
 }
 
 /*---------------------------------------------------------------------------*/
+/*! \fn Real getVRel_2R(const Prim1DS Wl, const Prim1DS Wr, Real p)
+ *  \brief Determine vRel for the case of two rarefactions */
 Real getVRel_2R(const Prim1DS Wl, const Prim1DS Wr, Real p)
-/* Determine vRel for the case of two rarefactions */
 {
 
   Real vlb, vrb; /* the normal velocity behind the left and right rarefactions */
@@ -550,8 +565,9 @@ Real getVRel_2R(const Prim1DS Wl, const Prim1DS Wr, Real p)
 }
 
 /*---------------------------------------------------------------------------*/
+/*! \fn Real getVRel_RS(const Prim1DS Wl, const Prim1DS Wr, Real p)
+ *  \brief Determine vRel for the case of rarefaction-shock wave */
 Real getVRel_RS(const Prim1DS Wl, const Prim1DS Wr, Real p)
-/* Determine vRel for the case of rarefaction-shock wave */
 {
   Real vlb, vrb; /* normal velocity behind the waves */
   Real vlc, vrc; /* normal velocity in frame of contact */
@@ -588,8 +604,9 @@ Real getVRel_RS(const Prim1DS Wl, const Prim1DS Wr, Real p)
   } 
 }
 /*---------------------------------------------------------------------------*/
+/*! \fn Real getVRel_2S(const Prim1DS Wl, const Prim1DS Wr, Real p)
+ *  \brief Determine vRel for the case of two shocks */
 Real getVRel_2S(const Prim1DS Wl, const Prim1DS Wr, Real p)
-/* Determine vRel for the case of two shocks */
 {
   Real vlb, vrb; /* normal velocity behind the shock waves */
   Real vlc, vrc; /* normal velocity in frame of contact */
@@ -610,8 +627,9 @@ Real getVRel_2S(const Prim1DS Wl, const Prim1DS Wr, Real p)
   return (vlc - vrc)/(1.0 - vlc*vrc); 
 }
 /*---------------------------------------------------------------------------*/
+/*! \fn Real getVb_Shock(const Prim1DS Wa, Real Pb, char dir) 
+ *  \brief Determine the normal velocity behind a shock wave */
 Real getVb_Shock(const Prim1DS Wa, Real Pb, char dir)
-/* Determine the normal velocity behind a shock wave */
 {
   Real num, denom;
   Real G_shock, ha, Ga;
@@ -632,8 +650,9 @@ Real getVb_Shock(const Prim1DS Wa, Real Pb, char dir)
   return num/denom; 
 }
 /*----------------------------------------------------------------------------*/
+/*! \fn Real getVb_Raref(const Prim1DS Wa, Real Pb, char dir)
+ *  \brief Determine the normal velocity behind a rarefaction wave */
 Real getVb_Raref(const Prim1DS Wa, Real Pb, char dir)
-/* Determine the normal velocity behind a rarefaction wave */
 {
   Real integral, sign, B; 
   
@@ -646,8 +665,10 @@ Real getVb_Raref(const Prim1DS Wa, Real Pb, char dir)
   return tanh(B); 
 }
 /*----------------------------------------------------------------------------*/
+/*! \fn Real getXi(const Prim1DS Wa, Real P, Real vxc, char dir) 
+ *  \brief Determine the self-similarity variable xi for rarefactions (eq 3.15) 
+*/
 Real getXi(const Prim1DS Wa, Real P, Real vxc, char dir) 
-/* Determine the self-similarity variable xi for rarefactions (eq 3.15) */
 {
   Real vt, h, G, A; /* vars associated with state ahead of
 		      rarefaction wave */
@@ -674,8 +695,11 @@ Real getXi(const Prim1DS Wa, Real P, Real vxc, char dir)
   return num/denom; 
 }
 /*---------------------------------------------------------------------------*/ 
+/*! \fn void getVelT_Raref(const Prim1DS Wa, Real P, Real vxb, Real *pVy, 
+ *			   Real *pVz) 
+ *  \brief Determine the tangential velocities vy and vz behind a rarefaction 
+ *  wave */
 void getVelT_Raref(const Prim1DS Wa, Real P, Real vxb, Real *pVy, Real *pVz) 
-/* Determine the tangential velocities vy and vz behind a rarefaction wave */
 {
   Real va_t, ha, Ga, A; 
   Real db, hb, vb_t, Gb, C;
@@ -720,10 +744,13 @@ void getVelT_Raref(const Prim1DS Wa, Real P, Real vxb, Real *pVy, Real *pVz)
   }
 }
 /*----------------------------------------------------------------------------*/
+/*! \fn void getVelT_Shock(const Prim1DS Wa, Real P, Real vxb, Real *pVy, 
+ *			   Real *pVz)
+ *  \brief Determine the tangential velocitiies vy and vz behind a shock wave. 
+ *
+ *  Note that this function differs from Pons et al. (2000) equation 4.13, 
+ *  which is only valid for one of vz or vy equal to zero. */
 void getVelT_Shock(const Prim1DS Wa, Real P, Real vxb, Real *pVy, Real *pVz)
-/* Determine the tangential velocitiies vy and vz behind a shock wave. Note that
-   this function differs from Pons et al. (2000) equation 4.13, which is only valid
-   for one of vz or vy equal to zero. */
 {
   Real va_t, ha, Ga, Ay, Az; 
   Real hb, db, vy, vz, Gb;
@@ -764,8 +791,9 @@ void getVelT_Shock(const Prim1DS Wa, Real P, Real vxb, Real *pVy, Real *pVz)
     *pVz = -vz;
 }
 /*---------------------------------------------------------------------------*/ 
+/*! \fn void setFluxes(Real vx, Real vy, Real vz, Real P, Real d, Cons1DS *pF)
+ *  \brief Set the corresponding fluxes as the fields of pF */
 void setFluxes(Real vx, Real vy, Real vz, Real P, Real d, Cons1DS *pF)
-/* set the corresponding fluxes as the fields of pF */
 {
   Real G, h, D, Sx, Sy, Sz; 
   
@@ -787,11 +815,15 @@ void setFluxes(Real vx, Real vy, Real vz, Real P, Real d, Cons1DS *pF)
   pF->E = Sx;
 }
 /*----------------------------------------------------------------------------*/
+/*! \fn void gauleg(double x1, double x2, Real x[], Real w[], int n)
+ *  \brief Given the lower and upper limits of integration x1 and x2, and 
+ *   the abscissas and weights of the Gauss-Legendre n-point quadrature formula.
+ *  
+ *  Given the lower and upper limits of integration x1 and x2, and given n, 
+ *   this routine returns arrays x[1..n] and w[1..n] of length n, containing 
+ *   the abscissas and weights of the Gauss-Legendre n-point quadrature formula.
+ *   See Numerical Recipes in C, Press et al. */
 void gauleg(double x1, double x2, Real x[], Real w[], int n)
-  /* Given the lower and upper limits of integration x1 and x2, and given n, 
-     this routine returns arrays x[1..n] and w[1..n] of length n, containing 
-     the abscissas and weights of the Gauss-Legendre n-point quadrature formula.
-     See Numerical Recipes in C, Press et al. */
 {
   int m,j,i;
   Real z1,z,xm,xl,pp,p3,p2,p1;
@@ -827,10 +859,14 @@ void gauleg(double x1, double x2, Real x[], Real w[], int n)
 
 /*-------------------------------------------------------------------------*/
 
+/*! \fn Real rtbis_vel(Real (*func)(const Prim1DS Wl, const Prim1DS Wr, Real p),
+ *	       const Prim1DS Wl, const Prim1DS Wr, Real x1, Real x2, Real xacc)
+ *  \brief Implements bisection root finding algorithm to solve the velocity 
+ *  eqn. 
+ *
+ * Assumes func(x1) and func(x2) have opposite signs without a check */
 Real rtbis_vel(Real (*func)(const Prim1DS Wl, const Prim1DS Wr, Real p),
 	       const Prim1DS Wl, const Prim1DS Wr, Real x1, Real x2, Real xacc)
-/* Implements bisection root finding algorithm to solve the velocity eqn. 
-   Assumes func(x1) and func(x2) have opposite signs without a check */
 {
   Real j; 
   Real dx, f, fmid, xmid, rtb; 
@@ -870,10 +906,16 @@ Real rtbis_vel(Real (*func)(const Prim1DS Wl, const Prim1DS Wr, Real p),
   }   
 }
 /*----------------------------------------------------------------------------*/
-Real rtbis_xi(Real (*func)(const Prim1DS Wa, Real P, Real vx, char), const Prim1DS Wa, 
-		 char dir, Real f_x1, Real f_x2, Real x1, Real x2, Real xacc)
-/* Implements bisection root finding algorithm to find the rarefaction head and tail 
-   velocity. Assumes func(x1) and func(x2) have opposite signs without a check */
+/*! \fn Real rtbis_xi(Real (*func)(const Prim1DS Wa, Real P, Real vx, char), 
+ *		      const Prim1DS Wa, char dir, Real f_x1, Real f_x2, Real x1,
+ *		      Real x2, Real xacc)
+ *  \brief Implements bisection root finding algorithm to find the rarefaction 
+ *  head and tail velocity. 
+ *  Assumes func(x1) and func(x2) have opposite signs without a check */ 
+   
+Real rtbis_xi(Real (*func)(const Prim1DS Wa, Real P, Real vx, char), 
+	      const Prim1DS Wa, char dir, Real f_x1, Real f_x2, Real x1, 
+	      Real x2, Real xacc) 
 {
   Real j, vx; 
   Real dx, f, fmid, xmid, rtb; 
