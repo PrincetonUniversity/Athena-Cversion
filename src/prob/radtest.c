@@ -467,6 +467,7 @@ get_total_opacity = const_opacity;
  * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * Userwork_in_formal_solution  - problem specific work in formal solution loop
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
@@ -500,17 +501,24 @@ void Userwork_in_formal_solution(DomainS *pD)
   int ks=pRG->ks, ke=pRG->ke;
   int ixmax, iymax, izmax;
   Real ds;
-  static Real ***dst = NULL, *tau0 = NULL;
+  static Real ***dst = NULL, *tau0 = NULL, ***sol = NULL;
+  static int frstflag = 1, iter = 0;
+  int vdir;
   Real jsol, chio, chim, chip, dtaum, dtaup;
   FILE *fp;
   char *fname;
 
+  vdir = par_geti("problem","vert_dir");
   if (frstflag == 1) {
     if ((dst = (Real ***)calloc_3d_array(pRG->Nx[2]+2,pRG->Nx[1]+2,pRG->Nx[0]+2,
 					 sizeof(Real))) == NULL) {
       ath_error("[Userwork_in_formal_solution]: Error allocating memory\n");
     }
- 
+    if ((sol = (Real ***)calloc_3d_array(pRG->Nx[2],pRG->Nx[1],pRG->Nx[0],
+					 sizeof(Real))) == NULL) {
+      ath_error("[Userwork_in_formal_solution]: Error allocating memory\n");
+    }
+
     switch(vdir) {
 
     case 1:
@@ -627,7 +635,7 @@ void Userwork_in_formal_solution(DomainS *pD)
   fclose(fp);
 
 /* Print error to file "Radtest-error.0.dat"  */
-  fname = ath_fname(NULL,"RadTest-error",NULL,NULL,1,0,NULL,"dat");
+  /*fname = ath_fname(NULL,"RadTest-error",NULL,NULL,1,0,NULL,"dat");
   if((fp=fopen(fname,"w")) != NULL){
     switch(vdir) {
   
@@ -654,7 +662,7 @@ void Userwork_in_formal_solution(DomainS *pD)
     }
 
     fclose(fp);
-  }
+  }*/
 
  
   return;

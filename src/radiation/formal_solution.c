@@ -20,7 +20,6 @@
 #include "../prototypes.h"
 
 #ifdef RADIATION_TRANSFER
-Real ***sol;
 
 void formal_solution(DomainS *pD)
 {
@@ -59,7 +58,7 @@ void formal_solution(DomainS *pD)
       for(ifr=0; ifr<nf; ifr++) {
 /* perform iteration only if frequency has not converged */
 	if(iconv[ifr] != 1) {
-	  if(i > 0) bvals_rad(pD,ifr,ifr);
+	  bvals_rad(pD,ifr,ifr);
 	  formal_solution_1d(pRG,&dSrmax,ifr);
 /* find global maximum relative change */
 #ifdef MPI_PARALLEL
@@ -89,7 +88,7 @@ void formal_solution(DomainS *pD)
       for(ifr=0; ifr<nf; ifr++) {
 /* perform iteration only if frequency has not converged */
 	if(iconv[ifr] != 1) {
-	  if(i > 0) bvals_rad(pD,ifr,ifr);
+	  bvals_rad(pD,ifr,ifr);
 	  formal_solution_2d(pRG,&dSrmax,ifr);
 /* find global maximum relative change */
 #ifdef MPI_PARALLEL
@@ -119,7 +118,7 @@ void formal_solution(DomainS *pD)
       for(ifr=0; ifr<nf; ifr++) {
 /* perform iteration only if frequency has not converged */
 	if(iconv[ifr] != 1) {
-	  if(i > 0) bvals_rad(pD,ifr,ifr);
+	  bvals_rad(pD,ifr,ifr);
 	  formal_solution_3d(pRG,&dSrmax,ifr);
 /* find global maximum relative change */
 #ifdef MPI_PARALLEL

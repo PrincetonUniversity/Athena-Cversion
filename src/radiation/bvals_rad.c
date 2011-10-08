@@ -263,6 +263,7 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
  * Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
  * level grid is specified by the <domain1> block in the input file */
 
+
 #ifdef SHEARING_BOX 
     BCFlag = par_geti_def("domain1","rbc_ix1",0);
     get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
@@ -605,62 +606,70 @@ void bvals_rad_init(MeshS *pM)
     for (m=0; m<(pD->NGrid[1]); m++){
       for (l=0; l<(pD->NGrid[0]); l++){
 
-/* x1cnt is surface area of x1 faces */
+/* x1cnt is the number of Reals passed for x1 faces */
 	if(pD->NGrid[0] > 1){
 	  nx2t = pD->GData[n][m][l].Nx[1];
 	  nx3t = pD->GData[n][m][l].Nx[2];
-	  xcnt =  nx2t * nx3t;
-#ifdef QUADRATIC_INTENSITY
-	  if (noct == 4) xcnt += 2 * nx3t;
-	  if (noct == 8) xcnt += 2 * nx2t;
-	  xcnt *= noct * nang;
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
+	  xcnt = nx2t * nx3t * noct * nang;
 #else
-#ifdef SHEARING_BOX
-	  xcnt += nx2t * nx3t * 2; 
+	  xcnt = nx2t * nx3t * noct * nang / 2;
 #endif
-	  if (noct == 4) xcnt += nx3t;
-	  if (noct == 8) xcnt += nx2t;
-	  xcnt *= noct * nang / 2;
+#ifdef QUADRATIC_INTENSITY
+	  if (noct > 2)  xcnt += nx3t * noct * nang * 2;
+	  if (noct == 8) xcnt += nx2t * noct * nang * 2;
+#else
+	  if (noct > 2)  xcnt += nx3t * noct * nang / 2;
+	  if (noct == 8) xcnt += nx2t * noct * nang / 2;
 #endif
-	  xcnt += (nDim + 1) * nx2t * nx3t;	  
+	  xcnt += nx2t * nx3t * (nDim + 2);	  
 	  xcnt *= nf;
           if(xcnt > x1cnt) x1cnt = xcnt;
 	}
 
-/* x2cnt is surface area of x2 faces */
+/* x2cnt is the number of Reals passed for x2 faces */
 	if(pD->NGrid[1] > 1){
 	  nx1t = pD->GData[n][m][l].Nx[0] + 2;
 	  nx3t = pD->GData[n][m][l].Nx[2];
-	  xcnt = nx3t * (nx1t + 2);
 #ifdef QUADRATIC_INTENSITY	  
-	  if (noct == 8) xcnt += 2 * nx1t;
-	  xcnt *= noct * nang;
+	  xcnt = nx1t * nx3t * noct * nang;
 #else
-#ifdef SHEARING_BOX
-	  xcnt += nx3t * 4; 
+	  xcnt = nx1t * nx3t * noct * nang / 2;
 #endif
-	  if (noct == 8) xcnt += (nx1t + nx3t);
-	  xcnt *= noct * nang / 2;
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
+	  xcnt += nx3t * noct * nang * 2;
+#else
+	  xcnt += nx3t * noct * nang;
 #endif
-	  xcnt += (nDim + 1) * nx3t * nx1t;
+#ifdef QUADRATIC_INTENSITY
+	  if (noct == 8) xcnt += nx1t * noct * nang * 2; 
+#else
+	  if (noct == 8) xcnt += nx1t * noct * nang / 2;   
+#endif
+	  xcnt += nx3t * nx1t * (nDim + 2);
 	  xcnt *= nf;
           if(xcnt > x2cnt) x2cnt = xcnt;
 	}
 
-/* x3cnt is surface area of x3 faces */
+/* x3cnt is the number of Reals passed for x3 faces */
 	if(pD->NGrid[2] > 1){
 	  nx1t = pD->GData[n][m][l].Nx[0] + 2;
 	  nx2t = pD->GData[n][m][l].Nx[1] + 2;
-	  xcnt = nx1t * nx2t + 2 * (nx1t + nx2t);
 #ifdef QUADRATIC_INTENSITY
-	  xcnt *= noct * nang;
+	  xcnt = nx1t * nx2t * noct * nang;
 #else
-	  xcnt *= noct * nang / 2;
+	  xcnt = nx1t * nx2t * noct * nang / 2;
 #endif
-	  xcnt += (nDim + 1) * nx2t * nx1t;
+#ifdef QUADRATIC_INTENSITY
+	  xcnt += (nx1t + nx2t) * noct * nang * 2; 
+#else
+	  xcnt += (nx1t + nx2t) * noct * nang; 
+#endif
+	  xcnt += nx2t * nx1t * (nDim + 2);
 	  xcnt *= nf;
           if(xcnt > x3cnt) x3cnt = xcnt;
 	}
+	/*	printf("counts: %d %d %d %d\n",x1cnt,x2cnt,x3cnt,xcnt);*/
       }
     }}
 #endif /* MPI_PARALLEL */
@@ -711,6 +720,7 @@ static void periodic_ix1_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
 	pRG->R[ifr][k][j][il].S = pRG->R[ifr][k][j][ie].S;
+	pRG->R[ifr][k][j][il].J = pRG->R[ifr][k][j][ie].J;
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][j][il].H[l] = pRG->R[ifr][k][j][ie].H[l];
 	}
@@ -810,6 +820,7 @@ static void periodic_ox1_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
 	pRG->R[ifr][k][j][iu].S = pRG->R[ifr][k][j][is].S;
+	pRG->R[ifr][k][j][iu].J = pRG->R[ifr][k][j][is].J;
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][j][iu].H[l] = pRG->R[ifr][k][j][is].H[l];
 	}
@@ -910,6 +921,7 @@ static void periodic_ix2_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (i=il; i<=iu; i++) {
 	pRG->R[ifr][k][jl][i].S = pRG->R[ifr][k][je][i].S;
+	pRG->R[ifr][k][jl][i].J = pRG->R[ifr][k][je][i].J;
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][jl][i].H[l] = pRG->R[ifr][k][je][i].H[l];
 	}
@@ -936,27 +948,15 @@ static void periodic_ix2_rad(RadGridS *pRG, int ifs, int ife)
 	}
 #endif
       }}
-#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
 /* update Ghstl1i/Ghstr1i on corners[2d]/edges[3d] */
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
     for (k=kl; k<=ku; k++) {
       for (l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {	
 	  pRG->Ghstl1i[ifr][k][jl][l][m] = pRG->Ghstl1i[ifr][k][je][l][m];
 	  pRG->Ghstr1i[ifr][k][jl][l][m] = pRG->Ghstr1i[ifr][k][je][l][m];
 	}}}
-#endif
-#ifdef QUADRATIC_INTENSITY
-/* pass l3imu/r3imu on the edges. */
-    if (noct == 8) {
-      for (i=il; i<=iu; i++) {
-	for(l=0; l<noct; l++) {
-	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][jl][i][l][m] = pRG->Ghstl2i[ifr][kl][i][l][m];
-	    pRG->r3imu[ifr][jl][i][l][m] = pRG->Ghstl2i[ifr][ku][i][l][m];
-	  }}}
-    }
 #else
-/* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
     for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	pRG->Ghstl1i[ifr][k][jl][0][m] = pRG->Ghstl1i[ifr][k][je][0][m];
@@ -970,8 +970,19 @@ static void periodic_ix2_rad(RadGridS *pRG, int ifs, int ife)
 	  pRG->Ghstr1i[ifr][k][jl][7][m] = pRG->Ghstr1i[ifr][k][je][7][m];
 	}
       }}
-/* pass l3imu/r3imu on the edges.  Note that values
- * l=0,1,4,5 are passed using r2imu */
+#endif
+/* pass l3imu/r3imu on the edges. */
+#ifdef QUADRATIC_INTENSITY
+    if (noct == 8) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][jl][i][l][m] = pRG->Ghstl2i[ifr][kl][i][l][m];
+	    pRG->r3imu[ifr][jl][i][l][m] = pRG->Ghstl2i[ifr][ku][i][l][m];
+	  }}}
+    }
+#else
+/* Note that values l=0,1,4,5 are passed using r2imu */
     if (noct == 8) {
       for (i=il; i<=iu; i++) {
 	for (m=0; m<nang; m++) {
@@ -1008,6 +1019,7 @@ static void periodic_ox2_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (i=il; i<=iu; i++) {
 	pRG->R[ifr][k][ju][i].S = pRG->R[ifr][k][js][i].S;
+	pRG->R[ifr][k][ju][i].J = pRG->R[ifr][k][js][i].J;
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][ju][i].H[l] = pRG->R[ifr][k][js][i].H[l];
 	}
@@ -1034,27 +1046,15 @@ static void periodic_ox2_rad(RadGridS *pRG, int ifs, int ife)
 	}
 #endif
       }}
-#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
 /* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
     for (k=kl; k<=ku; k++) {
       for (l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {	
 	  pRG->Ghstl1i[ifr][k][ju][l][m] = pRG->Ghstl1i[ifr][k][js][l][m];
 	  pRG->Ghstr1i[ifr][k][ju][l][m] = pRG->Ghstr1i[ifr][k][js][l][m];
 	}}}
-#endif
-#ifdef QUADRATIC_INTENSITY
-/* pass l3imu/r3imu on the edges. */
-    if (noct == 8) {
-      for (i=il; i<=iu; i++) {
-	for(l=0; l<noct; l++) {
-	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][ju][i][l][m] = pRG->Ghstr2i[ifr][kl][i][l][m];
-	    pRG->r3imu[ifr][ju][i][l][m] = pRG->Ghstr2i[ifr][ku][i][l][m];
-	  }}}
-    }
 #else
-/* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
     for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	pRG->Ghstl1i[ifr][k][ju][0][m] = pRG->Ghstl1i[ifr][k][js][0][m];
@@ -1068,8 +1068,19 @@ static void periodic_ox2_rad(RadGridS *pRG, int ifs, int ife)
 	  pRG->Ghstr1i[ifr][k][ju][7][m] = pRG->Ghstr1i[ifr][k][js][7][m];
 	}
       }}
-/* pass l3imu/r3imu on the edges.  Note that values
- * l=2,3,6,7 are passed using l2imu */
+#endif
+/* pass l3imu/r3imu on the edges. */
+#ifdef QUADRATIC_INTENSITY
+    if (noct == 8) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][ju][i][l][m] = pRG->Ghstr2i[ifr][kl][i][l][m];
+	    pRG->r3imu[ifr][ju][i][l][m] = pRG->Ghstr2i[ifr][ku][i][l][m];
+	  }}}
+    }
+#else
+/* Note that values l=2,3,6,7 are passed using l2imu */
     if (noct == 8) {
       for (i=il; i<=iu; i++) {
 	for (m=0; m<nang; m++) {
@@ -1107,6 +1118,7 @@ static void periodic_ix3_rad(RadGridS *pRG, int ifs, int ife)
     for (j=jl; j<=ju; j++) { 
       for (i=il; i<=iu; i++) {
 	pRG->R[ifr][kl][j][i].S = pRG->R[ifr][ke][j][i].S;
+	pRG->R[ifr][kl][j][i].J = pRG->R[ifr][ke][j][i].J;
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][kl][j][i].H[l] = pRG->R[ifr][ke][j][i].H[l];
 	}
@@ -1192,6 +1204,7 @@ static void periodic_ox3_rad(RadGridS *pRG, int ifs, int ife)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) { 
 	pRG->R[ifr][ku][j][i].S = pRG->R[ifr][ks][j][i].S;
+	pRG->R[ifr][ku][j][i].J = pRG->R[ifr][ks][j][i].J;
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][ku][j][i].H[l] = pRG->R[ifr][ks][j][i].H[l];
 	}
@@ -1295,12 +1308,13 @@ static void pack_ix1_rad(RadGridS *pRG, int ifs, int ife)
   double *pSnd;
 
   pSnd = (double*)&(send_buf[0][0]);
-
+  
   for(ifr=ifs; ifr<=ife; ifr++) {
 /*  send the source function and flux */
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
 	*(pSnd++) = pRG->R[ifr][k][j][is].S;  
+	*(pSnd++) = pRG->R[ifr][k][j][is].J;  
 	for(l=0; l < nDim; l++) {
 	  *(pSnd++) = pRG->R[ifr][k][j][is].H[l];
 	}
@@ -1372,6 +1386,7 @@ static void pack_ix1_rad(RadGridS *pRG, int ifs, int ife)
     }
 #endif
   }
+
   return;
 }
 
@@ -1395,6 +1410,7 @@ static void pack_ox1_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
 	*(pSnd++) = pRG->R[ifr][k][j][ie].S;
+	*(pSnd++) = pRG->R[ifr][k][j][ie].J;
 	for(l=0; l < nDim; l++) {
 	  *(pSnd++) = pRG->R[ifr][k][j][ie].H[l];
 	}
@@ -1489,6 +1505,7 @@ static void pack_ix2_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (i=il; i<=iu; i++) {
 	*(pSnd++) = pRG->R[ifr][k][js][i].S;
+	*(pSnd++) = pRG->R[ifr][k][js][i].J;
 	for(l=0; l < nDim; l++) {
 	  *(pSnd++) = pRG->R[ifr][k][js][i].H[l];
 	}
@@ -1513,27 +1530,15 @@ static void pack_ix2_rad(RadGridS *pRG, int ifs, int ife)
 	}
 #endif
       }}
-#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
 /* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
     for (k=kl; k<=ku; k++) {
       for (l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {	
 	  *(pSnd++) = pRG->Ghstl1i[ifr][k][js][l][m];
 	  *(pSnd++) = pRG->Ghstr1i[ifr][k][js][l][m];
 	}}}
-#endif
-#ifdef QUADRATIC_INTENSITY
-/* pass Ghstl3i/Ghstr3i on the edges. */
-    if (noct == 8) {
-      for (i=il; i<=iu; i++) {
-	for(l=0; l<noct; l++) {
-	  for (m=0; m<nang; m++) {
-	    *(pSnd++) = pRG->Ghstr2i[ifr][kl][i][l][m];
-	    *(pSnd++) = pRG->Ghstr2i[ifr][ku][i][l][m];
-	  }}}
-    }
 #else
-/* update r1imu/l1imu on corners[2d]/edges[3d] */
     for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	*(pSnd++) = pRG->Ghstl1i[ifr][k][js][0][m];
@@ -1547,8 +1552,19 @@ static void pack_ix2_rad(RadGridS *pRG, int ifs, int ife)
 	  *(pSnd++) = pRG->Ghstr1i[ifr][k][js][7][m];
 	}
       }}
-/* pass l3imu/r3imu on the edges.  Note that values
- * l=2,3,6,7 are passed using r2imu */
+#endif
+/* pass l3imu/r3imu on the edges. */
+#ifdef QUADRATIC_INTENSITY
+    if (noct == 8) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstr2i[ifr][kl][i][l][m];
+	    *(pSnd++) = pRG->Ghstr2i[ifr][ku][i][l][m];
+	  }}}
+    }
+#else
+/* Note that values l=2,3,6,7 are passed using r2imu */
     if (noct == 8) {
       for (i=il; i<=iu; i++) {
 	for (m=0; m<nang; m++) {
@@ -1583,6 +1599,7 @@ static void pack_ox2_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (i=il; i<=iu; i++) {
 	*(pSnd++) = pRG->R[ifr][k][je][i].S;
+	*(pSnd++) = pRG->R[ifr][k][je][i].J;
 	for(l=0; l < nDim; l++) {
 	  *(pSnd++) = pRG->R[ifr][k][je][i].H[l];
 	}
@@ -1607,27 +1624,15 @@ static void pack_ox2_rad(RadGridS *pRG, int ifs, int ife)
 	}
 #endif
       }}
-#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
 /* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
     for (k=kl; k<=ku; k++) {
       for (l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {	
 	  *(pSnd++) = pRG->Ghstl1i[ifr][k][je][l][m];
 	  *(pSnd++) = pRG->Ghstr1i[ifr][k][je][l][m];
 	}}}
-#endif
-#ifdef QUADRATIC_INTENSITY
-/* pass Ghstl3i/Ghstr3i on the edges. */
-    if (noct == 8) {
-      for (i=il; i<=iu; i++) {
-	for(l=0; l<noct; l++) {
-	  for (m=0; m<nang; m++) {
-	    *(pSnd++) = pRG->Ghstl2i[ifr][kl][i][l][m];
-	    *(pSnd++) = pRG->Ghstl2i[ifr][ku][i][l][m];
-	  }}}
-    }
 #else
-/* update r1imu/l1imu on corners[2d]/edges[3d] */
     for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	*(pSnd++) = pRG->Ghstl1i[ifr][k][je][0][m];
@@ -1641,8 +1646,19 @@ static void pack_ox2_rad(RadGridS *pRG, int ifs, int ife)
 	  *(pSnd++) = pRG->Ghstr1i[ifr][k][je][7][m];
 	}
       }}
-/* pass l3imu/r3imu on the edges.  Note that values
- * l=0,1,4,5 are updated using l2imu */
+#endif
+/* pass l3imu/r3imu on the edges. */
+#ifdef QUADRATIC_INTENSITY
+    if (noct == 8) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstl2i[ifr][kl][i][l][m];
+	    *(pSnd++) = pRG->Ghstl2i[ifr][ku][i][l][m];
+	  }}}
+    }
+#else
+/* Note that values l=0,1,4,5 are updated using l2imu */
     if (noct == 8) {
       for (i=il; i<=iu; i++) {
 	for (m=0; m<nang; m++) {
@@ -1676,6 +1692,7 @@ static void pack_ix3_rad(RadGridS *pRG, int ifs, int ife)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) { 
 	*(pSnd++) = pRG->R[ifr][ks][j][i].S;
+	*(pSnd++) = pRG->R[ifr][ks][j][i].J;
 	for(l=0; l < nDim; l++) {
 	  *(pSnd++) = pRG->R[ifr][ks][j][i].H[l];
 	}
@@ -1760,6 +1777,7 @@ static void pack_ox3_rad(RadGridS *pRG, int ifs, int ife)
     for (j=jl; j<=ju; j++) { 
       for (i=il; i<=iu; i++) {
 	*(pSnd++) = pRG->R[ifr][ke][j][i].S;
+	*(pSnd++) = pRG->R[ifr][ke][j][i].J;
 	for(l=0; l < nDim; l++) {
 	  *(pSnd++) = pRG->R[ifr][ke][j][i].H[l];
 	}
@@ -1845,6 +1863,7 @@ static void unpack_ix1_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
 	pRG->R[ifr][k][j][il].S = *(pRcv++);
+	pRG->R[ifr][k][j][il].J = *(pRcv++);
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][j][il].H[l] = *(pRcv++);
 	}
@@ -1960,6 +1979,7 @@ static void unpack_ox1_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (j=jl; j<=ju; j++) {
 	pRG->R[ifr][k][j][iu].S = *(pRcv++);
+	pRG->R[ifr][k][j][iu].J = *(pRcv++);
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][j][iu].H[l] = *(pRcv++);
 	  }
@@ -2075,6 +2095,7 @@ static void unpack_ix2_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (i=il; i<=iu; i++) {
 	pRG->R[ifr][k][jl][i].S = *(pRcv++);
+	pRG->R[ifr][k][jl][i].J = *(pRcv++);
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][jl][i].H[l] = *(pRcv++);
 	}
@@ -2099,27 +2120,15 @@ static void unpack_ix2_rad(RadGridS *pRG, int ifs, int ife)
 	}
 #endif
       }}
-#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
 /* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
     for (k=kl; k<=ku; k++) {
       for (l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {	
 	  pRG->Ghstl1i[ifr][k][jl][l][m] = *(pRcv++);
 	  pRG->Ghstr1i[ifr][k][jl][l][m] = *(pRcv++);
 	}}}
-#endif
-#ifdef QUADRATIC_INTENSITY
-/* pass l3imu/r3imu on the edges. */
-    if (noct == 8) {
-      for (i=il; i<=iu; i++) {
-	for(l=0; l<noct; l++) {
-	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][jl][i][l][m] = *(pRcv++);
-	    pRG->r3imu[ifr][jl][i][l][m] = *(pRcv++);
-	  }}}
-    }
 #else
-/* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
     for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	pRG->Ghstl1i[ifr][k][jl][0][m] = *(pRcv++);
@@ -2133,8 +2142,19 @@ static void unpack_ix2_rad(RadGridS *pRG, int ifs, int ife)
 	  pRG->Ghstr1i[ifr][k][jl][7][m] = *(pRcv++);
 	}
       }}
-/* pass l3imu/r3imu on the edges.  Note that values
- * l=0,1,4,5 are updated using l2imu below*/
+#endif
+/* pass l3imu/r3imu on the edges. */
+#ifdef QUADRATIC_INTENSITY
+    if (noct == 8) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][jl][i][l][m] = *(pRcv++);
+	    pRG->r3imu[ifr][jl][i][l][m] = *(pRcv++);
+	  }}}
+    }
+#else
+/* Note that values l=0,1,4,5 are updated using l2imu below*/
     if (noct == 8) {    
       for (i=il; i<=iu; i++) {
 	for (m=0; m<nang; m++) {
@@ -2179,6 +2199,7 @@ static void unpack_ox2_rad(RadGridS *pRG, int ifs, int ife)
     for (k=kl; k<=ku; k++) {
       for (i=il; i<=iu; i++) {
 	pRG->R[ifr][k][ju][i].S = *(pRcv++);
+	pRG->R[ifr][k][ju][i].J = *(pRcv++);
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][k][ju][i].H[l] = *(pRcv++);
 	}
@@ -2203,27 +2224,15 @@ static void unpack_ox2_rad(RadGridS *pRG, int ifs, int ife)
 	}
 #endif
       }}
-#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
 /* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
+#if defined(QUADRATIC_INTENSITY) || defined(SHEARING_BOX)
     for (k=kl; k<=ku; k++) {
       for (l=0; l<noct; l++) {
 	for(m=0; m<nang; m++) {	
 	  pRG->Ghstl1i[ifr][k][ju][l][m] = *(pRcv++);
 	  pRG->Ghstr1i[ifr][k][ju][l][m] = *(pRcv++);
 	}}}
-#endif
-#ifdef QUADRATIC_INTENSITY
-/* pass l3imu/r3imu on the edges. */
-    if (noct == 8) {
-      for (i=il; i<=iu; i++) {
-	for(l=0; l<noct; l++) {
-	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][ju][i][l][m] = *(pRcv++);
-	    pRG->r3imu[ifr][ju][i][l][m] = *(pRcv++);
-	  }}}
-    }
 #else
-/* update Ghstr1i/Ghstl1i on corners[2d]/edges[3d] */
     for (k=kl; k<=ku; k++) {
       for(m=0; m<nang; m++) {	
 	pRG->Ghstl1i[ifr][k][ju][0][m] = *(pRcv++);
@@ -2237,8 +2246,19 @@ static void unpack_ox2_rad(RadGridS *pRG, int ifs, int ife)
 	  pRG->Ghstr1i[ifr][k][ju][7][m] = *(pRcv++);
 	}
       }}
-/* pass l3imu/r3imu on the edges.  Note that values
- * l=2,3,6,7 are updated using r2imu below */
+#endif
+/* pass l3imu/r3imu on the edges. */
+#ifdef QUADRATIC_INTENSITY
+    if (noct == 8) {
+      for (i=il; i<=iu; i++) {
+	for(l=0; l<noct; l++) {
+	  for (m=0; m<nang; m++) {
+	    pRG->l3imu[ifr][ju][i][l][m] = *(pRcv++);
+	    pRG->r3imu[ifr][ju][i][l][m] = *(pRcv++);
+	  }}}
+    }
+#else
+/* Note that values l=2,3,6,7 are updated using r2imu below */
     if (noct == 8) {
       for (i=il; i<=iu; i++) {
 	for (m=0; m<nang; m++) {
@@ -2282,6 +2302,7 @@ static void unpack_ix3_rad(RadGridS *pRG, int ifs, int ife)
     for (j=jl; j<=ju; j++) { 
       for (i=il; i<=iu; i++) {
 	pRG->R[ifr][kl][j][i].S = *(pRcv++);
+	pRG->R[ifr][kl][j][i].J = *(pRcv++);
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][kl][j][i].H[l] = *(pRcv++);
 	}
@@ -2366,6 +2387,7 @@ static void unpack_ox3_rad(RadGridS *pRG, int ifs, int ife)
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) { 
 	pRG->R[ifr][ku][j][i].S = *(pRcv++);
+	pRG->R[ifr][ku][j][i].J = *(pRcv++);
 	for(l=0; l < nDim; l++) {
 	  pRG->R[ifr][ku][j][i].H[l] = *(pRcv++);
 	}

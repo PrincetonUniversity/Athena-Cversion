@@ -143,12 +143,25 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 
       
 /* Write left intensities for each frequency and angle */
+#ifdef WRITE_GHOST_CELLS
 	for (ifr=0; ifr<nf; ifr++) {
 	  for(l=0; l<noct; l++) {
-#ifndef WRITE_GHOST_CELLS
+	    for(m=0; m<nang; m++) {
+	      fprintf(pfile,"SCALARS Ghstl1i_%i_%i_%i float\n",ifr,l,m);
+	      fprintf(pfile,"LOOKUP_TABLE default\n");
+	      for (k=kl; k<=ku; k++) {
+		for (j=jl; j<=ju; j++) {
+		  data[j-jl] = (float)pRG->Ghstl1i[ifr][k][j][l][m];
+		}
+		if(!big_end) ath_bswap(data,sizeof(float),ju-jl+1);
+		fwrite(data,sizeof(float),(size_t)ndata1,pfile);
+	      }
+	    }}}
+#endif
+	for (ifr=0; ifr<nf; ifr++) {
+	  for(l=0; l<noct; l++) {
 /* Only write outgoing intensities */
 	    if((l == 1) || (l == 3) || (l == 5) || (l == 7)) {
-#endif
 	      for(m=0; m<nang; m++) {
 		fprintf(pfile,"SCALARS l1imu_%i_%i_%i float\n",ifr,l,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
@@ -160,12 +173,9 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata1,pfile);
 		}
 	      }
-#ifndef WRITE_GHOST_CELLS
 	    }
-#endif
-	  }}	    
+	  }}
 /* close file and free memory */
-
         fclose(pfile);
         free(data);
       }}
@@ -300,12 +310,26 @@ void dump_ox1_vtk(MeshS *pM, OutputS *pOut)
 
       
 /* Write right intensities for each frequency and angle */
+
+#ifdef WRITE_GHOST_CELLS
 	for (ifr=0; ifr<nf; ifr++) {
 	  for(l=0; l<noct; l++) {
-#ifndef WRITE_GHOST_CELLS
+	    for(m=0; m<nang; m++) { 
+	      fprintf(pfile,"SCALARS Ghstr1i_%i_%i_%i float\n",ifr,l,m);
+	      fprintf(pfile,"LOOKUP_TABLE default\n");
+	      for (k=kl; k<=ku; k++) {
+		for (j=jl; j<=ju; j++) {
+		  data[j-jl] = (float)pRG->Ghstr1i[ifr][k][j][l][m];
+		}
+		if(!big_end) ath_bswap(data,sizeof(float),ju-jl+1);
+		fwrite(data,sizeof(float),(size_t)ndata1,pfile);
+	      }	    	    
+	    }}}
+#endif
+	for (ifr=0; ifr<nf; ifr++) {
+	  for(l=0; l<noct; l++) {
 /* Only write outgoing intensities */
 	    if((l == 0) || (l == 2) || (l == 4) || (l == 6)) {
-#endif
 	      for(m=0; m<nang; m++) { 
 		fprintf(pfile,"SCALARS r1imu_%i_%i_%i float\n",ifr,l,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
@@ -317,12 +341,9 @@ void dump_ox1_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata1,pfile);
 		}
 	      }
-#ifndef WRITE_GHOST_CELLS
 	    }
-#endif
-	  }}	    
+	  }}
 /* close file and free memory */
-
         fclose(pfile);
         free(data);
       }}
@@ -450,12 +471,27 @@ void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
 
       
 /* Write left intensities for each frequency and angle */
+
+#ifdef WRITE_GHOST_CELLS
 	for (ifr=0; ifr<nf; ifr++) {
 	  for(l=0; l<noct; l++) {
-#ifndef WRITE_GHOST_CELLS
+/* Only write outgoing intensities */
+	    for(m=0; m<nang; m++) { 
+	      fprintf(pfile,"SCALARS Ghstl2i_%i_%i_%i float\n",ifr,l,m);
+	      fprintf(pfile,"LOOKUP_TABLE default\n");
+	      for (k=kl; k<=ku; k++) {
+		for (i=il; i<=iu; i++) {
+		  data[i-il] = (float)pRG->Ghstl2i[ifr][k][i][l][m];
+		}
+		if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+		fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	      }	      
+	    }}}
+#endif
+	for (ifr=0; ifr<nf; ifr++) {
+	  for(l=0; l<noct; l++) {
 /* Only write outgoing intensities */
 	    if((l == 2) || (l == 3) || (l == 6) || (l == 7)) {
-#endif
 	      for(m=0; m<nang; m++) { 
 		fprintf(pfile,"SCALARS l2imu_%i_%i_%i float\n",ifr,l,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
@@ -467,12 +503,9 @@ void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 		}
 	      }
-#ifndef WRITE_GHOST_CELLS
 	    }
-#endif
-	  }}	    
+	  }}	 
 /* close file and free memory */
-
         fclose(pfile);
         free(data);
       }}
@@ -599,12 +632,25 @@ void dump_ox2_vtk(MeshS *pM, OutputS *pOut)
 
       
 /* Write right intensities for each frequency and angle */
+#ifdef WRITE_GHOST_CELLS
 	for (ifr=0; ifr<nf; ifr++) {
 	  for(l=0; l<noct; l++) {
-#ifndef WRITE_GHOST_CELLS
+	    for(m=0; m<nang; m++) { 
+	      fprintf(pfile,"SCALARS Ghstr2i_%i_%i_%i float\n",ifr,l,m);
+	      fprintf(pfile,"LOOKUP_TABLE default\n");
+	      for (k=kl; k<=ku; k++) {
+		for (i=il; i<=iu; i++) {
+		  data[i-il] = (float)pRG->Ghstr2i[ifr][k][i][l][m];
+		}
+		if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+		fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	      }
+	    }}}
+#endif
+	for (ifr=0; ifr<nf; ifr++) {
+	  for(l=0; l<noct; l++) {
 /* Only write outgoing intensities */
 	    if((l == 0) || (l == 1) || (l == 4) || (l == 5)) {
-#endif
 	      for(m=0; m<nang; m++) { 
 		fprintf(pfile,"SCALARS r2imu_%i_%i_%i float\n",ifr,l,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
@@ -616,12 +662,9 @@ void dump_ox2_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 		}
 	      }
-#ifndef WRITE_GHOST_CELLS
 	    }
-#endif
 	  }}	    
 /* close file and free memory */
-
         fclose(pfile);
         free(data);
       }}

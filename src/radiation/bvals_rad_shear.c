@@ -71,7 +71,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
   qomL = qshear*Omega_0*Lx;
   yshear = qomL*pRG->time;
   
-  if (pRG->Nx[2] > 1) nDim = 2; else nDim=2;
+  if (pRG->Nx[2] > 1) nDim = 3; else nDim=2;
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
 
@@ -83,7 +83,6 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 
   joffset = (int)(deltay/pRG->dx2);
   epsi = (fmod(deltay,pRG->dx2))/pRG->dx2;
-  
 
 /*--- Step 2. ------------------------------------------------------------------
  * Copy data into GhstZns array. */
@@ -93,8 +92,9 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
 	GhstZnsMom[k][j][ifr][0] = pRG->R[ifr][k][j][il].S;
-	for(l=0; l<=nDim; l++) {
-	  GhstZnsMom[k][j][ifr][l+1] = pRG->R[ifr][k][j][il].H[l];
+	GhstZnsMom[k][j][ifr][1] = pRG->R[ifr][k][j][il].J;
+	for(l=0; l<nDim; l++) {
+	  GhstZnsMom[k][j][ifr][l+2] = pRG->R[ifr][k][j][il].H[l];
 	}
       }}}
 
@@ -106,7 +106,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 
   for(k=ks; k<=ke; k++) {
     for (ifr=ifs; ifr<=ife; ifr++) {
-      for(l=0; l<=nDim+1; l++) {
+      for(l=0; l<nDim+2; l++) {
 	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[k][j][ifr][l];
 	RemapFlux(U,epsi,js,je+1,Flx);
 	for(j=js; j<=je; j++){
@@ -137,13 +137,13 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
         jremap = j - joffset;
         if (jremap < (int)js) jremap += pRG->Nx[1];
 	for (ifr=ifs; ifr<=ife; ifr++) {
-	  for(l=0; l<=nDim+1; l++) {
+	  for(l=0; l<nDim+2; l++) {
 	    GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	  }}}}
 
     for (ifr=ifs; ifr<=ife; ifr++) {
       for(k=ks; k<=ke; k++) {
-	for(j=js-1; j<=je+1; j++){
+	for(j=js; j<=je; j++){
 	  jremap = j - joffset;
 	  if (jremap < (int)js) jremap += pRG->Nx[1];
 	  for(l=0; l<noct; l++) {
@@ -164,7 +164,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
  * This assumes every grid has same number of cells in x2-direction! */
     Ngrids = (int)(joffset/pRG->Nx[1]);
     joverlap = joffset - Ngrids*pRG->Nx[1];
-
+ 
 /*--- Step 5a. -----------------------------------------------------------------
  * Find ids of processors that data in [je-(joverlap-1):je] is sent to, and
  * data in [js:js+(joverlap-1)] is received from.  Only execute if joverlap>0 */
@@ -184,7 +184,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
 
-      cnt = joverlap*(ke-ks+1)*nf*(noct*nang+nDim+1);
+      cnt = joverlap*(ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
@@ -193,7 +193,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
@@ -218,7 +218,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=js+(joverlap-1); j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
@@ -236,14 +236,13 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
  * If shear is less one full Grid, remap cells which remain on same processor
  * from GhstZnsBuf into GhstZns.  Cells in [js:je-joverlap] are shifted by
  * joverlap into [js+joverlap:je] */
-
     if (Ngrids == 0) {
 
       for(k=ks; k<=ke; k++) {
 	for(j=js+joverlap; j<=je; j++){
 	  jremap = j-joverlap;
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	    }}}}
       
@@ -261,7 +260,6 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
  * from GhstZnsBuf (this step replaces 5d) */
 
     } else {
-
 /* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
       jproc = my_jproc + Ngrids;
@@ -272,7 +270,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
       if (jproc < 0) jproc += pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = (pRG->Nx[1]-joverlap)*(ke-ks+1)*nf*(noct*nang+nDim+1);
+      cnt = (pRG->Nx[1]-joverlap)*(ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
@@ -281,7 +279,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=je-joverlap; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
@@ -305,7 +303,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
 	for (j=js+joverlap; j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
@@ -329,8 +327,9 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
 	pRG->R[ifr][k][j][il].S = GhstZnsMom[k][j][ifr][0];
-	for(l=0; l<=nDim; l++) {
-	  pRG->R[ifr][k][j][il].H[l] = GhstZnsMom[k][j][ifr][l+1];
+	pRG->R[ifr][k][j][il].J = GhstZnsMom[k][j][ifr][1];
+	for(l=0; l<nDim; l++) {
+	  pRG->R[ifr][k][j][il].H[l] = GhstZnsMom[k][j][ifr][l+2];
 	}
       }}}
 /*--- Step 8. ------------------------------------------------------------------
@@ -343,7 +342,9 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
       for (ifr=ifs; ifr<=ife; ifr++) {
 	pRG->R[ifr][k][js-1][il].S = pRG->R[ifr][k][je][il].S;
 	pRG->R[ifr][k][je+1][il].S = pRG->R[ifr][k][js][il].S;
-	for(l=0; l<=nDim; l++) {
+	pRG->R[ifr][k][js-1][il].J = pRG->R[ifr][k][je][il].J;
+	pRG->R[ifr][k][je+1][il].J = pRG->R[ifr][k][js][il].J;
+	for(l=0; l<nDim; l++) {
 	  pRG->R[ifr][k][js-1][il].H[l] = pRG->R[ifr][k][je][il].H[l];
 	  pRG->R[ifr][k][je+1][il].H[l] = pRG->R[ifr][k][js][il].H[l];
 	}
@@ -363,87 +364,101 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
  * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_rad.c */
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = (ke-ks+1)*nf*(noct*nang+nDim+1); 
+    cnt = (ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2); 
 
     if (pRG->lx2_id != -1) {
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pRG->lx2_id,
 		       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
-      pSnd = send_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  *(pSnd++) = pRG->R[ifr][k][je][il].S;
-	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[ifr][k][je][il].H[l];
-	  }
-	}}      
+    }      
+    pSnd = send_buf;
+    for(k=ks; k<=ke; k++) {
       for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = pRG->Ghstl1i[ifr][k][je][l][m];
-	    }}}}
-    }
+	*(pSnd++) = pRG->R[ifr][k][je][il].S;
+	*(pSnd++) = pRG->R[ifr][k][je][il].J;
+	for(l=0; l<nDim; l++) {
+	  *(pSnd++) = pRG->R[ifr][k][je][il].H[l];
+	}
+      }}      
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstl1i[ifr][k][je][l][m];
+	  }}}}
 
     if (pRG->rx2_id != -1) {
 /* send contents of buffer to the neighboring grid on R-x2 */
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pRG->rx2_id,
 		      shearing_sheet_ix1_tag, pD->Comm_Domain);
-      pRcv = recv_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  pRG->R[ifr][k][js-1][il].S = *(pRcv++);
-	  for(l=0; l<=nDim; l++) {
-	    pRG->R[ifr][k][js-1][il].H[l] = *(pRcv++);
-	  }
-	}}      
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      pRG->Ghstl1i[ifr][k][js-1][l][m] = *(pRcv++);
-	    }}}}
     }
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][js-1][il].S = *(pRcv++);
+	pRG->R[ifr][k][js-1][il].J = *(pRcv++);
+	for(l=0; l<nDim; l++) {
+	  pRG->R[ifr][k][js-1][il].H[l] = *(pRcv++);
+	}
+      }}      
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl1i[ifr][k][js-1][l][m] = *(pRcv++);
+	  }}}}
+    
 
 /* Post a non-blocking receive for the input data from the right grid */
     if (pRG->rx2_id != -1) {
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pRG->rx2_id,
 		       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
-      pSnd = send_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  *(pSnd++) = pRG->R[ifr][k][js][il].S;
-	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[ifr][k][js][il].H[l];
-	  }
-	}}
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = pRG->Ghstl1i[ifr][k][js][l][m];
-	    }}}}
     }
 
-/* send contents of buffer to the neighboring grid on L-x2 */
+    pSnd = send_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	*(pSnd++) = pRG->R[ifr][k][js][il].S;
+	*(pSnd++) = pRG->R[ifr][k][js][il].J;
+	for(l=0; l<nDim; l++) {
+	  *(pSnd++) = pRG->R[ifr][k][js][il].H[l];
+	}
+      }}
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstl1i[ifr][k][js][l][m];
+	  }}}}
 
+/* send contents of buffer to the neighboring grid on L-x2 */
     if (pRG->lx2_id != -1) {
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pRG->lx2_id,
 		      shearing_sheet_ix1_tag, pD->Comm_Domain);
-      pRcv = recv_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  pRG->R[ifr][k][je+1][il].S = *(pRcv++); 
-	  for(l=0; l<=nDim; l++) {
-	    pRG->R[ifr][k][je+1][il].H[l] = *(pRcv++);
-	  }
-	}}
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      pRG->Ghstl1i[ifr][k][je+1][l][m] = *(pRcv++);
-	    }}}}
     }
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][je+1][il].S = *(pRcv++); 
+	pRG->R[ifr][k][je+1][il].J = *(pRcv++); 
+	for(l=0; l<nDim; l++) {
+	  pRG->R[ifr][k][je+1][il].H[l] = *(pRcv++);
+	}
+      }}
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl1i[ifr][k][je+1][l][m] = *(pRcv++);
+	  }}}}
+  
 #endif /* MPI_PARALLEL */
 
   } /* end of step 9 - periodic BC in Y with MPI */
@@ -516,7 +531,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
   qomL = qshear*Omega_0*Lx;
   yshear = qomL*pRG->time;
 
-  if (pRG->Nx[2] > 1) nDim = 2; else nDim=2;
+  if (pRG->Nx[2] > 1) nDim = 3; else nDim=2;
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
 
@@ -528,7 +543,6 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 
   joffset = (int)(deltay/pRG->dx2);
   epso = -(fmod(deltay,pRG->dx2))/pRG->dx2;
-  
 
 /*--- Step 2. ------------------------------------------------------------------
  * Copy data into GhstZns array. */
@@ -538,8 +552,9 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
 	GhstZnsMom[k][j][ifr][0] = pRG->R[ifr][k][j][iu].S;
-	for(l=0; l<=nDim; l++) {
-	  GhstZnsMom[k][j][ifr][l+1] = pRG->R[ifr][k][j][iu].H[l];
+	GhstZnsMom[k][j][ifr][1] = pRG->R[ifr][k][j][iu].J;
+	for(l=0; l<nDim; l++) {
+	  GhstZnsMom[k][j][ifr][l+2] = pRG->R[ifr][k][j][iu].H[l];
 	}
       }}}
 
@@ -552,7 +567,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 
   for(k=ks; k<=ke; k++) {
     for (ifr=ifs; ifr<=ife; ifr++) {
-      for(l=0; l<=nDim+1; l++) {
+      for(l=0; l<nDim+2; l++) {
 	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[k][j][ifr][l];
 	RemapFlux(U,epso,js,je+1,Flx);
 	for(j=js; j<=je; j++){
@@ -583,13 +598,13 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 	jremap = j + joffset;
         if (jremap > (int)je) jremap -= pRG->Nx[1];
 	for (ifr=ifs; ifr<=ife; ifr++) {
-	  for(l=0; l<=nDim+1; l++) {
+	  for(l=0; l<nDim+2; l++) {
 	    GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	  }}}}
 
     for (ifr=ifs; ifr<=ife; ifr++) {
       for(k=ks; k<=ke; k++) {
-	for(j=js-1; j<=je+1; j++){
+	for(j=js; j<=je; j++){
 	  jremap = j + joffset;
 	  if (jremap > (int)je) jremap -= pRG->Nx[1];
 	  for(l=0; l<noct; l++) {
@@ -630,7 +645,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
 
-      cnt = joverlap*(ke-ks+1)*nf*(noct*nang+nDim+1);
+      cnt = joverlap*(ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
@@ -639,7 +654,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=js+(joverlap-1); j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
@@ -665,7 +680,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
 	for (j=je-(joverlap-1); j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
@@ -690,7 +705,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
         for(j=js; j<=je-joverlap; j++){
           jremap = j+joverlap;
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
 	    }}}}
       
@@ -719,7 +734,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = (pRG->Nx[1]-joverlap)*(ke-ks+1)*nf*(noct*nang+nDim+1);
+      cnt = (pRG->Nx[1]-joverlap)*(ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
@@ -728,7 +743,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
         for (j=js+joverlap; j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
 	    }}}}
 
@@ -752,7 +767,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
       for(k=ks; k<=ke; k++) {
 	for (j=js; j<=je-joverlap; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
-	    for(l=0; l<=nDim+1; l++) {
+	    for(l=0; l<nDim+2; l++) {
 	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
 	    }}}}
 
@@ -776,8 +791,9 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
 	pRG->R[ifr][k][j][iu].S = GhstZnsMom[k][j][ifr][0];
-	for(l=0; l<=nDim; l++) {
-	  pRG->R[ifr][k][j][iu].H[l] = GhstZnsMom[k][j][ifr][l+1];
+	pRG->R[ifr][k][j][iu].J = GhstZnsMom[k][j][ifr][1];
+	for(l=0; l<nDim; l++) {
+	  pRG->R[ifr][k][j][iu].H[l] = GhstZnsMom[k][j][ifr][l+2];
 	}
       }}}
 
@@ -791,7 +807,9 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
       for (ifr=ifs; ifr<=ife; ifr++) {
 	pRG->R[ifr][k][js-1][iu].S = pRG->R[ifr][k][je][iu].S;
 	pRG->R[ifr][k][je+1][iu].S = pRG->R[ifr][k][js][iu].S;
-	for(l=0; l<=nDim; l++) {
+	pRG->R[ifr][k][js-1][iu].J = pRG->R[ifr][k][je][iu].J;
+	pRG->R[ifr][k][je+1][iu].J = pRG->R[ifr][k][js][iu].J;
+	for(l=0; l<nDim; l++) {
 	  pRG->R[ifr][k][js-1][iu].H[l] = pRG->R[ifr][k][je][iu].H[l];
 	  pRG->R[ifr][k][je+1][iu].H[l] = pRG->R[ifr][k][js][iu].H[l];
 	}
@@ -811,87 +829,103 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
  * send_ox2/receive_ix1 and send_ix1/receive_ox2 pairs in bvals_mhd.c */
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = (ke-ks+1)*nf*(noct*nang+nDim+1); 
+    cnt = (ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2); 
 
     if (pRG->lx2_id != -1) {
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pRG->lx2_id,
 		       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
-      pSnd = send_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  *(pSnd++) = pRG->R[ifr][k][je][iu].S;
-	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[ifr][k][je][iu].H[l];
-	  }
-	}}      
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = pRG->Ghstr1i[ifr][k][je][l][m];
-	    }}}}
+
     }
+
+    pSnd = send_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	*(pSnd++) = pRG->R[ifr][k][je][iu].S;
+	*(pSnd++) = pRG->R[ifr][k][je][iu].J;
+	for(l=0; l<nDim; l++) {
+	  *(pSnd++) = pRG->R[ifr][k][je][iu].H[l];
+	}
+      }}      
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstr1i[ifr][k][je][l][m];
+	  }}}}
+    
 
     if (pRG->rx2_id != -1) {
 /* send contents of buffer to the neighboring grid on R-x2 */
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pRG->rx2_id,
 		      shearing_sheet_ox1_tag, pD->Comm_Domain);
-      pRcv = recv_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  pRG->R[ifr][k][js-1][iu].S = *(pRcv++);
-	  for(l=0; l<=nDim; l++) {
-	    pRG->R[ifr][k][js-1][iu].H[l] = *(pRcv++);
-	  }
-	}}      
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      pRG->Ghstr1i[ifr][k][js-1][l][m] = *(pRcv++);
-	    }}}}
     }
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][js-1][iu].S = *(pRcv++);
+	pRG->R[ifr][k][js-1][iu].J = *(pRcv++);
+	for(l=0; l<nDim; l++) {
+	  pRG->R[ifr][k][js-1][iu].H[l] = *(pRcv++);
+	}
+      }}      
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstr1i[ifr][k][js-1][l][m] = *(pRcv++);
+	  }}}}
 
 /* Post a non-blocking receive for the input data from the right grid */
     if (pRG->rx2_id != -1) {
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pRG->rx2_id,
 		       shearing_sheet_ox1_tag, pD->Comm_Domain, &rq);
-      pSnd = send_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  *(pSnd++) = pRG->R[ifr][k][js][iu].S;
-	  for(l=0; l<=nDim; l++) {
-	    *(pSnd++) = pRG->R[ifr][k][js][iu].H[l];
-	  }
-	}}
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      *(pSnd++) = pRG->Ghstr1i[ifr][k][js][l][m];
-	    }}}}
     }
 
-/* send contents of buffer to the neighboring grid on L-x2 */
+    pSnd = send_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	*(pSnd++) = pRG->R[ifr][k][js][iu].S;
+	*(pSnd++) = pRG->R[ifr][k][js][iu].J;
+	for(l=0; l<nDim; l++) {
+	  *(pSnd++) = pRG->R[ifr][k][js][iu].H[l];
+	}
+      }}
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    *(pSnd++) = pRG->Ghstr1i[ifr][k][js][l][m];
+	  }}}}
 
+/* send contents of buffer to the neighboring grid on L-x2 */
     if (pRG->lx2_id != -1) {
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pRG->lx2_id,
 		      shearing_sheet_ox1_tag, pD->Comm_Domain);
-      pRcv = recv_buf;
-      for(k=ks; k<=ke; k++) {
-	for (ifr=ifs; ifr<=ife; ifr++) {
-	  pRG->R[ifr][k][je+1][iu].S = *(pRcv++); 
-	  for(l=0; l<=nDim; l++) {
-	    pRG->R[ifr][k][je+1][iu].H[l] = *(pRcv++);
-	  }
-	}}
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for(k=ks; k<=ke; k++) {
-	  for(l=0; l<noct; l++) {
-	    for(m=0; m<nang; m++) {
-	      pRG->Ghstr1i[ifr][k][je+1][l][m] = *(pRcv++);
-	    }}}}
     }
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(k=ks; k<=ke; k++) {
+      for (ifr=ifs; ifr<=ife; ifr++) {
+	pRG->R[ifr][k][je+1][iu].S = *(pRcv++); 
+	pRG->R[ifr][k][je+1][iu].J = *(pRcv++); 
+	for(l=0; l<nDim; l++) {
+	  pRG->R[ifr][k][je+1][iu].H[l] = *(pRcv++);
+	}
+      }}
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for(k=ks; k<=ke; k++) {
+	for(l=0; l<noct; l++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstr1i[ifr][k][je+1][l][m] = *(pRcv++);
+	  }}}}
+  
 #endif /* MPI_PARALLEL */
 
   } /* end of step 9 - periodic BC in Y with MPI */
@@ -975,10 +1009,10 @@ void bvals_rad_shear_init(MeshS *pM)
 
 /* Allocate memory for temporary arrays and vectors */
 
-  if((GhstZnsMom=(Real****)calloc_4d_array(max3,max2,maxf,nDim+1,sizeof(Real)))==NULL)
+  if((GhstZnsMom=(Real****)calloc_4d_array(max3,max2,maxf,nDim+2,sizeof(Real)))==NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
-  if((GhstZnsMomBuf=(Real****)calloc_4d_array(max3,max2,maxf,nDim+1,sizeof(Real))) ==
+  if((GhstZnsMomBuf=(Real****)calloc_4d_array(max3,max2,maxf,nDim+2,sizeof(Real))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
   if((GhstZnsIntBuf=(Real*****)calloc_5d_array(maxf,max3,max2,noct,maxa,sizeof(Real))) ==
@@ -993,7 +1027,7 @@ void bvals_rad_shear_init(MeshS *pM)
 /* allocate memory for send/receive buffers in MPI parallel calculations */
 
 #ifdef MPI_PARALLEL
-  size = max3*max2*nf*(noct*nang+nDim+1);
+  size = max3*max2*nf*(noct*nang+nDim+2);
 
   if((send_buf = (double*)malloc(size*sizeof(double))) == NULL)
     ath_error("[bvals_shear_init]: Failed to allocate send buffer\n");

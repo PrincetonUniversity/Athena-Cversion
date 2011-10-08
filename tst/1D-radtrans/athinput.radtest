@@ -74,13 +74,13 @@ lte             = 0	     # lte = 0 -- iterate S; 1 -- iterate J
 niter		= 1000	     # maximum number of rad trans iterations
 dScnv		= 1.0e-8     # relative change in S (or J) required for conv.
 nf		= 1	     # number of frequencies
-nmu		= 3	     # number of polar angles/quadrant (1 <= nmu <= 6)
+nmu		= 1	     # number of polar angles/quadrant (1 <= nmu <= 6)
 isor            = 0          # 0 no SOR, 1 SOR for gauss-seidel (SOR with 1D only!) 
 svwght          = 0          # 1 save integration weight; 0 compute each iter
 
 <problem>
 gamma           = 1.6666666666666667    # gamma = C_p/C_v
-eps		= 1.0e-8     # thermalization parameter
+eps		= 1.0e-6     # thermalization parameter
 vert_dir	= 1          # direction of variation (1,2,3)
 taumin		= -4.0       # log tau at lower boundary
 taumax		= 7.0        # log tau at upper boundary

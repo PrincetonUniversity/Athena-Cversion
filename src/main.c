@@ -123,6 +123,10 @@ int main(int argc, char *argv[])
   if(MPI_SUCCESS != MPI_Init(&argc, &argv))
     ath_error("[main]: Error on calling MPI_Init\n");
 #endif /* MPI_PARALLEL */
+#ifdef RADIATION_TRANSFER
+  int nitert;
+  Real dScnvt;
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* Steps in main:
@@ -458,10 +462,10 @@ int main(int argc, char *argv[])
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
-
       }
     }
   }
+
 
    /* set boundary condition for radiation quantities */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
@@ -481,9 +485,13 @@ int main(int argc, char *argv[])
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
 	hydro_to_rad(&(Mesh.Domain[nl][nd]));  
-
+	nitert = niter;
+	dScnvt = dScnv;
+	niter = par_geti_def("radiation","niter0",niter);
+	dScnv = par_getd_def("radiation","dScnv0",dScnv);
 	formal_solution(&(Mesh.Domain[nl][nd]));
-
+	niter = nitert;
+	dScnv = dScnvt;
  	Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);
 
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
@@ -719,6 +727,9 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
           Mesh.Domain[nl][nd].Grid->time = Mesh.time;
+#ifdef RADIATION_TRANSFER
+	  Mesh.Domain[nl][nd].RadGrid->time = Mesh.time;
+#endif
         }
       }
     }
