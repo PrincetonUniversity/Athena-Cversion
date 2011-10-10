@@ -530,12 +530,12 @@ void Userwork_in_formal_solution(DomainS *pD)
 	chio = pRG->R[ifr][ks][js][i  ].chi;
 	chim = pRG->R[ifr][ks][js][i-1].chi;
 	chip = pRG->R[ifr][ks][js][i+1].chi;
-	dtaum = 0.5 * (chim + chio);
+	/*dtaum = 0.5 * (chim + chio);
 	/*dtaup = 0.5 * (chip + chio);*/
-	/*interp_quad_chi(chim,chio,chip,&dtaum);
-	  interp_quad_chi(chip,chio,chim,&dtaup);*/
+	interp_quad_chi(chim,chio,chip,&dtaum);
+	interp_quad_chi(chip,chio,chim,&dtaup);
 	dtaum *= pRG->dx1; 
-	/*dtaup *= pRG->dx1;*/
+	dtaup *= pRG->dx1;
 	tau0[i] = tau0[i-1] + dtaum;
       }
       for(k=ks; k<=ke; k++) {
@@ -555,12 +555,12 @@ void Userwork_in_formal_solution(DomainS *pD)
 	chio = pRG->R[ifr][ks][j  ][is].chi;
 	chim = pRG->R[ifr][ks][j-1][is].chi;
 	chip = pRG->R[ifr][ks][j+1][is].chi;
-	dtaum = 0.5 * (chim + chio);
+	/*dtaum = 0.5 * (chim + chio);
 	/*dtaup = 0.5 * (chip + chio);*/
-	/*interp_quad_chi(chim,chio,chip,&dtaum);
-	 interp_quad_chi(chip,chio,chim,&dtaup);*/
+	interp_quad_chi(chim,chio,chip,&dtaum);
+	interp_quad_chi(chip,chio,chim,&dtaup);
 	dtaum *= pRG->dx2; 
-	/*dtaup *= pRG->dx2;*/
+	dtaup *= pRG->dx2;
 	tau0[j] = tau0[j-1] + dtaum;
       }
       for(k=ks; k<=ke; k++) {
@@ -580,12 +580,12 @@ void Userwork_in_formal_solution(DomainS *pD)
 	chio = pRG->R[ifr][k  ][js][is].chi;
 	chim = pRG->R[ifr][k-1][js][is].chi;
 	chip = pRG->R[ifr][k+1][js][is].chi;
-	dtaum = 0.5 * (chim + chio);
+	/*dtaum = 0.5 * (chim + chio);
 	/*dtaup = 0.5 * (chip + chio);*/
-	/*interp_quad_chi(chim,chio,chip,&dtaum);
-	  interp_quad_chi(chip,chio,chim,&dtaup);*/
+	interp_quad_chi(chim,chio,chip,&dtaum);
+	interp_quad_chi(chip,chio,chim,&dtaup);
 	dtaum *= pRG->dx3; 
-	/*dtaup *= pRG->dx3;*/
+	dtaup *= pRG->dx3;
 	tau0[k] = tau0[k-1] + dtaum;
       }
       for(k=ks; k<=ke; k++) {

@@ -1,9 +1,9 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: jacobi_2d.c
+ * FILE: gausseid_2d.c
  *
  * PURPOSE: Solves a single iteration of the formal solution of radiative
- *          transfer on a 2D grid using jacobi's method.  The basic algorithm
+ *          transfer on a 2D grid using the Gauss-Seidel method.  The basic algorithm
  *          is described in Trujillo Bueno and Fabiani Benedicho, ApJ, 455, 646.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
@@ -54,9 +54,13 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   int ks = pRG->ks; 
   int nf = pRG->nf;
  
+
+#ifdef QUADRATIC_INTENSITY
+  ath_error("[gausseid_2d.c]: quadratic intensity not supported with Gauss-Seidel.\n");
+#endif
+
 /* Initialize dSrmx */
   dSrmx = 0.0;
-
 
 /* initialize mean intensities at all depths to zero */
   for(j=js; j<=je; j++)
@@ -68,9 +72,9 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
       pRG->R[ifr][ks][j][i].K[1] = 0.0;
       pRG->R[ifr][ks][j][i].K[2] = 0.0;
       if (svwght == 0) {
-	lamstr[j][i][ifr] = 0.0;
+	lamstr[ifr][j][i] = 0.0;
 	for(l=0; l<4; l++)
-	  psiint[j][i][ifr][l] = 0.0;
+	  psiint[ifr][j][i][l] = 0.0;
       }
     }
 
@@ -294,10 +298,10 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
     }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
     if(svwght == 1) {
-      imu = psi[j][i][ifr][l][m][1] * S0 +
-            psi[j][i][ifr][l][m][2] * pRG->R[ifr][k][j][i].S +
-            psi[j][i][ifr][l][m][3] * S2 +	
-	    psi[j][i][ifr][l][m][0] * imu0;
+      imu = psi[ifr][j][i][l][m][1] * S0 +
+            psi[ifr][j][i][l][m][2] * pRG->R[ifr][k][j][i].S +
+            psi[ifr][j][i][l][m][3] * S2 +	
+	    psi[ifr][j][i][l][m][0] * imu0;
     } else {
       if (am <= 1.0) {
 	chi0 = am  * pRG->R[ifr][k][jm][im].chi + 
@@ -325,26 +329,27 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
       interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 				   S0, pRG->R[ifr][k][j][i].S, S2);
       imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
-      lamstr[j][i][ifr] += pRG->wmu[m] * a1;
+      lamstr[ifr][j][i] += pRG->wmu[m] * a1;
+/* Save weights for Gauss-Seidel update */
       if (l == 0) {
 	if (am <= 1.0) {
-	  psiint[j][i][ifr][1] += am  * pRG->wmu[m] * a2; 
-	  psiint[j][i][ifr][2] += am1 * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][1] += am  * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][2] += am1 * pRG->wmu[m] * a2; 
 	} else {
-	  psiint[j][i][ifr][0] += bm1 * pRG->wmu[m] * a2; 
-	  psiint[j][i][ifr][1] += bm  * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][0] += bm1 * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][1] += bm  * pRG->wmu[m] * a2; 
 	}
       } else if (l == 1) {
 	if (am <= 1.0) {
-	  psiint[j][i][ifr][2] += am1 * pRG->wmu[m] * a2; 
-	  psiint[j][i][ifr][3] += am  * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][2] += am1 * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][3] += am  * pRG->wmu[m] * a2; 
 	} else {
-	  psiint[j][i][ifr][3] += bm  * pRG->wmu[m] * a2; 
-	  psiint[j][i][ifr][0] += bm1 * pRG->wmu[m] * a0; 
+	  psiint[ifr][j][i][3] += bm  * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][0] += bm1 * pRG->wmu[m] * a0; 
 	}
       } else if (l == 2) {
 	if (am > 1.0)
-	  psiint[j][i][ifr][0] += bm1 * pRG->wmu[m] * a2; 
+	  psiint[ifr][j][i][0] += bm1 * pRG->wmu[m] * a2; 
       }
     }
 /* Add to radiation moments and save for next iteration */
@@ -360,26 +365,27 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
     imuo[ifr][i][l][m][0] = imu;
   }
   if (l == 3) {
-    update_sfunc(&(pRG->R[ifr][k][j][i]), &dS, lamstr[j][i][ifr]);
-    /*f(svwght == 1) {
+/* Update source function when all angles have ben computed */
+    update_sfunc(&(pRG->R[ifr][k][j][i]), &dS, lamstr[ifr][j][i]);
+    /*if(svwght == 1) {
       for(m=0; m<nang; m++) {
-	imuo[ifr][i][l][m][0] += dS * pRG->wmu[m] * psi[j][i][ifr][l][m][2];
+	imuo[ifr][i][l][m][0] += dS * pRG->wmu[m] * psi[ifr][j][i][l][m][2];
       }
       else {
 	for(m=0; m<nang; m++) {
-	  imuo[ifr][i][l][m][0] += dS * pRG->wmu[m] * psi0[m];
+	  imuo[ifr][i][l][m][0] += dS * pRG->wmu[m] * ;
 	}
 	}*/
 /* Correct J w/ updated S from "new" neighbors, but not in ghostzones */
     if(i != is) {
-      pRG->R[ifr][k][j][i-1].J += dS * psiint[j][i-1][ifr][0];
+      pRG->R[ifr][k][j][i-1].J += dS * psiint[ifr][j][i-1][0];
       if (j != js) 
-	pRG->R[ifr][k][j-1][i-1].J += dS * psiint[j-1][i-1][ifr][1];
+	pRG->R[ifr][k][j-1][i-1].J += dS * psiint[ifr][j-1][i-1][1];
     }
     if (j != js) {
-      pRG->R[ifr][k][j-1][i].J += dS * psiint[j-1][i][ifr][2];
+      pRG->R[ifr][k][j-1][i].J += dS * psiint[ifr][j-1][i][2];
       if(i != ie) 
-	pRG->R[ifr][k][j-1][i+1].J += dS * psiint[j-1][i+1][ifr][3];
+	pRG->R[ifr][k][j-1][i+1].J += dS * psiint[ifr][j-1][i+1][3];
     }
   }
   return;
@@ -430,6 +436,13 @@ void formal_solution_2d_init(RadGridS *pRG)
   svwght = par_geti("radiation","svwght");
 
   nmx = MAX(nx1,nx2);
+
+  if ((lamstr = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL) 
+    goto on_error;
+
+  if ((psiint = (Real ****)calloc_4d_array(nf,nx2+2,nx1+2,4,sizeof(Real))) == NULL) 
+    goto on_error;
+
   if ((imuo = (Real *****)calloc_5d_array(nf,nmx+2,4,nang,2,sizeof(Real))) == NULL)
     goto on_error;
 
@@ -456,14 +469,8 @@ void formal_solution_2d_init(RadGridS *pRG)
       mu2[i][j][2] = pRG->mu[i][j][1] * pRG->mu[i][j][1];
     }
 
-  if ((lamstr = (Real ***)calloc_3d_array(nx2+2,nx1+2,nf,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if ((psiint = (Real ****)calloc_4d_array(nx2+2,nx1+2,nf,4,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if(svwght == 1) {
-    if ((psi = (Real ******)calloc_6d_array(nx2+2,nx1+2,nf,4,nang,4,sizeof(Real))) == NULL) 
+   if(svwght == 1) {
+    if ((psi = (Real ******)calloc_6d_array(nf,nx2+2,nx1+2,4,nang,4,sizeof(Real))) == NULL) 
       goto on_error;
 
 /* compute weights once and save for next iteration */
@@ -495,30 +502,30 @@ void formal_solution_2d_init(RadGridS *pRG)
 		dtaup = 0.5 * (chi2 + chi1) * dx * muinv[m][0];
 	      }
 	      get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);
-	      psi[j][i][ifr][l][m][0] = edtau;
-	      psi[j][i][ifr][l][m][1] = a0;
-	      psi[j][i][ifr][l][m][2] = a1;
-	      psi[j][i][ifr][l][m][3] = a2;
-	      lamstr[j][i][ifr] += pRG->wmu[m] * a1;
+	      psi[ifr][j][i][l][m][0] = edtau;
+	      psi[ifr][j][i][l][m][1] = a0;
+	      psi[ifr][j][i][l][m][2] = a1;
+	      psi[ifr][j][i][l][m][3] = a2;
+	      lamstr[ifr][j][i] += pRG->wmu[m] * a1;
 	      if (l == 0) {
 		if (am <= 1.0) {
-		  psiint[j][i][ifr][1] += am  * pRG->wmu[m] * a2; 
-		  psiint[j][i][ifr][2] += am1 * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][1] += am  * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][2] += am1 * pRG->wmu[m] * a2; 
 		} else {
-		  psiint[j][i][ifr][0] += bm1 * pRG->wmu[m] * a2; 
-		  psiint[j][i][ifr][1] += bm  * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][0] += bm1 * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][1] += bm  * pRG->wmu[m] * a2; 
 		}
 	      } else if (l == 1) {
 		if (am <= 1.0) {
-		  psiint[j][i][ifr][2] += am1 * pRG->wmu[m] * a2; 
-		  psiint[j][i][ifr][3] += am  * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][2] += am1 * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][3] += am  * pRG->wmu[m] * a2; 
 		} else {
-		  psiint[j][i][ifr][3] += bm  * pRG->wmu[m] * a2; 
-		  psiint[j][i][ifr][0] += bm1 * pRG->wmu[m] * a0; 
+		  psiint[ifr][j][i][3] += bm  * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][0] += bm1 * pRG->wmu[m] * a0; 
 		}
 	      } else if (l == 2) {
 		if (am > 1.0)
-		  psiint[j][i][ifr][0] += bm1 * pRG->wmu[m] * a2; 
+		  psiint[ifr][j][i][0] += bm1 * pRG->wmu[m] * a2; 
 	      }
 	    }
 	  }

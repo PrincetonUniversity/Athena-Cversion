@@ -57,8 +57,8 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
     pRG->R[ifr][ks][js][i].H[0] = 0.0;
     pRG->R[ifr][ks][js][i].K[0] = 0.0;
     if (svwght == 0) {
-      lamstr[i][ifr] = 0.0;
-      psiint[i][ifr] = 0.0;
+      lamstr[ifr][i] = 0.0;
+      psiint[ifr][i] = 0.0;
     }
   }
 
@@ -123,11 +123,11 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
      if(svwght == 0) chio = pRG->R[ifr][ks][js][i].chi;
      for(m=0; m<nang; m++) {
        if(svwght == 1) {
-	 imu = psi[i][ifr][l][m][1] * S0 +
-               psi[i][ifr][l][m][2] * pRG->R[ifr][ks][js][i].S +
-               psi[i][ifr][l][m][3] * S2;
+	 imu = psi[ifr][i][l][m][1] * S0 +
+               psi[ifr][i][l][m][2] * pRG->R[ifr][ks][js][i].S +
+               psi[ifr][i][l][m][3] * S2;
 	 if (imu < 0.0) imu=0.0;
-	 imu += psi[i][ifr][l][m][0] * imuo[ifr][l][m];	
+	 imu += psi[ifr][i][l][m][0] * imuo[ifr][l][m];	
        } else {
 	 chim = pRG->R[ifr][ks][js][i-sx].chi;
 	 chip = pRG->R[ifr][ks][js][i+sx].chi;
@@ -141,8 +141,8 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
 				      S0, pRG->R[ifr][ks][js][i].S, S2);
 	 imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
 	 imu += edtau * imuo[ifr][l][m];
-	 lamstr[i][ifr] += pRG->wmu[m] * a1;
-	 if (sx == 1) psiint[i][ifr] += pRG->wmu[m] * a2; 
+	 lamstr[ifr][i] += pRG->wmu[m] * a1;
+	 if (sx == 1) psiint[ifr][i] += pRG->wmu[m] * a2; 
        }
 /* Add to mean intensity and save for next iteration */
        wimu = pRG->wmu[m] * imu;
@@ -152,17 +152,17 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
        imuo[ifr][l][m] = imu;
      }
      if (sx == -1) {
-       update_sfunc(&(pRG->R[ifr][ks][js][i]), &deltas, lamstr[i][ifr]);
+       update_sfunc(&(pRG->R[ifr][ks][js][i]), &deltas, lamstr[ifr][i]);
        if(svwght == 1) {
 	 for(m=0; m<nang; m++) {
 	   imuo[ifr][l][m] += deltas * pRG->wmu[m] *
-	     psi[i][ifr][l][m][2];       
+	     psi[ifr][i][l][m][2];       
 	 }
        } else {
 	 for(m=0; m<nang; m++) 
-	   imuo[ifr][l][m] += deltas * pRG->wmu[m] * a0;	   
+	   imuo[ifr][l][m] += deltas * pRG->wmu[m] * a1;	   
        }
-       pRG->R[ifr][ks][js][i-1].J += deltas * psiint[i-1][ifr];
+       pRG->R[ifr][ks][js][i-1].J += deltas * psiint[ifr][i-1];
      }
   }
 
@@ -233,20 +233,20 @@ void formal_solution_1d_init(RadGridS *pRG)
     mu2[m] = pRG->mu[0][m][0] * pRG->mu[0][m][0];
   }
 
-  if ((lamstr = (Real **)calloc_2d_array(nx1+2,nf,sizeof(Real))) == NULL) 
+  if ((lamstr = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
     goto on_error;
 
-  if ((psiint = (Real **)calloc_2d_array(nx1+2,nf,sizeof(Real))) == NULL) 
+  if ((psiint = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
     goto on_error;
 
   if(svwght == 1) {
 /* compute weights once and save for next iteration */
-    if ((psi = (Real *****)calloc_5d_array(nx1+2,nf,2,nang,4,sizeof(Real))) == NULL) 
+    if ((psi = (Real *****)calloc_5d_array(nf,nx1+2,2,nang,4,sizeof(Real))) == NULL) 
       goto on_error;
 
     for(i=is; i<=ie; i++) 
       for(ifr=0; ifr<nf; ifr++) {
-	lamstr[i][ifr] = 0.0;
+	lamstr[ifr][i] = 0.0;
 	chio = pRG->R[ifr][ks][js][i].chi;
 	for(l=0; l<2; l++) {
 	  if(l == 0) sx = 1; else sx = -1;
@@ -265,13 +265,13 @@ void formal_solution_1d_init(RadGridS *pRG)
 	    interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 	    		       S0, pRG->R[ifr][ks][js][i].S, S2);
 	    
-	    psi[i][ifr][l][m][0] = edtau;
-	    psi[i][ifr][l][m][1] = a0;
-	    psi[i][ifr][l][m][2] = a1;
-	    psi[i][ifr][l][m][3] = a2;
-	    lamstr[i][ifr] += pRG->wmu[m] * a1;
+	    psi[ifr][i][l][m][0] = edtau;
+	    psi[ifr][i][l][m][1] = a0;
+	    psi[ifr][i][l][m][2] = a1;
+	    psi[ifr][i][l][m][3] = a2;
+	    lamstr[ifr][i] += pRG->wmu[m] * a1;
 	    if (sx == 1) 
-	      psiint[i][ifr] += pRG->wmu[m] * a2; 
+	      psiint[ifr][i] += pRG->wmu[m] * a2; 
 	  }
 	}
       }

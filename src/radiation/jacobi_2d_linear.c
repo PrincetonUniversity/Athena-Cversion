@@ -61,7 +61,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   if(lte != 0) {
     for(j=js; j<=je; j++)
       for(i=is; i<=ie; i++) 
-	Jold[j][i][ifr] = pRG->R[ifr][ks][j][i].J;
+	Jold[ifr][j][i] = pRG->R[ifr][ks][j][i].J;
   }
 
 /* initialize mean intensities at all depths to zero */
@@ -73,7 +73,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
       pRG->R[ifr][ks][j][i].K[0] = 0.0;
       pRG->R[ifr][ks][j][i].K[1] = 0.0;
       pRG->R[ifr][ks][j][i].K[2] = 0.0;
-      if (svwght == 0) lamstr[j][i][ifr] = 0.0;
+      if (svwght == 0) lamstr[ifr][j][i] = 0.0;
     }
 
 /* Compute formal solution and for all rays in each gridzone and 
@@ -87,7 +87,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
     (*dSrmax) = 0.0;
     for(j=js; j<=je; j++) 
       for(i=is; i<=ie; i++) { 
-	update_sfunc(&(pRG->R[ifr][ks][j][i]),&dSr,lamstr[j][i][ifr]);
+	update_sfunc(&(pRG->R[ifr][ks][j][i]),&dSr,lamstr[ifr][j][i]);
 	if( dSr > (*dSrmax)) {
 	  (*dSrmax) = dSr; ismx=i; jsmx=j;
 	}
@@ -98,10 +98,10 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
     dJmax = 0.0;
     for(j=js; j<=je; j++)
       for(i=is; i<=ie; i++) {
-	dJ = fabs(pRG->R[ifr][ks][j][i].J - Jold[j][i][ifr]);
+	dJ = fabs(pRG->R[ifr][ks][j][i].J - Jold[ifr][j][i]);
 	if(dJ > dJmax) dJmax = dJ;
-	if (Jold[j][i][ifr] > 0.0)
-	  dSr = dJ / Jold[j][i][ifr];
+	if (Jold[ifr][j][i] > 0.0)
+	  dSr = dJ / Jold[ifr][j][i];
 	else
 	  dSr = 0;
 	if( dSr > (*dSrmax)) {
@@ -320,10 +320,10 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
     }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
     if(svwght == 1) {
-      imu = psi[j][i][ifr][l][m][1] * S0 +
-            psi[j][i][ifr][l][m][2] * pRG->R[ifr][k][j][i].S +
-            psi[j][i][ifr][l][m][3] * S2 +	
-	    psi[j][i][ifr][l][m][0] * imu0;
+      imu = psi[ifr][j][i][l][m][1] * S0 +
+            psi[ifr][j][i][l][m][2] * pRG->R[ifr][k][j][i].S +
+            psi[ifr][j][i][l][m][3] * S2 +	
+	    psi[ifr][j][i][l][m][0] * imu0;
     } else {
       if (am <= 1.0) {
 	chi0 = am  * pRG->R[ifr][k][jm][im].chi + 
@@ -351,7 +351,7 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
       interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 				   S0, pRG->R[ifr][k][j][i].S, S2);
       imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
-      lamstr[j][i][ifr] += pRG->wmu[m] * a1;
+      lamstr[ifr][j][i] += pRG->wmu[m] * a1;
     }
 /* Add to radiation moments and save for next iteration */
     wimu = pRG->wmu[m] * imu;
@@ -440,15 +440,15 @@ void formal_solution_2d_init(RadGridS *pRG)
       mu2[i][j][2] = pRG->mu[i][j][1] * pRG->mu[i][j][1];
     }
 
-  if ((lamstr = (Real ***)calloc_3d_array(nx2+2,nx1+2,nf,sizeof(Real))) == NULL) 
+  if ((lamstr = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL) 
     goto on_error;
 
   if (lte != 0) 
-    if ((Jold = (Real ***)calloc_3d_array(nx2+2,nx1+2,nf,sizeof(Real))) == NULL)
+    if ((Jold = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL)
       goto on_error;
   
   if(svwght == 1) {
-    if ((psi = (Real ******)calloc_6d_array(nx2+2,nx1+2,nf,4,nang,4,sizeof(Real))) == NULL) 
+    if ((psi = (Real ******)calloc_6d_array(nf,nx2+2,nx1+2,4,nang,4,sizeof(Real))) == NULL) 
       goto on_error;
 /* compute weights once and save for next iteration */
     for(j=js; j<=je; j++)
@@ -479,11 +479,11 @@ void formal_solution_2d_init(RadGridS *pRG)
 		dtaup = 0.5 * (chi2 + chi1) * dx * muinv[m][0];
 	      }
 	      get_weights_parabolic(dtaum, dtaup, &edtau, &a0, &a1, &a2);
-	      psi[j][i][ifr][l][m][0] = edtau;
-	      psi[j][i][ifr][l][m][1] = a0;
-	      psi[j][i][ifr][l][m][2] = a1;
-	      psi[j][i][ifr][l][m][3] = a2;
-	      lamstr[j][i][ifr] += pRG->wmu[m] * a1;
+	      psi[ifr][j][i][l][m][0] = edtau;
+	      psi[ifr][j][i][l][m][1] = a0;
+	      psi[ifr][j][i][l][m][2] = a1;
+	      psi[ifr][j][i][l][m][3] = a2;
+	      lamstr[ifr][j][i] += pRG->wmu[m] * a1;
 	    }
 	  }
 	}

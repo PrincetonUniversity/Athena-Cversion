@@ -91,10 +91,10 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
-	GhstZnsMom[k][j][ifr][0] = pRG->R[ifr][k][j][il].S;
-	GhstZnsMom[k][j][ifr][1] = pRG->R[ifr][k][j][il].J;
+	GhstZnsMom[ifr][k][j][0] = pRG->R[ifr][k][j][il].S;
+	GhstZnsMom[ifr][k][j][1] = pRG->R[ifr][k][j][il].J;
 	for(l=0; l<nDim; l++) {
-	  GhstZnsMom[k][j][ifr][l+2] = pRG->R[ifr][k][j][il].H[l];
+	  GhstZnsMom[ifr][k][j][l+2] = pRG->R[ifr][k][j][il].H[l];
 	}
       }}}
 
@@ -107,10 +107,10 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
   for(k=ks; k<=ke; k++) {
     for (ifr=ifs; ifr<=ife; ifr++) {
       for(l=0; l<nDim+2; l++) {
-	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[k][j][ifr][l];
+	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[ifr][k][j][l];
 	RemapFlux(U,epsi,js,je+1,Flx);
 	for(j=js; j<=je; j++){
-	  GhstZnsMomBuf[k][j][ifr][l] = GhstZnsMom[k][j][ifr][l] -
+	  GhstZnsMomBuf[ifr][k][j][l] = GhstZnsMom[ifr][k][j][l] -
 	    (Flx[j+1]-Flx[j]);
 	}
       }}}
@@ -138,7 +138,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
         if (jremap < (int)js) jremap += pRG->Nx[1];
 	for (ifr=ifs; ifr<=ife; ifr++) {
 	  for(l=0; l<nDim+2; l++) {
-	    GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
+	    GhstZnsMom[ifr][k][j][l] = GhstZnsMomBuf[ifr][k][jremap][l];
 	  }}}}
 
     for (ifr=ifs; ifr<=ife; ifr++) {
@@ -194,7 +194,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
         for (j=je-(joverlap-1); j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
+	      (*pSnd++) = GhstZnsMomBuf[ifr][k][j][l];
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -219,7 +219,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 	for (j=js; j<=js+(joverlap-1); j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
+	      GhstZnsMom[ifr][k][j][l] = *(pRcv++);
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -243,7 +243,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 	  jremap = j-joverlap;
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
+	      GhstZnsMom[ifr][k][j][l] = GhstZnsMomBuf[ifr][k][jremap][l];
 	    }}}}
       
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -280,7 +280,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 	for (j=js; j<=je-joverlap; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
+	      (*pSnd++) = GhstZnsMomBuf[ifr][k][j][l];
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -304,7 +304,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 	for (j=js+joverlap; j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
+	      GhstZnsMom[ifr][k][j][l] = *(pRcv++);
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -326,10 +326,10 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
-	pRG->R[ifr][k][j][il].S = GhstZnsMom[k][j][ifr][0];
-	pRG->R[ifr][k][j][il].J = GhstZnsMom[k][j][ifr][1];
+	pRG->R[ifr][k][j][il].S = GhstZnsMom[ifr][k][j][0];
+	pRG->R[ifr][k][j][il].J = GhstZnsMom[ifr][k][j][1];
 	for(l=0; l<nDim; l++) {
-	  pRG->R[ifr][k][j][il].H[l] = GhstZnsMom[k][j][ifr][l+2];
+	  pRG->R[ifr][k][j][il].H[l] = GhstZnsMom[ifr][k][j][l+2];
 	}
       }}}
 /*--- Step 8. ------------------------------------------------------------------
@@ -551,10 +551,10 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
-	GhstZnsMom[k][j][ifr][0] = pRG->R[ifr][k][j][iu].S;
-	GhstZnsMom[k][j][ifr][1] = pRG->R[ifr][k][j][iu].J;
+	GhstZnsMom[ifr][k][j][0] = pRG->R[ifr][k][j][iu].S;
+	GhstZnsMom[ifr][k][j][1] = pRG->R[ifr][k][j][iu].J;
 	for(l=0; l<nDim; l++) {
-	  GhstZnsMom[k][j][ifr][l+2] = pRG->R[ifr][k][j][iu].H[l];
+	  GhstZnsMom[ifr][k][j][l+2] = pRG->R[ifr][k][j][iu].H[l];
 	}
       }}}
 
@@ -568,10 +568,10 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
   for(k=ks; k<=ke; k++) {
     for (ifr=ifs; ifr<=ife; ifr++) {
       for(l=0; l<nDim+2; l++) {
-	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[k][j][ifr][l];
+	for (j=js-1; j<=je+1; j++) U[j] =  GhstZnsMom[ifr][k][j][l];
 	RemapFlux(U,epso,js,je+1,Flx);
 	for(j=js; j<=je; j++){
-	  GhstZnsMomBuf[k][j][ifr][l] = GhstZnsMom[k][j][ifr][l] -
+	  GhstZnsMomBuf[ifr][k][j][l] = GhstZnsMom[ifr][k][j][l] -
 	    (Flx[j+1]-Flx[j]);
 	}
       }}}
@@ -599,7 +599,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
         if (jremap > (int)je) jremap -= pRG->Nx[1];
 	for (ifr=ifs; ifr<=ife; ifr++) {
 	  for(l=0; l<nDim+2; l++) {
-	    GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
+	    GhstZnsMom[ifr][k][j][l] = GhstZnsMomBuf[ifr][k][jremap][l];
 	  }}}}
 
     for (ifr=ifs; ifr<=ife; ifr++) {
@@ -655,7 +655,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 	for (j=js; j<=js+(joverlap-1); j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
+	      (*pSnd++) = GhstZnsMomBuf[ifr][k][j][l];
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -681,7 +681,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 	for (j=je-(joverlap-1); j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
+	      GhstZnsMom[ifr][k][j][l] = *(pRcv++);
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -706,7 +706,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
           jremap = j+joverlap;
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      GhstZnsMom[k][j][ifr][l] = GhstZnsMomBuf[k][jremap][ifr][l];
+	      GhstZnsMom[ifr][k][j][l] = GhstZnsMomBuf[ifr][k][jremap][l];
 	    }}}}
       
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -744,7 +744,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
         for (j=js+joverlap; j<=je; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      (*pSnd++) = GhstZnsMomBuf[k][j][ifr][l];
+	      (*pSnd++) = GhstZnsMomBuf[ifr][k][j][l];
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -768,7 +768,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 	for (j=js; j<=je-joverlap; j++) {
 	  for (ifr=ifs; ifr<=ife; ifr++) {
 	    for(l=0; l<nDim+2; l++) {
-	      GhstZnsMom[k][j][ifr][l] = *(pRcv++);
+	      GhstZnsMom[ifr][k][j][l] = *(pRcv++);
 	    }}}}
 
       for (ifr=ifs; ifr<=ife; ifr++) {
@@ -790,10 +790,10 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
   for(k=ks; k<=ke; k++) {
     for(j=js-1; j<=je+1; j++){
       for (ifr=ifs; ifr<=ife; ifr++) {
-	pRG->R[ifr][k][j][iu].S = GhstZnsMom[k][j][ifr][0];
-	pRG->R[ifr][k][j][iu].J = GhstZnsMom[k][j][ifr][1];
+	pRG->R[ifr][k][j][iu].S = GhstZnsMom[ifr][k][j][0];
+	pRG->R[ifr][k][j][iu].J = GhstZnsMom[ifr][k][j][1];
 	for(l=0; l<nDim; l++) {
-	  pRG->R[ifr][k][j][iu].H[l] = GhstZnsMom[k][j][ifr][l+2];
+	  pRG->R[ifr][k][j][iu].H[l] = GhstZnsMom[ifr][k][j][l+2];
 	}
       }}}
 
@@ -1009,10 +1009,10 @@ void bvals_rad_shear_init(MeshS *pM)
 
 /* Allocate memory for temporary arrays and vectors */
 
-  if((GhstZnsMom=(Real****)calloc_4d_array(max3,max2,maxf,nDim+2,sizeof(Real)))==NULL)
+  if((GhstZnsMom=(Real****)calloc_4d_array(maxf,max3,max2,nDim+2,sizeof(Real)))==NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
-  if((GhstZnsMomBuf=(Real****)calloc_4d_array(max3,max2,maxf,nDim+2,sizeof(Real))) ==
+  if((GhstZnsMomBuf=(Real****)calloc_4d_array(maxf,max3,max2,nDim+2,sizeof(Real))) ==
     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
   if((GhstZnsIntBuf=(Real*****)calloc_5d_array(maxf,max3,max2,noct,maxa,sizeof(Real))) ==

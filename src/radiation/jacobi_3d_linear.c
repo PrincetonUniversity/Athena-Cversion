@@ -23,7 +23,7 @@
 
 
 #ifdef RADIATION_TRANSFER
-#if defined(JACOBI) || defined(GAUSSEID)
+#if defined(JACOBI) && defined(LINEAR_INTENSITY)
 
 static Real ****lamstr = NULL;
 static Real ******imuo = NULL;
@@ -83,7 +83,7 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
 	pRG->R[ifr][k][j][i].K[3] = 0.0;
 	pRG->R[ifr][k][j][i].K[4] = 0.0;
 	pRG->R[ifr][k][j][i].K[5] = 0.0;
-	lamstr[k][j][i][ifr] = 0.0;
+	lamstr[ifr][k][j][i] = 0.0;
       }
 
 /* Compute formal solution and for all rays in each gridzone and 
@@ -98,7 +98,7 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
     for(k=ks; k<=ke; k++) 
       for(j=js; j<=je; j++) 
 	for(i=is; i<=ie; i++) { 
-	  update_sfunc(&(pRG->R[ifr][k][j][i]),&dSr,lamstr[k][j][i][ifr]);
+	  update_sfunc(&(pRG->R[ifr][k][j][i]),&dSr,lamstr[ifr][k][j][i]);
 	  if( dSr > (*dSrmax)) {
 	    (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
 	  }
@@ -523,7 +523,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
     interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 				 S0, pRG->R[ifr][k][j][i].S, S2);
     imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
-    lamstr[k][j][i][ifr] += pRG->wmu[m] * a1;    
+    lamstr[ifr][k][j][i] += pRG->wmu[m] * a1;    
 /* Add to radiation moments and save for next iteration */
     wimu = pRG->wmu[m] * imu;
     pRG->R[ifr][k][j][i].J += wimu;
@@ -558,7 +558,6 @@ static void update_sfunc(RadS *R, Real *dSr, Real lam)
 
 void formal_solution_3d_destruct(void)
 {
-  int i;
 
   if (lamstr != NULL) free_4d_array(lamstr);
   if (imuo   != NULL) free_6d_array(imuo);
@@ -586,7 +585,7 @@ void formal_solution_3d_init(RadGridS *pRG)
   Real am, bm;
   Real lx, ly, lz, lmin;
 
-  if ((lamstr = (Real ****)calloc_4d_array(nx3+2,nx2+2,nx1+2,nf,sizeof(Real))) == NULL) 
+  if ((lamstr = (Real ****)calloc_4d_array(nf,nx3+2,nx2+2,nx1+2,sizeof(Real))) == NULL) 
    goto on_error;
 
   if ((imuo = (Real ******)calloc_6d_array(nf,nx2+2,nx1+2,8,nang,2,sizeof(Real))) == NULL)
@@ -653,5 +652,5 @@ void formal_solution_3d_init(RadGridS *pRG)
 
 }
 
-#endif /* JACOBI || GAUSSEID */
+#endif /* JACOBI && LINEAR_INTENSITY */
 #endif /* RADIATION_TRANSFER */
