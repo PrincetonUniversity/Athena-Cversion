@@ -77,7 +77,7 @@ static Real D_FLOOR = 1.e-4;
 
 /* Flag to determine whether or not to employ outflow boundaries
    in z */
-static int zbc_out = 1;
+static int zbc_out = 0;
 
 /*=========================== PUBLIC FUNCTIONS =================================
  *============================================================================*/
