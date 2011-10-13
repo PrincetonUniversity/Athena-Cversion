@@ -80,6 +80,8 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/MatrixSolver/GaussSeidel1D.o \
 		  integrators/MatrixSolver/GaussSeidel2D.o \
 		  integrators/MatrixSolver/GaussSeidel3D.o \
+		  integrators/MatrixSolver/Jacobi3D.o \
+		  integrators/MatrixSolver/Jacobi2D.o \
 		  integrators/MatrixSolver/bvals_Matrix.o \
 		  integrators/MatrixSolver/bvals_Matrix_shear.o
 

@@ -113,17 +113,22 @@ for(n=0; n<Ncycle; n++){
 			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22)
-				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)
-				+ Crat * pMat->dt * Sigma_aE 
+				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33);
+
+/*				+ Crat * pMat->dt * Sigma_aE;
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_31) * velocity_x / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_22) * velocity_y 
 				+ velocity_x * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_32) * velocity_y / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z 
 				+ velocity_x * pMat->U[k][j][i].Edd_31 + velocity_y * pMat->U[k][j][i].Edd_32) * velocity_z / Crat;
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;
+*/
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;*/
 			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
 			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
@@ -269,7 +274,7 @@ for(n=0; n<Ncycle; n++){
 
 			/* For Fr3 */
 
-			pMat->U[k][j][i].Fr3  = pMat->RHS[k][j][i][3];;
+			pMat->U[k][j][i].Fr3  = pMat->RHS[k][j][i][3];
 			pMat->U[k][j][i].Fr3 -= varphi[0] * pMat->U[k-1][j][i].Er;
 			pMat->U[k][j][i].Fr3 -= varphi[1] * pMat->U[k-1][j][i].Fr3;
 			pMat->U[k][j][i].Fr3 -= varphi[2] * pMat->U[k][j-1][i].Er;

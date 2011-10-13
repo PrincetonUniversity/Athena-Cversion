@@ -13,6 +13,8 @@ CORE_OBJ = bandec.o \
 	   GaussSeidel1D.o \
 	   GaussSeidel2D.o \
 	   GaussSeidel3D.o \
+	   Jacobi2D.o \
+	   Jacobi3D.o \
 	   bvals_Matrix.o \
 	   bvals_Matrix_shear.o 
 

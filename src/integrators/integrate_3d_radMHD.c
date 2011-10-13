@@ -3392,6 +3392,27 @@ void integrate_3d_radMHD(DomainS *pD)
 
 				
 			/* Apply the correction */
+			/* Estimate the added radiation source term  */
+			if(Prat > 0.0){
+				pG->Tguess[k][j][i] = Uguess[4] + tempguess[4] - 
+				(pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
+
+#ifdef SHEARING_BOX
+				pG->Tguess[k][j][i] -= ShearSource[3];
+#endif
+
+#ifdef CONS_GRAVITY
+			        pG->Tguess[k][j][i] -= 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
+#endif
+
+				pG->Tguess[k][j][i] /= -Prat;
+
+			}
+			else{
+				pG->Tguess[k][j][i] = 0.0;
+
+			}
+			
 					
 		
 			pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
@@ -3400,6 +3421,9 @@ void integrate_3d_radMHD(DomainS *pD)
 			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
 			pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
 
+
+			
+				
 
 
 			} /* End i */
@@ -3492,6 +3516,10 @@ void integrate_3d_radMHD(DomainS *pD)
 						pG->U[k][j][i].Sigma[m] = Sigma[m];
 					}
 
+				}
+				else{
+					/* In case pressure becomes negative, set radiation source term to be zero */
+					pG->Tguess[k][j][i] = 0.0;
 				}
 
 			

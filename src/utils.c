@@ -1534,6 +1534,7 @@ double rtsafe(void (*funcd)(double, double, double, double, double *, double *),
 
 
 /* Function to calculate  for source term T^4 - Er */
+/*
 void GetTguess(MeshS *pM)
 {
 
@@ -1595,7 +1596,7 @@ void GetTguess(MeshS *pM)
 			
 				pressure = (pG->U[k][j][i].E - (0.5 * pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + 0.5 * pG->U[k][j][i].M2 * pG->U[k][j][i].M2 
 					+ 0.5 * pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d ) * (Gamma - 1.0);
-/* if MHD - 0.5 * Bx * Bx   */
+
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
@@ -1615,7 +1616,7 @@ void GetTguess(MeshS *pM)
 				else{
 
 
-				/* For source term T^4-Er */
+				
 				ETsource = Crat * (Sigma_aP * pow(temperature,4.0) - Sigma_aE * Ern);
 
 				Det = 1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(temperature,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_aE;
@@ -1623,8 +1624,7 @@ void GetTguess(MeshS *pM)
 
 				Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
 		
-				/*		Tguess = temperature - dt * (Gamma - 1.0) * Prat * ETsource / (Det * U1d[i].d * R_ideal);
-*/	
+					
 				Ererr = Ern + dt * 0.5 * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess)) - Erguess;
 				Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess; 
 
@@ -1638,10 +1638,10 @@ void GetTguess(MeshS *pM)
 				sign1 =  pG->U[k][j][i].Er - pow(temperature,4.0);
 				sign2 = Erguess - pow(Tguess, 4.0);
 
-				/* In case overshooting makes relative values of Er and T^4 changed. */  
+				
 				if(sign1 * sign2 < 0.0){
 		
-					/* In case U1d[i].Er is a little negative */
+					
 					if( pG->U[k][j][i].Er < 0.0) pG->U[k][j][i].Er = 0.0;
 
 					coef1 = Prat;
@@ -1661,9 +1661,9 @@ void GetTguess(MeshS *pM)
 					}			
 				}
 							
-				/*
-				pG->Tguess[k][j][i] = Tguess;
-				*/
+				
+				
+				
 				pG->Tguess[k][j][i] = pow(Erguess, 0.25);
 				
 
@@ -1674,8 +1674,9 @@ void GetTguess(MeshS *pM)
 
 			}
 		}
-	} /* End Grid in each domain and each level */
+	} 
 }
+*/
 
 /* Function to get the thermal equilibrium radiation 
  * energy density and gas temperature *

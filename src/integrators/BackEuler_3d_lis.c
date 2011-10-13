@@ -716,7 +716,7 @@ void BackEuler_3d(MeshS *pM)
 		for(j=js; j<=je; j++) {
 			for(i=is; i<=ie; i++){
 /* E is the total energy. should subtract the kinetic energy and magnetic energy density */
-/*    		pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
+    		pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
 			+ pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3)/pG->U[k][j][i].d) * (Gamma - 1.0);
 
 
@@ -726,9 +726,7 @@ void BackEuler_3d(MeshS *pM)
 #endif
 
     		temperature = pressure / (pG->U[k][j][i].d * R_ideal);
-*/
-		/* Guess temperature is updated in the main loop */
-		temperature = pG->Tguess[k][j][i];
+
 
 		T4 = pow(temperature, 4.0);
 
@@ -757,7 +755,7 @@ void BackEuler_3d(MeshS *pM)
 
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
-    		tempvalue   = pG->U[k][j][i].Er + Crat * dt * Sigma_aP * T4;
+    		tempvalue   = pG->U[k][j][i].Er + pG->Tguess[k][j][i];
 
 		if(bgflag){
 			Fr0x = Fr1_t0[k][j][i] - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y
@@ -1085,7 +1083,8 @@ void BackEuler_3d(MeshS *pM)
 			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pG->U[k][j][i].Edd_11) 
 				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[k][j][i].Edd_22)
-				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pG->U[k][j][i].Edd_33)
+				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pG->U[k][j][i].Edd_33);
+/*
 				+ Crat * pG->dt * Sigma_aE 
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pG->U[k][j][i].Edd_21 + velocity_z * pG->U[k][j][i].Edd_31) * velocity_x / Crat
@@ -1093,9 +1092,13 @@ void BackEuler_3d(MeshS *pM)
 				+ velocity_x * pG->U[k][j][i].Edd_21 + velocity_z * pG->U[k][j][i].Edd_32) * velocity_y / Crat
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z 
 				+ velocity_x * pG->U[k][j][i].Edd_31 + velocity_y * pG->U[k][j][i].Edd_32) * velocity_z / Crat;
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_z;
+*/
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1);
+/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1);
+/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1);
+/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_z;*/
 			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[k][j][i+1].Edd_11);
 			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[k][j+1][i].Edd_22);

@@ -2154,6 +2154,28 @@ void integrate_2d_radMHD(DomainS *pD)
 			}
 		}
 
+		
+		/* Estimate the added radiation source term  */
+		if(Prat > 0.0){
+			pG->Tguess[ks][j][i] = Uguess[4] + tempguess[4] - 
+				(pG->U[ks][j][i].E - dt * (divFlux1[4] + divFlux2[4]));
+
+#ifdef SHEARING_BOX
+			pG->Tguess[ks][j][i] -= ShearSource[3];
+#endif
+
+#ifdef CONS_GRAVITY
+			pG->Tguess[ks][j][i] -= 0.5*(pG->U[ks][j][i].d-grav_mean_rho)*pG->Phi_old[ks][j][i]-0.5*(density_old[j][i]-grav_mean_rho)*pG->Phi[ks][j][i];
+#endif
+
+			pG->Tguess[ks][j][i] /= -Prat;
+
+		}
+		else{
+			pG->Tguess[ks][j][i] = 0.0;
+
+		}
+
 
 
 		/* change due to radiation source term */

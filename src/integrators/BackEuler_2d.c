@@ -44,8 +44,19 @@ static Real ****INIerror;
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
 static int Wcyclelim = 10; /* The limit of how many Wcycle we allow */ 
 
+static int Matrixflag = 1; /* This is used to choose Gauss-Seidel or Jacobi method */
+			/* 1 is GS method while 0 is Jacobi */
+
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
+
+/* subtract background state, which is initial condition */
+static Real ***Er_t0;
+static Real ***dErdx_t0;
+static Real ***dErdy_t0;
+static Real ***Fr1_t0;
+static Real ***Fr2_t0;
+static int bgflag;
 
 
 /********Private function ************/
@@ -66,6 +77,7 @@ extern void bvals_Matrix_destruct(MatrixS *pMat);
 void Jacobi3D(MatrixS *pMat, MatrixS *pMatnew);
 */
 extern void GaussSeidel2D(MatrixS *pMat);
+extern void Jacobi2D(MatrixS *pMat);
 
 /********Public function****************/
 /*-------BackEuler_3d(): Use back euler method to update E_r and Fluxr-----------*/
@@ -88,7 +100,7 @@ void BackEuler_2d(MeshS *pM)
 	pMat->dt = dt;
 	pMat->time = pG->time;
 
-	Real velocity_x, velocity_y, T4;
+	Real velocity_x, velocity_y, T4, Fr0x, Fr0y, pressure;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 
 	Real error;
@@ -119,6 +131,43 @@ void BackEuler_2d(MeshS *pM)
 	Real qom, x1, x2, x3;
 	qom = qshear * Omega_0;
 #endif
+
+
+	/* Parameters to subtract the background state */
+	static int t0flag = 1;
+
+	bgflag = 0;
+
+	if(bgflag){
+		if(t0flag){
+		/* If this the first time, save the background state, including boundary condition */
+			for(j=pG->js-nghost; j<=pG->je+nghost; j++){
+				for(i=pG->is-nghost; i<=pG->ie+nghost; i++){
+					Er_t0[ks][j][i] = pG->U[ks][j][i].Er;
+					Fr1_t0[ks][j][i] = pG->U[ks][j][i].Fr1;
+					Fr2_t0[ks][j][i] = pG->U[ks][j][i].Fr2;
+					
+					dErdx_t0[ks][j][i] = -(pG->U[ks][j][i].Sigma[0] + pG->U[ks][j][i].Sigma[1]) * pG->U[ks][j][i].Fr1;
+					dErdy_t0[ks][j][i] = -(pG->U[ks][j][i].Sigma[0] + pG->U[ks][j][i].Sigma[1]) * pG->U[ks][j][i].Fr2;
+				}
+			}	
+			t0flag = 0;
+		}
+	}
+
+	if(bgflag){
+	/* subtract the background state */
+		for(j=pG->js-nghost; j<=pG->je+nghost; j++){
+			for(i=pG->is-nghost; i<=pG->ie+nghost; i++){
+				pG->U[ks][j][i].Er -= Er_t0[ks][j][i];
+				pG->U[ks][j][i].Fr1 -= Fr1_t0[ks][j][i];
+				pG->U[ks][j][i].Fr2 -= Fr2_t0[ks][j][i];				
+
+			}
+		}
+
+	}	
+
 	
 
 	/* Now copy the data */
@@ -131,12 +180,31 @@ void BackEuler_2d(MeshS *pM)
 				
 				velocity_x = pG->U[ks][j][i].M1 / pG->U[ks][j][i].d;
 				velocity_y = pG->U[ks][j][i].M2 / pG->U[ks][j][i].d;
+
+				/* Now Backward Euler step is done after the gas quantities are updated */
+				pressure = (pG->U[ks][j][i].E - 0.5 * pG->U[ks][j][i].d * (velocity_x * velocity_x 
+				+ velocity_y * velocity_y)) * (Gamma - 1.0);
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c) * (Gamma - 1.0);
+#endif
+				if(pressure < TINY_NUMBER){
+					T4 = pG->U[ks][j][i].Er;
+				}
+				else{
+					T4 = pow((pressure / (pG->U[ks][j][i].d * R_ideal)), 4.0);
+				}
+
+
 #ifdef FARGO
 				cc_pos(pG,i,j,ks,&x1,&x2,&x3);
 				velocity_y -= qom * x1;
 #endif
 				
-				T4 = pow(pG->Tguess[ks][j][i], 4.0);	
+				
+				if(bgflag){
+					T4 -= Er_t0[ks][j][i];
+				}
+	
 				Sigma_sF = pG->U[ks][j][i].Sigma[0];
 				Sigma_aF = pG->U[ks][j][i].Sigma[1];
 				Sigma_aP = pG->U[ks][j][i].Sigma[2];
@@ -158,10 +226,25 @@ void BackEuler_2d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
 		/* Now set the right hand side */
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + Crat * dt * Sigma_aP * T4;
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + pG->Tguess[ks][j][i];
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
+
+
+		/* Need to modify the right hand side if background state is subtracted */
+				if(bgflag){
+					Fr0x = Fr1_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;
+					Fr0y = Fr2_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
+
+					pMat->RHS[Matk][Matj][Mati][0] += dt * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y);
 	
+					Fr0x = Fr1_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;		
+					pMat->RHS[Matk][Matj][Mati][1] += (-dt * Crat * (dErdx_t0[ks][j][i] + (Sigma_aF + Sigma_sF) * Fr0x));
+
+					Fr0y = Fr2_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
+					pMat->RHS[Matk][Matj][Mati][2] += (-dt * Crat * (dErdy_t0[ks][j][i] + (Sigma_aF + Sigma_sF) * Fr0y));
+				}	
+
 				
 	} /* End i */
 	}/* End j */
@@ -230,6 +313,19 @@ void BackEuler_2d(MeshS *pM)
 				
 	}
 
+		/* Add back the background state */
+	if(bgflag){
+		for(j=pG->js-nghost; j<=pG->je+nghost; j++){
+			for(i=pG->is-nghost; i<=pG->ie+nghost; i++){
+				
+				pG->U[ks][j][i].Er += Er_t0[ks][j][i];
+				pG->U[ks][j][i].Fr1 += Fr1_t0[ks][j][i];
+				pG->U[ks][j][i].Fr2 += Fr2_t0[ks][j][i];
+
+			}
+		}
+	}
+
 	/* Set the boundary condition */
 
 	
@@ -268,8 +364,12 @@ void RadMHD_multig_2D(MatrixS *pMat)
 #endif
 
 		
-		
-		GaussSeidel2D(pMat);
+		if(Matrixflag){
+			GaussSeidel2D(pMat);
+		}
+		else{
+			Jacobi2D(pMat);
+		}
 
 		
 		bvals_Matrix_destruct(pMat);
@@ -345,7 +445,12 @@ void RadMHD_multig_2D(MatrixS *pMat)
 		/* Update the ghost zones first */
 		bvals_Matrix(pMat);
 		
-		GaussSeidel2D(pMat);
+		if(Matrixflag){
+			GaussSeidel2D(pMat);
+		}
+		else{
+			Jacobi2D(pMat);
+		}
 		
 #ifdef SHEARING_BOX
 		bvals_Matrix_shear_destruct();
@@ -410,8 +515,12 @@ void RadMHD_multig_2D(MatrixS *pMat)
 			/* Update the ghost zones first */
 			bvals_Matrix(pMat);
 
-		
-			GaussSeidel2D(pMat);
+			if(Matrixflag){
+				GaussSeidel2D(pMat);
+			}
+			else{
+				Jacobi2D(pMat);
+			}
 		
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_destruct();
@@ -475,6 +584,18 @@ void BackEuler_init_2d(MeshS *pM)
 	if((INIerror=(Real****)calloc_4d_array(Nz,Ny+2*Matghost,Nx+2*Matghost,3,sizeof(Real))) == NULL)
 			ath_error("[BackEuler_init_2D]: malloc return a NULL pointer\n");	
 
+
+	/* to save Er and Fr at time t0, which are used to subtract the background state */
+	if((Er_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((dErdx_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((dErdy_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((Fr1_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	if((Fr2_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
 
 
 	/* now set the parameters */
@@ -550,6 +671,14 @@ void BackEuler_destruct_2d()
 
 	if(INIerror != NULL)
 		free_4d_array(INIerror);
+
+	/* variables used to subtract background state */
+	free_3d_array(Er_t0);
+	free_3d_array(dErdx_t0);
+	free_3d_array(dErdy_t0);	
+	free_3d_array(Fr1_t0);
+	free_3d_array(Fr2_t0);
+
 }
 
 
@@ -626,14 +755,18 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
 			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
-				+ Crat * pMat->dt * Sigma_aE 
+				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22);
+
+/*				+ Crat * pMat->dt * Sigma_aE 
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
 				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat;
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
+*/
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
 			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
@@ -676,7 +809,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			
 						
 
-			Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Er + Crat * dt * Sigma_aP * T4);
+			Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Er + pG->Tguess[ks][j+diffghost][i+diffghost]);
 			Residual += pMat->RHS[ks][j][i][0];
 			Residual -= theta[0] * pMat->U[ks][j-1][i].Er;
 			Residual -= theta[1] * pMat->U[ks][j-1][i].Fr2;
@@ -720,7 +853,11 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= psi[9] * pMat->U[ks][j+1][i].Fr2;
 
 	
-
+		if(bgflag){
+			Norm += fabs(Er_t0[ks][j+diffghost][i+diffghost]);
+			Norm += fabs(Fr1_t0[ks][j+diffghost][i+diffghost]);
+			Norm += fabs(Fr2_t0[ks][j+diffghost][i+diffghost]);
+		}
 	}
 
 		
@@ -1034,14 +1171,18 @@ void RHSResidual2D(MatrixS *pMat, Real ****newRHS)
 			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
 			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
-				+ Crat * pMat->dt * Sigma_aE 
+				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22);
+
+/*				+ Crat * pMat->dt * Sigma_aE 
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
 				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat;
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
+*/
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
 			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);

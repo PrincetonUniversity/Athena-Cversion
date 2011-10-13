@@ -45,6 +45,9 @@ static Real ****INIerror;
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
 static int Wcyclelim = 10; /* The limit of how many Wcycle we allow */ 
 
+static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method */
+			  /* 1 is GS method while 0 is Jacobi method */
+
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
 
@@ -69,6 +72,8 @@ void Jacobi3D(MatrixS *pMat, MatrixS *pMatnew);
 */
 extern void GaussSeidel3D(MatrixS *pMat);
 
+extern void Jacobi3D(MatrixS *pMat);
+
 /********Public function****************/
 /*-------BackEuler_3d(): Use back euler method to update E_r and Fluxr-----------*/
 /* Not work with SMR now. So there is only one Domain in the Mesh */
@@ -90,7 +95,7 @@ void BackEuler_3d(MeshS *pM)
 	pMat->dt = dt;
 	pMat->time = pG->time;
 
-	Real velocity_x, velocity_y, velocity_z, T4, Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	Real velocity_x, velocity_y, velocity_z, T4, Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure;
 	/*Sigma_aF: flux mean absorption, Sigma_aP: Plank mean absorption, Sigma_aE: Er mean absorption opacity;
 	 * Sigma_sF: flux mean scattering opacity */
 	Real Fr0x, Fr0y, Fr0z;
@@ -148,12 +153,27 @@ void BackEuler_3d(MeshS *pM)
 
 				velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
 				velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+				velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+				/* Now Backward Euler step is done after the gas quantities are updated */
+				pressure = (pG->U[k][j][i].E - 0.5 * pG->U[k][j][i].d *	(velocity_x * velocity_x 
+				+ velocity_y * velocity_y + velocity_z * velocity_z)) * (Gamma - 1.0);
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+#endif
+				if(pressure < TINY_NUMBER){
+					T4 = pG->U[k][j][i].Er;
+				}
+				else{
+					T4 = pow((pressure / (pG->U[k][j][i].d * R_ideal)), 4.0);
+				}
+
+
 #ifdef FARGO
 				cc_pos(pG,i,j,k,&x1,&x2,&x3);
 				velocity_y -= qom * x1;
 #endif
-				velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
-				T4 = pow(pG->Tguess[k][j][i], 4.0);
+
 				Sigma_sF = pG->U[k][j][i].Sigma[0];
 				Sigma_aF = pG->U[k][j][i].Sigma[1];
 				Sigma_aP = pG->U[k][j][i].Sigma[2];
@@ -181,7 +201,7 @@ void BackEuler_3d(MeshS *pM)
 
 
 		/* Now set the right hand side */
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + Crat * dt * Sigma_aP * T4;
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + pG->Tguess[k][j][i];
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[k][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[k][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
 				pMat->RHS[Matk][Matj][Mati][3] = pG->U[k][j][i].Fr3 + dt * Sigma_aP * T4 * velocity_z;	
@@ -300,8 +320,12 @@ void RadMHD_multig_3D(MatrixS *pMat)
 #endif
 
 		
-		
-		GaussSeidel3D(pMat);
+		if(Matrixflag){
+			GaussSeidel3D(pMat);
+		}
+		else{
+			Jacobi3D(pMat);
+		}
 
 		
 		bvals_Matrix_destruct(pMat);
@@ -378,7 +402,12 @@ void RadMHD_multig_3D(MatrixS *pMat)
 		/* Update the ghost zones first */
 		bvals_Matrix(pMat);
 		
-		GaussSeidel3D(pMat);
+		if(Matrixflag){
+			GaussSeidel3D(pMat);
+		}
+		else{
+			Jacobi3D(pMat);
+		}
 		
 #ifdef SHEARING_BOX
 		bvals_Matrix_shear_destruct();
@@ -442,8 +471,12 @@ void RadMHD_multig_3D(MatrixS *pMat)
 #endif
 			/* Update the ghost zones first */
 			bvals_Matrix(pMat);
-
-			GaussSeidel3D(pMat);
+			if(Matrixflag){
+				GaussSeidel3D(pMat);
+			}
+			else{
+				Jacobi3D(pMat);
+			}
 		
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_destruct();
@@ -665,7 +698,8 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22)
-				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)
+				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33);
+/*
 				+ Crat * pMat->dt * Sigma_aE 
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_31) * velocity_x / Crat
@@ -673,9 +707,13 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 				+ velocity_x * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_32) * velocity_y / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z 
 				+ velocity_x * pMat->U[k][j][i].Edd_31 + velocity_y * pMat->U[k][j][i].Edd_32) * velocity_z / Crat;
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;
+*/
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x; */
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y; */
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;*/
 			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
 			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
@@ -754,7 +792,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 				
 			/* Relative Residual should be with respect to original right hand side */
 
-			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Er + Crat * dt * Sigma_aP * T4);
+			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Er + pG->Tguess[k][j][i]);
 			Residual += pMat->RHS[k][j][i][0];
 			Residual -= theta[0] * pMat->U[k-1][j][i].Er;
 			Residual -= theta[1] * pMat->U[k-1][j][i].Fr3;
@@ -1167,17 +1205,23 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22)
-				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)
-				+ Crat * pMat->dt * Sigma_aE 
+				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33);
+
+/*
+				+ Crat * pMat->dt * Sigma_aE;
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_31) * velocity_x / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_22) * velocity_y 
 				+ velocity_x * pMat->U[k][j][i].Edd_21 + velocity_z * pMat->U[k][j][i].Edd_32) * velocity_y / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z 
 				+ velocity_x * pMat->U[k][j][i].Edd_31 + velocity_y * pMat->U[k][j][i].Edd_32) * velocity_z / Crat;
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;
+*/
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x; */
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y; */
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1);
+/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;*/
 			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
 			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);

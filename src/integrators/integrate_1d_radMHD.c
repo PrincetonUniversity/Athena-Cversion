@@ -629,6 +629,26 @@ for(i=il+1; i<=iu-1; i++) {
 		pU1d[m] = pUguess[m] + tempguess[m];
 
 	}
+
+
+	/* Estimate the added radiation source term  */
+	if(Prat > 0.0){
+		pG->Tguess[ks][js][i] = pU1d[4] - (pG->U[ks][js][i].E - dt * pdivFlux[4]);
+
+
+#ifdef CONS_GRAVITY
+		pG->Tguess[ks][js][i] -= 0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(density_old[i]-grav_mean_rho)*pG->Phi[ks][js][i];
+#endif
+
+		pG->Tguess[ks][js][i] /= -Prat;
+
+	}
+	else{
+		pG->Tguess[ks][js][i] = 0.0;
+
+	}
+
+
 	
 	/* Update the quantity in the Grids */
 	pUguess = (Real*)&(pG->U[ks][js][i]);

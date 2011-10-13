@@ -664,15 +664,7 @@ int main(int argc, char *argv[])
 	/* For radiation code, backward Euler is done for the whole mesh *
 	 * before the integrator step *
          */
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
-	/* calculate the guess temperature */
-	GetTguess(&(Mesh));
-
-
-	(*BackEuler)(&Mesh);
-
-#endif
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -687,6 +679,21 @@ int main(int argc, char *argv[])
         }
       }
     }
+
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          bvals_mhd(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
+
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+
+	(*BackEuler)(&Mesh);
+
+#endif
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
@@ -751,13 +758,14 @@ int main(int argc, char *argv[])
           bvals_particle(&(Mesh.Domain[nl][nd]));
 #endif
 
-	/* set boundary conditions for radiation quantities */
-			
 	
+	/* bondary condition is set in the integrator */
+ 
+/*	
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
-	 
+*/	 
 
         }
       }
