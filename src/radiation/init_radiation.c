@@ -49,6 +49,8 @@ void init_radiation(MeshS *pM)
   lte = par_geti("radiation","lte");
   niter = par_geti("radiation","niter");
   dScnv = par_getd("radiation","dScnv");
+/* Initialize CPrat to 1 */
+  CPrat = 1.0;
 /* number of dimensions in Grid. */
   nDim=1;
   for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;

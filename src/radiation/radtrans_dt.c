@@ -18,7 +18,7 @@
 #include "../athena.h"
 #include "../globals.h"
 #include "prototypes.h"
-#include "../prototypes.h"
+#include "../prototypes.h" 
 
 #ifdef RADIATION_TRANSFER
 /*----------------------------------------------------------------------------*/
@@ -44,7 +44,9 @@ Real radtrans_dt(DomainS *pD)
   double my_dt, dt;
   int ierr;
 #endif
-
+  Real bmin, cmin, dmin, tmin;
+  int im,jm,km;
+  
 /* Calculate minimum dx.  Always given by Grid on highest level of refinement */
 
   dxmin = pD->dx[0];
@@ -54,7 +56,8 @@ Real radtrans_dt(DomainS *pD)
 
   qa = 3.0 * (dxmin * dxmin) / (PI * PI);
 
-  nu_con = 16.0 * PI * Gamma_1/ R_ideal;
+  nu_con = CPrat *16.0 * PI * Gamma_1/ R_ideal;
+  //nu_con = CPrat * 4.0 * PI * Gamma_1/ R_ideal;
   
   if (pG->Nx[0] > 1) {
     ioff = nghost - 1;
@@ -78,19 +81,42 @@ Real radtrans_dt(DomainS *pD)
       for (i=il; i<=iu; i++) {
 	ig = i + ioff;
 	chi = pRG->R[ifr][k][j][i].chi;
+	
 	nu_rad = nu_con * pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].B * chi / 
 	         (pG->tgas[kg][jg][ig] * pG->U[kg][jg][ig].d);
 	nu_rad /= (1.0 + qa * chi * chi);
 	dtmin_radtrans = MIN(dtmin_radtrans,(CourNo/nu_rad));
-			 
+	/*	if (dtmin_radtrans == (CourNo/nu_rad)) {
+	  im = i-1;
+	  jm = j-1;
+	  km = k-1;
+	  tmin = pG->tgas[kg][jg][ig];
+	  bmin = pRG->R[ifr][k][j][i].B;
+	  cmin = chi;
+	  dmin = pG->U[kg][jg][ig].d;
+	  }*/
+	/*
+	nu_rad = nu_con * pRG->R[ifr][k][j][i].eps * (pRG->R[ifr][k][j][i].B -
+		 pRG->R[ifr][k][j][i].J) * chi / (pG->tgas[kg][jg][ig] * pG->U[kg][jg][ig].d);
+	if(nu_rad > 0.0) {
+	  dtmin_radtrans = MIN(dtmin_radtrans,(0.5/nu_rad));
+	  }
+	*/
       }}}  
 /* Find minimum timestep over all processors */
 #ifdef MPI_PARALLEL
   my_dt = dtmin_radtrans;
   ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+  //if (dt == dtmin_radtrans)
+  //  printf("%d %d %d %g %g %g %g %g\n",im,jm,km,dmin,bmin,cmin,tmin,dt);
   dtmin_radtrans = dt;
 #endif /* MPI_PARALLEL */
 
+  /* printf("tmin: %d %d %d %g %g %g %g %g\n",im,jm,km,pG->tgas[km][jm][im],pG->U[km][jm][im].d,
+	 pRG->R[0][km-koff][jm-joff][im-ioff].chi, dtmin_radtrans,
+	 CourNo/(nu_con* pRG->R[0][km-koff][jm-joff][im-ioff].chi*
+		 pRG->R[0][km-koff][jm-joff][im-ioff].B)*pG->tgas[km][jm][im]*pG->U[km][jm][im].d);
+  */
   return dtmin_radtrans;
 }
 

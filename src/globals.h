@@ -83,6 +83,7 @@ RadInitFun_t get_thermal_fraction = NULL;
 RadInitFun_t get_total_opacity = NULL;
 int lte, niter;
 Real dScnv;
+Real CPrat;  /* equiv to Prat * Crat in radhydro module */
 Real B00;
 #endif
 
@@ -162,6 +163,7 @@ extern RadInitFun_t get_thermal_fraction;
 extern RadInitFun_t get_total_opacity;
 extern int lte, niter;
 extern Real dScnv;
+extern Real CPrat; 
 extern Real B00;
 #endif
 

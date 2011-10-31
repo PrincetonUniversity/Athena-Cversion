@@ -63,13 +63,13 @@ void hydro_to_rad(DomainS *pD)
 
 	/* Compute gas temperature and store for later use */
 	d = pG->U[kg][jg][ig].d;
-	etherm = pG->U[kg][jg][ig].E - (0.5/d)*
-	  (SQR(pG->U[kg][jg][ig].M1) +SQR(pG->U[kg][jg][ig].M2) +SQR(pG->U[kg][jg][ig].M3));
+	etherm = pG->U[kg][jg][ig].E - (0.5/d) * ( SQR(pG->U[kg][jg][ig].M1) +
+		 SQR(pG->U[kg][jg][ig].M2) + SQR(pG->U[kg][jg][ig].M3) );
 #if defined(MHD) || defined(RADIATION_MHD)
-	etherm -= 0.5 * (SQR(pG->U[kg][jg][ig].B1c) + 
-			 SQR(pG->U[kg][jg][ig].B2c) + SQR(pG->U[kg][jg][ig].B3c));
+	etherm -= 0.5 * (SQR(pG->U[kg][jg][ig].B1c) + SQR(pG->U[kg][jg][ig].B2c) + 
+			 SQR(pG->U[kg][jg][ig].B3c) );
 #endif
-	pG->tgas[kg][jg][ig] = etherm * Gamma_1 / (d * R_ideal);
+	pG->tgas[kg][jg][ig] = MAX(etherm * Gamma_1 / (d * R_ideal),0.0);
 
 	for(ifr=0; ifr<nf; ifr++) {
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -171,7 +171,7 @@ void rad_to_hydro(DomainS *pD)
 	  (1.0 - kappa/(2.0*PI) * atan((2.0 * PI)/kappa));*/
 	  
 	}
-	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource;
+	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource * CPrat;
       }}}
 
   return;

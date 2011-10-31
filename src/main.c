@@ -127,6 +127,9 @@ int main(int argc, char *argv[])
   int nitert;
   Real dScnvt;
 #endif
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
+  VMFun_t BackEuler;
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* Steps in main:
@@ -467,18 +470,16 @@ int main(int argc, char *argv[])
   }
 
 
-   /* set boundary condition for radiation quantities */
+/* set boundary condition for radiation quantities */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
-	VMFun_t BackEuler;
+  // VMFun_t BackEuler;
 
+  BackEuler = BackEuler_init(&Mesh);
 
-
-	BackEuler = BackEuler_init(&Mesh);
-
-
-	/* Note that Eddington tensor is not set here. It will be updated once radiation transfer 
-	* routine is updated. Initial output needs to update the boundary condition.  
-	*/
+/* Note that Eddington tensor is not set here. It will be updated once 
+ * radiation transfer routine is updated. Initial output needs to update 
+ * the boundary condition. */
+#endif
 
 #ifdef RADIATION_TRANSFER
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -492,17 +493,13 @@ int main(int argc, char *argv[])
 	formal_solution(&(Mesh.Domain[nl][nd]));
 	niter = nitert;
 	dScnv = dScnvt;
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
  	Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);
-
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
-
+#endif
       }
     }
   }
-
-	
-#endif
-	
 #endif
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */
@@ -636,7 +633,9 @@ int main(int argc, char *argv[])
 #else
 /* modify timestep if necessary */
 	 dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
-	 /*printf("timesteps:  %g  %g\n",Mesh.dt, dt_rad);*/
+	 /*if(myID_Comm_world == 0){
+	   printf("timesteps  %g  %g\n",Mesh.dt, dt_rad);
+	   }*/
 	 Mesh.dt = MIN(Mesh.dt, dt_rad);
 	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
 /* operator split update of total energy equation */

@@ -23,7 +23,7 @@
 
 
 #ifdef RADIATION_TRANSFER
-#if defined(JACOBI) && defined(LINEAR_INTENSITY)
+#ifdef JACOBI
 
 static Real ****lamstr = NULL;
 static Real ******imuo = NULL;
@@ -652,5 +652,5 @@ void formal_solution_3d_init(RadGridS *pRG)
 
 }
 
-#endif /* JACOBI && LINEAR_INTENSITY */
+#endif /* JACOBI */
 #endif /* RADIATION_TRANSFER */
