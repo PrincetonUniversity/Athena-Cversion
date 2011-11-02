@@ -1319,6 +1319,8 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 #ifdef  RADIATION_MHD 
 	pressure -= (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz);
 #endif
+/* capture negative pressure */
+if(pressure > TINY_NUMBER){
 	/* Should include magnetic energy for MHD */
 	temperature = pressure / (U.d * R_ideal);
 	velocity_x = U.Mx / U.d;
@@ -1351,17 +1353,17 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 
 	/* We keep another v/c term here */
 	/* When opacity depends on density and temperature, this may cause trouble */
-	 *SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
+/*	 *SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)
 	     + (dSigmaE[2] * pow(temperature, 4.0) - dSigmaE[3] * U.Er)
 	     + (dSigmaE[1] - dSigmaE[0]) * (
 		velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
 	     +  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
 	     +  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 		)/Crat;
-	
-	/* If *SEE < 0, the code will be unstable */
-/*	*SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal);
 */	
+	/* If *SEE < 0, the code will be unstable */
+	*SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal);
+	
 		
 
 	*SErho = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
@@ -1376,16 +1378,29 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	*SErho += 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz)/(U.d * U.d * R_ideal);
 #endif	
 
-	*SEmx = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal)
-	      + (dSigmavx[2] * pow(temperature, 4.0) - dSigmavx[3] * U.Er);
-	
+	*SEmx = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal);
+/*	      + (dSigmavx[2] * pow(temperature, 4.0) - dSigmavx[3] * U.Er);
+*/	
 	if(SEmy != NULL)
-		*SEmy = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal)
-	      + (dSigmavy[2] * pow(temperature, 4.0) - dSigmavy[3] * U.Er);
-
+		*SEmy = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal);
+/*	      + (dSigmavy[2] * pow(temperature, 4.0) - dSigmavy[3] * U.Er);
+*/
 	if(SEmz != NULL)
-		*SEmz = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal)
-	      + (dSigmavz[2] * pow(temperature, 4.0) - dSigmavz[3] * U.Er);	
+		*SEmz = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal);
+/*	      + (dSigmavz[2] * pow(temperature, 4.0) - dSigmavz[3] * U.Er);	
+*/
+}
+else{
+
+	*SEE = 0.0;
+	*SErho = 0.0;
+	*SEmx = 0.0;
+	if(SEmy != NULL)
+		*SEmy = 0.0;
+	if(SEmz != NULL)
+		*SEmz = 0.0;
+
+}
 
 
 	return;

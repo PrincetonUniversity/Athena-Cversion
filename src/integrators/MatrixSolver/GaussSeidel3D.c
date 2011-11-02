@@ -50,11 +50,27 @@ void GaussSeidel3D(MatrixS *pMat)
 	Real hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
 	Real dt = pMat->dt;
 
+	Real tempEr1, tempEr2, tempEr3;
+	Real tempFr1, tempFr2, tempFr3, temp0;
+
 	/* To store the coefficient */
-	Real theta[16];
-	Real phi[16];
-	Real psi[16];
-	Real varphi[16];
+	Real ****theta = NULL;
+	Real ****phi = NULL;
+	Real ****psi = NULL;
+	Real ****varphi = NULL;
+
+	if((theta = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+
+	if((phi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+	
+	if((psi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+
+	if((varphi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+
 
 
 	/* Temporary variables to setup the matrix */
@@ -67,20 +83,13 @@ void GaussSeidel3D(MatrixS *pMat)
 	/* We do not set ghost zones after prolongation */
 	/* velocity and T4 in the ghost zones are never used */
 	/* We only need Er and Fr in the ghost zones */
+	/* Use seperate loop to avoid if in next loop */
 
-
-/* Hardware to Ncycle */
-for(n=0; n<Ncycle; n++){
-
+	/* Only need to calculate the coefficient once */
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
-
-		/* Only need to set the elements once, at the beginning */
-		/* The right hand side is stored in pMat */
-		/* The coefficients are calculated according to the formula */
-
-		
+				
 			velocity_x = pMat->U[k][j][i].V1;
 			velocity_y = pMat->U[k][j][i].V2;
 			velocity_z = pMat->U[k][j][i].V3;
@@ -105,13 +114,13 @@ for(n=0; n<Ncycle; n++){
 				/ (sqrt(pMat->U[k][j][i].Edd_33) + sqrt(pMat->U[k-1][j][i].Edd_33));
 			Ck1 =  (sqrt(pMat->U[k+1][j][i].Edd_33) - sqrt(pMat->U[k][j][i].Edd_33)) 
 				/ (sqrt(pMat->U[k+1][j][i].Edd_33) + sqrt(pMat->U[k][j][i].Edd_33));
-			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
-			theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
-			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
-			theta[3] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
-			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+			theta[k][j][i][0] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			theta[k][j][i][1] = -Crat * hdtodx3 * (1.0 + Ck0);
+			theta[k][j][i][2] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			theta[k][j][i][3] = -Crat * hdtodx2 * (1.0 + Cj0);
+			theta[k][j][i][4] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			theta[k][j][i][5] = -Crat * hdtodx1 * (1.0 + Ci0);
+			theta[k][j][i][6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22)
 				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33);
 
@@ -123,175 +132,187 @@ for(n=0; n<Ncycle; n++){
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z 
 				+ velocity_x * pMat->U[k][j][i].Edd_31 + velocity_y * pMat->U[k][j][i].Edd_32) * velocity_z / Crat;
 */
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1);
+			theta[k][j][i][7] = Crat * hdtodx1 * (Ci0 + Ci1);
 /*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1);
+			theta[k][j][i][8] = Crat * hdtodx2 * (Cj0 + Cj1);
 /*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1);
+			theta[k][j][i][9] = Crat * hdtodx3 * (Ck0 + Ck1);
 /*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_z;*/
-			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
-			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
-			theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
-			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
-			theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
+			theta[k][j][i][10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			theta[k][j][i][11] = Crat * hdtodx1 * (1.0 - Ci1);
+			theta[k][j][i][12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			theta[k][j][i][13] = Crat * hdtodx2 * (1.0 - Cj1);
+			theta[k][j][i][14] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+			theta[k][j][i][15] = Crat * hdtodx3 * (1.0 - Ck1);
 			
 			
-			phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_31;
-			phi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
-			phi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_21;
-			phi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
-			phi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_11;
-			phi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
-			phi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_11
+			phi[k][j][i][0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_31;
+			phi[k][j][i][1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			phi[k][j][i][2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_21;
+			phi[k][j][i][3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			phi[k][j][i][4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_11;
+			phi[k][j][i][5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			phi[k][j][i][6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_11
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[k][j][i].Edd_21   
 			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat->U[k][j][i].Edd_31   
 			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_11) * velocity_x + pMat->U[k][j][i].Edd_21 * velocity_y + pMat->U[k][j][i].Edd_31 * velocity_z) 
 			       + pMat->dt * Sigma_aE * velocity_x;
-			phi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+			phi[k][j][i][7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22) 
 				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)	
 				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			phi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_11;
-			phi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
-			phi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_21;
-			phi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
-			phi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_31;
-			phi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+			phi[k][j][i][8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_11;
+			phi[k][j][i][9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			phi[k][j][i][10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_21;
+			phi[k][j][i][11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			phi[k][j][i][12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_31;
+			phi[k][j][i][13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
 
 
 
-			psi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_32;
-			psi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
-			psi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_22;
-			psi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
-			psi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_21;
-			psi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
-			psi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_21
+			psi[k][j][i][0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_32;
+			psi[k][j][i][1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			psi[k][j][i][2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_22;
+			psi[k][j][i][3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			psi[k][j][i][4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_21;
+			psi[k][j][i][5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			psi[k][j][i][6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_21
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[k][j][i].Edd_22   
 			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat->U[k][j][i].Edd_32   
 			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_22) * velocity_y + pMat->U[k][j][i].Edd_21 * velocity_x + pMat->U[k][j][i].Edd_32 * velocity_z) 
 			       + pMat->dt * Sigma_aE * velocity_y;
-			psi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+			psi[k][j][i][7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22) 
 				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)	
 				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			psi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_21;
-			psi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
-			psi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_22;
-			psi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
-			psi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_32;
-			psi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+			psi[k][j][i][8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_21;
+			psi[k][j][i][9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			psi[k][j][i][10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_22;
+			psi[k][j][i][11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			psi[k][j][i][12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_32;
+			psi[k][j][i][13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
 
-			varphi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_33;
-			varphi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
-			varphi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_32;
-			varphi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
-			varphi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_31;
-			varphi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
-			varphi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_31
+			varphi[k][j][i][0] = -Crat * hdtodx3 * (1.0 + Ck0) * pMat->U[k-1][j][i].Edd_33;
+			varphi[k][j][i][1] = -Crat * hdtodx3 * (1.0 + Ck0) * sqrt(pMat->U[k-1][j][i].Edd_33);
+			varphi[k][j][i][2] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[k][j-1][i].Edd_32;
+			varphi[k][j][i][3] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[k][j-1][i].Edd_22);
+			varphi[k][j][i][4] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[k][j][i-1].Edd_31;
+			varphi[k][j][i][5] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[k][j][i-1].Edd_11);
+			varphi[k][j][i][6] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[k][j][i].Edd_31
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[k][j][i].Edd_32   
 			       + Crat * hdtodx3 * (Ck0 + Ck1) * pMat->U[k][j][i].Edd_33   
 			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[k][j][i].Edd_33) * velocity_z + pMat->U[k][j][i].Edd_31 * velocity_x + pMat->U[k][j][i].Edd_32 * velocity_y) 
 			       + pMat->dt * Sigma_aE * velocity_z;
-			varphi[7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
+			varphi[k][j][i][7] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[k][j][i].Edd_11) 
 				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[k][j][i].Edd_22) 
 				     + Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pMat->U[k][j][i].Edd_33)	
 				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			varphi[8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_31;
-			varphi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
-			varphi[10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_32;
-			varphi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
-			varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_33;
-			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
-				
-				
-		
+			varphi[k][j][i][8] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[k][j][i+1].Edd_31;
+			varphi[k][j][i][9] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[k][j][i+1].Edd_11);
+			varphi[k][j][i][10] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[k][j+1][i].Edd_32;
+			varphi[k][j][i][11] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[k][j+1][i].Edd_22);
+			varphi[k][j][i][12] = Crat * hdtodx3 * (1.0 - Ck1) * pMat->U[k+1][j][i].Edd_33;
+			varphi[k][j][i][13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
+
+	}
+
+
+/* Hardware to Ncycle */
+for(n=0; n<Ncycle; n++){
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+
+		/* Only need to set the elements once, at the beginning */
+		/* The right hand side is stored in pMat */
+		/* The coefficients are calculated according to the formula */
 
 			/* The diagonal elements are theta[6], phi[7], psi[7], varphi[7] */
-			
+		
 			/* For Er */
 			pMat->U[k][j][i].Er  = pMat->RHS[k][j][i][0];
-			pMat->U[k][j][i].Er -= theta[0] * pMat->U[k-1][j][i].Er;
-			pMat->U[k][j][i].Er -= theta[1] * pMat->U[k-1][j][i].Fr3;
-			pMat->U[k][j][i].Er -= theta[2] * pMat->U[k][j-1][i].Er;
-			pMat->U[k][j][i].Er -= theta[3] * pMat->U[k][j-1][i].Fr2;
-			pMat->U[k][j][i].Er -= theta[4] * pMat->U[k][j][i-1].Er;
-			pMat->U[k][j][i].Er -= theta[5] * pMat->U[k][j][i-1].Fr1;
-			/* diagonal elements are not included */
-			pMat->U[k][j][i].Er -= theta[7] * pMat->U[k][j][i].Fr1;
-			pMat->U[k][j][i].Er -= theta[8] * pMat->U[k][j][i].Fr2;
-			pMat->U[k][j][i].Er -= theta[9] * pMat->U[k][j][i].Fr3;
-			pMat->U[k][j][i].Er -= theta[10] * pMat->U[k][j][i+1].Er;
-			pMat->U[k][j][i].Er -= theta[11] * pMat->U[k][j][i+1].Fr1;
-			pMat->U[k][j][i].Er -= theta[12] * pMat->U[k][j+1][i].Er;
-			pMat->U[k][j][i].Er -= theta[13] * pMat->U[k][j+1][i].Fr2;
-			pMat->U[k][j][i].Er -= theta[14] * pMat->U[k+1][j][i].Er;
-			pMat->U[k][j][i].Er -= theta[15] * pMat->U[k+1][j][i].Fr3;
 
-			pMat->U[k][j][i].Er /= theta[6];
+			tempEr3 = theta[k][j][i][0] * pMat->U[k-1][j][i].Er + theta[k][j][i][14] * pMat->U[k+1][j][i].Er;
+			tempEr2 = theta[k][j][i][2] * pMat->U[k][j-1][i].Er + theta[k][j][i][12] * pMat->U[k][j+1][i].Er;
+			tempEr1 = theta[k][j][i][4] * pMat->U[k][j][i-1].Er + theta[k][j][i][10] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = theta[k][j][i][1] * pMat->U[k-1][j][i].Fr3 + theta[k][j][i][15] * pMat->U[k+1][j][i].Fr3;
+			tempFr2 = theta[k][j][i][3] * pMat->U[k][j-1][i].Fr2 + theta[k][j][i][13] * pMat->U[k][j+1][i].Fr2;
+			tempFr1 = theta[k][j][i][5] * pMat->U[k][j][i-1].Fr1 + theta[k][j][i][11] * pMat->U[k][j][i+1].Fr1;
+
+			temp0 = theta[k][j][i][7] * pMat->U[k][j][i].Fr1 + theta[k][j][i][8] * pMat->U[k][j][i].Fr2 + theta[k][j][i][9] * pMat->U[k][j][i].Fr3;
+
+			pMat->U[k][j][i].Er -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+			/* diagonal elements are not included */
+
+			pMat->U[k][j][i].Er /= theta[k][j][i][6];
+
+			/*****************************************************/
 			/* For Fr1 */
 
 			pMat->U[k][j][i].Fr1  = pMat->RHS[k][j][i][1];
-			pMat->U[k][j][i].Fr1 -= phi[0] * pMat->U[k-1][j][i].Er;
-			pMat->U[k][j][i].Fr1 -= phi[1] * pMat->U[k-1][j][i].Fr1;
-			pMat->U[k][j][i].Fr1 -= phi[2] * pMat->U[k][j-1][i].Er;
-			pMat->U[k][j][i].Fr1 -= phi[3] * pMat->U[k][j-1][i].Fr1;
-			pMat->U[k][j][i].Fr1 -= phi[4] * pMat->U[k][j][i-1].Er;
-			pMat->U[k][j][i].Fr1 -= phi[5] * pMat->U[k][j][i-1].Fr1;
-			pMat->U[k][j][i].Fr1 -= phi[6] * pMat->U[k][j][i].Er;
-			/* diagonal elements are not included */
 
-			pMat->U[k][j][i].Fr1 -= phi[8] * pMat->U[k][j][i+1].Er;
-			pMat->U[k][j][i].Fr1 -= phi[9] * pMat->U[k][j][i+1].Fr1;
-			pMat->U[k][j][i].Fr1 -= phi[10] * pMat->U[k][j+1][i].Er;
-			pMat->U[k][j][i].Fr1 -= phi[11] * pMat->U[k][j+1][i].Fr1;
-			pMat->U[k][j][i].Fr1 -= phi[12] * pMat->U[k+1][j][i].Er;
-			pMat->U[k][j][i].Fr1 -= phi[13] * pMat->U[k+1][j][i].Fr1;
-	
-			pMat->U[k][j][i].Fr1 /= phi[7];
+			tempEr3 = phi[k][j][i][0] * pMat->U[k-1][j][i].Er + phi[k][j][i][12] * pMat->U[k+1][j][i].Er;
+			tempEr2 = phi[k][j][i][2] * pMat->U[k][j-1][i].Er + phi[k][j][i][10] * pMat->U[k][j+1][i].Er;
+			tempEr1 = phi[k][j][i][4] * pMat->U[k][j][i-1].Er + phi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = phi[k][j][i][1] * pMat->U[k-1][j][i].Fr1 + phi[k][j][i][13] * pMat->U[k+1][j][i].Fr1;
+			tempFr2 = phi[k][j][i][3] * pMat->U[k][j-1][i].Fr1 + phi[k][j][i][11] * pMat->U[k][j+1][i].Fr1;
+			tempFr1 = phi[k][j][i][5] * pMat->U[k][j][i-1].Fr1 + phi[k][j][i][9] * pMat->U[k][j][i+1].Fr1;
+
+			temp0 = phi[k][j][i][6] * pMat->U[k][j][i].Er;
+
+			
+			pMat->U[k][j][i].Fr1 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+			pMat->U[k][j][i].Fr1 /= phi[k][j][i][7];
+
+			/**************************************************/
 
 			/* For Fr2 */
 
 			pMat->U[k][j][i].Fr2  = pMat->RHS[k][j][i][2];
-			pMat->U[k][j][i].Fr2 -= psi[0] * pMat->U[k-1][j][i].Er;
-			pMat->U[k][j][i].Fr2 -= psi[1] * pMat->U[k-1][j][i].Fr2;
-			pMat->U[k][j][i].Fr2 -= psi[2] * pMat->U[k][j-1][i].Er;
-			pMat->U[k][j][i].Fr2 -= psi[3] * pMat->U[k][j-1][i].Fr2;
-			pMat->U[k][j][i].Fr2 -= psi[4] * pMat->U[k][j][i-1].Er;
-			pMat->U[k][j][i].Fr2 -= psi[5] * pMat->U[k][j][i-1].Fr2;
-			pMat->U[k][j][i].Fr2 -= psi[6] * pMat->U[k][j][i].Er;
-			/* diagonal elements are not included */
 
-			pMat->U[k][j][i].Fr2 -= psi[8] * pMat->U[k][j][i+1].Er;
-			pMat->U[k][j][i].Fr2 -= psi[9] * pMat->U[k][j][i+1].Fr2;
-			pMat->U[k][j][i].Fr2 -= psi[10] * pMat->U[k][j+1][i].Er;
-			pMat->U[k][j][i].Fr2 -= psi[11] * pMat->U[k][j+1][i].Fr2;
-			pMat->U[k][j][i].Fr2 -= psi[12] * pMat->U[k+1][j][i].Er;
-			pMat->U[k][j][i].Fr2 -= psi[13] * pMat->U[k+1][j][i].Fr2;
-	
-			pMat->U[k][j][i].Fr2 /= psi[7];
 
+			tempEr3 = psi[k][j][i][0] * pMat->U[k-1][j][i].Er + psi[k][j][i][12] * pMat->U[k+1][j][i].Er;
+			tempEr2 = psi[k][j][i][2] * pMat->U[k][j-1][i].Er + psi[k][j][i][10] * pMat->U[k][j+1][i].Er;
+			tempEr1 = psi[k][j][i][4] * pMat->U[k][j][i-1].Er + psi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = psi[k][j][i][1] * pMat->U[k-1][j][i].Fr2 + psi[k][j][i][13] * pMat->U[k+1][j][i].Fr2;
+			tempFr2 = psi[k][j][i][3] * pMat->U[k][j-1][i].Fr2 + psi[k][j][i][11] * pMat->U[k][j+1][i].Fr2;
+			tempFr1 = psi[k][j][i][5] * pMat->U[k][j][i-1].Fr2 + psi[k][j][i][9] * pMat->U[k][j][i+1].Fr2;
+
+			temp0 = psi[k][j][i][6] * pMat->U[k][j][i].Er;
+
+			
+			pMat->U[k][j][i].Fr2 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+			pMat->U[k][j][i].Fr2 /= psi[k][j][i][7];
+
+
+
+			/***************************************************/
 			/* For Fr3 */
 
 			pMat->U[k][j][i].Fr3  = pMat->RHS[k][j][i][3];
-			pMat->U[k][j][i].Fr3 -= varphi[0] * pMat->U[k-1][j][i].Er;
-			pMat->U[k][j][i].Fr3 -= varphi[1] * pMat->U[k-1][j][i].Fr3;
-			pMat->U[k][j][i].Fr3 -= varphi[2] * pMat->U[k][j-1][i].Er;
-			pMat->U[k][j][i].Fr3 -= varphi[3] * pMat->U[k][j-1][i].Fr3;
-			pMat->U[k][j][i].Fr3 -= varphi[4] * pMat->U[k][j][i-1].Er;
-			pMat->U[k][j][i].Fr3 -= varphi[5] * pMat->U[k][j][i-1].Fr3;
-			pMat->U[k][j][i].Fr3 -= varphi[6] * pMat->U[k][j][i].Er;
-			/* diagonal elements are not included */
 
-			pMat->U[k][j][i].Fr3 -= varphi[8] * pMat->U[k][j][i+1].Er;
-			pMat->U[k][j][i].Fr3 -= varphi[9] * pMat->U[k][j][i+1].Fr3;
-			pMat->U[k][j][i].Fr3 -= varphi[10] * pMat->U[k][j+1][i].Er;
-			pMat->U[k][j][i].Fr3 -= varphi[11] * pMat->U[k][j+1][i].Fr3;
-			pMat->U[k][j][i].Fr3 -= varphi[12] * pMat->U[k+1][j][i].Er;
-			pMat->U[k][j][i].Fr3 -= varphi[13] * pMat->U[k+1][j][i].Fr3;
-	
-			pMat->U[k][j][i].Fr3 /= varphi[7];
+
+			tempEr3 = varphi[k][j][i][0] * pMat->U[k-1][j][i].Er + varphi[k][j][i][12] * pMat->U[k+1][j][i].Er;
+			tempEr2 = varphi[k][j][i][2] * pMat->U[k][j-1][i].Er + varphi[k][j][i][10] * pMat->U[k][j+1][i].Er;
+			tempEr1 = varphi[k][j][i][4] * pMat->U[k][j][i-1].Er + varphi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = varphi[k][j][i][1] * pMat->U[k-1][j][i].Fr3 + varphi[k][j][i][13] * pMat->U[k+1][j][i].Fr3;
+			tempFr2 = varphi[k][j][i][3] * pMat->U[k][j-1][i].Fr3 + varphi[k][j][i][11] * pMat->U[k][j+1][i].Fr3;
+			tempFr1 = varphi[k][j][i][5] * pMat->U[k][j][i-1].Fr3 + varphi[k][j][i][9] * pMat->U[k][j][i+1].Fr3;
+
+			temp0 = varphi[k][j][i][6] * pMat->U[k][j][i].Er;
+
+			
+			pMat->U[k][j][i].Fr3 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+			pMat->U[k][j][i].Fr3 /= varphi[k][j][i][7];
 
 	}
 			
@@ -302,6 +323,17 @@ for(n=0; n<Ncycle; n++){
 
 }	
   
+	if(theta != NULL)
+		free_4d_array(theta);
+
+	if(phi != NULL)
+		free_4d_array(phi);
+
+	if(psi != NULL)
+		free_4d_array(psi);
+
+	if(varphi != NULL)
+		free_4d_array(varphi);
 
 	return;	
 	

@@ -34,6 +34,7 @@ Real new_dt_diff(MeshS *pM)
   Real dxmin,qa;
 #ifdef RESISTIVITY
   int i,j,k,nl,nd;
+  int is, ie, js, je, ks, ke;
   GridS *pG;
 #endif
 
@@ -61,9 +62,16 @@ Real new_dt_diff(MeshS *pM)
       if (pM->Domain[nl][nd].Grid != NULL){
         pG = pM->Domain[nl][nd].Grid;
 
-        dxmin = pG->dx[0];
-        if (pG->Nx[1] > 1) dxmin = MIN( dxmin, (pG->dx[1]) );
-        if (pG->Nx[2] > 1) dxmin = MIN( dxmin, (pG->dx[2]) );
+	is = pG->is;
+	ie = pG->ie;
+	js = pG->js;
+	je = pG->je;
+	ks = pG->ks;
+	ke = pG->ke;
+
+        dxmin = pG->dx1;
+        if (pG->Nx[1] > 1) dxmin = MIN( dxmin, (pG->dx2) );
+        if (pG->Nx[2] > 1) dxmin = MIN( dxmin, (pG->dx3) );
 
         qa = (dxmin*dxmin)/4.0;
         if (pG->Nx[1] > 1) qa = (dxmin*dxmin)/8.0;

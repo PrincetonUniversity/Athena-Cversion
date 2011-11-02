@@ -738,6 +738,9 @@ if test "$ok" = "yes"; then
 if test "$with_integrator" = "vl"; then
   FOFC_MODE="FIRST_ORDER_FLUX_CORRECTION"
   FOFC_MODE_USER="ON"
+elif test "$with_integrator" = "RADIATIONMHD"; then
+  FOFC_MODE="FIRST_ORDER_FLUX_CORRECTION"
+  FOFC_MODE_USER="ON"
 else
   AC_MSG_ERROR([first-order flux correction only works with VL integrator!])
 fi

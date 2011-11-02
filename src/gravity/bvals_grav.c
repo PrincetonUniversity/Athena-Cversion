@@ -106,6 +106,9 @@ void bvals_grav(DomainS *pD)
 #ifdef MPI_PARALLEL
 
     cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2]);
+#ifdef CONS_GRAVITY
+    cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2]) * 2;	
+#endif
 
 /* MPI blocks to both left and right */
     if (pGrid->rx1_Gid >= 0 && pGrid->lx1_Gid >= 0) {
@@ -203,6 +206,9 @@ void bvals_grav(DomainS *pD)
 #ifdef MPI_PARALLEL
 
     cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2]);
+#ifdef CONS_GRAVITY
+    cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2]) * 2;	
+#endif
 
 /* MPI blocks to both left and right */
     if (pGrid->rx2_Gid >= 0 && pGrid->lx2_Gid >= 0) {
@@ -311,6 +317,9 @@ void bvals_grav(DomainS *pD)
 #ifdef MPI_PARALLEL
 
     cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost;
+#ifdef CONS_GRAVITY
+    cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost * 2;
+#endif
 
 /* MPI blocks to both left and right */
     if (pGrid->rx3_Gid >= 0 && pGrid->lx3_Gid >= 0) {
@@ -740,6 +749,9 @@ void bvals_grav_init(MeshS *pM)
   size = x3cnt >  size ? x3cnt : size;
 
   size *= nghost; /* Multiply by the third dimension */
+#ifdef CONS_GRAVITY
+  size *= 2;
+#endif
 
   if (size > 0) {
     if((send_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)

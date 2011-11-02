@@ -131,7 +131,7 @@ void selfg_fft_1d(DomainS *pD)
   }
 
 /* Normalize so mean dphidt is zero */
-   total_Phi = 0.0;
+/*   total_Phi = 0.0;
 
   for (i=is; i<=ie; i++) {
     total_Phi += pG->dphidt[ks][js][i];
@@ -141,6 +141,7 @@ void selfg_fft_1d(DomainS *pD)
   for (i=is; i<=ie; i++) {
     pG->dphidt[ks][js][i] -= total_Phi;
   }
+*/
 /* Actually dphidt only have one value at n+1/2 */
   for (i=is-nghost; i<=ie+nghost; i++){
     pG->dphidt_old[ks][js][i] = pG->dphidt[ks][js][i];
@@ -476,7 +477,7 @@ void selfg_fft_2d(DomainS *pD)
 
 
 /* Normalize phi and dphidt */
-	tot_Phi = 0.0;
+/*	tot_Phi = 0.0;
 	tot_dphidt = 0.0;
 for(j=js; j<=je; j++){
  for (i=is; i<=ie; i++) {
@@ -493,7 +494,7 @@ for(j=js; j<=je; j++){
     pG->dphidt[ks][j][i] -= tot_dphidt;
   }
 }
-
+*/
 #endif
 
   return;
@@ -686,7 +687,6 @@ void selfg_fft_3d(DomainS *pD)
     }
   }}
 
-<<<<<<< .working
 #ifdef SHEARING_BOX
   RemapVar(pD,UnRollPhi,dt);
 
@@ -795,7 +795,8 @@ void selfg_fft_3d(DomainS *pD)
 
 
 /* Normalize phi and dphidt */
-	tot_Phi = 0.0;
+/* Do not subtract. This is bad for MPI case */
+/*	tot_Phi = 0.0;
 	tot_dphidt = 0.0;
 for(k=ks;k<=ke;k++){
 for(j=js; j<=je; j++){
@@ -816,7 +817,7 @@ for(j=js; j<=je; j++){
   }
 }
 }
-
+*/
   /* Copy current potential into old */
 
   for (k=ks-nghost; k<=ke+nghost; k++){
@@ -827,23 +828,6 @@ for(j=js; j<=je; j++){
   }}
 #endif
 
-=======
-#ifdef SHEARING_BOX
-  RemapVar(pD,UnRollPhi,dt);
-
-  for (k=ks; k<=ke; k++){
-    for (j=js; j<=je; j++){
-      for (i=is; i<=ie; i++){
-         pG->Phi[k][j][i] = UnRollPhi[k][i][j];
-      }
-    }
-  }
-
-  free_3d_array(RollDen);
-  free_3d_array(UnRollPhi);
-#endif
-
->>>>>>> .merge-right.r1365
   return;
 }
 

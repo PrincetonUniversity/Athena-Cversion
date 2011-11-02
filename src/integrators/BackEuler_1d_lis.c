@@ -118,7 +118,7 @@ void BackEuler_1d(MeshS *pM)
 
   	Real theta[7];
   	Real phi[7];
-  	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+  	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure;
 
 	/* Boundary condition flag */
 	int ix1, ox1, ix2, ox2, ix3, ox3;

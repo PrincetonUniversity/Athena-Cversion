@@ -43,7 +43,7 @@ static Real ****INIerror;
 
 
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
-static int Wcyclelim = 10; /* The limit of how many Wcycle we allow */ 
+static int Wcyclelim = 15; /* The limit of how many Wcycle we allow */ 
 
 static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method */
 			  /* 1 is GS method while 0 is Jacobi method */
@@ -55,12 +55,34 @@ static int Wflag; /* To decide the position in the W flag */
 /********Private function ************/
 static Real CheckResidual(MatrixS *pMat, GridS *pG);
 static void RadMHD_multig_3D(MatrixS *pMat);
-static void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine);
+
 static void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse);
 
 static void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat);
 
 static void RHSResidual3D(MatrixS *pMat, Real ****newRHS);
+
+
+/* New restriction and prolongation function adopted from SMR */
+
+void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine);
+
+
+void ProU(const RadMHDS Uim1, const RadMHDS Ui, const RadMHDS Uip1, 
+	  const RadMHDS Ujm1, const RadMHDS Ujp1,
+	  const RadMHDS Ukm1, const RadMHDS Ukp1, RadMHDS PCon[2][2][2]);
+
+#ifndef FIRST_ORDER
+/* left: vl, right: vr, center: vc. Calculate the TVD slope */
+static Real mcd_slope(const Real vl, const Real vc, const Real vr);
+#endif /* FIRST_ORDER */
+
+
+
+
+
+
+
 
 /* Matrix boundary function */
 extern void bvals_Matrix_init(MatrixS *pMat);
@@ -161,8 +183,9 @@ void BackEuler_3d(MeshS *pM)
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
-				if(pressure < TINY_NUMBER){
+				if(pressure < 2.0 * TINY_NUMBER){
 					T4 = pG->U[k][j][i].Er;
+					pG->Tguess[k][j][i] = 0.0;
 				}
 				else{
 					T4 = pow((pressure / (pG->U[k][j][i].d * R_ideal)), 4.0);
@@ -212,7 +235,9 @@ void BackEuler_3d(MeshS *pM)
 
 /* Now calculate the residual */
 
-
+/* Only do this if background state is subtracted */
+/* For inflow boundary condition, if background state is subtracted, ghost zones in the matrix should always set to be zero */
+if(pMat->bgflag){
 	/* calculate the residual */
 	RHSResidual3D(pMat, INIerror);
 
@@ -234,7 +259,7 @@ void BackEuler_3d(MeshS *pM)
 		}
 	}
 	/* Right hand side in the ghost zones are never used */
-
+}
 
 
 		
@@ -250,6 +275,9 @@ void BackEuler_3d(MeshS *pM)
 
 		/* for parent grid, check residual */
 		error = fabs(CheckResidual(pMat,pG));
+
+		if(error != error)
+			ath_error("[BackEuler3D]: NaN encountered!\n");
 	
 		Wcycle++;
 
@@ -271,10 +299,18 @@ void BackEuler_3d(MeshS *pM)
 				Matj = j - (nghost - Matghost);
 				Matk = k - (nghost - Matghost);
 
+			if(pMat->bgflag){
 				pG->U[k][j][i].Er += pMat->U[Matk][Matj][Mati].Er;
 				pG->U[k][j][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
 				pG->U[k][j][i].Fr2 += pMat->U[Matk][Matj][Mati].Fr2;
 				pG->U[k][j][i].Fr3 += pMat->U[Matk][Matj][Mati].Fr3;
+			}
+			else{
+				pG->U[k][j][i].Er = pMat->U[Matk][Matj][Mati].Er;
+				pG->U[k][j][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
+				pG->U[k][j][i].Fr2 = pMat->U[Matk][Matj][Mati].Fr2;
+				pG->U[k][j][i].Fr3 = pMat->U[Matk][Matj][Mati].Fr3;
+			}
 			/*
 				if(pG->U[k][j][i].Er < TINY_NUMBER)
 					pG->U[k][j][i].Er = 1.0;
@@ -593,6 +629,10 @@ void BackEuler_init_3d(MeshS *pM)
 	pMat->BCFlag_ox2 = pM->BCFlag_ox2;
 	pMat->BCFlag_ix3 = pM->BCFlag_ix3;
 	pMat->BCFlag_ox3 = pM->BCFlag_ox3;
+
+	/* To decide whether subtract background solution at top level or not */
+	/* Default choice is not */
+	pMat->bgflag = 0;
 	
 
 
@@ -791,8 +831,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * sqrt(pMat->U[k+1][j][i].Edd_33);
 				
 			/* Relative Residual should be with respect to original right hand side */
-
-			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Er + pG->Tguess[k][j][i]);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Er + pG->Tguess[k][j][i]);
+			}
+			else{
+				Norm += fabs(pMat->RHS[k][j][i][0]);
+			}
 			Residual += pMat->RHS[k][j][i][0];
 			Residual -= theta[0] * pMat->U[k-1][j][i].Er;
 			Residual -= theta[1] * pMat->U[k-1][j][i].Fr3;
@@ -811,8 +855,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= theta[14] * pMat->U[k+1][j][i].Er;
 			Residual -= theta[15] * pMat->U[k+1][j][i].Fr3;
 
-
-			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
+			}
+			else{
+				Norm += fabs(pMat->RHS[k][j][i][1]);
+			}
 			Residual += pMat->RHS[k][j][i][1];
 			Residual -= phi[0] * pMat->U[k-1][j][i].Er;
 			Residual -= phi[1] * pMat->U[k-1][j][i].Fr1;
@@ -829,7 +877,13 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= phi[12] * pMat->U[k+1][j][i].Er;
 			Residual -= phi[13] * pMat->U[k+1][j][i].Fr1;
 
-			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
+			}
+			else{
+				Norm += fabs(pMat->RHS[k][j][i][2]);
+			}
+
 			Residual += pMat->RHS[k][j][i][2];
 			Residual -= psi[0] * pMat->U[k-1][j][i].Er;
 			Residual -= psi[1] * pMat->U[k-1][j][i].Fr2;
@@ -846,7 +900,13 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= psi[12] * pMat->U[k+1][j][i].Er;
 			Residual -= psi[13] * pMat->U[k+1][j][i].Fr2;
 
-			Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr3 + dt * Sigma_aP * T4 * velocity_z);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr3 + dt * Sigma_aP * T4 * velocity_z);
+			}
+			else{
+				Norm += fabs(pMat->RHS[k][j][i][3]);		
+			}
+
 			Residual += pMat->RHS[k][j][i][3];
 			Residual -= varphi[0] * pMat->U[k-1][j][i].Er;
 			Residual -= varphi[1] * pMat->U[k-1][j][i].Fr3;
@@ -904,13 +964,13 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 
 void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine)
 {
-	/* Add the correction from the coarse grid back to the solution in fine grid */ 
-	int i, j, k;
+	
+	int i, j, k, ifine, jfine, kfine;
+	int ii, jj, kk;
 	int is, ie, js, je, ks, ke;
 	int num;
 
-	Real *ptr_fine[8];
-	Real *ptr_coarse[9];
+	RadMHDS Ptemp[2][2][2];	
 
 	is = pMat_coarse->is;
 	ie = pMat_coarse->ie;
@@ -922,56 +982,27 @@ void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine)
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
-				/* Take the address */
-				ptr_fine[0] = &(pMat_fine->U[2*k  ][2*j  ][2*i  ].Er);
-				ptr_fine[1] = &(pMat_fine->U[2*k  ][2*j  ][2*i-1].Er);
-				ptr_fine[2] = &(pMat_fine->U[2*k  ][2*j-1][2*i  ].Er);
-				ptr_fine[3] = &(pMat_fine->U[2*k-1][2*j  ][2*i  ].Er);
-				ptr_fine[4] = &(pMat_fine->U[2*k  ][2*j-1][2*i-1].Er);
-				ptr_fine[5] = &(pMat_fine->U[2*k-1][2*j-1][2*i  ].Er);
-				ptr_fine[6] = &(pMat_fine->U[2*k-1][2*j  ][2*i-1].Er);
-				ptr_fine[7] = &(pMat_fine->U[2*k-1][2*j-1][2*i-1].Er);
 
-				ptr_coarse[0] = &(pMat_coarse->U[k ][j ][i ].Er);
-				ptr_coarse[1] = &(pMat_coarse->U[k+1][j+1][i+1].Er);
-				ptr_coarse[2] = &(pMat_coarse->U[k+1][j+1][i-1].Er);
-				ptr_coarse[3] = &(pMat_coarse->U[k+1][j-1][i+1].Er);
-				ptr_coarse[4] = &(pMat_coarse->U[k-1][j+1][i+1].Er);
-				ptr_coarse[5] = &(pMat_coarse->U[k+1][j-1][i-1].Er);
-				ptr_coarse[6] = &(pMat_coarse->U[k-1][j-1][i+1].Er);
-				ptr_coarse[7] = &(pMat_coarse->U[k-1][j+1][i-1].Er);
-				ptr_coarse[8] = &(pMat_coarse->U[k-1][j-1][i-1].Er);
-				
+				ProU(pMat_coarse->U[k][j][i-1],pMat_coarse->U[k][j][i],pMat_coarse->U[k][j][i+1],
+			 		pMat_coarse->U[k][j-1][i],pMat_coarse->U[k][j+1][i],
+					pMat_coarse->U[k-1][j][i],pMat_coarse->U[k+1][j][i],Ptemp);
 
-			/* Only needs to update Er, Frx, Fry, Frz. */
-			/* Vx, Vy, Vz and T4 do not need to be updated */
-				for(num=0; num<4; num++){
-				/* We access a continuous array */
-				ptr_fine[0][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[0][num] += 0.25*ptr_coarse[1][num];
 
-      				ptr_fine[1][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[1][num] += 0.25*ptr_coarse[2][num];
+			/* Now copy the data to the fine grid */
+				ii = 2*(i-is) + pMat_fine->is;
+				jj = 2*(j-js) + pMat_fine->js;
+				kk = 2*(k-ks) + pMat_fine->ks;
 
-      				ptr_fine[2][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[2][num] += 0.25*ptr_coarse[3][num];
+				/* The coarse grid calculates the residual, we add it back */
+				for(kfine=0;kfine<2; kfine++)
+					for(jfine=0; jfine<2; jfine++)
+						for(ifine=0; ifine<2; ifine++){
+							pMat_fine->U[kk+kfine][jj+jfine][ii+ifine].Er  += Ptemp[kfine][jfine][ifine].Er;
+							pMat_fine->U[kk+kfine][jj+jfine][ii+ifine].Fr1 += Ptemp[kfine][jfine][ifine].Fr1;
+							pMat_fine->U[kk+kfine][jj+jfine][ii+ifine].Fr2 += Ptemp[kfine][jfine][ifine].Fr2;
+							pMat_fine->U[kk+kfine][jj+jfine][ii+ifine].Fr3 += Ptemp[kfine][jfine][ifine].Fr3;
+				}				
 
-      				ptr_fine[3][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[3][num] += 0.25*ptr_coarse[4][num];
-
-      				ptr_fine[4][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[4][num] += 0.25*ptr_coarse[5][num];
-
-      				ptr_fine[5][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[5][num] += 0.25*ptr_coarse[6][num];
-
-      				ptr_fine[6][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[6][num] += 0.25*ptr_coarse[7][num];
-
-      				ptr_fine[7][num] += 0.75*ptr_coarse[0][num];
-      				ptr_fine[7][num] += 0.25*ptr_coarse[8][num];
-
-				}
 	}
 
 }
@@ -1105,6 +1136,8 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 	pMat_coarse->my_jproc = pMat->my_jproc; 
 	pMat_coarse->my_kproc = pMat->my_kproc;
 
+	pMat_coarse->bgflag = pMat->bgflag;
+
 	pMat_coarse->rx1_id = pMat->rx1_id;
 	pMat_coarse->lx1_id = pMat->lx1_id;
 	pMat_coarse->rx2_id = pMat->rx2_id;
@@ -1151,7 +1184,9 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
 	Real hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
 
-
+	Real tempEr1, tempEr2, tempEr3;
+	Real tempFr1, tempFr2, tempFr3;
+	Real temp0;
 
 	/* To store the coefficient */
 	Real theta[16];
@@ -1302,71 +1337,80 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 
 
 			newRHS[k][j][i][0] = pMat->RHS[k][j][i][0];
-			newRHS[k][j][i][0] -= theta[0] * pMat->U[k-1][j][i].Er;
-			newRHS[k][j][i][0] -= theta[1] * pMat->U[k-1][j][i].Fr3;
-			newRHS[k][j][i][0] -= theta[2] * pMat->U[k][j-1][i].Er;
-			newRHS[k][j][i][0] -= theta[3] * pMat->U[k][j-1][i].Fr2;
-			newRHS[k][j][i][0] -= theta[4] * pMat->U[k][j][i-1].Er;
-			newRHS[k][j][i][0] -= theta[5] * pMat->U[k][j][i-1].Fr1;
-			newRHS[k][j][i][0] -= theta[6] * pMat->U[k][j][i].Er;
-			newRHS[k][j][i][0] -= theta[7] * pMat->U[k][j][i].Fr1;
-			newRHS[k][j][i][0] -= theta[8] * pMat->U[k][j][i].Fr2;
-			newRHS[k][j][i][0] -= theta[9] * pMat->U[k][j][i].Fr3;
-			newRHS[k][j][i][0] -= theta[10] * pMat->U[k][j][i+1].Er;
-			newRHS[k][j][i][0] -= theta[11] * pMat->U[k][j][i+1].Fr1;
-			newRHS[k][j][i][0] -= theta[12] * pMat->U[k][j+1][i].Er;
-			newRHS[k][j][i][0] -= theta[13] * pMat->U[k][j+1][i].Fr2;
-			newRHS[k][j][i][0] -= theta[14] * pMat->U[k+1][j][i].Er;
-			newRHS[k][j][i][0] -= theta[15] * pMat->U[k+1][j][i].Fr3;
+
+			tempEr3 = theta[0] * pMat->U[k-1][j][i].Er + theta[14] * pMat->U[k+1][j][i].Er;
+			tempEr2 = theta[2] * pMat->U[k][j-1][i].Er + theta[12] * pMat->U[k][j+1][i].Er;
+			tempEr1 = theta[4] * pMat->U[k][j][i-1].Er + theta[10] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = theta[1] * pMat->U[k-1][j][i].Fr3 + theta[15] * pMat->U[k+1][j][i].Fr3;
+			tempFr2 = theta[3] * pMat->U[k][j-1][i].Fr2 + theta[13] * pMat->U[k][j+1][i].Fr2;
+			tempFr1 = theta[5] * pMat->U[k][j][i-1].Fr1 + theta[11] * pMat->U[k][j][i+1].Fr1;
+
+			temp0 = theta[7] * pMat->U[k][j][i].Fr1 + theta[8] * pMat->U[k][j][i].Fr2 + theta[9] * pMat->U[k][j][i].Fr3;
+
+			newRHS[k][j][i][0] -= (theta[6] * pMat->U[k][j][i].Er + (tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+			/********************************************************/
 
 
 			newRHS[k][j][i][1] = pMat->RHS[k][j][i][1];
-			newRHS[k][j][i][1] -= phi[0] * pMat->U[k-1][j][i].Er;
-			newRHS[k][j][i][1] -= phi[1] * pMat->U[k-1][j][i].Fr1;
-			newRHS[k][j][i][1] -= phi[2] * pMat->U[k][j-1][i].Er;
-			newRHS[k][j][i][1] -= phi[3] * pMat->U[k][j-1][i].Fr1;
-			newRHS[k][j][i][1] -= phi[4] * pMat->U[k][j][i-1].Er;
-			newRHS[k][j][i][1] -= phi[5] * pMat->U[k][j][i-1].Fr1;
-			newRHS[k][j][i][1] -= phi[6] * pMat->U[k][j][i].Er;
-			newRHS[k][j][i][1] -= phi[7] * pMat->U[k][j][i].Fr1;
-			newRHS[k][j][i][1] -= phi[8] * pMat->U[k][j][i+1].Er;
-			newRHS[k][j][i][1] -= phi[9] * pMat->U[k][j][i+1].Fr1;
-			newRHS[k][j][i][1] -= phi[10] * pMat->U[k][j+1][i].Er;
-			newRHS[k][j][i][1] -= phi[11] * pMat->U[k][j+1][i].Fr1;
-			newRHS[k][j][i][1] -= phi[12] * pMat->U[k+1][j][i].Er;
-			newRHS[k][j][i][1] -= phi[13] * pMat->U[k+1][j][i].Fr1;
+
+
+			tempEr3 = phi[0] * pMat->U[k-1][j][i].Er + phi[12] * pMat->U[k+1][j][i].Er;
+			tempEr2 = phi[2] * pMat->U[k][j-1][i].Er + phi[10] * pMat->U[k][j+1][i].Er;
+			tempEr1 = phi[4] * pMat->U[k][j][i-1].Er + phi[8] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = phi[1] * pMat->U[k-1][j][i].Fr1 + phi[13] * pMat->U[k+1][j][i].Fr1;
+			tempFr2 = phi[3] * pMat->U[k][j-1][i].Fr1 + phi[11] * pMat->U[k][j+1][i].Fr1;
+			tempFr1 = phi[5] * pMat->U[k][j][i-1].Fr1 + phi[9] * pMat->U[k][j][i+1].Fr1;
+
+			temp0 = phi[6] * pMat->U[k][j][i].Er;
+			
+			newRHS[k][j][i][1] -= (phi[7] * pMat->U[k][j][i].Fr1 + (tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+
+			/********************************************************************/
+
 
 			newRHS[k][j][i][2] = pMat->RHS[k][j][i][2];
-			newRHS[k][j][i][2] -= psi[0] * pMat->U[k-1][j][i].Er;
-			newRHS[k][j][i][2] -= psi[1] * pMat->U[k-1][j][i].Fr2;
-			newRHS[k][j][i][2] -= psi[2] * pMat->U[k][j-1][i].Er;
-			newRHS[k][j][i][2] -= psi[3] * pMat->U[k][j-1][i].Fr2;
-			newRHS[k][j][i][2] -= psi[4] * pMat->U[k][j][i-1].Er;
-			newRHS[k][j][i][2] -= psi[5] * pMat->U[k][j][i-1].Fr2;
-			newRHS[k][j][i][2] -= psi[6] * pMat->U[k][j][i].Er;
-			newRHS[k][j][i][2] -= psi[7] * pMat->U[k][j][i].Fr2;
-			newRHS[k][j][i][2] -= psi[8] * pMat->U[k][j][i+1].Er;
-			newRHS[k][j][i][2] -= psi[9] * pMat->U[k][j][i+1].Fr2;
-			newRHS[k][j][i][2] -= psi[10] * pMat->U[k][j+1][i].Er;
-			newRHS[k][j][i][2] -= psi[11] * pMat->U[k][j+1][i].Fr2;
-			newRHS[k][j][i][2] -= psi[12] * pMat->U[k+1][j][i].Er;
-			newRHS[k][j][i][2] -= psi[13] * pMat->U[k+1][j][i].Fr2;
+
+
+			tempEr3 = psi[0] * pMat->U[k-1][j][i].Er + psi[12] * pMat->U[k+1][j][i].Er;
+			tempEr2 = psi[2] * pMat->U[k][j-1][i].Er + psi[10] * pMat->U[k][j+1][i].Er;
+			tempEr1 = psi[4] * pMat->U[k][j][i-1].Er + psi[8] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = psi[1] * pMat->U[k-1][j][i].Fr2 + psi[13] * pMat->U[k+1][j][i].Fr2;
+			tempFr2 = psi[3] * pMat->U[k][j-1][i].Fr2 + psi[11] * pMat->U[k][j+1][i].Fr2;
+			tempFr1 = psi[5] * pMat->U[k][j][i-1].Fr2 + psi[9] * pMat->U[k][j][i+1].Fr2;
+
+			temp0 = psi[6] * pMat->U[k][j][i].Er;
+
+			
+			newRHS[k][j][i][2] -= (psi[7] * pMat->U[k][j][i].Fr2 + (tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+			
+
+
+			/******************************************************/
+
 
 			newRHS[k][j][i][3] = pMat->RHS[k][j][i][3];
-			newRHS[k][j][i][3] -= varphi[0] * pMat->U[k-1][j][i].Er;
-			newRHS[k][j][i][3] -= varphi[1] * pMat->U[k-1][j][i].Fr3;
-			newRHS[k][j][i][3] -= varphi[2] * pMat->U[k][j-1][i].Er;
-			newRHS[k][j][i][3] -= varphi[3] * pMat->U[k][j-1][i].Fr3;
-			newRHS[k][j][i][3] -= varphi[4] * pMat->U[k][j][i-1].Er;
-			newRHS[k][j][i][3] -= varphi[5] * pMat->U[k][j][i-1].Fr3;
-			newRHS[k][j][i][3] -= varphi[6] * pMat->U[k][j][i].Er;
-			newRHS[k][j][i][3] -= varphi[7] * pMat->U[k][j][i].Fr3;
-			newRHS[k][j][i][3] -= varphi[8] * pMat->U[k][j][i+1].Er;
-			newRHS[k][j][i][3] -= varphi[9] * pMat->U[k][j][i+1].Fr3;
-			newRHS[k][j][i][3] -= varphi[10] * pMat->U[k][j+1][i].Er;
-			newRHS[k][j][i][3] -= varphi[11] * pMat->U[k][j+1][i].Fr3;
-			newRHS[k][j][i][3] -= varphi[12] * pMat->U[k+1][j][i].Er;
-			newRHS[k][j][i][3] -= varphi[13] * pMat->U[k+1][j][i].Fr3;	
+
+
+
+			tempEr3 = varphi[0] * pMat->U[k-1][j][i].Er + varphi[12] * pMat->U[k+1][j][i].Er;
+			tempEr2 = varphi[2] * pMat->U[k][j-1][i].Er + varphi[10] * pMat->U[k][j+1][i].Er;
+			tempEr1 = varphi[4] * pMat->U[k][j][i-1].Er + varphi[8] * pMat->U[k][j][i+1].Er;
+
+			tempFr3 = varphi[1] * pMat->U[k-1][j][i].Fr3 + varphi[13] * pMat->U[k+1][j][i].Fr3;
+			tempFr2 = varphi[3] * pMat->U[k][j-1][i].Fr3 + varphi[11] * pMat->U[k][j+1][i].Fr3;
+			tempFr1 = varphi[5] * pMat->U[k][j][i-1].Fr3 + varphi[9] * pMat->U[k][j][i+1].Fr3;
+
+			temp0 = varphi[6] * pMat->U[k][j][i].Er;
+
+			
+			newRHS[k][j][i][3] -= (varphi[7] * pMat->U[k][j][i].Fr3 + (tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+
 
 	}
 
@@ -1379,8 +1423,191 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 
 
 
+/* Prolongation scheme adopted from SMR */
+/* Only need to prolongate Er, Fr1,Fr2, Fr3 four variables */
+/* from coarse grid to fine grid */
+/* PU is used to take the data out */
+
+void ProU(const RadMHDS Uim1, const RadMHDS Ui, const RadMHDS Uip1, 
+	  const RadMHDS Ujm1, const RadMHDS Ujp1,
+	  const RadMHDS Ukm1, const RadMHDS Ukp1, RadMHDS PCon[2][2][2])
+{
+  int i,j,k;
+
+  Real dq1,dq2,dq3;
+
+
+/* First order prolongation -- just copy values */
+#ifdef FIRST_ORDER
+
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Er  = Ui.Er;
+    PCon[k][j][i].Fr1 = Ui.Fr1;
+    PCon[k][j][i].Fr2 = Ui.Fr2;
+    PCon[k][j][i].Fr3 = Ui.Fr3;
+
+/* second order prolongation -- apply limited slope reconstruction */
+#else /* SECOND_ORDER or THIRD_ORDER */
+
+/* Er */
+  dq1 = mcd_slope(Uim1.Er, Ui.Er, Uip1.Er);
+  dq2 = mcd_slope(Ujm1.Er, Ui.Er, Ujp1.Er);
+  dq3 = mcd_slope(Ukm1.Er, Ui.Er, Ukp1.Er);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Er  = Ui.Er 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+  }}}
+
+/* Fr1 */
+  dq1 = mcd_slope(Uim1.Fr1, Ui.Fr1, Uip1.Fr1);
+  dq2 = mcd_slope(Ujm1.Fr1, Ui.Fr1, Ujp1.Fr1);
+  dq3 = mcd_slope(Ukm1.Fr1, Ui.Fr1, Ukp1.Fr1);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Fr1 = Ui.Fr1 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+  }}}
+
+/* Fr2 */
+  dq1 = mcd_slope(Uim1.Fr2, Ui.Fr2, Uip1.Fr2);
+  dq2 = mcd_slope(Ujm1.Fr2, Ui.Fr2, Ujp1.Fr2);
+  dq3 = mcd_slope(Ukm1.Fr2, Ui.Fr2, Ukp1.Fr2);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Fr2 = Ui.Fr2 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+  }}}
+
+/* Fr3 */
+  dq1 = mcd_slope(Uim1.Fr3, Ui.Fr3, Uip1.Fr3);
+  dq2 = mcd_slope(Ujm1.Fr3, Ui.Fr3, Ujp1.Fr3);
+  dq3 = mcd_slope(Ukm1.Fr3, Ui.Fr3, Ukp1.Fr3);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Fr3 = Ui.Fr3 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+  }}}
+#endif /* FIRST_ORDER */
+}
+
+
+
+
+#ifndef FIRST_ORDER
+static Real mcd_slope(const Real vl, const Real vc, const Real vr){
+
+  Real dvl = (vc - vl), dvr = (vr - vc);
+  Real dv, dvm;
+
+  if(dvl > 0.0 && dvr > 0.0){
+    dv = 2.0*(dvl < dvr ? dvl : dvr);
+    dvm = 0.5*(dvl + dvr);
+    return (dvm < dv ? dvm : dv);
+  }
+  else if(dvl < 0.0 && dvr < 0.0){
+    dv = 2.0*(dvl > dvr ? dvl : dvr);
+    dvm = 0.5*(dvl + dvr);
+    return (dvm > dv ? dvm : dv);
+  }
+
+  return 0.0;
+}
+#endif /* FIRST_ORDER */
+
+
+
+
+
 
 #endif /* radMHD_INTEGRATOR */
 
 #endif /* MATRIX_MULTIGRID */
+
+
+
+
+
+/*
+
+void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine)
+{
+	
+	int i, j, k;
+	int is, ie, js, je, ks, ke;
+	int num;
+
+	Real *ptr_fine[8];
+	Real *ptr_coarse[9];
+
+	is = pMat_coarse->is;
+	ie = pMat_coarse->ie;
+	js = pMat_coarse->js;
+	je = pMat_coarse->je;
+	ks = pMat_coarse->ks;
+	ke = pMat_coarse->ke;
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+			
+				ptr_fine[0] = &(pMat_fine->U[2*k  ][2*j  ][2*i  ].Er);
+				ptr_fine[1] = &(pMat_fine->U[2*k  ][2*j  ][2*i-1].Er);
+				ptr_fine[2] = &(pMat_fine->U[2*k  ][2*j-1][2*i  ].Er);
+				ptr_fine[3] = &(pMat_fine->U[2*k-1][2*j  ][2*i  ].Er);
+				ptr_fine[4] = &(pMat_fine->U[2*k  ][2*j-1][2*i-1].Er);
+				ptr_fine[5] = &(pMat_fine->U[2*k-1][2*j-1][2*i  ].Er);
+				ptr_fine[6] = &(pMat_fine->U[2*k-1][2*j  ][2*i-1].Er);
+				ptr_fine[7] = &(pMat_fine->U[2*k-1][2*j-1][2*i-1].Er);
+
+				ptr_coarse[0] = &(pMat_coarse->U[k ][j ][i ].Er);
+				ptr_coarse[1] = &(pMat_coarse->U[k+1][j+1][i+1].Er);
+				ptr_coarse[2] = &(pMat_coarse->U[k+1][j+1][i-1].Er);
+				ptr_coarse[3] = &(pMat_coarse->U[k+1][j-1][i+1].Er);
+				ptr_coarse[4] = &(pMat_coarse->U[k-1][j+1][i+1].Er);
+				ptr_coarse[5] = &(pMat_coarse->U[k+1][j-1][i-1].Er);
+				ptr_coarse[6] = &(pMat_coarse->U[k-1][j-1][i+1].Er);
+				ptr_coarse[7] = &(pMat_coarse->U[k-1][j+1][i-1].Er);
+				ptr_coarse[8] = &(pMat_coarse->U[k-1][j-1][i-1].Er);
+				
+
+				for(num=0; num<4; num++){
+		
+				ptr_fine[0][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[0][num] += 0.25*ptr_coarse[1][num];
+
+      				ptr_fine[1][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[1][num] += 0.25*ptr_coarse[2][num];
+
+      				ptr_fine[2][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[2][num] += 0.25*ptr_coarse[3][num];
+
+      				ptr_fine[3][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[3][num] += 0.25*ptr_coarse[4][num];
+
+      				ptr_fine[4][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[4][num] += 0.25*ptr_coarse[5][num];
+
+      				ptr_fine[5][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[5][num] += 0.25*ptr_coarse[6][num];
+
+      				ptr_fine[6][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[6][num] += 0.25*ptr_coarse[7][num];
+
+      				ptr_fine[7][num] += 0.75*ptr_coarse[0][num];
+      				ptr_fine[7][num] += 0.25*ptr_coarse[8][num];
+
+				}
+	}
+
+}
+*/
+
+
 

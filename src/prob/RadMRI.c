@@ -128,7 +128,7 @@ void problem(DomainS *pDomain)
 	Crat = par_getd("problem","Cratio");
 	R_ideal = par_getd("problem","R_ideal");
 	Ncycle = par_getd_def("problem","Ncycle",5);
-  	TOL  = par_getd_def("problem","TOL",1.e-8);
+  	TOL  = par_getd_def("problem","TOL",1.e-9);
 #endif
 	
 	
@@ -138,7 +138,7 @@ void problem(DomainS *pDomain)
   qshear  = par_getd_def("problem","qshear",1.5);
 #endif
 
-	betaz=40.0;
+	betaz=1600.0;
 	betay=1.0;
 	pres = 1.0;
 
@@ -184,20 +184,20 @@ void problem(DomainS *pDomain)
 
         rval = amp*(ran2(&iseed) - 0.5);
 #ifdef ADIABATIC
-        rp = pres*(1.0 + 2.0*rval);
+        rp = pres;
         rd = den;
 #else
         rd = den*(1.0 + 2.0*rval);
 #endif
 /* To conform to HGB, the perturbations to V/Cs are (1/5)amp/sqrt(Gamma)  */
         rval = amp*(ran2(&iseed) - 0.5);
-        rvx = 0.4*rval*sqrt(pres/den);
+        rvx = 0.4*rval;
 
         rval = amp*(ran2(&iseed) - 0.5);
-        rvy = 0.4*rval*sqrt(pres/den);
+        rvy = 0.4*rval;
 
         rval = amp*(ran2(&iseed) - 0.5);
-        rvz = 0.4*rval*sqrt(pres/den);
+        rvz = 0.4*rval;
       
 
 /* Initialize d, M, and P.  For 3D shearing box M1=Vx, M2=Vy, M3=Vz
@@ -412,7 +412,6 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)	
 	fread(&Prat,sizeof(Real),1,fp);
-	Prat = 376.255;
 	fread(&Crat,sizeof(Real),1,fp);
 	fread(&R_ideal,sizeof(Real),1,fp);
 	fread(&kappaes,sizeof(Real),1,fp);
@@ -433,6 +432,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 #ifdef MATRIX_MULTIGRID 
 	fread(&Ncycle,sizeof(Real),1,fp);
 	fread(&TOL,sizeof(Real),1,fp);
+	TOL = 1.e-8;
 #endif
 #endif
 
@@ -466,8 +466,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
       dump_history_enroll(hst_rho2,"<rho^2>");
 
-     dump_history_enroll(hst_stressL,"StressL");
-     dump_history_enroll(hst_stressR,"StressR");
+      dump_history_enroll(hst_stressL,"StressL");
+      dump_history_enroll(hst_stressR,"StressR");
 
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
@@ -496,82 +496,6 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	int ierr, ID,m;
 	int count = 0;
 	Real x1, x2, x3, velocity_x, velocity_y, velocity_z;
-#ifdef RADIATION_MHD
-	for (k=ks; k<=ke; k++) {
-		for (j=js; j<=je; j++) {
-			for (i=is; i<=ie; i++) {
-				pressure = pGrid->U[k][j][i].E - 0.5 * (pGrid->U[k][j][i].M1 * pGrid->U[k][j][i].M1 + pGrid->U[k][j][i].M2 * pGrid->U[k][j][i].M2 
-						+ pGrid->U[k][j][i].M3 * pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d
-						- 0.5 * (pGrid->U[k][j][i].B1c * pGrid->U[k][j][i].B1c + pGrid->U[k][j][i].B2c * pGrid->U[k][j][i].B2c + pGrid->U[k][j][i].B3c * pGrid->U[k][j][i].B3c);
-				pressure *= (Gamma - 1.0);
-
-				if(pressure < TINY_NUMBER) pressure = TINY_NUMBER;
-
-				averageP += pressure;
-				count++;
-
-			/* Update the opacity */
-				Thindiskopacity(pGrid->U[k][j][i].d, pressure/(pGrid->U[k][j][i].d * R_ideal), Sigma, NULL);
-				for(m=0;m<NOPACITY;m++){
-					pGrid->U[k][j][i].Sigma[m] = Sigma[m];
-				}
-			
-
-
-				pGrid->B3i[k][j][i] += diffBz;
-				if (k==ke) pGrid->B3i[ke+1][j][i] += diffBz;
-				/* Need to update total Energy when magnetic field is modified */
-					
-				pGrid->U[k][j][i].E += 0.5 * (2.0 * pGrid->U[k][j][i].B3c * diffBz + diffBz * diffBz);
-				pGrid->U[k][j][i].B3c += diffBz;
-				
-				
-
-			}
-		}
-	}
-
-				averageP /= count;
-	
-#endif
-
-#ifdef MPI_PARALLEL
-		ierr = MPI_Reduce(&averageP,&sumP,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-		ID = myID_Comm_world;
-		if(ID == 0){
-			sumP /= pD->NGrid[0]*pD->NGrid[1]*pD->NGrid[2];
-		}
-		MPI_Bcast(&sumP,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
-
-		averageP = sumP;
-#endif
-
-	/* Initialize such that radiation pressure / gas pressure =125 */
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
-	for (k=ks; k<=ke; k++) {
-                for (j=js; j<=je; j++) {
-	                  for (i=is; i<=ie; i++) {
-				cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-
-				pGrid->U[k][j][i].Er = 125.0 * averageP * 3.0 / Prat;
-				
-				velocity_x = pGrid->U[k][j][i].M1 / pGrid->U[k][j][i].d;
-				velocity_y = pGrid->U[k][j][i].M2 / pGrid->U[k][j][i].d;
-				velocity_z = pGrid->U[k][j][i].M3 / pGrid->U[k][j][i].d;			
-
-#ifdef FARGO
-			      velocity_y -= qshear * Omega_0 * x1;
-
-#endif
-				pGrid->U[k][j][i].Fr1 = velocity_x * (1.0 + pGrid->U[k][j][i].Edd_11) * pGrid->U[k][j][i].Er/Crat;
-				pGrid->U[k][j][i].Fr2 = velocity_y * (1.0 + pGrid->U[k][j][i].Edd_22) * pGrid->U[k][j][i].Er/Crat;
-				pGrid->U[k][j][i].Fr3 = velocity_z * (1.0 + pGrid->U[k][j][i].Edd_33) * pGrid->U[k][j][i].Er/Crat;
-
-
-			}
-		}
-	}
-#endif
   return;
 }
 
@@ -868,43 +792,42 @@ static Real hst_stressL(const GridS *pG, const int i, const int j, const int k)
 #endif	
 
 		return (qshear*Omega_0*(rhov + BxBy)* pG->dx2 * pG->dx3);
-	}	
+	}
 	else
 		return 0.0;
 }
 
-
 static Real hst_stressR(const GridS *pG, const int i, const int j, const int k)
 {
-	Real rhov, BxBy;
-	rhov = 0.0;
-	BxBy = 0.0;
+        Real rhov, BxBy;
+        rhov = 0.0;
+        BxBy = 0.0;
 
-	int ID, lx1_id, rx1_id;
+        int ID, lx1_id, rx1_id;
 
 #ifdef MPI_PARALLEL
-	ID = myID_Comm_world;
-	lx1_id = pG->lx1_id;
-	rx1_id = pG->rx1_id;
+        ID = myID_Comm_world;
+        lx1_id = pG->lx1_id;
+        rx1_id = pG->rx1_id;
 #else
-	ID = 0;
-	lx1_id = -1;
-	rx1_id = -1;
+        ID = 0;
+        lx1_id = -1;
+        rx1_id = -1;
 #endif
 
-	/* If it is on the boundary */
-	if(((i == pG->ie) && ((rx1_id < 0) || (rx1_id <= ID))))
-	{
-		rhov = hst_rho_Vx_dVy(pG,i,j,k);
+        /* If it is on the boundary */
+        if(((i == pG->ie) && ((rx1_id < 0) || (rx1_id <= ID))))
+        {
+                rhov = hst_rho_Vx_dVy(pG,i,j,k);
 #if defined(MHD) || defined(RADIATION_MHD)
-		BxBy =  hst_BxBy(pG, i, j, k);
-#endif	
+                BxBy =  hst_BxBy(pG, i, j, k);
+#endif
 
-		return (qshear*Omega_0*(rhov + BxBy)* pG->dx2 * pG->dx3);
+                return (qshear*Omega_0*(rhov + BxBy)* pG->dx2 * pG->dx3);
 
-	}
-	else
-		return 0.0;
+        }
+        else
+                return 0.0;
 }
 
 

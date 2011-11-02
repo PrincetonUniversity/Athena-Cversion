@@ -43,7 +43,7 @@
 
 #ifdef RESISTIVITY
 
-#ifdef HYDRO
+#if defined(HYDRO) || defined(RADIATION_HYDRO) 
 #error : resistivity only works for MHD.
 #endif /* HYDRO */
 

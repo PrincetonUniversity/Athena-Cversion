@@ -171,6 +171,7 @@ void BackEuler_1d(MeshS *pM)
 				
 	} /* End i */
 
+if(pMat->bgflag){
 	/* calculate the residual */
 	RHSResidual1D(pMat, INIerror);
 
@@ -179,10 +180,10 @@ void BackEuler_1d(MeshS *pM)
 		pMat->U[ks][js][i].Fr1 = 0.0;
 
 
-		pMat->RHS[ks][j][i][0] = INIerror[ks][j][i][0];	
-		pMat->RHS[ks][j][i][1] = INIerror[ks][j][i][1];	
+		pMat->RHS[ks][js][i][0] = INIerror[ks][js][i][0];	
+		pMat->RHS[ks][js][i][1] = INIerror[ks][js][i][1];	
 	}
-
+}
 		
 	/* Do the multi-grid W cycle */
 	Wcycle = 0;
@@ -196,6 +197,8 @@ void BackEuler_1d(MeshS *pM)
 
 		/* for parent grid, check residual */
 		error = fabs(CheckResidual(pMat,pG));
+		if(error != error)
+			ath_error("[BackEuler3D]: NaN encountered!\n");
 	
 		Wcycle++;
 
@@ -213,10 +216,14 @@ void BackEuler_1d(MeshS *pM)
 
 				Mati = i - (nghost - Matghost);
 
-
+			if(pMat->bgflag){
+				pG->U[ks][js][i].Er += pMat->U[Matk][Matj][Mati].Er;
+				pG->U[ks][js][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
+			}
+			else{
 				pG->U[ks][js][i].Er = pMat->U[Matk][Matj][Mati].Er;
 				pG->U[ks][js][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
-
+			}
 				
 	}
 
@@ -518,7 +525,10 @@ void BackEuler_init_1d(MeshS *pM)
 	pMat->BCFlag_ix3 = pM->BCFlag_ix3;
 	pMat->BCFlag_ox3 = pM->BCFlag_ox3;
 	
-
+		
+	/* To decide whether subtract background solution at top level or not */
+	/* Default choice is not */
+	pMat->bgflag = 0;
 
 }
 
@@ -628,8 +638,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 		
 			
 						
-
-			Norm += fabs(pG->U[ks][js][i+diffghost].Er + pG->Tguess[ks][js][i+diffghost]);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[ks][js][i+diffghost].Er + pG->Tguess[ks][js][i+diffghost]);
+			}
+			else{
+				Norm += fabs(pMat->RHS[ks][js][i][0]);
+			}
 			Residual += pMat->RHS[ks][js][i][0];
 
 			Residual -= theta[0] * pMat->U[ks][js][i-1].Er;
@@ -641,8 +655,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 
 
 
-
-			Norm += fabs(pG->U[ks][js][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[ks][js][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
+			}
+			else{
+				Norm += fabs(pMat->RHS[ks][js][i][1]);
+			}
 			Residual += pMat->RHS[ks][js][i][1];
 
 			Residual -= phi[0] * pMat->U[ks][js][i-1].Er;

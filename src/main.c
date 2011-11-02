@@ -679,14 +679,8 @@ int main(int argc, char *argv[])
       }
     }
 
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].Grid != NULL){
-          bvals_mhd(&(Mesh.Domain[nl][nd]));
-        }
-      }
-    }
-
+/* Do not need to update boundary condition */
+/* Source terms in ghost zones do not need to be set */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 

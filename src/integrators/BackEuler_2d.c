@@ -249,6 +249,7 @@ void BackEuler_2d(MeshS *pM)
 	} /* End i */
 	}/* End j */
 
+if(pMat->bgflag){
 	/* calculate the residual */
 	RHSResidual2D(pMat, INIerror);
 
@@ -268,7 +269,7 @@ void BackEuler_2d(MeshS *pM)
 
 			}
 		}
-	
+}	
 	/* Right hand side in the ghost zones are never used */
 
 
@@ -285,7 +286,9 @@ void BackEuler_2d(MeshS *pM)
 
 		/* for parent grid, check residual */
 		error = fabs(CheckResidual(pMat,pG));
-	
+		if(error != error)
+			ath_error("[BackEuler3D]: NaN encountered!\n");
+
 		Wcycle++;
 
 
@@ -304,11 +307,16 @@ void BackEuler_2d(MeshS *pM)
 				Mati = i - (nghost - Matghost);
 				Matj = j - (nghost - Matghost);
 
-
+			if(pMat->bgflag){
 				pG->U[ks][j][i].Er += pMat->U[Matk][Matj][Mati].Er;
 				pG->U[ks][j][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
 				pG->U[ks][j][i].Fr2 += pMat->U[Matk][Matj][Mati].Fr2;
-
+			}
+			else{
+				pG->U[ks][j][i].Er = pMat->U[Matk][Matj][Mati].Er;
+				pG->U[ks][j][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
+				pG->U[ks][j][i].Fr2 = pMat->U[Matk][Matj][Mati].Fr2;
+			}
 			
 				
 	}
@@ -652,6 +660,10 @@ void BackEuler_init_2d(MeshS *pM)
 	pMat->BCFlag_ox3 = pM->BCFlag_ox3;
 	
 
+	/* To decide whether subtract background solution at top level or not */
+	/* Default choice is not */
+	pMat->bgflag = 0;
+
 
 }
 
@@ -808,8 +820,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
 			
 						
-
-			Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Er + pG->Tguess[ks][j+diffghost][i+diffghost]);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Er + pG->Tguess[ks][j+diffghost][i+diffghost]);
+			}
+			else{
+				Norm += fabs(pMat->RHS[ks][j][i][0]);
+			}
 			Residual += pMat->RHS[ks][j][i][0];
 			Residual -= theta[0] * pMat->U[ks][j-1][i].Er;
 			Residual -= theta[1] * pMat->U[ks][j-1][i].Fr2;
@@ -824,8 +840,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= theta[10] * pMat->U[ks][j+1][i].Fr2;
 
 
-
-			Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
+			}
+			else{
+				Norm += fabs(pMat->RHS[ks][j][i][1]);
+			}
 			Residual += pMat->RHS[ks][j][i][1];
 			Residual -= phi[0] * pMat->U[ks][j-1][i].Er;
 			Residual -= phi[1] * pMat->U[ks][j-1][i].Fr1;
@@ -838,8 +858,12 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= phi[8] * pMat->U[ks][j+1][i].Er;
 			Residual -= phi[9] * pMat->U[ks][j+1][i].Fr1;
 
-
-			Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
+			if(pMat->bgflag){
+				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
+			}
+			else{
+				Norm += fabs(pMat->RHS[ks][j][i][2]);
+			}
 			Residual += pMat->RHS[ks][j][i][2];
 			Residual -= psi[0] * pMat->U[ks][j-1][i].Er;
 			Residual -= psi[1] * pMat->U[ks][j-1][i].Fr2;

@@ -137,18 +137,20 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
         GhstZns[k][i][j].U[1] = pMat->U[k][j][ii].Fr1;
         
 	GhstZns[k][i][j].U[2] = pMat->U[k][j][ii].Fr2;
-	dFry = qomL * pMat->U[k][j][ii].Er * (1.0 + pMat->U[k][j][ii].Edd_22)/Crat;
-	GhstZns[k][i][j].U[2] += dFry;
+
+/*	Multigrid solves for the residule, background shearing is subtracted */
+	if(!(pMat->bgflag) && (pMat->Nx[2] == pMat->RootNx[2])){
+		dFry = qomL * pMat->U[k][j][ii].Er * (1.0 + pMat->U[k][j][ii].Edd_22)/Crat;
+		GhstZns[k][i][j].U[2] += dFry;
+	}
  
 	GhstZns[k][i][j].U[3] = pMat->U[k][j][ii].Fr3;
 	GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].V1;
 	GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V2;
-#ifndef FARGO
-	/* Only do this for the top level */
-	/* Other levels solve for residual */
-	if(pMat->Nx[0] == pMat->RootNx[0])
-		GhstZns[k][i][j].U[5] += qomL;
-#endif
+
+	/* No matter Fargo or not, background shearing is always in */
+	GhstZns[k][i][j].U[5] += qomL;
+
 	GhstZns[k][i][j].U[6] = pMat->U[k][j][ii].V3;
 	GhstZns[k][i][j].U[7] = pMat->U[k][j][ii].T4;
 	GhstZns[k][i][j].U[8] = pMat->U[k][j][ii].Edd_11;
@@ -647,18 +649,18 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 		  GhstZns[k][i][j].U[1] = pMat->U[k][j][ii].Fr1;
 		  
 		  GhstZns[k][i][j].U[2] = pMat->U[k][j][ii].Fr2;
+
+	if(!(pMat->bgflag) && (pMat->Nx[2] == pMat->RootNx[2])){	 
 		  dFry = qomL * pMat->U[k][j][ii].Er * (1.0 + pMat->U[k][j][ii].Edd_22)/Crat;
 		  GhstZns[k][i][j].U[2] -= dFry;
+	}
 		  
 		  GhstZns[k][i][j].U[3] = pMat->U[k][j][ii].Fr3;
 		  GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].V1;
 		  GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V2;
-#ifndef FARGO
-		  /* Only do this for the top level */
-		/* Other levels solve for residual */
-		if(pMat->Nx[0] == pMat->RootNx[0])
-		  	GhstZns[k][i][j].U[5] -= qomL;
-#endif
+
+         	  GhstZns[k][i][j].U[5] -= qomL;
+
 		  GhstZns[k][i][j].U[6] = pMat->U[k][j][ii].V3;
 		  GhstZns[k][i][j].U[7] = pMat->U[k][j][ii].T4;
 

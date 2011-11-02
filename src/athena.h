@@ -503,6 +503,8 @@ int Nx[3];			/* Number of cells in this part of Matrix */
 int RootNx[3];			/* Number of cells in the top level Matrix */
 int NGrid[3];			/* Number of Grids in this domain */
 
+int bgflag;		/* Flag used to decide whether subtract background solution at the top level or not */
+
 /* MPI processor coordinate (L,M, N) */
 int ID;
 int my_iproc, my_jproc, my_kproc;
