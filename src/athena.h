@@ -36,6 +36,12 @@ typedef double Real;
 # error "Not a valid precision flag"
 #endif
 
+#if defined(STS)
+#if !defined(THERMAL_CONDUCTION) && !defined(RESISTIVITY) && !defined(VISCOSITY)
+#error: STS require explicit diffusion
+#endif /* explicit diffusion */
+#endif
+
 /*! \struct Real3Vect
  *  \brief General 3-vectors of Reals.
  */
@@ -382,6 +388,10 @@ typedef struct Mesh_s{
   Real RootMaxX[3]; /*!< max(x) in each dir on root Domain [0,1,2]=[x1,x2,x3] */
   Real dx[3];     /*!< cell size on root Domain [0,1,2]=[x1,x2,x3] */
   Real time, dt;  /*!< current time and timestep for entire Mesh */
+#ifdef STS
+  Real STS_dt, diff_dt;
+  int i_STS;          /* index of the current super timestep */
+#endif
   int Nx[3];    /*!< # of zones in each dir on root Domain [0,1,2]=[x1,x2,x3] */
   int nstep;                 /*!< number of integration steps taken */
   int BCFlag_ix1, BCFlag_ox1;  /*!< BC flag on root domain for inner/outer x1 */

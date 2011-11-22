@@ -43,6 +43,7 @@
 #   --enable-mpi                                          (parallelize with MPI)
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
+#   --enable-sts                     (super timestepping for explicit diffusion)
 #   --enable-smr                                        (static mesh refinement)
 #
 #-------------------------------------------------------------------------------
@@ -478,6 +479,23 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on super timestepping for explicit diffusion
+#   --enable-sts
+
+AC_SUBST(TIMESTEPPING_MODE)
+AC_ARG_ENABLE(sts,
+        [--enable-sts  turn on super timestepping],
+        ok=$enableval, ok=no) 
+if test "$ok" = "yes"; then
+  TIMESTEPPING_MODE="STS"
+  TIMESTEPPING_MODE_USER="ON"
+else
+  TIMESTEPPING_MODE="NO_STS"
+  TIMESTEPPING_MODE_USER="OFF"
+fi
+
+
+#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: static mesh refinement
 #   --enable-smr (default is no SMR)
 
@@ -614,6 +632,7 @@ echo "H-correction:            $H_CORRECTION_MODE_USER"
 echo "FFT:                     $FFT_MODE_USER"
 echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
+echo "Super timestepping:      $TIMESTEPPING_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"

@@ -57,18 +57,18 @@ void get_eta(GridS *pG)
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
 
-  il = is - 2;
-  iu = ie + 2;
+  il = is - nghost;
+  iu = ie + nghost;
   if (pG->Nx[1] > 1){
-    jl = js - 2;
-    ju = je + 2;
+    jl = js - nghost;
+    ju = je + nghost;
   } else {
     jl = js;
     ju = je;
   }
   if (pG->Nx[2] > 1){
-    kl = ks - 2;
-    ku = ke + 2;
+    kl = ks - nghost;
+    ku = ke + nghost;
   } else {
     kl = ks;
     ku = ke;

@@ -421,6 +421,10 @@ int main(int argc, char *argv[])
   Prolongate(&Mesh);
 #endif
 
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
+  integrate_diff_init(&Mesh);
+#endif
+
 /* For new runs, set initial timestep */
 
   if(ires == 0) new_dt(&Mesh);
@@ -443,9 +447,6 @@ int main(int argc, char *argv[])
       }
     }
   }
-#endif
-#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
-  integrate_diff_init(&Mesh);
 #endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
@@ -500,16 +501,26 @@ int main(int argc, char *argv[])
  * Done first since CFL constraint is applied which may change dt  */
 
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
+#ifdef STS
+    if (Mesh.i_STS == 0)
+      ath_pout(0,"Next N_STS = %d\n", N_STS);
+#endif
+
     integrate_diff(&Mesh);
 
+#ifdef STATIC_MESH_REFINEMENT
+    RestrictCorrect(&Mesh);
+#endif
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
           bvals_mhd(&(Mesh.Domain[nl][nd]));
         }
-      }
-    }
+    }}
+#ifdef STATIC_MESH_REFINEMENT
+    Prolongate(&Mesh);
 #endif
+#endif /* Explicit diffusion */
 
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
@@ -557,23 +568,6 @@ int main(int argc, char *argv[])
 #endif
 
 /*--- Step 9g. ---------------------------------------------------------------*/
-/* Update Mesh time, and time in all Grid's.  Compute new dt */
-
-    Mesh.nstep++;
-    Mesh.time += Mesh.dt;
-    for (nl=0; nl<(Mesh.NLevels); nl++){
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
-        if (Mesh.Domain[nl][nd].Grid != NULL){
-          Mesh.Domain[nl][nd].Grid->time = Mesh.time;
-        }
-      }
-    }
-
-    dt_done = Mesh.dt;
-
-    new_dt(&Mesh);
-
-/*--- Step 9h. ---------------------------------------------------------------*/
 /* Boundary values must be set after time is updated for t-dependent BCs.
  * With SMR, ghost zones at internal fine/coarse boundaries set by Prolongate */
 
@@ -591,6 +585,23 @@ int main(int argc, char *argv[])
 #ifdef STATIC_MESH_REFINEMENT
     Prolongate(&Mesh);
 #endif
+
+/*--- Step 9h. ---------------------------------------------------------------*/
+/* Update Mesh time, and time in all Grid's.  Compute new dt */
+
+    Mesh.nstep++;
+    Mesh.time += Mesh.dt;
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          Mesh.Domain[nl][nd].Grid->time = Mesh.time;
+        }
+      }
+    }
+
+    dt_done = Mesh.dt;
+
+    new_dt(&Mesh);
 
 /*--- Step 9i. ---------------------------------------------------------------*/
 /* Force quit if wall time limit reached.  Check signals from system */

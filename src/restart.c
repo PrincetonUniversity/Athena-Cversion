@@ -103,6 +103,9 @@ void restart_grids(char *res_file, MeshS *pM)
   if(strncmp(line,"TIME_STEP",9) != 0)
     ath_error("[restart_grids]: Expected TIME_STEP, found %s",line);
   fread(&(pM->dt),sizeof(Real),1,fp);
+#ifdef STS
+  fread(&(pM->STS_dt),sizeof(Real),1,fp);
+#endif
 
 /* Now loop over all Domains containing a Grid on this processor */
 
@@ -514,6 +517,10 @@ void dump_restart(MeshS *pM, OutputS *pout)
   fprintf(fp,"\nTIME_STEP\n");
   if(fwrite(&(pM->dt),sizeof(Real),1,fp) != 1)
     ath_error("[dump_restart]: fwrite() error\n");
+#ifdef STS
+  if (fwrite(&(pM->STS_dt),sizeof(Real),1,fp) != 1)
+    ath_error("[dump_restart]: fwrite() error\n");
+#endif
 
 /* Now loop over all Domains containing a Grid on this processor */
 

@@ -49,6 +49,10 @@ EtaFun_t get_myeta = NULL;       /*!< function to calculate the diffusivities */
 #ifdef VISCOSITY
 Real nu_iso=0.0, nu_aniso=0.0;               /*!< coeff of viscosity */
 #endif
+#ifdef STS
+int N_STS;			/*!< number of super timesteps */
+Real nu_STS;			/*!< parameter controlling the substeps  */
+#endif
 
 #ifdef CYLINDRICAL
 // StaticGravAcc_t x1GravAcc = NULL;
@@ -100,6 +104,10 @@ extern EtaFun_t get_myeta;
 #endif
 #ifdef VISCOSITY
 extern Real nu_iso, nu_aniso;
+#endif
+#ifdef STS
+extern int N_STS;
+extern Real nu_STS; 
 #endif
 
 #ifdef CYLINDRICAL

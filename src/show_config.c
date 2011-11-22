@@ -171,6 +171,12 @@ void show_config(void)
   ath_pout(0," FARGO:                   OFF\n");
 #endif
 
+#ifdef STS
+  ath_pout(0," Super timestepping:      ON\n");
+#else
+  ath_pout(0," Super timestepping:      OFF\n");
+#endif
+
 #ifdef HLL_ALL_WAVE
   ath_pout(0," All-wave integration:    ON\n");
 #else

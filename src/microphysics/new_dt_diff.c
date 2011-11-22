@@ -35,6 +35,18 @@ Real new_dt_diff(MeshS *pM)
 #ifdef RESISTIVITY
   int i,j,k,nl,nd;
   GridS *pG;
+
+/* Calculate the magnetic diffusivity array */
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+
+        pG=pM->Domain[nl][nd].Grid;
+
+        get_eta(pG);
+      }
+    }
+  }
 #endif
 
 /* Calculate minimum dx.  Always given by Grid on highest level of refinement */
@@ -45,7 +57,7 @@ Real new_dt_diff(MeshS *pM)
 
   qa = (dxmin*dxmin)/4.0;
   if (pM->Nx[1] > 1) qa = (dxmin*dxmin)/8.0;
-  if (pM->Nx[2] > 1) qa = (dxmin*dxmin)/12.0;
+  if (pM->Nx[2] > 1) qa = (dxmin*dxmin)/6.0;
 
 #ifdef THERMAL_CONDUCTION
   max_dti_diff = MAX( max_dti_diff, ((kappa_iso + kappa_aniso)/qa) );
@@ -61,17 +73,17 @@ Real new_dt_diff(MeshS *pM)
       if (pM->Domain[nl][nd].Grid != NULL){
         pG = pM->Domain[nl][nd].Grid;
 
-        dxmin = pG->dx[0];
-        if (pG->Nx[1] > 1) dxmin = MIN( dxmin, (pG->dx[1]) );
-        if (pG->Nx[2] > 1) dxmin = MIN( dxmin, (pG->dx[2]) );
+        dxmin = pG->dx1;
+        if (pG->Nx[1] > 1) dxmin = MIN( dxmin, (pG->dx2) );
+        if (pG->Nx[2] > 1) dxmin = MIN( dxmin, (pG->dx3) );
 
         qa = (dxmin*dxmin)/4.0;
         if (pG->Nx[1] > 1) qa = (dxmin*dxmin)/8.0;
-        if (pG->Nx[2] > 1) qa = (dxmin*dxmin)/12.0;
+        if (pG->Nx[2] > 1) qa = (dxmin*dxmin)/6.0;
 
-        for (k=ks; k<=ke; k++) {
-        for (j=js; j<=je; j++) {
-        for (i=is; i<=ie; i++) {
+        for (k=pG->ks; k<=pG->ke; k++) {
+        for (j=pG->js; j<=pG->je; j++) {
+        for (i=pG->is; i<=pG->ie; i++) {
 
           max_dti_diff = MAX( max_dti_diff, ((pG->eta_Ohm[k][j][i] +
              pG->eta_Hall[k][j][i] + pG->eta_AD[k][j][i])/qa) );

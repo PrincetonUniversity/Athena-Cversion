@@ -89,7 +89,7 @@ void problem(DomainS *pDomain)
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax;
   Real den = 1.0, pres = 1.0, dir_sgn, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
-  Real beta=1.0,B0,kx,ky,kz,amp;
+  Real beta=1.0,B0,Bt0,kx,ky,kz,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
@@ -128,6 +128,7 @@ void problem(DomainS *pDomain)
   pres = par_getd("problem","pres");
 #endif
   B0 = sqrt((double)(2.0*pres/beta));
+  Bt0 = B0 * par_getd_def("problem","BtoBz",0.0);
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->Disp[0];
@@ -318,10 +319,10 @@ void problem(DomainS *pDomain)
       }
       if (ifield == 2) {
         pGrid->B1i[k][j][i] = 0.0;
-        pGrid->B2i[k][j][i] = 0.0;
+        pGrid->B2i[k][j][i] = Bt0;
         pGrid->B3i[k][j][i] = B0*dir_sgn;
         if (i==ie) pGrid->B1i[k][j][ie+1] = 0.0;
-        if (j==je) pGrid->B2i[k][je+1][i] = 0.0;
+        if (j==je) pGrid->B2i[k][je+1][i] = Bt0;
         if (k==ke) pGrid->B3i[ke+1][j][i] = B0*dir_sgn;
       }
       if (ifield == 3) {

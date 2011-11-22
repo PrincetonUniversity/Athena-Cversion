@@ -25,6 +25,14 @@
 #include "globals.h"
 #include "prototypes.h"
 
+/*==============================================================================
+ * PRIVATE FUNCTION PROTOTYPES:
+ *  get_N_STS() - get the number of substeps in a super timestep
+ *============================================================================*/
+#ifdef STS
+int get_N_STS(Real dt_MHD, Real dt_Diff);
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*! \fn void new_dt(MeshS *pM)
  *  \brief Computes timestep using CFL condition. */ 
@@ -49,9 +57,15 @@ void new_dt(MeshS *pM)
   double dt, my_dt;
   int ierr;
 #endif
+#if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
+  Real diff_dt;
+#ifdef STS
+  Real nu_sqrt;
+#endif
+#endif
   int nl,nd;
-  Real tlim,max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0,max_dti_diff=0.0;
-  Real x1,x2,x3;
+  Real max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0,max_dti_diff=0.0;
+  Real tlim,old_dt,x1,x2,x3;
 
 /* Loop over all Domains with a Grid on this processor -----------------------*/
 
@@ -158,20 +172,13 @@ void new_dt(MeshS *pM)
 
   }}} /*--- End loop over Domains --------------------------------------------*/
 
-/* When explicit diffusion is included, compute stability constriant */
-#if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
-  max_dti_diff = new_dt_diff(pM);
-  max_dti = MAX(max_dti,max_dti_diff);
+#ifdef STS
+  old_dt = pM->STS_dt;
+#else   
+  old_dt = pM->dt; 
 #endif
-
-/* new timestep.  Limit increase to 2x old value */
-
-  if (pM->nstep == 0) {
-    pM->dt = CourNo/max_dti;
-  } else {
-    pM->dt = MIN(2.0*pM->dt, CourNo/max_dti);
-  }
-
+  pM->dt = CourNo/max_dti;
+    
 /* Find minimum timestep over all processors */
 
 #ifdef MPI_PARALLEL
@@ -179,12 +186,65 @@ void new_dt(MeshS *pM)
   ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
   pM->dt = dt;
 #endif /* MPI_PARALLEL */
-
+        
+/* Limit increase to 2x old value */
+  if (pM->nstep != 0) {
+    pM->dt = MIN(pM->dt, 2.0*old_dt);
+  }     
+    
 /* modify timestep so loop finishes at t=tlim exactly */
-
   tlim = par_getd("time","tlim");
   if ((pM->time < tlim) && ((tlim - pM->time) < pM->dt))
     pM->dt = tlim - pM->time;
+
+
+/* When explicit diffusion is included, compute stability constriant */
+#if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
+  max_dti_diff = new_dt_diff(pM);
+
+  diff_dt = CourNo/max_dti_diff;
+
+#ifdef MPI_PARALLEL
+    my_dt = diff_dt;
+    ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    diff_dt = dt;
+#endif /* MPI_PARALLEL */
+
+#ifdef STS
+  if (pM->i_STS == 0) {
+
+    pM->diff_dt = diff_dt;
+
+    pM->STS_dt = pM->dt;
+
+    /* number of super timesteps */
+    N_STS = get_N_STS(pM->STS_dt, pM->diff_dt);
+
+    if (N_STS > 15) {
+      N_STS  = 15;
+      pM->STS_dt = 171.3936964 * diff_dt;
+    }
+
+    if (N_STS == 1) {
+      nu_STS  = 0.0;
+      pM->diff_dt = pM->STS_dt;
+    }
+    else {
+      nu_STS  = 0.25/SQR((Real)(N_STS));
+      nu_sqrt = 0.5/((Real)(N_STS));
+      pM->diff_dt = 2.0*pM->STS_dt*nu_sqrt/((Real)(N_STS))
+                *(pow(1.0+nu_sqrt,2.0*N_STS)+pow(1.0-nu_sqrt,2.0*N_STS))
+                /(pow(1.0+nu_sqrt,2.0*N_STS)-pow(1.0-nu_sqrt,2.0*N_STS));
+    }
+  }
+
+  pM->dt = pM->diff_dt/(1.0+nu_STS-(1.0-nu_STS)
+               *cos(0.5*PI*(2.0*pM->i_STS+1.0)/(Real)(N_STS)));
+#else
+  pM->dt = MIN(pM->dt, diff_dt);
+#endif /* STS */
+
+#endif /* Explicit Diffusion */
 
 /* Spread timestep across all Grid structures in all Domains */
 
@@ -198,3 +258,27 @@ void new_dt(MeshS *pM)
 
   return;
 }
+
+#ifdef STS
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/*----------------------------------------------------------------------------*/
+/* Obtain the number of sub-timesteps 
+ */
+int get_N_STS(Real dt_MHD, Real dt_Diff)
+{
+/* dt_STS/dt_diff assuming nu=1/4N^2 */
+  static double Ratio[16]={
+     1.00000000,  3.08215298,  6.88968591, 12.22069494, 19.07497343,
+    27.45247186, 37.35317345, 48.77707124, 61.72416193, 76.19444378,
+    92.18791578, 109.7045774, 128.7444282, 149.3074679, 171.3936964, 195.0031136
+  };
+
+  int i=0;
+  Real dt_ratio = dt_MHD/dt_Diff;
+
+  while ((dt_ratio > Ratio[i]) && (i<15))
+    i++;
+
+  return i+1; /* number of substeps N in a super timestep */
+}
+#endif

@@ -44,6 +44,8 @@ static Real3Vect ***emfh=NULL, ***Bcor=NULL, ***Jcor=NULL;
 #ifdef SHEARING_BOX
 static Real ***emf2=NULL;
 static Real **remapEyiib=NULL, **remapEyoib=NULL;
+static Real ***J2=NULL;
+static Real ***remapJyiib=NULL,***remapJyoib=NULL;
 #endif
 
 /*==============================================================================
@@ -59,9 +61,6 @@ static Real **remapEyiib=NULL, **remapEyoib=NULL;
 void EField_Ohm(DomainS *pD);
 void EField_Hall(DomainS *pD);
 void EField_AD(DomainS *pD);
-
-Real minmod(Real a, Real b);
-Real MClim (Real a, Real b);
 
 void hyper_diffusion4(DomainS *pD, Real prefac);
 void hyper_diffusion6(DomainS *pD, Real prefac);
@@ -80,7 +79,7 @@ void resistivity(DomainS *pD)
 #ifdef SHEARING_BOX
   int my_iproc, my_jproc, my_kproc;
 #endif
-  int ndim=1;
+  int ndim=1,nlayer=3;
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
 
   if (pG->Nx[1] > 1){
@@ -166,29 +165,69 @@ void resistivity(DomainS *pD)
      for (j=js-3; j<=je+4; j++) {
       for (i=is-3; i<=ie+4; i++) {
         J[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
-                       (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+                        (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
         J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
-                       (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
+                        (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
         J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
-                       (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+                        (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
       }
       i = is-4;
       J[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
-                     (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+                      (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
      }
      j = js-4;
      for (i=is-3; i<=ie+4; i++) {
-        J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+       J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
                        (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
-     }
     }
-    k = ks-4;
-    for (j=js-3; j<=je+4; j++) {
-    for (i=is-3; i<=ie+4; i++) {
-      J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+   }
+   k = ks-4;
+   for (j=js-3; j<=je+4; j++) {
+   for (i=is-3; i<=ie+4; i++) {
+     J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
                      (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
-    }}
+   }}
   }
+
+/* Remap Jy at the inner and outer shearing box boundaries */
+#ifdef SHEARING_BOX
+  if (pG->Nx[2] > 1){
+
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
+/* compute remapped Ey from opposite side of grid */
+    for(k=ks; k<=ke+1; k++) {
+    for(j=js; j<=je; j++)   {
+    for(i=is; i<=ie+1; i++)   {
+      J2[k][j][i]   = J[k][j][i].x2;
+    }}}
+
+    if (my_iproc == 0) {
+      RemapJy_ix1(pD, J2, remapJyiib, nlayer);
+    }
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      RemapJy_ox1(pD, J2, remapJyoib, nlayer);
+    }
+
+/* Now average Ey and remapped Ey */
+    if (my_iproc == 0) {
+      for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++) {
+      for(i=is-nlayer+1; i<=is; i++) {
+        J[k][j][i].x2  = 0.5*(J2[k][j][i] + remapJyiib[i-is+nlayer-1][k][j]);
+      }}}
+    }
+
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++) {
+      for(i=ie+1; i<=ie+nlayer; i++) {
+        J[k][j][i].x2 = 0.5*(J2[k][j][i] + remapJyoib[i-ie-1][k][j]);
+      }}}
+    }
+}
+#endif /* SHEARING_BOX */
+
 
 /*--- Step 2.  Call functions to compute resistive EMFs ------------------------
  * including Ohmic dissipation, the Hall effect, and ambipolar diffusion.
@@ -201,8 +240,6 @@ void resistivity(DomainS *pD)
 /* Remap Ey at is and ie+1 to conserve Bz in shearing box */
 #ifdef SHEARING_BOX
   if (pG->Nx[2] > 1){
-
-    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* compute remapped Ey from opposite side of grid */
     for(k=ks; k<=ke+1; k++) {
@@ -219,22 +256,18 @@ void resistivity(DomainS *pD)
     }
 
 /* Now average Ey and remapped Ey */
-
     if (my_iproc == 0) {
       for(k=ks; k<=ke+1; k++) {
-        for(j=js; j<=je; j++){
+        for(j=js; j<=je; j++) {
           emf[k][j][is].x2  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
-        }
-      }
-    }
+    }}}
 
     if (my_iproc == (pD->NGrid[0]-1)) {
       for(k=ks; k<=ke+1; k++) {
-        for(j=js; j<=je; j++){
-          emf[k][j][ie+1].x2  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
-        }
-      }
-    }
+        for(j=js; j<=je; j++) {
+          emf[k][j][ie+1].x2 = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+    }}}
+
   }
 #endif /* SHEARING_BOX */
 
@@ -924,7 +957,6 @@ void EField_AD(DomainS *pD)
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
 
       emf[ks][j][i].x3 += eta_A*(J[ks][j][i].x3 - JdotB*intBz/Bsq);
-
     }}
   }
 
@@ -934,9 +966,9 @@ void EField_AD(DomainS *pD)
  *   emf.z = (J_perp)_z  */
 
   if (ndim == 3){
-    for (k=ks; k<=ke+1; k++) {
-    for (j=js; j<=je+1; j++) {
-      for (i=is; i<=ie+1; i++) {
+    for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
 
         /* emf.x */
         eta_A = 0.25*(pG->eta_AD[k][j  ][i] + pG->eta_AD[k-1][j  ][i] +
@@ -1243,26 +1275,6 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
 }
 
 /*----------------------------------------------------------------------------*/
-/* min-mod limiter
- */
-Real minmod(Real a, Real b)
-{
-  if (a*b <= 0.0) return 0.0;
-
-  return SIGN(a)*MIN(fabs(a),fabs(b));
-}
-
-/*----------------------------------------------------------------------------*/
-/* monotonized central limiter
- */
-Real MClim(Real a, Real b)
-{
-  if (a*b <= 0.0) return 0.0;
-
-  return SIGN(a)*MIN(2.0*MIN(fabs(a),fabs(b)),0.5*fabs(a+b));
-}
-
-/*----------------------------------------------------------------------------*/
 /* resistivity_init: Allocate temporary arrays
  */
 
@@ -1341,6 +1353,12 @@ void resistivity_init(MeshS *pM)
       goto on_error;
     if ((remapEyoib = (Real**)calloc_2d_array(Nx3,Nx2,sizeof(Real)))==NULL)
       goto on_error;
+    if ((J2   = (Real***)calloc_3d_array(Nx3,Nx2,Nx1,sizeof(Real)))==NULL)
+      goto on_error;
+    if ((remapJyiib = (Real***)calloc_3d_array(nghost,Nx3,Nx2,sizeof(Real)))==NULL)
+      goto on_error;
+    if ((remapJyoib = (Real***)calloc_3d_array(nghost,Nx3,Nx2,sizeof(Real)))==NULL)
+      goto on_error;
   }
 #endif
 
@@ -1372,8 +1390,11 @@ void resistivity_destruct()
 
 #ifdef SHEARING_BOX
   if (emf2 != NULL) free_3d_array(emf2);
-  if (remapEyiib != NULL) free_2d_array(emf2);
-  if (remapEyoib != NULL) free_2d_array(emf2);
+  if (remapEyiib != NULL) free_2d_array(remapEyiib);
+  if (remapEyoib != NULL) free_2d_array(remapEyoib);
+  if (J2 != NULL)   free_3d_array(J2);
+  if (remapJyiib != NULL) free_3d_array(remapJyiib);
+  if (remapJyoib != NULL) free_3d_array(remapJyoib);
 #endif
 
   return;
