@@ -87,14 +87,14 @@ void get_eta(GridS *pG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Single-ion prescription with constant diffusivities
+/* Standard (no small grain) prescription with constant diffusivities
  * NEED global parameters: eta_Ohm, Q_Hall and Q_AD.
  * ONLY eta_Ohm has the dimension of diffusivity.
  * This correspond to CASE 1.
  */
 
-void eta_single_const(GridS *pG, int i, int j, int k,
-                               Real *eta_O, Real *eta_H, Real *eta_A)
+void eta_standard(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
 {
   Real Bsq, Bmag;
 
@@ -109,19 +109,6 @@ void eta_single_const(GridS *pG, int i, int j, int k,
     *eta_H = Q_Hall * Bmag / pow(pG->U[k][j][i].d, d_ind);
     *eta_A = Q_AD * Bsq / pow(pG->U[k][j][i].d, 1.0+d_ind);
   }
-
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
-/* User defined resistivities.
- * This correspond to CASE 2.
- */
-
-void eta_general(GridS *pG, int i, int j, int k,
-                            Real *eta_O, Real *eta_H, Real *eta_A)
-{
-  get_eta_user(pG, i,j,k, eta_O, eta_H, eta_A);
 
   return;
 }

@@ -214,6 +214,11 @@ void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, 
 void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2,
                   const Real x3, const Real v1, const Real v2, const Real v3);
 #endif
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A);
+#endif
+
 
 /*----------------------------------------------------------------------------*/
 /* restart.c  */

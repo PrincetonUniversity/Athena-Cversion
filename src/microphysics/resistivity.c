@@ -78,8 +78,9 @@ void resistivity(DomainS *pD)
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
 #ifdef SHEARING_BOX
   int my_iproc, my_jproc, my_kproc;
+  int nlayer=1;
 #endif
-  int ndim=1,nlayer=3;
+  int ndim=1;
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
 
   if (pG->Nx[1] > 1){
@@ -125,6 +126,15 @@ void resistivity(DomainS *pD)
       }
     }}
   }
+
+#ifdef SHEARING_BOX
+  if (Q_AD > 0.0) {
+    nlayer = 2;
+  }
+  if (Q_Hall > 0.0) {
+    nlayer = 4;
+  }
+#endif
 
 /*--- Step 1. Compute currents.------------------------------------------------
  * Note:  J1 = (dB3/dx2 - dB2/dx3)
@@ -196,9 +206,9 @@ void resistivity(DomainS *pD)
     get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* compute remapped Ey from opposite side of grid */
-    for(k=ks; k<=ke+1; k++) {
-    for(j=js; j<=je; j++)   {
-    for(i=is; i<=ie+1; i++)   {
+    for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+    for(j=js; j<=je; j++) {
+    for(i=is; i<=ie+1; i++) {
       J2[k][j][i]   = J[k][j][i].x2;
     }}}
 
@@ -211,21 +221,21 @@ void resistivity(DomainS *pD)
 
 /* Now average Ey and remapped Ey */
     if (my_iproc == 0) {
-      for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je; j++) {
+      for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=js-nlayer; j<=je+nlayer; j++) {
       for(i=is-nlayer+1; i<=is; i++) {
-        J[k][j][i].x2  = 0.5*(J2[k][j][i] + remapJyiib[i-is+nlayer-1][k][j]);
+        J[k][j][i].x2  = 0.5*(J[k][j][i].x2 + remapJyiib[i-is+nlayer-1][k][j]);
       }}}
     }
 
     if (my_iproc == (pD->NGrid[0]-1)) {
-      for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je; j++) {
+      for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=js-nlayer; j<=je+nlayer; j++) {
       for(i=ie+1; i<=ie+nlayer; i++) {
-        J[k][j][i].x2 = 0.5*(J2[k][j][i] + remapJyoib[i-ie-1][k][j]);
+        J[k][j][i].x2 = 0.5*(J[k][j][i].x2 + remapJyoib[i-ie-1][k][j]);
       }}}
     }
-}
+  }
 #endif /* SHEARING_BOX */
 
 
@@ -259,7 +269,7 @@ void resistivity(DomainS *pD)
     if (my_iproc == 0) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++) {
-          emf[k][j][is].x2  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+          emf[k][j][is].x2 = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
     }}}
 
     if (my_iproc == (pD->NGrid[0]-1)) {
@@ -542,6 +552,10 @@ void EField_Hall(DomainS *pD)
   int i, il,iu, is = pG->is, ie = pG->ie;
   int j, jl,ju, js = pG->js, je = pG->je;
   int k, kl,ku, ks = pG->ks, ke = pG->ke;
+#ifdef SHEARING_BOX
+  int my_iproc, my_jproc, my_kproc;
+  int nlayer;
+#endif
   int ndim=1;
   Real eta_H, Bmag;
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
@@ -577,6 +591,10 @@ void EField_Hall(DomainS *pD)
 
       pG->eta_Hall[k][j][i] /= Bmag+TINY_NUMBER;
   }}}
+
+#ifdef SHEARING_BOX
+  get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+#endif
 
 /* 1D PROBLEM:
  *   emf.x =  0.0
@@ -750,28 +768,63 @@ void EField_Hall(DomainS *pD)
       for (j=js-2; j<=je+3; j++) {
         for (i=is-2; i<=ie+3; i++) {
           Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
-                            (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
+                             (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
           Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
-                            (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
+                             (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
           Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
-                            (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
+                             (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
         }
         i = is-3;
         Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
-                          (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
+                           (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
       }
       j = js-3;
       for (i=is-2; i<=ie+3; i++) {
         Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
-                          (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
+                           (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
       }
     }
     k = ks-3;
     for (j=js-2; j<=je+3; j++) {
     for (i=is-2; i<=ie+3; i++) {
       Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
-                        (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
+                         (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
     }}
+
+#ifdef SHEARING_BOX
+    nlayer = 4;
+
+/* remap Jy */
+    for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+    for(j=js; j<=je; j++) {
+    for(i=is; i<=ie+1; i++) {
+      J2[k][j][i]   = Jcor[k][j][i].x2;
+    }}}
+
+    if (my_iproc == 0) {
+      RemapJy_ix1(pD, J2, remapJyiib, nlayer);
+    }
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      RemapJy_ox1(pD, J2, remapJyoib, nlayer);
+    }
+
+/* Now average Ey and remapped Ey */
+    if (my_iproc == 0) {
+      for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=js-nlayer; j<=je+nlayer; j++) {
+      for(i=is-nlayer+1; i<=is; i++) {
+        Jcor[k][j][i].x2  = 0.5*(Jcor[k][j][i].x2 + remapJyiib[i-is+nlayer-1][k][j]);
+      }}}
+    }
+
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=js-nlayer; j<=je+nlayer; j++) {
+      for(i=ie+1; i<=ie+nlayer; i++) {
+        Jcor[k][j][i].x2 = 0.5*(Jcor[k][j][i].x2 + remapJyoib[i-ie-1][k][j]);
+      }}}
+    }
+#endif /* SHEARING_BOX */
 
     /* x2-sweep */
     for (k=ks-2; k<=ke+3; k++) {
@@ -804,28 +857,63 @@ void EField_Hall(DomainS *pD)
       for (j=js-1; j<=je+2; j++) {
         for (i=is-1; i<=ie+2; i++) {
           Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
-                            (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
+                             (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
           Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
-                            (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
+                             (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
           Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
-                            (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
+                             (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
         }
         i = is-2;
         Jcor[k][j][i].x1 = (Bcor[k][j][i].x3 - Bcor[k  ][j-1][i  ].x3)/pG->dx2 -
-                          (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
+                           (Bcor[k][j][i].x2 - Bcor[k-1][j  ][i  ].x2)/pG->dx3;
       }
       j = js-2;
       for (i=is-1; i<=ie+2; i++) {
         Jcor[k][j][i].x2 = (Bcor[k][j][i].x1 - Bcor[k-1][j  ][i  ].x1)/pG->dx3 -
-                          (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
+                           (Bcor[k][j][i].x3 - Bcor[k  ][j  ][i-1].x3)/pG->dx1;
       }
     }
     k = ks-2;
     for (j=js-1; j<=je+2; j++) {
     for (i=is-1; i<=ie+2; i++) {
       Jcor[k][j][i].x3 = (Bcor[k][j][i].x2 - Bcor[k  ][j  ][i-1].x2)/pG->dx1 -
-                        (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
+                         (Bcor[k][j][i].x1 - Bcor[k  ][j-1][i  ].x1)/pG->dx2;
     }}
+
+#ifdef SHEARING_BOX
+    nlayer = 3;
+
+/* remap Jy */
+    for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+    for(j=js; j<=je; j++) {
+    for(i=is; i<=ie+1; i++) {
+      J2[k][j][i]   = Jcor[k][j][i].x2;
+    }}}
+
+    if (my_iproc == 0) {
+      RemapJy_ix1(pD, J2, remapJyiib, nlayer);
+    }
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      RemapJy_ox1(pD, J2, remapJyoib, nlayer);
+    }
+
+/* Now average Ey and remapped Ey */
+    if (my_iproc == 0) {
+      for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=js-nlayer; j<=je+nlayer; j++) {
+      for(i=is-nlayer+1; i<=is; i++) {
+        Jcor[k][j][i].x2  = 0.5*(Jcor[k][j][i].x2 + remapJyiib[i-is+nlayer-1][k][j]);
+      }}}
+    }
+
+    if (my_iproc == (pD->NGrid[0]-1)) {
+      for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=js-nlayer; j<=je+nlayer; j++) {
+      for(i=ie+1; i<=ie+nlayer; i++) {
+        Jcor[k][j][i].x2 = 0.5*(Jcor[k][j][i].x2 + remapJyoib[i-ie-1][k][j]);
+      }}}
+    }
+#endif /* SHEARING_BOX */
 
     /* x3-sweep */
     for (k=ks-1; k<=ke+1; k++) {
@@ -1288,11 +1376,11 @@ void resistivity_init(MeshS *pM)
 
   switch (mycase)
   {
-    /* single-ion prescription with constant coefficients */
-    case 1:  get_myeta = eta_single_const; break;
+    /* standard (no small grain) prescription with constant coefficients */
+    case 1:  get_myeta = eta_standard; break;
 
     /* general prescription with user defined diffusivities */
-    case 2:  get_myeta = eta_general; break;
+    case 2:  get_myeta = get_eta_user; break;
 
     default: ath_error("[resistivity_init]: CASE must equal to 1 or 2!\n");
              return;

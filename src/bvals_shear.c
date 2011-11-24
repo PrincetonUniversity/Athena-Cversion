@@ -2712,7 +2712,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
   if (pD->NGrid[0] == 1) {
     for(n=0; n<nlayer; n++){
-     for(k=ks; k<=ke+1; k++) {
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for(j=js; j<=je; j++){
         tJy[n][k][j] = J2[k][j][ie+2-nlayer+n];
       }}}
@@ -2722,7 +2722,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
 /* MPI calls to swap data */
 
-    cnt = nlayer*pG->Nx[1]*(pG->Nx[2]+1); /* Post a non-blocking receive for the input data from remapJy_ox1 (listen L) */
+    cnt = nlayer*pG->Nx[1]*(pG->Nx[2]+2*nlayer-1); /* Post a non-blocking receive for the input data from remapJy_ox1 (listen L) */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
 
@@ -2730,7 +2730,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pSnd = send_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++) {
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for (j=js; j<=je; j++) {
         pJy = &(J2[k][j][is+n]);
         *(pSnd++) = *pJy;
@@ -2744,7 +2744,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pRcv = recv_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++) {
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for (j=js; j<=je; j++) {
         pJy = &(tJy[n][k][j]);
         *pJy = *(pRcv++);
@@ -2759,7 +2759,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
   if (pD->NGrid[1] == 1) {
 
     for(n=0; n<nlayer; n++){
-     for(k=ks; k<=ke+1; k++) {
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for(j=1; j<=nghost; j++){
         tJy[n][k][js-j] = tJy[n][k][je-(j-1)];
         tJy[n][k][je+j] = tJy[n][k][js+(j-1)];
@@ -2770,14 +2770,14 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
 /* MPI calls to swap data */
 
-    cnt = nghost*nlayer*(pG->Nx[2] + 1);
+    cnt = nghost*nlayer*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data from the left grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=je-nghost+1; j<=je; j++){
         pJy = &(tJy[n][k][j]);
         *(pSnd++) = *pJy;
@@ -2792,7 +2792,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pRcv = recv_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=js-nghost; j<=js-1; j++){
         pJy = &(tJy[n][k][j]);
         *pJy = *(pRcv++);
@@ -2804,7 +2804,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pSnd = send_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=js; j<=js+nghost-1; j++){
         pJy = &(tJy[n][k][j]);
         *(pSnd++) = *pJy;
@@ -2819,7 +2819,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pRcv = recv_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=je+1; j<=je+nghost; j++){
         pJy = &(tJy[n][k][j]);
         *pJy = *(pRcv++);
@@ -2832,7 +2832,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
  * solution over the fractional part of grid cell */
 
   for(n=0; n<nlayer; n++){
-   for(k=ks; k<=ke+1; k++){
+   for(k=ks-nlayer+1; k<=ke+nlayer; k++){
      RemapFlux(tJy[n][k],epsi,js,je+1,Flx);
      for(j=js; j<=je; j++){
        tJyBuf[n][k][j] = tJy[n][k][j] - (Flx[j+1] - Flx[j]);
@@ -2846,7 +2846,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
   if (pD->NGrid[1] == 1) {
 
     for(n=0; n<nlayer; n++){
-     for(k=ks; k<=ke+1; k++){
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++){
       for(j=js; j<=je; j++){
         jremap = j - joffset;
         if (jremap < (int)js) jremap += pG->Nx[1];
@@ -2887,14 +2887,14 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from tJyBuf */
 
-      cnt = nlayer*joverlap*(pG->Nx[2]+1);
+      cnt = nlayer*joverlap*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
           pJy = &(tJyBuf[n][k][j]);
           *(pSnd++) = *pJy;
@@ -2911,7 +2911,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
       pRcv = recv_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=js; j<=js+(joverlap-1); j++) {
             pJy = &(tJy[n][k][j]);
             *pJy = *(pRcv++);
@@ -2926,7 +2926,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
     if (Ngrids == 0) {
 
       for(n=0; n<nlayer; n++){
-       for(k=ks; k<=ke+1; k++) {
+       for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for(j=js+joverlap; j<=je; j++){
           jremap = j-joverlap;
           tJy[n][k][j]  = tJyBuf[n][k][jremap];
@@ -2948,14 +2948,14 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
       if (jproc < 0) jproc += pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = nlayer*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
+      cnt = nlayer*(pG->Nx[1]-joverlap)*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=js; j<=je-joverlap; j++) {
           pJy = &(tJyBuf[n][k][j]);
           *(pSnd++) = *pJy;
@@ -2970,7 +2970,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
       pRcv = recv_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=js+joverlap; j<=je; j++) {
           pJy = &(tJy[n][k][j]);
           *pJy = *(pRcv++);
@@ -2979,6 +2979,82 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
 #endif /* MPI_PARALLEL */
   } /* end of step 5 - MPI decomposition in Y */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Apply periodic BC in x2 to temporary array.  Requires MPI calls if 
+ * NGrid_x2 > 1 */
+                   
+  if (pD->NGrid[1] == 1) {
+
+    for(n=0; n<nlayer; n++){
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=1; j<=nghost; j++){
+        tJy[n][k][js-j] = tJy[n][k][je-(j-1)];
+        tJy[n][k][je+j] = tJy[n][k][js+(j-1)];
+      }}}
+      
+#ifdef MPI_PARALLEL
+  } else {
+      
+/* MPI calls to swap data */
+  
+    cnt = nghost*nlayer*(pG->Nx[2]+2*nlayer-1);
+/* Post a non-blocking receive for the input data from the left grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=je-nghost+1; j<=je; j++){
+        pJy = &(tJy[n][k][j]);
+        *(pSnd++) = *pJy;
+      }}}
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=js-nghost; j<=js-1; j++){
+        pJy = &(tJy[n][k][j]);
+        *pJy = *(pRcv++);
+      }}}
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=js; j<=js+nghost-1; j++){
+        pJy = &(tJy[n][k][j]);
+        *(pSnd++) = *pJy;
+      }}}
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=je+1; j<=je+nghost; j++){
+        pJy = &(tJy[n][k][j]);
+        *pJy = *(pRcv++);
+      }}}
+#endif /* MPI_PARALLEL */
+
+  } /* end of step 6: periodic BC in Y */
 
   return;
 }
@@ -3033,7 +3109,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
   if (pD->NGrid[0] == 1) {
     for(n=0; n<nlayer; n++){
-     for(k=ks; k<=ke+1; k++) {
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for(j=js; j<=je; j++){
         tJy[n][k][j] = J2[k][j][is+n];
       }}}
@@ -3043,7 +3119,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
 /* MPI calls to swap data */
 
-    cnt = nlayer*pG->Nx[1]*(pG->Nx[2]+1);
+    cnt = nlayer*pG->Nx[1]*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data from remapJy_ix1 (listen R) */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
@@ -3052,7 +3128,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pSnd = send_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++) {
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for (j=js; j<=je; j++) {
         pJy = &(J2[k][j][ie+2-nlayer+n]);
         *(pSnd++) = *pJy;
@@ -3066,7 +3142,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pRcv = recv_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++) {
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for (j=js; j<=je; j++) {
           pJy = &(tJy[n][k][j]);
           *pJy = *(pRcv++);
@@ -3081,7 +3157,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
   if (pD->NGrid[1] == 1) {
 
     for(n=0; n<nlayer; n++){
-     for(k=ks; k<=ke+1; k++) {
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for(j=1; j<=nghost; j++){
         tJy[n][k][js-j] = tJy[n][k][je-(j-1)];
         tJy[n][k][je+j] = tJy[n][k][js+(j-1)];
@@ -3092,14 +3168,14 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
 /* MPI calls to swap data */
 
-    cnt = nlayer*nghost*(pG->Nx[2] + 1);
+    cnt = nlayer*nghost*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data from the left grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     remapEy_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=je-nghost+1; j<=je; j++){
         pJy = &(tJy[n][k][j]);
         *(pSnd++) = *pJy;
@@ -3114,7 +3190,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pRcv = recv_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=js-nghost; j<=js-1; j++){
         pJy = &(tJy[n][k][j]);
         *pJy = *(pRcv++);
@@ -3126,7 +3202,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pSnd = send_buf;
     for(n=0; n<nlayer; n++){
-      for (k=ks; k<=ke+1; k++){
+      for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=js; j<=js+nghost-1; j++){
         pJy = &(tJy[n][k][j]);
         *(pSnd++) = *pJy;
@@ -3141,7 +3217,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
     pRcv = recv_buf;
     for(n=0; n<nlayer; n++){
-     for (k=ks; k<=ke+1; k++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
       for (j=je+1; j<=je+nghost; j++){
         pJy = &(tJy[n][k][j]);
         *pJy = *(pRcv++);
@@ -3154,7 +3230,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
  * solution over the fractional part of grid cell */
 
   for(n=0; n<nlayer; n++){
-    for(k=ks; k<=ke+1; k++) {
+    for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       RemapFlux(tJy[n][k],epso,js,je+1,Flx);
       for(j=js; j<=je; j++){
         tJyBuf[n][k][j] = tJy[n][k][j] - (Flx[j+1] - Flx[j]);
@@ -3168,7 +3244,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
   if (pD->NGrid[1] == 1) {
 
     for(n=0; n<nlayer; n++){
-    for(k=ks; k<=ke+1; k++) {
+    for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for(j=js; j<=je; j++){
         jremap = j + joffset;
         if (jremap > (int)je) jremap -= pG->Nx[1];
@@ -3210,14 +3286,14 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from tJyBuf */
 
-      cnt = nlayer*joverlap*(pG->Nx[2]+1);
+      cnt = nlayer*joverlap*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=js; j<=js+(joverlap-1); j++) {
           pJy = &(tJyBuf[n][k][j]);
           *(pSnd++) = *pJy;
@@ -3234,7 +3310,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
       pRcv = recv_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
             pJy = &(tJy[n][k][j]);
             *pJy = *(pRcv++);
@@ -3250,7 +3326,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
     if (Ngrids == 0) {
 
       for(n=0; n<nlayer; n++){
-       for(k=ks; k<=ke+1; k++) {
+       for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for(j=js; j<=je-joverlap; j++){
           jremap = j+joverlap;
           tJy[n][k][j]  = tJyBuf[n][k][jremap];
@@ -3272,14 +3348,14 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = nlayer*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
+      cnt = nlayer*(pG->Nx[1]-joverlap)*(pG->Nx[2]+2*nlayer-1);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapEy_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=js+joverlap; j<=je; j++) {
           pJy = &(tJyBuf[n][k][j]);
           *(pSnd++) = *pJy;
@@ -3294,7 +3370,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
       pRcv = recv_buf;
       for(n=0; n<nlayer; n++){
-       for (k=ks; k<=ke+1; k++) {
+       for (k=ks-nlayer+1; k<=ke+nlayer; k++) {
         for (j=js; j<=je-joverlap; j++) {
           pJy = &(tJy[n][k][j]);
           *pJy = *(pRcv++);
@@ -3303,6 +3379,82 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
 #endif /* MPI_PARALLEL */
   } /* end of step 5 - MPI decomposition in Y */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Apply periodic BC in x2 to temporary array.  Requires MPI calls if 
+ * NGrid_x2 > 1 */
+                   
+  if (pD->NGrid[1] == 1) {
+
+    for(n=0; n<nlayer; n++){
+     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
+      for(j=1; j<=nghost; j++){
+        tJy[n][k][js-j] = tJy[n][k][je-(j-1)];
+        tJy[n][k][je+j] = tJy[n][k][js+(j-1)];
+      }}}
+      
+#ifdef MPI_PARALLEL
+  } else {
+      
+/* MPI calls to swap data */
+  
+    cnt = nlayer*nghost*(pG->Nx[2]+2*nlayer-1);
+/* Post a non-blocking receive for the input data from the left grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=je-nghost+1; j<=je; j++){
+        pJy = &(tJy[n][k][j]);
+        *(pSnd++) = *pJy;
+      }}}
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=js-nghost; j<=js-1; j++){
+        pJy = &(tJy[n][k][j]);
+        *pJy = *(pRcv++);
+      }}}
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for(n=0; n<nlayer; n++){
+      for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=js; j<=js+nghost-1; j++){
+        pJy = &(tJy[n][k][j]);
+        *(pSnd++) = *pJy;
+      }}}
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for(n=0; n<nlayer; n++){
+     for (k=ks-nlayer+1; k<=ke+nlayer; k++){
+      for (j=je+1; j<=je+nghost; j++){
+        pJy = &(tJy[n][k][j]);
+        *pJy = *(pRcv++);
+      }}}
+#endif /* MPI_PARALLEL */
+
+  } /* end of step 6: periodic BC in Y */
 
   return;
 }
