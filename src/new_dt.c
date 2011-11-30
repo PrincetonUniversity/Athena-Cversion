@@ -220,9 +220,9 @@ void new_dt(MeshS *pM)
     /* number of super timesteps */
     N_STS = get_N_STS(pM->STS_dt, pM->diff_dt);
 
-    if (N_STS > 15) {
-      N_STS  = 15;
-      pM->STS_dt = 171.3936964 * diff_dt;
+    if (N_STS > 7) {
+      N_STS  = 7;
+      pM->STS_dt = 37.35317345 * diff_dt;
     }
 
     if (N_STS == 1) {
@@ -276,7 +276,7 @@ int get_N_STS(Real dt_MHD, Real dt_Diff)
   int i=0;
   Real dt_ratio = dt_MHD/dt_Diff;
 
-  while ((dt_ratio > Ratio[i]) && (i<15))
+  while ((dt_ratio > Ratio[i]) && (i<7))
     i++;
 
   return i+1; /* number of substeps N in a super timestep */
