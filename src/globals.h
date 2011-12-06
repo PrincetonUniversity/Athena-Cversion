@@ -71,6 +71,8 @@ Real Crat;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
 OpacityFun_t Opacity = NULL;
 int Ncycle = 10;	/* Numbers of relaxation cycles to do in multigrid-matrix solver */
 Real TOL = 1.e-8;  /* relative residual level used in matrix convergent criterian */
+Real Eratio = 0.05;
+int Erflag = 1; /* Flag to do backward Euler first or later. If 1, do it later. conservative way */
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)
@@ -151,6 +153,8 @@ extern Real Crat;
 extern OpacityFun_t Opacity;
 extern int Ncycle;	/* Numbers of relaxation cycles to do in multigrid-matrix solver */
 extern Real TOL;  /* relative residual level used in matrix convergent criterian */
+extern Real Eratio;
+extern int Erflag;
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)

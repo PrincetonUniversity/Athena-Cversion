@@ -106,7 +106,7 @@ void BackEuler_1d(MeshS *pM)
 	Real hdtodx1 = 0.5*pG->dt/pG->dx1;
 	Real dt = pG->dt;
 	int il,iu, is = pG->is, ie = pG->ie;
-  	int i, j;
+  	int i, j, m;
 	int js = pG->js;
 	int ks = pG->ks;
 	int Nmatrix, NZ_NUM, NoEr, NoFr, lines, count;
@@ -118,7 +118,8 @@ void BackEuler_1d(MeshS *pM)
 
   	Real theta[7];
   	Real phi[7];
-  	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure;
+  	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, T4;
+	Real Sigma[NOPACITY];
 
 	/* Boundary condition flag */
 	int ix1, ox1, ix2, ox2, ix3, ox3;
@@ -192,9 +193,9 @@ void BackEuler_1d(MeshS *pM)
 
 	for(i=is; i<=ie; i++){
 
-    		pressure = (pG->U[ks][js][i].E - 0.5 * (pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1)/pG->U[ks][js][i].d) * (Gamma - 1.0);
+/*    		pressure = (pG->U[ks][js][i].E - 0.5 * (pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1)/pG->U[ks][js][i].d) * (Gamma - 1.0);
 
-/* if MHD - 0.5 * Bx * Bx   */
+
 
 #ifdef RADIATION_MHD
 
@@ -202,13 +203,15 @@ void BackEuler_1d(MeshS *pM)
 #endif
 
     		temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
+*/
+		T4 = pG->Tguess[ks][js][i];
 
 		Sigma_aP = pG->U[ks][js][i].Sigma[2];
 	
 
 		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
 
-    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + pG->Tguess[ks][js][i];
+    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i];
     		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + pG->dt *  Sigma_aP
 				* temperature * temperature * temperature * temperature * U1d[i].Mx / U1d[i].d;
 
@@ -268,12 +271,12 @@ void BackEuler_1d(MeshS *pM)
 		theta[1] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]) * sqrt(U1d[i-1].Edd_11);
 		theta[2] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]);
 		theta[3] = 1.0 + Crat * hdtodx1 * (1.0 + Cspeeds[i-is+1]) * sqrt(U1d[i].Edd_11) 
-			+ Crat * hdtodx1 * (1.0 - Cspeeds[i-is]) * sqrt(U1d[i].Edd_11);
-/*	 + Crat * pG->dt * Sigma_aE 
-		+ pG->dt * (Sigma_aF - Sigma_sF) * (1.0 + U1d[i].Edd_11) * velocity * velocity / Crat;
-*/
-		theta[4] = Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]); 
-/*			- pG->dt * (Sigma_aF - Sigma_sF) * velocity; */
+			+ Crat * hdtodx1 * (1.0 - Cspeeds[i-is]) * sqrt(U1d[i].Edd_11)
+			+ Eratio * (Crat * pG->dt * Sigma_aE 
+			+ pG->dt * (Sigma_aF - Sigma_sF) * (1.0 + U1d[i].Edd_11) * velocity * velocity / Crat);
+
+		theta[4] = Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1])
+			  - Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity; 
 		theta[5] = -Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]) * sqrt(U1d[i+1].Edd_11);
 		theta[6] = Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]);
 
@@ -491,7 +494,29 @@ void BackEuler_1d(MeshS *pM)
 	}
 	/* May need to update Edd_11 */
 
+
+if(Opacity != NULL){
+		for(i=il+1; i<=iu-1; i++) {
+
+			pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1 / pG->U[ks][js][i].d )
+				* (Gamma - 1);
+
+#ifdef RADIATION_MHD
+		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
+#endif
+		
+			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
 	
+		
+			Opacity(pG->U[ks][js][i].d, temperature,Sigma, NULL);
+			for(m=0;m<NOPACITY;m++){
+				pG->U[ks][js][i].Sigma[m] = Sigma[m];
+			}
+	
+		}
+}	
+
+
 /* Update the ghost zones for different boundary condition to be used later */
 
 	for (i=0; i<pM->NLevels; i++){ 

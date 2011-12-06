@@ -472,7 +472,7 @@ int main(int argc, char *argv[])
 
 /* set boundary condition for radiation quantities */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
-  // VMFun_t BackEuler;
+
 
   BackEuler = BackEuler_init(&Mesh);
 
@@ -655,7 +655,15 @@ int main(int argc, char *argv[])
 	/* Update boundary condition for Eddington tensor */
 #endif /* RADIATION_TRANSFER */
 
-	
+	if(!Erflag){
+		GetTguess(&Mesh);
+
+		Eratio = 1.0;
+		(*BackEuler)(&Mesh);
+
+	}	
+
+
 
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
@@ -683,9 +691,11 @@ int main(int argc, char *argv[])
 /* Source terms in ghost zones do not need to be set */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+	/* This step doesn't need ghost zones of hydro variables */
+	if(Erflag){
+		(*BackEuler)(&Mesh);
 
-	(*BackEuler)(&Mesh);
-
+	}
 #endif
 
 /*--- Step 9d. ---------------------------------------------------------------*/
@@ -752,9 +762,9 @@ int main(int argc, char *argv[])
 #endif
 
 	
-	/* bondary condition is set in the integrator */
- 
-/*	
+/* boundary conditions for radiation quantities are set in the integrator */
+ /*
+	
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif

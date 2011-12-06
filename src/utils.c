@@ -1549,11 +1549,10 @@ double rtsafe(void (*funcd)(double, double, double, double, double *, double *),
 
 
 /* Function to calculate  for source term T^4 - Er */
-/*
+
 void GetTguess(MeshS *pM)
 {
 
-	void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
 
 
 	GridS *pG;
@@ -1623,10 +1622,10 @@ void GetTguess(MeshS *pM)
 
 				if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
 					
-					pG->Tguess[k][j][i] = temperature;
+					pG->Tguess[k][j][i] = Ern; 
 				}
 				else if(pressure < TINY_NUMBER || pressure != pressure){
-					 pG->Tguess[k][j][i] = pow(Ern, 0.25);
+					 pG->Tguess[k][j][i] = Ern;
 				}
 				else{
 
@@ -1679,8 +1678,10 @@ void GetTguess(MeshS *pM)
 				
 				
 				
-				pG->Tguess[k][j][i] = pow(Erguess, 0.25);
-				
+				pG->Tguess[k][j][i] = Erguess;
+			
+				/* In this case, we do not need Ersource */
+				pG->Ersource[k][j][i] = 0.0;	
 
 				}
 
@@ -1691,7 +1692,7 @@ void GetTguess(MeshS *pM)
 		}
 	} 
 }
-*/
+
 
 /* Function to get the thermal equilibrium radiation 
  * energy density and gas temperature *
@@ -1701,8 +1702,7 @@ void GetTguess(MeshS *pM)
 Real EquState(const Real density, const Real sum, const Real Er0)
 {
 
-	void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
-
+	
 
 
 

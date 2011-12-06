@@ -93,13 +93,11 @@ for(n=0; n<Ncycle; n++){
 			
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11);
-/* 
-				+ Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
-*/
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x; */
+			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
+				+ Eratio * (Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat);
+
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x; 
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 			

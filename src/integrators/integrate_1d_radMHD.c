@@ -448,13 +448,18 @@ for(i=il+1; i<=iu-1; i++) {
 	Sigma_aP = U1d[i].Sigma[2];
 	Sigma_aE = U1d[i].Sigma[3];
 
+	Sigma[0] = Sigma_sF;
+	Sigma[1] = Sigma_aF;
+	Sigma[2] = Sigma_aP;
+	Sigma[3] = Sigma_aE;
+
 
 
 /* The Source term */
 	dSource(U1d[i], Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
 
-	SFm = (Sigma_aF + Sigma_sF) * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (U1d[i].d * Crat) 
-		+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) / (U1d[i].d * Crat);	
+	SFm = (Sigma_aF + Sigma_sF) * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (U1d[i].d * Crat); 
+	/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) / (U1d[i].d * Crat); */	
 
 	Det = 1.0 + dt * Prat * Crat * SEE; 
 
@@ -564,7 +569,8 @@ for(i=il+1; i<=iu-1; i++) {
 	pressure = (Uguess.E - 0.5 * Uguess.Mx * Uguess.Mx / Uguess.d )
 			* (Gamma - 1);
 	/* Should include magnetic energy for MHD */
-#ifdef  RADIATION_MHD 
+#ifdef  RADIATION_MHD
+	Bxc[i] = 0.5*(    pG->B1i[ks][js][i] +     pG->B1i[ks][js][i+1]);
 	pressure -= (Gamma - 1.0) * 0.5 * (Bxc[i] * Bxc[i] + U1d[i].By * U1d[i].By + U1d[i].Bz * U1d[i].Bz);
 #endif
 
@@ -574,6 +580,7 @@ for(i=il+1; i<=iu-1; i++) {
 	velocity = Uguess.Mx / Uguess.d;
 
 	/* Use the updated opacity due to the change of temperature and density */
+	/*
 	if(Opacity != NULL){
 		Opacity(Uguess.d, temperature, Sigma, NULL);
 	}
@@ -584,7 +591,7 @@ for(i=il+1; i<=iu-1; i++) {
 		Sigma[3] = Sigma_aE;
 
 	}
-
+	*/
 
 	for(m=0;m<NOPACITY;m++){
 		Uguess.Sigma[m] = Sigma[m];
@@ -642,9 +649,19 @@ for(i=il+1; i<=iu-1; i++) {
 
 		pG->Tguess[ks][js][i] /= -Prat;
 
+		pG->Ersource[ks][js][i] = pG->Tguess[ks][js][i];		
+
+		if(Sigma_aP > TINY_NUMBER){
+			pG->Tguess[ks][js][i] = (1.0/(dt * Crat * Sigma_aP) + Sigma_aE/Sigma_aP) * pG->Tguess[ks][js][i] + Sigma_aE * pG->U[ks][js][i].Er / Sigma_aP;
+		}
+		else{
+			pG->Tguess[ks][js][i] = pG->U[ks][js][i].Er;
+		}
+
 	}
 	else{
-		pG->Tguess[ks][js][i] = 0.0;
+		pG->Tguess[ks][js][i] = pG->U[ks][js][i].Er;
+		pG->Ersource[ks][js][i] = 0.0;
 
 	}
 
@@ -700,20 +717,20 @@ for(i=il+1; i<=iu-1; i++) {
 	 * If function Opacity is set in the problem generator 
 	 *
 	 */ 
-
+/*
 	if(Opacity != NULL){
 		for(i=il+1; i<=iu-1; i++) {
 
 			pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1 / pG->U[ks][js][i].d )
 				* (Gamma - 1);
-/* Should include magnetic energy for MHD */
+
 #ifdef RADIATION_MHD
 		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
 #endif
 		
 			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
 	
-			/* We do not need to calculate dSigma here */
+		
 			Opacity(pG->U[ks][js][i].d, temperature,Sigma, NULL);
 			for(m=0;m<NOPACITY;m++){
 				pG->U[ks][js][i].Sigma[m] = Sigma[m];
@@ -721,7 +738,7 @@ for(i=il+1; i<=iu-1; i++) {
 	
 		}
 	}
-
+*/
 
   return;
 

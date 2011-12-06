@@ -1398,11 +1398,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	/*=========================================================*/
 	/* In case velocity is large and momentum source is stiff */
-	SFmx = (Usource.Sigma[0] + Usource.Sigma[1]) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
-		+ diffTEr / (density * Crat);	
+	SFmx = (Usource.Sigma[0] + Usource.Sigma[1]) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
+	/*	+ diffTEr / (density * Crat); */	
 
-	SFmy = (Usource.Sigma[0] + Usource.Sigma[1]) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
-		+ diffTEr / (density * Crat);
+	SFmy = (Usource.Sigma[0] + Usource.Sigma[1]) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
+	/*	+ diffTEr / (density * Crat);*/
 
 	
 	Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
@@ -1734,16 +1734,22 @@ void integrate_2d_radMHD(DomainS *pD)
 		Sigma_aF = pG->U[ks][j][i].Sigma[1];
 		Sigma_aP = pG->U[ks][j][i].Sigma[2];
 		Sigma_aE = pG->U[ks][j][i].Sigma[3];
+
+		Sigma[0] = Sigma_sF;
+		Sigma[1] = Sigma_aF;
+		Sigma[2] = Sigma_aP;
+		Sigma[3] = Sigma_aE;
+
 	/* The Source term */
 		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL, x1);
 
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
-		SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
-			+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);	
+		SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
+		/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);*/	
 
-		SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
-			+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);	
+		SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
+		/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);*/	
 
 		Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
 		Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
@@ -2032,7 +2038,11 @@ void integrate_2d_radMHD(DomainS *pD)
 				+ Uguess[2] * Uguess[2] + Uguess[3] * Uguess[3]) / density) * (Gamma - 1.0);
 		/* Should include magnetic energy for MHD */
 #ifdef RADIATION_MHD
-		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+		B1ch = 0.5*(    pG->B1i[ks][j][i] +     pG->B1i[ks][j][i+1]);
+		B2ch = 0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
+		B3ch = pG->U[ks][j][i].B3c;
+
+		pressure -= 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch) * (Gamma - 1.0);
 #endif
 		temperature = pressure / (density * R_ideal);
 		
@@ -2041,6 +2051,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			temperature = pow(pG->U[ks][j][i].Er, 0.25);
 
 		Tguess = temperature;
+		/* Do not update opacity here */
+		/*
 
 		if(Opacity != NULL){
 			Opacity(density,temperature, Sigma, NULL);
@@ -2056,7 +2068,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			Sigma[2] = Sigma_aP;
 			Sigma[3] = Sigma_aE;
 		}
-
+		*/
 		/* update source term */
 		Usource.d = Uguess[0];
 		Usource.Mx = Uguess[1];
@@ -2090,11 +2102,11 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		/*=========================================================*/
 		/* In case velocity is large and momentum source is stiff */
-		SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat) 
-			+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);	
+		SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
+		/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);*/	
 
-		SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat) 
-			+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);	
+		SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
+		/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);*/	
 
 		Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
 		Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
@@ -2169,11 +2181,20 @@ void integrate_2d_radMHD(DomainS *pD)
 #endif
 
 			pG->Tguess[ks][j][i] /= -Prat;
+			pG->Ersource[ks][j][i] = pG->Tguess[ks][j][i];
+
+			if(Sigma_aP > TINY_NUMBER){
+					pG->Tguess[ks][j][i] = (1.0/(dt * Crat * Sigma_aP) + Sigma_aE/Sigma_aP) * pG->Tguess[ks][j][i] + Sigma_aE * pG->U[ks][j][i].Er / Sigma_aP;
+			}
+			else{
+				pG->Tguess[ks][j][i] = pG->U[ks][j][i].Er;
+			}
 
 		}
 		else{
-			pG->Tguess[ks][j][i] = 0.0;
-
+			pG->Tguess[ks][j][i] = pG->U[ks][j][i].Er;
+			pG->Ersource[ks][j][i] = 0.0;
+			
 		}
 
 
@@ -2299,7 +2320,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	/* Boundary condition is applied in the main function */
 
 	/* Update the opacity if Opacity function is set in the problem generator */
-	if(Opacity != NULL){
+/*	if(Opacity != NULL){
 
 		for (j=js; j<=je; j++) {
     			for (i=is; i<=ie; i++){
@@ -2308,7 +2329,7 @@ void integrate_2d_radMHD(DomainS *pD)
 				
 				pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
 				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 +  pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / density )	* (Gamma - 1);
-			/* Should include magnetic energy for MHD */
+		
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
 #endif
@@ -2323,7 +2344,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			}
 		}
 	}
-
+*/
   return;
 
  

@@ -147,6 +147,7 @@ void updatesource(GridS *pG);
 
 void integrate_3d_radMHD(DomainS *pD)
 {
+	
 	GridS *pG=(pD->Grid);
 	Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2, dtodx3 = pG->dt/pG->dx3;
 	Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2, hdtodx3 = 0.5 * dtodx3;
@@ -159,6 +160,8 @@ void integrate_3d_radMHD(DomainS *pD)
 
 	/* For static gravitational potential */
 	Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
+
+	Real Esum, coef1, coef2, coef3, TEr;
 
 	/* To correct the negative pressure */
 	zmin = 4.0;
@@ -3557,7 +3560,12 @@ void integrate_3d_radMHD(DomainS *pD)
 		pressure = (Uguess[4] - 0.5 * (density * velocity * velocity)) * (Gamma - 1.0);
 		/* Should include magnetic energy for MHD */
 #ifdef RADIATION_MHD
-		pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+		/* Should use the updated cell centered magnetic field to calculate the temperature */
+		B1ch = 0.5*(    pG->B1i[k][j][i] +     pG->B1i[k][j][i+1]);
+		B2ch = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
+		B3ch = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
+		
+		pressure -= 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch) * (Gamma - 1.0);
 #endif
 		temperature = pressure / (density * R_ideal);
 		
@@ -3692,10 +3700,13 @@ void integrate_3d_radMHD(DomainS *pD)
 					tempguess[n] += Source_Inv[n][m] * Errort[m];
 				}
 			}
+		
 
 				
 			/* Apply the correction */
 			/* Estimate the added radiation source term  */
+			if(Erflag){
+
 			if(Prat > 0.0){
 				pG->Tguess[k][j][i] = Uguess[4] + tempguess[4] - 
 				(pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
@@ -3710,12 +3721,27 @@ void integrate_3d_radMHD(DomainS *pD)
 
 				pG->Tguess[k][j][i] /= -Prat;
 
-			}
-			else{
-				pG->Tguess[k][j][i] = 0.0;
+				pG->Ersource[k][j][i] = pG->Tguess[k][j][i];
+
+				
+
+				if(Sigma_aP > TINY_NUMBER){
+					pG->Tguess[k][j][i] = (1.0/(dt * Crat * Sigma_aP) + Sigma_aE/Sigma_aP) * pG->Tguess[k][j][i] + Sigma_aE * pG->U[k][j][i].Er / Sigma_aP;
+				}
+				else{
+					pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+				}
+	
+				
+				
 
 			}
-			
+			else{
+				pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+
+				pG->Ersource[k][j][i] = 0.0;
+			}
+			} /* End Erflag */
 					
 		
 			pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
@@ -3723,11 +3749,6 @@ void integrate_3d_radMHD(DomainS *pD)
 			pG->U[k][j][i].M2 = Uguess[2] + tempguess[2];
 			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
 			pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
-
-
-			
-				
-
 
 			} /* End i */
 		}/* End j */
@@ -3794,7 +3815,7 @@ void integrate_3d_radMHD(DomainS *pD)
 	  	pG->Tguess[k][j][i] = -pG->dt * Source[k][j][i][4] / Prat;	
 		*/
 		/* For bad cells, do not include radiation source term */
-		pG->Tguess[k][j][i] = 0.0;
+		pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
 
 	  }	  
           FixCell(pG, BadCell);
@@ -3845,7 +3866,8 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
 	/* Update the opacity if Opacity function is set in the problem generator */
-	if(Opacity != NULL){
+/* Opacity is updated in the BackEuler step so that they are consistent */
+/*	if(Opacity != NULL){
 		for (k=ks; k<=ke; k++){
 			for (j=js; j<=je; j++) {
     				for (i=is; i<=ie; i++){
@@ -3854,7 +3876,7 @@ void integrate_3d_radMHD(DomainS *pD)
 				
 				pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
 				+ pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / density ) * (Gamma - 1);
-			/* Should include magnetic energy for MHD */
+			
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
@@ -3871,8 +3893,8 @@ void integrate_3d_radMHD(DomainS *pD)
 
 				}
 				else{
-					/* In case pressure becomes negative, set radiation source term to be zero */
-					pG->Tguess[k][j][i] = 0.0;
+					
+					pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
 				}
 
 			
@@ -3881,7 +3903,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		}
 	}
 
-
+*/
   return;
 }
 
@@ -4536,6 +4558,7 @@ void updatesource(GridS *pG)
 
 	/* In case momentum becomes stiff */
 	Real SVVx, SVVy, SVVz, betax, betay, betaz, alpha;
+
  
 	il = is - 2;
   	iu = ie + 2;
@@ -4603,7 +4626,7 @@ void updatesource(GridS *pG)
 				Sigma_aF = pG->U[k][j][i].Sigma[1];
 				Sigma_aP = pG->U[k][j][i].Sigma[2];
 				Sigma_aE = pG->U[k][j][i].Sigma[3];
-
+			
 
 				/* Opacity is already included in source term */
 				diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;

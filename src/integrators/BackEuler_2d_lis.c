@@ -292,7 +292,7 @@ void BackEuler_2d(MeshS *pM)
 	/* lines is the size of the partial matrix */
 	/* count is the number of total non-zeros before that row */
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
-	Real temperature, velocity_x, velocity_y, pressure, T4, Fr0x, Fr0y;
+	Real temperature, velocity_x, velocity_y, pressure, T4, Fr0x, Fr0y, density;
 	Real Ci0, Ci1, Cj0, Cj1;
 #ifdef RADIATION_TRANSFER
 	Real fluxi0, fluxi1, fluxj0, fluxj1;
@@ -303,6 +303,8 @@ void BackEuler_2d(MeshS *pM)
 
 
   	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	int m;
+	Real Sigma[NOPACITY];
 
 /* variables used to subtract background state */
 /* NOTICE Here we assume background state grad E_r = -Sigma_t Fr, a uniform flux and background velocity is zero */
@@ -453,21 +455,8 @@ void BackEuler_2d(MeshS *pM)
 */
 	for(j=js; j<=je; j++) {
 		for(i=is; i<=ie; i++){
-/* E is the total energy. should subtract the kinetic energy and magnetic energy density */
-   		pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
-			+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2)/pG->U[ks][j][i].d) * (Gamma - 1.0);
 
-/* if MHD - 0.5 * Bx * Bx   */
-
-#ifdef RADIATION_MHD
-
-		pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c) * (Gamma - 1.0);
-#endif
-
-    		temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
-
-
-		T4 = pow(temperature, 4.0);
+		T4 = pG->Tguess[ks][j][i];
 
 		if(bgflag){
 			T4 -= Er_t0[ks][j][i];
@@ -493,7 +482,7 @@ void BackEuler_2d(MeshS *pM)
 
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
-    		tempvalue = pG->U[ks][j][i].Er + pG->Tguess[ks][j][i];
+    		tempvalue = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][j][i];
 		
 		if(bgflag){
 			Fr0x = Fr1_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;
@@ -692,18 +681,15 @@ void BackEuler_2d(MeshS *pM)
 			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
 			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pG->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[ks][j][i].Edd_22);
-
-/*				+ Crat * pG->dt * Sigma_aE 
+				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[ks][j][i].Edd_22)
+				+ Eratio * (Crat * pG->dt * Sigma_aE 
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pG->U[ks][j][i].Edd_21) * velocity_x / Crat
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pG->U[ks][j][i].Edd_21) * velocity_y / Crat;
-*/
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1);
-/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
+				+ velocity_x * pG->U[ks][j][i].Edd_21) * velocity_y / Crat);
+
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;
 			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
@@ -1163,6 +1149,30 @@ void BackEuler_2d(MeshS *pM)
 		}
 	}
 
+if(Opacity != NULL){
+
+		for (j=pG->js; j<=pG->je; j++) {
+    			for (i=pG->is; i<=pG->ie; i++){
+				
+				density = pG->U[ks][j][i].d;
+				
+				pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
+				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 +  pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / density )	* (Gamma - 1);
+		
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+#endif
+				temperature = pressure / (density * R_ideal);
+			
+			Opacity(density,temperature,Sigma,NULL);
+				for(m=0;m<NOPACITY;m++){
+					pG->U[ks][j][i].Sigma[m] = Sigma[m];
+				}
+
+
+			}
+		}
+}
 
 /* Update the ghost zones for different boundary condition to be used later */
 	for (i=0; i<pM->NLevels; i++){ 

@@ -489,7 +489,7 @@ void BackEuler_3d(MeshS *pM)
 	/* lines is the size of the partial matrix */
 	/* count is the number of total non-zeros before that row */
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
-	Real temperature, velocity_x, velocity_y, velocity_z, pressure, T4, Fr0x, Fr0y, Fr0z;
+	Real temperature, velocity_x, velocity_y, velocity_z, pressure, T4, Fr0x, Fr0y, Fr0z, density;
 	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
 	/* This is equivilent to Cspeeds[] in 1D */
 #ifdef RADIATION_TRANSFER
@@ -499,6 +499,8 @@ void BackEuler_3d(MeshS *pM)
 
 
   	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	int m;
+	Real Sigma[NOPACITY];
 
 
 
@@ -728,7 +730,7 @@ void BackEuler_3d(MeshS *pM)
     		temperature = pressure / (pG->U[k][j][i].d * R_ideal);
 
 
-		T4 = pow(temperature, 4.0);
+		T4 = pG->Tguess[k][j][i];
 
 		if(bgflag){
 			T4 -= Er_t0[k][j][i];
@@ -755,7 +757,7 @@ void BackEuler_3d(MeshS *pM)
 
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
-    		tempvalue   = pG->U[k][j][i].Er + pG->Tguess[k][j][i];
+    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i];
 
 		if(bgflag){
 			Fr0x = Fr1_t0[k][j][i] - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y
@@ -1083,22 +1085,18 @@ void BackEuler_3d(MeshS *pM)
 			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[6] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pG->U[k][j][i].Edd_11) 
 				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[k][j][i].Edd_22)
-				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pG->U[k][j][i].Edd_33);
-/*
-				+ Crat * pG->dt * Sigma_aE 
+				+ Crat * hdtodx3 * (2.0 + Ck1 - Ck0) * sqrt(pG->U[k][j][i].Edd_33)
+				+ Eratio * (Crat * pG->dt * Sigma_aE 
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pG->U[k][j][i].Edd_21 + velocity_z * pG->U[k][j][i].Edd_31) * velocity_x / Crat
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y 
 				+ velocity_x * pG->U[k][j][i].Edd_21 + velocity_z * pG->U[k][j][i].Edd_32) * velocity_y / Crat
 				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z 
-				+ velocity_x * pG->U[k][j][i].Edd_31 + velocity_y * pG->U[k][j][i].Edd_32) * velocity_z / Crat;
-*/
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1);
-/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1);
-/*	- pG->dt * (Sigma_aF - Sigma_sF) * velocity_z;*/
+				+ velocity_x * pG->U[k][j][i].Edd_31 + velocity_y * pG->U[k][j][i].Edd_32) * velocity_z / Crat);
+
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_z;
 			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[k][j][i+1].Edd_11);
 			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[k][j+1][i].Edd_22);
@@ -3354,6 +3352,42 @@ void BackEuler_3d(MeshS *pM)
 		}
 	}
 	/* Eddington factor is updated in the integrator  */
+
+if(Opacity != NULL){
+		for (k=pG->ks; k<=pG->ke; k++){
+			for (j=pG->js; j<=pG->je; j++) {
+    				for (i=pG->is; i<=pG->ie; i++){
+				
+				density = pG->U[k][j][i].d;
+				
+				pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
+				+ pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / density ) * (Gamma - 1);
+			
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+#endif
+
+				if(pressure > TINY_NUMBER)
+				{
+					temperature = pressure / (density * R_ideal);
+
+						
+					Opacity(density,temperature,Sigma,NULL);
+					for(m=0;m<NOPACITY;m++){
+						pG->U[k][j][i].Sigma[m] = Sigma[m];
+					}
+
+				}
+				else{
+					
+					pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+				}
+
+			
+				}
+			}
+		}
+}
 
 	/* Add back the background state */
 	if(bgflag){

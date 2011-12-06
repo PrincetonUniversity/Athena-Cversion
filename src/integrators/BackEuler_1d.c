@@ -89,12 +89,13 @@ void BackEuler_1d(MeshS *pM)
 	pMat->time = pG->time;
 
 	Real velocity_x, T4;
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, temperature;
+	Real Sigma[NOPACITY];
 
 	Real error;
 	int Wcycle;
 	
-	int i, j;
+	int i, j, m;
 	int is, ie, js, ks;
 	int Mati, Matj, Matk;
 	/* Set the boundary */
@@ -132,7 +133,7 @@ void BackEuler_1d(MeshS *pM)
 				velocity_x = pG->U[ks][js][i].M1 / pG->U[ks][js][i].d;
 
 				/* Now Backward Euler step is done after the gas quantities are updated */
-				pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].d * velocity_x * velocity_x) * (Gamma - 1.0);
+/*				pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].d * velocity_x * velocity_x) * (Gamma - 1.0);
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c) * (Gamma - 1.0);
 #endif
@@ -143,7 +144,9 @@ void BackEuler_1d(MeshS *pM)
 				else{
 					T4 = pow((pressure / (pG->U[ks][js][i].d * R_ideal)), 4.0);
 				}
+*/
 
+				T4 = pG->Tguess[ks][js][i];
 			
 				
 				Sigma_sF = pG->U[ks][js][i].Sigma[0];
@@ -165,7 +168,7 @@ void BackEuler_1d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
 		/* Now set the right hand side */
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + pG->Tguess[ks][js][i];
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i];
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][js][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 	
 				
@@ -227,6 +230,27 @@ if(pMat->bgflag){
 				
 	}
 
+if(Opacity != NULL){
+		for(i=pG->is; i<=pG->ie; i++) {
+
+			pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1 / pG->U[ks][js][i].d )
+				* (Gamma - 1);
+
+#ifdef RADIATION_MHD
+		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
+#endif
+		
+			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
+	
+		
+			Opacity(pG->U[ks][js][i].d, temperature,Sigma, NULL);
+			for(m=0;m<NOPACITY;m++){
+				pG->U[ks][js][i].Sigma[m] = Sigma[m];
+			}
+	
+		}
+	}
+
 	/* Set the boundary condition */
 
 	
@@ -253,7 +277,7 @@ void RadMHD_multig_1D(MatrixS *pMat)
 	int Nsmall;
 
 	/* Once any dimension reaches size limit of Nlim, do Ncycle iteration and return */
-	if(pMat->Nx[0] == Nlim){
+	if(pMat->Nx[0] <= Nlim){
 		/* Create the temporary array */
 		/* Need to create the temporary array for the boundary condition */		
 
@@ -528,7 +552,7 @@ void BackEuler_init_1d(MeshS *pM)
 		
 	/* To decide whether subtract background solution at top level or not */
 	/* Default choice is not */
-	pMat->bgflag = 0;
+	pMat->bgflag = 1;
 
 }
 
@@ -613,14 +637,11 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11);
-/* 
-				+ Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
-*/
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-*/
+			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
+				+ Eratio * (Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat);
+
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 			
@@ -639,7 +660,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			
 						
 			if(pMat->bgflag){
-				Norm += fabs(pG->U[ks][js][i+diffghost].Er + pG->Tguess[ks][js][i+diffghost]);
+				Norm += fabs(pG->U[ks][js][i+diffghost].Er + pMat->dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i]);
 			}
 			else{
 				Norm += fabs(pMat->RHS[ks][js][i][0]);
@@ -825,14 +846,11 @@ void Restriction1D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11);
-/* 
-				+ Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
-*/
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-*/
+			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
+				+ Eratio * (Crat * pMat->dt * Sigma_aE 
+				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat);
+
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 			
@@ -1021,14 +1039,11 @@ void RHSResidual1D(MatrixS *pMat, Real ****newRHS)
 			
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11);
-/* 
+			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
 				+ Crat * pMat->dt * Sigma_aE 
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat;
-*/
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-*/
+
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 			

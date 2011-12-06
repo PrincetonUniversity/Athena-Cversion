@@ -328,11 +328,12 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 
 double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,
 	double xacc, double coef1, double coef2, double coef3);
-/*
+
 void GetTguess(MeshS *pM); 
-*/
+
 
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
+void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
 
 
 #ifdef RADIATION_TARNSFER

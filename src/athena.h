@@ -428,7 +428,7 @@ typedef struct Grid_s{
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
   Real ***Tguess;  /* guess temperature from energy conservation */
-
+  Real ***Ersource; /* Estimated radiation energy source term */
 #endif
 
 #ifdef PARTICLES

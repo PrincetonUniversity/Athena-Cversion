@@ -100,13 +100,14 @@ void BackEuler_2d(MeshS *pM)
 	pMat->dt = dt;
 	pMat->time = pG->time;
 
-	Real velocity_x, velocity_y, T4, Fr0x, Fr0y, pressure;
+	Real velocity_x, velocity_y, T4, Fr0x, Fr0y, pressure, density, temperature;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	Real Sigma[NOPACITY];
 
 	Real error;
 	int Wcycle;
 	
-	int i, j;
+	int i, j, m;
 	int is, ie, js, je, ks;
 	int Mati, Matj, Matk;
 	/* Set the boundary */
@@ -181,25 +182,12 @@ void BackEuler_2d(MeshS *pM)
 				velocity_x = pG->U[ks][j][i].M1 / pG->U[ks][j][i].d;
 				velocity_y = pG->U[ks][j][i].M2 / pG->U[ks][j][i].d;
 
-				/* Now Backward Euler step is done after the gas quantities are updated */
-				pressure = (pG->U[ks][j][i].E - 0.5 * pG->U[ks][j][i].d * (velocity_x * velocity_x 
-				+ velocity_y * velocity_y)) * (Gamma - 1.0);
-#ifdef RADIATION_MHD
-				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c) * (Gamma - 1.0);
-#endif
-				if(pressure < TINY_NUMBER){
-					T4 = pG->U[ks][j][i].Er;
-				}
-				else{
-					T4 = pow((pressure / (pG->U[ks][j][i].d * R_ideal)), 4.0);
-				}
-
-
 #ifdef FARGO
 				cc_pos(pG,i,j,ks,&x1,&x2,&x3);
 				velocity_y -= qom * x1;
 #endif
-				
+
+				T4 = pG->Tguess[ks][j][i];				
 				
 				if(bgflag){
 					T4 -= Er_t0[ks][j][i];
@@ -226,7 +214,7 @@ void BackEuler_2d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
 		/* Now set the right hand side */
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + pG->Tguess[ks][j][i];
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][j][i];
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
 
@@ -336,6 +324,31 @@ if(pMat->bgflag){
 
 	/* Set the boundary condition */
 
+if(Opacity != NULL){
+
+		for (j=pG->js; j<=pG->je; j++) {
+    			for (i=pG->is; i<=pG->ie; i++){
+				
+				density = pG->U[ks][j][i].d;
+				
+				pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
+				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 +  pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / density )	* (Gamma - 1);
+		
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+#endif
+				temperature = pressure / (density * R_ideal);
+			
+			Opacity(density,temperature,Sigma,NULL);
+				for(m=0;m<NOPACITY;m++){
+					pG->U[ks][j][i].Sigma[m] = Sigma[m];
+				}
+
+
+			}
+		}
+}
+
 	
 /* Update the ghost zones for different boundary condition to be used later */
 	for (i=0; i<pM->NLevels; i++){ 
@@ -360,7 +373,7 @@ void RadMHD_multig_2D(MatrixS *pMat)
 	int Nsmall;
 
 	/* Once any dimension reaches size limit of Nlim, do Ncycle iteration and return */
-	if(pMat->Nx[0] == Nlim || pMat->Nx[1] == Nlim){
+	if(pMat->Nx[0] <= Nlim || pMat->Nx[1] <= Nlim){
 		/* Create the temporary array */
 		/* Need to create the temporary array for the boundary condition */		
 
@@ -662,7 +675,7 @@ void BackEuler_init_2d(MeshS *pM)
 
 	/* To decide whether subtract background solution at top level or not */
 	/* Default choice is not */
-	pMat->bgflag = 0;
+	pMat->bgflag = 1;
 
 
 }
@@ -767,18 +780,15 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
 			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22);
-
-/*				+ Crat * pMat->dt * Sigma_aE 
+				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
+				+ Eratio * (Crat * pMat->dt * Sigma_aE 
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat;
-*/
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
+				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat);
+
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
 			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
@@ -821,7 +831,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			
 						
 			if(pMat->bgflag){
-				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Er + pG->Tguess[ks][j+diffghost][i+diffghost]);
+				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Er + pMat->dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][j+diffghost][i+diffghost]);
 			}
 			else{
 				Norm += fabs(pMat->RHS[ks][j][i][0]);
@@ -1195,18 +1205,15 @@ void RHSResidual2D(MatrixS *pMat, Real ****newRHS)
 			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
 			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22);
-
-/*				+ Crat * pMat->dt * Sigma_aE 
+				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
+				+ Eratio * (Crat * pMat->dt * Sigma_aE 
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
 				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
 				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat;
-*/
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;*/
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1);
-/*	- pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;*/
+				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat);
+
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
 			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
