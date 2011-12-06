@@ -336,9 +336,9 @@ void selfg_fft_disk_3d(DomainS *pD)
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
 #ifdef SHEARING_BOX
-        den=RollDen[k][i][j]-grav_mean_rho;
+        den=RollDen[k][i][j];
 #else
-        den=pG->U[k][j][i].d-grav_mean_rho;
+        den=pG->U[k][j][i].d;
 #endif
         work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
           four_pi_G*den;
