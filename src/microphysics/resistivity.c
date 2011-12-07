@@ -83,10 +83,17 @@ void resistivity(DomainS *pD)
   int ndim=1;
   Real dtodx1 = pG->dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
 
+#ifdef CYLINDRICAL
+  const Real *r=pG->r, *ri=pG->ri;
+#endif
+  Real dx1i=1.0/pG->dx1, dx2i=0.0, dx3i=0.0;
+  Real lsf=1.0,rsf=1.0;
+
   if (pG->Nx[1] > 1){
     jl = js - 4;
     ju = je + 4;
     dtodx2 = pG->dt/pG->dx2;
+    dx2i=1.0/pG->dx2;
     ndim++;
   } else {
     jl = js;
@@ -96,6 +103,7 @@ void resistivity(DomainS *pD)
     kl = ks - 4;
     ku = ke + 4;
     dtodx3 = pG->dt/pG->dx3;
+    dx3i=1.0/pG->dx3;
     ndim++;
   } else {
     kl = ks;
@@ -146,7 +154,10 @@ void resistivity(DomainS *pD)
     for (i=is-3; i<=ie+4; i++) {
       J[ks][js][i].x1 = 0.0;
       J[ks][js][i].x2 = -(pG->U[ks][js][i].B3c - pG->U[ks][js][i-1].B3c)/pG->dx1;
-      J[ks][js][i].x3 =  (pG->U[ks][js][i].B2c - pG->U[ks][js][i-1].B2c)/pG->dx1;
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      J[ks][js][i].x3 =  (rsf*pG->U[ks][js][i].B2c - lsf*pG->U[ks][js][i-1].B2c)/pG->dx1;
     }
     J[ks][js][0].x1 = 0.0;
   }
@@ -155,17 +166,27 @@ void resistivity(DomainS *pD)
   if (ndim == 2){
     for (j=js-3; j<=je+4; j++) {
       for (i=is-3; i<=ie+4; i++) {
-        J[ks][j][i].x1=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
-        J[ks][j][i].x2= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
-        J[ks][j][i].x3=  (pG->B2i[ks][j][i] - pG->B2i[ks][j  ][i-1])/pG->dx1 -
-                        (pG->B1i[ks][j][i] - pG->B1i[ks][j-1][i  ])/pG->dx2;
+#ifdef CYLINDRICAL
+        dx2i = 1.0/(r[i]*pG->dx2);
+#endif
+        J[ks][j][i].x1=  dx2i*(pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c);
+        J[ks][j][i].x2= -dx1i*(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c);
+#ifdef CYLINDRICAL
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+        dx2i = 1.0/(ri[i]*pG->dx2);
+#endif
+        J[ks][j][i].x3=  dx1i*(rsf*pG->B2i[ks][j][i] - lsf*pG->B2i[ks][j  ][i-1]) -
+                         dx2i*(    pG->B1i[ks][j][i] -     pG->B1i[ks][j-1][i  ]);
       }
       i = is-4;
-      J[ks][j][i].x1=  (pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c)/pG->dx2;
+#ifdef CYLINDRICAL
+      dx2i = 1.0/(r[i]*pG->dx2);
+#endif
+      J[ks][j][i].x1=  dx2i*(pG->U[ks][j][i].B3c - pG->U[ks][j-1][i  ].B3c);
     }
     j = js-4;
     for (i=is-3; i<=ie+4; i++) {
-      J[ks][j][i].x2= -(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c)/pG->dx1;
+      J[ks][j][i].x2= -dx1i*(pG->U[ks][j][i].B3c - pG->U[ks][j  ][i-1].B3c);
     }
   }
 
@@ -174,28 +195,42 @@ void resistivity(DomainS *pD)
     for (k=ks-3; k<=ke+4; k++) {
      for (j=js-3; j<=je+4; j++) {
       for (i=is-3; i<=ie+4; i++) {
-        J[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
-                        (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
-        J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
-                        (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
-        J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
-                        (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+#ifdef CYLINDRICAL
+        dx2i=1.0/(r[i]*pG->dx2);
+#endif
+        J[k][j][i].x1 = dx2i*(pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ]) -
+                        dx3i*(pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ]);
+        J[k][j][i].x2 = dx3i*(pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ]) -
+                        dx1i*(pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1]);
+#ifdef CYLINDRICAL
+        dx2i=1.0/(ri[i]*pG->dx2);
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+        J[k][j][i].x3 = dx1i*(rsf*pG->B2i[k][j][i] - lsf*pG->B2i[k  ][j  ][i-1]) -
+                        dx2i*(    pG->B1i[k][j][i] -     pG->B1i[k  ][j-1][i  ]);
       }
       i = is-4;
-      J[k][j][i].x1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
-                      (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+#ifdef CYLINDRICAL
+      dx2i=1.0/(r[i]*pG->dx2);
+#endif
+      J[k][j][i].x1 = dx2i*(pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ]) -
+                      dx3i*(pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ]);
      }
      j = js-4;
      for (i=is-3; i<=ie+4; i++) {
-       J[k][j][i].x2 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
-                       (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
+        J[k][j][i].x2 = dx3i*(pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ]) -
+                        dx1i*(pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1]);
+     }
     }
-   }
-   k = ks-4;
-   for (j=js-3; j<=je+4; j++) {
-   for (i=is-3; i<=ie+4; i++) {
-     J[k][j][i].x3 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
-                     (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+    k = ks-4;
+    for (j=js-3; j<=je+4; j++) {
+    for (i=is-3; i<=ie+4; i++) {
+#ifdef CYLINDRICAL
+      dx2i=1.0/(ri[i]*pG->dx2);
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      J[k][j][i].x3 = dx1i*(rsf*pG->B2i[k][j][i] - lsf*pG->B2i[k  ][j  ][i-1]) -
+                      dx2i*(    pG->B1i[k][j][i] -     pG->B1i[k  ][j-1][i  ]);
    }}
   }
 
@@ -292,9 +327,12 @@ void resistivity(DomainS *pD)
 /* 1D PROBLEM */
   if (ndim == 1){
     for (i=is; i<=ie+1; i++) {
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
       EnerFlux[ks][js][i].x1 =
-         0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c)*emf[ks][js][i].x3
-       - 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c)*emf[ks][js][i].x2;
+         0.5*(rsf*pG->U[ks][js][i].B2c + lsf*pG->U[ks][js][i-1].B2c)*emf[ks][js][i].x3
+       - 0.5*(rsf*pG->U[ks][js][i].B3c + lsf*pG->U[ks][js][i-1].B3c)*emf[ks][js][i].x2;
     }
   } 
       
@@ -302,17 +340,27 @@ void resistivity(DomainS *pD)
   if (ndim == 2){
     for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      EnerFlux[ks][j][i].x1 = 0.25*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c)*
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      EnerFlux[ks][j][i].x1 = 0.25*(rsf*pG->U[ks][j][i].B2c + lsf*pG->U[ks][j][i-1].B2c)*
                             (emf[ks][j][i].x3 + emf[ks][j+1][i].x3)
-         - 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c)*emf[ks][j][i].x2;
+         - 0.5*(rsf*pG->U[ks][j][i].B3c + lsf*pG->U[ks][j][i-1].B3c)*emf[ks][j][i].x2;
     }}
     
     for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
       EnerFlux[ks][j][i].x2 =
-         0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x1
-       - 0.25*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c)*
-                (emf[ks][j][i].x3 + emf[ks][j][i+1].x3);
+         0.5*(rsf*pG->U[ks][j][i].B3c + lsf*pG->U[ks][j-1][i].B3c)*emf[ks][j][i].x1;
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      EnerFlux[ks][j][i].x2 -=
+         0.25*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c)*
+                (lsf*emf[ks][j][i].x3 + rsf*emf[ks][j][i+1].x3);
     }}
   }   
 
@@ -321,9 +369,12 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie+1; i++) {
-        EnerFlux[k][j][i].x1 = 0.25*(pG->U[k][j][i].B2c + pG->U[k][j][i-1].B2c)*
+#ifdef CYLINDRICAL
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+        EnerFlux[k][j][i].x1 = 0.25*(rsf*pG->U[k][j][i].B2c + lsf*pG->U[k][j][i-1].B2c)*
                              (emf[k][j][i].x3 + emf[k][j+1][i].x3)
-                            - 0.25*(pG->U[k][j][i].B3c + pG->U[k][j][i-1].B3c)*
+                            - 0.25*(rsf*pG->U[k][j][i].B3c + lsf*pG->U[k][j][i-1].B3c)*
                              (emf[k][j][i].x2 + emf[k+1][j][i].x2);
       }
     }}
@@ -331,20 +382,29 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        EnerFlux[k][j][i].x2 = 0.25*(pG->U[k][j][i].B3c + pG->U[k][j-1][i].B3c)*
-                             (emf[k][j][i].x1 + emf[k+1][j][i].x1)
-                            - 0.25*(pG->U[k][j][i].B1c + pG->U[k][j-1][i].B1c)*
-                             (emf[k][j][i].x3 + emf[k][j][i+1].x3);
+#ifdef CYLINDRICAL
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+        EnerFlux[k][j][i].x2 = 0.25*(rsf*pG->U[k][j][i].B3c + lsf*pG->U[k][j-1][i].B3c)*
+                             (emf[k][j][i].x1 + emf[k+1][j][i].x1);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+        EnerFlux[k][j][i].x2-= 0.25*(pG->U[k][j][i].B1c + pG->U[k][j-1][i].B1c)*
+                             (lsf*emf[k][j][i].x3 + rsf*emf[k][j][i+1].x3);
       }
     }}
 
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
         EnerFlux[k][j][i].x3 = 0.25*(pG->U[k][j][i].B1c + pG->U[k-1][j][i].B1c)*
-                             (emf[k][j][i].x2 + emf[k][j][i+1].x2)
+                             (lsf*emf[k][j][i].x2 + emf[k][j][i+1].x2)
                             - 0.25*(pG->U[k][j][i].B2c + pG->U[k-1][j][i].B2c)*
-                             (emf[k][j][i].x1 + emf[k][j+1][i].x1);
+                             (lsf*emf[k][j][i].x1 + rsf*emf[k][j+1][i].x1);
       }
     }}
   }
@@ -355,7 +415,10 @@ void resistivity(DomainS *pD)
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].E += dtodx1*(EnerFlux[k][j][i+1].x1 - EnerFlux[k][j][i].x1);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      pG->U[k][j][i].E += dtodx1*(rsf*EnerFlux[k][j][i+1].x1 - lsf*EnerFlux[k][j][i].x1);
     }
   }}
 
@@ -365,6 +428,9 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+        dtodx2 = pG->dt/(r[i]*pG->dx2);
+#endif
         pG->U[k][j][i].E += dtodx2*(EnerFlux[k][j+1][i].x2 -EnerFlux[k][j][i].x2);
       }
     }}
@@ -389,8 +455,11 @@ void resistivity(DomainS *pD)
 /* 1D PROBLEM: centered differences for B2c and B3c */
   if (ndim == 1){
     for (i=is; i<=ie; i++) {
-      pG->U[ks][js][i].B2c += dtodx1*(emf[ks][js][i+1].x3 - emf[ks][js][i].x3);
-      pG->U[ks][js][i].B3c -= dtodx1*(emf[ks][js][i+1].x2 - emf[ks][js][i].x2);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      pG->U[ks][js][i].B2c += dtodx1*(    emf[ks][js][i+1].x3 -     emf[ks][js][i].x3);
+      pG->U[ks][js][i].B3c -= dtodx1*(rsf*emf[ks][js][i+1].x2 - lsf*emf[ks][js][i].x2);
 /* For consistency, set B2i and B3i to cell-centered values. */
       pG->B2i[ks][js][i] = pG->U[ks][js][i].B2c;
       pG->B3i[ks][js][i] = pG->U[ks][js][i].B3c;
@@ -401,12 +470,22 @@ void resistivity(DomainS *pD)
   if (ndim == 2){
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+        dtodx2 = pG->dt/(ri[i]*pG->dx2);
+#endif
         pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].x3 - emf[ks][j][i].x3);
         pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].x3 - emf[ks][j][i].x3);
 
-        pG->U[ks][j][i].B3c += dtodx2*(emf[ks][j+1][i  ].x1 - emf[ks][j][i].x1) -
-                               dtodx1*(emf[ks][j  ][i+1].x2 - emf[ks][j][i].x2);
+#ifdef CYLINDRICAL
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dtodx2 = pG->dt/(r[i]*pG->dx2);
+#endif
+        pG->U[ks][j][i].B3c += dtodx2*(    emf[ks][j+1][i  ].x1 -     emf[ks][j][i].x1) -
+                               dtodx1*(rsf*emf[ks][j  ][i+1].x2 - lsf*emf[ks][j][i].x2);
       }
+#ifdef CYLINDRICAL
+      dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
+#endif
       pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].x3 -emf[ks][j][ie+1].x3);
     }
     for (i=is; i<=ie; i++) {
@@ -415,8 +494,11 @@ void resistivity(DomainS *pD)
 /* Set cell centered magnetic fields to average of face centered */
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        pG->U[ks][j][i].B1c = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j][i+1]);
-        pG->U[ks][j][i].B2c = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j+1][i]);
+#ifdef CYLINDRICAL
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+        pG->U[ks][j][i].B1c = 0.5*(lsf*pG->B1i[ks][j][i] + rsf*pG->B1i[ks][j][i+1]);
+        pG->U[ks][j][i].B2c = 0.5*(    pG->B2i[ks][j][i] +     pG->B2i[ks][j+1][i]);
 /* Set the 3-interface magnetic field equal to the cell center field. */
         pG->B3i[ks][j][i] = pG->U[ks][j][i].B3c;
       }
@@ -428,13 +510,23 @@ void resistivity(DomainS *pD)
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+          dtodx2 = pG->dt/(ri[i]*pG->dx2);
+#endif
           pG->B1i[k][j][i] += dtodx3*(emf[k+1][j  ][i  ].x2 - emf[k][j][i].x2) -
                               dtodx2*(emf[k  ][j+1][i  ].x3 - emf[k][j][i].x3);
           pG->B2i[k][j][i] += dtodx1*(emf[k  ][j  ][i+1].x3 - emf[k][j][i].x3) -
                               dtodx3*(emf[k+1][j  ][i  ].x1 - emf[k][j][i].x1);
-          pG->B3i[k][j][i] += dtodx2*(emf[k  ][j+1][i  ].x1 - emf[k][j][i].x1) -
-                              dtodx1*(emf[k  ][j  ][i+1].x2 - emf[k][j][i].x2);
+#ifdef CYLINDRICAL
+          rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+          dtodx2 = pG->dt/(r[i]*pG->dx2);
+#endif
+          pG->B3i[k][j][i] += dtodx2*(    emf[k  ][j+1][i  ].x1 -     emf[k][j][i].x1) -
+                              dtodx1*(rsf*emf[k  ][j  ][i+1].x2 - lsf*emf[k][j][i].x2);
         }
+#ifdef CYLINDRICAL
+        dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
+#endif  
         pG->B1i[k][j][ie+1] +=
           dtodx3*(emf[k+1][j  ][ie+1].x2 - emf[k][j][ie+1].x2) -
           dtodx2*(emf[k  ][j+1][ie+1].x3 - emf[k][j][ie+1].x3);
@@ -447,17 +539,24 @@ void resistivity(DomainS *pD)
     }
     for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+      dtodx2 = pG->dt/(r[i]*pG->dx2);
+#endif
       pG->B3i[ke+1][j][i] +=
-        dtodx2*(emf[ke+1][j+1][i  ].x1 - emf[ke+1][j][i].x1) -
-        dtodx1*(emf[ke+1][j  ][i+1].x2 - emf[ke+1][j][i].x2);
+        dtodx2*(    emf[ke+1][j+1][i  ].x1 -     emf[ke+1][j][i].x1) -
+        dtodx1*(rsf*emf[ke+1][j  ][i+1].x2 - lsf*emf[ke+1][j][i].x2);
     }}
 /* Set cell centered magnetic fields to average of face centered */
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
-      pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
-      pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
+#ifdef CYLINDRICAL
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+      pG->U[k][j][i].B1c = 0.5*(lsf*pG->B1i[k][j][i] + rsf*pG->B1i[k][j][i+1]);
+      pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
+      pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
     }}}
   }
 
@@ -477,6 +576,11 @@ void EField_Ohm(DomainS *pD)
   int ndim=1;
   Real eta_O;
 
+#ifdef CYLINDRICAL
+  const Real *r=pG->r, *ri=pG->ri;
+#endif
+  Real lsf=1.0,rsf=1.0;
+
   if (pG->Nx[1] > 1)    ndim++;
   if (pG->Nx[2] > 1)    ndim++;
 
@@ -486,7 +590,10 @@ void EField_Ohm(DomainS *pD)
   if (ndim == 1){
     for (i=is; i<=ie+1; i++) {
 
-      eta_O = 0.5*(pG->eta_Ohm[ks][js][i] + pG->eta_Ohm[ks][js][i-1]);
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      eta_O = 0.5*(rsf*pG->eta_Ohm[ks][js][i] + lsf*pG->eta_Ohm[ks][js][i-1]);
 
       emf[ks][js][i].x2 += eta_O * J[ks][js][i].x2;
       emf[ks][js][i].x3 += eta_O * J[ks][js][i].x3;
@@ -502,12 +609,15 @@ void EField_Ohm(DomainS *pD)
 
       emf[ks][j][i].x1 += eta_O * J[ks][j][i].x1;
 
-      eta_O = 0.5*(pG->eta_Ohm[ks][j][i] + pG->eta_Ohm[ks][j][i-1]);
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      eta_O = 0.5*(rsf*pG->eta_Ohm[ks][j][i] + lsf*pG->eta_Ohm[ks][j][i-1]);
 
       emf[ks][j][i].x2 += eta_O * J[ks][j][i].x2; 
 
-      eta_O = 0.25*(pG->eta_Ohm[ks][j][i  ] + pG->eta_Ohm[ks][j-1][i  ] +
-                    pG->eta_Ohm[ks][j][i-1] + pG->eta_Ohm[ks][j-1][i-1]);
+      eta_O = 0.25*(rsf*pG->eta_Ohm[ks][j][i  ] + rsf*pG->eta_Ohm[ks][j-1][i  ] +
+                    lsf*pG->eta_Ohm[ks][j][i-1] + lsf*pG->eta_Ohm[ks][j-1][i-1]);
 
       emf[ks][j][i].x3 += eta_O * J[ks][j][i].x3;
     }}
@@ -526,13 +636,16 @@ void EField_Ohm(DomainS *pD)
 
         emf[k][j][i].x1 += eta_O * J[k][j][i].x1;
 
-        eta_O = 0.25*(pG->eta_Ohm[k][j][i  ] + pG->eta_Ohm[k-1][j][i  ] +
-                      pG->eta_Ohm[k][j][i-1] + pG->eta_Ohm[k-1][j][i-1]);
+#ifdef CYLINDRICAL
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+        eta_O = 0.25*(rsf*pG->eta_Ohm[k][j][i  ] + rsf*pG->eta_Ohm[k-1][j][i  ] +
+                      lsf*pG->eta_Ohm[k][j][i-1] + lsf*pG->eta_Ohm[k-1][j][i-1]);
 
         emf[k][j][i].x2 += eta_O * J[k][j][i].x2;
 
-        eta_O = 0.25*(pG->eta_Ohm[k][j][i  ] + pG->eta_Ohm[k][j-1][i  ] +
-                      pG->eta_Ohm[k][j][i-1] + pG->eta_Ohm[k][j-1][i-1]);
+        eta_O = 0.25*(rsf*pG->eta_Ohm[k][j][i  ] + rsf*pG->eta_Ohm[k][j-1][i  ] +
+                      lsf*pG->eta_Ohm[k][j][i-1] + lsf*pG->eta_Ohm[k][j-1][i-1]);
 
         emf[k][j][i].x3 += eta_O * J[k][j][i].x3;
       }
@@ -961,6 +1074,11 @@ void EField_AD(DomainS *pD)
   Real eta_A;
   Real intBx,intBy,intBz,intJx,intJy,intJz,Bsq,JdotB;
 
+#ifdef CYLINDRICAL
+  const Real *r=pG->r, *ri=pG->ri;
+#endif
+  Real lsf=1.0,rsf=1.0;
+
   if (pG->Nx[1] > 1) ndim++;
   if (pG->Nx[2] > 1) ndim++;
 
@@ -971,11 +1089,14 @@ void EField_AD(DomainS *pD)
 
   if (ndim == 1){
     for (i=is; i<=ie+1; i++) {
-      eta_A = 0.5*(pG->eta_AD[ks][js][i] + pG->eta_AD[ks][js][i-1]);
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      eta_A = 0.5*(rsf*pG->eta_AD[ks][js][i] + lsf*pG->eta_AD[ks][js][i-1]);
 
       intBx = pG->B1i[ks][js][i];
-      intBy = 0.5*(pG->U[ks][js][i].B2c + pG->U[ks][js][i-1].B2c);
-      intBz = 0.5*(pG->U[ks][js][i].B3c + pG->U[ks][js][i-1].B3c);
+      intBy = 0.5*(rsf*pG->U[ks][js][i].B2c + lsf*pG->U[ks][js][i-1].B2c);
+      intBz = 0.5*(rsf*pG->U[ks][js][i].B3c + lsf*pG->U[ks][js][i-1].B3c);
 
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = J[ks][js][i].x2*intBy + J[ks][js][i].x3*intBz;
@@ -995,12 +1116,15 @@ void EField_AD(DomainS *pD)
     for (i=is; i<=ie+1; i++) {
 
       /* emf.x */
+#ifdef CYLINDRICAL
+      lsf = ri[i]/r[i];  rsf = ri[i+1]/r[i];
+#endif
       eta_A = 0.5*(pG->eta_AD[ks][j][i] + pG->eta_AD[ks][j-1][i]);
 
       intJx = J[ks][j][i].x1;
-      intJy = 0.25*(J[ks][j  ][i].x2 + J[ks][j  ][i+1].x2
-                  + J[ks][j-1][i].x2 + J[ks][j-1][i+1].x2);
-      intJz = 0.5 *(J[ks][j][i].x3   + J[ks][j][i+1].x3);
+      intJy = 0.25*(lsf*J[ks][j  ][i].x2 + rsf*J[ks][j  ][i+1].x2
+                  + lsf*J[ks][j-1][i].x2 + rsf*J[ks][j-1][i+1].x2);
+      intJz = 0.5 *(lsf*J[ks][j][i].x3   + rsf*J[ks][j][i+1].x3);
 
       intBx = 0.5*(pG->U[ks][j][i].B1c + pG->U[ks][j-1][i].B1c);
       intBy = pG->B2i[ks][j][i];
@@ -1012,16 +1136,19 @@ void EField_AD(DomainS *pD)
       emf[ks][j][i].x1 += eta_A*(J[ks][j][i].x1 - JdotB*intBx/Bsq);
 
       /* emf.y */
-      eta_A = 0.5*(pG->eta_AD[ks][j][i] + pG->eta_AD[ks][j][i-1]);
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      eta_A = 0.5*(rsf*pG->eta_AD[ks][j][i] + lsf*pG->eta_AD[ks][j][i-1]);
 
-      intJx = 0.25*(J[ks][j][i  ].x1 + J[ks][j+1][i  ].x1
-                  + J[ks][j][i-1].x1 + J[ks][j+1][i-1].x1);
+      intJx = 0.25*(rsf*J[ks][j][i  ].x1 + rsf*J[ks][j+1][i  ].x1
+                  + lsf*J[ks][j][i-1].x1 + lsf*J[ks][j+1][i-1].x1);
       intJy = J[ks][j][i].x2;
-      intJz = 0.5 *(J[ks][j][i].x3   + J[ks][j+1][i].x3);
+      intJz = 0.5 *(    J[ks][j][i].x3   +     J[ks][j+1][i].x3);
 
       intBx = pG->B1i[ks][j][i];
-      intBy = 0.5*(pG->U[ks][j][i].B2c + pG->U[ks][j][i-1].B2c);
-      intBz = 0.5*(pG->U[ks][j][i].B3c + pG->U[ks][j][i-1].B3c);
+      intBy = 0.5*(rsf*pG->U[ks][j][i].B2c + lsf*pG->U[ks][j][i-1].B2c);
+      intBz = 0.5*(lsf*pG->U[ks][j][i].B3c + lsf*pG->U[ks][j][i-1].B3c);
 
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
@@ -1029,17 +1156,20 @@ void EField_AD(DomainS *pD)
       emf[ks][j][i].x2 += eta_A*(J[ks][j][i].x2 - JdotB*intBy/Bsq);
 
      /* emf.z */
-      eta_A = 0.25*(pG->eta_AD[ks][j  ][i] + pG->eta_AD[ks][j  ][i-1]
-                  + pG->eta_AD[ks][j-1][i] + pG->eta_AD[ks][j-1][i-1]);
+#ifdef CYLINDRICAL
+      rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+      eta_A = 0.25*(rsf*pG->eta_AD[ks][j  ][i] + lsf*pG->eta_AD[ks][j  ][i-1]
+                  + rsf*pG->eta_AD[ks][j-1][i] + lsf*pG->eta_AD[ks][j-1][i-1]);
 
-      intJx = 0.5*(J[ks][j][i].x1 + J[ks][j][i-1].x1);
-      intJy = 0.5*(J[ks][j][i].x2 + J[ks][j-1][i].x2);
+      intJx = 0.5*(rsf*J[ks][j][i].x1 + lsf*J[ks][j][i-1].x1);
+      intJy = 0.5*(    J[ks][j][i].x2 +     J[ks][j-1][i].x2);
       intJz = J[ks][j][i].x3;
 
-      intBx = 0.5*(pG->B1i[ks][j][i] + pG->B1i[ks][j-1][i]);
-      intBy = 0.5*(pG->B2i[ks][j][i] + pG->B2i[ks][j][i-1]);
-      intBz = 0.25*(pG->U[ks][j  ][i].B3c + pG->U[ks][j  ][i-1].B3c
-                  + pG->U[ks][j-1][i].B3c + pG->U[ks][j-1][i-1].B3c);
+      intBx = 0.5*(    pG->B1i[ks][j][i] +     pG->B1i[ks][j-1][i]);
+      intBy = 0.5*(rsf*pG->B2i[ks][j][i] + lsf*pG->B2i[ks][j][i-1]);
+      intBz = 0.25*(rsf*pG->U[ks][j  ][i].B3c + rsf*pG->U[ks][j  ][i-1].B3c
+                  + lsf*pG->U[ks][j-1][i].B3c + lsf*pG->U[ks][j-1][i-1].B3c);
 
       Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
       JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
@@ -1059,14 +1189,17 @@ void EField_AD(DomainS *pD)
       for (i=is-1; i<=ie+1; i++) {
 
         /* emf.x */
+#ifdef CYLINDRICAL
+        lsf = ri[i]/r[i];  rsf = ri[i+1]/r[i];
+#endif
         eta_A = 0.25*(pG->eta_AD[k][j  ][i] + pG->eta_AD[k-1][j  ][i] +
                       pG->eta_AD[k][j-1][i] + pG->eta_AD[k-1][j-1][i]);
 
         intJx = J[k][j][i].x1;
-        intJy = 0.25*(J[k][j  ][i].x2 + J[k][j  ][i+1].x2
-                    + J[k][j-1][i].x2 + J[k][j-1][i+1].x2);
-        intJz = 0.25*(J[k  ][j][i].x3 + J[k  ][j][i+1].x3
-                    + J[k-1][j][i].x3 + J[k-1][j][i+1].x3);
+        intJy = 0.25*(lsf*J[k][j  ][i].x2 + rsf*J[k][j  ][i+1].x2
+                    + lsf*J[k][j-1][i].x2 + rsf*J[k][j-1][i+1].x2);
+        intJz = 0.25*(lsf*J[k  ][j][i].x3 + rsf*J[k  ][j][i+1].x3
+                    + lsf*J[k-1][j][i].x3 + rsf*J[k-1][j][i+1].x3);
 
         intBx = 0.25*(pG->U[k][j  ][i].B1c + pG->U[k-1][j  ][i].B1c +
                       pG->U[k][j-1][i].B1c + pG->U[k-1][j-1][i].B1c);
@@ -1079,19 +1212,22 @@ void EField_AD(DomainS *pD)
         emf[k][j][i].x1 += eta_A*(J[k][j][i].x1 - JdotB*intBx/Bsq);
 
         /* emf.y */
-        eta_A = 0.25*(pG->eta_AD[k][j][i  ] + pG->eta_AD[k-1][j][i  ] +
-                      pG->eta_AD[k][j][i-1] + pG->eta_AD[k-1][j][i-1]);
+#ifdef CYLINDRICAL
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+        eta_A = 0.25*(rsf*pG->eta_AD[k][j][i  ] + rsf*pG->eta_AD[k-1][j][i  ] +
+                      lsf*pG->eta_AD[k][j][i-1] + lsf*pG->eta_AD[k-1][j][i-1]);
 
-        intJx = 0.25*(J[k][j][i  ].x1 + J[k][j+1][i  ].x1
-                    + J[k][j][i-1].x1 + J[k][j+1][i-1].x1);;
+        intJx = 0.25*(rsf*J[k][j][i  ].x1 + rsf*J[k][j+1][i  ].x1
+                    + lsf*J[k][j][i-1].x1 + lsf*J[k][j+1][i-1].x1);;
         intJy = J[k][j][i].x2;
-        intJz = 0.25*(J[k  ][j][i].x3 + J[k  ][j+1][i].x3
-                    + J[k-1][j][i].x3 + J[k-1][j+1][i].x3);
+        intJz = 0.25*(    J[k  ][j][i].x3 +     J[k  ][j+1][i].x3
+                    +     J[k-1][j][i].x3 +     J[k-1][j+1][i].x3);
 
-        intBx = 0.5*(pG->B1i[k][j][i] + pG->B1i[k-1][j][i]);
-        intBy = 0.25*(pG->U[k][j][i  ].B2c + pG->U[k-1][j][i  ].B2c +
-                      pG->U[k][j][i-1].B2c + pG->U[k-1][j][i-1].B2c);
-        intBz = 0.5*(pG->B3i[k][j][i] + pG->B3i[k][j][i-1]);
+        intBx = 0.5*(    pG->B1i[k][j][i] +     pG->B1i[k-1][j][i]);
+        intBy = 0.25*(rsf*pG->U[k][j][i  ].B2c + rsf*pG->U[k-1][j][i  ].B2c +
+                      lsf*pG->U[k][j][i-1].B2c + lsf*pG->U[k-1][j][i-1].B2c);
+        intBz = 0.5*(rsf*pG->B3i[k][j][i] + lsf*pG->B3i[k][j][i-1]);
 
         Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
@@ -1099,19 +1235,22 @@ void EField_AD(DomainS *pD)
         emf[k][j][i].x2 += eta_A*(J[k][j][i].x2 - JdotB*intBy/Bsq);
 
         /* emf.z */
-        eta_A = 0.25*(pG->eta_AD[k][j][i  ] + pG->eta_AD[k][j-1][i  ] +
-                      pG->eta_AD[k][j][i-1] + pG->eta_AD[k][j-1][i-1]);
+#ifdef CYLINDRICAL
+        rsf = r[i]/ri[i];  lsf = r[i-1]/ri[i];
+#endif
+        eta_A = 0.25*(rsf*pG->eta_AD[k][j][i  ] + rsf*pG->eta_AD[k][j-1][i  ] +
+                      lsf*pG->eta_AD[k][j][i-1] + lsf*pG->eta_AD[k][j-1][i-1]);
 
-        intJx = 0.25*(J[k][j][i  ].x1 + J[k+1][j][i  ].x1
-                    + J[k][j][i-1].x1 + J[k+1][j][i-1].x1);;
-        intJy = 0.25*(J[k][j  ][i].x2 + J[k+1][j  ][i].x2
-                    + J[k][j-1][i].x2 + J[k+1][j-1][i].x2);
+        intJx = 0.25*(rsf*J[k][j][i  ].x1 + rsf*J[k+1][j][i  ].x1
+                    + lsf*J[k][j][i-1].x1 + lsf*J[k+1][j][i-1].x1);;
+        intJy = 0.25*(    J[k][j  ][i].x2 +     J[k+1][j  ][i].x2
+                    +     J[k][j-1][i].x2 +     J[k+1][j-1][i].x2);
         intJz = J[k][j][i].x3;
 
-        intBx = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j-1][i]);
-        intBy = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j][i-1]);
-        intBz = 0.25*(pG->U[k][j  ][i].B3c + pG->U[k][j  ][i-1].B3c +
-                      pG->U[k][j-1][i].B3c + pG->U[k][j-1][i-1].B3c);
+        intBx = 0.5*(    pG->B1i[k][j][i] +     pG->B1i[k][j-1][i]);
+        intBy = 0.5*(rsf*pG->B2i[k][j][i] + lsf*pG->B2i[k][j][i-1]);
+        intBz = 0.25*(rsf*pG->U[k][j  ][i].B3c + rsf*pG->U[k][j  ][i-1].B3c +
+                      lsf*pG->U[k][j-1][i].B3c + lsf*pG->U[k][j-1][i-1].B3c);
 
         Bsq = SQR(intBx) + SQR(intBy) + SQR(intBz) + TINY_NUMBER;
         JdotB = intJx*intBx + intJy*intBy + intJz*intBz;
