@@ -89,6 +89,14 @@ void problem(DomainS *pDomain)
       }
     }
   }
+#ifdef RESISTIVITY 
+  eta_Ohm = 0.0;
+  Q_AD    = par_getd("problem","Q_AD");
+  Q_Hall  = 0.0;
+  d_ind   = 0.0;
+#endif
+
+
 }
 
 /*==============================================================================
@@ -120,6 +128,20 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A)
+{
+
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+
+  return;
+}
+#endif
+
 
 void Userwork_in_loop(MeshS *pM)
 {

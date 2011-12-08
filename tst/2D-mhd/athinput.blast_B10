@@ -2,7 +2,7 @@
 problem = Blast wave, beta=0.02
 author  = T.A. Gardiner & J.M. Stone
 journal = JCP, 205, 509 (2005) (for MHD version of test)
-config  = --with-problem=blast --with-gas=mhd --with-flux=roe
+config  = --with-problem=blast --with-gas=mhd --with-flux=roe [--enable-resistivity --enable-sts]
 
 <job>
 problem_id      = Blast_B10     # problem ID: basename of output filenames
@@ -41,7 +41,7 @@ level   = 1
 <time>
 cour_no         = 0.8           # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000        # cycle limit
-tlim            = 0.05          # time limit
+tlim            = 0.02          # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
@@ -82,8 +82,9 @@ kDisp           = 0         # k-displacement measured in cells of this level
 <problem>
 gamma           = 1.6666666667  # gamma = C_p/C_v
 iso_csound      = 0.4082482905  # equavalent to sqrt(gamma*p/d) for p=0.1, d=1
-pamb            = 1.0           # ambient pressure
+pamb            = 0.1           # ambient pressure
 prat            = 100.0         # Pressure ratio initially
 b0              = 10.0          # magnetic field strength
 radius          = 0.125         # Radius of the inner sphere
 angle           = 45            # Angle of B w.r.t. the x-axis (degrees)
+Q_AD		= 1.e-3		$ coefficient for ambipolar diffusion
