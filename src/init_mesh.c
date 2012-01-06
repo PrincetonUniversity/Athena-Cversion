@@ -107,9 +107,6 @@ void init_mesh(MeshS *pM)
   pM->time = 0.0;
   pM->nstep = 0;
   pM->outfilename = par_gets("job","problem_id");
-#ifdef STS
-  pM->i_STS = 0;
-#endif
 
 /*--- Step 1: Figure out how many levels and domains there are. --------------*/
 /* read levels of each domain block in input file and calculate max level */

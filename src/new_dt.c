@@ -172,11 +172,7 @@ void new_dt(MeshS *pM)
 
   }}} /*--- End loop over Domains --------------------------------------------*/
 
-#ifdef STS
-  old_dt = pM->STS_dt;
-#else   
   old_dt = pM->dt; 
-#endif
   pM->dt = CourNo/max_dti;
     
 /* Find minimum timestep over all processors */
@@ -197,7 +193,6 @@ void new_dt(MeshS *pM)
   if ((pM->time < tlim) && ((tlim - pM->time) < pM->dt))
     pM->dt = tlim - pM->time;
 
-
 /* When explicit diffusion is included, compute stability constriant */
 #if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
   max_dti_diff = new_dt_diff(pM);
@@ -205,41 +200,31 @@ void new_dt(MeshS *pM)
   diff_dt = CourNo/max_dti_diff;
 
 #ifdef MPI_PARALLEL
-    my_dt = diff_dt;
-    ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    diff_dt = dt;
+  my_dt = diff_dt;
+  ierr = MPI_Allreduce(&my_dt, &dt, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+  diff_dt = dt;
 #endif /* MPI_PARALLEL */
 
 #ifdef STS
-  if (pM->i_STS == 0) {
+  /* number of super timesteps */
+  N_STS = get_N_STS(pM->dt, diff_dt);
 
-    pM->diff_dt = diff_dt;
-
-    pM->STS_dt = pM->dt;
-
-    /* number of super timesteps */
-    N_STS = get_N_STS(pM->STS_dt, pM->diff_dt);
-
-    if (N_STS > 7) {
-      N_STS  = 7;
-      pM->STS_dt = 37.35317345 * diff_dt;
-    }
-
-    if (N_STS == 1) {
-      nu_STS  = 0.0;
-      pM->diff_dt = pM->STS_dt;
-    }
-    else {
-      nu_STS  = 0.25/SQR((Real)(N_STS));
-      nu_sqrt = 0.5/((Real)(N_STS));
-      pM->diff_dt = 2.0*pM->STS_dt*nu_sqrt/((Real)(N_STS))
-                *(pow(1.0+nu_sqrt,2.0*N_STS)+pow(1.0-nu_sqrt,2.0*N_STS))
-                /(pow(1.0+nu_sqrt,2.0*N_STS)-pow(1.0-nu_sqrt,2.0*N_STS));
-    }
+  if (N_STS > 12) {
+    N_STS  = 12;
+    pM->dt = 109.7045774 * diff_dt;
   }
 
-  pM->dt = pM->diff_dt/(1.0+nu_STS-(1.0-nu_STS)
-               *cos(0.5*PI*(2.0*pM->i_STS+1.0)/(Real)(N_STS)));
+  if (N_STS == 1) {
+    nu_STS  = 0.0;
+    pM->diff_dt = pM->dt;
+  }
+  else {
+    nu_STS  = 0.25/SQR((Real)(N_STS));
+    nu_sqrt = 0.5/((Real)(N_STS));
+    pM->diff_dt = 2.0*pM->dt*nu_sqrt/((Real)(N_STS))
+              *(pow(1.0+nu_sqrt,2.0*N_STS)+pow(1.0-nu_sqrt,2.0*N_STS))
+              /(pow(1.0+nu_sqrt,2.0*N_STS)-pow(1.0-nu_sqrt,2.0*N_STS));
+  }
 #else
   pM->dt = MIN(pM->dt, diff_dt);
 #endif /* STS */

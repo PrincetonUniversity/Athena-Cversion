@@ -81,7 +81,12 @@ void resistivity(DomainS *pD)
   int nlayer=1;
 #endif
   int ndim=1;
-  Real dtodx1 = pG->dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
+#ifdef STS
+  Real my_dt = STS_dt;
+#else
+  Real my_dt = pG->dt;
+#endif
+  Real dtodx1 = my_dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
 
 #ifdef CYLINDRICAL
   const Real *r=pG->r, *ri=pG->ri;
@@ -92,7 +97,7 @@ void resistivity(DomainS *pD)
   if (pG->Nx[1] > 1){
     jl = js - 4;
     ju = je + 4;
-    dtodx2 = pG->dt/pG->dx2;
+    dtodx2 = my_dt/pG->dx2;
     dx2i=1.0/pG->dx2;
     ndim++;
   } else {
@@ -102,7 +107,7 @@ void resistivity(DomainS *pD)
   if (pG->Nx[2] > 1){
     kl = ks - 4;
     ku = ke + 4;
-    dtodx3 = pG->dt/pG->dx3;
+    dtodx3 = my_dt/pG->dx3;
     dx3i=1.0/pG->dx3;
     ndim++;
   } else {
@@ -429,7 +434,7 @@ void resistivity(DomainS *pD)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
-        dtodx2 = pG->dt/(r[i]*pG->dx2);
+        dtodx2 = my_dt/(r[i]*pG->dx2);
 #endif
         pG->U[k][j][i].E += dtodx2*(EnerFlux[k][j+1][i].x2 -EnerFlux[k][j][i].x2);
       }
@@ -471,20 +476,20 @@ void resistivity(DomainS *pD)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
-        dtodx2 = pG->dt/(ri[i]*pG->dx2);
+        dtodx2 = my_dt/(ri[i]*pG->dx2);
 #endif
         pG->B1i[ks][j][i] -= dtodx2*(emf[ks][j+1][i  ].x3 - emf[ks][j][i].x3);
         pG->B2i[ks][j][i] += dtodx1*(emf[ks][j  ][i+1].x3 - emf[ks][j][i].x3);
 
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        dtodx2 = pG->dt/(r[i]*pG->dx2);
+        dtodx2 = my_dt/(r[i]*pG->dx2);
 #endif
         pG->U[ks][j][i].B3c += dtodx2*(    emf[ks][j+1][i  ].x1 -     emf[ks][j][i].x1) -
                                dtodx1*(rsf*emf[ks][j  ][i+1].x2 - lsf*emf[ks][j][i].x2);
       }
 #ifdef CYLINDRICAL
-      dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
+      dtodx2 = my_dt/(ri[ie+1]*pG->dx2);
 #endif
       pG->B1i[ks][j][ie+1] -= dtodx2*(emf[ks][j+1][ie+1].x3 -emf[ks][j][ie+1].x3);
     }
@@ -511,7 +516,7 @@ void resistivity(DomainS *pD)
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
-          dtodx2 = pG->dt/(ri[i]*pG->dx2);
+          dtodx2 = my_dt/(ri[i]*pG->dx2);
 #endif
           pG->B1i[k][j][i] += dtodx3*(emf[k+1][j  ][i  ].x2 - emf[k][j][i].x2) -
                               dtodx2*(emf[k  ][j+1][i  ].x3 - emf[k][j][i].x3);
@@ -519,13 +524,13 @@ void resistivity(DomainS *pD)
                               dtodx3*(emf[k+1][j  ][i  ].x1 - emf[k][j][i].x1);
 #ifdef CYLINDRICAL
           rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-          dtodx2 = pG->dt/(r[i]*pG->dx2);
+          dtodx2 = my_dt/(r[i]*pG->dx2);
 #endif
           pG->B3i[k][j][i] += dtodx2*(    emf[k  ][j+1][i  ].x1 -     emf[k][j][i].x1) -
                               dtodx1*(rsf*emf[k  ][j  ][i+1].x2 - lsf*emf[k][j][i].x2);
         }
 #ifdef CYLINDRICAL
-        dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
+        dtodx2 = my_dt/(ri[ie+1]*pG->dx2);
 #endif  
         pG->B1i[k][j][ie+1] +=
           dtodx3*(emf[k+1][j  ][ie+1].x2 - emf[k][j][ie+1].x2) -
@@ -541,7 +546,7 @@ void resistivity(DomainS *pD)
     for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
       rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-      dtodx2 = pG->dt/(r[i]*pG->dx2);
+      dtodx2 = my_dt/(r[i]*pG->dx2);
 #endif
       pG->B3i[ke+1][j][i] +=
         dtodx2*(    emf[ke+1][j+1][i  ].x1 -     emf[ke+1][j][i].x1) -
@@ -671,20 +676,25 @@ void EField_Hall(DomainS *pD)
 #endif
   int ndim=1;
   Real eta_H, Bmag;
-  Real dtodx1 = pG->dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
+#ifdef STS
+  Real my_dt = STS_dt;
+#else
+  Real my_dt = pG->dt;
+#endif
+  Real dtodx1 = my_dt/pG->dx1, dtodx2 = 0.0, dtodx3 = 0.0;
 
   il = is - 4;  iu = ie + 4;
 
   if (pG->Nx[1] > 1){
     jl = js - 4;    ju = je + 4;
-    dtodx2 = pG->dt/pG->dx2;
+    dtodx2 = my_dt/pG->dx2;
     ndim++;
   } else {
     jl = js;        ju = je;
   }
   if (pG->Nx[2] > 1){
     kl = ks - 4;    ku = ke + 4;
-    dtodx3 = pG->dt/pG->dx3;
+    dtodx3 = my_dt/pG->dx3;
     ndim++;
   } else {
     kl = ks;        ku = ke;
@@ -692,7 +702,7 @@ void EField_Hall(DomainS *pD)
 
 /* Preliminary: hyper-diffusion */
 
-//  hyper_diffusion6(pD, 0.01);
+//  hyper_diffusion4(pD, 0.1);
 
 /* Preliminary: divide eta_Hall by B for convenience */
   for (k=kl; k<=ku; k++) {
@@ -1275,6 +1285,11 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
   int ndim=1;
+#ifdef STS
+  Real my_dt = STS_dt;
+#else
+  Real my_dt = pG->dt;
+#endif
   Real eta_H,eta_4,dx21,dy21=0.0,dz21=0.0;
 
   dx21 = 1.0/SQR(pG->dx1);
@@ -1291,7 +1306,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
   if (ndim == 1) {
     for (i=is; i<=ie+1; i++) {
       eta_H = 0.5*(pG->eta_Hall[ks][js][i] + pG->eta_Hall[ks][js][i-1]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[ks][js][i].x2 -= eta_4 * (J[ks][js][i-1].x2 - 2.0*J[ks][js][i].x2
                                  + J[ks][js][i+1].x2) * dx21;
@@ -1307,7 +1322,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
 
       /* x1 */
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j-1][i]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[ks][j][i].x1 -= eta_4 * ((J[ks][j][i-1].x1 - 2.0*J[ks][j][i].x1
                                  + J[ks][j][i+1].x1) * dx21
@@ -1316,7 +1331,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
 
       /* x2 */
       eta_H = 0.5*(pG->eta_Hall[ks][j][i] + pG->eta_Hall[ks][j][i-1]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[ks][j][i].x2 -= eta_4 * ((J[ks][j][i-1].x2 - 2.0*J[ks][j][i].x2
                                  + J[ks][j][i+1].x2) * dx21
@@ -1326,7 +1341,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[ks][j][i  ] + pG->eta_Hall[ks][j-1][i  ] +
                     pG->eta_Hall[ks][j][i-1] + pG->eta_Hall[ks][j-1][i-1]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[ks][j][i].x3 -= eta_4 * ((J[ks][j][i-1].x3 - 2.0*J[ks][j][i].x3
                                  + J[ks][j][i+1].x3) * dx21
@@ -1344,7 +1359,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
       /* x1 */
       eta_H = 0.25*(pG->eta_Hall[k][j  ][i] + pG->eta_Hall[k-1][j  ][i] +
                     pG->eta_Hall[k][j-1][i] + pG->eta_Hall[k-1][j-1][i]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[k][j][i].x1 -= eta_4 * ((J[k][j][i-1].x1 - 2.0*J[k][j][i].x1
                                 + J[k][j][i+1].x1) * dx21
@@ -1356,7 +1371,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
       /* x2 */
       eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k-1][j][i  ] +
                     pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k-1][j][i-1]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[k][j][i].x2 -= eta_4 * ((J[k][j][i-1].x2 - 2.0*J[k][j][i].x2
                                 + J[k][j][i+1].x2) * dx21
@@ -1368,7 +1383,7 @@ void hyper_diffusion4(DomainS *pD, Real prefac)
       /* x3 */
       eta_H = 0.25*(pG->eta_Hall[k][j][i  ] + pG->eta_Hall[k][j-1][i  ] +
                     pG->eta_Hall[k][j][i-1] + pG->eta_Hall[k][j-1][i-1]);
-      eta_4 = prefac * SQR(eta_H) * pG->dt;
+      eta_4 = prefac * SQR(eta_H) * my_dt;
 
       emf[k][j][i].x3 -= eta_4 * ((J[k][j][i-1].x3 - 2.0*J[k][j][i].x3
                                 + J[k][j][i+1].x3) * dx21
@@ -1390,6 +1405,11 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
   int ndim=1;
+#ifdef STS
+  Real my_dt = STS_dt;
+#else
+  Real my_dt = pG->dt;
+#endif
   Real eta_H,eta_6,dx41,dy41=0.0,dz41=0.0;
   Real fac,fac2,fac3;
 
@@ -1404,7 +1424,7 @@ void hyper_diffusion6(DomainS *pD, Real prefac)
     dz41 = 1.0/SQR(SQR(pG->dx3)); 
     fac3 = SQR(pG->dx1/pG->dx3);
   }
-  fac = prefac*SQR(pG->dt/pG->dx1)*pG->dt;
+  fac = prefac*SQR(my_dt/pG->dx1)*my_dt;
 
   /* 1D */
   if (ndim == 1) {

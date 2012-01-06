@@ -52,6 +52,7 @@ Real nu_iso=0.0, nu_aniso=0.0;               /*!< coeff of viscosity */
 #ifdef STS
 int N_STS;			/*!< number of super timesteps */
 Real nu_STS;			/*!< parameter controlling the substeps  */
+Real STS_dt;			/*!< STS time step */
 #endif
 
 #ifdef CYLINDRICAL
@@ -107,7 +108,7 @@ extern Real nu_iso, nu_aniso;
 #endif
 #ifdef STS
 extern int N_STS;
-extern Real nu_STS; 
+extern Real nu_STS, STS_dt; 
 #endif
 
 #ifdef CYLINDRICAL

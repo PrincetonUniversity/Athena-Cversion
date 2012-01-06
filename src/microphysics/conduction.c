@@ -65,12 +65,17 @@ void conduction(DomainS *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
-  Real dtodx1=pG->dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
+#ifdef STS
+  Real my_dt = STS_dt;
+#else
+  Real my_dt = pG->dt;
+#endif
+  Real dtodx1=my_dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
 
   if (pG->Nx[1] > 1){
     jl = js - 1;
     ju = je + 1;
-    dtodx2 = pG->dt/pG->dx2;
+    dtodx2 = my_dt/pG->dx2;
   } else {
     jl = js;
     ju = je;
@@ -78,7 +83,7 @@ void conduction(DomainS *pD)
   if (pG->Nx[2] > 1){
     kl = ks - 1;
     ku = ke + 1;
-    dtodx3 = pG->dt/pG->dx3;
+    dtodx3 = my_dt/pG->dx3;
   } else {
     kl = ks;
     ku = ke;

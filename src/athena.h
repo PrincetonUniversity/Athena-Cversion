@@ -389,8 +389,7 @@ typedef struct Mesh_s{
   Real dx[3];     /*!< cell size on root Domain [0,1,2]=[x1,x2,x3] */
   Real time, dt;  /*!< current time and timestep for entire Mesh */
 #ifdef STS
-  Real STS_dt, diff_dt;
-  int i_STS;          /* index of the current super timestep */
+  Real diff_dt;
 #endif
   int Nx[3];    /*!< # of zones in each dir on root Domain [0,1,2]=[x1,x2,x3] */
   int nstep;                 /*!< number of integration steps taken */

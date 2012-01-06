@@ -4457,7 +4457,7 @@ void bvals_shear_destruct(void)
 #endif
 #ifdef MHD
   if (tEyBuf != NULL) free_2d_array(tEyBuf);
-  if (tJyBuf != NULL) free_3d_array(tEyBuf);
+  if (tJyBuf != NULL) free_3d_array(tJyBuf);
 #endif
 #if defined(THIRD_ORDER_CHAR) || defined(THIRD_ORDER_PRIM)
   if (Uhalf != NULL) free(Uhalf);

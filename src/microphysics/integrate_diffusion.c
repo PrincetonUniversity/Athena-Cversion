@@ -53,12 +53,6 @@ void integrate_diff(MeshS *pM)
     }
   }
 
-#ifdef STS
-  pM->i_STS += 1;
-  if (pM->i_STS >= N_STS)
-    pM->i_STS = 0;
-#endif
-
   return;
 }
 

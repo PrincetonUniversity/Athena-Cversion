@@ -502,23 +502,27 @@ int main(int argc, char *argv[])
 
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
 #ifdef STS
-    if (Mesh.i_STS == 0)
-      ath_pout(0,"Next N_STS = %d\n", N_STS);
+    ath_pout(0,"Next N_STS = %d\n", N_STS);
+    for (i=0; i<N_STS; i++) {
+      STS_dt = Mesh.diff_dt/(1.0+nu_STS-(1.0-nu_STS)
+               *cos(0.5*PI*(2.0*i+1.0)/(Real)(N_STS)));
 #endif
-
-    integrate_diff(&Mesh);
+      integrate_diff(&Mesh);
 
 #ifdef STATIC_MESH_REFINEMENT
-    RestrictCorrect(&Mesh);
+      RestrictCorrect(&Mesh);
 #endif
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].Grid != NULL){
-          bvals_mhd(&(Mesh.Domain[nl][nd]));
-        }
-    }}
+      for (nl=0; nl<(Mesh.NLevels); nl++){ 
+        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+          if (Mesh.Domain[nl][nd].Grid != NULL){
+            bvals_mhd(&(Mesh.Domain[nl][nd]));
+          }
+      }}
 #ifdef STATIC_MESH_REFINEMENT
-    Prolongate(&Mesh);
+      Prolongate(&Mesh);
+#endif
+#ifdef STS
+    }
 #endif
 #endif /* Explicit diffusion */
 
