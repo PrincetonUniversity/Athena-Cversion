@@ -261,7 +261,7 @@ int get_N_STS(Real dt_MHD, Real dt_Diff)
   int i=0;
   Real dt_ratio = dt_MHD/dt_Diff;
 
-  while ((dt_ratio > Ratio[i]) && (i<7))
+  while ((dt_ratio > Ratio[i]) && (i<12))
     i++;
 
   return i+1; /* number of substeps N in a super timestep */
