@@ -329,8 +329,12 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,
 	double xacc, double coef1, double coef2, double coef3);
 
-void GetTguess(MeshS *pM); 
+void GetTguess(MeshS *pM);
+ 
 
+Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real vshear, Real *theta, Real *phi, Real *psi, Real *varphi);
+
+void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const Real Edd, const Real velocity, Real *alpha, int flag, Real dl);
 
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
 void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	

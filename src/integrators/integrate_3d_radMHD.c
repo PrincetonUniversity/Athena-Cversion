@@ -59,6 +59,7 @@ Cons1DS ***x1Flux=NULL, ***x2Flux=NULL, ***x3Flux=NULL;
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static Cons1DS ***x1FluxP=NULL, ***x2FluxP=NULL, ***x3FluxP=NULL;
+static Real ***dhalfP = NULL;
 static Real ***emf1P=NULL, ***emf2P=NULL, ***emf3P=NULL;
 static Cons1DS x1FD_i, x1FD_ip1, x2FD_j, x2FD_jp1, x3FD_k, x3FD_kp1;
 static Real ****INIdata;
@@ -102,6 +103,8 @@ static Real ****Beta = NULL;
 static Real ***dhalf = NULL, ***phalf=NULL;
 
 static Real zmin;
+
+static Real Betafloor = 0.01;
 
 
 /*==============================================================================
@@ -213,6 +216,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 	Real temperature, velocity_x, velocity_y, velocity_z, velocity, pressure, density;
 	Real Fr0x, Fr0y, Fr0z, diffTEr; /* co-moving flux, Fr-vf E_r/C , diffTEr = T^4 - Er*/
+	Real Smx0, Smy0, Smz0; /* the momentum source term v(T^4-E_r)* sigma/Crat */
 	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
 	/* The opacity function is:0-3 Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE */
 	Real Propa_44, SEE, SErho, SEmx, SEmy, SEmz;
@@ -2536,6 +2540,25 @@ void integrate_3d_radMHD(DomainS *pD)
     	}
   
 
+
+/*--- Step 9a ------------------------------------------------------------------
+ * Calculate d^{n+1/2} (with FOFC flux)
+ */
+#ifdef FIRST_ORDER_FLUX_CORRECTION
+    	for (k=kl+1; k<=ku-1; k++) {
+      		for (j=jl+1; j<=ju-1; j++) {
+			for (i=il+1; i<=iu-1; i++) {
+
+          			dhalfP[k][j][i] = pG->U[k][j][i].d 
+            				- hdtodx1 * (    x1FluxP[k  ][j  ][i+1].d -     x1FluxP[k][j][i].d)
+            				- hdtodx2 * (    x2FluxP[k  ][j+1][i  ].d -     x2FluxP[k][j][i].d)
+            				- hdtodx3 * (    x3FluxP[k+1][j  ][i  ].d -     x3FluxP[k][j][i].d);
+
+			}
+      		}
+    	}
+#endif /* FOFC */
+
 /*--- Step 9b ------------------------------------------------------------------
  * Calculate cell centered emf_cc^{n+1/2}
  */
@@ -2604,6 +2627,11 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_y -= qom * x1;		
 					
 #endif	
+
+			/* Part of momentum source term */
+			Smx0 = -Prat * velocity_x * diffTEr / Crat;
+			Smy0 = -Prat * velocity_y * diffTEr / Crat;
+			Smz0 = -Prat * velocity_z * diffTEr / Crat;
 
 			/* The Source term */
 			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
@@ -2685,6 +2713,11 @@ void integrate_3d_radMHD(DomainS *pD)
 			M2h = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
 			M3h = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
 					
+			/* Part of radiation momentum source term */
+			M1h += hdt * Smx0;
+			M2h += hdt * Smy0;
+			M3h += hdt * Smz0;
+
 			/* Guess solution */
 					
 					
@@ -3200,6 +3233,10 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_y -= qom * x1;						
 					
 #endif			
+			/* Part of momentum source term */
+			Smx0 = -Prat * velocity_x * diffTEr / Crat;
+			Smy0 = -Prat * velocity_y * diffTEr / Crat;
+			Smz0 = -Prat * velocity_z * diffTEr / Crat;
 			
 			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
 			
@@ -3454,6 +3491,11 @@ void integrate_3d_radMHD(DomainS *pD)
 	/*================== End static gravitational flux ================*/
 
 	/* cacluate guess solution */
+		/* In case overshoot make negative pressure */
+		if(!Erflag){
+			/* source term is added seperately */
+			Source[k][j][i][4] = 0.0;
+		}
 
 		for(n=0; n<5; n++) {
 			tempguess[n] = 0.0;
@@ -3467,6 +3509,12 @@ void integrate_3d_radMHD(DomainS *pD)
 		Uguess[2] = pG->U[k][j][i].M2 + tempguess[2];
 		Uguess[3] = pG->U[k][j][i].M3 + tempguess[3];
 		Uguess[4] = pG->U[k][j][i].E  + tempguess[4];
+
+		if(!Erflag){
+
+			Uguess[4] += - Prat * pG->Ersource[k][j][i];
+			
+		}
 
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
@@ -3660,9 +3708,9 @@ void integrate_3d_radMHD(DomainS *pD)
 			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
 
 			/* Source term for momentum */
-			Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x + velocity_x * diffTEr / Crat);
-			Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y + velocity_y * diffTEr / Crat);
-			Source_guess[3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z + velocity_z * diffTEr / Crat);
+			Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
+			Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
+			Source_guess[3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
 			
 			/* Source term for total Energy */
 			Source_guess[4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat);
@@ -3708,47 +3756,45 @@ void integrate_3d_radMHD(DomainS *pD)
 			if(Erflag){
 
 			if(Prat > 0.0){
-				pG->Tguess[k][j][i] = Uguess[4] + tempguess[4] - 
+				pG->Ersource[k][j][i] = Uguess[4] + tempguess[4] - 
 				(pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
 				/* Energy error seems smaller with Errot term added */
 #ifdef SHEARING_BOX
-				pG->Tguess[k][j][i] -= ShearSource[3];
+				pG->Ersource[k][j][i] -= ShearSource[3];
 #endif
 
 #ifdef CONS_GRAVITY
-			        pG->Tguess[k][j][i] -= 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
+			        pG->Ersource[k][j][i] -= 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
 #endif
 
-				pG->Tguess[k][j][i] /= -Prat;
-
-				pG->Ersource[k][j][i] = pG->Tguess[k][j][i];
-
-				
-
-				if(Sigma_aP > TINY_NUMBER){
-					pG->Tguess[k][j][i] = (1.0/(dt * Crat * Sigma_aP) + Sigma_aE/Sigma_aP) * pG->Tguess[k][j][i] + Sigma_aE * pG->U[k][j][i].Er / Sigma_aP;
-				}
-				else{
-					pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
-				}
-	
+				pG->Ersource[k][j][i] /= -Prat;
 				
 				
 
 			}
-			else{
-				pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+			else{				
 
 				pG->Ersource[k][j][i] = 0.0;
 			}
 			} /* End Erflag */
 					
-		
-			pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
-			pG->U[k][j][i].M1 = Uguess[1] + tempguess[1];
-			pG->U[k][j][i].M2 = Uguess[2] + tempguess[2];
-			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
-			pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
+			/* The momentum source term Prat * v * Sigma(T^4 - Er)/Crat is added explicitly */
+			/* In case overshoot make negative pressure */
+			if(!Erflag){
+				pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
+				pG->U[k][j][i].M1 = Uguess[1] + tempguess[1] + dt * Smx0;
+				pG->U[k][j][i].M2 = Uguess[2] + tempguess[2] + dt * Smy0;
+				pG->U[k][j][i].M3 = Uguess[3] + tempguess[3] + dt * Smz0;
+				pG->U[k][j][i].E  = Uguess[4];
+				
+			}
+			else{
+				pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
+				pG->U[k][j][i].M1 = Uguess[1] + tempguess[1] + dt * Smx0;
+				pG->U[k][j][i].M2 = Uguess[2] + tempguess[2] + dt * Smy0;
+				pG->U[k][j][i].M3 = Uguess[3] + tempguess[3] + dt * Smz0;
+				pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
+			}
 
 			} /* End i */
 		}/* End j */
@@ -3774,7 +3820,25 @@ void integrate_3d_radMHD(DomainS *pD)
   	}
 #endif /* RADIATION MHD */
 
+	/* calculate pG->Tguess after magnetic field is updated */
+	for (k=ks; k<=ke; k++) {
+    		for (j=js; j<=je; j++) {
+      			for (i=is; i<=ie; i++) {
 
+				pressure = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+
+				pressure *= (Gamma - 1.0);
+
+				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
+
+				pG->Tguess[k][j][i] = pow(temperature, 4.0);
+
+			}
+		}
+	}
 		
 	/* Boundary condition is applied in the main function */
 	/* Check the pressure to make sure that it is positive */
@@ -3804,7 +3868,8 @@ void integrate_3d_radMHD(DomainS *pD)
 	
         }
 
-	if (flag_cell != 0) {
+	
+	if (flag_cell != 0 && (negd >0 || negP > 0)) {
 		cc_pos(pG,i,j,k,&x1,&x2,&x3);
 		if(fabs(x3) < fabs(zmin))
 			zmin = x3;
@@ -3857,7 +3922,7 @@ void integrate_3d_radMHD(DomainS *pD)
 	}/* end i */
 	}/* end j */
 	}/* end k */
-	if(fabs(zmin) < 4.0) printf("[Bad Cell]: Maximum height: %f\n",zmin);
+	if(fabs(zmin) < 4.0 && (negd >0 || negP > 0)) printf("[Bad Cell]: Maximum height: %f\n",zmin);
 	  if (negd > 0 || negP > 0)
     printf("[Bad Cells]: at t=%g; %i cells had d<0; %i cells had P<0\n",pG->time,negd,negP);
 
@@ -4005,6 +4070,8 @@ void integrate_init_3d(MeshS *pM)
     == NULL) goto on_error;
   if ((INIdata =(Real****)calloc_4d_array(size3,size2,size1, 6, sizeof(Real)))
     == NULL) goto on_error;
+  if ((dhalfP = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
+    goto on_error;
 #if defined(MHD) || defined(RADIATION_MHD)
   if ((emf1P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
     == NULL) goto on_error;
@@ -4030,7 +4097,7 @@ void integrate_init_3d(MeshS *pM)
 
 
   if ((dhalf = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
-    goto on_error;
+    goto on_error;  
   if ((phalf = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
     goto on_error;
   
@@ -4112,6 +4179,7 @@ void integrate_destruct_3d(void)
   if (x2FluxP != NULL) free_3d_array(x2FluxP);
   if (x3FluxP != NULL) free_3d_array(x3FluxP);
   if (INIdata != NULL) free_4d_array(INIdata);
+  if (dhalfP != NULL) free_4d_array(dhalfP);
 #if defined(MHD) || defined(RADIATION_MHD)
   if (emf1P   != NULL) free_3d_array(emf1P);
   if (emf2P   != NULL) free_3d_array(emf2P);
@@ -4648,15 +4716,20 @@ void updatesource(GridS *pG)
 				Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
 
 			/* Source term for momentum, not velocity*/
+				/* The momentum source term v * diffTEr/ Crat is added explicitly */
 				Source[k][j][i][0] = 0.0;
-				Source[k][j][i][1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x + velocity_x * diffTEr / Crat);
-				Source[k][j][i][2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y + velocity_y * diffTEr / Crat);
-				Source[k][j][i][3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z + velocity_z * diffTEr / Crat);
+				Source[k][j][i][1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
+				Source[k][j][i][2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
+				Source[k][j][i][3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
 			
 			/* Source term for energy */
 				Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z)/Crat);
 
-			
+				/* if Erflag = 0, add radiation work tem */
+				if(!Erflag){
+				
+					pG->Ersource[k][j][i] += dt * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y * velocity_z * Fr0z);
+				}
 
 				if(Opacity != NULL){
 					 Opacity(density, temperature, NULL, dSigma);
@@ -4727,7 +4800,7 @@ void updatesource(GridS *pG)
 				else 
 				alpha = 1.0 + 0.25 * SPP * dt;
 
-
+				
 				Alpha[k][j][i] = alpha;
 				Beta[k][j][i][0] = betax;
 				Beta[k][j][i][1] = betay;
@@ -4941,6 +5014,10 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
   Real ShearSource[4];
 #endif /* SHEARING_BOX */
   Real lsf=1.0,rsf=1.0;
+  Real velocity_x, velocity_y, velocity_z, diffTEr, Fr0x, Fr0y, Fr0z, Sigma_aP, Sigma_aE, Sigma_aF, Sigma_sF, pressure, Temperature, Prwork, TEr, density;
+  Real SFmx, SFmy, SFmz;
+  Real Smx0, Smy0, Smz0;
+  Real coef1, coef2, coef3, Ersum;
 
 #ifdef CYLINDRICAL
   rsf = (rx1>0) ? pG->ri[i+1]/pG->r[i] : pG->ri[i  ]/pG->r[i];
@@ -5053,7 +5130,7 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
 
 	/* x direction */
 
-	pG->U[k][j][i].M1 -= dtodx1 * dhalf[k][j][i]*(phir-phil);
+	pG->U[k][j][i].M1 -= dtodx1 * dhalfP[k][j][i]*(phir-phil);
         pG->U[k][j][i].E  -= dtodx1 * (x1FluxP[k][j][i  ].d*(phic - phil) +
 		x1FluxP[k][j][i+1].d*(phir - phic));			
 
@@ -5062,28 +5139,102 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-        pG->U[k][j][i].M2 -= dtodx2 * dhalf[k][j][i]*(phir-phil);
+        pG->U[k][j][i].M2 -= dtodx2 * dhalfP[k][j][i]*(phir-phil);
         pG->U[k][j][i].E  -= dtodx2 * (x2FluxP[k][j  ][i].d*(phic - phil) +
                                	     x2FluxP[k][j+1][i].d*(phir - phic));
 	/* z direction */
 	phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
         phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
-	pG->U[k][j][i].M3 -= dtodx3 * dhalf[k][j][i]*(phir-phil);
+	pG->U[k][j][i].M3 -= dtodx3 * dhalfP[k][j][i]*(phir-phil);
         pG->U[k][j][i].E  -= dtodx3 * (x3FluxP[k][j  ][i].d*(phic - phil) +
         	     x3FluxP[k + 1][j][i].d*(phir - phic));	
   }
-/* Add radiation momentum source term */
-/*
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	
-	pG->U[k][j][i].M1 += pG->dt * Source[k][j][i][1];
-	pG->U[k][j][i].M2 += pG->dt * Source[k][j][i][2];
-	pG->U[k][j][i].M3 += pG->dt * Source[k][j][i][3];
-	pG->U[k][j][i].E  += pG->dt * Source[k][j][i][4];
+/* Add radiation momentum source term seperately as first orer */
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	/* Part of momentum source term */
+	/* Use unpdated gas quantities */
+	density = INIdata[k][j][i][0];
+
+	velocity_x = INIdata[k][j][i][1] / density;
+	velocity_y = INIdata[k][j][i][2] / density;
+#ifdef FARGO
+				
+		/* With FARGO, we should add background shearing to the source terms */
+	cc_pos(pG,i,j,k,&x1,&x2,&x3);
+	velocity_y -= qom * x1;			
+				
+#endif	
+	velocity_z = INIdata[k][j][i][3] / density;
+
+	pressure = INIdata[k][j][i][5];
+	Temperature = pressure / (density * R_ideal);
+
+	Sigma_sF = pG->U[k][j][i].Sigma[0];
+	Sigma_aF = pG->U[k][j][i].Sigma[1];
+	Sigma_aP = pG->U[k][j][i].Sigma[2];
+	Sigma_aE = pG->U[k][j][i].Sigma[3];
+
+	diffTEr = Sigma_aP * pow(Temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er; 
+
+	SFmx = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_11) * pG->U[k][j][i].Er / (density * Crat); 
+	SFmy = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_22) * pG->U[k][j][i].Er / (density * Crat); 
+	SFmz = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_33) * pG->U[k][j][i].Er / (density * Crat); 
+
+	Smx0 = -Prat * velocity_x * diffTEr / Crat;
+	Smy0 = -Prat * velocity_y * diffTEr / Crat;
+	Smz0 = -Prat * velocity_z * diffTEr / Crat;
+	
+	/* Part of radiation momentum source term is not included in Source */
+	/* We only need first order, we do not do the correct step */
+	pG->U[k][j][i].M1 += pG->dt * Source[k][j][i][1] / (1.0 + pG->dt * Prat * SFmx) + 0.5 * pG->dt * Smx0;
+	pG->U[k][j][i].M2 += pG->dt * Source[k][j][i][2] / (1.0 + pG->dt * Prat * SFmy) + 0.5 * pG->dt * Smy0;
+	pG->U[k][j][i].M3 += pG->dt * Source[k][j][i][3] / (1.0 + pG->dt * Prat * SFmz) + 0.5 * pG->dt * Smz0;
+	
+	/* First add radiation work term explicitly */
+	Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y
+							+ pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er/Crat;
+	Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x
+							+ pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er/Crat;
+	Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x
+							+ pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er/Crat;
+
+	Prwork = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+	
+	/* First, add Prwork term explicitly */
+	pG->U[k][j][i].E  += pG->dt * Prwork;
+
+	/* Then add Sigma(T4 - Er) implicitly */
+	TEr = pow(pG->U[k][j][i].Er, 0.25);
+	Ersum = pressure / (Gamma - 1.0) + Prat * pG->U[k][j][i].Er;
+	coef1 = pG->dt * Prat * Crat * Sigma_aP;
+	coef2 = density * R_ideal * (1.0 + pG->dt * Sigma_aE * Crat) / (Gamma - 1.0);
+	coef3 = -pressure / (Gamma - 1.0) - pG->dt * Sigma_aE * Crat * Ersum;
+	if(fabs(TEr - Temperature) < TINY_NUMBER){
+		pG->Ersource[k][j][i] = pG->dt * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+		pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+	}
+	else{
+		if(TEr < Temperature){
+			Temperature = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3);
+		}
+		else{
+		
+			Temperature = rtsafe(Tequilibrium, Temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3);
+		}
+		
+		 pG->U[k][j][i].E += (density * R_ideal * Temperature - pressure) / (Gamma - 1.0);
+
+		 pG->Ersource[k][j][i] = -(density * R_ideal * Temperature - pressure) / (Prat * (Gamma - 1.0)) + pG->dt * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+
+		
+		pG->Tguess[k][j][i] = pow(Temperature, 4.0);
+		
+	
+	}
 #endif
-*/
+
 }
 
 

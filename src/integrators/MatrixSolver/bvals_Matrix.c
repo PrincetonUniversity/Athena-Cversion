@@ -20,7 +20,7 @@
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
 static MPI_Request *recv_rq, *send_rq;
-static int Nrad = 14 + NOPACITY;
+static int Nrad = 15 + NOPACITY;
 #endif /* MPI_PARALLEL */
 
 /*==============================================================================
@@ -1390,6 +1390,7 @@ static void pack_ix1(MatrixS *pMat)
         *(pSnd++) = pMat->U[k][j][i].Fr1;
         *(pSnd++) = pMat->U[k][j][i].Fr2;
         *(pSnd++) = pMat->U[k][j][i].Fr3;
+	*(pSnd++) = pMat->U[k][j][i].rho;
 	*(pSnd++) = pMat->U[k][j][i].V1;
         *(pSnd++) = pMat->U[k][j][i].V2;
         *(pSnd++) = pMat->U[k][j][i].V3;
@@ -1432,6 +1433,7 @@ static void pack_ox1(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Fr1;
         	*(pSnd++) = pMat->U[k][j][i].Fr2;
         	*(pSnd++) = pMat->U[k][j][i].Fr3;
+		*(pSnd++) = pMat->U[k][j][i].rho;
 		*(pSnd++) = pMat->U[k][j][i].V1;
         	*(pSnd++) = pMat->U[k][j][i].V2;
         	*(pSnd++) = pMat->U[k][j][i].V3;
@@ -1475,6 +1477,7 @@ static void pack_ix2(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Fr1;
         	*(pSnd++) = pMat->U[k][j][i].Fr2;
         	*(pSnd++) = pMat->U[k][j][i].Fr3;
+		*(pSnd++) = pMat->U[k][j][i].rho;
 		*(pSnd++) = pMat->U[k][j][i].V1;
         	*(pSnd++) = pMat->U[k][j][i].V2;
         	*(pSnd++) = pMat->U[k][j][i].V3;
@@ -1518,6 +1521,7 @@ static void pack_ox2(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Fr1;
         	*(pSnd++) = pMat->U[k][j][i].Fr2;
         	*(pSnd++) = pMat->U[k][j][i].Fr3;
+		*(pSnd++) = pMat->U[k][j][i].rho;
 		*(pSnd++) = pMat->U[k][j][i].V1;
         	*(pSnd++) = pMat->U[k][j][i].V2;
         	*(pSnd++) = pMat->U[k][j][i].V3;
@@ -1561,6 +1565,7 @@ static void pack_ix3(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Fr1;
         	*(pSnd++) = pMat->U[k][j][i].Fr2;
         	*(pSnd++) = pMat->U[k][j][i].Fr3;
+		*(pSnd++) = pMat->U[k][j][i].rho;
 		*(pSnd++) = pMat->U[k][j][i].V1;
         	*(pSnd++) = pMat->U[k][j][i].V2;
         	*(pSnd++) = pMat->U[k][j][i].V3;
@@ -1604,6 +1609,7 @@ static void pack_ox3(MatrixS *pMat)
         	*(pSnd++) = pMat->U[k][j][i].Fr1;
         	*(pSnd++) = pMat->U[k][j][i].Fr2;
         	*(pSnd++) = pMat->U[k][j][i].Fr3;
+		*(pSnd++) = pMat->U[k][j][i].rho;
 		*(pSnd++) = pMat->U[k][j][i].V1;
         	*(pSnd++) = pMat->U[k][j][i].V2;
         	*(pSnd++) = pMat->U[k][j][i].V3;
@@ -1646,6 +1652,7 @@ static void unpack_ix1(MatrixS *pMat)
         pMat->U[k][j][i].Fr1 	= *(pRcv++);
         pMat->U[k][j][i].Fr2 	= *(pRcv++);
         pMat->U[k][j][i].Fr3 	= *(pRcv++);
+	pMat->U[k][j][i].rho 	= *(pRcv++);
         pMat->U[k][j][i].V1  	= *(pRcv++);
         pMat->U[k][j][i].V2 	= *(pRcv++);
         pMat->U[k][j][i].V3 	= *(pRcv++);
@@ -1689,6 +1696,7 @@ static void unpack_ox1(MatrixS *pMat)
         pMat->U[k][j][i].Fr1 	= *(pRcv++);
         pMat->U[k][j][i].Fr2 	= *(pRcv++);
         pMat->U[k][j][i].Fr3 	= *(pRcv++);
+	pMat->U[k][j][i].rho 	= *(pRcv++);
         pMat->U[k][j][i].V1  	= *(pRcv++);
         pMat->U[k][j][i].V2 	= *(pRcv++);
         pMat->U[k][j][i].V3 	= *(pRcv++);
@@ -1732,6 +1740,7 @@ static void unpack_ix2(MatrixS *pMat)
         pMat->U[k][j][i].Fr1 	= *(pRcv++);
         pMat->U[k][j][i].Fr2 	= *(pRcv++);
         pMat->U[k][j][i].Fr3 	= *(pRcv++);
+	pMat->U[k][j][i].rho 	= *(pRcv++);
         pMat->U[k][j][i].V1  	= *(pRcv++);
         pMat->U[k][j][i].V2 	= *(pRcv++);
         pMat->U[k][j][i].V3 	= *(pRcv++);
@@ -1773,6 +1782,7 @@ static void unpack_ox2(MatrixS *pMat)
         pMat->U[k][j][i].Fr1 	= *(pRcv++);
         pMat->U[k][j][i].Fr2 	= *(pRcv++);
         pMat->U[k][j][i].Fr3 	= *(pRcv++);
+	pMat->U[k][j][i].rho 	= *(pRcv++);
         pMat->U[k][j][i].V1  	= *(pRcv++);
         pMat->U[k][j][i].V2 	= *(pRcv++);
         pMat->U[k][j][i].V3 	= *(pRcv++);
@@ -1814,6 +1824,7 @@ static void unpack_ix3(MatrixS *pMat)
         pMat->U[k][j][i].Fr1 	= *(pRcv++);
         pMat->U[k][j][i].Fr2 	= *(pRcv++);
         pMat->U[k][j][i].Fr3 	= *(pRcv++);
+	pMat->U[k][j][i].rho 	= *(pRcv++);
         pMat->U[k][j][i].V1  	= *(pRcv++);
         pMat->U[k][j][i].V2 	= *(pRcv++);
         pMat->U[k][j][i].V3 	= *(pRcv++);
@@ -1857,6 +1868,7 @@ static void unpack_ox3(MatrixS *pMat)
         pMat->U[k][j][i].Fr1 	= *(pRcv++);
         pMat->U[k][j][i].Fr2 	= *(pRcv++);
         pMat->U[k][j][i].Fr3 	= *(pRcv++);
+	pMat->U[k][j][i].rho 	= *(pRcv++);
         pMat->U[k][j][i].V1  	= *(pRcv++);
         pMat->U[k][j][i].V2 	= *(pRcv++);
         pMat->U[k][j][i].V3 	= *(pRcv++);

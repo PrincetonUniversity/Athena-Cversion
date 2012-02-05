@@ -45,10 +45,6 @@ void GaussSeidel2D(MatrixS *pMat)
 	ks = pMat->ks;
 
 
-	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
-	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
-
-	Real dt = pMat->dt;
 
 	/* To store the coefficient */
 	Real theta[11];
@@ -56,12 +52,6 @@ void GaussSeidel2D(MatrixS *pMat)
 	Real psi[11];
 
 
-
-	/* Temporary variables to setup the matrix */
-	Real velocity_x, velocity_y, T4;
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1, Cj0, Cj1;
-	
 			
 	/* Update the boundary cells */
 
@@ -76,83 +66,7 @@ for(n=0; n<Ncycle; n++){
 		/* The right hand side is stored in pMat */
 		/* The coefficients are calculated according to the formula */
 
-		
-			velocity_x = pMat->U[ks][j][i].V1;
-			velocity_y = pMat->U[ks][j][i].V2;
-
-			T4 = pMat->U[ks][j][i].T4;
-				
-			/* Assuming the velocity is already the original velocity in case of FARGO */			
-				
-			Sigma_sF = pMat->U[ks][j][i].Sigma[0];
-			Sigma_aF = pMat->U[ks][j][i].Sigma[1];
-			Sigma_aP = pMat->U[ks][j][i].Sigma[2];
-			Sigma_aE = pMat->U[ks][j][i].Sigma[3];
-
-			Ci0 = (sqrt(pMat->U[ks][j][i].Edd_11) - sqrt(pMat->U[ks][j][i-1].Edd_11)) 
-				/ (sqrt(pMat->U[ks][j][i].Edd_11) + sqrt(pMat->U[ks][j][i-1].Edd_11));
-			Ci1 =  (sqrt(pMat->U[ks][j][i+1].Edd_11) - sqrt(pMat->U[ks][j][i].Edd_11)) 
-				/ (sqrt(pMat->U[ks][j][i+1].Edd_11) + sqrt(pMat->U[ks][j][i].Edd_11));
-			Cj0 = (sqrt(pMat->U[ks][j][i].Edd_22) - sqrt(pMat->U[ks][j-1][i].Edd_22)) 
-				/ (sqrt(pMat->U[ks][j][i].Edd_22) + sqrt(pMat->U[ks][j-1][i].Edd_22));
-			Cj1 =  (sqrt(pMat->U[ks][j+1][i].Edd_22) - sqrt(pMat->U[ks][j][i].Edd_22)) 
-				/ (sqrt(pMat->U[ks][j+1][i].Edd_22) + sqrt(pMat->U[ks][j][i].Edd_22));
-			
-			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
-				+ Eratio * (Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
-				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat);
-
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y; 
-			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
-
-			
-			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[ks][j-1][i].Edd_21;
-			phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][j][i-1].Edd_11;
-			phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][j][i].Edd_11
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[ks][j][i].Edd_21   
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x + pMat->U[ks][j][i].Edd_21 * velocity_y) 
-			       + pMat->dt * Sigma_aE * velocity_x;
-			phi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			phi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][j][i+1].Edd_11;
-			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[ks][j+1][i].Edd_21;
-			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			
-
-
-			psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[ks][j-1][i].Edd_22;
-			psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][j][i-1].Edd_21;
-			psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][j][i].Edd_21
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[ks][j][i].Edd_22   
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y + pMat->U[ks][j][i].Edd_21 * velocity_x) 
-			       + pMat->dt * Sigma_aE * velocity_y;
-			psi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			psi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][j][i+1].Edd_21;
-			psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			psi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[ks][j+1][i].Edd_22;
-			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			
-				
+			matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(theta[0]), &(phi[0]), &(psi[0]), NULL);
 		
 
 			/* The diagonal elements are theta[4], phi[5], psi[5] */

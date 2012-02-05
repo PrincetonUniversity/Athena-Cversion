@@ -205,6 +205,8 @@ void integrate_1d_radMHD(DomainS *pD)
 	-(Gamma - 1.0) * Prat * Crat * ((Sigma_aP * pow(Tguess,4.0) - Sigma_aE * U1d[i-1].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i-1].Fr1 - (1.0 + U1d[i-1].Edd_11) * velocity * U1d[i-1].Er / Crat)/Crat); 
 
+		
+
 		/* SVV is used to make the code stable when C is small and Sigma is huge */
 		SVV = -Prat * (Sigma_aF + Sigma_sF) * (1.0 + W[i-1].Edd_11) * W[i-1].Er / (W[i-1].d * Crat); 
 		
@@ -264,7 +266,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	-(Gamma - 1.0) * Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
-		
+				
 		SVV = -Prat * (Sigma_aF + Sigma_sF) * (1.0 + W[i].Edd_11) * W[i].Er / (W[i].d * Crat); 
 		
 		if(fabs(SVV * dt * 0.5) > 0.001)
@@ -471,11 +473,21 @@ for(i=il+1; i<=iu-1; i++) {
 	Source_Inv[4][4] = 1.0 / Det;
 
 	/* For term T^4 - Er, we use guess temperature */
+
+	
 	
 	Source[1] = -(-(Sigma_aF + Sigma_sF) * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
 	+ velocity * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er)/Crat);
 	Source[4] = - Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+
+
+
+	if(!Erflag){		
+		/* energy source term is added seperately */
+		Source[4] = 0.0;
+	}
+	
 
 	pdivFlux = (Real*)&(divFlux);
 	pfluxr = (Real*)&(x1Flux[i+1]);
@@ -559,6 +571,14 @@ for(i=il+1; i<=iu-1; i++) {
 	for(m=0; m<5; m++)
 		pUguess[m]= pU1d[m] + tempguess[m];
 
+	if(!Erflag){
+
+		pG->Ersource[ks][js][i] += dt * (Sigma_aF - Sigma_sF) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
+
+		pUguess[4] += - Prat * pG->Ersource[ks][js][i];
+		
+	}
+
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
 	pUguess[4] += 0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(density_old[i]-grav_mean_rho)*pG->Phi[ks][js][i];
@@ -627,18 +647,31 @@ for(i=il+1; i<=iu-1; i++) {
 	Source_Inv[4][1] = (-dt * Prat * Crat * SEm/ Det) * Source_Inv[1][1];
 	Source_Inv[4][4] = 1.0 / Det;
 
+	if(Erflag){
+		for(m=0; m<5; m++){
+			tempguess[m]=0.0;
+			for(n=0; n<5; n++){
+				tempguess[m] += Source_Inv[m][n] * Errort[n];
+			}
+			pU1d[m] = pUguess[m] + tempguess[m];
 
-	for(m=0; m<5; m++){
-		tempguess[m]=0.0;
-		for(n=0; n<5; n++){
-			tempguess[m] += Source_Inv[m][n] * Errort[n];
 		}
-		pU1d[m] = pUguess[m] + tempguess[m];
+	}
+	else{
+		/* no correction for energy term if erflag = 0 */
+		for(m=0; m<4; m++){
+			tempguess[m]=0.0;
+			for(n=0; n<4; n++){
+				tempguess[m] += Source_Inv[m][n] * Errort[n];
+			}
+			pU1d[m] = pUguess[m];
+
+		}
 
 	}
 
-
 	/* Estimate the added radiation source term  */
+	if(Erflag){
 	if(Prat > 0.0){
 		pG->Tguess[ks][js][i] = pU1d[4] - (pG->U[ks][js][i].E - dt * pdivFlux[4]);
 
@@ -664,7 +697,7 @@ for(i=il+1; i<=iu-1; i++) {
 		pG->Ersource[ks][js][i] = 0.0;
 
 	}
-
+	}
 
 	
 	/* Update the quantity in the Grids */

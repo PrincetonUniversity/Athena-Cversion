@@ -33,7 +33,7 @@
 /* Define number of variables to be remapped */
 /* We need to remap Er, Fr1, Fr2, Fr3, V1, V2, V3, T4, Edd11, Edd21, Edd22, Edd31, Edd32 */
 /* Edd33, sigma_t, sigma_a */
-#define NREMAP (14+NOPACITY)
+#define NREMAP (15+NOPACITY)
 #define NVAR_SHARE NVAR
 
 
@@ -145,22 +145,23 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 	}
  
 	GhstZns[k][i][j].U[3] = pMat->U[k][j][ii].Fr3;
-	GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].V1;
-	GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V2;
+	GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].rho;
+	GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V1;
+	GhstZns[k][i][j].U[6] = pMat->U[k][j][ii].V2;
 
 	/* No matter Fargo or not, background shearing is always in */
-	GhstZns[k][i][j].U[5] += qomL;
+	GhstZns[k][i][j].U[6] += qomL;
 
-	GhstZns[k][i][j].U[6] = pMat->U[k][j][ii].V3;
-	GhstZns[k][i][j].U[7] = pMat->U[k][j][ii].T4;
-	GhstZns[k][i][j].U[8] = pMat->U[k][j][ii].Edd_11;
-	GhstZns[k][i][j].U[9] = pMat->U[k][j][ii].Edd_21;
-	GhstZns[k][i][j].U[10] = pMat->U[k][j][ii].Edd_22;
-	GhstZns[k][i][j].U[11] = pMat->U[k][j][ii].Edd_31;
-	GhstZns[k][i][j].U[12] = pMat->U[k][j][ii].Edd_32;
-	GhstZns[k][i][j].U[13] = pMat->U[k][j][ii].Edd_33;
+	GhstZns[k][i][j].U[7] = pMat->U[k][j][ii].V3;
+	GhstZns[k][i][j].U[8] = pMat->U[k][j][ii].T4;
+	GhstZns[k][i][j].U[9] = pMat->U[k][j][ii].Edd_11;
+	GhstZns[k][i][j].U[10] = pMat->U[k][j][ii].Edd_21;
+	GhstZns[k][i][j].U[11] = pMat->U[k][j][ii].Edd_22;
+	GhstZns[k][i][j].U[12] = pMat->U[k][j][ii].Edd_31;
+	GhstZns[k][i][j].U[13] = pMat->U[k][j][ii].Edd_32;
+	GhstZns[k][i][j].U[14] = pMat->U[k][j][ii].Edd_33;
 	for(m=0;m<NOPACITY;m++){
-		GhstZns[k][i][j].U[14+m] = pMat->U[k][j][ii].Sigma[m];
+		GhstZns[k][i][j].U[15+m] = pMat->U[k][j][ii].Sigma[m];
 	}
 
       }
@@ -373,19 +374,20 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
         pMat->U[k][j][is-Matghost+i].Fr1 = GhstZns[k][i][j].U[1];
         pMat->U[k][j][is-Matghost+i].Fr2 = GhstZns[k][i][j].U[2];
         pMat->U[k][j][is-Matghost+i].Fr3 = GhstZns[k][i][j].U[3];
-	pMat->U[k][j][is-Matghost+i].V1  = GhstZns[k][i][j].U[4];
-        pMat->U[k][j][is-Matghost+i].V2  = GhstZns[k][i][j].U[5];
-        pMat->U[k][j][is-Matghost+i].V3  = GhstZns[k][i][j].U[6];
-        pMat->U[k][j][is-Matghost+i].T4  = GhstZns[k][i][j].U[7];
+	pMat->U[k][j][is-Matghost+i].rho  =  GhstZns[k][i][j].U[4];
+	pMat->U[k][j][is-Matghost+i].V1  = GhstZns[k][i][j].U[5];
+        pMat->U[k][j][is-Matghost+i].V2  = GhstZns[k][i][j].U[6];
+        pMat->U[k][j][is-Matghost+i].V3  = GhstZns[k][i][j].U[7];
+        pMat->U[k][j][is-Matghost+i].T4  = GhstZns[k][i][j].U[8];
 	pMat->U[k][j][is-Matghost+i].Edd_11 = GhstZns[k][i][j].U[8];
-	pMat->U[k][j][is-Matghost+i].Edd_21 = GhstZns[k][i][j].U[9];
-	pMat->U[k][j][is-Matghost+i].Edd_22 = GhstZns[k][i][j].U[10];
-	pMat->U[k][j][is-Matghost+i].Edd_31 = GhstZns[k][i][j].U[11];
-	pMat->U[k][j][is-Matghost+i].Edd_32 = GhstZns[k][i][j].U[12];
-	pMat->U[k][j][is-Matghost+i].Edd_33 = GhstZns[k][i][j].U[13];
+	pMat->U[k][j][is-Matghost+i].Edd_21 = GhstZns[k][i][j].U[10];
+	pMat->U[k][j][is-Matghost+i].Edd_22 = GhstZns[k][i][j].U[11];
+	pMat->U[k][j][is-Matghost+i].Edd_31 = GhstZns[k][i][j].U[12];
+	pMat->U[k][j][is-Matghost+i].Edd_32 = GhstZns[k][i][j].U[13];
+	pMat->U[k][j][is-Matghost+i].Edd_33 = GhstZns[k][i][j].U[14];
 
 	for(m=0;m<NOPACITY;m++){
-		pMat->U[k][j][is-Matghost+i].Sigma[m] = GhstZns[k][i][j].U[14+m];
+		pMat->U[k][j][is-Matghost+i].Sigma[m] = GhstZns[k][i][j].U[15+m];
 	}
 
 	  }
@@ -437,6 +439,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 			*(pSnd++) = pCons->Fr1;
 			*(pSnd++) = pCons->Fr2;
 			*(pSnd++) = pCons->Fr3;
+			*(pSnd++) = pCons->rho;
 			*(pSnd++) = pCons->V1;
 			*(pSnd++) = pCons->V2;
 			*(pSnd++) = pCons->V3;
@@ -473,6 +476,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 			pCons->Fr1 = *(pRcv++);
 			pCons->Fr2 = *(pRcv++);
 			pCons->Fr3 = *(pRcv++);
+			pCons->rho = *(pRcv++);
 			pCons->V1  = *(pRcv++);
 			pCons->V2 = *(pRcv++);
 			pCons->V3 = *(pRcv++);
@@ -507,6 +511,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 	*(pSnd++) = pCons->Fr1;
 	*(pSnd++) = pCons->Fr2;
 	*(pSnd++) = pCons->Fr3;
+	*(pSnd++) = pCons->rho;
 	*(pSnd++) = pCons->V1;
 	*(pSnd++) = pCons->V2;
 	*(pSnd++) = pCons->V3;
@@ -544,6 +549,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 			pCons->Fr1 = *(pRcv++);
 			pCons->Fr2 = *(pRcv++);
 			pCons->Fr3 = *(pRcv++);
+			pCons->rho   = *(pRcv++);
 			pCons->V1  = *(pRcv++);
 			pCons->V2 = *(pRcv++);
 			pCons->V3 = *(pRcv++);
@@ -656,23 +662,24 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 	}
 		  
 		  GhstZns[k][i][j].U[3] = pMat->U[k][j][ii].Fr3;
-		  GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].V1;
-		  GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V2;
+		  GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].rho;
+		  GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V1;
+		  GhstZns[k][i][j].U[6] = pMat->U[k][j][ii].V2;
 
-         	  GhstZns[k][i][j].U[5] -= qomL;
+         	  GhstZns[k][i][j].U[6] -= qomL;
 
-		  GhstZns[k][i][j].U[6] = pMat->U[k][j][ii].V3;
-		  GhstZns[k][i][j].U[7] = pMat->U[k][j][ii].T4;
+		  GhstZns[k][i][j].U[7] = pMat->U[k][j][ii].V3;
+		  GhstZns[k][i][j].U[8] = pMat->U[k][j][ii].T4;
 
-		  GhstZns[k][i][j].U[8] = pMat->U[k][j][ii].Edd_11;
-		  GhstZns[k][i][j].U[9] = pMat->U[k][j][ii].Edd_21;
-		  GhstZns[k][i][j].U[10] = pMat->U[k][j][ii].Edd_22;
-		  GhstZns[k][i][j].U[11] = pMat->U[k][j][ii].Edd_31;
-		  GhstZns[k][i][j].U[12] = pMat->U[k][j][ii].Edd_32;
-		  GhstZns[k][i][j].U[13] = pMat->U[k][j][ii].Edd_33;
+		  GhstZns[k][i][j].U[9] = pMat->U[k][j][ii].Edd_11;
+		  GhstZns[k][i][j].U[10] = pMat->U[k][j][ii].Edd_21;
+		  GhstZns[k][i][j].U[11] = pMat->U[k][j][ii].Edd_22;
+		  GhstZns[k][i][j].U[12] = pMat->U[k][j][ii].Edd_31;
+		  GhstZns[k][i][j].U[13] = pMat->U[k][j][ii].Edd_32;
+		  GhstZns[k][i][j].U[14] = pMat->U[k][j][ii].Edd_33;
 		  for(m=0;m<NOPACITY;m++){
 
-			GhstZns[k][i][j].U[14+m] = pMat->U[k][j][ii].Sigma[m];
+			GhstZns[k][i][j].U[15+m] = pMat->U[k][j][ii].Sigma[m];
 		  }
 
 
@@ -883,18 +890,19 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 		  pMat->U[k][j][ie+1+i].Fr1 = GhstZns[k][i][j].U[1];
 		  pMat->U[k][j][ie+1+i].Fr2 = GhstZns[k][i][j].U[2];
 		  pMat->U[k][j][ie+1+i].Fr3 = GhstZns[k][i][j].U[3];
-		  pMat->U[k][j][ie+1+i].V1 =  GhstZns[k][i][j].U[4];
-		  pMat->U[k][j][ie+1+i].V2 =  GhstZns[k][i][j].U[5];
-		  pMat->U[k][j][ie+1+i].V3 =  GhstZns[k][i][j].U[6];
-		  pMat->U[k][j][ie+1+i].T4 =  GhstZns[k][i][j].U[7];
-		  pMat->U[k][j][ie+1+i].Edd_11 = GhstZns[k][i][j].U[8];
-		  pMat->U[k][j][ie+1+i].Edd_21 = GhstZns[k][i][j].U[9];
-		  pMat->U[k][j][ie+1+i].Edd_22 = GhstZns[k][i][j].U[10];
-		  pMat->U[k][j][ie+1+i].Edd_31 = GhstZns[k][i][j].U[11];
-		  pMat->U[k][j][ie+1+i].Edd_32 = GhstZns[k][i][j].U[12];
-		  pMat->U[k][j][ie+1+i].Edd_33 = GhstZns[k][i][j].U[13];
+		  pMat->U[k][j][ie+1+i].rho   = GhstZns[k][i][j].U[4];
+		  pMat->U[k][j][ie+1+i].V1 =  GhstZns[k][i][j].U[5];
+		  pMat->U[k][j][ie+1+i].V2 =  GhstZns[k][i][j].U[6];
+		  pMat->U[k][j][ie+1+i].V3 =  GhstZns[k][i][j].U[7];
+		  pMat->U[k][j][ie+1+i].T4 =  GhstZns[k][i][j].U[8];
+		  pMat->U[k][j][ie+1+i].Edd_11 = GhstZns[k][i][j].U[9];
+		  pMat->U[k][j][ie+1+i].Edd_21 = GhstZns[k][i][j].U[10];
+		  pMat->U[k][j][ie+1+i].Edd_22 = GhstZns[k][i][j].U[11];
+		  pMat->U[k][j][ie+1+i].Edd_31 = GhstZns[k][i][j].U[12];
+		  pMat->U[k][j][ie+1+i].Edd_32 = GhstZns[k][i][j].U[13];
+		  pMat->U[k][j][ie+1+i].Edd_33 = GhstZns[k][i][j].U[14];
 		  for(m=0;m<NOPACITY;m++){
-			pMat->U[k][j][ie+1+i].Sigma[m] = GhstZns[k][i][j].U[14+m];
+			pMat->U[k][j][ie+1+i].Sigma[m] = GhstZns[k][i][j].U[15+m];
 
 		 }	
 
@@ -951,6 +959,7 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			*(pSnd++) = pCons->Fr1;
 			*(pSnd++) = pCons->Fr2;
 			*(pSnd++) = pCons->Fr3;
+			*(pSnd++) = pCons->rho;
 			*(pSnd++) = pCons->V1;
 			*(pSnd++) = pCons->V2;
 			*(pSnd++) = pCons->V3;
@@ -987,6 +996,7 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			pCons->Fr1 = *(pRcv++);
 			pCons->Fr2 = *(pRcv++);
 			pCons->Fr3 = *(pRcv++);
+			pCons->rho   = *(pRcv++);
 			pCons->V1  = *(pRcv++);
 			pCons->V2 = *(pRcv++);
 			pCons->V3 = *(pRcv++);
@@ -1021,6 +1031,7 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			*(pSnd++) = pCons->Fr1;
 			*(pSnd++) = pCons->Fr2;
 			*(pSnd++) = pCons->Fr3;
+			*(pSnd++) = pCons->rho;
 			*(pSnd++) = pCons->V1;
 			*(pSnd++) = pCons->V2;
 			*(pSnd++) = pCons->V3;
@@ -1057,6 +1068,7 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 			pCons->Fr1 = *(pRcv++);
 			pCons->Fr2 = *(pRcv++);
 			pCons->Fr3 = *(pRcv++);
+			pCons->rho   = *(pRcv++);
 			pCons->V1  = *(pRcv++);
 			pCons->V2  = *(pRcv++);
 			pCons->V3  = *(pRcv++);

@@ -236,6 +236,7 @@ void BackEuler_2d(MeshS *pM)
 
 	
 /* For shearing box boundary condition */
+	Real vshear = 0.0;
 #ifdef SHEARING_BOX
 	Real xmin, xmax, Lx, Ly, yshear, deltay, qomL, dFrycoef;
 	xmin = pD->RootMinX[0];
@@ -294,6 +295,9 @@ void BackEuler_2d(MeshS *pM)
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
 	Real temperature, velocity_x, velocity_y, pressure, T4, Fr0x, Fr0y, density;
 	Real Ci0, Ci1, Cj0, Cj1;
+	Real alphai0, alphai1, alphaj0, alphaj1, alpha, tau;
+	Real betai0, betai1, betaj0, betaj1, beta;
+	Real Si0, Si1, Sj0, Sj1, Speedi, Speedj;
 #ifdef RADIATION_TRANSFER
 	Real fluxi0, fluxi1, fluxj0, fluxj1;
 
@@ -311,12 +315,10 @@ void BackEuler_2d(MeshS *pM)
 /* We assume the background state, Eddington tensor is 1/3 */
 
 	int bgflag;		/* used to subtract whether subtract background or not */
-	static int t0flag = 1; /* used to judge if this is the first time call this function or not */  
-
-	bgflag = 0;	/* 1 means subtract background, 0 means not. Default is not */
 	
+	bgflag = 0;
+
 	if(bgflag){
-		if(t0flag){
 		/* If this the first time, save the background state, including boundary condition */
 			for(j=js-nghost; j<=je+nghost; j++){
 				for(i=is-nghost; i<=ie+nghost; i++){
@@ -324,63 +326,8 @@ void BackEuler_2d(MeshS *pM)
 					Fr1_t0[ks][j][i] = pG->U[ks][j][i].Fr1;
 					Fr2_t0[ks][j][i] = pG->U[ks][j][i].Fr2;
 					
-					dErdx_t0[ks][j][i] = -(pG->U[ks][j][i].Sigma[0] + pG->U[ks][j][i].Sigma[1]) * pG->U[ks][j][i].Fr1;
-					dErdy_t0[ks][j][i] = -(pG->U[ks][j][i].Sigma[0] + pG->U[ks][j][i].Sigma[1]) * pG->U[ks][j][i].Fr2;
 				}
 			}	
-			t0flag = 0;
-		}
-	/* For variable Eddington tensor */
-/*
-#ifdef RADIATION_TRANSFER
-	for(j=js; j<=je; j++){
-				for(i=is; i<=ie; i++){
-					Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
-						/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
-					Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
-						/ (sqrt(pG->U[ks][j][i+1].Edd_11) + sqrt(pG->U[ks][j][i].Edd_11));
-					Cj0 = (sqrt(pG->U[ks][j][i].Edd_22) - sqrt(pG->U[ks][j-1][i].Edd_22)) 
-						/ (sqrt(pG->U[ks][j][i].Edd_22) + sqrt(pG->U[ks][j-1][i].Edd_22));
-					Cj1 =  (sqrt(pG->U[ks][j+1][i].Edd_22) - sqrt(pG->U[ks][j][i].Edd_22)) 
-						/ (sqrt(pG->U[ks][j+1][i].Edd_22) + sqrt(pG->U[ks][j][i].Edd_22));
-									
-
-					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[ks][j][i].Edd_11 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_11) * Fr1_t0[ks][j][i])
-							+ (1.0 - Ci1) * (pG->U[ks][j][i+1].Edd_11 * Er_t0[ks][j][i+1] - sqrt(pG->U[ks][j][i+1].Edd_11) * Fr1_t0[ks][j][i+1]));
-					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[ks][j][i-1].Edd_11 * Er_t0[ks][j][i-1] + sqrt(pG->U[ks][j][i-1].Edd_11) * Fr1_t0[ks][j][i-1])
-							+ (1.0 - Ci0) * (pG->U[ks][j][i].Edd_11 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_11) * Fr1_t0[ks][j][i]));
-
-
-					
-
-					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_22) * Fr1_t0[ks][j][i])
-							+ (1.0 - Cj1) * (pG->U[ks][j+1][i].Edd_21 * Er_t0[ks][j+1][i] - sqrt(pG->U[ks][j+1][i].Edd_22) * Fr1_t0[ks][j+1][i]));
-					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[ks][j-1][i].Edd_21 * Er_t0[ks][j-1][i] + sqrt(pG->U[ks][j-1][i].Edd_22) * Fr1_t0[ks][j-1][i])
-							+ (1.0 - Cj0) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_22) * Fr1_t0[ks][j][i]));
-
-					dErdx_t0[ks][j][i] = (fluxi1 - fluxi0)/pG->dx1 + (fluxj1 - fluxj0)/pG->dx2;
-
-					fluxi1 = 0.5 * ((1.0 + Ci1) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_11) * Fr2_t0[ks][j][i])
-							+ (1.0 - Ci1) * (pG->U[ks][j][i+1].Edd_21 * Er_t0[ks][j][i+1] - sqrt(pG->U[ks][j][i+1].Edd_11) * Fr2_t0[ks][j][i+1]));
-					fluxi0 = 0.5 * ((1.0 + Ci0) * (pG->U[ks][j][i-1].Edd_21 * Er_t0[ks][j][i-1] + sqrt(pG->U[ks][j][i-1].Edd_11) * Fr2_t0[ks][j][i-1])
-							+ (1.0 - Ci0) * (pG->U[ks][j][i].Edd_21 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_11) * Fr2_t0[ks][j][i]));
-
-
-					
-
-					fluxj1 = 0.5 * ((1.0 + Cj1) * (pG->U[ks][j][i].Edd_22 * Er_t0[ks][j][i] + sqrt(pG->U[ks][j][i].Edd_22) * Fr2_t0[ks][j][i])
-							+ (1.0 - Cj1) * (pG->U[ks][j+1][i].Edd_22 * Er_t0[ks][j+1][i] - sqrt(pG->U[ks][j+1][i].Edd_22) * Fr2_t0[ks][j+1][i]));
-					fluxj0 = 0.5 * ((1.0 + Cj0) * (pG->U[ks][j-1][i].Edd_22 * Er_t0[ks][j-1][i] + sqrt(pG->U[ks][j-1][i].Edd_22) * Fr2_t0[ks][j-1][i])
-							+ (1.0 - Cj0) * (pG->U[ks][j][i].Edd_22 * Er_t0[ks][j][i] - sqrt(pG->U[ks][j][i].Edd_22) * Fr2_t0[ks][j][i]));
-
-
-					dErdy_t0[ks][j][i] = (fluxi1 - fluxi0)/pG->dx1 + (fluxj1 - fluxj0)/pG->dx2;
-				}
-			}
-#endif
-*/
-
-
 	}
 
 
@@ -427,18 +374,9 @@ void BackEuler_2d(MeshS *pM)
 	int index,Matrixiter;
 	Real tempvalue;
 
-	if(bgflag){
-	/* subtract the background state */
-		for(j=js-nghost; j<=je+nghost; j++){
-			for(i=is-nghost; i<=ie+nghost; i++){
-				pG->U[ks][j][i].Er -= Er_t0[ks][j][i];
-				pG->U[ks][j][i].Fr1 -= Fr1_t0[ks][j][i];
-				pG->U[ks][j][i].Fr2 -= Fr2_t0[ks][j][i];				
-
-			}
-		}
-
-	}	
+	Real tempEr1, tempEr2;
+	Real tempFr1, tempFr2;
+	Real temp0;
 	
 	/* *****************************************************/
 /* Step 1 : Use Backward Euler to update the radiation energy density and flux */
@@ -447,20 +385,51 @@ void BackEuler_2d(MeshS *pM)
 /* Step 1a: Calculate the Matrix elements  */
 /* ie-is+1 =size1, otherwise it is wrong */
 
-/*
-	for(i=is; i<=ie+1; i++){
-	 	Cspeeds[i-is] = (U1d[i].Edd_11 - U1d[i-1].Edd_11) 
-				/ (U1d[i].Edd_11 + U1d[i-1].Edd_11); 		
-	}
-*/
-	for(j=js; j<=je; j++) {
+
+
+	
+/*--------------------Note--------------------*/
+
+
+/* Step 1b: Setup the Matrix */
+		
+ 	/* First, setup the guess solution. Guess solution is the solution from last time step */
+	for(j=js; j<=je; j++){
 		for(i=is; i<=ie; i++){
 
-		T4 = pG->Tguess[ks][j][i];
-
-		if(bgflag){
-			T4 -= Er_t0[ks][j][i];
+			if(bgflag){
+				lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + count_Grids, 0.0,INIguess);
+				lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids, 0.0,INIguess);
+				lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids, 0.0,INIguess);
+			}
+			else{
+				lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + count_Grids, pG->U[ks][j][i].Er,INIguess);
+				lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids, pG->U[ks][j][i].Fr1,INIguess);
+				lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids, pG->U[ks][j][i].Fr2,INIguess);
+			}
 		}
+	}
+
+	
+	/*--------Now set the Euler matrix-----------*/
+	for(j=js; j<=je; j++){
+		for(i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
+			vshear	= 0.0;	
+#ifdef FARGO
+			
+			/* With FARGO, we should add background shearing to the source terms */
+			cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+			vshear = qom * x1;			
+			
+#endif
+#endif
+			
+			matrix_coef(NULL, pG, 2, i, j, ks, vshear, theta, phi, psi, NULL);
+				
+		/*===================================================================================*/
+			/* First, set right hand side */
+		T4 = pG->Tguess[ks][j][i];
 
 		/* RHSEuler[0...N-1]  */
 		Sigma_sF = pG->U[ks][j][i].Sigma[0];
@@ -475,34 +444,53 @@ void BackEuler_2d(MeshS *pM)
 #ifdef FARGO
 				
 		/* With FARGO, we should add background shearing to the source terms */
-		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-		velocity_y -= qom * x1;			
+
+		velocity_y -= vshear;			
 			
 #endif
 
+			
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
     		tempvalue = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][j][i];
-		
+
 		if(bgflag){
-			Fr0x = Fr1_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;
-			Fr0y = Fr2_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
+			tempEr2 = theta[0] * pG->U[ks][j-1][i].Er + theta[9] * pG->U[ks][j+1][i].Er;
+			tempEr1 = theta[2] * pG->U[ks][j][i-1].Er + theta[7] * pG->U[ks][j][i+1].Er;
 
-			tempvalue += dt * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y);
-		}	
+			tempFr2 = theta[1] * pG->U[ks][j-1][i].Fr2 + theta[10] * pG->U[ks][j+1][i].Fr2;
+			tempFr1 = theta[3] * pG->U[ks][j][i-1].Fr1 + theta[8] * pG->U[ks][j][i+1].Fr1;
 
+			temp0 = theta[5] * pG->U[ks][j][i].Fr1 + theta[6] * pG->U[ks][j][i].Fr2;
+
+			tempvalue -= (theta[4] * pG->U[ks][j][i].Er + (tempEr1 + tempEr2));
+			tempvalue -= ((tempFr1 + tempFr2) + temp0);
+		
+		}
+		
 		index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 
+		
+
+
 		/*----------------------------*/
     		tempvalue = pG->U[ks][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
-		
 		if(bgflag){
-			Fr0x =Fr1_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;		
-			tempvalue += (-dt * Crat * (dErdx_t0[ks][j][i] + (Sigma_aF + Sigma_sF) * Fr0x));
-			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
+			tempEr2 = phi[0] * pG->U[ks][j-1][i].Er + phi[8] * pG->U[ks][j+1][i].Er;
+			tempEr1 = phi[2] * pG->U[ks][j][i-1].Er + phi[6] * pG->U[ks][j][i+1].Er;
+
+			tempFr2 = phi[1] * pG->U[ks][j-1][i].Fr1 + phi[9] * pG->U[ks][j+1][i].Fr1;
+			tempFr1 = phi[3] * pG->U[ks][j][i-1].Fr1 + phi[7] * pG->U[ks][j][i+1].Fr1;
+
+			temp0 = phi[5] * pG->U[ks][j][i].Fr1;
+
+			tempvalue -= (phi[4] * pG->U[ks][j][i].Er + (tempEr1 + tempEr2));
+			tempvalue -= ((tempFr1 + tempFr2) + temp0);
+		
 		}
 
+		
 		++index;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 		
@@ -510,25 +498,28 @@ void BackEuler_2d(MeshS *pM)
 		tempvalue = pG->U[ks][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
 		
 		if(bgflag){
-			Fr0y = Fr2_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
-			tempvalue += (-dt * Crat * (dErdy_t0[ks][j][i] + (Sigma_aF + Sigma_sF) * Fr0y));
-			/* background Edd tensor is 1/3. Here we include perturbation of Eddington tensor to first order and opacity */
+			tempEr2 = psi[0] * pG->U[ks][j-1][i].Er + psi[8] * pG->U[ks][j+1][i].Er;
+			tempEr1 = psi[2] * pG->U[ks][j][i-1].Er + psi[6] * pG->U[ks][j][i+1].Er;
+
+			tempFr2 = psi[1] * pG->U[ks][j-1][i].Fr1 + psi[9] * pG->U[ks][j+1][i].Fr1;
+			tempFr1 = psi[3] * pG->U[ks][j][i-1].Fr1 + psi[7] * pG->U[ks][j][i+1].Fr1;
+
+			temp0 = psi[5] * pG->U[ks][j][i].Fr1;
+
+			tempvalue -= (psi[4] * pG->U[ks][j][i].Er + (tempEr1 + tempEr2));
+			tempvalue -= ((tempFr1 + tempFr2) + temp0);
+		
 		}
+
 
 		++index;
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 
+		if(!bgflag){
+
 		/* For inflow boundary condition along x direction*/
 		if((i == is) && (ix1 == 3) && (lx1 < 0)) {
-			Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
-				/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
 			
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
-			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-			phi[2]	= theta[2] * sqrt(pG->U[ks][j][i-1].Edd_11);
-			phi[3]	= theta[3] * sqrt(pG->U[ks][j][i-1].Edd_11);
-			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pG->U[ks][j][i-1].Edd_21;
-			psi[3] = phi[3];
 
 			/* Subtract some value */
 			tempvalue = -(theta[2] * pG->U[ks][j][i-1].Er + theta[3] * pG->U[ks][j][i-1].Fr1);
@@ -547,15 +538,8 @@ void BackEuler_2d(MeshS *pM)
 		}
 
 		if((i == ie) && (ox1 == 3) && (rx1 < 0)) {
-			Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
-				/ (sqrt(pG->U[ks][j][i+1].Edd_11) + sqrt(pG->U[ks][j][i].Edd_11));
 
-			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
-			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-			phi[6]	= -theta[7] * sqrt(pG->U[ks][j][i+1].Edd_11);
-			phi[7]	= -theta[8] * sqrt(pG->U[ks][j][i+1].Edd_11);
-			psi[6]	= Crat * hdtodx1 * (1.0 - Ci1) * pG->U[ks][j][i+1].Edd_21;
-			psi[7]	= phi[7];
+			
 
 			tempvalue = -(theta[7] * pG->U[ks][j][i+1].Er + theta[8] * pG->U[ks][j][i+1].Fr1);
 			index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
@@ -574,15 +558,7 @@ void BackEuler_2d(MeshS *pM)
 
 		/* For inflow boundary condition along y direction*/
 		if((j == js) && (ix2 == 3) && (lx2 < 0)) {
-			Cj0 = (sqrt(pG->U[ks][j][i].Edd_22) - sqrt(pG->U[ks][j-1][i].Edd_22)) 
-				/ (sqrt(pG->U[ks][j][i].Edd_22) + sqrt(pG->U[ks][j-1][i].Edd_22));
 			
-			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pG->U[ks][j-1][i].Edd_22);
-			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-			phi[0]	= -Crat * hdtodx2 * (1.0 + Cj0) * pG->U[ks][j-1][i].Edd_21;
-			phi[1]	= theta[1] * sqrt(pG->U[ks][j-1][i].Edd_22);
-			psi[0] = theta[0] * sqrt(pG->U[ks][j-1][i].Edd_22);
-			psi[1] = phi[1];
 
 			tempvalue = -(theta[0] * pG->U[ks][j-1][i].Er + theta[1] * pG->U[ks][j-1][i].Fr2);
 			index = 3*(j-js)*Nx + 3 * (i - is) + count_Grids;
@@ -601,16 +577,7 @@ void BackEuler_2d(MeshS *pM)
 		}
 
 		if((j == je) && (ox2 == 3) && (rx2 < 0)) {
-			Cj1 =  (sqrt(pG->U[ks][j+1][i].Edd_22) - sqrt(pG->U[ks][j][i].Edd_22)) 
-				/ (sqrt(pG->U[ks][j+1][i].Edd_22) + sqrt(pG->U[ks][j][i].Edd_22));
-
-			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
-			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
-			phi[8]	= theta[10] * pG->U[ks][j+1][i].Edd_21;
-			phi[9]	= -theta[10] * sqrt(pG->U[ks][j+1][i].Edd_22);
-			psi[8]	= -theta[9] * sqrt(pG->U[ks][j+1][i].Edd_22);
-			psi[9]	= phi[9];
-
+			
 			tempvalue = -(theta[9] * pG->U[ks][j+1][i].Er + theta[10] * pG->U[ks][j+1][i].Fr2);
 			index = 3*(j-js)*Nx + 3*(i-is) + count_Grids;
 			lis_vector_set_value(LIS_ADD_VALUE,index,tempvalue,RHSEuler);
@@ -625,110 +592,9 @@ void BackEuler_2d(MeshS *pM)
 			lis_vector_set_value(LIS_ADD_VALUE,index,tempvalue,RHSEuler);
 			
 		}
-				
-		}
-	}
-
-	
-/*--------------------Note--------------------*/
-
-
-/* Step 1b: Setup the Matrix */
 		
- 	/* First, setup the guess solution. Guess solution is the solution from last time step */
-	for(j=js; j<=je; j++){
-		for(i=is; i<=ie; i++){
-			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + count_Grids, pG->U[ks][j][i].Er,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 1 + count_Grids, pG->U[ks][j][i].Fr1,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,3*(j-js)*Nx + 3*(i-is) + 2 + count_Grids, pG->U[ks][j][i].Fr2,INIguess);
-			
-		}
-	}
+		}/* End bgflag */
 
-	
-	/*--------Now set the Euler matrix-----------*/
-	for(j=js; j<=je; j++){
-		for(i=is; i<=ie; i++){
-			
-			velocity_x = pG->U[ks][j][i].M1 / pG->U[ks][j][i].d;
-			velocity_y = pG->U[ks][j][i].M2 / pG->U[ks][j][i].d;
-			
-#ifdef FARGO
-			
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-			velocity_y -= qom * x1;			
-			
-#endif
-			
-			Sigma_sF = pG->U[ks][j][i].Sigma[0];
-			Sigma_aF = pG->U[ks][j][i].Sigma[1];
-			Sigma_aP = pG->U[ks][j][i].Sigma[2];
-			Sigma_aE = pG->U[ks][j][i].Sigma[3];
-
-
-			Ci0 = (sqrt(pG->U[ks][j][i].Edd_11) - sqrt(pG->U[ks][j][i-1].Edd_11)) 
-				/ (sqrt(pG->U[ks][j][i].Edd_11) + sqrt(pG->U[ks][j][i-1].Edd_11));
-			Ci1 =  (sqrt(pG->U[ks][j][i+1].Edd_11) - sqrt(pG->U[ks][j][i].Edd_11)) 
-				/ (sqrt(pG->U[ks][j][i+1].Edd_11) + sqrt(pG->U[ks][j][i].Edd_11));
-			Cj0 = (sqrt(pG->U[ks][j][i].Edd_22) - sqrt(pG->U[ks][j-1][i].Edd_22)) 
-				/ (sqrt(pG->U[ks][j][i].Edd_22) + sqrt(pG->U[ks][j-1][i].Edd_22));
-			Cj1 =  (sqrt(pG->U[ks][j+1][i].Edd_22) - sqrt(pG->U[ks][j][i].Edd_22)) 
-				/ (sqrt(pG->U[ks][j+1][i].Edd_22) + sqrt(pG->U[ks][j][i].Edd_22));
-
-			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pG->U[ks][j-1][i].Edd_22);
-			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
-			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pG->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[ks][j][i].Edd_22)
-				+ Eratio * (Crat * pG->dt * Sigma_aE 
-				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-				+ velocity_y * pG->U[ks][j][i].Edd_21) * velocity_x / Crat
-				+ pG->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pG->U[ks][j][i].Edd_21) * velocity_y / Crat);
-
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
-			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
-			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
-
-			
-			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pG->U[ks][j-1][i].Edd_21;
-			phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pG->U[ks][j-1][i].Edd_22);
-			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pG->U[ks][j][i-1].Edd_11;
-			phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
-			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pG->U[ks][j][i].Edd_11
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pG->U[ks][j][i].Edd_21   
-			       - pG->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) 
-			       + pG->dt * Sigma_aE * velocity_x;
-			phi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pG->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[ks][j][i].Edd_22) 
-				     + Crat * pG->dt * (Sigma_aF + Sigma_sF);
-			phi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pG->U[ks][j][i+1].Edd_11;
-			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
-			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pG->U[ks][j+1][i].Edd_21;
-			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
-			
-
-
-			psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pG->U[ks][j-1][i].Edd_22;
-			psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pG->U[ks][j-1][i].Edd_22);
-			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pG->U[ks][j][i-1].Edd_21;
-			psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pG->U[ks][j][i-1].Edd_11);
-			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pG->U[ks][j][i].Edd_21
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pG->U[ks][j][i].Edd_22   
-			       - pG->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) 
-			       + pG->dt * Sigma_aE * velocity_y;
-			psi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pG->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pG->U[ks][j][i].Edd_22) 
-				     + Crat * pG->dt * (Sigma_aF + Sigma_sF);
-			psi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pG->U[ks][j][i+1].Edd_21;
-			psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pG->U[ks][j][i+1].Edd_11);
-			psi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pG->U[ks][j+1][i].Edd_22;
-			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pG->U[ks][j+1][i].Edd_22);
 	
 			/* Need to modify the matrix elements for shearing box boundary conditoin */
 			/* Eddington tensor in the ghost zone is already set by boundary condition */
@@ -1138,8 +1004,8 @@ void BackEuler_2d(MeshS *pM)
 
 	/* Add back the background state */
 	if(bgflag){
-		for(j=js-nghost; j<=je+nghost; j++){
-			for(i=is-nghost; i<=ie+nghost; i++){
+		for(j=js; j<=je; j++){
+			for(i=is; i<=ie; i++){
 				
 				pG->U[ks][j][i].Er += Er_t0[ks][j][i];
 				pG->U[ks][j][i].Fr1 += Fr1_t0[ks][j][i];

@@ -56,7 +56,7 @@ static Real ***dErdx_t0;
 static Real ***dErdy_t0;
 static Real ***Fr1_t0;
 static Real ***Fr2_t0;
-static int bgflag;
+
 
 
 /********Private function ************/
@@ -134,40 +134,6 @@ void BackEuler_2d(MeshS *pM)
 #endif
 
 
-	/* Parameters to subtract the background state */
-	static int t0flag = 1;
-
-	bgflag = 0;
-
-	if(bgflag){
-		if(t0flag){
-		/* If this the first time, save the background state, including boundary condition */
-			for(j=pG->js-nghost; j<=pG->je+nghost; j++){
-				for(i=pG->is-nghost; i<=pG->ie+nghost; i++){
-					Er_t0[ks][j][i] = pG->U[ks][j][i].Er;
-					Fr1_t0[ks][j][i] = pG->U[ks][j][i].Fr1;
-					Fr2_t0[ks][j][i] = pG->U[ks][j][i].Fr2;
-					
-					dErdx_t0[ks][j][i] = -(pG->U[ks][j][i].Sigma[0] + pG->U[ks][j][i].Sigma[1]) * pG->U[ks][j][i].Fr1;
-					dErdy_t0[ks][j][i] = -(pG->U[ks][j][i].Sigma[0] + pG->U[ks][j][i].Sigma[1]) * pG->U[ks][j][i].Fr2;
-				}
-			}	
-			t0flag = 0;
-		}
-	}
-
-	if(bgflag){
-	/* subtract the background state */
-		for(j=pG->js-nghost; j<=pG->je+nghost; j++){
-			for(i=pG->is-nghost; i<=pG->ie+nghost; i++){
-				pG->U[ks][j][i].Er -= Er_t0[ks][j][i];
-				pG->U[ks][j][i].Fr1 -= Fr1_t0[ks][j][i];
-				pG->U[ks][j][i].Fr2 -= Fr2_t0[ks][j][i];				
-
-			}
-		}
-
-	}	
 
 	
 
@@ -188,19 +154,20 @@ void BackEuler_2d(MeshS *pM)
 #endif
 
 				T4 = pG->Tguess[ks][j][i];				
-				
-				if(bgflag){
-					T4 -= Er_t0[ks][j][i];
-				}
+			
 	
 				Sigma_sF = pG->U[ks][j][i].Sigma[0];
 				Sigma_aF = pG->U[ks][j][i].Sigma[1];
 				Sigma_aP = pG->U[ks][j][i].Sigma[2];
 				Sigma_aE = pG->U[ks][j][i].Sigma[3];
 
+
+
 				pMat->U[Matk][Matj][Mati].Er  = pG->U[ks][j][i].Er;
 				pMat->U[Matk][Matj][Mati].Fr1 = pG->U[ks][j][i].Fr1;
 				pMat->U[Matk][Matj][Mati].Fr2 = pG->U[ks][j][i].Fr2;
+				/* Store the background Er */
+				pMat->U[Matk][Matj][Mati].rho = pG->U[ks][j][i].Er;
 				pMat->U[Matk][Matj][Mati].V1  = velocity_x;
 				pMat->U[Matk][Matj][Mati].V2  = velocity_y;
 				pMat->U[Matk][Matj][Mati].T4  = T4;
@@ -213,25 +180,10 @@ void BackEuler_2d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
 				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
-		/* Now set the right hand side */
 				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][j][i];
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
 
-
-		/* Need to modify the right hand side if background state is subtracted */
-				if(bgflag){
-					Fr0x = Fr1_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;
-					Fr0y = Fr2_t0[ks][j][i] - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
-
-					pMat->RHS[Matk][Matj][Mati][0] += dt * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y);
-	
-					Fr0x = Fr1_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x + pG->U[ks][j][i].Edd_21 * velocity_y) * Er_t0[ks][j][i]/Crat;		
-					pMat->RHS[Matk][Matj][Mati][1] += (-dt * Crat * (dErdx_t0[ks][j][i] + (Sigma_aF + Sigma_sF) * Fr0x));
-
-					Fr0y = Fr2_t0[ks][j][i] -  ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y + pG->U[ks][j][i].Edd_21 * velocity_x) * Er_t0[ks][j][i]/Crat;
-					pMat->RHS[Matk][Matj][Mati][2] += (-dt * Crat * (dErdy_t0[ks][j][i] + (Sigma_aF + Sigma_sF) * Fr0y));
-				}	
 
 				
 	} /* End i */
@@ -309,18 +261,6 @@ if(pMat->bgflag){
 				
 	}
 
-		/* Add back the background state */
-	if(bgflag){
-		for(j=pG->js-nghost; j<=pG->je+nghost; j++){
-			for(i=pG->is-nghost; i<=pG->ie+nghost; i++){
-				
-				pG->U[ks][j][i].Er += Er_t0[ks][j][i];
-				pG->U[ks][j][i].Fr1 += Fr1_t0[ks][j][i];
-				pG->U[ks][j][i].Fr2 += Fr2_t0[ks][j][i];
-
-			}
-		}
-	}
 
 	/* Set the boundary condition */
 
@@ -730,11 +670,9 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 	double tot_residual = 0.0, tot_norm = 0.0;
 #endif
 
+	Real velocity_x, velocity_y, dt;
+	dt = pMat->dt;
 
-	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
-	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
-
-	Real dt = pMat->dt;
 	int diffghost = nghost - Matghost;
 
 
@@ -745,9 +683,8 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 	
 
 	/* Temporary variables to setup the matrix */
-	Real velocity_x, velocity_y, T4;
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1, Cj0, Cj1;
+	Real T4;
+	Real Sigma_aP;
 
 
 		for(j=js; j<=je; j++)
@@ -760,74 +697,10 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			T4 = pMat->U[ks][j][i].T4;		
 				
 			/* Assuming the velocity is already the original velocity in case of FARGO */			
-				
-			Sigma_sF = pMat->U[ks][j][i].Sigma[0];
-			Sigma_aF = pMat->U[ks][j][i].Sigma[1];
-			Sigma_aP = pMat->U[ks][j][i].Sigma[2];
-			Sigma_aE = pMat->U[ks][j][i].Sigma[3];
-	
-			Ci0 = (sqrt(pMat->U[ks][j][i].Edd_11) - sqrt(pMat->U[ks][j][i-1].Edd_11)) 
-				/ (sqrt(pMat->U[ks][j][i].Edd_11) + sqrt(pMat->U[ks][j][i-1].Edd_11));
-			Ci1 =  (sqrt(pMat->U[ks][j][i+1].Edd_11) - sqrt(pMat->U[ks][j][i].Edd_11)) 
-				/ (sqrt(pMat->U[ks][j][i+1].Edd_11) + sqrt(pMat->U[ks][j][i].Edd_11));
-			Cj0 = (sqrt(pMat->U[ks][j][i].Edd_22) - sqrt(pMat->U[ks][j-1][i].Edd_22)) 
-				/ (sqrt(pMat->U[ks][j][i].Edd_22) + sqrt(pMat->U[ks][j-1][i].Edd_22));
-			Cj1 =  (sqrt(pMat->U[ks][j+1][i].Edd_22) - sqrt(pMat->U[ks][j][i].Edd_22)) 
-				/ (sqrt(pMat->U[ks][j+1][i].Edd_22) + sqrt(pMat->U[ks][j][i].Edd_22));
 			
-			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
-				+ Eratio * (Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
-				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat);
+			Sigma_aP = pMat->U[ks][j][i].Sigma[2];			
 
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
-
-			
-			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[ks][j-1][i].Edd_21;
-			phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][j][i-1].Edd_11;
-			phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][j][i].Edd_11
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[ks][j][i].Edd_21   
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x + pMat->U[ks][j][i].Edd_21 * velocity_y) 
-			       + pMat->dt * Sigma_aE * velocity_x;
-			phi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			phi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][j][i+1].Edd_11;
-			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[ks][j+1][i].Edd_21;
-			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			
-
-
-			psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[ks][j-1][i].Edd_22;
-			psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][j][i-1].Edd_21;
-			psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][j][i].Edd_21
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[ks][j][i].Edd_22   
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y + pMat->U[ks][j][i].Edd_21 * velocity_x) 
-			       + pMat->dt * Sigma_aE * velocity_y;
-			psi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			psi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][j][i+1].Edd_21;
-			psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			psi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[ks][j+1][i].Edd_22;
-			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
+			matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(theta[0]), &(phi[0]), &(psi[0]), NULL);
 			
 						
 			if(pMat->bgflag){
@@ -887,11 +760,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			Residual -= psi[9] * pMat->U[ks][j+1][i].Fr2;
 
 	
-		if(bgflag){
-			Norm += fabs(Er_t0[ks][j+diffghost][i+diffghost]);
-			Norm += fabs(Fr1_t0[ks][j+diffghost][i+diffghost]);
-			Norm += fabs(Fr2_t0[ks][j+diffghost][i+diffghost]);
-		}
+		
 	}
 
 		
@@ -1004,9 +873,6 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 	ks = pMat_fine->ks;
 
 
-	Real hdtodx1 = 0.5 * pMat_fine->dt/pMat_fine->dx1;
-	Real hdtodx2 = 0.5 * pMat_fine->dt/pMat_fine->dx2;
-
 
 	/* To store the coefficient */
 	Real theta[11];
@@ -1018,10 +884,7 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 	/* relaxation step when we come back */ 
 
 
-	/* Temporary variables to setup the matrix */
-	Real velocity_x, velocity_y, T4;	
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1, Cj0, Cj1;
+
 
 	Real ****error;	
 	if((error=(Real****)calloc_4d_array(1,pMat_fine->Nx[1]+2*Matghost,pMat_fine->Nx[0]+2*Matghost,3,sizeof(Real))) == NULL)
@@ -1049,7 +912,7 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 				ptr_fine[2] = &(pMat_fine->U[ks][2*j-1][2*i ].Er);
 				ptr_fine[3] = &(pMat_fine->U[ks][2*j-1][2*i-1].Er);
 
-				for(num=0; num<14+NOPACITY; num++){
+				for(num=0; num<15+NOPACITY; num++){
 
 					ptr_coarse[num] =  (ptr_fine[0][num] + ptr_fine[1][num]
 							 + ptr_fine[2][num] + ptr_fine[3][num] ) / 4.0;
@@ -1132,11 +995,11 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 	pMat_coarse->BCFlag_ix3 = pMat->BCFlag_ix3;
 	pMat_coarse->BCFlag_ox3 = pMat->BCFlag_ox3;
 
-	if((pMat_coarse->U = (RadMHDS***)calloc_3d_array(1,pMat_coarse->Nx[1]+2*Matghost, 	pMat_coarse->Nx[0]+2*Matghost,sizeof(RadMHDS))) == NULL)
+	if((pMat_coarse->U = (RadMHDS***)calloc_3d_array(1,pMat_coarse->Nx[1]+2*Matghost, pMat_coarse->Nx[0]+2*Matghost,sizeof(RadMHDS))) == NULL)
 		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
 
 	/* Allocate memory for the right hand size */
-	if((pMat_coarse->RHS = (Real****)calloc_4d_array(1,pMat_coarse->Nx[1]+2*Matghost, 	pMat_coarse->Nx[0]+2*Matghost,3,sizeof(Real))) == NULL)
+	if((pMat_coarse->RHS = (Real****)calloc_4d_array(1,pMat_coarse->Nx[1]+2*Matghost, pMat_coarse->Nx[0]+2*Matghost,3,sizeof(Real))) == NULL)
 		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
 
 
@@ -1160,102 +1023,18 @@ void RHSResidual2D(MatrixS *pMat, Real ****newRHS)
 
 
 
-	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
-	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
-
 	/* To store the coefficient */
 	Real theta[11];
 	Real phi[11];
 	Real psi[11];
 	
 
-	/* Temporary variables to setup the matrix */
-	Real velocity_x, velocity_y, T4;
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1, Cj0, Cj1;
-
 
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
 
 
-			velocity_x = pMat->U[ks][j][i].V1;
-			velocity_y = pMat->U[ks][j][i].V2;
-
-			T4 = pMat->U[ks][j][i].T4;		
-				
-			/* Assuming the velocity is already the original velocity in case of FARGO */			
-				
-			Sigma_sF = pMat->U[ks][j][i].Sigma[0];
-			Sigma_aF = pMat->U[ks][j][i].Sigma[1];
-			Sigma_aP = pMat->U[ks][j][i].Sigma[2];
-			Sigma_aE = pMat->U[ks][j][i].Sigma[3];
-	
-			Ci0 = (sqrt(pMat->U[ks][j][i].Edd_11) - sqrt(pMat->U[ks][j][i-1].Edd_11)) 
-				/ (sqrt(pMat->U[ks][j][i].Edd_11) + sqrt(pMat->U[ks][j][i-1].Edd_11));
-			Ci1 =  (sqrt(pMat->U[ks][j][i+1].Edd_11) - sqrt(pMat->U[ks][j][i].Edd_11)) 
-				/ (sqrt(pMat->U[ks][j][i+1].Edd_11) + sqrt(pMat->U[ks][j][i].Edd_11));
-			Cj0 = (sqrt(pMat->U[ks][j][i].Edd_22) - sqrt(pMat->U[ks][j-1][i].Edd_22)) 
-				/ (sqrt(pMat->U[ks][j][i].Edd_22) + sqrt(pMat->U[ks][j-1][i].Edd_22));
-			Cj1 =  (sqrt(pMat->U[ks][j+1][i].Edd_22) - sqrt(pMat->U[ks][j][i].Edd_22)) 
-				/ (sqrt(pMat->U[ks][j+1][i].Edd_22) + sqrt(pMat->U[ks][j][i].Edd_22));
-			
-			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[4] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				+ Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22)
-				+ Eratio * (Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x 
-				+ velocity_y * pMat->U[ks][j][i].Edd_21) * velocity_x / Crat
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y 
-				+ velocity_x * pMat->U[ks][j][i].Edd_21) * velocity_y / Crat);
-
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
-
-			
-			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[ks][j-1][i].Edd_21;
-			phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][j][i-1].Edd_11;
-			phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][j][i].Edd_11
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[ks][j][i].Edd_21   
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_11) * velocity_x + pMat->U[ks][j][i].Edd_21 * velocity_y) 
-			       + pMat->dt * Sigma_aE * velocity_x;
-			phi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			phi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][j][i+1].Edd_11;
-			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[ks][j+1][i].Edd_21;
-			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			
-
-
-			psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * pMat->U[ks][j-1][i].Edd_22;
-			psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * sqrt(pMat->U[ks][j-1][i].Edd_22);
-			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][j][i-1].Edd_21;
-			psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][j][i-1].Edd_11);
-			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][j][i].Edd_21
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * pMat->U[ks][j][i].Edd_22   
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * ((1.0 + pMat->U[ks][j][i].Edd_22) * velocity_y + pMat->U[ks][j][i].Edd_21 * velocity_x) 
-			       + pMat->dt * Sigma_aE * velocity_y;
-			psi[5] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][j][i].Edd_11) 
-				     + Crat * hdtodx2 * (2.0 + Cj1 - Cj0) * sqrt(pMat->U[ks][j][i].Edd_22) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			psi[6] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][j][i+1].Edd_21;
-			psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][j][i+1].Edd_11);
-			psi[8] = Crat * hdtodx2 * (1.0 - Cj1) * pMat->U[ks][j+1][i].Edd_22;
-			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * sqrt(pMat->U[ks][j+1][i].Edd_22);
-			
-						
-
+			matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(theta[0]), &(phi[0]), &(psi[0]), NULL);
 	
 			newRHS[ks][j][i][0] = pMat->RHS[ks][j][i][0];
 			newRHS[ks][j][i][0] -= theta[0] * pMat->U[ks][j-1][i].Er;
@@ -1314,4 +1093,7 @@ void RHSResidual2D(MatrixS *pMat, Real ****newRHS)
 #endif /* radMHD_INTEGRATOR */
 
 #endif /* MATRIX_MULTIGRID */
+
+
+
 

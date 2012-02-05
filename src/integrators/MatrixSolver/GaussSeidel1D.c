@@ -44,23 +44,14 @@ void GaussSeidel1D(MatrixS *pMat)
 	ks = pMat->ks;
 
 
-	Real hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
-	Real hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
-
-	Real dt = pMat->dt;
+	
 
 	/* To store the coefficient */
 	Real theta[6];
 	Real phi[6];
 
 
-	/* Temporary variables to setup the matrix */
-	Real velocity_x, T4;
-	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1;
 
-			
-	/* Update the boundary cells */
 
 
 /* Hardware to Ncycle */
@@ -74,44 +65,7 @@ for(n=0; n<Ncycle; n++){
 		/* The coefficients are calculated according to the formula */
 
 		
-			velocity_x = pMat->U[ks][js][i].V1;
-
-			T4 = pMat->U[ks][js][i].T4;
-				
-				
-			Sigma_sF = pMat->U[ks][js][i].Sigma[0];
-			Sigma_aF = pMat->U[ks][js][i].Sigma[1];
-			Sigma_aP = pMat->U[ks][js][i].Sigma[2];
-			Sigma_aE = pMat->U[ks][js][i].Sigma[3];
-	
-			Ci0 = (sqrt(pMat->U[ks][js][i].Edd_11) - sqrt(pMat->U[ks][js][i-1].Edd_11)) 
-				/ (sqrt(pMat->U[ks][js][i].Edd_11) + sqrt(pMat->U[ks][js][i-1].Edd_11));
-			Ci1 =  (sqrt(pMat->U[ks][js][i+1].Edd_11) - sqrt(pMat->U[ks][js][i].Edd_11)) 
-				/ (sqrt(pMat->U[ks][js][i+1].Edd_11) + sqrt(pMat->U[ks][js][i].Edd_11));
-			
-			
-			
-			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
-			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[2] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
-				+ Eratio * (Crat * pMat->dt * Sigma_aE 
-				+ pMat->dt * (Sigma_aF - Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x * velocity_x / Crat);
-
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1)	- Eratio * pMat->dt * (Sigma_aF - Sigma_sF) * velocity_x; 
-			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
-			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
-			
-			
-			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * pMat->U[ks][js][i-1].Edd_11;
-			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * sqrt(pMat->U[ks][js][i-1].Edd_11);
-			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * pMat->U[ks][js][i].Edd_11 
-			       - pMat->dt * (Sigma_aF + Sigma_sF) * (1.0 + pMat->U[ks][js][i].Edd_11) * velocity_x 
-			       + pMat->dt * Sigma_aE * velocity_x;
-			phi[3] = 1.0 + Crat * hdtodx1 * (2.0 + Ci1 - Ci0) * sqrt(pMat->U[ks][js][i].Edd_11) 
-				     + Crat * pMat->dt * (Sigma_aF + Sigma_sF);
-			phi[4] = Crat * hdtodx1 * (1.0 - Ci1) * pMat->U[ks][js][i+1].Edd_11;
-			phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * sqrt(pMat->U[ks][js][i+1].Edd_11);
-		
+			matrix_coef(pMat, NULL, 1, i, js, ks, 0.0, &(theta[0]), &(phi[0]), NULL, NULL);
 			
 		
 

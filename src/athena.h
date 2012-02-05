@@ -475,6 +475,7 @@ typedef struct RadMHD_s {
   Real Fr1;                       /* 0th moment: mean intensity */
   Real Fr2;                    /* 1st moment: flux */
   Real Fr3;                    /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
+  Real rho;
   Real V1;                       /* thermal source function */
   Real V2;                     /* thermalization coeff */
   Real V3;                     /* total opacity */

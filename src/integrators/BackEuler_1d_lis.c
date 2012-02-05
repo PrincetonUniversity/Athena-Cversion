@@ -50,6 +50,9 @@ static Real *Cspeeds;
 /* The matrix coefficient */
 static Real **Euler = NULL;
 
+/* used to subtract background state */
+static Real *Er_t0;
+static Real *Fr_t0;
 
 /* Used for initial guess solution, also return the correct solution */
 /* Used for restarted GMRES method for periodic boundary condition */
@@ -113,8 +116,15 @@ void BackEuler_1d(MeshS *pM)
 	int index, Matrixiter;
 	Real tempvalue;
 	
+	Real tempEr;
+	Real tempFr;
+	Real temp0;
 	
 	Real temperature, velocity;
+	Real alphai0, alphai1, alpha, tau;
+	Real betai0, betai1, beta;
+	Real Si0, Si1, Speed;
+
 
   	Real theta[7];
   	Real phi[7];
@@ -149,6 +159,22 @@ void BackEuler_1d(MeshS *pM)
 
  	 il = is - 1;
   	 iu = ie + 1;
+
+
+	int bgflag;		/* used to subtract whether subtract background or not */
+	
+	bgflag = 0;
+
+	if(bgflag){
+		/* If this the first time, save the background state, including boundary condition */
+			
+		for(i=is-nghost; i<=ie+nghost; i++){
+			Er_t0[i] = pG->U[ks][js][i].Er;
+			Fr_t0[i] = pG->U[ks][js][i].Fr1;					
+		}
+				
+	}
+
 
 		
 
@@ -185,115 +211,102 @@ void BackEuler_1d(MeshS *pM)
 /* ie-is+1 =size1, otherwise it is wrong */
 
 
-	for(i=is; i<=ie+1; i++){
-	 	Cspeeds[i-is] = (sqrt(U1d[i].Edd_11) - sqrt(U1d[i-1].Edd_11)) 
-				/ (sqrt(U1d[i].Edd_11) + sqrt(U1d[i-1].Edd_11)); 		
-	}
-
-
-	for(i=is; i<=ie; i++){
-
-/*    		pressure = (pG->U[ks][js][i].E - 0.5 * (pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1)/pG->U[ks][js][i].d) * (Gamma - 1.0);
-
-
-
-#ifdef RADIATION_MHD
-
-		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c) * (Gamma - 1.0);
-#endif
-
-    		temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
-*/
-		T4 = pG->Tguess[ks][js][i];
-
-		Sigma_aP = pG->U[ks][js][i].Sigma[2];
-	
-
-		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
-
-    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i];
-    		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + pG->dt *  Sigma_aP
-				* temperature * temperature * temperature * temperature * U1d[i].Mx / U1d[i].d;
-
-		/* For inflow boundary condition */
-		if((i == is) && (ix1 == 3)) {
-			theta[1] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]) * sqrt(U1d[i-1].Edd_11);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]);
-			phi[0]	= theta[1] * sqrt(U1d[i-1].Edd_11);
-			phi[1]	= theta[2] * sqrt(U1d[i-1].Edd_11);
-			RHSEuler[1] -= (theta[1] * U1d[i-1].Er + theta[2] * U1d[i-1].Fr1);
-			RHSEuler[2] -= (phi[0] * U1d[i-1].Er + phi[1] * U1d[i-1].Fr1);
-		}
-
-		if((i == ie) && (ox1 == 3)) {
-			theta[5] = -Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]) * sqrt(U1d[i+1].Edd_11);
-			theta[6] = Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]);
-			phi[4]	= -theta[5] * sqrt(U1d[i+1].Edd_11);
-			phi[5]	= -theta[6] * sqrt(U1d[i+1].Edd_11);
-			RHSEuler[2 * Nmatrix -1] -= (theta[5] * U1d[i+1].Er + theta[6] * U1d[i+1].Fr1);
-			RHSEuler[2 * Nmatrix] -= (phi[4] * U1d[i+1].Er + phi[5] * U1d[i+1].Fr1);
-		}
-		
-	
-	}
-
-	/* For periodic boundary condition, we use Lis library */
-	if((ix1 == 4) && (ox1 == 4)) {
-		for(i=is; i<=ie; i++){
-			index = 2 * (i-is);
-			tempvalue = RHSEuler[2*(i-is)+1];
-			lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEulerp);
-
-			++index;
-			tempvalue = RHSEuler[2*(i-is)+2];
-			lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEulerp);
-
-			lis_vector_set_value(LIS_INS_VALUE,2*(i-is),U1d[i].Er,INIguess);
-			lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,U1d[i].Fr1,INIguess);
-		}
-		
-
-	}
-	
-
 
 /* Step 1b: Setup the Matrix */
 		
  	/* First, set the common elements for different boundary conditions */
 	/* theta and phi are written according to the compact matrix form, not the order in the paper */
 	for(i=is; i<=ie; i++){
-		velocity = U1d[i].Mx / U1d[i].d;
+		
+		
+		matrix_coef(NULL, pG, 1, i, js, ks, 0.0, &(theta[1]), &(phi[0]), NULL, NULL);
+		theta[0] = 0.0;
+		phi[6] = 0.0;
+
+
+	/* non periodic boundary condition */
+		/* Set the right hand side */
+		T4 = pG->Tguess[ks][js][i];
+
 		Sigma_sF = pG->U[ks][js][i].Sigma[0];
 		Sigma_aF = pG->U[ks][js][i].Sigma[1];
 		Sigma_aP = pG->U[ks][js][i].Sigma[2];
 		Sigma_aE = pG->U[ks][js][i].Sigma[3];
-		theta[0] = 0.0; 
-		theta[1] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]) * sqrt(U1d[i-1].Edd_11);
-		theta[2] = -Crat * hdtodx1 * (1.0 + Cspeeds[i-is]);
-		theta[3] = 1.0 + Crat * hdtodx1 * (1.0 + Cspeeds[i-is+1]) * sqrt(U1d[i].Edd_11) 
-			+ Crat * hdtodx1 * (1.0 - Cspeeds[i-is]) * sqrt(U1d[i].Edd_11)
-			+ Eratio * (Crat * pG->dt * Sigma_aE 
-			+ pG->dt * (Sigma_aF - Sigma_sF) * (1.0 + U1d[i].Edd_11) * velocity * velocity / Crat);
-
-		theta[4] = Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1])
-			  - Eratio * pG->dt * (Sigma_aF - Sigma_sF) * velocity; 
-		theta[5] = -Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]) * sqrt(U1d[i+1].Edd_11);
-		theta[6] = Crat * hdtodx1 * (1.0 - Cspeeds[i-is+1]);
-
-		phi[0]	= theta[1] * sqrt(U1d[i-1].Edd_11);
-		phi[1]	= theta[2] * sqrt(U1d[i-1].Edd_11);
-		phi[2]	= Crat * hdtodx1 * (Cspeeds[i-is] + Cspeeds[i-is+1]) * U1d[i].Edd_11 
-				- pG->dt * (Sigma_aF + Sigma_sF) * (1.0 + U1d[i].Edd_11) * velocity + pG->dt * Sigma_aE * velocity;
-		phi[3]	= 1.0 + Crat * hdtodx1 * (2.0 + Cspeeds[i-is+1] 
-		- Cspeeds[i-is]) * sqrt(U1d[i].Edd_11) + Crat * pG->dt * (Sigma_aF + Sigma_sF);
-		phi[4]	= -theta[5] * sqrt(U1d[i+1].Edd_11);
-		phi[5]	= -theta[6] * sqrt(U1d[i+1].Edd_11);
-		phi[6] = 0.0;
 	
+		velocity = U1d[i].Mx / U1d[i].d;
+	
+		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
+
+    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i];
+    		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + pG->dt *  Sigma_aP * T4 * velocity;
+
+
+
+
+		
+		/* For periodic boundary condition, we use Lis library */
+		if((ix1 == 4) && (ox1 == 4)) {
+			for(i=is; i<=ie; i++){
+				index = 2 * (i-is);
+				tempvalue = RHSEuler[2*(i-is)+1];
+
+				if(bgflag){
+					tempEr = theta[1] * U1d[i-1].Er + theta[5] * U1d[i+1].Er;
+					tempFr = theta[2] * U1d[i-1].Fr1 + theta[6] * U1d[i+1].Fr1;
+					temp0 = theta[4] * U1d[i].Fr1;
+					tempvalue -= theta[3] * U1d[i].Er + tempEr + tempFr + temp0;
+
+				}
+
+				lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEulerp);
+
+				++index;
+				tempvalue = RHSEuler[2*(i-is)+2];
+
+
+				if(bgflag){
+					tempEr = phi[0] * U1d[i-1].Er + phi[4] * U1d[i+1].Er;
+					tempFr = phi[1] * U1d[i-1].Fr1 + phi[5] * U1d[i+1].Fr1;
+					temp0 = phi[3] * U1d[i].Fr1;
+					tempvalue -= phi[2] * U1d[i].Er + tempEr + tempFr + temp0;
+
+				}
+
+				lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEulerp);
+
+				if(bgflag){
+					lis_vector_set_value(LIS_INS_VALUE,2*(i-is),0.0,INIguess);
+					lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,0.0,INIguess);
+				}
+				else{
+					lis_vector_set_value(LIS_INS_VALUE,2*(i-is),U1d[i].Er,INIguess);
+					lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,U1d[i].Fr1,INIguess);
+				}
+			}
+		
+
+		}
+
+
+		/* For inflow boundary condition */
+		if((i == is) && (ix1 == 3)) {
+			
+			RHSEuler[1] -= (theta[1] * U1d[i-1].Er + theta[2] * U1d[i-1].Fr1);
+			RHSEuler[2] -= (phi[0] * U1d[i-1].Er + phi[1] * U1d[i-1].Fr1);
+		}
+
+		if((i == ie) && (ox1 == 3)) {
+			
+			RHSEuler[2 * Nmatrix -1] -= (theta[5] * U1d[i+1].Er + theta[6] * U1d[i+1].Fr1);
+			RHSEuler[2 * Nmatrix] -= (phi[4] * U1d[i+1].Er + phi[5] * U1d[i+1].Fr1);
+		}
+
+
+
 	if((ix1 != 4) && (ox1 !=4)) {	
 		for(j=1; j<=7; j++) {
-			Euler[2*(i-is)+1][j] = theta[j-1];
-			Euler[2*(i-is)+2][j] = phi[j-1];
+			Euler[2*(i-is)+1][js] = theta[j-1];
+			Euler[2*(i-is)+2][js] = phi[j-1];
 		}	
 
 		/* Judge the boundary condition */
@@ -482,7 +495,13 @@ void BackEuler_1d(MeshS *pM)
 			lis_vector_get_value(INIguess,2*(i-is),&(pG->U[ks][js][i].Er));
 			lis_vector_get_value(INIguess,2*(i-is)+1,&(pG->U[ks][js][i].Fr1));
 			U1d[i].Er		= pG->U[ks][js][i].Er;
-			U1d[i].Fr1		= pG->U[ks][js][i].Fr1;			
+			U1d[i].Fr1		= pG->U[ks][js][i].Fr1;		
+
+			/* Add background state in */
+			if(bgflag){
+				pG->U[ks][js][i].Er += Er_t0[i];
+				pG->U[ks][js][i].Fr1 += Fr_t0[i];
+			}	
 
 		}
 		else{
@@ -521,8 +540,8 @@ if(Opacity != NULL){
 
 	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
-        	if (pM->Domain[i][j].Grid != NULL){
-  			bvals_radMHD(&(pM->Domain[i][j]));
+        	if (pM->Domain[i][js].Grid != NULL){
+  			bvals_radMHD(&(pM->Domain[i][js]));
 
         	}
       	     }
@@ -574,6 +593,14 @@ void BackEuler_init_1d(MeshS *pM)
 	size1 = size1 + 2*nghost;
 	if ((U1d       =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
 
+
+	/* to save Er and Fr at time t0, which are used to subtract the background state */
+	if((Er_t0 = (Real*)calloc_1d_array(size1, sizeof(Real))) == NULL) goto on_error;
+	
+	if((Fr_t0 = (Real*)calloc_1d_array(size1, sizeof(Real))) == NULL) goto on_error;
+	
+
+
 	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 	if ((RHSEuler = (Real*)malloc((2*Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
 	
@@ -588,6 +615,7 @@ void BackEuler_init_1d(MeshS *pM)
 		if ((Euler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;
 		if ((lEuler[i] = (Real*)malloc(8*sizeof(Real))) == NULL) goto on_error;		
 	}
+
 
 	 /* Initialize the matrix */
 	for(i=0; i<(2*Ngrids+1); i++)
@@ -644,6 +672,10 @@ void BackEuler_destruct_1d()
 	
 	free_2d_array(Euler);
 	free_2d_array(lEuler);
+
+	free_3d_array(Er_t0);
+	free_3d_array(Fr_t0);
+	
 
 /* For Lis library */
 	

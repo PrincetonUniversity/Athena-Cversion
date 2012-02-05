@@ -655,14 +655,11 @@ int main(int argc, char *argv[])
 	/* Update boundary condition for Eddington tensor */
 #endif /* RADIATION_TRANSFER */
 
-	if(!Erflag){
-		GetTguess(&Mesh);
-
-		Eratio = 1.0;
-		(*BackEuler)(&Mesh);
-
-	}	
-
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+	
+	GetTguess(&Mesh);
+	
+#endif
 
 
 /*--- Step 9c. ---------------------------------------------------------------*/
@@ -692,10 +689,9 @@ int main(int argc, char *argv[])
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 	/* This step doesn't need ghost zones of hydro variables */
-	if(Erflag){
-		(*BackEuler)(&Mesh);
 
-	}
+	(*BackEuler)(&Mesh);
+
 #endif
 
 /*--- Step 9d. ---------------------------------------------------------------*/

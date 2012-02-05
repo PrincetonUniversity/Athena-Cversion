@@ -1623,9 +1623,12 @@ void GetTguess(MeshS *pM)
 				if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
 					
 					pG->Tguess[k][j][i] = Ern; 
+					pG->Ersource[k][j][i] = 0.0;	
 				}
 				else if(pressure < TINY_NUMBER || pressure != pressure){
 					 pG->Tguess[k][j][i] = Ern;
+					 pG->Ersource[k][j][i] = 0.0;	
+
 				}
 				else{
 
@@ -1677,11 +1680,12 @@ void GetTguess(MeshS *pM)
 							
 				
 				
-				
+			/*	
 				pG->Tguess[k][j][i] = Erguess;
+			*/
+				pG->Tguess[k][j][i] = pow(Tguess, 4.0);
 			
-				/* In this case, we do not need Ersource */
-				pG->Ersource[k][j][i] = 0.0;	
+				pG->Ersource[k][j][i] = Erguess - pG->U[k][j][i].Er;	
 
 				}
 
@@ -1745,7 +1749,772 @@ void Tequilibrium(double T, double coef1, double coef2, double coef3, double * f
 }
 
 
+/* Function to calculate matrix coefficient */
 
+Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real vshear, Real *theta, Real *phi, Real *psi, Real *varphi){
+	/* Notice that pMat->rho actually stores the background E_r at time step n */
+	
+	/* Temporary variables to setup the matrix */
+	Real hdtodx1, hdtodx2, hdtodx3, dt, dx, dy, dz;
+	Real velocity_x, velocity_y, velocity_z, T4;
+	Real f11, f22, f33, f11i0, f11i1, f22j0, f22j1, f33k0, f33k1;
+	Real f21, f31, f32, f21j0, f21j1, f21i0, f21i1, f31k0, f31k1, f31i0, f31i1, f32j0, f32j1, f32k0, f32k1;
+	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
+	Real alphai0, alphaj0, alphak0, alphai, alphaj, alphak; /* For mininum velocity */
+	Real alphai1max, alphaj1max, alphak1max, alphaimax, alphajmax, alphakmax; /* for maximum velocity */
+	/* alpha? are for Sigma_aF + Sigma_sF */
+	
+	Real direction;
+
+	if(pMat != NULL){
+		hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
+		hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
+		hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
+		dx = pMat->dx1;
+		dy = pMat->dx2;
+		dz = pMat->dx3;
+		dt = pMat->dt;
+		velocity_x = pMat->U[k][j][i].V1;
+		velocity_y = pMat->U[k][j][i].V2;
+		velocity_z = pMat->U[k][j][i].V3;
+		T4 = pMat->U[k][j][i].T4;
+		if(DIM == 3){
+		f33k0 = pMat->U[k-1][j][i].Edd_33;
+		f32k0 = pMat->U[k-1][j][i].Edd_32;
+		f31k0 = pMat->U[k-1][j][i].Edd_31;
+		}
+		if(DIM > 1){
+		f32j0 = pMat->U[k][j-1][i].Edd_32;
+		f22j0 = pMat->U[k][j-1][i].Edd_22;
+		f21j0 = pMat->U[k][j-1][i].Edd_21;
+		}
+		f11i0 = pMat->U[k][j][i-1].Edd_11;
+		f21i0 = pMat->U[k][j][i-1].Edd_21;
+		f31i0 = pMat->U[k][j][i-1].Edd_31;
+		f11 = pMat->U[k][j][i].Edd_11;
+		f22 = pMat->U[k][j][i].Edd_22;
+		f33 = pMat->U[k][j][i].Edd_33;
+		f21 = pMat->U[k][j][i].Edd_21;
+		f31 = pMat->U[k][j][i].Edd_31;
+		f32 = pMat->U[k][j][i].Edd_32;
+		f11i1 = pMat->U[k][j][i+1].Edd_11;
+		f21i1 = pMat->U[k][j][i+1].Edd_21;
+		f31i1 = pMat->U[k][j][i+1].Edd_31;
+		if(DIM > 1){
+		f21j1 = pMat->U[k][j+1][i].Edd_21;
+		f22j1 = pMat->U[k][j+1][i].Edd_22;
+		f32j1 = pMat->U[k][j+1][i].Edd_32;
+		}
+		if(DIM == 3){
+		f31k1 = pMat->U[k+1][j][i].Edd_31;
+		f32k1 = pMat->U[k+1][j][i].Edd_32;
+		f33k1 = pMat->U[k+1][j][i].Edd_33;
+		}
+		Sigma_sF = pMat->U[k][j][i].Sigma[0];
+		Sigma_aF = pMat->U[k][j][i].Sigma[1];
+		Sigma_aP = pMat->U[k][j][i].Sigma[2];
+		Sigma_aE = pMat->U[k][j][i].Sigma[3];
+
+		
+	}
+	else if(pG != NULL){
+		hdtodx1 = 0.5 * pG->dt/pG->dx1;
+		hdtodx2 = 0.5 * pG->dt/pG->dx2;
+		hdtodx3 = 0.5 * pG->dt/pG->dx3;
+		dx = pG->dx1;
+		dy = pG->dx2;
+		dz = pG->dx3;
+		dt = pG->dt;
+		velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+		velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+#ifdef SHEARING_BOX
+#ifdef FARGO
+		/* vshear is qom * Lx, no veloity sign here */
+		velocity_y -= vshear;
+#endif 
+#endif
+		velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+		T4 = pG->Tguess[k][j][i];
+		if(DIM == 3){
+		f33k0 = pG->U[k-1][j][i].Edd_33;
+		f32k0 = pG->U[k-1][j][i].Edd_32;
+		f31k0 = pG->U[k-1][j][i].Edd_31;
+		}
+		if(DIM > 1){
+		f32j0 = pG->U[k][j-1][i].Edd_32;
+		f22j0 = pG->U[k][j-1][i].Edd_22;
+		f21j0 = pG->U[k][j-1][i].Edd_21;
+		}
+		f11i0 = pG->U[k][j][i-1].Edd_11;
+		f21i0 = pG->U[k][j][i-1].Edd_21;
+		f31i0 = pG->U[k][j][i-1].Edd_31;
+		f11 = pG->U[k][j][i].Edd_11;
+		f22 = pG->U[k][j][i].Edd_22;
+		f33 = pG->U[k][j][i].Edd_33;
+		f21 = pG->U[k][j][i].Edd_21;
+		f31 = pG->U[k][j][i].Edd_31;
+		f32 = pG->U[k][j][i].Edd_32;
+		f11i1 = pG->U[k][j][i+1].Edd_11;
+		f21i1 = pG->U[k][j][i+1].Edd_21;
+		f31i1 = pG->U[k][j][i+1].Edd_31;
+		if(DIM > 1){
+		f21j1 = pG->U[k][j+1][i].Edd_21;
+		f22j1 = pG->U[k][j+1][i].Edd_22;
+		f32j1 = pG->U[k][j+1][i].Edd_32;
+		}
+		if(DIM == 3){
+		f31k1 = pG->U[k+1][j][i].Edd_31;
+		f32k1 = pG->U[k+1][j][i].Edd_32;
+		f33k1 = pG->U[k+1][j][i].Edd_33;
+		}
+
+		Sigma_sF = pG->U[k][j][i].Sigma[0];
+		Sigma_aF = pG->U[k][j][i].Sigma[1];
+		Sigma_aP = pG->U[k][j][i].Sigma[2];
+		Sigma_aE = pG->U[k][j][i].Sigma[3];
+	}
+	else{
+
+		ath_error("[matrix_coef]: Must provide either pMat or pG pointer!n\n");
+	}
+
+	if(DIM == 1){
+		if(pMat != NULL){
+			if(pMat->U[k][j][i].rho >  pMat->U[k][j][i-1].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
+
+			if(pMat->U[k][j][i].rho <  pMat->U[k][j][i-1].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+
+			if(pMat->U[k][j][i+1].rho >  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+
+			if(pMat->U[k][j][i+1].rho <  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+			
+
+		}
+		else if(pG != NULL){
+			if(pG->U[k][j][i].Er >  pG->U[k][j][i-1].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
+
+			if(pG->U[k][j][i].Er <  pG->U[k][j][i-1].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+
+			if(pG->U[k][j][i+1].Er >  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+
+			if(pG->U[k][j][i+1].Er <  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+		
+			
+		}
+			
+
+			if(alphaimax + alphai0 > TINY_NUMBER)
+				Ci0 = (alphaimax -  alphai0) / (alphaimax + alphai0);
+			else
+				Ci0 = 0.0;
+
+			if(alphai1max + alphai > TINY_NUMBER)
+				Ci1 = (alphai1max - alphai) / (alphai1max + alphai);
+			else
+				Ci1 = 0.0;
+
+
+	}
+
+	if(DIM == 2){
+		if(pMat != NULL){
+			if(pMat->U[k][j][i].rho >  pMat->U[k][j-1][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
+
+			if(pMat->U[k][j][i].rho >  pMat->U[k][j][i-1].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
+
+			if(pMat->U[k][j][i].rho <  pMat->U[k][j][i-1].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;		
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+
+			if(pMat->U[k][j][i+1].rho >  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+
+			if(pMat->U[k][j][i].rho <  pMat->U[k][j-1][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
+
+			if(pMat->U[k][j+1][i].rho >  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
+
+			if(pMat->U[k][j][i+1].rho <  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+
+			if(pMat->U[k][j+1][i].rho <  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
+			
+		}
+		else if(pG != NULL){
+			if(pG->U[k][j][i].Er >  pG->U[k][j-1][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
+
+			if(pG->U[k][j][i].Er >  pG->U[k][j][i-1].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
+
+			if(pG->U[k][j][i].Er <  pG->U[k][j][i-1].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;		
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+
+			if(pG->U[k][j][i+1].Er >  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+
+			if(pG->U[k][j][i].Er <  pG->U[k][j-1][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
+
+			if(pG->U[k][j+1][i].Er >  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
+
+			if(pG->U[k][j][i+1].Er <  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+
+			if(pG->U[k][j+1][i].Er <  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
+			
+		
+			
+			
+		}
+
+			
+
+			if(alphaimax + alphai0 > TINY_NUMBER)
+				Ci0 = (alphaimax -  alphai0) / (alphaimax + alphai0);
+			else
+				Ci0 = 0.0;
+
+			if(alphai1max + alphai > TINY_NUMBER)
+				Ci1 = (alphai1max - alphai) / (alphai1max + alphai);
+			else
+				Ci1 = 0.0;
+
+			if(alphajmax + alphaj0 > TINY_NUMBER)
+				Cj0 = (alphajmax -  alphaj0) / (alphajmax + alphaj0);
+			else
+				Cj0 = 0.0;
+
+			if(alphaj1max + alphaj > TINY_NUMBER)
+				Cj1 = (alphaj1max - alphaj) / (alphaj1max + alphaj);
+			else
+				Cj1 = 0.0;
+
+
+	}
+
+	if(DIM == 3){
+	
+		if(pMat != NULL){
+			if(pMat->U[k][j][i].rho >  pMat->U[k-1][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k-1][j][i].Sigma, dt, pMat->U[k-1][j][i].Edd_33, velocity_z, &alphak0, -1, dz);
+
+			if(pMat->U[k][j][i].rho >  pMat->U[k][j-1][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
+
+			if(pMat->U[k][j][i].rho >  pMat->U[k][j][i-1].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);			
+
+			if(pMat->U[k][j][i].rho <  pMat->U[k][j][i-1].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+
+			if(pMat->U[k][j][i+1].rho >  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+
+			if(pMat->U[k][j][i].rho <  pMat->U[k][j-1][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
+
+			if(pMat->U[k][j+1][i].rho >  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
+
+			if(pMat->U[k][j][i].rho <  pMat->U[k-1][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, velocity_z, &alphakmax, 1, dz);
+
+			if(pMat->U[k+1][j][i].rho >  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, velocity_z, &alphak, -1, dz);
+
+
+			if(pMat->U[k][j][i+1].rho <  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;			
+			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+
+			if(pMat->U[k][j+1][i].rho <  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;			
+			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
+
+			if(pMat->U[k+1][j][i].rho <  pMat->U[k][j][i].rho)
+				direction = 1.0;
+			else 
+				direction = 0.0;			
+			matrix_alpha(direction, pMat->U[k+1][j][i].Sigma, dt, pMat->U[k+1][j][i].Edd_33, velocity_z, &alphak1max, 1, dz);
+			
+			
+			
+			
+		}
+		else if(pG != NULL){
+			if(pG->U[k][j][i].Er >  pG->U[k-1][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k-1][j][i].Sigma, dt, pG->U[k-1][j][i].Edd_33, velocity_z, &alphak0, -1, dz);
+
+			if(pG->U[k][j][i].Er >  pG->U[k][j-1][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
+
+			if(pG->U[k][j][i].Er >  pG->U[k][j][i-1].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);			
+
+			if(pG->U[k][j][i].Er <  pG->U[k][j][i-1].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+
+			if(pG->U[k][j][i+1].Er >  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+
+			if(pG->U[k][j][i].Er <  pG->U[k][j-1][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
+
+			if(pG->U[k][j+1][i].Er >  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
+
+			if(pG->U[k][j][i].Er <  pG->U[k-1][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, velocity_z, &alphakmax, 1, dz);
+
+			if(pG->U[k+1][j][i].Er >  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, velocity_z, &alphak, -1, dz);
+
+
+			if(pG->U[k][j][i+1].Er <  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;			
+			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+
+			if(pG->U[k][j+1][i].Er <  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;			
+			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
+
+			if(pG->U[k+1][j][i].Er <  pG->U[k][j][i].Er)
+				direction = 1.0;
+			else 
+				direction = 0.0;			
+			matrix_alpha(direction, pG->U[k+1][j][i].Sigma, dt, pG->U[k+1][j][i].Edd_33, velocity_z, &alphak1max, 1, dz);
+		
+			
+			
+		}
+
+			
+
+
+
+			if(alphaimax + alphai0 > TINY_NUMBER)
+				Ci0 = (alphaimax -  alphai0) / (alphaimax + alphai0);
+			else
+				Ci0 = 0.0;
+
+			if(alphai1max + alphai > TINY_NUMBER)
+				Ci1 = (alphai1max - alphai) / (alphai1max + alphai);
+			else
+				Ci1 = 0.0;
+
+			if(alphajmax + alphaj0 > TINY_NUMBER)
+				Cj0 = (alphajmax -  alphaj0) / (alphajmax + alphaj0);
+			else
+				Cj0 = 0.0;
+
+			if(alphaj1max + alphaj > TINY_NUMBER)
+				Cj1 = (alphaj1max - alphaj) / (alphaj1max + alphaj);
+			else
+				Cj1 = 0.0;
+
+			if(alphakmax + alphak0 > TINY_NUMBER)
+				Ck0 = (alphakmax -  alphak0) / (alphakmax + alphak0);
+			else
+				Ck0 = 0.0;
+
+			if(alphak1max + alphak > TINY_NUMBER)
+				Ck1 = (alphak1max - alphak) / (alphak1max + alphak);
+			else
+				Ck1 = 0.0;
+
+	}
+	
+	/*============================================================*/
+	/* Now construct the matrix coefficient */
+	if(DIM == 1){
+		/* Assuming the velocity is already the original velocity in case of FARGO */	
+			/* k - 1*/
+		if(theta != NULL){
+			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
+			theta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax 
+				+ Eratio * (Crat * dt * Sigma_aE
+				+ dt * (Sigma_aF - Sigma_sF) * (1.0 + f11) * velocity_x * velocity_x / Crat);
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;			
+			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
+		}	
+
+		if(phi != NULL){
+			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
+			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * f11 
+			       - dt * (Sigma_aF + Sigma_sF) * (1.0 + f11) * velocity_x 
+			       + dt * Sigma_aE * velocity_x;
+			phi[3] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax 			   
+				     + Crat * dt * (Sigma_aF + Sigma_sF);
+			phi[4] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
+			phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+		}	
+
+			
+
+	}
+	else if(DIM == 2){
+				
+		if(theta != NULL){	
+			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
+			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
+			theta[4] = 1.0  + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+					+ Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax		
+				+ Eratio * (Crat * dt * Sigma_aE
+				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f11) * velocity_x 
+				+ velocity_y * f21) * velocity_x / Crat
+				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f22) * velocity_y 
+				+ velocity_x * f21) * velocity_y / Crat);
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_y;		
+			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
+			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
+		}	
+			
+			
+		if(phi != NULL){
+			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
+			phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
+			phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21   
+			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f11) * velocity_x + f21 * velocity_y) 
+			       + dt * Sigma_aE * velocity_x;
+			phi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax	
+				     + Crat * dt * (Sigma_aF + Sigma_sF);
+			phi[6] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
+			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * f21i1;
+			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+		}	
+
+
+		if(psi != NULL){
+			psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
+			psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
+			psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22  
+			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f22) * velocity_y + f21 * velocity_x) 
+			       + dt * Sigma_aE * velocity_y;
+			psi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax 	
+				     + Crat * dt * (Sigma_aF + Sigma_sF);
+			psi[6] =  Crat * hdtodx1 * (1.0 - Ci1) * f21i1;
+			psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			psi[8] =  Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
+			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+		}	
+
+			
+
+	}
+	else if(DIM == 3){
+		/* Assuming the velocity is already the original velocity in case of FARGO */	
+			/* k - 1*/
+			
+			
+		if(theta != NULL){	
+			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+			theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
+			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			theta[3] = -Crat * hdtodx2 * (1.0 + Cj0);
+			theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
+			theta[6] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+				       + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+				       + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax		 
+				+ Eratio * (Crat * dt * Sigma_aE
+				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f11) * velocity_x 
+				+ velocity_y * f21 + velocity_z * f31) * velocity_x / Crat
+				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f22) * velocity_y 
+				+ velocity_x * f21 + velocity_z * f32) * velocity_y / Crat
+				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f33) * velocity_z 
+				+ velocity_x * f31 + velocity_y * f32) * velocity_z / Crat);
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_y;
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_z;
+			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
+			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
+			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+			theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
+		}	
+			
+		if(phi != NULL){	
+			phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f31k0;
+			phi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+			phi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
+			phi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			phi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
+			phi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			phi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21   
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * f31   
+			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f11) * velocity_x + f21 * velocity_y + f21 * velocity_z) 
+			       + dt * Sigma_aE * velocity_x;
+			phi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
+				     + Crat * dt * (Sigma_aF + Sigma_sF);
+			phi[8] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
+			phi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			phi[10] = Crat * hdtodx2 * (1.0 - Cj1) * f21j1;
+			phi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			phi[12] =  Crat * hdtodx3 * (1.0 - Ck1) * f31k1;
+			phi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+		}
+
+		if(psi != NULL){
+			psi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f32k0;
+			psi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+			psi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
+			psi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			psi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
+			psi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			psi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22   
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * f32   
+			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f22) * velocity_y + f21 * velocity_x + f32 * velocity_z) 
+			       + dt * Sigma_aE * velocity_y;
+			psi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
+				     + Crat * dt * (Sigma_aF + Sigma_sF);
+			psi[8] =  Crat * hdtodx1 * (1.0 - Ci1) * f21i1;
+			psi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			psi[10] = Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
+			psi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			psi[12] = Crat * hdtodx3 * (1.0 - Ck1) * f32k1;
+			psi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+		}
+		
+		if(varphi != NULL){
+			varphi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f33k0;
+			varphi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+			varphi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f32j0;
+			varphi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			varphi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * f31i0;
+			varphi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			varphi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f31
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f32   
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * f33   
+			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f33) * velocity_z + f31 * velocity_x + f32 * velocity_y) 
+			       + dt * Sigma_aE * velocity_z;
+			varphi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
+				     + Crat * dt * (Sigma_aF + Sigma_sF);
+			varphi[8] =  Crat * hdtodx1 * (1.0 - Ci1) * f31i1;
+			varphi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			varphi[10] = Crat * hdtodx2 * (1.0 - Cj1) * f32j1;
+			varphi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * f33k1;
+			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+		}
+	}
+	else{
+		printf("Wrong Dim in matrix_coef: %d\n",DIM);
+
+	}
+
+}
+
+
+
+/* The reduced factor for radiation subsystem */
+/* Eddington tensor is included here */
+/* Absolution value of minimum velocity, actual value should include velocity */
+void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const Real Edd, const Real velocity, Real *alpha, int flag, Real dl){
+	
+/* Edd is the Eddington tensor, do not include velocity dependence part*/
+/* dx is cell size */
+/* if flag = 1, for maximum velocity. if flag = -1, for minimum velocity */
+
+	Real Sigma_aF, Sigma_sF, tau, taucell;
+	Real reducefactor;
+	
+
+	Sigma_sF = Sigma[0];
+	Sigma_aF = Sigma[1];
+	/* reduce the speed for even pure absorption opacity to reduce diffusion */
+
+
+	tau = dt * Crat * fabs(Sigma_sF + Sigma_aF);
+	tau = tau * tau / (2.0 * Edd);
+
+	if(tau < 1.0){
+		reducefactor = sqrt(Edd);
+	}	
+	else{
+		reducefactor = sqrt(Edd * (1.0 - exp(- tau)) / tau);			
+	}
+
+	/* add the advection velocity part */
+	reducefactor += (1.0 + Edd) * fabs(velocity) / Crat;
+
+	*alpha = reducefactor;	
+
+}
 
 
 

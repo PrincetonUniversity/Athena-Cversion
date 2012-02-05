@@ -57,8 +57,7 @@ Real radtrans_dt(DomainS *pD)
   qa = 3.0 * (dxmin * dxmin) / (PI * PI);
 
   nu_con = CPrat *16.0 * PI * Gamma_1/ R_ideal;
-  //nu_con = CPrat * 4.0 * PI * Gamma_1/ R_ideal;
-  
+
   if (pG->Nx[0] > 1) {
     ioff = nghost - 1;
   } else ioff = 0;

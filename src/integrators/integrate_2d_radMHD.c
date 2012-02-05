@@ -277,6 +277,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x) * U1d[i-1].Er / Crat))/Crat)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[i-1].d; 
 
+
 		if(Opacity != NULL) Opacity(U1d[i-1].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
@@ -376,7 +377,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ velocity_y
 			* (U1d[i].Fr2 - ((1.0 + U1d[i].Edd_22) * velocity_y + U1d[i].Edd_21 * velocity_x) * U1d[i].Er / Crat))/Crat)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[i].d; 
-				
+
+			
 		if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
@@ -644,6 +646,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[j-1].Fr2 - ((1.0 + U1d[j-1].Edd_22) * velocity_y + U1d[j-1].Edd_21 * velocity_x) * U1d[j-1].Er / Crat))/Crat)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[j-1].d; 
 
+		
 
 		if(Opacity != NULL) Opacity(U1d[j-1].d, temperature, NULL, dSigma);
 		
@@ -749,7 +752,8 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ velocity_y
 			* (U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x) * U1d[j].Er / Crat))/Crat)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[j].d; 
-	
+
+		
 		if(Opacity != NULL) Opacity(U1d[j].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
@@ -1775,6 +1779,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
 
+		
 
 	/*--------Calculate the guess solution-------------*/
 	
@@ -1889,7 +1894,10 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 	/*================== End static gravitational flux ================*/
-
+		if(!Erflag){
+			/* source term is added seperately */
+			Source[4] = 0.0;
+		}
 
 		for(n=0; n<5; n++) {
 			tempguess[n] = 0.0;
@@ -1901,8 +1909,21 @@ void integrate_2d_radMHD(DomainS *pD)
 		Uguess[0] = pG->U[ks][j][i].d + tempguess[0];
 		Uguess[1] = pG->U[ks][j][i].M1 + tempguess[1];
 		Uguess[2] = pG->U[ks][j][i].M2 + tempguess[2];
-				Uguess[3] = pG->U[ks][j][i].M3;
+		Uguess[3] = pG->U[ks][j][i].M3;
 		Uguess[4] = pG->U[ks][j][i].E + tempguess[4];
+		
+		if(!Erflag){
+
+			/* add the radiation work term */
+			pG->Ersource[ks][j][i] +=  dt * (Sigma_aF - Sigma_sF) * 
+			(velocity_x * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
+			+ pG->U[ks][j][i].Edd_21 * velocity_y) * pG->U[ks][j][i].Er / Crat) 
+			+ velocity_y * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat)); 
+
+			Uguess[4] += - Prat * pG->Ersource[ks][j][i];
+		}
+
 
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
@@ -2168,28 +2189,22 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		
 		/* Estimate the added radiation source term  */
+		if(Erflag){
+
 		if(Prat > 0.0){
-			pG->Tguess[ks][j][i] = Uguess[4] + tempguess[4] - 
+			pG->Ersource[ks][j][i] = Uguess[4] + tempguess[4] - 
 				(pG->U[ks][j][i].E - dt * (divFlux1[4] + divFlux2[4]));
 
 #ifdef SHEARING_BOX
-			pG->Tguess[ks][j][i] -= ShearSource[3];
+			pG->Ersource[ks][j][i] -= ShearSource[3];
 #endif
 
 #ifdef CONS_GRAVITY
-			pG->Tguess[ks][j][i] -= 0.5*(pG->U[ks][j][i].d-grav_mean_rho)*pG->Phi_old[ks][j][i]-0.5*(density_old[j][i]-grav_mean_rho)*pG->Phi[ks][j][i];
+			pG->Ersource[ks][j][i] -= 0.5*(pG->U[ks][j][i].d-grav_mean_rho)*pG->Phi_old[ks][j][i]-0.5*(density_old[j][i]-grav_mean_rho)*pG->Phi[ks][j][i];
 #endif
 
-			pG->Tguess[ks][j][i] /= -Prat;
-			pG->Ersource[ks][j][i] = pG->Tguess[ks][j][i];
-
-			if(Sigma_aP > TINY_NUMBER){
-					pG->Tguess[ks][j][i] = (1.0/(dt * Crat * Sigma_aP) + Sigma_aE/Sigma_aP) * pG->Tguess[ks][j][i] + Sigma_aE * pG->U[ks][j][i].Er / Sigma_aP;
-			}
-			else{
-				pG->Tguess[ks][j][i] = pG->U[ks][j][i].Er;
-			}
-
+			pG->Ersource[ks][j][i] /= -Prat;
+			
 		}
 		else{
 			pG->Tguess[ks][j][i] = pG->U[ks][j][i].Er;
@@ -2197,17 +2212,26 @@ void integrate_2d_radMHD(DomainS *pD)
 			
 		}
 
-
+		} /* End Erflag */
 
 		/* change due to radiation source term */
 		/* This is used for shearing-box */
-		pG->U[ks][j][i].d = Uguess[0] + tempguess[0];
-		pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
-		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];
-		/*Source[3] = Uguess[3] + tempguess[3] - pG->U[k][j][i].M3;
-		*/
-		pG->U[ks][j][i].E = Uguess[4] + tempguess[4];
-
+		if(!Erflag){
+			pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
+			pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
+			pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
+			pG->U[ks][j][i].E  = Uguess[4];
+			/* radiation energy source is added directly */
+				
+		}
+		else{
+			pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
+			pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
+			pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
+			pG->U[ks][j][i].E  = Uguess[4] + tempguess[4];
+		}
+		
+		
 		/*========================================================*/
 		/* In 2D version , we always assume Fr_3 = 0. So we do not need source term for M3.*/
 		/* otherwise, we have to go to 3D version of matrix to solve Fr_3 */
@@ -2249,6 +2273,28 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 #endif /* radiation MHD part */
+
+
+
+	/* calculate pG->Tguess after magnetic field is updated */
+		for (j=js; j<=je; j++) {
+      			for (i=is; i<=ie; i++) {
+
+				pressure = pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 + pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 + pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / pG->U[ks][j][i].d;
+#ifdef RADIATION_MHD
+				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c);
+#endif
+
+				pressure *= (Gamma - 1.0);
+
+				temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
+
+				pG->Tguess[ks][j][i] = pow(temperature, 4.0);
+
+			}
+		}
+	
+
 
 /*=========================================================*/
 /* Add non-stiff source term due to static gravity */
