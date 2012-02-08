@@ -1881,55 +1881,31 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 
 	if(DIM == 1){
 		if(pMat != NULL){
-			if(pMat->U[k][j][i].rho >  pMat->U[k][j][i-1].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
 
-			if(pMat->U[k][j][i].rho <  pMat->U[k][j][i-1].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
 
-			if(pMat->U[k][j][i+1].rho >  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
 
-			if(pMat->U[k][j][i+1].rho <  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
 			
 
 		}
 		else if(pG != NULL){
-			if(pG->U[k][j][i].Er >  pG->U[k][j][i-1].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
 
-			if(pG->U[k][j][i].Er <  pG->U[k][j][i-1].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
 
-			if(pG->U[k][j][i+1].Er >  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
 
-			if(pG->U[k][j][i+1].Er <  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
 		
 			
@@ -1951,102 +1927,53 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 
 	if(DIM == 2){
 		if(pMat != NULL){
-			if(pMat->U[k][j][i].rho >  pMat->U[k][j-1][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
 
-			if(pMat->U[k][j][i].rho >  pMat->U[k][j][i-1].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
 
-			if(pMat->U[k][j][i].rho <  pMat->U[k][j][i-1].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;		
+					
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
 
-			if(pMat->U[k][j][i+1].rho >  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
 
-			if(pMat->U[k][j][i].rho <  pMat->U[k][j-1][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
 
-			if(pMat->U[k][j+1][i].rho >  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+		
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
 
-			if(pMat->U[k][j][i+1].rho <  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+
 			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
 
-			if(pMat->U[k][j+1][i].rho <  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
 			
 		}
 		else if(pG != NULL){
-			if(pG->U[k][j][i].Er >  pG->U[k][j-1][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
 
-			if(pG->U[k][j][i].Er >  pG->U[k][j][i-1].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
 
-			if(pG->U[k][j][i].Er <  pG->U[k][j][i-1].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;		
+					
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
 
-			if(pG->U[k][j][i+1].Er >  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
 
-			if(pG->U[k][j][i].Er <  pG->U[k][j-1][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
 
-			if(pG->U[k][j+1][i].Er >  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
 
-			if(pG->U[k][j][i+1].Er <  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
 			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
 
-			if(pG->U[k][j+1][i].Er <  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
 			
 		
@@ -2082,77 +2009,40 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	if(DIM == 3){
 	
 		if(pMat != NULL){
-			if(pMat->U[k][j][i].rho >  pMat->U[k-1][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k-1][j][i].Sigma, dt, pMat->U[k-1][j][i].Edd_33, velocity_z, &alphak0, -1, dz);
 
-			if(pMat->U[k][j][i].rho >  pMat->U[k][j-1][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
 
-			if(pMat->U[k][j][i].rho >  pMat->U[k][j][i-1].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);			
 
-			if(pMat->U[k][j][i].rho <  pMat->U[k][j][i-1].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
 
-			if(pMat->U[k][j][i+1].rho >  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
 
-			if(pMat->U[k][j][i].rho <  pMat->U[k][j-1][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
 
-			if(pMat->U[k][j+1][i].rho >  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
 
-			if(pMat->U[k][j][i].rho <  pMat->U[k-1][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, velocity_z, &alphakmax, 1, dz);
 
-			if(pMat->U[k+1][j][i].rho >  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, velocity_z, &alphak, -1, dz);
 
-
-			if(pMat->U[k][j][i+1].rho <  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;			
+						
 			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
 
-			if(pMat->U[k][j+1][i].rho <  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;			
+					
 			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
 
-			if(pMat->U[k+1][j][i].rho <  pMat->U[k][j][i].rho)
-				direction = 1.0;
-			else 
-				direction = 0.0;			
+						
 			matrix_alpha(direction, pMat->U[k+1][j][i].Sigma, dt, pMat->U[k+1][j][i].Edd_33, velocity_z, &alphak1max, 1, dz);
 			
 			
@@ -2160,77 +2050,41 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			
 		}
 		else if(pG != NULL){
-			if(pG->U[k][j][i].Er >  pG->U[k-1][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			/* Direction is not used anymore */			
+
 			matrix_alpha(direction, pG->U[k-1][j][i].Sigma, dt, pG->U[k-1][j][i].Edd_33, velocity_z, &alphak0, -1, dz);
 
-			if(pG->U[k][j][i].Er >  pG->U[k][j-1][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
 
-			if(pG->U[k][j][i].Er >  pG->U[k][j][i-1].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);			
 
-			if(pG->U[k][j][i].Er <  pG->U[k][j][i-1].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
 
-			if(pG->U[k][j][i+1].Er >  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
 
-			if(pG->U[k][j][i].Er <  pG->U[k][j-1][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
 
-			if(pG->U[k][j+1][i].Er >  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
 
-			if(pG->U[k][j][i].Er <  pG->U[k-1][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, velocity_z, &alphakmax, 1, dz);
 
-			if(pG->U[k+1][j][i].Er >  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;
+			
 			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, velocity_z, &alphak, -1, dz);
 
-
-			if(pG->U[k][j][i+1].Er <  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;			
+					
 			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
 
-			if(pG->U[k][j+1][i].Er <  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;			
+					
 			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
 
-			if(pG->U[k+1][j][i].Er <  pG->U[k][j][i].Er)
-				direction = 1.0;
-			else 
-				direction = 0.0;			
+						
 			matrix_alpha(direction, pG->U[k+1][j][i].Sigma, dt, pG->U[k+1][j][i].Edd_33, velocity_z, &alphak1max, 1, dz);
 		
 			
@@ -2278,7 +2132,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	if(DIM == 1){
 		/* Assuming the velocity is already the original velocity in case of FARGO */	
 			/* k - 1*/
-		if(theta != NULL){
+		
 			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
 			theta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax 
@@ -2287,9 +2141,8 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;			
 			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
-		}	
+		
 
-		if(phi != NULL){
 			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
 			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * f11 
@@ -2299,14 +2152,12 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
 			phi[4] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
 			phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-		}	
 
-			
 
 	}
 	else if(DIM == 2){
 				
-		if(theta != NULL){	
+			
 			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
 			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
 			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
@@ -2324,10 +2175,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
 			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
-		}	
-			
-			
-		if(phi != NULL){
+		
 			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
 			phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
 			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
@@ -2343,10 +2191,8 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
 			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * f21i1;
 			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
-		}	
+		
 
-
-		if(psi != NULL){
 			psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
 			psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
 			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
@@ -2362,7 +2208,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
 			psi[8] =  Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
 			psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
-		}	
+			
 
 			
 
@@ -2370,9 +2216,8 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	else if(DIM == 3){
 		/* Assuming the velocity is already the original velocity in case of FARGO */	
 			/* k - 1*/
-			
-			
-		if(theta != NULL){	
+		
+	
 			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
 			theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
 			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
@@ -2398,9 +2243,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
 			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
 			theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
-		}	
 			
-		if(phi != NULL){	
 			phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f31k0;
 			phi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
 			phi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
@@ -2422,9 +2265,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			phi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 			phi[12] =  Crat * hdtodx3 * (1.0 - Ck1) * f31k1;
 			phi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
-		}
-
-		if(psi != NULL){
+		
 			psi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f32k0;
 			psi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
 			psi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
@@ -2446,9 +2287,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			psi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 			psi[12] = Crat * hdtodx3 * (1.0 - Ck1) * f32k1;
 			psi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
-		}
 		
-		if(varphi != NULL){
 			varphi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f33k0;
 			varphi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
 			varphi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f32j0;
@@ -2470,7 +2309,7 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			varphi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 			varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * f33k1;
 			varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
-		}
+		
 	}
 	else{
 		printf("Wrong Dim in matrix_coef: %d\n",DIM);
@@ -2509,15 +2348,32 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 		reducefactor = sqrt(Edd * (1.0 - exp(- tau)) / tau);			
 	}
 
-	/* add the advection velocity part */
-	reducefactor += (1.0 + Edd) * fabs(velocity) / Crat;
+	/* Do not add the advection velocity part */
+	/* This may make the matrix hard to converge and result in energy error */
+/*	reducefactor += (1.0 + Edd) * fabs(velocity) / Crat;
+*/
 
 	*alpha = reducefactor;	
 
 }
 
+void vector_product(const Real *v1, const Real *v2, const int dim, Real *result)
+{
+	/* calculate the inner produce of two vectors (v1, v2) */
+	int i;
+	Real temp;
+	temp = 0.0;
 
+	for(i=0; i<dim; i++){
+		temp += v1[i] * v2[i];
+	}
+
+	*result = temp;
+
+}
 
 #endif 
 /* end radiation_hydro or radiation_MHD */
+
+
 

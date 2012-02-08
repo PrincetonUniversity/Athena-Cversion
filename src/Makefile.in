@@ -83,7 +83,11 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/MatrixSolver/Jacobi3D.o \
 		  integrators/MatrixSolver/Jacobi2D.o \
 		  integrators/MatrixSolver/bvals_Matrix.o \
-		  integrators/MatrixSolver/bvals_Matrix_shear.o
+		  integrators/MatrixSolver/bvals_Matrix_shear.o \
+		  integrators/MatrixSolver/Bicgsafe3D.o \
+		  integrators/MatrixSolver/bvals_matrix_vector.o \
+		  integrators/MatrixSolver/bvals_matrix_vector_shear.o
+		
 
 
 

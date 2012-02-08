@@ -2288,9 +2288,9 @@ void integrate_2d_radMHD(DomainS *pD)
 				pressure *= (Gamma - 1.0);
 
 				temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
-
+			/*
 				pG->Tguess[ks][j][i] = pow(temperature, 4.0);
-
+			*/
 			}
 		}
 	

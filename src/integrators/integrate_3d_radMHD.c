@@ -3834,7 +3834,10 @@ void integrate_3d_radMHD(DomainS *pD)
 
 				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
 
-				pG->Tguess[k][j][i] = pow(temperature, 4.0);
+				/* This can cause trouble when temperature is small */
+		/*		pG->Tguess[k][j][i] = pow(temperature, 4.0);
+		*/
+			
 
 			}
 		}

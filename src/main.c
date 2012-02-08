@@ -680,6 +680,14 @@ int main(int argc, char *argv[])
 #endif
 #endif /* FARGO */
 
+
+	
+	/* must update boundary condition for Er as energy source term is added in integrator */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif
+
+ 
         }
       }
     }

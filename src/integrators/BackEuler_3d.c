@@ -6,7 +6,9 @@
  * First set up the matrix
  * Then solve the matrix equations.
  * We need the flag for boundary condition.
- *
+ * There are three algorithms now: Jacobi, Gauss-Seidel and Bicgsafe 
+ * Bicgsafe prefer to do more iterations during each level, just one W cycle may be enough  
+ * 
  * Backward Euler should be used for the whole mesh
  *
  * CONTAINS PUBLIC FUNCTIONS: 
@@ -41,24 +43,30 @@ static MatrixS *pMat;
 
 static Real ****INIerror;
 
+static Real INInorm;
+/* The initial L2 norm of the right hand side   *
+ * The convergence criterian is
+ * ||r_n||_2 / ||r_0||_2  < Small number 	*
+ */ 
 
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
-static int Wcyclelim = 15; /* The limit of how many Wcycle we allow */ 
+static int Wcyclelim = 5; /* The limit of how many Wcycle we allow */ 
 
-static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method */
-			  /* 1 is GS method while 0 is Jacobi method */
+static int Matrixflag = 2; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method, or Bicgsafe */
+			  /* 1 is GS method while 0 is Jacobi method , 2 is Bicgsafe method*/
 
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
 
 
 /********Private function ************/
-static Real CheckResidual(MatrixS *pMat, GridS *pG);
+static Real CheckResidual(MatrixS *pMat, Real ****vector); /* This function basically calculates the L2 norm of vector */
 static void RadMHD_multig_3D(MatrixS *pMat);
 
 static void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse);
 
 static void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat);
+
 
 static void RHSResidual3D(MatrixS *pMat, Real ****newRHS);
 
@@ -237,7 +245,8 @@ void BackEuler_3d(MeshS *pM)
 
 /* Only do this if background state is subtracted */
 /* For inflow boundary condition, if background state is subtracted, ghost zones in the matrix should always set to be zero */
-if(pMat->bgflag){
+/* Bicgsafe always work with residual */
+if((pMat->bgflag) || (Matrixflag == 2)){
 	/* calculate the residual */
 	RHSResidual3D(pMat, INIerror);
 
@@ -261,6 +270,8 @@ if(pMat->bgflag){
 	/* Right hand side in the ghost zones are never used */
 }
 
+	/* calculate the initial norm of the right hand side */
+	INInorm = CheckResidual(pMat, pMat->RHS);
 
 		
 	/* Do the multi-grid W cycle */
@@ -274,7 +285,22 @@ if(pMat->bgflag){
 		RadMHD_multig_3D(pMat);
 
 		/* for parent grid, check residual */
-		error = fabs(CheckResidual(pMat,pG));
+		/* Bicgsafe works different from GS and Jacobi */
+		/* pMat->RHS is changed during each iteration for Bicgsafe */
+		if((Matrixflag == 0) || (Matrixflag == 1)){
+			/* calculate the residual */
+			RHSResidual3D(pMat, INIerror);
+			error = CheckResidual(pMat,INIerror);
+		}
+		else if(Matrixflag == 2){
+			error = CheckResidual(pMat,pMat->RHS);
+		}	
+		else{
+			ath_error("[BackEuler3D: unknown matrix solver!\n]");
+		}
+		
+
+		error /= INInorm;
 
 		if(error != error)
 			ath_error("[BackEuler3D]: NaN encountered!\n");
@@ -393,12 +419,17 @@ void RadMHD_multig_3D(MatrixS *pMat)
 #endif
 
 		
-		if(Matrixflag){
+		if(Matrixflag == 1){
 			GaussSeidel3D(pMat);
 		}
-		else{
+		else if(Matrixflag == 0){
 			Jacobi3D(pMat);
 		}
+		else if(Matrixflag == 2){
+			Bicgsafe3D(pMat);
+		}
+		else
+			ath_error("[BackEuler3D: unknown matrix solver!\n]");
 
 		
 		bvals_Matrix_destruct(pMat);
@@ -407,7 +438,6 @@ void RadMHD_multig_3D(MatrixS *pMat)
 		bvals_Matrix_shear_destruct();
 #endif
 
-		
 
 	}
 	else{
@@ -457,7 +487,8 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 		/* Add the correction back to the fine grid */
 		prolongation3D(&pMat_coarse, pMat);
-
+		
+		
 		/* First destroy the coarse grid */
 
 		free_3d_array(pMat_coarse.U);
@@ -474,13 +505,26 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 		/* Update the ghost zones first */
 		bvals_Matrix(pMat);
+
+
+		/* update the residual after prolongation*/
+		/* It is no longer the original sequence after prolongation */
+		if(Matrixflag == 2){
+			RHSResidual3D(pMat, pMat->RHS);
+		}
+
 		
-		if(Matrixflag){
+		if(Matrixflag == 1){
 			GaussSeidel3D(pMat);
 		}
-		else{
+		else if(Matrixflag == 0){
 			Jacobi3D(pMat);
 		}
+		else if(Matrixflag == 2){
+			Bicgsafe3D(pMat);
+		}
+		else
+			ath_error("[BackEuler3D: unknown matrix solver!\n]");
 		
 #ifdef SHEARING_BOX
 		bvals_Matrix_shear_destruct();
@@ -528,7 +572,8 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 			/* Add the correction back to the fine grid */
 			prolongation3D(&pMat_coarse, pMat);
-
+			
+		
 			/* First destroy the coarse grid */
 
 			free_3d_array(pMat_coarse.U);
@@ -542,14 +587,31 @@ void RadMHD_multig_3D(MatrixS *pMat)
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_init(pMat);
 #endif
+		
+
 			/* Update the ghost zones first */
 			bvals_Matrix(pMat);
-			if(Matrixflag){
+
+			/* update the residual after prolongation*/
+			/* It is no longer the original sequence after prolongation */
+			if(Matrixflag == 2){
+				RHSResidual3D(pMat, pMat->RHS);
+			}
+
+			
+
+
+			if(Matrixflag == 1){
 				GaussSeidel3D(pMat);
 			}
-			else{
+			else if(Matrixflag == 0){
 				Jacobi3D(pMat);
 			}
+			else if(Matrixflag == 2){
+				Bicgsafe3D(pMat);
+			}
+			else
+				ath_error("[BackEuler3D: unknown matrix solver!\n]");
 		
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_destruct();
@@ -698,11 +760,12 @@ void BackEuler_destruct_3d()
 /*==========================================*/
 /* Check the residual after one cycle */
 /* This is the stop criterian */
-Real CheckResidual(MatrixS *pMat, GridS *pG)
+Real CheckResidual(MatrixS *pMat, Real ****vector)
 {
-	Real Residual = 0.0;
-	Real Norm = 0.0;
 
+	/* This function calculate the norm of the right hand side */
+	Real Norm;
+	Real normtemp;
 
 	int i, j, k;
 	int is, ie, js, je, ks, ke;
@@ -715,169 +778,28 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 
 #ifdef MPI_PARALLEL
 	int ierr;
-	double tot_residual = 0.0, tot_norm = 0.0;
+	double tot_norm = 0.0;
 #endif
 
-	
-
-	int diffghost = nghost - Matghost;
-
-	/* To store the coefficient */
-	Real theta[16];
-	Real phi[16];
-	Real psi[16];
-	Real varphi[16];
-	Real velocity_x, velocity_y, velocity_z;
-	
-
-	/* Temporary variables to setup the matrix */
-	Real T4, Sigma_aP;
-	Real dt = pMat->dt;
+	Norm = 0.0;
 
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){
-
-
-			
-			T4 = pMat->U[k][j][i].T4;
-				 	
-			Sigma_aP = pMat->U[k][j][i].Sigma[2];		
-			
-			velocity_x = pMat->U[k][j][i].V1;
-			velocity_y = pMat->U[k][j][i].V2;
-			velocity_z = pMat->U[k][j][i].V3;
-
+			for(i=is; i<=ie; i++){			
+				vector_product(vector[k][j][i],vector[k][j][i], 4 , &normtemp);
+				Norm += normtemp;							
+			}	
 		
-			
-			matrix_coef(pMat, NULL, 3, i, j, k, 0.0, &(theta[0]), &(phi[0]), &(psi[0]), &(varphi[0]));
-			
-				
-			/* Relative Residual should be with respect to original right hand side */
-			if(pMat->bgflag){
-				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Er + pG->dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k+diffghost][j+diffghost][i+diffghost]);
-			}
-			else{
-				Norm += fabs(pMat->RHS[k][j][i][0]);
-			}
-			Residual += pMat->RHS[k][j][i][0];
-			Residual -= theta[0] * pMat->U[k-1][j][i].Er;
-			Residual -= theta[1] * pMat->U[k-1][j][i].Fr3;
-			Residual -= theta[2] * pMat->U[k][j-1][i].Er;
-			Residual -= theta[3] * pMat->U[k][j-1][i].Fr2;
-			Residual -= theta[4] * pMat->U[k][j][i-1].Er;
-			Residual -= theta[5] * pMat->U[k][j][i-1].Fr1;
-			Residual -= theta[6] * pMat->U[k][j][i].Er;
-			Residual -= theta[7] * pMat->U[k][j][i].Fr1;
-			Residual -= theta[8] * pMat->U[k][j][i].Fr2;
-			Residual -= theta[9] * pMat->U[k][j][i].Fr3;
-			Residual -= theta[10] * pMat->U[k][j][i+1].Er;
-			Residual -= theta[11] * pMat->U[k][j][i+1].Fr1;
-			Residual -= theta[12] * pMat->U[k][j+1][i].Er;
-			Residual -= theta[13] * pMat->U[k][j+1][i].Fr2;
-			Residual -= theta[14] * pMat->U[k+1][j][i].Er;
-			Residual -= theta[15] * pMat->U[k+1][j][i].Fr3;
-
-			/* Notice that T4 should be T4Fr, but it doesn't matter */
-			if(pMat->bgflag){
-				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
-			}
-			else{
-				Norm += fabs(pMat->RHS[k][j][i][1]);
-			}
-			Residual += pMat->RHS[k][j][i][1];
-			Residual -= phi[0] * pMat->U[k-1][j][i].Er;
-			Residual -= phi[1] * pMat->U[k-1][j][i].Fr1;
-			Residual -= phi[2] * pMat->U[k][j-1][i].Er;
-			Residual -= phi[3] * pMat->U[k][j-1][i].Fr1;
-			Residual -= phi[4] * pMat->U[k][j][i-1].Er;
-			Residual -= phi[5] * pMat->U[k][j][i-1].Fr1;
-			Residual -= phi[6] * pMat->U[k][j][i].Er;
-			Residual -= phi[7] * pMat->U[k][j][i].Fr1;
-			Residual -= phi[8] * pMat->U[k][j][i+1].Er;
-			Residual -= phi[9] * pMat->U[k][j][i+1].Fr1;
-			Residual -= phi[10] * pMat->U[k][j+1][i].Er;
-			Residual -= phi[11] * pMat->U[k][j+1][i].Fr1;
-			Residual -= phi[12] * pMat->U[k+1][j][i].Er;
-			Residual -= phi[13] * pMat->U[k+1][j][i].Fr1;
-
-			if(pMat->bgflag){
-				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
-			}
-			else{
-				Norm += fabs(pMat->RHS[k][j][i][2]);
-			}
-
-			Residual += pMat->RHS[k][j][i][2];
-			Residual -= psi[0] * pMat->U[k-1][j][i].Er;
-			Residual -= psi[1] * pMat->U[k-1][j][i].Fr2;
-			Residual -= psi[2] * pMat->U[k][j-1][i].Er;
-			Residual -= psi[3] * pMat->U[k][j-1][i].Fr2;
-			Residual -= psi[4] * pMat->U[k][j][i-1].Er;
-			Residual -= psi[5] * pMat->U[k][j][i-1].Fr2;
-			Residual -= psi[6] * pMat->U[k][j][i].Er;
-			Residual -= psi[7] * pMat->U[k][j][i].Fr2;
-			Residual -= psi[8] * pMat->U[k][j][i+1].Er;
-			Residual -= psi[9] * pMat->U[k][j][i+1].Fr2;
-			Residual -= psi[10] * pMat->U[k][j+1][i].Er;
-			Residual -= psi[11] * pMat->U[k][j+1][i].Fr2;
-			Residual -= psi[12] * pMat->U[k+1][j][i].Er;
-			Residual -= psi[13] * pMat->U[k+1][j][i].Fr2;
-
-			if(pMat->bgflag){
-				Norm += fabs(pG->U[k+diffghost][j+diffghost][i+diffghost].Fr3 + dt * Sigma_aP * T4 * velocity_z);
-			}
-			else{
-				Norm += fabs(pMat->RHS[k][j][i][3]);		
-			}
-
-			Residual += pMat->RHS[k][j][i][3];
-			Residual -= varphi[0] * pMat->U[k-1][j][i].Er;
-			Residual -= varphi[1] * pMat->U[k-1][j][i].Fr3;
-			Residual -= varphi[2] * pMat->U[k][j-1][i].Er;
-			Residual -= varphi[3] * pMat->U[k][j-1][i].Fr3;
-			Residual -= varphi[4] * pMat->U[k][j][i-1].Er;
-			Residual -= varphi[5] * pMat->U[k][j][i-1].Fr3;
-			Residual -= varphi[6] * pMat->U[k][j][i].Er;
-			Residual -= varphi[7] * pMat->U[k][j][i].Fr3;
-			Residual -= varphi[8] * pMat->U[k][j][i+1].Er;
-			Residual -= varphi[9] * pMat->U[k][j][i+1].Fr3;
-			Residual -= varphi[10] * pMat->U[k][j+1][i].Er;
-			Residual -= varphi[11] * pMat->U[k][j+1][i].Fr3;
-			Residual -= varphi[12] * pMat->U[k+1][j][i].Er;
-			Residual -= varphi[13] * pMat->U[k+1][j][i].Fr3;	
-
-	}
-
-		
-	/* MPI call to collect error from different CPUs */
+	/* MPI call to collect norm from different CPUs */
 
 
 #ifdef MPI_PARALLEL
-	ierr = MPI_Reduce(&Residual,&tot_residual,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+	ierr = MPI_Allreduce(&Norm,&tot_norm,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
-	ierr = MPI_Reduce(&Norm,&tot_norm,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-
-	/* If I'm the parent, copy the sum back to the total_error variable */
-	Residual /= Norm;
-
-    if(pMat->ID == 0){
-	Norm = tot_norm;
-	Residual = tot_residual;
-
-	/* Relative residual */
-	Residual /= Norm;
-
-    }
-
-    MPI_Bcast(&Residual,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
-
-#else
-	Residual /= Norm;
-  
+	Norm = tot_norm;  
 #endif	
 
-	return Residual;
+	return Norm;
 
 }
 
@@ -1024,6 +946,7 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 	return;
 }
+
 
 
 void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
@@ -1211,8 +1134,6 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 	return;
 
 }
-
-
 
 
 /* Prolongation scheme adopted from SMR */

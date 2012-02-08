@@ -16,7 +16,10 @@ CORE_OBJ = bandec.o \
 	   Jacobi2D.o \
 	   Jacobi3D.o \
 	   bvals_Matrix.o \
-	   bvals_Matrix_shear.o 
+	   bvals_Matrix_shear.o \
+	   Bicgsafe3D.o	\
+	   bvals_matrix_vector.o \
+	   bvals_matrix_vector_shear.o 
 
 
 OBJ = $(CORE_OBJ)

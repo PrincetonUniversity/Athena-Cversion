@@ -48,6 +48,17 @@ void mgmres_st ( int n, int nz_num, int ia[], int ja[], double a[],
   double x[], double rhs[], int itr_max, int mr, double tol_abs, 
   double tol_rel );
 
+/* Function for multigrid matrix solver */
+
+Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real vshear, Real *theta, Real *phi, Real *psi, Real *varphi);
+
+void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const Real Edd, const Real velocity, Real *alpha, int flag, Real dl);
+
+/* This function is in utils.c */
+#ifdef MATRIX_MULTIGRID
+void vector_product(const Real *v1, const Real *v2, const int dim, Real *result);
+void matrix_vector_product3D(Real *theta, Real *phi, Real *psi, Real *varphi, int i, int j, int k, Real ****vector, Real *result);
+#endif
 
 #endif
 
