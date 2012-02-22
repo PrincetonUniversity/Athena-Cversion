@@ -109,6 +109,9 @@
 /* fargo: FARGO or NO_FARGO */
 #define @FARGO_MODE@
 
+/* rad_fargo: RADFARGO or NO_RADFARGO */
+#define @RADFARGO_MODE@
+
 /* L/R integration style: HLL_ALL_WAVE or NOT_HLL_ALL_WAVE */
 #define @HLL_ALL_WAVE_MODE@
 

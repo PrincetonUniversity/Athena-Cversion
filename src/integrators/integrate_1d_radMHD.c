@@ -96,7 +96,7 @@ void integrate_1d_radMHD(DomainS *pD)
 	
 	
 	Real temperature, velocity, pressure, Tguess;
-
+	Real Prwork1, Prwork2, Prworksource;
 	/* magnetic field is not included in guess and predict step.
 	 * So these variables have fixed size */
 	Real Source_Inv[5][5], tempguess[5], Source[5];
@@ -481,13 +481,9 @@ for(i=il+1; i<=iu-1; i++) {
 	Source[4] = - Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + (Sigma_aF - Sigma_sF) * velocity
 		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
+	Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
 
 
-	if(!Erflag){		
-		/* energy source term is added seperately */
-		Source[4] = 0.0;
-	}
-	
 
 	pdivFlux = (Real*)&(divFlux);
 	pfluxr = (Real*)&(x1Flux[i+1]);
@@ -561,6 +557,8 @@ for(i=il+1; i<=iu-1; i++) {
 		tempguess[n] += dt * Source_Inv[n][m] * (Prat * Source[m] - pdivFlux[m]);
 		}
 	}
+
+		Prworksource = dt * Source_Inv[4][4] * Prwork1;
 	
 	/* copy U1d to Uguess, some of the variables will be updated here */
 	Uguess = U1d[i];
@@ -571,13 +569,6 @@ for(i=il+1; i<=iu-1; i++) {
 	for(m=0; m<5; m++)
 		pUguess[m]= pU1d[m] + tempguess[m];
 
-	if(!Erflag){
-
-		pG->Ersource[ks][js][i] += dt * (Sigma_aF - Sigma_sF) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
-
-		pUguess[4] += - Prat * pG->Ersource[ks][js][i];
-		
-	}
 
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
@@ -629,6 +620,9 @@ for(i=il+1; i<=iu-1; i++) {
 	+ velocity * (Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er)/Crat);
 	Source_guess[4] = - Crat * ((Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) + (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
+
+	Prwork2 = -Prat * (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
+
 	for(m=0; m<5; m++)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) * Prat 
 			- dt * pdivFlux[m] - pUguess[m];
@@ -647,49 +641,53 @@ for(i=il+1; i<=iu-1; i++) {
 	Source_Inv[4][1] = (-dt * Prat * Crat * SEm/ Det) * Source_Inv[1][1];
 	Source_Inv[4][4] = 1.0 / Det;
 
-	if(Erflag){
-		for(m=0; m<5; m++){
+
+	for(m=0; m<5; m++){
 			tempguess[m]=0.0;
 			for(n=0; n<5; n++){
 				tempguess[m] += Source_Inv[m][n] * Errort[n];
 			}
 			pU1d[m] = pUguess[m] + tempguess[m];
 
-		}
+	}
+
+
+/*	if(Erflag){
+		
 	}
 	else{
-		/* no correction for energy term if erflag = 0 */
+		
 		for(m=0; m<4; m++){
 			tempguess[m]=0.0;
 			for(n=0; n<4; n++){
 				tempguess[m] += Source_Inv[m][n] * Errort[n];
 			}
-			pU1d[m] = pUguess[m];
-
+			pU1d[m] = pUguess[m] + tempguess[m];
 		}
+			
+			pU1d[4] = pUguess[4];
 
 	}
+*/
+	Prworksource += Source_Inv[4][4] * (0.5 * dt * (Prwork1 + Prwork2) - Prworksource);
 
 	/* Estimate the added radiation source term  */
-	if(Erflag){
+	
 	if(Prat > 0.0){
-		pG->Tguess[ks][js][i] = pU1d[4] - (pG->U[ks][js][i].E - dt * pdivFlux[4]);
+		pG->Ersource[ks][js][i] = pU1d[4] - (pG->U[ks][js][i].E - dt * pdivFlux[4]);
 
 
 #ifdef CONS_GRAVITY
-		pG->Tguess[ks][js][i] -= 0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(density_old[i]-grav_mean_rho)*pG->Phi[ks][js][i];
+		pG->Ersource[ks][js][i] -= 0.5*(pG->U[ks][js][i].d-grav_mean_rho)*pG->Phi_old[ks][js][i]-0.5*(density_old[i]-grav_mean_rho)*pG->Phi[ks][js][i];
 #endif
 
-		pG->Tguess[ks][js][i] /= -Prat;
+		/* subtract the actual added radiation work term */
+	/*	pG->Ersource[ks][js][i] -= Prworksource;
+	*/
+		
+		pG->Ersource[ks][js][i] /= -Prat;
 
-		pG->Ersource[ks][js][i] = pG->Tguess[ks][js][i];		
-
-		if(Sigma_aP > TINY_NUMBER){
-			pG->Tguess[ks][js][i] = (1.0/(dt * Crat * Sigma_aP) + Sigma_aE/Sigma_aP) * pG->Tguess[ks][js][i] + Sigma_aE * pG->U[ks][js][i].Er / Sigma_aP;
-		}
-		else{
-			pG->Tguess[ks][js][i] = pG->U[ks][js][i].Er;
-		}
+		
 
 	}
 	else{
@@ -697,7 +695,7 @@ for(i=il+1; i<=iu-1; i++) {
 		pG->Ersource[ks][js][i] = 0.0;
 
 	}
-	}
+	
 
 	
 	/* Update the quantity in the Grids */
@@ -721,6 +719,15 @@ for(i=il+1; i<=iu-1; i++) {
 
 /*-----------Finish---------------------*/
 	} /* End big loop i */	
+		if(!Erflag){
+      			for (i=is; i<=ie; i++) {
+				/* Tguess now is the added energy source term in BackEuler step */
+				/* If Eratio = 0, Tguess is just the radiation work term */
+				 pG->U[ks][js][i].Er += (pG->Ersource[ks][js][i] - pG->Eulersource[ks][js][i]);
+
+			}
+    		}
+
 
 
  /* Add gravitational source terms as a Static Potential.

@@ -145,6 +145,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	
 
 	Real temperature, velocity_x, velocity_y, velocity_z, pressure, density, Tguess, Fr0x, Fr0y, diffTEr, velocity;
+	Real Prwork1, Prwork2, Prworksource;
 	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
 	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy;
 	Real dSigma[2*NOPACITY], dSigmadP[NOPACITY], Sigma[NOPACITY];
@@ -1733,6 +1734,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		velocity_y -= qom * x1;				
 	
 #endif				
+
 				
 		Sigma_sF = pG->U[ks][j][i].Sigma[0];
 		Sigma_aF = pG->U[ks][j][i].Sigma[1];
@@ -1777,7 +1779,14 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
 			+ (Sigma_aF - Sigma_sF) * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat); 
+
+		Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x
+			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
+			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)		
+			+ velocity_y
+			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat));
 
 		
 
@@ -1894,10 +1903,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 	/*================== End static gravitational flux ================*/
-		if(!Erflag){
-			/* source term is added seperately */
-			Source[4] = 0.0;
-		}
+		
 
 		for(n=0; n<5; n++) {
 			tempguess[n] = 0.0;
@@ -1906,24 +1912,15 @@ void integrate_2d_radMHD(DomainS *pD)
 			}
 		}
 
+		Prworksource = dt * Source_Inv[4][4] * Prwork1;
+
 		Uguess[0] = pG->U[ks][j][i].d + tempguess[0];
 		Uguess[1] = pG->U[ks][j][i].M1 + tempguess[1];
 		Uguess[2] = pG->U[ks][j][i].M2 + tempguess[2];
 		Uguess[3] = pG->U[ks][j][i].M3;
 		Uguess[4] = pG->U[ks][j][i].E + tempguess[4];
 		
-		if(!Erflag){
-
-			/* add the radiation work term */
-			pG->Ersource[ks][j][i] +=  dt * (Sigma_aF - Sigma_sF) * 
-			(velocity_x * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-			+ pG->U[ks][j][i].Edd_21 * velocity_y) * pG->U[ks][j][i].Er / Crat) 
-			+ velocity_y * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat)); 
-
-			Uguess[4] += - Prat * pG->Ersource[ks][j][i];
-		}
-
+		
 
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
@@ -2155,6 +2152,14 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ (Sigma_aF - Sigma_sF) * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
+
+
+		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x
+			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
+			+ pG->U[ks][j][i].Edd_21 * velocity_y) * pG->U[ks][j][i].Er / Crat)
+			+ velocity_y
+			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat));
 				
 				
 /* Calculate the shearing source term due to the guess solution */				
@@ -2187,9 +2192,10 @@ void integrate_2d_radMHD(DomainS *pD)
 			}
 		}
 
+		Prworksource += Source_Inv[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
 		
 		/* Estimate the added radiation source term  */
-		if(Erflag){
+		
 
 		if(Prat > 0.0){
 			pG->Ersource[ks][j][i] = Uguess[4] + tempguess[4] - 
@@ -2203,6 +2209,11 @@ void integrate_2d_radMHD(DomainS *pD)
 			pG->Ersource[ks][j][i] -= 0.5*(pG->U[ks][j][i].d-grav_mean_rho)*pG->Phi_old[ks][j][i]-0.5*(density_old[j][i]-grav_mean_rho)*pG->Phi[ks][j][i];
 #endif
 
+			/* Subtract the actual added work done by radiation force */
+			/* This is added seperately for the radiation subsystem */
+		/*	pG->Ersource[ks][j][i] -= Prworksource;
+		*/
+
 			pG->Ersource[ks][j][i] /= -Prat;
 			
 		}
@@ -2212,26 +2223,28 @@ void integrate_2d_radMHD(DomainS *pD)
 			
 		}
 
-		} /* End Erflag */
-
+		
 		/* change due to radiation source term */
 		/* This is used for shearing-box */
+		pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
+		pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
+		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
+		pG->U[ks][j][i].E  = Uguess[4] + tempguess[4];
+
+
+/*
 		if(!Erflag){
 			pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
 			pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
 			pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
 			pG->U[ks][j][i].E  = Uguess[4];
-			/* radiation energy source is added directly */
-				
+			
 		}
 		else{
-			pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
-			pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
-			pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
-			pG->U[ks][j][i].E  = Uguess[4] + tempguess[4];
+			
 		}
 		
-		
+*/		
 		/*========================================================*/
 		/* In 2D version , we always assume Fr_3 = 0. So we do not need source term for M3.*/
 		/* otherwise, we have to go to 3D version of matrix to solve Fr_3 */
@@ -2274,6 +2287,17 @@ void integrate_2d_radMHD(DomainS *pD)
 
 #endif /* radiation MHD part */
 
+	
+	if(!Erflag){
+    		for (j=js; j<=je; j++) {
+      			for (i=is; i<=ie; i++) {
+				/* Tguess now is the added energy source term in BackEuler step */
+				/* If Eratio = 0, Tguess is just the radiation work term */
+				 pG->U[ks][j][i].Er += (pG->Ersource[ks][j][i] - pG->Eulersource[ks][j][i]);
+
+			}
+    		}
+  	}
 
 
 	/* calculate pG->Tguess after magnetic field is updated */

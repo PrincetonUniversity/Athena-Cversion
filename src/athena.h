@@ -429,6 +429,7 @@ typedef struct Grid_s{
 
   Real ***Tguess;  /* guess temperature from energy conservation */
   Real ***Ersource; /* Estimated radiation energy source term */
+  Real ***Eulersource; /* The source term in back euler step */
 #endif
 
 #ifdef PARTICLES
@@ -503,6 +504,8 @@ int ks,ke;		   /* start/end cell index in x3 direction */
 int Nx[3];			/* Number of cells in this part of Matrix */
 int RootNx[3];			/* Number of cells in the top level Matrix */
 int NGrid[3];			/* Number of Grids in this domain */
+Real MinX[3];       /*!< min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
+Real MaxX[3];       /*!< max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
 
 int bgflag;		/* Flag used to decide whether subtract background solution at the top level or not */
 

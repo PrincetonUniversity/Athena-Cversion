@@ -51,12 +51,6 @@ static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
 
 /* subtract background state, which is initial condition */
-static Real ***Er_t0;
-static Real ***dErdx_t0;
-static Real ***dErdy_t0;
-static Real ***Fr1_t0;
-static Real ***Fr2_t0;
-
 
 
 /********Private function ************/
@@ -100,7 +94,8 @@ void BackEuler_2d(MeshS *pM)
 	pMat->dt = dt;
 	pMat->time = pG->time;
 
-	Real velocity_x, velocity_y, T4, Fr0x, Fr0y, pressure, density, temperature;
+	Real velocity_x, velocity_y, T4, pressure, density, temperature, Fr0x, Fr0y;
+	Real AdvFx, AdvFy;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Sigma[NOPACITY];
 
@@ -134,8 +129,8 @@ void BackEuler_2d(MeshS *pM)
 #endif
 
 
+/* First, do the advection step and update bounary */
 
-	
 
 	/* Now copy the data */
 		for(j=js; j<=je; j++){
@@ -153,6 +148,7 @@ void BackEuler_2d(MeshS *pM)
 				velocity_y -= qom * x1;
 #endif
 
+			
 				T4 = pG->Tguess[ks][j][i];				
 			
 	
@@ -180,7 +176,9 @@ void BackEuler_2d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
 				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][j][i];
+				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, &AdvFx, &AdvFy);
+
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + (AdvFx + AdvFy);
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
 
@@ -247,6 +245,8 @@ if(pMat->bgflag){
 				Mati = i - (nghost - Matghost);
 				Matj = j - (nghost - Matghost);
 
+				T4 = pG->U[ks][j][i].Er;
+
 			if(pMat->bgflag){
 				pG->U[ks][j][i].Er += pMat->U[Matk][Matj][Mati].Er;
 				pG->U[ks][j][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
@@ -257,9 +257,20 @@ if(pMat->bgflag){
 				pG->U[ks][j][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
 				pG->U[ks][j][i].Fr2 = pMat->U[Matk][Matj][Mati].Fr2;
 			}
+
+			velocity_x = pMat->U[Matk][Matj][Mati].V1;
+                	velocity_y = pMat->U[Matk][Matj][Mati].V2;
+                	
+
+			Fr0x =  pG->U[ks][j][i].Fr1 - ((1.0 +  pG->U[ks][j][i].Edd_11) * velocity_x +  pG->U[ks][j][i].Edd_21 * velocity_y) *  pG->U[ks][j][i].Er / Crat; 
+			Fr0y =  pG->U[ks][j][i].Fr2 - ((1.0 +  pG->U[ks][j][i].Edd_22) * velocity_y +  pG->U[ks][j][i].Edd_21 * velocity_x) *  pG->U[ks][j][i].Er / Crat;
 			
+			/* Estimate the added energy source term */
+			pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[ks][j][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y);
+	
+
 				
-	}
+		}
 
 
 	/* Set the boundary condition */
@@ -291,7 +302,7 @@ if(Opacity != NULL){
 
 	
 /* Update the ghost zones for different boundary condition to be used later */
-	for (i=0; i<pM->NLevels; i++){ 
+/*	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
         	if (pM->Domain[i][j].Grid != NULL){
   			bvals_radMHD(&(pM->Domain[i][j]));
@@ -299,7 +310,7 @@ if(Opacity != NULL){
         	}
       	     }
     	}
-
+*/
   return;	
 	
 
@@ -546,19 +557,6 @@ void BackEuler_init_2d(MeshS *pM)
 			ath_error("[BackEuler_init_2D]: malloc return a NULL pointer\n");	
 
 
-	/* to save Er and Fr at time t0, which are used to subtract the background state */
-	if((Er_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((dErdx_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((dErdy_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((Fr1_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((Fr2_t0 = (Real***)calloc_3d_array(1, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-
-
 	/* now set the parameters */
 
 	pMat->dx1 = pG->dx1;
@@ -637,12 +635,6 @@ void BackEuler_destruct_2d()
 	if(INIerror != NULL)
 		free_4d_array(INIerror);
 
-	/* variables used to subtract background state */
-	free_3d_array(Er_t0);
-	free_3d_array(dErdx_t0);
-	free_3d_array(dErdy_t0);	
-	free_3d_array(Fr1_t0);
-	free_3d_array(Fr2_t0);
 
 }
 
@@ -872,12 +864,6 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 	je = pMat_fine->je;
 	ks = pMat_fine->ks;
 
-
-
-	/* To store the coefficient */
-	Real theta[11];
-	Real phi[11];
-	Real psi[11];
 
 	/* The right hand size is no-longer the original source terms. It is the residual  */
 	/* But we cannot destroy the right hand size of the fine grid. We need that for the */

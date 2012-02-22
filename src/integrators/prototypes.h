@@ -25,6 +25,21 @@ void BackEuler_destruct_1d();
 void BackEuler_destruct_2d();
 void BackEuler_destruct_3d();
 void BackEuler_destruct();
+
+void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux);
+void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux);
+void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux, Real *x3Flux);
+
+#ifdef SHEARING_BOX
+#ifdef FARGO
+void Rad_Fargo_Pre(DomainS *pD);
+void Rad_Fargo_init(MeshS *pM);
+void Rad_Fargo_destruct(void);
+
+#endif
+#endif
+
+
 VMFun_t BackEuler_init(MeshS *pM);
 /* General LU decomposition functions */
 void ludcmp(Real **a, int n, int *indx, Real *d);
@@ -50,7 +65,7 @@ void mgmres_st ( int n, int nz_num, int ia[], int ja[], double a[],
 
 /* Function for multigrid matrix solver */
 
-Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real vshear, Real *theta, Real *phi, Real *psi, Real *varphi);
+void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real vshear, Real *theta, Real *phi, Real *psi, Real *varphi);
 
 void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const Real Edd, const Real velocity, Real *alpha, int flag, Real dl);
 

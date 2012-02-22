@@ -261,7 +261,8 @@ void initial_step(Real *INInorm, MatrixS *pMat, Real ****theta, Real ****phi, Re
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
 
-		matirx_vector_produce3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, Pn, Apn[k][j][i]);			
+		matrix_vector_product3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, Pn, Apn[k][j][i]);
+		
 		vector_product(Rnstar[k][j][i],pMat->RHS[k][j][i], 4 , &normtemp);
 		rndotrn += normtemp;
 		vector_product(Rnstar[k][j][i],Apn[k][j][i], 4 , &normtemp);
@@ -313,7 +314,7 @@ void initial_step(Real *INInorm, MatrixS *pMat, Real ****theta, Real ****phi, Re
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
 
-		matirx_vector_produce3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, un, Aun[k][j][i]);			
+		matrix_vector_product3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, un, Aun[k][j][i]);		
 		
 	}
 
@@ -390,7 +391,7 @@ void iterations(Real *currentnorm, MatrixS *pMat, Real ****theta, Real ****phi, 
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
-				matirx_vector_produce3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, pMat->RHS, Arn[k][j][i]);
+				matrix_vector_product3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, pMat->RHS, Arn[k][j][i]);
 				/* do not need to update ghost zones for Arn */
 				for(m=0; m<4; m++){					
 					Pn[k][j][i][m] = pMat->RHS[k][j][i][m] + (*betan) * (Pn[k][j][i][m] - un[k][j][i][m]);
@@ -398,7 +399,7 @@ void iterations(Real *currentnorm, MatrixS *pMat, Real ****theta, Real ****phi, 
 			}
 	}
 
-	/* now calculate inner produce (r0,Apn), (yn, yn), (yn, rn), (yn, Arn), (Arn, Arn),  (Arn, rn)*/
+	/* now calculate inner product (r0,Apn), (yn, yn), (yn, rn), (yn, Arn), (Arn, Arn),  (Arn, rn)*/
 	 ArndotArn = 0.0;
 	 yndotyn   = 0.0;
 	 yndotrn   = 0.0;
@@ -482,7 +483,7 @@ void iterations(Real *currentnorm, MatrixS *pMat, Real ****theta, Real ****phi, 
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
 
-		matirx_vector_produce3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, un, Aun[k][j][i]);			
+		matrix_vector_product3D(theta[k][j][i], phi[k][j][i], psi[k][j][i], varphi[k][j][i], i, j, k, un, Aun[k][j][i]);			
 		
 	}
 	
@@ -535,11 +536,11 @@ void iterations(Real *currentnorm, MatrixS *pMat, Real ****theta, Real ****phi, 
 
 }
 
-/* function to calculate matrix vector producet */
+/* function to calculate matrix vector productt */
 /* calculate A[4][n].vector[n]=result[4] */
 /* the vector is stored according to the 3D grid */
 
-void matirx_vector_produce3D(Real *theta, Real *phi, Real *psi, Real *varphi, int i, int j, int k, Real ****vector, Real *result)
+void matrix_vector_product3D(Real *theta, Real *phi, Real *psi, Real *varphi, int i, int j, int k, Real ****vector, Real *result)
 {
 
 	Real tempEr3, tempEr2, tempEr1, tempFr3, tempFr2, tempFr1, temp0;

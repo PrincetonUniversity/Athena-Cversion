@@ -109,18 +109,25 @@ void ShearingSheet_radMHD_ix1(DomainS *pD)
   Ly = xmax - xmin;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pG->time;
+
+	/* Add a factor of 4.0/3.0 */
+	/* not right when absorption opacity is large */	
+/*  yshear = qomL*pG->time * (1.0 + 1.0/3.0);
+*/
+	yshear = qomL*pG->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
 
-  deltay = fmod(yshear, Ly);
+
 
 /* further decompose the fractional peice into integer and fractional pieces of
  * a grid cell.  Note 0.0 <= epsi < 1.0.  If Domain has MPI decomposition in Y,
  * then it is possible that:  pD->Nx2 > joffset > pG->Nx2   */
 /* For radiation quantities, we only need the integer part */
+/* This is now calculated for each cell to include the factor (1+f_yy) */
 	
+  deltay = fmod(yshear, Ly);
   joffset = (int)(deltay/pG->dx2);
 	
 	if((deltay - joffset * pG->dx2) > 0.5 * pG->dx2)
@@ -594,7 +601,10 @@ void ShearingSheet_radMHD_ox1(DomainS *pD)
   Ly = xmax - xmin;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pG->time;
+	/* Add a factor of 4.0/3.0 */
+/*  yshear = qomL*pG->time * (1.0 + 1.0/3.0);
+*/
+	yshear = qomL*pG->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */

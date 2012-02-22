@@ -43,6 +43,7 @@ static MatrixS *pMat;
 
 static Real ****INIerror;
 
+
 static Real INInorm;
 /* The initial L2 norm of the right hand side   *
  * The convergence criterian is
@@ -52,7 +53,7 @@ static Real INInorm;
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
 static int Wcyclelim = 5; /* The limit of how many Wcycle we allow */ 
 
-static int Matrixflag = 2; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method, or Bicgsafe */
+static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method, or Bicgsafe */
 			  /* 1 is GS method while 0 is Jacobi method , 2 is Bicgsafe method*/
 
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
@@ -104,6 +105,8 @@ extern void GaussSeidel3D(MatrixS *pMat);
 
 extern void Jacobi3D(MatrixS *pMat);
 
+extern void Bicgsafe3D(MatrixS *pMat);
+
 /********Public function****************/
 /*-------BackEuler_3d(): Use back euler method to update E_r and Fluxr-----------*/
 /* Not work with SMR now. So there is only one Domain in the Mesh */
@@ -126,10 +129,10 @@ void BackEuler_3d(MeshS *pM)
 	pMat->time = pG->time;
 
 	Real velocity_x, velocity_y, velocity_z, T4, Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, temperature;
-
-	/*Sigma_aF: flux mean absorption, Sigma_aP: Plank mean absorption, Sigma_aE: Er mean absorption opacity;
-	 * Sigma_sF: flux mean scattering opacity */
 	Real Fr0x, Fr0y, Fr0z;
+	Real AdvFx, AdvFy, AdvFz;
+
+	/*Sigma_aF: flux mean absorption, Sigma_aP: Plank mean absorption, Sigma_aE: Er mean absorption opacity;*/
 	Real Sigma[NOPACITY];
 	/* source coefficient for radiation work term */	
 
@@ -195,6 +198,7 @@ void BackEuler_3d(MeshS *pM)
 				velocity_y -= qom * x1;				
 #endif
 
+
 				/* Tguess is already T4 */
 				T4 = pG->Tguess[k][j][i];
 
@@ -204,7 +208,7 @@ void BackEuler_3d(MeshS *pM)
 				Sigma_aE = pG->U[k][j][i].Sigma[3];
 
 
-				pMat->U[Matk][Matj][Mati].Er  = pG->U[k][j][i].Er;
+				pMat->U[Matk][Matj][Mati].Er  = pG->U[k][j][i].Er;				
 				pMat->U[Matk][Matj][Mati].Fr1 = pG->U[k][j][i].Fr1;
 				pMat->U[Matk][Matj][Mati].Fr2 = pG->U[k][j][i].Fr2;
 				pMat->U[Matk][Matj][Mati].Fr3 = pG->U[k][j][i].Fr3;
@@ -228,10 +232,9 @@ void BackEuler_3d(MeshS *pM)
 				
 
 		/* Now set the right hand side */
-				/* T4 in Energy will change with Eratio */
-								
-
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i];
+				Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
+						
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz);
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[k][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[k][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
 				pMat->RHS[Matk][Matj][Mati][3] = pG->U[k][j][i].Fr3 + dt * Sigma_aP * T4 * velocity_z;	
@@ -325,6 +328,8 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 				Matj = j - (nghost - Matghost);
 				Matk = k - (nghost - Matghost);
 
+				T4 = pG->U[k][j][i].Er;
+
 			if(pMat->bgflag){
 				pG->U[k][j][i].Er += pMat->U[Matk][Matj][Mati].Er;
 				pG->U[k][j][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
@@ -337,11 +342,28 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 				pG->U[k][j][i].Fr2 = pMat->U[Matk][Matj][Mati].Fr2;
 				pG->U[k][j][i].Fr3 = pMat->U[Matk][Matj][Mati].Fr3;
 			}
+
+		/* correction for work done by radiation force. May need this to reduce energy error */
+
+
+                	velocity_x = pMat->U[Matk][Matj][Mati].V1;
+                	velocity_y = pMat->U[Matk][Matj][Mati].V2;
+                	velocity_z = pMat->U[Matk][Matj][Mati].V3;
+
+			Fr0x =  pG->U[k][j][i].Fr1 - ((1.0 +  pG->U[k][j][i].Edd_11) * velocity_x +  pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) *  pG->U[k][j][i].Er / Crat; 
+			Fr0y =  pG->U[k][j][i].Fr2 - ((1.0 +  pG->U[k][j][i].Edd_22) * velocity_y +  pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) *  pG->U[k][j][i].Er / Crat;
+			Fr0z =  pG->U[k][j][i].Fr3 - ((1.0 +  pG->U[k][j][i].Edd_33) * velocity_z +  pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) *  pG->U[k][j][i].Er / Crat; 
+
+			/* Estimate the added energy source term */
+			if(Prat > 0.0)
+			pG->Eulersource[k][j][i] = Eratio * Crat * dt * (pG->U[k][j][i].Sigma[2] * pG->Tguess[k][j][i] - pG->U[k][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[k][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[k][j][i] + dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+	
+				
 			/*
 				if(pG->U[k][j][i].Er < TINY_NUMBER)
 					pG->U[k][j][i].Er = 1.0;
 			*/
-				
+			
 	}
 
 if(Opacity != NULL){
@@ -385,7 +407,7 @@ if(Opacity != NULL){
 
 	
 /* Update the ghost zones for different boundary condition to be used later */
-	for (i=0; i<pM->NLevels; i++){ 
+/*	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
         	if (pM->Domain[i][j].Grid != NULL){
   			bvals_radMHD(&(pM->Domain[i][j]));
@@ -393,7 +415,7 @@ if(Opacity != NULL){
         	}
       	     }
     	}
-
+*/
   return;	
 	
 
@@ -701,6 +723,12 @@ void BackEuler_init_3d(MeshS *pM)
 	pMat->RootNx[0] = Nx;
 	pMat->RootNx[1] = Ny;
 	pMat->RootNx[2] = Nz;
+	pMat->MinX[0] = pG->MinX[0];
+	pMat->MinX[1] = pG->MinX[1];
+	pMat->MinX[2] = pG->MinX[2];
+	pMat->MaxX[0] = pG->MaxX[0];
+	pMat->MaxX[1] = pG->MaxX[1];
+	pMat->MaxX[2] = pG->MaxX[2];
 	pMat->NGrid[0] = pD->NGrid[0];
 	pMat->NGrid[1] = pD->NGrid[1];
 	pMat->NGrid[2] = pD->NGrid[2];
@@ -753,6 +781,9 @@ void BackEuler_destruct_3d()
 
 	if(INIerror != NULL)
 		free_4d_array(INIerror);
+
+	
+		
 }
 
 
@@ -814,7 +845,6 @@ void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine)
 	int i, j, k, ifine, jfine, kfine;
 	int ii, jj, kk;
 	int is, ie, js, je, ks, ke;
-	int num;
 
 	RadMHDS Ptemp[2][2][2];	
 
@@ -866,8 +896,6 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 /* Boundary values will be updated in GaussSeidal */
 
 	int i, j, k;
-	int is, ie, js, je, ks, ke;
-
 	/* The right hand size is no-longer the original source terms. It is the residual  */
 	/* But we cannot destroy the right hand size of the fine grid. We need that for the */
 	/* relaxation step when we come back */ 
@@ -967,6 +995,12 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 	pMat_coarse->RootNx[0] = pMat->RootNx[0];
 	pMat_coarse->RootNx[1] = pMat->RootNx[1];
 	pMat_coarse->RootNx[2] = pMat->RootNx[2];
+	pMat_coarse->MinX[0] = pMat->MinX[0];
+	pMat_coarse->MinX[1] = pMat->MinX[1];
+	pMat_coarse->MinX[2] = pMat->MinX[2];
+	pMat_coarse->MaxX[0] = pMat->MaxX[0];
+	pMat_coarse->MaxX[1] = pMat->MaxX[1];
+	pMat_coarse->MaxX[2] = pMat->MaxX[2];
 	pMat_coarse->NGrid[0] = pMat->NGrid[0];
 	pMat_coarse->NGrid[1] = pMat->NGrid[1];
 	pMat_coarse->NGrid[2] = pMat->NGrid[2];

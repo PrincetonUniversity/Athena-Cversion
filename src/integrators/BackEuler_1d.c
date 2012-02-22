@@ -88,8 +88,9 @@ void BackEuler_1d(MeshS *pM)
 	pMat->dt = dt;
 	pMat->time = pG->time;
 
-	Real velocity_x, T4;
+	Real velocity_x, T4, Fr0x;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, temperature;
+	Real AdvFx;
 	Real Sigma[NOPACITY];
 	
 
@@ -122,6 +123,9 @@ void BackEuler_1d(MeshS *pM)
 	qom = qshear * Omega_0;
 #endif
 	
+/* First, do the advection step and update bounary */
+
+
 
 	/* Now copy the data */
 
@@ -132,21 +136,7 @@ void BackEuler_1d(MeshS *pM)
 
 				
 				velocity_x = pG->U[ks][js][i].M1 / pG->U[ks][js][i].d;
-
-				/* Now Backward Euler step is done after the gas quantities are updated */
-/*				pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].d * velocity_x * velocity_x) * (Gamma - 1.0);
-#ifdef RADIATION_MHD
-				pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c) * (Gamma - 1.0);
-#endif
-
-				if(pressure < TINY_NUMBER){
-					T4 = pG->U[ks][js][i].Er;
-				}
-				else{
-					T4 = pow((pressure / (pG->U[ks][js][i].d * R_ideal)), 4.0);
-				}
-*/
-
+				
 				T4 = pG->Tguess[ks][js][i];
 			
 				
@@ -155,7 +145,7 @@ void BackEuler_1d(MeshS *pM)
 				Sigma_aP = pG->U[ks][js][i].Sigma[2];
 				Sigma_aE = pG->U[ks][js][i].Sigma[3];
 
-				pMat->U[Matk][Matj][Mati].Er  = pG->U[ks][js][i].Er;
+				pMat->U[Matk][Matj][Mati].Er  = pG->U[ks][js][i].Er;				
 				pMat->U[Matk][Matj][Mati].Fr1 = pG->U[ks][js][i].Fr1;
 				/* Store the background E_r */
 				pMat->U[Matk][Matj][Mati].rho = pG->U[ks][js][i].Er;
@@ -173,7 +163,11 @@ void BackEuler_1d(MeshS *pM)
 			
 
 		/* Now set the right hand side */
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i];
+				
+
+				Rad_Advection_Flux1D(pD, i, js, ks, 1.0, &AdvFx);
+
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + AdvFx;
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][js][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
 	
 				
@@ -221,7 +215,7 @@ if(pMat->bgflag){
 	/* Now copy the data */
 			for(i=is; i<= ie; i++){
 				
-
+				T4 = pG->U[ks][js][i].Er;
 				Mati = i - (nghost - Matghost);
 
 			if(pMat->bgflag){
@@ -232,8 +226,16 @@ if(pMat->bgflag){
 				pG->U[ks][js][i].Er = pMat->U[Matk][Matj][Mati].Er;
 				pG->U[ks][js][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
 			}
+
+			velocity_x = pMat->U[Matk][Matj][Mati].V1;
+
+			Fr0x =  pG->U[ks][j][i].Fr1 - (1.0 +  pG->U[ks][j][i].Edd_11) * velocity_x *  pG->U[ks][j][i].Er / Crat; 
 				
-	}
+			/* Estimate the added energy source term */
+			pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * velocity_x * Fr0x;
+
+			
+		}
 
 if(Opacity != NULL){
 		for(i=pG->is; i<=pG->ie; i++) {
@@ -260,7 +262,7 @@ if(Opacity != NULL){
 
 	
 /* Update the ghost zones for different boundary condition to be used later */
-	for (i=0; i<pM->NLevels; i++){ 
+/*	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
         	if (pM->Domain[i][j].Grid != NULL){
   			bvals_radMHD(&(pM->Domain[i][j]));
@@ -268,7 +270,7 @@ if(Opacity != NULL){
         	}
       	     }
     	}
-
+*/
   return;	
 	
 
@@ -488,13 +490,13 @@ void BackEuler_init_1d(MeshS *pM)
 	/* pMat will remain in the memory until the end of the simulation */
 
 	if((pMat = (MatrixS*)calloc(1,sizeof(MatrixS))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+		ath_error("[BackEuler_init_1d]: malloc return a NULL pointer\n");
 
 	if((pMat->U = (RadMHDS***)calloc_3d_array(Nz,Ny, Nx+2*Matghost,sizeof(RadMHDS))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+		ath_error("[BackEuler_init_1d]: malloc return a NULL pointer\n");
 
 	if((pMat->RHS = (Real****)calloc_4d_array(Nz,Ny, Nx+2*Matghost,2,sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+		ath_error("[BackEuler_init_1d]: malloc return a NULL pointer\n");
 
 
 	if((INIerror=(Real****)calloc_4d_array(Nz,Ny,Nx+2*Matghost,2,sizeof(Real))) == NULL)
@@ -577,6 +579,7 @@ void BackEuler_destruct_1d()
 
 	if(INIerror != NULL)
 		free_4d_array(INIerror);
+
 }
 
 
@@ -888,11 +891,11 @@ void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 	pMat_coarse->BCFlag_ox3 = pMat->BCFlag_ox3;
 
 	if((pMat_coarse->U = (RadMHDS***)calloc_3d_array(1,pMat_coarse->Nx[1]+2*Matghost, 	pMat_coarse->Nx[0]+2*Matghost,sizeof(RadMHDS))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+		ath_error("[BackEuler_init_1d]: malloc return a NULL pointer\n");
 
 	/* Allocate memory for the right hand size */
 	if((pMat_coarse->RHS = (Real****)calloc_4d_array(1,pMat_coarse->Nx[1]+2*Matghost, 	pMat_coarse->Nx[0]+2*Matghost,2,sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+		ath_error("[BackEuler_init_1d]: malloc return a NULL pointer\n");
 
 
 	return;

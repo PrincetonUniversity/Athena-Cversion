@@ -33,6 +33,12 @@ VMFun_t BackEuler_init(MeshS *pM)
   dim = 0;
   for (i=0; i<3; i++) if(pM->Nx[i] > 1) dim++;
 
+#ifdef SHEARING_BOX
+#ifdef RADFARGO
+   /* Initialize the memory for radiation fargo scheme */
+   Rad_Fargo_init(pM);
+#endif
+#endif
 
 
 /* set function pointer to appropriate integrator based on dimensions */
@@ -70,6 +76,13 @@ VMFun_t BackEuler_init(MeshS *pM)
 
 void BackEuler_destruct()
 {
+
+#ifdef SHEARING_BOX
+#ifdef RADFARGO
+Rad_Fargo_destruct();
+#endif
+#endif
+
   switch(dim){
   case 1:
     BackEuler_destruct_1d();

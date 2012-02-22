@@ -326,7 +326,7 @@ void compute_l1_error(const char *problem, const MeshS *pM,
 #endif /* ISOTHERMAL */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++)
-          error.s[n] += dVol*fabs(pG->U[k][j][i].s[n] - RootSoln[k][j][i].s[n]);;
+          error.s[n] += dVol*fabs(pG->U[k][j][i].s[n] - RootSoln[k][j][i].s[n]);
 #endif
       }
 
@@ -1620,7 +1620,11 @@ void GetTguess(MeshS *pM)
 				Sigma_aE = pG->U[k][j][i].Sigma[3];
 				Ern =  pG->U[k][j][i].Er;
 
-				if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
+				if((Sigma_aP < TINY_NUMBER) || (Sigma_aE < TINY_NUMBER)){
+					pG->Tguess[k][j][i] = pow(temperature, 4.0); 
+					pG->Ersource[k][j][i] = 0.0;
+				}
+				else	if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
 					
 					pG->Tguess[k][j][i] = Ern; 
 					pG->Ersource[k][j][i] = 0.0;	
@@ -1751,163 +1755,327 @@ void Tequilibrium(double T, double coef1, double coef2, double coef3, double * f
 
 /* Function to calculate matrix coefficient */
 
-Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real vshear, Real *theta, Real *phi, Real *psi, Real *varphi){
+void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int i, const int j, const int k, const Real qom, Real *theta, Real *phi, Real *psi, Real *varphi){
 	/* Notice that pMat->rho actually stores the background E_r at time step n */
+
+	/* subtract the advection part from the matrix coefficients */
+	/*====================================================================
+	 * Notice that in the matrix, we transform Eulerian flux to co-moving flux 	
+         * Advection part is seperated from diffusion part in order to  
+         * reduce the numerical diffusion in optical thick regime 
+	 * There is a flag to decide whether seperate it or not 
+         *
+	 *===================================================================*/
 	
 	/* Temporary variables to setup the matrix */
 	Real hdtodx1, hdtodx2, hdtodx3, dt, dx, dy, dz;
-	Real velocity_x, velocity_y, velocity_z, T4;
+	Real vx, vy, vz, vxi0, vxi1, vxj0, vxj1, vxk0, vxk1, vyi0, vyi1, vyj0, vyj1, vyk0, vyk1, vzi0, vzi1, vzj0, vzj1, vzk0, vzk1;
+	Real vFxFull, vFyFull, vFzFull, vFxi0Full, vFxi1Full, vFyj0Full, vFyj1Full, vFzk0Full, vFzk1Full; /* This always include background shearing */
+	Real vFxi0, vFxi1, vFyj0, vFyj1, vFzk0, vFzk1;		
+	/* Actual advection flux used at the cell interface, some of them will be zero */	
 	Real f11, f22, f33, f11i0, f11i1, f22j0, f22j1, f33k0, f33k1;
 	Real f21, f31, f32, f21j0, f21j1, f21i0, f21i1, f31k0, f31k1, f31i0, f31i1, f32j0, f32j1, f32k0, f32k1;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
-	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;
+	Real Ci0, Ci1, Cj0, Cj1, Ck0, Ck1;	
 	Real alphai0, alphaj0, alphak0, alphai, alphaj, alphak; /* For mininum velocity */
 	Real alphai1max, alphaj1max, alphak1max, alphaimax, alphajmax, alphakmax; /* for maximum velocity */
 	/* alpha? are for Sigma_aF + Sigma_sF */
 	
 	Real direction;
-
+	Real x1, x2, x3, vshear, vsheari0, vsheari1;
+	vshear = 0.0;
 	if(pMat != NULL){
 		hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
 		hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
 		hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
+		
+
 		dx = pMat->dx1;
 		dy = pMat->dx2;
 		dz = pMat->dx3;
-		dt = pMat->dt;
-		velocity_x = pMat->U[k][j][i].V1;
-		velocity_y = pMat->U[k][j][i].V2;
-		velocity_z = pMat->U[k][j][i].V3;
-		T4 = pMat->U[k][j][i].T4;
-		if(DIM == 3){
-		f33k0 = pMat->U[k-1][j][i].Edd_33;
-		f32k0 = pMat->U[k-1][j][i].Edd_32;
-		f31k0 = pMat->U[k-1][j][i].Edd_31;
-		}
+		dt = pMat->dt;	
+#ifdef SHEARING_BOX
+#ifdef FARGO
+		x1 =  pMat->MinX[0] + ((Real)(i - pMat->is) + 0.5)*dx;
+		vshear = qshear * Omega_0 * x1;
+#endif
+#endif
+			vx = pMat->U[k][j][i].V1;
+			vxi0 = pMat->U[k][j][i-1].V1;
+			vxi1 = pMat->U[k][j][i+1].V1;
+			vy = pMat->U[k][j][i].V2;
+			vyi0 = pMat->U[k][j][i-1].V2;
+			vyi1 = pMat->U[k][j][i+1].V2;
 		if(DIM > 1){
-		f32j0 = pMat->U[k][j-1][i].Edd_32;
-		f22j0 = pMat->U[k][j-1][i].Edd_22;
-		f21j0 = pMat->U[k][j-1][i].Edd_21;
+			vxj0 = pMat->U[k][j-1][i].V1;
+			vxj1 = pMat->U[k][j+1][i].V1;
+			vyj0 = pMat->U[k][j-1][i].V2;
+			vyj1 = pMat->U[k][j+1][i].V2;
 		}
-		f11i0 = pMat->U[k][j][i-1].Edd_11;
-		f21i0 = pMat->U[k][j][i-1].Edd_21;
-		f31i0 = pMat->U[k][j][i-1].Edd_31;
-		f11 = pMat->U[k][j][i].Edd_11;
-		f22 = pMat->U[k][j][i].Edd_22;
-		f33 = pMat->U[k][j][i].Edd_33;
-		f21 = pMat->U[k][j][i].Edd_21;
-		f31 = pMat->U[k][j][i].Edd_31;
-		f32 = pMat->U[k][j][i].Edd_32;
-		f11i1 = pMat->U[k][j][i+1].Edd_11;
-		f21i1 = pMat->U[k][j][i+1].Edd_21;
-		f31i1 = pMat->U[k][j][i+1].Edd_31;
+			vz = pMat->U[k][j][i].V3;
+		if(DIM > 2){		
+			vzi0 = pMat->U[k][j][i-1].V3;
+			vzi1 = pMat->U[k][j][i+1].V3;
+			vzj0 = pMat->U[k][j-1][i].V3;
+			vzj1 = pMat->U[k][j+1][i].V3;
+			vzk0 = pMat->U[k-1][j][i].V3;
+			vzk1 = pMat->U[k+1][j][i].V3;
+
+			vxk0 = pMat->U[k-1][j][i].V1;
+			vxk1 = pMat->U[k+1][j][i].V1;
+			vyk0 = pMat->U[k-1][j][i].V2;
+			vyk1 = pMat->U[k+1][j][i].V2;
+		}
+	
+				
+			f11i0 = pMat->U[k][j][i-1].Edd_11;
+			f21i0 = pMat->U[k][j][i-1].Edd_21;
+			f31i0 = pMat->U[k][j][i-1].Edd_31;
+			f11 = pMat->U[k][j][i].Edd_11;
+			f22 = pMat->U[k][j][i].Edd_22;
+			f33 = pMat->U[k][j][i].Edd_33;
+			f21 = pMat->U[k][j][i].Edd_21;
+			f31 = pMat->U[k][j][i].Edd_31;
+			f32 = pMat->U[k][j][i].Edd_32;
+			f11i1 = pMat->U[k][j][i+1].Edd_11;
+			f21i1 = pMat->U[k][j][i+1].Edd_21;
+			f31i1 = pMat->U[k][j][i+1].Edd_31;
+
 		if(DIM > 1){
-		f21j1 = pMat->U[k][j+1][i].Edd_21;
-		f22j1 = pMat->U[k][j+1][i].Edd_22;
-		f32j1 = pMat->U[k][j+1][i].Edd_32;
+			f32j0 = pMat->U[k][j-1][i].Edd_32;
+			f22j0 = pMat->U[k][j-1][i].Edd_22;
+			f21j0 = pMat->U[k][j-1][i].Edd_21;
+
+			f21j1 = pMat->U[k][j+1][i].Edd_21;
+			f22j1 = pMat->U[k][j+1][i].Edd_22;
+			f32j1 = pMat->U[k][j+1][i].Edd_32;
 		}
-		if(DIM == 3){
-		f31k1 = pMat->U[k+1][j][i].Edd_31;
-		f32k1 = pMat->U[k+1][j][i].Edd_32;
-		f33k1 = pMat->U[k+1][j][i].Edd_33;
+
+		if(DIM > 2){
+			f33k0 = pMat->U[k-1][j][i].Edd_33;
+			f32k0 = pMat->U[k-1][j][i].Edd_32;
+			f31k0 = pMat->U[k-1][j][i].Edd_31;
+
+			f31k1 = pMat->U[k+1][j][i].Edd_31;
+			f32k1 = pMat->U[k+1][j][i].Edd_32;
+			f33k1 = pMat->U[k+1][j][i].Edd_33;
 		}
+
 		Sigma_sF = pMat->U[k][j][i].Sigma[0];
 		Sigma_aF = pMat->U[k][j][i].Sigma[1];
 		Sigma_aP = pMat->U[k][j][i].Sigma[2];
 		Sigma_aE = pMat->U[k][j][i].Sigma[3];
-
+		
 		
 	}
 	else if(pG != NULL){
 		hdtodx1 = 0.5 * pG->dt/pG->dx1;
 		hdtodx2 = 0.5 * pG->dt/pG->dx2;
-		hdtodx3 = 0.5 * pG->dt/pG->dx3;
-		dx = pG->dx1;
-		dy = pG->dx2;
-		dz = pG->dx3;
+		hdtodx3 = 0.5 * pG->dt/pG->dx3;			
 		dt = pG->dt;
-		velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
-		velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+		vx = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+		vxi0 = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
+		vxi1 = pG->U[k][j][i+1].M1 / pG->U[k][j][i+1].d;
+
+		vy = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+
+		if(DIM > 1){
+		vxj0 = pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d;
+		vxj1 = pG->U[k][j+1][i].M1 / pG->U[k][j+1][i].d;
+
+		vyi0 = pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d;
+		vyi1 = pG->U[k][j][i+1].M2 / pG->U[k][j][i+1].d;	
+
+		vyj0 = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
+		vyj1 = pG->U[k][j+1][i].M2 / pG->U[k][j+1][i].d;
+
+	
+		}
+			
+		vz = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+		if(DIM > 2){
+		vzi0 = pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d;
+		vzi1 = pG->U[k][j][i+1].M3 / pG->U[k][j][i+1].d;
+		vzj0 = pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d;
+		vzj1 = pG->U[k][j+1][i].M3 / pG->U[k][j+1][i].d;
+		vzk0 = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
+		vzk1 = pG->U[k+1][j][i].M3 / pG->U[k+1][j][i].d;
+
+		vxk0 = pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d;
+		vxk1 = pG->U[k+1][j][i].M1 / pG->U[k+1][j][i].d;
+
+		vyk0 = pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d;
+		vyk1 = pG->U[k+1][j][i].M2 / pG->U[k+1][j][i].d;
+		}
+		
+
 #ifdef SHEARING_BOX
 #ifdef FARGO
-		/* vshear is qom * Lx, no veloity sign here */
-		velocity_y -= vshear;
+		/* vshear is qom * x1 */
+		cc_pos(pG,i,j,k,&x1,&x2,&x3);
+		vshear   = qom * x1;
+		cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
+		vsheari0 = qom * x1;
+		cc_pos(pG,i+1,j,k,&x1,&x2,&x3);
+		vsheari1 = qom * x1;
+
+		vy   -= vshear;
+		vyj0 -= vshear;
+		vyj1 -= vshear;
+		vyk0 -= vshear;
+		vyk1 -= vshear;
+
+		vyi0 -= vsheari0;
+		vyi1 -= vsheari1;
 #endif 
 #endif
-		velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
-		T4 = pG->Tguess[k][j][i];
-		if(DIM == 3){
-		f33k0 = pG->U[k-1][j][i].Edd_33;
-		f32k0 = pG->U[k-1][j][i].Edd_32;
-		f31k0 = pG->U[k-1][j][i].Edd_31;
-		}
+		
+		
+			f11i0 = pG->U[k][j][i-1].Edd_11;
+			f21i0 = pG->U[k][j][i-1].Edd_21;
+			f31i0 = pG->U[k][j][i-1].Edd_31;
+			f11 = pG->U[k][j][i].Edd_11;
+			f22 = pG->U[k][j][i].Edd_22;
+			f33 = pG->U[k][j][i].Edd_33;
+			f21 = pG->U[k][j][i].Edd_21;
+			f31 = pG->U[k][j][i].Edd_31;
+			f32 = pG->U[k][j][i].Edd_32;
+			f11i1 = pG->U[k][j][i+1].Edd_11;
+			f21i1 = pG->U[k][j][i+1].Edd_21;
+			f31i1 = pG->U[k][j][i+1].Edd_31;
+
 		if(DIM > 1){
-		f32j0 = pG->U[k][j-1][i].Edd_32;
-		f22j0 = pG->U[k][j-1][i].Edd_22;
-		f21j0 = pG->U[k][j-1][i].Edd_21;
+			f32j0 = pG->U[k][j-1][i].Edd_32;
+			f22j0 = pG->U[k][j-1][i].Edd_22;
+			f21j0 = pG->U[k][j-1][i].Edd_21;
+
+			f21j1 = pG->U[k][j+1][i].Edd_21;
+			f22j1 = pG->U[k][j+1][i].Edd_22;
+			f32j1 = pG->U[k][j+1][i].Edd_32;
 		}
-		f11i0 = pG->U[k][j][i-1].Edd_11;
-		f21i0 = pG->U[k][j][i-1].Edd_21;
-		f31i0 = pG->U[k][j][i-1].Edd_31;
-		f11 = pG->U[k][j][i].Edd_11;
-		f22 = pG->U[k][j][i].Edd_22;
-		f33 = pG->U[k][j][i].Edd_33;
-		f21 = pG->U[k][j][i].Edd_21;
-		f31 = pG->U[k][j][i].Edd_31;
-		f32 = pG->U[k][j][i].Edd_32;
-		f11i1 = pG->U[k][j][i+1].Edd_11;
-		f21i1 = pG->U[k][j][i+1].Edd_21;
-		f31i1 = pG->U[k][j][i+1].Edd_31;
-		if(DIM > 1){
-		f21j1 = pG->U[k][j+1][i].Edd_21;
-		f22j1 = pG->U[k][j+1][i].Edd_22;
-		f32j1 = pG->U[k][j+1][i].Edd_32;
-		}
-		if(DIM == 3){
-		f31k1 = pG->U[k+1][j][i].Edd_31;
-		f32k1 = pG->U[k+1][j][i].Edd_32;
-		f33k1 = pG->U[k+1][j][i].Edd_33;
+		if(DIM > 2){
+			f33k0 = pG->U[k-1][j][i].Edd_33;
+			f32k0 = pG->U[k-1][j][i].Edd_32;
+			f31k0 = pG->U[k-1][j][i].Edd_31;
+
+			f31k1 = pG->U[k+1][j][i].Edd_31;
+			f32k1 = pG->U[k+1][j][i].Edd_32;
+			f33k1 = pG->U[k+1][j][i].Edd_33;
 		}
 
 		Sigma_sF = pG->U[k][j][i].Sigma[0];
 		Sigma_aF = pG->U[k][j][i].Sigma[1];
 		Sigma_aP = pG->U[k][j][i].Sigma[2];
 		Sigma_aE = pG->U[k][j][i].Sigma[3];
+	
+
 	}
 	else{
 
 		ath_error("[matrix_coef]: Must provide either pMat or pG pointer!n\n");
 	}
 
-	if(DIM == 1){
+		/* First, calculate vF?Full, this is included no matter RadFargo is used or not */
+		/* background shearing is always included */
+		/* seperate vE_r + vP_r part from the Eulerian flux */
+		if(DIM == 1){
+			vFxFull   = (1.0 + f11) * vx / Crat;
+			vFxi0Full   = (1.0 + f11i0) * vxi0 / Crat;
+			vFxi1Full   = (1.0 + f11i1) * vxi1 / Crat;
+		}
+		else if(DIM == 2){
+			vFxFull   = ((1.0 + f11) * vx + vy * f21) / Crat;
+			vFxi0Full = ((1.0 + f11i0) * vxi0 + vyi0 * f21i0) / Crat;
+			vFxi1Full = ((1.0 + f11i1) * vxi1 + vyi1 * f21i1) / Crat;
+
+			vFyFull   = ((1.0 + f22) * vy + vx * f21) / Crat;
+			vFyj0Full = ((1.0 + f22j0) * vyj0 + vxj0 * f21j0) / Crat;
+			vFyj1Full = ((1.0 + f22j1) * vyj1 + vxj1 * f21j1) / Crat;
+
+		}
+		else if(DIM == 3){			
+			vFxFull   = ((1.0 + f11) * vx + vy * f21 + vz * f31) / Crat;
+			vFxi0Full = ((1.0 + f11i0) * vxi0 + vyi0 * f21i0 + vzi0 * f31i0) / Crat;
+			vFxi1Full = ((1.0 + f11i1) * vxi1 + vyi1 * f21i1 + vzi1 * f31i1) / Crat;	
+	
+			vFyFull   = ((1.0 + f22) * vy + vx * f21 + vz * f32) / Crat;
+			vFyj0Full = ((1.0 + f22j0) * vyj0 + vxj0 * f21j0 + vzj0 * f32j0) / Crat;
+			vFyj1Full = ((1.0 + f22j1) * vyj1 + vxj1 * f21j1 + vzj1 * f32j1) / Crat;
+			
+			vFzFull   = ((1.0 + f33) * vz + vx * f31 + vy * f32) / Crat;
+			vFzk0Full = ((1.0 + f33k0) * vzk0 + vxk0 * f31k0 + vyk0 * f32k0) / Crat;
+			vFzk1Full = ((1.0 + f33k1) * vzk1 + vxk1 * f31k1 + vyk1 * f32k1) / Crat;	
+		}
+
+
+		/* Set the flag whether split advection term or not */
+		/* in optical thick regime, split advection to use upwind flux */
+/* flag to use upwind flux for advection term */
+
+		/* calculate the Div(vP_r) term, which is added as cell centered difference */
+		
+
+		if(DIM == 1){			
+			vFxi0 = f11i0 * vxi0;
+			vFxi1 = f11i1 * vxi1;
+		}
+		else if(DIM == 2){
+			
+			vFxi0 = f11i0 * vxi0 + vyi0 * f21i0;
+			vFxi1 = f11i1 * vxi1 + vyi1 * f21i1;
+			
+			
+			vFyj0 = f22j0 * vyj0 + vxj0 * f21j0;
+			vFyj1 = f22j1 * vyj1 + vxj1 * f21j1;			
+
+		}
+		else if(DIM == 3){
+			
+			
+			vFxi0 = f11i0 * vxi0 + vyi0 * f21i0 + vzi0 * f31i0;
+			vFxi1 = f11i1 * vxi1 + vyi1 * f21i1 + vzi1 * f31i1;			
+
+			
+			vFyj0 = f22j0 * vyj0 + vxj0 * f21j0 + vzj0 * f32j0;
+			vFyj1 = f22j1 * vyj1 + vxj1 * f21j1 + vzj1 * f32j1;		
+
+			
+			vFzk0 = f33k0 * vzk0 + vxk0 * f31k0	+ vyk0 * f32k0;
+			vFzk1 = f33k1 * vzk1 + vxk1 * f31k1	+ vyk1 * f32k1;
+			
+		}
+			
+	/*===============================================================================*/
+
+
 		if(pMat != NULL){
 			
-			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
+			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, vx, &alphai0, -1, dx);
 
 			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, vx, &alphaimax, 1, dx);
 
 			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, vx, &alphai, -1, dx);
 
 			
-			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
+			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, vx, &alphai1max, 1, dx);
 			
 
 		}
 		else if(pG != NULL){
 			
-			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
+			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, vx, &alphai0, -1, dx);
 
 			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, vx, &alphaimax, 1, dx);
 
 			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, vx, &alphai, -1, dx);
 
 			
-			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
-		
+			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, vx, &alphai1max, 1, dx);
 			
 		}
 			
@@ -1923,75 +2091,31 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 				Ci1 = 0.0;
 
 
-	}
+	
 
-	if(DIM == 2){
+	if(DIM > 1){
 		if(pMat != NULL){
 			
-			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
-
-					
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
-
+			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, vy, &alphaj0, -1, dy);		
 		
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
-
-
-			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
-
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, vy, &alphajmax, 1, dy);
+	
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, vy, &alphaj, -1, dy);
 			
-			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
+			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, vy, &alphaj1max, 1, dy);
 			
 		}
 		else if(pG != NULL){
 			
-			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
+			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, vy, &alphaj0, -1, dy);
 
-			
-			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);
-
-					
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
-
-			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
-
-			
-			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
-			
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, vy, &alphajmax, 1, dy);
 		
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, vy, &alphaj, -1, dy);
 			
+			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, vy, &alphaj1max, 1, dy);
 			
 		}
-
-			
-
-			if(alphaimax + alphai0 > TINY_NUMBER)
-				Ci0 = (alphaimax -  alphai0) / (alphaimax + alphai0);
-			else
-				Ci0 = 0.0;
-
-			if(alphai1max + alphai > TINY_NUMBER)
-				Ci1 = (alphai1max - alphai) / (alphai1max + alphai);
-			else
-				Ci1 = 0.0;
 
 			if(alphajmax + alphaj0 > TINY_NUMBER)
 				Cj0 = (alphajmax -  alphaj0) / (alphajmax + alphaj0);
@@ -2002,118 +2126,36 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 				Cj1 = (alphaj1max - alphaj) / (alphaj1max + alphaj);
 			else
 				Cj1 = 0.0;
-
-
 	}
-
-	if(DIM == 3){
+	if(DIM > 2){
 	
 		if(pMat != NULL){
 			
-			matrix_alpha(direction, pMat->U[k-1][j][i].Sigma, dt, pMat->U[k-1][j][i].Edd_33, velocity_z, &alphak0, -1, dz);
+			matrix_alpha(direction, pMat->U[k-1][j][i].Sigma, dt, pMat->U[k-1][j][i].Edd_33, vz, &alphak0, -1, dz);
+		
+			
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, vz, &alphakmax, 1, dz);
 
 			
-			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);			
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, velocity_z, &alphakmax, 1, dz);
-
-			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, velocity_z, &alphak, -1, dz);
+			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, vz, &alphak, -1, dz);
 
 						
-			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
-
-					
-			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
-
-						
-			matrix_alpha(direction, pMat->U[k+1][j][i].Sigma, dt, pMat->U[k+1][j][i].Edd_33, velocity_z, &alphak1max, 1, dz);
-			
-			
+			matrix_alpha(direction, pMat->U[k+1][j][i].Sigma, dt, pMat->U[k+1][j][i].Edd_33, vz, &alphak1max, 1, dz);
 			
 			
 		}
 		else if(pG != NULL){
 			/* Direction is not used anymore */			
 
-			matrix_alpha(direction, pG->U[k-1][j][i].Sigma, dt, pG->U[k-1][j][i].Edd_33, velocity_z, &alphak0, -1, dz);
-
+			matrix_alpha(direction, pG->U[k-1][j][i].Sigma, dt, pG->U[k-1][j][i].Edd_33, vz, &alphak0, -1, dz);
 			
-			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, velocity_y, &alphaj0, -1, dy);
-
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, vz, &alphakmax, 1, dz);
 			
-			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, velocity_x, &alphai0, -1, dx);			
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphaimax, 1, dx);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, velocity_x, &alphai, -1, dx);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphajmax, 1, dy);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, velocity_y, &alphaj, -1, dy);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, velocity_z, &alphakmax, 1, dz);
-
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, velocity_z, &alphak, -1, dz);
-
+			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, vz, &alphak, -1, dz);
 					
-			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, velocity_x, &alphai1max, 1, dx);
-
-					
-			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, velocity_y, &alphaj1max, 1, dy);
-
-						
-			matrix_alpha(direction, pG->U[k+1][j][i].Sigma, dt, pG->U[k+1][j][i].Edd_33, velocity_z, &alphak1max, 1, dz);
-		
-			
+			matrix_alpha(direction, pG->U[k+1][j][i].Sigma, dt, pG->U[k+1][j][i].Edd_33, vz, &alphak1max, 1, dz);
 			
 		}
-
-			
-
-
-
-			if(alphaimax + alphai0 > TINY_NUMBER)
-				Ci0 = (alphaimax -  alphai0) / (alphaimax + alphai0);
-			else
-				Ci0 = 0.0;
-
-			if(alphai1max + alphai > TINY_NUMBER)
-				Ci1 = (alphai1max - alphai) / (alphai1max + alphai);
-			else
-				Ci1 = 0.0;
-
-			if(alphajmax + alphaj0 > TINY_NUMBER)
-				Cj0 = (alphajmax -  alphaj0) / (alphajmax + alphaj0);
-			else
-				Cj0 = 0.0;
-
-			if(alphaj1max + alphaj > TINY_NUMBER)
-				Cj1 = (alphaj1max - alphaj) / (alphaj1max + alphaj);
-			else
-				Cj1 = 0.0;
 
 			if(alphakmax + alphak0 > TINY_NUMBER)
 				Ck0 = (alphakmax -  alphak0) / (alphakmax + alphak0);
@@ -2129,25 +2171,28 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	
 	/*============================================================*/
 	/* Now construct the matrix coefficient */
+	/* The radiation work term is always NOT seperated */
+	/* The matrix actually solves the co-moving flux */
 	if(DIM == 1){
 		/* Assuming the velocity is already the original velocity in case of FARGO */	
 			/* k - 1*/
 		
-			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - hdtodx1 * vFxi0;
 			theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax 
-				+ Eratio * (Crat * dt * Sigma_aE
-				+ dt * (Sigma_aF - Sigma_sF) * (1.0 + f11) * velocity_x * velocity_x / Crat);
-			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;			
-			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			theta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
+				       + Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)				       
+				       + dt * (Sigma_aF - Sigma_sF) * vx * vFxFull
+				       + Eratio * Crat * dt * Sigma_aE;
+			theta[3] = Crat * hdtodx1 * (Ci0 + Ci1) - dt * (Sigma_aF - Sigma_sF) * vx;			
+			theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + hdtodx1 * vFxi1;
 			theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
 		
 
 			phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
 			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * f11 
-			       - dt * (Sigma_aF + Sigma_sF) * (1.0 + f11) * velocity_x 
-			       + dt * Sigma_aE * velocity_x;
+			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * f11				 
+				 - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
+				 + dt * Sigma_aE * vx; 
 			phi[3] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax 			   
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
 			phi[4] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
@@ -2158,22 +2203,21 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	else if(DIM == 2){
 				
 			
-			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * (alphaj0 - vFyj0Full) - hdtodx2 * vFyj0;
 			theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - hdtodx1 * vFxi0;
 			theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[4] = 1.0  + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-					+ Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax		
-				+ Eratio * (Crat * dt * Sigma_aE
-				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f11) * velocity_x 
-				+ velocity_y * f21) * velocity_x / Crat
-				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f22) * velocity_y 
-				+ velocity_x * f21) * velocity_y / Crat);
-			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_y;		
-			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			theta[4] = 1.0  + Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull) 
+					+ Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
+					+ Crat * hdtodx2 * (1.0 + Cj1) * (alphaj - vFyFull)
+					+ Crat * hdtodx2 * (1.0 - Cj0) * (alphajmax + vFyFull)					
+					+ dt * (Sigma_aF - Sigma_sF) * (vx * vFxFull + vy * vFyFull)
+				        + Eratio * Crat * dt * Sigma_aE;
+			theta[5] = Crat * hdtodx1 * (Ci0 + Ci1) - dt * (Sigma_aF - Sigma_sF) * vx;
+			theta[6] = Crat * hdtodx2 * (Cj0 + Cj1) - dt * (Sigma_aF - Sigma_sF) * vy;		
+			theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + hdtodx1 * vFxi1;
 			theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * (alphaj1max + vFyj1Full) + hdtodx2 * vFyj1;
 			theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
 		
 			phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
@@ -2181,9 +2225,9 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
 			phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21   
-			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f11) * velocity_x + f21 * velocity_y) 
-			       + dt * Sigma_aE * velocity_x;
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21
+			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull	
+			       + dt * Sigma_aE * vx;
 			phi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax	
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
@@ -2198,9 +2242,9 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
 			psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
-			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22  
-			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f22) * velocity_y + f21 * velocity_x) 
-			       + dt * Sigma_aE * velocity_y;
+			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22
+			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull	 
+			       + dt * Sigma_aE * vy;
 			psi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax 	
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
@@ -2218,30 +2262,28 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			/* k - 1*/
 		
 	
-			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+			theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * (alphak0 - vFzk0Full) - hdtodx3 * vFzk0;
 			theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
-			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+			theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * (alphaj0 - vFyj0Full) - hdtodx2 * vFyj0;
 			theta[3] = -Crat * hdtodx2 * (1.0 + Cj0);
-			theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+			theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - hdtodx1 * vFxi0;
 			theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
-			theta[6] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-				       + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
-				       + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax		 
-				+ Eratio * (Crat * dt * Sigma_aE
-				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f11) * velocity_x 
-				+ velocity_y * f21 + velocity_z * f31) * velocity_x / Crat
-				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f22) * velocity_y 
-				+ velocity_x * f21 + velocity_z * f32) * velocity_y / Crat
-				+ dt * (Sigma_aF - Sigma_sF) * ((1.0 + f33) * velocity_z 
-				+ velocity_x * f31 + velocity_y * f32) * velocity_z / Crat);
-			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_x;
-			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_y;
-			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1) - Eratio * dt * (Sigma_aF - Sigma_sF) * velocity_z;
-			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+			theta[6] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
+				       + Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
+				       + Crat * hdtodx2 * (1.0 + Cj1) * (alphaj - vFyFull)
+				       + Crat * hdtodx2 * (1.0 - Cj0) * (alphajmax + vFyFull)
+				       + Crat * hdtodx3 * (1.0 + Ck1) * (alphak - vFzFull) 
+				       + Crat * hdtodx3 * (1.0 - Ck0) * (alphakmax + vFzFull)				  
+				       + dt * (Sigma_aF - Sigma_sF) * (vx * vFxFull + vy * vFyFull + vz * vFzFull)		
+				       + Eratio * Crat * dt * Sigma_aE;
+			theta[7] = Crat * hdtodx1 * (Ci0 + Ci1) - dt * (Sigma_aF - Sigma_sF) * vx;
+			theta[8] = Crat * hdtodx2 * (Cj0 + Cj1) - dt * (Sigma_aF - Sigma_sF) * vy;
+			theta[9] = Crat * hdtodx3 * (Ck0 + Ck1) - dt * (Sigma_aF - Sigma_sF) * vz;
+			theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + hdtodx1 * vFxi1;
 			theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
-			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+			theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * (alphaj1max + vFyj1Full) + hdtodx2 * vFyj1;
 			theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
-			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+			theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * (alphak1max + vFzk1Full) + hdtodx3 * vFzk1;
 			theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
 			
 			phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f31k0;
@@ -2252,9 +2294,9 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			phi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			phi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21   
-			       + Crat * hdtodx3 * (Ck0 + Ck1) * f31   
-			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f11) * velocity_x + f21 * velocity_y + f21 * velocity_z) 
-			       + dt * Sigma_aE * velocity_x;
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * f31 
+			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
+			       + dt * Sigma_aE * vx;
 			phi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
 				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
@@ -2274,9 +2316,9 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			psi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			psi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22   
-			       + Crat * hdtodx3 * (Ck0 + Ck1) * f32   
-			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f22) * velocity_y + f21 * velocity_x + f32 * velocity_z) 
-			       + dt * Sigma_aE * velocity_y;
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * f32
+			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull 
+			       + dt * Sigma_aE * vy;
 			psi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
 				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
@@ -2296,9 +2338,9 @@ Real matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			varphi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			varphi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f31
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f32   
-			       + Crat * hdtodx3 * (Ck0 + Ck1) * f33   
-			       - dt * (Sigma_aF + Sigma_sF) * ((1.0 + f33) * velocity_z + f31 * velocity_x + f32 * velocity_y) 
-			       + dt * Sigma_aE * velocity_z;
+			       + Crat * hdtodx3 * (Ck0 + Ck1) * f33
+			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFzFull
+			       + dt * Sigma_aE * vz;
 			varphi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
 				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
@@ -2329,33 +2371,38 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 /* dx is cell size */
 /* if flag = 1, for maximum velocity. if flag = -1, for minimum velocity */
 
-	Real Sigma_aF, Sigma_sF, tau, taucell;
+	Real Sigma_aF, Sigma_sF, Sigma_aE, tau, Sigma_t;
 	Real reducefactor;
 	
 
 	Sigma_sF = Sigma[0];
 	Sigma_aF = Sigma[1];
+	Sigma_aE = Sigma[3];
 	/* reduce the speed for even pure absorption opacity to reduce diffusion */
+	/* Be careful to use conservative scheme for pure absorption opacity */
+	Sigma_t = Sigma_sF + Sigma_aF;
+
+	Sigma_t -= Sigma_aE;
 
 
-	tau = dt * Crat * fabs(Sigma_sF + Sigma_aF);
+	tau = dt * Crat * Sigma_t;
 	tau = tau * tau / (2.0 * Edd);
 
-	if(tau < 1.0){
-		reducefactor = sqrt(Edd);
-	}	
-	else{
-		reducefactor = sqrt(Edd * (1.0 - exp(- tau)) / tau);			
-	}
+	if(tau > 0.001)
+		reducefactor = sqrt(Edd * (1.0 - exp(- tau)) / tau);
+	else
+		reducefactor = sqrt(Edd * (1.0 - 0.5 * tau));			
+	
 
-	/* Do not add the advection velocity part */
-	/* This may make the matrix hard to converge and result in energy error */
-/*	reducefactor += (1.0 + Edd) * fabs(velocity) / Crat;
+/*	
+	reducefactor += (1.0 + Edd) * fabs(velocity) / Crat;
 */
 
 	*alpha = reducefactor;	
 
 }
+
+#ifdef MATRIX_MULTIGRID
 
 void vector_product(const Real *v1, const Real *v2, const int dim, Real *result)
 {
@@ -2371,6 +2418,7 @@ void vector_product(const Real *v1, const Real *v2, const int dim, Real *result)
 	*result = temp;
 
 }
+#endif
 
 #endif 
 /* end radiation_hydro or radiation_MHD */

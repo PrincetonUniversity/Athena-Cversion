@@ -7,7 +7,7 @@
  * Configure code with
  *   --enable-shearing-box to use.
  *
-
+ *
  *
  * CONTAINS PUBLIC FUNCTIONS:
 
@@ -92,7 +92,6 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
   int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Remap *pRemap;
-  RadMHDS *pCons;
   MPI_Request rq;
 #endif
 
@@ -104,8 +103,10 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
   Ly = pMat->Ly;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pMat->time;
-
+/*
+  yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);
+*/
+	yshear = qomL*(pMat->time+pMat->dt);
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
 
@@ -389,12 +390,11 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
       for (j=je-Matghost+1; j<=je; j++){
         for (i=is-Matghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
-			pCons = &(vector[k][j][i]);
 
-			*(pSnd++) = pCons[0];
-			*(pSnd++) = pCons[1];
-			*(pSnd++) = pCons[2];
-			*(pSnd++) = pCons[3];
+			*(pSnd++) = vector[k][j][i][0];
+			*(pSnd++) = vector[k][j][i][1];
+			*(pSnd++) = vector[k][j][i][2];
+			*(pSnd++) = vector[k][j][i][3];
         }
       }
     }
@@ -411,12 +411,12 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
       for (j=js-Matghost; j<=js-1; j++){
         for (i=is-Matghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
-			pCons = &(vector[k][j][i]);
+			
 
-			pCons[0] = *(pRcv++);
-			pCons[1] = *(pRcv++);
-			pCons[2] = *(pRcv++);
-			pCons[3] = *(pRcv++);			
+			vector[k][j][i][0] = *(pRcv++);
+			vector[k][j][i][1] = *(pRcv++);
+			vector[k][j][i][2] = *(pRcv++);
+			vector[k][j][i][3] = *(pRcv++);			
         }
       }
     }
@@ -430,12 +430,12 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
       for (j=js; j<=js+Matghost-1; j++){
         for (i=is-Matghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
-          pCons = &(vector[k][j][i]);
+       
 
-	*(pSnd++) = pCons[0];
-	*(pSnd++) = pCons[1];
-	*(pSnd++) = pCons[2];
-	*(pSnd++) = pCons[3];
+	*(pSnd++) = vector[k][j][i][0];
+	*(pSnd++) = vector[k][j][i][1];
+	*(pSnd++) = vector[k][j][i][2];
+	*(pSnd++) = vector[k][j][i][3];
 	
 
         }
@@ -454,12 +454,12 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
       for (j=je+1; j<=je+Matghost; j++){
         for (i=is-Matghost; i<is; i++){
           /* Get a pointer to the ConsS cell */
-			pCons = &(vector[k][j][i]);
+	
 
-			pCons[0]  = *(pRcv++);
-			pCons[1] = *(pRcv++);
-			pCons[2] = *(pRcv++);
-			pCons[3] = *(pRcv++);
+			vector[k][j][i][0]  = *(pRcv++);
+			vector[k][j][i][1] = *(pRcv++);
+			vector[k][j][i][2] = *(pRcv++);
+			vector[k][j][i][3] = *(pRcv++);
 			
         }
       }
@@ -505,7 +505,6 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
   int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
   Remap *pRemap;
-  RadMHDS *pCons;
   MPI_Request rq;
 #endif
 
@@ -517,8 +516,10 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
   Ly = pMat->Ly;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pMat->time;  
-
+/*
+  yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);  
+*/
+	yshear = qomL*(pMat->time+pMat->dt);
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -802,12 +803,11 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
       for (j=je-Matghost+1; j<=je; j++){
         for (i=ie+1; i<=ie+Matghost; i++){
           /* Get a pointer to the ConsS cell */
-			pCons = &(vector[k][j][i]);
 
-			*(pSnd++) = pCons[0];
-			*(pSnd++) = pCons[1];
-			*(pSnd++) = pCons[2];
-			*(pSnd++) = pCons[3];
+			*(pSnd++) = vector[k][j][i][0];
+			*(pSnd++) = vector[k][j][i][1];
+			*(pSnd++) = vector[k][j][i][2];
+			*(pSnd++) = vector[k][j][i][3];
 			
         }
       }
@@ -825,12 +825,11 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
       for (j=js-Matghost; j<=js-1; j++){
         for (i=ie+1; i<=ie+Matghost; i++){
           /* Get a pointer to the ConsS cell */
-          pCons = &(vector[k][j][i]);
-
-			pCons[0]  = *(pRcv++);
-			pCons[1] = *(pRcv++);
-			pCons[2] = *(pRcv++);
-			pCons[3] = *(pRcv++);
+         
+			vector[k][j][i][0]  = *(pRcv++);
+			vector[k][j][i][1] = *(pRcv++);
+			vector[k][j][i][2] = *(pRcv++);
+			vector[k][j][i][3] = *(pRcv++);
 			
 			
         }
@@ -846,12 +845,11 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
       for (j=js; j<=js+Matghost-1; j++){
         for (i=ie+1; i<=ie+Matghost; i++){
           /* Get a pointer to the ConsS cell */
-          pCons = &(vector[k][j][i]);
 			
-			*(pSnd++) = pCons[0];
-			*(pSnd++) = pCons[1];
-			*(pSnd++) = pCons[2];
-			*(pSnd++) = pCons[3];
+			*(pSnd++) = vector[k][j][i][0];
+			*(pSnd++) = vector[k][j][i][1];
+			*(pSnd++) = vector[k][j][i][2];
+			*(pSnd++) = vector[k][j][i][3];
         }
       }
     }
@@ -868,12 +866,12 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
       for (j=je+1; j<=je+Matghost; j++){
         for (i=ie+1; i<=ie+Matghost; i++){
           /* Get a pointer to the ConsS cell */
-          pCons = &(vector[k][j][i]);
+   
 
-			pCons[0] = *(pRcv++);
-			pCons[1] = *(pRcv++);
-			pCons[2] = *(pRcv++);
-			pCons[3] = *(pRcv++);
+			vector[k][j][i][0] = *(pRcv++);
+			vector[k][j][i][1] = *(pRcv++);
+			vector[k][j][i][2] = *(pRcv++);
+			vector[k][j][i][3] = *(pRcv++);
 			
 
 		

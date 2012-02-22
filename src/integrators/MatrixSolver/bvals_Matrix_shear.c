@@ -104,7 +104,12 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
   Ly = pMat->Ly;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pMat->time;
+	/* When solve the implicit matrix, need to add dt in */
+	/* Add a factor of 4.0/3.0 */
+/*
+  yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);
+*/
+	yshear = qomL*pMat->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -139,11 +144,17 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
 	GhstZns[k][i][j].U[2] = pMat->U[k][j][ii].Fr2;
 
 /*	Multigrid solves for the residule, background shearing is subtracted */
-	if(!(pMat->bgflag) && (pMat->Nx[2] == pMat->RootNx[2])){
-		dFry = qomL * pMat->U[k][j][ii].Er * (1.0 + pMat->U[k][j][ii].Edd_22)/Crat;
-		GhstZns[k][i][j].U[2] += dFry;
-	}
- 
+
+/*	if(!(pMat->bgflag) && (pMat->Nx[2] == pMat->RootNx[2])){
+*/
+	/* We still need this even if the background state is subtracted */
+	dFry = qomL * pMat->U[k][j][ii].Er * (1.0 + pMat->U[k][j][ii].Edd_22)/Crat;
+	GhstZns[k][i][j].U[2] += dFry;
+
+
+/*	}
+*/
+
 	GhstZns[k][i][j].U[3] = pMat->U[k][j][ii].Fr3;
 	GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].rho;
 	GhstZns[k][i][j].U[5] = pMat->U[k][j][ii].V1;
@@ -379,7 +390,7 @@ void ShearingSheet_Matrix_ix1(MatrixS *pMat)
         pMat->U[k][j][is-Matghost+i].V2  = GhstZns[k][i][j].U[6];
         pMat->U[k][j][is-Matghost+i].V3  = GhstZns[k][i][j].U[7];
         pMat->U[k][j][is-Matghost+i].T4  = GhstZns[k][i][j].U[8];
-	pMat->U[k][j][is-Matghost+i].Edd_11 = GhstZns[k][i][j].U[8];
+	pMat->U[k][j][is-Matghost+i].Edd_11 = GhstZns[k][i][j].U[9];
 	pMat->U[k][j][is-Matghost+i].Edd_21 = GhstZns[k][i][j].U[10];
 	pMat->U[k][j][is-Matghost+i].Edd_22 = GhstZns[k][i][j].U[11];
 	pMat->U[k][j][is-Matghost+i].Edd_31 = GhstZns[k][i][j].U[12];
@@ -623,8 +634,11 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
   Ly = pMat->Ly;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pMat->time;  
-
+	/* add a factor of dt and 4/3 */
+/* 
+  yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);  
+*/
+	yshear = qomL*pMat->time;	
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -656,10 +670,14 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat)
 		  
 		  GhstZns[k][i][j].U[2] = pMat->U[k][j][ii].Fr2;
 
-	if(!(pMat->bgflag) && (pMat->Nx[2] == pMat->RootNx[2])){	 
+
+/*	if(!(pMat->bgflag) && (pMat->Nx[2] == pMat->RootNx[2])){
+*/	 
+		/* Still need this even background state is subtracted */
 		  dFry = qomL * pMat->U[k][j][ii].Er * (1.0 + pMat->U[k][j][ii].Edd_22)/Crat;
 		  GhstZns[k][i][j].U[2] -= dFry;
-	}
+/*	}
+*/
 		  
 		  GhstZns[k][i][j].U[3] = pMat->U[k][j][ii].Fr3;
 		  GhstZns[k][i][j].U[4] = pMat->U[k][j][ii].rho;

@@ -50,10 +50,6 @@ static Real *Cspeeds;
 /* The matrix coefficient */
 static Real **Euler = NULL;
 
-/* used to subtract background state */
-static Real *Er_t0;
-static Real *Fr_t0;
-
 /* Used for initial guess solution, also return the correct solution */
 /* Used for restarted GMRES method for periodic boundary condition */
 
@@ -104,8 +100,8 @@ void BackEuler_1d(MeshS *pM)
 
 
 	
-
-  	GridS *pG=(pM->Domain[0][0].Grid);
+	DomainS *pD = &(pM->Domain[0][0]);
+	GridS *pG = pD->Grid;
 	Real hdtodx1 = 0.5*pG->dt/pG->dx1;
 	Real dt = pG->dt;
 	int il,iu, is = pG->is, ie = pG->ie;
@@ -120,12 +116,9 @@ void BackEuler_1d(MeshS *pM)
 	Real tempFr;
 	Real temp0;
 	
-	Real temperature, velocity;
-	Real alphai0, alphai1, alpha, tau;
-	Real betai0, betai1, beta;
-	Real Si0, Si1, Speed;
-
-
+	Real temperature, velocity, Fr0x;
+	Real AdvFx;
+	
   	Real theta[7];
   	Real phi[7];
   	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, T4;
@@ -165,24 +158,16 @@ void BackEuler_1d(MeshS *pM)
 	
 	bgflag = 0;
 
-	if(bgflag){
-		/* If this the first time, save the background state, including boundary condition */
-			
-		for(i=is-nghost; i<=ie+nghost; i++){
-			Er_t0[i] = pG->U[ks][js][i].Er;
-			Fr_t0[i] = pG->U[ks][js][i].Fr1;					
-		}
-				
-	}
-
-
-		
 
 
 /* In principle, should load a routine to calculate the tensor f */
 
 /* Temperatory variables used to calculate the Matrix  */
   	
+
+/* First, do the advection step and update bounary */
+	
+
 
 /* Load 1D vector of conserved variables and calculate the source term */
  	for (i=is-nghost; i<=ie+nghost; i++) {
@@ -236,17 +221,17 @@ void BackEuler_1d(MeshS *pM)
 		velocity = U1d[i].Mx / U1d[i].d;
 	
 		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
+		
+		
+		Rad_Advection_Flux1D(pD, i, js, ks, 1.0, &AdvFx);
 
-    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[ks][js][i];
+    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + AdvFx;
     		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + pG->dt *  Sigma_aP * T4 * velocity;
-
-
 
 
 		
 		/* For periodic boundary condition, we use Lis library */
 		if((ix1 == 4) && (ox1 == 4)) {
-			for(i=is; i<=ie; i++){
 				index = 2 * (i-is);
 				tempvalue = RHSEuler[2*(i-is)+1];
 
@@ -282,12 +267,12 @@ void BackEuler_1d(MeshS *pM)
 					lis_vector_set_value(LIS_INS_VALUE,2*(i-is),U1d[i].Er,INIguess);
 					lis_vector_set_value(LIS_INS_VALUE,2*(i-is)+1,U1d[i].Fr1,INIguess);
 				}
-			}
+			
 		
 
 		}
 
-
+		if(!bgflag){
 		/* For inflow boundary condition */
 		if((i == is) && (ix1 == 3)) {
 			
@@ -300,13 +285,13 @@ void BackEuler_1d(MeshS *pM)
 			RHSEuler[2 * Nmatrix -1] -= (theta[5] * U1d[i+1].Er + theta[6] * U1d[i+1].Fr1);
 			RHSEuler[2 * Nmatrix] -= (phi[4] * U1d[i+1].Er + phi[5] * U1d[i+1].Fr1);
 		}
-
+		}
 
 
 	if((ix1 != 4) && (ox1 !=4)) {	
 		for(j=1; j<=7; j++) {
-			Euler[2*(i-is)+1][js] = theta[j-1];
-			Euler[2*(i-is)+2][js] = phi[j-1];
+			Euler[2*(i-is)+1][j] = theta[j-1];
+			Euler[2*(i-is)+2][j] = phi[j-1];
 		}	
 
 		/* Judge the boundary condition */
@@ -489,27 +474,43 @@ void BackEuler_1d(MeshS *pM)
 	}
 	
 			
-	for(i=is;i<=ie;i++){		
+	for(i=is;i<=ie;i++){	
+		temp0 = pG->U[ks][js][i].Er;	
 
 		if((ix1==4)&&(ox1==4)){
-			lis_vector_get_value(INIguess,2*(i-is),&(pG->U[ks][js][i].Er));
-			lis_vector_get_value(INIguess,2*(i-is)+1,&(pG->U[ks][js][i].Fr1));
-			U1d[i].Er		= pG->U[ks][js][i].Er;
-			U1d[i].Fr1		= pG->U[ks][js][i].Fr1;		
-
-			/* Add background state in */
+			lis_vector_get_value(INIguess,2*(i-is),&(tempEr));
+			lis_vector_get_value(INIguess,2*(i-is)+1,&(tempFr));
 			if(bgflag){
-				pG->U[ks][js][i].Er += Er_t0[i];
-				pG->U[ks][js][i].Fr1 += Fr_t0[i];
-			}	
+				pG->U[ks][js][i].Er += tempEr;
+				pG->U[ks][js][i].Fr1 += tempFr;				
+			
+			}
+			else{
+				pG->U[ks][js][i].Er = tempEr;
+				pG->U[ks][js][i].Fr1 = tempFr;
+				
+			}			
 
+			
 		}
 		else{
 			pG->U[ks][js][i].Er	= RHSEuler[2*(i-is)+1];
 			pG->U[ks][js][i].Fr1	= RHSEuler[2*(i-is)+2];
 			U1d[i].Er		= RHSEuler[2*(i-is)+1];
 			U1d[i].Fr1		= RHSEuler[2*(i-is)+2];
-		}
+		}	
+
+               	velocity = pG->U[ks][js][i].M1 /pG->U[ks][js][i].d;
+
+
+		Fr0x =  pG->U[ks][js][i].Fr1 - (1.0 +  pG->U[ks][js][i].Edd_11) * velocity * pG->U[ks][js][i].Er / Crat; 
+			
+			/* Estimate the added energy source term */
+		pG->Eulersource[ks][js][i] = Eratio * Crat * dt * (pG->U[ks][js][i].Sigma[2] * pG->Tguess[ks][js][i] - pG->U[ks][js][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][js][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x;
+			
+			
+			
+		
 	}
 	/* May need to update Edd_11 */
 
@@ -537,7 +538,7 @@ if(Opacity != NULL){
 
 
 /* Update the ghost zones for different boundary condition to be used later */
-
+/*
 	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
         	if (pM->Domain[i][js].Grid != NULL){
@@ -546,7 +547,7 @@ if(Opacity != NULL){
         	}
       	     }
     	}
-
+*/
 
 /*-----------Finish---------------------*/
 
@@ -592,13 +593,6 @@ void BackEuler_init_1d(MeshS *pM)
 
 	size1 = size1 + 2*nghost;
 	if ((U1d       =(Cons1DS*)malloc(size1*sizeof(Cons1DS)))==NULL) goto on_error;
-
-
-	/* to save Er and Fr at time t0, which are used to subtract the background state */
-	if((Er_t0 = (Real*)calloc_1d_array(size1, sizeof(Real))) == NULL) goto on_error;
-	
-	if((Fr_t0 = (Real*)calloc_1d_array(size1, sizeof(Real))) == NULL) goto on_error;
-	
 
 
 	if ((Cspeeds = (Real*)malloc((Ngrids+1)*sizeof(Real))) == NULL) goto on_error;
@@ -672,10 +666,6 @@ void BackEuler_destruct_1d()
 	
 	free_2d_array(Euler);
 	free_2d_array(lEuler);
-
-	free_3d_array(Er_t0);
-	free_3d_array(Fr_t0);
-	
 
 /* For Lis library */
 	

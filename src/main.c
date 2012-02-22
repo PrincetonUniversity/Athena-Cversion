@@ -655,11 +655,41 @@ int main(int argc, char *argv[])
 	/* Update boundary condition for Eddington tensor */
 #endif /* RADIATION_TRANSFER */
 
+
+
+/* Backward Euler step first */
+
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	
+
+#ifdef SHEARING_BOX
+#ifdef RADFARGO
+	/* Rad fargo preparation only need background shearing and currect Er */	
+
+	Rad_Fargo_Pre(&(Mesh.Domain[0][0]));
+#endif
+#endif
+
 	GetTguess(&Mesh);
 	
+	if(!Erflag){
+
+		(*BackEuler)(&Mesh);
+
+	/* update the boundary */
+    		for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      			for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        			if (Mesh.Domain[nl][nd].Grid != NULL){
+
+				bvals_radMHD(&(Mesh.Domain[nl][nd]));
+ 
+        			}
+      			}
+    		}
+
+	}
+
 #endif
+
 
 
 /*--- Step 9c. ---------------------------------------------------------------*/
@@ -680,26 +710,23 @@ int main(int argc, char *argv[])
 #endif
 #endif /* FARGO */
 
-
 	
 	/* must update boundary condition for Er as energy source term is added in integrator */
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+/*#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
-
+*/
  
         }
       }
     }
 
-/* Do not need to update boundary condition */
-/* Source terms in ghost zones do not need to be set */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 	/* This step doesn't need ghost zones of hydro variables */
-
-	(*BackEuler)(&Mesh);
-
+	if(Erflag){
+		(*BackEuler)(&Mesh);
+	}
 #endif
 
 /*--- Step 9d. ---------------------------------------------------------------*/
@@ -765,14 +792,11 @@ int main(int argc, char *argv[])
           bvals_particle(&(Mesh.Domain[nl][nd]));
 #endif
 
-	
-/* boundary conditions for radiation quantities are set in the integrator */
- /*
-	
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
-*/	 
+	 
 
         }
       }

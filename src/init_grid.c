@@ -229,6 +229,9 @@ void init_grid(MeshS *pM)
       if (pG->Tguess == NULL) goto on_error16;
       pG->Ersource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->Ersource == NULL) goto on_error20;
+      pG->Eulersource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->Eulersource == NULL) goto on_error22;
+     
 #endif
 
 
@@ -1131,6 +1134,9 @@ G3.ijkl[2],G3.ijkr[2]);
     free_3d_array(pG->Tguess);
    on_error20:
     free_3d_array(pG->Ersource);
+   on_error22:
+    free_3d_array(pG->Eulersource);
+  
 #endif
 #ifdef CYLINDRICAL
   on_error15:

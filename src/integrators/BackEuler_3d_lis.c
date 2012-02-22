@@ -262,18 +262,6 @@ static Real *psi;
 static Real *varphi;
 
 
-/* subtract background state, which is initial condition */
-/* For this to work, we assume no  initial perturbation in Er and Fr, initial v=0 */
-static Real ***Er_t0;
-static Real ***dErdx_t0;
-static Real ***dErdy_t0;
-static Real ***dErdz_t0;
-static Real ***Fr1_t0;
-static Real ***Fr2_t0;
-static Real ***Fr3_t0;
-
-
-
 /* boundary flag */
 static int ix1;
 static int ox1;
@@ -422,6 +410,7 @@ void BackEuler_3d(MeshS *pM)
 	
 	/* For shearing box boundary condition */
 	Real vshear = 0.0;
+	Real qom = 0.0;
 #ifdef SHEARING_BOX
 	Real xmin, xmax, Lx, Ly, yshear, deltay, qomL, dFrycoef;
 	xmin = pD->RootMinX[0];
@@ -433,11 +422,14 @@ void BackEuler_3d(MeshS *pM)
 	Ly = xmax - xmin;
 	
 	qomL = qshear*Omega_0*Lx;
+	
 	yshear = qomL*pG->time;
 	
 	
 	/* Only need to apply shearing boundary condition in x direction for flux y */
 	/* Others are periodic boundary condition */
+
+	/* This is calculated for each cell */
 	
 	deltay = fmod(yshear, Ly);
 	
@@ -478,7 +470,7 @@ void BackEuler_3d(MeshS *pM)
 	/* For FARGO algorithm */
 #ifdef FARGO
 	
-	Real qom, x1, x2, x3;
+	Real x1, x2, x3;
 	qom = qshear * Omega_0;
 	
 #endif
@@ -491,6 +483,8 @@ void BackEuler_3d(MeshS *pM)
 	/* count is the number of total non-zeros before that row */
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
 	Real temperature, velocity_x, velocity_y, velocity_z, pressure, T4, Fr0x, Fr0y, Fr0z, density;
+	Real AdvFx, AdvFy, AdvFz;
+	
 		
 	
 #ifdef RADIATION_TRANSFER
@@ -525,10 +519,10 @@ void BackEuler_3d(MeshS *pM)
 	Value = (LIS_SCALAR *)malloc(58*Nmatrix*sizeof(LIS_SCALAR));
 
 	if ((indexValue = (int*)malloc(58*Nmatrix*sizeof(int))) == NULL) 
-	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	ath_error("[BackEuler_init_3d]: malloc returned a NULL pointer\n");
 
 	if ((ptr = (int*)malloc((lines+1)*sizeof(int))) == NULL) 
-	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	ath_error("[BackEuler_init_3d]: malloc returned a NULL pointer\n");
 
 
 
@@ -567,49 +561,12 @@ void BackEuler_3d(MeshS *pM)
 	Real temp0;
 
 
-	/* Store back the background state */
-	if(bgflag){
-		for(k=ks-nghost; k<=ke+nghost; k++){
-			for(j=js-nghost; j<=je+nghost; j++){
-				for(i=is-nghost; i<=ie+nghost; i++){
-
-					Er_t0[k][j][i] = pG->U[k][j][i].Er;
-					Fr1_t0[k][j][i] = pG->U[k][j][i].Fr1;
-					Fr2_t0[k][j][i] = pG->U[k][j][i].Fr2;
-					Fr3_t0[k][j][i] = pG->U[k][j][i].Fr3;
-
-				}
-			}
-		}
-	}
-
 
 /*--------------------Note--------------------*/
 
-
+	
 /* Step 1b: Setup the Matrix */
-		
- 	/* First, setup the guess solution. Guess solution is the solution from last time step */
-	for(k=ks; k<=ke; k++){
-		for(j=js; j<=je; j++){
-			for(i=is; i<=ie; i++){
-				/* if background state is subtracted, initial guess is zero */
-				if(bgflag){
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is)     + count_Grids, 0.0,INIguess);
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 1 + count_Grids, 0.0,INIguess);
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 2 + count_Grids, 0.0,INIguess);
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 3 + count_Grids, 0.0,INIguess);
-				}
-				else{
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is)     + count_Grids, pG->U[k][j][i].Er,INIguess);
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 1 + count_Grids, pG->U[k][j][i].Fr1,INIguess);
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 2 + count_Grids, pG->U[k][j][i].Fr2,INIguess);
-					lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 3 + count_Grids, pG->U[k][j][i].Fr3,INIguess);
-				}
-				
-			}	
-		}
-	}
+	
 	
 	/*--------Now set the Euler matrix-----------*/
 	for(k=ks; k<=ke; k++){
@@ -617,6 +574,13 @@ void BackEuler_3d(MeshS *pM)
 			for(i=is; i<=ie; i++){
 #ifdef SHEARING_BOX
 			vshear = 0.0;
+
+			/* set the shearing factor */
+
+
+
+
+
 #ifdef FARGO				
 			/* With FARGO, we should add background shearing to the source terms */
 			cc_pos(pG,i,j,k,&x1,&x2,&x3);
@@ -625,7 +589,7 @@ void BackEuler_3d(MeshS *pM)
 #endif				
 #endif	
 
-			matrix_coef(NULL, pG, 3, i, j, k, vshear, theta, phi, psi, varphi);
+			matrix_coef(NULL, pG, 3, i, j, k, qom, theta, phi, psi, varphi);
 			
 		/*===================================================================================*/
 			/* First, set right hand side */
@@ -644,17 +608,49 @@ void BackEuler_3d(MeshS *pM)
 
 		velocity_y -= vshear;			
 				
-#endif				
-	
+#endif	
+
+
+
+
+		/*==============================================*/
+		/* if background state is subtracted, initial guess is zero */
+		/* first, setup the initial guess */
+		if(bgflag){
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is)     + count_Grids, 0.0,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 1 + count_Grids, 0.0,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 2 + count_Grids, 0.0,INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 3 + count_Grids, 0.0,INIguess);
+		}
+		else{
+			/* calculat the advection flux */
+			/* The matrix solve the co-moving flux */
+			/* background shearing must be in */
+			
+
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is)     + count_Grids, pG->U[k][j][i].Er, INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 1 + count_Grids, pG->U[k][j][i].Fr1, INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 2 + count_Grids, pG->U[k][j][i].Fr2, INIguess);
+			lis_vector_set_value(LIS_INS_VALUE,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 3 + count_Grids, pG->U[k][j][i].Fr3, INIguess);
+		}
+
+			
+		/*================================================*/
 			
 		
-			Sigma_aP = pG->U[k][j][i].Sigma[2];
-		
-				
+		Sigma_aP = pG->U[k][j][i].Sigma[2];	
 		
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
-    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i];
+		/* first, calculate the advection flux */		
+		Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
+
+    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz);
+/*
+	/* This is added after gas integrator */
+/*
+ 
+*/				
 
 		if(bgflag){
 			tempEr3 = theta[0] * pG->U[k-1][j][i].Er + theta[14] * pG->U[k+1][j][i].Er;
@@ -904,7 +900,6 @@ void BackEuler_3d(MeshS *pM)
 			/* Need to modify the matrix elements for shearing box boundary conditoin */
 			/* Eddington tensor in the ghost zone is already set by boundary condition */
 			/* Eddington tensor is assumed to be a constant tduring this step. It is explicit */
-				
 				
 #ifdef SHEARING_BOX
 				if((i == is) && ((pG->lx1_id < 0) || (pG->lx1_id > ID))){
@@ -3067,39 +3062,62 @@ void BackEuler_3d(MeshS *pM)
 	for(k=ks;k<=ke;k++){	
 		for(j=js;j<=je;j++){
 			for(i=is; i<=ie; i++){
+			temp0 = pG->U[k][j][i].Er;
+			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + count_Grids,&(tempEr1));
+			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 1 + count_Grids,&(tempFr1));
+			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 2 + count_Grids,&(tempFr2));
+			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 3 + count_Grids,&(tempFr3));
 
-			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + count_Grids,&(pG->U[k][j][i].Er));
-			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 1 + count_Grids,&(pG->U[k][j][i].Fr1));
-			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 2 + count_Grids,&(pG->U[k][j][i].Fr2));
-			lis_vector_get_value(INIguess,4*(k-ks)*Nx*Ny + 4*(j-js)*Nx + 4*(i-is) + 3 + count_Grids,&(pG->U[k][j][i].Fr3));
-/*
+			if(bgflag){
+				pG->U[k][j][i].Er += tempEr1;
+				pG->U[k][j][i].Fr1 += tempFr1;
+				pG->U[k][j][i].Fr2 += tempFr2;
+				pG->U[k][j][i].Fr3 += tempFr3;
+			}
+			else{
+				pG->U[k][j][i].Er = tempEr1;
+				pG->U[k][j][i].Fr1 = tempFr1;
+				pG->U[k][j][i].Fr2 = tempFr2;
+				pG->U[k][j][i].Fr3 = tempFr3;
+			}
+
+
+			/* correction for work done by radiation force. May need this to reduce energy error */
+
+#ifdef FARGO  
+                        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+#endif
+                	velocity_x = pG->U[k][j][i].M1 /pG->U[k][j][i].d;
+                	velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+                	velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+#ifdef FARGO
+
+                	velocity_y -= qshear * Omega_0 * x1;
+#endif
+
+			Fr0x =  pG->U[k][j][i].Fr1 - ((1.0 +  pG->U[k][j][i].Edd_11) * velocity_x +  pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) *  pG->U[k][j][i].Er / Crat; 
+			Fr0y =  pG->U[k][j][i].Fr2 - ((1.0 +  pG->U[k][j][i].Edd_22) * velocity_y +  pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) *  pG->U[k][j][i].Er / Crat;
+			Fr0z =  pG->U[k][j][i].Fr3 - ((1.0 +  pG->U[k][j][i].Edd_33) * velocity_z +  pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) *  pG->U[k][j][i].Er / Crat; 
+
+			
+			/* Estimate the added energy source term */
+			if(Prat > 0.0)
+				pG->Eulersource[k][j][i] = Eratio * Crat * dt * (pG->U[k][j][i].Sigma[2] * pG->Tguess[k][j][i] - pG->U[k][j][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[k][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[k][j][i] + dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+			
+		
+
+	/*	
 		if(pG->U[ks][j][i].Er < 0.0)
 			fprintf(stderr,"[BackEuler_2d]: Negative Radiation energy: %e\n",pG->U[ks][j][i].Er);
 */
+
 			}
 		}
 	}
 	/* Eddington factor is updated in the integrator  */
 
-
-
 	
-	/* Add back the background state */
-	if(bgflag){
-		for(k=ks; k<=ke; k++){
-			for(j=js; j<=je; j++){
-				for(i=is; i<=ie; i++){
-					
-				
-					pG->U[k][j][i].Er += Er_t0[k][j][i];
-					pG->U[k][j][i].Fr1 += Fr1_t0[k][j][i];
-					pG->U[k][j][i].Fr2 += Fr2_t0[k][j][i];
-					pG->U[k][j][i].Fr3 += Fr3_t0[k][j][i];
-
-				}
-			}
-		}
-	}
 
 if(Opacity != NULL){
 		for (k=pG->ks; k<=pG->ke; k++){
@@ -3140,7 +3158,7 @@ if(Opacity != NULL){
 
 
 /* Update the ghost zones for different boundary condition to be used later */
-	for (i=0; i<pM->NLevels; i++){ 
+/*	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
         	if (pM->Domain[i][j].Grid != NULL){
   			bvals_radMHD(&(pM->Domain[i][j]));
@@ -3148,7 +3166,7 @@ if(Opacity != NULL){
         	}
       	     }
     	}
-
+*/
 		/* Destroy the matrix, Value, indexValue  and ptr are also destroyed here */
 		lis_matrix_destroy(Euler);
 
@@ -3161,7 +3179,7 @@ if(Opacity != NULL){
 
 
 /*-------------------------------------------------------------------------*/
-/* BackEuler_init_2d: function to allocate memory used just for radiation variables */
+/* BackEuler_init_3d: function to allocate memory used just for radiation variables */
 /* BackEuler_destruct_2d(): function to free memory */
 void BackEuler_init_3d(MeshS *pM)
 {
@@ -3211,35 +3229,21 @@ void BackEuler_init_3d(MeshS *pM)
 
 	/* Allocate value and index array */
 
-	/* to save Er and Fr at time t0, which are used to subtract the background state */
-	if((Er_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((dErdx_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((dErdy_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((dErdz_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((Fr1_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((Fr2_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
-	if((Fr3_t0 = (Real***)calloc_3d_array(Nz+2*nghost, Ny+2*nghost, Nx+2*nghost, sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	
 	
 
 /* For temporary vector theta, phi, psi */
 	if ((theta = (Real*)malloc(16*sizeof(Real))) == NULL) 
-	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	ath_error("[BackEuler_init_3d]: malloc returned a NULL pointer\n");
 
 	if ((phi = (Real*)malloc(16*sizeof(Real))) == NULL) 
-	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	ath_error("[BackEuler_init_3d]: malloc returned a NULL pointer\n");
 
 	if ((psi = (Real*)malloc(16*sizeof(Real))) == NULL) 
-	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	ath_error("[BackEuler_init_3d]: malloc returned a NULL pointer\n");
 
 	if ((varphi = (Real*)malloc(16*sizeof(Real))) == NULL)
-	ath_error("[BackEuler_init_2d]: malloc returned a NULL pointer\n");
+	ath_error("[BackEuler_init_3d]: malloc returned a NULL pointer\n");
 
 	
 	return;
@@ -3261,16 +3265,7 @@ void BackEuler_destruct_3d()
 	if(psi != NULL) free(psi);
 	if(varphi != NULL) free(varphi);
 
-
-/* variables used to subtract background state */
-	free_3d_array(Er_t0);
-	free_3d_array(dErdx_t0);
-	free_3d_array(dErdy_t0);
-	free_3d_array(dErdz_t0);	
-	free_3d_array(Fr1_t0);
-	free_3d_array(Fr2_t0);
-	free_3d_array(Fr3_t0);
-
+	
 
 /* Memory for Value, indexValue, ptr are already freed when destroy Euler matrix */
 /*	

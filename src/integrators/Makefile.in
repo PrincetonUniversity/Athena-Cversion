@@ -23,7 +23,8 @@ CORE_OBJ = integrate.o \
 	   BackEuler_1d.o	\
 	   BackEuler_2d.o	\
 	   BackEuler_3d.o	\
-	   BackEuler.o
+	   BackEuler.o		\
+	   Rad_Advection_Flux.o
 
 HYPRE_OBJ = 
 ifeq (@MATRIX_LIBRARY@,MATRIX_HYPRE)

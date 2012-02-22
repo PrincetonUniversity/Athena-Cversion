@@ -41,6 +41,7 @@
 #
 # ALGORITHM "features":
 #   --enable-fargo                                      (enable FARGO algorithm)
+#   --enable-rad_fargo          (enable FARGO algorithm for radiation subsystem)
 #   --enable-fft                (compile and link with FFTW block decomposition)
 #   --enable-fofc                 (first-order flux correction in VL integrator)
 #   --enable-ghost                      (write out ghost cells in outputs/dumps)
@@ -638,13 +639,36 @@ fi
 AC_SUBST(FARGO_MODE)
 AC_ARG_ENABLE(fargo,
 	[--enable-fargo  turn on fargo],
-	ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
+	ok_fargo=$enableval, ok_fargo=no)
+if test "$ok_fargo" = "yes"; then
   FARGO_MODE="FARGO"
   FARGO_MODE_USER="ON"
 else
   FARGO_MODE="NO_FARGO"
   FARGO_MODE_USER="OFF"
+fi
+
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on RADFARGO algorithm
+#   --enable-rad_fargo
+
+AC_SUBST(RADFARGO_MODE)
+AC_ARG_ENABLE(rad_fargo,
+	[--enable-rad_fargo  turn on rad_fargo],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RADFARGO_MODE="RADFARGO"
+  RADFARGO_MODE_USER="ON"
+else
+  RADFARGO_MODE="NO_RADFARGO"
+  RADFARGO_MODE_USER="OFF"
+fi
+
+if test "$ok" == "yes"; then
+if test "$ok_fargo" = "no"; then
+   AC_MSG_ERROR([rad_fargo must be used with fargo together!])
+fi
 fi
 
 #-------------------------------------------------------------------------------
@@ -824,6 +848,7 @@ echo "H-correction:            $H_CORRECTION_MODE_USER"
 echo "FFT:                     $FFT_MODE_USER"
 echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
+echo "RADFARGO:                $RADFARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "ALI method:              $ALI_USER"
