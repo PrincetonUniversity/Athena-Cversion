@@ -682,8 +682,11 @@ for(i=il+1; i<=iu-1; i++) {
 #endif
 
 		/* subtract the actual added radiation work term */
-	/*	pG->Ersource[ks][js][i] -= Prworksource;
-	*/
+		if(Erflag){
+			pG->Ersource[ks][js][i] -= Prworksource;
+			pG->Eulersource[ks][js][i] = -Prworksource/Prat;
+
+		}
 		
 		pG->Ersource[ks][js][i] /= -Prat;
 

@@ -43,6 +43,12 @@ static MatrixS *pMat;
 
 static Real ****INIerror;
 
+static Real *****Reshist; /* The residual after each cycle, we only store 5 cycles for iterant recombination */
+static Real *****Solhist; /* Store the history of the solution */
+static Real *Resnorm; /* store the norm of the stored residual */
+static int MAXerror = 11; /* The maximum number of combined residual */
+static int Resnum; /* actual number of residual stored, Resnum <= MAXerror */
+
 
 static Real INInorm;
 /* The initial L2 norm of the right hand side   *
@@ -51,7 +57,7 @@ static Real INInorm;
  */ 
 
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
-static int Wcyclelim = 5; /* The limit of how many Wcycle we allow */ 
+static int Wcyclelim = 15; /* The limit of how many Wcycle we allow */ 
 
 static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method, or Bicgsafe */
 			  /* 1 is GS method while 0 is Jacobi method , 2 is Bicgsafe method*/
@@ -72,12 +78,20 @@ static void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat);
 static void RHSResidual3D(MatrixS *pMat, Real ****newRHS);
 
 
+static void CopySolution(MatrixS *pMat, Real ****Solhist);
+
+static void Recombination(MatrixS *pMat, Real *****Reshist, Real *****Solhist, const int num, const Real *Norms);
+
+/* calculate inner product of two arbitrary vectors */
+static void Inner_product(MatrixS *pMat, Real ****vector1, Real ****vector2, Real *result);
+
 /* New restriction and prolongation function adopted from SMR */
 
-void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine);
+static void prolongation3D(MatrixS *pMat_coarse, MatrixS *pMat_fine);
 
 
-void ProU(const RadMHDS Uim1, const RadMHDS Ui, const RadMHDS Uip1, 
+
+static void ProU(const RadMHDS Uim1, const RadMHDS Ui, const RadMHDS Uip1, 
 	  const RadMHDS Ujm1, const RadMHDS Ujp1,
 	  const RadMHDS Ukm1, const RadMHDS Ukp1, RadMHDS PCon[2][2][2]);
 
@@ -280,10 +294,20 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 	/* Do the multi-grid W cycle */
 	Wcycle = 0;
 	error = 1.0;
+	Resnum = 0;
 	/* Stop iteration if tolerance level is reached */
 	/* Or the matrix doesn't converge in Wcycle limit */
 	while((error > TOL) && (Wcycle < Wcyclelim)){
 		Wflag = 1;
+
+		/* Do the recombination before the multigrid cycle */
+		/* num from 0... Resnum-1 */
+		if(Resnum > 1)
+			Recombination(pMat, Reshist, Solhist, Resnum, Resnorm);
+
+		
+		if(Resnum >= MAXerror)
+			Resnum = 0;
 
 		RadMHD_multig_3D(pMat);
 
@@ -291,9 +315,13 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 		/* Bicgsafe works different from GS and Jacobi */
 		/* pMat->RHS is changed during each iteration for Bicgsafe */
 		if((Matrixflag == 0) || (Matrixflag == 1)){
-			/* calculate the residual */
-			RHSResidual3D(pMat, INIerror);
-			error = CheckResidual(pMat,INIerror);
+			/* calculate the residual and store the residual in Reshist */
+			RHSResidual3D(pMat, Reshist[Resnum]);			
+			error = CheckResidual(pMat,Reshist[Resnum]);
+			/* store the current solution and its norm */
+			CopySolution(pMat,Solhist[Resnum]);
+			Resnorm[Resnum] = error;
+			Resnum++;
 		}
 		else if(Matrixflag == 2){
 			error = CheckResidual(pMat,pMat->RHS);
@@ -309,7 +337,6 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 			ath_error("[BackEuler3D]: NaN encountered!\n");
 	
 		Wcycle++;
-
 
 	}
 		/* Only output the residual for parent grid */	
@@ -355,10 +382,16 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 			Fr0z =  pG->U[k][j][i].Fr3 - ((1.0 +  pG->U[k][j][i].Edd_33) * velocity_z +  pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) *  pG->U[k][j][i].Er / Crat; 
 
 			/* Estimate the added energy source term */
-			if(Prat > 0.0)
-			pG->Eulersource[k][j][i] = Eratio * Crat * dt * (pG->U[k][j][i].Sigma[2] * pG->Tguess[k][j][i] - pG->U[k][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[k][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[k][j][i] + dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-	
+			if(Prat > 0.0){
+				if(Erflag){
+					pG->U[k][j][i].Er += (pG->Eulersource[k][j][i] - dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z));
+				}
+				else{
+					pG->Eulersource[k][j][i] = Eratio * Crat * dt * (pG->U[k][j][i].Sigma[2] * pG->Tguess[k][j][i] - pG->U[k][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[k][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[k][j][i] + dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+				}
 				
+
+			}
 			/*
 				if(pG->U[k][j][i].Er < TINY_NUMBER)
 					pG->U[k][j][i].Er = 1.0;
@@ -698,6 +731,16 @@ void BackEuler_init_3d(MeshS *pM)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
 
 
+	if((Reshist=(Real*****)calloc_5d_array(MAXerror,Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((Solhist=(Real*****)calloc_5d_array(MAXerror,Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((Resnorm=(Real*)calloc(MAXerror,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
+
+
 	/* now set the parameters */
 
 	pMat->dx1 = pG->dx1;
@@ -782,7 +825,15 @@ void BackEuler_destruct_3d()
 	if(INIerror != NULL)
 		free_4d_array(INIerror);
 
-	
+	if(Reshist != NULL)
+		free_5d_array(Reshist);
+
+	if(Solhist != NULL)
+		free_5d_array(Solhist);
+
+	if(Resnorm != NULL)
+		free(Resnorm);
+
 		
 }
 
@@ -796,39 +847,8 @@ Real CheckResidual(MatrixS *pMat, Real ****vector)
 
 	/* This function calculate the norm of the right hand side */
 	Real Norm;
-	Real normtemp;
 
-	int i, j, k;
-	int is, ie, js, je, ks, ke;
-	is = pMat->is;
-	ie = pMat->ie;
-	js = pMat->js;
-	je = pMat->je;
-	ks = pMat->ks;
-	ke = pMat->ke;
-
-#ifdef MPI_PARALLEL
-	int ierr;
-	double tot_norm = 0.0;
-#endif
-
-	Norm = 0.0;
-
-	for(k=ks; k<=ke; k++)
-		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){			
-				vector_product(vector[k][j][i],vector[k][j][i], 4 , &normtemp);
-				Norm += normtemp;							
-			}	
-		
-	/* MPI call to collect norm from different CPUs */
-
-
-#ifdef MPI_PARALLEL
-	ierr = MPI_Allreduce(&Norm,&tot_norm,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-
-	Norm = tot_norm;  
-#endif	
+	Inner_product(pMat, vector, vector, &Norm);
 
 	return Norm;
 
@@ -1168,6 +1188,196 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 	return;
 
 }
+
+
+void Recombination(MatrixS *pMat, Real *****Reshist, Real *****Solhist, const int num, const Real *Norms)
+{
+	/* combine the latest 0 ... num-1 solution to minimize the current residual */
+	/* Norms[i] = <Reshist[i], Reshist[i]> */
+
+	int i, j, k, m;	
+	int is, ie, js, je, ks, ke;
+	int flag = 1; /* used to label whether matrix inversion sucesseed or not */
+
+	is = pMat->is;
+	ie = pMat->ie;
+	js = pMat->js;
+	je = pMat->je;
+	ks = pMat->ks;
+	ke = pMat->ke;
+
+	Real **Matrixcoef = NULL;
+	Real *MatrixRHS = NULL;
+	Real *crossNorm = NULL;
+
+	/* temporary used for LU decomposition */
+	int *index = NULL;
+	Real *dtemp = NULL;
+	
+
+	Real tempNorm;
+
+	if((Matrixcoef=(Real**)calloc_2d_array(num,num,sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((MatrixRHS=(Real*)calloc(num,sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+	
+	if((crossNorm=(Real*)calloc(num,sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((index=(int*)calloc(num,sizeof(int))) == NULL)
+		ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((dtemp=(Real*)calloc(num,sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	
+
+	/* set the coefficient of H matrix and right hand side */
+	/* crossNorm is <Res[num-1], Res[i]> */
+
+	for(i=1; i<=num-1; i++){
+		Inner_product(pMat, Reshist[num-1-i], Reshist[num-1], &(crossNorm[i]));
+		MatrixRHS[i] = Norms[num-1] - crossNorm[i];
+	}
+
+
+	for(i=1; i<= num-1; i++){
+		for(j=1; j<= num-1; j++){
+			if(i != j){
+				Inner_product(pMat, Reshist[num-1-i], Reshist[num-1-j], &(tempNorm));
+				Matrixcoef[i][j] = tempNorm - crossNorm[i] - crossNorm[j] + Norms[num-1];
+			}
+			else{
+				Matrixcoef[i][j] = Norms[num-1-i] - 2.0 * crossNorm[i] +  Norms[num-1];
+
+			}
+		}
+	}
+
+	/* now solve the (num-1)(num-1) matrix:  Matrixcoef alphas = MatrixRHS */ 
+	/* This is smaller than 5 * 5 matrix, can use direct method to solve */
+	/* LU decomposition */
+	ludcmp(Matrixcoef,num-1, index, dtemp, &flag);	
+	/* If matrix is ill conditinoed, do not do recombination */
+	/* solve the matrix */
+	if(flag){
+
+	lubksb(Matrixcoef, num-1, index, MatrixRHS);
+	/* solution is stored in MatrixRHS */
+	
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+				for(m=1; m<num; m++){
+					pMat->U[k][j][i].Er  += MatrixRHS[m] * (Solhist[num-1-m][k][j][i][0] - Solhist[num-1][k][j][i][0]);
+					pMat->U[k][j][i].Fr1 += MatrixRHS[m] * (Solhist[num-1-m][k][j][i][1] - Solhist[num-1][k][j][i][1]);
+					pMat->U[k][j][i].Fr2 += MatrixRHS[m] * (Solhist[num-1-m][k][j][i][2] - Solhist[num-1][k][j][i][2]);
+					pMat->U[k][j][i].Fr3 += MatrixRHS[m] * (Solhist[num-1-m][k][j][i][3] - Solhist[num-1][k][j][i][3]);
+				}
+	}
+
+	}
+	/* The more accurate solution is now stored in pMat */
+
+
+
+
+	if(Matrixcoef != NULL)
+		free_2d_array(Matrixcoef);
+
+	if(MatrixRHS != NULL)
+		free(MatrixRHS);
+
+	if(crossNorm != NULL)
+		free(crossNorm);
+
+	
+	if(index != NULL)
+		free(index);
+
+	
+	if(dtemp != NULL)
+		free(dtemp);
+
+
+
+}
+
+/* Copy and store current estimate solution */
+void CopySolution(MatrixS *pMat, Real ****Solhist)
+{
+	int i, j, k;
+	int is, ie, js, je, ks, ke;
+
+	is = pMat->is;
+	ie = pMat->ie;
+	js = pMat->js;
+	je = pMat->je;
+	ks = pMat->ks;
+	ke = pMat->ke;
+
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+
+				Solhist[k][j][i][0] = pMat->U[k][j][i].Er;
+				Solhist[k][j][i][1] = pMat->U[k][j][i].Fr1;
+				Solhist[k][j][i][2] = pMat->U[k][j][i].Fr2;
+				Solhist[k][j][i][3] = pMat->U[k][j][i].Fr3;
+	}
+
+	return;
+}
+
+/* calculate the inner product of two vectors , handle MPI case */
+void Inner_product(MatrixS *pMat, Real ****vector1, Real ****vector2, Real *result)
+{
+
+
+	Real Norm;
+	Real normtemp;
+
+	int i, j, k;
+	int is, ie, js, je, ks, ke;
+	is = pMat->is;
+	ie = pMat->ie;
+	js = pMat->js;
+	je = pMat->je;
+	ks = pMat->ks;
+	ke = pMat->ke;
+
+#ifdef MPI_PARALLEL
+	int ierr;
+	double tot_norm = 0.0;
+#endif
+
+	Norm = 0.0;
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){			
+				vector_product(vector1[k][j][i],vector2[k][j][i], 4 , &normtemp);
+				Norm += normtemp;							
+			}	
+		
+	/* MPI call to collect norm from different CPUs */
+
+
+#ifdef MPI_PARALLEL
+	ierr = MPI_Allreduce(&Norm,&tot_norm,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+
+	Norm = tot_norm;  
+#endif	
+
+	*result = Norm;
+
+	return;
+
+}
+
 
 
 /* Prolongation scheme adopted from SMR */

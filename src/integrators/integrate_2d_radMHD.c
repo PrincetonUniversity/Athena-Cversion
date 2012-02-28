@@ -2211,8 +2211,10 @@ void integrate_2d_radMHD(DomainS *pD)
 
 			/* Subtract the actual added work done by radiation force */
 			/* This is added seperately for the radiation subsystem */
-		/*	pG->Ersource[ks][j][i] -= Prworksource;
-		*/
+			if(Erflag){
+				pG->Ersource[ks][j][i] -= Prworksource;
+				pG->Eulersource[ks][j][i] = -Prworksource/Prat;
+			}
 
 			pG->Ersource[ks][j][i] /= -Prat;
 			

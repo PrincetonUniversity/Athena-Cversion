@@ -42,7 +42,7 @@ void Rad_Fargo_destruct(void);
 
 VMFun_t BackEuler_init(MeshS *pM);
 /* General LU decomposition functions */
-void ludcmp(Real **a, int n, int *indx, Real *d);
+void ludcmp(Real **a, int n, int *indx, Real *d, int *flag);
 void lubksb(Real **a, int n, int *indx, Real b[]);
 /* Matrix solver for band diagnol equations */
 void bandec(Real **a, unsigned long n, int m1, int m2, Real **al,

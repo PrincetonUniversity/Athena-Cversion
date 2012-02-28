@@ -44,13 +44,32 @@ void GaussSeidel2D(MatrixS *pMat)
 	je = pMat->je;
 	ks = pMat->ks;
 
-
+	Real omega = 0.5;
+	Real Ert0, Frt0;
 
 	/* To store the coefficient */
-	Real theta[11];
-	Real phi[11];
-	Real psi[11];
+	Real ***theta = NULL;
+	Real ***phi = NULL;
+	Real ***psi = NULL;
+	
 
+	if((theta = (Real***)calloc_3d_array(je-js+1+2*Matghost, ie-is+1+2*Matghost,11,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+
+	if((phi = (Real***)calloc_3d_array(je-js+1+2*Matghost, ie-is+1+2*Matghost,11,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+	
+	if((psi = (Real***)calloc_3d_array(je-js+1+2*Matghost, ie-is+1+2*Matghost,11,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+
+
+
+	/* Only need to calculate the coefficient once */
+	for(j=js; j<=je; j++)
+		for(i=is; i<=ie; i++){				
+		matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(theta[j][i][0]), &(phi[j][i][0]), &(psi[j][i][0]), NULL);
+							
+	}
 
 			
 	/* Update the boundary cells */
@@ -65,58 +84,63 @@ for(n=0; n<Ncycle; n++){
 		/* Only need to set the elements once, at the beginning */
 		/* The right hand side is stored in pMat */
 		/* The coefficients are calculated according to the formula */
-
-			matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(theta[0]), &(phi[0]), &(psi[0]), NULL);
-		
-
 			/* The diagonal elements are theta[4], phi[5], psi[5] */
 			
 			/* For Er */
+			Ert0 = pMat->U[ks][j][i].Er;
 			pMat->U[ks][j][i].Er  = pMat->RHS[ks][j][i][0];
-			pMat->U[ks][j][i].Er -= theta[0] * pMat->U[ks][j-1][i].Er;
-			pMat->U[ks][j][i].Er -= theta[1] * pMat->U[ks][j-1][i].Fr2;
-			pMat->U[ks][j][i].Er -= theta[2] * pMat->U[ks][j][i-1].Er;
-			pMat->U[ks][j][i].Er -= theta[3] * pMat->U[ks][j][i-1].Fr1;
+			pMat->U[ks][j][i].Er -= theta[j][i][0] * pMat->U[ks][j-1][i].Er;
+			pMat->U[ks][j][i].Er -= theta[j][i][1] * pMat->U[ks][j-1][i].Fr2;
+			pMat->U[ks][j][i].Er -= theta[j][i][2] * pMat->U[ks][j][i-1].Er;
+			pMat->U[ks][j][i].Er -= theta[j][i][3] * pMat->U[ks][j][i-1].Fr1;
 			/* diagonal elements are not included */
-			pMat->U[ks][j][i].Er -= theta[5] * pMat->U[ks][j][i].Fr1;
-			pMat->U[ks][j][i].Er -= theta[6] * pMat->U[ks][j][i].Fr2;
-			pMat->U[ks][j][i].Er -= theta[7] * pMat->U[ks][j][i+1].Er;
-			pMat->U[ks][j][i].Er -= theta[8] * pMat->U[ks][j][i+1].Fr1;
-			pMat->U[ks][j][i].Er -= theta[9] * pMat->U[ks][j+1][i].Er;
-			pMat->U[ks][j][i].Er -= theta[10] * pMat->U[ks][j+1][i].Fr2;
-			pMat->U[ks][j][i].Er /= theta[4];
+			pMat->U[ks][j][i].Er -= theta[j][i][5] * pMat->U[ks][j][i].Fr1;
+			pMat->U[ks][j][i].Er -= theta[j][i][6] * pMat->U[ks][j][i].Fr2;
+			pMat->U[ks][j][i].Er -= theta[j][i][7] * pMat->U[ks][j][i+1].Er;
+			pMat->U[ks][j][i].Er -= theta[j][i][8] * pMat->U[ks][j][i+1].Fr1;
+			pMat->U[ks][j][i].Er -= theta[j][i][9] * pMat->U[ks][j+1][i].Er;
+			pMat->U[ks][j][i].Er -= theta[j][i][10] * pMat->U[ks][j+1][i].Fr2;
+			pMat->U[ks][j][i].Er /= theta[j][i][4];
+
+			pMat->U[ks][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[ks][j][i].Er;
 		
 			/* For Fr1 */
+			Frt0 = pMat->U[ks][j][i].Fr1;
 
 			pMat->U[ks][j][i].Fr1  = pMat->RHS[ks][j][i][1];
-			pMat->U[ks][j][i].Fr1 -= phi[0] * pMat->U[ks][j-1][i].Er;
-			pMat->U[ks][j][i].Fr1 -= phi[1] * pMat->U[ks][j-1][i].Fr1;
-			pMat->U[ks][j][i].Fr1 -= phi[2] * pMat->U[ks][j][i-1].Er;
-			pMat->U[ks][j][i].Fr1 -= phi[3] * pMat->U[ks][j][i-1].Fr1;
-			pMat->U[ks][j][i].Fr1 -= phi[4] * pMat->U[ks][j][i].Er;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][0] * pMat->U[ks][j-1][i].Er;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][1] * pMat->U[ks][j-1][i].Fr1;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][2] * pMat->U[ks][j][i-1].Er;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][3] * pMat->U[ks][j][i-1].Fr1;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][4] * pMat->U[ks][j][i].Er;
 			/* diagonal elements are not included */
 
-			pMat->U[ks][j][i].Fr1 -= phi[6] * pMat->U[ks][j][i+1].Er;
-			pMat->U[ks][j][i].Fr1 -= phi[7] * pMat->U[ks][j][i+1].Fr1;
-			pMat->U[ks][j][i].Fr1 -= phi[8] * pMat->U[ks][j+1][i].Er;
-			pMat->U[ks][j][i].Fr1 -= phi[9] * pMat->U[ks][j+1][i].Fr1;
-			pMat->U[ks][j][i].Fr1 /= phi[5];
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][6] * pMat->U[ks][j][i+1].Er;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][7] * pMat->U[ks][j][i+1].Fr1;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][8] * pMat->U[ks][j+1][i].Er;
+			pMat->U[ks][j][i].Fr1 -= phi[j][i][9] * pMat->U[ks][j+1][i].Fr1;
+			pMat->U[ks][j][i].Fr1 /= phi[j][i][5];
+
+			pMat->U[ks][j][i].Fr1 = (1.0 - omega) * Frt0 + omega * pMat->U[ks][j][i].Fr1;
 
 			/* For Fr2 */
+			Frt0 = pMat->U[ks][j][i].Fr2;
 
 			pMat->U[ks][j][i].Fr2  = pMat->RHS[ks][j][i][2];
-			pMat->U[ks][j][i].Fr2 -= psi[0] * pMat->U[ks][j-1][i].Er;
-			pMat->U[ks][j][i].Fr2 -= psi[1] * pMat->U[ks][j-1][i].Fr2;
-			pMat->U[ks][j][i].Fr2 -= psi[2] * pMat->U[ks][j][i-1].Er;
-			pMat->U[ks][j][i].Fr2 -= psi[3] * pMat->U[ks][j][i-1].Fr2;
-			pMat->U[ks][j][i].Fr2 -= psi[4] * pMat->U[ks][j][i].Er;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][0] * pMat->U[ks][j-1][i].Er;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][1] * pMat->U[ks][j-1][i].Fr2;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][2] * pMat->U[ks][j][i-1].Er;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][3] * pMat->U[ks][j][i-1].Fr2;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][4] * pMat->U[ks][j][i].Er;
 			/* diagonal elements are not included */
 
-			pMat->U[ks][j][i].Fr2 -= psi[6] * pMat->U[ks][j][i+1].Er;
-			pMat->U[ks][j][i].Fr2 -= psi[7] * pMat->U[ks][j][i+1].Fr2;
-			pMat->U[ks][j][i].Fr2 -= psi[8] * pMat->U[ks][j+1][i].Er;
-			pMat->U[ks][j][i].Fr2 -= psi[9] * pMat->U[ks][j+1][i].Fr2;
-			pMat->U[ks][j][i].Fr2 /= psi[5];
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][6] * pMat->U[ks][j][i+1].Er;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][7] * pMat->U[ks][j][i+1].Fr2;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][8] * pMat->U[ks][j+1][i].Er;
+			pMat->U[ks][j][i].Fr2 -= psi[j][i][9] * pMat->U[ks][j+1][i].Fr2;
+			pMat->U[ks][j][i].Fr2 /= psi[j][i][5];
+
+			pMat->U[ks][j][i].Fr2 = (1.0 - omega) * Frt0 + omega * pMat->U[ks][j][i].Fr2;
 
 	}
 			
@@ -127,6 +151,16 @@ for(n=0; n<Ncycle; n++){
 
 }	
   
+
+	if(theta != NULL)
+		free_3d_array(theta);
+
+	if(phi != NULL)
+		free_3d_array(phi);
+
+	if(psi != NULL)
+		free_3d_array(psi);
+
 
 	return;	
 	

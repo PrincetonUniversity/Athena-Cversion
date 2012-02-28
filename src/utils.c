@@ -1562,7 +1562,7 @@ void GetTguess(MeshS *pM)
 	int ke, ks;
 	int jl, ju, kl, ku;
 
-	Real pressure, Sigma_aP, Sigma_aE, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr;
+	Real pressure, Sigma_aP, Sigma_aE, Ern, ETsource, Det, Erguess, Tguess, temperature, TEr, Ersum;
 	Real sign1, sign2, coef1, coef2, coef3;
 
 	Real dt, Terr, Ererr;
@@ -1661,13 +1661,17 @@ void GetTguess(MeshS *pM)
 
 				
 				if(sign1 * sign2 < 0.0){
+					/* use backward Euler to get the Tguess */
 		
 					
 					if( pG->U[k][j][i].Er < 0.0) pG->U[k][j][i].Er = 0.0;
 
-					coef1 = Prat;
-					coef2 =  pG->U[k][j][i].d * R_ideal / (Gamma - 1.0);
-					coef3 = -pressure/(Gamma - 1.0) - Prat *  pG->U[k][j][i].Er;
+					Ersum = pressure / (Gamma - 1.0) + Prat * pG->U[k][j][i].Er;
+
+					coef1 = pG->dt * Prat * Crat * Sigma_aP;
+					coef2 = pG->U[k][j][i].d * R_ideal * (1.0 + pG->dt * Sigma_aE * Crat) / (Gamma - 1.0);
+					coef3 = -pressure / (Gamma - 1.0) - pG->dt * Sigma_aE * Crat * Ersum;
+					
 			
 					TEr = pow( pG->U[k][j][i].Er, 0.25);
 					if(temperature > TEr){			
@@ -1768,7 +1772,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	 *===================================================================*/
 	
 	/* Temporary variables to setup the matrix */
-	Real hdtodx1, hdtodx2, hdtodx3, dt, dx, dy, dz;
+	Real hdtodx1, hdtodx2, hdtodx3, dt, dx, dy, dz, dl;
 	Real vx, vy, vz, vxi0, vxi1, vxj0, vxj1, vxk0, vxk1, vyi0, vyi1, vyj0, vyj1, vyk0, vyk1, vzi0, vzi1, vzj0, vzj1, vzk0, vzk1;
 	Real vFxFull, vFyFull, vFzFull, vFxi0Full, vFxi1Full, vFyj0Full, vFyj1Full, vFzk0Full, vFzk1Full; /* This always include background shearing */
 	Real vFxi0, vFxi1, vFyj0, vFyj1, vFzk0, vFzk1;		
@@ -1871,7 +1875,10 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	else if(pG != NULL){
 		hdtodx1 = 0.5 * pG->dt/pG->dx1;
 		hdtodx2 = 0.5 * pG->dt/pG->dx2;
-		hdtodx3 = 0.5 * pG->dt/pG->dx3;			
+		hdtodx3 = 0.5 * pG->dt/pG->dx3;		
+		dx = pG->dx1;
+		dy = pG->dx2;
+		dz = pG->dx3;	
 		dt = pG->dt;
 		vx = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
 		vxi0 = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
@@ -1975,6 +1982,11 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 
 		ath_error("[matrix_coef]: Must provide either pMat or pG pointer!n\n");
 	}
+
+		/* take the minimum in case resolution is not uniform in each direction */
+		dl = dx;
+		if((dy < dl) && (DIM > 1))	dl = dy;
+		if((dz < dl) && (DIM > 2))	dl = dz;
 
 		/* First, calculate vF?Full, this is included no matter RadFargo is used or not */
 		/* background shearing is always included */
@@ -2371,7 +2383,7 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 /* dx is cell size */
 /* if flag = 1, for maximum velocity. if flag = -1, for minimum velocity */
 
-	Real Sigma_aF, Sigma_sF, Sigma_aE, tau, Sigma_t;
+	Real Sigma_aF, Sigma_sF, Sigma_aE, tau, Sigma_t, taucell;
 	Real reducefactor;
 	
 
@@ -2381,11 +2393,19 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 	/* reduce the speed for even pure absorption opacity to reduce diffusion */
 	/* Be careful to use conservative scheme for pure absorption opacity */
 	Sigma_t = Sigma_sF + Sigma_aF;
+	/* just reduce speed to cancel numerical diffusion, even do this for pure absorption opacity */
 
-	Sigma_t -= Sigma_aE;
+/*	Sigma_t -= Sigma_aE;
+*/
 
+	/* use 10 times optical depth per cell */
+	taucell = 10.0 * dl * Sigma_t;
 
 	tau = dt * Crat * Sigma_t;
+
+	if(tau > taucell)
+		tau = taucell;	
+
 	tau = tau * tau / (2.0 * Edd);
 
 	if(tau > 0.001)

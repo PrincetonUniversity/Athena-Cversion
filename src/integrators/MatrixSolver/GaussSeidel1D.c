@@ -43,14 +43,27 @@ void GaussSeidel1D(MatrixS *pMat)
 	js = pMat->js;
 	ks = pMat->ks;
 
+	Real omega= 0.5;
+	
+	Real tempEr, tempFr1;
 
 	
-
 	/* To store the coefficient */
-	Real theta[6];
-	Real phi[6];
+	Real **theta = NULL;
+	Real **phi = NULL;
+	
 
+	if((theta = (Real**)calloc_2d_array(ie-is+1+2*Matghost,6,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
 
+	if((phi   = (Real**)calloc_2d_array(ie-is+1+2*Matghost,6,sizeof(Real))) == NULL)
+		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+
+	
+	for(i=is; i<=ie; i++){				
+		matrix_coef(pMat, NULL, 1, i, js, ks, 0.0, &(theta[i][0]), &(phi[i][0]), NULL, NULL);
+							
+	}
 
 
 
@@ -64,38 +77,40 @@ for(n=0; n<Ncycle; n++){
 		/* The right hand side is stored in pMat */
 		/* The coefficients are calculated according to the formula */
 
-		
-			matrix_coef(pMat, NULL, 1, i, js, ks, 0.0, &(theta[0]), &(phi[0]), NULL, NULL);
-			
-		
-
 			/* The diagonal elements are theta[4], phi[5], psi[5] */
 			
 			/* For Er */
+			tempEr = pMat->U[ks][js][i].Er;
 			pMat->U[ks][js][i].Er  = pMat->RHS[ks][js][i][0];
 
-			pMat->U[ks][js][i].Er -= theta[0] * pMat->U[ks][js][i-1].Er;
-			pMat->U[ks][js][i].Er -= theta[1] * pMat->U[ks][js][i-1].Fr1;
+			pMat->U[ks][js][i].Er -= theta[i][0] * pMat->U[ks][js][i-1].Er;
+			pMat->U[ks][js][i].Er -= theta[i][1] * pMat->U[ks][js][i-1].Fr1;
 			/* diagonal elements are not included */
-			pMat->U[ks][js][i].Er -= theta[3] * pMat->U[ks][js][i].Fr1;
-			pMat->U[ks][js][i].Er -= theta[4] * pMat->U[ks][js][i+1].Er;
-			pMat->U[ks][js][i].Er -= theta[5] * pMat->U[ks][js][i+1].Fr1;
+			pMat->U[ks][js][i].Er -= theta[i][3] * pMat->U[ks][js][i].Fr1;
+			pMat->U[ks][js][i].Er -= theta[i][4] * pMat->U[ks][js][i+1].Er;
+			pMat->U[ks][js][i].Er -= theta[i][5] * pMat->U[ks][js][i+1].Fr1;
 
-			pMat->U[ks][js][i].Er /= theta[2];
+			pMat->U[ks][js][i].Er /= theta[i][2];
+
+			pMat->U[ks][js][i].Er = (1.0 - omega) * tempEr + omega * pMat->U[ks][js][i].Er;
 		
 			/* For Fr1 */
 
+			tempFr1 = pMat->U[ks][js][i].Fr1;
 			pMat->U[ks][js][i].Fr1  = pMat->RHS[ks][js][i][1];
 
-			pMat->U[ks][js][i].Fr1 -= phi[0] * pMat->U[ks][js][i-1].Er;
-			pMat->U[ks][js][i].Fr1 -= phi[1] * pMat->U[ks][js][i-1].Fr1;
-			pMat->U[ks][js][i].Fr1 -= phi[2] * pMat->U[ks][js][i].Er;
+			pMat->U[ks][js][i].Fr1 -= phi[i][0] * pMat->U[ks][js][i-1].Er;
+			pMat->U[ks][js][i].Fr1 -= phi[i][1] * pMat->U[ks][js][i-1].Fr1;
+			pMat->U[ks][js][i].Fr1 -= phi[i][2] * pMat->U[ks][js][i].Er;
 			/* diagonal elements are not included */
 
-			pMat->U[ks][js][i].Fr1 -= phi[4] * pMat->U[ks][js][i+1].Er;
-			pMat->U[ks][js][i].Fr1 -= phi[5] * pMat->U[ks][js][i+1].Fr1;
+			pMat->U[ks][js][i].Fr1 -= phi[i][4] * pMat->U[ks][js][i+1].Er;
+			pMat->U[ks][js][i].Fr1 -= phi[i][5] * pMat->U[ks][js][i+1].Fr1;
 
-			pMat->U[ks][js][i].Fr1 /= phi[3];
+			pMat->U[ks][js][i].Fr1 /= phi[i][3];
+
+			pMat->U[ks][js][i].Fr1 = (1.0 - omega) * tempFr1 + omega * pMat->U[ks][js][i].Fr1;
+			
 		
 
 	}
@@ -106,6 +121,12 @@ for(n=0; n<Ncycle; n++){
 
 
 }	
+
+	if(theta != NULL)
+		free_2d_array(theta);
+
+	if(phi != NULL)
+		free_2d_array(phi);
   
 
 	return;	

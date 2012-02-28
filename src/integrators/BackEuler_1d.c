@@ -44,6 +44,9 @@ static Real ****INIerror;
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
 static int Wcyclelim = 10; /* The limit of how many Wcycle we allow */ 
 
+static int Matrixflag = 1; /* This is used to choose Gauss-Seidel or Jacobi method */
+			/* 1 is GS method while 0 is Jacobi */
+
 static int Nlevel; /* Number of levels from top to bottom, log2(N)=Nlevel */
 static int Wflag; /* To decide the position in the W flag */
 
@@ -66,6 +69,7 @@ extern void bvals_Matrix_destruct(MatrixS *pMat);
 void Jacobi3D(MatrixS *pMat, MatrixS *pMatnew);
 */
 extern void GaussSeidel1D(MatrixS *pMat);
+extern void Jacobi1D(MatrixS *pMat);
 
 /********Public function****************/
 /*-------BackEuler_3d(): Use back euler method to update E_r and Fluxr-----------*/
@@ -97,7 +101,7 @@ void BackEuler_1d(MeshS *pM)
 	Real error;
 	int Wcycle;
 	
-	int i, j, m;
+	int i, m;
 	int is, ie, js, ks;
 	int Mati, Matj, Matk;
 	/* Set the boundary */
@@ -229,11 +233,17 @@ if(pMat->bgflag){
 
 			velocity_x = pMat->U[Matk][Matj][Mati].V1;
 
-			Fr0x =  pG->U[ks][j][i].Fr1 - (1.0 +  pG->U[ks][j][i].Edd_11) * velocity_x *  pG->U[ks][j][i].Er / Crat; 
+			Fr0x =  pG->U[ks][js][i].Fr1 - (1.0 +  pG->U[ks][js][i].Edd_11) * velocity_x *  pG->U[ks][js][i].Er / Crat; 
 				
 			/* Estimate the added energy source term */
-			pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * velocity_x * Fr0x;
-
+			if(Prat > 0.0){
+				if(Erflag){
+					pG->U[ks][js][i].Er += (pG->Eulersource[ks][js][i] - dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity_x * Fr0x);
+				}
+				else{
+					pG->Eulersource[ks][js][i] = Eratio * Crat * dt * (pG->U[ks][js][i].Sigma[2] * pG->Tguess[ks][js][i] - pG->U[ks][js][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[ks][js][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity_x * Fr0x;
+				}
+			}
 			
 		}
 
@@ -297,8 +307,12 @@ void RadMHD_multig_1D(MatrixS *pMat)
 
 		
 		
-		GaussSeidel1D(pMat);
-
+		if(Matrixflag){
+			GaussSeidel1D(pMat);
+		}
+		else{
+			Jacobi1D(pMat);
+		}
 		
 		bvals_Matrix_destruct(pMat);
 
@@ -371,7 +385,12 @@ void RadMHD_multig_1D(MatrixS *pMat)
 		/* Update the ghost zones first */
 		bvals_Matrix(pMat);
 
-		GaussSeidel1D(pMat);
+		if(Matrixflag){
+			GaussSeidel1D(pMat);
+		}
+		else{
+			Jacobi1D(pMat);
+		}
 		
 #ifdef SHEARING_BOX
 		bvals_Matrix_shear_destruct();
@@ -437,7 +456,12 @@ void RadMHD_multig_1D(MatrixS *pMat)
 			/* Update the ghost zones first */
 			bvals_Matrix(pMat);
 		
-			GaussSeidel1D(pMat);
+			if(Matrixflag){
+				GaussSeidel1D(pMat);
+			}
+			else{
+				Jacobi1D(pMat);
+			}
 		
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_destruct();
@@ -591,6 +615,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 {
 	Real Residual = 0.0;
 	Real Norm = 0.0;
+	Real tempRes = 0.0;
 
 
 	int i;
@@ -650,16 +675,16 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			else{
 				Norm += fabs(pMat->RHS[ks][js][i][0]);
 			}
-			Residual += pMat->RHS[ks][js][i][0];
+			tempRes = pMat->RHS[ks][js][i][0];
 
-			Residual -= theta[0] * pMat->U[ks][js][i-1].Er;
-			Residual -= theta[1] * pMat->U[ks][js][i-1].Fr1;
-			Residual -= theta[2] * pMat->U[ks][js][i].Er;
-			Residual -= theta[3] * pMat->U[ks][js][i].Fr1;
-			Residual -= theta[4] * pMat->U[ks][js][i+1].Er;
-			Residual -= theta[5] * pMat->U[ks][js][i+1].Fr1;
+			tempRes -= theta[0] * pMat->U[ks][js][i-1].Er;
+			tempRes -= theta[1] * pMat->U[ks][js][i-1].Fr1;
+			tempRes -= theta[2] * pMat->U[ks][js][i].Er;
+			tempRes -= theta[3] * pMat->U[ks][js][i].Fr1;
+			tempRes -= theta[4] * pMat->U[ks][js][i+1].Er;
+			tempRes -= theta[5] * pMat->U[ks][js][i+1].Fr1;
 
-
+			Residual += fabs(tempRes);
 
 			if(pMat->bgflag){
 				Norm += fabs(pG->U[ks][js][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
@@ -667,19 +692,18 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			else{
 				Norm += fabs(pMat->RHS[ks][js][i][1]);
 			}
-			Residual += pMat->RHS[ks][js][i][1];
+			tempRes = pMat->RHS[ks][js][i][1];
 
-			Residual -= phi[0] * pMat->U[ks][js][i-1].Er;
-			Residual -= phi[1] * pMat->U[ks][js][i-1].Fr1;
-			Residual -= phi[2] * pMat->U[ks][js][i].Er;
-			Residual -= phi[3] * pMat->U[ks][js][i].Fr1;
-			Residual -= phi[4] * pMat->U[ks][js][i+1].Er;
-			Residual -= phi[5] * pMat->U[ks][js][i+1].Fr1;
+			tempRes -= phi[0] * pMat->U[ks][js][i-1].Er;
+			tempRes -= phi[1] * pMat->U[ks][js][i-1].Fr1;
+			tempRes -= phi[2] * pMat->U[ks][js][i].Er;
+			tempRes -= phi[3] * pMat->U[ks][js][i].Fr1;
+			tempRes -= phi[4] * pMat->U[ks][js][i+1].Er;
+			tempRes -= phi[5] * pMat->U[ks][js][i+1].Fr1;
 
+			Residual += fabs(tempRes);
 
-
-
-	
+			/* Should add the absolute value of Residual, in case Residual cancels each other */
 
 	}
 

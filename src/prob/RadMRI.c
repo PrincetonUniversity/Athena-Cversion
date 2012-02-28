@@ -2050,7 +2050,7 @@ void radMHD_rad_inflowke(GridS *pGrid)
 	Real velocity_x, velocity_y, velocity_z;
 	Real velocity_x1, velocity_y1, velocity_z1;
 	Real Sigma_t, Sigma_t1;
-	Real Eratio;
+	Real Eratio, reducefactor;
 
 
 	Real x1, x2, x3;
@@ -2069,24 +2069,26 @@ void radMHD_rad_inflowke(GridS *pGrid)
 		pGrid->U[ke+k][j][i].Edd_32 = pGrid->U[ke][j][i].Edd_32;
 		pGrid->U[ke+k][j][i].Edd_33 = pGrid->U[ke][j][i].Edd_33;
 
+		matrix_alpha(0.0, pGrid->U[ke+k][j][i].Sigma, pGrid->dt, pGrid->U[ke+k][j][i].Edd_33, 0.0, &reducefactor, 0, dz);
+
 		Sigma_t = 0.5 * (pGrid->U[ke+k][j][i].Sigma[0] + pGrid->U[ke+k][j][i].Sigma[1] + pGrid->U[ke+k-1][j][i].Sigma[0] + pGrid->U[ke+k-1][j][i].Sigma[1]);
 		Sigma_t1 = 0.5 * (pGrid->U[ke+k-1][j][i].Sigma[0] + pGrid->U[ke+k-1][j][i].Sigma[1] + pGrid->U[ke+k-2][j][i].Sigma[0] + pGrid->U[ke+k-2][j][i].Sigma[1]);
 	
-		velocity_x = pGrid->U[ke][j][i].M1 / pGrid->U[ke][j][i].d;
-		velocity_y = pGrid->U[ke][j][i].M2 / pGrid->U[ke][j][i].d;
+		velocity_x = pGrid->U[ke+k-1][j][i].M1 / pGrid->U[ke+k-1][j][i].d;
+		velocity_y = pGrid->U[ke+k-1][j][i].M2 / pGrid->U[ke+k-1][j][i].d;
 #ifdef FARGO
 		velocity_y -= qshear * Omega_0 * x1;
 
 #endif
-		velocity_z = pGrid->U[ke][j][i].M3 / pGrid->U[ke][j][i].d;
+		velocity_z = pGrid->U[ke+k-1][j][i].M3 / pGrid->U[ke+k-1][j][i].d;
 
 
 		
-		Fr0x = pGrid->U[ke][j][i].Fr1 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_11) * velocity_x + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_y + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_z)* pGrid->U[ke][j][i].Er / Crat;
+		Fr0x = pGrid->U[ke+k-1][j][i].Fr1 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_11) * velocity_x + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_y + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_z)* pGrid->U[ke][j][i].Er / Crat;
 
-		Fr0y = pGrid->U[ke][j][i].Fr2 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_22) * velocity_y + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_z)* pGrid->U[ke][j][i].Er / Crat;
+		Fr0y = pGrid->U[ke+k-1][j][i].Fr2 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_22) * velocity_y + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_z)* pGrid->U[ke][j][i].Er / Crat;
 
-		Fr0z = pGrid->U[ke][j][i].Fr3 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_33) * velocity_z + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_y)* pGrid->U[ke][j][i].Er / Crat;
+		Fr0z = pGrid->U[ke+k-1][j][i].Fr3 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_33) * velocity_z + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_y)* pGrid->U[ke][j][i].Er / Crat;
 
 		velocity_x1 = pGrid->U[ke+k][j][i].M1 / pGrid->U[ke+k][j][i].d;
 		velocity_y1 = pGrid->U[ke+k][j][i].M2 / pGrid->U[ke+k][j][i].d;
@@ -2125,16 +2127,30 @@ void radMHD_rad_inflowke(GridS *pGrid)
 			pGrid->U[ke+k][j][i].Er = pGrid->U[ke+k-1][j][i].Er;
 			
 		}
-*/
+
 		Eratio = 1.0 + Sigma_t * (1.0 - pGrid->U[ke+k-2][j][i].Edd_33 * pGrid->U[ke+k-2][j][i].Er / (pGrid->U[ke+k-1][j][i].Edd_33 * pGrid->U[ke+k-1][j][i].Er)) / Sigma_t1;
 		if(Eratio < 0.0 || Eratio > 1.0){
 				Eratio = 1.0;
 		}
 
 		pGrid->U[ke+k][j][i].Er = Eratio * pGrid->U[ke+k-1][j][i].Er;		
-
+*/
 	
+		Eratio = pGrid->U[ke+k][j][i].Edd_33 + 0.5 * pGrid->dx3 * reducefactor * Sigma_t;
 
+		/* vacuum boundary condition. Fr0z = R * Er, where R is the reduced speed of light */
+		/* Assume this relation holds in the ghost zones */
+		/*  (f1 * Er(K+1, n+1) - f * Er(k,n))/(Sigmat * dx3) = -0.5*(Fr0z(k) + Fr0z(k+1)), and Fr0z(k+1)= R * Er(k+1) */
+		
+		pGrid->U[ke+k][j][i].Er = (pGrid->U[ke+k-1][j][i].Edd_33 * pGrid->U[ke+k-1][j][i].Er - 0.5 * pGrid->dx3 * Sigma_t * Fr0z ) / Eratio;
+
+		if(pGrid->U[ke+k][j][i].Er > pGrid->U[ke+k-1][j][i].Er){
+			Eratio = pGrid->U[ke+k][j][i].Edd_33 + pGrid->dx3 * reducefactor * Sigma_t;
+			pGrid->U[ke+k][j][i].Er = pGrid->U[ke+k-1][j][i].Edd_33 * pGrid->U[ke+k-1][j][i].Er / Eratio;
+		}	
+			
+		
+		Fr0z = reducefactor * pGrid->U[ke+k][j][i].Er;
 
 		pGrid->U[ke+k][j][i].Fr1 = Fr0x + ((1.0 + pGrid->U[ke+k][j][i].Edd_11) * velocity_x1 + pGrid->U[ke+k][j][i].Edd_21 * velocity_y1 + pGrid->U[ke+k][j][i].Edd_31 * velocity_z1)* pGrid->U[ke+k][j][i].Er / Crat;
                 pGrid->U[ke+k][j][i].Fr2 = Fr0y + ((1.0 + pGrid->U[ke+k][j][i].Edd_22) * velocity_y1 + pGrid->U[ke+k][j][i].Edd_21 * velocity_x1 + pGrid->U[ke+k][j][i].Edd_32 * velocity_z1)* pGrid->U[ke+k][j][i].Er / Crat;
@@ -2355,7 +2371,7 @@ void radMHD_rad_inflowks(GridS *pGrid)
 	Real velocity_x, velocity_y, velocity_z;
 	Real velocity_x1, velocity_y1, velocity_z1;
 	Real Sigma_t, Sigma_t1;
-	Real Eratio;
+	Real Eratio, reducefactor;
 
 
 	Real x1, x2, x3;
@@ -2374,24 +2390,26 @@ void radMHD_rad_inflowks(GridS *pGrid)
 		pGrid->U[ks-k][j][i].Edd_32 = pGrid->U[ks][j][i].Edd_32;
 		pGrid->U[ks-k][j][i].Edd_33 = pGrid->U[ks][j][i].Edd_33;
 
+		matrix_alpha(0.0, pGrid->U[ks-k][j][i].Sigma, pGrid->dt, pGrid->U[ks-k][j][i].Edd_33, 0.0, &reducefactor, 0, dz);
+
 		Sigma_t = 0.5 * (pGrid->U[ks-k][j][i].Sigma[0] + pGrid->U[ks-k][j][i].Sigma[1] + pGrid->U[ks-k+1][j][i].Sigma[0] + pGrid->U[ks-k+1][j][i].Sigma[1]);
 		Sigma_t1 = 0.5 * (pGrid->U[ks-k+1][j][i].Sigma[0] + pGrid->U[ks-k+1][j][i].Sigma[1] + pGrid->U[ks-k+2][j][i].Sigma[0] + pGrid->U[ks-k+2][j][i].Sigma[1]);
 	
-		velocity_x = pGrid->U[ks][j][i].M1 / pGrid->U[ks][j][i].d;
-		velocity_y = pGrid->U[ks][j][i].M2 / pGrid->U[ks][j][i].d;
+		velocity_x = pGrid->U[ks-k+1][j][i].M1 / pGrid->U[ks-k+1][j][i].d;
+		velocity_y = pGrid->U[ks-k+1][j][i].M2 / pGrid->U[ks-k+1][j][i].d;
 #ifdef FARGO
          	velocity_y -= qshear * Omega_0 * x1;
 
 #endif
-		velocity_z = pGrid->U[ks][j][i].M3 / pGrid->U[ks][j][i].d;
+		velocity_z = pGrid->U[ks-k+1][j][i].M3 / pGrid->U[ks-k+1][j][i].d;
 
 		
 
-		Fr0x = pGrid->U[ks][j][i].Fr1 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_11) * velocity_x + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_y + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_z)* pGrid->U[ks][j][i].Er / Crat;
+		Fr0x = pGrid->U[ks-k+1][j][i].Fr1 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_11) * velocity_x + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_y + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_z)* pGrid->U[ks][j][i].Er / Crat;
 
-		Fr0y = pGrid->U[ks][j][i].Fr2 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_22) * velocity_y + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_z)* pGrid->U[ks][j][i].Er / Crat;
+		Fr0y = pGrid->U[ks-k+1][j][i].Fr2 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_22) * velocity_y + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_z)* pGrid->U[ks][j][i].Er / Crat;
 
-		Fr0z = pGrid->U[ks][j][i].Fr3 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_33) * velocity_z + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_y)* pGrid->U[ks][j][i].Er / Crat;
+		Fr0z = pGrid->U[ks-k+1][j][i].Fr3 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_33) * velocity_z + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_y)* pGrid->U[ks][j][i].Er / Crat;
 
 		velocity_x1 = pGrid->U[ks-k][j][i].M1 / pGrid->U[ks-k][j][i].d;
 		velocity_y1 = pGrid->U[ks-k][j][i].M2 / pGrid->U[ks-k][j][i].d;
@@ -2426,7 +2444,7 @@ void radMHD_rad_inflowks(GridS *pGrid)
 			
 		}
 */
-
+/*
 		 Eratio = 1.0 + Sigma_t * (1.0 - pGrid->U[ks-k+2][j][i].Edd_33 * pGrid->U[ks-k+2][j][i].Er / (pGrid->U[ks-k+1][j][i].Edd_33 * pGrid->U[ks-k+1][j][i].Er)) / Sigma_t1;
                 if(Eratio < 0.0 || Eratio > 1.0){
                                 Eratio = 1.0;
@@ -2434,7 +2452,24 @@ void radMHD_rad_inflowks(GridS *pGrid)
 
                 pGrid->U[ks-k][j][i].Er = Eratio * pGrid->U[ks-k+1][j][i].Er;
 
+*/
 
+		Eratio = pGrid->U[ks-k][j][i].Edd_33 + 0.5 * pGrid->dx3 * reducefactor * Sigma_t;
+
+		/* vacuum boundary condition. Fr0z = R * Er, where R is the reduced speed of light */
+		/* Assume this relation holds in the ghost zones */
+		/*  (f1 * Er(K+1, n+1) - f * Er(k,n))/(Sigmat * dx3) = -0.5*(Fr0z(k) + Fr0z(k+1)), and Fr0z(k+1)= R * Er(k+1) */
+		
+		pGrid->U[ks-k][j][i].Er = (pGrid->U[ks-k+1][j][i].Edd_33 * pGrid->U[ks-k+1][j][i].Er + 0.5 * pGrid->dx3 * Sigma_t * Fr0z ) / Eratio;
+
+		if(pGrid->U[ks-k][j][i].Er > pGrid->U[ks-k+1][j][i].Er){
+			Eratio = pGrid->U[ks-k][j][i].Edd_33 + pGrid->dx3 * reducefactor * Sigma_t;
+			pGrid->U[ks-k][j][i].Er = pGrid->U[ks-k+1][j][i].Edd_33 * pGrid->U[ks-k+1][j][i].Er / Eratio;
+		}
+		
+		Fr0z = -reducefactor * pGrid->U[ks-k][j][i].Er;
+		
+		
 
 		pGrid->U[ks-k][j][i].Fr1 = Fr0x + ((1.0 + pGrid->U[ks-k][j][i].Edd_11) * velocity_x1 + pGrid->U[ks-k][j][i].Edd_21 * velocity_y1 + pGrid->U[ks-k][j][i].Edd_31 * velocity_z1)* pGrid->U[ks-k][j][i].Er / Crat;
                 pGrid->U[ks-k][j][i].Fr2 = Fr0y + ((1.0 + pGrid->U[ks-k][j][i].Edd_22) * velocity_y1 + pGrid->U[ks-k][j][i].Edd_21 * velocity_x1 + pGrid->U[ks-k][j][i].Edd_32 * velocity_z1)* pGrid->U[ks-k][j][i].Er / Crat;
@@ -2509,12 +2544,13 @@ void radMHD_Mat_inflowke(MatrixS *pMat)
 
 	Real x1, x2, x3;
 	Real vx, vy, vz, Fr0z, Sigma_t;
+	Real reducefactor, Eratio;
 
 	for (k=1;  k<=Matghost;  k++) {
 		for(j=js-Matghost; j<=je+Matghost; j++){
 			for(i=is-Matghost; i<=ie+Matghost; i++){
 	    		
-				Sigma_t = pMat->U[ke][j][i].Sigma[0] + pMat->U[ke][j][i].Sigma[1];
+				Sigma_t = 0.5 * (pMat->U[ke+k][j][i].Sigma[0] + pMat->U[ke+k][j][i].Sigma[1] + pMat->U[ke+k-1][j][i].Sigma[0] + pMat->U[ke+k-1][j][i].Sigma[1]);
 
 				pMat->U[ke+k][j][i].Edd_11 = pMat->U[ke][j][i].Edd_11;
 				pMat->U[ke+k][j][i].Edd_22 = pMat->U[ke][j][i].Edd_22;
@@ -2531,16 +2567,38 @@ void radMHD_Mat_inflowke(MatrixS *pMat)
 			else{
 				pMat->U[ke+k][j][i].Fr1 = pMat->U[ke][j][i].Fr1;
 				pMat->U[ke+k][j][i].Fr2 = pMat->U[ke][j][i].Fr2;
-				if(pMat->U[ke][j][i].Fr3 > 0.0)
+			/*	if(pMat->U[ke][j][i].Fr3 > 0.0)
 					pMat->U[ke+k][j][i].Fr3 = pMat->U[ke][j][i].Fr3;
 				else
 					pMat->U[ke+k][j][i].Fr3 = 0.0;
+			*/
+				vx = pMat->U[ke+k-1][j][i].V1;
+				vy = pMat->U[ke+k-1][j][i].V2;
+				vz = pMat->U[ke+k-1][j][i].V3;
 
-				vx = pMat->U[ke][j][i].V1;
-				vy = pMat->U[ke][j][i].V2;
-				vz = pMat->U[ke][j][i].V3;
+				matrix_alpha(0.0, pMat->U[ke+k][j][i].Sigma, pMat->dt, pMat->U[ke+k][j][i].Edd_33, 0.0, &reducefactor, 0, pMat->dx3);
 
-				Fr0z = pMat->U[ke][j][i].Fr3 - ((1.0 + pMat->U[ke][j][i].Edd_33) * vz + pMat->U[ke][j][i].Edd_31 * vx + pMat->U[ke][j][i].Edd_32 * vy)* pMat->U[ke][j][i].Er / Crat;
+				Fr0z = pMat->U[ke+k-1][j][i].Fr3 - ((1.0 + pMat->U[ke+k-1][j][i].Edd_33) * vz + pMat->U[ke+k-1][j][i].Edd_31 * vx + pMat->U[ke+k-1][j][i].Edd_32 * vy)* pMat->U[ke+k-1][j][i].Er / Crat;
+
+				Eratio = pMat->U[ke+k][j][i].Edd_33 + 0.5 * pMat->dx3 * reducefactor * Sigma_t;
+
+		/* vacuum boundary condition. Fr0z = R * Er, where R is the reduced speed of light */
+		/* Assume this relation holds in the ghost zones */
+		/*  (f1 * Er(K+1, n+1) - f * Er(k,n))/(Sigmat * dx3) = -0.5*(Fr0z(k) + Fr0z(k+1)), and Fr0z(k+1)= R * Er(k+1) */
+		
+				pMat->U[ke+k][j][i].Er = (pMat->U[ke+k-1][j][i].Edd_33 * pMat->U[ke+k-1][j][i].Er - 0.5 * pMat->dx3 * Sigma_t * Fr0z ) / Eratio;
+
+				if(pMat->U[ke+k][j][i].Er < 0.0){
+					Eratio = pMat->U[ke+k][j][i].Edd_33 + pMat->dx3 * reducefactor * Sigma_t;
+				pMat->U[ke+k][j][i].Er = pMat->U[ke+k-1][j][i].Edd_33 * pMat->U[ke+k-1][j][i].Er / Eratio;
+				}
+		
+				Fr0z = reducefactor * pMat->U[ke+k][j][i].Er;
+				
+				pMat->U[ke+k][j][i].Fr3 = Fr0z + ((1.0 + pMat->U[ke+k][j][i].Edd_33) * pMat->U[ke+k][j][i].V3 + pMat->U[ke+k][j][i].Edd_31 * pMat->U[ke+k][j][i].V1 + pMat->U[ke+k][j][i].Edd_32 * pMat->U[ke+k][j][i].V2)* pMat->U[ke+k][j][i].Er / Crat;
+
+
+			/*		
 
 				if(Fr0z > 0.0){			
 					pMat->U[ke+k][j][i].Er = pMat->U[ke+k-1][j][i].Er - pMat->dx3 * Sigma_t * Fr0z / pMat->U[ke+k][j][i].Edd_33;			
@@ -2556,7 +2614,7 @@ void radMHD_Mat_inflowke(MatrixS *pMat)
 					pMat->U[ke+k][j][i].Er = pMat->U[ke+k-1][j][i].Er;
 			
 				}
-
+		*/
 
 
 
@@ -2589,12 +2647,13 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 
 	Real x1, x2, x3;
 	Real vx, vy, vz, Fr0z, Sigma_t;
+	Real reducefactor, Eratio;
 
 	for (k=1;  k<=Matghost;  k++) {
 		for(j=js-Matghost; j<=je+Matghost; j++){
 			for(i=is-Matghost; i<=ie+Matghost; i++){
 	    		
-				Sigma_t = pMat->U[ks][j][i].Sigma[0] + pMat->U[ks][j][i].Sigma[1];
+				Sigma_t = 0.5 * (pMat->U[ks-k][j][i].Sigma[0] + pMat->U[ks-k][j][i].Sigma[1] + pMat->U[ks-k+1][j][i].Sigma[0] + pMat->U[ks-k+1][j][i].Sigma[1]);
 
 				pMat->U[ks-k][j][i].Edd_11 = pMat->U[ks][j][i].Edd_11;
 				pMat->U[ks-k][j][i].Edd_22 = pMat->U[ks][j][i].Edd_22;
@@ -2613,35 +2672,37 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 			else{
 				pMat->U[ks-k][j][i].Fr1 = pMat->U[ks][j][i].Fr1;
 				pMat->U[ks-k][j][i].Fr2 = pMat->U[ks][j][i].Fr2;
-				if(pMat->U[ks][j][i].Fr3 < 0.0)
-					pMat->U[ks-k][j][i].Fr3 = pMat->U[ks][j][i].Fr3;
+			/*	if(pMat->U[ke][j][i].Fr3 > 0.0)
+					pMat->U[ks-k][j][i].Fr3 = pMat->U[ke][j][i].Fr3;
 				else
 					pMat->U[ks-k][j][i].Fr3 = 0.0;
+			*/
+				vx = pMat->U[ks-k+1][j][i].V1;
+				vy = pMat->U[ks-k+1][j][i].V2;
+				vz = pMat->U[ks-k+1][j][i].V3;
 
-				vx = pMat->U[ks][j][i].V1;
-				vy = pMat->U[ks][j][i].V2;
-				vz = pMat->U[ks][j][i].V3;
+				matrix_alpha(0.0, pMat->U[ks-k][j][i].Sigma, pMat->dt, pMat->U[ks-k][j][i].Edd_33, 0.0, &reducefactor, 0, pMat->dx3);
 
-				Fr0z = pMat->U[ks][j][i].Fr3 - ((1.0 + pMat->U[ks][j][i].Edd_33) * vz + pMat->U[ks][j][i].Edd_31 * vx + pMat->U[ks][j][i].Edd_32 * vy)* pMat->U[ks][j][i].Er / Crat;
+				Fr0z = pMat->U[ks-k+1][j][i].Fr3 - ((1.0 + pMat->U[ks-k+1][j][i].Edd_33) * vz + pMat->U[ks-k+1][j][i].Edd_31 * vx + pMat->U[ks-k+1][j][i].Edd_32 * vy)* pMat->U[ks-k+1][j][i].Er / Crat;
 
-				if(Fr0z < 0.0){			
-					pMat->U[ks-k][j][i].Er = pMat->U[ks-k+1][j][i].Er + pMat->dx3 * Sigma_t * Fr0z / pMat->U[ks-k][j][i].Edd_33;			
+				Eratio = pMat->U[ks-k][j][i].Edd_33 + 0.5 * pMat->dx3 * reducefactor * Sigma_t;
 
-					if(pMat->U[ks-k][j][i].Er < 0.0){
-					pMat->U[ks-k][j][i].Er = pMat->U[ks-k+1][j][i].Er;
+		/* vacuum boundary condition. Fr0z = R * Er, where R is the reduced speed of light */
+		/* Assume this relation holds in the ghost zones */
+		/*  (f1 * Er(K+1, n+1) - f * Er(k,n))/(Sigmat * dx3) = -0.5*(Fr0z(k) + Fr0z(k+1)), and Fr0z(k+1)= R * Er(k+1) */
+		
+				pMat->U[ks-k][j][i].Er = (pMat->U[ks-k+1][j][i].Edd_33 * pMat->U[ks-k+1][j][i].Er - 0.5 * pMat->dx3 * Sigma_t * Fr0z ) / Eratio;
 
+				if(pMat->U[ks-k][j][i].Er < 0.0){
+					Eratio = pMat->U[ks-k][j][i].Edd_33 + pMat->dx3 * reducefactor * Sigma_t;
+				pMat->U[ks-k][j][i].Er = pMat->U[ks-k+1][j][i].Edd_33 * pMat->U[ks-k+1][j][i].Er / Eratio;
 				}
-
-			
-				}
-				else{
-					pMat->U[ks-k][j][i].Er = pMat->U[ks-k+1][j][i].Er;
-			
-				}			
+		
+				Fr0z = reducefactor * pMat->U[ks-k][j][i].Er;
 				
+				pMat->U[ks-k][j][i].Fr3 = Fr0z + ((1.0 + pMat->U[ks-k][j][i].Edd_33) * pMat->U[ks-k][j][i].V3 + pMat->U[ks-k][j][i].Edd_31 * pMat->U[ks-k][j][i].V1 + pMat->U[ks-k][j][i].Edd_32 * pMat->U[ks-k][j][i].V2)* pMat->U[ks-k][j][i].Er / Crat;
+
 					
-
-
 			}
 
 

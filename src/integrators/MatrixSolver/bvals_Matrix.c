@@ -797,6 +797,15 @@ static void reflect_ix1(MatrixS *pMat)
 		/* reflect velocity and flux */
 		pMat->U[k][j][is-i].Fr1 = -pMat->U[k][j][is+(i-1)].Fr1;
 		pMat->U[k][j][is-i].V1  = -pMat->U[k][j][is+(i-1)].V1;
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
+
+				pMat->U[k][j][is-i].Er = 0.0;
+				pMat->U[k][j][is-i].Fr1 = 0.0;
+				pMat->U[k][j][is-i].Fr2 = 0.0;
+				pMat->U[k][j][is-i].Fr3 = 0.0;
+		}
 		
       }
     }
@@ -825,6 +834,15 @@ static void reflect_ox1(MatrixS *pMat)
 		pMat->U[k][j][ie+i].Fr1 = -pMat->U[k][j][ie-(i-1)].Fr1; /* reflect 1-flux. */
 		pMat->U[k][j][ie+i].V1  = -pMat->U[k][j][ie-(i-1)].V1;
 
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
+
+				pMat->U[k][j][ie+i].Er = 0.0;
+				pMat->U[k][j][ie+i].Fr1 = 0.0;
+				pMat->U[k][j][ie+i].Fr2 = 0.0;
+				pMat->U[k][j][ie+i].Fr3 = 0.0;
+		}
+
       }
     }
   }
@@ -852,6 +870,15 @@ static void reflect_ix2(MatrixS *pMat)
 		pMat->U[k][js-j][i].Fr2 = -pMat->U[k][js+(j-1)][i].Fr2;
 		pMat->U[k][js-j][i].V2  = -pMat->U[k][js+(j-1)][i].V2;
 
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[1] < pMat->RootNx[1])){
+
+				pMat->U[k][js-j][i].Er = 0.0;
+				pMat->U[k][js-j][i].Fr1 = 0.0;
+				pMat->U[k][js-j][i].Fr2 = 0.0;
+				pMat->U[k][js-j][i].Fr3 = 0.0;
+		}
+
       }
     }
   }
@@ -878,6 +905,14 @@ static void reflect_ox2(MatrixS *pMat)
 		/* reflect the velocity and flux */
 		pMat->U[k][je+j][i].Fr2 = -pMat->U[k][je-(j-1)][i].Fr2; /* reflect 1-flux. */
 		pMat->U[k][je+j][i].V2  = -pMat->U[k][je-(j-1)][i].V2;
+
+		if((pMat->bgflag) || (pMat->Nx[1] < pMat->RootNx[1])){
+
+				pMat->U[k][je+j][i].Er = 0.0;
+				pMat->U[k][je+j][i].Fr1 = 0.0;
+				pMat->U[k][je+j][i].Fr2 = 0.0;
+				pMat->U[k][je+j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -902,6 +937,15 @@ static void reflect_ix3(MatrixS *pMat)
 		/* reflect velocity and flux */
 		pMat->U[ks-k][j][i].Fr3 = -pMat->U[ks+(k-1)][j][i].Fr3;
 		pMat->U[ks-k][j][i].V3  = -pMat->U[ks+(k-1)][j][i].V3;
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[2] < pMat->RootNx[2])){
+
+				pMat->U[ks-k][j][i].Er = 0.0;
+				pMat->U[ks-k][j][i].Fr1 = 0.0;
+				pMat->U[ks-k][j][i].Fr2 = 0.0;
+				pMat->U[ks-k][j][i].Fr3 = 0.0;
+		}
 
       }
     }
@@ -928,6 +972,15 @@ static void reflect_ox3(MatrixS *pMat)
 		pMat->U[ke+k][j][i].Fr3 = -pMat->U[ke-(k-1)][j][i].Fr3; /* reflect 1-flux. */
 		pMat->U[ke+k][j][i].V3  = -pMat->U[ke-(k-1)][j][i].V3;
 
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[2] < pMat->RootNx[2])){
+
+				pMat->U[ke+k][j][i].Er = 0.0;
+				pMat->U[ke+k][j][i].Fr1 = 0.0;
+				pMat->U[ke+k][j][i].Fr2 = 0.0;
+				pMat->U[ke+k][j][i].Fr3 = 0.0;
+		}
+
       }
     }
   }
@@ -950,6 +1003,15 @@ static void outflow_ix1(MatrixS *pMat)
     for (j=js; j<=je; j++) {
       for (i=1; i<=Matghost; i++) {
         	pMat->U[k][j][is-i]	=  pMat->U[k][j][is];
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
+
+				pMat->U[k][j][is-i].Er = 0.0;
+				pMat->U[k][j][is-i].Fr1 = 0.0;
+				pMat->U[k][j][is-i].Fr2 = 0.0;
+				pMat->U[k][j][is-i].Fr3 = 0.0;
+		}
 
       }
     }
@@ -974,6 +1036,15 @@ static void outflow_ox1(MatrixS *pMat)
     for (j=js; j<=je; j++) {
       for (i=1; i<=Matghost; i++) {
         	pMat->U[k][j][ie+i]	=  pMat->U[k][j][ie];
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
+
+				pMat->U[k][j][ie+i].Er = 0.0;
+				pMat->U[k][j][ie+i].Fr1 = 0.0;
+				pMat->U[k][j][ie+i].Fr2 = 0.0;
+				pMat->U[k][j][ie+i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -996,6 +1067,15 @@ static void outflow_ix2(MatrixS *pMat)
     for (j=1; j<=Matghost; j++) {
       for (i=is-Matghost; i<=ie+Matghost; i++) {
         	pMat->U[k][js-j][i]	=  pMat->U[k][js][i];
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[1] < pMat->RootNx[1])){
+
+				pMat->U[k][js-j][i].Er = 0.0;
+				pMat->U[k][js-j][i].Fr1 = 0.0;
+				pMat->U[k][js-j][i].Fr2 = 0.0;
+				pMat->U[k][js-j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1019,6 +1099,15 @@ static void outflow_ox2(MatrixS *pMat)
     for (j=1; j<=Matghost; j++) {
       for (i=is-Matghost; i<=ie+Matghost; i++) {
         	pMat->U[k][je+j][i]	=  pMat->U[k][je][i];
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[1] < pMat->RootNx[1])){
+
+				pMat->U[k][je+j][i].Er = 0.0;
+				pMat->U[k][je+j][i].Fr1 = 0.0;
+				pMat->U[k][je+j][i].Fr2 = 0.0;
+				pMat->U[k][je+j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1041,6 +1130,15 @@ static void outflow_ix3(MatrixS *pMat)
     for (j=js-Matghost; j<=je+Matghost; j++) {
       for (i=is-Matghost; i<=ie+Matghost; i++) {
         	pMat->U[ks-k][j][i]	=  pMat->U[ks][j][i];
+
+		/* in case background state is subtracted or in coarse grid */
+		if((pMat->bgflag) || (pMat->Nx[2] < pMat->RootNx[2])){
+
+				pMat->U[ks-k][j][i].Er = 0.0;
+				pMat->U[ks-k][j][i].Fr1 = 0.0;
+				pMat->U[ks-k][j][i].Fr2 = 0.0;
+				pMat->U[ks-k][j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1063,6 +1161,14 @@ static void outflow_ox3(MatrixS *pMat)
     for (j=js-Matghost; j<=je+Matghost; j++) {
       for (i=is-Matghost; i<=ie+Matghost; i++) {
         	pMat->U[ke+k][j][i]	=  pMat->U[ke][j][i];
+
+		if((pMat->bgflag) || (pMat->Nx[2] < pMat->RootNx[2])){
+
+			pMat->U[ke+k][j][i].Er = 0.0;
+			pMat->U[ke+k][j][i].Fr1 = 0.0;
+			pMat->U[ke+k][j][i].Fr2 = 0.0;
+			pMat->U[ke+k][j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1231,6 +1337,14 @@ static void conduct_ix1(MatrixS *pMat)
 		/* reflect velocity and flux */
 		pMat->U[k][j][is-i].Fr1 = -pMat->U[k][j][is+(i-1)].Fr1;
 		pMat->U[k][j][is-i].V1  = -pMat->U[k][j][is+(i-1)].V1;
+
+		if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
+
+			pMat->U[k][j][is-i].Er = 0.0;
+			pMat->U[k][j][is-i].Fr1 = 0.0;
+			pMat->U[k][j][is-i].Fr2 = 0.0;
+			pMat->U[k][j][is-i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1257,6 +1371,14 @@ static void conduct_ox1(MatrixS *pMat)
 		/* reflect the velocity and flux */
 		pMat->U[k][j][ie+i].Fr1 = -pMat->U[k][j][ie-(i-1)].Fr1; /* reflect 1-flux. */
 		pMat->U[k][j][ie+i].V1  = -pMat->U[k][j][ie-(i-1)].V1;
+
+		if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
+
+			pMat->U[k][j][ie+i].Er = 0.0;
+			pMat->U[k][j][ie+i].Fr1 = 0.0;
+			pMat->U[k][j][ie+i].Fr2 = 0.0;
+			pMat->U[k][j][ie+i].Fr3 = 0.0;
+		}
 
       }
     }
@@ -1285,6 +1407,14 @@ static void conduct_ix2(MatrixS *pMat)
 		pMat->U[k][js-j][i].Fr2 = -pMat->U[k][js+(j-1)][i].Fr2;
 		pMat->U[k][js-j][i].V2  = -pMat->U[k][js+(j-1)][i].V2;
 
+		if((pMat->bgflag) || (pMat->Nx[1] < pMat->RootNx[1])){
+
+			pMat->U[k][js-j][i].Er = 0.0;
+			pMat->U[k][js-j][i].Fr1 = 0.0;
+			pMat->U[k][js-j][i].Fr2 = 0.0;
+			pMat->U[k][js-j][i].Fr3 = 0.0;
+		}
+
       }
     }
   }
@@ -1310,6 +1440,14 @@ static void conduct_ox2(MatrixS *pMat)
 		/* reflect the velocity and flux */
 		pMat->U[k][je+j][i].Fr2 = -pMat->U[k][je-(j-1)][i].Fr2; /* reflect 1-flux. */
 		pMat->U[k][je+j][i].V2  = -pMat->U[k][je-(j-1)][i].V2;
+
+		if((pMat->bgflag) || (pMat->Nx[1] < pMat->RootNx[1])){
+
+			pMat->U[k][je+j][i].Er = 0.0;
+			pMat->U[k][je+j][i].Fr1 = 0.0;
+			pMat->U[k][je+j][i].Fr2 = 0.0;
+			pMat->U[k][je+j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1334,6 +1472,14 @@ static void conduct_ix3(MatrixS *pMat)
 		/* reflect velocity and flux */
 		pMat->U[ks-k][j][i].Fr3 = -pMat->U[ks+(k-1)][j][i].Fr3;
 		pMat->U[ks-k][j][i].V3  = -pMat->U[ks+(k-1)][j][i].V3;
+
+		if((pMat->bgflag) || (pMat->Nx[2] < pMat->RootNx[2])){
+
+			pMat->U[ks-k][j][i].Er = 0.0;
+			pMat->U[ks-k][j][i].Fr1 = 0.0;
+			pMat->U[ks-k][j][i].Fr2 = 0.0;
+			pMat->U[ks-k][j][i].Fr3 = 0.0;
+		}
       }
     }
   }
@@ -1359,6 +1505,14 @@ static void conduct_ox3(MatrixS *pMat)
 		/* reflect the velocity and flux */
 		pMat->U[ke+k][j][i].Fr3 = -pMat->U[ke-(k-1)][j][i].Fr3; /* reflect 1-flux. */
 		pMat->U[ke+k][j][i].V3  = -pMat->U[ke-(k-1)][j][i].V3;
+
+		if((pMat->bgflag) || (pMat->Nx[2] < pMat->RootNx[2])){
+
+			pMat->U[ke+k][j][i].Er = 0.0;
+			pMat->U[ke+k][j][i].Fr1 = 0.0;
+			pMat->U[ke+k][j][i].Fr2 = 0.0;
+			pMat->U[ke+k][j][i].Fr3 = 0.0;
+		}
       }
     }
   }

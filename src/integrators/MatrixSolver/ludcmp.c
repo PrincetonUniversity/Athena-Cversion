@@ -17,7 +17,7 @@
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 #ifndef RADIATION_TRANSFER
 
-void ludcmp(Real **a, int n, int *indx, Real *d)
+void ludcmp(Real **a, int n, int *indx, Real *d, int *status)
 {
 	int i,imax,j,k;
 	Real big,dum,sum,temp;
@@ -32,8 +32,10 @@ void ludcmp(Real **a, int n, int *indx, Real *d)
 		big=0.0;
 		for (j=1;j<=n;j++)
 			if ((temp=fabs(a[i][j])) > big) big=temp;
-		if (big == 0.0)
-			ath_error("Singular Matrix!\n");
+		if (big == 0.0){
+			*status = 0;
+			return;
+		}
 		vv[i]=1.0/big;
 	}
 	for (j=1;j<=n;j++) {
@@ -70,6 +72,7 @@ void ludcmp(Real **a, int n, int *indx, Real *d)
 		}
 	}
 
+	*status = 1;
 	if (vv  != NULL) free(vv);
 	return ;
 

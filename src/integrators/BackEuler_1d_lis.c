@@ -506,9 +506,14 @@ void BackEuler_1d(MeshS *pM)
 		Fr0x =  pG->U[ks][js][i].Fr1 - (1.0 +  pG->U[ks][js][i].Edd_11) * velocity * pG->U[ks][js][i].Er / Crat; 
 			
 			/* Estimate the added energy source term */
-		pG->Eulersource[ks][js][i] = Eratio * Crat * dt * (pG->U[ks][js][i].Sigma[2] * pG->Tguess[ks][js][i] - pG->U[ks][js][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][js][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x;
-			
-			
+		if(Prat > 0.0){
+			if(Erflag){
+				pG->U[ks][js][i].Er += (pG->Eulersource[ks][js][i] - dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x);
+			}
+			else{
+			pG->Eulersource[ks][js][i] = Eratio * Crat * dt * (pG->U[ks][js][i].Sigma[2] * pG->Tguess[ks][js][i] - pG->U[ks][js][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][js][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x;
+			}
+		}			
 			
 		
 	}

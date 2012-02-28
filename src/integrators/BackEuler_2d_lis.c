@@ -1010,10 +1010,15 @@ void BackEuler_2d(MeshS *pM)
 			
 			
 			/* Estimate the added energy source term */
-			pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3]) +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y);
-			
+			if(Prat > 0.0){
+				if(Erflag){
+					pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
+				}
+				else{
+					pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3]) +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y);
+				}
 		
-
+			}
 /*
 		if(pG->U[ks][j][i].Er < 0.0)
 			fprintf(stderr,"[BackEuler_2d]: Negative Radiation energy: %e\n",pG->U[ks][j][i].Er);

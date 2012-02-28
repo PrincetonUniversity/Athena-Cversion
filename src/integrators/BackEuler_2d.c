@@ -266,10 +266,14 @@ if(pMat->bgflag){
 			Fr0y =  pG->U[ks][j][i].Fr2 - ((1.0 +  pG->U[ks][j][i].Edd_22) * velocity_y +  pG->U[ks][j][i].Edd_21 * velocity_x) *  pG->U[ks][j][i].Er / Crat;
 			
 			/* Estimate the added energy source term */
-			pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[ks][j][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y);
-	
-
-				
+			if(Prat > 0.0){
+				if(Erflag){
+					pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
+				}
+				else{
+					pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[ks][j][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y);
+				}				
+			}
 		}
 
 
@@ -647,6 +651,7 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 {
 	Real Residual = 0.0;
 	Real Norm = 0.0;
+	Real tempRes = 0.0;
 
 
 	int i, j;
@@ -701,19 +706,20 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			else{
 				Norm += fabs(pMat->RHS[ks][j][i][0]);
 			}
-			Residual += pMat->RHS[ks][j][i][0];
-			Residual -= theta[0] * pMat->U[ks][j-1][i].Er;
-			Residual -= theta[1] * pMat->U[ks][j-1][i].Fr2;
-			Residual -= theta[2] * pMat->U[ks][j][i-1].Er;
-			Residual -= theta[3] * pMat->U[ks][j][i-1].Fr1;
-			Residual -= theta[4] * pMat->U[ks][j][i].Er;
-			Residual -= theta[5] * pMat->U[ks][j][i].Fr1;
-			Residual -= theta[6] * pMat->U[ks][j][i].Fr2;
-			Residual -= theta[7] * pMat->U[ks][j][i+1].Er;
-			Residual -= theta[8] * pMat->U[ks][j][i+1].Fr1;
-			Residual -= theta[9] * pMat->U[ks][j+1][i].Er;
-			Residual -= theta[10] * pMat->U[ks][j+1][i].Fr2;
+			tempRes = pMat->RHS[ks][j][i][0];
+			tempRes -= theta[0] * pMat->U[ks][j-1][i].Er;
+			tempRes -= theta[1] * pMat->U[ks][j-1][i].Fr2;
+			tempRes -= theta[2] * pMat->U[ks][j][i-1].Er;
+			tempRes -= theta[3] * pMat->U[ks][j][i-1].Fr1;
+			tempRes -= theta[4] * pMat->U[ks][j][i].Er;
+			tempRes -= theta[5] * pMat->U[ks][j][i].Fr1;
+			tempRes -= theta[6] * pMat->U[ks][j][i].Fr2;
+			tempRes -= theta[7] * pMat->U[ks][j][i+1].Er;
+			tempRes -= theta[8] * pMat->U[ks][j][i+1].Fr1;
+			tempRes -= theta[9] * pMat->U[ks][j+1][i].Er;
+			tempRes -= theta[10] * pMat->U[ks][j+1][i].Fr2;
 
+			Residual += fabs(tempRes);
 
 			if(pMat->bgflag){
 				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Fr1 + dt * Sigma_aP * T4 * velocity_x);
@@ -721,17 +727,19 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			else{
 				Norm += fabs(pMat->RHS[ks][j][i][1]);
 			}
-			Residual += pMat->RHS[ks][j][i][1];
-			Residual -= phi[0] * pMat->U[ks][j-1][i].Er;
-			Residual -= phi[1] * pMat->U[ks][j-1][i].Fr1;
-			Residual -= phi[2] * pMat->U[ks][j][i-1].Er;
-			Residual -= phi[3] * pMat->U[ks][j][i-1].Fr1;
-			Residual -= phi[4] * pMat->U[ks][j][i].Er;
-			Residual -= phi[5] * pMat->U[ks][j][i].Fr1;
-			Residual -= phi[6] * pMat->U[ks][j][i+1].Er;
-			Residual -= phi[7] * pMat->U[ks][j][i+1].Fr1;
-			Residual -= phi[8] * pMat->U[ks][j+1][i].Er;
-			Residual -= phi[9] * pMat->U[ks][j+1][i].Fr1;
+			tempRes = pMat->RHS[ks][j][i][1];
+			tempRes -= phi[0] * pMat->U[ks][j-1][i].Er;
+			tempRes -= phi[1] * pMat->U[ks][j-1][i].Fr1;
+			tempRes -= phi[2] * pMat->U[ks][j][i-1].Er;
+			tempRes -= phi[3] * pMat->U[ks][j][i-1].Fr1;
+			tempRes -= phi[4] * pMat->U[ks][j][i].Er;
+			tempRes -= phi[5] * pMat->U[ks][j][i].Fr1;
+			tempRes -= phi[6] * pMat->U[ks][j][i+1].Er;
+			tempRes -= phi[7] * pMat->U[ks][j][i+1].Fr1;
+			tempRes -= phi[8] * pMat->U[ks][j+1][i].Er;
+			tempRes -= phi[9] * pMat->U[ks][j+1][i].Fr1;
+
+			Residual += fabs(tempRes);
 
 			if(pMat->bgflag){
 				Norm += fabs(pG->U[ks][j+diffghost][i+diffghost].Fr2 + dt * Sigma_aP * T4 * velocity_y);
@@ -739,18 +747,19 @@ Real CheckResidual(MatrixS *pMat, GridS *pG)
 			else{
 				Norm += fabs(pMat->RHS[ks][j][i][2]);
 			}
-			Residual += pMat->RHS[ks][j][i][2];
-			Residual -= psi[0] * pMat->U[ks][j-1][i].Er;
-			Residual -= psi[1] * pMat->U[ks][j-1][i].Fr2;
-			Residual -= psi[2] * pMat->U[ks][j][i-1].Er;
-			Residual -= psi[3] * pMat->U[ks][j][i-1].Fr2;
-			Residual -= psi[4] * pMat->U[ks][j][i].Er;
-			Residual -= psi[5] * pMat->U[ks][j][i].Fr2;
-			Residual -= psi[6] * pMat->U[ks][j][i+1].Er;
-			Residual -= psi[7] * pMat->U[ks][j][i+1].Fr2;
-			Residual -= psi[8] * pMat->U[ks][j+1][i].Er;
-			Residual -= psi[9] * pMat->U[ks][j+1][i].Fr2;
+			tempRes = pMat->RHS[ks][j][i][2];
+			tempRes -= psi[0] * pMat->U[ks][j-1][i].Er;
+			tempRes -= psi[1] * pMat->U[ks][j-1][i].Fr2;
+			tempRes -= psi[2] * pMat->U[ks][j][i-1].Er;
+			tempRes -= psi[3] * pMat->U[ks][j][i-1].Fr2;
+			tempRes -= psi[4] * pMat->U[ks][j][i].Er;
+			tempRes -= psi[5] * pMat->U[ks][j][i].Fr2;
+			tempRes -= psi[6] * pMat->U[ks][j][i+1].Er;
+			tempRes -= psi[7] * pMat->U[ks][j][i+1].Fr2;
+			tempRes -= psi[8] * pMat->U[ks][j+1][i].Er;
+			tempRes -= psi[9] * pMat->U[ks][j+1][i].Fr2;
 
+			Residual += fabs(tempRes);
 	
 		
 	}

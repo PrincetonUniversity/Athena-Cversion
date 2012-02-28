@@ -3777,8 +3777,12 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 
 				/* subtract the radiation work term, which is not seperated */
-			/*	pG->Ersource[k][j][i] -= Prworksource;
-			*/
+				if(Erflag){
+					/* Radiation work term is not seperated. Will correct error due to this term later */
+					pG->Ersource[k][j][i] -= Prworksource;
+					pG->Eulersource[k][j][i] = -Prworksource/Prat;
+				}
+			
 
 				pG->Ersource[k][j][i] /= -Prat;
 				
