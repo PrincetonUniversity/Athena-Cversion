@@ -233,6 +233,16 @@ void integrate_2d_ctu(DomainS *pD)
 
     lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
 
+/* Apply density floor */
+    for (i=il+1; i<=iu; i++){
+      if (Wl[i].d < d_MIN) {
+        Wl[i].d = d_MIN;
+      }
+      if (Wr[i].d < d_MIN) {
+        Wr[i].d = d_MIN;
+      }
+    }
+
 #ifdef MHD
     for (i=il+1; i<=iu; i++) {
 #ifdef CYLINDRICAL
@@ -516,6 +526,16 @@ void integrate_2d_ctu(DomainS *pD)
     }
 
     lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,2);
+
+/* Apply density floor */
+    for (j=jl+1; j<=ju; j++){
+      if (Wl[j].d < d_MIN) {
+        Wl[j].d = d_MIN;
+      }
+      if (Wr[j].d < d_MIN) {
+        Wr[j].d = d_MIN;
+      }
+    }
 
 #ifdef MHD
     for (j=jl+1; j<=ju; j++) {
@@ -1084,6 +1104,29 @@ void integrate_2d_ctu(DomainS *pD)
   }
 #endif
 
+/*--- Step 6e ------------------------------------------------------------------
+ * Apply density floor
+ */
+  for (j=jl+1; j<=ju-1; j++) {
+  for (i=il+1; i<=iu-1; i++) {
+    if ((Ul_x1Face[j][i].d < d_MIN) ||
+        (Ul_x1Face[j][i].d != Ul_x1Face[j][i].d)) {
+      Ul_x1Face[j][i].d = d_MIN;
+    }
+    if ((Ur_x1Face[j][i].d < d_MIN) ||
+        (Ur_x1Face[j][i].d != Ur_x1Face[j][i].d)) {
+      Ur_x1Face[j][i].d = d_MIN;
+    }
+    if ((Ul_x2Face[j][i].d < d_MIN) ||
+        (Ul_x2Face[j][i].d != Ul_x2Face[j][i].d)) {
+      Ul_x2Face[j][i].d = d_MIN;
+    }
+    if ((Ur_x2Face[j][i].d < d_MIN) ||
+        (Ur_x2Face[j][i].d != Ur_x2Face[j][i].d)) {
+      Ur_x2Face[j][i].d = d_MIN;
+    }
+  }}
+
 /*=== STEP 7: Not needed in 2D ===*/
 
 /*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
@@ -1107,6 +1150,10 @@ void integrate_2d_ctu(DomainS *pD)
         dhalf[j][i] = pG->U[ks][j][i].d
           - hdtodx1*(rsf*x1Flux[j  ][i+1].d - lsf*x1Flux[j][i].d)
           - hdtodx2*(    x2Flux[j+1][i  ].d -     x2Flux[j][i].d);
+
+        if ((dhalf[j][i] < d_MIN) || (dhalf[j][i] != dhalf[j][i])) {
+          dhalf[j][i] = d_MIN;
+        }
 #ifdef PARTICLES
         pG->Coup[ks][j][i].grid_d = dhalf[j][i];
 #endif
@@ -1733,7 +1780,6 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
       pG->U[ks][j][i].E += pG->Coup[ks][j][i].Eloss;
       pG->Coup[ks][j][i].Eloss *= dt1; /* for history output purpose */
-      pG->Eloss[ks][j][i] *= dt1; /* for history output purpose */
 #endif
     }
 #endif
