@@ -326,7 +326,7 @@ void integrate_1d_ctu(DomainS *pD)
   {
     for (i=il+1; i<=iu-1; i++) {
       dhalf[i] = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
-      if ((dhalf[i] < d_MIN) || (dhalf[i] != dhalf[j][i])) {
+      if ((dhalf[i] < d_MIN) || (dhalf[i] != dhalf[i])) {
         dhalf[i] = d_MIN;
       }
 #ifdef PARTICLES
