@@ -525,7 +525,7 @@ G3.ijkl[0],G3.ijkr[0]);
                     if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
                      "[init_grid]:failed to allocate CGrid ixb myFlx\n");
 #ifdef MHD
-                    pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z; 
@@ -610,7 +610,7 @@ G3.ijkl[0],G3.ijkr[0]);
                     if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myFlx\n");
 #ifdef MHD
-                    pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z;
@@ -923,7 +923,7 @@ G3.ijkl[2],G3.ijkr[2]);
                     if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid ixb myFlx\n");
 #ifdef MHD
-                    pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
@@ -1014,7 +1014,7 @@ G3.ijkl[2],G3.ijkr[2]);
                     if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid oxb myFlx\n");
 #ifdef MHD
-                    pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
