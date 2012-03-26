@@ -296,6 +296,11 @@ void selfg_fft_2d(DomainS *pD)
     }
   }
 
+#ifdef STAR_PARTICLE
+  assign_starparticles_2d(pD,work);
+#endif /* STAR_PARTICLE */
+
+
   ath_2d_fft(fplan2d, work);
 
 /* Compute potential in Fourier space.  Multiple loops are used to avoid divide
@@ -386,7 +391,6 @@ void selfg_fft_3d(DomainS *pD)
   qomt = qshear*Omega_0*dt;
 #endif
 
-
 /* Copy current potential into old */
 
   for (k=ks-nghost; k<=ke+nghost; k++){
@@ -411,16 +415,23 @@ void selfg_fft_3d(DomainS *pD)
     for (i=is; i<=ie; i++){
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
 #ifdef SHEARING_BOX
-        four_pi_G*(RollDen[k][i][j] - grav_mean_rho);
+        RollDen[k][i][j] - grav_mean_rho;
 #else
-        four_pi_G*(pG->U[k][j][i].d - grav_mean_rho);
+        pG->U[k][j][i].d - grav_mean_rho;
 #endif
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
     }
   }}
 
-  ath_3d_fft(fplan3d, work);
+#ifndef SHEARING_BOX 
+#ifdef STAR_PARTICLE
+   assign_starparticles_3d(pD,work); 
+#endif /* STAR_PARTICLE */
+#endif /* SHEARING_BOX  */
 
+    
+   ath_3d_fft(fplan3d, work);
+     
 /* Compute potential in Fourier space.  Multiple loops are used to avoid divide
  * by zero at i=is,j=js,k=ks, and to avoid if statement in loop   */
 /* To compute kx,ky,kz, note that indices relative to whole Domain are needed */
@@ -515,14 +526,13 @@ void selfg_fft_3d(DomainS *pD)
     for (i=is; i<=ie; i++){
 #ifdef SHEARING_BOX
       UnRollPhi[k][i][j] = 
-        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+       four_pi_G*work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
         / bplan3d->gcnt;
 #else
-      pG->Phi[k][j][i] = 
-        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+      pG->Phi[k][j][i] =
+       four_pi_G*work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
         / bplan3d->gcnt;
 #endif
-
     }
   }}
 
