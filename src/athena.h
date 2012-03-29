@@ -363,6 +363,11 @@ typedef struct Domain_s{
   VGFun_t ix3_GBCFun, ox3_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
 #endif
 
+#ifdef FFT_ENABLED
+  struct ath_2d_fft_plan *fplan2d, *bplan2d;
+  struct ath_3d_fft_plan *fplan3d, *bplan3d;
+#endif
+
 #ifdef MPI_PARALLEL
   MPI_Comm Comm_Domain;      /*!< MPI communicator between Grids on this Dom */
   MPI_Group Group_Domain;    /*!< MPI group for Domain communicator */
