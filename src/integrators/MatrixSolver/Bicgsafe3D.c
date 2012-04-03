@@ -40,12 +40,12 @@ void iterations(Real *currentnorm, MatrixS *pMat, Real ****theta, Real ****phi, 
  * For ghost zones, we do not use the updated version */
 /* So differenet CPUs do not need wait for each other to finish */
 
-void Bicgsafe3D(MatrixS *pMat)
+void Bicgsafe3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi)
 {
 
 
 	
-	int i, j, k, n;
+	int n;
 	int is, ie, js, je, ks, ke;
 	
 	is = pMat->is;
@@ -57,12 +57,7 @@ void Bicgsafe3D(MatrixS *pMat)
 
 
 
-	/* To store the coefficient */
-	Real ****theta = NULL;
-	Real ****phi = NULL;
-	Real ****psi = NULL;
-	Real ****varphi = NULL;
-
+	
 	/* To store the temporary vectors used in Bicgsafe iteration */
 	Real ****Pn = NULL;
 	Real ****Apn = NULL;
@@ -78,17 +73,6 @@ void Bicgsafe3D(MatrixS *pMat)
 	/* Used to decide whether we should stop iteration at this level */
 
 
-	if((theta = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[Bicgsafe3D]: malloc return a NULL pointer\n");
-
-	if((phi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[Bicgsafe3D]: malloc return a NULL pointer\n");
-	
-	if((psi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[Bicgsafe3D]: malloc return a NULL pointer\n");
-
-	if((varphi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[Bicgsafe3D]: malloc return a NULL pointer\n");
 
 	/* temporary vectors */
 	if((Pn = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,4,sizeof(Real))) == NULL)
@@ -127,14 +111,7 @@ void Bicgsafe3D(MatrixS *pMat)
 	/* We only need Er and Fr in the ghost zones */
 	/* Use seperate loop to avoid if in next loop */
 
-	/* Only need to calculate the coefficient once */
-	for(k=ks; k<=ke; k++)
-		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){				
-			matrix_coef(pMat, NULL, 3, i, j, k, 0.0, &(theta[k][j][i][0]), &(phi[k][j][i][0]), &(psi[k][j][i][0]), &(varphi[k][j][i][0]));
-							
-	}
-
+	
 	
 	
 
@@ -170,18 +147,6 @@ for(n=0; n<Ncycle; n++){
 	
 			
   
-	if(theta != NULL)
-		free_4d_array(theta);
-
-	if(phi != NULL)
-		free_4d_array(phi);
-
-	if(psi != NULL)
-		free_4d_array(psi);
-
-	if(varphi != NULL)
-		free_4d_array(varphi);
-
 	if(Pn != NULL)
 		free_4d_array(Pn);
 

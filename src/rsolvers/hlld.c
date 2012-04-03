@@ -207,6 +207,12 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   /* eqn (43) of Miyoshi & Kusano */
   Ulst.d = Ul.d * sdl/sdml;
   Urst.d = Ur.d * sdr/sdmr;
+  
+  if(Ulst.d < 0.0)
+	Ulst.d = Ul.d;
+  if(Urst.d < 0.0)
+	Urst.d = Ur.d;
+
   sqrtdl = sqrt(Ulst.d);
   sqrtdr = sqrt(Urst.d);
 

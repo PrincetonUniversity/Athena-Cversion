@@ -669,24 +669,8 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
-	GetTguess(&Mesh);
-	
-	if(!Erflag){
+	GetTguess(&Mesh);	
 
-		(*BackEuler)(&Mesh);
-
-	/* update the boundary */
-    		for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      			for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        			if (Mesh.Domain[nl][nd].Grid != NULL){
-
-				bvals_radMHD(&(Mesh.Domain[nl][nd]));
- 
-        			}
-      			}
-    		}
-
-	}
 
 #endif
 
@@ -702,31 +686,39 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
+			
 	  (*Integrate)(&(Mesh.Domain[nl][nd]));
 #ifdef FARGO
+#ifndef RADIATION_HYDRO
+#ifndef RADIATION_MHD
           Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
           advect_particles(&(Mesh.Domain[nl][nd]));
 #endif
+#endif /* For radiation case, Fargo is adde dinsided the integrator */
+#endif			
 #endif /* FARGO */
 
 	
-	/* must update boundary condition for Er as energy source term is added in integrator */
-/*#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	/* Need to update boundary condition */
+	/* Now the matrix Coefficient depends on velocity and opacity */
+	
+	bvals_mhd(&(Mesh.Domain[nl][nd]));
+	
 #endif
-*/
+
  
         }
       }
     }
 
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	/* This step doesn't need ghost zones of hydro variables */
-	if(Erflag){
-		(*BackEuler)(&Mesh);
-	}
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)	
+	
+	(*BackEuler)(&Mesh);
+	
 #endif
 
 /*--- Step 9d. ---------------------------------------------------------------*/

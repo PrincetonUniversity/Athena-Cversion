@@ -462,7 +462,7 @@ void BackEuler_2d(MeshS *pM)
 
 
 		/*----------------------------*/
-    		tempvalue = pG->U[ks][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
+    		tempvalue = pG->U[ks][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_x / Crat;
 		if(bgflag){
 			tempEr2 = phi[0] * pG->U[ks][j-1][i].Er + phi[8] * pG->U[ks][j+1][i].Er;
 			tempEr1 = phi[2] * pG->U[ks][j][i-1].Er + phi[6] * pG->U[ks][j][i+1].Er;
@@ -482,7 +482,7 @@ void BackEuler_2d(MeshS *pM)
 		lis_vector_set_value(LIS_INS_VALUE,index,tempvalue,RHSEuler);
 		
 		/*-------------------------*/
-		tempvalue = pG->U[ks][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
+		tempvalue = pG->U[ks][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_y / Crat;
 		
 		if(bgflag){
 			tempEr2 = psi[0] * pG->U[ks][j-1][i].Er + psi[8] * pG->U[ks][j+1][i].Er;
@@ -1011,12 +1011,10 @@ void BackEuler_2d(MeshS *pM)
 			
 			/* Estimate the added energy source term */
 			if(Prat > 0.0){
-				if(Erflag){
-					pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
-				}
-				else{
-					pG->Eulersource[ks][j][i] = Eratio * Crat * dt * (pG->U[ks][j][i].Sigma[2] * pG->Tguess[ks][j][i] - pG->U[ks][j][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][j][i].Sigma[3]) +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y);
-				}
+				
+				pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
+				
+				
 		
 			}
 /*

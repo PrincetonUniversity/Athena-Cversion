@@ -29,7 +29,7 @@
 extern void bvals_Matrix(MatrixS *pMat);
 
 
-void Jacobi1D(MatrixS *pMat)
+void Jacobi1D(MatrixS *pMat, Real **theta,   Real **phi)
 {
 /* Right now, only work for one domain. Modified later for SMR */
 
@@ -45,15 +45,7 @@ void Jacobi1D(MatrixS *pMat)
 	
 	Real omega = 0.5;
 
-	/* To store the coefficient */
-	Real theta[6];
-	Real phi[6];
 	
-
-
-
-
-
 	/* First, allocate memory for the temporary matrix */
 	MatrixS *pMatnew;
 
@@ -70,39 +62,36 @@ for(n=0; n<Ncycle; n++){
 
 		for(i=is; i<=ie; i++){
 
-		/* Only need to set the elements once, at the beginning */
 	
-			matrix_coef(pMat, NULL, 1, i, js, ks, 0.0, &(theta[0]), &(phi[0]), NULL, NULL);
-		
 
 		/* The diagonal elements are theta[6], phi[7], psi[7], varphi[7] */
 		
 		/* For Er */
 		/* For Er */
 			pMatnew->U[ks][js][i].Er  = pMat->RHS[ks][js][i][0];			
-			pMatnew->U[ks][js][i].Er -= theta[0] * pMat->U[ks][js][i-1].Er;
-			pMatnew->U[ks][js][i].Er -= theta[1] * pMat->U[ks][js][i-1].Fr1;
+			pMatnew->U[ks][js][i].Er -= theta[i][0] * pMat->U[ks][js][i-1].Er;
+			pMatnew->U[ks][js][i].Er -= theta[i][1] * pMat->U[ks][js][i-1].Fr1;
 			/* diagonal elements are not included */
-			pMatnew->U[ks][js][i].Er -= theta[3] * pMat->U[ks][js][i].Fr1;
-			pMatnew->U[ks][js][i].Er -= theta[4] * pMat->U[ks][js][i+1].Er;
-			pMatnew->U[ks][js][i].Er -= theta[5] * pMat->U[ks][js][i+1].Fr1;
+			pMatnew->U[ks][js][i].Er -= theta[i][3] * pMat->U[ks][js][i].Fr1;
+			pMatnew->U[ks][js][i].Er -= theta[i][4] * pMat->U[ks][js][i+1].Er;
+			pMatnew->U[ks][js][i].Er -= theta[i][5] * pMat->U[ks][js][i+1].Fr1;
 			
-			pMatnew->U[ks][js][i].Er /= theta[2];
+			pMatnew->U[ks][js][i].Er /= theta[i][2];
 
 			pMatnew->U[ks][js][i].Er = (1.0 - omega) * pMat->U[ks][js][i].Er + omega * pMatnew->U[ks][js][i].Er;
 		
 			/* For Fr1 */
 
 			pMatnew->U[ks][js][i].Fr1  = pMat->RHS[ks][js][i][1];			
-			pMatnew->U[ks][js][i].Fr1 -= phi[0] * pMat->U[ks][js][i-1].Er;
-			pMatnew->U[ks][js][i].Fr1 -= phi[1] * pMat->U[ks][js][i-1].Fr1;
-			pMatnew->U[ks][js][i].Fr1 -= phi[2] * pMat->U[ks][js][i].Er;
+			pMatnew->U[ks][js][i].Fr1 -= phi[i][0] * pMat->U[ks][js][i-1].Er;
+			pMatnew->U[ks][js][i].Fr1 -= phi[i][1] * pMat->U[ks][js][i-1].Fr1;
+			pMatnew->U[ks][js][i].Fr1 -= phi[i][2] * pMat->U[ks][js][i].Er;
 			/* diagonal elements are not included */
 
-			pMatnew->U[ks][js][i].Fr1 -= phi[4] * pMat->U[ks][js][i+1].Er;
-			pMatnew->U[ks][js][i].Fr1 -= phi[5] * pMat->U[ks][js][i+1].Fr1;
+			pMatnew->U[ks][js][i].Fr1 -= phi[i][4] * pMat->U[ks][js][i+1].Er;
+			pMatnew->U[ks][js][i].Fr1 -= phi[i][5] * pMat->U[ks][js][i+1].Fr1;
 			
-			pMatnew->U[ks][js][i].Fr1 /= phi[3];
+			pMatnew->U[ks][js][i].Fr1 /= phi[i][3];
 
 			pMatnew->U[ks][js][i].Fr1 = (1.0 - omega) * pMat->U[ks][js][i].Fr1 + omega * pMatnew->U[ks][js][i].Fr1;
 			

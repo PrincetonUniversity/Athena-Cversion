@@ -18,6 +18,8 @@ CORE_OBJ = bandec.o \
 	   Jacobi3D.o \
 	   bvals_Matrix.o \
 	   bvals_Matrix_shear.o \
+	   bvals_Matrix_gas.o \
+	   bvals_Matrix_shear_gas.o \
 	   Bicgsafe3D.o	\
 	   bvals_matrix_vector.o \
 	   bvals_matrix_vector_shear.o 

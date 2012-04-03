@@ -682,7 +682,7 @@ void BackEuler_3d(MeshS *pM)
 		/* Tguess is now the energy source term, which should be added */
 		/* calculate the advection term */
 		Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
-    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz);
+    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz) + pG->Comp[k][j][i];
 			
 		if(bgflag){
 			tempEr3 = theta[0] * pG->U[k-1][j][i].Er + theta[14] * pG->U[k+1][j][i].Er;
@@ -706,7 +706,7 @@ void BackEuler_3d(MeshS *pM)
 		RHSEuler[index] = tempvalue;
 
 		/*----------------------------*/
-    		tempvalue = pG->U[k][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
+    		tempvalue = pG->U[k][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_x / Crat;
 		
 		if(bgflag){
 
@@ -729,7 +729,7 @@ void BackEuler_3d(MeshS *pM)
 		RHSEuler[index] = tempvalue;
 		
 		/*-------------------------*/
-		tempvalue = pG->U[k][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
+		tempvalue = pG->U[k][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_y / Crat;
 		
 		if(bgflag){
 
@@ -754,7 +754,7 @@ void BackEuler_3d(MeshS *pM)
 		RHSEuler[index] = tempvalue;
 
 		/*-------------------------*/
-		tempvalue = pG->U[k][j][i].Fr3 + dt * Sigma_aP * T4 * velocity_z;
+		tempvalue = pG->U[k][j][i].Fr3 + Eratio * dt * Sigma_aP * T4 * velocity_z + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_z / Crat;
 
 		if(bgflag){
 
@@ -1451,12 +1451,9 @@ else if(solverflag == 3){
 			
 			/* Estimate the added energy source term */
 			if(Prat > 0.0){
-				if(Erflag){
-					pG->U[k][j][i].E += (pG->Eulersource[k][j][i] - dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z));
-				}
-				else{
-					pG->Eulersource[k][j][i] = Eratio * Crat * dt * (pG->U[k][j][i].Sigma[2] * pG->Tguess[k][j][i] - pG->U[k][j][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[k][j][i].Sigma[3]) +  (1.0 - Eratio) * pG->Ersource[k][j][i] + dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-				}
+				
+				pG->U[k][j][i].E += (pG->Eulersource[k][j][i] - dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z));
+				
 			}
 /*
 		if(pG->U[ks][j][i].Er < 0.0)
@@ -1471,7 +1468,7 @@ else if(solverflag == 3){
 
 
 	/* Eddington factor is updated in the integrator  */
-
+/*
 if(Opacity != NULL){
 		for (k=pG->ks; k<=pG->ke; k++){
 			for (j=pG->js; j<=pG->je; j++) {
@@ -1508,7 +1505,8 @@ if(Opacity != NULL){
 		}
 }
 
-
+*/
+	
 /* Update the ghost zones for different boundary condition to be used later */
 /*	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  

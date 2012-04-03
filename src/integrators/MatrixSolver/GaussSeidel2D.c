@@ -33,7 +33,7 @@ extern void bvals_Matrix(MatrixS *pMat);
  * For ghost zones, we do not use the updated version */
 /* So differenet CPUs do not need wait for each other to finish */
 
-void GaussSeidel2D(MatrixS *pMat)
+void GaussSeidel2D(MatrixS *pMat, Real ***theta,  Real ***phi,  Real ***psi)
 {
 
 	int i, j, n;
@@ -44,32 +44,9 @@ void GaussSeidel2D(MatrixS *pMat)
 	je = pMat->je;
 	ks = pMat->ks;
 
-	Real omega = 0.5;
+	Real omega = 0.4;
 	Real Ert0, Frt0;
 
-	/* To store the coefficient */
-	Real ***theta = NULL;
-	Real ***phi = NULL;
-	Real ***psi = NULL;
-	
-
-	if((theta = (Real***)calloc_3d_array(je-js+1+2*Matghost, ie-is+1+2*Matghost,11,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	if((phi = (Real***)calloc_3d_array(je-js+1+2*Matghost, ie-is+1+2*Matghost,11,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-	
-	if((psi = (Real***)calloc_3d_array(je-js+1+2*Matghost, ie-is+1+2*Matghost,11,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-
-
-	/* Only need to calculate the coefficient once */
-	for(j=js; j<=je; j++)
-		for(i=is; i<=ie; i++){				
-		matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(theta[j][i][0]), &(phi[j][i][0]), &(psi[j][i][0]), NULL);
-							
-	}
 
 			
 	/* Update the boundary cells */
@@ -150,16 +127,7 @@ for(n=0; n<Ncycle; n++){
 
 
 }	
-  
-
-	if(theta != NULL)
-		free_3d_array(theta);
-
-	if(phi != NULL)
-		free_3d_array(phi);
-
-	if(psi != NULL)
-		free_3d_array(psi);
+  	
 
 
 	return;	

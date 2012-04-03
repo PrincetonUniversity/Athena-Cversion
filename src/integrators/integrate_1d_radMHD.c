@@ -478,10 +478,16 @@ for(i=il+1; i<=iu-1; i++) {
 	
 	Source[1] = -(-(Sigma_aF + Sigma_sF) * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
 	+ velocity * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er)/Crat);
-	Source[4] = - Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + (Sigma_aF - Sigma_sF) * velocity
-		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
 
-	Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
+	if(Erflag){
+		Source[4] = - Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * U1d[i].Er) + Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity
+		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+	}
+	else{
+		Source[4] = - Crat * (Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity
+		* (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+	}
+	Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * Source_Inv[1][1] * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
 
 
 
@@ -612,16 +618,28 @@ for(i=il+1; i<=iu-1; i++) {
 	dSource(Uguess, Bxc[i], &SEE, &SErho, &SEm, NULL, NULL, x1);
 	Det = 1.0 + dt * Prat * Crat * SEE;
 	SFm = (Uguess.Sigma[0] + Uguess.Sigma[1]) * (1.0 + U1d[i].Edd_11) * U1d[i].Er / (Uguess.d * Crat) 
-		+ (Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) / (Uguess.d * Crat);	
+		+ (Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) / (Uguess.d * Crat);
+
+	/* (I - dt Div_U S(U))^-1 for the guess solution */
+	Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFm);
+
+	
+	Source_Inv[4][0] = -dt * Prat * Crat * SErho/ Det;
+	Source_Inv[4][1] = (-dt * Prat * Crat * SEm/ Det) * Source_Inv[1][1];
+	Source_Inv[4][4] = 1.0 / Det;	
 
 	/* Guess solution doesn't include Er and Fr1, Er and Fr1 are in U1d */
 	/* NOTICE that we do not include correction from radiation variables, which are always 1st order accuracy */
 	Source_guess[1] = - (-(Uguess.Sigma[0] + Uguess.Sigma[1]) * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)
 	+ velocity * (Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er)/Crat);
-	Source_guess[4] = - Crat * ((Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) + (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+	if(Erflag){
+		Source_guess[4] = - Crat * ((Uguess.Sigma[2] * pow(Tguess, 4.0) - Uguess.Sigma[3] * U1d[i].Er) + Source_Inv[1][1] * (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+	}
+	else{
+		Source_guess[4] = - Crat * (Source_Inv[1][1] * (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat)/Crat); 
+	}
 
-
-	Prwork2 = -Prat * (Uguess.Sigma[1] - Uguess.Sigma[0]) * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
+	Prwork2 = -Prat * (Uguess.Sigma[1] - Uguess.Sigma[0]) * Source_Inv[1][1] * velocity * (U1d[i].Fr1 - (1.0 + U1d[i].Edd_11) * velocity * U1d[i].Er / Crat);
 
 	for(m=0; m<5; m++)
 		Errort[m] = pU1d[m] + 0.5 * dt * (Source_guess[m] + Source[m]) * Prat 
@@ -633,13 +651,7 @@ for(i=il+1; i<=iu-1; i++) {
 #endif
 
 
-	/* (I - dt Div_U S(U))^-1 for the guess solution */
-	Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFm);
-
 	
-	Source_Inv[4][0] = -dt * Prat * Crat * SErho/ Det;
-	Source_Inv[4][1] = (-dt * Prat * Crat * SEm/ Det) * Source_Inv[1][1];
-	Source_Inv[4][4] = 1.0 / Det;
 
 
 	for(m=0; m<5; m++){
@@ -652,27 +664,11 @@ for(i=il+1; i<=iu-1; i++) {
 	}
 
 
-/*	if(Erflag){
-		
-	}
-	else{
-		
-		for(m=0; m<4; m++){
-			tempguess[m]=0.0;
-			for(n=0; n<4; n++){
-				tempguess[m] += Source_Inv[m][n] * Errort[n];
-			}
-			pU1d[m] = pUguess[m] + tempguess[m];
-		}
-			
-			pU1d[4] = pUguess[4];
 
-	}
-*/
 	Prworksource += Source_Inv[4][4] * (0.5 * dt * (Prwork1 + Prwork2) - Prworksource);
 
 	/* Estimate the added radiation source term  */
-	
+	if(Erflag){
 	if(Prat > 0.0){
 		pG->Ersource[ks][js][i] = pU1d[4] - (pG->U[ks][js][i].E - dt * pdivFlux[4]);
 
@@ -682,11 +678,9 @@ for(i=il+1; i<=iu-1; i++) {
 #endif
 
 		/* subtract the actual added radiation work term */
-		if(Erflag){
-			pG->Ersource[ks][js][i] -= Prworksource;
-			pG->Eulersource[ks][js][i] = -Prworksource/Prat;
-
-		}
+		pG->Ersource[ks][js][i] -= Prworksource;
+			
+		
 		
 		pG->Ersource[ks][js][i] /= -Prat;
 
@@ -698,15 +692,21 @@ for(i=il+1; i<=iu-1; i++) {
 		pG->Ersource[ks][js][i] = 0.0;
 
 	}
-	
+	}
+
+	pG->Eulersource[ks][js][i] = -Prworksource/Prat;
+
 
 	
 	/* Update the quantity in the Grids */
 	pUguess = (Real*)&(pG->U[ks][js][i]);
 
-/* Only update the cells when flag is 0 */
    
-	for(m=0; m<5; m++) pUguess[m] = pU1d[m];	
+	for(m=0; m<5; m++) pUguess[m] = pU1d[m];
+
+	if(!Erflag){
+		pG->U[ks][js][i].E += -Prat * pG->Ersource[ks][js][i];
+	}	
 
 #ifdef RADIATION_MHD
 /* magnetic field is independent of modified Godunov method */
@@ -722,14 +722,7 @@ for(i=il+1; i<=iu-1; i++) {
 
 /*-----------Finish---------------------*/
 	} /* End big loop i */	
-		if(!Erflag){
-      			for (i=is; i<=ie; i++) {
-				/* Tguess now is the added energy source term in BackEuler step */
-				/* If Eratio = 0, Tguess is just the radiation work term */
-				 pG->U[ks][js][i].Er += (pG->Ersource[ks][js][i] - pG->Eulersource[ks][js][i]);
-
-			}
-    		}
+		
 
 
 

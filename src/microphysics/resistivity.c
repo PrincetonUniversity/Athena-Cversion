@@ -532,7 +532,8 @@ void EField_Hall(DomainS *pD)
 
 /* Preliminary: hyper-diffusion */
 
-//  hyper_diffusion6(pD, 0.01);
+/*hyper_diffusion6(pD, 0.01);
+*/
 
 /* Preliminary: divide eta_Hall by B for convenience */
   for (k=kl; k<=ku; k++) {
@@ -1272,7 +1273,7 @@ void resistivity_init(MeshS *pM)
   int mycase;
 
 /* Assign the function pointer for diffusivity calculation */
-  mycase = par_geti_def("problem","CASE",1);
+  mycase = par_geti_def("problem","CASE",2);
 
   switch (mycase)
   {

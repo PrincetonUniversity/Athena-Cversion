@@ -177,8 +177,7 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
 #endif
 
 #ifdef RADIATION_MHD
- esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, DIM,  
-  hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
+ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #endif
 
 /*--- Step 4. ------------------------------------------------------------------

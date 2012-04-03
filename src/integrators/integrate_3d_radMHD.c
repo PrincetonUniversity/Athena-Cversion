@@ -103,8 +103,15 @@ static Real ****Beta = NULL;
 static Real ***dhalf = NULL, ***phalf=NULL;
 
 static Real zmin;
-
-static Real Betafloor = 0.01;
+static Real Zmax = 1.5;
+static Real Vmax = 10.0;
+static Real betafloor = 0.0;
+static Real dfloor = 1.e-5;
+static Real Tfloor = 0.03;
+/* electron equilivalent rest mass temperature, used in compton scattering */
+static Real T_e = 5.94065e9; 
+static Real T0 = 2.63375e7; /* the temperature unit used in this simulation */
+ 
 
 
 /*==============================================================================
@@ -163,11 +170,21 @@ void integrate_3d_radMHD(DomainS *pD)
 
 	/* For static gravitational potential */
 	Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
-
+	/* parameters used in Compton Scattering */
+	Real Tr, coefA, coefK, coefB, coef1, coef2, coef3, coef4;
+	Real Ersum;
+	/* decide the way to add source term */
+	int Sourceflag = 1;
+	int Sourceflag2 = 1;
+	int badcellflag = 0;
+	
+	/* The safe factor used in the Riemann solver to decide whether adopt first order 
+	* left and right states or not */
+	const Real fluxfactor = 2.0;
 
 	/* To correct the negative pressure */
 	zmin = 4.0;
-
+	Real beta, Bpre;
 	Real Bx = 0.0;
 	Real M1h, M2h, M3h;
 #ifdef RADIATION_MHD
@@ -184,10 +201,12 @@ void integrate_3d_radMHD(DomainS *pD)
   int flag_cell=0,negd=0,negP=0,superl=0,NaNFlux=0;
   Real Vsq;
   Int3Vect BadCell;
-  PrimS Wtemp, Wtemp1, Wtemp2, Wtemp3, Wtemp4, Wtemp5, Wtemp6;
+  PrimS Wtemp1, Wtemp2, Wtemp3, Wtemp4, Wtemp5, Wtemp6;
   int Np; /* number of cells used to average pressure */
-#endif
 
+#endif 
+	
+  PrimS Wtemp;
 
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
@@ -228,11 +247,11 @@ void integrate_3d_radMHD(DomainS *pD)
 	/* In case momentum becomes stiff */
 	Real SFmx, SFmy, SFmz;
 	/* for radiation work term */
-	Real Prwork1, Prwork2, Prworksource;
+	Real Prwork1, Prworksource, Prwork2;
 
 
-	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
-	Real Psource;
+	Real Source_Inv[NVAR][NVAR], Source_Invnew[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
+	Real Psource, Ersource;
 	Real divFlux1[NVAR], divFlux2[NVAR], divFlux3[NVAR];
 
 	/* SourceFlux is used to calculate flux due to non-stiff source terms, such as gravity */
@@ -248,10 +267,12 @@ void integrate_3d_radMHD(DomainS *pD)
 		divFlux3[i] = 0.0;
 		tempguess[i] = 0.0;
 		for(j=0; j<NVAR; j++) {
-			Source_Inv[i][j] = 0.0;			
+			Source_Inv[i][j] = 0.0;	
+			Source_Invnew[i][j] = 0.0;
 			
 			if(i==j) {
 		 		Source_Inv[i][j] = 1.0;
+				Source_Invnew[i][j] = 1.0;
 		
 			}
 		}
@@ -267,6 +288,29 @@ void integrate_3d_radMHD(DomainS *pD)
   	ju = je + 2;
   	kl = ks - 2;
   	ku = ke + 2;
+
+
+	/* Check negative pressure */
+	/* This is particular for the ghost zones */
+	
+ 	for (k=ks-nghost; k<=ke+nghost; k++){
+                for (j=js-nghost; j<=je+nghost; j++) {
+                        for (i=is-nghost; i<=ie+nghost; i++) {
+
+                                Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+
+			if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+                                        pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+
+
+                                } /* End if wtemp negative */
+                        }/* end i */
+                }/* end j*/
+        }/* end k*/
+
+
+
 
 /*=== Step 1: Backward Euler is done in the main function for the whole mesh ===*/
 	
@@ -372,7 +416,16 @@ void integrate_3d_radMHD(DomainS *pD)
     			}
 
 			lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,3);
-
+			
+/*			for (i=il+1; i<=iu; i++) {
+				velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+				velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+				if( (velocity > Vmax) || (velocity_x > Vmax) || (velocity!= velocity) || (velocity_x != velocity_x) || (Wl[i].P/(Wl[i].d * R_ideal) < Tfloor) || (Wr[i].P/(Wr[i].d * R_ideal) < Tfloor)){
+					Wl[i] = W[i-1];
+					Wr[i] = W[i];
+				}
+			}
+*/
 
 /*------Step 2c: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
@@ -461,8 +514,15 @@ void integrate_3d_radMHD(DomainS *pD)
 			Wr[i].Edd_22 = W[i].Edd_22;
 			Wr[i].Edd_31 = W[i].Edd_31;
 			Wr[i].Edd_32 = W[i].Edd_32;
-			Wr[i].Edd_33 = W[i].Edd_33;		
-			
+			Wr[i].Edd_33 = W[i].Edd_33;	
+
+/*			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);	
+			if(velocity != velocity || velocity_x != velocity_x){
+				printf("lvx: %e lvy: %e lvz: %e rvx: %e rvy: %e rvz: %e ls: %e lBeta: %e rs: %e rBeta: %e\n",Wl[i].Vx,Wl[i].Vy,Wl[i].Vz,Wr[i].Vx,Wr[i].Vz,Wr[i].Vz,Source[k][j][i-1][1],Beta[k][j][i-1][0],Source[k][j][i][1],Beta[k][j][i][0]);
+
+			}
+*/			
 		}
 
 /*---------For radiation MHD, source term due to magnetic field is also added---------*/
@@ -595,6 +655,19 @@ void integrate_3d_radMHD(DomainS *pD)
         		Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
         		Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
 
+
+				if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
+                                        /* copy left primitive states to be the left sate */
+                                        Wl[i] = Cons1D_to_Prim1D(&U1d[i-1],&Bxc[i-1]);
+                                        Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
+
+                                        /* copy right primitive states to be the right sate */
+                                        Wr[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+                                        Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
+
+                                }
+
+
 #ifdef RADIATION_MHD
         		Bx = B1_x1Face[k][j][i];
 #endif
@@ -603,6 +676,25 @@ void integrate_3d_radMHD(DomainS *pD)
 				x1Flux[k][j][i].Mx = 3;
 
         		fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
+
+			 /* revert to predictor flux if this flux Nan'ed */
+/*
+                                if ((x1Flux[k][j][i].d  != x1Flux[k][j][i].d)  ||
+#ifndef BAROTROPIC
+                                        (x1Flux[k][j][i].E  != x1Flux[k][j][i].E)  ||
+#endif
+#ifdef RADIATION_MHD
+                                        (x1Flux[k][j][i].By != x1Flux[k][j][i].By) ||
+                                        (x1Flux[k][j][i].Bz != x1Flux[k][j][i].Bz) ||
+#endif
+                                        (x1Flux[k][j][i].Mx != x1Flux[k][j][i].Mx) ||
+                                        (x1Flux[k][j][i].My != x1Flux[k][j][i].My) ||
+                                        (x1Flux[k][j][i].Mz != x1Flux[k][j][i].Mz)) {
+                                        printf("1nd flux1: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[i].d,Wl[i].P, Wl[i].Vx,Wl[i].Vy,Wl[i].Vz,Bx,Wl[i].By,Wl[i].Bz,pG->U[k][j][i-1].d,pG->U[k][j][i-1].E,pG->U[k][j][i-1].M1,pG->U[k][j][i-1].M2,pG->U[k][j][i-1].M3,Wr[i].d,Wr[i].P,Wr[i].Vx,Wr[i].Vy,Wr[i].Vz,Wr[i].By,Wr[i].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[k][j][i].M3);
+                                         printf("i: %d j: %d k: %d ID: %d\n",i,j,k,myID_Comm_world);
+                                }
+*/
+
       		}
 		
 
@@ -678,6 +770,16 @@ void integrate_3d_radMHD(DomainS *pD)
       		}
 
       		lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,3);
+
+/*		for (j=jl+1; j<=ju; j++) {
+				velocity = sqrt(Wl[j].Vx * Wl[j].Vx + Wl[j].Vy * Wl[j].Vy + Wl[j].Vz * Wl[j].Vz);
+				velocity_x = sqrt(Wr[j].Vx * Wr[j].Vx + Wr[j].Vy * Wr[j].Vy + Wr[j].Vz * Wr[j].Vz);
+				if((velocity > Vmax) || (velocity_x > Vmax) || (velocity_x != velocity_x) || (Wl[j].P/(Wl[j].d * R_ideal) < Tfloor) || (Wr[j].P/(Wr[j].d * R_ideal) < Tfloor)){
+					Wl[j] = W[j-1];
+					Wr[j] = W[j];
+				}
+		}
+*/
 
 /*------Step 3b: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
@@ -865,6 +967,18 @@ void integrate_3d_radMHD(DomainS *pD)
 		for (j=jl+1; j<=ju; j++) {
         		Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
         		Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
+				
+ 				if((Wl[j].P < 2.0 * TINY_NUMBER) || (Wl[j].d < dfloor) || (Wr[j].P < 2.0 * TINY_NUMBER) || (Wr[j].d < dfloor) ){
+                                        /* copy left primitive states to be the left sate */
+                                        Wl[j] = Cons1D_to_Prim1D(&U1d[j-1],&Bxc[j-1]);
+                                        Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
+
+                                        /* copy right primitive states to be the right sate */
+                                        Wr[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+                                        Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
+
+                                }
+
 
 #ifdef RADIATION_MHD
         		Bx = B2_x2Face[k][j][i];
@@ -874,6 +988,23 @@ void integrate_3d_radMHD(DomainS *pD)
 			x2Flux[k][j][i].Mx = 3;
 			
         		fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,&x2Flux[k][j][i]);
+
+/*
+                        if ((x2Flux[k][j][i].d  != x2Flux[k][j][i].d)  ||
+#ifndef BAROTROPIC
+                                (x2Flux[k][j][i].E  != x2Flux[k][j][i].E)  ||
+#endif
+#if defined(MHD) || defined(RADIATION_MHD)
+                                (x2Flux[k][j][i].By != x2Flux[k][j][i].By) ||
+                                (x2Flux[k][j][i].Bz != x2Flux[k][j][i].Bz) ||
+#endif
+                                (x2Flux[k][j][i].Mx != x2Flux[k][j][i].Mx) ||
+                                (x2Flux[k][j][i].My != x2Flux[k][j][i].My) ||
+                                (x2Flux[k][j][i].Mz != x2Flux[k][j][i].Mz)) {
+                                printf("1nd flux2: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[j].d,Wl[j].P, Wl[j].Vx,Wl[j].Vy,Wl[j].Vz,Bx,Wl[j].By,Wl[j].Bz,pG->U[k][j-1][i].d,pG->U[k][j-1][i].E,pG->U[k][j-1][i].M1,pG->U[k][j-1][i].M2,pG->U[k][j-1][i].M3,Wr[j].d,Wr[j].P,Wr[j].Vx,Wr[j].Vy,Wr[j].Vz,Wr[j].By,Wr[j].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[k][j][i].M3);
+                        }
+*/
+
       		}
 
 		}/* END i */
@@ -953,6 +1084,15 @@ void integrate_3d_radMHD(DomainS *pD)
 
       		lr_states(pG,W,Bxc,pG->dt,dx3,kl+1,ku-1,Wl,Wr,3);
 
+/*		for (k=kl+1; k<=ku; k++) {
+				velocity = sqrt(Wl[k].Vx * Wl[k].Vx + Wl[k].Vy * Wl[k].Vy + Wl[k].Vz * Wl[k].Vz);
+				velocity_x = sqrt(Wr[k].Vx * Wr[k].Vx + Wr[k].Vy * Wr[k].Vy + Wr[k].Vz * Wr[k].Vz);
+				if((velocity > Vmax) || (velocity_x > Vmax) || (velocity_x != velocity_x) || (Wl[k].P/(Wl[k].d * R_ideal) < Tfloor) || (Wr[k].P/(Wr[k].d * R_ideal) < Tfloor)){
+					Wl[k] = W[k-1];
+					Wr[k] = W[k];
+				}
+		}
+*/
 /*------Step 3b: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
 
@@ -1133,6 +1273,18 @@ void integrate_3d_radMHD(DomainS *pD)
         		Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
         		Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
 
+				 if((Wl[k].P < 2.0 * TINY_NUMBER) || (Wl[k].d < dfloor) || (Wr[k].P < 2.0 * TINY_NUMBER) || (Wr[k].d < dfloor)){
+                                        /* copy left primitive states to be the left sate */
+                                        Wl[k] = Cons1D_to_Prim1D(&U1d[k-1],&Bxc[k-1]);
+                                        Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
+
+                                        /* copy right primitive states to be the right sate */
+                                        Wr[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
+                                        Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
+
+                                }
+			
+
 #ifdef RADIATION_MHD
         		Bx = B3_x3Face[k][j][i];
 #endif
@@ -1141,6 +1293,25 @@ void integrate_3d_radMHD(DomainS *pD)
 			x3Flux[k][j][i].Mx = 3;
 			
         		fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,&x3Flux[k][j][i]);
+
+/*
+                        if ((x3Flux[k][j][i].d  != x3Flux[k][j][i].d)  ||
+#ifndef BAROTROPIC
+                                (x3Flux[k][j][i].E  != x3Flux[k][j][i].E)  ||
+#endif
+#if defined(MHD) || defined(RADIATION_MHD)
+                                (x3Flux[k][j][i].By != x3Flux[k][j][i].By) ||
+                                (x3Flux[k][j][i].Bz != x3Flux[k][j][i].Bz) ||
+#endif
+                                (x3Flux[k][j][i].Mx != x3Flux[k][j][i].Mx) ||
+                                (x3Flux[k][j][i].My != x3Flux[k][j][i].My) ||
+                                (x3Flux[k][j][i].Mz != x3Flux[k][j][i].Mz)) {
+                                printf("1nd flux3: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[k].d,Wl[k].P,Wl[k]
+.Vx,Wl[k].Vy,Wl[k].Vz,Bx,Wl[k].By,Wl[k].Bz,pG->U[k-1][j][i].d,pG->U[k-1][j][i].E,pG->U[k-1][j][i].M1,pG->U[k-1][j][i].M2,pG->U[k-1][j][i].M3,Wr[k].d,Wr[k].P,Wr[k].Vx,Wr[k].Vy,Wr[k].Vz,Wr[k].By,Wr[k].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[
+k][j][i].M3);
+                        }
+*/
+
       		}
 
 		}/* END i */
@@ -1276,6 +1447,8 @@ void integrate_3d_radMHD(DomainS *pD)
   	for (k=kl+1; k<=ku-1; k++) {
     		for (j=jl+1; j<=ju-1; j++) {
       			for (i=il+1; i<=iu; i++) {
+
+			
 
         		Ul_x1Face[k][j][i].d -=hdtodx2*(x2Flux[k][j+1][i-1].d -x2Flux[k][j][i-1].d );
         		Ul_x1Face[k][j][i].Mx-=hdtodx2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
@@ -2800,9 +2973,10 @@ void integrate_3d_radMHD(DomainS *pD)
         		B1ch = 0.5*(    B1_x1Face[k][j][i] +     B1_x1Face[k  ][j  ][i+1]);
         		B2ch = 0.5*(    B2_x2Face[k][j][i] +     B2_x2Face[k  ][j+1][i  ]);
         		B3ch = 0.5*(    B3_x3Face[k][j][i] +     B3_x3Face[k+1][j  ][i  ]);
-        		emf1_cc[k][j][i] = (B2ch*M3h - B3ch*M2h)/dhalf[k][j][i];
+
+       			emf1_cc[k][j][i] = (B2ch*M3h - B3ch*M2h)/dhalf[k][j][i];
         		emf2_cc[k][j][i] = (B3ch*M1h - B1ch*M3h)/dhalf[k][j][i];
-        		emf3_cc[k][j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[k][j][i];
+       			emf3_cc[k][j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[k][j][i];
 
       			}
     		}
@@ -2827,9 +3001,67 @@ void integrate_3d_radMHD(DomainS *pD)
 #ifdef RADIATION_MHD
         		Bx = B1_x1Face[k][j][i];
 #endif
-        		Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Bx);
-        		Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Bx);
 
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Bx);
+			Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Bx);
+
+		/*	if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (((fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d)) || (fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d)) || (fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d))) && (fabs(x3)>Zmax))){
+
+		*/
+			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
+
+				B1_x1Face[k][j][i] = pG->B1i[k][j][i];
+				Bx = B1_x1Face[k][j][i];
+
+				 Wl[i].P = pG->U[k][j][i-1].E - 0.5 * (pG->U[k][j][i-1].M1 * pG->U[k][j][i-1].M1 + pG->U[k][j][i-1].M2 * pG->U[k][j][i-1].M2 + pG->U[k][j][i-1].M3 * pG->U[k][j][i-1].M3) / pG->U[k][j][i-1].d;
+#ifdef RADIATION_MHD
+                                Wl[i].P -= 0.5 * (pG->U[k][j][i-1].B1c * pG->U[k][j][i-1].B1c + pG->U[k][j][i-1].B2c * pG->U[k][j][i-1].B2c + pG->U[k][j][i-1].B3c * pG->U[k][j][i-1].B3c);
+#endif
+
+                                Wl[i].P *= (Gamma - 1.0);
+
+                                Wl[i].d = pG->U[k][j][i-1].d;
+                                Wl[i].Vx = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
+                                Wl[i].Vy = pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d;
+                                Wl[i].Vz = pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d;
+
+                                Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+
+
+                                Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+                                Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+
+                                Wr[i].P *= (Gamma - 1.0);
+
+                                Wr[i].d = pG->U[k][j][i].d;
+                                Wr[i].Vx = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+                                Wr[i].Vy = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+                                Wr[i].Vz = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+                                Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+
+
+				emf1_cc[k][j][i-1] = (pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M3 -
+			    		pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M2)/pG->U[k][j][i-1].d;
+        			emf2_cc[k][j][i-1] = (pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M1 -
+			    		pG->U[k][j][i-1].B1c*pG->U[k][j][i-1].M3)/pG->U[k][j][i-1].d;
+        			emf3_cc[k][j][i-1] = (pG->U[k][j][i-1].B1c*pG->U[k][j][i-1].M2 -
+			    		pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M1)/pG->U[k][j][i-1].d;
+
+				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
+        			emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+        			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+
+			}
+			
+/*			if((Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)  || (((fabs(Wr[i].Vx) > fluxfactor * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vy) > fluxfactor * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vz) > fluxfactor * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d))) && (fabs(x3)>Zmax))){
+*/			
 			/* Need parameter dt in radiation Riemann solver */
 			x1Flux[k][j][i].d = dt;
 			x1Flux[k][j][i].Mx = 3;
@@ -2872,8 +3104,66 @@ void integrate_3d_radMHD(DomainS *pD)
 #ifdef RADIATION_MHD
         		Bx = B2_x2Face[k][j][i];
 #endif
+
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
         		Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Bx);
         		Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Bx);
+
+			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
+			
+				B2_x2Face[k][j][i] = pG->B2i[k][j][i];
+				Bx = B2_x2Face[k][j][i];
+	
+ 				Wl[i].P = pG->U[k][j-1][i].E - 0.5 * (pG->U[k][j-1][i].M1 * pG->U[k][j-1][i].M1 + pG->U[k][j-1][i].M2 * pG->U[k][j-1][i].M2 + pG->U[k][j-1][i].M3 * pG->U[k][j-1][i].M3) / pG->U[k][j-1][i].d;
+#ifdef RADIATION_MHD
+                                Wl[i].P -= 0.5 * (pG->U[k][j-1][i].B1c * pG->U[k][j-1][i].B1c + pG->U[k][j-1][i].B2c * pG->U[k][j-1][i].B2c + pG->U[k][j-1][i].B3c * pG->U[k][j-1][i].B3c);
+#endif
+
+                                Wl[i].P *= (Gamma - 1.0);
+
+                                Wl[i].d = pG->U[k][j-1][i].d;
+                                Wl[i].Vx = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
+                                Wl[i].Vy = pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d;
+                                Wl[i].Vz = pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d;
+
+                                Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+
+                                Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+                                Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+
+                               Wr[i].P *= (Gamma - 1.0);
+
+                               Wr[i].d = pG->U[k][j][i].d;
+                               Wr[i].Vx = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+                               Wr[i].Vy = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+                               Wr[i].Vz = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+
+                               Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+
+				emf1_cc[k][j-1][i] = (pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M3 -
+			    		pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M2)/pG->U[k][j-1][i].d;
+        			emf2_cc[k][j-1][i] = (pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M1 -
+			    		pG->U[k][j-1][i].B1c*pG->U[k][j-1][i].M3)/pG->U[k][j-1][i].d;
+        			emf3_cc[k][j-1][i] = (pG->U[k][j-1][i].B1c*pG->U[k][j-1][i].M2 -
+			    		pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M1)/pG->U[k][j-1][i].d;
+
+				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
+        			emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+        			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+
+                       }
+
+/*			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (((fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d))) && (fabs(x3) > Zmax))){
+*/
+					
+					
+/*		if(Wr[i].P < 2.0 * TINY_NUMBER || (Wr[i].d < dfloor) || (((fabs(Wr[i].Vz) > fluxfactor * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vx) > fluxfactor * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vy) > fluxfactor * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d))) && (fabs(x3) > Zmax))){
+*/
 
 			/* Need parameter dt in radiation Riemann solver */
 			x2Flux[k][j][i].d = dt;
@@ -2916,9 +3206,69 @@ void integrate_3d_radMHD(DomainS *pD)
 #ifdef RADIATION_MHD
         		Bx = B3_x3Face[k][j][i];
 #endif
+					
+			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+			
         		Wl[i] = Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Bx);
         		Wr[i] = Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Bx);
 
+			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
+		
+				B3_x3Face[k][j][i] = pG->B3i[k][j][i];
+				Wl[i].P = pG->U[k-1][j][i].E - 0.5 * (pG->U[k-1][j][i].M1 * pG->U[k-1][j][i].M1 + pG->U[k-1][j][i].M2 * pG->U[k-1][j][i].M2 + pG->U[k-1][j][i].M3 * pG->U[k-1][j][i].M3) / pG->U[k-1][j][i].d;
+#ifdef RADIATION_MHD
+                                Wl[i].P -= 0.5 * (pG->U[k-1][j][i].B1c * pG->U[k-1][j][i].B1c + pG->U[k-1][j][i].B2c * pG->U[k-1][j][i].B2c + pG->U[k-1][j][i].B3c * pG->U[k-1][j][i].B3c);
+#endif
+
+                                Wl[i].P *= (Gamma - 1.0);
+
+                                Wl[i].d  = pG->U[k-1][j][i].d;
+                                Wl[i].Vx = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
+                                Wl[i].Vy = pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d;
+                                Wl[i].Vz = pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d;
+
+                                Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+
+
+                                Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+                                Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+
+                                Wr[i].P *= (Gamma - 1.0);
+
+                                Wr[i].d = pG->U[k][j][i].d;
+                                Wr[i].Vx = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+                                Wr[i].Vy = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+                                Wr[i].Vz = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+
+
+                                 Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+
+
+
+				emf1_cc[k-1][j][i] = (pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M3 -
+			    		pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M2)/pG->U[k-1][j][i].d;
+        			emf2_cc[k-1][j][i] = (pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M1 -
+			    		pG->U[k-1][j][i].B1c*pG->U[k-1][j][i].M3)/pG->U[k-1][j][i].d;
+        			emf3_cc[k-1][j][i] = (pG->U[k-1][j][i].B1c*pG->U[k-1][j][i].M2 -
+			    		pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M1)/pG->U[k-1][j][i].d;
+
+				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
+        			emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+        			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+
+			}
+	
+	/*				if(Wl[i].P < 2.0 * TINY_NUMBER || (Wl[i].d < dfloor) || (((fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d))) && (fabs(x3) > Zmax))){ 
+	*/
+
+					
+/*					if((Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)|| (((fabs(Wr[i].Vy) > 2.0 * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vz) > 2.0 * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vx) > 2.0 * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d)))  && (fabs(x3) > Zmax))){ 
+*/	
 			/* Need parameter dt in radiation Riemann solver */
 			x3Flux[k][j][i].d = dt;
 			x3Flux[k][j][i].Mx = 3;
@@ -3011,6 +3361,23 @@ void integrate_3d_radMHD(DomainS *pD)
 		}
     }
 #endif /* SHEARING_BOX */	
+	
+	
+	
+/*==============================================================*/
+/* calculate the change due to fargo step */
+/* magnetic field is partially updated during this step */
+/* change of hydro quantities in the fargo step is calculated */
+/* But the change is not applied */
+	
+#ifdef FARGO	
+	Fargo(pD);
+	
+#endif
+	
+	
+	
+/*=======================================================*/	
 	
 
 /*--- Step 10b -----------------------------------------------------------------
@@ -3152,17 +3519,20 @@ void integrate_3d_radMHD(DomainS *pD)
 		for (j=js; j<=je; j++) {
     			for (i=is; i<=ie; i++) {
 
+			/* First, assume this is good cell */
+			badcellflag = 0;
+
 			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 			/* Load 1D vector */
 			Usource.d  = pG->U[k][j][i].d;
-      			Usource.Mx = pG->U[k][j][i].M1;
-      			Usource.My = pG->U[k][j][i].M2;
-      			Usource.Mz = pG->U[k][j][i].M3;
-      			Usource.E  = pG->U[k][j][i].E;
+			Usource.Mx = pG->U[k][j][i].M1;
+			Usource.My = pG->U[k][j][i].M2;
+			Usource.Mz = pG->U[k][j][i].M3;
+			Usource.E  = pG->U[k][j][i].E;
 			Usource.Er  = pG->U[k][j][i].Er;
-    			Usource.Fr1  = pG->U[k][j][i].Fr1;
-    			Usource.Fr2  = pG->U[k][j][i].Fr2;
-    			Usource.Fr3  = pG->U[k][j][i].Fr3;
+			Usource.Fr1  = pG->U[k][j][i].Fr1;
+			Usource.Fr2  = pG->U[k][j][i].Fr2;
+			Usource.Fr3  = pG->U[k][j][i].Fr3;
 			Usource.Edd_11  = pG->U[k][j][i].Edd_11;
 			Usource.Edd_21  = pG->U[k][j][i].Edd_21;
 			Usource.Edd_22  = pG->U[k][j][i].Edd_22;
@@ -3225,6 +3595,12 @@ void integrate_3d_radMHD(DomainS *pD)
 			else{
 				diffTEr = 0.0;
 			}
+
+			/* This is the prefactor used in SEE, if this is smaller than 1, may cause trouble */
+			if(4.0 * Prat * temperature * temperature * temperature * (Gamma - 1.0)/(density * R_ideal) < 1.0)
+				Sourceflag = 0;
+			else
+				Sourceflag = 1;
 			
 
 					
@@ -3235,13 +3611,13 @@ void integrate_3d_radMHD(DomainS *pD)
 			velocity_y -= qom * x1;						
 					
 #endif	
-
+					
 			/* co-moving flux */
 			Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
 			Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
 			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
-
-			Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+					
+		
 		
 			/* Part of momentum source term */
 			Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
@@ -3249,35 +3625,55 @@ void integrate_3d_radMHD(DomainS *pD)
 			Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
 			
 			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
-			
-
-		/*=========================================================*/
-		/* In case velocity is large and momentum source is stiff */
-			SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/	
-
-			SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
+	
+		
+			/*=========================================================*/
+			/* In case velocity is large and momentum source is stiff */
+			SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat);
+			/*      + diffTEr / (density * Crat);
 			*/
-
-			SFmz =(Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/	
-
-
+					
+			SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat);
+			/*      + diffTEr / (density * Crat);
+			*/
+					
+			SFmz = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat);
+			/*      + diffTEr / (density * Crat);
+			*/
+					
+					
+			Source_Inv[0][0] = 1.0;
 			Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
 			Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
 			Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
-
-		/*=========================================================*/
-
-			Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
-			Source_Inv[4][1] = (-dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[1][1];
-			Source_Inv[4][2] = (-dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[2][2];
-			Source_Inv[4][3] = (-dt * Prat * Crat * SEmz/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[3][3];
+					
+			/*=========================================================*/
+					
+	
+			Source_Inv[4][0] = 0.0;
+			Source_Inv[4][1] = 0.0;
+			Source_Inv[4][2] = 0.0;
+			Source_Inv[4][3] = 0.0;
 			Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
 	
+
+			/*=======================================================*/
+			/****************************************/
+			/* Modify the energy source term to include the stiffness of the momentum source term */
+			if(Erflag && Sourceflag){
+					Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3])/Crat);
+			}
+			else{
+					Source[k][j][i][4] = - Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
+			}
+					
+			Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
+					
+					
+					
+			/*****************************************************/
+					
+
 
 
 			/*--------Calculate the guess solution-------------*/
@@ -3501,25 +3897,37 @@ void integrate_3d_radMHD(DomainS *pD)
 	/*================== End static gravitational flux ================*/
 
 	/* cacluate guess solution */
-		/* In case overshoot make negative pressure */
-		
 
+		Source[k][j][i][0] = 0.0;
 		for(n=0; n<5; n++) {
-			tempguess[n] = 0.0;
-			for(m=0; m<5; m++) {
-				tempguess[n] += dt * Source_Inv[n][m] * (Source[k][j][i][m] - divFlux1[m] - divFlux2[m] - divFlux3[m]);
-			}
+				tempguess[n] = dt * Source_Inv[n][n] * (Source[k][j][i][n] - divFlux1[n] - divFlux2[n] - divFlux3[n]);			
 		}
-
-		Prworksource = dt * Source_Inv[4][4] * Prwork1;
-
+					
+		if((!Erflag) || (!Sourceflag)){
+			tempguess[4] += -Prat * pG->Ersource[k][j][i];
+						
+		}
+					
+				
+			Prworksource = dt * Source_Inv[4][4] * Prwork1;
+					
 		Uguess[0] = pG->U[k][j][i].d  + tempguess[0];
-		Uguess[1] = pG->U[k][j][i].M1 + tempguess[1];
-		Uguess[2] = pG->U[k][j][i].M2 + tempguess[2];
-		Uguess[3] = pG->U[k][j][i].M3 + tempguess[3];
+		Uguess[1] = pG->U[k][j][i].M1 + tempguess[1] + dt * Smx0;
+		Uguess[2] = pG->U[k][j][i].M2 + tempguess[2] + dt * Smy0;
+		Uguess[3] = pG->U[k][j][i].M3 + tempguess[3] + dt * Smz0;
 		Uguess[4] = pG->U[k][j][i].E  + tempguess[4];
 
+#ifdef FARGO
+					/* Add the fargo term like normal flux term */
+					/* Do not include the stiffness of the source term */
+					/* Because radiation and gas should be advected together */
+		for(n=0; n<5; n++){			
+				Uguess[n] += pG->Fargosource[k][j][i][n];
+						
+		}
+#endif
 
+					
 
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
@@ -3600,6 +4008,7 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 /* End SHEARING_BOX */
 /*==========================================================*/
+/* Finish the predict step. All the source terms are added */
 		
 		density    = Uguess[0];
 		velocity_x = Uguess[1] / density;
@@ -3620,31 +4029,99 @@ void integrate_3d_radMHD(DomainS *pD)
 		
 		pressure -= 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch) * (Gamma - 1.0);
 #endif
-		temperature = pressure / (density * R_ideal);
+
+		if((pressure < TINY_NUMBER) || (pressure != pressure)){
+			if(density < dfloor){
+				/* keep original temperature */
+				pressure = pG->U[k][j][i].d * temperature * R_ideal;
+			}
+			else{
+				pressure = density * temperature * R_ideal;
+			}
+			badcellflag = 1;
+
+		}
+
 		
+		/* temperature and density are original temperature and density */
+		if((density < dfloor) || (density != density)){
+			Uguess[0] = pG->U[k][j][i].d;
+			density = pG->U[k][j][i].d;
+			Uguess[1] = density * velocity_x;
+			Uguess[2] = density * velocity_y;
+			Uguess[3] = density * velocity_z;
+			
+			
+			badcellflag = 1;
+		}
+
+		/* for bad cell, need to recalculate total energy */
+		if(badcellflag){
+			Uguess[4] =  pressure / (Gamma - 1.0) 
+				+ 0.5 * density * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+#ifdef RADIATION_MHD
+                        Uguess[4] += 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch);
+#endif
+
+
+		}		
+
+		
+		temperature = pressure / (density * R_ideal);
+					
+#ifdef FARGO
+			/* With FARGO, we should add background shearing to the source terms */
+					
+			/* Include background shearing in Usource, which is only used in dSource */
+					
+			velocity_y -= qom * x1;	
+					
+#endif	
+			
+					
+		/* co-moving flux */
+		/* Correct the radiation work term with original opacity, but with updated velocity */			
+		Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
+		Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
+		Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
+					
+		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
+					
+					/* Source term for momentum */
+		Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
+		Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
+		Source_guess[3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
+					
+					
 
 		/* If Opacity is not set, Sigma_? will not be changed. */
 		/* Negative pressur is handled in the opacity function */
-		/* Do not update opacity in the predict step. This may cause trouble */
-		/*
-		if((density > 0.0) && (pressure > 2.0 * TINY_NUMBER)){
-			if(Opacity != NULL){
-				Opacity(density,temperature, Sigma, NULL);
+					
+		/* update opacity for the thermalization term, not for momentum term, which can cause trouble */			
+	
+		if(Opacity != NULL){
+			Opacity(density,temperature, Sigma, NULL);
 		
-				Sigma_sF = Sigma[0];
-				Sigma_aF = Sigma[1];
-				Sigma_aP = Sigma[2];
-				Sigma_aE = Sigma[3];
-			}
-			else{
-				Sigma[0] = Sigma_sF;
-				Sigma[1] = Sigma_aF;
-				Sigma[2] = Sigma_aP;
-				Sigma[3] = Sigma_aE;
-			}
+			Sigma_sF = Sigma[0];
+			Sigma_aF = Sigma[1];
+			Sigma_aP = Sigma[2];
+			Sigma_aE = Sigma[3];
+			
+			
 		}
 		
-		*/
+		/* Update the sourceflag, It can happen that initially it is radiation dominated, but become gas *
+		  * pressure dominated in the predict step */
+		if(4.0 * Prat * temperature * temperature * temperature * (Gamma - 1.0)/(density * R_ideal) < 1.0)
+				Sourceflag2 = 0;
+		else
+				Sourceflag2 = 1;
+			
+			
+		
+		/* calculate the predict energy source term */
+		ThermalRelaxation(temperature, pG->U[k][j][i].Er, density, Sigma_aP, Sigma_aE, dt, NULL, &Ersource);
+		Ersource = Ersource - pG->U[k][j][i].Er;
 
 		diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
 		
@@ -3661,165 +4138,142 @@ void integrate_3d_radMHD(DomainS *pD)
 			Usource.Sigma[m] = Sigma[m];
 
 					
-#ifdef FARGO
-		/* With FARGO, we should add background shearing to the source terms */
-					
-		/* Include background shearing in Usource, which is only used in dSource */
-					
-		velocity_y -= qom * x1;	
-					
-#endif	
+
 
 		/* The Source term */
 		/* Only do this if density and pressure are normal */
 		if((Usource.d > 0.0) && (pressure > 2.0 * TINY_NUMBER)){
 			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
 		}
-
 		
+		/* Do not need to update Source_Inv[1][1], Source_Inv[2][2], Source_Inv[3][3] */
+		/* We only need SEE here, in principle should use the updated Bx */	
+		Source_Invnew[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+		
+		if(!Sourceflag2)
+                       Source_Invnew[4][4] = Source_Inv[4][4];
+
 	
-		/*=========================================================*/
-		/* In case velocity is large and momentum source is stiff */
-			SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/	
-
-			SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/
-
-			SFmz = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/	
-
-
-			Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
-			Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
-			Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
-
-		/*=========================================================*/
-
-			Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
-			Source_Inv[4][1] = (-dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[1][1];
-			Source_Inv[4][2] = (-dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[2][2];
-			Source_Inv[4][3] = (-dt * Prat * Crat * SEmz/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[3][3];
-			Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
-	
-
-
-			/* co-moving flux */
-			Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
-			Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
-			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
-
-			Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-
-			/* Source term for momentum */
-			Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
-			Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
-			Source_guess[3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
+		/* Source term for total Energy */
+		if(Erflag && Sourceflag2){
+			Source_guess[4] = -Prat * Crat * diffTEr + Prwork2;
+		}
+		else{
+			Source_guess[4] =  Prwork2;
+		}
 			
-			/* Source term for total Energy */
-			Source_guess[4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y 
-												+ velocity_z * Fr0z)/Crat);
-
-
+			
+			
 			/* Calculate the error term */
-			/* Error term should include shearing source term as Guess solution include shearing source term */
-			Errort[0] = pG->U[k][j][i].d  + hdt * (Source[k][j][i][0] + Source_guess[0]) 
-					- dt * (divFlux1[0] + divFlux2[0] + divFlux3[0]) - Uguess[0];
-			Errort[1] = pG->U[k][j][i].M1 + hdt * (Source[k][j][i][1] + Source_guess[1]) 
-					- dt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) - Uguess[1];
-			Errort[2] = pG->U[k][j][i].M2 + hdt * (Source[k][j][i][2] + Source_guess[2]) 
-					- dt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) - Uguess[2];
-			Errort[3] = pG->U[k][j][i].M3 + hdt * (Source[k][j][i][3] + Source_guess[3]) 
-					- dt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) - Uguess[3];
-			Errort[4] = pG->U[k][j][i].E  + hdt * (Source[k][j][i][4] + Source_guess[4]) 
-					- dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]) - Uguess[4];
-
-#ifdef CONS_GRAVITY
-			Errort[4] += 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
-#endif
-
-		/* substract shearing source term */
-#ifdef SHEARING_BOX
-			Errort[1] += ShearSource[0];
-			Errort[2] += ShearSource[1];
-			Errort[4] += ShearSource[3];
-#endif
-
-
-			/* Calculate the correction */
-			for(n=0; n<5; n++) {
-				tempguess[n] = 0.0;
-				for(m=0; m<5; m++) {
-					tempguess[n] += Source_Inv[n][m] * Errort[m];
-				}
+			/* Operator split terms don't need to be included here */
+			Errort[1] = hdt * (Source[k][j][i][1] + Source_guess[1]) 
+						- dt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) 
+						- dt * Source_Inv[1][1] * (Source[k][j][i][1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+			Errort[2] = hdt * (Source[k][j][i][2] + Source_guess[2]) 
+						- dt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) 
+						- dt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+			Errort[3] = hdt * (Source[k][j][i][3] + Source_guess[3]) 
+						- dt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) 
+						- dt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+			
+			for(m=1; m<4; m++) {
+				tempguess[m] = Source_Inv[m][m] * Errort[m];
 			}
-		
+			
+			/* Correction to the energy source term needs special treatment */
+			Errort[4] = hdt * (Source[k][j][i][4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]) 
+						- dt * Source_Inv[4][4] * (Source[k][j][i][4] - (divFlux1[4] + divFlux2[4] + divFlux3[4]));
+			tempguess[4] = Source_Invnew[4][4] * Errort[4];
+			
+			if(Erflag){
+				if((Sourceflag) && (!Sourceflag2)){
+					tempguess[4] += -0.5 * Prat * Ersource;
+				}
+				else if((!Sourceflag) && (!Sourceflag2)){
+					tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
+				}
+				else if((!Sourceflag) && (Sourceflag2)){
+					tempguess[4] += 0.5 * Prat * pG->Ersource[k][j][i];	
+				}
+				
+			}
+			else {
+					tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
+			}
+
+			
 			/* This is the actual added radiation work term */
-			Prworksource += Source_Inv[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
+			Prworksource += Source_Invnew[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
+			
+			
 				
 			/* Apply the correction */
 			/* Estimate the added radiation source term  */
 			
 			/* If Erflag == 0 , only add source term as first order */
-			if(Prat > 0.0){
-				pG->Ersource[k][j][i] = Uguess[4] + tempguess[4] - 
-				(pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
-				/* Energy error seems smaller with Errot term added */
+			if(Erflag){
+				if(Prat > 0.0){
+					pG->Ersource[k][j][i] = Uguess[4] + tempguess[4] 
+										- (pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
+					/* Energy error seems smaller with Errot term added */
 #ifdef SHEARING_BOX
-				pG->Ersource[k][j][i] -= ShearSource[3];
+					pG->Ersource[k][j][i] -= ShearSource[3];
+#ifdef FARGO
+					pG->Ersource[k][j][i] -= pG->Fargosource[k][j][i][4];
+#endif
 #endif
 
 #ifdef CONS_GRAVITY
 			        pG->Ersource[k][j][i] -= 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
 #endif
 
-				/* subtract the radiation work term, which is not seperated */
-				if(Erflag){
+					/* subtract the radiation work term, which is not seperated */
+				
 					/* Radiation work term is not seperated. Will correct error due to this term later */
 					pG->Ersource[k][j][i] -= Prworksource;
-					pG->Eulersource[k][j][i] = -Prworksource/Prat;
+				
+
+					pG->Ersource[k][j][i] /= -Prat;
+							
+				
+
 				}
-			
+				else{				
 
-				pG->Ersource[k][j][i] /= -Prat;
+					pG->Ersource[k][j][i] = 0.0;
+				}/* End prat = 0 */
+			} /* End Erflag */
+			else {
 				
-				
-
+				pG->Ersource[k][j][i] = 0.5 * (pG->Ersource[k][j][i] + Ersource);
 			}
-			else{				
 
+
+			pG->Eulersource[k][j][i] = -Prworksource/Prat;
+
+			if(badcellflag){
+
+				/* Do not apply correction for bad cell */
 				pG->Ersource[k][j][i] = 0.0;
+				pG->Eulersource[k][j][i] = 0.0;
+				for(n=0; n<5; n++){
+					tempguess[n] = 0.0;
+				}		
+
+
 			}
-			
 					
 			/* The momentum source term Prat * v * Sigma(T^4 - Er)/Crat is added explicitly */
 			/* In case overshoot make negative pressure */
+			/* Apply the correction */
 
-			pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
-			pG->U[k][j][i].M1 = Uguess[1] + tempguess[1] + dt * Smx0;
-			pG->U[k][j][i].M2 = Uguess[2] + tempguess[2] + dt * Smy0;
-			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3] + dt * Smz0;
+			pG->U[k][j][i].d  = Uguess[0];
+			pG->U[k][j][i].M1 = Uguess[1] + tempguess[1];
+			pG->U[k][j][i].M2 = Uguess[2] + tempguess[2];
+			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
 			pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
 
-/*			if(!Erflag){
-				pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
-				pG->U[k][j][i].M1 = Uguess[1] + tempguess[1] + dt * Smx0;
-				pG->U[k][j][i].M2 = Uguess[2] + tempguess[2] + dt * Smy0;
-				pG->U[k][j][i].M3 = Uguess[3] + tempguess[3] + dt * Smz0;
-				pG->U[k][j][i].E  = Uguess[4];
-				
-			}
-			else{
-				pG->U[k][j][i].d  = Uguess[0] + tempguess[0];
-				pG->U[k][j][i].M1 = Uguess[1] + tempguess[1] + dt * Smx0;
-				pG->U[k][j][i].M2 = Uguess[2] + tempguess[2] + dt * Smy0;
-				pG->U[k][j][i].M3 = Uguess[3] + tempguess[3] + dt * Smz0;
-				pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
-			}
-*/
+
 			} /* End i */
 		}/* End j */
 	}/* End k */
@@ -3839,50 +4293,163 @@ void integrate_3d_radMHD(DomainS *pD)
         			pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
         			pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
 					
+/* 
+				if(pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c < TINY_NUMBER)
+				{
+						
+					pG->U[k][j][i].M1 = 0.0;
+					pG->U[k][j][i].M2 = 0.0;
+					pG->U[k][j][i].M3 = 0.0;
+						
+				 }
+*/	
+					
       			}
     		}
   	}
 #endif /* RADIATION MHD */
 
-	/* Add Energy source term to E_r */
-	if(!Erflag){
 
-	for (k=ks; k<=ke; k++) {
-    		for (j=js; j<=je; j++) {
-      			for (i=is; i<=ie; i++) {
-				/* Tguess now is the added energy source term in BackEuler step */
-				/* If Eratio = 0, Tguess is just the radiation work term */
-				 pG->U[k][j][i].Er += (pG->Ersource[k][j][i] - pG->Eulersource[k][j][i]);
 
+	
+	
+/* Add density floor and beta floor */
+/*	for(k=ks; k<=ke; k++) {
+		for (j=js; j<=je; j++) {
+			for (i=is; i<=ie; i++) {
+	 
+				badcellflag = 0;
+	 
+				velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+				velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+				velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+ 
+				velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+			 
+				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+	 
+				temperature = Wtemp.P / (Wtemp.d * R_ideal);
+	 
+				Bpre = 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+	 
+				if((Wtemp.P < 2.0 * TINY_NUMBER) || (temperature < Tfloor)){
+					if(pG->U[k][j][i].d < dfloor){
+						Wtemp.P = dfloor * R_ideal * Tfloor;
+					}
+					else{
+						Wtemp.P = pG->U[k][j][i].d * R_ideal * Tfloor;
+					}
+						temperature = Tfloor;
+						badcellflag = 1;
+					}
+	 
+	 
+				if(pG->U[k][j][i].d < dfloor){
+	 
+					pG->U[k][j][i].d = dfloor;
+	 
+					Wtemp.d =  dfloor;
+					Wtemp.P = Wtemp.d * temperature * R_ideal;
+					pG->U[k][j][i].M1 =  pG->U[k][j][i].d * velocity_x;
+					pG->U[k][j][i].M2 =  pG->U[k][j][i].d * velocity_y;
+					pG->U[k][j][i].M3 =  pG->U[k][j][i].d * velocity_z;
+	 
+				badcellflag = 1;
 			}
-    		}
-  	}
+ 
+			
+	 
+			if(badcellflag){
+				pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0) + 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+				pG->U[k][j][i].E += Bpre;
+#endif
+	 
+	 
+			}
+	 
 
-	}
-
+#ifdef RADIATION_MHD
+		if(fabs(Bpre) > 0.0){
+				beta = Wtemp.P / Bpre;
+			if(beta < betafloor){
+				Wtemp.P *= betafloor / beta;
+				pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0)  + 0.5 * pG->U[k][j][i].d * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+				pG->U[k][j][i].E += Bpre;
+	 
+			}
+	 
+		}
+ #endif
+	 
+	 }
+	 }
+	 }
+*/
+	
+	/*====================================================================*/
+	/* Add Compton scattering source term at the end of the integrator */	
+	
 	/* calculate pG->Tguess after magnetic field is updated */
-	for (k=ks; k<=ke; k++) {
-    		for (j=js; j<=je; j++) {
-      			for (i=is; i<=ie; i++) {
-
+	
+		
+/*	 for (k=ks; k<=ke; k++) {
+		for (j=js; j<=je; j++) {
+			for (i=is; i<=ie; i++) {
+	 
 				pressure = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
 #endif
-
+	 
 				pressure *= (Gamma - 1.0);
-
+	 
 				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
-
-				/* This can cause trouble when temperature is small */
-		/*		pG->Tguess[k][j][i] = pow(temperature, 4.0);
-		*/
-			
-
+	 
+	 
+			if(fabs(pow(temperature, 4.0) - pG->U[k][j][i].Er) < TINY_NUMBER){
+				pG->Comp[k][j][i] = 0.0;
+			}
+			else{
+				if(temperature > TINY_NUMBER){
+					Tr = pow(pG->U[k][j][i].Er, 0.25);
+					coefA = 4.0 * dt * Crat * pG->U[k][j][i].Sigma[0] / (T_e/T0);
+					coefK = (Gamma - 1.0) * Prat / (R_ideal * pG->U[k][j][i].d);
+					coefB = temperature + coefK * pG->U[k][j][i].Er;
+					coef1 = coefA * coefK;
+					coef2 = coefA;
+					coef3 = 1.0 - coefA * coefB;
+					coef4 = -pG->U[k][j][i].Er;
+	 
+					if(Tr < temperature){
+						Tr = rtsafe(Tcompton, Tr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
+					}
+					else{
+	 
+						Tr = rtsafe(Tcompton, temperature * (1.0 - 0.01), Tr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
+					}
+	 
+					pG->Comp[k][j][i] = pow(Tr, 4.0) - pG->U[k][j][i].Er;
+					pG->U[k][j][i].E += -Prat * pG->Comp[k][j][i];
+	 
+	 
+				}
+				else{
+					pressure = pow(pG->U[k][j][i].Er, 0.25) * pG->U[k][j][i].d * R_ideal;
+	 
+					pG->U[k][j][i].E = pressure / (Gamma - 1.0) +  0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+					pG->U[k][j][i].E += 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+	 
+					pG->Comp[k][j][i] = 0.0;
+		
+				} 
 			}
 		}
-	}
-		
+	 }
+	 }
+*/
 	/* Boundary condition is applied in the main function */
 	/* Check the pressure to make sure that it is positive */
 	/* This will make the code more robust */
@@ -3975,7 +4542,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 	/* Update the opacity if Opacity function is set in the problem generator */
 /* Opacity is updated in the BackEuler step so that they are consistent */
-/*	if(Opacity != NULL){
+	if(Opacity != NULL){
 		for (k=ks; k<=ke; k++){
 			for (j=js; j<=je; j++) {
     				for (i=is; i<=ie; i++){
@@ -4011,7 +4578,7 @@ void integrate_3d_radMHD(DomainS *pD)
 		}
 	}
 
-*/
+
   return;
 }
 
@@ -4804,46 +5371,63 @@ void updatesource(GridS *pG)
 				/* If SPP is positive, then this is numerical unstable. */
 				/* We need to subtract the unstable mode and gurantee that it is negative */ 
 				
-				SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal);					
-				
+				SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal);			
 
 		/*===================================================================*/
 		/* In case velocity is large, momentum source term is also stiff */
 				SVVx = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er) / (density * Crat);
 			/* + diffTEr) / (density * Crat);*/
-		
-				if(fabs(SVVx * dt * 0.5) > 0.001)
-				betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+	
+				
+				if(fabs(SVVx * dt * 0.5) > 50.0)
+					betax = -1.0/(SVVx * dt * 0.5);	
+				else if(fabs(SVVx * dt * 0.5) > 0.001)
+					betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
 				else 
-				betax = 1.0 + 0.25 * SVVx * dt;
+					betax = 1.0 + 0.25 * SVVx * dt;
 
 				SVVy = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er) / (density * Crat);
 				/* + diffTEr) / (density * Crat); */
 		
-				if(fabs(SVVy * dt * 0.5) > 0.001)
-				betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+				
+				if(fabs(SVVy * dt * 0.5) > 50.0)
+					betay = -1.0/(SVVy * dt * 0.5);
+				else if(fabs(SVVy * dt * 0.5) > 0.001)
+					betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
 				else 
-				betay = 1.0 + 0.25 * SVVy * dt;
+					betay = 1.0 + 0.25 * SVVy * dt;
 
 				SVVz = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er)/ (density * Crat);
 				/* + diffTEr) / (density * Crat);*/
 		
-				if(fabs(SVVz * dt * 0.5) > 0.001)
-				betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
+				
+				if(fabs(SVVz * dt * 0.5) > 50.0)
+					betaz = -1.0/(SVVz * dt * 0.5);
+				else if(fabs(SVVz * dt * 0.5) > 0.001)
+					betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
 				else 	
-				betaz = 1.0 + 0.25 * SVVz * dt;
+					betaz = 1.0 + 0.25 * SVVz * dt;
 		/*===========================================================================*/
 	
-				if(fabs(SPP * dt * 0.5) > 0.001)
-				alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+				if(fabs(SPP * dt * 0.5) > 50.0)
+					alpha = -1.0/(SPP * dt * 0.5);
+				else if(fabs(SPP * dt * 0.5) > 0.001)
+					alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
 				else 
-				alpha = 1.0 + 0.25 * SPP * dt;
+					alpha = 1.0 + 0.25 * SPP * dt;
 
 				
 				Alpha[k][j][i] = alpha;
 				Beta[k][j][i][0] = betax;
 				Beta[k][j][i][1] = betay;
 				Beta[k][j][i][2] = betaz;
+			
+				/* In gas pressure dominated case, do something special */
+				if((4.0 * (Gamma - 1.0) * Prat * temperature * temperature * temperature / (density * R_ideal)) < 1.0){
+					/* Source term for energy */
+					Source[k][j][i][4] = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z)
+					-Prat * pG->Ersource[k][j][i] / (dt * alpha);
+				}		
 
 			}
 			else{
@@ -5256,11 +5840,11 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
 	}
 	else{
 		if(TEr < Temperature){
-			Temperature = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3);
+			Temperature = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, 0.0);
 		}
 		else{
 		
-			Temperature = rtsafe(Tequilibrium, Temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3);
+			Temperature = rtsafe(Tequilibrium, Temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, 0.0);
 		}
 		
 		 pG->U[k][j][i].E += (density * R_ideal * Temperature - pressure) / (Gamma - 1.0);
@@ -5610,8 +6194,7 @@ void FOFC_Flux(const Cons1DS Ul, const Cons1DS Ur,
 #endif
 
 #ifdef RADIATION_MHD
- esys_roe_rad_mhd(droe, v1roe, v2roe, v3roe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, DIM,  
-  hroe, Bxi, b2roe, b3roe, ev, NULL, NULL); 
+esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #endif
 
 /*--- Step 4. ------------------------------------------------------------------

@@ -683,7 +683,13 @@ void esys_roe_rad_hyd(const Real v1, const Real v2, const Real v3, const Real h,
   int m;
   vsq = v1*v1 + v2*v2 + v3*v3;
 
+/* (h - 0.5 * vsq) * (Gamma - 1.0) will be the normal sound speed */
+
   rho = (h - 0.5 * vsq) * (Gamma - 1.0) / Gamma;
+ /* Apply density floor in case density is negative */
+  if(rho < TINY_NUMBER)
+	rho = 1.e-5;
+
   rho = pressure / rho;
   W.P = pressure;
   W.d = rho;
@@ -847,8 +853,8 @@ void esys_roe_rad_mhd(const Real d, const Real v1, const Real v2, const Real v3,
 
  /* Alfven speed */
   vasq = vaxsq + btsq * di;
-  vfsq = 0.5 * (aeffsq + aeffsq + sqrt((aeffsq + aeffsq) * (aeffsq + aeffsq) - 4.0 * aeffsq * vaxsq));
-  vssq = 0.5 * (aeffsq + aeffsq - sqrt((aeffsq + aeffsq) * (aeffsq + aeffsq) - 4.0 * aeffsq * vaxsq));
+  vfsq = 0.5 * (aeffsq + vasq + sqrt((aeffsq + vasq) * (aeffsq + vasq) - 4.0 * aeffsq * vasq));
+  vssq = 0.5 * (aeffsq + vasq - sqrt((aeffsq + vasq) * (aeffsq + vasq) - 4.0 * aeffsq * vasq));
  
 
 /* Compute eigenvalues (eq. B17) */

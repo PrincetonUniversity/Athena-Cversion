@@ -15,9 +15,9 @@
 #include "../../prototypes.h"
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-#ifndef RADIATION_TRANSFER
 
-void ludcmp(Real **a, int n, int *indx, Real *d, int *status)
+
+void ludcmpnew(Real **a, int n, int *indx, Real *d, int *status)
 {
 	int i,imax,j,k;
 	Real big,dum,sum,temp;
@@ -80,6 +80,8 @@ void ludcmp(Real **a, int n, int *indx, Real *d, int *status)
     	
     	ath_error("[ludcmp]: malloc returned a NULL pointer\n");
 }
+
+#ifndef RADIATION_TRANSFER
 
 void lubksb(Real **a, int n, int *indx, Real b[])
 {

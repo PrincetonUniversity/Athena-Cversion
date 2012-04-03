@@ -3870,8 +3870,11 @@ void Fargo(DomainS *pD)
         FargoVars[k][i][j].U[1] = pG->U[k][jj][i].M1;
         FargoVars[k][i][j].U[2] = pG->U[k][jj][i].M2;
         FargoVars[k][i][j].U[3] = pG->U[k][jj][i].M3;
+		  
+#ifndef RADIATION_HYDRO
+#ifndef RADIATION_MHD
 #if defined(ADIABATIC) && defined(SHEARING_BOX)
-#if defined(MHD) || defined(RADIATION_MHD)
+#ifdef MHD
 /* Add energy equation source term in MHD */
         pG->U[k][jj][i].E -= qom_dt*pG->U[k][jj][i].B1c*
          (pG->U[k][jj][i].B2c - (qom_dt/2.)*pG->U[k][jj][i].B1c);
@@ -3880,6 +3883,25 @@ void Fargo(DomainS *pD)
 	  pG->U[k][jj][i].M2/pG->U[k][jj][i].d;
         FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;
 #endif /* ADIABATIC */
+#endif/* ndef radiation_hydro */
+#endif/* ndef RADIATION_MHD */
+		  
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;  
+		
+		  /* save the energy source term */
+		  pG->Fargosource[k][jj][i][4] = qom_dt*pG->U[k][jj][i].M1*
+		  pG->U[k][jj][i].M2/pG->U[k][jj][i].d; 
+		  
+#ifdef RADIATION_MHD
+		  pG->Fargosource[k][jj][i][4] -= qom_dt*pG->U[k][jj][i].B1c*
+		  (pG->U[k][jj][i].B2c - (qom_dt/2.)*pG->U[k][jj][i].B1c);
+#endif
+		  
+		  FargoVars[k][i][j].U[4] += pG->Fargosource[k][jj][i][4];
+
+#endif
+		  
 /* Only store Bz and Bx in that order.  This is to match order in FargoFlx:
  *  FargoFlx.U[NFARGO-2] = emfx = -Vy*Bz
  *  FargoFlx.U[NFARGO-1] = emfy = Vy*Bx  */
@@ -4108,11 +4130,29 @@ void Fargo(DomainS *pD)
   }
 /*--- Step 5. ------------------------------------------------------------------
  * Update cell centered variables with flux gradient.  Note i/j are swapped */
+	  /* For radiation case, we do not update the quantitied here. Just save the flux */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	for(k=ks; k<=ke; k++) {
+		  for(j=js; j<=je; j++){
+			  jj = j-js+jfs;
+			  for(i=is; i<=ie; i++){
+				  
+				  pG->Fargosource[k][j][i][0] = -(FargoFlx[k][i][jj+1].U[0]-FargoFlx[k][i][jj].U[0]);
+				  pG->Fargosource[k][j][i][1] = -(FargoFlx[k][i][jj+1].U[1]-FargoFlx[k][i][jj].U[1]);
+				  pG->Fargosource[k][j][i][2] = -(FargoFlx[k][i][jj+1].U[2]-FargoFlx[k][i][jj].U[2]);
+				  pG->Fargosource[k][j][i][3] = -(FargoFlx[k][i][jj+1].U[3]-FargoFlx[k][i][jj].U[3]);
+				  pG->Fargosource[k][j][i][4] += (-(FargoFlx[k][i][jj+1].U[4]-FargoFlx[k][i][jj].U[4]));
 
+			  }
+		  }
+	  }	  	  
+	  
+#else	  
   for(k=ks; k<=ke; k++) {
     for(j=js; j<=je; j++){
       jj = j-js+jfs;
       for(i=is; i<=ie; i++){
+		  
         pG->U[k][j][i].d  -=(FargoFlx[k][i][jj+1].U[0]-FargoFlx[k][i][jj].U[0]);
         pG->U[k][j][i].M1 -=(FargoFlx[k][i][jj+1].U[1]-FargoFlx[k][i][jj].U[1]);
         pG->U[k][j][i].M2 -=(FargoFlx[k][i][jj+1].U[2]-FargoFlx[k][i][jj].U[2]);
@@ -4127,8 +4167,9 @@ void Fargo(DomainS *pD)
 #endif
       }
     }
-  }
-
+  }	  
+#endif
+	  
 /*--- Step 6. ------------------------------------------------------------------
  * Update face centered field using CT.  Note i/j are swapped.
  *  FargoFlx.U[NFARGO-2] = emfx
@@ -4218,8 +4259,10 @@ void Fargo(DomainS *pD)
 
 /*--- Step 7. ------------------------------------------------------------------
  * compute cell-centered B  */
-
-#if defined(MHD) || defined(RADIATION_MHD)
+	  
+/* Do not update cell centered B for radiation */
+	  
+#ifdef MHD
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for(i=is; i<=ie; i++){

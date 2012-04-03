@@ -226,7 +226,7 @@ void BackEuler_1d(MeshS *pM)
 		Rad_Advection_Flux1D(pD, i, js, ks, 1.0, &AdvFx);
 
     		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + AdvFx;
-    		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + pG->dt *  Sigma_aP * T4 * velocity;
+    		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + Eratio * pG->dt *  Sigma_aP * T4 * velocity + (1.0 - Eratio) * pG->Ersource[ks][js][i] * velocity / Crat;
 
 
 		
@@ -507,12 +507,9 @@ void BackEuler_1d(MeshS *pM)
 			
 			/* Estimate the added energy source term */
 		if(Prat > 0.0){
-			if(Erflag){
-				pG->U[ks][js][i].Er += (pG->Eulersource[ks][js][i] - dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x);
-			}
-			else{
-			pG->Eulersource[ks][js][i] = Eratio * Crat * dt * (pG->U[ks][js][i].Sigma[2] * pG->Tguess[ks][js][i] - pG->U[ks][js][i].Sigma[3] * temp0)/(1.0 + dt * Crat * pG->U[ks][js][i].Sigma[3])  + (1.0 - Eratio) * pG->Ersource[ks][js][i] + dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x;
-			}
+			
+			pG->U[ks][js][i].Er += (pG->Eulersource[ks][js][i] - dt * (pG->U[ks][js][i].Sigma[1] -  pG->U[ks][js][i].Sigma[0]) * velocity * Fr0x);
+			
 		}			
 			
 		

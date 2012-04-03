@@ -33,7 +33,7 @@ extern void bvals_Matrix(MatrixS *pMat);
  * For ghost zones, we do not use the updated version */
 /* So differenet CPUs do not need wait for each other to finish */
 
-void GaussSeidel1D(MatrixS *pMat)
+void GaussSeidel1D(MatrixS *pMat, Real **theta,   Real **phi)
 {
 
 	int i, n;
@@ -43,27 +43,9 @@ void GaussSeidel1D(MatrixS *pMat)
 	js = pMat->js;
 	ks = pMat->ks;
 
-	Real omega= 0.5;
+	Real omega= 0.4;
 	
 	Real tempEr, tempFr1;
-
-	
-	/* To store the coefficient */
-	Real **theta = NULL;
-	Real **phi = NULL;
-	
-
-	if((theta = (Real**)calloc_2d_array(ie-is+1+2*Matghost,6,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	if((phi   = (Real**)calloc_2d_array(ie-is+1+2*Matghost,6,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	
-	for(i=is; i<=ie; i++){				
-		matrix_coef(pMat, NULL, 1, i, js, ks, 0.0, &(theta[i][0]), &(phi[i][0]), NULL, NULL);
-							
-	}
 
 
 
@@ -120,14 +102,7 @@ for(n=0; n<Ncycle; n++){
 	bvals_Matrix(pMat);
 
 
-}	
-
-	if(theta != NULL)
-		free_2d_array(theta);
-
-	if(phi != NULL)
-		free_2d_array(phi);
-  
+}		
 
 	return;	
 	

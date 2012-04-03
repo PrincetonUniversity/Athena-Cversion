@@ -42,7 +42,7 @@ void Rad_Fargo_destruct(void);
 
 VMFun_t BackEuler_init(MeshS *pM);
 /* General LU decomposition functions */
-void ludcmp(Real **a, int n, int *indx, Real *d, int *flag);
+void ludcmpnew(Real **a, int n, int *indx, Real *d, int *flag);
 void lubksb(Real **a, int n, int *indx, Real b[]);
 /* Matrix solver for band diagnol equations */
 void bandec(Real **a, unsigned long n, int m1, int m2, Real **al,
@@ -91,6 +91,17 @@ void integrate_3d_radMHD(DomainS *pD);
 void BackEuler_1d(MeshS *pM);
 void BackEuler_2d(MeshS *pM);
 void BackEuler_3d(MeshS *pM);
+
+/* boundary condition function for multigrid */
+/* Matrix boundary function */
+void bvals_Matrix_init(MatrixS *pMat);
+void bvals_Matrix(MatrixS *pMat);
+void bvals_Matrix_destruct(MatrixS *pMat);
+
+void bvals_Matrix_gas_init(MatrixS *pMat);
+void bvals_Matrix_gas(MatrixS *pMat);
+void bvals_Matrix_gas_destruct(MatrixS *pMat);
+
 #endif
 
 /* integrate_2d_ctu.c and integrate_2d_vl.c */

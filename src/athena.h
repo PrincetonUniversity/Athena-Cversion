@@ -430,6 +430,10 @@ typedef struct Grid_s{
   Real ***Tguess;  /* guess temperature from energy conservation */
   Real ***Ersource; /* Estimated radiation energy source term */
   Real ***Eulersource; /* The source term in back euler step */
+  Real ***Comp; /* Energy source term due to Compton scattering */
+#ifdef FARGO
+  Real ****Fargosource; /* The change due to fargo step */
+#endif
 #endif
 
 #ifdef PARTICLES
@@ -470,12 +474,17 @@ typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 
 
-
+/* Only the four quantities will change in matrix solver */
+/* increase the cache performance */
 typedef struct RadMHD_s {
   Real Er;                       /* total source function */
   Real Fr1;                       /* 0th moment: mean intensity */
   Real Fr2;                    /* 1st moment: flux */
   Real Fr3;                    /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
+
+} RadMHDS;
+
+typedef struct RadCoef_s {
   Real rho;
   Real V1;                       /* thermal source function */
   Real V2;                     /* thermalization coeff */
@@ -489,10 +498,13 @@ typedef struct RadMHD_s {
   Real Edd_33;
   Real Sigma[NOPACITY];	
 
-} RadMHDS;
+} RadCoefS;
+
+
 
 typedef struct Matrix_s{
 RadMHDS ***U;
+RadCoefS ***Ugas;
 Real ****RHS;		/* Used to store right hand side. This is needed in recursive step */
 Real dx1,dx2,dx3;        /* cell size on this Grid */
 Real time, dt;           /* current time and timestep  */
@@ -504,6 +516,7 @@ int ks,ke;		   /* start/end cell index in x3 direction */
 int Nx[3];			/* Number of cells in this part of Matrix */
 int RootNx[3];			/* Number of cells in the top level Matrix */
 int NGrid[3];			/* Number of Grids in this domain */
+int Level;			/* The current level in the multigrid structure. Top is 0. RootNx[0] = Nx[0] * 2^Level */
 Real MinX[3];       /*!< min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
 Real MaxX[3];       /*!< max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
 

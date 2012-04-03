@@ -1773,18 +1773,27 @@ void integrate_2d_radMHD(DomainS *pD)
 		Source[2] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)
 			+ velocity_y * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);
-		Source[4] = -Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er) 
-			+ (Sigma_aF - Sigma_sF) * velocity_x
+		if(Erflag){
+			Source[4] = -Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er) 
+			+ Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
-			+ (Sigma_aF - Sigma_sF) * velocity_y
+			+ Source_Inv[2][2] * (Sigma_aF - Sigma_sF) * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat); 
-
-		Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x
+		}
+		else{
+			Source[4] = -Prat * Crat * (Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
+			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
+			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
+			+ Source_Inv[2][2] * (Sigma_aF - Sigma_sF) * velocity_y
+			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat); 
+		}
+		Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (Source_Inv[1][1] * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)		
-			+ velocity_y
+			+ Source_Inv[2][2] * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat));
 
@@ -2145,19 +2154,28 @@ void integrate_2d_radMHD(DomainS *pD)
 		Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)
 			+ velocity_y * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);
-		Source_guess[4] = -Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er) 
-			+ (Sigma_aF - Sigma_sF) * velocity_x
+		if(Erflag){
+			Source_guess[4] = -Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er) 
+			+ Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
-			+ (Sigma_aF - Sigma_sF) * velocity_y
+			+ Source_Inv[2][2] * (Sigma_aF - Sigma_sF) * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
+		}
+		else{
+			Source_guess[4] = -Prat * Crat * (Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
+			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
+			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
+			+ Source_Inv[2][2] * (Sigma_aF - Sigma_sF) * velocity_y
+			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
+		}
 
-
-		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x
+		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (Source_Inv[1][1] * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
 			+ pG->U[ks][j][i].Edd_21 * velocity_y) * pG->U[ks][j][i].Er / Crat)
-			+ velocity_y
+			+ Source_Inv[2][2] * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat));
 				
@@ -2196,7 +2214,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		
 		/* Estimate the added radiation source term  */
 		
-
+		if(Erflag){
 		if(Prat > 0.0){
 			pG->Ersource[ks][j][i] = Uguess[4] + tempguess[4] - 
 				(pG->U[ks][j][i].E - dt * (divFlux1[4] + divFlux2[4]));
@@ -2211,11 +2229,9 @@ void integrate_2d_radMHD(DomainS *pD)
 
 			/* Subtract the actual added work done by radiation force */
 			/* This is added seperately for the radiation subsystem */
-			if(Erflag){
-				pG->Ersource[ks][j][i] -= Prworksource;
-				pG->Eulersource[ks][j][i] = -Prworksource/Prat;
-			}
-
+			
+			pG->Ersource[ks][j][i] -= Prworksource;
+				
 			pG->Ersource[ks][j][i] /= -Prat;
 			
 		}
@@ -2224,8 +2240,9 @@ void integrate_2d_radMHD(DomainS *pD)
 			pG->Ersource[ks][j][i] = 0.0;
 			
 		}
-
+		}
 		
+		pG->Eulersource[ks][j][i] = -Prworksource/Prat;
 		/* change due to radiation source term */
 		/* This is used for shearing-box */
 		pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
@@ -2233,7 +2250,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
 		pG->U[ks][j][i].E  = Uguess[4] + tempguess[4];
 
-
+		if(!Erflag){
+				pG->U[ks][j][i].E += -Prat * pG->Ersource[ks][j][i];
+			}
 /*
 		if(!Erflag){
 			pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
@@ -2289,17 +2308,6 @@ void integrate_2d_radMHD(DomainS *pD)
 
 #endif /* radiation MHD part */
 
-	
-	if(!Erflag){
-    		for (j=js; j<=je; j++) {
-      			for (i=is; i<=ie; i++) {
-				/* Tguess now is the added energy source term in BackEuler step */
-				/* If Eratio = 0, Tguess is just the radiation work term */
-				 pG->U[ks][j][i].Er += (pG->Ersource[ks][j][i] - pG->Eulersource[ks][j][i]);
-
-			}
-    		}
-  	}
 
 
 	/* calculate pG->Tguess after magnetic field is updated */

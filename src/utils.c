@@ -1301,6 +1301,7 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	 
 	/* Opacity is: Sigma[0]=Sigma_sF, Sigma[1] = Sigma_aF, Sigma[2] = Sigma_aP, Sigma[3] = Sigma_aE */
 	Real pressure, temperature, velocity_x, velocity_y, velocity_z, velocity_fargo;
+	Real Fr0x, Fr0y, Fr0z;
 	Real dSigma[2*NOPACITY];
 	/* Derivative of the opacity with respect to the conserved variables */
 	Real dSigmaE[NOPACITY], dSigmarho[NOPACITY], dSigmavx[NOPACITY], dSigmavy[NOPACITY], dSigmavz[NOPACITY];
@@ -1332,6 +1333,11 @@ if(pressure > TINY_NUMBER){
 	velocity_fargo = velocity_y - qshear * Omega_0 * x1;
 	
 #endif	
+
+
+	Fr0x = U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat;
+	Fr0y = U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat;
+	Fr0z = U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat;
 	
 	
 
@@ -1366,27 +1372,34 @@ if(pressure > TINY_NUMBER){
 	
 		
 
-	*SErho = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal) 
+	*SErho = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal);
+/* 
 		+ (dSigmarho[2] * pow(temperature, 4.0) - dSigmarho[3] * U.Er)	
 		+ ((dSigmarho[1] - dSigmarho[0]) - (Sigma[1] - Sigma[0]) / U.d) * (
 			velocity_x * (U.Fr1 - ((1.0 + U.Edd_11) * velocity_x + U.Edd_21 * velocity_fargo + U.Edd_31 * velocity_z) * U.Er/Crat)
 	     	+  velocity_fargo * (U.Fr2 - (U.Edd_21 * velocity_x + (1.0 + U.Edd_22) * velocity_fargo + U.Edd_32 * velocity_z) * U.Er/Crat)
 	     	+  velocity_z * (U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat)
 			)/Crat;
-
+*/
 #ifdef RADIATION_MHD
 	*SErho += 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * 0.5 * (Bx * Bx + U.By * U.By + U.Bz * U.Bz)/(U.d * U.d * R_ideal);
 #endif	
 
-	*SEmx = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal);
+	*SEmx = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_x / (U.d * R_ideal)
+		+ (Sigma[1] - Sigma[0]) * Fr0x / (Crat * U.d);
+
 /*	      + (dSigmavx[2] * pow(temperature, 4.0) - dSigmavx[3] * U.Er);
 */	
 	if(SEmy != NULL)
-		*SEmy = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal);
+		*SEmy = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_y / (U.d * R_ideal)
+			+ (Sigma[1] - Sigma[0]) * Fr0y / (Crat * U.d);
+
 /*	      + (dSigmavy[2] * pow(temperature, 4.0) - dSigmavy[3] * U.Er);
 */
 	if(SEmz != NULL)
-		*SEmz = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal);
+		*SEmz = -4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * velocity_z / (U.d * R_ideal)
+			+ (Sigma[1] - Sigma[0]) * Fr0z / (Crat * U.d);
+
 /*	      + (dSigmavz[2] * pow(temperature, 4.0) - dSigmavz[3] * U.Er);	
 */
 }
@@ -1495,8 +1508,8 @@ void Eddington_FUN (const GridS *pG, const RadGridS *pRG)
 
 /* Newton method to find root, which is taken from numerical recipes */
 
-double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,
-	double xacc, double coef1, double coef2, double coef3)
+double rtsafe(void (*funcd)(double, double, double, double, double, double *, double *), double x1, double x2,
+	double xacc, double coef1, double coef2, double coef3, double coef4)
 {
 	int j;
 	double df,dx,dxold,f,fh,fl;
@@ -1504,8 +1517,8 @@ double rtsafe(void (*funcd)(double, double, double, double, double *, double *),
 
 	int maxit = 400;
 
-	(*funcd)(x1,coef1, coef2, coef3,&fl,&df);
-	(*funcd)(x2,coef1, coef2, coef3,&fh,&df);
+	(*funcd)(x1,coef1, coef2, coef3,coef4, &fl,&df);
+	(*funcd)(x2,coef1, coef2, coef3,coef4, &fh,&df);
 	if ((fl > 0.0 && fh > 0.0) || (fl < 0.0 && fh < 0.0))
 		ath_error("[rtsafe]:Root must be bracketed in rtsafe: Tl: %13.6e Th: %13.6e\n fl: %13.6e\n fh: %13.6e\n",x1, x2, fl, fh);
 	if (fl == 0.0) return x1;
@@ -1520,7 +1533,7 @@ double rtsafe(void (*funcd)(double, double, double, double, double *, double *),
 	rts=0.5*(x1+x2);
 	dxold=fabs(x2-x1);
 	dx=dxold;
-	(*funcd)(rts,coef1, coef2, coef3,&f,&df);
+	(*funcd)(rts,coef1, coef2, coef3,coef4, &f,&df);
 	for (j=1;j<=maxit;j++) {
 		if ((((rts-xh)*df-f)*((rts-xl)*df-f) > 0.0)
 			|| (fabs(2.0*f) > fabs(dxold*df))) {
@@ -1536,13 +1549,14 @@ double rtsafe(void (*funcd)(double, double, double, double, double *, double *),
 			if (temp == rts) return rts;
 		}
 		if (fabs(dx) < xacc) return rts;
-		(*funcd)(rts,coef1, coef2, coef3,&f,&df);
+		(*funcd)(rts,coef1, coef2, coef3,coef4, &f,&df);
 		if (f < 0.0)
 			xl=rts;
 		else
 			xh=rts;
 	}
-	ath_error("[rtsafe]:Maximum number of iterations exceeded in rtsafe");
+	ath_error("[rtsafe]:Maximum number of iterations exceeded in rtsafe: x1: %e x2: %e coef1: %e coef2: %e coef3: %e coef4: %e\n",x1,x2,coef1,coef2,coef3,coef4);
+	
 	return 0.0;
 }
 
@@ -1616,6 +1630,9 @@ void GetTguess(MeshS *pM)
 #endif
 
     				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
+				
+				
+				
 				Sigma_aP = pG->U[k][j][i].Sigma[2];
 				Sigma_aE = pG->U[k][j][i].Sigma[3];
 				Ern =  pG->U[k][j][i].Er;
@@ -1665,25 +1682,8 @@ void GetTguess(MeshS *pM)
 		
 					
 					if( pG->U[k][j][i].Er < 0.0) pG->U[k][j][i].Er = 0.0;
-
-					Ersum = pressure / (Gamma - 1.0) + Prat * pG->U[k][j][i].Er;
-
-					coef1 = pG->dt * Prat * Crat * Sigma_aP;
-					coef2 = pG->U[k][j][i].d * R_ideal * (1.0 + pG->dt * Sigma_aE * Crat) / (Gamma - 1.0);
-					coef3 = -pressure / (Gamma - 1.0) - pG->dt * Sigma_aE * Crat * Ersum;
 					
-			
-					TEr = pow( pG->U[k][j][i].Er, 0.25);
-					if(temperature > TEr){			
-						Tguess = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
-						Erguess = pow(Tguess, 4.0);
-				
-					}
-					else{
-						Tguess = rtsafe(Tequilibrium, temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
-						Erguess = pow(Tguess, 4.0);
-			
-					}			
+					ThermalRelaxation(temperature, pG->U[k][j][i].Er, pG->U[k][j][i].d, Sigma_aP, Sigma_aE, pG->dt, &Tguess, &Erguess);
 				}
 							
 				
@@ -1703,6 +1703,62 @@ void GetTguess(MeshS *pM)
 			}
 		}
 	} 
+}
+
+/* This function solve the equations: *
+ * rho R dT/dt  /(gamma-1) = -Prat * Crat * (Sigma_aP T^4 - Sigma_aE * Er);
+ * dEr/dt = Crat * (Sigma_aP * T^4 - Sigma_aE * Er) 
+ * Sigma_aP and Sigma_aE are assumed to be a constant, for first order accurate 
+ */
+
+void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er)
+{
+	
+			Real coef1, coef2, coef3, coef4, Ersum, pressure, TEr;
+			Real kappaP, kappaE;
+			Real Tnew, Ernew;
+	
+			if(Prat < TINY_NUMBER){
+				if(Tg != NULL)
+					*Tg = Tg0;
+				if(Er != NULL)
+					*Er = Er0;
+				return;
+			}
+		
+			pressure = Tg0 * density * R_ideal;
+			Ersum = pressure / (Gamma - 1.0) + Prat * Er0;
+			 TEr = pow(Er0, 0.25);
+	
+		/* Here assume input gas temperature and Er0 is positive */
+		if((Tg0 < 0.0) || (Er0 < 0.0))
+			ath_error("[ThemralRelaxation]: Negative gas temperature: %e or Radiation energy density: %e!n\n",Tg0,Er0);
+	
+
+		   
+		   coef1 = dt * Prat * Crat * Sigma_aP;
+		   coef2 = density * R_ideal * (1.0 + dt * Sigma_aE * Crat) / (Gamma - 1.0);
+		   coef3 = -pressure / (Gamma - 1.0) - dt * Sigma_aE * Crat * Ersum;
+		   coef4 = 0.0;
+		   
+		  
+		   if(Tg0 > TEr){			
+			   Tnew = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Tg0 * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3,coef4); 			   
+		   }
+		   else{
+			   Tnew = rtsafe(Tequilibrium, Tg0 * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3, coef4);
+		   }			
+		   
+			Ernew = (Ersum - density * R_ideal * Tnew / (Gamma - 1.0)) / Prat;
+	
+		if(Tg != NULL)
+			*Tg = Tnew;
+		if(Er != NULL)
+			*Er = Ernew;
+	
+	return;
+		   
+	
 }
 
 
@@ -1731,11 +1787,11 @@ Real EquState(const Real density, const Real sum, const Real Er0)
 			TEr = pow(Er0, 0.25);
 
 			if(temperature > TEr){			
-				Tguess = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+				Tguess = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3,0.0);
 				
 			}
 			else{
-				Tguess = rtsafe(Tequilibrium, temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3);
+				Tguess = rtsafe(Tequilibrium, temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3,0.0);
 			}
 
 	return Tguess;		
@@ -1743,7 +1799,7 @@ Real EquState(const Real density, const Real sum, const Real Er0)
 
 
 /* Function to find the equilibrium state */
-void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval)
+void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval)
 {
 
 	/* function is 
@@ -1755,6 +1811,21 @@ void Tequilibrium(double T, double coef1, double coef2, double coef3, double * f
 
 	return;
 }
+
+/* Function to calculate the equilibrium state due to Compton scattering */
+void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval)
+{
+
+	/* function is 
+	*  coef1 * T^8 + coef2 * T^5 + coef3 * T^4 + coef4 == 0 *
+	*/
+
+	*fval = coef1 * pow(T, 8.0) + coef2 * pow(T,5.0) + coef3 * pow(T, 4.0) + coef4;
+	*dfval = 8.0 * coef1 * pow(T, 7.0) + 5.0 * coef2 * pow(T, 4.0) + 4.0 * coef3 * pow(T,3.0);
+
+	return;
+}
+
 
 
 /* Function to calculate matrix coefficient */
@@ -1784,7 +1855,8 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	Real alphai0, alphaj0, alphak0, alphai, alphaj, alphak; /* For mininum velocity */
 	Real alphai1max, alphaj1max, alphak1max, alphaimax, alphajmax, alphakmax; /* for maximum velocity */
 	/* alpha? are for Sigma_aF + Sigma_sF */
-	
+	int m;
+	Real Sigma[4];
 	Real direction;
 	Real x1, x2, x3, vshear, vsheari0, vsheari1;
 	vshear = 0.0;
@@ -1804,71 +1876,71 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 		vshear = qshear * Omega_0 * x1;
 #endif
 #endif
-			vx = pMat->U[k][j][i].V1;
-			vxi0 = pMat->U[k][j][i-1].V1;
-			vxi1 = pMat->U[k][j][i+1].V1;
-			vy = pMat->U[k][j][i].V2;
-			vyi0 = pMat->U[k][j][i-1].V2;
-			vyi1 = pMat->U[k][j][i+1].V2;
+			vx = pMat->Ugas[k][j][i].V1;
+			vxi0 = pMat->Ugas[k][j][i-1].V1;
+			vxi1 = pMat->Ugas[k][j][i+1].V1;
+			vy = pMat->Ugas[k][j][i].V2;
+			vyi0 = pMat->Ugas[k][j][i-1].V2;
+			vyi1 = pMat->Ugas[k][j][i+1].V2;
 		if(DIM > 1){
-			vxj0 = pMat->U[k][j-1][i].V1;
-			vxj1 = pMat->U[k][j+1][i].V1;
-			vyj0 = pMat->U[k][j-1][i].V2;
-			vyj1 = pMat->U[k][j+1][i].V2;
+			vxj0 = pMat->Ugas[k][j-1][i].V1;
+			vxj1 = pMat->Ugas[k][j+1][i].V1;
+			vyj0 = pMat->Ugas[k][j-1][i].V2;
+			vyj1 = pMat->Ugas[k][j+1][i].V2;
 		}
-			vz = pMat->U[k][j][i].V3;
+			vz = pMat->Ugas[k][j][i].V3;
 		if(DIM > 2){		
-			vzi0 = pMat->U[k][j][i-1].V3;
-			vzi1 = pMat->U[k][j][i+1].V3;
-			vzj0 = pMat->U[k][j-1][i].V3;
-			vzj1 = pMat->U[k][j+1][i].V3;
-			vzk0 = pMat->U[k-1][j][i].V3;
-			vzk1 = pMat->U[k+1][j][i].V3;
+			vzi0 = pMat->Ugas[k][j][i-1].V3;
+			vzi1 = pMat->Ugas[k][j][i+1].V3;
+			vzj0 = pMat->Ugas[k][j-1][i].V3;
+			vzj1 = pMat->Ugas[k][j+1][i].V3;
+			vzk0 = pMat->Ugas[k-1][j][i].V3;
+			vzk1 = pMat->Ugas[k+1][j][i].V3;
 
-			vxk0 = pMat->U[k-1][j][i].V1;
-			vxk1 = pMat->U[k+1][j][i].V1;
-			vyk0 = pMat->U[k-1][j][i].V2;
-			vyk1 = pMat->U[k+1][j][i].V2;
+			vxk0 = pMat->Ugas[k-1][j][i].V1;
+			vxk1 = pMat->Ugas[k+1][j][i].V1;
+			vyk0 = pMat->Ugas[k-1][j][i].V2;
+			vyk1 = pMat->Ugas[k+1][j][i].V2;
 		}
 	
 				
-			f11i0 = pMat->U[k][j][i-1].Edd_11;
-			f21i0 = pMat->U[k][j][i-1].Edd_21;
-			f31i0 = pMat->U[k][j][i-1].Edd_31;
-			f11 = pMat->U[k][j][i].Edd_11;
-			f22 = pMat->U[k][j][i].Edd_22;
-			f33 = pMat->U[k][j][i].Edd_33;
-			f21 = pMat->U[k][j][i].Edd_21;
-			f31 = pMat->U[k][j][i].Edd_31;
-			f32 = pMat->U[k][j][i].Edd_32;
-			f11i1 = pMat->U[k][j][i+1].Edd_11;
-			f21i1 = pMat->U[k][j][i+1].Edd_21;
-			f31i1 = pMat->U[k][j][i+1].Edd_31;
+			f11i0 = pMat->Ugas[k][j][i-1].Edd_11;
+			f21i0 = pMat->Ugas[k][j][i-1].Edd_21;
+			f31i0 = pMat->Ugas[k][j][i-1].Edd_31;
+			f11 = pMat->Ugas[k][j][i].Edd_11;
+			f22 = pMat->Ugas[k][j][i].Edd_22;
+			f33 = pMat->Ugas[k][j][i].Edd_33;
+			f21 = pMat->Ugas[k][j][i].Edd_21;
+			f31 = pMat->Ugas[k][j][i].Edd_31;
+			f32 = pMat->Ugas[k][j][i].Edd_32;
+			f11i1 = pMat->Ugas[k][j][i+1].Edd_11;
+			f21i1 = pMat->Ugas[k][j][i+1].Edd_21;
+			f31i1 = pMat->Ugas[k][j][i+1].Edd_31;
 
 		if(DIM > 1){
-			f32j0 = pMat->U[k][j-1][i].Edd_32;
-			f22j0 = pMat->U[k][j-1][i].Edd_22;
-			f21j0 = pMat->U[k][j-1][i].Edd_21;
+			f32j0 = pMat->Ugas[k][j-1][i].Edd_32;
+			f22j0 = pMat->Ugas[k][j-1][i].Edd_22;
+			f21j0 = pMat->Ugas[k][j-1][i].Edd_21;
 
-			f21j1 = pMat->U[k][j+1][i].Edd_21;
-			f22j1 = pMat->U[k][j+1][i].Edd_22;
-			f32j1 = pMat->U[k][j+1][i].Edd_32;
+			f21j1 = pMat->Ugas[k][j+1][i].Edd_21;
+			f22j1 = pMat->Ugas[k][j+1][i].Edd_22;
+			f32j1 = pMat->Ugas[k][j+1][i].Edd_32;
 		}
 
 		if(DIM > 2){
-			f33k0 = pMat->U[k-1][j][i].Edd_33;
-			f32k0 = pMat->U[k-1][j][i].Edd_32;
-			f31k0 = pMat->U[k-1][j][i].Edd_31;
+			f33k0 = pMat->Ugas[k-1][j][i].Edd_33;
+			f32k0 = pMat->Ugas[k-1][j][i].Edd_32;
+			f31k0 = pMat->Ugas[k-1][j][i].Edd_31;
 
-			f31k1 = pMat->U[k+1][j][i].Edd_31;
-			f32k1 = pMat->U[k+1][j][i].Edd_32;
-			f33k1 = pMat->U[k+1][j][i].Edd_33;
+			f31k1 = pMat->Ugas[k+1][j][i].Edd_31;
+			f32k1 = pMat->Ugas[k+1][j][i].Edd_32;
+			f33k1 = pMat->Ugas[k+1][j][i].Edd_33;
 		}
 
-		Sigma_sF = pMat->U[k][j][i].Sigma[0];
-		Sigma_aF = pMat->U[k][j][i].Sigma[1];
-		Sigma_aP = pMat->U[k][j][i].Sigma[2];
-		Sigma_aE = pMat->U[k][j][i].Sigma[3];
+		Sigma_sF = pMat->Ugas[k][j][i].Sigma[0];
+		Sigma_aF = pMat->Ugas[k][j][i].Sigma[1];
+		Sigma_aP = pMat->Ugas[k][j][i].Sigma[2];
+		Sigma_aE = pMat->Ugas[k][j][i].Sigma[3];
 		
 		
 	}
@@ -2062,32 +2134,49 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 
 
 		if(pMat != NULL){
+			/* use average opacity to calculate flux */
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pMat->Ugas[k][j][i-1].Sigma[m] + pMat->Ugas[k][j][i].Sigma[m]);
+			}
 			
-			matrix_alpha(direction, pMat->U[k][j][i-1].Sigma, dt, pMat->U[k][j][i-1].Edd_11, vx, &alphai0, -1, dx);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i-1].Edd_11, vx, &alphai0, -1, dx);
+
 
 			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, vx, &alphaimax, 1, dx);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i].Edd_11, vx, &alphaimax, 1, dx);
+	
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pMat->Ugas[k][j][i].Sigma[m] + pMat->Ugas[k][j][i+1].Sigma[m]);
+			}
+			
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i].Edd_11, vx, &alphai, -1, dx);
 
 			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_11, vx, &alphai, -1, dx);
-
 			
-			matrix_alpha(direction, pMat->U[k][j][i+1].Sigma, dt, pMat->U[k][j][i+1].Edd_11, vx, &alphai1max, 1, dx);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i+1].Edd_11, vx, &alphai1max, 1, dx);
 			
 
 		}
 		else if(pG != NULL){
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pG->U[k][j][i-1].Sigma[m] + pG->U[k][j][i].Sigma[m]);
+			}
 			
-			matrix_alpha(direction, pG->U[k][j][i-1].Sigma, dt, pG->U[k][j][i-1].Edd_11, vx, &alphai0, -1, dx);
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i-1].Edd_11, vx, &alphai0, -1, dx);
 
 			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, vx, &alphaimax, 1, dx);
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i].Edd_11, vx, &alphaimax, 1, dx);
+			
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pG->U[k][j][i+1].Sigma[m] + pG->U[k][j][i].Sigma[m]);
+			}
+			
+
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i].Edd_11, vx, &alphai, -1, dx);
 
 			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_11, vx, &alphai, -1, dx);
-
 			
-			matrix_alpha(direction, pG->U[k][j][i+1].Sigma, dt, pG->U[k][j][i+1].Edd_11, vx, &alphai1max, 1, dx);
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i+1].Edd_11, vx, &alphai1max, 1, dx);
 			
 		}
 			
@@ -2107,25 +2196,49 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 
 	if(DIM > 1){
 		if(pMat != NULL){
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pMat->Ugas[k][j-1][i].Sigma[m] + pMat->Ugas[k][j][i].Sigma[m]) ;
+			}
 			
-			matrix_alpha(direction, pMat->U[k][j-1][i].Sigma, dt, pMat->U[k][j-1][i].Edd_22, vy, &alphaj0, -1, dy);		
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j-1][i].Edd_22, vy, &alphaj0, -1, dy);		
+
+			
 		
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, vy, &alphajmax, 1, dy);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i].Edd_22, vy, &alphajmax, 1, dy);
+
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pMat->Ugas[k][j+1][i].Sigma[m] + pMat->Ugas[k][j][i].Sigma[m]);
+			}
 	
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_22, vy, &alphaj, -1, dy);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i].Edd_22, vy, &alphaj, -1, dy);
+
 			
-			matrix_alpha(direction, pMat->U[k][j+1][i].Sigma, dt, pMat->U[k][j+1][i].Edd_22, vy, &alphaj1max, 1, dy);
+			
+			
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j+1][i].Edd_22, vy, &alphaj1max, 1, dy);
 			
 		}
 		else if(pG != NULL){
-			
-			matrix_alpha(direction, pG->U[k][j-1][i].Sigma, dt, pG->U[k][j-1][i].Edd_22, vy, &alphaj0, -1, dy);
 
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, vy, &alphajmax, 1, dy);
-		
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_22, vy, &alphaj, -1, dy);
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pG->U[k][j-1][i].Sigma[m] + pG->U[k][j][i].Sigma[m]) ;
+			}
 			
-			matrix_alpha(direction, pG->U[k][j+1][i].Sigma, dt, pG->U[k][j+1][i].Edd_22, vy, &alphaj1max, 1, dy);
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j-1][i].Edd_22, vy, &alphaj0, -1, dy);
+
+		
+
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i].Edd_22, vy, &alphajmax, 1, dy);
+			
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pG->U[k][j+1][i].Sigma[m] + pG->U[k][j][i].Sigma[m]) ;
+			}		
+
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i].Edd_22, vy, &alphaj, -1, dy);
+
+			
+			
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j+1][i].Edd_22, vy, &alphaj1max, 1, dy);
 			
 		}
 
@@ -2142,30 +2255,51 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	if(DIM > 2){
 	
 		if(pMat != NULL){
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pMat->Ugas[k-1][j][i].Sigma[m] + pMat->Ugas[k][j][i].Sigma[m]) ;
+			}
 			
-			matrix_alpha(direction, pMat->U[k-1][j][i].Sigma, dt, pMat->U[k-1][j][i].Edd_33, vz, &alphak0, -1, dz);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k-1][j][i].Edd_33, vz, &alphak0, -1, dz);
 		
 			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, vz, &alphakmax, 1, dz);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i].Edd_33, vz, &alphakmax, 1, dz);			
+
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pMat->Ugas[k+1][j][i].Sigma[m] + pMat->Ugas[k][j][i].Sigma[m]) ;
+			}			
+
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k][j][i].Edd_33, vz, &alphak, -1, dz);
 
 			
-			matrix_alpha(direction, pMat->U[k][j][i].Sigma, dt, pMat->U[k][j][i].Edd_33, vz, &alphak, -1, dz);
-
 						
-			matrix_alpha(direction, pMat->U[k+1][j][i].Sigma, dt, pMat->U[k+1][j][i].Edd_33, vz, &alphak1max, 1, dz);
+			matrix_alpha(direction, Sigma, dt, pMat->Ugas[k+1][j][i].Edd_33, vz, &alphak1max, 1, dz);
 			
 			
 		}
 		else if(pG != NULL){
-			/* Direction is not used anymore */			
+			/* Direction is not used anymore */
 
-			matrix_alpha(direction, pG->U[k-1][j][i].Sigma, dt, pG->U[k-1][j][i].Edd_33, vz, &alphak0, -1, dz);
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, vz, &alphakmax, 1, dz);
-			
-			matrix_alpha(direction, pG->U[k][j][i].Sigma, dt, pG->U[k][j][i].Edd_33, vz, &alphak, -1, dz);
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pG->U[k-1][j][i].Sigma[m] + pG->U[k][j][i].Sigma[m]) ;
+			}			
+
+			matrix_alpha(direction, Sigma, dt, pG->U[k-1][j][i].Edd_33, vz, &alphak0, -1, dz);
+
 					
-			matrix_alpha(direction, pG->U[k+1][j][i].Sigma, dt, pG->U[k+1][j][i].Edd_33, vz, &alphak1max, 1, dz);
+
+			
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i].Edd_33, vz, &alphakmax, 1, dz);			
+			
+			for(m=0; m<4; m++){
+				Sigma[m] = 0.5 * (pG->U[k+1][j][i].Sigma[m] + pG->U[k][j][i].Sigma[m]) ;
+			}	
+
+			matrix_alpha(direction, Sigma, dt, pG->U[k][j][i].Edd_33, vz, &alphak, -1, dz);
+
+			
+
+					
+			matrix_alpha(direction, Sigma, dt, pG->U[k+1][j][i].Edd_33, vz, &alphak1max, 1, dz);
 			
 		}
 
@@ -2204,7 +2338,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
 			phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * f11				 
 				 - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
-				 + dt * Sigma_aE * vx; 
+				 + Eratio * dt * Sigma_aE * vx; 
 			phi[3] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax 			   
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
 			phi[4] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
@@ -2239,7 +2373,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21
 			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull	
-			       + dt * Sigma_aE * vx;
+			       + Eratio * dt * Sigma_aE * vx;
 			phi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax	
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
@@ -2256,7 +2390,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22
 			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull	 
-			       + dt * Sigma_aE * vy;
+			       + Eratio * dt * Sigma_aE * vy;
 			psi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax 	
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
@@ -2308,7 +2442,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f21   
 			       + Crat * hdtodx3 * (Ck0 + Ck1) * f31 
 			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
-			       + dt * Sigma_aE * vx;
+			       + Eratio * dt * Sigma_aE * vx;
 			phi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
 				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
@@ -2330,7 +2464,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f22   
 			       + Crat * hdtodx3 * (Ck0 + Ck1) * f32
 			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull 
-			       + dt * Sigma_aE * vy;
+			       + Eratio * dt * Sigma_aE * vy;
 			psi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
 				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
@@ -2352,7 +2486,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			       + Crat * hdtodx2 * (Cj0 + Cj1) * f32   
 			       + Crat * hdtodx3 * (Ck0 + Ck1) * f33
 			       - Crat * dt * (Sigma_aF + Sigma_sF) * vFzFull
-			       + dt * Sigma_aE * vz;
+			       + Eratio * dt * Sigma_aE * vz;
 			varphi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
 				     + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
 				     + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax	
@@ -2371,7 +2505,6 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 	}
 
 }
-
 
 
 /* The reduced factor for radiation subsystem */
@@ -2399,7 +2532,12 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 */
 
 	/* use 10 times optical depth per cell */
-	taucell = 10.0 * dl * Sigma_t;
+	taucell = 20.0 * dl * Sigma_t;
+
+	/* In optical thin regime, do not include the factor 10, to be consistent with linear analysis */
+/*	if(dl * Sigma_t < 0.1)
+		taucell = dl * Sigma_t;
+*/
 
 	tau = dt * Crat * Sigma_t;
 

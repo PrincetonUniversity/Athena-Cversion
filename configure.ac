@@ -105,13 +105,13 @@ elif test "$with_gas" = "rad_hydro"; then
   GAS="RADIATION_HYDRO"
   flux_default="hllc"
   integrator_default="RADIATIONMHD"
-  order_default="2p"
+  order_default="2"
   matrix_solver="on"
 elif test "$with_gas" = "rad_MHD"; then
   GAS="RADIATION_MHD"
   flux_default="hlld"
   integrator_default="RADIATIONMHD"
-  order_default="2p"
+  order_default="2"
   matrix_solver="on"
 else
   AC_MSG_ERROR([expected --with-gas=mhd or hydro or rad_hydro or rad_MHD])

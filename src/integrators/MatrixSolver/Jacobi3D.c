@@ -29,7 +29,7 @@
 extern void bvals_Matrix(MatrixS *pMat);
 
 
-void Jacobi3D(MatrixS *pMat)
+void Jacobi3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi)
 {
 /* Right now, only work for one domain. Modified later for SMR */
 
@@ -47,32 +47,7 @@ void Jacobi3D(MatrixS *pMat)
 
 	Real omega = 0.5;
 
-	/* To store the coefficient */
-	Real ****theta = NULL;
-	Real ****phi = NULL;
-	Real ****psi = NULL;
-	Real ****varphi = NULL;
-
-	if((theta = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	if((phi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
 	
-	if((psi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	if((varphi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-
-	/* Only need to calculate the coefficient once */
-	for(k=ks; k<=ke; k++)
-		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){				
-			matrix_coef(pMat, NULL, 3, i, j, k, 0.0, &(theta[k][j][i][0]), &(phi[k][j][i][0]), &(psi[k][j][i][0]), &(varphi[k][j][i][0]));
-							
-	}
 
 
 	/* First, allocate memory for the temporary matrix */
@@ -210,18 +185,6 @@ for(n=0; n<Ncycle; n++){
 	/* Free the temporary matrix */
 	free_3d_array(pMatnew->U);
 	free(pMatnew);
-
-	if(theta != NULL)
-		free_4d_array(theta);
-
-	if(phi != NULL)
-		free_4d_array(phi);
-
-	if(psi != NULL)
-		free_4d_array(psi);
-
-	if(varphi != NULL)
-		free_4d_array(varphi);
 
 	return;	
 	

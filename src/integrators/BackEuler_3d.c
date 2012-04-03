@@ -41,13 +41,28 @@
 
 static MatrixS *pMat;
 
+/* memory at each coarse level */
+/* Allocate the memory for U, Ugas and RHS in advance */
+static RadMHDS ****U_coarse;
+static RadCoefS ****Ugas_coarse;
+static Real *****RHS_coarse;
+
 static Real ****INIerror;
 
 static Real *****Reshist; /* The residual after each cycle, we only store 5 cycles for iterant recombination */
 static Real *****Solhist; /* Store the history of the solution */
 static Real *Resnorm; /* store the norm of the stored residual */
-static int MAXerror = 11; /* The maximum number of combined residual */
+static int MAXerror = 1; /* The maximum number of combined residual */
 static int Resnum; /* actual number of residual stored, Resnum <= MAXerror */
+
+/* The pointer array to store the address of the coefficient */
+/* This make sure that matrix coefficient only calculate once */
+static Real *****Ptheta;
+static Real *****Pphi;
+static Real *****Ppsi;
+static Real *****Pvarphi;
+
+static int coefflag; /* To decide whether need to calculate coefficient or not */
 
 
 static Real INInorm;
@@ -77,6 +92,7 @@ static void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat);
 
 static void RHSResidual3D(MatrixS *pMat, Real ****newRHS);
 
+static void Calculate_Coef(MatrixS *pMat);
 
 static void CopySolution(MatrixS *pMat, Real ****Solhist);
 
@@ -103,23 +119,14 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr);
 
 
 
-
-
-
-
-/* Matrix boundary function */
-extern void bvals_Matrix_init(MatrixS *pMat);
-extern void bvals_Matrix(MatrixS *pMat);
-extern void bvals_Matrix_destruct(MatrixS *pMat);
-
 /*
 void Jacobi3D(MatrixS *pMat, MatrixS *pMatnew);
 */
-extern void GaussSeidel3D(MatrixS *pMat);
+extern void GaussSeidel3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi);
 
-extern void Jacobi3D(MatrixS *pMat);
+extern void Jacobi3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi);
 
-extern void Bicgsafe3D(MatrixS *pMat);
+extern void Bicgsafe3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi);
 
 /********Public function****************/
 /*-------BackEuler_3d(): Use back euler method to update E_r and Fluxr-----------*/
@@ -192,6 +199,7 @@ void BackEuler_3d(MeshS *pM)
 	
 
 	/* Now copy the data */
+	/* Including the ghost zones */
 	for(k=ks; k<=ke; k++){
 		for(j=js; j<=je; j++){
 			for(i=is; i<= ie; i++){
@@ -227,38 +235,41 @@ void BackEuler_3d(MeshS *pM)
 				pMat->U[Matk][Matj][Mati].Fr2 = pG->U[k][j][i].Fr2;
 				pMat->U[Matk][Matj][Mati].Fr3 = pG->U[k][j][i].Fr3;
 				/* Store the background Er at time step n to each level in multigrid */
-				pMat->U[Matk][Matj][Mati].rho = pG->U[k][j][i].Er;
-				pMat->U[Matk][Matj][Mati].V1  = velocity_x;
-				pMat->U[Matk][Matj][Mati].V2  = velocity_y;
-				pMat->U[Matk][Matj][Mati].V3  = velocity_z;
-				pMat->U[Matk][Matj][Mati].T4  = T4;
-				pMat->U[Matk][Matj][Mati].Edd_11 = pG->U[k][j][i].Edd_11;
-				pMat->U[Matk][Matj][Mati].Edd_21 = pG->U[k][j][i].Edd_21;
-				pMat->U[Matk][Matj][Mati].Edd_22 = pG->U[k][j][i].Edd_22;
-				pMat->U[Matk][Matj][Mati].Edd_31 = pG->U[k][j][i].Edd_31;
-				pMat->U[Matk][Matj][Mati].Edd_32 = pG->U[k][j][i].Edd_32;
-				pMat->U[Matk][Matj][Mati].Edd_33 = pG->U[k][j][i].Edd_33;
-				pMat->U[Matk][Matj][Mati].Sigma[0] = Sigma_sF;
-				pMat->U[Matk][Matj][Mati].Sigma[1] = Sigma_aF;
-				pMat->U[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
-				pMat->U[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
+				pMat->Ugas[Matk][Matj][Mati].rho = pG->U[k][j][i].Er;
+				pMat->Ugas[Matk][Matj][Mati].V1  = velocity_x;
+				pMat->Ugas[Matk][Matj][Mati].V2  = velocity_y;
+				pMat->Ugas[Matk][Matj][Mati].V3  = velocity_z;
+				pMat->Ugas[Matk][Matj][Mati].T4  = T4;
+				pMat->Ugas[Matk][Matj][Mati].Edd_11 = pG->U[k][j][i].Edd_11;
+				pMat->Ugas[Matk][Matj][Mati].Edd_21 = pG->U[k][j][i].Edd_21;
+				pMat->Ugas[Matk][Matj][Mati].Edd_22 = pG->U[k][j][i].Edd_22;
+				pMat->Ugas[Matk][Matj][Mati].Edd_31 = pG->U[k][j][i].Edd_31;
+				pMat->Ugas[Matk][Matj][Mati].Edd_32 = pG->U[k][j][i].Edd_32;
+				pMat->Ugas[Matk][Matj][Mati].Edd_33 = pG->U[k][j][i].Edd_33;
+				pMat->Ugas[Matk][Matj][Mati].Sigma[0] = Sigma_sF;
+				pMat->Ugas[Matk][Matj][Mati].Sigma[1] = Sigma_aF;
+				pMat->Ugas[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
+				pMat->Ugas[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 			
 				
 
 		/* Now set the right hand side */
 				Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
 						
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz);
-				pMat->RHS[Matk][Matj][Mati][1] = pG->U[k][j][i].Fr1 + dt * Sigma_aP * T4 * velocity_x;
-				pMat->RHS[Matk][Matj][Mati][2] = pG->U[k][j][i].Fr2 + dt * Sigma_aP * T4 * velocity_y;
-				pMat->RHS[Matk][Matj][Mati][3] = pG->U[k][j][i].Fr3 + dt * Sigma_aP * T4 * velocity_z;	
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz) + pG->Comp[k][j][i];
+				pMat->RHS[Matk][Matj][Mati][1] = pG->U[k][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_x / Crat;
+				pMat->RHS[Matk][Matj][Mati][2] = pG->U[k][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_y / Crat;
+				pMat->RHS[Matk][Matj][Mati][3] = pG->U[k][j][i].Fr3 + Eratio * dt * Sigma_aP * T4 * velocity_z + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_z / Crat;	
 
 				
 	} /* End i */
 	}/* End j */
 	}/* End k */
 
-/* Now calculate the residual */
+/* First, calculate the coefficient for the top level  */
+/* coefficient will not change until next time step */
+	Calculate_Coef(pMat);
+
 
 /* Only do this if background state is subtracted */
 /* For inflow boundary condition, if background state is subtracted, ghost zones in the matrix should always set to be zero */
@@ -290,11 +301,16 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 	/* calculate the initial norm of the right hand side */
 	INInorm = CheckResidual(pMat, pMat->RHS);
 
+	if(INInorm < TINY_NUMBER)
+		return;
+
 		
 	/* Do the multi-grid W cycle */
+	/* reset the flags for each cycle */
 	Wcycle = 0;
 	error = 1.0;
 	Resnum = 0;
+	coefflag = 1;
 	/* Stop iteration if tolerance level is reached */
 	/* Or the matrix doesn't converge in Wcycle limit */
 	while((error > TOL) && (Wcycle < Wcyclelim)){
@@ -302,8 +318,14 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 
 		/* Do the recombination before the multigrid cycle */
 		/* num from 0... Resnum-1 */
-		if(Resnum > 1)
+		if(Resnum > 1){
 			Recombination(pMat, Reshist, Solhist, Resnum, Resnorm);
+			/* After recombination, replace solhist with improved solution */
+		/*	Resnorm[Resnum-1] = CheckResidual(pMat,Reshist[Resnum-1]);
+			
+			CopySolution(pMat,Solhist[Resnum-1]);
+		*/	
+		}
 
 		
 		if(Resnum >= MAXerror)
@@ -337,6 +359,8 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 			ath_error("[BackEuler3D]: NaN encountered!\n");
 	
 		Wcycle++;
+		/* only need to calculate the coefficient in the first cycle */
+		coefflag = 0;
 
 	}
 		/* Only output the residual for parent grid */	
@@ -373,9 +397,9 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 		/* correction for work done by radiation force. May need this to reduce energy error */
 
 
-                	velocity_x = pMat->U[Matk][Matj][Mati].V1;
-                	velocity_y = pMat->U[Matk][Matj][Mati].V2;
-                	velocity_z = pMat->U[Matk][Matj][Mati].V3;
+                	velocity_x = pMat->Ugas[Matk][Matj][Mati].V1;
+                	velocity_y = pMat->Ugas[Matk][Matj][Mati].V2;
+                	velocity_z = pMat->Ugas[Matk][Matj][Mati].V3;
 
 			Fr0x =  pG->U[k][j][i].Fr1 - ((1.0 +  pG->U[k][j][i].Edd_11) * velocity_x +  pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) *  pG->U[k][j][i].Er / Crat; 
 			Fr0y =  pG->U[k][j][i].Fr2 - ((1.0 +  pG->U[k][j][i].Edd_22) * velocity_y +  pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) *  pG->U[k][j][i].Er / Crat;
@@ -383,22 +407,22 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 
 			/* Estimate the added energy source term */
 			if(Prat > 0.0){
-				if(Erflag){
-					pG->U[k][j][i].Er += (pG->Eulersource[k][j][i] - dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z));
-				}
-				else{
-					pG->Eulersource[k][j][i] = Eratio * Crat * dt * (pG->U[k][j][i].Sigma[2] * pG->Tguess[k][j][i] - pG->U[k][j][i].Sigma[3] * T4)/(1.0 + dt * Crat * pG->U[k][j][i].Sigma[3]) + (1.0 - Eratio) * pG->Ersource[k][j][i] + dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-				}
+				
+				pG->U[k][j][i].Er += (pG->Eulersource[k][j][i] - dt * (pG->U[k][j][i].Sigma[1] -  pG->U[k][j][i].Sigma[0]) * ( velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z));
 				
 
 			}
-			/*
-				if(pG->U[k][j][i].Er < TINY_NUMBER)
-					pG->U[k][j][i].Er = 1.0;
-			*/
+
+			
+			
+/*			if(pG->U[k][j][i].Er < TINY_NUMBER){
+                                pG->U[k][j][i].Er = (pG->U[k][j][i-1].Er + pG->U[k][j][i+1].Er + pG->U[k][j-1][i].Er + pG->U[k][j+1][i].Er +  pG->U[k-1][j][i].Er + pG->U[k+1][j][i].Er) / 6.0;
+
+                         }
+*/
 			
 	}
-
+/*
 if(Opacity != NULL){
 		for (k=pG->ks; k<=pG->ke; k++){
 			for (j=pG->js; j<=pG->je; j++) {
@@ -434,7 +458,7 @@ if(Opacity != NULL){
 			}
 		}
 }
-
+*/
 
 	/* Set the boundary condition */
 
@@ -459,7 +483,6 @@ void RadMHD_multig_3D(MatrixS *pMat)
 {
 
 	MatrixS pMat_coarse;
-	int Nsmall;
 
 	/* Once any dimension reaches size limit of Nlim, do Ncycle iteration and return */
 	if(pMat->Nx[0] <= Nlim || pMat->Nx[1] <= Nlim || pMat->Nx[2] <= Nlim){
@@ -475,13 +498,13 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 		
 		if(Matrixflag == 1){
-			GaussSeidel3D(pMat);
+			GaussSeidel3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 		}
 		else if(Matrixflag == 0){
-			Jacobi3D(pMat);
+			Jacobi3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 		}
 		else if(Matrixflag == 2){
-			Bicgsafe3D(pMat);
+			Bicgsafe3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 		}
 		else
 			ath_error("[BackEuler3D: unknown matrix solver!\n]");
@@ -513,22 +536,29 @@ void RadMHD_multig_3D(MatrixS *pMat)
 		/* project the data to coarse grid */
 		Restriction3D(pMat, &pMat_coarse);
 
-					/* We need to update the ghost zones after restriction */
-		bvals_Matrix_init(&pMat_coarse);
+		if(coefflag){
+
+		/* Only need to update ghost zones for gas quantities */
+		/* after first restriction, only right hand side changes */
+		bvals_Matrix_gas_init(&pMat_coarse);
 #ifdef SHEARING_BOX
-		bvals_Matrix_shear_init(&pMat_coarse);
+		bvals_Matrix_shear_gas_init(&pMat_coarse);
 #endif
 		
-		bvals_Matrix(&pMat_coarse);
+		bvals_Matrix_gas(&pMat_coarse);
 		
 #ifdef SHEARING_BOX
-		bvals_Matrix_shear_destruct();
+		bvals_Matrix_shear_gas_destruct();
 #endif
 
 
-		bvals_Matrix_destruct(&pMat_coarse);
+		bvals_Matrix_gas_destruct(&pMat_coarse);
 
+		/* first time, calculate the coefficient */
+		
+			Calculate_Coef(&(pMat_coarse));
 
+		}
 
 		/* continue the V or W cycle recursively*/
 
@@ -544,11 +574,6 @@ void RadMHD_multig_3D(MatrixS *pMat)
 		prolongation3D(&pMat_coarse, pMat);
 		
 		
-		/* First destroy the coarse grid */
-
-		free_3d_array(pMat_coarse.U);
-		free_4d_array(pMat_coarse.RHS);
-
 		/* Do relaxation when going up*/
 			
 		
@@ -570,13 +595,13 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 		
 		if(Matrixflag == 1){
-			GaussSeidel3D(pMat);
+			GaussSeidel3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 		}
 		else if(Matrixflag == 0){
-			Jacobi3D(pMat);
+			Jacobi3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 		}
 		else if(Matrixflag == 2){
-			Bicgsafe3D(pMat);
+			Bicgsafe3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 		}
 		else
 			ath_error("[BackEuler3D: unknown matrix solver!\n]");
@@ -589,11 +614,8 @@ void RadMHD_multig_3D(MatrixS *pMat)
 		bvals_Matrix_destruct(pMat);
 	
 		/* To decide whether go W cycle */
-		Nsmall = pMat->Nx[0];
-		if(pMat->Nx[1] < pMat->Nx[0]) Nsmall = pMat->Nx[1];
-		if(pMat->Nx[2] < pMat->Nx[1]) Nsmall = pMat->Nx[2];
-
-		if((Nsmall > pow(2.0,Nlevel/2.0)) && Wflag){
+		
+		if((pMat->Level < Nlevel/2.0) && Wflag){
 			/* Set is Wcycle flag */
 			/* This is Wcycle. We should go down again */
 			Wflag = 0;	
@@ -604,8 +626,11 @@ void RadMHD_multig_3D(MatrixS *pMat)
 			/* project the data to coarse grid */
 			Restriction3D(pMat, &pMat_coarse);
 
-			/* We need to update the ghost zones after restriction */
-			bvals_Matrix_init(&pMat_coarse);
+			/* Do not need to update ghost zones inside W cycle */
+			/* gas quantities are not changed, matrix coefficients are not changed */
+			/* radiation quantities are always zero */
+			
+/*			bvals_Matrix_init(&pMat_coarse);
 
 #ifdef SHEARING_BOX
 			bvals_Matrix_shear_init(&pMat_coarse);
@@ -617,9 +642,8 @@ void RadMHD_multig_3D(MatrixS *pMat)
 			bvals_Matrix_shear_destruct();
 #endif
 
-
 			bvals_Matrix_destruct(&pMat_coarse);
-
+*/
 			/* continue the V or W cycle recursively*/
 
 			RadMHD_multig_3D(&pMat_coarse);
@@ -627,12 +651,6 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 			/* Add the correction back to the fine grid */
 			prolongation3D(&pMat_coarse, pMat);
-			
-		
-			/* First destroy the coarse grid */
-
-			free_3d_array(pMat_coarse.U);
-			free_4d_array(pMat_coarse.RHS);
 
 			/* Do relaxation when going up*/
 			
@@ -657,13 +675,13 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 
 			if(Matrixflag == 1){
-				GaussSeidel3D(pMat);
+				GaussSeidel3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 			}
 			else if(Matrixflag == 0){
-				Jacobi3D(pMat);
+				Jacobi3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 			}
 			else if(Matrixflag == 2){
-				Bicgsafe3D(pMat);
+				Bicgsafe3D(pMat,Ptheta[pMat->Level],Pphi[pMat->Level],Ppsi[pMat->Level],Pvarphi[pMat->Level]);
 			}
 			else
 				ath_error("[BackEuler3D: unknown matrix solver!\n]");
@@ -685,156 +703,6 @@ void RadMHD_multig_3D(MatrixS *pMat)
 
 
 	return;
-}
-
-
-
-
-
-
-/*-------------------------------------------------------------------------*/
-/* BackEuler_init_2d: function to allocate memory used just for radiation variables */
-/* BackEuler_destruct_2d(): function to free memory */
-void BackEuler_init_3d(MeshS *pM)
-{
-
-	DomainS *pD;
-	pD= &(pM->Domain[0][0]);
-	
-	GridS *pG=pD->Grid;
-	int Nx, Ny, Nz;
-	
-
-	Nx = pG->ie - pG->is + 1;
-	Ny = pG->je - pG->js + 1;
-	Nz = pG->ke - pG->ks + 1;
-
-	/* Reach bottom first for the side with the smallest size*/
-	Nlevel = Nx;
-	if(Ny < Nx) Nlevel = Ny;
-	if(Nz < Nx) Nlevel = Nz;
-
-	Nlevel = (int)(log10(Nlevel)/log10(2.0));
-
-	/* pMat will remain in the memory until the end of the simulation */
-
-	if((pMat = (MatrixS*)calloc(1,sizeof(MatrixS))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
-
-	if((pMat->U = (RadMHDS***)calloc_3d_array(Nz+2*Matghost,Ny+2*Matghost, Nx+2*Matghost,sizeof(RadMHDS))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
-
-	if((pMat->RHS = (Real****)calloc_4d_array(Nz+2*Matghost,Ny+2*Matghost, Nx+2*Matghost,4,sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
-
-	if((INIerror=(Real****)calloc_4d_array(Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
-			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
-
-
-	if((Reshist=(Real*****)calloc_5d_array(MAXerror,Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
-			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
-
-	if((Solhist=(Real*****)calloc_5d_array(MAXerror,Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
-			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
-
-	if((Resnorm=(Real*)calloc(MAXerror,sizeof(Real))) == NULL)
-			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
-
-
-	/* now set the parameters */
-
-	pMat->dx1 = pG->dx1;
-	pMat->dx2 = pG->dx2;
-	pMat->dx3 = pG->dx3;
-	pMat->time = pG->time;
-	/* dt in pG is not set at this time */
-	/* pMat->dt = pG->dt;
-	*/
-	pMat->Lx = pD->RootMaxX[0] - pD->RootMinX[0];
-	pMat->Ly = pD->RootMaxX[1] - pD->RootMinX[1];
-	pMat->Lz = pD->RootMaxX[2] - pD->RootMinX[2];
-
-	pMat->is = Matghost;
-	pMat->ie = Nx + Matghost - 1;
-	pMat->js = Matghost;
-	pMat->je = Ny + Matghost - 1;
-	pMat->ks = Matghost;
-	pMat->ke = Nz + Matghost - 1;
-	pMat->Nx[0] = Nx;
-	pMat->Nx[1] = Ny;
-	pMat->Nx[2] = Nz;
-	pMat->RootNx[0] = Nx;
-	pMat->RootNx[1] = Ny;
-	pMat->RootNx[2] = Nz;
-	pMat->MinX[0] = pG->MinX[0];
-	pMat->MinX[1] = pG->MinX[1];
-	pMat->MinX[2] = pG->MinX[2];
-	pMat->MaxX[0] = pG->MaxX[0];
-	pMat->MaxX[1] = pG->MaxX[1];
-	pMat->MaxX[2] = pG->MaxX[2];
-	pMat->NGrid[0] = pD->NGrid[0];
-	pMat->NGrid[1] = pD->NGrid[1];
-	pMat->NGrid[2] = pD->NGrid[2];
-	pMat->rx1_id = pG->rx1_id;
-	pMat->lx1_id = pG->lx1_id;
-	pMat->rx2_id = pG->rx2_id;
-	pMat->lx2_id = pG->lx2_id;
-	pMat->lx3_id = pG->lx3_id;
-	pMat->rx3_id = pG->rx3_id;
-#ifdef MPI_PARALLEL
-	pMat->ID = myID_Comm_world;
-	get_myGridIndex(pD, myID_Comm_world, &(pMat->my_iproc), &(pMat->my_jproc), &(pMat->my_kproc));
-#else
-	pMat->ID = 0;
-	pMat->my_iproc = 0;
-	pMat->my_jproc = 0;
-	pMat->my_kproc = 0;
-#endif
-
-
-	/* Boundary flag */
-	pMat->BCFlag_ix1 = pM->BCFlag_ix1;
-	pMat->BCFlag_ox1 = pM->BCFlag_ox1;
-	pMat->BCFlag_ix2 = pM->BCFlag_ix2;
-	pMat->BCFlag_ox2 = pM->BCFlag_ox2;
-	pMat->BCFlag_ix3 = pM->BCFlag_ix3;
-	pMat->BCFlag_ox3 = pM->BCFlag_ox3;
-
-	/* To decide whether subtract background solution at top level or not */
-	/* Default choice is not */
-	pMat->bgflag = 1;
-	
-
-
-}
-
-
-void BackEuler_destruct_3d()
-{
-
-	/* Free pMat and pMatnew */
-	if(pMat->U != NULL)
-		free_3d_array(pMat->U);
-
-	if(pMat->RHS != NULL)
-		free_4d_array(pMat->RHS);
-
-	if(pMat != NULL)
-		free(pMat);
-
-	if(INIerror != NULL)
-		free_4d_array(INIerror);
-
-	if(Reshist != NULL)
-		free_5d_array(Reshist);
-
-	if(Solhist != NULL)
-		free_5d_array(Solhist);
-
-	if(Resnorm != NULL)
-		free(Resnorm);
-
-		
 }
 
 
@@ -934,21 +802,24 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 		/* error = b - Ax */
 		/* Now restrict to the coarse grid */
+		/* only need to restrict the gas quantities once */
+		/* But we need to restrict residual every time */
 	
 	for(k=pMat_coarse->ks; k<=pMat_coarse->ke; k++)
 		for(j=pMat_coarse->js; j<=pMat_coarse->je; j++)
 			for(i=pMat_coarse->is; i<=pMat_coarse->ie; i++){
-				ptr_coarse  = &(pMat_coarse->U[k][j][i].Er);
-				ptr_fine[0] = &(pMat_fine->U[2*k ][2*j ][2*i ].Er);
-				ptr_fine[1] = &(pMat_fine->U[2*k ][2*j ][2*i-1].Er);
-				ptr_fine[2] = &(pMat_fine->U[2*k ][2*j-1][2*i ].Er);
-				ptr_fine[3] = &(pMat_fine->U[2*k ][2*j-1][2*i-1].Er);
-				ptr_fine[4] = &(pMat_fine->U[2*k-1][2*j ][2*i ].Er);
-				ptr_fine[5] = &(pMat_fine->U[2*k-1][2*j ][2*i-1].Er);
-				ptr_fine[6] = &(pMat_fine->U[2*k-1][2*j-1][2*i ].Er);	
-				ptr_fine[7] = &(pMat_fine->U[2*k-1][2*j-1][2*i-1].Er);
+			if(coefflag){
+				ptr_coarse  = &(pMat_coarse->Ugas[k][j][i].rho);
+				ptr_fine[0] = &(pMat_fine->Ugas[2*k ][2*j ][2*i ].rho);
+				ptr_fine[1] = &(pMat_fine->Ugas[2*k ][2*j ][2*i-1].rho);
+				ptr_fine[2] = &(pMat_fine->Ugas[2*k ][2*j-1][2*i ].rho);
+				ptr_fine[3] = &(pMat_fine->Ugas[2*k ][2*j-1][2*i-1].rho);
+				ptr_fine[4] = &(pMat_fine->Ugas[2*k-1][2*j ][2*i ].rho);
+				ptr_fine[5] = &(pMat_fine->Ugas[2*k-1][2*j ][2*i-1].rho);
+				ptr_fine[6] = &(pMat_fine->Ugas[2*k-1][2*j-1][2*i ].rho);	
+				ptr_fine[7] = &(pMat_fine->Ugas[2*k-1][2*j-1][2*i-1].rho);
 
-				for(num=0; num<15+NOPACITY; num++){
+				for(num=0; num<11+NOPACITY; num++){
 
 					ptr_coarse[num] =  (ptr_fine[0][num] + ptr_fine[1][num]
 							 + ptr_fine[2][num] + ptr_fine[3][num]
@@ -956,9 +827,8 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 							 + ptr_fine[6][num] + ptr_fine[7][num]) / 8.0;
 
 				}
-				/* The initial guess is taken to be zero */
-				for(num=0; num<4; num++)
-					ptr_coarse[num] = 0.0;
+			}
+				
 			/*
 			pMat_coarse->U[k][j][i] = (pMat_fine->U[2*k ][2*j ][2*i ]  + pMat_fine->U[2*k ][2*j ][2*i-1]
 						+ pMat_fine->U[2*k ][2*j-1][2*i ] + pMat_fine->U[2*k ][2*j-1][2*i-1]
@@ -987,6 +857,20 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 						     +	error[2*k-1][2*j-1][2*i ][3]+ error[2*k-1][2*j-1][2*i-1][3]) / 8.0;	
 	}
 
+	/* Also set ghost zones to be zero */
+	for(k=pMat_coarse->ks-Matghost; k<=pMat_coarse->ke+Matghost; k++)
+		for(j=pMat_coarse->js-Matghost; j<=pMat_coarse->je+Matghost; j++)
+			for(i=pMat_coarse->is-Matghost; i<=pMat_coarse->ie+Matghost; i++){
+
+				/* The initial guess is taken to be zero */
+				pMat_coarse->U[k][j][i].Er = 0.0;
+				pMat_coarse->U[k][j][i].Fr1 = 0.0;
+				pMat_coarse->U[k][j][i].Fr2 = 0.0;
+				pMat_coarse->U[k][j][i].Fr3 = 0.0;
+
+		}
+		
+
 		/* Free the temporary array */
 		free_4d_array(error);
 
@@ -996,81 +880,12 @@ void Restriction3D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 }
 
 
-
-void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
-{
-
-	pMat_coarse->dx1 = 2.0 * pMat->dx1;
-	pMat_coarse->dx2 = 2.0 * pMat->dx2;
-	pMat_coarse->dx3 = 2.0 * pMat->dx3;
-	pMat_coarse->time = pMat->time;
-	pMat_coarse->Lx = pMat->Lx;
-	pMat_coarse->Ly = pMat->Ly;
-	pMat_coarse->Lz = pMat->Lz;
-	/* Grid numbers decrease by a factor of 2 */
-	pMat_coarse->Nx[0] = pMat->Nx[0] / 2;
-	pMat_coarse->Nx[1] = pMat->Nx[1] / 2;
-	pMat_coarse->Nx[2] = pMat->Nx[2] / 2;
-	/* top level grid number doesn't change */
-	pMat_coarse->RootNx[0] = pMat->RootNx[0];
-	pMat_coarse->RootNx[1] = pMat->RootNx[1];
-	pMat_coarse->RootNx[2] = pMat->RootNx[2];
-	pMat_coarse->MinX[0] = pMat->MinX[0];
-	pMat_coarse->MinX[1] = pMat->MinX[1];
-	pMat_coarse->MinX[2] = pMat->MinX[2];
-	pMat_coarse->MaxX[0] = pMat->MaxX[0];
-	pMat_coarse->MaxX[1] = pMat->MaxX[1];
-	pMat_coarse->MaxX[2] = pMat->MaxX[2];
-	pMat_coarse->NGrid[0] = pMat->NGrid[0];
-	pMat_coarse->NGrid[1] = pMat->NGrid[1];
-	pMat_coarse->NGrid[2] = pMat->NGrid[2];
-	pMat_coarse->dt = pMat->dt;
-	pMat_coarse->is = Matghost;
-	pMat_coarse->ie = pMat_coarse->Nx[0] + Matghost - 1;
-	pMat_coarse->js = Matghost;
-	pMat_coarse->je = pMat_coarse->Nx[1] + Matghost - 1;
-	pMat_coarse->ks = Matghost;
-	pMat_coarse->ke = pMat_coarse->Nx[2] + Matghost - 1;
-		
-	pMat_coarse->ID = pMat->ID;
-	pMat_coarse->my_iproc = pMat->my_iproc;
-	pMat_coarse->my_jproc = pMat->my_jproc; 
-	pMat_coarse->my_kproc = pMat->my_kproc;
-
-	pMat_coarse->bgflag = pMat->bgflag;
-
-	pMat_coarse->rx1_id = pMat->rx1_id;
-	pMat_coarse->lx1_id = pMat->lx1_id;
-	pMat_coarse->rx2_id = pMat->rx2_id;
-	pMat_coarse->lx2_id = pMat->lx2_id;
-	pMat_coarse->lx3_id = pMat->lx3_id;
-	pMat_coarse->rx3_id = pMat->rx3_id;
-
-	/* Boundary flag */
-	pMat_coarse->BCFlag_ix1 = pMat->BCFlag_ix1;
-	pMat_coarse->BCFlag_ox1 = pMat->BCFlag_ox1;
-	pMat_coarse->BCFlag_ix2 = pMat->BCFlag_ix2;
-	pMat_coarse->BCFlag_ox2 = pMat->BCFlag_ox2;
-	pMat_coarse->BCFlag_ix3 = pMat->BCFlag_ix3;
-	pMat_coarse->BCFlag_ox3 = pMat->BCFlag_ox3;
-
-	if((pMat_coarse->U = (RadMHDS***)calloc_3d_array(pMat_coarse->Nx[2]+2*Matghost,pMat_coarse->Nx[1]+2*Matghost, 	pMat_coarse->Nx[0]+2*Matghost,sizeof(RadMHDS))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
-
-	/* Allocate memory for the right hand size */
-	if((pMat_coarse->RHS = (Real****)calloc_4d_array(pMat_coarse->Nx[2]+2*Matghost,pMat_coarse->Nx[1]+2*Matghost, 	pMat_coarse->Nx[0]+2*Matghost,4,sizeof(Real))) == NULL)
-		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
-
-
-	return;
-}
-
 /*  calculate the residual of right hand side from guess solution */
 /* should allocate memory for newRHS before this function is called */
 void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 {
 
-	int i, j, k;
+	int i, j, k, m, n;
 	int is, ie, js, je, ks, ke;
 
 	is = pMat->is;
@@ -1093,16 +908,20 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 	Real varphi[16];
 
 
+	/* current level */
+	n = pMat->Level;
 
 	
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
-
-
-			matrix_coef(pMat, NULL, 3, i, j, k, 0.0, &(theta[0]), &(phi[0]), &(psi[0]), &(varphi[0]));
-
-
+				/* get the coefficient */
+				for(m=0; m<16; m++){
+					theta[m]  = Ptheta[n][k][j][i][m];
+					phi[m] 	  = Pphi[n][k][j][i][m];
+					psi[m]    = Ppsi[n][k][j][i][m];
+					varphi[m] = Pvarphi[n][k][j][i][m];
+				}
 
 			newRHS[k][j][i][0] = pMat->RHS[k][j][i][0];
 
@@ -1189,7 +1008,31 @@ void RHSResidual3D(MatrixS *pMat, Real ****newRHS)
 
 }
 
+/* Calculate the matrix coefficient for each level */
+void Calculate_Coef(MatrixS *pMat)
+{
+	int i, j, k;
+	int is, ie, js, je, ks, ke;
+	int n;
 
+	is = pMat->is;
+	ie = pMat->ie;
+	js = pMat->js;
+	je = pMat->je;
+	ks = pMat->ks;
+	ke = pMat->ke;
+
+	/* current level */
+	n = pMat->Level;
+
+	for(k=ks; k<=ke; k++)
+		for(j=js; j<=je; j++)
+			for(i=is; i<=ie; i++){
+
+				matrix_coef(pMat, NULL, 3, i, j, k, 0.0, &(Ptheta[n][k][j][i][0]), &(Pphi[n][k][j][i][0]), &(Ppsi[n][k][j][i][0]), &(Pvarphi[n][k][j][i][0]));
+		}
+
+}
 void Recombination(MatrixS *pMat, Real *****Reshist, Real *****Solhist, const int num, const Real *Norms)
 {
 	/* combine the latest 0 ... num-1 solution to minimize the current residual */
@@ -1259,7 +1102,7 @@ void Recombination(MatrixS *pMat, Real *****Reshist, Real *****Solhist, const in
 	/* now solve the (num-1)(num-1) matrix:  Matrixcoef alphas = MatrixRHS */ 
 	/* This is smaller than 5 * 5 matrix, can use direct method to solve */
 	/* LU decomposition */
-	ludcmp(Matrixcoef,num-1, index, dtemp, &flag);	
+	ludcmpnew(Matrixcoef,num-1, index, dtemp, &flag);	
 	/* If matrix is ill conditinoed, do not do recombination */
 	/* solve the matrix */
 	if(flag){
@@ -1404,7 +1247,7 @@ void ProU(const RadMHDS Uim1, const RadMHDS Ui, const RadMHDS Uip1,
     PCon[k][j][i].Fr1 = Ui.Fr1;
     PCon[k][j][i].Fr2 = Ui.Fr2;
     PCon[k][j][i].Fr3 = Ui.Fr3;
-
+  }}}
 /* second order prolongation -- apply limited slope reconstruction */
 #else /* SECOND_ORDER or THIRD_ORDER */
 
@@ -1479,6 +1322,319 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr){
 #endif /* FIRST_ORDER */
 
 
+
+
+
+void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
+{
+
+	pMat_coarse->dx1 = 2.0 * pMat->dx1;
+	pMat_coarse->dx2 = 2.0 * pMat->dx2;
+	pMat_coarse->dx3 = 2.0 * pMat->dx3;
+	pMat_coarse->time = pMat->time;
+	pMat_coarse->Lx = pMat->Lx;
+	pMat_coarse->Ly = pMat->Ly;
+	pMat_coarse->Lz = pMat->Lz;
+	/* Grid numbers decrease by a factor of 2 */
+	pMat_coarse->Nx[0] = pMat->Nx[0] / 2;
+	pMat_coarse->Nx[1] = pMat->Nx[1] / 2;
+	pMat_coarse->Nx[2] = pMat->Nx[2] / 2;
+	pMat_coarse->Level = pMat->Level + 1;
+	/* top level grid number doesn't change */
+	pMat_coarse->RootNx[0] = pMat->RootNx[0];
+	pMat_coarse->RootNx[1] = pMat->RootNx[1];
+	pMat_coarse->RootNx[2] = pMat->RootNx[2];
+	pMat_coarse->MinX[0] = pMat->MinX[0];
+	pMat_coarse->MinX[1] = pMat->MinX[1];
+	pMat_coarse->MinX[2] = pMat->MinX[2];
+	pMat_coarse->MaxX[0] = pMat->MaxX[0];
+	pMat_coarse->MaxX[1] = pMat->MaxX[1];
+	pMat_coarse->MaxX[2] = pMat->MaxX[2];
+	pMat_coarse->NGrid[0] = pMat->NGrid[0];
+	pMat_coarse->NGrid[1] = pMat->NGrid[1];
+	pMat_coarse->NGrid[2] = pMat->NGrid[2];
+	pMat_coarse->dt = pMat->dt;
+	pMat_coarse->is = Matghost;
+	pMat_coarse->ie = pMat_coarse->Nx[0] + Matghost - 1;
+	pMat_coarse->js = Matghost;
+	pMat_coarse->je = pMat_coarse->Nx[1] + Matghost - 1;
+	pMat_coarse->ks = Matghost;
+	pMat_coarse->ke = pMat_coarse->Nx[2] + Matghost - 1;
+		
+	pMat_coarse->ID = pMat->ID;
+	pMat_coarse->my_iproc = pMat->my_iproc;
+	pMat_coarse->my_jproc = pMat->my_jproc; 
+	pMat_coarse->my_kproc = pMat->my_kproc;
+
+	pMat_coarse->bgflag = pMat->bgflag;
+
+	pMat_coarse->rx1_id = pMat->rx1_id;
+	pMat_coarse->lx1_id = pMat->lx1_id;
+	pMat_coarse->rx2_id = pMat->rx2_id;
+	pMat_coarse->lx2_id = pMat->lx2_id;
+	pMat_coarse->lx3_id = pMat->lx3_id;
+	pMat_coarse->rx3_id = pMat->rx3_id;
+
+	/* Boundary flag */
+	pMat_coarse->BCFlag_ix1 = pMat->BCFlag_ix1;
+	pMat_coarse->BCFlag_ox1 = pMat->BCFlag_ox1;
+	pMat_coarse->BCFlag_ix2 = pMat->BCFlag_ix2;
+	pMat_coarse->BCFlag_ox2 = pMat->BCFlag_ox2;
+	pMat_coarse->BCFlag_ix3 = pMat->BCFlag_ix3;
+	pMat_coarse->BCFlag_ox3 = pMat->BCFlag_ox3;
+
+	/* memory is already relocated. Just set the pointer */
+
+	pMat_coarse->U    = U_coarse[pMat_coarse->Level];
+	pMat_coarse->Ugas = Ugas_coarse[pMat_coarse->Level];
+	pMat_coarse->RHS  = RHS_coarse[pMat_coarse->Level];
+
+
+
+	return;
+}
+
+
+
+
+/*-------------------------------------------------------------------------*/
+/* BackEuler_init_2d: function to allocate memory used just for radiation variables */
+/* BackEuler_destruct_2d(): function to free memory */
+void BackEuler_init_3d(MeshS *pM)
+{
+
+	DomainS *pD;
+	pD= &(pM->Domain[0][0]);
+	
+	GridS *pG=pD->Grid;
+	int Nx, Ny, Nz;
+	int Nx2, Ny2, Nz2;
+	int i;
+	Real temp;
+	
+
+	Nx = pG->ie - pG->is + 1;
+	Ny = pG->je - pG->js + 1;
+	Nz = pG->ke - pG->ks + 1;
+
+	/* Reach bottom first for the side with the smallest size*/
+	Nlevel = Nx;
+	if(Ny < Nx) Nlevel = Ny;
+	if(Nz < Nx) Nlevel = Nz;
+
+	Nlevel /= Nlim;
+	
+	temp = log10(Nlevel)/log10(2.0);
+
+	Nlevel = (int)temp;
+	if(fabs(temp-Nlevel) > 0.5) Nlevel++;
+	Nlevel++;
+	
+
+	/* pMat will remain in the memory until the end of the simulation */
+
+	if((pMat = (MatrixS*)calloc(1,sizeof(MatrixS))) == NULL)
+		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+	if((pMat->U = (RadMHDS***)calloc_3d_array(Nz+2*Matghost,Ny+2*Matghost, Nx+2*Matghost,sizeof(RadMHDS))) == NULL)
+		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+	if((pMat->Ugas = (RadCoefS***)calloc_3d_array(Nz+2*Matghost,Ny+2*Matghost, Nx+2*Matghost,sizeof(RadCoefS))) == NULL)
+		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+	if((pMat->RHS = (Real****)calloc_4d_array(Nz+2*Matghost,Ny+2*Matghost, Nx+2*Matghost,4,sizeof(Real))) == NULL)
+		ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+	if((INIerror=(Real****)calloc_4d_array(Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
+
+
+	if((Reshist=(Real*****)calloc_5d_array(MAXerror,Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((Solhist=(Real*****)calloc_5d_array(MAXerror,Nz+2*Matghost,Ny+2*Matghost,Nx+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((Resnorm=(Real*)calloc(MAXerror,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");	
+
+	/*==================================================================*/
+	/* The pointer to store the pointer of the coefficients at each level */
+	if((Ptheta=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+	
+
+	if((Pphi=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((Ppsi=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+
+	if((Pvarphi=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+
+	if((U_coarse=(RadMHDS****)calloc(Nlevel,sizeof(RadMHDS***))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((Ugas_coarse=(RadCoefS****)calloc(Nlevel,sizeof(RadCoefS***))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+	if((RHS_coarse=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+
+	/* allocate memory at each level */
+	Nx2 = Nx;
+	Ny2 = Ny;
+	Nz2 = Nz;
+
+	for(i=0; i<Nlevel; i++){
+
+		if((Ptheta[i]=(Real****)calloc_4d_array(Nz2+2*Matghost,Ny2+2*Matghost,Nx2+2*Matghost,16,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+		if((Pphi[i]=(Real****)calloc_4d_array(Nz2+2*Matghost,Ny2+2*Matghost,Nx2+2*Matghost,16,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+		if((Ppsi[i]=(Real****)calloc_4d_array(Nz2+2*Matghost,Ny2+2*Matghost,Nx2+2*Matghost,16,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+		if((Pvarphi[i]=(Real****)calloc_4d_array(Nz2+2*Matghost,Ny2+2*Matghost,Nx2+2*Matghost,16,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+		if((U_coarse[i] = (RadMHDS***)calloc_3d_array(Nz2+2*Matghost,Ny2+2*Matghost, Nx2+2*Matghost,sizeof(RadMHDS))) == NULL)
+			ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+		if((Ugas_coarse[i] = (RadCoefS***)calloc_3d_array(Nz2+2*Matghost,Ny2+2*Matghost, Nx2+2*Matghost,sizeof(RadCoefS))) == NULL)
+			ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+		if((RHS_coarse[i] = (Real****)calloc_4d_array(Nz2+2*Matghost,Ny2+2*Matghost, Nx2+2*Matghost,4,sizeof(Real))) == NULL)
+			ath_error("[BackEuler_init_3d]: malloc return a NULL pointer\n");
+
+
+		Nx2 /= 2;
+		Ny2 /= 2;
+		Nz2 /= 2;
+	}
+	/*==========================================================================*/
+	/* now set the parameters */
+
+	pMat->dx1 = pG->dx1;
+	pMat->dx2 = pG->dx2;
+	pMat->dx3 = pG->dx3;
+	pMat->time = pG->time;
+	/* dt in pG is not set at this time */
+	/* pMat->dt = pG->dt;
+	*/
+	pMat->Lx = pD->RootMaxX[0] - pD->RootMinX[0];
+	pMat->Ly = pD->RootMaxX[1] - pD->RootMinX[1];
+	pMat->Lz = pD->RootMaxX[2] - pD->RootMinX[2];
+
+	pMat->is = Matghost;
+	pMat->ie = Nx + Matghost - 1;
+	pMat->js = Matghost;
+	pMat->je = Ny + Matghost - 1;
+	pMat->ks = Matghost;
+	pMat->ke = Nz + Matghost - 1;
+	pMat->Nx[0] = Nx;
+	pMat->Nx[1] = Ny;
+	pMat->Nx[2] = Nz;
+	pMat->RootNx[0] = Nx;
+	pMat->RootNx[1] = Ny;
+	pMat->RootNx[2] = Nz;
+	pMat->Level = 0;
+	pMat->MinX[0] = pG->MinX[0];
+	pMat->MinX[1] = pG->MinX[1];
+	pMat->MinX[2] = pG->MinX[2];
+	pMat->MaxX[0] = pG->MaxX[0];
+	pMat->MaxX[1] = pG->MaxX[1];
+	pMat->MaxX[2] = pG->MaxX[2];
+	pMat->NGrid[0] = pD->NGrid[0];
+	pMat->NGrid[1] = pD->NGrid[1];
+	pMat->NGrid[2] = pD->NGrid[2];
+	pMat->rx1_id = pG->rx1_id;
+	pMat->lx1_id = pG->lx1_id;
+	pMat->rx2_id = pG->rx2_id;
+	pMat->lx2_id = pG->lx2_id;
+	pMat->lx3_id = pG->lx3_id;
+	pMat->rx3_id = pG->rx3_id;
+#ifdef MPI_PARALLEL
+	pMat->ID = myID_Comm_world;
+	get_myGridIndex(pD, myID_Comm_world, &(pMat->my_iproc), &(pMat->my_jproc), &(pMat->my_kproc));
+#else
+	pMat->ID = 0;
+	pMat->my_iproc = 0;
+	pMat->my_jproc = 0;
+	pMat->my_kproc = 0;
+#endif
+
+
+	/* Boundary flag */
+	pMat->BCFlag_ix1 = pM->BCFlag_ix1;
+	pMat->BCFlag_ox1 = pM->BCFlag_ox1;
+	pMat->BCFlag_ix2 = pM->BCFlag_ix2;
+	pMat->BCFlag_ox2 = pM->BCFlag_ox2;
+	pMat->BCFlag_ix3 = pM->BCFlag_ix3;
+	pMat->BCFlag_ox3 = pM->BCFlag_ox3;
+
+	/* To decide whether subtract background solution at top level or not */
+	/* Default choice is not */
+	pMat->bgflag = 1;
+	
+
+
+}
+
+
+void BackEuler_destruct_3d()
+{
+	int i;
+	/* Free pMat and pMatnew */
+	if(pMat->U != NULL)
+		free_3d_array(pMat->U);
+
+	if(pMat->Ugas != NULL)
+		free_3d_array(pMat->Ugas);
+
+	if(pMat->RHS != NULL)
+		free_4d_array(pMat->RHS);
+
+	if(pMat != NULL)
+		free(pMat);
+
+	if(INIerror != NULL)
+		free_4d_array(INIerror);
+
+	if(Reshist != NULL)
+		free_5d_array(Reshist);
+
+	if(Solhist != NULL)
+		free_5d_array(Solhist);
+
+	if(Resnorm != NULL)
+		free(Resnorm);
+
+
+	for(i=0; i<Nlevel; i++){
+		free_4d_array(Ptheta[i]);
+		free_4d_array(Pphi[i]);
+		free_4d_array(Ppsi[i]);
+		free_4d_array(Pvarphi[i]);
+
+		free_3d_array(U_coarse[i]);
+		free_3d_array(Ugas_coarse[i]);
+		free_4d_array(RHS_coarse[i]);		
+	}		
+
+	free(Ptheta);
+	free(Pphi);
+	free(Ppsi);
+	free(Pvarphi);
+	
+	free(U_coarse);
+	free(Ugas_coarse);
+	free(RHS_coarse);
+
+}
 
 
 

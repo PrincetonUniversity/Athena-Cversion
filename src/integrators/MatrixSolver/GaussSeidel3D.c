@@ -33,7 +33,7 @@ extern void bvals_Matrix(MatrixS *pMat);
  * For ghost zones, we do not use the updated version */
 /* So differenet CPUs do not need wait for each other to finish */
 
-void GaussSeidel3D(MatrixS *pMat)
+void GaussSeidel3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi)
 {
 
 	int i, j, k, n;
@@ -51,41 +51,8 @@ void GaussSeidel3D(MatrixS *pMat)
 
 	/* damped parameter */
 	Real omega, Ert0, Frt0;
-	omega = 0.5;
-
-	/* To store the coefficient */
-	Real ****theta = NULL;
-	Real ****phi = NULL;
-	Real ****psi = NULL;
-	Real ****varphi = NULL;
-
-	if((theta = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	if((phi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
+	omega = 0.6;
 	
-	if((psi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-	if((varphi = (Real****)calloc_4d_array(ke-ks+1+2*Matghost,je-js+1+2*Matghost, ie-is+1+2*Matghost,16,sizeof(Real))) == NULL)
-		ath_error("[GaussSeidel3D]: malloc return a NULL pointer\n");
-
-			
-	/* First, Update the boundary cells */
-	/* We do not set ghost zones after prolongation */
-	/* velocity and T4 in the ghost zones are never used */
-	/* We only need Er and Fr in the ghost zones */
-	/* Use seperate loop to avoid if in next loop */
-
-	/* Only need to calculate the coefficient once */
-	for(k=ks; k<=ke; k++)
-		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){				
-			matrix_coef(pMat, NULL, 3, i, j, k, 0.0, &(theta[k][j][i][0]), &(phi[k][j][i][0]), &(psi[k][j][i][0]), &(varphi[k][j][i][0]));
-							
-	}
-
 
 /* Hardware to Ncycle */
 for(n=0; n<Ncycle; n++){
@@ -115,7 +82,7 @@ for(n=0; n<Ncycle; n++){
 			temp0 = theta[k][j][i][7] * pMat->U[k][j][i].Fr1 + theta[k][j][i][8] * pMat->U[k][j][i].Fr2 + theta[k][j][i][9] * pMat->U[k][j][i].Fr3;
 
 			pMat->U[k][j][i].Er -= ((tempEr1 + tempEr2 + tempEr3));
-			pMat->U[k][j][i].Er -= (tempFr1 + tempFr2 + tempFr3) + temp0;
+			pMat->U[k][j][i].Er -= ((tempFr1 + tempFr2 + tempFr3) + temp0);
 
 			/* diagonal elements are not included */
 
@@ -205,19 +172,8 @@ for(n=0; n<Ncycle; n++){
 	bvals_Matrix(pMat);
 
 
-}	
-  
-	if(theta != NULL)
-		free_4d_array(theta);
-
-	if(phi != NULL)
-		free_4d_array(phi);
-
-	if(psi != NULL)
-		free_4d_array(psi);
-
-	if(varphi != NULL)
-		free_4d_array(varphi);
+}	  
+	
 
 	return;	
 	

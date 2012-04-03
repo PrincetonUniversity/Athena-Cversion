@@ -134,6 +134,16 @@ void radMHD_Mat_inflowks(MatrixS *pMat);
 #endif
 #endif
 
+
+#ifdef RESISTIVITY
+/* To save the maximum J/rho from last step */
+/* This is used as normalization factor */
+static Real Jrhomax;
+static Real Jmaxtemp = 0.0; /* to calculate the maximum J in current time step */
+
+#endif
+
+
 static Real ztop, zbtm;
 
 static Real betay;
@@ -148,7 +158,7 @@ static Real ghostrho[4];
 static Real inidata[3];
 /* Save the initial Er, Fr and rho at ke */
 
-static Real Tfloor = 0.1;
+static Real Tfloor = 0.03;
 static Real dfloor = 1.e-5;
 
 #define Dataline 256
@@ -281,7 +291,7 @@ void problem(DomainS *pDomain)
 	R_ideal = par_getd("problem","R_ideal");
 	Eratio = par_getd_def("problem","Eratio",0.00);
 	Erflag = par_getd_def("problem","Erflag",1);
-	Ncycle = par_getd_def("problem","Ncycle",6);
+	Ncycle = par_getd_def("problem","Ncycle",15);
   	TOL  = par_getd_def("problem","TOL",1.e-10);
 #endif
 	printf("Eratio: %f  Erflag: %d\n",Eratio,Erflag);
@@ -630,7 +640,8 @@ void problem(DomainS *pDomain)
 #endif
 
 #ifdef RESISTIVITY
-  eta_Ohm = par_getd_def("problem","eta_O",0.0);
+  eta_Ohm = par_getd_def("problem","eta_O",1.0);
+  Jrhomax = 1.0;
 #endif
 
 
@@ -871,7 +882,11 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 #ifdef RESISTIVITY
 	fwrite(&eta_Ohm,sizeof(Real),1,fp);
+        fwrite(&Jrhomax,sizeof(Real),1,fp);
 #endif
+
+    fwrite(&zbtm,sizeof(Real),1,fp);
+    fwrite(&ztop,sizeof(Real),1,fp);
 
   return;
 }
@@ -897,7 +912,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 #endif
 	
 #ifdef SHEARING_BOX
-    fread(&qshear,sizeof(Real),1,fp);
+    	fread(&qshear,sizeof(Real),1,fp);
 	fread(&Omega_0,sizeof(Real),1,fp);
 #endif
 	
@@ -916,7 +931,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	fread(&Erflag,sizeof(int),1,fp);
 
 /*
-	Ncycle = 3;
+	Ncycle = 30;
+
 	TOL = 1.e-10;
 */
 
@@ -939,9 +955,12 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 #ifdef RESISTIVITY
 	fread(&eta_Ohm,sizeof(Real),1,fp);
-
+	fread(&Jrhomax,sizeof(Real),1,fp);
 	eta_Ohm = 1;
 #endif
+
+       fread(&zbtm,sizeof(Real),1,fp);
+       fread(&ztop,sizeof(Real),1,fp);
 
 /* enroll gravitational potential function */
 #ifdef SHEARING_BOX
@@ -1107,10 +1126,10 @@ VOutFun_t get_usr_out_fun(const char *name)
 
 
 #ifdef RESISTIVITY
-void get_eta_user(GridS *pG, int i, int j, int k,
+/*void get_eta_user(GridS *pG, int i, int j, int k,
 					  Real *eta_O, Real *eta_H, Real *eta_A)
 {
-	/* Set eta */
+
 	Real dl, eta0, lz;
         Real x1, x2, x3;
         Real pressure, T, Bp;
@@ -1128,45 +1147,138 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	cc_pos(pG, i, j,k, &x1, &x2, &x3);
 
 	lz = 8.0;
-	if(pG->time < 15.0){
-		if(fabs(x3) < 1.5 * lz / 8.0)
+	if(pG->time < 40.0){
+
+		if(fabs(x3) < 2.0)
                         eta0 = 0.0;
-		*eta_O = eta0;
-	}
-	else if(pG->time < 100.0){
-	 if(fabs(x3) < 6.0 * lz / 8.0)
-                	eta0 = 0.0;
+	
+	
 
-       	*eta_O = 0.5 * eta0 * (sin(0.5 * PI * (1.0 * fabs(x3)  - 7.0 )) + 1.0);
-
-
-/*		pressure = hst_P(pG,i,j,k);
-		Bp = hst_EB(pG,i,j,k);
-		if(pressure / Bp < 0.01)
-			*eta_O = eta0;
-
-		if(pG->U[k][j][i].d < 1.e-3)
-			*eta_O = eta0;
-*/
-
+       	*eta_O = 0.5 * eta0 * (sin(0.5 * PI * (1.0 * fabs(x3)  - 3.0 )) + 1.0);
+	*eta_O = eta0;
 	}
 	else{
 		*eta_O = 0.0;
 	}
-	
-/*
-	pressure = hst_P(pG,i,j,k);
-	T = pressure / (R_ideal * pG->U[k][j][i].d);
-	if(T > 3.0 * pow(pG->U[k][j][i].Er,0.25))
-		*eta_O = eta0;
-	else
-		*eta_O = 0.0;
-*/
 
 	*eta_O = 0.0;
 	*eta_H = 0.0;
 	*eta_A = 0.0;
 		return;
+}
+*/
+
+void get_eta_user(GridS *pG, int i, int j, int k,
+					  Real *eta_O, Real *eta_H, Real *eta_A)
+{
+
+	int is = pG->is; 
+	int ie = pG->ie;
+	int js = pG->js;
+	int je = pG->je;
+	int ks = pG->ks;
+	int ke = pG->ke;
+	Real dl, eta0, lz;
+	Real jx1, jx2, jx3, jx4, jy1, jy2, jy3, jy4, jz1, jz2, jz3, jz4, jx, jy, jz, J;
+        Real x1, x2, x3;
+	dl = pG->dx1;
+        if(pG->dx2 < dl) dl = pG->dx2;
+        if(pG->dx3 < dl) dl = pG->dx3;
+
+	if(pG->dt > TINY_NUMBER){	
+		
+        	eta0 = 0.03 * dl * dl/pG->dt;
+	}	
+	else{
+		eta0 = 0.0;
+	}
+	Real factor = 0.2;
+	/* First, calculate the current */
+	/* current is on the edge */
+	if((i != (is-4)) && (j != (js-4)) && (k != (ks-4)) && (i != (ie+4)) && (j != (je+4)) && (k != (ke+4))){
+		/* use cell centered magnetic field */
+		/* To get cell centered current */
+		/* x component */
+		jx1 = (pG->B3i[k][j][i] - pG->B3i[k  ][j-1][i  ])/pG->dx2 -
+                        (pG->B2i[k][j][i] - pG->B2i[k-1][j  ][i  ])/pG->dx3;
+
+		jx2 = (pG->B3i[k][j+1][i] - pG->B3i[k  ][j][i  ])/pG->dx2 -
+                        (pG->B2i[k][j+1][i] - pG->B2i[k-1][j+1 ][i  ])/pG->dx3;
+
+		jx3 = (pG->B3i[k+1][j][i] - pG->B3i[k+1][j-1][i  ])/pG->dx2 -
+                        (pG->B2i[k+1][j][i] - pG->B2i[k][j  ][i  ])/pG->dx3;
+
+		jx4 = (pG->B3i[k+1][j+1][i] - pG->B3i[k+1][j][i  ])/pG->dx2 -
+                        (pG->B2i[k+1][j+1][i] - pG->B2i[k][j+1][i  ])/pG->dx3;
+
+		jx = 0.25 * (jx1 + jx2 + jx3 + jx4);
+
+		/* y component */
+		jy1 = (pG->B1i[k][j][i] - pG->B1i[k-1][j  ][i  ])/pG->dx3 -
+                        (pG->B3i[k][j][i] - pG->B3i[k  ][j  ][i-1])/pG->dx1;
+
+		jy2 = (pG->B1i[k][j][i+1] - pG->B1i[k-1][j  ][i+1])/pG->dx3 -
+                        (pG->B3i[k][j][i+1] - pG->B3i[k  ][j  ][i])/pG->dx1;
+
+		jy3 = (pG->B1i[k+1][j][i] - pG->B1i[k][j  ][i  ])/pG->dx3 -
+                        (pG->B3i[k+1][j][i] - pG->B3i[k+1][j  ][i-1])/pG->dx1;
+
+		jy4 = (pG->B1i[k+1][j][i+1] - pG->B1i[k][j  ][i+1])/pG->dx3 -
+                        (pG->B3i[k+1][j][i+1] - pG->B3i[k+1][j ][i])/pG->dx1;
+
+		jy = 0.25 * (jy1 + jy2 + jy3 + jy4);
+		/* z component */
+		jz1 = (pG->B2i[k][j][i] - pG->B2i[k  ][j  ][i-1])/pG->dx1 -
+                        (pG->B1i[k][j][i] - pG->B1i[k  ][j-1][i  ])/pG->dx2;
+
+		jz2 = (pG->B2i[k][j][i+1] - pG->B2i[k  ][j  ][i])/pG->dx1 -
+                        (pG->B1i[k][j][i+1] - pG->B1i[k  ][j-1][i+1  ])/pG->dx2;
+
+		jz3 = (pG->B2i[k][j+1][i] - pG->B2i[k  ][j+1][i-1])/pG->dx1 -
+                        (pG->B1i[k][j+1][i] - pG->B1i[k  ][j][i  ])/pG->dx2;
+
+		jz4 = (pG->B2i[k][j+1][i+1] - pG->B2i[k  ][j+1][i])/pG->dx1 -
+                        (pG->B1i[k][j+1][i+1] - pG->B1i[k  ][j][i+1])/pG->dx2;
+
+		jz = 0.25 * (jz1 + jz2 + jz3 + jz4);
+		
+		J = sqrt(jx * jx + jy * jy + jz * jz);
+	}
+	else{
+		J = 0.0;
+	}
+
+	J /= pG->U[k][j][i].d;
+
+	if(J > Jmaxtemp)
+		Jmaxtemp = J;
+
+	cc_pos(pG,i,j,k,&x1,&x2,&x3);
+	
+	if(fabs(x3) > 1.5){
+		if(Jrhomax > 0.0){
+			if(J > factor * Jrhomax){
+				*eta_O = eta0 * J * J /(Jrhomax * Jrhomax);
+			}
+			else{
+				*eta_O = eta0;
+			}
+		}
+		else{
+			*eta_O = 0.0;
+		}
+	}
+	else{
+		*eta_O = 0.0;
+	}
+
+	if(*eta_O > eta0)
+		*eta_O = eta0;
+
+	*eta_H = 0.0;
+	*eta_A = 0.0;
+
+	return;
 }
 #endif
 
@@ -1174,6 +1286,113 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 
 void Userwork_in_loop(MeshS *pM)
 {
+
+#ifdef RESISTIVITY
+	int ierr;
+	Real Jtemp;
+	/* replace maximum J/rho with the maximum value from last time step */
+	/* Find the maximum drift velocity over the whole mesh for current time step*/
+#ifdef MPI_PARALLEL
+	ierr = MPI_Allreduce(&Jmaxtemp,&Jtemp,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+	Jmaxtemp = Jtemp;
+#endif
+
+	Jrhomax = Jmaxtemp;
+#endif
+
+
+
+/*
+
+ Real betafloor = 0.000;
+	
+
+	 GridS *pG;
+        int i, j, k;
+        int ie, is;
+        int je, js;
+        int ke, ks;
+	int badcellflag;
+        Real pressure, velocity, velocity_x, velocity_y, velocity_z, Bpre, beta;
+	PrimS Wtemp;      
+	pG = pM->Domain[0][0].Grid;
+      
+
+        ie = pG->ie;
+        is = pG->is;
+        je = pG->je;
+        js = pG->js;
+        ke = pG->ke;
+        ks = pG->ks;
+
+
+
+
+
+
+        for(k=ks; k<=ke; k++) {
+                for (j=js; j<=je; j++) {
+                        for (i=is; i<=ie; i++) {
+
+   			badcellflag = 0;
+
+			velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+                         velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+                         velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+                         Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+
+                         Bpre = 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+
+			 if(Wtemp.P < 2.0 * TINY_NUMBER){
+				if(pG->U[k][j][i].d < dfloor){
+					 Wtemp.P = dfloor * R_ideal * Tfloor;
+				}
+				else{
+					Wtemp.P = pG->U[k][j][i].d * R_ideal * Tfloor;
+				}
+				badcellflag = 1;
+			}
+
+			
+			if(pG->U[k][j][i].d < dfloor){
+
+                              pG->U[k][j][i].d = dfloor;
+
+                              Wtemp.d =  dfloor;
+			      pG->U[k][j][i].M1 =  pG->U[k][j][i].d * velocity_x;
+			      pG->U[k][j][i].M2 =  pG->U[k][j][i].d * velocity_y;
+			      pG->U[k][j][i].M3 =  pG->U[k][j][i].d * velocity_z;
+
+			     badcellflag = 1;
+			}
+
+			if(badcellflag){
+				 pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0) + 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+                                 pG->U[k][j][i].E += Bpre;
+#endif
+
+
+			}
+#ifdef RADIATION_MHD
+                                 if(fabs(Bpre) > 0.0){
+                                        beta = Wtemp.P / Bpre;
+                                        if(beta < betafloor){
+                                                Wtemp.P *= betafloor / beta;
+                                                pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0)  + 0.5 * pG->U[k][j][i].d * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+                                                pG->U[k][j][i].E += Bpre;
+
+ 					}
+
+                                }
+#endif
+
+                        }
+                }
+        }
+
+*/
 }
 
 void Userwork_after_loop(MeshS *pM)
@@ -1272,7 +1491,17 @@ static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3)
 
 static Real grav_vertical(const Real x1, const Real x2, const Real x3)
 {
-  return 0.5 * Omega_0 * Omega_0 * x3 * x3;
+	/* In the ghost zeons, set the gravitational potential to be flat */
+	Real h;
+
+	if(x3 > ztop)
+		h = ztop;
+	else if(x3 < zbtm)
+		h = zbtm;
+	else
+		h = x3;		
+
+  return 0.5 * Omega_0 * Omega_0 * h * h;
 }
 
 static Real hst_gravpot(const GridS *pG,const int i,const int j, const int k)
@@ -1983,11 +2212,11 @@ void radMHD_inflowke(GridS *pGrid)
 */
 		/* Tfloor is usually set as initial temperature in the ghost zoner */
 
-/*
+
 		if(velocity3 < TINY_NUMBER){
 			velocity3 = 0.0;
 		}
-*/		
+		
 		/* Now extrapolate the density to balance gravity assuming a constant temperature in the ghost zones */
 		
 /*        	pGrid->U[ke+k][j][i].d = MAX(pGrid->U[ke][j][i].d*exp(-(x3*x3-x3t*x3t)/(2.0*T/(Omega_0*Omega_0))), 1.e-8);
@@ -2050,7 +2279,7 @@ void radMHD_rad_inflowke(GridS *pGrid)
 	Real velocity_x, velocity_y, velocity_z;
 	Real velocity_x1, velocity_y1, velocity_z1;
 	Real Sigma_t, Sigma_t1;
-	Real Eratio, reducefactor;
+	Real Eratio, reducefactor, tau;
 
 
 	Real x1, x2, x3;
@@ -2068,9 +2297,18 @@ void radMHD_rad_inflowke(GridS *pGrid)
 		pGrid->U[ke+k][j][i].Edd_31 = pGrid->U[ke][j][i].Edd_31;
 		pGrid->U[ke+k][j][i].Edd_32 = pGrid->U[ke][j][i].Edd_32;
 		pGrid->U[ke+k][j][i].Edd_33 = pGrid->U[ke][j][i].Edd_33;
-
+	
 		matrix_alpha(0.0, pGrid->U[ke+k][j][i].Sigma, pGrid->dt, pGrid->U[ke+k][j][i].Edd_33, 0.0, &reducefactor, 0, dz);
+	
+	/*
+		tau = pGrid->dt * Crat * (pGrid->U[ke+k][j][i].Sigma[0] + pGrid->U[ke+k][j][i].Sigma[1]);
+		tau = tau * tau / (2.0 * pGrid->U[ke+k][j][i].Edd_33);
 
+		if(tau > 0.001)
+			reducefactor = sqrt(pGrid->U[ke+k][j][i].Edd_33 * (1.0 - exp(- tau)) / tau);
+		else
+			reducefactor = sqrt(pGrid->U[ke+k][j][i].Edd_33 * (1.0 - 0.5 * tau));			
+	*/
 		Sigma_t = 0.5 * (pGrid->U[ke+k][j][i].Sigma[0] + pGrid->U[ke+k][j][i].Sigma[1] + pGrid->U[ke+k-1][j][i].Sigma[0] + pGrid->U[ke+k-1][j][i].Sigma[1]);
 		Sigma_t1 = 0.5 * (pGrid->U[ke+k-1][j][i].Sigma[0] + pGrid->U[ke+k-1][j][i].Sigma[1] + pGrid->U[ke+k-2][j][i].Sigma[0] + pGrid->U[ke+k-2][j][i].Sigma[1]);
 	
@@ -2084,11 +2322,11 @@ void radMHD_rad_inflowke(GridS *pGrid)
 
 
 		
-		Fr0x = pGrid->U[ke+k-1][j][i].Fr1 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_11) * velocity_x + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_y + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_z)* pGrid->U[ke][j][i].Er / Crat;
+		Fr0x = pGrid->U[ke+k-1][j][i].Fr1 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_11) * velocity_x + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_y + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_z)* pGrid->U[ke+k-1][j][i].Er / Crat;
 
-		Fr0y = pGrid->U[ke+k-1][j][i].Fr2 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_22) * velocity_y + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_z)* pGrid->U[ke][j][i].Er / Crat;
+		Fr0y = pGrid->U[ke+k-1][j][i].Fr2 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_22) * velocity_y + pGrid->U[ke+k-1][j][i].Edd_21 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_z)* pGrid->U[ke+k-1][j][i].Er / Crat;
 
-		Fr0z = pGrid->U[ke+k-1][j][i].Fr3 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_33) * velocity_z + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_y)* pGrid->U[ke][j][i].Er / Crat;
+		Fr0z = pGrid->U[ke+k-1][j][i].Fr3 - ((1.0 + pGrid->U[ke+k-1][j][i].Edd_33) * velocity_z + pGrid->U[ke+k-1][j][i].Edd_31 * velocity_x + pGrid->U[ke+k-1][j][i].Edd_32 * velocity_y)* pGrid->U[ke+k-1][j][i].Er / Crat;
 
 		velocity_x1 = pGrid->U[ke+k][j][i].M1 / pGrid->U[ke+k][j][i].d;
 		velocity_y1 = pGrid->U[ke+k][j][i].M2 / pGrid->U[ke+k][j][i].d;
@@ -2144,7 +2382,7 @@ void radMHD_rad_inflowke(GridS *pGrid)
 		
 		pGrid->U[ke+k][j][i].Er = (pGrid->U[ke+k-1][j][i].Edd_33 * pGrid->U[ke+k-1][j][i].Er - 0.5 * pGrid->dx3 * Sigma_t * Fr0z ) / Eratio;
 
-		if(pGrid->U[ke+k][j][i].Er > pGrid->U[ke+k-1][j][i].Er){
+		if((pGrid->U[ke+k][j][i].Er > pGrid->U[ke+k-1][j][i].Er) || (pGrid->U[ke+k][j][i].Er < 0.0)){
 			Eratio = pGrid->U[ke+k][j][i].Edd_33 + pGrid->dx3 * reducefactor * Sigma_t;
 			pGrid->U[ke+k][j][i].Er = pGrid->U[ke+k-1][j][i].Edd_33 * pGrid->U[ke+k-1][j][i].Er / Eratio;
 		}	
@@ -2309,11 +2547,11 @@ void radMHD_inflowks(GridS *pGrid)
 		if(T > Tfloor)
 			T = Tfloor;
 */			
-/*
+
 		if(velocity3 > TINY_NUMBER){
 			velocity3 = 0.0;
 		}
-*/		
+		
 		/* Now extrapolate the density to balance gravity assuming a constant temperature in the ghost zones */
   /*      	pGrid->U[ks-k][j][i].d = MAX(pGrid->U[ks][j][i].d*exp(-(x3*x3-x3b*x3b)/(2.0*T/(Omega_0*Omega_0))), 1.e-8);
 		if(pGrid->U[ks-k][j][i].d > pGrid->U[ks][j][i].d) pGrid->U[ks-k][j][i].d = pGrid->U[ks][j][i].d;
@@ -2371,7 +2609,7 @@ void radMHD_rad_inflowks(GridS *pGrid)
 	Real velocity_x, velocity_y, velocity_z;
 	Real velocity_x1, velocity_y1, velocity_z1;
 	Real Sigma_t, Sigma_t1;
-	Real Eratio, reducefactor;
+	Real Eratio, reducefactor, tau;
 
 
 	Real x1, x2, x3;
@@ -2391,7 +2629,16 @@ void radMHD_rad_inflowks(GridS *pGrid)
 		pGrid->U[ks-k][j][i].Edd_33 = pGrid->U[ks][j][i].Edd_33;
 
 		matrix_alpha(0.0, pGrid->U[ks-k][j][i].Sigma, pGrid->dt, pGrid->U[ks-k][j][i].Edd_33, 0.0, &reducefactor, 0, dz);
+	
+	
+	/*	tau = pGrid->dt * Crat * (pGrid->U[ks-k][j][i].Sigma[0] + pGrid->U[ks-k][j][i].Sigma[1]);
+		tau = tau * tau / (2.0 * pGrid->U[ks-k][j][i].Edd_33);
 
+		if(tau > 0.001)
+			reducefactor = sqrt(pGrid->U[ks-k][j][i].Edd_33 * (1.0 - exp(- tau)) / tau);
+		else
+			reducefactor = sqrt(pGrid->U[ks-k][j][i].Edd_33 * (1.0 - 0.5 * tau));	
+	*/
 		Sigma_t = 0.5 * (pGrid->U[ks-k][j][i].Sigma[0] + pGrid->U[ks-k][j][i].Sigma[1] + pGrid->U[ks-k+1][j][i].Sigma[0] + pGrid->U[ks-k+1][j][i].Sigma[1]);
 		Sigma_t1 = 0.5 * (pGrid->U[ks-k+1][j][i].Sigma[0] + pGrid->U[ks-k+1][j][i].Sigma[1] + pGrid->U[ks-k+2][j][i].Sigma[0] + pGrid->U[ks-k+2][j][i].Sigma[1]);
 	
@@ -2405,11 +2652,11 @@ void radMHD_rad_inflowks(GridS *pGrid)
 
 		
 
-		Fr0x = pGrid->U[ks-k+1][j][i].Fr1 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_11) * velocity_x + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_y + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_z)* pGrid->U[ks][j][i].Er / Crat;
+		Fr0x = pGrid->U[ks-k+1][j][i].Fr1 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_11) * velocity_x + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_y + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_z)* pGrid->U[ks-k+1][j][i].Er / Crat;
 
-		Fr0y = pGrid->U[ks-k+1][j][i].Fr2 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_22) * velocity_y + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_z)* pGrid->U[ks][j][i].Er / Crat;
+		Fr0y = pGrid->U[ks-k+1][j][i].Fr2 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_22) * velocity_y + pGrid->U[ks-k+1][j][i].Edd_21 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_z)* pGrid->U[ks-k+1][j][i].Er / Crat;
 
-		Fr0z = pGrid->U[ks-k+1][j][i].Fr3 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_33) * velocity_z + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_y)* pGrid->U[ks][j][i].Er / Crat;
+		Fr0z = pGrid->U[ks-k+1][j][i].Fr3 - ((1.0 + pGrid->U[ks-k+1][j][i].Edd_33) * velocity_z + pGrid->U[ks-k+1][j][i].Edd_31 * velocity_x + pGrid->U[ks-k+1][j][i].Edd_32 * velocity_y)* pGrid->U[ks-k+1][j][i].Er / Crat;
 
 		velocity_x1 = pGrid->U[ks-k][j][i].M1 / pGrid->U[ks-k][j][i].d;
 		velocity_y1 = pGrid->U[ks-k][j][i].M2 / pGrid->U[ks-k][j][i].d;
@@ -2462,7 +2709,7 @@ void radMHD_rad_inflowks(GridS *pGrid)
 		
 		pGrid->U[ks-k][j][i].Er = (pGrid->U[ks-k+1][j][i].Edd_33 * pGrid->U[ks-k+1][j][i].Er + 0.5 * pGrid->dx3 * Sigma_t * Fr0z ) / Eratio;
 
-		if(pGrid->U[ks-k][j][i].Er > pGrid->U[ks-k+1][j][i].Er){
+		if((pGrid->U[ks-k][j][i].Er > pGrid->U[ks-k+1][j][i].Er) || (pGrid->U[ks-k][j][i].Er < 0.0)){
 			Eratio = pGrid->U[ks-k][j][i].Edd_33 + pGrid->dx3 * reducefactor * Sigma_t;
 			pGrid->U[ks-k][j][i].Er = pGrid->U[ks-k+1][j][i].Edd_33 * pGrid->U[ks-k+1][j][i].Er / Eratio;
 		}
@@ -2472,7 +2719,7 @@ void radMHD_rad_inflowks(GridS *pGrid)
 		
 
 		pGrid->U[ks-k][j][i].Fr1 = Fr0x + ((1.0 + pGrid->U[ks-k][j][i].Edd_11) * velocity_x1 + pGrid->U[ks-k][j][i].Edd_21 * velocity_y1 + pGrid->U[ks-k][j][i].Edd_31 * velocity_z1)* pGrid->U[ks-k][j][i].Er / Crat;
-                pGrid->U[ks-k][j][i].Fr2 = Fr0y + ((1.0 + pGrid->U[ks-k][j][i].Edd_22) * velocity_y1 + pGrid->U[ks-k][j][i].Edd_21 * velocity_x1 + pGrid->U[ks-k][j][i].Edd_32 * velocity_z1)* pGrid->U[ks-k][j][i].Er / Crat;
+		pGrid->U[ks-k][j][i].Fr2 = Fr0y + ((1.0 + pGrid->U[ks-k][j][i].Edd_22) * velocity_y1 + pGrid->U[ks-k][j][i].Edd_21 * velocity_x1 + pGrid->U[ks-k][j][i].Edd_32 * velocity_z1)* pGrid->U[ks-k][j][i].Er / Crat;
 		pGrid->U[ks-k][j][i].Fr3 = Fr0z + ((1.0 + pGrid->U[ks-k][j][i].Edd_33) * velocity_z1 + pGrid->U[ks-k][j][i].Edd_31 * velocity_x1 + pGrid->U[ks-k][j][i].Edd_32 * velocity_y1)* pGrid->U[ks-k][j][i].Er / Crat;
 
 
@@ -2544,20 +2791,20 @@ void radMHD_Mat_inflowke(MatrixS *pMat)
 
 	Real x1, x2, x3;
 	Real vx, vy, vz, Fr0z, Sigma_t;
-	Real reducefactor, Eratio;
+	Real reducefactor, Eratio, tau;
 
 	for (k=1;  k<=Matghost;  k++) {
 		for(j=js-Matghost; j<=je+Matghost; j++){
 			for(i=is-Matghost; i<=ie+Matghost; i++){
 	    		
-				Sigma_t = 0.5 * (pMat->U[ke+k][j][i].Sigma[0] + pMat->U[ke+k][j][i].Sigma[1] + pMat->U[ke+k-1][j][i].Sigma[0] + pMat->U[ke+k-1][j][i].Sigma[1]);
+				Sigma_t = 0.5 * (pMat->Ugas[ke+k][j][i].Sigma[0] + pMat->Ugas[ke+k][j][i].Sigma[1] + pMat->Ugas[ke+k-1][j][i].Sigma[0] + pMat->Ugas[ke+k-1][j][i].Sigma[1]);
 
-				pMat->U[ke+k][j][i].Edd_11 = pMat->U[ke][j][i].Edd_11;
-				pMat->U[ke+k][j][i].Edd_22 = pMat->U[ke][j][i].Edd_22;
-				pMat->U[ke+k][j][i].Edd_21 = pMat->U[ke][j][i].Edd_21;
-				pMat->U[ke+k][j][i].Edd_31 = pMat->U[ke][j][i].Edd_31;
-				pMat->U[ke+k][j][i].Edd_32 = pMat->U[ke][j][i].Edd_32;
-				pMat->U[ke+k][j][i].Edd_33 = pMat->U[ke][j][i].Edd_33;
+				pMat->Ugas[ke+k][j][i].Edd_11 = pMat->Ugas[ke][j][i].Edd_11;
+				pMat->Ugas[ke+k][j][i].Edd_22 = pMat->Ugas[ke][j][i].Edd_22;
+				pMat->Ugas[ke+k][j][i].Edd_21 = pMat->Ugas[ke][j][i].Edd_21;
+				pMat->Ugas[ke+k][j][i].Edd_31 = pMat->Ugas[ke][j][i].Edd_31;
+				pMat->Ugas[ke+k][j][i].Edd_32 = pMat->Ugas[ke][j][i].Edd_32;
+				pMat->Ugas[ke+k][j][i].Edd_33 = pMat->Ugas[ke][j][i].Edd_33;
 			if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0]) ){
 				pMat->U[ke+k][j][i].Er  = 0.0;
 				pMat->U[ke+k][j][i].Fr1 = 0.0;
@@ -2572,30 +2819,39 @@ void radMHD_Mat_inflowke(MatrixS *pMat)
 				else
 					pMat->U[ke+k][j][i].Fr3 = 0.0;
 			*/
-				vx = pMat->U[ke+k-1][j][i].V1;
-				vy = pMat->U[ke+k-1][j][i].V2;
-				vz = pMat->U[ke+k-1][j][i].V3;
+				vx = pMat->Ugas[ke+k-1][j][i].V1;
+				vy = pMat->Ugas[ke+k-1][j][i].V2;
+				vz = pMat->Ugas[ke+k-1][j][i].V3;
 
-				matrix_alpha(0.0, pMat->U[ke+k][j][i].Sigma, pMat->dt, pMat->U[ke+k][j][i].Edd_33, 0.0, &reducefactor, 0, pMat->dx3);
+				matrix_alpha(0.0, pMat->Ugas[ke+k][j][i].Sigma, pMat->dt, pMat->Ugas[ke+k][j][i].Edd_33, 0.0, &reducefactor, 0, pMat->dx3);
 
-				Fr0z = pMat->U[ke+k-1][j][i].Fr3 - ((1.0 + pMat->U[ke+k-1][j][i].Edd_33) * vz + pMat->U[ke+k-1][j][i].Edd_31 * vx + pMat->U[ke+k-1][j][i].Edd_32 * vy)* pMat->U[ke+k-1][j][i].Er / Crat;
+/*				tau = pMat->dt * Crat * (pMat->Ugas[ke+k][j][i].Sigma[0] + pMat->Ugas[ke+k][j][i].Sigma[1]);
+				tau = tau * tau / (2.0 * pMat->Ugas[ke+k][j][i].Edd_33);
 
-				Eratio = pMat->U[ke+k][j][i].Edd_33 + 0.5 * pMat->dx3 * reducefactor * Sigma_t;
+				if(tau > 0.001)
+					reducefactor = sqrt(pMat->Ugas[ke+k][j][i].Edd_33 * (1.0 - exp(- tau)) / tau);
+				else
+					reducefactor = sqrt(pMat->Ugas[ke+k][j][i].Edd_33 * (1.0 - 0.5 * tau));	
+*/
+
+				Fr0z = pMat->U[ke+k-1][j][i].Fr3 - ((1.0 + pMat->Ugas[ke+k-1][j][i].Edd_33) * vz + pMat->Ugas[ke+k-1][j][i].Edd_31 * vx + pMat->Ugas[ke+k-1][j][i].Edd_32 * vy)* pMat->U[ke+k-1][j][i].Er / Crat;
+
+				Eratio = pMat->Ugas[ke+k][j][i].Edd_33 + 0.5 * pMat->dx3 * reducefactor * Sigma_t;
 
 		/* vacuum boundary condition. Fr0z = R * Er, where R is the reduced speed of light */
 		/* Assume this relation holds in the ghost zones */
 		/*  (f1 * Er(K+1, n+1) - f * Er(k,n))/(Sigmat * dx3) = -0.5*(Fr0z(k) + Fr0z(k+1)), and Fr0z(k+1)= R * Er(k+1) */
 		
-				pMat->U[ke+k][j][i].Er = (pMat->U[ke+k-1][j][i].Edd_33 * pMat->U[ke+k-1][j][i].Er - 0.5 * pMat->dx3 * Sigma_t * Fr0z ) / Eratio;
+				pMat->U[ke+k][j][i].Er = (pMat->Ugas[ke+k-1][j][i].Edd_33 * pMat->U[ke+k-1][j][i].Er - 0.5 * pMat->dx3 * Sigma_t * Fr0z ) / Eratio;
 
 				if(pMat->U[ke+k][j][i].Er < 0.0){
-					Eratio = pMat->U[ke+k][j][i].Edd_33 + pMat->dx3 * reducefactor * Sigma_t;
-				pMat->U[ke+k][j][i].Er = pMat->U[ke+k-1][j][i].Edd_33 * pMat->U[ke+k-1][j][i].Er / Eratio;
+					Eratio = pMat->Ugas[ke+k][j][i].Edd_33 + pMat->dx3 * reducefactor * Sigma_t;
+				pMat->U[ke+k][j][i].Er = pMat->Ugas[ke+k-1][j][i].Edd_33 * pMat->U[ke+k-1][j][i].Er / Eratio;
 				}
 		
 				Fr0z = reducefactor * pMat->U[ke+k][j][i].Er;
 				
-				pMat->U[ke+k][j][i].Fr3 = Fr0z + ((1.0 + pMat->U[ke+k][j][i].Edd_33) * pMat->U[ke+k][j][i].V3 + pMat->U[ke+k][j][i].Edd_31 * pMat->U[ke+k][j][i].V1 + pMat->U[ke+k][j][i].Edd_32 * pMat->U[ke+k][j][i].V2)* pMat->U[ke+k][j][i].Er / Crat;
+				pMat->U[ke+k][j][i].Fr3 = Fr0z + ((1.0 + pMat->Ugas[ke+k][j][i].Edd_33) * pMat->Ugas[ke+k][j][i].V3 + pMat->Ugas[ke+k][j][i].Edd_31 * pMat->Ugas[ke+k][j][i].V1 + pMat->Ugas[ke+k][j][i].Edd_32 * pMat->Ugas[ke+k][j][i].V2)* pMat->U[ke+k][j][i].Er / Crat;
 
 
 			/*		
@@ -2647,20 +2903,20 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 
 	Real x1, x2, x3;
 	Real vx, vy, vz, Fr0z, Sigma_t;
-	Real reducefactor, Eratio;
+	Real reducefactor, Eratio, tau;
 
 	for (k=1;  k<=Matghost;  k++) {
 		for(j=js-Matghost; j<=je+Matghost; j++){
 			for(i=is-Matghost; i<=ie+Matghost; i++){
 	    		
-				Sigma_t = 0.5 * (pMat->U[ks-k][j][i].Sigma[0] + pMat->U[ks-k][j][i].Sigma[1] + pMat->U[ks-k+1][j][i].Sigma[0] + pMat->U[ks-k+1][j][i].Sigma[1]);
+				Sigma_t = 0.5 * (pMat->Ugas[ks-k][j][i].Sigma[0] + pMat->Ugas[ks-k][j][i].Sigma[1] + pMat->Ugas[ks-k+1][j][i].Sigma[0] + pMat->Ugas[ks-k+1][j][i].Sigma[1]);
 
-				pMat->U[ks-k][j][i].Edd_11 = pMat->U[ks][j][i].Edd_11;
-				pMat->U[ks-k][j][i].Edd_22 = pMat->U[ks][j][i].Edd_22;
-				pMat->U[ks-k][j][i].Edd_21 = pMat->U[ks][j][i].Edd_21;
-				pMat->U[ks-k][j][i].Edd_31 = pMat->U[ks][j][i].Edd_31;
-				pMat->U[ks-k][j][i].Edd_32 = pMat->U[ks][j][i].Edd_32;
-				pMat->U[ks-k][j][i].Edd_33 = pMat->U[ks][j][i].Edd_33;
+				pMat->Ugas[ks-k][j][i].Edd_11 = pMat->Ugas[ks][j][i].Edd_11;
+				pMat->Ugas[ks-k][j][i].Edd_22 = pMat->Ugas[ks][j][i].Edd_22;
+				pMat->Ugas[ks-k][j][i].Edd_21 = pMat->Ugas[ks][j][i].Edd_21;
+				pMat->Ugas[ks-k][j][i].Edd_31 = pMat->Ugas[ks][j][i].Edd_31;
+				pMat->Ugas[ks-k][j][i].Edd_32 = pMat->Ugas[ks][j][i].Edd_32;
+				pMat->Ugas[ks-k][j][i].Edd_33 = pMat->Ugas[ks][j][i].Edd_33;
 
 				
 			if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
@@ -2677,30 +2933,39 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 				else
 					pMat->U[ks-k][j][i].Fr3 = 0.0;
 			*/
-				vx = pMat->U[ks-k+1][j][i].V1;
-				vy = pMat->U[ks-k+1][j][i].V2;
-				vz = pMat->U[ks-k+1][j][i].V3;
+				vx = pMat->Ugas[ks-k+1][j][i].V1;
+				vy = pMat->Ugas[ks-k+1][j][i].V2;
+				vz = pMat->Ugas[ks-k+1][j][i].V3;
 
-				matrix_alpha(0.0, pMat->U[ks-k][j][i].Sigma, pMat->dt, pMat->U[ks-k][j][i].Edd_33, 0.0, &reducefactor, 0, pMat->dx3);
+				matrix_alpha(0.0, pMat->Ugas[ks-k][j][i].Sigma, pMat->dt, pMat->Ugas[ks-k][j][i].Edd_33, 0.0, &reducefactor, 0, pMat->dx3);
+			
+		/*		tau = pMat->dt * Crat * (pMat->Ugas[ks-k][j][i].Sigma[0] + pMat->Ugas[ks-k][j][i].Sigma[1]);
+				tau = tau * tau / (2.0 * pMat->Ugas[ks-k][j][i].Edd_33);
 
-				Fr0z = pMat->U[ks-k+1][j][i].Fr3 - ((1.0 + pMat->U[ks-k+1][j][i].Edd_33) * vz + pMat->U[ks-k+1][j][i].Edd_31 * vx + pMat->U[ks-k+1][j][i].Edd_32 * vy)* pMat->U[ks-k+1][j][i].Er / Crat;
+				if(tau > 0.001)
+					reducefactor = sqrt(pMat->Ugas[ks-k][j][i].Edd_33 * (1.0 - exp(- tau)) / tau);
+				else
+					reducefactor = sqrt(pMat->Ugas[ks-k][j][i].Edd_33 * (1.0 - 0.5 * tau));	
+		*/
 
-				Eratio = pMat->U[ks-k][j][i].Edd_33 + 0.5 * pMat->dx3 * reducefactor * Sigma_t;
+				Fr0z = pMat->U[ks-k+1][j][i].Fr3 - ((1.0 + pMat->Ugas[ks-k+1][j][i].Edd_33) * vz + pMat->Ugas[ks-k+1][j][i].Edd_31 * vx + pMat->Ugas[ks-k+1][j][i].Edd_32 * vy)* pMat->U[ks-k+1][j][i].Er / Crat;
+
+				Eratio = pMat->Ugas[ks-k][j][i].Edd_33 + 0.5 * pMat->dx3 * reducefactor * Sigma_t;
 
 		/* vacuum boundary condition. Fr0z = R * Er, where R is the reduced speed of light */
 		/* Assume this relation holds in the ghost zones */
 		/*  (f1 * Er(K+1, n+1) - f * Er(k,n))/(Sigmat * dx3) = -0.5*(Fr0z(k) + Fr0z(k+1)), and Fr0z(k+1)= R * Er(k+1) */
 		
-				pMat->U[ks-k][j][i].Er = (pMat->U[ks-k+1][j][i].Edd_33 * pMat->U[ks-k+1][j][i].Er - 0.5 * pMat->dx3 * Sigma_t * Fr0z ) / Eratio;
+				pMat->U[ks-k][j][i].Er = (pMat->Ugas[ks-k+1][j][i].Edd_33 * pMat->U[ks-k+1][j][i].Er - 0.5 * pMat->dx3 * Sigma_t * Fr0z ) / Eratio;
 
 				if(pMat->U[ks-k][j][i].Er < 0.0){
-					Eratio = pMat->U[ks-k][j][i].Edd_33 + pMat->dx3 * reducefactor * Sigma_t;
-				pMat->U[ks-k][j][i].Er = pMat->U[ks-k+1][j][i].Edd_33 * pMat->U[ks-k+1][j][i].Er / Eratio;
+					Eratio = pMat->Ugas[ks-k][j][i].Edd_33 + pMat->dx3 * reducefactor * Sigma_t;
+				pMat->U[ks-k][j][i].Er = pMat->Ugas[ks-k+1][j][i].Edd_33 * pMat->U[ks-k+1][j][i].Er / Eratio;
 				}
 		
 				Fr0z = reducefactor * pMat->U[ks-k][j][i].Er;
 				
-				pMat->U[ks-k][j][i].Fr3 = Fr0z + ((1.0 + pMat->U[ks-k][j][i].Edd_33) * pMat->U[ks-k][j][i].V3 + pMat->U[ks-k][j][i].Edd_31 * pMat->U[ks-k][j][i].V1 + pMat->U[ks-k][j][i].Edd_32 * pMat->U[ks-k][j][i].V2)* pMat->U[ks-k][j][i].Er / Crat;
+				pMat->U[ks-k][j][i].Fr3 = Fr0z + ((1.0 + pMat->Ugas[ks-k][j][i].Edd_33) * pMat->Ugas[ks-k][j][i].V3 + pMat->Ugas[ks-k][j][i].Edd_31 * pMat->Ugas[ks-k][j][i].V1 + pMat->Ugas[ks-k][j][i].Edd_32 * pMat->Ugas[ks-k][j][i].V2)* pMat->U[ks-k][j][i].Er / Crat;
 
 					
 			}

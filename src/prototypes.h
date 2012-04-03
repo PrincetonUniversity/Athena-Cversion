@@ -136,6 +136,11 @@ void ShearingSheet_Matrix_ox1(MatrixS *pMat);
 void bvals_Matrix_shear_init(MatrixS *pMat);
 void bvals_Matrix_shear_destruct(void);
 
+void ShearingSheet_Matrix_gas_ix1(MatrixS *pMat);
+void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat);
+void bvals_Matrix_shear_gas_init(MatrixS *pMat);
+void bvals_Matrix_shear_gas_destruct(void);
+
 /* boundary condition for bicgsafe solver */
 #ifdef MATRIX_MULTIGRID
 void bvals_matrix_vector(Real ****vector, MatrixS *pMat);
@@ -331,14 +336,15 @@ Real eff_sound_thick(const Prim1DS W, Real dt); /* !< Used to limit time step in
 void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz, const Real x1);
 /* function to calculate derivative of source function over conserved variables */
 
-double rtsafe(void (*funcd)(double, double, double, double, double *, double *), double x1, double x2,
-	double xacc, double coef1, double coef2, double coef3);
+double rtsafe(void (*funcd)(double, double, double, double, double, double *, double *), double x1, double x2,
+	double xacc, double coef1, double coef2, double coef3, double coef4);
 
 void GetTguess(MeshS *pM); 
-
+/* calculate the new gas temperature and radiation energy density after one thermal relaxation time */
+void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er);
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
-void Tequilibrium(double T, double coef1, double coef2, double coef3, double * fval, double *dfval);	
-
+void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);	
+void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
 
 #ifdef RADIATION_TARNSFER
 /* Function to calculate Eddington tensor */
