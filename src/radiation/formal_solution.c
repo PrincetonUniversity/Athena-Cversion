@@ -20,11 +20,14 @@
 #include "../prototypes.h"
 
 #ifdef RADIATION_TRANSFER
-
+//static int lniter =0;
 void formal_solution(DomainS *pD)
 {
 
   RadGridS *pRG=(pD->RadGrid);
+#ifdef RAY_TRACING
+  RayGridS *pRayG=(pD->RayGrid);
+#endif
   int i, ndim;
   int ifr, nf = pRG->nf, nfc = 0;
   Real *dSmaxa, dSmax = 0.0, dsm, dSmin, dSrmax;
@@ -47,6 +50,11 @@ void formal_solution(DomainS *pD)
 /* number of dimensions in Grid. */
   ndim=1;
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) ndim++;
+
+/* if enabled, compute contribution of external radiation */
+#ifdef RAY_TRACING
+
+#endif
 
   if (ndim == 1) {
 /* compute formal solution with 1D method*/
@@ -124,7 +132,11 @@ void formal_solution(DomainS *pD)
 #ifdef MPI_PARALLEL
 	  MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 	  dSrmax=gdSrmax;
+	  //lniter++;
+	  //if(myID_Comm_world == 0)
+	  //  printf("%d %g\n",lniter,gdSrmax);
 #endif
+	  
 	  dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
 	  if(dSrmax <= dScnv) {

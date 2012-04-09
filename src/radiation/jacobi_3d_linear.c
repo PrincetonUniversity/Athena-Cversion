@@ -30,7 +30,7 @@ static Real ******imuo = NULL;
 static int *face = NULL;
 static Real **muinv = NULL, **coeff = NULL, ***mu2 = NULL;
 static Real ****Jold = NULL;
-
+static int lniter=0;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -56,6 +56,7 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
   int nf = pRG->nf;
   int ismx, jsmx, ksmx;
   Real dSr, dJ, dJmax;
+  Real gdSrmax;
 
 #ifdef QUADRATIC_INTENSITY
   ath_error("[jacob_3d_linear.c]: quadratic intensity not currently supported on 3D domains.\n");
@@ -103,6 +104,17 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
 	    (*dSrmax) = dSr; ismx=i; jsmx=j; ksmx=k;
 	  }
 	}
+    lniter++;
+    /*#ifdef MPI_PARALLEL
+	  MPI_Allreduce(dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+	  if(myID_Comm_world == 0)
+	    printf("%d %g\n",lniter,gdSrmax);
+	    #endif*/
+	      /*  if(myID_Comm_world == 0)
+    printf("%d %d %d %d %d %g %g %g %g %g %g\n",myID_Comm_world,lniter,ismx,jsmx,ksmx,(*dSrmax),
+	     pRG->R[0][ksmx][jsmx][ismx].S, pRG->R[0][ksmx][jsmx][ismx].J,
+	     pRG->R[0][ksmx][jsmx][ismx].B, pRG->R[0][ksmx][jsmx][ismx].eps,
+	     pRG->R[0][ksmx][jsmx][ismx].chi);*/
   } else {
 /* Use delta J / J as convergence criterion */
     (*dSrmax) = 0.0;
@@ -455,7 +467,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
               coeff[m][1] * imuo[ifr][j ][im][l][m][1] +
               coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
               coeff[m][3] * imuo[ifr][jm][im][l][m][0];
- 
+
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
       dtaum *= dx * muinv[m][0]; 

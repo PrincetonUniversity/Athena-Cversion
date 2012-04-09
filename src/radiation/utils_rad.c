@@ -12,8 +12,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include "../defs.h"
+#include "../athena.h"
+#include "../globals.h"
 #include "../prototypes.h"
-
+#define TAUMIN 1.0E-3
 
 #ifdef RADIATION_TRANSFER
 
@@ -86,57 +88,57 @@ void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
 {
   Real c0, c1, c2;
   Real dtaus, dtaus1, dtaum1, dtaup1, dtausp1, dtaum2;
-  Real Sc;
-  /*Real Smax, Smin;
-    Real dSp, dSm;*/
+  Real Sc, taurat;
 
-  dtaus = dtaum + dtaup;
-  dtaus1 = 1.0 / dtaus;
-  dtaup1 = 1.0 / dtaup; 
-  dtaum1 = 1.0 / dtaum;
-  dtausp1 = dtaus1 * dtaup1;
-  dtaum2 = dtaum * dtaum;
-
-  /*dSm = S1 - S0;
-    dSp = S2 - S1;*/
-
-  (*edtau) = exp(-dtaum);
-  /*(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  //testing*/
-
-  c0 = 1.0 - (*edtau);
-  c1 = dtaum - c0;
-  c2 = dtaum2 - 2.0 * c1;
-
-  /*Sc = S1 - 0.5 * (dtaup  * dSm / dtaus + dtaum2 * dSp / dtausp);*/
-  Sc = S1 - 0.5 * (dtaup  * (S1 - S0) * dtaus1 + dtaum2 * (S2 - S1) * dtausp1);
-  /*/Smax = MAX(S0,S1);
-  //Smin = MIN(S0,S1);
-  */
-   /* use standard interp if Smin < Sc < smax */
-  /*if ((Sc >= Smin) && (Sc <= Smax)) {
-  */
-   if ((S0-Sc)*(S1-Sc) <= 0.0) {
-    (*a0) = c0 + (c2 - (dtaus + dtaum) * c1) * dtaum1 * dtaus1;
-    (*a1) = (dtaus * c1 - c2) * dtaum1 * dtaup1;
-    (*a2) = (c2 - dtaum * c1) * dtausp1;
-  /* Sc = S1 if S1 is not an extremum */  
+/* expand to 2nd order in dtaum */
+  if (dtaum < TAUMIN) {
+    (*edtau) = 1.0 - dtaum * (1.0 - 0.5* dtaum);
+    taurat = dtaup / dtaum;
+    Sc =  S1 - 0.5 / (1.0 + taurat) *  (taurat * (S1 - S0) + (S2 - S1) / taurat);
+    if ((S0-Sc)*(S1-Sc) <= 0.0) {      
+      (*a0) = dtaum * (taurat / (1.0 + taurat) - 0.5 * dtaum);
+      (*a1) = dtaum * 0.5 * (1.0 + taurat) / taurat;
+      (*a2) = - dtaum * 0.5 / (taurat * (1.0 + taurat));
+    } else {
+      (*a0) = 0.666666666666666667 * dtaum;
+      (*a1) = 0.333333333333333333 * dtaum;
+      (*a2) = 0.0;
+    }
   } else {
-    (*a1)  = c2 / dtaum2;
-    (*a0)  = c0 - (*a1);
-    (*a2)  = 0.0;
-  }
-  /* Sc = S0 if S1 is an extremum */
+/* use standard expresions */
+    dtaus = dtaum + dtaup;
+    dtaus1 = 1.0 / dtaus;
+    dtaup1 = 1.0 / dtaup; 
+    dtaum1 = 1.0 / dtaum;
+    dtausp1 = dtaus1 * dtaup1;
+    dtaum2 = dtaum * dtaum;
+    
+    (*edtau) = exp(-dtaum);
+    
+    c0 = 1.0 - (*edtau);
+    c1 = dtaum - c0;
+    c2 = dtaum2 - 2.0 * c1;
+
+    Sc = S1 - 0.5 * (dtaup  * (S1 - S0) * dtaus1 + dtaum2 * (S2 - S1) * dtausp1);
+
+/* use standard interp if Smin < Sc < Smax */
+    if ((S0-Sc)*(S1-Sc) <= 0.0) {
+      (*a0) = c0 + (c2 - (dtaus + dtaum) * c1) * dtaum1 * dtaus1;
+      (*a1) = (dtaus * c1 - c2) * dtaum1 * dtaup1;
+      (*a2) = (c2 - dtaum * c1) * dtausp1;
+/* Sc = S1 if S1 is not an extremum */  
+    } else {
+      (*a1)  = c2 / dtaum2;
+      (*a0)  = c0 - (*a1);
+      (*a2)  = 0.0;
+    }
+/* Sc = S0 if S1 is an extremum */
   /*} else if (dSp * dSm < 0.0) {
     (*a0)  = c0 + (c2 - 2.0 * dtaum * c1) / dtaum2;
     (*a1)  = (2.0 * dtaum * c1 - c2) / dtaum2;
     (*a2)  = 0.0;
     }*/  
-  /* use linear interpolation */
-    /*} else {
-    (*a0) = c0 - c1 / dtaum;
-    (*a1) = c1 / dtaum;
-    (*a2) = 0.0;
-    }*/
+  }
 }
 
 void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,

@@ -30,6 +30,7 @@
 #   --enable-special-relativity              (special relativistic hydro or MHD)
 #   --enable-viscosity                                      (explicit viscosity)
 #   --enable-radiation-transfer                             (radiation transfer) 
+#   --enable-ray-tracing				           (ray tracing)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
@@ -53,6 +54,7 @@
 #   --enable-smr                                        (static mesh refinement)
 #   --enable-quadratic_intensity              (order of intensity interpolation)
 #   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
+#   --enable-independent-freqency   (independent frequency grid for ray tracing)
 #-------------------------------------------------------------------------------
 # generic things
 
@@ -371,7 +373,7 @@ fi
 
 AC_SUBST(RADIATION_TRANSFER_MODE)
 AC_ARG_ENABLE(radiation-transfer,
-	[--enable-radiation-transfer  enable radiation trnasfer (default is no)],
+	[--enable-radiation-transfer  enable radiation transfer (default is no)],
 	ok=$enableval, ok=no)
 if test "$ok" = "yes"; then
   RADIATION_TRANSFER_MODE="RADIATION_TRANSFER"
@@ -379,6 +381,22 @@ if test "$ok" = "yes"; then
 else
   RADIATION_TRANSFER_MODE="NO_RADIATION_TRANSFER"
   RADIATION_TRANSFER_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: ray-tracing
+#   --enable-ray-tracing
+
+AC_SUBST(RAY_TRACING_MODE)
+AC_ARG_ENABLE(ray-tracing,
+	[--enable-ray-tracing  enable ray tracing (default is no)],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RAY_TRACING_MODE="RAY_TRACING"
+  RAY_TRACING_MODE_USER="ON"
+else
+  RAY_TRACING_MODE="NO_RAY_TRACING"
+  RAY_TRACING_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -705,6 +723,22 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: independent freq. grid for ray tracing
+#   --enable-independent-freqency (default is to used radiative transfer grid)
+
+AC_SUBST(RAY_TRACING_GRID)
+AC_ARG_ENABLE(independent,
+	[--enable-independent-freqency  ray tracing frequency grid (default is radgrid)], 
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RAY_TRACING_GRID="USE_INDEPENDENT_FREQ"
+  RAY_TRACING_GRID_MODE_USER="INDEPENDENT"
+else
+  RAY_TRACING_GRID="USE_RADGRID_FREQ"
+  RAY_TRACING_GRID_MODE_USER="RADGRID"
+fi
+
+#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: self-gravity with conserved total energy and momentum
 #   --enable-cons_gravity (default is no this algorithm)
 
@@ -832,6 +866,7 @@ echo "Viscosity:               $VISCOSITY_MODE_USER"
 echo "Thermal conduction:      $CONDUCTION_MODE_USER"
 echo "Particles:               $PARTICLES_USER"
 echo "Radiation transfer:      $RADIATION_TRANSFER_MODE_USER"
+echo "Ray tracing:             $RAY_TRACING_MODE_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
 echo "--- Algorithm Options ----"
@@ -853,5 +888,6 @@ echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "ALI method:              $ALI_USER"
 echo "Intensity Interpolation: $INTENSITY_MODE_USER"
+echo "Ray tracing freq. grid:  $RAY_TRACING_GRID_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
 echo "Conserved self_gravity:  $CONSGRAVITY_MODE_USER"

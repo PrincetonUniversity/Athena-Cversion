@@ -27,7 +27,7 @@ static char *construct_filename(char *basename,char *key,int dump,char *ext);
 /*----------------------------------------------------------------------------*/
 /* hydro_to_rad:  */
 
-void hydro_to_rad(DomainS *pD)
+void hydro_to_rad(DomainS *pD, int iflag)
 {
   GridS *pG=(pD->Grid);
   RadGridS *pRG=(pD->RadGrid);
@@ -73,14 +73,14 @@ void hydro_to_rad(DomainS *pD)
 
 	for(ifr=0; ifr<nf; ifr++) {
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	  if (lte == 1) {
-	    pRG->R[ifr][k][j][i].J = pG->U[kg][jg][ig].Er / (4.0 * PI);
+	  if (iflag == 0) {
+	    lte = 1;
+	    pRG->R[ifr][k][j][i].J = pG->U[kg][jg][ig].Er;
 	    eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);	   
 	    pRG->R[ifr][k][j][i].B = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
 	      eps  * get_thermal_source(pG,pRG,ifr,ig,jg,kg);
 	    pRG->R[ifr][k][j][i].eps = 1.0;
-	    pRG->R[ifr][k][j][i].S = pRG->R[ifr][k][j][i].B;
-	    
+	    pRG->R[ifr][k][j][i].S = pRG->R[ifr][k][j][i].B;	    
 	  } else {
 	    eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);
 	    pRG->R[ifr][k][j][i].B = get_thermal_source(pG,pRG,ifr,ig,jg,kg);
@@ -123,7 +123,8 @@ void rad_to_hydro(DomainS *pD)
   Real dx1=0.5/pRG->dx1, dx2=0.5/pRG->dx2, dx3=0.5/pRG->dx3;
   Real dxmin;
   int flag = 0;
-
+  static Real dt = 1.0e-3;
+ 
   dxmin = pD->dx[0];
   if (pD->Nx[1] > 1) dxmin = MIN( dxmin, (pD->dx[1]) );
   if (pD->Nx[2] > 1) dxmin = MIN( dxmin, (pD->dx[2]) );
@@ -148,12 +149,11 @@ void rad_to_hydro(DomainS *pD)
 	ig = i + ioff;
 	esource = 0.0;
 	for(ifr=0; ifr<nf; ifr++) {
-	  if(pRG->R[ifr][k][j][i].chi*dxmin <= 1.0) {	    
+	  if(pRG->R[ifr][k][j][i].chi*dxmin <= 1.0) {
 	
 	    esource += pRG->wnu[ifr] * pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].chi *
 	               (pRG->R[ifr][k][j][i].J - pRG->R[ifr][k][j][i].B);
 	  } else {
-	
 	    esource += pRG->wnu[ifr] * dx1 * (pRG->R[ifr][k][j][i-1].H[0] - 
                                               pRG->R[ifr][k][j][i+1].H[0]);
 	    if (nDim > 1) {
@@ -172,8 +172,10 @@ void rad_to_hydro(DomainS *pD)
 	  
 	}
 	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource * CPrat;
+	/*pG->U[kg][jg][ig].E += dt * 4.0 * PI * esource * CPrat;*/
       }}}
 
+ 
   return;
 }
 

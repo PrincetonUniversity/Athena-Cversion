@@ -269,7 +269,10 @@ void problem_read_restart(MeshS *pM, FILE *fp);
 void problem_write_restart(MeshS *pM, FILE *fp);
 ConsFun_t get_usr_expr(const char *expr);
 VOutFun_t get_usr_out_fun(const char *name);
-
+#ifdef RADIATION_TRANSFER
+void Userwork_in_formal_solution(DomainS *pD);
+void Userwork_after_first_formal_solution(DomainS *pD);
+#endif
 #ifdef PARTICLES
 PropFun_t get_usr_par_prop(const char *name);
 void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, Real *u3);

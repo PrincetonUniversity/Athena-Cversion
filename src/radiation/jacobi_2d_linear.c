@@ -365,7 +365,6 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
     imuo[ifr][i][l][m][1] = imuo[ifr][i][l][m][0];
     imuo[ifr][i][l][m][0] = imu;
   }
-  
   return;
 }
 

@@ -30,6 +30,7 @@ static int nDim;
 static double **send_buf = NULL, **recv_buf = NULL;
 static MPI_Request *recv_rq, *send_rq;
 static  int x1cnt=0, x2cnt=0, x3cnt=0; /* Number of words passed in x1/x2/x3-dir. */
+
 #endif /* MPI_PARALLEL */
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -46,6 +47,15 @@ static void periodic_ox3_rad(RadGridS *pRG, int ifs, int ife);
 
 static void ProlongateLater(RadGridS *pRG, int ifs, int ife);
 static void const_incident_rad(RadGridS *pRG, int ifs, int ife);
+
+static void const_flux_ix1(RadGridS *pRG, int ifs, int ife);
+static void const_flux_ox1(RadGridS *pRG, int ifs, int ife);
+static void const_flux_ix2(RadGridS *pRG, int ifs, int ife);
+static void const_flux_ox2(RadGridS *pRG, int ifs, int ife);
+static void const_flux_ix3(RadGridS *pRG, int ifs, int ife);
+static void const_flux_ox3(RadGridS *pRG, int ifs, int ife);
+
+static void constH_varJ_ix1(RadGridS *pRG, int ifs, int ife);
 
 #ifdef MPI_PARALLEL
 static void pack_ix1_rad(RadGridS *pRG, int ifs, int ife);
@@ -273,7 +283,7 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
     BCFlag = par_geti_def("domain1","rbc_ox1",0);
     if (myL == ((pD->NGrid[0])-1) && BCFlag == 4) {
       ShearingSheet_Rad_ox1(pD,ifs,ife);
-      }
+    }
 #endif
 
   }
@@ -420,6 +430,15 @@ void bvals_rad_init(MeshS *pM)
       } else {                    
 	switch(pM->RBCFlag_ix1){
 
+
+	case 2: /* Open boundary with fixed incoming radiation */
+	  pD->ix1_RBCFun = const_incident_rad;
+	  break;
+
+	case 3: /* constant fixed flux at boundary */
+	  pD->ix1_RBCFun = const_flux_ix1;
+	  break;
+
 	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ix1_RBCFun = periodic_ix1_rad;
 #ifdef MPI_PARALLEL
@@ -427,10 +446,6 @@ void bvals_rad_init(MeshS *pM)
 	    pRG->lx1_id = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
 	  }
 #endif /* MPI_PARALLEL */
-	  break;
-
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ix1_RBCFun = const_incident_rad;
 	  break;
 
 	default:
@@ -450,6 +465,14 @@ void bvals_rad_init(MeshS *pM)
       } else {
 	switch(pM->RBCFlag_ox1){
 
+	case 2: /* Open boundary with fixed incoming radiation */
+	  pD->ox1_RBCFun = const_incident_rad;
+	  break;
+
+	case 3: /* constant fixed flux at boundary */
+	  pD->ox1_RBCFun = const_flux_ox1;
+	  break;
+
 	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ox1_RBCFun = periodic_ox1_rad;
 #ifdef MPI_PARALLEL
@@ -457,10 +480,6 @@ void bvals_rad_init(MeshS *pM)
 	    pRG->rx1_id = pD->GData[myN][myM][0].ID_Comm_Domain;
 	  }
 #endif /* MPI_PARALLEL */
-	  break;
-
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ox1_RBCFun = const_incident_rad;
 	  break;
 	    
 	default:
@@ -482,6 +501,14 @@ void bvals_rad_init(MeshS *pM)
       } else {                    
 	switch(pM->RBCFlag_ix2){
 
+	case 2: /* Open boundary with fixed incoming radiation */
+	  pD->ix2_RBCFun = const_incident_rad;
+	  break;
+
+	case 3: /* constant fixed flux at boundary */
+	  pD->ix2_RBCFun = const_flux_ix2;
+	  break;
+
 	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ix2_RBCFun = periodic_ix2_rad;
 #ifdef MPI_PARALLEL
@@ -490,11 +517,6 @@ void bvals_rad_init(MeshS *pM)
 	  }
 #endif /* MPI_PARALLEL */
 	  break;
-
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ix2_RBCFun = const_incident_rad;
-	  break;
-
 
 	default:
 	  ath_perr(-1,"[bvals_rad_init]:rbc_ix2=%d unknown\n",pM->RBCFlag_ix2);
@@ -513,6 +535,14 @@ void bvals_rad_init(MeshS *pM)
       } else {
 	switch(pM->RBCFlag_ox2){
 
+	case 2: /* Open boundary with fixed incoming radiation */
+	  pD->ox2_RBCFun = const_incident_rad;
+	  break;
+
+	case 3: /* constant fixed flux at boundary */
+	  pD->ox2_RBCFun = const_flux_ox2;
+	  break;	  
+
 	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ox2_RBCFun = periodic_ox2_rad;
 #ifdef MPI_PARALLEL
@@ -520,10 +550,6 @@ void bvals_rad_init(MeshS *pM)
 	    pRG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
 	  }
 #endif /* MPI_PARALLEL */
-	  break;
-
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ox2_RBCFun = const_incident_rad;
 	  break;
 
 	default:
@@ -546,6 +572,14 @@ void bvals_rad_init(MeshS *pM)
       } else {                    
 	switch(pM->RBCFlag_ix3){
 
+	case 2: /* Open boundary with fixed incoming radiation */
+	  pD->ix3_RBCFun = const_incident_rad;
+	  break;
+
+	case 3: /* constant fixed flux at boundary */
+	  pD->ix3_RBCFun = const_flux_ix3;
+	  break;
+
 	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ix3_RBCFun = periodic_ix3_rad;
 #ifdef MPI_PARALLEL
@@ -553,10 +587,6 @@ void bvals_rad_init(MeshS *pM)
 	    pRG->lx3_id = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
 	  }
 #endif /* MPI_PARALLEL */
-	  break;
-
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ix3_RBCFun = const_incident_rad;
 	  break;
 
 	default:
@@ -576,6 +606,14 @@ void bvals_rad_init(MeshS *pM)
       } else {
 	switch(pM->RBCFlag_ox3){
 
+	case 2: /* Open boundary with fixed incoming radiation */
+	  pD->ox3_RBCFun = const_incident_rad;
+	  break;
+
+	case 3: /* constant fixed flux at boundary */
+	  pD->ox3_RBCFun = const_flux_ox3;
+	  break;
+
 	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
 	  pD->ox3_RBCFun = periodic_ox3_rad;
 #ifdef MPI_PARALLEL
@@ -583,10 +621,6 @@ void bvals_rad_init(MeshS *pM)
 	    pRG->rx3_id = pD->GData[0][myM][myL].ID_Comm_Domain;
 	  }
 #endif /* MPI_PARALLEL */
-	  break;
-
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ox3_RBCFun = const_incident_rad;
 	  break;
 
 	default:
@@ -1283,14 +1317,403 @@ static void ProlongateLater(RadGridS *pRG, int ifs, int ife)
 }
 
 /*----------------------------------------------------------------------------*/
+/* Requires a time independent constant flux on the boundary but allows 
+ * mean intensity to vary. Inner x1 boundary  WORK IN PROGRESS!!! */
+
+static void constH_varJ_ix1(RadGridS *pRG, int ifs, int ife)
+{
+  int il = pRG->is-1, is = pRG->is;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  RadS Rs;
+  Real prod, dx, eps, J, H;
+  
+  dx = pRG->dx1;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/*  send the source function and flux */
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+/* Compute ghost zone J using 2nd moment of RT eq. */
+	Rs =pRG->R[ifr][k][j][is];
+	H = pRG->R[ifr][k][j][il].H[0];
+	J = Rs.J * (1.0 + H * Rs.chi * dx / Rs.K[0]);
+	eps = pRG->R[ifr][k][j][il].eps;
+	pRG->R[ifr][k][j][il].S = eps * pRG->R[ifr][k][j][il].B +
+	  (1.0 - eps) * J;
+	pRG->R[ifr][k][j][il].J = J;
+/* update Ghstl1i using l1imu */
+	prod = J * (J - H) / (Rs.J * (J + H) ); 
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstl1i[ifr][k][j][0][m] = prod * pRG->l1imu[ifr][k][j][1][m];
+	  if (noct > 2) {
+	    pRG->Ghstl1i[ifr][k][j][2][m] = prod * pRG->l1imu[ifr][k][j][3][m];
+	    if (noct == 8) {
+	      pRG->Ghstl1i[ifr][k][j][4][m] = prod * pRG->l1imu[ifr][k][j][5][m];
+	      pRG->Ghstl1i[ifr][k][j][6][m] = prod * pRG->l1imu[ifr][k][j][7][m];
+	    }
+	  }
+	}
+      }}
+  }
+
+  return;
+}
+/*----------------------------------------------------------------------------*/
+/* Enforces a time independent constant flux on the boundary assuming the
+ * the incoming radiation field is isotropic.
+ * Inner x1 boundary  */
+
+static void const_flux_ix1(RadGridS *pRG, int ifs, int ife)
+{
+  int il = pRG->is-1;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  Real I0, Jm, H, Hm, gamma = 0.0;
+
+  /* gamma ~ 1/4 */
+  for (m=0; m<nang; m++) {
+    gamma += pRG->mu[0][m][1] * pRG->wmu[m];
+  }
+  if (noct > 2)
+    if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/* update Ghstl1i using l1imu */
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	Hm = 0.0;
+	Jm = 0.0;
+	for (m=0; m<nang; m++) {
+	  Hm += pRG->l1imu[ifr][k][j][0][m] * pRG->mu[0][m][0] * pRG->wmu[m];
+	  Jm += pRG->l1imu[ifr][k][j][0][m] * pRG->wmu[m];
+	  if (noct > 2) {
+	    Hm += pRG->l1imu[ifr][k][j][2][m] * pRG->mu[2][m][0] * pRG->wmu[m];
+	    Jm += pRG->l1imu[ifr][k][j][2][m] * pRG->wmu[m];	  
+	    if (noct == 8) {
+	      Hm += pRG->l1imu[ifr][k][j][4][m] * pRG->mu[4][m][0] * pRG->wmu[m];
+	      Hm += pRG->l1imu[ifr][k][j][6][m] * pRG->mu[6][m][0] * pRG->wmu[m];
+	      Jm += pRG->l1imu[ifr][k][j][4][m] * pRG->wmu[m];
+	      Jm += pRG->l1imu[ifr][k][j][6][m] * pRG->wmu[m];
+	    }
+	  }
+	}
+	H = pRG->R[ifr][k][j][il].H[0];
+	I0 = (H - Hm) / gamma;
+	if (I0 < 0.0) I0 = 0.0; 
+	pRG->R[ifr][k][j][il].J = 0.5 * I0 + Jm;
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstl1i[ifr][k][j][0][m] = I0;
+	  if (noct > 2) {
+	    pRG->Ghstl1i[ifr][k][j][2][m] = I0;
+	    if (noct == 8) {
+	      pRG->Ghstl1i[ifr][k][j][4][m] = I0;
+	      pRG->Ghstl1i[ifr][k][j][6][m] = I0;
+	    }
+	  }
+	}
+      }}
+  }
+
+  return;
+}
+/*----------------------------------------------------------------------------*/
+/* Enforces a time independent constant flux on the boundary assuming the
+ * the incoming radiation field is isotropic.
+ * Outer x1 boundary  */
+
+static void const_flux_ox1(RadGridS *pRG, int ifs, int ife)
+{
+  int iu = pRG->ie+1;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int j, k, l, m, n, ifr;
+  Real I0, Jp, H, Hp, gamma = 0.0;
+
+  /* gamma ~ 1/4 */
+  for (m=0; m<nang; m++) {
+    gamma += pRG->mu[0][m][1] * pRG->wmu[m];
+  }
+  if (noct > 2)
+    if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/* update Ghstr1i using r1imu */
+    for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+	Hp = 0.0;
+	Jp = 0.0;
+	for (m=0; m<nang; m++) {
+	  Hp += pRG->r1imu[ifr][k][j][1][m] * pRG->mu[1][m][0] * pRG->wmu[m];
+	  Jp += pRG->r1imu[ifr][k][j][1][m] * pRG->wmu[m];
+	  if (noct > 2) {
+	    Hp += pRG->r1imu[ifr][k][j][3][m] * pRG->mu[3][m][0] * pRG->wmu[m];
+	    Jp += pRG->r1imu[ifr][k][j][3][m] * pRG->wmu[m];
+	    if (noct == 8) {
+	      Hp += pRG->r1imu[ifr][k][j][5][m] * pRG->mu[5][m][0] * pRG->wmu[m];
+	      Hp += pRG->r1imu[ifr][k][j][7][m] * pRG->mu[7][m][0] * pRG->wmu[m];
+	      Jp += pRG->r1imu[ifr][k][j][5][m] * pRG->wmu[m];
+	      Jp += pRG->r1imu[ifr][k][j][7][m] * pRG->wmu[m];
+	    }
+	  }
+	}
+	H = pRG->R[ifr][k][j][iu].H[0];
+	I0 = (Hp - H) / gamma;
+	if (I0 < 0.0) I0 = 0.0; 
+	pRG->R[ifr][k][j][iu].J = 0.5 * I0 + Jp;
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstr1i[ifr][k][j][1][m] = I0;
+	  if (noct > 2) {
+	    pRG->Ghstr1i[ifr][k][j][3][m] = I0;
+	    if (noct == 8) {
+	      pRG->Ghstr1i[ifr][k][j][5][m] = I0;
+	      pRG->Ghstr1i[ifr][k][j][7][m] = I0;
+	    }
+	  }
+	}
+      }}}
+
+  return;
+}
+/*----------------------------------------------------------------------------*/
+/* Enforces a time independent constant flux on the boundary assuming the
+ * the incoming radiation field is isotropic. 
+ * Inner x2 boundary  */
+
+static void const_flux_ix2(RadGridS *pRG, int ifs, int ife)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+  Real I0, Jm, H, Hm, gamma = 0.0;
+
+  /* gamma ~ 1/4 */
+  for (m=0; m<nang; m++) {
+    gamma += pRG->mu[0][m][1] * pRG->wmu[m];
+  }
+  if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/* update Ghstl2i using l2imu */
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	Hm = 0.0;
+	Jm = 0.0;
+	for (m=0; m<nang; m++) {
+	  Hm += pRG->l2imu[ifr][k][i][2][m] * pRG->mu[2][m][1] * pRG->wmu[m];
+	  Hm += pRG->l2imu[ifr][k][i][3][m] * pRG->mu[3][m][1] * pRG->wmu[m];
+	  Jm += pRG->l2imu[ifr][k][i][2][m] * pRG->wmu[m];
+	  Jm += pRG->l2imu[ifr][k][i][3][m] * pRG->wmu[m];	  
+	  if (noct == 8) {
+	    Hm += pRG->l2imu[ifr][k][i][6][m] * pRG->mu[6][m][1] * pRG->wmu[m];
+	    Hm += pRG->l2imu[ifr][k][i][7][m] * pRG->mu[7][m][1] * pRG->wmu[m];
+	    Jm += pRG->l2imu[ifr][k][i][6][m] * pRG->wmu[m];
+	    Jm += pRG->l2imu[ifr][k][i][7][m] * pRG->wmu[m];
+	  }
+	}	
+	H = pRG->R[ifr][k][jl][i].H[1];
+	I0 = (H - Hm) / gamma;
+	if (I0 < 0.0) I0 = 0.0; 
+	pRG->R[ifr][k][jl][i].J = 0.5 * I0 + Jm;
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstl2i[ifr][k][i][0][m] = I0;
+	  pRG->Ghstl2i[ifr][k][i][1][m] = I0;
+	  if (noct == 8) {
+	    pRG->Ghstl2i[ifr][k][i][4][m] = I0;
+	    pRG->Ghstl2i[ifr][k][i][5][m] = I0;
+	  }
+	}
+      }}
+  }
+
+  return;
+}
+/*----------------------------------------------------------------------------*/
+/* Enforces a time independent constant flux on the boundary assuming the
+ * the incoming radiation field is isotropic. 
+ * Outer x2 boundary  */
+
+static void const_flux_ox2(RadGridS *pRG, int ifs, int ife)
+{
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int ju = pRG->je+1;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int i, k, l, m, n, ifr;
+  Real I0, Jp, H, Hp, gamma = 0.0;
+
+  /* gamma ~ 1/4 */
+  for (m=0; m<nang; m++) {
+    gamma += pRG->mu[0][m][1] * pRG->wmu[m];
+  }
+  if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/* update Ghstr2i using r2imu */
+    for (k=kl; k<=ku; k++) {
+      for (i=il; i<=iu; i++) {
+	Hp = 0.0;
+	Jp = 0.0;
+	for (m=0; m<nang; m++) {
+	  Hp += pRG->r2imu[ifr][k][i][0][m] * pRG->mu[0][m][1] * pRG->wmu[m];
+	  Hp += pRG->r2imu[ifr][k][i][1][m] * pRG->mu[1][m][1] * pRG->wmu[m];
+	  Jp += pRG->r2imu[ifr][k][i][0][m] * pRG->wmu[m];
+	  Jp += pRG->r2imu[ifr][k][i][1][m] * pRG->wmu[m];
+	  if (noct == 8) {
+	    Hp += pRG->r2imu[ifr][k][i][4][m] * pRG->mu[4][m][1] * pRG->wmu[m];
+	    Hp += pRG->r2imu[ifr][k][i][5][m] * pRG->mu[5][m][1] * pRG->wmu[m];
+	    Jp += pRG->r2imu[ifr][k][i][4][m] * pRG->wmu[m];
+	    Jp += pRG->r2imu[ifr][k][i][5][m] * pRG->wmu[m];
+	  }
+	}
+	H = pRG->R[ifr][k][ju][i].H[1];
+	I0 = (Hp - H) / gamma;
+	if (I0 < 0.0) I0 = 0.0; 
+	pRG->R[ifr][k][ju][i].J = 0.5 * I0 + Jp;
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstr2i[ifr][k][i][2][m] = I0;
+	  pRG->Ghstr2i[ifr][k][i][3][m] = I0;
+	  if (noct == 8) {
+	    pRG->Ghstr2i[ifr][k][i][6][m] = I0;
+	    pRG->Ghstr2i[ifr][k][i][7][m] = I0;
+	  }
+	}
+      }}
+  }
+
+  return;
+}
+/*----------------------------------------------------------------------------*/
+/* Enforces a time independent constant flux on the boundary assuming the
+ * the incoming radiation field is isotropic. 
+ * Inner x3 boundary  */
+
+static void const_flux_ix3(RadGridS *pRG, int ifs, int ife)
+{
+
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int kl = pRG->ks-1;
+  int nang = pRG->nang;
+  int i, j, l, m, n, ifr;
+  Real I0, Jm, H, Hm, gamma = 0.0;
+
+  /* gamma ~ 1/4 */
+  for (m=0; m<nang; m++) {
+    gamma += pRG->mu[0][m][1] * pRG->wmu[m];
+  }
+  gamma *= 4.0;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/* update Ghstl3i using l3imu */
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	Hm = 0.0;
+	Jm = 0.0;
+	for (m=0; m<nang; m++) {
+	  Hm += pRG->l3imu[ifr][j][i][0][m] * pRG->mu[0][m][2] * pRG->wmu[m];
+	  Hm += pRG->l3imu[ifr][j][i][1][m] * pRG->mu[1][m][2] * pRG->wmu[m];
+	  Hm += pRG->l3imu[ifr][j][i][2][m] * pRG->mu[2][m][2] * pRG->wmu[m];
+	  Hm += pRG->l3imu[ifr][j][i][3][m] * pRG->mu[3][m][2] * pRG->wmu[m];
+	  Jm += pRG->l3imu[ifr][j][i][0][m] * pRG->wmu[m];
+	  Jm += pRG->l3imu[ifr][j][i][1][m] * pRG->wmu[m];	  
+	  Jm += pRG->l3imu[ifr][j][i][2][m] * pRG->wmu[m];
+	  Jm += pRG->l3imu[ifr][j][i][3][m] * pRG->wmu[m];
+	}	
+	H = pRG->R[ifr][kl][j][i].H[2];
+	I0 = (H - Hm) / gamma;
+	if (I0 < 0.0) I0 = 0.0; 
+	pRG->R[ifr][kl][j][i].J = 0.5 * I0 + Jm;
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstl3i[ifr][j][i][0][m] = I0;
+	  pRG->Ghstl3i[ifr][j][i][1][m] = I0;
+	  pRG->Ghstl3i[ifr][j][i][2][m] = I0;
+	  pRG->Ghstl3i[ifr][j][i][3][m] = I0;
+	}
+      }}
+  }
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* Enforces a time independent constant flux on the boundary assuming the
+ * the incoming radiation field is isotropic.
+ * Outer x3 boundary  */
+
+static void const_flux_ox3(RadGridS *pRG, int ifs, int ife)
+{
+
+  int il = pRG->is-1, iu = pRG->ie+1;
+  int jl = pRG->js-1, ju = pRG->je+1;
+  int ku = pRG->ke+1;
+  int nang = pRG->nang;
+  int i, j, l, m, n, ifr;
+  Real I0, Jp, H, Hp, gamma = 0.0;
+
+  /* gamma ~ 1/4 */
+  for (m=0; m<nang; m++) {
+    gamma += pRG->mu[0][m][1] * pRG->wmu[m];
+  }
+  gamma *= 4.0;
+
+  for(ifr=ifs; ifr<=ife; ifr++) {
+/* update Ghstr3i using r3imu */
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+	Hp = 0.0;
+	Jp = 0.0;
+	for (m=0; m<nang; m++) {
+	  Hp += pRG->r3imu[ifr][j][i][4][m] * pRG->mu[4][m][2] * pRG->wmu[m];
+	  Hp += pRG->r3imu[ifr][j][i][5][m] * pRG->mu[5][m][2] * pRG->wmu[m];
+	  Hp += pRG->r3imu[ifr][j][i][6][m] * pRG->mu[6][m][2] * pRG->wmu[m];
+	  Hp += pRG->r3imu[ifr][j][i][7][m] * pRG->mu[7][m][2] * pRG->wmu[m];
+	  Jp += pRG->r3imu[ifr][j][i][4][m] * pRG->wmu[m];
+	  Jp += pRG->r3imu[ifr][j][i][5][m] * pRG->wmu[m];
+	  Jp += pRG->r3imu[ifr][j][i][6][m] * pRG->wmu[m];
+	  Jp += pRG->r3imu[ifr][j][i][7][m] * pRG->wmu[m];	  
+	}
+
+	H = pRG->R[ifr][ku][j][i].H[2];
+	I0 = (Hp - H) / gamma;
+	if (I0 < 0.0) I0 = 0.0; 
+	pRG->R[ifr][ku][j][i].J = 0.5 * I0 + Jp;
+	for (m=0; m<nang; m++) {
+	  pRG->Ghstr3i[ifr][j][i][4][m] = I0;
+	  pRG->Ghstr3i[ifr][j][i][5][m] = I0;
+	  pRG->Ghstr3i[ifr][j][i][6][m] = I0;
+	  pRG->Ghstr3i[ifr][j][i][7][m] = I0;
+	}
+      }}
+  }
+
+  return;
+
+}
+
+/*----------------------------------------------------------------------------*/
 /* Time independent incident radiation boundary condition.  Nothing is done 
  * here, as the incident boundary radiaion is specified at initialization and
- * unchanged during computation. */
+ * unchanged during computation. This means that any contribution from back
+ * scattering of outgoing radiation is ignored.  */
 
 static void const_incident_rad(RadGridS *pRG, int ifs, int ife)
 {
   return;
 }
+
 
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs */
 

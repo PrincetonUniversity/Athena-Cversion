@@ -91,7 +91,7 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/MatrixSolver/Bicgsafe3D.o \
 		  integrators/MatrixSolver/bvals_matrix_vector.o \
 		  integrators/MatrixSolver/bvals_matrix_vector_shear.o
-		
+
 
 
 
@@ -148,7 +148,8 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/jacobi_2d_linear.o\
 		radiation/gausseid_2d.o\
 		radiation/jacobi_3d_linear.o\
-		radiation/gausseid_3d.o
+		radiation/gausseid_3d.o\
+		radiation/ray_tracing.o
 
 RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \

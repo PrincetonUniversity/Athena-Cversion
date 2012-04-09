@@ -123,10 +123,6 @@ int main(int argc, char *argv[])
   if(MPI_SUCCESS != MPI_Init(&argc, &argv))
     ath_error("[main]: Error on calling MPI_Init\n");
 #endif /* MPI_PARALLEL */
-#ifdef RADIATION_TRANSFER
-  int nitert;
-  Real dScnvt;
-#endif
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
   VMFun_t BackEuler;
 #endif
@@ -485,16 +481,16 @@ int main(int argc, char *argv[])
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
-	hydro_to_rad(&(Mesh.Domain[nl][nd]));  
-	nitert = niter;
-	dScnvt = dScnv;
+	hydro_to_rad(&(Mesh.Domain[nl][nd]),1);  
 	niter = par_geti_def("radiation","niter0",niter);
 	dScnv = par_getd_def("radiation","dScnv0",dScnv);
 	formal_solution(&(Mesh.Domain[nl][nd]));
-	niter = nitert;
-	dScnv = dScnvt;
+	niter = par_geti("radiation","niter");
+	dScnv = par_getd("radiation","dScnv");
+/* User work (defined in problem()) */
+	Userwork_after_first_formal_solution(&(Mesh.Domain[nl][nd]));
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
- 	Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);
+	Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
       }
@@ -624,18 +620,15 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
 /* compute radiation variables from conserved variables */
-	  hydro_to_rad(&(Mesh.Domain[nl][nd]));
+	  hydro_to_rad(&(Mesh.Domain[nl][nd]),1);
 /* solve radiative transfer */
 	  formal_solution(&(Mesh.Domain[nl][nd]));
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	 Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
+	  Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
 #else
 /* modify timestep if necessary */
 	 dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
-	 /*if(myID_Comm_world == 0){
-	   printf("timesteps  %g  %g\n",Mesh.dt, dt_rad);
-	   }*/
 	 Mesh.dt = MIN(Mesh.dt, dt_rad);
 	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
 /* operator split update of total energy equation */

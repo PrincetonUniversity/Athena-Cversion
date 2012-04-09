@@ -3010,10 +3010,10 @@ k][j][i].M3);
 
 		*/
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
-
+#ifdef RADIATION_MHD
 				B1_x1Face[k][j][i] = pG->B1i[k][j][i];
 				Bx = B1_x1Face[k][j][i];
-
+#endif
 				 Wl[i].P = pG->U[k][j][i-1].E - 0.5 * (pG->U[k][j][i-1].M1 * pG->U[k][j][i-1].M1 + pG->U[k][j][i-1].M2 * pG->U[k][j][i-1].M2 + pG->U[k][j][i-1].M3 * pG->U[k][j][i-1].M3) / pG->U[k][j][i-1].d;
 #ifdef RADIATION_MHD
                                 Wl[i].P -= 0.5 * (pG->U[k][j][i-1].B1c * pG->U[k][j][i-1].B1c + pG->U[k][j][i-1].B2c * pG->U[k][j][i-1].B2c + pG->U[k][j][i-1].B3c * pG->U[k][j][i-1].B3c);
@@ -3042,8 +3042,7 @@ k][j][i].M3);
                                 Wr[i].Vz = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
 
                                 Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
-
-
+#ifdef RADIATION_MHD
 				emf1_cc[k][j][i-1] = (pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M3 -
 			    		pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M2)/pG->U[k][j][i-1].d;
         			emf2_cc[k][j][i-1] = (pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M1 -
@@ -3057,7 +3056,7 @@ k][j][i].M3);
 			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
         			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
 			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
-
+#endif
 			}
 			
 /*			if((Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)  || (((fabs(Wr[i].Vx) > fluxfactor * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vy) > fluxfactor * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vz) > fluxfactor * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d))) && (fabs(x3)>Zmax))){
@@ -3110,10 +3109,10 @@ k][j][i].M3);
         		Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Bx);
 
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
-			
+#ifdef RADIATION_MHD			
 				B2_x2Face[k][j][i] = pG->B2i[k][j][i];
 				Bx = B2_x2Face[k][j][i];
-	
+#endif	
  				Wl[i].P = pG->U[k][j-1][i].E - 0.5 * (pG->U[k][j-1][i].M1 * pG->U[k][j-1][i].M1 + pG->U[k][j-1][i].M2 * pG->U[k][j-1][i].M2 + pG->U[k][j-1][i].M3 * pG->U[k][j-1][i].M3) / pG->U[k][j-1][i].d;
 #ifdef RADIATION_MHD
                                 Wl[i].P -= 0.5 * (pG->U[k][j-1][i].B1c * pG->U[k][j-1][i].B1c + pG->U[k][j-1][i].B2c * pG->U[k][j-1][i].B2c + pG->U[k][j-1][i].B3c * pG->U[k][j-1][i].B3c);
@@ -3142,6 +3141,7 @@ k][j][i].M3);
 
                                Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
 
+#ifdef RADIATION_MHD
 				emf1_cc[k][j-1][i] = (pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M3 -
 			    		pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M2)/pG->U[k][j-1][i].d;
         			emf2_cc[k][j-1][i] = (pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M1 -
@@ -3155,7 +3155,7 @@ k][j][i].M3);
 			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
         			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
 			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
-
+#endif
                        }
 
 /*			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (((fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d))) && (fabs(x3) > Zmax))){
@@ -3213,8 +3213,9 @@ k][j][i].M3);
         		Wr[i] = Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Bx);
 
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
-		
+#ifdef RADIATION_MHD		
 				B3_x3Face[k][j][i] = pG->B3i[k][j][i];
+#endif
 				Wl[i].P = pG->U[k-1][j][i].E - 0.5 * (pG->U[k-1][j][i].M1 * pG->U[k-1][j][i].M1 + pG->U[k-1][j][i].M2 * pG->U[k-1][j][i].M2 + pG->U[k-1][j][i].M3 * pG->U[k-1][j][i].M3) / pG->U[k-1][j][i].d;
 #ifdef RADIATION_MHD
                                 Wl[i].P -= 0.5 * (pG->U[k-1][j][i].B1c * pG->U[k-1][j][i].B1c + pG->U[k-1][j][i].B2c * pG->U[k-1][j][i].B2c + pG->U[k-1][j][i].B3c * pG->U[k-1][j][i].B3c);
@@ -3246,7 +3247,7 @@ k][j][i].M3);
                                  Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
 
 
-
+#ifdef RADIATION_MHD
 				emf1_cc[k-1][j][i] = (pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M3 -
 			    		pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M2)/pG->U[k-1][j][i].d;
         			emf2_cc[k-1][j][i] = (pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M1 -
@@ -3260,7 +3261,7 @@ k][j][i].M3);
 			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
         			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
 			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
-
+#endif
 			}
 	
 	/*				if(Wl[i].P < 2.0 * TINY_NUMBER || (Wl[i].d < dfloor) || (((fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d))) && (fabs(x3) > Zmax))){ 

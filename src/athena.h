@@ -355,6 +355,30 @@ typedef struct RadGrid_s {
 
 } RadGridS;
 
+#ifdef RAY_TRACING
+typedef struct RayGrid_s {
+    
+  int nf;            /* # of frequencies */
+  Real *nu;          /* array of frequencies */
+  Real *wnu;         /* weights for freq. quad. */
+
+  Real ****H;        /* array of radiation flux */
+  Real ****S;        /* scattering source term */
+
+  Real dx1;             /* cell size in dierection on this Grid */
+  Real time;            /* current time */
+  int is,ie;		/* start/end cell index in x1 direction */
+  int js,je;		/* start/end cell index in x2 direction */
+  int ks,ke;		/* start/end cell index in x3 direction */
+  int Nx[3];       /* # of zones in each dir on Grid [0,1,2]=[x1,x2,x3] */
+  int Disp[3];     /* i,j,k displacements of Grid from origin [0,1,2]=[i,j,k] */
+
+  int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
+ 
+} RayGridS;
+
+#endif /* RAY_TRACING */
+
 typedef void (*VRGIFun_t)(RadGridS *pRG, int ifs, int ife);    /* void function of RadGrid, int */
 
 #endif /* RADIATION_TRANSFER */
@@ -599,6 +623,9 @@ typedef struct Domain_s{
 #endif /* MPI_PARALLEL */
 #ifdef RADIATION_TRANSFER
   RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
+#ifdef RAY_TRACING
+  RayGridS *RayGrid; /* pointer to RayGrid in this Dom updated on this proc   */
+#endif /* RAY_TRACING */
 #endif /* RADIATION_TRANSFER */
 }DomainS;
 

@@ -81,7 +81,6 @@ void ludcmpnew(Real **a, int n, int *indx, Real *d, int *status)
     	ath_error("[ludcmp]: malloc returned a NULL pointer\n");
 }
 
-#ifndef RADIATION_TRANSFER
 
 void lubksb(Real **a, int n, int *indx, Real b[])
 {
@@ -103,7 +102,6 @@ void lubksb(Real **a, int n, int *indx, Real b[])
 		b[i]=sum/a[i][i];
 	}
 }
-#endif
 
 #endif
 

@@ -42,11 +42,11 @@ void radMHD_rad_inflow2(GridS *pGrid);
 
 static Real eps0;
 
-static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
+static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
 		    const int k);
-static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
+static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
 		      const int k);
-static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const int j, 
+static Real transfer_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
 			  const int k);
 
 
@@ -298,8 +298,8 @@ void problem(DomainS *pDomain)
       for(m=0; m<nang/2; m++) {
 		  /* Corresponding to radiation temperature */
 		  if(m==5){
-				pRG->l1imu[ifr][pRG->ks][j][0][m] = pow(6.0, 4.0) * Thermal_B(pGrid, ifr, pGrid->is-1,j+nghost-1, pGrid->ks);
-			    pRG->l1imu[ifr][pRG->ks][j][2][m] = pow(6.0, 4.0) * Thermal_B(pGrid, ifr, pGrid->is-1,j+nghost-1, pGrid->ks);
+		    pRG->l1imu[ifr][pRG->ks][j][0][m] = pow(6.0, 4.0) * Thermal_B(pGrid, pRG, ifr, pGrid->is-1,j+nghost-1, pGrid->ks);
+		    pRG->l1imu[ifr][pRG->ks][j][2][m] = pow(6.0, 4.0) * Thermal_B(pGrid,pRG, ifr, pGrid->is-1,j+nghost-1, pGrid->ks);
 		  }
 		  else{
 				pRG->l1imu[ifr][pRG->ks][j][0][m] = 0.0;
@@ -320,11 +320,11 @@ void problem(DomainS *pDomain)
       for(m=0; m<nang; m++) {
 
 	if(m == 5){
-		pRG->r2imu[ifr][pRG->ks][i][2][m] = pow(6.0, 4.0) * Thermal_B(pGrid, ifr, pGrid->is-1,nghost, pGrid->ks);
+	  pRG->r2imu[ifr][pRG->ks][i][2][m] = pow(6.0, 4.0) * Thermal_B(pGrid, pRG, ifr, pGrid->is-1,nghost, pGrid->ks);
 		pRG->r2imu[ifr][pRG->ks][i][3][m] = 0.0;
 		 
 		 	  
-		pRG->l2imu[ifr][pRG->ks][i][0][m] = pow(6.0, 4.0) * Thermal_B(pGrid, ifr, pGrid->is-1,nghost, pGrid->ks);
+		pRG->l2imu[ifr][pRG->ks][i][0][m] = pow(6.0, 4.0) * Thermal_B(pGrid, pRG, ifr, pGrid->is-1,nghost, pGrid->ks);
 		pRG->l2imu[ifr][pRG->ks][i][1][m] = 0.0;
 	}
 	else{
@@ -812,7 +812,7 @@ double ran2(long int *idum)
 /* Function for transfer module */
 #ifdef RADIATION_TRANSFER
 
-static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
+static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
 		    const int k)
 {
 	Real density, vx, vy, vz, energy, pressure, T, B;
@@ -832,7 +832,7 @@ static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j,
   return B;
 }
 
-static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
+static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
 		      const int k)
 {
 	Real eps;
@@ -842,7 +842,7 @@ static Real const_eps(const GridS *pG, const int ifr, const int i, const int j,
   
 }
 
-static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const int j, 
+static Real transfer_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
 			  const int k)
 {
 

@@ -1502,6 +1502,94 @@ void Eddington_FUN (const GridS *pG, const RadGridS *pRG)
 
 }
 
+
+void Eddington_FUN_new(const GridS *pG, const RadGridS *pRG)
+{
+
+  int i, j, k, DIM;
+  int is, ie, js, je, ks, ke;
+  int ri, rj, rk;
+  Real fx, fy, fz, fmag, frat, chi;
+  Real d1, d2;
+  DIM = 0;
+  is = pG->is;
+  ie = pG->ie;
+  js = pG->js;
+  je = pG->je;
+  ks = pG->ks;
+  ke = pG->ke;
+  
+	/* Note that in pRG, is = 1, ie = is + Nx *
+ 	 * that is, for radiation_transfer, there is only one ghost zone
+	 * for hydro ,there is 4 ghost zone
+	 */
+ 
+
+  for (i=0; i<3; i++) if(pG->Nx[i] > 1) ++DIM;	
+
+  for(k=ks; k<=ke; k++)
+    for(j=js; j<=je; j++)
+      for(i=is; i<=ie; i++){
+	if(DIM == 1){
+	  rj = j;
+	  rk = k;
+	  ri = i -nghost + 1;					
+	}
+	else if(DIM == 2){		
+	  rk = k;						
+	  ri = i - nghost + 1;
+	  rj = j - nghost + 1;
+	}
+	else{		
+	  ri = i - nghost + 1;
+	  rj = j - nghost + 1;
+	  rk = k - nghost + 1;
+	}
+
+	fmag = pG->U[k][j][i].Fr1 * pG->U[k][j][i].Fr1;
+	if(DIM == 2)
+	  fmag += pG->U[k][j][i].Fr2 * pG->U[k][j][i].Fr2;
+	if(DIM == 3)
+	  fmag += pG->U[k][j][i].Fr3 * pG->U[k][j][i].Fr3;
+	fmag = sqrt(fmag);
+	fx = pG->U[k][j][i].Fr1 / fmag;
+	if(DIM == 2)
+	  fy = pG->U[k][j][i].Fr2 / fmag;
+	if(DIM == 3)
+	  fz = pG->U[k][j][i].Fr3 / fmag;
+	frat = fmag / pG->U[k][j][i].Er;
+	//if (is == is) printf(" frat: %g %g %g\n",frat,fmag, pG->U[k][j][i].Er);
+	if (frat > 1.0) {
+	  printf(" frat > 1: %g %g %g\n",frat,fmag, pG->U[k][j][i].Er);
+	  frat = 1.0;
+	}
+	chi = (3.0 + 4.0 * frat * frat) / (5.0 + 2.0 * sqrt(4.0 - 3.0 * frat * frat));
+	d1 = 0.5 - 0.5 * chi;
+	d2 = 1.5 * chi - 0.5;
+
+	if(DIM == 1)
+	  pG->U[k][j][i].Edd_11 = chi;
+	else if(DIM == 2){
+	  pG->U[k][j][i].Edd_11 = d1 + fx * fx * d2;
+	  pG->U[k][j][i].Edd_21 =      fx * fy * d2;
+	  pG->U[k][j][i].Edd_22 = d1 + fy * fy * d2;
+	}
+	else if(DIM == 3){
+	  pG->U[k][j][i].Edd_11 = d1 + fx * fx * d2;
+	  pG->U[k][j][i].Edd_21 =      fx * fy * d2;
+	  pG->U[k][j][i].Edd_22 = d1 + fy * fy * d2;
+	  pG->U[k][j][i].Edd_31 =      fx * fy * d2;
+	  pG->U[k][j][i].Edd_32 =      fy * fz * d2;
+	  pG->U[k][j][i].Edd_33 = d1 + fz * fz * d2;
+	}
+	else
+	  ath_error("Dimension is not right!\n");
+      }
+  
+}
+
+
+
 #endif
 
 /* end radiation_transfer*/

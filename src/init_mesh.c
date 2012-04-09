@@ -652,7 +652,10 @@ void init_mesh(MeshS *pM)
       pD->Grid = NULL;
 #ifdef RADIATION_TRANSFER
       pD->RadGrid = NULL;
-#endif
+#ifdef RAY_TRACING 
+      pD->RayGrid = NULL;
+#endif /* RAY_TRACING */
+#endif /* RADIATION_TRANSFER */
 
 /* Loop over GData array, and if there is a Grid assigned to this proc, 
  * allocate it */

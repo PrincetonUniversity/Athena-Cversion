@@ -28,6 +28,8 @@ void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real *b, int m, int n, Real *c);
 int permutation(int i, int j, int k, int **pl, int np);
 void gauleg(Real x1, Real x2,  Real *x, Real *w, int n);
+void ludcmp_nr(Real **a, int n, int *indx, Real *d);
+void lubksb_nr(Real **a, int n, int *indx, Real b[]);
 
 /*----------------------------------------------------------------------------*/
 /* init_radiation:  */
@@ -60,7 +62,9 @@ void init_radiation(MeshS *pM)
     if (pM->Domain[nl][nd].Grid != NULL) {
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
       pRG = pM->Domain[nl][nd].RadGrid;          /* set ptr to RadGrid */
-
+#ifdef RAY_TRACING
+      pRayG = pM->Domain[nl][nd].RayGrid;          /* set ptr to RayGrid */
+#endif
 /* Initialize nf,nmu,nang, and noct */
       pRG->nf  = par_geti("radiation","nf");
       pRG->nmu = par_geti("radiation","nmu");
@@ -376,7 +380,6 @@ void init_radiation(MeshS *pM)
 /* initialize wnu to unity if nf=1 */
       if (pRG->nf == 1) pRG->wnu[0] = 1.0;
 
-
 /* Allocate memory for intensity Ghost Zones */ 
       if (pRG->Nx[0] > 1) {
 	pRG->Ghstr1i = (Real *****)calloc_5d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[1]+2,
@@ -415,6 +418,35 @@ void init_radiation(MeshS *pM)
 	pRG->Ghstr3i = NULL;
 	pRG->Ghstl3i = NULL;	
       }
+
+#ifdef RAY_TRACING
+/* initialize RayGRid and allocate memory for arrays */
+#ifdef USE_RADGRID_FREQ
+/* ray tracing routine uses same frequency bins as RadGrid */
+      pRayG->nf = pRG->nf;
+
+      pRayG->nu = (Real *)calloc_1d_array(pRayG->nf,sizeof(Real));
+      if (pRayG->nu == NULL) goto on_error29;
+      pRayG->wnu = (Real *)calloc_1d_array(pRayG->nf,sizeof(Real));
+      if (pRayG->wnu == NULL) goto on_error30;
+#endif /* USE_RADGRID_FREQ */
+      pRayG->dx1 = pRG->dx1;
+      pRayG->time = pRG->time;
+      pRayG->is = pRG->is; pRayG->ie = pRG->ie;
+      pRayG->js = pRG->js; pRayG->je = pRG->je;
+      pRayG->ks = pRG->ks; pRayG->ke = pRG->ke;
+      for(i=0;i<2;i++) {
+	pRayG->Nx[i] = pRG->Nx[i];
+	pRayG->Disp[i] = pRG->Disp[i];
+      }
+
+      pRayG->H = (Real ****)calloc_4d_array(pRayG->nf,pRayG->Nx[2]+2,
+	         pRayG->Nx[1]+2,pRayG->Nx[0]+2,sizeof(Real));
+      if (pRayG->H == NULL) goto on_error31;
+      pRayG->S = (Real ****)calloc_4d_array(pRayG->nf,pRayG->Nx[2]+2,
+                 pRayG->Nx[1]+2,pRayG->Nx[0]+2,sizeof(Real));
+      if (pRayG->S == NULL) goto on_error32;
+#endif /* RAY_TRACING */
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
@@ -456,6 +488,16 @@ void init_radiation(MeshS *pM)
 
 /*--- Error messages ---------------------------------------------------------*/
 
+#ifdef RAY_TRACING
+ on_error32:
+  free_4d_array(pRayG->S);
+ on_error31:
+  free_4d_array(pRayG->H);
+ on_error30:
+  free_1d_array(pRayG->wnu);  
+ on_error29:
+  free_1d_array(pRayG->nu);
+#endif
  on_error28:
   if (pRG->Nx[2] > 1) free_5d_array(pRG->Ghstl3i);
  on_error27:
@@ -616,7 +658,7 @@ int permutation(int i, int j, int k, int **pl, int np)
  * n is the matrix size, indx records the history of row permutation,
  * whereas d =1(-1) for even(odd) number of permutations.
  */
-void ludcmp(Real **a, int n, int *indx, Real *d)
+void ludcmp_nr(Real **a, int n, int *indx, Real *d)
 {
   int i,imax,j,k;
   Real big,dum,sum,temp;
@@ -678,7 +720,7 @@ void ludcmp(Real **a, int n, int *indx, Real *d)
  * indx id the history of row permutation
  * b is the vector on the right (AX=b), and is returned with the solution
  */
-void lubksb(Real **a, int n, int *indx, Real b[])
+void lubksb_nr(Real **a, int n, int *indx, Real b[])
 {
   int i,ii=-1,ip,j;
   Real sum;
@@ -713,12 +755,12 @@ void InverseMatrix(Real **a, int n, Real **b)
   indx = (int*)calloc_1d_array(n, sizeof(int));
   col = (Real*)calloc_1d_array(n, sizeof(Real));
 
-  ludcmp(a,n,indx,&d);
+  ludcmp_nr(a,n,indx,&d);
 
   for (j=0; j<n; j++) {
     for (i=0; i<n; i++) col[i]=0.0;
     col[j]=1.0;
-    lubksb(a, n, indx, col);
+    lubksb_nr(a, n, indx, col);
     for (i=0; i<n; i++)    b[i][j] = col[i];
   }
 

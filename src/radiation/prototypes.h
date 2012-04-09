@@ -27,7 +27,7 @@ Real radtrans_dt(DomainS *pD);
 
 /* hydro_to_rad.c */
 
-void hydro_to_rad(DomainS *pD);
+void hydro_to_rad(DomainS *pD, int iflag);
 void rad_to_hydro(DomainS *pD);
 
 /* bvals_rad.c */
