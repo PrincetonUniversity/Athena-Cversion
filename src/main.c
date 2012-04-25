@@ -371,7 +371,9 @@ int main(int argc, char *argv[])
   } else {                           /* New problem */
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].Grid != NULL) problem(&(Mesh.Domain[nl][nd]));
+        if (Mesh.Domain[nl][nd].Grid != NULL) {
+           problem(&(Mesh.Domain[nl][nd]));
+        }
       }
     }
   }
@@ -395,6 +397,7 @@ int main(int argc, char *argv[])
 #ifdef SELF_GRAVITY
   bvals_grav_init(&Mesh);
 #endif
+
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_init(&Mesh);
 #endif
@@ -408,6 +411,11 @@ int main(int argc, char *argv[])
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
     for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
       if (Mesh.Domain[nl][nd].Grid != NULL){
+#ifdef STAR_PARTICLE
+        synchro_starparticles(&(Mesh.Domain[nl][nd]));
+/* modify the sink particle ghost regions before bval_mhd */
+        modify_ghost_region_starparticles(&(Mesh.Domain[nl][nd]));
+#endif /* STAR_PARTICLE */
         bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
         bvals_particle(&(Mesh.Domain[nl][nd]));
@@ -448,13 +456,17 @@ int main(int argc, char *argv[])
     }
   }
 #endif
-
+/*
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
+  integrate_diff_init(&Mesh);
+#endif
+*/
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
 
   if(out_level >= 0){
     fp = athout_fp();
-    par_dump(0,fp);      /* Dump a copy of the parsed information to athout */
+//    par_dump(0,fp);      /* Dump a copy of the parsed information to athout */
   }
   change_rundir(rundir); /* Change to run directory */
   ath_sig_init();        /* Install a signal handler */
@@ -489,12 +501,14 @@ int main(int argc, char *argv[])
  *            (i) check for stopping criteria
  */
 
+
+
   while (Mesh.time < tlim && (nlim < 0 || Mesh.nstep < nlim)) {
 
 /*--- Step 9a. ---------------------------------------------------------------*/
 /* Only write output's with t_out>t (last argument of data_output = 0) */
 
-    data_output(&Mesh, 0);
+//    data_output(&Mesh, 1);
 
 /*--- Step 9b. ---------------------------------------------------------------*/
 /* operator-split explicit diffusion: thermal conduction, viscosity, resistivity
@@ -528,7 +542,6 @@ int main(int argc, char *argv[])
 
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
-
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
@@ -543,6 +556,18 @@ int main(int argc, char *argv[])
       }
     }
 
+#ifdef STAR_PARTICLE
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+           integrate_starparticles(&(Mesh.Domain[nl][nd]));
+           synchro_starparticles(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
+#endif /* STAR_PARTICLE */
+
+    data_output(&Mesh, 0);
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
 
@@ -552,8 +577,18 @@ int main(int argc, char *argv[])
 
 /*--- Step 9e. ---------------------------------------------------------------*/
 /* User work (defined in problem()) */
-
+/* call create_starparticles() inside Userwork_in_loop() */
     Userwork_in_loop(&Mesh);
+
+#ifdef STAR_PARTICLE
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          synchro_starparticles(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
+#endif /* STAR_PARTICLE */
 
 /*--- Step 9f. ---------------------------------------------------------------*/
 /* Compute gravitational potential using new density, and add second-order
@@ -578,6 +613,10 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].Grid != NULL){
+#ifdef STAR_PARTICLE
+/* modify the sink particle ghost regions before bval_mhd */
+          modify_ghost_region_starparticles(&(Mesh.Domain[nl][nd]));
+#endif /* STAR_PARTICLE */
           bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
           bvals_particle(&(Mesh.Domain[nl][nd]));
