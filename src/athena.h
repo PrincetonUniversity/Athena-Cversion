@@ -234,6 +234,32 @@ typedef struct GPCouple_s{
 
 #endif /* PARTICLES */
 
+/* Star particule structure 
+ * If new property is added to the structure, you need to modified: 
+   1. pG->nEle_struct in init_grid.h
+   2. MPI_Datatype type[pG->nEle_struct] in the function synchor_starparticle()
+   3. MPI_Datatype displs[pG->nEle_struct] in the function syncrho_starparticle()
+*/
+#ifdef STAR_PARTICLE
+typedef struct StarPar_s{
+  int  id;
+  Real m;
+  Real x1;
+  Real x2;
+  Real x3;
+  Real v1;
+  Real v2; 
+  Real v3;
+  Real life;
+  int merge_history;
+}StarParS;
+
+typedef struct StarParlist_s{
+  StarParS starpar;
+  struct StarParlist_s *next;
+}StarParlistS;
+#endif /*STAR_PARTICLE */
+
 /*----------------------------------------------------------------------------*/
 /*! \struct GridOvrlpS
  *  \brief Contains information about Grid overlaps, used for SMR.
@@ -277,7 +303,7 @@ typedef struct Grid_s{
   Real ***x1MassFlux;           /*!< x1 mass flux for source term correction */
   Real ***x2MassFlux;           /*!< x2 mass flux for source term correction */
   Real ***x3MassFlux;           /*!< x3 mass flux for source term correction */
-#endif /* GRAVITY */
+#endif /* GRAVITY or STAR_PARTICLE*/
   Real MinX[3];       /*!< min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real MaxX[3];       /*!< max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real dx1,dx2,dx3;   /*!< cell size on this Grid */
@@ -305,6 +331,15 @@ typedef struct Grid_s{
   GrainAux *parsub;          /*!< supplemental particle information */
   GPCouple ***Coup;          /*!< array of gas-particle coupling */
 #endif /* PARTICLES */
+
+#ifdef STAR_PARTICLE
+  StarParlistS *Lstars,*Gstars,*Gstars_fda;
+  int nLStarP;       /* Star particle numbers on the local processor   */
+  int nGStarP;       /* Star particle numbers on the local processor   */
+  int nEle_struct;   /* Elmenents number in the structure StarParS     */
+  Real nsink_starp;  /* The size of sink regions */
+  Real nghost_starp; /* The size of the regions inside which fluxes are modified */
+#endif /*STAR_PARTICLE */
 
 #ifdef STATIC_MESH_REFINEMENT
   int NCGrid;        /*!< # of child  Grids that overlap this Grid */
@@ -377,6 +412,12 @@ typedef struct Domain_s{
   MPI_Group Group_Children;  /*!< MPI group for Children communicator */
 #endif /* STATIC_MESH_REFINEMENT */
 #endif /* MPI_PARALLEL */
+
+#ifdef STAR_PARTICLE
+  int bcflag_ix1, bcflag_ox1;
+  int bcflag_ix2, bcflag_ox2;
+  int bcflag_ix3, bcflag_ox3;
+#endif /* STAR_PARTICLE */
 }DomainS;
 
 /*! \fn void (*VDFun_t)(DomainS *pD)
