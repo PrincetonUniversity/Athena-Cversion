@@ -35,11 +35,11 @@ Real sin_a, cos_a,lambda;
 static void gauleg(Real x1, Real x2,  Real *x, Real *w, int n);
 static void zroots(double complex *a, int m, double complex *roots, int polish);
 static void laguer(double complex *ad, int m, double complex *x, int *its);
-static Real grey_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real grey_B(const GridS *pG, const int ifr, const int i,
 		   const int j, const int k);
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_eps(const GridS *pG, const int ifr, const int i,
 		      const int j, const int k);
-static Real const_chi(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_chi(const GridS *pG, const int ifr, const int i,
 		      const int j, const int k);
 static void acoustic_wave_rad(Real Bo, Real tau, Real cs, Real d0, Real *vph, Real *rdamp,
                        Real *V0R, Real *V0I, Real *E0R, Real *E0I);
@@ -451,20 +451,20 @@ void Userwork_after_loop(MeshS *pM)
   return;
 }
 
-static Real grey_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real grey_B(const GridS *pG, const int ifr, const int i,
 		   const int j, const int k)
 {
   return B0 * pow(pG->tgas[k][j][i]/T0,4);
 }
 
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_eps(const GridS *pG, const int ifr, const int i,
 		      const int j, const int k)
 {
   return 1.0;
   
 }
 
-static Real const_chi(const GridS *pG,const RadGridS *pRG, const int ifr, const int i,
+static Real const_chi(const GridS *pG, const int ifr, const int i,
 		      const int j, const int k)
 {
   return kappa; 

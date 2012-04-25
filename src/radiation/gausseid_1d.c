@@ -24,14 +24,12 @@
 #ifdef RADIATION_TRANSFER
 #ifdef GAUSSEID
 
-static Real *****psi = NULL;
 static Real **psiint = NULL;
 static Real **lamstr = NULL;
 static Real *muinv = NULL, *mu2 = NULL;
 static Real ***imuo = NULL;
 static Real sorw, dsrold, dsrmx;
 static int isor;
-static int svwght;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -56,10 +54,8 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
     pRG->R[ifr][ks][js][i].J = 0.0;
     pRG->R[ifr][ks][js][i].H[0] = 0.0;
     pRG->R[ifr][ks][js][i].K[0] = 0.0;
-    if (svwght == 0) {
-      lamstr[ifr][i] = 0.0;
-      psiint[ifr][i] = 0.0;
-    }
+    lamstr[ifr][i] = 0.0;
+    psiint[ifr][i] = 0.0;
   }
 
 /* Account for ix1 boundary condition */
@@ -120,30 +116,23 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
 
      S0 = pRG->R[ifr][ks][js][i-sx].S;
      S2 = pRG->R[ifr][ks][js][i+sx].S;
-     if(svwght == 0) chio = pRG->R[ifr][ks][js][i].chi;
+     chio = pRG->R[ifr][ks][js][i].chi;
      for(m=0; m<nang; m++) {
-       if(svwght == 1) {
-	 imu = psi[ifr][i][l][m][1] * S0 +
-               psi[ifr][i][l][m][2] * pRG->R[ifr][ks][js][i].S +
-               psi[ifr][i][l][m][3] * S2;
-	 if (imu < 0.0) imu=0.0;
-	 imu += psi[ifr][i][l][m][0] * imuo[ifr][l][m];	
-       } else {
-	 chim = pRG->R[ifr][ks][js][i-sx].chi;
-	 chip = pRG->R[ifr][ks][js][i+sx].chi;
-	 /*dtaum = 0.5 * (chim + chio);
-	   dtaup = 0.5 * (chip + chio);*/
-	 interp_quad_chi(chim,chio,chip,&dtaum);
-	 interp_quad_chi(chip,chio,chim,&dtaup);
-	 dtaum *= dx * muinv[m]; 
-	 dtaup *= dx * muinv[m];
-	 interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-				      S0, pRG->R[ifr][ks][js][i].S, S2);
-	 imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
-	 imu += edtau * imuo[ifr][l][m];
-	 lamstr[ifr][i] += pRG->wmu[m] * a1;
-	 if (sx == 1) psiint[ifr][i] += pRG->wmu[m] * a2; 
-       }
+       chim = pRG->R[ifr][ks][js][i-sx].chi;
+       chip = pRG->R[ifr][ks][js][i+sx].chi;
+       /*dtaum = 0.5 * (chim + chio);
+	 dtaup = 0.5 * (chip + chio);*/
+       interp_quad_chi(chim,chio,chip,&dtaum);
+       interp_quad_chi(chip,chio,chim,&dtaup);
+       dtaum *= dx * muinv[m]; 
+       dtaup *= dx * muinv[m];
+       interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
+				    S0, pRG->R[ifr][ks][js][i].S, S2);
+       imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
+       imu += edtau * imuo[ifr][l][m];
+       lamstr[ifr][i] += pRG->wmu[m] * a1;
+       if (sx == 1) psiint[ifr][i] += pRG->wmu[m] * a2; 
+     
 /* Add to mean intensity and save for next iteration */
        wimu = pRG->wmu[m] * imu;
        pRG->R[ifr][ks][js][i].J += wimu;
@@ -153,15 +142,8 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
      }
      if (sx == -1) {
        update_sfunc(&(pRG->R[ifr][ks][js][i]), &deltas, lamstr[ifr][i]);
-       if(svwght == 1) {
-	 for(m=0; m<nang; m++) {
-	   imuo[ifr][l][m] += deltas * pRG->wmu[m] *
-	     psi[ifr][i][l][m][2];       
-	 }
-       } else {
-	 for(m=0; m<nang; m++) 
-	   imuo[ifr][l][m] += deltas * pRG->wmu[m] * a1;	   
-       }
+       for(m=0; m<nang; m++) 
+	 imuo[ifr][l][m] += deltas * pRG->wmu[m] * a1;	          
        pRG->R[ifr][ks][js][i-1].J += deltas * psiint[ifr][i-1];
      }
   }
@@ -189,7 +171,6 @@ void formal_solution_1d_destruct(void)
 
   int i;
 
-  if (psi != NULL)    free_5d_array(psi);
   if (psiint != NULL) free_2d_array(psiint);
   if (lamstr != NULL) free_2d_array(lamstr);
   if (imuo != NULL)   free_3d_array(imuo);
@@ -206,13 +187,6 @@ void formal_solution_1d_init(RadGridS *pRG)
   int js = pRG->js, ks = pRG->ks;
   int nf = pRG->nf, nang = pRG->nang;
   int ifr, i, l, m;
-  int sx;
-  Real dx = pRG->dx1;
-  Real edtau, a0, a1, a2;
-  Real chim, chio, chip, dtaum, dtaup;
-  Real S0, S2;
-
-  svwght = par_geti("radiation","svwght");
 
 /* Initialize variables for sor*/
   isor = par_geti_def("radiation","isor",0);
@@ -238,44 +212,6 @@ void formal_solution_1d_init(RadGridS *pRG)
 
   if ((psiint = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
     goto on_error;
-
-  if(svwght == 1) {
-/* compute weights once and save for next iteration */
-    if ((psi = (Real *****)calloc_5d_array(nf,nx1+2,2,nang,4,sizeof(Real))) == NULL) 
-      goto on_error;
-
-    for(i=is; i<=ie; i++) 
-      for(ifr=0; ifr<nf; ifr++) {
-	lamstr[ifr][i] = 0.0;
-	chio = pRG->R[ifr][ks][js][i].chi;
-	for(l=0; l<2; l++) {
-	  if(l == 0) sx = 1; else sx = -1;
-	  S0 = pRG->R[ifr][ks][js][i-sx].S;
-	  S2 = pRG->R[ifr][ks][js][i+sx].S;
-	  for(m=0; m<nang; m++) { 
-	    chim = pRG->R[ifr][ks][js][i-sx].chi;
-	    chip = pRG->R[ifr][ks][js][i+sx].chi;
-	    
-	    /*dtaum = 0.5 * (chim + chio) * dx * muinv[m]; 
-	      dtaup = 0.5 * (chip + chio) * dx * muinv[m];*/
-	    interp_quad_chi(chim,chio,chip,&dtaum);
-	    interp_quad_chi(chip,chio,chim,&dtaup);
-	    dtaum *= dx * muinv[m]; 
-	    dtaup *= dx * muinv[m];
-	    interp_quad_source(dtaum, dtaup, &edtau, &a0, &a1, &a2,
-	    		       S0, pRG->R[ifr][ks][js][i].S, S2);
-	    
-	    psi[ifr][i][l][m][0] = edtau;
-	    psi[ifr][i][l][m][1] = a0;
-	    psi[ifr][i][l][m][2] = a1;
-	    psi[ifr][i][l][m][3] = a2;
-	    lamstr[ifr][i] += pRG->wmu[m] * a1;
-	    if (sx == 1) 
-	      psiint[ifr][i] += pRG->wmu[m] * a2; 
-	  }
-	}
-      }
-  }
   
   return;
 

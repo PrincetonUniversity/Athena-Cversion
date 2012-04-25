@@ -379,8 +379,6 @@ typedef struct RayGrid_s {
 
 #endif /* RAY_TRACING */
 
-typedef void (*VRGIFun_t)(RadGridS *pRG, int ifs, int ife);    /* void function of RadGrid, int */
-
 #endif /* RADIATION_TRANSFER */
 
 /*----------------------------------------------------------------------------*/
@@ -494,9 +492,11 @@ typedef struct Grid_s{
 /*! \fn void (*VGFun_t)(GridS *pG)
  *  \brief Generic void function of Grid. */
 typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */
+#ifdef RADIATION_TRANSFER
+typedef void (*VRGIFun_t)(GridS *pG, RadGridS *pRG, int ifs, int ife);    /* void function of RadGrid, int */
+#endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-
 
 /* Only the four quantities will change in matrix solver */
 /* increase the cache performance */
@@ -779,7 +779,7 @@ typedef void (*OpacityFun_t)(const Real rho, const Real T, Real Sigma[NOPACITY],
 
 
 #ifdef RADIATION_TRANSFER
-typedef Real (*RadInitFun_t)(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
 			     const int j, const int k);
 #endif /* RADIATION_TRANSFER */
 /*----------------------------------------------------------------------------*/

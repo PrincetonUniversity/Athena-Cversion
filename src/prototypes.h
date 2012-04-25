@@ -352,7 +352,7 @@ void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, 
 #ifdef RADIATION_TARNSFER
 /* Function to calculate Eddington tensor */
 
-void Eddington_FUN(GridS *pG, RadGridS *pRG);
+void Eddington_FUN(DomainS *pD);
 
 #endif
 #endif

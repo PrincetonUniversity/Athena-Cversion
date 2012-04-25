@@ -17,9 +17,17 @@
 /* init_radiation.c */
 
 void init_radiation(MeshS *pM);
-void radiation_temp_array_init(DomainS *pD);
 void radiation_destruct(MeshS *pM);
 void radgrid_destruct(RadGridS *pRG);
+
+/* ray_tracing.c */
+#ifdef RAY_TRACING
+void ray_trace(DomainS *pD);
+#ifdef MPI_PARALLEL
+void allocate_working_array_ray_tracing(RayGridS *pRayG);
+void destruct_working_array_ray_tracing(void);
+#endif
+#endif /* RAY_TRACING */
 
 /* radtrans_dt */
 
@@ -33,6 +41,7 @@ void rad_to_hydro(DomainS *pD);
 /* bvals_rad.c */
 void bvals_rad(DomainS *pD, int ifs, int ife);
 void bvals_rad_init(MeshS *pM);
+void bvals_rad_trans_fun(DomainS *pD, enum BCDirection dir, VRGIFun_t prob_bc);
 
 /* bvals_rad_shear.c */
 void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife);

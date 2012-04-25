@@ -620,57 +620,65 @@ void restart_grids(char *res_file, MeshS *pM)
     }
 
 #ifdef RADIATION_TRANSFER
-      pRG=pM->Domain[nl][nd].RadGrid;
-      is = pRG->is;
-      ie = pRG->ie;
-      js = pRG->js;
-      je = pRG->je;
-      ks = pRG->ks;
-      ke = pRG->ke;
-      nf = pRG->nf;
-      nang = pRG->nang;
-      noct = pRG->noct;
+    pRG=pM->Domain[nl][nd].RadGrid;
+    is = pRG->is;
+    ie = pRG->ie;
+    js = pRG->js;
+    je = pRG->je;
+    ks = pRG->ks;
+    ke = pRG->ke;
+    nf = pRG->nf;
+    nang = pRG->nang;
+    noct = pRG->noct;
+    printf("noct, nang: %d %d\n",nang,noct);
 
 /* Read the mean intensity */
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+    fgets(line,MAXLEN,fp);
+    if(strncmp(line,"rad_J",5) != 0)
+      ath_error("[restart_grids]: Expected rad_J, found %s",line);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+	for (i=is; i<=ie; i++) {
+	  for (ifr=0; ifr<nf; ifr++) {
+	    fread(&(pRG->R[ifr][k][j][i].J),sizeof(Real),1,fp);
+	  }}}}
 
-      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
-      fgets(line,MAXLEN,fp);
-      if(strncmp(line,"rad_J",5) != 0)
-        ath_error("[restart_grids]: Expected rad_J, found %s",line);
-      for (k=ks; k<=ke; k++) {
-        for (j=js; j<=je; j++) {
-          for (i=is; i<=ie; i++) {
-	    for (ifr=0; ifr<nf; ifr++) {
-	      fread(&(pRG->R[ifr][k][j][i].J),sizeof(Real),1,fp);
-	    }}}}
-
-      if (pRG->Nx[0] > 1) {
+    if (pRG->Nx[0] > 1) {
 /* Read intensities on ix1 grid face */
       fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Ghstl1i",7) != 0)
-        ath_error("[restart_grids]: Expected Ghstl1i, found %s",line);
-	for (ifr=0; ifr<nf; ifr++) {
-	  for (k=ks; k<=ke; k++) {
-	    for (j=js; j<=je; j++) {
-	      for (l=0; l<noct; l++) {
-		for (m=0; m<nang; m++) {
-		  fread(&(pRG->Ghstl1i[ifr][k][j][l][m]),sizeof(Real),1,fp);
-		}}}}}
+      if(strncmp(line,"Ghstl1i",7) != 0) {
+	//printf("l error: %d\n",myID_Comm_world);
+        //ath_error("Ghstl1i  %d",myID_Comm_world);
+	ath_error("[restart_grids]: Expected Ghstl1i, found %s",line);
+      }// else
+      //printf("l good: %d %s",myID_Comm_world,line);
+      for (ifr=0; ifr<nf; ifr++) {
+	for (k=ks; k<=ke; k++) {
+	  for (j=js; j<=je; j++) {
+	    for (l=0; l<noct; l++) {
+	      for (m=0; m<nang; m++) {
+		fread(&(pRG->Ghstl1i[ifr][k][j][l][m]),sizeof(Real),1,fp);
+	      }}}}}
 
 /* Read intensities on ox1 grid face */
-     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */     
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Ghstr1i",7) != 0)
-        ath_error("[restart_grids]: Expected Ghstr1i, found %s",line);
-	for (ifr=0; ifr<nf; ifr++) {
-	  for (k=ks; k<=ke; k++) {
-	    for (j=js; j<=je; j++) {
-	      for (l=0; l<noct; l++) {
-		for (m=0; m<nang; m++) {
-		  fread(&(pRG->Ghstr1i[ifr][k][j][l][m]),sizeof(Real),1,fp);
-		}}}}}
-      }
+      if(strncmp(line,"Ghstr1i",7) != 0) {
+	printf("r error: %d\n",myID_Comm_world);
+        ath_error("Ghstr1i  %d",myID_Comm_world);
+        //ath_error("[restart_grids]: Expected Ghstr1i, found %s",line);
+      } else
+	printf("r good: %d %s",myID_Comm_world,line);
+      for (ifr=0; ifr<nf; ifr++) {
+	for (k=ks; k<=ke; k++) {
+	  for (j=js; j<=je; j++) {
+	    for (l=0; l<noct; l++) {
+	      for (m=0; m<nang; m++) {
+		fread(&(pRG->Ghstr1i[ifr][k][j][l][m]),sizeof(Real),1,fp);
+	      }}}}}
+    }
 
       if (pRG->Nx[1] > 1) {
 /* Read intensities on ix2 grid face */

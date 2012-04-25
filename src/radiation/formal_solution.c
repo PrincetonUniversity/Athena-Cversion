@@ -25,9 +25,6 @@ void formal_solution(DomainS *pD)
 {
 
   RadGridS *pRG=(pD->RadGrid);
-#ifdef RAY_TRACING
-  RayGridS *pRayG=(pD->RayGrid);
-#endif
   int i, ndim;
   int ifr, nf = pRG->nf, nfc = 0;
   Real *dSmaxa, dSmax = 0.0, dsm, dSmin, dSrmax;
@@ -53,12 +50,12 @@ void formal_solution(DomainS *pD)
 
 /* if enabled, compute contribution of external radiation */
 #ifdef RAY_TRACING
-
+  ray_trace(pD);
 #endif
 
   if (ndim == 1) {
 /* compute formal solution with 1D method*/
-    formal_solution_1d_init(pRG);
+    //formal_solution_1d_init(pRG);
     for(i=0; i<niter; i++) {
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
@@ -85,10 +82,10 @@ void formal_solution(DomainS *pD)
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
     }
-    formal_solution_1d_destruct();
+    //formal_solution_1d_destruct();
   } else if (ndim == 2) {
 /* compute formal solution with 2D method*/
-    formal_solution_2d_init(pRG);
+    //formal_solution_2d_init(pRG);
     for(i=0; i<niter; i++) {
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
@@ -115,10 +112,10 @@ void formal_solution(DomainS *pD)
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
     }
-    formal_solution_2d_destruct();
+    //formal_solution_2d_destruct();
   } else if (ndim == 3) {
 /* compute formal solution with 3D method*/
-    formal_solution_3d_init(pRG);
+    //formal_solution_3d_init(pRG);
     for(i=0; i<niter; i++) {
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
@@ -149,7 +146,7 @@ void formal_solution(DomainS *pD)
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
     }
-    formal_solution_3d_destruct();
+    //formal_solution_3d_destruct();
   }
 
   if (myID_Comm_world == 0) {

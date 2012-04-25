@@ -27,11 +27,11 @@ static Real eps0;
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  *============================================================================*/
-static Real const_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_B(const GridS *pG, const int ifr, const int i,
 		    const int j, const int k);
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_eps(const GridS *pG, const int ifr, const int i,
 		      const int j, const int k);
-static Real const_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_opacity(const GridS *pG, const int ifr, const int i,
 			  const int j, const int k);
 
 void problem(DomainS *pDomain)
@@ -678,19 +678,19 @@ void Userwork_after_loop(MeshS *pM)
   return;
 }
 
-static Real const_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_B(const GridS *pG, const int ifr, const int i,
 		    const int j, const int k)
 {
   return 1.0;
 }
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, 
+static Real const_eps(const GridS *pG, const int ifr, const int i, 
 		      const int j, const int k)
 {
 
   return eps0;
   
 }
-static Real const_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_opacity(const GridS *pG, const int ifr, const int i,
 			  const int j, const int k)
 {
 

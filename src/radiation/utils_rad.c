@@ -15,7 +15,7 @@
 #include "../athena.h"
 #include "../globals.h"
 #include "../prototypes.h"
-#define TAUMIN 1.0E-3
+#define TAUMIN 1.0E-6
 
 #ifdef RADIATION_TRANSFER
 

@@ -24,6 +24,8 @@
 
 #ifdef RADIATION_TRANSFER
 
+void formal_solution_init(RadGridS *pRG);
+void formal_solution_destruct(RadGridS *pRG);
 void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real *b, int m, int n, Real *c);
 int permutation(int i, int j, int k, int **pl, int np);
@@ -38,6 +40,9 @@ void init_radiation(MeshS *pM)
 {
   DomainS *pD;
   RadGridS *pRG;
+#ifdef RAY_TRACING
+  RayGridS *pRayG;
+#endif
   int nDim,nl,nd,myL,myM,myN;
   int i,j,k,l,m,n;
   int nmu, noct, nang, np, ip, iang;
@@ -446,6 +451,10 @@ void init_radiation(MeshS *pM)
       pRayG->S = (Real ****)calloc_4d_array(pRayG->nf,pRayG->Nx[2]+2,
                  pRayG->Nx[1]+2,pRayG->Nx[0]+2,sizeof(Real));
       if (pRayG->S == NULL) goto on_error32;
+#ifdef MPI_PARALLEL
+      allocate_working_array_ray_tracing(RayGridS *pRayG);
+#endif
+
 #endif /* RAY_TRACING */
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
@@ -481,6 +490,8 @@ void init_radiation(MeshS *pM)
       else pRG->rx3_id = -1;
 
     }
+    /* Initialize worrking arrays for formal solution routines */
+    formal_solution_init(pRG);
   }
   }
 
@@ -497,6 +508,9 @@ void init_radiation(MeshS *pM)
   free_1d_array(pRayG->wnu);  
  on_error29:
   free_1d_array(pRayG->nu);
+#ifdef MPI_PARALLEL
+  destruct_working_array_ray_tracing();
+#endif
 #endif
  on_error28:
   if (pRG->Nx[2] > 1) free_5d_array(pRG->Ghstl3i);
@@ -558,26 +572,48 @@ void init_radiation(MeshS *pM)
 
 }
 
-void radiation_temp_array_init(DomainS *pD)
+void formal_solution_init(RadGridS *pRG)
 {
 
-  RadGridS *pRG=(pD->RadGrid);
   int i, dim;
 
 /* Calculate the dimensions (using root Domain)  */
   dim = 0;
   for (i=0; i<3; i++) if(pRG->Nx[i] > 1) dim++;
 
-/* set function pointer to appropriate integrator based on dimensions */
-  /*switch(dim){
+/* set function pointer to appropriate initalization routine based on dimensions */
+  
+  if (dim == 1) 
+    formal_solution_1d_init(pRG);
+  else if (dim == 2) 
+    formal_solution_2d_init(pRG);
+  else if (dim == 3)
+    formal_solution_3d_init(pRG);
+  else
+    ath_error("[formal_solution_init]: incorrect number of dim: %d.\n",dim);
 
-  case 1:
-    formal_solution_1d_alloc(pRG);
-    break;
-  case 2:
-    formal_solution_2d_alloc(pRG);
-    break;
-    }*/
+  return;
+}
+
+void formal_solution_destruct(RadGridS *pRG)
+{
+
+  int i, dim;
+
+/* Calculate the dimensions (using root Domain)  */
+  dim = 0;
+  for (i=0; i<3; i++) if(pRG->Nx[i] > 1) dim++;
+
+/* set function pointer to appropriate destruct routine based on dimensions */
+  
+  if (dim == 1) 
+    formal_solution_1d_destruct();
+  else if (dim == 2) 
+    formal_solution_2d_destruct();
+  else if (dim == 3)
+    formal_solution_3d_destruct();
+  else
+    ath_error("[formal_solution_destruct]: incorrect number of dim: %d.\n",dim);
 
   return;
 }
@@ -592,7 +628,11 @@ void radiation_destruct(MeshS *pM)
   for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
     if (pM->Domain[nl][nd].RadGrid != NULL) {
       pRG = pM->Domain[nl][nd].RadGrid;          /* set ptr to RadGrid */
+      formal_solution_destruct(pRG);
       radgrid_destruct(pRG);
+#if defined(RAY_TRACING) && defined(MPI_PARALLEL)
+      destruct_working_array_ray_tracing();
+#endif
     }
   }}
   return;

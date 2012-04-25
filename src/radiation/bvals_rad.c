@@ -38,44 +38,45 @@ static  int x1cnt=0, x2cnt=0, x3cnt=0; /* Number of words passed in x1/x2/x3-dir
  *   pack_???_rad()     - pack data for MPI non-blocking send at ??? boundary
  *   unpack_???_rad()   - unpack data for MPI non-blocking receive at ??? boundary
  *============================================================================*/
-static void periodic_ix1_rad(RadGridS *pRG, int ifs, int ife);
-static void periodic_ox1_rad(RadGridS *pRG, int ifs, int ife);
-static void periodic_ix2_rad(RadGridS *pRG, int ifs, int ife);
-static void periodic_ox2_rad(RadGridS *pRG, int ifs, int ife);
-static void periodic_ix3_rad(RadGridS *pRG, int ifs, int ife);
-static void periodic_ox3_rad(RadGridS *pRG, int ifs, int ife);
+static void periodic_ix1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void periodic_ox1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void periodic_ix2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void periodic_ox2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void periodic_ix3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void periodic_ox3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
 
-static void ProlongateLater(RadGridS *pRG, int ifs, int ife);
-static void const_incident_rad(RadGridS *pRG, int ifs, int ife);
+static void ProlongateLater(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void const_incident_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
 
-static void const_flux_ix1(RadGridS *pRG, int ifs, int ife);
-static void const_flux_ox1(RadGridS *pRG, int ifs, int ife);
-static void const_flux_ix2(RadGridS *pRG, int ifs, int ife);
-static void const_flux_ox2(RadGridS *pRG, int ifs, int ife);
-static void const_flux_ix3(RadGridS *pRG, int ifs, int ife);
-static void const_flux_ox3(RadGridS *pRG, int ifs, int ife);
+static void const_flux_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void const_flux_ox1(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void const_flux_ix2(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void const_flux_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void const_flux_ix3(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void const_flux_ox3(GridS *pG, RadGridS *pRG, int ifs, int ife);
 
-static void constH_varJ_ix1(RadGridS *pRG, int ifs, int ife);
+static void constH_varJ_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife);
 
 #ifdef MPI_PARALLEL
-static void pack_ix1_rad(RadGridS *pRG, int ifs, int ife);
-static void pack_ox1_rad(RadGridS *pRG, int ifs, int ife);
-static void pack_ix2_rad(RadGridS *pRG, int ifs, int ife);
-static void pack_ox2_rad(RadGridS *pRG, int ifs, int ife);
-static void pack_ix3_rad(RadGridS *pRG, int ifs, int ife);
-static void pack_ox3_rad(RadGridS *pRG, int ifs, int ife);
+static void pack_ix1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void pack_ox1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void pack_ix2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void pack_ox2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void pack_ix3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void pack_ox3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
 
-static void unpack_ix1_rad(RadGridS *pRG, int ifs, int ife);
-static void unpack_ox1_rad(RadGridS *pRG, int ifs, int ife);
-static void unpack_ix2_rad(RadGridS *pRG, int ifs, int ife);
-static void unpack_ox2_rad(RadGridS *pRG, int ifs, int ife);
-static void unpack_ix3_rad(RadGridS *pRG, int ifs, int ife);
-static void unpack_ox3_rad(RadGridS *pRG, int ifs, int ife);
+static void unpack_ix1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void unpack_ox1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void unpack_ix2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void unpack_ox2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void unpack_ix3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
+static void unpack_ox3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife);
 #endif /* MPI_PARALLEL */
 
 void bvals_rad(DomainS *pD, int ifs, int ife)
 {
   RadGridS *pRG=(pD->RadGrid);
+  GridS *pG=(pD->Grid);
 #ifdef SHEARING_BOX
   int myL,myM,myN,BCFlag;
 #endif
@@ -100,11 +101,11 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
-      pack_ix1_rad(pRG,ifs,ife);
+      pack_ix1_rad(pG,pRG,ifs,ife);
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pRG->lx1_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
-      pack_ox1_rad(pRG,ifs,ife); 
+      pack_ox1_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pRG->rx1_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
@@ -113,11 +114,11 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
 
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-      if (mIndex == 0) unpack_ix1_rad(pRG,ifs,ife);
-      if (mIndex == 1) unpack_ox1_rad(pRG,ifs,ife);
+      if (mIndex == 0) unpack_ix1_rad(pG,pRG,ifs,ife);
+      if (mIndex == 1) unpack_ox1_rad(pG,pRG,ifs,ife);
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-      if (mIndex == 0) unpack_ix1_rad(pRG,ifs,ife);
-      if (mIndex == 1) unpack_ox1_rad(pRG,ifs,ife);
+      if (mIndex == 0) unpack_ix1_rad(pG,pRG,ifs,ife);
+      if (mIndex == 1) unpack_ox1_rad(pG,pRG,ifs,ife);
 
     }
 
@@ -129,18 +130,18 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
-      pack_ox1_rad(pRG,ifs,ife); 
+      pack_ox1_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pRG->rx1_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
       /* set physical boundary */
-      (*(pD->ix1_RBCFun))(pRG,ifs,ife);
+      (*(pD->ix1_RBCFun))(pG,pRG,ifs,ife);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
-      unpack_ox1_rad(pRG,ifs,ife);
+      unpack_ox1_rad(pG,pRG,ifs,ife);
 
     }
 
@@ -152,19 +153,19 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
-      pack_ix1_rad(pRG,ifs,ife); 
+      pack_ix1_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pRG->lx1_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
-      (*(pD->ox1_RBCFun))(pRG,ifs,ife);
+      (*(pD->ox1_RBCFun))(pG,pRG,ifs,ife);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
-      unpack_ix1_rad(pRG,ifs,ife);
+      unpack_ix1_rad(pG,pRG,ifs,ife);
 
     }
 #endif /* MPI_PARALLEL */
@@ -172,8 +173,8 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
 
 /* Physical boundaries on both left and right */
     if (pRG->rx1_id < 0 && pRG->lx1_id < 0) {
-      (*(pD->ix1_RBCFun))(pRG,ifs,ife);
-      (*(pD->ox1_RBCFun))(pRG,ifs,ife);
+      (*(pD->ix1_RBCFun))(pG,pRG,ifs,ife);
+      (*(pD->ox1_RBCFun))(pG,pRG,ifs,ife);
     }
   }
 /*--- Step 2. ------------------------------------------------------------------
@@ -193,11 +194,11 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
-      pack_ix2_rad(pRG,ifs,ife);
+      pack_ix2_rad(pG,pRG,ifs,ife);
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pRG->lx2_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
-      pack_ox2_rad(pRG,ifs,ife); 
+      pack_ox2_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pRG->rx2_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
@@ -206,11 +207,11 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
 
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-      if (mIndex == 0) unpack_ix2_rad(pRG,ifs,ife);
-      if (mIndex == 1) unpack_ox2_rad(pRG,ifs,ife);
+      if (mIndex == 0) unpack_ix2_rad(pG,pRG,ifs,ife);
+      if (mIndex == 1) unpack_ox2_rad(pG,pRG,ifs,ife);
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-      if (mIndex == 0) unpack_ix2_rad(pRG,ifs,ife);
-      if (mIndex == 1) unpack_ox2_rad(pRG,ifs,ife);
+      if (mIndex == 0) unpack_ix2_rad(pG,pRG,ifs,ife);
+      if (mIndex == 1) unpack_ox2_rad(pG,pRG,ifs,ife);
 
     }
 
@@ -221,19 +222,19 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
-      pack_ox2_rad(pRG,ifs,ife); 
+      pack_ox2_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pRG->rx2_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
-      (*(pD->ix2_RBCFun))(pRG,ifs,ife);
+      (*(pD->ix2_RBCFun))(pG,pRG,ifs,ife);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
-      unpack_ox2_rad(pRG,ifs,ife);
+      unpack_ox2_rad(pG,pRG,ifs,ife);
 
 
     }
@@ -245,19 +246,19 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
-      pack_ix2_rad(pRG,ifs,ife); 
+      pack_ix2_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pRG->lx2_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
-      (*(pD->ox2_RBCFun))(pRG,ifs,ife);
+      (*(pD->ox2_RBCFun))(pG,pRG,ifs,ife);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
-      unpack_ix2_rad(pRG,ifs,ife);
+      unpack_ix2_rad(pG,pRG,ifs,ife);
 
     }
 #endif /* MPI_PARALLEL */
@@ -265,8 +266,8 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
 
 /* Physical boundaries on both left and right */
     if (pRG->rx2_id < 0 && pRG->lx2_id < 0) {
-      (*(pD->ix2_RBCFun))(pRG,ifs,ife);
-      (*(pD->ox2_RBCFun))(pRG,ifs,ife);
+      (*(pD->ix2_RBCFun))(pG,pRG,ifs,ife);
+      (*(pD->ox2_RBCFun))(pG,pRG,ifs,ife);
     } 
  
 /* shearing sheet BCs; function defined in problem generator.
@@ -304,11 +305,11 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
-      pack_ix3_rad(pRG,ifs,ife);
+      pack_ix3_rad(pG,pRG,ifs,ife);
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pRG->lx3_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
-      pack_ox3_rad(pRG,ifs,ife); 
+      pack_ox3_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pRG->rx3_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
@@ -317,11 +318,11 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
 
       /* check non-blocking receives and unpack data in any order. */
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-      if (mIndex == 0) unpack_ix3_rad(pRG,ifs,ife);
-      if (mIndex == 1) unpack_ox3_rad(pRG,ifs,ife);
+      if (mIndex == 0) unpack_ix3_rad(pG,pRG,ifs,ife);
+      if (mIndex == 1) unpack_ox3_rad(pG,pRG,ifs,ife);
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-      if (mIndex == 0) unpack_ix3_rad(pRG,ifs,ife);
-      if (mIndex == 1) unpack_ox3_rad(pRG,ifs,ife);
+      if (mIndex == 0) unpack_ix3_rad(pG,pRG,ifs,ife);
+      if (mIndex == 1) unpack_ox3_rad(pG,pRG,ifs,ife);
 
     }
 
@@ -333,19 +334,19 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
-      pack_ox3_rad(pRG,ifs,ife); 
+      pack_ox3_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pRG->rx3_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
-      (*(pD->ix3_RBCFun))(pRG,ifs,ife);
+      (*(pD->ix3_RBCFun))(pG,pRG,ifs,ife);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[1]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from R and unpack data */
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
-      unpack_ox3_rad(pRG,ifs,ife);
+      unpack_ox3_rad(pG,pRG,ifs,ife);
 
     }
 
@@ -357,27 +358,27 @@ void bvals_rad(DomainS *pD, int ifs, int ife)
         pD->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
-      pack_ix3_rad(pRG,ifs,ife); 
+      pack_ix3_rad(pG,pRG,ifs,ife); 
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pRG->lx3_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
-      (*(pD->ox3_RBCFun))(pRG,ifs,ife);
+      (*(pD->ox3_RBCFun))(pG,pRG,ifs,ife);
 
       /* check non-blocking send has completed. */
       ierr = MPI_Wait(&(send_rq[0]), MPI_STATUS_IGNORE);
 
       /* wait on non-blocking receive from L and unpack data */
       ierr = MPI_Wait(&(recv_rq[0]), MPI_STATUS_IGNORE);
-      unpack_ix3_rad(pRG,ifs,ife);
+      unpack_ix3_rad(pG,pRG,ifs,ife);
 
     }
 #endif /* MPI_PARALLEL */
 
 /* Physical boundaries on both left and right */
     if (pRG->rx3_id < 0 && pRG->lx3_id < 0) {
-      (*(pD->ix3_RBCFun))(pRG,ifs,ife);
-      (*(pD->ox3_RBCFun))(pRG,ifs,ife);
+      (*(pD->ix3_RBCFun))(pG,pRG,ifs,ife);
+      (*(pD->ox3_RBCFun))(pG,pRG,ifs,ife);
     } 
 
   }
@@ -422,69 +423,73 @@ void bvals_rad_init(MeshS *pM)
     if(pRG->Nx[0] > 1) {
       nDim = 1;
 /*---- ix1 boundary ----------------------------------------------------------*/
+      
+      if(pD->ix1_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
 
 /* Domain boundary is in interior of root */
-      if(pD->Disp[0] != 0) {      
-	pD->ix1_RBCFun = ProlongateLater;
+	if(pD->Disp[0] != 0) {      
+	  pD->ix1_RBCFun = ProlongateLater;
 /* Domain is at L-edge of root Domain */
-      } else {                    
-	switch(pM->RBCFlag_ix1){
+	} else {                    
+	  switch(pM->RBCFlag_ix1){
 
+	  case 2: /* Open boundary with fixed incoming radiation */
+	    pD->ix1_RBCFun = const_incident_rad;
+	    break;
 
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ix1_RBCFun = const_incident_rad;
-	  break;
-
-	case 3: /* constant fixed flux at boundary */
-	  pD->ix1_RBCFun = const_flux_ix1;
-	  break;
-
-	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
-	  pD->ix1_RBCFun = periodic_ix1_rad;
+	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+	    pD->ix1_RBCFun = periodic_ix1_rad;
 #ifdef MPI_PARALLEL
-	  if(pRG->lx1_id < 0 && pD->NGrid[0] > 1){
-	    pRG->lx1_id = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
-	  }
+	    if(pRG->lx1_id < 0 && pD->NGrid[0] > 1){
+	      pRG->lx1_id = pD->GData[myN][myM][pD->NGrid[0]-1].ID_Comm_Domain;
+	    }
 #endif /* MPI_PARALLEL */
-	  break;
+	    break;
 
-	default:
-	  ath_perr(-1,"[bvals_rad_init]:rbc_ix1=%d unknown\n",pM->RBCFlag_ix1);
-	  exit(EXIT_FAILURE);
+	  case 5: /* constant fixed flux at boundary */
+	    pD->ix1_RBCFun = const_flux_ix1;
+	    break;
+
+	  default:
+	    ath_perr(-1,"[bvals_rad_init]:rbc_ix1=%d unknown\n",pM->RBCFlag_ix1);
+	    exit(EXIT_FAILURE);
+	  }
 	}
       }
 
 
 /*---- ox1 boundary ----------------------------------------------------------*/
 
+      if(pD->ox1_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
 
 /* Domain boundary is in interior of root */
-      if((pD->Disp[0] + pD->Nx[0])/irefine != pM->Nx[0]) {
-	pD->ox1_RBCFun = ProlongateLater;
+	if((pD->Disp[0] + pD->Nx[0])/irefine != pM->Nx[0]) {
+	  pD->ox1_RBCFun = ProlongateLater;
 /* Domain is at R-edge of root Domain */
-      } else {
-	switch(pM->RBCFlag_ox1){
+	} else {
+	  switch(pM->RBCFlag_ox1){
 
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ox1_RBCFun = const_incident_rad;
-	  break;
+	  case 2: /* Open boundary with fixed incoming radiation */
+	    pD->ox1_RBCFun = const_incident_rad;
+	    break;
 
-	case 3: /* constant fixed flux at boundary */
-	  pD->ox1_RBCFun = const_flux_ox1;
-	  break;
-
-	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
-	  pD->ox1_RBCFun = periodic_ox1_rad;
+	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+	    pD->ox1_RBCFun = periodic_ox1_rad;
 #ifdef MPI_PARALLEL
-	  if(pRG->rx1_id < 0 && pD->NGrid[0] > 1){
-	    pRG->rx1_id = pD->GData[myN][myM][0].ID_Comm_Domain;
-	  }
+	    if(pRG->rx1_id < 0 && pD->NGrid[0] > 1){
+	      pRG->rx1_id = pD->GData[myN][myM][0].ID_Comm_Domain;
+	    }
 #endif /* MPI_PARALLEL */
-	  break;
+	    break;
 	    
-	default:
-	  ath_perr(-1,"[bvals_rad_init]:rbc_ox1=%d unknown\n",pM->RBCFlag_ox1);
-	  exit(EXIT_FAILURE);
+	  case 5: /* constant fixed flux at boundary */
+	    pD->ox1_RBCFun = const_flux_ox1;
+	    break;
+
+	  default:
+	    ath_perr(-1,"[bvals_rad_init]:rbc_ox1=%d unknown\n",pM->RBCFlag_ox1);
+	    exit(EXIT_FAILURE);
+	  }
 	}
       }
     }
@@ -494,67 +499,71 @@ void bvals_rad_init(MeshS *pM)
       nDim = 2;
 /*---- ix2 boundary ----------------------------------------------------------*/
 
+      if(pD->ix2_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
+
 /* Domain boundary is in interior of root */
-      if(pD->Disp[1] != 0) {      
-	pD->ix2_RBCFun = ProlongateLater;
+	if(pD->Disp[1] != 0) {      
+	  pD->ix2_RBCFun = ProlongateLater;
 /* Domain is at L-edge of root Domain */
-      } else {                    
-	switch(pM->RBCFlag_ix2){
+	} else {                    
+	  switch(pM->RBCFlag_ix2){
 
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ix2_RBCFun = const_incident_rad;
-	  break;
+	  case 2: /* Open boundary with fixed incoming radiation */
+	    pD->ix2_RBCFun = const_incident_rad;
+	    break;
 
-	case 3: /* constant fixed flux at boundary */
-	  pD->ix2_RBCFun = const_flux_ix2;
-	  break;
-
-	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
-	  pD->ix2_RBCFun = periodic_ix2_rad;
+	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+	    pD->ix2_RBCFun = periodic_ix2_rad;
 #ifdef MPI_PARALLEL
-	  if(pRG->lx2_id < 0 && pD->NGrid[1] > 1){
-	    pRG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
-	  }
+	    if(pRG->lx2_id < 0 && pD->NGrid[1] > 1){
+	      pRG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
+	    }
 #endif /* MPI_PARALLEL */
-	  break;
+	    break;
 
-	default:
-	  ath_perr(-1,"[bvals_rad_init]:rbc_ix2=%d unknown\n",pM->RBCFlag_ix2);
-	  exit(EXIT_FAILURE);
+	  case 5: /* constant fixed flux at boundary */
+	    pD->ix2_RBCFun = const_flux_ix2;
+	    break;
+
+	  default:
+	    ath_perr(-1,"[bvals_rad_init]:rbc_ix2=%d unknown\n",pM->RBCFlag_ix2);
+	    exit(EXIT_FAILURE);
+	  }
 	}
       }
 
-
 /*---- ox2 boundary ----------------------------------------------------------*/
 
+      if(pD->ox2_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
 
 /* Domain boundary is in interior of root */
-      if((pD->Disp[1] + pD->Nx[1])/irefine != pM->Nx[1]) {
-	pD->ox2_RBCFun = ProlongateLater;
+	if((pD->Disp[1] + pD->Nx[1])/irefine != pM->Nx[1]) {
+	  pD->ox2_RBCFun = ProlongateLater;
 /* Domain is at R-edge of root Domain */
-      } else {
-	switch(pM->RBCFlag_ox2){
+	} else {
+	  switch(pM->RBCFlag_ox2){
 
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ox2_RBCFun = const_incident_rad;
-	  break;
+	  case 2: /* Open boundary with fixed incoming radiation */
+	    pD->ox2_RBCFun = const_incident_rad;
+	    break;
 
-	case 3: /* constant fixed flux at boundary */
-	  pD->ox2_RBCFun = const_flux_ox2;
-	  break;	  
-
-	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
-	  pD->ox2_RBCFun = periodic_ox2_rad;
+	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+	    pD->ox2_RBCFun = periodic_ox2_rad;
 #ifdef MPI_PARALLEL
-	  if(pRG->rx2_id < 0 && pD->NGrid[1] > 1){
-	    pRG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
-	  }
+	    if(pRG->rx2_id < 0 && pD->NGrid[1] > 1){
+	      pRG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
+	    }
 #endif /* MPI_PARALLEL */
-	  break;
+	    break;
 
-	default:
-	  ath_perr(-1,"[bvals_rad_init]:rbc_ox2=%d unknown\n",pM->RBCFlag_ox2);
-	  exit(EXIT_FAILURE);
+	  case 5: /* constant fixed flux at boundary */
+	    pD->ox2_RBCFun = const_flux_ox2;
+	    break;
+
+	  default:
+	    ath_perr(-1,"[bvals_rad_init]:rbc_ox2=%d unknown\n",pM->RBCFlag_ox2);
+	    exit(EXIT_FAILURE);
+	  }
 	}
       }
     }
@@ -564,68 +573,72 @@ void bvals_rad_init(MeshS *pM)
       nDim = 3;
 /*---- ix3 boundary ----------------------------------------------------------*/
 
+      if(pD->ix3_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
+
 /* Domain boundary is in interior of root */
-      if(pD->Disp[2] != 0) {      
-	pD->ix3_RBCFun = ProlongateLater;
+	if(pD->Disp[2] != 0) {      
+	  pD->ix3_RBCFun = ProlongateLater;
 
 /* Domain is at L-edge of root Domain */
-      } else {                    
-	switch(pM->RBCFlag_ix3){
+	} else {                    
+	  switch(pM->RBCFlag_ix3){
+	    
+	  case 2: /* Open boundary with fixed incoming radiation */
+	    pD->ix3_RBCFun = const_incident_rad;
+	    break;
 
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ix3_RBCFun = const_incident_rad;
-	  break;
-
-	case 3: /* constant fixed flux at boundary */
-	  pD->ix3_RBCFun = const_flux_ix3;
-	  break;
-
-	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
-	  pD->ix3_RBCFun = periodic_ix3_rad;
+	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+	    pD->ix3_RBCFun = periodic_ix3_rad;
 #ifdef MPI_PARALLEL
-	  if(pRG->lx3_id < 0 && pD->NGrid[2] > 1){
-	    pRG->lx3_id = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
-	  }
+	    if(pRG->lx3_id < 0 && pD->NGrid[2] > 1){
+	      pRG->lx3_id = pD->GData[pD->NGrid[2]-1][myM][myL].ID_Comm_Domain;
+	    }
 #endif /* MPI_PARALLEL */
-	  break;
+	    break;
 
-	default:
-	  ath_perr(-1,"[bvals_rad_init]:rbc_ix3=%d unknown\n",pM->RBCFlag_ix3);
-	  exit(EXIT_FAILURE);
+	  case 5: /* constant fixed flux at boundary */
+	    pD->ix3_RBCFun = const_flux_ix3;
+	    break;
+
+	  default:
+	    ath_perr(-1,"[bvals_rad_init]:rbc_ix3=%d unknown\n",pM->RBCFlag_ix3);
+	    exit(EXIT_FAILURE);
+	  }
 	}
       }
 
-
 /*---- ox3 boundary ----------------------------------------------------------*/
 
+      if(pD->ox3_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
 
 /* Domain boundary is in interior of root */
-      if((pD->Disp[2] + pD->Nx[2])/irefine != pM->Nx[2]) {
-	pD->ox3_RBCFun = ProlongateLater;
+	if((pD->Disp[2] + pD->Nx[2])/irefine != pM->Nx[2]) {
+	  pD->ox3_RBCFun = ProlongateLater;
 /* Domain is at R-edge of root Domain */
-      } else {
-	switch(pM->RBCFlag_ox3){
+	} else {
+	  switch(pM->RBCFlag_ox3){
 
-	case 2: /* Open boundary with fixed incoming radiation */
-	  pD->ox3_RBCFun = const_incident_rad;
-	  break;
-
-	case 3: /* constant fixed flux at boundary */
-	  pD->ox3_RBCFun = const_flux_ox3;
-	  break;
-
-	case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
-	  pD->ox3_RBCFun = periodic_ox3_rad;
+	  case 2: /* Open boundary with fixed incoming radiation */
+	    pD->ox3_RBCFun = const_incident_rad;
+	    break;
+	    
+	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
+	    pD->ox3_RBCFun = periodic_ox3_rad;
 #ifdef MPI_PARALLEL
-	  if(pRG->rx3_id < 0 && pD->NGrid[2] > 1){
-	    pRG->rx3_id = pD->GData[0][myM][myL].ID_Comm_Domain;
-	  }
+	    if(pRG->rx3_id < 0 && pD->NGrid[2] > 1){
+	      pRG->rx3_id = pD->GData[0][myM][myL].ID_Comm_Domain;
+	    }
 #endif /* MPI_PARALLEL */
-	  break;
+	    break;
 
-	default:
-	  ath_perr(-1,"[bvals_rad_init]:rbc_ox3=%d unknown\n",pM->RBCFlag_ox3);
-	  exit(EXIT_FAILURE);
+	  case 5: /* constant fixed flux at boundary */
+	    pD->ox3_RBCFun = const_flux_ox3;
+	    break;
+
+	  default:
+	    ath_perr(-1,"[bvals_rad_init]:rbc_ox3=%d unknown\n",pM->RBCFlag_ox3);
+	    exit(EXIT_FAILURE);
+	  }
 	}
       }
     }
@@ -735,10 +748,49 @@ void bvals_rad_init(MeshS *pM)
   return;
 }
 
+void bvals_rad_trans_fun(DomainS *pD, enum BCDirection dir, VRGIFun_t prob_bc)
+{
+
+  switch(dir){
+  case left_x1:
+    pD->ix1_RBCFun = prob_bc;
+    break;
+  case right_x1:
+    pD->ox1_RBCFun = prob_bc;
+    break;
+  case left_x2:
+    pD->ix2_RBCFun = prob_bc;
+    break;
+  case right_x2:
+    pD->ox2_RBCFun = prob_bc;
+    break;
+  case left_x3:
+    pD->ix3_RBCFun = prob_bc;
+    break;
+  case right_x3:
+    pD->ox3_RBCFun = prob_bc;
+    break;
+  default:
+    ath_perr(-1,"[bvals_rad_trans_fun]: Unknown direction = %d\n",dir);
+    exit(EXIT_FAILURE);
+  }
+  return;
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+/* Following are the functions:
+ *   periodic_???:   where ???=[ix1,ox1,ix2,ox2,ix3,ox3]
+ *   const_flux_???
+ *   pack_???
+ *   unpack_???
+ *  const_incident_rad
+ */
+
+
 /*----------------------------------------------------------------------------*/
 /* PERIODIC boundary conditions, Inner x1 boundary (rbc_ix1=1) */
 
-static void periodic_ix1_rad(RadGridS *pRG, int ifs, int ife)
+static void periodic_ix1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
 
   int il = pRG->is-1, ie = pRG->ie;
@@ -840,7 +892,7 @@ static void periodic_ix1_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PERIODIC boundary conditions (cont), Outer x1 boundary (rbc_ox1=1) */
 
-static void periodic_ox1_rad(RadGridS *pRG, int ifs, int ife)
+static void periodic_ox1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int is = pRG->is, iu = pRG->ie+1;
   int jl = pRG->js, ju = pRG->je;
@@ -940,7 +992,7 @@ static void periodic_ox1_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PERIODIC boundary conditions (cont), Inner x2 boundary (rbc_ix2=1) */
 
-static void periodic_ix2_rad(RadGridS *pRG, int ifs, int ife)
+static void periodic_ix2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
 
   int il = pRG->is-1, iu = pRG->ie+1;
@@ -1038,7 +1090,7 @@ static void periodic_ix2_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PERIODIC boundary conditions (cont), Outer x2 boundary (rbc_ox2=1) */
 
-static void periodic_ox2_rad(RadGridS *pRG, int ifs, int ife)
+static void periodic_ox2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
 
   int il = pRG->is-1, iu = pRG->ie+1;
@@ -1137,7 +1189,7 @@ static void periodic_ox2_rad(RadGridS *pRG, int ifs, int ife)
 /* PERIODIC boundary conditions (cont), Inner x3 boundary (rbc_ix3=1) */
 /* MUST BE MODIFIED TO INCLUDE RADIATION ONCE 3D RAD IS IMPLEMENTED */
 
-static void periodic_ix3_rad(RadGridS *pRG, int ifs, int ife)
+static void periodic_ix3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
 
   int il = pRG->is-1, iu = pRG->ie+1;
@@ -1224,7 +1276,7 @@ static void periodic_ix3_rad(RadGridS *pRG, int ifs, int ife)
 /* PERIODIC boundary conditions (cont), Outer x3 boundary (rbc_ox3=1) */
 /* MUST BE MODIFIED TO INCLUDE RADIATION ONCE 3D RAD IS IMPLEMENTED */
 
-static void periodic_ox3_rad(RadGridS *pRG, int ifs, int ife)
+static void periodic_ox3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1, ju = pRG->je+1;
@@ -1311,7 +1363,7 @@ static void periodic_ox3_rad(RadGridS *pRG, int ifs, int ife)
  * prolongation is actually handled in ProlongateGhostZones in main loop, so
  * this is just a NoOp Grid function.  */
 
-static void ProlongateLater(RadGridS *pRG, int ifs, int ife)
+static void ProlongateLater(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   return;
 }
@@ -1320,7 +1372,7 @@ static void ProlongateLater(RadGridS *pRG, int ifs, int ife)
 /* Requires a time independent constant flux on the boundary but allows 
  * mean intensity to vary. Inner x1 boundary  WORK IN PROGRESS!!! */
 
-static void constH_varJ_ix1(RadGridS *pRG, int ifs, int ife)
+static void constH_varJ_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, is = pRG->is;
   int jl = pRG->js, ju = pRG->je;
@@ -1367,7 +1419,7 @@ static void constH_varJ_ix1(RadGridS *pRG, int ifs, int ife)
  * the incoming radiation field is isotropic.
  * Inner x1 boundary  */
 
-static void const_flux_ix1(RadGridS *pRG, int ifs, int ife)
+static void const_flux_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1;
   int jl = pRG->js, ju = pRG->je;
@@ -1428,7 +1480,7 @@ static void const_flux_ix1(RadGridS *pRG, int ifs, int ife)
  * the incoming radiation field is isotropic.
  * Outer x1 boundary  */
 
-static void const_flux_ox1(RadGridS *pRG, int ifs, int ife)
+static void const_flux_ox1(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int iu = pRG->ie+1;
   int jl = pRG->js, ju = pRG->je;
@@ -1488,7 +1540,7 @@ static void const_flux_ox1(RadGridS *pRG, int ifs, int ife)
  * the incoming radiation field is isotropic. 
  * Inner x2 boundary  */
 
-static void const_flux_ix2(RadGridS *pRG, int ifs, int ife)
+static void const_flux_ix2(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1;
@@ -1544,7 +1596,7 @@ static void const_flux_ix2(RadGridS *pRG, int ifs, int ife)
  * the incoming radiation field is isotropic. 
  * Outer x2 boundary  */
 
-static void const_flux_ox2(RadGridS *pRG, int ifs, int ife)
+static void const_flux_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int ju = pRG->je+1;
@@ -1600,7 +1652,7 @@ static void const_flux_ox2(RadGridS *pRG, int ifs, int ife)
  * the incoming radiation field is isotropic. 
  * Inner x3 boundary  */
 
-static void const_flux_ix3(RadGridS *pRG, int ifs, int ife)
+static void const_flux_ix3(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
 
   int il = pRG->is-1, iu = pRG->ie+1;
@@ -1653,7 +1705,7 @@ static void const_flux_ix3(RadGridS *pRG, int ifs, int ife)
  * the incoming radiation field is isotropic.
  * Outer x3 boundary  */
 
-static void const_flux_ox3(RadGridS *pRG, int ifs, int ife)
+static void const_flux_ox3(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
 
   int il = pRG->is-1, iu = pRG->ie+1;
@@ -1709,7 +1761,7 @@ static void const_flux_ox3(RadGridS *pRG, int ifs, int ife)
  * unchanged during computation. This means that any contribution from back
  * scattering of outgoing radiation is ignored.  */
 
-static void const_incident_rad(RadGridS *pRG, int ifs, int ife)
+static void const_incident_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   return;
 }
@@ -1720,7 +1772,7 @@ static void const_incident_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Inner x1 boundary */
 
-static void pack_ix1_rad(RadGridS *pRG, int ifs, int ife)
+static void pack_ix1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int is = pRG->is;
   int jl = pRG->js, ju = pRG->je;
@@ -1816,7 +1868,7 @@ static void pack_ix1_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Outer x1 boundary */
 
-static void pack_ox1_rad(RadGridS *pRG, int ifs, int ife)
+static void pack_ox1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int ie = pRG->ie;
   int jl = pRG->js, ju = pRG->je;
@@ -1911,7 +1963,7 @@ static void pack_ox1_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Inner x2 boundary */
 
-static void pack_ix2_rad(RadGridS *pRG, int ifs, int ife)
+static void pack_ix2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int js = pRG->js;
@@ -2005,7 +2057,7 @@ static void pack_ix2_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Outer x2 boundary */
 
-static void pack_ox2_rad(RadGridS *pRG, int ifs, int ife)
+static void pack_ox2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int je = pRG->je;
@@ -2099,7 +2151,7 @@ static void pack_ox2_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Inner x3 boundary */
 
-static void pack_ix3_rad(RadGridS *pRG, int ifs, int ife)
+static void pack_ix3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1, ju = pRG->je+1;
@@ -2184,7 +2236,7 @@ static void pack_ix3_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* PACK boundary conditions for MPI_Isend, Outer x3 boundary */
 
-static void pack_ox3_rad(RadGridS *pRG, int ifs, int ife)
+static void pack_ox3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1, ju = pRG->je+1;
@@ -2269,7 +2321,7 @@ static void pack_ox3_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Inner x1 boundary */
 
-static void unpack_ix1_rad(RadGridS *pRG, int ifs, int ife)
+static void unpack_ix1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1;
   int jl = pRG->js, ju = pRG->je;
@@ -2385,7 +2437,7 @@ static void unpack_ix1_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Outer x1 boundary */
 
-static void unpack_ox1_rad(RadGridS *pRG, int ifs, int ife)
+static void unpack_ox1_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int iu = pRG->ie+1;
   int jl = pRG->js, ju = pRG->je;
@@ -2501,7 +2553,7 @@ static void unpack_ox1_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Inner x2 boundary */
 
-static void unpack_ix2_rad(RadGridS *pRG, int ifs, int ife)
+static void unpack_ix2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1;
@@ -2605,7 +2657,7 @@ static void unpack_ix2_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Outer x2 boundary */
 
-static void unpack_ox2_rad(RadGridS *pRG, int ifs, int ife)
+static void unpack_ox2_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int ju = pRG->je+1;
@@ -2709,7 +2761,7 @@ static void unpack_ox2_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Inner x3 boundary */
 
-static void unpack_ix3_rad(RadGridS *pRG, int ifs, int ife)
+static void unpack_ix3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1, ju = pRG->je+1;
@@ -2794,7 +2846,7 @@ static void unpack_ix3_rad(RadGridS *pRG, int ifs, int ife)
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Outer x3 boundary */
 
-static void unpack_ox3_rad(RadGridS *pRG, int ifs, int ife)
+static void unpack_ox3_rad(GridS *pG, RadGridS *pRG, int ifs, int ife)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int jl = pRG->js-1, ju = pRG->je+1;

@@ -66,6 +66,10 @@
 /* Interpolation of intensities */
 #define @INTENSITY_INTERP@
 
+/* Ray tracing */
+#define @RAY_TRACING_MODE@
+#define @RAY_TRACING_GRID@
+
 /* Matrix Solver Library */
 #define @MATRIX_LIBRARY@
 

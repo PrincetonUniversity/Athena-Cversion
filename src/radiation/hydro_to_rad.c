@@ -76,26 +76,26 @@ void hydro_to_rad(DomainS *pD, int iflag)
 	  if (iflag == 0) {
 	    lte = 1;
 	    pRG->R[ifr][k][j][i].J = pG->U[kg][jg][ig].Er;
-	    eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);	   
+	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);	   
 	    pRG->R[ifr][k][j][i].B = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
-	      eps  * get_thermal_source(pG,pRG,ifr,ig,jg,kg);
+	      eps  * get_thermal_source(pG,ifr,ig,jg,kg);
 	    pRG->R[ifr][k][j][i].eps = 1.0;
 	    pRG->R[ifr][k][j][i].S = pRG->R[ifr][k][j][i].B;	    
 	  } else {
-	    eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);
-	    pRG->R[ifr][k][j][i].B = get_thermal_source(pG,pRG,ifr,ig,jg,kg);
+	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
+	    pRG->R[ifr][k][j][i].B = get_thermal_source(pG,ifr,ig,jg,kg);
 	    pRG->R[ifr][k][j][i].eps = eps;
 	    pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
 	                                    eps  * pRG->R[ifr][k][j][i].B;
 	  }
 #else
-	  eps = get_thermal_fraction(pG,pRG,ifr,ig,jg,kg);
-	  pRG->R[ifr][k][j][i].B = get_thermal_source(pG,pRG,ifr,ig,jg,kg);
+	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
+	  pRG->R[ifr][k][j][i].B = get_thermal_source(pG,ifr,ig,jg,kg);
 	  pRG->R[ifr][k][j][i].eps = eps;
 	  pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
 	                                  eps  * pRG->R[ifr][k][j][i].B;
 #endif
-	  pRG->R[ifr][k][j][i].chi = get_total_opacity(pG,pRG,ifr,ig,jg,kg);
+	  pRG->R[ifr][k][j][i].chi = get_total_opacity(pG,ifr,ig,jg,kg);
 
 	}
       }

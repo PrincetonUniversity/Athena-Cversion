@@ -87,6 +87,10 @@ int lte, niter;
 Real dScnv;
 Real CPrat;  /* equiv to Prat * Crat in radhydro module */
 Real B00;
+#ifdef RAY_TRACING
+RadInitFun_t get_raytrace_thermal_fraction = NULL;
+RadInitFun_t get_raytrace_opacity = NULL;
+#endif
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -169,6 +173,10 @@ extern int lte, niter;
 extern Real dScnv;
 extern Real CPrat; 
 extern Real B00;
+#ifdef RAY_TRACING
+extern RadInitFun_t get_raytrace_thermal_fraction;
+extern RadInitFun_t get_raytrace_opacity;
+#endif
 #endif
 
 #endif /* MAIN_C */

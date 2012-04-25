@@ -42,11 +42,11 @@ void radMHD_rad_inflow2(GridS *pGrid);
 
 static Real eps0;
 
-static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k);
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
 		      const int k);
-static Real transfer_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const int j, 
 			  const int k);
 
 
@@ -812,7 +812,7 @@ double ran2(long int *idum)
 /* Function for transfer module */
 #ifdef RADIATION_TRANSFER
 
-static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k)
 {
 	Real density, vx, vy, vz, energy, pressure, T, B;
@@ -832,7 +832,7 @@ static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const
   return B;
 }
 
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
 		      const int k)
 {
 	Real eps;
@@ -842,7 +842,7 @@ static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const
   
 }
 
-static Real transfer_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const int j, 
 			  const int k)
 {
 

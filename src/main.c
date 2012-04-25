@@ -376,20 +376,6 @@ int main(int argc, char *argv[])
   four_pi_G = -1.0;
 #endif
   
-/*-----------------------------------------------------------------------*/
-/* This is moved here so that we can call radiation_transfer routine from problem generator */
-
-#ifdef RADIATION_TRANSFER
-    /* initialize the boundary condition function pointer */
-    bvals_rad_init(&Mesh);
-
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
-	  radiation_temp_array_init(&(Mesh.Domain[nl][nd]));
-	}        
-      }}
-#endif
 
 /*-----------------------------------------------------------------------*/
 
@@ -426,7 +412,9 @@ int main(int argc, char *argv[])
   bvals_radMHD_init(&Mesh);
 #endif
 
-   
+#ifdef RADIATION_TRANSFER
+    bvals_rad_init(&Mesh);
+#endif   
 
 #ifdef SELF_GRAVITY
   bvals_grav_init(&Mesh);
@@ -490,8 +478,8 @@ int main(int argc, char *argv[])
 /* User work (defined in problem()) */
 	Userwork_after_first_formal_solution(&(Mesh.Domain[nl][nd]));
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
-	Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);	
-	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+	Eddington_FUN(&(Mesh.Domain[nl][nd]));
+	/*bvals_radMHD(&(Mesh.Domain[nl][nd]));*/
 #endif
       }
     }
@@ -625,7 +613,8 @@ int main(int argc, char *argv[])
 	  formal_solution(&(Mesh.Domain[nl][nd]));
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	  Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
+	  Eddington_FUN(&(Mesh.Domain[nl][nd]));
+	  //	  Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
 #else
 /* modify timestep if necessary */
 	 dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));

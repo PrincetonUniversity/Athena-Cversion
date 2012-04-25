@@ -25,11 +25,11 @@ Real chi0;
 #ifdef SHEARING_BOX
 static Real UnstratifiedDisk(const Real x1, const Real x2, const Real x3);
 #endif
-static Real const_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_B(const GridS *pG, const int ifr, const int i,
 		    const int j, const int k);
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_eps(const GridS *pG, const int ifr, const int i,
 		      const int j, const int k);
-static Real const_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_opacity(const GridS *pG, const int ifr, const int i,
 			  const int j, const int k);
 
 void problem(DomainS *pDomain)
@@ -187,7 +187,7 @@ static Real const_B(const GridS *pG, const RadGridS *pRG, const int ifr, const i
   return 0.0;
 }
 
-static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, 
+static Real const_eps(const GridS *pG, const int ifr, const int i, 
 		      const int j, const int k)
 {
 
@@ -195,7 +195,7 @@ static Real const_eps(const GridS *pG, const RadGridS *pRG, const int ifr, const
   
 }
 
-static Real const_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i,
+static Real const_opacity(const GridS *pG, const int ifr, const int i,
 			  const int j, const int k)
 {
 
