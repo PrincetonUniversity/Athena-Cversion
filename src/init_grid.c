@@ -69,6 +69,27 @@ void init_grid(MeshS *pM)
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
       pG = pM->Domain[nl][nd].Grid;          /* set ptr to Grid */
 
+#ifdef STAR_PARTICLE
+      pG->Lstars = NULL;
+      pG->Gstars = NULL;
+      pG->Gstars_fda = NULL;
+      pG->nLStarP = 0;
+      pG->nGStarP = 0;
+      pG->nEle_struct = 10;
+#ifdef STAR_PARTICLE_USING_TSC_3P
+      pG->nsink_starp = 1;
+      pG->nghost_starp = 1;
+#endif
+#ifdef STAR_PARTICLE_USING_TSC_5P
+      pG->nsink_starp = 2;
+      pG->nghost_starp = 2;
+#endif
+#ifdef STAR_PARTICLE_USING_TSC_7P
+      pG->nsink_starp = 3;
+      pG->nghost_starp = 3;
+#endif
+#endif /* STAR_PARTICLE */
+
       pG->time = pM->time;
 
 /* get (l,m,n) coordinates of Grid being updated on this processor */
