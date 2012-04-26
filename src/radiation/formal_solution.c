@@ -20,7 +20,8 @@
 #include "../prototypes.h"
 
 #ifdef RADIATION_TRANSFER
-//static int lniter =0;
+/*static int lniter =0;
+*/
 void formal_solution(DomainS *pD)
 {
 

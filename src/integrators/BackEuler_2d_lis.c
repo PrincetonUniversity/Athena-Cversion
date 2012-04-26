@@ -1028,7 +1028,7 @@ void BackEuler_2d(MeshS *pM)
 	/* Eddington factor is updated in the integrator  */
 
 	
-
+/*
 if(Opacity != NULL){
 
 		for (j=pG->js; j<=pG->je; j++) {
@@ -1053,7 +1053,7 @@ if(Opacity != NULL){
 			}
 		}
 }
-
+*/
 /* Update the ghost zones for different boundary condition to be used later */
 /*	for (i=0; i<pM->NLevels; i++){ 
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  

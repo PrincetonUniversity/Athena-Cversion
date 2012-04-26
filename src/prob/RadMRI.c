@@ -118,6 +118,8 @@ static Real kappaffP;
 static Real B0y;
 static Real B0z;
 
+static Real dz = 0.0; /* cell size along z direction */
+
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
 static void Thindiskopacity(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[4]);
 #endif
@@ -323,6 +325,7 @@ void problem(DomainS *pDomain)
 /* Initialize boxsize */
   ztop = pDomain->RootMaxX[2];
   zbtm = pDomain->RootMinX[2];
+  dz = pGrid->dx3;
 
   Lx = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
   Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
@@ -1017,7 +1020,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	pD= &(pM->Domain[0][0]);
 	GridS *pGrid = pD->Grid;
 
-
+	dz = pGrid->dx3;
 	
 	bvals_mhd_fun(pD, right_x3, radMHD_inflowke);
 
@@ -1257,11 +1260,11 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	
 	if(fabs(x3) > 1.5){
 		if(Jrhomax > 0.0){
-			if(J > factor * Jrhomax){
+			if((J > factor * Jrhomax) && (J > 100.0)){
 				*eta_O = eta0 * J * J /(Jrhomax * Jrhomax);
 			}
 			else{
-				*eta_O = eta0;
+				*eta_O = 0.0;
 			}
 		}
 		else{
@@ -1298,6 +1301,8 @@ void Userwork_in_loop(MeshS *pM)
 #endif
 
 	Jrhomax = Jmaxtemp;
+	Jmaxtemp = 0.0;
+	/* Jmaxtemp only calculate maximum drift velocity for curent step */
 #endif
 
 
@@ -1494,10 +1499,10 @@ static Real grav_vertical(const Real x1, const Real x2, const Real x3)
 	/* In the ghost zeons, set the gravitational potential to be flat */
 	Real h;
 
-	if(x3 > ztop)
-		h = ztop;
-	else if(x3 < zbtm)
-		h = zbtm;
+	if(x3 > (ztop - 0.5 * dz))
+		h = ztop - 0.5 * dz;
+	else if(x3 < (zbtm + 0.5 * dz))
+		h = zbtm + 0.5 * dz;
 	else
 		h = x3;		
 
@@ -2116,8 +2121,14 @@ void radMHD_inflowke(GridS *pGrid)
                                          pGrid->B2i[ke+k][j][i] = pGrid->B2i[ke+k-1][j][i];
                                 }
 		*/
-			pGrid->B1i[ke+k][j][i] = pGrid->B1i[ke+k-1][j][i];
-			pGrid->B2i[ke+k][j][i] = pGrid->B2i[ke+k-1][j][i];
+			 if(pGrid->U[ke][j][i].M3 < 0.0){
+                                pGrid->B1i[ke+k][j][i] = 0.0 * pGrid->B1i[ke+k-1][j][i];
+                                pGrid->B2i[ke+k][j][i] = 0.0 * pGrid->B2i[ke+k-1][j][i];
+                        }
+                        else{
+                                pGrid->B1i[ke+k][j][i] = pGrid->B1i[ke+k-1][j][i];
+                                pGrid->B2i[ke+k][j][i] = pGrid->B2i[ke+k-1][j][i];
+                        }
 
 				if(k<nghost)
 					pGrid->B3i[ke+k+1][j][i] = pGrid->B3i[ke+k][j][i];
@@ -2148,8 +2159,15 @@ void radMHD_inflowke(GridS *pGrid)
 	for(k=1;k<=nghost;k++){
 		for(j=js-nghost;j<=je+nghost;j++){
 			for(i=is-nghost;i<=ie+nghost;i++){
-				pGrid->U[ke+k][j][i].B1c = pGrid->U[ke][j][i].B1c;
-				pGrid->U[ke+k][j][i].B2c = pGrid->U[ke][j][i].B2c;
+				 if(pGrid->U[ke][j][i].M3 < 0.0){
+                                        pGrid->U[ke+k][j][i].B1c = 0.0 * pGrid->U[ke][j][i].B1c;
+                                        pGrid->U[ke+k][j][i].B2c = 0.0 * pGrid->U[ke][j][i].B2c;
+                                 }
+                                 else{
+                                        pGrid->U[ke+k][j][i].B1c = pGrid->U[ke][j][i].B1c;
+                                        pGrid->U[ke+k][j][i].B2c = pGrid->U[ke][j][i].B2c;
+                                 }
+
 				if(k<nghost){
 					pGrid->U[ke+k][j][i].B3c = 0.5 * (pGrid->B3i[ke+k][j][i] + pGrid->B3i[ke+k+1][j][i]);
 				}
@@ -2226,9 +2244,9 @@ void radMHD_inflowke(GridS *pGrid)
 
 	
 		/* set density upper limit in ghost zone */
-		if(pGrid->U[ke+k][j][i].d > dfloor)
+/*		if(pGrid->U[ke+k][j][i].d > dfloor)
 			pGrid->U[ke+k][j][i].d = dfloor;				
-		
+*/		
 
 		
       		pGrid->U[ke+k][j][i].M1 = velocity1 * pGrid->U[ke+k][j][i].d;
@@ -2283,7 +2301,7 @@ void radMHD_rad_inflowke(GridS *pGrid)
 
 
 	Real x1, x2, x3;
-	Real dz = pGrid->dx3;
+	
 
 	 for(k=1;  k<=nghost;  k++) {
 	for(j=js-nghost; j<=je+nghost;j++){
@@ -2467,8 +2485,16 @@ void radMHD_inflowks(GridS *pGrid)
                                          pGrid->B2i[ks-k][j][i] = pGrid->B2i[ks-k+1][j][i];
                                 }
 			*/
-				pGrid->B1i[ks-k][j][i] = pGrid->B1i[ks-k+1][j][i];
-				pGrid->B2i[ks-k][j][i] = pGrid->B2i[ks-k+1][j][i];
+
+				if(pGrid->U[ks][j][i].M3 > 0.0){
+                                        pGrid->B1i[ks-k][j][i] = 0.0 * pGrid->B1i[ks-k+1][j][i];
+                                        pGrid->B2i[ks-k][j][i] = 0.0 * pGrid->B2i[ks-k+1][j][i];
+                                }
+                                else{
+                                        pGrid->B1i[ks-k][j][i] = pGrid->B1i[ks-k+1][j][i];
+                                        pGrid->B2i[ks-k][j][i] = pGrid->B2i[ks-k+1][j][i];
+                                }
+
 				pGrid->B3i[ks-k][j][i] = pGrid->B3i[ks-k+1][j][i];	
 
 			}
@@ -2495,8 +2521,15 @@ void radMHD_inflowks(GridS *pGrid)
 	for(k=1;k<=nghost;k++){
 		for(j=js-nghost;j<=je+nghost;j++){
 			for(i=is-nghost;i<=ie+nghost;i++){
-				pGrid->U[ks-k][j][i].B1c = pGrid->U[ks][j][i].B1c;
-				pGrid->U[ks-k][j][i].B2c = pGrid->U[ks][j][i].B2c;
+				if(pGrid->U[ks][j][i].M3 > 0.0){
+                                        pGrid->U[ks-k][j][i].B1c = 0.0 * pGrid->U[ks][j][i].B1c;
+                                        pGrid->U[ks-k][j][i].B2c = 0.0 * pGrid->U[ks][j][i].B2c;
+                                }
+                                else{
+                                        pGrid->U[ks-k][j][i].B1c = pGrid->U[ks][j][i].B1c;
+                                        pGrid->U[ks-k][j][i].B2c = pGrid->U[ks][j][i].B2c;
+                                }
+
 				pGrid->U[ks-k][j][i].B3c = 0.5 * (pGrid->B3i[ks-k][j][i] + pGrid->B3i[ks-k+1][j][i]);
 
 			}
@@ -2558,9 +2591,9 @@ void radMHD_inflowks(GridS *pGrid)
 */
 		pGrid->U[ks-k][j][i].d = pGrid->U[ks][j][i].d;
 
-		if(pGrid->U[ks-k][j][i].d > dfloor)
+/*		if(pGrid->U[ks-k][j][i].d > dfloor)
 			pGrid->U[ks-k][j][i].d = dfloor;
-
+*/
 		
       		pGrid->U[ks-k][j][i].M1 = velocity1 * pGrid->U[ks-k][j][i].d;
 		pGrid->U[ks-k][j][i].M2 = velocity2 * pGrid->U[ks-k][j][i].d;
@@ -2613,7 +2646,7 @@ void radMHD_rad_inflowks(GridS *pGrid)
 
 
 	Real x1, x2, x3;
-	Real dz = pGrid->dx3;
+
 
 	 for(k=1;  k<=nghost;  k++) {
 	for(j=js-nghost; j<=je+nghost;j++){
@@ -3018,12 +3051,12 @@ static void output_1d(MeshS *pM, OutputS *pOut)
 /* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-  tot1d=15+6+5+1;
+  tot1d=15+6+5+1+1;
 #else
-  tot1d=7+6+5+1;
+  tot1d=7+6+5+1+1;
 #endif /* MHD */
 #ifdef ADIABATIC
-  tot1d=tot1d+3+1;
+  tot1d=tot1d+3+1+1;
 #endif /* ADIABATIC */
 
   Lx = pM->RootMaxX[0] - pM->RootMinX[0];
@@ -3218,6 +3251,10 @@ static void output_1d(MeshS *pM, OutputS *pOut)
 	i1d++;
 	out1d[kg][i1d] += (pGrid->U[k+1][j][i].Er * pGrid->U[k+1][j][i].Edd_33 - pGrid->U[k-1][j][i].Er * pGrid->U[k-1][j][i].Edd_33) / (2.0* pGrid->dx3 * (pGrid->U[k][j][i].Sigma[0] + pGrid->U[k][j][i].Sigma[1]));
 
+	/* sqrt(B^2/rho) */
+	i1d++;
+	Bpre1 = expr_ME(pGrid,i,j,k);
+	out1d[kg][i1d] += sqrt(2.0 * Bpre1 / pGrid->U[k][j][i].d);
 #endif
 
       }
@@ -3297,11 +3334,11 @@ static void output_1d(MeshS *pM, OutputS *pOut)
 #else
 #ifdef RADIATION_MHD
     if (k == 0) {
-      fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma\n");
+      fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma		[32]2B^2/d\n");
     }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
             out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
-            out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29]);
+            out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29],out1d[k][30]);
 #else
     if (k == 0) {
       fprintf(p_1dfile,"# x3     dens    pressure    temperature  E     Etot     KEx         KEy         KEz         KE          Reynolds\n");

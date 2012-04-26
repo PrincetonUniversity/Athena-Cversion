@@ -98,6 +98,8 @@ void integrate_2d_radMHD(DomainS *pD)
   	int j,jl,ju,js=pG->js, je=pG->je;
   	int ks=pG->ks, m, n;
 
+	int badcellflag = 0;
+
 /* For static gravitational potential */
 	Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
 
@@ -144,8 +146,8 @@ void integrate_2d_radMHD(DomainS *pD)
 	
 	
 
-	Real temperature, velocity_x, velocity_y, velocity_z, pressure, density, Tguess, Fr0x, Fr0y, diffTEr, velocity;
-	Real Prwork1, Prwork2, Prworksource;
+	Real temperature, velocity_x, velocity_y, velocity_z, pressure, density, Tguess, Fr0x, Fr0y, diffTEr, velocity, Smx0, Smy0;
+	Real Prwork1, Prwork2, Prworksource, Ersource;
 	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
 	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy;
 	Real dSigma[2*NOPACITY], dSigmadP[NOPACITY], Sigma[NOPACITY];
@@ -156,7 +158,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	Real SFmx, SFmy, SVVx, SVVy, betax, betay;
 
 
-	Real Source_Inv[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
+	Real Source_Inv[NVAR][NVAR], Source_Invnew[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
 	Real divFlux1[NVAR], divFlux2[NVAR];
 	
 	/* SourceFlux is used to calculate flux due to other non-stiff source terms, such as static gravitational potential */
@@ -1565,6 +1567,12 @@ void integrate_2d_radMHD(DomainS *pD)
   }
 
 
+#ifdef FARGO	
+	Fargo(pD);
+	
+#endif
+
+
 /******************************************/
 /* integrate emf*^{n+1/2} to the grid cell corners */
 #ifdef RADIATION_MHD
@@ -1746,6 +1754,10 @@ void integrate_2d_radMHD(DomainS *pD)
 		Sigma[2] = Sigma_aP;
 		Sigma[3] = Sigma_aE;
 
+		/* Part of momentum source term */
+		Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[ks][j][i] - Sigma_aE * Usource.Er) / Crat;
+		Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[ks][j][i] - Sigma_aE * Usource.Er) / Crat;
+
 	/* The Source term */
 		dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, NULL, x1);
 
@@ -1761,18 +1773,18 @@ void integrate_2d_radMHD(DomainS *pD)
 		Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
 
 		/*=========================================================*/
-	
-		Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
-		Source_Inv[4][1] = (-dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[1][1];
-		Source_Inv[4][2] = (-dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[2][2];
+		Source_Inv[0][0] = 1.0;
+		Source_Inv[4][0] = 0.0;
+		Source_Inv[4][1] = 0.0;
+		Source_Inv[4][2] = 0.0;
 		Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
 	
 		Source[1] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)
-			+ velocity_x * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);
+			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat));
+			/*+ velocity_x * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);*/
 		Source[2] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)
-			+ velocity_y * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);
+			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat));
+			/*+ velocity_y * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);*/
 		if(Erflag){
 			Source[4] = -Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er) 
 			+ Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
@@ -1913,21 +1925,34 @@ void integrate_2d_radMHD(DomainS *pD)
 
 	/*================== End static gravitational flux ================*/
 		
-
+		Source[0] = 0.0;
 		for(n=0; n<5; n++) {
-			tempguess[n] = 0.0;
-			for(m=0; m<5; m++) {
-				tempguess[n] += dt * Source_Inv[n][m] * (Source[m] - divFlux1[m] - divFlux2[m]);
-			}
+			tempguess[n] = dt * Source_Inv[n][n] * (Source[n] - divFlux1[n] - divFlux2[n]);
+			
+		}
+
+		if(!Erflag){
+			tempguess[4] += -Prat * pG->Ersource[ks][j][i];
+
 		}
 
 		Prworksource = dt * Source_Inv[4][4] * Prwork1;
 
 		Uguess[0] = pG->U[ks][j][i].d + tempguess[0];
-		Uguess[1] = pG->U[ks][j][i].M1 + tempguess[1];
-		Uguess[2] = pG->U[ks][j][i].M2 + tempguess[2];
+		Uguess[1] = pG->U[ks][j][i].M1 + tempguess[1] + dt * Smx0;
+		Uguess[2] = pG->U[ks][j][i].M2 + tempguess[2] + dt * Smy0;
 		Uguess[3] = pG->U[ks][j][i].M3;
 		Uguess[4] = pG->U[ks][j][i].E + tempguess[4];
+
+#ifdef FARGO
+					/* Add the fargo term like normal flux term */
+					/* Do not include the stiffness of the source term */
+					/* Because radiation and gas should be advected together */
+		for(n=0; n<5; n++){			
+				Uguess[n] += pG->Fargosource[ks][j][i][n];
+						
+		}
+#endif
 		
 		
 
@@ -2071,31 +2096,29 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		pressure -= 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch) * (Gamma - 1.0);
 #endif
+
+		if((pressure < TINY_NUMBER) || (pressure != pressure)){
+			pressure = density * temperature * R_ideal;
+			
+			badcellflag = 1;
+
+		}
+
+
+		/* for bad cell, need to recalculate total energy */
+		if(badcellflag){
+			Uguess[4] =  pressure / (Gamma - 1.0) + 0.5 * (Uguess[1] * Uguess[1] 
+				+ Uguess[2] * Uguess[2] + Uguess[3] * Uguess[3]) / density;
+#ifdef RADIATION_MHD
+                        Uguess[4] += 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch);
+#endif
+
+
+		}	
+
 		temperature = pressure / (density * R_ideal);
-		
-
-		if(pressure < TINY_NUMBER)
-			temperature = pow(pG->U[ks][j][i].Er, 0.25);
-
 		Tguess = temperature;
-		/* Do not update opacity here */
-		/*
-
-		if(Opacity != NULL){
-			Opacity(density,temperature, Sigma, NULL);
-
-			Sigma_sF = Sigma[0];
-			Sigma_aF = Sigma[1];
-			Sigma_aP = Sigma[2];
-			Sigma_aE = Sigma[3];
-		}
-		else{
-			Sigma[0] = Sigma_sF;
-			Sigma[1] = Sigma_aF;
-			Sigma[2] = Sigma_aP;
-			Sigma[3] = Sigma_aE;
-		}
-		*/
+		
 		/* update source term */
 		Usource.d = Uguess[0];
 		Usource.Mx = Uguess[1];
@@ -2127,50 +2150,32 @@ void integrate_2d_radMHD(DomainS *pD)
 			SEmy = 0.0;
 		}
 
-		/*=========================================================*/
-		/* In case velocity is large and momentum source is stiff */
-		SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
-		/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);*/	
-
-		SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
-		/*	+ (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * Usource.Er) / (density * Crat);*/	
-
-		Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
-		Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
-
-		/*=========================================================*/
 
 
-
-		Source_Inv[4][0] = -dt * Prat * Crat * SErho/(1.0 + dt * Prat * Crat * SEE);
-		Source_Inv[4][1] = (-dt * Prat * Crat * SEmx/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[1][1];
-		Source_Inv[4][2] = (-dt * Prat * Crat * SEmy/(1.0 + dt * Prat * Crat * SEE)) * Source_Inv[2][2];
-		Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
-
-	
 		Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)
-			+ velocity_x * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);
+			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat));
 		Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)
-			+ velocity_y * (Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er)/Crat);
-		if(Erflag){
-			Source_guess[4] = -Prat * Crat * ((Sigma_aP * pow(Tguess, 4.0) - Sigma_aE * pG->U[ks][j][i].Er) 
-			+ Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
-			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
-			+ Source_Inv[2][2] * (Sigma_aF - Sigma_sF) * velocity_y
-			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
+			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat));
+		
+
+
+		/* Do not update opacity here */
+
+		if(Opacity != NULL){
+			Opacity(density,temperature, Sigma, NULL);
+
+			Sigma_sF = Sigma[0];
+			Sigma_aF = Sigma[1];
+			Sigma_aP = Sigma[2];
+			Sigma_aE = Sigma[3];
 		}
-		else{
-			Source_guess[4] = -Prat * Crat * (Source_Inv[1][1] * (Sigma_aF - Sigma_sF) * velocity_x
-			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat)/Crat
-			+ Source_Inv[2][2] * (Sigma_aF - Sigma_sF) * velocity_y
-			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat)/Crat	); 
-		}
+		
+
+		/* calculate the predict energy source term */
+		ThermalRelaxation(temperature, pG->U[ks][j][i].Er, density, Sigma_aP, Sigma_aE, dt, NULL, &Ersource);
+		Ersource = Ersource - pG->U[ks][j][i].Er;
+
+		diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[ks][j][i].Er;
 
 		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (Source_Inv[1][1] * velocity_x
 			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
@@ -2178,39 +2183,45 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ Source_Inv[2][2] * velocity_y
 			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat));
+
+		Source_Invnew[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+
+		if(Erflag){
+			Source_guess[4] = -Prat * Crat * diffTEr + Prwork2;
+		}
+		else{
+			Source_guess[4] = Prwork2;
+		}
+		
 				
 				
 /* Calculate the shearing source term due to the guess solution */				
-				
+		Errort[0] = 0.0;
+		Errort[1] = hdt * (Source[1] + Source_guess[1]) 
+						- dt * (divFlux1[1] + divFlux2[1]) 
+						- dt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1]);
 		
+		Errort[2] = hdt * (Source[2] + Source_guess[2]) 
+						- dt * (divFlux1[2] + divFlux2[2]) 
+						- dt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2]);	
 
-	/* Calculate the error term */
-		Errort[0] = pG->U[ks][j][i].d  + hdt * (Source[0] + Source_guess[0]) - dt * (divFlux1[0] + divFlux2[0]) - Uguess[0];
-		Errort[1] = pG->U[ks][j][i].M1 + hdt * (Source[1] + Source_guess[1]) - dt * (divFlux1[1] + divFlux2[1]) - Uguess[1];
-		Errort[2] = pG->U[ks][j][i].M2 + hdt * (Source[2] + Source_guess[2]) - dt * (divFlux1[2] + divFlux2[2]) - Uguess[2];
-		Errort[4] = pG->U[ks][j][i].E  + hdt * (Source[4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4]) - Uguess[4];
-				
-#ifdef CONS_GRAVITY
-		Errort[4] += 0.5*(pG->U[ks][j][i].d-grav_mean_rho)*pG->Phi_old[ks][j][i]-0.5*(density_old[j][i]-grav_mean_rho)*pG->Phi[ks][j][i];
-#endif
-
-		/* substract shearing source term */
-#ifdef SHEARING_BOX
-		Errort[1] += ShearSource[0];
-		Errort[2] += ShearSource[1];
-		Errort[4] += ShearSource[3];
-#endif
-
-
-	/* Calculate the correction */
-		for(n=0; n<5; n++) {
-			tempguess[n] = 0.0;
-			for(m=0; m<5; m++) {
-				tempguess[n] += Source_Inv[n][m] * Errort[m];
-			}
+		for(m=1; m<3; m++) {
+				tempguess[m] = Source_Inv[m][m] * Errort[m];
 		}
 
-		Prworksource += Source_Inv[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
+		/* Correction to the energy source term needs special treatment */
+		Errort[4] = hdt * (Source[4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4]) 
+				- dt * Source_Inv[4][4] * (Source[4] - (divFlux1[4] + divFlux2[4]));
+
+		tempguess[4] = Source_Invnew[4][4] * Errort[4];
+
+		if(!Erflag){
+			tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[ks][j][i]);
+		}
+
+
+
+		Prworksource += Source_Invnew[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
 		
 		/* Estimate the added radiation source term  */
 		
@@ -2221,6 +2232,9 @@ void integrate_2d_radMHD(DomainS *pD)
 
 #ifdef SHEARING_BOX
 			pG->Ersource[ks][j][i] -= ShearSource[3];
+#ifdef FARGO
+			pG->Ersource[ks][j][i] -= pG->Fargosource[ks][j][i][4];
+#endif
 #endif
 
 #ifdef CONS_GRAVITY
@@ -2236,23 +2250,35 @@ void integrate_2d_radMHD(DomainS *pD)
 			
 		}
 		else{
-			pG->Tguess[ks][j][i] = pG->U[ks][j][i].Er;
+			
 			pG->Ersource[ks][j][i] = 0.0;
 			
 		}
 		}
+		else{
+			pG->Ersource[ks][j][i] = 0.5 * (pG->Ersource[ks][j][i] + Ersource);
+		}
 		
 		pG->Eulersource[ks][j][i] = -Prworksource/Prat;
+
+		if(badcellflag){
+
+		/* Do not apply correction for bad cell */
+			pG->Ersource[ks][j][i] = 0.0;
+			pG->Eulersource[ks][j][i] = 0.0;
+			for(n=0; n<5; n++){
+				tempguess[n] = 0.0;
+			}		
+
+		}
 		/* change due to radiation source term */
 		/* This is used for shearing-box */
-		pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
+		pG->U[ks][j][i].d  = Uguess[0];
 		pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
 		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
 		pG->U[ks][j][i].E  = Uguess[4] + tempguess[4];
 
-		if(!Erflag){
-				pG->U[ks][j][i].E += -Prat * pG->Ersource[ks][j][i];
-			}
+	
 /*
 		if(!Erflag){
 			pG->U[ks][j][i].d  = Uguess[0] + tempguess[0];
@@ -2311,7 +2337,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 
 	/* calculate pG->Tguess after magnetic field is updated */
-		for (j=js; j<=je; j++) {
+/*		for (j=js; j<=je; j++) {
       			for (i=is; i<=ie; i++) {
 
 				pressure = pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 + pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 + pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / pG->U[ks][j][i].d;
@@ -2322,12 +2348,12 @@ void integrate_2d_radMHD(DomainS *pD)
 				pressure *= (Gamma - 1.0);
 
 				temperature = pressure / (pG->U[ks][j][i].d * R_ideal);
-			/*
+			
 				pG->Tguess[ks][j][i] = pow(temperature, 4.0);
-			*/
+			
 			}
 		}
-	
+*/
 
 
 /*=========================================================*/
@@ -2400,7 +2426,7 @@ void integrate_2d_radMHD(DomainS *pD)
 	/* Boundary condition is applied in the main function */
 
 	/* Update the opacity if Opacity function is set in the problem generator */
-/*	if(Opacity != NULL){
+	if(Opacity != NULL){
 
 		for (j=js; j<=je; j++) {
     			for (i=is; i<=ie; i++){
@@ -2413,18 +2439,21 @@ void integrate_2d_radMHD(DomainS *pD)
 #ifdef RADIATION_MHD
 				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
 #endif
-				temperature = pressure / (density * R_ideal);
+				
+				if(pressure > TINY_NUMBER)
+				{
+					temperature = pressure / (density * R_ideal);
 			
-			Opacity(density,temperature,Sigma,NULL);
-				for(m=0;m<NOPACITY;m++){
-					pG->U[ks][j][i].Sigma[m] = Sigma[m];
+					Opacity(density,temperature,Sigma,NULL);
+						for(m=0;m<NOPACITY;m++){
+							pG->U[ks][j][i].Sigma[m] = Sigma[m];
+						}
 				}
-
 
 			}
 		}
 	}
-*/
+
   return;
 
  

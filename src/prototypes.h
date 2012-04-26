@@ -111,6 +111,26 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
 void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
 void RemapEyFlux_ix1(DomainS *pD, Real ***emfy, Real **tEy, Cons1DS ***x1f, Real **tx1f);
 void RemapEyFlux_ox1(DomainS *pD, Real ***emfy, Real **tEy, Cons1DS ***x1f, Real **tx1f);
+#ifdef MPI_PARALLEL
+void RemapEy_ix1_mpi(DomainS *pD, Real ***emfy, Real **remapEyix1);
+void RemapEy_ox1_mpi(DomainS *pD, Real ***emfy, Real **remapEyox1);
+void RemapEz_ix1_mpi(DomainS *pD, Real ***emfz, Real **remapEzix1);
+void RemapEz_ox1_mpi(DomainS *pD, Real ***emfz, Real **remapEzox1);
+void RemapEx_ix2_mpi(DomainS *pD, Real ***emfx, Real **remapExix2);
+void RemapEx_ox2_mpi(DomainS *pD, Real ***emfx, Real **remapExox2);
+void RemapEz_ix2_mpi(DomainS *pD, Real ***emfz, Real **remapEzix2);
+void RemapEz_ox2_mpi(DomainS *pD, Real ***emfz, Real **remapEzox2);
+void RemapEx_ix3_mpi(DomainS *pD, Real ***emfx, Real **remapExix3);
+void RemapEx_ox3_mpi(DomainS *pD, Real ***emfx, Real **remapExox3);
+void RemapEy_ix3_mpi(DomainS *pD, Real ***emfy, Real **remapEyix3);
+void RemapEy_ox3_mpi(DomainS *pD, Real ***emfy, Real **remapEyox3);
+#endif
+
+#ifdef RESISTIVITY
+void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
+void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
+#endif
+
 void bvals_shear_init(MeshS *pM);
 void bvals_shear_destruct(void);
 #ifdef FARGO
@@ -279,6 +299,11 @@ void gasvshift(const Real x1, const Real x2, const Real x3, Real *u1, Real *u2, 
 void Userforce_particle(Real3Vect *ft, const Real x1, const Real x2,
                   const Real x3, const Real v1, const Real v2, const Real v3);
 #endif
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                             Real *eta_O, Real *eta_H, Real *eta_A);
+#endif
+
 
 /*----------------------------------------------------------------------------*/
 /* restart.c  */

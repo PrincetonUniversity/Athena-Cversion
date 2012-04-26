@@ -81,7 +81,18 @@ Real dotphil, dotgxl;
 /* variables needed to conserve net Bz in shearing box */
 #ifdef SHEARING_BOX
 static Real **remapEyiib=NULL, **remapEyoib=NULL;
+static Real **remapEziib=NULL, **remapEzoib=NULL;
 static Real **remapx1Fiib=NULL, **remapx1Foib=NULL;
+#endif
+
+#ifdef RADIATION_MHD
+/* variables needed to conserve net flux */
+static Real **remapEyix1=NULL, **remapEyox1=NULL;
+static Real **remapEzix1=NULL, **remapEzox1=NULL;
+static Real **remapExix2=NULL, **remapExox2=NULL;
+static Real **remapEzix2=NULL, **remapEzox2=NULL;
+static Real **remapExix3=NULL, **remapExox3=NULL;
+static Real **remapEyix3=NULL, **remapEyox3=NULL;
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -3043,6 +3054,7 @@ k][j][i].M3);
 
                                 Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
 #ifdef RADIATION_MHD
+
 				emf1_cc[k][j][i-1] = (pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M3 -
 			    		pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M2)/pG->U[k][j][i-1].d;
         			emf2_cc[k][j][i-1] = (pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M1 -
@@ -3057,6 +3069,7 @@ k][j][i].M3);
         			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
 			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
 #endif
+
 			}
 			
 /*			if((Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)  || (((fabs(Wr[i].Vx) > fluxfactor * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vy) > fluxfactor * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vz) > fluxfactor * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d))) && (fabs(x3)>Zmax))){
@@ -3140,7 +3153,6 @@ k][j][i].M3);
                                Wr[i].Vz = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
 
                                Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
-
 #ifdef RADIATION_MHD
 				emf1_cc[k][j-1][i] = (pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M3 -
 			    		pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M2)/pG->U[k][j-1][i].d;
@@ -3156,6 +3168,7 @@ k][j][i].M3);
         			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
 			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
 #endif
+
                        }
 
 /*			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (((fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d))) && (fabs(x3) > Zmax))){
@@ -3215,6 +3228,7 @@ k][j][i].M3);
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD		
 				B3_x3Face[k][j][i] = pG->B3i[k][j][i];
+				Bx = B3_x3Face[k][j][i];
 #endif
 				Wl[i].P = pG->U[k-1][j][i].E - 0.5 * (pG->U[k-1][j][i].M1 * pG->U[k-1][j][i].M1 + pG->U[k-1][j][i].M2 * pG->U[k-1][j][i].M2 + pG->U[k-1][j][i].M3 * pG->U[k-1][j][i].M3) / pG->U[k-1][j][i].d;
 #ifdef RADIATION_MHD
@@ -3262,6 +3276,7 @@ k][j][i].M3);
         			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
 			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
 #endif
+
 			}
 	
 	/*				if(Wl[i].P < 2.0 * TINY_NUMBER || (Wl[i].d < dfloor) || (((fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d))) && (fabs(x3) > Zmax))){ 
@@ -3332,13 +3347,18 @@ k][j][i].M3);
       RemapEy_ox1(pD, emf2, remapEyoib);
     }
 */
-
+	/* We use the same remapping function to remap emf2 and emf3 *
+	 * for shearing boundary condition. 
+	 * We just need to use different temporary array to store the 
+	 * remapped quantity */
     
     if (my_iproc == 0) {
       RemapEyFlux_ix1(pD, emf2, remapEyiib, x1Flux, remapx1Fiib);
+      RemapEy_ix1(pD, emf3, remapEziib);
     }
     if (my_iproc == (pD->NGrid[0]-1)) {
       RemapEyFlux_ox1(pD, emf2, remapEyoib, x1Flux, remapx1Foib);
+      RemapEy_ox1(pD, emf3, remapEzoib);
     }
 
 	
@@ -3348,6 +3368,7 @@ k][j][i].M3);
 		for(k=ks; k<=ke+1; k++) {
 			for(j=js; j<=je; j++){
 				emf2[k][j][is]  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+				emf3[k][j][is]	= 0.5*(emf3[k][j][is] + remapEziib[k][j]);
 				x1Flux[k][j][is].d = 0.5*(x1Flux[k][j][is].d + remapx1Fiib[k][j]);
 			}
 		}
@@ -3357,6 +3378,7 @@ k][j][i].M3);
 		for(k=ks; k<=ke+1; k++) {
 			for(j=js; j<=je; j++){
 				emf2[k][j][ie+1]  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+				emf3[k][j][ie+1]  = 0.5*(emf3[k][j][ie+1] + remapEzoib[k][j]);
 				x1Flux[k][j][ie+1].d = 0.5*(x1Flux[k][j][ie+1].d + remapx1Foib[k][j]);
 			}
 		}
@@ -3375,6 +3397,98 @@ k][j][i].M3);
 	Fargo(pD);
 	
 #endif
+
+
+
+
+/* Remap emfs at internal MPI and periodic boundaries
+ * to eliminate round-off error                         */
+#ifdef MPI_PARALLEL
+/* Remap Ey and Ez in the x1 boundary */
+  if (pD->NGrid[0] > 1) {
+    /* send to right and receive from left */
+    RemapEy_ix1_mpi(pD, emf2, remapEyix1);
+
+    if (pG->lx1_id >= 0){      
+#ifdef SHEARING_BOX
+      if (my_iproc != 0) {
+#endif
+        for(k=ks; k<=ke+1; k++) {
+          for(j=js; j<=je; j++){
+            emf2[k][j][is] = remapEyix1[k][j];
+          }
+        }
+#ifdef SHEARING_BOX
+      }
+#endif
+    }
+    /* send to right and receive from left */
+    RemapEz_ix1_mpi(pD, emf3, remapEzix1);
+    if (pG->lx1_id >= 0) {
+#ifdef SHEARING_BOX
+      if (my_iproc != 0) {
+#endif
+        for(k=ks; k<=ke; k++) {
+          for(j=js; j<=je+1; j++){
+            emf3[k][j][is] = remapEzix1[k][j];
+          }
+        }
+#ifdef SHEARING_BOX
+      }
+#endif
+    }
+  }
+
+/* Remap Ez and Ex in the x2 boundary */
+  if (pD->NGrid[1] > 1) {
+    /* send to right and receive from left */
+    RemapEx_ix2_mpi(pD, emf1, remapExix2);
+
+    if (pG->lx2_id >= 0) {   
+      for(k=ks; k<=ke+1; k++) {
+        for(i=is; i<=ie; i++){
+          emf1[k][js][i] = remapExix2[k][i];
+        } 
+      }   
+    }
+
+    /* send to right and receive from left */
+    RemapEz_ix2_mpi(pD, emf3, remapEzix2);
+
+    if (pG->lx2_id >= 0) {
+      for(k=ks; k<=ke; k++) {
+        for(i=is; i<=ie+1; i++){
+          emf3[k][js][i] = remapEzix2[k][i];
+        }
+      }
+    }
+  }
+
+/* Remap Ex and Ey in the x3 boundary */
+  if (pD->NGrid[2] > 1) {
+    /* send to right and receive from left */
+    RemapEx_ix3_mpi(pD, emf1, remapExix3);
+
+    if (pG->lx3_id >= 0) {
+      for(j=js; j<=je+1; j++) {
+        for(i=is; i<=ie; i++){
+          emf1[ks][j][i] = remapExix3[j][i];
+        }
+      }
+    }
+
+    /* send to right and receive from left */
+    RemapEy_ix3_mpi(pD, emf2, remapEyix3);
+
+    if (pG->lx3_id >= 0) {
+      for(j=js; j<=je; j++) {
+        for(i=is; i<=ie+1; i++){
+          emf2[ks][j][i] = remapEyix3[j][i];
+        }
+      }
+    }
+  }
+#endif /* MPI_PARALLEL */
 	
 	
 	
@@ -4728,11 +4842,42 @@ void integrate_init_3d(MeshS *pM)
 		goto on_error;
 	if ((remapEyoib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
 		goto on_error;
+	if ((remapEziib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+		goto on_error;
+	if ((remapEzoib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+		goto on_error;
 	if ((remapx1Fiib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
     		goto on_error;
   	if ((remapx1Foib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
     		goto on_error;
 #endif /* End SHEARING_BOX */
+
+#ifdef RADIATION_MHD
+	if ((remapEyix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEyox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEzix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEzox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapExix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapExox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;	
+  	if ((remapEzix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEzox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapExix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+		goto on_error;
+  	if ((remapExox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEyix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEyox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+#endif
 
   return;
 
@@ -4814,8 +4959,26 @@ void integrate_destruct_3d(void)
 #ifdef SHEARING_BOX
 	if (remapEyiib != NULL) free_2d_array(remapEyiib);
 	if (remapEyoib != NULL) free_2d_array(remapEyoib);
+	if (remapEziib != NULL) free_2d_array(remapEziib);
+	if (remapEzoib != NULL) free_2d_array(remapEzoib);
 	if (remapx1Fiib != NULL) free_2d_array(remapx1Fiib);
  	if (remapx1Foib != NULL) free_2d_array(remapx1Foib);
+#endif
+
+#ifdef RADIATION_MHD
+	if (remapEyix1 != NULL) free_2d_array(remapEyix1);
+  	if (remapEyox1 != NULL) free_2d_array(remapEyox1);
+  	if (remapEzix1 != NULL) free_2d_array(remapEzix1);
+  	if (remapEzox1 != NULL) free_2d_array(remapEzox1);
+  	if (remapExix2 != NULL) free_2d_array(remapExix2);
+  	if (remapExox2 != NULL) free_2d_array(remapExox2);
+  	if (remapEzix2 != NULL) free_2d_array(remapEzix2);
+  	if (remapEzox2 != NULL) free_2d_array(remapEzox2);
+  	if (remapExix3 != NULL) free_2d_array(remapExix3);
+  	if (remapExox3 != NULL) free_2d_array(remapExox3);
+  	if (remapEyix3 != NULL) free_2d_array(remapEyix3);
+  	if (remapEyox3 != NULL) free_2d_array(remapEyox3);
+
 #endif
 
 #ifdef CONS_GRAVITY

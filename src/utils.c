@@ -1561,7 +1561,8 @@ void Eddington_FUN_new(const GridS *pG, const RadGridS *pRG)
 	if(DIM == 3)
 	  fz = pG->U[k][j][i].Fr3 / fmag;
 	frat = fmag / pG->U[k][j][i].Er;
-	//if (is == is) printf(" frat: %g %g %g\n",frat,fmag, pG->U[k][j][i].Er);
+	/*if (is == is) printf(" frat: %g %g %g\n",frat,fmag, pG->U[k][j][i].Er);
+*/
 	if (frat > 1.0) {
 	  printf(" frat > 1: %g %g %g\n",frat,fmag, pG->U[k][j][i].Er);
 	  frat = 1.0;
@@ -1784,6 +1785,9 @@ void GetTguess(MeshS *pM)
 			*/
 				pG->Tguess[k][j][i] = pow(Tguess, 4.0);
 			
+				
+			/*	pG->Tguess[k][j][i] = pow(temperature, 4.0);
+			*/
 				pG->Ersource[k][j][i] = Erguess - pG->U[k][j][i].Er;	
 
 				}

@@ -340,7 +340,7 @@ if(pMat->bgflag){
 
 
 	/* Set the boundary condition */
-
+/*
 if(Opacity != NULL){
 
 		for (j=pG->js; j<=pG->je; j++) {
@@ -365,7 +365,7 @@ if(Opacity != NULL){
 			}
 		}
 }
-
+*/
 	
 /* Update the ghost zones for different boundary condition to be used later */
 /*	for (i=0; i<pM->NLevels; i++){ 
