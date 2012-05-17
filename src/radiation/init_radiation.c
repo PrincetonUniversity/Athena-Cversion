@@ -40,9 +40,6 @@ void init_radiation(MeshS *pM)
 {
   DomainS *pD;
   RadGridS *pRG;
-#ifdef RAY_TRACING
-  RayGridS *pRayG;
-#endif
   int nDim,nl,nd,myL,myM,myN;
   int i,j,k,l,m,n;
   int nmu, noct, nang, np, ip, iang;
@@ -67,9 +64,7 @@ void init_radiation(MeshS *pM)
     if (pM->Domain[nl][nd].Grid != NULL) {
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
       pRG = pM->Domain[nl][nd].RadGrid;          /* set ptr to RadGrid */
-#ifdef RAY_TRACING
-      pRayG = pM->Domain[nl][nd].RayGrid;          /* set ptr to RayGrid */
-#endif
+
 /* Initialize nf,nmu,nang, and noct */
       pRG->nf  = par_geti("radiation","nf");
       pRG->nmu = par_geti("radiation","nmu");
@@ -84,7 +79,6 @@ void init_radiation(MeshS *pM)
 	pRG->noct = 8;
       }
 
-      pRG->time = pM->time;  
 /* get (l,m,n) coordinates of Grid being updated on this processor */
 
       get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
@@ -167,7 +161,13 @@ void init_radiation(MeshS *pM)
       pRG->R = (RadS ****)calloc_4d_array(pRG->nf,pRG->Nx[2]+2,pRG->Nx[1]+2,
         pRG->Nx[0]+2,sizeof(RadS));
       if (pRG->R == NULL) goto on_error1;
-      
+/* set non-thermal source function to zero everywhere */
+      for(l=0; l<pRG->nf; l++) {
+	for(k=0; k<pRG->Nx[2]+2; k++) { 
+	  for(j=0; j<pRG->Nx[1]+2; j++) {
+	    for(i=0; i<pRG->Nx[0]+2; i++) {
+	      pRG->R[l][k][j][i].Snt = 0.0;
+	    }}}}
 /* Allocate memory for intensities, angles and weights for angular quadratures */
 
       nmu = pRG->nmu;
@@ -425,35 +425,19 @@ void init_radiation(MeshS *pM)
       }
 
 #ifdef RAY_TRACING
-/* initialize RayGRid and allocate memory for arrays */
-#ifdef USE_RADGRID_FREQ
-/* ray tracing routine uses same frequency bins as RadGrid */
-      pRayG->nf = pRG->nf;
+/* allocate memory for ray tracing arrays in RadGrid */
 
-      pRayG->nu = (Real *)calloc_1d_array(pRayG->nf,sizeof(Real));
-      if (pRayG->nu == NULL) goto on_error29;
-      pRayG->wnu = (Real *)calloc_1d_array(pRayG->nf,sizeof(Real));
-      if (pRayG->wnu == NULL) goto on_error30;
-#endif /* USE_RADGRID_FREQ */
-      pRayG->dx1 = pRG->dx1;
-      pRayG->time = pRG->time;
-      pRayG->is = pRG->is; pRayG->ie = pRG->ie;
-      pRayG->js = pRG->js; pRayG->je = pRG->je;
-      pRayG->ks = pRG->ks; pRayG->ke = pRG->ke;
-      for(i=0;i<2;i++) {
-	pRayG->Nx[i] = pRG->Nx[i];
-	pRayG->Disp[i] = pRG->Disp[i];
-      }
-
-      pRayG->H = (Real ****)calloc_4d_array(pRayG->nf,pRayG->Nx[2]+2,
-	         pRayG->Nx[1]+2,pRayG->Nx[0]+2,sizeof(Real));
-      if (pRayG->H == NULL) goto on_error31;
-      pRayG->S = (Real ****)calloc_4d_array(pRayG->nf,pRayG->Nx[2]+2,
-                 pRayG->Nx[1]+2,pRayG->Nx[0]+2,sizeof(Real));
-      if (pRayG->S == NULL) goto on_error32;
-#ifdef MPI_PARALLEL
-      allocate_working_array_ray_tracing(RayGridS *pRayG);
-#endif
+/* if nf_rt is not defined ray tracing routine uses same frequency bins as RadGrid */
+      pRG->nf_rt = par_geti_def("radiation","nf_rt",pRG->nf);
+      pRG->nu_rt = (Real *)calloc_1d_array(pRG->nf_rt,sizeof(Real));
+      if (pRG->nu_rt == NULL) goto on_error29;
+      pRG->wnu_rt = (Real *)calloc_1d_array(pRG->nf_rt,sizeof(Real));
+      if (pRG->wnu_rt == NULL) goto on_error30;
+      if (pRG->nf_rt == 1) pRG->wnu_rt[0] = 1.0;
+      pRG->H = (Real ****)calloc_4d_array(pRG->nf_rt,pRG->Nx[2]+2,
+	         pRG->Nx[1]+2,pRG->Nx[0]+2,sizeof(Real));
+      if (pRG->H == NULL) goto on_error31;
+      init_ray_tracing(pRG);
 
 #endif /* RAY_TRACING */
 
@@ -500,17 +484,12 @@ void init_radiation(MeshS *pM)
 /*--- Error messages ---------------------------------------------------------*/
 
 #ifdef RAY_TRACING
- on_error32:
-  free_4d_array(pRayG->S);
  on_error31:
-  free_4d_array(pRayG->H);
+  free_4d_array(pRG->H);
  on_error30:
-  free_1d_array(pRayG->wnu);  
+  free_1d_array(pRG->wnu_rt);  
  on_error29:
-  free_1d_array(pRayG->nu);
-#ifdef MPI_PARALLEL
-  destruct_working_array_ray_tracing();
-#endif
+  free_1d_array(pRG->nu_rt);
 #endif
  on_error28:
   if (pRG->Nx[2] > 1) free_5d_array(pRG->Ghstl3i);
@@ -630,8 +609,8 @@ void radiation_destruct(MeshS *pM)
       pRG = pM->Domain[nl][nd].RadGrid;          /* set ptr to RadGrid */
       formal_solution_destruct(pRG);
       radgrid_destruct(pRG);
-#if defined(RAY_TRACING) && defined(MPI_PARALLEL)
-      destruct_working_array_ray_tracing();
+#ifdef RAY_TRACING
+      destruct_ray_tracing();
 #endif
     }
   }}
@@ -643,6 +622,8 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->R != NULL) free_4d_array(pRG->R);  
   if (pRG->wmu != NULL) free_1d_array(pRG->wmu);
   if (pRG->mu != NULL) free_3d_array(pRG->mu);
+  if (pRG->wnu != NULL) free_1d_array(pRG->wnu);
+  if (pRG->nu != NULL) free_1d_array(pRG->nu);
   if (pRG->r3imu != NULL) free_5d_array(pRG->r3imu);
   if (pRG->l3imu != NULL) free_5d_array(pRG->l3imu);
   if (pRG->r2imu != NULL) free_5d_array(pRG->r2imu);
@@ -655,6 +636,11 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->Ghstl2i != NULL) free_5d_array(pRG->Ghstl2i);
   if (pRG->Ghstr1i != NULL) free_5d_array(pRG->Ghstr1i);
   if (pRG->Ghstl1i != NULL) free_5d_array(pRG->Ghstl1i);
+#ifdef RAY_TRACING
+  if (pRG->H != NULL)  free_4d_array(pRG->H);
+  if (pRG->wnu_rt != NULL) free_1d_array(pRG->wnu_rt);
+  if (pRG->nu_rt != NULL) free_1d_array(pRG->nu_rt);
+#endif
   return;
 }
 

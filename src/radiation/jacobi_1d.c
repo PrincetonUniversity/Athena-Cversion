@@ -36,6 +36,8 @@ static Real **Jold = NULL;
 static void sweep_1d(RadGridS *pRG, int sx, int ifr);
 static void update_sfunc(RadS *R, Real *dSr, Real lamstr);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+/*----------------------------------------------------------------------------*/
 void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, m;
@@ -158,7 +160,7 @@ static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
 {
   Real Snew, deltaS;
   
-  Snew = (1.0 - R->eps) * R->J + R->eps * R->B;
+  Snew = (1.0 - R->eps) * R->J + R->eps * R->B + R->Snt;
   deltaS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * lamstr);
   if (R->S > 0.0) (*dSr) = fabs(deltaS/R->S);
   R->S += deltaS;

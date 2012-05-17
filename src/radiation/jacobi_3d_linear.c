@@ -560,7 +560,7 @@ static void update_sfunc(RadS *R, Real *dSr, Real lam)
 {
   Real Snew, dS;
 
-  Snew = (1.0 - R->eps) * R->J + R->eps * R->B;
+  Snew = (1.0 - R->eps) * R->J + R->eps * R->B + R->Snt;
   dS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * lam);
   if (R->S > 0.0) (*dSr) = fabs(dS / R->S);
   R->S += dS;

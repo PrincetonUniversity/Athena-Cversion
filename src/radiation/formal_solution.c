@@ -49,8 +49,18 @@ void formal_solution(DomainS *pD)
   ndim=1;
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) ndim++;
 
-/* if enabled, compute contribution of external radiation */
 #ifdef RAY_TRACING
+/* if ray tracing opacity functions not defined in problem generator
+ * assume they are equivalent to the radiation transfer routine
+ * functions */
+  if (get_raytrace_thermal_fraction == NULL)
+    get_raytrace_thermal_fraction = get_thermal_fraction;
+  if (get_raytrace_opacity == NULL)
+    get_raytrace_opacity = get_total_opacity;
+
+/* If enabled, compute contribution of external radiation. Note that we pass
+ * the Domain pD as pGrid data is needed by the ray trace function to compute
+ * opacities (which are stored for standard radiative transfer). */
   ray_trace(pD);
 #endif
 

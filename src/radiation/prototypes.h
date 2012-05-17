@@ -23,10 +23,8 @@ void radgrid_destruct(RadGridS *pRG);
 /* ray_tracing.c */
 #ifdef RAY_TRACING
 void ray_trace(DomainS *pD);
-#ifdef MPI_PARALLEL
-void allocate_working_array_ray_tracing(RayGridS *pRayG);
-void destruct_working_array_ray_tracing(void);
-#endif
+void allocate_ray_tracing(RadGridS *pRG);
+void destruct_ray_tracing(void);
 #endif /* RAY_TRACING */
 
 /* radtrans_dt */

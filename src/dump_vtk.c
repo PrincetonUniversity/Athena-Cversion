@@ -533,6 +533,23 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	    fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
 	  }
 	}
+#ifdef RAY_TRACING
+/* Write frequency integrated flux from ray tracing */
+	fprintf(pfile,"\nSCALARS ray_tracing_H float\n");
+        fprintf(pfile,"LOOKUP_TABLE default\n");
+	for (k=krl; k<=kru; k++) {
+	  for (j=jrl; j<=jru; j++) {
+	    for (i=irl; i<=iru; i++) {
+	      data[i-irl] = 0.0;
+	      for (ifr=0; ifr<pRG->nf_rt; ifr++) {
+		data[i-irl] += (float)(pRG->wnu_rt[ifr]*pRG->H[ifr][k][j][i]);
+	      }
+	    }
+            if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
+            fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+	  }
+	}
+#endif
 #endif /* WRITE_GHOST_CELLS */
 #endif /* RADIATION_TRANSFER */
 

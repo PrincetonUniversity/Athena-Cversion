@@ -1433,9 +1433,6 @@ void Eddington_FUN (DomainS *pD)
 {
   RadGridS *pRG=(pD->RadGrid);
   GridS *pG=(pD->Grid);
-#ifdef RAY_TRACING
-  RayGridS *pRayG=(pD->RayGrid);
-#endif
   int i, j, k, DIM;
   int is, ie, js, je, ks, ke;
   int ri, rj, rk;
@@ -1475,7 +1472,7 @@ void Eddington_FUN (DomainS *pD)
 	ri = i + ioff;
 
 #ifdef RAY_TRACING
-	Hrt = pRayG->H[ifr][rk][rj][ri];
+	Hrt = pRG->H[ifr][rk][rj][ri];
 #endif	
 	J = pRG->R[ifr][rk][rj][ri].J + Hrt;
 

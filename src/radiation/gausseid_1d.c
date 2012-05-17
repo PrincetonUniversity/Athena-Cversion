@@ -155,7 +155,7 @@ static void update_sfunc(RadS *R, Real *deltas, Real lamstr)
 {
   Real snew, deltasr;
   
-  snew = (1.0 - R->eps) * R->J + R->eps * R->B;
+  snew = (1.0 - R->eps) * R->J + R->eps * R->B + R->Snt;
 
   (*deltas) = (snew - R->S) / (1.0 - (1.0 - R->eps) * lamstr);
   deltasr = fabs(*deltas) / R->S;

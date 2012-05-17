@@ -731,16 +731,16 @@ void bvals_rad_init(MeshS *pM)
 
   if (size > 0) {
     if((send_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)
-      ath_error("[bvals_init]: Failed to allocate send buffer\n");
+      ath_error("[bvals_rad_init]: Failed to allocate send buffer\n");
 
     if((recv_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)
-      ath_error("[bvals_init]: Failed to allocate recv buffer\n");
+      ath_error("[bvals_rad_init]: Failed to allocate recv buffer\n");
   }
 
   if((recv_rq = (MPI_Request*) calloc_1d_array(2,sizeof(MPI_Request))) == NULL)
-    ath_error("[bvals_init]: Failed to allocate recv MPI_Request array\n");
+    ath_error("[bvals_rad_init]: Failed to allocate recv MPI_Request array\n");
   if((send_rq = (MPI_Request*) calloc_1d_array(2,sizeof(MPI_Request))) == NULL)
-    ath_error("[bvals_init]: Failed to allocate send MPI_Request array\n");
+    ath_error("[bvals_rad_init]: Failed to allocate send MPI_Request array\n");
 
 #endif /* MPI_PARALLEL */
 

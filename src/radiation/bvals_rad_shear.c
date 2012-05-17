@@ -44,6 +44,7 @@ static void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Re
 void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 {
   RadGridS *pRG = pD->RadGrid;
+  Real time = pD->Grid->time;
   int il = pRG->is-1;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
@@ -69,13 +70,15 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
   Ly = xmax - xmin;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pRG->time;
+  yshear = qomL*time;
   
   if (pRG->Nx[2] > 1) nDim = 3; else nDim=2;
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
 
   deltay = fmod(yshear, Ly);
+
+  //printf("shear_ix1: %d %g %g %g\n",myID_Comm_world,yshear,qomL,deltay);
 
 /* further decompose the fractional peice into integer and fractional pieces of
  * a grid cell.  Note 0.0 <= epsi < 1.0.  If Domain has MPI decomposition in Y,
@@ -504,6 +507,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 {
   RadGridS *pRG = pD->RadGrid;
+  Real time = pD->Grid->time;
   int iu = pRG->ie+1;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
@@ -529,14 +533,14 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
   Ly = xmax - xmin;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*pRG->time;
+  yshear = qomL*time;
 
   if (pRG->Nx[2] > 1) nDim = 3; else nDim=2;
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
 
   deltay = fmod(yshear, Ly);
-
+  //printf("shear_ox1: %d %g %g %g\n",myID_Comm_world,yshear,qomL,deltay);
 /* further decompose the fractional peice into integer and fractional pieces of
  * a grid cell.  Note 0.0 <= epso < 1.0.  If Domain has MPI decomposition in Y,
  * then it is possible that:  pD->Nx2 > joffset > pRG->Nx2   */

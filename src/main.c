@@ -742,9 +742,9 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
           Mesh.Domain[nl][nd].Grid->time = Mesh.time;
-#ifdef RADIATION_TRANSFER
-	  Mesh.Domain[nl][nd].RadGrid->time = Mesh.time;
-#endif
+	  //#ifdef RADIATION_TRANSFER
+	  //Mesh.Domain[nl][nd].RadGrid->time = Mesh.time;
+	  //#endif
         }
       }
     }

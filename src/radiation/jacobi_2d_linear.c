@@ -44,6 +44,8 @@ static void sweep_2d_forward(RadGridS *pRG, int ifr);
 static void sweep_2d_backward(RadGridS *pRG, int ifr);
 static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+/*----------------------------------------------------------------------------*/
 void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, j, l, m;
@@ -65,6 +67,8 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
 /* initialize mean intensities at all depths to zero */
   for(j=js; j<=je; j++)
     for(i=is; i<=ie; i++) {
+      //if ((myID_Comm_world == 4) && (j == 63))
+      //	printf("%d %g\n",i,pRG->R[ifr][ks][j][i].Snt);
       pRG->R[ifr][ks][j][i].J = 0.0;
       pRG->R[ifr][ks][j][i].H[0] = 0.0;
       pRG->R[ifr][ks][j][i].H[1] = 0.0;
@@ -79,6 +83,7 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   sweep_2d_forward(pRG,ifr);
 
   sweep_2d_backward(pRG,ifr);
+
 
   if(lte == 0) {
 /* Update source function */
@@ -344,7 +349,6 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
 			         S0, pRG->R[ifr][k][j][i].S, S2);
     imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
     lamstr[ifr][j][i] += pRG->wmu[m] * a1;
-    
 /* Add to radiation moments and save for next iteration */
     wimu = pRG->wmu[m] * imu;
     pRG->R[ifr][k][j][i].J += wimu;
@@ -364,7 +368,7 @@ static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
 {
   Real Snew, dS;
   
-  Snew = (1.0 - R->eps) * R->J + R->eps * R->B;
+  Snew = (1.0 - R->eps) * R->J + R->eps * R->B + R->Snt;
   dS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * lamstr);
   if (R->S > 0.0) (*dSr) = fabs(dS / R->S);
   R->S += dS;

@@ -652,9 +652,6 @@ void init_mesh(MeshS *pM)
       pD->Grid = NULL;
 #ifdef RADIATION_TRANSFER
       pD->RadGrid = NULL;
-#ifdef RAY_TRACING 
-      pD->RayGrid = NULL;
-#endif /* RAY_TRACING */
 #endif /* RADIATION_TRANSFER */
 
 /* Loop over GData array, and if there is a Grid assigned to this proc, 
@@ -669,10 +666,6 @@ void init_mesh(MeshS *pM)
 #ifdef RADIATION_TRANSFER
           if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
-#ifdef RAY_TRACING 
-          if ((pD->RayGrid = (RayGridS*)malloc(sizeof(RayGridS))) == NULL)
-            ath_error("[init_mesh]: Failed to malloc a RayGrid for %s\n",block);
-#endif
 #endif
         }
       }}}

@@ -297,6 +297,7 @@ typedef struct Rad_s {
   Real B;                       /* thermal source function */
   Real eps;                     /* thermalization coeff */
   Real chi;                     /* total opacity */
+  Real Snt;                     /* non-thermal photon source */
 
 } RadS;
 
@@ -332,10 +333,17 @@ typedef struct RadGrid_s {
   Real *****Ghstr3i;   /* Ghost zone on R side in x3-dir  */
   Real *****Ghstl3i;   /* Ghost zone on L side in x3-dir  */
 
+#ifdef RAY_TRACING
+  int nf_rt;          /* # of frequencies */
+  Real *nu_rt;        /* array of frequencies */
+  Real *wnu_rt;       /* weights for freq. quad. */
+  Real ****H;         /* array of radiation flux */
+  Real ****S_rt;      /* scattering source term */
+#endif
+
   Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real dx1,dx2,dx3;     /* cell size on this Grid */
-  Real time;           /* current time */
   int is,ie;		/* start/end cell index in x1 direction */
   int js,je;		/* start/end cell index in x2 direction */
   int ks,ke;		/* start/end cell index in x3 direction */
@@ -354,30 +362,6 @@ typedef struct RadGrid_s {
   void (*ox3_RBCFun)(struct RadGrid_s *pRG, int ifs, int ife);
 
 } RadGridS;
-
-#ifdef RAY_TRACING
-typedef struct RayGrid_s {
-    
-  int nf;            /* # of frequencies */
-  Real *nu;          /* array of frequencies */
-  Real *wnu;         /* weights for freq. quad. */
-
-  Real ****H;        /* array of radiation flux */
-  Real ****S;        /* scattering source term */
-
-  Real dx1;             /* cell size in dierection on this Grid */
-  Real time;            /* current time */
-  int is,ie;		/* start/end cell index in x1 direction */
-  int js,je;		/* start/end cell index in x2 direction */
-  int ks,ke;		/* start/end cell index in x3 direction */
-  int Nx[3];       /* # of zones in each dir on Grid [0,1,2]=[x1,x2,x3] */
-  int Disp[3];     /* i,j,k displacements of Grid from origin [0,1,2]=[i,j,k] */
-
-  int rx1_id, lx1_id;   /* ID of Grid to R/L in x1-dir (default=-1; no Grid) */
- 
-} RayGridS;
-
-#endif /* RAY_TRACING */
 
 #endif /* RADIATION_TRANSFER */
 
@@ -623,9 +607,6 @@ typedef struct Domain_s{
 #endif /* MPI_PARALLEL */
 #ifdef RADIATION_TRANSFER
   RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
-#ifdef RAY_TRACING
-  RayGridS *RayGrid; /* pointer to RayGrid in this Dom updated on this proc   */
-#endif /* RAY_TRACING */
 #endif /* RADIATION_TRANSFER */
 }DomainS;
 

@@ -619,6 +619,7 @@ void restart_grids(char *res_file, MeshS *pM)
 
     }
 
+    //#ifdef NOT_DEFINED_EVER
 #ifdef RADIATION_TRANSFER
     pRG=pM->Domain[nl][nd].RadGrid;
     is = pRG->is;

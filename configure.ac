@@ -54,7 +54,6 @@
 #   --enable-smr                                        (static mesh refinement)
 #   --enable-quadratic_intensity              (order of intensity interpolation)
 #   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
-#   --enable-independent-freqency   (independent frequency grid for ray tracing)
 #-------------------------------------------------------------------------------
 # generic things
 
@@ -723,22 +722,6 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# ALGORITHM FEATURE: independent freq. grid for ray tracing
-#   --enable-independent-freqency (default is to used radiative transfer grid)
-
-AC_SUBST(RAY_TRACING_GRID)
-AC_ARG_ENABLE(independent,
-	[--enable-independent-freqency  ray tracing frequency grid (default is radgrid)], 
-	ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-  RAY_TRACING_GRID="USE_INDEPENDENT_FREQ"
-  RAY_TRACING_GRID_MODE_USER="INDEPENDENT"
-else
-  RAY_TRACING_GRID="USE_RADGRID_FREQ"
-  RAY_TRACING_GRID_MODE_USER="RADGRID"
-fi
-
-#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: self-gravity with conserved total energy and momentum
 #   --enable-cons_gravity (default is no this algorithm)
 
@@ -888,6 +871,5 @@ echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "ALI method:              $ALI_USER"
 echo "Intensity Interpolation: $INTENSITY_MODE_USER"
-echo "Ray tracing freq. grid:  $RAY_TRACING_GRID_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
 echo "Conserved self_gravity:  $CONSGRAVITY_MODE_USER"
