@@ -78,8 +78,6 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 
   deltay = fmod(yshear, Ly);
 
-  //printf("shear_ix1: %d %g %g %g\n",myID_Comm_world,yshear,qomL,deltay);
-
 /* further decompose the fractional peice into integer and fractional pieces of
  * a grid cell.  Note 0.0 <= epsi < 1.0.  If Domain has MPI decomposition in Y,
  * then it is possible that:  pD->Nx2 > joffset > pG->Nx2   */
@@ -106,7 +104,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 /*--- Step 3. ------------------------------------------------------------------
  * Copy GhstZns into buffer, at the same time apply a conservative remap of
  * solution over the fractional part of grid cell */
-
+ 
   for(k=ks; k<=ke; k++) {
     for (ifr=ifs; ifr<=ife; ifr++) {
       for(l=0; l<nDim+2; l++) {
@@ -240,7 +238,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
  * from GhstZnsBuf into GhstZns.  Cells in [js:je-joverlap] are shifted by
  * joverlap into [js+joverlap:je] */
     if (Ngrids == 0) {
-
+      
       for(k=ks; k<=ke; k++) {
 	for(j=js+joverlap; j<=je; j++){
 	  jremap = j-joverlap;
@@ -264,7 +262,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 
     } else {
 /* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
-
+    
       jproc = my_jproc + Ngrids;
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
       sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
@@ -317,7 +315,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 	      for(m=0; m<nang; m++) {
 		pRG->Ghstl1i[ifr][k][j][l][m] = *(pRcv++);
 	      }}}}}
-  
+
     } /* end of step 5e - shear is more than one Grid */
 
 #endif /* MPI_PARALLEL */
@@ -359,7 +357,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 	    pRG->Ghstl1i[ifr][k][js-1][l][m] = pRG->Ghstl1i[ifr][k][je][l][m];
 	    pRG->Ghstl1i[ifr][k][je+1][l][m] = pRG->Ghstl1i[ifr][k][js][l][m];
 	  }}}}
-  
+
 #ifdef MPI_PARALLEL
   } else {
 /*--- Step 9. ------------------------------------------------------------------
@@ -368,7 +366,7 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = (ke-ks+1)*(ife-ifs+1)*(noct*nang+nDim+2); 
-
+ 
     if (pRG->lx2_id != -1) {
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pRG->lx2_id,
 		       shearing_sheet_ix1_tag, pD->Comm_Domain, &rq);
@@ -472,11 +470,21 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
   for (ifr=ifs; ifr<=ife; ifr++) {
     for (k=ks; k<=ke; k++) {
       for (m=0; m<nang; m++) {
+	pRG->Ghstl2i[ifr][k][il][0][m] = pRG->Ghstl1i[ifr][k][js-1][0][m];
+	pRG->Ghstl2i[ifr][k][il][1][m] = pRG->Ghstl1i[ifr][k][js-1][1][m];
+	pRG->Ghstr2i[ifr][k][il][2][m] = pRG->Ghstl1i[ifr][k][je+1][2][m];
+	pRG->Ghstr2i[ifr][k][il][3][m] = pRG->Ghstl1i[ifr][k][je+1][3][m];
+
 	pRG->l2imu[ifr][k][il][0][m] = pRG->Ghstl1i[ifr][k][js-1][0][m];
 	pRG->l2imu[ifr][k][il][1][m] = pRG->Ghstl1i[ifr][k][js-1][1][m];
 	pRG->r2imu[ifr][k][il][2][m] = pRG->Ghstl1i[ifr][k][je+1][2][m];
 	pRG->r2imu[ifr][k][il][3][m] = pRG->Ghstl1i[ifr][k][je+1][3][m];
 	if(noct == 8) {
+	  pRG->Ghstl2i[ifr][k][il][4][m] = pRG->Ghstl1i[ifr][k][js-1][4][m];
+	  pRG->Ghstl2i[ifr][k][il][5][m] = pRG->Ghstl1i[ifr][k][js-1][5][m];
+	  pRG->Ghstr2i[ifr][k][il][6][m] = pRG->Ghstl1i[ifr][k][je+1][6][m];
+	  pRG->Ghstr2i[ifr][k][il][7][m] = pRG->Ghstl1i[ifr][k][je+1][7][m];
+
 	  pRG->l2imu[ifr][k][il][4][m] = pRG->Ghstl1i[ifr][k][js-1][4][m];
 	  pRG->l2imu[ifr][k][il][5][m] = pRG->Ghstl1i[ifr][k][js-1][5][m];
 	  pRG->r2imu[ifr][k][il][6][m] = pRG->Ghstl1i[ifr][k][je+1][6][m];
@@ -487,20 +495,25 @@ void ShearingSheet_Rad_ix1(DomainS *pD, int ifs, int ife)
  * over j runs from js-1 to je+1 (differs from "normal" periodic boundary
  * routine) because this function is called after the "normal" radiation
  * boundary condition has already been applied to the x2 face. */
-    if (noct == 8) {
-      for (ifr=ifs; ifr<=ife; ifr++) {
-	for (j=js-1; j<=je+1; j++) {
-	  for (m=0; m<nang; m++) {
-	    pRG->l3imu[ifr][j][il][4][m] = pRG->Ghstl1i[ifr][ks][j][4][m];
-	    pRG->l3imu[ifr][j][il][5][m] = pRG->Ghstl1i[ifr][ks][j][5][m];
-	    pRG->l3imu[ifr][j][il][6][m] = pRG->Ghstl1i[ifr][ks][j][6][m];
-	    pRG->l3imu[ifr][j][il][7][m] = pRG->Ghstl1i[ifr][ks][j][7][m];
-	    pRG->r3imu[ifr][j][il][0][m] = pRG->Ghstl1i[ifr][ke][j][0][m];
-	    pRG->r3imu[ifr][j][il][1][m] = pRG->Ghstl1i[ifr][ke][j][1][m];
-	    pRG->r3imu[ifr][j][il][2][m] = pRG->Ghstl1i[ifr][ke][j][2][m];
-	    pRG->r3imu[ifr][j][il][3][m] = pRG->Ghstl1i[ifr][ke][j][3][m];	   
-	  }}}
-    }
+  if (noct == 8) {
+    for (ifr=ifs; ifr<=ife; ifr++) {
+      for (j=js-1; j<=je+1; j++) {
+	for (m=0; m<nang; m++) {
+	  pRG->l3imu[ifr][j][il][4][m] = pRG->Ghstl1i[ifr][ks][j][4][m];
+	  pRG->l3imu[ifr][j][il][5][m] = pRG->Ghstl1i[ifr][ks][j][5][m];
+	  pRG->l3imu[ifr][j][il][6][m] = pRG->Ghstl1i[ifr][ks][j][6][m];
+	  pRG->l3imu[ifr][j][il][7][m] = pRG->Ghstl1i[ifr][ks][j][7][m];
+
+	  pRG->r3imu[ifr][j][il][0][m] = pRG->Ghstl1i[ifr][ke][j][0][m];
+	  pRG->r3imu[ifr][j][il][1][m] = pRG->Ghstl1i[ifr][ke][j][1][m];
+	  pRG->r3imu[ifr][j][il][2][m] = pRG->Ghstl1i[ifr][ke][j][2][m];
+	  pRG->r3imu[ifr][j][il][3][m] = pRG->Ghstl1i[ifr][ke][j][3][m];	   
+	}}}
+  }
+
+/*--- Step 11. ------------------------------------------------------------------
+/* Update Ghstl/r2i, and Ghstl/r3i on corners using the remapped Ghstl1i 
+ * values. */
 
 }
 
@@ -540,7 +553,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
  * the integer piece because the Grid is periodic in y */
 
   deltay = fmod(yshear, Ly);
-  //printf("shear_ox1: %d %g %g %g\n",myID_Comm_world,yshear,qomL,deltay);
+
 /* further decompose the fractional peice into integer and fractional pieces of
  * a grid cell.  Note 0.0 <= epso < 1.0.  If Domain has MPI decomposition in Y,
  * then it is possible that:  pD->Nx2 > joffset > pRG->Nx2   */
@@ -940,11 +953,21 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
    for (ifr=ifs; ifr<=ife; ifr++) {
      for (k=ks; k<=ke; k++) {
        for (m=0; m<nang; m++) {
+	 pRG->Ghstl2i[ifr][k][iu][0][m] = pRG->Ghstr1i[ifr][k][js-1][0][m];
+	 pRG->Ghstl2i[ifr][k][iu][1][m] = pRG->Ghstr1i[ifr][k][js-1][1][m];
+	 pRG->Ghstr2i[ifr][k][iu][2][m] = pRG->Ghstr1i[ifr][k][je+1][2][m];
+	 pRG->Ghstr2i[ifr][k][iu][3][m] = pRG->Ghstr1i[ifr][k][je+1][3][m];
+
 	 pRG->l2imu[ifr][k][iu][0][m] = pRG->Ghstr1i[ifr][k][js-1][0][m];
 	 pRG->l2imu[ifr][k][iu][1][m] = pRG->Ghstr1i[ifr][k][js-1][1][m];
 	 pRG->r2imu[ifr][k][iu][2][m] = pRG->Ghstr1i[ifr][k][je+1][2][m];
 	 pRG->r2imu[ifr][k][iu][3][m] = pRG->Ghstr1i[ifr][k][je+1][3][m];
 	 if(noct == 8) {
+	   pRG->Ghstl2i[ifr][k][iu][4][m] = pRG->Ghstr1i[ifr][k][js-1][4][m];
+	   pRG->Ghstl2i[ifr][k][iu][5][m] = pRG->Ghstr1i[ifr][k][js-1][5][m];
+	   pRG->Ghstr2i[ifr][k][iu][6][m] = pRG->Ghstr1i[ifr][k][je+1][6][m];
+	   pRG->Ghstr2i[ifr][k][iu][7][m] = pRG->Ghstr1i[ifr][k][je+1][7][m];
+
 	   pRG->l2imu[ifr][k][iu][4][m] = pRG->Ghstr1i[ifr][k][js-1][4][m];
 	   pRG->l2imu[ifr][k][iu][5][m] = pRG->Ghstr1i[ifr][k][js-1][5][m];
 	   pRG->r2imu[ifr][k][iu][6][m] = pRG->Ghstr1i[ifr][k][je+1][6][m];

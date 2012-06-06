@@ -145,8 +145,8 @@ void problem(DomainS *pDomain)
   ixs = pGrid->Disp[0];
   jxs = pGrid->Disp[1];
   kxs = pGrid->Disp[2];
-  iseed = -1 - (ixs + pDomain->Nx[0]*(jxs + pDomain->Nx[1]*kxs));
-
+  iseed = -1 - (jxs + pDomain->Nx[1]*(ixs + pDomain->Nx[0]*kxs));
+  printf("%d %d %d %d %d\n",myID_Comm_world,ixs,jxs,kxs,iseed);
 /* Initialize boxsize */
   Lx = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
   Ly = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
@@ -164,7 +164,7 @@ void problem(DomainS *pDomain)
 	pressure = d1 * T1;
 
 	pGrid->U[k][j][i].d  = d1;
-	pGrid->U[k][j][i].M1  = 0.0;
+	pGrid->U[k][j][i].M1 = 0.0;
 	pGrid->U[k][j][i].M2 = 0.0;
         pGrid->U[k][j][i].M3 = 0.0;
 	if ((x1 < yintt) && (x1 > yintb)) {
@@ -976,7 +976,7 @@ void const_H_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife)
   } else koff = 0;
 
   for(ifr=ifs; ifr<=ife; ifr++) {
-/* update Ghstl2i using l2imu */
+/* update Ghstl1i using l1imu */
     for (k=kl; k<=ku; k++) {
       kg = k + koff;
       for (j=jl; j<=ju; j++) {

@@ -56,7 +56,6 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   int ismx, jsmx;
   Real dSr, dJ, dJmax;
 
-
 /* if LTE then store J values from previous iteration */
   if(lte != 0) {
     for(j=js; j<=je; j++)

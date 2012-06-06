@@ -467,7 +467,7 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
               coeff[m][1] * imuo[ifr][j ][im][l][m][1] +
               coeff[m][2] * imuo[ifr][jm][im][l][m][1] +
               coeff[m][3] * imuo[ifr][jm][im][l][m][0];
-
+  
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
       dtaum *= dx * muinv[m][0]; 
