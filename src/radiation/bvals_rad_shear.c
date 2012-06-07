@@ -766,7 +766,7 @@ void ShearingSheet_Rad_ox1(DomainS *pD, int ifs, int ife)
 
       for (ifr=ifs; ifr<=ife; ifr++) {
 	for(k=ks; k<=ke; k++) {
-	  for (j=js; j<=je-joverlap; j++) {
+	  for (j=js+joverlap; j<=je; j++) {
 	    for(l=0; l<noct; l++) {
 	      for(m=0; m<nang; m++) {
 		(*pSnd++) = GhstZnsIntBuf[ifr][k][j][l][m];
