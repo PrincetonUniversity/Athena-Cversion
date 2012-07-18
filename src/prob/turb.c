@@ -99,10 +99,10 @@ static void pspect(ath_fft_data *ampl);
 static void project();
 static inline void transform();
 static inline void generate();
-static void perturb(Grid *pGrid, Real dt);
+static void perturb(GridS *pGrid, Real dt);
 
 /* Function prototypes for initializing and interfacing with Athena */
-static void initialize(Grid *pGrid, Domain *pD);
+static void initialize(GridS *pGrid, DomainS *pD);
 /* void problem(Grid *pGrid, Domain *pD); */
 /* void Userwork_in_loop(Grid *pGrid, Domain *pD); */
 /* void Userwork_after_loop(Grid *pGrid, Domain *pD); */
@@ -111,8 +111,8 @@ static void initialize(Grid *pGrid, Domain *pD);
 /* Gasfun_t get_usr_expr(const char *expr); */
 
 /* Function prototypes for analysis and outputs */
-static Real hst_dEk(const Grid *pG, const int i, const int j, const int k);
-static Real hst_dEb(const Grid *pG, const int i, const int j, const int k);
+static Real hst_dEk(const GridS *pG, const int i, const int j, const int k);
+static Real hst_dEb(const GridS *pG, const int i, const int j, const int k);
 
 /* Function prototypes for Numerical Recipes functions */
 static double ran2(long int *idum);
@@ -277,7 +277,7 @@ static inline void generate()
  *  \brief  Shifts velocities so no net momentum change, normalizes to keep
  *  dedt fixed, and then sets velocities
  */
-static void perturb(Grid *pGrid, Real dt)
+static void perturb(GridS *pGrid, Real dt)
 {
   int i, is=pGrid->is, ie = pGrid->ie;
   int j, js=pGrid->js, je = pGrid->je;
@@ -408,7 +408,7 @@ static void perturb(Grid *pGrid, Real dt)
 /* ========================================================================== */
 /*! \fn static void initialize(Grid *pGrid, Domain *pD)
  *  \brief  Allocate memory and initialize FFT plans */
-static void initialize(Grid *pGrid, Domain *pD)
+static void initialize(GridS *pGrid, DomainS *pD)
 {
   int i, is=pGrid->is, ie = pGrid->ie;
   int j, js=pGrid->js, je = pGrid->je;
@@ -429,14 +429,14 @@ static void initialize(Grid *pGrid, Domain *pD)
   nx3 = (ke-ks+1);
 
   /* Get global grid size */
-  gnx1 = pD->ide - pD->ids + 1;
-  gnx2 = pD->jde - pD->jds + 1;
-  gnx3 = pD->kde - pD->kds + 1;
+  gnx1 = pD->Nx[0];
+  gnx2 = pD->Nx[1];
+  gnx3 = pD->Nx[2];
 
   /* Get extents of local FFT grid in global coordinates */
-  gis=is+pGrid->idisp;  gie=ie+pGrid->idisp;
-  gjs=js+pGrid->jdisp;  gje=je+pGrid->jdisp;
-  gks=ks+pGrid->kdisp;  gke=ke+pGrid->kdisp;
+  gis=is+pGrid->Disp[0];  gie=ie+pGrid->Disp[0];
+  gjs=js+pGrid->Disp[1];  gje=je+pGrid->Disp[1];
+  gks=ks+pGrid->Disp[2];  gke=ke+pGrid->Disp[2];
 /* ----------------------------------------------------------- */
 
   /* Get size of arrays with ghost cells */
@@ -476,7 +476,7 @@ static void initialize(Grid *pGrid, Domain *pD)
   idrive = par_geti("problem","idrive");
   if ((idrive < 0) || (idrive > 1)) ath_error("Invalid value for idrive\n");
   /* If restarting with decaying turbulence, no driving necessary. */
-  if ((idrive == 1) && (pGrid->nstep > 0)) {
+  if ((idrive == 1) && (pGrid->time > 0.)) {
     donedrive = 1;
   }
 
@@ -494,7 +494,7 @@ static void initialize(Grid *pGrid, Domain *pD)
   }
 
   /* Initialize the FFT plan */
-  plan = ath_3d_fft_quick_plan(pGrid, pD, NULL, ATH_FFT_BACKWARD);
+  plan = ath_3d_fft_quick_plan(pD, NULL, ATH_FFT_BACKWARD);
 
   /* Allocate memory for FFTs */
   if (donedrive == 0) {
@@ -518,14 +518,20 @@ static void initialize(Grid *pGrid, Domain *pD)
  *  Set up initial conditions, allocate memory, and initialize FFT plans
  */
 
-void problem(Grid *pGrid, Domain *pD)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = (pDomain->Grid);
   int i, is=pGrid->is, ie = pGrid->ie;
   int j, js=pGrid->js, je = pGrid->je;
   int k, ks=pGrid->ks, ke = pGrid->ke;
+  int ixs,jxs,kxs;
 
-  rseed = (pGrid->my_id+1);
-  initialize(pGrid, pD);
+/* Ensure a different initial random seed for each process in an MPI calc. */
+  ixs = pGrid->Disp[0];
+  jxs = pGrid->Disp[1];
+  kxs = pGrid->Disp[2];
+  rseed = -1 - (ixs + pDomain->Nx[0]*(jxs + pDomain->Nx[1]*kxs));
+  initialize(pGrid, pDomain);
   tdrive = 0.0;
 
   /* Initialize uniform density and momenta */
@@ -580,6 +586,17 @@ void problem(Grid *pGrid, Domain *pD)
   return;
 }
 
+ConsFun_t get_usr_expr(const char *expr)
+{
+  return NULL;
+}
+
+VOutFun_t get_usr_out_fun(const char *name)
+{
+  return NULL;
+}
+
+
 /* ========================================================================== */
 
 /*
@@ -588,42 +605,50 @@ void problem(Grid *pGrid, Domain *pD)
  *  Drive velocity field for turbulence in GMC problems
  */
 
-void Userwork_in_loop(Grid *pGrid, Domain *pD)
+void Userwork_in_loop(MeshS *pM)
 {
-  int i, is=pGrid->is, ie = pGrid->ie;
-  int j, js=pGrid->js, je = pGrid->je;
-  int k, ks=pGrid->ks, ke = pGrid->ke;
+  GridS *pGrid;
+  int nl,nd;
   Real newtime;
 
-  if (isnan(pGrid->dt)) ath_error("Time step is NaN!");
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
 
-  if (idrive == 0) {  /* driven turbulence */
-    /* Integration has already been done, but time not yet updated */
-    newtime = pGrid->time + pGrid->dt;
+        pGrid = pM->Domain[nl][nd].Grid;
+
+        if (isnan(pGrid->dt)) ath_error("Time step is NaN!");
+
+        if (idrive == 0) {  /* driven turbulence */
+          /* Integration has already been done, but time not yet updated */
+          newtime = pGrid->time + pGrid->dt;
 
 #ifndef IMPULSIVE_DRIVING
-    /* Drive on every time step */
-    perturb(pGrid, pGrid->dt);
+          /* Drive on every time step */
+          perturb(pGrid, pGrid->dt);
 #endif /* IMPULSIVE_DRIVING */
 
-    if (newtime >= (tdrive+dtdrive)) {
-      /* If we start with large time steps so that tdrive would get way
-       * behind newtime, this makes sure we don't keep generating after
-       * dropping down to smaller time steps */
-      while ((tdrive+dtdrive) <= newtime) tdrive += dtdrive;
+          if (newtime >= (tdrive+dtdrive)) {
+            /* If we start with large time steps so that tdrive would get way
+             * behind newtime, this makes sure we don't keep generating after
+             * dropping down to smaller time steps */
+            while ((tdrive+dtdrive) <= newtime) tdrive += dtdrive;
 
 #ifdef IMPULSIVE_DRIVING
-      /* Only drive at intervals of dtdrive */
-      perturb(pGrid, dtdrive);
+              /* Only drive at intervals of dtdrive */
+              perturb(pGrid, dtdrive);
 #endif /* IMPULSIVE_DRIVING */
 
-      /* Compute new spectrum after dtdrive.  Putting this after perturb()
-       * means we won't be applying perturbations from a new power spectrum
-       * just before writing outputs.  At the very beginning, we'll go a
-       * little longer before regenerating, but the energy injection rate
-       * was off on the very first timestep anyway.  When studying driven
-       * turbulence, all we care about is the saturated state. */
-      generate();
+              /* Compute new spectrum after dtdrive.  Putting this after perturb()
+               * means we won't be applying perturbations from a new power spectrum
+               * just before writing outputs.  At the very beginning, we'll go a
+               * little longer before regenerating, but the energy injection rate
+               * was off on the very first timestep anyway.  When studying driven
+               * turbulence, all we care about is the saturated state. */
+              generate();
+          }
+        }
+      }
     }
   }
 
@@ -632,35 +657,50 @@ void Userwork_in_loop(Grid *pGrid, Domain *pD)
 
 /* ========================================================================== */
 
-void Userwork_after_loop(Grid *pGrid, Domain *pD)
+void Userwork_after_loop(MeshS *pM)
 {
   /* Don't free memory here if doing any analysis because final
    * output hasn't been written yet!! */
   return;
 }
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {  return;  }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {  
-  /* Allocate memory and initialize everything */
-  rseed  = (pG->my_id+1);
-  initialize(pG, pD);
-  tdrive = pG->time;
+ath_error("[problem_read_restart] Currently unable to restart - need to fix problem_read_restart\n");
+/*  GridS *pGrid;
+  DomainS *pDomain;
+  int nl, nd;
+  
+  for (nl=0; nl<(pM->NLevels); nl++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
 
-  /* Generate a new power spectrum */
-  if (idrive == 0) generate();
+         pGrid = pM->Domain[nl][nd].Grid;
+         pDomain = pM->Domain[nl][nd];
+*/  /* Allocate memory and initialize everything */
+/*         rseed  = (pGrid->my_id+1);
+         initialize(pGrid, pDomain);
+         tdrive = pGrid->time;
 
+*/  /* Generate a new power spectrum */
+/*         if (idrive == 0) generate();
+
+      }
+    }
+  }
+*/
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
-{  return NULL;  }
+//Gasfun_t get_usr_expr(const char *expr)
+//{  return NULL;  }
 
-VGFunout_t get_usr_out_fun(const char *name){
-  return NULL;
-}
+//VGFunout_t get_usr_out_fun(const char *name){
+//  return NULL;
+//}
 
 /* ========================================================================== */
 
@@ -672,7 +712,7 @@ VGFunout_t get_usr_out_fun(const char *name){
 
 /*! \fn static Real hst_dEk(const Grid *pG, const int i,const int j,const int k)
  *  \brief Dump kinetic energy in perturbations */
-static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
+static Real hst_dEk(const GridS *pG, const int i, const int j, const int k)
 { /* The kinetic energy in perturbations is 0.5*d*V^2 */
   return 0.5*(pG->U[k][j][i].M1*pG->U[k][j][i].M1 +
 	      pG->U[k][j][i].M2*pG->U[k][j][i].M2 +
@@ -681,7 +721,7 @@ static Real hst_dEk(const Grid *pG, const int i, const int j, const int k)
 
 /*! \fn static Real hst_dEb(const Grid *pG, const int i,const int j,const int k)
  *  \brief Dump magnetic energy in perturbations */
-static Real hst_dEb(const Grid *pG, const int i, const int j, const int k)
+static Real hst_dEb(const GridS *pG, const int i, const int j, const int k)
 { /* The magnetic energy in perturbations is 0.5*B^2 - 0.5*B0^2 */
 #ifdef MHD
   return 0.5*((pG->U[k][j][i].B1c*pG->U[k][j][i].B1c +
