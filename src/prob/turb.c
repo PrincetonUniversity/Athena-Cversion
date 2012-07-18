@@ -669,7 +669,6 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {  
-ath_error("[problem_read_restart] Currently unable to restart - need to fix problem_read_restart\n");
 /*  GridS *pGrid;
   DomainS *pDomain;
   int nl, nd;
