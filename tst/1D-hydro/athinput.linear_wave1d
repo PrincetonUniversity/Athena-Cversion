@@ -2,7 +2,7 @@
 problem = linear wave convergence
 author  =
 journal =
-config  = --with-problem=linear_wave1d --with-gas=hydro
+config  = --with-problem=linear_wave --with-gas=hydro
 
 <job>
 problem_id      = LinWave    # problem ID: basename of output filenames
@@ -26,7 +26,7 @@ tlim            = 5.0       # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 128       # Number of zones in X1-direction
+Nx1             = 512       # Number of zones in X1-direction
 x1min           = 0.0       # minimum value of X1
 x1max           = 1.0       # maximum value of X1
 bc_ix1          = 4         # boundary condition flag for inner-I (X1)
@@ -58,7 +58,7 @@ level           = 2         # refinement level this Domain (root=0)
 Nx1             = 128       # Number of zones in X1-direction
 Nx2             = 1         # Number of zones in X2-direction
 Nx3             = 1         # Number of zones in X3-direction
-iDisp           = 192         # i-displacement measured in cells of this level
+iDisp           = 192       # i-displacement measured in cells of this level
 jDisp           = 0         # j-displacement measured in cells of this level
 kDisp           = 0         # k-displacement measured in cells of this level
 
@@ -73,7 +73,12 @@ kDisp           = 0         # k-displacement measured in cells of this level
 
 <problem>
 gamma = 1.6666666666666667  # gamma = C_p/C_v
+iso_csound      = 1.0       # isothermal sound speed
 wave_flag       = 0         # Wave family number (0 - 4)
-wave_dir        = 1         # Wave direction (1 - 3)
-amp             = 1.0e-4    # Wave Amplitude
-vflow           = 0.0       # Average x1 velocity
+amp             = 1.0e-6    # Wave Amplitude
+vflow           = 0.0       # background flow velocity
+ang_2           = 0.0       # rotation of k around x2 axis
+ang_3           = 0.0       # rotation of k around x3 axis
+nu              = 0.01      # coefficient of viscosity
+eta_O           = 0.02      # coefficient of resistivity
+Q_AD            = 0.00      # coefficient of ambipolar diffusion
