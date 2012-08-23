@@ -56,12 +56,12 @@ AC_PROG_INSTALL
 
 #-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: name of problem generator from src/prob/name.c 
-#   --with-problem=name (default is linear_wave1d)
+#   --with-problem=name (default is linear_wave)
 
 AC_SUBST(PROBLEM)
 AC_ARG_WITH(problem,
 	[--with-problem=PROB  Problem generator from src/prob/name.c],
-	with_problem=$withval, with_problem="linear_wave1d")
+	with_problem=$withval, with_problem="linear_wave")
 PROBLEM=$with_problem
 if test -e src/prob/$PROBLEM.c; then
    rm -f src/problem.c
