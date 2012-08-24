@@ -107,6 +107,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
           ath_error("[dump_vtk]: Unable to open vtk dump file\n");
           return;
         }
+        free(fname);
 
 /* Allocate memory for temporary array of floats */
 

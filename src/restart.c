@@ -487,6 +487,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
     ath_error("[dump_restart]: Unable to open restart file\n");
     return;
   }
+  free(fname);
 
 /* Add the current time & nstep to the parameter file */
 

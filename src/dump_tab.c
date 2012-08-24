@@ -86,6 +86,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
         if((pfile = fopen(fname,"w")) == NULL){
           ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
         }
+        free(fname);
 
 /* Upper and Lower bounds on i,j,k for data dump */
         il = pG->is; iu = pG->ie;
@@ -335,6 +336,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
         if((pfile = fopen(fname,"w")) == NULL){
           ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
         }
+        free(fname);
 
 /* Upper and Lower bounds on i,j,k for data dump */
 

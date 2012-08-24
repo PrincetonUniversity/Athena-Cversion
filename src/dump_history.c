@@ -354,6 +354,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
           if(pfile == NULL){
             ath_perr(-1,"[dump_history]: Unable to open the history file\n");
           }
+          free(fname);
 
 /* Write out column headers, but only for first dump */
 

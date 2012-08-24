@@ -107,6 +107,7 @@ void dump_binary(MeshS *pM, OutputS *pOut)
           ath_error("[dump_binary]: Unable to open binary dump file\n");
           return;
         }
+        free(fname);
 
 /* Write the coordinate system information */
 #if defined CARTESIAN
