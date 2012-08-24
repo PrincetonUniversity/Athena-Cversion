@@ -719,7 +719,7 @@ void GET_CSTATE (Riemann_State *PaL, Riemann_State *PaR, Real p,
 /* ************************************************************* */
 /*! \fn void getPtot (const Real Bx, const Prim1DS W, Real *pt)
  *  \brief Compute total pressure
-/*************************************************************** */
+ *************************************************************** */
 void getPtot (const Real Bx, const Prim1DS W, Real *pt)
 {
   Real vel2, Bmag2, vB;

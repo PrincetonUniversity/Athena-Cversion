@@ -156,7 +156,7 @@ float *getRGB(char *name);
 
 void init_output(MeshS *pM)
 {
-  int i,j,outn,maxout,nl,nd;
+  int i,j,outn,maxout;
   char block[80], *fmt, defid[10];
   OutputS new_out;
   int usr_expr_flag;
@@ -195,8 +195,8 @@ void init_output(MeshS *pM)
     new_out.n   = outn;
 
 /* level and domain number can be specified with SMR  */
-    nl = new_out.nlevel = par_geti_def(block,"level",-1);
-    nd = new_out.ndomain = par_geti_def(block,"domain",-1);
+    new_out.nlevel = par_geti_def(block,"level",-1);
+    new_out.ndomain = par_geti_def(block,"domain",-1);
 
     if (par_exist(block,"dat_fmt")) new_out.dat_fmt = par_gets(block,"dat_fmt");
 

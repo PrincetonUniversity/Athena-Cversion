@@ -494,7 +494,7 @@ void integrate_2d_ctu(DomainS *pD)
   for (i=il; i<=iu; i++) {
 #ifdef CYLINDRICAL
     dx2 = r[i]*pG->dx2;
-    dtodx2 = pG->dt/dx2;
+    dtodx2 = pG->dt*dx2i;
     hdtodx2 = 0.5*dtodx2;
 #endif
     for (j=js-nghost; j<=je+nghost; j++) {
@@ -540,11 +540,11 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef MHD
     for (j=jl+1; j<=ju; j++) {
       MHD_src = (pG->U[ks][j-1][i].M1/pG->U[ks][j-1][i].d)*
-        (pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i])/dx2;
+        (pG->B2i[ks][j][i] - pG->B2i[ks][j-1][i])*dx2i;
       Wl[j].Bz += hdt*MHD_src;
 
       MHD_src = (pG->U[ks][j][i].M1/pG->U[ks][j][i].d)*
-        (pG->B2i[ks][j+1][i] - pG->B2i[ks][j][i])/dx2;
+        (pG->B2i[ks][j+1][i] - pG->B2i[ks][j][i])*dx2i;
       Wr[j].Bz += hdt*MHD_src;
     }
 #endif

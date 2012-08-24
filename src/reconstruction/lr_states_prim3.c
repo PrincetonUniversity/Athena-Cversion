@@ -69,9 +69,11 @@ static Real **pW=NULL, **Whalf=NULL;
  * - Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
+void lr_states(const GridS *pG __attribute__((unused)),
+               const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+               Prim1DS Wl[], Prim1DS Wr[], 
+               const int dir __attribute__((unused)))
 {
   int i,n,m;
   Real lim_slope,qa,qb,qc,qx;

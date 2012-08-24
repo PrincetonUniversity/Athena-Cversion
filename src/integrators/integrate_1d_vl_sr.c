@@ -692,7 +692,7 @@ static void FixCell(GridS *pG, Int3Vect indx)
     /* For consistency, set B2i and B3i to cell-centered values.  */
     pG->B2i[ks][js][indx.i+1] = pG->U[ks][js][indx.i+1].B2c;
     pG->B3i[ks][js][indx.i+1] = pG->U[ks][js][indx.i+1].B3c;
-#endif MHD
+#endif /* MHD */
 #ifndef BAROTROPIC
     pG->U[ks][js][indx.i+1].E  -= dtodx1*(x1FD_ip1.E );
 #endif /* BAROTROPIC */

@@ -34,7 +34,7 @@
  * - packing_particle_fargo() - pack particles for FARGO
  * - gridshift()              - calculate shift in grid in y for FARGO
  *
-/*============================================================================*/
+ *============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

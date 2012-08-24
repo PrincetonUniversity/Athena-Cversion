@@ -55,7 +55,7 @@
  * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
  *   to analytic solution, computed at the stopping time, and shifted by the
  *   background flow velocity (vflow).
-/*============================================================================*/
+ *============================================================================*/
 
 #include <math.h>
 #include <stdio.h>

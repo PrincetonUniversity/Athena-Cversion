@@ -61,7 +61,7 @@ void integrate_diff(MeshS *pM)
  *  \brief Call functions to allocate memory
  */
 
-void integrate_diff_init(MeshS *pM)
+void integrate_diff_init(MeshS *pM __attribute__ ((unused)))
 {   
 /* Check that diffusion coefficients were set in problem generator, call memory
  * allocation routines.  */

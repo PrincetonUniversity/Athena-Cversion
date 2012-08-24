@@ -350,7 +350,7 @@ AC_ARG_WITH(cflags,
 	[--with-cflags=DEBUG_MODE  Set debugging mode (opt,debug,profile)],
 	with_debug=$withval, with_debug="opt")
 if test "$with_debug" = "debug"; then
-  COMPILER_OPTS="-g -Wall -W -ansi -pedantic"
+  COMPILER_OPTS="-g -Wall -W -std=c99 -pedantic"
   DEBUG_MODE="DEBUG"
 elif test "$with_debug" = "profile"; then
   COMPILER_OPTS="-O3 -pg"

@@ -48,13 +48,14 @@ void init_grid(MeshS *pM)
   DomainS *pD;
   GridS *pG;
   int nDim,nl,nd,myL,myM,myN;
-  int i,l,m,n,n1z,n2z,n3z,n1p,n2p,n1r,n2r;
+  int i,l,m,n,n1z,n2z,n3z;
 #ifdef STATIC_MESH_REFINEMENT
   DomainS *pCD,*pPD;
   SideS D1,D2,D3,G1,G2,G3;
   int isDOverlap,isGOverlap,irefine,ncd,npd,dim,iGrid;
   int ncg,nCG,nMyCG,nCB[6],nMyCB[6],nb;
   int npg,nPG,nMyPG,nPB[6],nMyPB[6];
+  int n1r,n2r,n1p,n2p;
 #endif
 
 /* number of dimensions in Grid. */

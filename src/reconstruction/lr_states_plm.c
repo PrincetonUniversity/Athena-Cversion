@@ -59,9 +59,11 @@ static Real **pW=NULL;
  *   Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[], 
+void lr_states(const GridS *pG __attribute__((unused)),
+               const Prim1DS W[], const Real Bxc[], 
                const Real dt, const Real dx, const int il, const int iu, 
-               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+               Prim1DS Wl[], Prim1DS Wr[],
+               const int dir __attribute__((unused)))
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qx;
@@ -74,12 +76,15 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real qx1,qx2,C;
+  Real gamma_curv,opg,omg,beta,betai;
 
-  /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
-  Real zl,zr,zc,gamma_curv,opg,omg,beta,betai;
+#ifdef HLL_ALL_WAVE
   int hllallwave_flag = 0;
+#endif
   const Real dtodx = dt/dx;
+  /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
 #ifdef CYLINDRICAL
+  Real zl,zr,zc;
   const Real *r=pG->r, *ri=pG->ri;
 #endif /* CYLINDRICAL */
 

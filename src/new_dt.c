@@ -58,14 +58,17 @@ void new_dt(MeshS *pM)
   int ierr;
 #endif
 #if defined(THERMAL_CONDUCTION) || defined(RESISTIVITY) || defined(VISCOSITY)
-  Real diff_dt;
+  Real diff_dt,max_dti_diff=0.0;
 #ifdef STS
   Real nu_sqrt;
 #endif
 #endif
   int nl,nd;
-  Real max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0,max_dti_diff=0.0;
-  Real tlim,old_dt,x1,x2,x3;
+  Real max_v1=0.0,max_v2=0.0,max_v3=0.0,max_dti = 0.0;
+  Real tlim,old_dt;
+#ifdef CYLINDRICAL
+  Real x1,x2,x3;
+#endif
 
 /* Loop over all Domains with a Grid on this processor -----------------------*/
 
