@@ -697,10 +697,10 @@ void lr_states_init(MeshS *pM)
 
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
 
-  if ((dWm = (Real**)calloc_2d_array(nmax, NWAVE, sizeof(Real))) == NULL)
+  if ((dWm = (Real**)calloc_2d_array(nmax, (NWAVE + NSCALARS), sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((Wim1h = (Real**)calloc_2d_array(nmax, NWAVE, sizeof(Real))) == NULL)
+  if ((Wim1h = (Real**)calloc_2d_array(nmax, (NWAVE + NSCALARS), sizeof(Real))) == NULL)
     goto on_error;
 
   return;
