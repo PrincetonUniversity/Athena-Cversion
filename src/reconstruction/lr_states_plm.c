@@ -78,9 +78,7 @@ void lr_states(const GridS *pG __attribute__((unused)),
   Real qx1,qx2,C;
   Real gamma_curv,opg,omg,beta,betai;
 
-#ifdef HLL_ALL_WAVE
   int hllallwave_flag = 0;
-#endif
   const Real dtodx = dt/dx;
   /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
 #ifdef CYLINDRICAL
