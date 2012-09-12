@@ -364,6 +364,11 @@ void problem(DomainS *pDomain)
 #endif /* MHD */
 	  amp*sn*rem[4][wave_flag];
 #endif /* ISOTHERMAL */
+
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++)
+          pGrid->U[k][j][i].s[n] = pGrid->U[k][j][i].d*(1.0 + amp*(sn - 1.0));
+#endif
       }
     }
   }
@@ -477,6 +482,11 @@ void problem(DomainS *pDomain)
 #endif /* MHD */
 	  amp*sn*rem[4][wave_flag];
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+	sn = sin(k_par*(x - vflow*tlim));  /* scalars advected at vflow */
+        for (n=0; n<NSCALARS; n++)
+          RootSoln[k][j][i].s[n] = RootSoln[k][j][i].d*(1.0 + amp*(sn - 1.0));
+#endif
       }
     }
   }
@@ -574,8 +584,11 @@ void Userwork_after_loop(MeshS *pM)
   char *fname;
   int Nx1, Nx2, Nx3, count, min_zones;
 #if defined MPI_PARALLEL
-  double err[8], tot_err[8];
+  double err[8+(NSCALARS)], tot_err[8+(NSCALARS)];
   int ierr,myID;
+#endif
+#if (NSCALARS > 0)
+  int n;
 #endif
 
   total_error.d = 0.0;
@@ -590,6 +603,9 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
   total_error.E = 0.0;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) total_error.s[n] += error.s[n];
+#endif
 
 /* Compute error only on root Grid, which is in Domain[0][0] */
 
@@ -615,6 +631,9 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
     error.E = 0.0;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) error.s[n] = 0.0;
+#endif
 
     for (i=is; i<=ie; i++) {
       error.d   += fabs(pGrid->U[k][j][i].d   - RootSoln[k][j][i].d );
@@ -629,6 +648,10 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
       error.E   += fabs(pGrid->U[k][j][i].E   - RootSoln[k][j][i].E );
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        error.s[n] += fabs(pGrid->U[k][j][i].s[n] - RootSoln[k][j][i].s[n]);
+#endif
     }
 
     total_error.d += error.d;
@@ -643,6 +666,9 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
     total_error.E += error.E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) total_error.s[n] += error.s[n];
+#endif
   }}
 
 #ifdef MPI_PARALLEL
@@ -672,9 +698,12 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
   err[7] = total_error.E;
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) err[8+n] = total_error.s[n];
+#endif
 
   /* Sum up the Computed Error */
-  ierr = MPI_Reduce(err,tot_err,8,MPI_DOUBLE,MPI_SUM,0,
+  ierr = MPI_Reduce(err,tot_err,(8+(NSCALARS)),MPI_DOUBLE,MPI_SUM,0,
     pM->Domain[0][0].Comm_Domain);
 
 /* If I'm the parent, copy the sum back to the total_error variable */
@@ -693,6 +722,9 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
     total_error.E   = tot_err[7];
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) total_error.s[n] = tot_err.s[8+n];
+#endif
   }
   else return; /* The child grids do not do any of the following code */
 
@@ -709,6 +741,9 @@ void Userwork_after_loop(MeshS *pM)
 #ifndef ISOTHERMAL
   rms_error += SQR(total_error.E);
 #endif /* ISOTHERMAL */
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) rms_error += SQR(total_error.s[n]);
+#endif
   rms_error = sqrt(rms_error)/(double)count;
 
 /* Print warning to stdout if rms_error exceeds estimate of 2nd-order conv */
@@ -750,6 +785,11 @@ void Userwork_after_loop(MeshS *pM)
 #ifdef MHD
     fprintf(fp,"  B1c  B2c  B3c");
 #endif /* MHD */
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) {
+      fprintf(fp,"  S[ %d ]",n);
+    }
+#endif
     fprintf(fp,"\n#\n");
   }
 
@@ -771,6 +811,12 @@ void Userwork_after_loop(MeshS *pM)
 	  (total_error.B2c/(double)count),
 	  (total_error.B3c/(double)count));
 #endif /* MHD */
+
+#if (NSCALARS > 0)
+  for (n=0; n<NSCALARS; n++) {
+    fprintf(fp,"  %e",total_error.s[n]/(double)count);
+  }
+#endif
 
   fprintf(fp,"\n");
 

@@ -50,7 +50,7 @@ do
 
 # configure code
 
-      if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=$PROB --with-order=$ORD --with-flux=roe &> config.log
+      if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=$PROB --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
       then
         echo "Configure for test $CNT failed"
         exit
