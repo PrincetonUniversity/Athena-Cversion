@@ -22,6 +22,8 @@
  * - ShearingSheet_grav_ox1() - shearing sheet BCs for grav. pot. on ox1
  * - RemapEy_ix1()       - sets Ey at ix1 in integrator to keep <Bz>=const. 
  * - RemapEy_ox1()       - sets Ey at ox1 in integrator to keep <Bz>=const. 
+ * - RemapJy_ix1()       - sets Jy at ix1 in resistivity.c
+ * - RemapJy_ox1()       - sets Jy at ox1 in resistivity.c
  * - Fargo()             - implements FARGO algorithm for background flow
  * - RemapVar()          - remaps variable to the nearest periodic point. 
  * - bvals_shear_init() - allocates memory for arrays used here
@@ -2671,7 +2673,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
  * SHEARING_BOX macro).							      */
 /*----------------------------------------------------------------------------*/
 
-#ifdef MHD
+#ifdef RESISTIVITY
 void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 {
   GridS *pG = pD->Grid;
@@ -3058,7 +3060,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
   return;
 }
-#endif /* MHD */
+#endif /* RESISTIVITY */
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
@@ -3068,7 +3070,7 @@ void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
  * SHEARING_BOX macro).							      */
 /*----------------------------------------------------------------------------*/
 
-#ifdef MHD
+#ifdef RESISTIVITY
 void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 {
   GridS *pG = pD->Grid;
@@ -3458,7 +3460,7 @@ void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
 
   return;
 }
-#endif /* MHD */
+#endif /* RESISTIVITY */
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void RemapVar(DomainS *pD, Real ***RemapVar, Real dt)

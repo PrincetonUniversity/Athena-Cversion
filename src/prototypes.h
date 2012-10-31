@@ -78,8 +78,10 @@ void ShearingSheet_ix1(DomainS *pD);
 void ShearingSheet_ox1(DomainS *pD);
 void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
 void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
+#ifdef RESISTIVITY
 void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
 void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
+#endif
 void bvals_shear_init(MeshS *pM);
 void bvals_shear_destruct(void);
 #ifdef FARGO

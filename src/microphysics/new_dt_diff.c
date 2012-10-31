@@ -86,9 +86,18 @@ Real new_dt_diff(MeshS *pM)
         for (i=pG->is; i<=pG->ie; i++) {
 
           max_dti_diff = MAX( max_dti_diff, ((pG->eta_Ohm[k][j][i] +
-             pG->eta_Hall[k][j][i] + pG->eta_AD[k][j][i])/qa) );
-
+                              pG->eta_AD[k][j][i])/qa) );
+  
         }}}
+        if (Q_Hall > 0.0) {
+          for (k=pG->ks; k<=pG->ke; k++) {
+          for (j=pG->js; j<=pG->je; j++) { 
+          for (i=pG->is; i<=pG->ie; i++) {
+
+            max_dti_diff = MAX( max_dti_diff, fabs(pG->eta_Hall[k][j][i])/qa);
+
+          }}}
+        }
       }
     }
   }
