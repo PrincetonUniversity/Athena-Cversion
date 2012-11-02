@@ -572,6 +572,21 @@ int main(int argc, char *argv[])
 #endif
 
 /*--- Step 9g. ---------------------------------------------------------------*/
+/* Update Mesh time, and time in all Grid's. */
+
+    Mesh.nstep++;
+    Mesh.time += Mesh.dt;
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          Mesh.Domain[nl][nd].Grid->time = Mesh.time;
+        }
+      }
+    }
+
+    dt_done = Mesh.dt;
+
+/*--- Step 9h. ---------------------------------------------------------------*/
 /* Boundary values must be set after time is updated for t-dependent BCs.
  * With SMR, ghost zones at internal fine/coarse boundaries set by Prolongate */
 
@@ -590,24 +605,13 @@ int main(int argc, char *argv[])
     Prolongate(&Mesh);
 #endif
 
-/*--- Step 9h. ---------------------------------------------------------------*/
-/* Update Mesh time, and time in all Grid's.  Compute new dt */
-
-    Mesh.nstep++;
-    Mesh.time += Mesh.dt;
-    for (nl=0; nl<(Mesh.NLevels); nl++){
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
-        if (Mesh.Domain[nl][nd].Grid != NULL){
-          Mesh.Domain[nl][nd].Grid->time = Mesh.time;
-        }
-      }
-    }
-
-    dt_done = Mesh.dt;
+/*--- Step 9i. ---------------------------------------------------------------*/
+/* Compute new dt. With resistivity, the diffusion coeffieicnts are evaluated
+ * within new_dt(), which requires that boundary values are already updated.  */
 
     new_dt(&Mesh);
 
-/*--- Step 9i. ---------------------------------------------------------------*/
+/*--- Step 9j. ---------------------------------------------------------------*/
 /* Force quit if wall time limit reached.  Check signals from system */
 
 #ifdef MPI_PARALLEL
