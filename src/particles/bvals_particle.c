@@ -1026,7 +1026,7 @@ void bvals_particle_init(MeshS *pM)
   DomainS *pD;
 
   if (pM->NLevels > 1)
-    ath_error("[bval_particle_init]: particle module does not suport SMR\n");
+    ath_error("[bval_particle_init]: particle module does not support SMR\n");
 
   pD = &(pM->Domain[0][0]);
   pG = pD->Grid;

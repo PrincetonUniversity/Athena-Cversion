@@ -27,13 +27,11 @@ void bvals_final_particle(MeshS *pM);
 void dump_particle_history(MeshS *pM, OutputS *pOut);
 void dump_parhistory_enroll();
 
-/* feedback.c */
-#ifdef FEEDBACK
-void exchange_feedback(DomainS *pD);
-void exchange_feedback_init(MeshS *pM);
-void exchange_feedback_fun(enum BCDirection dir, VGFun_t prob_bc);
-void exchange_feedback_destruct(MeshS *pM);
-#endif
+/* exchange.c */
+void exchange_gpcouple(DomainS *pD, short lab);
+void exchange_gpcouple_init(MeshS *pM);
+void exchange_gpcouple_fun(enum BCDirection dir, VGFun_t prob_bc);
+void exchange_gpcouple_destruct(MeshS *pM);
 
 /* init_particle.c */
 void init_particle(MeshS *pM);

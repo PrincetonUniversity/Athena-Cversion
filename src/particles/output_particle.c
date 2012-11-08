@@ -22,9 +22,6 @@
  *   to output these binned particle quantities are then exactly the same as
  *   other gas quantities.
  *
- *   Dumping particle list has not been developed yet since we need to figure
- *   out how to do visualization.
- *
  * CONTAINS PUBLIC FUNCTIONS:
  * - particle_to_grid();
  * - dump_particle_binary();

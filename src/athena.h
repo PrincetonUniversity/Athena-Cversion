@@ -180,11 +180,11 @@ typedef struct Prim1D_s{
  */
 #ifdef PARTICLES
 
-/* Physical quantities of a dust particle */
+/* Physical quantities of a particle */
 typedef struct Grain_s{
   Real x1,x2,x3;	/*!< coordinate in X,Y,Z */
   Real v1,v2,v3;	/*!< velocity in X,Y,Z */
-  int property;		/*!< index of grain properties */
+  int property;		/*!< index of particle properties */
   short pos;		/*!< position: 0: ghost; 1: grid; >=10: cross out/in; */
   long my_id;		/*!< particle id */
 #ifdef MPI_PARALLEL
@@ -193,7 +193,7 @@ typedef struct Grain_s{
 }GrainS;
 
 /*! \struct GrainAux
- *  \brief Auxilary quantities for a dust particle. */
+ *  \brief Auxilary quantities for a particle. */
 typedef struct GrainAux_s{
   Real dpar;            /*!< local particle density */
 #ifdef FARGO

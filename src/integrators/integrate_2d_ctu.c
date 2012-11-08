@@ -1305,7 +1305,7 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef PARTICLES
   Integrate_Particles(pD);
 #ifdef FEEDBACK
-  exchange_feedback(pD);
+  exchange_gpcouple(pD, 2);
 #endif
 #endif
 

@@ -9,7 +9,7 @@
 #-------------------  object files  --------------------------------------------
 CORE_OBJ = bvals_particle.o\
 	   dump_particle_history.o\
-	   feedback.o\
+	   exchange.o\
 	   init_particle.o\
 	   integrators_particle.o\
 	   output_particle.o\
