@@ -401,7 +401,7 @@ int main(int argc, char *argv[])
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
 #ifdef FEEDBACK
-  exchange_feedback_init(&Mesh);
+  exchange_gpcouple_init(&Mesh);
 #endif
 #endif
 

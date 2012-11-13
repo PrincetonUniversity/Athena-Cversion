@@ -194,7 +194,8 @@ void integrate_3d_ctu(DomainS *pD)
 
 /* Compute predictor feedback from particle drag */
 #ifdef FEEDBACK
-  feedback_predictor(pG);
+  feedback_predictor(pD);
+  exchange_gpcouple(pD,1);
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -2122,7 +2123,7 @@ void integrate_3d_ctu(DomainS *pD)
   for (k=kl+1; k<=ku-1; k++) {
   for (j=jl+1; j<=ju-1; j++) {
   for (i=il+1; i<=iu-1; i++) {
-    if ((Ul_x1Face[k][j][i].d < d_MIN) || 
+    if ((Ul_x1Face[k][j][i].d < d_MIN) ||
         (Ul_x1Face[k][j][i].d != Ul_x1Face[k][j][i].d)) {
       Ul_x1Face[k][j][i].d = d_MIN;
     }

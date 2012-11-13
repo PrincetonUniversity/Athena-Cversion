@@ -480,7 +480,9 @@ Now use the default one.\n");
 void data_output(MeshS *pM, const int flag)
 {
 #ifdef PARTICLES
-  GridS *pG = pM->Domain[0][0].Grid;
+  DomainS *pD = &(pM->Domain[0][0]);
+  GridS *pG = pD->Grid;
+  PropFun_t mypar_prop = NULL;
 #endif
   int n;
   int dump_flag[MAXOUT_DEFAULT+1];
@@ -541,7 +543,10 @@ void data_output(MeshS *pM, const int flag)
 
 #ifdef PARTICLES
       if (OutArray[n].out_pargrid == 1)      /* binned particles are output */
-        particle_to_grid(pG, OutArray[n].par_prop);
+        if (OutArray[n].par_prop != mypar_prop) {
+          particle_to_grid(pD, OutArray[n].par_prop);
+          mypar_prop = OutArray[n].par_prop;
+        }
 #endif
       (*OutArray[n].out_fun)(pM,&(OutArray[n]));
 

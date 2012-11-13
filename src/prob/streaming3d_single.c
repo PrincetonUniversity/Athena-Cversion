@@ -647,7 +647,7 @@ void OutputModeAmplitude(MeshS *pM, OutputS *pOut)
   int i,j,k;
   Real dm,dparm,uxm,uym,uzm,wxm,wym,wzm;
 
-  particle_to_grid(pGrid, property_all);
+  particle_to_grid(pDomain, property_all);
 
   dm=0.0; dparm=0.0; uxm=0.0; uym=0.0; uzm=0.0; wxm=0.0; wym=0.0; wzm=0.0;
 

@@ -37,23 +37,29 @@
 
 /* Define the maximum number of variables in the gas-particle coupling array
  * to be exchanged at any step (0-2) */
-#define NExc_Max 6
+#define NVar_Max 5
 /* Define the maximum number of ghost zones to be exchanged */
-#define NGF_Max 2
+#define NLayer_Max 6
 
 /*! \struct GPExc
  *  \brief Define structure which holds variables for gas-particle exchange */
 typedef struct GPExc_s{
-  Real U[NExc_Max];
+  Real U[NVar_Max];
 }GPExc;
 
 /* number of variables to be exchanged for each cell in a specific step */
+static int NVar;
+/* number of ghost layers to be exchanged */
 static int NExc;
-/* number of boundary cells to be exchanged */
-static int NGF;
+/* nulber of grid layers (offset from boundary) to be copied
+ * For pure exchange, set to 0;
+ * To fill (copy) particle deposits to ghost zones, set to nghost
+ * Total number of layers is thus NLayer = NExc + NOfst.  */
+static int NOfst;
 
 /* grid index limit for the exchange */
 static int il,iu, jl,ju, kl,ku;
+static int ib,it, jb,jt, kb,kt;
 
 /* Temporary array where the exchange operation is executed */
 static GPExc ***myCoup=NULL;
@@ -65,9 +71,12 @@ static MPI_Request *recv_rq, *send_rq;
 #endif /* MPI_PARALLEL */
 
 #ifdef SHEARING_BOX
+static Real Delta; /* 0 (beginning) or 0.5 (middle) of a time step */
 static Real *Flx=NULL;
 static Real *UBuf=NULL;
-static GPExc ***GhstZns=NULL;
+static GPExc ***GhstZns_ix1=NULL;
+static GPExc ***GhstZns_ox1=NULL;
+static GPExc ***TempZns=NULL;
 extern void RemapFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
 #endif
 
@@ -125,10 +134,10 @@ static void unpack_ix3_exchange(GridS *pG);
 static void unpack_ox3_exchange(GridS *pG);
 
 #ifdef SHEARING_BOX
-static void pack_ix2_remap(GridS *pG);
-static void pack_ox2_remap(GridS *pG);
-static void unpack_ix2_remap(GridS *pG);
-static void unpack_ox2_remap(GridS *pG);
+static void pack_ix2_remap(GridS *pG, GPExc ***myZns);
+static void pack_ox2_remap(GridS *pG, GPExc ***myZns);
+static void unpack_ix2_remap(GridS *pG, GPExc ***myZns);
+static void unpack_ox2_remap(GridS *pG, GPExc ***myZns);
 #endif
 #endif /* MPI_PARALLEL */
 
@@ -154,7 +163,10 @@ void exchange_gpcouple(DomainS *pD, short lab)
   GridS *pG = pD->Grid;
   int i,j,k;
 #ifdef SHEARING_BOX
-  int myL,myM,myN,BCFlag;
+  int n,myL,myM,myN,BCFlag;
+#ifndef FARGO
+  Real Lx = pD->RootMaxX[0]-pD->RootMinX[0];
+#endif
 #endif
 #ifdef MPI_PARALLEL
   int cnt1, cnt2, cnt3, cnt, ierr, mIndex;
@@ -171,35 +183,32 @@ void exchange_gpcouple(DomainS *pD, short lab)
  *----------------------------------------------------------------------------*/
  
   switch (lab) {
-    case 0:	/* particle binning for output purpose */
+    case 0: /* particle binning for output purpose */
 		  
-      NGF = 1;
-#ifdef FEEDBACK
-      NExc = 6;
-#else
-      NExc = 4;
+      NVar = 4; NExc = 1; NOfst = 0;
+#ifdef SHEARING_BOX
+      Delta = 0.0; /* at the beginning of a time step */
 #endif
-      for (k=kl;k<=ku;k++) {
-       for (j=jl; j<=ju; j++) {
-        for (i=il; i<=iu; i++) {
+      for (k=klp; k<=kup; k++) {
+       for (j=jlp; j<=jup; j++) {
+        for (i=ilp; i<=iup; i++) {
 	  myCoup[k][j][i].U[0]=pG->Coup[k][j][i].grid_v1;
           myCoup[k][j][i].U[1]=pG->Coup[k][j][i].grid_v2;
           myCoup[k][j][i].U[2]=pG->Coup[k][j][i].grid_v3;
           myCoup[k][j][i].U[3]=pG->Coup[k][j][i].grid_d;
-#ifdef FEEDBACK
-          myCoup[k][j][i].U[4]=pG->Coup[k][j][i].FBstiff;
-          myCoup[k][j][i].U[5]=pG->Coup[k][j][i].Eloss;
-#endif
       }}}
       break;
 		  
 #ifdef FEEDBACK		  
     case 1: /* predictor step of feedback exchange */
 		  
-      NExc = 5; NGF = 1;
-      for (k=kl;k<=ku;k++) {
-       for (j=jl; j<=ju; j++) {
-        for (i=il; i<=iu; i++) {
+      NVar = 5; NExc = 1; NOfst = nghost;
+#ifdef SHEARING_BOX
+      Delta = 0.0; /* at the beginning of a time step */
+#endif
+      for (k=klp; k<=kup; k++) {
+       for (j=jlp; j<=jup; j++) {
+        for (i=ilp; i<=iup; i++) {
           myCoup[k][j][i].U[0]=pG->Coup[k][j][i].fb1;
           myCoup[k][j][i].U[1]=pG->Coup[k][j][i].fb2;
           myCoup[k][j][i].U[2]=pG->Coup[k][j][i].fb3;
@@ -210,10 +219,13 @@ void exchange_gpcouple(DomainS *pD, short lab)
 		  
     case 2: /* corrector step of feedback exchange */
 		  
-      NExc = 4; NGF = 2;
-      for (k=kl;k<=ku;k++) {
-       for (j=jl; j<=ju; j++) {
-        for (i=il; i<=iu; i++) {
+      NVar = 4; NExc = 2; NOfst = 0;
+#ifdef SHEARING_BOX
+      Delta = 0.5; /* at the middle of a time step */
+#endif
+      for (k=klp; k<=kup; k++) {
+       for (j=jlp; j<=jup; j++) {
+        for (i=ilp; i<=iup; i++) {
           myCoup[k][j][i].U[0]=pG->Coup[k][j][i].fb1;
           myCoup[k][j][i].U[1]=pG->Coup[k][j][i].fb2;
           myCoup[k][j][i].U[2]=pG->Coup[k][j][i].fb3;
@@ -229,15 +241,37 @@ void exchange_gpcouple(DomainS *pD, short lab)
 #endif /* FEEDBACK */
   }
 
+/* set left and right grid indices */
+  if (pG->Nx[0] > 1) {
+    il = pG->is - NExc;         iu = pG->ie + NExc;
+    ib = pG->is - NOfst;        it = pG->ie + NOfst;
+  } else {
+    il = ib = pG->is;           iu = it = pG->ie;
+  }   
+      
+  if (pG->Nx[1] > 1) {
+    jl = pG->js - NExc;         ju = pG->je + NExc;
+    jb = pG->js - NOfst;        jt = pG->je + NOfst;
+  } else {
+    jl = jb = pG->js;           ju = jt = pG->je;
+  }   
+  
+  if (pG->Nx[2] > 1) {
+    kl = pG->ks - NExc;         ku = pG->ke + NExc;
+    kb = pG->ks - NOfst;        kt = pG->ke + NOfst;
+  } else {
+    kl = kb = pG->ks;           ku = kt = pG->ke;
+  }
+
 /*--- Step 2. ------------------------------------------------------------------
  * Feedback exchange in x3-direction */
 
   if (pG->Nx[2] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt1 = pG->Nx[0] > 1 ? pG->Nx[0] + 2*NGF : 1;
-    cnt2 = pG->Nx[1] > 1 ? pG->Nx[1] + 2*NGF : 1;
-    cnt = NGF*cnt1*cnt2*NExc;
+    cnt1 = pG->Nx[0] > 1 ? pG->Nx[0] + 2*NExc : 1;
+    cnt2 = pG->Nx[1] > 1 ? pG->Nx[1] + 2*NExc : 1;
+    cnt = (NExc+NOfst)*cnt1*cnt2*NVar;
 
 /* MPI blocks to both left and right */
     if (pG->rx3_id >= 0 && pG->lx3_id >= 0) {
@@ -333,9 +367,9 @@ void exchange_gpcouple(DomainS *pD, short lab)
   if (pG->Nx[1] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt1 = pG->Nx[0] > 1 ? pG->Nx[0] + 2*NGF : 1;
-    cnt3 = pG->Nx[2] > 1 ? pG->Nx[2] : 1;
-    cnt = NGF*cnt1*cnt3*NExc;
+    cnt1 = pG->Nx[0] > 1 ? pG->Nx[0] + 2*NExc : 1;
+    cnt3 = pG->Nx[2] > 1 ? pG->Nx[2] + 2*NOfst: 1;
+    cnt = (NExc+NOfst)*cnt1*cnt3*NVar;
 
 /* MPI blocks to both left and right */
     if (pG->rx2_id >= 0 && pG->lx2_id >= 0) {
@@ -427,17 +461,74 @@ void exchange_gpcouple(DomainS *pD, short lab)
  * Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
  * level grid is specified by the <domain1> block in the input file */
 #ifdef SHEARING_BOX
-    BCFlag = par_geti_def("domain1","bc_ix1",0);
     get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
-    if (myL == 0 && BCFlag == 4) {
-      Remap_exchange_ix1(pD);
-    } 
-    BCFlag = par_geti_def("domain1","bc_ox1",0);
-    if (myL == ((pD->NGrid[0])-1) && BCFlag == 4) {
-      Remap_exchange_ox1(pD);
+
+    /* shearing-box in xy (2D and 3D) */
+    if (pG->Nx[2] > 1 || ShBoxCoord==xy)
+    {
+      /* inner x1 boundary */
+      BCFlag = par_geti_def("domain1","bc_ix1",0);
+      if (myL == 0 && BCFlag == 4) {
+        Remap_exchange_ix1(pD);
+#ifndef FARGO
+        if (lab == 0) { /* for output */
+          for (k=kb; k<=kt; k++) {
+           for (j=jb; j<=jt; j++) {
+            for (i=0; i<NExc+NOfst; i++) {
+              GhstZns_ix1[k][i][j].U[1] -= qshear*Omega_0*Lx;
+          }}}
+        }
+#endif
+      } else {
+        for (k=kb; k<=kt; k++) {
+         for (j=jb; j<=jt; j++) {
+          for (i=0; i<NExc+NOfst; i++) {
+           for (n=0;n<NVar; n++) {
+            GhstZns_ix1[k][i][j].U[n] = myCoup[k][j][pG->is-NExc+i].U[n];
+        }}}}
+      }
+
+      /* outer x1 boundary */
+      BCFlag = par_geti_def("domain1","bc_ox1",0);
+      if (myL == ((pD->NGrid[0])-1) && BCFlag == 4) {
+        Remap_exchange_ox1(pD);
+#ifndef FARGO
+        if (lab == 0) { /* no fargo, for output */
+          for (k=kb; k<=kt; k++) {
+           for (j=jb; j<=jt; j++) {
+            for (i=0; i<NExc+NOfst; i++) {
+              GhstZns_ox1[k][i][j].U[1] += qshear*Omega_0*Lx;
+          }}}
+        }
+#endif
+      } else {
+        for (k=kb; k<=kt; k++) {
+         for (j=jb; j<=jt; j++) {
+          for (i=0; i<NExc+NOfst; i++) {
+           for (n=0;n<NVar; n++) {
+            GhstZns_ox1[k][i][j].U[n] = myCoup[k][j][pG->ie-NOfst+i+1].U[n];
+        }}}}
+      }
+    }
+#ifndef FARGO
+    /* 2D shearing-box in x-z, no fargo, for output */
+    else if (lab == 0) 
+    {
+      if (myL == 0) {
+        for (j=jb; j<=jt; j++) {
+         for (i=pG->is-NExc; i<pG->is; i++) {
+           myCoup[pG->ks][j][i].U[2] -= qshear*Omega_0*Lx;
+        }}
+      }
+      if (myL == ((pD->NGrid[0])-1)) {
+        for (j=jb; j<=jt; j++) {
+         for (i=pG->ie+1; i<=pG->ie+NExc; i++) {
+           myCoup[pG->ks][j][i].U[2] += qshear*Omega_0*Lx;
+        }}
+      }
     }
 #endif
-
+#endif /* SHEARING_BOX */
   }
 
 /*--- Step 4. ------------------------------------------------------------------
@@ -446,9 +537,9 @@ void exchange_gpcouple(DomainS *pD, short lab)
   if (pG->Nx[0] > 1){
 
 #ifdef MPI_PARALLEL
-    cnt2 = pG->Nx[1] > 1 ? pG->Nx[1] : 1;
-    cnt3 = pG->Nx[2] > 1 ? pG->Nx[2] : 1;
-    cnt = NGF*cnt2*cnt3*NExc;
+    cnt2 = pG->Nx[1] > 1 ? pG->Nx[1] + 2*NOfst : 1;
+    cnt3 = pG->Nx[2] > 1 ? pG->Nx[2] + 2*NOfst : 1;
+    cnt = (NExc+NOfst)*cnt2*cnt3*NVar;
 
 /* MPI blocks to both left and right */
     if (pG->rx1_id >= 0 && pG->lx1_id >= 0) {
@@ -478,7 +569,6 @@ void exchange_gpcouple(DomainS *pD, short lab)
       ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
       if (mIndex == 0) unpack_ix1_exchange(pG);
       if (mIndex == 1) unpack_ox1_exchange(pG);
-
     }
 
 /* Physical boundary on left, MPI block on right */
@@ -535,7 +625,6 @@ void exchange_gpcouple(DomainS *pD, short lab)
       (*apply_ix1)(pG);
       (*apply_ox1)(pG);
     } 
-
   }
 
 /*--- Step 5. ------------------------------------------------------------------	
@@ -548,25 +637,21 @@ void exchange_gpcouple(DomainS *pD, short lab)
 	
   switch (lab) {
     case 0:	/* particle binning for output purpose */
-      for (k=pG->ks;k<=pG->ke;k++) {
-       for (j=pG->js; j<=pG->je; j++) {
-        for (i=pG->is; i<=pG->ie; i++) {
+      for (k=kb; k<=kt; k++) {
+       for (j=jb; j<=jt; j++) {
+        for (i=ib; i<=it; i++) {
           pG->Coup[k][j][i].grid_v1= myCoup[k][j][i].U[0];
           pG->Coup[k][j][i].grid_v2= myCoup[k][j][i].U[1];
           pG->Coup[k][j][i].grid_v3= myCoup[k][j][i].U[2];
           pG->Coup[k][j][i].grid_d = myCoup[k][j][i].U[3];
-#ifdef FEEDBACK
-          pG->Coup[k][j][i].FBstiff= myCoup[k][j][i].U[4];
-          pG->Coup[k][j][i].Eloss  = myCoup[k][j][i].U[5];
-#endif
       }}}
       break;
 			
 #ifdef FEEDBACK		  
     case 1: /* predictor step of feedback exchange */
-      for (k=pG->ks;k<=pG->ke;k++) {
-       for (j=pG->js; j<=pG->je; j++) {
-        for (i=pG->is; i<=pG->ie; i++) {
+      for (k=kb; k<=kt; k++) {
+       for (j=jb; j<=jt; j++) {
+        for (i=ib; i<=it; i++) {
           pG->Coup[k][j][i].fb1    = myCoup[k][j][i].U[0];
           pG->Coup[k][j][i].fb2    = myCoup[k][j][i].U[1];
           pG->Coup[k][j][i].fb3    = myCoup[k][j][i].U[2];
@@ -576,9 +661,9 @@ void exchange_gpcouple(DomainS *pD, short lab)
       break;
 			
     case 2: /* corrector step of feedback exchange */
-      for (k=pG->ks;k<=pG->ke;k++) {
-       for (j=pG->js; j<=pG->je; j++) {
-        for (i=pG->is; i<=pG->ie; i++) {
+      for (k=kb; k<=kt; k++) {
+       for (j=jb; j<=jt; j++) {
+        for (i=ib; i<=it; i++) {
           pG->Coup[k][j][i].fb1  = myCoup[k][j][i].U[0];
           pG->Coup[k][j][i].fb2  = myCoup[k][j][i].U[1];
           pG->Coup[k][j][i].fb3  = myCoup[k][j][i].U[2];
@@ -618,7 +703,7 @@ void Remap_exchange_ix1(DomainS *pD)
   int n,i,j,k,joffset,jremap;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
-  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids,mIndex;
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids,mIndex,Nx3;
   int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
 #endif
@@ -635,82 +720,92 @@ void Remap_exchange_ix1(DomainS *pD)
   Ly = xmax - xmin;
   
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*(pG->time+0.5*pG->dt);
+  yshear = qomL*(pG->time+Delta*pG->dt);
   deltay = fmod(yshear, Ly);
   joffset = (int)(deltay/pG->dx2);
   epso = -(fmod(deltay,pG->dx2))/pG->dx2;
   
+#ifdef MPI_PARALLEL
+  if (pG->Nx[2] > 1) {
+    Nx3 = pG->Nx[2]+2*NOfst;
+  } else {
+    Nx3 = 1;
+  }
+#endif
+
 /*--- Step 1. ------------------------------------------------------------------
  * Copy myCoup to the ghost zone array where j is the fastest varying index.
  * Apply periodic BC in x2 to the ghost array.  Requires MPI calls if 
  * NGrid_x2 > 1 */
       
-  for(k=ks; k<=ke; k++){
-   for(j=js; j<=je; j++){
-    for(i=0; i<NGF; i++){
-      for (n=0; n<NExc; n++){
-	GhstZns[k][i][j].U[n] = myCoup[k][j][is-i-1].U[n];
+  for(k=kb; k<=kt; k++){
+   for(j=jb; j<=jt; j++){
+    for(i=0; i<NExc+NOfst; i++){
+      for (n=0; n<NVar; n++){
+	TempZns[k][i][j].U[n] = myCoup[k][j][is-NExc+i].U[n];
       }     
   }}}     
+
+  if (NOfst < nghost) {
+    if (pD->NGrid[1] == 1) {
   
-  if (pD->NGrid[1] == 1) {
-  
-    for(k=ks; k<=ke; k++){
-     for(i=0; i<NGF; i++){
-      for(j=1; j<=nghost; j++){
-	for (n=0; n<NExc; n++){
-	  GhstZns[k][i][js-j].U[n] = GhstZns[k][i][je-(j-1)].U[n];
-	  GhstZns[k][i][je+j].U[n] = GhstZns[k][i][js+(j-1)].U[n];
-	} 
-    }}}     
+      for(k=kb; k<=kt; k++){
+       for(i=0; i<NExc+NOfst; i++){
+        for(j=1; j<=nghost; j++){
+	 for (n=0; n<NVar; n++){
+	   TempZns[k][i][js-j].U[n] = TempZns[k][i][je-(j-1)].U[n];
+	   TempZns[k][i][je+j].U[n] = TempZns[k][i][js+(j-1)].U[n];
+	 }
+      }}}     
         
 #ifdef MPI_PARALLEL
-  } else {
+    } else {
 
 /* MPI calls to swap data */
 
-    cnt = nghost*NGF*pG->Nx[2]*NExc;
-    /* Post non-blocking receives for data from L and R Grids */
-    ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,LtoR_tag,
-      pD->Comm_Domain, &(recv_rq[0]));
-    ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,RtoL_tag,
-      pD->Comm_Domain, &(recv_rq[1]));
+      cnt = nghost*(NExc+NOfst)*Nx3*NVar;
+      /* Post non-blocking receives for data from L and R Grids */
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,LtoR_tag,
+        pD->Comm_Domain, &(recv_rq[0]));
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,RtoL_tag,
+        pD->Comm_Domain, &(recv_rq[1]));
 
-    /* pack and send data L and R */
-    pack_ix2_remap(pG);
-    ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,RtoL_tag,
-      pD->Comm_Domain, &(send_rq[0]));
+      /* pack and send data L and R */
+      pack_ix2_remap(pG, TempZns);
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,RtoL_tag,
+        pD->Comm_Domain, &(send_rq[0]));
 
-    pack_ox2_remap(pG);
-    ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,LtoR_tag,
-      pD->Comm_Domain, &(send_rq[1]));
+      pack_ox2_remap(pG, TempZns);
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,LtoR_tag,
+        pD->Comm_Domain, &(send_rq[1]));
 
-    /* check non-blocking sends have completed. */
-    ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
 
-    /* check non-blocking receives and unpack data in any order. */
-    ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-    if (mIndex == 0) unpack_ix2_remap(pG);
-    if (mIndex == 1) unpack_ox2_remap(pG);
-    ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-    if (mIndex == 0) unpack_ix2_remap(pG);
-    if (mIndex == 1) unpack_ox2_remap(pG);
+      /* check non-blocking receives and unpack data in any order. */
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, TempZns);
+      if (mIndex == 1) unpack_ox2_remap(pG, TempZns);
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, TempZns);
+      if (mIndex == 1) unpack_ox2_remap(pG, TempZns);
 
 #endif /* MPI_PARALLEL */
-  }
+    }
+  } /* If NOfst < nghost */
 
 /*--- Step 3. ------------------------------------------------------------------
  * Apply a conservative remap of solution over the fractional part of a cell */
 
-  for(k=ks; k<=ke; k++){
-   for(i=0; i<NGF; i++){
-    for (n=0; n<NExc; n++) {
+  for(k=kb; k<=kt; k++){
+   for(i=0; i<NExc+NOfst; i++){
+    for (n=0; n<NVar; n++) {
       for(j=js-nghost; j<=je+nghost; j++){
-	UBuf[j] = GhstZns[k][i][j].U[n];
+	UBuf[j] = TempZns[k][i][j].U[n];
       }
       RemapFlux(UBuf,epso,js,je+1,Flx);
       for(j=js; j<=je; j++){
-        GhstZns[k][i][j].U[n] -= (Flx[j+1] - Flx[j]);
+        TempZns[k][i][j].U[n] -= (Flx[j+1] - Flx[j]);
       }
   }}}
 
@@ -720,14 +815,15 @@ void Remap_exchange_ix1(DomainS *pD)
 
   if (pD->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke; k++){
-     for(i=0; i<NGF; i++){
+    for(k=kb; k<=kt; k++){
+     for(i=0; i<NExc+NOfst; i++){
       for(j=js; j<=je; j++){
         jremap = j + joffset;
         if (jremap > (int)je) jremap -= pG->Nx[1];
-        for (n=0; n<NExc; n++)
-          myCoup[k][j][is-i-1].U[n]  = GhstZns[k][i][jremap].U[n];
-      }}}
+        for(n=0; n<NVar; n++)
+         GhstZns_ix1[k][i][j].U[n] = TempZns[k][i][jremap].U[n];
+       }
+    }}
 
 #ifdef MPI_PARALLEL
   } else {
@@ -763,17 +859,17 @@ void Remap_exchange_ix1(DomainS *pD)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZns */
 
-      cnt = NGF*joverlap*pG->Nx[2]*NExc;
+      cnt = (NExc+NOfst)*joverlap*Nx3*NVar;
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(&(recv_buf[0][0]), cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ix1_tag, pD->Comm_Domain, &(recv_rq[0]));
 
       pSnd = &(send_buf[0][0]);
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for (j=js; j<=js+(joverlap-1); j++) {
-	  for (n=0; n<NExc; n++) {
-            *(pSnd++) = GhstZns[k][i][j].U[n];
+	  for (n=0; n<NVar; n++) {
+            *(pSnd++) = TempZns[k][i][j].U[n];
 	  }
       }}}
       ierr = MPI_Send(&(send_buf[0][0]),cnt,MPI_DOUBLE,sendto_id,
@@ -788,11 +884,11 @@ void Remap_exchange_ix1(DomainS *pD)
 
       pRcv = &(recv_buf[0][0]);
 
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
 	for (j=je-(joverlap-1); j<=je; j++) {
-	  for (n=0; n<NExc; n++) {
-            myCoup[k][j][is-i-1].U[n] = *(pRcv++);
+	  for (n=0; n<NVar; n++) {
+            GhstZns_ix1[k][i][j].U[n] = *(pRcv++);
 	  }
       }}}
     }
@@ -804,12 +900,12 @@ void Remap_exchange_ix1(DomainS *pD)
 
     if (Ngrids == 0) {
 
-      for(k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for(k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for(j=js; j<=je-joverlap; j++){
 	  jremap = j+joverlap;
-	  for (n=0; n<NExc; n++) {
-            myCoup[k][j][is-i-1].U[n]  = GhstZns[k][i][jremap].U[n];
+	  for (n=0; n<NVar; n++) {
+            GhstZns_ix1[k][i][j].U[n]  = TempZns[k][i][jremap].U[n];
           }
       }}}
 
@@ -829,18 +925,18 @@ void Remap_exchange_ix1(DomainS *pD)
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = NGF*(pG->Nx[1]-joverlap)*pG->Nx[2]*NExc;
+      cnt = (NExc+NOfst)*(pG->Nx[1]-joverlap)*Nx3*NVar;
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(&(recv_buf[1][0]), cnt, MPI_DOUBLE, getfrom_id,
                        shearing_sheet_ix1_tag, pD->Comm_Domain, &(recv_rq[1]));
 
       pSnd = &(send_buf[1][0]);
 
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
 	for (j=js; j<=je-joverlap; j++) {
-	  for (n=0; n<NExc; n++) {
-            *(pSnd++) = GhstZns[k][i][j].U[n];
+	  for (n=0; n<NVar; n++) {
+            *(pSnd++) = TempZns[k][i][j].U[n];
 	  }
       }}}
       ierr = MPI_Send(&(send_buf[1][0]),cnt,MPI_DOUBLE,sendto_id,
@@ -852,17 +948,67 @@ void Remap_exchange_ix1(DomainS *pD)
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
 
       pRcv = &(recv_buf[1][0]);
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
 	for (j=js; j<=je-joverlap; j++) {
-	  for (n=0; n<NExc; n++) {
-	    myCoup[k][j][is-i-1].U[n] = *(pRcv++);
+	  for (n=0; n<NVar; n++) {
+	    GhstZns_ix1[k][i][j].U[n] = *(pRcv++);
 	  }
       }}}
     } /* end of step 5e - shear is more than one Grid */
 
 #endif /* MPI_PARALLEL */
   } /* end of step 5 - MPI decomposition in Y */
+
+/*-----Step 6. Apply periodic BC in Y if necessary-----------------
+ */
+  if (NOfst > 0) {
+    if (pD->NGrid[1] == 1) {
+      
+      for(k=kb; k<=kt; k++){
+       for(i=0; i<NExc+NOfst; i++){
+        for(j=1; j<=nghost; j++){
+         for (n=0; n<NVar; n++){
+           GhstZns_ix1[k][i][js-j].U[n] = GhstZns_ix1[k][i][je-(j-1)].U[n];
+           GhstZns_ix1[k][i][je+j].U[n] = GhstZns_ix1[k][i][js+(j-1)].U[n];
+         }
+      }}}     
+     
+#ifdef MPI_PARALLEL
+    } else {
+
+/* MPI calls to swap data */
+
+      cnt = nghost*(NExc+NOfst)*Nx3*NVar;
+      /* Post non-blocking receives for data from L and R Grids */
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,LtoR_tag,
+        pD->Comm_Domain, &(recv_rq[0]));
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,RtoL_tag,
+        pD->Comm_Domain, &(recv_rq[1]));
+
+      /* pack and send data L and R */
+      pack_ix2_remap(pG, GhstZns_ix1);
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,RtoL_tag,
+        pD->Comm_Domain, &(send_rq[0]));
+
+      pack_ox2_remap(pG, GhstZns_ix1);
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,LtoR_tag,
+        pD->Comm_Domain, &(send_rq[1]));
+
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+
+      /* check non-blocking receives and unpack data in any order. */
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, GhstZns_ix1);
+      if (mIndex == 1) unpack_ox2_remap(pG, GhstZns_ix1);
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, GhstZns_ix1);
+      if (mIndex == 1) unpack_ox2_remap(pG, GhstZns_ix1);
+    
+#endif /* MPI_PARALLEL */
+    }
+  } /* If NOfst > 0 */
 
   return;
 }
@@ -886,7 +1032,7 @@ void Remap_exchange_ox1(DomainS *pD)
   int n,i,j,k,joffset,jremap;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
-  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids,mIndex;
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids,mIndex,Nx3;
   int ierr,sendto_id,getfrom_id;
   double *pSnd,*pRcv;
 #endif
@@ -903,82 +1049,92 @@ void Remap_exchange_ox1(DomainS *pD)
   Ly = xmax - xmin;
 
   qomL = qshear*Omega_0*Lx;
-  yshear = qomL*(pG->time+0.5*pG->dt);
+  yshear = qomL*(pG->time+Delta*pG->dt);
   deltay = fmod(yshear, Ly);
   joffset = (int)(deltay/pG->dx2);
   epsi = (fmod(deltay,pG->dx2))/pG->dx2;
+
+#ifdef MPI_PARALLEL
+  if (pG->Nx[2] > 1) {
+    Nx3 = pG->Nx[2]+2*NOfst;
+  } else {
+    Nx3 = 1;
+  }
+#endif
 
 /*--- Step 1. ------------------------------------------------------------------
  * Copy myCoup to the ghost zone array where j is the fastest varying index.
  * Apply periodic BC in x2 to the ghost array.  Requires MPI calls if 
  * NGrid_x2 > 1 */
 	
-  for(k=ks; k<=ke; k++){
-   for(j=js; j<=je; j++){
-    for(i=0; i<NGF; i++){
-      for (n=0; n<NExc; n++){
-	GhstZns[k][i][j].U[n] = myCoup[k][j][ie+i+1].U[n];
+  for(k=kb; k<=kt; k++){
+   for(j=jb; j<=jt; j++){
+    for(i=0; i<NExc+NOfst; i++){
+      for (n=0; n<NVar; n++){
+	TempZns[k][i][j].U[n] = myCoup[k][j][ie-NOfst+i+1].U[n];
       }
   }}}
 
-  if (pD->NGrid[1] == 1) {
+  if (NOfst < nghost) {
+    if (pD->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke; k++){
-     for(i=0; i<NGF; i++){
-      for(j=1; j<=nghost; j++){
-	for (n=0; n<NExc; n++){
-	  GhstZns[k][i][js-j].U[n] = GhstZns[k][i][je-(j-1)].U[n];
-          GhstZns[k][i][je+j].U[n] = GhstZns[k][i][js+(j-1)].U[n];
-	}
-    }}}
+      for(k=kb; k<=kt; k++){
+       for(i=0; i<NExc+NOfst; i++){
+        for(j=1; j<=nghost; j++){
+	  for (n=0; n<NVar; n++){
+	    TempZns[k][i][js-j].U[n] = TempZns[k][i][je-(j-1)].U[n];
+            TempZns[k][i][je+j].U[n] = TempZns[k][i][js+(j-1)].U[n];
+	  }
+      }}}
 
 #ifdef MPI_PARALLEL
-  } else {
+    } else {
 
 /* MPI calls to swap data */
 
-    cnt = nghost*NGF*pG->Nx[2]*NExc;
-    /* Post non-blocking receives for data from L and R Grids */
-    ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,LtoR_tag,
-      pD->Comm_Domain, &(recv_rq[0]));
-    ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,RtoL_tag,
-      pD->Comm_Domain, &(recv_rq[1]));
+      cnt = nghost*(NExc+NOfst)*Nx3*NVar;
+      /* Post non-blocking receives for data from L and R Grids */
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,LtoR_tag,
+        pD->Comm_Domain, &(recv_rq[0]));
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,RtoL_tag,
+        pD->Comm_Domain, &(recv_rq[1]));
 
-    /* pack and send data L and R */
-    pack_ix2_remap(pG);
-    ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,RtoL_tag,
-      pD->Comm_Domain, &(send_rq[0]));
+      /* pack and send data L and R */
+      pack_ix2_remap(pG, TempZns);
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,RtoL_tag,
+        pD->Comm_Domain, &(send_rq[0]));
 
-    pack_ox2_remap(pG);
-    ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,LtoR_tag,
-      pD->Comm_Domain, &(send_rq[1]));
+      pack_ox2_remap(pG, TempZns);
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,LtoR_tag,
+        pD->Comm_Domain, &(send_rq[1]));
 
-    /* check non-blocking sends have completed. */
-    ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
 
-    /* check non-blocking receives and unpack data in any order. */
-    ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-    if (mIndex == 0) unpack_ix2_remap(pG);
-    if (mIndex == 1) unpack_ox2_remap(pG);
-    ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
-    if (mIndex == 0) unpack_ix2_remap(pG);
-    if (mIndex == 1) unpack_ox2_remap(pG);
+      /* check non-blocking receives and unpack data in any order. */
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, TempZns);
+      if (mIndex == 1) unpack_ox2_remap(pG, TempZns);
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, TempZns);
+      if (mIndex == 1) unpack_ox2_remap(pG, TempZns);
 
 #endif /* MPI_PARALLEL */
-  }
+    }
+  } /* If NOfst < nghost */
   
 /*--- Step 3. ------------------------------------------------------------------
  * Apply a conservative remap of solution over the fractional part of a cell */
 
-  for(k=ks; k<=ke; k++){
-   for(i=0; i<NGF; i++){
-    for (n=0; n<NExc; n++) {
+  for(k=kb; k<=kt; k++){
+   for(i=0; i<NExc+NOfst; i++){
+    for (n=0; n<NVar; n++) {
       for(j=js-nghost; j<=je+nghost; j++){
-	UBuf[j] = GhstZns[k][i][j].U[n];
+	UBuf[j] = TempZns[k][i][j].U[n];
       }
       RemapFlux(UBuf,epsi,js,je+1,Flx);
       for(j=js; j<=je; j++){
-        GhstZns[k][i][j].U[n] -= (Flx[j+1] - Flx[j]);
+        TempZns[k][i][j].U[n] -= (Flx[j+1] - Flx[j]);
       }
   }}}
 
@@ -988,13 +1144,13 @@ void Remap_exchange_ox1(DomainS *pD)
 
   if (pD->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke; k++){
-     for(i=0; i<NGF; i++){
+    for(k=kb; k<=kt; k++){
+     for(i=0; i<NExc+NOfst; i++){
       for(j=js; j<=je; j++){
         jremap = j - joffset;
         if (jremap < (int)js) jremap += pG->Nx[1];
-	for (n=0; n<NExc; n++)
-          myCoup[k][j][ie+i+1].U[n]  = GhstZns[k][i][jremap].U[n];
+	for (n=0; n<NVar; n++)
+          GhstZns_ox1[k][i][j].U[n]  = TempZns[k][i][jremap].U[n];
     }}}
 
 #ifdef MPI_PARALLEL
@@ -1031,17 +1187,17 @@ void Remap_exchange_ox1(DomainS *pD)
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZns */
 
-      cnt = NGF*joverlap*pG->Nx[2]*NExc;
+      cnt = (NExc+NOfst)*joverlap*Nx3*NVar;
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(&(recv_buf[0][0]), cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &(recv_rq[0]));
 
       pSnd = &(send_buf[0][0]);
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for (j=je-(joverlap-1); j<=je; j++) {
-	 for (n=0; n<NExc; n++) {
-          *(pSnd++) = GhstZns[k][i][j].U[n];
+	 for (n=0; n<NVar; n++) {
+          *(pSnd++) = TempZns[k][i][j].U[n];
 	 }
      }}}
      ierr = MPI_Send(&(send_buf[0][0]),cnt,MPI_DOUBLE,sendto_id,
@@ -1056,11 +1212,11 @@ void Remap_exchange_ox1(DomainS *pD)
 
       pRcv = &(recv_buf[0][0]);
 	
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for (j=js; j<=js+(joverlap-1); j++) {
-          for (n=0; n<NExc; n++) {
-	    myCoup[k][j][ie+i+1].U[n] = *(pRcv++);
+          for (n=0; n<NVar; n++) {
+	    GhstZns_ox1[k][i][j].U[n] = *(pRcv++);
 	  }
       }}}
     }
@@ -1072,12 +1228,12 @@ void Remap_exchange_ox1(DomainS *pD)
 
     if (Ngrids == 0) {
 
-      for(k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for(k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for(j=js+joverlap; j<=je; j++){
 	  jremap = j-joverlap;
-	  for (n=0; n<NExc; n++) {
-            myCoup[k][j][ie+i+1].U[n]  = GhstZns[k][i][jremap].U[n];
+	  for (n=0; n<NVar; n++) {
+            GhstZns_ox1[k][i][j].U[n]  = TempZns[k][i][jremap].U[n];
 	  }
       }}}
 
@@ -1097,18 +1253,18 @@ void Remap_exchange_ox1(DomainS *pD)
       if (jproc < 0) jproc += pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = NGF*(pG->Nx[1]-joverlap)*pG->Nx[2]*NExc;
+      cnt = (NExc+NOfst)*(pG->Nx[1]-joverlap)*Nx3*NVar;
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(&(recv_buf[1][0]), cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_ox1_tag, pD->Comm_Domain, &(recv_rq[1]));
 
       pSnd = &(send_buf[1][0]);
       
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for (j=js; j<=je-joverlap; j++) {
-	  for (n=0; n<NExc; n++) {
-	    *(pSnd++) = GhstZns[k][i][j].U[n];
+	  for (n=0; n<NVar; n++) {
+	    *(pSnd++) = TempZns[k][i][j].U[n];
           }
       }}}
       ierr = MPI_Send(&(send_buf[1][0]),cnt,MPI_DOUBLE,sendto_id,
@@ -1120,11 +1276,11 @@ void Remap_exchange_ox1(DomainS *pD)
       ierr = MPI_Wait(&(recv_rq[1]), MPI_STATUS_IGNORE);
 
       pRcv = &(recv_buf[1][0]);
-      for (k=ks; k<=ke; k++) {
-       for(i=0; i<NGF; i++){
+      for (k=kb; k<=kt; k++) {
+       for(i=0; i<NExc+NOfst; i++){
         for (j=js+joverlap; j<=je; j++) {
-	  for (n=0; n<NExc; n++) {
-		myCoup[k][j][ie+i+1].U[n] = *(pRcv++);
+	  for (n=0; n<NVar; n++) {
+	    GhstZns_ox1[k][i][j].U[n] = *(pRcv++);
 	  }
       }}}
     } /* end of step 5e - shear is more than one Grid */
@@ -1132,9 +1288,58 @@ void Remap_exchange_ox1(DomainS *pD)
 #endif /* MPI_PARALLEL */
   } /* end of step 5 - MPI decomposition in Y */
 
+/*-----Step 6. Apply periodic BC in Y if necessary-----------------
+ */   
+  if (NOfst > 0) {
+    if (pD->NGrid[1] == 1) {
+    
+      for(k=kb; k<=kt; k++){
+       for(i=0; i<NExc+NOfst; i++){
+        for(j=1; j<=nghost; j++){
+          for (n=0; n<NVar; n++){
+            GhstZns_ox1[k][i][js-j].U[n] = GhstZns_ox1[k][i][je-(j-1)].U[n];
+            GhstZns_ox1[k][i][je+j].U[n] = GhstZns_ox1[k][i][js+(j-1)].U[n];
+          }
+      }}}
+  
+#ifdef MPI_PARALLEL
+    } else {
+
+/* MPI calls to swap data */
+
+      cnt = nghost*(NExc+NOfst)*Nx3*NVar;
+      /* Post non-blocking receives for data from L and R Grids */
+      ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,LtoR_tag,
+        pD->Comm_Domain, &(recv_rq[0]));
+      ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,RtoL_tag,
+        pD->Comm_Domain, &(recv_rq[1]));
+
+      /* pack and send data L and R */
+      pack_ix2_remap(pG, GhstZns_ox1);
+      ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx2_id,RtoL_tag,
+        pD->Comm_Domain, &(send_rq[0]));
+
+      pack_ox2_remap(pG, GhstZns_ox1);
+      ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx2_id,LtoR_tag,
+        pD->Comm_Domain, &(send_rq[1]));
+
+      /* check non-blocking sends have completed. */
+      ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
+
+      /* check non-blocking receives and unpack data in any order. */
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, GhstZns_ox1);
+      if (mIndex == 1) unpack_ox2_remap(pG, GhstZns_ox1);
+      ierr = MPI_Waitany(2,recv_rq,&mIndex,MPI_STATUS_IGNORE);
+      if (mIndex == 0) unpack_ix2_remap(pG, GhstZns_ox1);
+      if (mIndex == 1) unpack_ox2_remap(pG, GhstZns_ox1);
+
+#endif /* MPI_PARALLEL */
+    }
+  } /* if NOfst > 0 */ 
+
   return;
 }
-
 #endif /* SHEARING_BOX */
 
 /*----------------------------------------------------------------------------*/
@@ -1162,25 +1367,6 @@ void exchange_gpcouple_init(MeshS *pM)
 
   pD = &(pM->Domain[0][0]);
   pG = pD->Grid;
-
-/* set left and right grid indices */
-  if (pG->Nx[0] > 1) {
-    il = pG->is - NGF;		iu = pG->ie + NGF;
-  } else {
-    il = pG->is;		iu = pG->ie;
-  }
-
-  if (pG->Nx[1] > 1) {
-    jl = pG->js - NGF;		ju = pG->je + NGF;
-  } else {
-    jl = pG->js;		ju = pG->je;
-  }
-
-  if (pG->Nx[2] > 1) {
-    kl = pG->ks - NGF;		ku = pG->ke + NGF;
-  } else {
-    kl = pG->ks;		ku = pG->ke;
-  }
 
 /* Set function pointers for physical boundaries in x1-direction */
 
@@ -1351,22 +1537,19 @@ void exchange_gpcouple_init(MeshS *pM)
   }
 	
   if (pG->Nx[0] > 1) {
-      il = pG->is-NGF_Max; iu = pG->ie+NGF_Max;
       N1T = pG->Nx[0]+2*nghost;
   } else {
-      il=0; iu=0; N1T=1;
+      N1T=1;
   }
   if (pG->Nx[1] > 1) {
-      jl = pG->js-NGF_Max; ju = pG->je+NGF_Max;
       N2T = pG->Nx[1]+2*nghost;
   } else {
-      jl=0; ju=0; N2T=1;
+      N2T=1;
   }
   if (pG->Nx[2] > 1) {
-      kl = pG->ks-NGF_Max; ku = pG->ke+NGF_Max;
       N3T = pG->Nx[2]+2*nghost;
   } else {
-      kl=0; ku=0; N3T=1;
+      N3T=1;
   }
 
   if ((myCoup = (GPExc***)calloc_3d_array(N3T,N2T,N1T, sizeof(GPExc))) == NULL)
@@ -1377,7 +1560,11 @@ void exchange_gpcouple_init(MeshS *pM)
     ath_error("[exchange_init]: Failed to allocate the Flux array.\n");
   if ((UBuf = (Real*)calloc_1d_array(N2T,sizeof(Real))) == NULL)
     ath_error("[exchange_init]: Failed to allocate the UBuf array.\n");
-  if ((GhstZns = (GPExc***)calloc_3d_array(N3T,NGF_Max,N2T,sizeof(GPExc))) == NULL)
+  if ((GhstZns_ix1 = (GPExc***)calloc_3d_array(N3T,NLayer_Max,N2T,sizeof(GPExc))) == NULL)
+    ath_error("[exchange_init]: Failed to allocate the Ghost array.\n");
+  if ((GhstZns_ox1 = (GPExc***)calloc_3d_array(N3T,NLayer_Max,N2T,sizeof(GPExc))) == NULL)
+    ath_error("[exchange_init]: Failed to allocate the Ghost array.\n");
+  if ((TempZns = (GPExc***)calloc_3d_array(N3T,NLayer_Max,N2T,sizeof(GPExc))) == NULL)
     ath_error("[exchange_init]: Failed to allocate the Ghost array.\n");
 #endif
 	
@@ -1389,30 +1576,30 @@ void exchange_gpcouple_init(MeshS *pM)
       for (i=0; i<(pD->NGrid[0]); i++){
         if(pD->NGrid[2] > 1){
           nx1t = pD->GData[k][j][i].Nx[0];
-          if(nx1t > 1) nx1t += 2*NGF_Max;
+          if(nx1t > 1) nx1t += 2*NLayer_Max;
 
           nx2t = pD->GData[k][j][i].Nx[1];
-          if(nx2t > 1) nx2t += 2*NGF_Max;
+          if(nx2t > 1) nx2t += 2*NLayer_Max;
 
           x3cnt = nx1t*nx2t > x3cnt ? nx1t*nx2t : x3cnt;
         }
 
         if(pD->NGrid[1] > 1){
           nx1t = pD->GData[k][j][i].Nx[0];
-          if(nx1t > 1) nx1t += 2*NGF_Max;
+          if(nx1t > 1) nx1t += 2*NLayer_Max;
 
           nx3t = pD->GData[k][j][i].Nx[2];
-          if(nx3t > 1) nx3t += 1;
+          if(nx3t > 1) nx3t += 2*NLayer_Max;
 
           x2cnt = nx1t*nx3t > x2cnt ? nx1t*nx3t : x2cnt;
     	}
 
         if(pD->NGrid[0] > 1){
     	  nx2t = pD->GData[k][j][i].Nx[1];
-          if(nx2t > 1) nx2t += 1;
+          if(nx2t > 1) nx2t += 2*NLayer_Max;
 
           nx3t = pD->GData[k][j][i].Nx[2];
-          if(nx3t > 1) nx3t += 1;
+          if(nx3t > 1) nx3t += 2*NLayer_Max;
 
           x1cnt = nx2t*nx3t > x1cnt ? nx2t*nx3t : x1cnt;
     	}
@@ -1424,7 +1611,7 @@ void exchange_gpcouple_init(MeshS *pM)
   size = x1cnt > x2cnt ? x1cnt : x2cnt;
   size = x3cnt >  size ? x3cnt : size;
 
-  size *= NGF_Max*NExc_Max; /* Multiply by the third dimension */
+  size *= NLayer_Max*NVar_Max; /* Multiply by the third dimension */
 
   if (size > 0) {
     if((send_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)
@@ -1492,7 +1679,9 @@ void exchange_gpcouple_destruct(MeshS *pM)
 #ifdef SHEARING_BOX
   free_1d_array(Flx);
   free_1d_array(UBuf);
-  free_3d_array(GhstZns);
+  free_3d_array(GhstZns_ix1);
+  free_3d_array(GhstZns_ox1);
+  free_3d_array(TempZns);
 #endif
 #ifdef MPI_PARALLEL
   free_2d_array(send_buf);
@@ -1521,17 +1710,30 @@ static void reflect_ix3_exchange(GridS *pG)
   int kr;
   int i,j,k,n;
 
-  for (k=nghost-NGF; k<nghost; k++) {
-    kr = 2*nghost-k-1;
+  for (k=kl; k<pG->ks; k++) {
+    kr = 2*pG->ks-k-1;
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-	myCoup[kr][j][i].U[2] -= myCoup[k][j][i].U[2];
-	for (n=0;n<2; n++)
+        myCoup[kr][j][i].U[2] -= myCoup[k][j][i].U[2];
+        for (n=0;n<2; n++)
           myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
-	for (n=3;n<NExc; n++)
-	  myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
+        for (n=3;n<NVar; n++)
+          myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
       }
     }
+  }
+
+  for (k=kb; k<pG->ks; k++) {
+    kr = 2*pG->ks-k-1;
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        myCoup[k][j][i].U[2] = -myCoup[kr][j][i].U[2];
+        for (n=0;n<2; n++)
+          myCoup[k][j][i].U[n] = myCoup[kr][j][i].U[n];
+        for (n=3;n<NVar; n++)
+          myCoup[k][j][i].U[n] = myCoup[kr][j][i].U[n];
+      } 
+    }   
   }
 
   return;
@@ -1547,19 +1749,31 @@ static void reflect_ox3_exchange(GridS *pG)
   int kr;
   int i,j,k,n;
 
-  for (k=pG->ke+1; k<=pG->ke+NGF; k++) {
+  for (k=pG->ke+1; k<=ku; k++) {
     kr = 2*pG->ke-k+1;
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-	myCoup[kr][j][i].U[2] -= myCoup[k][j][i].U[2];
-	for (n=0;n<2; n++)
-	  myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
-	for (n=3;n<NExc; n++)
-	  myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
+        myCoup[kr][j][i].U[2] -= myCoup[k][j][i].U[2];
+        for (n=0;n<2; n++)
+          myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
+        for (n=3;n<NVar; n++)
+          myCoup[kr][j][i].U[n] += myCoup[k][j][i].U[n];
       }
     }
   }
 
+  for (k=pG->ke+1; k<=kt; k++) {
+    kr = 2*pG->ke-k+1;
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        myCoup[k][j][i].U[2] = -myCoup[kr][j][i].U[2];
+        for (n=0;n<2; n++)
+          myCoup[k][j][i].U[n] = myCoup[kr][j][i].U[n];
+        for (n=3;n<NVar; n++)
+          myCoup[k][j][i].U[n] = myCoup[kr][j][i].U[n];
+      }
+    }
+  }
   return;
 }
 
@@ -1572,14 +1786,26 @@ static void reflect_ix2_exchange(GridS *pG)
   int jr;
   int i,j,k,n;
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=nghost-NGF; j<nghost; j++) {
-      jr = 2*nghost-j-1;
+  for (k=kb; k<=kt; k++) {
+    for (j=jl; j<pG->js; j++) {
+      jr = 2*pG->js-j-1;
       for (i=il; i<=iu; i++) {
-	myCoup[k][jr][i].U[0] += myCoup[k][j][i].U[0];
-	myCoup[k][jr][i].U[1] -= myCoup[k][j][i].U[1];
-	for (n=2;n<NExc; n++)
-	  myCoup[k][jr][i].U[n] += myCoup[k][j][i].U[n];
+        myCoup[k][jr][i].U[0] += myCoup[k][j][i].U[0];
+        myCoup[k][jr][i].U[1] -= myCoup[k][j][i].U[1];
+        for (n=2;n<NVar; n++)
+          myCoup[k][jr][i].U[n] += myCoup[k][j][i].U[n];
+      }
+    } 
+  } 
+    
+  for (k=kb; k<=kt; k++) {
+    for (j=jb; j<pG->js; j++) {
+      jr = 2*pG->js-j-1;
+      for (i=il; i<=iu; i++) { 
+        myCoup[k][j][i].U[0] = myCoup[k][jr][i].U[0];
+        myCoup[k][j][i].U[1] = -myCoup[k][jr][i].U[1];
+        for (n=2;n<NVar; n++)
+          myCoup[k][j][i].U[n] = myCoup[k][jr][i].U[n];
       }
     }
   }
@@ -1597,17 +1823,29 @@ static void reflect_ox2_exchange(GridS *pG)
   int jr;
   int i,j,k,n;
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=pG->je+1; j<=pG->je+NGF; j++) {
+  for (k=kb; k<=kt; k++) {
+    for (j=pG->je+1; j<=ju; j++) {
       jr = 2*pG->je-j+1;
       for (i=il; i<=iu; i++) {
-	myCoup[k][jr][i].U[0] += myCoup[k][j][i].U[0];
-	myCoup[k][jr][i].U[1] -= myCoup[k][j][i].U[1];
-	for (n=2;n<NExc; n++)
-	  myCoup[k][jr][i].U[n] += myCoup[k][j][i].U[n];
+        myCoup[k][jr][i].U[0] += myCoup[k][j][i].U[0];
+        myCoup[k][jr][i].U[1] -= myCoup[k][j][i].U[1];
+        for (n=2;n<NVar; n++)
+          myCoup[k][jr][i].U[n] += myCoup[k][j][i].U[n];
       }
     }
   }
+
+  for (k=kb; k<=kt; k++) {
+    for (j=pG->je+1; j<=jt; j++) {
+      jr = 2*pG->je-j+1;
+      for (i=il; i<=iu; i++) {
+        myCoup[k][j][i].U[0] = myCoup[k][jr][i].U[0];
+        myCoup[k][j][i].U[1] = -myCoup[k][jr][i].U[1];
+        for (n=2;n<NVar; n++)
+          myCoup[k][j][i].U[n] = myCoup[k][jr][i].U[n];
+      }
+    } 
+  } 
 
   return;
 }
@@ -1622,13 +1860,24 @@ static void reflect_ix1_exchange(GridS *pG)
   int ir;
   int i,j,k,n;
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=pG->js; j<=pG->je; j++) {
-      for (i=nghost-NGF; i<nghost; i++) {
-        ir = 2*nghost-i-1;
-	myCoup[k][j][ir].U[0] -= myCoup[k][j][i].U[0];
-	for (n=1;n<NExc; n++)
-	  myCoup[k][j][ir].U[n] += myCoup[k][j][i].U[n];
+  for (k=kb; k<=kt; k++) {
+    for (j=jb; j<=jt; j++) {
+      for (i=jl; i<pG->js; i++) {
+        ir = 2*pG->js-i-1;
+        myCoup[k][j][ir].U[0] -= myCoup[k][j][i].U[0];
+        for (n=1;n<NVar; n++)
+          myCoup[k][j][ir].U[n] += myCoup[k][j][i].U[n];
+      }
+    }
+  }
+
+  for (k=kb; k<=kt; k++) {
+    for (j=jb; j<=jt; j++) {
+      for (i=jb; i<pG->js; i++) {
+        ir = 2*pG->js-i-1;
+        myCoup[k][j][i].U[0] = -myCoup[k][j][ir].U[0];
+        for (n=1;n<NVar; n++)
+          myCoup[k][j][i].U[n] = myCoup[k][j][ir].U[n];
       }
     }
   }
@@ -1646,13 +1895,24 @@ static void reflect_ox1_exchange(GridS *pG)
   int ir;
   int i,j,k,n;
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=pG->js; j<=pG->je; j++) {
-      for (i=pG->ie+1; i<=pG->ie+NGF; i++) {
+  for (k=kb; k<=kt; k++) { 
+    for (j=jb; j<=jt; j++) {
+      for (i=pG->ie+1; i<=iu; i++) {
         ir = 2*pG->ie-i+1;
-	myCoup[k][j][ir].U[0] -= myCoup[k][j][i].U[0];
-	for (n=1;n<NExc; n++)
-	  myCoup[k][j][ir].U[n] += myCoup[k][j][i].U[n];
+        myCoup[k][j][ir].U[0] -= myCoup[k][j][i].U[0];
+        for (n=1;n<NVar; n++)
+          myCoup[k][j][ir].U[n] += myCoup[k][j][i].U[n];
+      }
+    }
+  }
+  
+  for (k=kb; k<=kt; k++) { 
+    for (j=jb; j<=jt; j++) {
+      for (i=pG->ie+1; i<=it; i++) {
+        ir = 2*pG->ie-i+1;
+        myCoup[k][j][i].U[0] = -myCoup[k][j][ir].U[0];
+        for (n=1;n<NVar; n++)
+          myCoup[k][j][i].U[n] = myCoup[k][j][ir].U[n];
       }
     }
   }
@@ -1677,16 +1937,25 @@ static void outflow_exchange(GridS *pG)
 static void periodic_ix3_exchange(GridS *pG)
 {
   int dk = pG->Nx[2];
-  int i,j,k,n;
+  int i,j,k,k1,n;
 
-  for (k=nghost; k<nghost+NGF; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-	for (n=0;n<NExc; n++)
-	  myCoup[k][j][i].U[n] += myCoup[k+dk][j][i].U[n];
-      }
-    }
-  }
+  for (k=pG->ks; k<pG->ks+NExc; k++) {
+   k1 = k+dk-NExc;
+   for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+     for (n=0;n<NVar; n++) {
+       myCoup[k ][j][i].U[n] += myCoup[k +dk][j][i].U[n];
+       myCoup[k1][j][i].U[n] += myCoup[k1-dk][j][i].U[n];
+  }}}}
+
+  for (k=pG->ks-NOfst; k<pG->ks; k++) {
+   k1 = k+dk+NOfst;
+   for (j=jl; j<=ju; j++) {
+    for (i=il; i<=iu; i++) {
+     for (n=0;n<NVar; n++) {
+       myCoup[k ][j][i].U[n] = myCoup[k +dk][j][i].U[n];
+       myCoup[k1][j][i].U[n] = myCoup[k1-dk][j][i].U[n];
+  }}}}
 
   return;
 }
@@ -1698,18 +1967,7 @@ static void periodic_ix3_exchange(GridS *pG)
 
 static void periodic_ox3_exchange(GridS *pG)
 {
-  int dk = pG->Nx[2];
-  int i,j,k,n;
-
-  for (k=nghost-NGF; k<nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-	for (n=0;n<NExc; n++)
-	  myCoup[k+dk][j][i].U[n] += myCoup[k][j][i].U[n];
-      }
-    }
-  }
-
+/* Do nothing. All are handled by periodic_ix3_exchange */
   return;
 }
 
@@ -1721,16 +1979,25 @@ static void periodic_ox3_exchange(GridS *pG)
 static void periodic_ix2_exchange(GridS *pG)
 {
   int dj = pG->Nx[1];
-  int i,j,k,n;
+  int i,j,j1,k,n;
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=nghost; j<nghost+NGF; j++) {
-      for (i=il; i<=iu; i++) {
-	for (n=0;n<NExc; n++)
-	  myCoup[k][j][i].U[n] += myCoup[k][j+dj][i].U[n];
-      }
-    }
-  }
+  for (k=kb; k<=kt; k++) {
+   for (j=pG->js; j<pG->js+NExc; j++) {
+    j1 = j+dj-NExc;
+    for (i=il; i<=iu; i++) {
+     for (n=0;n<NVar; n++) {
+       myCoup[k][j ][i].U[n] += myCoup[k][j +dj][i].U[n];
+       myCoup[k][j1][i].U[n] += myCoup[k][j1-dj][i].U[n];
+  }}}}
+
+  for (k=kb; k<=kt; k++) {
+   for (j=pG->js-NOfst; j<pG->js; j++) {
+    j1 = j+dj+NOfst;
+    for (i=il; i<=iu; i++) {
+     for (n=0;n<NVar; n++) {
+       myCoup[k][j ][i].U[n] = myCoup[k][j +dj][i].U[n];
+       myCoup[k][j1][i].U[n] = myCoup[k][j1-dj][i].U[n];
+  }}}   }
 
   return;
 }
@@ -1742,18 +2009,7 @@ static void periodic_ix2_exchange(GridS *pG)
 
 static void periodic_ox2_exchange(GridS *pG)
 {
-  int dj = pG->Nx[1];
-  int i,j,k,n;
-
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=nghost-NGF; j<nghost; j++) {
-      for (i=il; i<=iu; i++) {
-	for (n=0;n<NExc; n++)
-	  myCoup[k][j+dj][i].U[n] += myCoup[k][j][i].U[n];
-      }
-    }
-  }
-
+/* Do nothing. All are handled by periodic_ix2_exchange */
   return;
 }
 
@@ -1765,17 +2021,41 @@ static void periodic_ox2_exchange(GridS *pG)
 static void periodic_ix1_exchange(GridS *pG)
 {
   int di = pG->Nx[0];
-  int i,j,k,n;
+  int i,i1,j,k,n;
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=pG->js; j<=pG->je; j++) {
-      for (i=nghost; i<nghost+NGF; i++) {
-	for (n=0;n<NExc; n++)
-	  myCoup[k][j][i].U[n] += myCoup[k][j][i+di].U[n];
-      }
-    }
+#ifdef SHEARING_BOX
+  if (ShBoxCoord == xy) {
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=0; i<NOfst+NExc; i++) {
+       i1 = i+di-NExc;
+       for (n=0;n<NVar; n++) {
+         myCoup[k][j][pG->is-NOfst +i].U[n] += GhstZns_ox1[k][i][j].U[n];
+         myCoup[k][j][pG->ie-NExc+1+i].U[n] += GhstZns_ix1[k][i][j].U[n];
+    }}}}
+
+  } else {
+#endif
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=pG->is; i<pG->is+NExc; i++) {
+       i1 = i+di-NExc;
+       for (n=0;n<NVar; n++) {
+         myCoup[k][j][i ].U[n] += myCoup[k][j][i +di].U[n];
+         myCoup[k][j][i1].U[n] += myCoup[k][j][i1-di].U[n];
+    }}}}
+
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=pG->is-NOfst; i<pG->is; i++) {
+       i1 = i+di+NOfst;
+       for (n=0;n<NVar; n++) {
+         myCoup[k][j][i ].U[n] = myCoup[k][j][i +di].U[n];
+         myCoup[k][j][i1].U[n] = myCoup[k][j][i1-di].U[n];
+    }}}}
+#ifdef SHEARING_BOX
   }
-
+#endif
   return;
 }
 
@@ -1786,18 +2066,7 @@ static void periodic_ix1_exchange(GridS *pG)
 
 static void periodic_ox1_exchange(GridS *pG)
 {
-  int di = pG->Nx[0];
-  int i,j,k,n;
-
-  for (k=pG->ks; k<=pG->ke; k++) {
-    for (j=pG->js; j<=pG->je; j++) {
-      for (i=nghost-NGF; i<nghost; i++) {
-	for (n=0;n<NExc; n++)
-	  myCoup[k][j][i+di].U[n] += myCoup[k][j][i].U[n];
-      }
-    }
-  }
-
+/* Do nothing. All are handled by periodic_ix1_exchange */
   return;
 }
 
@@ -1814,10 +2083,10 @@ static void pack_ix3_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(send_buf[0][0]);
 
-  for (k=nghost-NGF; k<nghost; k++) {
+  for (k=kl; k<=pG->ks+NOfst-1; k++) {
    for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         *(pd++) = myCoup[k][j][i].U[n];
       }
   }}}
@@ -1836,10 +2105,10 @@ static void pack_ox3_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(send_buf[1][0]);
 
-  for (k=pG->ke+1; k<=pG->ke+NGF; k++) {
+  for (k=pG->ke-NOfst+1; k<=ku; k++) {
    for (j=jl; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         *(pd++) = myCoup[k][j][i].U[n];
       }
   }}}
@@ -1858,10 +2127,10 @@ static void pack_ix2_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(send_buf[0][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (j=nghost-NGF; j<nghost; j++) {
+  for (k=kb; k<=kt; k++) {
+   for (j=jl; j<=pG->js+NOfst-1; j++) {
     for (i=il; i<=iu; i++) {
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         *(pd++) = myCoup[k][j][i].U[n];
       }
   }}}
@@ -1880,10 +2149,10 @@ static void pack_ox2_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(send_buf[1][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (j=pG->je+1; j<=pG->je+NGF; j++) {
+  for (k=kb; k<=kt; k++) {
+   for (j=pG->je-NOfst+1; j<=ju; j++) {
     for (i=il; i<=iu; i++) {
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         *(pd++) = myCoup[k][j][i].U[n];
       }
   }}}
@@ -1902,13 +2171,25 @@ static void pack_ix1_exchange(GridS *pG)
   double *pd; 
   pd = (double*)&(send_buf[0][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (j=pG->js; j<=pG->je; j++) {
-    for (i=nghost-NGF; i<nghost; i++) {
-      for (n=0;n<NExc; n++) {
-        *(pd++) = myCoup[k][j][i].U[n];
-      }
-  }}}
+#ifdef SHEARING_BOX
+  if (ShBoxCoord == xy) {
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=0; i<NExc+NOfst; i++) {
+       for (n=0;n<NVar; n++) {
+         *(pd++) = GhstZns_ix1[k][i][j].U[n];
+    }}}}
+  } else {
+#endif
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=il; i<=pG->is+NOfst-1; i++) {
+       for (n=0;n<NVar; n++) {
+         *(pd++) = myCoup[k][j][i].U[n];
+    }}}}
+#ifdef SHEARING_BOX
+  }
+#endif
 
   return;
 }
@@ -1924,13 +2205,25 @@ static void pack_ox1_exchange(GridS *pG)
   double *pd; 
   pd = (double*)&(send_buf[1][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (j=pG->js; j<=pG->je; j++) {
-    for (i=pG->ie+1; i<=pG->ie+NGF; i++) {
-      for (n=0;n<NExc; n++) {
-        *(pd++) = myCoup[k][j][i].U[n];
-      }
-  }}}
+#ifdef SHEARING_BOX
+  if (ShBoxCoord == xy) {
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=0; i<NExc+NOfst; i++) {
+       for (n=0;n<NVar; n++) {
+         *(pd++) = GhstZns_ox1[k][i][j].U[n];
+    }}}}
+  } else {
+#endif
+    for (k=kb; k<=kt; k++) {
+     for (j=jb; j<=jt; j++) {
+      for (i=pG->ie-NOfst+1; i<=iu; i++) {
+       for (n=0;n<NVar; n++) {
+         *(pd++) = myCoup[k][j][i].U[n];
+    }}}}
+#ifdef SHEARING_BOX
+  }
+#endif
 
   return;
 }
@@ -1941,17 +2234,17 @@ static void pack_ox1_exchange(GridS *pG)
  *  \brief pack the coupling array to buffer at inner x2 boundary
  */
 
-static void pack_ix2_remap(GridS *pG)
+static void pack_ix2_remap(GridS *pG, GPExc ***myZns)
 {
   int i,j,k,n;
   double *pd; 
   pd = (double*)&(send_buf[0][0]);
 	
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (i=0; i<NGF; i++) {
+  for (k=kb; k<=kt; k++) {
+   for (i=0; i<NExc+NOfst; i++) {
     for (j=pG->js; j<pG->js+nghost; j++) {
-      for (n=0;n<NExc; n++) {
-	*(pd++) = GhstZns[k][i][j].U[n];
+      for (n=0;n<NVar; n++) {
+	*(pd++) = myZns[k][i][j].U[n];
       }
   }}}
 	
@@ -1963,17 +2256,17 @@ static void pack_ix2_remap(GridS *pG)
  *  \brief pack the coupling array to buffer at outer x2 boundary
  */
 
-static void pack_ox2_remap(GridS *pG)
+static void pack_ox2_remap(GridS *pG, GPExc ***myZns)
 {
   int i,j,k,n;
   double *pd; 
   pd = (double*)&(send_buf[1][0]);
 	
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (i=0; i<NGF; i++) {
+  for (k=kb; k<=kt; k++) {
+   for (i=0; i<NExc+NOfst; i++) {
     for (j=pG->je-nghost+1; j<=pG->je; j++) {
-      for (n=0;n<NExc; n++) {
-        *(pd++) = GhstZns[k][i][j].U[n];
+      for (n=0;n<NVar; n++) {
+        *(pd++) = myZns[k][i][j].U[n];
       }
   }}}
 
@@ -1993,10 +2286,10 @@ static void unpack_ix3_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(recv_buf[0][0]);
 
-  for (k=pG->ks; k<pG->ks+NGF; k++){
+  for (k=pG->ks-NOfst; k<pG->ks+NExc; k++){
    for (j=jl; j<=ju; j++){
     for (i=il; i<=iu; i++){
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         myCoup[k][j][i].U[n] += *(pd++);
       }
   }}}
@@ -2015,10 +2308,10 @@ static void unpack_ox3_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(recv_buf[1][0]);
 
-  for (k=pG->ke-NGF+1; k<=pG->ke; k++){
+  for (k=pG->ke-NExc+1; k<=pG->ke+NOfst; k++){
    for (j=jl; j<=ju; j++){
     for (i=il; i<=iu; i++){
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         myCoup[k][j][i].U[n] += *(pd++);
       }
   }}}
@@ -2037,10 +2330,10 @@ static void unpack_ix2_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(recv_buf[0][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++){
-   for (j=pG->js; j<pG->js+NGF; j++){
+  for (k=kb; k<=kt; k++){
+   for (j=pG->js-NOfst; j<pG->js+NExc; j++){
     for (i=il; i<=iu; i++){
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         myCoup[k][j][i].U[n] += *(pd++);
       }
   }}}
@@ -2059,10 +2352,10 @@ static void unpack_ox2_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(recv_buf[1][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++){
-   for (j=pG->je-NGF+1; j<=pG->je; j++){
+  for (k=kb; k<=kt; k++){
+   for (j=pG->je-NExc+1; j<=pG->je+NOfst; j++){
     for (i=il; i<=iu; i++){
-      for (n=0;n<NExc; n++) {
+      for (n=0;n<NVar; n++) {
         myCoup[k][j][i].U[n] += *(pd++);
       }
   }}}
@@ -2081,10 +2374,10 @@ static void unpack_ix1_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(recv_buf[0][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++){
-   for (j=pG->js; j<=pG->je; j++){
-    for (i=pG->is; i<pG->is+NGF; i++){
-      for (n=0;n<NExc; n++) {
+  for (k=kb; k<=kt; k++){
+   for (j=jb; j<=jt; j++){
+    for (i=pG->is-NOfst; i<pG->is+NExc; i++){
+      for (n=0;n<NVar; n++) {
         myCoup[k][j][i].U[n] += *(pd++);
       }
   }}}
@@ -2103,10 +2396,10 @@ static void unpack_ox1_exchange(GridS *pG)
   double *pd;
   pd = (double*)&(recv_buf[1][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++){
-   for (j=pG->js; j<=pG->je; j++){
-    for (i=pG->ie-NGF+1; i<=pG->ie; i++){
-      for (n=0;n<NExc; n++) {
+  for (k=kb; k<=kt; k++){
+   for (j=jb; j<=jt; j++){
+    for (i=pG->ie-NExc+1; i<=pG->ie+NOfst; i++){
+      for (n=0;n<NVar; n++) {
         myCoup[k][j][i].U[n] += *(pd++);
       }
   }}}
@@ -2120,17 +2413,17 @@ static void unpack_ox1_exchange(GridS *pG)
  *  \brief pack the coupling array to buffer at inner x2 boundary
  */
 
-static void unpack_ix2_remap(GridS *pG)
+static void unpack_ix2_remap(GridS *pG, GPExc ***myZns)
 {
   int i,j,k,n;
   double *pd; 
   pd = (double*)&(recv_buf[0][0]);
 	
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (i=0; i<NGF; i++) {
+  for (k=kb; k<=kt; k++) {
+   for (i=0; i<NExc+NOfst; i++) {
     for (j=pG->js-nghost; j<pG->js; j++) {
-      for (n=0;n<NExc; n++) {
-        GhstZns[k][i][j].U[n] = *(pd++);
+      for (n=0;n<NVar; n++) {
+        myZns[k][i][j].U[n] = *(pd++);
       }
    }}}
 
@@ -2142,17 +2435,17 @@ static void unpack_ix2_remap(GridS *pG)
  *  \brief pack the coupling array to buffer at outer x2 boundary
  */
 
-static void unpack_ox2_remap(GridS *pG)
+static void unpack_ox2_remap(GridS *pG, GPExc ***myZns)
 {
   int i,j,k,n;
   double *pd; 
   pd = (double*)&(recv_buf[1][0]);
 
-  for (k=pG->ks; k<=pG->ke; k++) {
-   for (i=0; i<NGF; i++) {
+  for (k=kb; k<=kt; k++) {
+   for (i=0; i<NExc+NOfst; i++) {
     for (j=pG->je+1; j<=pG->je+nghost; j++) {
-      for (n=0;n<NExc; n++) {
-        GhstZns[k][i][j].U[n] = *(pd++);
+      for (n=0;n<NVar; n++) {
+        myZns[k][i][j].U[n] = *(pd++);
       }
   }}}
 	

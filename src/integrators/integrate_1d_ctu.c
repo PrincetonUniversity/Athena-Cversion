@@ -107,7 +107,8 @@ void integrate_1d_ctu(DomainS *pD)
 
 /* Compute predictor feedback from particle drag */
 #ifdef FEEDBACK
-  feedback_predictor(pG);
+  feedback_predictor(pD);
+  exchange_gpcouple(pD,1);
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
