@@ -253,7 +253,7 @@ void exchange_gpcouple(DomainS *pD, short lab)
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pG->lx3_id,RtoL_tag,
         pD->Comm_Domain, &(send_rq[0]));
 
-      pack_ox1_exchange(pG);
+      pack_ox3_exchange(pG);
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pG->rx3_id,LtoR_tag,
         pD->Comm_Domain, &(send_rq[1]));
 
