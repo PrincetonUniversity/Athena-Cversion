@@ -315,7 +315,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 
           dVol = pD->MaxX[0] - pD->MinX[0];
 #ifdef CYLINDRICAL
-          dVol = (pD->MaxX[0]*pD->MaxX[0]) - (pD->MinX[0]*pD->MinX[0]);
+          dVol = 0.5*(pD->MaxX[0]*pD->MaxX[0]) - (pD->MinX[0]*pD->MinX[0]);
 #endif
           if (pD->Nx[1] > 1) dVol *= (pD->MaxX[1] - pD->MinX[1]);
           if (pD->Nx[2] > 1) dVol *= (pD->MaxX[2] - pD->MinX[2]);
