@@ -182,13 +182,15 @@ void exchange_gpcouple(DomainS *pD, short lab)
  * which will be copied back to the main array GPCoup at the end.
  *----------------------------------------------------------------------------*/
  
+#ifdef SHEARING_BOX
+  Delta = 0.0; 
+#endif
+
   switch (lab) {
     case 0: /* particle binning for output purpose */
 		  
       NVar = 4; NExc = 1; NOfst = 0;
-#ifdef SHEARING_BOX
-      Delta = 0.0; /* at the beginning of a time step */
-#endif
+
       for (k=klp; k<=kup; k++) {
        for (j=jlp; j<=jup; j++) {
         for (i=ilp; i<=iup; i++) {
@@ -203,9 +205,7 @@ void exchange_gpcouple(DomainS *pD, short lab)
     case 1: /* predictor step of feedback exchange */
 		  
       NVar = 5; NExc = 1; NOfst = nghost;
-#ifdef SHEARING_BOX
-      Delta = 0.0; /* at the beginning of a time step */
-#endif
+
       for (k=klp; k<=kup; k++) {
        for (j=jlp; j<=jup; j++) {
         for (i=ilp; i<=iup; i++) {
@@ -221,7 +221,9 @@ void exchange_gpcouple(DomainS *pD, short lab)
 		  
       NVar = 4; NExc = 2; NOfst = 0;
 #ifdef SHEARING_BOX
+#ifndef FARGO
       Delta = 0.5; /* at the middle of a time step */
+#endif
 #endif
       for (k=klp; k<=kup; k++) {
        for (j=jlp; j<=jup; j++) {

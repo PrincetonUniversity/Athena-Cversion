@@ -400,9 +400,7 @@ int main(int argc, char *argv[])
 #endif
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
-#ifdef FEEDBACK
   exchange_gpcouple_init(&Mesh);
-#endif
 #endif
 
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
