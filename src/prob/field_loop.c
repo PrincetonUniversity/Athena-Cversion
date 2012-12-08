@@ -430,7 +430,8 @@ VOutFun_t get_usr_out_fun(const char *name){
 
 void Userwork_in_loop(MeshS *pM)
 {
-  ath_pout(0,"Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
+  if (pM->Domain[0][0].Grid != NULL)
+    ath_pout(0,"Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
 }
 
 void Userwork_after_loop(MeshS *pM)

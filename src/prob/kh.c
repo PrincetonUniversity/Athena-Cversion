@@ -23,6 +23,11 @@
  *============================================================================*/
 
 static double ran2(long int *idum);
+#ifdef MHD
+static Real hst_Bx(const GridS *pG, const int i, const int j, const int k);
+static Real hst_By(const GridS *pG, const int i, const int j, const int k);
+static Real hst_Bz(const GridS *pG, const int i, const int j, const int k);
+#endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -35,6 +40,7 @@ void problem(DomainS *pDomain)
   int is,ie,js,je,ks,ke,iprob;
   Real amp,drat,vflow,b0,a,sigma,x1,x2,x3;
   long int iseed = -1;
+  static int frst=1;  /* flag so new history variables enrolled only once */
 
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
@@ -138,6 +144,17 @@ void problem(DomainS *pDomain)
   nu_iso = par_getd_def("problem","nu_iso",0.0);
   nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
+
+/* enroll new history variables, only once  */
+
+  if (frst == 1) {
+#ifdef MHD
+    dump_history_enroll(hst_Bx, "<Bx>");
+    dump_history_enroll(hst_By, "<By>");
+    dump_history_enroll(hst_Bz, "<Bz>");
+#endif /* MHD */
+    frst = 0;
+  }
 
 }
 
@@ -280,3 +297,31 @@ double ran2(long int *idum){
 #undef NTAB
 #undef NDIV
 #undef RNMX
+
+/*------------------------------------------------------------------------------
+ * MHD history variables
+ * hst_Bx, etc.: Net flux, and Maxwell stress, added as history variables
+ */
+
+#ifdef MHD
+/*! \fn static Real hst_Bx(const GridS *pG, const int i,const int j,const int k)
+ *  \brief x-component of B-field */
+static Real hst_Bx(const GridS *pG, const int i, const int j, const int k)
+{
+  return pG->U[k][j][i].B1c;
+}
+
+/*! \fn static Real hst_By(const GridS *pG, const int i,const int j,const int k)
+ *  \brief y-component of B-field */
+static Real hst_By(const GridS *pG, const int i, const int j, const int k)
+{
+  return pG->U[k][j][i].B2c;
+}
+
+/*! \fn static Real hst_Bz(const GridS *pG, const int i,const int j,const int k)
+ *  \brief z-component of B-field */
+static Real hst_Bz(const GridS *pG, const int i, const int j, const int k)
+{
+  return pG->U[k][j][i].B3c;
+}
+#endif

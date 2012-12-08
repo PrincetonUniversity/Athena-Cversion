@@ -604,7 +604,7 @@ void Userwork_after_loop(MeshS *pM)
   total_error.E = 0.0;
 #endif /* ISOTHERMAL */
 #if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) total_error.s[n] += error.s[n];
+  for (n=0; n<NSCALARS; n++) total_error.s[n] = 0.0;
 #endif
 
 /* Compute error only on root Grid, which is in Domain[0][0] */
