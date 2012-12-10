@@ -39,7 +39,6 @@
 #   --enable-fofc                 (first-order flux correction in VL integrator)
 #   --enable-ghost                      (write out ghost cells in outputs/dumps)
 #   --enable-h-correction              (turn on H-correction in multidimensions)
-#   --enable-hllallwave                    (all-wave integration for HLL fluxes)
 #   --enable-mpi                                          (parallelize with MPI)
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
@@ -494,7 +493,6 @@ else
   TIMESTEPPING_MODE_USER="OFF"
 fi
 
-
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: static mesh refinement
 #   --enable-smr (default is no SMR)
@@ -510,36 +508,6 @@ else
   MESH_REFINEMENT="NO_MESH_REFINEMENT"
   SMR_MODE_USER="OFF"
 fi
-
-#-------------------------------------------------------------------------------
-# ALGORITHM FEATURE: turn on all-wave integration for HLL fluxes
-#   --enable-hllallwaves
-# This allows the L/R-states algorithms to integrate characteristics over
-# domains of dependence of all waves, even those that lie on the "wrong" side of
-# the interface.  Requires that one of the HLL-type lrstates algorithms be 
-# enabled, otherwise prints error message.
-
-AC_SUBST(HLL_ALL_WAVE_MODE)
-AC_ARG_ENABLE(hllallwave,
-	[--enable-hllallwave  turn on all-wave integration for HLL fluxes],
-	ok=$enableval, ok=no)
-if test "$ok" = "yes"; then
-if test "$with_flux" = "hlle"; then
-  HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
-  HLL_ALL_WAVE_MODE_USER="ON"
-elif test "$with_flux" = "hllc"; then
-  HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
-  HLL_ALL_WAVE_MODE_USER="ON"
-elif test "$with_flux" = "hlld"; then
-  HLL_ALL_WAVE_MODE="HLL_ALL_WAVE"
-  HLL_ALL_WAVE_MODE_USER="ON"
-else
-  AC_MSG_ERROR([All-wave integration only works with HLL-type fluxes!])
-fi
-else
-  HLL_ALL_WAVE_MODE="NOT_HLL_ALL_WAVE"
-  HLL_ALL_WAVE_MODE_USER="OFF"
-fi  
 
 #-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: first-order flux correction with VL integrator
@@ -633,7 +601,6 @@ echo "FFT:                     $FFT_MODE_USER"
 echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
 echo "Super timestepping:      $TIMESTEPPING_MODE_USER"
-echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
 

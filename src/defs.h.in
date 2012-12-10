@@ -98,9 +98,6 @@
 /* fargo: FARGO or NO_FARGO */
 #define @FARGO_MODE@
 
-/* L/R integration style: HLL_ALL_WAVE or NOT_HLL_ALL_WAVE */
-#define @HLL_ALL_WAVE_MODE@
-
 /* Mesh Refinement mode: STATIC_MESH_REFINEMENT or NO_MESH_REFINEMENT */
 #define @MESH_REFINEMENT@
 

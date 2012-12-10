@@ -85,7 +85,6 @@ void lr_states(const GridS* pG __attribute__((unused)),
 
   /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
   Real ql,qr,qxx1,qxx2,zc,zr,zl,q1,q2,gamma_curv;
-  int hllallwave_flag = 0;
   const Real dtodx = dt/dx;
 #ifdef CYLINDRICAL
   const Real *r=pG->r, *ri=pG->ri;
@@ -508,56 +507,6 @@ void lr_states(const GridS* pG __attribute__((unused)),
       pWr[n] = Wlv[n];
     }
 
-
-#elif defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-    for (n=0; n<NWAVE; n++) {
-      pWl[n] = Wrv[n];
-      pWr[n] = Wlv[n];
-    }
-
-#ifdef HLL_ALL_WAVE
-    hllallwave_flag = 1;
-#endif
-
-    for (n=0; n<NWAVE; n++) {
-      qa = 0.0;
-      if (hllallwave_flag || ev[n] > 0.0) {
-        qx1 = 0.5*dtodx*ev[n];
-        qb  = qx1;
-        qc  = FOUR_3RDS*SQR(qx1);
-#ifdef CYLINDRICAL
-        if (dir==1) {
-          qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
-          qb  -= qxx1;
-          qc  -= 2.0*qx1*qxx1;
-        }
-#endif
-        for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
-        }
-        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
-      }
-
-      qa = 0.0;
-      if (hllallwave_flag || ev[n] < 0.0) {
-        qx2 = 0.5*dtodx*ev[n];
-        qb  = qx2;
-        qc  = FOUR_3RDS*SQR(qx2);
-#ifdef CYLINDRICAL
-        if (dir==1) {
-          qxx2 = SQR(qx2)*dx/(3.0*(ri[i]-dx*qx2));
-          qb  -= qxx2;
-          qc  -= 2.0*qx2*qxx2;
-        }
-#endif
-        for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
-        }
-        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
-      }
-    }
-
-
 #else /* include steps 18-19 only if using CTU integrator */
 
     qx1  = 0.5*MAX(ev[NWAVE-1],0.0)*dtodx;
@@ -608,6 +557,28 @@ void lr_states(const GridS* pG __attribute__((unused)),
           qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+
+/* For HLL fluxes, subtract wave moving away from interface as well. */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+        qa = 0.0;
+        qx1 = 0.5*dtodx*ev[0];
+        qx2 = 0.5*dtodx*ev[n];
+        qb  = qx1 - qx2;
+        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qxx1 = SQR(qx1)*dx/(3.0*(r[i]-dx*qx1));
+          qxx2 = SQR(qx2)*dx/(3.0*(r[i]-dx*qx2));
+          qb -= qxx1 - qxx2;
+          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+        }
+#endif
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
+        }
+        for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+#endif /* HLL_FLUX */
+
       }
     }
 
@@ -630,19 +601,65 @@ void lr_states(const GridS* pG __attribute__((unused)),
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+
+/* For HLL fluxes, subtract wave moving away from interface as well. */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+        qa  = 0.0;
+        qx1 = 0.5*dtodx*ev[NWAVE-1];
+        qx2 = 0.5*dtodx*ev[n];
+        qb  = qx1 - qx2;
+        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
+          qxx2 = SQR(qx2)*dx/(3.0*(ri[i+1]-dx*qx2));
+          qb -= qxx1 - qxx2;
+          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+        }
+#endif
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
+        }
+        for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+#endif /* HLL_FLUX */
+
       }
     }
 
 /* Wave subtraction for advected quantities */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
-        qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-1]) - SQR(W[i].Vx));
-        pWl[n] += qb*(dW[m]-W6[m]) + qc*W6[m];
+
+        qx1 = 0.5*dtodx*ev[NWAVE-1];
+        qx2 = 0.5*dtodx*W[i].Vx;
+        qb  = qx1 - qx2;
+        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
+          qxx2 = SQR(qx2)*dx/(3.0*(ri[i+1]-dx*qx2));
+          qb -= qxx1 - qxx2;
+          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+        }
+#endif
+        pWl[n] += qb*(dW[n]-W6[n]) + qc*W6[n];
+
       } else if (W[i].Vx < 0.) {
-        qb = 0.5*dtodx*(ev[0]-W[i].Vx);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - W[i].Vx*W[i].Vx);
-        pWr[n] += qb*(dW[m]+W6[m]) + qc*W6[m];
+
+        qx1 = 0.5*dtodx*ev[0];
+        qx2 = 0.5*dtodx*W[i].Vx;
+        qb  = qx1 - qx2;
+        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qxx1 = SQR(qx1)*dx/(3.0*(r[i]-dx*qx1));
+          qxx2 = SQR(qx2)*dx/(3.0*(r[i]-dx*qx2));
+          qb -= qxx1 - qxx2;
+          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+        }
+#endif
+        pWr[n] += qb*(dW[n]+W6[n]) + qc*W6[n];
+
       }
     }
 
