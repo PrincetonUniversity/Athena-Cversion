@@ -40,6 +40,10 @@
 #ifdef SPECIAL_RELATIVITY
 #error : PLM reconstruction (order=2) cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
+#ifdef VL_INTEGRATOR
+#error : PLM reconstruction (order=2) cannot be used with VL integrator.
+#endif /* VL_INTEGRATOR */
+
 
 static Real **pW=NULL;
 
@@ -301,10 +305,10 @@ void lr_states(const GridS *pG __attribute__((unused)),
         for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
 
 /* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
         qa  = 0.0;
-        qx1 = 0.5*dtodx*ev[n];
-        qx2 = 0.5*dtodx*ev[0];
+        qx1 = 0.5*dtodx*ev[0];
+        qx2 = 0.5*dtodx*ev[n];
 #ifdef CYLINDRICAL
         if (dir==1) {
           qx1 *= 1.0 - dx*qx1/(3.0*(ri[i+1]-dx*qx1));
@@ -315,7 +319,7 @@ void lr_states(const GridS *pG __attribute__((unused)),
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
         }
-        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
+        for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
 #endif /* HLL_FLUX */
 
       }
@@ -324,42 +328,42 @@ void lr_states(const GridS *pG __attribute__((unused)),
     for (n=0; n<NWAVE; n++) {
       if (ev[n] <= 0.0) {
         qa = 0.0;
-        qx1 = -0.5*dtodx*ev[0];
-        qx2 = -0.5*dtodx*ev[n];
+        qx1 = 0.5*dtodx*ev[0];
+        qx2 = 0.5*dtodx*ev[n];
 #ifdef CYLINDRICAL
         if (dir==1) {
-          qx1 *= 1.0 + dx*qx1/(3.0*(ri[i]+dx*qx1));
-          qx2 *= 1.0 + dx*qx2/(3.0*(ri[i]+dx*qx2));
+          qx1 *= 1.0 - dx*qx1/(3.0*(ri[i]-dx*qx1));
+          qx2 *= 1.0 - dx*qx2/(3.0*(ri[i]-dx*qx2));
         }
 #endif
-        qx = -qx1 + qx2;
+        qx = qx1 - qx2;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
 
 /* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
         qa = 0.0;
-        qx1 = -0.5*dtodx*ev[n];
-        qx2 = -0.5*dtodx*ev[NWAVE-1];
+        qx1 = 0.5*dtodx*ev[NWAVE-1];
+        qx2 = 0.5*dtodx*ev[n];
 #ifdef CYLINDRICAL
         if (dir==1) {
-          qx1 *= 1.0 + dx*qx1/(3.0*(ri[i]+dx*qx1));
-          qx2 *= 1.0 + dx*qx2/(3.0*(ri[i]+dx*qx2));
+          qx1 *= 1.0 - dx*qx1/(3.0*(ri[i]-dx*qx1));
+          qx2 *= 1.0 - dx*qx2/(3.0*(ri[i]-dx*qx2));
         }
 #endif
-        qx = -qx1 + qx2;
+        qx = qx1 - qx2;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*qx*dW[m];
         }
-        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
+        for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
 #endif /* HLL_FLUX */
 
       }
     }
 
-/* Wave subtraction for advected quantities */
+/* Wave subtraction for passive scalars */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
 

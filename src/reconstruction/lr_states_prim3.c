@@ -293,16 +293,13 @@ void lr_states(const GridS *pG __attribute__((unused)),
 	  qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
-/* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-        qa  = 0.0;
-        qb = 0.5*dtodx*(ev[0]-ev[n]);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - ev[n]*ev[n]);
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa = 0.0;
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
         }
-
-        for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
 #endif /* HLL_FLUX */
       }
     }
@@ -316,21 +313,18 @@ void lr_states(const GridS *pG __attribute__((unused)),
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
-/* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-        qa = 0.0;
-        qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa  = 0.0;
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
         }
-
-        for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
 #endif /* HLL_FLUX */
       }
     }
 
-/* Wave subtraction for advected quantities */
+/* Wave subtraction for passive scalars */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
         qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);

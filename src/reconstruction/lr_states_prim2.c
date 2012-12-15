@@ -266,7 +266,7 @@ void lr_states(const GridS *pG __attribute((unused)),
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
 /* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
         qa = 0.0;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
@@ -284,7 +284,7 @@ void lr_states(const GridS *pG __attribute((unused)),
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
 /* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
 	qa  = 0.0;
 	for (m=0; m<NWAVE; m++) {
 	  qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];

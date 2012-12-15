@@ -44,6 +44,9 @@
 #ifdef SPECIAL_RELATIVITY
 #error : PPM reconstruction (order=3) cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
+#ifdef VL_INTEGRATOR
+#error : PPM reconstruction (order=3) cannot be used with VL integrator.
+#endif /* VL_INTEGRATOR */
 
 static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 
@@ -558,23 +561,20 @@ void lr_states(const GridS* pG __attribute__((unused)),
         }
         for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
 
-/* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-        qa = 0.0;
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa  = 0.0;
         qx1 = 0.5*dtodx*ev[0];
         qx2 = 0.5*dtodx*ev[n];
-        qb  = qx1 - qx2;
-        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
 #ifdef CYLINDRICAL
         if (dir==1) {
-          qxx1 = SQR(qx1)*dx/(3.0*(r[i]-dx*qx1));
-          qxx2 = SQR(qx2)*dx/(3.0*(r[i]-dx*qx2));
-          qb -= qxx1 - qxx2;
-          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+          qx1 *= 1.0 - dx*qx1/(3.0*(ri[i+1]-dx*qx1));
+          qx2 *= 1.0 - dx*qx2/(3.0*(ri[i+1]-dx*qx2));
         }
 #endif
+        qx = qx1 - qx2;
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
+          qa += lem[n][m]*qx*dW[m];
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
 #endif /* HLL_FLUX */
@@ -602,23 +602,20 @@ void lr_states(const GridS* pG __attribute__((unused)),
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
 
-/* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-        qa  = 0.0;
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa = 0.0;
         qx1 = 0.5*dtodx*ev[NWAVE-1];
         qx2 = 0.5*dtodx*ev[n];
-        qb  = qx1 - qx2;
-        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
-#ifdef CYLINDRICAL
+#ifdef CYLINDRICAL 
         if (dir==1) {
-          qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
-          qxx2 = SQR(qx2)*dx/(3.0*(ri[i+1]-dx*qx2));
-          qb -= qxx1 - qxx2;
-          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+          qx1 *= 1.0 - dx*qx1/(3.0*(ri[i]-dx*qx1));
+          qx2 *= 1.0 - dx*qx2/(3.0*(ri[i]-dx*qx2));
         }
 #endif
+        qx = qx1 - qx2;
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
+          qa += lem[n][m]*qx*dW[m];
         }
         for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
 #endif /* HLL_FLUX */
@@ -626,7 +623,7 @@ void lr_states(const GridS* pG __attribute__((unused)),
       }
     }
 
-/* Wave subtraction for advected quantities */
+/* Wave subtraction for passive scalars */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
 
