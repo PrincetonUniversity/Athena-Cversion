@@ -274,7 +274,7 @@ AC_SUBST(ACCURACY)
 
 AC_ARG_WITH(order,
 	[--with-order=ORDER      Order of Accuracy (1,2,3,2p,3p)],
-	with_order=$withval, with_order="2")
+	with_order=$withval, with_order="3")
 ORDER=$with_order
 if test   "$with_order" = "1"; then
   ACCURACY="FIRST_ORDER"
@@ -539,6 +539,14 @@ if test "$with_coord" = "cylindrical"; then
     AC_MSG_ERROR([Sorry, self-gravity and cylindrical coordinates are currently incompatible!])
   elif test "$particles_algorithm" != "none"; then
     AC_MSG_ERROR([Sorry, particles and cylindrical coordinates are currently incompatible!])
+  fi
+fi
+
+if test "$with_integrator" = "vl"; then
+  if test "$with_order" = "3"; then
+    AC_MSG_ERROR([Only use order=2p or 3p with VL integrator!])
+  elif test "$with_order" = "2"; then
+    AC_MSG_ERROR([Only use order=2p or 3p with VL integrator!])
   fi
 fi
 
