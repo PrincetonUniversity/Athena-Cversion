@@ -165,7 +165,7 @@ void init_output(MeshS *pM)
 
 /* allocate output array */
 
-  if((OutArray = malloc(maxout*sizeof(OutputS))) == NULL){
+  if((OutArray = (OutputS *)malloc(maxout*sizeof(OutputS))) == NULL){
     ath_error("[init_output]: Error allocating output array\n");
   }
 
