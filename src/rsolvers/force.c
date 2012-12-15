@@ -216,8 +216,8 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 #if (NSCALARS > 0)
   for (n=0; n<NSCALARS; n++) {
-    Fl.s[n] = Fl.d*Wl.x[n];
-    Fr.s[n] = Fr.d*Wr.x[n];
+    Fl.s[n] = Fl.d*Wl.r[n];
+    Fr.s[n] = Fr.d*Wr.r[n];
   }
 #endif
 
@@ -242,12 +242,12 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   pFr = (Real *)&(Fr);
   pUc = (Real *)&(Uc);
   tmp = 1.0/(ar - al);
-  for (n=0; n<(NWAVE+NSCALARS); n++){
+  for (n=0; n<NWAVE; n++){
     pUc[n] = (pFl[n] - pFr[n])*tmp;
   }
 
 /* Convert the HLL mean state to primitive variables */
-  Cons1D_to_Prim1D(&Uc,&Wc,&Bxi);
+  Wc = Cons1D_to_Prim1D(&Uc,&Bxi);
 
 /* Compute the LW flux along the line dx/dt = 0 */
 
@@ -277,13 +277,6 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Fc.Bz = Wc.Bz*Wc.Vx - Bxi*Wc.Vz;
 #endif /* MHD */
 
-#if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) {
-    Fc.s[n] = Fc.d*Wc.x[n];
-  }
-#endif
-
-
 /*--- Step 8. ------------------------------------------------------------------
  * Compute the average of the Lax-Wendroff & HLLE flux
  */
@@ -292,9 +285,18 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   pFr = (Real *)&(Fr);
   pF  = (Real *)pFlux;
   tmp = 0.25*(bp + bm)/(bp - bm);
-  for (n=0; n<(NWAVE+NSCALARS); n++){
+  for (n=0; n<NWAVE; n++){
     pF[n] = 0.5*pFc[n] + 0.25*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
+
+/* Fluxes of passively advected scalars, computed from density flux */
+#if (NSCALARS > 0)
+  if (pFlux->d >= 0.0) {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
+  } else {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
 
   return;
 }

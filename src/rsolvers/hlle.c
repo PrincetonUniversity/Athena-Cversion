@@ -229,13 +229,6 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   Fr.Bz = Wr.Bz*(Wr.Vx - bp) - Bxi*Wr.Vz;
 #endif /* MHD */
 
-#if (NSCALARS > 0)
-  for (n=0; n<NSCALARS; n++) {
-    Fl.s[n] = Fl.d*Wl.r[n];
-    Fr.s[n] = Fr.d*Wr.r[n];
-  }
-#endif
-
 #ifdef CYLINDRICAL
 #ifndef ISOTHERMAL
   Fl.Pflux = Wl.P;
@@ -255,9 +248,18 @@ void HLLE_FUNCTION(const Cons1DS Ul, const Cons1DS Ur,
   pFr = (Real *)&(Fr);
   pF  = (Real *)pFlux;
   tmp = 0.5*(bp + bm)/(bp - bm);
-  for (n=0; n<(NWAVE+NSCALARS); n++){
+  for (n=0; n<NWAVE; n++){
     pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
   }
+
+/* Fluxes of passively advected scalars, computed from density flux */
+#if (NSCALARS > 0)
+  if (pFlux->d >= 0.0) {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
+  } else {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
 
 #ifdef CYLINDRICAL
   n = NWAVE+NSCALARS;

@@ -199,13 +199,22 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   pFl = (Real *)&(Fl);
   pFr = (Real *)&(Fr);
   pF  = (Real *)pFlux;
-  for (n=0; n<(NWAVE+NSCALARS); n++) pF[n] = sl*pFl[n] + sr*pFr[n];
+  for (n=0; n<NWAVE; n++) pF[n] = sl*pFl[n] + sr*pFr[n];
 
 /* Add the weighted contribution of the flux along the contact */
   pFlux->Mx += sm*cp;
 #ifndef ISOTHERMAL
   pFlux->E  += sm*cp*am;
 #endif /* ISOTHERMAL */
+
+/* Fluxes of passively advected scalars, computed from density flux */
+#if (NSCALARS > 0)
+  if (pFlux->d >= 0.0) {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
+  } else {
+    for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
 
 #ifdef CYLINDRICAL
   if (al > 0.0) {
