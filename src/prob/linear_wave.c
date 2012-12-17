@@ -404,7 +404,7 @@ void problem(DomainS *pDomain)
 /* Initialize the cell-centered B fields in Root Solution structure  */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
-      for (i=is; i<=ie+1; i++) {
+      for (i=is; i<=ie; i++) {
 	RootSoln[k][j][i].B1c = (a3[k  ][j+1][i] - a3[k][j][i])/pGrid->dx2 -
 	                        (a2[k+1][j  ][i] - a2[k][j][i])/pGrid->dx3
                             + (a3[k  ][j+1][i+1] - a3[k][j][i+1])/pGrid->dx2 -
@@ -416,7 +416,7 @@ void problem(DomainS *pDomain)
 
   if (pGrid->Nx[1] > 1) {
     for (k=ks; k<=ke; k++) {
-      for (j=js; j<=je+1; j++) {
+      for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
           RootSoln[k][j][i].B2c = (a1[k+1][j][i  ] - a1[k][j][i])/pGrid->dx3 -
 	                          (a3[k  ][j][i+1] - a3[k][j][i])/pGrid->dx1
@@ -433,7 +433,7 @@ void problem(DomainS *pDomain)
   }
 
   if (pGrid->Nx[2] > 1) {
-    for (k=ks; k<=ke+1; k++) {
+    for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
           RootSoln[k][j][i].B3c = (a2[k][j  ][i+1] - a2[k][j][i])/pGrid->dx1 -
@@ -568,9 +568,7 @@ void Userwork_in_loop(MeshS *pM)
 }
 
 /*---------------------------------------------------------------------------
- * Userwork_after_loop: computes L1-error in linear waves,
- * ASSUMING WAVE HAS PROPAGATED AN INTEGER NUMBER OF PERIODS
- * Must set parameters in input file appropriately so that this is true
+ * Userwork_after_loop: computes L1-error in linear waves at stopping time.
  */
 
 void Userwork_after_loop(MeshS *pM)
@@ -829,7 +827,7 @@ void Userwork_after_loop(MeshS *pM)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real A1(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real A1(const Real x1,const Real x2,const Real x3,const Real vdt)
  *  \brief A1: 1-component of vector potential, using a gauge such that Ax = 0,
  * and Ay, Az are functions of x and y alone.
  */
@@ -850,7 +848,7 @@ static Real A1(const Real x1, const Real x2, const Real x3, const Real vdt)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real A2(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real A2(const Real x1,const Real x2,const Real x3,const Real vdt)
  *  \brief A2: 2-component of vector potential
  */
 
@@ -869,7 +867,7 @@ static Real A2(const Real x1, const Real x2, const Real x3, const Real vdt)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real A3(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real A3(const Real x1,const Real x2,const Real x3,const Real vdt)
  *  \brief A3: 3-component of vector potential
  */
 
