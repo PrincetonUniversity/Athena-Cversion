@@ -32,7 +32,7 @@
 RUN_OPTS="time/tlim=1.2 problem/vflow=0.3 job/maxout=0"
 
 CNT=0
-TOTAL=67
+TOTAL=121
 
 #====================== FIRST SET OF TESTS =====================
 # check 1D/2D/3D CTU and VL integrators using Roe and 3rd order
@@ -46,8 +46,10 @@ do
 
   if [ "$INT" == "vl" ]; then
     ORD="3p"
+    CFL="time/cour_no=0.4"
   else
     ORD="3"
+    CFL=""
   fi
 
 #-------------------- loop over gas type -----------------------
@@ -81,12 +83,6 @@ do
       cd tst/regression
 
 # run 1D test
-      if [ "$INT" == "vl" ]; then
-        CFL="time/cour_no=0.4"
-      else
-        CFL=""
-      fi
-
       if ! ../../bin/athena -i ../1D-$GAS/athinput.linear_wave1d $RUN_OPTS $CFL &> athena.log
       then
         echo "Athena crashed on test $CNT"
@@ -103,12 +99,6 @@ do
 
 # run 2D test
       let CNT=CNT+1
-      if [ "$INT" == "vl" ]; then
-        CFL="time/cour_no=0.4"
-      else
-        CFL=""
-      fi
-
       if ! ../../bin/athena -i ../2D-$GAS/athinput.linear_wave2d $RUN_OPTS $CFL &> athena.log
       then
         echo "Athena crashed on test $CNT"
@@ -154,6 +144,12 @@ rm -f LinWave-errors.2.dat
 for INT in ctu vl
 do
 
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+  else
+    CFL=""
+  fi
+
 #----------------------- loop over order  -------------------------
 # Note CTU order=3 and VL order=3p were done in first set
 
@@ -198,12 +194,6 @@ do
         cd tst/regression
 
 # run 1D test
-        if [ "$INT" == "vl" ]; then
-          CFL="time/cour_no=0.4"
-        else
-          CFL=""
-        fi
-
         if ! ../../bin/athena -i ../1D-$GAS/athinput.linear_wave1d $RUN_OPTS $CFL &> athena.log
         then
           echo "Athena crashed on test $CNT"
@@ -313,5 +303,195 @@ do
 
       done
     done
+  done
+done
+
+#======================== FOURTH SET OF TESTS ======================
+# check 1D/2D/3D CTU and VL integrators at order=2/3/2p/3p with CPAW
+
+RUN_OPTS="time/tlim=1.2 problem/v_par=0.3 job/maxout=0"
+rm -f cpaw-errors.dat
+
+#-------------------- loop over integrators -----------------------
+for INT in ctu vl
+do
+
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+  else
+    CFL=""
+  fi
+
+#-------------------- loop over order -----------------------
+  for ORD in 2 2p 3 3p 
+  do
+
+    if [ "$INT" == "vl" -a "$ORD" == "2" ]; then
+      continue
+    fi
+    if [ "$INT" == "vl" -a "$ORD" == "3" ]; then
+      continue
+    fi
+
+#-------------------- loop over EOS ------------------------------
+    for EOS in isothermal adiabatic
+    do
+
+      cd ../..
+      make clean > clean.log
+      let CNT=CNT+1
+
+# configure code
+
+      if ! configure --with-integrator=$INT --with-gas=mhd --with-eos=$EOS --with-problem=cpaw --with-order=$ORD --with-flux=roe &> config.log
+      then
+        echo "Configure for test $CNT failed"
+        exit
+      fi
+
+# compile code
+
+      if ! make all &> make.log
+      then
+        echo "Compile for test $CNT failed"
+        exit
+      fi
+      rm -rf clean.log config.log make.log
+      cd tst/regression
+
+# run 1D test
+      if ! ../../bin/athena -i ../1D-mhd/athinput.cpaw1d $RUN_OPTS $CFL &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+  
+      echo "Passed $CNT of $TOTAL: 1D $EOS cpaw using $INT and order=$ORD" 
+
+# run 2D test
+      let CNT=CNT+1
+      if ! ../../bin/athena -i ../2D-mhd/athinput.cpaw2d $RUN_OPTS $CFL &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+  
+      echo "Passed $CNT of $TOTAL: 2D $EOS cpaw using $INT and order=$ORD" 
+
+# run 3D test
+      let CNT=CNT+1
+      if ! ../../bin/athena -i ../3D-mhd/athinput.cpaw3d $RUN_OPTS &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+  
+      rm -f athena.log
+      rm -f athena
+
+      echo "Passed $CNT of $TOTAL: 3D $EOS cpaw using $INT and order=$ORD" 
+
+    done
+  done
+done
+
+#----------------- Now test different fluxes in CPAW ----------------
+
+rm -f cpaw-errors.dat
+
+#--------------------- loop over fluxes -------------------------
+for FLUX in hlle hlld force
+do
+
+#-------------------- loop over order -----------------------
+  for ORD in 2 3
+  do
+
+    cd ../..
+    make clean > clean.log
+    let CNT=CNT+1
+
+# configure code
+
+    if ! configure --with-integrator=ctu --with-gas=mhd --with-eos=adiabatic --with-problem=cpaw --with-order=$ORD --with-flux=$FLUX &> config.log
+    then
+      echo "Configure for test $CNT failed"
+      exit
+    fi
+
+# compile code
+
+    if ! make all &> make.log
+    then
+      echo "Compile for test $CNT failed"
+      exit
+    fi
+    rm -rf clean.log config.log make.log
+    cd tst/regression
+
+# run 1D test
+    if ! ../../bin/athena -i ../1D-mhd/athinput.cpaw1d $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+  
+    echo "Passed $CNT of $TOTAL: 1D $EOS cpaw using $FLUX and order=$ORD" 
+
+# run 2D test
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../2D-mhd/athinput.cpaw2d $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+  
+    echo "Passed $CNT of $TOTAL: 2D $EOS cpaw using $FLUX and order=$ORD" 
+
+# run 3D test
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../3D-mhd/athinput.cpaw3d $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+  
+    rm -f athena.log
+    rm -f athena
+
+    echo "Passed $CNT of $TOTAL: 3D $EOS cpaw using $FLUX and order=$ORD" 
+
   done
 done
