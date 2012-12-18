@@ -410,8 +410,8 @@ void integrate_3d_vl(DomainS *pD)
       rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
       q2 = hdt/(r[i]*pG->dx2);
 #endif
-      B3_x3Face[ku+1][j][i] += q2*(emf1[ku+1][j+1][i  ]-emf1[ku+1][j][i]) -
-                               q1*(emf2[ku+1][j  ][i+1]-emf2[ku+1][j][i]);
+      B3_x3Face[ku+1][j][i] += q2*(    emf1[ku+1][j+1][i  ]-    emf1[ku+1][j][i]) -
+                               q1*(rsf*emf2[ku+1][j  ][i+1]-lsf*emf2[ku+1][j][i]);
     }
   }
 
