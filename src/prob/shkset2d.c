@@ -3,21 +3,24 @@
 /*! \file shkset2d.c
  *  \brief Sets up shock at angle to grid to test multidimensional algorithm.
  *
- * PURPOSE: Sets up shock at angle to grid to test multidimensional algorithm.
- *   The grid angle atan(Ly/Lx) is fixed to be atan(0.5), or atan(1), and 
- *   Nx1/Nx2 must be the same ratio as Lx/Ly.  Uses the angle of the shock to
- *   remap ghost cells to the equivalent active grid cells, which requires
- *   that Nx1>32, using special function pointers.  The shock is initialized
+ * PURPOSE: Sets up shock at ang_3=atan(Ly/Lx) to grid to test multidimensional
+ *   algorithm.  Nx1/Nx2 must be the same ratio as Lx/Ly.  Uses the angle of the
+ *   shock to remap ghost cells to the equivalent active grid cells, which
+ *   requires Nx1>32, using special function pointers.  The shock is initialized
  *   with reference to a coordinate system (x,y,z) with transformation rules to
  *   the code coordinate system (x1,x2,x3)
- *   -  x =  x1*cos(alpha) + x2*sin(alpha)
- *   -  y = -x1*sin(alpha) + x2*cos(alpha)
+ *   -  x =  x1*cos(ang_3) + x2*sin(ang_3)
+ *   -  y = -x1*sin(ang_3) + x2*cos(ang_3)
  *   -  z = x3
 
  *   This inverts to:
- *   -  x1 = x*cos(alpha) - y*sin(alpha)
- *   -  x2 = x*sin(alpha) + y*cos(alpha)
+ *   -  x1 = x*cos(ang_3) - y*sin(ang_3)
+ *   -  x2 = x*sin(ang_3) + y*cos(ang_3)
  *   -  x3 = z								  
+ *
+ * If error_test=1 in the <problem> block, then the L1 error in the final
+ * solution will be computed for the Sod shocktube (hydrodynamics) or the RJ2a
+ * test (MHD).  This is useful for regression tests.
  *
  * PRIVATE FUNCTION PROTOTYPES:
  * - shkset2d_iib() - sets BCs on L-x1 (left edge) of grid.
@@ -52,6 +55,10 @@ void shkset2d_ojb(GridS *pGrid);
 static Real Lx,Ly;
 static int r1,r2;
 
+/* Analytic solution at stopping time, shared with Userwork_after_loop to
+ * compute L1 error */
+static ConsS ***RootSoln=NULL;
+
 /*----------------------------------------------------------------------------*/
 /* problem:   */
 
@@ -61,8 +68,18 @@ void problem(DomainS *pDomain)
   int i, is = pGrid->is, ie = pGrid->ie;
   int j, js = pGrid->js, je = pGrid->je;
   int k, ks = pGrid->ks, ke = pGrid->ke;
-  int kl,ku,irefine,ir,ix1,ix2,nx1,nx2,gcd;
-  Real angle, sin_a, cos_a; /* Angle the shock makes with the x1-direction */
+  int kl,ku,irefine,ir,ix1,ix2,nx1,nx2,nx3,gcd;
+  Real ang_2, ang_3; /* Rotation angles about the y and z' axis */
+  Real sin_a2, cos_a2, sin_a3, cos_a3;
+
+/* speeds of shock, contact, head and foot of rarefaction for Sod test */
+/* speeds of slow/fast shocks, Alfven wave and contact in RJ2a test */
+  Real tlim;
+  int err_test;
+  Real x1,x2,x3,r,xs,xc,xf,xh,vs,vc,vf,vh;
+  Real xfp,xrp,xsp,xsm,xrm,xfm,vfp,vrp,vsp,vsm,vrm,vfm;
+  Real d0,v0,Mx,My,Mz,E0,r0,Bx,By,Bz;
+
   Real rootdx1, rootdx2;
   Prim1DS Wl, Wr;
   Cons1DS Ul, Ur;
@@ -86,6 +103,15 @@ void problem(DomainS *pDomain)
   } else {
     ku = pGrid->ke;
     kl = pGrid->ks;
+  }
+
+  nx1 = (ie-is)+1 + 2*nghost;
+  nx2 = (je-js)+1 + 2*nghost;
+  nx3 = (ke-ks)+1 + 2*nghost;
+
+  if (pDomain->Level == 0){
+    if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))
+      == NULL) ath_error("[problem]: Error alloc memory for RootSoln\n");
   }
 
 /* Find number of cells on root grid */
@@ -122,15 +148,18 @@ void problem(DomainS *pDomain)
 
   ath_pout(1,"The unit cell is (%d,1,%d) grid cells in size\n",r1,r2);
 
-/* Compute angle initial interface makes to the grid */
+/* Compute angles initial interface makes to the grid */
 
+  ang_2 = 0.0;
+  cos_a2=cos(ang_2);
+  sin_a2=sin(ang_2);
   if(Lx == Ly){
-    cos_a = sin_a = sqrt(0.5);
+    cos_a3 = sin_a3 = sqrt(0.5);
   }
   else{
-    angle = atan((double)(Lx/Ly));
-    sin_a = sin(angle);
-    cos_a = cos(angle);
+    ang_3 = atan((double)(Lx/Ly));
+    sin_a3 = sin(ang_3);
+    cos_a3 = cos(ang_3);
   }
 
 /* Parse left state read from input file: dl,pl,ul,vl,wl,bxl,byl,bzl */
@@ -169,12 +198,12 @@ void problem(DomainS *pDomain)
 
 /* Initialize ql rotated to the (x1,x2,x3) coordinate system */
   ql.d   = Ul.d;
-  ql.M1  = Ul.Mx*cos_a - Ul.My*sin_a;
-  ql.M2  = Ul.Mx*sin_a + Ul.My*cos_a;
+  ql.M1  = Ul.Mx*cos_a3 - Ul.My*sin_a3;
+  ql.M2  = Ul.Mx*sin_a3 + Ul.My*cos_a3;
   ql.M3  = Ul.Mz;
 #ifdef MHD
-  ql.B1c = Bxl*cos_a - Ul.By*sin_a;
-  ql.B2c = Bxl*sin_a + Ul.By*cos_a;
+  ql.B1c = Bxl*cos_a3 - Ul.By*sin_a3;
+  ql.B2c = Bxl*sin_a3 + Ul.By*cos_a3;
   ql.B3c = Ul.Bz;
 #endif
 #ifdef ADIABATIC
@@ -183,12 +212,12 @@ void problem(DomainS *pDomain)
 
 /* Initialize qr rotated to the (x1,x2,x3) coordinate system */
   qr.d   = Ur.d;
-  qr.M1  = Ur.Mx*cos_a - Ur.My*sin_a;
-  qr.M2  = Ur.Mx*sin_a + Ur.My*cos_a;
+  qr.M1  = Ur.Mx*cos_a3 - Ur.My*sin_a3;
+  qr.M2  = Ur.Mx*sin_a3 + Ur.My*cos_a3;
   qr.M3  = Ur.Mz;
 #ifdef MHD
-  qr.B1c = Bxr*cos_a - Ur.By*sin_a;
-  qr.B2c = Bxr*sin_a + Ur.By*cos_a;
+  qr.B1c = Bxr*cos_a3 - Ur.By*sin_a3;
+  qr.B2c = Bxr*sin_a3 + Ur.By*cos_a3;
   qr.B3c = Ur.Bz;
 #endif
 #ifdef ADIABATIC
@@ -326,6 +355,167 @@ void problem(DomainS *pDomain)
   bvals_mhd_fun(pDomain, right_x1, shkset2d_oib);
   bvals_mhd_fun(pDomain, right_x2, shkset2d_ojb);
 
+/* Compute Analytic solution for Sod and RJ4a tests, if required */
+
+  tlim = par_getd("time","tlim");
+  err_test = par_getd_def("problem","error_test",0);
+  if (err_test == 1) {
+
+/* wave speeds for Sod test */
+#ifdef HYDRO 
+    vs = 1.7522; xs = vs*tlim;
+    vc = 0.92745; xc = vc*tlim;
+    vf = -0.07027; xf = vf*tlim;
+    vh = -1.1832; xh = vh*tlim;
+#endif /* HYDRO */
+
+/* wave speeds for RJ2a test */
+#ifdef MHD
+    vfp = 2.2638; xfp = vfp*tlim;
+    vrp = (0.53432 + 1.0/sqrt(PI*1.309)); xrp = vrp*tlim;
+    vsp = (0.53432 + 0.48144/1.309); xsp = vsp*tlim;
+    vc = 0.57538; xc = vc*tlim;
+    vsm = (0.60588 - 0.51594/1.4903); xsm = vsm*tlim;
+    vrm = (0.60588 - 1.0/sqrt(PI*1.4903)); xrm = vrm*tlim;
+    vfm = (1.2 - 2.3305/1.08); xfm = vfm*tlim;
+#endif /* MHD */
+
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+        r = cos_a2*(x1*cos_a3 + x2*sin_a3) + x3*sin_a2;
+
+/* Sod solution */
+#ifdef HYDRO
+        My = Mz = 0.0;
+        if (r > xs) {
+          d0 = 0.125;
+          Mx = 0.0;
+          E0 = 0.25;
+          r0 = 0.0;
+        } else if (r > xc) {
+          d0 = 0.26557;
+          Mx = 0.92745*d0;
+          E0 = 0.87204;
+          r0 = 0.0;
+        } else if (r > xf) {
+          d0 = 0.42632;
+          Mx = 0.92745*d0;
+          E0 = 0.94118;
+          r0 = 1.0;
+        } else if (r > xh) {
+          v0 = 0.92745*(r-xh)/(xf-xh);
+          d0 = 0.42632*pow((1.0+0.20046*(0.92745-v0)),5);
+          E0 = (0.30313*pow((1.0+0.20046*(0.92745-v0)),7))/0.4 + 0.5*d0*v0*v0;
+          r0 = 1.0;
+          Mx = v0*d0;
+        } else {
+          d0 = 1.0;
+          Mx = 0.0;
+          E0 = 2.5;
+          r0 = 1.0;
+        }
+#endif /* HYDRO */
+/* RJ2a solution (Dai & Woodward 1994 Tables Ia and Ib) */
+#ifdef MHD
+        Bx = 2.0/sqrt(4.0*PI);
+        if (r > xfp) {
+          d0 = 1.0;
+          Mx = 0.0;
+          My = 0.0;
+          Mz = 0.0;
+          By = 4.0/sqrt(4.0*PI);
+          Bz = 2.0/sqrt(4.0*PI);
+          E0 = 1.0/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 0.0;
+        } else if (r > xrp) {
+          d0 = 1.3090;
+          Mx = 0.53432*d0;
+          My = -0.094572*d0;
+          Mz = -0.047286*d0;
+          By = 5.3452/sqrt(4.0*PI);
+          Bz = 2.6726/sqrt(4.0*PI);
+          E0 = 1.5844/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 1.0;
+        } else if (r > xsp) {
+          d0 = 1.3090;
+          Mx = 0.53432*d0;
+          My = -0.18411*d0;
+          Mz = 0.17554*d0;
+          By = 5.7083/sqrt(4.0*PI);
+          Bz = 1.7689/sqrt(4.0*PI);
+          E0 = 1.5844/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 0.0;
+        } else if (r > xc) {
+          d0 = 1.4735;
+          Mx = 0.57538*d0;
+          My = 0.047601*d0;
+          Mz = 0.24734*d0;
+          By = 5.0074/sqrt(4.0*PI);
+          Bz = 1.5517/sqrt(4.0*PI);
+          E0 = 1.9317/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 0.0;
+        } else if (r > xsm) {
+          d0 = 1.6343;
+          Mx = 0.57538*d0;
+          My = 0.047601*d0;
+          Mz = 0.24734*d0;
+          By = 5.0074/sqrt(4.0*PI);
+          Bz = 1.5517/sqrt(4.0*PI);
+          E0 = 1.9317/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 0.0;
+        } else if (r > xrm) {
+          d0 = 1.4903;
+          Mx = 0.60588*d0;
+          My = 0.22157*d0;
+          Mz = 0.30125*d0;
+          By = 5.5713/sqrt(4.0*PI);
+          Bz = 1.7264/sqrt(4.0*PI);
+          E0 = 1.6558/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 1.0;
+        } else if (r > xfm) {
+          d0 = 1.4903;
+          Mx = 0.60588*d0;
+          My = 0.11235*d0;
+          Mz = 0.55686*d0;
+          By = 5.0987/sqrt(4.0*PI);
+          Bz = 2.8326/sqrt(4.0*PI);
+          E0 = 1.6558/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 1.0;
+        } else {
+          d0 = 1.08;
+          Mx = 1.2*d0;
+          My = 0.01*d0;
+          Mz = 0.5*d0;
+          By = 3.6/sqrt(4.0*PI);
+          Bz = 2.0/sqrt(4.0*PI);
+          E0 = 0.95/Gamma_1 + 0.5*((Mx*Mx+My*My+Mz*Mz)/d0 + (Bx*Bx+By*By+Bz*Bz));
+          r0 = 1.0;
+        }
+#endif /* MHD */
+
+        RootSoln[k][j][i].d = d0;
+
+        RootSoln[k][j][i].M1 = Mx*cos_a2*cos_a3 - My*sin_a3 - Mz*sin_a2*cos_a3;
+        RootSoln[k][j][i].M2 = Mx*cos_a2*sin_a3 + My*cos_a3 - Mz*sin_a2*sin_a3;
+        RootSoln[k][j][i].M3 = Mx*sin_a2                    + Mz*cos_a2;
+
+#ifdef MHD
+        RootSoln[k][j][i].B1c = Bx*cos_a2*cos_a3 - By*sin_a3 - Bz*sin_a2*cos_a3;
+        RootSoln[k][j][i].B2c = Bx*cos_a2*sin_a3 + By*cos_a3 - Bz*sin_a2*sin_a3;
+        RootSoln[k][j][i].B3c = Bx*sin_a2                    + Bz*cos_a2;
+#endif /* MHD */
+
+#ifndef ISOTHERMAL
+        RootSoln[k][j][i].E = E0;
+#endif /* ISOTHERMAL */
+
+      }
+    }}
+
+  } /* end calculation of analytic (root) solution */
+
   return;
 }
 
@@ -365,6 +555,226 @@ void Userwork_in_loop(MeshS *pM)
 
 void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pGrid;
+  int i=0,j=0,k=0;
+  int is,ie,js,je,ks,ke;
+  Real rms_error=0.0;
+  ConsS error,total_error;
+  FILE *fp;
+  char *fname;
+  int Nx1, Nx2, Nx3, count, min_zones;
+#if defined MPI_PARALLEL
+  double err[8], tot_err[8];
+  int ierr,myID;
+#endif
+
+  int err_test = par_getd_def("problem","error_test",0);
+  if (err_test == 0) return;
+
+  total_error.d = 0.0;
+  total_error.M1 = 0.0;
+  total_error.M2 = 0.0;
+  total_error.M3 = 0.0;
+#ifdef MHD
+  total_error.B1c = 0.0;
+  total_error.B2c = 0.0;
+  total_error.B3c = 0.0;
+#endif /* MHD */
+#ifndef ISOTHERMAL
+  total_error.E = 0.0;
+#endif /* ISOTHERMAL */
+
+/* Compute error only on root Grid, which is in Domain[0][0] */
+
+  pGrid=pM->Domain[0][0].Grid;
+  if (pGrid == NULL) return;
+
+/* compute L1 error in each variable, and rms total error */
+
+  is = pGrid->is; ie = pGrid->ie;
+  js = pGrid->js; je = pGrid->je;
+  ks = pGrid->ks; ke = pGrid->ke;
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+    error.d = 0.0;
+    error.M1 = 0.0;
+    error.M2 = 0.0;
+    error.M3 = 0.0;
+#ifdef MHD
+    error.B1c = 0.0;
+    error.B2c = 0.0;
+    error.B3c = 0.0;
+#endif /* MHD */
+#ifndef ISOTHERMAL
+    error.E = 0.0;
+#endif /* ISOTHERMAL */
+
+    for (i=is; i<=ie; i++) {
+      error.d   += fabs(pGrid->U[k][j][i].d   - RootSoln[k][j][i].d );
+      error.M1  += fabs(pGrid->U[k][j][i].M1  - RootSoln[k][j][i].M1);
+      error.M2  += fabs(pGrid->U[k][j][i].M2  - RootSoln[k][j][i].M2);
+      error.M3  += fabs(pGrid->U[k][j][i].M3  - RootSoln[k][j][i].M3); 
+#ifdef MHD
+      error.B1c += fabs(pGrid->U[k][j][i].B1c - RootSoln[k][j][i].B1c);
+      error.B2c += fabs(pGrid->U[k][j][i].B2c - RootSoln[k][j][i].B2c);
+      error.B3c += fabs(pGrid->U[k][j][i].B3c - RootSoln[k][j][i].B3c);
+#endif /* MHD */
+#ifndef ISOTHERMAL
+      error.E   += fabs(pGrid->U[k][j][i].E   - RootSoln[k][j][i].E );
+#endif /* ISOTHERMAL */
+    }
+
+    total_error.d += error.d;
+    total_error.M1 += error.M1;
+    total_error.M2 += error.M2;
+    total_error.M3 += error.M3;
+#ifdef MHD
+    total_error.B1c += error.B1c;
+    total_error.B2c += error.B2c;
+    total_error.B3c += error.B3c;
+#endif /* MHD */
+#ifndef ISOTHERMAL
+    total_error.E += error.E;
+#endif /* ISOTHERMAL */
+  }}
+
+#ifdef MPI_PARALLEL
+  Nx1 = pM->Domain[0][0].Nx[0];
+  Nx2 = pM->Domain[0][0].Nx[1];
+  Nx3 = pM->Domain[0][0].Nx[2];
+#else
+  Nx1 = ie - is + 1;
+  Nx2 = je - js + 1;
+  Nx3 = ke - ks + 1;
+#endif
+  count = Nx1*Nx2*Nx3;
+
+#ifdef MPI_PARALLEL 
+/* Now we have to use an All_Reduce to get the total error over all the MPI
+ * grids.  Begin by copying the error into the err[] array */
+
+  err[0] = total_error.d;
+  err[1] = total_error.M1;
+  err[2] = total_error.M2;
+  err[3] = total_error.M3;
+#ifdef MHD
+  err[4] = total_error.B1c;
+  err[5] = total_error.B2c;
+  err[6] = total_error.B3c;
+#endif /* MHD */
+#ifndef ISOTHERMAL
+  err[7] = total_error.E;
+#endif /* ISOTHERMAL */
+
+  /* Sum up the Computed Error */
+  ierr = MPI_Reduce(err,tot_err,8,MPI_DOUBLE,MPI_SUM,0,
+    pM->Domain[0][0].Comm_Domain);
+
+/* If I'm the parent, copy the sum back to the total_error variable */
+
+  ierr = MPI_Comm_rank(pM->Domain[0][0].Comm_Domain, &myID);
+  if(myID == 0){ /* I'm the parent */
+    total_error.d   = tot_err[0];
+    total_error.M1  = tot_err[1];
+    total_error.M2  = tot_err[2];
+    total_error.M3  = tot_err[3];
+#ifdef MHD
+    total_error.B1c = tot_err[4];
+    total_error.B2c = tot_err[5];
+    total_error.B3c = tot_err[6];
+#endif /* MHD */
+#ifndef ISOTHERMAL
+    total_error.E   = tot_err[7];
+#endif /* ISOTHERMAL */
+  }
+  else return; /* The child grids do not do any of the following code */
+
+#endif /* MPI_PARALLEL */
+
+/* Compute RMS error over all variables, and print out */
+
+  rms_error = SQR(total_error.d) + SQR(total_error.M1) + SQR(total_error.M2)
+                + SQR(total_error.M3);
+#ifdef MHD
+  rms_error += SQR(total_error.B1c) + SQR(total_error.B2c) 
+               + SQR(total_error.B3c);
+#endif /* MHD */
+#ifndef ISOTHERMAL
+  rms_error += SQR(total_error.E);
+#endif /* ISOTHERMAL */
+  rms_error = sqrt(rms_error)/(double)count;
+
+/* Print warning to stdout if rms_error exceeds estimate of 1st-order conv */
+
+  min_zones = Nx1;
+  if (Nx2 > 1) min_zones = MIN(min_zones,Nx2);
+#ifdef HYDRO
+  if (rms_error > 8.0/min_zones)
+    printf("WARNING: rms_error=%e exceeds estimate\n",rms_error);
+#endif
+#ifdef MHD
+  if (rms_error > 12.0/min_zones)
+    printf("WARNING: rms_error=%e exceeds estimate\n",rms_error);
+#endif
+
+/* Print error to file "LinWave-errors.#.dat", where #=wave_flag  */
+
+#ifdef MPI_PARALLEL
+  fname = "../shock-errors.dat";
+#else
+  fname = "shock-errors.dat";
+#endif
+
+/* The file exists -- reopen the file in append mode */
+  if((fp=fopen(fname,"r")) != NULL){
+    if((fp = freopen(fname,"a",fp)) == NULL){
+      ath_perr(-1,"[Userwork_after_loop]: Unable to reopen file.\n");
+      free(fname);
+      return;
+    }
+  }
+/* The file does not exist -- open the file in write mode */
+  else{
+    if((fp = fopen(fname,"w")) == NULL){
+      ath_perr(-1,"[Userwork_after_loop]: Unable to open file.\n");
+      free(fname);
+      return;
+    }
+/* Now write out some header information */
+    fprintf(fp,"# Nx1  Nx2  Nx3  RMS-Error  d  M1  M2  M3");
+#ifndef ISOTHERMAL
+    fprintf(fp,"  E");
+#endif /* ISOTHERMAL */
+#ifdef MHD
+    fprintf(fp,"  B1c  B2c  B3c");
+#endif /* MHD */
+    fprintf(fp,"\n#\n");
+  }
+
+  fprintf(fp,"%d  %d  %d  %e",Nx1,Nx2,Nx3,rms_error);
+
+  fprintf(fp,"  %e  %e  %e  %e",
+	  (total_error.d/(double)count),
+	  (total_error.M1/(double)count),
+	  (total_error.M2/(double)count),
+	  (total_error.M3/(double)count) );
+
+#ifndef ISOTHERMAL
+  fprintf(fp,"  %e",(total_error.E/(double)count) );
+#endif /* ISOTHERMAL */
+
+#ifdef MHD
+  fprintf(fp,"  %e  %e  %e",
+	  (total_error.B1c/(double)count),
+	  (total_error.B2c/(double)count),
+	  (total_error.B3c/(double)count));
+#endif /* MHD */
+
+  fprintf(fp,"\n");
+
+  fclose(fp);
+
+  return;
 }
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
