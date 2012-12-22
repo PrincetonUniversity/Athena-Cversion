@@ -60,14 +60,15 @@ static int rtbis(double (*pfun)(double), const double x1, const double x2,
 		 const double xacc, const int imax, double *prt);
 static Real grav_pot(const Real x1, const Real x2, const Real x3);
 static double Bfunc(double rho);
-static Real expr_drho(const Grid *pG, const int i, const int j, const int k);
+static Real expr_drho(const GridS *pG, const int i, const int j, const int k);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
 
-void problem(Grid *pGrid, Domain *pDomain)
+void problem(DomainS *pDomain)
 {
+  GridS *pGrid = pDomain->Grid;
   int i, is = pGrid->is, ie = pGrid->ie, nx1;
   int j, js = pGrid->js, je = pGrid->je, nx2;
   int k, ks = pGrid->ks, ke = pGrid->ke, nx3;
@@ -87,38 +88,38 @@ void problem(Grid *pGrid, Domain *pDomain)
   angle = par_getd("problem","angle");
 
 /* If the grid is 1-D we override the angle variable */
-  if(pGrid->Nx2 <= 1) angle = 0.0;
-  if(pGrid->Nx1 <= 1) angle = 90.0;
+  if(pGrid->Nx[1] <= 1) angle = 0.0;
+  if(pGrid->Nx[0] <= 1) angle = 90.0;
 
 /* Compute the sin and cos of the angle and the wavelength. */
   if (angle == 0.0) {
     sin_a = 0.0;
     cos_a = 1.0;
-    lambda = pGrid->Nx1*pGrid->dx1; /* Put one wavelength in the grid */
+    lambda = pGrid->Nx[0]*pGrid->dx1; /* Put one wavelength in the grid */
   }
   else if (angle == 90.0) {
     sin_a = 1.0;
     cos_a = 0.0;
-    lambda = pGrid->Nx2*pGrid->dx2; /* Put one wavelength in the grid */
+    lambda = pGrid->Nx[1]*pGrid->dx2; /* Put one wavelength in the grid */
   }
   else {
 /* We put 1 wavelength in each direction.  Hence the wavelength
- *     lambda = pGrid->Nx1*pGrid->dx1*cos_a;
- *     AND  lambda = pGrid->Nx2*pGrid->dx2*sin_a;
+ *     lambda = pGrid->Nx[0]*pGrid->dx1*cos_a;
+ *     AND  lambda = pGrid->Nx[1]*pGrid->dx2*sin_a;
  *     are both satisfied. */
-    if((pGrid->Nx1*pGrid->dx1) == (pGrid->Nx2*pGrid->dx2)){
+    if((pGrid->Nx[0]*pGrid->dx1) == (pGrid->Nx[1]*pGrid->dx2)){
       cos_a = sin_a = sqrt(0.5);
     }
     else{
-      angle = atan((double)(pGrid->Nx1*pGrid->dx1)/(pGrid->Nx2*pGrid->dx2));
+      angle = atan((double)(pGrid->Nx[0]*pGrid->dx1)/(pGrid->Nx[1]*pGrid->dx2));
       sin_a = sin(angle);
       cos_a = cos(angle);
     }
 /* Use the larger angle to determine the wavelength */
     if (cos_a >= sin_a) {
-      lambda = pGrid->Nx1*pGrid->dx1*cos_a;
+      lambda = pGrid->Nx[0]*pGrid->dx1*cos_a;
     } else {
-      lambda = pGrid->Nx2*pGrid->dx2*sin_a;
+      lambda = pGrid->Nx[1]*pGrid->dx2*sin_a;
     }
   }
 
@@ -203,31 +204,45 @@ void problem(Grid *pGrid, Domain *pDomain)
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
 
-void problem_write_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_write_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-void problem_read_restart(Grid *pG, Domain *pD, FILE *fp)
+void problem_read_restart(MeshS *pM, FILE *fp)
 {
   return;
 }
 
-Gasfun_t get_usr_expr(const char *expr)
+ConsFun_t get_usr_expr(const char *expr)
 {
   if(strcmp(expr,"drho")==0) return expr_drho;
   return NULL;
 }
 
-VGFunout_t get_usr_out_fun(const char *name){
+VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
 
-void Userwork_in_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_in_loop(MeshS *pM)
 {
+  int nl, nd, i, j, k;
+  GridS *pGrid;
+  double Et=0.0,x,y,z;
+  pGrid=pM->Domain[0][0].Grid;
+  for (k=pGrid->ks; k<=pGrid->ke; k++) {
+    for (j=pGrid->js; j<=pGrid->je; j++) {
+      for (i=pGrid->is; i<=pGrid->ie; i++) {
+        cc_pos(pGrid,i,j,k,&x,&y,&z);
+        Et+=pGrid->U[k][j][i].E+pGrid->U[k][j][i].d*grav_pot(x,y,z);
+      }
+    }
+  }
+  Et /= (Real)((pGrid->ie - pGrid->is + 1)*(pGrid->je - pGrid->js + 1)*(pGrid->ke - pGrid->ks + 1));
+  ath_pout(0,"Et = %g, E0 = %g, delta E/E0 = %g\n",Et, E0, (Et-E0)/E0);
 }
 
-void Userwork_after_loop(Grid *pGrid, Domain *pDomain)
+void Userwork_after_loop(MeshS *pM)
 {
 }
 
@@ -320,12 +335,12 @@ static double Bfunc(double rho){
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real expr_drho(const Grid *pG,const int i,const int j,
+/*! \fn static Real expr_drho(const GridS *pG,const int i,const int j,
  *			      const int k)
  *  \brief Computes d-d0 (density - initial value)
  */
 
-static Real expr_drho(const Grid *pG, const int i, const int j, const int k)
+static Real expr_drho(const GridS *pG, const int i, const int j, const int k)
 {
  return (pG->U[k][j][i].d - d0[k][j][i]);
 }
