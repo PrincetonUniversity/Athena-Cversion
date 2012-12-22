@@ -40,13 +40,17 @@
 #   Roe/HLLE/HLLD/force/exact/two-shock
 #   1D/2D/3D
 #
+# The SIXTH consists of checking divB error in field loop
+#   CTU/VL integrator 
+#   2D/3D
+#
 # For each test, this script checks for a warning message printed to stdout
 # by the problem generator.  This happens when the L1 error in the solution
 # at the end time exceeds an analytic estimate computed in Userwork_after_loop
 
 RUN_OPTS="time/tlim=1.2 problem/vflow=0.3 job/maxout=0"
 CNT=0
-TOTAL=162
+TOTAL=170
 
 #====================== FIRST SET OF TESTS =====================
 # check 1D/2D/3D CTU and VL integrators using Roe and 3rd order
@@ -702,5 +706,84 @@ do
       fi
 
     done
+  done
+done
+
+#====================== SIXTH SET OF TESTS =====================
+# field loop in 2D and 3D
+  
+for INT in ctu vl
+do  
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+    ORD="3p"
+  else
+    CFL=""
+    ORD="3"
+  fi
+
+  cd ../..
+  make clean > clean.log
+
+# configure code
+
+  if ! configure --with-integrator=$INT --with-gas=mhd --with-eos=adiabatic --with-problem=field_loop --with-order=$ORD --with-flux=roe &> config.log
+  then
+    echo "Configure for test $CNT failed"
+    exit
+  fi
+
+# compile code
+  if ! make all &> make.log
+  then
+    echo "Compile for test $CNT failed"
+    exit
+  fi
+  rm -rf clean.log config.log make.log
+  cd tst/regression
+
+# run 2D test
+  let CNT=CNT+1
+  RUN_OPTS="job/maxout=0 problem/iprob=1"
+  if ! ../../bin/athena -i ../2D-mhd/athinput.field_loop $RUN_OPTS $CFL &> athena.log
+  then
+    echo "Athena crashed on test $CNT"
+    exit
+  fi
+
+  if grep -q "WARNING" athena.log
+  then
+    echo "Regression test $CNT failed"
+    exit
+  fi
+  echo "Passed $CNT of $TOTAL: 2D field loop using $INT" 
+
+# run 3D test
+  for IPROB in 1 2 3
+  do
+    if [ "$IPROB" == "1" ]; then
+      RUN_OPTS="job/maxout=0 problem/iprob=1 domain1/Nx3=8"
+    fi
+    if [ "$IPROB" == "2" ]; then
+      RUN_OPTS="job/maxout=0 problem/iprob=2 domain1/Nx1=8 domain1/x1min=-0.5 domain1/x1max=0.5 domain1/Nx2=64 domain1/x2min=-1.0 domain1/x2max=1.0"
+    fi
+    if [ "$IPROB" == "3" ]; then
+      RUN_OPTS="job/maxout=0 problem/iprob=3 domain1/Nx1=32 domain1/x1min=-0.5 domain1/x1max=0.5 domain1/Nx2=8 domain1/Nx3=64 domain1/x3min=-1.0 domain1/x3max=1.0"
+    fi
+
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../3D-mhd/athinput.field_loop $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+    echo "Passed $CNT of $TOTAL: 3D field loop iprob=$IPROB using $INT" 
+
   done
 done
