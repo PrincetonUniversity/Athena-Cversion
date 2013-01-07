@@ -340,8 +340,8 @@ void integrate_3d_ctu(DomainS *pD)
           phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
           phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-          gl = 0.5*(phifc - phicl)*dx1i;
-          gr = 0.5*(phicr - phifc)*dx1i;
+          gl = 2.0*(phifc - phicl)*dx1i;
+          gr = 2.0*(phicr - phifc)*dx1i;
 #if defined(CYLINDRICAL) && defined(FARGO)
           gl -= r[i-1]*SQR((*OrbitalProfile)(r[i-1]));
           gr -= r[i  ]*SQR((*OrbitalProfile)(r[i  ]));

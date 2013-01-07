@@ -1832,6 +1832,11 @@ void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const
 		   coef2 = density * R_ideal * (1.0 + dt * Sigma_aE * Crat) / (Gamma - 1.0);
 		   coef3 = -pressure / (Gamma - 1.0) - dt * Sigma_aE * Crat * Ersum;
 		   coef4 = 0.0;
+
+		if(coef1 < 1.e-20){
+			Tnew = -coef3 / coef2;
+		}
+		else{
 		   
 		  
 		   if(Tg0 > TEr){			
@@ -1839,7 +1844,8 @@ void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const
 		   }
 		   else{
 			   Tnew = rtsafe(Tequilibrium, Tg0 * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3, coef4);
-		   }			
+		   }	
+		}		
 		   
 			Ernew = (Ersum - density * R_ideal * Tnew / (Gamma - 1.0)) / Prat;
 	
@@ -2471,7 +2477,7 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 				     + Crat * dt * (Sigma_aF + Sigma_sF);
 			phi[6] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
 			phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * f21i1;
+			phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * f21j1;
 			phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 		
 
@@ -2632,9 +2638,12 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 */
 
 	tau = dt * Crat * Sigma_t;
-
+/*
 	if(tau > taucell)
 		tau = taucell;	
+*/
+
+	tau = taucell;
 
 	tau = tau * tau / (2.0 * Edd);
 

@@ -649,12 +649,8 @@ void restart_grids(char *res_file, MeshS *pM)
 /* Read intensities on ix1 grid face */
       fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Ghstl1i",7) != 0) {
-	//printf("l error: %d\n",myID_Comm_world);
-        //ath_error("Ghstl1i  %d",myID_Comm_world);
+      if(strncmp(line,"Ghstl1i",7) != 0)
 	ath_error("[restart_grids]: Expected Ghstl1i, found %s",line);
-      }// else
-      //printf("l good: %d %s",myID_Comm_world,line);
       for (ifr=0; ifr<nf; ifr++) {
 	for (k=ks; k<=ke; k++) {
 	  for (j=js; j<=je; j++) {
@@ -663,15 +659,23 @@ void restart_grids(char *res_file, MeshS *pM)
 		fread(&(pRG->Ghstl1i[ifr][k][j][l][m]),sizeof(Real),1,fp);
 	      }}}}}
 
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"l1imu",5) != 0)
+	ath_error("[restart_grids]: Expected l1imu, found %s",line);
+      for (ifr=0; ifr<nf; ifr++) {
+	for (k=ks; k<=ke; k++) {
+	  for (j=js; j<=je; j++) {
+	    for (l=0; l<noct; l++) {
+	      for (m=0; m<nang; m++) {
+		fread(&(pRG->l1imu[ifr][k][j][l][m]),sizeof(Real),1,fp);
+	      }}}}}
+
 /* Read intensities on ox1 grid face */
       fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */     
       fgets(line,MAXLEN,fp);
-      if(strncmp(line,"Ghstr1i",7) != 0) {
-	printf("r error: %d\n",myID_Comm_world);
-        ath_error("Ghstr1i  %d",myID_Comm_world);
-        //ath_error("[restart_grids]: Expected Ghstr1i, found %s",line);
-      } else
-	printf("r good: %d %s",myID_Comm_world,line);
+      if(strncmp(line,"Ghstr1i",7) != 0)
+       ath_error("[restart_grids]: Expected Ghstr1i, found %s",line);
       for (ifr=0; ifr<nf; ifr++) {
 	for (k=ks; k<=ke; k++) {
 	  for (j=js; j<=je; j++) {
@@ -679,9 +683,21 @@ void restart_grids(char *res_file, MeshS *pM)
 	      for (m=0; m<nang; m++) {
 		fread(&(pRG->Ghstr1i[ifr][k][j][l][m]),sizeof(Real),1,fp);
 	      }}}}}
+
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */     
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"r1imu",5) != 0)
+        ath_error("[restart_grids]: Expected r1imu, found %s",line);
+      for (ifr=0; ifr<nf; ifr++) {
+	for (k=ks; k<=ke; k++) {
+	  for (j=js; j<=je; j++) {
+	    for (l=0; l<noct; l++) {
+	      for (m=0; m<nang; m++) {
+		fread(&(pRG->r1imu[ifr][k][j][l][m]),sizeof(Real),1,fp);
+	      }}}}}
     }
 
-      if (pRG->Nx[1] > 1) {
+    if (pRG->Nx[1] > 1) {
 /* Read intensities on ix2 grid face */
       fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
@@ -695,6 +711,18 @@ void restart_grids(char *res_file, MeshS *pM)
 		  fread(&(pRG->Ghstl2i[ifr][k][i][l][m]),sizeof(Real),1,fp);
 		}}}}}
 
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"l2imu",5) != 0)
+        ath_error("[restart_grids]: Expected l2imu, found %s",line);
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (k=ks; k<=ke; k++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  fread(&(pRG->l2imu[ifr][k][i][l][m]),sizeof(Real),1,fp);
+		}}}}}
+
 /* Read intensities on ox2 grid face */
      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
       fgets(line,MAXLEN,fp);
@@ -706,6 +734,18 @@ void restart_grids(char *res_file, MeshS *pM)
 	      for (l=0; l<noct; l++) {
 		for (m=0; m<nang; m++) {
 		  fread(&(pRG->Ghstr2i[ifr][k][i][l][m]),sizeof(Real),1,fp);
+		}}}}}
+
+     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"r2imu",5) != 0)
+        ath_error("[restart_grids]: Expected r2imu, found %s",line);
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (k=ks; k<=ke; k++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  fread(&(pRG->r2imu[ifr][k][i][l][m]),sizeof(Real),1,fp);
 		}}}}}
       }
 
@@ -722,6 +762,17 @@ void restart_grids(char *res_file, MeshS *pM)
 		for (m=0; m<nang; m++) {
 		  fread(&(pRG->Ghstl3i[ifr][j][i][l][m]),sizeof(Real),1,fp);
 		}}}}}
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"l3imu",5) != 0)
+        ath_error("[restart_grids]: Expected l3imu, found %s",line);
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (j=js; j<=je; j++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  fread(&(pRG->l3imu[ifr][j][i][l][m]),sizeof(Real),1,fp);
+		}}}}}
 
 /* Read intensities on ox3 grid face */
       fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
@@ -734,6 +785,17 @@ void restart_grids(char *res_file, MeshS *pM)
 	      for (l=0; l<noct; l++) {
 		for (m=0; m<nang; m++) {
 		  fread(&(pRG->Ghstr3i[ifr][j][i][l][m]),sizeof(Real),1,fp);
+		}}}}}
+      fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+      fgets(line,MAXLEN,fp);
+      if(strncmp(line,"r3imu",5) != 0)
+        ath_error("[restart_grids]: Expected r3imu, found %s",line);
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (j=js; j<=je; j++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  fread(&(pRG->r3imu[ifr][j][i][l][m]),sizeof(Real),1,fp);
 		}}}}}
       }
 #endif /*RADIATION_TRANSFER*/
@@ -1562,6 +1624,23 @@ void dump_restart(MeshS *pM, OutputS *pout)
 	  nbuf = 0;
 	}
 
+	fprintf(fp,"\nl1imu\n");
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (k=ks; k<=ke; k++) {
+	    for (j=js; j<=je; j++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  buf[nbuf++] = pRG->l1imu[ifr][k][j][l][m];
+		  if ((nbuf+1) > bufsize) {
+		    fwrite(buf,sizeof(Real),nbuf,fp);
+		    nbuf = 0;
+		  }
+		}}}}}
+	if (nbuf > 0) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
+
 /* Write intensities on ox1 grid face */
 	fprintf(fp,"\nGhstr1i\n");
 	for (ifr=0; ifr<nf; ifr++) {
@@ -1580,6 +1659,22 @@ void dump_restart(MeshS *pM, OutputS *pout)
 	  nbuf = 0;
 	}
 
+	fprintf(fp,"\nr1imu\n");
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (k=ks; k<=ke; k++) {
+	    for (j=js; j<=je; j++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  buf[nbuf++] = pRG->r1imu[ifr][k][j][l][m];
+		  if ((nbuf+1) > bufsize) {
+		    fwrite(buf,sizeof(Real),nbuf,fp);
+		    nbuf = 0;
+		  }
+		}}}}}
+	if (nbuf > 0) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
       }
 
       if (pRG->Nx[1] > 1) {
@@ -1601,6 +1696,22 @@ void dump_restart(MeshS *pM, OutputS *pout)
 	  nbuf = 0;
 	}
 
+	fprintf(fp,"\nl2imu\n");
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (k=ks; k<=ke; k++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  buf[nbuf++] = pRG->l2imu[ifr][k][i][l][m];
+		  if ((nbuf+1) > bufsize) {
+		    fwrite(buf,sizeof(Real),nbuf,fp);
+		    nbuf = 0;
+		  }
+		}}}}}
+	if (nbuf > 0) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
 /* Write intensities on ox2 grid face */
 	fprintf(fp,"\nGhstr2i\n");
 	for (ifr=0; ifr<nf; ifr++) {
@@ -1609,6 +1720,23 @@ void dump_restart(MeshS *pM, OutputS *pout)
 	      for (l=0; l<noct; l++) {
 		for (m=0; m<nang; m++) {
 		  buf[nbuf++] = pRG->Ghstr2i[ifr][k][i][l][m];
+		  if ((nbuf+1) > bufsize) {
+		    fwrite(buf,sizeof(Real),nbuf,fp);
+		    nbuf = 0;
+		  }
+		}}}}}
+	if (nbuf > 0) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
+
+	fprintf(fp,"\nr2imu\n");
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (k=ks; k<=ke; k++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  buf[nbuf++] = pRG->r2imu[ifr][k][i][l][m];
 		  if ((nbuf+1) > bufsize) {
 		    fwrite(buf,sizeof(Real),nbuf,fp);
 		    nbuf = 0;
@@ -1638,7 +1766,22 @@ void dump_restart(MeshS *pM, OutputS *pout)
 	  fwrite(buf,sizeof(Real),nbuf,fp);
 	  nbuf = 0;
 	}
-
+	fprintf(fp,"\nl3imu\n");
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (j=js; j<=je; j++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  buf[nbuf++] = pRG->l3imu[ifr][j][i][l][m];
+		  if ((nbuf+1) > bufsize) {
+		    fwrite(buf,sizeof(Real),nbuf,fp);
+		    nbuf = 0;
+		  }
+		}}}}}
+	if (nbuf > 0) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
 /* Write intensities on ox3 grid face */
 	fprintf(fp,"\nGhstr3i\n");
 	for (ifr=0; ifr<nf; ifr++) {
@@ -1656,7 +1799,22 @@ void dump_restart(MeshS *pM, OutputS *pout)
 	  fwrite(buf,sizeof(Real),nbuf,fp);
 	  nbuf = 0;
 	}
-
+	fprintf(fp,"\nr3imu\n");
+	for (ifr=0; ifr<nf; ifr++) {
+	  for (j=js; j<=je; j++) {
+	    for (i=is; i<=ie; i++) {
+	      for (l=0; l<noct; l++) {
+		for (m=0; m<nang; m++) {
+		  buf[nbuf++] = pRG->r3imu[ifr][j][i][l][m];
+		  if ((nbuf+1) > bufsize) {
+		    fwrite(buf,sizeof(Real),nbuf,fp);
+		    nbuf = 0;
+		  }
+		}}}}}
+	if (nbuf > 0) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
       }
 
 #endif /*RADIATION_TRANSFER*/

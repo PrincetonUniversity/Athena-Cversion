@@ -309,6 +309,10 @@ void integrate_3d_radMHD(DomainS *pD)
                         for (i=is-nghost; i<=ie+nghost; i++) {
 
                                 Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+			if(Wtemp.d < dfloor){
+				Wtemp.d = dfloor;
+				pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+			}
 
 			if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
 					Wtemp.P = Tfloor * Wtemp.d * R_ideal;

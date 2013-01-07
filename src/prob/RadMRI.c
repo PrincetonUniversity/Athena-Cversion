@@ -161,20 +161,20 @@ static Real inidata[3];
 /* Save the initial Er, Fr and rho at ke */
 
 static Real Tfloor = 0.03;
-static Real dfloor = 1.e-5;
+static Real dfloor = 5.e-6;
 
-#define Dataline 256
+#define Dataline 512
 
 
 /* For transfer module */
 #ifdef RADIATION_TRANSFER
 
 
-static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k);
-static Real Transfereps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real Transfereps(const GridS *pG,  const int ifr, const int i, const int j, 
 		      const int k);
-static Real transfer_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const int j, 
 			  const int k);
 
 
@@ -305,16 +305,18 @@ void problem(DomainS *pDomain)
 #endif
 
 	betaz=0.0;
-	betay=35.0;
+	betay=3.0;
 	pres = 1.0;
 
   	B0z = 0.0;
   	B0y = sqrt((double)(2.0*pres/betay));
+	B0y = 0.9988;
 	B0 = sqrt(B0z * B0z + B0y * B0y);	
 
 	kappaes = 2.719701e4;
-	kappaffP = 182.926;
-	kappaffR = 4.94395;
+        kappaffP = 182.926;
+        kappaffR = 4.94395;
+
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->Disp[0];
@@ -503,15 +505,14 @@ void problem(DomainS *pDomain)
   }}
 
 #if defined(MHD) || defined(RADIATION_MHD)
-
 	if (ifield == 6) {
   /* flux tube of Hirose et al. We put this down here to break away from the
-     for loops used above. */
-    		Real xc=0.0,zc=0.0,Bpratio=0.125,Bp0,rad0,rad,Ay0,x1h,x3h;
-    	
-	 Real ***Ay;
-  	if((Ay = (Real***)calloc_3d_array(pGrid->Nx[2]+2*nghost,pGrid->Nx[1]+2*nghost, pGrid->Nx[0]+2*nghost ,sizeof(Real))) == NULL)
-		ath_error("[problem]: malloc return a NULL pointer\n");
+ *      for loops used above. */
+                Real xc=0.0,zc=0.0,Bpratio=0.25,Bp0,rad0,rad,Ay0,x1h,x3h;
+
+         Real ***Ay;
+        if((Ay = (Real***)calloc_3d_array(pGrid->Nx[2]+2*nghost,pGrid->Nx[1]+2*nghost, pGrid->Nx[0]+2*nghost ,sizeof(Real))) == NULL)
+                ath_error("[problem]: malloc return a NULL pointer\n");
 
 
     for (k=ks; k<=ke+2; k++) {
@@ -519,33 +520,37 @@ void problem(DomainS *pDomain)
         for (i=is; i<=ie+2; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 /*
-	 x1 = pGrid->MinX[0] + ((Real)(i - pGrid->is) + 0.5)*pGrid->dx1;
- 	 x2 = pGrid->MinX[1] + ((Real)(j - pGrid->js) + 0.5)*pGrid->dx2;
-	 x3 = pGrid->MinX[2] + ((Real)(k - pGrid->ks) + 0.5)*pGrid->dx3;
-*/
+ *          x1 = pGrid->MinX[0] + ((Real)(i - pGrid->is) + 0.5)*pGrid->dx1;
+ *                   x2 = pGrid->MinX[1] + ((Real)(j - pGrid->js) + 0.5)*pGrid->dx2;
+ *                            x3 = pGrid->MinX[2] + ((Real)(k - pGrid->ks) + 0.5)*pGrid->dx3;
+ *                            */
           x1h = x1-0.5*pGrid->dx1;
           x3h = x3-0.5*pGrid->dx3;
           Bp0 = B0*Bpratio;
   /* We are assuming that the scale height is H = 1 as usual */
-	 rad0 = Lx/4.0;
+         rad0 = 1.0;
           Ay0 = Bp0*rad0/PI;
-         if(x3h > 0.0)
-            rad = sqrt(SQR(x1h-xc)+SQR(x3h-Lx/4.0));
-         else
-            rad = sqrt(SQR(x1h-xc)+SQR(x3h+Lx/4.0));
+
+        if(x3h > 0.0)
+                rad = sqrt(SQR(x1h-xc)/SQR(0.75*Lx)+SQR((x3h-1.088)/1.088));
+        else
+                rad = sqrt(SQR(x1h-xc)/SQR(0.75*Lx)+SQR((x3h+1.088)/1.088));
+
 
 
         /* Only limited to one scale height */
         /*   rad = fabs((x1h-xc)/(0.5) + fabs(x3h-zc)/(0.25));
-        */
+ *           */
   /* Calculate vector potential */
-          if (rad < rad0) {
-              Ay[k][j][i]=-Ay0*(1.0+cos(PI*rad/rad0));
-             if(x3h < 0.0)
-                Ay[k][j][i]=Ay0*(1.0+cos(PI*rad/rad0));
+
+        if (rad < rad0) {
+                        Ay[k][j][i]=-Ay0*(1.0+cos(PI*rad/rad0));
+                if(x3h < 0.0)
+                        Ay[k][j][i]=Ay0*(1.0+cos(PI*rad/rad0));
           } else {
             Ay[k][j][i]=0.0;
           }
+
 	
         }
       }
@@ -588,9 +593,9 @@ void problem(DomainS *pDomain)
           }
 
 		/* Fill in the mid-plane with uniform By */
-		if(fabs(x3) < 0.8)
+/*		if(fabs(x3) < 0.8)
 			pGrid->B2i[k][j][i] = sqrt(SQR(B0)-(SQR(pGrid->U[k][j][i].B1c)+SQR(pGrid->U[k][j][i].B3c)));
-
+*/
         }
       }
   /* Finally, calculate cell centered By field from face fields */
@@ -703,6 +708,7 @@ void problem(DomainS *pDomain)
 	/* set boundary functions */
 
 	/* use periodic boundary condition for gas variables */
+
 	bvals_mhd_fun(pDomain, right_x3, radMHD_inflowke);
 
 	bvals_rad_fun(pDomain, right_x3, radMHD_rad_inflowke);
@@ -736,7 +742,7 @@ void problem(DomainS *pDomain)
 	  ig = i + ioff;
 	  if (i == il) ig++;
 	  if (i == iu) ig--;
-	  pRG->R[ifr][k][j][i].J = Thermal_B(pGrid,pRG,ifr,ig,jg,kg);
+	  pRG->R[ifr][k][j][i].J = Thermal_B(pGrid,ifr,ig,jg,kg);
 	}}}
     
   }
@@ -794,7 +800,6 @@ get_thermal_fraction = Transfereps;
 get_total_opacity = transfer_opacity;
 
 #endif
-
 
 
 
@@ -912,6 +917,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 	fread(&kappaes,sizeof(Real),1,fp);
 	fread(&kappaffP,sizeof(Real),1,fp);
 	fread(&kappaffR,sizeof(Real),1,fp);
+	
 #endif
 	
 #ifdef SHEARING_BOX
@@ -1110,6 +1116,111 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 		}
 	}
 */
+
+
+/* define the radiation transfer module */
+#ifdef RADIATION_TRANSFER
+	
+/*	RadGridS *pRG = pD->RadGrid;
+	par_seti("radiation","niter0","%d",10,"# of initial iterations");
+	par_setd("radiation","dScnv0","%e",5.0e-3,"threshold for initial convergence");
+	par_seti("radiation","niter","%d",10,"# of initial iterations");
+	par_setd("radiation","dScnv","%e",5.0e-3,"threshold for initial convergence");
+*/
+/*        pRG->nmu = 4.0;
+ *                  pRG->nang =  pRG->nmu * (pRG->nmu + 1) / 2;
+ *                            pRG->noct = 8;
+ *                                      pRG->nf = 1;
+ *                                      */
+ /*       int nf=pRG->nf, nang=pRG->nang;
+        int il = pRG->is-1, iu = pRG->ie+1;
+        int jl = pRG->js-1, ju = pRG->je+1;
+        int kl = pRG->ks-1, ku = pRG->ke+1;
+        int ioff = nghost - 1;
+        int joff = nghost - 1;
+        int koff = nghost - 1;
+        int ifr, kg, ig, jg;
+        Real eps;
+*/	
+	/* Initialize mean intensity */
+/*		for(ifr=0; ifr<nf; ifr++) {
+	  for (k=kl; k<=ku; k++) {
+	    kg = k + koff;
+	    if (k == kl) kg++;
+	    if (k == ku) kg--;
+	    for (j=jl; j<=ju; j++) {
+	      jg = j + joff;
+	      if (j == jl) jg++;
+	      if (j == ju) jg--;
+	      for(i=il; i<=iu; i++) {
+		ig = i + ioff;
+                if (i == il) ig++;
+                if (i == iu) ig--;
+                eps = Transfereps(pGrid,ifr,ig,jg,kg);
+		 pRG->R[ifr][k][j][i].J = eps * Thermal_B(pGrid,ifr,ig,jg,kg);
+	      }}}
+
+	      } 
+*/
+
+	/* Density gradient aligned with i3 */
+/* For disk, zero intensity any direction */
+ /*   for(ifr=0; ifr<nf; ifr++) {
+      for(k=kl; k<=ku; k++) {
+        kg = k + koff;
+        for(j=jl; j<=ju; j++) {
+          for(m=0; m<nang; m++) {
+            pRG->Ghstr1i[ifr][k][j][0][m] = 0.0;
+            pRG->Ghstr1i[ifr][k][j][2][m] = 0.0;
+            pRG->Ghstr1i[ifr][k][j][4][m] = 0.0;
+            pRG->Ghstr1i[ifr][k][j][6][m] = 0.0;
+            pRG->Ghstl1i[ifr][k][j][1][m] = 0.0;
+            pRG->Ghstl1i[ifr][k][j][3][m] = 0.0;
+            pRG->Ghstl1i[ifr][k][j][5][m] = 0.0;
+            pRG->Ghstl1i[ifr][k][j][7][m] = 0.0;
+          }}
+        for(i=il; i<=iu; i++) {
+          for(m=0; m<nang; m++) {
+            pRG->Ghstl2i[ifr][k][i][0][m] = 0.0;
+            pRG->Ghstl2i[ifr][k][i][1][m] = 0.0;
+            pRG->Ghstl2i[ifr][k][i][4][m] = 0.0;
+            pRG->Ghstl2i[ifr][k][i][5][m] = 0.0;
+            pRG->Ghstr2i[ifr][k][i][2][m] = 0.0;
+            pRG->Ghstr2i[ifr][k][i][3][m] = 0.0;
+            pRG->Ghstr2i[ifr][k][i][6][m] = 0.0;
+            pRG->Ghstr2i[ifr][k][i][7][m] = 0.0;
+          }}
+      }
+
+      for(j=jl; j<=ju; j++) {
+        for(i=il; i<=iu; i++) {
+          for(m=0; m<nang; m++) {
+            pRG->Ghstl3i[ifr][j][i][0][m] = 0.0;
+            pRG->Ghstl3i[ifr][j][i][1][m] = 0.0;
+            pRG->Ghstl3i[ifr][j][i][2][m] = 0.0;
+            pRG->Ghstl3i[ifr][j][i][3][m] = 0.0;
+            pRG->Ghstr3i[ifr][j][i][4][m] = 0.0;
+            pRG->Ghstr3i[ifr][j][i][5][m] = 0.0;
+            pRG->Ghstr3i[ifr][j][i][6][m] = 0.0;
+            pRG->Ghstr3i[ifr][j][i][7][m] = 0.0;
+          }}}
+    }
+
+*/
+
+
+        get_thermal_source = Thermal_B;
+        get_thermal_fraction = Transfereps;
+        get_total_opacity = transfer_opacity;
+
+
+/*      hydro_to_rad(pDomain);
+ *      formal_solution(pDomain);
+ *      Eddington_FUN(pGrid, pRG);
+ */
+#endif
+
+
   return;
 }
 
@@ -1195,7 +1306,7 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	else{
 		eta0 = 0.0;
 	}
-	Real factor = 0.2;
+	Real factor = 0.01;
 	/* First, calculate the current */
 	/* current is on the edge */
 	if((i != (is-4)) && (j != (js-4)) && (k != (ks-4)) && (i != (ie+4)) && (j != (je+4)) && (k != (ke+4))){
@@ -1258,10 +1369,10 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 
 	cc_pos(pG,i,j,k,&x1,&x2,&x3);
 	
-	if(fabs(x3) > 1.5){
+	if(fabs(x3) > 6.0){
 		if(Jrhomax > 0.0){
-			if((J > factor * Jrhomax) && (J > 100.0)){
-				*eta_O = eta0 * J * J /(Jrhomax * Jrhomax);
+			if((J > factor * Jrhomax) && (J > 0.01)){
+				*eta_O = eta0 * J * J /( Jrhomax * Jrhomax);
 			}
 			else{
 				*eta_O = 0.0;
@@ -1277,6 +1388,9 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 
 	if(*eta_O > eta0)
 		*eta_O = eta0;
+
+	if(pG->dt > 2.9e-4)
+               *eta_O *= 0.1;
 
 	*eta_H = 0.0;
 	*eta_A = 0.0;
@@ -1307,7 +1421,7 @@ void Userwork_in_loop(MeshS *pM)
 
 
 
-/*
+
 
  Real betafloor = 0.000;
 	
@@ -1397,11 +1511,15 @@ void Userwork_in_loop(MeshS *pM)
                 }
         }
 
-*/
+
 }
 
 void Userwork_after_loop(MeshS *pM)
 {
+}
+void Userwork_after_first_formal_solution(DomainS *pD)
+{
+
 }
 
 /*------------------------------------------------------------------------------
@@ -2015,7 +2133,7 @@ static Real hst_EB(const GridS *pG, const int i, const int j, const int k)
 /* Function for transfer module */
 #ifdef RADIATION_TRANSFER
 
-static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real Thermal_B_old(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k)
 {
 	Real density, vx, vy, vz, energy, pressure, T, B;
@@ -2031,36 +2149,81 @@ static Real Thermal_B(const GridS *pG, const RadGridS *pRG, const int ifr, const
 #endif
 	T = pressure / (density * R_ideal);
 	B = T * T * T * T / (4.0 * PI);
+
+	//*pG->U[k][j][i].Sigma[2] / (pG->U[k][j][i].Sigma[0] + 1.0 * pG->U[k][j][i].Sigma[2]) * 1000.;
  
 
 
   return B;
 }
 
-static Real Transfereps(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
+static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
+		    const int k)
+{
+  
+  return pow(pG->tgas[k][j][i],4);
+
+}
+
+static Real Transfereps_old(const GridS *pG,  const int ifr, const int i, const int j, 
 		      const int k)
 {
-	Real eps;
-	eps = pG->U[k][j][i].Sigma[1] / (pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[1]);
+
+  Real eps;
+
+  eps = pG->U[k][j][i].Sigma[2] / (pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[2]);
 
   return eps;
   
 }
 
-static Real transfer_opacity(const GridS *pG, const RadGridS *pRG, const int ifr, const int i, const int j, 
-			  const int k)
+static Real Transfereps(const GridS *pG,  const int ifr, const int i, const int j, 
+		      const int k)
 {
-	
-  return (pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[1]);
+
+  Real eps = 0.0, siga, sigs;
+  Real epsmin = 1.0E-10;
+
+  if(pG->tgas[k][j][i] > 0.0) {
+    siga = kappaffP * SQR(pG->U[k][j][i].d) / pow(pG->tgas[k][j][i],3.5);
+    sigs = kappaes * pG->U[k][j][i].d;
+    eps = siga / (siga + sigs);
+  }
+  if (eps < epsmin) eps=epsmin;
+
+  //eps = pG->U[k][j][i].Sigma[2] / (pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[2]);
+
+  return eps;
   
 }
 
+static Real transfer_opacity(const GridS *pG,  const int ifr, const int i, const int j, 
+			  const int k)
+{
+  Real siga = 0.0, sigs;
+  if(pG->tgas[k][j][i] > 0.0) {
+    siga = kappaffP * SQR(pG->U[k][j][i].d) / pow(pG->tgas[k][j][i],3.5);
+  }
+  sigs = kappaes * pG->U[k][j][i].d;	
 
+  return siga + sigs;
+  //  return pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[2];
+  
+}
+
+static Real transfer_opacity_old(const GridS *pG,  const int ifr, const int i, const int j, 
+			  const int k)
+{
+  
+  return pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[2];
+  
+}
 void Userwork_in_formal_solution(DomainS *pD)
 {
 
 
 }
+
 
 #endif
 
@@ -2121,14 +2284,17 @@ void radMHD_inflowke(GridS *pGrid)
                                          pGrid->B2i[ke+k][j][i] = pGrid->B2i[ke+k-1][j][i];
                                 }
 		*/
-			 if(pGrid->U[ke][j][i].M3 < 0.0){
-                                pGrid->B1i[ke+k][j][i] = 0.0 * pGrid->B1i[ke+k-1][j][i];
+			
+
+			if(pGrid->U[ke][j][i].M3 < 0.0){
+                         	pGrid->B1i[ke+k][j][i] = 0.0 * pGrid->B1i[ke+k-1][j][i];
                                 pGrid->B2i[ke+k][j][i] = 0.0 * pGrid->B2i[ke+k-1][j][i];
                         }
                         else{
                                 pGrid->B1i[ke+k][j][i] = pGrid->B1i[ke+k-1][j][i];
                                 pGrid->B2i[ke+k][j][i] = pGrid->B2i[ke+k-1][j][i];
                         }
+
 
 				if(k<nghost)
 					pGrid->B3i[ke+k+1][j][i] = pGrid->B3i[ke+k][j][i];
@@ -2160,14 +2326,14 @@ void radMHD_inflowke(GridS *pGrid)
 		for(j=js-nghost;j<=je+nghost;j++){
 			for(i=is-nghost;i<=ie+nghost;i++){
 				 if(pGrid->U[ke][j][i].M3 < 0.0){
-                                        pGrid->U[ke+k][j][i].B1c = 0.0 * pGrid->U[ke][j][i].B1c;
-                                        pGrid->U[ke+k][j][i].B2c = 0.0 * pGrid->U[ke][j][i].B2c;
+                                         pGrid->U[ke+k][j][i].B1c = 0.0 * pGrid->U[ke][j][i].B1c;
+                                         pGrid->U[ke+k][j][i].B2c = 0.0 * pGrid->U[ke][j][i].B2c;
                                  }
                                  else{
-                                        pGrid->U[ke+k][j][i].B1c = pGrid->U[ke][j][i].B1c;
-                                        pGrid->U[ke+k][j][i].B2c = pGrid->U[ke][j][i].B2c;
+                                         pGrid->U[ke+k][j][i].B1c = pGrid->U[ke][j][i].B1c;
+                                         pGrid->U[ke+k][j][i].B2c = pGrid->U[ke][j][i].B2c;
                                  }
-
+				
 				if(k<nghost){
 					pGrid->U[ke+k][j][i].B3c = 0.5 * (pGrid->B3i[ke+k][j][i] + pGrid->B3i[ke+k+1][j][i]);
 				}
@@ -2244,9 +2410,9 @@ void radMHD_inflowke(GridS *pGrid)
 
 	
 		/* set density upper limit in ghost zone */
-/*		if(pGrid->U[ke+k][j][i].d > dfloor)
+	/*	if(pGrid->U[ke+k][j][i].d > dfloor)
 			pGrid->U[ke+k][j][i].d = dfloor;				
-*/		
+	*/	
 
 		
       		pGrid->U[ke+k][j][i].M1 = velocity1 * pGrid->U[ke+k][j][i].d;
@@ -2270,6 +2436,9 @@ void radMHD_inflowke(GridS *pGrid)
 			
 		Thindiskopacity(pGrid->U[ke+k][j][i].d, T, Sigma, NULL);
 		
+		if(T < 2.0 * TINY_NUMBER)
+			Sigma[0] = kappaes * pGrid->U[ke+k][j][i].d;
+
 		for(m=0; m<NOPACITY;m++){
 			pGrid->U[ke+k][j][i].Sigma[m] = Sigma[m];
 		}	
@@ -2485,7 +2654,6 @@ void radMHD_inflowks(GridS *pGrid)
                                          pGrid->B2i[ks-k][j][i] = pGrid->B2i[ks-k+1][j][i];
                                 }
 			*/
-
 				if(pGrid->U[ks][j][i].M3 > 0.0){
                                         pGrid->B1i[ks-k][j][i] = 0.0 * pGrid->B1i[ks-k+1][j][i];
                                         pGrid->B2i[ks-k][j][i] = 0.0 * pGrid->B2i[ks-k+1][j][i];
@@ -2494,7 +2662,7 @@ void radMHD_inflowks(GridS *pGrid)
                                         pGrid->B1i[ks-k][j][i] = pGrid->B1i[ks-k+1][j][i];
                                         pGrid->B2i[ks-k][j][i] = pGrid->B2i[ks-k+1][j][i];
                                 }
-
+				
 				pGrid->B3i[ks-k][j][i] = pGrid->B3i[ks-k+1][j][i];	
 
 			}
@@ -2522,14 +2690,13 @@ void radMHD_inflowks(GridS *pGrid)
 		for(j=js-nghost;j<=je+nghost;j++){
 			for(i=is-nghost;i<=ie+nghost;i++){
 				if(pGrid->U[ks][j][i].M3 > 0.0){
-                                        pGrid->U[ks-k][j][i].B1c = 0.0 * pGrid->U[ks][j][i].B1c;
+					pGrid->U[ks-k][j][i].B1c = 0.0 * pGrid->U[ks][j][i].B1c;
                                         pGrid->U[ks-k][j][i].B2c = 0.0 * pGrid->U[ks][j][i].B2c;
-                                }
-                                else{
-                                        pGrid->U[ks-k][j][i].B1c = pGrid->U[ks][j][i].B1c;
-                                        pGrid->U[ks-k][j][i].B2c = pGrid->U[ks][j][i].B2c;
-                                }
-
+				}
+				else{
+					pGrid->U[ks-k][j][i].B1c = pGrid->U[ks][j][i].B1c;
+					pGrid->U[ks-k][j][i].B2c = pGrid->U[ks][j][i].B2c;
+				}
 				pGrid->U[ks-k][j][i].B3c = 0.5 * (pGrid->B3i[ks-k][j][i] + pGrid->B3i[ks-k+1][j][i]);
 
 			}
@@ -2614,6 +2781,9 @@ void radMHD_inflowks(GridS *pGrid)
 
 			
 		Thindiskopacity(pGrid->U[ks-k][j][i].d, T, Sigma, NULL);
+
+		if(T < 2.0 * TINY_NUMBER)
+			Sigma[0] = kappaes * pGrid->U[ks-k][j][i].d;
 		
 		for(m=0; m<NOPACITY;m++){
 			pGrid->U[ks-k][j][i].Sigma[m] = Sigma[m];
@@ -3048,12 +3218,12 @@ static void output_1d(MeshS *pM, OutputS *pOut)
   int ierr,myID_Comm_Domain;
 #endif
 
-/* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap */
+/* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap, fxx, fyy, fzz, fxy, fxz, fyz */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-  tot1d=15+6+5+1+1;
+  tot1d=15+6+5+1+1+6;
 #else
-  tot1d=7+6+5+1+1;
+  tot1d=7+6+5+1+1+6;
 #endif /* MHD */
 #ifdef ADIABATIC
   tot1d=tot1d+3+1+1;
@@ -3256,6 +3426,20 @@ static void output_1d(MeshS *pM, OutputS *pOut)
 	Bpre1 = expr_ME(pGrid,i,j,k);
 	out1d[kg][i1d] += sqrt(2.0 * Bpre1 / pGrid->U[k][j][i].d);
 #endif
+	/* Eddington tensor */
+	i1d++;
+	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_11;
+	i1d++;
+	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_22;
+	i1d++;
+	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_33;
+	i1d++;
+	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_21;
+	i1d++;
+	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_31;
+	i1d++;
+	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_32;
+	
 
       }
     }
@@ -3334,11 +3518,11 @@ static void output_1d(MeshS *pM, OutputS *pOut)
 #else
 #ifdef RADIATION_MHD
     if (k == 0) {
-      fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma		[32]2B^2/d\n");
+      fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma		[32]2B^2/d	[33]f_xx	[34]f_yy	[35]f_zz	[36]f_xy	[37]f_xz	[38]f_yz\n");
     }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
             out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
-            out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29],out1d[k][30]);
+            out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29],out1d[k][30],out1d[k][31],out1d[k][32],out1d[k][33],out1d[k][34],out1d[k][35],out1d[k][36]);
 #else
     if (k == 0) {
       fprintf(p_1dfile,"# x3     dens    pressure    temperature  E     Etot     KEx         KEy         KEz         KE          Reynolds\n");
@@ -3363,6 +3547,7 @@ static void output_1d(MeshS *pM, OutputS *pOut)
   if (FIRST == 0) {
     FIRST = 1;
   }
+
 
 return;
 }

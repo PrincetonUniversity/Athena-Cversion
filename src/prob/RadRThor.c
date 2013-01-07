@@ -772,8 +772,8 @@ void radMHD_inflow2(GridS *pGrid)
       pGrid->U[ks][j][is-i].B1c =  sqrt(fabs(u0));
 #endif
 		
-      pGrid->U[ks][j][is-i].M1 = pGrid->U[ks][j][is+i-1].M1;
-      pGrid->U[ks][j][is-i].M2 = -0.0 * pGrid->U[ks][j][is+i-1].M2;
+      pGrid->U[ks][j][is-i].M1 = 0.0 * pGrid->U[ks][j][is+i-1].M1;
+      pGrid->U[ks][j][is-i].M2 = pGrid->U[ks][j][is+i-1].M2;
       pGrid->U[ks][j][is-i].M3 = 0.0;
       pGrid->U[ks][j][is-i].d  = d1;
       pGrid->U[ks][j][is-i].Sigma[0] = kappaes *  pGrid->U[ks][j][is-i].d;
@@ -860,8 +860,8 @@ void radMHD_Mat_inflowi2(MatrixS *pMat)
       pMat->Ugas[ks][j][is-i].Edd_22 = pMat->Ugas[ks][j][is].Edd_22;
       pMat->Ugas[ks][j][is-i].Edd_21 = pMat->Ugas[ks][j][is].Edd_21;
 	
-      pMat->Ugas[ks][j][is-i].V1 =  pMat->Ugas[ks][j][is+i-1].V1;
-      pMat->Ugas[ks][j][is-i].V2 = -pMat->Ugas[ks][j][is+i-1].V2;
+      pMat->Ugas[ks][j][is-i].V1 =  -pMat->Ugas[ks][j][is+i-1].V1;
+      pMat->Ugas[ks][j][is-i].V2 = pMat->Ugas[ks][j][is+i-1].V2;
       pMat->Ugas[ks][j][is-i].T4 = pMat->Ugas[ks][j][is].T4;
       pMat->Ugas[ks][j][is-i].Sigma[0] = pMat->Ugas[ks][j][is].Sigma[0];
       pMat->Ugas[ks][j][is-i].Sigma[1] = pMat->Ugas[ks][j][is].Sigma[1];
@@ -899,8 +899,8 @@ void radMHD_Mat_inflowo2(MatrixS *pMat)
       pMat->Ugas[ks][j][ie+i].Edd_22 = pMat->Ugas[ks][j][ie].Edd_22;
       pMat->Ugas[ks][j][ie+i].Edd_21 = pMat->Ugas[ks][j][ie].Edd_21;
       
-      pMat->Ugas[ks][j][ie+i].V1 = pMat->Ugas[ks][j][ie].V1;
-      pMat->Ugas[ks][j][ie+i].V2 = -pMat->Ugas[ks][j][ie-i+1].V2;
+      pMat->Ugas[ks][j][ie+i].V1 = -pMat->Ugas[ks][j][ie].V1;
+      pMat->Ugas[ks][j][ie+i].V2 = pMat->Ugas[ks][j][ie-i+1].V2;
       pMat->Ugas[ks][j][ie+i].T4 = pMat->Ugas[ks][j][ie].T4;
       pMat->Ugas[ks][j][ie+i].Sigma[0] = pMat->Ugas[ks][j][ie].Sigma[0];
       pMat->Ugas[ks][j][ie+i].Sigma[1] = pMat->Ugas[ks][j][ie].Sigma[1];
