@@ -106,6 +106,7 @@ static void output_vtk_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if((pfile = fopen(fname,"w")) == NULL){
     ath_error("[output_vtk]: Unable to open vtk file %s\n",fname);
   }
+  free(fname);
 
 /* Store the global min / max, for output at end of run */
   minmax2(data2d,nx2,nx1,&dmin,&dmax);
@@ -214,6 +215,7 @@ static void output_vtk_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if((pfile = fopen(fname,"w")) == NULL){
     ath_error("[output_vtk]: Unable to open vtk file %s\n",fname);
   }
+  free(fname);
 
 /* Store the global min / max, for output at end of run */
   minmax3(data3d,nx3,nx2,nx1,&dmin,&dmax);

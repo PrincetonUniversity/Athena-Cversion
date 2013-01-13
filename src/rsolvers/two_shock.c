@@ -34,29 +34,28 @@
 #error : The 2-shock flux for adiabatic EOS has not been implemented.
 #endif /* ISOTHERMAL */
 
-#if (NSCALARS > 0)
-#error : Passive scalars have not been implemented in the 2-shock flux.
-#endif /* NSCALARS */
-
 /*----------------------------------------------------------------------------*/
 /*! \fn void fluxes(const Cons1DS Ul, const Cons1DS Ur,
  *            const Prim1DS Wl, const Prim1DS Wr,
- *            const Real Bxi, Cons1DS *pFlux)
+ *            const Real Bxi, Cons1DS *pF)
  *  \brief Computes 1D fluxes
  *   Input Arguments:
  *   - Bxi = B in direction of slice at cell interface
  *   - Ul,Ur = L/R-states of CONSERVED variables at cell interface
  *   Output Arguments:
- *   - pFlux = pointer to fluxes of CONSERVED variables at cell interface
+ *   - pF = pointer to fluxes of CONSERVED variables at cell interface
  */
 
 void fluxes(const Cons1DS Ul, const Cons1DS Ur,
             const Prim1DS Wl, const Prim1DS Wr,
-            const Real Bxi, Cons1DS *pFlux)
+            const Real Bxi, Cons1DS *pF)
 {
   Real zl, zc, zr, dc, Vxc, tmp;
   Real sl, sr;  /* Left and right going shock velocity */
   Real al, ar;  /* HLL a_l, a_r -> min and max signal velocity */
+#if (NSCALARS > 0)
+  int n;
+#endif
 
   if(!(Ul.d > 0.0)||!(Ur.d > 0.0))
     ath_error("[two-shock flux]: Non-positive densities: dl = %e  dr = %e\n",
@@ -96,6 +95,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pF->Mx = Ur.Mx*(Wr.Vx) + Wr.d*Iso_csound2;
     pF->My = Ur.My*(Wr.Vx);
     pF->Mz = Ur.Mz*(Wr.Vx);
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pF->s[n] = Ur.Mx*Wr.r[n];
+#endif
     return;
   }
 
@@ -104,6 +106,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pF->Mx = Ul.Mx*(Wl.Vx) + Wl.d*Iso_csound2;
     pF->My = Ul.My*(Wl.Vx);
     pF->Mz = Ul.Mz*(Wl.Vx);
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pF->s[n] = Ul.Mx*Wl.r[n];
+#endif
     return;
   }
 
@@ -116,12 +121,18 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pF->Mx = dc*Vxc*Vxc + dc*Iso_csound2;
     pF->My = dc*Vxc*Wl.Vy;
     pF->Mz = dc*Vxc*Wl.Vz;
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pF->s[n] = dc*Vxc*Wl.r[n];
+#endif
   }
   else{
     pF->d  = dc*Vxc;
     pF->Mx = dc*Vxc*Vxc + dc*Iso_csound2;
     pF->My = dc*Vxc*Wr.Vy;
     pF->Mz = dc*Vxc*Wr.Vz;
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pF->s[n] = dc*Vxc*Wr.r[n];
+#endif
   }
 
   return;

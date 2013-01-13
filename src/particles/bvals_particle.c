@@ -34,7 +34,7 @@
  * - packing_particle_fargo() - pack particles for FARGO
  * - gridshift()              - calculate shift in grid in y for FARGO
  *
-/*============================================================================*/
+ *============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -137,6 +137,7 @@ static int gridshift(Real shift);
 
 #endif /* SHEARING_BOX */
 
+extern void Delete_Ghost(GridS *pG);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -906,6 +907,8 @@ void bvals_particle(DomainS *pD)
  * Update the status of the crossing particles */
   update_particle_status(pG);
 
+  Delete_Ghost(pG);
+
   return;
 }
 
@@ -1026,7 +1029,7 @@ void bvals_particle_init(MeshS *pM)
   DomainS *pD;
 
   if (pM->NLevels > 1)
-    ath_error("[bval_particle_init]: particle module does not suport SMR\n");
+    ath_error("[bval_particle_init]: particle module does not support SMR\n");
 
   pD = &(pM->Domain[0][0]);
   pG = pD->Grid;
@@ -1045,9 +1048,9 @@ void bvals_particle_init(MeshS *pM)
 
 /* number of boundary layers to pack the particles */
 #ifdef FEEDBACK
-  nbc = 4;  /* need 4 layers of ghost particles for feedback predictor */
+  nbc = 0;  /* need 4 layers of ghost particles for feedback predictor */
 #else
-  nbc = 1;  /* leave one layer for output purposes */
+  nbc = 0;  /* leave one layer for output purposes */
 #endif
 
 /* calculate distances of the computational domain and shear velocity */

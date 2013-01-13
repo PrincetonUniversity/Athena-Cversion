@@ -430,9 +430,49 @@ VOutFun_t get_usr_out_fun(const char *name){
 
 void Userwork_in_loop(MeshS *pM)
 {
-  ath_pout(0,"Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
+  if (pM->Domain[0][0].Grid != NULL)
+    ath_pout(0,"Max divB = %1.10e\n", compute_div_b(pM->Domain[0][0].Grid));
 }
 
 void Userwork_after_loop(MeshS *pM)
 {
+  GridS *pG=pM->Domain[0][0].Grid;
+  int i,j,k,is,ie,js,je,ks,ke,iprob;
+  Real divB,maxdivB=0.0,maxB1=0.0,maxB2=0.0,maxB3=0.0;
+
+  is = pG->is; ie = pG->ie;
+  js = pG->js; je = pG->je;
+  ks = pG->ks; ke = pG->ke;
+  iprob = par_getd("problem","iprob");
+
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        divB = (pG->B1i[k][j][i+1] - pG->B1i[k][j][i])/pG->dx1;
+        if (je > js)
+          divB += (pG->B2i[k][j+1][i] - pG->B2i[k][j][i])/pG->dx2;
+        if (ke > ks)
+          divB += (pG->B3i[k+1][j][i] - pG->B3i[k][j][i])/pG->dx3;
+
+        maxdivB = MAX(maxdivB,fabs(divB));
+        maxB1 = MAX(maxB1,fabs(pG->U[k][j][i].B1c));
+        maxB2 = MAX(maxB2,fabs(pG->U[k][j][i].B2c));
+        maxB3 = MAX(maxB3,fabs(pG->U[k][j][i].B3c));
+      }
+    }
+  }
+  if (maxdivB > 1.0e-16)
+    printf("WARNING: maxdivB=%e exceeds 1e-16\n",maxdivB);
+  if (iprob == 1){
+    if (maxB3 > 1.0e-17)
+      printf("WARNING: maxB3=%e exceeds 1e-17\n",maxB3);
+  } else if (iprob == 2){
+    if (maxB1 > 1.0e-17)
+      printf("WARNING: maxB1=%e exceeds 1e-17\n",maxB1);
+  } else if (iprob == 3){
+    if (maxB2 > 1.0e-17)
+      printf("WARNING: maxB2=%e exceeds 1e-17\n",maxB2);
+  }
+
+  return;
 }

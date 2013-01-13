@@ -19,6 +19,7 @@
 /*============================================================================*/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "defs.h"
@@ -91,6 +92,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
         if((pfile = fopen(fname,"w")) == NULL){
           ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
         }
+        free(fname);
 
 /* Upper and Lower bounds on i,j,k for data dump */
         il = pG->is; iu = pG->ie;
@@ -319,11 +321,11 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
             }
           }
         }
+        fclose(pfile);
       }}
     } /* end loop over domains */
   } /* end loop over levels */
 
-  fclose(pfile);
 
   return;
 }
@@ -340,9 +342,12 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
   char *fname,*plev=NULL,*pdom=NULL;
   char levstr[8],domstr[8];
   PrimS W;
-  Real x1,x2,x3,d1;
+  Real x1,x2,x3;
   char zone_fmt[20], fmt[80];
   int col_cnt, nmax;
+#ifdef PARTICLES
+  Real d1;
+#endif
 #if (NSCALARS > 0)
   int n;
 #endif
@@ -386,6 +391,7 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
         if((pfile = fopen(fname,"w")) == NULL){
           ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
         }
+        free(fname);
 
 /* Upper and Lower bounds on i,j,k for data dump */
 

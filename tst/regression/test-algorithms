@@ -1,0 +1,789 @@
+#!/bin/bash
+# Script for running core regression tests
+#
+# There are 5 sets of core tests that are run in succession.
+#
+# The FIRST consists of checking error in linear waves for each combination of
+#   CTU/VL integrator 
+#   hydro/mhd
+#   isothermal/adiabatic EOS
+#   1D/2D/3D
+# The CTU tests use order=3 reconstruction, and the VL tests use order=3p.
+# All use the Roe flux.
+#
+# The SECOND consists of checking error in linear waves at different orders
+#   2/2p/3p
+#   CTU/VL integrator 
+#   hydro/mhd
+#   isothermal/adiabatic EOS
+# All are 1D and use the Roe flux.
+#
+# The THIRD consists of checking error in linear waves with different fluxes
+#   HLLE/HLLC/HLLD/force/exact/two-shock
+#   hydro/mhd
+#   isothermal/adiabatic EOS
+# All use the 1D CTU integrator.  
+# The HLLE tests use order=2,2p,3,3p reconstruction, the rest order=3.
+#
+# The FOURTH consists of checking error in circularly polarized Alfven waves
+# (CPAW) with different integrators, orders, and fluxes
+#   CTU/VL integrator 
+#   2/2p/3/3p
+#   Roe/HLLE/HLLD/force
+#   isothermal/adiabatic EOS
+#   1D/2D/3D
+#
+# The FIFTH consists of checking error in Sod (hydro) and RJ2a (mhd) shocktube.
+# with different integrators, orders, and fluxes
+#   CTU/VL integrator 
+#   2/2p/3/3p
+#   Roe/HLLE/HLLD/force/exact/two-shock
+#   1D/2D/3D
+#
+# The SIXTH consists of checking divB error in field loop
+#   CTU/VL integrator 
+#   2D/3D
+#
+# For each test, this script checks for a warning message printed to stdout
+# by the problem generator.  This happens when the L1 error in the solution
+# at the end time exceeds an analytic estimate computed in Userwork_after_loop
+
+RUN_OPTS="time/tlim=1.2 problem/vflow=0.3 job/maxout=0"
+CNT=0
+TOTAL=170
+
+#====================== FIRST SET OF TESTS =====================
+# check 1D/2D/3D CTU and VL integrators using Roe and 3rd order
+
+rm -f LinWave-errors.0.dat
+rm -f LinWave-errors.2.dat
+
+#-------------------- loop over integrators -----------------------
+for INT in ctu vl
+do
+  if [ "$INT" == "vl" ]; then
+    ORD="3p"
+    CFL="time/cour_no=0.4"
+  else
+    ORD="3"
+    CFL=""
+  fi
+
+#-------------------- loop over gas type -----------------------
+  for GAS in hydro mhd
+  do
+
+#-------------------- loop over EOS ------------------------------
+    for EOS in isothermal adiabatic
+    do
+      cd ../..
+      make clean > clean.log
+      let CNT=CNT+1
+
+# configure code
+      if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
+      then
+        echo "Configure for test $CNT failed"
+        exit
+      fi
+
+# compile code
+      if ! make all &> make.log
+      then
+        echo "Compile for test $CNT failed"
+        exit
+      fi
+      rm -rf clean.log config.log make.log
+      cd tst/regression
+
+# run 1D test
+      if ! ../../bin/athena -i ../1D-$GAS/athinput.linear_wave1d $RUN_OPTS $CFL &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+      echo "Passed $CNT of $TOTAL: 1D $EOS $GAS linear wave using $INT " 
+
+# run 2D test
+      let CNT=CNT+1
+      if ! ../../bin/athena -i ../2D-$GAS/athinput.linear_wave2d $RUN_OPTS $CFL &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+      echo "Passed $CNT of $TOTAL: 2D $EOS $GAS linear wave using $INT " 
+
+# run 3D test
+      let CNT=CNT+1
+      if ! ../../bin/athena -i ../3D-$GAS/athinput.linear_wave3d $RUN_OPTS &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+      echo "Passed $CNT of $TOTAL: 3D $EOS $GAS linear wave using $INT " 
+
+    done
+  done
+done
+
+#====================== SECOND SET OF TESTS ========================
+# check CTU and VL integrators at different orders using 1D Roe flux
+
+rm -f LinWave-errors.0.dat
+rm -f LinWave-errors.2.dat
+
+#-------------------- loop over integrators -----------------------
+for INT in ctu vl
+do
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+  else
+    CFL=""
+  fi
+
+#----------------------- loop over order  -------------------------
+# Note CTU order=3 and VL order=3p were done in first set
+
+  for ORD in 2 2p 3p
+  do
+    if [ "$INT" == "vl" -a "$ORD" == "2" ]; then
+      continue
+    fi
+    if [ "$INT" == "vl" -a "$ORD" == "3p" ]; then
+      continue
+    fi
+
+#-------------------- loop over gas type -----------------------
+    for GAS in hydro mhd
+    do
+
+#-------------------- loop over EOS ------------------------------
+      for EOS in isothermal adiabatic
+      do
+        cd ../..
+        make clean > clean.log
+        let CNT=CNT+1
+
+# configure code
+        if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
+        then
+          echo "Configure for test $CNT failed"
+          exit
+        fi
+
+# compile code
+        if ! make all &> make.log
+        then
+          echo "Compile for test $CNT failed"
+          exit
+        fi
+        rm -rf clean.log config.log make.log
+        cd tst/regression
+
+# run 1D test
+        if ! ../../bin/athena -i ../1D-$GAS/athinput.linear_wave1d $RUN_OPTS $CFL &> athena.log
+        then
+          echo "Athena crashed on test $CNT"
+          exit
+        fi
+        if grep -q "WARNING" athena.log
+        then
+          echo "Regression test $CNT failed"
+          exit
+        fi
+        echo "Passed $CNT of $TOTAL: 1D $EOS $GAS linear wave using $INT and order=$ORD " 
+
+      done
+    done
+  done
+done
+
+#============================= THIRD SET OF TESTS ============================
+# check different fluxes.  Check HLLE at different orders, the rest at order=3
+
+rm -f LinWave-errors.0.dat
+rm -f LinWave-errors.2.dat
+
+#--------------------- loop over fluxes -------------------------
+for FLUX in hlle hllc hlld force exact two-shock
+do
+
+#----------------------- loop over order  -------------------------
+  for ORD in 2 2p 3 3p
+  do
+    if [ "$FLUX" != "hlle" -a  "$ORD" != "3" ]; then
+      continue
+    fi
+
+#-------------------- loop over gas type -----------------------
+    for GAS in hydro mhd
+    do 
+      if [ "$FLUX" == "hllc" -a  "$GAS" == "mhd" ]; then
+        continue
+      fi
+      if [ "$FLUX" == "hlld" -a  "$GAS" == "hydro" ]; then
+        continue
+      fi
+      if [ "$FLUX" == "exact" -a  "$GAS" == "mhd" ]; then
+        continue
+      fi
+      if [ "$FLUX" == "two-shock" -a  "$GAS" == "mhd" ]; then
+        continue
+      fi
+
+#-------------------- loop over EOS ------------------------------
+      for EOS in isothermal adiabatic
+      do
+        if [ "$FLUX" == "two-shock" -a  "$EOS" == "adiabatic" ]; then
+          continue
+        fi
+
+        cd ../..
+        make clean > clean.log
+        let CNT=CNT+1
+
+# configure code
+        if ! configure --with-integrator=ctu --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=$FLUX &> config.log
+        then
+          echo "Configure for test $CNT failed"
+          exit
+        fi
+
+# compile code
+        if ! make all &> make.log
+        then
+          echo "Compile for test $CNT failed"
+          exit
+        fi
+        rm -rf clean.log config.log make.log
+        cd tst/regression
+
+# run 1D test
+        if ! ../../bin/athena -i ../1D-$GAS/athinput.linear_wave1d $RUN_OPTS &> athena.log
+        then
+          echo "Athena crashed on test $CNT"
+          exit
+        fi
+        if grep -q "WARNING" athena.log
+        then
+          echo "Regression test $CNT failed"
+          exit
+        fi
+        echo "Passed $CNT of $TOTAL: 1D $EOS $GAS linear wave using $FLUX and order=$ORD " 
+
+      done
+    done
+  done
+done
+
+#======================== FOURTH SET OF TESTS ======================
+# check 1D/2D/3D CTU and VL integrators at order=2/3/2p/3p with CPAW
+
+RUN_OPTS="time/tlim=1.2 problem/v_par=0.3 job/maxout=0"
+rm -f cpaw-errors.dat
+
+#-------------------- loop over integrators -----------------------
+for INT in ctu vl
+do
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+  else
+    CFL=""
+  fi
+
+#-------------------- loop over order -----------------------
+  for ORD in 2 2p 3 3p 
+  do
+    if [ "$INT" == "vl" -a "$ORD" == "2" ]; then
+      continue
+    fi
+    if [ "$INT" == "vl" -a "$ORD" == "3" ]; then
+      continue
+    fi
+
+#-------------------- loop over EOS ------------------------------
+    for EOS in isothermal adiabatic
+    do
+      cd ../..
+      make clean > clean.log
+      let CNT=CNT+1
+
+# configure code
+      if ! configure --with-integrator=$INT --with-gas=mhd --with-eos=$EOS --with-problem=cpaw --with-order=$ORD --with-flux=roe &> config.log
+      then
+        echo "Configure for test $CNT failed"
+        exit
+      fi
+
+# compile code
+      if ! make all &> make.log
+      then
+        echo "Compile for test $CNT failed"
+        exit
+      fi
+      rm -rf clean.log config.log make.log
+      cd tst/regression
+
+# run 1D test
+      if ! ../../bin/athena -i ../1D-mhd/athinput.cpaw1d $RUN_OPTS $CFL &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+      echo "Passed $CNT of $TOTAL: 1D $EOS cpaw using $INT and order=$ORD" 
+
+# run 2D test
+      let CNT=CNT+1
+      if ! ../../bin/athena -i ../2D-mhd/athinput.cpaw2d $RUN_OPTS $CFL &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+      echo "Passed $CNT of $TOTAL: 2D $EOS cpaw using $INT and order=$ORD" 
+
+# run 3D test
+      let CNT=CNT+1
+      if ! ../../bin/athena -i ../3D-mhd/athinput.cpaw3d $RUN_OPTS &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+      echo "Passed $CNT of $TOTAL: 3D $EOS cpaw using $INT and order=$ORD" 
+
+    done
+  done
+done
+
+#----------------- Now test different fluxes in CPAW ----------------
+#--------------------- loop over fluxes -------------------------
+for FLUX in hlle hlld force
+do
+
+#-------------------- loop over order -----------------------
+  for ORD in 2 3
+  do
+
+    cd ../..
+    make clean > clean.log
+    let CNT=CNT+1
+
+# configure code
+    if ! configure --with-integrator=ctu --with-gas=mhd --with-eos=adiabatic --with-problem=cpaw --with-order=$ORD --with-flux=$FLUX &> config.log
+    then
+      echo "Configure for test $CNT failed"
+      exit
+    fi
+
+# compile code
+    if ! make all &> make.log
+    then
+      echo "Compile for test $CNT failed"
+      exit
+    fi
+    rm -rf clean.log config.log make.log
+    cd tst/regression
+
+# run 1D test
+    if ! ../../bin/athena -i ../1D-mhd/athinput.cpaw1d $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+    echo "Passed $CNT of $TOTAL: 1D $EOS cpaw using $FLUX and order=$ORD" 
+
+# run 2D test
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../2D-mhd/athinput.cpaw2d $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+    echo "Passed $CNT of $TOTAL: 2D $EOS cpaw using $FLUX and order=$ORD" 
+
+# run 3D test
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../3D-mhd/athinput.cpaw3d $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+    echo "Passed $CNT of $TOTAL: 3D $EOS cpaw using $FLUX and order=$ORD" 
+
+  done
+done
+
+#======================== FIFTH SET OF TESTS ======================
+# Sod and RJ2a shock tube tests
+
+RUN_OPTS="job/maxout=0 problem/error_test=1"
+rm -f shock-errors.dat
+
+#--- Start with 1D shocks run in different direction -------------
+#-------------------- loop over integrators -----------------------
+for INT in ctu vl
+do
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+    ORD="3p"
+  else
+    CFL=""
+    ORD="3"
+  fi
+
+#-------------------- loop over gas type -----------------------
+  for GAS in hydro mhd
+  do
+    if [ "$GAS" == "hydro" ]; then
+      INPUTFILE="athinput.sod"
+    else
+      INPUTFILE="athinput.rj2a"
+    fi
+
+    cd ../..
+    make clean > clean.log
+    let CNT=CNT+1
+
+# configure code
+
+    if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=adiabatic --with-problem=shkset1d --with-nscalars=1 --with-order=$ORD --with-flux=roe &> config.log
+    then
+      echo "Configure for test $CNT failed"
+      exit
+    fi
+
+# compile code
+    if ! make all &> make.log
+    then
+      echo "Compile for test $CNT failed"
+      exit
+    fi
+    rm -rf clean.log config.log make.log
+    cd tst/regression
+
+# run 1D test (shock in 1-direction)
+    if ! ../../bin/athena -i ../1D-$GAS/$INPUTFILE $RUN_OPTS $CFL &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+  
+    echo "Passed $CNT of $TOTAL: 1D $GAS shock in 1-dir using $INT" 
+
+# run 2D test
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../1D-$GAS/$INPUTFILE $RUN_OPTS $CFL problem/shk_dir=2 domain1/Nx1=4 domain1/Nx2=512 &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+  
+    echo "Passed $CNT of $TOTAL: 1D $GAS shock in 2-dir using $INT" 
+
+# run 3D test
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../1D-$GAS/$INPUTFILE $RUN_OPTS time/cour_no=0.4 problem/shk_dir=3 domain1/Nx1=4 domain1/Nx2=4 domain1/Nx3=256 &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+  
+    rm -f athena.log
+    rm -f athena
+
+    echo "Passed $CNT of $TOTAL: 1D $GAS shock in 3-dir using $INT" 
+
+  done
+done
+
+#----------- Now test different fluxes/orders with shocks ----------------
+#-------------------- loop over gas type -----------------------
+for GAS in mhd hydro
+do
+  if [ "$GAS" == "hydro" ]; then
+    INPUTFILE="athinput.sod"
+  else
+    INPUTFILE="athinput.rj2a"
+  fi
+
+#--------------------- loop over fluxes -------------------------
+  for FLUX in roe hlle hllc hlld force exact
+  do
+      if [ "$GAS" == "hydro" -a "$FLUX" == "hlld" ]; then
+        continue
+      fi
+      if [ "$GAS" == "mhd" -a "$FLUX" == "hllc" ]; then
+        continue
+      fi
+      if [ "$GAS" == "mhd" -a "$FLUX" == "exact" ]; then
+        continue
+      fi
+
+#-------------------- loop over order -----------------------
+    for ORD in 2 2p 3 3p
+    do
+      if [ "$FLUX" != "roe" -a "$FLUX" != "hlle" ] && [ "$ORD" != "3" ]; then
+        continue
+      fi
+
+      cd ../..
+      make clean > clean.log
+      let CNT=CNT+1
+
+# configure code
+
+      if ! configure --with-integrator=ctu --with-gas=$GAS --with-eos=adiabatic --with-problem=shkset1d --with-nscalars=1 --with-order=$ORD --with-flux=$FLUX &> config.log
+      then
+        echo "Configure for test $CNT failed"
+        exit
+      fi
+
+# compile code
+
+      if ! make all &> make.log
+      then
+        echo "Compile for test $CNT failed"
+        exit
+      fi
+      rm -rf clean.log config.log make.log
+      cd tst/regression
+
+# run 1D test (shock in 1-direction)
+      if ! ../../bin/athena -i ../1D-$GAS/$INPUTFILE $RUN_OPTS &> athena.log
+      then
+        echo "Athena crashed on test $CNT"
+        exit
+      fi
+
+      if grep -q "WARNING" athena.log
+      then
+        echo "Regression test $CNT failed"
+        exit
+      fi
+  
+      echo "Passed $CNT of $TOTAL: 1D $GAS shock using $FLUX and order=$ORD" 
+
+    done
+  done
+done
+
+#------------------- Now test 2D/3D shocks ---------------------
+#-------------------- loop over problem -----------------------
+for PROBLEM in shkset2d shkset3d
+do
+
+#-------------------- loop over integrators -----------------------
+  for INT in ctu vl
+  do  
+    if [ "$INT" == "vl" ]; then
+      CFL="time/cour_no=0.4"
+      ORD="3p"
+    else
+      CFL=""
+      ORD="3"
+    fi
+
+#-------------------- loop over gas type -----------------------
+    for GAS in mhd hydro
+    do
+      if [ "$GAS" == "hydro" ]; then
+        INPUTFILE="athinput.sod"
+      else
+        INPUTFILE="athinput.rj2a"
+      fi
+
+      cd ../..
+      make clean > clean.log
+      let CNT=CNT+1
+
+# configure code
+
+      if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=adiabatic --with-problem=$PROBLEM --with-order=$ORD --with-flux=roe &> config.log
+      then
+        echo "Configure for test $CNT failed"
+        exit
+      fi
+
+# compile code
+      if ! make all &> make.log
+      then
+        echo "Compile for test $CNT failed"
+        exit
+      fi
+      rm -rf clean.log config.log make.log
+      cd tst/regression
+
+# run 2D test
+      if [ "$PROBLEM" == "shkset2d" ]; then
+        if ! ../../bin/athena -i ../2D-$GAS/$INPUTFILE $RUN_OPTS $CFL &> athena.log
+        then
+          echo "Athena crashed on test $CNT"
+          exit
+        fi
+
+        if grep -q "WARNING" athena.log
+        then
+          echo "Regression test $CNT failed"
+          exit
+        fi
+        echo "Passed $CNT of $TOTAL: 2D $GAS shock using $INT" 
+      fi
+
+# run 3D test
+      if [ "$PROBLEM" == "shkset3d" ]; then
+        if ! ../../bin/athena -i ../3D-$GAS/$INPUTFILE $RUN_OPTS &> athena.log
+        then
+          echo "Athena crashed on test $CNT"
+          exit
+        fi
+
+        if grep -q "WARNING" athena.log
+        then
+          echo "Regression test $CNT failed"
+          exit
+        fi
+        echo "Passed $CNT of $TOTAL: 3D $GAS shock using $INT" 
+      fi
+
+    done
+  done
+done
+
+#====================== SIXTH SET OF TESTS =====================
+# field loop in 2D and 3D
+  
+for INT in ctu vl
+do  
+  if [ "$INT" == "vl" ]; then
+    CFL="time/cour_no=0.4"
+    ORD="3p"
+  else
+    CFL=""
+    ORD="3"
+  fi
+
+  cd ../..
+  make clean > clean.log
+
+# configure code
+
+  if ! configure --with-integrator=$INT --with-gas=mhd --with-eos=adiabatic --with-problem=field_loop --with-order=$ORD --with-flux=roe &> config.log
+  then
+    echo "Configure for test $CNT failed"
+    exit
+  fi
+
+# compile code
+  if ! make all &> make.log
+  then
+    echo "Compile for test $CNT failed"
+    exit
+  fi
+  rm -rf clean.log config.log make.log
+  cd tst/regression
+
+# run 2D test
+  let CNT=CNT+1
+  RUN_OPTS="job/maxout=0 problem/iprob=1"
+  if ! ../../bin/athena -i ../2D-mhd/athinput.field_loop $RUN_OPTS $CFL &> athena.log
+  then
+    echo "Athena crashed on test $CNT"
+    exit
+  fi
+
+  if grep -q "WARNING" athena.log
+  then
+    echo "Regression test $CNT failed"
+    exit
+  fi
+  echo "Passed $CNT of $TOTAL: 2D field loop using $INT" 
+
+# run 3D test
+  for IPROB in 1 2 3
+  do
+    if [ "$IPROB" == "1" ]; then
+      RUN_OPTS="job/maxout=0 problem/iprob=1 domain1/Nx3=8"
+    fi
+    if [ "$IPROB" == "2" ]; then
+      RUN_OPTS="job/maxout=0 problem/iprob=2 domain1/Nx1=8 domain1/x1min=-0.5 domain1/x1max=0.5 domain1/Nx2=64 domain1/x2min=-1.0 domain1/x2max=1.0"
+    fi
+    if [ "$IPROB" == "3" ]; then
+      RUN_OPTS="job/maxout=0 problem/iprob=3 domain1/Nx1=32 domain1/x1min=-0.5 domain1/x1max=0.5 domain1/Nx2=8 domain1/Nx3=64 domain1/x3min=-1.0 domain1/x3max=1.0"
+    fi
+
+    let CNT=CNT+1
+    if ! ../../bin/athena -i ../3D-mhd/athinput.field_loop $RUN_OPTS &> athena.log
+    then
+      echo "Athena crashed on test $CNT"
+      exit
+    fi
+
+    if grep -q "WARNING" athena.log
+    then
+      echo "Regression test $CNT failed"
+      exit
+    fi
+    echo "Passed $CNT of $TOTAL: 3D field loop iprob=$IPROB using $INT" 
+
+  done
+done

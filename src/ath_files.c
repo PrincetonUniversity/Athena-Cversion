@@ -37,6 +37,9 @@
  *    - [path]<basename>[-lev#][-dom#][.idump][.id].<ext>
  *
  *   Used by most of the dump_*() and output_*() functions.
+ *
+ * This function malloc's the memory needed for the name.  The calling function
+ * must free this memory once it is no longer needed.
  */
 char *ath_fname(const char *path, const char *basename,
                 const char *levstr, const char *domstr,

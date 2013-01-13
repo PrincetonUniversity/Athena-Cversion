@@ -22,15 +22,12 @@
  *   to output these binned particle quantities are then exactly the same as
  *   other gas quantities.
  *
- *   Dumping particle list has not been developed yet since we need to figure
- *   out how to do visualization.
- *
  * CONTAINS PUBLIC FUNCTIONS:
  * - particle_to_grid();
  * - dump_particle_binary();
  * - property_all();
  * 
-/*============================================================================*/
+ *============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -63,8 +60,9 @@ Real expr_V3par(const GridS *pG, const int i, const int j, const int k);
 /*! \fn void particle_to_grid(Grid *pG, PropFun_t par_prop)
  *  \brief Bin the particles to grid cells
  */
-void particle_to_grid(GridS *pG, PropFun_t par_prop)
+void particle_to_grid(DomainS *pD, PropFun_t par_prop)
 {
+  GridS *pG = pD->Grid;
   int i,j,k, is,js,ks, i0,j0,k0, i1,j1,k1, i2,j2,k2;
   int n0 = ncell-1;
   long p;
@@ -130,6 +128,9 @@ void particle_to_grid(GridS *pG, PropFun_t par_prop)
     }
   }
 
+/* deposit ghost zone values into the boundary zones */
+  exchange_gpcouple(pD, 0);
+
   return;
 }
 
@@ -167,7 +168,7 @@ void dump_particle_binary(MeshS *pM, OutputS *pOut)
   }
 
   /* bin all the particles to the grid */
-  particle_to_grid(pG, property_all);
+  particle_to_grid(pD, property_all);
 
   /* Get grid limit related quantities */
   if (pG->Nx[0] > 1)  cell1.x1 = 1.0/pG->dx1;

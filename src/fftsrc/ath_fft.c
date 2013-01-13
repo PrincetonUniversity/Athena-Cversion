@@ -63,16 +63,17 @@ struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
   int gnx3 = pD->Nx[2];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pGrid->Disp[0];
-  int gie = pGrid->Disp[0] + pGrid->Nx[0] - 1;
-  int gjs = pGrid->Disp[1];
-  int gje = pGrid->Disp[1] + pGrid->Nx[1] - 1;
-  int gks = pGrid->Disp[2];
-  int gke = pGrid->Disp[2] + pGrid->Nx[2] - 1;
+  /* These should be calculate from the origin of its Domain not root Domain */
+  int gis = pGrid->Disp[0] - pD->Disp[0];
+  int gie = pGrid->Disp[0] - pD->Disp[0] + pGrid->Nx[0] - 1;
+  int gjs = pGrid->Disp[1] - pD->Disp[1];
+  int gje = pGrid->Disp[1] - pD->Disp[1] + pGrid->Nx[1] - 1;
+  int gks = pGrid->Disp[2] - pD->Disp[2];
+  int gke = pGrid->Disp[2] - pD->Disp[2] + pGrid->Nx[2] - 1;
 
   /* Create the plan using a more generic function.
    * If the data hasn't already been allocated, it will now */
-  return ath_3d_fft_create_plan(gnx3, gnx2, gnx1, gks, gke, gjs, gje,
+  return ath_3d_fft_create_plan(pD, gnx3, gnx2, gnx1, gks, gke, gjs, gje,
 				   gis, gie, data, 0, dir);
 }
 
@@ -92,7 +93,7 @@ struct ath_3d_fft_plan *ath_3d_fft_quick_plan(DomainS *pD,
  *  FFTs will be done in place (overwrite data)
  */
 
-struct ath_3d_fft_plan *ath_3d_fft_create_plan(int gnx3, int gnx2,
+struct ath_3d_fft_plan *ath_3d_fft_create_plan(DomainS *pD, int gnx3, int gnx2,
 				int gnx1, int gks, int gke, int gjs, int gje,
 				int gis, int gie, ath_fft_data *data, int al,
 				ath_fft_direction dir)
@@ -127,7 +128,7 @@ struct ath_3d_fft_plan *ath_3d_fft_create_plan(int gnx3, int gnx2,
   /* Create the plan */
 #ifdef FFT_BLOCK_DECOMP
   /* Block decomp library plans don't care if forward or backward */
-  ath_plan->plan = fft_3d_create_plan(MPI_COMM_WORLD, gnx3, gnx2, gnx1, 
+  ath_plan->plan = fft_3d_create_plan(pD->Comm_Domain, gnx3, gnx2, gnx1, 
 					gks, gke, gjs, gje, gis, gie, 
 			    		gks, gke, gjs, gje, gis, gie, 
                             		0, 0, &nbuf);
@@ -225,14 +226,15 @@ struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
   int gnx2 = pD->Nx[1];
 
   /* Get extents of local FFT grid in global coordinates */
-  int gis = pGrid->Disp[0];
-  int gie = pGrid->Disp[0] + pGrid->Nx[0] - 1;
-  int gjs = pGrid->Disp[1];
-  int gje = pGrid->Disp[1] + pGrid->Nx[1] - 1;
+  /* These should be calculate from the origin of its Domain not root Domain */
+  int gis = pGrid->Disp[0]-pD->Disp[0];
+  int gie = pGrid->Disp[0]-pD->Disp[0] + pGrid->Nx[0] - 1;
+  int gjs = pGrid->Disp[1]-pD->Disp[1];
+  int gje = pGrid->Disp[1]-pD->Disp[1] + pGrid->Nx[1] - 1;
 
   /* Create the plan using a more generic function
    * If the data hasn't already been allocated, it will now */
-  return ath_2d_fft_create_plan(gnx2, gnx1, gjs, gje, gis, gie, data, 0, dir);
+  return ath_2d_fft_create_plan(pD, gnx2, gnx1, gjs, gje, gis, gie, data, 0, dir);
 }
 
 /*! \fn struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
@@ -248,7 +250,7 @@ struct ath_2d_fft_plan *ath_2d_fft_quick_plan(DomainS *pD,
  *  FFTs will be done in place (overwrite data)
  */
 
-struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
+struct ath_2d_fft_plan *ath_2d_fft_create_plan(DomainS *pD, int gnx2, int gnx1,
 				int gjs, int gje, int gis, int gie,
 				ath_fft_data *data, int al,
 				ath_fft_direction dir)
@@ -283,7 +285,7 @@ struct ath_2d_fft_plan *ath_2d_fft_create_plan(int gnx2, int gnx1,
   /* Create the plan */
 #ifdef FFT_BLOCK_DECOMP
   /* Block decomp plans don't care if forward/backward */
-  ath_plan->plan = fft_2d_create_plan(MPI_COMM_WORLD, gnx2, gnx1, gjs, gje,
+  ath_plan->plan = fft_2d_create_plan(pD->Comm_Domain, gnx2, gnx1, gjs, gje,
 					gis, gie, gjs, gje, gis, gie, 
                             		0, 0, &nbuf);
 #else /* FFT_BLOCK_DECOMP */

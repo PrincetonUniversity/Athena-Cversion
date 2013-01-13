@@ -433,9 +433,7 @@ int main(int argc, char *argv[])
 
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
-#ifdef FEEDBACK
-  exchange_feedback_init(&Mesh);
-#endif
+  exchange_gpcouple_init(&Mesh);
 #endif
 
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
@@ -489,6 +487,10 @@ int main(int argc, char *argv[])
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */
 #ifdef STATIC_MESH_REFINEMENT
   Prolongate(&Mesh);
+#endif
+
+#if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
+  integrate_diff_init(&Mesh);
 #endif
 
 /* For new runs, set initial timestep */
@@ -582,16 +584,30 @@ int main(int argc, char *argv[])
 
 	
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
-    integrate_diff(&Mesh);
+#ifdef STS
+    ath_pout(0,"Next N_STS = %d\n", N_STS);
+    for (i=0; i<N_STS; i++) {
+      STS_dt = Mesh.diff_dt/(1.0+nu_STS-(1.0-nu_STS)
+               *cos(0.5*PI*(2.0*i+1.0)/(Real)(N_STS)));
+#endif
+      integrate_diff(&Mesh);
 
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].Grid != NULL){
-          bvals_mhd(&(Mesh.Domain[nl][nd]));
-        }
-      }
+#ifdef STATIC_MESH_REFINEMENT
+      RestrictCorrect(&Mesh);
+#endif
+      for (nl=0; nl<(Mesh.NLevels); nl++){ 
+        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+          if (Mesh.Domain[nl][nd].Grid != NULL){
+            bvals_mhd(&(Mesh.Domain[nl][nd]));
+          }
+      }}
+#ifdef STATIC_MESH_REFINEMENT
+      Prolongate(&Mesh);
+#endif
+#ifdef STS
     }
 #endif
+#endif /* Explicit diffusion */
 
 /* Loop over all Domains, solve radiative transfer, and perform an
  * operator split update of the hydro energy equation with radiation
@@ -734,7 +750,7 @@ int main(int argc, char *argv[])
 #endif
 
 /*--- Step 9g. ---------------------------------------------------------------*/
-/* Update Mesh time, and time in all Grid's.  Compute new dt */
+/* Update Mesh time, and time in all Grid's. */
 
     Mesh.nstep++;
     Mesh.time += Mesh.dt;
@@ -750,8 +766,6 @@ int main(int argc, char *argv[])
     }
 
     dt_done = Mesh.dt;
-
-    new_dt(&Mesh);
 
 /*--- Step 9h. ---------------------------------------------------------------*/
 /* Boundary values must be set after time is updated for t-dependent BCs.
@@ -783,6 +797,12 @@ int main(int argc, char *argv[])
 #endif
 
 /*--- Step 9i. ---------------------------------------------------------------*/
+/* Compute new dt. With resistivity, the diffusion coeffieicnts are evaluated
+ * within new_dt(), which requires that boundary values are already updated.  */
+
+    new_dt(&Mesh);
+
+/*--- Step 9j. ---------------------------------------------------------------*/
 /* Force quit if wall time limit reached.  Check signals from system */
 
 #ifdef MPI_PARALLEL

@@ -79,6 +79,7 @@ void output_pgm(MeshS *pM, OutputS *pOut)
             ath_error("[output_pgm]: Unable to open pgm file %s\n",fname);
             return;
           }
+          free(fname);
 
           fprintf(pfile,"P5\n%d %d\n255\n",nx1,nx2);
 
@@ -125,7 +126,6 @@ void output_pgm(MeshS *pM, OutputS *pOut)
 
           fclose(pfile); 
           free_2d_array(data);
-          free(fname);
         }
       }}
     }

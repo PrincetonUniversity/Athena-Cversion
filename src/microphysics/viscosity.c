@@ -65,12 +65,17 @@ void viscosity(DomainS *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, jl, ju, js = pG->js, je = pG->je;
   int k, kl, ku, ks = pG->ks, ke = pG->ke;
-  Real x1,x2,x3,dtodx1=pG->dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
+#ifdef STS
+  Real my_dt = STS_dt;
+#else
+  Real my_dt = pG->dt;
+#endif
+  Real x1,x2,x3,dtodx1=my_dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
   
   if (pG->Nx[1] > 1){
     jl = js - 2;
     ju = je + 2;
-    dtodx2 = pG->dt/pG->dx2;
+    dtodx2 = my_dt/pG->dx2;
   } else { 
     jl = js;
     ju = je;
@@ -78,7 +83,7 @@ void viscosity(DomainS *pD)
   if (pG->Nx[2] > 1){
     kl = ks - 2;
     ku = ke + 2;
-    dtodx3 = pG->dt/pG->dx3;
+    dtodx3 = my_dt/pG->dx3;
   } else { 
     kl = ks;
     ku = ke;

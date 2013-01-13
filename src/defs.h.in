@@ -58,6 +58,7 @@
 #define @RESISTIVITY_MODE@
 #define @VISCOSITY_MODE@
 #define @CONDUCTION_MODE@
+#define @TIMESTEPPING_MODE@
 
 /* Radiation Transfer */
 #define @RADIATION_TRANSFER_MODE@

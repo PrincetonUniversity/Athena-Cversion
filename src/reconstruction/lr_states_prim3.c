@@ -69,15 +69,14 @@ static Real **pW=NULL, **Whalf=NULL;
  * - Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
+void lr_states(const GridS *pG __attribute__((unused)),
+               const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+               Prim1DS Wl[], Prim1DS Wr[], 
+               const int dir __attribute__((unused)))
 {
   int i,n,m;
   Real lim_slope,qa,qb,qc,qx;
-
-
-
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real d2Wc[NWAVE+NSCALARS],d2Wl[NWAVE+NSCALARS];
   Real d2Wr[NWAVE+NSCALARS],d2W [NWAVE+NSCALARS];
@@ -237,8 +236,8 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       pWr[n] = Wlv[n];
     }
 
-#if defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR) 
-/* only include steps below if CTU integrator */
+#if defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR)
+ /* only include steps below if CTU integrator */
 
 /*--- Step 6. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
@@ -250,6 +249,18 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     esys_prim_adb_hyd(W[i].d,W[i].Vx,Gamma*W[i].P,ev,rem,lem);
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
+
+#ifdef MHD
+#ifdef ISOTHERMAL
+    esys_prim_iso_mhd(
+      W[i].d,W[i].Vx,             Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
+#else
+    esys_prim_adb_mhd(
+      W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
+#endif /* ISOTHERMAL */
+#endif /* MHD */
+
+
 
 /*******************************/
 /* Radiation hydro and mhd part */
@@ -269,16 +280,6 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 /********************************/
 
-#ifdef MHD
-#ifdef ISOTHERMAL
-    esys_prim_iso_mhd(
-      W[i].d,W[i].Vx,             Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
-#else
-    esys_prim_adb_mhd(
-      W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
-#endif /* ISOTHERMAL */
-#endif /* MHD */
-
 /*--- Step 7. ------------------------------------------------------------------
  * Compute coefficients of interpolation parabolae (CW eqn 1.5) */
 
@@ -291,6 +292,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
  * Integrate linear interpolation function over domain of dependence defined by
  * max(min) eigenvalue (CW eqn 1.12)
  */
+
     qx = TWO_3RDS*MAX(ev[NWAVE-1],0.0)*dtodx;
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] -= 0.75*qx*(dW[n] - (1.0 - qx)*W6[n]);
@@ -312,21 +314,17 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 	qa  = 0.0;
         qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
         qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
-
 	for (m=0; m<NWAVE; m++) {
 	  qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
-/* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-        qa  = 0.0;
-        qb = 0.5*dtodx*(ev[0]-ev[n]);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - ev[n]*ev[n]);
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa = 0.0;
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
         }
-
-        for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
 #endif /* HLL_FLUX */
       }
     }
@@ -340,24 +338,21 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
-/* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-        qa = 0.0;
-	qb = 0.5*dtodx*(ev[NWAVE-1]-ev[n]);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[NWAVE-1]*ev[NWAVE-1] - ev[n]*ev[n]);
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa  = 0.0;
         for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
+          qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];
         }
-
-        for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
 #endif /* HLL_FLUX */
       }
     }
 
-/* Wave subtraction for advected quantities */
+/* Wave subtraction for passive scalars */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
-	qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
+        qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
         qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-1]) - SQR(W[i].Vx));
         pWl[n] += qb*(dW[m]-W6[m]) + qc*W6[m];
       } else if (W[i].Vx < 0.) {
@@ -406,7 +401,7 @@ void lr_states_init(MeshS *pM)
 
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
 
-  if ((Whalf = (Real**)calloc_2d_array(nmax, NWAVE, sizeof(Real))) == NULL)
+  if ((Whalf = (Real**)calloc_2d_array(nmax, (NWAVE + NSCALARS), sizeof(Real))) == NULL)
     goto on_error;
 
   return;

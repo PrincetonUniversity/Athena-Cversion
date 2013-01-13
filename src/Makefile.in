@@ -126,7 +126,7 @@ MICROPHYS_OBJ = microphysics/conduction.o \
 		microphysics/viscosity.o
 
 PARTICLES_OBJ = particles/dump_particle_history.o\
-	        particles/feedback.o \
+	        particles/exchange.o \
 	        particles/init_particle.o \
 	        particles/integrators_particle.o \
 	        particles/output_particle.o\
@@ -162,13 +162,14 @@ RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 
 RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/exact.o \
-	       rsolvers/hlle.o \
+	       rsolvers/exact_sr.o \
+	       rsolvers/force.o \
 	       rsolvers/hllc.o \
 	       rsolvers/hlld.o \
-	       rsolvers/exact_sr.o \
 	       rsolvers/hlle_sr.o \
 	       rsolvers/hllc_sr.o \
 	       rsolvers/hlld_sr.o \
+	       rsolvers/hlle.o \
 	       rsolvers/roe.o \
 	       rsolvers/two_shock.o 
 	      

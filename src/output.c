@@ -172,7 +172,7 @@ float *getRGB(char *name);
 
 void init_output(MeshS *pM)
 {
-  int i,j,outn,maxout,nl,nd;
+  int i,j,outn,maxout;
   char block[80], *fmt, defid[10];
   OutputS new_out;
   int usr_expr_flag;
@@ -181,7 +181,7 @@ void init_output(MeshS *pM)
 
 /* allocate output array */
 
-  if((OutArray = malloc(maxout*sizeof(OutputS))) == NULL){
+  if((OutArray = (OutputS *)malloc(maxout*sizeof(OutputS))) == NULL){
     ath_error("[init_output]: Error allocating output array\n");
   }
 
@@ -211,8 +211,8 @@ void init_output(MeshS *pM)
     new_out.n   = outn;
 
 /* level and domain number can be specified with SMR  */
-    nl = new_out.nlevel = par_geti_def(block,"level",-1);
-    nd = new_out.ndomain = par_geti_def(block,"domain",-1);
+    new_out.nlevel = par_geti_def(block,"level",-1);
+    new_out.ndomain = par_geti_def(block,"domain",-1);
 
     if (par_exist(block,"dat_fmt")) new_out.dat_fmt = par_gets(block,"dat_fmt");
 
@@ -566,7 +566,9 @@ Now use the default one.\n");
 void data_output(MeshS *pM, const int flag)
 {
 #ifdef PARTICLES
-  GridS *pG = pM->Domain[0][0].Grid;
+  DomainS *pD = &(pM->Domain[0][0]);
+  GridS *pG = pD->Grid;
+  PropFun_t mypar_prop = NULL;
 #endif
   int n;
   int dump_flag[MAXOUT_DEFAULT+1];
@@ -627,7 +629,10 @@ void data_output(MeshS *pM, const int flag)
 
 #ifdef PARTICLES
       if (OutArray[n].out_pargrid == 1)      /* binned particles are output */
-        particle_to_grid(pG, OutArray[n].par_prop);
+        if (OutArray[n].par_prop != mypar_prop) {
+          particle_to_grid(pD, OutArray[n].par_prop);
+          mypar_prop = OutArray[n].par_prop;
+        }
 #endif
       (*OutArray[n].out_fun)(pM,&(OutArray[n]));
 

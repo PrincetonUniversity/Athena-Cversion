@@ -68,6 +68,11 @@ endif
 #    ophir> make all MACHINE=ophir
 # New machines can be added to ifeq blocks below.
 
+ifeq ($(MACHINE),kraken)
+  CC = cc
+  LDR = cc
+  OPT = -O3
+else
 ifeq ($(MACHINE),ophir)
   CC = /usr/peyton/intel/10.0/cce/bin/icc
   LDR = /usr/peyton/intel/10.0/cce/bin/icc
@@ -133,6 +138,7 @@ ifeq ($(MACHINE),sunnyvale)
   MPILIB = -lmpi
 else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif

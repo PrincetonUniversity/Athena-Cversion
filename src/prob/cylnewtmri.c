@@ -832,6 +832,7 @@ static void dump_vtksub(MeshS *pM, OutputS *pOut) {
 		ath_error("[dump_vtk]: Unable to open vtk dump file\n");
 		return;
 	}
+        free(fname);
 
 	/* Allocate memory for temporary array of floats */
 
@@ -970,6 +971,7 @@ void out_ktab(MeshS *pM, OutputS *pOut)
   if (pFile == NULL) {
     ath_error("[output_tab]: Unable to open tab file %s\n",fname);
   }
+  free(fname);
 
 /* write data */
 

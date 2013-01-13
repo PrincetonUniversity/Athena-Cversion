@@ -116,6 +116,7 @@ void output_tab_1d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if (pFile == NULL) {
     ath_error("[output_tab]: Unable to open tab file %s\n",fname);
   }
+  free(fname);
 
 /* write data */
   for (i=0; i<nx1; i++) {
@@ -181,6 +182,7 @@ void output_tab_2d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if (pFile == NULL) {
     ath_error("[output_tab]: Unable to open tab file %s\n",fname);
   }
+  free(fname);
 
 /* write data */
   for (j=0; j<nx2; j++) {
@@ -252,6 +254,7 @@ void output_tab_3d(MeshS *pM, OutputS *pOut, int nl, int nd)
   if (pFile == NULL) {
     ath_error("[output_tab]: Unable to open tab file %s\n",fname);
   }
+  free(fname);
 
 /* write data */
   for (k=0; k<nx3; k++) {

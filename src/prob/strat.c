@@ -105,6 +105,9 @@ void problem(DomainS *pDomain)
     ath_error("[problem]: HGB only works on a 2D or 3D grid\n");
   }
 
+/* Reset d_MIN to be 0.1 of D_FLOOR */
+  d_MIN = 0.1*D_FLOOR;
+
 /* Read problem parameters.  Note Omega set to 10^{-3} by default */
 #ifdef ISOTHERMAL
   pres=den*Iso_csound2;
@@ -414,6 +417,9 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
+/* Reset d_MIN to be 0.1 of D_FLOOR */
+  d_MIN = 0.1*D_FLOOR;
+
   Omega_0 = par_getd_def("problem","omega",1.0e-3);
   qshear  = par_getd_def("problem","qshear",1.5);
 

@@ -31,7 +31,7 @@ dmin    = -0.0002
 dmax    = 0.0002
 
 <time>
-cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000    # cycle limit
 tlim            = 10.0      # time limit
 

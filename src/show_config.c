@@ -185,10 +185,10 @@ void show_config(void)
   ath_pout(0," FARGO:                   OFF\n");
 #endif
 
-#ifdef HLL_ALL_WAVE
-  ath_pout(0," All-wave integration:    ON\n");
+#ifdef STS
+  ath_pout(0," Super timestepping:      ON\n");
 #else
-  ath_pout(0," All-wave integration:    OFF\n");
+  ath_pout(0," Super timestepping:      OFF\n");
 #endif
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -350,12 +350,6 @@ void show_config_par(void)
   par_sets("configure","FARGO","yes","FARGO enabled?");
 #else
   par_sets("configure","FARGO","no","FARGO enabled?");
-#endif
-
-#ifdef HLL_ALL_WAVE
-  par_sets("configure","L/R integration style","yes","All-wave integration enabled?");
-#else
-  par_sets("configure","L/R integration style","no","All-wave integration enabled?");
 #endif
 
 #ifdef STATIC_MESH_REFINEMENT

@@ -1,4 +1,5 @@
-List of problem generator files in src/prob:
+Partial list of problem generator files in athena/src/prob:
+More problem generators used in applications can be found in athena/apps
 
 ================================================================================
                               1-D problems
@@ -9,10 +10,10 @@ cpaw1d.c:
 Circularly Polarized Alfven Wave test of Toth.  This initializes only truly 1D
 tests, that is wave must be in x1-direction only.
 
-linear_wave1d.c:
+linear_wave.c:
 ================
-Linear Wave convergence test.  Can run 1D, 2D, or 3D problems, but wave must be
-grid-aligned, i.e. along x1-, x2-, or x3-axis respectively.
+Linear Wave convergence test.  Can run 1D, 2D, or 3D problems, and both
+grid-aligned and non-grid-aligned (along diagonal) problems.
 
 shkset1d.c:
 ===========
@@ -58,14 +59,18 @@ field_loop.c
 ============
 Advection of a passive field-loop in 2D/3D, used to test CT algorithm in GS05.
 
+hb3.c
+=======
+Sets up 2D MRI in unstratified shearing box, after Hawley & Balbus III
+
 kh.c
 ====
 Initializes two versions of a Kelvin-Helmholtz instability test.
 
-linear_wave2d.c:
+linear_wave.c:
 ================
 Linear Wave convergence test.  Can run 2D problems, with wavevector at any
-angle in the x1-x2 plane.
+angle to the grid.
 
 lw_implode.c:
 =============
@@ -126,7 +131,15 @@ field_loop.c
 Advection of a passive field-loop in 2D/3D, used to test CT algorithm in GS07.
 For 3D, cylindrical flux-tube inclined at any angle to grid is allowed.
 
-linear_wave3d.c:
+hgb.c
+=====
+Sets up 3D MRI in unstratified shearing box, after Hawley, Gammie, Balbus 1995
+
+hkdisk.c
+========
+Sets up global cylindrical disk, as in Hawley & Krolik
+
+linear_wave.c:
 ================
 Linear Wave convergence test.  Can run 3D problems, with wavevector at any
 angle to the grid.
@@ -149,3 +162,8 @@ shkset3d.c:
 ===========
 Shock Set -- initializes 3D Riemann problems.  Can only run 3D problems, with
 wavevector at any angle.
+
+strat.c
+=======
+Sets up 3D MRI in stratified shearing box, after Stone et al 1996
+

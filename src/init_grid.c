@@ -48,13 +48,14 @@ void init_grid(MeshS *pM)
   DomainS *pD;
   GridS *pG;
   int nDim,nl,nd,myL,myM,myN;
-  int i,l,m,n,n1z,n2z,n3z,n1p,n2p,n1r,n2r;
+  int i,l,m,n,n1z,n2z,n3z;
 #ifdef STATIC_MESH_REFINEMENT
   DomainS *pCD,*pPD;
   SideS D1,D2,D3,G1,G2,G3;
   int isDOverlap,isGOverlap,irefine,ncd,npd,dim,iGrid;
   int ncg,nCG,nMyCG,nCB[6],nMyCB[6],nb;
   int npg,nPG,nMyPG,nPB[6],nMyPB[6];
+  int n1r,n2r,n1p,n2p;
 #endif
 
 /* number of dimensions in Grid. */
@@ -566,7 +567,7 @@ G3.ijkl[0],G3.ijkr[0]);
                     if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
                      "[init_grid]:failed to allocate CGrid ixb myFlx\n");
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z; 
@@ -651,7 +652,7 @@ G3.ijkl[0],G3.ijkr[0]);
                     if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myFlx\n");
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->CGrid[ncg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z;
@@ -964,7 +965,7 @@ G3.ijkl[2],G3.ijkr[2]);
                     if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid ixb myFlx\n");
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
@@ -1055,7 +1056,7 @@ G3.ijkl[2],G3.ijkr[2]);
                     if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid oxb myFlx\n");
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->PGrid[npg].nWordsP += 6*((nghost/2)+2)*n1p*n2p;
+                    pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;

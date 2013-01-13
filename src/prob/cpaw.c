@@ -1,15 +1,21 @@
 #include "copyright.h"
 /*============================================================================*/
-/*! \file cpaw3d.c
- *  \brief Problem generator for circularly polarized Alfven wave (CPAW) in 3D
- *   test.  
+/*! \file cpaw.c
+ *  \brief Circularly polarized Alfven wave (CPAW) for 1D/2D/3D problems
  *
- * PURPOSE: Problem generator for circularly polarized Alfven wave (CPAW) in 3D
- *   test.  The angles the wave propagates to the grid is automatically computed
- *   to be alpha12 = tan^{-1} (Y/X) and alpha23 = tan^{-1} (Z/Y). 
+ * PURPOSE: Problem generator for circularly polarized Alfven wave (CPAW).  This
+ *   routine is built from the earlier cpaw1d/2d/3d files.  It was generalized
+ *   so that regression tests would not require recompiling the code to run
+ *   different dimensions.
  *
- * The wave is defined with reference to a coordinate system (x,y,z) with
- *  transformation rules to the code coordinate system (x1,x2,x3)
+ *   In 1D, the problem is setup along one of the three coordinate axes
+ *   (specified by setting [ang_2,ang_3] = 0.0 or PI/2 in the input file).  In
+ *   2D/3D this routine automatically sets the wavevector along the domain
+ *   diagonal.
+ *
+ * For 2D/3D problems, the one dimensional problem in the coordinate system
+ * (x,y,z) is used with two coordinate rotations to obtain a new wave vector in
+ * a 3D space in the (x1,x2,x3) coordinate system.
  *
  *   First rotate about the y axis:
  *   - x' = x*cos(ang_2) - z*sin(ang_2)
@@ -42,9 +48,8 @@
  * Can be used for either standing (problem/v_par=1.0) or travelling
  * (problem/v_par=0.0) waves.
  *
- * USERWORK_AFTER_LOOP function computes L1 error norm in solution by comparing
- *   to initial conditions.  Problem must be evolved for an integer number of
- *   wave periods for this to work.
+ * USERWORK_AFTER_LOOP function computes L1 error norm in solution at stopping
+ *   time.
  *
  * PRIVATE FUNCTION PROTOTYPES:
  * - A1() - 1-component of vector potential for initial conditions
@@ -64,10 +69,11 @@
 #include "prototypes.h"
 
 #ifndef MHD
-#error : The cpaw3d test only works for MHD.
+#error : The cpaw test only works for MHD.
 #endif
 
-/* Initial solution, shared with Userwork_after_loop to compute L1 error */
+/* Analytic solution at stopping time, shared with Userwork_after_loop to
+ * compute L1 error */
 static ConsS ***RootSoln=NULL;
 
 /* Parameters which define initial solution -- made global so that they can be
@@ -84,9 +90,9 @@ static Real lambda, k_par; /* Wavelength, 2*PI/wavelength */
  * A3() - 3-component of vector potential for initial conditions
  *============================================================================*/
 
-static Real A1(const Real x1, const Real x2, const Real x3);
-static Real A2(const Real x1, const Real x2, const Real x3);
-static Real A3(const Real x1, const Real x2, const Real x3);
+static Real A1(const Real x1, const Real x2, const Real x3, const Real vdt);
+static Real A2(const Real x1, const Real x2, const Real x3, const Real vdt);
+static Real A3(const Real x1, const Real x2, const Real x3, const Real vdt);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -95,20 +101,17 @@ static Real A3(const Real x1, const Real x2, const Real x3);
 void problem(DomainS *pDomain)
 {
   GridS *pGrid = pDomain->Grid;
-  ConsS ***Soln;
   int i=0,j=0,k=0;
   int is,ie,js,je,ks,ke,nx1,nx2,nx3,dir;
-  Real dx1 = pGrid->dx1;
-  Real dx2 = pGrid->dx2;
-  Real dx3 = pGrid->dx3;
+  Real dx1 = pGrid->dx1, dx2 = pGrid->dx2, dx3 = pGrid->dx3;
   Real hdx1 = 0.5*pGrid->dx1;
   Real hdx2 = 0.5*pGrid->dx2;
   Real hdx3 = 0.5*pGrid->dx3;
   Real x1size, x2size, x3size;
-  Real x,x1,x2,x3,cs,sn;
-  Real v_par, v_perp, den, pres;
+  Real x,x1,x2,x3,Mx,My,Mz,cs,sn,tlim,vdt;
+  Real v_par, v_perp, den, pres, v_A;
 #ifdef RESISTIVITY
-  Real v_A, kva, omega_h, omega_l, omega_r;
+  Real kva, omega_h, omega_l, omega_r;
 #endif
 
   is = pGrid->is; ie = pGrid->ie;
@@ -119,31 +122,44 @@ void problem(DomainS *pDomain)
   nx2 = (je-js)+1 + 2*nghost;
   nx3 = (ke-ks)+1 + 2*nghost;
 
-  if(pGrid->Nx[2] <= 1)
-    ath_error("[problem]: cp_alfven3d assumes a 3D grid\n");
-
-  if ((Soln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))==NULL)
-    ath_error("[problem]: Error allocating memory for Soln\n");
+/* allocate memory for solution */
 
   if (pDomain->Level == 0){
     if ((RootSoln = (ConsS***)calloc_3d_array(nx3,nx2,nx1,sizeof(ConsS)))
       == NULL) ath_error("[problem]: Error allocating memory for RootSoln\n");
   }
 
-/* Imposing periodicity and one wavelength along each grid direction */
+/* Read initial conditions */
 
-  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
+  b_par = par_getd("problem","b_par");
+  b_perp = par_getd("problem","b_perp");
+  dir    = par_geti_def("problem","dir",1); /* right(1)/left(2) polarization */
+  pres = par_getd("problem","pres");
+  v_par = par_getd("problem","v_par");
+  ang_2 = par_getd_def("problem","ang_2",-999.9);
+  ang_3 = par_getd_def("problem","ang_3",-999.9);
+
+  tlim = par_getd("time","tlim");
+
+  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0]; 
   x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
   x3size = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
 
-  ang_3 = atan(x1size/x2size);
+/*  For wavevector along coordinate axes, set desired values of ang_2/ang_3.
+ *  For example, for 1D problem use ang_2 = ang_3 = 0.0
+ *  For wavevector along grid diagonal, do not input values for ang_2/ang_3.
+ *  Code below will automatically calculate these imposing periodicity and
+ *  exactly one wavelength along each grid direction */
+  
+/* User should never input -999.9 in angles */
+  if (ang_3 == -999.9) ang_3 = atan(x1size/x2size);
   sin_a3 = sin(ang_3);
   cos_a3 = cos(ang_3);
-
-  ang_2 = atan(0.5*(x1size*cos_a3 + x2size*sin_a3)/x3size);
-  sin_a2 = sin(ang_2);
+  
+  if (ang_2 == -999.9) ang_2 = atan(0.5*(x1size*cos_a3 + x2size*sin_a3)/x3size);
+  sin_a2 = sin(ang_2); 
   cos_a2 = cos(ang_2);
-
+  
   x1 = x1size*cos_a2*cos_a3;
   x2 = x2size*cos_a2*sin_a3;
   x3 = x3size*sin_a2;
@@ -151,21 +167,17 @@ void problem(DomainS *pDomain)
 /* For lambda choose the smaller of the 3 */
 
   lambda = x1;
-  lambda = MIN(lambda,x2);
-  lambda = MIN(lambda,x3);
+  if (pGrid->Nx[1] > 1 && ang_3 != 0.0) lambda = MIN(lambda,x2);
+  if (pGrid->Nx[2] > 1 && ang_2 != 0.0) lambda = MIN(lambda,x3);
 
 /* Initialize k_parallel */
-
   k_par = 2.0*PI/lambda;
-  b_par = par_getd("problem","b_par");
+  
   den = 1.0;
-
-  ath_pout(0,"va_parallel = %g\n",b_par/sqrt(den));
-
-  b_perp = par_getd("problem","b_perp");
+  v_A    = b_par/sqrt((double)den);
+  ath_pout(0,"va_parallel = %g\n",v_A);
   v_perp = b_perp/sqrt((double)den);
 
-  dir    = par_geti_def("problem","dir",1); /* right(1)/left(2) polarization */
   if (dir == 1) /* right polarization */
     fac = 1.0;
   else          /* left polarization */
@@ -174,7 +186,6 @@ void problem(DomainS *pDomain)
 #ifdef RESISTIVITY
   Q_Hall = par_getd("problem","Q_H");
   d_ind  = 0.0;
-  v_A    = b_par/sqrt((double)den);
   if (Q_Hall > 0.0)
   {
     kva     = k_par*v_A;
@@ -190,34 +201,109 @@ void problem(DomainS *pDomain)
   }
 #endif
 
-/* The gas pressure and parallel velocity are free parameters. */
-
-  pres = par_getd("problem","pres");
-  v_par = par_getd("problem","v_par");
-
+/* Step 1. ------  Initialize wave at appropriate angle to grid  ------------ */
 /* Use the vector potential to initialize the interface magnetic fields */
 
-  for (k=ks; k<=ke+1; k++) {
-    for (j=js; j<=je+1; j++) {
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
       for (i=is; i<=ie+1; i++) {
 	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-	x1 -= 0.5*pGrid->dx1;
-	x2 -= 0.5*pGrid->dx2;
-	x3 -= 0.5*pGrid->dx3;
-
-	pGrid->B1i[k][j][i] = (A3(x1,x2+dx2 ,x3+hdx3) - A3(x1,x2,x3+hdx3))/dx2 -
-	                      (A2(x1,x2+hdx2,x3+dx3 ) - A2(x1,x2+hdx2,x3))/dx3;
-
-	pGrid->B2i[k][j][i] = (A1(x1+hdx1,x2,x3+dx3 ) - A1(x1+hdx1,x2,x3))/dx3 -
-	                      (A3(x1+dx1 ,x2,x3+hdx3) - A3(x1,x2,x3+hdx3))/dx1;
-
-	pGrid->B3i[k][j][i] = (A2(x1+dx1,x2+hdx2,x3) - A2(x1,x2+hdx2,x3))/dx1 -
-	                      (A1(x1+hdx1,x2+dx2,x3) - A1(x1+hdx1,x2,x3))/dx2;
+	x1 -= 0.5*dx1;
+	x2 -= 0.5*dx2;
+	x3 -= 0.5*dx3;
+	pGrid->B1i[k][j][i] = 
+           (A3(x1,x2+dx2 ,x3+hdx3,0.0) - A3(x1,x2,x3+hdx3,0.0))/dx2 -
+	   (A2(x1,x2+hdx2,x3+dx3 ,0.0) - A2(x1,x2+hdx2,x3,0.0))/dx3;
       }
     }
   }
 
-/* Now initialize the cell centered quantities */
+  if (pGrid->Nx[1] > 1) {
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je+1; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          x1 -= 0.5*dx1;
+          x2 -= 0.5*dx2;
+          x3 -= 0.5*dx3;
+          pGrid->B2i[k][j][i] =
+           (A1(x1+hdx1,x2,x3+dx3 ,0.0) - A1(x1+hdx1,x2,x3,0.0))/dx3 -
+           (A3(x1+dx1 ,x2,x3+hdx3,0.0) - A3(x1,x2,x3+hdx3,0.0))/dx1;
+        }
+      }
+    }
+  } else {
+    for (i=is; i<=ie; i++) {
+      cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+      x1 -= 0.5*dx1;
+      x2 -= 0.5*dx2;
+      x3 -= 0.5*dx3;
+      pGrid->B2i[ks][js][i] =
+            - (A3(x1+dx1 ,x2,x3+hdx3,0.0) - A3(x1,x2,x3+hdx3,0.0))/dx1;
+    }
+  }
+
+  if (pGrid->Nx[2] > 1) {
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          x1 -= 0.5*dx1;
+          x2 -= 0.5*dx2;
+          x3 -= 0.5*dx3;
+          pGrid->B3i[k][j][i] =
+             (A2(x1+dx1,x2+hdx2,x3,0.0) - A2(x1,x2+hdx2,x3,0.0))/dx1 -
+             (A1(x1+hdx1,x2+dx2,x3,0.0) - A1(x1+hdx1,x2,x3,0.0))/dx2;
+        }
+      }
+    }
+  } else { 
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) { 
+	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+	x1 -= 0.5*dx1;
+	x2 -= 0.5*dx2;
+	x3 -= 0.5*dx3;
+        pGrid->B3i[ks][j][i] =
+           (A2(x1+dx1,x2+hdx2,x3,0.0) - A2(x1,x2+hdx2,x3,0.0))/dx1 -
+           (A1(x1+hdx1,x2+dx2,x3,0.0) - A1(x1+hdx1,x2,x3,0.0))/dx2;
+      }
+    }
+  }
+
+/* compute cell-centered B-fields */
+  for (k=ks; k<=ke; k++) {
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i]+pGrid->B1i[k][j][i+1]);
+  }}}
+
+  if (pGrid->Nx[1] > 1) {
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j][i]+pGrid->B2i[k][j+1][i]);
+    }}}
+  } else {
+    for (i=is; i<=ie; i++) {
+      pGrid->U[ks][js][i].B2c = pGrid->B2i[ks][js][i];
+    }
+  }
+
+  if (pGrid->Nx[2] > 1) {
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k][j][i]+pGrid->B3i[k+1][j][i]);
+    }}}
+  } else {
+    for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+      pGrid->U[ks][j][i].B3c = pGrid->B3i[ks][j][i];
+    }}
+  }
+
+/* Now initialize rest of the cell centered quantities */
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -228,6 +314,17 @@ void problem(DomainS *pDomain)
 	cs = fac*cos(k_par*x);
 
 	pGrid->U[k][j][i].d  = den;
+
+        Mx = den*v_par;
+        My = -fac*den*v_perp*sn;
+        Mz = -den*v_perp*cs;
+
+        pGrid->U[k][j][i].M1 = Mx*cos_a2*cos_a3 - My*sin_a3 - Mz*sin_a2*cos_a3;
+        pGrid->U[k][j][i].M2 = Mx*cos_a2*sin_a3 + My*cos_a3 - Mz*sin_a2*sin_a3;
+        pGrid->U[k][j][i].M3 = Mx*sin_a2                    + Mz*cos_a2;
+
+
+/*
 	pGrid->U[k][j][i].M1 = den*(v_par*cos_a2*cos_a3 +
 				    v_perp*sn*sin_a3 +
 				    v_perp*cs*sin_a2*cos_a3);
@@ -238,13 +335,7 @@ void problem(DomainS *pDomain)
 
 	pGrid->U[k][j][i].M3 = den*(v_par*sin_a2 -
 				    v_perp*cs*cos_a2);
-
-	pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i  ] +
-			             pGrid->B1i[k][j][i+1]);
-	pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j  ][i] +
-			             pGrid->B2i[k][j+1][i]);
-	pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k  ][j][i] +
-			             pGrid->B3i[k+1][j][i]);
+*/
 
 #ifndef ISOTHERMAL
 	pGrid->U[k][j][i].E = pres/Gamma_1 
@@ -256,34 +347,92 @@ void problem(DomainS *pDomain)
 		 SQR(pGrid->U[k][j][i].M3) )/den;
 #endif
 
-/* And store the initial state */
-	Soln[k][j][i] = pGrid->U[k][j][i];
       }
     }
   }
 
+/* Step 2. ------  Now store solution at final time to compute errors  ------ */
 /* save solution on root grid */
 
-  if (pDomain->Level == 0) {
-    for (k=ks; k<=ke; k++) {
+  if (pDomain->Level == 0) {  /* Errors only computed on Root Domain */
+
+  vdt = tlim*(v_par + v_A);
+
+  for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
-    for (i=is; i<=ie; i++) {
-      RootSoln[k][j][i].d  = Soln[k][j][i].d ;
-      RootSoln[k][j][i].M1 = Soln[k][j][i].M1;
-      RootSoln[k][j][i].M2 = Soln[k][j][i].M2;
-      RootSoln[k][j][i].M3 = Soln[k][j][i].M3;
-#ifndef ISOTHERMAL
-      RootSoln[k][j][i].E  = Soln[k][j][i].E ;
-#endif /* ISOTHERMAL */
-      RootSoln[k][j][i].B1c = Soln[k][j][i].B1c;
-      RootSoln[k][j][i].B2c = Soln[k][j][i].B2c;
-      RootSoln[k][j][i].B3c = Soln[k][j][i].B3c;
-#if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++)
-        RootSoln[k][j][i].s[n] = Soln[k][j][i].s[n];
-#endif
-    }}}
+      for (i=is; i<=ie; i++) {
+	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+	x1 -= 0.5*dx1;
+	x2 -= 0.5*dx2;
+	x3 -= 0.5*dx3;
+
+	RootSoln[k][j][i].B1c = 0.5*(
+           (A3(x1,x2+dx2 ,x3+hdx3,vdt) - A3(x1,x2,x3+hdx3,vdt))/dx2 -
+	   (A2(x1,x2+hdx2,x3+dx3 ,vdt) - A2(x1,x2+hdx2,x3,vdt))/dx3 +
+           (A3(x1+dx1,x2+dx2 ,x3+hdx3,vdt) - A3(x1+dx1,x2,x3+hdx3,vdt))/dx2 -
+	   (A2(x1+dx1,x2+hdx2,x3+dx3 ,vdt) - A2(x1+dx1,x2+hdx2,x3,vdt))/dx3);
+
+	RootSoln[k][j][i].B2c = 0.5*(
+           (A1(x1+hdx1,x2,x3+dx3 ,vdt) - A1(x1+hdx1,x2,x3,vdt))/dx3 -
+	   (A3(x1+dx1 ,x2,x3+hdx3,vdt) - A3(x1,x2,x3+hdx3,vdt))/dx1 +
+           (A1(x1+hdx1,x2+dx2,x3+dx3 ,vdt) - A1(x1+hdx1,x2+dx2,x3,vdt))/dx3 -
+	   (A3(x1+dx1 ,x2+dx2,x3+hdx3,vdt) - A3(x1,x2+dx2,x3+hdx3,vdt))/dx1);
+
+	RootSoln[k][j][i].B3c = 0.5*(
+           (A2(x1+dx1,x2+hdx2,x3,vdt) - A2(x1,x2+hdx2,x3,vdt))/dx1 -
+	   (A1(x1+hdx1,x2+dx2,x3,vdt) - A1(x1+hdx1,x2,x3,vdt))/dx2 +
+           (A2(x1+dx1,x2+hdx2,x3+dx3,vdt) - A2(x1,x2+hdx2,x3+dx3,vdt))/dx1 -
+	   (A1(x1+hdx1,x2+dx2,x3+dx3,vdt) - A1(x1+hdx1,x2,x3+dx3,vdt))/dx2);
+      }
+    }
   }
+
+/* Now initialize the cell centered quantities */
+
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+	x = cos_a2*(x1*cos_a3 + x2*sin_a3) + x3*sin_a2;
+	sn = sin(k_par*(x - vdt));
+	cs = fac*cos(k_par*(x - vdt));
+
+	RootSoln[k][j][i].d  = den;
+
+        Mx = den*v_par;
+        My = -fac*den*v_perp*sn;
+        Mz = -den*v_perp*cs;
+
+        RootSoln[k][j][i].M1 = Mx*cos_a2*cos_a3 - My*sin_a3 - Mz*sin_a2*cos_a3;
+        RootSoln[k][j][i].M2 = Mx*cos_a2*sin_a3 + My*cos_a3 - Mz*sin_a2*sin_a3;
+        RootSoln[k][j][i].M3 = Mx*sin_a2                    + Mz*cos_a2;
+
+/*
+	RootSoln[k][j][i].M1 = den*(v_par*cos_a2*cos_a3 +
+				    v_perp*sn*sin_a3 +
+				    v_perp*cs*sin_a2*cos_a3);
+
+	RootSoln[k][j][i].M2 = den*(v_par*cos_a2*sin_a3 -
+				    v_perp*sn*cos_a3 +
+				    v_perp*cs*sin_a2*sin_a3);
+
+	RootSoln[k][j][i].M3 = den*(v_par*sin_a2 -
+				    v_perp*cs*cos_a2);
+*/
+
+#ifndef ISOTHERMAL
+	RootSoln[k][j][i].E = pres/Gamma_1 
+	  + 0.5*(SQR(RootSoln[k][j][i].B1c) +
+		 SQR(RootSoln[k][j][i].B2c) +
+		 SQR(RootSoln[k][j][i].B3c) )
+	  + 0.5*(SQR(RootSoln[k][j][i].M1) +
+		 SQR(RootSoln[k][j][i].M2) +
+		 SQR(RootSoln[k][j][i].M3) )/den;
+#endif
+
+      }
+    }
+  }}
 
   return;
 }
@@ -335,9 +484,7 @@ void Userwork_in_loop(MeshS *pM)
 }
 
 /*---------------------------------------------------------------------------
- * Userwork_after_loop: computes L1-error in CPAW,
- * ASSUMING WAVE HAS PROPAGATED AN INTEGER NUMBER OF PERIODS
- * Must set parameters in input file appropriately so that this is true
+ * Userwork_after_loop: computes L1-error in CPAW at stopping time.
  */
 
 void Userwork_after_loop(MeshS *pM)
@@ -349,7 +496,7 @@ void Userwork_after_loop(MeshS *pM)
   ConsS error,total_error;
   FILE *fp;
   char *fname;
-  int Nx1, Nx2, Nx3, count;
+  int Nx1, Nx2, Nx3, count, min_zones;
 #if defined MPI_PARALLEL
   double err[8], tot_err[8];
   int ierr,myID;
@@ -474,12 +621,20 @@ void Userwork_after_loop(MeshS *pM)
 #endif /* ISOTHERMAL */
   rms_error = sqrt(rms_error)/(double)count;
 
-/* Print error to file "cpaw3d-errors.dat" */
+/* Print warning to stdout if rms_error exceeds estimate of 2nd-order conv */
+
+  min_zones = Nx1;
+  if (Nx2 > 1) min_zones = MIN(min_zones,Nx2);
+  if (Nx3 > 1) min_zones = MIN(min_zones,Nx3);
+  if (rms_error > (1.1*64.0*b_perp/(min_zones*min_zones)))
+    printf("WARNING: rms_error=%e exceeds estimate\n",rms_error);
+
+/* Print error to file "cpaw-errors.dat" */
   
 #ifdef MPI_PARALLEL
-  fname = "../cpaw3d-errors.dat";
+  fname = "../cpaw-errors.dat";
 #else
-  fname = "cpaw3d-errors.dat";
+  fname = "cpaw-errors.dat";
 #endif
 /* The file exists -- reopen the file in append mode */
   if((fp=fopen(fname,"r")) != NULL){
@@ -527,12 +682,12 @@ void Userwork_after_loop(MeshS *pM)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
   
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real A1(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real A1(const Real x1,const Real x2,const Real x3,const Real vdt)
  *  \brief A1: 1-component of vector potential, using a gauge such that Ax = 0,
  * and Ay, Az are functions of x and y alone.
  */
 
-static Real A1(const Real x1, const Real x2, const Real x3)
+static Real A1(const Real x1, const Real x2, const Real x3, const Real vdt)
 {
   Real x, y;
   Real Ay, Az;
@@ -540,18 +695,18 @@ static Real A1(const Real x1, const Real x2, const Real x3)
   x =  x1*cos_a2*cos_a3 + x2*cos_a2*sin_a3 + x3*sin_a2;
   y = -x1*sin_a3        + x2*cos_a3;
 
-  Ay = fac*(b_perp/k_par)*sin(k_par*x);
-  Az = (b_perp/k_par)*cos(k_par*x) + b_par*y;
+  Ay = fac*(b_perp/k_par)*sin(k_par*(x - vdt));
+  Az = (b_perp/k_par)*cos(k_par*(x - vdt)) + b_par*y;
 
   return -Ay*sin_a3 - Az*sin_a2*cos_a3;
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real A2(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real A2(const Real x1,const Real x2,const Real x3,const Real vdt)
  *  \brief A2: 2-component of vector potential
  */
 
-static Real A2(const Real x1, const Real x2, const Real x3)
+static Real A2(const Real x1, const Real x2, const Real x3, const Real vdt)
 {
   Real x, y;
   Real Ay, Az;
@@ -559,18 +714,18 @@ static Real A2(const Real x1, const Real x2, const Real x3)
   x =  x1*cos_a2*cos_a3 + x2*cos_a2*sin_a3 + x3*sin_a2;
   y = -x1*sin_a3        + x2*cos_a3;
 
-  Ay = fac*(b_perp/k_par)*sin(k_par*x);
-  Az = (b_perp/k_par)*cos(k_par*x) + b_par*y;
+  Ay = fac*(b_perp/k_par)*sin(k_par*(x - vdt));
+  Az = (b_perp/k_par)*cos(k_par*(x - vdt)) + b_par*y;
 
   return Ay*cos_a3 - Az*sin_a2*sin_a3;
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static Real A3(const Real x1, const Real x2, const Real x3)
+/*! \fn static Real A3(const Real x1,const Real x2,const Real x3,const Real vdt)
  *  \brief A3: 3-component of vector potential
  */
 
-static Real A3(const Real x1, const Real x2, const Real x3)
+static Real A3(const Real x1, const Real x2, const Real x3, const Real vdt)
 {
   Real x, y;
   Real Az;
@@ -578,7 +733,7 @@ static Real A3(const Real x1, const Real x2, const Real x3)
   x =  x1*cos_a2*cos_a3 + x2*cos_a2*sin_a3 + x3*sin_a2;
   y = -x1*sin_a3        + x2*cos_a3;
 
-  Az = (b_perp/k_par)*cos(k_par*x) + b_par*y;
+  Az = (b_perp/k_par)*cos(k_par*(x - vdt)) + b_par*y;
 
   return Az*cos_a2;
 }

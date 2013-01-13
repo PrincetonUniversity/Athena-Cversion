@@ -1,7 +1,7 @@
 #include "../copyright.h"
 
 /* #define PM_CIC */
-#define PM_TSC
+//#define PM_TSC
 
 /*============================================================================*/
 /*! \file selfg_fft_obc.c
@@ -63,11 +63,21 @@ void selfg_fft_obc_2d(DomainS *pD)
   int Nx1=pD->Nx[0], Nx2=pD->Nx[1];
   int hNx1=Nx1/2, hNx2=Nx2/2;
   Real dkx=2.0*PI/(double)(Nx1), dky=2.0*PI/(double)(Nx2);
+/*
 #ifdef RADIATION
-  RadParticleS *pRP=NULL;
+  RadParticleS *pSP=NULL;
   Real x1,x2,x3;
   Real tmp,W1[3],W2[3],W3[3],d;
 #endif
+*/
+
+#ifdef STAR_PARTICLE
+  StarParS *pSP=NULL;
+  Real x1,x2,x3;
+  Real tmp,W1[3],W2[3],W3[3],d;
+#endif
+
+
 
   /* Copy current potential into old and zero-out */
   for (j=js-nghost; j<=je+nghost; j++) {
@@ -89,56 +99,9 @@ void selfg_fft_obc_2d(DomainS *pD)
         }
       }
 
-#ifdef RADIATION
-      /* Interpolate particle density onto the mesh using CIC or TSC shape
-       * functions as described in Hockney & Eastwood.  NOTE:  There are more
-       * efficient ways to implement this, but since the radiation particle lists
-       * will typically be small, there is no real need. */
-      pRP = pG->radparticles;
-      while (pRP) {
-        /* Calculate indices and spatial coordinates of the lower nearest
-         * neighbor grid cell.
-         * x1 <= pRP->x1 < x1+pG->dx1, x2 <= pRP->x2 < x2+pG->dx2 */
-        cc_ijk(pG,pRP->x1,pRP->x2,pRP->x3,&ip,&jp,&ks);
-        cc_pos(pG,ip,jp,ks,&x1,&x2,&x3);
-
-#ifdef PM_CIC
-        /* Compute CIC weights.   */
-        if (pRP->x1 > x1)
-          W1[1] = (pRP->x1 - x1)/pG->dx1;  W1[0] = 1.0 - W1[1];
-        else
-          W1[0] = (x1 - pRP->x1)/pG->dx1;  W1[1] = 1.0 - W1[0];
-        if (pRP->x2 > x2)
-          W2[1] = (pRP->x2 - x2)/pG->dx2;  W2[0] = 1.0 - W2[1];
-        else
-          W2[0] = (x2 - pRP->x2)/pG->dx2;  W2[1] = 1.0 - W2[0];
-
-        /* Add weighted particle density to work array 0. */
-        d = pRP->m/(pG->dx1*pG->dx2);
-        for (j=0; j<=1; j++) {
-          for (i=0; i<=1; i++) {
-            work[F2DI(ip+i-is,jp+j-js,pG->Nx[0],pG->Nx[1])][0] += d*W1[i]*W2[j];
-          }
-        }
-#elif defined(PM_TSC)
-        /* Compute TSC weights.   */
-        tmp = 0.5 + (pRP->x1 - x1)/pG->dx1;
-        W1[2] = 0.5*SQR(tmp);  W1[0] = W1[2] - tmp + 0.5;  W1[1] = 1.0 - W1[0] - W1[2];
-        tmp = 0.5 + (pRP->x2 - x2)/pG->dx2;
-        W2[2] = 0.5*SQR(tmp);  W2[0] = W2[2] - tmp + 0.5;  W2[1] = 1.0 - W2[0] - W2[2];
-
-        /* Add weighted particle density to work array 0. */
-        d = pRP->m/(pG->dx1*pG->dx2);
-        for (j=0; j<=2; j++) {
-          for (i=0; i<=2; i++) {
-            work[F2DI(ip-1+i-is,jp-1+j-js,pG->Nx[0],pG->Nx[1])][0] += d*W1[i]*W2[j];
-          }
-        }
-#endif
-
-        pRP = pRP->next;
-      }
-#endif
+#ifdef STAR_PARTICLE
+      assign_starparticles_2d(pD,work);
+#endif /* STAR_PARTICLE */
 
       /* Copy work array 0 into work array 1, then multiply by complex offsets.
        * To compute offsets, note that indices relative to whole Domain are
@@ -243,11 +206,6 @@ void selfg_fft_obc_3d(DomainS *pD)
   int hNx1=Nx1/2, hNx2=Nx2/2, hNx3=Nx3/2;
   Real idx1sq=1.0/SQR(pG->dx1),idx2sq=1.0/SQR(pG->dx2),idx3sq=1.0/SQR(pG->dx3);
   Real dkx=2.0*PI/(double)(Nx1),dky=2.0*PI/(double)(Nx2),dkz=2.0*PI/(double)(Nx3);
-#ifdef RADIATION
-  RadParticleS *pRP=NULL;
-  Real x1,x2,x3;
-  Real tmp,W1[3],W2[3],W3[3],d;
-#endif
 
   /* Copy current potential into old and zero-out */
   for (k=ks-nghost; k<=ke+nghost; k++){
@@ -274,67 +232,9 @@ void selfg_fft_obc_3d(DomainS *pD)
         }
       }
 
-#ifdef RADIATION
-      /* Interpolate particle density onto the mesh using CIC or TSC shape
-       * functions as described in Hockney & Eastwood.  NOTE:  There are more
-       * efficient ways to implement this, but since the radiation particle lists
-       * will typically be small, there is no real need. */
-      pRP = pG->radparticles;
-      while (pRP) {
-        /* Calculate indices and spatial coordinates of the lower nearest
-         * neighbor grid cell.
-         * x1 <= pRP->x1 < x1+pG->dx1, x2 <= pRP->x2 < x2+pG->dx2 */
-        cc_ijk(pG,pRP->x1,pRP->x2,pRP->x3,&ip,&jp,&kp);
-        cc_pos(pG,ip,jp,kp,&x1,&x2,&x3);
-
-#ifdef PM_CIC
-        /* Compute CIC weights.   */
-        if (pRP->x1 > x1)
-          W1[1] = (pRP->x1 - x1)/pG->dx1;  W1[0] = 1.0 - W1[1];
-        else
-          W1[0] = (x1 - pRP->x1)/pG->dx1;  W1[1] = 1.0 - W1[0];
-        if (pRP->x2 > x2)
-          W2[1] = (pRP->x2 - x2)/pG->dx2;  W2[0] = 1.0 - W2[1];
-        else
-          W2[0] = (x2 - pRP->x2)/pG->dx2;  W2[1] = 1.0 - W2[0];
-        if (pRP->x3 > x3)
-          W3[1] = (pRP->x3 - x3)/pG->dx3;  W3[0] = 1.0 - W3[1];
-        else
-          W3[0] = (x3 - pRP->x3)/pG->dx3;  W3[1] = 1.0 - W3[0];
-
-        /* Add weighted particle density to work array 0. */
-        d = pRP->m/(pG->dx1*pG->dx2*pG->dx3);
-        for (k=0; k<=1; k++) {
-          for (j=0; j<=1; j++) {
-            for (i=0; i<=1; i++) {
-              work[F3DI(ip+i-is,jp+j-js,kp+k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] += d*W1[i]*W2[j]*W3[k];
-            }
-          }
-        }
-
-#elif defined(PM_TSC)
-        /* Compute TSC weights.   */
-        tmp = 0.5 + (pRP->x1 - x1)/pG->dx1;
-        W1[2] = 0.5*SQR(tmp);  W1[0] = W1[2] - tmp + 0.5;  W1[1] = 1.0 - W1[0] - W1[2];
-        tmp = 0.5 + (pRP->x2 - x2)/pG->dx2;
-        W2[2] = 0.5*SQR(tmp);  W2[0] = W2[2] - tmp + 0.5;  W2[1] = 1.0 - W2[0] - W2[2];
-        tmp = 0.5 + (pRP->x3 - x3)/pG->dx3;
-        W3[2] = 0.5*SQR(tmp);  W3[0] = W3[2] - tmp + 0.5;  W3[1] = 1.0 - W3[0] - W3[2];
-
-        /* Add weighted particle density to work array 0. */
-        d = pRP->m/(pG->dx1*pG->dx2*pG->dx3);
-        for (k=0; k<=2; k++) {
-          for (j=0; j<=2; j++) {
-            for (i=0; i<=2; i++) {
-              work[F3DI(ip-1+i-is,jp-1+j-js,kp-1+k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] += d*W1[i]*W2[j]*W3[k];
-            }
-          }
-        }
-#endif
-
-        pRP = pRP->next;
-      }
-#endif
+#ifdef STAR_PARTICLE
+     assign_starparticles_3d(pD,work); 
+#endif /* STAR_PARTICLE */
 
       /* Copy work array 0 into work array 1, then multiply by complex offsets.
        * To compute offsets, note that indices relative to whole Domain are
@@ -445,7 +345,7 @@ void selfg_fft_obc_3d(DomainS *pD)
  *  \brief Initializes plans for forward/backward FFTs, and allocates memory 
  *   needed by FFTW.
  */
-void selfg_fft_2d_init(MeshS *pM)
+void selfg_fft_obc_2d_init(MeshS *pM)
 {
   DomainS *pD;
   int nl,nd;
@@ -467,7 +367,7 @@ void selfg_fft_2d_init(MeshS *pM)
  *  \brief Initializes plans for forward/backward FFTs, and allocates memory 
  *   needed by FFTW.
  */
-void selfg_fft_3d_init(MeshS *pM)
+void selfg_fft_obc_3d_init(MeshS *pM)
 {
   DomainS *pD;
   int nl,nd;

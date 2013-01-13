@@ -247,6 +247,7 @@ void output_pdf(MeshS *pM, OutputS *pOut)
         if(pfile == NULL){
           ath_perr(-1,"[output_pdf]: Unable to open pdf file\n");
         }
+        free(fname);
 
 /* Write out some extra information in a header */
         fprintf(pfile,"# Time = %21.15e\n",pG->time);
@@ -302,6 +303,7 @@ void output_pdf(MeshS *pM, OutputS *pOut)
         if(pfile == NULL){
           ath_perr(-1,"[output_pdf]: Unable to open stats file\n");
         }
+        free(fname);
 
         if(pOut->num == 0){
           fprintf(pfile,"# expr = \"%s\"\n#\n",pOut->out);

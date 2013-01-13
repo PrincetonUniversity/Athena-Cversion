@@ -90,6 +90,7 @@ void output_ppm(MeshS *pM, OutputS *pOut)
           if((pfile = fopen(fname,"w")) == NULL){
             ath_error("[output_ppm]: Unable to open ppm file %s\n",fname);
           }
+          free(fname);
 
 /* Store the global min / max, for output at end of run */
           minmax2(data,nx2,nx1,&dmin,&dmax);
@@ -117,7 +118,6 @@ void output_ppm(MeshS *pM, OutputS *pOut)
 /* Close the file, free memory */
           fclose(pfile);
           free_2d_array(data);
-          free(fname);
           data = NULL;
         }
       }}

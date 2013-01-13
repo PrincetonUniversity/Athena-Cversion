@@ -423,7 +423,7 @@ void problem(DomainS *pDomain)
             pGrid->particle[p].pos = 1; /* grid particle */
             pGrid->particle[p].my_id = p;
 #ifdef MPI_PARALLEL
-            pGrid->particle[p].init_id = myID_Comm_Wolrd;
+            pGrid->particle[p].init_id = myID_Comm_world;
 #endif
             p += 1;
           }
@@ -648,7 +648,7 @@ void OutputModeAmplitude(MeshS *pM, OutputS *pOut)
   GrainS *gr;
   Real dm,dparm,uxm,uym,uzm,wxm,wym,wzm;
 
-  particle_to_grid(pGrid, property_all);
+  particle_to_grid(pDomain, property_all);
 
   dm=0.0; dparm=0.0; uxm=0.0; uym=0.0; uzm=0.0; wxm=0.0; wym=0.0; wzm=0.0;
 

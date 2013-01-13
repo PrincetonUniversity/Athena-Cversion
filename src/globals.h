@@ -20,6 +20,7 @@ Real Gamma;                  /*!< adiabatic index (ratio of specific heats) */
 Real Gamma_1, Gamma_2;       /*!< (Gamma)-1 and (Gamma)-2 */
 #endif
 int myID_Comm_world; /*!< Rank (proc ID) in MPI_COMM_WORLD, 0 for single proc */
+Real d_MIN = TINY_NUMBER;    /*!< density floor */
 
 GravPotFun_t StaticGravPot = NULL;
 CoolingFun_t CoolingFunc = NULL;
@@ -53,6 +54,11 @@ EtaFun_t get_myeta = NULL;       /*!< function to calculate the diffusivities */
 #endif
 #ifdef VISCOSITY
 Real nu_iso=0.0, nu_aniso=0.0;               /*!< coeff of viscosity */
+#endif
+#ifdef STS
+int N_STS;			/*!< number of super timesteps */
+Real nu_STS;			/*!< parameter controlling the substeps  */
+Real STS_dt;			/*!< STS time step */
 #endif
 
 #ifdef CYLINDRICAL
@@ -105,6 +111,7 @@ extern Real Iso_csound, Iso_csound2;
 extern Real Gamma, Gamma_1, Gamma_2;
 #endif
 extern int myID_Comm_world;
+extern Real d_MIN;
 
 extern GravPotFun_t StaticGravPot;
 extern CoolingFun_t CoolingFunc;
@@ -139,6 +146,10 @@ extern EtaFun_t get_myeta;
 #endif
 #ifdef VISCOSITY
 extern Real nu_iso, nu_aniso;
+#endif
+#ifdef STS
+extern int N_STS;
+extern Real nu_STS, STS_dt; 
 #endif
 
 #ifdef CYLINDRICAL

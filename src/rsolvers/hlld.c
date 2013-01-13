@@ -570,6 +570,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   /* rho component of U^{hll} from Mignone eqn. (15);
    * uses F_L and F_R from eqn. (6) */
   dhll = (spd[4]*Ur.d-spd[0]*Ul.d-Fr.d+Fl.d)*idspd;
+  if (dhll < d_MIN){
+    dhll = d_MIN;
+  }
   sqrtdhll = sqrt(dhll);
 
   /* rho and mx components of F^{hll} from Mignone eqn. (17) */

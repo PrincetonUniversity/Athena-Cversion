@@ -38,6 +38,12 @@ typedef double Real;
 # error "Not a valid precision flag"
 #endif
 
+#if defined(STS)
+#if !defined(THERMAL_CONDUCTION) && !defined(RESISTIVITY) && !defined(VISCOSITY)
+#error: STS require explicit diffusion
+#endif /* explicit diffusion */
+#endif
+
 /*! \struct Real3Vect
  *  \brief General 3-vectors of Reals.
  */
@@ -230,11 +236,11 @@ typedef struct Prim1D_s{
  */
 #ifdef PARTICLES
 
-/* Physical quantities of a dust particle */
+/* Physical quantities of a particle */
 typedef struct Grain_s{
   Real x1,x2,x3;	/*!< coordinate in X,Y,Z */
   Real v1,v2,v3;	/*!< velocity in X,Y,Z */
-  int property;		/*!< index of grain properties */
+  int property;		/*!< index of particle properties */
   short pos;		/*!< position: 0: ghost; 1: grid; >=10: cross out/in; */
   long my_id;		/*!< particle id */
 #ifdef MPI_PARALLEL
@@ -243,7 +249,7 @@ typedef struct Grain_s{
 }GrainS;
 
 /*! \struct GrainAux
- *  \brief Auxilary quantities for a dust particle. */
+ *  \brief Auxilary quantities for a particle. */
 typedef struct GrainAux_s{
   Real dpar;            /*!< local particle density */
 #ifdef FARGO
@@ -596,6 +602,11 @@ typedef struct Domain_s{
   VGFun_t ix3_GBCFun, ox3_GBCFun;/*!< ix1/ox1 BC function pointers for this Dom */
 #endif
 
+#ifdef FFT_ENABLED
+  struct ath_2d_fft_plan *fplan2d, *bplan2d;
+  struct ath_3d_fft_plan *fplan3d, *bplan3d;
+#endif
+
 #ifdef MPI_PARALLEL
   MPI_Comm Comm_Domain;      /*!< MPI communicator between Grids on this Dom */
   MPI_Group Group_Domain;    /*!< MPI group for Domain communicator */
@@ -638,6 +649,9 @@ typedef struct Mesh_s{
   int *DomainsPerLevel;      /* number of Domains per level (DPL) */
   DomainS **Domain;          /* array of Domains, indexed over levels and DPL */
   char *outfilename;           /* basename for output files containing -id#  */
+#ifdef STS
+  Real diff_dt;
+#endif
 }MeshS;
 
 typedef void (*VMFun_t)(MeshS *pM);

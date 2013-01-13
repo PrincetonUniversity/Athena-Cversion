@@ -117,7 +117,8 @@ void integrate_1d_ctu(DomainS *pD)
 
 /* Compute predictor feedback from particle drag */
 #ifdef FEEDBACK
-  feedback_predictor(pG);
+  feedback_predictor(pD);
+  exchange_gpcouple(pD,1);
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -155,6 +156,16 @@ void integrate_1d_ctu(DomainS *pD)
   }
 
   lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
+
+/* Apply density floor */
+  for (i=il+1; i<=iu; i++){
+    if (Wl[i].d < d_MIN) {
+      Wl[i].d = d_MIN;
+    }
+    if (Wr[i].d < d_MIN) {
+      Wr[i].d = d_MIN;
+    }
+   }
 
 /*--- Step 1c ------------------------------------------------------------------
  * Add source terms from static gravitational potential for 0.5*dt to L/R states
@@ -327,6 +338,9 @@ void integrate_1d_ctu(DomainS *pD)
   {
     for (i=il+1; i<=iu-1; i++) {
       dhalf[i] = pG->U[ks][js][i].d - hdtodx1*(x1Flux[i+1].d - x1Flux[i].d );
+      if ((dhalf[i] < d_MIN) || (dhalf[i] != dhalf[i])) {
+        dhalf[i] = d_MIN;
+      }
 #ifdef PARTICLES
       pG->Coup[ks][js][i].grid_d = dhalf[i];
 #endif
@@ -402,7 +416,7 @@ void integrate_1d_ctu(DomainS *pD)
 #ifdef PARTICLES
   Integrate_Particles(pD);
 #ifdef FEEDBACK
-  exchange_feedback(pD);
+  exchange_gpcouple(pD,2);
 #endif
 #endif
 

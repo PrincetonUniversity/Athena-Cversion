@@ -2,7 +2,7 @@
 problem = 3D Circularly Polarized Alfven Wave
 author  = G. Toth
 journal = JCP, vol. 161, pp. 605-662 (2000). 
-config  = --with-problem=cpaw3d
+config  = --with-problem=cpaw
 
 <job>
 problem_id   = cpaw         # problem ID: basename of output filenames
@@ -100,10 +100,10 @@ kDisp           = 112       # k-displacement measured in cells of this level
 <problem>
 gamma = 1.6666666666666667  # gamma = C_p/C_v
 iso_csound = 1.0 
+b_par   = 1.0               # B parallel
+b_perp  = 0.1               # B perpendicular
 pres    = 0.1               # pressure
 v_par   = 0.0               # vpar = {0, 1} -> {traveling, standing} wave
-b_par   = 1.0               # B parallel
-b_perp  = 1.0e-4            # B perpendicular
 dir     = 1                 # 1: right polarization (whistler wave), 2: left
 
 Q_H     = 1.0               # Hall parameter

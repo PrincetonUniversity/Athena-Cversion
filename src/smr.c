@@ -961,7 +961,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
             for (i=ips; i<=ipe  ; i+=2) {
               *(pSnd++) = 0.5*(pG->B2i[kps][j][i] + pG->B2i[kps][j][i+1]);
             }}
-            nFld = ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
+            nFld += ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
           }
         }
 
@@ -1199,7 +1199,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
             for (j=0; j<=(jpe-jps)+1; j+=2) {
               *(pSnd++) = pPO->myEMF3[dim][k][j];
             }}
-            cnt += ((kpe-kps+1)/2)*((jpe-jps+1)/2 + 1);
+            cnt += ((jpe-jps+1)/2 + 1);
 
           } else {  
 
@@ -1232,7 +1232,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
             for (i=0; i<=(ipe-ips)+1; i+=2) {
               *(pSnd++) = pPO->myEMF3[dim][k][i];
             }}
-            cnt += ((kpe-kps+1)/2)*((ipe-ips+1)/2 + 1);
+            cnt += ((ipe-ips+1)/2 + 1);
 
           } else {
 
@@ -2316,9 +2316,13 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 
 /* initialize Bx on left-x1 boundry, if not set already */
 
+  dBdx=dBdy=dBdz=0.0;
+
   if (PFld[0][0][0].x1 == 0.0) {
+#ifndef FIRST_ORDER
     dBdy = mcd_slope(BGZ[1][0][1].x1, BGZ[1][1][1].x1, BGZ[1][2][1].x1);
     dBdz = mcd_slope(BGZ[0][1][1].x1, BGZ[1][1][1].x1, BGZ[2][1][1].x1);
+#endif /* FIRST_ORDER */
 
     PFld[0][0][0].x1 = BGZ[1][1][1].x1 - 0.25*dBdy - 0.25*dBdz;
     PFld[0][1][0].x1 = BGZ[1][1][1].x1 + 0.25*dBdy - 0.25*dBdz;
@@ -2329,8 +2333,10 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 /* initialize Bx on right-x1 boundry, if not set already */
 
   if (PFld[0][0][2].x1 == 0.0) {
+#ifndef FIRST_ORDER
     dBdy = mcd_slope(BGZ[1][0][2].x1, BGZ[1][1][2].x1, BGZ[1][2][2].x1);
     dBdz = mcd_slope(BGZ[0][1][2].x1, BGZ[1][1][2].x1, BGZ[2][1][2].x1);
+#endif /* FIRST_ORDER */
 
     PFld[0][0][2].x1 = BGZ[1][1][2].x1 - 0.25*dBdy - 0.25*dBdz;
     PFld[0][1][2].x1 = BGZ[1][1][2].x1 + 0.25*dBdy - 0.25*dBdz;
@@ -2341,8 +2347,10 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 /* initialize By on left-x2 boundry, if not set already */
 
   if (PFld[0][0][0].x2 == 0.0) {
+#ifndef FIRST_ORDER
     dBdx = mcd_slope(BGZ[1][1][0].x2, BGZ[1][1][1].x2, BGZ[1][1][2].x2);
     dBdz = mcd_slope(BGZ[0][1][1].x2, BGZ[1][1][1].x2, BGZ[2][1][1].x2);
+#endif /* FIRST_ORDER */
 
     PFld[0][0][0].x2 = BGZ[1][1][1].x2 - 0.25*dBdx - 0.25*dBdz;
     PFld[0][0][1].x2 = BGZ[1][1][1].x2 + 0.25*dBdx - 0.25*dBdz;
@@ -2353,8 +2361,10 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 /* initialize By on right-x2 boundry, if not set already */
 
   if (PFld[0][2][0].x2 == 0.0) {
+#ifndef FIRST_ORDER
     dBdx = mcd_slope(BGZ[1][2][0].x2, BGZ[1][2][1].x2, BGZ[1][2][2].x2);
     dBdz = mcd_slope(BGZ[0][2][1].x2, BGZ[1][2][1].x2, BGZ[2][2][1].x2);
+#endif /* FIRST_ORDER */
 
     PFld[0][2][0].x2 = BGZ[1][2][1].x2 - 0.25*dBdx - 0.25*dBdz;
     PFld[0][2][1].x2 = BGZ[1][2][1].x2 + 0.25*dBdx - 0.25*dBdz;
@@ -2365,8 +2375,10 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 /* initialize Bz on left-x3 boundry, if not set already */
 
   if (PFld[0][0][0].x3 == 0.0) {
+#ifndef FIRST_ORDER
     dBdx = mcd_slope(BGZ[1][1][0].x3, BGZ[1][1][1].x3, BGZ[1][1][2].x3);
     dBdy = mcd_slope(BGZ[1][0][1].x3, BGZ[1][1][1].x3, BGZ[1][2][1].x3);
+#endif /* FIRST_ORDER */
 
     PFld[0][0][0].x3 = BGZ[1][1][1].x3 - 0.25*dBdx - 0.25*dBdy;
     PFld[0][0][1].x3 = BGZ[1][1][1].x3 + 0.25*dBdx - 0.25*dBdy;
@@ -2377,8 +2389,10 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 /* initialize Bz on right-x3 boundry, if not set already */
 
   if (PFld[2][0][0].x3 == 0.0) {
+#ifndef FIRST_ORDER
     dBdx = mcd_slope(BGZ[2][1][0].x3, BGZ[2][1][1].x3, BGZ[2][1][2].x3);
     dBdy = mcd_slope(BGZ[2][0][1].x3, BGZ[2][1][1].x3, BGZ[2][2][1].x3);
+#endif /* FIRST_ORDER */
 
     PFld[2][0][0].x3 = BGZ[2][1][1].x3 - 0.25*dBdx - 0.25*dBdy;
     PFld[2][0][1].x3 = BGZ[2][1][1].x3 + 0.25*dBdx - 0.25*dBdy;

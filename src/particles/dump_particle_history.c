@@ -133,7 +133,7 @@ void dump_particle_history(MeshS *pM, OutputS *pOut)
   pG = pM->Domain[0][0].Grid;          /* set ptr to Grid */
 
   /* bin particles to the grid */
-  particle_to_grid(pG,property_all);
+  particle_to_grid(pD,property_all);
 
 /*--------------------- Compute scalar history variables ---------------------*/
 

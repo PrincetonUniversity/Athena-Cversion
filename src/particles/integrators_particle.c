@@ -464,8 +464,9 @@ void int_par_exp(GridS *pG, GrainS *curG, Real3Vect cell1,
  * Input: pG: grid with particles
  * Output: pG: the array of drag forces exerted by the particle is updated
 */
-void feedback_predictor(GridS *pG)
+void feedback_predictor(DomainS *pD)
 {
+  GridS *pG = pD->Grid;
   int is,js,ks,i,j,k;
   long p;                   /* particle index */
   Real weight[3][3][3];     /* weight function */

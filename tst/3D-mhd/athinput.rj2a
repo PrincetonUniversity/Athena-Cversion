@@ -10,11 +10,13 @@ maxout          = 3         # Output blocks number from 1 -> maxout
 num_domains     = 1         # number of Domains in Mesh
 
 <output1>
-out_fmt = hst               # History data dump
-dt      = 0.002             # time increment between outputs
+out_fmt = tab               # Tabular data dump
+out     = prim              # variables to be output
+dat_fmt = %12.5e            # Optional data format string
+dt      = 0.002              # time increment between outputs
 
 <output2>
-out_fmt = bin               # Binary data dump
+out_fmt = hst               # History data dump
 dt      = 0.002             # time increment between outputs
 
 <output3>
@@ -34,29 +36,30 @@ tlim            = 0.2          # time limit
 
 <domain1>
 level           = 0         # refinement level this Domain (root=0)
-Nx1             = 768       # Number of zones in X1-direction
-x1min           = -0.75     # minimum value of X1
-x1max           = 0.75      # maximum value of X1
+Nx1             = 392       # Number of zones in X1-direction
+x1min           = -0.234375 # minimum value of X1
+x1max           = 0.53125   # maximum value of X1
 bc_ix1          = 2         # boundary condition flag for inner-I (X1)
 bc_ox1          = 2         # boundary condition flag for outer-I (X1)
 
-Nx2             = 8         # Number of zones in X2-direction
-x2min           = 0.0       # minimum value of X2
-x2max           = 0.015625  # maximum value of X2
-bc_ix1          = 2         # boundary condition flag for inner-J (X2)
-bc_ox1          = 2         # boundary condition flag for outer-J (X2)
+Nx2             = 8          # Number of zones in X2-direction
+x2min           = -0.0078125 # minimum value of X2
+x2max           = 0.0078125  # maximum value of X2
+bc_ix1          = 2          # boundary condition flag for inner-J (X2)
+bc_ox1          = 2          # boundary condition flag for outer-J (X2)
 
-Nx3             = 8         # Number of zones in X3-direction
-x3min           = 0.0       # minimum value of X3
-x3max           = 0.015625  # maximum value of X3
-bc_ix3          = 2         # boundary condition flag for inner-K (X3)
-bc_ox3          = 2         # boundary condition flag for outer-K (X3)
+Nx3             = 8          # Number of zones in X3-direction
+x3min           = -0.0078125 # minimum value of X3
+x3max           = 0.0078125  # maximum value of X3
+bc_ix3          = 2          # boundary condition flag for inner-K (X3)
+bc_ox3          = 2          # boundary condition flag for outer-K (X3)
 
 <problem>
 rx = 1
 ry = 2
 rz = 4
 gamma   = 1.6666666666666667   # gamma = C_p/C_v
+error_test = 0                 # 1 to output L1 error for regression test
 
 dl              = 1.08         # density on left half of grid
 pl              = 0.95         # pressure

@@ -47,10 +47,10 @@
 #   --enable-fofc                 (first-order flux correction in VL integrator)
 #   --enable-ghost                      (write out ghost cells in outputs/dumps)
 #   --enable-h-correction              (turn on H-correction in multidimensions)
-#   --enable-hllallwave                    (all-wave integration for HLL fluxes)
 #   --enable-mpi                                          (parallelize with MPI)
 #   --enable-shearing box                    (include shearing box source terms)
 #   --enable-single                                 (double or single precision)
+#   --enable-sts                     (super timestepping for explicit diffusion)
 #   --enable-smr                                        (static mesh refinement)
 #   --enable-quadratic_intensity              (order of intensity interpolation)
 #   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
@@ -64,12 +64,12 @@ AC_PROG_INSTALL
 
 #-------------------------------------------------------------------------------
 # PHYSICS PACKAGE: name of problem generator from src/prob/name.c 
-#   --with-problem=name (default is linear_wave1d)
+#   --with-problem=name (default is linear_wave)
 
 AC_SUBST(PROBLEM)
 AC_ARG_WITH(problem,
 	[--with-problem=PROB  Problem generator from src/prob/name.c],
-	with_problem=$withval, with_problem="linear_wave1d")
+	with_problem=$withval, with_problem="linear_wave")
 PROBLEM=$with_problem
 if test -e src/prob/$PROBLEM.c; then
    rm -f src/problem.c
@@ -506,7 +506,7 @@ AC_ARG_WITH(cflags,
 	[--with-cflags=DEBUG_MODE  Set debugging mode (opt,debug,profile)],
 	with_debug=$withval, with_debug="opt")
 if test "$with_debug" = "debug"; then
-  COMPILER_OPTS="-g -Wall -W -ansi -pedantic"
+  COMPILER_OPTS="-g -Wall -W -std=c99 -pedantic"
   DEBUG_MODE="DEBUG"
 elif test "$with_debug" = "profile"; then
   COMPILER_OPTS="-O3 -pg"
@@ -689,6 +689,22 @@ fi
 fi
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on super timestepping for explicit diffusion
+#   --enable-sts
+
+AC_SUBST(TIMESTEPPING_MODE)
+AC_ARG_ENABLE(sts,
+        [--enable-sts  turn on super timestepping],
+        ok=$enableval, ok=no) 
+if test "$ok" = "yes"; then
+  TIMESTEPPING_MODE="STS"
+  TIMESTEPPING_MODE_USER="ON"
+else
+  TIMESTEPPING_MODE="NO_STS"
+  TIMESTEPPING_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
 # ALGORITHM FEATURE: static mesh refinement
 #   --enable-smr (default is no SMR)
 
@@ -803,6 +819,14 @@ if test "$with_coord" = "cylindrical"; then
   fi
 fi
 
+if test "$with_integrator" = "vl"; then
+  if test "$with_order" = "3"; then
+    AC_MSG_ERROR([Only use order=2p or 3p with VL integrator!])
+  elif test "$with_order" = "2"; then
+    AC_MSG_ERROR([Only use order=2p or 3p with VL integrator!])
+  fi
+fi
+
 #-------------------------------------------------------------------------------
 
 # check for various library functions
@@ -868,6 +892,7 @@ echo "Shearing-box:            $SHEARING_BOX_MODE_USER"
 echo "FARGO:                   $FARGO_MODE_USER"
 echo "RADFARGO:                $RADFARGO_MODE_USER"
 echo "All-wave integration:    $HLL_ALL_WAVE_MODE_USER"
+echo "Super timestepping:      $TIMESTEPPING_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "ALI method:              $ALI_USER"
 echo "Intensity Interpolation: $INTENSITY_MODE_USER"

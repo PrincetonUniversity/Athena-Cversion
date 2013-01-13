@@ -203,7 +203,7 @@ void minmax3(Real ***data, int nx3, int nx2, int nx1, Real *dmino, Real *dmaxo)
  *  \brief DOES ABSOLUTELY NOTHING!  THUS, WHATEVER THE BOUNDARY ARE SET TO 
  *  INITIALLY, THEY REMAIN FOR ALL TIME.
  */
-void do_nothing_bc(GridS *pG)
+void do_nothing_bc(GridS *pG __attribute((unused)))
 {
 }
 
@@ -278,7 +278,7 @@ void compute_l1_error(const char *problem, const MeshS *pM,
 #endif
   int is,ie,js,je,ks,ke;
   Real rms_error=0.0;
-  Real x1,x2,x3,dVol,totVol;
+  Real dVol,totVol;
   ConsS error,total_error;
   FILE *fp;
   char *fname, fnamestr[256];
@@ -286,6 +286,9 @@ void compute_l1_error(const char *problem, const MeshS *pM,
 #if defined MPI_PARALLEL
   double err[8+NSCALARS], tot_err[8+NSCALARS];
   int mpi_err;
+#endif
+#ifdef CYLINDRICAL
+  Real x1,x2,x3;
 #endif
 
   /* Clear out the total_error struct */

@@ -29,21 +29,6 @@ void integrate_diff(MeshS *pM)
   GridS *pG;
   int nl,nd;
 
-/* Calculate the magnetic diffusivity array
- */
-#ifdef RESISTIVITY
-  for (nl=0; nl<(pM->NLevels); nl++){
-    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-      if (pM->Domain[nl][nd].Grid != NULL) {
-
-        pG=pM->Domain[nl][nd].Grid;
-
-        get_eta(pG);
-      }
-    }
-  }
-#endif
-
 /* Call diffusion operators across Mesh hierarchy.
  * Conduction must be called first to avoid an extra call to bval_mhd().  */
 
@@ -76,7 +61,7 @@ void integrate_diff(MeshS *pM)
  *  \brief Call functions to allocate memory
  */
 
-void integrate_diff_init(MeshS *pM)
+void integrate_diff_init(MeshS *pM __attribute__ ((unused)))
 {   
 /* Check that diffusion coefficients were set in problem generator, call memory
  * allocation routines.  */

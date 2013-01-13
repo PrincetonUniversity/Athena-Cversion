@@ -44,18 +44,11 @@ static Real3Vect ***emfh=NULL, ***Bcor=NULL, ***Jcor=NULL;
 
 /* for 3D shearing box, variables needed to conserve net Bz */
 #ifdef SHEARING_BOX
-static Real ***emf1=NULL,***emf2=NULL,***emf3=NULL;
+static Real ***emf2=NULL;
 static Real **remapEyiib=NULL, **remapEyoib=NULL;
 static Real ***J2=NULL;
 static Real ***remapJyiib=NULL,***remapJyoib=NULL;
 #endif
-/* variables needed to conserve net flux */
-static Real **remapEyix1=NULL, **remapEyox1=NULL;
-static Real **remapEzix1=NULL, **remapEzox1=NULL;
-static Real **remapExix2=NULL, **remapExox2=NULL;
-static Real **remapEzix2=NULL, **remapEzox2=NULL;
-static Real **remapExix3=NULL, **remapExox3=NULL;
-static Real **remapEyix3=NULL, **remapEyox3=NULL;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -296,20 +289,17 @@ void resistivity(DomainS *pD)
   if (Q_Hall > 0.0)  EField_Hall(pD);
   if (Q_AD > 0.0)    EField_AD(pD);
 
-  for(k=ks-nghost; k<=ke+nghost; k++) {
-  for(j=js-nghost; j<=je+nghost; j++) {
-  for(i=is-nghost; i<=ie+nghost; i++) {
-    emf1[k][j][i] = emf[k][j][i].x1;
-    emf2[k][j][i] = emf[k][j][i].x2;
-    emf3[k][j][i] = emf[k][j][i].x3;
-  }}}
-
-
 /* Remap Ey at is and ie+1 to conserve Bz in shearing box */
 #ifdef SHEARING_BOX
   if (pG->Nx[2] > 1){
 
 /* compute remapped Ey from opposite side of grid */
+    for(k=ks; k<=ke+1; k++) {
+    for(j=js; j<=je; j++)   {
+      emf2[k][j][is]   = emf[k][j][is].x2;
+      emf2[k][j][ie+1] = emf[k][j][ie+1].x2;
+    }}
+
     if (my_iproc == 0) {
       RemapEy_ix1(pD, emf2, remapEyiib);
     }
@@ -321,114 +311,17 @@ void resistivity(DomainS *pD)
     if (my_iproc == 0) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++) {
-          emf2[k][j][is] = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
+          emf[k][j][is].x2 = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
     }}}
 
     if (my_iproc == (pD->NGrid[0]-1)) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++) {
-          emf2[k][j][ie+1] = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
+          emf[k][j][ie+1].x2 = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
     }}}
 
   }
 #endif /* SHEARING_BOX */
-
-/* Remap emfs at internal MPI and periodic boundaries
- * to eliminate round-off error                         */
-#ifdef MPI_PARALLEL
-/* Remap Ey and Ez in the x1 boundary */
-  if (pD->NGrid[0] > 1) {
-    /* send to right and receive from left */
-    RemapEy_ix1_mpi(pD, emf2, remapEyix1);
-
-    if (pG->lx1_id >= 0){
-#ifdef SHEARING_BOX
-      if (my_iproc != 0) {
-#endif
-        for(k=ks; k<=ke+1; k++) {
-          for(j=js; j<=je; j++){
-            emf2[k][j][is] = remapEyix1[k][j];
-          }
-        }
-#ifdef SHEARING_BOX
-      }
-#endif
-    }
-    /* send to right and receive from left */
-    RemapEz_ix1_mpi(pD, emf3, remapEzix1);
-    if (pG->lx1_id >= 0) {
-#ifdef SHEARING_BOX
-      if (my_iproc != 0) {
-#endif
-        for(k=ks; k<=ke; k++) {
-          for(j=js; j<=je+1; j++){
-            emf3[k][j][is] = remapEzix1[k][j];
-          }
-        }
-#ifdef SHEARING_BOX
-      }
-#endif
-    }
-  }
-
-/* Remap Ez and Ex in the x2 boundary */
-  if (pD->NGrid[1] > 1) {
-    /* send to right and receive from left */
-    RemapEx_ix2_mpi(pD, emf1, remapExix2);
-
-    if (pG->lx2_id >= 0) {
-      for(k=ks; k<=ke+1; k++) {
-        for(i=is; i<=ie; i++){
-          emf1[k][js][i] = remapExix2[k][i];
-        }
-      }
-    }
-
-    /* send to right and receive from left */
-    RemapEz_ix2_mpi(pD, emf3, remapEzix2);
-
-    if (pG->lx2_id >= 0) {
-      for(k=ks; k<=ke; k++) {
-        for(i=is; i<=ie+1; i++){
-          emf3[k][js][i] = remapEzix2[k][i];
-        }
-      }
-    }
-  }
-
-/* Remap Ex and Ey in the x3 boundary */
-  if (pD->NGrid[2] > 1) {
-    /* send to right and receive from left */
-    RemapEx_ix3_mpi(pD, emf1, remapExix3);
-
-    if (pG->lx3_id >= 0) {
-      for(j=js; j<=je+1; j++) {
-        for(i=is; i<=ie; i++){
-          emf1[ks][j][i] = remapExix3[j][i];
-        }
-      }
-    }
-    /* send to right and receive from left */
-    RemapEy_ix3_mpi(pD, emf2, remapEyix3);
-
-    if (pG->lx3_id >= 0) {
-      for(j=js; j<=je; j++) {
-        for(i=is; i<=ie+1; i++){
-          emf2[ks][j][i] = remapEyix3[j][i];
-        }
-      }
-    }
-  }
-#endif /* MPI_PARALLEL */
-
-  for(k=ks-nghost; k<=ke+nghost; k++) {
-  for(j=js-nghost; j<=je+nghost; j++) {
-  for(i=is-nghost; i<=ie+nghost; i++) {
-    emf[k][j][i].x1 = emf1[k][j][i];
-    emf[k][j][i].x2 = emf2[k][j][i];
-    emf[k][j][i].x3 = emf3[k][j][i];
-  }}}
-
 
 #ifndef BAROTROPIC
 /*--- Step 3.  Compute energy fluxes -------------------------------------------
@@ -811,7 +704,7 @@ void EField_Hall(DomainS *pD)
 
 /* Preliminary: hyper-diffusion */
 
-/*  hyper_diffusion4(pD, 0.1);*/
+//  hyper_diffusion4(pD, 0.1);
 
 /* Preliminary: divide eta_Hall by B for convenience */
   for (k=kl; k<=ku; k++) {
@@ -1640,7 +1533,7 @@ void resistivity_init(MeshS *pM)
   int mycase;
 
 /* Assign the function pointer for diffusivity calculation */
-  mycase = par_geti_def("problem","CASE",2);
+  mycase = par_geti_def("problem","CASE",1);
 
   switch (mycase)
   {
@@ -1703,11 +1596,7 @@ void resistivity_init(MeshS *pM)
   }
 #ifdef SHEARING_BOX
   if (pM->Nx[2] > 1){
-    if ((emf1 = (Real***)calloc_3d_array(Nx3,Nx2,Nx1,sizeof(Real)))==NULL)
-      goto on_error;
     if ((emf2 = (Real***)calloc_3d_array(Nx3,Nx2,Nx1,sizeof(Real)))==NULL)
-      goto on_error;
-    if ((emf3 = (Real***)calloc_3d_array(Nx3,Nx2,Nx1,sizeof(Real)))==NULL)
       goto on_error;
     if ((remapEyiib = (Real**)calloc_2d_array(Nx3,Nx2,sizeof(Real)))==NULL)
       goto on_error;
@@ -1721,31 +1610,6 @@ void resistivity_init(MeshS *pM)
       goto on_error;
   }
 #endif
-
-  if ((remapEyix1 = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEyox1 = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEzix1 = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEzox1 = (Real**)calloc_2d_array(Nx3,Nx2, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapExix2 = (Real**)calloc_2d_array(Nx3,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapExox2 = (Real**)calloc_2d_array(Nx3,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEzix2 = (Real**)calloc_2d_array(Nx3,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEzox2 = (Real**)calloc_2d_array(Nx3,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapExix3 = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapExox3 = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEyix3 = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
-  if ((remapEyox3 = (Real**)calloc_2d_array(Nx2,Nx1, sizeof(Real))) == NULL)
-    goto on_error;
 
   return;
 
@@ -1774,27 +1638,13 @@ void resistivity_destruct()
   if (emfh != NULL) free_3d_array(emfh);
 
 #ifdef SHEARING_BOX
-  if (emf1 != NULL) free_3d_array(emf1);
   if (emf2 != NULL) free_3d_array(emf2);
-  if (emf3 != NULL) free_3d_array(emf3);
   if (remapEyiib != NULL) free_2d_array(remapEyiib);
   if (remapEyoib != NULL) free_2d_array(remapEyoib);
   if (J2 != NULL)   free_3d_array(J2);
   if (remapJyiib != NULL) free_3d_array(remapJyiib);
   if (remapJyoib != NULL) free_3d_array(remapJyoib);
 #endif
-  if (remapEyix1 != NULL) free_2d_array(remapEyix1);
-  if (remapEyox1 != NULL) free_2d_array(remapEyox1);
-  if (remapEzix1 != NULL) free_2d_array(remapEzix1);
-  if (remapEzox1 != NULL) free_2d_array(remapEzox1);
-  if (remapExix2 != NULL) free_2d_array(remapExix2);
-  if (remapExox2 != NULL) free_2d_array(remapExox2);
-  if (remapEzix2 != NULL) free_2d_array(remapEzix2);
-  if (remapEzox2 != NULL) free_2d_array(remapEzox2);
-  if (remapExix3 != NULL) free_2d_array(remapExix3);
-  if (remapExox3 != NULL) free_2d_array(remapExox3);
-  if (remapEyix3 != NULL) free_2d_array(remapEyix3);
-  if (remapEyox3 != NULL) free_2d_array(remapEyox3);
 
   return;
 }

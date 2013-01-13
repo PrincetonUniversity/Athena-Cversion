@@ -41,7 +41,7 @@
 static Real ran2(long int *idum);
 //static void reflect_ix3(GridS *pGrid);
 //static void reflect_ox3(GridS *pGrid);
-static Real grav_pot3(Real x1, Real x2, Real x3);
+static Real grav_pot3(const Real x1, const Real x2, const Real x3);
 static void rps_ikb(GridS *pGrid);
 
 /*===========================GALAXY DEFINING FUNCTIONS========================*/
@@ -553,7 +553,7 @@ static void reflect_ox3(GridS *pGrid)
  * grav_pot: Gravitational potentials 
  */
 
-static Real grav_pot3(Real x1, Real x2, Real x3)
+static Real grav_pot3(const Real x1, const Real x2, const Real x3)
 {
 //	extern Real AngularMomentumx, AngularMomentumy, AngularMomentumz;
 //	extern Real DiskPositionx, DiskPositiony, DiskPositionz;
@@ -808,7 +808,7 @@ Real gas_vel(Real cellwidth, Real z, Real xpos, Real ypos, Real zpos, Real *temp
 	Real func2(Real zint,Real zicmP);		 //(density times stellar disk force)
 	Real func3(Real zint, Real zicmP);       //func1 but for r2
 	Real func4(Real zint,Real zicmP);      //func2 but for r2
-	Real grav_pot3(Real x1, Real x2, Real x3);
+/* static Real grav_pot3(const Real x1, const Real x2, const Real x3); */
 	Real grav_potcalc(Real drcylin, Real x3g);
 	Real zint; 		 //zint variable to be integrated
 	Real FdPdR;

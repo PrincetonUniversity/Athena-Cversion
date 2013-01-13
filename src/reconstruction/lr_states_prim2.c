@@ -63,14 +63,14 @@ static Real **vel=NULL;
  * - Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
+void lr_states(const GridS *pG __attribute((unused)),
+               const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+               Prim1DS Wl[], Prim1DS Wr[], 
+               const int dir __attribute__((unused)))
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qx;
-
-
   Real ev[NWAVE],rem[NWAVE][NWAVE],lem[NWAVE][NWAVE];
   Real dWc[NWAVE+NSCALARS],dWl[NWAVE+NSCALARS];
   Real dWr[NWAVE+NSCALARS],dWg[NWAVE+NSCALARS];
@@ -78,12 +78,10 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],dWm[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real dtodx = dt/dx;
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Real aeff;
 #endif
-/**********************************
- * For radiation hydro and mhd, NWAVE=11
- * but we only use the first 7 components here */
 
 /* Set pointer to primitive variables */
   for (i=il-2; i<=iu+2; i++) pW[i] = (Real*)&(W[i]);
@@ -101,7 +99,6 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 
 #if defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR)
  /* zero eigenmatrices if using CTU integrator */
- /* We also use eigen vectors for radiation code */
   for (n=0; n<NWAVE; n++) {
     for (m=0; m<NWAVE; m++) {
       rem[n][m] = 0.0;
@@ -215,10 +212,10 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       pWr[n] = Wlv[n]/Wlv[0];
     }
 
-#endif /* special relativity */
+#endif
 
-#if  defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR) 
-/* only include steps below if CTU integrator */
+#if  defined(CTU_INTEGRATOR) || defined(RADIATIONMHD_INTEGRATOR)
+ /* only include steps below if CTU integrator */
 
 /*--- Step 5. ------------------------------------------------------------------
  * Compute eigensystem in primitive variables.  */
@@ -230,6 +227,18 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
     esys_prim_adb_hyd(W[i].d,W[i].Vx,Gamma*W[i].P,ev,rem,lem);
 #endif /* ISOTHERMAL */
 #endif /* HYDRO */
+
+#ifdef MHD
+#ifdef ISOTHERMAL
+    esys_prim_iso_mhd(
+      W[i].d,W[i].Vx,             Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
+#else
+    esys_prim_adb_mhd(
+      W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
+#endif /* ISOTHERMAL */
+#endif /* MHD */
+
+
 
 /**************************************
  * For radiation hydro and mhd part   */
@@ -246,16 +255,6 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 #endif
 
 /*************************************/
-
-#ifdef MHD
-#ifdef ISOTHERMAL
-    esys_prim_iso_mhd(
-      W[i].d,W[i].Vx,             Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
-#else
-    esys_prim_adb_mhd(
-      W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
-#endif /* ISOTHERMAL */
-#endif /* MHD */
 
 
 /*--- Step 6. ------------------------------------------------------------------
@@ -277,8 +276,6 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
       pWr[n] += qx*dW[n];
     }
 
-
-
 /*--- Step 7. ------------------------------------------------------------------
  * Then subtract amount of each wave n that does not reach the interface
  * during timestep (CW eqn 3.5ff).  For HLL fluxes, must subtract waves that
@@ -293,7 +290,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
 	}
 	for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
 /* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
         qa = 0.0;
         for (m=0; m<NWAVE; m++) {
           qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[0])*dW[m];
@@ -311,7 +308,7 @@ void lr_states(const GridS *pG, const Prim1DS W[], const Real Bxc[],
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
 /* For HLL fluxes, subtract wave moving away from interface as well. */
-#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
 	qa  = 0.0;
 	for (m=0; m<NWAVE; m++) {
 	  qa += lem[n][m]*0.5*dtodx*(ev[n]-ev[NWAVE-1])*dW[m];

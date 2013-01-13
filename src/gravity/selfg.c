@@ -239,7 +239,6 @@ void selfg_fc(DomainS *pD)
   case 3:
 
 /* Step 1 for 3D.  Add fluxes and source terms due to (d/dx1) terms  */
-
     for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
@@ -253,6 +252,11 @@ void selfg_fc(DomainS *pD)
         dphil = phil - phil_old;
         dphir = phir - phir_old;
 
+#ifdef STAR_PARTICLE
+       if (pG->Gstars != NULL){
+          pG->U[k][j][i].M1 -= 0.5*dtodx1*(dphir-dphil)*pG->U[k][j][i].d; 
+       } else {
+#endif /* STAR_PARTICLE */
 /*  momentum fluxes in x1. gx, gy and gz centered at L and R x1-faces */
         gxl = (pG->Phi[k][j][i-1] - pG->Phi[k][j][i  ])/(pG->dx1);
         gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])/(pG->dx1);
@@ -316,6 +320,10 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M1 -= 0.5*dtodx1*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= 0.5*dtodx1*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx1*(flx_m3r - flx_m3l);
+#ifdef STAR_PARTICLE
+        }
+#endif
+
 #ifdef ADIABATIC
 #ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx1*
@@ -340,7 +348,11 @@ void selfg_fc(DomainS *pD)
         dphic = phic - pG->Phi_old[k][j][i];
         dphil = phil - phil_old;
         dphir = phir - phir_old;
-
+#ifdef STAR_PARTICLE
+       if (pG->Gstars != NULL){
+          pG->U[k][j][i].M2 -= 0.5*dtodx1*(dphir-dphil)*pG->U[k][j][i].d; 
+       } else {
+#endif /* STAR_PARTICLE */
 /* gx, gy and gz centered at L and R x2-faces */
         gxl = (pG->Phi[k][j-1][i-1] - pG->Phi[k][j-1][i+1]) +
               (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]);
@@ -405,6 +417,9 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M1 -= 0.5*dtodx2*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= 0.5*dtodx2*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx2*(flx_m3r - flx_m3l);
+#ifdef STAR_PARTICLE
+       }
+#endif
 #ifdef ADIABATIC
 #ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx2*
@@ -430,6 +445,11 @@ void selfg_fc(DomainS *pD)
         dphil = phil - phil_old;
         dphir = phir - phir_old;
 
+#ifdef STAR_PARTICLE
+       if (pG->Gstars != NULL){
+          pG->U[k][j][i].M3 -= 0.5*dtodx1*(dphir-dphil)*pG->U[k][j][i].d; 
+       } else {
+#endif
 /*  momentum fluxes in x3. gx, gy and gz centered at L and R x3-faces */
         gxl = (pG->Phi[k-1][j][i-1] - pG->Phi[k-1][j][i+1]) +
               (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]);
@@ -494,6 +514,9 @@ void selfg_fc(DomainS *pD)
         pG->U[k][j][i].M1 -= 0.5*dtodx3*(flx_m1r - flx_m1l);
         pG->U[k][j][i].M2 -= 0.5*dtodx3*(flx_m2r - flx_m2l);
         pG->U[k][j][i].M3 -= 0.5*dtodx3*(flx_m3r - flx_m3l);
+#ifdef STAR_PARTICLE
+        }
+#endif
 #ifdef ADIABATIC
 #ifndef CONS_GRAVITY
         pG->U[k][j][i].E -= 0.5*dtodx3*

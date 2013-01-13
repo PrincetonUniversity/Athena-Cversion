@@ -28,7 +28,7 @@
  * - compare_gr()         - compare the location of the two particles
  * - quicksort_particle() - sort the particles using the quicksort
  *
-/*============================================================================*/
+ *============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

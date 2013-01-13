@@ -27,13 +27,11 @@ void bvals_final_particle(MeshS *pM);
 void dump_particle_history(MeshS *pM, OutputS *pOut);
 void dump_parhistory_enroll();
 
-/* feedback.c */
-#ifdef FEEDBACK
-void exchange_feedback(DomainS *pD);
-void exchange_feedback_init(MeshS *pM);
-void exchange_feedback_fun(enum BCDirection dir, VGFun_t prob_bc);
-void exchange_feedback_destruct(MeshS *pM);
-#endif
+/* exchange.c */
+void exchange_gpcouple(DomainS *pD, short lab);
+void exchange_gpcouple_init(MeshS *pM);
+void exchange_gpcouple_fun(enum BCDirection dir, VGFun_t prob_bc);
+void exchange_gpcouple_destruct(MeshS *pM);
 
 /* init_particle.c */
 void init_particle(MeshS *pM);
@@ -49,13 +47,13 @@ void int_par_semimp(GridS *pG, GrainS *curG, Real3Vect cell1,
 void int_par_fulimp(GridS *pG, GrainS *curG, Real3Vect cell1,
                               Real *dv1, Real *dv2, Real *dv3, Real *ts);
 #ifdef FEEDBACK
-void feedback_predictor(GridS *pG);
+void feedback_predictor(DomainS *pD);
 void feedback_corrector(GridS *pG, GrainS *gri, GrainS *grf, Real3Vect cell1,
                               Real dv1, Real dv2, Real dv3, Real ts);
 #endif
 
 /* output_particle.c */
-void particle_to_grid(GridS *pG, PropFun_t par_prop);
+void particle_to_grid(DomainS *pD, PropFun_t par_prop);
 void dump_particle_binary(MeshS *pM, OutputS *pOut);
 int  property_all(const GrainS *gr, const GrainAux *grsub);
 

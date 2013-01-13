@@ -2400,7 +2400,7 @@ static void conduct_ox3(GridS *pGrid)
  * prolongation is actually handled in ProlongateGhostZones in main loop, so
  * this is just a NoOp Grid function.  */
 
-static void ProlongateLater(GridS *pGrid)
+static void ProlongateLater(GridS *pGrid __attribute((unused)))
 {
   return;
 }

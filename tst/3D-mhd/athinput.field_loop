@@ -12,7 +12,7 @@ num_domains     = 1         # number of Domains in Mesh
 <time>
 cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000    # cycle limit
-tlim            = 2.0       # time limit
+tlim            = 1.0       # time limit
 
 <output1>
 out_fmt = hst               # History data dump

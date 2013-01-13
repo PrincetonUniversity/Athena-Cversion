@@ -321,6 +321,9 @@ void selfg_fft_disk_3d(DomainS *pD)
         pG->Phi_old[k][j][i] = pG->Phi[k][j][i];
 #ifdef SHEARING_BOX
         RollDen[k][i][j] = pG->U[k][j][i].d;
+/* should add star particle density to RollDen using assign_starparticles_3d(pD,work), where work is the 1D
+version of grid.  Note that assign_starparticles_3d only fills active zones.  Does RemapVar really need
+the ghost zones? */
 #endif
       }
     }
@@ -332,6 +335,43 @@ void selfg_fft_disk_3d(DomainS *pD)
 
 /* Fill arrays of 4\piG*d and 4\piG*d *exp(-i pi x2/Lperp) */
 
+
+  for (k=ks; k<=ke; k++){
+    for (j=js; j<=je; j++){
+      for (i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
+        den=RollDen[k][i][j];
+#else
+        den=pG->U[k][j][i].d;
+#endif
+        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = den;
+      }
+    }
+  }
+
+#ifndef SHEARING_BOX 
+#ifdef STAR_PARTICLE
+   assign_starparticles_3d(pD,work); 
+#endif
+#endif
+
+  for (k=ks; k<=ke; k++){
+    for (j=js; j<=je; j++){
+      for (i=is; i<=ie; i++){
+        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *=four_pi_G;
+        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
+
+        work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
+          cos(0.5*((k-ks)+pG->Disp[2])*dkz)*
+              work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0];
+        work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 
+         -sin(0.5*((k-ks)+pG->Disp[2])*dkz)*
+              work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0];
+      }
+    }
+  }
+
+/*
   for (k=ks; k<=ke; k++){
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
@@ -351,6 +391,7 @@ void selfg_fft_disk_3d(DomainS *pD)
       }
     }
   }
+*/
 
 /* Forward FFT of 4\piG*d and 4\piG*d *exp(-i pi x2/Lperp) */
 

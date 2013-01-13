@@ -4,7 +4,7 @@
  *  \brief Computes 1D fluxes using exact nonlinear Riemann solver.
  *
  * PURPOSE: Computes 1D fluxes using exact nonlinear Riemann solver.
- *   Currently only isothermal hydrodynamics has been implemented.  
+ *   Currently only isothermal/adiabatic hydrodynamics have been implemented.  
  *
  * REFERENCES:
  * - R.J. LeVeque, "Numerical Methods for Conservation Laws", 2nd ed.,
@@ -39,10 +39,6 @@
 #error : The exact flux for MHD has not been implemented.
 #endif /* MHD */
 
-#if (NSCALARS > 0)
-#error : Passive scalars have not been implemented in the exact flux.
-#endif /* NSCALARS */
-
 #ifdef ISOTHERMAL
 
 static void srder(double dm, double vl, double vr, double dmin, double dmax, 
@@ -74,6 +70,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real hdl, hdr;  /* Left and right going rarefaction head velocity */
   Real tll, tlr;  /* Left and right going rarefaction tail velocity */
   char soln;      /* two bits: 0=shock, 1=raref */
+#if (NSCALARS > 0)
+  int n;
+#endif
 
   if(!(Ul.d > 0.0)||!(Ur.d > 0.0))
     ath_error("[exact flux]: Non-positive densities: dl = %e  dr = %e\n",
@@ -171,6 +170,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ul.Mx*(Wl.Vx) + Wl.d*Iso_csound2;
       pF->My = Ul.My*(Wl.Vx);
       pF->Mz = Ul.Mz*(Wl.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ul.Mx*Wl.r[n];
+#endif
       return;
     } else if (tll >= 0.0) {
       /* Inside rarefaction fan */
@@ -182,6 +184,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Mxm*Vxm + dm*Iso_csound2;
       pF->My = Mxm*Wl.Vy;
       pF->Mz = Mxm*Wl.Vz;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Mxm*Wl.r[n];
+#endif
       return;
     }
   } else { /* left shock */
@@ -194,6 +199,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ul.Mx*(Wl.Vx) + Wl.d*Iso_csound2;
       pF->My = Ul.My*(Wl.Vx);
       pF->Mz = Ul.Mz*(Wl.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ul.Mx*Wl.r[n];
+#endif
       return;
     }
   }
@@ -209,6 +217,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ur.Mx*(Wr.Vx) + Wr.d*Iso_csound2;
       pF->My = Ur.My*(Wr.Vx);
       pF->Mz = Ur.Mz*(Wr.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ur.Mx*Wr.r[n];
+#endif
       return;
     } else if (tlr <= 0.0) {
       /* Inside rarefaction fan */
@@ -221,6 +232,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Mxm*Vxm + dm*Iso_csound2;
       pF->My = Mxm*Wr.Vy;
       pF->Mz = Mxm*Wr.Vz;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Mxm*Wr.r[n];
+#endif
       return;
     }
   } else { /* right shock */
@@ -233,6 +247,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ur.Mx*(Wr.Vx) + Wr.d*Iso_csound2;
       pF->My = Ur.My*(Wr.Vx);
       pF->Mz = Ur.Mz*(Wr.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ur.Mx*Wr.r[n];
+#endif
       return;
     }
   }
@@ -247,12 +264,18 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pF->Mx = dm*Vxm*Vxm + dm*Iso_csound2;
     pF->My = dm*Vxm*Wl.Vy;
     pF->Mz = dm*Vxm*Wl.Vz;
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pF->s[n] = dm*Vxm*Wl.r[n];
+#endif
   }
   else{
     pF->d  = dm*Vxm;
     pF->Mx = dm*Vxm*Vxm + dm*Iso_csound2;
     pF->My = dm*Vxm*Wr.Vy;
     pF->Mz = dm*Vxm*Wr.Vz;
+#if (NSCALARS > 0)
+    for (n=0; n<NSCALARS; n++) pF->s[n] = dm*Vxm*Wr.r[n];
+#endif
   }
 
   return;
@@ -492,6 +515,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real ar = sqrt((double) Gamma*Wr.P/Wr.d); /* right sound speed */
   Real tmp1, tmp2;
   Real e, V, E; 
+#if (NSCALARS > 0)
+  int n;
+#endif
  
   if(!(Ul.d > 0.0)||!(Ur.d > 0.0))
     ath_error("[exact flux]: Non-positive densities: dl = %e  dr = %e\n", 
@@ -560,7 +586,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ul.Mx*(Wl.Vx) + Wl.P;
       pF->My = Ul.My*(Wl.Vx);
       pF->Mz = Ul.Mz*(Wl.Vx);
-
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ul.Mx*Wl.r[n];
+#endif
       return; 
     }
   }
@@ -584,6 +612,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ul.Mx*(Wl.Vx) + Wl.P;
       pF->My = Ul.My*(Wl.Vx);
       pF->Mz = Ul.Mz*(Wl.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ul.Mx*Wl.r[n];
+#endif
       return;
       
     } 
@@ -607,6 +638,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = dc*Vxc*Vxc + pc;
       pF->My = dc*Vxc*Wl.Vy;
       pF->Mz = dc*Vxc*Wl.Vz;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = dc*Vxc*Wl.r[n];
+#endif
       return;
     } 
   }
@@ -629,6 +663,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ur.Mx*(Wr.Vx) + Wr.P;
       pF->My = Ur.My*(Wr.Vx);
       pF->Mz = Ur.Mz*(Wr.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ur.Mx*Wr.r[n];
+#endif
       return; 
     }
   }
@@ -652,6 +689,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = Ur.Mx*(Wr.Vx) + Wr.P;
       pF->My = Ur.My*(Wr.Vx);
       pF->Mz = Ur.Mz*(Wr.Vx);
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = Ur.Mx*Wr.r[n];
+#endif
       return;
       
     } else if (tlr <= 0.0) {
@@ -673,6 +713,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
       pF->Mx = dc*Vxc*Vxc + pc;
       pF->My = dc*Vxc*Wr.Vy;
       pF->Mz = dc*Vxc*Wr.Vz;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = dc*Vxc*Wr.r[n];
+#endif
       return;
     }
   }
@@ -692,6 +735,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pF->Mx = dcl*Vxc*Vxc + pc;
     pF->My = dcl*Vxc*Wl.Vy;
     pF->Mz = dcl*Vxc*Wl.Vz;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = dcl*Vxc*Wl.r[n];
+#endif
   }
   else {
 
@@ -704,6 +750,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pF->Mx = dcr*Vxc*Vxc + pc;
     pF->My = dcr*Vxc*Wr.Vy;
     pF->Mz = dcr*Vxc*Wr.Vz;
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++) pF->s[n] = dcr*Vxc*Wr.r[n];
+#endif
   }
   
   return;

@@ -44,6 +44,9 @@
 #ifdef SPECIAL_RELATIVITY
 #error : PPM reconstruction (order=3) cannot be used for special relativity.
 #endif /* SPECIAL_RELATIVITY */
+#ifdef VL_INTEGRATOR
+#error : PPM reconstruction (order=3) cannot be used with VL integrator.
+#endif /* VL_INTEGRATOR */
 
 static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
 
@@ -64,9 +67,11 @@ static Real **pW=NULL, **dWm=NULL, **Wim1h=NULL;
  * - Wl,Wr = L/R-states of PRIMITIVE variables at interfaces over [il:iu+1]
  */
 
-void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
+void lr_states(const GridS* pG __attribute__((unused)),
+               const Prim1DS W[], const Real Bxc[],
                const Real dt, const Real dx, const int il, const int iu,
-               Prim1DS Wl[], Prim1DS Wr[], const int dir)
+               Prim1DS Wl[], Prim1DS Wr[], 
+               const int dir __attribute__((unused)))
 {
   int i,n,m;
   Real lim_slope1,lim_slope2,qa,qb,qc,qx;
@@ -80,17 +85,13 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
   Real dW[NWAVE+NSCALARS],W6[NWAVE+NSCALARS];
   Real *pWl, *pWr;
   Real qx1,qx2;
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	Real aeff;
-#endif
 
-#ifdef RADIATIONMHD_INTEGRATOR
-#define CTU_INTEGRATOR
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  Real aeff;
 #endif
 
   /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
   Real ql,qr,qxx1,qxx2,zc,zr,zl,q1,q2,gamma_curv;
-  int hllallwave_flag = 0;
   const Real dtodx = dt/dx;
 #ifdef CYLINDRICAL
   const Real *r=pG->r, *ri=pG->ri;
@@ -131,6 +132,7 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
       W[i].d,W[i].Vx,Gamma*W[i].P,Bxc[i],W[i].By,W[i].Bz,ev,rem,lem);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
+
 
 /*===========================*/
 /* For radiation hydro */
@@ -344,6 +346,7 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
 
 /*******************/
 
+
 /*--- Step 9. ------------------------------------------------------------------
  * Compute centered, L/R, and van Leer differences of primitive variables */
 
@@ -538,63 +541,13 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
     pWl = (Real *) &(Wl[i+1]);
     pWr = (Real *) &(Wr[i]);
 
-
-
-#ifndef CTU_INTEGRATOR
+#ifndef CTU_INTEGRATOR 
+#ifndef RADIATIONMHD_INTEGRATOR
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n];
       pWr[n] = Wlv[n];
     }
-
-#elif defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX)
-    for (n=0; n<NWAVE; n++) {
-      pWl[n] = Wrv[n];
-      pWr[n] = Wlv[n];
-    }
-
-#ifdef HLL_ALL_WAVE
-    hllallwave_flag = 1;
-#endif
-
-    for (n=0; n<NWAVE; n++) {
-      qa = 0.0;
-      if (hllallwave_flag || ev[n] > 0.0) {
-        qx1 = 0.5*dtodx*ev[n];
-        qb  = qx1;
-        qc  = FOUR_3RDS*SQR(qx1);
-#ifdef CYLINDRICAL
-        if (dir==1) {
-          qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
-          qb  -= qxx1;
-          qc  -= 2.0*qx1*qxx1;
-        }
-#endif
-        for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
-        }
-        for (m=0; m<NWAVE; m++) pWl[m] -= qa*rem[m][n];
-      }
-
-      qa = 0.0;
-      if (hllallwave_flag || ev[n] < 0.0) {
-        qx2 = 0.5*dtodx*ev[n];
-        qb  = qx2;
-        qc  = FOUR_3RDS*SQR(qx2);
-#ifdef CYLINDRICAL
-        if (dir==1) {
-          qxx2 = SQR(qx2)*dx/(3.0*(ri[i]-dx*qx2));
-          qb  -= qxx2;
-          qc  -= 2.0*qx2*qxx2;
-        }
-#endif
-        for (m=0; m<NWAVE; m++) {
-          qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
-        }
-        for (m=0; m<NWAVE; m++) pWr[m] -= qa*rem[m][n];
-      }
-    }
-
 
 #else /* include steps 18-19 only if using CTU integrator */
 
@@ -646,6 +599,25 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
           qa += lem[n][m]*(qb*(dW[m]-W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa  = 0.0;
+        qx1 = 0.5*dtodx*ev[0];
+        qx2 = 0.5*dtodx*ev[n];
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qx1 *= 1.0 - dx*qx1/(3.0*(ri[i+1]-dx*qx1));
+          qx2 *= 1.0 - dx*qx2/(3.0*(ri[i+1]-dx*qx2));
+        }
+#endif
+        qx = qx1 - qx2;
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*qx*dW[m];
+        }
+        for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+#endif /* HLL_FLUX */
+
       }
     }
 
@@ -668,23 +640,67 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
           qa += lem[n][m]*(qb*(dW[m]+W6[m]) + qc*W6[m]);
         }
         for (m=0; m<NWAVE; m++) pWr[m] += qa*rem[m][n];
+
+/* For HLL fluxes, subtract wave moving away from interface to 2nd order */
+#if defined(HLLE_FLUX) || defined(HLLC_FLUX) || defined(HLLD_FLUX) || defined(FORCE_FLUX)
+        qa = 0.0;
+        qx1 = 0.5*dtodx*ev[NWAVE-1];
+        qx2 = 0.5*dtodx*ev[n];
+#ifdef CYLINDRICAL 
+        if (dir==1) {
+          qx1 *= 1.0 - dx*qx1/(3.0*(ri[i]-dx*qx1));
+          qx2 *= 1.0 - dx*qx2/(3.0*(ri[i]-dx*qx2));
+        }
+#endif
+        qx = qx1 - qx2;
+        for (m=0; m<NWAVE; m++) {
+          qa += lem[n][m]*qx*dW[m];
+        }
+        for (m=0; m<NWAVE; m++) pWl[m] += qa*rem[m][n];
+#endif /* HLL_FLUX */
+
       }
     }
 
-/* Wave subtraction for advected quantities */
+/* Wave subtraction for passive scalars */
     for (n=NWAVE; n<(NWAVE+NSCALARS); n++) {
       if (W[i].Vx > 0.) {
-        qb = 0.5*dtodx*(ev[NWAVE-1]-W[i].Vx);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(SQR(ev[NWAVE-1]) - SQR(W[i].Vx));
-        pWl[n] += qb*(dW[m]-W6[m]) + qc*W6[m];
+
+        qx1 = 0.5*dtodx*ev[NWAVE-1];
+        qx2 = 0.5*dtodx*W[i].Vx;
+        qb  = qx1 - qx2;
+        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qxx1 = SQR(qx1)*dx/(3.0*(ri[i+1]-dx*qx1));
+          qxx2 = SQR(qx2)*dx/(3.0*(ri[i+1]-dx*qx2));
+          qb -= qxx1 - qxx2;
+          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+        }
+#endif
+        pWl[n] += qb*(dW[n]-W6[n]) + qc*W6[n];
+
       } else if (W[i].Vx < 0.) {
-        qb = 0.5*dtodx*(ev[0]-W[i].Vx);
-        qc = 0.5*dtodx*dtodx*TWO_3RDS*(ev[0]*ev[0] - W[i].Vx*W[i].Vx);
-        pWr[n] += qb*(dW[m]+W6[m]) + qc*W6[m];
+
+        qx1 = 0.5*dtodx*ev[0];
+        qx2 = 0.5*dtodx*W[i].Vx;
+        qb  = qx1 - qx2;
+        qc  = FOUR_3RDS*(SQR(qx1) - SQR(qx2));
+#ifdef CYLINDRICAL
+        if (dir==1) {
+          qxx1 = SQR(qx1)*dx/(3.0*(r[i]-dx*qx1));
+          qxx2 = SQR(qx2)*dx/(3.0*(r[i]-dx*qx2));
+          qb -= qxx1 - qxx2;
+          qc -= 2.0*(qx1*qxx1 - qx2*qxx2);
+        }
+#endif
+        pWr[n] += qb*(dW[n]+W6[n]) + qc*W6[n];
+
       }
     }
 
 #endif /* CTU_INTEGRATOR */
+#endif /* RADIATIONMHD_INTEGRATOR */
 
 /*--- Step 20. -----------------------------------------------------------------
  * Save eigenvalues and eigenmatrices at i+1 for use in next iteration */
@@ -697,15 +713,7 @@ void lr_states(const GridS* pG, const Prim1DS W[], const Real Bxc[],
       }
     }
 
-
-
-
   } /*====================== END BIG LOOP OVER i =========================*/
-
-
-#ifdef RADIATIONMHD_INTEGRATOR
-#undef CTU_INTEGRATOR
-#endif
 
   return;
 }
@@ -743,10 +751,10 @@ void lr_states_init(MeshS *pM)
 
   if ((pW = (Real**)malloc(nmax*sizeof(Real*))) == NULL) goto on_error;
 
-  if ((dWm = (Real**)calloc_2d_array(nmax, NWAVE, sizeof(Real))) == NULL)
+  if ((dWm = (Real**)calloc_2d_array(nmax, (NWAVE + NSCALARS), sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((Wim1h = (Real**)calloc_2d_array(nmax, NWAVE, sizeof(Real))) == NULL)
+  if ((Wim1h = (Real**)calloc_2d_array(nmax, (NWAVE + NSCALARS), sizeof(Real))) == NULL)
     goto on_error;
 
   return;

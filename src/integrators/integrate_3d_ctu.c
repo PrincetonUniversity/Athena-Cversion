@@ -206,7 +206,8 @@ void integrate_3d_ctu(DomainS *pD)
 
 /* Compute predictor feedback from particle drag */
 #ifdef FEEDBACK
-  feedback_predictor(pG);
+  feedback_predictor(pD);
+  exchange_gpcouple(pD,1);
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -263,6 +264,16 @@ void integrate_3d_ctu(DomainS *pD)
      }
 
      lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,1);
+
+/* Apply density floor */
+     for (i=il+1; i<=iu; i++){
+       if (Wl[i].d < d_MIN) {
+         Wl[i].d = d_MIN;
+       }
+       if (Wr[i].d < d_MIN) {
+         Wr[i].d = d_MIN;
+       }
+     }
 
 #ifdef MHD
       for (i=il+1; i<=iu; i++) {
@@ -545,8 +556,6 @@ void integrate_3d_ctu(DomainS *pD)
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  */
 
-ath_pout(5,"STEP 2A\n");
-
   for (k=kl; k<=ku; k++) {
     for (i=il; i<=iu; i++) {
 #ifdef CYLINDRICAL
@@ -583,6 +592,16 @@ ath_pout(5,"STEP 2A\n");
       }
 
       lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,2);
+
+/* Apply density floor */
+     for (j=jl+1; j<=ju; j++){
+       if (Wl[j].d < d_MIN) {
+         Wl[j].d = d_MIN;
+       }
+       if (Wr[j].d < d_MIN) {
+         Wr[j].d = d_MIN;
+       }
+     }
 
 #ifdef MHD
 #ifdef CYLINDRICAL
@@ -766,6 +785,16 @@ ath_pout(5,"STEP 2A\n");
       }
 
       lr_states(pG,W,Bxc,pG->dt,pG->dx3,kl+1,ku-1,Wl,Wr,3);
+
+/* Apply density floor */
+     for (k=kl+1; k<=ku; k++){
+       if (Wl[k].d < d_MIN) {
+         Wl[k].d = d_MIN;
+       }
+       if (Wr[k].d < d_MIN) {
+         Wr[k].d = d_MIN;
+       }
+     }
 
 #ifdef MHD
 #ifdef CYLINDRICAL
@@ -2100,6 +2129,38 @@ ath_pout(5,"STEP 2A\n");
   }
 #endif /* CYLINDRICAL */
 
+/*--- Step 7e ------------------------------------------------------------------
+ * Apply density floor
+ */
+  for (k=kl+1; k<=ku-1; k++) {
+  for (j=jl+1; j<=ju-1; j++) {
+  for (i=il+1; i<=iu-1; i++) {
+    if ((Ul_x1Face[k][j][i].d < d_MIN) ||
+        (Ul_x1Face[k][j][i].d != Ul_x1Face[k][j][i].d)) {
+      Ul_x1Face[k][j][i].d = d_MIN;
+    }
+    if ((Ur_x1Face[k][j][i].d < d_MIN) ||
+        (Ur_x1Face[k][j][i].d != Ur_x1Face[k][j][i].d)) {
+      Ur_x1Face[k][j][i].d = d_MIN;
+    }
+    if ((Ul_x2Face[k][j][i].d < d_MIN) ||
+        (Ul_x2Face[k][j][i].d != Ul_x2Face[k][j][i].d)) {
+      Ul_x2Face[k][j][i].d = d_MIN;
+    }
+    if ((Ur_x2Face[k][j][i].d < d_MIN) ||
+        (Ur_x2Face[k][j][i].d != Ur_x2Face[k][j][i].d)) {
+      Ur_x2Face[k][j][i].d = d_MIN;
+    }
+    if ((Ul_x3Face[k][j][i].d < d_MIN) ||
+        (Ul_x3Face[k][j][i].d != Ul_x3Face[k][j][i].d)) {
+      Ul_x3Face[k][j][i].d = d_MIN;
+    }
+    if ((Ur_x3Face[k][j][i].d < d_MIN) ||
+        (Ur_x3Face[k][j][i].d != Ur_x3Face[k][j][i].d)) {
+      Ur_x3Face[k][j][i].d = d_MIN;
+    }
+  }}}
+
 /*=== STEP 8: Compute cell-centered values at n+1/2 ==========================*/
 
 /*--- Step 8a ------------------------------------------------------------------
@@ -2122,6 +2183,10 @@ ath_pout(5,"STEP 2A\n");
             - q1*(rsf*x1Flux[k  ][j  ][i+1].d - lsf*x1Flux[k][j][i].d)
             - q2*(    x2Flux[k  ][j+1][i  ].d -     x2Flux[k][j][i].d)
             - q3*(    x3Flux[k+1][j  ][i  ].d -     x3Flux[k][j][i].d);
+
+          if ((dhalf[k][j][i] < d_MIN) || (dhalf[k][j][i] != dhalf[k][j][i])) {
+            dhalf[k][j][i] = d_MIN;
+          }
 #ifdef PARTICLES
           pG->Coup[k][j][i].grid_d = dhalf[k][j][i];
 #endif
@@ -2288,7 +2353,7 @@ ath_pout(5,"STEP 2A\n");
 #ifdef PARTICLES
   Integrate_Particles(pD);
 #ifdef FEEDBACK
-  exchange_feedback(pD);
+  exchange_gpcouple(pD,2);
 #endif
 #endif
 
