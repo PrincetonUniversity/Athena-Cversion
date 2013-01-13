@@ -87,6 +87,8 @@ void hydro_to_rad(DomainS *pD, int iflag)
 	    pRG->R[ifr][k][j][i].eps = eps;
 	    pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
 	                                    eps  * pRG->R[ifr][k][j][i].B;
+	    //printf("%d %d %d %g %g %g %g\n",myID_Comm_world,j,i,eps,
+	    //	   pRG->R[ifr][k][j][i].B,pRG->R[ifr][k][j][i].S,pRG->R[ifr][k][j][i].J);
 	  }
 #else
 	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);

@@ -1264,6 +1264,7 @@ void const_J_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife)
   int nang = pRG->nang;
   int noct = pRG->noct;
   int i, k, l, m, n, ifr;
+  int ig, jg, kg, io, ko;
   Real I0, Jp, J, Hp, gamma = 0.0;
 
   /* gamma ~ 1/4 */
@@ -1271,11 +1272,18 @@ void const_J_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife)
     gamma += pRG->mu[0][m][1] * pRG->wmu[m];
   }
   if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
+  jg = ju + nghost - 1;
+  io = nghost - 1;
+  if (pG->Nx[2] > 1) {
+    ko = nghost - 1;
+  } else ko = 0;
 
   for(ifr=ifs; ifr<=ife; ifr++) {
 /* update Ghstr2i using r2imu */
     for (k=kl; k<=ku; k++) {
+      kg = k + ko;
       for (i=il; i<=iu; i++) {
+	ig = i + io;
 	Hp = 0.0;
 	Jp = 0.0;
 	for (m=0; m<nang; m++) {
@@ -1290,7 +1298,8 @@ void const_J_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife)
 	    Jp += pRG->r2imu[ifr][k][i][5][m] * pRG->wmu[m];
 	  }
 	}
-	J = pRG->R[ifr][k][ju][i].J;
+	//J = pRG->R[ifr][k][ju][i].J;
+	J = pG->U[kg][jg][ig].Er;
 	I0 = 2.0 * (J - Jp); 
 	if (I0 < 0.0) I0 = 0.0; 
 	for (m=0; m<nang; m++) {

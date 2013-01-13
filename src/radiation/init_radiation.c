@@ -210,12 +210,21 @@ void init_radiation(MeshS *pM)
 	if (wtmp == NULL) goto on_error9;
 
 /* first compute polar weights and angles */
-	deltamu = 2.0 / (2 * nmu - 1);
-	mu2tmp[0] = 1.0 / (3.0 * (2 * nmu - 1));
-	for (i=1; i<nmu; i++) {
-	  mu2tmp[i] = mu2tmp[i-1] + deltamu;
+	if (nmu <= 6) {
+	  deltamu = 2.0 / (2 * nmu - 1);
+	  mu2tmp[0] = 1.0 / (3.0 * (2 * nmu - 1));
+	  for (i=1; i<nmu; i++) {
+	    mu2tmp[i] = mu2tmp[i-1] + deltamu;
+	  }
+	} else {
+	  mu2tmp[0] = 1.0 / SQR((Real)nmu-1.0);
+	  deltamu = (1.0 - 3.0 * mu2tmp[0]) / ((Real)nmu-1.0);
+	  for (i=1; i<nmu; i++) {
+	    mu2tmp[i] = mu2tmp[i-1] + deltamu;
+	  }
 	}
 	
+
 	W2 = 4.0 * mu2tmp[0];
 	Wsum = Wtmp[0] = sqrt(W2);
 	for (i=1; i<nmu-2; i++) {
@@ -230,7 +239,8 @@ void init_radiation(MeshS *pM)
 	}    
 	wtmp[nmu-1] = 1.0 - wsum;
 
-/* Next, sets up system of equations for determining how polar weights
+
+/* Next, set up system of equations for determining how polar weights
    are distributed in azimuth (along circles of section), subject to
    the constraint that members of permutation families have identical
    weights */
@@ -252,21 +262,23 @@ void init_radiation(MeshS *pM)
 	  for (j=0; j<nmu; j++) {
 	    for (k=0; k<nmu; k++) {
 	      if (i + j + k == nmu - 1) {
-/* assignn cosines to temporary array grid */
+/* assign cosines to temporary array grid */
 		mutmp[iang][0] = sqrt(mu2tmp[j]);
 		mutmp[iang][1] = sqrt(mu2tmp[k]);
 		mutmp[iang][2] = sqrt(mu2tmp[i]);
-		ip=permutation(i,j,k,pl,np); 
-		if (ip == -1) {
-		  pl[np][0] = i;
-		  pl[np][1] = j;
-		  pl[np][2] = k;		  
-		  pmat[i][np] += 1.0;
-		  plab[iang] = np;
-		  np++;		
-		} else {
-		  pmat[i][ip] += 1.0;
-		  plab[iang] = ip;
+		if (nmu <= 6) {
+		  ip=permutation(i,j,k,pl,np); 
+		  if (ip == -1) {
+		    pl[np][0] = i;
+		    pl[np][1] = j;
+		    pl[np][2] = k;		  
+		    pmat[i][np] += 1.0;
+		    plab[iang] = np;
+		    np++;		
+		  } else {
+		    pmat[i][ip] += 1.0;
+		    plab[iang] = ip;
+		  }
 		}
 		iang++;
 	      }
@@ -274,15 +286,24 @@ void init_radiation(MeshS *pM)
 	  }
 	}
 
-	if (nmu > 1) {
+	if (nmu <= 6) {	  
+/* Use Bruls/Carlsson formulation */
+	  if (nmu > 1) {
 /*  Invert matrix of permutations families */
-	  InverseMatrix(pmat,nmu-1,pinv);
+	    InverseMatrix(pmat,nmu-1,pinv);
 /* Solve for and assign weights for each permutation family */
-	  MatrixMult(pinv,wtmp,nmu-1,nmu-1,wpf);
+	    MatrixMult(pinv,wtmp,nmu-1,nmu-1,wpf);
+	    for (i=0; i<nang; i++) 
+	      pRG->wmu[i] = wpf[plab[i]];
+	  } else 
+	    pRG->wmu[0] = 1.0;
+	} else {
+/* Use equal weights for all angles */
 	  for (i=0; i<nang; i++) 
-	    pRG->wmu[i] = wpf[plab[i]];
-	} else 
-	  pRG->wmu[0] = 1.0;
+	    pRG->wmu[i] = 1.0/(Real)nang;
+	}
+
+
 /*  assign angles to RadGrid elements */
 	if (nDim == 2) {
 	  for (i=0; i<nang; i++) {

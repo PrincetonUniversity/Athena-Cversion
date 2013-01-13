@@ -217,8 +217,8 @@ get_total_opacity = const_chi;
 /* --------------computed formal solution ---------------------------- */
 /* Called to intitialze radiation variables for first set of outputs,  */
 /* not needed for evolution. */
-  hydro_to_rad(pDomain);
-  formal_solution(pDomain);
+// hydro_to_rad(pDomain);
+// formal_solution(pDomain);
 
   return;
 }
@@ -263,6 +263,11 @@ VOutFun_t get_usr_out_fun(const char *name){
 }
 
 void Userwork_in_formal_solution(DomainS *pD)
+{
+  return;
+}
+
+void Userwork_after_first_formal_solution(DomainS *pD)
 {
   return;
 }

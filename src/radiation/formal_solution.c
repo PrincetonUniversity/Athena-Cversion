@@ -98,6 +98,7 @@ void formal_solution(DomainS *pD)
 /* compute formal solution with 2D method*/
     //formal_solution_2d_init(pRG);
     for(i=0; i<niter; i++) {
+ 
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
 
@@ -120,6 +121,7 @@ void formal_solution(DomainS *pD)
 	  }
 	}
       }
+  
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
     }

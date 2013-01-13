@@ -76,8 +76,9 @@ void output_spec(MeshS *pM)
 	    fprintf(pfile,"%d %12.8e %12.8e\n",i,pRG->nu[i],pRG->wnu[i]);
 	  }
 	  for (i=0; i<nang; i++) {
+	    fprintf(pfile,"%d ",i);
 	    for(j=0; j<3; j++) 
-	      fprintf(pfile,"%d %12.8e ",i,pRG->mu[0][i][j]);
+	      fprintf(pfile,"%12.8e ",pRG->mu[0][i][j]);
 	    fprintf(pfile,"%12.8e\n",pRG->wmu[i]);
 	  }
 	  /* close file */

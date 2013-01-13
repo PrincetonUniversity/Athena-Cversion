@@ -64,6 +64,7 @@ void problem(DomainS *pDomain)
   Real ybottom, xbottom;
   Real aaxis, baxis, delta, pressure, temperature;
   int ixs, jxs, kxs;
+  Real rt_rat, flux_sc, taub, taut, x10;
 
 /* Parse global variables of unit ratio */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -85,7 +86,8 @@ void problem(DomainS *pDomain)
   d0 = par_getd("problem","drare");
   d1 = par_getd("problem","dcloud");
   T0 = par_getd("problem","Trare");
-
+  rt_rat = par_getd_def("problem","rt_rat",1.0);
+  flux_sc = consFr * (1.0 - rt_rat);
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->Disp[0];
   jxs = pGrid->Disp[1];
@@ -179,20 +181,43 @@ void problem(DomainS *pDomain)
     for(j=pRG->js-1; j<=pRG->je+1; j++) {
       for(m=0; m<nang; m++) {
 /* incident thermal radiation at left and right boundaries */
-	pRG->Ghstl1i[ifr][pRG->ks][j][0][m] = const_B(pGrid,ifr,pGrid->is-1,j+nghost-1,ku);
+/*	pRG->Ghstl1i[ifr][pRG->ks][j][0][m] = const_B(pGrid,ifr,pGrid->is-1,j+nghost-1,ku);
 	pRG->Ghstl1i[ifr][pRG->ks][j][2][m] = const_B(pGrid,ifr,pGrid->is-1,j+nghost-1,ku);
 	pRG->Ghstr1i[ifr][pRG->ks][j][1][m] = const_B(pGrid,ifr,pGrid->ie+1,j+nghost-1,ku);
-	pRG->Ghstr1i[ifr][pRG->ks][j][3][m] = const_B(pGrid,ifr,pGrid->ie+1,j+nghost-1,ku);
+	pRG->Ghstr1i[ifr][pRG->ks][j][3][m] = const_B(pGrid,ifr,pGrid->ie+1,j+nghost-1,ku);*/
+	pRG->Ghstl1i[ifr][pRG->ks][j][0][m] = 2.0 * flux_sc;
+	pRG->Ghstl1i[ifr][pRG->ks][j][2][m] = 2.0 * flux_sc;
       }
     }
 
+    if (pRG->lx1_id == -1) {
+      for(m=0; m<nang; m++) {
+	pRG->r2imu[ifr][pRG->ks][0][0][m] = 2.0 * flux_sc;
+	pRG->l2imu[ifr][pRG->ks][0][2][m] = 2.0 * flux_sc;
+      }
+    }
+  
     for(i=pRG->is-1; i<=pRG->ie+1; i++) {
 /* incident thermal radiation at upper and lower boundaries */
       for(m=0; m<nang; m++) {
-	pRG->Ghstl2i[ifr][pRG->ks][i][0][m] = const_B(pGrid,ifr,i+nghost-1,pGrid->js-1,ku);
+	/*	pRG->Ghstl2i[ifr][pRG->ks][i][0][m] = const_B(pGrid,ifr,i+nghost-1,pGrid->js-1,ku);
 	pRG->Ghstl2i[ifr][pRG->ks][i][1][m] = const_B(pGrid,ifr,i+nghost-1,pGrid->js-1,ku);
 	pRG->Ghstr2i[ifr][pRG->ks][i][2][m] = const_B(pGrid,ifr,i+nghost-1,pGrid->je+1,ku);
-	pRG->Ghstr2i[ifr][pRG->ks][i][3][m] = const_B(pGrid,ifr,i+nghost-1,pGrid->je+1,ku);
+	pRG->Ghstr2i[ifr][pRG->ks][i][3][m] = const_B(pGrid,ifr,i+nghost-1,pGrid->je+1,ku);*/
+
+	/*cc_pos(pGrid, i+nghost-1, nghost,0, &x1, &x2, &x3);
+	if (pRG->lx2_id == -1) {
+	  taub = (pGrid->U[0][nghost-1][i+nghost-1].Sigma[0] + pGrid->U[0][nghost-1][i+nghost-1].Sigma[1]) *
+	  (x1-xbottom);
+	  pRG->Ghstl2i[ifr][pRG->ks][i][0][m] = 2.0 * flux_sc/ exp(taub);
+	}
+	if (pRG->rx2_id == -1) {
+	  taut = (pGrid->U[0][pRG->je+nghost][i+nghost-1].Sigma[0] + pGrid->U[0][pRG->je+nghost][i+nghost-1].Sigma[1]) *
+	  (x1-xbottom);
+	  pRG->Ghstr2i[ifr][pRG->ks][i][2][m] = 2.0 * flux_sc/ exp(taut);
+	}*/
+
+
       }
     }
   }
@@ -203,10 +228,20 @@ void problem(DomainS *pDomain)
 
 /* ------- Initialize ray tracing boundary ---------------------------------- */
 
+/* Redefine jl, ju, kl, ku for RadGrid */
+  jl = pRG->js, ju = pRG->je;
+  kl = pRG->ks, ku = pRG->ke;
+  if (pRG->Nx[1] > 1) {
+    jl--; ju++; 
+  }
+  if (pRG->Nx[2] > 1) {
+    kl--; ku++;
+  }
+
   for(ifr=0; ifr<pRG->nf_rt; ifr++) {
-    for(k=pRG->ks; k<=pRG->ke; k++) {
-      for(j=pRG->js; j<=pRG->je; j++) {	
-	pRG->H[ifr][k][j][pRG->is-1] = consFr;
+    for(k=kl; k<=ku; k++) {
+      for(j=jl; j<=ju; j++) {	
+	pRG->H[ifr][k][j][pRG->is-1] = consFr * rt_rat;
       }}}
 /* enroll ray tracing opacity functions */
   //get_raytrace_thermal_fraction = const_eps;

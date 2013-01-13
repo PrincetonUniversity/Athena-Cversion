@@ -120,7 +120,7 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 /*  4. Dataset structure */
 
 /* Set the Grid origin */
-
+	x1 = pRG->MinX[0];
         x2 = pRG->MinX[1];
         x3 = pRG->MinX[2];
 
@@ -129,13 +129,13 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
           fprintf(pfile,"DIMENSIONS %d %d %d\n",1,1,1);
         } else {
           if (pRG->Nx[2] == 1) {
-            fprintf(pfile,"DIMENSIONS %d %d %d\n",ju-jl+2,1,1);
+            fprintf(pfile,"DIMENSIONS %d %d %d\n",1,ju-jl+2,1);
           } else {
-            fprintf(pfile,"DIMENSIONS %d %d %d\n",ju-jl+2,ku-kl+2,1);
+            fprintf(pfile,"DIMENSIONS %d %d %d\n",1,ju-jl+2,ku-kl+2);
           }
         }
-        fprintf(pfile,"ORIGIN %e %e %e \n",x2,x3,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx2,pRG->dx3,0.01*pRG->dx2);
+        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx2,pRG->dx3);
 
 /*  5. Data  */
 
@@ -287,7 +287,7 @@ void dump_ox1_vtk(MeshS *pM, OutputS *pOut)
 /*  4. Dataset structure */
 
 /* Set the Grid origin */
-
+	x1 = pRG->MaxX[0];
         x2 = pRG->MinX[1];
         x3 = pRG->MinX[2];
 
@@ -296,13 +296,13 @@ void dump_ox1_vtk(MeshS *pM, OutputS *pOut)
           fprintf(pfile,"DIMENSIONS %d %d %d\n",1,1,1);
         } else {
           if (pRG->Nx[2] == 1) {
-            fprintf(pfile,"DIMENSIONS %d %d %d\n",ju-jl+2,1,1);
+            fprintf(pfile,"DIMENSIONS %d %d %d\n",1,ju-jl+2,1);
           } else {
-            fprintf(pfile,"DIMENSIONS %d %d %d\n",ju-jl+2,ku-kl+2,1);
+            fprintf(pfile,"DIMENSIONS %d %d %d\n",1,ju-jl+2,ku-kl+2);
           }
         }
-        fprintf(pfile,"ORIGIN %e %e %e \n",x2,x3,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx2,pRG->dx3,0.0);
+	fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx2,pRG->dx3);
 
 /*  5. Data  */
 
@@ -454,16 +454,17 @@ void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
 /* Set the Grid origin */
 
         x1 = pRG->MinX[0];
+	x2 = pRG->MinX[1];
         x3 = pRG->MinX[2];
 
         fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
 	if (pRG->Nx[2] == 1) {
 	  fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,1,1);
 	} else {
-            fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,ku-kl+2,1);
+	  fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,1,ku-kl+2);
 	}
-        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x3,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx3,0.0);
+        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx2,pRG->dx3);
 
 /*  5. Data  */
 
@@ -615,17 +616,17 @@ void dump_ox2_vtk(MeshS *pM, OutputS *pOut)
 /* Set the Grid origin */
 
         x1 = pRG->MinX[0];
+	x2 = pRG->MaxX[1];
         x3 = pRG->MinX[2];
 
-        fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
+	fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
 	if (pRG->Nx[2] == 1) {
 	  fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,1,1);
 	} else {
-            fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,ku-kl+2,1);
+	  fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,1,ku-kl+2);
 	}
-        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x3,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx3,0.0);
-
+        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx2,pRG->dx3);
 /*  5. Data  */
 
         fprintf(pfile,"CELL_DATA %d \n", (iu-il+1)*(ku-kl+1));
@@ -774,11 +775,12 @@ void dump_ix3_vtk(MeshS *pM, OutputS *pOut)
 /* Set the Grid origin */
 	x1 = pRG->MinX[0];
         x2 = pRG->MinX[1];
+	x3 = pRG->MinX[2];
 
         fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
 	fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,ju-jl+2,1);
-        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx2,pRG->dx3,0.0);
+        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx2,pRG->dx3);
 
 /*  5. Data  */
 
@@ -914,11 +916,12 @@ void dump_ox3_vtk(MeshS *pM, OutputS *pOut)
 /* Set the Grid origin */
 	x1 = pRG->MinX[0];
         x2 = pRG->MinX[1];
+	x3 = pRG->MaxX[2];
 
         fprintf(pfile,"DATASET STRUCTURED_POINTS\n");
 	fprintf(pfile,"DIMENSIONS %d %d %d\n",iu-il+2,ju-jl+2,1);
-        fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,0.0);
-        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx2,pRG->dx3,0.0);
+	fprintf(pfile,"ORIGIN %e %e %e \n",x1,x2,x3);
+        fprintf(pfile,"SPACING %e %e %e \n",pRG->dx1,pRG->dx2,pRG->dx3);
 
 /*  5. Data  */
 
@@ -937,7 +940,7 @@ void dump_ox3_vtk(MeshS *pM, OutputS *pOut)
 	      fprintf(pfile,"LOOKUP_TABLE default\n");
 	      for (j=jl; j<=ju; j++) {
 		for (i=il; i<=iu; i++) {
-		  data[i-il] = (float)pRG->l3imu[ifr][j][i][l][m];
+		  data[i-il] = (float)pRG->r3imu[ifr][j][i][l][m];
 		}
 		if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
 		fwrite(data,sizeof(float),(size_t)ndata0,pfile);
