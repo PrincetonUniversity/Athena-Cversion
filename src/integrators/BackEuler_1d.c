@@ -302,7 +302,7 @@ if(pMat->bgflag){
 			}
 			
 		}
-
+/*
 if(Opacity != NULL){
 		for(i=pG->is; i<=pG->ie; i++) {
 
@@ -323,7 +323,7 @@ if(Opacity != NULL){
 	
 		}
 	}
-
+*/
 	/* Set the boundary condition */
 
 	

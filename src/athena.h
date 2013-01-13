@@ -766,7 +766,7 @@ typedef Real (*TSFun_t)(GridS *pG, int type, Real rho, Real cs, Real vd);
 
 /* Define user provided opacity function to give absorption and total reaction coefficient */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-typedef void (*OpacityFun_t)(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY]);
+typedef void (*OpacityFun_t)(const PrimS *pW, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY]);
 #endif
 /* dSigma[0] = dsigma_t/d\rho, dSigma[1] = dsigma_a/d\rho, dSigma[2] = dsigma_t/dT, , dSigma[3] = dsigma_a/dT 
    dSigma can be set to be NULL, then we do not set dSigma when the function is called 

@@ -1162,44 +1162,47 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 
 	Real aeff, temperature, SPP, Alpha;
 	Real SVV, beta;
-	Real dSigma[2*NOPACITY],dSigmadP[NOPACITY];
+/*	Real dSigma[2*NOPACITY],dSigmadP[NOPACITY];
+*/
 	Real velocity_x, velocity_y, velocity_z, velocity;
 	int i;
 	if(flag == 1){
-	
-	for(i=0; i<2*NOPACITY; i++)
-		dSigma[i] = 0.0;
-	
+		/*	
+		for(i=0; i<2*NOPACITY; i++)
+			dSigma[i] = 0.0;
+		*/
 
-	temperature = W.P / (W.d * R_ideal);
-	velocity_x = W.Vx;
-	velocity_y = W.Vy;
-	velocity_z = W.Vz;
+		temperature = W.P / (W.d * R_ideal);
+		velocity_x = W.Vx;
+		velocity_y = W.Vy;
+		velocity_z = W.Vz;
 	
-	if(Opacity != NULL) Opacity(W.d, temperature, NULL, dSigma);
+		velocity = velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z;
+	
+/*	if(Opacity != NULL) Opacity(W.d, temperature, NULL, dSigma);
 		
 	dSigmadP[0] =  dSigma[4] / (W.d * R_ideal); 
 	dSigmadP[1] =  dSigma[5] / (W.d * R_ideal); 
 	dSigmadP[2] =  dSigma[6] / (W.d * R_ideal); 
 	dSigmadP[3] =  dSigma[7] / (W.d * R_ideal); 
+*/
 
-
-	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma[2] * temperature * temperature * temperature / (W.d * R_ideal)
+/*	SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma[2] * temperature * temperature * temperature / (W.d * R_ideal)
 		-(Gamma - 1.0) * Prat * Crat * (dSigmadP[2]  * pow(temperature,4.0) - dSigmadP[3] * W.Er) 
 		-(Gamma - 1.0) * Prat * 2.0 * dSigmadP[1] * ( 
 			velocity_x * (W.Fr1 - ((1.0 + W.Edd_11) * velocity_x + W.Edd_21 * velocity_y + W.Edd_31 * velocity_z) * W.Er/Crat)
 	     	+  velocity_y * (W.Fr2 - (W.Edd_21 * velocity_x + (1.0 + W.Edd_22) * velocity_y + W.Edd_32 * velocity_z) * W.Er/Crat)
 	     	+  velocity_z * (W.Fr3 - (W.Edd_31 * velocity_x + W.Edd_32 * velocity_y + (1.0 + W.Edd_33) * velocity_z) * W.Er/Crat)
 		);
+*/
+	
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma[2] * temperature * temperature * temperature * (1.0 - velocity/(Crat * Crat)) / (W.d * R_ideal);
+	
 
-	if(SPP > TINY_NUMBER){
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * W.Sigma[2] * temperature * temperature * temperature / (W.d * R_ideal);
-	}
-
-	if(fabs(SPP * dt * 0.5) > 0.001)
-	Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-	else 
-	Alpha = 1.0 + 0.25 * SPP * dt;
+		if(fabs(SPP * dt * 0.5) > 0.001)
+		Alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+		else 
+		Alpha = 1.0 + 0.25 * SPP * dt;
 
 	/* In case SPP * dt  is small, use expansion expression */	
 
@@ -1212,12 +1215,12 @@ Real eff_sound(const Prim1DS W, Real dt, int flag)
 	
 	/* Eddington tensor is assumed 1/3 here for simplicity */
 	
-	SVV = -Prat * (W.Sigma[0] + W.Sigma[1]) * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
+		SVV = -Prat * (W.Sigma[0] + W.Sigma[1]) * (1.0 + 1.0/3.0) * W.Er / (W.d * Crat); 
 
-	if(fabs(SVV * dt * 0.5) > 0.001)
-	beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
-	else 
-	beta = 1.0 + 0.25 * SVV * dt;
+		if(fabs(SVV * dt * 0.5) > 0.001)
+		beta = (exp(SVV * dt * 0.5) - 1.0)/(SVV * dt * 0.5);
+		else 
+		beta = 1.0 + 0.25 * SVV * dt;
 
 	/* In case SPP * dt  is small, use expansion expression */		
 
@@ -1305,15 +1308,18 @@ void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx,
 	/* Opacity is: Sigma[0]=Sigma_sF, Sigma[1] = Sigma_aF, Sigma[2] = Sigma_aP, Sigma[3] = Sigma_aE */
 	Real pressure, temperature, velocity_x, velocity_y, velocity_z, velocity_fargo;
 	Real Fr0x, Fr0y, Fr0z;
+
+/*
 	Real dSigma[2*NOPACITY];
-	/* Derivative of the opacity with respect to the conserved variables */
+	
 	Real dSigmaE[NOPACITY], dSigmarho[NOPACITY], dSigmavx[NOPACITY], dSigmavy[NOPACITY], dSigmavz[NOPACITY];
+*/
 	Real Sigma[NOPACITY];
 
 	int i,m;
-	for(i=0; i<2*NOPACITY; i++)
+/*	for(i=0; i<2*NOPACITY; i++)
 		dSigma[i] = 0.0;
-
+*/
 	for(m=0;m<NOPACITY;m++){
 		Sigma[m] = U.Sigma[m];
 	}
@@ -1343,7 +1349,7 @@ if(pressure > TINY_NUMBER){
 	Fr0z = U.Fr3 - (U.Edd_31 * velocity_x + U.Edd_32 * velocity_fargo + (1.0 + U.Edd_33) * velocity_z) * U.Er/Crat;
 	
 	
-
+/*
 	if(Opacity != NULL) Opacity(U.d, temperature, NULL, dSigma);
 
 	for(m=0;m<NOPACITY;m++){
@@ -1359,7 +1365,7 @@ if(pressure > TINY_NUMBER){
 #endif
 
 	}
-
+*/
 	/* We keep another v/c term here */
 	/* When opacity depends on density and temperature, this may cause trouble */
 /*	 *SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal)

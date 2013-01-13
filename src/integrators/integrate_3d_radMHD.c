@@ -218,7 +218,7 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif 
 	
   PrimS Wtemp;
-
+  PrimS Wopacity;
 #ifdef SELF_GRAVITY
   Real gxl,gxr,gyl,gyr,gzl,gzr,flx_m1l,flx_m1r,flx_m2l,flx_m2r,flx_m3l,flx_m3r;
 #ifdef CONS_GRAVITY
@@ -4216,10 +4216,21 @@ k][j][i].M3);
 		/* If Opacity is not set, Sigma_? will not be changed. */
 		/* Negative pressur is handled in the opacity function */
 					
-		/* update opacity for the thermalization term, not for momentum term, which can cause trouble */			
+		/* update opacity for the thermalization term, not for momentum term, which can cause trouble */	
+
+		/* Prepare the Prims variable */
+		Wopacity = Cons_to_Prim(&pG->U[k][j][i]);
+		/* Now update the density, pressure and velocity */
+		Wopacity.d = density;
+		Wopacity.P = pressure;
+		Wopacity.V1 = velocity_x;
+		Wopacity.V2 = velocity_y;
+		Wopacity.V3 = velocity_z;
+		/* background shearing should be included */
+		
 	
 		if(Opacity != NULL){
-			Opacity(density,temperature, Sigma, NULL);
+			Opacity(&Wopacity, Sigma, NULL);
 		
 			Sigma_sF = Sigma[0];
 			Sigma_aF = Sigma[1];
@@ -4666,21 +4677,18 @@ k][j][i].M3);
 			for (j=js; j<=je; j++) {
     				for (i=is; i<=ie; i++){
 				
-				density = pG->U[k][j][i].d;
+				Wopacity = Cons_to_Prim(&pG->U[k][j][i]);
 				
-				pressure = (pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 
-				+ pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / density ) * (Gamma - 1);
-			
-#ifdef RADIATION_MHD
-				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+				/* Add background shearing */
+#ifdef FARGO	
+				cc_pos(pG,i,j,k,&x1,&x2,&x3);
+				Wopacity.V2 -= qom * x1;		
 #endif
 
-				if(pressure > TINY_NUMBER)
+				if(Wopacity.P > TINY_NUMBER)
 				{
-					temperature = pressure / (density * R_ideal);
+					Opacity(&Wopacity,Sigma,NULL);
 
-						
-					Opacity(density,temperature,Sigma,NULL);
 					for(m=0;m<NOPACITY;m++){
 						pG->U[k][j][i].Sigma[m] = Sigma[m];
 					}
@@ -5394,8 +5402,9 @@ void updatesource(GridS *pG)
 
 	double density, velocity_x, velocity_y, velocity_z, velocity, pressure, temperature;
 	double Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE, Bx, Fr0x, Fr0y, Fr0z;
-	Real SPP, dSigmadP[4], diffTEr, diffTErdP;
-	Real dSigma[8];
+	Real SPP, diffTEr;
+/*	Real dSigma[8];
+*/
 #ifdef SHEARING_BOX
 	Real qom = qshear*Omega_0;
 #endif
@@ -5504,7 +5513,7 @@ void updatesource(GridS *pG)
 				Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y 
 												+ velocity_z * Fr0z)/Crat);
 
-
+/*
 				if(Opacity != NULL){
 					 Opacity(density, temperature, NULL, dSigma);
 				}
@@ -5513,18 +5522,18 @@ void updatesource(GridS *pG)
 						dSigma[m] = 0.0;
 				}
 				
-
+*/
 				/* dSigma[0] = dSigma_sF/drho, dSigma[1] = dSigma_aF/drho, dSigma[2]=dSigma_aP/drho, dSigma[3]= dSigma_aE/drho */
 				/* dSigma[4] = dSigma_sF/dT, dSigma[5] = dSigma_aF/dT, dSigma[6]=dSigma_aP/dT, dSigma[7]= dSigma_aE/dT */
 						
 
-				dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
+/*				dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
 				dSigmadP[1] =  dSigma[5] / (density * R_ideal); 
 				dSigmadP[2] =  dSigma[6] / (density * R_ideal); 
 				dSigmadP[3] =  dSigma[7] / (density * R_ideal); 
 
 				diffTErdP = dSigmadP[2] * pow(temperature, 4.0) - dSigmadP[3] * pG->U[k][j][i].Er;
-
+*/
 				/* The velocity used to convert primitive variable and conservative variables are not the same as velocity in source term */
 
 

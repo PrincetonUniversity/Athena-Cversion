@@ -516,7 +516,7 @@ void BackEuler_1d(MeshS *pM)
 	}
 	/* May need to update Edd_11 */
 
-
+/*
 if(Opacity != NULL){
 		for(i=il+1; i<=iu-1; i++) {
 
@@ -537,7 +537,7 @@ if(Opacity != NULL){
 	
 		}
 }	
-
+*/
 
 /* Update the ghost zones for different boundary condition to be used later */
 /*

@@ -150,9 +150,12 @@ void integrate_2d_radMHD(DomainS *pD)
 	Real Prwork1, Prwork2, Prworksource, Ersource;
 	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
 	Real SPP, alpha, Propa_44, SEE, SErho, SEmx, SEmy;
-	Real dSigma[2*NOPACITY], dSigmadP[NOPACITY], Sigma[NOPACITY];
-	Cons1DS Usource;
+/*	Real dSigma[2*NOPACITY], dSigmadP[NOPACITY];
+*/ 
+	Real Sigma[NOPACITY];
+	Cons1DS Usource;	
 	/* for source term */
+	PrimS Wopacity; /* temporary variable for opacity function */
 
 	/* In case momentum becomes stiff */
 	Real SFmx, SFmy, SVVx, SVVy, betax, betay;
@@ -180,8 +183,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		}
 		}
 	}
-	for(i=0; i<2*NOPACITY; i++)
+/*	for(i=0; i<2*NOPACITY; i++)
 		dSigma[i] = 0.0;
+*/
 
 	il = is - 2;
   	iu = ie + 2;
@@ -259,6 +263,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		cc_pos(pG,i-1,j,ks,&x1,&x2,&x3);
 		velocity_y -= qom * x1;		
 #endif
+
+		velocity = velocity_x * velocity_x + velocity_y * velocity_y;
 		
 		
 		Sigma_sF = U1d[i-1].Sigma[0];
@@ -280,14 +286,14 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[i-1].Fr2 - ((1.0 + U1d[i-1].Edd_22) * velocity_y + U1d[i-1].Edd_21 * velocity_x) * U1d[i-1].Er / Crat))/Crat)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[i-1].d; 
 
-
+/*
 		if(Opacity != NULL) Opacity(U1d[i-1].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
 		dSigmadP[1] =  dSigma[5] / (density * R_ideal); 
 		dSigmadP[2] =  dSigma[6] / (density * R_ideal); 
 		dSigmadP[3] =  dSigma[7] / (density * R_ideal); 
-
+*/
 		/*
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature /(U1d[i-1].d * R_ideal)
 			-(Gamma - 1.0) * Prat * Crat * (dSigmadP[2] * pow(Tguess, 4.0) - dSigmadP[3] * U1d[i-1].Er)
@@ -296,7 +302,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ velocity_y * (U1d[i-1].Fr2 - (U1d[i-1].Edd_21 * velocity_x + (1.0 + U1d[i-1].Edd_22) * velocity_y) * U1d[i-1].Er/Crat)
 			);
 		*/
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature /(U1d[i-1].d * R_ideal);
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature * (1.0 - velocity/(Crat * Crat)) /(U1d[i-1].d * R_ideal);
 		
 
 		/*===================================================================*/
@@ -361,7 +367,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		velocity_y -= qom * x1;		
 #endif
 		
-		
+		velocity = velocity_x * velocity_x + velocity_y * velocity_y;
 		
 		Sigma_sF = U1d[i].Sigma[0];
 		Sigma_aF = U1d[i].Sigma[1];
@@ -382,13 +388,13 @@ void integrate_2d_radMHD(DomainS *pD)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[i].d; 
 
 			
-		if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, dSigma);
+	/*	if(Opacity != NULL) Opacity(U1d[i].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
 		dSigmadP[1] =  dSigma[5] / (density * R_ideal); 
 		dSigmadP[2] =  dSigma[6] / (density * R_ideal); 
 		dSigmadP[3] =  dSigma[7] / (density * R_ideal); 
-		
+	*/	
 		/*
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature	* temperature /(U1d[i].d * R_ideal)
 			-(Gamma - 1.0) * Prat * Crat * (dSigmadP[2] * pow(Tguess, 4.0) - dSigmadP[3] * U1d[i].Er)
@@ -397,7 +403,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ velocity_y * (U1d[i].Fr2 - (U1d[i].Edd_21 * velocity_x + (1.0 + U1d[i].Edd_22) * velocity_y) * U1d[i].Er/Crat)
 			);
 		*/
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature	* temperature /(U1d[i].d * R_ideal);
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature	* temperature * (1.0 - velocity/(Crat * Crat))/(U1d[i].d * R_ideal);
 		
 
 		/*===================================================================*/
@@ -629,6 +635,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		cc_pos(pG,i,j-1,ks,&x1,&x2,&x3);
 		velocity_y -= qom * x1;		
 #endif		
+
+
+		velocity = velocity_x * velocity_x + velocity_y * velocity_y;
 		
 		Sigma_sF = U1d[j-1].Sigma[0];
 		Sigma_aF = U1d[j-1].Sigma[1];
@@ -650,14 +659,14 @@ void integrate_2d_radMHD(DomainS *pD)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[j-1].d; 
 
 		
-
+	/*
 		if(Opacity != NULL) Opacity(U1d[j-1].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
 		dSigmadP[1] =  dSigma[5] / (density * R_ideal); 
 		dSigmadP[2] =  dSigma[6] / (density * R_ideal); 
 		dSigmadP[3] =  dSigma[7] / (density * R_ideal); 
-
+	*/
 		/*
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature /(U1d[j-1].d * R_ideal)
 			-(Gamma - 1.0) * Prat * Crat * (dSigmadP[2] * pow(Tguess, 4.0) - dSigmadP[3] * U1d[j-1].Er)
@@ -667,7 +676,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			);
 		*/
 		
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature /(U1d[j-1].d * R_ideal);
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature * (1.0 - velocity /(Crat * Crat)) /(U1d[j-1].d * R_ideal);
 		
 
 		if(fabs(SPP * dt * 0.5) > 0.001)
@@ -735,6 +744,8 @@ void integrate_2d_radMHD(DomainS *pD)
 		cc_pos(pG,i,j,ks,&x1,&x2,&x3);
 		velocity_y -= qom * x1;		
 #endif
+
+		velocity = velocity_x * velocity_x + velocity_y * velocity_y;
 		
 		
 		Sigma_sF = U1d[j].Sigma[0];
@@ -756,14 +767,14 @@ void integrate_2d_radMHD(DomainS *pD)
 			* (U1d[j].Fr2 - ((1.0 + U1d[j].Edd_22) * velocity_y + U1d[j].Edd_21 * velocity_x) * U1d[j].Er / Crat))/Crat)
 			- (Gamma - 1.0) * (velocity_x * Source[1] + velocity_y * Source[2]) * U1d[j].d; 
 
-		
+	/*	
 		if(Opacity != NULL) Opacity(U1d[j].d, temperature, NULL, dSigma);
 		
 		dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
 		dSigmadP[1] =  dSigma[5] / (density * R_ideal); 
 		dSigmadP[2] =  dSigma[6] / (density * R_ideal); 
 		dSigmadP[3] =  dSigma[7] / (density * R_ideal); 
-
+	*/
 		/*
 		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature /(U1d[j].d * R_ideal)
 			-(Gamma - 1.0) * Prat * Crat * (dSigmadP[2] * pow(Tguess,4.0) - dSigmadP[3] * U1d[j].Er)
@@ -773,7 +784,7 @@ void integrate_2d_radMHD(DomainS *pD)
 			);
 		*/
 		
-		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature /(U1d[j].d * R_ideal);
+		SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * temperature * temperature * temperature * (1.0 - velocity/(Crat * Crat))/(U1d[j].d * R_ideal);
 		
 
 		if(fabs(SPP * dt * 0.5) > 0.001)
@@ -2158,11 +2169,18 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat));
 		
 
+		/* Prepare the Prims variable */
+		Wopacity = Cons_to_Prim(&pG->U[ks][j][i]);
+		/* Now update the density, pressure and velocity */
+		Wopacity.d = density;
+		Wopacity.P = pressure;
+		Wopacity.V1 = velocity_x;
+		Wopacity.V2 = velocity_y;
+		/* background shearing should be included */
 
-		/* Do not update opacity here */
 
 		if(Opacity != NULL){
-			Opacity(density,temperature, Sigma, NULL);
+			Opacity(&Wopacity, Sigma, NULL);
 
 			Sigma_sF = Sigma[0];
 			Sigma_aF = Sigma[1];
@@ -2430,21 +2448,19 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		for (j=js; j<=je; j++) {
     			for (i=is; i<=ie; i++){
+
+				Wopacity = Cons_to_Prim(&pG->U[ks][j][i]);
 				
-				density = pG->U[ks][j][i].d;
-				
-				pressure = (pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 
-				+ pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 +  pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / density )	* (Gamma - 1);
-		
-#ifdef RADIATION_MHD
-				pressure -= 0.5 * (pG->U[ks][j][i].B1c * pG->U[ks][j][i].B1c + pG->U[ks][j][i].B2c * pG->U[ks][j][i].B2c + pG->U[ks][j][i].B3c * pG->U[ks][j][i].B3c) * (Gamma - 1.0);
+				/* Add background shearing */
+#ifdef FARGO	
+				cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+				Wopacity.V2 -= qom * x1;		
 #endif
 				
-				if(pressure > TINY_NUMBER)
-				{
-					temperature = pressure / (density * R_ideal);
+				if(Wopacity.P > TINY_NUMBER)
+				{					
 			
-					Opacity(density,temperature,Sigma,NULL);
+					Opacity(&Wopacity,Sigma,NULL);
 						for(m=0;m<NOPACITY;m++){
 							pG->U[ks][j][i].Sigma[m] = Sigma[m];
 						}

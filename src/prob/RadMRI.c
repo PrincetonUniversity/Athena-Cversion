@@ -121,7 +121,7 @@ static Real B0z;
 static Real dz = 0.0; /* cell size along z direction */
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
-static void Thindiskopacity(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[4]);
+static void Thindiskopacity(const PrimS *pW, Real Sigma[NOPACITY], Real dSigma[4]);
 #endif
 #ifndef SHEARING_BOX
 static Real Omega_0 = 4.749736;
@@ -1637,15 +1637,20 @@ static Real hst_gravpot(const GridS *pG,const int i,const int j, const int k)
 
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
-void Thindiskopacity(const Real rho, const Real T, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY])
+void Thindiskopacity(const PrimS *pW, Real Sigma[NOPACITY], Real dSigma[2*NOPACITY])
 {
 /* Sigma[0-NOPACITY] are: Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE respectively */
 /* dSigma[0-2*NOPACITY] are: dSigma_sF/drho, dSigma_aF/drho, dSigma_aP/drho, dSigma_aE/drho */
 /* 			     dSigma_sF/dT,   dSigma_aF/dT,   dSigma_aP/dT,   dSigma_aE/dT */
 	
 /* When pressure becomes negative, we do not include radiation source term */
-if((rho * T * R_ideal > 2.0 * TINY_NUMBER) && (rho > 0.0)){	
+Real T, rho;
+
+if((pW->P > TINY_NUMBER) && (pW->d > TINY_NUMBER)){	
 	Real Tpower, Tpower1;
+	rho = pW->d;
+	T = pW->P / (rho * R_ideal);
+	
 	/* Tpower = T^3.5 , Tpower1 = T^4.5 */
 	Tpower = 1.0 / (T * T * T * sqrt(T));
 	Tpower1 = Tpower / T;
@@ -2254,6 +2259,7 @@ void radMHD_inflowke(GridS *pGrid)
 
 	static Real x3t;
 	x3t = ztop - 0.5 * pGrid->dx3;
+	PrimS Wopacity;
 
 
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -2432,9 +2438,14 @@ void radMHD_inflowke(GridS *pGrid)
 
 #endif
 
-	
+		Wopacity = Cons_to_Prim(&pGrid->U[ke+k][j][i]);
+		/* Add background shearing */
+#ifdef FARGO	
+		cc_pos(pGrid,i,j,ke+k,&x1,&x2,&x3);
+		Wopacity.V2 -= qshear * Omega_0 * x1;		
+#endif
 			
-		Thindiskopacity(pGrid->U[ke+k][j][i].d, T, Sigma, NULL);
+		Thindiskopacity(&Wopacity, Sigma, NULL);
 		
 		if(T < 2.0 * TINY_NUMBER)
 			Sigma[0] = kappaes * pGrid->U[ke+k][j][i].d;
@@ -2620,6 +2631,7 @@ void radMHD_inflowks(GridS *pGrid)
 	dx1 = pGrid->dx1;
 	dx2 = pGrid->dx2;
 	dx3 = pGrid->dx3;
+	PrimS Wopacity;
 
 	 static Real x3b;
 
@@ -2779,8 +2791,15 @@ void radMHD_inflowks(GridS *pGrid)
 
 #endif
 
+		Wopacity = Cons_to_Prim(&pGrid->U[ks-k][j][i]);
+		/* Add background shearing */
+#ifdef FARGO	
+		cc_pos(pGrid,i,j,ks-k,&x1,&x2,&x3);
+		Wopacity.V2 -= qshear * Omega_0 * x1;		
+#endif
 			
-		Thindiskopacity(pGrid->U[ks-k][j][i].d, T, Sigma, NULL);
+		Thindiskopacity(&Wopacity, Sigma, NULL);
+		
 
 		if(T < 2.0 * TINY_NUMBER)
 			Sigma[0] = kappaes * pGrid->U[ks-k][j][i].d;

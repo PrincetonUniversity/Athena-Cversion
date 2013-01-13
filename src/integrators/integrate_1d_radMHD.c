@@ -76,6 +76,7 @@ void integrate_1d_radMHD(DomainS *pD)
 
 	Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic;
 	Real aeff;
+	PrimS Wopacity;
 
 
 #ifdef SELF_GRAVITY
@@ -597,9 +598,14 @@ for(i=il+1; i<=iu-1; i++) {
 	velocity = Uguess.Mx / Uguess.d;
 
 	/* Use the updated opacity due to the change of temperature and density */
-	/*
+
+	Wopacity = Cons_to_Prim(&pG->U[ks][js][i]);
+	Wopacity.d = Uguess.d;
+	Wopacity.P = pressure;
+	Wopacity.V1 = velocity;
+	
 	if(Opacity != NULL){
-		Opacity(Uguess.d, temperature, Sigma, NULL);
+		Opacity(&Wopacity, Sigma, NULL);
 	}
 	else{
 		Sigma[0] = Sigma_sF;
@@ -608,7 +614,7 @@ for(i=il+1; i<=iu-1; i++) {
 		Sigma[3] = Sigma_aE;
 
 	}
-	*/
+	
 
 	for(m=0;m<NOPACITY;m++){
 		Uguess.Sigma[m] = Sigma[m];
@@ -753,28 +759,21 @@ for(i=il+1; i<=iu-1; i++) {
 	 * If function Opacity is set in the problem generator 
 	 *
 	 */ 
-/*
+
 	if(Opacity != NULL){
 		for(i=il+1; i<=iu-1; i++) {
 
-			pressure = (pG->U[ks][js][i].E - 0.5 * pG->U[ks][js][i].M1 * pG->U[ks][js][i].M1 / pG->U[ks][js][i].d )
-				* (Gamma - 1);
+			Wopacity = Cons_to_Prim(&pG->U[ks][js][i]);
 
-#ifdef RADIATION_MHD
-		pressure -= 0.5 * (pG->U[ks][js][i].B1c * pG->U[ks][js][i].B1c + pG->U[ks][js][i].B2c * pG->U[ks][js][i].B2c + pG->U[ks][js][i].B3c * pG->U[ks][js][i].B3c) * (Gamma - 1.0);
-#endif
-		
-			temperature = pressure / (pG->U[ks][js][i].d * R_ideal);
-	
-		
-			Opacity(pG->U[ks][js][i].d, temperature,Sigma, NULL);
-			for(m=0;m<NOPACITY;m++){
-				pG->U[ks][js][i].Sigma[m] = Sigma[m];
+			if(Wopacity.P > TINY_NUMBER){
+				Opacity(&Wopacity,Sigma, NULL);
+				for(m=0;m<NOPACITY;m++){
+					pG->U[ks][js][i].Sigma[m] = Sigma[m];
+				}
 			}
-	
 		}
 	}
-*/
+
 
   return;
 
