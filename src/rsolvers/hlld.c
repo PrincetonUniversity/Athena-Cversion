@@ -125,9 +125,14 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   gpbl = gpl + 2.0*pbl;
   gpbr = gpr + 2.0*pbr;
 
-  cfl = sqrt((gpbl + sqrt(SQR(gpbl)-4*gpl*Bxsq))/(2.0*Wl.d));
-  cfr = sqrt((gpbr + sqrt(SQR(gpbr)-4*gpr*Bxsq))/(2.0*Wr.d));
+  tmp = SQR(gpl - Bxsq) + (4.0 * pbl * pbl - SQR(Bxsq)) + 2.0 * gpl * (SQR(Wl.By) + SQR(Wl.Bz));
+  cfl = sqrt((gpbl + sqrt(tmp))/(2.0*Wl.d));
+  tmp = SQR(gpr - Bxsq) + (4.0 * pbr * pbr - SQR(Bxsq)) + 2.0 * gpr * (SQR(Wr.By) + SQR(Wr.Bz));
+  cfr = sqrt((gpbr + sqrt(tmp))/(2.0*Wr.d));
+
   cfmax = MAX(cfl,cfr);
+
+
 
   if(Wl.Vx <= Wr.Vx) {
     spd[0] = Wl.Vx - cfmax;
