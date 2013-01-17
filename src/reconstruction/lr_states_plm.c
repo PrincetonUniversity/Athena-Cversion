@@ -85,6 +85,9 @@ void lr_states(const GridS *pG __attribute__((unused)),
   Real aeff;
 #endif
 	
+#ifdef RADIATIONMHD_INTEGRATOR
+#define CTU_INTEGRATOR
+#endif
 
 const Real dtodx = dt/dx;
   /* ADDITIONAL VARIABLES REQUIRED FOR CYLINDRICAL COORDINATES */
@@ -276,7 +279,7 @@ const Real dtodx = dt/dx;
     pWr = (Real *) &(Wr[i]);
 
 #ifndef CTU_INTEGRATOR
-#ifndef RADIATIONMHD_INTEGRATOR
+ 
 
     for (n=0; n<(NWAVE+NSCALARS); n++) {
       pWl[n] = Wrv[n];
@@ -417,10 +420,16 @@ const Real dtodx = dt/dx;
       }
     }
 
-#endif /* RADIATIONMHD_INTEGRATOR */
+
 #endif /* CTU_INTEGRATOR */
 
   } /*===================== END BIG LOOP OVER i ===========================*/
+
+
+#ifdef RADIATIONMHD_INTEGRATOR
+#undef CTU_INTEGRATOR
+#endif
+
 
   return;
 }
