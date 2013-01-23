@@ -563,34 +563,34 @@ void init_mesh(MeshS *pM)
       }}}
 
 /* If the Domain is not evenly divisible put the extra cells on the first
- * Grids in each direction  */
+ * Grids in each direction, maintaining the load balance as much as possible */
 
-      while (xdiv[0].rem > 0){
-        for(n=0; n<(pD->NGrid[2]); n++){
-          for(m=0; m<(pD->NGrid[1]); m++){
-            pD->GData[n][m][0].Nx[0]++;
+      for(n=0; n<(pD->NGrid[2]); n++){
+        for(m=0; m<(pD->NGrid[1]); m++){
+          for(l=0; l<xdiv[0].rem; l++){
+            pD->GData[n][m][l].Nx[0]++;
           }
         }
-        xdiv[0].rem--;
       }
+      xdiv[0].rem=0;
 
-      while (xdiv[1].rem > 0){
-        for(n=0; n<(pD->NGrid[2]); n++){
+      for(n=0; n<(pD->NGrid[2]); n++){
+        for(m=0; m<xdiv[1].rem; m++) {
           for(l=0; l<(pD->NGrid[0]); l++){
-            pD->GData[n][0][l].Nx[1]++;
+            pD->GData[n][m][l].Nx[1]++;
           }
         }
-        xdiv[1].rem--;
       }
+      xdiv[1].rem=0;
 
-      while (xdiv[2].rem > 0){
+      for(n=0; n<xdiv[2].rem; n++){
         for(m=0; m<(pD->NGrid[1]); m++){
           for(l=0; l<(pD->NGrid[0]); l++){
-            pD->GData[0][m][l].Nx[2]++;
+            pD->GData[n][m][l].Nx[2]++;
           }
         }
-        xdiv[2].rem--;
       }
+      xdiv[2].rem=0;
 
 /* Initialize displacements from origin for each Grid */
 
