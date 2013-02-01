@@ -1026,6 +1026,12 @@ void integrate_3d_ctu(DomainS *pD)
           ((emf1[k  ][j+1][i-1] - emf1[k  ][j][i-1]) +
            (emf1[k+1][j+1][i-1] - emf1[k+1][j][i-1]));
 #endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Ul_x1Face[k][j][i].s[n] -=
+             q2*(x2Flux[k][j+1][i-1].s[n] - x2Flux[k][j][i-1].s[n]);
+        }
+#endif
 
 #ifdef CYLINDRICAL
         q2 = hdt/(r[i]*pG->dx2);
@@ -1045,8 +1051,6 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) {
-          Ul_x1Face[k][j][i].s[n] -=
-             q2*(x2Flux[k][j+1][i-1].s[n] - x2Flux[k][j][i-1].s[n]);
           Ur_x1Face[k][j][i].s[n] -=
              q2*(x2Flux[k][j+1][i  ].s[n] - x2Flux[k][j][i  ].s[n]);
         }
@@ -2614,6 +2618,7 @@ void integrate_3d_ctu(DomainS *pD)
         qshear = (*ShearProfile)(r[i]);
 
         if (StaticGravPot != NULL){
+	  cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
           phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
           g = (phir-phil)/pG->dx1;
@@ -2624,14 +2629,14 @@ void integrate_3d_ctu(DomainS *pD)
         /* Use forward euler to approximate R/phi momenta at t^{n+1} */
         Mre = Mrn
                 - dtodx1*(     rsf*x1Flux[k][j][i+1].Mx -      lsf*x1Flux[k][j][i].Mx)
-                - dtodx2*(SQR(rsf)*x2Flux[k][j+1][i].Mz - SQR(lsf)*x2Flux[k][j][i].Mz)
+                - (dtodx2/r[i])*(  x2Flux[k][j+1][i].Mz -          x2Flux[k][j][i].Mz)
                 - dtodx3*(         x3Flux[k+1][j][i].My -          x3Flux[k][j][i].My);
         Mre += pG->dt*( 2.0*Om*Mpn + geom_src[k][j][i] - pG->U[k][j][i].d*g);
 
         Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
           - dtodx1*(SQR(rsf)*x1Flux[k ][j ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
-          - (dtodx2/r[i])*( x2Flux[k ][j+1][i ].Mx - x2Flux[k][j][i].Mx)
-          - (dtodx3)*(      x3Flux[k+1][j ][i ].Mz - x3Flux[k][j][i].Mz);
+          - (dtodx2/r[i])*(  x2Flux[k ][j+1][i ].Mx - x2Flux[k][j][i].Mx)
+          - (dtodx3)*(       x3Flux[k+1][j ][i ].Mz - x3Flux[k][j][i].Mz);
 
         /* Average forward euler and current values to approximate at t^{n+1/2} */
         Mrav = 0.5*(Mrn+Mre);
@@ -2643,6 +2648,7 @@ void integrate_3d_ctu(DomainS *pD)
 
         /* Add source term for fixed gravitational potential for 0.5*dt */
         if (StaticGravPot != NULL){
+	  cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
           M2h -= q2*(phir-phil)*pG->U[k][j][i].d;

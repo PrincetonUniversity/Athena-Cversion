@@ -1451,6 +1451,7 @@ void integrate_2d_ctu(DomainS *pD)
       qshear = (*ShearProfile)(r[i]);
 
       if (StaticGravPot != NULL){
+	cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
         g = (phir-phil)*dx1i;
@@ -1461,7 +1462,7 @@ void integrate_2d_ctu(DomainS *pD)
       /* Use forward euler to approximate R/phi momenta at t^{n+1} */
       Mre = Mrn
               - dtodx1*(     rsf*x1Flux[j][i+1].Mx -      lsf*x1Flux[j][i].Mx)
-              - dtodx2*(SQR(rsf)*x2Flux[j+1][i].Mz - SQR(lsf)*x2Flux[j][i].Mz);
+              - (dtodx2/r[i])*(  x2Flux[j+1][i].Mz -          x2Flux[j][i].Mz);
       Mre += pG->dt*( 2.0*Om*Mpn + geom_src[j][i] - pG->U[ks][j][i].d*g);
 
       Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn

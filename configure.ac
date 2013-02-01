@@ -533,9 +533,7 @@ fi
 # check for compatibility of various options
 
 if test "$with_coord" = "cylindrical"; then
-  if test "$nscalars" != "0"; then
-    AC_MSG_ERROR([Sorry, passive scalars and cylindrical coordinates are currently incompatible!])
-  elif test "$gravity_algorithm" != "none"; then
+  if test "$gravity_algorithm" != "none"; then
     AC_MSG_ERROR([Sorry, self-gravity and cylindrical coordinates are currently incompatible!])
   elif test "$particles_algorithm" != "none"; then
     AC_MSG_ERROR([Sorry, particles and cylindrical coordinates are currently incompatible!])
