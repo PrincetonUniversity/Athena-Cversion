@@ -30,6 +30,7 @@
 #include "../particles/particle.h"
 #endif
 
+#ifndef STATIC_MESH_REFINEMENT
 #ifdef MATRIX_MULTIGRID 
 
 #if defined(RADIATIONMHD_INTEGRATOR)
@@ -1327,6 +1328,10 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr){
 
 void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 {
+#ifdef MPI_PARALLEL
+	pMat_coarse->Comm_Domain = pMat->Comm_Domain;
+#endif
+
 
 	pMat_coarse->dx1 = 2.0 * pMat->dx1;
 	pMat_coarse->dx2 = 2.0 * pMat->dx2;
@@ -1430,6 +1435,10 @@ void BackEuler_init_3d(MeshS *pM)
 	if(fabs(temp-Nlevel) > 0.5) Nlevel++;
 	Nlevel++;
 	
+#ifdef MPI_PARALLEL
+	pMat->Comm_Domain = pD->Comm_Domain;
+#endif
+
 
 	/* pMat will remain in the memory until the end of the simulation */
 
@@ -1585,7 +1594,7 @@ void BackEuler_init_3d(MeshS *pM)
 }
 
 
-void BackEuler_destruct_3d()
+void BackEuler_destruct_3d(MeshS *pM)
 {
 	int i;
 	/* Free pMat and pMatnew */
@@ -1643,6 +1652,7 @@ void BackEuler_destruct_3d()
 
 #endif /* MATRIX_MULTIGRID */
 
+#endif /* STATIC_MESH_REFINEMENT */
 
 
 

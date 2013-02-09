@@ -74,7 +74,7 @@ VMFun_t BackEuler_init(MeshS *pM)
 /*----------------------------------------------------------------------------*/
 /* BackEuler_destruct:  */
 
-void BackEuler_destruct()
+void BackEuler_destruct(MeshS *pM)
 {
 
 #ifdef SHEARING_BOX
@@ -85,13 +85,13 @@ Rad_Fargo_destruct();
 
   switch(dim){
   case 1:
-    BackEuler_destruct_1d();
+    BackEuler_destruct_1d(pM);
     return;
   case 2:
-    BackEuler_destruct_2d();
+    BackEuler_destruct_2d(pM);
     return;
   case 3:
-    BackEuler_destruct_3d();
+    BackEuler_destruct_3d(pM);
     return;
   }
 

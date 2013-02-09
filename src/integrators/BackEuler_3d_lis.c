@@ -29,6 +29,10 @@
 
 #ifdef MATRIX_LIS
 
+#ifdef STATIC_MESH_REFINEMENT
+#error : LIS library cannot be used for STATIC_MESH_REFINEMENT
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 /*================================*/
 /* For the matrix solver */
@@ -3205,6 +3209,7 @@ void BackEuler_init_3d(MeshS *pM)
 	NGy = pD->NGrid[1];
 	NGz = pD->NGrid[2];
 
+
 	int line;
 	line = 4*Nx*Ny*Nz;
 /* In 3D, we have Er, Fr1, Fr2, Fr3 */
@@ -3252,7 +3257,7 @@ void BackEuler_init_3d(MeshS *pM)
 }
 
 
-void BackEuler_destruct_3d()
+void BackEuler_destruct_3d(MeshS *pM)
 {
 
 

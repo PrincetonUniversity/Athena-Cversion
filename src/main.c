@@ -662,8 +662,13 @@ int main(int argc, char *argv[])
 #ifdef SHEARING_BOX
 #ifdef RADFARGO
 	/* Rad fargo preparation only need background shearing and currect Er */	
-
-	Rad_Fargo_Pre(&(Mesh.Domain[0][0]));
+	/* We need to do this for every level and every domain */
+	for(nl=0; nl<(Mesh.NLevels); nl++){
+		for(nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+			if(Mesh.Domain[nl][nd].Grid != NULL)
+				Rad_Fargo_Pre(&(Mesh.Domain[nl][nd]));
+		}
+	}
 #endif
 #endif
 
@@ -924,7 +929,7 @@ int main(int argc, char *argv[])
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	BackEuler_destruct();
+	BackEuler_destruct(&Mesh);
 
 #endif
 

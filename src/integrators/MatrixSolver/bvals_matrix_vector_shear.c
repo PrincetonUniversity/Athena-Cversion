@@ -224,7 +224,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
       cnt = Matghost*joverlap*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ix1_tag, MPI_COMM_WORLD, &rq);
+                      shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ku; k++) {
@@ -238,7 +238,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ix1_tag, MPI_COMM_WORLD);
+                     shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /*--- Step 5c. -----------------------------------------------------------------
  * unpack data sent from [je-(joverlap-1):je], and remap into cells in
@@ -300,7 +300,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
       cnt = Matghost*(pMat->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ix1_tag, MPI_COMM_WORLD, &rq);
+                      shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ku; k++) {
@@ -314,7 +314,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ix1_tag, MPI_COMM_WORLD);
+                     shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /* unpack data sent from [js:je-overlap], and remap into cells in
  * [js+joverlap:je] in GhstZns */
@@ -383,7 +383,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                    shearing_sheet_ix1_tag, MPI_COMM_WORLD, &rq);
+                    shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ku; k++){
@@ -401,7 +401,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                   shearing_sheet_ix1_tag, MPI_COMM_WORLD);
+                   shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -423,7 +423,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
 
 /* Post a non-blocking receive for the input data from the right grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                    shearing_sheet_ix1_tag, MPI_COMM_WORLD, &rq);
+                    shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ku; k++){
@@ -444,7 +444,7 @@ void ShearingSheet_matrix_vector_ix1(Real ****vector, MatrixS *pMat)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                   shearing_sheet_ix1_tag, MPI_COMM_WORLD);
+                   shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -630,7 +630,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
       cnt = Matghost*joverlap*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ox1_tag, MPI_COMM_WORLD, &rq);
+                      shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ku; k++) {
@@ -645,7 +645,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ox1_tag, MPI_COMM_WORLD);
+                     shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 
 /*--- Step 5c. -----------------------------------------------------------------
@@ -708,7 +708,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
       cnt = Matghost*(pMat->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ox1_tag, MPI_COMM_WORLD, &rq);
+                      shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ku; k++) {
@@ -722,7 +722,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ox1_tag, MPI_COMM_WORLD);
+                     shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 /* unpack data sent from [js+joverlap:je], and remap into cells in
  * [js:je-joverlap] in GhstZns */
@@ -796,7 +796,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                    shearing_sheet_ox1_tag, MPI_COMM_WORLD, &rq);
+                    shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ku; k++){
@@ -815,7 +815,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                   shearing_sheet_ox1_tag, MPI_COMM_WORLD);
+                   shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -838,7 +838,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
 
 /* Post a non-blocking receive for the input data from the right grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                    shearing_sheet_ox1_tag, MPI_COMM_WORLD, &rq);
+                    shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ku; k++){
@@ -856,7 +856,7 @@ void ShearingSheet_matrix_vector_ox1(Real ****vector, MatrixS *pMat)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                   shearing_sheet_ox1_tag, MPI_COMM_WORLD);
+                   shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);

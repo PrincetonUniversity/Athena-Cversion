@@ -28,6 +28,10 @@
 #include "../particles/particle.h"
 #endif
 
+#ifdef STATIC_MESH_REFINEMENT
+#error : HYPRE library cannot be used for STATIC_MESH_REFINEMENT
+#endif
+
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 /*================================*/
@@ -1559,6 +1563,7 @@ void BackEuler_init_3d(MeshS *pM)
 	NGz = pD->NGrid[2];
 
 
+
 	int line, Nmatrix, i;
 	line = 4*Nx*Ny*Nz;
 	Nmatrix = Nx * Ny * Nz;
@@ -1716,7 +1721,7 @@ void BackEuler_init_3d(MeshS *pM)
 }
 
 
-void BackEuler_destruct_3d()
+void BackEuler_destruct_3d(MeshS *pM)
 {
 
 	

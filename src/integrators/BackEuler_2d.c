@@ -1134,6 +1134,9 @@ void BackEuler_init_2d(MeshS *pM)
 	int i;
 	Real temp;
 	
+#ifdef MPI_PARALLEL
+	pMat->Comm_Domain = pD->Comm_Domain;
+#endif
 
 	Nx = pG->ie - pG->is + 1;
 	Ny = pG->je - pG->js + 1;
@@ -1295,7 +1298,7 @@ void BackEuler_init_2d(MeshS *pM)
 }
 
 
-void BackEuler_destruct_2d()
+void BackEuler_destruct_2d(MeshS *pM)
 {
 	int i;
 

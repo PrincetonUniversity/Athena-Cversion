@@ -655,7 +655,7 @@ void BackEuler_init_1d(MeshS *pM)
 }
 
 
-void BackEuler_destruct_1d()
+void BackEuler_destruct_1d(MeshS *pM)
 {
 	int i;
 	if (Cspeeds 	!= NULL) free(Cspeeds);

@@ -1801,9 +1801,9 @@ void GetTguess(MeshS *pM)
 				
 			}
 
-			}
-		}
-	} 
+			}/* end if Grid != NULL */
+		}/* End loop the domains at level nl */
+	} /* end loop each level */
 }
 
 /* This function solve the equations: *

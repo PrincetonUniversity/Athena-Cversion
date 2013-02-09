@@ -380,8 +380,12 @@ typedef struct GridOvrlp_s{
   int ijke[3];         /*!< end   ijk on this Grid of overlap [0,1,2]=[i,j,k] */
   int ID, DomN;        /*!< processor ID, and Domain #, of OVERLAP Grid */
   int nWordsRC, nWordsP; /*!< # of words communicated for Rest/Corr and Prol */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  int Rad_nWordsRC, Rad_nWordsP; /*!< # of words communicated for parent and child grids for the matrix 
+				  * solver */
+#endif
   ConsS **myFlx[6];   /*!< fluxes of conserved variables at 6 boundaries */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Real **myEMF1[6];      /*!< fluxes of magnetic field (EMF1) at 6 boundaries */
   Real **myEMF2[6];      /*!< fluxes of magnetic field (EMF2) at 6 boundaries */
   Real **myEMF3[6];      /*!< fluxes of magnetic field (EMF3) at 6 boundaries */
@@ -535,6 +539,23 @@ Real MinX[3];       /*!< min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
 Real MaxX[3];       /*!< max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
 
 int bgflag;		/* Flag used to decide whether subtract background solution at the top level or not */
+
+#ifdef MPI_PARALLEL
+MPI_Comm Comm_Domain;      /*!< MPI communicator between Grids on this Dom */
+#endif
+
+#ifdef STATIC_MESH_REFINEMENT
+int CPUflag;		/* used to decide whether this CPU works on this domain or not */ 
+Real RHSnorm0;		/* This is initial norm */
+Real RHSnorm;		/* This is the norm after each V cycle */
+
+/* Arrays to store the matrix coefficient */
+/* Some of the matrix coefficient will be empty */
+Real ****Ptheta;
+Real ****Pphi;
+Real ****Ppsi;
+Real ****Pvarphi;
+#endif
 
 /* MPI processor coordinate (L,M, N) */
 int ID;

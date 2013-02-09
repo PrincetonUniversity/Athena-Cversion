@@ -23,6 +23,7 @@ CORE_OBJ = integrate.o \
 	   BackEuler_1d.o	\
 	   BackEuler_2d.o	\
 	   BackEuler_3d.o	\
+	   BackEuler_smr_3d.o	\
 	   BackEuler.o		\
 	   Rad_Advection_Flux.o
 

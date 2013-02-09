@@ -21,10 +21,10 @@ void integrate_destruct(void);
 void BackEuler_init_1d(MeshS *pM);
 void BackEuler_init_2d(MeshS *pM);
 void BackEuler_init_3d(MeshS *pM);
-void BackEuler_destruct_1d();
-void BackEuler_destruct_2d();
-void BackEuler_destruct_3d();
-void BackEuler_destruct();
+void BackEuler_destruct_1d(MeshS *pM);
+void BackEuler_destruct_2d(MeshS *pM);
+void BackEuler_destruct_3d(MeshS *pM);
+void BackEuler_destruct(MeshS *pM);
 
 void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux);
 void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux);

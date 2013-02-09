@@ -128,18 +128,18 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receives for data from L and R Grids */
       ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx1_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(recv_rq[0]));
+        pMat->Comm_Domain, &(recv_rq[0]));
       ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx1_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(recv_rq[1]));
+        pMat->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_ix1(pMat);
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx1_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(send_rq[0]));
+        pMat->Comm_Domain, &(send_rq[0]));
 
       pack_ox1(pMat); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx1_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(send_rq[1]));
+        pMat->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
       ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
@@ -159,12 +159,12 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receive for data from R Grid */
       ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx1_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(recv_rq[1]));
+        pMat->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_ox1(pMat); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx1_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(send_rq[1]));
+        pMat->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
       (*(Mat_ix1_BCFun))(pMat);
@@ -183,12 +183,12 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receive for data from L grid */
       ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx1_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(recv_rq[0]));
+        pMat->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_ix1(pMat); 
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx1_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(send_rq[0]));
+        pMat->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
       (*(Mat_ox1_BCFun))(pMat);
@@ -225,18 +225,18 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receives for data from L and R Grids */
       ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx2_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(recv_rq[0]));
+        pMat->Comm_Domain, &(recv_rq[0]));
       ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx2_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(recv_rq[1]));
+        pMat->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_ix2(pMat);
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx2_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(send_rq[0]));
+        pMat->Comm_Domain, &(send_rq[0]));
 
       pack_ox2(pMat); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx2_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(send_rq[1]));
+        pMat->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
       ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
@@ -256,12 +256,12 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receive for data from R Grid */
       ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx2_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(recv_rq[1]));
+        pMat->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_ox2(pMat); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx2_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(send_rq[1]));
+        pMat->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
       (*(Mat_ix2_BCFun))(pMat);
@@ -280,12 +280,12 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receive for data from L grid */
       ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx2_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(recv_rq[0]));
+        pMat->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_ix2(pMat); 
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx2_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(send_rq[0]));
+        pMat->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
       (*(Mat_ox2_BCFun))(pMat);
@@ -337,18 +337,18 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receives for data from L and R Grids */
       ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx3_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(recv_rq[0]));
+        pMat->Comm_Domain, &(recv_rq[0]));
       ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx3_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(recv_rq[1]));
+        pMat->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data L and R */
       pack_ix3(pMat);
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx3_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(send_rq[0]));
+        pMat->Comm_Domain, &(send_rq[0]));
 
       pack_ox3(pMat); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx3_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(send_rq[1]));
+        pMat->Comm_Domain, &(send_rq[1]));
 
       /* check non-blocking sends have completed. */
       ierr = MPI_Waitall(2, send_rq, MPI_STATUS_IGNORE);
@@ -368,12 +368,12 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receive for data from R Grid */
       ierr = MPI_Irecv(&(recv_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx3_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(recv_rq[1]));
+        pMat->Comm_Domain, &(recv_rq[1]));
 
       /* pack and send data R */
       pack_ox3(pMat); 
       ierr = MPI_Isend(&(send_buf[1][0]),cnt,MPI_DOUBLE,pMat->rx3_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(send_rq[1]));
+        pMat->Comm_Domain, &(send_rq[1]));
 
       /* set physical boundary */
       (*(Mat_ix3_BCFun))(pMat);
@@ -392,12 +392,12 @@ void bvals_Matrix_gas(MatrixS *pMat)
 
       /* Post non-blocking receive for data from L grid */
       ierr = MPI_Irecv(&(recv_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx3_id,MatLtoR_tag,
-        MPI_COMM_WORLD, &(recv_rq[0]));
+        pMat->Comm_Domain, &(recv_rq[0]));
 
       /* pack and send data L */
       pack_ix3(pMat); 
       ierr = MPI_Isend(&(send_buf[0][0]),cnt,MPI_DOUBLE,pMat->lx3_id,MatRtoL_tag,
-        MPI_COMM_WORLD, &(send_rq[0]));
+        pMat->Comm_Domain, &(send_rq[0]));
 
       /* set physical boundary */
       (*(Mat_ox3_BCFun))(pMat);

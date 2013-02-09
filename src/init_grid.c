@@ -56,6 +56,14 @@ void init_grid(MeshS *pM)
   int ncg,nCG,nMyCG,nCB[6],nMyCB[6],nb;
   int npg,nPG,nMyPG,nPB[6],nMyPB[6];
   int n1r,n2r,n1p,n2p;
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  /* We need separate variables for radiation during */
+  /* prolongation, as ghoze zones of radiation and MHD */
+  /* have different sizes */
+  int Rad_n1p, Rad_n2p;
+#endif
+
 #endif
 
 /* number of dimensions in Grid. */
@@ -497,6 +505,24 @@ G3.ijkl[0],G3.ijkr[0]);
               n3z = G3.ijkr[2] - G3.ijkl[2];
               pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->CGrid[ncg].nWordsP  = 0;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      /* Radiation also needs to do prolongation */
+	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4);
+	     /* For prolongation, we need to add ghost zones directly to the */
+	     /* original data */
+	     if (pG->Nx[1] > 1) 
+		Rad_n1p = n2z + Matghost + 2;
+	     else 
+		Rad_n1p = n2z;
+
+	     if (pG->Nx[2] > 1) 
+		Rad_n2p = n3z + Matghost + 2;
+	     else 
+		Rad_n2p = n3z;
+	
+	      pG->CGrid[ncg].Rad_nWordsP = (n1z+Matghost+2)*Rad_n1p*Rad_n2p*(4);
+#endif
+
 #if defined(MHD) || defined(RADIATION_MHD)
 /* count B-fields to be passed, but only if there are cells that overlap */
               if (pG->CGrid[ncg].nWordsRC > 0) {
@@ -552,12 +578,17 @@ G3.ijkl[0],G3.ijkr[0]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1z;
                     n2p = n2z;
-                    if (pG->Nx[1] > 1) n1p += nghost + 2;
-                    if (pG->Nx[2] > 1) n2p += nghost + 2;
+                    if (pG->Nx[1] > 1) 	n1p += nghost + 2;
+                    if (pG->Nx[2] > 1)  n2p += nghost + 2;
+	    
                   }
 
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
                   pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
+
+
+		/* Radiation does not need flux or EMF correction */
+		/* ghost zones for prolongation is already included */
 
 /* Allocate memory for myFlx and myEMFs */
 
@@ -637,8 +668,11 @@ G3.ijkl[0],G3.ijkr[0]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1z;
                     n2p = n2z;
-                    if (pG->Nx[1] > 1) n1p += nghost + 2;
-                    if (pG->Nx[2] > 1) n2p += nghost + 2;
+
+                    if (pG->Nx[1] > 1) n1p += nghost + 2;			
+                    if (pG->Nx[2] > 1)	n2p += nghost + 2;
+
+		    
                   }
 
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
@@ -889,6 +923,26 @@ G3.ijkl[2],G3.ijkr[2]);
               if (pG->Nx[2]>1) n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
               pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->PGrid[npg].nWordsP  = 0;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+
+		/* Here n1z, n2z and n3z are number of grids in unit of parent grids */
+		/* Again, radiation still needs prolongation to parent grids */
+	      if (pG->Nx[1] > 1) 
+		Rad_n1p = n2z + Matghost + 2;
+	      else 
+		Rad_n1p = n2z;
+
+	      if (pG->Nx[2] > 1) 
+		Rad_n2p = n3z + Matghost + 2;
+	      else 
+		Rad_n2p = n3z;
+
+
+	      pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4);
+	      pG->PGrid[npg].Rad_nWordsP = (n1z+Matghost+2) * Rad_n1p * Rad_n2p * (4);	
+#endif
+
+
 #if defined(MHD) || defined(RADIATION_MHD)
 /* count B-fields to be passed, but only if there are cells that overlap */
               if (pG->PGrid[npg].nWordsRC > 0) {
@@ -948,8 +1002,10 @@ G3.ijkl[2],G3.ijkr[2]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1r;
                     n2p = n2r;
-                    if (pG->Nx[1] > 1) n1p += nghost + 2;
-                    if (pG->Nx[2] > 1) n2p += nghost + 2;
+
+                    if (pG->Nx[1] > 1)	n1p += nghost + 2;
+                    if (pG->Nx[2] > 1)	n2p += nghost + 2;
+
                   }
 
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
@@ -1009,6 +1065,7 @@ G3.ijkl[2],G3.ijkr[2]);
 /* outer x1/x2/x3 boundary.  Same logic as above for inner boundary */
 
                 n1p = 0; n2p = 0;
+
                 irefine = 1;
                 for (i=1;i<=nl;i++) irefine *= 2; /* this level refinement */
                 if ( (G1.ijkr[dim] == G3.ijkr[dim]) &&
@@ -1039,12 +1096,15 @@ G3.ijkl[2],G3.ijkr[2]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1r;
                     n2p = n2r;
-                    if (pG->Nx[1] > 1) n1p += nghost + 2;
-                    if (pG->Nx[2] > 1) n2p += nghost + 2;
+
+                    if (pG->Nx[1] > 1)	n1p += nghost + 2;
+                    if (pG->Nx[2] > 1)	n2p += nghost + 2;
+
                   }
 
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the

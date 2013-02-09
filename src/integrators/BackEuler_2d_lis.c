@@ -38,6 +38,10 @@
 
 #ifdef MATRIX_LIS
 
+#ifdef STATIC_MESH_REFINEMENT
+#error : LIS library cannot be used for STATIC_MESH_REFINEMENT
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 /*================================*/
 /* For the matrix solver */
@@ -1143,7 +1147,7 @@ void BackEuler_init_2d(MeshS *pM)
 }
 
 
-void BackEuler_destruct_2d()
+void BackEuler_destruct_2d(MeshS *pM)
 {
 
 
