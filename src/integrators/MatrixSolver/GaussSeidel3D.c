@@ -51,7 +51,7 @@ void GaussSeidel3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi, 
 
 	/* damped parameter */
 	Real omega, Ert0, Frt0;
-	omega = 0.6;
+	omega = 0.4;
 	
 
 /* Hardware to Ncycle */

@@ -507,20 +507,12 @@ G3.ijkl[0],G3.ijkr[0]);
               pG->CGrid[ncg].nWordsP  = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	      /* Radiation also needs to do prolongation */
-	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4);
-	     /* For prolongation, we need to add ghost zones directly to the */
-	     /* original data */
-	     if (pG->Nx[1] > 1) 
-		Rad_n1p = n2z + Matghost + 2;
-	     else 
-		Rad_n1p = n2z;
+	      /* If grids just touch, n1z, n2z or n3z will be zero, no restriction or prolongation will be needed */
+	     /* If two grids overlap and need to prolongate ghost zones, the ghost zones will be added later */
 
-	     if (pG->Nx[2] > 1) 
-		Rad_n2p = n3z + Matghost + 2;
-	     else 
-		Rad_n2p = n3z;
-	
-	      pG->CGrid[ncg].Rad_nWordsP = (n1z+Matghost+2)*Rad_n1p*Rad_n2p*(4);
+	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
+	      pG->CGrid[ncg].Rad_nWordsP  = n1z*n2z*n3z*(4);
+
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -528,10 +520,10 @@ G3.ijkl[0],G3.ijkr[0]);
               if (pG->CGrid[ncg].nWordsRC > 0) {
                 if (nDim==3) {
                   pG->CGrid[ncg].nWordsRC += 
-                    (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
+                    ((n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1));
                 } else {
                   if (nDim==2) {
-                    pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z + n1z*(n2z+1);
+                    pG->CGrid[ncg].nWordsRC += ((n1z+1)*n2z + n1z*(n2z+1));
                   }
                 }
               }
@@ -554,6 +546,9 @@ G3.ijkl[0],G3.ijkr[0]);
  *    MPI boundary on the child Domain). */
 
                 n1p = 0; n2p = 0;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		Rad_n1p = 0; Rad_n2p = 0;
+#endif
                 if ((G2.ijkl[dim] == G3.ijkl[dim]) &&
                     (pCD->Disp[dim] != 0) &&
                     (iGrid == 0)) {
@@ -578,17 +573,33 @@ G3.ijkl[0],G3.ijkr[0]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1z;
                     n2p = n2z;
-                    if (pG->Nx[1] > 1) 	n1p += nghost + 2;
-                    if (pG->Nx[2] > 1)  n2p += nghost + 2;
-	    
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    Rad_n1p = n1z;
+		    Rad_n2p = n2z;	
+#endif
+                    if (pG->Nx[1] > 1) 	{
+			n1p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		 	Rad_n1p = Matghost + 2;			
+#endif			
+		    }
+
+                    if (pG->Nx[2] > 1)  {
+			n2p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n2p = Matghost + 2;
+#endif			
+		    }
+	
                   }
 
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
                   pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  /* no ghost zones for Rad restriction */
+		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);  
+#endif	
 
-
-		/* Radiation does not need flux or EMF correction */
-		/* ghost zones for prolongation is already included */
 
 /* Allocate memory for myFlx and myEMFs */
 
@@ -642,6 +653,10 @@ G3.ijkl[0],G3.ijkr[0]);
 /* outer x1/x2/x3 boundary.  Same logic as above for inner boundary */
 
                 n1p = 0; n2p = 0; 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		Rad_n1p = 0;
+		Rad_n2p = 0;	
+#endif
                 irefine = 1;
                 for (i=1;i<=(nl+1);i++) irefine *= 2; /* child refinement lev */
                 if ( (G2.ijkr[dim] == G3.ijkr[dim]) &&
@@ -668,15 +683,32 @@ G3.ijkl[0],G3.ijkr[0]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1z;
                     n2p = n2z;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    Rad_n1p = n1z;
+		    Rad_n2p = n2z;	
+#endif
 
-                    if (pG->Nx[1] > 1) n1p += nghost + 2;			
-                    if (pG->Nx[2] > 1)	n2p += nghost + 2;
+                    if (pG->Nx[1] > 1) {
+			n1p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n1p += (Matghost + 2);
+#endif
+		    }			
+                    if (pG->Nx[2] > 1)	{
+			n2p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n2p += (Matghost + 2);
+#endif
+		    }
 
 		    
                   }
 
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
                   pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4); 
+#endif
 
 /* Allocate memory for myFlx and myEMFs*/
 
@@ -924,22 +956,12 @@ G3.ijkl[2],G3.ijkr[2]);
               pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->PGrid[npg].nWordsP  = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      /* If grids just touch, n1z, n2z or n3z can be zero */
+	      /* Then no restriction or prolongation inside domain */
+	     /* ghost zones for prolongation will be added later */
 
-		/* Here n1z, n2z and n3z are number of grids in unit of parent grids */
-		/* Again, radiation still needs prolongation to parent grids */
-	      if (pG->Nx[1] > 1) 
-		Rad_n1p = n2z + Matghost + 2;
-	      else 
-		Rad_n1p = n2z;
-
-	      if (pG->Nx[2] > 1) 
-		Rad_n2p = n3z + Matghost + 2;
-	      else 
-		Rad_n2p = n3z;
-
-
-	      pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4);
-	      pG->PGrid[npg].Rad_nWordsP = (n1z+Matghost+2) * Rad_n1p * Rad_n2p * (4);	
+	      pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
+	      pG->PGrid[npg].Rad_nWordsP  = n1z*n2z*n3z*(4);	
 #endif
 
 
@@ -974,6 +996,10 @@ G3.ijkl[2],G3.ijkr[2]);
  *    MPI boundary on this Domain). */
 
                 n1p = 0; n2p = 0;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		Rad_n1p = 0; Rad_n2p = 0;
+#endif
+
                 if ((G1.ijkl[dim] == G3.ijkl[dim]) &&
                     (pD->Disp[dim] != 0) &&
                     (iGrid == 0)) {
@@ -1002,14 +1028,32 @@ G3.ijkl[2],G3.ijkr[2]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1r;
                     n2p = n2r;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    Rad_n1p = n1r;
+		    Rad_n2p = n2r;
+#endif
 
-                    if (pG->Nx[1] > 1)	n1p += nghost + 2;
-                    if (pG->Nx[2] > 1)	n2p += nghost + 2;
+                    if (pG->Nx[1] > 1)	{
+			n1p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n1p += (Matghost + 2);
+#endif
+		    }
+                    if (pG->Nx[2] > 1)	{
+			n2p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n2p += (Matghost + 2);
+#endif
+		
+		    }
 
                   }
 
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);
+#endif
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the
@@ -1065,7 +1109,9 @@ G3.ijkl[2],G3.ijkr[2]);
 /* outer x1/x2/x3 boundary.  Same logic as above for inner boundary */
 
                 n1p = 0; n2p = 0;
-
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		Rad_n1p = 0; Rad_n2p = 0;
+#endif
                 irefine = 1;
                 for (i=1;i<=nl;i++) irefine *= 2; /* this level refinement */
                 if ( (G1.ijkr[dim] == G3.ijkr[dim]) &&
@@ -1096,14 +1142,31 @@ G3.ijkl[2],G3.ijkr[2]);
                       (G3.ijkr[2]-G3.ijkl[2]) > 0) {
                     n1p = n1r;
                     n2p = n2r;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    Rad_n1p = n1r;
+		    Rad_n2p = n2r;
+#endif
 
-                    if (pG->Nx[1] > 1)	n1p += nghost + 2;
-                    if (pG->Nx[2] > 1)	n2p += nghost + 2;
+                    if (pG->Nx[1] > 1)	{
+			n1p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n1p += (Matghost + 2);
+#endif
+		    }
+                    if (pG->Nx[2] > 1)	{
+			n2p += nghost + 2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+			Rad_n2p += (Matghost + 2);
+#endif
+		    }
 
                   }
 
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);
+#endif
 
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the

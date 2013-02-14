@@ -67,7 +67,7 @@ static RadMHDS ***GZ;
  */ 
 
 static int Nlim = 4; /* the lim size of the coarsest grid in each CPU*/
-static int Vcycle = 15; /* The limit of how many Wcycle we allow */ 
+static int Vcyclelim = 15; /* The limit of how many Wcycle we allow */ 
 
 static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel method or Jacobi method, or Bicgsafe */
 			  /* 1 is GS method while 0 is Jacobi method , 2 is Bicgsafe method*/
@@ -75,7 +75,6 @@ static int Matrixflag = 1; /* The matrix flag is used to choose Gauss_Seidel met
 static int RootLevel; /* Number of levels from below the root domain, log2(N)=Rootlevel */
 static int DomainLevels; /* Number of levels above (include) the root domain */
 static int TotLevels;
-static int RootLevels;
 
 /********Private function ************/
 static void Initialize_matrix(MatrixS *pMat, DomainS *pD); /* Function to copy data from grid to the matrix structure, used at the top of each tree */ 
@@ -143,7 +142,7 @@ void BackEuler_3d(MeshS *pM)
 	/* Matrix parameters */
 	
 	Real error, error0, norm;
-	int Wcycle;
+	int Vcycle;
 
 	int myID;
 	
@@ -181,7 +180,7 @@ void BackEuler_3d(MeshS *pM)
 	coefflag = 1;
 	/* Stop iteration if tolerance level is reached */
 	/* Or the matrix doesn't converge in Wcycle limit */
-	while((error > TOL) && (Wcycle < Vcycle)){
+	while((error > TOL) && (Vcycle < Vcyclelim)){
 		
 	/*	starting from the top Level *
 	 * 	But we need go through each domina at this level *
@@ -215,55 +214,61 @@ void BackEuler_3d(MeshS *pM)
 		
 		/* First, calculate Residual and update the solution for the top level */
 		for(nd=0; nd<DomainNos[TotLevels-1]; nd++){
+
+			if(Matrix[TotLevels-1][nd].CPUflag){
 			
-			RHSResidual3D(&(Matrix[TotLevels-1][nd]),Matrix[TotLevels-1][nd].RHS,&(Matrix[TotLevels-1][nd].RHSnorm));
+				RHSResidual3D(&(Matrix[TotLevels-1][nd]),Matrix[TotLevels-1][nd].RHS,&(Matrix[TotLevels-1][nd].RHSnorm));
 			
-			pG = pM->Domain[TotLevels-1-RootLevels][nd].Grid;
-			pMat = &(Matrix[TotLevels-1][nd]);
+				pG = pM->Domain[TotLevels-1-RootLevel][nd].Grid;
+				pMat = &(Matrix[TotLevels-1][nd]);
 			
-			for(k=pMat->ks; k<=pMat->ke; k++)
-			for(j=pMat->js; j<=pMat->je; j++)
-			for(i=pMat->is; i<=pMat->ie; i++){
+				for(k=pMat->ks; k<=pMat->ke; k++)
+				for(j=pMat->js; j<=pMat->je; j++)
+				for(i=pMat->is; i<=pMat->ie; i++){
 						
-				/* Now update the solution */
-				pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Er  += pMat->U[k][j][i].Er;
-				pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr1 += pMat->U[k][j][i].Fr1;
-				pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr2 += pMat->U[k][j][i].Fr2;
-				pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr3 += pMat->U[k][j][i].Fr3;
+					/* Now update the solution */
+					pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Er  += pMat->U[k][j][i].Er;
+					pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr1 += pMat->U[k][j][i].Fr1;
+					pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr2 += pMat->U[k][j][i].Fr2;
+					pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr3 += pMat->U[k][j][i].Fr3;
 						
-			}/* End i, j, k */
-		
+				}/* End i, j, k */
+			}/* End if this CPU works for this grid */
 		}
 				
 		
-		for(nl=TotLevels-1; nl>RootLevels; nl--){
+		for(nl=TotLevels-1; nl>RootLevel; nl--){
 			/* restrict the solution from top level downwards */
 			/* RHS is updated in the Restriction step */
 			Restriction3D(Matrix, nl, pM, 0);
 
 			for(nd=0; nd<DomainNos[nl]; nd++){				
 
-				norm = Matrix[nl][nd].RHSnorm0;
-				if(norm > TINY_NUMBER)
-					error0 = Matrix[nl][nd].RHSnorm/norm;
-				else
-					error0 = Matrix[nl][nd].RHSnorm;
+				if(Matrix[nl][nd].CPUflag){
+					norm = Matrix[nl][nd].RHSnorm0;
+					if(norm > TINY_NUMBER)
+						error0 = Matrix[nl][nd].RHSnorm/norm;
+					else
+						error0 = Matrix[nl][nd].RHSnorm;
 
-				error += error0;	
+					error += error0;	
+				}
 			}
 			
 			
 		} 
 		/* Now include error from root domain */
 		/* Residual for the RootLevel is already updated for te RootLevel in the Restriction step */
-		for(nd=0; nd<DomainNos[RootLevels]; nd++){
-			norm = Matrix[RootLevel][nd].RHSnorm0;
-			if(norm > TINY_NUMBER)
-				error0 = Matrix[RootLevel][nd].RHSnorm/norm;
-			else
-				error0 = Matrix[RootLevel][nd].RHSnorm;
+		for(nd=0; nd<DomainNos[RootLevel]; nd++){
+			if(Matrix[RootLevel][nd].CPUflag){
+				norm = Matrix[RootLevel][nd].RHSnorm0;
+				if(norm > TINY_NUMBER)
+					error0 = Matrix[RootLevel][nd].RHSnorm/norm;
+				else
+					error0 = Matrix[RootLevel][nd].RHSnorm;
 
-			error += error0;	
+				error += error0;
+			}	
 		}
 
 		error /= DomainLevels;
@@ -291,7 +296,7 @@ void BackEuler_3d(MeshS *pM)
 
 	for(nl=0; nl<pM->NLevels; nl++){
 		for(nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-			if(Matrix[nl+RootLevels][nd].CPUflag){
+			if(Matrix[nl+RootLevel][nd].CPUflag){
 
 				pMat = &(Matrix[nl+RootLevel][nd]);
 				pD = &(pM->Domain[nl][nd]);
@@ -363,9 +368,7 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	DomainS *pD;
 	GridS *pG;
 
-	int nd, nl, TotLevels;
-
-	TotLevels = DomainLevels + RootLevels;
+	int nd, nl;
 
 	
 
@@ -374,13 +377,13 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	/* [TotLevels-1] is the top level */
 	
 	/* First, for the levels above root, which has corresponding grid */
-	for(nl=TotLevels-1; nl>=RootLevels; nl--){
+	for(nl=TotLevels-1; nl>=RootLevel; nl--){
 		/*****************************************/
 
 		for(nd=0; nd<DomainNos[nl]; nd++){
 			pMat = &(Matrix[nl][nd]);
 
-			pD = &(pM->Domain[nl-RootLevels][nd]);
+			pD = &(pM->Domain[nl-RootLevel][nd]);
 			pG = pD->Grid;
 
 			/* Initialize the matrix coefficient and right hand side */
@@ -405,16 +408,14 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	/* To be consistent with restriction and prolongation */
 	/* We restrict the overlap region */
 	/* We actually only restrict the RHS here */
-	for(nl=TotLevels-1; nl>RootLevels; nl--){
+	for(nl=TotLevels-1; nl>RootLevel; nl--){
 		for(nd=0; nd<DomainNos[nl]; nd++){
 			/* restrict the overlap region */
-			if(Matrix[nl][nd].CPUflag){
-				pMat = &(Matrix[nl][nd]);
-				Restriction3D(Matrix, nl, pM, 0);
-
-
-			}
-
+			/* Even this CPU does not work on nl, it still needs to go into this */
+			/* As this CPU may need to get data */
+			/* We will synchronize all CPUs for restriction */
+			pMat = &(Matrix[nl][nd]);
+			Restriction3D(Matrix, nl, pM, 0);
 		}/* Finish domain at level nl */
 	}/* Finish looping nl */
 
@@ -423,9 +424,9 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	/* For these levels, we only need to calculate the matrix coefficient and restrict the matrix parameters */
 	/* If this CPU works in this grid at the root domain, it will also work in the levels below that */
 
-	if(Matrix[RootLevels][0].CPUflag){
+	if(Matrix[RootLevel][0].CPUflag){
 		
-		for(nl=RootLevels-1; nl>=0; nl--){
+		for(nl=RootLevel-1; nl>=0; nl--){
 			/* First do restriction of the matrix coefficient for the whole level */
 			Restriction3D(Matrix, nl+1, pM, 1);			
 			pMat = &(Matrix[nl][0]);
@@ -459,37 +460,38 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	for(nl=0; nl<TotLevels-1; nl++){
 		for(nd=0; nd<DomainNos[nl]; nd++){
 			pMat = &(Matrix[nl][nd]);
+			if(pMat->CPUflag){
 			
-			bvals_Matrix_init(pMat);
+				bvals_Matrix_init(pMat);
 
 #ifdef SHEARING_BOX
-			bvals_Matrix_shear_init(pMat);
+				bvals_Matrix_shear_init(pMat);
 #endif
 
 		
-			if(Matrixflag == 1){
-				GaussSeidel3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
-			}
-			else if(Matrixflag == 0){
-				Jacobi3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
-			}
-			else if(Matrixflag == 2){
-				Bicgsafe3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
-			}
-			else
-				ath_error("[BackEuler3D: unknown matrix solver!\n]");
+				if(Matrixflag == 1){
+					GaussSeidel3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
+				}
+				else if(Matrixflag == 0){
+					Jacobi3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
+				}
+				else if(Matrixflag == 2){
+					Bicgsafe3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
+				}
+				else
+					ath_error("[BackEuler3D: unknown matrix solver!\n]");
 
 		
-			bvals_Matrix_destruct(pMat);
+				bvals_Matrix_destruct(pMat);
 
 #ifdef SHEARING_BOX
-			bvals_Matrix_shear_destruct();
+				bvals_Matrix_shear_destruct();
 #endif
-
+			}/* End if CPU flag */
 		}
 		/* prolongate the whole level after relaxation */
 		/* We only need to wait for the whole domain to be finished before prolongation */
-		Prolongation3D(Matrix, nl,pM);
+		Prolongation3D(Matrix, nl, pM);
 	}
 
 
@@ -497,33 +499,34 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 		nl = TotLevels-1;
 		for(nd=0; nd<DomainNos[nl]; nd++){
 			pMat = &(Matrix[nl][nd]);
+			if(pMat->CPUflag){
 			
-			bvals_Matrix_init(pMat);
+				bvals_Matrix_init(pMat);
 
 #ifdef SHEARING_BOX
-			bvals_Matrix_shear_init(pMat);
+				bvals_Matrix_shear_init(pMat);
 #endif
 
 		
-			if(Matrixflag == 1){
-				GaussSeidel3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
-			}
-			else if(Matrixflag == 0){
-				Jacobi3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
-			}
-			else if(Matrixflag == 2){
-				Bicgsafe3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
-			}
-			else
-				ath_error("[BackEuler3D: unknown matrix solver!\n]");
+				if(Matrixflag == 1){
+					GaussSeidel3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
+				}
+				else if(Matrixflag == 0){
+					Jacobi3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
+				}
+				else if(Matrixflag == 2){
+					Bicgsafe3D(pMat,pMat->Ptheta,pMat->Pphi,pMat->Ppsi,pMat->Pvarphi);
+				}
+				else
+					ath_error("[BackEuler3D: unknown matrix solver!\n]");
 
 		
-			bvals_Matrix_destruct(pMat);
+				bvals_Matrix_destruct(pMat);
 
 #ifdef SHEARING_BOX
-			bvals_Matrix_shear_destruct();
+				bvals_Matrix_shear_destruct();
 #endif
-
+			}/* End if CPU flag */
 		}		
 
 
@@ -544,15 +547,13 @@ void RadMHD_multig_3D(MatrixS **Matrix, MeshS *pM)
 
 	MatrixS *pMat;
 
-	int nd, nl, TotLevels;
+	int nd, nl;
 
-	TotLevels = DomainLevels + RootLevels;
 
-	
 
 	/* Restriction to the bottom staring from the Root Domain */
 	/* When we calculate the Error, we already restrict to the root domain */
-	for(nl=RootLevels-1; nl>=0; nl--){
+	for(nl=RootLevel-1; nl>=0; nl--){
 		
 		Restriction3D(Matrix, nl+1, pM, 0);
 
@@ -683,7 +684,10 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 	/* We only have two levels to deal with at each time */
 	/* First, we need to judge whether the Level if below the RootLevel or not */ 
 	/* Below the root level, we use the original way */
-	if(Level < RootLevels){
+	/* Only do this if this CPU works in this grid */
+	/* Grids below the root work under the same CPU */
+	if(Level < RootLevel){
+	if(Matrix[RootLevel][0].CPUflag){
 		pMat  = &(Matrix[Level][0]); /* Matrix in the coarse Level */
 		pMatC = &(Matrix[Level+1][0]);/* Matrix in the fine Level */
 
@@ -718,7 +722,7 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 					}/* Finish copy solution back to child grid */				
 
 		}/* Finish loop the whole grid i, j, k */
-
+	}/* End if this CPU works in this grid */
 	}/* End if the Level is below the RootLevel */
 	else{
 		/* First, post non-blocking receives at Level + 1 for data from parent GridS */
@@ -728,9 +732,9 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 		
     		for (nd=0; nd<(DomainNos[Level+1]); nd++){
-      			if (pM->Domain[Level+1-RootLevels][nd].Grid != NULL) {
+      			if (pM->Domain[Level+1-RootLevel][nd].Grid != NULL) {
         			
-				pG=pM->Domain[Level+1-RootLevels][nd].Grid;
+				pG=pM->Domain[Level+1-RootLevel][nd].Grid;
         			nZeroP = 0;
         			mAddress = 0;        			
         			if (pG->NmyPGrid > 0) mAddress = pG->PGrid[0].Rad_nWordsP;
@@ -746,7 +750,7 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
            				mIndex = npg - pG->NmyPGrid - nZeroP;
             				ierr = MPI_Irecv(&(recv_bufP[nd][mAddress]),
               				pG->PGrid[npg].Rad_nWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
-              				pG->PGrid[npg].DomN, pM->Domain[Level+1-RootLevels][nd].Comm_Parent,
+              				pG->PGrid[npg].DomN, pM->Domain[Level+1-RootLevel][nd].Comm_Parent,
               					&(recv_rq[nd][mIndex]));
             				mAddress += pG->PGrid[npg].Rad_nWordsP;
           			}
@@ -765,7 +769,13 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 		/* We need to send the data including ghost and active zones */
 		for(nd=0; nd<DomainNos[Level]; nd++){
 			if(Matrix[Level][nd].CPUflag){
-				pG = pM->Domain[Level-RootLevels][nd].Grid;
+				pG = pM->Domain[Level-RootLevel][nd].Grid;
+
+				/* Check that there is child grid at this level, otherwise we shouldn't come here. */
+				/* The setup is not allowed */
+				if(pG->CGrid == NULL)
+					ath_error("[Prolong3D]: No Child grid for prolongation at nl=%i nd=%i\n! The initial setup is probably not allowed!\n",Level,nd);
+
 				pMat = &(Matrix[Level][nd]);
 
 				for(i=0; i<maxND; i++) start_addrP[i] = 0;
@@ -820,20 +830,22 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 						}/* end j */
 						}/* end k */
 						
-					}/* End for the grids that needs prolongation */
-				}/* End loop over the child grid */
+
 
 			/* Step 1b: non-blocking send of data  to Child, using Domain number as tag */
 #ifdef MPI_PARALLEL
-      				if (ncg >= pG->NmyCGrid) {
-        				mIndex = ncg - pG->NmyCGrid - nZeroP;
-        				ierr = MPI_Isend(&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]),
-          				pG->CGrid[ncg].nWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
-          				pM->Domain[Level-RootLevels][nd].Comm_Children, &(send_rq[nd][mIndex]));
-      				}
+				/* Only do this if we actually have data to send */
+      						if (ncg >= pG->NmyCGrid) {
+        						mIndex = ncg - pG->NmyCGrid - nZeroP;
+        						ierr = MPI_Isend(&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]),
+          						pG->CGrid[ncg].Rad_nWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
+          						pM->Domain[Level-RootLevel][nd].Comm_Children, &(send_rq[nd][mIndex]));
+      						}
 #endif /* MPI_PARALLEL */
 
-      				start_addrP[pCO->DomN] += pG->CGrid[ncg].Rad_nWordsP;
+      						start_addrP[pCO->DomN] += pG->CGrid[ncg].Rad_nWordsP;
+					}/* End for the grids that needs prolongation */
+				}/* End loop over the child grid */
 
 			}/* End if CPUflag */
 		}/* Finish looping all the domains at Level */
@@ -848,9 +860,9 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
   	/******************************************************************************/
 	/* This step is skipped as we just set Receive pointer to the send buffer if grids are on the same CPU 
 	
-		for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevels]); nd++){
-    			if (pM->Domain[Level-RootLevels][nd].Grid != NULL) { 
-     				 pG=pM->Domain[Level-RootLevels][nd].Grid; 
+		for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
+    			if (pM->Domain[Level-RootLevel][nd].Grid != NULL) { 
+     				 pG=pM->Domain[Level-RootLevel][nd].Grid; 
 	
 
       				for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
@@ -869,9 +881,9 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 		/* For MPI jobs, wait for all non-blocking sends above to finish in order to continue to Level+1  */
 		/* Ortherwise, the CPU may start to working while sent is not complete */
 
-  		for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevels]); nd++){
-    			if (pM->Domain[Level-RootLevels][nd].Grid != NULL) {
-     				pG=pM->Domain[Level-RootLevels][nd].Grid;
+  		for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
+    			if (pM->Domain[Level-RootLevel][nd].Grid != NULL) {
+     				pG=pM->Domain[Level-RootLevel][nd].Grid;
 
       				nZeroP = 0;
       				for (i=0; i < pG->NCGrid; i++) if (pG->CGrid[i].Rad_nWordsP == 0) nZeroP++;
@@ -890,8 +902,8 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 		/* Get solution from parent GridS and prolongation solution to ghost zones */
 		/* Now we go back to Level + 1 */
 		for(nd=0; nd<DomainNos[Level+1]; nd++){
-			if(pM->Domain[Level+1-RootLevels][nd].Grid != NULL){
-				pG = pM->Domain[Level+1-RootLevels][nd].Grid;
+			if(pM->Domain[Level+1-RootLevel][nd].Grid != NULL){
+				pG = pM->Domain[Level+1-RootLevel][nd].Grid;
 				pMat = &(Matrix[Level+1][nd]);
 
 				/* Loop over number of parent grids with non-zero-size prolongation data */
@@ -1104,8 +1116,10 @@ void Prolongation3D(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int flag)
 {
+	/* When there is no data for restriction, we shouldn't initialize a MPI call for this case */
+	/* That is what nZeroRC for */
 	int i, j, k, ips, ipe, jps, jpe, kps, kpe, ics, ice, jcs, jce, kcs, kce;
-	int nd, npg, ncg, start_addr;
+	int nd, npg, ncg, start_addr, nZeroRC;
 	MatrixS *pMat, *pMatP;	
 	GridS *pG;
 
@@ -1117,17 +1131,20 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 	int num;	
 #ifdef MPI_PARALLEL
   	int ierr, mIndex, mCount, mAddress;
+	int **RHStemp; /* temporary array used to store index and address for each child grid */
 #endif
 	
 
 /*======== Step 3.: Restrict child solution and send =================*/
 /* Loop over all Domains and parent GridS */
 /* [Level] is the child level and [Level-1] is the parent level */
-/* Separate levels above and below the RootLevel: Below the RootLevels, there is only one domain. */
+/* Separate levels above and below the RootLevel: Below the RootLevel, there is only one domain. */
 /* Every child and parent grids are in the same CPU */
 /* For levels below RootLevles, we do not need to restrict the solution */
 /*==================================================================================*/
- 	if((Level <= RootLevels) && (flag)){
+	/* Only do this if this CPU works here */
+ 	if(Level <= RootLevel){
+	if(Matrix[0][0].CPUflag){
 		pMat  = &(Matrix[Level][0]);
 		pMatP = &(Matrix[Level-1][0]);
 
@@ -1139,7 +1156,7 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 		for(k=pMatP->ks; k<=pMatP->ke; k++)
 			for(j=pMatP->js; j<=pMatP->je; j++)
 				for(i=pMatP->is; i<=pMatP->ie; i++){
-					if(flag){ /* We will never need to restrict the solution for level below RootLevels */
+					if(flag){ /* We will never need to restrict the solution for level below RootLevel */
 						ptrP  = &(pMatP->Ugas[k][j][i].rho);
 						ptr[0] = &(pMat->Ugas[2*k ][2*j ][2*i ].rho);
 						ptr[1] = &(pMat->Ugas[2*k ][2*j ][2*i-1].rho);
@@ -1189,8 +1206,8 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 					pMatP->U[k][j][i].Fr3 = 0.0;
 
 		}
-	
-	}/* End if Level <= RootLevels */
+	}/* End if this CPU works on this grid */
+	}/* End if Level <= RootLevel */
 /*==================================================================================*/
 	else{
 		/* We only work for Two levels at a time. When do restriction and receive, we should decide first, */ 
@@ -1203,17 +1220,30 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
  * level (nl).  This data is sent in Step 3 below. */ 
 
 
-    		for (nd=0; nd<pM->DomainsPerLevel[Level-RootLevels-1]; nd++){
-      			if (pM->Domain[Level-RootLevels-1][nd].Grid != NULL) {
-        			pG=pM->Domain[Level-RootLevels-1][nd].Grid;
-        			mAddress = 0;
+    		for (nd=0; nd<pM->DomainsPerLevel[Level-RootLevel-1]; nd++){
+      			if (pM->Domain[Level-RootLevel-1][nd].Grid != NULL) {
+        			pG=pM->Domain[Level-RootLevel-1][nd].Grid;
+				nZeroRC = 0;
+        			mAddress = 0; 
+				/* mAddress always starts from Zero, even if NmyCGrid  > 0 */
+				/* This is because for grids on the same process, data is not stored in Recv buffer. */
+				/* We just change the receive pointer to the send buffer */		
+				
         			for (ncg=(pG->NmyCGrid); ncg<(pG->NCGrid); ncg++){
-          				mIndex = ncg - pG->NmyCGrid;
-          				ierr = MPI_Irecv(&(recv_bufRC[nd][mAddress]),
-            				pG->CGrid[ncg].Rad_nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
-            				pG->CGrid[ncg].DomN, pM->Domain[Level-RootLevels-1][nd].Comm_Children,
-            				&(recv_rq[nd][mIndex]));
-          				mAddress += pG->CGrid[ncg].Rad_nWordsRC;
+          				
+					/* Only do this if we expect data to come */
+					if(pG->CGrid[ncg].Rad_nWordsRC == 0){
+						nZeroRC += 1;
+					}
+					else{
+						mIndex = ncg - pG->NmyCGrid - nZeroRC;
+          					ierr = MPI_Irecv(&(recv_bufRC[nd][mAddress]),
+            					pG->CGrid[ncg].Rad_nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
+            					pG->CGrid[ncg].DomN, pM->Domain[Level-RootLevel-1][nd].Comm_Children,
+            					&(recv_rq[nd][mIndex]));
+          					mAddress += pG->CGrid[ncg].Rad_nWordsRC;
+					}
+					
         			}/* End all the child grid */
 
       			}/* End if the grid is null */
@@ -1224,97 +1254,106 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 		/* First, at Level, restrict and send the data, this will be the first step anyway */
 		for(nd=0; nd<DomainNos[Level]; nd++){
 			/* If this CPU works for this Domain and this grid */
-			if(Matrix[Level][nd].CPUflag){
-				pG = pM->Domain[Level-RootLevels][nd].Grid; /* Level is gaurantee to be larger than RootLevels */
+			pG = pM->Domain[Level-RootLevel][nd].Grid;
+			if((Matrix[Level][nd].CPUflag) && (pG->NPGrid > 0)){
+				 /* Level is gaurantee to be larger than RootLevel */
 				pMat = &(Matrix[Level][nd]);
 				start_addr = 0;
+				nZeroRC = 0;
 				/* Residual is calculated in multigrid main cycle. Here we assume residual is already calculated */
 
-			
+
 				/* There could be multiple parent grids overlap with this child grid */
 				for(npg=0; npg<(pG->NPGrid); npg++){
-					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
+					if(pG->PGrid[npg].Rad_nWordsRC == 0){
+						nZeroRC += 1;
+					}
+					else{
+					/* Only do  restriction if we actually have data to send, otherwise send_bufRC will not have enough space */
+						pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
 					
-					/* Get coordinates ON THIS fine MATRIX of overlap region of parent MATRIX */
-					ips = pPO->ijks[0] - nghost + Matghost;
-					ipe = pPO->ijke[0] - nghost + Matghost;
-					jps = pPO->ijks[1] - nghost + Matghost;
-					jpe = pPO->ijke[1] - nghost + Matghost;
-					kps = pPO->ijks[2] - nghost + Matghost;
-					kpe = pPO->ijke[2] - nghost + Matghost;
+						/* Get coordinates ON THIS fine MATRIX of overlap region of parent MATRIX */
+						/* If two grids just touch, *pe < *ps, there is no restriction or prolongation */
+
+						ips = pPO->ijks[0] - nghost + Matghost;
+						ipe = pPO->ijke[0] - nghost + Matghost;
+						jps = pPO->ijks[1] - nghost + Matghost;
+						jpe = pPO->ijke[1] - nghost + Matghost;
+						kps = pPO->ijks[2] - nghost + Matghost;
+						kpe = pPO->ijke[2] - nghost + Matghost;
 
 				
-					/* Now restrict coefficient, RHS and solution */
-					pSnd = (double*)&(send_bufRC[nd][start_addr]);
+						/* Now restrict coefficient, RHS and solution */
+						pSnd = (double*)&(send_bufRC[nd][start_addr]);
 
-					for(k=kps; k<=kpe; k+=2){
-					for(j=jps; j<=jpe; j+=2){
-					for(i=ips; i<=ipe; i+=2){
-						if(flag){
+						for(k=kps; k<=kpe; k+=2){
+						for(j=jps; j<=jpe; j+=2){
+						for(i=ips; i<=ipe; i+=2){
+							if(flag){
 						/* Restrict gas quantities to calculate the coefficients */
-							ptr[0] = &(pMat->Ugas[k][j][i].rho);
-							ptr[1] = &(pMat->Ugas[k][j][i+1].rho);
-							ptr[2] = &(pMat->Ugas[k][j+1][i].rho);
-							ptr[3] = &(pMat->Ugas[k][j+1][i+1].rho);
-							ptr[4] = &(pMat->Ugas[k+1][j ][i].rho);
-							ptr[5] = &(pMat->Ugas[k+1][j][i+1].rho);
-							ptr[6] = &(pMat->Ugas[k+1][j+1][i].rho);	
-							ptr[7] = &(pMat->Ugas[k+1][j+1][i+1].rho);
+								ptr[0] = &(pMat->Ugas[k][j][i].rho);
+								ptr[1] = &(pMat->Ugas[k][j][i+1].rho);
+								ptr[2] = &(pMat->Ugas[k][j+1][i].rho);
+								ptr[3] = &(pMat->Ugas[k][j+1][i+1].rho);
+								ptr[4] = &(pMat->Ugas[k+1][j ][i].rho);
+								ptr[5] = &(pMat->Ugas[k+1][j][i+1].rho);
+								ptr[6] = &(pMat->Ugas[k+1][j+1][i].rho);	
+								ptr[7] = &(pMat->Ugas[k+1][j+1][i+1].rho);
 
-							for(num=0; num<11+NOPACITY; num++){
+								for(num=0; num<11+NOPACITY; num++){
 
-								pSnd[num] =  (ptr[0][num] + ptr[1][num]  + ptr[2][num] + ptr[3][num]
-							 	   + ptr[4][num] + ptr[5][num]	+ ptr[6][num] + ptr[7][num]) / 8.0;
-							}
-							/* move the pointer  */
-							pSnd += (11 + NOPACITY);				
-						}/* end if flag = 1, end restricting matrix coefficient */
+									pSnd[num] =  (ptr[0][num] + ptr[1][num]  + ptr[2][num] + ptr[3][num]
+							 	   		+ ptr[4][num] + ptr[5][num]	+ ptr[6][num] + ptr[7][num]) / 8.0;
+								}
+								/* move the pointer  */
+								pSnd += (11 + NOPACITY);				
+							}/* end if flag = 1, end restricting matrix coefficient */
 						/* Now restrict the new RHS hand side */
 						
 						
-						for(num=0; num<4; num++){
-							pSnd[num] = (pMat->RHS[k][j][i][num] + pMat->RHS[k][j][i+1][num]
-						     		+  pMat->RHS[k][j+1][i][num] + pMat->RHS[k][j+1][i+1][num]
-						     		+  pMat->RHS[k+1][j][i][num] + pMat->RHS[k+1][j][i+1][num]
-						     		+  pMat->RHS[k+1][j+1][i][num]+ pMat->RHS[k+1][j+1][i+1][num]) / 8.0;	
-						} /* End restricting RHS */
+							for(num=0; num<4; num++){
+								pSnd[num] = (pMat->RHS[k][j][i][num] + pMat->RHS[k][j][i+1][num]
+						     			+  pMat->RHS[k][j+1][i][num] + pMat->RHS[k][j+1][i+1][num]
+						     			+  pMat->RHS[k+1][j][i][num] + pMat->RHS[k+1][j][i+1][num]
+						     			+  pMat->RHS[k+1][j+1][i][num]+ pMat->RHS[k+1][j+1][i+1][num]) / 8.0;	
+							} /* End restricting RHS */
 
-						/* Always restrict the solution, as we assume fine grid solution is ALWAYS better */ 
-						/* than coarse grid solution */
+							/* Always restrict the solution, as we assume fine grid solution is ALWAYS better */ 
+							/* than coarse grid solution */
 					
 							/* move the pointer */
-						pSnd += 4;
+							pSnd += 4;
 
-						ptr[0] = &(pMat->U[k][j][i].Er);
-						ptr[1] = &(pMat->U[k][j][i+1].Er);
-						ptr[2] = &(pMat->U[k][j+1][i].Er);
-						ptr[3] = &(pMat->U[k][j+1][i+1].Er);
-						ptr[4] = &(pMat->U[k+1][j ][i].Er);
-						ptr[5] = &(pMat->U[k+1][j][i+1].Er);
-						ptr[6] = &(pMat->U[k+1][j+1][i].Er);	
-						ptr[7] = &(pMat->U[k+1][j+1][i+1].Er);
+							ptr[0] = &(pMat->U[k][j][i].Er);
+							ptr[1] = &(pMat->U[k][j][i+1].Er);
+							ptr[2] = &(pMat->U[k][j+1][i].Er);
+							ptr[3] = &(pMat->U[k][j+1][i+1].Er);
+							ptr[4] = &(pMat->U[k+1][j ][i].Er);
+							ptr[5] = &(pMat->U[k+1][j][i+1].Er);
+							ptr[6] = &(pMat->U[k+1][j+1][i].Er);	
+							ptr[7] = &(pMat->U[k+1][j+1][i+1].Er);
 						
-						for(num=0; num<4; num++){
-							pSnd[num] = (ptr[0][num] + ptr[1][num]  + ptr[2][num] + ptr[3][num]
-						 	   + ptr[4][num] + ptr[5][num]	+ ptr[6][num] + ptr[7][num]) / 8.0;
-						}
+							for(num=0; num<4; num++){
+								pSnd[num] = (ptr[0][num] + ptr[1][num]  + ptr[2][num] + ptr[3][num]
+							 	   + ptr[4][num] + ptr[5][num]	+ ptr[6][num] + ptr[7][num]) / 8.0;
+							}
 
-					}/* end ips */		
-					}/* end jps */
-					}/* end kps */
+						}/* end ips */		
+						}/* end jps */
+						}/* end kps */
 					
 #ifdef MPI_PARALLEL
-			/* send the data for MPI case */
-					 if (npg >= pG->NmyPGrid){
-        					mIndex = npg - pG->NmyPGrid;
-        					ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].Rad_nWordsRC,
-          						MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[Level][nd].Comm_Parent,
-          						&(send_rq[nd][mIndex]));
-     					}
-
+			/* send the data for MPI case */			
+					 	if (npg >= pG->NmyPGrid ){
+        						mIndex = npg - pG->NmyPGrid - nZeroRC;
+        						ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].Rad_nWordsRC,
+          							MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[Level-RootLevel][nd].Comm_Parent,
+          							&(send_rq[nd][mIndex]));
+     						}
 #endif /* MPI_PARALLEL */
-					/* set the start address prepared for next parent grid */
-					start_addr += pG->PGrid[npg].Rad_nWordsRC;
+						/* set the start address prepared for next parent grid */
+						start_addr += pG->PGrid[npg].Rad_nWordsRC;
+					}/* End if Rad_nWordsRc != 0 */
 
 				}/* End npg parent grid */				
 			}/* End if Matrix[Level][nd].CPUflag */
@@ -1325,11 +1364,14 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 #ifdef MPI_PARALLEL
 
   		for(nd=0; nd<(DomainNos[Level]); nd++){
-    			if ((pM->Domain[Level-RootLevels][nd].Grid) != NULL) {
-      				pG = pM->Domain[Level-RootLevels][nd].Grid;
+    			if ((pM->Domain[Level-RootLevel][nd].Grid) != NULL) {
+      				pG = pM->Domain[Level-RootLevel][nd].Grid;
+				nZeroRC = 0;
+				for(i=0; i<pG->NPGrid; i++)
+					if(pG->PGrid[i].Rad_nWordsRC == 0)	nZeroRC++;
 
       				if (pG->NPGrid > pG->NmyPGrid) {
-        				mCount = pG->NPGrid - pG->NmyPGrid;
+        				mCount = pG->NPGrid - pG->NmyPGrid - nZeroRC;
         				ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
       				}
     			}
@@ -1342,13 +1384,21 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 
 		/* Get Child solution */
 		for(nd=0; nd<DomainNos[Level-1]; nd++){
-			if(Matrix[Level-1][nd].CPUflag){
-				pG = pM->Domain[Level-1-RootLevels][nd].Grid; /* Level is gaurantee to be larger than RootLevels */
+			pG = pM->Domain[Level-1-RootLevel][nd].Grid; /* Level is gaurantee to be larger than RootLevel */
+			if((Matrix[Level-1][nd].CPUflag) && (pG->NCGrid > 0)){				
 				pMat = &(Matrix[Level-1][nd]);
+				nZeroRC = 0;
+				for(i=0; i< pG->NCGrid; i++)
+					if(pG->CGrid[i].Rad_nWordsRC == 0)
+						nZeroRC++;
 
+#ifdef MPI_PARALLEL
+					 if((RHStemp = (int**)calloc_2d_array(pG->NCGrid-nZeroRC,2,sizeof(double))) == NULL)
+    						ath_error("[Restriction3D]:Failed to allocate RHStemp\n");
+#endif
 					
 			
-				for(ncg=0; ncg<(pG->NCGrid); ncg++){
+				for(ncg=0; ncg<(pG->NCGrid-nZeroRC); ncg++){
 					if(ncg < pG->NmyCGrid){
 						pCO = (GridOvrlpS*)&(pG->CGrid[ncg]);
 						/* send pointer to the beginning of the send buffer, if on the same process */
@@ -1357,18 +1407,26 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 					} /* For the child grid on the same CPU */
 					else {
 #ifdef MPI_PARALLEL
-						mCount = pG->NCGrid - pG->NmyCGrid;
+						mCount = pG->NCGrid - pG->NmyCGrid - nZeroRC;
         					ierr = MPI_Waitany(mCount,recv_rq[nd],&mIndex,MPI_STATUS_IGNORE);
         					if(mIndex == MPI_UNDEFINED){
           						ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",Level-1,nd);
         					}
       
 					/* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
-        					mAddress = 0;
+        					
         					mIndex += pG->NmyCGrid;
+						for(i=pG->NmyCGrid; i<mIndex; i++)
+							if(pG->CGrid[i].Rad_nWordsRC == 0) mIndex++;
+
+						mAddress = 0;
         					for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].Rad_nWordsRC;
         						pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
         						pRcv = (double*)&(recv_bufRC[nd][mAddress]);
+
+						/* store the address information in RHStemp array */
+						RHStemp[ncg][0] = mIndex;
+						RHStemp[ncg][1] = mAddress;
 #else
 				/* If not MPI_PARALLEL, and child Grid not on this processor, then error */
 
@@ -1455,14 +1513,14 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 					pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr2 += pMat->U[k][j][i].Fr2;
 					pG->U[k-Matghost+nghost][j-Matghost+nghost][i-Matghost+nghost].Fr3 += pMat->U[k][j][i].Fr3;
 				
-				}
+				}/* end i, j, k */
 
 
 				/* Now we need to replace the RHS in the overlap region with restricted RHS from parent grids */
 				/* The restricted data is already in the recv_buf, so we do not need to wait for MPI again */
  
 		/*===================================================================================*/
-				for(ncg=0; ncg<(pG->NCGrid); ncg++){
+				for(ncg=0; ncg<(pG->NCGrid-nZeroRC); ncg++){
 					if(ncg < pG->NmyCGrid){
 						pCO = (GridOvrlpS*)&(pG->CGrid[ncg]);
 						/* send pointer to the beginning of the send buffer, if on the same process */
@@ -1471,13 +1529,8 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 					} /* For the child grid on the same CPU */
 					else {
 #ifdef MPI_PARALLEL
-      
-					/* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
-        					mAddress = 0;
-        					mIndex += pG->NmyCGrid;
-        					for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].Rad_nWordsRC;
-        						pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
-        						pRcv = (double*)&(recv_bufRC[nd][mAddress]);
+       						pCO=(GridOvrlpS*)&(pG->CGrid[RHStemp[ncg][0]]);
+       						pRcv = (double*)&(recv_bufRC[nd][RHStemp[ncg][1]]);
 #else
 				/* If not MPI_PARALLEL, and child Grid not on this processor, then error */
 
@@ -1527,6 +1580,11 @@ void Restriction3D(MatrixS **Matrix, const int Level, const MeshS *pM, const int
 				}/* Loop over all the child grids */
 
 		/*==================================================================================*/
+				/* Free the temporary array */
+#ifdef MPI_PARALLEL
+					 if(RHStemp != NULL)
+    						free_2d_array(RHStemp);
+#endif
 
 			}/* End if [Level-1][nd] CPU flag */
 		}/* End loop all domains at Level-1 */
@@ -1708,7 +1766,7 @@ void Calculate_Coef(MatrixS *pMat)
 {
 	int i, j, k;
 	int is, ie, js, je, ks, ke;
-	int n;
+	
 
 	is = pMat->is;
 	ie = pMat->ie;
@@ -1717,9 +1775,7 @@ void Calculate_Coef(MatrixS *pMat)
 	ks = pMat->ks;
 	ke = pMat->ke;
 
-	/* current level */
-	n = pMat->Level;
-
+	
 	for(k=ks; k<=ke; k++)
 		for(j=js; j<=je; j++)
 			for(i=is; i<=ie; i++){
@@ -1937,15 +1993,15 @@ void BackEuler_init_3d(MeshS *pM)
 	/* First check that root level only has one domain */
 	if(pM->DomainsPerLevel[0] > 1)
 		ath_error("[BackEuler_init_3d]: Root Level can only have one domain!\n");
-
-	/****************************************/
-	/* points to the root domain */
+	/* We require grids at the root domain have the same size */
 	pD = &(pM->Domain[0][0]);
-	pG = pD->Grid;
-	
-	Nx = pG->ie - pG->is + 1;
-	Ny = pG->je - pG->js + 1;
-	Nz = pG->ke - pG->ks + 1;
+
+	if(((pD->Nx[0] % pD->NGrid[0]) != 0) || ((pD->Nx[1] % pD->NGrid[1]) != 0) || ((pD->Nx[2] % pD->NGrid[2]) != 0))
+		ath_error("[BackEuler_init_3d]: We require grids on the root domain have the same size!\n");
+
+	Nx = pD->Nx[0] / pD->NGrid[0];
+	Ny = pD->Nx[1] / pD->NGrid[1];
+	Nz = pD->Nx[2] / pD->NGrid[2];
 
 	/* Reach bottom first for the side with the smallest size*/
 	RootLevel = Nx;
@@ -1958,6 +2014,8 @@ void BackEuler_init_3d(MeshS *pM)
 
 	RootLevel = (int)temp;
 	if(fabs(temp-RootLevel) > 0.5) RootLevel++;
+
+	TotLevels = DomainLevels + RootLevel;
 	
 	/* RootLevel is the number of levels below root domain, does not include root domain */
 	/* Then Matrix[RootLevel] will be the root domain */
@@ -2005,7 +2063,7 @@ void BackEuler_init_3d(MeshS *pM)
 
 
 	/****************************************/
-	/* Now initialize the Matrix array for each domain */
+	/* Now initialize the Matrix array for each Grid */
 	for(nl=0; nl<DomainLevels; nl++){
 		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
 			pD = &(pM->Domain[nl][nd]);
@@ -2185,8 +2243,8 @@ void BackEuler_init_3d(MeshS *pM)
 	/*==========================================================*/
 	/* Allocate memory and initialize parameters for restriction and prolongation */
 	/* The maximum memory size required to send data from parent to child grids */
-	for(nl=1; nl<DomainLevels; nl++){
-		for(nd=0; nd<DomainNos[RootLevels+nl]; nd++){
+	for(nl=0; nl<DomainLevels; nl++){
+		for(nd=0; nd<DomainNos[RootLevel+nl]; nd++){
 			sendRC = 0;
 			recvRC = 0;
 			sendP = 1;
@@ -2200,8 +2258,8 @@ void BackEuler_init_3d(MeshS *pM)
 				}
 				/* For child grids; do all grids per domain together */
 				for(ncg=0; ncg<pG->NCGrid; ncg++){
-					recvRC += pG->CGrid[ncg].nWordsRC;
-					sendP  += pG->CGrid[ncg].nWordsP;
+					recvRC += pG->CGrid[ncg].Rad_nWordsRC;
+					sendP  += pG->CGrid[ncg].Rad_nWordsP;
 				}
 			
 				max_sendRC = MAX(max_sendRC, sendRC);
