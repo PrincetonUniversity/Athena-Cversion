@@ -443,6 +443,12 @@ void bvals_Matrix_init(MatrixS *pMat)
 /*---- ix1 boundary ----------------------------------------------------------*/
 
             switch(pMat->BCFlag_ix1){
+	
+	    case 0: /* In case the grid does not touch the boundary of the root domain, we do not need to */ 
+		    /* change the boundary at each relaxation as the ghost zones are fixed to be zero	 */
+		    /* It will get updated every cycle */
+	      Mat_ix1_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ix1_BCFun = reflect_ix1;
@@ -474,6 +480,10 @@ void bvals_Matrix_init(MatrixS *pMat)
 /*---- ox1 boundary ----------------------------------------------------------*/
 
             switch(pMat->BCFlag_ox1){
+
+	    case 0:
+	      Mat_ox1_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox1_BCFun = reflect_ox1;
@@ -512,6 +522,10 @@ void bvals_Matrix_init(MatrixS *pMat)
 
             switch(pMat->BCFlag_ix2){
 
+	    case 0:
+	      Mat_ix2_BCFun = ProlongateLater;
+	    break;
+
             case 1: /* Reflecting, B_normal=0 */
               Mat_ix2_BCFun = reflect_ix2;
             break;
@@ -544,6 +558,10 @@ void bvals_Matrix_init(MatrixS *pMat)
 
 
             switch(pMat->BCFlag_ox2){
+
+	    case 0: 
+	      Mat_ox2_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox2_BCFun = reflect_ox2;
@@ -580,6 +598,10 @@ void bvals_Matrix_init(MatrixS *pMat)
 
             switch(pMat->BCFlag_ix3){
 
+ 	    case 0:
+	      Mat_ix3_BCFun = ProlongateLater;
+	    break;        
+
             case 1: /* Reflecting, B_normal=0 */
               Mat_ix3_BCFun = reflect_ix3;
             break;
@@ -610,6 +632,10 @@ void bvals_Matrix_init(MatrixS *pMat)
 /*---- ox3 boundary ----------------------------------------------------------*/
 
             switch(pMat->BCFlag_ox3){
+
+	    case 0:
+	      Mat_ox3_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox3_BCFun = reflect_ox3;
@@ -721,17 +747,26 @@ void bvals_Matrix_destruct(MatrixS *pMat)
 /* Because the matrix will be destroyed at each level. We need to clean this */
 
 #ifdef MPI_PARALLEL
-	if(send_buf != NULL)
+	if(send_buf != NULL){
 		free_2d_array(send_buf);
+		send_buf = NULL;
+	}
 
-	if(recv_buf != NULL)
+	if(recv_buf != NULL){
 		free_2d_array(recv_buf);
+		recv_buf = NULL;
+	}
 
-	if(recv_rq != NULL)
+	if(recv_rq != NULL){
 		free_1d_array(recv_rq);
+		recv_rq = NULL;
+	}
 
-	if(send_rq != NULL)
+	if(send_rq != NULL){
 		free_1d_array(send_rq);
+		send_rq = NULL;
+	}
+
 
 #endif
 
@@ -1510,6 +1545,16 @@ static void conduct_ox3(MatrixS *pMat)
   }
 
 
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* PROLONGATION boundary conditions.  Nothing is actually done here, the
+ * prolongation is actually handled in ProlongateGhostZones in main loop, so
+ * this is just a NoOp Grid function.  */
+
+static void ProlongateLater(MatrixS *pMat)
+{
   return;
 }
 

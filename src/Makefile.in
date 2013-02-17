@@ -75,6 +75,7 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/BackEuler_3d.o \
 		  integrators/BackEuler_smr_3d.o \
 		  integrators/BackEuler.o \
+		  integrators/smr_radMHD.o \
 		  integrators/Rad_Advection_Flux.o \
 		  integrators/MatrixSolver/bandec.o \
 		  integrators/MatrixSolver/ludcmp.o \

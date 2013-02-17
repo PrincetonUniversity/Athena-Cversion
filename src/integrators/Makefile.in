@@ -25,6 +25,7 @@ CORE_OBJ = integrate.o \
 	   BackEuler_3d.o	\
 	   BackEuler_smr_3d.o	\
 	   BackEuler.o		\
+	   smr_radMHD.o		\
 	   Rad_Advection_Flux.o
 
 HYPRE_OBJ = 

@@ -188,6 +188,7 @@ void RestrictCorrect(MeshS *pM)
 
 /*--- Step 1b. Restrict conserved variables on parent Grid -------------------*/
 
+	/* If no restriction is required, kce < kcs, the loop will not be calculated */	
       for (k=kcs; k<=kce; k++) {
         for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
@@ -1548,7 +1549,7 @@ void Prolongate(MeshS *pM)
 /* Loop over 6 boundaries, set ghost zones */
 
       for (dim=0; dim<(2*nDim); dim++){
-        if (pPO->myFlx[dim] != NULL) {
+        if ((pPO->myFlx[dim] != NULL) && (pPO->nWordsP > 0)) {
 
 /*--- Steps 3a.  Set GZ and BFld arrays --------------------------------------*/
 /* Compute size of array containing ghost zones from parent Grid.  Set

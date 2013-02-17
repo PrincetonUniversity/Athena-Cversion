@@ -30,6 +30,14 @@ void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int
 void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux);
 void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux, Real *x3Flux);
 
+#ifdef STATIC_MESH_REFINEMENT
+void SMR_Rad_init(MeshS *pM, const int Root);
+void SMR_Rad_destruct();
+
+#endif /* end static mesh refinement */
+
+
+
 #ifdef SHEARING_BOX
 #ifdef FARGO
 void Rad_Fargo_Pre(DomainS *pD);
@@ -75,7 +83,7 @@ void vector_product(const Real *v1, const Real *v2, const int dim, Real *result)
 void matrix_vector_product3D(Real *theta, Real *phi, Real *psi, Real *varphi, int i, int j, int k, Real ****vector, Real *result);
 #endif
 
-#endif
+#endif /* End radiatio hydro or mhd */
 
 /* integrate_1d_ctu.c and integrate_1d_vl.c */
 void integrate_destruct_1d(void);
@@ -91,6 +99,15 @@ void integrate_3d_radMHD(DomainS *pD);
 void BackEuler_1d(MeshS *pM);
 void BackEuler_2d(MeshS *pM);
 void BackEuler_3d(MeshS *pM);
+
+#ifdef STATIC_MESH_REFINEMENT
+void RadSMR_Residual3D(MatrixS *pMat, Real ****newRHS, Real *error);
+
+void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const int flag);
+
+void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM);
+
+#endif /* End static mesh refinement */
 
 /* boundary condition function for multigrid */
 /* Matrix boundary function */

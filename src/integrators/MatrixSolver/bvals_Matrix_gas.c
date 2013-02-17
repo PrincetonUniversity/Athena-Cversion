@@ -447,6 +447,10 @@ void bvals_Matrix_gas_init(MatrixS *pMat)
 
             switch(pMat->BCFlag_ix1){
 
+	    case 0:
+	      Mat_ix1_BCFun = ProlongateLater;
+	    break;
+
             case 1: /* Reflecting, B_normal=0 */
               Mat_ix1_BCFun = reflect_ix1;
             break;
@@ -477,6 +481,10 @@ void bvals_Matrix_gas_init(MatrixS *pMat)
 /*---- ox1 boundary ----------------------------------------------------------*/
 
             switch(pMat->BCFlag_ox1){
+
+	    case 0:
+	      Mat_ox1_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox1_BCFun = reflect_ox1;
@@ -515,6 +523,10 @@ void bvals_Matrix_gas_init(MatrixS *pMat)
 
             switch(pMat->BCFlag_ix2){
 
+	    case 0:
+	      Mat_ix2_BCFun = ProlongateLater;
+	    break;
+
             case 1: /* Reflecting, B_normal=0 */
               Mat_ix2_BCFun = reflect_ix2;
             break;
@@ -547,6 +559,10 @@ void bvals_Matrix_gas_init(MatrixS *pMat)
 
 
             switch(pMat->BCFlag_ox2){
+
+	    case 0:
+	      Mat_ox2_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox2_BCFun = reflect_ox2;
@@ -583,6 +599,10 @@ void bvals_Matrix_gas_init(MatrixS *pMat)
 
             switch(pMat->BCFlag_ix3){
 
+	    case 0:
+	      Mat_ix3_BCFun = ProlongateLater;
+	    break;
+
             case 1: /* Reflecting, B_normal=0 */
               Mat_ix3_BCFun = reflect_ix3;
             break;
@@ -613,6 +633,10 @@ void bvals_Matrix_gas_init(MatrixS *pMat)
 /*---- ox3 boundary ----------------------------------------------------------*/
 
             switch(pMat->BCFlag_ox3){
+
+	    case 0:
+	      Mat_ox3_BCFun = ProlongateLater;
+	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox3_BCFun = reflect_ox3;
@@ -1388,6 +1412,13 @@ static void conduct_ox3(MatrixS *pMat)
   }
 
 
+  return;
+}
+
+
+
+static void ProlongateLater(MatrixS *pMat)
+{
   return;
 }
 

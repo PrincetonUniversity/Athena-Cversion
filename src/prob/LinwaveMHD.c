@@ -37,7 +37,7 @@ void problem(DomainS *pDomain)
   Prat = par_getd("problem","Pratio");
   Crat = par_getd("problem","Cratio");
   R_ideal = par_getd("problem","R_ideal");
-  Ncycle = par_getd_def("problem","Ncycle",5);
+  Ncycle = par_getd_def("problem","Ncycle",1);
   TOL  = par_getd_def("problem","TOL",1.e-8);
 	
 #endif
@@ -93,7 +93,7 @@ void problem(DomainS *pDomain)
 	angle=45.0*PI/180.0;
 
 	t = pGrid->time;
-	Real flag = 1.0;
+	Real flag = 0.0;
 	Real factor = 1.0;
 
 	Omegareal = 6.28318;
@@ -149,8 +149,10 @@ void problem(DomainS *pDomain)
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; /* Set to be a constant in 1D. To be modified later */
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
 	 pGrid->U[k][j][i].Edd_33 = 1.0/3.0;
-	 pGrid->U[k][j][i].Sigma_t = 10.0;
-	 pGrid->U[k][j][i].Sigma_a = 10.0;
+	 pGrid->U[k][j][i].Sigma[0] = 0.0;
+	 pGrid->U[k][j][i].Sigma[1] = 10.0;
+	 pGrid->U[k][j][i].Sigma[2] = 10.0;
+	 pGrid->U[k][j][i].Sigma[3] = 10.0;
 
 #ifdef RADIATION_MHD
 	 /* interface magnetic field */
@@ -275,28 +277,7 @@ void radMHD_inflow2(GridS *pGrid)
 
 void radMHD_rad_inflow(GridS *pGrid)
 {
-  	int i, is;
-	int ks, js;
-	is = pGrid->is;
-  	ks = pGrid->ks;
-	js = pGrid->js;
-
-	Real t, x1, x2, x3,theta, Kimg,dt;
-	t = pGrid->time;
-	dt = pGrid->time;
-	int zones=100;
-	Kimg = -0.00920423;
-	Real factor = 0.001;
-
-	for (i=1;  i<=nghost+zones;  i++) {
-		cc_pos(pGrid, is-i+zones, js,ks, &x1, &x2, &x3);
-		theta = -0.409717 * x1 + 1.0 * (t + dt);
-	      	pGrid->U[ks][js][is-i+zones].Er  = 1.0 + factor * exp(Kimg * x1) * (0.00138085 * cos(theta) - 0.0000746174 * sin(theta));
-		pGrid->U[ks][js][is-i+zones].Sigma_t = 10000;
-		pGrid->U[ks][js][is-i+zones].Sigma_a = 10000;
-		pGrid->U[ks][js][is-i+zones].Edd_11 = 0.33333;
-      		pGrid->U[ks][js][is-i+zones].Fr1 =factor *  exp(Kimg * x1) * (3.24668e-7 * cos(theta) - 2.61885e-8 * sin(theta));
-    }
+  	
 }
 
 
@@ -304,27 +285,7 @@ void radMHD_rad_inflow(GridS *pGrid)
 
 void radMHD_rad_inflow2(GridS *pGrid)
 {
-  	int i, ie;
-	int ks, js;
-	ie = pGrid->ie;
-  	ks = pGrid->ks;
-	js = pGrid->js;
-
-	Real t, x1, x2, x3,theta, Kimg,dt;
-	t = pGrid->time;
-	dt = pGrid->time;
-	int zones=0;
-	Kimg = -0.001252;
-
-	for (i=1;  i<=nghost+zones;  i++) {
-		cc_pos(pGrid, ie+i-zones, js,ks, &x1, &x2, &x3);
-		theta = -0.999993 * x1 + 1.0 * (t + dt);
-	      	pGrid->U[ks][js][ie+i-zones].Er  = 1.0 + exp(Kimg * x1) * (-3.62496e-11 * cos(theta) - 7.00009e-9 * sin(theta));
-		pGrid->U[ks][js][ie+i-zones].Sigma_t = 0.01;
-		pGrid->U[ks][js][ie+i-zones].Sigma_a = 0.01;
-		pGrid->U[ks][js][ie+i-zones].Edd_11 = 0.33333;
-      		pGrid->U[ks][js][ie+i-zones].Fr1 = exp(Kimg * x1) * (-9.99996e-8 * cos(theta) - 2.50759e-10 * sin(theta));
-    }
+  
 }
 
 /*==============================================================================

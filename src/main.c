@@ -702,27 +702,10 @@ int main(int argc, char *argv[])
 #endif			
 #endif /* FARGO */
 
-	
-
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	/* Need to update boundary condition */
-	/* Now the matrix Coefficient depends on velocity and opacity */
-	
-	bvals_mhd(&(Mesh.Domain[nl][nd]));
-	
-#endif
-
- 
         }
       }
     }
 
-
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)	
-	
-	(*BackEuler)(&Mesh);
-	
-#endif
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
@@ -730,6 +713,34 @@ int main(int argc, char *argv[])
 #ifdef STATIC_MESH_REFINEMENT
     RestrictCorrect(&Mesh);
 #endif
+
+
+
+/* For SMR, we need to wait for Restriction  of the MHD part to be finished before we go to the radiation part */
+
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)	
+/* For radiation, we need to update the boundary condition before doing the Backward Euler step */
+	
+
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          bvals_mhd(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
+
+	
+
+#ifdef STATIC_MESH_REFINEMENT
+    Prolongate(&Mesh);
+#endif
+	
+	(*BackEuler)(&Mesh);
+	
+#endif /* End radiation hydro or radiation mhd */
+
 
 /*--- Step 9e. ---------------------------------------------------------------*/
 /* User work (defined in problem()) */
@@ -794,12 +805,13 @@ int main(int argc, char *argv[])
         }
       }
     }
-
 	
 
 #ifdef STATIC_MESH_REFINEMENT
     Prolongate(&Mesh);
 #endif
+
+
 
 /*--- Step 9i. ---------------------------------------------------------------*/
 /* Compute new dt. With resistivity, the diffusion coeffieicnts are evaluated
