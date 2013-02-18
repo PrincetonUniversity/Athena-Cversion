@@ -303,6 +303,9 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 							 	   + ptr[4][num] + ptr[5][num]	+ ptr[6][num] + ptr[7][num]) / 8.0;
 							}
 
+							/* Move the pointer for Er, Fr? */
+							pSnd += 4;
+
 						}/* end ips */		
 						}/* end jps */
 						}/* end kps */
@@ -464,6 +467,8 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 
 				/* Now we need to update the RHS and solution for this level */
 
+				/* We do not update RHS before calculate Residual for the whole level, this is required */
+				/* For the un-refined region. Then update Residual for from fine levels */
 				if(nDim == 3)
 					RadSMR_Residual3D(pMat, pMat->RHS, &(pMat->RHSnorm));
 				else
@@ -687,13 +692,10 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 		/* Now we works for Level */
 		/* We need to send the data including ghost and active zones */
 		for(nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
-			if(Matrix[Level][nd].CPUflag){
-				pG = pM->Domain[Level-RootLevel][nd].Grid;
-
+			pG = pM->Domain[Level-RootLevel][nd].Grid;
+			if((Matrix[Level][nd].CPUflag) && (pG->NCGrid > 0)){
 				/* Check that there is child grid at this level, otherwise we shouldn't come here. */
-				/* The setup is not allowed */
-				if(pG->CGrid == NULL)
-					ath_error("[Prolong3D]: No Child grid for prolongation at nl=%i nd=%i\n! The initial setup is probably not allowed!\n",Level,nd);
+				
 
 				pMat = &(Matrix[Level][nd]);
 
@@ -710,7 +712,7 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 					/* index send_buf with DomN of child, since could be multiple child Domains on */
  					/* same processor.  Start address must be different for each DomN */
 
-
+						/* send buffer use the domain number of Child grid */
 						pSnd = (double*)&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]);
 						
 						
@@ -728,11 +730,11 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 						if(nDim > 2){
 							kcs = pCO->ijks[2] - nghost + Matghost - (Matghost/2) - 1;
-							kce = pCO->ijks[2] - nghost + Matghost + (Matghost/2) + 1;
+							kce = pCO->ijke[2] - nghost + Matghost + (Matghost/2) + 1;
 						}
 						else{
 							kcs = pCO->ijks[2];
-							kce = pCO->ijks[2];
+							kce = pCO->ijke[2];
 						}
 
 							
@@ -837,6 +839,8 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
         					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
 						/* For grids on the same CPU, set the pointer to send buffer */
         					/* pRcv = (double*)&(recv_bufP[nd][0]); */
+						/* One CPU only works for one grid in one Domain */
+						/* So, the address at buffer for domain nd must start from 0 */
 						pRcv = (double*)&(send_bufP[nd][0]);
 	
       					} else {

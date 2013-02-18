@@ -382,7 +382,7 @@ typedef struct GridOvrlp_s{
   int nWordsRC, nWordsP; /*!< # of words communicated for Rest/Corr and Prol */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   int Rad_nWordsRC, Rad_nWordsP; /*!< # of words communicated for parent and child grids for the matrix 
-				  * solver */
+				  * solver */ 
 #endif
   ConsS **myFlx[6];   /*!< fluxes of conserved variables at 6 boundaries */
 #if defined(MHD) || defined(RADIATION_MHD)

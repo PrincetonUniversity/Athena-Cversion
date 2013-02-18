@@ -44,7 +44,7 @@ static MPI_Request  **send_rq=NULL;
 static int maxND, *start_addrP;
 
 static ConsS ***GZ[3];
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 Real **SMRemf1, **SMRemf2, **SMRemf3;
 Real3Vect ***BFld[3];
 #endif
@@ -59,7 +59,7 @@ Real3Vect ***BFld[3];
 void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
             const ConsS Ujm1,const ConsS Ujp1,
             const ConsS Ukm1,const ConsS Ukp1, ConsS PCon[][2][2]);
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
   const Real dx1c, const Real dx2c, const Real dx3c);
 #endif /* MHD */
@@ -72,6 +72,8 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr);
 /*! \fn void RestrictCorrect(MeshS *pM)
  *  \brief Restricts (averages) fine Grid solution to coarse, and 
  *    corrects cells at fine/coarse boundaries using restricted fine Grid fluxes
+ * We do not need to restrict the radiation quantities in this restriction step 
+ * because they are handled in the Multigrid matrix solver
  */
 
 void RestrictCorrect(MeshS *pM)
@@ -87,7 +89,7 @@ void RestrictCorrect(MeshS *pM)
 #if (NSCALARS > 0)
   int n;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ib,jb,kb,nFld=0;
 #endif
 #ifdef MPI_PARALLEL
@@ -199,7 +201,7 @@ void RestrictCorrect(MeshS *pM)
 #ifndef BAROTROPIC
             pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             pG->U[k][j][i].B1c = *(pRcv++);
             pG->U[k][j][i].B2c = *(pRcv++);
             pG->U[k][j][i].B3c = *(pRcv++);
@@ -211,7 +213,7 @@ void RestrictCorrect(MeshS *pM)
         }
       }
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /*--- Step 1c. Restrict face-centered fields. --------------------------------*/
 /* Also recompute cell-centered fields based on new face-centered values.
  * Do not set face-centered fields on fine/coarse boundaries (e.g. ics and ice+1
@@ -377,7 +379,7 @@ void RestrictCorrect(MeshS *pM)
 #ifndef BAROTROPIC
             pG->U[k][j][i].E  -= q1*(pCO->myFlx[dim][kk][jj].E  - *(pRcv++));
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             pG->U[k][j][i].B1c -= q1*(pCO->myFlx[dim][kk][jj].B1c - *(pRcv++));
             pG->U[k][j][i].B2c -= q1*(pCO->myFlx[dim][kk][jj].B2c - *(pRcv++));
             pG->U[k][j][i].B3c -= q1*(pCO->myFlx[dim][kk][jj].B3c - *(pRcv++));
@@ -405,7 +407,7 @@ void RestrictCorrect(MeshS *pM)
 #ifndef BAROTROPIC
             pG->U[k][j][i].E  -= q2*(pCO->myFlx[dim][kk][ii].E  - *(pRcv++));
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             pG->U[k][j][i].B1c -= q2*(pCO->myFlx[dim][kk][ii].B1c - *(pRcv++));
             pG->U[k][j][i].B2c -= q2*(pCO->myFlx[dim][kk][ii].B2c - *(pRcv++));
             pG->U[k][j][i].B3c -= q2*(pCO->myFlx[dim][kk][ii].B3c - *(pRcv++));
@@ -433,7 +435,7 @@ void RestrictCorrect(MeshS *pM)
 #ifndef BAROTROPIC
             pG->U[k][j][i].E  -= q3*(pCO->myFlx[dim][jj][ii].E  - *(pRcv++));
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             pG->U[k][j][i].B1c -= q3*(pCO->myFlx[dim][jj][ii].B1c - *(pRcv++));
             pG->U[k][j][i].B2c -= q3*(pCO->myFlx[dim][jj][ii].B2c - *(pRcv++));
             pG->U[k][j][i].B3c -= q3*(pCO->myFlx[dim][jj][ii].B3c - *(pRcv++));
@@ -451,7 +453,7 @@ void RestrictCorrect(MeshS *pM)
  * multiplied by dt/dx with sign chosen depending on whether EMF is to L/R of
  * cell center. */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
       if (nDim > 1) {
 
 /* On x1-faces; correct B1i, B2i, B3i */
@@ -801,7 +803,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
     for (npg=0; npg<(pG->NPGrid); npg++){
       pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
       cnt = 0;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
       nFld = 0;
 #endif
 
@@ -828,7 +830,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
         *(pSnd++) = pG->U[k][j][i].E  + pG->U[k][j][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pG->U[k][j][i].B1c + pG->U[k][j][i+1].B1c;
         *(pSnd++) = pG->U[k][j][i].B2c + pG->U[k][j][i+1].B2c;
         *(pSnd++) = pG->U[k][j][i].B3c + pG->U[k][j][i+1].B3c;
@@ -855,7 +857,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
           *(pSnd++) += pG->U[k][j+1][i].E  + pG->U[k][j+1][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) += pG->U[k][j+1][i].B1c + pG->U[k][j+1][i+1].B1c;
           *(pSnd++) += pG->U[k][j+1][i].B2c + pG->U[k][j+1][i+1].B2c;
           *(pSnd++) += pG->U[k][j+1][i].B3c + pG->U[k][j+1][i+1].B3c;
@@ -888,7 +890,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
           *(pSnd++) += pG->U[k+1][j  ][i].E  + pG->U[k+1][j  ][i+1].E +
                        pG->U[k+1][j+1][i].E  + pG->U[k+1][j+1][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) += pG->U[k+1][j  ][i].B1c + pG->U[k+1][j  ][i+1].B1c +
                        pG->U[k+1][j+1][i].B1c + pG->U[k+1][j+1][i+1].B1c;
           *(pSnd++) += pG->U[k+1][j  ][i].B2c + pG->U[k+1][j  ][i+1].B2c +
@@ -911,7 +913,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
       for (i=start_addr; i<(start_addr+nCons); i++) *(pSnd++) *= fact;
       cnt = nCons;
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /*--- Step 3b. Restrict face-centered fields  --------------------------------*/
 /* Average face-centered magnetic fields.  Send fields at Grid boundaries
  * (e.g. ips/ipe+1 for B1i) in case they are needed at edges of MPI blocks on
@@ -987,7 +989,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
         *(pSnd++) = pPO->myFlx[dim][kps][jps].E ;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pPO->myFlx[dim][kps][jps].B1c;
         *(pSnd++) = pPO->myFlx[dim][kps][jps].B2c;
         *(pSnd++) = pPO->myFlx[dim][kps][jps].B3c;
@@ -1009,7 +1011,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
           *(pSnd++) = pPO->myFlx[dim][k][j].E  + pPO->myFlx[dim][k][j+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++) = pPO->myFlx[dim][k][j].B1c + pPO->myFlx[dim][k][j+1].B1c;
           *(pSnd++) = pPO->myFlx[dim][k][j].B2c + pPO->myFlx[dim][k][j+1].B2c;
           *(pSnd++) = pPO->myFlx[dim][k][j].B3c + pPO->myFlx[dim][k][j+1].B3c;
@@ -1035,7 +1037,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
             *(pSnd++)+=pPO->myFlx[dim][k+1][j].E  +pPO->myFlx[dim][k+1][j+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++)+=pPO->myFlx[dim][k+1][j].B1c +pPO->myFlx[dim][k+1][j+1].B1c;
           *(pSnd++)+=pPO->myFlx[dim][k+1][j].B2c +pPO->myFlx[dim][k+1][j+1].B2c;
           *(pSnd++)+=pPO->myFlx[dim][k+1][j].B3c +pPO->myFlx[dim][k+1][j+1].B3c;
@@ -1075,7 +1077,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
         *(pSnd++) = pPO->myFlx[dim][k][i].E  + pPO->myFlx[dim][k][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pPO->myFlx[dim][k][i].B1c + pPO->myFlx[dim][k][i+1].B1c;
         *(pSnd++) = pPO->myFlx[dim][k][i].B2c + pPO->myFlx[dim][k][i+1].B2c;
         *(pSnd++) = pPO->myFlx[dim][k][i].B3c + pPO->myFlx[dim][k][i+1].B3c;
@@ -1101,7 +1103,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
           *(pSnd++) +=pPO->myFlx[dim][k+1][i].E  + pPO->myFlx[dim][k+1][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           *(pSnd++)+= pPO->myFlx[dim][k+1][i].B1c+pPO->myFlx[dim][k+1][i+1].B1c;
           *(pSnd++)+= pPO->myFlx[dim][k+1][i].B2c+pPO->myFlx[dim][k+1][i+1].B2c;
           *(pSnd++)+= pPO->myFlx[dim][k+1][i].B3c+pPO->myFlx[dim][k+1][i+1].B3c;
@@ -1140,7 +1142,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
         *(pSnd++) = pPO->myFlx[dim][j][i].E  + pPO->myFlx[dim][j][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) = pPO->myFlx[dim][j][i].B1c + pPO->myFlx[dim][j][i+1].B1c;
         *(pSnd++) = pPO->myFlx[dim][j][i].B2c + pPO->myFlx[dim][j][i+1].B2c;
         *(pSnd++) = pPO->myFlx[dim][j][i].B3c + pPO->myFlx[dim][j][i+1].B3c;
@@ -1163,7 +1165,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 #ifndef BAROTROPIC
         *(pSnd++) +=pPO->myFlx[dim][j+1][i].E  + pPO->myFlx[dim][j+1][i+1].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
         *(pSnd++) +=pPO->myFlx[dim][j+1][i].B1c + pPO->myFlx[dim][j+1][i+1].B1c;
         *(pSnd++) +=pPO->myFlx[dim][j+1][i].B2c + pPO->myFlx[dim][j+1][i+1].B2c;
         *(pSnd++) +=pPO->myFlx[dim][j+1][i].B3c + pPO->myFlx[dim][j+1][i+1].B3c;
@@ -1189,7 +1191,7 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 /* Only required for 2D or 3D problems.  Since EMF is a line integral, only
  * averaging along direction of EMF is required.  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
       for (dim=0; dim<2; dim++){
         if (pPO->myEMF3[dim] != NULL) {
 
@@ -1322,7 +1324,9 @@ printf("cnt = %i\n", cnt);
 /*----------------------------------------------------------------------------*/
 /*! \fn void Prolongate(MeshS *pM)
  *  \brief Sets BC on fine Grid by prolongation (interpolation) of
- *     coarse Grid solution into fine grid ghost zones */
+ *     coarse Grid solution into fine grid ghost zones 
+ * For radiation part, we also need to prolongate 10+NOPACITY variables for radiation boundary condition */
+
 void Prolongate(MeshS *pM)
 {
   GridS *pG;
@@ -1334,10 +1338,14 @@ void Prolongate(MeshS *pM)
   double *pRcv,*pSnd;
   GridOvrlpS *pCO, *pPO;
   ConsS ProlongedC[2][2][2];
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  int nr;
+#endif
+
 #if (NSCALARS > 0)
   int ns;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
 #endif
 #ifdef MPI_PARALLEL
@@ -1458,7 +1466,7 @@ void Prolongate(MeshS *pM)
 #ifndef BAROTROPIC
             *(pSnd++) = pG->U[k][j][i].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             *(pSnd++) = pG->U[k][j][i].B1c;
             *(pSnd++) = pG->U[k][j][i].B2c;
             *(pSnd++) = pG->U[k][j][i].B3c;
@@ -1471,6 +1479,26 @@ void Prolongate(MeshS *pM)
                *(pSnd++) = pG->U[k][j][i].s[ns];
             }
 #endif
+
+/* Add radiation quantities at the end */
+/* There are Er, Fr1, Fr2, Fr3, Edd_??, and Sigma[Opacity] 10+NOPACITY variables */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	   *(pSnd++) = pG->U[k][j][i].Er;
+	   *(pSnd++) = pG->U[k][j][i].Fr1;
+	   *(pSnd++) = pG->U[k][j][i].Fr2;
+           *(pSnd++) = pG->U[k][j][i].Fr3;
+           *(pSnd++) = pG->U[k][j][i].Edd_11;
+	   *(pSnd++) = pG->U[k][j][i].Edd_21;
+	   *(pSnd++) = pG->U[k][j][i].Edd_22;
+	   *(pSnd++) = pG->U[k][j][i].Edd_31;
+	   *(pSnd++) = pG->U[k][j][i].Edd_32;
+	   *(pSnd++) = pG->U[k][j][i].Edd_33;
+	
+	   for(nr=0; nr<NOPACITY; nr++)
+		*(pSnd++) = pG->U[k][j][i].Sigma[nr];
+#endif
+
+
           }}}
         }
       }
@@ -1611,7 +1639,7 @@ void Prolongate(MeshS *pM)
 #ifndef BAROTROPIC
             GZ[id][k][j][i].E = *(pRcv++);
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             GZ[id][k][j][i].B1c = *(pRcv++);
             GZ[id][k][j][i].B2c = *(pRcv++);
             GZ[id][k][j][i].B3c = *(pRcv++);
@@ -1624,6 +1652,24 @@ void Prolongate(MeshS *pM)
               GZ[id][k][j][i].s[ns] = *(pRcv++);
             }
 #endif
+	/* Get the data for radiation part */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	   GZ[id][k][j][i].Er = *(pRcv++);
+	   GZ[id][k][j][i].Fr1 = *(pRcv++);
+	   GZ[id][k][j][i].Fr2 = *(pRcv++);
+           GZ[id][k][j][i].Fr3 = *(pRcv++);
+           GZ[id][k][j][i].Edd_11 = *(pRcv++);
+	   GZ[id][k][j][i].Edd_21 = *(pRcv++);
+	   GZ[id][k][j][i].Edd_22 = *(pRcv++);
+	   GZ[id][k][j][i].Edd_31 = *(pRcv++);
+	   GZ[id][k][j][i].Edd_32 = *(pRcv++);
+	   GZ[id][k][j][i].Edd_33 = *(pRcv++);
+	
+	   for(nr=0; nr<NOPACITY; nr++)
+		GZ[id][k][j][i].Sigma[nr] = *(pRcv++);
+#endif
+
+
           }}}
 
 /* Set BC on GZ array in 1D; and on GZ and BFld arrays in 2D */
@@ -1643,7 +1689,7 @@ void Prolongate(MeshS *pM)
               GZ[id][0][j][i] = GZ[id][1][j][i];
               GZ[id][2][j][i] = GZ[id][1][j][i];
             }}
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
             for (j=jgzs; j<=jgze; j++) {
             for (i=igzs; i<=igze; i++) {
               BFld[id][0][j][i] = BFld[id][1][j][i];
@@ -1701,7 +1747,7 @@ void Prolongate(MeshS *pM)
 #ifndef BAROTROPIC
               pG->U[k+n][j+m][i+l].E  = ProlongedC[n][m][l].E;
 #endif
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
               pG->U[k+n][j+m][i+l].B1c = ProlongedC[n][m][l].B1c;
               pG->U[k+n][j+m][i+l].B2c = ProlongedC[n][m][l].B2c;
               pG->U[k+n][j+m][i+l].B3c = ProlongedC[n][m][l].B3c;
@@ -1710,9 +1756,26 @@ void Prolongate(MeshS *pM)
               for (ns=0; ns<NSCALARS; ns++) 
                 pG->U[k+n][j+m][i+l].s[ns] = ProlongedC[n][m][l].s[ns];
 #endif
+	/* Get solution for radiation quantities */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	   	pG->U[k+n][j+m][i+l].Er = ProlongedC[n][m][l].Er;
+	   	pG->U[k+n][j+m][i+l].Fr1 = ProlongedC[n][m][l].Fr1;
+	   	pG->U[k+n][j+m][i+l].Fr2 = ProlongedC[n][m][l].Fr2;
+           	pG->U[k+n][j+m][i+l].Fr3 = ProlongedC[n][m][l].Fr3;
+           	pG->U[k+n][j+m][i+l].Edd_11 = ProlongedC[n][m][l].Edd_11;
+	   	pG->U[k+n][j+m][i+l].Edd_21 = ProlongedC[n][m][l].Edd_21;
+	   	pG->U[k+n][j+m][i+l].Edd_22 = ProlongedC[n][m][l].Edd_22;
+	   	pG->U[k+n][j+m][i+l].Edd_31 = ProlongedC[n][m][l].Edd_31;
+	   	pG->U[k+n][j+m][i+l].Edd_32 = ProlongedC[n][m][l].Edd_32;
+	   	pG->U[k+n][j+m][i+l].Edd_33 = ProlongedC[n][m][l].Edd_33;
+	
+	   for(nr=0; nr<NOPACITY; nr++)
+		pG->U[k+n][j+m][i+l].Sigma[nr] = ProlongedC[n][m][l].Sigma[nr];
+#endif
+
             }}}
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /*--- Steps 3c.  Prolongate face-centered B ----------------------------------*/
 /* Set prolonged face-centered B fields for 1D (trivial case)  */
 
@@ -1927,7 +1990,7 @@ void SMR_init(MeshS *pM)
   int nl,nd,sendRC,recvRC,sendP,recvP,npg,ncg;
   int max_sendRC=1,max_recvRC=1,max_sendP=1,max_recvP=1;
   int max1=0,max2=0,max3=0,maxCG=1;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   int ngh1;
 #endif
   GridS *pG;
@@ -1989,7 +2052,7 @@ void SMR_init(MeshS *pM)
     ath_error("[SMR_init]: Failed to allocate send MPI_Request array\n");
 #endif /* MPI_PARALLEL */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   if((SMRemf1 =
     (Real**)calloc_2d_array(MAX(max2,max3),max1,sizeof(Real))) == NULL)
     ath_error("[smr_init]Failed to calloc_2d_array for SMRemf1\n");;
@@ -2021,7 +2084,7 @@ void SMR_init(MeshS *pM)
     ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[1]C\n");
   if((GZ[2]=(ConsS***)calloc_3d_array(nghost,max2,max1,sizeof(ConsS)))
     ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[2]C\n");
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   ngh1 = nghost + 1;
   if((BFld[0]=(Real3Vect***)calloc_3d_array(max3,max2,ngh1,sizeof(Real3Vect)))
     ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[0]C\n");
@@ -2055,6 +2118,9 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #if (NSCALARS > 0)
   int n;
 #endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  int nr, Erfail = 0;
+#endif
 
 /* First order prolongation -- just copy values */
 #ifdef FIRST_ORDER
@@ -2069,7 +2135,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #ifndef BAROTROPIC
     PCon[k][j][i].E  = Ui.E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     PCon[k][j][i].B1c = Ui.B1c;
     PCon[k][j][i].B2c = Ui.B2c;
     PCon[k][j][i].B3c = Ui.B3c;
@@ -2077,6 +2143,24 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #if (NSCALARS > 0)
     for (n=0; n<NSCALARS; n++) PCon[k][j][i].s[n] = Ui.s[n];
 #endif /* NSCALARS */
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+   PCon[k][j][i].Er = Ui.Er;
+   PCon[k][j][i].Fr1 = Ui.Fr1;
+   PCon[k][j][i].Fr2 = Ui.Fr2;
+   PCon[k][j][i].Fr3 = Ui.Fr3;
+   PCon[k][j][i].Edd_11 = Ui.Edd_11;
+   PCon[k][j][i].Edd_21 = Ui.Edd_21;
+   PCon[k][j][i].Edd_22 = Ui.Edd_22;
+   PCon[k][j][i].Edd_31 = Ui.Edd_31;
+   PCon[k][j][i].Edd_32 = Ui.Edd_32;
+   PCon[k][j][i].Edd_33 = Ui.Edd_33;
+
+   for(nr=0; nr<NOPACITY; nr++)
+	PCon[k][j][i].Sigma[nr] = Ui.Sigma[nr];
+#endif
+
+
   }}}
 
 /* second order prolongation -- apply limited slope reconstruction */
@@ -2126,7 +2210,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
       + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
   }}}
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 /* 1-cell-centered magnetic field */
   dq1 = mcd_slope(Uim1.B1c, Ui.B1c, Uip1.B1c);
   dq2 = mcd_slope(Ujm1.B1c, Ui.B1c, Ujp1.B1c);
@@ -2185,7 +2269,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   Pi   = Ui.E   - 0.5*(SQR(Ui.M1  ) + SQR(Ui.M2  ) + SQR(Ui.M3  ))/Ui.d;
   Pim1 = Uim1.E - 0.5*(SQR(Uim1.M1) + SQR(Uim1.M2) + SQR(Uim1.M3))/Uim1.d;
   Pip1 = Uip1.E - 0.5*(SQR(Uip1.M1) + SQR(Uip1.M2) + SQR(Uip1.M3))/Uip1.d;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Pi   -= 0.5*(SQR(Ui.B1c  ) + SQR(Ui.B2c  ) + SQR(Ui.B3c  ));
   Pim1 -= 0.5*(SQR(Uim1.B1c) + SQR(Uim1.B2c) + SQR(Uim1.B3c));
   Pip1 -= 0.5*(SQR(Uip1.B1c) + SQR(Uip1.B2c) + SQR(Uip1.B3c));
@@ -2194,7 +2278,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 
   Pjm1 = Ujm1.E - 0.5*(SQR(Ujm1.M1) + SQR(Ujm1.M2) + SQR(Ujm1.M3))/Ujm1.d;
   Pjp1 = Ujp1.E - 0.5*(SQR(Ujp1.M1) + SQR(Ujp1.M2) + SQR(Ujp1.M3))/Ujp1.d;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Pjm1 -= 0.5*(SQR(Ujm1.B1c) + SQR(Ujm1.B2c) + SQR(Ujm1.B3c));
   Pjp1 -= 0.5*(SQR(Ujp1.B1c) + SQR(Ujp1.B2c) + SQR(Ujp1.B3c));
 #endif /* MHD */
@@ -2202,7 +2286,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 
   Pkm1 = Ukm1.E - 0.5*(SQR(Ukm1.M1) + SQR(Ukm1.M2) + SQR(Ukm1.M3))/Ukm1.d;
   Pkp1 = Ukp1.E - 0.5*(SQR(Ukp1.M1) + SQR(Ukp1.M2) + SQR(Ukp1.M3))/Ukp1.d;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
   Pkm1 -= 0.5*(SQR(Ukm1.B1c) + SQR(Ukm1.B2c) + SQR(Ukm1.B3c));
   Pkp1 -= 0.5*(SQR(Ukp1.B1c) + SQR(Ukp1.B2c) + SQR(Ukp1.B3c));
 #endif /* MHD */
@@ -2215,7 +2299,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
       + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
     PCon[k][j][i].E += 0.5*(SQR(PCon[k][j][i].M1) + SQR(PCon[k][j][i].M2) +
       SQR(PCon[k][j][i].M3))/PCon[k][j][i].d;
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
     PCon[k][j][i].E += 0.5*(SQR(PCon[k][j][i].B1c) + SQR(PCon[k][j][i].B2c) +
       SQR(PCon[k][j][i].B3c));
 #endif /* MHD */
@@ -2238,6 +2322,186 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
     }}}
   }
 #endif /* NSCALARS */
+
+
+/*----------------------------------*/
+/* For radiation quantities */
+/*----------------------------------*/
+
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+   Erfail = 0;
+	/* Prolongate Er */
+  dq1 = mcd_slope(Uim1.Er, Ui.Er, Uip1.Er);
+  dq2 = mcd_slope(Ujm1.Er, Ui.Er, Ujp1.Er);
+  dq3 = mcd_slope(Ukm1.Er, Ui.Er, Ukp1.Er);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Er  = Ui.Er 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	/* If Er becomes negative, we will use first order prolongation */
+	if(PCon[k][j][i].Er < 0.0)
+		Erfail = 1;
+  }}}
+
+	/* Prolongate Fr1 */	
+  dq1 = mcd_slope(Uim1.Fr1, Ui.Fr1, Uip1.Fr1);
+  dq2 = mcd_slope(Ujm1.Fr1, Ui.Fr1, Ujp1.Fr1);
+  dq3 = mcd_slope(Ukm1.Fr1, Ui.Fr1, Ukp1.Fr1);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Fr1  = Ui.Fr1 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+
+	/* Prolongate Fr2 */	
+  dq1 = mcd_slope(Uim1.Fr2, Ui.Fr2, Uip1.Fr2);
+  dq2 = mcd_slope(Ujm1.Fr2, Ui.Fr2, Ujp1.Fr2);
+  dq3 = mcd_slope(Ukm1.Fr2, Ui.Fr2, Ukp1.Fr2);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Fr2  = Ui.Fr2 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+
+	/* Prolongate Fr3 */	
+  dq1 = mcd_slope(Uim1.Fr3, Ui.Fr3, Uip1.Fr3);
+  dq2 = mcd_slope(Ujm1.Fr3, Ui.Fr3, Ujp1.Fr3);
+  dq3 = mcd_slope(Ukm1.Fr3, Ui.Fr3, Ukp1.Fr3);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Fr3  = Ui.Fr3 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+
+	/* Prolongate Edd_11 */	
+  dq1 = mcd_slope(Uim1.Edd_11, Ui.Edd_11, Uip1.Edd_11);
+  dq2 = mcd_slope(Ujm1.Edd_11, Ui.Edd_11, Ujp1.Edd_11);
+  dq3 = mcd_slope(Ukm1.Edd_11, Ui.Edd_11, Ukp1.Edd_11);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Edd_11  = Ui.Edd_11 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+
+	/* Prolongate Edd_21 */	
+  dq1 = mcd_slope(Uim1.Edd_21, Ui.Edd_21, Uip1.Edd_21);
+  dq2 = mcd_slope(Ujm1.Edd_21, Ui.Edd_21, Ujp1.Edd_21);
+  dq3 = mcd_slope(Ukm1.Edd_21, Ui.Edd_21, Ukp1.Edd_21);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Edd_21  = Ui.Edd_21 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+	/* Prolongate Edd_22 */	
+  dq1 = mcd_slope(Uim1.Edd_22, Ui.Edd_22, Uip1.Edd_22);
+  dq2 = mcd_slope(Ujm1.Edd_22, Ui.Edd_22, Ujp1.Edd_22);
+  dq3 = mcd_slope(Ukm1.Edd_22, Ui.Edd_22, Ukp1.Edd_22);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Edd_22  = Ui.Edd_22 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+	/* Prolongate Edd_31 */	
+  dq1 = mcd_slope(Uim1.Edd_31, Ui.Edd_31, Uip1.Edd_31);
+  dq2 = mcd_slope(Ujm1.Edd_31, Ui.Edd_31, Ujp1.Edd_31);
+  dq3 = mcd_slope(Ukm1.Edd_31, Ui.Edd_31, Ukp1.Edd_31);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Edd_31  = Ui.Edd_31 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+
+	/* Prolongate Edd_32 */	
+  dq1 = mcd_slope(Uim1.Edd_32, Ui.Edd_32, Uip1.Edd_32);
+  dq2 = mcd_slope(Ujm1.Edd_32, Ui.Edd_32, Ujp1.Edd_32);
+  dq3 = mcd_slope(Ukm1.Edd_32, Ui.Edd_32, Ukp1.Edd_32);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Edd_32  = Ui.Edd_32 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+	/* Prolongate Edd_33 */	
+  dq1 = mcd_slope(Uim1.Edd_33, Ui.Edd_33, Uip1.Edd_33);
+  dq2 = mcd_slope(Ujm1.Edd_33, Ui.Edd_33, Ujp1.Edd_33);
+  dq3 = mcd_slope(Ukm1.Edd_33, Ui.Edd_33, Ukp1.Edd_33);
+  for (k=0; k<2; k++){
+  for (j=0; j<2; j++){
+  for (i=0; i<2; i++){
+    PCon[k][j][i].Edd_33  = Ui.Edd_33 
+      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  }}}
+
+	/* Prolongate Sigma[m] */
+  for(nr=0; nr<NOPACITY; nr++){	
+  	dq1 = mcd_slope(Uim1.Sigma[nr], Ui.Sigma[nr], Uip1.Sigma[nr]);
+  	dq2 = mcd_slope(Ujm1.Sigma[nr], Ui.Sigma[nr], Ujp1.Sigma[nr]);
+  	dq3 = mcd_slope(Ukm1.Sigma[nr], Ui.Sigma[nr], Ukp1.Sigma[nr]);
+  	for (k=0; k<2; k++){
+  	for (j=0; j<2; j++){
+  	for (i=0; i<2; i++){
+   		 PCon[k][j][i].Sigma[nr]  = Ui.Sigma[nr] 
+      			+ (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+	
+  	}}}
+ }
+
+  /* If Er becomes negative due to prolongation, we will use first order prolongation */ 
+   if(Erfail){
+	for (k=0; k<2; k++){
+  	for (j=0; j<2; j++){
+  	for (i=0; i<2; i++){
+   		PCon[k][j][i].Er = Ui.Er;
+   		PCon[k][j][i].Fr1 = Ui.Fr1;
+   		PCon[k][j][i].Fr2 = Ui.Fr2;
+   		PCon[k][j][i].Fr3 = Ui.Fr3;
+   		PCon[k][j][i].Edd_11 = Ui.Edd_11;
+   		PCon[k][j][i].Edd_21 = Ui.Edd_21;
+   		PCon[k][j][i].Edd_22 = Ui.Edd_22;
+   		PCon[k][j][i].Edd_31 = Ui.Edd_31;
+   		PCon[k][j][i].Edd_32 = Ui.Edd_32;
+   		PCon[k][j][i].Edd_33 = Ui.Edd_33;
+
+   		for(nr=0; nr<NOPACITY; nr++)
+			PCon[k][j][i].Sigma[nr] = Ui.Sigma[nr];
+   		
+
+	}}}
+   }
+#endif /* End if radiation hydro || radiation mhd */
+
+
+
+
+
+
+/*======================================*/
 
 #ifdef SPECIAL_RELATIVITY
 /* With SR, we need to ensure that the new state is physical, otherwise
@@ -2279,7 +2543,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #ifndef BAROTROPIC
           PCon[k][j][i].E  = Ui.E;
 #endif /* BAROTROPIC */
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
           PCon[k][j][i].B1c = Ui.B1c;
           PCon[k][j][i].B2c = Ui.B2c;
           PCon[k][j][i].B3c = Ui.B3c;
@@ -2308,7 +2572,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
  * in a 3x2x2 block for Bx, 2x3x2 block for By, and 2x2x3 block for Bz.
  */
 
-#ifdef MHD
+#if defined(MHD) || defined(RADIATION_MHD)
 void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
             const Real dx1c, const Real dx2c, const Real dx3c)
 {

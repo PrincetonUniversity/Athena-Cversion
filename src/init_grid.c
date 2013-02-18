@@ -506,10 +506,13 @@ G3.ijkl[0],G3.ijkr[0]);
               pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->CGrid[ncg].nWordsP  = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	    
 	      /* Radiation also needs to do prolongation */
 	      /* If grids just touch, n1z, n2z or n3z will be zero, no restriction or prolongation will be needed */
 	     /* If two grids overlap and need to prolongate ghost zones, the ghost zones will be added later */
 
+	    /* This is the number of data required for communication to update the Matrix */
+ 
 	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
 	      pG->CGrid[ncg].Rad_nWordsP  = n1z*n2z*n3z*(4);
 
@@ -547,7 +550,7 @@ G3.ijkl[0],G3.ijkr[0]);
 
                 n1p = 0; n2p = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		Rad_n1p = 0; Rad_n2p = 0;
+		Rad_n1p = 0; Rad_n2p = 0;		
 #endif
                 if ((G2.ijkl[dim] == G3.ijkl[dim]) &&
                     (pCD->Disp[dim] != 0) &&
@@ -575,19 +578,19 @@ G3.ijkl[0],G3.ijkr[0]);
                     n2p = n2z;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		    Rad_n1p = n1z;
-		    Rad_n2p = n2z;	
+		    Rad_n2p = n2z;		 
 #endif
                     if (pG->Nx[1] > 1) 	{
-			n1p += nghost + 2;
+			n1p += (nghost + 2);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		 	Rad_n1p = Matghost + 2;			
+		 	Rad_n1p += (Matghost + 2);				
 #endif			
 		    }
 
                     if (pG->Nx[2] > 1)  {
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p = Matghost + 2;
+			Rad_n2p += (Matghost + 2);			
 #endif			
 		    }
 	
@@ -596,6 +599,8 @@ G3.ijkl[0],G3.ijkr[0]);
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
                   pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		/* plus the variables needed to be prolongaed for radiation part */
+		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
 		  /* no ghost zones for Rad restriction */
 		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);  
 #endif	
@@ -707,6 +712,7 @@ G3.ijkl[0],G3.ijkr[0]);
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
                   pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY); 
 		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4); 
 #endif
 
@@ -1052,6 +1058,7 @@ G3.ijkl[2],G3.ijkr[2]);
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
 		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);
 #endif
 
@@ -1165,6 +1172,7 @@ G3.ijkl[2],G3.ijkr[2]);
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
 		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);
 #endif
 
