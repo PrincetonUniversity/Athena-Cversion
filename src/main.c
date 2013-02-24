@@ -741,12 +741,21 @@ int main(int argc, char *argv[])
 
 	/* The advective radiation energy density is calculated at this step */
 	/* Advection energy density for one ghost zones is also calculated here */
-	AdvErFlx_pre(&Mesh);
+	/* Advective flux is calcuated with updated gas velocity but initial Er */
+	GetAdvErFlx(&Mesh);
+	
 
 #endif
 	/* We do gas quantities first and then Backward Euler step */
 	/* Because we put fargo advection steps together */
 	(*BackEuler)(&Mesh);
+
+#ifdef STATIC_MESH_REFINEMENT
+	/* Add the advective flux, which is calculated based on Er at the beginning of the step */
+	/* Flux restriction and correction are also calculated here */
+	/* Boundary condition is updated later */
+	AdvErFlx_pre(&Mesh);
+#endif
 	
 #endif /* End radiation hydro or radiation mhd */
 

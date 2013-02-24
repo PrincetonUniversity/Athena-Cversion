@@ -31,7 +31,8 @@ void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int
 void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux, Real *x3Flux);
 
 #ifdef STATIC_MESH_REFINEMENT
-void AdvErFlx_pre(MeshS *pM); /* prepare the advective radiation energy density flux, including restriction and correction part */
+void AdvErFlx_pre(MeshS *pM); /* update Er with advective flux, including restriction and correction part */
+void GetAdvErFlx(MeshS *pM); /* Prepare the advective radiation energy density flux */
 void AdvErFlx_init(MeshS *PM);
 void AdvErFlx_destruct();
 void SMR_Rad_init(MeshS *pM, const int Root);

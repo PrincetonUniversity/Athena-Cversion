@@ -742,39 +742,29 @@ void vanLeer_slope(const Real Er1, const Real Er2, const Real Er3, Real *slope)
 
 #ifdef STATIC_MESH_REFINEMENT
 /*==========================================================*/
-/* Prepare the advective radiation energy flux, including restriction, correction part */
+/* Prepare the advective radiation energy flux, including ghost zones */
+/* Calculate the advection flux with Er at the beginning of the step */
 /*=============================================================*/
-void AdvErFlx_pre(MeshS *pM)
+
+
+
+void GetAdvErFlx(MeshS *pM)
 {
 
-	int nl, nd, nDim, dim;
-	int il, iu, jl, ju, kl, ku;
-	int i, ics, ice, ips, ipe;
-	int j, jcs, jce, jps, jpe;
-	int k, kcs, kce, kps, kpe;
+	int nl, nd, nDim;
+	int i, j, k, il, iu, jl, ju, kl, ku;
 	DomainS *pD;
 	GridS *pG;
 	Real Advxtemp[2], Advytemp[2], Advztemp[2];
 
-	int ncg, npg, rbufN, start_addr, cnt, nFlx, count;
-	double *pRcv, *pSnd;
-	GridOvrlpS *pCO, *pPO;
-	Real factor, flxdir;
-	int shift; /* shift the cell position */
-	/* flxdir to judge left or right hand side */
-
-#ifdef MPI_PARALLEL
-  	int ierr,mAddress,mIndex,mCount;
-#endif
 
 	/* Determine the dimentionality of the problem */
 	nDim = 1;
 	for(i=1; i<3; i++)
 		if(pM->Nx[i]>1) 
 			nDim++;
-	
-	/*------------------ step 1, prepare the advecion flux ------------------------------------*/
-	/* First, calculate the flux for each grid at each domain and level */
+
+
 	for(nl=0; nl<(pM->NLevels); nl++){
 		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
 			if(pM->Domain[nl][nd].Grid != NULL){
@@ -833,6 +823,84 @@ void AdvErFlx_pre(MeshS *pM)
 				}/* end i */
 				}/* end j */
 				}/* end k */
+
+			}/* Finish if this core doesn't work in this grid */
+		}/* Finish the domain at level nl */
+	}/* Finish level nl */
+
+
+
+}
+
+
+
+
+/*==========================================================*/
+/* Update Er with advection flux, including restriction, correction part */
+/*=============================================================*/
+
+
+void AdvErFlx_pre(MeshS *pM)
+{
+
+	int nl, nd, nDim, dim;
+	int il, iu, jl, ju, kl, ku;
+	int i, ics, ice, ips, ipe;
+	int j, jcs, jce, jps, jpe;
+	int k, kcs, kce, kps, kpe;
+	DomainS *pD;
+	GridS *pG;
+	
+
+	int ncg, npg, rbufN, start_addr, cnt, nFlx, count;
+	double *pRcv, *pSnd;
+	GridOvrlpS *pCO, *pPO;
+	Real factor, flxdir;
+	int shift; /* shift the cell position */
+	/* flxdir to judge left or right hand side */
+
+#ifdef MPI_PARALLEL
+  	int ierr,mAddress,mIndex,mCount;
+#endif
+
+	/* Determine the dimentionality of the problem */
+	nDim = 1;
+	for(i=1; i<3; i++)
+		if(pM->Nx[i]>1) 
+			nDim++;
+	
+	/*------------------ step 1, prepare the advecion flux ------------------------------------*/
+	/* First, calculate the flux for each grid at each domain and level */
+	for(nl=0; nl<(pM->NLevels); nl++){
+		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+			if(pM->Domain[nl][nd].Grid != NULL){
+				pD = &(pM->Domain[nl][nd]);
+				pG = pD->Grid;
+
+				if(Matghost > 3)
+					ath_error("[AdvErFlx_pre]: Matghost: %d is larger than 3!\n",Matghost);
+
+				il = pG->is - (Matghost + 1);
+				iu = pG->ie + (Matghost + 1);
+				if(nDim > 1){
+					jl = pG->js - (Matghost + 1);
+					ju = pG->je + (Matghost + 1);
+				} 
+				else{
+					jl = pG->js;
+					ju = pG->je;
+				}
+
+				if(nDim > 2){
+					kl = pG->ks - (Matghost + 1);
+					ku = pG->ke + (Matghost + 1);
+				} 
+				else{
+					kl = pG->ks;
+					ku = pG->ke;
+				}
+				
+				
 
 				/* Now update the solution, including one ghost zones */
 				for(k=kl+1; k<=(ku-1); k++){ 
