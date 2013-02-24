@@ -383,6 +383,8 @@ typedef struct GridOvrlp_s{
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   int Rad_nWordsRC, Rad_nWordsP; /*!< # of words communicated for parent and child grids for the matrix 
 				  * solver */ 
+  int nWordsAdvEr; 		/*!< # of words required for the restriction, correction of the advection Er flux */
+  int AdvEr[6];	/*!< The advection flux at six boundaries. flag to see whether we need flux correction for advection Er */ 
 #endif
   ConsS **myFlx[6];   /*!< fluxes of conserved variables at 6 boundaries */
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -447,6 +449,11 @@ typedef struct Grid_s{
   Real ***Ersource; /* Estimated radiation energy source term */
   Real ***Eulersource; /* The source term in back euler step */
   Real ***Comp; /* Energy source term due to Compton scattering */
+
+#ifdef STATIC_MESH_REFINEMENT
+  Real ***AdvErFlx[3]; /* The advective energy flux. This needs to be pre-calcualted and restricted and corrected */
+#endif
+
 #ifdef FARGO
   Real ****Fargosource; /* The change due to fargo step */
 #endif

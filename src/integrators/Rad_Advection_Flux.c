@@ -27,6 +27,7 @@
  * interpolation to reconstruct the E_r and velocity 
  * This function only calculate the flux for one cell 
  * Fargo scheme is used, background shearing is subtracted 
+ * With STATIC MESH REFINEMENT, we need to restrict and correct flux at the boundary *
  */
 #ifdef SHEARING_BOX
 #ifdef FARGO
@@ -35,6 +36,27 @@
 #endif /* fargo */
 #endif /* rad_fargo */
 #endif /* shearing box */
+
+
+
+
+#ifdef STATIC_MESH_REFINEMENT
+
+static double **send_bufRC=NULL;
+ 
+#ifdef MPI_PARALLEL
+static double ***recv_bufRC=NULL;
+static MPI_Request ***recv_rq=NULL;
+static MPI_Request  **send_rq=NULL;
+#endif
+
+
+
+#endif /* Static mesh refinement */
+
+
+
+
 
 
 
@@ -50,8 +72,8 @@ static void RemapRadFlux(const Real *U,const Real eps,const int ji,const int jo,
 static double *send_buf = NULL, *recv_buf = NULL;
 #endif
 
-#endif
-#endif
+#endif /* Shearing box */
+#endif /* RadFARGO */
 
 /* Advection flux only include the vE term, vP_r term is not included here */
 void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux)
@@ -93,7 +115,10 @@ void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int
 		AdvFx[m-i] = meanvFx * meanEr;
 	}
 
-		*x1Flux = -AdvFlag * dtodx1 * (AdvFx[1] - AdvFx[0]);
+	/*	*x1Flux = -AdvFlag * dtodx1 * (AdvFx[1] - AdvFx[0]);
+	*/
+		x1Flux[0] = -AdvFlag * dtodx1 * AdvFx[0];
+		x1Flux[1] = -AdvFlag * dtodx1 * AdvFx[1];
 	
 
 
@@ -154,7 +179,11 @@ void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int
 		AdvFx[m-i] = meanvFx * meanEr;
 	}
 
-		*x1Flux = -AdvFlag * dtodx1 * (AdvFx[1] - AdvFx[0]);
+/*		*x1Flux = -AdvFlag * dtodx1 * (AdvFx[1] - AdvFx[0]);
+*/
+		x1Flux[0] = -AdvFlag * dtodx1 * AdvFx[0];
+		x1Flux[1] = -AdvFlag * dtodx1 * AdvFx[1];
+
 
 	/*========================================================*/
 	/* Second, calculate the flux along y direction */
@@ -194,12 +223,21 @@ void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int
 		AdvFx[m-j] = meanvFx * meanEr;
 	}
 
-		*x2Flux = -AdvFlag * dtodx2 * (AdvFx[1] - AdvFx[0]);
+/*		*x2Flux = -AdvFlag * dtodx2 * (AdvFx[1] - AdvFx[0]);
+*/
+		x2Flux[0] = -AdvFlag * dtodx2 * AdvFx[0];
+		x2Flux[1] = -AdvFlag * dtodx2 * AdvFx[1];
+
+
 #ifdef SHEARING_BOX
 #ifdef RADFARGO
 		if(Erflag){
 			jj = j - pG->js + nfghost;
-			*x2Flux -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
+		/*	*x2Flux -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
+		*/
+			x2Flux[0] += (-FargoFlx[k][i][jj]);
+			x2Flux[1] += (-FargoFlx[k][i][jj+1]);
+
 		}
 #endif
 #endif
@@ -215,7 +253,7 @@ void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int
 
 void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux, Real *x2Flux, Real *x3Flux)
 {
-/* The returned flux is Er^{n+1} = Er^{n} - x1Flux - x2Flux - x3Flux */
+/* The returned flux is Er^{n+1} = Er^{n} + (x1Flux[1] - x1Flux[0]) + (x2Flux[1] - x2Flux[0] + (x3Flux[1] - x3Flux[0]) */
 	
 	
 	GridS *pG = pD->Grid;
@@ -265,7 +303,8 @@ void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int
 		AdvFx[m-i] = meanvFx * meanEr;
 	}
 
-		*x1Flux = -AdvFlag * dtodx1 * (AdvFx[1] - AdvFx[0]);
+		x1Flux[0] = -AdvFlag * dtodx1 * AdvFx[0];
+		x1Flux[1] = -AdvFlag * dtodx1 * AdvFx[1];
 
 	/*========================================================*/
 	/* Second, calculate the flux along y direction */
@@ -305,15 +344,21 @@ void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int
 		
 		AdvFx[m-j] = meanvFx * meanEr;
 	}
+		
+		x2Flux[0] = -AdvFlag * dtodx2 * AdvFx[0];
+		x2Flux[1] = -AdvFlag * dtodx2 * AdvFx[1];
 
-		*x2Flux = -AdvFlag * dtodx2 * (AdvFx[1] - AdvFx[0]);
 
 	/* Add flux due to background shearing */
 #ifdef SHEARING_BOX
 #ifdef RADFARGO
 		if(Erflag){
 			jj = j - pG->js + nfghost;
-			*x2Flux -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
+		/*	*x2Flux -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
+		*/
+			x2Flux[0] += (-FargoFlx[k][i][jj]);
+			x2Flux[1] += (-FargoFlx[k][i][jj+1]);
+
 		}
 #endif
 #endif
@@ -343,12 +388,17 @@ void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int
 		AdvFx[m-k] = meanvFx * meanEr;
 	}
 
-		*x3Flux = -AdvFlag * dtodx3 * (AdvFx[1] - AdvFx[0]);
+/*		*x3Flux = -AdvFlag * dtodx3 * (AdvFx[1] - AdvFx[0]);
+*/
+		x3Flux[0] = -AdvFlag * dtodx3 * AdvFx[0];
+		x3Flux[1] = -AdvFlag * dtodx3 * AdvFx[1];
+
 
   return;	
 	
 
 }
+
 
 
 #ifdef SHEARING_BOX
@@ -688,6 +738,663 @@ void vanLeer_slope(const Real Er1, const Real Er2, const Real Er3, Real *slope)
  
   return;
 }
+
+
+#ifdef STATIC_MESH_REFINEMENT
+/*==========================================================*/
+/* Prepare the advective radiation energy flux, including restriction, correction part */
+/*=============================================================*/
+void AdvErFlx_pre(MeshS *pM)
+{
+
+	int nl, nd, nDim, dim;
+	int il, iu, jl, ju, kl, ku;
+	int i, ics, ice, ips, ipe;
+	int j, jcs, jce, jps, jpe;
+	int k, kcs, kce, kps, kpe;
+	DomainS *pD;
+	GridS *pG;
+	Real Advxtemp[2], Advytemp[2], Advztemp[2];
+
+	int ncg, npg, rbufN, start_addr, cnt, nFlx, count;
+	double *pRcv, *pSnd;
+	GridOvrlpS *pCO, *pPO;
+	Real factor, flxdir;
+	int shift; /* shift the cell position */
+	/* flxdir to judge left or right hand side */
+
+#ifdef MPI_PARALLEL
+  	int ierr,mAddress,mIndex,mCount;
+#endif
+
+	/* Determine the dimentionality of the problem */
+	nDim = 1;
+	for(i=1; i<3; i++)
+		if(pM->Nx[i]>1) 
+			nDim++;
+	
+	/*------------------ step 1, prepare the advecion flux ------------------------------------*/
+	/* First, calculate the flux for each grid at each domain and level */
+	for(nl=0; nl<(pM->NLevels); nl++){
+		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+			if(pM->Domain[nl][nd].Grid != NULL){
+				pD = &(pM->Domain[nl][nd]);
+				pG = pD->Grid;
+
+				if(Matghost > 3)
+					ath_error("[AdvErFlx_pre]: Matghost: %d is larger than 3!\n",Matghost);
+
+				il = pG->is - (Matghost + 1);
+				iu = pG->ie + (Matghost + 1);
+				if(nDim > 1){
+					jl = pG->js - (Matghost + 1);
+					ju = pG->je + (Matghost + 1);
+				} 
+				else{
+					jl = pG->js;
+					ju = pG->je;
+				}
+
+				if(nDim > 2){
+					kl = pG->ks - (Matghost + 1);
+					ku = pG->ke + (Matghost + 1);
+				} 
+				else{
+					kl = pG->ks;
+					ku = pG->ke;
+				}
+				
+				/* Now calculate the advection flux for each grid for three directions */
+				/* AdvErFlx i, j, k stores the flux from the left side of cell i, j, k */
+				for(k=kl; k<=ku; k++){ 
+				for(j=jl; j<=ju; j++){
+				for(i=il; i<=iu; i++){
+					
+					if(nDim == 1){
+						Rad_Advection_Flux1D(pD, i, j, k, 1.0, Advxtemp);
+						/* i,j, k store the flux from the left boundary */
+						pG->AdvErFlx[0][k][j][i] = Advxtemp[0];						
+
+					}
+					else if(nDim == 2){
+						Rad_Advection_Flux2D(pD, i, j, k, 1.0, Advxtemp,Advytemp);
+						pG->AdvErFlx[0][k][j][i] = Advxtemp[0];	
+						pG->AdvErFlx[1][k][j][i] = Advytemp[0];							
+
+					}
+					else{
+						Rad_Advection_Flux3D(pD, i, j, k, 1.0, Advxtemp,Advytemp,Advztemp);
+						pG->AdvErFlx[0][k][j][i] = Advxtemp[0];	
+						pG->AdvErFlx[1][k][j][i] = Advytemp[0];		
+						pG->AdvErFlx[2][k][j][i] = Advztemp[0];		
+					}
+
+					
+				}/* end i */
+				}/* end j */
+				}/* end k */
+
+				/* Now update the solution, including one ghost zones */
+				for(k=kl+1; k<=(ku-1); k++){ 
+				for(j=jl+1; j<=(ju-1); j++){
+				for(i=il+1; i<=(iu-1); i++){
+					if(nDim == 1){
+						pG->U[k][j][i].Er += (pG->AdvErFlx[0][k][j][i+1] - pG->AdvErFlx[0][k][j][i]);
+					}
+					else if(nDim == 2){
+						pG->U[k][j][i].Er += (pG->AdvErFlx[0][k][j][i+1] - pG->AdvErFlx[0][k][j][i]) 
+									+ (pG->AdvErFlx[1][k][j+1][i] - pG->AdvErFlx[1][k][j][i]);
+					}
+					else{
+						pG->U[k][j][i].Er += (pG->AdvErFlx[0][k][j][i+1] - pG->AdvErFlx[0][k][j][i]) 
+									+ (pG->AdvErFlx[1][k][j+1][i] - pG->AdvErFlx[1][k][j][i])
+									+ (pG->AdvErFlx[2][k+1][j][i] - pG->AdvErFlx[2][k][j][i]);
+					}
+				}
+				}
+				}
+
+
+			}/* End if Grid is not NULL */
+		}/* Finish looping all domains at this level */
+	}/* Finish looping all levels */
+
+
+
+	/*----------------------Restrict the flux---------------------------- */
+	/* We also restrict Er in the active regions */
+	/* Fine level solution will help reduce numerical diffusion due to advection */
+	/* Restrict the flux at boundaries of refinement levels */
+
+	/* This is adopted from RestrictCorrect function in smr , but we only need to do this for advection flux */
+	for(nl=(pM->NLevels)-1; nl>=0; nl--){
+
+
+#ifdef MPI_PARALLEL
+/* Post non-blocking receives at level nl-1 for data from child Grids at this
+ * level (nl).  This data is sent in Step 3 below, and will be read in Step 1
+ * at the next iteration of the loop. */ 
+
+  		if (nl>0) {
+    			for (nd=0; nd<(pM->DomainsPerLevel[nl-1]); nd++){
+      				if (pM->Domain[nl-1][nd].Grid != NULL) {
+        				pG=pM->Domain[nl-1][nd].Grid;
+
+/* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0.
+ * First index alternates between 0 and 1 for even/odd values of nl, since if
+ * there are Grids on multiple levels there may be 2 receives posted at once */
+        				mAddress = 0;
+        				rbufN = ((nl-1) % 2);
+        				for (ncg=(pG->NmyCGrid); ncg<(pG->NCGrid); ncg++){
+          					mIndex = ncg - pG->NmyCGrid;
+          					ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
+            					pG->CGrid[ncg].nWordsAdvEr, MPI_DOUBLE, pG->CGrid[ncg].ID,
+            					pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
+            						&(recv_rq[nl-1][nd][mIndex]));
+          					mAddress += pG->CGrid[ncg].nWordsAdvEr;
+        				}/* Finish looping all child grid */
+
+      				}/* if Grid != NULL */
+    			}/* Finish loop all domain at level nl */
+  		}/* if nl > 0 */
+#endif /* MPI_PARALLEL */
+
+
+	/* Get child solution */
+		for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+
+  			if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
+    				pG=pM->Domain[nl][nd].Grid;
+    				rbufN = (nl % 2);
+
+    				for (ncg=0; ncg<(pG->NCGrid); ncg++){
+
+/*--- Step 1a. Get restricted solution and fluxes. ---------------------------*/
+
+/* If child Grid is on this processor, set pointer to start of send buffer
+ * loaded by this child Grid in Step 3 below during last iteration of loop. */
+
+      					if (ncg < pG->NmyCGrid) {
+        					pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);
+        					pRcv = (double*)&(send_bufRC[pCO->DomN][0]);
+      					} else {
+
+#ifdef MPI_PARALLEL
+/* Check non-blocking receives posted above for restricted solution from child
+ * Grids, sent in Step 3 during last iteration of loop over nl.  Accept messages
+ * in any order. */
+
+        				mCount = pG->NCGrid - pG->NmyCGrid;
+        				ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
+        				if(mIndex == MPI_UNDEFINED){
+          					ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",nl,nd);
+        				}
+      
+/* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
+        				mAddress = 0;
+        				mIndex += pG->NmyCGrid;
+        				for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].nWordsAdvEr;
+        					pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
+        					pRcv = (double*)&(recv_bufRC[rbufN][nd][mAddress]);
+#else
+/* If not MPI_PARALLEL, and child Grid not on this processor, then error */
+
+        					ath_error("[RestCorr]: no Child grid on Domain[%d][%d]\n",nl,nd);
+#endif /* MPI_PARALLEL */
+      					}/* if ncg not on the same CPU */
+
+
+
+
+
+					ics = pCO->ijks[0];
+					ice = pCO->ijke[0];
+					jcs = pCO->ijks[1];
+					jce = pCO->ijke[1];
+					kcs = pCO->ijks[2];
+					kce = pCO->ijke[2];
+
+
+					/* First, get the accurate solution from fine level */
+					for(k=kcs; k<=kce; k++){
+					for(j=jcs; j<=jce; j++){
+					for(i=ics; i<=ice; i++){
+						pG->U[k][j][i].Er = *(pRcv++);
+
+					}/* End i */
+					}/* End j */
+					}/* End k */
+
+
+					/* Flux at x1-face, for both the left and right hand side boundries */
+					/* AdvErFlx[0] includes all flux along x direction */
+					for(dim=0; dim<2; dim++){
+						if(pCO->AdvEr[dim]){
+							if(dim == 0){
+								/* The left side boundary */
+								i = ics;
+								flxdir = 1.0;
+								shift = -1;
+							}
+							if(dim == 1){
+								i = ice + 1;
+								flxdir = -1.0;	
+								shift = 0;
+							}
+							/* [i][j][k] stores the flux at left boundary */
+							for(k=kcs; k<=kce; k++){
+							for(j=jcs; j<=jce; j++){
+								/* As dt/dx is alread included in the flux, * 
+								 * We need to account for the change of cell size */
+								/* 0.5 is the ratio of cell size between parent and child grids */
+								pG->U[k][j][i+shift].Er -= flxdir * (pG->AdvErFlx[0][k][j][i] - 0.5 * (*(pRcv++)));
+	
+							}/* Finish j */
+							}/* Finish k */
+
+						}
+					}/* finish two interfaces at x boundary */
+
+					/* Flux at x2 - face, for both the left and right hand size */
+					/* AdvErFlx[1] includes all flux along y direction */
+					for(dim=2; dim<4; dim++){
+						if(pCO->AdvEr[dim]){
+							if(dim == 2){
+								/* The left side boundary */
+								j = jcs;
+								flxdir = 1.0;
+								shift = -1;
+							}
+							if(dim == 3){
+								j = jce + 1;
+								flxdir = -1.0;
+								shift  = 0;
+							}
+							/* [i][j][k] stores the flux at left boundary */
+							for(k=kcs; k<=kce; k++){
+							for(i=ics; i<=ice; i++){
+								/* As dt/dx is alread included in the flux, * 
+								 * We need to account for the change of cell size */
+								/* 0.5 is the ratio of cell size between parent and child grids */
+								pG->U[k][j+shift][i].Er -= flxdir * (pG->AdvErFlx[1][k][j][i] - 0.5 * (*(pRcv++)));	
+							}/* Finish j */
+							}/* Finish k */
+
+						}
+					}/* finish two interfaces at y boundary */
+
+					/* Flux at x3 - face, for both the left and right hand size */
+					/* AdvErFlx[2] includes all flux along z direction */
+					for(dim=4; dim<6; dim++){
+						if(pCO->AdvEr[dim]){
+							if(dim == 4){
+								/* The left side boundary */
+								k = kcs;
+								flxdir = 1.0;
+								shift = -1;
+							}
+							if(dim == 5){
+								k = kce + 1;
+								flxdir = -1.0;
+								shift = 0;
+							}
+							/* [i][j][k] stores the flux at left boundary */
+							for(j=jcs; j<=jce; j++){
+							for(i=ics; i<=ice; i++){
+								/* As dt/dx is alread included in the flux, * 
+								 * We need to account for the change of cell size */
+								/* 0.5 is the ratio of cell size between parent and child grids */
+								pG->U[k+shift][j][i].Er -= flxdir * (pG->AdvErFlx[2][k][j][i] - 0.5 * (*(pRcv++)));	
+							}/* Finish j */
+							}/* Finish k */
+
+						}
+					}/* finish two interfaces at y boundary */
+
+
+				}/* Finish all child grid */
+			}/* If this grid is not null */
+		}/* Finish all domain at this level */
+
+
+		/*------Now restrict the flux --------------------------------*/
+		for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+			if(pM->Domain[nl][nd].Grid != NULL){
+				pG = pM->Domain[nl][nd].Grid;
+				start_addr = 0;
+				for(npg=0; npg<(pG->NPGrid); npg++){
+					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
+					cnt = 0;
+					
+					ips = pPO->ijks[0];
+					ipe = pPO->ijke[0];
+      					jps = pPO->ijks[1];
+      					jpe = pPO->ijke[1];
+      					kps = pPO->ijks[2];
+      					kpe = pPO->ijke[2];
+
+					/* First the fine level solution */
+					pSnd = (double*)&(send_bufRC[nd][start_addr]);
+					for(k=kps; k<=kpe; k+=2){
+					for(j=jps; j<=jpe; j+=2){
+					for(i=ips; i<=ipe; i+=2){
+						*(pSnd++) = pG->U[k][j][i].Er + pG->U[k][j][i+1].Er;
+					}/* end i*/
+					}/* end j */
+					}/* end k */
+					
+					factor = 0.5;
+					count = (ipe-ips+1)/2;	
+
+					/* 2D and 3D problem */
+					if(nDim > 1){
+						pSnd = (double*)&(send_bufRC[nd][start_addr]);
+						for(k=kps; k<=kpe; k+=2){
+						for(j=jps; j<=jpe; j+=2){
+						for(i=ips; i<=ipe; i+=2){
+							*(pSnd++) += (pG->U[k][j+1][i].Er + pG->U[k][j+1][i+1].Er);
+						}/* end i*/
+						}/* end j */
+						}/* end k */
+
+						factor = 0.25;
+						count = (jpe-jps+1)*(ipe-ips+1)/4;
+					}/* End 2 or 3D problem */
+	
+					/* 3D problem */
+					if(nDim > 2){
+						pSnd = (double*)&(send_bufRC[nd][start_addr]);
+						for(k=kps; k<=kpe; k+=2){
+						for(j=jps; j<=jpe; j+=2){
+						for(i=ips; i<=ipe; i+=2){
+							*(pSnd++) += ((pG->U[k+1][j][i].Er + pG->U[k+1][j][i+1].Er)
+									+ (pG->U[k+1][j+1][i].Er + pG->U[k+1][j+1][i+1].Er));
+						}/* end i*/
+						}/* end j */
+						}/* end k */
+
+						factor = 0.125;
+						count = (jpe-jps+1)*(ipe-ips+1)*(kpe-kps+1)/8;
+					}
+					pSnd = (double*)&(send_bufRC[nd][start_addr]);
+
+					for(i=0; i<count; i++) (*(pSnd++)) *= factor;
+					cnt = count;
+
+					/*-----------Restrict fluxes at x1 faces --------------*/
+				
+
+					for(dim=0; dim<2; dim++){
+						if(pPO->AdvEr[dim]){	
+							/* restrcit the flux */
+							pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+							if(dim == 0)	i = ips;
+							if(dim == 1)	i = ipe+1;
+
+							if(nDim == 1){
+								j = jps;
+								k = kps;								
+								*(pSnd++) = pG->AdvErFlx[0][k][j][i];
+							}else{/* For 2D or 3D problem, average x2 direction for x1 flux */
+								for(k=kps; k<=kpe; k+=2){
+								for(j=jps; j<=jpe; j+=2){
+									*(pSnd++) = pG->AdvErFlx[0][k][j][i] + pG->AdvErFlx[0][k][j+1][i];
+								}/* End j */
+								}/* End k */
+
+
+								factor = 0.5;
+								nFlx = (jpe-jps+1)/2;
+
+								/* For 3D case, we need to rewrite the buffer */
+								if(nDim == 3){	
+									/* reset the pointer */
+									pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+									for(k=kps; k<=kpe; k+=2){
+									for(j=jps; j<=jpe; j+=2){
+										*(pSnd++) += (pG->AdvErFlx[0][k+1][j][i] + pG->AdvErFlx[0][k+1][j+1][i]);
+									}
+									}/* end k */
+
+									factor = 0.25;
+									nFlx = ((kpe-kps+1)*(jpe-jps+1)/4);
+
+								}/* End 3D case */
+								
+								/* for 2D and 3D case, multiple the normalization */
+								pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+								for(i=0; i<nFlx; i++)	*(pSnd++) *= factor;	
+
+							}/* End 2D or 3D */
+							cnt += nFlx;
+						}/* End if we need restrict this flux */
+					}/* ENd for dim 0 and 1 */
+
+					/*----------------------------------------------*/
+					/*------Average x2 Faces --------------------------*/
+					/*-----------Restrict fluxes at x2 faces --------------*/
+					for(dim=2; dim<4; dim++){
+						if(pPO->AdvEr[dim]){	
+							/* restrcit the flux */
+							pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+							if(dim == 2)	j = jps;
+							if(dim == 3)	j = jpe+1;
+
+							
+							for(k=kps; k<=kpe; k+=2){
+							for(i=ips; i<=ipe; i+=2){
+								*(pSnd++) = pG->AdvErFlx[1][k][j][i] + pG->AdvErFlx[1][k][j][i+1];
+							}/* End j */
+							}/* End k */
+
+
+							factor = 0.5;
+							nFlx = (ipe-ips+1)/2;
+
+							/* For 3D case, we need to rewrite the buffer */
+							if(nDim == 3){	
+								/* reset the pointer */
+								pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+								for(k=kps; k<=kpe; k+=2){
+								for(i=ips; i<=ipe; i+=2){
+									*(pSnd++) += (pG->AdvErFlx[1][k+1][j][i] + pG->AdvErFlx[1][k+1][j][i+1]);
+								}
+								}/* end k */
+
+								factor = 0.25;
+								nFlx = ((kpe-kps+1)*(ipe-ips+1)/4);
+
+							}/* End 3D case */
+								
+							/* for 2D and 3D case, multiple the normalization */
+							pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+							for(i=0; i<nFlx; i++)	*(pSnd++) *= factor;	
+
+							
+							cnt += nFlx;
+						}/* End if we need restrict this flux */
+					}/* ENd for dim 2 and 3 */
+
+					/*------------------------------------------------*/
+					/*------Average x3 Faces --------------------------*/
+
+					for(dim=4; dim<6; dim++){
+						if(pPO->AdvEr[dim]){	
+							/* restrcit the flux */
+							pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+							if(dim == 4)	k = kps;
+							if(dim == 5)	k = kpe+1;
+							
+							for(j=jps; j<=jpe; j+=2){
+							for(i=ips; i<=ipe; i+=2){
+								*(pSnd++) = pG->AdvErFlx[2][k][j][i] + pG->AdvErFlx[2][k][j][i+1];
+							}/* End j */
+							}/* End k */
+
+
+							/* For 3D case, we need to rewrite the buffer */
+
+							/* reset the pointer */
+							pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+							for(j=jps; j<=jpe; j+=2){
+							for(i=ips; i<=ipe; i+=2){
+								*(pSnd++) += (pG->AdvErFlx[2][k][j+1][i] + pG->AdvErFlx[2][k][j+1][i+1]);
+							}
+							}/* end k */
+
+							factor = 0.25;
+							nFlx = ((jpe-jps+1)*(ipe-ips+1)/4);
+							
+							/* for 2D and 3D case, multiple the normalization */
+							pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]);
+							for(i=0; i<nFlx; i++)	*(pSnd++) *= factor;	
+
+							
+							cnt += nFlx;
+						}/* End if we need restrict this flux */
+					}/* ENd for dim 2 and 3 */
+					
+					/*-------------------------------------------------*/
+					/* now send the data */
+#ifdef MPI_PARALLEL
+
+				/* non-blocking send with MPI, using Domain number as tag.  */
+
+      					if (npg >= pG->NmyPGrid){
+        					mIndex = npg - pG->NmyPGrid;
+        					ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].nWordsAdvEr,
+          					MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[nl][nd].Comm_Parent,
+          						&(send_rq[nd][mIndex]));
+      					}
+#endif /* MPI_PARALLEL */
+
+      						start_addr += pG->PGrid[npg].nWordsAdvEr;
+
+
+					/*--------------------------------------------------*/
+
+				}/* Loop over all parent grid  */
+			}/* If the CPU works in this grid */
+		}/* Loop all domains at this level */
+
+
+#ifdef MPI_PARALLEL
+/*--- Step 4. Check non-blocking sends completed. ----------------------------*/
+/* For MPI jobs, wait for all non-blocking sends in Step 3e to complete.  This
+ * is more efficient if there are multiple messages per Grid. */
+
+  		for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    			if (pM->Domain[nl][nd].Grid != NULL) {
+      				pG=pM->Domain[nl][nd].Grid;
+
+      				if (pG->NPGrid > pG->NmyPGrid) {
+        				mCount = pG->NPGrid - pG->NmyPGrid;
+        				ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+      				}
+    			}
+  		}
+#endif /* MPI_PARALLEL */
+
+
+	}/* Finish looping all levels */
+}
+
+
+void AdvErFlx_init(MeshS *pM)
+{
+
+	int nl, nd, sendRC, recvRC, npg, ncg, maxND;
+	int max_sendRC = 1, max_recvRC=1;
+	int maxCG=1;
+
+	GridS *pG;
+
+	maxND = 1;
+
+	for (nl=0; nl<(pM->NLevels); nl++) maxND=MAX(maxND,pM->DomainsPerLevel[nl]);
+  	
+	
+	/* Loop over all grids to find maximum number of words for communication */
+	for(nl=0; nl<(pM->NLevels); nl++){
+		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+			sendRC = 0;
+			recvRC = 0;
+			if((pM->Domain[nl][nd].Grid) != NULL){
+				pG = pM->Domain[nl][nd].Grid;
+				for(npg=0; npg<pG->NPGrid; npg++)	sendRC += pG->PGrid[npg].nWordsAdvEr;
+				for(ncg=0; ncg<pG->NCGrid; ncg++)	recvRC += pG->CGrid[ncg].nWordsAdvEr;
+				
+				max_sendRC = MAX(max_sendRC, sendRC);
+				max_recvRC = MAX(max_recvRC, recvRC);
+
+				
+				maxCG = MAX(maxCG, pG->NCGrid);
+
+			}/* End Grid is NULL */
+		}/* ENd nd */
+	}/* End nl */
+
+
+
+	/*===== Allocate the memory ==========*/
+		if((send_bufRC =
+    			(double**)calloc_2d_array(maxND,max_sendRC,sizeof(double))) == NULL)
+    				ath_error("[AdvEr_init]:Failed to allocate send_bufRC\n");
+
+#ifdef MPI_PARALLEL
+  		if((recv_bufRC =
+    			(double***)calloc_3d_array(2,maxND,max_recvRC,sizeof(double))) == NULL)
+    				ath_error("[AdvEr_init]: Failed to allocate recv_bufRC\n");
+  		if((recv_rq = (MPI_Request***)
+    			calloc_3d_array(pM->NLevels,maxND,maxCG,sizeof(MPI_Request))) == NULL)
+    			ath_error("[AdvEr_init]: Failed to allocate recv MPI_Request array\n");
+  		if((send_rq = (MPI_Request**)
+    			calloc_2d_array(maxND,maxCG,sizeof(MPI_Request))) == NULL)
+    			ath_error("[AdvEr_init]: Failed to allocate send MPI_Request array\n");
+#endif /* MPI_PARALLEL */
+
+
+
+
+}
+
+
+void AdvErFlx_destruct()
+{
+
+
+	
+	if(send_bufRC != NULL){
+		free_2d_array(send_bufRC);
+		send_bufRC = NULL;
+	}
+
+#ifdef MPI_PARALLEL	
+	if(recv_bufRC != NULL){
+		free_3d_array(recv_bufRC);
+		recv_bufRC = NULL;
+	}	
+
+	if(recv_rq != NULL){
+		free_3d_array(recv_rq);
+		recv_rq = NULL;
+	}
+
+	if(send_rq != NULL){
+		free_2d_array(send_rq);
+		send_rq = NULL;
+	}
+
+#endif /* MPI_PARALLEL */
+
+}
+
+
+#endif /* End STATIC MESH REFINEMENT */
+
+
+
+
 
 
 

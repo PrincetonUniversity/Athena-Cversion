@@ -506,7 +506,7 @@ void BackEuler_3d(MeshS *pM)
 	
 
 	Real temperature, velocity_x, velocity_y, velocity_z, pressure, T4, Fr0x, Fr0y, Fr0z, density;
-	Real AdvFx, AdvFy, AdvFz;
+	Real AdvFx[2], AdvFy[2], AdvFz[2];
 	Real tempEr3, tempEr2, tempEr1;
 	Real tempFr3, tempFr2, tempFr1;
 	Real temp0;
@@ -685,8 +685,8 @@ void BackEuler_3d(MeshS *pM)
 		/*-----------------------------*/	
 		/* Tguess is now the energy source term, which should be added */
 		/* calculate the advection term */
-		Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
-    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz) + pG->Comp[k][j][i];
+		Rad_Advection_Flux3D(pD, i, j, k, 1.0, AdvFx, AdvFy, AdvFz);
+    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]) + (AdvFz[1] - AdvFz[0])) + pG->Comp[k][j][i];
 			
 		if(bgflag){
 			tempEr3 = theta[0] * pG->U[k-1][j][i].Er + theta[14] * pG->U[k+1][j][i].Er;

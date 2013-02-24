@@ -124,7 +124,7 @@ void BackEuler_1d(MeshS *pM)
 
 	Real velocity_x, T4, Fr0x;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, temperature;
-	Real AdvFx;
+	Real AdvFx[2];
 	Real Sigma[NOPACITY];
 	
 
@@ -194,9 +194,9 @@ void BackEuler_1d(MeshS *pM)
 		/* Now set the right hand side */
 				
 
-				Rad_Advection_Flux1D(pD, i, js, ks, 1.0, &AdvFx);
+				Rad_Advection_Flux1D(pD, i, js, ks, 1.0, AdvFx);
 
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + AdvFx;
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][js][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + (AdvFx[1] - AdvFx[0]);
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][js][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[ks][js][i] * velocity_x / Crat;
 	
 				

@@ -40,6 +40,9 @@ VMFun_t BackEuler_init(MeshS *pM)
 #endif
 #endif
 
+#ifdef STATIC_MESH_REFINEMENT
+  AdvErFlx_init(pM);	
+#endif
 
 /* set function pointer to appropriate integrator based on dimensions */
   switch(dim){
@@ -76,6 +79,14 @@ VMFun_t BackEuler_init(MeshS *pM)
 
 void BackEuler_destruct(MeshS *pM)
 {
+
+#ifdef STATIC_MESH_REFINEMENT
+
+	AdvErFlx_destruct();
+#endif
+
+
+
 
 #ifdef SHEARING_BOX
 #ifdef RADFARGO

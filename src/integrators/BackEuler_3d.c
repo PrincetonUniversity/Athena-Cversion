@@ -152,7 +152,7 @@ void BackEuler_3d(MeshS *pM)
 
 	Real velocity_x, velocity_y, velocity_z, T4, Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, temperature;
 	Real Fr0x, Fr0y, Fr0z;
-	Real AdvFx, AdvFy, AdvFz;
+	Real AdvFx[2], AdvFy[2], AdvFz[2];
 
 	/*Sigma_aF: flux mean absorption, Sigma_aP: Plank mean absorption, Sigma_aE: Er mean absorption opacity;*/
 	Real Sigma[NOPACITY];
@@ -255,9 +255,9 @@ void BackEuler_3d(MeshS *pM)
 				
 
 		/* Now set the right hand side */
-				Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
+				Rad_Advection_Flux3D(pD, i, j, k, 1.0, AdvFx, AdvFy, AdvFz);
 						
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz) + pG->Comp[k][j][i];
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]) + (AdvFz[1] - AdvFz[0])) + pG->Comp[k][j][i];
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[k][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_x / Crat;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[k][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_y / Crat;
 				pMat->RHS[Matk][Matj][Mati][3] = pG->U[k][j][i].Fr3 + Eratio * dt * Sigma_aP * T4 * velocity_z + (1.0 - Eratio) * pG->Ersource[k][j][i] * velocity_z / Crat;	

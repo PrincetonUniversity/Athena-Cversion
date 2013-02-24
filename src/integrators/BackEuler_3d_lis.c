@@ -487,7 +487,7 @@ void BackEuler_3d(MeshS *pM)
 	/* count is the number of total non-zeros before that row */
 	/* count_Grids is the total number of lines before this Grids, which depends on the relative position of this grid */
 	Real temperature, velocity_x, velocity_y, velocity_z, pressure, T4, Fr0x, Fr0y, Fr0z, density;
-	Real AdvFx, AdvFy, AdvFz;
+	Real AdvFx[2], AdvFy[2], AdvFz[2];
 	
 		
 	
@@ -647,9 +647,9 @@ void BackEuler_3d(MeshS *pM)
 		/*-----------------------------*/	
 		/* index of the vector should be the global vector, not the partial vector */	
 		/* first, calculate the advection flux */		
-		Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
+		Rad_Advection_Flux3D(pD, i, j, k, 1.0, AdvFx, AdvFy, AdvFz);
 
-    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + (AdvFx + AdvFy + AdvFz) + pG->Comp[k][j][i];
+    		tempvalue   = pG->U[k][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio + (1.0 - Eratio) * pG->Ersource[k][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]) + (AdvFz[1] - AdvFz[0])) + pG->Comp[k][j][i];
 /*
 	/* This is added after gas integrator */
 /*

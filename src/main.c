@@ -672,6 +672,7 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
+
 	GetTguess(&Mesh);	
 
 
@@ -709,6 +710,7 @@ int main(int argc, char *argv[])
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
+/* For radiation part, the Advection flux is also restricted and corrected during this step */
 
 #ifdef STATIC_MESH_REFINEMENT
     RestrictCorrect(&Mesh);
@@ -734,9 +736,16 @@ int main(int argc, char *argv[])
 	
 
 #ifdef STATIC_MESH_REFINEMENT
-    Prolongate(&Mesh);
+	/* update ghost zones for gas quantities */
+    	Prolongate(&Mesh);
+
+	/* The advective radiation energy density is calculated at this step */
+	/* Advection energy density for one ghost zones is also calculated here */
+	AdvErFlx_pre(&Mesh);
+
 #endif
-	
+	/* We do gas quantities first and then Backward Euler step */
+	/* Because we put fargo advection steps together */
 	(*BackEuler)(&Mesh);
 	
 #endif /* End radiation hydro or radiation mhd */

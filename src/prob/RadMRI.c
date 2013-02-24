@@ -1460,9 +1460,9 @@ void Userwork_in_loop(MeshS *pM)
                          velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
 
                          Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
-
+#if defined(MHD) || defined(RADIATION_MHD)
                          Bpre = 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
-
+#endif
 			 if(Wtemp.P < 2.0 * TINY_NUMBER){
 				if(pG->U[k][j][i].d < dfloor){
 					 Wtemp.P = dfloor * R_ideal * Tfloor;
@@ -3208,26 +3208,31 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 
 
 
+
 /*! \fn static void output_1d(MeshS *pM, OutputS *pOut)
  *  \brief output routine to calculate 1D horizontally
-    averaged quantities.  Currently, only outputs at lowest
-    refinement level */
+    averaged quantities.
+    Extend to the SMR case. calculate Vertical average for each level */
 
 static void output_1d(MeshS *pM, OutputS *pOut)
 {
-  GridS *pGrid;
-  DomainS *pD;
-  int i,j,k;
-  int tot1d,i1d,nzmx,my_nz,kg,kdisp;
-  int dnum = pOut->num,nl,nd;
-  static int FIRST = 0;
+ int nl, nd;
+ 
+ FILE *p_1dfile;
+ char *fname, *plev=NULL, *pdom=NULL;
+ char levstr[8], domstr[8];
+ int big_end = ath_big_endian();
+ 
+ int i,j,k;
+ int tot1d,i1d,nzmx,my_nz,kg,kdispG,kdispD;
+ int dnum = pOut->num;
+
   double darea,**out1d;
   double x1,x2,x3,Lx,Ly,press, press1, press3, Bpre1, Bpre3;
-  static double *out_x3;
+  double *out_x3;
   double vx, vy, vz, Fr01,Fr02,Fr03;
 
-  FILE *p_1dfile;
-  char *fname;
+
   double area_rat; /* (Grid Volume)/(dx1*dx2*dx3) */
 
 #ifdef MPI_PARALLEL
@@ -3235,338 +3240,401 @@ static void output_1d(MeshS *pM, OutputS *pOut)
   double *g_out1d;
   int zproc;
   int ierr,myID_Comm_Domain;
+  int nproc;
 #endif
 
-/* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap, fxx, fyy, fzz, fxy, fxz, fyz */
+ /* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap, fxx, fyy, fzz, fxy, fxz, fyz */
 
 #if defined(MHD) || defined(RADIATION_MHD)
   tot1d=15+6+5+1+1+6;
+#elif defined(RADIATION_HYDRO)
+  tot1d=7+6+5+6;
 #else
-  tot1d=7+6+5+1+1+6;
+  tot1d=7+6+5+1+1+6; 
 #endif /* MHD */
 #ifdef ADIABATIC
   tot1d=tot1d+3+1+1;
 #endif /* ADIABATIC */
 
-  Lx = pM->RootMaxX[0] - pM->RootMinX[0];
-  Ly = pM->RootMaxX[1] - pM->RootMinX[1];
-  nzmx = pM->Nx[2];
 
-/* At level=0, there is only one domain */
+  
+  int is, ie, js, je, ks, ke;
+/* Loop over all Domain and level */
 
-  pGrid = pM->Domain[0][0].Grid;
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks, ke = pGrid->ke;
-  pD = (DomainS*)&(pM->Domain[0][0]);
+  DomainS *pD;
+  GridS *pGrid;
+
+ for(nl=0; nl<(pM->NLevels); nl++){
+	for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+		if(pM->Domain[nl][nd].Grid != NULL){
+
+		if ((pOut->nlevel == -1 || pOut->nlevel == nl) &&
+          		(pOut->ndomain == -1 || pOut->ndomain == nd)){
+
+			pD = &(pM->Domain[nl][nd]);
+ 			pGrid = pD->Grid;
+
+			/* Size of this domain, which will be used to calculate the */
+			/* horizontal area of this domain */
+			Lx = pD->MaxX[0] - pD->MinX[0];
+  			Ly = pD->MaxX[1] - pD->MinX[1];
+			/* total number of vertical grid zones for this Domain only */			
+			nzmx = pD->Nx[2]; 
+
+
+			/* index of this grid */
+			is = pGrid->is; 
+			ie = pGrid->ie;
+			js = pGrid->js;
+			je = pGrid->je;
+			ks = pGrid->ks;
+			ke = pGrid->ke;
 
 #ifdef MPI_PARALLEL
-  int nproc = pD->NGrid[0]*pD->NGrid[1]*pD->NGrid[2];
+  			nproc = pD->NGrid[0]*pD->NGrid[1]*pD->NGrid[2];
 #endif
 
 #ifdef MPI_PARALLEL
-  ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
-  if(ierr != MPI_SUCCESS)
-    ath_error("[change_rundir]: MPI_Comm_rank error = %d\n",ierr);
+  			ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
+  			if(ierr != MPI_SUCCESS)
+    				ath_error("[change_rundir]: MPI_Comm_rank error = %d\n",ierr);
 #endif
-  if (FIRST == 0){
+  			/* We need to do it every time as it can be different for each domain at each level */
 #ifdef MPI_PARALLEL
-    if (myID_Comm_Domain == 0) {
+    			if (myID_Comm_Domain == 0) {
 #endif
-      out_x3 = (double *) calloc_1d_array(nzmx,sizeof(double));
+      				out_x3 = (double *) calloc_1d_array(nzmx,sizeof(double));
 #ifdef MPI_PARALLEL
-    }
+    			}/* End myID */
 #endif
-  }
+  			
 
-  out1d = (double **) calloc_2d_array(nzmx,tot1d,sizeof(double));
+  			out1d = (double **) calloc_2d_array(nzmx,tot1d,sizeof(double));
 #ifdef MPI_PARALLEL
-  my_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
-  g_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
+  			my_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
+  			g_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
 #endif
-  for (k=0; k<nzmx; k++) {
-    for (i1d=0; i1d<tot1d; i1d++) {
-      out1d[k][i1d] = 0.0;
-    }
-  }
-  kdisp=pGrid->Disp[2];
+  			for (k=0; k<nzmx; k++) {
+    				for (i1d=0; i1d<tot1d; i1d++) {
+      					out1d[k][i1d] = 0.0;
+    				}
+  			}
+  			
+			kdispD = pD->Disp[2];
+			kdispG = pGrid->Disp[2];
 
 /* First calculate the x3 coordinate and save it to be dumped
    by root in every 1d file */
-  if (FIRST == 0) {
+  			
 #ifdef MPI_PARALLEL
-  if (myID_Comm_Domain == 0) {
+  			if (myID_Comm_Domain == 0) {
 #endif
-    for (k=0; k<nzmx; k++) {
-      x3 = pM->RootMinX[2] + (k + 0.5)*pGrid->dx3;
-      out_x3[k] = x3;
-    }
+    				for (k=0; k<nzmx; k++) {
+					/* Vertical coordinate for this whole domain */
+      					x3 = pD->MinX[2] + (k + 0.5)*pGrid->dx3;
+      					out_x3[k] = x3;
+    				}
 #ifdef MPI_PARALLEL
-  }
+  			}/* End my ID */
 #endif
-  }
-
-/* Compute 1d averaged variables */
-  for (k=ks; k<=ke; k++) {
-    kg=k+kdisp-nghost;
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        i1d=0;
-        out1d[kg][i1d] += pGrid->U[k][j][i].d;
-        i1d++;
+  			
+			/* Compute 1d averaged variables */
+			/* The kg variable should be calculated with respect to the edge of this domain */ 
+  			for (k=ks; k<=ke; k++) {
+    				kg=k+kdispG-kdispD-nghost;
+    				for (j=js; j<=je; j++) {
+      					for (i=is; i<=ie; i++) {
+        					i1d=0;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].d;
+        					i1d++;
 #ifdef ISOTHERMAL
-        out1d[kg][i1d] += pGrid->U[k][j][i].d*Iso_csound2;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].d*Iso_csound2;
 #else
-        press           = MAX(Gamma_1*(pGrid->U[k][j][i].E - expr_KE(pGrid,i,j,k)
+        					press           = MAX(Gamma_1*(pGrid->U[k][j][i].E - expr_KE(pGrid,i,j,k)
 #if defined(MHD) || defined(RADIATION_MHD)
-                                 - expr_ME(pGrid,i,j,k)
+                                 				- expr_ME(pGrid,i,j,k)
 #endif
-                                ),TINY_NUMBER);
-        out1d[kg][i1d] += press;
+                                				),TINY_NUMBER);
+        					out1d[kg][i1d] += press;
 #endif
 #ifdef ADIABATIC
-        i1d++;
-        out1d[kg][i1d] += press/(R_ideal * pGrid->U[k][j][i].d);
-        i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].E;
-        i1d++;
-        out1d[kg][i1d] += hst_E_total(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += press/(R_ideal * pGrid->U[k][j][i].d);
+        					i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].E;
+        					i1d++;
+        					out1d[kg][i1d] += hst_E_total(pGrid,i,j,k);
 #endif
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-        i1d++;
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
+        					i1d++;
+        					cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 #ifdef FARGO
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
 #else
-        out1d[kg][i1d] += 0.5*pGrid->U[k][j][i].d*SQR(pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d + qshear*Omega_0*x1);
+        					out1d[kg][i1d] += 0.5*pGrid->U[k][j][i].d*SQR(pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d 
+									+ qshear*Omega_0*x1);
 #endif
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
-        i1d++;
-        out1d[kg][i1d] += expr_KE(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_rho_Vx_dVy(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
+        					i1d++;
+        					out1d[kg][i1d] += expr_KE(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_rho_Vx_dVy(pGrid,i,j,k);
 #if defined(MHD) || defined(RADIATION_MHD)
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B1c);
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B2c);
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B3c);
-        i1d++;
-        out1d[kg][i1d] += expr_ME(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_Bx(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_By(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_Bz(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_BxBy(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B1c);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B2c);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B3c);
+        					i1d++;
+        					out1d[kg][i1d] += expr_ME(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_Bx(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_By(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_Bz(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_BxBy(pGrid,i,j,k);
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Er;
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Fr1;
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Fr2;
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Fr3;
-	i1d++;
-	vx = pGrid->U[k][j][i].M1 / pGrid->U[k][j][i].d;
-	vy = pGrid->U[k][j][i].M2 / pGrid->U[k][j][i].d;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Er;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Fr1;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Fr2;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Fr3;
+						i1d++;
+						vx = pGrid->U[k][j][i].M1 / pGrid->U[k][j][i].d;
+						vy = pGrid->U[k][j][i].M2 / pGrid->U[k][j][i].d;
 #ifdef FARGO
-	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-	vy -= qshear * Omega_0 * x1;
+						cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+						vy -= qshear * Omega_0 * x1;
 #endif
-	vz = pGrid->U[k][j][i].M3 / pGrid->U[k][j][i].d;
+						vz = pGrid->U[k][j][i].M3 / pGrid->U[k][j][i].d;
 
 
-	Fr02 = pGrid->U[k][j][i].Fr3 -(vz * (1.0 + pGrid->U[k][j][i].Edd_33) + vx * pGrid->U[k][j][i].Edd_31 + vy * pGrid->U[k][j][i].Edd_32) * pGrid->U[k][j][i].Er/Crat;
+						Fr02 = pGrid->U[k][j][i].Fr3 -(vz * (1.0 + pGrid->U[k][j][i].Edd_33) + vx * pGrid->U[k][j][i].Edd_31 + vy * pGrid->U[k][j][i].Edd_32) * pGrid->U[k][j][i].Er/Crat;
 
-	out1d[kg][i1d] += Fr02;
-	i1d++;
+						out1d[kg][i1d] += Fr02;
+						i1d++;
 
-	/* dFr0/dz */
-	vx = pGrid->U[k-1][j][i].M1 / pGrid->U[k-1][j][i].d;
-	vy = pGrid->U[k-1][j][i].M2 / pGrid->U[k-1][j][i].d;
+						/* dFr0/dz */
+						vx = pGrid->U[k-1][j][i].M1 / pGrid->U[k-1][j][i].d;
+						vy = pGrid->U[k-1][j][i].M2 / pGrid->U[k-1][j][i].d;
 #ifdef FARGO
-	vy -= qshear * Omega_0 * x1;
+						vy -= qshear * Omega_0 * x1;
 #endif
-	vz = pGrid->U[k-1][j][i].M3 / pGrid->U[k-1][j][i].d;
-	Fr01 = pGrid->U[k-1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k-1][j][i].Edd_33) + vx * pGrid->U[k-1][j][i].Edd_31 + vy * pGrid->U[k-1][j][i].Edd_32) * pGrid->U[k-1][j][i].Er/Crat;
+						vz = pGrid->U[k-1][j][i].M3 / pGrid->U[k-1][j][i].d;
+						Fr01 = pGrid->U[k-1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k-1][j][i].Edd_33) 
+						+ vx * pGrid->U[k-1][j][i].Edd_31 + vy * pGrid->U[k-1][j][i].Edd_32) * pGrid->U[k-1][j][i].Er/Crat;
 
-	vx = pGrid->U[k+1][j][i].M1 / pGrid->U[k+1][j][i].d;
-	vy = pGrid->U[k+1][j][i].M2 / pGrid->U[k+1][j][i].d;
+						vx = pGrid->U[k+1][j][i].M1 / pGrid->U[k+1][j][i].d;
+						vy = pGrid->U[k+1][j][i].M2 / pGrid->U[k+1][j][i].d;
 #ifdef FARGO
-	vy -= qshear * Omega_0 * x1;
+						vy -= qshear * Omega_0 * x1;
 #endif
-	vz = pGrid->U[k+1][j][i].M3 / pGrid->U[k+1][j][i].d;
-	Fr03 = pGrid->U[k+1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k+1][j][i].Edd_33) + vx * pGrid->U[k+1][j][i].Edd_31 + vy * pGrid->U[k+1][j][i].Edd_32) * pGrid->U[k+1][j][i].Er/Crat;
-	out1d[kg][i1d] += (Fr03 - Fr01) * 0.5 / pGrid->dx3;
-	i1d++;
+						vz = pGrid->U[k+1][j][i].M3 / pGrid->U[k+1][j][i].d;
+						Fr03 = pGrid->U[k+1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k+1][j][i].Edd_33) + vx * pGrid->U[k+1][j][i].Edd_31 + vy * pGrid->U[k+1][j][i].Edd_32) * pGrid->U[k+1][j][i].Er/Crat;
+						out1d[kg][i1d] += (Fr03 - Fr01) * 0.5 / pGrid->dx3;
+						i1d++;
 	
-	/* Er * vz */
-	out1d[kg][i1d] += pGrid->U[k][j][i].Er * pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d;
-	i1d++;
+						/* Er * vz */
+						out1d[kg][i1d] += pGrid->U[k][j][i].Er * pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d;
+						i1d++;
 
-	/* dPg/dz / rho */
-	press1           = MAX(Gamma_1*(pGrid->U[k-1][j][i].E - expr_KE(pGrid,i,j,k-1)
+						/* dPg/dz / rho */
+						press1           = MAX(Gamma_1*(pGrid->U[k-1][j][i].E - expr_KE(pGrid,i,j,k-1)
 #if defined(MHD) || defined(RADIATION_MHD)
-                                 - expr_ME(pGrid,i,j,k-1)
+                                 					- expr_ME(pGrid,i,j,k-1)
 #endif
-                                ),TINY_NUMBER);
-	press3           = MAX(Gamma_1*(pGrid->U[k+1][j][i].E - expr_KE(pGrid,i,j,k+1)
+                                				),TINY_NUMBER);
+						press3           = MAX(Gamma_1*(pGrid->U[k+1][j][i].E - expr_KE(pGrid,i,j,k+1)
 #if defined(MHD) || defined(RADIATION_MHD)
-                                 - expr_ME(pGrid,i,j,k+1)
+                                 				- expr_ME(pGrid,i,j,k+1)
 #endif
-                                ),TINY_NUMBER);
-	out1d[kg][i1d] += (press3 - press1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
-	i1d++;
-
-	/* dBpre/dz / rho */
-	Bpre1 = expr_ME(pGrid,i,j,k-1);
-	Bpre3 = expr_ME(pGrid,i,j,k+1);
-	out1d[kg][i1d] += (Bpre3 - Bpre1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
-	i1d++;
-
-        out1d[kg][i1d] += hst_sigmas(pGrid,i,j,k);
-	i1d++;
-        out1d[kg][i1d] += hst_sigmaaP(pGrid,i,j,k);
-	/* dPrdz/sigm */
-	i1d++;
-	out1d[kg][i1d] += (pGrid->U[k+1][j][i].Er * pGrid->U[k+1][j][i].Edd_33 - pGrid->U[k-1][j][i].Er * pGrid->U[k-1][j][i].Edd_33) / (2.0* pGrid->dx3 * (pGrid->U[k][j][i].Sigma[0] + pGrid->U[k][j][i].Sigma[1]));
-
-	/* sqrt(B^2/rho) */
-	i1d++;
-	Bpre1 = expr_ME(pGrid,i,j,k);
-	out1d[kg][i1d] += sqrt(2.0 * Bpre1 / pGrid->U[k][j][i].d);
+                                				),TINY_NUMBER);
+						out1d[kg][i1d] += (press3 - press1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
+						i1d++;
+#if defined(MHD) || defined(RADIATION_MHD)
+						/* dBpre/dz / rho */
+						Bpre1 = expr_ME(pGrid,i,j,k-1);
+						Bpre3 = expr_ME(pGrid,i,j,k+1);
+						out1d[kg][i1d] += (Bpre3 - Bpre1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
+						i1d++;
 #endif
-	/* Eddington tensor */
-	i1d++;
-	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_11;
-	i1d++;
-	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_22;
-	i1d++;
-	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_33;
-	i1d++;
-	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_21;
-	i1d++;
-	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_31;
-	i1d++;
-	out1d[kg][i1d] += pGrid->U[k][j][i].Edd_32;
+        					out1d[kg][i1d] += hst_sigmas(pGrid,i,j,k);
+						i1d++;
+        					out1d[kg][i1d] += hst_sigmaaP(pGrid,i,j,k);
+						/* dPrdz/sigm */
+						i1d++;
+						out1d[kg][i1d] += (pGrid->U[k+1][j][i].Er * pGrid->U[k+1][j][i].Edd_33 - pGrid->U[k-1][j][i].Er * pGrid->U[k-1][j][i].Edd_33) / (2.0* pGrid->dx3 * (pGrid->U[k][j][i].Sigma[0] + pGrid->U[k][j][i].Sigma[1]));
+#if defined(MHD) || defined(RADIATION_MHD)
+						/* sqrt(B^2/rho) */
+						i1d++;
+						Bpre1 = expr_ME(pGrid,i,j,k);
+						out1d[kg][i1d] += sqrt(2.0 * Bpre1 / pGrid->U[k][j][i].d);
+#endif
+#endif
+						/* Eddington tensor */
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_11;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_22;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_33;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_21;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_31;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_32;
 	
 
-      }
-    }
-  }
+      					}/* end i */
+    				}/* end j */
+  			}/* end k*/
 
   /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
-  area_rat = Lx*Ly/(pGrid->dx1*pGrid->dx2);
+  			area_rat = Lx*Ly/(pGrid->dx1*pGrid->dx2);
 
 /* The parent sums the scal[] array.
  * Note that this assumes (dx1,dx2,dx3) = const. */
 
 #ifdef MPI_PARALLEL 
-  for(i1d=0; i1d<tot1d; i1d++){
-    for (k=0; k<nzmx; k++) {
-      my_out1d[k] = out1d[k][i1d];
-    }
-    ierr = MPI_Reduce(my_out1d, g_out1d, nzmx,
-                      MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
-    if(ierr)
-      ath_error("[output_1d]: MPI_Reduce call returned error = %d\n",ierr);
-    for (k=0; k<nzmx; k++) {
-      out1d[k][i1d] = g_out1d[k];
-    }
-  }
+  			for(i1d=0; i1d<tot1d; i1d++){
+    				for (k=0; k<nzmx; k++) {
+      					my_out1d[k] = out1d[k][i1d];
+    			}
+    				ierr = MPI_Reduce(my_out1d, g_out1d, nzmx,
+                      			MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
+    				if(ierr)
+      					ath_error("[output_1d]: MPI_Reduce call returned error = %d\n",ierr);
+    				for (k=0; k<nzmx; k++) {
+      					out1d[k][i1d] = g_out1d[k];
+    				}
+  			}
 #endif
 
 /* For parallel calculations, only the parent computes the average
  * and writes the output. */
 #ifdef MPI_PARALLEL
-  if(myID_Comm_Domain == 0){ /* I'm the parent */
+  			if(myID_Comm_Domain == 0){ /* I'm the parent */
 #endif
 
-  darea = 1.0/(double)area_rat;
-  for (k=0; k<nzmx; k++) {
-    for (i1d=0; i1d<tot1d; i1d++) {
-      out1d[k][i1d] *= darea;
-    }
-  }
+  				darea = 1.0/(double)area_rat;
+  				for (k=0; k<nzmx; k++) {
+    					for (i1d=0; i1d<tot1d; i1d++) {
+      						out1d[k][i1d] *= darea;
+    					}
+  				}
 
 /* Generate filename */
-#ifdef MPI_PARALLEL
-  fname = ath_fname("../",pM->outfilename,NULL,NULL,num_digit,dnum,NULL,"1d");
-#else
-  fname = ath_fname(NULL,pM->outfilename,NULL,NULL,num_digit,dnum,NULL,"1d");
-#endif
-  if (fname == NULL) {
-    ath_error("[output_1d]: Error constructing output filename\n");
-    return;
-  }
+/* Adopt the way file name is generated from output_vtk_3d */
+			if(nl > 0){
+				plev = &levstr[0];
+				sprintf(plev,"lev%d",nl);
+			}
+			if(nd > 0){
+				pdom = &domstr[0];
+				sprintf(pdom,"dom%d",nd);
+			}
+
+
+
+
+			if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,
+      					dnum,NULL,"1d")) == NULL){
+    				ath_error("[output_1d]: Error constructing filename\n");
+  			}
+
+
 
 /* open filename */
-  p_1dfile = fopen(fname,"w");
-  if (p_1dfile == NULL) {
-    ath_error("[output_1d]: Unable to open 1d average file %s\n",fname);
-    return;
-  }
+  			p_1dfile = fopen(fname,"w");
+  			if (p_1dfile == NULL) {
+    				ath_error("[output_1d]: Unable to open 1d average file %s\n",fname);
+    				return;
+  			}
 
 /* Write out data */
 
-  for (k=0; k<nzmx; k++) {
+  			for (k=0; k<nzmx; k++) {
 #ifdef ISOTHERMAL
 #ifdef MHD
-    if (k == 0) {
-      fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds    MEx         MEy         MEz         ME          Bx           By           Bz          Maxwell\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
-            out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
-            out1d[k][12],out1d[k][13],out1d[k][14]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds    MEx         MEy         MEz         ME          Bx           By           Bz          Maxwell\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+            			out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
+            			out1d[k][12],out1d[k][13],out1d[k][14]);
 #else
-    if (k == 0) {
-      fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
-            out1d[k][5],out1d[k][6]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
+            				out1d[k][5],out1d[k][6]);
 #endif /* MHD */
-#else
+#else /* else isothermal */
 #ifdef RADIATION_MHD
-    if (k == 0) {
-      fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma		[32]2B^2/d	[33]f_xx	[34]f_yy	[35]f_zz	[36]f_xy	[37]f_xz	[38]f_yz\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
-            out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
-            out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29],out1d[k][30],out1d[k][31],out1d[k][32],out1d[k][33],out1d[k][34],out1d[k][35],out1d[k][36]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma		[32]2B^2/d	[33]f_xx	[34]f_yy	[35]f_zz	[36]f_xy	[37]f_xz	[38]f_yz\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+            			out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
+            			out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29],out1d[k][30],out1d[k][31],out1d[k][32],out1d[k][33],out1d[k][34],out1d[k][35],out1d[k][36]);
+#elif defined(RADIATION_HYDRO) 
+				if (k == 0) {
+      					fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds		[12]Er      [13]Frx      [14]Fry       [15]Frz     [16]Frz0	[17]dFr0dz	[18]ErV		[19]dP/dz/rho	[20]kappaes          [21]kappaff	[22]dPrdz/sigma		[23]f_xx	[24]f_yy	[25]f_zz	[26]f_xy	[27]f_xz	[28]f_yz\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+            			out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26]);
+
 #else
-    if (k == 0) {
-      fprintf(p_1dfile,"# x3     dens    pressure    temperature  E     Etot     KEx         KEy         KEz         KE          Reynolds\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
-            out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# x3     dens    pressure    temperature  E     Etot     KEx         KEy         KEz         KE          Reynolds\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
+            			out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9]);
 #endif /* RADIATION_MHD */
 #endif /* ISOTHERMAL */
   }
 
-  fclose(p_1dfile);
-  free(fname);
+  				fclose(p_1dfile);
+  				free(fname);
 #ifdef MPI_PARALLEL
-  }
+  			}/* End write 1D files */
 #endif
 
-  free_2d_array(out1d); /* Free the memory we malloc'd */
+			/* These temporary arrays are generated for each level and each domain */
+  			free_2d_array(out1d); /* Free the memory we malloc'd */
 #ifdef MPI_PARALLEL
-  free_1d_array(my_out1d); /* Free the memory we malloc'd */
-  free_1d_array(g_out1d); /* Free the memory we malloc'd */
+  			free_1d_array(my_out1d); /* Free the memory we malloc'd */
+  			free_1d_array(g_out1d); /* Free the memory we malloc'd */
 #endif
-  if (FIRST == 0) {
-    FIRST = 1;
-  }
+ 
+			  			/* We need to do it every time as it can be different for each domain at each level */
+#ifdef MPI_PARALLEL
+    			if (myID_Comm_Domain == 0) {
+#endif
+				/* only need to free it for myID == 0 */
+      				free_1d_array(out_x3);
+#ifdef MPI_PARALLEL
+    			}/* End myID */
+#endif
+  	
 
+		}/* End if level and domain match for this domain */
+		}/* End if this CPU works on this domain */
+	} /* End loop over domains at level nl */
+ }/* end loop all levels */
+
+	
 
 return;
 }
@@ -3575,25 +3643,28 @@ return;
 
 /*! \fn static void output_1dx(MeshS *pM, OutputS *pOut)
  *  \brief output routine to calculate 1D horizontally
-    averaged quantities.  Currently, only outputs at lowest
-    refinement level */
+    averaged quantities.
+    Extend to the SMR case. calculate Vertical average for each level */
 
 static void output_1dx(MeshS *pM, OutputS *pOut)
 {
-  GridS *pGrid;
-  DomainS *pD;
-  int i,j,k;
-  int tot1d,i1d,nzmx,my_nz,kg,kdisp;
-  int dnum = pOut->num,nl,nd;
-  static int FIRST = 0;
-  double darea,**out1d;
-  double x1,x2,x3,Lx,Ly,Lz,press, press1, press3, Bpre1, Bpre3;
-  static double *out_x3;
-  double vx, vy, vz, Fr01,Fr02,Fr03;
-  int flag;
+ int nl, nd;
+ 
+ FILE *p_1dfile;
+ char *fname, *plev=NULL, *pdom=NULL;
+ char levstr[8], domstr[8];
+ int big_end = ath_big_endian();
+ 
+ int i,j,k;
+ int tot1d,i1d,nzmx,my_nz,kg,kdispG,kdispD;
+ int dnum = pOut->num;
 
-  FILE *p_1dfile;
-  char *fname;
+  double darea,**out1d;
+  double x1,x2,x3,Lz,Ly,press, press1, press3, Bpre1, Bpre3;
+  double *out_x3;
+  double vx, vy, vz, Fr01,Fr02,Fr03;
+
+
   double area_rat; /* (Grid Volume)/(dx1*dx2*dx3) */
 
 #ifdef MPI_PARALLEL
@@ -3601,331 +3672,404 @@ static void output_1dx(MeshS *pM, OutputS *pOut)
   double *g_out1d;
   int zproc;
   int ierr,myID_Comm_Domain;
+  int nproc;
 #endif
 
-/* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap */
+ /* For radiation case, we add, Er, Frx, Fry, Frz, Frz0, dFrz0/dz, Er*vz, dP/dz/rho, dB2/dz/rho, kappaes, kappap, fxx, fyy, fzz, fxy, fxz, fyz */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-  tot1d=15+6+5;
+  tot1d=15+6+5+1+1+6;
+#elif defined(RADIATION_HYDRO)
+  tot1d=7+6+5+6;
 #else
-  tot1d=7+6+5;
+  tot1d=7+6+5+1+1+6; 
 #endif /* MHD */
 #ifdef ADIABATIC
-  tot1d=tot1d+3;
+  tot1d=tot1d+3+1+1;
 #endif /* ADIABATIC */
 
-  Lx = pM->RootMaxX[0] - pM->RootMinX[0];
-  Ly = pM->RootMaxX[1] - pM->RootMinX[1];
-  Lz = pM->RootMaxX[2] - pM->RootMinX[2];
-  nzmx = pM->Nx[0];
 
-/* At level=0, there is only one domain */
+  
+  int is, ie, js, je, ks, ke;
+/* Loop over all Domain and level */
 
-  pGrid = pM->Domain[0][0].Grid;
-  int is = pGrid->is, ie = pGrid->ie;
-  int js = pGrid->js, je = pGrid->je;
-  int ks = pGrid->ks, ke = pGrid->ke;
-  pD = (DomainS*)&(pM->Domain[0][0]);
+  DomainS *pD;
+  GridS *pGrid;
+
+ for(nl=0; nl<(pM->NLevels); nl++){
+	for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+		if(pM->Domain[nl][nd].Grid != NULL){
+
+		if ((pOut->nlevel == -1 || pOut->nlevel == nl) &&
+          		(pOut->ndomain == -1 || pOut->ndomain == nd)){
+
+			pD = &(pM->Domain[nl][nd]);
+ 			pGrid = pD->Grid;
+
+			/* Size of this domain, which will be used to calculate the */
+			/* horizontal area of this domain */
+			Lz = pD->MaxX[2] - pD->MinX[2];
+  			Ly = pD->MaxX[1] - pD->MinX[1];
+			/* total number of vertical grid zones for this Domain only */			
+			nzmx = pD->Nx[0]; 
+
+
+			/* index of this grid */
+			is = pGrid->is; 
+			ie = pGrid->ie;
+			js = pGrid->js;
+			je = pGrid->je;
+			ks = pGrid->ks;
+			ke = pGrid->ke;
 
 #ifdef MPI_PARALLEL
-  int nproc = pD->NGrid[0]*pD->NGrid[1]*pD->NGrid[2];
+  			nproc = pD->NGrid[0]*pD->NGrid[1]*pD->NGrid[2];
 #endif
 
 #ifdef MPI_PARALLEL
-  ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
-  if(ierr != MPI_SUCCESS)
-    ath_error("[change_rundir]: MPI_Comm_rank error = %d\n",ierr);
+  			ierr = MPI_Comm_rank(pD->Comm_Domain, &myID_Comm_Domain);
+  			if(ierr != MPI_SUCCESS)
+    				ath_error("[change_rundir]: MPI_Comm_rank error = %d\n",ierr);
 #endif
-  if (FIRST == 0){
+  			/* We need to do it every time as it can be different for each domain at each level */
 #ifdef MPI_PARALLEL
-    if (myID_Comm_Domain == 0) {
+    			if (myID_Comm_Domain == 0) {
 #endif
-      out_x3 = (double *) calloc_1d_array(nzmx,sizeof(double));
+      				out_x3 = (double *) calloc_1d_array(nzmx,sizeof(double));
 #ifdef MPI_PARALLEL
-    }
+    			}/* End myID */
 #endif
-  }
+  			
 
-  out1d = (double **) calloc_2d_array(nzmx,tot1d,sizeof(double));
+  			out1d = (double **) calloc_2d_array(nzmx,tot1d,sizeof(double));
 #ifdef MPI_PARALLEL
-  my_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
-  g_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
+  			my_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
+  			g_out1d = (double *) calloc_1d_array(nzmx,sizeof(double));
 #endif
-  for (k=0; k<nzmx; k++) {
-    for (i1d=0; i1d<tot1d; i1d++) {
-      out1d[k][i1d] = 0.0;
-    }
-  }
-  kdisp=pGrid->Disp[0];
+  			for (k=0; k<nzmx; k++) {
+    				for (i1d=0; i1d<tot1d; i1d++) {
+      					out1d[k][i1d] = 0.0;
+    				}
+  			}
+  			
+			kdispD = pD->Disp[0];
+			kdispG = pGrid->Disp[0];
 
 /* First calculate the x3 coordinate and save it to be dumped
    by root in every 1d file */
-  if (FIRST == 0) {
+  			
 #ifdef MPI_PARALLEL
-  if (myID_Comm_Domain == 0) {
+  			if (myID_Comm_Domain == 0) {
 #endif
-    for (k=0; k<nzmx; k++) {
-      x1 = pM->RootMinX[0] + (k + 0.5)*pGrid->dx1;
-      out_x3[k] = x1;
-    }
+    				for (k=0; k<nzmx; k++) {
+					/* Vertical coordinate for this whole domain */
+      					x3 = pD->MinX[0] + (k + 0.5)*pGrid->dx1;
+      					out_x3[k] = x3;
+    				}
 #ifdef MPI_PARALLEL
-  }
+  			}/* End my ID */
 #endif
-  }
-
-/* Compute 1d averaged variables */
-  for (i=is; i<=ie; i++) {
-    kg=i+kdisp-nghost;
-    for (k=ks; k<=ke; k++) {
-      for (j=js; j<=je; j++) {
-        i1d=0;
-        out1d[kg][i1d] += pGrid->U[k][j][i].d;
-        i1d++;
+  			
+			/* Compute 1d averaged variables */
+			/* The kg variable should be calculated with respect to the edge of this domain */ 
+  			for (i=is; i<=ie; i++) {
+				kg=i+kdispG-kdispD-nghost;
+				for (k=ks; k<=ke; k++) {    				
+    				for (j=js; j<=je; j++) {
+        					i1d=0;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].d;
+        					i1d++;
 #ifdef ISOTHERMAL
-        out1d[kg][i1d] += pGrid->U[k][j][i].d*Iso_csound2;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].d*Iso_csound2;
 #else
-        press           = MAX(Gamma_1*(pGrid->U[k][j][i].E - expr_KE(pGrid,i,j,k)
+        					press           = MAX(Gamma_1*(pGrid->U[k][j][i].E - expr_KE(pGrid,i,j,k)
 #if defined(MHD) || defined(RADIATION_MHD)
-                                 - expr_ME(pGrid,i,j,k)
+                                 				- expr_ME(pGrid,i,j,k)
 #endif
-                                ),TINY_NUMBER);
-        out1d[kg][i1d] += press;
+                                				),TINY_NUMBER);
+        					out1d[kg][i1d] += press;
 #endif
 #ifdef ADIABATIC
-        i1d++;
-        out1d[kg][i1d] += press/(R_ideal * pGrid->U[k][j][i].d);
-        i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].E;
-        i1d++;
-        out1d[kg][i1d] += hst_E_total(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += press/(R_ideal * pGrid->U[k][j][i].d);
+        					i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].E;
+        					i1d++;
+        					out1d[kg][i1d] += hst_E_total(pGrid,i,j,k);
 #endif
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-        i1d++;
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-	if(x3 >= 0.0)	flag = 1;
-	else	flag = -1;
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
+        					i1d++;
+        					cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 #ifdef FARGO
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
 #else
-        out1d[kg][i1d] += 0.5*pGrid->U[k][j][i].d*SQR(pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d + qshear*Omega_0*x1);
+        					out1d[kg][i1d] += 0.5*pGrid->U[k][j][i].d*SQR(pGrid->U[k][j][i].M2/pGrid->U[k][j][i].d 
+									+ qshear*Omega_0*x1);
 #endif
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
-        i1d++;
-        out1d[kg][i1d] += expr_KE(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_rho_Vx_dVy(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
+        					i1d++;
+        					out1d[kg][i1d] += expr_KE(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_rho_Vx_dVy(pGrid,i,j,k);
 #if defined(MHD) || defined(RADIATION_MHD)
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B1c);
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B2c);
-        i1d++;
-        out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B3c);
-        i1d++;
-        out1d[kg][i1d] += expr_ME(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_Bx(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_By(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_Bz(pGrid,i,j,k);
-        i1d++;
-        out1d[kg][i1d] += hst_BxBy(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B1c);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B2c);
+        					i1d++;
+        					out1d[kg][i1d] += 0.5*SQR(pGrid->U[k][j][i].B3c);
+        					i1d++;
+        					out1d[kg][i1d] += expr_ME(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_Bx(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_By(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_Bz(pGrid,i,j,k);
+        					i1d++;
+        					out1d[kg][i1d] += hst_BxBy(pGrid,i,j,k);
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Er;
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Fr1;
-	i1d++;
-        out1d[kg][i1d] += pGrid->U[k][j][i].Fr2;
-	i1d++;
-	/* To avoid cancel */
-	
-        out1d[kg][i1d] += flag * pGrid->U[k][j][i].Fr3;
-	
-	i1d++;
-	vx = pGrid->U[k][j][i].M1 / pGrid->U[k][j][i].d;
-	vy = pGrid->U[k][j][i].M2 / pGrid->U[k][j][i].d;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Er;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Fr1;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Fr2;
+						i1d++;
+        					out1d[kg][i1d] += pGrid->U[k][j][i].Fr3;
+						i1d++;
+						vx = pGrid->U[k][j][i].M1 / pGrid->U[k][j][i].d;
+						vy = pGrid->U[k][j][i].M2 / pGrid->U[k][j][i].d;
 #ifdef FARGO
-	cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-	vy -= qshear * Omega_0 * x1;
+						cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+						vy -= qshear * Omega_0 * x1;
 #endif
-	vz = pGrid->U[k][j][i].M3 / pGrid->U[k][j][i].d;
+						vz = pGrid->U[k][j][i].M3 / pGrid->U[k][j][i].d;
 
 
-	Fr02 = pGrid->U[k][j][i].Fr3 -(vz * (1.0 + pGrid->U[k][j][i].Edd_33) + vx * pGrid->U[k][j][i].Edd_31 + vy * pGrid->U[k][j][i].Edd_32) * pGrid->U[k][j][i].Er/Crat;
+						Fr02 = pGrid->U[k][j][i].Fr3 -(vz * (1.0 + pGrid->U[k][j][i].Edd_33) + vx * pGrid->U[k][j][i].Edd_31 + vy * pGrid->U[k][j][i].Edd_32) * pGrid->U[k][j][i].Er/Crat;
 
-	
-	out1d[kg][i1d] += flag * Fr02;
-	
-	i1d++;
+						out1d[kg][i1d] += Fr02;
+						i1d++;
 
-	/* dFr0/dz */
-	vx = pGrid->U[k-1][j][i].M1 / pGrid->U[k-1][j][i].d;
-	vy = pGrid->U[k-1][j][i].M2 / pGrid->U[k-1][j][i].d;
+						/* dFr0/dz */
+						vx = pGrid->U[k-1][j][i].M1 / pGrid->U[k-1][j][i].d;
+						vy = pGrid->U[k-1][j][i].M2 / pGrid->U[k-1][j][i].d;
 #ifdef FARGO
-	vy -= qshear * Omega_0 * x1;
+						vy -= qshear * Omega_0 * x1;
 #endif
-	vz = pGrid->U[k-1][j][i].M3 / pGrid->U[k-1][j][i].d;
-	Fr01 = pGrid->U[k-1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k-1][j][i].Edd_33) + vx * pGrid->U[k-1][j][i].Edd_31 + vy * pGrid->U[k-1][j][i].Edd_32) * pGrid->U[k-1][j][i].Er/Crat;
+						vz = pGrid->U[k-1][j][i].M3 / pGrid->U[k-1][j][i].d;
+						Fr01 = pGrid->U[k-1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k-1][j][i].Edd_33) 
+						+ vx * pGrid->U[k-1][j][i].Edd_31 + vy * pGrid->U[k-1][j][i].Edd_32) * pGrid->U[k-1][j][i].Er/Crat;
 
-	vx = pGrid->U[k+1][j][i].M1 / pGrid->U[k+1][j][i].d;
-	vy = pGrid->U[k+1][j][i].M2 / pGrid->U[k+1][j][i].d;
+						vx = pGrid->U[k+1][j][i].M1 / pGrid->U[k+1][j][i].d;
+						vy = pGrid->U[k+1][j][i].M2 / pGrid->U[k+1][j][i].d;
 #ifdef FARGO
-	vy -= qshear * Omega_0 * x1;
+						vy -= qshear * Omega_0 * x1;
 #endif
-	vz = pGrid->U[k+1][j][i].M3 / pGrid->U[k+1][j][i].d;
-	Fr03 = pGrid->U[k+1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k+1][j][i].Edd_33) + vx * pGrid->U[k+1][j][i].Edd_31 + vy * pGrid->U[k+1][j][i].Edd_32) * pGrid->U[k+1][j][i].Er/Crat;
+						vz = pGrid->U[k+1][j][i].M3 / pGrid->U[k+1][j][i].d;
+						Fr03 = pGrid->U[k+1][j][i].Fr3 -(vz * (1.0 + pGrid->U[k+1][j][i].Edd_33) + vx * pGrid->U[k+1][j][i].Edd_31 + vy * pGrid->U[k+1][j][i].Edd_32) * pGrid->U[k+1][j][i].Er/Crat;
+						out1d[kg][i1d] += (Fr03 - Fr01) * 0.5 / pGrid->dx3;
+						i1d++;
 	
-	out1d[kg][i1d] += flag * (Fr03 - Fr01) * 0.5 / pGrid->dx3;
-	
-	i1d++;
-	
-	/* Er * vz */
-	out1d[kg][i1d] += flag * pGrid->U[k][j][i].Er * pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d;
-	i1d++;
+						/* Er * vz */
+						out1d[kg][i1d] += pGrid->U[k][j][i].Er * pGrid->U[k][j][i].M3/pGrid->U[k][j][i].d;
+						i1d++;
 
-	/* dPg/dz / rho */
-	press1           = MAX(Gamma_1*(pGrid->U[k-1][j][i].E - expr_KE(pGrid,i,j,k-1)
+						/* dPg/dz / rho */
+						press1           = MAX(Gamma_1*(pGrid->U[k-1][j][i].E - expr_KE(pGrid,i,j,k-1)
 #if defined(MHD) || defined(RADIATION_MHD)
-                                 - expr_ME(pGrid,i,j,k-1)
+                                 					- expr_ME(pGrid,i,j,k-1)
 #endif
-                                ),TINY_NUMBER);
-	press3           = MAX(Gamma_1*(pGrid->U[k+1][j][i].E - expr_KE(pGrid,i,j,k+1)
+                                				),TINY_NUMBER);
+						press3           = MAX(Gamma_1*(pGrid->U[k+1][j][i].E - expr_KE(pGrid,i,j,k+1)
 #if defined(MHD) || defined(RADIATION_MHD)
-                                 - expr_ME(pGrid,i,j,k+1)
+                                 				- expr_ME(pGrid,i,j,k+1)
 #endif
-                                ),TINY_NUMBER);
-	out1d[kg][i1d] += flag * (press3 - press1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
-	i1d++;
-
-	/* dBpre/dz / rho */
-	Bpre1 = expr_ME(pGrid,i,j,k-1);
-	Bpre3 = expr_ME(pGrid,i,j,k+1);
-	out1d[kg][i1d] += flag * (Bpre3 - Bpre1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
-	i1d++;
-
-        out1d[kg][i1d] += hst_sigmas(pGrid,i,j,k);
-	i1d++;
-        out1d[kg][i1d] += hst_sigmaaP(pGrid,i,j,k);
-
+                                				),TINY_NUMBER);
+						out1d[kg][i1d] += (press3 - press1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
+						i1d++;
+#if defined(MHD) || defined(RADIATION_MHD)
+						/* dBpre/dz / rho */
+						Bpre1 = expr_ME(pGrid,i,j,k-1);
+						Bpre3 = expr_ME(pGrid,i,j,k+1);
+						out1d[kg][i1d] += (Bpre3 - Bpre1) * 0.5 / (pGrid->dx3 * pGrid->U[k][j][i].d);
+						i1d++;
 #endif
+        					out1d[kg][i1d] += hst_sigmas(pGrid,i,j,k);
+						i1d++;
+        					out1d[kg][i1d] += hst_sigmaaP(pGrid,i,j,k);
+						/* dPrdz/sigm */
+						i1d++;
+						out1d[kg][i1d] += (pGrid->U[k+1][j][i].Er * pGrid->U[k+1][j][i].Edd_33 - pGrid->U[k-1][j][i].Er * pGrid->U[k-1][j][i].Edd_33) / (2.0* pGrid->dx3 * (pGrid->U[k][j][i].Sigma[0] + pGrid->U[k][j][i].Sigma[1]));
+#if defined(MHD) || defined(RADIATION_MHD)
+						/* sqrt(B^2/rho) */
+						i1d++;
+						Bpre1 = expr_ME(pGrid,i,j,k);
+						out1d[kg][i1d] += sqrt(2.0 * Bpre1 / pGrid->U[k][j][i].d);
+#endif
+#endif
+						/* Eddington tensor */
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_11;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_22;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_33;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_21;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_31;
+						i1d++;
+						out1d[kg][i1d] += pGrid->U[k][j][i].Edd_32;
+	
 
-      }
-    }
-  }
+      					}/* end i */
+    				}/* end j */
+  			}/* end k*/
 
   /* Calculate the (Grid Volume) / (Grid Cell Volume) Ratio */
-  area_rat = Lz*Ly/(pGrid->dx3*pGrid->dx2);
+  			area_rat = Lz*Ly/(pGrid->dx3*pGrid->dx2);
 
 /* The parent sums the scal[] array.
  * Note that this assumes (dx1,dx2,dx3) = const. */
 
 #ifdef MPI_PARALLEL 
-  for(i1d=0; i1d<tot1d; i1d++){
-    for (k=0; k<nzmx; k++) {
-      my_out1d[k] = out1d[k][i1d];
-    }
-    ierr = MPI_Reduce(my_out1d, g_out1d, nzmx,
-                      MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
-    if(ierr)
-      ath_error("[output_1d]: MPI_Reduce call returned error = %d\n",ierr);
-    for (k=0; k<nzmx; k++) {
-      out1d[k][i1d] = g_out1d[k];
-    }
-  }
+  			for(i1d=0; i1d<tot1d; i1d++){
+    				for (k=0; k<nzmx; k++) {
+      					my_out1d[k] = out1d[k][i1d];
+    			}
+    				ierr = MPI_Reduce(my_out1d, g_out1d, nzmx,
+                      			MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
+    				if(ierr)
+      					ath_error("[output_1d]: MPI_Reduce call returned error = %d\n",ierr);
+    				for (k=0; k<nzmx; k++) {
+      					out1d[k][i1d] = g_out1d[k];
+    				}
+  			}
 #endif
 
 /* For parallel calculations, only the parent computes the average
  * and writes the output. */
 #ifdef MPI_PARALLEL
-  if(myID_Comm_Domain == 0){ /* I'm the parent */
+  			if(myID_Comm_Domain == 0){ /* I'm the parent */
 #endif
 
-  darea = 1.0/(double)area_rat;
-  for (k=0; k<nzmx; k++) {
-    for (i1d=0; i1d<tot1d; i1d++) {
-      out1d[k][i1d] *= darea;
-    }
-  }
+  				darea = 1.0/(double)area_rat;
+  				for (k=0; k<nzmx; k++) {
+    					for (i1d=0; i1d<tot1d; i1d++) {
+      						out1d[k][i1d] *= darea;
+    					}
+  				}
 
 /* Generate filename */
-#ifdef MPI_PARALLEL
-  fname = ath_fname("../",pM->outfilename,NULL,NULL,num_digit,dnum,NULL,"1dx");
-#else
-  fname = ath_fname(NULL,pM->outfilename,NULL,NULL,num_digit,dnum,NULL,"1dx");
-#endif
-  if (fname == NULL) {
-    ath_error("[output_1d]: Error constructing output filename\n");
-    return;
-  }
+/* Adopt the way file name is generated from output_vtk_3d */
+			if(nl > 0){
+				plev = &levstr[0];
+				sprintf(plev,"lev%d",nl);
+			}
+			if(nd > 0){
+				pdom = &domstr[0];
+				sprintf(pdom,"dom%d",nd);
+			}
+
+
+
+
+			if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,
+      					dnum,NULL,"1d")) == NULL){
+    				ath_error("[output_1d]: Error constructing filename\n");
+  			}
+
+
 
 /* open filename */
-  p_1dfile = fopen(fname,"w");
-  if (p_1dfile == NULL) {
-    ath_error("[output_1d]: Unable to open 1d average file %s\n",fname);
-    return;
-  }
+  			p_1dfile = fopen(fname,"w");
+  			if (p_1dfile == NULL) {
+    				ath_error("[output_1d]: Unable to open 1d average file %s\n",fname);
+    				return;
+  			}
 
 /* Write out data */
 
-  for (k=0; k<nzmx; k++) {
+  			for (k=0; k<nzmx; k++) {
 #ifdef ISOTHERMAL
 #ifdef MHD
-    if (k == 0) {
-      fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds    MEx         MEy         MEz         ME          Bx           By           Bz          Maxwell\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
-            out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
-            out1d[k][12],out1d[k][13],out1d[k][14]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds    MEx         MEy         MEz         ME          Bx           By           Bz          Maxwell\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+            			out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
+            			out1d[k][12],out1d[k][13],out1d[k][14]);
 #else
-    if (k == 0) {
-      fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
-            out1d[k][5],out1d[k][6]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# x3     dens  pressure    KEx         KEy         KEz         KE          Reynolds\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
+            				out1d[k][5],out1d[k][6]);
 #endif /* MHD */
-#else
+#else /* else isothermal */
 #ifdef RADIATION_MHD
-    if (k == 0) {
-      fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
-            out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
-            out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds   [12]MEx        [13]MEy        [14]MEz        [15]ME         [16]Bx          [17]By         [18]Bz         [19]Maxwell     [20]Er      [21]Frx      [22]Fry       [23]Frz     [24]Frz0	[25]dFr0dz	[26]ErV		[27]dP/dz/rho		[28]dBpre/dz/rho	[29]kappaes          [30]kappaff	[31]dPrdz/sigma		[32]2B^2/d	[33]f_xx	[34]f_yy	[35]f_zz	[36]f_xy	[37]f_xz	[38]f_yz\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+            			out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],
+            			out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26],out1d[k][27],out1d[k][28],out1d[k][29],out1d[k][30],out1d[k][31],out1d[k][32],out1d[k][33],out1d[k][34],out1d[k][35],out1d[k][36]);
+#elif defined(RADIATION_HYDRO) 
+				if (k == 0) {
+      					fprintf(p_1dfile,"# [1]x3     [2]dens    [3]pressure    [4]temperature  [5]E     [6]Etot     [7]KEx         [8]KEy        [9] KEz       [10] KE        [11]Reynolds		[12]Er      [13]Frx      [14]Fry       [15]Frz     [16]Frz0	[17]dFr0dz	[18]ErV		[19]dP/dz/rho	[20]kappaes          [21]kappaff	[22]dPrdz/sigma		[23]f_xx	[24]f_yy	[25]f_zz	[26]f_xy	[27]f_xz	[28]f_yz\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],
+            			out1d[k][3],out1d[k][4],out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9],out1d[k][10],out1d[k][11],out1d[k][12],out1d[k][13],out1d[k][14],out1d[k][15],out1d[k][16],out1d[k][17],out1d[k][18],out1d[k][19],out1d[k][20],out1d[k][21],out1d[k][22],out1d[k][23],out1d[k][24],out1d[k][25],out1d[k][26]);
+
 #else
-    if (k == 0) {
-      fprintf(p_1dfile,"# x3     dens    pressure    temperature  E     Etot     KEx         KEy         KEz         KE          Reynolds\n");
-    }
-    fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
-            out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9]);
+    				if (k == 0) {
+      					fprintf(p_1dfile,"# x3     dens    pressure    temperature  E     Etot     KEx         KEy         KEz         KE          Reynolds\n");
+    				}
+    				fprintf(p_1dfile,"%G %G %G %G %G %G %G %G %G %G %G\n",out_x3[k],out1d[k][0],out1d[k][1],out1d[k][2],out1d[k][3],out1d[k][4],
+            			out1d[k][5],out1d[k][6],out1d[k][7],out1d[k][8],out1d[k][9]);
 #endif /* RADIATION_MHD */
 #endif /* ISOTHERMAL */
   }
 
-  fclose(p_1dfile);
-  free(fname);
+  				fclose(p_1dfile);
+  				free(fname);
 #ifdef MPI_PARALLEL
-  }
+  			}/* End write 1D files */
 #endif
 
-  free_2d_array(out1d); /* Free the memory we malloc'd */
+			/* These temporary arrays are generated for each level and each domain */
+  			free_2d_array(out1d); /* Free the memory we malloc'd */
 #ifdef MPI_PARALLEL
-  free_1d_array(my_out1d); /* Free the memory we malloc'd */
-  free_1d_array(g_out1d); /* Free the memory we malloc'd */
+  			free_1d_array(my_out1d); /* Free the memory we malloc'd */
+  			free_1d_array(g_out1d); /* Free the memory we malloc'd */
 #endif
-  if (FIRST == 0) {
-    FIRST = 1;
-  }
+ 
+			  			/* We need to do it every time as it can be different for each domain at each level */
+#ifdef MPI_PARALLEL
+    			if (myID_Comm_Domain == 0) {
+#endif
+				/* only need to free it for myID == 0 */
+      				free_1d_array(out_x3);
+#ifdef MPI_PARALLEL
+    			}/* End myID */
+#endif
+  	
+
+		}/* End if level and domain match for this domain */
+		}/* End if this CPU works on this domain */
+	} /* End loop over domains at level nl */
+ }/* end loop all levels */
+
+	
 
 return;
 }
-
-
 
 
 

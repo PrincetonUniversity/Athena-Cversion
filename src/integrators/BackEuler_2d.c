@@ -127,7 +127,7 @@ void BackEuler_2d(MeshS *pM)
 	pMat->time = pG->time;
 
 	Real velocity_x, velocity_y, T4, pressure, density, temperature, Fr0x, Fr0y;
-	Real AdvFx, AdvFy;
+	Real AdvFx[2], AdvFy[2];
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real Sigma[NOPACITY];
 
@@ -208,9 +208,9 @@ void BackEuler_2d(MeshS *pM)
 				pMat->Ugas[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
 				pMat->Ugas[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
-				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, &AdvFx, &AdvFy);
+				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, AdvFx, AdvFy);
 
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + (AdvFx + AdvFy);
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]));
 				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_x / Crat;
 				pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_y / Crat;
 

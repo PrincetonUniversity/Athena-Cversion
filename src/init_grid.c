@@ -246,6 +246,28 @@ void init_grid(MeshS *pM)
 		pG->Fargosource = (Real****)calloc_4d_array(n3z, n2z, n1z, 5, sizeof(Real));
 		if (pG->Fargosource == NULL) goto on_error24;
 #endif
+
+	/* Only need to do this for static mesh refinement */
+#ifdef STATIC_MESH_REFINEMENT
+	/* flux on the left hand side of x direction */
+	pG->AdvErFlx[0] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->AdvErFlx[0] == NULL) goto on_error25;
+	
+
+	if(nDim > 1){
+		/* flux on the left hand side of y direction */
+		pG->AdvErFlx[1] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      		if (pG->AdvErFlx[1] == NULL) goto on_error26;
+	
+	}
+	
+	if(nDim > 2){
+		/* flux on the left hand side of z direction */
+		pG->AdvErFlx[2] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      		if (pG->AdvErFlx[2] == NULL) goto on_error27;
+	}
+
+#endif /* end static mesh refinement */
 		
 #endif
 
@@ -331,7 +353,7 @@ void init_grid(MeshS *pM)
       pG->PGrid = NULL;
 #endif
 
-    }
+    } /* End grid is null */
   }}
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -418,6 +440,10 @@ void init_grid(MeshS *pM)
         for (ncg=0; ncg<pG->NCGrid; ncg++){
           for (dim=0; dim<6; dim++) {
             pG->CGrid[ncg].myFlx[dim] = NULL;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	    pG->CGrid[ncg].AdvEr[dim] = 0;	
+#endif
+
 #if defined(MHD) || defined(RADIATION_MHD)
             pG->CGrid[ncg].myEMF1[dim] = NULL;
             pG->CGrid[ncg].myEMF2[dim] = NULL;
@@ -511,8 +537,10 @@ G3.ijkl[0],G3.ijkr[0]);
 	      /* If grids just touch, n1z, n2z or n3z will be zero, no restriction or prolongation will be needed */
 	     /* If two grids overlap and need to prolongate ghost zones, the ghost zones will be added later */
 
-	    /* This is the number of data required for communication to update the Matrix */
- 
+		/* nWordsAdvEr is the number of words that rquire restriction and correction */ 
+	      pG->CGrid[ncg].nWordsAdvEr = n1z*n2z*n3z;
+
+ 		 /* This is the number of data required for communication to update the Matrix */
 	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
 	      pG->CGrid[ncg].Rad_nWordsP  = n1z*n2z*n3z*(4);
 
@@ -583,14 +611,14 @@ G3.ijkl[0],G3.ijkr[0]);
                     if (pG->Nx[1] > 1) 	{
 			n1p += (nghost + 2);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		 	Rad_n1p += (Matghost + 2);				
+			Rad_n1p += 2;				
 #endif			
 		    }
 
                     if (pG->Nx[2] > 1)  {
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);			
+			Rad_n2p += 2;			
 #endif			
 		    }
 	
@@ -601,8 +629,9 @@ G3.ijkl[0],G3.ijkr[0]);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		/* plus the variables needed to be prolongaed for radiation part */
 		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
+		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
 		  /* no ghost zones for Rad restriction */
-		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);  
+		  pG->CGrid[ncg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4);  
 #endif	
 
 
@@ -613,6 +642,12 @@ G3.ijkl[0],G3.ijkr[0]);
                       (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
                     if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
                      "[init_grid]:failed to allocate CGrid ixb myFlx\n");
+
+			/* Allocate memory for advection flux */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		     pG->CGrid[ncg].AdvEr[2*dim] = 1;
+#endif
+
 #if defined(MHD) || defined(RADIATION_MHD)
                     pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
@@ -696,13 +731,13 @@ G3.ijkl[0],G3.ijkr[0]);
                     if (pG->Nx[1] > 1) {
 			n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);
+			Rad_n1p += 2;
 #endif
 		    }			
                     if (pG->Nx[2] > 1)	{
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);
+			Rad_n2p += 2;
 #endif
 		    }
 
@@ -712,8 +747,10 @@ G3.ijkl[0],G3.ijkr[0]);
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
                   pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
+
 		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY); 
-		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4); 
+		  pG->CGrid[ncg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4); 
 #endif
 
 /* Allocate memory for myFlx and myEMFs*/
@@ -723,6 +760,12 @@ G3.ijkl[0],G3.ijkr[0]);
                       (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
                     if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate CGrid oxb myFlx\n");
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    pG->CGrid[ncg].AdvEr[(2*dim)+1] = 1;
+#endif
+
+
 #if defined(MHD) || defined(RADIATION_MHD)
                     pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
@@ -876,6 +919,9 @@ G3.ijkl[0],G3.ijkr[0]);
         for (npg=0; npg<pG->NPGrid; npg++){
           for (dim=0; dim<6; dim++) {
             pG->PGrid[npg].myFlx[dim] = NULL;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	    pG->PGrid[npg].AdvEr[dim] = 0;
+#endif
 #if defined(MHD) || defined(RADIATION_MHD)
             pG->PGrid[npg].myEMF1[dim] = NULL;
             pG->PGrid[npg].myEMF2[dim] = NULL;
@@ -965,7 +1011,8 @@ G3.ijkl[2],G3.ijkr[2]);
 	      /* If grids just touch, n1z, n2z or n3z can be zero */
 	      /* Then no restriction or prolongation inside domain */
 	     /* ghost zones for prolongation will be added later */
-
+	      pG->PGrid[npg].nWordsAdvEr = n1z*n2z*n3z;	
+		
 	      pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
 	      pG->PGrid[npg].Rad_nWordsP  = n1z*n2z*n3z*(4);	
 #endif
@@ -1042,13 +1089,13 @@ G3.ijkl[2],G3.ijkr[2]);
                     if (pG->Nx[1] > 1)	{
 			n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);
+			Rad_n1p += 2;
 #endif
 		    }
                     if (pG->Nx[2] > 1)	{
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);
+			Rad_n2p += 2;
 #endif
 		
 		    }
@@ -1058,8 +1105,10 @@ G3.ijkl[2],G3.ijkr[2]);
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
+
 		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);
+		  pG->PGrid[npg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the
@@ -1071,6 +1120,11 @@ G3.ijkl[2],G3.ijkr[2]);
                       (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
                     if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid ixb myFlx\n");
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    pG->PGrid[npg].AdvEr[2*dim] = 1;
+#endif
+
 #if defined(MHD) || defined(RADIATION_MHD)
                     pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
@@ -1157,13 +1211,13 @@ G3.ijkl[2],G3.ijkr[2]);
                     if (pG->Nx[1] > 1)	{
 			n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);
+			Rad_n1p += 2;
 #endif
 		    }
                     if (pG->Nx[2] > 1)	{
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);
+			Rad_n2p += 2;
 #endif
 		    }
 
@@ -1172,8 +1226,10 @@ G3.ijkl[2],G3.ijkr[2]);
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
+
 		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*n1p*n2p*(4);
+		  pG->PGrid[npg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 
@@ -1186,6 +1242,10 @@ G3.ijkl[2],G3.ijkr[2]);
                       (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
                     if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
                       "[init_grid]:failed to allocate PGrid oxb myFlx\n");
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		    pG->PGrid[npg].AdvEr[2*dim+1] = 1;
+#endif
+
 #if defined(MHD) || defined(RADIATION_MHD)
                     pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
@@ -1279,6 +1339,15 @@ G3.ijkl[2],G3.ijkr[2]);
 #ifdef FARGO
    on_error24:
     free_4d_array(pG->Fargosource);
+#endif
+
+#ifdef STATIC_MESH_REFINEMENT
+   on_error25:
+    free_3d_array(pG->AdvErFlx[0]);
+   on_error26:
+    free_3d_array(pG->AdvErFlx[1]);
+   on_error27:
+    free_3d_array(pG->AdvErFlx[2]);   
 #endif
   
 #endif

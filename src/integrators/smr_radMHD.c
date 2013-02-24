@@ -33,7 +33,8 @@ static MPI_Request  **send_rq=NULL;
 #endif
 static int maxND, *start_addrP;
 
-static RadMHDS ***GZ;
+static RadMHDS ***GZ[3];
+static RadMHDS ***Pro_buf; /* temporary array to load data during prolongation */
 
 static int RootLevel;
 
@@ -585,9 +586,10 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 	
   	int i, j, k, n, m, l, is, ie, js, je, ks, ke, ii, jj, kk, kfine, jfine, ifine;
 	int ics, ice, jcs, jce, kcs, kce;
-	int nd, nZeroP, npg, ncg, ngz1, ngz2, ngz3, igzs, igze, jgzs, jgze, kgzs, kgze, mend, nend;
-	int nDim;
-	int ips, ipe, jps, jpe, kps, kpe;	
+	int nd, nZeroP, npg, ncg, ngz1, ngz2, ngz3, igzs, igze, jgzs, jgze, kgzs, kgze, mend, nend, lend;
+	int nDim, dim, id;
+	int ips, ipe, jps, jpe, kps, kpe;
+	
 
 	double *pRcv, *pSnd;
   	
@@ -691,6 +693,8 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 		/* Unlik the SMR in normal MHD part, we need to send the whole grid data */
 		/* Now we works for Level */
 		/* We need to send the data including ghost and active zones */
+		/* But ghost zones will only be prolongated if this boundary is interior of the coarse grid */
+
 		for(nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
 			pG = pM->Domain[Level-RootLevel][nd].Grid;
 			if((Matrix[Level][nd].CPUflag) && (pG->NCGrid > 0)){
@@ -712,33 +716,18 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 					/* index send_buf with DomN of child, since could be multiple child Domains on */
  					/* same processor.  Start address must be different for each DomN */
 
-						/* send buffer use the domain number of Child grid */
+						/* First prolongate the region that overlaps */
+						
 						pSnd = (double*)&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]);
-						
-						
-						ics = pCO->ijks[0] - nghost + Matghost - (Matghost/2) - 1;
-						ice = pCO->ijke[0] - nghost + Matghost + (Matghost/2) + 1;
-						
-						if(nDim > 1){
-							jcs = pCO->ijks[1] - nghost + Matghost - (Matghost/2) - 1;
-							jce = pCO->ijke[1] - nghost + Matghost + (Matghost/2) + 1;
-						}
-						else{
-							jcs = pCO->ijks[1];
-							jce = pCO->ijke[1];
-						}
 
-						if(nDim > 2){
-							kcs = pCO->ijks[2] - nghost + Matghost - (Matghost/2) - 1;
-							kce = pCO->ijke[2] - nghost + Matghost + (Matghost/2) + 1;
-						}
-						else{
-							kcs = pCO->ijks[2];
-							kce = pCO->ijke[2];
-						}
-
-							
-
+						ics = pCO->ijks[0] - nghost + Matghost;
+						ice = pCO->ijke[0] - nghost + Matghost;
+						jcs = pCO->ijks[1] - nghost + Matghost;
+						jce = pCO->ijke[1] - nghost + Matghost;
+						kcs = pCO->ijks[2] - nghost + Matghost;
+						kce = pCO->ijke[2] - nghost + Matghost;
+					
+						
 						for(k=kcs; k<=kce; k++){
 						for(j=jcs; j<=jce; j++){
 						for(i=ics; i<=ice; i++){
@@ -751,6 +740,56 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						}/* end j */
 						}/* end k */
 						
+						/* Now send the data for the necessary boundary */
+						/* This only works for Matghost == 1 */
+						for(dim=0; dim<(2*nDim); dim++){
+							if(pCO->AdvEr[dim]){
+								ics = pCO->ijks[0] - nghost + Matghost - 1;
+								ice = pCO->ijke[0] - nghost + Matghost + 1;
+						
+								if(nDim > 1){
+									jcs = pCO->ijks[1] - nghost + Matghost - 1;
+									jce = pCO->ijke[1] - nghost + Matghost + 1;
+								}
+								else{
+									jcs = pCO->ijks[1];
+									jce = pCO->ijke[1];
+								}		
+
+								if(nDim > 2){
+									kcs = pCO->ijks[2] - nghost + Matghost - 1;
+									kce = pCO->ijke[2] - nghost + Matghost + 1;
+								}
+								else{
+									kcs = pCO->ijks[2];
+									kce = pCO->ijke[2];
+								}
+
+
+								if (dim == 0) (ice = pCO->ijks[0] - nghost + Matghost);
+          							if (dim == 1) (ics = pCO->ijke[0] - nghost + Matghost);
+          							if (dim == 2) (jce = pCO->ijks[1] - nghost + Matghost);
+          							if (dim == 3) (jcs = pCO->ijke[1] - nghost + Matghost);
+         							if (dim == 4) (kce = pCO->ijks[2] - nghost + Matghost);
+          							if (dim == 5) (kcs = pCO->ijke[2] - nghost + Matghost);
+
+	
+								for(k=kcs; k<=kce; k++){
+								for(j=jcs; j<=jce; j++){
+								for(i=ics; i<=ice; i++){
+									*(pSnd++) = pMat->U[k][j][i].Er;
+									*(pSnd++) = pMat->U[k][j][i].Fr1;
+									*(pSnd++) = pMat->U[k][j][i].Fr2;
+									*(pSnd++) = pMat->U[k][j][i].Fr3;
+
+								}/* end i */
+								}/* end j */
+								}/* end k */
+
+
+							}/* This dim is a boundary */
+						}/* end 6 faces */
+
 
 
 			/* Step 1b: non-blocking send of data  to Child, using Domain number as tag */
@@ -887,111 +926,95 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 					if(pPO->Rad_nWordsP > 0){
 
 					/* Get coordinates ON THIS GRID of ghost zones that overlap parent Grid */
+						/* first prolongate the overlap region */
+						/* To use this prolongated solution as initial guess in fine level */
 
-						ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + Matghost + 2;
-
-						if(nDim > 1)
-							ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + Matghost + 2;
-						else
-							ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2;
-
-
-						if(nDim > 2)
-							ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + Matghost + 2;
-						else
-							ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2;
-	
-
-						igzs = 0;
-						igze = ngz1 - 1;
-				
-						if (pMat->Nx[1] > 1) {
-							jgzs = 0;
-							jgze = ngz2 - 1;
-							mend = 1;
-						} else {
-							ngz2 = 1;
-							jgzs = 1;
-							jgze = 1;
-							mend = 0;
+						/*---------------------------------------------------*/
+						ips = 0;
+						ipe = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 - 1;
+						if(nDim > 1){
+							jps = 0;
+							jpe = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 - 1;
 						}
-						if (pMat->Nx[2] > 1) {
-							kgzs = 0;
-							kgze = ngz3 - 1;
-							nend = 1;
-						} else {
-							ngz3 = 1;
-							kgzs = 1;
-							kgze = 1;
-							nend = 0;
+						else{
+							jps = 1;
+							jpe = 1;
 						}
-
+						if(nDim > 2){
+							kps = 0;
+							kpe = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 - 1;
+						}
+						else{
+							kps = 1;
+							kpe = 1;
+						}
 						/* Load the data */
 					
-						for(k=kgzs; k<=kgze; k++){
-						for(j=jgzs; j<=jgze; j++){
-						for(i=igzs; i<=igze; i++){
-							GZ[k][j][i].Er = *(pRcv++);
-							GZ[k][j][i].Fr1 = *(pRcv++);
-							GZ[k][j][i].Fr2 = *(pRcv++);
-							GZ[k][j][i].Fr3 = *(pRcv++);
+						for(k=kps; k<=kpe; k++){
+						for(j=jps; j<=jpe; j++){
+						for(i=ips; i<=ipe; i++){
+							Pro_buf[k][j][i].Er = *(pRcv++);
+							Pro_buf[k][j][i].Fr1 = *(pRcv++);
+							Pro_buf[k][j][i].Fr2 = *(pRcv++);
+							Pro_buf[k][j][i].Fr3 = *(pRcv++);
 
 						}/* End i */
 						}/* End j */
 						}/* End k */
 
-						/* Set boundary conditions for GZ in 1D and 2D cases */
-						/* This is needed for the prolongation below */
-						 if (nDim == 1) {
-            						for (i=igzs; i<=igze; i++) {
-								GZ[1][0][i] = GZ[1][1][i];
-              							GZ[1][2][i] = GZ[1][1][i];
-              							GZ[0][1][i] = GZ[1][1][i];
-              							GZ[2][1][i] = GZ[1][1][i];
-							
-            						}/* End for i*/
-          					}/* End if nDim = 1 */
+						/* Fill the junk zones for 1D and 2D cases */
+						if(nDim == 1){
+							for(i=ips; i<=ipe; i++){
+								Pro_buf[1][0][i] = Pro_buf[1][1][i];
+								Pro_buf[1][2][i] = Pro_buf[1][1][i];
+								Pro_buf[0][1][i] = Pro_buf[1][1][i];
+								Pro_buf[2][1][i] = Pro_buf[1][1][i];
+							}
 
-          					if (nDim == 2) {
-            						for (j=jgzs; j<=jgze; j++) {
-            						for (i=igzs; i<=igze; i++) {
-								GZ[0][j][i] = GZ[1][j][i];
-              							GZ[2][j][i] = GZ[1][j][i];								
-            						}/* End for i */
-							}/* End for j */
-						}/* End if nDim = 2*/
+						}else if(nDim == 2){
+							for(j=jps; j<=jpe; j++){
+							for(i=ips; i<=ipe; i++){
+								Pro_buf[0][j][i] = Pro_buf[1][j][i];
+								Pro_buf[2][j][i] = Pro_buf[1][j][i];
+							}
+							}
+
+						}/* End if nDim == 2 */
 
 
-						/* Now prolongate the ghost zones in array GZ */
-
-						ips = pPO->ijks[0] - nghost;	/* This actually is - nghost + Matghost - Matghost */
-						ipe = pPO->ijke[0] - nghost + Matghost + Matghost;
-								
-						if(pG->Nx[1] > 1){
-							jps = pPO->ijks[1] - nghost;
-							jpe = pPO->ijke[1] - nghost + Matghost + Matghost;
-						}else{
-							jps = pPO->ijks[1]; /* The value will be zero in this case */
+						/* Do prolongation */
+						ips = pPO->ijks[0] - nghost + Matghost;
+						ipe = pPO->ijke[0] - nghost + Matghost;
+						lend = 1;
+						if(nDim > 1){
+							jps = pPO->ijks[1] - nghost + Matghost;
+							jpe = pPO->ijke[1] - nghost + Matghost;
+							mend = 1;
+						}
+						else{
+							jps = pPO->ijks[1];
 							jpe = pPO->ijke[1];
+							mend = 0;
 						}
 
-						if(pG->Nx[2] > 1){
-							kps = pPO->ijks[2] - nghost;
-							kpe = pPO->ijke[2] - nghost + Matghost + Matghost;
-						}else{
-							kps = pPO->ijks[2]; /* The value will be zero in this case */
+						if(nDim > 2){
+							kps = pPO->ijks[2] - nghost + Matghost;
+							kpe = pPO->ijke[2] - nghost + Matghost;
+							nend = 1;
+						}
+						else{
+							kps = pPO->ijks[2];
 							kpe = pPO->ijke[2];
+							nend = 0;
 						}
 
-							/* Prolongate the GZ array data to Ptemp temporarily and then copy the data to pMat */
+							/* Prolongate the Pro_buf array data to Ptemp temporarily and then copy the data to pMat */
 							/* i, j, k are for parent grids while kk, jj, ii are for child grids */
-						
-
 						for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
 						for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
        						for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
-							ProU(GZ[kk][jj][ii-1], GZ[kk][jj][ii], GZ[kk][jj][ii+1], GZ[kk][jj-1][ii], 
-									GZ[kk][jj+1][ii], GZ[kk-1][jj][ii], GZ[kk+1][jj][ii], Ptemp);
+							ProU(Pro_buf[kk][jj][ii-1], Pro_buf[kk][jj][ii], Pro_buf[kk][jj][ii+1], Pro_buf[kk][jj-1][ii], 
+									Pro_buf[kk][jj+1][ii], Pro_buf[kk-1][jj][ii], Pro_buf[kk+1][jj][ii], Ptemp);
 
 							/* Now set the solution */
 							for(n=0; n<=nend; n++){
@@ -1008,6 +1031,166 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						}/* End i */
 						}/* End j */
 						}/* End k */
+
+
+						/*-----------------------------------------------------*/
+						/* Now set ghost zones for required faces */
+						for(dim=0; dim<(2*nDim); dim++){
+							if(pPO->AdvEr[dim]){
+
+								if(dim == 0 || dim == 1){
+									ngz1 = (Matghost/2) + 2;
+									id = 0;
+								}else{
+									ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 2;
+								}
+
+								if(dim == 2 || dim == 3){
+									ngz2 = (Matghost/2) + 2;
+									id = 1;
+								}else{
+									ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 2;
+								}
+
+								if(dim == 4 || dim == 5){
+									ngz3 = (Matghost/2) + 2;
+									id = 2;
+								}else{
+									ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 2;
+								}
+
+								igzs = 0;
+								igze = ngz1 - 1;
+				
+								if (nDim > 1) {
+									jgzs = 0;
+									jgze = ngz2 - 1;							
+								} else {
+									ngz2 = 1;
+									jgzs = 1;
+									jgze = 1;							
+								}
+								if (nDim > 2) {
+									kgzs = 0;
+									kgze = ngz3 - 1;							
+								} else {
+									ngz3 = 1;
+									kgzs = 1;
+									kgze = 1;							
+								}
+
+						/* Load the data */
+					
+								for(k=kgzs; k<=kgze; k++){
+								for(j=jgzs; j<=jgze; j++){
+								for(i=igzs; i<=igze; i++){
+									GZ[id][k][j][i].Er = *(pRcv++);
+									GZ[id][k][j][i].Fr1 = *(pRcv++);
+									GZ[id][k][j][i].Fr2 = *(pRcv++);
+									GZ[id][k][j][i].Fr3 = *(pRcv++);
+	
+								}/* End i */
+								}/* End j */
+								}/* End k */
+
+						/* Set boundary conditions for GZ in 1D and 2D cases */
+						/* This is needed for the prolongation below */
+								 if (nDim == 1) {
+            								for (i=igzs; i<=igze; i++) {
+										GZ[id][1][0][i] = GZ[id][1][1][i];
+              									GZ[id][1][2][i] = GZ[id][1][1][i];
+              									GZ[id][0][1][i] = GZ[id][1][1][i];
+              									GZ[id][2][1][i] = GZ[id][1][1][i];
+							
+            								}/* End for i*/
+          							}/* End if nDim = 1 */
+								else if (nDim == 2) {
+            								for (j=jgzs; j<=jgze; j++) {
+            								for (i=igzs; i<=igze; i++) {
+										GZ[id][0][j][i] = GZ[id][1][j][i];
+              									GZ[id][2][j][i] = GZ[id][1][j][i];								
+            								}/* End for i */
+									}/* End for j */
+								}/* End if nDim = 2*/
+
+
+						/* Now prolongate the ghost zones in array GZ */
+
+								ips = pPO->ijks[0] - nghost;	/* This actually is - nghost + Matghost - Matghost */
+								ipe = pPO->ijke[0] - nghost + Matghost + Matghost;
+								
+								if(nDim > 1){
+									jps = pPO->ijks[1] - nghost;
+									jpe = pPO->ijke[1] - nghost + Matghost + Matghost;
+								}else{
+									jps = pPO->ijks[1]; /* The value will be zero in this case */
+									jpe = pPO->ijke[1];
+								}
+
+								if(nDim > 2){
+									kps = pPO->ijks[2] - nghost;
+									kpe = pPO->ijke[2] - nghost + Matghost + Matghost;
+								}else{
+									kps = pPO->ijks[2]; /* The value will be zero in this case */
+									kpe = pPO->ijke[2];
+								}
+
+								
+								/* In case Matghost=1, we only need to prolongate one cell */
+								if (dim == 0) {
+									ipe = pPO->ijks[0] - 1 - nghost + Matghost;
+									lend = MIN((Matghost-1),1);
+								}
+          							if (dim == 1) {
+									ips = pPO->ijke[0] + 1 - nghost + Matghost;
+									lend = MIN((Matghost-1),1);
+								}
+		
+          							if (dim == 2) {
+									jpe = pPO->ijks[1] - 1 - nghost + Matghost;
+									mend = MIN((Matghost-1),mend);
+								}
+          							if (dim == 3) {
+									jps = pPO->ijke[1] + 1 - nghost + Matghost;
+									mend = MIN((Matghost-1),mend);
+								}
+          							if (dim == 4) {
+									kpe = pPO->ijks[2] - 1 - nghost + Matghost;
+									nend = MIN((Matghost-1),nend);
+								}
+          							if (dim == 5) {
+									kps = pPO->ijke[2] + 1 - nghost + Matghost;
+									nend = MIN((Matghost-1),nend);
+								}
+
+							/* Prolongate the GZ array data to Ptemp temporarily and then copy the data to pMat */
+							/* i, j, k are for parent grids while kk, jj, ii are for child grids */
+						
+
+								for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
+								for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
+       								for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
+									ProU(GZ[id][kk][jj][ii-1], GZ[id][kk][jj][ii], GZ[id][kk][jj][ii+1], GZ[id][kk][jj-1][ii], 
+									GZ[id][kk][jj+1][ii], GZ[id][kk-1][jj][ii], GZ[id][kk+1][jj][ii], Ptemp);
+
+									/* Now set the solution */
+									for(n=0; n<=nend; n++){
+									for(m=0; m<=mend; m++){
+									for(l=0; l<=lend; l++){
+										pMat->U[k+n][j+m][i+l].Er  = Ptemp[n][m][l].Er;
+										pMat->U[k+n][j+m][i+l].Fr1 = Ptemp[n][m][l].Fr1;
+										pMat->U[k+n][j+m][i+l].Fr2 = Ptemp[n][m][l].Fr2;
+										pMat->U[k+n][j+m][i+l].Fr3 = Ptemp[n][m][l].Fr3;
+									}/* End l */
+									}/* End m */
+									}/* End n */
+
+								}/* End i */
+								}/* End j */
+								}/* End k */
+
+							}/* End if dim */
+						}/* Finish looping all six faces */
 
 					} /* End if there are data to prolongate */
 				}/* End loop npg grid */
@@ -1233,7 +1416,16 @@ void SMR_Rad_init(MeshS *pM, const int Root)
 
 	/* Array to store the prolongation data temporary */
 	/* Each GZ[k][j][i][Er-Fr?]: We only need to do the boundary for Er to Fr? */
-	if((GZ=(RadMHDS***)calloc_3d_array(max3,max2,max1,sizeof(RadMHDS))) ==NULL) 
+	if((GZ[0]=(RadMHDS***)calloc_3d_array(max3,max2,nghost,sizeof(RadMHDS))) ==NULL) 
+		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
+
+	if((GZ[1]=(RadMHDS***)calloc_3d_array(max3,nghost,max1,sizeof(RadMHDS))) ==NULL) 
+		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
+
+	if((GZ[2]=(RadMHDS***)calloc_3d_array(nghost,max2,max1,sizeof(RadMHDS))) ==NULL) 
+		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
+  	
+  	if((Pro_buf=(RadMHDS***)calloc_3d_array((max3-2*Matghost),(max2-2*Matghost),(max1-2*Matghost),sizeof(RadMHDS))) ==NULL) 
 		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
   	
 
@@ -1242,53 +1434,75 @@ void SMR_Rad_init(MeshS *pM, const int Root)
 
 
 
-
-
 void SMR_Rad_destruct()
 {
 
-
+	int i;
 			
 	
-	if(start_addrP != NULL)
+	if(start_addrP != NULL){
 		free(start_addrP);
+		start_addrP = NULL;
+	}
 
 /*==========================*/
 	/* Free the MPI buffer */
 
-	if(send_bufRC != NULL)
+	if(send_bufRC != NULL){
 		free_2d_array(send_bufRC);
+		send_bufRC = NULL;
+	}
 
 #ifdef MPI_PARALLEL
 
-	if(send_rq != NULL)
+	if(send_rq != NULL){
 		free_2d_array(send_rq);
+		send_rq = NULL;
+	}
 
-	if(recv_rq != NULL)
+	if(recv_rq != NULL){
 		free_2d_array(recv_rq);
+		recv_rq = NULL;
+	}
 
-	if(recv_bufRC != NULL)
+	if(recv_bufRC != NULL){
 		free_2d_array(recv_bufRC);
+		recv_bufRC = NULL;
+	}
 
 #endif
 
-	if(send_bufP != NULL)
+	if(send_bufP != NULL){
 		free_2d_array(send_bufP);
+		send_bufP = NULL;
+	}
 
-	if(recv_bufP != NULL)
+	if(recv_bufP != NULL){
 		free_2d_array(recv_bufP);
+		recv_bufP = NULL;
+	}
 
 
 	/* Free temporary array for prolongation ghost zones */
-	
-	if(GZ != NULL)
-		free_3d_array(GZ);
+	for(i=0; i<3; i++){
+		if(GZ[i] != NULL){
+			free_3d_array(GZ[i]);
+			GZ[i] = NULL;
+		}
 
+	}
 
+	if(Pro_buf != NULL){
+		free_3d_array(Pro_buf);
+		Pro_buf = NULL;
+	}
 	return;
 
 
 }
+
+
+
 
 
 

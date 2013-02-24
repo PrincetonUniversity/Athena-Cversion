@@ -117,7 +117,7 @@ void BackEuler_1d(MeshS *pM)
 	Real temp0;
 	
 	Real temperature, velocity, Fr0x;
-	Real AdvFx;
+	Real AdvFx[2];
 	
   	Real theta[7];
   	Real phi[7];
@@ -223,9 +223,9 @@ void BackEuler_1d(MeshS *pM)
 		/* RHSEuler[0] is not used. RHSEuler[1...N]  */
 		
 		
-		Rad_Advection_Flux1D(pD, i, js, ks, 1.0, &AdvFx);
+		Rad_Advection_Flux1D(pD, i, js, ks, 1.0, AdvFx);
 
-    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + AdvFx;
+    		RHSEuler[2*(i-is)+1]   = U1d[i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][js][i] + (AdvFx[1] - AdvFx[0]);
     		RHSEuler[2*(i-is)+2] = U1d[i].Fr1 + Eratio * pG->dt *  Sigma_aP * T4 * velocity + (1.0 - Eratio) * pG->Ersource[ks][js][i] * velocity / Crat;
 
 
