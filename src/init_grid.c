@@ -62,6 +62,7 @@ void init_grid(MeshS *pM)
   /* prolongation, as ghoze zones of radiation and MHD */
   /* have different sizes */
   int Rad_n1p, Rad_n2p;
+  int Rad_n1z, Rad_n2z, Rad_n3z;
 #endif
 
 #endif
@@ -527,8 +528,31 @@ G3.ijkl[0],G3.ijkr[0]);
               pG->CGrid[ncg].ID = pCD->GData[n][m][l].ID_Comm_Parent;
 
               n1z = G3.ijkr[0] - G3.ijkl[0];
+	/*----------------------------------------*/
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
+#endif
+	/*---------------------------------------*/
               n2z = G3.ijkr[1] - G3.ijkl[1];
+
+	/*---------------------------------------*/
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
+	      if(pG->Nx[1] > 1)
+			Rad_n2z = n2z + 2;
+	      else
+			Rad_n2z = n2z; 
+#endif
+	/*-----------------------------------------*/
               n3z = G3.ijkr[2] - G3.ijkl[2];
+	/*---------------------------------------*/
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
+	      if(pG->Nx[2] > 1)
+			Rad_n3z = n3z + 2;
+	      else
+			Rad_n3z = n3z; 
+#endif
+	/*-----------------------------------------*/
+
               pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->CGrid[ncg].nWordsP  = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -542,7 +566,7 @@ G3.ijkl[0],G3.ijkr[0]);
 
  		 /* This is the number of data required for communication to update the Matrix */
 	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
-	      pG->CGrid[ncg].Rad_nWordsP  = n1z*n2z*n3z*(4);
+	      pG->CGrid[ncg].Rad_nWordsP  = Rad_n1z*Rad_n2z*Rad_n3z*(4);
 
 #endif
 
@@ -611,7 +635,7 @@ G3.ijkl[0],G3.ijkr[0]);
                     if (pG->Nx[1] > 1) 	{
 			n1p += (nghost + 2);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += 2;				
+			Rad_n1p += 2;	/* We do not need the data in the corner */			
 #endif			
 		    }
 
@@ -631,7 +655,8 @@ G3.ijkl[0],G3.ijkr[0]);
 		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
 		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
 		  /* no ghost zones for Rad restriction */
-		  pG->CGrid[ncg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4);  
+		/* One ghost zone plus two additional cells for prolongation */
+		  pG->CGrid[ncg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4);  
 #endif	
 
 
@@ -750,7 +775,7 @@ G3.ijkl[0],G3.ijkr[0]);
 		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
 
 		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY); 
-		  pG->CGrid[ncg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4); 
+		  pG->CGrid[ncg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4); 
 #endif
 
 /* Allocate memory for myFlx and myEMFs*/
@@ -1002,9 +1027,33 @@ G3.ijkl[2],G3.ijkr[2]);
               pG->PGrid[npg].ID = pPD->GData[n][m][l].ID_Comm_Children;
 
               n1z = (G3.ijkr[0] - G3.ijkl[0])/2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
+#endif
               n2z = 1; n3z = 1;
-              if (pG->Nx[1]>1) n2z = (G3.ijkr[1] - G3.ijkl[1])/2;
-              if (pG->Nx[2]>1) n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
+	      /*------------------------------------*/
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      Rad_n2z = 1; 
+	      Rad_n3z = 1;
+#endif
+	     /*-------------------------------------*/
+
+
+
+              if (pG->Nx[1]>1){ 
+		n2z = (G3.ijkr[1] - G3.ijkl[1])/2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		Rad_n2z = n2z + 2;
+#endif
+	      }
+
+              if (pG->Nx[2]>1){
+		n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		Rad_n3z = n3z + 2;
+#endif
+	      }
+
               pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->PGrid[npg].nWordsP  = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
@@ -1014,7 +1063,7 @@ G3.ijkl[2],G3.ijkr[2]);
 	      pG->PGrid[npg].nWordsAdvEr = n1z*n2z*n3z;	
 		
 	      pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
-	      pG->PGrid[npg].Rad_nWordsP  = n1z*n2z*n3z*(4);	
+	      pG->PGrid[npg].Rad_nWordsP  = Rad_n1z*Rad_n2z*Rad_n3z*(4);	
 #endif
 
 
@@ -1108,7 +1157,7 @@ G3.ijkl[2],G3.ijkr[2]);
 		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
 
 		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4);
+		  pG->PGrid[npg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the
@@ -1229,7 +1278,7 @@ G3.ijkl[2],G3.ijkr[2]);
 		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
 
 		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += (2)*Rad_n1p*Rad_n2p*(4);
+		  pG->PGrid[npg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 

@@ -720,13 +720,26 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						
 						pSnd = (double*)&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]);
 
-						ics = pCO->ijks[0] - nghost + Matghost;
-						ice = pCO->ijke[0] - nghost + Matghost;
-						jcs = pCO->ijks[1] - nghost + Matghost;
-						jce = pCO->ijke[1] - nghost + Matghost;
-						kcs = pCO->ijks[2] - nghost + Matghost;
-						kce = pCO->ijke[2] - nghost + Matghost;
-					
+						ics = pCO->ijks[0] - nghost + Matghost - 1;
+						ice = pCO->ijke[0] - nghost + Matghost + 1;
+
+						if(nDim > 1){
+							jcs = pCO->ijks[1] - nghost + Matghost - 1;
+							jce = pCO->ijke[1] - nghost + Matghost + 1;
+						}
+						else{
+							jcs = pCO->ijks[1];
+							jce = pCO->ijke[1];
+						}
+		
+						if(nDim > 2){
+							kcs = pCO->ijks[2] - nghost + Matghost - 1;
+							kce = pCO->ijke[2] - nghost + Matghost + 1;
+						}
+						else{
+							kcs = pCO->ijks[2];
+							kce = pCO->ijke[2];
+						}
 						
 						for(k=kcs; k<=kce; k++){
 						for(j=jcs; j<=jce; j++){
@@ -766,12 +779,30 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 								}
 
 
-								if (dim == 0) (ice = pCO->ijks[0] - nghost + Matghost);
-          							if (dim == 1) (ics = pCO->ijke[0] - nghost + Matghost);
-          							if (dim == 2) (jce = pCO->ijks[1] - nghost + Matghost);
-          							if (dim == 3) (jcs = pCO->ijke[1] - nghost + Matghost);
-         							if (dim == 4) (kce = pCO->ijks[2] - nghost + Matghost);
-          							if (dim == 5) (kcs = pCO->ijke[2] - nghost + Matghost);
+								if (dim == 0) {
+									ics = pCO->ijks[0] - nghost + Matghost - Matghost - 1;
+									ice = pCO->ijks[0] - nghost + Matghost;
+								}
+          							if (dim == 1) {
+									ics = pCO->ijke[0] - nghost + Matghost;
+									ice = pCO->ijke[0] - nghost + Matghost + Matghost + 1;
+								}
+          							if (dim == 2) {
+									jcs = pCO->ijks[1] - nghost + Matghost - Matghost - 1;
+									jce = pCO->ijks[1] - nghost + Matghost;
+								}
+          							if (dim == 3) {
+									jcs = pCO->ijke[1] - nghost + Matghost;
+									jce = pCO->ijke[1] - nghost + Matghost + Matghost + 1;
+								}
+         							if (dim == 4) {
+									kcs = pCO->ijks[2] - nghost + Matghost - Matghost - 1;
+									kce = pCO->ijks[2] - nghost + Matghost;
+								}
+          							if (dim == 5) {
+									kcs = pCO->ijke[2] - nghost + Matghost;
+									kce = pCO->ijke[2] - nghost + Matghost + Matghost + 1;
+								}
 
 	
 								for(k=kcs; k<=kce; k++){
@@ -930,11 +961,12 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						/* To use this prolongated solution as initial guess in fine level */
 
 						/*---------------------------------------------------*/
+						/* Two additional cells for prolongation */
 						ips = 0;
-						ipe = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 - 1;
+						ipe = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 1;
 						if(nDim > 1){
 							jps = 0;
-							jpe = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 - 1;
+							jpe = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 1;
 						}
 						else{
 							jps = 1;
@@ -942,7 +974,7 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						}
 						if(nDim > 2){
 							kps = 0;
-							kpe = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 - 1;
+							kpe = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 1;
 						}
 						else{
 							kps = 1;
@@ -1039,21 +1071,21 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 							if(pPO->AdvEr[dim]){
 
 								if(dim == 0 || dim == 1){
-									ngz1 = (Matghost/2) + 2;
+									ngz1 = Matghost + 2;
 									id = 0;
 								}else{
 									ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 2;
 								}
 
 								if(dim == 2 || dim == 3){
-									ngz2 = (Matghost/2) + 2;
+									ngz2 = Matghost + 2;
 									id = 1;
 								}else{
 									ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 2;
 								}
 
 								if(dim == 4 || dim == 5){
-									ngz3 = (Matghost/2) + 2;
+									ngz3 = Matghost + 2;
 									id = 2;
 								}else{
 									ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 2;
@@ -1116,11 +1148,11 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 						/* Now prolongate the ghost zones in array GZ */
 
-								ips = pPO->ijks[0] - nghost;	/* This actually is - nghost + Matghost - Matghost */
+								ips = pPO->ijks[0] - nghost + Matghost - Matghost;	
 								ipe = pPO->ijke[0] - nghost + Matghost + Matghost;
 								
 								if(nDim > 1){
-									jps = pPO->ijks[1] - nghost;
+									jps = pPO->ijks[1] - nghost + Matghost - Matghost;
 									jpe = pPO->ijke[1] - nghost + Matghost + Matghost;
 								}else{
 									jps = pPO->ijks[1]; /* The value will be zero in this case */
@@ -1128,7 +1160,7 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 								}
 
 								if(nDim > 2){
-									kps = pPO->ijks[2] - nghost;
+									kps = pPO->ijks[2] - nghost + Matghost - Matghost;
 									kpe = pPO->ijke[2] - nghost + Matghost + Matghost;
 								}else{
 									kps = pPO->ijks[2]; /* The value will be zero in this case */
@@ -1138,28 +1170,29 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 								
 								/* In case Matghost=1, we only need to prolongate one cell */
 								if (dim == 0) {
-									ipe = pPO->ijks[0] - 1 - nghost + Matghost;
+									/* No need to change ips */
+									ipe = pPO->ijks[0] - nghost + Matghost - 1;					
 									lend = MIN((Matghost-1),1);
 								}
           							if (dim == 1) {
-									ips = pPO->ijke[0] + 1 - nghost + Matghost;
+									ips = pPO->ijke[0] - nghost + Matghost + 1;
 									lend = MIN((Matghost-1),1);
 								}
 		
           							if (dim == 2) {
-									jpe = pPO->ijks[1] - 1 - nghost + Matghost;
+									jpe = pPO->ijks[1] - nghost + Matghost - 1;
 									mend = MIN((Matghost-1),mend);
 								}
           							if (dim == 3) {
-									jps = pPO->ijke[1] + 1 - nghost + Matghost;
+									jps = pPO->ijke[1] - nghost + Matghost + 1;
 									mend = MIN((Matghost-1),mend);
 								}
           							if (dim == 4) {
-									kpe = pPO->ijks[2] - 1 - nghost + Matghost;
+									kpe = pPO->ijks[2] - nghost + Matghost - 1;
 									nend = MIN((Matghost-1),nend);
 								}
           							if (dim == 5) {
-									kps = pPO->ijke[2] + 1 - nghost + Matghost;
+									kps = pPO->ijke[2] - nghost + Matghost + 1;
 									nend = MIN((Matghost-1),nend);
 								}
 
@@ -1410,22 +1443,20 @@ void SMR_Rad_init(MeshS *pM, const int Root)
     		ath_error("[SMR_init]: Failed to allocate recv_bufP\n");
 
 
-	max1 += 2*Matghost;
-  	max2 += 2*Matghost;
-  	max3 += 2*Matghost;
 
 	/* Array to store the prolongation data temporary */
 	/* Each GZ[k][j][i][Er-Fr?]: We only need to do the boundary for Er to Fr? */
-	if((GZ[0]=(RadMHDS***)calloc_3d_array(max3,max2,nghost,sizeof(RadMHDS))) ==NULL) 
+	if((GZ[0]=(RadMHDS***)calloc_3d_array(max3,max2,Matghost+2,sizeof(RadMHDS))) ==NULL) 
 		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
 
-	if((GZ[1]=(RadMHDS***)calloc_3d_array(max3,nghost,max1,sizeof(RadMHDS))) ==NULL) 
+	if((GZ[1]=(RadMHDS***)calloc_3d_array(max3,Matghost+2,max1,sizeof(RadMHDS))) ==NULL) 
 		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
 
-	if((GZ[2]=(RadMHDS***)calloc_3d_array(nghost,max2,max1,sizeof(RadMHDS))) ==NULL) 
+	if((GZ[2]=(RadMHDS***)calloc_3d_array(Matghost+2,max2,max1,sizeof(RadMHDS))) ==NULL) 
 		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
   	
-  	if((Pro_buf=(RadMHDS***)calloc_3d_array((max3-2*Matghost),(max2-2*Matghost),(max1-2*Matghost),sizeof(RadMHDS))) ==NULL) 
+	/* Prolongation has two additional ghost zones */
+  	if((Pro_buf=(RadMHDS***)calloc_3d_array((max3+2),(max2+2),(max1+2),sizeof(RadMHDS))) ==NULL) 
 		ath_error("[SMR_Rad_init]:Failed to allocate GZ[0]C\n");
   	
 

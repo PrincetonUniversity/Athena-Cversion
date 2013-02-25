@@ -363,6 +363,7 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 			/* The information we need to calculate the matrix coefficient is */
 			/* already restricted in the pG grid */
 			/*****************************************/
+			/* The initialize function only calculate coefficients for levels above RootLevel */
 			if(pMat->CPUflag)
 				Initialize_matrix(pMat,pD);
 		
@@ -393,6 +394,12 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	if(Matrix[RootLevel][0].CPUflag){
 		
 		for(nl=RootLevel-1; nl>=0; nl--){
+	
+			/* For the levels below RootLevel, we need to set time and dt for the first time */
+			/* They change every step and they are not set in set_matrix_level */
+			Matrix[nl][0].time = Matrix[nl+1][0].time;
+			Matrix[nl][0].dt   = Matrix[nl+1][0].dt;
+
 			/* First do restriction of the matrix coefficient for the whole level */
 			Rad_Restriction(Matrix, nl+1, pM, 1);			
 			pMat = &(Matrix[nl][0]);

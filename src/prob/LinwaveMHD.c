@@ -145,7 +145,7 @@ void problem(DomainS *pDomain)
           pGrid->U[k][j][i].M3 =flag * factor * sin_a2 * (1.e-3 * cos(theta) - 1.22694e-6 * sin(theta));
 
           pGrid->U[k][j][i].E = E0 + flag * factor * (1.5e-3 * cos(theta) - 2.58994e-7 * sin(theta));
-
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	 pGrid->U[k][j][i].Edd_11 = 1.0/3.0; /* Set to be a constant in 1D. To be modified later */
 	 pGrid->U[k][j][i].Edd_22 = 1.0/3.0;
 	 pGrid->U[k][j][i].Edd_33 = 1.0/3.0;
@@ -153,6 +153,7 @@ void problem(DomainS *pDomain)
 	 pGrid->U[k][j][i].Sigma[1] = 10.0;
 	 pGrid->U[k][j][i].Sigma[2] = 10.0;
 	 pGrid->U[k][j][i].Sigma[3] = 10.0;
+#endif
 
 #ifdef RADIATION_MHD
 	 /* interface magnetic field */
@@ -164,6 +165,7 @@ void problem(DomainS *pDomain)
           pGrid->B3i[k][j][i] = 0.0;
         
 #endif
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	  pGrid->U[k][j][i].Er = 1.0 + flag * factor * (-5.03552e-10 * cos(theta) - 6.84367e-7 * sin(theta));
 	  pGrid->U[k][j][i].Fr1 = flag * factor * cos_a2 * cos_a3 * (-1.00001e-8 * cos(theta) - 5.87571e-11 * sin(theta));
 	  pGrid->U[k][j][i].Fr2 = flag * factor * cos_a2 * sin_a3 *  (-1.00001e-8 * cos(theta) - 5.87571e-11 * sin(theta));
@@ -171,7 +173,7 @@ void problem(DomainS *pDomain)
         }
       }
     }
-
+#endif
 #ifdef RADIATION_MHD
 
  for (k=pGrid->ks; k<=pGrid->ke; k++) {
@@ -298,7 +300,7 @@ void radMHD_rad_inflow2(GridS *pGrid)
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  *----------------------------------------------------------------------------*/
-
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 void bvals_mat_fun_ix1(VMatFun_t *Mat_BCFun)
 {
 
@@ -324,24 +326,27 @@ void bvals_mat_fun_ox3(VMatFun_t *Mat_BCFun)
 
 } 
 
+#endif
+
 void problem_write_restart(MeshS *pM, FILE *fp)
 {
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	fprintf(fp,"%5.3e\n",Gamma);
 	fprintf(fp,"%5.3e\n",Prat);
 	fprintf(fp,"%5.3e\n",Crat);
 	fprintf(fp,"%5.3e\n",R_ideal);
+#endif
   return;
 }
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
-
-	bvals_mhd_fun(&(pM->Domain[0][0]), right_x1, radMHD_inflow);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	fscanf(fp,"%lf",&Gamma);
 	fscanf(fp,"%lf\n",&Prat);
 	fscanf(fp,"%lf\n",&Crat);
 	fscanf(fp,"%lf\n",&R_ideal);
-
+#endif
 
   return;
 }
@@ -362,7 +367,8 @@ void Userwork_in_loop(MeshS *pM)
 
 void Userwork_after_loop(MeshS *pM)
 {
-  GridS *pGrid;
+ #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+ GridS *pGrid;
   int i=0,j=0,k=0;
 
   int is,ie,js,je,ks,ke;
@@ -613,4 +619,10 @@ void Userwork_after_loop(MeshS *pM)
   free(fname);
 
   return;
+#endif
 }
+
+
+
+
+
