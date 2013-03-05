@@ -1659,6 +1659,43 @@ double rtsafe(void (*funcd)(double, double, double, double, double, double *, do
 }
 
 
+/* Extrapolation function adopted from Numerical Receipes */
+void polint(Real xa[], Real ya[], int n, Real x, Real *y, Real *dy)
+{
+	int i,m,ns=1;
+	Real den,dif,dift,ho,hp,w;
+	Real *c,*d;
+
+	dif=fabs(x-xa[1]);
+	c=(Real*)calloc_1d_array(n+1,sizeof(Real));
+	d=(Real*)calloc_1d_array(n+1,sizeof(Real));
+	for (i=1;i<=n;i++) {
+		if ( (dift=fabs(x-xa[i])) < dif) {
+			ns=i;
+			dif=dift;
+		}
+		c[i]=ya[i];
+		d[i]=ya[i];
+	}
+	*y=ya[ns--];
+	for (m=1;m<n;m++) {
+		for (i=1;i<=n-m;i++) {
+			ho=xa[i]-x;
+			hp=xa[i+m]-x;
+			w=c[i+1]-d[i];
+			if ( (den=ho-hp) == 0.0) ath_error("Error in routine polint");
+			den=w/den;
+			d[i]=hp*den;
+			c[i]=ho*den;
+		}
+		*y += (*dy=(2*ns < (n-m) ? c[ns+1] : d[ns--]));
+	}
+	free_1d_array(d);
+	free_1d_array(c);
+	
+}
+
+
 
 /* Function to calculate  for source term T^4 - Er */
 

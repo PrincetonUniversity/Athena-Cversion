@@ -64,6 +64,18 @@ static void conduct_ox3(MatrixS *pMat);
 
 static void ProlongateLater(MatrixS *pMat);
 
+/* Do extrapolation at each iteration */
+static void ExtraPolate_ix1(MatrixS *pMat); 
+static void ExtraPolate_ox1(MatrixS *pMat); 
+static void ExtraPolate_ix2(MatrixS *pMat); 
+static void ExtraPolate_ox2(MatrixS *pMat); 
+static void ExtraPolate_ix3(MatrixS *pMat); 
+static void ExtraPolate_ox3(MatrixS *pMat); 
+
+/* The number of points used for extrapolation boundary */
+#define NEXTRAP 3
+
+
 #ifdef MPI_PARALLEL
 static void pack_ix1(MatrixS *pMat);
 static void pack_ox1(MatrixS *pMat);
@@ -448,6 +460,9 @@ void bvals_Matrix_init(MatrixS *pMat)
 		    /* change the boundary at each relaxation as the ghost zones are fixed to be zero	 */
 		    /* It will get updated every cycle */
 	      Mat_ix1_BCFun = ProlongateLater;
+	
+	/*	Mat_ix1_BCFun = ExtraPolate_ix1;
+	*/
 	    break;
 
             case 1: /* Reflecting, B_normal=0 */
@@ -483,6 +498,9 @@ void bvals_Matrix_init(MatrixS *pMat)
 
 	    case 0:
 	      Mat_ox1_BCFun = ProlongateLater;
+
+/*	      Mat_ox1_BCFun = ExtraPolate_ox1;
+*/
 	    break;
 
             case 1: /* Reflecting, B_normal=0 */
@@ -524,6 +542,9 @@ void bvals_Matrix_init(MatrixS *pMat)
 
 	    case 0:
 	      Mat_ix2_BCFun = ProlongateLater;
+
+/*	      Mat_ix2_BCFun = ExtraPolate_ix2;
+*/
 	    break;
 
             case 1: /* Reflecting, B_normal=0 */
@@ -561,6 +582,9 @@ void bvals_Matrix_init(MatrixS *pMat)
 
 	    case 0: 
 	      Mat_ox2_BCFun = ProlongateLater;
+
+/*	      Mat_ox2_BCFun = ExtraPolate_ox2;
+*/
 	    break;
 
             case 1: /* Reflecting, B_normal=0 */
@@ -600,6 +624,9 @@ void bvals_Matrix_init(MatrixS *pMat)
 
  	    case 0:
 	      Mat_ix3_BCFun = ProlongateLater;
+
+/*	     Mat_ix3_BCFun = ExtraPolate_ix3;
+*/
 	    break;        
 
             case 1: /* Reflecting, B_normal=0 */
@@ -635,7 +662,9 @@ void bvals_Matrix_init(MatrixS *pMat)
 
 	    case 0:
 	      Mat_ox3_BCFun = ProlongateLater;
-	    break;
+/*
+	      Mat_ox3_BCFun = ExtraPolate_ox3;
+*/	    break;
 
             case 1: /* Reflecting, B_normal=0 */
               Mat_ox3_BCFun = reflect_ox3;
@@ -1556,6 +1585,240 @@ static void conduct_ox3(MatrixS *pMat)
 static void ProlongateLater(MatrixS *pMat)
 {
   return;
+}
+
+
+static void ExtraPolate_ix1(MatrixS *pMat)
+{
+  int is = pMat->is, ie = pMat->ie;
+  int js = pMat->js, je = pMat->je;
+  int ks = pMat->ks, ke = pMat->ke;
+  int i,j,k, m;
+  Real Fitx[NEXTRAP+1];
+  Real Fity[4][NEXTRAP+1];
+  Real fit[4], fiterr;
+
+   for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+	for(m=1; m<=NEXTRAP; m++){
+		Fitx[m] = (Real)(is+m-1);
+		Fity[0][m] = pMat->U[k][j][is+m-1].Er;
+		Fity[1][m] = pMat->U[k][j][is+m-1].Fr1;
+		Fity[2][m] = pMat->U[k][j][is+m-1].Fr2;
+		Fity[3][m] = pMat->U[k][j][is+m-1].Fr3;
+	}
+
+      for (i=1; i<=Matghost; i++) {
+		for(m=0; m<4; m++)
+			polint(Fitx,Fity[m],NEXTRAP,(Real)(is-i),&fit[m],&fiterr);
+		
+		pMat->U[k][j][is-i].Er  = fit[0];
+		pMat->U[k][j][is-i].Fr1 = fit[1];
+		pMat->U[k][j][is-i].Fr2 = fit[2];
+		pMat->U[k][j][is-i].Fr3 = fit[3];
+
+
+      }
+    }
+  }
+
+
+  return;
+
+} 
+static void ExtraPolate_ox1(MatrixS *pMat)
+{
+  int is = pMat->is, ie = pMat->ie;
+  int js = pMat->js, je = pMat->je;
+  int ks = pMat->ks, ke = pMat->ke;
+  int i,j,k, m;
+  Real Fitx[NEXTRAP+1];
+  Real Fity[4][NEXTRAP+1];
+  Real fit[4], fiterr;
+
+   for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+	for(m=1; m<=NEXTRAP; m++){
+		Fitx[m] = (Real)(ie-m+1);
+		Fity[0][m] = pMat->U[k][j][ie-m+1].Er;
+		Fity[1][m] = pMat->U[k][j][ie-m+1].Fr1;
+		Fity[2][m] = pMat->U[k][j][ie-m+1].Fr2;
+		Fity[3][m] = pMat->U[k][j][ie-m+1].Fr3;
+	}
+
+      for (i=1; i<=Matghost; i++) {
+		for(m=0; m<4; m++)
+			polint(Fitx,Fity[m],NEXTRAP,(Real)(ie+i),&fit[m],&fiterr);
+		
+		pMat->U[k][j][ie+i].Er  = fit[0];
+		pMat->U[k][j][ie+i].Fr1 = fit[1];
+		pMat->U[k][j][ie+i].Fr2 = fit[2];
+		pMat->U[k][j][ie+i].Fr3 = fit[3];
+
+
+      }
+    }
+  }
+
+
+  return;
+
+}
+
+static void ExtraPolate_ix2(MatrixS *pMat)
+{
+
+  int is = pMat->is, ie = pMat->ie;
+  int js = pMat->js, je = pMat->je;
+  int ks = pMat->ks, ke = pMat->ke;
+  int i,j,k, m;
+  Real Fitx[NEXTRAP+1];
+  Real Fity[4][NEXTRAP+1];
+  Real fit[4], fiterr;
+
+   for (k=ks; k<=ke; k++) {
+    for (i=is; i<=ie; i++) {
+	for(m=1; m<=NEXTRAP; m++){
+		Fitx[m] = (Real)(js+m-1);
+		Fity[0][m] = pMat->U[k][js+m-1][i].Er;
+		Fity[1][m] = pMat->U[k][js+m-1][i].Fr1;
+		Fity[2][m] = pMat->U[k][js+m-1][i].Fr2;
+		Fity[3][m] = pMat->U[k][js+m-1][i].Fr3;
+	}
+
+      for (j=1; j<=Matghost; j++) {
+		for(m=0; m<4; m++)
+			polint(Fitx,Fity[m],NEXTRAP,(Real)(js-j),&fit[m],&fiterr);
+		
+		pMat->U[k][js-j][i].Er  = fit[0];
+		pMat->U[k][js-j][i].Fr1 = fit[1];
+		pMat->U[k][js-j][i].Fr2 = fit[2];
+		pMat->U[k][js-j][i].Fr3 = fit[3];
+
+
+      }
+    }
+  }
+
+
+  return;
+
+
+} 
+static void ExtraPolate_ox2(MatrixS *pMat)
+{
+
+  int is = pMat->is, ie = pMat->ie;
+  int js = pMat->js, je = pMat->je;
+  int ks = pMat->ks, ke = pMat->ke;
+  int i,j,k, m;
+  Real Fitx[NEXTRAP+1];
+  Real Fity[4][NEXTRAP+1];
+  Real fit[4], fiterr;
+
+   for (k=ks; k<=ke; k++) {
+    for (i=is; i<=ie; i++) {
+	for(m=1; m<=NEXTRAP; m++){
+		Fitx[m] = (Real)(je-m+1);
+		Fity[0][m] = pMat->U[k][je-m+1][i].Er;
+		Fity[1][m] = pMat->U[k][je-m+1][i].Fr1;
+		Fity[2][m] = pMat->U[k][je-m+1][i].Fr2;
+		Fity[3][m] = pMat->U[k][je-m+1][i].Fr3;
+	}
+
+      for (j=1; j<=Matghost; j++) {
+		for(m=0; m<4; m++)
+			polint(Fitx,Fity[m],NEXTRAP,(Real)(je+j),&fit[m],&fiterr);
+		
+		pMat->U[k][je+j][i].Er  = fit[0];
+		pMat->U[k][je+j][i].Fr1 = fit[1];
+		pMat->U[k][je+j][i].Fr2 = fit[2];
+		pMat->U[k][je+j][i].Fr3 = fit[3];
+
+
+      }
+    }
+  }
+
+
+
+}
+static void ExtraPolate_ix3(MatrixS *pMat)
+{
+  int is = pMat->is, ie = pMat->ie;
+  int js = pMat->js, je = pMat->je;
+  int ks = pMat->ks, ke = pMat->ke;
+  int i,j,k, m;
+  Real Fitx[NEXTRAP+1];
+  Real Fity[4][NEXTRAP+1];
+  Real fit[4], fiterr;
+
+   for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+	for(m=1; m<=NEXTRAP; m++){
+		Fitx[m] = (Real)(ks+m-1);
+		Fity[0][m] = pMat->U[ks+m-1][j][i].Er;
+		Fity[1][m] = pMat->U[ks+m-1][j][i].Fr1;
+		Fity[2][m] = pMat->U[ks+m-1][j][i].Fr2;
+		Fity[3][m] = pMat->U[ks+m-1][j][i].Fr3;
+	}
+
+      for (k=1; k<=Matghost; k++) {
+		for(m=0; m<4; m++)
+			polint(Fitx,Fity[m],NEXTRAP,(Real)(ks-k),&fit[m],&fiterr);
+		
+		pMat->U[ks-k][j][i].Er  = fit[0];
+		pMat->U[ks-k][j][i].Fr1 = fit[1];
+		pMat->U[ks-k][j][i].Fr2 = fit[2];
+		pMat->U[ks-k][j][i].Fr3 = fit[3];
+
+
+      }
+    }
+  }
+
+
+  return;
+
+
+}
+static void ExtraPolate_ox3(MatrixS *pMat)
+{
+  int is = pMat->is, ie = pMat->ie;
+  int js = pMat->js, je = pMat->je;
+  int ks = pMat->ks, ke = pMat->ke;
+  int i,j,k, m;
+  Real Fitx[NEXTRAP+1];
+  Real Fity[4][NEXTRAP+1];
+  Real fit[4], fiterr;
+
+   for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+	for(m=1; m<=NEXTRAP; m++){
+		Fitx[m] = (Real)(ke-m+1);
+		Fity[0][m] = pMat->U[ke-m+1][j][i].Er;
+		Fity[1][m] = pMat->U[ke-m+1][j][i].Fr1;
+		Fity[2][m] = pMat->U[ke-m+1][j][i].Fr2;
+		Fity[3][m] = pMat->U[ke-m+1][j][i].Fr3;
+	}
+
+      for (k=1; k<=Matghost; k++) {
+		for(m=0; m<4; m++)
+			polint(Fitx,Fity[m],NEXTRAP,(Real)(ke+k),&fit[m],&fiterr);
+		
+		pMat->U[ke+k][j][i].Er  = fit[0];
+		pMat->U[ke+k][j][i].Fr1 = fit[1];
+		pMat->U[ke+k][j][i].Fr2 = fit[2];
+		pMat->U[ke+k][j][i].Fr3 = fit[3];
+
+
+      }
+    }
+  }
+
+
+  return;
+
 }
 
 

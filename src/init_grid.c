@@ -530,14 +530,19 @@ G3.ijkl[0],G3.ijkr[0]);
               n1z = G3.ijkr[0] - G3.ijkl[0];
 	/*----------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
+		/*Only do this if there is data to prolongate. 
+						 Two additional cells at ie direction are required for prolongation */
+	      if(n1z > 0)
+		Rad_n1z = n1z + 2;	
+	      else
+		Rad_n1z = n1z;
 #endif
 	/*---------------------------------------*/
               n2z = G3.ijkr[1] - G3.ijkl[1];
 
 	/*---------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
-	      if(pG->Nx[1] > 1)
+	      if((pG->Nx[1] > 1) && (n2z > 0))
 			Rad_n2z = n2z + 2;
 	      else
 			Rad_n2z = n2z; 
@@ -546,7 +551,7 @@ G3.ijkl[0],G3.ijkr[0]);
               n3z = G3.ijkr[2] - G3.ijkl[2];
 	/*---------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
-	      if(pG->Nx[2] > 1)
+	      if((pG->Nx[2] > 1) && (n3z > 0))
 			Rad_n3z = n3z + 2;
 	      else
 			Rad_n3z = n3z; 
@@ -635,14 +640,14 @@ G3.ijkl[0],G3.ijkr[0]);
                     if (pG->Nx[1] > 1) 	{
 			n1p += (nghost + 2);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += 2;	/* We do not need the data in the corner */			
+			Rad_n1p += (Matghost + 2);				
 #endif			
 		    }
 
                     if (pG->Nx[2] > 1)  {
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += 2;			
+			Rad_n2p += (Matghost + 2);			
 #endif			
 		    }
 	
@@ -656,7 +661,7 @@ G3.ijkl[0],G3.ijkr[0]);
 		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
 		  /* no ghost zones for Rad restriction */
 		/* One ghost zone plus two additional cells for prolongation */
-		  pG->CGrid[ncg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4);  
+		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2+2))*Rad_n1p*Rad_n2p*(4);  
 #endif	
 
 
@@ -756,13 +761,13 @@ G3.ijkl[0],G3.ijkr[0]);
                     if (pG->Nx[1] > 1) {
 			n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += 2;
+			Rad_n1p += (Matghost + 2);
 #endif
 		    }			
                     if (pG->Nx[2] > 1)	{
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += 2;
+			Rad_n2p += (Matghost + 2);
 #endif
 		    }
 
@@ -775,7 +780,7 @@ G3.ijkl[0],G3.ijkr[0]);
 		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
 
 		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY); 
-		  pG->CGrid[ncg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4); 
+		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4); 
 #endif
 
 /* Allocate memory for myFlx and myEMFs*/
@@ -1028,7 +1033,10 @@ G3.ijkl[2],G3.ijkr[2]);
 
               n1z = (G3.ijkr[0] - G3.ijkl[0])/2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
+	      if(n1z > 0)
+		Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
+		else
+		Rad_n1z = n1z;
 #endif
               n2z = 1; n3z = 1;
 	      /*------------------------------------*/
@@ -1043,14 +1051,20 @@ G3.ijkl[2],G3.ijkr[2]);
               if (pG->Nx[1]>1){ 
 		n2z = (G3.ijkr[1] - G3.ijkl[1])/2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		if(n2z > 1)
 		Rad_n2z = n2z + 2;
+		else
+		Rad_n2z = n2z;
 #endif
 	      }
 
               if (pG->Nx[2]>1){
 		n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+		if(n3z > 1)
 		Rad_n3z = n3z + 2;
+		else
+		Rad_n3z = n3z;
 #endif
 	      }
 
@@ -1138,13 +1152,13 @@ G3.ijkl[2],G3.ijkr[2]);
                     if (pG->Nx[1] > 1)	{
 			n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += 2;
+			Rad_n1p += (Matghost + 2);
 #endif
 		    }
                     if (pG->Nx[2] > 1)	{
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += 2;
+			Rad_n2p += (Matghost + 2);
 #endif
 		
 		    }
@@ -1157,7 +1171,7 @@ G3.ijkl[2],G3.ijkr[2]);
 		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
 
 		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4);
+		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the
@@ -1260,13 +1274,13 @@ G3.ijkl[2],G3.ijkr[2]);
                     if (pG->Nx[1] > 1)	{
 			n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += 2;
+			Rad_n1p += (Matghost + 2);
 #endif
 		    }
                     if (pG->Nx[2] > 1)	{
 			n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += 2;
+			Rad_n2p += (Matghost + 2);
 #endif
 		    }
 
@@ -1278,7 +1292,7 @@ G3.ijkl[2],G3.ijkr[2]);
 		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
 
 		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += (1+2)*Rad_n1p*Rad_n2p*(4);
+		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 

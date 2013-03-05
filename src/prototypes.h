@@ -368,6 +368,7 @@ double rtsafe(void (*funcd)(double, double, double, double, double, double *, do
 	double xacc, double coef1, double coef2, double coef3, double coef4);
 
 void GetTguess(MeshS *pM); 
+void polint(Real xa[], Real ya[], int n, Real x, Real *y, Real *dy);
 /* calculate the new gas temperature and radiation energy density after one thermal relaxation time */
 void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er);
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */

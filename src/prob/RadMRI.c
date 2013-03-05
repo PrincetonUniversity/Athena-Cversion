@@ -163,7 +163,6 @@ static Real inidata[3];
 static Real Tfloor = 0.03;
 static Real dfloor = 5.e-6;
 
-#define Dataline 512
 
 
 /* For transfer module */
@@ -185,7 +184,7 @@ static Real transfer_opacity(const GridS *pG, const int ifr, const int i, const 
  *============================================================================*/
 /*----------------------------------------------------------------------------*/
 /* problem:  */
-
+/* If the problem generator is called, Domain.Grid must be not NULL */
 void problem(DomainS *pDomain)
 {
   GridS *pGrid = pDomain->Grid;
@@ -232,42 +231,79 @@ void problem(DomainS *pDomain)
 	NGy = pDomain->NGrid[1];
 	NGz = pDomain->NGrid[2];
 
-	if((pGrid->Nx[2] * NGz) != Dataline)
-		ath_error("[Problem]: Input Data line: %d doesn't match vertical grid number: %d\n",Dataline,pGrid->Nx[2] * NGz);
+	FILE *frho, *fEr, *fFr, *fp;
+	char *Frname, *rhoname, *Ername, *Pname;
 
-	/* y direction cannot be periodic boundary condition */
+#ifdef STATIC_MESH_REFINEMENT
+	if(pDomain->Level == 0){
+		Frname  = "./data/Fr_out.txt";
+		rhoname = "./data/rho_out.txt";
+		Ername  = "./data/Er_out.txt";
+		Pname   = "./data/pressure_out.txt";
+	}
+	else if(pDomain->Level == 1){
+		Frname  = "./data1/Fr_out.txt";
+		rhoname = "./data1/rho_out.txt";
+		Ername  = "./data1/Er_out.txt";
+		Pname   = "./data1/pressure_out.txt";
+	}
+	else if(pDomain->Level == 2){
+		Frname  = "./data2/Fr_out.txt";
+		rhoname = "./data2/rho_out.txt";
+		Ername  = "./data2/Er_out.txt";
+		Pname   = "./data2/pressure_out.txt";
+	}
+	else{
+		ath_error("[Problem]: Unknown level :%d\n",pDomain->Level);
+	}
+
+#else
+		Frname  = "./data/Fr_out.txt";
+		rhoname = "./data/rho_out.txt";
+		Ername  = "./data/Er_out.txt";
+		Pname   = "./data/pressure_out.txt";
+
+#endif	
+
+
 	
 
-	lines = kproc * Dataline/NGz;
+	lines = kproc * 512/NGz;
 	/* skip lines which are read by other CPUs */
-	FILE *frho, *fEr, *fFr, *fp;
-	if ( (fFr=fopen("./data/Fr_out.txt","r"))==NULL )
+
+	if ( (fFr=fopen(Frname,"r"))==NULL )
 	{   
 		printf("Open input fFr file error");
 		return;
-	
 	}
-	if ( (frho=fopen("./data/rho_out.txt","r"))==NULL )
+	if ( (frho=fopen(rhoname,"r"))==NULL )
 	{   
 		printf("Open input frho file error");
 		return;
-	
 	}
-	if ( (fEr=fopen("./data/Er_out.txt","r"))==NULL )
+	if ( (fEr=fopen(Ername,"r"))==NULL )
 	{   
 		printf("Open input fEr file error");
 		return;
-	
 	}
-	if ( (fp=fopen("./data/pressure_out.txt","r"))==NULL )
+	if ( (fp=fopen(Pname,"r"))==NULL )
 	{   
 		printf("Open input fp file error");
 		return;
+	}
 	
+
+	
+	/* skip the unrefined part */
+	for(i=0; i<pDomain->Disp[2]; i++){
+		fscanf(frho,"%lf",&(density));
+		fscanf(fp,"%lf",&(pressure));
+		fscanf(fEr,"%lf",&(Er));
+		fscanf(fFr,"%lf",&(Fr));
 	}
 
-
 	/* First, read in ghost zones */
+	/* This is actually not used anymore */
 	for(i=0;i<4;i++){
 		fscanf(frho,"%lf",&(ghostrho[3-i]));
 	 	fscanf(fEr,"%lf",&(ghostEr[3-i]));
@@ -1388,9 +1424,6 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 
 	if(*eta_O > eta0)
 		*eta_O = eta0;
-
-	if(pG->dt > 2.9e-4)
-               *eta_O *= 0.1;
 
 	*eta_H = 0.0;
 	*eta_A = 0.0;

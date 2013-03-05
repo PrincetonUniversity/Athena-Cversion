@@ -80,6 +80,7 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 	/* When there is no data for restriction, we shouldn't initialize a MPI call for this case */
 	/* That is what nZeroRC for */
 	int i, j, k, ips, ipe, jps, jpe, kps, kpe, ics, ice, jcs, jce, kcs, kce, nDim;
+	int ii, jj, kk;
 	int nd, npg, ncg, start_addr, nZeroRC;
 	MatrixS *pMat, *pMatP;	
 	GridS *pG;
@@ -119,19 +120,19 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 		/* We wil do this before restriction function is called, if necessary */
 		
 
-		for(k=pMatP->ks; k<=pMatP->ke; k++)
-			for(j=pMatP->js; j<=pMatP->je; j++)
-				for(i=pMatP->is; i<=pMatP->ie; i++){
+		for(k=pMatP->ks,kk=pMat->ks; k<=pMatP->ke; k++, kk+=2)
+			for(j=pMatP->js,jj=pMat->js; j<=pMatP->je; j++, jj+=2)
+				for(i=pMatP->is,ii=pMat->is; i<=pMatP->ie; i++,ii+=2){
 					if(flag){ /* We will never need to restrict the solution for level below RootLevel */
 						ptrP  = &(pMatP->Ugas[k][j][i].rho);
-						ptr[0] = &(pMat->Ugas[2*k ][2*j ][2*i ].rho);
-						ptr[1] = &(pMat->Ugas[2*k ][2*j ][2*i-1].rho);
-						ptr[2] = &(pMat->Ugas[2*k ][2*j-1][2*i ].rho);
-						ptr[3] = &(pMat->Ugas[2*k ][2*j-1][2*i-1].rho);
-						ptr[4] = &(pMat->Ugas[2*k-1][2*j ][2*i ].rho);
-						ptr[5] = &(pMat->Ugas[2*k-1][2*j ][2*i-1].rho);
-						ptr[6] = &(pMat->Ugas[2*k-1][2*j-1][2*i ].rho);	
-						ptr[7] = &(pMat->Ugas[2*k-1][2*j-1][2*i-1].rho);
+						ptr[0] = &(pMat->Ugas[kk][jj][ii].rho);
+						ptr[1] = &(pMat->Ugas[kk][jj][ii+1].rho);
+						ptr[2] = &(pMat->Ugas[kk][jj+1][ii].rho);
+						ptr[3] = &(pMat->Ugas[kk][jj+1][ii+1].rho);
+						ptr[4] = &(pMat->Ugas[kk+1][jj][ii].rho);
+						ptr[5] = &(pMat->Ugas[kk+1][jj][ii+1].rho);
+						ptr[6] = &(pMat->Ugas[kk+1][jj+1][ii].rho);	
+						ptr[7] = &(pMat->Ugas[kk+1][jj+1][ii+1].rho);
 
 						for(num=0; num<11+NOPACITY; num++){
 
@@ -141,14 +142,14 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 					}
 
 					/* Now for the RHS */
-					ptr[0] = &(pMat->RHS[2*k ][2*j ][2*i ][0]);
-					ptr[1] = &(pMat->RHS[2*k ][2*j ][2*i-1][0]);
-					ptr[2] = &(pMat->RHS[2*k ][2*j-1][2*i ][0]);
-					ptr[3] = &(pMat->RHS[2*k ][2*j-1][2*i-1][0]);
-					ptr[4] = &(pMat->RHS[2*k-1][2*j ][2*i ][0]);
-					ptr[5] = &(pMat->RHS[2*k-1][2*j ][2*i-1][0]);
-					ptr[6] = &(pMat->RHS[2*k-1][2*j-1][2*i ][0]);	
-					ptr[7] = &(pMat->RHS[2*k-1][2*j-1][2*i-1][0]);
+					ptr[0] = &(pMat->RHS[kk][jj][ii][0]);
+					ptr[1] = &(pMat->RHS[kk][jj][ii+1][0]);
+					ptr[2] = &(pMat->RHS[kk][jj+1][ii][0]);
+					ptr[3] = &(pMat->RHS[kk][jj+1][ii+1][0]);
+					ptr[4] = &(pMat->RHS[kk+1][jj][ii][0]);
+					ptr[5] = &(pMat->RHS[kk+1][jj][ii+1][0]);
+					ptr[6] = &(pMat->RHS[kk+1][jj+1][ii][0]);	
+					ptr[7] = &(pMat->RHS[kk+1][jj+1][ii+1][0]);
 			
 					for(num=0; num<4; num++){
 						pMatP->RHS[k][j][i][num] = (ptr[0][num] + ptr[1][num]  + ptr[2][num] + ptr[3][num]
@@ -231,8 +232,9 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 
 				/* There could be multiple parent grids overlap with this child grid */
 				for(npg=0; npg<(pG->NPGrid); npg++){
-					if(pG->PGrid[npg].Rad_nWordsRC == 0){
-						nZeroRC += 1;
+					if(pG->PGrid[npg].Rad_nWordsRC == 0){	
+							if(npg >= pG->NmyPGrid)						
+							nZeroRC += 1;
 					}
 					else{
 					/* Only do  restriction if we actually have data to send, otherwise send_bufRC will not have enough space */
@@ -314,6 +316,7 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 #ifdef MPI_PARALLEL
 			/* send the data for MPI case */			
 					 	if (npg >= pG->NmyPGrid ){
+							/* mIndex should start from zero */
         						mIndex = npg - pG->NmyPGrid - nZeroRC;
         						ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].Rad_nWordsRC,
           							MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[Level-RootLevel][nd].Comm_Parent,
@@ -336,7 +339,8 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
     			if ((pM->Domain[Level-RootLevel][nd].Grid) != NULL) {
       				pG = pM->Domain[Level-RootLevel][nd].Grid;
 				nZeroRC = 0;
-				for(i=0; i<pG->NPGrid; i++)
+				/* Do not double count when NmyPGrid is Rad_nWordsRC =0 */
+				for(i=pG->NmyPGrid; i<pG->NPGrid; i++)
 					if(pG->PGrid[i].Rad_nWordsRC == 0)	nZeroRC++;
 
       				if (pG->NPGrid > pG->NmyPGrid) {
@@ -354,10 +358,10 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 		/* Get Child solution */
 		for(nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel-1]); nd++){
 			pG = pM->Domain[Level-1-RootLevel][nd].Grid; /* Level is gaurantee to be larger than RootLevel */
-			if((Matrix[Level-1][nd].CPUflag) && (pG->NCGrid > 0)){				
+			if(Matrix[Level-1][nd].CPUflag){				
 				pMat = &(Matrix[Level-1][nd]);
 				nZeroRC = 0;
-				for(i=0; i< pG->NCGrid; i++)
+				for(i=pG->NmyCGrid; i< pG->NCGrid; i++)
 					if(pG->CGrid[i].Rad_nWordsRC == 0)
 						nZeroRC++;
 
@@ -407,7 +411,8 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 					/* shift the position with ghost zone difference */
 					/* Now the index corresponds to position in the matrix structure */
 
-					
+					/* NmyCGrid could also have zero nWordsRC */
+					if(pCO->Rad_nWordsRC > 0){
 
 					ics = pCO->ijks[0] - nghost + Matghost;
       					ice = pCO->ijke[0] - nghost + Matghost;
@@ -464,12 +469,30 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 					}/* end jcs */
 					}/* end kcs */
 					/* Now update the solution in the overlap region, update the RHS for this domain */
+
+					}/* End if Rad_nWordsRC > 0 */
 				}/* Loop over all the child grids */
 
 				/* Now we need to update the RHS and solution for this level */
 
 				/* We do not update RHS before calculate Residual for the whole level, this is required */
 				/* For the un-refined region. Then update Residual for from fine levels */
+		/*---------------------------------------------------------------------------------*/		
+				/* Update boundary condtion before calculate RHS */
+				bvals_Matrix_init(pMat);
+
+#ifdef SHEARING_BOX
+				bvals_Matrix_shear_init(pMat);
+#endif
+
+				bvals_Matrix(pMat);
+	
+				bvals_Matrix_destruct(pMat);
+
+#ifdef SHEARING_BOX
+				bvals_Matrix_shear_destruct();
+#endif
+		/*------------------------------------------------------------------------------------*/
 				if(nDim == 3)
 					RadSMR_Residual3D(pMat, pMat->RHS, &(pMat->RHSnorm));
 				else
@@ -515,6 +538,8 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 
 					/* shift the position with ghost zone difference */
 					/* Now the index corresponds to position in the matrix structure */
+					if(pCO->Rad_nWordsRC > 0){
+
 					ics = pCO->ijks[0] - nghost + Matghost;
       					ice = pCO->ijke[0] - nghost + Matghost;
       					jcs = pCO->ijks[1] - nghost + Matghost;
@@ -551,6 +576,7 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 					}/* end jcs */
 					}/* end kcs */
 					/* Now update the solution in the overlap region, update the RHS for this domain */
+					}/* End if nWordsRC > 0 */
 				}/* Loop over all the child grids */
 
 		/*==================================================================================*/
@@ -589,7 +615,7 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 	int nd, nZeroP, npg, ncg, ngz1, ngz2, ngz3, igzs, igze, jgzs, jgze, kgzs, kgze, mend, nend, lend;
 	int nDim, dim, id;
 	int ips, ipe, jps, jpe, kps, kpe;
-	
+
 
 	double *pRcv, *pSnd;
   	
@@ -663,7 +689,6 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 				pG=pM->Domain[Level+1-RootLevel][nd].Grid;
         			nZeroP = 0;
         			mAddress = 0;        			
-        			if (pG->NmyPGrid > 0) mAddress = pG->PGrid[0].Rad_nWordsP;
 
         		for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
 
@@ -708,7 +733,10 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 				
 				for(ncg=0; ncg<(pG->NCGrid); ncg++){
 					if(pG->CGrid[ncg].Rad_nWordsP == 0){
-						nZeroP += 1;
+						if(ncg >= pG->NmyCGrid)
+							nZeroP += 1;
+						
+						/* If on the same process and no data for prolongation, do not count in nZeroP */
 					}/* skip the grid that does need prolongation */
 					else{
 						pCO = (GridOvrlpS*)&(pG->CGrid[ncg]);	/* ptr to child Grid overlap */
@@ -720,10 +748,12 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						
 						pSnd = (double*)&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]);
 
-						ics = pCO->ijks[0] - nghost + Matghost - 1;
-						ice = pCO->ijke[0] - nghost + Matghost + 1;
+						if(pCO->ijke[0] > pCO->ijks[0]){
+							ics = pCO->ijks[0] - nghost + Matghost - 1;
+							ice = pCO->ijke[0] - nghost + Matghost + 1;
+						}
 
-						if(nDim > 1){
+						if((nDim > 1) && (pCO->ijke[1] > pCO->ijks[1])){
 							jcs = pCO->ijks[1] - nghost + Matghost - 1;
 							jce = pCO->ijke[1] - nghost + Matghost + 1;
 						}
@@ -732,7 +762,7 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 							jce = pCO->ijke[1];
 						}
 		
-						if(nDim > 2){
+						if((nDim > 2) && (pCO->ijke[2] > pCO->ijks[2])){
 							kcs = pCO->ijks[2] - nghost + Matghost - 1;
 							kce = pCO->ijke[2] - nghost + Matghost + 1;
 						}
@@ -741,6 +771,8 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 							kce = pCO->ijke[2];
 						}
 						
+						
+
 						for(k=kcs; k<=kce; k++){
 						for(j=jcs; j<=jce; j++){
 						for(i=ics; i<=ice; i++){
@@ -754,15 +786,14 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 						}/* end k */
 						
 						/* Now send the data for the necessary boundary */
-						/* This only works for Matghost == 1 */
 						for(dim=0; dim<(2*nDim); dim++){
 							if(pCO->AdvEr[dim]){
-								ics = pCO->ijks[0] - nghost + Matghost - 1;
-								ice = pCO->ijke[0] - nghost + Matghost + 1;
+								ics = pCO->ijks[0] - nghost + Matghost - (Matghost/2) - 1;
+								ice = pCO->ijke[0] - nghost + Matghost + (Matghost/2) + 1;
 						
 								if(nDim > 1){
-									jcs = pCO->ijks[1] - nghost + Matghost - 1;
-									jce = pCO->ijke[1] - nghost + Matghost + 1;
+									jcs = pCO->ijks[1] - nghost + Matghost - (Matghost/2) - 1;
+									jce = pCO->ijke[1] - nghost + Matghost + (Matghost/2) + 1;
 								}
 								else{
 									jcs = pCO->ijks[1];
@@ -770,8 +801,8 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 								}		
 
 								if(nDim > 2){
-									kcs = pCO->ijks[2] - nghost + Matghost - 1;
-									kce = pCO->ijke[2] - nghost + Matghost + 1;
+									kcs = pCO->ijks[2] - nghost + Matghost - (Matghost/2) - 1;
+									kce = pCO->ijke[2] - nghost + Matghost + (Matghost/2) + 1;
 								}
 								else{
 									kcs = pCO->ijks[2];
@@ -780,28 +811,22 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 
 								if (dim == 0) {
-									ics = pCO->ijks[0] - nghost + Matghost - Matghost - 1;
 									ice = pCO->ijks[0] - nghost + Matghost;
 								}
           							if (dim == 1) {
 									ics = pCO->ijke[0] - nghost + Matghost;
-									ice = pCO->ijke[0] - nghost + Matghost + Matghost + 1;
 								}
           							if (dim == 2) {
-									jcs = pCO->ijks[1] - nghost + Matghost - Matghost - 1;
 									jce = pCO->ijks[1] - nghost + Matghost;
 								}
           							if (dim == 3) {
 									jcs = pCO->ijke[1] - nghost + Matghost;
-									jce = pCO->ijke[1] - nghost + Matghost + Matghost + 1;
 								}
          							if (dim == 4) {
-									kcs = pCO->ijks[2] - nghost + Matghost - Matghost - 1;
 									kce = pCO->ijks[2] - nghost + Matghost;
 								}
           							if (dim == 5) {
 									kcs = pCO->ijke[2] - nghost + Matghost;
-									kce = pCO->ijke[2] - nghost + Matghost + Matghost + 1;
 								}
 
 	
@@ -877,7 +902,7 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
      				pG=pM->Domain[Level-RootLevel][nd].Grid;
 
       				nZeroP = 0;
-      				for (i=0; i < pG->NCGrid; i++) if (pG->CGrid[i].Rad_nWordsP == 0) nZeroP++;
+      				for (i=pG->NmyCGrid; i < pG->NCGrid; i++) if (pG->CGrid[i].Rad_nWordsP == 0) nZeroP++;
 
       				if (pG->NCGrid > pG->NmyCGrid) {
         				mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
@@ -899,19 +924,19 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 				/* Loop over number of parent grids with non-zero-size prolongation data */
 				nZeroP = 0;
-    				for (i=0; i < pG->NPGrid; i++) if (pG->PGrid[i].Rad_nWordsP == 0) nZeroP++;
+    				for (i=pG->NmyPGrid; i < pG->NPGrid; i++) if (pG->PGrid[i].Rad_nWordsP == 0) nZeroP++;
 
 				for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
 
-				/* If parent Grid is on this processor, data is at start of recv buffer */
 
-      					if (npg < pG->NmyPGrid) {
+      					if (npg < pG->NmyPGrid) {						
         					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
 						/* For grids on the same CPU, set the pointer to send buffer */
         					/* pRcv = (double*)&(recv_bufP[nd][0]); */
 						/* One CPU only works for one grid in one Domain */
 						/* So, the address at buffer for domain nd must start from 0 */
-						pRcv = (double*)&(send_bufP[nd][0]);
+						if(pPO->Rad_nWordsP > 0)
+							pRcv = (double*)&(send_bufP[nd][0]);
 	
       					} else {
 
@@ -931,13 +956,13 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
  					* if NmyPGrid>0.  Also must remove zero size messages from index. */
 
 						/* re-build the value of mIndex to include NmyPGrid and grids that do not need prolongation */
-
+						/* mIndex is the process ID in that domain */
         					mIndex += pG->NmyPGrid;
         					for (i=pG->NmyPGrid; i <= mIndex; i++) 
           						if (pG->PGrid[i].Rad_nWordsP == 0) mIndex++;
 
         					mAddress = 0;
-        					for (i=0; i<mIndex; i++) mAddress += pG->PGrid[i].Rad_nWordsP;
+        					for (i=pG->NmyPGrid; i<mIndex; i++) mAddress += pG->PGrid[i].Rad_nWordsP;
         					pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]); 
         					pRcv = (double*)&(recv_bufP[nd][mAddress]);
 #else
@@ -1067,28 +1092,29 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 						/*-----------------------------------------------------*/
 						/* Now set ghost zones for required faces */
+						
 						for(dim=0; dim<(2*nDim); dim++){
 							if(pPO->AdvEr[dim]){
 
 								if(dim == 0 || dim == 1){
-									ngz1 = Matghost + 2;
+									ngz1 = (Matghost/2) + 2;
 									id = 0;
 								}else{
-									ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 2;
+									ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + Matghost + 2;
 								}
 
 								if(dim == 2 || dim == 3){
-									ngz2 = Matghost + 2;
+									ngz2 = (Matghost/2) + 2;
 									id = 1;
 								}else{
-									ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 2;
+									ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + Matghost + 2;
 								}
 
 								if(dim == 4 || dim == 5){
-									ngz3 = Matghost + 2;
+									ngz3 = (Matghost/2) + 2;
 									id = 2;
 								}else{
-									ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 2;
+									ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + Matghost + 2;
 								}
 
 								igzs = 0;
@@ -1150,56 +1176,55 @@ void Rad_Prolongation(MatrixS **Matrix, const int Level, const MeshS *pM)
 
 								ips = pPO->ijks[0] - nghost + Matghost - Matghost;	
 								ipe = pPO->ijke[0] - nghost + Matghost + Matghost;
+								lend = 1;							
 								
 								if(nDim > 1){
 									jps = pPO->ijks[1] - nghost + Matghost - Matghost;
 									jpe = pPO->ijke[1] - nghost + Matghost + Matghost;
+									mend = 1;
 								}else{
 									jps = pPO->ijks[1]; /* The value will be zero in this case */
 									jpe = pPO->ijke[1];
+									mend = 0;
 								}
 
 								if(nDim > 2){
 									kps = pPO->ijks[2] - nghost + Matghost - Matghost;
 									kpe = pPO->ijke[2] - nghost + Matghost + Matghost;
+									nend = 1;
 								}else{
 									kps = pPO->ijks[2]; /* The value will be zero in this case */
 									kpe = pPO->ijke[2];
+									nend = 0;
 								}
 
 								
-								/* In case Matghost=1, we only need to prolongate one cell */
+
 								if (dim == 0) {
 									/* No need to change ips */
 									ipe = pPO->ijks[0] - nghost + Matghost - 1;					
-									lend = MIN((Matghost-1),1);
 								}
           							if (dim == 1) {
 									ips = pPO->ijke[0] - nghost + Matghost + 1;
-									lend = MIN((Matghost-1),1);
 								}
 		
           							if (dim == 2) {
 									jpe = pPO->ijks[1] - nghost + Matghost - 1;
-									mend = MIN((Matghost-1),mend);
 								}
           							if (dim == 3) {
 									jps = pPO->ijke[1] - nghost + Matghost + 1;
-									mend = MIN((Matghost-1),mend);
 								}
           							if (dim == 4) {
 									kpe = pPO->ijks[2] - nghost + Matghost - 1;
-									nend = MIN((Matghost-1),nend);
 								}
           							if (dim == 5) {
 									kps = pPO->ijke[2] - nghost + Matghost + 1;
-									nend = MIN((Matghost-1),nend);
 								}
 
 							/* Prolongate the GZ array data to Ptemp temporarily and then copy the data to pMat */
 							/* i, j, k are for parent grids while kk, jj, ii are for child grids */
-						
-
+								
+								/* Ptemp is always a 2*2 array */
 								for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
 								for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
        								for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
@@ -1442,6 +1467,9 @@ void SMR_Rad_init(MeshS *pM, const int Root)
 	if((recv_bufP =(double**)calloc_2d_array(maxND,max_recvP,sizeof(double))) == NULL)
     		ath_error("[SMR_init]: Failed to allocate recv_bufP\n");
 
+	max1 += 2*Matghost;
+	max2 += 2*Matghost;
+	max3 += 2*Matghost;
 
 
 	/* Array to store the prolongation data temporary */

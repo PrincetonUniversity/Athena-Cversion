@@ -139,7 +139,12 @@
 /* Number of ghost cells must be 5 with particles and 3rd order */
 enum {
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  Matghost = 1,
+#ifdef STATIC_MESH_REFINEMENT
+/* need two ghost zones for prolongation */ 
+ Matghost = 2,
+#else
+ Matghost = 1,
+#endif
   NOPACITY= 4,
 #endif
 #ifdef PARTICLES 

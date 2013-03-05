@@ -774,11 +774,11 @@ void GetAdvErFlx(MeshS *pM)
 				if(Matghost > 3)
 					ath_error("[AdvErFlx_pre]: Matghost: %d is larger than 3!\n",Matghost);
 
-				il = pG->is - (Matghost + 1);
-				iu = pG->ie + (Matghost + 1);
+				il = pG->is - (Matghost);
+				iu = pG->ie + (Matghost);
 				if(nDim > 1){
-					jl = pG->js - (Matghost + 1);
-					ju = pG->je + (Matghost + 1);
+					jl = pG->js - (Matghost);
+					ju = pG->je + (Matghost);
 				} 
 				else{
 					jl = pG->js;
@@ -786,8 +786,8 @@ void GetAdvErFlx(MeshS *pM)
 				}
 
 				if(nDim > 2){
-					kl = pG->ks - (Matghost + 1);
-					ku = pG->ke + (Matghost + 1);
+					kl = pG->ks - (Matghost);
+					ku = pG->ke + (Matghost);
 				} 
 				else{
 					kl = pG->ks;
@@ -803,20 +803,30 @@ void GetAdvErFlx(MeshS *pM)
 					if(nDim == 1){
 						Rad_Advection_Flux1D(pD, i, j, k, 1.0, Advxtemp);
 						/* i,j, k store the flux from the left boundary */
-						pG->AdvErFlx[0][k][j][i] = Advxtemp[0];						
+						/* right flux of i is the same as left flux of i+1 */
+						/* In this way, right flux of the last cell is kept */
+						pG->AdvErFlx[0][k][j][i]   = Advxtemp[0];
+						pG->AdvErFlx[0][k][j][i+1] = Advxtemp[1];						
 
 					}
 					else if(nDim == 2){
 						Rad_Advection_Flux2D(pD, i, j, k, 1.0, Advxtemp,Advytemp);
-						pG->AdvErFlx[0][k][j][i] = Advxtemp[0];	
-						pG->AdvErFlx[1][k][j][i] = Advytemp[0];							
+						pG->AdvErFlx[0][k][j][i]   = Advxtemp[0];	
+						pG->AdvErFlx[0][k][j][i+1] = Advxtemp[1]; 
+						pG->AdvErFlx[1][k][j][i]   = Advytemp[0];	
+						pG->AdvErFlx[1][k][j+1][i] = Advytemp[1];						
 
 					}
 					else{
 						Rad_Advection_Flux3D(pD, i, j, k, 1.0, Advxtemp,Advytemp,Advztemp);
-						pG->AdvErFlx[0][k][j][i] = Advxtemp[0];	
-						pG->AdvErFlx[1][k][j][i] = Advytemp[0];		
-						pG->AdvErFlx[2][k][j][i] = Advztemp[0];		
+						pG->AdvErFlx[0][k][j][i]   = Advxtemp[0];	
+						pG->AdvErFlx[0][k][j][i+1] = Advxtemp[1];
+
+						pG->AdvErFlx[1][k][j][i]   = Advytemp[0];
+						pG->AdvErFlx[1][k][j+1][i] = Advytemp[1];
+
+						pG->AdvErFlx[2][k][j][i]   = Advztemp[0];		
+						pG->AdvErFlx[2][k+1][j][i] = Advztemp[1];		
 					}
 
 					
@@ -850,6 +860,7 @@ void AdvErFlx_pre(MeshS *pM)
 	int k, kcs, kce, kps, kpe;
 	DomainS *pD;
 	GridS *pG;
+	int nZeroRC;
 	
 
 	int ncg, npg, rbufN, start_addr, cnt, nFlx, count;
@@ -880,11 +891,11 @@ void AdvErFlx_pre(MeshS *pM)
 				if(Matghost > 3)
 					ath_error("[AdvErFlx_pre]: Matghost: %d is larger than 3!\n",Matghost);
 
-				il = pG->is - (Matghost + 1);
-				iu = pG->ie + (Matghost + 1);
+				il = pG->is - (Matghost);
+				iu = pG->ie + (Matghost);
 				if(nDim > 1){
-					jl = pG->js - (Matghost + 1);
-					ju = pG->je + (Matghost + 1);
+					jl = pG->js - (Matghost);
+					ju = pG->je + (Matghost);
 				} 
 				else{
 					jl = pG->js;
@@ -892,8 +903,8 @@ void AdvErFlx_pre(MeshS *pM)
 				}
 
 				if(nDim > 2){
-					kl = pG->ks - (Matghost + 1);
-					ku = pG->ke + (Matghost + 1);
+					kl = pG->ks - (Matghost);
+					ku = pG->ke + (Matghost);
 				} 
 				else{
 					kl = pG->ks;
@@ -903,9 +914,9 @@ void AdvErFlx_pre(MeshS *pM)
 				
 
 				/* Now update the solution, including one ghost zones */
-				for(k=kl+1; k<=(ku-1); k++){ 
-				for(j=jl+1; j<=(ju-1); j++){
-				for(i=il+1; i<=(iu-1); i++){
+				for(k=kl; k<=ku; k++){ 
+				for(j=jl; j<=ju; j++){
+				for(i=il; i<=iu; i++){
 					if(nDim == 1){
 						pG->U[k][j][i].Er += (pG->AdvErFlx[0][k][j][i+1] - pG->AdvErFlx[0][k][j][i]);
 					}
@@ -952,14 +963,20 @@ void AdvErFlx_pre(MeshS *pM)
  * First index alternates between 0 and 1 for even/odd values of nl, since if
  * there are Grids on multiple levels there may be 2 receives posted at once */
         				mAddress = 0;
+					nZeroRC = 0;
         				rbufN = ((nl-1) % 2);
         				for (ncg=(pG->NmyCGrid); ncg<(pG->NCGrid); ncg++){
-          					mIndex = ncg - pG->NmyCGrid;
-          					ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
-            					pG->CGrid[ncg].nWordsAdvEr, MPI_DOUBLE, pG->CGrid[ncg].ID,
-            					pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
-            						&(recv_rq[nl-1][nd][mIndex]));
-          					mAddress += pG->CGrid[ncg].nWordsAdvEr;
+						if(pG->CGrid[ncg].nWordsAdvEr == 0){
+							nZeroRC += 1;
+						}
+						else{
+          						mIndex = ncg - pG->NmyCGrid - nZeroRC;
+          						ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
+            						pG->CGrid[ncg].nWordsAdvEr, MPI_DOUBLE, pG->CGrid[ncg].ID,
+            						pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
+            							&(recv_rq[nl-1][nd][mIndex]));
+          						mAddress += pG->CGrid[ncg].nWordsAdvEr;
+						}
         				}/* Finish looping all child grid */
 
       				}/* if Grid != NULL */
@@ -974,8 +991,13 @@ void AdvErFlx_pre(MeshS *pM)
   			if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
     				pG=pM->Domain[nl][nd].Grid;
     				rbufN = (nl % 2);
+				nZeroRC = 0;
 
-    				for (ncg=0; ncg<(pG->NCGrid); ncg++){
+				for(i=pG->NmyCGrid; i< pG->NCGrid; i++)
+					if(pG->CGrid[i].nWordsAdvEr == 0)
+						nZeroRC++;
+
+    				for (ncg=0; ncg<(pG->NCGrid-nZeroRC); ncg++){
 
 /*--- Step 1a. Get restricted solution and fluxes. ---------------------------*/
 
@@ -992,7 +1014,7 @@ void AdvErFlx_pre(MeshS *pM)
  * Grids, sent in Step 3 during last iteration of loop over nl.  Accept messages
  * in any order. */
 
-        				mCount = pG->NCGrid - pG->NmyCGrid;
+        				mCount = pG->NCGrid - pG->NmyCGrid - nZeroRC;
         				ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
         				if(mIndex == MPI_UNDEFINED){
           					ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",nl,nd);
@@ -1012,7 +1034,7 @@ void AdvErFlx_pre(MeshS *pM)
       					}/* if ncg not on the same CPU */
 
 
-
+					if(pCO->nWordsAdvEr > 0){
 
 
 					ics = pCO->ijks[0];
@@ -1117,9 +1139,9 @@ void AdvErFlx_pre(MeshS *pM)
 							}/* Finish k */
 
 						}
-					}/* finish two interfaces at y boundary */
+					}/* finish two interfaces at z boundary */
 
-
+					}/* if this child has restriction */
 				}/* Finish all child grid */
 			}/* If this grid is not null */
 		}/* Finish all domain at this level */
@@ -1130,7 +1152,17 @@ void AdvErFlx_pre(MeshS *pM)
 			if(pM->Domain[nl][nd].Grid != NULL){
 				pG = pM->Domain[nl][nd].Grid;
 				start_addr = 0;
+
+				nZeroRC = 0;
+				
+
 				for(npg=0; npg<(pG->NPGrid); npg++){
+					if(pG->PGrid[npg].nWordsAdvEr == 0){
+						if(npg >= pG->NmyPGrid)
+							nZeroRC += 1;
+					}
+					else{
+
 					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
 					cnt = 0;
 					
@@ -1329,7 +1361,7 @@ void AdvErFlx_pre(MeshS *pM)
 				/* non-blocking send with MPI, using Domain number as tag.  */
 
       					if (npg >= pG->NmyPGrid){
-        					mIndex = npg - pG->NmyPGrid;
+        					mIndex = npg - pG->NmyPGrid - nZeroRC;
         					ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].nWordsAdvEr,
           					MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[nl][nd].Comm_Parent,
           						&(send_rq[nd][mIndex]));
@@ -1340,7 +1372,7 @@ void AdvErFlx_pre(MeshS *pM)
 
 
 					/*--------------------------------------------------*/
-
+					}/* End if this parent grid has data to send */
 				}/* Loop over all parent grid  */
 			}/* If the CPU works in this grid */
 		}/* Loop all domains at this level */
@@ -1355,8 +1387,13 @@ void AdvErFlx_pre(MeshS *pM)
     			if (pM->Domain[nl][nd].Grid != NULL) {
       				pG=pM->Domain[nl][nd].Grid;
 
+				nZeroRC = 0;
+				/* Do not double count when NmyPGrid is Rad_nWordsRC =0 */
+				for(i=pG->NmyPGrid; i<pG->NPGrid; i++)
+					if(pG->PGrid[i].nWordsAdvEr == 0)	nZeroRC++;
+
       				if (pG->NPGrid > pG->NmyPGrid) {
-        				mCount = pG->NPGrid - pG->NmyPGrid;
+        				mCount = pG->NPGrid - pG->NmyPGrid - nZeroRC;
         				ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
       				}
     			}

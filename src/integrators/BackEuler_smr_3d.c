@@ -248,6 +248,28 @@ void BackEuler_3d(MeshS *pM)
 		/* only need to calculate the coefficient in the first cycle */
 		coefflag = 0;
 
+
+		/* reset matrix, including ghost zones */
+		/* This is needed as GaussSeidel3D will need the initial value as long as Omega is not 1 */
+		for(nl=TotLevels-1; nl>=RootLevel; nl--){
+			for(nd=0; nd<DomainNos[nl]; nd++){
+				if(Matrix[nl][nd].CPUflag){
+					pMat = &(Matrix[nl][nd]);
+					for(k=pMat->ks-Matghost; k<=pMat->ke+Matghost; k++)
+					for(j=pMat->js-Matghost; j<=pMat->je+Matghost; j++)
+					for(i=pMat->is-Matghost; i<=pMat->ie+Matghost; i++){
+						pMat->U[k][j][i].Er = 0.0;
+						pMat->U[k][j][i].Fr1 = 0.0;
+						pMat->U[k][j][i].Fr2 = 0.0;
+						pMat->U[k][j][i].Fr3 = 0.0;
+					}
+				}/* If this CPU works on this domain */	
+			}/* Finish all the domain */	
+		} /* Finish level nl */
+	
+		/* If error is smaller than tolerance level, the restricted solution is already at different levels */
+
+
 		/* If error is smaller than tolerance level, the restricted solution is already at different levels */
 
 	}
@@ -375,13 +397,13 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 	/* To be consistent with restriction and prolongation */
 	/* We restrict the overlap region */
 	/* We actually only restrict the RHS here */
+	/* Restrict RHS does not need to updated ghost zones */
 	for(nl=TotLevels-1; nl>RootLevel; nl--){
 		for(nd=0; nd<DomainNos[nl]; nd++){
 			/* restrict the overlap region */
 			/* Even this CPU does not work on nl, it still needs to go into this */
 			/* As this CPU may need to get data */
-			/* We will synchronize all CPUs for restriction */
-			pMat = &(Matrix[nl][nd]);
+			/* We will synchronize all CPUs for restriction */			
 			Rad_Restriction(Matrix, nl, pM, 0);
 		}/* Finish domain at level nl */
 	}/* Finish looping nl */
@@ -465,6 +487,28 @@ void RadMHD_multig_3D_first(MatrixS **Matrix, MeshS *pM)
 		/* prolongate the whole level after relaxation */
 		/* We only need to wait for the whole domain to be finished before prolongation */
 		Rad_Prolongation(Matrix, nl, pM);
+
+		/* Need to update boundary condition for level nl+1 after prolongation for the whole level */
+		for(nd=0; nd<DomainNos[nl+1]; nd++){
+			pMat = &(Matrix[nl+1][nd]);
+			if(pMat->CPUflag){
+				bvals_Matrix_init(pMat);
+
+#ifdef SHEARING_BOX
+				bvals_Matrix_shear_init(pMat);
+#endif
+
+				bvals_Matrix(pMat);
+	
+				bvals_Matrix_destruct(pMat);
+
+#ifdef SHEARING_BOX
+				bvals_Matrix_shear_destruct();
+#endif
+
+			}/* Finish if CPUflag */
+		}/* Finish all the domain */
+		
 	}
 
 
@@ -573,6 +617,29 @@ void RadMHD_multig_3D(MatrixS **Matrix, MeshS *pM)
 
 		/* prolongate the whole level to the level above */
 		Rad_Prolongation(Matrix,nl,pM);
+		
+		/* Need to update boundary condition for level nl+1 after prolongation for the whole level */
+		for(nd=0; nd<DomainNos[nl+1]; nd++){
+			pMat = &(Matrix[nl+1][nd]);
+			if(pMat->CPUflag){
+				bvals_Matrix_init(pMat);
+
+#ifdef SHEARING_BOX
+				bvals_Matrix_shear_init(pMat);
+#endif
+
+				bvals_Matrix(pMat);
+	
+				bvals_Matrix_destruct(pMat);
+
+#ifdef SHEARING_BOX
+				bvals_Matrix_shear_destruct();
+#endif
+
+			}/* Finish if CPUflag */
+		}/* Finish all the domain */
+
+
 	} /* End loop different levels */
 	
 	/* Do relaxation for the top level */
