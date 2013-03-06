@@ -1021,8 +1021,13 @@ void AdvErFlx_pre(MeshS *pM)
         				}
       
 /* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
-        				mAddress = 0;
+        				
         				mIndex += pG->NmyCGrid;
+
+					for(i=pG->NmyCGrid; i<=mIndex; i++)
+						if(pG->CGrid[i].nWordsAdvEr == 0)	mIndex++;
+
+					mAddress = 0;
         				for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].nWordsAdvEr;
         					pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
         					pRcv = (double*)&(recv_bufRC[rbufN][nd][mAddress]);

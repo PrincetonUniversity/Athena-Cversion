@@ -181,7 +181,7 @@ void RestrictCorrect(MeshS *pM)
         
         mIndex += pG->NmyCGrid;
 
-	for(i=pG->NmyCGrid; i<mIndex; i++)
+	for(i=pG->NmyCGrid; i<=mIndex; i++)
 		if(pG->CGrid[i].nWordsRC == 0)	mIndex++;
 
 	mAddress = 0;

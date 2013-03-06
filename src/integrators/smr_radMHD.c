@@ -389,7 +389,7 @@ void Rad_Restriction(MatrixS **Matrix, const int Level, const MeshS *pM, const i
 					/* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
         					
         					mIndex += pG->NmyCGrid;
-						for(i=pG->NmyCGrid; i<mIndex; i++)
+						for(i=pG->NmyCGrid; i<=mIndex; i++)
 							if(pG->CGrid[i].Rad_nWordsRC == 0) mIndex++;
 
 						mAddress = 0;

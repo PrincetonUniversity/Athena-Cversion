@@ -3025,10 +3025,15 @@ k][j][i].M3);
 			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 			Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Bx);
 			Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Bx);
+/*
 
-		/*	if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (((fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d)) || (fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d)) || (fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d))) && (fabs(x3)>Zmax))){
+			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
 
-		*/
+			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity> Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
+*/
+
+
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD
 				B1_x1Face[k][j][i] = pG->B1i[k][j][i];
@@ -3081,8 +3086,7 @@ k][j][i].M3);
 
 			}
 			
-/*			if((Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)  || (((fabs(Wr[i].Vx) > fluxfactor * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vy) > fluxfactor * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vz) > fluxfactor * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d))) && (fabs(x3)>Zmax))){
-*/			
+		
 			/* Need parameter dt in radiation Riemann solver */
 			x1Flux[k][j][i].d = dt;
 			x1Flux[k][j][i].Mx = 3;
@@ -3129,6 +3133,18 @@ k][j][i].M3);
 			cc_pos(pG,i,j,k,&x1,&x2,&x3);
         		Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Bx);
         		Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Bx);
+
+
+/*
+
+			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+
+
+			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity > Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
+
+
+*/
 
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD			
@@ -3180,12 +3196,6 @@ k][j][i].M3);
 
                        }
 
-/*			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (((fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d)) || (fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d))) && (fabs(x3) > Zmax))){
-*/
-					
-					
-/*		if(Wr[i].P < 2.0 * TINY_NUMBER || (Wr[i].d < dfloor) || (((fabs(Wr[i].Vz) > fluxfactor * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vx) > fluxfactor * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vy) > fluxfactor * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d))) && (fabs(x3) > Zmax))){
-*/
 
 			/* Need parameter dt in radiation Riemann solver */
 			x2Flux[k][j][i].d = dt;
@@ -3233,6 +3243,15 @@ k][j][i].M3);
 			
         		Wl[i] = Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Bx);
         		Wr[i] = Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Bx);
+
+/*
+
+			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+
+			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity > Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
+
+*/
 
 			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD		
@@ -3288,12 +3307,7 @@ k][j][i].M3);
 
 			}
 	
-	/*				if(Wl[i].P < 2.0 * TINY_NUMBER || (Wl[i].d < dfloor) || (((fabs(Wl[i].Vy) > fluxfactor * fabs(pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vz) > fluxfactor * fabs(pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d)) || (fabs(Wl[i].Vx) > fluxfactor * fabs(pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d))) && (fabs(x3) > Zmax))){ 
-	*/
-
-					
-/*					if((Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)|| (((fabs(Wr[i].Vy) > 2.0 * fabs(pG->U[k][j][i].M1 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vz) > 2.0 * fabs(pG->U[k][j][i].M2 / pG->U[k][j][i].d)) || (fabs(Wr[i].Vx) > 2.0 * fabs(pG->U[k][j][i].M3 / pG->U[k][j][i].d)))  && (fabs(x3) > Zmax))){ 
-*/	
+	
 			/* Need parameter dt in radiation Riemann solver */
 			x3Flux[k][j][i].d = dt;
 			x3Flux[k][j][i].Mx = 3;
@@ -4756,9 +4770,9 @@ k][j][i].M3);
 				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
 	 
 				temperature = Wtemp.P / (Wtemp.d * R_ideal);
-	 
+#ifdef RADIATION_MHD	 
 				Bpre = 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
-	 
+#endif	 
 				if((Wtemp.P < 2.0 * TINY_NUMBER) || (temperature < Tfloor)){
 					if(pG->U[k][j][i].d < dfloor){
 						Wtemp.P = dfloor * R_ideal * Tfloor;
