@@ -454,9 +454,10 @@ typedef struct Grid_s{
   Real ***AdvErFlx[3]; /* The advective energy flux. This needs to be pre-calcualted and restricted and corrected */
 #endif
 
-#ifdef FARGO
-  Real ****Fargosource; /* The change due to fargo step */
+#ifdef RADFARGO
+  Real ***RadFargoFlx;
 #endif
+
 #endif
 
 #ifdef PARTICLES

@@ -79,6 +79,7 @@ int Ncycle = 5;	/* Numbers of relaxation cycles to do in multigrid-matrix solver
 Real TOL = 1.e-8;  /* relative residual level used in matrix convergent criterian */
 Real Eratio = 0.00;
 int Erflag = 1; /* Flag to do backward Euler first or later. If 1, do it later. conservative way */
+Real T0 = 1.e7; /* the temperature unit used in this simulation */
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)
@@ -170,6 +171,7 @@ extern int Ncycle;	/* Numbers of relaxation cycles to do in multigrid-matrix sol
 extern Real TOL;  /* relative residual level used in matrix convergent criterian */
 extern Real Eratio;
 extern int Erflag;
+extern Real T0;
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)

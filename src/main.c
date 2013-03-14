@@ -693,14 +693,11 @@ int main(int argc, char *argv[])
 			
 	  (*Integrate)(&(Mesh.Domain[nl][nd]));
 #ifdef FARGO
-#ifndef RADIATION_HYDRO
-#ifndef RADIATION_MHD
           Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
           advect_particles(&(Mesh.Domain[nl][nd]));
 #endif
-#endif /* For radiation case, Fargo is adde dinsided the integrator */
-#endif			
+		
 #endif /* FARGO */
 
         }

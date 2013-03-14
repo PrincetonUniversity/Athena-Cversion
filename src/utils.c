@@ -1378,7 +1378,8 @@ if(pressure > TINY_NUMBER){
 */	
 	/* If *SEE < 0, the code will be unstable */
 	*SEE = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0)/ (U.d * R_ideal);
-	
+	if(!Erflag)
+		*SEE = 0.0;
 		
 
 	*SErho = 4.0 * Sigma[2] * temperature * temperature * temperature * (Gamma - 1.0) * (-U.E/U.d + velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)/ (U.d * R_ideal);

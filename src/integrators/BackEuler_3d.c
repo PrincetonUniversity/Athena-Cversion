@@ -1435,9 +1435,6 @@ void BackEuler_init_3d(MeshS *pM)
 	if(fabs(temp-Nlevel) > 0.5) Nlevel++;
 	Nlevel++;
 	
-#ifdef MPI_PARALLEL
-	pMat->Comm_Domain = pD->Comm_Domain;
-#endif
 
 
 	/* pMat will remain in the memory until the end of the simulation */
@@ -1492,6 +1489,12 @@ void BackEuler_init_3d(MeshS *pM)
 
 	if((RHS_coarse=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+
+
+#ifdef MPI_PARALLEL
+	pMat->Comm_Domain = pD->Comm_Domain;
+#endif
+
 
 
 	/* allocate memory at each level */

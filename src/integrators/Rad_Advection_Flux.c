@@ -64,7 +64,6 @@ static void vanLeer_slope(const Real Er1, const Real Er2, const Real Er3, Real *
 #ifdef SHEARING_BOX
 #ifdef RADFARGO
 static Real ***FargoVars = NULL;
-static Real ***FargoFlx = NULL;
 static Real *U=NULL, *Flx=NULL;
 static int nfghost;
 static void RemapRadFlux(const Real *U,const Real eps,const int ji,const int jo, Real *F);
@@ -235,8 +234,8 @@ void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int
 			jj = j - pG->js + nfghost;
 		/*	*x2Flux -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
 		*/
-			x2Flux[0] += (-FargoFlx[k][i][jj]);
-			x2Flux[1] += (-FargoFlx[k][i][jj+1]);
+			x2Flux[0] += (-pG->RadFargoFlx[k][i][jj]);
+			x2Flux[1] += (-pG->RadFargoFlx[k][i][jj+1]);
 
 		}
 #endif
@@ -356,8 +355,8 @@ void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int
 			jj = j - pG->js + nfghost;
 		/*	*x2Flux -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
 		*/
-			x2Flux[0] += (-FargoFlx[k][i][jj]);
-			x2Flux[1] += (-FargoFlx[k][i][jj+1]);
+			x2Flux[0] += (-pG->RadFargoFlx[k][i][jj]);
+			x2Flux[1] += (-pG->RadFargoFlx[k][i][jj+1]);
 
 		}
 #endif
@@ -543,14 +542,14 @@ void Rad_Fargo_Pre(DomainS *pD)
         RemapRadFlux(U,eps,(jfs-joffset),(jfe+1-joffset),Flx);
 
         for(j=jfs; j<=jfe+1; j++){
-          FargoFlx[k][i][j] = Flx[j-joffset];
+          pG->RadFargoFlx[k][i][j] = Flx[j-joffset];
 
 /* Sum the flux from integer offset: +/- for +/- joffset */
           for (jj=1; jj<=joffset; jj++) {
-            FargoFlx[k][i][j] += FargoVars[k][i][j-jj];
+            pG->RadFargoFlx[k][i][j] += FargoVars[k][i][j-jj];
           }
           for (jj=(joffset+1); jj<=0; jj++) {
-            FargoFlx[k][i][j] -= FargoVars[k][i][j-jj];
+            pG->RadFargoFlx[k][i][j] -= FargoVars[k][i][j-jj];
           }
         }
       }
@@ -566,7 +565,7 @@ if(!Erflag){
       			jj = j-js+nfghost;
       			for(i=is; i<=ie; i++){
 
-				pG->U[k][j][i].Er -= (FargoFlx[k][i][jj+1]-FargoFlx[k][i][jj]);
+				pG->U[k][j][i].Er -= (pG->RadFargoFlx[k][i][jj+1]-pG->RadFargoFlx[k][i][jj]);
 
       			}
     		}
@@ -624,13 +623,11 @@ void Rad_Fargo_init(MeshS *pM)
   if((FargoVars=(Real***)calloc_3d_array(max3,max1,max2,sizeof(Real)))
     ==NULL) ath_error("[Rad_Fargo_init]: malloc returned a NULL pointer\n");
 
-  if((FargoFlx=(Real***)calloc_3d_array(max3,max1,max2,sizeof(Real)))==NULL)
-    ath_error("[Rad_Fargo_init]: malloc returned a NULL pointer\n");
 
 
 #ifdef MPI_PARALLEL
-  size1 = nghost*pG->Nx[1]*(pG->Nx[2]+1);
-  size2 = nfghost*(pG->Nx[0]+1)*(pG->Nx[2]+1);
+  size1 = nghost*(max2-2*nghost-2*nfghost)*(max3-2*nghost+1);
+  size2 = nfghost*(max1-2*nghost+1)*(max3-2*nghost+1);
   size = MAX(size1,size2);
 
   if((send_buf = (double*)malloc(size*sizeof(double))) == NULL)
@@ -652,7 +649,6 @@ void Rad_Fargo_destruct(void )
 		free(Flx);
 
 	if (FargoVars != NULL) free_3d_array(FargoVars);
-        if (FargoFlx  != NULL) free_3d_array(FargoFlx);
 	
 #ifdef MPI_PARALLEL
   	if (send_buf != NULL) free(send_buf);

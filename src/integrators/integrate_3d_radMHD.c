@@ -121,7 +121,8 @@ static Real dfloor = 1.e-20;
 static Real Tfloor = 1.e-20;
 /* electron equilivalent rest mass temperature, used in compton scattering */
 static Real T_e = 5.94065e9; 
-static Real T0 = 2.63375e7; /* the temperature unit used in this simulation */
+/*static Real T0 = 2.63375e7; *
+ * Now defined in global */
  
 
 
@@ -3409,20 +3410,6 @@ k][j][i].M3);
 #endif /* SHEARING_BOX */	
 	
 	
-	
-/*==============================================================*/
-/* calculate the change due to fargo step */
-/* magnetic field is partially updated during this step */
-/* change of hydro quantities in the fargo step is calculated */
-/* But the change is not applied */
-	
-#ifdef FARGO	
-	Fargo(pD);
-	
-#endif
-
-
-
 
 /* Remap emfs at internal MPI and periodic boundaries
  * to eliminate round-off error                         */
@@ -4050,15 +4037,6 @@ k][j][i].M3);
 		Uguess[3] = pG->U[k][j][i].M3 + tempguess[3] + dt * Smz0;
 		Uguess[4] = pG->U[k][j][i].E  + tempguess[4];
 
-#ifdef FARGO
-					/* Add the fargo term like normal flux term */
-					/* Do not include the stiffness of the source term */
-					/* Because radiation and gas should be advected together */
-		for(n=0; n<5; n++){			
-				Uguess[n] += pG->Fargosource[k][j][i][n];
-						
-		}
-#endif
 
 					
 
@@ -4082,8 +4060,8 @@ k][j][i].M3);
 		phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
 		phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
 
-		ShearSource[3] = dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
-				x1Flux[k][j][i+1].d*(phir - phic));
+		ShearSource[3] = -(dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
+				x1Flux[k][j][i+1].d*(phir - phic)));
 					
 		phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
 		phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -4362,9 +4340,7 @@ k][j][i].M3);
 					/* Energy error seems smaller with Errot term added */
 #ifdef SHEARING_BOX
 					pG->Ersource[k][j][i] -= ShearSource[3];
-#ifdef FARGO
-					pG->Ersource[k][j][i] -= pG->Fargosource[k][j][i][4];
-#endif
+
 #endif
 
 #ifdef CONS_GRAVITY

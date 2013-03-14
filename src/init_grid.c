@@ -63,6 +63,15 @@ void init_grid(MeshS *pM)
   /* have different sizes */
   int Rad_n1p, Rad_n2p;
   int Rad_n1z, Rad_n2z, Rad_n3z;
+
+#ifdef RADFARGO
+  Real xmin, xmax;
+  int nfghost;
+  xmin = pM->RootMinX[0];
+  xmax = pM->RootMaxX[0];
+  nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 2);
+#endif
+
 #endif
 
 #endif
@@ -243,9 +252,12 @@ void init_grid(MeshS *pM)
       if (pG->Eulersource == NULL) goto on_error22;
        pG->Comp = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->Comp == NULL) goto on_error23;
-#ifdef FARGO
-		pG->Fargosource = (Real****)calloc_4d_array(n3z, n2z, n1z, 5, sizeof(Real));
-		if (pG->Fargosource == NULL) goto on_error24;
+
+
+#ifdef RADFARGO
+	/* The order of Fargo Flx is [k][j][i] */
+       pG->RadFargoFlx = (Real***)calloc_3d_array(n3z, n1z, n2z + 2*nfghost, sizeof(Real));
+        if (pG->RadFargoFlx == NULL) goto on_error24;
 #endif
 
 	/* Only need to do this for static mesh refinement */
@@ -1399,9 +1411,9 @@ G3.ijkl[2],G3.ijkr[2]);
     free_3d_array(pG->Eulersource); 
     on_error23:
     free_3d_array(pG->Comp);
-#ifdef FARGO
-   on_error24:
-    free_4d_array(pG->Fargosource);
+#ifdef RADFARGO
+    on_error24:
+    free_3d_array(pG->RadFargoFlx);
 #endif
 
 #ifdef STATIC_MESH_REFINEMENT

@@ -1578,10 +1578,7 @@ void integrate_2d_radMHD(DomainS *pD)
   }
 
 
-#ifdef FARGO	
-	Fargo(pD);
-	
-#endif
+
 
 
 /******************************************/
@@ -1955,17 +1952,7 @@ void integrate_2d_radMHD(DomainS *pD)
 		Uguess[3] = pG->U[ks][j][i].M3;
 		Uguess[4] = pG->U[ks][j][i].E + tempguess[4];
 
-#ifdef FARGO
-					/* Add the fargo term like normal flux term */
-					/* Do not include the stiffness of the source term */
-					/* Because radiation and gas should be advected together */
-		for(n=0; n<5; n++){			
-				Uguess[n] += pG->Fargosource[ks][j][i][n];
-						
-		}
-#endif
-		
-		
+	
 
 #ifdef CONS_GRAVITY
 		/* density_old is now actually the updated density */
@@ -2250,9 +2237,7 @@ void integrate_2d_radMHD(DomainS *pD)
 
 #ifdef SHEARING_BOX
 			pG->Ersource[ks][j][i] -= ShearSource[3];
-#ifdef FARGO
-			pG->Ersource[ks][j][i] -= pG->Fargosource[ks][j][i][4];
-#endif
+
 #endif
 
 #ifdef CONS_GRAVITY

@@ -353,6 +353,9 @@ void problem(DomainS *pDomain)
         kappaffP = 182.926;
         kappaffR = 4.94395;
 
+	/* Initialize temperature unit */
+	T0= 2.63375e7;
+
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->Disp[0];
@@ -4014,7 +4017,7 @@ static void output_1dx(MeshS *pM, OutputS *pOut)
 
 
 			if((fname = ath_fname(plev,pM->outfilename,plev,pdom,num_digit,
-      					dnum,NULL,"1d")) == NULL){
+      					dnum,NULL,"1dx")) == NULL){
     				ath_error("[output_1d]: Error constructing filename\n");
   			}
 
