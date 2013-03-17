@@ -52,6 +52,7 @@
 #   --enable-single                                 (double or single precision)
 #   --enable-sts                     (super timestepping for explicit diffusion)
 #   --enable-smr                                        (static mesh refinement)
+#   --enable-rst_smr                                    (restart mesh refinement)
 #   --enable-quadratic_intensity              (order of intensity interpolation)
 #   --enable-cons_gravity      (self-gravity with conserved energy and momentum)
 #-------------------------------------------------------------------------------
@@ -718,6 +719,23 @@ if test "$ok" = "yes"; then
 else
   MESH_REFINEMENT="NO_MESH_REFINEMENT"
   SMR_MODE_USER="OFF"
+fi
+
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: static mesh refinement
+#   --enable-rst_smr (default is no RSTSMR, restart from a single mesh to static mesh)
+
+AC_SUBST(RSTMESH_REFINEMENT)
+AC_ARG_ENABLE(rst_smr,
+	[--enable-rst_smr  restart static mesh refinement (default is no refinement)], 
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  RSTMESH_REFINEMENT="RSTSMR"
+  RSTSMR_MODE_USER="ON"
+else
+  RSTMESH_REFINEMENT="NO_RSTSMR"
+  RSTSMR_MODE_USER="OFF"
 fi
 
 

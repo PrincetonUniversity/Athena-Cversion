@@ -392,10 +392,16 @@ int main(int argc, char *argv[])
 
 	
 /* restrict initial solution so grid hierarchy is consistent */
+/* If RSTSMR, we use INI_prolongate function to prolongate data from root level to fine levels */
 #ifdef STATIC_MESH_REFINEMENT
   SMR_init(&Mesh);
+#ifndef RSTSMR
   RestrictCorrect(&Mesh);
-#endif
+#else
+  INI_prolongate(&Mesh);
+#endif /* End Rstsmr */
+
+#endif /* end SMR */
 	
 
 /* Initialize the first nstep value to flush the output and error logs. */

@@ -122,6 +122,11 @@
 /* Mesh Refinement mode: STATIC_MESH_REFINEMENT or NO_MESH_REFINEMENT */
 #define @MESH_REFINEMENT@
 
+
+/* Restart Mesh Refinement mode: RSTSMR or NO_RSTSMR */
+/* RSTSMR means restart with SMR from a single domain simulation */
+#define @RSTMESH_REFINEMENT@
+
 /* First order flux correction in VL integrator:
  * FIRST_ORDER_FLUX_CORRECTION or NO_FIRST_ORDER_FLUX_CORRECTION */
 #define @FOFC_MODE@

@@ -114,8 +114,12 @@ void restart_grids(char *res_file, MeshS *pM)
 #endif
 
 /* Now loop over all Domains containing a Grid on this processor */
-
+/* For Rstsmr case, there is only data for root level */
+#ifndef RSTSMR
   for (nl=0; nl<=(pM->NLevels)-1; nl++){
+#else
+  for(nl=0; nl<1; nl++){
+#endif
   for (nd=0; nd<=(pM->DomainsPerLevel[nl])-1; nd++){
     if (pM->Domain[nl][nd].Grid != NULL) {
       pG=pM->Domain[nl][nd].Grid;

@@ -38,6 +38,13 @@ int checkOverlap(SideS *pC1, SideS *pC2, SideS *pC3);
 int checkOverlapTouch(SideS *pC1, SideS *pC2, SideS *pC3);
 #endif
 
+
+#ifdef RSTSMR
+#ifndef STATIC_MESH_REFINEMENT
+#error : RSTSMR must have STATIC_MESH_REFINEMENT enabled!.
+#endif
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*! \fn void init_grid(MeshS *pM)
  *  \brief Initializes most variables in the Grid structure.
@@ -57,6 +64,11 @@ void init_grid(MeshS *pM)
   int npg,nPG,nMyPG,nPB[6],nMyPB[6];
   int n1r,n2r,n1p,n2p;
 
+#ifdef RSTSMR
+  /* We need extra two cells for prolongation */
+  int Rstn1z, Rstn2z, Rstn3z;
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   /* We need separate variables for radiation during */
   /* prolongation, as ghoze zones of radiation and MHD */
@@ -64,16 +76,18 @@ void init_grid(MeshS *pM)
   int Rad_n1p, Rad_n2p;
   int Rad_n1z, Rad_n2z, Rad_n3z;
 
+
+#endif
+
+#endif
+
+
 #ifdef RADFARGO
   Real xmin, xmax;
   int nfghost;
   xmin = pM->RootMinX[0];
   xmax = pM->RootMaxX[0];
   nfghost = nghost + ((int)(1.5*CourNo*MAX(fabs(xmin),fabs(xmax))) + 2);
-#endif
-
-#endif
-
 #endif
 
 /* number of dimensions in Grid. */
@@ -255,7 +269,7 @@ void init_grid(MeshS *pM)
 
 
 #ifdef RADFARGO
-	/* The order of Fargo Flx is [k][j][i] */
+	/* The order of Fargo Flx is [k][i][j] */
        pG->RadFargoFlx = (Real***)calloc_3d_array(n3z, n1z, n2z + 2*nfghost, sizeof(Real));
         if (pG->RadFargoFlx == NULL) goto on_error24;
 #endif
@@ -540,6 +554,16 @@ G3.ijkl[0],G3.ijkr[0]);
               pG->CGrid[ncg].ID = pCD->GData[n][m][l].ID_Comm_Parent;
 
               n1z = G3.ijkr[0] - G3.ijkl[0];
+
+	/*-------------------------------------------*/
+	/* Include one ghost zone at each side */
+#ifdef RSTSMR
+	      if(n1z > 0)
+		Rstn1z = n1z + 2 + 2;	
+	      else
+		Rstn1z = n1z;	
+#endif
+
 	/*----------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		/*Only do this if there is data to prolongate. 
@@ -552,6 +576,15 @@ G3.ijkl[0],G3.ijkr[0]);
 	/*---------------------------------------*/
               n2z = G3.ijkr[1] - G3.ijkl[1];
 
+	/*-------------------------------------------*/
+#ifdef RSTSMR
+	      if(n2z > 0)
+		Rstn2z = n2z + 2 + 2;	
+	      else
+		Rstn2z = n2z;	
+#endif
+
+
 	/*---------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
 	      if((pG->Nx[1] > 1) && (n2z > 0))
@@ -561,6 +594,15 @@ G3.ijkl[0],G3.ijkr[0]);
 #endif
 	/*-----------------------------------------*/
               n3z = G3.ijkr[2] - G3.ijkl[2];
+
+	/*-------------------------------------------*/
+#ifdef RSTSMR
+	      if(n3z > 0)
+		Rstn3z = n3z + 2 + 2;	
+	      else
+		Rstn3z = n3z;	
+#endif
+
 	/*---------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
 	      if((pG->Nx[2] > 1) && (n3z > 0))
@@ -572,6 +614,13 @@ G3.ijkl[0],G3.ijkr[0]);
 
               pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
               pG->CGrid[ncg].nWordsP  = 0;
+#ifdef RSTSMR
+	      pG->CGrid[ncg].RstWordsP = Rstn1z*Rstn2z*Rstn3z*(NVAR);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      pG->CGrid[ncg].RstWordsP += Rstn1z*Rstn2z*Rstn3z*(10+NOPACITY);	
+#endif
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	    
 	      /* Radiation also needs to do prolongation */
@@ -593,9 +642,16 @@ G3.ijkl[0],G3.ijkr[0]);
                 if (nDim==3) {
                   pG->CGrid[ncg].nWordsRC += 
                     ((n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1));
+#ifdef RSTSMR
+		  pG->CGrid[ncg].RstWordsP +=
+			((Rstn1z+1)*Rstn2z*Rstn3z + Rstn1z*(Rstn2z+1)*Rstn3z + Rstn1z*Rstn2z*(Rstn3z+1));
+#endif
                 } else {
                   if (nDim==2) {
                     pG->CGrid[ncg].nWordsRC += ((n1z+1)*n2z + n1z*(n2z+1));
+#ifdef RSTSMR
+		    pG->CGrid[ncg].RstWordsP += ((Rstn1z+1)*Rstn2z + Rstn1z*(Rstn2z+1));
+#endif
                   }
                 }
               }
@@ -666,7 +722,8 @@ G3.ijkl[0],G3.ijkr[0]);
                   }
 
                   pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
-                  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
+                  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		/* plus the variables needed to be prolongaed for radiation part */
 		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
@@ -697,7 +754,7 @@ G3.ijkl[0],G3.ijkr[0]);
                       pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z; 
                       pG->CGrid[ncg].myEMF3[2*dim] = (Real**)calloc_2d_array(
                         n2z,n1z+1, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF3[2*dim] == NULL) ath_error(
+	             if(pG->CGrid[ncg].myEMF3[2*dim] == NULL) ath_error(
                         "[init_grid]:failed to allocate CGrid ixb myEMF3\n");
                     }
 
@@ -821,7 +878,7 @@ G3.ijkl[0],G3.ijkr[0]);
 
                     if (pG->Nx[2] > 1  && dim == 0) {
                       pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
-                      pG->CGrid[ncg].myEMF2[(2*dim)+1] =
+		      pG->CGrid[ncg].myEMF2[(2*dim)+1] =
                         (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
                       if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
                         "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
@@ -1044,13 +1101,31 @@ G3.ijkl[2],G3.ijkr[2]);
               pG->PGrid[npg].ID = pPD->GData[n][m][l].ID_Comm_Children;
 
               n1z = (G3.ijkr[0] - G3.ijkl[0])/2;
+
+	/*------------------------------------------*/
+
+#ifdef RSTSMR
+	     if(n1z > 0)
+	     	Rstn1z = n1z + 2 + 2;
+	     else
+		Rstn1z = n1z;
+#endif
+
+
+	/*---------------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	      if(n1z > 0)
 		Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
 		else
 		Rad_n1z = n1z;
 #endif
+
+
               n2z = 1; n3z = 1;
+		 /*------------------------------------*/
+#ifdef RSTSMR
+		Rstn2z = 1; Rstn3z = 1;
+#endif
 	      /*------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	      Rad_n2z = 1; 
@@ -1062,6 +1137,13 @@ G3.ijkl[2],G3.ijkr[2]);
 
               if (pG->Nx[1]>1){ 
 		n2z = (G3.ijkr[1] - G3.ijkl[1])/2;
+#ifdef RSTSMR
+		if(n2z > 1)
+			Rstn2z = n2z + 2 + 2;
+		else
+			Rstn2z = n2z;
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		if(n2z > 1)
 		Rad_n2z = n2z + 2;
@@ -1072,6 +1154,14 @@ G3.ijkl[2],G3.ijkr[2]);
 
               if (pG->Nx[2]>1){
 		n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
+
+#ifdef RSTSMR
+		if(n3z > 1)
+			Rstn3z = n3z + 2 + 2;
+		else
+			Rstn3z = n3z;
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		if(n3z > 1)
 		Rad_n3z = n3z + 2;
@@ -1081,6 +1171,12 @@ G3.ijkl[2],G3.ijkr[2]);
 	      }
 
               pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
+#ifdef RSTSMR
+	      pG->PGrid[npg].RstWordsP = Rstn1z*Rstn2z*Rstn3z*(NVAR);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	      pG->PGrid[npg].RstWordsP += Rstn1z*Rstn2z*Rstn3z*(10+NOPACITY);	
+#endif	
+#endif
               pG->PGrid[npg].nWordsP  = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	      /* If grids just touch, n1z, n2z or n3z can be zero */
@@ -1099,9 +1195,16 @@ G3.ijkl[2],G3.ijkr[2]);
                 if (nDim==3) {
                   pG->PGrid[npg].nWordsRC += 
                     (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
+#ifdef RSTSMR
+		  pG->PGrid[npg].RstWordsP += 
+                    (Rstn1z+1)*Rstn2z*Rstn3z + Rstn1z*(Rstn2z+1)*Rstn3z + Rstn1z*Rstn2z*(Rstn3z+1);
+#endif
                 } else {
                   if (nDim==2) {
                     pG->PGrid[npg].nWordsRC += (n1z+1)*n2z + n1z*(n2z+1);
+#ifdef RSTSMR
+		    pG->PGrid[npg].RstWordsP += (Rstn1z+1)*Rstn2z + Rstn1z*(Rstn2z+1);
+#endif
                   }
                 }
               }
@@ -1178,6 +1281,7 @@ G3.ijkl[2],G3.ijkr[2]);
                   }
 
                   pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
+
                   pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
@@ -1205,7 +1309,7 @@ G3.ijkl[2],G3.ijkr[2]);
 
                     if (pG->Nx[1] > 1 && dim != 2) {
                       pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
-                      pG->PGrid[npg].myEMF3[2*dim] = 
+	             pG->PGrid[npg].myEMF3[2*dim] = 
                         (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
                       if(pG->PGrid[npg].myEMF3[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF3\n");
@@ -1221,7 +1325,7 @@ G3.ijkl[2],G3.ijkr[2]);
 
                     if (pG->Nx[2] > 1  && dim == 1) {
                       pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
-                      pG->PGrid[npg].myEMF1[2*dim] =
+	              pG->PGrid[npg].myEMF1[2*dim] =
                         (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
                       if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
                         "[init_grid]:failed to allocate PGrid ixb myEMF1\n");

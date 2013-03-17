@@ -49,6 +49,25 @@ Real **SMRemf1, **SMRemf2, **SMRemf3;
 Real3Vect ***BFld[3];
 #endif
 
+/*----------------------------------------------*/
+#ifdef RSTSMR
+/* temporary variables for restarted SMR */
+/* These temporary space will only be used once, and destroyed at the end of 
+ * INI_prolongate */
+
+/* Initial prolongation does not need flux correction */
+static double **send_bufRst = NULL;
+static double **recv_bufRst = NULL;
+
+static ConsS ***Probuf;
+#if defined(MHD) || defined(RADIATION_MHD)
+Real3Vect ***RstBFld;
+#endif
+
+
+#endif
+/*------------------------------------------*/
+
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES: 
  *   ProCon - prolongates conserved variables
@@ -2010,6 +2029,667 @@ void Prolongate(MeshS *pM)
   } /* end loop over levels */
 }
 
+
+
+#ifdef RSTSMR
+/* Function to prolongate the data from bottom level to the fine levels, */
+/* This function is only used when RSTSMR is defined, we restart the simulation with SMR from */
+/* a previous simulation which does NOT use SMR */
+
+
+
+
+void INI_prolongate(MeshS *pM)
+{
+
+
+
+	
+  	int i, j, k, n, m, l, ii, jj, kk;
+	int ics, ice, jcs, jce, kcs, kce;
+	int nd, nZeroP, npg, ncg, mend, nend, lend;
+	int nDim, nl;
+	int ips, ipe, jps, jpe, kps, kpe;
+
+
+	double *pRcv, *pSnd;
+  	
+	GridOvrlpS *pCO, *pPO;	
+	GridS *pG;
+ 	ConsS ProlongedC[2][2][2];
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  	int nr;
+#endif
+
+#if (NSCALARS > 0)
+  	int ns;
+#endif
+#if defined(MHD) || defined(RADIATION_MHD)
+  	Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
+#endif
+#ifdef MPI_PARALLEL
+  	int mAddress, ierr, mIndex, mCount;
+#endif
+
+	/* number of dimensions in Grid. */
+	/* First, determine the dimensionality */
+  	nDim=1;
+  	for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;
+
+	for(nl=0; nl<(pM->NLevels); nl++){
+
+
+#ifdef MPI_PARALLEL
+		if(nl<(pM->NLevels)-1){
+		
+    			for (nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
+      				if (pM->Domain[nl+1][nd].Grid != NULL) {
+        			
+					pG=pM->Domain[nl+1][nd].Grid;
+        				nZeroP = 0;
+        				mAddress = 0;        	
+					
+
+        			for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
+	
+				/* Skip if no prolongation needed for this child (only flux correction) */ 
+				/* This is for the case when grids only touch */
+          				if (pG->PGrid[npg].RstWordsP == 0) { 
+            					nZeroP += 1;
+          				} else {
+
+	           				mIndex = npg - pG->NmyPGrid - nZeroP;
+	            				ierr = MPI_Irecv(&(recv_bufRst[nd][mAddress]),
+        	      				pG->PGrid[npg].RstWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
+              					pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
+              						&(recv_rq[nl+1][nd][mIndex]));
+            					mAddress += pG->PGrid[npg].RstWordsP;
+          				}
+
+        			}/* End loop all the parent grids */
+      				}/* End if Grid != NULL */
+    			}/* Finish looping all domains at Level +1 */
+  		}
+#endif /* MPI_PARALLEL */
+
+
+
+		/*======Step 1, send the data,  Child grids==========*/
+		/* Send the data for the whole overlap region, does not include the ghost zones  */
+
+		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+			pG = pM->Domain[nl][nd].Grid;
+			/* conditions in if statement are checked from left to right */ 
+			if((pG != NULL) && (pG->NCGrid > 0)){
+				/* Check that there is child grid at this level, otherwise we shouldn't come here. */
+				
+
+				for(i=0; i<maxND; i++) start_addrP[i] = 0;
+				nZeroP = 0;
+				
+				for(ncg=0; ncg<(pG->NCGrid); ncg++){
+					if(pG->CGrid[ncg].RstWordsP == 0){
+						if(ncg >= pG->NmyCGrid)
+							nZeroP += 1;
+						
+						/* If on the same process and no data for prolongation, do not count in nZeroP */
+					}/* skip the grid that does need prolongation */
+					else{
+						pCO = (GridOvrlpS*)&(pG->CGrid[ncg]);	/* ptr to child Grid overlap */
+
+					/* index send_buf with DomN of child, since could be multiple child Domains on */
+ 					/* same processor.  Start address must be different for each DomN */
+
+						/* First prolongate the region that overlaps */
+						
+						pSnd = (double*)&(send_bufRst[pCO->DomN][start_addrP[pCO->DomN]]);
+
+						/* We need extra cell for prolongation, but not ghost zones */
+	
+
+						if(pCO->ijke[0] > pCO->ijks[0]){
+							ics = pCO->ijks[0] - 1 - 1;
+							ice = pCO->ijke[0] + 1 + 1;
+						}
+						else{
+							ics = pCO->ijks[0];
+							ice = pCO->ijke[0];
+						}
+
+						if((nDim > 1) && (pCO->ijke[1] > pCO->ijks[1])){
+							jcs = pCO->ijks[1] - 1 - 1;
+							jce = pCO->ijke[1] + 1 + 1;
+						}
+						else{
+							jcs = pCO->ijks[1];
+							jce = pCO->ijke[1];
+						}
+		
+						if((nDim > 2) && (pCO->ijke[2] > pCO->ijks[2])){
+							kcs = pCO->ijks[2] - 1 - 1;
+							kce = pCO->ijke[2] + 1 + 1;
+						}
+						else{
+							kcs = pCO->ijks[2];
+							kce = pCO->ijke[2];
+						}
+						
+						
+
+						for(k=kcs; k<=kce; k++){
+						for(j=jcs; j<=jce; j++){
+						for(i=ics; i<=ice; i++){
+							*(pSnd++) = pG->U[k][j][i].d;
+            						*(pSnd++) = pG->U[k][j][i].M1;
+            						*(pSnd++) = pG->U[k][j][i].M2;
+            						*(pSnd++) = pG->U[k][j][i].M3;
+#ifndef BAROTROPIC
+            						*(pSnd++) = pG->U[k][j][i].E;
+#endif
+#if defined(MHD) || defined(RADIATION_MHD)
+            						*(pSnd++) = pG->U[k][j][i].B1c;
+            						*(pSnd++) = pG->U[k][j][i].B2c;
+            						*(pSnd++) = pG->U[k][j][i].B3c;
+            						*(pSnd++) = pG->B1i[k][j][i];
+            						*(pSnd++) = pG->B2i[k][j][i];
+            						*(pSnd++) = pG->B3i[k][j][i];
+#endif
+#if (NSCALARS > 0)
+            						for (ns=0; ns<NSCALARS; ns++) {
+               							*(pSnd++) = pG->U[k][j][i].s[ns];
+            						}
+#endif
+
+/* Add radiation quantities at the end */
+/* There are Er, Fr1, Fr2, Fr3, Edd_??, and Sigma[Opacity] 10+NOPACITY variables */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+	   						*(pSnd++) = pG->U[k][j][i].Er;
+	   						*(pSnd++) = pG->U[k][j][i].Fr1;
+	   						*(pSnd++) = pG->U[k][j][i].Fr2;
+           						*(pSnd++) = pG->U[k][j][i].Fr3;
+           						*(pSnd++) = pG->U[k][j][i].Edd_11;
+						   	*(pSnd++) = pG->U[k][j][i].Edd_21;
+							*(pSnd++) = pG->U[k][j][i].Edd_22;
+							*(pSnd++) = pG->U[k][j][i].Edd_31;
+							*(pSnd++) = pG->U[k][j][i].Edd_32;
+							*(pSnd++) = pG->U[k][j][i].Edd_33;
+	
+							for(nr=0; nr<NOPACITY; nr++)
+								*(pSnd++) = pG->U[k][j][i].Sigma[nr];
+#endif
+
+						}/* end i */
+						}/* end j */
+						}/* end k */
+						/* Do not need to send flux correction */
+						
+
+			/* Step 1b: non-blocking send of data  to Child, using Domain number as tag */
+#ifdef MPI_PARALLEL
+				/* Only do this if we actually have data to send */
+      						if (ncg >= pG->NmyCGrid) {
+        						mIndex = ncg - pG->NmyCGrid - nZeroP;
+        						ierr = MPI_Isend(&(send_bufRst[pCO->DomN][start_addrP[pCO->DomN]]),
+          						pG->CGrid[ncg].RstWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
+          						pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
+      						}
+#endif /* MPI_PARALLEL */
+
+      						start_addrP[pCO->DomN] += pG->CGrid[ncg].RstWordsP;
+					}/* End for the grids that needs prolongation */
+				}/* End loop over the child grid */
+
+			}/* End if CPUflag */
+		}/* Finish looping all the domains at Level */
+
+
+
+		
+
+  	/******************************************************************************/
+	/* This step is skipped as we just set Receive pointer to the send buffer if grids are on the same CPU 
+	
+		for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
+    			if (pM->Domain[Level-RootLevel][nd].Grid != NULL) { 
+     				 pG=pM->Domain[Level-RootLevel][nd].Grid; 
+	
+
+      				for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
+        				pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);   
+
+        				for (i=0; i<pCO->Rad_nWordsP; i++) {
+          					recv_bufP[pCO->DomN][i]=send_bufP[pCO->DomN][i];
+        				}
+      				}
+    			}
+  		}
+
+ */
+
+#ifdef MPI_PARALLEL
+		/* For MPI jobs, wait for all non-blocking sends above to finish in order to continue to Level+1  */
+		/* Ortherwise, the CPU may start to working while sent is not complete */
+
+  		for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    			if (pM->Domain[nl][nd].Grid != NULL) {
+     				pG=pM->Domain[nl][nd].Grid;
+
+      				nZeroP = 0;
+      				for (i=pG->NmyCGrid; i < pG->NCGrid; i++) if (pG->CGrid[i].RstWordsP == 0) nZeroP++;
+
+      				if (pG->NCGrid > pG->NmyCGrid) {
+        				mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
+        				ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+      				}
+    			}
+  		}
+#endif /* MPI_PARALLEL */
+
+
+
+		/*=====================================================================*/
+		/* Get solution from parent GridS and prolongation solution to ghost zones */
+		/* Now we go back to nl + 1 */
+		for(nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
+			if(pM->Domain[nl+1][nd].Grid != NULL){
+				pG = pM->Domain[nl+1][nd].Grid;
+				
+				/* Loop over number of parent grids with non-zero-size prolongation data */
+				nZeroP = 0;
+    				for (i=pG->NmyPGrid; i < pG->NPGrid; i++) if (pG->PGrid[i].RstWordsP == 0) nZeroP++;
+
+				for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
+
+
+      					if (npg < pG->NmyPGrid) {						
+        					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
+						/* For grids on the same CPU, set the pointer to send buffer */
+        					/* pRcv = (double*)&(recv_bufP[nd][0]); */
+						/* One CPU only works for one grid in one Domain */
+						/* So, the address at buffer for domain nd must start from 0 */
+						if(pPO->RstWordsP > 0)
+							pRcv = (double*)&(send_bufRst[nd][0]);
+	
+      					} else {
+
+#ifdef MPI_PARALLEL
+					/* Check non-blocking receives posted above for data in ghost zone from parent
+ 						* Grids, sent in Step 1.  Accept messages in any order. */
+
+        					mCount = pG->NPGrid - pG->NmyPGrid - nZeroP;
+        					ierr = MPI_Waitany(mCount,recv_rq[nl+1][nd],&mIndex,MPI_STATUS_IGNORE);
+        					if(mIndex == MPI_UNDEFINED){
+          						ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl+1,nd);
+        					}
+
+						/* mIndex returns the number that is completed */
+
+					/* Recv buffer is addressed from PGrid[0].Rad_nWordsP for first MPI message
+ 					* if NmyPGrid>0.  Also must remove zero size messages from index. */
+
+						/* re-build the value of mIndex to include NmyPGrid and grids that do not need prolongation */
+						/* mIndex is the process ID in that domain */
+        					mIndex += pG->NmyPGrid;
+        					for (i=pG->NmyPGrid; i <= mIndex; i++) 
+          						if (pG->PGrid[i].RstWordsP == 0) mIndex++;
+
+        					mAddress = 0;
+        					for (i=pG->NmyPGrid; i<mIndex; i++) mAddress += pG->PGrid[i].RstWordsP;
+        					pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]); 
+        					pRcv = (double*)&(recv_bufP[nd][mAddress]);
+#else
+				/* If not MPI_PARALLEL, and parent Grid not on this processor, then error */
+
+        					ath_error("[Prolong]: no Parent Grid on Domain[%d][%d]\n",nl+1,nd);
+#endif /* MPI_PARALLEL */
+      					}/* End if npg > pG->NmyPGrid */
+
+					
+					/* Loop over 6 boundaries, set ghost zones */
+					/* The difference between Matrix solver and normal MHD is that */
+					/* We also need to prolongate data from each cell to the child grids */
+					
+					/* Only do this if prolongation data is non-zero */
+					/* This is especially for NmyPgrid */
+					if(pPO->RstWordsP > 0){
+
+					/* Get coordinates ON THIS GRID of ghost zones that overlap parent Grid */
+						/* first prolongate the overlap region */
+						/* To use this prolongated solution as initial guess in fine level */
+
+						/*---------------------------------------------------*/
+						/* Two additional cells for prolongation, plus one additional cell at each side */
+						ips = 0;
+						ipe = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 1 + 2;
+						if(nDim > 1){
+							jps = 0;
+							jpe = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 1 + 2;
+						}
+						else{
+							jps = 1;
+							jpe = 1;
+						}
+						if(nDim > 2){
+							kps = 0;
+							kpe = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 1 + 2;
+						}
+						else{
+							kps = 1;
+							kpe = 1;
+						}
+						/* Load the data */
+					
+						for(k=kps; k<=kpe; k++){
+						for(j=jps; j<=jpe; j++){
+						for(i=ips; i<=ipe; i++){
+							Probuf[k][j][i].d  = *(pRcv++);
+            						Probuf[k][j][i].M1 = *(pRcv++);
+            						Probuf[k][j][i].M2 = *(pRcv++);
+							Probuf[k][j][i].M3 = *(pRcv++);
+#ifndef BAROTROPIC
+							Probuf[k][j][i].E = *(pRcv++);
+#endif
+#if defined(MHD) || defined(RADIATION_MHD)
+							Probuf[k][j][i].B1c = *(pRcv++);
+							Probuf[k][j][i].B2c = *(pRcv++);
+							Probuf[k][j][i].B3c = *(pRcv++);
+							RstBFld[k][j][i].x1 = *(pRcv++);
+							RstBFld[k][j][i].x2 = *(pRcv++);
+							RstBFld[k][j][i].x3 = *(pRcv++);
+#endif
+#if (NSCALARS > 0)
+							for (ns=0; ns<NSCALARS; ns++) {
+							Probuf[k][j][i].s[ns] = *(pRcv++);
+							}
+#endif
+							/* Get the data for radiation part */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+							Probuf[k][j][i].Er = *(pRcv++);
+							Probuf[k][j][i].Fr1 = *(pRcv++);
+							Probuf[k][j][i].Fr2 = *(pRcv++);
+							Probuf[k][j][i].Fr3 = *(pRcv++);
+							Probuf[k][j][i].Edd_11 = *(pRcv++);
+							Probuf[k][j][i].Edd_21 = *(pRcv++);
+							Probuf[k][j][i].Edd_22 = *(pRcv++);
+							Probuf[k][j][i].Edd_31 = *(pRcv++);
+							Probuf[k][j][i].Edd_32 = *(pRcv++);
+							Probuf[k][j][i].Edd_33 = *(pRcv++);
+							
+							for(nr=0; nr<NOPACITY; nr++)
+								Probuf[k][j][i].Sigma[nr] = *(pRcv++);
+#endif /* end radiation */
+
+
+						}/* End i */
+						}/* End j */
+						}/* End k */
+
+						/* Fill the junk zones for 1D and 2D cases */
+						if(nDim == 1){
+							for(i=ips; i<=ipe; i++){
+								Probuf[1][0][i] = Probuf[1][1][i];
+								Probuf[1][2][i] = Probuf[1][1][i];
+								Probuf[0][1][i] = Probuf[1][1][i];
+								Probuf[2][1][i] = Probuf[1][1][i];
+							}
+
+						}else if(nDim == 2){
+							for(j=jps; j<=jpe; j++){
+							for(i=ips; i<=ipe; i++){
+								Probuf[0][j][i] = Probuf[1][j][i];
+								Probuf[2][j][i] = Probuf[1][j][i];
+							}
+							}
+
+						}/* End if nDim == 2 */
+
+
+						/* Do prolongation */
+						ips = pPO->ijks[0] - 2;
+						ipe = pPO->ijke[0] + 2;
+
+						jps = pPO->ijks[1];
+						jpe = pPO->ijke[1];
+						if(jpe > jps){
+							jps -= 2;
+							jpe += 2;
+						}
+						
+						kps = pPO->ijks[2];
+						kpe = pPO->ijke[2];
+						if(kpe > kps){
+							kps -= 2;
+							kpe += 2;
+						}
+						
+
+						lend = 1;
+						if(nDim > 1){
+							mend = 1;
+						}
+						else{
+							mend = 0;
+						}
+
+						if(nDim > 2){
+							nend = 1;
+						}
+						else{					
+							nend = 0;
+						}
+
+							/* Prolongate the Pro_buf array data to Ptemp temporarily and then copy the data to pMat */
+							/* i, j, k are for parent grids while kk, jj, ii are for child grids */
+						for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
+						for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
+       						for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
+							ProCon(Probuf[kk][jj][ii-1], Probuf[kk][jj][ii], Probuf[kk][jj][ii+1], Probuf[kk][jj-1][ii], Probuf[kk][jj+1][ii], Probuf[kk-1][jj][ii], Probuf[kk+1][jj][ii], ProlongedC);
+
+							/* Now set the solution */
+							for(n=0; n<=nend; n++){
+							for(m=0; m<=mend; m++){
+							for(l=0; l<=1; l++){
+								pG->U[k+n][j+m][i+l].d  = ProlongedC[n][m][l].d;
+								pG->U[k+n][j+m][i+l].M1 = ProlongedC[n][m][l].M1;
+								pG->U[k+n][j+m][i+l].M2 = ProlongedC[n][m][l].M2;
+								pG->U[k+n][j+m][i+l].M3 = ProlongedC[n][m][l].M3;
+#ifndef BAROTROPIC
+								pG->U[k+n][j+m][i+l].E  = ProlongedC[n][m][l].E;
+#endif
+#if defined(MHD) || defined(RADIATION_MHD)
+								pG->U[k+n][j+m][i+l].B1c = ProlongedC[n][m][l].B1c;
+								pG->U[k+n][j+m][i+l].B2c = ProlongedC[n][m][l].B2c;
+								pG->U[k+n][j+m][i+l].B3c = ProlongedC[n][m][l].B3c;
+#endif
+#if (NSCALARS > 0)
+								for (ns=0; ns<NSCALARS; ns++) 
+									pG->U[k+n][j+m][i+l].s[ns] = ProlongedC[n][m][l].s[ns];
+#endif
+								/* Get solution for radiation quantities */
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+								pG->U[k+n][j+m][i+l].Er = ProlongedC[n][m][l].Er;
+								pG->U[k+n][j+m][i+l].Fr1 = ProlongedC[n][m][l].Fr1;
+								pG->U[k+n][j+m][i+l].Fr2 = ProlongedC[n][m][l].Fr2;
+								pG->U[k+n][j+m][i+l].Fr3 = ProlongedC[n][m][l].Fr3;
+								pG->U[k+n][j+m][i+l].Edd_11 = ProlongedC[n][m][l].Edd_11;
+								pG->U[k+n][j+m][i+l].Edd_21 = ProlongedC[n][m][l].Edd_21;
+								pG->U[k+n][j+m][i+l].Edd_22 = ProlongedC[n][m][l].Edd_22;
+								pG->U[k+n][j+m][i+l].Edd_31 = ProlongedC[n][m][l].Edd_31;
+								pG->U[k+n][j+m][i+l].Edd_32 = ProlongedC[n][m][l].Edd_32;
+								pG->U[k+n][j+m][i+l].Edd_33 = ProlongedC[n][m][l].Edd_33;
+								
+								for(nr=0; nr<NOPACITY; nr++)
+									pG->U[k+n][j+m][i+l].Sigma[nr] = ProlongedC[n][m][l].Sigma[nr];
+#endif /* end radiation */
+							}/* End l */
+							}/* End m */
+							}/* End n */
+
+
+
+				/*-----------------------------------------------------------------*/
+				/* Prolongate face centered magnetic field for the whole grid */
+#if defined(MHD) || defined(RADIATION_MHD)
+							if (nDim == 1) {
+              							for (l=0; l<=1; l++) {
+									pG->B1i[k][j][i+l] = pG->U[k][j][i+l].B1c;
+									pG->B2i[k][j][i+l] = pG->U[k][j][i+l].B2c;
+									pG->B3i[k][j][i+l] = pG->U[k][j][i+l].B3c;
+              							}
+            						} else {
+								for (n=0; n<3; n++) {
+								for (m=0; m<3; m++) {
+								for (l=0; l<3; l++) {
+									ProlongedF[n][m][l].x1 = 0.0;
+									ProlongedF[n][m][l].x2 = 0.0;
+									ProlongedF[n][m][l].x3 = 0.0;
+								}}}
+            						} /* end if ndim= 1 */
+
+							/* Load B-field ghost zone array with values read from Rcv buffer in 2D/3D */
+
+							if (nDim == 2 || nDim ==3) {
+								for (n=0; n<3; n++) {
+								for (m=0; m<3; m++) {
+								for (l=0; l<3; l++) {
+									BGZ[n][m][l].x1 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x1;
+									BGZ[n][m][l].x2 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x2;
+									BGZ[n][m][l].x3 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x3;
+								}}}
+								/* B1i */
+								ProlongedF[0][0][2].x1 = pG->B1i[k][j  ][i+2];
+								ProlongedF[0][1][2].x1 = pG->B1i[k][j+1][i+2];
+								ProlongedF[1][0][2].x1 = pG->B1i[k][j  ][i+2];
+								ProlongedF[1][1][2].x1 = pG->B1i[k][j+1][i+2];
+								if(nDim == 3){
+									ProlongedF[1][0][2].x1 = pG->B1i[k+1][j  ][i+2];
+                  							ProlongedF[1][1][2].x1 = pG->B1i[k+1][j+1][i+2];
+								}
+
+								ProlongedF[0][0][0].x1 = pG->B1i[k][j  ][i];
+								ProlongedF[0][1][0].x1 = pG->B1i[k][j+1][i];
+								ProlongedF[1][0][0].x1 = pG->B1i[k][j  ][i];
+								ProlongedF[1][1][0].x1 = pG->B1i[k][j+1][i];
+
+								if(nDim == 3){
+									ProlongedF[1][0][0].x1 = pG->B1i[k+1][j  ][i];
+                  							ProlongedF[1][1][0].x1 = pG->B1i[k+1][j+1][i];
+								}
+
+								/* B2i */
+								ProlongedF[0][2][0].x2 = pG->B2i[k][j+2][i  ];
+								ProlongedF[0][2][1].x2 = pG->B2i[k][j+2][i+1];
+								ProlongedF[1][2][0].x2 = pG->B2i[k][j+2][i  ];
+								ProlongedF[1][2][1].x2 = pG->B2i[k][j+2][i+1];
+
+								if(nDim == 3){
+									ProlongedF[1][2][0].x2 = pG->B2i[k+1][j+2][i  ];
+                  							ProlongedF[1][2][1].x2 = pG->B2i[k+1][j+2][i+1];
+								}
+
+								ProlongedF[0][0][0].x2 = pG->B2i[k][j][i  ];
+								ProlongedF[0][0][1].x2 = pG->B2i[k][j][i+1];
+								ProlongedF[1][0][0].x2 = pG->B2i[k][j][i  ];
+								ProlongedF[1][0][1].x2 = pG->B2i[k][j][i+1];
+
+								if(nDim == 3){
+									ProlongedF[1][0][0].x2 = pG->B2i[k+1][j][i  ];
+                  							ProlongedF[1][0][1].x2 = pG->B2i[k+1][j][i+1];
+								}
+
+								/* B3i */
+								if(nDim == 3){
+									ProlongedF[2][0][0].x3 = pG->B3i[k+2][j  ][i  ];
+									ProlongedF[2][0][1].x3 = pG->B3i[k+2][j  ][i+1];
+									ProlongedF[2][1][0].x3 = pG->B3i[k+2][j+1][i  ];
+									ProlongedF[2][1][1].x3 = pG->B3i[k+2][j+1][i+1];
+	
+									ProlongedF[0][0][0].x3 = pG->B3i[k][j  ][i  ];
+									ProlongedF[0][0][1].x3 = pG->B3i[k][j  ][i+1];
+									ProlongedF[0][1][0].x3 = pG->B3i[k][j+1][i  ];
+									ProlongedF[0][1][1].x3 = pG->B3i[k][j+1][i+1];
+								}
+
+							
+
+
+							ProFld(BGZ, ProlongedF, pG->dx1, pG->dx2, pG->dx3);
+
+								for (n=0; n<=nend; n++) {
+								for (m=0; m<=mend; m++) {
+								for (l=0; l<=1; l++) {
+									
+									pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x1;
+									pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].x2;
+									pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].x3;
+							
+									pG->U[k+n][j+m][i+l].B1c = 
+									0.5*(ProlongedF[n][m][l].x1 + ProlongedF[n][m][l+1].x1);
+									pG->U[k+n][j+m][i+l].B2c = 
+									0.5*(ProlongedF[n][m][l].x2 + ProlongedF[n][m+1][l].x2);
+									pG->U[k+n][j+m][i+l].B3c = 
+									0.5*(ProlongedF[n][m][l].x3 + ProlongedF[n+1][m][l].x3);
+								}}}
+
+							} /* End dim == 2 or dim == 3 */
+#endif /* end MHD */
+
+						}/* End i */
+						}/* End j */
+						}/* End k */
+
+
+						
+
+					} /* End if there are data to prolongate */
+				}/* End loop npg grid */
+
+
+
+			}/* End if [Level+1][nd].Grid is not NULL */
+		}/* Finish loop over domains at Level + 1*/
+
+		/*===================================================================*/
+
+	}/* Finish looping all levels */
+
+
+
+	/*******************************************************************/
+	/* Destroy the temporary space that is secial for RSTSMR */
+	if(send_bufRst != NULL){
+		free_2d_array(send_bufRst);
+		send_bufRst = NULL;
+	}
+	
+
+	if(recv_bufRst != NULL){
+		free_2d_array(recv_bufRst);
+		recv_bufRst = NULL;
+	}
+
+	if(Probuf != NULL){
+		free_3d_array(Probuf);
+		Probuf = NULL;
+	}
+	
+#if defined(MHD) || defined(RADIATION_MHD)
+	if(RstBFld != NULL){
+		free_3d_array(RstBFld);
+		RstBFld = NULL;
+	}
+#endif
+
+}
+
+
+#endif
+/* End RSTSMR initial prolongation function */
+
+
+
+
+
 /*============================================================================*/
 /*----------------------------------------------------------------------------*/
 /*! \fn void SMR_init(MeshS *pM)
@@ -2020,6 +2700,11 @@ void SMR_init(MeshS *pM)
 {
   int nl,nd,sendRC,recvRC,sendP,recvP,npg,ncg;
   int max_sendRC=1,max_recvRC=1,max_sendP=1,max_recvP=1;
+#ifdef RSTSMR
+  int max_Rstsend=1;
+  int max_Rstrecv=1;
+  int Rstsend, Rstrecv;
+#endif
   int max1=0,max2=0,max3=0,maxCG=1;
 #if defined(MHD) || defined(RADIATION_MHD)
   int ngh1;
@@ -2040,6 +2725,10 @@ void SMR_init(MeshS *pM)
       recvRC=0;
       sendP =1;
       recvP =1;
+#ifdef RSTSMR
+      Rstsend = 1;
+      Rstrecv = 1;
+#endif
 
       if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this proc */
         pG=pM->Domain[nl][nd].Grid;          /* set pointer to Grid */
@@ -2047,16 +2736,26 @@ void SMR_init(MeshS *pM)
         for (npg=0; npg<pG->NPGrid; npg++){
           sendRC += pG->PGrid[npg].nWordsRC;
           recvP  += pG->PGrid[npg].nWordsP;
+#ifdef RSTSMR
+	  Rstrecv += pG->PGrid[npg].RstWordsP;
+#endif
         }
         for (ncg=0; ncg<pG->NCGrid; ncg++){
           recvRC += pG->CGrid[ncg].nWordsRC;
           sendP  += pG->CGrid[ncg].nWordsP;
+#ifdef RSTSMR
+	  Rstsend += pG->CGrid[ncg].RstWordsP;
+#endif
         }
 
         max_sendRC = MAX(max_sendRC,sendRC);
         max_recvRC = MAX(max_recvRC,recvRC);
         max_sendP  = MAX(max_sendP ,sendP );
         max_recvP  = MAX(max_recvP ,recvP );
+#ifdef RSTSMR
+	max_Rstsend = MAX(max_Rstsend,Rstsend);
+	max_Rstrecv = MAX(max_Rstrecv,Rstrecv);
+#endif
         max1 = MAX(max1,(pG->Nx[0]+1));
         max2 = MAX(max2,(pG->Nx[1]+1));
         max3 = MAX(max3,(pG->Nx[2]+1));
@@ -2097,6 +2796,7 @@ void SMR_init(MeshS *pM)
 
 /* Allocate memory for send/receive buffers and GZ arrays used in Prolongate */
 
+
   if((send_bufP =
     (double**)calloc_2d_array(maxND,max_sendP,sizeof(double))) == NULL)
     ath_error("[SMR_init]:Failed to allocate send_bufP\n");
@@ -2104,6 +2804,30 @@ void SMR_init(MeshS *pM)
   if((recv_bufP =
     (double***)calloc_3d_array(2,maxND,max_recvP,sizeof(double))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv_bufP\n");
+
+
+#ifdef RSTSMR
+  if((send_bufRst =
+    (double**)calloc_2d_array(maxND,max_Rstsend,sizeof(double))) == NULL)
+    ath_error("[SMR_init]:Failed to allocate send_bufRst\n");
+
+  if((recv_bufRst =
+    (double**)calloc_2d_array(maxND,max_Rstrecv,sizeof(double))) == NULL)
+    ath_error("[SMR_init]: Failed to allocate recv_bufRst\n");
+
+
+   /* Allocate memory space for prolongation data */
+   if((Probuf=(ConsS***)calloc_3d_array(max3,max2,max1,sizeof(ConsS)))
+    ==NULL) ath_error("[SMR_init]:Failed to allocate Probuf\n");
+#if defined(MHD) || defined(RADIATION_MHD)
+   if((RstBFld=(Real3Vect***)calloc_3d_array(max3,max2,max1,sizeof(Real3Vect)))
+    ==NULL) ath_error("[SMR_init]:Failed to allocate RstBFld\n");
+#endif /* end mhd */
+
+#endif /* end rstsmr */
+
+
+
 
   max1 += 2*nghost;
   max2 += 2*nghost;

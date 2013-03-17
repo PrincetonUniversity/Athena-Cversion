@@ -380,6 +380,11 @@ typedef struct GridOvrlp_s{
   int ijke[3];         /*!< end   ijk on this Grid of overlap [0,1,2]=[i,j,k] */
   int ID, DomN;        /*!< processor ID, and Domain #, of OVERLAP Grid */
   int nWordsRC, nWordsP; /*!< # of words communicated for Rest/Corr and Prol */
+
+#ifdef RSTSMR
+  int RstWordsP;
+#endif
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   int Rad_nWordsRC, Rad_nWordsP; /*!< # of words communicated for parent and child grids for the matrix 
 				  * solver */ 

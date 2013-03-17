@@ -320,6 +320,9 @@ void show_config_par(void);
 void RestrictCorrect(MeshS *pM);
 void Prolongate(MeshS *pM);
 void SMR_init(MeshS *pM);
+#ifdef RSTSMR
+void INI_prolongate(MeshS *pM);
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* utils.c */
