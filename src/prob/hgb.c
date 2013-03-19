@@ -89,6 +89,7 @@ void problem(DomainS *pDomain)
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1,x2,x3,xmin,xmax;
   Real den = 1.0, pres = 1.0, dir_sgn, rd, rp, rvx, rvy, rvz, rbx, rby, rbz;
+  Real SumRvx=0.0, SumRvy=0.0, SumRvz=0.0;
   Real beta=1.0,B0,Bt0,kx,ky,kz,amp;
   int nwx,nwy,nwz;  /* input number of waves per Lx,Ly,Lz [default=1] */
   double rval;
@@ -198,19 +199,20 @@ void problem(DomainS *pDomain)
         rval = amp*(ran2(&iseed) - 0.5);
 #ifdef ADIABATIC
         rp = pres*(1.0 + 2.0*rval);
-        rd = den;
-#else
-        rd = den*(1.0 + 2.0*rval);
 #endif
+        rd = den;
 /* To conform to HGB, the perturbations to V/Cs are (1/5)amp/sqrt(Gamma)  */
         rval = amp*(ran2(&iseed) - 0.5);
         rvx = 0.4*rval*sqrt(pres/den);
+        SumRvx += rvx;
 
         rval = amp*(ran2(&iseed) - 0.5);
         rvy = 0.4*rval*sqrt(pres/den);
+        SumRvy += rvy;
 
         rval = amp*(ran2(&iseed) - 0.5);
         rvz = 0.4*rval*sqrt(pres/den);
+        SumRvz += rvz;
       }
       if (ipert == 2) {
         rp = pres;
@@ -353,6 +355,9 @@ void problem(DomainS *pDomain)
     }
   }}
 #ifdef MHD
+
+/* Compute cell centered B */
+
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -367,6 +372,23 @@ void problem(DomainS *pDomain)
     }
   }
 #endif /* MHD */
+
+/* For random perturbations as in HGB, ensure net momentum is zero by
+ * subtracting off mean of perturbations */
+
+  if (ipert == 1) {
+    SumRvx /= (pGrid->Nx[0]*pGrid->Nx[1]*pGrid->Nx[2]);
+    SumRvy /= (pGrid->Nx[0]*pGrid->Nx[1]*pGrid->Nx[2]);
+    SumRvz /= (pGrid->Nx[0]*pGrid->Nx[1]*pGrid->Nx[2]);
+    for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        pGrid->U[k][j][i].M1 -= rd*SumRvx;
+        pGrid->U[k][j][i].M2 -= rd*SumRvy;
+        pGrid->U[k][j][i].M3 -= rd*SumRvz;
+      }
+    }}
+  }
 
 #ifdef PARTICLES
 /* insert dust particles */
