@@ -76,8 +76,8 @@ void bvals_mhd(DomainS *pDomain);
 #ifdef SHEARING_BOX
 void ShearingSheet_ix1(DomainS *pD);
 void ShearingSheet_ox1(DomainS *pD);
-void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
-void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
+void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib);
+void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib);
 #ifdef RESISTIVITY
 void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
 void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
