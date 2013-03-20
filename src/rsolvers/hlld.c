@@ -73,7 +73,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real ptl,ptr,ptst;                  /* total pressures */
   Real vbstl,vbstr;                   /* v_i* dot B_i* for i=L or R */
   Real Bxsig;                         /* sign(Bx) = 1 for Bx>0, -1 for Bx<0 */
-  Real Bxsq = SQR(Bxi);               /* Bx^2 */
+  Real Bxsq;                          /* Bx^2 */
   Real tmp;                      /* Temp variable for repeated calculations */
 #if (NSCALARS > 0)
   int n;
@@ -100,8 +100,9 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
  * Compute left & right wave speeds according to Miyoshi & Kusano, eqn. (67)
  */
 
-  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
-  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
+  Bxsq = Bxi*Bxi;
+  pbl = 0.5*(Bxsq + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(Bxsq + SQR(Wr.By) + SQR(Wr.Bz));
 
 /* For RADIATION_MHD, we should use effective pressure */
 #ifdef RADIATION_MHD
@@ -129,6 +130,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   cfl = sqrt((gpbl + sqrt(tmp))/(2.0*Wl.d));
   tmp = SQR(gpr - Bxsq) + (4.0 * pbr * pbr - SQR(Bxsq)) + 2.0 * gpr * (SQR(Wr.By) + SQR(Wr.Bz));
   cfr = sqrt((gpbr + sqrt(tmp))/(2.0*Wr.d));
+
 
   cfmax = MAX(cfl,cfr);
 
@@ -244,7 +246,8 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 /     Ulst.Bz = Ul.Bz;
 //   }
 */
-  if (fabs(Ul.d*sdl*sdml/Bxsq-1.0) < SMALL_NUMBER) {
+  if (fabs((Ul.d*sdl*sdml/Bxsq)-1.0) < SMALL_NUMBER) {
+
     /* Degenerate case */
     Ulst.My = Ulst.d * Wl.Vy;
     Ulst.Mz = Ulst.d * Wl.Vz;
@@ -292,8 +295,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 //     Urst.By = Ur.By;
 //     Urst.Bz = Ur.Bz;
 //   }
+
 */
-  if (fabs(Ur.d*sdr*sdmr/Bxsq-1.0) < SMALL_NUMBER) {
+
+  if (fabs((Ur.d*sdr*sdmr/Bxsq)-1.0) < SMALL_NUMBER) {
     /* Degenerate case */
     Urst.My = Urst.d * Wr.Vy;
     Urst.Mz = Urst.d * Wr.Vz;
@@ -339,8 +344,8 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   }
   else {
     invsumd = 1.0/(sqrtdl + sqrtdr);
-    if(Bxi > 0) Bxsig =  1;
-    else        Bxsig = -1;
+    if(Bxi > 0.0) Bxsig =  1.0;
+    else          Bxsig = -1.0;
 
     Uldst.d = Ulst.d;
     Urdst.d = Urst.d;
@@ -378,7 +383,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
  * Compute flux
  */
 
-  if(spd[1] >= 0) {
+  if(spd[1] >= 0.0) {
 /* return Fl* */
     pFlux->d  = Fl.d  + spd[0]*(Ulst.d  - Ul.d);
     pFlux->Mx = Fl.Mx + spd[0]*(Ulst.Mx - Ul.Mx);
@@ -388,7 +393,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->By = Fl.By + spd[0]*(Ulst.By - Ul.By);
     pFlux->Bz = Fl.Bz + spd[0]*(Ulst.Bz - Ul.Bz);
   }
-  else if(spd[2] >= 0) {
+  else if(spd[2] >= 0.0) {
 /* return Fl** */
     tmp = spd[1] - spd[0];
     pFlux->d  = Fl.d  - spd[0]*Ul.d  - tmp*Ulst.d  + spd[1]*Uldst.d;
@@ -399,7 +404,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->By = Fl.By - spd[0]*Ul.By - tmp*Ulst.By + spd[1]*Uldst.By;
     pFlux->Bz = Fl.Bz - spd[0]*Ul.Bz - tmp*Ulst.Bz + spd[1]*Uldst.Bz;
   }
-  else if(spd[3] > 0) {
+  else if(spd[3] > 0.0) {
 /* return Fr** */
     tmp = spd[3] - spd[4];
     pFlux->d  = Fr.d  - spd[4]*Ur.d  - tmp*Urst.d  + spd[3]*Urdst.d;
@@ -462,7 +467,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
   Real mxhll,ustar,dhll,sqrtdhll;     /* Mx, vel, and density in star states */
   Real fdhll,fmxhll;                  /* HLL fluxes (for star states) */
   Real ptl,ptr;                       /* total pressures */
-  Real Bxsq = SQR(Bxi);               /* Bx^2 */
+  Real Bxsq;                          /* Bx^2 */
   Real tmp,mfact,bfact,X;             /* temporary variables */
   int n;
 
@@ -484,15 +489,16 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
  * and (9)
  */
 
-  pbl = 0.5*(SQR(Bxi) + SQR(Wl.By) + SQR(Wl.Bz));
-  pbr = 0.5*(SQR(Bxi) + SQR(Wr.By) + SQR(Wr.Bz));
+  Bxsq = Bxi*Bxi;
+  pbl = 0.5*(Bxsq + SQR(Wl.By) + SQR(Wl.Bz));
+  pbr = 0.5*(Bxsq + SQR(Wr.By) + SQR(Wr.Bz));
   gpl  = Wl.d*Iso_csound2;
   gpr  = Wr.d*Iso_csound2;
   gpbl = gpl + 2.0*pbl;
   gpbr = gpr + 2.0*pbr;
 
-  cfl = sqrt((gpbl + sqrt(SQR(gpbl)-4*gpl*Bxsq))/(2.0*Wl.d));
-  cfr = sqrt((gpbr + sqrt(SQR(gpbr)-4*gpr*Bxsq))/(2.0*Wr.d));
+  cfl = sqrt((gpbl + sqrt(SQR(gpbl)-4.0*gpl*Bxsq))/(2.0*Wl.d));
+  cfr = sqrt((gpbr + sqrt(SQR(gpbr)-4.0*gpr*Bxsq))/(2.0*Wr.d));
 
   spd[0] = MIN(Wl.Vx-cfl,Wr.Vx-cfr);
   spd[4] = MAX(Wl.Vx+cfl,Wr.Vx+cfr);
@@ -677,7 +683,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
  * Compute flux
  */
 
-  if(spd[1] >= 0) {
+  if(spd[1] >= 0.0) {
 /* return (Fl+Sl*(Ulst-Ul)), eqn. (38b) of Mignone */
     pFlux->d  = Fl.d  + spd[0]*(Ulst.d  - Ul.d);
     pFlux->Mx = Fl.Mx + spd[0]*(Ulst.Mx - Ul.Mx);
@@ -686,7 +692,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     pFlux->By = Fl.By + spd[0]*(Ulst.By - Ul.By);
     pFlux->Bz = Fl.Bz + spd[0]*(Ulst.Bz - Ul.Bz);
   }
-  else if (spd[3] <= 0) {
+  else if (spd[3] <= 0.0) {
 /* return (Fr+Sr*(Urst-Ur)), eqn. (38d) of Mignone */
     pFlux->d  = Fr.d  + spd[4]*(Urst.d  - Ur.d);
     pFlux->Mx = Fr.Mx + spd[4]*(Urst.Mx - Ur.Mx);

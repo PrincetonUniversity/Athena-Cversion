@@ -300,14 +300,14 @@ void resistivity(DomainS *pD)
       emf2[k][j][ie+1] = emf[k][j][ie+1].x2;
     }}
 
-    if (my_iproc == 0) {
+ /*   if (my_iproc == 0) {
       RemapEy_ix1(pD, emf2, remapEyiib);
     }
     if (my_iproc == (pD->NGrid[0]-1)) {
       RemapEy_ox1(pD, emf2, remapEyoib);
     }
 
-/* Now average Ey and remapped Ey */
+
     if (my_iproc == 0) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++) {
@@ -319,7 +319,7 @@ void resistivity(DomainS *pD)
         for(j=js; j<=je; j++) {
           emf[k][j][ie+1].x2 = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
     }}}
-
+*/
   }
 #endif /* SHEARING_BOX */
 

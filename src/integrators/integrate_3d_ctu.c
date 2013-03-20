@@ -90,8 +90,8 @@ static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 
 /* variables needed to conserve net Bz in shearing box */
 #ifdef SHEARING_BOX
-static Real **remapEyiib=NULL, **remapEyoib=NULL;
-static Real **remapx1Fiib=NULL, **remapx1Foib=NULL;
+static ConsS **Flxiib=NULL, **Flxoib=NULL;
+static ConsS **rFlxiib=NULL, **rFlxoib=NULL;
 #endif
 
 /* variables need for cylindrical coordinates */
@@ -2514,39 +2514,73 @@ void integrate_3d_ctu(DomainS *pD)
   integrate_emf1_corner(pG);
   integrate_emf2_corner(pG);
   integrate_emf3_corner(pG);
+#endif
 
-/* Remap Ey at is and ie+1 to conserve Bz in shearing box */
+/* Remap Fluxes at is and ie+1 to conserve quantities in shearing box */
+
 #ifdef SHEARING_BOX
     get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
-/* compute remapped Ey from opposite side of grid */
-/* This is the old version of the code, which does not conserve mass */
-/*    if (my_iproc == 0) {
-      RemapEy_ix1(pD, emf2, remapEyiib);
-    }
-    if (my_iproc == (pD->NGrid[0]-1)) {
-      RemapEy_ox1(pD, emf2, remapEyoib);
-    }
-*/
+/* initialize remapped Fluxes */
 
-    
+
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je+1; j++){
+        Flxiib[k][j].d = x1Flux[k][j][is].d;
+        Flxiib[k][j].M1 = x1Flux[k][j][is].Mx;
+        Flxiib[k][j].M2 = x1Flux[k][j][is].My;
+        Flxiib[k][j].M3 = x1Flux[k][j][is].Mz;
+
+        Flxoib[k][j].d = x1Flux[k][j][ie+1].d;
+        Flxoib[k][j].M1 = x1Flux[k][j][ie+1].Mx;
+        Flxoib[k][j].M2 = x1Flux[k][j][ie+1].My;
+        Flxoib[k][j].M3 = x1Flux[k][j][ie+1].Mz;
+#ifndef BAROTROPIC
+        Flxiib[k][j].E = x1Flux[k][j][is].E;
+        Flxoib[k][j].E = x1Flux[k][j][ie+1].E;
+#endif
+#ifdef MHD
+        Flxiib[k][j].B1c = emf1[k][j][is];
+        Flxiib[k][j].B2c = emf2[k][j][is];
+        Flxiib[k][j].B3c = emf3[k][j][is];
+
+        Flxoib[k][j].B1c = emf1[k][j][ie+1];
+        Flxoib[k][j].B2c = emf2[k][j][ie+1];
+        Flxoib[k][j].B3c = emf3[k][j][ie+1];
+#endif
+#if (NSCALARS > 0)
+        for (n=0; n<NSCALARS; n++) {
+          Flxiib[k][j].s[n] = x1Flux[k][j][is].s[n];
+          Flxoib[k][j].s[n] = x1Flux[k][j][ie+1].s[n];
+        }
+#endif
+      }
+    }
+
+/* compute remapped Fluxes from opposite side of grid */
+
     if (my_iproc == 0) {
-      RemapEyFlux_ix1(pD, emf2, remapEyiib, x1Flux, remapx1Fiib);
+
+      RemapFlx_ix1(pD, Flxiib, Flxoib, rFlxiib);
     }
+
     if (my_iproc == (pD->NGrid[0]-1)) {
-      RemapEyFlux_ox1(pD, emf2, remapEyoib, x1Flux, remapx1Foib);
+      RemapFlx_ox1(pD, Flxiib, Flxoib, rFlxoib);
     }
 
+/* Now average fluxes and remapped fluxes */
 
-
-
-/* Now average Ey and remapped Ey */
 
     if (my_iproc == 0) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++){
-          emf2[k][j][is]  = 0.5*(emf2[k][j][is] + remapEyiib[k][j]);
-	  x1Flux[k][j][is].d = 0.5*(x1Flux[k][j][is].d + remapx1Fiib[k][j]);
+#ifdef MHD
+          emf2[k][j][is] = 0.5*(emf2[k][j][is] + rFlxiib[k][j].B2c);
+#endif
+          x1Flux[k][j][is].d  = 0.5*(x1Flux[k][j][is].d  + rFlxiib[k][j].d);
+          x1Flux[k][j][is].Mx = 0.5*(x1Flux[k][j][is].Mx + rFlxiib[k][j].M1);
+          x1Flux[k][j][is].My = 0.5*(x1Flux[k][j][is].My + rFlxiib[k][j].M2);
+          x1Flux[k][j][is].Mz = 0.5*(x1Flux[k][j][is].Mz + rFlxiib[k][j].M3);
         }
       }
     }
@@ -2554,8 +2588,13 @@ void integrate_3d_ctu(DomainS *pD)
     if (my_iproc == (pD->NGrid[0]-1)) {
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je; j++){
-          emf2[k][j][ie+1]  = 0.5*(emf2[k][j][ie+1] + remapEyoib[k][j]);
-	  x1Flux[k][j][ie+1].d = 0.5*(x1Flux[k][j][ie+1].d + remapx1Foib[k][j]);
+#ifdef MHD
+          emf2[k][j][ie+1] = 0.5*(emf2[k][j][ie+1] + rFlxoib[k][j].B2c);
+#endif
+          x1Flux[k][j][ie+1].d =0.5*(x1Flux[k][j][ie+1].d  + rFlxoib[k][j].d);
+          x1Flux[k][j][ie+1].Mx=0.5*(x1Flux[k][j][ie+1].Mx + rFlxoib[k][j].M1);
+          x1Flux[k][j][ie+1].My=0.5*(x1Flux[k][j][ie+1].My + rFlxoib[k][j].M2);
+          x1Flux[k][j][ie+1].Mz=0.5*(x1Flux[k][j][ie+1].Mz + rFlxoib[k][j].M3);
         }
       }
     }
@@ -2565,6 +2604,7 @@ void integrate_3d_ctu(DomainS *pD)
  * Update the interface magnetic fields using CT for a full time step.
  */
 
+#ifdef MHD
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -3608,13 +3648,13 @@ void integrate_init_3d(MeshS *pM)
   }
 
 #ifdef SHEARING_BOX
-  if ((remapEyiib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+  if ((Flxiib = (ConsS**)calloc_2d_array(size3,size2,sizeof(ConsS)))==NULL)
     goto on_error;
-  if ((remapEyoib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+  if ((Flxoib = (ConsS**)calloc_2d_array(size3,size2,sizeof(ConsS)))==NULL)
     goto on_error;
-  if ((remapx1Fiib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+  if ((rFlxiib = (ConsS**)calloc_2d_array(size3,size2,sizeof(ConsS)))==NULL)
     goto on_error;
-  if ((remapx1Foib = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+  if ((rFlxoib = (ConsS**)calloc_2d_array(size3,size2,sizeof(ConsS)))==NULL)
     goto on_error;
 #endif
 
@@ -3677,10 +3717,10 @@ void integrate_destruct_3d(void)
   if (dhalf     != NULL) free_3d_array(dhalf);
   if (phalf     != NULL) free_3d_array(phalf);
 #ifdef SHEARING_BOX
-  if (remapEyiib != NULL) free_2d_array(remapEyiib);
-  if (remapEyoib != NULL) free_2d_array(remapEyoib);
-  if (remapx1Fiib != NULL) free_2d_array(remapx1Fiib);
-  if (remapx1Foib != NULL) free_2d_array(remapx1Foib);
+  if (Flxiib != NULL) free_2d_array(Flxiib);
+  if (Flxoib != NULL) free_2d_array(Flxoib);
+  if (rFlxiib != NULL) free_2d_array(rFlxiib);
+  if (rFlxoib != NULL) free_2d_array(rFlxoib);
 #endif
 #ifdef CONS_GRAVITY
   if (x1Flux_grav    != NULL) free_3d_array(x1Flux_grav);
