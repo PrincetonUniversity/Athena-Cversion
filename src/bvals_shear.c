@@ -2550,7 +2550,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
   if (pD->NGrid[0] == 1) {
     for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je; j++){
+      for(j=js; j<=je+1; j++){
         rFlxoib[k][j].B2c = Flxiib[k][j].B2c;
         rFlxoib[k][j].d = Flxiib[k][j].d;
         rFlxoib[k][j].M1 = Flxiib[k][j].M1;
@@ -2567,7 +2567,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
 /* MPI calls to swap data */
 
-    cnt = 5*pG->Nx[1]*(pG->Nx[2]+1);
+    cnt = 5*(pG->Nx[1]+1)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from remapFlx_ix1 (listen R)*/
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
                     remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2576,7 +2576,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++) {
-      for (j=js; j<=je; j++) {
+      for (j=js; j<=je+1; j++) {
         pFlx = &(Flxoib[k][j].B2c);
         *(pSnd++) = *pFlx;
         pFlx = &(Flxoib[k][j].d);
@@ -2598,7 +2598,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++) {
-      for (j=js; j<=je; j++) {
+      for (j=js; j<=je+1; j++) {
           pFlx = &(rFlxoib[k][j].B2c);
           *pFlx = *(pRcv++);
           pFlx = &(rFlxoib[k][j].d);
