@@ -111,6 +111,8 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib);
 void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib);
 
 #ifdef RESISTIVITY
+void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);
+void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **remapEyoib);
 void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
 void RemapJy_ox1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer);
 #endif

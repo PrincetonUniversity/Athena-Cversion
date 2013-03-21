@@ -22,6 +22,8 @@
  * - ShearingSheet_grav_ox1() - shearing sheet BCs for grav. pot. on ox1
  * - RemapFlx_ix1()     - sets fluxes at ix1 in integrator to keep U=const. 
  * - RemapFlx_ox1()     - sets fluxes at ox1 in integrator to keep U=const. 
+ * - RemapEy_ix1()      - sets Ey at ix1 in resistivity.c 
+ * - RemapEy_ox1()      - sets Ey at ox1 in resistivity.c 
  * - RemapJy_ix1()      - sets Jy at ix1 in resistivity.c
  * - RemapJy_ox1()      - sets Jy at ox1 in resistivity.c
  * - Fargo()            - implements FARGO algorithm for background flow
@@ -99,6 +101,7 @@ static Real *U=NULL, *Flx=NULL;
 /* Arrays of fluxes remapped at ix1/ox1 edges of Domain */
 #if defined(MHD) || defined(RADIATION_MHD)
 static ConsS **tFlxBuf=NULL;
+static Real **tEyBuf=NULL;
 static Real ***tJyBuf=NULL;
 #endif
 /* temporary vector needed for 3rd order reconstruction in ghost zones */
@@ -2543,7 +2546,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
   if (pD->NGrid[0] == 1) {
     for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je; j++){
+      for(j=js; j<=je+1; j++){
         rFlxoib[k][j].B2c = Flxiib[k][j].B2c;
         rFlxoib[k][j].d = Flxiib[k][j].d;
         rFlxoib[k][j].M1 = Flxiib[k][j].M1;
@@ -2560,7 +2563,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
 /* MPI calls to swap data */
 
-    cnt = 5*pG->Nx[1]*(pG->Nx[2]+1);
+    cnt = 5*(pG->Nx[1]+1)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from remapFlx_ix1 (listen R)*/
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
                     remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2569,7 +2572,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++) {
-      for (j=js; j<=je; j++) {
+      for (j=js; j<=je+1; j++) {
         pFlx = &(Flxoib[k][j].B2c);
         *(pSnd++) = *pFlx;
         pFlx = &(Flxoib[k][j].d);
@@ -2591,7 +2594,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++) {
-      for (j=js; j<=je; j++) {
+      for (j=js; j<=je+1; j++) {
           pFlx = &(rFlxoib[k][j].B2c);
           *pFlx = *(pRcv++);
           pFlx = &(rFlxoib[k][j].d);
@@ -2975,7 +2978,672 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 #endif /* MHD */
 
 
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
+ *  \brief Remaps Ey at [is] due to background shear, and then
+ *   averages remapped and original field.  This guarantees the sums of Ey
+ * along the x1 boundaries at [is] and [ie+1] are identical -- thus net Bz is
+ * conserved
+ *
+ * This is a public function which is called by integrator (inside a
+ * SHEARING_BOX macro).							      */
+/*----------------------------------------------------------------------------*/
+#ifdef RESISTIVITY
+void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
+{
+  GridS *pG = pD->Grid;
+  int ie = pG->ie;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int j,k,joffset,jremap;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
+#ifdef MPI_PARALLEL
+  int is = pG->is;
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
+  int ierr,sendto_id,getfrom_id;
+  double *pSnd,*pRcv;
+  Real *pEy;
+  MPI_Request rq;
+#endif
 
+/* Compute the distance the computational domain has sheared in y in integer
+ * and fractional pieces of a cell.  Same code as in ShearingSheet_ix1()  */
+
+  xmin = pD->RootMinX[0];
+  xmax = pD->RootMaxX[0];
+  Lx = xmax - xmin;
+
+  xmin = pD->RootMinX[1];
+  xmax = pD->RootMaxX[1];
+  Ly = xmax - xmin;
+
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
+  deltay = fmod(yshear, Ly);
+  joffset = (int)(deltay/pG->dx2);
+  epsi = (fmod(deltay,pG->dx2))/pG->dx2;
+  if (epsi < 0.0) printf("EPSI < 0\n");
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Copy Ey from [ie+1] into temporary array, using periodic BC in x1.
+ * Requires MPI calls if NGrid_x1 > 1   */
+
+  if (pD->NGrid[0] == 1) {
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
+        tEy[k][j] = emfy[k][j][ie+1];
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/* MPI calls to swap data */
+
+    cnt = pG->Nx[1]*(pG->Nx[2]+1); /* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+/* send Ey at [is] to ox1 (send L) -- this data is needed by remapEy_ox1 */
+
+    pSnd = send_buf;
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+        pEy = &(emfy[k][j][is]);
+        *(pSnd++) = *pEy;
+      }
+    }
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Listen for data from ox1 (listen L), unpack and set temporary array */
+
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+          pEy = &(tEy[k][j]);
+          *pEy = *(pRcv++);
+      }
+    }
+#endif /* MPI_PARALLEL */
+  }
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Apply periodic BC in x2 to temporary array.  Requires MPI calls if 
+ * NGrid_x2 > 1 */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ke+1; k++) {
+      for(j=1; j<=nghost; j++){
+        tEy[k][js-j] = tEy[k][je-(j-1)];
+        tEy[k][je+j] = tEy[k][js+(j-1)];
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/* MPI calls to swap data */
+
+    cnt = nghost*(pG->Nx[2] + 1);
+/* Post a non-blocking receive for the input data from the left grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=je-nghost+1; j<=je; j++){
+        pEy = &(tEy[k][j]);
+        *(pSnd++) = *pEy;
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=js-nghost; j<=js-1; j++){
+        pEy = &(tEy[k][j]);
+        *pEy = *(pRcv++);
+      }
+    }
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=js; j<=js+nghost-1; j++){
+        pEy = &(tEy[k][j]);
+        *(pSnd++) = *pEy;
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=je+1; j<=je+nghost; j++){
+        pEy = &(tEy[k][j]);
+        *pEy = *(pRcv++);
+      }
+    }
+#endif /* MPI_PARALLEL */
+  }
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Copy tEy into buffer, at the same time apply a conservative remap of
+ * solution over the fractional part of grid cell */
+
+  for(k=ks; k<=ke+1; k++) {
+    RemapFlux(tEy[k],epsi,js,je+1,Flx);
+    for(j=js; j<=je; j++){
+      tEyBuf[k][j] = tEy[k][j] - (Flx[j+1] - Flx[j]);
+    }
+  }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * If no MPI decomposition in Y, apply shift over integer number of
+ * grid cells during copy from buffer back into tEy.  */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
+        jremap = j - joffset;
+        if (jremap < (int)js) jremap += pG->Nx[1];
+        tEy[k][j]  = tEyBuf[k][jremap];
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 5. ------------------------------------------------------------------
+ * If Domain contains MPI decomposition in Y, then MPI calls are required for
+ * the cyclic shift needed to apply shift over integer number of grid cells
+ * during copy from buffer back into tEy.  */
+
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
+/* Find integer and fractional number of grids over which offset extends.
+ * This assumes every grid has same number of cells in x2-direction! */
+    Ngrids = (int)(joffset/pG->Nx[1]);
+    joverlap = joffset - Ngrids*pG->Nx[1];
+
+/*--- Step 5a. -----------------------------------------------------------------
+ * Find ids of processors that data in [je-(joverlap-1):je] is sent to, and
+ * data in [js:js+(joverlap-1)] is received from.  Only execute if joverlap>0 */
+/* This can result in send/receive to self -- we rely on MPI to handle this
+ * properly */
+
+    if (joverlap != 0) {
+
+      jproc = my_jproc + (Ngrids + 1);
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc - (Ngrids + 1);
+      if (jproc < 0) jproc += pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+/*--- Step 5b. -----------------------------------------------------------------
+ * Pack send buffer and send data in [je-(joverlap-1):je] from tEyBuf */
+
+      cnt = joverlap*(pG->Nx[2]+1);
+/* Post a non-blocking receive for the input data */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      remapEy_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=je-(joverlap-1); j<=je; j++) {
+          pEy = &(tEyBuf[k][j]);
+          *(pSnd++) = *pEy;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapEy_tag, pD->Comm_Domain);
+
+
+/*--- Step 5c. -----------------------------------------------------------------
+ * unpack data sent from [je-(joverlap-1):je], and remap into cells in
+ * [js:js+(joverlap-1)] in tEy
+ */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=js; j<=js+(joverlap-1); j++) {
+            pEy = &(tEy[k][j]);
+            *pEy = *(pRcv++);
+        }
+      }
+
+    }
+
+/*--- Step 5d. -----------------------------------------------------------------
+ * If shear is less one full Grid, remap cells which remain on same processor
+ * from tEyBuf into tEy.  Cells in [js:je-joverlap] are shifted by
+ * joverlap into [js+joverlap:je] */
+
+    if (Ngrids == 0) {
+
+      for(k=ks; k<=ke+1; k++) {
+        for(j=js+joverlap; j<=je; j++){
+          jremap = j-joverlap;
+          tEy[k][j]  = tEyBuf[k][jremap];
+        }
+      }
+
+/*--- Step 5e. -----------------------------------------------------------------
+ * If shear is more than one Grid, pack and send data from [js:je-joverlap]
+ * from tEyBuf (this step replaces 5d) */
+
+    } else {
+
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
+
+      jproc = my_jproc + Ngrids;
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc - Ngrids;
+      if (jproc < 0) jproc += pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
+/* Post a non-blocking receive for the input data from the left grid */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      remapEy_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=js; j<=je-joverlap; j++) {
+          pEy = &(tEyBuf[k][j]);
+          *(pSnd++) = *pEy;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapEy_tag, pD->Comm_Domain);
+
+/* unpack data sent from [js:je-overlap], and remap into cells in
+ * [js+joverlap:je] in tEy */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=js+joverlap; j<=je; j++) {
+          pEy = &(tEy[k][j]);
+          *pEy = *(pRcv++);
+        }
+      }
+    } /* end of step 5e - shear is more than one Grid */
+
+#endif /* MPI_PARALLEL */
+  } /* end of step 5 - MPI decomposition in Y */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Now return remapped Ey */
+
+  return;
+}
+#endif /* RESISTIVITY */
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
+ *  \brief Remaps Ey at [ie+1] due to background shear, and then
+ * averages remapped and original field.  This guarantees the sums of Ey
+ * along the x1 boundaries at [is] and [ie+1] are identical -- thus net Bz is
+ * conserved
+ *
+ * This is a public function which is called by integrator (inside a
+ * SHEARING_BOX macro).							      */
+/*----------------------------------------------------------------------------*/
+
+
+#ifdef RESISTIVITY
+void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
+{
+  GridS *pG = pD->Grid;
+  int is = pG->is;
+  int js = pG->js, je = pG->je;
+  int ks = pG->ks, ke = pG->ke;
+  int j,k,joffset,jremap;
+  Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
+#ifdef MPI_PARALLEL
+  int ie = pG->ie;
+  int my_iproc,my_jproc,my_kproc,cnt,jproc,joverlap,Ngrids;
+  int ierr,sendto_id,getfrom_id;
+  double *pSnd,*pRcv;
+  Real *pEy;
+  MPI_Request rq;
+#endif
+
+/* Compute the distance the computational domain has sheared in y in integer
+ * and fractional pieces of a cell.  Same code as in ShearingSheet_ox1()  */
+
+  xmin = pD->RootMinX[0];
+  xmax = pD->RootMaxX[0];
+  Lx = xmax - xmin;
+
+  xmin = pD->RootMinX[1];
+  xmax = pD->RootMaxX[1];
+  Ly = xmax - xmin;
+
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
+  deltay = fmod(yshear, Ly);
+  joffset = (int)(deltay/pG->dx2);
+  epso = -(fmod(deltay,pG->dx2))/pG->dx2;
+  if (epso > 0.0) printf("EPSO > 0\n");
+
+/*--- Step 1. ------------------------------------------------------------------
+ * Copy Ey from [is] into temporary array, using periodic BC in x1.
+ * Requires MPI calls if NGrid_x1 > 1   */
+
+  if (pD->NGrid[0] == 1) {
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
+        tEy[k][j] = emfy[k][j][is];
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/* MPI calls to swap data */
+
+    cnt = pG->Nx[1]*(pG->Nx[2]+1);
+/* Post a non-blocking receive for the input data from remapEy_ix1 (listen R) */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+/* send Ey at [ie+1] to ix1 (send R) -- this data is needed by remapEy_ix1 */
+
+    pSnd = send_buf;
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+        pEy = &(emfy[k][j][ie+1]);
+        *(pSnd++) = *pEy;
+      }
+    }
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Listen for data from ix1 (listen R), unpack and set temporary array */
+
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+          pEy = &(tEy[k][j]);
+          *pEy = *(pRcv++);
+      }
+    }
+#endif /* MPI_PARALLEL */
+  }
+
+/*--- Step 2. ------------------------------------------------------------------
+ * Apply periodic BC in x2 to temporary array.  Requires MPI calls if 
+ * NGrid_x2 > 1 */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ke+1; k++) {
+      for(j=1; j<=nghost; j++){
+        tEy[k][js-j] = tEy[k][je-(j-1)];
+        tEy[k][je+j] = tEy[k][js+(j-1)];
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/* MPI calls to swap data */
+
+    cnt = nghost*(pG->Nx[2] + 1);
+/* Post a non-blocking receive for the input data from the left grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=je-nghost+1; j<=je; j++){
+        pEy = &(tEy[k][j]);
+        *(pSnd++) = *pEy;
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on R-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=js-nghost; j<=js-1; j++){
+        pEy = &(tEy[k][j]);
+        *pEy = *(pRcv++);
+      }
+    }
+
+/* Post a non-blocking receive for the input data from the right grid */
+    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+
+    pSnd = send_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=js; j<=js+nghost-1; j++){
+        pEy = &(tEy[k][j]);
+        *(pSnd++) = *pEy;
+      }
+    }
+
+/* send contents of buffer to the neighboring grid on L-x2 */
+    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
+                   remapEy_tag, pD->Comm_Domain);
+
+/* Wait to receive the input data from the left grid */
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf;
+    for (k=ks; k<=ke+1; k++){
+      for (j=je+1; j<=je+nghost; j++){
+        pEy = &(tEy[k][j]);
+        *pEy = *(pRcv++);
+      }
+    }
+#endif /* MPI_PARALLEL */
+  }
+
+/*--- Step 3. ------------------------------------------------------------------
+ * Copy tEy into buffer, at the same time apply a conservative remap of
+ * solution over the fractional part of grid cell */
+
+  for(k=ks; k<=ke+1; k++) {
+    RemapFlux(tEy[k],epso,js,je+1,Flx);
+    for(j=js; j<=je; j++){
+      tEyBuf[k][j] = tEy[k][j] - (Flx[j+1] - Flx[j]);
+    }
+  }
+
+/*--- Step 4. ------------------------------------------------------------------
+ * If no MPI decomposition in Y, apply shift over integer number of
+ * grid cells during copy from buffer back into tEy.  */
+
+  if (pD->NGrid[1] == 1) {
+
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
+        jremap = j + joffset;
+        if (jremap > (int)je) jremap -= pG->Nx[1];
+        tEy[k][j]  = tEyBuf[k][jremap];
+      }
+    }
+
+#ifdef MPI_PARALLEL
+  } else {
+
+/*--- Step 5. ------------------------------------------------------------------
+ * If Domain contains MPI decomposition in Y, then MPI calls are required for
+ * the cyclic shift needed to apply shift over integer number of grid cells
+ * during copy from buffer back into tEy.  */
+
+    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
+/* Find integer and fractional number of grids over which offset extends.
+ * This assumes every grid has same number of cells in x2-direction! */
+    Ngrids = (int)(joffset/pG->Nx[1]);
+    joverlap = joffset - Ngrids*pG->Nx[1];
+
+/*--- Step 5a. -----------------------------------------------------------------
+ * Find ids of processors that data in [js:js+(joverlap-1)] is sent to, and
+ * data in [je-(joverlap-1):je] is received from.  Only execute if joverlap>0 */
+/* This can result in send/receive to self -- we rely on MPI to handle this
+ * properly */
+
+    if (joverlap != 0) {
+
+      jproc = my_jproc - (Ngrids + 1);
+      if (jproc < 0) jproc += pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc + (Ngrids + 1);
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+/*--- Step 5b. -----------------------------------------------------------------
+ * Pack send buffer and send data in [js:js+(joverlap-1)] from tEyBuf */
+
+      cnt = joverlap*(pG->Nx[2]+1);
+/* Post a non-blocking receive for the input data */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      remapEy_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=js; j<=js+(joverlap-1); j++) {
+          pEy = &(tEyBuf[k][j]);
+          *(pSnd++) = *pEy;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapEy_tag, pD->Comm_Domain);
+
+/*--- Step 5c. -----------------------------------------------------------------
+ * unpack data sent from [js:js+(joverlap-1)], and remap into cells in
+ * [je-(joverlap-1):je] in tEy
+ */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=je-(joverlap-1); j<=je; j++) {
+            pEy = &(tEy[k][j]);
+            *pEy = *(pRcv++);
+        }
+      }
+
+    }
+
+/*--- Step 5d. -----------------------------------------------------------------
+ * If shear is less one full Grid, remap cells which remain on same processor
+ * from tEyBuf into tEy.  Cells in [js+joverlap:je] are shifted by
+ * joverlap into [js:je-overlap] */
+
+    if (Ngrids == 0) {
+
+      for(k=ks; k<=ke+1; k++) {
+        for(j=js; j<=je-joverlap; j++){
+          jremap = j+joverlap;
+          tEy[k][j]  = tEyBuf[k][jremap];
+        }
+      }
+
+/*--- Step 5e. -----------------------------------------------------------------
+ * If shear is more than one Grid, pack and send data from [js+overlap:je]
+ * from tEyBuf (this step replaces 5d) */
+
+    } else {
+
+/* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
+
+      jproc = my_jproc - Ngrids;
+      if (jproc < 0) jproc += pD->NGrid[1];
+      sendto_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      jproc = my_jproc + Ngrids;
+      if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
+      getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
+
+      cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
+/* Post a non-blocking receive for the input data from the left grid */
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                      remapEy_tag, pD->Comm_Domain, &rq);
+
+      pSnd = send_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=js+joverlap; j<=je; j++) {
+          pEy = &(tEyBuf[k][j]);
+          *(pSnd++) = *pEy;
+        }
+      }
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                     remapEy_tag, pD->Comm_Domain);
+
+/* unpack data sent from [js+overlap:je], and remap into cells in
+ * [js:je-joverlap] in tEy */
+
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+      pRcv = recv_buf;
+      for (k=ks; k<=ke+1; k++) {
+        for (j=js; j<=je-joverlap; j++) {
+          pEy = &(tEy[k][j]);
+          *pEy = *(pRcv++);
+        }
+      }
+    } /* end of step 5e - shear is more than one Grid */
+
+#endif /* MPI_PARALLEL */
+  } /* end of step 5 - MPI decomposition in Y */
+
+/*--- Step 6. ------------------------------------------------------------------
+ * Now return remapped Ey */
+
+  return;
+}
+#endif /* RESISTIVITY */
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapJy_ix1(DomainS *pD, Real ***J2, Real ***tJy, int nlayer)
+ *  \brief Remaps Jy at inner boundary due to background shear
+ *
+ * This is a public function which is called by resistivity.c (inside a
+ * SHEARING_BOX macro).							      */
+/*----------------------------------------------------------------------------*/
 
 
 #ifdef RESISTIVITY
@@ -4699,6 +5367,8 @@ void bvals_shear_init(MeshS *pM)
 
 #if defined(MHD) || defined(RADIATION_MHD)
   if ((tFlxBuf=(ConsS**)calloc_2d_array(max3,max2,sizeof(ConsS))) == NULL)
+    ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
+  if ((tEyBuf=(Real**)calloc_2d_array(max3,max2,sizeof(Real))) == NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
   if ((tJyBuf=(Real***)calloc_3d_array(nghost,max3,max2,sizeof(Real))) == NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");

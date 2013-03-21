@@ -935,6 +935,8 @@ void problem_write_restart(MeshS *pM, FILE *fp)
     fwrite(&zbtm,sizeof(Real),1,fp);
     fwrite(&ztop,sizeof(Real),1,fp);
 
+    fwrite(&T0,sizeof(Real),1,fp);
+
   return;
 }
 
@@ -1009,6 +1011,8 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
        fread(&zbtm,sizeof(Real),1,fp);
        fread(&ztop,sizeof(Real),1,fp);
+
+       fread(&T0,sizeof(Real),1,fp);
 
 /* enroll gravitational potential function */
 #ifdef SHEARING_BOX
