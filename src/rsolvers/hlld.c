@@ -207,7 +207,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 //     Ulst.By = Ul.By;
 //     Ulst.Bz = Ul.Bz;
 //   }
-  if (fabs((Ul.d*sdl*sdml/Bxsq)-1.0) < SMALL_NUMBER) {
+  if (fabs(Ul.d*sdl*sdml-Bxsq) < SMALL_NUMBER*ptst) {
     /* Degenerate case */
     Ulst.My = Ulst.d * Wl.Vy;
     Ulst.Mz = Ulst.d * Wl.Vz;
@@ -255,7 +255,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 //     Urst.By = Ur.By;
 //     Urst.Bz = Ur.Bz;
 //   }
-  if (fabs((Ur.d*sdr*sdmr/Bxsq)-1.0) < SMALL_NUMBER) {
+  if (fabs(Ur.d*sdr*sdmr-Bxsq) < SMALL_NUMBER*ptst) {
     /* Degenerate case */
     Urst.My = Urst.d * Wr.Vy;
     Urst.Mz = Urst.d * Wr.Vz;
@@ -294,7 +294,7 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
 
 /* Ul** and Ur** - if Bx is zero, same as *-states */
 //   if(Bxi == 0.0) {
-  if(0.5*Bxsq/MIN(pbl,pbr) < SQR(SMALL_NUMBER)) {
+  if(0.5*Bxsq < SMALL_NUMBER*ptst) {
     Uldst = Ulst;
     Urdst = Urst;
   }
