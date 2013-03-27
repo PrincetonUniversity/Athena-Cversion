@@ -53,8 +53,6 @@ static Real ***remapJyiib=NULL,***remapJyoib=NULL;
  *   EField_Ohm  - computes electric field due to Ohmic dissipation
  *   EField_Hall - computes electric field due to Hall effect
  *   EField_AD   - computes electric field due to ambipolar diffusion
- *   minmod      - min-mod limiter
- *   MClim       - monotonized central limiter
  *   hyper_diffusion? - add hyper-resistivity to help stabilize the Hall term
  *============================================================================*/
 
@@ -245,7 +243,7 @@ void resistivity(DomainS *pD)
 
     get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
-/* compute remapped Ey from opposite side of grid */
+/* compute remapped Jy from opposite side of grid */
     for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
     for(j=js; j<=je; j++) {
     for(i=is; i<=ie+1; i++) {
@@ -259,7 +257,7 @@ void resistivity(DomainS *pD)
       RemapJy_ox1(pD, J2, remapJyoib, nlayer);
     }
 
-/* Now average Ey and remapped Ey */
+/* Now average Jy and remapped Jy */
     if (my_iproc == 0) {
       for(k=ks-nlayer+1; k<=ke+nlayer; k++) {
       for(j=js-nlayer; j<=je+nlayer; j++) {
@@ -632,6 +630,7 @@ void EField_Ohm(DomainS *pD)
 /* 3D PROBLEM: */
   
   if (ndim == 3){
+
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie+1; i++) {
@@ -1533,17 +1532,12 @@ void resistivity_init(MeshS *pM)
 /* Assign the function pointer for diffusivity calculation */
   mycase = par_geti_def("problem","CASE",1);
 
-  switch (mycase)
-  {
+  if (mycase == 1)
     /* standard (no small grain) prescription with constant coefficients */
-    case 1:  get_myeta = eta_standard; break;
-
+    get_myeta = eta_standard; 
+  else
     /* general prescription with user defined diffusivities */
-    case 2:  get_myeta = get_eta_user; break;
-
-    default: ath_error("[resistivity_init]: CASE must equal to 1 or 2!\n");
-             return;
-  }
+    get_myeta = get_eta_user;
 
 /* Cycle over all Grids on this processor to find maximum Nx1, Nx2, Nx3 */
   for (nl=0; nl<(pM->NLevels); nl++){

@@ -3046,7 +3046,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
     cnt = pG->Nx[1]*(pG->Nx[2]+1); /* Post a non-blocking receive for the input data from remapEy_ox1 (listen L) */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
-                    remapEy_tag, pD->Comm_Domain, &rq);
+                    remapFlx_tag, pD->Comm_Domain, &rq);
 
 /* send Ey at [is] to ox1 (send L) -- this data is needed by remapEy_ox1 */
 
@@ -3058,7 +3058,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
       }
     }
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx1_id,
-                   remapEy_tag, pD->Comm_Domain);
+                   remapFlx_tag, pD->Comm_Domain);
 
 /* Listen for data from ox1 (listen L), unpack and set temporary array */
 
@@ -3095,7 +3095,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
     cnt = nghost*(pG->Nx[2] + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                    remapEy_tag, pD->Comm_Domain, &rq);
+                    remapFlx_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -3107,7 +3107,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                   remapEy_tag, pD->Comm_Domain);
+                   remapFlx_tag, pD->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -3122,7 +3122,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* Post a non-blocking receive for the input data from the right grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                    remapEy_tag, pD->Comm_Domain, &rq);
+                    remapFlx_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -3134,7 +3134,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                   remapEy_tag, pD->Comm_Domain);
+                   remapFlx_tag, pD->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -3211,7 +3211,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
       cnt = joverlap*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_tag, pD->Comm_Domain, &rq);
+                      remapFlx_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -3221,7 +3221,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_tag, pD->Comm_Domain);
+                     remapFlx_tag, pD->Comm_Domain);
 
 
 /*--- Step 5c. -----------------------------------------------------------------
@@ -3274,7 +3274,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
       cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_tag, pD->Comm_Domain, &rq);
+                      remapFlx_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -3284,7 +3284,7 @@ void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_tag, pD->Comm_Domain);
+                     remapFlx_tag, pD->Comm_Domain);
 
 /* unpack data sent from [js:je-overlap], and remap into cells in
  * [js+joverlap:je] in tEy */
@@ -3377,7 +3377,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
     cnt = pG->Nx[1]*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from remapEy_ix1 (listen R) */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
-                    remapEy_tag, pD->Comm_Domain, &rq);
+                    remapFlx_tag, pD->Comm_Domain, &rq);
 
 /* send Ey at [ie+1] to ix1 (send R) -- this data is needed by remapEy_ix1 */
 
@@ -3389,7 +3389,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
       }
     }
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx1_id,
-                   remapEy_tag, pD->Comm_Domain);
+                   remapFlx_tag, pD->Comm_Domain);
 
 /* Listen for data from ix1 (listen R), unpack and set temporary array */
 
@@ -3426,7 +3426,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
     cnt = nghost*(pG->Nx[2] + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                    remapEy_tag, pD->Comm_Domain, &rq);
+                    remapFlx_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -3438,7 +3438,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on R-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                   remapEy_tag, pD->Comm_Domain);
+                   remapFlx_tag, pD->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -3453,7 +3453,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* Post a non-blocking receive for the input data from the right grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx2_id,
-                    remapEy_tag, pD->Comm_Domain, &rq);
+                    remapFlx_tag, pD->Comm_Domain, &rq);
 
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
@@ -3465,7 +3465,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
 
 /* send contents of buffer to the neighboring grid on L-x2 */
     ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pG->lx2_id,
-                   remapEy_tag, pD->Comm_Domain);
+                   remapFlx_tag, pD->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
     ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
@@ -3542,7 +3542,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
       cnt = joverlap*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_tag, pD->Comm_Domain, &rq);
+                      remapFlx_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -3552,7 +3552,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_tag, pD->Comm_Domain);
+                     remapFlx_tag, pD->Comm_Domain);
 
 /*--- Step 5c. -----------------------------------------------------------------
  * unpack data sent from [js:js+(joverlap-1)], and remap into cells in
@@ -3604,7 +3604,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
       cnt = (pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      remapEy_tag, pD->Comm_Domain, &rq);
+                      remapFlx_tag, pD->Comm_Domain, &rq);
 
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
@@ -3614,7 +3614,7 @@ void RemapEy_ox1(DomainS *pD, Real ***emfy, Real **tEy)
         }
       }
       ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     remapEy_tag, pD->Comm_Domain);
+                     remapFlx_tag, pD->Comm_Domain);
 
 /* unpack data sent from [js+overlap:je], and remap into cells in
  * [js:je-joverlap] in tEy */
@@ -4918,6 +4918,9 @@ void Fargo(DomainS *pD)
   if (OrbitalProfile==NULL || ShearProfile==NULL)
     ath_error("[Fargo]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
 #endif
+
+  if (ShBoxCoord != xy)
+    return;
 
 /*--- Step 1. ------------------------------------------------------------------
  * Copy data into FargoVars array.  Note i and j indices are switched.
