@@ -2978,6 +2978,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 #endif /* MHD */
 
 
+
 /*----------------------------------------------------------------------------*/
 /*! \fn void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
  *  \brief Remaps Ey at [is] due to background shear, and then

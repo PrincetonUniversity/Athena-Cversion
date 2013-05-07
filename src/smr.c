@@ -286,11 +286,12 @@ void RestrictCorrect(MeshS *pM)
 /* Restrict B2i */
           /* Set B2i at jcs if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+	if(jcs < jce){
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[2] == NULL) {pG->B2i[kcs][jcs][i] = *(pRcv++);}
             else {pRcv++;}
           }
-
+	}
           for (j=jcs+1; j<=jce; j++) {
           for (i=ics  ; i<=ice; i++) {
             pG->B2i[kcs][j][i] = *(pRcv++);
@@ -298,11 +299,12 @@ void RestrictCorrect(MeshS *pM)
 
           /* Set B2i at jce+1 if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+	if(jcs < jce){
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[3] == NULL) {pG->B2i[kcs][jce+1][i] = *(pRcv++);}
             else {pRcv++;}
           }
-
+	}
 /* Set cell-centered fields */
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
@@ -335,6 +337,7 @@ void RestrictCorrect(MeshS *pM)
           }}}
 
 /* Restrict B2i */
+	if(jcs < jce){
           for (k=kcs  ; k<=kce; k++) {
             /* Set B2i at jcs if no flux correction will be made.  Increment
              * pointer even if value in Rcv pointer is ignored. */
@@ -355,16 +358,17 @@ void RestrictCorrect(MeshS *pM)
               else {pRcv++;}
             }
           }
-
+	}
 /* Restrict B3i */
           /* Set B3i at kcs if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+	if(kcs < kce){
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[4] == NULL) {pG->B3i[kcs][j][i] = *(pRcv++);}
             else {pRcv++;}
           }}
-
+	}
           for (k=kcs+1; k<=kce; k++) {
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics  ; i<=ice; i++) {
@@ -373,12 +377,13 @@ void RestrictCorrect(MeshS *pM)
 
           /* Set B3i at kce+1 if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+	if(kcs < kce){
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[5] == NULL) {pG->B3i[kce+1][j][i] = *(pRcv++);}
             else {pRcv++;}
           }}
-
+	}
 /* Set cell-centered fields */
           for (k=kcs; k<=kce; k++) {
           for (j=jcs; j<=jce; j++) {

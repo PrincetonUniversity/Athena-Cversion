@@ -102,6 +102,22 @@ void bvals_mhd(DomainS *pDomain);
 void bvals_radMHD(DomainS *pD);
 #endif
 
+#if defined (MHD) || defined (RADIATION_MHD)
+#ifdef MPI_PARALLEL
+void RemapEy_ix1_mpi(DomainS *pD, Real ***emfy, Real **remapEyix1);
+void RemapEy_ox1_mpi(DomainS *pD, Real ***emfy, Real **remapEyox1);
+void RemapEz_ix1_mpi(DomainS *pD, Real ***emfz, Real **remapEzix1);
+void RemapEz_ox1_mpi(DomainS *pD, Real ***emfz, Real **remapEzox1);
+void RemapEx_ix2_mpi(DomainS *pD, Real ***emfx, Real **remapExix2);
+void RemapEx_ox2_mpi(DomainS *pD, Real ***emfx, Real **remapExox2);
+void RemapEz_ix2_mpi(DomainS *pD, Real ***emfz, Real **remapEzix2);
+void RemapEz_ox2_mpi(DomainS *pD, Real ***emfz, Real **remapEzox2);
+void RemapEx_ix3_mpi(DomainS *pD, Real ***emfx, Real **remapExix3);
+void RemapEx_ox3_mpi(DomainS *pD, Real ***emfx, Real **remapExox3);
+void RemapEy_ix3_mpi(DomainS *pD, Real ***emfy, Real **remapEyix3);
+void RemapEy_ox3_mpi(DomainS *pD, Real ***emfy, Real **remapEyox3);
+#endif /* End mpi parallel */
+#endif /* end mhd or radiation mhd */
 /*----------------------------------------------------------------------------*/
 /* bvals_shear.c  */
 #ifdef SHEARING_BOX
@@ -109,6 +125,8 @@ void ShearingSheet_ix1(DomainS *pD);
 void ShearingSheet_ox1(DomainS *pD);
 void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib);
 void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib);
+
+
 
 #ifdef RESISTIVITY
 void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **remapEyiib);

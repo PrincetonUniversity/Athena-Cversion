@@ -955,6 +955,10 @@ void Inner_product1D(MatrixS *pMat, Real **vector1, Real **vector2, Real *result
 void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 {
 
+#ifdef MPI_PARALLEL
+	pMat_coarse->Comm_Domain = pMat->Comm_Domain;
+#endif
+
 	pMat_coarse->dx1 = 2.0 * pMat->dx1;
 	pMat_coarse->dx2 = pMat->dx2;
 	pMat_coarse->dx3 = pMat->dx3;
@@ -1025,9 +1029,6 @@ void BackEuler_init_1d(MeshS *pM)
 	int i;
 	Real temp;
 
-#ifdef MPI_PARALLEL
-	pMat->Comm_Domain = pD->Comm_Domain;
-#endif
 
 	
 
@@ -1094,6 +1095,9 @@ void BackEuler_init_1d(MeshS *pM)
 	if((RHS_coarse=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
 
+#ifdef MPI_PARALLEL
+	pMat->Comm_Domain = pD->Comm_Domain;
+#endif
 
 
 	/* allocate memory at each level */

@@ -3059,14 +3059,16 @@ void radMHD_Mat_inflowke(MatrixS *pMat)
 		for(j=js-Matghost; j<=je+Matghost; j++){
 			for(i=is-Matghost; i<=ie+Matghost; i++){
 	    		
-				Sigma_t = 0.5 * (pMat->Ugas[ke+k][j][i].Sigma[0] + pMat->Ugas[ke+k][j][i].Sigma[1] + pMat->Ugas[ke+k-1][j][i].Sigma[0] + pMat->Ugas[ke+k-1][j][i].Sigma[1]);
-
+			/*	Sigma_t = 0.5 * (pMat->Ugas[ke+k][j][i].Sigma[0] + pMat->Ugas[ke+k][j][i].Sigma[1] + pMat->Ugas[ke+k-1][j][i].Sigma[0] + pMat->Ugas[ke+k-1][j][i].Sigma[1]);
+			
 				pMat->Ugas[ke+k][j][i].Edd_11 = pMat->Ugas[ke][j][i].Edd_11;
 				pMat->Ugas[ke+k][j][i].Edd_22 = pMat->Ugas[ke][j][i].Edd_22;
 				pMat->Ugas[ke+k][j][i].Edd_21 = pMat->Ugas[ke][j][i].Edd_21;
 				pMat->Ugas[ke+k][j][i].Edd_31 = pMat->Ugas[ke][j][i].Edd_31;
 				pMat->Ugas[ke+k][j][i].Edd_32 = pMat->Ugas[ke][j][i].Edd_32;
 				pMat->Ugas[ke+k][j][i].Edd_33 = pMat->Ugas[ke][j][i].Edd_33;
+			*/
+				pMat->Ugas[ke+k][j][i] = pMat->Ugas[ke][j][i];
 			if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0]) ){
 				pMat->U[ke+k][j][i].Er  = 0.0;
 				pMat->U[ke+k][j][i].Fr1 = 0.0;
@@ -3171,7 +3173,7 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 		for(j=js-Matghost; j<=je+Matghost; j++){
 			for(i=is-Matghost; i<=ie+Matghost; i++){
 	    		
-				Sigma_t = 0.5 * (pMat->Ugas[ks-k][j][i].Sigma[0] + pMat->Ugas[ks-k][j][i].Sigma[1] + pMat->Ugas[ks-k+1][j][i].Sigma[0] + pMat->Ugas[ks-k+1][j][i].Sigma[1]);
+			/*	Sigma_t = 0.5 * (pMat->Ugas[ks-k][j][i].Sigma[0] + pMat->Ugas[ks-k][j][i].Sigma[1] + pMat->Ugas[ks-k+1][j][i].Sigma[0] + pMat->Ugas[ks-k+1][j][i].Sigma[1]);
 
 				pMat->Ugas[ks-k][j][i].Edd_11 = pMat->Ugas[ks][j][i].Edd_11;
 				pMat->Ugas[ks-k][j][i].Edd_22 = pMat->Ugas[ks][j][i].Edd_22;
@@ -3179,7 +3181,9 @@ void radMHD_Mat_inflowks(MatrixS *pMat)
 				pMat->Ugas[ks-k][j][i].Edd_31 = pMat->Ugas[ks][j][i].Edd_31;
 				pMat->Ugas[ks-k][j][i].Edd_32 = pMat->Ugas[ks][j][i].Edd_32;
 				pMat->Ugas[ks-k][j][i].Edd_33 = pMat->Ugas[ks][j][i].Edd_33;
+			*/
 
+				pMat->Ugas[ks-k][j][i] = pMat->Ugas[ks][j][i];
 				
 			if((pMat->bgflag) || (pMat->Nx[0] < pMat->RootNx[0])){
 				pMat->U[ks-k][j][i].Er  = 0.0;

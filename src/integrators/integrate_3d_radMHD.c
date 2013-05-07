@@ -83,7 +83,20 @@ Real dotphil, dotgxl;
 #ifdef SHEARING_BOX
 static ConsS **Flxiib=NULL, **Flxoib=NULL;
 static ConsS **rFlxiib=NULL, **rFlxoib=NULL;
+
+#endif /* End Shearing_box */
+
+#ifdef RADIATION_MHD
+/* variables needed to conserve net flux */
+static Real **remapEyix1=NULL, **remapEyox1=NULL;
+static Real **remapEzix1=NULL, **remapEzox1=NULL;
+static Real **remapExix2=NULL, **remapExox2=NULL;
+static Real **remapEzix2=NULL, **remapEzox2=NULL;
+static Real **remapExix3=NULL, **remapExox3=NULL;
+static Real **remapEyix3=NULL, **remapEyox3=NULL;
 #endif
+
+
 
 /* The interface magnetic fields and emfs */
 #ifdef RADIATION_MHD
@@ -223,10 +236,10 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 
 	
-/* Variables for shearing box */	
 	
-#ifdef SHEARING_BOX
 	int my_iproc,my_jproc,my_kproc;
+/* Variables for shearing box */
+#ifdef SHEARING_BOX	
 	Real M1n, dM2n; /* M1, dM2=(My+d*q*Omega_0*x) at time n */
 	Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
 	Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
@@ -305,17 +318,21 @@ void integrate_3d_radMHD(DomainS *pD)
                         for (i=is-nghost; i<=ie+nghost; i++) {
 
                                 Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
-			if(Wtemp.d < dfloor){
-				Wtemp.d = dfloor;
-				pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
-			}
+				if(Wtemp.d < dfloor){
+					Wtemp.d = dfloor;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+				}
 
-			if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
 					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
                                         pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
 
 
-                                } /* End if wtemp negative */
+                        	} /* End if wtemp negative */
+
+				if(pG->U[k][j][i].Er < TINY_NUMBER)
+					pG->U[k][j][i].Er = pow(Tfloor, 4.0);
+
                         }/* end i */
                 }/* end j*/
         }/* end k*/
@@ -3390,7 +3407,7 @@ k][j][i].M3);
 
 
 /* compute remapped Fluxes from opposite side of grid */
-
+#ifdef RADIATION_MHD
     if (my_iproc == 0) {
 
       RemapFlx_ix1(pD, Flxiib, Flxoib, rFlxiib);
@@ -3431,8 +3448,101 @@ k][j][i].M3);
       }
     }
 
+#endif /* End radiation MHD */
+
 #endif /* SHEARING_BOX */	
 	
+	
+	
+
+/* Remap emfs at internal MPI and periodic boundaries
+ *  * to eliminate round-off error                         */
+
+#if defined(MPI_PARALLEL) && defined(RADIATION_MHD)
+
+  get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+/* Remap Ey and Ez in the x1 boundary */
+  if (pD->NGrid[0] > 1) {
+    /* send to right and receive from left */
+    RemapEy_ix1_mpi(pD, emf2, remapEyix1);
+
+    if (pG->lx1_id >= 0){
+#ifdef SHEARING_BOX      
+      if (my_iproc != 0) {
+#endif
+        for(k=ks; k<=ke+1; k++) {
+          for(j=js; j<=je; j++){
+            emf2[k][j][is] = remapEyix1[k][j];
+          }
+        }
+#ifdef SHEARING_BOX 
+      }
+#endif
+    }
+    /* send to right and receive from left */
+    RemapEz_ix1_mpi(pD, emf3, remapEzix1);
+    if (pG->lx1_id >= 0) {
+      if (my_iproc != 0) {
+        for(k=ks; k<=ke; k++) {
+          for(j=js; j<=je+1; j++){
+            emf3[k][j][is] = remapEzix1[k][j];
+          }
+        }
+      }
+    }
+  }
+
+/* Remap Ez and Ex in the x2 boundary */
+  if (pD->NGrid[1] > 1) {
+    /* send to right and receive from left */
+    RemapEx_ix2_mpi(pD, emf1, remapExix2);
+
+    if (pG->lx2_id >= 0) {   
+      for(k=ks; k<=ke+1; k++) {
+        for(i=is; i<=ie; i++){
+          emf1[k][js][i] = remapExix2[k][i];
+        } 
+      }   
+    }
+
+    /* send to right and receive from left */
+    RemapEz_ix2_mpi(pD, emf3, remapEzix2);
+
+    if (pG->lx2_id >= 0) {
+      for(k=ks; k<=ke; k++) {
+        for(i=is; i<=ie+1; i++){
+          emf3[k][js][i] = remapEzix2[k][i];
+        }
+      }
+    }
+  }
+
+/* Remap Ex and Ey in the x3 boundary */
+  if (pD->NGrid[2] > 1) {
+    /* send to right and receive from left */
+    RemapEx_ix3_mpi(pD, emf1, remapExix3);
+
+    if (pG->lx3_id >= 0) {
+      for(j=js; j<=je+1; j++) {
+        for(i=is; i<=ie; i++){
+          emf1[ks][j][i] = remapExix3[j][i];
+        }
+      }
+    }
+
+    /* send to right and receive from left */
+    RemapEy_ix3_mpi(pD, emf2, remapEyix3);
+
+    if (pG->lx3_id >= 0) {
+      for(j=js; j<=je; j++) {
+        for(i=is; i<=ie+1; i++){
+          emf2[ks][j][i] = remapEyix3[j][i];
+        }
+      }
+    }
+  }
+
+#endif /* MPI_PARALLEL  AND RADIATION_MHD */
 	
 
 	
@@ -5086,7 +5196,37 @@ void integrate_init_3d(MeshS *pM)
     goto on_error;
   if ((rFlxoib = (ConsS**)calloc_2d_array(size3,size2,sizeof(ConsS)))==NULL)
     goto on_error;
+
+#endif /* end shearing box */
+
+#ifdef RADIATION_MHD
+	if ((remapEyix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEyox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEzix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEzox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapExix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapExox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;	
+  	if ((remapEzix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEzox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapExix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+		goto on_error;
+  	if ((remapExox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEyix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    		goto on_error;
+  	if ((remapEyox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    		goto on_error;
 #endif
+
+
 
 
   return;
@@ -5171,7 +5311,27 @@ void integrate_destruct_3d(void)
   if (Flxoib != NULL) free_2d_array(Flxoib);
   if (rFlxiib != NULL) free_2d_array(rFlxiib);
   if (rFlxoib != NULL) free_2d_array(rFlxoib);
+
+#endif /* end shearing box */
+
+#ifdef RADIATION_MHD
+	if (remapEyix1 != NULL) free_2d_array(remapEyix1);
+  	if (remapEyox1 != NULL) free_2d_array(remapEyox1);
+  	if (remapEzix1 != NULL) free_2d_array(remapEzix1);
+  	if (remapEzox1 != NULL) free_2d_array(remapEzox1);
+  	if (remapExix2 != NULL) free_2d_array(remapExix2);
+  	if (remapExox2 != NULL) free_2d_array(remapExox2);
+  	if (remapEzix2 != NULL) free_2d_array(remapEzix2);
+  	if (remapEzox2 != NULL) free_2d_array(remapEzox2);
+  	if (remapExix3 != NULL) free_2d_array(remapExix3);
+  	if (remapExox3 != NULL) free_2d_array(remapExox3);
+  	if (remapEyix3 != NULL) free_2d_array(remapEyix3);
+  	if (remapEyox3 != NULL) free_2d_array(remapEyox3);
+
 #endif
+
+
+
 
 
 

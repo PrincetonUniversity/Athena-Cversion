@@ -49,6 +49,15 @@
  * - bvals_mhd_init() - sets function pointers used by bvals_mhd()
  * - bvals_mhd_fun()  - enrolls a pointer to a user-defined BC function
  *
+ * - RemapEy_ix1_mpi
+ * - RemapEz_ix1_mpi
+ * - RemapEx_ix2_mpi
+ * - RemapEz_ix2_mpi
+ * - RemapEx_ix3_mpi
+ * - RemapEy_ix3_mpi
+ * 
+ *
+ *
  * PRIVATE FUNCTION PROTOTYPES:
  * - reflect_ix1()  - reflecting BCs at boundary ix1
  * - reflect_ox1()  - reflecting BCs at boundary ox1
@@ -98,6 +107,10 @@
 #ifdef MPI_PARALLEL
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
+#if defined(MHD) || defined(RADIATION_MHD)
+static double *send_buf2 = NULL, **recv_buf2 = NULL;
+#endif
+
 static MPI_Request *recv_rq, *send_rq;
 #endif /* MPI_PARALLEL */
 
@@ -883,6 +896,14 @@ void bvals_mhd_init(MeshS *pM)
 
   size = x1cnt > x2cnt ? x1cnt : x2cnt;
   size = x3cnt >  size ? x3cnt : size;
+
+#if defined(MHD) || defined(RADIATION_MHD)
+  if((send_buf2 = (double**)calloc_1d_array(size,sizeof(double))) == NULL)
+      ath_error("[bvals_init]: Failed to allocate send buffer\n");
+
+  if((recv_buf2 = (double**)calloc_1d_array(size,sizeof(double))) == NULL)
+      ath_error("[bvals_init]: Failed to allocate recv buffer\n");
+#endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
   size *= nghost*((NVAR)+3);
@@ -2407,6 +2428,358 @@ static void ProlongateLater(GridS *pGrid __attribute((unused)))
 
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs; ~800 lines */
 /*----------------------------------------------------------------------------*/
+
+#if defined(MHD) || defined(RADIATION_MHD)
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEy_ix1_mpi(DomainS *pD, Real ***emfy, Real **tEyx1)
+ *  \brief Remaps Ey at x1 MPI boundaries to remove difference due to round-off error
+ *
+ * This is a public function which is called by the integrator (inside a
+ * SHEARING_BOX macro).                                                       */
+/*----------------------------------------------------------------------------*/
+
+void RemapEy_ix1_mpi(DomainS *pD, Real ***emfy, Real **tEyx1)
+{
+  GridS *pG = pD->Grid;
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int k, ks = pG->ks, ke = pG->ke;
+  int cnt, ierr;
+  double *pSnd,*pRcv;
+  Real *pEy;
+  MPI_Request rq;
+
+  cnt = pG->Nx[1]*(pG->Nx[2]+1);
+
+  /* Post a non-blocking receive for the input data from left */
+  if (pG->lx1_id >= 0) {
+    ierr = MPI_Irecv(recv_buf2, cnt, MPI_DOUBLE, pG->lx1_id,
+                     remapEy_tag, pD->Comm_Domain, &rq);
+  }
+
+  /* send to right */
+  if (pG->rx1_id >= 0) {
+    pSnd = send_buf2;
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+        pEy = &(emfy[k][j][ie+1]);
+        *(pSnd++) = *pEy;
+      }
+    }
+    ierr = MPI_Send(send_buf2, cnt, MPI_DOUBLE, pG->rx1_id,
+                    remapEy_tag, pD->Comm_Domain);
+  }
+
+  /* Listen for data from left */
+  if (pG->lx1_id >= 0) {
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf2;
+    for (k=ks; k<=ke+1; k++) {
+      for (j=js; j<=je; j++) {
+          pEy = &(tEyx1[k][j]);
+          *pEy = *(pRcv++);
+      }
+    }
+  }
+
+  return;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEz_ix1_mpi(DomainS *pD, Real ***emfz, Real **tEzx1)
+ *  \brief Remaps Ez at x1 MPI boundaries to remove difference due to round-off error
+ *
+ * This is a public function which is called by the integrator (inside a
+ * SHEARING_BOX macro).                                                       */
+/*----------------------------------------------------------------------------*/
+
+void RemapEz_ix1_mpi(DomainS *pD, Real ***emfz, Real **tEzx1)
+{
+  GridS *pG = pD->Grid;
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int k, ks = pG->ks, ke = pG->ke;
+  int cnt, ierr;
+  double *pSnd,*pRcv;
+  Real *pEz;
+  MPI_Request rq;
+
+  cnt = (pG->Nx[1]+1)*pG->Nx[2];
+
+  /* Post a non-blocking receive for the input data from left */
+  if (pG->lx1_id >= 0) {
+    ierr = MPI_Irecv(recv_buf2, cnt, MPI_DOUBLE, pG->lx1_id,
+                     remapEz_tag, pD->Comm_Domain, &rq);
+  }
+
+  /* send to right */
+  if (pG->rx1_id >= 0) {
+    pSnd = send_buf2;
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je+1; j++) {
+        pEz = &(emfz[k][j][ie+1]);
+        *(pSnd++) = *pEz;
+      }
+    }
+    ierr = MPI_Send(send_buf2, cnt, MPI_DOUBLE, pG->rx1_id,
+                    remapEz_tag, pD->Comm_Domain);
+  }
+
+  /* Listen for data from left */
+  if (pG->lx1_id >= 0) {
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf2;
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je+1; j++) {
+        pEz = &(tEzx1[k][j]);
+        *pEz = *(pRcv++);
+      }
+    }
+  }
+
+  return;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEx_ix2_mpi(DomainS *pD, Real ***emfx, Real **tExx2)
+ *  \brief Remaps Ex at x2 MPI boundaries to remove difference due to round-off error
+ *
+ * This is a public function which is called by the integrator (inside a
+ * SHEARING_BOX macro).                                                       */
+/*----------------------------------------------------------------------------*/
+
+void RemapEx_ix2_mpi(DomainS *pD, Real ***emfx, Real **tExx2)
+{
+  GridS *pG = pD->Grid;
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int k, ks = pG->ks, ke = pG->ke;
+  int cnt, ierr;
+  double *pSnd,*pRcv;
+  Real *pEx;
+  MPI_Request rq;
+
+  cnt = pG->Nx[0]*(pG->Nx[2]+1);
+
+  /* Post a non-blocking receive for the input data from left */
+  if (pG->lx2_id >= 0) {
+    ierr = MPI_Irecv(recv_buf2, cnt, MPI_DOUBLE, pG->lx2_id,
+                     remapEx_tag, pD->Comm_Domain, &rq);
+  }
+
+  /* send to right */  
+  if (pG->rx2_id >= 0) {
+    pSnd = send_buf2;
+    for (k=ks; k<=ke+1; k++) {
+      for (i=is; i<=ie; i++) {
+        pEx = &(emfx[k][je+1][i]);
+        *(pSnd++) = *pEx;
+      }
+    }
+    ierr = MPI_Send(send_buf2, cnt, MPI_DOUBLE, pG->rx2_id,
+                    remapEx_tag, pD->Comm_Domain);
+  }
+
+  /* Listen for data from left */
+  if (pG->lx2_id >= 0) {
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+    
+    pRcv = recv_buf2;
+    for (k=ks; k<=ke+1; k++) {
+      for (i=is; i<=ie; i++) {
+        pEx = &(tExx2[k][i]);
+        *pEx = *(pRcv++);
+      }
+    }
+  }
+
+  return;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEz_ix2_mpi(DomainS *pD, Real ***emfz, Real **tEzx2)
+ *  \brief Remaps Ez at x2 MPI boundaries to remove difference due to round-off error
+ *
+ * This is a public function which is called by the integrator (inside a
+ * SHEARING_BOX macro).                                                       */
+/*----------------------------------------------------------------------------*/
+
+void RemapEz_ix2_mpi(DomainS *pD, Real ***emfz, Real **tEzx2)
+{
+  GridS *pG = pD->Grid;
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int k, ks = pG->ks, ke = pG->ke;
+  int cnt, ierr;
+  double *pSnd,*pRcv;
+  Real *pEz;
+  MPI_Request rq;
+
+  cnt = pG->Nx[2]*(pG->Nx[0]+1);
+
+  /* Post a non-blocking receive for the input data from left */
+  if (pG->lx2_id >= 0) {
+    ierr = MPI_Irecv(recv_buf2, cnt, MPI_DOUBLE, pG->lx2_id,
+                     remapEz_tag, pD->Comm_Domain, &rq);
+  }
+
+  /* send to right */
+  if (pG->rx2_id >= 0) {
+    pSnd = send_buf2;
+    for (k=ks; k<=ke; k++) {
+      for (i=is; i<=ie+1; i++) {
+        pEz = &(emfz[k][je+1][i]);
+        *(pSnd++) = *pEz;
+      }
+    }
+    ierr = MPI_Send(send_buf2, cnt, MPI_DOUBLE, pG->rx2_id,
+                    remapEz_tag, pD->Comm_Domain);
+  }
+
+  /* Listen for data from left */
+  if (pG->lx2_id >= 0) {
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf2;
+    for (k=ks; k<=ke; k++) {
+      for (i=is; i<=ie+1; i++) {
+        pEz = &(tEzx2[k][i]);
+        *pEz = *(pRcv++);
+      }
+    }
+  }
+
+  return;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEx_ix3_mpi(DomainS *pD, Real ***emfx, Real **tExx3)
+ *  \brief Remaps Ex at x3 MPI boundaries to remove difference due to round-off error
+ *
+ * This is a public function which is called by the integrator (inside a
+ * SHEARING_BOX macro).                                                       */
+/*----------------------------------------------------------------------------*/
+
+void RemapEx_ix3_mpi(DomainS *pD, Real ***emfx, Real **tExx3)
+{
+  GridS *pG = pD->Grid;
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int k, ks = pG->ks, ke = pG->ke;
+  int cnt, ierr;
+  double *pSnd,*pRcv;
+  Real *pEx;
+  MPI_Request rq;
+
+  cnt = pG->Nx[0]*(pG->Nx[1]+1);
+
+  /* Post a non-blocking receive for the input data from left */
+  if (pG->lx3_id >= 0) {
+    ierr = MPI_Irecv(recv_buf2, cnt, MPI_DOUBLE, pG->lx3_id,
+                    remapEx_tag, pD->Comm_Domain, &rq);
+  }
+  /* send to right */  
+  if (pG->rx3_id >= 0) {
+    pSnd = send_buf2;
+    for (j=js; j<=je+1; j++) {
+      for (i=is; i<=ie; i++) {
+        pEx = &(emfx[ke+1][j][i]);
+        *(pSnd++) = *pEx;
+      }
+    }
+    ierr = MPI_Send(send_buf2, cnt, MPI_DOUBLE, pG->rx3_id,
+                    remapEx_tag, pD->Comm_Domain);
+  }
+
+  /* Listen for data from left */
+  if (pG->lx3_id >= 0) {
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+    
+    pRcv = recv_buf2;
+    for (j=js; j<=je+1; j++) {
+      for (i=is; i<=ie; i++) {
+        pEx = &(tExx3[j][i]);
+        *pEx = *(pRcv++);
+      }
+    }
+  }
+
+  return;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void RemapEy_ix3_mpi(DomainS *pD, Real ***emfy, Real **tEyx3)
+ *  \brief Remaps Ey at x3 MPI boundaries to remove difference due to round-off error
+ *
+ * This is a public function which is called by the integrator (inside a
+ * SHEARING_BOX macro).                                                       */
+/*----------------------------------------------------------------------------*/
+
+void RemapEy_ix3_mpi(DomainS *pD, Real ***emfy, Real **tEyx3)
+{
+  GridS *pG = pD->Grid;
+  int i, is = pG->is, ie = pG->ie;
+  int j, js = pG->js, je = pG->je;
+  int k, ks = pG->ks, ke = pG->ke;
+  int cnt, ierr;
+  double *pSnd,*pRcv;
+  Real *pEy;
+  MPI_Request rq;
+
+  cnt = pG->Nx[1]*(pG->Nx[0]+1);
+
+  /* Post a non-blocking receive for the input data from left */
+  if (pG->lx3_id >= 0) {
+    ierr = MPI_Irecv(recv_buf2, cnt, MPI_DOUBLE, pG->lx3_id,
+                    remapEy_tag, pD->Comm_Domain, &rq);
+  }
+  /* send to right */
+  if (pG->rx3_id >= 0) {
+    pSnd = send_buf2;
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie+1; i++) {
+        pEy = &(emfy[ke+1][j][i]);
+        *(pSnd++) = *pEy;
+      }
+    }
+    ierr = MPI_Send(send_buf2, cnt, MPI_DOUBLE, pG->rx3_id,
+                   remapEy_tag, pD->Comm_Domain);
+  }
+
+  /* Listen for data from left */
+  if (pG->lx3_id >= 0) {
+    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+
+    pRcv = recv_buf2;
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie+1; i++) {
+        pEy = &(tEyx3[j][i]);
+        *pEy = *(pRcv++);
+      }
+    }
+  }
+
+  return;
+}
+
+
+
+
+#endif /* End mhd or RADIATION MHD OF THE remap  */
+
+
+
+
+
 /*! \fn static void pack_ix1(GridS *pG)
  *  \brief PACK boundary conditions for MPI_Isend, Inner x1 boundary */
 

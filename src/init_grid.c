@@ -102,6 +102,12 @@ void init_grid(MeshS *pM)
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
       pG = pM->Domain[nl][nd].Grid;          /* set ptr to Grid */
 
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+#ifdef MPI_PARALLEL
+	pG->Comm_Domain = pD->Comm_Domain;
+#endif
+#endif
+
       pG->time = pM->time;
 
 /* get (l,m,n) coordinates of Grid being updated on this processor */

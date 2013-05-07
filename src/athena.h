@@ -455,6 +455,10 @@ typedef struct Grid_s{
   Real ***Eulersource; /* The source term in back euler step */
   Real ***Comp; /* Energy source term due to Compton scattering */
 
+#ifdef MPI_PARALLEL
+MPI_Comm Comm_Domain;
+#endif
+
 #ifdef STATIC_MESH_REFINEMENT
   Real ***AdvErFlx[3]; /* The advective energy flux. This needs to be pre-calcualted and restricted and corrected */
 #endif

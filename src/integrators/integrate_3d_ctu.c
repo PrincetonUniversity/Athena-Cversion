@@ -2558,7 +2558,7 @@ void integrate_3d_ctu(DomainS *pD)
     }
 
 /* compute remapped Fluxes from opposite side of grid */
-
+#ifdef MHD
     if (my_iproc == 0) {
 
       RemapFlx_ix1(pD, Flxiib, Flxoib, rFlxiib);
@@ -2598,6 +2598,7 @@ void integrate_3d_ctu(DomainS *pD)
         }
       }
     }
+#endif /* End mhd */
 #endif /* SHEARING_BOX */
 
 /*--- Step 10b -----------------------------------------------------------------
