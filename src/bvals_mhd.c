@@ -108,7 +108,7 @@
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
 #if defined(MHD) || defined(RADIATION_MHD)
-static double *send_buf2 = NULL, **recv_buf2 = NULL;
+static double *send_buf2 = NULL, *recv_buf2 = NULL;
 #endif
 
 static MPI_Request *recv_rq, *send_rq;
@@ -898,10 +898,10 @@ void bvals_mhd_init(MeshS *pM)
   size = x3cnt >  size ? x3cnt : size;
 
 #if defined(MHD) || defined(RADIATION_MHD)
-  if((send_buf2 = (double**)calloc_1d_array(size,sizeof(double))) == NULL)
+  if((send_buf2 = (double*)calloc_1d_array(size,sizeof(double))) == NULL)
       ath_error("[bvals_init]: Failed to allocate send buffer\n");
 
-  if((recv_buf2 = (double**)calloc_1d_array(size,sizeof(double))) == NULL)
+  if((recv_buf2 = (double*)calloc_1d_array(size,sizeof(double))) == NULL)
       ath_error("[bvals_init]: Failed to allocate recv buffer\n");
 #endif
 
