@@ -99,8 +99,8 @@ static Remap ***GhstZns=NULL, ***GhstZnsBuf=NULL;
 /* 1D vectors for reconstruction in conservative remap step */
 static Real *U=NULL, *Flx=NULL;
 /* Arrays of fluxes remapped at ix1/ox1 edges of Domain */
-#ifdef MHD
 static ConsS **tFlxBuf=NULL;
+#ifdef MHD
 static Real **tEyBuf=NULL;
 static Real ***tJyBuf=NULL;
 #endif
@@ -2021,14 +2021,13 @@ void ShearingSheet_grav_ox1(DomainS *pD)
  * SHEARING_BOX macro).							      */
 /*----------------------------------------------------------------------------*/
 
-#ifdef MHD
 void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
 {
   GridS *pG = pD->Grid;
   int ie = pG->ie;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int j,k,joffset,jremap;
+  int j,k,joffset,jremap,numvar;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epsi;
 #ifdef MPI_PARALLEL
   int is = pG->is;
@@ -2056,6 +2055,14 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
   joffset = (int)(deltay/pG->dx2);
   epsi = (fmod(deltay,pG->dx2))/pG->dx2;
 
+/* If not MHD, we ignore B2c and the cnt variable will be changed.  numvar accounts for this
+   If numvar = 4, then code is in hydro mode and B2c is not counted in the buffers */
+#ifdef MHD
+   numvar = 5;
+#else
+   numvar = 4; 
+#endif
+
 /* NOTE: IN CODE BELOW ONLY By,d,M1,M2,M3 ARE REMAPPED */
 /*--- Step 1. ------------------------------------------------------------------
  * Copy Flx from [ie+1] into Flx at [is], using periodic BC in x1.
@@ -2064,7 +2071,9 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
   if (pD->NGrid[0] == 1) {
     for(k=ks; k<=ke+1; k++) {
       for(j=js; j<=je+1; j++){
+#ifdef MHD
         rFlxiib[k][j].B2c = Flxoib[k][j].B2c;
+#endif
         rFlxiib[k][j].d = Flxoib[k][j].d;
         rFlxiib[k][j].M1 = Flxoib[k][j].M1;
         rFlxiib[k][j].M2 = Flxoib[k][j].M2;
@@ -2081,7 +2090,8 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
 /* MPI calls to swap data */
 
 /* Post a non-blocking receive for data from remapFlx_ox1 (listen L) */
-    cnt = 5*(pG->Nx[1]+1)*(pG->Nx[2]+1);
+
+    cnt = numvar*(pG->Nx[1]+1)*(pG->Nx[2]+1);
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx1_id,
                     remapFlx_tag, pD->Comm_Domain, &rq);
 
@@ -2090,8 +2100,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++) {
       for (j=js; j<=je+1; j++) {
+#ifdef MHD
         pFlx = &(Flxiib[k][j].B2c);
         *(pSnd++) = *pFlx;
+#endif
         pFlx = &(Flxiib[k][j].d);
         *(pSnd++) = *pFlx;
         pFlx = &(Flxiib[k][j].M1);
@@ -2112,8 +2124,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++) {
       for (j=js; j<=je+1; j++) {
+#ifdef MHD
           pFlx = &(rFlxiib[k][j].B2c);
           *pFlx = *(pRcv++);
+#endif
           pFlx = &(rFlxiib[k][j].d);
           *pFlx = *(pRcv++);
           pFlx = &(rFlxiib[k][j].M1);
@@ -2146,9 +2160,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
 
     for(k=ks; k<=ke+1; k++) {
       for(j=1; j<=nghost; j++){
+#ifdef MHD
         rFlxiib[k][js-j].B2c = rFlxiib[k][je-(j-1)].B2c;
         rFlxiib[k][je+j].B2c = rFlxiib[k][js+(j-1)].B2c;
-
+#endif
         rFlxiib[k][js-j].d = rFlxiib[k][je-(j-1)].d;
         rFlxiib[k][je+j].d = rFlxiib[k][js+(j-1)].d;
 
@@ -2167,8 +2182,7 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
   } else {
 
 /* MPI calls to swap data */
-
-    cnt = 5*nghost*(pG->Nx[2] + 1);
+    cnt = numvar*nghost*(pG->Nx[2] + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2177,8 +2191,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je-nghost+1; j<=je; j++){
+#ifdef MHD
         pFlx = &(rFlxiib[k][j].B2c);
         *(pSnd++) = *pFlx;
+#endif
         pFlx = &(rFlxiib[k][j].d);
         *(pSnd++) = *pFlx;
         pFlx = &(rFlxiib[k][j].M1);
@@ -2200,8 +2216,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js-nghost; j<=js-1; j++){
+#ifdef MHD
         pFlx = &(rFlxiib[k][j].B2c);
         *pFlx = *(pRcv++);
+#endif
         pFlx = &(rFlxiib[k][j].d);
         *pFlx = *(pRcv++);
         pFlx = &(rFlxiib[k][j].M1);
@@ -2220,8 +2238,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js; j<=js+nghost-1; j++){
+#ifdef MHD
         pFlx = &(rFlxiib[k][j].B2c);
         *(pSnd++) = *pFlx;
+#endif
         pFlx = &(rFlxiib[k][j].d);
         *(pSnd++) = *pFlx;
         pFlx = &(rFlxiib[k][j].M1);
@@ -2243,8 +2263,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je+1; j<=je+nghost; j++){
+#ifdef MHD
         pFlx = &(rFlxiib[k][j].B2c);
         *pFlx = *(pRcv++);
+#endif
         pFlx = &(rFlxiib[k][j].d);
         *pFlx = *(pRcv++);
         pFlx = &(rFlxiib[k][j].M1);
@@ -2264,6 +2286,7 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
 
   for(k=ks; k<=ke+1; k++) {
 
+#ifdef MHD
     for(j=js-3; j<=je+3; j++) {
       U[j] = rFlxiib[k][j].B2c;
     }
@@ -2271,7 +2294,7 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
     for(j=js; j<=je; j++){
       tFlxBuf[k][j].B2c = U[j] - (Flx[j+1] - Flx[j]);
     }
-
+#endif
     for(j=js-3; j<=je+3; j++) {
       U[j] = rFlxiib[k][j].d;
     }
@@ -2316,7 +2339,9 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       for(j=js; j<=je; j++){
         jremap = j - joffset;
         if (jremap < (int)js) jremap += pG->Nx[1];
+#ifdef MHD
         rFlxiib[k][j].B2c  = tFlxBuf[k][jremap].B2c;
+#endif
         rFlxiib[k][j].d  = tFlxBuf[k][jremap].d;
         rFlxiib[k][j].M1 = tFlxBuf[k][jremap].M1;
         rFlxiib[k][j].M2 = tFlxBuf[k][jremap].M2;
@@ -2357,8 +2382,7 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from tFlxBuf */
-
-      cnt = 5*joverlap*(pG->Nx[2]+1);
+      cnt = numvar*joverlap*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2366,8 +2390,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
+#ifdef MHD
           pFlx = &(tFlxBuf[k][j].B2c);
           *(pSnd++) = *pFlx;
+#endif
           pFlx = &(tFlxBuf[k][j].d);
           *(pSnd++) = *pFlx;
           pFlx = &(tFlxBuf[k][j].M1);
@@ -2392,8 +2418,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=js; j<=js+(joverlap-1); j++) {
+#ifdef MHD
             pFlx = &(rFlxiib[k][j].B2c);
             *pFlx = *(pRcv++);
+#endif
             pFlx = &(rFlxiib[k][j].d);
             *pFlx = *(pRcv++);
             pFlx = &(rFlxiib[k][j].M1);
@@ -2417,7 +2445,9 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       for(k=ks; k<=ke+1; k++) {
         for(j=js+joverlap; j<=je; j++){
           jremap = j-joverlap;
+#ifdef MHD
           rFlxiib[k][j].B2c  = tFlxBuf[k][jremap].B2c;
+#endif
           rFlxiib[k][j].d  = tFlxBuf[k][jremap].d;
           rFlxiib[k][j].M1 = tFlxBuf[k][jremap].M1;
           rFlxiib[k][j].M2 = tFlxBuf[k][jremap].M2;
@@ -2441,7 +2471,7 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       if (jproc < 0) jproc += pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = 5*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
+      cnt = numvar*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2449,8 +2479,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=js; j<=je-joverlap; j++) {
+#ifdef MHD
           pFlx = &(tFlxBuf[k][j].B2c);
           *(pSnd++) = *pFlx;
+#endif
           pFlx = &(tFlxBuf[k][j].d);
           *(pSnd++) = *pFlx;
           pFlx = &(tFlxBuf[k][j].M1);
@@ -2472,8 +2504,10 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=js+joverlap; j<=je; j++) {
+#ifdef MHD
           pFlx = &(rFlxiib[k][j].B2c);
           *pFlx = *(pRcv++);
+#endif
           pFlx = &(rFlxiib[k][j].d);
           *pFlx = *(pRcv++);
           pFlx = &(rFlxiib[k][j].M1);
@@ -2494,8 +2528,6 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
 
   return;
 }
-#endif /* MHD */
-
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
@@ -2507,14 +2539,13 @@ void RemapFlx_ix1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxiib)
  * SHEARING_BOX macro).							      */
 /*----------------------------------------------------------------------------*/
 
-#ifdef MHD
 void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 {
   GridS *pG = pD->Grid;
   int is = pG->is;
   int js = pG->js, je = pG->je;
   int ks = pG->ks, ke = pG->ke;
-  int j,k,joffset,jremap;
+  int j,k,joffset,jremap,numvar;
   Real xmin,xmax,Lx,Ly,qomL,yshear,deltay,epso;
 #ifdef MPI_PARALLEL
   int ie = pG->ie;
@@ -2542,6 +2573,14 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
   joffset = (int)(deltay/pG->dx2);
   epso = -(fmod(deltay,pG->dx2))/pG->dx2;
 
+/* If not MHD, we ignore B2c and the cnt variable will be changed.  numvar accounts for this
+   If numvar = 4, then code is in hydro mode and B2c is not counted in the buffers */
+#ifdef MHD
+   numvar = 5;
+#else
+   numvar = 4; 
+#endif
+
 /* NOTE: IN CODE BELOW ONLY By,d,M1,M2,M3 ARE REMAPPED */
 
 /*--- Step 1. ------------------------------------------------------------------
@@ -2551,7 +2590,9 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
   if (pD->NGrid[0] == 1) {
     for(k=ks; k<=ke+1; k++) {
       for(j=js; j<=je+1; j++){
+#ifdef MHD
         rFlxoib[k][j].B2c = Flxiib[k][j].B2c;
+#endif
         rFlxoib[k][j].d = Flxiib[k][j].d;
         rFlxoib[k][j].M1 = Flxiib[k][j].M1;
         rFlxoib[k][j].M2 = Flxiib[k][j].M2;
@@ -2566,8 +2607,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
   } else {
 
 /* MPI calls to swap data */
-
-    cnt = 5*(pG->Nx[1]+1)*(pG->Nx[2]+1);
+    cnt = numvar*(pG->Nx[1]+1)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from remapFlx_ix1 (listen R)*/
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->rx1_id,
                     remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2577,8 +2617,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++) {
       for (j=js; j<=je+1; j++) {
+#ifdef MHD
         pFlx = &(Flxoib[k][j].B2c);
         *(pSnd++) = *pFlx;
+#endif
         pFlx = &(Flxoib[k][j].d);
         *(pSnd++) = *pFlx;
         pFlx = &(Flxoib[k][j].M1);
@@ -2599,8 +2641,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++) {
       for (j=js; j<=je+1; j++) {
+#ifdef MHD
           pFlx = &(rFlxoib[k][j].B2c);
           *pFlx = *(pRcv++);
+#endif
           pFlx = &(rFlxoib[k][j].d);
           *pFlx = *(pRcv++);
           pFlx = &(rFlxoib[k][j].M1);
@@ -2633,9 +2677,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
     for(k=ks; k<=ke+1; k++) {
       for(j=1; j<=nghost; j++){
+#ifdef MHD
         rFlxoib[k][js-j].B2c = rFlxoib[k][je-(j-1)].B2c;
         rFlxoib[k][je+j].B2c = rFlxoib[k][js+(j-1)].B2c;
-
+#endif
         rFlxoib[k][js-j].d = rFlxoib[k][je-(j-1)].d;
         rFlxoib[k][je+j].d = rFlxoib[k][js+(j-1)].d;
 
@@ -2654,8 +2699,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
   } else {
 
 /* MPI calls to swap data */
-
-    cnt = 5*nghost*(pG->Nx[2] + 1);
+    cnt = numvar*nghost*(pG->Nx[2] + 1);
 /* Post a non-blocking receive for the input data from the left grid */
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2663,8 +2707,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je-nghost+1; j<=je; j++){
+#ifdef MHD
         pFlx = &(rFlxoib[k][j].B2c);
         *(pSnd++) = *pFlx;
+#endif
         pFlx = &(rFlxoib[k][j].d);
         *(pSnd++) = *pFlx;
         pFlx = &(rFlxoib[k][j].M1);
@@ -2686,8 +2732,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js-nghost; j<=js-1; j++){
+#ifdef MHD
         pFlx = &(rFlxoib[k][j].B2c);
         *pFlx = *(pRcv++);
+#endif
         pFlx = &(rFlxoib[k][j].d);
         *pFlx = *(pRcv++);
         pFlx = &(rFlxoib[k][j].M1);
@@ -2706,8 +2754,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     pSnd = send_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=js; j<=js+nghost-1; j++){
+#ifdef MHD
         pFlx = &(rFlxoib[k][j].B2c);
         *(pSnd++) = *pFlx;
+#endif
         pFlx = &(rFlxoib[k][j].d);
         *(pSnd++) = *pFlx;
         pFlx = &(rFlxoib[k][j].M1);
@@ -2729,8 +2779,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     pRcv = recv_buf;
     for (k=ks; k<=ke+1; k++){
       for (j=je+1; j<=je+nghost; j++){
+#ifdef MHD
         pFlx = &(rFlxoib[k][j].B2c);
         *pFlx = *(pRcv++);
+#endif
         pFlx = &(rFlxoib[k][j].d);
         *pFlx = *(pRcv++);
         pFlx = &(rFlxoib[k][j].M1);
@@ -2750,6 +2802,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
   for(k=ks; k<=ke+1; k++) {
 
+#ifdef MHD
     for(j=js-3; j<=je+3; j++) {
       U[j] = rFlxoib[k][j].B2c;
     }
@@ -2757,6 +2810,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
     for(j=js; j<=je; j++){
       tFlxBuf[k][j].B2c = U[j] - (Flx[j+1] - Flx[j]);
     }
+#endif
  
     for(j=js-3; j<=je+3; j++) {
       U[j] = rFlxoib[k][j].d;
@@ -2802,7 +2856,9 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       for(j=js; j<=je; j++){
         jremap = j + joffset;
         if (jremap > (int)je) jremap -= pG->Nx[1];
+#ifdef MHD
         rFlxoib[k][j].B2c  = tFlxBuf[k][jremap].B2c;
+#endif
         rFlxoib[k][j].d  = tFlxBuf[k][jremap].d;
         rFlxoib[k][j].M1 = tFlxBuf[k][jremap].M1;
         rFlxoib[k][j].M2 = tFlxBuf[k][jremap].M2;
@@ -2843,8 +2899,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from tFlxBuf */
-
-      cnt = 5*joverlap*(pG->Nx[2]+1);
+      cnt = numvar*joverlap*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2852,8 +2907,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=js; j<=js+(joverlap-1); j++) {
+#ifdef MHD
           pFlx = &(tFlxBuf[k][j].B2c);
           *(pSnd++) = *pFlx;
+#endif
           pFlx = &(tFlxBuf[k][j].d);
           *(pSnd++) = *pFlx;
           pFlx = &(tFlxBuf[k][j].M1);
@@ -2877,8 +2934,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=je-(joverlap-1); j<=je; j++) {
+#ifdef MHD
             pFlx = &(rFlxoib[k][j].B2c);
             *pFlx = *(pRcv++);
+#endif
             pFlx = &(rFlxoib[k][j].d);
             *pFlx = *(pRcv++);
             pFlx = &(rFlxoib[k][j].M1);
@@ -2902,7 +2961,9 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       for(k=ks; k<=ke+1; k++) {
         for(j=js; j<=je-joverlap; j++){
           jremap = j+joverlap;
+#ifdef MHD
           rFlxoib[k][j].B2c  = tFlxBuf[k][jremap].B2c;
+#endif
           rFlxoib[k][j].d  = tFlxBuf[k][jremap].d;
           rFlxoib[k][j].M1 = tFlxBuf[k][jremap].M1;
           rFlxoib[k][j].M2 = tFlxBuf[k][jremap].M2;
@@ -2926,7 +2987,7 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       if (jproc > (pD->NGrid[1]-1)) jproc -= pD->NGrid[1];
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
-      cnt = 5*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
+      cnt = numvar*(pG->Nx[1]-joverlap)*(pG->Nx[2]+1);
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       remapFlx_tag, pD->Comm_Domain, &rq);
@@ -2934,8 +2995,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       pSnd = send_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=js+joverlap; j<=je; j++) {
+#ifdef MHD
           pFlx = &(tFlxBuf[k][j].B2c);
           *(pSnd++) = *pFlx;
+#endif
           pFlx = &(tFlxBuf[k][j].d);
           *(pSnd++) = *pFlx;
           pFlx = &(tFlxBuf[k][j].M1);
@@ -2957,8 +3020,10 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
       pRcv = recv_buf;
       for (k=ks; k<=ke+1; k++) {
         for (j=js; j<=je-joverlap; j++) {
+#ifdef MHD
           pFlx = &(rFlxoib[k][j].B2c);
           *pFlx = *(pRcv++);
+#endif
           pFlx = &(rFlxoib[k][j].d);
           *pFlx = *(pRcv++);
           pFlx = &(rFlxoib[k][j].M1);
@@ -2979,7 +3044,6 @@ void RemapFlx_ox1(DomainS *pD, ConsS **Flxiib, ConsS **Flxoib, ConsS **rFlxoib)
 
   return;
 }
-#endif /* MHD */
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void RemapEy_ix1(DomainS *pD, Real ***emfy, Real **tEy)
@@ -5370,9 +5434,9 @@ void bvals_shear_init(MeshS *pM)
     ath_error("[set_bvals_shear_init]: malloc returned a NULL pointer\n");
 #endif
 
-#ifdef MHD
   if ((tFlxBuf=(ConsS**)calloc_2d_array(max3,max2,sizeof(ConsS))) == NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
+#ifdef MHD
   if ((tEyBuf=(Real**)calloc_2d_array(max3,max2,sizeof(Real))) == NULL)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
   if ((tJyBuf=(Real***)calloc_3d_array(nghost,max3,max2,sizeof(Real))) == NULL)
@@ -5444,8 +5508,8 @@ void bvals_shear_destruct(void)
   if (RemapVarBuf   != NULL) free_3d_array(RemapVarBuf);
   if (RemapFlx   != NULL) free_3d_array(RemapFlx);
 #endif
-#ifdef MHD
   if (tFlxBuf != NULL) free_2d_array(tFlxBuf);
+#ifdef MHD
   if (tEyBuf != NULL) free_2d_array(tEyBuf);
   if (tJyBuf != NULL) free_3d_array(tJyBuf);
 #endif
