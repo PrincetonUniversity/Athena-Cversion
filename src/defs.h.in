@@ -70,6 +70,10 @@
 /* Ray tracing */
 #define @RAY_TRACING_MODE@
 
+
+/* Time Dependent Radiation Transfer */
+#define @FULL_RADIATION_TRANSFER_MODE@
+
 /* Matrix Solver Library */
 #define @MATRIX_LIBRARY@
 
@@ -161,7 +165,15 @@ enum {
 #else
   nghost = 4,
 #endif
-  num_digit = 4 
+#ifdef FULL_RADIATION_TRANSFER
+#ifdef SECOND_ORDER_PRIM
+ Radghost = 2,
+#else
+ Radghost = 3,
+#endif
+#endif 
+  num_digit = 4
+
 };
 #define MAXLEN 256
 

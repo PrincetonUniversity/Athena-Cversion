@@ -107,8 +107,16 @@ static Real Vmax = 500.0;
 static Real dfloor = 1.e-20;
 static Real Tfloor = 1.e-20;
 /* electron equilivalent rest mass temperature, used in compton scattering */
-static Real T_e = 5.94065e9; 
+static Real T_e = 5.94065e9;
+#ifndef RADIATION_HYDRO
+#ifndef RADIATION_MHD
+#ifndef RADIATION_TRANSFER
+#ifndef FULL_RADIATION_TRANSFER 
 static Real R_ideal = 1.0;
+#endif
+#endif
+#endif
+#endif
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -171,6 +179,32 @@ void integrate_3d_vl(DomainS *pD)
   if (OrbitalProfile==NULL || ShearProfile==NULL)
     ath_error("[integrate_3d_vl]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
 #endif
+
+        PrimS Wtemp;
+
+		 /* Check negative pressure */
+        /* This is particular for the ghost zones */
+
+        for (k=ks-nghost; k<=ke+nghost; k++){
+                for (j=js-nghost; j<=je+nghost; j++) {
+                        for (i=is-nghost; i<=ie+nghost; i++) {
+
+                                Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+                                if(Wtemp.d < dfloor){
+                                        Wtemp.d = dfloor;
+                                        pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+                                }
+
+                                if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+                                        Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+                                        pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+
+
+                                } /* End if wtemp negative */
+
+                        }/* end i */
+                }/* end j*/
+        }/* end k*/
 
 /* Set etah=0 so first calls to flux functions do not use H-correction */
   etah = 0.0;

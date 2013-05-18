@@ -214,7 +214,7 @@ void init_mesh(MeshS *pM)
       pM->BCFlag_ox2 = par_geti_def(block,"bc_ox2",0);
       pM->BCFlag_ox3 = par_geti_def(block,"bc_ox3",0);
 
-#ifdef RADIATION_TRANSFER
+#if defined (RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
 /* Set radiation BC flags on root domain */
       pM->RBCFlag_ix1 = par_geti_def(block,"rbc_ix1",0);
       pM->RBCFlag_ix2 = par_geti_def(block,"rbc_ix2",0);
@@ -650,7 +650,7 @@ void init_mesh(MeshS *pM)
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
       sprintf(block,"domain%d",pD->InputBlock);
       pD->Grid = NULL;
-#ifdef RADIATION_TRANSFER
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
       pD->RadGrid = NULL;
 #endif /* RADIATION_TRANSFER */
 
@@ -663,10 +663,10 @@ void init_mesh(MeshS *pM)
         if (pD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
           if ((pD->Grid = (GridS*)malloc(sizeof(GridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a Grid for %s\n",block);
-#ifdef RADIATION_TRANSFER
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
           if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
-#endif
+#endif 
         }
       }}}
     }

@@ -95,6 +95,12 @@ void show_config(void)
   #endif
 #endif
 
+#if defined(RADIATION_TRANSFER)
+    ath_pout(0,"Time dependent RT	ON\n");
+#else
+    ath_pout(0,"Time dependent RT	OFF\n");
+#endif
+
 #if defined(CYLINDRICAL)
   ath_pout(0," Coordinate System:       cylindrical\n");
 #else

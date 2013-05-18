@@ -127,6 +127,10 @@ int main(int argc, char *argv[])
   VMFun_t BackEuler;
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+  VDFun_t FullRT;
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* Steps in main:
  *  1 - check for command line options and respond
@@ -350,6 +354,11 @@ int main(int argc, char *argv[])
   init_radiation(&Mesh);
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+  FullRT = init_fullradiation(&Mesh);
+#endif
+
+
 /*--- Step 5. ----------------------------------------------------------------*/
 /* Set initial conditions, either by reading from restart or calling problem
  * generator.  But first start by setting variables in <time> block (these
@@ -421,6 +430,10 @@ int main(int argc, char *argv[])
 #ifdef RADIATION_TRANSFER
     bvals_rad_init(&Mesh);
 #endif   
+ 
+#ifdef FULL_RADIATION_TRANSFER
+    bvals_fullrad_init(&Mesh);
+#endif
 
 #ifdef SELF_GRAVITY
   bvals_grav_init(&Mesh);
@@ -452,6 +465,10 @@ int main(int argc, char *argv[])
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	bvals_fullrad(&(Mesh.Domain[nl][nd]));
 #endif
       }
     }
@@ -658,6 +675,27 @@ int main(int argc, char *argv[])
 
 	/* Update boundary condition for Eddington tensor */
 #endif /* RADIATION_TRANSFER */
+
+
+
+/* Do the full radiation transfer step */
+/* If momentum equations are used, Eddington tensor also needs to be updated */
+#ifdef FULL_RADIATION_TRANSFER
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {		
+		/* update specific intensity */
+		FullRT(&(Mesh.Domain[nl][nd]));		
+
+		/* update boundary condition */
+
+		bvals_fullrad(&(Mesh.Domain[nl][nd]));
+
+
+	}/* end if grid is not null */
+      }/* end Domain nd */
+    }/* END level nl */
+#endif
 
 
 
@@ -952,11 +990,18 @@ int main(int argc, char *argv[])
 #ifdef RADIATION_TRANSFER
   bvals_rad_shear_destruct();
 #endif	
-#endif
+#endif /* end shearing box */
+
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_destruct();
 #endif
   par_close();
+
+#ifdef FULL_RADIATION_TRANSFER
+  bvals_fullrad_destruct();
+  fullradiation_destruct(&Mesh);
+#endif
+
 #ifdef RADIATION_TRANSFER
  radiation_destruct(&Mesh);
 #endif

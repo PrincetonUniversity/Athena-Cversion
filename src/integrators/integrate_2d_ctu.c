@@ -502,6 +502,7 @@ void integrate_2d_ctu(DomainS *pD)
   for (i=il; i<=iu; i++) {
 #ifdef CYLINDRICAL
     dx2 = r[i]*pG->dx2;
+    dx2i = 1.0/dx2;
     dtodx2 = pG->dt*dx2i;
     hdtodx2 = 0.5*dtodx2;
 #endif
@@ -1442,7 +1443,7 @@ void integrate_2d_ctu(DomainS *pD)
     for (i=is; i<=ie; i++) {
       rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
       hdtodx2 = hdt/(r[i]*pG->dx2);
-      dtodx2 = pG->dt/(r[i]*pG->dx2);
+     
 
       /* Calculate d at time n+1/2 */
       dhalf[j][i] = pG->U[ks][j][i].d
@@ -1456,6 +1457,7 @@ void integrate_2d_ctu(DomainS *pD)
 
 #ifdef FARGO
       /* Save current R/phi momenta */
+      dtodx2 = pG->dt/(r[i]*pG->dx2);
       Mrn = pG->U[ks][j][i].M1;
       Mpn = pG->U[ks][j][i].M2;
 
@@ -1463,6 +1465,7 @@ void integrate_2d_ctu(DomainS *pD)
       qshear = (*ShearProfile)(r[i]);
 
       if (StaticGravPot != NULL){
+	cc_pos(pG,i,j,ks,&x1,&x2,&x3);
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
         g = (phir-phil)*dx1i;

@@ -107,6 +107,8 @@ void integrate_2d_vl(DomainS *pD)
   int j, js = pG->js, je = pG->je;
   int ks = pG->ks;
   Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,Bx;
+
+
 #if (NSCALARS > 0)
   int n;
 #endif
@@ -572,6 +574,7 @@ void integrate_2d_vl(DomainS *pD)
     }
   }
 #endif /* CYLINDRICAL */
+
 
 
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
@@ -1109,6 +1112,18 @@ void integrate_2d_vl(DomainS *pD)
     }
   }
 #endif /* CYLINDRICAL */
+
+
+/*=====   Add radiation source term for half time step =============*/
+#ifdef FULL_RADIATION_TRANSFER
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
+	pG->U[ks][j][i].E += pG->Radheat[ks][j][i];
+    }/* end i */
+  }/* end j */
+
+#endif
+
 
 
 /*=== STEP 13: Update cell-centered values for a full timestep ===============*/

@@ -69,9 +69,9 @@ void restart_grids(char *res_file, MeshS *pM)
 #ifdef PARTICLES
   long p;
 #endif
-#ifdef RADIATION_TRANSFER
+#if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
   RadGridS *pRG;
-  int nf, nang, noct, l, m, ifr;
+  int nf, nang, noct, l, m, ifr, n;
 #endif
 
 /* Open the restart file */
@@ -631,7 +631,6 @@ void restart_grids(char *res_file, MeshS *pM)
     }
 
 
-    //#ifdef NOT_DEFINED_EVER
 #ifdef RADIATION_TRANSFER
     pRG=pM->Domain[nl][nd].RadGrid;
     is = pRG->is;
@@ -812,6 +811,41 @@ void restart_grids(char *res_file, MeshS *pM)
       }
 #endif /*RADIATION_TRANSFER*/
 
+
+
+
+#ifdef FULL_RADIATION_TRANSFER
+    pRG=pM->Domain[nl][nd].RadGrid;
+    is = pRG->is;
+    ie = pRG->ie;
+    js = pRG->js;
+    je = pRG->je;
+    ks = pRG->ks;
+    ke = pRG->ke;
+    nf = pRG->nf;
+    nang = pRG->nang;
+    noct = pRG->noct;
+    printf("noct, nang: %d %d\n",nang,noct);
+
+/* Read the mean intensity */
+    fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+    fgets(line,MAXLEN,fp);
+    if(strncmp(line,"rad_J",5) != 0)
+      ath_error("[restart_grids]: Expected rad_J, found %s",line);
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+	for (i=is; i<=ie; i++) {
+	  for (ifr=0; ifr<nf; ifr++) {
+	    for (l=0; l<noct; l++){
+	      for (n=0; n<nang; n++){
+	    	fread(&(pRG->imu[ifr][l][n][k][j][i]),sizeof(Real),1,fp);
+	      }/* end n */
+	      }/* end l */
+	  }}}}
+
+#endif /* FULL_RADIATION_TRANSFER*/
+
+
   }} /* End loop over all Domains --------------------------------------------*/
 
 /* Call a user function to read his/her problem-specific data! */
@@ -853,9 +887,9 @@ void dump_restart(MeshS *pM, OutputS *pout)
   int bufsize, nbuf = 0;
   Real *buf = NULL;
 
-#ifdef RADIATION_TRANSFER
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
   RadGridS *pRG;
-  int nf, nang, noct, l, m, ifr;
+  int nf, nang, noct, l, m, ifr, n;
 #endif
 
 /* Allocate memory for buffer */
@@ -1843,6 +1877,43 @@ void dump_restart(MeshS *pM, OutputS *pout)
       }
 
 #endif /*RADIATION_TRANSFER*/
+
+
+#ifdef FULL_RADIATION_TRANSFER
+      pRG=pM->Domain[nl][nd].RadGrid;
+      is = pRG->is;
+      ie = pRG->ie;
+      js = pRG->js;
+      je = pRG->je;
+      ks = pRG->ks;
+      ke = pRG->ke;
+      nf = pRG->nf;
+      nang = pRG->nang;
+      noct = pRG->noct;
+
+/* Write the mean intensity */
+
+     fprintf(fp,"\nrad_J\n");
+      for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+          for (i=is; i<=ie; i++) {
+	    for (ifr=0; ifr<nf; ifr++) {
+	      for (l=0; l<noct; l++){
+		for (n=0; n<nang; n++){
+	      	buf[nbuf++] = pRG->imu[ifr][l][n][k][j][i];
+	      if ((nbuf+1) > bufsize) {
+		fwrite(buf,sizeof(Real),nbuf,fp);
+		nbuf = 0;
+	      }
+	      }
+	      }
+	    }}}}
+      if (nbuf > 0) {
+        fwrite(buf,sizeof(Real),nbuf,fp);
+        nbuf = 0;
+      }
+
+#endif
 
     }
   }}  /*---------- End loop over all Domains ---------------------------------*/

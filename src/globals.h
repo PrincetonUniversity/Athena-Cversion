@@ -71,9 +71,12 @@ ShearFun_t ShearProfile = NULL;
 #endif
 
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(FULL_RADIATION_TRANSFER)
 Real Prat;		/* Pratio=a_rT^4/rho a^2; The ratio between the pressure unit for radiation and gas */ 
 Real Crat;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
+#endif
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 OpacityFun_t Opacity = NULL;
 int Ncycle = 5;	/* Numbers of relaxation cycles to do in multigrid-matrix solver */
 Real TOL = 1.e-8;  /* relative residual level used in matrix convergent criterian */
@@ -82,7 +85,7 @@ int Erflag = 1; /* Flag to do backward Euler first or later. If 1, do it later. 
 Real T0 = 1.e7; /* the temperature unit used in this simulation */
 #endif
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
 Real R_ideal;		/* Value of ideal gas constant under current unit. Used to calculate the temperature */
 #endif
 
@@ -98,6 +101,10 @@ Real B00;
 RadInitFun_t get_raytrace_thermal_fraction = NULL;
 RadInitFun_t get_raytrace_opacity = NULL;
 #endif
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+FullRadOpacity_t get_full_opacity = NULL;
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -163,9 +170,12 @@ extern ShearFun_t ShearProfile;
 #endif
 
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(FULL_RADIATION_TRANSFER) 
 extern Real Prat;
 extern Real Crat;
+#endif
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
 extern OpacityFun_t Opacity;
 extern int Ncycle;	/* Numbers of relaxation cycles to do in multigrid-matrix solver */
 extern Real TOL;  /* relative residual level used in matrix convergent criterian */
@@ -174,7 +184,7 @@ extern int Erflag;
 extern Real T0;
 #endif
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER) || defined(RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
 extern Real R_ideal;		 	
 #endif
 
@@ -191,6 +201,12 @@ extern RadInitFun_t get_raytrace_thermal_fraction;
 extern RadInitFun_t get_raytrace_opacity;
 #endif
 #endif
+
+
+#ifdef FULL_RADIATION_TRANSFER
+extern FullRadOpacity_t get_full_opacity;
+#endif
+
 
 #endif /* MAIN_C */
 #endif /* GLOBALS_H */

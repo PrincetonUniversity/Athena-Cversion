@@ -88,7 +88,7 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/MatrixSolver/Jacobi1D.o \
 		  integrators/MatrixSolver/bvals_Matrix.o \
 		  integrators/MatrixSolver/bvals_Matrix_shear.o \
-		   integrators/MatrixSolver/bvals_Matrix_gas.o \
+		  integrators/MatrixSolver/bvals_Matrix_gas.o \
 		  integrators/MatrixSolver/bvals_Matrix_shear_gas.o \
 		  integrators/MatrixSolver/Bicgsafe3D.o \
 		  integrators/MatrixSolver/bvals_matrix_vector.o \
@@ -153,6 +153,14 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/gausseid_3d.o\
 		radiation/ray_tracing.o
 
+FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
+		fullradiation/hydro_to_fullrad.o\
+		fullradiation/utils_fullrad.o\
+		fullradiation/bvals_fullrad.o\
+		fullradiation/fullRT_2d.o\
+		fullradiation/output_spec.o\
+		fullradiation/FullRT_flux.o
+
 RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \
 		     reconstruction/lr_states_plm.o \
@@ -176,7 +184,7 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/two_shock.o 
 	      
 
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${HYPRE_OBJ} ${LIS_OBJ}
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${FULLRADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${HYPRE_OBJ} ${LIS_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 

@@ -119,7 +119,15 @@ static Real dfloor = 1.e-20;
 static Real Tfloor = 1.e-20;
 /* electron equilivalent rest mass temperature, used in compton scattering */
 static Real T_e = 5.94065e9; 
+#ifndef RADIATION_HYDRO
+#ifndef RADIATION_MHD
+#ifndef RADIATION_TRANSFER
+#ifndef FULL_RADIATION_TRANSFER 
 static Real R_ideal = 1.0;
+#endif
+#endif
+#endif
+#endif
 
  
 
@@ -1482,6 +1490,7 @@ void integrate_3d_ctu(DomainS *pD)
       for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+	dx2i=1.0/(r[i]*pG->dx2);
 #endif
         db1 = (rsf*pG->B1i[k  ][j-1][i+1] - lsf*pG->B1i[k][j-1][i])*dx1i;
         db2 = (    pG->B2i[k  ][j  ][i  ] -     pG->B2i[k][j-1][i])*dx2i;
@@ -1898,6 +1907,7 @@ void integrate_3d_ctu(DomainS *pD)
       for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+	dx2i=1.0/(r[i]*pG->dx2);
 #endif
         db1 = (rsf*pG->B1i[k-1][j  ][i+1] - lsf*pG->B1i[k-1][j][i])*dx1i;
         db2 = (    pG->B2i[k-1][j+1][i  ] -     pG->B2i[k-1][j][i])*dx2i;

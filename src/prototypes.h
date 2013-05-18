@@ -23,6 +23,7 @@
 #include "reconstruction/prototypes.h"
 #include "rsolvers/prototypes.h"
 #include "radiation/prototypes.h"
+#include "fullradiation/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */
@@ -371,15 +372,13 @@ Real eff_sound_thick(const Prim1DS W, Real dt); /* !< Used to limit time step in
 void dSource(const Cons1DS U, const Real Bx, Real *SEE, Real *SErho, Real *SEmx, Real *SEmy, Real *SEmz, const Real x1);
 /* function to calculate derivative of source function over conserved variables */
 
-double rtsafe(void (*funcd)(double, double, double, double, double, double *, double *), double x1, double x2,
-	double xacc, double coef1, double coef2, double coef3, double coef4);
 
 void GetTguess(MeshS *pM); 
 void polint(Real xa[], Real ya[], int n, Real x, Real *y, Real *dy);
 /* calculate the new gas temperature and radiation energy density after one thermal relaxation time */
 void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er);
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
-void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);	
+
 void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
 
 #ifdef RADIATION_TARNSFER
@@ -389,5 +388,12 @@ void Eddington_FUN(DomainS *pD);
 
 #endif
 #endif
+
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined (FULL_RADIATION_TRANSFER)
+double rtsafe(void (*funcd)(double, double, double, double, double, double *, double *), double x1, double x2,
+	double xacc, double coef1, double coef2, double coef3, double coef4);
+void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);	
+#endif
+
 
 #endif /* PROTOTYPES_H */

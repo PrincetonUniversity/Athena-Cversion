@@ -116,6 +116,13 @@ void dump_history(MeshS *pM, OutputS *pOut)
   Real bx, by, bz, vB, b2, Bmag2;
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+  RadGridS *pRG;
+  int nfr, ifr;
+  int kr, jr, ir;
+  Real J, H1, H2, H3;
+#endif
+
 
   total_hst_cnt = 9 + NSCALARS + usr_hst_cnt;
 #ifdef ADIABATIC
@@ -124,6 +131,11 @@ void dump_history(MeshS *pM, OutputS *pOut)
 
 /* Add extra four columns for Er, Fluxr1, Fluxr2, Fluxr3 */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  total_hst_cnt += 4;
+#endif
+
+/* Add J, and H1, H2, H3 */
+#ifdef FULL_RADIATION_TRANSFER
   total_hst_cnt += 4;
 #endif
 
@@ -166,6 +178,10 @@ void dump_history(MeshS *pM, OutputS *pOut)
       if (pM->Domain[nl][nd].Grid != NULL){
         pG = pM->Domain[nl][nd].Grid;
         pD = (DomainS*)&(pM->Domain[nl][nd]);
+#ifdef FULL_RADIATION_TRANSFER
+	pRG = pM->Domain[nl][nd].RadGrid;
+	nfr = pRG->nf;
+#endif
         is = pG->is, ie = pG->ie;
         js = pG->js, je = pG->je;
         ks = pG->ks, ke = pG->ke;
@@ -244,6 +260,39 @@ void dump_history(MeshS *pM, OutputS *pOut)
 	      mhst++;
 	      scal[mhst] += dVol*pG->U[k][j][i].Fr3;
 #endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	      /* dump the frequency averaged quantities */
+	      J = 0.0; H1 = 0.0; H2 = 0.0; H3 = 0.0;
+	      if(k>1)
+	      	kr = k-nghost+Radghost;
+	      else
+		kr = k;
+
+	      if(j > 1) 
+	      	jr = j-nghost+Radghost;
+	      else
+		jr = j;
+
+	      ir = i-nghost+Radghost;
+	      for(ifr=0; ifr<nfr; ifr++){
+ 		 J += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].J;
+		 H1 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[0];
+		 H2 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[1];
+		 H3 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[2];
+	      }
+
+	      mhst++;
+	      scal[mhst] += dVol*J;
+	      mhst++;
+	      scal[mhst] += dVol*H1;
+	      mhst++;
+	      scal[mhst] += dVol*H2;
+	      mhst++;
+	      scal[mhst] += dVol*H3;
+#endif
+
+
 		
 
 #else /* SPECIAL_RELATIVITY */
@@ -442,6 +491,17 @@ void dump_history(MeshS *pM, OutputS *pOut)
             fprintf(pfile,"   [%i]=x2-Fluxr   ",mhst);
 	    mhst++;
             fprintf(pfile,"   [%i]=x3-Fluxr   ",mhst);
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	    mhst++;
+            fprintf(pfile,"   [%i]=Er   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=Flux1   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=Flux2   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=Flux3   ",mhst);
 #endif
 
 

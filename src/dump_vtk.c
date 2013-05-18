@@ -38,7 +38,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
   int ndata0,ndata1,ndata2;
   float *data;   /* points to 3*ndata0 allocated floats */
   double x1, x2, x3;
-#ifdef RADIATION_TRANSFER
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
   RadGridS *pRG;
   int ifr,nf;
   int irl,iru,jrl,jru,krl,kru;
@@ -66,7 +66,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
         jl = pGrid->js, ju = pGrid->je;
         kl = pGrid->ks, ku = pGrid->ke;
 
-#ifdef RADIATION_TRANSFER
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
 	pRG = pM->Domain[nl][nd].RadGrid;
 	nf = pRG->nf;
         irl = pRG->is, iru = pRG->ie;
@@ -364,23 +364,39 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 #endif
 
 
-#ifdef RADIATION_TRANSFER
+#if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
 #ifdef WRITE_GHOST_CELLS
 /* Grid has more ghost cells than RadGrid so these need to be accounted for */ 
-	irl=il+nghost-1;
-	iru=iu-nghost+1;
 	jrl=jl;
 	jru=ju;
 	krl=kl;
 	kru=ku;
+#ifndef FULL_RADIATION_TRANSFER
+
+	irl=il+nghost-1;
+	iru=iu-nghost+1;
+	
 	if(pGrid->Nx[1] > 1) {
 	  jrl += nghost-1;
-	  jru -= nghost-1;
+	  jru -= (nghost-1);
 	}
 	if(pGrid->Nx[2] > 1) {
 	  krl += nghost-1;
-	  kru -= nghost-1;
+	  kru -= (nghost-1);
 	}
+#else
+	irl=il+nghost-Radghost;
+	iru=iu-nghost+Radghost;
+	
+	if(pGrid->Nx[1] > 1) {
+	  jrl += nghost-Radghost;
+	  jru -= (nghost-Radghost);
+	}
+	if(pGrid->Nx[2] > 1) {
+	  krl += nghost-Radghost;
+	  kru -= (nghost-Radghost);
+	}
+#endif
 /* Write frequency integrated moments of the intensities */
 /* Write 0th moment integrated over frequency */
 	fprintf(pfile,"\nSCALARS rad_J float\n");
@@ -397,7 +413,11 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[i-il] = 0.0;
 	      if(inkloop && injloop && iniloop) {
 		for (ifr=0; ifr<nf; ifr++) {
+#ifndef FULL_RADIATION_TRANSFER
 		  data[i-il] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].J);
+#else
+		  data[i-il] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].J);
+#endif
 		}
 	      }
 	    }
@@ -420,10 +440,16 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[3*(i-il)+1] = 0.0;
 	      data[3*(i-il)+2] = 0.0;
 	      if(inkloop && injloop && iniloop) {
-		for (ifr=0; ifr<nf; ifr++) {		
+		for (ifr=0; ifr<nf; ifr++) {
+#ifndef FULL_RADIATION_TRANSFER		
 		  data[3*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[0]);
 		  data[3*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[1]);
 		  data[3*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[2]);
+#else
+		  data[3*(i-il)  ] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[0]);
+		  data[3*(i-il)+1] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[1]);
+		  data[3*(i-il)+2] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].H[2]);
+#endif
 		}
 	      }
 	    }
@@ -453,6 +479,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[9*(i-il)+8] = 0.0;
 	      if(inkloop && injloop && iniloop) {
 		for (ifr=0; ifr<nf; ifr++) {
+#ifndef FULL_RADIATION_TRANSFER
 		  data[9*(i-il)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[0]);
 		  data[9*(i-il)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[1]);
 		  data[9*(i-il)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[3]);
@@ -462,6 +489,18 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 		  data[9*(i-il)+6] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[3]);
 		  data[9*(i-il)+7] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[4]);
 		  data[9*(i-il)+8] += (float)(pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[5]);
+#else
+		  data[9*(i-il)  ] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[0]);
+		  data[9*(i-il)+1] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[1]);
+		  data[9*(i-il)+2] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[3]);
+		  data[9*(i-il)+3] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[1]);
+		  data[9*(i-il)+4] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[2]);
+		  data[9*(i-il)+5] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[4]);
+		  data[9*(i-il)+6] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[3]);
+		  data[9*(i-il)+7] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[4]);
+		  data[9*(i-il)+8] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][kr][jr][ir].K[5]);
+
+#endif
 		}
 	      }
 	    }
@@ -479,7 +518,11 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	    for (i=irl; i<=iru; i++) {
 	      data[i-irl] = 0.0;
 	      for (ifr=0; ifr<nf; ifr++) {
-		data[i-irl] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].J);
+#ifndef FULL_RADIATION_TRANSFER
+		  data[i-irl] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].J);
+#else
+		  data[i-irl] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].J);
+#endif
 	      }
 	    }
             if(!big_end) ath_bswap(data,sizeof(float),iru-irl+1);
@@ -494,10 +537,16 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[3*(i-irl)  ] = 0.0;
 	      data[3*(i-irl)+1] = 0.0;
 	      data[3*(i-irl)+2] = 0.0;
-	      for (ifr=0; ifr<nf; ifr++) {		
+	      for (ifr=0; ifr<nf; ifr++) {	
+#ifndef FULL_RADIATION_TRANSFER	
 		data[3*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[0]);
 		data[3*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[1]);
 		data[3*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[2]);
+#else
+		data[3*(i-irl)  ] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[0]);
+		data[3*(i-irl)+1] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[1]);
+		data[3*(i-irl)+2] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].H[2]);
+#endif
 	      }
 	    }
 	    if(!big_end) ath_bswap(data,sizeof(float),3*(iru-irl+1));
@@ -519,6 +568,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	      data[9*(i-irl)+7] = 0.0;
 	      data[9*(i-irl)+8] = 0.0;
 	      for (ifr=0; ifr<nf; ifr++) {
+#ifndef FULL_RADIATION_TRANSFER	
 		data[9*(i-irl)  ] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[0]);
 		data[9*(i-irl)+1] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[1]);
 		data[9*(i-irl)+2] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[3]);
@@ -528,6 +578,17 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 		data[9*(i-irl)+6] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[3]);
 		data[9*(i-irl)+7] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[4]);
 		data[9*(i-irl)+8] += (float)(pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[5]);
+#else
+		data[9*(i-irl)  ] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[0]);
+		data[9*(i-irl)+1] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[1]);
+		data[9*(i-irl)+2] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[3]);
+		data[9*(i-irl)+3] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[1]);
+		data[9*(i-irl)+4] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[2]);
+		data[9*(i-irl)+5] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[4]);
+		data[9*(i-irl)+6] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[3]);
+		data[9*(i-irl)+7] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[4]);
+		data[9*(i-irl)+8] += (float)(4.0*PI*pRG->wnu[ifr]*pRG->R[ifr][k][j][i].K[5]);
+#endif
 	      }
 	    }
 	    if(!big_end) ath_bswap(data,sizeof(float),9*(iru-irl+1));
@@ -552,7 +613,7 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	}
 #endif
 #endif /* WRITE_GHOST_CELLS */
-#endif /* RADIATION_TRANSFER */
+#endif /* RADIATION_TRANSFER || FULL_RADIATION_TRANSFER */
 
 /* Write passive scalars */
 

@@ -187,7 +187,8 @@ void problem(DomainS *pDomain)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke;
-
+  const Real *r = pGrid->r, *ri=pGrid->ri;
+ Real rsf, lsf;
 #ifdef RADIATION_TRANSFER
   RadGridS *pRG = pDomain->RadGrid;
   int il,iu,jl,ju,kl,ku,ifr,m;
@@ -228,8 +229,6 @@ void problem(DomainS *pDomain)
 	NGy = pDomain->NGrid[1];
 	NGz = pDomain->NGrid[2];
 	
-	if((pDomain->Nx[0]) != (pDomain->Nx[1]))
-		ath_error("[Problem] The global disk only cover one quarter and requires periodic boundary with respect to is and js!\n");
 
 
 	
@@ -328,18 +327,18 @@ void problem(DomainS *pDomain)
 	if((abs(tempphi) < 1.0) && (distance > 10.0)){
 		density = rho0 * pow((1.0-tempphi),nindex);
 		/* random perturbation */
-		amp = 0.0;
+		amp = 0.01;
 		if(density < dfloor){
 			density = dfloor;
 		}
 		pressure = rho0*vs0*vs0*pow(density/rho0,Gamma)/Gamma;
 	}
 	else{
-		vy = Vkep(x1,x2,x3);
+	/*	vy = Vkep(x1,x2,x3);
 		density = dfloor;
 		pressure = density * vs0 * vs0/Gamma;
-
-/*		vx = 0.0;
+	*/
+		vx = 0.0;
 		vy = 0.0;
 		amp = 0.0;
 
@@ -357,7 +356,7 @@ void problem(DomainS *pDomain)
 			density = 1.e-5 * exp(-tempphi);
 			pressure = sqrt(1.e4/Gamma) * density;
 		}
-*/
+
 		
 	}
 
@@ -528,16 +527,15 @@ void problem(DomainS *pDomain)
         for (i=is; i<=ie+2; i++) {
           cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-	Radius = sqrt(x1*x1+x2*x2);
+	Radius = x1; 
 
-	if(pGrid->U[k][j][i].d > dfloor)
+	if((pGrid->U[k][j][i].d > 2.0 *dfloor) && (Radius > 10.0))
 		Aphi = B0 * pGrid->U[k][j][i].d;
 	else
 		Aphi = 0.0;
 
 		/* Now convert to Ax and Ay */
-		Ax[k][j][i] = Aphi * x1/Radius;
-		Ay[k][j][i] = -Aphi * x2/Radius;
+		Ay[k][j][i] = Aphi;
 	
         }
       }
@@ -547,8 +545,10 @@ void problem(DomainS *pDomain)
       for (j=js; j<=je+1; j++) {
         for (i=is; i<=ie+1; i++) {
           pGrid->B1i[k][j][i] = -(Ay[k+1][j][i]-Ay[k][j][i])/pGrid->dx3;
-	  pGrid->B2i[k][j][i] = (Ax[k+1][j][i]-Ax[k][j][i])/pGrid->dx3;
-          pGrid->B3i[k][j][i] =  (Ay[k][j][i+1]-Ay[k][j][i])/pGrid->dx1 - (Ax[k][j+1][i]-Ax[k][j][i])/pGrid->dx2;		
+	  pGrid->B2i[k][j][i] = 0.0;
+	  rsf = ri[i+1]/r[i];
+	  lsf = ri[i]/r[i];
+          pGrid->B3i[k][j][i] =  (rsf*Ay[k][j][i+1]-lsf*Ay[k][j][i])/pGrid->dx1;		
         }
       }
     }
@@ -556,7 +556,9 @@ void problem(DomainS *pDomain)
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
-          pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i]+pGrid->B1i[k][j][i+1]);
+	  rsf = ri[i+1]/r[i];
+          lsf = ri[i]/r[i];
+          pGrid->U[k][j][i].B1c = 0.5*(lsf*pGrid->B1i[k][j][i]+rsf*pGrid->B1i[k][j][i+1]);
           pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k][j][i]+pGrid->B3i[k+1][j][i]);
         }
       }
@@ -583,7 +585,9 @@ void problem(DomainS *pDomain)
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
         for (i=is; i<=ie; i++) {
-          pGrid->U[k][j][i].B1c = 0.5*(pGrid->B1i[k][j][i]+pGrid->B1i[k][j][i+1]);
+	  rsf = ri[i+1]/r[i];
+          lsf = ri[i]/r[i];
+          pGrid->U[k][j][i].B1c = 0.5*(lsf*pGrid->B1i[k][j][i]+rsf*pGrid->B1i[k][j][i+1]);
           pGrid->U[k][j][i].B2c = 0.5*(pGrid->B2i[k][j][i]+pGrid->B2i[k][j+1][i]);
           pGrid->U[k][j][i].B3c = 0.5*(pGrid->B3i[k][j][i]+pGrid->B3i[k+1][j][i]);
 #ifdef ADIABATIC
@@ -603,8 +607,10 @@ void problem(DomainS *pDomain)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        divb = (pGrid->B1i[k][j][i+1]-pGrid->B1i[k][j][i])/pGrid->dx1 +
-               (pGrid->B2i[k][j+1][i]-pGrid->B2i[k][j][i])/pGrid->dx2 +
+	  rsf = ri[i+1]/r[i];
+          lsf = ri[i]/r[i];
+        divb = (rsf*pGrid->B1i[k][j][i+1]-lsf*pGrid->B1i[k][j][i])/pGrid->dx1 +
+               (pGrid->B2i[k][j+1][i]-pGrid->B2i[k][j][i])/(pGrid->dx2*r[i]) +
                (pGrid->B3i[k+1][j][i]-pGrid->B3i[k][j][i])/pGrid->dx3;
         if (fabs(divb) >= 1.e-12) {
 		cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
@@ -1372,7 +1378,7 @@ void disk_ir(GridS *pGrid) {
 #ifdef MHD
   int ju, ku; /* j-upper, k-upper */
 #endif
-	Real Vkep,R,p,z, RBr, Lper;
+	Real Vk,R,p,z, RBr, Lper;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1384,9 +1390,9 @@ void disk_ir(GridS *pGrid) {
 #ifdef FARGO
     	Lper = R*pGrid->U[k][j][is].M2;
 #else
-    	Vkep = sqrt(R/2.0)*Crat/(R-1.0);
+    	Vk = Vkep(R,p,z);
 	/* residual angular momentum with respect to the Keplerian angular momentum */
-    	Lper = R*pGrid->U[k][j][is].M2 - R*pGrid->U[k][j][is].d*Vkep;
+    	Lper = R*pGrid->U[k][j][is].M2 - R*pGrid->U[k][j][is].d*Vk;
 #endif
 
       for (i=1; i<=nghost; i++) {
@@ -1394,14 +1400,14 @@ void disk_ir(GridS *pGrid) {
 				
 	/* Calculate Keplerian velocity */
 	cc_pos(pGrid,is-i,j,k,&R,&p,&z);
-	Vkep = sqrt(R/2.0)*Crat/(R-1.0);
+	Vk = Vkep(R,p,z);
 #ifdef FARGO
 				
 	pGrid->U[k][j][is-i].M2 = Lper/R;
 				
 #else
 				
-	pGrid->U[k][j][is-i].M2 = Lper/R + pGrid->U[k][j][is-i].d*Vkep;
+	pGrid->U[k][j][is-i].M2 = Lper/R + pGrid->U[k][j][is-i].d*Vk;
 				
 #endif
 
@@ -1461,7 +1467,7 @@ void disk_or(GridS *pGrid) {
 #ifdef MHD
   int ju, ku; /* j-upper, k-upper */
 #endif
-	Real Vkep, R,p,z, RBr, Lper;
+	Real Vk, R,p,z, RBr, Lper;
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1473,21 +1479,21 @@ void disk_or(GridS *pGrid) {
     	Lper = pGrid->r[ie]*pGrid->U[k][j][ie].M2;
 #else
 	cc_pos(pGrid,ie,j,k,&R,&p,&z);
-	Vkep = sqrt(R/2.0)*Crat/(R-1.0);
-	Lper = R*pGrid->U[k][j][ie].M2 - R*pGrid->U[k][j][ie].d*Vkep;
+	Vk = Vkep(R,p,z);
+	Lper = R*pGrid->U[k][j][ie].M2 - R*pGrid->U[k][j][ie].d*Vk;
 #endif
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie];
 				
 	cc_pos(pGrid,ie+i,j,k,&R,&p,&z);
-	Vkep = sqrt(R/2.0)*Crat/(R-1.0);
+	Vk = Vkep(R,p,z);
 #ifdef FARGO
 	
 	pGrid->U[k][j][ie+i].M2 = Lper/R;
 	
 #else
 	
-	pGrid->U[k][j][ie+i].M2 = Lper/R + pGrid->U[k][j][ie+i].d*Vkep;
+	pGrid->U[k][j][ie+i].M2 = Lper/R + pGrid->U[k][j][ie+i].d*Vk;
 	
 #endif
 
@@ -2203,11 +2209,21 @@ static Real grav_vertical(const Real x1, const Real x2, const Real x3)
 /* Paczynski - Witta potential */
 static Real PseudoNewton(const Real x1, const Real x2, const Real x3)
 {
-	Real GM, distance, potential;
+	Real GM, distance, potential, h;
 	/* The dimensionless number */
 	GM = Crat*Crat*0.5;
+	if(x3 > (ztop - 0.5 * dz)){
+		h = ztop - 0.5 * dz;
+	}
+	else if(x3 < (zbtm + 0.5 * dz)){
+		h = zbtm + 0.5 * dz;
+	}
+	else{
+		h = x3;
+	}
+
 	
-	distance = sqrt(x1*x1+x3*x3);
+	distance = sqrt(x1*x1+h*h);
 	potential = -GM/(distance - 1.0);
 	
 	
@@ -2218,10 +2234,20 @@ static Real PseudoNewton(const Real x1, const Real x2, const Real x3)
 /* Paczynski - Witta potential */
 static Real PseudoNewtonAccR(const Real x1, const Real x2, const Real x3)
 {
-	Real GM, acc, distance;
+	Real GM, acc, distance, h;
 	/* The dimensionless number */
 	GM = Crat*Crat*0.5;
-	distance = sqrt(x1*x1+x3*x3);
+	if(x3 > (ztop - 0.5 * dz)){
+		h = ztop - 0.5 * dz;
+	}
+	else if(x3 < (zbtm + 0.5 * dz)){
+		h = zbtm + 0.5 * dz;
+	}
+	else{
+		h = x3;
+	}
+
+	distance = sqrt(x1*x1+h*h);
 	
 	acc = (x1*GM)/(distance*SQR(distance-1.0));
 	
