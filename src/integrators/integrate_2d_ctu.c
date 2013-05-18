@@ -495,6 +495,7 @@ void integrate_2d_ctu(DomainS *pD)
   for (i=il; i<=iu; i++) {
 #ifdef CYLINDRICAL
     dx2 = r[i]*pG->dx2;
+    dx2i = 1.0/dx2;
     dtodx2 = pG->dt*dx2i;
     hdtodx2 = 0.5*dtodx2;
 #endif
@@ -1443,6 +1444,7 @@ void integrate_2d_ctu(DomainS *pD)
         - hdtodx2*(         x2Flux[j+1][i].Mx -          x2Flux[j][i].Mx);
 
 #ifdef FARGO
+      dtodx2 = pG->dt/(r[i]*pG->dx2);
       /* Save current R/phi momenta */
       Mrn = pG->U[ks][j][i].M1;
       Mpn = pG->U[ks][j][i].M2;
@@ -1462,12 +1464,12 @@ void integrate_2d_ctu(DomainS *pD)
       /* Use forward euler to approximate R/phi momenta at t^{n+1} */
       Mre = Mrn
               - dtodx1*(     rsf*x1Flux[j][i+1].Mx -      lsf*x1Flux[j][i].Mx)
-              - (dtodx2/r[i])*(  x2Flux[j+1][i].Mz -          x2Flux[j][i].Mz);
+              - dtodx2*(  x2Flux[j+1][i].Mz -          x2Flux[j][i].Mz);
       Mre += pG->dt*( 2.0*Om*Mpn + geom_src[j][i] - pG->U[ks][j][i].d*g);
 
       Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
         - dtodx1*(SQR(rsf)*x1Flux[j ][i+1].My - SQR(lsf)*x1Flux[j][i].My)
-         - (dtodx2/r[i])*( x2Flux[j+1][i ].Mx - x2Flux[j][i].Mx);
+         - dtodx2*( x2Flux[j+1][i ].Mx - x2Flux[j][i].Mx);
 
       /* Average forward euler and current values to approximate at t^{n+1/2} */
       Mrav = 0.5*(Mrn+Mre);

@@ -1413,6 +1413,7 @@ void integrate_3d_ctu(DomainS *pD)
       for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dx2i = 1.0/(r[i]*pG->dx2);
 #endif
         db1 = (rsf*pG->B1i[k  ][j-1][i+1] - lsf*pG->B1i[k][j-1][i])*dx1i;
         db2 = (    pG->B2i[k  ][j  ][i  ] -     pG->B2i[k][j-1][i])*dx2i;
@@ -1819,6 +1820,7 @@ void integrate_3d_ctu(DomainS *pD)
       for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dx2i = 1.0/(r[i]*pG->dx2);
 #endif
         db1 = (rsf*pG->B1i[k-1][j  ][i+1] - lsf*pG->B1i[k-1][j][i])*dx1i;
         db2 = (    pG->B2i[k-1][j+1][i  ] -     pG->B2i[k-1][j][i])*dx2i;
@@ -2216,7 +2218,7 @@ void integrate_3d_ctu(DomainS *pD)
            - q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
 
         M3h = pG->U[k][j][i].M3
-           - q1*(lsf*x1Flux[k  ][j  ][i+1].Mz - rsf*x1Flux[k][j][i].Mz)
+           - q1*(rsf*x1Flux[k  ][j  ][i+1].Mz - lsf*x1Flux[k][j][i].Mz)
            - q2*(    x2Flux[k  ][j+1][i  ].My -     x2Flux[k][j][i].My)
            - q3*(    x3Flux[k+1][j  ][i  ].Mx -     x3Flux[k][j][i].Mx);
 
@@ -2662,6 +2664,7 @@ void integrate_3d_ctu(DomainS *pD)
           - q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
 
 #ifdef FARGO
+        dtodx2 = pG->dt/(r[i]*pG->dx2);
         /* Save current R/phi momenta */
         Mrn = pG->U[k][j][i].M1;
         Mpn = pG->U[k][j][i].M2;
@@ -2681,14 +2684,14 @@ void integrate_3d_ctu(DomainS *pD)
         /* Use forward euler to approximate R/phi momenta at t^{n+1} */
         Mre = Mrn
                 - dtodx1*(     rsf*x1Flux[k][j][i+1].Mx -      lsf*x1Flux[k][j][i].Mx)
-                - (dtodx2/r[i])*(  x2Flux[k][j+1][i].Mz -          x2Flux[k][j][i].Mz)
+                - dtodx2*(  x2Flux[k][j+1][i].Mz -          x2Flux[k][j][i].Mz)
                 - dtodx3*(         x3Flux[k+1][j][i].My -          x3Flux[k][j][i].My);
         Mre += pG->dt*( 2.0*Om*Mpn + geom_src[k][j][i] - pG->U[k][j][i].d*g);
 
         Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
           - dtodx1*(SQR(rsf)*x1Flux[k ][j ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
-          - (dtodx2/r[i])*(  x2Flux[k ][j+1][i ].Mx - x2Flux[k][j][i].Mx)
-          - (dtodx3)*(       x3Flux[k+1][j ][i ].Mz - x3Flux[k][j][i].Mz);
+          - dtodx2*(  x2Flux[k ][j+1][i ].Mx - x2Flux[k][j][i].Mx)
+          - dtodx3*(       x3Flux[k+1][j ][i ].Mz - x3Flux[k][j][i].Mz);
 
         /* Average forward euler and current values to approximate at t^{n+1/2} */
         Mrav = 0.5*(Mrn+Mre);
