@@ -114,7 +114,11 @@ int main(int argc, char *argv[])
   struct tms tbuf;
   clock_t time0,time1, have_times;
   struct timeval tvs, tve;
-  Real dt_done, dt_rad;
+  Real dt_done;
+
+#ifdef RADIATION_TRANSFER
+  Real dt_rad;
+#endif
 
 #ifdef MPI_PARALLEL
   char *pc, *suffix, new_name[MAXLEN];
@@ -688,8 +692,11 @@ int main(int argc, char *argv[])
 		FullRT(&(Mesh.Domain[nl][nd]));		
 
 		/* update boundary condition */
-
 		bvals_fullrad(&(Mesh.Domain[nl][nd]));
+
+		/* Update the moments with the new specific intensities */
+		/* Including the ghost zones */
+		UpdateRT(&(Mesh.Domain[nl][nd]));
 
 
 	}/* end if grid is not null */

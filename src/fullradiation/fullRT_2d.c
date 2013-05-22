@@ -21,6 +21,7 @@
 
 static Real *****Divi = NULL;	/* temporary array to store flux for each array */
 static Real ****flux = NULL;
+static Real *tempimu = NULL;
 
 
 
@@ -57,6 +58,7 @@ void fullRT_2d(DomainS *pD)
 
 	Real imu[5];
 	Real vel;
+
 
 
 
@@ -127,18 +129,23 @@ void fullRT_2d(DomainS *pD)
 				ds = dx2;
 	/* Now calculate the flux along j direction */
 				for(i=is; i<=ie; i++){
+					/* first save the data */
+					for (j=0; j<=je+Radghost; j++){
+						tempimu[j] = pRG->imu[ifr][l][n][ks][j][i] * pRG->mu[l][n][ks][j][i][1];
+					}
+					
 					if((l == 0) || (l == 1)){
 						for(j=js; j<=je+1; j++){
 							vel = Crat;
 						
 #ifdef SECOND_ORDER_PRIM
 							for(m=0; m<3; m++)
-								imu[m] = pRG->imu[ifr][l][n][ks][j-2+m][i] * pRG->mu[l][n][ks][j-2+m][i][1];
+								imu[m] = tempimu[j-2+m];;
 							
 							flux_PLM(dt, ds, vel, imu, &(flux[ifr][l][n][j]));	
 #else
 							for(m=0; m<5; m++)
-								imu[m] = pRG->imu[ifr][l][n][ks][j-3+m][i] * pRG->mu[l][n][ks][j-3+m][i][1];
+								imu[m] = tempimu[j-3+m];
 
 							flux_PPM(dt, ds, vel, imu, &(flux[ifr][l][n][j]));
 #endif							
@@ -150,12 +157,12 @@ void fullRT_2d(DomainS *pD)
 							vel = Crat;
 #ifdef SECOND_ORDER_PRIM
 							for(m=2; m>=0; m--)
-								imu[m] = pRG->imu[ifr][l][n][ks][j+2-m][i] * pRG->mu[l][n][ks][j+2-m][i][1];
+								imu[m] = tempimu[j+2-m];
 			
 							flux_PLM(dt, ds, vel, imu, &(flux[ifr][l][n][j+1]));	
 #else
 							for(m=4; m>=0; m--)
-								imu[m] = pRG->imu[ifr][l][n][ks][j+3-m][i] * pRG->mu[l][n][ks][j+3-m][i][1];
+								imu[m] = tempimu[j+3-m];
 
 							flux_PPM(dt, ds, vel, imu, &(flux[ifr][l][n][j+1]));
 #endif				
@@ -190,9 +197,8 @@ void fullRT_2d(DomainS *pD)
 	}/* end ifr */
 		
 
-	/* Now update the momentums with the new intensities */
-
-	UpdateRT(pD);
+	/* Moments are updated in the main loop */
+	
 
   return;
 }
@@ -206,6 +212,7 @@ void fullRT_2d_destruct(void)
 
   if (Divi != NULL) free_5d_array(Divi);	
   if (flux != NULL) free_4d_array(flux);
+  if(tempimu != NULL) free_1d_array(tempimu);
   return;
 }
 
@@ -228,6 +235,8 @@ void fullRT_2d_init(RadGridS *pRG)
 	if ((Divi = (Real *****)calloc_5d_array(nfr, noct, nang, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
     		goto on_error;
 
+	if ((tempimu = (Real *)calloc_1d_array(nx2+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
 
 	return;
 

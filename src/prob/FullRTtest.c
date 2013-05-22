@@ -77,7 +77,7 @@ void problem(DomainS *pDomain)
 		pG->U[k][j][i].M1 = 0.0;
 		pG->U[k][j][i].M2 = 0.0;
 		pG->U[k][j][i].M3 = 0.0;
-		if(sqrt(SQR(x1-0.5)+SQR(x2-0.5))<0.2)
+		if(sqrt(SQR(x1-0.5)+SQR(x2-0.5)+SQR(x3-0.5))<0.2)
 			T = 1.0;
 		else
 			T = 1.0;
@@ -96,23 +96,29 @@ for(ifr=0; ifr<nf; ifr++){
       for (k=ksr; k<=ker; k++) {
         for (j=jsr; j<=jer; j++) {
            for (i=isr; i<=ier; i++) {
-		cc_pos(pG,i-Radghost+nghost,j-Radghost+nghost,0,&x1,&x2,&x3);
-	  
+		if(ker > ksr)
+			cc_pos(pG,i-Radghost+nghost,j-Radghost+nghost,k-Radghost+nghost,&x1,&x2,&x3);
+		else
+	  		cc_pos(pG,i-Radghost+nghost,j-Radghost+nghost,0,&x1,&x2,&x3);
+
 		/*	if(sqrt(SQR(x1-0.5)+SQR(x2-0.5))<0.2)
 				pRG->imu[k][j][i][ifr][l][n] = 10.0/(4.0*PI);
 			else
 				pRG->imu[k][j][i][ifr][l][n] = 1.0/(4.0*PI);
 		*/
 
-			if(sqrt(SQR(x1-0.5)+SQR(x2-0.5))<0.2)
+			if(sqrt(SQR(x1-0.5)+SQR(x2-0.5)+SQR(x3-0.5))<0.2)
 				Jr = 10.0/(4.0*PI);
 			else
 				Jr = 1.0/(4.0*PI);
 
-			if((n == 0 && l == 1) )
+			pRG->imu[ifr][l][n][k][j][i] = Jr;
+
+		/*	if((n == 0 && l == 1) )
 				pRG->imu[ifr][l][n][k][j][i] = Jr;
 			else
 				pRG->imu[ifr][l][n][k][j][i] = 0.0;
+		*/
 			
 		}
 	     }

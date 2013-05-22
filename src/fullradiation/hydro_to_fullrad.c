@@ -170,7 +170,13 @@ void GetTnew(const Real dt,const Real d,const Real Tgas, const Real J0, const Re
 		/*----------------------------------------------------------*/
 		/* First, energy source due to absorption opacity */
 
+/*		The pow function can be very slow sometimes when Er0 is close to 1 
 		Tr = pow(Er0, 0.25);
+		
+*/
+		Tr = sqrt(Er0);
+		Tr = sqrt(Tr);
+
 		pressure = Tgas * d * R_ideal;
 		Ersum = pressure / (Gamma - 1.0) + Prat * Er0;
 	

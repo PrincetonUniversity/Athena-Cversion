@@ -508,7 +508,8 @@ MPI_Comm Comm_Domain;
 
 #if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
   Real ***tgas;   /* gas temp stored to prevent multiple recomp. in rad. transfer */
-  Real ***Radheat; /* Total heating and cooling rate due to absorption opacity */
+  Real ***Radheat; /* Total heating and cooling rate due to absorption opacity, or the energy source term */
+  Real ****Frsource; /* The momentum source term from radiation, frequency and angle integrated */
 #endif
 
 #ifdef STATIC_MESH_REFINEMENT

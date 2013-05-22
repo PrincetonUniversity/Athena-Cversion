@@ -24,9 +24,25 @@ void UpdateRT(DomainS *pD){
   RadGridS *pRG=(pD->RadGrid);
   int i,j,k ,ifr, l, n, m;
 
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks, ke = pRG->ke;
+  int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
+  int jl = pRG->js, ju = pRG->je;
+  int kl = pRG->ks, ku = pRG->ke;
+  int nDim; 
+
+  nDim = 1;
+  for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
+
+/* Including the ghost zones */
+
+  if(nDim > 1){
+	jl -= Radghost;
+	ju += Radghost;
+  }
+ 
+  if(nDim > 2){
+	kl -= Radghost;
+	ku += Radghost;
+  }
 
   Real wimu;
   Real mu[3]; /* cosins with respect to three axis */
@@ -34,46 +50,56 @@ void UpdateRT(DomainS *pD){
 
 
 for(ifr=0; ifr<pRG->nf; ifr++){
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){	
-	for(i=is; i<=ie; i++){	  
-		/* set the momentums to be zero */
+	/* First, initialize to be zero */
+  for(k=kl; k<=ku; k++){
+     for(j=jl; j<=ju; j++){	
+	for(i=il; i<=iu; i++){	
 		pRG->R[ifr][k][j][i].J = 0.0;
 		for(m=0; m<3; m++)
 			pRG->R[ifr][k][j][i].H[m] = 0.0;
 
 		for(m=0; m<6; m++)
 			pRG->R[ifr][k][j][i].K[m] = 0.0;
+	}
+     }
+  }
 
-		for(l=0; l<pRG->noct; l++){
-			for(n=0; n<pRG->nang; n++){
+  /* now recalculate the momentums */
 
-				/* sum rays along different directions */
-				wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
-				for(m=0; m<3; m++)
-					mu[m] = pRG->mu[l][n][k][j][i][m];
-				/* for energy density */
-				pRG->R[ifr][k][j][i].J += wimu;
+
+  for(l=0; l<pRG->noct; l++){
+  	for(n=0; n<pRG->nang; n++){
+  		for(k=kl; k<=ku; k++){
+     			for(j=jl; j<=ju; j++){	
+				for(i=il; i<=iu; i++){	  
+		
+
+					/* sum rays along different directions */
+					wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
+					for(m=0; m<3; m++)
+						mu[m] = pRG->mu[l][n][k][j][i][m];
+					/* for energy density */
+					pRG->R[ifr][k][j][i].J += wimu;
 	
-				/* for flux */		
-				for(m=0; m<3; m++)
-					pRG->R[ifr][k][j][i].H[m] += mu[m] * wimu;
+					/* for flux */		
+					for(m=0; m<3; m++)
+						pRG->R[ifr][k][j][i].H[m] += mu[m] * wimu;
 
-				/* for radiation pressure */
-				mu2[0] = mu[0] * mu[0];
-				mu2[1] = mu[0] * mu[1];
-				mu2[2] = mu[1] * mu[1];
-				mu2[3] = mu[0] * mu[2];
-				mu2[4] = mu[1] * mu[2];
-				mu2[5] = mu[2] * mu[2];
+					/* for radiation pressure */
+					mu2[0] = mu[0] * mu[0];
+					mu2[1] = mu[0] * mu[1];
+					mu2[2] = mu[1] * mu[1];
+					mu2[3] = mu[0] * mu[2];
+					mu2[4] = mu[1] * mu[2];
+					mu2[5] = mu[2] * mu[2];
 
-				for(m=0; m<6; m++)
-					pRG->R[ifr][k][j][i].K[m] += mu2[m] * wimu;
-			}/* end nang */
-		}/* end octant l */
-	}/* end i */
-     }/* end j */
-  }/* end k */
+					for(m=0; m<6; m++)
+						pRG->R[ifr][k][j][i].K[m] += mu2[m] * wimu;
+				}/* end i  */
+			}/* end j */
+		}/* end k */
+     	}/* end n */
+  }/* end l */
 } /* end frequency */
 
 

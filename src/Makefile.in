@@ -158,6 +158,7 @@ FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
 		fullradiation/utils_fullrad.o\
 		fullradiation/bvals_fullrad.o\
 		fullradiation/fullRT_2d.o\
+		fullradiation/fullRT_3d.o\
 		fullradiation/output_spec.o\
 		fullradiation/FullRT_flux.o
 

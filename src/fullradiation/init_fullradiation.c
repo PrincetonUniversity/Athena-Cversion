@@ -472,6 +472,9 @@ VDFun_t init_fullradiation(MeshS *pM)
 		/* This needs to be done for each domain */
 		fullRT_2d_init(pRG);
 	}
+	else if(nDim == 3){
+		fullRT_3d_init(pRG);
+	}
 
 
 
@@ -494,7 +497,7 @@ VDFun_t init_fullradiation(MeshS *pM)
 			return fullRT_2d;
 
 		case 3:
-			ath_error("[init_fullRT]: Not ready for 3D! \n");
+			return fullRT_3d;
 
 
 	}
@@ -570,6 +573,9 @@ void fullradiation_destruct(MeshS *pM)
 	/* call the necessary function to destroy the temporary grids */
 	if(nDim == 2){
 		fullRT_2d_destruct();
+	}
+	else if(nDim == 3){
+		fullRT_3d_destruct();
 	}
 
 

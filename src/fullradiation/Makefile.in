@@ -12,6 +12,7 @@ CORE_OBJ = init_fullradiation.o\
            utils_fullrad.o\
 	   bvals_fullrad.o\
 	   fullRT_2d.o\
+	   fullRT_3d.o\
 	   output_spec.o\
 	   FullRT_flux.o
 OBJ = $(CORE_OBJ)

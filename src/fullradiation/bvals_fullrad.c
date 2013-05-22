@@ -45,8 +45,24 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG);
 static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG);
 static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG);
 
+static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG);
+static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG);
+static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG);
+static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG);
+static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG);
+static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG);
+
+static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG);
+static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG);
+static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG);
+static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG);
+static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG);
+static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG);
+
+
+
 static void ProlongateLater(GridS *pG, RadGridS *pRG);
-static void const_incident_fullrad(GridS *pG, RadGridS *pRG);
+
 
 static void const_flux_ix1(GridS *pG, RadGridS *pRG);
 static void const_flux_ox1(GridS *pG, RadGridS *pRG);
@@ -398,7 +414,8 @@ void bvals_fullrad_init(MeshS *pM)
   int i,nl,nd,irefine;
 #ifdef MPI_PARALLEL
   int myL,myM,myN,l,m,n,nx1t,nx2t,nx3t,size;
-  /*int x1cnt=0, x2cnt=0, x3cnt=0; /* Number of words passed in x1/x2/x3-dir. */
+  /*int x1cnt=0, x2cnt=0, x3cnt=0; */ 
+/* Number of words passed in x1/x2/x3-dir. */
   int nang, nf, noct, xcnt;
 #endif /* MPI_PARALLEL */
 
@@ -432,7 +449,7 @@ void bvals_fullrad_init(MeshS *pM)
 	  switch(pM->RBCFlag_ix1){
 
 	  case 2: /* Open boundary with fixed incoming radiation */
-	    pD->ix1_RBCFun = const_incident_fullrad;
+	    pD->ix1_RBCFun = outflow_ix1_fullrad;
 	    break;
 
 	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
@@ -446,6 +463,10 @@ void bvals_fullrad_init(MeshS *pM)
 
 	  case 5: /* constant fixed flux at boundary */
 	    pD->ix1_RBCFun = const_flux_ix1;
+	    break;
+
+	  case 6:
+	    pD->ix1_RBCFun = vacuum_ix1_fullrad;
 	    break;
 
 	  default:
@@ -468,7 +489,7 @@ void bvals_fullrad_init(MeshS *pM)
 	  switch(pM->RBCFlag_ox1){
 
 	  case 2: /* Open boundary with fixed incoming radiation */
-	    pD->ox1_RBCFun = const_incident_fullrad;
+	    pD->ox1_RBCFun = outflow_ox1_fullrad;
 	    break;
 
 	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
@@ -482,6 +503,10 @@ void bvals_fullrad_init(MeshS *pM)
 	    
 	  case 5: /* constant fixed flux at boundary */
 	    pD->ox1_RBCFun = const_flux_ox1;
+	    break;
+	
+	  case 6:
+	    pD->ox1_RBCFun = vacuum_ox1_fullrad;
 	    break;
 
 	  default:
@@ -507,7 +532,7 @@ void bvals_fullrad_init(MeshS *pM)
 	  switch(pM->RBCFlag_ix2){
 
 	  case 2: /* Open boundary with fixed incoming radiation */
-	    pD->ix2_RBCFun = const_incident_fullrad;
+	    pD->ix2_RBCFun = outflow_ix2_fullrad;
 	    break;
 
 	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
@@ -521,6 +546,10 @@ void bvals_fullrad_init(MeshS *pM)
 
 	  case 5: /* constant fixed flux at boundary */
 	    pD->ix2_RBCFun = const_flux_ix2;
+	    break;
+
+	  case 6:
+	    pD->ix2_RBCFun = vacuum_ix2_fullrad;
 	    break;
 
 	  default:
@@ -542,7 +571,7 @@ void bvals_fullrad_init(MeshS *pM)
 	  switch(pM->RBCFlag_ox2){
 
 	  case 2: /* Open boundary with fixed incoming radiation */
-	    pD->ox2_RBCFun = const_incident_fullrad;
+	    pD->ox2_RBCFun = outflow_ox2_fullrad;
 	    break;
 
 	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
@@ -556,6 +585,10 @@ void bvals_fullrad_init(MeshS *pM)
 
 	  case 5: /* constant fixed flux at boundary */
 	    pD->ox2_RBCFun = const_flux_ox2;
+	    break;
+
+	  case 6:
+	    pD->ox2_RBCFun = vacuum_ox2_fullrad;
 	    break;
 
 	  default:
@@ -582,7 +615,7 @@ void bvals_fullrad_init(MeshS *pM)
 	  switch(pM->RBCFlag_ix3){
 	    
 	  case 2: /* Open boundary with fixed incoming radiation */
-	    pD->ix3_RBCFun = const_incident_fullrad;
+	    pD->ix3_RBCFun = outflow_ix3_fullrad;
 	    break;
 
 	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
@@ -596,6 +629,10 @@ void bvals_fullrad_init(MeshS *pM)
 
 	  case 5: /* constant fixed flux at boundary */
 	    pD->ix3_RBCFun = const_flux_ix3;
+	    break;
+
+	  case 6:
+	    pD->ix3_RBCFun = vacuum_ix3_fullrad;
 	    break;
 
 	  default:
@@ -617,7 +654,7 @@ void bvals_fullrad_init(MeshS *pM)
 	  switch(pM->RBCFlag_ox3){
 
 	  case 2: /* Open boundary with fixed incoming radiation */
-	    pD->ox3_RBCFun = const_incident_fullrad;
+	    pD->ox3_RBCFun = outflow_ox3_fullrad;
 	    break;
 	    
 	  case 4: /* Periodic. Handle with MPI calls for parallel jobs. */
@@ -631,6 +668,10 @@ void bvals_fullrad_init(MeshS *pM)
 
 	  case 5: /* constant fixed flux at boundary */
 	    pD->ox3_RBCFun = const_flux_ox3;
+	    break;
+
+	  case 6:
+	    pD->ox3_RBCFun = vacuum_ox3_fullrad;
 	    break;
 
 	  default:
@@ -792,9 +833,268 @@ void bvals_fullrad_trans_fun(DomainS *pD, enum BCDirection dir, VRGIFun_t prob_b
  *   const_flux_???
  *   pack_???
  *   unpack_???
- *  const_incident_fullrad
+ *  
  */
 
+
+/*--------------------------------------------------------------------------*/
+/* OUTFLOW boundary condition */
+
+
+static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int is = pRG->is;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+  /* set the angle independent values */
+
+for(ifr=0; ifr<nf; ifr++) {
+
+  for(k=ks; k<=ke; k++){
+     for(j=js; j<=je; j++){
+	for(i=1; i<=Radghost; i++){
+	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][is];
+	}
+     }
+  }
+  
+    for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+        for(k=ks; k<=ke; k++){
+     	    for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+	
+			pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];			
+			pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
+
+	      }/* end i */
+       	    }/* end J */
+         } /* End k */
+       }  /* end nang */
+     }/* end noctant */
+   }/* end ifr */
+	  
+
+
+  return;
+}
+
+
+
+
+static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+  /* set the angle independent values */
+
+for(ifr=0; ifr<nf; ifr++) {
+
+  for(k=ks; k<=ke; k++){
+     for(j=js; j<=je; j++){
+	for(i=1; i<=Radghost; i++){
+	    pRG->R[ifr][k][j][ie+i] = pRG->R[ifr][k][j][ie];
+	}
+     }
+  }
+  
+    for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+        for(k=ks; k<=ke; k++){
+     	    for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+	
+			pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];			
+			pRG->heatcool[ifr][l][n][k][j][ie+i] = pRG->heatcool[ifr][l][n][k][j][ie];
+
+	      }/* end i */
+       	    }/* end J */
+         } /* End k */
+       }  /* end nang */
+     }/* end noctant */
+   }/* end ifr */
+	  
+
+
+  return;
+}
+
+
+
+static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
+{
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+    for(k=ks; k<=ke; k++){
+       for(j=1; j<=Radghost; j++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
+			/* set the angle independent values */
+			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][js][i];
+     	   }/* end i */
+       }/* end J */
+    } /* End k */
+
+   for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+	 for(k=ks; k<=ke; k++){
+       	    for(j=1; j<=Radghost; j++){
+	       for(i=is-Radghost; i<=ie+Radghost; i++){	
+			pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][js][i];			
+			pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][js][i]; 
+	   	}/* end i */
+       	     }/* end J */
+     	 } /* End k */
+       }/* end nang */
+    }/* end noctant */  
+}/* end ifr */
+
+  return;
+}
+
+
+
+static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
+{
+  int is = pRG->is, ie = pRG->ie;
+  int je = pRG->je;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+    for(k=ks; k<=ke; k++){
+       for(j=1; j<=Radghost; j++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
+			/* set the angle independent values */
+			pRG->R[ifr][k][je+j][i] = pRG->R[ifr][k][je][i];
+     	   }/* end i */
+       }/* end J */
+    } /* End k */
+
+   for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+	 for(k=ks; k<=ke; k++){
+       	    for(j=1; j<=Radghost; j++){
+	       for(i=is-Radghost; i<=ie+Radghost; i++){	
+			pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][je][i];			
+			pRG->heatcool[ifr][l][n][k][je+j][i] = pRG->heatcool[ifr][l][n][k][je][i]; 
+	   	}/* end i */
+       	     }/* end J */
+     	 } /* End k */
+       }/* end nang */
+    }/* end noctant */  
+}/* end ifr */
+
+  return;
+}
+
+
+static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+    for(k=1; k<=Radghost; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){
+			/* set the angle independent values */
+			pRG->R[ifr][ks-k][j][i] = pRG->R[ifr][ks][j][i];
+	   }/* end i */
+       }/* end J */
+    } /* End k */
+ 
+    for(l=0; l<noct; l++){
+	for(n=0; n<nang; n++){
+	   for(k=1; k<=Radghost; k++){
+       	      for(j=js-Radghost; j<=je+Radghost; j++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
+			pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ks][j][i];			
+			pRG->heatcool[ifr][l][n][ks-k][j][i] = pRG->heatcool[ifr][l][n][ks][j][i];
+		 }/* end i */
+       	      }/* end J */
+    	   } /* End k */
+    }/* end nang */
+  }/* end noctant */
+}/* end ifr */
+	 
+
+  return;
+}
+
+
+static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+    for(k=1; k<=Radghost; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){
+			/* set the angle independent values */
+			pRG->R[ifr][ke+k][j][i] = pRG->R[ifr][ke][j][i];
+	   }/* end i */
+       }/* end J */
+    } /* End k */
+ 
+    for(l=0; l<noct; l++){
+	for(n=0; n<nang; n++){
+	   for(k=1; k<=Radghost; k++){
+       	      for(j=js-Radghost; j<=je+Radghost; j++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
+			pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ke][j][i];			
+			pRG->heatcool[ifr][l][n][ke+k][j][i] = pRG->heatcool[ifr][l][n][ke][j][i];
+		 }/* end i */
+       	      }/* end J */
+    	   } /* End k */
+    }/* end nang */
+  }/* end noctant */
+}/* end ifr */
+	 
+
+  return;
+}
+
+/*--------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
 /* PERIODIC boundary conditions, Inner x1 boundary (rbc_ix1=1) */
@@ -1065,6 +1365,299 @@ for(ifr=0; ifr<nf; ifr++) {
   return;
 }
 
+
+/*---------------------------------------------------------------------------*/
+/* The vacuum boundary conditions means outgoing specifiy intensity is continuous,*/
+/* But incoming specific intensity is zero */
+
+static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int is = pRG->is;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+  /* set the angle independent values */
+
+for(ifr=0; ifr<nf; ifr++) {
+
+
+ for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+        for(k=ks; k<=ke; k++){
+     	    for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+			if((l == 1) || (l == 3) || (l == 5) || (l == 7)){
+				pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];
+			}	
+			else{
+				pRG->imu[ifr][l][n][k][j][is-i] = 0.0;
+			}		
+		/*	This needs to be re-calculated based on local specific intensity */
+		/*	pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
+		*/
+
+	      }/* end i */
+       	    }/* end J */
+         } /* End k */
+       }  /* end nang */
+     }/* end noctant */
+
+/*
+  for(k=ks; k<=ke; k++){
+     for(j=js; j<=je; j++){
+	for(i=1; i<=Radghost; i++){
+	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][is];
+	}
+     }
+  }
+* This needs to be re-calculated 
+*/
+  
+   
+   }/* end ifr */
+	  
+
+
+  return;
+}
+
+
+static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+  /* set the angle independent values */
+
+for(ifr=0; ifr<nf; ifr++) {
+
+
+ for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+        for(k=ks; k<=ke; k++){
+     	    for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+			if((l == 0) || (l == 2) || (l == 4) || (l == 6)){
+				pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];
+			}	
+			else{
+				pRG->imu[ifr][l][n][k][j][ie+i] = 0.0;
+			}		
+		/*	This needs to be re-calculated based on local specific intensity */
+		/*	pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
+		*/
+
+	      }/* end i */
+       	    }/* end J */
+         } /* End k */
+       }  /* end nang */
+     }/* end noctant */
+
+/*
+  for(k=ks; k<=ke; k++){
+     for(j=js; j<=je; j++){
+	for(i=1; i<=Radghost; i++){
+	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][is];
+	}
+     }
+  }
+* This needs to be re-calculated 
+*/
+  
+   
+   }/* end ifr */
+	  
+
+
+  return;
+}
+
+
+static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
+{
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+   /* for(k=ks; k<=ke; k++){
+       for(j=1; j<=Radghost; j++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
+			
+			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][js][i];
+     	   }
+       }
+    } 
+*/
+   for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+	 for(k=ks; k<=ke; k++){
+       	    for(j=1; j<=Radghost; j++){
+	       for(i=is-Radghost; i<=ie+Radghost; i++){	
+			if((l == 2) || (l == 3) || (l == 6) || (l == 7)){
+				pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][js][i];
+			}
+			else{
+				pRG->imu[ifr][l][n][k][js-j][i] = 0.0;
+			}			
+		/*	pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][js][i];
+		*/ 
+	   	}/* end i */
+       	     }/* end J */
+     	 } /* End k */
+       }/* end nang */
+    }/* end noctant */  
+}/* end ifr */
+
+  return;
+}
+
+
+
+
+static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
+{
+  int is = pRG->is, ie = pRG->ie;
+  int je = pRG->je;
+  int ks = pRG->ks, ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+   /* for(k=ks; k<=ke; k++){
+       for(j=1; j<=Radghost; j++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
+			
+			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][js][i];
+     	   }
+       }
+    } 
+*/
+   for(l=0; l<noct; l++){
+      for(n=0; n<nang; n++){
+	 for(k=ks; k<=ke; k++){
+       	    for(j=1; j<=Radghost; j++){
+	       for(i=is-Radghost; i<=ie+Radghost; i++){	
+			if((l == 0) || (l == 1) || (l == 4) || (l == 5)){
+				pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][je][i];
+			}
+			else{
+				pRG->imu[ifr][l][n][k][je+j][i] = 0.0;
+			}			
+		/*	pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][js][i];
+		*/ 
+	   	}/* end i */
+       	     }/* end J */
+     	 } /* End k */
+       }/* end nang */
+    }/* end noctant */  
+}/* end ifr */
+
+  return;
+}
+
+
+
+static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ks = pRG->ks;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+    
+ 
+    for(l=0; l<noct; l++){
+	for(n=0; n<nang; n++){
+	   for(k=1; k<=Radghost; k++){
+       	      for(j=js-Radghost; j<=je+Radghost; j++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
+			if((l == 4) || (l == 5) || (l == 6) || (l == 7)){
+				pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ks][j][i];
+			}
+			else{			
+				pRG->imu[ifr][l][n][ks-k][j][i] = 0.0;
+			}
+		 }/* end i */
+       	      }/* end J */
+    	   } /* End k */
+    }/* end nang */
+  }/* end noctant */
+}/* end ifr */
+	 
+
+  return;
+}
+
+
+
+
+static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
+{
+
+  int is = pRG->is, ie = pRG->ie;
+  int js = pRG->js, je = pRG->je;
+  int ke = pRG->ke;
+  int nang = pRG->nang;
+  int noct = pRG->noct;
+  int nf = pRG->nf;
+  int i, j, k, l, n, ifr;
+
+
+for(ifr=0; ifr<nf; ifr++) {
+    
+ 
+    for(l=0; l<noct; l++){
+	for(n=0; n<nang; n++){
+	   for(k=1; k<=Radghost; k++){
+       	      for(j=js-Radghost; j<=je+Radghost; j++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
+			if((l == 0) || (l == 1) || (l == 2) || (l == 3)){
+				pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ke][j][i];
+			}
+			else{			
+				pRG->imu[ifr][l][n][ke+k][j][i] = 0.0;
+			}
+		 }/* end i */
+       	      }/* end J */
+    	   } /* End k */
+    }/* end nang */
+  }/* end noctant */
+}/* end ifr */
+	 
+
+  return;
+}
+
+
+
+
+
 /*----------------------------------------------------------------------------*/
 /* PROLONGATION boundary conditions.  Nothing is actually done here, the
  * prolongation is actually handled in ProlongateGhostZones in main loop, so
@@ -1139,10 +1732,6 @@ static void const_flux_ox3(GridS *pG, RadGridS *pRG)
  * unchanged during computation. This means that any contribution from back
  * scattering of outgoing radiation is ignored.  */
 
-static void const_incident_fullrad(GridS *pG, RadGridS *pRG)
-{
-  return;
-}
 
 
 #ifdef MPI_PARALLEL  /* This ifdef wraps the next 12 funs */
@@ -1300,7 +1889,7 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
   for(ifr=0; ifr<nf; ifr++) {
     for(k=ks; k<=ke; k++){
        for(j=js; j<=js+(Radghost-1); j++){
-	   for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){
 	     
 			/* set the angle independent values */
 			*(pSnd++) = pRG->R[ifr][k][j][i].J;
@@ -1326,7 +1915,7 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
        	     for(j=js; j<=js+(Radghost-1); j++){
-	        for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	        for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
 		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
 			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
@@ -1365,7 +1954,7 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   for(ifr=0; ifr<nf; ifr++) {
     for(k=ks; k<=ke; k++){
        for(j=je-(Radghost-1); j<=je; j++){
-	   for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){
 	     
 			/* set the angle independent values */
 			*(pSnd++) = pRG->R[ifr][k][j][i].J;
@@ -1391,7 +1980,7 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
        	      for(j=je-(Radghost-1); j<=je; j++){
-	   	 for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	   	 for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
 		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
 			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
@@ -1432,7 +2021,7 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   for(ifr=0; ifr<nf; ifr++) {
     for(k=ks; k<=ks+(Radghost-1); k++){
        for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){
 	     
 			/* set the angle independent values */
 			*(pSnd++) = pRG->R[ifr][k][j][i].J;
@@ -1458,7 +2047,7 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ks+(Radghost-1); k++){
               for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
 		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
 			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
@@ -1484,7 +2073,7 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
 
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;;
-  int ks = pRG->ks;
+  int ke = pRG->ke;
   int nang = pRG->nang;
   int noct = pRG->noct;
   int nf = pRG->nf;
@@ -1499,7 +2088,7 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
   for(ifr=0; ifr<nf; ifr++) {
     for(k=ke-(Radghost-1); k<=ke; k++){
        for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	   for(i=is-Radghost; i<=ie+Radghost; i++){
 	     
 			/* set the angle independent values */
 			*(pSnd++) = pRG->R[ifr][k][j][i].J;
@@ -1525,7 +2114,7 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
        for(n=0; n<nang; n++){
 	   for(k=ke-(Radghost-1); k<=ke; k++){
               for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radnghost; i<=ie+Radnghost; i++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
 		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
 			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];

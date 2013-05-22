@@ -204,7 +204,7 @@ void bvals_mhd(DomainS *pD)
 #ifdef MPI_PARALLEL
     cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2])*(NVAR);
 #ifdef FULL_RADIATION_TRANSFER
-    cnt += nghost*(pGrid->Nx[1])*(pGrid->Nx[2]); /* boundary for Radheat */
+    cnt += (1+3)*nghost*(pGrid->Nx[1])*(pGrid->Nx[2]); /* boundary for Radheat and Frsource */
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -311,7 +311,7 @@ void bvals_mhd(DomainS *pD)
 #ifdef MPI_PARALLEL
     cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2])*(NVAR);
 #ifdef FULL_RADIATION_TRANSFER
-    cnt += nghost*(pGrid->Nx[0] + 2*ghost)*(pGrid->Nx[2]); /* boundary for Radheat */
+    cnt += (1+3)*nghost*(pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[2]); /* boundary for Radheat and Frsource */
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -432,7 +432,7 @@ void bvals_mhd(DomainS *pD)
     cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost*(NVAR);
 
 #ifdef FULL_RADIATION_TRANSFER
-    cnt += nghost*(pGrid->Nx[0] + 2*ghost)*(pGrid->Nx[1] + 2*ghost); /* boundary for Radheat */
+    cnt += (1+3)*nghost*(pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost); /* boundary for Radheat and Frsource */
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -918,10 +918,22 @@ void bvals_mhd_init(MeshS *pM)
       ath_error("[bvals_init]: Failed to allocate recv buffer\n");
 #endif
 
+
+#ifndef FULL_RADIATION_TRANSFER
 #if defined(MHD) || defined(RADIATION_MHD)
   size *= nghost*((NVAR)+3);
 #else
   size *= nghost*(NVAR);
+#endif
+
+#else /* ifndef full_radiation_transfer */ 
+
+#if defined(MHD) || defined(RADIATION_MHD)
+  size *= nghost*((NVAR)+3+4);
+#else
+  size *= nghost*(NVAR+4);
+#endif
+
 #endif
 
   if (size > 0) {
@@ -1013,6 +1025,13 @@ static void reflect_ix1(GridS *pGrid)
         pGrid->U[k][j][is-i].B1c= -pGrid->U[k][j][is-i].B1c;/* reflect 1-fld. */
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][j][is-i] 	=  pGrid->Radheat[k][j][is+(i-1)];
+	pGrid->Frsource[k][j][is-i][0]  =  -pGrid->Frsource[k][j][is+(i-1)][0];
+	pGrid->Frsource[k][j][is-i][1]  =  pGrid->Frsource[k][j][is+(i-1)][1];
+	pGrid->Frsource[k][j][is-i][2]  =  pGrid->Frsource[k][j][is+(i-1)][2];
+#endif
+
       }
     }
   }
@@ -1074,6 +1093,13 @@ static void reflect_ox1(GridS *pGrid)
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][j][ie+i].B1c= -pGrid->U[k][j][ie+i].B1c;/* reflect 1-fld. */
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][j][ie+i] 	=  pGrid->Radheat[k][j][ie-(i-1)];
+	pGrid->Frsource[k][j][ie+i][0]  =  -pGrid->Frsource[k][j][ie-(i-1)][0];
+	pGrid->Frsource[k][j][ie+i][1]  =  pGrid->Frsource[k][j][ie-(i-1)][1];
+	pGrid->Frsource[k][j][ie+i][2]  =  pGrid->Frsource[k][j][ie-(i-1)][2];
 #endif
 
 
@@ -1138,6 +1164,13 @@ static void reflect_ix2(GridS *pGrid)
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][js-j][i].B2c= -pGrid->U[k][js-j][i].B2c;/* reflect 2-fld. */
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][js-j][i] 	=  pGrid->Radheat[k][js+(j-1)][i];
+	pGrid->Frsource[k][js-j][i][0]  =  pGrid->Frsource[k][js+(j-1)][i][0];
+	pGrid->Frsource[k][js-j][i][1]  =  -pGrid->Frsource[k][js+(j-1)][i][1];
+	pGrid->Frsource[k][js-j][i][2]  =  pGrid->Frsource[k][js+(j-1)][i][2];
 #endif
 
       }
@@ -1205,6 +1238,14 @@ static void reflect_ox2(GridS *pGrid)
         pGrid->U[k][je+j][i].B2c= -pGrid->U[k][je+j][i].B2c;/* reflect 2-fld. */
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][je+j][i] 	=  pGrid->Radheat[k][je-(j-1)][i];
+	pGrid->Frsource[k][je+j][i][0]  =  pGrid->Frsource[k][je-(j-1)][i][0];
+	pGrid->Frsource[k][je+j][i][1]  =  -pGrid->Frsource[k][je-(j-1)][i][1];
+	pGrid->Frsource[k][je+j][i][2]  =  pGrid->Frsource[k][je-(j-1)][i][2];
+#endif
+
       }
     }
   }
@@ -1265,6 +1306,14 @@ static void reflect_ix3(GridS *pGrid)
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[ks-k][j][i].B3c= -pGrid->U[ks-k][j][i].B3c;/* reflect 3-fld.*/
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[ks-k][j][i] 	=  pGrid->Radheat[ks+(k-1)][j][i];
+	pGrid->Frsource[ks-k][j][i][0]  =  pGrid->Frsource[ks+(k-1)][j][i][0];
+	pGrid->Frsource[ks-k][j][i][1]  =  pGrid->Frsource[ks+(k-1)][j][i][1];
+	pGrid->Frsource[ks-k][j][i][2]  =  -pGrid->Frsource[ks+(k-1)][j][i][2];
 #endif
 
 
@@ -1332,6 +1381,14 @@ static void reflect_ox3(GridS *pGrid)
         pGrid->U[ke+k][j][i].B3c= -pGrid->U[ke+k][j][i].B3c;/* reflect 3-fld. */
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[ke+k][j][i] 	=  pGrid->Radheat[ke-(k-1)][j][i];
+	pGrid->Frsource[ke+k][j][i][0]  =  pGrid->Frsource[ke-(k-1)][j][i][0];
+	pGrid->Frsource[ke+k][j][i][1]  =  pGrid->Frsource[ke-(k-1)][j][i][1];
+	pGrid->Frsource[ke+k][j][i][2]  =  -pGrid->Frsource[ke-(k-1)][j][i][2];
+#endif
+
       }
     }
   }
@@ -1391,6 +1448,13 @@ static void outflow_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i] = pGrid->U[k][j][is];
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][j][is-i] 	=  pGrid->Radheat[k][j][is];
+	pGrid->Frsource[k][j][is-i][0]  =  pGrid->Frsource[k][j][is][0];
+	pGrid->Frsource[k][j][is-i][1]  =  pGrid->Frsource[k][j][is][1];
+	pGrid->Frsource[k][j][is-i][2]  =  pGrid->Frsource[k][j][is][2];
+#endif
       }
     }
   }
@@ -1445,6 +1509,13 @@ static void outflow_ox1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie];
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][j][ie+i] 	=  pGrid->Radheat[k][j][ie];
+	pGrid->Frsource[k][j][ie+i][0]  =  pGrid->Frsource[k][j][ie][0];
+	pGrid->Frsource[k][j][ie+i][1]  =  pGrid->Frsource[k][j][ie][1];
+	pGrid->Frsource[k][j][ie+i][2]  =  pGrid->Frsource[k][j][ie][2];
+#endif
       }
     }
   }
@@ -1499,6 +1570,13 @@ static void outflow_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][js][i];
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][js-j][i] 	=  pGrid->Radheat[k][js][i];
+	pGrid->Frsource[k][js-j][i][0]  =  pGrid->Frsource[k][js][i][0];
+	pGrid->Frsource[k][js-j][i][1]  =  pGrid->Frsource[k][js][i][1];
+	pGrid->Frsource[k][js-j][i][2]  =  pGrid->Frsource[k][js][i][2];
+#endif
       }
     }
   }
@@ -1553,6 +1631,13 @@ static void outflow_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][je][i];
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][je+j][i] 	=  pGrid->Radheat[k][je][i];
+	pGrid->Frsource[k][je+j][i][0]  =  pGrid->Frsource[k][je][i][0];
+	pGrid->Frsource[k][je+j][i][1]  =  pGrid->Frsource[k][je][i][1];
+	pGrid->Frsource[k][je+j][i][2]  =  pGrid->Frsource[k][je][i][2];
+#endif
       }
     }
   }
@@ -1604,6 +1689,13 @@ static void outflow_ix3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i] = pGrid->U[ks][j][i];
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[ks-k][j][i] 	=  pGrid->Radheat[ks][j][i];
+	pGrid->Frsource[ks-k][j][i][0]  =  pGrid->Frsource[ks][j][i][0];
+	pGrid->Frsource[ks-k][j][i][1]  =  pGrid->Frsource[ks][j][i][1];
+	pGrid->Frsource[ks-k][j][i][2]  =  pGrid->Frsource[ks][j][i][2];
+#endif
       }
     }
   }
@@ -1655,6 +1747,13 @@ static void outflow_ox3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ke][j][i];
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[ke+k][j][i] 	=  pGrid->Radheat[ke][j][i];
+	pGrid->Frsource[ke+k][j][i][0]  =  pGrid->Frsource[ke][j][i][0];
+	pGrid->Frsource[ke+k][j][i][1]  =  pGrid->Frsource[ke][j][i][1];
+	pGrid->Frsource[ke+k][j][i][2]  =  pGrid->Frsource[ke][j][i][2];
+#endif
       }
     }
   }
@@ -1735,6 +1834,14 @@ static void periodic_ix1(GridS *pGrid)
 		  for(m=0;m<(10+NOPACITY);m++)
 			  pRad[m]=temp[m];
 #endif
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][j][is-i] 	=  pGrid->Radheat[k][j][ie-(i-1)];
+	pGrid->Frsource[k][j][is-i][0]  =  pGrid->Frsource[k][j][ie-(i-1)][0];
+	pGrid->Frsource[k][j][is-i][1]  =  pGrid->Frsource[k][j][ie-(i-1)][1];
+	pGrid->Frsource[k][j][is-i][2]  =  pGrid->Frsource[k][j][ie-(i-1)][2];
 #endif		  
 		  
       }
@@ -1818,7 +1925,15 @@ static void periodic_ox1(GridS *pGrid)
 				pRad[m]=temp[m];
 
 #endif
-#endif	
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+
+	pGrid->Radheat[k][j][ie+i] 	=  pGrid->Radheat[k][j][is+(i-1)];
+	pGrid->Frsource[k][j][ie+i][0]  =  pGrid->Frsource[k][j][is+(i-1)][0];
+	pGrid->Frsource[k][j][ie+i][1]  =  pGrid->Frsource[k][j][is+(i-1)][1];
+	pGrid->Frsource[k][j][ie+i][2]  =  pGrid->Frsource[k][j][is+(i-1)][2];
+#endif		
       }
     }
   }
@@ -1875,6 +1990,9 @@ static void periodic_ix2(GridS *pGrid)
         pGrid->U[k][js-j][i] = pGrid->U[k][je-(j-1)][i];
 #ifdef FULL_RADIATION_TRANSFER
         pGrid->Radheat[k][js-j][i] = pGrid->Radheat[k][je-(j-1)][i];
+	pGrid->Frsource[k][js-j][i] = pGrid->Frsource[k][je-(j-1)][i];
+	pGrid->Frsource[k][js-j][i] = pGrid->Frsource[k][je-(j-1)][i];
+	pGrid->Frsource[k][js-j][i] = pGrid->Frsource[k][je-(j-1)][i];
 #endif
 
       }
@@ -1933,6 +2051,9 @@ static void periodic_ox2(GridS *pGrid)
         pGrid->U[k][je+j][i] = pGrid->U[k][js+(j-1)][i];
 #ifdef FULL_RADIATION_TRANSFER
         pGrid->Radheat[k][je+j][i] = pGrid->Radheat[k][js+(j-1)][i];
+	pGrid->Frsource[k][je+j][i] = pGrid->Frsource[k][js+(j-1)][i];
+	pGrid->Frsource[k][je+j][i] = pGrid->Frsource[k][js+(j-1)][i];
+	pGrid->Frsource[k][je+j][i] = pGrid->Frsource[k][js+(j-1)][i];
 #endif
       }
     }
@@ -1987,6 +2108,9 @@ static void periodic_ix3(GridS *pGrid)
         pGrid->U[ks-k][j][i] = pGrid->U[ke-(k-1)][j][i];
 #ifdef FULL_RADIATION_TRANSFER
         pGrid->Radheat[ks-k][j][i] = pGrid->Radheat[ke-(k-1)][j][i];
+	pGrid->Frsource[ks-k][j][i] = pGrid->Frsource[ke-(k-1)][j][i];
+	pGrid->Frsource[ks-k][j][i] = pGrid->Frsource[ke-(k-1)][j][i];
+	pGrid->Frsource[ks-k][j][i] = pGrid->Frsource[ke-(k-1)][j][i];
 #endif
       }
     }
@@ -2041,6 +2165,9 @@ static void periodic_ox3(GridS *pGrid)
         pGrid->U[ke+k][j][i] = pGrid->U[ks+(k-1)][j][i];
 #ifdef FULL_RADIATION_TRANSFER
         pGrid->Radheat[ke+k][j][i] = pGrid->Radheat[ks+(k-1)][j][i];
+	pGrid->Frsource[ke+k][j][i] = pGrid->Frsource[ks+(k-1)][j][i];
+	pGrid->Frsource[ke+k][j][i] = pGrid->Frsource[ks+(k-1)][j][i];
+	pGrid->Frsource[ke+k][j][i] = pGrid->Frsource[ks+(k-1)][j][i];
 #endif
       }
     }
@@ -2103,6 +2230,13 @@ static void conduct_ix1(GridS *pGrid)
 #endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is-i].Fr1; /* reflect 1-rad Flux. */
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][j][is-i] 	=  pGrid->Radheat[k][j][is+(i-1)];
+	pGrid->Frsource[k][j][is-i][0]  =  -pGrid->Frsource[k][j][is+(i-1)][0];
+	pGrid->Frsource[k][j][is-i][1]  =  pGrid->Frsource[k][j][is+(i-1)][1];
+	pGrid->Frsource[k][j][is-i][2]  =  pGrid->Frsource[k][j][is+(i-1)][2];
 #endif
 
 
@@ -2169,6 +2303,13 @@ static void conduct_ox1(GridS *pGrid)
 	pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie+i].Fr1; /* reflect 1-rad Flux */
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][j][ie+i] 	=  pGrid->Radheat[k][j][ie-(i-1)];
+	pGrid->Frsource[k][j][ie+i][0]  =  -pGrid->Frsource[k][j][ie-(i-1)][0];
+	pGrid->Frsource[k][j][ie+i][1]  =  pGrid->Frsource[k][j][ie-(i-1)][1];
+	pGrid->Frsource[k][j][ie+i][2]  =  pGrid->Frsource[k][j][ie-(i-1)][2];
+#endif
+
       }
     }
   }
@@ -2230,6 +2371,13 @@ static void conduct_ix2(GridS *pGrid)
 #endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][js-j][i].Fr2 = -pGrid->U[k][js-j][i].Fr2; /* reflect 2 radFlux */
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][js-j][i] 	=  pGrid->Radheat[k][js+(j-1)][i];
+	pGrid->Frsource[k][js-j][i][0]  =  -pGrid->Frsource[k][js+(j-1)][i][0];
+	pGrid->Frsource[k][js-j][i][1]  =  pGrid->Frsource[k][js+(j-1)][i][1];
+	pGrid->Frsource[k][js-j][i][2]  =  pGrid->Frsource[k][js+(j-1)][i][2];
 #endif
       }
     }
@@ -2293,6 +2441,13 @@ static void conduct_ox2(GridS *pGrid)
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][je+j][i].Fr2 = -pGrid->U[k][je+j][i].Fr2; /* reflect 2-rad Flux. */
 #endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[k][je+j][i] 	=  pGrid->Radheat[k][je-(j-1)][i];
+	pGrid->Frsource[k][je+j][i][0]  =  -pGrid->Frsource[k][je-(j-1)][i][0];
+	pGrid->Frsource[k][je+j][i][1]  =  pGrid->Frsource[k][je-(j-1)][i][1];
+	pGrid->Frsource[k][je+j][i][2]  =  pGrid->Frsource[k][je-(j-1)][i][2];
+#endif
       }
     }
   }
@@ -2352,6 +2507,13 @@ static void conduct_ix3(GridS *pGrid)
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[ks-k][j][i].Fr3 = -pGrid->U[ks-k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[ks-k][j][i] 	=  pGrid->Radheat[ks+(k-1)][j][i];
+	pGrid->Frsource[ks-k][j][i][0]  =  -pGrid->Frsource[ks+(k-1)][j][i][0];
+	pGrid->Frsource[ks-k][j][i][1]  =  pGrid->Frsource[ks+(k-1)][j][i][1];
+	pGrid->Frsource[ks-k][j][i][2]  =  pGrid->Frsource[ks+(k-1)][j][i][2];
+#endif
       }
     }
   }
@@ -2410,6 +2572,13 @@ static void conduct_ox3(GridS *pGrid)
 #endif
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[ke+k][j][i].Fr3 = -pGrid->U[ke+k][j][i].Fr3; /* reflect 3-rad Flux. */
+#endif
+
+#ifdef FULL_RADIATION_TRANSFER
+	pGrid->Radheat[ke+k][j][i] 	=  pGrid->Radheat[ke-(k-1)][j][i];
+	pGrid->Frsource[ke+k][j][i][0]  =  -pGrid->Frsource[ke-(k-1)][j][i][0];
+	pGrid->Frsource[ke+k][j][i][1]  =  pGrid->Frsource[ke-(k-1)][j][i][1];
+	pGrid->Frsource[ke+k][j][i][2]  =  pGrid->Frsource[ke-(k-1)][j][i][2];
 #endif
       }
     }
@@ -2852,6 +3021,9 @@ static void pack_ix1(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         *(pSnd++) = pG->Radheat[k][j][i];
+	*(pSnd++) = pG->Frsource[k][j][i][0];
+	*(pSnd++) = pG->Frsource[k][j][i][1];
+	*(pSnd++) = pG->Frsource[k][j][i][2];
 #endif
       }
     }
@@ -2928,6 +3100,9 @@ static void pack_ox1(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         *(pSnd++) = pG->Radheat[k][j][i];
+	*(pSnd++) = pG->Frsource[k][j][i][0];
+	*(pSnd++) = pG->Frsource[k][j][i][1];
+	*(pSnd++) = pG->Frsource[k][j][i][2];
 #endif
       }
     }
@@ -3003,6 +3178,9 @@ static void pack_ix2(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         *(pSnd++) = pG->Radheat[k][j][i];
+	*(pSnd++) = pG->Frsource[k][j][i][0];
+	*(pSnd++) = pG->Frsource[k][j][i][1];
+	*(pSnd++) = pG->Frsource[k][j][i][2];
 #endif
       }
     }
@@ -3079,6 +3257,9 @@ static void pack_ox2(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         *(pSnd++) = pG->Radheat[k][j][i];
+	*(pSnd++) = pG->Frsource[k][j][i][0];
+	*(pSnd++) = pG->Frsource[k][j][i][1];
+	*(pSnd++) = pG->Frsource[k][j][i][2];
 #endif
       }
     }
@@ -3152,6 +3333,9 @@ static void pack_ix3(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         *(pSnd++) = pG->Radheat[k][j][i];
+	*(pSnd++) = pG->Frsource[k][j][i][0];
+	*(pSnd++) = pG->Frsource[k][j][i][1];
+	*(pSnd++) = pG->Frsource[k][j][i][2];
 #endif
       }
     }
@@ -3225,6 +3409,9 @@ static void pack_ox3(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         *(pSnd++) = pG->Radheat[k][j][i];
+	*(pSnd++) = pG->Frsource[k][j][i][0];
+	*(pSnd++) = pG->Frsource[k][j][i][1];
+	*(pSnd++) = pG->Frsource[k][j][i][2];
 #endif
       }
     }
@@ -3301,6 +3488,9 @@ static void unpack_ix1(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         pG->Radheat[k][j][i] = *(pRcv++);
+	pG->Frsource[k][j][i][0] = *(pRcv++);
+	pG->Frsource[k][j][i][1] = *(pRcv++);
+	pG->Frsource[k][j][i][2] = *(pRcv++);
 #endif
       }
     }
@@ -3377,6 +3567,9 @@ static void unpack_ox1(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         pG->Radheat[k][j][i] = *(pRcv++);
+	pG->Frsource[k][j][i][0] = *(pRcv++);
+	pG->Frsource[k][j][i][1] = *(pRcv++);
+	pG->Frsource[k][j][i][2] = *(pRcv++);
 #endif
       }
     }
@@ -3453,6 +3646,9 @@ static void unpack_ix2(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         pG->Radheat[k][j][i] = *(pRcv++);
+	pG->Frsource[k][j][i][0] = *(pRcv++);
+	pG->Frsource[k][j][i][1] = *(pRcv++);
+	pG->Frsource[k][j][i][2] = *(pRcv++);
 #endif
       }
     }
@@ -3529,6 +3725,9 @@ static void unpack_ox2(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         pG->Radheat[k][j][i] = *(pRcv++);
+	pG->Frsource[k][j][i][0] = *(pRcv++);
+	pG->Frsource[k][j][i][1] = *(pRcv++);
+	pG->Frsource[k][j][i][2] = *(pRcv++);
 #endif
       }
     }
@@ -3602,6 +3801,9 @@ static void unpack_ix3(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         pG->Radheat[k][j][i] = *(pRcv++);
+	pG->Frsource[k][j][i][0] = *(pRcv++);
+	pG->Frsource[k][j][i][1] = *(pRcv++);
+	pG->Frsource[k][j][i][2] = *(pRcv++);
 #endif
       }
     }
@@ -3675,6 +3877,9 @@ static void unpack_ox3(GridS *pG)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
         pG->Radheat[k][j][i] = *(pRcv++);
+	pG->Frsource[k][j][i][0] = *(pRcv++);
+	pG->Frsource[k][j][i][1] = *(pRcv++);
+	pG->Frsource[k][j][i][2] = *(pRcv++);
 #endif
       }
     }

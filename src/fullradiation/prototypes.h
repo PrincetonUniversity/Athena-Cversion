@@ -51,6 +51,11 @@ void fullRT_2d_destruct(void);
 
 void fullRT_2d(DomainS *pD);
 
+/* fullRT_3d.c */
+void fullRT_3d(DomainS *pD);
+void fullRT_3d_init(RadGridS *pRG);
+void fullRT_3d_destruct(void);
+
 /* output_spec.c */
 void output_spec(MeshS *pM);
 

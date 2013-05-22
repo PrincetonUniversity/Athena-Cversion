@@ -323,6 +323,8 @@ void init_grid(MeshS *pM)
       if (pG->tgas == NULL) goto on_error17;
       pG->Radheat = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->Radheat == NULL) goto on_error21;
+      pG->Frsource = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
+      if (pG->Frsource == NULL) goto on_error28;
 #endif /* RADIATION_TRANSFER */
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
@@ -1511,6 +1513,8 @@ G3.ijkl[2],G3.ijkr[2]);
 /*--- Error messages ---------------------------------------------------------*/
 
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
+ on_error28:
+    free_4d_array(pG->Frsource);
  on_error21:
     free_3d_array(pG->Radheat);
  on_error17:
