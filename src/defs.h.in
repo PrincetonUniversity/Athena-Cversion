@@ -98,6 +98,12 @@
 /* fargo: FARGO or NO_FARGO */
 #define @FARGO_MODE@
 
+/* rotating-frame: ROTATING_FRAME or NO_ROTATING_FRAME */
+#define @ROTATING_FRAME_MODE@
+
+/* l1_inflow: L1_INFLOW or NO_L1_INFLOW */
+#define @L1_INFLOW_MODE@
+
 /* Mesh Refinement mode: STATIC_MESH_REFINEMENT or NO_MESH_REFINEMENT */
 #define @MESH_REFINEMENT@
 

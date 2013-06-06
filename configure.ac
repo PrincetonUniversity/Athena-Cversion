@@ -44,6 +44,8 @@
 #   --enable-single                                 (double or single precision)
 #   --enable-sts                     (super timestepping for explicit diffusion)
 #   --enable-smr                                        (static mesh refinement)
+#   --enable-rotating_frame                    (enable ROTATING_FRAME algorithm)
+#   --enable-l1_inflow                             (enable inflow from L1 point)
 #
 #-------------------------------------------------------------------------------
 # generic things
@@ -530,6 +532,39 @@ else
 fi  
 
 #-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on ROTATING_FRAME algorithm.
+#   --enable-rotframe
+
+AC_SUBST(ROTATING_FRAME_MODE)
+AC_ARG_ENABLE(rotating_frame,
+        [--enable-rotating_frame  turn on rotating_frame],
+        ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  ROTATING_FRAME_MODE="ROTATING_FRAME"
+  ROTATING_FRAME_MODE_USER="ON"
+else
+  ROTATING_FRAME_MODE="NO_ROTATING_FRAME"
+  ROTATING_FRAME_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# ALGORITHM FEATURE: turn on inflow from L1 point algorithm. 
+#   --enable-l1_inflow
+
+AC_SUBST(L1_INFLOW_MODE)
+AC_ARG_ENABLE(l1_inflow,
+        [--enable-l1_inflow  turn on l1_inflow],
+        ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  L1_INFLOW_MODE="L1_INFLOW"
+  L1_INFLOW_MODE_USER="ON"
+else
+  L1_INFLOW_MODE="NO_L1_INFLOW"
+  L1_INFLOW_MODE_USER="OFF"
+fi
+
+
+#-------------------------------------------------------------------------------
 # check for compatibility of various options
 
 if test "$with_coord" = "cylindrical"; then
@@ -609,4 +644,6 @@ echo "FARGO:                   $FARGO_MODE_USER"
 echo "Super timestepping:      $TIMESTEPPING_MODE_USER"
 echo "Static Mesh Refinement:  $SMR_MODE_USER"
 echo "first-order flux corr:   $FOFC_MODE_USER"
+echo "ROTATING_FRAME:          $ROTATING_FRAME_MODE_USER"
+echo "L1_INFLOW:               $L1_INFLOW_MODE_USER"
 

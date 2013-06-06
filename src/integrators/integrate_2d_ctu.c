@@ -133,6 +133,15 @@ void integrate_2d_ctu(DomainS *pD)
   Real flx1_dM3, frx1_dM3, flx2_dM3, frx2_dM3;
   Real fact, qom, om_dt = Omega_0*pG->dt;
 #endif /* SHEARING_BOX */
+#ifdef ROTATING_FRAME
+#ifdef FARGO
+#error: Fargo cannot be used in rotating frame.
+#endif
+#ifndef CYLINDRICAL
+#error: ROTATING_FRAME has to be in CYLINDRICAL coordinates.
+#endif
+  Real tmp_M1, tmp_M2;
+#endif /* ROTATING_FRAME */
 #ifdef STATIC_MESH_REFINEMENT
   int ncg,npg,dim;
   int ii,ics,ice,jj,jcs,jce,ips,ipe,jps,jpe;
@@ -378,6 +387,25 @@ void integrate_2d_ctu(DomainS *pD)
       Wr[i].Vy += hdt*(qshear - 2.0)*Om*W[i].Vx;
     }
 #endif
+
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add source terms for Rotating Frame (Coriolis forces + Centrifugal force from 
+ * Center of Mass) for 0.5*dt to L/R states
+ *    Vx source term = (dt/2)*( 2 Omega_0 Vy)
+ *    Vy source term = (dt/2)*(-2 Omega_0 Vx)
+ *    (x1,x2,x3) in code = (X,Z,Y) in 2D shearing sheet
+ */
+#ifdef ROTATING_FRAME
+      for (i=il+1; i<=iu; i++) {
+        cc_pos(pG,i-1,j,ks,&x1,&x2,&x3);
+        Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy - 0.5*pG->dt*SQR(Omega_0)*Rc*cos(x2);
+        Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx - 0.5*pG->dt*SQR(Omega_0)*Rc*sin(x2);
+
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        Wr[i].Vx += pG->dt*Omega_0*W[i].Vy - 0.5*pG->dt*SQR(Omega_0)*Rc*cos(x2);
+        Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx - 0.5*pG->dt*SQR(Omega_0)*Rc*sin(x2);
+      }
+#endif /*ROTATING_FRAME*/
 
 
 /*--- Step 1c (cont) -----------------------------------------------------------
@@ -792,6 +820,10 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
         Ur_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i  ].d*(phic - phil) +
                                       x2Flux[j+1][i  ].d*(phir - phic));
+        #ifdef ROTATING_FRAME
+                Ur_x1Face[j][i].E += hdt * 0.5*(x2Flux[j  ][i  ].d*sin(x2-0.5*pG->dx2) +
+                                                x2Flux[j+1][i  ].d*sin(x2+0.5*pG->dx2)) *SQR(Omega_0)*Rc;
+        #endif
 #endif
 
         phic = (*StaticGravPot)((x1-pG->dx1), x2             ,x3);
@@ -805,6 +837,10 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
         Ul_x1Face[j][i].E -= hdtodx2*(x2Flux[j  ][i-1].d*(phic - phil) +
                                       x2Flux[j+1][i-1].d*(phir - phic));
+        #ifdef ROTATING_FRAME
+                Ul_x1Face[j][i].E += hdt * 0.5*(x2Flux[j  ][i-1].d*sin(x2-0.5*pG->dx2) +
+                                                x2Flux[j+1][i-1].d*sin(x2+0.5*pG->dx2)) *SQR(Omega_0)*Rc;
+        #endif
 #endif
       }
     }
@@ -954,6 +990,10 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
         Ur_x2Face[j][i].E -= hdtodx1*(lsf*x1Flux[j  ][i  ].d*(phic - phil) +
                                       rsf*x1Flux[j  ][i+1].d*(phir - phic));
+        #ifdef ROTATING_FRAME
+                Ur_x2Face[j][i].E -= hdt * 0.5*(x1Flux[j  ][i  ].d+x1Flux[j  ][i+1].d)
+                                         * SQR(Omega_0)*Rc*cos(x2);
+	#endif
 #endif
 
         /* correct left states; x1 gradients */
@@ -969,6 +1009,10 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
         Ul_x2Face[j][i].E -= hdtodx1*(lsf*x1Flux[j-1][i  ].d*(phic - phil) +
                                       rsf*x1Flux[j-1][i+1].d*(phir - phic));
+        #ifdef ROTATING_FRAME
+                Ul_x2Face[j][i].E -= hdt * 0.5*(x1Flux[j-1][i  ].d+x1Flux[j-1][i+1].d)
+                                         * SQR(Omega_0)*Rc*cos(x2-pG->dx2);
+	#endif
 #endif
       }
     }
@@ -1092,6 +1136,27 @@ void integrate_2d_ctu(DomainS *pD)
     }
   }
 #endif
+
+/*--- Step 6d (cont) -----------------------------------------------------------
+ *  * Add source terms for rotating fame (Coriolis forces+ Centrifugal force from CoM) for 0.5*dt arising from
+ *   * x1-Flux gradient.  
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ * (x1,x2,x3) in code = (X,Z,Y) in shearing sheet
+ */
+#ifdef ROTATING_FRAME
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu; i++) {
+        cc_pos(pG,i,j-1,ks,&x1,&x2,&x3);
+        Ul_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j-1][i].M2 - 0.5*pG->dt*SQR(Omega_0)*Rc*cos(x2)*pG->U[ks][j-1][i].d;
+        Ul_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j-1][i].M1 - 0.5*pG->dt*SQR(Omega_0)*Rc*sin(x2)*pG->U[ks][j-1][i].d;
+
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        Ur_x2Face[j][i].Mz += pG->dt*Omega_0*pG->U[ks][j][i].M2 - 0.5*pG->dt*SQR(Omega_0)*Rc*cos(x2)*pG->U[ks][j][i].d;
+        Ur_x2Face[j][i].Mx -= pG->dt*Omega_0*pG->U[ks][j][i].M1 - 0.5*pG->dt*SQR(Omega_0)*Rc*sin(x2)*pG->U[ks][j][i].d;
+      }
+    }
+#endif /*ROTATING_FRAME*/
 
 
 /*--- Step 6d (cont) -----------------------------------------------------------
@@ -1254,6 +1319,13 @@ void integrate_2d_ctu(DomainS *pD)
       M1h += hdt*2.0*Om*pG->U[ks][j][i].M2;
       M2h += hdt*Om*(qshear-2.0)*pG->U[ks][j][i].M1;
 #endif
+
+/* Add the Coriolis term for rotating frame*/
+#ifdef ROTATING_FRAME
+      cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+      M1h += pG->dt*Omega_0*pG->U[ks][j][i].M2 - 0.5*pG->dt*SQR(Omega_0)*Rc*cos(x2)*pG->U[ks][j][i].d;
+      M2h -= pG->dt*Omega_0*pG->U[ks][j][i].M1 - 0.5*pG->dt*SQR(Omega_0)*Rc*sin(x2)*pG->U[ks][j][i].d;
+#endif /* ROTATING_FRAME */
 
       /* Add the particle feedback terms */
 #ifdef FEEDBACK
@@ -1636,6 +1708,19 @@ void integrate_2d_ctu(DomainS *pD)
 
 #endif /* SHEARING_BOX */
 
+/* Add Coriolis Force for rotating frame */
+#ifdef ROTATING_FRAME
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        tmp_M1 = pG->U[ks][j][i].M1;
+        tmp_M2 = pG->U[ks][j][i].M2;
+        pG->U[ks][j][i].M1 += 2.0*pG->dt*Omega_0*tmp_M2 - pG->dt*SQR(Omega_0)*Rc*cos(x2)*pG->U[ks][j][i].d;
+        pG->U[ks][j][i].M2 -= 2.0*pG->dt*Omega_0*tmp_M1 - pG->dt*SQR(Omega_0)*Rc*sin(x2)*pG->U[ks][j][i].d;
+      }
+    }
+#endif /* ROTATING_FRAME */
+
   if (StaticGravPot != NULL){
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
@@ -1657,6 +1742,9 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
         pG->U[ks][j][i].E -= dtodx1*(lsf*x1Flux[j][i  ].d*(phic - phil) +
                                      rsf*x1Flux[j][i+1].d*(phir - phic));
+        #ifdef ROTATING_FRAME
+                pG->U[ks][j][i].E -= pG->dt * 0.5*(x1Flux[j][i].d+x1Flux[j][i+1].d) * SQR(Omega_0)*Rc * cos(x2);
+        #endif
 #endif
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -1666,6 +1754,9 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
         pG->U[ks][j][i].E -= dtodx2*(x2Flux[j  ][i].d*(phic - phil) +
                                      x2Flux[j+1][i].d*(phir - phic));
+        #ifdef ROTATING_FRAME
+                pG->U[ks][j][i].E += pG->dt * 0.5*(x2Flux[j][i].d*sin(x2-0.5*pG->dx2) + x2Flux[j+1][i].d*sin(x2+0.5*pG->dx2)) * SQR(Omega_0)*Rc;
+        #endif
 #endif
       }
     }

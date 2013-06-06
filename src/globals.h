@@ -34,6 +34,10 @@ Real Omega_0, qshear; /*!< orbital freq and shear parameter dln\Omega/dlnr */
 enum SS2DCoord ShBoxCoord;
 #endif
 
+#ifdef ROTATING_FRAME
+Real Omega_0, Rc; /* Rotating frequency, Radius of center of mass */
+#endif
+
 #ifdef PARTICLES
 TSFun_t     get_ts    = NULL;     /*!< get the stopping time */
 WeightFun_t getweight = NULL;     /*!< get weight function */
@@ -89,6 +93,10 @@ extern Real four_pi_G, grav_mean_rho;
 extern GravPotFun_t ShearingBoxPot;
 extern Real Omega_0, qshear;
 extern enum SS2DCoord ShBoxCoord;
+#endif
+
+#ifdef ROTATING_FRAME
+extern Real Omega_0, Rc; /* Omega_0: rotating frequency of frame; Rc: Distance between Center of Mass to Origin of Coordinate */
 #endif
 
 #ifdef PARTICLES

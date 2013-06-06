@@ -81,7 +81,7 @@ do
       let CNT=CNT+1
 
 # configure code
-      if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
+      if ! ./configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
       then
         echo "Configure for test $CNT failed"
         exit
@@ -180,7 +180,7 @@ do
         let CNT=CNT+1
 
 # configure code
-        if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
+        if ! ./configure --with-integrator=$INT --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=roe &> config.log
         then
           echo "Configure for test $CNT failed"
           exit
@@ -258,7 +258,7 @@ do
         let CNT=CNT+1
 
 # configure code
-        if ! configure --with-integrator=ctu --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=$FLUX &> config.log
+        if ! ./configure --with-integrator=ctu --with-gas=$GAS --with-eos=$EOS --with-problem=linear_wave --with-order=$ORD --with-nscalars=1 --with-flux=$FLUX &> config.log
         then
           echo "Configure for test $CNT failed"
           exit
@@ -324,7 +324,7 @@ do
       let CNT=CNT+1
 
 # configure code
-      if ! configure --with-integrator=$INT --with-gas=mhd --with-eos=$EOS --with-problem=cpaw --with-order=$ORD --with-flux=roe &> config.log
+      if ! ./configure --with-integrator=$INT --with-gas=mhd --with-eos=$EOS --with-problem=cpaw --with-order=$ORD --with-flux=roe &> config.log
       then
         echo "Configure for test $CNT failed"
         exit
@@ -398,7 +398,7 @@ do
     let CNT=CNT+1
 
 # configure code
-    if ! configure --with-integrator=ctu --with-gas=mhd --with-eos=adiabatic --with-problem=cpaw --with-order=$ORD --with-flux=$FLUX &> config.log
+    if ! ./configure --with-integrator=ctu --with-gas=mhd --with-eos=adiabatic --with-problem=cpaw --with-order=$ORD --with-flux=$FLUX &> config.log
     then
       echo "Configure for test $CNT failed"
       exit
@@ -490,7 +490,7 @@ do
 
 # configure code
 
-    if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=adiabatic --with-problem=shkset1d --with-nscalars=1 --with-order=$ORD --with-flux=roe &> config.log
+    if ! ./configure --with-integrator=$INT --with-gas=$GAS --with-eos=adiabatic --with-problem=shkset1d --with-nscalars=1 --with-order=$ORD --with-flux=roe &> config.log
     then
       echo "Configure for test $CNT failed"
       exit
@@ -592,7 +592,7 @@ do
 
 # configure code
 
-      if ! configure --with-integrator=ctu --with-gas=$GAS --with-eos=adiabatic --with-problem=shkset1d --with-nscalars=1 --with-order=$ORD --with-flux=$FLUX &> config.log
+      if ! ./configure --with-integrator=ctu --with-gas=$GAS --with-eos=adiabatic --with-problem=shkset1d --with-nscalars=1 --with-order=$ORD --with-flux=$FLUX &> config.log
       then
         echo "Configure for test $CNT failed"
         exit
@@ -658,7 +658,7 @@ do
 
 # configure code
 
-      if ! configure --with-integrator=$INT --with-gas=$GAS --with-eos=adiabatic --with-problem=$PROBLEM --with-order=$ORD --with-flux=roe &> config.log
+      if ! ./configure --with-integrator=$INT --with-gas=$GAS --with-eos=adiabatic --with-problem=$PROBLEM --with-order=$ORD --with-flux=roe &> config.log
       then
         echo "Configure for test $CNT failed"
         exit
@@ -727,7 +727,7 @@ do
 
 # configure code
 
-  if ! configure --with-integrator=$INT --with-gas=mhd --with-eos=adiabatic --with-problem=field_loop --with-order=$ORD --with-flux=roe &> config.log
+  if ! ./configure --with-integrator=$INT --with-gas=mhd --with-eos=adiabatic --with-problem=field_loop --with-order=$ORD --with-flux=roe &> config.log
   then
     echo "Configure for test $CNT failed"
     exit
