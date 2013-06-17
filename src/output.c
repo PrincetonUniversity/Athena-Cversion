@@ -750,7 +750,7 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
 	  
 /* Nx3,Nx2,Nx1 -> Nx2,Nx1 */
   if (pout->reduce_x3 != 0) {
-    if (pout->x3u < pgrid->MinX[2] || pout->x3l >= pgrid->MaxX[2]) return NULL;
+    if (pout->x3u < pgrid->MinX[2] || pout->x3l > pgrid->MaxX[2]) return NULL;
 
     /* find k indices of slice range */
     k=kl+1;
@@ -784,7 +784,7 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
 
 /* Nx3,Nx2,Nx1 -> Nx3,Nx1 */
   } else if (pout->reduce_x2 != 0) {
-    if (pout->x2u < pgrid->MinX[1] || pout->x2l >= pgrid->MaxX[1]) return NULL;
+    if (pout->x2u < pgrid->MinX[1] || pout->x2l > pgrid->MaxX[1]) return NULL;
 
     /* find j indices of slice range */
     j=jl+1;
@@ -819,7 +819,7 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
 
 /* Nx3,Nx2,Nx1 -> Nx3,Nx2 */
   } else if (pout->reduce_x1 != 0) {
-    if (pout->x1u < pgrid->MinX[0] || pout->x1l >= pgrid->MaxX[0]) return NULL;
+    if (pout->x1u < pgrid->MinX[0] || pout->x1l > pgrid->MaxX[0]) return NULL;
 
     /* find i indices of slice range */
     i=il+1;
@@ -930,8 +930,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
 
 /* Nx3,Nx2,Nx1 -> Nx1 */
   if (pout->reduce_x1 == 0) {
-    if (pout->x3u < pgrid->MinX[2] || pout->x3l >= pgrid->MaxX[2] ||
-        pout->x2u < pgrid->MinX[1] || pout->x2l >= pgrid->MaxX[1]) return NULL;
+    if (pout->x3u < pgrid->MinX[2] || pout->x3l > pgrid->MaxX[2] ||
+        pout->x2u < pgrid->MinX[1] || pout->x2l > pgrid->MaxX[1]) return NULL;
 
     /* find k indices of slice range */
     if (pgrid->Nx[2] == 1){
@@ -985,8 +985,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
 
 /* Nx3,Nx2,Nx1 -> Nx2 */
   } else if (pout->reduce_x2 == 0) {
-    if (pout->x3u < pgrid->MinX[2] || pout->x3l >= pgrid->MaxX[2] ||
-        pout->x1u < pgrid->MinX[0] || pout->x1l >= pgrid->MaxX[0]) return NULL;
+    if (pout->x3u < pgrid->MinX[2] || pout->x3l > pgrid->MaxX[2] ||
+        pout->x1u < pgrid->MinX[0] || pout->x1l > pgrid->MaxX[0]) return NULL;
 
     /* find k indices of slice range */
     if (pgrid->Nx[2] == 1){
@@ -1041,8 +1041,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
 
 /* Nx3,Nx2,Nx1 -> Nx3. Data must be 3D in this case. */
   } else if (pout->reduce_x3 == 0) {
-    if (pout->x2u < pgrid->MinX[1] || pout->x2l >= pgrid->MaxX[1] ||
-        pout->x1u < pgrid->MinX[0] || pout->x1l >= pgrid->MaxX[0]) return NULL;
+    if (pout->x2u < pgrid->MinX[1] || pout->x2l > pgrid->MaxX[1] ||
+        pout->x1u < pgrid->MinX[0] || pout->x1l > pgrid->MaxX[0]) return NULL;
 
     /* find j indices of slice range */
     j=jl+1;
