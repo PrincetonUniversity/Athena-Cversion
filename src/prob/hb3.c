@@ -14,9 +14,11 @@
  * - ipert = 2 - uniform Vx=amp, sinusoidal density
  * - ipert = 3 - random perturbations to P [used by HB]
  * - ipert = 4 - sinusoidal perturbation to Vx in z
+ * - ipert = 5 - sinusoidal modes (Nordita workshop test)
  *
  * - ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
  * - ifield = 2 - uniform Bz
+ * - ifield = 3 - sinusiodal modes (Nordita workshop test)
  *
  * PRIVATE FUNCTION PROTOTYPES:
  * - ran2() - random number generator from NR
@@ -87,13 +89,23 @@ void problem(DomainS *pDomain)
   int is = pGrid->is, ie = pGrid->ie;
   int js = pGrid->js, je = pGrid->je;
   int ks = pGrid->ks;
-  int i,j,ipert,ifield;
+  int i,j,ipert,ifield,nx1,nx2;
   long int iseed = -1; /* Initialize on the first call to ran2 */
   Real x1, x2, x3, x1min, x1max, x2min, x2max;
-  Real den = 1.0, pres = 1.0e-5, rd, rp, rvx;
+  Real den = 1.0, pres, rd, rp, rvx, rvy, rvz;
   Real beta,B0,kx,kz,amp;
+  Real **az;
   double rval;
   static int frst=1;  /* flag so new history variables enrolled only once */
+
+/* allocate memory for solution and vector potential */
+
+  nx1 = (ie-is)+1 + 2*nghost;
+  nx2 = (je-js)+1 + 2*nghost;
+#ifdef MHD
+  if ((az = (Real**)calloc_2d_array(nx2, nx1, sizeof(Real))) == NULL)
+    ath_error("[problem]: Error allocating memory for \"az\"\n");
+#endif /* MHD */
 
 /* specify xz (r-z) plane */
   ShBoxCoord = xz;
@@ -122,9 +134,23 @@ void problem(DomainS *pDomain)
   qshear  = par_getd_def("problem","qshear",1.5);
   amp = par_getd("problem","amp");
   beta = par_getd("problem","beta");
+  pres = par_getd("problem","pres");
   B0 = sqrt((double)(2.0*pres/beta));
   ifield = par_geti_def("problem","ifield", 1);
   ipert = par_geti_def("problem","ipert", 1);
+
+/* set up vector potential for ifield=3 */
+#ifdef MHD
+  if (ifield == 3){
+  for (j=js; j<=je+1; j++) {
+    for (i=is; i<=ie+1; i++) {
+      cc_pos(pGrid,i,j,ks,&x1,&x2,&x3);
+      x1 = x1 - 0.5*pGrid->dx1;
+      x2 = x2 - 0.5*pGrid->dx2;
+      az[j][i] = amp*sin(kz*x2)/kz - amp*sin(3.0*kx*x1)/(3.0*kx);
+    }
+  }}
+#endif /* MHD */
 
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
@@ -135,7 +161,11 @@ void problem(DomainS *pDomain)
  *  ipert = 2 - uniform Vx=amp, sinusoidal density
  *  ipert = 3 - random perturbations to P [used by HB]
  *  ipert = 4 - sinusoidal perturbation to Vx in z
+ *  ipert = 5 - sinusoidal modes (Nordita workshop test)
  */
+      rvx = 0.0;
+      rvy = 0.0;
+      rvz = 0.0;
       if (ipert == 1) {
         rval = 1.0 + amp*(ran2(&iseed) - 0.5);
 #ifdef ADIABATIC
@@ -170,25 +200,34 @@ void problem(DomainS *pDomain)
         rd = den;
         rvx = amp*sin((double)kz*x2);
       }
+      if (ipert == 5) {
+        rd = den;
+        rvx = amp*cos((double)kz*x2);
+/*        rvy = amp*cos((double)3.0*kx*x1); */
+        rvy = amp*cos((double)kx*x1);
+        rvz = amp*cos((double)kx*(x1 + 3.0*x2));
+      }
 
 /* Initialize d, M, and P.  For 2D shearing box M1=Vx, M2=Vz, M3=Vy */ 
 
       pGrid->U[ks][j][i].d  = rd;
       pGrid->U[ks][j][i].M1 = rd*rvx;
-      pGrid->U[ks][j][i].M2 = 0.0;
+      pGrid->U[ks][j][i].M2 = rd*rvy;
 #ifdef FARGO
-      pGrid->U[ks][j][i].M3 = 0.0;
+      pGrid->U[ks][j][i].M3 = rd*rvz;
 #else
-      pGrid->U[ks][j][i].M3 = -rd*qshear*Omega_0*x1;
+      pGrid->U[ks][j][i].M3 = rd*(rvz - qshear*Omega_0*x1);
 #endif
 #ifdef ADIABATIC
       pGrid->U[ks][j][i].E = rp/Gamma_1
-        + 0.5*(SQR(pGrid->U[ks][j][i].M1) + SQR(pGrid->U[ks][j][i].M3))/rd;
+        + 0.5*(SQR(pGrid->U[ks][j][i].M1) + SQR(pGrid->U[ks][j][i].M2) +
+               SQR(pGrid->U[ks][j][i].M3))/rd;
 #endif
 
 /* Initialize magnetic field.  For 2D shearing box B1=Bx, B2=Bz, B3=By
  *  ifield = 1 - Bz=B0 sin(x1) field with zero-net-flux [default]
  *  ifield = 2 - uniform Bz
+ *  ifield = 3 - sinusiodal modes (Nordita workshop test)
  */
 #ifdef MHD
       if (ifield == 1) {
@@ -211,6 +250,14 @@ void problem(DomainS *pDomain)
         if (i==ie) pGrid->B1i[ks][j][ie+1] = 0.0;
         if (j==je) pGrid->B2i[ks][je+1][i] = B0;
       }
+      if (ifield == 3) {
+        pGrid->B1i[ks][j][i] = (az[j+1][i] - az[j][i])/pGrid->dx2;
+        pGrid->B2i[ks][j][i] =-(az[j][i+1] - az[j][i])/pGrid->dx1;
+        if (i==ie) 
+          pGrid->B1i[ks][j][ie+1] = (az[j+1][ie+1]-az[j][ie+1])/pGrid->dx2;
+        if (j==je)
+          pGrid->B2i[ks][je+1][i] =-(az[je+1][i+1]-az[je+1][i])/pGrid->dx1;
+      }
 #ifdef ADIABATIC
       pGrid->U[ks][j][i].E += 0.5*(SQR(pGrid->U[ks][j][i].B1c)
          + SQR(pGrid->U[ks][j][i].B2c) + SQR(pGrid->U[ks][j][i].B3c));
@@ -219,11 +266,26 @@ void problem(DomainS *pDomain)
     }
   }
 
-/* With viscosity and/or resistivity, read eta_Ohm and nu_V */
+/* compute cell centered fields */
+#ifdef MHD
+  for (j=js; j<=je; j++) {
+  for (i=is; i<=ie; i++) {
+    pGrid->U[ks][j][i].B1c =0.5*(pGrid->B1i[ks][j][i] + pGrid->B1i[ks][j][i+1]);
+    pGrid->U[ks][j][i].B2c =0.5*(pGrid->B2i[ks][j][i] + pGrid->B2i[ks][j+1][i]);
+  }}
+  free_2d_array(az);
+#endif /* MHD */
+
+/* With visc sity and/or resistivity, read eta_Ohm and nu_V */
 #ifdef RESISTIVITY
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
+#endif
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* enroll gravitational potential function, shearing sheet BC functions */
@@ -280,6 +342,11 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   eta_Ohm = par_getd_def("problem","eta_O",0.0);
   Q_Hall  = par_getd_def("problem","Q_H",0.0);
   Q_AD    = par_getd_def("problem","Q_A",0.0);
+  d_ind   = par_getd_def("problem","d_ind",0.0);
+#endif
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+  nu_aniso = par_getd_def("problem","nu_aniso",0.0);
 #endif
 
 /* Must recompute global variable Lx needed by BC routines */
@@ -302,6 +369,17 @@ ConsFun_t get_usr_expr(const char *expr)
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
 }
+
+#ifdef RESISTIVITY
+void get_eta_user(GridS *pG, int i, int j, int k,
+                            Real *eta_O, Real *eta_H, Real *eta_A)
+{
+  *eta_O = 0.0;
+  *eta_H = 0.0;
+  *eta_A = 0.0;
+  return;
+}
+#endif
 
 void Userwork_in_loop(MeshS *pM)
 {
