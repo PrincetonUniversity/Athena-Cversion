@@ -341,6 +341,8 @@ reads,string_array[3],nzs
 nx = LONG(nxs)-1
 ny = LONG(nys)-1
 nz = LONG(nzs)-1
+if (ny eq 0) then ny=1
+if (nz eq 0) then nz=1
 print,"nx,ny,nz:",nx,ny,nz
 ; read line 6, get origin
 readf,1,string
@@ -383,6 +385,10 @@ while (not eof(1)) do begin
         readscalarblock,1,e
         isothermal = 0
         nvar = nvar + 1
+      end else if (block eq 13) then begin
+        readscalarblock,1,p
+        isothermal = 0
+        nvar = nvar + 1
       end else begin
         readscalarblock,1
         print,"Data from unrecognized SCALARS block not stored."
@@ -392,6 +398,12 @@ while (not eof(1)) do begin
       if (block eq 21) then begin
         readvectblock,1,vx,vy,vz
         nvar = nvar + 3
+      end else if (block eq 22) then begin
+        readvectblock,1,vx,vy,vz
+        nvar = nvar + 3
+        vx = vx/d
+        vy = vy/d
+        vz = vz/d
       end else if (block eq 22) then begin
         readvectblock,1,bx,by,bz
         mhd = 1
@@ -453,8 +465,12 @@ if (string eq "SCALARS density float") then begin
   return,11
 end else if (string eq "VECTORS velocity float") then begin
   return,21
+end else if (string eq "VECTORS momentum float") then begin
+  return,22
 end else if (string eq "SCALARS total_energy float") then begin
   return,12
+end else if (string eq "SCALARS pressure float") then begin
+  return,13
 end else if (string eq "VECTORS cell_centered_B float") then begin
   return,22
 end else if (strpos(string, "SCALARS") ne -1) then begin
