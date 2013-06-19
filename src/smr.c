@@ -77,7 +77,7 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr);
 void RestrictCorrect(MeshS *pM)
 {
   GridS *pG;
-  int nl,nd,ncg,dim,nDim,npg,rbufN,start_addr,cnt,nCons,nFlx;
+  int nl,nd,ncg,dim,nDim,npg,rbufN,start_addr,cnt,nCons,nFlx,nZeroRC;
   int i,ii,ics,ice,ips,ipe;
   int j,jj,jcs,jce,jps,jpe;
   int k,kk,kcs,kce,kps,kpe;
@@ -111,6 +111,7 @@ void RestrictCorrect(MeshS *pM)
     for (nd=0; nd<(pM->DomainsPerLevel[nl-1]); nd++){
       if (pM->Domain[nl-1][nd].Grid != NULL) {
         pG=pM->Domain[nl-1][nd].Grid;
+        nZeroRC = 0;
 
 /* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0.
  * First index alternates between 0 and 1 for even/odd values of nl, since if
@@ -118,12 +119,16 @@ void RestrictCorrect(MeshS *pM)
         mAddress = 0;
         rbufN = ((nl-1) % 2);
         for (ncg=(pG->NmyCGrid); ncg<(pG->NCGrid); ncg++){
-          mIndex = ncg - pG->NmyCGrid;
-          ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
-            pG->CGrid[ncg].nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
-            pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
-            &(recv_rq[nl-1][nd][mIndex]));
-          mAddress += pG->CGrid[ncg].nWordsRC;
+          if(pG->CGrid[ncg].nWordsRC == 0){
+            nZeroRC += 1;
+          } else {
+            mIndex = ncg - pG->NmyCGrid - nZeroRC;
+            ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
+              pG->CGrid[ncg].nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
+              pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
+              &(recv_rq[nl-1][nd][mIndex]));
+            mAddress += pG->CGrid[ncg].nWordsRC;
+          }
         }
 
       }
@@ -140,8 +145,12 @@ void RestrictCorrect(MeshS *pM)
   if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
     pG=pM->Domain[nl][nd].Grid;
     rbufN = (nl % 2);
+    nZeroRC = 0;
 
-    for (ncg=0; ncg<(pG->NCGrid); ncg++){
+    for (i=pG->NmyCGrid; i<pG->NCGrid; i++)
+      if(pG->CGrid[i].nWordsRC == 0) nZeroRC++;
+
+    for (ncg=0; ncg<(pG->NCGrid-nZeroRC); ncg++){
 
 /*--- Step 1a. Get restricted solution and fluxes. ---------------------------*/
 
@@ -158,15 +167,20 @@ void RestrictCorrect(MeshS *pM)
  * Grids, sent in Step 3 during last iteration of loop over nl.  Accept messages
  * in any order. */
 
-        mCount = pG->NCGrid - pG->NmyCGrid;
+        mCount = pG->NCGrid - pG->NmyCGrid - nZeroRC;
         ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
         if(mIndex == MPI_UNDEFINED){
           ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",nl,nd);
         }
       
 /* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
-        mAddress = 0;
+
         mIndex += pG->NmyCGrid;
+
+        for(i=pG->NmyCGrid; i<=mIndex; i++)
+                if(pG->CGrid[i].nWordsRC == 0)  mIndex++;
+
+        mAddress = 0;
         for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].nWordsRC;
         pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
         pRcv = (double*)&(recv_bufRC[rbufN][nd][mAddress]);
@@ -188,6 +202,7 @@ void RestrictCorrect(MeshS *pM)
 
 /*--- Step 1b. Restrict conserved variables on parent Grid -------------------*/
 
+/* If no restriction is required, kce < kcs, the loop will not be calculated */
       for (k=kcs; k<=kce; k++) {
         for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
@@ -248,10 +263,12 @@ void RestrictCorrect(MeshS *pM)
 /* Restrict B2i */
           /* Set B2i at jcs if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+        if(jcs < jce){
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[2] == NULL) {pG->B2i[kcs][jcs][i] = *(pRcv++);}
             else {pRcv++;}
           }
+        }
 
           for (j=jcs+1; j<=jce; j++) {
           for (i=ics  ; i<=ice; i++) {
@@ -260,10 +277,12 @@ void RestrictCorrect(MeshS *pM)
 
           /* Set B2i at jce+1 if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+        if(jcs < jce){
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[3] == NULL) {pG->B2i[kcs][jce+1][i] = *(pRcv++);}
             else {pRcv++;}
           }
+        }
 
 /* Set cell-centered fields */
           for (j=jcs; j<=jce; j++) {
@@ -297,6 +316,7 @@ void RestrictCorrect(MeshS *pM)
           }}}
 
 /* Restrict B2i */
+        if(jcs < jce){
           for (k=kcs  ; k<=kce; k++) {
             /* Set B2i at jcs if no flux correction will be made.  Increment
              * pointer even if value in Rcv pointer is ignored. */
@@ -317,16 +337,18 @@ void RestrictCorrect(MeshS *pM)
               else {pRcv++;}
             }
           }
+        }
 
 /* Restrict B3i */
           /* Set B3i at kcs if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+        if(kcs < kce){
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[4] == NULL) {pG->B3i[kcs][j][i] = *(pRcv++);}
             else {pRcv++;}
           }}
-
+        }
           for (k=kcs+1; k<=kce; k++) {
           for (j=jcs  ; j<=jce; j++) {
           for (i=ics  ; i<=ice; i++) {
@@ -335,12 +357,13 @@ void RestrictCorrect(MeshS *pM)
 
           /* Set B3i at kce+1 if no flux correction will be made.  Increment
            * pointer even if value in Rcv pointer is ignored. */
+        if(kcs < kce){
           for (j=jcs; j<=jce; j++) {
           for (i=ics; i<=ice; i++) {
             if (pCO->myFlx[5] == NULL) {pG->B3i[kce+1][j][i] = *(pRcv++);}
             else {pRcv++;}
           }}
-
+        }
 /* Set cell-centered fields */
           for (k=kcs; k<=kce; k++) {
           for (j=jcs; j<=jce; j++) {
@@ -796,8 +819,15 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
   if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
     pG=pM->Domain[nl][nd].Grid;          /* set pointer to this Grid */
     start_addr=0;
+    nZeroRC = 0;
 
     for (npg=0; npg<(pG->NPGrid); npg++){
+     if(pG->PGrid[npg].nWordsRC == 0){
+        if(npg >= pG->NmyPGrid)
+                nZeroRC += 1;
+     }
+     else{
+
       pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
       cnt = 0;
 #ifdef MHD
@@ -1285,7 +1315,7 @@ printf("cnt = %i\n", cnt);
 /* non-blocking send with MPI, using Domain number as tag.  */
 
       if (npg >= pG->NmyPGrid){
-        mIndex = npg - pG->NmyPGrid;
+        mIndex = npg - pG->NmyPGrid - nZeroRC;
         ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].nWordsRC,
           MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[nl][nd].Comm_Parent,
           &(send_rq[nd][mIndex]));
@@ -1294,6 +1324,7 @@ printf("cnt = %i\n", cnt);
 
       start_addr += pG->PGrid[npg].nWordsRC;
 
+     }/* End if nWordsRC != 0 */
     }  /* end loop over parent grids */
   }} /* end loop over Domains per level */
 
@@ -1305,9 +1336,14 @@ printf("cnt = %i\n", cnt);
   for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
     if (pM->Domain[nl][nd].Grid != NULL) {
       pG=pM->Domain[nl][nd].Grid;
+      nZeroRC = 0;
+
+        for(i=pG->NmyPGrid; i<pG->NPGrid; i++)
+                if(pG->PGrid[i].nWordsRC == 0)
+                        nZeroRC++;
 
       if (pG->NPGrid > pG->NmyPGrid) {
-        mCount = pG->NPGrid - pG->NmyPGrid;
+        mCount = pG->NPGrid - pG->NmyPGrid -nZeroRC;
         ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
       }
     }
@@ -1407,7 +1443,8 @@ void Prolongate(MeshS *pM)
 
 /* Skip if no prolongation needed for this child (only flux correction) */
     if (pG->CGrid[ncg].nWordsP == 0) { 
-      nZeroP += 1;
+        if(ncg >= pG->NmyCGrid)
+              nZeroP += 1;
     } else {
 
       pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
@@ -1504,7 +1541,7 @@ void Prolongate(MeshS *pM)
 
 /* Loop over number of parent grids with non-zero-size prolongation data */
     nZeroP = 0;
-    for (i=0; i < pG->NPGrid; i++) if (pG->PGrid[i].nWordsP == 0) nZeroP++;
+    for (i=pG->NmyPGrid; i<pG->NPGrid; i++) if(pG->PGrid[i].nWordsP==0) nZeroP++;
 
     for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
 
@@ -1548,7 +1585,7 @@ void Prolongate(MeshS *pM)
 /* Loop over 6 boundaries, set ghost zones */
 
       for (dim=0; dim<(2*nDim); dim++){
-        if (pPO->myFlx[dim] != NULL) {
+        if ((pPO->myFlx[dim] != NULL) && (pPO->nWordsP > 0)) {
 
 /*--- Steps 3a.  Set GZ and BFld arrays --------------------------------------*/
 /* Compute size of array containing ghost zones from parent Grid.  Set
@@ -1902,7 +1939,7 @@ void Prolongate(MeshS *pM)
       pG=pM->Domain[nl][nd].Grid;
 
       nZeroP = 0;
-      for (i=0; i < pG->NCGrid; i++) if (pG->CGrid[i].nWordsP == 0) nZeroP++;
+      for (i=pG->NmyCGrid; i<pG->NCGrid; i++) if(pG->CGrid[i].nWordsP==0) nZeroP++;
 
       if (pG->NCGrid > pG->NmyCGrid) {
         mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
