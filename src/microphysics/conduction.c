@@ -54,6 +54,11 @@ static Real3Vect ***Q=NULL;
 void HeatFlux_iso(DomainS *pD);
 void HeatFlux_aniso(DomainS *pD);
 
+static Real limiter2(const Real A, const Real B);
+static Real limiter4(const Real A, const Real B, const Real C, const Real D);
+static Real vanleer (const Real A, const Real B);
+static Real minmod  (const Real A, const Real B);
+
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /*! \fn void conduction(DomainS *pD)
@@ -224,32 +229,20 @@ void HeatFlux_aniso(DomainS *pD)
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
 
-/* Monotonized temperature difference dT/dy */
-      dTr = 0.5*((Temp[k][j+1][i-1] + Temp[k][j+1][i]) -
-                 (Temp[k][j  ][i-1] + Temp[k][j  ][i]));
-      dTl = 0.5*((Temp[k][j  ][i-1] + Temp[k][j  ][i]) -
-                 (Temp[k][j-1][i-1] + Temp[k][j-1][i]));
-      dTc = dTr + dTl;
-
-      dTdy = 0.0;
-      if (dTl*dTr > 0.0) {
-        lim_slope = MIN(fabs(dTl),fabs(dTr));
-        dTdy = SIGN(dTc)*MIN(0.5*fabs(dTc),2.0*lim_slope)/pG->dx2;
-      }
-
-/* Monotonized temperature difference dT/dz, 3D problem ONLY */
+      /* Monotonized temperature difference dT/dy */
+      dTdy = limiter4(Temp[k][j+1][i  ] - Temp[k][j  ][i  ],
+                      Temp[k][j  ][i  ] - Temp[k][j-1][i  ],
+                      Temp[k][j+1][i-1] - Temp[k][j  ][i-1],
+                      Temp[k][j  ][i-1] - Temp[k][j-1][i-1]);
+      dTdy /= pG->dx2;
+      
+      /* Monotonized temperature difference dT/dz, 3D problem ONLY */
       if (pD->Nx[2] > 1) {
-        dTr = 0.5*((Temp[k+1][j][i-1] + Temp[k+1][j][i]) -
-                   (Temp[k  ][j][i-1] + Temp[k  ][j][i]));
-        dTl = 0.5*((Temp[k  ][j][i-1] + Temp[k  ][j][i]) -
-                   (Temp[k-1][j][i-1] + Temp[k-1][j][i]));
-        dTc = dTr + dTl; 
-
-        dTdz = 0.0;
-        if (dTl*dTr > 0.0) {
-          lim_slope = MIN(fabs(dTl),fabs(dTr));
-          dTdz = SIGN(dTc)*MIN(0.5*fabs(dTc),2.0*lim_slope)/pG->dx3;
-        }
+        dTdz = limiter4(Temp[k+1][j][i  ] - Temp[k  ][j][i  ],
+                        Temp[k  ][j][i  ] - Temp[k-1][j][i  ],
+                        Temp[k+1][j][i-1] - Temp[k  ][j][i-1],
+                        Temp[k  ][j][i-1] - Temp[k-1][j][i-1]);
+        dTdz /= pG->dx3;
       }
 
 /* Add flux at x1-interface, 2D PROBLEM */
@@ -284,32 +277,20 @@ void HeatFlux_aniso(DomainS *pD)
   for (j=js; j<=je+1; j++) {
     for (i=is; i<=ie; i++) {
 
-/* Monotonized temperature difference dT/dx */
-      dTr = 0.5*((Temp[k][j-1][i+1] + Temp[k][j][i+1]) -
-                 (Temp[k][j-1][i  ] + Temp[k][j][i  ]));
-      dTl = 0.5*((Temp[k][j-1][i  ] + Temp[k][j][i  ]) -
-                 (Temp[k][j-1][i-1] + Temp[k][j][i-1]));
-      dTc = dTr + dTl;
-
-      dTdx = 0.0;
-      if (dTl*dTr > 0.0) {
-        lim_slope = MIN(fabs(dTl),fabs(dTr));
-        dTdx = SIGN(dTc)*MIN(0.5*fabs(dTc),2.0*lim_slope)/pG->dx1;
-      }
-
-/* Monotonized temperature difference dT/dz, 3D problem ONLY */
+      /* Monotonized temperature difference dT/dx */
+      dTdx = limiter4(Temp[k][j  ][i+1] - Temp[k][j  ][i  ],
+                      Temp[k][j  ][i  ] - Temp[k][j  ][i-1],
+                      Temp[k][j-1][i+1] - Temp[k][j-1][i  ],
+                      Temp[k][j-1][i  ] - Temp[k][j-1][i-1]);
+      dTdx /= pG->dx1;
+      
+      /* Monotonized temperature difference dT/dz, 3D problem ONLY */
       if (pD->Nx[2] > 1) {
-        dTr = 0.5*((Temp[k+1][j-1][i] + Temp[k+1][j][i]) -
-                   (Temp[k  ][j-1][i] + Temp[k  ][j][i]));
-        dTl = 0.5*((Temp[k  ][j-1][i] + Temp[k  ][j][i]) -
-                   (Temp[k-1][j-1][i] + Temp[k-1][j][i]));
-        dTc = dTr + dTl;
-
-        dTdz = 0.0;
-        if (dTl*dTr > 0.0) {
-          lim_slope = MIN(fabs(dTl),fabs(dTr));
-          dTdz = SIGN(dTc)*MIN(0.5*fabs(dTc),2.0*lim_slope)/pG->dx3;
-        }
+        dTdz = limiter4(Temp[k+1][j  ][i] - Temp[k  ][j  ][i],
+                        Temp[k  ][j  ][i] - Temp[k-1][j  ][i],
+                        Temp[k+1][j-1][i] - Temp[k  ][j-1][i],
+                        Temp[k  ][j-1][i] - Temp[k-1][j-1][i]);
+        dTdz /= pG->dx3;
       }
 
 /* Add flux at x2-interface, 2D PROBLEM */
@@ -346,31 +327,19 @@ void HeatFlux_aniso(DomainS *pD)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
 
-/* Monotonized temperature difference dT/dx */
-        dTr = 0.5*((Temp[k-1][j][i+1] + Temp[k][j][i+1]) -
-                   (Temp[k-1][j][i  ] + Temp[k][j][i  ]));
-        dTl = 0.5*((Temp[k-1][j][i  ] + Temp[k][j][i  ]) -
-                   (Temp[k-1][j][i-1] + Temp[k][j][i-1]));
-        dTc = dTr + dTl;
-
-        dTdx = 0.0; 
-        if (dTl*dTr > 0.0) {
-          lim_slope = MIN(fabs(dTl),fabs(dTr));
-          dTdx = SIGN(dTc)*MIN(0.5*fabs(dTc),2.0*lim_slope)/pG->dx1;
-        }
-
-/* Monotonized temperature difference dT/dy */
-        dTr = 0.5*((Temp[k-1][j+1][i] + Temp[k][j+1][i]) -
-                   (Temp[k-1][j  ][i] + Temp[k][j  ][i]));
-        dTl = 0.5*((Temp[k-1][j  ][i] + Temp[k][j  ][i]) -
-                   (Temp[k-1][j-1][i] + Temp[k][j-1][i]));
-        dTc = dTr + dTl;
-
-        dTdy = 0.0; 
-        if (dTl*dTr > 0.0) {
-          lim_slope = MIN(fabs(dTl),fabs(dTr));
-          dTdy = SIGN(dTc)*MIN(0.5*fabs(dTc),2.0*lim_slope)/pG->dx2;
-        }
+        /* Monotonized temperature difference dT/dx */
+        dTdx = limiter4(Temp[k  ][j][i+1] - Temp[k  ][j][i  ],
+                        Temp[k  ][j][i  ] - Temp[k  ][j][i-1],
+                        Temp[k-1][j][i+1] - Temp[k-1][j][i  ],
+                        Temp[k-1][j][i  ] - Temp[k-1][j][i-1]);
+        dTdx /= pG->dx1;
+        
+        /* Monotonized temperature difference dT/dy */
+        dTdy = limiter4(Temp[k  ][j+1][i] - Temp[k  ][j  ][i],
+                        Temp[k  ][j  ][i] - Temp[k  ][j-1][i],
+                        Temp[k-1][j+1][i] - Temp[k-1][j  ][i],
+                        Temp[k-1][j  ][i] - Temp[k-1][j-1][i]);
+        dTdy /= pG->dx2;
 
 /* Add flux at x3-interface, 3D PROBLEM */
 
@@ -390,6 +359,54 @@ void HeatFlux_aniso(DomainS *pD)
   return;
 }
 
+
+/*----------------------------------------------------------------------------*/
+/* limiter2 and limiter4: call slope limiters to preserve monotonicity                                       
+ */
+
+static Real limiter2(const Real A, const Real B)
+{
+  /* van Leer slope limiter */
+  return vanleer(A,B);
+  
+  /* monotonized central (MC) limiter */
+  /* return minmod(2.0*minmod(A,B),0.5*(A+B)); */
+}
+
+static Real limiter4(const Real A, const Real B, const Real C, const Real D)
+{
+  return limiter2(limiter2(A,B),limiter2(C,D));
+}
+
+/*----------------------------------------------------------------------------*/
+/* vanleer: van Leer slope limiter                                                                           
+ */
+
+static Real vanleer(const Real A, const Real B)
+{
+  if (A*B > 0) {
+    return 2.0*A*B/(A+B);
+  } else {
+    return 0.0;
+  }
+}
+
+/*----------------------------------------------------------------------------*/
+/* minmod: minmod slope limiter                                                                              
+ */
+
+static Real minmod(const Real A, const Real B)
+{
+  if (A*B > 0) {
+    if (A > 0) {
+      return MIN(A,B);
+    } else {
+      return MAX(A,B);
+    }
+  } else {
+    return 0.0;
+  }
+}
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void conduction_init(MeshS *pM) 
